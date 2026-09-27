@@ -50,7 +50,20 @@ jobs:
 
       - name: Compiler l'APK
         working-directory: android
-        run: ./gradlew assembleRelease -PreactNativeArchitectures=arm64-v8a,armeabi-v7a
+        run: |
+          set -o pipefail
+          ./gradlew assembleRelease --console=plain -PreactNativeArchitectures=arm64-v8a,armeabi-v7a 2>&1 | tee ../gradle-build.log
+
+      - name: Afficher l'erreur de compilation
+        if: failure()
+        run: |
+          # Remonte l'erreur Gradle en annotation (visible dans l'onglet Actions et via l'API GitHub)
+          esc() { local s="$1"; s="${s//'%'/'%25'}"; s="${s//$'\r'/'%0D'}"; s="${s//$'\n'/'%0A'}"; printf '%s' "$s"; }
+          if [ ! -f gradle-build.log ]; then exit 0; fi
+          WHAT=$(awk '/What went wrong/{f=1} f{print} /^\* Try:/{if(f) exit}' gradle-build.log | head -60)
+          if [ -n "$WHAT" ]; then echo "::error title=Gradle::$(esc "$WHAT")"; fi
+          ERRS=$(grep -E '^e: |error:|Error:|FAILED' gradle-build.log | head -30 || true)
+          if [ -n "$ERRS" ]; then echo "::error title=Erreurs de compilation::$(esc "$ERRS")"; fi
 
       - name: Nommer l'APK
         id: apk
