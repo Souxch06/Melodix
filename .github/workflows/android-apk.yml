@@ -91,6 +91,15 @@ jobs:
             fi
           } >> "$GITHUB_STEP_SUMMARY"
 
+      - name: Vérifier l'APK
+        env:
+          APK: ${{ steps.apk.outputs.name }}
+        run: |
+          AAPT2="$(ls -d "$ANDROID_HOME"/build-tools/*/ | sort -V | tail -1)aapt2"
+          INFO=$("$AAPT2" dump badging "$APK" | grep -E "^(package|application-label|sdkVersion|targetSdkVersion|native-code):" | tr '\n' ' ')
+          echo "$INFO"
+          echo "::notice title=$APK::$INFO| taille $(du -h "$APK" | cut -f1) | sha256 $(sha256sum "$APK" | cut -d' ' -f1)"
+
       - name: Publier l'APK comme artefact
         uses: actions/upload-artifact@v7
         with:
