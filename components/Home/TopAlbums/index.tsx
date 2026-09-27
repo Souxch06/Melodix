@@ -32,9 +32,14 @@ export const TopAlbums = () => {
     })();
   }, []);
 
+  // Hidden when Spotify refuses the request (e.g. missing permission).
+  if (!topAlbums?.length) {
+    return null;
+  }
+
   return (
     <Slider
-      title={translations.yourTopAlbums(topAlbums?.length || '')}
+      title={translations.yourTopAlbums(topAlbums.length)}
       slides={topAlbums}
       size={Sizes.MEDIUM}
       shape={Shapes.SQUARE_BORDER}

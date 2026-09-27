@@ -9,6 +9,11 @@ import { BASE_URL, fileSystemMiddleware, getSessionToken } from '../config';
 export const getUser = async (): Promise<UserModel> => {
   try {
     const token = await getSessionToken();
+
+    if (!token) {
+      throw new Error('Not signed in to Spotify');
+    }
+
     const response = (await axios.get(`${BASE_URL}/me`, {
       headers: {
         Authorization: `Bearer ${token}`,

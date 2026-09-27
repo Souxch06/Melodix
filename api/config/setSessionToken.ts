@@ -1,11 +1,17 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-import { getStorageKeys } from './getSessionToken';
+import {
+  getStorageKeys,
+  resetSessionEnd,
+  SESSION_MODE_KEY,
+  SessionMode,
+} from './getSessionToken';
 
 export const setSessionToken = async (
   token: string,
   refreshToken: string | undefined,
-  expiresIn: string | number
+  expiresIn: string | number,
+  mode: SessionMode = refreshToken ? 'oauth' : 'token'
 ) => {
   const keys = getStorageKeys();
 
@@ -19,8 +25,14 @@ export const setSessionToken = async (
 
   await AsyncStorage.setItem(tokenKey, token);
   await AsyncStorage.setItem(expirationKey, expirationTime.toString());
+  await AsyncStorage.setItem(SESSION_MODE_KEY, mode);
 
   if (refreshToken) {
     await AsyncStorage.setItem(refreshTokenKey, refreshToken);
+  } else {
+    // A pasted token must never be "refreshed" with an older session.
+    await AsyncStorage.removeItem(refreshTokenKey);
   }
+
+  resetSessionEnd();
 };

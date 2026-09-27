@@ -11,7 +11,6 @@ import { RECENTLY_PLAYED_COVER_SIZE } from '@config';
 import { getFallbackImage } from '@utils';
 
 import { styles } from './styles';
-import { ErrorBox } from '../../ErrorBox';
 
 export const RecentlyPlayed = () => {
   const [recentlyPlayedData, setRecentlyPlayedData] = React.useState<
@@ -34,83 +33,90 @@ export const RecentlyPlayed = () => {
   const paddingHorizontal = 16;
 
   React.useEffect(() => {
-    (async () => {
-      try {
-        const recentlyPlayed = await getRecentlyPlayed();
-        setRecentlyPlayedData(recentlyPlayed);
-      } catch (error) {
-        setRecentlyPlayedData(null);
-        console.error(error);
-      }
-    })();
-  }, []);
+    let isMounted = true;
 
-  React.useEffect(() => {
     (async () => {
+      // Cached tiles first (instant), then the latest plays from Spotify.
+      const cached = await getRecentlyPlayed();
+
+      if (isMounted && cached.length) {
+        setRecentlyPlayedData(cached);
+      }
+
       try {
-        await updateRecentlyPlayed();
+        const updated = await updateRecentlyPlayed();
+
+        if (isMounted) {
+          setRecentlyPlayedData(updated);
+        }
       } catch (error) {
         console.error(error);
+
+        if (isMounted && !cached.length) {
+          setRecentlyPlayedData(null);
+        }
       }
     })();
-  });
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   const fallbackImageSource = React.useMemo(
     () => getFallbackImage('single'),
     []
   );
 
+  // Hidden when there is no history yet or Spotify refuses the request.
+  if (!recentlyPlayedData?.length) {
+    return null;
+  }
+
   return (
     <View style={[styles.container, { gap, paddingHorizontal }]}>
-      {!recentlyPlayedData ? (
-        <ErrorBox
-          message="Failed to fetch recently played tracks"
-          size={[width - paddingHorizontal * 2, RECENTLY_PLAYED_COVER_SIZE * 4]}
-        />
-      ) : (
-        recentlyPlayedData.map(({ id, title, imageURL }, index) => (
-          <Pressable
-            onPress={() => router.push(`/${pathname}/album/${id}`)}
-            key={index}
+      {recentlyPlayedData.map(({ id, title, imageURL }, index) => (
+        <Pressable
+          onPress={() => id && router.push(`/${pathname}/album/${id}`)}
+          key={index}
+          style={[
+            styles.link,
+            {
+              width: width / 2 - paddingHorizontal - gap / 2,
+            },
+          ]}
+        >
+          <View
             style={[
-              styles.link,
+              styles.imageView,
               {
-                width: width / 2 - paddingHorizontal - gap / 2,
+                width: RECENTLY_PLAYED_COVER_SIZE,
+                height: RECENTLY_PLAYED_COVER_SIZE,
               },
             ]}
           >
-            <View
-              style={[
-                styles.imageView,
-                {
-                  width: RECENTLY_PLAYED_COVER_SIZE,
-                  height: RECENTLY_PLAYED_COVER_SIZE,
-                },
-              ]}
-            >
-              <Image
-                style={styles.image}
-                source={imageURL ? { uri: imageURL } : fallbackImageSource}
-              />
-            </View>
-            <Text
-              numberOfLines={2}
-              style={[
-                styles.text,
-                {
-                  width:
-                    width / 2 -
-                    paddingHorizontal -
-                    gap / 2 -
-                    RECENTLY_PLAYED_COVER_SIZE,
-                },
-              ]}
-            >
-              {title}
-            </Text>
-          </Pressable>
-        ))
-      )}
+            <Image
+              style={styles.image}
+              source={imageURL ? { uri: imageURL } : fallbackImageSource}
+            />
+          </View>
+          <Text
+            numberOfLines={2}
+            style={[
+              styles.text,
+              {
+                width:
+                  width / 2 -
+                  paddingHorizontal -
+                  gap / 2 -
+                  RECENTLY_PLAYED_COVER_SIZE,
+              },
+            ]}
+          >
+            {title}
+          </Text>
+        </Pressable>
+      ))}
     </View>
   );
 };

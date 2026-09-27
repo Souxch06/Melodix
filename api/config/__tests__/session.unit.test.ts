@@ -1,7 +1,11 @@
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-import { getSessionToken } from '../getSessionToken';
+import {
+  consumeSessionEnd,
+  getSessionToken,
+  getStoredSession,
+} from '../getSessionToken';
 import { setSessionToken } from '../setSessionToken';
 import { isValidClientId } from '../clientId';
 
@@ -40,6 +44,7 @@ describe('session tokens', () => {
   beforeEach(async () => {
     await AsyncStorage.clear();
     mockedPost.mockReset();
+    consumeSessionEnd();
   });
 
   it('returns the stored token while it is still valid', async () => {
@@ -85,5 +90,101 @@ describe('session tokens', () => {
 
     await expect(getSessionToken()).resolves.toBeNull();
     await expect(AsyncStorage.getItem('token')).resolves.toBeNull();
+  });
+
+  it('shares a single refresh request between simultaneous callers', async () => {
+    await AsyncStorage.multiSet([
+      ['token', 'expired-token'],
+      ['expiration', String(Date.now() - 1000)],
+      ['refresh-token', 'refresh-1'],
+    ]);
+    mockedPost.mockResolvedValue({
+      data: { access_token: 'new-token', expires_in: 3600 },
+    });
+
+    const tokens = await Promise.all([
+      getSessionToken(),
+      getSessionToken(),
+      getSessionToken(),
+    ]);
+
+    expect(tokens).toEqual(['new-token', 'new-token', 'new-token']);
+    expect(mockedPost).toHaveBeenCalledTimes(1);
+  });
+
+  it('ends the session when Spotify revokes the refresh token (invalid_grant)', async () => {
+    await AsyncStorage.multiSet([
+      ['token', 'expired-token'],
+      ['expiration', String(Date.now() - 1000)],
+      ['refresh-token', 'old-refresh-token'],
+      ['melodix.session-mode', 'oauth'],
+    ]);
+    mockedPost.mockRejectedValueOnce({
+      response: { status: 400, data: { error: 'invalid_grant' } },
+    });
+
+    await expect(getSessionToken()).resolves.toBeNull();
+    await expect(AsyncStorage.getItem('refresh-token')).resolves.toBeNull();
+    expect(consumeSessionEnd()).toEqual({ mode: 'oauth' });
+  });
+
+  it('keeps the session when the refresh fails because of the network', async () => {
+    await AsyncStorage.multiSet([
+      ['token', 'expired-token'],
+      ['expiration', String(Date.now() - 1000)],
+      ['refresh-token', 'refresh-1'],
+    ]);
+    mockedPost.mockRejectedValueOnce(new Error('Network Error'));
+
+    await expect(getSessionToken()).resolves.toBeNull();
+    await expect(AsyncStorage.getItem('refresh-token')).resolves.toBe(
+      'refresh-1'
+    );
+    expect(consumeSessionEnd()).toBeNull();
+  });
+});
+
+describe('pasted token sessions', () => {
+  beforeEach(async () => {
+    await AsyncStorage.clear();
+    mockedPost.mockReset();
+    consumeSessionEnd();
+  });
+
+  it('stores a pasted token for one hour, without refresh token', async () => {
+    // Leftover of an older "Sign in with Spotify" session.
+    await AsyncStorage.setItem('refresh-token', 'stale-refresh-token');
+
+    await setSessionToken('pasted-token', undefined, 3600, 'token');
+
+    await expect(getSessionToken()).resolves.toBe('pasted-token');
+    await expect(AsyncStorage.getItem('refresh-token')).resolves.toBeNull();
+
+    const session = await getStoredSession();
+    expect(session).toMatchObject({
+      token: 'pasted-token',
+      canRefresh: false,
+      mode: 'token',
+    });
+    expect(session!.expiresAt).toBeGreaterThan(Date.now() + 3590 * 1000);
+    expect(session!.expiresAt).toBeLessThanOrEqual(Date.now() + 3600 * 1000);
+  });
+
+  it('ends the session once the pasted token has expired', async () => {
+    await setSessionToken('pasted-token', undefined, 3600, 'token');
+    await AsyncStorage.setItem('expiration', String(Date.now() - 1));
+
+    await expect(getSessionToken()).resolves.toBeNull();
+    expect(mockedPost).not.toHaveBeenCalled();
+    await expect(getStoredSession()).resolves.toBeNull();
+    // The login screen explains that the token expired…
+    expect(consumeSessionEnd()).toEqual({ mode: 'token' });
+    // …only once.
+    expect(consumeSessionEnd()).toBeNull();
+  });
+
+  it('does not report an expiry when nobody was signed in', async () => {
+    await expect(getSessionToken()).resolves.toBeNull();
+    expect(consumeSessionEnd()).toBeNull();
   });
 });

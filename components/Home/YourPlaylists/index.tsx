@@ -46,6 +46,11 @@ export const YourPlaylists = () => {
     [userData, savedPlaylists]
   );
 
+  // Hidden when there is nothing to show or the request was refused.
+  if (!userPlaylists?.length) {
+    return null;
+  }
+
   return (
     <Slider
       title={translations.yourPlaylist}

@@ -21,7 +21,7 @@ jobs:
     env:
       # Facultatif : Client ID Spotify intégré à l'APK
       # (Settings → Secrets and variables → Actions → onglet Variables → SPOTIFY_CLIENT_ID).
-      # Sans lui, l'application le demande au premier lancement.
+      # Sans lui, l'écran de connexion propose la connexion rapide par token.
       SPOTIFY_CLIENT_ID: ${{ vars.SPOTIFY_CLIENT_ID }}
     steps:
       - name: Récupérer le code

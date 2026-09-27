@@ -1,12 +1,16 @@
 /**
  * Configuration Expo de Melodix.
  *
- * Variable d'environnement facultative (fichier .env ou variable de CI) :
- * - SPOTIFY_CLIENT_ID : Client ID de ton application Spotify. S'il est absent,
- *   l'application le demande au premier lancement.
+ * Connexion : par défaut, l'utilisateur colle le token d'accès affiché sur
+ * developer.spotify.com (valable 1 heure). Pour une connexion permanente, il
+ * peut aussi utiliser le Client ID de sa propre application Spotify.
  *
- * Aucun secret n'est nécessaire : la connexion utilise le flux OAuth
- * « Authorization Code + PKCE ».
+ * Variable d'environnement facultative (fichier .env ou variable de CI) :
+ * - SPOTIFY_CLIENT_ID : Client ID intégré à l'application. L'écran de connexion
+ *   propose alors directement « Se connecter avec Spotify ».
+ *
+ * Aucun secret n'est intégré : la connexion permanente utilise le flux OAuth
+ * « Authorization Code + PKCE », et un token ne doit jamais figurer ici.
  */
 const clientID = process.env.SPOTIFY_CLIENT_ID || process.env.CLIENT_ID || '';
 
@@ -14,7 +18,7 @@ module.exports = {
   expo: {
     name: 'Melodix',
     slug: 'melodix',
-    version: '1.1.0',
+    version: '1.2.0',
     orientation: 'portrait',
     icon: './assets/images/icon.png',
     scheme: 'melodix',
@@ -27,7 +31,7 @@ module.exports = {
     },
     android: {
       package: 'com.souxch06.melodix',
-      versionCode: 10100,
+      versionCode: 10200,
       adaptiveIcon: {
         foregroundImage: './assets/images/adaptive-icon.png',
         backgroundImage: './assets/images/adaptive-icon-background.png',

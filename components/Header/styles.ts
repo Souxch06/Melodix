@@ -31,6 +31,21 @@ export const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
   },
+  profileFallback: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: COLORS.TINT,
+  },
+  profileInitial: {
+    color: COLORS.PRIMARY,
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  profileIcon: {
+    color: COLORS.PRIMARY,
+    fontSize: 18,
+  },
   titleText: {
     color: COLORS.WHITE,
     textAlign: 'center',

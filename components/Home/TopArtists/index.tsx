@@ -34,9 +34,14 @@ export const TopArtists = () => {
     })();
   }, []);
 
+  // Hidden when Spotify refuses the request (e.g. missing permission).
+  if (!topArtists?.length) {
+    return null;
+  }
+
   return (
     <Slider
-      title={translations.yourTopArtists(topArtists?.length || '')}
+      title={translations.yourTopArtists(topArtists.length)}
       slides={topArtists}
       size={Sizes.MEDIUM}
       shape={Shapes.CIRCLE}

@@ -1,6 +1,8 @@
 import { Platform, StyleSheet } from 'react-native';
 import { COLORS, Shapes } from '@config';
 
+const MONOSPACE = Platform.OS === 'ios' ? 'Menlo' : 'monospace';
+
 export const styles = StyleSheet.create({
   wrapper: {
     backgroundColor: COLORS.PRIMARY,
@@ -12,24 +14,122 @@ export const styles = StyleSheet.create({
   keyboardAvoidingView: {
     flex: 1,
   },
+  scrollContent: {
+    flexGrow: 1,
+    justifyContent: 'flex-end',
+    alignItems: 'center',
+    paddingHorizontal: 24,
+  },
   logo: {
     width: 53,
     height: 53,
-    marginBottom: 20,
+    marginBottom: 16,
   },
-  container: {
-    paddingHorizontal: 35,
-    height: '100%',
-    justifyContent: 'flex-end',
-    alignItems: 'center',
+  title: {
+    color: COLORS.WHITE,
+    fontFamily: 'Avenir Next',
+    fontSize: 32,
+    fontWeight: '700',
+    textAlign: 'center',
+    marginBottom: 24,
   },
-  containerSetup: {
-    paddingHorizontal: 24,
-    paddingBottom: 40,
+  info: {
+    width: '100%',
+    color: COLORS.WHITE,
+    backgroundColor: 'rgba(30, 215, 96, 0.14)',
+    borderColor: 'rgba(30, 215, 96, 0.5)',
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    fontSize: 13,
+    lineHeight: 19,
+    marginBottom: 14,
+  },
+  card: {
+    width: '100%',
+    backgroundColor: 'rgba(18, 18, 18, 0.94)',
+    borderColor: COLORS.SECONDARY,
+    borderWidth: 1,
+    borderRadius: 16,
+    padding: 18,
+  },
+  cardTitle: {
+    color: COLORS.WHITE,
+    fontSize: 18,
+    fontWeight: '700',
+    marginBottom: 6,
+  },
+  cardText: {
+    color: COLORS.LIGHT_GREY,
+    fontSize: 13,
+    lineHeight: 19,
+    marginBottom: 12,
+  },
+  cardNote: {
+    color: COLORS.GREY,
+    fontSize: 12,
+    lineHeight: 17,
+    marginTop: 12,
+    textAlign: 'center',
+  },
+  step: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginBottom: 10,
+  },
+  stepNumber: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    overflow: 'hidden',
+    backgroundColor: COLORS.TINT,
+    color: COLORS.PRIMARY,
+    fontSize: 12,
+    fontWeight: '700',
+    lineHeight: 22,
+    textAlign: 'center',
+    marginRight: 10,
+    marginTop: 1,
+  },
+  stepContent: {
+    flex: 1,
+  },
+  stepText: {
+    color: COLORS.LIGHTER_GREY,
+    fontSize: 13,
+    lineHeight: 19,
+  },
+  code: {
+    alignSelf: 'flex-start',
+    color: COLORS.TINT,
+    backgroundColor: COLORS.SECONDARY,
+    fontFamily: MONOSPACE,
+    fontSize: 12,
+    borderRadius: 6,
+    overflow: 'hidden',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    marginTop: 6,
+  },
+  secondaryButton: {
+    borderColor: COLORS.TINT,
+    borderWidth: 1,
+    borderRadius: Shapes.CIRCLE,
+    paddingVertical: 11,
+    paddingHorizontal: 16,
+    marginTop: 4,
+    marginBottom: 14,
+  },
+  secondaryButtonText: {
+    color: COLORS.TINT,
+    fontSize: 14,
+    fontWeight: '600',
+    textAlign: 'center',
   },
   pressable: {
     backgroundColor: COLORS.TINT,
-    paddingVertical: 18,
+    paddingVertical: 16,
     paddingHorizontal: 24,
     borderRadius: Shapes.CIRCLE,
     width: '100%',
@@ -43,38 +143,6 @@ export const styles = StyleSheet.create({
     color: COLORS.SECONDARY,
     textAlign: 'center',
   },
-  content: {
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  title: {
-    color: COLORS.WHITE,
-    fontFamily: 'Avenir Next',
-    fontSize: 35,
-    fontWeight: '700',
-    textAlign: 'center',
-    marginBottom: 25,
-  },
-  setup: {
-    width: '100%',
-    backgroundColor: 'rgba(18, 18, 18, 0.92)',
-    borderColor: COLORS.SECONDARY,
-    borderWidth: 1,
-    borderRadius: 16,
-    padding: 18,
-  },
-  setupTitle: {
-    color: COLORS.WHITE,
-    fontSize: 18,
-    fontWeight: '700',
-    marginBottom: 8,
-  },
-  setupText: {
-    color: COLORS.LIGHT_GREY,
-    fontSize: 13,
-    lineHeight: 19,
-    marginBottom: 10,
-  },
   input: {
     backgroundColor: COLORS.SECONDARY,
     color: COLORS.WHITE,
@@ -84,9 +152,15 @@ export const styles = StyleSheet.create({
     fontSize: 15,
     marginBottom: 14,
   },
+  tokenInput: {
+    minHeight: 64,
+    maxHeight: 120,
+    fontFamily: MONOSPACE,
+    fontSize: 13,
+  },
   redirectUri: {
     color: COLORS.TINT,
-    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+    fontFamily: MONOSPACE,
     fontSize: 14,
     fontWeight: '600',
     marginBottom: 16,
@@ -101,19 +175,18 @@ export const styles = StyleSheet.create({
   note: {
     color: COLORS.GREY,
     textAlign: 'center',
-    lineHeight: 22,
+    lineHeight: 20,
     fontSize: 12,
-    marginTop: 10,
-    marginBottom: 150,
+    marginTop: 12,
     fontStyle: 'italic',
   },
-  noteCompact: {
-    marginBottom: 12,
+  switch: {
+    marginTop: 18,
   },
   link: {
     color: COLORS.LIGHT_GREY,
     fontSize: 13,
-    marginBottom: 128,
+    textAlign: 'center',
     textDecorationLine: 'underline',
   },
 });

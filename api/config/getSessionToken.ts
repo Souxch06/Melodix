@@ -16,6 +16,25 @@ type StorageKeys = {
   expirationKey: string;
 };
 
+/**
+ * How the current session was opened:
+ * - `token`: access token pasted by the user (the one shown in the code
+ *   tutorial of developer.spotify.com). It cannot be refreshed and Spotify
+ *   makes it expire after one hour.
+ * - `oauth`: "Sign in with Spotify" with a Client ID (Authorization Code +
+ *   PKCE). The access token is refreshed automatically.
+ */
+export type SessionMode = 'token' | 'oauth';
+
+export type StoredSession = {
+  token: string;
+  expiresAt: number;
+  canRefresh: boolean;
+  mode: SessionMode;
+};
+
+export const SESSION_MODE_KEY = 'melodix.session-mode';
+
 export const getStorageKeys = (): StorageKeys | null => {
   const extra = Constants.expoConfig?.extra;
 
@@ -38,16 +57,115 @@ export const toFormBody = (params: Record<string, string>) =>
     )
     .join('&');
 
+// Why the last session ended, shown once on the login screen.
+let sessionEnd: { mode: SessionMode } | null = null;
+
+export const consumeSessionEnd = () => {
+  const value = sessionEnd;
+  sessionEnd = null;
+  return value;
+};
+
+export const resetSessionEnd = () => {
+  sessionEnd = null;
+};
+
+const toSessionMode = (
+  storedMode: string | null,
+  refreshToken: string | null
+): SessionMode => (storedMode === 'oauth' || refreshToken ? 'oauth' : 'token');
+
+export const clearSessionToken = async () => {
+  const keys = getStorageKeys();
+
+  if (!keys) {
+    return;
+  }
+
+  await AsyncStorage.multiRemove([
+    keys.tokenKey,
+    keys.expirationKey,
+    keys.refreshTokenKey,
+    SESSION_MODE_KEY,
+  ]);
+};
+
+/**
+ * Ends an expired session: the stored tokens are removed and the login screen
+ * will explain why the user has to sign in again.
+ */
+export const endSession = async (mode?: SessionMode) => {
+  const keys = getStorageKeys();
+
+  if (!keys) {
+    return;
+  }
+
+  const [token, refreshToken, storedMode] = await Promise.all([
+    AsyncStorage.getItem(keys.tokenKey),
+    AsyncStorage.getItem(keys.refreshTokenKey),
+    AsyncStorage.getItem(SESSION_MODE_KEY),
+  ]);
+
+  // Already ended elsewhere (several requests can fail at the same time).
+  if (!token && !refreshToken) {
+    return;
+  }
+
+  await clearSessionToken();
+  sessionEnd = { mode: mode ?? toSessionMode(storedMode, refreshToken) };
+};
+
+/**
+ * Current session as stored on the device, without refreshing it.
+ */
+export const getStoredSession = async (): Promise<StoredSession | null> => {
+  const keys = getStorageKeys();
+
+  if (!keys) {
+    return null;
+  }
+
+  const [token, expiration, refreshToken, storedMode] = await Promise.all([
+    AsyncStorage.getItem(keys.tokenKey),
+    AsyncStorage.getItem(keys.expirationKey),
+    AsyncStorage.getItem(keys.refreshTokenKey),
+    AsyncStorage.getItem(SESSION_MODE_KEY),
+  ]);
+
+  if (!token) {
+    return null;
+  }
+
+  return {
+    token,
+    expiresAt: Number(expiration) || 0,
+    canRefresh: !!refreshToken,
+    mode: toSessionMode(storedMode, refreshToken),
+  };
+};
+
+/**
+ * Forces the next getSessionToken() call to refresh the access token.
+ */
+export const markAccessTokenExpired = async () => {
+  const keys = getStorageKeys();
+
+  if (keys) {
+    await AsyncStorage.setItem(keys.expirationKey, '0');
+  }
+};
+
 // Authorization Code + PKCE: Melodix is a public client, so a refresh only
 // needs the client ID (no client secret is shipped in the app).
 const refreshAccessToken = async (
   refreshToken: string
-): Promise<TokenResponse | null> => {
+): Promise<{ data: TokenResponse | null; revoked: boolean }> => {
   const tokenEndpoint = Constants.expoConfig?.extra?.tokenEndpoint;
   const clientId = await getClientId();
 
   if (!tokenEndpoint || !clientId) {
-    return null;
+    return { data: null, revoked: false };
   }
 
   try {
@@ -61,26 +179,49 @@ const refreshAccessToken = async (
       { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } }
     );
 
-    return response.data;
+    return { data: response.data, revoked: false };
   } catch (error) {
     console.error('Error refreshing access token:', error);
+
+    // 400 invalid_grant: the refresh token was revoked or reached the end of
+    // its 6-month lifetime (Spotify, June 2026). The user must sign in again.
+    const status = (error as { response?: { status?: number } })?.response
+      ?.status;
+
+    return { data: null, revoked: status === 400 };
+  }
+};
+
+const refreshSession = async (
+  keys: StorageKeys,
+  refreshToken: string
+): Promise<string | null> => {
+  const { data, revoked } = await refreshAccessToken(refreshToken);
+
+  if (!data?.access_token) {
+    if (revoked) {
+      await endSession('oauth');
+    }
+
     return null;
   }
-};
 
-export const clearSessionToken = async () => {
-  const keys = getStorageKeys();
+  const expirationTime = Date.now() + (data.expires_in ?? 3600) * 1000;
 
-  if (!keys) {
-    return;
+  await AsyncStorage.setItem(keys.tokenKey, data.access_token);
+  await AsyncStorage.setItem(keys.expirationKey, expirationTime.toString());
+
+  // Spotify may rotate the refresh token.
+  if (data.refresh_token) {
+    await AsyncStorage.setItem(keys.refreshTokenKey, data.refresh_token);
   }
 
-  await AsyncStorage.multiRemove([
-    keys.tokenKey,
-    keys.expirationKey,
-    keys.refreshTokenKey,
-  ]);
+  return data.access_token;
 };
+
+// Every screen asks for the token at the same time: share a single refresh
+// request, a rotated refresh token can only be used once.
+let pendingRefresh: Promise<string | null> | null = null;
 
 export const getSessionToken = async (): Promise<string | null> => {
   const keys = getStorageKeys();
@@ -95,32 +236,27 @@ export const getSessionToken = async (): Promise<string | null> => {
     AsyncStorage.getItem(expirationKey),
     AsyncStorage.getItem(refreshTokenKey),
   ]);
-  const currentTime = Date.now();
 
-  if (storedToken && expirationTime && currentTime < Number(expirationTime)) {
+  if (storedToken && expirationTime && Date.now() < Number(expirationTime)) {
     return storedToken;
   }
 
   if (!refreshToken) {
-    await clearSessionToken();
+    // A pasted token cannot be refreshed: once expired, the session is over.
+    if (storedToken) {
+      await endSession('token');
+    } else {
+      await clearSessionToken();
+    }
+
     return null;
   }
 
-  const data = await refreshAccessToken(refreshToken);
-
-  if (!data?.access_token) {
-    return null;
+  if (!pendingRefresh) {
+    pendingRefresh = refreshSession(keys, refreshToken).finally(() => {
+      pendingRefresh = null;
+    });
   }
 
-  const newExpirationTime = currentTime + (data.expires_in ?? 3600) * 1000;
-
-  await AsyncStorage.setItem(tokenKey, data.access_token);
-  await AsyncStorage.setItem(expirationKey, newExpirationTime.toString());
-
-  // Spotify may rotate the refresh token.
-  if (data.refresh_token) {
-    await AsyncStorage.setItem(refreshTokenKey, data.refresh_token);
-  }
-
-  return data.access_token;
+  return pendingRefresh;
 };

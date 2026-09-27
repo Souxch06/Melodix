@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { Pressable, Text, View } from 'react-native';
+import { Alert, Pressable, Text, View } from 'react-native';
 
 import { Image } from 'expo-image';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -8,6 +8,7 @@ import * as Icons from '@expo/vector-icons';
 
 import { LibraryRelated } from './LibraryRelated';
 
+import { getStoredSession } from '@api';
 import { useUserData } from '@context';
 import { HEADER_CATEGORIES_HEIGHT, HEADER_HEIGHT, Pages } from '@config';
 import { translations } from '@data';
@@ -18,12 +19,43 @@ export type HeaderPropsType = {
   tab: Pages;
 };
 
+// 14h05
+const formatTime = (timestamp: number) => {
+  const date = new Date(timestamp);
+
+  return `${date.getHours()}h${String(date.getMinutes()).padStart(2, '0')}`;
+};
+
 export const Header = ({ tab }: HeaderPropsType) => {
   const { top: statusBarOffset } = useSafeAreaInsets();
-  const { userData } = useUserData();
+  const { userData, signOut } = useUserData();
 
-  const handleProfilePress = () => {
-    // TODO: open menu logic
+  // Account menu: who is signed in, until when a pasted token is valid, and
+  // a way to sign out (to paste a new token or switch to a Client ID).
+  const handleProfilePress = async () => {
+    const session = await getStoredSession();
+    const details: string[] = [];
+
+    if (userData.displayName) {
+      details.push(translations.accountSignedInAs(userData.displayName));
+    }
+
+    if (session?.mode === 'token' && session.expiresAt) {
+      details.push(
+        translations.accountTokenValidUntil(formatTime(session.expiresAt))
+      );
+    }
+
+    Alert.alert(translations.accountTitle, details.join('\n') || undefined, [
+      { text: translations.accountCancel, style: 'cancel' },
+      {
+        text: translations.accountSignOut,
+        style: 'destructive',
+        onPress: () => {
+          signOut();
+        },
+      },
+    ]);
   };
 
   const title = React.useMemo(() => translations.header[tab], [tab]);
@@ -77,11 +109,28 @@ export const Header = ({ tab }: HeaderPropsType) => {
   return (
     <View style={[styles.container, { paddingTop: statusBarOffset, height }]}>
       <View style={styles.content}>
-        <Pressable style={styles.profile} onPress={handleProfilePress}>
-          <Image
-            style={styles.profileImage}
-            source={{ uri: userData.imageURL || '' }}
-          />
+        <Pressable
+          style={styles.profile}
+          onPress={handleProfilePress}
+          accessibilityRole="button"
+          accessibilityLabel={translations.accountTitle}
+        >
+          {userData.imageURL ? (
+            <Image
+              style={styles.profileImage}
+              source={{ uri: userData.imageURL }}
+            />
+          ) : (
+            <View style={styles.profileFallback}>
+              {userData.displayName ? (
+                <Text style={styles.profileInitial}>
+                  {userData.displayName.charAt(0).toUpperCase()}
+                </Text>
+              ) : (
+                <Icons.Ionicons name="person" style={styles.profileIcon} />
+              )}
+            </View>
+          )}
         </Pressable>
         {title && <Text style={styles.titleText}>{title}</Text>}
         {TabRelatedIcons}

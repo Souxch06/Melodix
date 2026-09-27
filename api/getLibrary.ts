@@ -16,33 +16,42 @@ export type LibraryType = {
   [Categories.ALL]: LibraryItemModel[];
 };
 
-export const getLibrary = async (): Promise<LibraryType> => {
+// One refused request (e.g. a permission the token doesn't have) must not
+// empty the whole library: that category is simply left empty.
+const orEmpty = async (
+  label: string,
+  request: () => Promise<LibraryItemModel[]>
+): Promise<LibraryItemModel[]> => {
   try {
-    const [followedArtists, savedAlbums, savedShows, savedPlaylists] =
-      await Promise.all([
-        await getUserFollowedArtists(),
-        await getSavedAlbums(),
-        await getSavedShows(),
-        await getSavedPlaylists(),
-      ]);
-
-    return {
-      [Categories.FOLLOWED_ARTISTS]: followedArtists,
-      [Categories.SAVED_ALBUMS]: savedAlbums,
-      [Categories.SAVED_PODCASTS]: savedShows,
-      [Categories.SAVED_PLAYLISTS]: savedPlaylists,
-      [Categories.DOWNLOADED]: savedShows,
-      [Categories.ALL]: [
-        ...savedPlaylists,
-        ...followedArtists,
-        ...savedAlbums,
-        ...savedShows,
-      ],
-    };
+    return await request();
   } catch (error) {
-    console.error(`Error fetching library sections`, error);
-    throw error;
+    console.warn(`Library: ${label} unavailable`, error);
+    return [];
   }
+};
+
+export const getLibrary = async (): Promise<LibraryType> => {
+  const [followedArtists, savedAlbums, savedShows, savedPlaylists] =
+    await Promise.all([
+      orEmpty('followed artists', () => getUserFollowedArtists()),
+      orEmpty('saved albums', () => getSavedAlbums()),
+      orEmpty('saved shows', () => getSavedShows()),
+      orEmpty('saved playlists', () => getSavedPlaylists()),
+    ]);
+
+  return {
+    [Categories.FOLLOWED_ARTISTS]: followedArtists,
+    [Categories.SAVED_ALBUMS]: savedAlbums,
+    [Categories.SAVED_PODCASTS]: savedShows,
+    [Categories.SAVED_PLAYLISTS]: savedPlaylists,
+    [Categories.DOWNLOADED]: savedShows,
+    [Categories.ALL]: [
+      ...savedPlaylists,
+      ...followedArtists,
+      ...savedAlbums,
+      ...savedShows,
+    ],
+  };
 };
 
 // eslint-disable-next-line

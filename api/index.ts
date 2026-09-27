@@ -40,11 +40,24 @@ export {
   getSessionToken,
   setSessionToken,
   clearSessionToken,
+  consumeSessionEnd,
+  getStoredSession,
   getBuildClientId,
   getClientId,
   saveClientId,
   removeClientId,
   isValidClientId,
+  extractSpotifyToken,
+  verifySpotifyToken,
+  installSessionGuard,
+  PASTED_TOKEN_LIFETIME_SECONDS,
+  SPOTIFY_TOKEN_PAGE_URL,
+} from './config';
+export type {
+  SessionMode,
+  StoredSession,
+  TokenCheckResult,
+  TokenParseResult,
 } from './config';
 
 export { getLibrary } from './getLibrary';

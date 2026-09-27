@@ -29,61 +29,64 @@ const fetchRecentlyPlayed = async (): Promise<RecentlyPlayedModel[]> => {
   }
 };
 
+const RECENTLY_PLAYED_FILE = 'recently_played';
+const MAX_RECENTLY_PLAYED = 8;
+
+const getRecentlyPlayedFileUri = () =>
+  `${FileSystem.documentDirectory}${RECENTLY_PLAYED_FILE}.json`;
+
+/**
+ * Recently played albums cached on the device (empty on the first launch).
+ */
 export const getRecentlyPlayed = async (): Promise<RecentlyPlayedModel[]> => {
-  const filename = 'recently_played';
-  const fileUri = `${FileSystem.documentDirectory}${filename}.json`;
-
   try {
-    const fileContent = (await FileSystem.readAsStringAsync(fileUri)) || '';
+    const fileContent = await FileSystem.readAsStringAsync(
+      getRecentlyPlayedFileUri()
+    );
+    const parsed = JSON.parse(fileContent || '[]');
 
-    if (!fileContent) {
-      throw new Error(`Error while reading the file: ${fileUri}`);
-    }
-
-    return JSON.parse(fileContent);
-  } catch (error) {
-    console.error(`Error reading ${fileUri}`, error);
-    throw error;
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    // Nothing cached yet.
+    return [];
   }
 };
 
-export const updateRecentlyPlayed = async (): Promise<void> => {
-  try {
-    const currentRecentlyPlayed = await getRecentlyPlayed();
-    const newRecentlyPlayed = await fetchRecentlyPlayed();
+/**
+ * Merges the latest plays from Spotify into the cache (most recent first, one
+ * tile per album) and returns the updated list.
+ */
+export const updateRecentlyPlayed = async (): Promise<
+  RecentlyPlayedModel[]
+> => {
+  const [cached, latest] = await Promise.all([
+    getRecentlyPlayed(),
+    fetchRecentlyPlayed(),
+  ]);
 
-    if (
-      JSON.stringify(currentRecentlyPlayed) ===
-      JSON.stringify(newRecentlyPlayed)
-    ) {
-      return;
+  const merged: RecentlyPlayedModel[] = [];
+
+  for (const item of [...latest, ...cached]) {
+    if (merged.length >= MAX_RECENTLY_PLAYED) {
+      break;
     }
 
-    const result = currentRecentlyPlayed.slice();
-
-    newRecentlyPlayed.reverse().forEach((item) => {
-      if (currentRecentlyPlayed.some((cItem) => cItem.id === item.id)) {
-        result.splice(
-          result.findIndex((rItem) => rItem.id === item.id),
-          1
-        );
-      } else {
-        result.splice(result.length - 1, 1);
-      }
-      result.unshift(item);
-    });
-
-    const filename = 'recently_played';
-    const fileUri = `${FileSystem.documentDirectory}${filename}.json`;
-
-    await FileSystem.writeAsStringAsync(fileUri, JSON.stringify(result), {
-      encoding: FileSystem.EncodingType.UTF8,
-    });
-  } catch (error) {
-    console.error(
-      `Error updating old recently played with the new ones in file system`,
-      error
-    );
-    throw error;
+    if (item?.id && !merged.some((mergedItem) => mergedItem.id === item.id)) {
+      merged.push(item);
+    }
   }
+
+  if (JSON.stringify(merged) !== JSON.stringify(cached)) {
+    try {
+      await FileSystem.writeAsStringAsync(
+        getRecentlyPlayedFileUri(),
+        JSON.stringify(merged),
+        { encoding: FileSystem.EncodingType.UTF8 }
+      );
+    } catch (error) {
+      console.error('Error caching recently played albums', error);
+    }
+  }
+
+  return merged;
 };
