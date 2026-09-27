@@ -48,6 +48,21 @@ jobs:
       - name: Générer le projet Android
         run: npx expo prebuild --platform android --no-install
 
+      - name: Limiter l'APK aux processeurs ARM
+        run: |
+          # Les téléphones Android utilisent des processeurs ARM : on n'embarque que
+          # ces architectures (APK plus léger, cohérent avec les modules natifs compilés).
+          cat >> android/app/build.gradle <<'GRADLE'
+
+          android {
+              defaultConfig {
+                  ndk {
+                      abiFilters "arm64-v8a", "armeabi-v7a"
+                  }
+              }
+          }
+          GRADLE
+
       - name: Compiler l'APK
         working-directory: android
         run: |
@@ -96,7 +111,7 @@ jobs:
           APK: ${{ steps.apk.outputs.name }}
         run: |
           AAPT2="$(ls -d "$ANDROID_HOME"/build-tools/*/ | sort -V | tail -1)aapt2"
-          INFO=$("$AAPT2" dump badging "$APK" | grep -E "^(package|application-label|sdkVersion|targetSdkVersion|native-code):" | tr '\n' ' ')
+          INFO=$("$AAPT2" dump badging "$APK" | grep -E "^(package|application-label|sdkVersion|minSdkVersion|targetSdkVersion|native-code):" | tr '\n' ' ')
           echo "$INFO"
           echo "::notice title=$APK::$INFO| taille $(du -h "$APK" | cut -f1) | sha256 $(sha256sum "$APK" | cut -d' ' -f1)"
 
