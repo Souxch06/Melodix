@@ -5,29 +5,13 @@ import { parseFromSavedAlbumsToLibraryItem } from '@utils';
 import { LibraryItemModel } from '@models';
 
 import { BASE_URL, getSessionToken, fileSystemMiddleware } from '../config';
+import { checkSavedItems } from '../library';
 
 export const checkSavedAlbums = async (
   albumIds: string[]
 ): Promise<boolean[]> => {
   try {
-    const token = await getSessionToken();
-
-    if (albumIds.length > 50) {
-      throw new Error('Cannot check more than 50 album IDs at once.');
-    }
-
-    const encodedIds = encodeURIComponent(albumIds.join(','));
-
-    const response = (await axios.get(
-      `${BASE_URL}/me/albums/contains?ids=${encodedIds}`,
-      {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      }
-    )) as { data: boolean[] };
-
-    return response.data;
+    return await checkSavedItems('album', albumIds);
   } catch (error) {
     console.error('Error fetching saved albums data:', error);
     throw error;

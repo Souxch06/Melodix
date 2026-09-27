@@ -1,19 +1,26 @@
-import Constants from 'expo-constants';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+
+import { getStorageKeys } from './getSessionToken';
 
 export const setSessionToken = async (
   token: string,
-  refreshToken: string,
-  expiresIn: string
+  refreshToken: string | undefined,
+  expiresIn: string | number
 ) => {
-  if (!Constants.expoConfig || !Constants.expoConfig.extra) {
+  const keys = getStorageKeys();
+
+  if (!keys) {
     return null;
   }
-  const { tokenKey, refreshTokenKey, expirationKey } =
-    Constants.expoConfig.extra;
 
-  const expirationTime = new Date().getTime() + +expiresIn * 1000;
+  const { tokenKey, refreshTokenKey, expirationKey } = keys;
+  const lifetimeInSeconds = Number(expiresIn) || 3600;
+  const expirationTime = Date.now() + lifetimeInSeconds * 1000;
+
   await AsyncStorage.setItem(tokenKey, token);
   await AsyncStorage.setItem(expirationKey, expirationTime.toString());
-  await AsyncStorage.setItem(refreshTokenKey, refreshToken);
+
+  if (refreshToken) {
+    await AsyncStorage.setItem(refreshTokenKey, refreshToken);
+  }
 };

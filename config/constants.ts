@@ -68,3 +68,19 @@ export const TRACK_COVER_SIZE = 50;
 export const RECENTLY_PLAYED_COVER_SIZE = 55;
 export const BROWSE_CATEGORY_IMAGE_SIZE = 75;
 export const BROWSE_CATEGORY_HEIGHT = 55;
+
+// Spotify sign-in (Authorization Code + PKCE).
+// Redirect URI of the installed app: melodix://callback
+export const APP_SCHEME = 'melodix';
+export const AUTH_REDIRECT_PATH = 'callback';
+export const SPOTIFY_SCOPES = [
+  'user-read-recently-played',
+  'user-top-read',
+  'user-library-read',
+  'user-read-playback-position',
+  'user-read-private',
+  'user-read-email',
+  'user-follow-read',
+  'playlist-read-private',
+  'playlist-read-collaborative',
+];

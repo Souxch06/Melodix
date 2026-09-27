@@ -25,37 +25,32 @@ export const getPlaylist = async (
   }
 };
 
+// February 2026 Web API: /playlists/{id}/tracks was replaced by
+// /playlists/{id}/items, which only works for playlists the user owns or
+// collaborates on (other playlists answer 403).
 export const getPlaylistItems = async ({
   playlistId,
-  fields = 'items.track(id, name, artists(name), album.images(url), explicit)',
   limit,
   offset,
 }: {
   playlistId: string;
-  fields?: string;
   limit: number;
   offset: number;
 }): Promise<TrackModel[]> => {
   try {
     const { token } = await getSessionlessToken();
 
-    const response = (await axios.get(
-      `${BASE_URL}/playlists/${playlistId}/tracks`,
-      {
-        params: {
-          limit,
-          offset,
-          fields,
-        },
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      }
-    )) as { data: { items: PlaylistItemResponseType[]; total: number } };
+    const response = await axios.get<{
+      items?: PlaylistItemResponseType[];
+      total: number;
+    }>(`${BASE_URL}/playlists/${playlistId}/items`, {
+      params: { limit, offset, additional_types: 'track' },
+      headers: { Authorization: `Bearer ${token}` },
+    });
 
-    return parseFromPlaylistItemsToTracks(response.data.items);
+    return parseFromPlaylistItemsToTracks(response.data.items ?? []);
   } catch (error) {
-    console.error(`Error fetching playlist with an ID: ${playlistId}`, error);
+    console.error(`Error fetching items of playlist: ${playlistId}`, error);
     throw error;
   }
 };

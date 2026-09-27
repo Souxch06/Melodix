@@ -7,5 +7,5 @@ export const parseToRecentlyPlayed = (
   data.items.map((item) => ({
     id: item.track.album.id,
     title: item.track.name,
-    imageURL: item.track.album.images ? item.track.album.images[0].url : '',
+    imageURL: item.track.album.images?.[0]?.url || '',
   }));

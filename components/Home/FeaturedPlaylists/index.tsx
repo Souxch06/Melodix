@@ -32,6 +32,12 @@ export const FeaturedPlaylists = () => {
     })();
   }, []);
 
+  // Featured playlists are not available to Spotify apps created after
+  // 27 November 2024: hide the section instead of showing an error.
+  if (featuredPlaylists === null) {
+    return null;
+  }
+
   return (
     <Slider
       title={translations.featuredPlaylists}

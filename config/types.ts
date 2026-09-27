@@ -160,15 +160,26 @@ export type SavedEpisodesResponseType = {
   }[];
 };
 
+export type PlaylistTrackResponseType = {
+  album?: { images?: { url: string | null }[] | null };
+  id: string | null;
+  name: string;
+  artists?: { name: string }[];
+  explicit?: boolean;
+  duration_ms?: number;
+};
+
+// The February 2026 Web API renamed `track` to `item` in playlist entries.
+// Both keys are supported; either can be null for unavailable or local items.
 export type PlaylistItemResponseType = {
-  track: {
-    album: { images: { url: string | null }[] };
-    id: string;
-    name: string;
-    artists: { name: string }[];
-    explicit: boolean;
-    duration_ms: number;
-  };
+  item?: PlaylistTrackResponseType | null;
+  track?: PlaylistTrackResponseType | null;
+};
+
+type PlaylistItemsPageResponseType = {
+  total: number;
+  next?: string | null;
+  items?: PlaylistItemResponseType[];
 };
 
 export type PlaylistResponseType = {
@@ -193,12 +204,11 @@ export type PlaylistResponseType = {
   primary_color: string | null;
   public: boolean;
   snapshot_id: string;
-  followers: { total: number };
-  tracks: {
-    total: 128;
-    next: string;
-    items: PlaylistItemResponseType[];
-  };
+  followers?: { total: number };
+  // February 2026 Web API: `tracks` was renamed to `items`, and playlist
+  // contents are only returned for playlists the user owns or collaborates on.
+  items?: PlaylistItemsPageResponseType;
+  tracks?: PlaylistItemsPageResponseType;
   uri: string;
 };
 
@@ -340,4 +350,37 @@ export type BrowseCategoriesResponseType = {
       height: number;
     }[];
   }[];
+};
+
+type SearchImageType = { url: string | null }[] | null;
+
+export type SearchResponseType = {
+  artists?: {
+    items: ({ id: string; name: string; images?: SearchImageType } | null)[];
+  };
+  albums?: {
+    items: ({
+      id: string;
+      name: string;
+      album_type: string;
+      images?: SearchImageType;
+      artists?: { name: string }[];
+    } | null)[];
+  };
+  tracks?: {
+    items: ({
+      id: string;
+      name: string;
+      artists?: { name: string }[];
+      album: { id: string; images?: SearchImageType };
+    } | null)[];
+  };
+  playlists?: {
+    items: ({
+      id: string;
+      name: string;
+      images?: SearchImageType;
+      owner?: { display_name?: string | null };
+    } | null)[];
+  };
 };

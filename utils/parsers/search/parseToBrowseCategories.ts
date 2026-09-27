@@ -6,5 +6,5 @@ export const parseToBrowseCategories = (
   items.map(({ id, name, icons }) => ({
     id,
     title: name,
-    imageURL: icons[0].url,
+    imageURL: icons?.[0]?.url ?? '',
   }));

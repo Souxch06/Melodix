@@ -26,8 +26,13 @@ export const AlbumScreen = ({ albumId }: AlbumScreenPropsType) => {
     (async () => {
       try {
         const albumData = await getAlbum(albumId);
-        const savedAlbumTracksArr = await checkSavedTracks(
-          albumData.tracks.items.map((track) => track.id)
+        const trackIds = albumData.tracks.items.map((track) => track.id);
+        // Not critical: never let this check break the album page.
+        const savedAlbumTracksArr = await checkSavedTracks(trackIds).catch(
+          (error) => {
+            console.error('Failed to check saved tracks:', error);
+            return trackIds.map(() => false);
+          }
         );
         setAlbum({
           ...albumData,

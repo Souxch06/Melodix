@@ -9,5 +9,5 @@ export const parseFromTopArtistsToLibraryItem = (
     type: type,
     title: name,
     subtitle: '',
-    imageURL: images !== null && images[0].url ? images[0].url : '',
+    imageURL: images?.[0]?.url || '',
   }));

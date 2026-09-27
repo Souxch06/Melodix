@@ -5,27 +5,40 @@ export const styles = StyleSheet.create({
   container: {
     backgroundColor: COLORS.PRIMARY,
   },
-  headerText: {
-    fontSize: 16,
-    lineHeight: 16,
-    fontWeight: '700',
-    color: COLORS.WHITE,
-    marginBottom: 10,
+  searchBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    backgroundColor: COLORS.WHITE,
+    borderRadius: 8,
+    marginHorizontal: 16,
+    marginTop: 12,
+    marginBottom: 8,
+    paddingHorizontal: 12,
   },
-  scrollView: {
-    width: '100%',
-    height: '100%',
+  searchInput: {
     flex: 1,
-    flexDirection: 'column',
-    backgroundColor: COLORS.PRIMARY,
-    paddingHorizontal: 16,
+    color: COLORS.PRIMARY,
+    fontSize: 15,
+    fontWeight: '600',
+    paddingVertical: 12,
   },
-  flatList: {
-    paddingVertical: 26,
+  results: {
+    flex: 1,
   },
-  flatListColumnWrapper: {
-    alignItems: 'flex-start',
-    justifyContent: 'flex-start',
-    gap: 12,
+  resultsContent: {
+    paddingTop: 8,
+    paddingBottom: 32,
+  },
+  message: {
+    color: COLORS.LIGHT_GREY,
+    fontSize: 14,
+    lineHeight: 20,
+    marginTop: 32,
+    paddingHorizontal: 32,
+    textAlign: 'center',
+  },
+  loader: {
+    marginTop: 32,
   },
 });

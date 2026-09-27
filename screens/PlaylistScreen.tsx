@@ -14,8 +14,10 @@ export const PlaylistScreen = ({ playlistId }: AlbumScreenPropsType) => {
   const [offset, setOffset] = React.useState(0);
   const [limit] = React.useState(50);
 
+  const isFetchingRef = React.useRef(false);
+
   const fetchTracks = async () => {
-    if (!playlistId || !playlist) {
+    if (!playlistId || !playlist || isFetchingRef.current) {
       return;
     }
 
@@ -25,14 +27,21 @@ export const PlaylistScreen = ({ playlistId }: AlbumScreenPropsType) => {
       return;
     }
 
+    isFetchingRef.current = true;
+
     try {
       const newTracks = await getPlaylistItems({
         playlistId,
         limit,
         offset,
       });
-      const savedPlaylistTracksArr = await checkSavedTracks(
-        newTracks.map((track) => track.id)
+      const trackIds = newTracks.map((track) => track.id);
+      // Not critical: never let this check hide the tracks.
+      const savedPlaylistTracksArr = await checkSavedTracks(trackIds).catch(
+        (error) => {
+          console.error('Failed to check saved tracks:', error);
+          return trackIds.map(() => false);
+        }
       );
 
       setTracks((prevTracks) => [
@@ -45,6 +54,8 @@ export const PlaylistScreen = ({ playlistId }: AlbumScreenPropsType) => {
       setOffset((prevOffset) => prevOffset + limit);
     } catch (error) {
       console.error(error);
+    } finally {
+      isFetchingRef.current = false;
     }
   };
 
@@ -65,11 +76,12 @@ export const PlaylistScreen = ({ playlistId }: AlbumScreenPropsType) => {
     })();
   }, [playlistId]);
 
+  // Load the first page as soon as the playlist metadata is available.
   React.useEffect(() => {
     fetchTracks();
 
     //eslint-disable-next-line
-  }, [playlistId]);
+  }, [playlist]);
 
   const id = React.useMemo(() => (playlist ? playlist.id : ''), [playlist]);
   const ownerId = React.useMemo(

@@ -19,5 +19,5 @@ export const parseFromSearchPlaylistToCard = (
       title: '',
       subtitle:
         item.description || item.name || item.owner.display_name + "'sPlaylist",
-      imageURL: item.images && item.images[0].url ? item.images[0].url : '',
+      imageURL: item.images?.[0]?.url || '',
     }));

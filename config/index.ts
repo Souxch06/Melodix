@@ -19,6 +19,9 @@ export {
   TRACK_COVER_SIZE,
   RECENTLY_PLAYED_COVER_SIZE,
   BROWSE_CATEGORY_IMAGE_SIZE,
+  APP_SCHEME,
+  AUTH_REDIRECT_PATH,
+  SPOTIFY_SCOPES,
 } from './constants';
 export { COLORS, BROWSE_CATEGORIES_COLORS } from './colors';
 export {
@@ -40,6 +43,7 @@ export {
   type RecommendationsResponseType,
   type PlaylistItemResponseType,
   type BrowseCategoriesResponseType,
+  type SearchResponseType,
 } from './types';
 
 export { AlbumFallback, ArtistFallback } from './fallbacks';

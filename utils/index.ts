@@ -17,6 +17,7 @@ export {
   parseFromTopTracksToLibraryItem,
   parseFromPlaylistItemsToTracks,
   parseToBrowseCategories,
+  parseSearchResults,
 } from './parsers';
 export {
   hexToRGB,
