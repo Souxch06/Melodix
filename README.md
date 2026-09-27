@@ -28,14 +28,38 @@
 
 1. Sur ton téléphone, ouvre la [dernière version](https://github.com/Souxch06/Melodix/releases/latest) et télécharge le fichier **`Melodix-v….apk`** (section *Assets*).
 2. Ouvre le fichier téléchargé. Android te demande d'autoriser l'installation d'applications depuis ton navigateur ou ton gestionnaire de fichiers : accepte, puis appuie sur **Installer**.
-3. Lance Melodix et suis la [configuration Spotify](#configurer-spotify) : elle ne se fait qu'une fois.
+3. Lance Melodix et [connecte-toi](#se-connecter-à-spotify) : il suffit de coller ton token Spotify.
 
 > [!NOTE]
 > Compatible Android 6.0 et plus (processeurs ARM, soit la quasi-totalité des téléphones). Comme l'app ne vient pas du Play Store, Android peut afficher un avertissement Play Protect : c'est normal pour une application installée manuellement.
 
-## Configurer Spotify
+## Se connecter à Spotify
 
-Spotify n'autorise la connexion qu'aux applications déclarées sur son portail développeur : Melodix utilise donc **ta propre application Spotify**. C'est gratuit, mais le compte qui crée l'application doit avoir un abonnement **Spotify Premium** (règle Spotify depuis février 2026).
+Melodix propose deux façons de se connecter. Commence par la connexion rapide : rien à créer, rien à configurer.
+
+### Connexion rapide (token)
+
+C'est le système du tutoriel de [developer.spotify.com](https://developer.spotify.com/) : un *token* d'accès envoyé à l'API Spotify (`Authorization: Bearer …`).
+
+1. Sur ton téléphone, ouvre [developer.spotify.com](https://developer.spotify.com/) (le bouton **Ouvrir developer.spotify.com** de l'app y mène directement) et connecte-toi avec ton compte Spotify (**Log in**, en haut à droite).
+2. Dans le bloc **Code** du tutoriel, copie le token : c'est le texte entre guillemets de la ligne
+
+   ```js
+   const token = 'BQ…';
+   ```
+
+   Tu peux aussi copier tout le code : Melodix retrouve le token tout seul. Si tu vois `const token = 'undefined';`, c'est que tu n'es pas connecté sur le site.
+3. Dans Melodix, colle-le et appuie sur **Se connecter**.
+
+> [!IMPORTANT]
+> Spotify fait expirer ce token au bout d'**1 heure**. Melodix te ramène alors sur l'écran de connexion pour en coller un nouveau. Selon les autorisations incluses dans ce token, certaines sections (écoutes récentes, bibliothèque) peuvent être masquées : la connexion permanente donne accès à tout.
+
+> [!CAUTION]
+> Ton token donne accès à ton compte Spotify : colle-le uniquement dans l'app, où il reste stocké sur ton téléphone. Ne le partage pas et ne l'écris jamais dans le code : l'APK est public, n'importe qui pourrait le récupérer.
+
+### Connexion permanente (Client ID)
+
+Pour ne plus jamais recoller de token, Melodix peut se connecter via **ta propre application Spotify**. La session se renouvelle alors toute seule (Spotify redemande simplement de se reconnecter tous les 6 mois). C'est gratuit, mais le compte qui crée l'application doit avoir un abonnement **Spotify Premium** (règle Spotify depuis février 2026).
 
 1. Ouvre le [tableau de bord Spotify for Developers](https://developer.spotify.com/dashboard), connecte-toi et clique sur **Create app**.
 2. Donne-lui un nom (par exemple « Melodix »), coche **Web API**, et dans **Redirect URIs** ajoute exactement :
@@ -46,15 +70,17 @@ Spotify n'autorise la connexion qu'aux applications déclarées sur son portail 
 
 3. Enregistre, puis copie le **Client ID** affiché dans les paramètres de l'application.
 4. Dans **User Management**, ajoute le nom et l'e-mail du compte Spotify de chaque personne qui utilisera l'app (5 au maximum).
-5. Dans Melodix, colle le Client ID, appuie sur **Continue**, puis sur **Sign in with Spotify**.
+5. Dans Melodix, appuie sur **Rester connecté en permanence**, colle le Client ID, appuie sur **Continuer**, puis sur **Se connecter avec Spotify**.
 
 Aucun mot de passe ni *Client Secret* n'est demandé : la connexion se fait sur la page officielle de Spotify (flux OAuth *Authorization Code + PKCE*).
+
+Pour te déconnecter (coller un nouveau token, changer de compte ou de méthode), touche ta photo de profil en haut à gauche, puis **Se déconnecter**.
 
 ## Fonctionnalités
 
 | Écran | Ce que tu y trouves |
 | :-- | :-- |
-| **Connexion** | Connexion sur la page officielle de Spotify, configuration du Client ID au premier lancement. |
+| **Connexion** | Connexion rapide en collant ton token Spotify, ou connexion permanente sur la page officielle de Spotify avec un Client ID. Retour automatique à la connexion quand le token expire. |
 | **Accueil** | Écoutes récentes, albums et artistes du moment, tes playlists. |
 | **Recherche** | Recherche d'artistes, de titres, d'albums et de playlists dans tout le catalogue Spotify. |
 | **Bibliothèque** | Playlists, podcasts, albums et artistes suivis, filtrables par catégorie avec transitions animées. |
@@ -71,7 +97,7 @@ Ta bibliothèque et ton profil sont mis en cache sur l'appareil pour que l'app s
 - **Expo SDK 51** et **React Native 0.74** (React 18), entièrement en **TypeScript**
 - **Expo Router** : navigation par fichiers, avec onglets et piles d'écrans
 - **Reanimated** et **Gesture Handler** pour les animations et les gestes
-- **expo-auth-session** (OAuth PKCE), **Axios** (API Web Spotify) et **AsyncStorage** (session)
+- **expo-auth-session** (OAuth PKCE), **Axios** (API Web Spotify) et **AsyncStorage** (session et token)
 - **Jest** et **Testing Library**, **ESLint**, **Prettier** et **Husky**
 - **GitHub Actions** pour construire l'APK
 
@@ -81,7 +107,7 @@ Ta bibliothèque et ton profil sont mis en cache sur l'appareil pour que l'app s
 
 - **Node.js 20** (voir `.nvmrc`) et **Yarn 1.22** ou plus récent
 - Un **émulateur Android** ou le **simulateur iOS** (sur Mac) : la CLI Expo y installe automatiquement la version d'Expo Go adaptée au SDK 51. Les versions d'Expo Go des stores ne prennent plus en charge ce SDK : sur un vrai téléphone, cherche une version compatible sur [expo.dev/go](https://expo.dev/go) (Android) ou utilise un build de développement (`npx expo run:android` / `npx expo run:ios`).
-- Une application Spotify (voir [Configurer Spotify](#configurer-spotify))
+- Un compte Spotify (voir [Se connecter à Spotify](#se-connecter-à-spotify))
 
 ### Installer et lancer
 
@@ -93,9 +119,9 @@ yarn install
 yarn dev       # démarre Expo (appuie sur « a » pour Android, « i » pour iOS)
 ```
 
-Au premier lancement, l'écran de connexion demande le Client ID et affiche l'**URI de redirection à déclarer** dans ton application Spotify. Avec Expo Go, elle ressemble à `exp://192.168.1.20:8080/--/callback` ; dans l'app installée, c'est `melodix://callback`.
+Au premier lancement, l'écran de connexion propose la connexion rapide (token). Pour la connexion permanente, il affiche l'**URI de redirection à déclarer** dans ton application Spotify. Avec Expo Go, elle ressemble à `exp://192.168.1.20:8080/--/callback` ; dans l'app installée, c'est `melodix://callback`.
 
-Pour ne pas avoir à saisir le Client ID, tu peux le fournir dans un fichier `.env` à la racine (déjà ignoré par Git) :
+Pour que l'écran de connexion propose directement « Se connecter avec Spotify », tu peux fournir ton Client ID dans un fichier `.env` à la racine (déjà ignoré par Git) :
 
 ```dotenv
 SPOTIFY_CLIENT_ID=ton_client_id
@@ -109,7 +135,7 @@ Le workflow [`.github/workflows/android-apk.yml`](.github/workflows/android-apk.
 - à la demande, depuis l'onglet **Actions → APK Android → Run workflow** ;
 - à chaque **release publiée** : l'APK est automatiquement joint à la release.
 
-Pour intégrer ton Client ID à l'APK, crée la variable de dépôt `SPOTIFY_CLIENT_ID` (*Settings → Secrets and variables → Actions → Variables*). Sans elle, l'app le demande au premier lancement.
+Pour intégrer ton Client ID à l'APK, crée la variable de dépôt `SPOTIFY_CLIENT_ID` (*Settings → Secrets and variables → Actions → Variables*) : l'écran de connexion affichera directement « Se connecter avec Spotify », la connexion rapide par token restant disponible. Un Client ID n'est pas secret ; un token, lui, ne doit jamais être intégré à l'APK.
 
 En local (Android Studio et JDK 17 requis) :
 
@@ -156,14 +182,15 @@ Spotify a fortement restreint son API ces dernières années. Voici où en est M
 
 | Sujet | État | Détail |
 | :-- | :-: | :-- |
-| Connexion Spotify | ✅ | Flux *Authorization Code + PKCE*, qui remplace l'*Implicit Grant* [supprimé par Spotify le 27 novembre 2025](https://developer.spotify.com/blog/2025-10-14-reminder-oauth-migration-27-nov-2025). Aucun secret dans l'app. |
+| Connexion rapide | ✅ | Token copié depuis developer.spotify.com : aucune application Spotify à créer. Valable 1 heure, puis retour automatique à l'écran de connexion. |
+| Connexion permanente | ✅ | Flux *Authorization Code + PKCE*, qui remplace l'*Implicit Grant* [supprimé par Spotify le 27 novembre 2025](https://developer.spotify.com/blog/2025-10-14-reminder-oauth-migration-27-nov-2025). Aucun secret dans l'app. Gère l'[expiration des refresh tokens après 6 mois](https://developer.spotify.com/blog/2026-06-18-refresh-token-expiration) (juin 2026). |
 | API Spotify 2026 | ✅ | Adaptée aux [changements de février 2026](https://developer.spotify.com/documentation/web-api/references/changes/february-2026) : nouveaux endpoints de bibliothèque et de playlists. |
 | Recherche | ✅ | Catalogue complet, 10 résultats maximum par type (limite imposée par Spotify). |
 | Playlists populaires | ⚠️ | Fermées aux nouvelles applications depuis le [27 novembre 2024](https://developer.spotify.com/blog/2024-11-27-changes-to-the-web-api) : la section est masquée. |
 | Titres des playlists | ℹ️ | Spotify ne fournit plus la liste des titres que pour les playlists que tu as créées ou que tu co-édites. |
-| Mode développement | ℹ️ | [Depuis février 2026](https://developer.spotify.com/blog/2026-02-06-update-on-developer-access-and-platform-security) : compte Premium obligatoire pour le propriétaire de l'application Spotify, 5 utilisateurs autorisés. |
+| Mode développement | ℹ️ | Connexion permanente uniquement. [Depuis février 2026](https://developer.spotify.com/blog/2026-02-06-update-on-developer-access-and-platform-security) : compte Premium obligatoire pour le propriétaire de l'application Spotify, 5 utilisateurs autorisés. |
 | Pages Artiste, Podcast, Épisode | 🚧 | Pas encore réalisées : elles n'affichent que l'identifiant de l'élément. |
-| Langue | ℹ️ | L'interface est en anglais (textes dans `data/en-gb.ts`). |
+| Langue | ℹ️ | Écran de connexion et menu du compte en français (`data/fr-fr.ts`), reste de l'interface en anglais (`data/en-gb.ts`). |
 | Signature de l'APK | ℹ️ | Clé de débogage standard : parfait pour l'installer toi-même, à remplacer par ta propre clé pour publier sur le Play Store. |
 
 <sub>✅ fonctionnel · ⚠️ limité par Spotify · 🚧 à faire · ℹ️ à savoir</sub>
@@ -171,6 +198,7 @@ Spotify a fortement restreint son API ces dernières années. Voici où en est M
 ## Feuille de route
 
 - [x] Connexion *Authorization Code + PKCE*
+- [x] Connexion rapide avec un token, sans application Spotify à créer
 - [x] Adaptation à l'API Spotify de février 2026
 - [x] Recherche dans le catalogue
 - [x] Identité visuelle Melodix : nom, icône, écran de démarrage
