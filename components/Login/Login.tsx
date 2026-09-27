@@ -4,6 +4,7 @@ import {
   Platform,
   Pressable,
   ScrollView,
+  Share,
   Text,
   TextInput,
   View,
@@ -152,6 +153,13 @@ const ClientIdForm = ({
     }
   };
 
+  // Without Premium, someone who has it can create the Spotify app.
+  const shareInstructions = () => {
+    Share.share({
+      message: translations.clientIdShareMessage(redirectUri),
+    }).catch((error) => console.error('Failed to share instructions', error));
+  };
+
   return (
     <View style={styles.card}>
       <Text style={styles.cardTitle}>{translations.clientIdTitle}</Text>
@@ -182,6 +190,14 @@ const ClientIdForm = ({
         ]}
       >
         <Text style={styles.text}>{translations.clientIdSave}</Text>
+      </Pressable>
+      <Pressable
+        onPress={shareInstructions}
+        style={[styles.secondaryButton, styles.shareButton]}
+      >
+        <Text style={styles.secondaryButtonText}>
+          {translations.clientIdShare}
+        </Text>
       </Pressable>
     </View>
   );

@@ -46,9 +46,21 @@ export const FR_FR_SESSION = {
   loginError:
     "La connexion a échoué. Vérifie ton Client ID et l'URI de redirection de ton app Spotify.",
   changeClientId: 'Utiliser un autre Client ID',
+  oauthForbidden:
+    "Spotify refuse l'accès à ce compte (erreur 403). Vérifie que ton e-mail Spotify est ajouté dans « User Management » de l'app Spotify, et que le compte qui l'a créée a Spotify Premium.",
   clientIdTitle: 'Connexion permanente',
   clientIdDescription:
-    'Crée une app sur developer.spotify.com/dashboard (une seule fois), puis colle son Client ID ci-dessous : tu resteras connecté sans recoller de token.',
+    "Il faut une app sur developer.spotify.com/dashboard, créée une seule fois par un compte Premium (règle Spotify). Pas de Premium ? Un proche abonné peut la créer et t'ajouter dans « User Management » : tu te connectes ensuite avec ton compte gratuit. Colle son Client ID ci-dessous, tu resteras connecté sans recoller de token.",
+  clientIdShare: 'Envoyer les étapes à un proche',
+  clientIdShareMessage: (redirectUri: string) =>
+    [
+      'Salut ! Pour me connecter à mon app Melodix avec mon compte Spotify, il me faut une app Spotify créée par un compte Premium (règle Spotify). Ça prend 2 minutes :',
+      '1. Va sur https://developer.spotify.com/dashboard et connecte-toi.',
+      `2. Clique sur « Create app » : nom « Melodix », une description, Redirect URI « ${redirectUri} » (bouton Add), coche « Web API », accepte les conditions, puis Save.`,
+      "3. Dans Settings > User Management, ajoute mon nom et l'e-mail de mon compte Spotify.",
+      "4. Envoie-moi le Client ID (dans Settings, 32 caractères). Ce n'est pas un secret.",
+      'Merci !',
+    ].join('\n'),
   clientIdPlaceholder: 'Client ID Spotify',
   clientIdInvalid: 'Un Client ID Spotify fait 32 lettres et chiffres.',
   clientIdSave: 'Continuer',

@@ -52,6 +52,12 @@ const TOKEN_CHECK_ERRORS: Record<Exclude<TokenCheckResult, 'valid'>, string> = {
   network: translations.tokenNetwork,
 };
 
+const OAUTH_CHECK_ERRORS: Record<Exclude<TokenCheckResult, 'valid'>, string> = {
+  ...TOKEN_CHECK_ERRORS,
+  rejected: translations.loginError,
+  forbidden: translations.oauthForbidden,
+};
+
 export const LoginScreen = () => {
   const router = useRouter();
   const { reloadUserData } = useUserData();
@@ -215,6 +221,16 @@ export const LoginScreen = () => {
         },
         discovery
       );
+
+      // Spotify lets any account sign in, but answers 403 to accounts missing
+      // from the app's "User Management" list, or when the owner of the
+      // Spotify app has no Premium subscription.
+      const check = await verifySpotifyToken(tokens.accessToken);
+
+      if (check !== 'valid') {
+        setErrorMessage(OAUTH_CHECK_ERRORS[check]);
+        return;
+      }
 
       await setSessionToken(
         tokens.accessToken,

@@ -121,6 +121,10 @@ export const styles = StyleSheet.create({
     marginTop: 4,
     marginBottom: 14,
   },
+  shareButton: {
+    marginTop: 12,
+    marginBottom: 0,
+  },
   secondaryButtonText: {
     color: COLORS.TINT,
     fontSize: 14,

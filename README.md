@@ -59,7 +59,10 @@ C'est le système du tutoriel de [developer.spotify.com](https://developer.spoti
 
 ### Connexion permanente (Client ID)
 
-Pour ne plus jamais recoller de token, Melodix peut se connecter via **ta propre application Spotify**. La session se renouvelle alors toute seule (Spotify redemande simplement de se reconnecter tous les 6 mois). C'est gratuit, mais le compte qui crée l'application doit avoir un abonnement **Spotify Premium** (règle Spotify depuis février 2026).
+C'est la connexion Spotify classique : un bouton **Se connecter avec Spotify**, et la session se renouvelle toute seule (Spotify redemande simplement de se reconnecter tous les 6 mois). Elle passe par une application déclarée sur le portail Spotify. C'est gratuit, mais le compte qui crée cette application doit avoir un abonnement **Spotify Premium** : c'est une [règle Spotify depuis février 2026](https://developer.spotify.com/documentation/web-api/concepts/quota-modes), sans quoi l'application ne fonctionne pas.
+
+> [!TIP]
+> **Pas de Premium ?** Seul le propriétaire de l'application Spotify en a besoin. Un proche abonné peut la créer et t'ajouter dans *User Management* : tu te connectes ensuite avec ton compte gratuit. Dans Melodix, le bouton **Envoyer les étapes à un proche** (écran « Connexion permanente ») lui envoie toutes les étapes.
 
 1. Ouvre le [tableau de bord Spotify for Developers](https://developer.spotify.com/dashboard), connecte-toi et clique sur **Create app**.
 2. Donne-lui un nom (par exemple « Melodix »), coche **Web API**, et dans **Redirect URIs** ajoute exactement :
@@ -69,7 +72,7 @@ Pour ne plus jamais recoller de token, Melodix peut se connecter via **ta propre
    ```
 
 3. Enregistre, puis copie le **Client ID** affiché dans les paramètres de l'application.
-4. Dans **User Management**, ajoute le nom et l'e-mail du compte Spotify de chaque personne qui utilisera l'app (5 au maximum).
+4. Dans **User Management**, ajoute le nom et l'e-mail du compte Spotify de chaque personne qui utilisera l'app (5 au maximum). Sans ça, Spotify refuse l'accès (erreur 403, expliquée par Melodix).
 5. Dans Melodix, appuie sur **Rester connecté en permanence**, colle le Client ID, appuie sur **Continuer**, puis sur **Se connecter avec Spotify**.
 
 Aucun mot de passe ni *Client Secret* n'est demandé : la connexion se fait sur la page officielle de Spotify (flux OAuth *Authorization Code + PKCE*).
@@ -183,7 +186,7 @@ Spotify a fortement restreint son API ces dernières années. Voici où en est M
 | Sujet | État | Détail |
 | :-- | :-: | :-- |
 | Connexion rapide | ✅ | Token copié depuis developer.spotify.com : aucune application Spotify à créer. Valable 1 heure, puis retour automatique à l'écran de connexion. |
-| Connexion permanente | ✅ | Flux *Authorization Code + PKCE*, qui remplace l'*Implicit Grant* [supprimé par Spotify le 27 novembre 2025](https://developer.spotify.com/blog/2025-10-14-reminder-oauth-migration-27-nov-2025). Aucun secret dans l'app. Gère l'[expiration des refresh tokens après 6 mois](https://developer.spotify.com/blog/2026-06-18-refresh-token-expiration) (juin 2026). |
+| Connexion permanente | ✅ | Bouton « Se connecter avec Spotify » (application Spotify créée par un compte Premium). Flux *Authorization Code + PKCE*, qui remplace l'*Implicit Grant* [supprimé par Spotify le 27 novembre 2025](https://developer.spotify.com/blog/2025-10-14-reminder-oauth-migration-27-nov-2025). Aucun secret dans l'app. Gère l'[expiration des refresh tokens après 6 mois](https://developer.spotify.com/blog/2026-06-18-refresh-token-expiration) (juin 2026). |
 | API Spotify 2026 | ✅ | Adaptée aux [changements de février 2026](https://developer.spotify.com/documentation/web-api/references/changes/february-2026) : nouveaux endpoints de bibliothèque et de playlists. |
 | Recherche | ✅ | Catalogue complet, 10 résultats maximum par type (limite imposée par Spotify). |
 | Playlists populaires | ⚠️ | Fermées aux nouvelles applications depuis le [27 novembre 2024](https://developer.spotify.com/blog/2024-11-27-changes-to-the-web-api) : la section est masquée. |

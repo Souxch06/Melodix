@@ -26,4 +26,5 @@ export {
   getDisplayCopyrightText,
   getFallbackImage,
   getRandomColor,
+  isAuthCallbackUrl,
 } from './common';
