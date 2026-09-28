@@ -81,9 +81,16 @@ reviens automatiquement dans l'app, connecté.
 - **Configuration mainteneur Spotify requise** : crée une app sur
   [developer.spotify.com/dashboard](https://developer.spotify.com/dashboard)
   (le propriétaire doit être **Premium**, voir les restrictions documentées
-  dans `docs/ANALYSE-CONNEXION.md`), redirect URIs `melodix://callback` et
-  `exp://…/--/callback` (Expo Go), puis `SPOTIFY_CLIENT_ID` en variable
-  CI locale (`.env`, voir `.env.example`) ou de dépôt pour l'APK CI.
+  dans `docs/ANALYSE-CONNEXION.md`), redirect URI `melodix://callback`
+  (+ `exp://…/--/callback` si Expo Go), puis les **variables du dépôt**
+  (*Settings → Secrets and variables → Actions → Variables*) ou `.env` local :
+  ```
+  SPOTIFY_CLIENT_ID=<client id>
+  SPOTIFY_REDIRECT_URI=melodix://callback
+  ```
+  `SPOTIFY_REDIRECT_URI` est optionnelle (fallback intégré :
+  `melodix://callback`) et sert à éprouver d'autres configurations Spotify
+  sans changer l'architecture (Authorization Code + PKCE conservé).
 - **Aucune promesse de « Premium gratuit »** : l'audio ne vient jamais de
   Spotify ; rien n'est contourné ni réhébergé ; aucun secret n'existe dans
   l'APK, Git ou les logs.

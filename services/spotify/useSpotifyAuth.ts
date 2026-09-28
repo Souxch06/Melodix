@@ -23,6 +23,8 @@ import { useUserData } from '@context';
 
 import {
   getClientIdInfo,
+  getSpotifyRedirectUri,
+  getSpotifyRedirectUriSource,
   isSpotifyLoginConfigured,
   SPOTIFY_DISCOVERY,
   SPOTIFY_REDIRECT_PATH,
@@ -32,6 +34,7 @@ import {
 import {
   logRedirectUri,
   sanitizeErrorDescription,
+  spotifyConfigLine,
   spotifyDiag,
   spotifyLog,
 } from './devLog';
@@ -92,10 +95,21 @@ export const useSpotifyAuth = (): {
 
   const clientInfo = getClientIdInfo();
   const configured = isSpotifyLoginConfigured();
-  const redirectUri = AuthSession.makeRedirectUri({
-    scheme: SPOTIFY_REDIRECT_SCHEME,
-    path: SPOTIFY_REDIRECT_PATH,
-  });
+
+  // Redirect URI : configurable (env/extra), sinon celle calculée par Expo à
+  // partir du scheme natif (melodix://callback en build, exp://… en Expo Go).
+  // LA MÊME VARIABLE sert à authorize ET à l'échange — invariant anti
+  // invalid_grant, garanti par construction.
+  const redirectUri = React.useMemo(() => {
+    const configuredUri = getSpotifyRedirectUri();
+    return (
+      configuredUri ||
+      AuthSession.makeRedirectUri({
+        scheme: SPOTIFY_REDIRECT_SCHEME,
+        path: SPOTIFY_REDIRECT_PATH,
+      })
+    );
+  }, []);
 
   // Anti-états-croisés : une seule source (canal auth-session OU garde-fou)
   // pilote le flux — un code OAuth se consomme une seule fois.
@@ -103,9 +117,17 @@ export const useSpotifyAuth = (): {
 
   // Diagnostic d'amorce — identifie RÉELLEMENT le build et la config.
   React.useEffect(() => {
+    // Lignes de diagnostic EXACTES demandées pour la configurabilité :
+    //   Spotify Client ID: CONFIGURED/MISSING
+    //   Spotify Redirect URI: <valeur>
+    //   Spotify OAuth: PKCE
     spotifyDiag('START');
+    spotifyConfigLine(`Spotify Client ID: ${configured ? 'CONFIGURED' : `MISSING (source: ${clientInfo.source})`}`);
+    spotifyConfigLine(`Spotify Redirect URI: ${redirectUri}`);
+    spotifyConfigLine(`Spotify OAuth: PKCE`);
     spotifyDiag('CLIENT_ID', clientInfo.clientId ? `PRESENT (source: ${clientInfo.source})` : 'MISSING');
     logRedirectUri(redirectUri);
+    spotifyLog('auth.redirect.source', { cause: getSpotifyRedirectUriSource() });
     if (!configured) {
       spotifyLog('auth.config', { cause: 'CLIENT_ID_ABSENT' });
     }

@@ -78,6 +78,66 @@ export const getSpotifyClientId = (): string => getClientIdInfo().clientId;
 export const isSpotifyLoginConfigured = (): boolean =>
   getSpotifyClientId() !== '';
 
+/** Valeur par défaut EXIGÉE : scheme natif du build Android. */
+export const DEFAULT_SPOTIFY_REDIRECT_URI = 'melodix://callback';
+
+export type RedirectUriSource =
+  | 'expo-public-env' // SPOTIFY_REDIRECT_URI → EXPO_PUBLIC_* inliné (robuste APK)
+  | 'expo-config-extra' // extra.spotifyRedirectUri (app.config au build)
+  | 'default'; // absence totale de config → la valeur par défaut native
+
+/**
+ * Redirect URI OAuth Spotify — entièrement configurable de build en build
+ * (pour éprouver d'autres apps/flows sans changer l'architecture), avec la
+ * valeur par défaut native `melodix://callback`.
+ *
+ * ORDRE DE LECTURE :
+ *   1. `EXPO_PUBLIC_SPOTIFY_REDIRECT_URI` (inliné par Metro au build) ;
+ *   2. `SPOTIFY_REDIRECT_URI` → app.config.js extra.spotifyRedirectUri ;
+ *   3. valeur par défaut `melodix://callback`.
+ *
+ * La MÊME valeur sert à la construction de l'AuthRequest (/authorize) ET au
+ * token exchange : un écart entre les deux causes un `invalid_grant` Spotify,
+ * c'est précisément ce que cette source unique élimine par construction.
+ */
+export const getSpotifyRedirectUri = (): string => {
+  const envValue =
+    typeof process !== 'undefined'
+      ? (process.env?.EXPO_PUBLIC_SPOTIFY_REDIRECT_URI ?? '')
+      : '';
+  if (typeof envValue === 'string' && envValue.trim()) {
+    return envValue.trim();
+  }
+
+  const extra = readExtra();
+  const embedded =
+    typeof extra.spotifyRedirectUri === 'string'
+      ? extra.spotifyRedirectUri.trim()
+      : '';
+  if (embedded) {
+    return embedded;
+  }
+
+  return DEFAULT_SPOTIFY_REDIRECT_URI;
+};
+
+/** Source du redirect (diagnostic LOG sans secret — l'URI est publique). */
+export const getSpotifyRedirectUriSource = (): RedirectUriSource => {
+  const envValue =
+    typeof process !== 'undefined'
+      ? (process.env?.EXPO_PUBLIC_SPOTIFY_REDIRECT_URI ?? '')
+      : '';
+  if (typeof envValue === 'string' && envValue.trim()) {
+    return 'expo-public-env';
+  }
+  const extra = readExtra();
+  const embedded =
+    typeof extra.spotifyRedirectUri === 'string'
+      ? extra.spotifyRedirectUri.trim()
+      : '';
+  return embedded ? 'expo-config-extra' : 'default';
+};
+
 /**
  * Scopes strictement nécessaires (permission minimale) :
  * - user-read-private        → profil (nom d'affichage, photo) ;

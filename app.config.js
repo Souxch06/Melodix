@@ -17,6 +17,9 @@
  * - SPOTIFY_CLIENT_ID : Client ID de l'application Spotify du mainteneur
  *   (OAuth Authorization Code + PKCE ; aucun Client Secret — PKCE l'exclut).
  *   Rôle UNIQUE : l'écran de connexion. Jamais saisi par l'utilisateur.
+ * - SPOTIFY_REDIRECT_URI : redirect URI OAuth (vaut au minimum
+ *   'melodix://callback' — valeur par défaut déclarée dans le manifest).
+ *   Sert à éprouver d'autres configurations sans changer l'architecture.
  *   Le workflow Android la recopie aussi vers EXPO_PUBLIC_SPOTIFY_CLIENT_ID :
  *   les variables EXPO_PUBLIC_* sont INLINÉES par Metro dans le bundle JS au
  *   build, voie robuste en APK bare (ne dépend pas de l'asset natif
@@ -30,6 +33,11 @@
 const melodixBackendUrl = process.env.MELODIX_BACKEND_URL || '';
 const audiusApiKey = process.env.AUDIUS_API_KEY || '';
 const spotifyClientId = process.env.SPOTIFY_CLIENT_ID || '';
+// Redirect URI OAuth Spotify : configurable par variable d'environnement
+// (tests d'autres apps/flows sans toucher à l'architecture) ; la valeur par
+// défaut reste le scheme natif de Melodix, DÉCLARÉ dans le build Android.
+const spotifyRedirectUri =
+  process.env.SPOTIFY_REDIRECT_URI || 'melodix://callback';
 
 module.exports = {
   expo: {
@@ -70,6 +78,7 @@ module.exports = {
     extra: {
       melodixBackendUrl,
       spotifyClientId,
+      spotifyRedirectUri,
       audiusApiKey,
       router: {
         origin: false,

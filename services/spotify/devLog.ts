@@ -67,8 +67,7 @@ export const logRedirectUri = (redirectUri: string): void => {
   spotifyDiag('REDIRECT_URI', redirectUri);
 };
 
-/**
- * Ligne de diagnostic au FORMAT EXACT demandé par la mission :
+/** Ligne de diagnostic au FORMAT EXACT demandé par la mission :
  *   [Spotify OAuth] <STAGE>: <value>
  * La valeur est bornée (120 caractères) et sanitise mots sensibles.
  * Ne JAMAIS lui passer de token/secret/verifier/code/state complet.
@@ -83,6 +82,20 @@ export const spotifyDiag = (stage: string, value?: string): void => {
       : raw;
   // eslint-disable-next-line no-console
   console.log(`[Spotify OAuth] ${stage}${safe}`);
+};
+
+/** Ligne verbatim de mise en config (ex. « Spotify Redirect URI: … »). */
+export const spotifyConfigLine = (line: string): void => {
+  // Même ceinture de sécurité : toute valeur suspecte est masquée.
+  const safe = /[Bb]earer|access_?token|refresh_?token|Authorization|client_?secret|verifier/i.test(
+    line
+  )
+    ? '<redacted>'
+    : line.length > 140
+      ? `${line.slice(0, 137)}…`
+      : line;
+  // eslint-disable-next-line no-console
+  console.log(safe);
 };
 
 /** Motifs à ne JAMAIS laisser passer dans une ligne de diagnostic. */
