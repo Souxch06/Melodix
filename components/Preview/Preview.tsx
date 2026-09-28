@@ -44,6 +44,14 @@ export type PreviewPropsType = {
   summaryTitle: string;
   summarySubtitle: string;
   summaryInfo: string;
+  /** Description Spotify de la playlist (sous-titre d'en-tête). */
+  summaryDescription?: string;
+  /** Statistique dynamique « 85/100 morceaux disponibles ». */
+  summaryAvailability?: string;
+  /** État de résolution par track.id (badge discret de ligne). */
+  availabilityById?: Record<string, 'audius' | 'youtube' | 'none' | 'pending' | 'resolving'>;
+  /** Tap sur une ligne indisponible → message clair, jamais de crash. */
+  onUnavailableTrackPress?: (track: TrackModel) => void;
   infoTexts?: string[];
   copyrightTexts?: string[];
   tracks?: TrackModel[];
@@ -64,6 +72,10 @@ export const Preview = ({
   summaryTitle,
   summarySubtitle,
   summaryInfo,
+  summaryDescription,
+  summaryAvailability,
+  availabilityById,
+  onUnavailableTrackPress,
   infoTexts,
   copyrightTexts,
   tracks,
@@ -128,6 +140,14 @@ export const Preview = ({
   const renderItem = React.useCallback(
     ({ item, index }: { item: TrackModel; index: number }) => {
       const queueId = queueIdOf(item.id);
+      const availability = availabilityById?.[item.id];
+      // Indisponible : la LIGNE RESTE (jamais masquée) ; le tap informe au
+      // lieu de lire. Optimiste : en gate UI, la cascade a déjà tranché.
+      const handlePress = !item.id
+        ? undefined
+        : availability === 'none'
+          ? () => onUnavailableTrackPress?.(item)
+          : () => handleTrackPress(item.id);
 
       return (
         <Track
@@ -141,7 +161,8 @@ export const Preview = ({
           isPlaying={playerCurrentId === queueId && playerStatus === 'playing'}
           explicit={!!item.explicit}
           forceDisableSaveIcon={!!(ownerId && ownerId === userData.id)}
-          onPress={item.id ? () => handleTrackPress(item.id) : undefined}
+          availability={availability}
+          onPress={handlePress}
           onToggleSaved={
             item.id && onToggleTrackSaved
               ? () => onToggleTrackSaved(item)
@@ -158,6 +179,8 @@ export const Preview = ({
       playerStatus,
       handleTrackPress,
       onToggleTrackSaved,
+      availabilityById,
+      onUnavailableTrackPress,
     ]
   );
 
@@ -201,6 +224,8 @@ export const Preview = ({
               title={summaryTitle}
               subtitle={summarySubtitle}
               info={summaryInfo}
+              description={summaryDescription}
+              availabilityInfo={summaryAvailability}
               imageURL={imageURL}
               forceDisableSaveIcon={!!(ownerId && ownerId === userData.id)}
             />

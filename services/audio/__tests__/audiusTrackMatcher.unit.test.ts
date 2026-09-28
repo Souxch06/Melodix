@@ -84,11 +84,13 @@ describe('matchSongs — reliable matching', () => {
     expect(match?.id).toBe('aud-1');
   });
 
-  it('matches despite remix/live/radio tails and case changes', () => {
+  it('matches despite radio-edit/remaster/official tails and case changes', () => {
+    // Versions d'édition acceptées (contrat « gérer les variantes », point 4).
     const variants: Candidate[] = [
       { id: 'a', title: 'tame (radio edit)', artistNames: ['neffex'], durationSec: 188 },
-      { id: 'b', title: 'Tame - Live at Home Session', artistNames: ['neffex'], durationSec: 191 },
+      { id: 'b', title: 'Tame (Official Audio)', artistNames: ['neffex'], durationSec: 190 },
       { id: 'c', title: 'TAME (2024 Remaster)', artistNames: ['neffex'], durationSec: 189 },
+      { id: 'd', title: 'Tame (Lyric Video)', artistNames: ['neffex'], durationSec: 189 },
     ];
 
     for (const candidate of variants) {
@@ -97,6 +99,39 @@ describe('matchSongs — reliable matching', () => {
           ?.id
       ).toBe(candidate.id);
     }
+  });
+
+  it('rejects hard variants (remix / live / instrumental / karaoke / acoustic) when the source is not that version', () => {
+    // Point 4 : « Song » vs « Song (Remix) » → pénalité importante → rejet.
+    const variants: Candidate[] = [
+      { id: 'remix', title: 'Tame (Remix)', artistNames: ['neffex'], durationSec: 210 },
+      { id: 'live', title: 'Tame - Live at Home Session', artistNames: ['neffex'], durationSec: 191 },
+      { id: 'instru', title: 'Tame (Instrumental)', artistNames: ['neffex'], durationSec: 189 },
+      { id: 'karaoke', title: 'Tame (Karaoke Version)', artistNames: ['neffex'], durationSec: 189 },
+      { id: 'acoustic', title: 'Tame (Acoustic)', artistNames: ['neffex'], durationSec: 201 },
+    ];
+
+    for (const candidate of variants) {
+      expect(
+        matchSongs(source('Tame', ['Neffex'], { durationSec: 189 }), [candidate])
+      ).toBeNull();
+    }
+  });
+
+  it('accepts the variant when BOTH sides are the same variant (remix → remix)', () => {
+    expect(
+      matchSongs(
+        source('Tame (Remix)', ['Neffex'], { durationSec: 210 }),
+        [
+          {
+            id: 'remix-ok',
+            title: 'Tame - Remix',
+            artistNames: ['neffex'],
+            durationSec: 211,
+          },
+        ]
+      )?.id
+    ).toBe('remix-ok');
   });
 
   it('uses album agreement to break ties', () => {
@@ -210,7 +245,7 @@ describe('findBestAudiusMatch — cascade multi-requêtes (spécification matchi
     durationMillis,
   });
 
-  it('recherche d abord « titre + artiste principal »', async () => {
+  it('recherche d abord « artiste + titre » (jamais le titre seul)', async () => {
     const seen: string[] = [];
     const search = jest.fn(async (text: string) => {
       seen.push(text);
@@ -223,8 +258,8 @@ describe('findBestAudiusMatch — cascade multi-requêtes (spécification matchi
     );
 
     expect(match?.id).toBe('ok');
-    // Titre normalisé (feat. retiré) + artiste principal.
-    expect(seen[0]).toBe('Tame Neffex');
+    // ARTISTE + titre normalisé d'abord : « Neffex Tame » (jamais « Tame » seul).
+    expect(seen[0]).toBe('Neffex Tame');
     // Premier lot pertinent → la cascade s arrête (un seul appel).
     expect(search).toHaveBeenCalledTimes(1);
   });

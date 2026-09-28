@@ -313,3 +313,97 @@ describe('melodixPlayer engine', () => {
     expect(melodixPlayer.getState().resolved?.score).toBe(1);
   });
 });
+
+describe('melodixPlayer — cascade Audius → YouTube (fallback)', () => {
+  let audius: AudioProvider;
+  let youtube: AudioProvider;
+
+  beforeEach(async () => {
+    await AsyncStorage.clear();
+    lastStatusCallback = null;
+
+    // Audius ne trouve RIEN ; YouTube répond pour un contenu précis.
+    audius = {
+      ...makeProvider(),
+      resolveMatch: jest.fn(async () => null),
+    };
+    youtube = {
+      id: 'youtube',
+      displayName: 'YouTube',
+      matches: jest.fn(async () => []),
+      resolveMatch: jest.fn(async (query: { title?: string }) =>
+        query.title === 'Track yt-only'
+          ? { sourceId: 'yt-video-7', score: 0.62 }
+          : null
+      ),
+      resolveSource: jest.fn(async (sourceId: string) => ({
+        uri: `https://yt-stream/${sourceId}`,
+      })),
+    };
+
+    __testSetAudioProviders({ audius, youtube });
+    await melodixPlayer.__testReset();
+  });
+
+  it('Audius échoue → YouTube joue (le morceau est lu, la source est tracée)', async () => {
+    await melodixPlayer.playQueue([track('yt-only', 'Track yt-only')], 0);
+    await flush();
+    await flush();
+
+    const state = melodixPlayer.getState();
+
+    expect((youtube.resolveMatch as jest.Mock)).toHaveBeenCalledTimes(1);
+    expect((youtube.resolveSource as jest.Mock)).toHaveBeenCalledWith('yt-video-7');
+    expect(state.status).toBe('playing');
+    expect(state.resolved).toEqual({
+      provider: 'YouTube',
+      sourceId: 'yt-video-7',
+      score: 62,
+    });
+  });
+
+  it('le cache mémorise le provider : replay sans nouvelle recherche', async () => {
+    await melodixPlayer.playQueue([track('yt-only', 'Track yt-only')], 0);
+    await flush();
+    await melodixPlayer.stop();
+
+    (audius.resolveMatch as jest.Mock).mockClear();
+    (youtube.resolveMatch as jest.Mock).mockClear();
+
+    await melodixPlayer.playQueue([track('yt-only', 'Track yt-only')], 0);
+    await flush();
+
+    expect(audius.resolveMatch).not.toHaveBeenCalled();
+    expect(youtube.resolveMatch).not.toHaveBeenCalled();
+    expect(melodixPlayer.getState().status).toBe('playing');
+    expect(melodixPlayer.getState().resolved?.provider).toBe('YouTube');
+  });
+
+  it('les deux échouent → skip automatique vers le morceau jouable (jamais de blocage)', async () => {
+    const youTubeSometimes = {
+      ...youtube,
+      resolveMatch: jest.fn(async (query: { title?: string }) =>
+        query.title === 'Track yt-only'
+          ? { sourceId: 'yt-video-7', score: 0.62 }
+          : null
+      ),
+    };
+    __testSetAudioProviders({ audius, youtube: youTubeSometimes });
+    await melodixPlayer.stop();
+
+    await melodixPlayer.playQueue(
+      [track('nowhere', 'Track nowhere'), track('yt-only', 'Track yt-only')],
+      0
+    );
+    await flush();
+    await flush();
+
+    expect(
+      (youTubeSometimes.resolveSource as jest.Mock)
+    ).toHaveBeenCalledWith('yt-video-7');
+    expect(melodixPlayer.getState().status).toBe('playing');
+    expect(melodixPlayer.getState().queue[melodixPlayer.getState().index].title).toBe(
+      'Track yt-only'
+    );
+  });
+});

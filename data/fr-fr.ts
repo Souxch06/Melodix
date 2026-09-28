@@ -83,3 +83,15 @@ export const FR_FR_LOGIN = {
   accountSpotifySection: 'Compte Spotify',
   accountSignOut: 'Déconnexion',
 };
+
+// Playlists : statistique de disponibilité, badges de source, indisponible.
+export const FR_FR_PLAYLIST = {
+  /** « 85/100 morceaux disponibles » — calculée dynamiquement. */
+  playlistAvailabilityInfo: (available: number, total: number) =>
+    `${available}/${total} morceaux disponibles`,
+  trackUnavailableNotice:
+    "Ce morceau n'est pas disponible sur les sources de lecture actuelles.",
+  providerAudius: 'Audius',
+  providerYouTube: 'YouTube',
+  providerUnavailable: 'Indisponible',
+};

@@ -17,6 +17,10 @@ export type SummaryPropsType = {
   subtitle: string;
   info: string;
   imageURL?: string;
+  /** Description Spotify de la playlist (affichée sous l'en-tête). */
+  description?: string;
+  /** Statistique dynamique « 85/100 morceaux disponibles ». */
+  availabilityInfo?: string;
   forceDisableSaveIcon?: boolean;
 };
 
@@ -27,6 +31,8 @@ export const Summary = ({
   subtitle,
   info,
   imageURL = '',
+  description = '',
+  availabilityInfo = '',
   forceDisableSaveIcon,
 }: SummaryPropsType) => {
   const [isSaved, setIsSaved] = React.useState<boolean>(false);
@@ -80,8 +86,18 @@ export const Summary = ({
   return (
     <View style={styles.summary}>
       <Text style={styles.title}>{title}</Text>
+      {description ? (
+        <Text numberOfLines={3} style={styles.descriptionText}>
+          {description}
+        </Text>
+      ) : null}
       <Text style={styles.subtitle}>{subtitle}</Text>
       <Text style={styles.info}>{info}</Text>
+      {availabilityInfo ? (
+        <Text style={styles.availabilityInfo} testID="playlist-availability-stat">
+          {availabilityInfo}
+        </Text>
+      ) : null}
 
       <View style={styles.pressablesView}>
         {!forceDisableSaveIcon && (

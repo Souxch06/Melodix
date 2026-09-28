@@ -28,6 +28,11 @@ export type SongFingerprint = {
   artistNames: string[];
   album?: string | null;
   durationSec?: number | null;
+  /**
+   * Marqueurs de variante dure détectés dans le titre SOURCE
+   * (« remix », « live », « instrumental », « karaoke », « acoustic »).
+   */
+  hardVariants: string[];
 };
 
 export type SongMatchResult = {
@@ -127,6 +132,45 @@ const splitArtistNames = (raw: string): string[] =>
     .filter(Boolean);
 
 /** Builds the normalized fingerprint of a source query or a candidate. */
+/**
+ * Variantes « dures » : un remix / live / instrumental / karaoke / acoustic
+ * N'EST PAS une correspondance exacte automatique quand la source n'est pas
+ * cette version (point 4 : « Song » vs « Song (Remix) » → pénalité forte).
+ * Remastered/radio edit/extended/officiel/lyrics = versions acceptées (bruit
+ * d'édition géré par canonicalizeFromTitle comme avant).
+ */
+const HARD_VARIANT_RX = /\b(remix|live|instrumental|karaoke|acoustic)\b/giu;
+const HARD_VARIANT_PENALTY = 45;
+
+export const hardVariantsOfTitle = (title: string): string[] => {
+  const normalized = normalizeTitleText(title);
+  const found: string[] = [];
+
+  for (const match of normalized.matchAll(HARD_VARIANT_RX)) {
+    const tag = (match[1] ?? '').toLowerCase();
+    if (tag && !found.includes(tag)) {
+      found.push(tag);
+    }
+  }
+
+  return found;
+};
+
+const hardVariantMismatch = (a: string[], b: string[]): boolean => {
+  if (!a.length && !b.length) {
+    return false;
+  }
+
+  const set = new Set(a);
+  const other = new Set(b);
+
+  // Symmetrical difference non-empty → les deux versions ne racontent pas
+  // la même chose (ex. source studio vs candidate live).
+  return (
+    a.some((tag) => !other.has(tag)) || b.some((tag) => !set.has(tag))
+  );
+};
+
 export const fingerprintOf = (input: {
   title: string;
   artistNames: string[];
@@ -148,6 +192,7 @@ export const fingerprintOf = (input: {
       typeof input.durationSec === 'number' && Number.isFinite(input.durationSec)
         ? Math.max(0, input.durationSec)
         : null,
+    hardVariants: hardVariantsOfTitle(input.title),
   };
 };
 
@@ -334,13 +379,25 @@ export const matchSongs = (
     });
     const exactTitle = candidateFingerprint.title === source.title;
 
-    const score = Math.round(
-      (titleStatus === 'exact' ? 35 : titleStatus === 'partial' ? 18 : 0) +
-        (exactTitle ? 5 : 0) +
-        artistAgreement * 25 +
-        (albumStatus === 'exact' ? 15 : albumStatus === 'partial' ? 7 : 0) +
-        durationConfidence * 20
-    );
+    // Pénalité « variante dure » partagée : remix/live/instrumental/karaoke/
+    // acoustic ne PASSENT PAS automatiquement quand l'autre côté n'est pas
+    // cette version (pénalité forte — elle peut faire repousser le candidat
+    // sous le seuil d'acceptation).
+    const variantPenalty = hardVariantMismatch(
+      source.hardVariants,
+      candidateFingerprint.hardVariants
+    )
+      ? HARD_VARIANT_PENALTY
+      : 0;
+
+    const score =
+      Math.round(
+        (titleStatus === 'exact' ? 35 : titleStatus === 'partial' ? 18 : 0) +
+          (exactTitle ? 5 : 0) +
+          artistAgreement * 25 +
+          (albumStatus === 'exact' ? 15 : albumStatus === 'partial' ? 7 : 0) +
+          durationConfidence * 20
+      ) - variantPenalty;
 
     // Keep a running best; hard gates are the same as acceptScore + a title
     // agreement floor so two remixes can't outrank an exact original.
@@ -398,10 +455,14 @@ export const findBestAudiusMatch = async (
     }
   };
 
+  // Artiste + titre d'abord : le titre seul noie la recherche dans les
+  // homonymes (point 3 du plan — « The Weeknd Blinding Lights »).
+  pushAttempt(
+    primary ? `${primary} ${stripFeatureSuffix(query.title).trim()}` : null
+  );
   pushAttempt(
     `${stripFeatureSuffix(query.title).trim()} ${primary ?? ''}`.trim() || null
   );
-  pushAttempt(primary ? `${query.title.trim()} ${primary}` : query.title.trim());
   pushAttempt(query.title.trim() || null);
 
   let allCandidates: AudiusTrackMatch[] = [];

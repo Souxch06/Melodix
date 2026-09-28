@@ -3,13 +3,16 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   DEFAULT_AUDIO_PROVIDER_ID,
   getAudioProvider,
+  getAudioProviders,
   MATCH_CACHE_STORAGE_KEY,
+  resolveWithProviders,
 } from './audio';
 import type { AudioProvider, ResolvedStream, TrackSource } from './audio';
 import { recordPlay } from './history/playHistory';
 import {
   loadMatchCache,
   persistMatchCache,
+  removeMatchCacheEntry,
   writeMatchCacheEntry,
 } from './audio/matchCache';
 import type { MatchCache } from './audio/matchCache';
@@ -18,12 +21,13 @@ import type { MatchCache } from './audio/matchCache';
  * Melodix player engine.
  *
  * Queues mixes tracks from different sources: a track described by Spotify
- * metadata carries `{ provider: null }` and is MATCHED to the default audio
- * provider (Audius) at play time; a track already attached to a provider id
- * is streamed directly. When a track has no reliable match — or its stream
- * fails — the player reports a notice, marks the track as failed for this
- * session and skips to the next playable one. It never substitutes a wrong
- * track.
+ * metadata carries `{ provider: null }` and is MATCHED by the cascade —
+ * Audius d'abord, YouTube en fallback (services/audio/trackResolver.ts) —
+ * then streamed via the matched provider; a track already attached to a
+ * provider id ('audius:xyz' / 'youtube:abc') is streamed directly by that
+ * provider. When a track has no reliable match — or its stream fails — the
+ * player reports a notice, marks the track as failed for this session and
+ * SKIPS to the next playable one. It never substitutes a wrong track.
  */
 
 export type PlayerTrack = {
@@ -304,20 +308,18 @@ class MelodixPlayer {
   private resolveTrack = async (
     track: PlayerTrack
   ): Promise<{ provider: AudioProvider; resolved: ResolvedStream; info: ResolverInfo } | null> => {
-    const provider = getAudioProvider(
-      track.source.provider ?? DEFAULT_AUDIO_PROVIDER_ID
-    );
-
-    // Native provider track: stream directly, no matching involved.
+    // Native provider track (ex. 'audius:xyz' ou 'youtube:abc') : lecture
+    // directe via SON provider, sans matching — comportement inchangé.
     if (track.source.provider) {
-      const resolved = await provider.resolveSource(track.source.id);
+      const nativeProvider = getAudioProvider(track.source.provider);
+      const resolved = await nativeProvider.resolveSource(track.source.id);
 
       return resolved
         ? {
-            provider,
+            provider: nativeProvider,
             resolved,
             info: {
-              provider: provider.displayName,
+              provider: nativeProvider.displayName,
               sourceId: track.source.id,
               score: 1,
             },
@@ -325,37 +327,45 @@ class MelodixPlayer {
         : null;
     }
 
-    // Metadata-only track: check the decision cache first.
+    // Métadonnées seules : cascade Audius → YouTube. Le cache v2 mémorise
+    // AUSSI le provider retenu (jamais de re-recherche sans nécessité).
     const cache = await this.ensureCache();
     const cached = cache[track.id];
+    let providerId: string | null = null;
     let matchId: string | null = null;
     let score = 0;
 
     if (cached) {
       if (cached.matchId === null) {
-        return null; // Known negative: never searched again pointlessly.
+        return null; // Négatif connu : ni Audius ni YouTube — jamais refait.
       }
 
+      providerId = cached.providerId ?? DEFAULT_AUDIO_PROVIDER_ID;
       matchId = cached.matchId;
       score = cached.score;
     } else {
-      const match = await provider.resolveMatch({
-        title: track.title,
-        artists: track.artists,
-        album: track.album ?? null,
-        durationMillis: track.durationMillis ?? null,
-      });
+      const match = await resolveWithProviders(
+        {
+          title: track.title,
+          artists: track.artists,
+          album: track.album ?? null,
+          durationMillis: track.durationMillis ?? null,
+        },
+        getAudioProviders()
+      );
 
+      providerId = match?.provider.id ?? null;
       matchId = match?.sourceId ?? null;
       score = Math.round((match?.score ?? 0) * 100);
-      writeMatchCacheEntry(cache, track.source, matchId, score);
+      writeMatchCacheEntry(cache, track.source, providerId, matchId, score);
       void persistMatchCache(cache);
     }
 
-    if (!matchId) {
+    if (!matchId || !providerId) {
       return null;
     }
 
+    const provider = getAudioProvider(providerId);
     const resolved = await provider.resolveSource(matchId);
 
     if (resolved) {
@@ -366,33 +376,43 @@ class MelodixPlayer {
       };
     }
 
-    // Cached match whose stream is dead: drop the entry and re-search once.
+    // Flux du match mis en cache mort : on purge et on relance la cascade.
     if (cached) {
-      delete cache[track.id];
+      removeMatchCacheEntry(cache, track.id);
       void persistMatchCache(cache);
 
-      const match = await provider.resolveMatch({
-        title: track.title,
-        artists: track.artists,
-        album: track.album ?? null,
-        durationMillis: track.durationMillis ?? null,
-      });
+      const match = await resolveWithProviders(
+        {
+          title: track.title,
+          artists: track.artists,
+          album: track.album ?? null,
+          durationMillis: track.durationMillis ?? null,
+        },
+        getAudioProviders()
+      );
 
-      writeMatchCacheEntry(cache, track.source, match?.sourceId ?? null, Math.round((match?.score ?? 0) * 100));
+      writeMatchCacheEntry(
+        cache,
+        track.source,
+        match?.provider.id ?? null,
+        match?.sourceId ?? null,
+        Math.round((match?.score ?? 0) * 100)
+      );
       void persistMatchCache(cache);
 
       if (!match) {
         return null;
       }
 
-      const retry = await provider.resolveSource(match.sourceId);
+      const retryProvider = match.provider;
+      const retry = await retryProvider.resolveSource(match.sourceId);
 
       return retry
         ? {
-            provider,
+            provider: retryProvider,
             resolved: retry,
             info: {
-              provider: provider.displayName,
+              provider: retryProvider.displayName,
               sourceId: match.sourceId,
               score: Math.round(match.score * 100),
             },

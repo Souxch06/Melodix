@@ -109,3 +109,14 @@ export const EN_GB_LOGIN = {
   accountSpotifySection: 'Spotify account',
   accountSignOut: 'Sign out',
 };
+
+// Playlists: dynamic availability stat, provider badges, unavailable notice.
+export const EN_GB_PLAYLIST = {
+  playlistAvailabilityInfo: (available: number, total: number) =>
+    `${available}/${total} tracks available`,
+  trackUnavailableNotice:
+    'This track is unavailable on the current playback sources.',
+  providerAudius: 'Audius',
+  providerYouTube: 'YouTube',
+  providerUnavailable: 'Unavailable',
+};

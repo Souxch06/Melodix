@@ -1,4 +1,5 @@
 import * as React from 'react';
+import { Alert } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Preview } from '@components';
 
@@ -6,6 +7,8 @@ import { PlaylistModel, TrackModel } from '@models';
 import { checkSavedTracks, getPlaylist, getPlaylistItems } from '@api';
 import { toggleSavedTrack, SpotifyApiError } from '@services';
 import { useUserData } from '@context';
+import { usePlaylistResolutions } from '@hooks';
+import { translations } from '@data';
 
 export type AlbumScreenPropsType = {
   playlistId: string;
@@ -154,6 +157,48 @@ export const PlaylistScreen = ({ playlistId }: AlbumScreenPropsType) => {
     []
   );
 
+  // Résolution progressive Audius → YouTube (≤ 5 simultanées, cache partagé).
+  const resolutions = usePlaylistResolutions(tracks);
+
+  const availabilityById = React.useMemo(() => {
+    const map: Record<
+      string,
+      'audius' | 'youtube' | 'none' | 'pending' | 'resolving'
+    > = {};
+
+    for (const track of tracks) {
+      const entry = resolutions.byTrackId[track.id];
+      map[track.id] =
+        entry?.status === 'resolved'
+          ? entry.providerId
+          : entry?.status === 'none'
+            ? 'none'
+            : entry?.status ?? 'pending';
+    }
+
+    return map;
+  }, [tracks, resolutions.byTrackId]);
+
+  const summaryAvailability = React.useMemo(() => {
+    const { available, total } = resolutions.stats;
+    return total > 0
+      ? translations.playlistAvailabilityInfo(available, total)
+      : '';
+  }, [resolutions.stats]);
+
+  const summaryDescription = React.useMemo(
+    () => (playlist ? playlist.description ?? '' : ''),
+    [playlist]
+  );
+
+  // Tap sur un morceau indisponible : message précis, JAMAIS de crash, la
+  // ligne reste affichée (elle appartient à la playlist Spotify).
+  const handleUnavailableTrackPress = React.useCallback((track: TrackModel) => {
+    Alert.alert(track.title, translations.trackUnavailableNotice, [
+      { text: 'OK' },
+    ]);
+  }, []);
+
   return (
     <Preview
       type="playlist"
@@ -164,6 +209,10 @@ export const PlaylistScreen = ({ playlistId }: AlbumScreenPropsType) => {
       summaryTitle={title}
       summarySubtitle={subtitle}
       summaryInfo={info}
+      summaryDescription={summaryDescription}
+      summaryAvailability={summaryAvailability}
+      availabilityById={availabilityById}
+      onUnavailableTrackPress={handleUnavailableTrackPress}
       tracks={tracks}
       fetchTracks={fetchTracks}
       onToggleTrackSaved={handleToggleTrackSaved}

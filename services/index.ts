@@ -39,12 +39,20 @@ export type {
   TrackSource,
 } from './audio';
 export {
+  clearMatchCacheStorage,
+  getAudioProviders,
   loadMatchCache,
   MATCH_CACHE_STORAGE_KEY,
   MATCH_CACHE_TTL_MS,
+  MATCH_CACHE_VERSION,
   persistMatchCache,
+  removeMatchCacheEntry,
+  resolveWithProviders,
+  ResolveQueue,
+  RESOLVE_QUEUE_CONCURRENCY,
   writeMatchCacheEntry,
 } from './audio';
+export type { ProviderChainResult, ResolvedTrack } from './audio';
 
 export {
   clearPlayHistory,

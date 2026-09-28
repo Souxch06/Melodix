@@ -107,6 +107,24 @@ export const styles = StyleSheet.create({
     lineHeight: 14,
     minHeight: 14,
   },
+  availabilityBadge: {
+    fontFamily: 'SF-Regular',
+    fontSize: 11,
+    lineHeight: 12,
+    marginTop: 2,
+  },
+  availabilityBadgeAudius: {
+    color: COLORS.TINT,
+  },
+  availabilityBadgeYouTube: {
+    color: '#3ea6ff',
+  },
+  availabilityBadgeNone: {
+    color: '#e8a33d',
+  },
+  textUnavailable: {
+    color: COLORS.GREY,
+  },
 
   likePressable: {
     marginHorizontal: 15,

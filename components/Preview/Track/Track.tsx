@@ -9,6 +9,7 @@ import { FontAwesome5 } from '@expo/vector-icons';
 
 import { useApplicationDimensions } from '@hooks';
 import { explicit_SIGN, TRACK_COVER_SIZE } from '@config';
+import { translations } from '@data';
 import { getFallbackImage } from '@utils';
 
 import { styles } from './styles';
@@ -23,6 +24,11 @@ export type TrackPropsType = {
   isPlaying: boolean;
   explicit: boolean;
   forceDisableSaveIcon?: boolean;
+  /**
+   * État de résolution (playlist) : badge discret — 🟢 Audius / 🔵 YouTube /
+   * ⚠️ Indisponible. undefined → rendu identique à avant (partout ailleurs).
+   */
+  availability?: 'audius' | 'youtube' | 'none' | 'pending' | 'resolving';
   // Starts playback of this row (Spotify metadata matched to an Audius
   // stream). Undefined → the row renders inert exactly as before.
   onPress?: () => void;
@@ -43,6 +49,7 @@ export const Track = ({
   isPlaying,
   explicit,
   forceDisableSaveIcon,
+  availability,
   onPress,
   onToggleSaved,
 }: TrackPropsType) => {
@@ -51,6 +58,7 @@ export const Track = ({
   const isPlaylist = type === 'playlist';
 
   const Container = onPress ? Pressable : View;
+  const unavailable = availability === 'none';
 
   return (
     <Container
@@ -84,6 +92,7 @@ export const Track = ({
               styles.nameText,
               { maxWidth },
               isPlaying ? styles.nameTextActive : {},
+              unavailable ? styles.textUnavailable : {},
             ]}
           >
             {title}
@@ -108,6 +117,29 @@ export const Track = ({
             {subtitle}
           </Text>
         </View>
+
+        {/* État discret de résolution : provider gagnant ou indisponible.
+            Rien pendant la recherche : l'écran reste calme. */}
+        {availability === 'audius' || availability === 'youtube' || unavailable ? (
+          <Text
+            numberOfLines={1}
+            style={[
+              styles.availabilityBadge,
+              availability === 'audius'
+                ? styles.availabilityBadgeAudius
+                : availability === 'youtube'
+                  ? styles.availabilityBadgeYouTube
+                  : styles.availabilityBadgeNone,
+            ]}
+            testID={`track-availability-${availability}`}
+          >
+            {availability === 'audius'
+              ? `● ${translations.providerAudius}`
+              : availability === 'youtube'
+                ? `● ${translations.providerYouTube}`
+                : `⚠ ${translations.providerUnavailable}`}
+          </Text>
+        ) : null}
       </View>
 
       {onToggleSaved && !forceDisableSaveIcon ? (

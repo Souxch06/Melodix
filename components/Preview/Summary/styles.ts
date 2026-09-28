@@ -97,4 +97,17 @@ export const styles = StyleSheet.create({
     fontSize: 20,
     color: COLORS.LIGHT_GREY,
   },
+  descriptionText: {
+    color: COLORS.GREY,
+    fontFamily: 'SF-Regular',
+    fontSize: 13,
+    lineHeight: 19,
+    marginTop: 4,
+  },
+  availabilityInfo: {
+    color: COLORS.TINT,
+    fontFamily: 'SF-Regular',
+    fontSize: 13,
+    marginTop: 4,
+  },
 });

@@ -28,9 +28,9 @@ export const createAudiusAudioProvider = (): AudioProvider => {
     displayName: 'Audius',
 
     matches: async (query: AudioSourceQuery): Promise<AudioProviderMatch[]> => {
-      const primary = query.artists[0];
+      const artists = query.artists.filter(Boolean).join(' ');
       const results = await searchAudiusTracks(
-        `${query.title} ${primary ?? ''}`.trim(),
+        `${artists} ${query.title}`.replace(/\s{2,}/g, ' ').trim(),
         10
       ).catch(() => []);
 
