@@ -19,8 +19,9 @@ export const Artists = ({ artists }: ArtistsPropsType) => {
     | '(tabs)/library';
 
   const handlePress = React.useCallback(
-    (albumId: string) => {
-      router.push(`/${pathname}/album/${albumId}`);
+    (artistId: string) => {
+      // Page artiste du même onglet (la route album a été un long bug).
+      router.push(`/${pathname}/artist/${artistId}`);
     },
     [router, pathname]
   );
@@ -37,16 +38,18 @@ export const Artists = ({ artists }: ArtistsPropsType) => {
   return artists.map(({ id, imageURL, name }) => (
     <Pressable
       style={styles.link}
-      onPress={() => handlePress(`/artists/${id}`)}
+      onPress={() => handlePress(id)}
       key={id}
       testID={`artist-link-${id}`}
     >
       <View style={styles.container}>
         <View style={styles.imageView}>
-          <Image style={styles.image} source={{ uri: imageURL }} />
+          <Image testID="artist-image" style={styles.image} source={{ uri: imageURL }} />
         </View>
         <View>
-          <Text style={styles.text}>{name}</Text>
+          <Text testID="artist-name" style={styles.text}>
+            {name}
+          </Text>
         </View>
       </View>
     </Pressable>

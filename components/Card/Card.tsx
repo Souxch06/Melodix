@@ -10,12 +10,16 @@ import { styling } from './styles';
 
 export type CardPropsType = {
   id: string;
-  type: 'playlist' | 'album' | 'artist' | 'show' | 'episode';
+  // 'track' only appears in guest (Audius) mode: with an `onPress` handler it
+  // plays the track; without one the card is inert (no route for tracks).
+  type: 'playlist' | 'album' | 'artist' | 'show' | 'episode' | 'track';
   imageURL?: string;
   title?: string;
   subtitle?: string;
   size?: Sizes;
   shape?: Shapes;
+  // Overrides navigation entirely (e.g. playable Audius cards).
+  onPress?: () => void;
 };
 
 const Card = React.memo(
@@ -27,6 +31,7 @@ const Card = React.memo(
     imageURL,
     size = Sizes.BIG,
     shape = Shapes.SQUARE,
+    onPress,
   }: CardPropsType) => {
     const router = useRouter();
     const styles = styling(size, shape);
@@ -37,9 +42,18 @@ const Card = React.memo(
 
     const handlePress = React.useCallback(
       (typeID: string) => {
+        if (onPress) {
+          onPress();
+          return;
+        }
+
+        if (type === 'track' || !typeID) {
+          return;
+        }
+
         router.push(`/${pathname}/${type}/${typeID}`);
       },
-      [router, type, pathname]
+      [router, type, pathname, onPress]
     );
 
     const renderIcon = React.useCallback(() => {
@@ -50,6 +64,7 @@ const Card = React.memo(
           );
         case 'album':
         case 'playlist':
+        case 'track':
           return <Foundation name="music" size={size} color={COLORS.GREY} />;
         case 'show':
         case 'episode':

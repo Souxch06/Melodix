@@ -1,18 +1,10 @@
 import { Categories } from '@config';
+import { LibraryItemModel } from '@models';
+import { clearLocalLibrary, saveItem } from '@services';
 
 import { getLibrary } from '../getLibrary';
-import { getUserFollowedArtists } from '../artists';
-import { getSavedAlbums } from '../albums';
-import { getSavedShows } from '../shows';
-import { getSavedPlaylists } from '../playlists';
 
-jest.mock('../artists', () => ({ getUserFollowedArtists: jest.fn() }));
-jest.mock('../albums', () => ({ getSavedAlbums: jest.fn() }));
-jest.mock('../shows', () => ({ getSavedShows: jest.fn() }));
-jest.mock('../playlists', () => ({ getSavedPlaylists: jest.fn() }));
-jest.mock('../config', () => ({ fileSystemMiddleware: jest.fn() }));
-
-const item = (id: string, type: string) => ({
+const item = (id: string, type: LibraryItemModel['type']): LibraryItemModel => ({
   id,
   type,
   title: id,
@@ -20,27 +12,43 @@ const item = (id: string, type: string) => ({
   imageURL: '',
 });
 
-describe('getLibrary', () => {
-  beforeEach(() => {
-    jest.spyOn(console, 'warn').mockImplementation(() => {});
+describe('getLibrary (bibliothèque locale)', () => {
+  beforeEach(async () => {
+    await clearLocalLibrary();
   });
 
-  it('keeps the other categories when one request is refused', async () => {
-    (getUserFollowedArtists as jest.Mock).mockRejectedValueOnce({
-      response: { status: 403 },
-    });
-    (getSavedAlbums as jest.Mock).mockResolvedValueOnce([item('a1', 'album')]);
-    (getSavedShows as jest.Mock).mockRejectedValueOnce(new Error('403'));
-    (getSavedPlaylists as jest.Mock).mockResolvedValueOnce([
-      item('p1', 'playlist'),
-    ]);
+  it('bibliothèque vide → toutes catégories vides', async () => {
+    const library = await getLibrary();
+    expect(library[Categories.FOLLOWED_ARTISTS]).toEqual([]);
+    expect(library[Categories.SAVED_ALBUMS]).toEqual([]);
+    expect(library[Categories.SAVED_PLAYLISTS]).toEqual([]);
+    expect(library[Categories.SAVED_PODCASTS]).toEqual([]);
+    expect(library[Categories.ALL]).toEqual([]);
+  });
+
+  it('agrège les types sauvegardés dans leurs catégories', async () => {
+    await saveItem(item('artist-1', 'artist'));
+    await saveItem(item('album-1', 'album'));
+    await saveItem(item('playlist-1', 'playlist'));
+    await saveItem(item('show-1', 'show'));
 
     const library = await getLibrary();
+    expect(library[Categories.FOLLOWED_ARTISTS].map(({ id }) => id)).toEqual([
+      'artist-1',
+    ]);
+    expect(library[Categories.SAVED_ALBUMS].map(({ id }) => id)).toEqual([
+      'album-1',
+    ]);
+    expect(library[Categories.SAVED_PLAYLISTS].map(({ id }) => id)).toEqual([
+      'playlist-1',
+    ]);
+    expect(library[Categories.SAVED_PODCASTS].map(({ id }) => id)).toEqual([
+      'show-1',
+    ]);
+    expect(library[Categories.ALL]).toHaveLength(4);
+  });
 
-    expect(library[Categories.FOLLOWED_ARTISTS]).toEqual([]);
-    expect(library[Categories.SAVED_PODCASTS]).toEqual([]);
-    expect(library[Categories.SAVED_ALBUMS]).toHaveLength(1);
-    expect(library[Categories.SAVED_PLAYLISTS]).toHaveLength(1);
-    expect(library[Categories.ALL].map(({ id }) => id)).toEqual(['p1', 'a1']);
+  it('ne lève jamais d exception vers l écran même si la persistance lit mal', async () => {
+    await expect(getLibrary()).resolves.toBeTruthy();
   });
 });

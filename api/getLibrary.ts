@@ -1,11 +1,6 @@
-import { getUserFollowedArtists } from './artists';
-import { getSavedAlbums } from './albums';
-import { getSavedShows } from './shows';
-import { getSavedPlaylists } from './playlists';
-
-import { fileSystemMiddleware } from './config';
 import { LibraryItemModel } from '@models';
 import { Categories } from '@config';
+import { listSavedItems } from '@services';
 
 export type LibraryType = {
   [Categories.FOLLOWED_ARTISTS]: LibraryItemModel[];
@@ -16,27 +11,17 @@ export type LibraryType = {
   [Categories.ALL]: LibraryItemModel[];
 };
 
-// One refused request (e.g. a permission the token doesn't have) must not
-// empty the whole library: that category is simply left empty.
-const orEmpty = async (
-  label: string,
-  request: () => Promise<LibraryItemModel[]>
-): Promise<LibraryItemModel[]> => {
-  try {
-    return await request();
-  } catch (error) {
-    console.warn(`Library: ${label} unavailable`, error);
-    return [];
-  }
-};
-
+/**
+ * Bibliothèque = contenu de la bibliothèque LOCALE de l'utilisateur.
+ * Aucune requête distante, aucun compte : tout vient d'AsyncStorage.
+ */
 export const getLibrary = async (): Promise<LibraryType> => {
   const [followedArtists, savedAlbums, savedShows, savedPlaylists] =
     await Promise.all([
-      orEmpty('followed artists', () => getUserFollowedArtists()),
-      orEmpty('saved albums', () => getSavedAlbums()),
-      orEmpty('saved shows', () => getSavedShows()),
-      orEmpty('saved playlists', () => getSavedPlaylists()),
+      listSavedItems('artist'),
+      listSavedItems('album'),
+      listSavedItems('show'),
+      listSavedItems('playlist'),
     ]);
 
   return {
@@ -44,7 +29,7 @@ export const getLibrary = async (): Promise<LibraryType> => {
     [Categories.SAVED_ALBUMS]: savedAlbums,
     [Categories.SAVED_PODCASTS]: savedShows,
     [Categories.SAVED_PLAYLISTS]: savedPlaylists,
-    [Categories.DOWNLOADED]: savedShows,
+    [Categories.DOWNLOADED]: [],
     [Categories.ALL]: [
       ...savedPlaylists,
       ...followedArtists,
@@ -53,7 +38,3 @@ export const getLibrary = async (): Promise<LibraryType> => {
     ],
   };
 };
-
-// eslint-disable-next-line
-const getLibraryFromFileSystem = async () =>
-  await fileSystemMiddleware<LibraryType>('user_library', getLibrary);

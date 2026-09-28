@@ -1,25 +1,29 @@
 import { LibraryItemModel } from '@models';
-import { getRecommendations } from './getRecommendations';
-import { getUserTopArtists } from '../artists';
 
+import { getUserTopArtists } from '../artists';
+import { getRecommendations } from './getRecommendations';
+
+/**
+ * Variante « après écoute » : recommandations autour de l'artiste le plus
+ * écouté localement. Historique vide → section vide (l'écran d'accueil la
+ * masque via son état de chargement).
+ */
 export const getRecommendationsFromTopArtistSeed = async (): Promise<{
   recommendations: LibraryItemModel[];
   artist: LibraryItemModel;
-}> => {
+} | null> => {
   try {
-    const topArtistAndTopGenres = await getUserTopArtists();
-    const artist = topArtistAndTopGenres[0];
-    const artistSeed = artist.id;
-
+    const topArtists = await getUserTopArtists();
+    if (topArtists.length === 0) {
+      return null;
+    }
+    const artist = topArtists[0];
     return {
-      recommendations: await getRecommendations({ artistSeed }),
+      recommendations: await getRecommendations({ artistSeed: artist.id }),
       artist,
     };
   } catch (error) {
-    console.error(
-      `Error when fetching recommended tracks from top artist seeds`,
-      error
-    );
-    throw error;
+    console.error('Erreur de recommandations (top artiste local)', error);
+    return null;
   }
 };

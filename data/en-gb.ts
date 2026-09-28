@@ -44,20 +44,6 @@ export const EN_GB = {
   basedOnYourTopTracks: 'Based on your Top Tracks',
   afterListening: (key: string) => `After listening ${key}`,
   recommendations: 'Recommendations',
-  loginWelcome: 'Your music. \n Your universe.',
-  loginButton: 'Sign in with Spotify',
-  loginButtonLoading: 'Signing in…',
-  loginNote: "NOTE: You won't be sharing your credentials",
-  loginError:
-    'Sign-in failed. Check your Client ID and the redirect URI of your Spotify app.',
-  changeClientId: 'Use another Spotify Client ID',
-  clientIdTitle: 'Connect your Spotify app',
-  clientIdDescription:
-    'Melodix signs in through your own Spotify developer app. Create one at developer.spotify.com, then paste its Client ID below.',
-  clientIdPlaceholder: 'Spotify Client ID',
-  clientIdInvalid: 'A Spotify Client ID is made of 32 letters and digits.',
-  clientIdSave: 'Continue',
-  redirectUriLabel: 'Redirect URI to add in your Spotify app:',
   songs: 'Songs',
   searchPlaceholder: 'Artists, songs, albums, playlists',
   searchHint: 'Search the Spotify catalogue.',
@@ -65,4 +51,20 @@ export const EN_GB = {
   searchError: 'Search is unavailable right now. Please try again.',
   browseAll: 'Browse all',
   featuredPlaylists: 'Popular Playlists',
+
+  // Découverte Audius (catalogue libre) : aucun login n'existe dans
+  // Melodix 3.0 ; les libellés profil/lecteur sont en français (fr-fr.ts).
+  trendingTracks: 'Trending tracks',
+  trendingPlaylists: 'Trending playlists',
+  trendingAlbums: 'Trending albums',
+  audiusUnknownArtist: 'Unknown artist',
+  guestHomeHint:
+    'Guest mode: the free Audius catalog, no account needed. Tap any track to listen — open the search tab to explore it all.',
+  playerPlay: 'Play',
+  playerPause: 'Pause',
+  playerNext: 'Next track',
+  playerStop: 'Close the player',
+  playerLoading: 'Loading…',
+  playerError: 'Playback failed. Try another track.',
+  playerUnavailable: 'Audio playback is unavailable on this device.',
 };

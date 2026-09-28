@@ -1,34 +1,55 @@
-import axios from 'axios';
-
 import { SearchResultsModel } from '@models';
-import { SearchResponseType } from '@config';
-import { parseSearchResults } from '@utils';
+import { isBackendConfigured } from '@services';
 
-import { BASE_URL, getSessionlessToken } from '../config';
+import { audiusTrackToLibraryItem, searchAudiusTracks } from '../audius';
+import { backendSearchCatalog } from '../backend';
 
-// Since the February 2026 Web API update, `limit` is capped at 10 per type.
 export const SEARCH_LIMIT = 10;
 
+const emptyResults = (): SearchResultsModel => ({
+  artists: [],
+  tracks: [],
+  albums: [],
+  playlists: [],
+});
+
+/**
+ * Recherche catalogue Melodix.
+ *
+ * - Backend configuré ET joignable → métadonnées Spotify (catalogue complet,
+ *   sans aucun compte pour l'utilisateur).
+ * - Backend absent/joignable mal → REPLI Audius (catalogue audio direct,
+ *   sans compte non plus) : la recherche ne casse jamais l'application.
+ */
 export const searchCatalog = async (
   query: string
 ): Promise<SearchResultsModel> => {
   const q = query.trim();
-
   if (!q) {
-    return { artists: [], tracks: [], albums: [], playlists: [] };
+    return emptyResults();
+  }
+
+  if (isBackendConfigured()) {
+    try {
+      return await backendSearchCatalog(q, SEARCH_LIMIT);
+    } catch (error) {
+      console.warn(
+        'Backend Melodix injoignable, la recherche bascule sur Audius',
+        error
+      );
+    }
   }
 
   try {
-    const { token } = await getSessionlessToken();
-
-    const response = await axios.get<SearchResponseType>(`${BASE_URL}/search`, {
-      params: { q, type: 'artist,track,album,playlist', limit: SEARCH_LIMIT },
-      headers: { Authorization: `Bearer ${token}` },
-    });
-
-    return parseSearchResults(response.data);
+    const tracks = await searchAudiusTracks(q, SEARCH_LIMIT);
+    return {
+      artists: [],
+      tracks: tracks.map(audiusTrackToLibraryItem),
+      albums: [],
+      playlists: [],
+    };
   } catch (error) {
-    console.error(`Error while searching with a query: ${q}`, error);
-    throw error;
+    console.error(`Erreur de recherche Audius pour : ${q}`, error);
+    return emptyResults();
   }
 };

@@ -18,12 +18,18 @@ export type AnimatedPressablePropsType = {
   defaultIcon: IconType;
   activeIcon: IconType;
   isActive: boolean;
+  /**
+   * Action persistante éventuelle (ex. favori local). Sans onPress, le
+   * composant reste purement ornemental comme avant.
+   */
+  onPress?: () => void;
 };
 
 export const AnimatedPressable = ({
   defaultIcon,
   activeIcon,
   isActive,
+  onPress,
 }: AnimatedPressablePropsType) => {
   const progress = useSharedValue(Number(isActive));
 
@@ -39,6 +45,7 @@ export const AnimatedPressable = ({
       duration: 400,
       easing: Easing.elastic(2),
     });
+    onPress?.();
   };
 
   const animatedPressableStyles = useAnimatedStyle(

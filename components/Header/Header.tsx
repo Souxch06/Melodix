@@ -8,10 +8,10 @@ import * as Icons from '@expo/vector-icons';
 
 import { LibraryRelated } from './LibraryRelated';
 
-import { getStoredSession } from '@api';
 import { useUserData } from '@context';
 import { HEADER_CATEGORIES_HEIGHT, HEADER_HEIGHT, Pages } from '@config';
 import { translations } from '@data';
+import { clearPlayHistory } from '@services';
 
 import { styles } from './styles';
 
@@ -19,40 +19,27 @@ export type HeaderPropsType = {
   tab: Pages;
 };
 
-// 14h05
-const formatTime = (timestamp: number) => {
-  const date = new Date(timestamp);
-
-  return `${date.getHours()}h${String(date.getMinutes()).padStart(2, '0')}`;
-};
-
 export const Header = ({ tab }: HeaderPropsType) => {
   const { top: statusBarOffset } = useSafeAreaInsets();
-  const { userData, signOut } = useUserData();
+  const { userData } = useUserData();
 
-  // Account menu: who is signed in, until when a pasted token is valid, and
-  // a way to sign out (to paste a new token or switch to a Client ID).
-  const handleProfilePress = async () => {
-    const session = await getStoredSession();
-    const details: string[] = [];
-
-    if (userData.displayName) {
-      details.push(translations.accountSignedInAs(userData.displayName));
-    }
-
-    if (session?.mode === 'token' && session.expiresAt) {
-      details.push(
-        translations.accountTokenValidUntil(formatTime(session.expiresAt))
-      );
-    }
-
-    Alert.alert(translations.accountTitle, details.join('\n') || undefined, [
+  // Menu profil local : aucune session/compte — informations sur le stockage
+  // local et gestion des données de l'appareil (historique d'écoute).
+  const handleProfilePress = () => {
+    Alert.alert(translations.accountTitle, translations.accountLocalInfo, [
       { text: translations.accountCancel, style: 'cancel' },
       {
-        text: translations.accountSignOut,
+        text: translations.accountClearHistory,
         style: 'destructive',
         onPress: () => {
-          signOut();
+          clearPlayHistory()
+            .then(() =>
+              Alert.alert(
+                translations.accountTitle,
+                translations.accountHistoryCleared
+              )
+            )
+            .catch(() => undefined);
         },
       },
     ]);

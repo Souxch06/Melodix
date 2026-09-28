@@ -1,32 +1,33 @@
 import * as React from 'react';
 import { Redirect } from 'expo-router';
 
-import { getSessionToken } from '@api';
+import { runAccountlessMigration } from '@services';
 
+/**
+ * Point d'entrée : Melodix 3.0 n'a PLUS de gate de connexion.
+ * On joue la migration des données existantes (favoris invité → bibliothèque
+ * locale, purge des anciens stores de session), puis on entre directement
+ * dans l'application.
+ */
 export default function App() {
-  const [isLoading, setIsLoading] = React.useState(true);
-  const [token, setToken] = React.useState<string | null>(null);
+  const [isReady, setIsReady] = React.useState(false);
 
   React.useEffect(() => {
     (async () => {
       try {
-        const storedToken = await getSessionToken();
-        setToken(storedToken);
+        await runAccountlessMigration();
       } catch (error) {
-        console.error(error);
+        // La migration ne doit JAMAIS bloquer le démarrage (voir service).
+        console.warn('Migration de démarrage interrompue', error);
       } finally {
-        setIsLoading(false);
+        setIsReady(true);
       }
     })();
-  }, [token]);
+  }, []);
 
-  if (isLoading) {
+  if (!isReady) {
     return null;
   }
 
-  if (token) {
-    return <Redirect href={{ pathname: '/home', params: {} }} />;
-  }
-
-  return <Redirect href={{ pathname: '/login', params: {} }} />;
+  return <Redirect href={{ pathname: '/home', params: {} }} />;
 }

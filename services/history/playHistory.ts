@@ -1,0 +1,188 @@
+/**
+ * Historique de lecture LOCAL (AsyncStorage), sans aucun compte.
+ *
+ * Melodix 3.0 : les sections personnelles (Écoutés récemment, Vos titres
+ * préférés, artistes en tête, recommandations) s'appuient sur CETTE donnée
+ * — rien n'est envoyé ailleurs que sur l'appareil.
+ *
+ * Garanties : borne MAX_HISTORY (téléphone ne gonfle jamais), déduplication
+ * par identifiant source (le morceau remonte en tête), lecture tolérante aux
+ * données corrompues (repart de zéro plutôt que crash).
+ */
+
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
+import { TrackModel } from '@models';
+
+export const PLAY_HISTORY_STORAGE_KEY = '@melodix/play-history';
+
+export const MAX_HISTORY = 100;
+
+export type PlayHistoryEntry = {
+  /** Snapshot du morceau tel qu'affiché à la lecture. */
+  track: TrackModel;
+  /** Album d'origine si connu (renseigné par les écrans album/playlist). */
+  albumTitle?: string;
+  playedAt: number;
+};
+
+type PersistedHistory = {
+  entries: PlayHistoryEntry[];
+};
+
+const readEntries = async (): Promise<PlayHistoryEntry[]> => {
+  try {
+    const raw = await AsyncStorage.getItem(PLAY_HISTORY_STORAGE_KEY);
+    if (!raw) {
+      return [];
+    }
+    const parsed = JSON.parse(raw) as PersistedHistory;
+    return Array.isArray(parsed?.entries)
+      ? parsed.entries.filter(
+          (entry): entry is PlayHistoryEntry =>
+            Boolean(entry && entry.track && typeof entry.track.id === 'string')
+        )
+      : [];
+  } catch {
+    return [];
+  }
+};
+
+const writeEntries = async (entries: PlayHistoryEntry[]): Promise<void> => {
+  await AsyncStorage.setItem(
+    PLAY_HISTORY_STORAGE_KEY,
+    JSON.stringify({ entries } satisfies PersistedHistory)
+  );
+};
+
+/**
+ * Enregistre une lecture (idempotent : un même morceau rejoué remonte en
+ * tête sans se dupliquer).
+ */
+export const recordPlay = async (
+  track: TrackModel,
+  meta: { albumTitle?: string } = {}
+): Promise<void> => {
+  if (!track?.id) {
+    return;
+  }
+  const entries = await readEntries();
+  const remaining = entries.filter((entry) => entry.track.id !== track.id);
+  remaining.unshift({
+    track: { ...track, isPlaying: false },
+    albumTitle: meta.albumTitle,
+    playedAt: Date.now(),
+  });
+  await writeEntries(remaining.slice(0, MAX_HISTORY));
+};
+
+/**
+ * Dernières lectures, les plus récentes d'abord.
+ */
+export const getRecentlyPlayedTracks = async (
+  limit = 20
+): Promise<PlayHistoryEntry[]> => (await readEntries()).slice(0, limit);
+
+/**
+ * Dédupliqué par id source Audius quand elle est connue (deux sources
+ * de métadonnées différentes du même morceau Audius = une entrée).
+ */
+export const getRecentlyPlayedAlbumLike = async (
+  limit = 8
+): Promise<{ id: string; title: string; subtitle: string; imageURL?: string }[]> => {
+  const seen = new Set<string>();
+  const result: { id: string; title: string; subtitle: string; imageURL?: string }[] = [];
+  for (const entry of await readEntries()) {
+    const key = entry.albumTitle ?? entry.track.id;
+    if (seen.has(key)) {
+      continue;
+    }
+    seen.add(key);
+    result.push({
+      id: entry.track.id,
+      title: entry.albumTitle ?? entry.track.title,
+      subtitle: entry.track.subtitle,
+      imageURL: entry.track.imageURL,
+    });
+    if (result.length >= limit) {
+      break;
+    }
+  }
+  return result;
+};
+
+/**
+ * Artiste/album en tête = compte de lectures (simple, explicable,
+ * déterministe : à compte égal, le plus récent gagne).
+ */
+const topBy = (
+  entries: PlayHistoryEntry[],
+  pick: (entry: PlayHistoryEntry) => string | null,
+  limit: number
+): { key: string; count: number; lastPlayedAt: number; sampleTrack: TrackModel }[] => {
+  const buckets = new Map<
+    string,
+    { count: number; lastPlayedAt: number; sampleTrack: TrackModel }
+  >();
+  for (const entry of entries) {
+    const key = pick(entry);
+    if (!key) {
+      continue;
+    }
+    const bucket = buckets.get(key) ?? {
+      count: 0,
+      lastPlayedAt: 0,
+      sampleTrack: entry.track,
+    };
+    bucket.count += 1;
+    bucket.lastPlayedAt = Math.max(bucket.lastPlayedAt, entry.playedAt);
+    buckets.set(key, bucket);
+  }
+  return [...buckets.entries()]
+    .map(([key, value]) => ({ key, ...value }))
+    .sort((a, b) => b.count - a.count || b.lastPlayedAt - a.lastPlayedAt)
+    .slice(0, limit);
+};
+
+export const getTopArtistsFromHistory = async (
+  limit = 5
+): Promise<{ name: string; count: number; imageURL?: string }[]> => {
+  const entries = await readEntries();
+  return topBy(
+    entries,
+    (entry) => entry.track.subtitle || null,
+    limit
+  ).map(({ key, count, sampleTrack }) => ({
+    name: key,
+    count,
+    imageURL: sampleTrack.imageURL,
+  }));
+};
+
+export const getTopAlbumsFromHistory = async (
+  limit = 6
+): Promise<{ id: string; title: string; subtitle: string; imageURL?: string; count: number }[]> => {
+  const entries = await readEntries();
+  return topBy(
+    entries,
+    (entry) => entry.albumTitle ?? null,
+    limit
+  ).map(({ key, count, sampleTrack }) => ({
+    id: sampleTrack.id,
+    title: key,
+    subtitle: sampleTrack.subtitle,
+    imageURL: sampleTrack.imageURL,
+    count,
+  }));
+};
+
+/** Historique vide = sections masquées plutôt que vides. */
+export const hasPlayHistory = async (): Promise<boolean> =>
+  (await readEntries()).length > 0;
+
+export const clearPlayHistory = async (): Promise<void> => {
+  await AsyncStorage.removeItem(PLAY_HISTORY_STORAGE_KEY);
+};
+
+/** Tests uniquement. */
+export const __resetPlayHistoryForTests = clearPlayHistory;

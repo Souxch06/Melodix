@@ -3,6 +3,7 @@ import * as React from 'react';
 import { Preview } from '@components';
 
 import { checkSavedTracks, getAlbum, getArtist } from '@api';
+import { toggleSavedTrack } from '@services';
 import { AlbumModel, ArtistModel, TrackModel } from '@models';
 import { AlbumFallback, ArtistFallback, SEPARATOR } from '@config';
 import {
@@ -121,6 +122,30 @@ export const AlbumScreen = ({ albumId }: AlbumScreenPropsType) => {
     [album]
   );
 
+  // Favori LOCAL de la ligne (album connu ⇒ métadonnées de matching complètes).
+  const handleToggleTrackSaved = React.useCallback(
+    async (track: TrackModel) => {
+      const nowSaved = await toggleSavedTrack(track, {
+        albumTitle: album?.name,
+        artists: track.subtitle ? track.subtitle.split(', ') : [],
+      });
+      setAlbum((prevAlbum) =>
+        prevAlbum
+          ? {
+              ...prevAlbum,
+              tracks: {
+                ...prevAlbum.tracks,
+                items: prevAlbum.tracks.items.map((item) =>
+                  item.id === track.id ? { ...item, isSaved: nowSaved } : item
+                ),
+              },
+            }
+          : prevAlbum
+      );
+    },
+    [album?.name]
+  );
+
   return (
     <Preview
       type="album"
@@ -134,6 +159,7 @@ export const AlbumScreen = ({ albumId }: AlbumScreenPropsType) => {
       copyrightTexts={copyrightTexts}
       tracks={tracks}
       artists={artists}
+      onToggleTrackSaved={handleToggleTrackSaved}
     />
   );
 };

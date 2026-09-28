@@ -1,1 +1,1 @@
-export { checkSavedTracks } from './savedTracks';
+export { checkSavedTracks, getSavedTracks } from './savedTracks';

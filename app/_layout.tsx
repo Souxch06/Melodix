@@ -9,7 +9,11 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import { useFonts } from 'expo-font';
 
-import { LibrarySelectedCategoryProvider, UserDataProvider } from '@context';
+import {
+  LibrarySelectedCategoryProvider,
+  PlayerProvider,
+  UserDataProvider,
+} from '@context';
 
 import 'react-native-reanimated';
 
@@ -35,25 +39,27 @@ export default function RootLayout() {
   return (
     <SafeAreaProvider>
       <UserDataProvider>
-        <LibrarySelectedCategoryProvider>
-          <GestureHandlerRootView style={styles.gestureHandlerRootView}>
-            <Stack screenOptions={{ headerShown: false }}>
-              <Stack.Screen
-                name="index"
-                options={{ headerShown: false, animation: 'fade' }}
-              />
-              <Stack.Screen
-                name="(tabs)"
-                options={{ headerShown: false, animation: 'fade' }}
-              />
-              <Stack.Screen
-                name="+not-found"
-                options={{ headerShown: false, animation: 'fade' }}
-              />
-            </Stack>
-            <StatusBar style="light" />
-          </GestureHandlerRootView>
-        </LibrarySelectedCategoryProvider>
+        <PlayerProvider>
+          <LibrarySelectedCategoryProvider>
+            <GestureHandlerRootView style={styles.gestureHandlerRootView}>
+              <Stack screenOptions={{ headerShown: false }}>
+                <Stack.Screen
+                  name="index"
+                  options={{ headerShown: false, animation: 'fade' }}
+                />
+                <Stack.Screen
+                  name="(tabs)"
+                  options={{ headerShown: false, animation: 'fade' }}
+                />
+                <Stack.Screen
+                  name="+not-found"
+                  options={{ headerShown: false, animation: 'fade' }}
+                />
+              </Stack>
+              <StatusBar style="light" />
+            </GestureHandlerRootView>
+          </LibrarySelectedCategoryProvider>
+        </PlayerProvider>
       </UserDataProvider>
     </SafeAreaProvider>
   );

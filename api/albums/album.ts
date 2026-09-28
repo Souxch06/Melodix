@@ -1,24 +1,44 @@
-import axios from 'axios';
-
 import { AlbumModel } from '@models';
-import { AlbumResponseType } from '@config';
-import { parseToAlbum } from '@utils';
 
-import { BASE_URL, getSessionlessToken } from '../config';
+import { backendGetAlbum } from '../backend';
 
+/**
+ * Métadonnées d'album via le backend Melodix.
+ * Les champs que la source publique ne fournit pas (label, copyrights…) sont
+ * renvoyés vides — l'écran album n'en dépend pas pour fonctionner.
+ */
 export const getAlbum = async (albumId: string): Promise<AlbumModel> => {
   try {
-    const { token } = await getSessionlessToken();
+    const dto = await backendGetAlbum(albumId);
+    const tracks = dto.tracks ?? [];
 
-    const response = (await axios.get(`${BASE_URL}/albums/${albumId}`, {
-      headers: {
-        Authorization: `Bearer ${token}`,
+    return {
+      id: dto.id,
+      type: 'album',
+      albumType: 'album',
+      name: dto.title,
+      imageURL: dto.coverUrl ?? '',
+      artists: [],
+      releaseDate: dto.releaseDate ?? '',
+      tracks: {
+        total: tracks.length,
+        items: tracks.map((track) => ({
+          id: track.id,
+          title: track.title,
+          subtitle: track.artists.join(', '),
+          imageURL: track.coverUrl ?? dto.coverUrl ?? undefined,
+        })),
       },
-    })) as { data: AlbumResponseType };
-
-    return parseToAlbum(response.data);
+      duration: tracks.reduce(
+        (total, track) => total + (track.durationMs ?? 0),
+        0
+      ),
+      copyrights: [],
+      genres: [],
+      label: '',
+    };
   } catch (error) {
-    console.error(`Error fetching album with an ID: ${albumId}`, error);
+    console.error(`Erreur lors de la récupération de l'album : ${albumId}`, error);
     throw error;
   }
 };

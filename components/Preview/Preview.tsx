@@ -22,7 +22,18 @@ import { EmptySection } from '../EmptySection';
 import { BOTTOM_NAVIGATION_HEIGHT } from '@config';
 
 import { styles } from './styles';
-import { useUserData } from '@context';
+import { usePlayer, useUserData } from '@context';
+import { queueIdForTrackId, sourceForTrackId } from '@services';
+import type { PlayerTrack } from '@services';
+
+// Height of the mini player shown above the tab bar while playing.
+const MINI_PLAYER_ALLOWANCE = 58;
+
+// Les lignes « audius:<id> » (tendances, playlists Audius) sont natives du
+// fournisseur audio : lecture directe, sans matching (helpers partagés dans
+// services/player.ts). Toutes les autres métadonnées passent par le matcher.
+const queueIdOf = queueIdForTrackId;
+const sourceOfTrackId = sourceForTrackId;
 
 export type PreviewPropsType = {
   type: 'playlist' | 'album';
@@ -40,6 +51,8 @@ export type PreviewPropsType = {
   artists?: ArtistModel[] | null;
   recommendationsType?: 'tracks' | 'artists';
   recommendationsSeed?: string;
+  /** Bascule le favori local d'une ligne (fourni par l'écran hôte). */
+  onToggleTrackSaved?: (track: TrackModel) => void;
 };
 
 export const Preview = ({
@@ -57,8 +70,10 @@ export const Preview = ({
   fetchTracks,
   artists,
   recommendationsSeed,
+  onToggleTrackSaved,
 }: PreviewPropsType) => {
   const { userData } = useUserData();
+  const player = usePlayer();
   const { width, height } = useApplicationDimensions();
   const scrollOffset = useSharedValue(0);
 
@@ -68,22 +83,82 @@ export const Preview = ({
     },
   });
 
+  // Rows are playable everywhere: Spotify metadata is matched to an Audius
+  // stream at play time (services/audio), the user never picks a provider.
+  const playableQueue = React.useMemo<PlayerTrack[]>(
+    () =>
+      (tracks ?? [])
+        .filter((track) => Boolean(track.id))
+        .map((track) => ({
+          id: queueIdOf(track.id),
+          title: track.title,
+          artists: track.subtitle
+            ? track.subtitle.split(', ').filter(Boolean)
+            : [],
+          album: type === 'album' ? summaryTitle : null,
+          imageURL: track.imageURL ?? '',
+          source: sourceOfTrackId(track.id),
+        })),
+    [tracks, type, summaryTitle]
+  );
+
+  const handleTrackPress = React.useCallback(
+    (trackId: string) => {
+      const queueId = queueIdOf(trackId);
+
+      // Tapping the current track toggles play/pause like the mini player.
+      if (player.current?.id === queueId) {
+        void player.togglePlayPause();
+        return;
+      }
+
+      const startIndex = playableQueue.findIndex(({ id }) => id === queueId);
+
+      if (startIndex >= 0) {
+        void player.playQueue(playableQueue, startIndex);
+      }
+    },
+    [player, playableQueue]
+  );
+
+  // Déstructuré pour des dépendances de hook explicites et stables.
+  const playerCurrentId = player.current?.id;
+  const playerStatus = player.status;
+
   const renderItem = React.useCallback(
-    ({ item, index }: { item: TrackModel; index: number }) => (
-      <Track
-        type={type}
-        key={index}
-        title={item.title}
-        subtitle={item.subtitle}
-        imageURL={item.imageURL}
-        isDownloaded={!!item.isDownloaded}
-        isSaved={!!item.isSaved}
-        isPlaying={!!item.isPlaying}
-        explicit={!!item.explicit}
-        forceDisableSaveIcon={!!(ownerId && ownerId === userData.id)}
-      />
-    ),
-    [type, ownerId, userData.id]
+    ({ item, index }: { item: TrackModel; index: number }) => {
+      const queueId = queueIdOf(item.id);
+
+      return (
+        <Track
+          type={type}
+          key={index}
+          title={item.title}
+          subtitle={item.subtitle}
+          imageURL={item.imageURL}
+          isDownloaded={!!item.isDownloaded}
+          isSaved={!!item.isSaved}
+          isPlaying={playerCurrentId === queueId && playerStatus === 'playing'}
+          explicit={!!item.explicit}
+          forceDisableSaveIcon={!!(ownerId && ownerId === userData.id)}
+          onPress={item.id ? () => handleTrackPress(item.id) : undefined}
+          onToggleSaved={
+            item.id && onToggleTrackSaved
+              ? () => onToggleTrackSaved(item)
+              : undefined
+          }
+        />
+      );
+    },
+    [
+      type,
+      ownerId,
+      userData.id,
+      playerCurrentId,
+      playerStatus,
+      handleTrackPress,
+      onToggleTrackSaved,
+    ]
   );
 
   return (
@@ -95,7 +170,11 @@ export const Preview = ({
         animatedValue={scrollOffset}
       />
       <Animated.FlatList
-        contentContainerStyle={styles.flatListContentContainer}
+        contentContainerStyle={[
+          styles.flatListContentContainer,
+          // Keep the last rows out from under the mini player.
+          player.hasActiveSession && { paddingBottom: MINI_PLAYER_ALLOWANCE },
+        ]}
         style={{
           height: height - BOTTOM_NAVIGATION_HEIGHT,
         }}
@@ -122,6 +201,7 @@ export const Preview = ({
               title={summaryTitle}
               subtitle={summarySubtitle}
               info={summaryInfo}
+              imageURL={imageURL}
               forceDisableSaveIcon={!!(ownerId && ownerId === userData.id)}
             />
           </>

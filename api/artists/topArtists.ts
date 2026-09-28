@@ -1,31 +1,20 @@
-import axios from 'axios';
-
 import { LibraryItemModel } from '@models';
-import { UserTopArtistsResponseType } from '@config';
-import { parseFromTopArtistsToLibraryItem } from '@utils';
+import { getTopArtistsFromHistory } from '@services';
 
-import { BASE_URL, getSessionToken } from '../config';
-
+/**
+ * « Vos artistes en tête » = agrégat de l'historique de lecture local.
+ *
+ * Les identifiants « artiste » du catalogue n'existent plus sans compte :
+ * la carte porte un id synthétique stable `local-artist:<nom normalisé>`,
+ * utilisé pour l'affichage et les seeds de recommandations par NOM.
+ */
 export const getUserTopArtists = async (): Promise<LibraryItemModel[]> => {
-  try {
-    const token = await getSessionToken();
-    const response = (await axios.get(`${BASE_URL}/me/top/artists`, {
-      params: {
-        type: 'artists',
-        time_range: 'short_term',
-        limit: 50,
-      },
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    })) as { data: UserTopArtistsResponseType };
-
-    return parseFromTopArtistsToLibraryItem(response.data);
-  } catch (error) {
-    console.error(
-      `Error fetching top artists of currently logged in user`,
-      error
-    );
-    throw error;
-  }
+  const top = await getTopArtistsFromHistory(5);
+  return top.map((artist) => ({
+    id: `local-artist:${artist.name.toLowerCase().replace(/\s+/g, '-')}`,
+    type: 'artist',
+    title: artist.name,
+    subtitle: '',
+    imageURL: artist.imageURL ?? '',
+  }));
 };

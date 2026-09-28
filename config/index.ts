@@ -44,6 +44,11 @@ export {
   type PlaylistItemResponseType,
   type BrowseCategoriesResponseType,
   type SearchResponseType,
+  type AudiusArtworkType,
+  type AudiusUserResponseType,
+  type AudiusTrackResponseType,
+  type AudiusPlaylistResponseType,
+  type AudiusSearchResponseType,
 } from './types';
 
 export { AlbumFallback, ArtistFallback } from './fallbacks';

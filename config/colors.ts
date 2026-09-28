@@ -8,6 +8,8 @@ export const COLORS = {
   LIGHTER_GREY: '#d5d5d5',
   TINT: '#1ed760',
   NAV: '#191414',
+  RED: '#e91429',
+  BORDER_GREY: '#2a2a2a',
   ALBUM_FALLBACK_GRADIENT: '#2e335a',
 };
 

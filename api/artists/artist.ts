@@ -1,24 +1,21 @@
-import axios from 'axios';
-
 import { ArtistModel } from '@models';
-import { ArtistResponseType } from '@config';
-import { parseToArtist } from '@utils';
 
-import { BASE_URL, getSessionlessToken } from '../config';
+import { backendGetArtist } from '../backend';
 
+/**
+ * Métadonnées d'artiste via le backend Melodix.
+ */
 export const getArtist = async (artistId: string): Promise<ArtistModel> => {
   try {
-    const { token } = await getSessionlessToken();
-
-    const response = (await axios.get(`${BASE_URL}/artists/${artistId}`, {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    })) as { data: ArtistResponseType };
-
-    return parseToArtist(response.data);
+    const dto = await backendGetArtist(artistId);
+    return {
+      type: 'artist',
+      id: dto.id,
+      name: dto.name,
+      imageURL: dto.imageUrl ?? '',
+    };
   } catch (error) {
-    console.error(`Error fetching artist with an ID: ${artistId}`, error);
+    console.error(`Erreur lors de la récupération de l'artiste : ${artistId}`, error);
     throw error;
   }
 };

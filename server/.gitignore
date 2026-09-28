@@ -1,0 +1,9 @@
+# Build output
+dist/
+dist-test/
+# Runtime data (cache persisté éventuel)
+data/
+# Environnement réel — jamais dans Git
+.env
+.env.local
+node_modules/

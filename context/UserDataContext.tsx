@@ -1,14 +1,6 @@
 import * as React from 'react';
-import { router } from 'expo-router';
 
 import { UserModel } from '@models';
-import {
-  clearSessionToken,
-  consumeSessionEnd,
-  getStoredSession,
-  getUser,
-  installSessionGuard,
-} from '@api';
 
 export type UserDataProviderPropsType = {
   children: React.ReactNode;
@@ -16,66 +8,40 @@ export type UserDataProviderPropsType = {
 
 export type UserContextType = {
   userData: UserModel;
-  // Loads the profile of the signed-in user (call it right after signing in).
+  /**
+   * Conservée pour compatibilité : sans compte, il n'y a plus rien à
+   * recharger depuis un serveur — l'appel est un no-op async.
+   */
   reloadUserData: () => Promise<void>;
-  signOut: () => Promise<void>;
 };
 
-const defaultUserData: UserModel = {
-  id: '',
+/** Identifiant canonique du profil LOCAL (jamais envoyé nulle part). */
+export const LOCAL_USER_ID = 'melodix-local-user';
+
+/**
+ * Melodix 3.0 : plus de compte. L'« utilisateur » est un profil local
+ * synthétique dont l'id sert à comparer la propriété des playlists
+ * (`ownerId === userData.id` côté écrans).
+ */
+const localUserData: UserModel = {
+  id: LOCAL_USER_ID,
   type: 'user',
-  displayName: '',
+  displayName: 'Mélomane',
   imageURL: '',
 };
 
 export const UserDataContext = React.createContext<UserContextType>({
-  userData: defaultUserData,
+  userData: localUserData,
   reloadUserData: async () => {},
-  signOut: async () => {},
 });
 
 export const UserDataProvider = ({ children }: UserDataProviderPropsType) => {
-  const [userData, setUserData] = React.useState<UserModel>(defaultUserData);
-
-  const reloadUserData = React.useCallback(async () => {
-    try {
-      // Nobody is signed in yet: don't call Spotify without a token.
-      if (!(await getStoredSession())) {
-        setUserData(defaultUserData);
-        return;
-      }
-
-      setUserData(await getUser());
-    } catch (error) {
-      console.error('Error loading the Spotify profile', error);
-    }
-  }, []);
-
-  const signOut = React.useCallback(async () => {
-    await clearSessionToken();
-    consumeSessionEnd();
-    setUserData(defaultUserData);
-    router.replace('/login');
-  }, []);
-
-  React.useEffect(() => {
-    reloadUserData();
-  }, [reloadUserData]);
-
-  // A pasted token only lasts one hour: when Spotify refuses it, go back to
-  // the login screen, which explains what happened.
-  React.useEffect(
-    () =>
-      installSessionGuard(() => {
-        setUserData(defaultUserData);
-        router.replace('/login');
-      }),
+  const value = React.useMemo<UserContextType>(
+    () => ({
+      userData: localUserData,
+      reloadUserData: async () => {},
+    }),
     []
-  );
-
-  const value = React.useMemo(
-    () => ({ userData, reloadUserData, signOut }),
-    [userData, reloadUserData, signOut]
   );
 
   return (

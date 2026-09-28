@@ -5,6 +5,8 @@ import { Entypo } from '@expo/vector-icons';
 import { AnimatedPressable } from './AnimatedPressable';
 
 import { checkSavedAlbums, checkSavedPlaylists } from '@api';
+import { removeSavedItem, saveItem } from '@services';
+import { LibraryItemModel } from '@models';
 
 import { styles } from './styles';
 
@@ -14,6 +16,7 @@ export type SummaryPropsType = {
   title: string;
   subtitle: string;
   info: string;
+  imageURL?: string;
   forceDisableSaveIcon?: boolean;
 };
 
@@ -23,6 +26,7 @@ export const Summary = ({
   title,
   subtitle,
   info,
+  imageURL = '',
   forceDisableSaveIcon,
 }: SummaryPropsType) => {
   const [isSaved, setIsSaved] = React.useState<boolean>(false);
@@ -34,18 +38,44 @@ export const Summary = ({
 
     (async () => {
       try {
-        const savedAlbums =
+        const checked =
           type === 'album'
             ? await checkSavedAlbums([id])
             : await checkSavedPlaylists([id]);
 
-        setIsSaved(savedAlbums[0]);
+        setIsSaved(checked[0]);
       } catch (error) {
         setIsSaved(false);
         console.error(`Failed to check if ${type} is saved:`, error);
       }
     })();
   }, [type, id]);
+
+  // Favori LOCAL (aucun compte) : persiste la carte complète dans la
+  // bibliothèque de l'appareil, réversible.
+  const handleToggleSave = React.useCallback(() => {
+    if (!id || !title) {
+      return;
+    }
+
+    const nextState = !isSaved;
+    setIsSaved(nextState);
+
+    (async () => {
+      try {
+        if (nextState) {
+          const item: LibraryItemModel = { id, type, title, subtitle, imageURL };
+          await saveItem(item);
+        } else {
+          await removeSavedItem(type, id);
+        }
+      } catch (error) {
+        // La persistance échoue : on revient à l'état affiché précédent.
+        console.error(`Failed to persist ${type} favorite state:`, error);
+        setIsSaved(!nextState);
+      }
+    })();
+  }, [id, type, title, subtitle, imageURL, isSaved]);
 
   return (
     <View style={styles.summary}>
@@ -59,6 +89,7 @@ export const Summary = ({
             defaultIcon="plus"
             activeIcon="check"
             isActive={isSaved}
+            onPress={handleToggleSave}
           />
         )}
         <AnimatedPressable

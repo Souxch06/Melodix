@@ -14,7 +14,12 @@
       "@navigators": ["./navigators/index.ts"],
       "@screens": ["./screens/index.ts"],
       "@services": ["./services/index.ts"],
-      "@utils": ["./utils/index.ts"]
+      "@utils": ["./utils/index.ts"],
+      "@/components/*": ["./components/*"],
+      "@/config/*": ["./config/*"],
+      "@/constants": ["./config/constants.ts"],
+      "@/constants/*": ["./config/*"],
+      "@/*": ["./app/*"]
     }
   },
   "include": [

@@ -12,8 +12,10 @@
 </p>
 
 <p align="center">
-  <strong>Melodix</strong> transforme ton compte Spotify en tableau de bord musical de poche :<br>
-  écoutes récentes, favoris du moment, recherche et toute ta bibliothèque, dans une interface sombre et animée.
+  <strong>Melodix</strong> est un lecteur musical de poche <strong>sans compte et sans configuration</strong> :<br>
+  recherche, playlists, favoris et bibliothèque, dans une interface sombre et animée —<br>
+  l'audio est lu via <strong>Audius</strong> (streaming libre, correspondance fiable) et les métadonnées<br>
+  (recherche, albums, playlists) via le <strong>backend Melodix</strong>. Rien à saisir, jamais.
 </p>
 
 <p align="center">
@@ -28,79 +30,87 @@
 
 1. Sur ton téléphone, ouvre la [dernière version](https://github.com/Souxch06/Melodix/releases/latest) et télécharge le fichier **`Melodix-v….apk`** (section *Assets*).
 2. Ouvre le fichier téléchargé. Android te demande d'autoriser l'installation d'applications depuis ton navigateur ou ton gestionnaire de fichiers : accepte, puis appuie sur **Installer**.
-3. Lance Melodix et [connecte-toi](#se-connecter-à-spotify) : il suffit de coller ton token Spotify.
+3. Lance Melodix : **rien à faire, aucune connexion n'est demandée** — tu explores immédiatement (recherche, tendances Audius, tes favoris locaux).
 
 > [!NOTE]
 > Compatible Android 6.0 et plus (processeurs ARM, soit la quasi-totalité des téléphones). Comme l'app ne vient pas du Play Store, Android peut afficher un avertissement Play Protect : c'est normal pour une application installée manuellement.
 
-## Se connecter à Spotify
+## Lecture audio via Audius
 
-Melodix propose deux façons de se connecter. Commence par la connexion rapide : rien à créer, rien à configurer.
+1. Cherche un artiste, un album ou une playlist (métadonnées fournies par le
+   backend Melodix à partir du catalogue Spotify, côté serveur uniquement).
+2. Appuie sur un titre : Melodix le **retrouve automatiquement sur Audius** à
+   partir de ses métadonnées (titre, artistes, album, durée), puis le streame.
+3. Si le titre est absent du catalogue Audius : message clair et le titre
+   suivant de la file est joué — **jamais** de mauvais morceau à la place.
 
-### Connexion rapide (token)
+Le lecteur (bas de l'écran + plein écran) offre lecture/pause, précédent,
+suivant, aléatoire, répétition, seek, volume et file d'attente. Aucun
+contournement des règles de Spotify : l'audio ne vient jamais de Spotify, il
+vient du protocole ouvert [Audius](https://docs.audius.org). Détails
+techniques : [`docs/AUDIO-PROVIDER.md`](docs/AUDIO-PROVIDER.md).
 
-C'est le système du tutoriel de [developer.spotify.com](https://developer.spotify.com/) : un *token* d'accès envoyé à l'API Spotify (`Authorization: Bearer …`).
+## Sans compte, sans configuration
 
-1. Sur ton téléphone, ouvre [developer.spotify.com](https://developer.spotify.com/) (le bouton **Ouvrir developer.spotify.com** de l'app y mène directement) et connecte-toi avec ton compte Spotify (**Log in**, en haut à droite).
-2. Dans le bloc **Code** du tutoriel, copie le token : c'est le texte entre guillemets de la ligne
+Melodix 3.0 ne demande **aucun compte Spotify, aucun Client ID, aucun Client
+Secret, aucun token, aucune configuration :**
 
-   ```js
-   const token = 'BQ…';
-   ```
+- **Pas d'écran de connexion.** L'app démarre directement sur l'accueil.
+- **Pas de saisie de credential.** Il n'existe plus nulle part dans
+  l'application de champ Client ID / Secret / token à remplir.
+- **Favoris, playlists, bibliothèque et historique** sont conservés **localement
+  sur l'appareil** (AsyncStorage) ; les données d'anciennes versions sont
+  migrées automatiquement au premier lancement (favoris invités Audius →
+  bibliothèque locale, purge des anciens tokens).
+- **Aucune promesse de « Premium gratuit »** : l'audio ne vient jamais de
+  Spotify. Les règles de Spotify (ni contourner ni rehoster l'audio) sont
+  respectées, de même que l'absence totale de secret dans l'APK,
+  dans Git et dans les logs.
 
-   Tu peux aussi copier tout le code : Melodix retrouve le token tout seul. Si tu vois `const token = 'undefined';`, c'est que tu n'es pas connecté sur le site.
-3. Dans Melodix, colle-le et appuie sur **Se connecter**.
+### Backend Melodix — info mainteneur
 
-> [!IMPORTANT]
-> Spotify fait expirer ce token au bout d'**1 heure**. Melodix te ramène alors sur l'écran de connexion pour en coller un nouveau. Selon les autorisations incluses dans ce token, certaines sections (écoutes récentes, bibliothèque) peuvent être masquées : la connexion permanente donne accès à tout.
+La recherche et les métadonnées (albums, artistes, playlists détaillées)
+passent par le backend Melodix du dossier [`server/`](server/) : c'est le
+serveur, et lui seul, qui parle à Spotify (techniques internes de récupération
+de métadonnées, tokens éphémères **toujours côté serveur**, jamais renvoyés au
+téléphone — architecture détaillée dans
+[`docs/ETAPES-BACKEND.md`](docs/ETAPES-BACKEND.md)). Pour que ton APK / Expo
+Go pointe vers ton backend, déclare la variable au build :
 
-> [!CAUTION]
-> Ton token donne accès à ton compte Spotify : colle-le uniquement dans l'app, où il reste stocké sur ton téléphone. Ne le partage pas et ne l'écris jamais dans le code : l'APK est public, n'importe qui pourrait le récupérer.
+```dotenv
+MELODIX_BACKEND_URL=https://ton-backend-melodix.fr
+```
 
-### Connexion permanente (Client ID)
-
-C'est la connexion Spotify classique : un bouton **Se connecter avec Spotify**, et la session se renouvelle toute seule (Spotify redemande simplement de se reconnecter tous les 6 mois). Elle passe par une application déclarée sur le portail Spotify. C'est gratuit, mais le compte qui crée cette application doit avoir un abonnement **Spotify Premium** : c'est une [règle Spotify depuis février 2026](https://developer.spotify.com/documentation/web-api/concepts/quota-modes), sans quoi l'application ne fonctionne pas.
-
-> [!TIP]
-> **Pas de Premium ?** Seul le propriétaire de l'application Spotify en a besoin. Un proche abonné peut la créer et t'ajouter dans *User Management* : tu te connectes ensuite avec ton compte gratuit. Dans Melodix, le bouton **Envoyer les étapes à un proche** (écran « Connexion permanente ») lui envoie toutes les étapes.
-
-1. Ouvre le [tableau de bord Spotify for Developers](https://developer.spotify.com/dashboard), connecte-toi et clique sur **Create app**.
-2. Donne-lui un nom (par exemple « Melodix »), coche **Web API**, et dans **Redirect URIs** ajoute exactement :
-
-   ```text
-   melodix://callback
-   ```
-
-3. Enregistre, puis copie le **Client ID** affiché dans les paramètres de l'application.
-4. Dans **User Management**, ajoute le nom et l'e-mail du compte Spotify de chaque personne qui utilisera l'app (5 au maximum). Sans ça, Spotify refuse l'accès (erreur 403, expliquée par Melodix).
-5. Dans Melodix, appuie sur **Rester connecté en permanence**, colle le Client ID, appuie sur **Continuer**, puis sur **Se connecter avec Spotify**.
-
-Aucun mot de passe ni *Client Secret* n'est demandé : la connexion se fait sur la page officielle de Spotify (flux OAuth *Authorization Code + PKCE*).
-
-Pour te déconnecter (coller un nouveau token, changer de compte ou de méthode), touche ta photo de profil en haut à gauche, puis **Se déconnecter**.
+ou en variable de dépôt CI (`MELODIX_BACKEND_URL`, *Settings → Secrets and
+variables → Actions → Variables*) pour le workflow de build. **Sans cette
+variable, l'application fonctionne quand même** : la recherche et les sections
+retombent sur le catalogue Audius (tendances, favoris locaux, historique).
 
 ## Fonctionnalités
 
 | Écran | Ce que tu y trouves |
 | :-- | :-- |
-| **Connexion** | Connexion rapide en collant ton token Spotify, ou connexion permanente sur la page officielle de Spotify avec un Client ID. Retour automatique à la connexion quand le token expire. |
-| **Accueil** | Écoutes récentes, albums et artistes du moment, tes playlists. |
-| **Recherche** | Recherche d'artistes, de titres, d'albums et de playlists dans tout le catalogue Spotify. |
-| **Bibliothèque** | Playlists, podcasts, albums et artistes suivis, filtrables par catégorie avec transitions animées. |
-| **Album** | Pochette sur fond dégradé, artistes, liste des titres, autres albums de l'artiste et mentions de copyright. |
-| **Playlist** | Couverture, description, créateur, nombre d'abonnés et liste des titres. |
+| **Accueil** | Écoutes récentes (historique local), albums et playlists du moment (fournis par le backend Melodix), les tendances Audius en repli. |
+| **Recherche** | Artistes, titres, albums et playlists (via le backend Melodix ; catalogue Audius en repli). Un titre se joue directement. |
+| **Bibliothèque** | Tes favoris **locaux** : playlists, albums et artistes enregistrés, filtrables par catégorie avec transitions animées. |
+| **Album / Playlist** | Pochette sur fond dégradé, liste des titres **jouables** — appuie pour écouter via Audius. Cœur pour enregistrer dans ta bibliothèque. |
+| **Lecteur** | Mini-lecteur au-dessus des onglets + plein écran : lecture/pause, précédent, suivant, aléatoire, répétition, seek, volume, file d'attente (avance automatique) et badge du fournisseur (Audius). |
+| **Historique** | Tes écoutes récentes, enregistrées localement et réutilisées pour personnaliser l'accueil. |
 
-Ta bibliothèque et ton profil sont mis en cache sur l'appareil pour que l'app s'ouvre plus vite.
+
+Tes favoris, ta bibliothèque et ton historique sont **stockés localement sur ton appareil** (jamais sur un serveur) : l'app s'ouvre instantanément et fonctionne dégradée même hors ligne ou sans backend.
 
 > [!NOTE]
-> Melodix sert à **explorer** ta musique : l'application ne lit pas les morceaux.
+> Melodix est une app indépendante : **tes données viennent de Spotify, l'audio vient d'Audius**. Rien n'est téléchargé ni contourné côté Spotify ; un morceau absent du catalogue Audius affiche simplement qu'il n'est pas disponible.
 
 ## Stack technique
 
 - **Expo SDK 51** et **React Native 0.74** (React 18), entièrement en **TypeScript**
 - **Expo Router** : navigation par fichiers, avec onglets et piles d'écrans
 - **Reanimated** et **Gesture Handler** pour les animations et les gestes
-- **expo-auth-session** (OAuth PKCE), **Axios** (API Web Spotify) et **AsyncStorage** (session et token)
+- **AsyncStorage** pour favoris, bibliothèque et historique **locaux** (aucune session, aucun token)
+- **expo-av** pour la lecture audio, alimentée par l'**API Audius** derrière l'abstraction `AudioProvider` ([Open Audio Protocol](https://docs.audius.org))
+- **Backend Melodix** (Node.js 18+, **zéro dépendance**, TypeScript) dans [`server/`](server/) : provider de métadonnées Spotify isolé, garde anti-débit, cache TTL, matching côté client
 - **Jest** et **Testing Library**, **ESLint**, **Prettier** et **Husky**
 - **GitHub Actions** pour construire l'APK
 
@@ -108,27 +118,39 @@ Ta bibliothèque et ton profil sont mis en cache sur l'appareil pour que l'app s
 
 ### Prérequis
 
-- **Node.js 20** (voir `.nvmrc`) et **Yarn 1.22** ou plus récent
+- **Node.js 20** (voir `.nvmrc`) et **npm 10** ou plus récent
 - Un **émulateur Android** ou le **simulateur iOS** (sur Mac) : la CLI Expo y installe automatiquement la version d'Expo Go adaptée au SDK 51. Les versions d'Expo Go des stores ne prennent plus en charge ce SDK : sur un vrai téléphone, cherche une version compatible sur [expo.dev/go](https://expo.dev/go) (Android) ou utilise un build de développement (`npx expo run:android` / `npx expo run:ios`).
-- Un compte Spotify (voir [Se connecter à Spotify](#se-connecter-à-spotify))
-
 ### Installer et lancer
 
 ```bash
 git clone https://github.com/Souxch06/Melodix.git
 cd Melodix
 nvm use        # facultatif : bascule sur Node 20
-yarn install
-yarn dev       # démarre Expo (appuie sur « a » pour Android, « i » pour iOS)
+npm install --legacy-peer-deps   # résolution des pairs historiques du projet
+npm run dev    # démarre Expo (appuie sur « a » pour Android, « i » pour iOS)
 ```
 
-Au premier lancement, l'écran de connexion propose la connexion rapide (token). Pour la connexion permanente, il affiche l'**URI de redirection à déclarer** dans ton application Spotify. Avec Expo Go, elle ressemble à `exp://192.168.1.20:8080/--/callback` ; dans l'app installée, c'est `melodix://callback`.
-
-Pour que l'écran de connexion propose directement « Se connecter avec Spotify », tu peux fournir ton Client ID dans un fichier `.env` à la racine (déjà ignoré par Git) :
+L'app démarre directement : **aucun écran de connexion, aucune variable obligatoire**. Pour brancher la recherche sur **ton** backend Melodix au développement, crée un fichier `.env` à la racine (déjà ignoré par Git — voir `.env.example`) :
 
 ```dotenv
-SPOTIFY_CLIENT_ID=ton_client_id
+MELODIX_BACKEND_URL=http://localhost:8787
 ```
+
+et lance le backend dans un second terminal :
+
+```bash
+cd server && npm install && npm run dev    # écoute :8787, variables dans server/.env.example
+```
+
+Sans backend, l'app bascule proprement sur le catalogue Audius et l'historique local.
+
+La couche audio Audius fonctionne sans aucune configuration : elle interroge alors les nœuds publics de découverte avec le simple identifiant `app_name`. Pour des limites de débit plus confortables, tu peux enregistrer une **clé API Audius gratuite** sur le dashboard développeur Audius (côté mainteneur uniquement, jamais côté utilisateur) et l'ajouter au `.env` :
+
+```dotenv
+AUDIUS_API_KEY=ta_cle_audius
+```
+
+Ces deux variables d'**entiers pointent vers des services non secrets** : aucune clé privée, aucun token n'est jamais intégré à l'APK (le fichier racine `.env.example` consigne les exemples autorisés).
 
 ### Construire l'APK
 
@@ -138,7 +160,7 @@ Le workflow [`.github/workflows/android-apk.yml`](.github/workflows/android-apk.
 - à la demande, depuis l'onglet **Actions → APK Android → Run workflow** ;
 - à chaque **release publiée** : l'APK est automatiquement joint à la release.
 
-Pour intégrer ton Client ID à l'APK, crée la variable de dépôt `SPOTIFY_CLIENT_ID` (*Settings → Secrets and variables → Actions → Variables*) : l'écran de connexion affichera directement « Se connecter avec Spotify », la connexion rapide par token restant disponible. Un Client ID n'est pas secret ; un token, lui, ne doit jamais être intégré à l'APK.
+Pour que l'APK pointe vers ton backend Melodix, crée la variable de dépôt `MELODIX_BACKEND_URL` (*Settings → Secrets and variables → Actions → Variables*). La variable facultative `AUDIUS_API_KEY` intègre ta clé Audius au build (sinon : nœuds publics). **Aucun secret n'est jamais intégré à l'APK** : les tokens Spotify éphémères vivent exclusivement sur le serveur.
 
 En local (Android Studio et JDK 17 requis) :
 
@@ -152,30 +174,34 @@ cd android && ./gradlew assembleRelease
 
 | Commande | Rôle |
 | :-- | :-- |
-| `yarn dev` | Démarre le serveur Expo (port 8080) |
-| `yarn dev:android` / `yarn dev:ios` | Démarre Expo et ouvre l'app sur Android / iOS |
-| `yarn test` | Lance les tests Jest (`test:watch` et `test:coverage` disponibles) |
-| `yarn lint` | Analyse le code avec ESLint |
-| `yarn prettier:check` / `yarn prettier:write` | Vérifie / applique le formatage Prettier |
-| `yarn bump-to-support` | Aligne les dépendances sur les versions prises en charge par le SDK Expo |
+| `npm run dev` | Démarre le serveur Expo (port 8080) |
+| `npm run dev:android` / `npm run dev:ios` | Démarre Expo et ouvre l'app sur Android / iOS |
+| `npm test` | Lance les tests Jest (`test:watch` et `test:coverage` disponibles) |
+| `npm run lint` | Analyse le code avec ESLint |
+| `npm run prettier:check` / `npm run prettier:write` | Vérifie / applique le formatage Prettier |
+| `npm run bump-to-support` | Aligne les dépendances sur les versions prises en charge par le SDK Expo |
 
 ### Structure du projet
 
 ```text
 Melodix/
-├── app/          # Routes Expo Router : connexion, onglets (accueil, recherche, bibliothèque), pages de détail
-├── screens/      # Écrans : connexion, album, playlist…
-├── components/   # Composants d'interface : sections de l'accueil, recherche, bibliothèque, aperçus, cartes…
+├── app/          # Routes Expo Router : onglets (accueil, recherche, bibliothèque), pages de détail
+├── screens/      # Écrans : album, playlist…
+├── components/   # Composants d'interface : sections de l'accueil, recherche, bibliothèque, aperçus, mini-lecteur…
 ├── navigators/   # Barre d'onglets personnalisée
-├── api/          # Appels à l'API Web Spotify, session et Client ID
+├── api/          # client Audius résilient (découverte de nœuds) + client du backend Melodix
+├── services/     # lecteur audio (services/audio : AudioProvider + matching + cache), backend client, favoris/historique locaux
 ├── models/       # Types des données affichées
-├── utils/        # Conversion des réponses de l'API en modèles, fonctions utilitaires
-├── context/      # États partagés : utilisateur, catégorie de bibliothèque
+├── utils/        # Conversion des réponses des API en modèles, fonctions utilitaires
+├── context/      # États partagés : utilisateur (local, sans compte), catégorie de bibliothèque, lecteur
 ├── config/       # Couleurs, constantes, types, valeurs de repli
 ├── data/         # Textes de l'interface
 ├── hooks/        # Hooks React personnalisés
+├── server/       # Backend Melodix (métadonnées Spotify côté serveur, TypeScript, zéro dépendance)
 └── assets/       # Polices, icônes et images
 ```
+
+Le raisonnement complet du choix Spotify + Audius est détaillé dans [`docs/ANALYSE-CONNEXION.md`](docs/ANALYSE-CONNEXION.md), et l'architecture audio (matching, cache, conformité) dans [`docs/AUDIO-PROVIDER.md`](docs/AUDIO-PROVIDER.md).
 
 Les imports utilisent des alias TypeScript (`@api`, `@components`, `@config`…) définis dans `tsconfig.json`.
 
@@ -185,36 +211,40 @@ Spotify a fortement restreint son API ces dernières années. Voici où en est M
 
 | Sujet | État | Détail |
 | :-- | :-: | :-- |
-| Connexion rapide | ✅ | Token copié depuis developer.spotify.com : aucune application Spotify à créer. Valable 1 heure, puis retour automatique à l'écran de connexion. |
-| Connexion permanente | ✅ | Bouton « Se connecter avec Spotify » (application Spotify créée par un compte Premium). Flux *Authorization Code + PKCE*, qui remplace l'*Implicit Grant* [supprimé par Spotify le 27 novembre 2025](https://developer.spotify.com/blog/2025-10-14-reminder-oauth-migration-27-nov-2025). Aucun secret dans l'app. Gère l'[expiration des refresh tokens après 6 mois](https://developer.spotify.com/blog/2026-06-18-refresh-token-expiration) (juin 2026). |
-| API Spotify 2026 | ✅ | Adaptée aux [changements de février 2026](https://developer.spotify.com/documentation/web-api/references/changes/february-2026) : nouveaux endpoints de bibliothèque et de playlists. |
-| Recherche | ✅ | Catalogue complet, 10 résultats maximum par type (limite imposée par Spotify). |
-| Playlists populaires | ⚠️ | Fermées aux nouvelles applications depuis le [27 novembre 2024](https://developer.spotify.com/blog/2024-11-27-changes-to-the-web-api) : la section est masquée. |
-| Titres des playlists | ℹ️ | Spotify ne fournit plus la liste des titres que pour les playlists que tu as créées ou que tu co-édites. |
-| Mode développement | ℹ️ | Connexion permanente uniquement. [Depuis février 2026](https://developer.spotify.com/blog/2026-02-06-update-on-developer-access-and-platform-security) : compte Premium obligatoire pour le propriétaire de l'application Spotify, 5 utilisateurs autorisés. |
-| Pages Artiste, Podcast, Épisode | 🚧 | Pas encore réalisées : elles n'affichent que l'identifiant de l'élément. |
-| Langue | ℹ️ | Écran de connexion et menu du compte en français (`data/fr-fr.ts`), reste de l'interface en anglais (`data/en-gb.ts`). |
+| Sans compte | ✅ | Melodix 3.0 démarre sans aucun login : favoris, bibliothèque et historique **locaux** (AsyncStorage), migration automatique des données d'anciennes versions. |
+| Audio via Audius | ✅ | Matching fiable (titre, artistes, album, durée normalisés), streaming `/v1/tracks/{id}/stream`, cache local des correspondances, **jamais de mauvais morceau**. Clé `AUDIUS_API_KEY` gratuite optionnelle côté mainteneur. |
+| Métadonnées via backend | ✅ | Le backend Melodix ([`server/`](server/)) fournit recherche / albums / artistes / playlists en JSON normalisé ; tokens Spotify éphémères traités **côté serveur uniquement**. Sans backend : repli Audius + historique local. |
+| Recherche | ✅ | Catalogue fourni par le backend (Spotify) ; limite de partage Audius en repli. |
+| Favoris / bibliothèque | ✅ | Cœurs et icônes de sauvegarde fonctionnels (ajout / retrait local), persistance AsyncStorage, aucune synchro compte. |
+| Historique / récents | ✅ | Écoutes enregistrées à chaque lecture, « écoutes récentes » sur l'accueil, personnalisation par artistes / albums les plus écoutés. |
+| Pages Artiste | 🚧 | Page d'aperçu dédiée pas encore réalisée (les lignes artistes de la recherche naviguent déjà vers la bonne route). |
+| Podcasts / Épisodes | 🚧 | Hors scope post-Spotify : le catalogue d'épisodes n'est plus alimenté sans API compte. |
+| Notification / verrouillage | ℹ️ | Contrôles système en cours d'évaluation (compatibilité de la stack audio actuelle). |
+| Langue | ℹ️ | Messages clés en français (`data/fr-fr.ts`), reste de l'interface en anglais (`data/en-gb.ts`). |
 | Signature de l'APK | ℹ️ | Clé de débogage standard : parfait pour l'installer toi-même, à remplacer par ta propre clé pour publier sur le Play Store. |
 
 <sub>✅ fonctionnel · ⚠️ limité par Spotify · 🚧 à faire · ℹ️ à savoir</sub>
 
 ## Feuille de route
 
-- [x] Connexion *Authorization Code + PKCE*
-- [x] Connexion rapide avec un token, sans application Spotify à créer
-- [x] Adaptation à l'API Spotify de février 2026
-- [x] Recherche dans le catalogue
-- [x] Identité visuelle Melodix : nom, icône, écran de démarrage
-- [x] APK Android construit automatiquement
-- [ ] Pages Artiste, Podcast et Épisode
-- [ ] Interface en français
+- [x] **Fonctionnement sans compte Spotify** : ni Premium, ni Client ID, ni token, ni aucune configuration utilisateur
+- [x] Streaming audio via Audius, fournisseur par défaut derrière une abstraction `AudioProvider`
+- [x] Correspondance fiable métadonnées → Audius (cascade multi-requêtes, score titre / artistes / album / durée) avec **jamais de mauvais morceau** (« Ce titre n'est pas disponible sur Audius »)
+- [x] Cache local des correspondances (TTL, invalidation, re-vérification du stream)
+- [x] Backend Melodix dédié aux métadonnées Spotify : tokens éphémères côté serveur, garde anti-débit, cache TTL, retry
+- [x] Favoris / bibliothèque / historique **locaux** + migration des données existantes
+- [x] Lecteur complet : mini-lecteur, plein écran, précédent/suivant, aléatoire, répétition, seek, volume, file d'attente avec avance automatique
+- [x] APK Android construit automatiquement, **zéro secret dans l'APK / Git / logs**
+- [ ] Page Artiste dédiée (pistes + albums)
+- [ ] Commandes notification / écran de verrouillage (si la stack audio le permet sans abandon du contrat `AudioProvider`)
+- [ ] Interface intégralement traduite (le reste est en anglais pour l'instant)
 - [ ] Signature de l'APK avec une clé dédiée
 
 ## Crédits et licence
 
 - Melodix est basé sur le projet open source [spotify-clone](https://github.com/dhunanyan/spotify-clone) de [@dhunanyan](https://github.com/dhunanyan). Le code est distribué sous [licence MIT](LICENSE).
 - L'icône, l'écran de démarrage et les visuels de Melodix sont des créations originales.
-- Les données musicales proviennent de l'[API Web Spotify](https://developer.spotify.com/documentation/web-api). Melodix est un projet indépendant, ni affilié à Spotify AB ni approuvé par Spotify ; « Spotify » est une marque déposée de Spotify AB.
+- Les données du compte (profil, playlists, bibliothèque) proviennent de l'[API Web Spotify](https://developer.spotify.com/documentation/web-api) ; l'audio est streamé par l'[API Audius](https://docs.audius.org) (Open Audio Protocol). Aucun fichier audio n'est hébergé par Melodix et aucune fonctionnalité payante de Spotify n'est contournée. Melodix est un projet indépendant, ni affilié à Spotify AB ou Audius ni approuvé par eux ; « Spotify » est une marque déposée de Spotify AB.
 - Les polices SF Pro Display incluses sont la propriété d'Apple Inc. et relèvent de leur propre licence.
 
 <p align="center">

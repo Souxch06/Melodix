@@ -384,3 +384,69 @@ export type SearchResponseType = {
     } | null)[];
   };
 };
+
+/**
+ * Response shapes of the Audius REST API (v1, Open Audio Protocol).
+ *
+ * Every field is optional on purpose: the catalog is served by a decentralized
+ * network of discovery nodes, and parsers must never trust a payload blindly.
+ */
+export type AudiusArtworkType = {
+  '150x150'?: string | null;
+  '480x480'?: string | null;
+  '1000x1000'?: string | null;
+};
+
+export type AudiusUserResponseType = {
+  id?: string | null;
+  handle?: string | null;
+  name?: string | null;
+  bio?: string | null;
+  is_verified?: boolean | null;
+  follower_count?: number | null;
+  track_count?: number | null;
+  playlist_count?: number | null;
+  profile_picture?: AudiusArtworkType | null;
+  cover_photo?: { '640x'?: string | null; '2000x'?: string | null } | null;
+};
+
+export type AudiusTrackResponseType = {
+  id?: string | null;
+  title?: string | null;
+  user?: AudiusUserResponseType | null;
+  artwork?: AudiusArtworkType | null;
+  // Seconds.
+  duration?: number | null;
+  genre?: string | null;
+  mood?: string | null;
+  play_count?: number | null;
+  favorite_count?: number | null;
+  repost_count?: number | null;
+  release_date?: string | null;
+  permalink?: string | null;
+  description?: string | null;
+  is_unlisted?: boolean | null;
+};
+
+export type AudiusPlaylistResponseType = {
+  id?: string | null;
+  playlist_name?: string | null;
+  user?: AudiusUserResponseType | null;
+  artwork?: AudiusArtworkType | null;
+  is_album?: boolean | null;
+  description?: string | null;
+  track_count?: number | null;
+  favorite_count?: number | null;
+  repost_count?: number | null;
+  total_play_count?: number | null;
+  release_date?: string | null;
+  created_at?: string | null;
+  permalink?: string | null;
+};
+
+export type AudiusSearchResponseType = {
+  users?: (AudiusUserResponseType | null)[] | null;
+  tracks?: (AudiusTrackResponseType | null)[] | null;
+  playlists?: (AudiusPlaylistResponseType | null)[] | null;
+  albums?: (AudiusPlaylistResponseType | null)[] | null;
+};

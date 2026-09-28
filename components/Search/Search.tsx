@@ -19,6 +19,8 @@ import {
   Sizes,
 } from '@config';
 import { translations } from '@data';
+import { usePlayer } from '@context';
+import { queueIdForTrackId, sourceForTrackId } from '@services';
 
 import { Slider } from '../Slider';
 import { styles } from './styles';
@@ -54,7 +56,7 @@ export const Search = () => {
           setResults(data);
           setStatus('done');
         }
-      } catch (error) {
+      } catch {
         if (!isCancelled) {
           setResults(null);
           setStatus('error');
@@ -68,6 +70,39 @@ export const Search = () => {
     };
   }, [query]);
 
+  const player = usePlayer();
+
+  // Tracks of the catalog play immediately (metadata → Audius stream).
+  const handleTrackPress = React.useCallback(
+    (track: { id: string; title: string; subtitle?: string; imageURL?: string }) => {
+      const queueId = queueIdForTrackId(track.id);
+
+      if (player.current?.id === queueId) {
+        void player.togglePlayPause();
+        return;
+      }
+
+      const playable = (results?.tracks ?? []).filter(({ id }) => Boolean(id));
+      const startIndex = playable.findIndex(({ id }) => id === track.id);
+
+      if (startIndex < 0) {
+        return;
+      }
+
+      void player.playQueue(
+        playable.map(({ id, title, subtitle, imageURL }) => ({
+          id: queueIdForTrackId(id),
+          title,
+          artists: subtitle ? subtitle.split(', ').filter(Boolean) : [],
+          imageURL: imageURL ?? '',
+          source: sourceForTrackId(id),
+        })),
+        startIndex
+      );
+    },
+    [player, results]
+  );
+
   const sections = results
     ? [
         {
@@ -75,24 +110,28 @@ export const Search = () => {
           title: translations.type.artists,
           slides: results.artists,
           shape: Shapes.CIRCLE,
+          onSlidePress: undefined,
         },
         {
           key: 'tracks',
           title: translations.songs,
           slides: results.tracks,
           shape: Shapes.SQUARE_BORDER,
+          onSlidePress: handleTrackPress,
         },
         {
           key: 'albums',
           title: translations.type.albums,
           slides: results.albums,
           shape: Shapes.SQUARE_BORDER,
+          onSlidePress: undefined,
         },
         {
           key: 'playlists',
           title: translations.type.playlists,
           slides: results.playlists,
           shape: Shapes.SQUARE_BORDER,
+          onSlidePress: undefined,
         },
       ].filter(({ slides }) => slides.length > 0)
     : [];
@@ -140,7 +179,7 @@ export const Search = () => {
           </Text>
         )}
         {status === 'done' &&
-          sections.map(({ key, title, slides, shape }) => (
+          sections.map(({ key, title, slides, shape, onSlidePress }) => (
             <Slider
               key={key}
               title={title}
@@ -148,6 +187,7 @@ export const Search = () => {
               size={Sizes.MEDIUM}
               shape={shape}
               withShowAll={false}
+              onSlidePress={onSlidePress}
             />
           ))}
       </ScrollView>

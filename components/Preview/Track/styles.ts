@@ -82,8 +82,21 @@ export const styles = StyleSheet.create({
     marginRight: 25,
     padding: 4,
   },
+  isTrackUnsavedPressable: {
+    borderRadius: Shapes.CIRCLE,
+    borderWidth: 1,
+    borderColor: COLORS.GREY,
+    backgroundColor: 'transparent',
+    position: 'relative',
+    marginRight: 25,
+    padding: 4,
+  },
   isTrackSavedIcon: {
     color: COLORS.PRIMARY,
+    fontSize: 9,
+  },
+  isTrackUnsavedIcon: {
+    color: COLORS.GREY,
     fontSize: 9,
   },
   artistNameText: {

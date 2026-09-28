@@ -1,113 +1,103 @@
 import * as React from 'react';
-import { useRouter, useSegments } from 'expo-router';
 import { render, fireEvent, RenderResult } from '@testing-library/react-native';
-import { BottomNavigation } from '../BottomTabBar';
-import { COLORS } from '@config';
+import { BottomTabBar } from '../BottomTabBar';
+import { translations } from '@data';
+import { Pages } from '@config';
 
-jest.mock('expo-router', () => ({
-  useRouter: jest.fn(),
-  useSegments: jest.fn(),
-}));
+type RouteInput = { key: string; name: string };
 
-enum TEST_IDS {
-  HOME_PRESSABLE = 'home-pressable',
-  HOME_TEXT = 'home-text',
-  SEARCH_PRESSABLE = 'search-pressable',
-  SEARCH_TEXT = 'search-text',
-  LIBRARY_PRESSABLE = 'library-pressable',
-  LIBRARY_TEXT = 'library-text',
-}
+const makeProps = (
+  routes: RouteInput[] = [
+    { key: 'home-1', name: Pages.HOME },
+    { key: 'search-2', name: Pages.SEARCH },
+    { key: 'library-3', name: Pages.LIBRARY },
+  ],
+  activeIndex = 0
+) => {
+  const state = { routes, index: activeIndex, key: 'tab', routeNames: routes.map((r) => r.name), history: [], type: 'tab', stale: false } as const;
+  const descriptors = Object.fromEntries(
+    routes.map((route) => [
+      route.key,
+      {
+        options: { tabBarAccessibilityLabel: route.name },
+        render: () => null,
+        navigation: {},
+        route,
+      },
+    ])
+  );
+  const emit = jest.fn(() => ({ defaultPrevented: false }));
+  const navigate = jest.fn();
+  const navigation = { emit, navigate };
+  return { state, descriptors, navigation, emit, navigate };
+};
 
-describe('BottomNavigation', () => {
+describe('BottomTabBar', () => {
   let container: RenderResult;
-  const mockReplace = jest.fn();
-
-  beforeEach(() => {
-    (useRouter as jest.Mock).mockReturnValue({ replace: mockReplace });
-    (useSegments as jest.Mock).mockReturnValue(['', 'home']);
-    container = render(<BottomNavigation />);
-  });
 
   afterEach(() => {
     jest.clearAllMocks();
   });
 
-  it('renders correctly', () => {
-    expect(container.getByTestId(TEST_IDS.HOME_TEXT)).toBeTruthy();
-    expect(container.getByTestId(TEST_IDS.SEARCH_TEXT)).toBeTruthy();
-    expect(container.getByTestId(TEST_IDS.LIBRARY_TEXT)).toBeTruthy();
+  it('renders one tab per route with its label', () => {
+    const props = makeProps();
+    container = render(
+      <BottomTabBar
+        state={props.state as never}
+        descriptors={props.descriptors as never}
+        navigation={props.navigation as never}
+        insets={{ top: 0, bottom: 0, left: 0, right: 0 } as never}
+      />
+    );
+
+    expect(container.getByText(translations.router[Pages.HOME])).toBeTruthy();
+    expect(container.getByText(translations.router[Pages.SEARCH])).toBeTruthy();
+    expect(container.getByText(translations.router[Pages.LIBRARY])).toBeTruthy();
   });
 
-  describe('Navigation - Press logic', () => {
-    it('replaces to the home page when the home button is pressed', () => {
-      const homeButton = container.getByTestId(TEST_IDS.HOME_PRESSABLE);
-      fireEvent.press(homeButton);
-      expect(mockReplace).toHaveBeenCalledWith('home');
-    });
+  it('navigates to an inactive tab on press', () => {
+    const props = makeProps(undefined, 0);
+    container = render(
+      <BottomTabBar
+        state={props.state as never}
+        descriptors={props.descriptors as never}
+        navigation={props.navigation as never}
+        insets={{ top: 0, bottom: 0, left: 0, right: 0 } as never}
+      />
+    );
 
-    it('replaces to the search page when the search button is pressed', () => {
-      const searchButton = container.getByTestId(TEST_IDS.SEARCH_PRESSABLE);
-      fireEvent.press(searchButton);
-      expect(mockReplace).toHaveBeenCalledWith('search');
-    });
-
-    it('replaces to the library page when the library button is pressed', () => {
-      const libraryButton = container.getByTestId(TEST_IDS.LIBRARY_PRESSABLE);
-      fireEvent.press(libraryButton);
-      expect(mockReplace).toHaveBeenCalledWith('library');
-    });
+    fireEvent.press(container.getByText(translations.router[Pages.SEARCH]));
+    expect(props.navigate).toHaveBeenCalledWith(Pages.SEARCH);
   });
 
-  describe('Active button - UI', () => {
-    it('sets the home button active when pressed', () => {
-      (useSegments as jest.Mock).mockReturnValue(['home']);
-      container = render(<BottomNavigation />);
+  it('does not navigate when pressing the active tab', () => {
+    const props = makeProps(undefined, 0);
+    container = render(
+      <BottomTabBar
+        state={props.state as never}
+        descriptors={props.descriptors as never}
+        navigation={props.navigation as never}
+        insets={{ top: 0, bottom: 0, left: 0, right: 0 } as never}
+      />
+    );
 
-      const homeTextActiveStyles = container.getByTestId(TEST_IDS.HOME_TEXT)
-        .props.style[1].color;
-      const libraryTextActiveStyles = container.getByTestId(
-        TEST_IDS.LIBRARY_TEXT
-      ).props.style[1].color;
-      const searchTextActiveStyles = container.getByTestId(TEST_IDS.SEARCH_TEXT)
-        .props.style[1].color;
+    fireEvent.press(container.getByText(translations.router[Pages.HOME]));
+    expect(props.navigate).not.toHaveBeenCalled();
+  });
 
-      expect(homeTextActiveStyles).toBe(COLORS.WHITE);
-      expect(searchTextActiveStyles).toBe(undefined);
-      expect(libraryTextActiveStyles).toBe(undefined);
-    });
+  it('respects a prevented default tab press', () => {
+    const props = makeProps(undefined, 0);
+    props.emit.mockReturnValueOnce({ defaultPrevented: true });
+    container = render(
+      <BottomTabBar
+        state={props.state as never}
+        descriptors={props.descriptors as never}
+        navigation={props.navigation as never}
+        insets={{ top: 0, bottom: 0, left: 0, right: 0 } as never}
+      />
+    );
 
-    it('sets the search button active when pressed', () => {
-      (useSegments as jest.Mock).mockReturnValue(['search']);
-      container = render(<BottomNavigation />);
-
-      const homeTextActiveStyles = container.getByTestId(TEST_IDS.HOME_TEXT)
-        .props.style[1].color;
-      const libraryTextActiveStyles = container.getByTestId(
-        TEST_IDS.LIBRARY_TEXT
-      ).props.style[1].color;
-      const searchTextActiveStyles = container.getByTestId(TEST_IDS.SEARCH_TEXT)
-        .props.style[1].color;
-
-      expect(searchTextActiveStyles).toBe(COLORS.WHITE);
-      expect(homeTextActiveStyles).toBe(undefined);
-      expect(libraryTextActiveStyles).toBe(undefined);
-    });
-
-    it('sets the home library active when pressed', () => {
-      (useSegments as jest.Mock).mockReturnValue(['library']);
-      container = render(<BottomNavigation />);
-
-      const homeTextActiveStyles = container.getByTestId(TEST_IDS.HOME_TEXT)
-        .props.style[1].color;
-      const libraryTextActiveStyles = container.getByTestId(
-        TEST_IDS.LIBRARY_TEXT
-      ).props.style[1].color;
-      const searchTextActiveStyles = container.getByTestId(TEST_IDS.SEARCH_TEXT)
-        .props.style[1].color;
-
-      expect(libraryTextActiveStyles).toBe(COLORS.WHITE);
-      expect(searchTextActiveStyles).toBe(undefined);
-      expect(homeTextActiveStyles).toBe(undefined);
-    });
+    fireEvent.press(container.getByText(translations.router[Pages.LIBRARY]));
+    expect(props.navigate).not.toHaveBeenCalled();
   });
 });

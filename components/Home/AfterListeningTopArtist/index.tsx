@@ -36,7 +36,12 @@ export const AfterListeningTopArtist = () => {
       try {
         const topArtistRecommendationsData =
           await getRecommendationsFromTopArtistSeed();
-        setTopArtistRecommendations(topArtistRecommendationsData);
+        setTopArtistRecommendations(
+          topArtistRecommendationsData ?? {
+            recommendations: null,
+            artist: null,
+          }
+        );
       } catch (error) {
         setTopArtistRecommendations({ recommendations: null, artist: null });
         console.error(error);

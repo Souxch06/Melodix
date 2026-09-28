@@ -1,22 +1,26 @@
 import { LibraryItemModel } from '@models';
-import { getRecommendations } from './getRecommendations';
-import { getUserTopArtists } from '../artists';
 
+import { getUserTopArtists } from '../artists';
+import { getRecommendations } from './getRecommendations';
+
+/**
+ * Recommandations calculées depuis les artistes locaux les plus écoutés
+ * (agrégat d'historique local, aucun compte). Historique vide → tendances.
+ */
 export const getRecommendationsFromArtistSeeds = async (): Promise<
   LibraryItemModel[]
 > => {
   try {
-    const artistSeed = (await getUserTopArtists())
-      .map((item) => item.id)
-      .slice(0, 5)
-      .join(',');
+    const topArtists = await getUserTopArtists();
+    if (topArtists.length === 0) {
+      return getRecommendations({});
+    }
 
-    return await getRecommendations({ artistSeed });
+    // Un appel par artiste en tête serait redondant : la seed principale
+    // suffit à proposer une sélection cohérente.
+    return await getRecommendations({ artistSeed: topArtists[0].id });
   } catch (error) {
-    console.error(
-      `Error when fetching recommended tracks from artists seeds`,
-      error
-    );
-    throw error;
+    console.error('Erreur de recommandations (seeds artistes locaux)', error);
+    return getRecommendations({});
   }
 };

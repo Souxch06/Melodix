@@ -1,69 +1,65 @@
-import axios from 'axios';
+import { checkSavedItems } from '../checkSavedItems';
+import { saveItem, saveTrack, clearLocalLibrary } from '@services';
+import { LibraryItemModel, TrackModel } from '@models';
 
-import { checkSavedItems, MAX_URIS_PER_REQUEST } from '../checkSavedItems';
+const track = (id: string): TrackModel => ({
+  id,
+  title: `Track ${id}`,
+  subtitle: 'Artist',
+});
 
-jest.mock('axios');
-jest.mock('../../config', () => ({
-  BASE_URL: 'https://api.spotify.com/v1',
-  getSessionToken: jest.fn(async () => 'user-token'),
-}));
+const album = (id: string): LibraryItemModel => ({
+  id,
+  type: 'album',
+  title: `Album ${id}`,
+  subtitle: 'Artist',
+  imageURL: '',
+});
 
-const mockedGet = axios.get as jest.Mock;
-
-describe('checkSavedItems', () => {
-  beforeEach(() => {
-    mockedGet.mockReset();
+describe('checkSavedItems (bibliothèque locale)', () => {
+  beforeEach(async () => {
+    await clearLocalLibrary();
   });
 
-  it('queries /me/library/contains with Spotify URIs', async () => {
-    mockedGet.mockResolvedValueOnce({ data: [true, false] });
+  it('renvoie des réponses alignées sur les ids (ordre conservé)', async () => {
+    await saveTrack(track('a'));
+    await saveTrack(track('c'));
 
-    await expect(checkSavedItems('track', ['a', 'b'])).resolves.toEqual([
+    await expect(checkSavedItems('track', ['a', 'b', 'c'])).resolves.toEqual([
       true,
       false,
-    ]);
-    expect(mockedGet).toHaveBeenCalledWith(
-      'https://api.spotify.com/v1/me/library/contains',
-      {
-        params: { uris: 'spotify:track:a,spotify:track:b' },
-        headers: { Authorization: 'Bearer user-token' },
-      }
-    );
-  });
-
-  it(`sends at most ${MAX_URIS_PER_REQUEST} URIs per request and keeps the order`, async () => {
-    const ids = Array.from({ length: 85 }, (_, i) => `id${i}`);
-    mockedGet.mockImplementation(
-      async (_url: string, { params }: { params: { uris: string } }) => ({
-        data: params.uris
-          .split(',')
-          .map((uri) => Number(uri.split('id')[1]) % 2 === 0),
-      })
-    );
-
-    const result = await checkSavedItems('album', ids);
-
-    expect(
-      mockedGet.mock.calls.map(
-        ([, options]) => options.params.uris.split(',').length
-      )
-    ).toEqual([40, 40, 5]);
-    expect(result).toEqual(ids.map((_, i) => i % 2 === 0));
-  });
-
-  it('reports empty IDs as not saved without sending them', async () => {
-    mockedGet.mockResolvedValueOnce({ data: [true] });
-
-    await expect(checkSavedItems('track', ['', 'x', ''])).resolves.toEqual([
-      false,
       true,
-      false,
     ]);
-    expect(mockedGet.mock.calls[0][1].params.uris).toBe('spotify:track:x');
   });
 
-  it('does not call the API when there is nothing to check', async () => {
-    await expect(checkSavedItems('playlist', [])).resolves.toEqual([]);
-    expect(mockedGet).not.toHaveBeenCalled();
+  it('les ids vides sont signalés non sauvegardés', async () => {
+    await expect(checkSavedItems('track', ['', 'x'])).resolves.toEqual([
+      false,
+      false,
+    ]);
+  });
+
+  it('vérifie par type (album ≠ track)', async () => {
+    await saveItem(album('a'));
+
+    await expect(checkSavedItems('album', ['a'])).resolves.toEqual([true]);
+    await expect(checkSavedItems('track', ['a'])).resolves.toEqual([false]);
+  });
+
+  it('episode est toujours false (plus de catalogue épisodes sans compte)', async () => {
+    await expect(checkSavedItems('episode', ['e1', 'e2'])).resolves.toEqual([
+      false,
+      false,
+    ]);
+  });
+
+  it('aucun réseau n est requis (fonctionne sur AsyncStorage)', async () => {
+    // Pas de mock réseau dans ce test : si un appel réseau existait encore,
+    // il échouerait faute d'axios mocké.
+    await saveTrack(track('offline'));
+
+    await expect(checkSavedItems('track', ['offline'])).resolves.toEqual([
+      true,
+    ]);
   });
 });

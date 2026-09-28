@@ -19,6 +19,8 @@ export type SliderPropsType = {
   size?: Sizes;
   shape?: Shapes;
   withShowAll: boolean;
+  // Replaces card navigation for every slide (e.g. playing Audius tracks).
+  onSlidePress?: (slide: LibraryItemModel, index: number) => void;
 };
 
 export const Slider = ({
@@ -27,6 +29,7 @@ export const Slider = ({
   size = Sizes.BIG,
   shape = Shapes.SQUARE,
   withShowAll = false,
+  onSlidePress,
 }: SliderPropsType) => {
   const { width } = useApplicationDimensions();
   const horizontalOffset = 16;
@@ -62,16 +65,19 @@ export const Slider = ({
               size={[width - horizontalOffset * 2, size]}
             />
           ) : (
-            slides.map(({ id, type, title, subtitle, imageURL }, index) => (
+            slides.map((slide, index) => (
               <Card
                 key={index}
-                id={id}
-                type={type}
+                id={slide.id}
+                type={slide.type}
                 shape={shape}
                 size={size}
-                title={title}
-                subtitle={subtitle}
-                imageURL={imageURL}
+                title={slide.title}
+                subtitle={slide.subtitle}
+                imageURL={slide.imageURL}
+                onPress={
+                  onSlidePress ? () => onSlidePress(slide, index) : undefined
+                }
               />
             ))
           )}

@@ -14,9 +14,12 @@ export const LibraryRelated = () => (
     showsHorizontalScrollIndicator={false}
   >
     <View style={styles.scrollViewContainer}>
-      {Object.values(Categories)
-        .filter((c) => c !== Categories.ALL)
-        .map((currentCategory) => (
+      {(
+        Object.values(Categories).filter(
+          (category): category is Exclude<Categories, Categories.ALL> =>
+            category !== Categories.ALL
+        ) as Exclude<Categories, Categories.ALL>[]
+      ).map((currentCategory) => (
           <CategoryPressable
             key={currentCategory}
             currentCategory={currentCategory}

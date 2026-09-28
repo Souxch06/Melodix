@@ -3,6 +3,7 @@ import { Preview } from '@components';
 
 import { PlaylistModel, TrackModel } from '@models';
 import { checkSavedTracks, getPlaylist, getPlaylistItems } from '@api';
+import { toggleSavedTrack } from '@services';
 
 export type AlbumScreenPropsType = {
   playlistId: string;
@@ -111,6 +112,22 @@ export const PlaylistScreen = ({ playlistId }: AlbumScreenPropsType) => {
   //   [tracks]
   // );
 
+  // Favori LOCAL de la ligne : persistance immédiate (aucun compte), UI à
+  // jour en fonction du résultat (réversible).
+  const handleToggleTrackSaved = React.useCallback(
+    async (track: TrackModel) => {
+      const nowSaved = await toggleSavedTrack(track, {
+        artists: track.subtitle ? track.subtitle.split(', ') : [],
+      });
+      setTracks((prevTracks) =>
+        prevTracks.map((item) =>
+          item.id === track.id ? { ...item, isSaved: nowSaved } : item
+        )
+      );
+    },
+    []
+  );
+
   return (
     <Preview
       type="playlist"
@@ -123,6 +140,7 @@ export const PlaylistScreen = ({ playlistId }: AlbumScreenPropsType) => {
       summaryInfo={info}
       tracks={tracks}
       fetchTracks={fetchTracks}
+      onToggleTrackSaved={handleToggleTrackSaved}
     />
   );
 };

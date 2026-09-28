@@ -1,11 +1,36 @@
-import axios from 'axios';
-
 import { LibraryItemModel } from '@models';
-import { RecommendationsResponseType } from '@config';
-import { parseFromTopTracksToLibraryItem } from '@utils';
 
-import { BASE_URL, getSessionlessToken } from '../config';
+import { audiusTrackToLibraryItem, getAudiusTrendingTracks } from '../audius';
+import {
+  backendGetArtist,
+  backendGetTrack,
+  backendSearchTracks,
+  dtoTrackToLibraryItem,
+} from '../backend';
 
+const MAX_RECOMMENDATIONS = 10;
+
+const dedupeById = (items: LibraryItemModel[]): LibraryItemModel[] => {
+  const seen = new Set<string>();
+  return items.filter((item) => {
+    if (seen.has(item.id)) {
+      return false;
+    }
+    seen.add(item.id);
+    return true;
+  });
+};
+
+/**
+ * Recommandations « autour de » une seed artiste/morceau.
+ *
+ * Sans compte, Melodix ne peut plus appeler /recommendations de Spotify :
+ * la stratégie devient explicable et déterministe —
+ *   1. seed morceau : rechercher « titre + artiste résolus » dans le catalogue ;
+ *   2. seed artiste : rechercher le NOM d'artiste dans le catalogue ;
+ *   3. repli universel : tendances Audius.
+ * Jamais d'exception vers l'UI : en cas d'échec, la section affiche le repli.
+ */
 export const getRecommendations = async ({
   artistSeed = '',
   tracksSeed = '',
@@ -15,31 +40,64 @@ export const getRecommendations = async ({
   tracksSeed?: string;
   genresSeed?: string;
 }): Promise<LibraryItemModel[]> => {
-  //@API_RATE: Remove this and instead handle the rate limit case
-  throw new Error('Temp error');
+  void genresSeed; // plus de seed genres sans compte : conservé pour la signature
+
+  const collects: LibraryItemModel[] = [];
+
   try {
-    const { token } = await getSessionlessToken();
+    if (tracksSeed) {
+      const track = await backendGetTrack(tracksSeed);
+      const mainArtist = track.artists[0] ?? '';
+      const query = `${track.title} ${mainArtist}`.trim();
+      if (query) {
+        collects.push(
+          ...(await backendSearchTracks(query, MAX_RECOMMENDATIONS + 1))
+            .filter((dto) => dto.id !== tracksSeed)
+            .map(dtoTrackToLibraryItem)
+        );
+      }
+    }
 
-    const response = (await axios.get(`${BASE_URL}/recommendations`, {
-      params: {
-        seed_artists: artistSeed,
-        seed_tracks: tracksSeed,
-        seed_genres:
-          !artistSeed && !tracksSeed && !genresSeed ? 'Rap' : genresSeed,
-        limit: 100,
-        offset: 0,
-      },
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    })) as { data: RecommendationsResponseType };
-
-    return parseFromTopTracksToLibraryItem(response.data.tracks);
+    if (artistSeed) {
+      if (artistSeed.startsWith('local-artist:')) {
+        const name = artistSeed
+          .slice('local-artist:'.length)
+          .replace(/-/g, ' ')
+          .trim();
+        if (name) {
+          collects.push(
+            ...(await backendSearchTracks(name, MAX_RECOMMENDATIONS)).map(
+              dtoTrackToLibraryItem
+            )
+          );
+        }
+      } else {
+        try {
+          const artist = await backendGetArtist(artistSeed);
+          if (artist.topTracks?.length) {
+            collects.push(...artist.topTracks.map(dtoTrackToLibraryItem));
+          } else if (artist.name) {
+            collects.push(
+              ...(await backendSearchTracks(artist.name, MAX_RECOMMENDATIONS)).map(
+                dtoTrackToLibraryItem
+              )
+            );
+          }
+        } catch {
+          // Seed catalogue introuvable : le repli global prendra le relais.
+        }
+      }
+    }
   } catch (error) {
-    console.error(
-      `Error when fetching recommendations with seeds - seed_artists: ${artistSeed}, seed_tracks: ${tracksSeed}, seed_genres: ${genresSeed}`,
-      error
-    );
-    throw error;
+    console.warn('Recommandations catalogue indisponibles', error);
   }
+
+  const result = dedupeById(collects).slice(0, MAX_RECOMMENDATIONS);
+  if (result.length > 0) {
+    return result;
+  }
+
+  // Repli universel : tendances Audius (catalogue direct, sans compte).
+  const trending = await getAudiusTrendingTracks(MAX_RECOMMENDATIONS);
+  return trending.map(audiusTrackToLibraryItem);
 };

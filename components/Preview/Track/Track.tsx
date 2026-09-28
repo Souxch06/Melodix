@@ -23,6 +23,14 @@ export type TrackPropsType = {
   isPlaying: boolean;
   explicit: boolean;
   forceDisableSaveIcon?: boolean;
+  // Starts playback of this row (Spotify metadata matched to an Audius
+  // stream). Undefined → the row renders inert exactly as before.
+  onPress?: () => void;
+  /**
+   * Bascule le favori LOCAL de la ligne. Fourni ⇒ l'icône est toujours
+   * visible (check = sauvegardé, plus = ajouter).
+   */
+  onToggleSaved?: () => void;
 };
 
 export const Track = ({
@@ -35,13 +43,20 @@ export const Track = ({
   isPlaying,
   explicit,
   forceDisableSaveIcon,
+  onPress,
+  onToggleSaved,
 }: TrackPropsType) => {
   const { width } = useApplicationDimensions();
   const maxWidth = width - 150;
   const isPlaylist = type === 'playlist';
 
+  const Container = onPress ? Pressable : View;
+
   return (
-    <View style={styles.container}>
+    <Container
+      style={styles.container}
+      {...(onPress ? { onPress, accessibilityRole: 'button' as const } : {})}
+    >
       {isPlaylist && (
         <Image
           style={styles.image}
@@ -95,14 +110,32 @@ export const Track = ({
         </View>
       </View>
 
-      {isSaved && !forceDisableSaveIcon && (
-        <Pressable style={styles.isTrackSavedPressable}>
-          <FontAwesome5 name="check" style={styles.isTrackSavedIcon} />
+      {onToggleSaved && !forceDisableSaveIcon ? (
+        <Pressable
+          style={
+            isSaved ? styles.isTrackSavedPressable : styles.isTrackUnsavedPressable
+          }
+          onPress={onToggleSaved}
+          accessibilityRole="button"
+        >
+          <FontAwesome5
+            name={isSaved ? 'check' : 'plus'}
+            style={
+              isSaved ? styles.isTrackSavedIcon : styles.isTrackUnsavedIcon
+            }
+          />
         </Pressable>
+      ) : (
+        isSaved &&
+        !forceDisableSaveIcon && (
+          <View style={styles.isTrackSavedPressable}>
+            <FontAwesome5 name="check" style={styles.isTrackSavedIcon} />
+          </View>
+        )
       )}
       <Pressable>
         <Entypo style={styles.moreIcon} name="dots-three-horizontal" />
       </Pressable>
-    </View>
+    </Container>
   );
 };
