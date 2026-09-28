@@ -51,27 +51,25 @@ export const FR_FR_LOGIN = {
   loginHeaderNotation: '×', // séparateur entre les logos Melodix et Spotify
   loginDescription:
     'Retrouve tes playlists personnelles et écoute-les, sans jamais saisir la moindre clé : tout passe par la page officielle de Spotify.',
+  loginWelcomeTitle: 'Bienvenue sur Melodix',
+  loginConnectHint: 'Connecte-toi avec ton compte Spotify pour continuer.',
+  loginRedirectNote:
+    'Tu seras redirigé vers Spotify pour te connecter en toute sécurité.',
   loginContinue: 'Continuer avec Spotify',
-  loginConnecting: 'Connexion à Spotify...',
-  loginExchanging: 'Préparation de ta session...',
+  loginConnecting: 'Connexion à Spotify…',
+  loginExchanging: 'Finalisation de la connexion…',
+  loginSuccess: 'Connexion réussie !',
   loginValidate: 'Réessayer',
-  loginDiagnosticLabel: 'Diagnostic',
-  // Causes exactes (section diagnostic) — titre = VRAIE cause, jamais générique à tort.
+  // Messages HUMAINS uniquement — jamais de cause technique à l'écran.
+  loginErrorGenericTitle: 'Impossible de se connecter à Spotify.',
+  loginErrorGenericBody: 'Vérifie ta connexion Internet puis réessaie.',
   loginCancelledTitle: 'Connexion annulée',
   loginCancelledBody: 'Tu peux réessayer quand tu veux.',
   loginOAuthRefusedTitle: 'Spotify a refusé la connexion',
   loginOAuthRefusedBody:
     'Autorise bien Melodix sur la page Spotify, puis réessaie.',
-  loginCallbackFailedTitle: 'Retour Spotify impossible',
-  loginCallbackFailedBody:
-    'Le retour de Spotify vers Melodix a échoué. Réessaie de te connecter.',
-  loginNetworkTitle: 'Impossible de contacter Spotify',
-  loginNetworkBody: 'Vérifie ta connexion internet puis réessaie.',
-  loginUnknownTitle: 'Connexion à Spotify impossible',
-  loginUnknownBody: 'Réessaie dans quelques instants.',
-  loginNotConfigured: 'Connexion Spotify non configurée',
-  loginNotConfiguredBody:
-    "La connexion Spotify n'est pas encore configurée sur cette version de Melodix.\nVeuillez utiliser une version correctement configurée.",
+  loginNotConfigured: "La connexion Spotify n'est pas disponible pour le moment.",
+  loginNotConfiguredBody: 'Réessaie plus tard.',
   loginPrivacyNote:
     'Connexion sécurisée avec Spotify. Aucune clé ne te sera demandée : tu te connectes sur la page officielle de Spotify, puis tu reviens à Melodix.',
   loginSecureFootnote: 'Connexion sécurisée avec Spotify',
@@ -82,4 +80,6 @@ export const FR_FR_LOGIN = {
   loginSignOutConfirmMessage:
     'La session Spotify sera supprimée de cet appareil. Tes favoris et ton historique locaux sont conservés.',
   loginSignOutConfirm: 'Se déconnecter',
+  accountSpotifySection: 'Compte Spotify',
+  accountSignOut: 'Déconnexion',
 };

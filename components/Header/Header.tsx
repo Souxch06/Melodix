@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { Alert, Pressable, Text, View } from 'react-native';
+import { Alert, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { Image } from 'expo-image';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -10,7 +10,7 @@ import * as Icons from '@expo/vector-icons';
 import { LibraryRelated } from './LibraryRelated';
 
 import { useUserData } from '@context';
-import { HEADER_CATEGORIES_HEIGHT, HEADER_HEIGHT, Pages } from '@config';
+import { COLORS, HEADER_CATEGORIES_HEIGHT, HEADER_HEIGHT, Pages } from '@config';
 import { translations } from '@data';
 import { clearPlayHistory } from '@services';
 
@@ -24,28 +24,34 @@ export const Header = ({ tab }: HeaderPropsType) => {
   const { top: statusBarOffset } = useSafeAreaInsets();
   const { userData, sessionStatus, signOut } = useUserData();
   const router = useRouter();
+  const [accountOpen, setAccountOpen] = React.useState(false);
 
-  // Menu profil. Connecté : infos du compte Spotify + déconnexion (session
-  // et caches liés au compte supprimés ; favoris/historique locaux conservés).
-  // Non connecté : informations sur le stockage local (Melodix sans compte).
+  // Connecté : le tap profil ouvre le bloc « Compte Spotify » (avatar + nom +
+  // Déconnexion) au lieu d'une boîte système — section claire, façon apps
+  // grand public. La confirmation de déconnexion (Alert) est conservée.
+  const handleSignOutPress = () => {
+    setAccountOpen(false);
+    Alert.alert(
+      translations.loginSignOutConfirmTitle,
+      translations.loginSignOutConfirmMessage,
+      [
+        { text: translations.accountCancel, style: 'cancel' },
+        {
+          text: translations.loginSignOutConfirm,
+          style: 'destructive',
+          onPress: () => {
+            void signOut().then(() => {
+              router.replace({ pathname: '/login', params: {} });
+            });
+          },
+        },
+      ]
+    );
+  };
+
   const handleProfilePress = () => {
     if (sessionStatus === 'spotify') {
-      Alert.alert(
-        userData.displayName || translations.accountTitle,
-        translations.loginSignOutConfirmMessage,
-        [
-          { text: translations.accountCancel, style: 'cancel' },
-          {
-            text: translations.loginSignOut,
-            style: 'destructive',
-            onPress: () => {
-              void signOut().then(() => {
-                router.replace({ pathname: '/login', params: {} });
-              });
-            },
-          },
-        ]
-      );
+      setAccountOpen(true);
       return;
     }
 
@@ -146,6 +152,141 @@ export const Header = ({ tab }: HeaderPropsType) => {
         {TabRelatedIcons}
       </View>
       {TabRelatedComponent}
+
+      {/* Bloc « Compte Spotify » : avatar + nom + Déconnexion, sombre,
+          confirmation native ensuite, retour auto à l'écran de connexion. */}
+      <Modal
+        animationType="fade"
+        onRequestClose={() => setAccountOpen(false)}
+        transparent
+        visible={accountOpen}
+      >
+        <Pressable
+          accessibilityLabel={translations.accountCancel}
+          onPress={() => setAccountOpen(false)}
+          style={accountStyles.backdrop}
+          testID="account-modal-backdrop"
+        />
+        <View style={accountStyles.card} testID="account-modal">
+          <Text style={accountStyles.section}>
+            {translations.accountSpotifySection}
+          </Text>
+          <View style={accountStyles.identityRow}>
+            {userData.imageURL ? (
+              <Image
+                style={accountStyles.avatar}
+                source={{ uri: userData.imageURL }}
+              />
+            ) : (
+              <View style={accountStyles.avatarFallback}>
+                <Text style={accountStyles.avatarInitial}>
+                  {(userData.displayName || '?').charAt(0).toUpperCase()}
+                </Text>
+              </View>
+            )}
+            <Text numberOfLines={1} style={accountStyles.name}>
+              {userData.displayName || translations.accountTitle}
+            </Text>
+          </View>
+          <View style={accountStyles.divider} />
+          <Pressable
+            accessibilityRole="button"
+            onPress={handleSignOutPress}
+            style={({ pressed }) => [
+              accountStyles.signOutRow,
+              pressed && accountStyles.signOutRowPressed,
+            ]}
+            testID="account-signout-button"
+          >
+            <Icons.Ionicons name="log-out-outline" style={accountStyles.signOutIcon} />
+            <Text style={accountStyles.signOutText}>
+              {translations.accountSignOut}
+            </Text>
+          </Pressable>
+        </View>
+      </Modal>
     </View>
   );
 };
+
+/** Palette du bloc compte : sombre, cohérente avec le reste de l'app. */
+const accountStyles = StyleSheet.create({
+  backdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+  },
+  card: {
+    backgroundColor: '#1A1A1A',
+    borderRadius: 16,
+    left: 16,
+    position: 'absolute',
+    right: 16,
+    top: 96,
+    paddingHorizontal: 18,
+    paddingBottom: 8,
+    paddingTop: 16,
+  },
+  section: {
+    color: COLORS.GREY,
+    fontFamily: 'SF-Semibold',
+    fontSize: 12,
+    letterSpacing: 0.6,
+    marginBottom: 12,
+    textTransform: 'uppercase',
+  },
+  identityRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 12,
+  },
+  avatar: {
+    borderRadius: 22,
+    height: 44,
+    width: 44,
+  },
+  avatarFallback: {
+    alignItems: 'center',
+    backgroundColor: '#2A2A2A',
+    borderRadius: 22,
+    height: 44,
+    justifyContent: 'center',
+    width: 44,
+  },
+  avatarInitial: {
+    color: COLORS.WHITE,
+    fontFamily: 'SF-Semibold',
+    fontSize: 17,
+  },
+  name: {
+    color: COLORS.WHITE,
+    flexShrink: 1,
+    fontFamily: 'SF-Semibold',
+    fontSize: 16,
+  },
+  divider: {
+    backgroundColor: '#2E2E2E',
+    height: StyleSheet.hairlineWidth,
+    marginVertical: 14,
+  },
+  signOutRow: {
+    alignItems: 'center',
+    borderRadius: 10,
+    flexDirection: 'row',
+    gap: 10,
+    marginBottom: 6,
+    paddingVertical: 12,
+    paddingHorizontal: 6,
+  },
+  signOutRowPressed: {
+    backgroundColor: '#242424',
+  },
+  signOutIcon: {
+    color: COLORS.RED,
+    fontSize: 20,
+  },
+  signOutText: {
+    color: COLORS.RED,
+    fontFamily: 'SF-Semibold',
+    fontSize: 15,
+  },
+});

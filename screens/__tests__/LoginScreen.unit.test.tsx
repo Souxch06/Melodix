@@ -1,35 +1,41 @@
 /**
- * Écran de connexion — scénarios exigés :
- *  4. Client ID absent          → écran « pas configuré », AUCUNE tentative OAuth
- *  5. Annulation                → texte exact + Réessayer fonctionnel
- *  6. Échec OAuth               → texte exact, error propre, réessai possible
- * + AUCUN moyen d'accéder à l'app sans compte (lien supprimé), aucun champ
- *   credential, anti-double-clic, bouton désactivé tant que la requête OAuth
- *   n'est pas prête, libellé de chargement exact.
+ * Écran de connexion — parcours HUMAIN, zéro détail technique :
+ *
+ *  1. Écran initial : logo, « Bienvenue sur Melodix », phrase d'accroche,
+ *     UN SEUL gros bouton « Continuer avec Spotify », note de redirection,
+ *     AUCUN lien sans compte, AUCUN champ (ni Client ID ni secret).
+ *  2. Bouton → startLogin() (le vrai OAuth, couvert par la suite du hook),
+ *     anti-double-clic, bouton désactivé tant que la requête n'est pas prête.
+ *  3. Chargement : « Connexion à Spotify… » puis « Finalisation de la
+ *     connexion… ».
+ *  4. Erreurs : messages humains UNIQUEMENT (jamais de code, cause, step,
+ *     « Diagnostic », redirect_uri, PKCE ou token à l'écran) + « Réessayer ».
+ *  5. Config absente : « La connexion Spotify n'est pas disponible pour le
+ *     moment / Réessaie plus tard. » — pas de Réessayer inutile, jamais de
+ *     champ de saisie.
+ *  6. Succès : confirmation « Connexion réussie ! » puis ouverture directe
+ *     de l'accueil (replace /(tabs)/home), sans écran intermédiaire.
  */
 import * as React from 'react';
 import { Animated, TextInput } from 'react-native';
-import { fireEvent, render } from '@testing-library/react-native';
+import { act, fireEvent, render } from '@testing-library/react-native';
 import { useRouter } from 'expo-router';
 
 import { LoginScreen } from '../LoginScreen';
 
-// Environnement jsdom : InteractionManager n'exécute pas les animations
-// natives — les animations d'entrée sont neutralisées (décoration visuelle).
+// Environnement jsdom : les animations natives sont neutralisées.
 jest
   .spyOn(Animated, 'parallel')
   .mockReturnValue({ start: jest.fn(), stop: jest.fn(), reset: jest.fn() } as unknown as Animated.CompositeAnimation);
 
 const mockStartLogin = jest.fn(async () => {});
 const mockResetError = jest.fn();
+const mockReplace = jest.fn();
 
 let mockConfigured = true;
 let mockRequestPending = false;
 let mockSessionStatus = 'loading';
-let mockAuthState: {
-  status: string;
-  outcome?: { kind: string; cause?: string };
-} = {
+let mockAuthState: { status: string; outcome?: { kind: string; cause?: string } } = {
   status: 'idle',
 };
 let mockBusy = false;
@@ -59,183 +65,178 @@ const TEST_IDS = {
   ERROR_CARD: 'login-error-card',
   RETRY_BUTTON: 'login-retry-button',
   STATUS: 'login-status-text',
+  SUCCESS_TEXT: 'login-success-text',
 };
 
-describe('LoginScreen (connexion Spotify OBLIGATOIRE)', () => {
+/** Vrai si un nœud Text dont la chaîne contient `needle` existe. */
+const hasTextContaining = (root: ReturnType<typeof render>, needle: string) =>
+  root.UNSAFE_queryAllByProps({}).some((node) => {
+    if (node.type !== 'Text') {
+      return false;
+    }
+    const children = node.props?.children;
+    const flat = Array.isArray(children) ? children.join(' ') : children;
+    return typeof flat === 'string' ? flat.includes(needle) : false;
+  });
+
+describe('LoginScreen — parcours humain, connexion OBLIGATOIRE', () => {
   beforeEach(() => {
-    (useRouter as jest.Mock).mockReturnValue({ replace: jest.fn() });
+    (useRouter as jest.Mock).mockReturnValue({ replace: mockReplace });
     mockAuthState = { status: 'idle' };
     mockConfigured = true;
     mockBusy = false;
     mockRequestPending = false;
     mockSessionStatus = 'loading';
+    jest.useRealTimers();
     jest.clearAllMocks();
   });
 
-  it('écran initial : logos, tagline exacte, UN SEUL bouton Spotify, zéro lien sans compte', () => {
-    const { getByText, getByTestId, queryByText } = render(<LoginScreen />);
+  it('écran initial : bienvenue, accroche, UN SEUL bouton Spotify, note, pied de confidentialité implicitement humain', () => {
+    const root = render(<LoginScreen />);
 
-    expect(getByText('Ta musique. Ton univers.')).toBeTruthy();
-    expect(getByTestId(TEST_IDS.SPOTIFY_BUTTON)).toBeTruthy();
-    expect(getByText('Continuer avec Spotify')).toBeTruthy();
-    expect(getByText('Connexion sécurisée avec Spotify')).toBeTruthy();
-
-    // Le lien « Explorer sans compte » a été SUPPRIMÉ : aucun accès sans session.
-    expect(queryByText(/Explorer sans compte/i)).toBeNull();
-    expect(queryByText(/sans compte/i)).toBeNull();
-  });
-
-  it('AUCUN champ credential : ni Client ID, ni secret, ni token, ni TextInput', () => {
-    const { queryByText, UNSAFE_queryAllByType } = render(<LoginScreen />);
-
-    expect(queryByText(/Client ID/i)).toBeNull();
-    expect(queryByText(/Secret/i)).toBeNull();
-    expect(queryByText(/token/i)).toBeNull();
-    expect(UNSAFE_queryAllByType(TextInput)).toHaveLength(0);
-  });
-
-  it('scénario 4 : Client ID ABSENT → « Connexion Spotify non configurée » (JAMAIS le générique)', () => {
-    mockConfigured = false;
-    const { getByText, queryByTestId } = render(<LoginScreen />);
-
-    expect(getByText('Connexion Spotify non configurée')).toBeTruthy();
+    expect(root.getByTestId('login-screen')).toBeTruthy();
+    expect(root.getByText('Bienvenue sur Melodix')).toBeTruthy();
     expect(
-      getByText(/n'est pas encore configurée sur cette version de Melodix/)
+      root.getByText('Connecte-toi avec ton compte Spotify pour continuer.')
     ).toBeTruthy();
-    expect(getByText(/version correctement configurée/)).toBeTruthy();
+    expect(root.getByTestId(TEST_IDS.SPOTIFY_BUTTON)).toBeTruthy();
+    expect(root.getByText('Continuer avec Spotify')).toBeTruthy();
+    expect(
+      root.getByText(
+        'Tu seras redirigé vers Spotify pour te connecter en toute sécurité.'
+      )
+    ).toBeTruthy();
+    // Zéro échappatoire sans compte, zéro champ de saisie.
+    expect(root.queryByText(/sans compte/i)).toBeNull();
+    expect(root.UNSAFE_queryAllByType(TextInput)).toHaveLength(0);
+    expect(root.queryByText(/Client ID|secret/i)).toBeNull();
+  });
 
-    // Pas de bouton principal : startLogin ne peut JAMAIS être déclenché.
-    expect(queryByTestId(TEST_IDS.SPOTIFY_BUTTON)).toBeNull();
-    expect(queryByTestId(TEST_IDS.RETRY_BUTTON)).toBeNull(); // rien à réessayer sans config
+  it('le bouton lance le VRAI OAuth (startLogin) exactement une fois', () => {
+    const { getByTestId } = render(<LoginScreen />);
+    fireEvent.press(getByTestId(TEST_IDS.SPOTIFY_BUTTON));
+    expect(mockStartLogin).toHaveBeenCalledTimes(1);
+  });
+
+  it('bouton désactivé tant que la requête OAuth n’est pas prête (anti-double-clic)', () => {
+    mockRequestPending = true;
+    const { getByTestId } = render(<LoginScreen />);
+    fireEvent.press(getByTestId(TEST_IDS.SPOTIFY_BUTTON));
     expect(mockStartLogin).not.toHaveBeenCalled();
   });
 
-  it('scénario 5 : annulation → textes EXACTS + bouton « Réessayer » relance le flux', () => {
-    mockAuthState = { status: 'error', outcome: { kind: 'cancelled' } };
-    const { getByText, getByTestId, queryByTestId } = render(<LoginScreen />);
+  it('pendant l’ouverture Spotify : « Connexion à Spotify… » affiché', () => {
+    mockAuthState = { status: 'requesting' };
+    mockBusy = true;
+    const { getByText } = render(<LoginScreen />);
+    expect(getByText('Connexion à Spotify…')).toBeTruthy();
+  });
 
-    // Textes EXACTS demandés (jamais de détail technique).
+  it('pendant l’échange : « Finalisation de la connexion… » affiché', () => {
+    mockAuthState = { status: 'exchanging' };
+    mockBusy = true;
+    const { getByText } = render(<LoginScreen />);
+    expect(getByText('Finalisation de la connexion…')).toBeTruthy();
+  });
+
+  it('annulation : message humain + « Réessayer » qui relance l’OAuth', () => {
+    mockAuthState = {
+      status: 'error',
+      outcome: { kind: 'cancelled', cause: 'dismiss' },
+    };
+    const { getByText, getByTestId, queryByText } = render(<LoginScreen />);
+
     expect(getByText('Connexion annulée')).toBeTruthy();
     expect(getByText('Tu peux réessayer quand tu veux.')).toBeTruthy();
-
-    // Le bouton Réessayer remplace le bouton principal (état propre).
-    expect(queryByTestId(TEST_IDS.SPOTIFY_BUTTON)).toBeNull();
+    // Le gros bouton primaire est remplacé par la carte erreur → Réessayer.
+    expect(queryByText('Continuer avec Spotify')).toBeNull();
 
     fireEvent.press(getByTestId(TEST_IDS.RETRY_BUTTON));
     expect(mockResetError).toHaveBeenCalledTimes(1);
     expect(mockStartLogin).toHaveBeenCalledTimes(1);
   });
 
-  it('scénario 6 : échec OAuth (refus Spotify) → « Spotify a refusé la connexion » + Réessayer', () => {
+  it('refus OAuth : message humain dédié', () => {
     mockAuthState = { status: 'error', outcome: { kind: 'oauth-refused' } };
-    const { getByText, getByTestId } = render(<LoginScreen />);
-
-    expect(getByText('Spotify a refusé la connexion')).toBeTruthy();
-    fireEvent.press(getByTestId(TEST_IDS.RETRY_BUTTON));
-    expect(mockStartLogin).toHaveBeenCalledTimes(1);
-  });
-
-  it('taxonomie complète : chaque cause a SON message exact', () => {
-    const cases = [
-      { kind: 'callback-failed', title: 'Retour Spotify impossible' },
-      { kind: 'network', title: 'Impossible de contacter Spotify' },
-      { kind: 'unknown', title: 'Connexion à Spotify impossible' },
-      { kind: 'oauth-refused', title: 'Spotify a refusé la connexion' },
-      { kind: 'cancelled', title: 'Connexion annulée' },
-      { kind: 'not-configured', title: 'Connexion Spotify non configurée' },
-    ] as const;
-
-    for (const { kind, title } of cases) {
-      mockAuthState = { status: 'error', outcome: { kind } };
-      const { getByText, unmount } = render(<LoginScreen />);
-      expect(getByText(title)).toBeTruthy();
-      unmount();
-    }
-  });
-
-  it('network : conseil vérification internet affiché', () => {
-    mockAuthState = { status: 'error', outcome: { kind: 'network' } };
     const { getByText } = render(<LoginScreen />);
+    expect(getByText('Spotify a refusé la connexion')).toBeTruthy();
     expect(
-      getByText('Vérifie ta connexion internet puis réessaie.')
+      getByText('Autorise bien Melodix sur la page Spotify, puis réessaie.')
     ).toBeTruthy();
   });
 
-  it('bouton principal → démarre le flux OAuth (page officielle uniquement)', () => {
-    const { getByTestId } = render(<LoginScreen />);
-    fireEvent.press(getByTestId(TEST_IDS.SPOTIFY_BUTTON));
-    expect(mockStartLogin).toHaveBeenCalledTimes(1);
-  });
-
-  it('ANTI-DOUBLE-CLIC : occupé ou requête non prête → bouton désactivé, idempotent', () => {
-    mockBusy = true;
-    mockAuthState = { status: 'requesting' };
-    const busy = render(<LoginScreen />);
-    expect(
-      busy.getByTestId(TEST_IDS.SPOTIFY_BUTTON).props.accessibilityState.disabled
-    ).toBe(true);
-    fireEvent.press(busy.getByTestId(TEST_IDS.SPOTIFY_BUTTON));
-    expect(mockStartLogin).not.toHaveBeenCalled();
-    busy.unmount();
-    jest.clearAllMocks();
-
-    mockBusy = false;
-    mockAuthState = { status: 'idle' };
-    mockRequestPending = true;
-    const pending = render(<LoginScreen />);
-    expect(
-      pending.getByTestId(TEST_IDS.SPOTIFY_BUTTON).props.accessibilityState
-        .disabled
-    ).toBe(true);
-    fireEvent.press(pending.getByTestId(TEST_IDS.SPOTIFY_BUTTON));
-    expect(mockStartLogin).not.toHaveBeenCalled();
-  });
-
-  it('pendant le flux OAuth : libellé de chargement exact « Connexion à Spotify... »', () => {
-    mockBusy = true;
-    mockAuthState = { status: 'requesting' };
-    const { getAllByText } = render(<LoginScreen />);
-
-    // Libellé visible dans le bouton ET comme statut sous le bouton.
-    expect(getAllByText('Connexion à Spotify...').length).toBeGreaterThan(0);
-  });
-
-  it('DÉMASQUAGE : la cause exacte s affiche sous la carte (jamais de secret)', () => {
-    // OAuth refusée : le code + description apparaissent en diagnostic.
-    mockAuthState = {
-      status: 'error',
-      outcome: { kind: 'oauth-refused', cause: 'invalid_client · HTTP 400' },
-    };
-    const card = render(<LoginScreen />);
-    expect(card.getByText('Spotify a refusé la connexion')).toBeTruthy();
-    expect(
-      card.getByText(/Diagnostic : invalid_client · HTTP 400/)
-    ).toBeTruthy();
-    card.unmount();
-
-    // Inconnue : le NOM DE L'EXCEPTION guide le diagnostic original.
-    mockAuthState = {
-      status: 'error',
-      outcome: { kind: 'unknown', cause: 'prompt-exception:SomeNativeError' },
-    };
-    const unk = render(<LoginScreen />);
-    expect(unk.getByText('Connexion à Spotify impossible')).toBeTruthy();
-    expect(
-      unk.getByText(/Diagnostic : prompt-exception:SomeNativeError/)
-    ).toBeTruthy();
-    unk.unmount();
-  });
-
-  it('jamais de stack trace/détail technique affiché, quel que soit l état', () => {
-    for (const outcome of [
-      { status: 'error', outcome: { kind: 'cancelled', cause: 'cancel' } },
-      { status: 'error', outcome: { kind: 'callback-failed', cause: 'code-absent' } },
-      { status: 'error', outcome: { kind: 'not-configured', cause: 'x' } },
-    ]) {
-      mockAuthState = outcome;
-      const { queryByText, unmount } = render(<LoginScreen />);
-      expect(queryByText(/Error:|TypeError|undefined is not|at Object|stack/i)).toBeNull();
-      unmount();
+  it.each(['network', 'callback-failed', 'unknown', 'not-configured-typo'])(
+    'erreur %s → message HUMAIN générique demandé, pas de poussière technique',
+    (kind) => {
+      mockAuthState = {
+        status: 'error',
+        outcome: { kind: kind === 'not-configured-typo' ? 'unknown' : kind },
+      };
+      const root = render(<LoginScreen />);
+      expect(root.getByText('Impossible de se connecter à Spotify.')).toBeTruthy();
+      expect(
+        root.getByText('Vérifie ta connexion Internet puis réessaie.')
+      ).toBeTruthy();
+      expect(root.getByTestId(TEST_IDS.RETRY_BUTTON)).toBeTruthy();
     }
+  );
+
+  it('AUCUN détail technique à l’écran (cause, Diagnostic, redirect_uri, PKCE, token, HTTP)', () => {
+    mockAuthState = {
+      status: 'error',
+      outcome: { kind: 'callback-failed', cause: 'code-absent' },
+    };
+    const root = render(<LoginScreen />);
+
+    expect(root.queryByTestId('login-diagnostic-text')).toBeNull();
+    expect(hasTextContaining(root, 'code-absent')).toBe(false);
+    expect(hasTextContaining(root, 'Diagnostic')).toBe(false);
+    expect(hasTextContaining(root, 'redirect_uri')).toBe(false);
+    expect(hasTextContaining(root, 'PKCE')).toBe(false);
+    expect(hasTextContaining(root, 'token')).toBe(false);
+    expect(hasTextContaining(root, 'HTTP')).toBe(false);
+    expect(hasTextContaining(root, 'ERR')).toBe(false);
+  });
+
+  it('config absente : message « indisponible » SANS Réessayer ni champ Client ID, startLogin jamais appelé', () => {
+    mockConfigured = false;
+    const root = render(<LoginScreen />);
+
+    expect(
+      root.getByText(
+        "La connexion Spotify n'est pas disponible pour le moment."
+      )
+    ).toBeTruthy();
+    expect(root.getByText('Réessaie plus tard.')).toBeTruthy();
+    expect(root.queryByTestId(TEST_IDS.RETRY_BUTTON)).toBeNull();
+    expect(root.queryByText(/Client ID/i)).toBeNull();
+
+    // Aucun bouton d'erreur → l'écran n'a rien à presser pour tenter l'OAuth.
+    expect(root.queryByTestId(TEST_IDS.SPOTIFY_BUTTON)).toBeNull();
+    expect(mockStartLogin).not.toHaveBeenCalled();
+  });
+
+  it('succès : « Connexion réussie ! » affiché puis ouverture directe de l’accueil', () => {
+    jest.useFakeTimers();
+    mockSessionStatus = 'spotify';
+    const { getByTestId, getByText } = render(<LoginScreen />);
+
+    expect(getByTestId('login-success-screen')).toBeTruthy();
+    expect(getByText('Connexion réussie !')).toBeTruthy();
+    expect(mockReplace).not.toHaveBeenCalled();
+
+    act(() => {
+      jest.advanceTimersByTime(1600);
+    });
+    expect(mockReplace).toHaveBeenCalledWith({
+      pathname: '/(tabs)/home',
+      params: {},
+    });
+    jest.useRealTimers();
+  });
+
+  it('navbar de version présente (identifie le binaire — non technique)', () => {
+    const { getByTestId } = render(<LoginScreen />);
+    expect(getByTestId('login-version-text')).toBeTruthy();
   });
 });

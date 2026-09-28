@@ -1,31 +1,27 @@
 /**
  * Écran de connexion — CONNEXION SPOTIFY OBLIGATOIRE.
  *
- * Design cible (sombre, minimal, accent vert) :
+ * Objectif UX : l'utilisateur a simplement l'impression de « se connecter à
+ * Melodix avec son compte Spotify », comme sur n'importe quelle application.
+ * AUCUN détail technique n'est affiché (jamais de redirect_uri, PKCE, token,
+ * code d'erreur ou « diagnostic » — le diagnostic vit uniquement en logcat).
  *
- *          ┌───────────────────────────────┐
- *          │        ◉ Melodix × ♫          │  logos Melodix + Spotify
- *          │    Ta musique. Ton univers.   │
- *          │   ( pitching sans clé )       │
- *          │                               │
- *          │   ( ● Continuer avec Spotify )│  bouton vert, taille généreuse
- *          │                               │
- *          │      [ erreur + Réessayer ]   │
- *          │   Connexion sécurisée avec    │
- *          │           Spotify.            │
- *          └───────────────────────────────┘
+ * Parcours :
  *
- * - AUCUN champ credential : ni Client ID, ni secret, ni token.
- * - AUCUN accès à l'application sans compte (lien supprimé : (tabs) refuse
- *   déjà la navigation sans session, pas d'échappatoire ici non plus).
- * - Bouton unique : retour tactile, coins arrondis, désactivé tant que
- *   expo-auth-session n'est pas prêt (anti-double-clic), label
- *   « Connexion à Spotify... » pendant le flux OAuth.
- * - Erreurs : messages propres fournis (sans stack trace ni détail
- *   technique), bouton « Réessayer ». Erreur non configurée : texte exact.
- * - Animations discrètes : fondu + glissement à l'arrivée, opacité au
- *   pressage. Responsive : contenu centré borné à 360 px, indicateur de
- *   chargement dans le bouton.
+ *    [Logo Melodix]
+ *    Bienvenue sur Melodix
+ *    Connecte-toi avec ton compte Spotify pour continuer.
+ *    ( ● Continuer avec Spotify )            ← gros bouton vert arrondi
+ *    Tu seras redirigé vers Spotify pour te
+ *    connecter en toute sécurité.
+ *
+ * - Appui → EXACTEMENT le système OAuth Spotify actuel (+ PKCE), inchangé.
+ * - Pendant : « Connexion à Spotify… » puis « Finalisation de la connexion… ».
+ * - Erreur : message HUMAIN + bouton « Réessayer » (jamais de cause codée).
+ * - Config absente : « La connexion Spotify n'est pas disponible pour le
+ *   moment. Réessaie plus tard. » — jamais de champ Client ID/secret.
+ * - Succès : confirmation brève « Connexion réussie ! » puis l'accueil,
+ *   sans écran intermédiaire inutile.
  */
 import * as React from 'react';
 import {
@@ -46,16 +42,17 @@ import { useUserData } from '@context';
 import { translations } from '@data';
 import { isSpotifyLoginConfigured, useSpotifyAuth } from '@services';
 
-/** États de message, dérivés strictement du `LoginOutcome` du hook. */
+/** Messages HUMAINS uniquement — dérivés du LoginOutcome, sans cause dupliquée. */
 type ErrorCard = {
   title: string;
   body: string;
-  /** Cause courte + whitelistée affichée au-dessous (diagnostic mission). */
-  cause?: string;
+  /** false = l'erreur de config n'a pas de « Réessayer » utile */
+  retryable: boolean;
 } | null;
 
-/** Durées « discrètes » : rapides sans être brusques. */
 const ANIM = { fadeIn: 420, slideStart: 14, slideEnd: 0 };
+/** Confirmation très brève, puis l'accueil prend la main. */
+const SUCCESS_DISPLAY_MS = 1300;
 
 export const LoginScreen = () => {
   const router = useRouter();
@@ -63,13 +60,22 @@ export const LoginScreen = () => {
     useSpotifyAuth();
   const { sessionStatus } = useUserData();
   const configured = React.useMemo(() => isSpotifyLoginConfigured(), []);
+  const [successShown, setSuccessShown] = React.useState(false);
+  const successHandledRef = React.useRef(false);
 
-  // Filet de sécurité : si la session est restaurée/validée pendant
-  // l'affichage, l'accueil reprend immédiatement la main.
+  // La session vient d'être ouverte (OAuth terminé côté hook) : petite
+  // confirmation « Connexion réussie ! » puis l'accueil — sans écran
+  // intermédiaire inutile (timer auto, toujours < 2 s, lancé UNE fois).
   React.useEffect(() => {
-    if (sessionStatus === 'spotify') {
-      router.replace({ pathname: '/(tabs)/home', params: {} });
+    if (sessionStatus !== 'spotify' || successHandledRef.current) {
+      return;
     }
+    successHandledRef.current = true;
+    setSuccessShown(true);
+    const timer = setTimeout(() => {
+      router.replace({ pathname: '/(tabs)/home', params: {} });
+    }, SUCCESS_DISPLAY_MS);
+    return () => clearTimeout(timer);
   }, [sessionStatus, router]);
 
   // Animation d'arrivée : fondu + glissement discret.
@@ -92,57 +98,45 @@ export const LoginScreen = () => {
 
   const errorCard: ErrorCard = React.useMemo(() => {
     if (!configured) {
-      // Config absente : carte dédiée « Connexion Spotify non configurée »
-      // (jamais le message générique — section diagnostic, point 4).
+      // Config absente : message humain dédié — JAMAIS de champ Client ID.
       return {
         title: translations.loginNotConfigured,
         body: translations.loginNotConfiguredBody,
-        cause: 'client-id-missing-in-build',
+        retryable: false,
       };
     }
     if (state.status !== 'error') {
       return null;
     }
-    // Chaque KIND correspond à UNE cause réelle (cf. useSpotifyAuth) —
-    // la cause est répercutée à l'écran, sans secret possible.
-    const cause = state.outcome.cause;
     switch (state.outcome.kind) {
       case 'cancelled':
         return {
           title: translations.loginCancelledTitle,
           body: translations.loginCancelledBody,
-          cause,
-        };
-      case 'not-configured':
-        return {
-          title: translations.loginNotConfigured,
-          body: translations.loginNotConfiguredBody,
-          cause,
+          retryable: true,
         };
       case 'oauth-refused':
         return {
           title: translations.loginOAuthRefusedTitle,
           body: translations.loginOAuthRefusedBody,
-          cause,
+          retryable: true,
+        };
+      case 'not-configured':
+        return {
+          title: translations.loginNotConfigured,
+          body: translations.loginNotConfiguredBody,
+          retryable: false,
         };
       case 'callback-failed':
-        return {
-          title: translations.loginCallbackFailedTitle,
-          body: translations.loginCallbackFailedBody,
-          cause,
-        };
       case 'network':
-        return {
-          title: translations.loginNetworkTitle,
-          body: translations.loginNetworkBody,
-          cause,
-        };
       case 'unknown':
       default:
+        // Tout échec technique (réseau, callback, session, inattendu…) se
+        // résume à l'usage unique demandé : un message humain + Réessayer.
         return {
-          title: translations.loginUnknownTitle,
-          body: translations.loginUnknownBody,
-          cause,
+          title: translations.loginErrorGenericTitle,
+          body: translations.loginErrorGenericBody,
+          retryable: true,
         };
     }
   }, [configured, state]);
@@ -161,21 +155,37 @@ export const LoginScreen = () => {
     !configured || isBusy || isAuthRequestPending || Boolean(errorCard);
 
   const handleSpotifyPress = React.useCallback(() => {
-    // Anti-double-clic : ne rien relancer tant qu'un flux est en cours,
-    // et jamais quand la config est absente ou qu'une erreur est affichée.
     if (buttonDisabled) {
-      return;
+      return; // anti-double-clic
     }
-    void startLogin();
+    void startLogin(); // ← l'OAuth Spotify actuel, inchangé
   }, [buttonDisabled, startLogin]);
 
   const handleRetryPress = React.useCallback(() => {
     resetError();
     if (!configured) {
-      return; // réessayer sans config ne changera rien : message conservé
+      return;
     }
     void startLogin();
   }, [configured, resetError, startLogin]);
+
+  if (successShown) {
+    return (
+      <View style={styles.screen} testID="login-success-screen">
+        <Animated.View style={[styles.successContent, { opacity: fadeAnim }]}>
+          <Ionicons
+            color={COLORS.TINT}
+            name="checkmark-circle"
+            size={72}
+            testID="login-success-icon"
+          />
+          <Text style={styles.successText} testID="login-success-text">
+            {translations.loginSuccess}
+          </Text>
+        </Animated.View>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.screen} testID="login-screen">
@@ -185,39 +195,26 @@ export const LoginScreen = () => {
           { opacity: fadeAnim, transform: [{ translateY: slideAnim }] },
         ]}
       >
-        {/* Logos Melodix × Spotify */}
-        <View style={styles.logoRow}>
-          <Image
-            source={require('@assets/images/logo.png')}
-            style={styles.logo}
-            resizeMode="contain"
-            accessibilityIgnoresInvertColors
-            testID="login-logo"
-          />
-          <Text style={styles.logoTimes}>{translations.loginHeaderNotation}</Text>
-          <View style={styles.spotifyBadge}>
-            <FontAwesome color={COLORS.TINT} name="spotify" size={44} />
-          </View>
-        </View>
+        {/* Logo Melodix (héros) */}
+        <Image
+          source={require('@assets/images/logo.png')}
+          style={styles.logo}
+          resizeMode="contain"
+          accessibilityIgnoresInvertColors
+          testID="login-logo"
+        />
 
-        <Text style={styles.tagline}>{translations.loginTagline}</Text>
-        <Text style={styles.description}>{translations.loginDescription}</Text>
+        <Text style={styles.welcome} testID="login-welcome-text">
+          {translations.loginWelcomeTitle}
+        </Text>
+        <Text style={styles.hint}>{translations.loginConnectHint}</Text>
 
         {errorCard ? (
           <View style={styles.errorCard} testID="login-error-card">
-            <Ionicons
-              color={COLORS.TINT}
-              name="alert-circle-outline"
-              size={30}
-            />
+            <Ionicons color={COLORS.RED} name="alert-circle-outline" size={32} />
             <Text style={styles.errorTitle}>{errorCard.title}</Text>
             <Text style={styles.errorBody}>{errorCard.body}</Text>
-            {errorCard.cause ? (
-              <Text style={styles.diagnosticText} testID="login-diagnostic-text">
-                {`${translations.loginDiagnosticLabel} : ${errorCard.cause}`}
-              </Text>
-            ) : null}
-            {configured && (
+            {errorCard.retryable && (
               <Pressable
                 accessibilityRole="button"
                 onPress={handleRetryPress}
@@ -235,7 +232,7 @@ export const LoginScreen = () => {
           </View>
         ) : (
           <>
-            {/* Bouton principal — vert Spotify, grande zone tactile */}
+            {/* Gros bouton principal — vert, taille généreuse */}
             <Pressable
               accessibilityRole="button"
               accessibilityState={{ disabled: buttonDisabled, busy: isBusy }}
@@ -251,9 +248,6 @@ export const LoginScreen = () => {
               {isBusy ? (
                 <View style={styles.buttonInner}>
                   <ActivityIndicator color={COLORS.BLACK} size="small" />
-                  <Text style={styles.primaryButtonTextLoading}>
-                    {statusText ?? translations.loginConnecting}
-                  </Text>
                 </View>
               ) : (
                 <View style={styles.buttonInner}>
@@ -265,7 +259,7 @@ export const LoginScreen = () => {
               )}
             </Pressable>
 
-            {/* Étiquette du flux OAuth (hors bouton, plus lisible) */}
+            {/* État de chargement clair, hors bouton */}
             {statusText && (
               <Text style={styles.statusText} testID="login-status-text">
                 {statusText}
@@ -276,7 +270,7 @@ export const LoginScreen = () => {
 
         <View style={styles.footer}>
           <Ionicons color={COLORS.GREY} name="lock-closed-outline" size={13} />
-          <Text style={styles.footerText}>{translations.loginSecureFootnote}</Text>
+          <Text style={styles.footerText}>{translations.loginRedirectNote}</Text>
         </View>
         <Text style={styles.versionText} testID="login-version-text">
           Melodix v{Constants.expoConfig?.version ?? '4.1.2'}
@@ -286,8 +280,7 @@ export const LoginScreen = () => {
   );
 };
 
-
-/** Palette spécifique écran : étroite, dérivées de COLORS pour l'unité. */
+/** Sombre Melodix + accent vert — hiérarchie très resserrée. */
 const ANY_DARK = '#0B0B0B';
 
 const styles = StyleSheet.create({
@@ -300,58 +293,38 @@ const styles = StyleSheet.create({
   content: {
     alignItems: 'center',
     justifyContent: 'center',
-    maxWidth: 360, // responsive : contenu borné quel que soit l'écran
+    maxWidth: 360,
     width: '88%',
     paddingVertical: 32,
   },
-  logoRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   logo: {
-    width: 92,
-    height: 92,
+    width: 96,
+    height: 96,
   },
-  logoTimes: {
-    color: COLORS.GREY,
-    fontFamily: 'SF-Regular',
-    fontSize: 28,
-    marginHorizontal: 18,
-  },
-  spotifyBadge: {
-    width: 92,
-    height: 92,
-    borderRadius: 46,
-    borderWidth: 1,
-    borderColor: 'rgba(29, 185, 84, 0.35)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  tagline: {
+  welcome: {
     color: COLORS.WHITE,
     fontFamily: 'SF-Semibold',
-    fontSize: 24,
+    fontSize: 26,
     textAlign: 'center',
-    marginTop: 28,
-    lineHeight: 30,
+    marginTop: 30,
+    letterSpacing: 0.2,
   },
-  description: {
+  hint: {
     color: COLORS.LIGHT_GREY,
     fontFamily: 'SF-Regular',
-    fontSize: 14,
+    fontSize: 15,
     textAlign: 'center',
-    lineHeight: 21,
+    lineHeight: 22,
     marginTop: 14,
   },
   primaryButton: {
-    backgroundColor: COLORS.TINT, // vert Spotify
-    borderRadius: 999, // coins arrondis façon Spotify
+    backgroundColor: COLORS.TINT,
+    borderRadius: 999,
     minWidth: 280,
     minHeight: 58,
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 36,
+    marginTop: 38,
     paddingHorizontal: 32,
   },
   primaryButtonPressed: {
@@ -371,25 +344,20 @@ const styles = StyleSheet.create({
     fontFamily: 'SF-Semibold',
     fontSize: 17,
   },
-  primaryButtonTextLoading: {
-    color: COLORS.BLACK,
-    fontFamily: 'SF-Semibold',
-    fontSize: 15,
-  },
   statusText: {
     color: COLORS.LIGHT_GREY,
     fontFamily: 'SF-Regular',
     fontSize: 13,
-    marginTop: 16,
+    marginTop: 18,
     textAlign: 'center',
   },
   errorCard: {
     alignItems: 'center',
-    backgroundColor: 'rgba(29, 185, 84, 0.08)',
-    borderColor: 'rgba(29, 185, 84, 0.25)',
+    backgroundColor: 'rgba(233, 20, 41, 0.08)',
+    borderColor: 'rgba(233, 20, 41, 0.28)',
     borderRadius: 20,
     borderWidth: StyleSheet.hairlineWidth,
-    marginTop: 36,
+    marginTop: 38,
     paddingHorizontal: 24,
     paddingVertical: 22,
     width: '100%',
@@ -410,19 +378,19 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   retryButton: {
+    backgroundColor: COLORS.TINT,
     borderRadius: 999,
-    borderColor: COLORS.TINT,
-    borderWidth: 1.5,
     marginTop: 18,
     minWidth: 180,
     paddingVertical: 12,
+    paddingHorizontal: 28,
     alignItems: 'center',
   },
   retryButtonPressed: {
-    opacity: 0.8,
+    opacity: 0.85,
   },
   retryButtonText: {
-    color: COLORS.TINT,
+    color: COLORS.BLACK,
     fontFamily: 'SF-Semibold',
     fontSize: 15,
   },
@@ -430,26 +398,31 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     flexDirection: 'row',
     gap: 6,
-    marginTop: 42,
+    marginTop: 44,
+    paddingHorizontal: 8,
   },
   footerText: {
     color: COLORS.GREY,
     fontFamily: 'SF-Regular',
     fontSize: 12,
-  },
-  diagnosticText: {
-    color: COLORS.TINT,
-    fontFamily: 'SF-Regular',
-    fontSize: 11,
-    textAlign: 'center',
-    marginTop: 10,
-    opacity: 0.85,
+    lineHeight: 17,
+    flexShrink: 1,
   },
   versionText: {
     color: COLORS.GREY,
     fontFamily: 'SF-Regular',
     fontSize: 10,
-    marginTop: 8,
+    marginTop: 10,
     opacity: 0.6,
+  },
+  successContent: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  successText: {
+    color: COLORS.WHITE,
+    fontFamily: 'SF-Semibold',
+    fontSize: 20,
+    marginTop: 18,
   },
 });

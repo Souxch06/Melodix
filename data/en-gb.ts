@@ -77,27 +77,25 @@ export const EN_GB_LOGIN = {
   loginHeaderNotation: '×', // separator between the Melodix and Spotify logos
   loginDescription:
     'Find your personal playlists and listen to them, without typing any key: everything goes through the official Spotify page.',
+  loginWelcomeTitle: 'Welcome to Melodix',
+  loginConnectHint: 'Sign in with your Spotify account to continue.',
+  loginRedirectNote:
+    "You'll be redirected to Spotify to sign in securely.",
   loginContinue: 'Continue with Spotify',
-  loginConnecting: 'Connecting to Spotify...',
-  loginExchanging: 'Preparing your session...',
+  loginConnecting: 'Connecting to Spotify…',
+  loginExchanging: 'Finishing sign-in…',
+  loginSuccess: "You're connected!",
   loginValidate: 'Try again',
-  loginDiagnosticLabel: 'Diagnostic',
-  // Exact causes (diagnostic section) — title = REAL cause, never wrongly generic.
+  // HUMAN messages only — no technical detail on screen.
+  loginErrorGenericTitle: 'Unable to sign in to Spotify.',
+  loginErrorGenericBody: 'Check your internet connection, then try again.',
   loginCancelledTitle: 'Sign-in cancelled',
   loginCancelledBody: 'You can try again whenever you like.',
   loginOAuthRefusedTitle: 'Spotify refused the connection',
   loginOAuthRefusedBody:
     'Make sure you authorize Melodix on the Spotify page, then try again.',
-  loginCallbackFailedTitle: 'Unable to return from Spotify',
-  loginCallbackFailedBody:
-    'The return from Spotify to Melodix failed. Please try signing in again.',
-  loginNetworkTitle: 'Unable to reach Spotify',
-  loginNetworkBody: 'Check your internet connection, then try again.',
-  loginUnknownTitle: 'Unable to connect to Spotify',
-  loginUnknownBody: 'Please try again in a few moments.',
-  loginNotConfigured: 'Spotify sign-in is not configured',
-  loginNotConfiguredBody:
-    'Spotify sign-in is not yet configured on this version of Melodix.\nPlease use a properly configured version.',
+  loginNotConfigured: 'Spotify sign-in is unavailable right now.',
+  loginNotConfiguredBody: 'Please try again later.',
   loginPrivacyNote:
     'Secure sign-in with Spotify. You will never be asked for a key: you sign in on the official Spotify page, then return to Melodix.',
   loginSecureFootnote: 'Secure sign-in with Spotify',
@@ -108,4 +106,6 @@ export const EN_GB_LOGIN = {
   loginSignOutConfirmMessage:
     'Your Spotify session will be removed from this device. Your local favorites and history are preserved.',
   loginSignOutConfirm: 'Sign out',
+  accountSpotifySection: 'Spotify account',
+  accountSignOut: 'Sign out',
 };
