@@ -3,6 +3,21 @@ name: APK Android
 on:
   pull_request:
   workflow_dispatch:
+    inputs:
+      spotify_client_id:
+        description: "Client ID Spotify de test"
+        required: false
+        type: string
+      spotify_redirect_uri:
+        description: "Redirect URI Spotify de test"
+        required: false
+        default: "melodix://callback"
+        type: string
+      publish_test_apk:
+        description: "Publier l'APK dans la pré-release TEST OAuth Spotify"
+        required: false
+        default: false
+        type: boolean
   release:
     types: [published]
 
