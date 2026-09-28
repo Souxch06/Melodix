@@ -39,6 +39,35 @@ const spotifyClientId = process.env.SPOTIFY_CLIENT_ID || '';
 const spotifyRedirectUri =
   process.env.SPOTIFY_REDIRECT_URI || 'melodix://callback';
 
+// Deep link OAuth : le scheme NATIF `melodix` (clé `scheme` ci-dessous) reste
+// TOUJOURS déclaré — valeur par défaut officielle de Melodix. Si un redirect
+// de TEST configuré utilise un AUTRE scheme (ex. éprouver l'OAuth avec l'app
+// publique de référence Spotify), on AJOUTE l'intent-filter correspondant
+// pour que Android route le retour navigateur vers l'app. AUCUN contournement
+// de la vérification côté Spotify : le dashboard de l'app Spotify cible doit
+// déclarer exactement ce redirect, sinon Spotify le refuse.
+const redirectMatch = spotifyRedirectUri.match(
+  /^([a-z][a-z0-9+.-]*):\/\/([^/]+)(\/.*)?$/i
+);
+const extraIntentFilters =
+  redirectMatch && redirectMatch[1].toLowerCase() !== 'melodix'
+    ? [
+        {
+          action: 'VIEW',
+          data: [
+            { scheme: redirectMatch[1], host: redirectMatch[2] },
+          ],
+          category: ['BROWSABLE', 'DEFAULT'],
+        },
+      ]
+    : [];
+if (extraIntentFilters.length > 0) {
+  // Trace build CI : quel redirect hors défaut est bagué dans l'APK.
+  console.log(
+    `[app.config] SPOTIFY_REDIRECT_URI externe → intent-filter ajouté : ${spotifyRedirectUri}`
+  );
+}
+
 module.exports = {
   expo: {
     name: 'Melodix',
@@ -57,6 +86,7 @@ module.exports = {
     android: {
       package: 'com.souxch06.melodix',
       versionCode: 41120,
+      intentFilters: extraIntentFilters,
       adaptiveIcon: {
         foregroundImage: './assets/images/adaptive-icon.png',
         backgroundImage: './assets/images/adaptive-icon-background.png',
