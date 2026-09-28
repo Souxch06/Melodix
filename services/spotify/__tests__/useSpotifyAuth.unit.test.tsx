@@ -94,7 +94,11 @@ describe('useSpotifyAuth — taxonomie du diagnostic OAuth', () => {
       null,
       mockPromptAsync,
     ]);
-    setExtra({ spotifyClientId: 'client-test' });
+    setExtra({
+      spotifyClientId: 'client-test',
+      // Redirect du SCÉNARIO (valeur arbitraire — chaque env a la sienne).
+      spotifyRedirectUri: 'melodix://callback',
+    });
     (redeemAuthorizationCode as jest.Mock).mockResolvedValue({
       kind: 'ok',
       session: {

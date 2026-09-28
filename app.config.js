@@ -32,12 +32,18 @@
  */
 const melodixBackendUrl = process.env.MELODIX_BACKEND_URL || '';
 const audiusApiKey = process.env.AUDIUS_API_KEY || '';
-const spotifyClientId = process.env.SPOTIFY_CLIENT_ID || '';
-// Redirect URI OAuth Spotify : configurable par variable d'environnement
-// (tests d'autres apps/flows sans toucher à l'architecture) ; la valeur par
-// défaut reste le scheme natif de Melodix, DÉCLARÉ dans le build Android.
+// ▸ Client ID PAR DÉFAUT intégré au build : l'ID public de l'application
+//   de référence (OAuth Authorization Code + PKCE — aucun Client Secret, la
+//   connexion passe par l'écran officiel de Spotify). SPOTIFY_CLIENT_ID en
+//   variable de build surclasserait cette valeur — aucun champ utilisateur.
+const spotifyClientId =
+  process.env.SPOTIFY_CLIENT_ID || '089d841ccc194c10a77afad9e1c11d54';
+// ▸ Redirect OAuth PAR DÉFAUT : celui validé par l'application ci-dessus.
+//   Le scheme natif `melodix` reste TOUJOURS déclaré dans le manifest (la
+//   clé `scheme` ci-dessous) ; la valeur dynamique ajoute l'intent-filter
+//   du scheme externe pour que Android route le retour navigateur.
 const spotifyRedirectUri =
-  process.env.SPOTIFY_REDIRECT_URI || 'melodix://callback';
+  process.env.SPOTIFY_REDIRECT_URI || 'comspotifytestsdk://callback';
 
 // Deep link OAuth : le scheme NATIF `melodix` (clé `scheme` ci-dessous) reste
 // TOUJOURS déclaré — valeur par défaut officielle de Melodix. Si un redirect
@@ -72,7 +78,7 @@ module.exports = {
   expo: {
     name: 'Melodix',
     slug: 'melodix',
-    version: '4.2.0',
+    version: '4.2.1',
     orientation: 'portrait',
     icon: './assets/images/icon.png',
     scheme: 'melodix',
@@ -85,7 +91,7 @@ module.exports = {
     },
     android: {
       package: 'com.souxch06.melodix',
-      versionCode: 42000,
+      versionCode: 42010,
       intentFilters: extraIntentFilters,
       adaptiveIcon: {
         foregroundImage: './assets/images/adaptive-icon.png',

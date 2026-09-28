@@ -78,8 +78,13 @@ export const getSpotifyClientId = (): string => getClientIdInfo().clientId;
 export const isSpotifyLoginConfigured = (): boolean =>
   getSpotifyClientId() !== '';
 
-/** Valeur par défaut EXIGÉE : scheme natif du build Android. */
-export const DEFAULT_SPOTIFY_REDIRECT_URI = 'melodix://callback';
+/**
+ * Valeur par défaut du redirect OAuth : celui validé par l'application
+ * publique de référence dont le Client ID est embarqué au build.
+ * (Le scheme natif `melodix` reste déclaré dans le manifest à part —
+ *  il n'est plus le flux par défaut, mais il reste fonctionnel.)
+ */
+export const DEFAULT_SPOTIFY_REDIRECT_URI = 'comspotifytestsdk://callback';
 
 export type RedirectUriSource =
   | 'expo-public-env' // SPOTIFY_REDIRECT_URI → EXPO_PUBLIC_* inliné (robuste APK)

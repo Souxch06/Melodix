@@ -78,19 +78,22 @@ reviens automatiquement dans l'app, connecté.
 - **Déconnexion** propre depuis l'avatar : session + caches playlists supprimés,
   favoris et historique locaux **conservés** (ils sont sur l'appareil, pas
   liés au compte).
-- **Configuration mainteneur Spotify requise** : crée une app sur
-  [developer.spotify.com/dashboard](https://developer.spotify.com/dashboard)
-  (le propriétaire doit être **Premium**, voir les restrictions documentées
-  dans `docs/ANALYSE-CONNEXION.md`), redirect URI `melodix://callback`
-  (+ `exp://…/--/callback` si Expo Go), puis les **variables du dépôt**
-  (*Settings → Secrets and variables → Actions → Variables*) ou `.env` local :
+- **Connexion Spotify prête à l'installation** : sans aucune variable,
+  Melodix embarque automatiquement le **Client ID public d'une application
+  de référence** ainsi que son redirect validé
+  (`comspotifytestsdk://callback` — Authorization Code + PKCE, aucun
+  Client Secret, jamais de champ côté utilisateur). Pour utiliser ta
+  **propre application Spotify** (recommandé en production : dashboard
+  [developer.spotify.com](https://developer.spotify.com/dashboard), ton
+  redirect y déclaré, voir `docs/ANALYSE-CONNEXION.md`), définis les
+  variables du dépôt (*Settings → Secrets and variables → Actions →
+  Variables*) ou `.env` local :
   ```
-  SPOTIFY_CLIENT_ID=<client id>
-  SPOTIFY_REDIRECT_URI=melodix://callback
+  SPOTIFY_CLIENT_ID=<ton client id>
+  SPOTIFY_REDIRECT_URI=<ton redirect dashboard>
   ```
-  `SPOTIFY_REDIRECT_URI` est optionnelle (fallback intégré :
-  `melodix://callback`) et sert à éprouver d'autres configurations Spotify
-  sans changer l'architecture (Authorization Code + PKCE conservé).
+  Ces variables passent toujours avant la valeur embarquée ; le scheme
+  natif `melodix` reste déclaré dans le manifest quel que soit le choix.
 - **Aucune promesse de « Premium gratuit »** : l'audio ne vient jamais de
   Spotify ; rien n'est contourné ni réhébergé ; aucun secret n'existe dans
   l'APK, Git ou les logs.

@@ -1,7 +1,8 @@
 /**
  * Configurabilité Spotify (Client ID + Redirect URI) :
  * - ordre de lecture : EXPO_PUBLIC_* inlinée → extra de app.config → défaut ;
- * - valeur par défaut conforme : melodix://callback ;
+ * - valeur par défaut conforme : comspotifytestsdk://callback (celle
+ *   validée par le Client ID public embarqué au build) ;
  * - la même source alimente authorize ET token exchange (invariant testé
  *   côté useSpotifyAuth). Aucune valeur sensible n'est lue ni loguée ici.
  */
@@ -56,11 +57,11 @@ describe('authConfig — Client ID configurable', () => {
       delete process.env.EXPO_PUBLIC_SPOTIFY_REDIRECT_URI;
     });
 
-    it('défaut EXACT : melodix://callback', () => {
+    it('défaut EXACT : comspotifytestsdk://callback (embarqué)', () => {
       setExtra({ spotifyRedirectUri: '' });
-      expect(getSpotifyRedirectUri()).toBe('melodix://callback');
+      expect(getSpotifyRedirectUri()).toBe('comspotifytestsdk://callback');
       expect(getSpotifyRedirectUriSource()).toBe('default');
-      expect(DEFAULT_SPOTIFY_REDIRECT_URI).toBe('melodix://callback');
+      expect(DEFAULT_SPOTIFY_REDIRECT_URI).toBe('comspotifytestsdk://callback');
     });
 
     it('extra.spotifyRedirectUri prime sur le défaut', () => {

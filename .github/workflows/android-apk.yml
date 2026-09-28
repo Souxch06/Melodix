@@ -9,9 +9,10 @@ on:
         required: false
         type: string
       spotify_redirect_uri:
-        description: "Redirect URI Spotify de test"
+        # Vide = on laisse la chaîne Variables → défaut embarqué décider.
+        description: "Redirect URI Spotify de test (vide = défaut embarqué)"
         required: false
-        default: "melodix://callback"
+        default: "comspotifytestsdk://callback"
         type: string
       publish_test_apk:
         description: "Publier l'APK dans la pré-release TEST OAuth Spotify"
@@ -47,12 +48,15 @@ jobs:
       # sans lui, l'écran de connexion affiche « configuration manquante ».
       # Deux canaux d'injection : extra de app.config (asset natif) + inlinage
       # Metro EXPO_PUBLIC_* (robuste en APK bare — voir services/spotify/authConfig).
-      SPOTIFY_CLIENT_ID: ${{ inputs.spotify_client_id || vars.SPOTIFY_CLIENT_ID }}
-      EXPO_PUBLIC_SPOTIFY_CLIENT_ID: ${{ inputs.spotify_client_id || vars.SPOTIFY_CLIENT_ID }}
-      # Redirect URI OAuth : valeur de dépôt optionnelle, RABAISSE à
-      # melodix://callback (scheme natif du build) quand non configurée.
-      SPOTIFY_REDIRECT_URI: ${{ inputs.spotify_redirect_uri || vars.SPOTIFY_REDIRECT_URI || 'melodix://callback' }}
-      EXPO_PUBLIC_SPOTIFY_REDIRECT_URI: ${{ inputs.spotify_redirect_uri || vars.SPOTIFY_REDIRECT_URI || 'melodix://callback' }}
+      # Client ID Spotify : inputs (test) → Variables du dépôt → DÉFAUT
+      # public embarqué (app de référence, validée au Login). OAuth PKCE :
+      # aucun secret n'entre jamais ici — l'ID est public par conception.
+      SPOTIFY_CLIENT_ID: ${{ inputs.spotify_client_id || vars.SPOTIFY_CLIENT_ID || '089d841ccc194c10a77afad9e1c11d54' }}
+      EXPO_PUBLIC_SPOTIFY_CLIENT_ID: ${{ inputs.spotify_client_id || vars.SPOTIFY_CLIENT_ID || '089d841ccc194c10a77afad9e1c11d54' }}
+      # Redirect URI OAuth → même chaîne : inputs → Variables → DÉFAUT
+      # validé (comspotifytestsdk://callback, assorti au Client ID public).
+      SPOTIFY_REDIRECT_URI: ${{ inputs.spotify_redirect_uri || vars.SPOTIFY_REDIRECT_URI || 'comspotifytestsdk://callback' }}
+      EXPO_PUBLIC_SPOTIFY_REDIRECT_URI: ${{ inputs.spotify_redirect_uri || vars.SPOTIFY_REDIRECT_URI || 'comspotifytestsdk://callback' }}
       # AUCUN Client Secret / refresh token dans l'APK : le Client Secret n'existe
       # pas côté mobile (PKCE), aucun secret serveur dans le bundle.
     steps:
