@@ -1,38 +1,48 @@
 /**
- * Journal de diagnostic développeur du flux Spotify OAuth.
+ * Journal de DIAGNOSTIC du flux Spotify OAuth, préfixé `[Spotify OAuth]`.
  *
- * RÈGLE ABSOLUE : jamais de secret dans les logs. La WHITELIST ci-dessous
- * limite les champs admis — un détail d'erreur technique est utile au
- * développeur, un token ne l'est jamais :
+ * BUT : déterminer sur un vrai appareil QUELLE cause précise survient
+ * (CLIENT_ID manquant, redirectUri incorrect, refus Spotify, annulation,
+ * callback non reçu, code absent, state invalide, PKCE invalide, échange
+ * refusé, /me en échec, session non sauvegardée, playlists en échec…).
  *
- *   access_token / refresh_token / Authorization header /
- *   code_verifier / client_secret  → JAMAIS consignés
- *
- * Seules des métadonnées non sensibles passent : types d'événements, codes de
- * statut HTTP, durées de validité, présence/absence (booléens), tailles de
- * portée, URIs de redirection (publiques, non secrètes).
+ * WHITELIST STRICTE — RIEN D'AUTRE NE PASSE. Interdits à jamais :
+ *   access_token / refresh_token / Client Secret / Authorization header /
+ *   code_verifier / code d'autorisation / state OAuth complet.
+ * Admis : types d'étape, codes d'erreur OAuth RFC 6749 (invalid_client…),
+ * statuts HTTP, URI de redirection (publique), booléens de présence,
+ * durées de session, comptes d'éléments. Toute valeur inconnue est ignorée.
  */
 const ALLOWED_DETAIL_KEYS = new Set([
-  'status', // code HTTP et statut logique
+  'step', // identifiant d'étape du flux
+  'status', // code HTTP ou statut logique
+  'cause', // code d'erreur NON sensible (invalid_client, access_denied…)
+  'errorCode', // alias d'erreur OAuth court
   'endpoint', // chemin d'API sans querystring
   'resultType', // type de résultat expo-auth-session
-  'hasRefreshToken', // booléen : présence d'un refresh token
+  'source', // source de configuration (env/embed/manifest)
+  'hasRefreshToken',
   'expiresInSeconds',
   'ttlSeconds',
   'scopesCount',
-  'redirectUri', // publique — identifie l'appareil de test, pas un secret
+  'redirectUri', // publique — identifie le build, pas un secret
+  'redirectPresent', // booléen : le callback reçu correspond-il au redirect attendu
+  'codePresent', // booléen — JAMAIS la valeur du code
+  'statePresent', // booléen — JAMAIS la valeur du state complet
+  'verifierPresent', // booléen — JAMAIS le code_verifier
   'page',
   'songCount',
   'cachedSeconds',
-  'cause',
+  'clientIdPresent', // booléen — JAMAIS l'identifiant lui-même
 ]);
 
-/** Sérialisation bornée : log > 300 caractères tronqué (logs volumineux = bruit). */
+/** Sérialisation bornée : un log > 300 caractères est tronqué (bruit). */
 const formatDetails = (details: Record<string, unknown>): string => {
   const safe: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(details)) {
     if (ALLOWED_DETAIL_KEYS.has(key)) {
-      safe[key] = value;
+      safe[key] =
+        typeof value === 'string' ? value.slice(0, 80) : value;
     }
   }
   const text = Object.keys(safe).length ? JSON.stringify(safe) : '';
@@ -41,7 +51,7 @@ const formatDetails = (details: Record<string, unknown>): string => {
 
 /**
  * Log développeur d'une étape OAuth/data, sans jamais exposer de secret.
- * Utilisé par session.ts, useSpotifyAuth.ts, apiClient.ts, les routes data.
+ * Format : [Spotify OAuth] <step> — {détails whitelistés}
  */
 export const spotifyLog = (
   step: string,
@@ -49,8 +59,12 @@ export const spotifyLog = (
 ): void => {
   const parts = formatDetails(details);
   // eslint-disable-next-line no-console
-  console.log(`[spotify] ${step}${parts ? ` — ${parts}` : ''}`);
+  console.log(`[Spotify OAuth] ${step}${parts ? ` — ${parts}` : ''}`);
 };
 
-/** logs côté services/spotify uniquement. */
+/** Alias explicite pour la ligne exigée de diagnostic du redirect. */
+export const logRedirectUri = (redirectUri: string): void => {
+  spotifyLog('redirectUri =', { redirectUri });
+};
+
 export default spotifyLog;

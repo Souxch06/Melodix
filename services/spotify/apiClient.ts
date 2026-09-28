@@ -13,6 +13,7 @@
  * - jamais d'en-tête Authorization ni de token dans les logs.
  */
 import { SPOTIFY_API_BASE_URL } from './authConfig';
+import { spotifyLog } from './devLog';
 import {
   clearSessionAccessOnly,
   getValidAccessToken,
@@ -119,6 +120,10 @@ export const spotifyApiGet = async <T>(path: string): Promise<T> => {
     }
 
     if (!response.ok) {
+      spotifyLog('api.http', {
+        status: response.status,
+        endpoint: path.split('?')[0].slice(0, 80),
+      });
       throw new SpotifyApiError(
         'http',
         `Réponse Spotify non valide (${response.status}).`,

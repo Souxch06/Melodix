@@ -142,19 +142,118 @@ describe('services/spotify/session (SecureStore)', () => {
       } as Response;
     }) as unknown as typeof fetch;
 
-    const session = await redeemAuthorizationCode({
+    const outcome = await redeemAuthorizationCode({
       code: 'the-code',
       codeVerifier: 'the-verifier',
       redirectUri: 'melodix://callback',
     });
 
-    expect(session?.accessToken).toBe('at');
+    expect(outcome).toMatchObject({ kind: 'ok' });
+    expect(outcome.kind === 'ok' && outcome.session.accessToken).toBe('at');
     expect(capturedBody).toContain('grant_type=authorization_code');
     expect(capturedBody).toContain('code_verifier=the-verifier');
     expect(capturedBody).toContain('redirect_uri=melodix%3A%2F%2Fcallback');
     expect(capturedBody).not.toContain('client_secret');
 
     expect((await loadSession())?.refreshToken).toBe('rt');
+  });
+
+  describe('classification de l échange code → tokens (diagnostic)', () => {
+    const redeem = () =>
+      redeemAuthorizationCode({
+        code: 'c',
+        codeVerifier: 'v',
+        redirectUri: 'melodix://callback',
+      });
+
+    it('400 invalid_client → refused + code cartooniste whitelisté (dashboard/redirect)', async () => {
+      globalThis.fetch = jest.fn(async () => ({
+        ok: false,
+        status: 400,
+        json: async () => ({ error: 'invalid_client', error_description: 'Invalid client' }),
+      })) as unknown as typeof fetch;
+
+      const outcome = await redeem();
+      expect(outcome).toEqual({ kind: 'refused', status: 400, errorCode: 'invalid_client' });
+      // JAMAIS de session enregistrée sur refus.
+      await expect(loadSession()).resolves.toBeNull();
+    });
+
+    it('400 invalid_grant → refused (code expiré/déjà utilisé/redirect différent)', async () => {
+      globalThis.fetch = jest.fn(async () => ({
+        ok: false,
+        status: 400,
+        json: async () => ({ error: 'invalid_grant' }),
+      })) as unknown as typeof fetch;
+
+      const outcome = await redeem();
+      expect(outcome).toEqual({ kind: 'refused', status: 400, errorCode: 'invalid_grant' });
+    });
+
+    it('code d erreur hors whitelist → valeur masquée (« unlisted »), présence gardée', async () => {
+      globalThis.fetch = jest.fn(async () => ({
+        ok: false,
+        status: 403,
+        json: async () => ({ error: 'weird_new_error_spotify_might_add' }),
+      })) as unknown as typeof fetch;
+
+      const outcome = await redeem();
+      expect(outcome).toEqual({ kind: 'refused', status: 403, errorCode: 'unlisted' });
+    });
+
+    it('corps d erreur illisible → status technique consigné seul', async () => {
+      globalThis.fetch = jest.fn(async () => ({
+        ok: false,
+        status: 429,
+        json: async () => { throw new Error('not json'); },
+      })) as unknown as typeof fetch;
+
+      const outcome = await redeem();
+      expect(outcome).toEqual({ kind: 'refused', status: 429, errorCode: 'http_429' });
+    });
+
+    it('fetch qui jette (téléphone hors-ligne) → network', async () => {
+      globalThis.fetch = jest.fn(async () => {
+        throw new Error('net::ERR_INTERNET_DISCONNECTED');
+      }) as unknown as typeof fetch;
+
+      const outcome = await redeem();
+      expect(outcome).toEqual({ kind: 'network' });
+    });
+
+    it('200 sans access_token → invalid-response (rien de sauvegardé)', async () => {
+      globalThis.fetch = jest.fn(async () => ({
+        ok: true,
+        status: 200,
+        json: async () => ({ token_type: 'Bearer' }),
+      })) as unknown as typeof fetch;
+
+      const outcome = await redeem();
+      expect(outcome).toEqual({ kind: 'invalid-response' });
+      await expect(loadSession()).resolves.toBeNull();
+    });
+
+    it('les logs N EXPOSENT JAMAIS le code d autorisation ni le verifier', async () => {
+      const warnSpy2 = jest.spyOn(console, 'warn').mockImplementation(() => {});
+      globalThis.fetch = jest.fn(async () => ({
+        ok: false,
+        status: 400,
+        json: async () => ({ error: 'invalid_grant' }),
+      })) as unknown as typeof fetch;
+
+      await redeemAuthorizationCode({
+        code: 'TOP-SECRET-CODE',
+        codeVerifier: 'TOP-SECRET-VERIFIER',
+        redirectUri: 'melodix://callback',
+      });
+
+      for (const call of warnSpy2.mock.calls) {
+        const text = JSON.stringify(call);
+        expect(text).not.toContain('TOP-SECRET-CODE');
+        expect(text).not.toContain('TOP-SECRET-VERIFIER');
+      }
+      warnSpy2.mockRestore();
+    });
   });
 
   it('clearSession efface tout (revenir à non connecté)', async () => {

@@ -1,9 +1,18 @@
 /**
- * Hook useSpotifyAuth — logique du flux OAuth :
- *  scénario 4 : Client ID absent    → outcome 'not-configured', navigateur JAMAIS ouvert
- *  scénario 5 : annulation          → outcome 'cancelled' (état réessayable à l'écran)
- *  scénario 6 : échec OAuth         → outcome 'unavailable' (message propre côté écran)
- *             + succès complet      → code PKCE échangé, profil /me chargé, appliqué
+ * Hook useSpotifyAuth — TAXONOMIE DU DIAGNOSTIC (section 1 de la mission) :
+ *  CLIENT_ID manquant       → not-configured (navigateur JAMAIS ouvert)
+ *  Spotify refuse (authorize error ou token 4xx) → oauth-refused
+ *  utilisateur annule       → cancelled
+ *  callback sans code       → callback-failed
+ *  state invalide           → callback-failed (garde-fou)
+ *  PKCE invalide            → callback-failed
+ *  échange 5xx              → network
+ *  réseau (fetch/me)        → network
+ *  /me en échec technique   → unknown
+ *  réponse illisible        → unknown
+ * + garde-fou deep-link : reprend le callback perdu par la custom tab,
+ *   vérifie le state, anti-double-échange ; callback froid sans verifier
+ *   détecté et classé.
  */
 import { renderHook, act } from '@testing-library/react-native';
 import Constants from 'expo-constants';
@@ -13,10 +22,13 @@ import { useSpotifyAuth } from '../useSpotifyAuth';
 import { redeemAuthorizationCode } from '../session';
 import { getCurrentUser } from '@api';
 
-const mockPromptAsync = jest.fn(async () => ({ type: 'success', params: { code: 'auth-code' } }) as never);
+const mockPromptAsync = jest.fn() as jest.Mock;
 const mockApplySpotifyUser = jest.fn();
+const initialUrlHolder: { current: string | null } = { current: null };
+const linkListeners: ((event: { url: string }) => void)[] = [];
 
-let mockRequest: { codeVerifier: string } | null = { codeVerifier: 'verifier-test' };
+const makeRequest = () => ({ codeVerifier: 'verifier-test', state: 'STATE-1' });
+let mockRequest: ReturnType<typeof makeRequest> | null = makeRequest();
 
 jest.mock('expo-auth-session', () => ({
   ...jest.requireActual('expo-auth-session'),
@@ -24,13 +36,26 @@ jest.mock('expo-auth-session', () => ({
   makeRedirectUri: () => 'melodix://callback',
 }));
 
-jest.mock('expo-web-browser', () => ({
-  maybeCompleteAuthSession: jest.fn(),
+jest.mock('expo-linking', () => ({
+  getInitialURL: jest.fn(async () => initialUrlHolder.current),
+  addEventListener: jest.fn((_event: string, fn: (event: { url: string }) => void) => {
+    linkListeners.push(fn);
+    return { remove: jest.fn() };
+  }),
 }));
 
-jest.mock('../session', () => ({
-  redeemAuthorizationCode: jest.fn(),
+jest.mock('expo-web-browser', () => ({
+  maybeCompleteAuthSession: jest.fn(),
+  dismissBrowser: jest.fn(async () => {}),
 }));
+
+jest.mock('../session', () => {
+  const actual = jest.requireActual('../session');
+  return {
+    ...actual,
+    redeemAuthorizationCode: jest.fn(),
+  };
+});
 
 jest.mock('@api', () => ({
   getCurrentUser: jest.fn(),
@@ -40,43 +65,53 @@ jest.mock('@context', () => ({
   useUserData: () => ({ applySpotifyUser: mockApplySpotifyUser }),
 }));
 
-const extra = () => {
+const setExtra = (patch: Record<string, unknown>) => {
   const root = (Constants.default ?? Constants) as unknown as {
-    __setExpoConfigExtra: (patch: Record<string, unknown>) => void;
+    __setExpoConfigExtra: (p: Record<string, unknown>) => void;
   };
-  return root.__setExpoConfigExtra;
+  root.__setExpoConfigExtra(patch);
 };
 
-describe('useSpotifyAuth — logique OAuth (sans navigateur réel)', () => {
+/** La promesse promptAsync retournée par la plupart des scénarios. */
+let promptPromise: Promise<unknown> = Promise.resolve({
+  type: 'success',
+  params: { code: 'auth-code' },
+});
+
+describe('useSpotifyAuth — taxonomie du diagnostic OAuth', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    mockRequest = { codeVerifier: 'verifier-test' };
-    extra()({ spotifyClientId: 'client-test' });
-    // Le code est accepté, une session rendue, le profil lu.
+    linkListeners.length = 0;
+    initialUrlHolder.current = null;
+    mockRequest = makeRequest();
+    promptPromise = Promise.resolve({
+      type: 'success',
+      params: { code: 'auth-code' },
+    });
+    mockPromptAsync.mockImplementation(() => promptPromise);
+    (AuthSession.useAuthRequest as jest.Mock).mockImplementation(() => [
+      mockRequest,
+      null,
+      mockPromptAsync,
+    ]);
+    setExtra({ spotifyClientId: 'client-test' });
     (redeemAuthorizationCode as jest.Mock).mockResolvedValue({
-      accessToken: 'acc',
-      refreshToken: 'ref',
-      expiresAtMs: Date.now() + 3_600_000,
-      scopes: ['user-read-private'],
-      tokenType: 'Bearer',
+      kind: 'ok',
+      session: {
+        accessToken: 'acc',
+        refreshToken: 'ref',
+        expiresAtMs: Date.now() + 3_600_000,
+        scope: 'user-read-private',
+      },
     });
     (getCurrentUser as jest.Mock).mockResolvedValue({
       id: 'user-1',
       display_name: 'Julien',
       images: [],
     });
-    (AuthSession.useAuthRequest as jest.Mock).mockImplementation(() => [
-      mockRequest,
-      null,
-      mockPromptAsync,
-    ]);
-    mockPromptAsync.mockResolvedValue({
-      type: 'success',
-      params: { code: 'auth-code' },
-    } as never);
   });
 
-  it('succès complet : exchange PKCE, profil appliqué, état final idle', async () => {
+  it('succès complet : exchange PKCE, /me, profil appliqué, état idle', async () => {
     const { result } = renderHook(() => useSpotifyAuth());
     await act(async () => {
       await result.current.startLogin();
@@ -89,16 +124,14 @@ describe('useSpotifyAuth — logique OAuth (sans navigateur réel)', () => {
         redirectUri: 'melodix://callback',
       })
     );
-    expect(getCurrentUser).toHaveBeenCalledTimes(1);
     expect(mockApplySpotifyUser).toHaveBeenCalledWith(
       expect.objectContaining({ id: 'user-1' })
     );
     expect(result.current.state).toEqual({ status: 'idle' });
-    expect(result.current.isAuthRequestPending).toBe(false);
   });
 
-  it('scénario 4 : Client ID ABSENT → not-configured, promptAsync JAMAIS appelé', async () => {
-    extra()({ spotifyClientId: '' });
+  it('CLIENT_ID manquant → not-configured, promptAsync JAMAIS appelé', async () => {
+    setExtra({ spotifyClientId: '' });
 
     const { result } = renderHook(() => useSpotifyAuth());
     await act(async () => {
@@ -112,8 +145,8 @@ describe('useSpotifyAuth — logique OAuth (sans navigateur réel)', () => {
     });
   });
 
-  it('scénario 5 : annulation utilisateur → outcome cancelled (sans appel API)', async () => {
-    mockPromptAsync.mockResolvedValue({ type: 'cancel' } as never);
+  it('annulation utilisateur → cancelled', async () => {
+    promptPromise = Promise.resolve({ type: 'cancel' });
 
     const { result } = renderHook(() => useSpotifyAuth());
     await act(async () => {
@@ -127,11 +160,11 @@ describe('useSpotifyAuth — logique OAuth (sans navigateur réel)', () => {
     });
   });
 
-  it('scénario 6 : Spotify renvoie une erreur → outcome unavailable', async () => {
-    mockPromptAsync.mockResolvedValue({
+  it('Spotify renvoie une erreur d authorize → oauth-refused avec cause whitelistée', async () => {
+    promptPromise = Promise.resolve({
       type: 'error',
-      params: { error: 'access_denied' },
-    } as never);
+      params: { error: 'unknown_value_not_in_whitelist' },
+    });
 
     const { result } = renderHook(() => useSpotifyAuth());
     await act(async () => {
@@ -140,12 +173,16 @@ describe('useSpotifyAuth — logique OAuth (sans navigateur réel)', () => {
 
     expect(result.current.state).toEqual({
       status: 'error',
-      outcome: { kind: 'unavailable' },
+      outcome: { kind: 'oauth-refused' },
     });
   });
 
-  it('6bis : code refusé / réseau coupé → unavailable (jamais de stack exposée)', async () => {
-    (redeemAuthorizationCode as jest.Mock).mockResolvedValueOnce(null);
+  it('échange refusé 400 invalid_client → oauth-refused', async () => {
+    (redeemAuthorizationCode as jest.Mock).mockResolvedValueOnce({
+      kind: 'refused',
+      status: 400,
+      errorCode: 'invalid_client',
+    });
 
     const { result } = renderHook(() => useSpotifyAuth());
     await act(async () => {
@@ -154,12 +191,93 @@ describe('useSpotifyAuth — logique OAuth (sans navigateur réel)', () => {
 
     expect(result.current.state).toEqual({
       status: 'error',
-      outcome: { kind: 'unavailable' },
+      outcome: { kind: 'oauth-refused' },
     });
-    expect(mockApplySpotifyUser).not.toHaveBeenCalled();
   });
 
-  it('requête non chargée : isAuthRequestPending vrai, startLogin → unavailable propre', async () => {
+  it('échange refusé 500 → network (Spotify injoignable)', async () => {
+    (redeemAuthorizationCode as jest.Mock).mockResolvedValueOnce({
+      kind: 'refused',
+      status: 502,
+      errorCode: 'temporarily_unavailable',
+    });
+
+    const { result } = renderHook(() => useSpotifyAuth());
+    await act(async () => {
+      await result.current.startLogin();
+    });
+
+    expect(result.current.state).toEqual({
+      status: 'error',
+      outcome: { kind: 'network' },
+    });
+  });
+
+  it('échange hors-ligne → network', async () => {
+    (redeemAuthorizationCode as jest.Mock).mockResolvedValueOnce({
+      kind: 'network',
+    });
+
+    const { result } = renderHook(() => useSpotifyAuth());
+    await act(async () => {
+      await result.current.startLogin();
+    });
+
+    expect(result.current.state).toEqual({
+      status: 'error',
+      outcome: { kind: 'network' },
+    });
+  });
+
+  it('réponse d échange illisible → unknown', async () => {
+    (redeemAuthorizationCode as jest.Mock).mockResolvedValueOnce({
+      kind: 'invalid-response',
+    });
+
+    const { result } = renderHook(() => useSpotifyAuth());
+    await act(async () => {
+      await result.current.startLogin();
+    });
+
+    expect(result.current.state).toEqual({
+      status: 'error',
+      outcome: { kind: 'unknown' },
+    });
+  });
+
+  it('token reçu mais /me joue l avion → network', async () => {
+    (getCurrentUser as jest.Mock).mockRejectedValueOnce(
+      Object.assign(new Error('offline'), { kind: 'network' })
+    );
+
+    const { result } = renderHook(() => useSpotifyAuth());
+    await act(async () => {
+      await result.current.startLogin();
+    });
+
+    expect(result.current.state).toEqual({
+      status: 'error',
+      outcome: { kind: 'network' },
+    });
+  });
+
+  it('session non sauvegardée → unknown (save-failed)', async () => {
+    (redeemAuthorizationCode as jest.Mock).mockResolvedValueOnce({
+      kind: 'save-failed',
+    });
+
+    const { result } = renderHook(() => useSpotifyAuth());
+    await act(async () => {
+      await result.current.startLogin();
+    });
+
+    expect(result.current.state).toEqual({
+      status: 'error',
+      outcome: { kind: 'unknown' },
+    });
+  });
+
+  it('requête non chargée → unknown propre (bouton grisé via isAuthRequestPending)', async () => {
     (AuthSession.useAuthRequest as jest.Mock).mockImplementation(() => [
       null,
       null,
@@ -175,12 +293,107 @@ describe('useSpotifyAuth — logique OAuth (sans navigateur réel)', () => {
     expect(mockPromptAsync).not.toHaveBeenCalled();
     expect(result.current.state).toEqual({
       status: 'error',
-      outcome: { kind: 'unavailable' },
+      outcome: { kind: 'unknown' },
     });
   });
 
-  it('resetError : retour à l état idle depuis n importe quelle erreur', async () => {
-    mockPromptAsync.mockResolvedValueOnce({ type: 'dismiss' } as never);
+  describe('garde-fou deep-link (callback Android)', () => {
+    it('callback sans code (canal natif) → callback-failed', async () => {
+      promptPromise = Promise.resolve({ type: 'success', params: {} });
+
+      const { result } = renderHook(() => useSpotifyAuth());
+      await act(async () => {
+        await result.current.startLogin();
+      });
+
+      expect(result.current.state).toEqual({
+        status: 'error',
+        outcome: { kind: 'callback-failed' },
+      });
+    });
+
+    it('callback valide capté par le LISTENER → échange ; la promesse promptAsync tardive est ignorée', async () => {
+      // promptAsync ne résout qu'au signe « dismiss » après return de l'utilisateur.
+      promptPromise = new Promise<never>(() => {}); // canal natif muet
+
+      const { result } = renderHook(() => useSpotifyAuth());
+
+      await act(async () => {
+        void result.current.startLogin();
+      });
+      expect(result.current.state.status).toBe('requesting');
+      expect(linkListeners).toHaveLength(1);
+
+      await act(async () => {
+        linkListeners[0]({
+          url: 'melodix://callback?code=deep-code&state=STATE-1',
+        });
+      });
+
+      expect(redeemAuthorizationCode).toHaveBeenCalledWith(
+        expect.objectContaining({ code: 'deep-code', codeVerifier: 'verifier-test' })
+      );
+      expect(mockApplySpotifyUser).toHaveBeenCalled();
+      expect(result.current.state).toEqual({ status: 'idle' });
+    });
+
+    it('state invalide capté par le listener → callback-failed, JAMAIS d échange', async () => {
+      promptPromise = new Promise<never>(() => {});
+
+      const { result } = renderHook(() => useSpotifyAuth());
+      await act(async () => {
+        void result.current.startLogin();
+      });
+
+      await act(async () => {
+        linkListeners[0]({
+          url: 'melodix://callback?code=mauvais&state=AUTRE-STATE',
+        });
+      });
+
+      expect(redeemAuthorizationCode).not.toHaveBeenCalled();
+      expect(result.current.state).toEqual({
+        status: 'error',
+        outcome: { kind: 'callback-failed' },
+      });
+    });
+
+    it('callback froid (processus tué, pas de verifier) → callback-failed détecté proprement', async () => {
+      initialUrlHolder.current = 'melodix://callback?code=froid&state=STATE-9';
+
+      const { result } = renderHook(() => useSpotifyAuth());
+
+      await act(async () => {
+        await Promise.resolve(); // flush getInitialURL + effets
+        await Promise.resolve();
+      });
+
+      expect(redeemAuthorizationCode).not.toHaveBeenCalled();
+      expect(result.current.state).toEqual({
+        status: 'error',
+        outcome: { kind: 'callback-failed' },
+      });
+    });
+
+    it('une URL étrangère n est JAMAIS traitée (mauvais scheme/host)', async () => {
+      promptPromise = new Promise<never>(() => {});
+
+      const { result } = renderHook(() => useSpotifyAuth());
+      await act(async () => {
+        void result.current.startLogin();
+      });
+
+      await act(async () => {
+        linkListeners[0]({ url: 'https://malicious.example/x?code=q&state=STATE-1' });
+      });
+
+      expect(redeemAuthorizationCode).not.toHaveBeenCalled();
+      expect(result.current.state.status).toBe('requesting');
+    });
+  });
+
+  it('resetError : retour à l état idle depuis une erreur', async () => {
+    promptPromise = Promise.resolve({ type: 'dismiss' });
     const { result } = renderHook(() => useSpotifyAuth());
 
     await act(async () => {

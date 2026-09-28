@@ -3,27 +3,80 @@
  *
  * INVARIANTS DE SÉCURITÉ :
  * - AUCUN Client Secret ici (PKCE l'exclut ; le mobile est un client public) ;
- * - le Client ID est une CONFIGURATION DE BUILD du mainteneur (variable
- *   SPOTIFY_CLIENT_ID → app.config.js extra.spotifyClientId), JAMAIS saisie
+ * - le Client ID est une CONFIGURATION DE BUILD du mainteneur, JAMAIS saisie
  *   par l'utilisateur — aucun écran ne présente de champ credential ;
- * - les tokens ne sont jamais consignés (logs) : seules les métadonnées de
- *   session (durée, scopes) peuvent l'être côté développeur.
+ * - l'identifiant n'est jamais consigné : seuls SA SOURCE et sa présence
+ *   (booléen) peuvent apparaître dans les logs de diagnostic.
+ *
+ * Injection dans le build (par ordre de priorité) :
+ *   1. `EXPO_PUBLIC_SPOTIFY_CLIENT_ID` — variable EXPO_PUBLIC inlinée par
+ *      Metro dans le bundle JS au moment du build (chemin robuste en APK bare,
+ *      ne dépend pas du natif). Non committée : fournie par l'env de CI.
+ *   2. `SPOTIFY_CLIENT_ID` → app.config.js extra.spotifyClientId →
+ *      Constants.expoConfig.extra (asset natif `app.config` généré par la
+ *      tâche gradle expo-constants `createExpoConfig` au build).
+ *   3. manifest classique (expo SDK < 51, par prudence sur les builds froids).
  *
  * Configuration côté Spotify Dashboard (mainteneur) :
  *   Redirect URIs : melodix://callback (APK), exp://<ip>:8081/--/callback (Expo Go).
  */
 import Constants from 'expo-constants';
 
-/** Client ID intégré au build ; vide = connexion non configurée. */
-export const getSpotifyClientId = (): string => {
-  const extra = Constants.expoConfig?.extra as
-    | { spotifyClientId?: unknown }
-    | undefined;
-  const id = typeof extra?.spotifyClientId === 'string' ? extra.spotifyClientId : '';
-  return id.trim();
+type ExtraCarrier =
+  | { expoConfig?: { extra?: Record<string, unknown>; [k: string]: unknown } | null; manifest?: unknown; manifest2?: unknown }
+  | null
+  | undefined;
+
+/** Lecture tolérante : expoConfig (SDK 51+), puis manifest manifest2. */
+const readExtra = (): Record<string, unknown> => {
+  const constants = Constants as unknown as NonNullable<ExtraCarrier> & {
+    manifest?: { extra?: Record<string, unknown> } | null;
+    manifest2?: { default?: { extra?: Record<string, unknown> } | null } | null;
+  };
+
+  return (
+    (constants.expoConfig?.extra as Record<string, unknown> | undefined) ??
+    constants.manifest?.extra ??
+    constants.manifest2?.default?.extra ??
+    {}
+  );
 };
 
-export const isSpotifyLoginConfigured = (): boolean => getSpotifyClientId() !== '';
+export type ClientIdSource =
+  | 'expo-public-env' // inlinée par Metro (voie la plus robuste en APK)
+  | 'expo-config-extra' // asset natif app.config (CI prebuild)
+  | 'none';
+
+/** Détail du Client ID : présence + ORIGINE (jamais la valeur en log). */
+export type ClientIdInfo = {
+  clientId: string;
+  source: ClientIdSource;
+};
+
+export const getClientIdInfo = (): ClientIdInfo => {
+  const envValue =
+    typeof process !== 'undefined'
+      ? (process.env?.EXPO_PUBLIC_SPOTIFY_CLIENT_ID ?? '')
+      : '';
+  if (typeof envValue === 'string' && envValue.trim()) {
+    return { clientId: envValue.trim(), source: 'expo-public-env' };
+  }
+
+  const extra = readExtra();
+  const embedded =
+    typeof extra.spotifyClientId === 'string' ? extra.spotifyClientId.trim() : '';
+  if (embedded) {
+    return { clientId: embedded, source: 'expo-config-extra' };
+  }
+
+  return { clientId: '', source: 'none' };
+};
+
+/** Client ID intégré au build ; vide = connexion non configurée. */
+export const getSpotifyClientId = (): string => getClientIdInfo().clientId;
+
+export const isSpotifyLoginConfigured = (): boolean =>
+  getSpotifyClientId() !== '';
 
 /**
  * Scopes strictement nécessaires (permission minimale) :

@@ -89,15 +89,17 @@ export const LoginScreen = () => {
 
   const errorCard: ErrorCard = React.useMemo(() => {
     if (!configured) {
-      // Config absente : carte dédiée, écran « Connexion indisponible ».
+      // Config absente : carte dédiée « Connexion Spotify non configurée »
+      // (jamais le message générique — section diagnostic, point 4).
       return {
-        title: translations.loginNotConfiguredTitle,
+        title: translations.loginNotConfigured,
         body: translations.loginNotConfiguredBody,
       };
     }
     if (state.status !== 'error') {
       return null;
     }
+    // Chaque KIND correspond à UNE cause réelle (cf. useSpotifyAuth).
     switch (state.outcome.kind) {
       case 'cancelled':
         return {
@@ -106,14 +108,29 @@ export const LoginScreen = () => {
         };
       case 'not-configured':
         return {
-          title: translations.loginNotConfiguredTitle,
+          title: translations.loginNotConfigured,
           body: translations.loginNotConfiguredBody,
         };
-      case 'unavailable':
+      case 'oauth-refused':
+        return {
+          title: translations.loginOAuthRefusedTitle,
+          body: translations.loginOAuthRefusedBody,
+        };
+      case 'callback-failed':
+        return {
+          title: translations.loginCallbackFailedTitle,
+          body: translations.loginCallbackFailedBody,
+        };
+      case 'network':
+        return {
+          title: translations.loginNetworkTitle,
+          body: translations.loginNetworkBody,
+        };
+      case 'unknown':
       default:
         return {
-          title: translations.loginErrorTitle,
-          body: translations.loginErrorBody,
+          title: translations.loginUnknownTitle,
+          body: translations.loginUnknownBody,
         };
     }
   }, [configured, state]);

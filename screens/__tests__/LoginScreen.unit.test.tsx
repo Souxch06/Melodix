@@ -91,11 +91,11 @@ describe('LoginScreen (connexion Spotify OBLIGATOIRE)', () => {
     expect(UNSAFE_queryAllByType(TextInput)).toHaveLength(0);
   });
 
-  it('scénario 4 : Client ID ABSENT → carte dédiée + bouton inopérant (jamais OAuth)', () => {
+  it('scénario 4 : Client ID ABSENT → « Connexion Spotify non configurée » (JAMAIS le générique)', () => {
     mockConfigured = false;
     const { getByText, queryByTestId } = render(<LoginScreen />);
 
-    expect(getByText('Connexion Spotify indisponible')).toBeTruthy();
+    expect(getByText('Connexion Spotify non configurée')).toBeTruthy();
     expect(
       getByText(/n'est pas encore configurée sur cette version de Melodix/)
     ).toBeTruthy();
@@ -103,7 +103,7 @@ describe('LoginScreen (connexion Spotify OBLIGATOIRE)', () => {
 
     // Pas de bouton principal : startLogin ne peut JAMAIS être déclenché.
     expect(queryByTestId(TEST_IDS.SPOTIFY_BUTTON)).toBeNull();
-    fireEvent.press(getByText('Connexion Spotify indisponible')); // pas de plantage
+    expect(queryByTestId(TEST_IDS.RETRY_BUTTON)).toBeNull(); // rien à réessayer sans config
     expect(mockStartLogin).not.toHaveBeenCalled();
   });
 
@@ -123,17 +123,39 @@ describe('LoginScreen (connexion Spotify OBLIGATOIRE)', () => {
     expect(mockStartLogin).toHaveBeenCalledTimes(1);
   });
 
-  it('scénario 6 : échec OAuth → textes EXACTS + Réessayer disponible', () => {
-    mockAuthState = { status: 'error', outcome: { kind: 'unavailable' } };
+  it('scénario 6 : échec OAuth (refus Spotify) → « Spotify a refusé la connexion » + Réessayer', () => {
+    mockAuthState = { status: 'error', outcome: { kind: 'oauth-refused' } };
     const { getByText, getByTestId } = render(<LoginScreen />);
 
-    expect(getByText('Impossible de se connecter à Spotify.')).toBeTruthy();
+    expect(getByText('Spotify a refusé la connexion')).toBeTruthy();
+    fireEvent.press(getByTestId(TEST_IDS.RETRY_BUTTON));
+    expect(mockStartLogin).toHaveBeenCalledTimes(1);
+  });
+
+  it('taxonomie complète : chaque cause a SON message exact', () => {
+    const cases = [
+      { kind: 'callback-failed', title: 'Retour Spotify impossible' },
+      { kind: 'network', title: 'Impossible de contacter Spotify' },
+      { kind: 'unknown', title: 'Connexion à Spotify impossible' },
+      { kind: 'oauth-refused', title: 'Spotify a refusé la connexion' },
+      { kind: 'cancelled', title: 'Connexion annulée' },
+      { kind: 'not-configured', title: 'Connexion Spotify non configurée' },
+    ] as const;
+
+    for (const { kind, title } of cases) {
+      mockAuthState = { status: 'error', outcome: { kind } };
+      const { getByText, unmount } = render(<LoginScreen />);
+      expect(getByText(title)).toBeTruthy();
+      unmount();
+    }
+  });
+
+  it('network : conseil vérification internet affiché', () => {
+    mockAuthState = { status: 'error', outcome: { kind: 'network' } };
+    const { getByText } = render(<LoginScreen />);
     expect(
       getByText('Vérifie ta connexion internet puis réessaie.')
     ).toBeTruthy();
-
-    fireEvent.press(getByTestId(TEST_IDS.RETRY_BUTTON));
-    expect(mockStartLogin).toHaveBeenCalledTimes(1);
   });
 
   it('bouton principal → démarre le flux OAuth (page officielle uniquement)', () => {
@@ -178,7 +200,7 @@ describe('LoginScreen (connexion Spotify OBLIGATOIRE)', () => {
   it('jamais de stack trace/détail technique affiché, quel que soit l état', () => {
     for (const outcome of [
       { status: 'error', outcome: { kind: 'cancelled' } },
-      { status: 'error', outcome: { kind: 'unavailable' } },
+      { status: 'error', outcome: { kind: 'callback-failed' } },
       { status: 'error', outcome: { kind: 'not-configured' } },
     ]) {
       mockAuthState = outcome;

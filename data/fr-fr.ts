@@ -55,12 +55,20 @@ export const FR_FR_LOGIN = {
   loginConnecting: 'Connexion à Spotify...',
   loginExchanging: 'Préparation de ta session...',
   loginValidate: 'Réessayer',
+  // Causes exactes (section diagnostic) — titre = VRAIE cause, jamais générique à tort.
   loginCancelledTitle: 'Connexion annulée',
   loginCancelledBody: 'Tu peux réessayer quand tu veux.',
-  loginErrorTitle: 'Impossible de se connecter à Spotify.',
-  loginErrorBody: 'Vérifie ta connexion internet puis réessaie.',
-  loginNotConfigured: "Spotify n'est pas configuré sur cette version de Melodix.",
-  loginNotConfiguredTitle: 'Connexion Spotify indisponible',
+  loginOAuthRefusedTitle: 'Spotify a refusé la connexion',
+  loginOAuthRefusedBody:
+    'Autorise bien Melodix sur la page Spotify, puis réessaie.',
+  loginCallbackFailedTitle: 'Retour Spotify impossible',
+  loginCallbackFailedBody:
+    'Le retour de Spotify vers Melodix a échoué. Réessaie de te connecter.',
+  loginNetworkTitle: 'Impossible de contacter Spotify',
+  loginNetworkBody: 'Vérifie ta connexion internet puis réessaie.',
+  loginUnknownTitle: 'Connexion à Spotify impossible',
+  loginUnknownBody: 'Réessaie dans quelques instants.',
+  loginNotConfigured: 'Connexion Spotify non configurée',
   loginNotConfiguredBody:
     "La connexion Spotify n'est pas encore configurée sur cette version de Melodix.\nVeuillez utiliser une version correctement configurée.",
   loginPrivacyNote:

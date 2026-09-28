@@ -12,8 +12,11 @@
  *                                    /api/token, grant_type=refresh_token)
  *   clearSession()                 — déconnexion complète
  *
- * Tous les appels externes échouent proprement (retour null) : une session
- * corrompue ou un refresh refusé se traduit par « non connecté ».
+ * DIAGNOSTIC EXCHANGE : le token endpoint renvoie, en cas d'échec HTTP, un
+ * corps RFC 6749 `{ "error": "…", "error_description": "…" }`. Ces CODES
+ * (invalid_client, invalid_grant…) ne sont PAS des secrets : ils sont
+ * extraits puis transmis au journal [Spotify OAuth] pour localiser la panne
+ * (jamais de token, jamais de corps de succès en log).
  */
 import * as SecureStore from 'expo-secure-store';
 
@@ -31,6 +34,9 @@ const REFRESH_MARGIN_MS = 60_000;
 /** Durée par défaut d'un token frais (60 min en pratique chez Spotify). */
 const DEFAULT_TTL_SECONDS = 3600;
 
+const isExpired = (session: SpotifySession): boolean =>
+  Date.now() >= session.expiresAtMs - REFRESH_MARGIN_MS;
+
 export type SpotifySession = {
   accessToken: string;
   refreshToken: string | null;
@@ -47,37 +53,117 @@ type TokenEndpointResponse = Partial<{
   token_type: string;
 }>;
 
-/** Parcours d'erreurs propres (pas d'exception nue vers l'UI). */
+/**
+ * Parcours d'échec de l'échange code→tokens, classifiés pour l'UI.
+ * - 'refused'   : réponse HTTP non-2xx du token endpoint (cause = code OAuth
+ *                 court : invalid_client → dashboard/client, invalid_grant →
+ *                 code expiré/déjà utilisé/redirect différent…) ;
+ * - 'network'   : Spotify injoignable (avion, DNS, coupure) ou erreur 5xx ;
+ * - 'invalid-response' : corps illisible ou sans access_token ;
+ * - 'save-failed' : session obtenue mais Keystore indisponible.
+ */
+export type TokenExchangeOutcome =
+  | { kind: 'ok'; session: SpotifySession }
+  | { kind: 'refused'; status: number; errorCode: string }
+  | { kind: 'network' }
+  | { kind: 'invalid-response' }
+  | { kind: 'save-failed' };
+
+/**
+ * Outcomes complets du login (hook → écran). Chaque KIND de la taxonomie
+ * correspond à UNE cause visible pour l'utilisateur (cf. LoginScreen).
+ */
 export type LoginOutcome =
   | { kind: 'ok'; session: SpotifySession }
-  | { kind: 'cancelled' }
-  | { kind: 'unavailable' }
-  | { kind: 'not-configured' };
+  | { kind: 'cancelled' } // l'utilisateur a fermé/annulé chez Spotify
+  | { kind: 'not-configured' } // Client ID absent du build
+  | { kind: 'oauth-refused' } // Spotify a refusé (authorize error OU token 4xx)
+  | { kind: 'callback-failed' } // code absent / state / verifier manquant
+  | { kind: 'network' } // Spotify injoignable
+  | { kind: 'unknown' }; // échec autre (réponse illisible, /me, sauvegarde…)
 
-const isExpired = (session: SpotifySession): boolean =>
-  Date.now() >= session.expiresAtMs - REFRESH_MARGIN_MS;
+/** Whitelist RFC 6749 des codes d'erreur NON sensibles loguables. */
+const TOKEN_ERROR_WHITELIST = new Set([
+  'invalid_client',
+  'invalid_grant',
+  'invalid_request',
+  'unauthorized_client',
+  'unsupported_grant_type',
+  'invalid_scope',
+  'temporarily_unavailable',
+]);
 
+/** Codes d'erreur d'authorize (partagé avec useSpotifyAuth). */
+export const sanitizeOAuthErrorCode = (code: unknown): string => {
+  if (typeof code !== 'string') {
+    return 'unknown';
+  }
+  const trimmed = code.trim();
+  return TOKEN_ERROR_WHITELIST.has(trimmed) || trimmed === 'access_denied'
+    ? trimmed
+    : 'unlisted'; // cause non whitelistée : présence signalée, valeur masquée
+};
+
+type TokenCallResult =
+  | { ok: true; payload: TokenEndpointResponse }
+  | { ok: false; reason: 'network' }
+  | { ok: false; reason: 'refused'; status: number; errorCode: string };
+
+/**
+ * POST /api/token. Codes d'erreur parseés UNIQUEMENT sur la branche d'échec
+ * (RFC 6749 : error/error_description) — le corps de SUCCÈS, qui contient les
+ * tokens, n'est jamais lu ici à des fins de log.
+ */
 const requestToken = async (
-  body: Record<string, string>
-): Promise<TokenEndpointResponse | null> => {
+  body: Record<string, string>,
+  logStep: string
+): Promise<TokenCallResult> => {
+  let response: Response;
   try {
-    const response = await fetch(SPOTIFY_DISCOVERY.tokenEndpoint, {
+    response = await fetch(SPOTIFY_DISCOVERY.tokenEndpoint, {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: new URLSearchParams(body).toString(),
     });
-
-    if (!response.ok) {
-      // JAMAIS de copie du corps : il peut contenir des traces sensibles.
-      console.warn('Spotify token endpoint refused the request', response.status);
-      spotifyLog('token.refused', { status: response.status, endpoint: '/api/token' });
-      return null;
-    }
-
-    return (await response.json()) as TokenEndpointResponse;
   } catch (error) {
     console.warn('Spotify token endpoint unreachable', error);
-    return null;
+    spotifyLog(logStep, { status: 'unreachable' });
+    return { ok: false, reason: 'network' };
+  }
+
+  if (!response.ok) {
+    let errorCode = 'unknown';
+    try {
+      // Branche d'échec UNIQUEMENT : RFC 6749 — error + error_description.
+      const errBody = (await response.json()) as {
+        error?: unknown;
+        error_description?: unknown;
+      };
+      const code =
+        typeof errBody.error === 'string'
+          ? errBody.error
+          : response.status >= 500
+            ? 'temporarily_unavailable'
+            : `http_${response.status}`;
+      errorCode = TOKEN_ERROR_WHITELIST.has(code) ? code : 'unlisted';
+    } catch {
+      errorCode = `http_${response.status}`;
+    }
+
+    console.warn('Spotify token endpoint refused the request', response.status, errorCode);
+    spotifyLog(logStep, {
+      status: response.status,
+      errorCode,
+      endpoint: '/api/token',
+    });
+    return { ok: false, reason: 'refused', status: response.status, errorCode };
+  }
+
+  try {
+    return { ok: true, payload: (await response.json()) as TokenEndpointResponse };
+  } catch {
+    spotifyLog(logStep, { status: 'invalid-json' });
+    return { ok: false, reason: 'network' };
   }
 };
 
@@ -180,18 +266,23 @@ const doRefresh = async (session: SpotifySession): Promise<string | null> => {
   }
 
   spotifyLog('token.refresh.start');
-  const payload = await requestToken({
-    grant_type: 'refresh_token',
-    refresh_token: session.refreshToken,
-    client_id: getSpotifyClientId(),
-  });
+  const call = await requestToken(
+    {
+      grant_type: 'refresh_token',
+      refresh_token: session.refreshToken,
+      client_id: getSpotifyClientId(),
+    },
+    'token.refresh.refused'
+  );
 
-  if (!payload) {
-    spotifyLog('token.refresh.failed');
+  if (!call.ok) {
+    spotifyLog('token.refresh.failed', {
+      cause: call.reason === 'refused' ? call.errorCode : call.reason,
+    });
     return null;
   }
 
-  const refreshed = sessionFromTokenResponse(payload, session.refreshToken);
+  const refreshed = sessionFromTokenResponse(call.payload, session.refreshToken);
   if (!refreshed) {
     return null;
   }
@@ -246,7 +337,8 @@ export const describeSession = async (): Promise<{
 
 /**
  * Échange du code d'autorisation (Authorization Code + PKCE, client public :
- * AUCUN client_secret n'est transmis). Utilisé par l'écran de connexion.
+ * AUCUN client_secret n'est transmis). Résultat CLASSIFIÉ pour l'écran :
+ * chaque cause distincte a un message utilisateur dédié.
  */
 export const redeemAuthorizationCode = async ({
   code,
@@ -256,22 +348,54 @@ export const redeemAuthorizationCode = async ({
   code: string;
   codeVerifier: string;
   redirectUri: string;
-}): Promise<SpotifySession | null> => {
-  const payload = await requestToken({
-    grant_type: 'authorization_code',
-    code,
-    redirect_uri: redirectUri,
-    client_id: getSpotifyClientId(),
-    code_verifier: codeVerifier,
+}): Promise<TokenExchangeOutcome> => {
+  spotifyLog('exchange.request', {
+    redirectUri,
+    clientIdPresent: getSpotifyClientId() !== '',
+    verifierPresent: codeVerifier.length > 0,
+    codePresent: code.length > 0,
   });
 
-  if (!payload) {
-    return null;
+  const call = await requestToken(
+    {
+      grant_type: 'authorization_code',
+      code,
+      redirect_uri: redirectUri,
+      client_id: getSpotifyClientId(),
+      code_verifier: codeVerifier,
+    },
+    'exchange.refused'
+  );
+
+  if (!call.ok) {
+    if (call.reason === 'refused') {
+      return {
+        kind: 'refused',
+        status: call.status,
+        errorCode: call.errorCode,
+      };
+    }
+    return { kind: 'network' };
   }
 
-  const session = sessionFromTokenResponse(payload, null);
-  if (session) {
-    await saveSession(session);
+  const session = sessionFromTokenResponse(call.payload, null);
+  if (!session) {
+    spotifyLog('exchange.invalid-response');
+    return { kind: 'invalid-response' };
   }
-  return session;
+
+  try {
+    await saveSession(session);
+  } catch (error) {
+    console.warn('Spotify session persistence failed', error);
+    spotifyLog('exchange.save-failed');
+    return { kind: 'save-failed' };
+  }
+
+  spotifyLog('exchange.ok', {
+    expiresInSeconds: Math.round((session.expiresAtMs - Date.now()) / 1000),
+    hasRefreshToken: session.refreshToken !== null,
+    scopesCount: session.scope.split(' ').filter(Boolean).length,
+  });
+  return { kind: 'ok', session };
 };

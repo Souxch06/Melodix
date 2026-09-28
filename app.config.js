@@ -17,6 +17,11 @@
  * - SPOTIFY_CLIENT_ID : Client ID de l'application Spotify du mainteneur
  *   (OAuth Authorization Code + PKCE ; aucun Client Secret — PKCE l'exclut).
  *   Rôle UNIQUE : l'écran de connexion. Jamais saisi par l'utilisateur.
+ *   Le workflow Android la recopie aussi vers EXPO_PUBLIC_SPOTIFY_CLIENT_ID :
+ *   les variables EXPO_PUBLIC_* sont INLINÉES par Metro dans le bundle JS au
+ *   build, voie robuste en APK bare (ne dépend pas de l'asset natif
+ *   app.config généré par expo-constants — doublon volontaire des deux canaux,
+ *   l'app prend la première source disponible, voir services/spotify/authConfig).
  *
  * Aucun secret n'est intégré à l'APK : les tokens Spotify éphémères vivent
  * exclusivement CÔTÉ SERVEUR (techniques Web Player non officielles,
@@ -30,7 +35,7 @@ module.exports = {
   expo: {
     name: 'Melodix',
     slug: 'melodix',
-    version: '4.0.0',
+    version: '4.1.1',
     orientation: 'portrait',
     icon: './assets/images/icon.png',
     scheme: 'melodix',
@@ -43,7 +48,7 @@ module.exports = {
     },
     android: {
       package: 'com.souxch06.melodix',
-      versionCode: 40000,
+      versionCode: 41100,
       adaptiveIcon: {
         foregroundImage: './assets/images/adaptive-icon.png',
         backgroundImage: './assets/images/adaptive-icon-background.png',

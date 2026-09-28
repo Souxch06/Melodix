@@ -81,12 +81,20 @@ export const EN_GB_LOGIN = {
   loginConnecting: 'Connecting to Spotify...',
   loginExchanging: 'Preparing your session...',
   loginValidate: 'Try again',
+  // Exact causes (diagnostic section) — title = REAL cause, never wrongly generic.
   loginCancelledTitle: 'Sign-in cancelled',
   loginCancelledBody: 'You can try again whenever you like.',
-  loginErrorTitle: 'Unable to connect to Spotify.',
-  loginErrorBody: 'Check your internet connection, then try again.',
-  loginNotConfigured: 'Spotify is not configured on this version of Melodix.',
-  loginNotConfiguredTitle: 'Spotify sign-in unavailable',
+  loginOAuthRefusedTitle: 'Spotify refused the connection',
+  loginOAuthRefusedBody:
+    'Make sure you authorize Melodix on the Spotify page, then try again.',
+  loginCallbackFailedTitle: 'Unable to return from Spotify',
+  loginCallbackFailedBody:
+    'The return from Spotify to Melodix failed. Please try signing in again.',
+  loginNetworkTitle: 'Unable to reach Spotify',
+  loginNetworkBody: 'Check your internet connection, then try again.',
+  loginUnknownTitle: 'Unable to connect to Spotify',
+  loginUnknownBody: 'Please try again in a few moments.',
+  loginNotConfigured: 'Spotify sign-in is not configured',
   loginNotConfiguredBody:
     'Spotify sign-in is not yet configured on this version of Melodix.\nPlease use a properly configured version.',
   loginPrivacyNote:
