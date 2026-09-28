@@ -159,7 +159,13 @@ jobs:
           echo "::notice title=$APK::$INFO| taille $(du -h "$APK" | cut -f1) | sha256 $(sha256sum "$APK" | cut -d' ' -f1)"
           # Preuve pipeline du deep-link OAuth : le scheme melodix DOIT figurer
           # dans un intent-filter de l'APK (sinon le callback ne revient jamais).
-          if "$AAPT2" dump xmltree "$APK" AndroidManifest.xml | grep -q 'android:scheme(0x01010027)=Raw(0x[0-9a-f]*) "melodix"'; then
+          # La ligne 'schemes:' de dump badging est le canal STABLE d'aapt2
+          # (le format xmltree varie selon les toolchains → grep fragile).
+          SCHEMES_LINE=$("$AAPT2" dump badging "$APK" | grep '^schemes:' || true)
+          echo "schemes déclarés : $SCHEMES_LINE"
+          # Token EXACT 'melodix' (sans ça, 'com.souxch06.melodix' ferait un
+          # faux positif à lui seul).
+          if echo "$SCHEMES_LINE" | tr ' ,' '\n' | grep -qx 'melodix'; then
             echo "::notice title=Deep link OAuth::scheme melodix présent dans l'APK (melodix://callback déclenchable)"
           else
             echo "::error title=Deep link OAuth::scheme melodix ABSENT de l'APK — le retour Spotify ne fonctionnera pas"
