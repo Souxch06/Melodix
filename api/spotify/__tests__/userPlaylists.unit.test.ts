@@ -9,6 +9,8 @@ import {
 
 jest.mock('@services', () => ({
   spotifyApiGet: jest.fn(),
+  spotifyDiag: jest.fn(),
+  spotifyLog: jest.fn(),
 }));
 
 const apiMock = spotifyApiGet as jest.Mock;

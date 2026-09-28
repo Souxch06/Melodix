@@ -141,7 +141,7 @@ describe('useSpotifyAuth — taxonomie du diagnostic OAuth', () => {
     expect(mockPromptAsync).not.toHaveBeenCalled();
     expect(result.current.state).toEqual({
       status: 'error',
-      outcome: { kind: 'not-configured' },
+      outcome: { kind: 'not-configured', cause: 'client-id-missing-in-build' },
     });
   });
 
@@ -156,7 +156,7 @@ describe('useSpotifyAuth — taxonomie du diagnostic OAuth', () => {
     expect(redeemAuthorizationCode).not.toHaveBeenCalled();
     expect(result.current.state).toEqual({
       status: 'error',
-      outcome: { kind: 'cancelled' },
+      outcome: { kind: 'cancelled', cause: 'cancel' },
     });
   });
 
@@ -173,7 +173,10 @@ describe('useSpotifyAuth — taxonomie du diagnostic OAuth', () => {
 
     expect(result.current.state).toEqual({
       status: 'error',
-      outcome: { kind: 'oauth-refused' },
+      outcome: {
+        kind: 'oauth-refused',
+        cause: 'unlisted',
+      },
     });
   });
 
@@ -191,7 +194,10 @@ describe('useSpotifyAuth — taxonomie du diagnostic OAuth', () => {
 
     expect(result.current.state).toEqual({
       status: 'error',
-      outcome: { kind: 'oauth-refused' },
+      outcome: {
+        kind: 'oauth-refused',
+        cause: 'invalid_client · HTTP 400',
+      },
     });
   });
 
@@ -209,7 +215,7 @@ describe('useSpotifyAuth — taxonomie du diagnostic OAuth', () => {
 
     expect(result.current.state).toEqual({
       status: 'error',
-      outcome: { kind: 'network' },
+      outcome: { kind: 'network', cause: 'temporarily_unavailable · HTTP 502' },
     });
   });
 
@@ -225,7 +231,7 @@ describe('useSpotifyAuth — taxonomie du diagnostic OAuth', () => {
 
     expect(result.current.state).toEqual({
       status: 'error',
-      outcome: { kind: 'network' },
+      outcome: { kind: 'network', cause: 'exchange-unreachable' },
     });
   });
 
@@ -241,7 +247,7 @@ describe('useSpotifyAuth — taxonomie du diagnostic OAuth', () => {
 
     expect(result.current.state).toEqual({
       status: 'error',
-      outcome: { kind: 'unknown' },
+      outcome: { kind: 'unknown', cause: 'invalid-token-response' },
     });
   });
 
@@ -257,7 +263,7 @@ describe('useSpotifyAuth — taxonomie du diagnostic OAuth', () => {
 
     expect(result.current.state).toEqual({
       status: 'error',
-      outcome: { kind: 'network' },
+      outcome: { kind: 'network', cause: 'me:network' },
     });
   });
 
@@ -273,7 +279,7 @@ describe('useSpotifyAuth — taxonomie du diagnostic OAuth', () => {
 
     expect(result.current.state).toEqual({
       status: 'error',
-      outcome: { kind: 'unknown' },
+      outcome: { kind: 'unknown', cause: 'session-save-failed' },
     });
   });
 
@@ -293,7 +299,7 @@ describe('useSpotifyAuth — taxonomie du diagnostic OAuth', () => {
     expect(mockPromptAsync).not.toHaveBeenCalled();
     expect(result.current.state).toEqual({
       status: 'error',
-      outcome: { kind: 'unknown' },
+      outcome: { kind: 'unknown', cause: 'auth-request-not-ready' },
     });
   });
 
@@ -308,7 +314,7 @@ describe('useSpotifyAuth — taxonomie du diagnostic OAuth', () => {
 
       expect(result.current.state).toEqual({
         status: 'error',
-        outcome: { kind: 'callback-failed' },
+        outcome: { kind: 'callback-failed', cause: 'code-absent' },
       });
     });
 
@@ -354,7 +360,7 @@ describe('useSpotifyAuth — taxonomie du diagnostic OAuth', () => {
       expect(redeemAuthorizationCode).not.toHaveBeenCalled();
       expect(result.current.state).toEqual({
         status: 'error',
-        outcome: { kind: 'callback-failed' },
+        outcome: { kind: 'callback-failed', cause: 'state-invalid' },
       });
     });
 
@@ -371,7 +377,7 @@ describe('useSpotifyAuth — taxonomie du diagnostic OAuth', () => {
       expect(redeemAuthorizationCode).not.toHaveBeenCalled();
       expect(result.current.state).toEqual({
         status: 'error',
-        outcome: { kind: 'callback-failed' },
+        outcome: { kind: 'callback-failed', cause: 'cold-start-no-verifier' },
       });
     });
 

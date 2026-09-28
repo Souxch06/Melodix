@@ -64,7 +64,44 @@ export const spotifyLog = (
 
 /** Alias explicite pour la ligne exigée de diagnostic du redirect. */
 export const logRedirectUri = (redirectUri: string): void => {
-  spotifyLog('redirectUri =', { redirectUri });
+  spotifyDiag('REDIRECT_URI', redirectUri);
+};
+
+/**
+ * Ligne de diagnostic au FORMAT EXACT demandé par la mission :
+ *   [Spotify OAuth] <STAGE>: <value>
+ * La valeur est bornée (120 caractères) et sanitise mots sensibles.
+ * Ne JAMAIS lui passer de token/secret/verifier/code/state complet.
+ */
+export const spotifyDiag = (stage: string, value?: string): void => {
+  const raw = value === undefined ? '' : `: ${String(value)}`;
+  // Ceinture de sécurité supplémentaire : filtre toute valeur suspecte.
+  const safe = sensitivePattern.test(raw)
+    ? ': <redacted>'
+    : raw.length > 120
+      ? `${raw.slice(0, 117)}…`
+      : raw;
+  // eslint-disable-next-line no-console
+  console.log(`[Spotify OAuth] ${stage}${safe}`);
+};
+
+/** Motifs à ne JAMAIS laisser passer dans une ligne de diagnostic. */
+const sensitivePattern =
+  /[Bb]earer|access_?token|refresh_?token|Authorization|client_?secret|verifier/i;
+
+/**
+ * Sanitise une description d'erreur OAuth (corps RFC 6749 / authorize) pour
+ * la diagnostics : coupe à 80 caractères, refuse tout contenu à mot sensible.
+ */
+export const sanitizeErrorDescription = (value: unknown): string => {
+  if (typeof value !== 'string' || !value.trim()) {
+    return '';
+  }
+  const cleaned = value.replace(/[\r\n]+/g, ' ').trim();
+  if (sensitivePattern.test(cleaned)) {
+    return '<redacted>';
+  }
+  return cleaned.length > 80 ? `${cleaned.slice(0, 77)}…` : cleaned;
 };
 
 export default spotifyLog;

@@ -81,6 +81,7 @@ export const EN_GB_LOGIN = {
   loginConnecting: 'Connecting to Spotify...',
   loginExchanging: 'Preparing your session...',
   loginValidate: 'Try again',
+  loginDiagnosticLabel: 'Diagnostic',
   // Exact causes (diagnostic section) — title = REAL cause, never wrongly generic.
   loginCancelledTitle: 'Sign-in cancelled',
   loginCancelledBody: 'You can try again whenever you like.',

@@ -25,7 +25,7 @@ import {
   SPOTIFY_DISCOVERY,
   SPOTIFY_SCOPES,
 } from './authConfig';
-import { spotifyLog } from './devLog';
+import { sanitizeErrorDescription, spotifyDiag, spotifyLog } from './devLog';
 
 const SESSION_KEY = 'melodix.spotify.session.v1';
 
@@ -64,7 +64,13 @@ type TokenEndpointResponse = Partial<{
  */
 export type TokenExchangeOutcome =
   | { kind: 'ok'; session: SpotifySession }
-  | { kind: 'refused'; status: number; errorCode: string }
+  | {
+      kind: 'refused';
+      status: number;
+      errorCode: string;
+      /** Description OAuth sanitise (jamais de secret). */
+      description: string;
+    }
   | { kind: 'network' }
   | { kind: 'invalid-response' }
   | { kind: 'save-failed' };
@@ -73,14 +79,15 @@ export type TokenExchangeOutcome =
  * Outcomes complets du login (hook → écran). Chaque KIND de la taxonomie
  * correspond à UNE cause visible pour l'utilisateur (cf. LoginScreen).
  */
-export type LoginOutcome =
-  | { kind: 'ok'; session: SpotifySession }
-  | { kind: 'cancelled' } // l'utilisateur a fermé/annulé chez Spotify
-  | { kind: 'not-configured' } // Client ID absent du build
-  | { kind: 'oauth-refused' } // Spotify a refusé (authorize error OU token 4xx)
-  | { kind: 'callback-failed' } // code absent / state / verifier manquant
-  | { kind: 'network' } // Spotify injoignable
-  | { kind: 'unknown' }; // échec autre (réponse illisible, /me, sauvegarde…)
+export type LoginErrorOutcome =
+  | { kind: 'cancelled'; cause: string }
+  | { kind: 'not-configured'; cause: string }
+  | { kind: 'oauth-refused'; cause: string }
+  | { kind: 'callback-failed'; cause: string }
+  | { kind: 'network'; cause: string }
+  | { kind: 'unknown'; cause: string };
+
+export type LoginOutcome = { kind: 'ok'; session: SpotifySession } | LoginErrorOutcome;
 
 /** Whitelist RFC 6749 des codes d'erreur NON sensibles loguables. */
 const TOKEN_ERROR_WHITELIST = new Set([
@@ -107,7 +114,13 @@ export const sanitizeOAuthErrorCode = (code: unknown): string => {
 type TokenCallResult =
   | { ok: true; payload: TokenEndpointResponse }
   | { ok: false; reason: 'network' }
-  | { ok: false; reason: 'refused'; status: number; errorCode: string };
+  | {
+      ok: false;
+      reason: 'refused';
+      status: number;
+      errorCode: string;
+      description: string;
+    };
 
 /**
  * POST /api/token. Codes d'erreur parseés UNIQUEMENT sur la branche d'échec
@@ -133,8 +146,11 @@ const requestToken = async (
 
   if (!response.ok) {
     let errorCode = 'unknown';
+    let description = '';
     try {
       // Branche d'échec UNIQUEMENT : RFC 6749 — error + error_description.
+      // (Aucun secret dans ces champs ; le corps de SUCCÈS n'est jamais lu
+      // à des fins de log.)
       const errBody = (await response.json()) as {
         error?: unknown;
         error_description?: unknown;
@@ -146,17 +162,28 @@ const requestToken = async (
             ? 'temporarily_unavailable'
             : `http_${response.status}`;
       errorCode = TOKEN_ERROR_WHITELIST.has(code) ? code : 'unlisted';
+      description = sanitizeErrorDescription(errBody.error_description);
     } catch {
       errorCode = `http_${response.status}`;
     }
 
     console.warn('Spotify token endpoint refused the request', response.status, errorCode);
+    spotifyDiag('ERROR_CODE', errorCode);
+    if (description) {
+      spotifyDiag('ERROR_DESCRIPTION', description);
+    }
     spotifyLog(logStep, {
       status: response.status,
       errorCode,
       endpoint: '/api/token',
     });
-    return { ok: false, reason: 'refused', status: response.status, errorCode };
+    return {
+      ok: false,
+      reason: 'refused',
+      status: response.status,
+      errorCode,
+      description,
+    };
   }
 
   try {
@@ -356,6 +383,7 @@ export const redeemAuthorizationCode = async ({
     codePresent: code.length > 0,
   });
 
+  spotifyDiag('TOKEN_EXCHANGE', 'START');
   const call = await requestToken(
     {
       grant_type: 'authorization_code',
@@ -369,28 +397,35 @@ export const redeemAuthorizationCode = async ({
 
   if (!call.ok) {
     if (call.reason === 'refused') {
+      spotifyDiag('TOKEN_EXCHANGE', `FAILED(${call.errorCode}, HTTP ${call.status})`);
       return {
         kind: 'refused',
         status: call.status,
         errorCode: call.errorCode,
+        description: call.description,
       };
     }
+    spotifyDiag('TOKEN_EXCHANGE', 'FAILED(network)');
     return { kind: 'network' };
   }
 
   const session = sessionFromTokenResponse(call.payload, null);
   if (!session) {
+    spotifyDiag('TOKEN_EXCHANGE', 'FAILED(invalid-response)');
     spotifyLog('exchange.invalid-response');
     return { kind: 'invalid-response' };
   }
+  spotifyDiag('TOKEN_EXCHANGE', 'SUCCESS');
 
   try {
     await saveSession(session);
   } catch (error) {
     console.warn('Spotify session persistence failed', error);
+    spotifyDiag('SESSION', 'FAILED');
     spotifyLog('exchange.save-failed');
     return { kind: 'save-failed' };
   }
+  spotifyDiag('SESSION', 'SAVED');
 
   spotifyLog('exchange.ok', {
     expiresInSeconds: Math.round((session.expiresAtMs - Date.now()) / 1000),

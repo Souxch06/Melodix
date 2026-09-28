@@ -174,7 +174,12 @@ describe('services/spotify/session (SecureStore)', () => {
       })) as unknown as typeof fetch;
 
       const outcome = await redeem();
-      expect(outcome).toEqual({ kind: 'refused', status: 400, errorCode: 'invalid_client' });
+      expect(outcome).toEqual({
+        kind: 'refused',
+        status: 400,
+        errorCode: 'invalid_client',
+        description: 'Invalid client',
+      });
       // JAMAIS de session enregistrée sur refus.
       await expect(loadSession()).resolves.toBeNull();
     });
@@ -187,7 +192,12 @@ describe('services/spotify/session (SecureStore)', () => {
       })) as unknown as typeof fetch;
 
       const outcome = await redeem();
-      expect(outcome).toEqual({ kind: 'refused', status: 400, errorCode: 'invalid_grant' });
+      expect(outcome).toEqual({
+        kind: 'refused',
+        status: 400,
+        errorCode: 'invalid_grant',
+        description: '',
+      });
     });
 
     it('code d erreur hors whitelist → valeur masquée (« unlisted »), présence gardée', async () => {
@@ -198,7 +208,12 @@ describe('services/spotify/session (SecureStore)', () => {
       })) as unknown as typeof fetch;
 
       const outcome = await redeem();
-      expect(outcome).toEqual({ kind: 'refused', status: 403, errorCode: 'unlisted' });
+      expect(outcome).toEqual({
+        kind: 'refused',
+        status: 403,
+        errorCode: 'unlisted',
+        description: '',
+      });
     });
 
     it('corps d erreur illisible → status technique consigné seul', async () => {
@@ -209,7 +224,12 @@ describe('services/spotify/session (SecureStore)', () => {
       })) as unknown as typeof fetch;
 
       const outcome = await redeem();
-      expect(outcome).toEqual({ kind: 'refused', status: 429, errorCode: 'http_429' });
+      expect(outcome).toEqual({
+        kind: 'refused',
+        status: 429,
+        errorCode: 'http_429',
+        description: '',
+      });
     });
 
     it('fetch qui jette (téléphone hors-ligne) → network', async () => {

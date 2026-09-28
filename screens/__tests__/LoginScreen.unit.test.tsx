@@ -26,7 +26,10 @@ const mockResetError = jest.fn();
 let mockConfigured = true;
 let mockRequestPending = false;
 let mockSessionStatus = 'loading';
-let mockAuthState: { status: string; outcome?: { kind: string } } = {
+let mockAuthState: {
+  status: string;
+  outcome?: { kind: string; cause?: string };
+} = {
   status: 'idle',
 };
 let mockBusy = false;
@@ -197,11 +200,37 @@ describe('LoginScreen (connexion Spotify OBLIGATOIRE)', () => {
     expect(getAllByText('Connexion à Spotify...').length).toBeGreaterThan(0);
   });
 
+  it('DÉMASQUAGE : la cause exacte s affiche sous la carte (jamais de secret)', () => {
+    // OAuth refusée : le code + description apparaissent en diagnostic.
+    mockAuthState = {
+      status: 'error',
+      outcome: { kind: 'oauth-refused', cause: 'invalid_client · HTTP 400' },
+    };
+    const card = render(<LoginScreen />);
+    expect(card.getByText('Spotify a refusé la connexion')).toBeTruthy();
+    expect(
+      card.getByText(/Diagnostic : invalid_client · HTTP 400/)
+    ).toBeTruthy();
+    card.unmount();
+
+    // Inconnue : le NOM DE L'EXCEPTION guide le diagnostic original.
+    mockAuthState = {
+      status: 'error',
+      outcome: { kind: 'unknown', cause: 'prompt-exception:SomeNativeError' },
+    };
+    const unk = render(<LoginScreen />);
+    expect(unk.getByText('Connexion à Spotify impossible')).toBeTruthy();
+    expect(
+      unk.getByText(/Diagnostic : prompt-exception:SomeNativeError/)
+    ).toBeTruthy();
+    unk.unmount();
+  });
+
   it('jamais de stack trace/détail technique affiché, quel que soit l état', () => {
     for (const outcome of [
-      { status: 'error', outcome: { kind: 'cancelled' } },
-      { status: 'error', outcome: { kind: 'callback-failed' } },
-      { status: 'error', outcome: { kind: 'not-configured' } },
+      { status: 'error', outcome: { kind: 'cancelled', cause: 'cancel' } },
+      { status: 'error', outcome: { kind: 'callback-failed', cause: 'code-absent' } },
+      { status: 'error', outcome: { kind: 'not-configured', cause: 'x' } },
     ]) {
       mockAuthState = outcome;
       const { queryByText, unmount } = render(<LoginScreen />);

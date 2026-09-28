@@ -55,6 +55,7 @@ export const FR_FR_LOGIN = {
   loginConnecting: 'Connexion à Spotify...',
   loginExchanging: 'Préparation de ta session...',
   loginValidate: 'Réessayer',
+  loginDiagnosticLabel: 'Diagnostic',
   // Causes exactes (section diagnostic) — titre = VRAIE cause, jamais générique à tort.
   loginCancelledTitle: 'Connexion annulée',
   loginCancelledBody: 'Tu peux réessayer quand tu veux.',

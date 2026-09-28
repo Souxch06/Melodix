@@ -11,7 +11,7 @@
  */
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-import { spotifyApiGet } from '@services';
+import { spotifyApiGet, spotifyDiag, spotifyLog } from '@services';
 import { LibraryItemModel } from '@models';
 
 const CACHE_STORAGE_KEY = '@melodix/spotify-user-playlists';
@@ -111,14 +111,26 @@ const fetchAllUserPlaylists = async (): Promise<LibraryItemModel[]> => {
   let nextPath: string | null =
     `/me/playlists?limit=${PAGE_SIZE}&offset=0`;
 
-  // Suit les liens `next` de la pagination Spotify tant qu'il y a des pages.
-  while (nextPath) {
-    const page: PagedResult<SpotifyPlaylistRaw> = await spotifyApiGet<PagedResult<SpotifyPlaylistRaw>>(nextPath);
-    const items = Array.isArray(page?.items) ? page.items : [];
-    collected.push(...items);
-    nextPath = page?.next ?? null;
+  spotifyDiag('PLAYLISTS', 'START');
+  try {
+    // Suit les liens `next` de la pagination Spotify jusqu'à épuisement.
+    while (nextPath) {
+      const page: PagedResult<SpotifyPlaylistRaw> = await spotifyApiGet<PagedResult<SpotifyPlaylistRaw>>(nextPath);
+      const items = Array.isArray(page?.items) ? page.items : [];
+      collected.push(...items);
+      nextPath = page?.next ?? null;
+    }
+  } catch (error) {
+    const kind =
+      error && typeof error === 'object' && 'kind' in error
+        ? String((error as { kind?: unknown }).kind)
+        : 'exception';
+    spotifyDiag('PLAYLISTS', `FAILED(${kind})`);
+    spotifyLog('playlists.fetch.failed', { cause: kind });
+    throw error;
   }
 
+  spotifyDiag('PLAYLISTS', `SUCCESS(${collected.length})`);
   return collected
     .map(toLibraryItem)
     .filter((item): item is LibraryItemModel => !!item);

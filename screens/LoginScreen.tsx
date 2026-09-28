@@ -38,6 +38,7 @@ import {
   View,
 } from 'react-native';
 import { FontAwesome, Ionicons } from '@expo/vector-icons';
+import Constants from 'expo-constants';
 import { useRouter } from 'expo-router';
 
 import { COLORS } from '@config';
@@ -49,6 +50,8 @@ import { isSpotifyLoginConfigured, useSpotifyAuth } from '@services';
 type ErrorCard = {
   title: string;
   body: string;
+  /** Cause courte + whitelistée affichée au-dessous (diagnostic mission). */
+  cause?: string;
 } | null;
 
 /** Durées « discrètes » : rapides sans être brusques. */
@@ -94,43 +97,52 @@ export const LoginScreen = () => {
       return {
         title: translations.loginNotConfigured,
         body: translations.loginNotConfiguredBody,
+        cause: 'client-id-missing-in-build',
       };
     }
     if (state.status !== 'error') {
       return null;
     }
-    // Chaque KIND correspond à UNE cause réelle (cf. useSpotifyAuth).
+    // Chaque KIND correspond à UNE cause réelle (cf. useSpotifyAuth) —
+    // la cause est répercutée à l'écran, sans secret possible.
+    const cause = state.outcome.cause;
     switch (state.outcome.kind) {
       case 'cancelled':
         return {
           title: translations.loginCancelledTitle,
           body: translations.loginCancelledBody,
+          cause,
         };
       case 'not-configured':
         return {
           title: translations.loginNotConfigured,
           body: translations.loginNotConfiguredBody,
+          cause,
         };
       case 'oauth-refused':
         return {
           title: translations.loginOAuthRefusedTitle,
           body: translations.loginOAuthRefusedBody,
+          cause,
         };
       case 'callback-failed':
         return {
           title: translations.loginCallbackFailedTitle,
           body: translations.loginCallbackFailedBody,
+          cause,
         };
       case 'network':
         return {
           title: translations.loginNetworkTitle,
           body: translations.loginNetworkBody,
+          cause,
         };
       case 'unknown':
       default:
         return {
           title: translations.loginUnknownTitle,
           body: translations.loginUnknownBody,
+          cause,
         };
     }
   }, [configured, state]);
@@ -200,6 +212,11 @@ export const LoginScreen = () => {
             />
             <Text style={styles.errorTitle}>{errorCard.title}</Text>
             <Text style={styles.errorBody}>{errorCard.body}</Text>
+            {errorCard.cause ? (
+              <Text style={styles.diagnosticText} testID="login-diagnostic-text">
+                {`${translations.loginDiagnosticLabel} : ${errorCard.cause}`}
+              </Text>
+            ) : null}
             {configured && (
               <Pressable
                 accessibilityRole="button"
@@ -261,6 +278,9 @@ export const LoginScreen = () => {
           <Ionicons color={COLORS.GREY} name="lock-closed-outline" size={13} />
           <Text style={styles.footerText}>{translations.loginSecureFootnote}</Text>
         </View>
+        <Text style={styles.versionText} testID="login-version-text">
+          Melodix v{Constants.expoConfig?.version ?? '4.1.2'}
+        </Text>
       </Animated.View>
     </View>
   );
@@ -416,5 +436,20 @@ const styles = StyleSheet.create({
     color: COLORS.GREY,
     fontFamily: 'SF-Regular',
     fontSize: 12,
+  },
+  diagnosticText: {
+    color: COLORS.TINT,
+    fontFamily: 'SF-Regular',
+    fontSize: 11,
+    textAlign: 'center',
+    marginTop: 10,
+    opacity: 0.85,
+  },
+  versionText: {
+    color: COLORS.GREY,
+    fontFamily: 'SF-Regular',
+    fontSize: 10,
+    marginTop: 8,
+    opacity: 0.6,
   },
 });
