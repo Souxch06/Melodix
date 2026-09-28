@@ -12,10 +12,10 @@
 </p>
 
 <p align="center">
-  <strong>Melodix</strong> est un lecteur musical de poche <strong>sans compte et sans configuration</strong> :<br>
-  recherche, playlists, favoris et bibliothèque, dans une interface sombre et animée —<br>
-  l'audio est lu via <strong>Audius</strong> (streaming libre, correspondance fiable) et les métadonnées<br>
-  (recherche, albums, playlists) via le <strong>backend Melodix</strong>. Rien à saisir, jamais.
+  <strong>Melodix</strong> est un lecteur musical de poche qui te retrouve ton <strong>compte Spotify</strong> :<br>
+  connexion via la page officielle (OAuth Authorization Code + PKCE), playlists personnelles,<br>
+  favoris et historique — dans une interface sombre et animée. L'audio est lu via <strong>Audius</strong><br>
+  (streaming libre, correspondance fiable). <strong>Zéro clé à saisir, zéro secret dans l'app.</strong>
 </p>
 
 <p align="center">
@@ -50,22 +50,47 @@ contournement des règles de Spotify : l'audio ne vient jamais de Spotify, il
 vient du protocole ouvert [Audius](https://docs.audius.org). Détails
 techniques : [`docs/AUDIO-PROVIDER.md`](docs/AUDIO-PROVIDER.md).
 
-## Sans compte, sans configuration
+## Connexion Spotify OAuth (PKCE) — et repli sans compte
 
-Melodix 3.0 ne demande **aucun compte Spotify, aucun Client ID, aucun Client
-Secret, aucun token, aucune configuration :**
+**Au premier lancement sans session**, Melodix affiche son écran de connexion :
+un seul bouton **[ Continuer avec Spotify ]** ouvre la page officielle de
+Spotify (OAuth *Authorization Code + PKCE* — la page qui permet à l'utilisateur
+de choisir entre ses identifiants, Google, Apple…). Après autorisation, tu
+reviens automatiquement dans l'app, connecté.
 
-- **Pas d'écran de connexion.** L'app démarre directement sur l'accueil.
-- **Pas de saisie de credential.** Il n'existe plus nulle part dans
-  l'application de champ Client ID / Secret / token à remplir.
-- **Favoris, playlists, bibliothèque et historique** sont conservés **localement
-  sur l'appareil** (AsyncStorage) ; les données d'anciennes versions sont
-  migrées automatiquement au premier lancement (favoris invités Audius →
-  bibliothèque locale, purge des anciens tokens).
+- **Aucune clé à saisir, jamais** : ni Client ID, ni Client Secret, ni token,
+  ni code OAuth. L'app est « cliente publique » : aucun Client Secret n'existe
+  sur le mobile (PKCE le remplace). Le Client ID est une simple CONFIGURATION DE
+  BUILD du mainteneur (variable de dépôt `SPOTIFY_CLIENT_ID`).
+- **Session persistante** : au prochain lancement, tu restes connecté (tokens
+  dans le Keystore Android chiffré via `expo-secure-store`, refresh silencieux,
+  jamais une ligne de token dans les logs). Si la session expire sans
+  rafraîchissement possible : retour élégant au login avec message propre.
+- **Tes playlists personnelles** (propriétaires, suivies, collaboratives) sont
+  récupérées — pagination complète (jamais tronquées aux 50 premières) —
+  affichées en tête de ta **Bibliothèque** ; ouverture → liste des morceaux
+  (morceaux Spotify complets : artistes multiples, durée, artwork, explicite).
+- **L'audio reste Audius** : le matcher `audiusTrackMatcher` retrouve chaque
+  morceau (score titre/artistes/album/durée), **jamais** de mauvais titre à la
+  place (« Ce titre n'est pas disponible sur Audius »).
+- **Sans compte** si tu préfères : le lien *Explorer sans compte* garde l'accès
+  au catalogue Audius local, favoris et historique (fonctionnalité 3.0).
+- **Déconnexion** propre depuis l'avatar : session + caches playlists supprimés,
+  favoris et historique locaux **conservés** (ils sont sur l'appareil, pas
+  liés au compte).
+- **Configuration mainteneur Spotify requise** : crée une app sur
+  [developer.spotify.com/dashboard](https://developer.spotify.com/dashboard)
+  (le propriétaire doit être **Premium**, voir les restrictions documentées
+  dans `docs/ANALYSE-CONNEXION.md`), redirect URIs `melodix://callback` et
+  `exp://…/--/callback` (Expo Go), puis `SPOTIFY_CLIENT_ID` en variable
+  CI locale (`.env`, voir `.env.example`) ou de dépôt pour l'APK CI.
 - **Aucune promesse de « Premium gratuit »** : l'audio ne vient jamais de
-  Spotify. Les règles de Spotify (ni contourner ni rehoster l'audio) sont
-  respectées, de même que l'absence totale de secret dans l'APK,
-  dans Git et dans les logs.
+  Spotify ; rien n'est contourné ni réhébergé ; aucun secret n'existe dans
+  l'APK, Git ou les logs.
+
+Scopes demandés (strict minimum) :
+`user-read-private` (nom, photo) · `playlist-read-private` ·
+`playlist-read-collaborative` (tes playlists). **Pas d'email demandé.**
 
 ### Backend Melodix — info mainteneur
 
@@ -90,9 +115,10 @@ retombent sur le catalogue Audius (tendances, favoris locaux, historique).
 
 | Écran | Ce que tu y trouves |
 | :-- | :-- |
+| **Connexion** | Branding Melodix, un seul bouton « Continuer avec Spotify » (OAuth PKCE, page officielle), lien *Explorer sans compte* pour l'accès libre local. |
 | **Accueil** | Écoutes récentes (historique local), albums et playlists du moment (fournis par le backend Melodix), les tendances Audius en repli. |
 | **Recherche** | Artistes, titres, albums et playlists (via le backend Melodix ; catalogue Audius en repli). Un titre se joue directement. |
-| **Bibliothèque** | Tes favoris **locaux** : playlists, albums et artistes enregistrés, filtrables par catégorie avec transitions animées. |
+| **Bibliothèque** | **Tes playlists Spotify personnelles en premier** (si connecté — pagination complète, refresh par pull-to-refresh), puis tes favoris **locaux** : playlists, albums et artistes enregistrés, filtrables par catégorie avec transitions animées. |
 | **Album / Playlist** | Pochette sur fond dégradé, liste des titres **jouables** — appuie pour écouter via Audius. Cœur pour enregistrer dans ta bibliothèque. |
 | **Lecteur** | Mini-lecteur au-dessus des onglets + plein écran : lecture/pause, précédent, suivant, aléatoire, répétition, seek, volume, file d'attente (avance automatique) et badge du fournisseur (Audius). |
 | **Historique** | Tes écoutes récentes, enregistrées localement et réutilisées pour personnaliser l'accueil. |
@@ -227,6 +253,8 @@ Spotify a fortement restreint son API ces dernières années. Voici où en est M
 
 ## Feuille de route
 
+- [x] **Connexion Spotify OAuth PKCE au démarrage** : un bouton, page officielle Spotify, aucun credential utilisateur saisi, session persistante dans le Keystore
+- [x] **Playlists personnelles Spotify** : pagination complète, refresh par pull-to-refresh, ouverture → morceaux, lecture via matcher Audius
 - [x] **Fonctionnement sans compte Spotify** : ni Premium, ni Client ID, ni token, ni aucune configuration utilisateur
 - [x] Streaming audio via Audius, fournisseur par défaut derrière une abstraction `AudioProvider`
 - [x] Correspondance fiable métadonnées → Audius (cascade multi-requêtes, score titre / artistes / album / durée) avec **jamais de mauvais morceau** (« Ce titre n'est pas disponible sur Audius »)

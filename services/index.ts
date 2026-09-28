@@ -91,3 +91,28 @@ export {
   isBackendConfigured,
 } from './backend';
 export type { BackendErrorKind } from './backend';
+
+// Connexion Spotify (OAuth PKCE), session et client API officiel.
+export {
+  getSpotifyClientId,
+  isSpotifyLoginConfigured,
+  SPOTIFY_SCOPES,
+  SPOTIFY_DISCOVERY,
+  SPOTIFY_REDIRECT_SCHEME,
+  SPOTIFY_REDIRECT_PATH,
+} from './spotify/authConfig';
+export {
+  saveSession,
+  loadSession,
+  clearSession,
+  clearSessionAccessOnly,
+  getValidAccessToken,
+  isSpotifySessionActive,
+  describeSession,
+  redeemAuthorizationCode,
+} from './spotify/session';
+export type { LoginOutcome, SpotifySession } from './spotify/session';
+export { spotifyApiGet, SpotifyApiError } from './spotify/apiClient';
+export { useSpotifyAuth } from './spotify/useSpotifyAuth';
+export type { SpotifyAuthState } from './spotify/useSpotifyAuth';
+export type { SpotifyApiErrorKind } from './spotify/apiClient';

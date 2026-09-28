@@ -4,3 +4,4 @@ export { LibraryScreen } from './LibraryScreen';
 export { PlaylistScreen } from './PlaylistScreen';
 export { AlbumScreen } from './AlbumScreen';
 export { PlayerScreen } from './PlayerScreen';
+export { LoginScreen } from './LoginScreen';

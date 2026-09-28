@@ -68,3 +68,29 @@ export const EN_GB = {
   playerError: 'Playback failed. Try another track.',
   playerUnavailable: 'Audio playback is unavailable on this device.',
 };
+
+// Écran de connexion + session OAuth (anglais — base de l'interface).
+export const EN_GB_LOGIN = {
+  loginWelcome: 'Welcome to Melodix',
+  loginTagline: 'Sign in with Spotify',
+  loginDescription:
+    'Get back your personal playlists and listen to them via Audius, without typing any key: everything goes through the official Spotify page.',
+  loginContinue: 'Continue with Spotify',
+  loginContinueWithoutAccount: 'Explore without an account',
+  loginConnecting: 'Connecting to Spotify…',
+  loginExchanging: 'Preparing your session…',
+  loginPrivacyNote:
+    'You will never be asked for a key. You sign in only on the official Spotify page, then return to Melodix.',
+  loginCancelled: 'Sign-in cancelled.',
+  loginUnavailable:
+    'Spotify is temporarily unavailable.\nPlease try again in a few moments.',
+  loginNotConfigured:
+    'Spotify sign-in is not configured in this build.\nYou can keep exploring locally: Audius library, favorites and history on this device.',
+  loginSessionExpired: 'Your Spotify session has expired.\nSign in again to continue.',
+  loginFetchFailed: 'Unable to load your playlists.\nPlease try again later.',
+  loginSignOut: 'Sign out',
+  loginSignOutConfirmTitle: 'Sign out of Spotify?',
+  loginSignOutConfirmMessage:
+    'Your Spotify session will be removed from this device. Your local favorites and history are preserved.',
+  loginSignOutConfirm: 'Sign out',
+};

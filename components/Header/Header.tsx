@@ -3,6 +3,7 @@ import { Alert, Pressable, Text, View } from 'react-native';
 
 import { Image } from 'expo-image';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useRouter } from 'expo-router';
 
 import * as Icons from '@expo/vector-icons';
 
@@ -21,11 +22,33 @@ export type HeaderPropsType = {
 
 export const Header = ({ tab }: HeaderPropsType) => {
   const { top: statusBarOffset } = useSafeAreaInsets();
-  const { userData } = useUserData();
+  const { userData, sessionStatus, signOut } = useUserData();
+  const router = useRouter();
 
-  // Menu profil local : aucune session/compte — informations sur le stockage
-  // local et gestion des données de l'appareil (historique d'écoute).
+  // Menu profil. Connecté : infos du compte Spotify + déconnexion (session
+  // et caches liés au compte supprimés ; favoris/historique locaux conservés).
+  // Non connecté : informations sur le stockage local (Melodix sans compte).
   const handleProfilePress = () => {
+    if (sessionStatus === 'spotify') {
+      Alert.alert(
+        userData.displayName || translations.accountTitle,
+        translations.loginSignOutConfirmMessage,
+        [
+          { text: translations.accountCancel, style: 'cancel' },
+          {
+            text: translations.loginSignOut,
+            style: 'destructive',
+            onPress: () => {
+              void signOut().then(() => {
+                router.replace({ pathname: '/login', params: {} });
+              });
+            },
+          },
+        ]
+      );
+      return;
+    }
+
     Alert.alert(translations.accountTitle, translations.accountLocalInfo, [
       { text: translations.accountCancel, style: 'cancel' },
       {

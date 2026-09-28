@@ -10,10 +10,12 @@ module.exports = {
   ],
   moduleNameMapper: {
     '\\.(css|less|scss|sass)$': 'identity-obj-proxy',
-    '\\.(png|jpg|jpeg|gif|svg)$': 'jest-transform-stub',
+    '\\.(png|jpg|jpeg|gif|svg)$': '<rootDir>/__mocks__/imageStub.ts',
     // Stockage local factice pour les suites (pas de module natif en test).
     '^@react-native-async-storage/async-storage$':
       '@react-native-async-storage/async-storage/jest/async-storage-mock',
+    // expo-constants : expoConfig mutable (client Spotify de test, URL…).
+    '^expo-constants$': '<rootDir>/__mocks__/expo-constants.ts',
     '^@config$': '<rootDir>/config/index.ts',
     '^@api$': '<rootDir>/api/index.ts',
     '^@models$': '<rootDir>/models/index.ts',

@@ -1,4 +1,5 @@
 import { PlaylistModel, TrackModel } from '@models';
+import { isSpotifySessionActive, SpotifyApiError } from '@services';
 
 import { audiusGet } from '../audius/client';
 import {
@@ -7,6 +8,10 @@ import {
 } from '../audius/trending';
 import type { AudiusTrackMatch } from '../audius/searchTracks';
 import { backendGetPlaylist } from '../backend';
+import {
+  getSpotifyPlaylist,
+  getSpotifyPlaylistTracksPage,
+} from '../spotify/playlist';
 
 const AUDIUS_PREFIX = 'audius:';
 
@@ -48,6 +53,19 @@ export const getPlaylist = async (
     };
   }
 
+  // Compte Spotify connecté : l'API officielle couvre AUSSI les playlists
+  // privées/collaboratives du compte ; le backend reste le repli anonyme.
+  if (await isSpotifySessionActive()) {
+    try {
+      return await getSpotifyPlaylist(playlistId);
+    } catch (error) {
+      if (error instanceof SpotifyApiError && error.kind === 'unauthenticated') {
+        throw error; // session morte : l'écran affichera la reconnexion
+      }
+      console.warn('Playlist via session indisponible, repli backend', error);
+    }
+  }
+
   const dto = await backendGetPlaylist(playlistId);
   return {
     type: 'playlist',
@@ -82,6 +100,17 @@ export const getPlaylistItems = async ({
     return (tracks ?? [])
       .filter((track): track is AudiusTrackMatch => Boolean(track && track.id))
       .map(audiusTrackToTrackModel);
+  }
+
+  if (await isSpotifySessionActive()) {
+    try {
+      return await getSpotifyPlaylistTracksPage(playlistId, { limit, offset });
+    } catch (error) {
+      if (error instanceof SpotifyApiError && error.kind === 'unauthenticated') {
+        throw error;
+      }
+      console.warn('Pistes via session indisponibles, repli backend', error);
+    }
   }
 
   const dto = await backendGetPlaylist(playlistId);

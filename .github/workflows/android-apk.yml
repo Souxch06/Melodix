@@ -27,8 +27,12 @@ jobs:
       # Facultatif : clé API Audius intégrée à l'APK (gratuite, dashboard Audius).
       # Sans elle, la couche audio interroge les nœuds publics de découverte.
       AUDIUS_API_KEY: ${{ vars.AUDIUS_API_KEY }}
-      # AUCUN Client ID / Client Secret / token dans l'APK : les tokens Spotify
-      # éphémères vivent exclusivement CÔTÉ SERVEUR (server/src/spotify/).
+      # Client ID de l'application Spotify du mainteneur (OAuth PKCE au
+      # démarrage ; un Client ID n'est pas secret). Variable de dépôt optionnelle :
+      # sans lui, l'écran de connexion affiche « configuration manquante ».
+      SPOTIFY_CLIENT_ID: ${{ vars.SPOTIFY_CLIENT_ID }}
+      # AUCUN Client Secret / refresh token dans l'APK : le Client Secret n'existe
+      # pas côté mobile (PKCE), aucun secret serveur dans le bundle.
     steps:
       - name: Récupérer le code
         uses: actions/checkout@v7
@@ -115,7 +119,12 @@ jobs:
             else
               echo "- Clé API Audius : nœuds publics de découverte"
             fi
-            echo "- Audio : Audius · Métadonnées : backend Melodix · Compte : aucun (Melodix 3.0)"
+                        if [ -n "$SPOTIFY_CLIENT_ID" ]; then
+              echo "- Client ID Spotify (connexion OAuth PKCE) : intégré"
+            else
+              echo "- Client ID Spotify : ABSENT — connexion non configurée dans cet APK"
+            fi
+            echo "- Audio : Audius · Métadonnées : backend Melodix · Compte : connexion Spotify OAuth PKCE (Melodix 4.0)"
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Vérifier l'APK

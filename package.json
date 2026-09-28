@@ -1,7 +1,7 @@
 {
   "name": "melodix",
   "main": "expo-router/entry",
-  "version": "3.0.0",
+  "version": "4.0.0",
   "engines": {
     "node": ">=20",
     "yarn": ">=1.22.17"
@@ -36,9 +36,11 @@
     "@shopify/react-native-skia": "1.2.3",
     "axios": "^1.7.7",
     "expo": "~51.0.37",
+    "expo-auth-session": "~5.5.2",
     "expo-av": "~14.0.7",
     "expo-blur": "^13.0.2",
     "expo-constants": "~16.0.2",
+    "expo-crypto": "~13.0.2",
     "expo-file-system": "^17.0.1",
     "expo-font": "^12.0.10",
     "expo-image": "^1.13.0",
@@ -46,9 +48,11 @@
     "expo-linking": "~6.3.1",
     "expo-location": "^17.0.1",
     "expo-router": "^3.5.23",
+    "expo-secure-store": "~13.0.2",
     "expo-splash-screen": "~0.27.6",
     "expo-status-bar": "~1.12.1",
     "expo-system-ui": "^3.0.7",
+    "expo-web-browser": "^13.0.3",
     "react": "18.2.0",
     "react-dom": "18.2.0",
     "react-native": "0.74.5",

@@ -14,6 +14,9 @@
  * - AUDIUS_API_KEY : clé API Audius (gratuite, dashboard Audius) intégrée à
  *   l'application par le mainteneur — jamais par l'utilisateur. Sans elle,
  *   l'app interroge les nœuds publics de découverte Audius.
+ * - SPOTIFY_CLIENT_ID : Client ID de l'application Spotify du mainteneur
+ *   (OAuth Authorization Code + PKCE ; aucun Client Secret — PKCE l'exclut).
+ *   Rôle UNIQUE : l'écran de connexion. Jamais saisi par l'utilisateur.
  *
  * Aucun secret n'est intégré à l'APK : les tokens Spotify éphémères vivent
  * exclusivement CÔTÉ SERVEUR (techniques Web Player non officielles,
@@ -21,12 +24,13 @@
  */
 const melodixBackendUrl = process.env.MELODIX_BACKEND_URL || '';
 const audiusApiKey = process.env.AUDIUS_API_KEY || '';
+const spotifyClientId = process.env.SPOTIFY_CLIENT_ID || '';
 
 module.exports = {
   expo: {
     name: 'Melodix',
     slug: 'melodix',
-    version: '3.0.0',
+    version: '4.0.0',
     orientation: 'portrait',
     icon: './assets/images/icon.png',
     scheme: 'melodix',
@@ -39,7 +43,7 @@ module.exports = {
     },
     android: {
       package: 'com.souxch06.melodix',
-      versionCode: 30000,
+      versionCode: 40000,
       adaptiveIcon: {
         foregroundImage: './assets/images/adaptive-icon.png',
         backgroundImage: './assets/images/adaptive-icon-background.png',
@@ -60,6 +64,7 @@ module.exports = {
     },
     extra: {
       melodixBackendUrl,
+      spotifyClientId,
       audiusApiKey,
       router: {
         origin: false,

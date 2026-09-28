@@ -36,6 +36,17 @@ export { checkSavedTracks, getSavedTracks } from './tracks';
 export { checkSavedItems } from './library';
 export type { LibraryItemType } from './library';
 
+export { getCurrentUser } from './spotify/me';
+export {
+  getUserPlaylists,
+  invalidateUserPlaylistsCache,
+} from './spotify/userPlaylists';
+export {
+  getSpotifyPlaylist,
+  getSpotifyPlaylistTracks,
+  getSpotifyPlaylistTracksPage,
+} from './spotify/playlist';
+
 export { getLibrary } from './getLibrary';
 export type { LibraryType } from './getLibrary';
 

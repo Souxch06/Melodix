@@ -7,4 +7,6 @@ export type LibraryItemModel = {
   imageURL: string;
   subtitle: string;
   ownerId?: string;
+  /** Playlists Spotify : nombre total de titres (affiché sur la carte). */
+  totalTracks?: number;
 };

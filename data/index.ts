@@ -1,12 +1,14 @@
-import { EN_GB } from './en-gb';
-import { FR_FR_ACCOUNT, FR_FR_PLAYER } from './fr-fr';
+import { EN_GB, EN_GB_LOGIN } from './en-gb';
+import { FR_FR_ACCOUNT, FR_FR_LOGIN, FR_FR_PLAYER } from './fr-fr';
 
-// L'interface parle français pour le profil local et le lecteur ; le reste
-// est encore en anglais (en-gb.ts). Aucune clé de session/token/compte
-// Spotify n'existe dans les traductions (plus de login dans Melodix 3.0).
+// La base de l'interface est en anglais (en-gb.ts) ; les messages critiques
+// (connexion, compte, lecteur, erreurs utilisateur) sont surchargés en
+// français. EN_GB_LOGIN fournit les reprises anglaises si besoin futur.
+export * from './genres';
 export const translations = {
   ...EN_GB,
+  ...EN_GB_LOGIN,
   ...FR_FR_ACCOUNT,
   ...FR_FR_PLAYER,
+  ...FR_FR_LOGIN,
 };
-export { BROWSE_GENRES } from './genres';

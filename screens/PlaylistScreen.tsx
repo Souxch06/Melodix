@@ -1,21 +1,39 @@
 import * as React from 'react';
+import { useRouter } from 'expo-router';
 import { Preview } from '@components';
 
 import { PlaylistModel, TrackModel } from '@models';
 import { checkSavedTracks, getPlaylist, getPlaylistItems } from '@api';
-import { toggleSavedTrack } from '@services';
+import { toggleSavedTrack, SpotifyApiError } from '@services';
+import { useUserData } from '@context';
 
 export type AlbumScreenPropsType = {
   playlistId: string;
 };
 
 export const PlaylistScreen = ({ playlistId }: AlbumScreenPropsType) => {
+  const router = useRouter();
+  const { sessionStatus } = useUserData();
   const [playlist, setPlaylist] = React.useState<PlaylistModel | null>(null);
   const [tracks, setTracks] = React.useState<TrackModel[]>([]);
   const [offset, setOffset] = React.useState(0);
   const [limit] = React.useState(50);
 
   const isFetchingRef = React.useRef(false);
+
+  // Session Spotify morte au milieu de la consultation : écran de connexion.
+  const handleSessionDeath = React.useCallback(
+    (error: unknown): boolean => {
+      if (error instanceof SpotifyApiError && error.kind === 'unauthenticated') {
+        if (sessionStatus === 'spotify') {
+          router.replace({ pathname: '/login', params: {} });
+        }
+        return true;
+      }
+      return false;
+    },
+    [router, sessionStatus]
+  );
 
   const fetchTracks = async () => {
     if (!playlistId || !playlist || isFetchingRef.current) {
@@ -54,6 +72,11 @@ export const PlaylistScreen = ({ playlistId }: AlbumScreenPropsType) => {
       ]);
       setOffset((prevOffset) => prevOffset + limit);
     } catch (error) {
+      // Session Spotify morte en cours de consultation : retour propre au
+      // login (la reconnexion seule regénère un token ; pas de page blanche).
+      if (handleSessionDeath(error)) {
+        return;
+      }
       console.error(error);
     } finally {
       isFetchingRef.current = false;
@@ -71,11 +94,14 @@ export const PlaylistScreen = ({ playlistId }: AlbumScreenPropsType) => {
 
         setPlaylist(playlistData);
       } catch (error) {
+        if (handleSessionDeath(error)) {
+          return;
+        }
         setPlaylist(null);
         console.error('Failed to get playlist data:', error);
       }
     })();
-  }, [playlistId]);
+  }, [playlistId, handleSessionDeath]);
 
   // Load the first page as soon as the playlist metadata is available.
   React.useEffect(() => {

@@ -20,4 +20,12 @@ export const styles = StyleSheet.create({
     justifyContent: 'flex-start',
     gap: 12,
   },
+  personalErrorBanner: {
+    color: '#e91429',
+    fontFamily: 'SF-Regular',
+    fontSize: 13,
+    textAlign: 'center',
+    paddingVertical: 10,
+    lineHeight: 18,
+  },
 });
