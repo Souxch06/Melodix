@@ -113,6 +113,7 @@ export {
 } from './spotify/session';
 export type { LoginOutcome, SpotifySession } from './spotify/session';
 export { spotifyApiGet, SpotifyApiError } from './spotify/apiClient';
+export { spotifyLog } from './spotify/devLog';
 export { useSpotifyAuth } from './spotify/useSpotifyAuth';
 export type { SpotifyAuthState } from './spotify/useSpotifyAuth';
 export type { SpotifyApiErrorKind } from './spotify/apiClient';

@@ -69,23 +69,29 @@ export const EN_GB = {
   playerUnavailable: 'Audio playback is unavailable on this device.',
 };
 
-// Écran de connexion + session OAuth (anglais — base de l'interface).
+// Écran de connexion + session OAuth (anglais — base de l'interface,
+// aucun détail technique affiché).
 export const EN_GB_LOGIN = {
-  loginWelcome: 'Welcome to Melodix',
-  loginTagline: 'Sign in with Spotify',
+  loginWelcome: 'Melodix',
+  loginTagline: 'Your music. Your universe.',
+  loginHeaderNotation: '×', // separator between the Melodix and Spotify logos
   loginDescription:
-    'Get back your personal playlists and listen to them via Audius, without typing any key: everything goes through the official Spotify page.',
+    'Find your personal playlists and listen to them, without typing any key: everything goes through the official Spotify page.',
   loginContinue: 'Continue with Spotify',
-  loginContinueWithoutAccount: 'Explore without an account',
-  loginConnecting: 'Connecting to Spotify…',
-  loginExchanging: 'Preparing your session…',
+  loginConnecting: 'Connecting to Spotify...',
+  loginExchanging: 'Preparing your session...',
+  loginValidate: 'Try again',
+  loginCancelledTitle: 'Sign-in cancelled',
+  loginCancelledBody: 'You can try again whenever you like.',
+  loginErrorTitle: 'Unable to connect to Spotify.',
+  loginErrorBody: 'Check your internet connection, then try again.',
+  loginNotConfigured: 'Spotify is not configured on this version of Melodix.',
+  loginNotConfiguredTitle: 'Spotify sign-in unavailable',
+  loginNotConfiguredBody:
+    'Spotify sign-in is not yet configured on this version of Melodix.\nPlease use a properly configured version.',
   loginPrivacyNote:
-    'You will never be asked for a key. You sign in only on the official Spotify page, then return to Melodix.',
-  loginCancelled: 'Sign-in cancelled.',
-  loginUnavailable:
-    'Spotify is temporarily unavailable.\nPlease try again in a few moments.',
-  loginNotConfigured:
-    'Spotify sign-in is not configured in this build.\nYou can keep exploring locally: Audius library, favorites and history on this device.',
+    'Secure sign-in with Spotify. You will never be asked for a key: you sign in on the official Spotify page, then return to Melodix.',
+  loginSecureFootnote: 'Secure sign-in with Spotify',
   loginSessionExpired: 'Your Spotify session has expired.\nSign in again to continue.',
   loginFetchFailed: 'Unable to load your playlists.\nPlease try again later.',
   loginSignOut: 'Sign out',

@@ -30,7 +30,7 @@
 
 1. Sur ton téléphone, ouvre la [dernière version](https://github.com/Souxch06/Melodix/releases/latest) et télécharge le fichier **`Melodix-v….apk`** (section *Assets*).
 2. Ouvre le fichier téléchargé. Android te demande d'autoriser l'installation d'applications depuis ton navigateur ou ton gestionnaire de fichiers : accepte, puis appuie sur **Installer**.
-3. Lance Melodix : **rien à faire, aucune connexion n'est demandée** — tu explores immédiatement (recherche, tendances Audius, tes favoris locaux).
+3. Lance Melodix : appuie sur **[ Continuer avec Spotify ]** — l'écran de connexion **obligatoire** s'affiche dès le premier lancement ; une fois connecté, tu arrives directement à l'accueil.
 
 > [!NOTE]
 > Compatible Android 6.0 et plus (processeurs ARM, soit la quasi-totalité des téléphones). Comme l'app ne vient pas du Play Store, Android peut afficher un avertissement Play Protect : c'est normal pour une application installée manuellement.
@@ -115,7 +115,7 @@ retombent sur le catalogue Audius (tendances, favoris locaux, historique).
 
 | Écran | Ce que tu y trouves |
 | :-- | :-- |
-| **Connexion** | Branding Melodix, un seul bouton « Continuer avec Spotify » (OAuth PKCE, page officielle), lien *Explorer sans compte* pour l'accès libre local. |
+| **Connexion** | Écran sombre et minimal (accent vert), logos Melodix × Spotify, un seul bouton vert « Continuer avec Spotify » (OAuth PKCE, page officielle), états d'erreur propres + « Réessayer ». Connexion obligatoire pour accéder à l'app. |
 | **Accueil** | Écoutes récentes (historique local), albums et playlists du moment (fournis par le backend Melodix), les tendances Audius en repli. |
 | **Recherche** | Artistes, titres, albums et playlists (via le backend Melodix ; catalogue Audius en repli). Un titre se joue directement. |
 | **Bibliothèque** | **Tes playlists Spotify personnelles en premier** (si connecté — pagination complète, refresh par pull-to-refresh), puis tes favoris **locaux** : playlists, albums et artistes enregistrés, filtrables par catégorie avec transitions animées. |
@@ -156,7 +156,7 @@ npm install --legacy-peer-deps   # résolution des pairs historiques du projet
 npm run dev    # démarre Expo (appuie sur « a » pour Android, « i » pour iOS)
 ```
 
-L'app démarre directement : **aucun écran de connexion, aucune variable obligatoire**. Pour brancher la recherche sur **ton** backend Melodix au développement, crée un fichier `.env` à la racine (déjà ignoré par Git — voir `.env.example`) :
+Pour brancher la recherche sur **ton** backend Melodix au développement, crée un fichier `.env` à la racine (déjà ignoré par Git — voir `.env.example`) :
 
 ```dotenv
 MELODIX_BACKEND_URL=http://localhost:8787

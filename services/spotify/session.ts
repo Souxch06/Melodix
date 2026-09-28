@@ -22,6 +22,7 @@ import {
   SPOTIFY_DISCOVERY,
   SPOTIFY_SCOPES,
 } from './authConfig';
+import { spotifyLog } from './devLog';
 
 const SESSION_KEY = 'melodix.spotify.session.v1';
 
@@ -69,6 +70,7 @@ const requestToken = async (
     if (!response.ok) {
       // JAMAIS de copie du corps : il peut contenir des traces sensibles.
       console.warn('Spotify token endpoint refused the request', response.status);
+      spotifyLog('token.refused', { status: response.status, endpoint: '/api/token' });
       return null;
     }
 
@@ -173,9 +175,11 @@ let pendingRefresh: Promise<string | null> | null = null;
 
 const doRefresh = async (session: SpotifySession): Promise<string | null> => {
   if (!session.refreshToken) {
+    spotifyLog('token.refresh.impossible', { hasRefreshToken: false });
     return null;
   }
 
+  spotifyLog('token.refresh.start');
   const payload = await requestToken({
     grant_type: 'refresh_token',
     refresh_token: session.refreshToken,
@@ -183,6 +187,7 @@ const doRefresh = async (session: SpotifySession): Promise<string | null> => {
   });
 
   if (!payload) {
+    spotifyLog('token.refresh.failed');
     return null;
   }
 
@@ -191,6 +196,9 @@ const doRefresh = async (session: SpotifySession): Promise<string | null> => {
     return null;
   }
 
+  spotifyLog('token.refresh.ok', {
+    expiresInSeconds: Math.round((refreshed.expiresAtMs - Date.now()) / 1000),
+  });
   await saveSession(refreshed);
   return refreshed.accessToken;
 };

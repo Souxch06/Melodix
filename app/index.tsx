@@ -1,15 +1,25 @@
 import * as React from 'react';
+import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import { Redirect } from 'expo-router';
 
-import { runAccountlessMigration, loadSession } from '@services';
+import { COLORS } from '@config';
+import {
+  clearSession,
+  getValidAccessToken,
+  loadSession,
+  runAccountlessMigration,
+} from '@services';
 
 /**
- * Point d'entrée.
- * 1. La migration des données existantes est jouée (favoris → bibliothèque
- *    locale, purge des stores obsolètes) sans jamais bloquer le démarrage ;
- * 2. une session Spotify persistante valide évite l'écran de connexion ;
- * 3. sinon, l'utilisateur arrive sur l'écran de connexion (le lien « Explorer
- *    sans compte » de cet écran garde l'accès libre à Melodix).
+ * Point d'entrée — protection du démarrage :
+ *
+ *   chargement → vérification de session (avec REFRESH SILENCIEUX si le
+ *   token d'accès a expiré) :
+ *     session valide        → accueil
+ *     aucune session        → écran de connexion
+ *     refresh IMPOSSIBLE    → session supprimée (nettoyage) → connexion
+ *
+ * Une session morte n'envoie JAMAIS l'utilisateur vers l'accueil.
  */
 export default function App() {
   const [target, setTarget] = React.useState<'/login' | '/home' | null>(null);
@@ -25,9 +35,18 @@ export default function App() {
         console.warn('Migration de démarrage interrompue', error);
       }
 
+      // getValidAccessToken tente le refresh si nécessaire. Si une session
+      // existe mais n'est plus rafraîchissable → SUPPRESSION DE LA SESSION,
+      // jamais de redirection vers l'accueil sans preuve de token valide.
       const session = await loadSession();
+      const token = session ? await getValidAccessToken() : null;
+
+      if (session && !token) {
+        await clearSession();
+      }
+
       if (!cancelled) {
-        setTarget(session ? '/home' : '/login');
+        setTarget(token ? '/home' : '/login');
       }
     })();
 
@@ -37,8 +56,22 @@ export default function App() {
   }, []);
 
   if (!target) {
-    return null;
+    // Chargement : écran pénétré, sobre (ni page blanche ni contenu à demi chargé).
+    return (
+      <View style={styles.loader} testID="startup-loader">
+        <ActivityIndicator color={COLORS.TINT} size="large" />
+      </View>
+    );
   }
 
   return <Redirect href={{ pathname: target as '/login' | '/home', params: {} }} />;
 }
+
+const styles = StyleSheet.create({
+  loader: {
+    flex: 1,
+    backgroundColor: COLORS.PRIMARY,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+});

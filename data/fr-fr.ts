@@ -43,23 +43,29 @@ export const FR_FR_PLAYER = {
   playerUnavailable: "L'audio est indisponible sur cet appareil.",
 };
 
-// Écran de connexion + cycle de session OAuth (messages utilisateur propres).
+// Écran de connexion + cycle de session OAuth (messages utilisateur propres,
+// JAMAIS de détail technique ni de stack trace).
 export const FR_FR_LOGIN = {
-  loginWelcome: 'Bienvenue sur Melodix',
-  loginTagline: 'Connecte-toi avec Spotify',
+  loginWelcome: 'Melodix',
+  loginTagline: 'Ta musique. Ton univers.',
+  loginHeaderNotation: '×', // séparateur entre les logos Melodix et Spotify
   loginDescription:
-    'Retrouve tes playlists personnelles et écoute-les via Audius, sans jamais saisir la moindre clé : tout passe par la page officielle de Spotify.',
+    'Retrouve tes playlists personnelles et écoute-les, sans jamais saisir la moindre clé : tout passe par la page officielle de Spotify.',
   loginContinue: 'Continuer avec Spotify',
-  loginContinueWithoutAccount: 'Explorer sans compte',
-  loginConnecting: 'Connexion à Spotify…',
-  loginExchanging: 'Préparation de ta session…',
+  loginConnecting: 'Connexion à Spotify...',
+  loginExchanging: 'Préparation de ta session...',
+  loginValidate: 'Réessayer',
+  loginCancelledTitle: 'Connexion annulée',
+  loginCancelledBody: 'Tu peux réessayer quand tu veux.',
+  loginErrorTitle: 'Impossible de se connecter à Spotify.',
+  loginErrorBody: 'Vérifie ta connexion internet puis réessaie.',
+  loginNotConfigured: "Spotify n'est pas configuré sur cette version de Melodix.",
+  loginNotConfiguredTitle: 'Connexion Spotify indisponible',
+  loginNotConfiguredBody:
+    "La connexion Spotify n'est pas encore configurée sur cette version de Melodix.\nVeuillez utiliser une version correctement configurée.",
   loginPrivacyNote:
-    'Aucune clé ne te sera demandée. Tu te connectes uniquement sur la page officielle de Spotify, puis tu reviens à Melodix.',
-  loginCancelled: 'Connexion annulée.',
-  loginUnavailable:
-    'Spotify est temporairement indisponible.\nRéessaie dans quelques instants.',
-  loginNotConfigured:
-    'Connexion Spotify non configurée dans ce build.\nTu peux continuer en mode local : bibliothèque Audius, favoris et historique sur cet appareil.',
+    'Connexion sécurisée avec Spotify. Aucune clé ne te sera demandée : tu te connectes sur la page officielle de Spotify, puis tu reviens à Melodix.',
+  loginSecureFootnote: 'Connexion sécurisée avec Spotify',
   loginSessionExpired: 'Ta session Spotify a expiré.\nReconnecte-toi pour continuer.',
   loginFetchFailed: 'Impossible de récupérer tes playlists.\nRéessaie plus tard.',
   loginSignOut: 'Se déconnecter',
