@@ -30,6 +30,7 @@ const mockToggleShuffle = jest.fn();
 const mockCycleRepeat = jest.fn();
 const mockPlayAtIndex = jest.fn(async () => {});
 const mockStop = jest.fn(async () => {});
+const mockClearNotice = jest.fn();
 
 let mockPlayerState: {
   current: PlayerTrack | null;
@@ -42,7 +43,7 @@ let mockPlayerState: {
   repeat: 'off' | 'all' | 'one';
   volume: number;
   providerName: string | null;
-  notice: null;
+  notice: { kind: 'not-available' | 'play-failed'; title: string } | null;
 };
 
 jest.mock('expo-router', () => ({
@@ -66,6 +67,7 @@ jest.mock('@context', () => ({
     cycleRepeat: mockCycleRepeat,
     playAtIndex: mockPlayAtIndex,
     stop: mockStop,
+    clearNotice: mockClearNotice,
   }),
 }));
 
@@ -180,5 +182,93 @@ describe('FullPlayer — inventaire réel avant refonte éventuelle', () => {
 
     expect(mockStop).not.toHaveBeenCalled();
     expect(mockBack).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('FullPlayer — Phase 1 : notices cohérentes et durée honnête', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    jest.useRealTimers();
+    mockPlayerState = {
+      current: mkTrack('one', 'Take Me Away'),
+      queue: [mkTrack('one', 'Take Me Away')],
+      index: 0,
+      status: 'playing',
+      positionMillis: 65000,
+      durationMillis: 180000,
+      shuffle: false,
+      repeat: 'off',
+      volume: 0.5,
+      providerName: 'Audius',
+      notice: null,
+    };
+  });
+
+  it('durée KO : affiche « —:-- » (jamais 0:00) ET la barre est désactivée', () => {
+    mockPlayerState = { ...mockPlayerState, durationMillis: 0, positionMillis: 0 };
+    const { getByTestId, getByLabelText, queryAllByText } = render(<FullPlayer />);
+
+    // « —:-- » honnête, jamais « 0:00 » présenté comme une DURÉE réelle
+    // (la position écoulée « 0:00 », elle, reste vraie et affichée : 1 seule).
+    expect(getByTestId('full-player-duration').props.children).toBe('—:--');
+    expect(queryAllByText('0:00')).toHaveLength(1);
+
+    // Barre de progression désactivée : marquage a11y + pression sans effet.
+    const seek = getByLabelText(translations.playerSeek);
+    expect(seek.props.accessibilityState?.disabled).toBe(true);
+    fireEvent(seek, 'layout', { nativeEvent: { layout: { width: 200 } } });
+    fireEvent.press(seek, { nativeEvent: { locationX: 100 } });
+    expect(mockSeekTo).not.toHaveBeenCalled();
+  });
+
+  it('durée connue : affichage mm:ss classique et barre active', () => {
+    const { getByTestId, getByLabelText } = render(<FullPlayer />);
+
+    expect(getByTestId('full-player-duration').props.children).toBe('3:00');
+    const seek = getByLabelText(translations.playerSeek);
+    expect(seek.props.accessibilityState?.disabled).toBe(false);
+
+    fireEvent(seek, 'layout', { nativeEvent: { layout: { width: 200 } } });
+    fireEvent.press(seek, { nativeEvent: { locationX: 100 } });
+    expect(mockSeekTo).toHaveBeenCalledWith(90000);
+  });
+
+  it('notice : affichée à l’erreur, expirée PAR TIMER comme le MiniPlayer', () => {
+    mockPlayerState = {
+      ...mockPlayerState,
+      notice: { kind: 'not-available', title: 'Ghost Track' },
+    };
+    const { getByText } = render(<FullPlayer />);
+
+    expect(
+      getByText(translations.playerTrackUnavailable('Ghost Track'))
+    ).toBeTruthy();
+
+    jest.useFakeTimers();
+    render(<FullPlayer />);
+    jest.advanceTimersByTime(4600);
+    jest.useRealTimers();
+
+    expect(mockClearNotice).toHaveBeenCalled();
+  });
+
+  it('notice + NOUVEAU morceau : le timer repart à zéro (jamais figée)', () => {
+    mockPlayerState = {
+      ...mockPlayerState,
+      notice: { kind: 'play-failed', title: 'Old' },
+    };
+    const view = render(<FullPlayer />);
+
+    // Le morceau change : le moteur vacille notice → null → l'effet s'annule.
+    mockPlayerState = { ...mockPlayerState, notice: null, current: mkTrack('two', 'Next') };
+    view.update(<FullPlayer />);
+
+    jest.useFakeTimers();
+    mockPlayerState = { ...mockPlayerState, notice: null };
+    view.update(<FullPlayer />);
+    jest.advanceTimersByTime(4600);
+    jest.useRealTimers();
+    // clearNotice n'est plus appelé par le timer d'un vieil affichage.
+    expect(mockClearNotice).not.toHaveBeenCalled();
   });
 });

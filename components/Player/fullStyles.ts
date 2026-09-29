@@ -65,6 +65,9 @@ export const styles = StyleSheet.create({
   seekWrap: {
     marginBottom: 10,
   },
+  seekDisabled: {
+    opacity: 0.45,
+  },
   seekTrack: {
     height: 22,
     flexDirection: 'row',

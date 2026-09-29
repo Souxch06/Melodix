@@ -13,6 +13,10 @@ import { getFallbackImage } from '@utils';
 
 import { styles } from './fullStyles';
 
+// Durée d'affichage de la notice d'erreur — IDENTIQUE au MiniPlayer
+// (cohérence mini/plein écran exigée par la phase 1, section 3).
+const NOTICE_DURATION_MS = 4500;
+
 const formatMillis = (value: number): string => {
   const totalSeconds = Math.max(0, Math.round(value / 1000));
   const minutes = Math.floor(totalSeconds / 60);
@@ -52,10 +56,23 @@ export const FullPlayer = () => {
     cycleRepeat,
     playAtIndex,
     stop,
+    clearNotice,
   } = player;
 
   const [seekWidth, setSeekWidth] = React.useState(0);
   const [volumeWidth, setVolumeWidth] = React.useState(0);
+
+  // Notice : affichée puis expirée automatiquement — jamais figée sur le
+  // Full Player (le moteur la vide déjà au démarrage du morceau suivant).
+  React.useEffect(() => {
+    if (!notice) {
+      return;
+    }
+
+    const timeout = setTimeout(clearNotice, NOTICE_DURATION_MS);
+
+    return () => clearTimeout(timeout);
+  }, [notice, clearNotice]);
 
   // Opened without an active session: nothing to show, go back. Le hook doit
   // rester inconditionnel (règle des hooks) : le garde-fou est DANS l'effet.
@@ -73,9 +90,13 @@ export const FullPlayer = () => {
     durationMillis > 0 ? Math.min(positionMillis / durationMillis, 1) : 0;
   const isPlaying = status === 'playing';
   const isBuffering = status === 'loading';
+  // Durée réelle pas encore connue (avant le 1er statut expo-av ou sans
+  // métadonnée Spotify) : « —:-- » honnête + seek désactivé — jamais « 0:00 »
+  // présenté comme une durée réelle (phase 1, section 4).
+  const durationKnown = durationMillis > 0;
 
   const handleSeekPress = (x: number) => {
-    if (seekWidth > 0 && durationMillis > 0) {
+    if (seekWidth > 0 && durationKnown) {
       void seekTo(Math.round((x / seekWidth) * durationMillis));
     }
   };
@@ -141,10 +162,12 @@ export const FullPlayer = () => {
 
       <View style={styles.seekWrap}>
         <Pressable
+          disabled={!durationKnown}
           onLayout={(e) => setSeekWidth(e.nativeEvent.layout.width)}
           onPress={(e) => handleSeekPress(e.nativeEvent.locationX)}
-          style={styles.seekTrack}
+          style={[styles.seekTrack, !durationKnown && styles.seekDisabled]}
           accessibilityRole="adjustable"
+          accessibilityState={{ disabled: !durationKnown }}
           accessibilityLabel={translations.playerSeek}
         >
           <View style={[styles.seekFill, { flex: progress }]} />
@@ -158,7 +181,9 @@ export const FullPlayer = () => {
         </Pressable>
         <View style={styles.timesRow}>
           <Text style={styles.timeText}>{formatMillis(positionMillis)}</Text>
-          <Text style={styles.timeText}>{formatMillis(durationMillis)}</Text>
+          <Text style={styles.timeText} testID="full-player-duration">
+            {durationKnown ? formatMillis(durationMillis) : '—:--'}
+          </Text>
         </View>
       </View>
 

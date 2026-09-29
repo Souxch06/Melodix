@@ -12,7 +12,6 @@ import { recordPlay } from './history/playHistory';
 import {
   loadMatchCache,
   persistMatchCache,
-  removeMatchCacheEntry,
   writeMatchCacheEntry,
 } from './audio/matchCache';
 import type { MatchCache } from './audio/matchCache';
@@ -180,6 +179,9 @@ class MelodixPlayer {
   private staysActiveInBackground = true;
   private matchCache: MatchCache | null = null;
   private failedKeys = new Set<string>();
+  /** Monceau actif actuel : tout resolve/chargement d'un token périmé est
+   * ignoré et son éventuel Sound immédiatement déchargé (anti-double-lecture). */
+  private playToken = 0;
 
   getState = (): PlayerState => this.state;
 
@@ -397,59 +399,91 @@ class MelodixPlayer {
       return null;
     }
 
-    const provider = getAudioProvider(providerId);
-    const resolved = await provider.resolveSource(matchId);
+    // CASCADE DE LECTURE pour CE morceau (fallback en cours de lecture, §2) :
+    //
+    //   match (ex. Audius) → resolveSource ?  OUI → lecture
+    //                                  \  NON → fournisseurs SUIVANTS de
+    //                                            l'ordre (YouTube) pour le
+    //                                            MÊME morceau, décision
+    //                                            persistée dans LE cache ;
+    //                    dernier provider mort → UNE seule « guérison » en
+    //                                            relançant la cascade entière
+    //                                            (nouveau match possible un jour) ;
+    //                    même match mort re-servi → négatif confirmé (jamais
+    //                                            de boucle infinie, jamais de
+    //                                            rematch global inutile).
+    const query = {
+      title: track.title,
+      artists: track.artists,
+      album: track.album ?? null,
+      durationMillis: track.durationMillis ?? null,
+    };
+    const chain = getAudioProviders();
+    let chainIndex = Math.max(
+      0,
+      chain.findIndex((provider) => provider.id === providerId)
+    );
+    // Guérison (re-cascade complète) : UNIQUEMENT pour une décision issue du
+    // cache dont le flux est mort — la cascade n'a pas tourné cette session-ci.
+    // Un match FRAIS vient déjà de la chaîne entière : la relancer n'apprend
+    // rien → jamais de recherche réseau inutile (règle §2).
+    let healedOnce = cached ? false : true;
 
-    if (resolved) {
-      return {
-        provider,
-        resolved,
-        info: { provider: provider.displayName, sourceId: matchId, score },
-      };
-    }
+    // Borné : chaque tour consomme un fournisseur RESTANT ou la guérison
+    // unique — la garde `attempt` est une ceinture de sécurité.
+    for (let attempt = 0; attempt <= chain.length + 1; attempt++) {
+      const provider = getAudioProvider(providerId);
+      const resolved = await provider.resolveSource(matchId as string);
 
-    // Flux du match mis en cache mort : on purge et on relance la cascade.
-    if (cached) {
-      removeMatchCacheEntry(cache, track.id);
-      void persistMatchCache(cache);
+      if (resolved) {
+        return {
+          provider,
+          resolved,
+          info: {
+            provider: provider.displayName,
+            sourceId: matchId as string,
+            score,
+          },
+        };
+      }
 
-      const match = await resolveWithProviders(
-        {
-          title: track.title,
-          artists: track.artists,
-          album: track.album ?? null,
-          durationMillis: track.durationMillis ?? null,
-        },
-        getAudioProviders()
-      );
+      // Flux mort : tenter les fournisseurs RESTANTS, dans l'ordre de la
+      // cascade (réutilise TrackResolver + cache existants — aucun 3e système).
+      const remaining = chain.slice(chainIndex + 1);
+      let match = remaining.length
+        ? await resolveWithProviders(query, remaining)
+        : null;
 
-      writeMatchCacheEntry(
-        cache,
-        track.source,
-        match?.provider.id ?? null,
-        match?.sourceId ?? null,
-        Math.round((match?.score ?? 0) * 100)
-      );
-      void persistMatchCache(cache);
+      if (!match && !healedOnce) {
+        // Bout de chaîne : une seule re-cascade complète (ancienne guérison
+        // d'un match périmé) avant de déclarer le morceau indisponible.
+        healedOnce = true;
+        match = await resolveWithProviders(query, chain);
+      }
 
-      if (!match) {
+      const isNewMatch =
+        match !== null &&
+        !(
+          match.provider.id === providerId &&
+          match.sourceId === (matchId as string)
+        );
+
+      if (!isNewMatch || !match) {
+        // Même flux mort re-servi (ou plus rien) : négatif confirmé — le
+        // morceau sera sauté proprement, et jamais re-recherché avant TTL.
+        writeMatchCacheEntry(cache, track.source, null, null, 0);
+        void persistMatchCache(cache);
         return null;
       }
 
-      const retryProvider = match.provider;
-      const retry = await retryProvider.resolveSource(match.sourceId);
-
-      return retry
-        ? {
-            provider: retryProvider,
-            resolved: retry,
-            info: {
-              provider: retryProvider.displayName,
-              sourceId: match.sourceId,
-              score: Math.round(match.score * 100),
-            },
-          }
-        : null;
+      // Nouvelle décision RÉELLE : persister et tenter immédiatement SON flux
+      // (même morceau — c'est le fallback, pas un skip ni un nouveau système).
+      providerId = match.provider.id;
+      matchId = match.sourceId;
+      score = Math.round(match.score * 100);
+      chainIndex = chain.findIndex((provider) => provider.id === providerId);
+      writeMatchCacheEntry(cache, track.source, providerId, matchId, score);
+      void persistMatchCache(cache);
     }
 
     return null;
@@ -545,6 +579,7 @@ class MelodixPlayer {
 
     const index = Math.min(Math.max(startIndex, 0), queue.length - 1);
 
+    this.playToken += 1; // invalide tout resolve d'un morceau précédent
     await this.unloadCurrent();
     this.failedKeys = new Set();
     this.emit({
@@ -580,6 +615,9 @@ class MelodixPlayer {
       return;
     }
 
+    const token = ++this.playToken;
+    const isStale = () => this.playToken !== token;
+
     this.emit({ index, current: track, status: 'loading' });
 
     const av = this.getAv();
@@ -591,6 +629,11 @@ class MelodixPlayer {
 
     try {
       const result = await this.resolveTrack(track);
+
+      // Un autre morceau a pris la main pendant ce resolve : ignorer la fin.
+      if (isStale()) {
+        return;
+      }
 
       if (!result) {
         if (this.state.current?.id !== track.id) {
@@ -604,6 +647,10 @@ class MelodixPlayer {
       }
 
       await this.ensureAudioMode();
+      if (isStale()) {
+        return;
+      }
+
       await this.unloadCurrent();
       const { sound } = await av.Audio.Sound.createAsync(
         { uri: result.resolved.uri },
@@ -615,12 +662,18 @@ class MelodixPlayer {
         this.onPlaybackStatusUpdate
       );
 
-      // The user may have skipped to another track while this one was loading.
+      // The user may have skipped to another track while this one was loading —
+      // ce son ORPHELIN est déchargé immédiatement (jamais deux sons ensemble).
       if (
+        isStale() ||
         this.state.current?.id !== track.id ||
         this.state.status !== 'loading'
       ) {
-        await sound.unloadAsync();
+        try {
+          await sound.unloadAsync();
+        } catch {
+          // déchargement best-effort
+        }
         return;
       }
 
@@ -628,8 +681,9 @@ class MelodixPlayer {
       this.emit({
         status: 'playing',
         resolved: result.info,
-        // La notice d'un titre sauté n'est PAS effacée ici : le bandeau du
-        // lecteur (mini/plein) la montre puis l'expire via clearNotice().
+        // Un nouveau morceau commence : toute notice d'erreur disparaît —
+        // jamais affichée sur le morceau suivant (cohérent mini/plein écran).
+        notice: null,
         durationMillis: track.durationMillis ?? this.state.durationMillis,
       });
 
@@ -648,7 +702,7 @@ class MelodixPlayer {
     } catch (error) {
       console.error(`Failed to play "${track.title}" (${track.id}):`, error);
 
-      if (this.state.current?.id === track.id) {
+      if (!isStale() && this.state.current?.id === track.id) {
         this.markFailed(track, 'play-failed');
         await this.unloadCurrent();
         await this.advanceAfterFailure();
@@ -775,6 +829,7 @@ class MelodixPlayer {
   };
 
   stop = async () => {
+    this.playToken += 1; // tout resolve en vol devient orphelin
     await this.unloadCurrent();
     this.emit({
       ...INITIAL_PLAYER_STATE,

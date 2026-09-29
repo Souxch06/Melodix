@@ -13,6 +13,9 @@ let lastStatusCallback: ((status: Record<string, unknown>) => void) | null =
   null;
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 let lastSound: any = null;
+// Toutes les instances créées — preuve d'absence de double Sound (Phase 1).
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let mockCreatedSounds: any[] = [];
 
 const makeSound = () => ({
   unloadAsync: jest.fn(async () => {}),
@@ -35,6 +38,7 @@ jest.mock('expo-av', () => ({
           lastStatusCallback = onStatus ?? null;
           const created = makeSound();
           lastSound = created;
+          mockCreatedSounds.push(created);
 
           return { sound: created };
         }
@@ -83,6 +87,7 @@ describe('melodixPlayer engine', () => {
     await AsyncStorage.clear();
     lastStatusCallback = null;
     lastSound = null;
+    mockCreatedSounds = [];
     provider = makeProvider();
     __testSetAudioProviders({ audius: provider });
     await melodixPlayer.__testReset();
@@ -133,6 +138,12 @@ describe('melodixPlayer engine', () => {
     __testSetAudioProviders({ audius: noMatch });
     await melodixPlayer.stop();
 
+    // §3 : la notice existe pendant le saut (bandeau MiniPlayer visible)…
+    const seenNotices: ({ kind: string; title: string } | null)[] = [];
+    const unsubscribe = melodixPlayer.subscribe((nextState) =>
+      seenNotices.push(nextState.notice as { kind: string; title: string } | null)
+    );
+
     await melodixPlayer.playQueue(
       [track('missing'), track('fine', 'Playable')],
       0
@@ -144,11 +155,15 @@ describe('melodixPlayer engine', () => {
 
     expect(noMatch.resolveSource).toHaveBeenCalledTimes(1);
     expect(state.current?.title).toBe('Playable');
-    expect(state.notice).toEqual({
+    // …mais elle DISPARAÎT dès que le morceau suivant commence vraiment :
+    // jamais affichée sur le morceau suivant (Phase 1, section 3).
+    expect(seenNotices).toContainEqual({
       kind: 'not-available',
       title: 'Track missing',
     });
+    expect(state.notice).toBeNull();
     expect(state.status).toBe('playing');
+    unsubscribe();
   });
 
   it('a dead cached stream is invalidated then re-matched once', async () => {
@@ -382,6 +397,7 @@ describe('melodixPlayer — cascade Audius → YouTube (fallback)', () => {
     await AsyncStorage.clear();
     lastStatusCallback = null;
     lastSound = null;
+    mockCreatedSounds = [];
 
     // Audius ne trouve RIEN ; YouTube répond pour un contenu précis.
     audius = {
@@ -504,5 +520,320 @@ describe('melodixPlayer — cascade Audius → YouTube (fallback)', () => {
     const finalCall =
       av.setAudioModeAsync.mock.calls[av.setAudioModeAsync.mock.calls.length - 1];
     expect(finalCall[0]).toMatchObject({ staysActiveInBackground: true });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Phase 1 — course critique (token d'annulation) + fallback EN COURS de
+// lecture (Audius flux mort → YouTube pour LE MÊME morceau).
+// ---------------------------------------------------------------------------
+
+type Deferred<T> = {
+  promise: Promise<T>;
+  resolve: (value: T) => void;
+  reject: (error: unknown) => void;
+};
+
+const deferred = <T>(): Deferred<T> => {
+  let resolve!: (value: T) => void;
+  let reject!: (error: unknown) => void;
+  const promise = new Promise<T>((res, rej) => {
+    resolve = res;
+    reject = rej;
+  });
+
+  return { promise, resolve, reject };
+};
+
+describe('Phase 1 — course critique : aucun double Sound, le dernier gagne', () => {
+  beforeEach(async () => {
+    await AsyncStorage.clear();
+    lastStatusCallback = null;
+    lastSound = null;
+    mockCreatedSounds = [];
+    __testSetAudioProviders({ audius: makeProvider() });
+    await melodixPlayer.__testReset();
+  });
+
+  it('A puis A très vite : UN SEUL Sound créé (le 2e appel gagne)', async () => {
+    void melodixPlayer.playTrack(track('one'));
+    void melodixPlayer.playTrack(track('one'));
+    await flush();
+    await flush();
+    await flush();
+
+    expect(mockCreatedSounds).toHaveLength(1);
+    expect(melodixPlayer.getState().status).toBe('playing');
+    expect(melodixPlayer.getState().current?.id).toBe('spotify:one');
+  });
+
+  it('A en résolution lente, l’utilisateur lance B : A abandonné, B joue', async () => {
+    const provider = makeProvider();
+    const slowResolve = deferred<{ sourceId: string; score: number } | null>();
+    (provider.resolveMatch as jest.Mock).mockReturnValueOnce(slowResolve.promise);
+    __testSetAudioProviders({ audius: provider });
+
+    void melodixPlayer.playTrack(track('one', 'Slow A'));
+    await flush(); // A est entré en résolution
+
+    const providerFast = makeProvider();
+    __testSetAudioProviders({ audius: providerFast });
+    await melodixPlayer.playTrack(track('two', 'Fast B'));
+    await flush();
+    await flush();
+    await flush();
+
+    expect(melodixPlayer.getState().current?.title).toBe('Fast B');
+    expect(melodixPlayer.getState().status).toBe('playing');
+    expect(mockCreatedSounds).toHaveLength(1);
+
+    // A termine ENFIN son resolve : il ne doit JAMAIS reprendre la main.
+    slowResolve.resolve({ sourceId: 'aud-slow', score: 0.9 });
+    await flush();
+    await flush();
+    await flush();
+
+    expect(melodixPlayer.getState().current?.title).toBe('Fast B');
+    expect(melodixPlayer.getState().status).toBe('playing');
+    // A n'a créé AUCUN Sound supplémentaire.
+    expect(mockCreatedSounds).toHaveLength(1);
+  });
+
+  it('A échoue (aucun match) après le démarrage de B : aucune notice fantôme', async () => {
+    const failSlow = makeProvider();
+    const slowFail =
+      deferred<{ sourceId: string; score: number } | null>();
+    (failSlow.resolveMatch as jest.Mock).mockReturnValueOnce(slowFail.promise);
+    __testSetAudioProviders({ audius: failSlow });
+
+    void melodixPlayer.playTrack(track('one', 'WillFail A'));
+    await flush();
+
+    __testSetAudioProviders({ audius: makeProvider() });
+    await melodixPlayer.playTrack(track('two', 'Solid B'));
+    await flush();
+    await flush();
+    await flush();
+    expect(melodixPlayer.getState()).toMatchObject({
+      status: 'playing',
+      notice: null,
+    });
+
+    // L'échec de A arrive APRÈS : ignoré — B continue, aucune erreur affichée.
+    slowFail.resolve(null);
+    await flush();
+    await flush();
+
+    expect(melodixPlayer.getState().current?.title).toBe('Solid B');
+    expect(melodixPlayer.getState().status).toBe('playing');
+    expect(melodixPlayer.getState().notice).toBeNull();
+    expect(mockCreatedSounds).toHaveLength(1);
+  });
+
+  it('stop() pendant une résolution : le son orphelin arrivé ensuite est déchargé', async () => {
+    const provider = makeProvider();
+    const slowMatch = deferred<{ sourceId: string; score: number } | null>();
+    (provider.resolveMatch as jest.Mock).mockReturnValueOnce(slowMatch.promise);
+    __testSetAudioProviders({ audius: provider });
+
+    void melodixPlayer.playTrack(track('one'));
+    await flush();
+    await melodixPlayer.stop();
+
+    slowMatch.resolve({ sourceId: 'aud-good', score: 0.9 });
+    await flush();
+    await flush();
+    await flush();
+
+    expect(mockCreatedSounds).toHaveLength(0);
+    expect(melodixPlayer.getState().status).toBe('idle');
+  });
+});
+
+describe('Phase 1 — fallback en cours de lecture Audius → YouTube', () => {
+  const makeYouTube = (
+    overrides: FakeProviderOverrides = {}
+  ): AudioProvider => ({
+    id: 'youtube',
+    displayName: 'YouTube',
+    matches: jest.fn(async () => []),
+    resolveMatch: jest.fn(async () => ({ sourceId: 'yt-live', score: 0.82 })),
+    resolveSource: jest.fn(
+      async (sourceId: string): Promise<ResolvedStream | null> => ({
+        uri: `https://yt-stream/${sourceId}`,
+      })
+    ),
+    ...overrides,
+  });
+
+  beforeEach(async () => {
+    await AsyncStorage.clear();
+    lastStatusCallback = null;
+    lastSound = null;
+    mockCreatedSounds = [];
+    await melodixPlayer.__testReset();
+  });
+
+  it('Audius OK → Audius joué, YouTube JAMAIS recherché (cascade propre)', async () => {
+    const audius = makeProvider();
+    const youtube = makeYouTube();
+    __testSetAudioProviders({ audius, youtube });
+
+    await melodixPlayer.playTrack(track('one'));
+    await flush();
+    await flush();
+
+    expect(melodixPlayer.getState().status).toBe('playing');
+    expect(melodixPlayer.getState().resolved?.provider).toBe('Audius');
+    expect(youtube.resolveMatch).not.toHaveBeenCalled();
+    expect(youtube.resolveSource).not.toHaveBeenCalled();
+  });
+
+  it('match Audius OK mais flux MORT → YouTube pour LE MÊME morceau (pas de skip)', async () => {
+    const audius = makeProvider({
+      resolveMatch: jest.fn(async () => ({ sourceId: 'aud-dead', score: 0.94 })),
+      resolveSource: jest.fn(async () => null),
+    });
+    const youtube = makeYouTube();
+    __testSetAudioProviders({ audius, youtube });
+
+    await melodixPlayer.playTrack(track('one'));
+    await flush();
+    await flush();
+    await flush();
+
+    const state = melodixPlayer.getState();
+    // Le MÊME morceau continue — la SOURCE a changé, pas le titre.
+    expect(state.current?.id).toBe('spotify:one');
+    expect(state.status).toBe('playing');
+    expect(state.resolved?.provider).toBe('YouTube');
+    expect(state.resolved?.sourceId).toBe('yt-live');
+    // La suite de la cascade seulement — JAMAIS de re-recherche globale inutile.
+    expect(youtube.resolveMatch).toHaveBeenCalledTimes(1);
+    expect(mockCreatedSounds).toHaveLength(1);
+
+    // Décision YouTube persistée : un replay ne recherche RIEN du tout.
+    await melodixPlayer.stop();
+    (youtube.resolveMatch as jest.Mock).mockClear();
+    (audius.resolveMatch as jest.Mock).mockClear();
+
+    await melodixPlayer.playTrack(track('one'));
+    await flush();
+    await flush();
+
+    expect(audius.resolveMatch).not.toHaveBeenCalled();
+    expect(youtube.resolveMatch).not.toHaveBeenCalled();
+    expect(melodixPlayer.getState().resolved?.provider).toBe('YouTube');
+  });
+
+  it('Audius flux mort + YouTube indisponible → skip propre (négatif persisté)', async () => {
+    // Seule « Dead A » a un flux Audius mort ; « Playable B » joue normalement.
+    const audius = makeProvider({
+      resolveMatch: jest.fn(async (query) =>
+        query.title === 'Dead A'
+          ? { sourceId: 'aud-dead', score: 0.9 }
+          : { sourceId: 'aud-good', score: 0.9 }
+      ),
+      resolveSource: jest.fn(async (sourceId: string) =>
+        sourceId === 'aud-dead' ? null : { uri: `https://stream/${sourceId}` }
+      ),
+    });
+    const youtube = makeYouTube({
+      resolveMatch: jest.fn(async () => null),
+    });
+    __testSetAudioProviders({ audius, youtube });
+
+    const seenNotices: unknown[] = [];
+    const unsubscribe = melodixPlayer.subscribe((s2) =>
+      seenNotices.push(s2.notice)
+    );
+
+    await melodixPlayer.playQueue(
+      [track('one', 'Dead A'), track('two', 'Playable B')],
+      0
+    );
+    // Boucle mémoire profonde : fallback YouTube (null) → négatif persisté →
+    // avance vers B → résolution complète → son joué. Généreux en ticks.
+    for (let i = 0; i < 12; i++) {
+      await flush();
+    }
+
+    // A considéré indisponible → file CONTINUE vers B qui joue.
+    expect(melodixPlayer.getState().current?.title).toBe('Playable B');
+    expect(melodixPlayer.getState().status).toBe('playing');
+    expect(seenNotices).toContainEqual({
+      kind: 'not-available',
+      title: 'Dead A',
+    });
+    unsubscribe();
+
+    // Négatif confirmé : retenter A ne lance AUCUNE nouvelle recherche.
+    (audius.resolveMatch as jest.Mock).mockClear();
+    (youtube.resolveMatch as jest.Mock).mockClear();
+    await melodixPlayer.playQueue([track('one', 'Dead A')], 0);
+    await flush();
+    await flush();
+    await flush();
+
+    expect(audius.resolveMatch).not.toHaveBeenCalled();
+    expect(youtube.resolveMatch).not.toHaveBeenCalled();
+    expect(melodixPlayer.getState().status).toBe('idle'); // plus rien de jouable
+  });
+
+  it('erreur réseau Audius (throw) → YouTube prend le relais du MÊME morceau', async () => {
+    const audius = makeProvider({
+      resolveMatch: jest.fn(async () => {
+        throw new Error('discovery node down');
+      }),
+    });
+    const youtube = makeYouTube();
+    __testSetAudioProviders({ audius, youtube });
+
+    await melodixPlayer.playTrack(track('one'));
+    await flush();
+    await flush();
+    await flush();
+
+    expect(melodixPlayer.getState().status).toBe('playing');
+    expect(melodixPlayer.getState().resolved?.provider).toBe('YouTube');
+    expect(melodixPlayer.getState().current?.id).toBe('spotify:one');
+  });
+
+  it('aucun double Sound pendant un fallback lent puis changement de morceau', async () => {
+    const audius = makeProvider({
+      resolveMatch: jest.fn(async (query) =>
+        query.title === 'Slow A'
+          ? { sourceId: 'aud-slow', score: 0.9 }
+          : { sourceId: 'aud-good', score: 0.9 }
+      ),
+      resolveSource: jest.fn(async (sourceId: string) =>
+        sourceId === 'aud-slow' ? slowSource.promise : { uri: `https://stream/${sourceId}` }
+      ),
+    });
+    const slowSource = deferred<ResolvedStream | null>();
+    const youtube = makeYouTube();
+    __testSetAudioProviders({ audius, youtube });
+
+    void melodixPlayer.playTrack(track('one', 'Slow A'));
+    await flush();
+
+    // L'utilisateur bascule sur B pendant que le flux A se décide encore.
+    await melodixPlayer.playTrack(track('two', 'Now B'));
+    await flush();
+    await flush();
+    await flush();
+
+    expect(melodixPlayer.getState().current?.title).toBe('Now B');
+    expect(melodixPlayer.getState().status).toBe('playing');
+    expect(mockCreatedSounds).toHaveLength(1);
+
+    // A conclut enfin : abandonné — Sound pour B reste le seul jamais créé.
+    slowSource.resolve(null);
+    await flush();
+    await flush();
+    await flush();
+
+    expect(mockCreatedSounds).toHaveLength(1);
+    expect(melodixPlayer.getState().current?.title).toBe('Now B');
   });
 });
