@@ -443,6 +443,36 @@ describe('mediaBridge — projection MediaSession (phase 5A)', () => {
   });
 
   describe('résilience (§11)', () => {
+    it('zéro boucle commande → état → commande (§7) : aucune oscillation', async () => {
+      await melodixPlayer.playQueue([morceau('a', 'Photo')], 0);
+      await flush();
+      const toggleSpy = jest.spyOn(melodixPlayer, 'togglePlayPause');
+
+      // Android PAUSE → JS pause → projection isPlaying=false : la projection
+      // ne re-déclenche JAMAIS une commande ni côté natif ni côté moteur.
+      commandListener?.({ command: 'pause' });
+      await flush();
+      await flush();
+      expect(toggleSpy).toHaveBeenCalledTimes(1);
+      const pushesApresPause = mockUpdateSession.mock.calls.length;
+      await flush();
+      expect(toggleSpy).toHaveBeenCalledTimes(1); // aucune réexécution
+      expect(mockUpdateSession.mock.calls.length).toBe(pushesApresPause);
+      expect(
+        (mockUpdateSession.mock.calls.at(-1)?.[0] as { isPlaying: boolean })
+          .isPlaying
+      ).toBe(false);
+
+      // Android PLAY (reprise) → exactement UNE exécution, aucune oscillation.
+      commandListener?.({ command: 'play' });
+      await flush();
+      await flush();
+      expect(toggleSpy).toHaveBeenCalledTimes(2);
+      await flush();
+      expect(toggleSpy).toHaveBeenCalledTimes(2);
+      expect(melodixPlayer.getState().status).toBe('playing');
+    });
+
     it('updateSession lève : la lecture ne crashe JAMAIS (erreur aval)', async () => {
       mockUpdateSession.mockImplementationOnce(() => {
         throw new Error('native boom');

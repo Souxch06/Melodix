@@ -48,7 +48,10 @@ class MelodixMediaModule : Module() {
 
     /** Ferme la session et arrête le Foreground Service proprement. */
     Function("stopSession") {
-      val context = appContext.reactContext ?: return@Function
+      // Lambda FunctionWithoutArgs () -> Any? (expo-modules-core 1.12.25) :
+      // le label nu vaut Unit → return@Function null (convention Expo,
+      // cf. CoreModule.kt) ; updateSession n'en a pas besoin (R inféré Unit).
+      val context = appContext.reactContext ?: return@Function null
       MelodixMediaController.stopSession(context)
     }
   }
