@@ -253,6 +253,68 @@ describe('services/spotify/session (SecureStore)', () => {
       await expect(loadSession()).resolves.toBeNull();
     });
 
+    it('[SPOTIFY AUTH] lignes d échange émises aux bonnes étapes, sans secret', async () => {
+      const logSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
+      globalThis.fetch = jest.fn(async () => ({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          access_token: 'TOP-SECRET-ACCESS',
+          refresh_token: 'TOP-SECRET-REFRESH',
+          expires_in: 3500,
+          scope: 'user-read-private',
+          token_type: 'Bearer',
+        }),
+      })) as unknown as typeof fetch;
+
+      const outcome = await redeemAuthorizationCode({
+        code: 'TOP-SECRET-CODE',
+        codeVerifier: 'TOP-SECRET-VERIFIER',
+        redirectUri: 'melodix://callback',
+      });
+
+      expect(outcome.kind).toBe('ok');
+      const lines = logSpy.mock.calls
+        .map((call) => String(call[0]))
+        .filter((text) => text.includes('[SPOTIFY AUTH]'));
+      expect(lines.some((t) => t.includes('échange du code: envoi'))).toBe(true);
+      expect(lines.some((t) => t.includes('redirect_uri=melodix://callback'))).toBe(true);
+      expect(lines.some((t) => t.includes('réponse /api/token: OK (HTTP 200)'))).toBe(true);
+      expect(lines.some((t) => t.includes('access token reçu: OUI'))).toBe(true);
+      expect(lines.some((t) => t.includes('refresh token reçu: OUI'))).toBe(true);
+      for (const line of lines) {
+        expect(line).not.toContain('TOP-SECRET-ACCESS');
+        expect(line).not.toContain('TOP-SECRET-REFRESH');
+        expect(line).not.toContain('TOP-SECRET-CODE');
+        expect(line).not.toContain('TOP-SECRET-VERIFIER');
+      }
+      logSpy.mockRestore();
+    });
+
+    it('[SPOTIFY AUTH] échange refusé → statut HTTP et code OAuth logués', async () => {
+      const logSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
+      globalThis.fetch = jest.fn(async () => ({
+        ok: false,
+        status: 400,
+        json: async () => ({ error: 'invalid_client' }),
+      })) as unknown as typeof fetch;
+
+      const outcome = await redeemAuthorizationCode({
+        code: 'TOP-SECRET-CODE',
+        codeVerifier: 'TOP-SECRET-VERIFIER',
+        redirectUri: 'melodix://callback',
+      });
+
+      expect(outcome.kind).toBe('refused');
+      const lines = logSpy.mock.calls
+        .map((call) => String(call[0]))
+        .filter((text) => text.includes('[SPOTIFY AUTH]'));
+      expect(
+        lines.some((t) => t.includes('réponse /api/token: FAILED(invalid_client · HTTP 400'))
+      ).toBe(true);
+      logSpy.mockRestore();
+    });
+
     it('les logs N EXPOSENT JAMAIS le code d autorisation ni le verifier', async () => {
       const warnSpy2 = jest.spyOn(console, 'warn').mockImplementation(() => {});
       globalThis.fetch = jest.fn(async () => ({

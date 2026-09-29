@@ -191,4 +191,29 @@ describe('services/spotify/apiClient (API Web Spotify officielle)', () => {
     });
     await expect(spotifyApiGet('/x')).rejects.toBeInstanceOf(SpotifyApiError);
   });
+
+  it("403 + corps d'erreur Spotify → statut ET message consignés (jamais le token)", async () => {
+    await saveSession(validSession());
+    setFetch(async () => ({
+      status: 403,
+      ok: false,
+      headers: { get: () => null },
+      json: async () => ({
+        error: {
+          status: 403,
+          message:
+            'Check settings on developer.spotify.com/dashboard, the user may not be registered.',
+        },
+      }),
+    }));
+
+    const error = await spotifyApiGet('/me').catch((caught: unknown) => caught);
+    expect(error).toBeInstanceOf(SpotifyApiError);
+    const apiError = error as SpotifyApiError;
+    expect(apiError.kind).toBe('http');
+    expect(apiError.status).toBe(403);
+    expect(apiError.spotifyMessage).toContain('developer.spotify.com/dashboard');
+    // Le message capturé ne doit JAMAIS contenir le token porteur.
+    expect(apiError.spotifyMessage).not.toContain('valid-token');
+  });
 });

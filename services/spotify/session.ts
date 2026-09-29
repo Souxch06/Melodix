@@ -25,7 +25,7 @@ import {
   SPOTIFY_DISCOVERY,
   SPOTIFY_SCOPES,
 } from './authConfig';
-import { sanitizeErrorDescription, spotifyDiag, spotifyLog } from './devLog';
+import { sanitizeErrorDescription, spotifyConfigLine, spotifyDiag, spotifyLog } from './devLog';
 
 const SESSION_KEY = 'melodix.spotify.session.v1';
 
@@ -383,6 +383,13 @@ export const redeemAuthorizationCode = async ({
     codePresent: code.length > 0,
   });
 
+  // [SPOTIFY AUTH] — diagnostic temporaire du build de test. Aucune valeur
+  // sensible : le redirect est public, le reste n'est que présence/absence.
+  spotifyConfigLine(
+    '[SPOTIFY AUTH] échange du code: envoi (grant: code · PKCE: PRÉSENT · client_id: PRÉSENT)'
+  );
+  spotifyConfigLine(`[SPOTIFY AUTH] échange du code: redirect_uri=${redirectUri}`);
+
   spotifyDiag('TOKEN_EXCHANGE', 'START');
   const call = await requestToken(
     {
@@ -398,6 +405,9 @@ export const redeemAuthorizationCode = async ({
   if (!call.ok) {
     if (call.reason === 'refused') {
       spotifyDiag('TOKEN_EXCHANGE', `FAILED(${call.errorCode}, HTTP ${call.status})`);
+      spotifyConfigLine(
+        `[SPOTIFY AUTH] réponse /api/token: FAILED(${call.errorCode} · HTTP ${call.status}${call.description ? ` · ${call.description}` : ''})`
+      );
       return {
         kind: 'refused',
         status: call.status,
@@ -406,16 +416,29 @@ export const redeemAuthorizationCode = async ({
       };
     }
     spotifyDiag('TOKEN_EXCHANGE', 'FAILED(network)');
+    spotifyConfigLine(
+      '[SPOTIFY AUTH] réponse /api/token: INJOIGNABLE (panne réseau)'
+    );
     return { kind: 'network' };
   }
 
   const session = sessionFromTokenResponse(call.payload, null);
   if (!session) {
     spotifyDiag('TOKEN_EXCHANGE', 'FAILED(invalid-response)');
+    spotifyConfigLine(
+      '[SPOTIFY AUTH] réponse /api/token: HTTP 200 mais access token ABSENT'
+    );
     spotifyLog('exchange.invalid-response');
     return { kind: 'invalid-response' };
   }
   spotifyDiag('TOKEN_EXCHANGE', 'SUCCESS');
+  spotifyConfigLine('[SPOTIFY AUTH] réponse /api/token: OK (HTTP 200)');
+  spotifyConfigLine(
+    `[SPOTIFY AUTH] access token reçu: OUI (expire dans ~${Math.round((session.expiresAtMs - Date.now()) / 1000)} s · scopes: ${session.scope.split(' ').filter(Boolean).length})`
+  );
+  spotifyConfigLine(
+    `[SPOTIFY AUTH] refresh token reçu: ${session.refreshToken !== null ? 'OUI' : 'NON'}`
+  );
 
   try {
     await saveSession(session);

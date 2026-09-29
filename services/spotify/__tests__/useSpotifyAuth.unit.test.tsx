@@ -20,6 +20,7 @@ import * as AuthSession from 'expo-auth-session';
 
 import { useSpotifyAuth } from '../useSpotifyAuth';
 import { redeemAuthorizationCode } from '../session';
+import { SpotifyApiError } from '../apiClient';
 import { getCurrentUser } from '@api';
 
 const mockPromptAsync = jest.fn() as jest.Mock;
@@ -269,6 +270,43 @@ describe('useSpotifyAuth — taxonomie du diagnostic OAuth', () => {
       status: 'error',
       outcome: { kind: 'network', cause: 'me:network' },
     });
+  });
+
+  it('token reçu mais /me 403 → statut HTTP + message Spotify dans la cause', async () => {
+    const logSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
+    (getCurrentUser as jest.Mock).mockRejectedValueOnce(
+      new SpotifyApiError(
+        'http',
+        'Réponse Spotify non valide (403).',
+        403,
+        'Check settings on developer.spotify.com/dashboard, the user may not be registered.'
+      )
+    );
+
+    const { result } = renderHook(() => useSpotifyAuth());
+    await act(async () => {
+      await result.current.startLogin();
+    });
+
+    expect(result.current.state.status).toBe('error');
+    if (result.current.state.status === 'error') {
+      expect(result.current.state.outcome.kind).toBe('unknown');
+      expect(result.current.state.outcome.cause).toContain('me:http');
+      expect(result.current.state.outcome.cause).toContain('403');
+      expect(result.current.state.outcome.cause).toContain('developer.spotify.com/dashboard');
+    }
+    const authLines = logSpy.mock.calls
+      .map((call) => String(call[0]))
+      .filter((text) => text.includes('[SPOTIFY AUTH]'));
+    expect(authLines.some((t) => t.includes('[SPOTIFY AUTH] appel /v1/me'))).toBe(true);
+    expect(
+      authLines.some(
+        (t) =>
+          t.includes('[SPOTIFY AUTH] réponse /v1/me: FAILED(http') &&
+          t.includes('HTTP 403')
+      )
+    ).toBe(true);
+    logSpy.mockRestore();
   });
 
   it('session non sauvegardée → unknown (save-failed)', async () => {

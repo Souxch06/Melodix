@@ -13,7 +13,7 @@
  * - jamais d'en-tête Authorization ni de token dans les logs.
  */
 import { SPOTIFY_API_BASE_URL } from './authConfig';
-import { spotifyLog } from './devLog';
+import { sanitizeErrorDescription, spotifyLog } from './devLog';
 import {
   clearSessionAccessOnly,
   getValidAccessToken,
@@ -29,7 +29,9 @@ export class SpotifyApiError extends Error {
   constructor(
     public readonly kind: SpotifyApiErrorKind,
     message: string,
-    public readonly status?: number
+    public readonly status?: number,
+    /** Message d'erreur renvoyé par Spotify, sanitisé (jamais de token). */
+    public readonly spotifyMessage: string = ''
   ) {
     super(message);
     this.name = 'SpotifyApiError';
@@ -120,14 +122,30 @@ export const spotifyApiGet = async <T>(path: string): Promise<T> => {
     }
 
     if (!response.ok) {
+      // Corps d'erreur Spotify : { "error": { "status": N, "message": "…" } }.
+      // Le MESSAGE est informatif (scope manquant, utilisateur non inscrit au
+      // dashboard…) et ne contient JAMAIS de token — il est consigné sanitisé.
+      let spotifyMessage = '';
+      try {
+        const errBody = (await response.json()) as {
+          error?: { status?: unknown; message?: unknown };
+        };
+        if (errBody && typeof errBody.error?.message === 'string') {
+          spotifyMessage = sanitizeErrorDescription(errBody.error.message);
+        }
+      } catch {
+        // Corps illisible : statut seul consigné.
+      }
       spotifyLog('api.http', {
         status: response.status,
         endpoint: path.split('?')[0].slice(0, 80),
+        cause: spotifyMessage || undefined,
       });
       throw new SpotifyApiError(
         'http',
         `Réponse Spotify non valide (${response.status}).`,
-        response.status
+        response.status,
+        spotifyMessage
       );
     }
 
