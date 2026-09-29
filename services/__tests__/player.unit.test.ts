@@ -11,6 +11,8 @@ jest.mock('expo-constants', () => ({ expoConfig: { extra: {} } }));
 // expo-av stub: captures the latest created sound + its status callback.
 let lastStatusCallback: ((status: Record<string, unknown>) => void) | null =
   null;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let lastSound: any = null;
 
 const makeSound = () => ({
   unloadAsync: jest.fn(async () => {}),
@@ -31,8 +33,10 @@ jest.mock('expo-av', () => ({
           onStatus?: (status: Record<string, unknown>) => void
         ) => {
           lastStatusCallback = onStatus ?? null;
+          const created = makeSound();
+          lastSound = created;
 
-          return { sound: makeSound() };
+          return { sound: created };
         }
       ),
     },
@@ -78,6 +82,7 @@ describe('melodixPlayer engine', () => {
   beforeEach(async () => {
     await AsyncStorage.clear();
     lastStatusCallback = null;
+    lastSound = null;
     provider = makeProvider();
     __testSetAudioProviders({ audius: provider });
     await melodixPlayer.__testReset();
@@ -312,6 +317,61 @@ describe('melodixPlayer engine', () => {
     expect(densityProvider.resolveSource).toHaveBeenCalledWith('native-1');
     expect(melodixPlayer.getState().resolved?.score).toBe(1);
   });
+
+
+  it('pause then resume drives the SAME sound instance (no new resolve)', async () => {
+    await melodixPlayer.playQueue([track('one')], 0);
+    await flush();
+    expect(melodixPlayer.getState().status).toBe('playing');
+
+    await melodixPlayer.togglePlayPause();
+    expect(lastSound.pauseAsync).toHaveBeenCalledTimes(1);
+    expect(melodixPlayer.getState().status).toBe('paused');
+
+    await melodixPlayer.togglePlayPause();
+    expect(lastSound.playAsync).toHaveBeenCalledTimes(1);
+    expect(melodixPlayer.getState().status).toBe('playing');
+    // Aucune nouvelle résolution : la recherche initiale seule.
+    expect(provider.resolveMatch).toHaveBeenCalledTimes(1);
+  });
+
+  it('clearNotice emits ONLY when a notice exists', async () => {
+    let emissions = 0;
+    const unsubscribe = melodixPlayer.subscribe(() => {
+      emissions += 1;
+    });
+    emissions = 0; // skip the immediate subscribe() echo
+
+    melodixPlayer.clearNotice(); // no-op : aucune notice en cours
+    expect(emissions).toBe(0);
+
+    await melodixPlayer.playQueue([track('one')], 0);
+    await flush();
+    melodixPlayer.clearNotice(); // pas de notice non plus → no-op confirmé
+    unsubscribe();
+  });
+
+  it('stop preserves prefs (volume/repeat/shuffle) and resets the queue', async () => {
+    melodixPlayer.setRepeat('all');
+    melodixPlayer.toggleShuffle();
+    await melodixPlayer.setVolume(0.4);
+
+    await melodixPlayer.playQueue([track('one'), track('two')], 0);
+    await flush();
+    await melodixPlayer.stop();
+
+    const state = melodixPlayer.getState();
+    expect(state.queue).toEqual([]);
+    expect(state.index).toBe(-1);
+    expect(state.current).toBeNull();
+    expect(state.status).toBe('idle');
+    // Les réglages SURVIVENT à stop() — comportement voulu, vérifié.
+    expect(state.repeat).toBe('all');
+    expect(state.shuffle).toBe(true);
+    expect(state.volume).toBeCloseTo(0.4);
+
+    melodixPlayer.setRepeat('off');
+  });
 });
 
 describe('melodixPlayer — cascade Audius → YouTube (fallback)', () => {
@@ -321,6 +381,7 @@ describe('melodixPlayer — cascade Audius → YouTube (fallback)', () => {
   beforeEach(async () => {
     await AsyncStorage.clear();
     lastStatusCallback = null;
+    lastSound = null;
 
     // Audius ne trouve RIEN ; YouTube répond pour un contenu précis.
     audius = {

@@ -1,0 +1,144 @@
+/**
+ * PlayerContext — le STore unique de lecture côté UI (audit §9) :
+ *  1. Toute l'UI (MiniPlayer, FullPlayer, Preview, playlists) lit le MÊME
+ *     singleton services/player.ts via ce contexte — aucun second état.
+ *  2. L'état du moteur est relayé À L'IDENTIQUE (subscribe/emit).
+ *  3. hasActiveSession / providerName dérivent du même état (jamais
+ *     recalculés ailleurs avec une logique divergente).
+ *  4. Chaque action du contexte passe DIRECTEMENT au moteur.
+ */
+import * as React from 'react';
+import { Pressable, View } from 'react-native';
+
+import { fireEvent, render } from '@testing-library/react-native';
+
+import { PlayerProvider, usePlayer } from '../PlayerContext';
+
+const INITIAL = {
+  queue: [],
+  index: -1,
+  order: null,
+  orderPointer: -1,
+  current: null,
+  status: 'idle',
+  positionMillis: 0,
+  durationMillis: 0,
+  shuffle: false,
+  repeat: 'off',
+  volume: 1,
+  resolved: null,
+  notice: null,
+};
+
+const mockActions = {
+  playQueue: jest.fn(async () => {}),
+  playTrack: jest.fn(async () => {}),
+  playAtIndex: jest.fn(async () => {}),
+  togglePlayPause: jest.fn(async () => {}),
+  next: jest.fn(async () => {}),
+  previous: jest.fn(async () => {}),
+  seekTo: jest.fn(async () => {}),
+  setVolume: jest.fn(async () => {}),
+  toggleShuffle: jest.fn(),
+  cycleRepeat: jest.fn(),
+  setRepeat: jest.fn(),
+  setStaysActiveInBackground: jest.fn(async () => {}),
+  stop: jest.fn(async () => {}),
+  clearNotice: jest.fn(),
+  getState: () => INITIAL,
+  subscribe: jest.fn(),
+};
+
+jest.mock('@services', () => ({
+  INITIAL_PLAYER_STATE: INITIAL,
+  // Liaisons tardives : la factory s exécute avant les const du fichier.
+  melodixPlayer: {
+    playQueue: (...args: unknown[]) => mockActions.playQueue(...(args as [])),
+    playTrack: (...args: never[]) => mockActions.playTrack(...(args as [])),
+    playAtIndex: (...args: never[]) => mockActions.playAtIndex(...(args as [])),
+    togglePlayPause: (...args: never[]) => mockActions.togglePlayPause(...(args as [])),
+    next: (...args: never[]) => mockActions.next(...(args as [])),
+    previous: (...args: never[]) => mockActions.previous(...(args as [])),
+    seekTo: (...args: never[]) => mockActions.seekTo(...(args as [])),
+    setVolume: (...args: never[]) => mockActions.setVolume(...(args as [])),
+    toggleShuffle: () => mockActions.toggleShuffle(),
+    cycleRepeat: () => mockActions.cycleRepeat(),
+    setRepeat: (...args: never[]) => mockActions.setRepeat(...(args as [])),
+    setStaysActiveInBackground: (...args: never[]) =>
+      mockActions.setStaysActiveInBackground(...(args as [])),
+    stop: (...args: never[]) => mockActions.stop(...(args as [])),
+    clearNotice: () => mockActions.clearNotice(),
+    getState: () => INITIAL,
+    subscribe: (...args: never[]) => mockActions.subscribe(...(args as [])),
+  },
+}));
+
+describe('PlayerContext — état unique partagé par toute l UI', () => {
+  beforeEach(() => jest.clearAllMocks());
+
+  it('relaye l état du moteur : idle → hasActiveSession false', () => {
+    const Probe = () => {
+      const { status, hasActiveSession, providerName } = usePlayer();
+
+      return (
+        <View
+          testID="probe"
+          // @ts-expect-error — props de vérification pour la lecture en test
+          status={status}
+          active={hasActiveSession}
+          provider={providerName}
+        />
+      );
+    };
+
+    const { getByTestId } = render(
+      <PlayerProvider>
+        <Probe />
+      </PlayerProvider>
+    );
+    const probe = getByTestId('probe');
+
+    expect(probe.props.status).toBe('idle');
+    expect(probe.props.active).toBe(false);
+    expect(probe.props.provider).toBeNull();
+    // Une et une seule souscription au singleton moteur.
+    expect(mockActions.subscribe).toHaveBeenCalledTimes(1);
+  });
+
+  it('chaque action du contexte appelle DIRECTEMENT le singleton moteur', () => {
+    const Probe = () => {
+      const player = usePlayer();
+
+      return (
+        <>
+          <Pressable onPress={player.toggleShuffle} testID="shuffle" />
+          <Pressable onPress={() => player.setRepeat('all')} testID="repeat" />
+          <Pressable onPress={() => player.setVolume(0.5)} testID="volume" />
+          <Pressable
+            onPress={() => player.setStaysActiveInBackground(false)}
+            testID="background"
+          />
+          <Pressable onPress={() => player.next()} testID="next" />
+        </>
+      );
+    };
+
+    const { getByTestId } = render(
+      <PlayerProvider>
+        <Probe />
+      </PlayerProvider>
+    );
+
+    fireEvent.press(getByTestId('shuffle'));
+    fireEvent.press(getByTestId('repeat'));
+    fireEvent.press(getByTestId('volume'));
+    fireEvent.press(getByTestId('background'));
+    fireEvent.press(getByTestId('next'));
+
+    expect(mockActions.toggleShuffle).toHaveBeenCalledTimes(1);
+    expect(mockActions.setRepeat).toHaveBeenCalledWith('all');
+    expect(mockActions.setVolume).toHaveBeenCalledWith(0.5);
+    expect(mockActions.setStaysActiveInBackground).toHaveBeenCalledWith(false);
+    expect(mockActions.next).toHaveBeenCalledTimes(1);
+  });
+});
