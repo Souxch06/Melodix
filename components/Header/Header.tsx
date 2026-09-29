@@ -88,7 +88,7 @@ export const Header = ({ tab }: HeaderPropsType) => {
       tab === Pages.HOME
         ? t.homeHello(firstNameOf(userData?.displayName ?? ''))
         : null,
-    [tab, userData]
+    [tab, userData, t]
   );
 
   const height = React.useMemo(() => {
