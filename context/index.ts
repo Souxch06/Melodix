@@ -8,3 +8,11 @@ export {
 
 export { PlayerProvider, usePlayer } from './PlayerContext';
 export type { PlayerContextType } from './PlayerContext';
+export {
+  PreferencesProvider,
+  useAccent,
+  useLanguage,
+  usePreferences,
+  useTranslations,
+} from './PreferencesContext';
+export type { PreferencesContextType } from './PreferencesContext';

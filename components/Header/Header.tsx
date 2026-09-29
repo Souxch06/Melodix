@@ -10,6 +10,8 @@ import * as Icons from '@expo/vector-icons';
 import { LibraryRelated } from './LibraryRelated';
 
 import { useUserData } from '@context';
+// Import direct (hors barrel) : langue active pour la salutation d'accueil.
+import { useTranslations } from '../../context/PreferencesContext';
 import { COLORS, HEADER_CATEGORIES_HEIGHT, HEADER_HEIGHT, Pages } from '@config';
 import { translations } from '@data';
 import { clearPlayHistory } from '@services';
@@ -25,6 +27,7 @@ export type HeaderPropsType = {
 export const Header = ({ tab }: HeaderPropsType) => {
   const { top: statusBarOffset } = useSafeAreaInsets();
   const { userData, sessionStatus, signOut } = useUserData();
+  const t = useTranslations();
   const router = useRouter();
   const [accountOpen, setAccountOpen] = React.useState(false);
 
@@ -83,7 +86,7 @@ export const Header = ({ tab }: HeaderPropsType) => {
   const homeHello = React.useMemo(
     () =>
       tab === Pages.HOME
-        ? translations.homeHello(firstNameOf(userData?.displayName ?? ''))
+        ? t.homeHello(firstNameOf(userData?.displayName ?? ''))
         : null,
     [tab, userData]
   );
@@ -117,11 +120,17 @@ export const Header = ({ tab }: HeaderPropsType) => {
     router.push({ pathname: '/(tabs)/search', params: {} });
   }, [router]);
 
+  // La roue ouvre le vrai écran Paramètres (/settings) ; le panneau « Compte
+  // Spotify » reste accessible via un tap sur l'avatar.
+  const handleHomeSettingsPress = React.useCallback(() => {
+    router.push({ pathname: '/settings', params: {} });
+  }, [router]);
+
   const TabRelatedIcons = React.useMemo(() => {
     switch (tab) {
       case Pages.HOME:
-        // Loupe → onglet Recherche (écran existant) ; roue → panneau compte
-        // (avatar + nom + Déconnexion — même bloc que le tap avatar).
+        // Loupe → onglet Recherche (écran existant) ; roue → écran
+        // Paramètres /settings (le panneau compte reste sur l'avatar).
         return (
           <View style={styles.homeIconsRow}>
             <Pressable
@@ -139,7 +148,7 @@ export const Header = ({ tab }: HeaderPropsType) => {
             <Pressable
               accessibilityRole="button"
               accessibilityLabel={translations.homeSettings}
-              onPress={() => setAccountOpen(true)}
+              onPress={handleHomeSettingsPress}
               style={({ pressed }) => [
                 styles.homeIconButton,
                 pressed && styles.homeIconButtonPressed,
@@ -166,7 +175,7 @@ export const Header = ({ tab }: HeaderPropsType) => {
       default:
         return null;
     }
-  }, [tab, handleHomeSearchPress]);
+  }, [tab, handleHomeSearchPress, handleHomeSettingsPress]);
 
   return (
     <View style={[styles.container, { paddingTop: statusBarOffset, height }]}>
@@ -176,6 +185,7 @@ export const Header = ({ tab }: HeaderPropsType) => {
           onPress={handleProfilePress}
           accessibilityRole="button"
           accessibilityLabel={translations.accountTitle}
+          testID="header-avatar"
         >
           {userData.imageURL ? (
             <Image

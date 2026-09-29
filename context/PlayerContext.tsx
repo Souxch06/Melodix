@@ -14,6 +14,10 @@ export type PlayerContextType = PlayerState & {
   setVolume: (volume: number) => Promise<void>;
   toggleShuffle: () => void;
   cycleRepeat: () => void;
+  /** Paramètres : activer/désactiver explicitement la répétition de la file. */
+  setRepeat: (mode: RepeatMode) => void;
+  /** Paramètres : lecture en arrière-plan (réglage appliqué au moteur expo-av). */
+  setStaysActiveInBackground: (enabled: boolean) => Promise<void>;
   stop: () => Promise<void>;
   clearNotice: () => void;
   /** True while a playback session exists (players visible), whatever status. */
@@ -33,6 +37,8 @@ const defaultActions = {
   setVolume: async () => {},
   toggleShuffle: () => {},
   cycleRepeat: () => {},
+  setRepeat: () => {},
+  setStaysActiveInBackground: async () => {},
   stop: async () => {},
   clearNotice: () => {},
   hasActiveSession: false,
@@ -62,6 +68,8 @@ export const PlayerProvider = ({ children }: { children: React.ReactNode }) => {
       setVolume: melodixPlayer.setVolume,
       toggleShuffle: melodixPlayer.toggleShuffle,
       cycleRepeat: melodixPlayer.cycleRepeat,
+      setRepeat: melodixPlayer.setRepeat,
+      setStaysActiveInBackground: melodixPlayer.setStaysActiveInBackground,
       stop: melodixPlayer.stop,
       clearNotice: melodixPlayer.clearNotice,
       hasActiveSession: state.current !== null,

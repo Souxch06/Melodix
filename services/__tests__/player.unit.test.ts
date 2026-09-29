@@ -406,4 +406,42 @@ describe('melodixPlayer — cascade Audius → YouTube (fallback)', () => {
       'Track yt-only'
     );
   });
+
+
+  // ---------- Paramètres : méthodes ADDITIVES branchées par l'écran ----------
+
+  it('setRepeat set explicit modes without cycling (settings switch)', async () => {
+    expect(melodixPlayer.getState().repeat).toBe('off');
+
+    melodixPlayer.setRepeat('all');
+    expect(melodixPlayer.getState().repeat).toBe('all');
+
+    melodixPlayer.setRepeat('off');
+    expect(melodixPlayer.getState().repeat).toBe('off');
+  });
+
+  it('setStaysActiveInBackground applies expo-av audio mode ONCE per change and memorizes it', async () => {
+    const { Audio: av } = jest.requireMock('expo-av') as {
+      Audio: { setAudioModeAsync: jest.Mock };
+    };
+    av.setAudioModeAsync.mockClear();
+
+    await melodixPlayer.setStaysActiveInBackground(false);
+
+    const lastCall =
+      av.setAudioModeAsync.mock.calls[av.setAudioModeAsync.mock.calls.length - 1];
+    expect(lastCall[0]).toMatchObject({ staysActiveInBackground: false });
+
+    // Même valeur → aucun appel supplémentaire (garde mémorisée).
+    await melodixPlayer.setStaysActiveInBackground(false);
+    const after = av.setAudioModeAsync.mock.calls.filter(
+      (call) => call[0]?.staysActiveInBackground === false
+    ).length;
+    expect(after).toBe(1);
+
+    await melodixPlayer.setStaysActiveInBackground(true);
+    const finalCall =
+      av.setAudioModeAsync.mock.calls[av.setAudioModeAsync.mock.calls.length - 1];
+    expect(finalCall[0]).toMatchObject({ staysActiveInBackground: true });
+  });
 });

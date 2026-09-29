@@ -53,12 +53,23 @@ describe('Header — accueil : salutation + loupe recherche + roue paramètres',
     });
   });
 
-  it('la roue ouvre le panneau compte (avatar + nom + Déconnexion)', () => {
+  it('la roue navigue vers l écran Paramètres /settings', () => {
     const { getByTestId, queryByTestId } = render(<Header tab={Pages.HOME} />);
 
-    expect(queryByTestId('account-modal')).toBeNull();
-
     fireEvent.press(getByTestId('header-home-settings'));
+
+    expect(mockPush).toHaveBeenCalledWith({
+      pathname: '/settings',
+      params: {},
+    });
+    // Le panneau compte n est plus ouvert par la roue…
+    expect(queryByTestId('account-modal')).toBeNull();
+  });
+
+  it("l'avatar ouvre toujours le panneau compte (avatar + nom + Déconnexion)", () => {
+    const { getByTestId } = render(<Header tab={Pages.HOME} />);
+
+    fireEvent.press(getByTestId('header-avatar'));
 
     expect(getByTestId('account-modal')).toBeTruthy();
     expect(getByTestId('account-signout-button')).toBeTruthy();

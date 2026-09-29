@@ -102,6 +102,98 @@ export const FR_FR_HOME = {
   homeSettings: 'Paramètres du compte',
 };
 
+// Écran Paramètres (sections, lignes, confirmations, FAQ, à propos).
+export const FR_FR_SETTINGS = {
+  settingsTitle: 'Paramètres',
+  settingsBack: 'Retour',
+  settingsSectionAccount: 'Compte',
+  settingsConnectedSpotify: 'Connecté à Spotify',
+  settingsCheckingSession: 'Vérification de la session…',
+  settingsLocalAccount: 'Compte local',
+  settingsSpotifyAccount: 'Compte Spotify',
+  settingsSessionExpiry: (minutes: number) =>
+    minutes > 0 ? `Session valable ~${minutes} min` : 'Session sur le point d\'expirer',
+  settingsSessionCanRefresh: 'Renouvellement automatique disponible',
+  settingsSessionNoRefresh: 'Nouvelle connexion requise à l\'expiration',
+  settingsSignOut: 'Se déconnecter',
+  settingsSignOutTitle: 'Es-tu sûr de vouloir te déconnecter de Melodix ?',
+  settingsCancel: 'Annuler',
+  settingsSignOutConfirm: 'Se déconnecter',
+  settingsSectionAppearance: 'Apparence',
+  settingsTheme: 'Thème',
+  settingsThemeDark: 'Sombre',
+  settingsThemeLight: 'Clair',
+  settingsThemeSystem: 'Système',
+  settingsComingSoon: 'Bientôt disponible',
+  settingsAccent: 'Couleur d\'accent',
+  settingsSectionPlayback: 'Lecture',
+  settingsBackgroundAudio: 'Lecture en arrière-plan',
+  settingsBackgroundAudioHint:
+    'Continue le son quand Melodix passe en arrière-plan',
+  settingsRepeatAll: 'Répéter la file',
+  settingsRepeatAllHint: 'Rejoue la file quand elle se termine',
+  settingsShuffle: 'Lecture aléatoire',
+  settingsShuffleHint: 'Ordre aléatoire dans la file actuelle',
+  settingsStartupVolume: 'Volume au démarrage',
+  settingsStartupVolumeHint: (volume: number) =>
+    `Appliqué au démarrage du moteur : ${volume} %`,
+  settingsSectionAudio: 'Audio',
+  settingsPreferredSource: 'Source audio préférée',
+  settingsSourceAudius: 'Audius — prioritaire',
+  settingsSourceYouTube: 'YouTube — repli',
+  settingsCascadeInfo:
+    'Ordre actuel : Audius en priorité, puis YouTube en repli. Chaque morceau est recherché dans cet ordre ; « indisponible » seulement si aucune source fiable ne correspond.',
+  settingsSectionStorage: 'Données et stockage',
+  settingsMatchCache: 'Cache des correspondances',
+  settingsCacheSizeUnavailable: 'taille indisponible',
+  settingsClearCache: 'Vider le cache',
+  settingsClearCacheTitle: 'Vider le cache audio ?',
+  settingsClearCacheConfirm: 'Vider',
+  settingsCacheCleared: 'Cache vidé.',
+  settingsSectionLanguage: 'Langue',
+  settingsLanguage: 'Langue',
+  settingsFrench: 'Français',
+  settingsEnglish: 'English',
+  settingsSectionHelp: 'Aide',
+  settingsFaq: 'FAQ',
+  settingsReportProblem: 'Signaler un problème',
+  settingsAboutLogin: 'À propos de la connexion Spotify',
+  settingsPlaybackIssues: 'Problèmes de lecture',
+  settingsSectionAbout: 'À propos',
+  settingsVersion: 'Version',
+  settingsTerms: 'Conditions d\'utilisation',
+  settingsPrivacy: 'Politique de confidentialité',
+  settingsLicenses: 'Licences open source',
+  settingsGithub: 'GitHub',
+  settingsCredits: 'Crédits',
+  settingsCreditsBody: 'Spotify · Audius · YouTube · Expo · React Native',
+  // Aide (faq.tsx) — contenu RÉEL utile, aucune promesse fictive.
+  faqIntro:
+    'Réponses aux questions les plus fréquentes sur Melodix, écrites d\'après le fonctionnement réel de l\'application.',
+  faqLoginQ: 'Pourquoi me connecter avec Spotify ?',
+  faqLoginA:
+    'Melodix lit tes playlists et ton profil Spotify. La connexion passe par la page officielle de Spotify (Authorization Code + PKCE) : Melodix ne voit ni ne demande jamais ton mot de passe.',
+  faqPlaybackQ: 'Pourquoi un morceau est-il « indisponible » ?',
+  faqPlaybackA:
+    'L\'audio ne vient jamais de Spotify. Chaque morceau est d\'abord recherché sur Audius, puis sur YouTube en repli. « Indisponible » n\'est affiché que si aucune correspondance fiable n\'est trouvée.',
+  faqSourcesQ: 'D\'où vient le son ?',
+  faqSourcesA:
+    'De catalogues publics : Audius en priorité (artistes indépendants), sinon YouTube. La correspondance est mise en cache sur l\'appareil, donc les écoutes suivantes sont immédiates.',
+  faqCacheQ: 'Que fait « Vider le cache » ?',
+  faqCacheA:
+    'Cela oublie les correspondances titre→source stockées sur l\'appareil. La lecture suivante recherche à nouveau Audius puis YouTube. Ton compte, tes playlists et ton historique ne sont pas touchés.',
+  faqAccountQ: 'Où sont stockées mes données ?',
+  faqAccountA:
+    'Uniquement sur ton appareil : historique d\'écoute, réglages et session Spotify (stockage chiffré). Melodix ne conserve aucun profil côté serveur.',
+  // À propos (about.tsx)
+  aboutTermsBody:
+    'Melodix est une application personnelle de compagnon musical. Connecte-toi avec ton propre compte Spotify et utilise l\'application pour une écoute personnelle et non commerciale. Les noms et contenus Spotify, Audius et YouTube appartiennent à leurs détenteurs respectifs.',
+  aboutPrivacyBody:
+    'Melodix stocke tes données uniquement sur ton appareil : historique d\'écoute, préférences et session Spotify chiffrée. Rien n\'est envoyé vers un serveur Melodix. La déconnexion supprime définitivement la session locale.',
+  aboutLicensesBody:
+    'Construit avec : Expo (MIT), React Native (MIT), React Navigation (MIT), expo-av / expo-auth-session (MIT), AsyncStorage (MIT). Catalogues : Spotify Web API, Audius API, YouTube — chacun sous ses propres conditions.',
+};
+
 export const FR_FR_PLAYLIST = {
   /** « 85/100 morceaux disponibles » — calculée dynamiquement. */
   playlistAvailabilityInfo: (available: number, total: number) =>

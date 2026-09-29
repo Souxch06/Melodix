@@ -12,6 +12,7 @@ import { useFonts } from 'expo-font';
 import {
   LibrarySelectedCategoryProvider,
   PlayerProvider,
+  PreferencesProvider,
   UserDataProvider,
 } from '@context';
 
@@ -38,7 +39,8 @@ export default function RootLayout() {
 
   return (
     <SafeAreaProvider>
-      <UserDataProvider>
+      <PreferencesProvider>
+        <UserDataProvider>
         <PlayerProvider>
           <LibrarySelectedCategoryProvider>
             <GestureHandlerRootView style={styles.gestureHandlerRootView}>
@@ -56,6 +58,10 @@ export default function RootLayout() {
                   options={{ headerShown: false, animation: 'fade' }}
                 />
                 <Stack.Screen
+                  name="settings"
+                  options={{ headerShown: false, animation: 'slide_from_right' }}
+                />
+                <Stack.Screen
                   name="+not-found"
                   options={{ headerShown: false, animation: 'fade' }}
                 />
@@ -64,7 +70,8 @@ export default function RootLayout() {
             </GestureHandlerRootView>
           </LibrarySelectedCategoryProvider>
         </PlayerProvider>
-      </UserDataProvider>
+        </UserDataProvider>
+      </PreferencesProvider>
     </SafeAreaProvider>
   );
 }

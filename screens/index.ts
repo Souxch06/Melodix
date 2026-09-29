@@ -5,3 +5,6 @@ export { PlaylistScreen } from './PlaylistScreen';
 export { AlbumScreen } from './AlbumScreen';
 export { PlayerScreen } from './PlayerScreen';
 export { LoginScreen } from './LoginScreen';
+export { SettingsScreen } from './SettingsScreen';
+export { SettingsFaqScreen } from './SettingsFaqScreen';
+export { SettingsAboutScreen } from './SettingsAboutScreen';

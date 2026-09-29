@@ -6,7 +6,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import Ionicons from '@expo/vector-icons/Ionicons';
 
-import { usePlayer } from '@context';
+import { useAccent, usePlayer } from '@context';
 import { COLORS } from '@config';
 import { translations } from '@data';
 import { getFallbackImage } from '@utils';
@@ -30,6 +30,7 @@ export const FullPlayer = () => {
   const router = useRouter();
   const { top, bottom } = useSafeAreaInsets();
   const player = usePlayer();
+  const accent = useAccent();
   const {
     current,
     queue,
@@ -171,7 +172,7 @@ export const FullPlayer = () => {
           <Ionicons
             name="shuffle"
             size={22}
-            color={shuffle ? COLORS.TINT : COLORS.GREY}
+            color={shuffle ? accent : COLORS.GREY}
           />
         </Pressable>
         <Pressable
@@ -225,7 +226,7 @@ export const FullPlayer = () => {
           <Ionicons
             name={repeatIcon}
             size={22}
-            color={repeatActive ? COLORS.TINT : COLORS.GREY}
+            color={repeatActive ? accent : COLORS.GREY}
           />
           {repeat === 'one' ? <View style={styles.repeatDot} /> : null}
         </Pressable>
@@ -262,7 +263,7 @@ export const FullPlayer = () => {
               <Ionicons
                 name={isCurrent && isPlaying ? 'stats-chart' : 'musical-note'}
                 size={15}
-                color={isCurrent ? COLORS.TINT : COLORS.GREY}
+                color={isCurrent ? accent : COLORS.GREY}
                 style={styles.queueIcon}
               />
               <View style={styles.queueInfo}>

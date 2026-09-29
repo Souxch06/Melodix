@@ -15,7 +15,10 @@ export enum UserInterfaceIdiom {
   Unsupported = 'unsupported',
 }
 
-const expoConfig: { extra: Record<string, unknown> } = { extra: {} };
+const expoConfig: { extra: Record<string, unknown>; version?: string } = {
+  extra: {},
+  version: '4.3.0',
+};
 
 const Constants = {
   appOwnership: AppOwnership.Standalone,
@@ -26,6 +29,14 @@ const Constants = {
   /** Tests uniquement : bascule le contenu de extra/expoConfig. */
   __setExpoConfigExtra(extra: Record<string, unknown>): void {
     expoConfig.extra = extra;
+  },
+  /** Tests uniquement : version affichée par l'écran Paramètres/À propos. */
+  __setExpoConfigVersion(version?: string): void {
+    if (version === undefined) {
+      delete expoConfig.version;
+    } else {
+      expoConfig.version = version;
+    }
   },
 };
 

@@ -7,54 +7,89 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Pages } from '@config';
-import { translations } from '@data';
+import { Translations } from '@data';
+
+import { useAccent, useTranslations } from '@context';
 
 import { styles } from './styles';
 import { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { useApplicationDimensions } from '@hooks';
 
-const renderPressableContent = (name: string, isActive: boolean) => {
+// Accent + libellés actifs injectés (préférences utilisateur réelles).
+const renderPressableContent = (
+  name: string,
+  isActive: boolean,
+  accent: string,
+  t: Translations
+) => {
   switch (name) {
     case Pages.SEARCH:
       return (
         <View style={styles.linkContainer}>
           <Ionicons
-            style={[styles.icon, isActive ? styles.activeIcon : {}]}
+            style={[
+              styles.icon,
+              isActive ? styles.activeIcon : {},
+              isActive ? { color: accent } : {},
+            ]}
             name="search"
             size={22}
           />
           <Text style={[styles.text, isActive ? styles.active : {}]}>
-            {translations.router[Pages.SEARCH]}
+            {t.router[Pages.SEARCH]}
           </Text>
-          <View style={isActive ? styles.activeDot : styles.inactiveDot} />
+          <View
+            style={[
+              isActive ? styles.activeDot : styles.inactiveDot,
+              isActive ? { backgroundColor: accent } : {},
+            ]}
+          />
         </View>
       );
     case Pages.LIBRARY:
       return (
         <View style={styles.linkContainer}>
           <Ionicons
-            style={[styles.icon, isActive ? styles.activeIcon : {}]}
+            style={[
+              styles.icon,
+              isActive ? styles.activeIcon : {},
+              isActive ? { color: accent } : {},
+            ]}
             name="library"
             size={22}
           />
           <Text style={[styles.text, isActive ? styles.active : {}]}>
-            {translations.router[Pages.LIBRARY]}
+            {t.router[Pages.LIBRARY]}
           </Text>
-          <View style={isActive ? styles.activeDot : styles.inactiveDot} />
+          <View
+            style={[
+              isActive ? styles.activeDot : styles.inactiveDot,
+              isActive ? { backgroundColor: accent } : {},
+            ]}
+          />
         </View>
       );
     default:
       return (
         <View style={styles.linkContainer}>
           <AntDesign
-            style={[styles.icon, isActive ? styles.activeIcon : {}]}
+            style={[
+              styles.icon,
+              isActive ? styles.activeIcon : {},
+              isActive ? { color: accent } : {},
+            ]}
             name="home"
             size={22}
           />
           <Text style={[styles.text, isActive ? styles.active : {}]}>
-            {translations.router[Pages.HOME]}
+            {t.router[Pages.HOME]}
           </Text>
-          <View style={isActive ? styles.activeDot : styles.inactiveDot} />
+          <View
+            style={[
+              isActive ? styles.activeDot : styles.inactiveDot,
+              isActive ? { backgroundColor: accent } : {},
+            ]}
+          />
         </View>
       );
   }
@@ -67,6 +102,9 @@ export const BottomTabBar = ({
 }: BottomTabBarProps) => {
   const { width } = useApplicationDimensions();
   const { bottom: gestureInset } = useSafeAreaInsets();
+  // Réglages utilisateur RÉELS : accent + langue de l'interface.
+  const accent = useAccent();
+  const t = useTranslations();
 
   return (
     <View
@@ -104,7 +142,7 @@ export const BottomTabBar = ({
             onPress={onPress}
             style={[styles.pressable, { width: width / 3 }]}
           >
-            {renderPressableContent(route.name, isActive)}
+            {renderPressableContent(route.name, isActive, accent, t)}
           </Pressable>
         );
       })}

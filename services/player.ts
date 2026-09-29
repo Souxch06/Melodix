@@ -176,6 +176,8 @@ class MelodixPlayer {
   private sound: AvSound | null = null;
   private avModule: ExpoAvModule | null | undefined;
   private audioModeReady = false;
+  /** Réglage « Lecture en arrière-plan » (paramètres) — défaut historique. */
+  private staysActiveInBackground = true;
   private matchCache: MatchCache | null = null;
   private failedKeys = new Set<string>();
 
@@ -226,12 +228,42 @@ class MelodixPlayer {
 
     await av.Audio.setAudioModeAsync({
       playsInSilentModeIOS: true,
-      staysActiveInBackground: true,
+      staysActiveInBackground: this.staysActiveInBackground,
       shouldDuckAndroid: true,
       playThroughEarpieceAndroid: false,
     });
 
     this.audioModeReady = true;
+  };
+
+  /**
+   * Réglage « Lecture en arrière-plan » des paramètres. Additif : change le
+   * mode audio expo-av et mémorise le choix pour les prochaines sessions de
+   * lecture — sans toucher au pipeline de lecture. Si un son est en cours,
+   * expo-av applique le nouveau mode immédiatement.
+   */
+  setStaysActiveInBackground = async (enabled: boolean): Promise<void> => {
+    if (this.staysActiveInBackground === enabled) {
+      return;
+    }
+
+    this.staysActiveInBackground = enabled;
+
+    const av = this.getAv();
+    if (!av?.Audio) {
+      return; // module natif indisponible (tests) — choix mémorisé pour plus tard
+    }
+
+    try {
+      await av.Audio.setAudioModeAsync({
+        playsInSilentModeIOS: true,
+        staysActiveInBackground: enabled,
+        shouldDuckAndroid: true,
+        playThroughEarpieceAndroid: false,
+      });
+    } catch (error) {
+      console.warn('Failed to update the background audio mode:', error);
+    }
   };
 
   private unloadCurrent = async () => {
@@ -727,6 +759,13 @@ class MelodixPlayer {
     const next = order[(order.indexOf(this.state.repeat) + 1) % order.length];
 
     this.emit({ repeat: next });
+  };
+
+  /** Réglage explicite (paramètres → switch « Répéter la file »). Additif. */
+  setRepeat = (mode: RepeatMode) => {
+    if (this.state.repeat !== mode) {
+      this.emit({ repeat: mode });
+    }
   };
 
   clearNotice = () => {

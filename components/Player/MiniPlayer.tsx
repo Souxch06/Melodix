@@ -5,7 +5,7 @@ import { useRouter } from 'expo-router';
 
 import Ionicons from '@expo/vector-icons/Ionicons';
 
-import { usePlayer } from '@context';
+import { useAccent, usePlayer } from '@context';
 import { COLORS } from '@config';
 import { translations } from '@data';
 import { getFallbackImage } from '@utils';
@@ -23,6 +23,7 @@ const NOTICE_DURATION_MS = 4500;
  */
 export const MiniPlayer = () => {
   const router = useRouter();
+  const accent = useAccent();
   const {
     current,
     status,
@@ -74,7 +75,13 @@ export const MiniPlayer = () => {
         </View>
       ) : null}
       <View style={styles.progressTrack}>
-        <View style={[styles.progressFill, { width: `${progress * 100}%` }]} />
+        <View
+          style={[
+            styles.progressFill,
+            { backgroundColor: accent },
+            { width: `${progress * 100}%` },
+          ]}
+        />
       </View>
       <View style={styles.container}>
         <Pressable

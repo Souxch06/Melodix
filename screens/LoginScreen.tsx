@@ -39,6 +39,10 @@ import { useRouter } from 'expo-router';
 
 import { COLORS } from '@config';
 import { useUserData } from '@context';
+// Import direct (hors barrel @context) : l'accent vient des préférences mais
+// l'écran doit rester fonctionnel quand le seul contexte utilisateur est
+// simulé dans les tests historiques du parcours de connexion.
+import { useAccent } from '../context/PreferencesContext';
 import { translations } from '@data';
 import { isSpotifyLoginConfigured, useSpotifyAuth } from '@services';
 
@@ -59,6 +63,8 @@ export const LoginScreen = () => {
   const { state, isBusy, isAuthRequestPending, startLogin, resetError } =
     useSpotifyAuth();
   const { sessionStatus } = useUserData();
+  // Accent choisi dans les paramètres (teinte Spotify historique par défaut).
+  const accent = useAccent();
   const configured = React.useMemo(() => isSpotifyLoginConfigured(), []);
   const [successShown, setSuccessShown] = React.useState(false);
   const successHandledRef = React.useRef(false);
@@ -174,7 +180,7 @@ export const LoginScreen = () => {
       <View style={styles.screen} testID="login-success-screen">
         <Animated.View style={[styles.successContent, { opacity: fadeAnim }]}>
           <Ionicons
-            color={COLORS.TINT}
+            color={accent}
             name="checkmark-circle"
             size={72}
             testID="login-success-icon"
@@ -220,6 +226,7 @@ export const LoginScreen = () => {
                 onPress={handleRetryPress}
                 style={({ pressed }) => [
                   styles.retryButton,
+                  { backgroundColor: accent },
                   pressed && styles.retryButtonPressed,
                 ]}
                 testID="login-retry-button"
@@ -240,6 +247,7 @@ export const LoginScreen = () => {
               onPress={handleSpotifyPress}
               style={({ pressed }) => [
                 styles.primaryButton,
+                { backgroundColor: accent },
                 pressed && !buttonDisabled && styles.primaryButtonPressed,
                 buttonDisabled && styles.primaryButtonDisabled,
               ]}

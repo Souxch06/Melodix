@@ -129,3 +129,11 @@ export {
 export { useSpotifyAuth } from './spotify/useSpotifyAuth';
 export type { SpotifyAuthState } from './spotify/useSpotifyAuth';
 export type { SpotifyApiErrorKind } from './spotify/apiClient';
+export {
+  ACCENT_PRESETS,
+  DEFAULT_PREFERENCES,
+  accentHexOf,
+  loadPreferences,
+  savePreferences,
+} from './preferences';
+export type { AppLanguage, Preferences, ThemeMode } from './preferences';
