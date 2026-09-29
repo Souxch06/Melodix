@@ -21,6 +21,7 @@ const mockNext = jest.fn(async () => {});
 const mockPrevious = jest.fn(async () => {});
 const mockStop = jest.fn(async () => {});
 const mockClearNotice = jest.fn();
+const mockSeekTo = jest.fn(async () => {});
 
 let mockPlayerState: {
   current: PlayerTrack | null;
@@ -53,6 +54,7 @@ jest.mock('@context', () => ({
     previous: mockPrevious,
     stop: mockStop,
     clearNotice: mockClearNotice,
+    seekTo: mockSeekTo,
   }),
 }));
 
@@ -159,5 +161,131 @@ describe('MiniPlayer — ce qui existe vraiment', () => {
     const { getByText } = render(<MiniPlayer />);
 
     expect(getByText(translations.playerError)).toBeTruthy();
+  });
+});
+
+describe('MiniPlayer — progression glissable (phase 3)', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockPlayerState = {
+      current: sessionTrack,
+      status: 'playing',
+      positionMillis: 45000,
+      durationMillis: 180000,
+      notice: null,
+    };
+  });
+
+  it('durée inconnue : barre inerte, aucun seek possible', () => {
+    mockPlayerState = { ...mockPlayerState, durationMillis: 0 };
+    const { getByLabelText } = render(<MiniPlayer />);
+    const seek = getByLabelText(translations.playerSeek);
+
+    expect(seek.props.accessibilityState?.disabled).toBe(true);
+
+    fireEvent(seek, 'layout', { nativeEvent: { layout: { width: 200 } } });
+    fireEvent(seek, 'touchStart', { nativeEvent: { locationX: 100 } });
+    fireEvent(seek, 'touchEnd');
+
+    expect(mockSeekTo).not.toHaveBeenCalled();
+  });
+
+  it('drag milieu → UN seek final à la position exacte (50 % de 3 min)', () => {
+    const { getByLabelText } = render(<MiniPlayer />);
+    const seek = getByLabelText(translations.playerSeek);
+
+    fireEvent(seek, 'layout', { nativeEvent: { layout: { width: 200 } } });
+    fireEvent(seek, 'touchStart', { nativeEvent: { locationX: 40 } });
+    fireEvent(seek, 'touchMove', { nativeEvent: { locationX: 100 } });
+    fireEvent(seek, 'touchEnd');
+
+    expect(mockSeekTo).toHaveBeenCalledTimes(1);
+    expect(mockSeekTo).toHaveBeenCalledWith(90000);
+  });
+
+  it('drag à 0 et à la fin : jamais avant 0, jamais après la durée', () => {
+    const { getByLabelText } = render(<MiniPlayer />);
+    const seek = getByLabelText(translations.playerSeek);
+
+    fireEvent(seek, 'layout', { nativeEvent: { layout: { width: 200 } } });
+    fireEvent(seek, 'touchStart', { nativeEvent: { locationX: -40 } });
+    fireEvent(seek, 'touchEnd');
+    expect(mockSeekTo).toHaveBeenLastCalledWith(0);
+
+    mockSeekTo.mockClear();
+    fireEvent(seek, 'touchStart', { nativeEvent: { locationX: 2000 } });
+    fireEvent(seek, 'touchEnd');
+    expect(mockSeekTo).toHaveBeenLastCalledWith(180000);
+  });
+
+  it('changement de piste PENDANT un drag : seek appliqué sur le nouveau morceau, jamais l ancien', () => {
+    const { getByLabelText, rerender } = render(<MiniPlayer />);
+    let seek = getByLabelText(translations.playerSeek);
+
+    fireEvent(seek, 'layout', { nativeEvent: { layout: { width: 200 } } });
+    fireEvent(seek, 'touchStart', { nativeEvent: { locationX: 190 } });
+
+    // Nouveau morceau pendant le drag : `key={current.id}` remonte le slider
+    // → la preview de l'ancien morceau est PERDUE, pas de seek fantôme.
+    mockPlayerState = {
+      ...mockPlayerState,
+      current: { ...sessionTrack, id: 'spotify:two', title: 'Autre titre' },
+      positionMillis: 0,
+    };
+    rerender(<MiniPlayer />);
+
+    seek = getByLabelText(translations.playerSeek);
+    fireEvent(seek, 'touchEnd');
+
+    expect(mockSeekTo).not.toHaveBeenCalled();
+  });
+
+  it('drag pendant la résolution (loading, durée inconnue) : aucun crash, aucun seek', () => {
+    mockPlayerState = {
+      ...mockPlayerState,
+      status: 'loading',
+      durationMillis: 0,
+    };
+    const { getByLabelText } = render(<MiniPlayer />);
+    const seek = getByLabelText(translations.playerSeek);
+
+    fireEvent(seek, 'layout', { nativeEvent: { layout: { width: 200 } } });
+    fireEvent(seek, 'touchStart', { nativeEvent: { locationX: 100 } });
+    fireEvent(seek, 'touchEnd');
+
+    expect(mockSeekTo).not.toHaveBeenCalled();
+  });
+
+  it('drag pendant une PAUSE : seek appliqué normalement', () => {
+    mockPlayerState = { ...mockPlayerState, status: 'paused' };
+    const { getByLabelText } = render(<MiniPlayer />);
+    const seek = getByLabelText(translations.playerSeek);
+
+    fireEvent(seek, 'layout', { nativeEvent: { layout: { width: 200 } } });
+    fireEvent(seek, 'touchStart', { nativeEvent: { locationX: 100 } });
+    fireEvent(seek, 'touchEnd');
+
+    expect(mockSeekTo).toHaveBeenCalledWith(90000);
+  });
+
+  it('drag en état ERREUR avec durée valide : seek autorisé (reprise possible)', () => {
+    mockPlayerState = { ...mockPlayerState, status: 'error' };
+    const { getByLabelText } = render(<MiniPlayer />);
+    const seek = getByLabelText(translations.playerSeek);
+
+    fireEvent(seek, 'layout', { nativeEvent: { layout: { width: 200 } } });
+    fireEvent(seek, 'touchStart', { nativeEvent: { locationX: 50 } });
+    fireEvent(seek, 'touchEnd');
+
+    expect(mockSeekTo).toHaveBeenCalledWith(45000);
+  });
+
+  it('session restaurée (position 65 s / 3 min) : la barre suit la position réelle', () => {
+    mockPlayerState = { ...mockPlayerState, positionMillis: 65000 };
+    const { getByLabelText } = render(<MiniPlayer />);
+    const seek = getByLabelText(translations.playerSeek);
+
+    // 36 % arrondi : position réelle reflétée dans la valeur accessible.
+    expect(seek.props.accessibilityValue.now).toBe(36);
   });
 });

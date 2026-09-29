@@ -136,6 +136,8 @@ export const EN_GB_PLAYER = {
   playerRepeatOne: 'Repeat track',
   playerVolume: 'Volume',
   playerSeek: 'Position',
+  playerMute: 'Mute',
+  playerUnmute: 'Unmute',
   playerUpNext: 'Up next',
   playerExpand: 'Expand player',
   playerClose: 'Collapse player',

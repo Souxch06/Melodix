@@ -17,6 +17,7 @@ import { COLORS } from '@config';
 import { translations } from '@data';
 import { getFallbackImage } from '@utils';
 
+import { DragSlider } from './DragSlider';
 import { styles } from './fullStyles';
 
 // Durée d'affichage de la notice d'erreur — IDENTIQUE au MiniPlayer
@@ -67,8 +68,25 @@ export const FullPlayer = () => {
     moveInQueue,
   } = player;
 
-  const [seekWidth, setSeekWidth] = React.useState(0);
-  const [volumeWidth, setVolumeWidth] = React.useState(0);
+  // Mémoire MUTE : dernier volume NON NUL observé. Ce n'est PAS une 2e
+  // source de vérité : le volume réel reste `volume` (état moteur) ; ce
+  // ref ne sert qu'à retrouver le niveau d'avant mute (persistance Phase 2
+  // compatible : un volume restauré > 0 s'y installe automatiquement).
+  const lastAudibleVolumeRef = React.useRef(0.5);
+  // Preview du seek pendant le drag : affichage mm:ss immédiat sans toucher
+  // le moteur (le seek final n'arrive qu'au relâchement).
+  const [seekPreviewMillis, setSeekPreviewMillis] = React.useState<
+    number | null
+  >(null);
+
+  const volumeRef = React.useRef(volume);
+
+  React.useEffect(() => {
+    volumeRef.current = volume;
+    if (volume > 0) {
+      lastAudibleVolumeRef.current = volume;
+    }
+  }, [volume]);
 
   // Notice : affichée puis expirée automatiquement — jamais figée sur le
   // Full Player (le moteur la vide déjà au démarrage du morceau suivant).
@@ -96,6 +114,13 @@ export const FullPlayer = () => {
 
   const progress =
     durationMillis > 0 ? Math.min(positionMillis / durationMillis, 1) : 0;
+  // Position affichée : preview pendant le drag, sinon position réelle.
+  const previewProgress =
+    seekPreviewMillis !== null && durationMillis > 0
+      ? Math.min(seekPreviewMillis / durationMillis, 1)
+      : progress;
+  const isMuted = volume <= 0;
+  const seekShownMillis = seekPreviewMillis ?? positionMillis;
   const isPlaying = status === 'playing';
   const isBuffering = status === 'loading';
   // Durée réelle pas encore connue (avant le 1er statut expo-av ou sans
@@ -103,15 +128,21 @@ export const FullPlayer = () => {
   // présenté comme une durée réelle (phase 1, section 4).
   const durationKnown = durationMillis > 0;
 
-  const handleSeekPress = (x: number) => {
-    if (seekWidth > 0 && durationKnown) {
-      void seekTo(Math.round((x / seekWidth) * durationMillis));
+  const handleSeekEnd = (ratio: number) => {
+    if (durationKnown) {
+      void seekTo(Math.round(ratio * durationMillis));
     }
   };
 
-  const handleVolumePress = (x: number) => {
-    if (volumeWidth > 0) {
-      void setVolume(x / volumeWidth);
+  /** Mute/Unmute — mémorise le dernier volume non nul (jamais perdu). */
+  const handleMuteToggle = () => {
+    if (isMuted) {
+      void setVolume(
+        lastAudibleVolumeRef.current > 0 ? lastAudibleVolumeRef.current : 0.5
+      );
+    } else {
+      lastAudibleVolumeRef.current = volumeRef.current;
+      void setVolume(0);
     }
   };
 
@@ -178,21 +209,30 @@ export const FullPlayer = () => {
       </View>
 
       <View style={styles.seekWrap}>
-        <Pressable
-          disabled={!durationKnown}
-          onLayout={(e) => setSeekWidth(e.nativeEvent.layout.width)}
-          onPress={(e) => handleSeekPress(e.nativeEvent.locationX)}
-          style={[styles.seekTrack, !durationKnown && styles.seekDisabled]}
-          accessibilityRole="adjustable"
-          accessibilityState={{ disabled: !durationKnown }}
+        {/* Glissable (phase 3) : preview pendant le drag, UN seek final.
+            `key` = morceau : le changement de piste annule toute preview
+            emportée (jamais d'ancienne position sur le nouveau morceau). */}
+        <DragSlider
+          key={current.id}
           accessibilityLabel={translations.playerSeek}
-        >
-          <View style={[styles.seekFill, { flex: progress }]} />
-          <View style={[styles.seekRest, { flex: 1 - progress }]} />
-          <View style={[styles.seekThumb, { left: `${progress * 100}%` }]} />
-        </Pressable>
+          accessibilityValueText={`${formatMillis(seekShownMillis)} / ${
+            durationKnown ? formatMillis(durationMillis) : '—:--'
+          }`}
+          disabled={!durationKnown}
+          onSlideChange={(ratio) =>
+            durationKnown
+              ? setSeekPreviewMillis(Math.round(ratio * durationMillis))
+              : undefined
+          }
+          onSlideEnd={(ratio) => {
+            setSeekPreviewMillis(null);
+            handleSeekEnd(ratio);
+          }}
+          testID="full-seek-slider"
+          value={previewProgress}
+        />
         <View style={styles.timesRow}>
-          <Text style={styles.timeText}>{formatMillis(positionMillis)}</Text>
+          <Text style={styles.timeText}>{formatMillis(seekShownMillis)}</Text>
           <Text style={styles.timeText} testID="full-player-duration">
             {durationKnown ? formatMillis(durationMillis) : '—:--'}
           </Text>
@@ -271,17 +311,32 @@ export const FullPlayer = () => {
 
       <View style={styles.volumeRow}>
         <Ionicons name="volume-low" size={18} color={COLORS.GREY} />
+        <View style={styles.volumeTrack}>
+          <DragSlider
+            accessibilityLabel={translations.playerVolume}
+            accessibilityValueText={`${Math.round(volume * 100)} %`}
+            fillColor={COLORS.LIGHT_GREY}
+            onSlideEnd={(ratio) => void setVolume(ratio)}
+            testID="full-volume-slider"
+            value={volume}
+          />
+        </View>
         <Pressable
-          onLayout={(e) => setVolumeWidth(e.nativeEvent.layout.width)}
-          onPress={(e) => handleVolumePress(e.nativeEvent.locationX)}
-          style={styles.volumeTrack}
-          accessibilityRole="adjustable"
-          accessibilityLabel={translations.playerVolume}
+          accessibilityLabel={
+            isMuted ? translations.playerUnmute : translations.playerMute
+          }
+          accessibilityRole="button"
+          accessibilityState={{ selected: isMuted }}
+          onPress={handleMuteToggle}
+          style={styles.muteButton}
+          testID="full-mute-button"
         >
-          <View style={[styles.volumeFill, { flex: volume }]} />
-          <View style={[styles.volumeRest, { flex: 1 - volume }]} />
+          <Ionicons
+            name={isMuted ? 'volume-mute' : 'volume-high'}
+            size={18}
+            color={isMuted ? COLORS.TINT : COLORS.GREY}
+          />
         </Pressable>
-        <Ionicons name="volume-high" size={18} color={COLORS.GREY} />
       </View>
 
       <Text style={styles.queueTitle}>{translations.playerQueueTitle}</Text>

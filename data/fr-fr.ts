@@ -29,6 +29,8 @@ export const FR_FR_PLAYER = {
   playerRepeatOne: 'Répéter le titre',
   playerVolume: 'Volume',
   playerSeek: 'Position',
+  playerMute: 'Couper le son',
+  playerUnmute: 'Rétablir le son',
   playerUpNext: 'À suivre',
   playerExpand: 'Agrandir le lecteur',
   playerClose: 'Réduire le lecteur',

@@ -136,6 +136,13 @@ export const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 14,
   },
+  muteButton: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: 8,
+    minHeight: 34,
+    minWidth: 34,
+  },
   volumeTrack: {
     flex: 1,
     height: 18,

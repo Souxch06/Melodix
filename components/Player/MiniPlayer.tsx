@@ -10,6 +10,7 @@ import { COLORS } from '@config';
 import { translations } from '@data';
 import { getFallbackImage } from '@utils';
 
+import { DragSlider } from './DragSlider';
 import { styles } from './styles';
 
 // How long the "track not available" notice stays on the mini player.
@@ -33,6 +34,7 @@ export const MiniPlayer = () => {
     togglePlayPause,
     next,
     previous,
+    seekTo,
     stop,
     clearNotice,
   } = usePlayer();
@@ -51,8 +53,12 @@ export const MiniPlayer = () => {
     return null;
   }
 
-  const progress =
-    durationMillis > 0 ? Math.min(positionMillis / durationMillis, 1) : 0;
+  // Durée inconnue/invalide : la barre reste un INDICATEUR inerte
+  // (jamais de seek aveugle) — même règle que le FullPlayer.
+  const durationKnown = durationMillis > 0;
+  const progress = durationKnown
+    ? Math.min(positionMillis / durationMillis, 1)
+    : 0;
 
   const isBuffering = status === 'loading';
   const isPlaying = status === 'playing';
@@ -74,15 +80,24 @@ export const MiniPlayer = () => {
           </Text>
         </View>
       ) : null}
-      <View style={styles.progressTrack}>
-        <View
-          style={[
-            styles.progressFill,
-            { backgroundColor: accent },
-            { width: `${progress * 100}%` },
-          ]}
-        />
-      </View>
+      {/* Barre de progression GLISSABLE (phase 3) : preview locale pendant
+          le drag, UN seek unique au relâchement. `key` = id du morceau :
+          tout changement de piste abandonne la preview (jamais d'ancienne
+          position affichée sur le nouveau morceau). */}
+      <DragSlider
+        key={current.id}
+        accessibilityLabel={translations.playerSeek}
+        disabled={!durationKnown}
+        fillColor={accent}
+        interactiveHeight={12}
+        onSlideEnd={(ratio) => {
+          if (durationKnown) {
+            void seekTo(Math.round(ratio * durationMillis));
+          }
+        }}
+        trackHeight={2}
+        value={progress}
+      />
       <View style={styles.container}>
         <Pressable
           style={styles.openArea}
