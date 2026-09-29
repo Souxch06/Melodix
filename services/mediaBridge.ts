@@ -11,9 +11,12 @@
  *  - aucune résolution Audius/YouTube ;
  *  - aucune URL de flux projetée ;
  *  - aucune source de vérité parallèle (pas d'état courant dupliqué) ;
- *  - JAMAIS d'autoplay au boot : le service n'est sollicité que lors d'un
- *    statut 'playing'/'paused' réel émis par le moteur après action
- *    utilisateur — une session restaurée qui DORT ne déclenche rien.
+ *  - JAMAIS d'autoplay au boot : le service n'est activé QUE sur le premier
+ *    statut 'playing' réel émis par le moteur (action utilisateur) — tout
+ *    état avec morceau mais SANS lecture préalable ('idle'/'loading'/
+ *    'paused' de restauration) est rejeté sans appel natif — une session
+ *    restaurée qui DORT ne déclenche rien. Une fois activée, pause/reprise
+ *    du morceau en cours projettent normalement.
  */
 import {
   addMediaCommandListener,
@@ -132,8 +135,19 @@ export const handleMediaCommand = (command: MediaCommand): void => {
 
 /**
  * Projection d'un nouvel état moteur (appelée via subscribe).
- * Ne démarre JAMAIS le service sans lecture active réelle ('playing' OU
- * 'paused' avec morceau courant) : 'idle'/'loading' sans morceau → rien.
+ *
+ * ANTI-AUTOPLAY VERROUILLÉ (§9 durci) : TANT QU'AUCUNE lecture RÉELLE n'a
+ * démarré, AUCUN appel natif — MÊME avec un morceau courant. Rejette donc :
+ *  - le boot (`current === null`) ;
+ *  - une session restaurée simplement PROPOSÉE (pendingRestore : le moteur
+ *    n'est pas touché, aucun état n'arrive — verrou double) ;
+ *  - un morceau courant 'paused' issu d'une restauration AUTOMATIQUE ;
+ *  - les états transitoires 'idle'/'loading' émis avec un morceau par
+ *    restoreSession()/playQueue() AVANT le premier son.
+ * L'activation exige un statut 'playing' émis par le MOTEUR — qui n'existe
+ * qu'après une action utilisateur réelle (lecture, « Reprendre », commande
+ * système PLAY). Une fois la session activée, la pause/reprise normale du
+ * morceau en cours projette librement (jamais de réinitialisation en pause).
  */
 const projectState = (state: PlayerState): void => {
   if (!bridgeEnabled) {
@@ -151,6 +165,11 @@ const projectState = (state: PlayerState): void => {
       callNative(stopSession);
     }
 
+    return;
+  }
+
+  // LE VERROUILLAGE : aucune activation sans lecture réelle ('playing').
+  if (!sessionActivated && !payload.isPlaying) {
     return;
   }
 

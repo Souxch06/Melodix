@@ -20,6 +20,9 @@ import {
   teardownMediaBridge,
 } from '../mediaBridge';
 import { melodixPlayer, spotifyTrackSource } from '../player';
+import type { PlayerState, PlayerTrack } from '../player';
+import { PLAYBACK_SESSION_VERSION } from '../playbackSession';
+import type { PlaybackSession } from '../playbackSession';
 
 // Le module natif local est mocké : le bridge parle à CES mocks.
 const mockUpdateSession = jest.fn();
@@ -319,6 +322,123 @@ describe('mediaBridge — projection MediaSession (phase 5A)', () => {
       expect(previousSpy).toHaveBeenCalledTimes(1);
       expect(seekSpy).toHaveBeenCalledWith(42_000);
       expect(stopSpy).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('anti-autoplay VERROUILLÉ (durcissement du contrat §9)', () => {
+    /** Émet directement un état moteur : émission HYPOTHÉTIQUE qu'un futur
+     * chemin de restauration automatique produirait — le verrou doit tenir
+     * quelle que soit la source de l'émission. */
+    const emitEngineState = (partial: Partial<PlayerState>): void => {
+      (
+        melodixPlayer as unknown as {
+          emit: (next: Partial<PlayerState>) => void;
+        }
+      ).emit(partial);
+    };
+
+    const etatRestaure = (
+      track: PlayerTrack,
+      status: PlayerState['status']
+    ): Partial<PlayerState> => ({
+      queue: [track],
+      index: 0,
+      current: track,
+      status,
+      positionMillis: 12_345,
+      durationMillis: 0,
+      resolved: null,
+    });
+
+    it('PAUSED avec morceau au boot (restauration automatique) → JAMAIS updateSession/stopSession', () => {
+      expect(melodixPlayer.getState().status).toBe('idle'); // boot propre
+
+      emitEngineState(etatRestaure(morceau('r', 'Fantôme'), 'paused'));
+
+      expect(melodixPlayer.getState().current).not.toBeNull();
+      expect(melodixPlayer.getState().status).toBe('paused');
+      expect(mockUpdateSession).not.toHaveBeenCalled();
+      expect(mockStopSession).not.toHaveBeenCalled();
+
+      // Un retour à idle depuis cet état DORMANT ne sollicite rien non plus.
+      emitEngineState({ current: null, status: 'idle' });
+      expect(mockUpdateSession).not.toHaveBeenCalled();
+      expect(mockStopSession).not.toHaveBeenCalled();
+    });
+
+    it('états transitoires IDLE/LOADING avec morceau (avant le premier son) → AUCUNE projection', () => {
+      emitEngineState(etatRestaure(morceau('r', 'Fantôme'), 'idle'));
+      emitEngineState(etatRestaure(morceau('r', 'Fantôme'), 'loading'));
+
+      expect(mockUpdateSession).not.toHaveBeenCalled();
+      expect(mockStopSession).not.toHaveBeenCalled();
+    });
+
+    it('resumeSession() explicite (restoreSession moteur) → la lecture RÉELLE active MediaSession', async () => {
+      const session: PlaybackSession = {
+        version: PLAYBACK_SESSION_VERSION,
+        savedAt: Date.now(),
+        queue: [morceau('r', 'Retour'), morceau('s', 'Suite')],
+        index: 1,
+        positionMillis: 30_000,
+        shuffle: false,
+        repeat: 'off',
+        volume: 1,
+      };
+
+      await melodixPlayer.restoreSession(session);
+      await flush();
+      await flush();
+
+      expect(melodixPlayer.getState().status).toBe('playing');
+      expect(mockUpdateSession).toHaveBeenCalled();
+
+      // L'activation n'a eu lieu QUE sur le statut 'playing' du moteur :
+      // la TOUTE PREMIÈRE projection est isPlaying=true — les états
+      // transitoires 'idle'/'loading' de restoreSession n'ont rien poussé.
+      const premier = mockUpdateSession.mock.calls[0][0] as {
+        trackId: string;
+        isPlaying: boolean;
+      };
+
+      expect(premier.trackId).toBe('spotify:s'); // index restauré
+      expect(premier.isPlaying).toBe(true);
+    });
+
+    it('PLAYING → PAUSED → projection autorisée ; STOP depuis la pause → stopSession', async () => {
+      await melodixPlayer.playQueue([morceau('a', 'Photo')], 0);
+      await flush();
+      expect(mockUpdateSession).toHaveBeenCalled();
+
+      await melodixPlayer.togglePlayPause(); // PAUSE après une vraie lecture
+      expect(melodixPlayer.getState().status).toBe('paused');
+      const dernier = mockUpdateSession.mock.calls.at(-1)?.[0] as {
+        isPlaying: boolean;
+      };
+
+      expect(dernier.isPlaying).toBe(false); // la pause projette normalement
+
+      mockStopSession.mockClear();
+      await melodixPlayer.stop();
+      expect(mockStopSession).toHaveBeenCalledTimes(1);
+    });
+
+    it('commandes PLAY/PAUSE inchangées : PLAY quand paused (post-lecture) relance ET projette', async () => {
+      await melodixPlayer.playQueue([morceau('a', 'Photo')], 0);
+      await flush();
+      await melodixPlayer.togglePlayPause(); // pause (session activée)
+      mockUpdateSession.mockClear();
+
+      commandListener?.({ command: 'play' }); // PLAY système
+      await flush();
+
+      expect(melodixPlayer.getState().status).toBe('playing');
+      expect(mockUpdateSession).toHaveBeenCalled();
+      const dernier = mockUpdateSession.mock.calls.at(-1)?.[0] as {
+        isPlaying: boolean;
+      };
+
+      expect(dernier.isPlaying).toBe(true);
     });
   });
 
