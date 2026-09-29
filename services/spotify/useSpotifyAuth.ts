@@ -130,9 +130,9 @@ export const useSpotifyAuth = (): {
     // [SPOTIFY AUTH] — diagnostic temporaire (présence uniquement, jamais
     // la valeur du Client ID ; le redirect est public).
     spotifyConfigLine(
-      `[SPOTIFY AUTH] client_id: ${configured ? 'PRÉSENT' : 'ABSENT'} (source: ${clientInfo.source})`
+      `[SPOTIFY AUTH] Client ID configured: ${configured ? 'YES' : 'NO'} (source: ${clientInfo.source})`
     );
-    spotifyConfigLine(`[SPOTIFY AUTH] redirect URI utilisé: ${redirectUri}`);
+    spotifyConfigLine(`[SPOTIFY AUTH] Redirect URI: ${redirectUri}`);
     spotifyDiag('CLIENT_ID', clientInfo.clientId ? `PRESENT (source: ${clientInfo.source})` : 'MISSING');
     logRedirectUri(redirectUri);
     spotifyLog('auth.redirect.source', { cause: getSpotifyRedirectUriSource() });
@@ -188,8 +188,8 @@ export const useSpotifyAuth = (): {
       }
 
       spotifyLog('auth.exchange.start', { status: 'in-flight' });
-      // Lignes [SPOTIFY AUTH] de l'échange émises dans session.ts (là où
-      // vivent le corps de la requête et la réponse /api/token).
+      // Lignes [SPOTIFY AUTH] « Token exchange … » émises dans session.ts
+      // (là où vivent le corps de la requête et la réponse /api/token).
       setState({ status: 'exchanging' });
 
       const outcome = await redeemAuthorizationCode({
@@ -229,12 +229,13 @@ export const useSpotifyAuth = (): {
 
       // Token reçu : récupération du profil /me (classification propre).
       spotifyDiag('PROFILE', 'START');
-      spotifyConfigLine('[SPOTIFY AUTH] appel /v1/me');
+      spotifyConfigLine('[SPOTIFY AUTH] /v1/me request started');
       try {
         const user = await getCurrentUser();
         applySpotifyUser(user);
         spotifyDiag('PROFILE', 'SUCCESS');
-        spotifyConfigLine('[SPOTIFY AUTH] réponse /v1/me: OK (profil chargé)');
+        spotifyConfigLine('[SPOTIFY AUTH] /v1/me HTTP status: 200');
+        spotifyConfigLine('[SPOTIFY AUTH] /v1/me success/error: success');
         spotifyLog('auth.success', { scopesCount: SPOTIFY_SCOPES.length });
         setState({ status: 'idle' });
       } catch (error) {
@@ -251,7 +252,10 @@ export const useSpotifyAuth = (): {
           error instanceof SpotifyApiError ? error.spotifyMessage : '';
         const detail = `${kind}${httpStatus !== null ? ` · HTTP ${httpStatus}` : ''}${spotifyMessage ? ` · ${spotifyMessage}` : ''}`;
         spotifyDiag('PROFILE', `FAILED(${kind})`);
-        spotifyConfigLine(`[SPOTIFY AUTH] réponse /v1/me: FAILED(${detail})`);
+        spotifyConfigLine(
+          `[SPOTIFY AUTH] /v1/me HTTP status: ${httpStatus !== null ? httpStatus : kind}`
+        );
+        spotifyConfigLine(`[SPOTIFY AUTH] /v1/me success/error: error (${detail})`);
         spotifyLog('me.failed', { cause: kind });
         // Cause UI : 'me:network' reste inchangé, http/unauthenticated s'enrichissent.
         const uiCause =
@@ -292,7 +296,7 @@ export const useSpotifyAuth = (): {
         spotifyDiag('ERROR_CODE', code);
         if (desc) spotifyDiag('ERROR_DESCRIPTION', desc);
         spotifyConfigLine(
-          `[SPOTIFY AUTH] erreur OAuth: ${code}${desc ? ` · ${desc}` : ''} (deep-link)`
+          `[SPOTIFY AUTH] Authorization code received: NO (error: ${code}${desc ? ` · ${desc}` : ''} · deep-link)`
         );
         fallbackUsedRef.current = true;
         void WebBrowser.dismissBrowser();
@@ -302,7 +306,7 @@ export const useSpotifyAuth = (): {
 
       if (!params.code) {
         spotifyLog('callback.no-code', { codePresent: false });
-        spotifyConfigLine('[SPOTIFY AUTH] erreur OAuth: code ABSENT (deep-link)');
+        spotifyConfigLine('[SPOTIFY AUTH] Authorization code received: NO (code-absent · deep-link)');
         fallbackUsedRef.current = true;
         fail({ kind: 'callback-failed', cause: 'code-absent' });
         return true;
@@ -313,7 +317,7 @@ export const useSpotifyAuth = (): {
         spotifyLog('callback.state-invalid', {
           statePresent: typeof params.state === 'string',
         });
-        spotifyConfigLine('[SPOTIFY AUTH] erreur OAuth: state INVALIDE (deep-link)');
+        spotifyConfigLine('[SPOTIFY AUTH] Authorization code received: NO (state-invalid · deep-link)');
         fallbackUsedRef.current = true;
         fail({ kind: 'callback-failed', cause: 'state-invalid' });
         return true;
@@ -322,9 +326,7 @@ export const useSpotifyAuth = (): {
       fallbackUsedRef.current = true;
       void WebBrowser.dismissBrowser();
       spotifyLog('callback.fallback-exchange');
-      spotifyConfigLine(
-        "[SPOTIFY AUTH] code d'autorisation reçu (deep-link) — passage à l'échange"
-      );
+      spotifyConfigLine('[SPOTIFY AUTH] Authorization code received: YES (deep-link)');
       void completeLogin(params.code);
       return true;
     },
@@ -388,8 +390,9 @@ export const useSpotifyAuth = (): {
 
     fallbackUsedRef.current = false;
     spotifyDiag('PROMPT', 'OPENED');
-    spotifyConfigLine("[SPOTIFY AUTH] ouverture de l'autorisation (OAuth + PKCE)");
-    spotifyConfigLine(`[SPOTIFY AUTH] redirect URI utilisé: ${redirectUri}`);
+    spotifyConfigLine('[SPOTIFY AUTH] Starting authorization (OAuth + PKCE)');
+    spotifyConfigLine(`[SPOTIFY AUTH] Redirect URI: ${redirectUri}`);
+    spotifyConfigLine('[SPOTIFY AUTH] Authorization started');
     spotifyLog('auth.prompt.open', { status: 'opening' });
     setState({ status: 'requesting' });
 
@@ -397,6 +400,9 @@ export const useSpotifyAuth = (): {
       const result = await promptAsync();
 
       spotifyDiag('RESPONSE_TYPE', result.type);
+      spotifyConfigLine(
+        `[SPOTIFY AUTH] Authorization response received (type: ${result.type})`
+      );
       spotifyLog('auth.prompt.result', { resultType: result.type });
 
       // Le garde-fou a déjà piloté le flux : canal natif ignoré.
@@ -407,7 +413,7 @@ export const useSpotifyAuth = (): {
 
       if (result.type === 'cancel' || result.type === 'dismiss') {
         spotifyConfigLine(
-          `[SPOTIFY AUTH] erreur OAuth: aucune réponse (${result.type}) — navigateur fermé sans retour`
+          `[SPOTIFY AUTH] Authorization code received: NO (user-${result.type})`
         );
         fail({ kind: 'cancelled', cause: result.type });
         return;
@@ -420,7 +426,7 @@ export const useSpotifyAuth = (): {
         spotifyDiag('ERROR_CODE', code);
         if (desc) spotifyDiag('ERROR_DESCRIPTION', desc);
         spotifyConfigLine(
-          `[SPOTIFY AUTH] erreur OAuth: ${code}${desc ? ` · ${desc}` : ''}`
+          `[SPOTIFY AUTH] Authorization code received: NO (error: ${code}${desc ? ` · ${desc}` : ''})`
         );
         fail({ kind: 'oauth-refused', cause: safeCause(desc ? `${code} · ${desc}` : code) });
         return;
@@ -437,9 +443,7 @@ export const useSpotifyAuth = (): {
       }
 
       spotifyDiag('AUTH_CODE', 'PRESENT');
-      spotifyConfigLine(
-        "[SPOTIFY AUTH] code d'autorisation reçu (callback) — passage à l'échange"
-      );
+      spotifyConfigLine('[SPOTIFY AUTH] Authorization code received: YES');
 
       if (!request.codeVerifier) {
         spotifyLog('pkce.verifier-missing', { verifierPresent: false });

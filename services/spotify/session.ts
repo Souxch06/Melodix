@@ -385,10 +385,10 @@ export const redeemAuthorizationCode = async ({
 
   // [SPOTIFY AUTH] — diagnostic temporaire du build de test. Aucune valeur
   // sensible : le redirect est public, le reste n'est que présence/absence.
+  spotifyConfigLine('[SPOTIFY AUTH] Token exchange started');
   spotifyConfigLine(
-    '[SPOTIFY AUTH] échange du code: envoi (grant: code · PKCE: PRÉSENT · client_id: PRÉSENT)'
+    `[SPOTIFY AUTH] Token exchange params: grant_type=authorization_code redirect_uri=${redirectUri} client_id=YES pkce=YES`
   );
-  spotifyConfigLine(`[SPOTIFY AUTH] échange du code: redirect_uri=${redirectUri}`);
 
   spotifyDiag('TOKEN_EXCHANGE', 'START');
   const call = await requestToken(
@@ -406,8 +406,9 @@ export const redeemAuthorizationCode = async ({
     if (call.reason === 'refused') {
       spotifyDiag('TOKEN_EXCHANGE', `FAILED(${call.errorCode}, HTTP ${call.status})`);
       spotifyConfigLine(
-        `[SPOTIFY AUTH] réponse /api/token: FAILED(${call.errorCode} · HTTP ${call.status}${call.description ? ` · ${call.description}` : ''})`
+        `[SPOTIFY AUTH] Token exchange HTTP status: ${call.status} (${call.errorCode}${call.description ? ` · ${call.description}` : ''})`
       );
+      spotifyConfigLine('[SPOTIFY AUTH] Access token received: NO');
       return {
         kind: 'refused',
         status: call.status,
@@ -417,7 +418,7 @@ export const redeemAuthorizationCode = async ({
     }
     spotifyDiag('TOKEN_EXCHANGE', 'FAILED(network)');
     spotifyConfigLine(
-      '[SPOTIFY AUTH] réponse /api/token: INJOIGNABLE (panne réseau)'
+      '[SPOTIFY AUTH] Token exchange HTTP status: unreachable (network)'
     );
     return { kind: 'network' };
   }
@@ -426,18 +427,18 @@ export const redeemAuthorizationCode = async ({
   if (!session) {
     spotifyDiag('TOKEN_EXCHANGE', 'FAILED(invalid-response)');
     spotifyConfigLine(
-      '[SPOTIFY AUTH] réponse /api/token: HTTP 200 mais access token ABSENT'
+      '[SPOTIFY AUTH] Access token received: NO (HTTP 200 without access_token field)'
     );
     spotifyLog('exchange.invalid-response');
     return { kind: 'invalid-response' };
   }
   spotifyDiag('TOKEN_EXCHANGE', 'SUCCESS');
-  spotifyConfigLine('[SPOTIFY AUTH] réponse /api/token: OK (HTTP 200)');
+  spotifyConfigLine('[SPOTIFY AUTH] Token exchange HTTP status: 200');
   spotifyConfigLine(
-    `[SPOTIFY AUTH] access token reçu: OUI (expire dans ~${Math.round((session.expiresAtMs - Date.now()) / 1000)} s · scopes: ${session.scope.split(' ').filter(Boolean).length})`
+    `[SPOTIFY AUTH] Access token received: YES (expires in ~${Math.round((session.expiresAtMs - Date.now()) / 1000)} s · scopes: ${session.scope.split(' ').filter(Boolean).length})`
   );
   spotifyConfigLine(
-    `[SPOTIFY AUTH] refresh token reçu: ${session.refreshToken !== null ? 'OUI' : 'NON'}`
+    `[SPOTIFY AUTH] Refresh token received: ${session.refreshToken !== null ? 'YES' : 'NO'}`
   );
 
   try {

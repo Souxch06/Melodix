@@ -87,9 +87,7 @@ export const spotifyDiag = (stage: string, value?: string): void => {
 /** Ligne verbatim de mise en config (ex. « Spotify Redirect URI: … »). */
 export const spotifyConfigLine = (line: string): void => {
   // Même ceinture de sécurité : toute valeur suspecte est masquée.
-  const safe = /[Bb]earer|access_?token|refresh_?token|Authorization|client_?secret|verifier/i.test(
-    line
-  )
+  const safe = sensitivePattern.test(line)
     ? '<redacted>'
     : line.length > 140
       ? `${line.slice(0, 137)}…`
@@ -98,9 +96,16 @@ export const spotifyConfigLine = (line: string): void => {
   console.log(safe);
 };
 
-/** Motifs à ne JAMAIS laisser passer dans une ligne de diagnostic. */
+/**
+ * Motifs à ne JAMAIS laisser passer dans une ligne de diagnostic — ciblés
+ * sur les SECRETS (valeurs d'en-tête ou de clé), pas sur les intitulés
+ * d'étape : « Authorization code received: YES » ou
+ * « Access token received: NO » sont des booléens SÛRS et attendus ;
+ * « Bearer <valeur> », « access_token=<valeur> » ou toute paire
+ * token/secret/verifier avec valeur sont masquées.
+ */
 const sensitivePattern =
-  /[Bb]earer|access_?token|refresh_?token|Authorization|client_?secret|verifier/i;
+  /[Bb]earer\s+\S|access_?token\s*[=:]|refresh_?token\s*[=:]|client_?secret|code_?verifier/i;
 
 /**
  * Sanitise une description d'erreur OAuth (corps RFC 6749 / authorize) pour

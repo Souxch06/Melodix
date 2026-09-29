@@ -277,11 +277,11 @@ describe('services/spotify/session (SecureStore)', () => {
       const lines = logSpy.mock.calls
         .map((call) => String(call[0]))
         .filter((text) => text.includes('[SPOTIFY AUTH]'));
-      expect(lines.some((t) => t.includes('échange du code: envoi'))).toBe(true);
-      expect(lines.some((t) => t.includes('redirect_uri=melodix://callback'))).toBe(true);
-      expect(lines.some((t) => t.includes('réponse /api/token: OK (HTTP 200)'))).toBe(true);
-      expect(lines.some((t) => t.includes('access token reçu: OUI'))).toBe(true);
-      expect(lines.some((t) => t.includes('refresh token reçu: OUI'))).toBe(true);
+      expect(lines.some((t) => t.includes('[SPOTIFY AUTH] Token exchange started'))).toBe(true);
+      expect(lines.some((t) => t.includes('Token exchange params:') && t.includes('redirect_uri=melodix://callback'))).toBe(true);
+      expect(lines.some((t) => t.includes('[SPOTIFY AUTH] Token exchange HTTP status: 200'))).toBe(true);
+      expect(lines.some((t) => t.includes('[SPOTIFY AUTH] Access token received: YES'))).toBe(true);
+      expect(lines.some((t) => t.includes('[SPOTIFY AUTH] Refresh token received: YES'))).toBe(true);
       for (const line of lines) {
         expect(line).not.toContain('TOP-SECRET-ACCESS');
         expect(line).not.toContain('TOP-SECRET-REFRESH');
@@ -310,8 +310,13 @@ describe('services/spotify/session (SecureStore)', () => {
         .map((call) => String(call[0]))
         .filter((text) => text.includes('[SPOTIFY AUTH]'));
       expect(
-        lines.some((t) => t.includes('réponse /api/token: FAILED(invalid_client · HTTP 400'))
+        lines.some(
+          (t) =>
+            t.includes('[SPOTIFY AUTH] Token exchange HTTP status: 400') &&
+            t.includes('invalid_client')
+        )
       ).toBe(true);
+      expect(lines.some((t) => t.includes('[SPOTIFY AUTH] Access token received: NO'))).toBe(true);
       logSpy.mockRestore();
     });
 

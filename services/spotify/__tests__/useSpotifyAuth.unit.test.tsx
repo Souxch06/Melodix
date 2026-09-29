@@ -298,12 +298,15 @@ describe('useSpotifyAuth — taxonomie du diagnostic OAuth', () => {
     const authLines = logSpy.mock.calls
       .map((call) => String(call[0]))
       .filter((text) => text.includes('[SPOTIFY AUTH]'));
-    expect(authLines.some((t) => t.includes('[SPOTIFY AUTH] appel /v1/me'))).toBe(true);
+    expect(authLines.some((t) => t.includes('[SPOTIFY AUTH] /v1/me request started'))).toBe(true);
+    expect(
+      authLines.some((t) => t.includes('[SPOTIFY AUTH] /v1/me HTTP status: 403'))
+    ).toBe(true);
     expect(
       authLines.some(
         (t) =>
-          t.includes('[SPOTIFY AUTH] réponse /v1/me: FAILED(http') &&
-          t.includes('HTTP 403')
+          t.includes('[SPOTIFY AUTH] /v1/me success/error: error') &&
+          t.includes('developer.spotify.com/dashboard')
       )
     ).toBe(true);
     logSpy.mockRestore();
