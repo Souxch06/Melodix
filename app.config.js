@@ -60,9 +60,7 @@ const extraIntentFilters =
     ? [
         {
           action: 'VIEW',
-          data: [
-            { scheme: redirectMatch[1], host: redirectMatch[2] },
-          ],
+          data: [{ scheme: redirectMatch[1], host: redirectMatch[2] }],
           category: ['BROWSABLE', 'DEFAULT'],
         },
       ]
@@ -83,7 +81,12 @@ module.exports = {
     icon: './assets/images/icon.png',
     scheme: 'melodix',
     userInterfaceStyle: 'dark',
-    plugins: ['expo-router'],
+    plugins: [
+      'expo-router',
+      // Phase 5A : MediaSession/Foreground Service Android (manifest généré,
+      // idempotent). android/ reste NON versionné (prebuild).
+      './modules/melodix-media/plugin/withMelodixMedia',
+    ],
     splash: {
       image: './assets/images/splash.png',
       resizeMode: 'contain',

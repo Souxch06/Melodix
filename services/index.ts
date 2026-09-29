@@ -16,6 +16,15 @@ export type {
 } from './player';
 
 export {
+  buildMediaSessionPayload,
+  handleMediaCommand,
+  initMediaBridge,
+  isMediaBridgeEnabled,
+  setMediaBridgeEnabled,
+  teardownMediaBridge,
+} from './mediaBridge';
+
+export {
   clearPlaybackSession,
   loadPlaybackSession,
   PLAYBACK_SESSION_MAX_QUEUE,

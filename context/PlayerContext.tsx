@@ -6,6 +6,7 @@ import {
   loadPlaybackSession,
   melodixPlayer,
 } from '@services';
+import { initMediaBridge } from '@services';
 import type {
   PlaybackSession,
   PlayerState,
@@ -84,6 +85,14 @@ export const PlayerProvider = ({ children }: { children: React.ReactNode }) => {
     React.useState<PlaybackSession | null>(null);
 
   React.useEffect(() => melodixPlayer.subscribe(setState), []);
+
+  // Phase 5A : le bridge MediaSession NE démarre AUCUN service au boot —
+  // il se contente d'écouter ; l'activation réelle est conditionnée au
+  // réglage `staysActiveInBackground` (synchronisé par PreferencesContext).
+  React.useEffect(() => {
+    // Garde : en tests, `@services` est mocké sans mediaBridge → no-op.
+    (initMediaBridge as (() => void) | undefined)?.();
+  }, []);
 
   // Restauration au boot : la session persistée est SEULEMENT PROPOSÉE
   // (jamais lue automatiquement — pas d'audio sans action utilisateur).

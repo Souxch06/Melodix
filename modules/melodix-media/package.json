@@ -1,0 +1,7 @@
+{
+  "name": "melodix-media",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Module natif local : projection MediaSession/Foreground Service de melodixPlayer (JAMAIS un deuxième moteur).",
+  "main": "index.ts"
+}

@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Manifest du module : VOLONTAIREMENT vide (namespace seul).
+     Les permissions + déclaration du service sont écrites dans le manifest
+     FINAL de l'application par le config plugin (plugin/withMelodixMedia.js)
+     — source unique, idempotente, jamais éditée dans android/. -->
+<manifest package="expo.modules.melodixmedia" />

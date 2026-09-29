@@ -20,6 +20,7 @@ import {
   EN_GB_PLAYLIST,
   EN_GB_SETTINGS,
 } from '../data/en-gb';
+import { setMediaBridgeEnabled } from '../services/mediaBridge';
 import { melodixPlayer } from '../services/player';
 
 type Translations = typeof baseTranslations;
@@ -92,6 +93,9 @@ export const PreferencesProvider = ({
       setLoading(false);
       void melodixPlayer.setVolume(restored.startupVolume / 100);
       void melodixPlayer.setStaysActiveInBackground(restored.backgroundAudio);
+      // Phase 5A : le MÊME réglage arme/désarme le bridge MediaSession
+      // (projection Android uniquement — jamais de lecture automatique).
+      setMediaBridgeEnabled(restored.backgroundAudio);
     });
 
     return () => {
@@ -123,6 +127,7 @@ export const PreferencesProvider = ({
       setBackgroundAudio: (backgroundAudio) => {
         update({ backgroundAudio });
         void melodixPlayer.setStaysActiveInBackground(backgroundAudio);
+        setMediaBridgeEnabled(backgroundAudio);
       },
       setStartupVolume: (startupVolume) => {
         update({ startupVolume });
