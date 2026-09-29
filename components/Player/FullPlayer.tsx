@@ -17,7 +17,11 @@ import { COLORS } from '@config';
 import { translations } from '@data';
 import { getFallbackImage } from '@utils';
 
+import type { PlayerTrack } from '@services';
+
 import { DragSlider } from './DragSlider';
+import { QueueActionMenu } from './QueueActionMenu';
+import { QueueRow } from './QueueRow';
 import { styles } from './fullStyles';
 
 // Durée d'affichage de la notice d'erreur — IDENTIQUE au MiniPlayer
@@ -67,6 +71,53 @@ export const FullPlayer = () => {
     removeFromQueue,
     moveInQueue,
   } = player;
+
+  // Menu d'actions du morceau COURANT (phase 4, §7) : le MÊME composant
+  // réutilisable QueueActionMenu — aucun menu parallèle créé.
+  const [currentMenuVisible, setCurrentMenuVisible] = React.useState(false);
+
+  const handlePlayQueueIndex = React.useCallback(
+    (rowIndex: number) => {
+      void playAtIndex(rowIndex);
+    },
+    [playAtIndex]
+  );
+  const handleMoveUp = React.useCallback(
+    (rowIndex: number) => moveInQueue(rowIndex, rowIndex - 1),
+    [moveInQueue]
+  );
+  const handleMoveDown = React.useCallback(
+    (rowIndex: number) => moveInQueue(rowIndex, rowIndex + 1),
+    [moveInQueue]
+  );
+
+  const renderQueueRow = React.useCallback(
+    ({ item, index: rowIndex }: { item: PlayerTrack; index: number }) => (
+      <QueueRow
+        accent={accent}
+        index={rowIndex}
+        isCurrent={rowIndex === currentIndex}
+        isFirst={rowIndex === 0}
+        isLast={rowIndex === queue.length - 1}
+        isPlaying={status === 'playing'}
+        onMoveDown={handleMoveDown}
+        onMoveUp={handleMoveUp}
+        onPlay={handlePlayQueueIndex}
+        onRemove={removeFromQueue}
+        track={item}
+      />
+    ),
+    [
+      accent,
+      currentIndex,
+      queue.length,
+      status,
+      handleMoveDown,
+      handleMoveUp,
+      handlePlayQueueIndex,
+      removeFromQueue,
+    ]
+  );
 
   // Mémoire MUTE : dernier volume NON NUL observé. Ce n'est PAS une 2e
   // source de vérité : le volume réel reste `volume` (état moteur) ; ce
@@ -188,9 +239,29 @@ export const FullPlayer = () => {
       </View>
 
       <View style={styles.metaWrap}>
-        <Text numberOfLines={1} style={styles.title}>
-          {current.title}
-        </Text>
+        <View style={styles.titleRow}>
+          <Text numberOfLines={1} style={[styles.title, styles.titleFlex]}>
+            {current.title}
+          </Text>
+          {/* ⋯ du morceau courant : « Ajouter à la file » / « Lire ensuite »
+              — réutilise le menu partagé (phase 4, §7), jamais de doublon. */}
+          <Pressable
+            accessibilityLabel={translations.playerQueueTrackActions(
+              current.title
+            )}
+            accessibilityRole="button"
+            hitSlop={10}
+            onPress={() => setCurrentMenuVisible(true)}
+            style={styles.moreActions}
+            testID="current-actions"
+          >
+            <Ionicons
+              name="ellipsis-horizontal"
+              size={18}
+              color={COLORS.GREY}
+            />
+          </Pressable>
+        </View>
         <Text numberOfLines={1} style={styles.subtitle}>
           {current.artists.join(', ')}
         </Text>
@@ -244,6 +315,8 @@ export const FullPlayer = () => {
           onPress={toggleShuffle}
           style={styles.smallControl}
           accessibilityRole="button"
+          accessibilityState={{ selected: shuffle }}
+          hitSlop={8}
           accessibilityLabel={translations.playerShuffle}
         >
           <Ionicons
@@ -291,6 +364,8 @@ export const FullPlayer = () => {
           <Ionicons name="play-skip-forward" size={30} color={COLORS.WHITE} />
         </Pressable>
         <Pressable
+          accessibilityState={{ selected: repeat !== 'off' }}
+          hitSlop={8}
           onPress={cycleRepeat}
           style={styles.smallControl}
           accessibilityRole="button"
@@ -339,99 +414,36 @@ export const FullPlayer = () => {
         </Pressable>
       </View>
 
-      <Text style={styles.queueTitle}>{translations.playerQueueTitle}</Text>
-      <FlatList
-        data={queue}
-        keyExtractor={(item, idx) => `${item.id}:${idx}`}
-        style={styles.queueList}
-        // Queue longue : virtualisée par FlatList (phase 2, performance).
-        initialNumToRender={12}
-        renderItem={({ item, index }) => {
-          const isCurrent = index === currentIndex;
-          const isFirst = index === 0;
-          const isLast = index === queue.length - 1;
+      <View style={styles.queueHeaderRow}>
+        <Text style={styles.queueTitle}>{translations.playerQueueTitle}</Text>
+        {/* Position réelle dans la file ORIGINALE (§5) — jamais l'ordre
+            shuffle affiché : `order` reste interne au moteur. */}
+        <Text style={styles.queueCount} testID="queue-count">
+          {currentIndex + 1} / {queue.length}
+        </Text>
+      </View>
+      {queue.length ? (
+        <FlatList
+          data={queue}
+          keyExtractor={(item, idx) => `${item.id}:${idx}`}
+          style={styles.queueList}
+          // Queue longue : virtualisée (phase 2/4, performance §8) — lignes
+          // mémoïsées (QueueRow) + rendu borné par batch.
+          initialNumToRender={12}
+          maxToRenderPerBatch={10}
+          renderItem={renderQueueRow}
+          windowSize={7}
+        />
+      ) : (
+        <Text style={styles.queueEmpty} testID="queue-empty">
+          {translations.playerQueueEmpty}
+        </Text>
+      )}
 
-          return (
-            <View
-              style={[styles.queueRow, isCurrent && styles.queueRowActive]}
-              testID={`queue-row-${index}`}
-            >
-              <Pressable
-                accessibilityRole="button"
-                onPress={() => void playAtIndex(index)}
-                style={styles.queueTapArea}
-              >
-                <Image
-                  source={
-                    item.imageURL
-                      ? { uri: item.imageURL }
-                      : getFallbackImage('track')
-                  }
-                  style={styles.queueArtwork}
-                />
-                <Ionicons
-                  name={isCurrent && isPlaying ? 'stats-chart' : 'musical-note'}
-                  size={15}
-                  color={isCurrent ? accent : COLORS.GREY}
-                  style={styles.queueIcon}
-                />
-                <View style={styles.queueInfo}>
-                  <Text
-                    numberOfLines={1}
-                    style={[
-                      styles.queueTitleText,
-                      isCurrent && styles.activeText,
-                    ]}
-                  >
-                    {item.title}
-                  </Text>
-                  <Text numberOfLines={1} style={styles.queueSubtitleText}>
-                    {item.artists.join(', ')}
-                  </Text>
-                </View>
-              </Pressable>
-
-              {/* Réordonner : flèche haut/bas (accessible, sans lib native). */}
-              <Pressable
-                accessibilityLabel={translations.playerQueueMoveUp}
-                accessibilityRole="button"
-                disabled={isFirst}
-                onPress={() => moveInQueue(index, index - 1)}
-                style={[styles.queueAction, isFirst && styles.queueActionOff]}
-                testID={`queue-up-${index}`}
-              >
-                <Ionicons
-                  name="chevron-up"
-                  size={17}
-                  color={COLORS.LIGHT_GREY}
-                />
-              </Pressable>
-              <Pressable
-                accessibilityLabel={translations.playerQueueMoveDown}
-                accessibilityRole="button"
-                disabled={isLast}
-                onPress={() => moveInQueue(index, index + 1)}
-                style={[styles.queueAction, isLast && styles.queueActionOff]}
-                testID={`queue-down-${index}`}
-              >
-                <Ionicons
-                  name="chevron-down"
-                  size={17}
-                  color={COLORS.LIGHT_GREY}
-                />
-              </Pressable>
-              <Pressable
-                accessibilityLabel={translations.playerQueueRemove}
-                accessibilityRole="button"
-                onPress={() => removeFromQueue(index)}
-                style={styles.queueAction}
-                testID={`queue-remove-${index}`}
-              >
-                <Ionicons name="trash-outline" size={16} color={COLORS.RED} />
-              </Pressable>
-            </View>
-          );
-        }}
+      <QueueActionMenu
+        onClose={() => setCurrentMenuVisible(false)}
+        track={currentMenuVisible ? current : null}
+        visible={currentMenuVisible}
       />
 
       <Pressable

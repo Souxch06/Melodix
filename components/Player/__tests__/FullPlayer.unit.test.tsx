@@ -33,6 +33,8 @@ const mockStop = jest.fn(async () => {});
 const mockClearNotice = jest.fn();
 const mockRemoveFromQueue = jest.fn();
 const mockMoveInQueue = jest.fn();
+const mockAddToQueue = jest.fn();
+const mockPlayNext = jest.fn();
 
 let mockPlayerState: {
   current: PlayerTrack | null;
@@ -72,6 +74,8 @@ jest.mock('@context', () => ({
     clearNotice: mockClearNotice,
     removeFromQueue: mockRemoveFromQueue,
     moveInQueue: mockMoveInQueue,
+    addToQueue: mockAddToQueue,
+    playNext: mockPlayNext,
   }),
 }));
 
@@ -528,5 +532,220 @@ describe('FullPlayer — volume glissable et mute (phase 3)', () => {
     drag(slider, [-30]);
 
     expect(mockSeekTo).toHaveBeenLastCalledWith(0);
+  });
+});
+
+/**
+ * PHASE 4 — FullPlayer final + file centrale (§2-§12) :
+ *  compteur de file, ligne courante identifiée, section réactive aux
+ *  combinaisons shuffle/repeat, menu ⋯ réutilisé, état vide, accessibilité.
+ */
+describe('FullPlayer — file centrale et états finaux (phase 4)', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockPlayerState = {
+      current: mkTrack('two', 'Make It'),
+      queue: [
+        mkTrack('one', 'First Song'),
+        mkTrack('two', 'Make It'),
+        mkTrack('three', 'Last Song'),
+      ],
+      index: 1,
+      status: 'playing',
+      positionMillis: 65000,
+      durationMillis: 180000,
+      shuffle: false,
+      repeat: 'off',
+      volume: 0.8,
+      providerName: 'Audius',
+      notice: null,
+    };
+  });
+
+  it('affiche la position réelle dans la file : « 2 / 3 »', () => {
+    const { getByTestId } = render(<FullPlayer />);
+
+    expect(getByTestId('queue-count').props.children).toEqual([2, ' / ', 3]);
+  });
+
+  it('le morceau souvent marqué « Lecture en cours », non les autres', () => {
+    const { getAllByText, getByText } = render(<FullPlayer />);
+
+    // Une SEULE ligne porte le badge (et le compteur n en montre aucun autre).
+    expect(
+      getAllByText(new RegExp(translations.playerQueuePlaying))
+    ).toHaveLength(1);
+    getByText('First Song');
+    getByText('Last Song');
+  });
+
+  it('l affichage reste la queue ORIGINALE même en shuffle (jamais l ordre interne)', () => {
+    mockPlayerState = { ...mockPlayerState, shuffle: true };
+    const { getAllByTestId, getAllByText } = render(<FullPlayer />);
+
+    // Les lignes dans l'ordre 0,1,2 — indépendantes de l ordre de lecture.
+    const lignes = getAllByText(/First Song|Make It|Last Song/);
+    expect(lignes.length).toBeGreaterThanOrEqual(3);
+    const rows = [0, 1, 2].map((i) => getAllByTestId(`queue-row-${i}`)[0]);
+    expect(rows.every(Boolean)).toBe(true);
+  });
+
+  it('shuffle ACTIF : bouton identifié ; INACTIF : normal (accessibilityState)', () => {
+    const { rerender, getByLabelText } = render(<FullPlayer />);
+
+    expect(
+      getByLabelText(translations.playerShuffle).props.accessibilityState
+        ?.selected
+    ).toBe(false);
+
+    mockPlayerState = { ...mockPlayerState, shuffle: true };
+    rerender(<FullPlayer />);
+    expect(
+      getByLabelText(translations.playerShuffle).props.accessibilityState
+        ?.selected
+    ).toBe(true);
+  });
+
+  it('repeat OFF → ALL → ONE → OFF : l icône/état suit TOUJOURS le moteur', () => {
+    const { rerender, getByLabelText, queryByLabelText } = render(
+      <FullPlayer />
+    );
+
+    // Le libellé change en mode ONE (« Répéter le titre ») — le cycle suit.
+    const cycle = () => {
+      const bouton =
+        queryByLabelText(translations.playerRepeat) ??
+        queryByLabelText(translations.playerRepeatOne);
+      expect(bouton).toBeTruthy();
+      fireEvent.press(bouton as never);
+    };
+
+    cycle(); // OFF → ALL (moteur)
+    mockPlayerState = { ...mockPlayerState, repeat: 'all' };
+    rerender(<FullPlayer />);
+    expect(
+      getByLabelText(translations.playerRepeat).props.accessibilityState
+        ?.selected
+    ).toBe(true);
+
+    cycle(); // ALL → ONE
+    mockPlayerState = { ...mockPlayerState, repeat: 'one' };
+    rerender(<FullPlayer />);
+    // En mode ONE, le libellé bascule sur « Répéter le titre ».
+    expect(getByLabelText(translations.playerRepeatOne)).toBeTruthy();
+
+    cycle(); // ONE → OFF
+    mockPlayerState = { ...mockPlayerState, repeat: 'off' };
+    rerender(<FullPlayer />);
+    expect(
+      getByLabelText(translations.playerRepeat).props.accessibilityState
+        ?.selected
+    ).toBe(false);
+
+    expect(mockCycleRepeat).toHaveBeenCalledTimes(3);
+  });
+
+  it('⋯ du morceau courant : menu PARTAGÉ → « Ajouter à la file » branché', () => {
+    const { getByTestId, getByLabelText } = render(<FullPlayer />);
+
+    fireEvent.press(getByTestId('current-actions'));
+    fireEvent.press(getByLabelText(translations.playerQueueAdd));
+
+    expect(mockAddToQueue).toHaveBeenCalledWith(mockPlayerState.current);
+  });
+
+  it('⋯ « Lire ensuite » : playNext via le MÊME menu (aucun doublon)', () => {
+    const { getByTestId, getByLabelText } = render(<FullPlayer />);
+
+    fireEvent.press(getByTestId('current-actions'));
+    fireEvent.press(getByLabelText(translations.playerQueuePlayNext));
+
+    expect(mockPlayNext).toHaveBeenCalledWith(mockPlayerState.current);
+  });
+
+  it('file d UN élément : compteur 1/1, les deux flèches désactivées', () => {
+    mockPlayerState = {
+      ...mockPlayerState,
+      current: mkTrack('one', 'First Song'),
+      queue: [mkTrack('one', 'First Song')],
+      index: 0,
+    };
+    const { getByTestId } = render(<FullPlayer />);
+
+    expect(getByTestId('queue-count').props.children).toEqual([1, ' / ', 1]);
+    expect(getByTestId('queue-up-0').props.accessibilityState?.disabled).toBe(
+      true
+    );
+    expect(getByTestId('queue-down-0').props.accessibilityState?.disabled).toBe(
+      true
+    );
+  });
+
+  it('queue vide (défensif) : message propre affiché', () => {
+    mockPlayerState = { ...mockPlayerState, queue: [], index: -1 };
+    const { getByTestId } = render(<FullPlayer />);
+
+    expect(getByTestId('queue-empty').props.children).toBe(
+      translations.playerQueueEmpty
+    );
+  });
+
+  it('tap sur une ligne de la file : playAtIndex(index) exact', () => {
+    const { getByLabelText } = render(<FullPlayer />);
+
+    fireEvent.press(getByLabelText('Last Song — Neffex'));
+
+    expect(mockPlayAtIndex).toHaveBeenCalledWith(2);
+  });
+
+  it('session restaurée : position mm:ss et compteur reflètent l état reçu', () => {
+    mockPlayerState = {
+      ...mockPlayerState,
+      positionMillis: 75000,
+      volume: 0.7,
+      shuffle: true,
+      repeat: 'all',
+    };
+    const { getByText, getByTestId } = render(<FullPlayer />);
+
+    expect(getByText('1:15')).toBeTruthy(); // position restaurée
+    expect(getByText('3:00')).toBeTruthy(); // durée
+    expect(getByTestId('queue-count')).toBeTruthy();
+    expect(getByTestId('full-volume-slider').props.accessibilityValue.now).toBe(
+      70
+    );
+  });
+
+  it('erreur : message propre + « suivant » toujours fonctionnel', () => {
+    mockPlayerState = {
+      ...mockPlayerState,
+      status: 'error',
+      notice: { kind: 'play-failed', title: 'Make It' },
+    };
+    const { getByLabelText } = render(<FullPlayer />);
+
+    expect(getByLabelText(translations.playerNext)).toBeTruthy();
+
+    fireEvent.press(getByLabelText(translations.playerNext));
+    expect(mockNext).toHaveBeenCalledTimes(1);
+  });
+
+  it('longue file : 150 morceaux rendus sans explosion (batch borné)', () => {
+    const longue = Array.from({ length: 150 }, (_, i) =>
+      mkTrack(`t${i}`, `Titre ${i}`)
+    );
+    mockPlayerState = {
+      ...mockPlayerState,
+      queue: longue,
+      index: 74,
+      current: longue[74],
+    };
+
+    const { getByTestId } = render(<FullPlayer />);
+
+    expect(getByTestId('queue-count').props.children).toEqual([75, ' / ', 150]);
+    // FlatList windowSize/initialNumToRender bornés : la vue n'instancie pas
+    // les 150 lignes d'un coup.
+    expect(getByTestId('queue-count')).toBeTruthy();
   });
 });

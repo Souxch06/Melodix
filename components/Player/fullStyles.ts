@@ -162,6 +162,36 @@ export const styles = StyleSheet.create({
     borderTopRightRadius: 2,
     borderBottomRightRadius: 2,
   },
+  titleRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+  },
+  titleFlex: {
+    flex: 1,
+  },
+  moreActions: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: 8,
+    minHeight: 34,
+    minWidth: 34,
+  },
+  queueHeaderRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  queueCount: {
+    color: COLORS.GREY,
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  queueEmpty: {
+    color: COLORS.GREY,
+    fontSize: 12,
+    paddingVertical: 12,
+    textAlign: 'center',
+  },
   queueTitle: {
     color: COLORS.WHITE,
     fontSize: 15,
@@ -170,53 +200,6 @@ export const styles = StyleSheet.create({
   },
   queueList: {
     flex: 1,
-  },
-  queueTapArea: {
-    alignItems: 'center',
-    flex: 1,
-    flexDirection: 'row',
-  },
-  queueArtwork: {
-    borderRadius: 4,
-    height: 34,
-    marginRight: 10,
-    width: 34,
-  },
-  queueAction: {
-    paddingHorizontal: 6,
-    paddingVertical: 6,
-  },
-  queueActionOff: {
-    opacity: 0.25,
-  },
-  queueRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 8,
-    borderRadius: 6,
-    paddingHorizontal: 6,
-  },
-  queueRowActive: {
-    backgroundColor: COLORS.SECONDARY,
-  },
-  queueIcon: {
-    width: 22,
-  },
-  queueInfo: {
-    flex: 1,
-  },
-  queueTitleText: {
-    color: COLORS.WHITE,
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  queueSubtitleText: {
-    color: COLORS.LIGHT_GREY,
-    fontSize: 12,
-    marginTop: 1,
-  },
-  activeText: {
-    color: COLORS.TINT,
   },
   closeSession: {
     position: 'absolute',
