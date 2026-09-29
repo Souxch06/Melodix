@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { Pressable, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Image } from 'expo-image';
 
 import { useRouter, useSegments } from 'expo-router';
@@ -7,8 +7,9 @@ import { useRouter, useSegments } from 'expo-router';
 import { useApplicationDimensions } from '@hooks';
 import { getRecentlyPlayed, updateRecentlyPlayed } from '@api';
 import { RecentlyPlayedModel } from '@models';
-import { RECENTLY_PLAYED_COVER_SIZE } from '@config';
+import { COLORS, RECENTLY_PLAYED_COVER_SIZE } from '@config';
 import { getFallbackImage } from '@utils';
+import { translations } from '@data';
 
 import { styles } from './styles';
 
@@ -74,7 +75,11 @@ export const RecentlyPlayed = () => {
   }
 
   return (
-    <View style={[styles.container, { gap, paddingHorizontal }]}>
+    <View style={sectionStyles.wrapper}>
+      <Text numberOfLines={1} style={sectionStyles.title} testID="home-recently-played-title">
+        {translations.homeRecentlyPlayed}
+      </Text>
+      <View style={[styles.container, { gap, paddingHorizontal }]}>
       {recentlyPlayedData.map(({ id, title, imageURL }, index) => (
         <Pressable
           onPress={() => id && router.push(`/${pathname}/album/${id}`)}
@@ -117,6 +122,20 @@ export const RecentlyPlayed = () => {
           </Text>
         </Pressable>
       ))}
+      </View>
     </View>
   );
 };
+
+const sectionStyles = StyleSheet.create({
+  wrapper: {
+    marginBottom: 24,
+  },
+  title: {
+    color: COLORS.WHITE,
+    fontFamily: 'SF-Semibold',
+    fontSize: 20,
+    marginBottom: 14,
+    paddingHorizontal: 16,
+  },
+});

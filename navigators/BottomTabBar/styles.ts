@@ -1,12 +1,12 @@
 import { StyleSheet } from 'react-native';
-import { COLORS, BOTTOM_NAVIGATION_HEIGHT } from '@config';
+import { BOTTOM_NAVIGATION_HEIGHT, COLORS } from '@config';
 
 export const styles = StyleSheet.create({
   container: {
     ...StyleSheet.absoluteFillObject,
     top: 'auto',
     height: BOTTOM_NAVIGATION_HEIGHT,
-    paddingBottom: 20,
+    paddingBottom: 8,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-around',
@@ -15,9 +15,22 @@ export const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: -5 },
     shadowOpacity: 0.7,
     shadowRadius: 7,
+    overflow: 'hidden',
   },
-  gradient: {
+  blurBackdrop: {
     ...StyleSheet.absoluteFillObject,
+  },
+  tintVeil: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(18, 18, 18, 0.72)',
+  },
+  topHairline: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: 'rgba(255, 255, 255, 0.12)',
   },
   pressable: {
     height: '100%',
@@ -42,5 +55,22 @@ export const styles = StyleSheet.create({
   },
   active: {
     color: COLORS.WHITE,
+  },
+  activeIcon: {
+    color: COLORS.TINT,
+  },
+  activeDot: {
+    backgroundColor: COLORS.TINT,
+    borderRadius: 3,
+    height: 4,
+    marginTop: 6,
+    width: 4,
+  },
+  inactiveDot: {
+    backgroundColor: 'transparent',
+    borderRadius: 3,
+    height: 4,
+    marginTop: 6,
+    width: 4,
   },
 });

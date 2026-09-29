@@ -78,9 +78,8 @@ export const EN_GB_LOGIN = {
   loginDescription:
     'Find your personal playlists and listen to them, without typing any key: everything goes through the official Spotify page.',
   loginWelcomeTitle: 'Welcome to Melodix',
-  loginConnectHint: 'Sign in with your Spotify account to continue.',
-  loginRedirectNote:
-    "You'll be redirected to Spotify to sign in securely.",
+  loginConnectHint: 'Your music. Your playlists. Your universe.',
+  loginRedirectNote: 'Secure sign-in with Spotify',
   loginContinue: 'Continue with Spotify',
   loginConnecting: 'Connecting to Spotify…',
   loginExchanging: 'Finishing sign-in…',
@@ -111,6 +110,24 @@ export const EN_GB_LOGIN = {
 };
 
 // Playlists: dynamic availability stat, provider badges, unavailable notice.
+// Home screen (real Spotify data: greeting, sections, empty/error states).
+export const EN_GB_HOME = {
+  homeHello: (name: string) => `Hello, ${name}`,
+  homeGreetingMorning: (name: string) => `Good morning, ${name} 👋`,
+  homeGreetingEvening: (name: string) => `Good evening, ${name} 👋`,
+  homeGreetingNight: (name: string) => `Good night, ${name} 👋`,
+  homeListenPrompt: 'What do you want to listen to?',
+  homeYourPlaylists: 'Your playlists',
+  homeRecentlyPlayed: 'Recently played',
+  homeForYou: 'For you',
+  homePlaylistsEmptyTitle: 'No playlists yet',
+  homePlaylistsEmptyBody: 'Your Spotify playlists will show up here.',
+  homeRefresh: 'Refresh',
+  homeLoadErrorTitle: 'Could not load your Spotify data.',
+  homeRetry: 'Try again',
+  homeSettings: 'Account settings',
+};
+
 export const EN_GB_PLAYLIST = {
   playlistAvailabilityInfo: (available: number, total: number) =>
     `${available}/${total} tracks available`,

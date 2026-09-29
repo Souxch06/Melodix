@@ -4,10 +4,17 @@ import { COLORS } from '@config';
 
 export const styles = StyleSheet.create({
   wrapper: {
-    width: '100%',
-    backgroundColor: COLORS.SECONDARY,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: COLORS.BLACK,
+    width: '96%',
+    alignSelf: 'center',
+    backgroundColor: '#232323',
+    borderRadius: 14,
+    marginBottom: 6,
+    overflow: 'hidden',
+    elevation: 10,
+    shadowColor: COLORS.BLACK,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.45,
+    shadowRadius: 10,
   },
   noticeBar: {
     flexDirection: 'row',
@@ -32,7 +39,7 @@ export const styles = StyleSheet.create({
   progressTrack: {
     height: 2,
     width: '100%',
-    backgroundColor: COLORS.GREY,
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
   },
   progressFill: {
     height: 2,
@@ -47,7 +54,7 @@ export const styles = StyleSheet.create({
   artwork: {
     width: 44,
     height: 44,
-    borderRadius: 4,
+    borderRadius: 8,
     backgroundColor: COLORS.PRIMARY,
   },
   info: {

@@ -1,0 +1,73 @@
+import * as React from 'react';
+import { fireEvent, render } from '@testing-library/react-native';
+
+import { Pages } from '@config';
+
+import { Header } from '../Header';
+
+const mockPush = jest.fn();
+const mockReplace = jest.fn();
+const mockSignOut = jest.fn(async () => {});
+
+jest.mock('@context', () => ({
+  useUserData: () => ({
+    userData: { id: 'u1', displayName: 'Julien Martin', imageURL: '' },
+    sessionStatus: 'spotify',
+    signOut: mockSignOut,
+  }),
+}));
+
+jest.mock('@services', () => ({
+  clearPlayHistory: jest.fn(async () => {}),
+}));
+
+jest.mock('expo-router', () => ({
+  useRouter: () => ({ push: mockPush, replace: mockReplace }),
+}));
+
+jest.mock('react-native-safe-area-context', () => ({
+  useSafeAreaInsets: () => ({ top: 24, bottom: 34, left: 0, right: 0 }),
+}));
+
+describe('Header — accueil : salutation + loupe recherche + roue paramètres', () => {
+  beforeEach(() => {
+    mockPush.mockClear();
+  });
+
+  it('affiche « Bonjour, Julien » (prénom Spotify) à côté de l avatar', () => {
+    const { getByTestId } = render(<Header tab={Pages.HOME} />);
+
+    expect(getByTestId('header-home-hello').props.children).toBe(
+      'Bonjour, Julien'
+    );
+  });
+
+  it("la loupe navigue vers l'onglet Recherche (écran existant)", () => {
+    const { getByTestId } = render(<Header tab={Pages.HOME} />);
+
+    fireEvent.press(getByTestId('header-home-search'));
+
+    expect(mockPush).toHaveBeenCalledWith({
+      pathname: '/(tabs)/search',
+      params: {},
+    });
+  });
+
+  it('la roue ouvre le panneau compte (avatar + nom + Déconnexion)', () => {
+    const { getByTestId, queryByTestId } = render(<Header tab={Pages.HOME} />);
+
+    expect(queryByTestId('account-modal')).toBeNull();
+
+    fireEvent.press(getByTestId('header-home-settings'));
+
+    expect(getByTestId('account-modal')).toBeTruthy();
+    expect(getByTestId('account-signout-button')).toBeTruthy();
+  });
+
+  it('les autres onglets gardent leur titre simple (pas de salutation)', () => {
+    const { queryByTestId } = render(<Header tab={Pages.SEARCH} />);
+
+    expect(queryByTestId('header-home-hello')).toBeNull();
+    expect(queryByTestId('header-home-search')).toBeNull();
+  });
+});

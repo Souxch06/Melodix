@@ -97,13 +97,13 @@ describe('LoginScreen — parcours humain, connexion OBLIGATOIRE', () => {
     expect(root.getByTestId('login-screen')).toBeTruthy();
     expect(root.getByText('Bienvenue sur Melodix')).toBeTruthy();
     expect(
-      root.getByText('Connecte-toi avec ton compte Spotify pour continuer.')
+      root.getByText('Ta musique. Tes playlists. Ton univers.')
     ).toBeTruthy();
     expect(root.getByTestId(TEST_IDS.SPOTIFY_BUTTON)).toBeTruthy();
     expect(root.getByText('Continuer avec Spotify')).toBeTruthy();
     expect(
       root.getByText(
-        'Tu seras redirigé vers Spotify pour te connecter en toute sécurité.'
+        'Connexion sécurisée avec Spotify'
       )
     ).toBeTruthy();
     // Zéro échappatoire sans compte, zéro champ de saisie.

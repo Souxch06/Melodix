@@ -61,4 +61,22 @@ export const styles = StyleSheet.create({
     color: COLORS.WHITE,
     marginLeft: 16,
   },
+  homeIconsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginLeft: 'auto',
+  },
+  homeIconButton: {
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    borderRadius: 999,
+    height: 40,
+    justifyContent: 'center',
+    marginLeft: 10,
+    width: 40,
+  },
+  homeIconButtonPressed: {
+    backgroundColor: 'rgba(255, 255, 255, 0.18)',
+    transform: [{ scale: 0.94 }],
+  },
 });

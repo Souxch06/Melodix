@@ -4,6 +4,11 @@ import { BottomTabBar } from '../BottomTabBar';
 import { translations } from '@data';
 import { Pages } from '@config';
 
+// La barre lit l'inset gestuelle (marge basse safe-area) — valeur factice de test.
+jest.mock('react-native-safe-area-context', () => ({
+  useSafeAreaInsets: () => ({ top: 24, bottom: 34, left: 0, right: 0 }),
+}));
+
 type RouteInput = { key: string; name: string };
 
 const makeProps = (

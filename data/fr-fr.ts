@@ -52,9 +52,8 @@ export const FR_FR_LOGIN = {
   loginDescription:
     'Retrouve tes playlists personnelles et écoute-les, sans jamais saisir la moindre clé : tout passe par la page officielle de Spotify.',
   loginWelcomeTitle: 'Bienvenue sur Melodix',
-  loginConnectHint: 'Connecte-toi avec ton compte Spotify pour continuer.',
-  loginRedirectNote:
-    'Tu seras redirigé vers Spotify pour te connecter en toute sécurité.',
+  loginConnectHint: 'Ta musique. Tes playlists. Ton univers.',
+  loginRedirectNote: 'Connexion sécurisée avec Spotify',
   loginContinue: 'Continuer avec Spotify',
   loginConnecting: 'Connexion à Spotify…',
   loginExchanging: 'Finalisation de la connexion…',
@@ -85,6 +84,24 @@ export const FR_FR_LOGIN = {
 };
 
 // Playlists : statistique de disponibilité, badges de source, indisponible.
+// Accueil (vraies données Spotify : salutation, sections, états vides/erreur).
+export const FR_FR_HOME = {
+  homeHello: (name: string) => `Bonjour, ${name}`,
+  homeGreetingMorning: (name: string) => `Bonjour, ${name} 👋`,
+  homeGreetingEvening: (name: string) => `Bonsoir, ${name} 👋`,
+  homeGreetingNight: (name: string) => `Bonne nuit, ${name} 👋`,
+  homeListenPrompt: 'Qu’est-ce que tu veux écouter ?',
+  homeYourPlaylists: 'Tes playlists',
+  homeRecentlyPlayed: 'Récemment écouté',
+  homeForYou: 'Pour toi',
+  homePlaylistsEmptyTitle: 'Aucune playlist pour le moment',
+  homePlaylistsEmptyBody: 'Tes playlists Spotify apparaîtront ici.',
+  homeRefresh: 'Actualiser',
+  homeLoadErrorTitle: 'Impossible de charger tes données Spotify.',
+  homeRetry: 'Réessayer',
+  homeSettings: 'Paramètres du compte',
+};
+
 export const FR_FR_PLAYLIST = {
   /** « 85/100 morceaux disponibles » — calculée dynamiquement. */
   playlistAvailabilityInfo: (available: number, total: number) =>

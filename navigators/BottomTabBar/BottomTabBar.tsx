@@ -1,13 +1,13 @@
 import * as React from 'react';
 import { Pressable, Text, View } from 'react-native';
 
-import { LinearGradient } from 'expo-linear-gradient';
+import { BlurView } from 'expo-blur';
 import AntDesign from '@expo/vector-icons/AntDesign';
 import Ionicons from '@expo/vector-icons/Ionicons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { COLORS, Pages } from '@config';
+import { Pages } from '@config';
 import { translations } from '@data';
-import { hexToRGB } from '@utils';
 
 import { styles } from './styles';
 import { BottomTabBarProps } from '@react-navigation/bottom-tabs';
@@ -19,39 +19,42 @@ const renderPressableContent = (name: string, isActive: boolean) => {
       return (
         <View style={styles.linkContainer}>
           <Ionicons
-            style={[styles.icon, isActive ? styles.active : {}]}
+            style={[styles.icon, isActive ? styles.activeIcon : {}]}
             name="search"
             size={22}
           />
           <Text style={[styles.text, isActive ? styles.active : {}]}>
             {translations.router[Pages.SEARCH]}
           </Text>
+          <View style={isActive ? styles.activeDot : styles.inactiveDot} />
         </View>
       );
     case Pages.LIBRARY:
       return (
         <View style={styles.linkContainer}>
           <Ionicons
-            style={[styles.icon, isActive ? styles.active : {}]}
+            style={[styles.icon, isActive ? styles.activeIcon : {}]}
             name="library"
             size={22}
           />
           <Text style={[styles.text, isActive ? styles.active : {}]}>
             {translations.router[Pages.LIBRARY]}
           </Text>
+          <View style={isActive ? styles.activeDot : styles.inactiveDot} />
         </View>
       );
     default:
       return (
         <View style={styles.linkContainer}>
           <AntDesign
-            style={[styles.icon, isActive ? styles.active : {}]}
+            style={[styles.icon, isActive ? styles.activeIcon : {}]}
             name="home"
             size={22}
           />
           <Text style={[styles.text, isActive ? styles.active : {}]}>
             {translations.router[Pages.HOME]}
           </Text>
+          <View style={isActive ? styles.activeDot : styles.inactiveDot} />
         </View>
       );
   }
@@ -63,12 +66,19 @@ export const BottomTabBar = ({
   navigation,
 }: BottomTabBarProps) => {
   const { width } = useApplicationDimensions();
+  const { bottom: gestureInset } = useSafeAreaInsets();
+
   return (
-    <View style={styles.container}>
-      <LinearGradient
-        colors={[hexToRGB(COLORS.PRIMARY, 0.9), COLORS.PRIMARY]}
-        style={styles.gradient}
-      />
+    <View
+      style={[
+        styles.container,
+        { paddingBottom: Math.max(gestureInset, 8) },
+      ]}
+    >
+      {/* Barre translucide : flou système + voile sombre + liseré supérieur. */}
+      <BlurView intensity={40} style={styles.blurBackdrop} tint="dark" />
+      <View style={styles.tintVeil} />
+      <View style={styles.topHairline} />
       {state.routes.map((route, index) => {
         const { options } = descriptors[route.key];
         const isActive = state.index === index;

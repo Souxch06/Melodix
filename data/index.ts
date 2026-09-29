@@ -1,6 +1,7 @@
-import { EN_GB, EN_GB_LOGIN, EN_GB_PLAYLIST } from './en-gb';
+import { EN_GB, EN_GB_HOME, EN_GB_LOGIN, EN_GB_PLAYLIST } from './en-gb';
 import {
   FR_FR_ACCOUNT,
+  FR_FR_HOME,
   FR_FR_LOGIN,
   FR_FR_PLAYER,
   FR_FR_PLAYLIST,
@@ -12,9 +13,11 @@ import {
 export * from './genres';
 export const translations = {
   ...EN_GB,
+  ...EN_GB_HOME,
   ...EN_GB_LOGIN,
   ...EN_GB_PLAYLIST,
   ...FR_FR_ACCOUNT,
+  ...FR_FR_HOME,
   ...FR_FR_PLAYER,
   ...FR_FR_LOGIN,
   ...FR_FR_PLAYLIST,

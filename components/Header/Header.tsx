@@ -14,6 +14,8 @@ import { COLORS, HEADER_CATEGORIES_HEIGHT, HEADER_HEIGHT, Pages } from '@config'
 import { translations } from '@data';
 import { clearPlayHistory } from '@services';
 
+import { firstNameOf } from '../Home/Greeting';
+
 import { styles } from './styles';
 
 export type HeaderPropsType = {
@@ -76,6 +78,16 @@ export const Header = ({ tab }: HeaderPropsType) => {
 
   const title = React.useMemo(() => translations.header[tab], [tab]);
 
+  // Accueil : salutation personnalisée « Bonjour, [Prénom] » à côté de l'avatar
+  // (le titre « Accueil » des autres onglets reste inchangé).
+  const homeHello = React.useMemo(
+    () =>
+      tab === Pages.HOME
+        ? translations.homeHello(firstNameOf(userData?.displayName ?? ''))
+        : null,
+    [tab, userData]
+  );
+
   const height = React.useMemo(() => {
     switch (tab) {
       case Pages.LIBRARY:
@@ -101,8 +113,43 @@ export const Header = ({ tab }: HeaderPropsType) => {
     }
   }, [tab]);
 
+  const handleHomeSearchPress = React.useCallback(() => {
+    router.push({ pathname: '/(tabs)/search', params: {} });
+  }, [router]);
+
   const TabRelatedIcons = React.useMemo(() => {
     switch (tab) {
+      case Pages.HOME:
+        // Loupe → onglet Recherche (écran existant) ; roue → panneau compte
+        // (avatar + nom + Déconnexion — même bloc que le tap avatar).
+        return (
+          <View style={styles.homeIconsRow}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={translations.router[Pages.SEARCH]}
+              onPress={handleHomeSearchPress}
+              style={({ pressed }) => [
+                styles.homeIconButton,
+                pressed && styles.homeIconButtonPressed,
+              ]}
+              testID="header-home-search"
+            >
+              <Icons.Ionicons color={COLORS.WHITE} name="search" size={21} />
+            </Pressable>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={translations.homeSettings}
+              onPress={() => setAccountOpen(true)}
+              style={({ pressed }) => [
+                styles.homeIconButton,
+                pressed && styles.homeIconButtonPressed,
+              ]}
+              testID="header-home-settings"
+            >
+              <Icons.Ionicons color={COLORS.WHITE} name="settings-outline" size={21} />
+            </Pressable>
+          </View>
+        );
       case Pages.LIBRARY:
         return (
           <>
@@ -116,11 +163,10 @@ export const Header = ({ tab }: HeaderPropsType) => {
         );
       case Pages.SEARCH:
         return <>{/* Render search related icons */}</>;
-      case Pages.HOME:
       default:
         return null;
     }
-  }, [tab]);
+  }, [tab, handleHomeSearchPress]);
 
   return (
     <View style={[styles.container, { paddingTop: statusBarOffset, height }]}>
@@ -148,7 +194,13 @@ export const Header = ({ tab }: HeaderPropsType) => {
             </View>
           )}
         </Pressable>
-        {title && <Text style={styles.titleText}>{title}</Text>}
+        {tab === Pages.HOME ? (
+          <Text numberOfLines={1} style={styles.titleText} testID="header-home-hello">
+            {homeHello}
+          </Text>
+        ) : (
+          title && <Text style={styles.titleText}>{title}</Text>
+        )}
         {TabRelatedIcons}
       </View>
       {TabRelatedComponent}

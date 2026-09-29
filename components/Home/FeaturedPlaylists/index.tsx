@@ -40,7 +40,7 @@ export const FeaturedPlaylists = () => {
 
   return (
     <Slider
-      title={translations.featuredPlaylists}
+      title={translations.homeForYou}
       slides={featuredPlaylists}
       size={Sizes.MEDIUM}
       shape={Shapes.SQUARE_BORDER}
