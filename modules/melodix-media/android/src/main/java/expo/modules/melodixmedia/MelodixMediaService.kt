@@ -41,10 +41,19 @@ class MelodixMediaService : MediaSessionService() {
   override fun onCreate() {
     super.onCreate()
 
+    // Phase 5C : notification Melodix (canal/petit icône) via delegation au
+    // DefaultMediaNotificationProvider — DOIT être posé avant la fin de
+    // onCreate (contrat setMediaNotificationProvider, API 1.3.1 auditée).
+    setMediaNotificationProvider(MelodixMediaNotificationProvider(this))
+
     val player = VirtualMediaPlayer(mainLooper)
     virtualPlayer = player
 
-    val session = MediaSession.Builder(this, player).build()
+    // BitmapLoader 5C : pochettes HTTP asynchrones (executor dédié), cache
+    // borné, résilient — sans aucun impact sur la lecture expo-av.
+    val session = MediaSession.Builder(this, player)
+      .setBitmapLoader(MelodixArtworkLoader.create(this))
+      .build()
     mediaSession = session
 
     // Enregistre la session auprès du gestionnaire de notification Media3 :

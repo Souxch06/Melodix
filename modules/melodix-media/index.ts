@@ -32,6 +32,7 @@ export type MediaSessionPayload = {
 type NativeMelodixMedia = {
   updateSession: (payload: MediaSessionPayload) => void;
   stopSession: () => void;
+  requestNotificationPermission: () => boolean | null;
 };
 
 let nativeModule: NativeMelodixMedia | null = null;
@@ -72,6 +73,22 @@ export const stopSession = (): void => {
   }
 };
 
+/**
+ * Permission notifications Android 13+ (phase 5C) — demandée au RUNTIME,
+ * uniquement quand l'utilisateur active la lecture/background média
+ * (jamais au boot). Fire-and-forget : la lecture n'en dépend JAMAIS.
+ *
+ * @returns true accordée (ou inutile), false refusée/en cours, null si
+ *          indéterminé côté natif ; NO-OP silencieux hors Android natif.
+ */
+export const requestMediaNotificationPermission = (): boolean | null => {
+  try {
+    return getNativeModule()?.requestNotificationPermission() ?? null;
+  } catch {
+    return null; // Tolérant : jamais de blocage pour la lecture.
+  }
+};
+
 /** Abonnement aux commandes système (notification/verrou/casque BT). */
 export const addMediaCommandListener = (
   listener: (command: MediaCommand) => void
@@ -96,5 +113,6 @@ export default {
   isMelodixMediaAvailable,
   updateSession,
   stopSession,
+  requestMediaNotificationPermission,
   addMediaCommandListener,
 };

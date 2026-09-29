@@ -91,6 +91,34 @@ const morceau = (
 
 const flush = () => new Promise((resolve) => setTimeout(resolve, 0));
 
+/**
+ * Phase 5C : état morceau « chargé en données sensibles » — l'objet SOURCE
+ * transporte volontairement une URL de flux + des tokens (comme peuvent le
+ * faire les providers audio). La projection ne doit JAMAIS les laisser
+ * passer : le module natif/la notification ne connaissent que l'affichage.
+ */
+const payloadLongSensible = (): Partial<PlayerState>[] => [
+  {
+    current: {
+      id: 'spotify:sensible',
+      title: 'Vault',
+      artists: ['Trio'],
+      album: 'Vox',
+      durationMillis: 180_000,
+      imageURL: 'https://img/cover.jpg',
+      source: spotifyTrackSource('sensible'),
+      // Champs parasites : flux + tokens qui DOIVENT rester hors projection.
+      streamUrl: 'https://stream/vault?token=abc',
+      youtubeUri: 'https://youtube/watch?v=dQw4w9WgXcQ',
+      accessToken: 'Bearer client_secret_000',
+      audiusUrl: 'https://audius.co/stream/vault',
+    } as unknown as PlayerState['current'],
+    status: 'playing',
+    durationMillis: 180_000,
+    positionMillis: 12_000,
+  },
+];
+
 describe('mediaBridge — projection MediaSession (phase 5A)', () => {
   beforeEach(async () => {
     await AsyncStorage.clear();
@@ -498,6 +526,69 @@ describe('mediaBridge — projection MediaSession (phase 5A)', () => {
       const toggleSpy = jest.spyOn(melodixPlayer, 'togglePlayPause');
       handleMediaCommand({ command: 'pause' }); // handler direct : moteur ok
       expect(toggleSpy).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe("sécurité payload (phase 5C) — la notification ne voit que l'affichage", () => {
+    it('clés EXACTES : uniquement les 8 champs de projection, zéro clé sensible', () => {
+      payloadLongSensible().forEach((etat) => {
+        const payload = buildMediaSessionPayload(etat as PlayerState);
+
+        expect(payload).not.toBeNull();
+        expect(Object.keys(payload!).sort()).toEqual([
+          'album',
+          'artist',
+          'artworkUrl',
+          'durationMillis',
+          'isPlaying',
+          'positionMillis',
+          'title',
+          'trackId',
+        ]);
+      });
+    });
+
+    it('scan sous-chaînes : jamais de tokens/secret ni URL de flux Audius/YouTube', () => {
+      const payload = buildMediaSessionPayload(
+        payloadLongSensible()[0] as PlayerState
+      )!;
+      const serialized = JSON.stringify(payload).toLowerCase();
+
+      // Même si l'objet source TRANSPORTE ces valeurs, elles ne doivent en
+      // aucun cas fuiter dans la projection vers la notification (§5/6 5C).
+      [
+        'stream',
+        'token',
+        'secret',
+        'client_secret',
+        'access_token',
+        'bearer',
+        'audius',
+        'youtube',
+      ].forEach((aiguille) => expect(serialized).not.toContain(aiguille));
+    });
+
+    it('changement de morceau : la NOUVELLE pochette est projetée à la MediaSession', async () => {
+      await melodixPlayer.playQueue(
+        [morceau('a', 'Photo'), morceau('b', 'Again')],
+        0
+      );
+      await flush();
+
+      const avecA = {
+        ...morceau('b', 'Again', ['Autre']),
+        imageURL: 'https://img/nouvelle.png',
+      };
+      await melodixPlayer.playQueue([avecA], 0);
+      await flush();
+
+      const dernier = mockUpdateSession.mock.calls.at(-1)?.[0] as {
+        artworkUrl: string | null;
+        title: string;
+      };
+
+      expect(dernier.title).toBe('Again');
+      expect(dernier.artworkUrl).toBe('https://img/nouvelle.png');
     });
   });
 });

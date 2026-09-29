@@ -20,6 +20,7 @@ import {
   EN_GB_PLAYLIST,
   EN_GB_SETTINGS,
 } from '../data/en-gb';
+import { requestMediaNotificationPermission } from '../modules/melodix-media';
 import { setMediaBridgeEnabled } from '../services/mediaBridge';
 import { melodixPlayer } from '../services/player';
 
@@ -128,6 +129,14 @@ export const PreferencesProvider = ({
         update({ backgroundAudio });
         void melodixPlayer.setStaysActiveInBackground(backgroundAudio);
         setMediaBridgeEnabled(backgroundAudio);
+
+        if (backgroundAudio) {
+          // Phase 5C/Android 13+ : la permission notification ne sert qu'à
+          // la visibilité des contrôles média — demandée ICI, liée au geste
+          // utilisateur, JAMAIS bloquante pour la lecture (fire-and-forget
+          // no-op hors Android natif).
+          requestMediaNotificationPermission();
+        }
       },
       setStartupVolume: (startupVolume) => {
         update({ startupVolume });

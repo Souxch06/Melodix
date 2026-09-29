@@ -61,6 +61,11 @@ dependencies {
   implementation "androidx.media3:media3-common:${safeExtGet('media3Version', '1.3.1')}"
   implementation "androidx.media3:media3-session:${safeExtGet('media3Version', '1.3.1')}"
 
+  // Phase 5C : pochette HTTP des notifications — DataSourceBitmapLoader
+  // (la session l'utilise côté RUNTIME, mais ses classes sont 'implementation'
+  //  chez média3 ⇒ non exposées en compilation : dépendance EXPLICITE requise).
+  implementation "androidx.media3:media3-datasource:${safeExtGet('media3Version', '1.3.1')}"
+
   // Tests unitaires JVM (VirtualMediaPlayerTest) — exécutés par Gradle.
   testImplementation 'junit:junit:4.13.2'
   testImplementation 'org.robolectric:robolectric:4.12.2'
