@@ -9,7 +9,7 @@ export type SettingsRowPropsType = {
   label: string;
   /** Précision honnête sous le libellé (ex. source réelle d'un réglage). */
   subtitle?: string;
-  /** Valeur courante affichée à droite (ex. « Sombre », « 4.3.0 »). */
+  /** Valeur courante affichée à droite (ex. « Sombre », « 4.4.0 »). */
   value?: string;
   /** Chevron de navigation (rend la ligne pressable). */
   showChevron?: boolean;
