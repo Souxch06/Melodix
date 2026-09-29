@@ -1,7 +1,17 @@
 import * as React from 'react';
 
-import { INITIAL_PLAYER_STATE, melodixPlayer } from '@services';
-import type { PlayerState, PlayerTrack, RepeatMode } from '@services';
+import {
+  clearPlaybackSession,
+  INITIAL_PLAYER_STATE,
+  loadPlaybackSession,
+  melodixPlayer,
+} from '@services';
+import type {
+  PlaybackSession,
+  PlayerState,
+  PlayerTrack,
+  RepeatMode,
+} from '@services';
 
 export type PlayerContextType = PlayerState & {
   playQueue: (tracks: PlayerTrack[], startIndex?: number) => Promise<void>;
@@ -13,6 +23,17 @@ export type PlayerContextType = PlayerState & {
   seekTo: (positionMillis: number) => Promise<void>;
   setVolume: (volume: number) => Promise<void>;
   toggleShuffle: () => void;
+  /** File avancée (Phase 2) : ajout fin / lecture suivante / suppression. */
+  addToQueue: (track: PlayerTrack) => void;
+  playNext: (track: PlayerTrack) => void;
+  removeFromQueue: (queueIndex: number) => void;
+  moveInQueue: (from: number, to: number) => void;
+  /** Session persistée VISIBLE (carte « Reprendre »), null sinon. */
+  pendingRestore: PlaybackSession | null;
+  /** Reprendre : restaure file/morceau/position puis joue — action explicite. */
+  resumeSession: () => Promise<void>;
+  /** Ignorer : supprime définitivement la session sauvegardée. */
+  dismissSession: () => Promise<void>;
   cycleRepeat: () => void;
   /** Paramètres : activer/désactiver explicitement la répétition de la file. */
   setRepeat: (mode: RepeatMode) => void;
@@ -36,6 +57,13 @@ const defaultActions = {
   seekTo: async () => {},
   setVolume: async () => {},
   toggleShuffle: () => {},
+  addToQueue: () => {},
+  playNext: () => {},
+  removeFromQueue: () => {},
+  moveInQueue: () => {},
+  pendingRestore: null,
+  resumeSession: async () => {},
+  dismissSession: async () => {},
   cycleRepeat: () => {},
   setRepeat: () => {},
   setStaysActiveInBackground: async () => {},
@@ -52,8 +80,51 @@ export const PlayerContext = React.createContext<PlayerContextType>({
 
 export const PlayerProvider = ({ children }: { children: React.ReactNode }) => {
   const [state, setState] = React.useState<PlayerState>(INITIAL_PLAYER_STATE);
+  const [pendingRestore, setPendingRestore] =
+    React.useState<PlaybackSession | null>(null);
 
   React.useEffect(() => melodixPlayer.subscribe(setState), []);
+
+  // Restauration au boot : la session persistée est SEULEMENT PROPOSÉE
+  // (jamais lue automatiquement — pas d'audio sans action utilisateur).
+  React.useEffect(() => {
+    let isMounted = true;
+
+    void loadPlaybackSession().then((session) => {
+      if (isMounted && session) {
+        setPendingRestore(session);
+      }
+    });
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  // Dès qu'une autre lecture démarre, la carte « Reprendre » n'a plus lieu
+  // d'exister (la nouvelle session recréera sa propre persistance).
+  React.useEffect(() => {
+    if (pendingRestore && state.status === 'playing') {
+      setPendingRestore(null);
+    }
+  }, [pendingRestore, state.status]);
+
+  const resumeSession = React.useCallback(async () => {
+    setPendingRestore((current) => {
+      if (current) {
+        // Ferme la carte immédiatement, restaure côté moteur, purge après.
+        void melodixPlayer.restoreSession(current);
+        void clearPlaybackSession();
+      }
+
+      return null;
+    });
+  }, []);
+
+  const dismissSession = React.useCallback(async () => {
+    setPendingRestore(null);
+    await clearPlaybackSession();
+  }, []);
 
   const value = React.useMemo<PlayerContextType>(
     () => ({
@@ -67,6 +138,13 @@ export const PlayerProvider = ({ children }: { children: React.ReactNode }) => {
       seekTo: melodixPlayer.seekTo,
       setVolume: melodixPlayer.setVolume,
       toggleShuffle: melodixPlayer.toggleShuffle,
+      addToQueue: melodixPlayer.addToQueue,
+      playNext: melodixPlayer.playNext,
+      removeFromQueue: melodixPlayer.removeFromQueue,
+      moveInQueue: melodixPlayer.moveInQueue,
+      pendingRestore,
+      resumeSession,
+      dismissSession,
       cycleRepeat: melodixPlayer.cycleRepeat,
       setRepeat: melodixPlayer.setRepeat,
       setStaysActiveInBackground: melodixPlayer.setStaysActiveInBackground,
@@ -75,7 +153,7 @@ export const PlayerProvider = ({ children }: { children: React.ReactNode }) => {
       hasActiveSession: state.current !== null,
       providerName: state.resolved?.provider ?? null,
     }),
-    [state]
+    [state, pendingRestore, resumeSession, dismissSession]
   );
 
   return (

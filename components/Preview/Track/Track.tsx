@@ -37,6 +37,12 @@ export type TrackPropsType = {
    * visible (check = sauvegardé, plus = ajouter).
    */
   onToggleSaved?: () => void;
+  /**
+   * Menu d'actions de la ligne (« Ajouter à la file », « Lire ensuite »…) —
+   * branche le bouton « ⋯ » AFFICHÉ DEPUIS TOUJOURS (auparavant inerte).
+   * Non fourni ⇒ rendu identique à l'historique.
+   */
+  onActionsPress?: () => void;
 };
 
 export const Track = ({
@@ -52,6 +58,7 @@ export const Track = ({
   availability,
   onPress,
   onToggleSaved,
+  onActionsPress,
 }: TrackPropsType) => {
   const { width } = useApplicationDimensions();
   const maxWidth = width - 150;
@@ -120,7 +127,9 @@ export const Track = ({
 
         {/* État discret de résolution : provider gagnant ou indisponible.
             Rien pendant la recherche : l'écran reste calme. */}
-        {availability === 'audius' || availability === 'youtube' || unavailable ? (
+        {availability === 'audius' ||
+        availability === 'youtube' ||
+        unavailable ? (
           <Text
             numberOfLines={1}
             style={[
@@ -145,7 +154,9 @@ export const Track = ({
       {onToggleSaved && !forceDisableSaveIcon ? (
         <Pressable
           style={
-            isSaved ? styles.isTrackSavedPressable : styles.isTrackUnsavedPressable
+            isSaved
+              ? styles.isTrackSavedPressable
+              : styles.isTrackUnsavedPressable
           }
           onPress={onToggleSaved}
           accessibilityRole="button"
@@ -165,7 +176,18 @@ export const Track = ({
           </View>
         )
       )}
-      <Pressable>
+      <Pressable
+        {...(onActionsPress
+          ? {
+              accessibilityLabel: translations.playerQueueTrackActions(
+                title.substring(0, 80)
+              ),
+              accessibilityRole: 'button' as const,
+              onPress: onActionsPress,
+              testID: 'track-actions',
+            }
+          : {})}
+      >
         <Entypo style={styles.moreIcon} name="dots-three-horizontal" />
       </Pressable>
     </Container>

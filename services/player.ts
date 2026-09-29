@@ -1,4 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { AppState } from 'react-native';
 
 import {
   DEFAULT_AUDIO_PROVIDER_ID,
@@ -15,6 +16,13 @@ import {
   writeMatchCacheEntry,
 } from './audio/matchCache';
 import type { MatchCache } from './audio/matchCache';
+import {
+  clearPlaybackSession,
+  PLAYBACK_SESSION_MAX_QUEUE,
+  PLAYBACK_SESSION_VERSION,
+  savePlaybackSession,
+} from './playbackSession';
+import type { PlaybackSession } from './playbackSession';
 
 /**
  * Melodix player engine.
@@ -182,6 +190,12 @@ class MelodixPlayer {
   /** Monceau actif actuel : tout resolve/chargement d'un token périmé est
    * ignoré et son éventuel Sound immédiatement déchargé (anti-double-lecture). */
   private playToken = 0;
+  /** Seek à consommer au prochain démarrage effectif du son (restauration). */
+  private pendingSeekMillis = 0;
+  /** Persistance session : dernière écriture + état déjà écrit (anti-spam). */
+  private lastPersistedAt = 0;
+  private sessionDirty = false;
+  private appStateSubscribed = false;
 
   getState = (): PlayerState => this.state;
 
@@ -295,6 +309,13 @@ class MelodixPlayer {
       durationMillis: status?.durationMillis ?? 0,
     });
 
+    // Persistance SOBRE : au plus une écriture toutes les 8 s pendant la
+    // lecture (jamais à chaque tick 500 ms) — la dernière position suffit.
+    if (status?.isPlaying && Date.now() - this.lastPersistedAt > 8000) {
+      this.sessionDirty = true;
+      this.persistSession();
+    }
+
     if (status?.didJustFinish) {
       void this.advanceAuto();
     }
@@ -341,7 +362,11 @@ class MelodixPlayer {
 
   private resolveTrack = async (
     track: PlayerTrack
-  ): Promise<{ provider: AudioProvider; resolved: ResolvedStream; info: ResolverInfo } | null> => {
+  ): Promise<{
+    provider: AudioProvider;
+    resolved: ResolvedStream;
+    info: ResolverInfo;
+  } | null> => {
     // Native provider track (ex. 'audius:xyz' ou 'youtube:abc') : lecture
     // directe via SON provider, sans matching — comportement inchangé.
     if (track.source.provider) {
@@ -587,7 +612,9 @@ class MelodixPlayer {
       index,
       current: queue[index],
       status: 'loading',
-      order: this.state.shuffle ? buildShuffledOrder(queue.length, index) : null,
+      order: this.state.shuffle
+        ? buildShuffledOrder(queue.length, index)
+        : null,
       positionMillis: 0,
       durationMillis: 0,
       resolved: null,
@@ -619,6 +646,8 @@ class MelodixPlayer {
     const isStale = () => this.playToken !== token;
 
     this.emit({ index, current: track, status: 'loading' });
+    this.persistSession(); // nouveau morceau pointe la session vers lui
+    this.ensureAppStatePersistence();
 
     const av = this.getAv();
 
@@ -687,6 +716,18 @@ class MelodixPlayer {
         durationMillis: track.durationMillis ?? this.state.durationMillis,
       });
 
+      // Reprise de session : position mémorisée consommée UNE fois le son prêt.
+      if (this.pendingSeekMillis > 0) {
+        const target = this.pendingSeekMillis;
+        this.pendingSeekMillis = 0;
+        try {
+          await sound.setPositionAsync(target);
+          this.emit({ positionMillis: target });
+        } catch (seekError) {
+          console.warn('Restore seek failed (tolerated):', seekError);
+        }
+      }
+
       // Historique de lecture LOCAL (sans compte) : alimente les sections
       // « Écoutés récemment », « en tête », seeds de recommandations.
       // Fire-and-forget : l'historique ne doit jamais perturber la lecture.
@@ -723,6 +764,7 @@ class MelodixPlayer {
       try {
         await this.sound.pauseAsync();
         this.emit({ status: 'paused' });
+        this.persistSession(); // position figée : moment idéal d'écrire
       } catch (error) {
         console.error('Failed to pause:', error);
         this.emit({ status: 'error' });
@@ -828,9 +870,250 @@ class MelodixPlayer {
     }
   };
 
+  // --- file d'attente avancée (Phase 2) — additif ----------------------------
+  // Invariants conservés : `queue` = liste ORIGINALE jamais remplacée;
+  // `order` (shuffle) est remappé à chaque mutation ; `index` pointe vers le
+  // même morceau ; repeat/shuffle/jeton de lecture restent intacts.
+
+  /** Remappage d'une position après un déplacement from→to. */
+  private remapMovedPosition = (
+    pos: number,
+    from: number,
+    to: number
+  ): number => {
+    if (pos === from) {
+      return to;
+    }
+    if (from < to) {
+      return pos > from && pos <= to ? pos - 1 : pos;
+    }
+    return pos < from && pos >= to ? pos + 1 : pos;
+  };
+
+  /** Persistance sobre, fire-and-forget : jamais bloquante pour la lecture. */
+  private persistSession = (): void => {
+    const { queue, index, positionMillis, shuffle, repeat, volume } =
+      this.state;
+
+    if (!queue.length || index < 0 || index >= queue.length) {
+      return; // rien de jouable à retenir
+    }
+
+    this.lastPersistedAt = Date.now();
+    this.sessionDirty = false;
+
+    void savePlaybackSession({
+      version: PLAYBACK_SESSION_VERSION,
+      savedAt: this.lastPersistedAt,
+      queue: queue.slice(0, PLAYBACK_SESSION_MAX_QUEUE),
+      index,
+      positionMillis,
+      shuffle,
+      repeat,
+      volume,
+    }).catch(() => undefined);
+  };
+
+  /** Écriture aussi quand l'app passe en arrière-plan (sans timer natif). */
+  private ensureAppStatePersistence = (): void => {
+    if (this.appStateSubscribed) {
+      return;
+    }
+    this.appStateSubscribed = true;
+
+    try {
+      AppState.addEventListener('change', (nextState: string) => {
+        if (nextState === 'background' || nextState === 'inactive') {
+          this.persistSession();
+        }
+      });
+    } catch {
+      // AppState indisponible (environnement de test) : ponctualité suffisante.
+    }
+  };
+
+  /** « Ajouter à la file » : fin de la queue (+ fin d'ordre en shuffle). */
+  addToQueue = (track: PlayerTrack): void => {
+    if (!track?.id || !track?.title) {
+      return;
+    }
+
+    const { queue, order } = this.state;
+    const nextQueue = [...queue, track];
+    const nextOrder =
+      order && order.length === queue.length
+        ? [...order, nextQueue.length - 1]
+        : order;
+
+    this.emit({ queue: nextQueue, order: nextOrder });
+    this.persistSession();
+    this.ensureAppStatePersistence();
+  };
+
+  /** « Lire ensuite » : inséré JUSTE après le morceau courant. */
+  playNext = (track: PlayerTrack): void => {
+    if (!track?.id || !track?.title) {
+      return;
+    }
+
+    const { queue, order, index } = this.state;
+
+    if (!queue.length || index < 0) {
+      this.addToQueue(track); // pas de session : fin de file
+      return;
+    }
+
+    const insertAt = index + 1;
+    const nextQueue = [...queue];
+    nextQueue.splice(insertAt, 0, track);
+
+    let nextOrder = order;
+    if (order && order.length === queue.length) {
+      // Positions décalées hors de l'index inséré uniquement.
+      nextOrder = order.map((pos) => (pos >= insertAt ? pos + 1 : pos));
+      const pointer = nextOrder.indexOf(index);
+      nextOrder.splice(pointer >= 0 ? pointer + 1 : 0, 0, insertAt);
+    }
+
+    this.emit({ queue: nextQueue, order: nextOrder });
+    this.persistSession();
+    this.ensureAppStatePersistence();
+  };
+
+  /**
+   * « Supprimer de la file ». Si l'élément est le morceau courant : sa lecture
+   * est abandonnée proprement (jeton) et le SUIVANT de l'ordre remappé est
+   * joué ; fin de file → stop.
+   */
+  removeFromQueue = (queueIndex: number): void => {
+    const { queue, order, index, current } = this.state;
+
+    if (queueIndex < 0 || queueIndex >= queue.length) {
+      return;
+    }
+
+    const isOrderConsistent = Boolean(order && order.length === queue.length);
+    const remap = (pos: number): number => (pos > queueIndex ? pos - 1 : pos);
+    const nextQueue = queue.filter((_, i) => i !== queueIndex);
+    const nextOrder = isOrderConsistent
+      ? (order as number[]).filter((pos) => pos !== queueIndex).map(remap)
+      : order;
+    const removingCurrent = current && queueIndex === index;
+
+    if (!removingCurrent) {
+      this.emit({
+        queue: nextQueue,
+        index: index > queueIndex ? index - 1 : index,
+        order: nextOrder,
+      });
+      this.persistSession();
+      this.ensureAppStatePersistence();
+      return;
+    }
+
+    // Cible suivante : l'élément qui suit le supprimé DANS L'ORDRE (wrap inclus).
+    let targetIndex: number | null = null;
+
+    if (isOrderConsistent) {
+      const oldPointer = (order as number[]).indexOf(queueIndex);
+
+      for (let step = 1; step <= (order as number[]).length; step++) {
+        const candidate = (order as number[])[
+          (oldPointer + step) % (order as number[]).length
+        ];
+
+        if (candidate !== queueIndex) {
+          targetIndex = remap(candidate);
+          break;
+        }
+      }
+    } else if (nextQueue.length) {
+      targetIndex = Math.min(queueIndex, nextQueue.length - 1);
+    }
+
+    this.playToken += 1; // abandon propre de la résolution en vol éventuelle
+    void this.unloadCurrent();
+
+    if (targetIndex === null || !nextQueue.length) {
+      void this.stop(); // plus rien de jouable → session purgée proprement
+      return;
+    }
+
+    this.emit({ queue: nextQueue, index: targetIndex, order: nextOrder });
+    void this.playIndex(targetIndex);
+  };
+
+  /** « Réordonner » : déplace FROM vers TO, sans changer le morceau courant. */
+  moveInQueue = (from: number, to: number): void => {
+    const { queue, order, index } = this.state;
+    const toClamped = Math.min(Math.max(to, 0), queue.length - 1);
+
+    if (from < 0 || from >= queue.length || from === toClamped) {
+      return;
+    }
+
+    const nextQueue = [...queue];
+    const [moved] = nextQueue.splice(from, 1);
+    nextQueue.splice(toClamped, 0, moved);
+
+    this.emit({
+      queue: nextQueue,
+      index: this.remapMovedPosition(index, from, toClamped),
+      order:
+        order && order.length === queue.length
+          ? order.map((pos) => this.remapMovedPosition(pos, from, toClamped))
+          : order,
+    });
+    this.persistSession();
+    this.ensureAppStatePersistence();
+  };
+
+  /**
+   * « Reprendre la lecture » : restaure file + morceau + position depuis la
+   * session persistée, puis JOUE. Aucun auto-play au boot — cette méthode
+   * n'est appelée que sur action utilisateur explicite.
+   */
+  restoreSession = async (session: PlaybackSession): Promise<void> => {
+    const queue = session.queue.filter((track) => track?.id && track?.title);
+    if (!queue.length) {
+      return;
+    }
+
+    const index = Math.min(Math.max(session.index, 0), queue.length - 1);
+    const shuffle = session.shuffle === true;
+
+    this.playToken += 1;
+    this.failedKeys = new Set();
+    await this.unloadCurrent();
+
+    this.emit({
+      queue,
+      index,
+      current: queue[index],
+      status: 'idle',
+      // L'ordre de lecture shuffle est REBATI (il n'est pas persisté) : file
+      // originale intacte, courant épinglé — mêmes règles que playQueue().
+      order: shuffle ? buildShuffledOrder(queue.length, index) : null,
+      orderPointer: shuffle ? 0 : -1,
+      shuffle,
+      repeat: session.repeat,
+      volume: session.volume,
+      positionMillis: session.positionMillis,
+      durationMillis: 0,
+      resolved: null,
+      notice: null,
+    });
+
+    this.pendingSeekMillis = Math.max(0, session.positionMillis);
+    await this.playIndex(index);
+  };
+
   stop = async () => {
     this.playToken += 1; // tout resolve en vol devient orphelin
     await this.unloadCurrent();
+    // Fermeture explicite : la session persistée est PURGÉE (Reprendre =
+    // uniquement les sessions interrompues, jamais les arrêts volontaires).
+    void clearPlaybackSession().catch(() => undefined);
     this.emit({
       ...INITIAL_PLAYER_STATE,
       // Preferences AND last failure notice survive a queue change/stop (le
@@ -847,6 +1130,9 @@ class MelodixPlayer {
     await this.unloadCurrent();
     this.matchCache = null;
     this.failedKeys = new Set();
+    this.pendingSeekMillis = 0;
+    this.lastPersistedAt = 0;
+    this.sessionDirty = false;
     this.state = { ...INITIAL_PLAYER_STATE };
     this.listeners.forEach((listener) => listener(this.state));
   };

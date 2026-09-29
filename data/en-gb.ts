@@ -98,7 +98,8 @@ export const EN_GB_LOGIN = {
   loginPrivacyNote:
     'Secure sign-in with Spotify. You will never be asked for a key: you sign in on the official Spotify page, then return to Melodix.',
   loginSecureFootnote: 'Secure sign-in with Spotify',
-  loginSessionExpired: 'Your Spotify session has expired.\nSign in again to continue.',
+  loginSessionExpired:
+    'Your Spotify session has expired.\nSign in again to continue.',
   loginFetchFailed: 'Unable to load your playlists.\nPlease try again later.',
   loginSignOut: 'Sign out',
   loginSignOutConfirmTitle: 'Sign out of Spotify?',
@@ -143,9 +144,22 @@ export const EN_GB_PLAYER = {
     `"${title}" is not available on Audius.`,
   playerMatchUncertain: (title: string) =>
     `No reliable match for "${title}": no audio is playing.`,
-  playerTrackPlayFailed: (title: string) =>
-    `Playback of "${title}" failed.`,
+  playerTrackPlayFailed: (title: string) => `Playback of "${title}" failed.`,
   playerError: 'Playback failed. Try another track.',
+  playerQueueTitle: 'Queue',
+  playerQueuePlaying: 'Now playing',
+  playerQueueEmpty: 'The queue is empty.',
+  playerQueueAdd: 'Add to queue',
+  playerQueuePlayNext: 'Play next',
+  playerQueueRemove: 'Remove from queue',
+  playerQueueMoveUp: 'Move up in queue',
+  playerQueueMoveDown: 'Move down in queue',
+  playerQueueTrackActions: (title: string) =>
+    `Actions for "${title}": add to queue or play next`,
+  playerResumeTitle: 'Resume listening',
+  playerResumeAction: 'Resume',
+  playerResumeDismiss: 'Dismiss',
+  playerResumePosition: (position: string) => `Resume at ${position}`,
   playerUnavailable: 'Audio is unavailable on this device.',
 };
 

@@ -41,6 +41,21 @@ export const FR_FR_PLAYER = {
     `La lecture de « ${title} » a échoué.`,
   playerError: 'La lecture a échoué. Essaie un autre titre.',
   playerUnavailable: "L'audio est indisponible sur cet appareil.",
+  // File d'attente avancée (Phase 2) : actions de file, menu, reprise.
+  playerQueueTitle: 'File d’attente',
+  playerQueuePlaying: 'Lecture en cours',
+  playerQueueEmpty: 'La file est vide.',
+  playerQueueAdd: 'Ajouter à la file',
+  playerQueuePlayNext: 'Lire ensuite',
+  playerQueueRemove: 'Supprimer de la file',
+  playerQueueMoveUp: 'Monter dans la file',
+  playerQueueMoveDown: 'Descendre dans la file',
+  playerQueueTrackActions: (title: string) =>
+    `Actions pour « ${title} » : ajouter à la file ou lire ensuite`,
+  playerResumeTitle: 'Reprendre la lecture',
+  playerResumeAction: 'Reprendre',
+  playerResumeDismiss: 'Ignorer',
+  playerResumePosition: (position: string) => `Reprendre à ${position}`,
 };
 
 // Écran de connexion + cycle de session OAuth (messages utilisateur propres,
@@ -67,13 +82,16 @@ export const FR_FR_LOGIN = {
   loginOAuthRefusedTitle: 'Spotify a refusé la connexion',
   loginOAuthRefusedBody:
     'Autorise bien Melodix sur la page Spotify, puis réessaie.',
-  loginNotConfigured: "La connexion Spotify n'est pas disponible pour le moment.",
+  loginNotConfigured:
+    "La connexion Spotify n'est pas disponible pour le moment.",
   loginNotConfiguredBody: 'Réessaie plus tard.',
   loginPrivacyNote:
     'Connexion sécurisée avec Spotify. Aucune clé ne te sera demandée : tu te connectes sur la page officielle de Spotify, puis tu reviens à Melodix.',
   loginSecureFootnote: 'Connexion sécurisée avec Spotify',
-  loginSessionExpired: 'Ta session Spotify a expiré.\nReconnecte-toi pour continuer.',
-  loginFetchFailed: 'Impossible de récupérer tes playlists.\nRéessaie plus tard.',
+  loginSessionExpired:
+    'Ta session Spotify a expiré.\nReconnecte-toi pour continuer.',
+  loginFetchFailed:
+    'Impossible de récupérer tes playlists.\nRéessaie plus tard.',
   loginSignOut: 'Se déconnecter',
   loginSignOutConfirmTitle: 'Se déconnecter de Spotify ?',
   loginSignOutConfirmMessage:
@@ -112,9 +130,11 @@ export const FR_FR_SETTINGS = {
   settingsLocalAccount: 'Compte local',
   settingsSpotifyAccount: 'Compte Spotify',
   settingsSessionExpiry: (minutes: number) =>
-    minutes > 0 ? `Session valable ~${minutes} min` : 'Session sur le point d\'expirer',
+    minutes > 0
+      ? `Session valable ~${minutes} min`
+      : "Session sur le point d'expirer",
   settingsSessionCanRefresh: 'Renouvellement automatique disponible',
-  settingsSessionNoRefresh: 'Nouvelle connexion requise à l\'expiration',
+  settingsSessionNoRefresh: "Nouvelle connexion requise à l'expiration",
   settingsSignOut: 'Se déconnecter',
   settingsSignOutTitle: 'Es-tu sûr de vouloir te déconnecter de Melodix ?',
   settingsCancel: 'Annuler',
@@ -125,7 +145,7 @@ export const FR_FR_SETTINGS = {
   settingsThemeLight: 'Clair',
   settingsThemeSystem: 'Système',
   settingsComingSoon: 'Bientôt disponible',
-  settingsAccent: 'Couleur d\'accent',
+  settingsAccent: "Couleur d'accent",
   settingsSectionPlayback: 'Lecture',
   settingsBackgroundAudio: 'Lecture en arrière-plan',
   settingsBackgroundAudioHint:
@@ -161,7 +181,7 @@ export const FR_FR_SETTINGS = {
   settingsPlaybackIssues: 'Problèmes de lecture',
   settingsSectionAbout: 'À propos',
   settingsVersion: 'Version',
-  settingsTerms: 'Conditions d\'utilisation',
+  settingsTerms: "Conditions d'utilisation",
   settingsPrivacy: 'Politique de confidentialité',
   settingsLicenses: 'Licences open source',
   settingsGithub: 'GitHub',
@@ -169,27 +189,27 @@ export const FR_FR_SETTINGS = {
   settingsCreditsBody: 'Spotify · Audius · YouTube · Expo · React Native',
   // Aide (faq.tsx) — contenu RÉEL utile, aucune promesse fictive.
   faqIntro:
-    'Réponses aux questions les plus fréquentes sur Melodix, écrites d\'après le fonctionnement réel de l\'application.',
+    "Réponses aux questions les plus fréquentes sur Melodix, écrites d'après le fonctionnement réel de l'application.",
   faqLoginQ: 'Pourquoi me connecter avec Spotify ?',
   faqLoginA:
     'Melodix lit tes playlists et ton profil Spotify. La connexion passe par la page officielle de Spotify (Authorization Code + PKCE) : Melodix ne voit ni ne demande jamais ton mot de passe.',
   faqPlaybackQ: 'Pourquoi un morceau est-il « indisponible » ?',
   faqPlaybackA:
-    'L\'audio ne vient jamais de Spotify. Chaque morceau est d\'abord recherché sur Audius, puis sur YouTube en repli. « Indisponible » n\'est affiché que si aucune correspondance fiable n\'est trouvée.',
-  faqSourcesQ: 'D\'où vient le son ?',
+    "L'audio ne vient jamais de Spotify. Chaque morceau est d'abord recherché sur Audius, puis sur YouTube en repli. « Indisponible » n'est affiché que si aucune correspondance fiable n'est trouvée.",
+  faqSourcesQ: "D'où vient le son ?",
   faqSourcesA:
-    'De catalogues publics : Audius en priorité (artistes indépendants), sinon YouTube. La correspondance est mise en cache sur l\'appareil, donc les écoutes suivantes sont immédiates.',
+    "De catalogues publics : Audius en priorité (artistes indépendants), sinon YouTube. La correspondance est mise en cache sur l'appareil, donc les écoutes suivantes sont immédiates.",
   faqCacheQ: 'Que fait « Vider le cache » ?',
   faqCacheA:
-    'Cela oublie les correspondances titre→source stockées sur l\'appareil. La lecture suivante recherche à nouveau Audius puis YouTube. Ton compte, tes playlists et ton historique ne sont pas touchés.',
+    "Cela oublie les correspondances titre→source stockées sur l'appareil. La lecture suivante recherche à nouveau Audius puis YouTube. Ton compte, tes playlists et ton historique ne sont pas touchés.",
   faqAccountQ: 'Où sont stockées mes données ?',
   faqAccountA:
-    'Uniquement sur ton appareil : historique d\'écoute, réglages et session Spotify (stockage chiffré). Melodix ne conserve aucun profil côté serveur.',
+    "Uniquement sur ton appareil : historique d'écoute, réglages et session Spotify (stockage chiffré). Melodix ne conserve aucun profil côté serveur.",
   // À propos (about.tsx)
   aboutTermsBody:
-    'Melodix est une application personnelle de compagnon musical. Connecte-toi avec ton propre compte Spotify et utilise l\'application pour une écoute personnelle et non commerciale. Les noms et contenus Spotify, Audius et YouTube appartiennent à leurs détenteurs respectifs.',
+    "Melodix est une application personnelle de compagnon musical. Connecte-toi avec ton propre compte Spotify et utilise l'application pour une écoute personnelle et non commerciale. Les noms et contenus Spotify, Audius et YouTube appartiennent à leurs détenteurs respectifs.",
   aboutPrivacyBody:
-    'Melodix stocke tes données uniquement sur ton appareil : historique d\'écoute, préférences et session Spotify chiffrée. Rien n\'est envoyé vers un serveur Melodix. La déconnexion supprime définitivement la session locale.',
+    "Melodix stocke tes données uniquement sur ton appareil : historique d'écoute, préférences et session Spotify chiffrée. Rien n'est envoyé vers un serveur Melodix. La déconnexion supprime définitivement la session locale.",
   aboutLicensesBody:
     'Construit avec : Expo (MIT), React Native (MIT), React Navigation (MIT), expo-av / expo-auth-session (MIT), AsyncStorage (MIT). Catalogues : Spotify Web API, Audius API, YouTube — chacun sous ses propres conditions.',
 };

@@ -16,6 +16,16 @@ export type {
 } from './player';
 
 export {
+  clearPlaybackSession,
+  loadPlaybackSession,
+  PLAYBACK_SESSION_MAX_QUEUE,
+  PLAYBACK_SESSION_STORAGE_KEY,
+  PLAYBACK_SESSION_VERSION,
+  savePlaybackSession,
+} from './playbackSession';
+export type { PlaybackSession } from './playbackSession';
+
+export {
   DEFAULT_AUDIO_PROVIDER_ID,
   getAudioProvider,
   matchSongs,

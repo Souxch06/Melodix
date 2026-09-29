@@ -21,6 +21,9 @@ import {
 import { translations } from '@data';
 import { usePlayer } from '@context';
 import { queueIdForTrackId, sourceForTrackId } from '@services';
+import type { PlayerTrack } from '@services';
+
+import { QueueActionMenu } from '../Player/QueueActionMenu';
 
 import { Slider } from '../Slider';
 import { styles } from './styles';
@@ -71,10 +74,18 @@ export const Search = () => {
   }, [query]);
 
   const player = usePlayer();
+  const [actionTrack, setActionTrack] = React.useState<PlayerTrack | null>(
+    null
+  );
 
   // Tracks of the catalog play immediately (metadata → Audius stream).
   const handleTrackPress = React.useCallback(
-    (track: { id: string; title: string; subtitle?: string; imageURL?: string }) => {
+    (track: {
+      id: string;
+      title: string;
+      subtitle?: string;
+      imageURL?: string;
+    }) => {
       const queueId = queueIdForTrackId(track.id);
 
       if (player.current?.id === queueId) {
@@ -103,6 +114,32 @@ export const Search = () => {
     [player, results]
   );
 
+  // Appui long sur un résultat « Titre » : menu « Ajouter à la file » /
+  // « Lire ensuite » — geste Spotify habituel, composant partagé.
+  const handleTrackLongPress = React.useCallback(
+    (track: {
+      id: string;
+      title: string;
+      subtitle?: string;
+      imageURL?: string;
+    }) => {
+      if (!track.id) {
+        return;
+      }
+
+      setActionTrack({
+        id: queueIdForTrackId(track.id),
+        title: track.title,
+        artists: track.subtitle
+          ? track.subtitle.split(', ').filter(Boolean)
+          : [],
+        imageURL: track.imageURL ?? '',
+        source: sourceForTrackId(track.id),
+      });
+    },
+    []
+  );
+
   const sections = results
     ? [
         {
@@ -118,6 +155,7 @@ export const Search = () => {
           slides: results.tracks,
           shape: Shapes.SQUARE_BORDER,
           onSlidePress: handleTrackPress,
+          onSlideLongPress: handleTrackLongPress,
         },
         {
           key: 'albums',
@@ -179,18 +217,27 @@ export const Search = () => {
           </Text>
         )}
         {status === 'done' &&
-          sections.map(({ key, title, slides, shape, onSlidePress }) => (
-            <Slider
-              key={key}
-              title={title}
-              slides={slides}
-              size={Sizes.MEDIUM}
-              shape={shape}
-              withShowAll={false}
-              onSlidePress={onSlidePress}
-            />
-          ))}
+          sections.map(
+            ({ key, title, slides, shape, onSlidePress, onSlideLongPress }) => (
+              <Slider
+                key={key}
+                title={title}
+                slides={slides}
+                size={Sizes.MEDIUM}
+                shape={shape}
+                withShowAll={false}
+                onSlidePress={onSlidePress}
+                onSlideLongPress={onSlideLongPress}
+              />
+            )
+          )}
       </ScrollView>
+
+      <QueueActionMenu
+        onClose={() => setActionTrack(null)}
+        track={actionTrack}
+        visible={Boolean(actionTrack)}
+      />
     </View>
   );
 };

@@ -1,5 +1,11 @@
 import * as React from 'react';
-import { ActivityIndicator, FlatList, Pressable, Text, View } from 'react-native';
+import {
+  ActivityIndicator,
+  FlatList,
+  Pressable,
+  Text,
+  View,
+} from 'react-native';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -57,6 +63,8 @@ export const FullPlayer = () => {
     playAtIndex,
     stop,
     clearNotice,
+    removeFromQueue,
+    moveInQueue,
   } = player;
 
   const [seekWidth, setSeekWidth] = React.useState(0);
@@ -108,11 +116,20 @@ export const FullPlayer = () => {
   };
 
   const repeatIcon =
-    repeat === 'one' ? 'repeat-outline' : repeat === 'all' ? 'repeat' : 'repeat';
+    repeat === 'one'
+      ? 'repeat-outline'
+      : repeat === 'all'
+        ? 'repeat'
+        : 'repeat';
   const repeatActive = repeat !== 'off';
 
   return (
-    <View style={[styles.container, { paddingTop: top + 8, paddingBottom: bottom + 16 }]}>
+    <View
+      style={[
+        styles.container,
+        { paddingTop: top + 8, paddingBottom: bottom + 16 },
+      ]}
+    >
       <View style={styles.header}>
         <Pressable
           onPress={() => router.back()}
@@ -172,12 +189,7 @@ export const FullPlayer = () => {
         >
           <View style={[styles.seekFill, { flex: progress }]} />
           <View style={[styles.seekRest, { flex: 1 - progress }]} />
-          <View
-            style={[
-              styles.seekThumb,
-              { left: `${progress * 100}%` },
-            ]}
-          />
+          <View style={[styles.seekThumb, { left: `${progress * 100}%` }]} />
         </Pressable>
         <View style={styles.timesRow}>
           <Text style={styles.timeText}>{formatMillis(positionMillis)}</Text>
@@ -272,37 +284,97 @@ export const FullPlayer = () => {
         <Ionicons name="volume-high" size={18} color={COLORS.GREY} />
       </View>
 
-      <Text style={styles.queueTitle}>{translations.playerUpNext}</Text>
+      <Text style={styles.queueTitle}>{translations.playerQueueTitle}</Text>
       <FlatList
         data={queue}
         keyExtractor={(item, idx) => `${item.id}:${idx}`}
         style={styles.queueList}
+        // Queue longue : virtualisée par FlatList (phase 2, performance).
+        initialNumToRender={12}
         renderItem={({ item, index }) => {
           const isCurrent = index === currentIndex;
+          const isFirst = index === 0;
+          const isLast = index === queue.length - 1;
 
           return (
-            <Pressable
-              onPress={() => void playAtIndex(index)}
+            <View
               style={[styles.queueRow, isCurrent && styles.queueRowActive]}
+              testID={`queue-row-${index}`}
             >
-              <Ionicons
-                name={isCurrent && isPlaying ? 'stats-chart' : 'musical-note'}
-                size={15}
-                color={isCurrent ? accent : COLORS.GREY}
-                style={styles.queueIcon}
-              />
-              <View style={styles.queueInfo}>
-                <Text
-                  numberOfLines={1}
-                  style={[styles.queueTitleText, isCurrent && styles.activeText]}
-                >
-                  {item.title}
-                </Text>
-                <Text numberOfLines={1} style={styles.queueSubtitleText}>
-                  {item.artists.join(', ')}
-                </Text>
-              </View>
-            </Pressable>
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => void playAtIndex(index)}
+                style={styles.queueTapArea}
+              >
+                <Image
+                  source={
+                    item.imageURL
+                      ? { uri: item.imageURL }
+                      : getFallbackImage('track')
+                  }
+                  style={styles.queueArtwork}
+                />
+                <Ionicons
+                  name={isCurrent && isPlaying ? 'stats-chart' : 'musical-note'}
+                  size={15}
+                  color={isCurrent ? accent : COLORS.GREY}
+                  style={styles.queueIcon}
+                />
+                <View style={styles.queueInfo}>
+                  <Text
+                    numberOfLines={1}
+                    style={[
+                      styles.queueTitleText,
+                      isCurrent && styles.activeText,
+                    ]}
+                  >
+                    {item.title}
+                  </Text>
+                  <Text numberOfLines={1} style={styles.queueSubtitleText}>
+                    {item.artists.join(', ')}
+                  </Text>
+                </View>
+              </Pressable>
+
+              {/* Réordonner : flèche haut/bas (accessible, sans lib native). */}
+              <Pressable
+                accessibilityLabel={translations.playerQueueMoveUp}
+                accessibilityRole="button"
+                disabled={isFirst}
+                onPress={() => moveInQueue(index, index - 1)}
+                style={[styles.queueAction, isFirst && styles.queueActionOff]}
+                testID={`queue-up-${index}`}
+              >
+                <Ionicons
+                  name="chevron-up"
+                  size={17}
+                  color={COLORS.LIGHT_GREY}
+                />
+              </Pressable>
+              <Pressable
+                accessibilityLabel={translations.playerQueueMoveDown}
+                accessibilityRole="button"
+                disabled={isLast}
+                onPress={() => moveInQueue(index, index + 1)}
+                style={[styles.queueAction, isLast && styles.queueActionOff]}
+                testID={`queue-down-${index}`}
+              >
+                <Ionicons
+                  name="chevron-down"
+                  size={17}
+                  color={COLORS.LIGHT_GREY}
+                />
+              </Pressable>
+              <Pressable
+                accessibilityLabel={translations.playerQueueRemove}
+                accessibilityRole="button"
+                onPress={() => removeFromQueue(index)}
+                style={styles.queueAction}
+                testID={`queue-remove-${index}`}
+              >
+                <Ionicons name="trash-outline" size={16} color={COLORS.RED} />
+              </Pressable>
+            </View>
           );
         }}
       />

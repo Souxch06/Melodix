@@ -10,7 +10,7 @@
 import * as React from 'react';
 import { Pressable, View } from 'react-native';
 
-import { fireEvent, render } from '@testing-library/react-native';
+import { act, fireEvent, render } from '@testing-library/react-native';
 
 import { PlayerProvider, usePlayer } from '../PlayerContext';
 
@@ -45,18 +45,30 @@ const mockActions = {
   setStaysActiveInBackground: jest.fn(async () => {}),
   stop: jest.fn(async () => {}),
   clearNotice: jest.fn(),
+  addToQueue: jest.fn(),
+  playNext: jest.fn(),
+  removeFromQueue: jest.fn(),
+  moveInQueue: jest.fn(),
+  restoreSession: jest.fn(async () => {}),
+  loadPlaybackSession: jest.fn(async (): Promise<unknown> => null),
+  clearPlaybackSession: jest.fn(async () => {}),
   getState: () => INITIAL,
   subscribe: jest.fn(),
 };
 
 jest.mock('@services', () => ({
   INITIAL_PLAYER_STATE: INITIAL,
+  loadPlaybackSession: (...args: never[]) =>
+    mockActions.loadPlaybackSession(...(args as [])),
+  clearPlaybackSession: (...args: never[]) =>
+    mockActions.clearPlaybackSession(...(args as [])),
   // Liaisons tardives : la factory s exécute avant les const du fichier.
   melodixPlayer: {
     playQueue: (...args: unknown[]) => mockActions.playQueue(...(args as [])),
     playTrack: (...args: never[]) => mockActions.playTrack(...(args as [])),
     playAtIndex: (...args: never[]) => mockActions.playAtIndex(...(args as [])),
-    togglePlayPause: (...args: never[]) => mockActions.togglePlayPause(...(args as [])),
+    togglePlayPause: (...args: never[]) =>
+      mockActions.togglePlayPause(...(args as [])),
     next: (...args: never[]) => mockActions.next(...(args as [])),
     previous: (...args: never[]) => mockActions.previous(...(args as [])),
     seekTo: (...args: never[]) => mockActions.seekTo(...(args as [])),
@@ -68,6 +80,13 @@ jest.mock('@services', () => ({
       mockActions.setStaysActiveInBackground(...(args as [])),
     stop: (...args: never[]) => mockActions.stop(...(args as [])),
     clearNotice: () => mockActions.clearNotice(),
+    addToQueue: (...args: never[]) => mockActions.addToQueue(...(args as [])),
+    playNext: (...args: never[]) => mockActions.playNext(...(args as [])),
+    removeFromQueue: (...args: never[]) =>
+      mockActions.removeFromQueue(...(args as [])),
+    moveInQueue: (...args: never[]) => mockActions.moveInQueue(...(args as [])),
+    restoreSession: (...args: never[]) =>
+      mockActions.restoreSession(...(args as [])),
     getState: () => INITIAL,
     subscribe: (...args: never[]) => mockActions.subscribe(...(args as [])),
   },
@@ -140,5 +159,202 @@ describe('PlayerContext — état unique partagé par toute l UI', () => {
     expect(mockActions.setVolume).toHaveBeenCalledWith(0.5);
     expect(mockActions.setStaysActiveInBackground).toHaveBeenCalledWith(false);
     expect(mockActions.next).toHaveBeenCalledTimes(1);
+  });
+});
+
+/**
+ * PHASE 2 — reprise de session : la carte « Reprendre » est pilotée par le
+ * contexte (jamais par le moteur). AUCUNE lecture automatique au boot.
+ */
+describe('PlayerContext — reprise de session (phase 2)', () => {
+  let engineListener: ((state: unknown) => void) | null = null;
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    engineListener = null;
+    mockActions.loadPlaybackSession.mockResolvedValue(null);
+    mockActions.subscribe.mockImplementation(
+      (listener: (state: unknown) => void) => {
+        engineListener = listener;
+        return () => {};
+      }
+    );
+  });
+
+  const SESSION = {
+    version: 1,
+    savedAt: 1_700_000_000_000,
+    queue: [
+      {
+        id: 'spotify:x',
+        title: 'Reprise',
+        artists: ['Artiste'],
+        album: null,
+        durationMillis: null,
+        imageURL: '',
+        source: { id: 'x', provider: null },
+      },
+    ],
+    index: 0,
+    positionMillis: 30_000,
+    shuffle: false,
+    repeat: 'all',
+    volume: 0.8,
+  };
+
+  it('session trouvée au boot : PROPOSÉE via pendingRestore, jamais jouée', async () => {
+    mockActions.loadPlaybackSession.mockResolvedValue(SESSION);
+
+    const Probe = () => {
+      const { pendingRestore } = usePlayer();
+
+      return pendingRestore ? <View testID="pending" /> : null;
+    };
+
+    const { findByTestId } = render(
+      <PlayerProvider>
+        <Probe />
+      </PlayerProvider>
+    );
+
+    expect(await findByTestId('pending')).toBeTruthy();
+    // AUCUN appel moteur de lecture : seule la carte est exposée.
+    expect(mockActions.restoreSession).not.toHaveBeenCalled();
+    expect(mockActions.playQueue).not.toHaveBeenCalled();
+  });
+
+  it('resumeSession : restaure côté moteur, purge le stockage, ferme la carte', async () => {
+    mockActions.loadPlaybackSession.mockResolvedValue(SESSION);
+
+    const Probe = () => {
+      const { pendingRestore, resumeSession } = usePlayer();
+
+      return pendingRestore ? (
+        <Pressable onPress={() => void resumeSession()} testID="resume" />
+      ) : null;
+    };
+
+    const { findByTestId, queryByTestId } = render(
+      <PlayerProvider>
+        <Probe />
+      </PlayerProvider>
+    );
+
+    fireEvent.press(await findByTestId('resume'));
+
+    expect(mockActions.restoreSession).toHaveBeenCalledTimes(1);
+    expect(mockActions.clearPlaybackSession).toHaveBeenCalledTimes(1);
+    await findByTestId('resume').catch(() => null);
+    expect(queryByTestId('resume')).toBeNull();
+  });
+
+  it('dismissSession : purge le stockage SANS jouer, ferme la carte', async () => {
+    mockActions.loadPlaybackSession.mockResolvedValue(SESSION);
+
+    const Probe = () => {
+      const { pendingRestore, dismissSession } = usePlayer();
+
+      return pendingRestore ? (
+        <Pressable onPress={() => void dismissSession()} testID="dismiss" />
+      ) : null;
+    };
+
+    const { findByTestId, queryByTestId } = render(
+      <PlayerProvider>
+        <Probe />
+      </PlayerProvider>
+    );
+
+    fireEvent.press(await findByTestId('dismiss'));
+
+    expect(mockActions.clearPlaybackSession).toHaveBeenCalledTimes(1);
+    expect(mockActions.restoreSession).not.toHaveBeenCalled();
+    expect(queryByTestId('dismiss')).toBeNull();
+  });
+
+  it('une lecture démarre ailleurs : la carte se dissout d elle-même', async () => {
+    mockActions.loadPlaybackSession.mockResolvedValue(SESSION);
+
+    const Probe = () => {
+      const { pendingRestore } = usePlayer();
+
+      return pendingRestore ? <View testID="pending" /> : null;
+    };
+
+    const { findByTestId, queryByTestId } = render(
+      <PlayerProvider>
+        <Probe />
+      </PlayerProvider>
+    );
+
+    expect(await findByTestId('pending')).toBeTruthy();
+
+    // Simule le moteur : un état « playing » arrive (autre lancement).
+    act(() => {
+      engineListener?.({ ...INITIAL, status: 'playing' });
+    });
+
+    expect(queryByTestId('pending')).toBeNull();
+  });
+
+  it('sans session au boot : aucune carte, aucune écriture moteur', async () => {
+    const Probe = () => {
+      const { pendingRestore } = usePlayer();
+
+      return pendingRestore ? <View testID="pending" /> : null;
+    };
+
+    const { queryByTestId } = render(
+      <PlayerProvider>
+        <Probe />
+      </PlayerProvider>
+    );
+
+    await Promise.resolve(); // laisse l effet async se terminer
+    expect(queryByTestId('pending')).toBeNull();
+    expect(mockActions.restoreSession).not.toHaveBeenCalled();
+    expect(mockActions.clearPlaybackSession).not.toHaveBeenCalled();
+  });
+
+  it('les 4 actions de file passent DIRECTEMENT au moteur', () => {
+    const morceau = { id: 'spotify:m', title: 'M' };
+
+    const Probe = () => {
+      const player = usePlayer();
+
+      return (
+        <>
+          <Pressable
+            onPress={() => player.addToQueue(morceau as never)}
+            testID="add"
+          />
+          <Pressable
+            onPress={() => player.playNext(morceau as never)}
+            testID="next-up"
+          />
+          <Pressable
+            onPress={() => player.removeFromQueue(1)}
+            testID="remove"
+          />
+          <Pressable onPress={() => player.moveInQueue(0, 2)} testID="move" />
+        </>
+      );
+    };
+
+    const { getByTestId } = render(
+      <PlayerProvider>
+        <Probe />
+      </PlayerProvider>
+    );
+
+    fireEvent.press(getByTestId('add'));
+    fireEvent.press(getByTestId('next-up'));
+    fireEvent.press(getByTestId('remove'));
+    fireEvent.press(getByTestId('move'));
+
+    expect(mockActions.addToQueue).toHaveBeenCalledWith(morceau);
+    expect(mockActions.playNext).toHaveBeenCalledWith(morceau);
+    expect(mockActions.removeFromQueue).toHaveBeenCalledWith(1);
+    expect(mockActions.moveInQueue).toHaveBeenCalledWith(0, 2);
   });
 });

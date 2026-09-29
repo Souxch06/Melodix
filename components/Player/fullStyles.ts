@@ -164,6 +164,24 @@ export const styles = StyleSheet.create({
   queueList: {
     flex: 1,
   },
+  queueTapArea: {
+    alignItems: 'center',
+    flex: 1,
+    flexDirection: 'row',
+  },
+  queueArtwork: {
+    borderRadius: 4,
+    height: 34,
+    marginRight: 10,
+    width: 34,
+  },
+  queueAction: {
+    paddingHorizontal: 6,
+    paddingVertical: 6,
+  },
+  queueActionOff: {
+    opacity: 0.25,
+  },
   queueRow: {
     flexDirection: 'row',
     alignItems: 'center',

@@ -21,6 +21,8 @@ export type SliderPropsType = {
   withShowAll: boolean;
   // Replaces card navigation for every slide (e.g. playing Audius tracks).
   onSlidePress?: (slide: LibraryItemModel, index: number) => void;
+  /** Menu d'actions par appui long (ex. file d'attente) — optionnel. */
+  onSlideLongPress?: (slide: LibraryItemModel, index: number) => void;
 };
 
 export const Slider = ({
@@ -30,6 +32,7 @@ export const Slider = ({
   shape = Shapes.SQUARE,
   withShowAll = false,
   onSlidePress,
+  onSlideLongPress,
 }: SliderPropsType) => {
   const { width } = useApplicationDimensions();
   const horizontalOffset = 16;
@@ -77,6 +80,11 @@ export const Slider = ({
                 imageURL={slide.imageURL}
                 onPress={
                   onSlidePress ? () => onSlidePress(slide, index) : undefined
+                }
+                onLongPress={
+                  onSlideLongPress
+                    ? () => onSlideLongPress(slide, index)
+                    : undefined
                 }
               />
             ))

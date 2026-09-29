@@ -20,6 +20,8 @@ export type CardPropsType = {
   shape?: Shapes;
   // Overrides navigation entirely (e.g. playable Audius cards).
   onPress?: () => void;
+  /** Menu d'actions (file d'attente) — appui long, optionnel. */
+  onLongPress?: () => void;
 };
 
 const Card = React.memo(
@@ -32,6 +34,7 @@ const Card = React.memo(
     size = Sizes.BIG,
     shape = Shapes.SQUARE,
     onPress,
+    onLongPress,
   }: CardPropsType) => {
     const router = useRouter();
     const styles = styling(size, shape);
@@ -79,7 +82,11 @@ const Card = React.memo(
     }, [type, size]);
 
     return (
-      <Pressable onPress={() => handlePress(id)} style={styles.card}>
+      <Pressable
+        onLongPress={onLongPress}
+        onPress={() => handlePress(id)}
+        style={styles.card}
+      >
         <View style={styles.cardImageView}>
           <React.Suspense fallback={renderIcon()}>
             {imageURL ? (

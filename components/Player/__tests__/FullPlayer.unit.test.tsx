@@ -31,6 +31,8 @@ const mockCycleRepeat = jest.fn();
 const mockPlayAtIndex = jest.fn(async () => {});
 const mockStop = jest.fn(async () => {});
 const mockClearNotice = jest.fn();
+const mockRemoveFromQueue = jest.fn();
+const mockMoveInQueue = jest.fn();
 
 let mockPlayerState: {
   current: PlayerTrack | null;
@@ -68,6 +70,8 @@ jest.mock('@context', () => ({
     playAtIndex: mockPlayAtIndex,
     stop: mockStop,
     clearNotice: mockClearNotice,
+    removeFromQueue: mockRemoveFromQueue,
+    moveInQueue: mockMoveInQueue,
   }),
 }));
 
@@ -86,7 +90,11 @@ describe('FullPlayer — inventaire réel avant refonte éventuelle', () => {
     jest.clearAllMocks();
     mockPlayerState = {
       current: mkTrack('one', 'Take Me Away'),
-      queue: [mkTrack('one', 'Take Me Away'), mkTrack('two', 'Make It'), mkTrack('three', 'Grateful')],
+      queue: [
+        mkTrack('one', 'Take Me Away'),
+        mkTrack('two', 'Make It'),
+        mkTrack('three', 'Grateful'),
+      ],
       index: 0,
       status: 'playing',
       positionMillis: 65000,
@@ -129,7 +137,7 @@ describe('FullPlayer — inventaire réel avant refonte éventuelle', () => {
     fireEvent.press(volume, { nativeEvent: { locationX: 50 } });
 
     expect(mockSetVolume).toHaveBeenCalledWith(0.25);
-     // PAS de mute dédié dans l'UI actuelle (constat d'audit, pas manquant ici).
+    // PAS de mute dédié dans l'UI actuelle (constat d'audit, pas manquant ici).
   });
 
   it('play/pause, previous, next, shuffle, repeat : tous branchés', () => {
@@ -205,8 +213,14 @@ describe('FullPlayer — Phase 1 : notices cohérentes et durée honnête', () =
   });
 
   it('durée KO : affiche « —:-- » (jamais 0:00) ET la barre est désactivée', () => {
-    mockPlayerState = { ...mockPlayerState, durationMillis: 0, positionMillis: 0 };
-    const { getByTestId, getByLabelText, queryAllByText } = render(<FullPlayer />);
+    mockPlayerState = {
+      ...mockPlayerState,
+      durationMillis: 0,
+      positionMillis: 0,
+    };
+    const { getByTestId, getByLabelText, queryAllByText } = render(
+      <FullPlayer />
+    );
 
     // « —:-- » honnête, jamais « 0:00 » présenté comme une DURÉE réelle
     // (la position écoulée « 0:00 », elle, reste vraie et affichée : 1 seule).
@@ -260,7 +274,11 @@ describe('FullPlayer — Phase 1 : notices cohérentes et durée honnête', () =
     const view = render(<FullPlayer />);
 
     // Le morceau change : le moteur vacille notice → null → l'effet s'annule.
-    mockPlayerState = { ...mockPlayerState, notice: null, current: mkTrack('two', 'Next') };
+    mockPlayerState = {
+      ...mockPlayerState,
+      notice: null,
+      current: mkTrack('two', 'Next'),
+    };
     view.update(<FullPlayer />);
 
     jest.useFakeTimers();
@@ -270,5 +288,81 @@ describe('FullPlayer — Phase 1 : notices cohérentes et durée honnête', () =
     jest.useRealTimers();
     // clearNotice n'est plus appelé par le timer d'un vieil affichage.
     expect(mockClearNotice).not.toHaveBeenCalled();
+  });
+});
+
+/**
+ * PHASE 2 — file d'attente du Full Player : actions réelles (§9-§10).
+ */
+const mk = (titre: string): PlayerTrack => mkTrack(titre.toLowerCase(), titre);
+
+const QueueHarness = ({
+  state,
+}: {
+  state: {
+    queue: PlayerTrack[];
+    index: number;
+    status: string;
+    positionMillis: number;
+    durationMillis: number;
+  };
+}) => {
+  Object.assign(mockPlayerState, state);
+
+  return <FullPlayer />;
+};
+
+describe('FullPlayer — file avancée : supprimer, réordonner, jouer (phase 2)', () => {
+  beforeEach(() => jest.clearAllMocks());
+
+  const lectureQ = ['A', 'B', 'C'];
+  const stateQ = {
+    status: 'playing',
+    positionMillis: 1000,
+    durationMillis: 60000,
+  };
+
+  it('chaque ligne porte pochette + actions : supprimer appelle removeFromQueue', () => {
+    const queue = lectureQ.map(mk);
+    const { getByText, getByTestId } = render(
+      <QueueHarness state={{ ...stateQ, queue, index: 1 }} />
+    );
+
+    // Morceau courant identifié (style actif) par titre.
+    expect(getByText('B')).toBeTruthy();
+    fireEvent.press(getByTestId('queue-remove-2'));
+    expect(mockRemoveFromQueue).toHaveBeenCalledWith(2);
+  });
+
+  it('les flèches réordonnent : descendre appelle moveInQueue(i, i+1)', () => {
+    const queue = lectureQ.map(mk);
+    const { getByTestId } = render(
+      <QueueHarness state={{ ...stateQ, queue, index: 0 }} />
+    );
+
+    fireEvent.press(getByTestId('queue-up-1'));
+    expect(mockMoveInQueue).toHaveBeenCalledWith(1, 0);
+
+    fireEvent.press(getByTestId('queue-down-0'));
+    expect(mockMoveInQueue).toHaveBeenCalledWith(0, 1);
+  });
+
+  it('les CORN bornes sont désactivées : pas de déplacement hors file', () => {
+    const queue = lectureQ.map(mk);
+    const { getByTestId } = render(
+      <QueueHarness state={{ ...stateQ, queue, index: 1 }} />
+    );
+
+    expect(getByTestId('queue-up-0').props.accessibilityState?.disabled).toBe(
+      true
+    );
+    expect(
+      getByTestId(`queue-down-${queue.length - 1}`).props.accessibilityState
+        ?.disabled
+    ).toBe(true);
+
+    // Appui impuissant : jamais de moveInQueue hors bornes.
+    fireEvent.press(getByTestId('queue-up-0'));
+    expect(mockMoveInQueue).not.toHaveBeenCalled();
   });
 });

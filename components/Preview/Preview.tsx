@@ -12,6 +12,7 @@ import { CommonHeader } from './CommonHeader';
 import { Cover } from './Cover';
 import { Summary } from './Summary';
 import { Track } from './Track';
+import { QueueActionMenu } from '../Player/QueueActionMenu';
 import { Info } from './Info';
 import { Artists } from './Artists';
 import { MoreOf } from './MoreOf';
@@ -49,7 +50,10 @@ export type PreviewPropsType = {
   /** Statistique dynamique « 85/100 morceaux disponibles ». */
   summaryAvailability?: string;
   /** État de résolution par track.id (badge discret de ligne). */
-  availabilityById?: Record<string, 'audius' | 'youtube' | 'none' | 'pending' | 'resolving'>;
+  availabilityById?: Record<
+    string,
+    'audius' | 'youtube' | 'none' | 'pending' | 'resolving'
+  >;
   /** Tap sur une ligne indisponible → message clair, jamais de crash. */
   onUnavailableTrackPress?: (track: TrackModel) => void;
   infoTexts?: string[];
@@ -133,6 +137,26 @@ export const Preview = ({
     [player, playableQueue]
   );
 
+  // Menu d'actions « ⋯ » de la ligne : un seul état, un seul composant
+  // réutilisable (jamais de menu dupliqué par écran).
+  const [actionTrack, setActionTrack] = React.useState<PlayerTrack | null>(
+    null
+  );
+
+  const openActions = React.useCallback((item: TrackModel) => {
+    if (!item.id) {
+      return;
+    }
+
+    setActionTrack({
+      id: queueIdForTrackId(item.id),
+      title: item.title,
+      artists: item.subtitle ? item.subtitle.split(', ').filter(Boolean) : [],
+      imageURL: item.imageURL ?? '',
+      source: sourceForTrackId(item.id),
+    });
+  }, []);
+
   // Déstructuré pour des dépendances de hook explicites et stables.
   const playerCurrentId = player.current?.id;
   const playerStatus = player.status;
@@ -168,6 +192,7 @@ export const Preview = ({
               ? () => onToggleTrackSaved(item)
               : undefined
           }
+          onActionsPress={() => openActions(item)}
         />
       );
     },
@@ -181,11 +206,17 @@ export const Preview = ({
       onToggleTrackSaved,
       availabilityById,
       onUnavailableTrackPress,
+      openActions,
     ]
   );
 
   return (
     <View style={[styles.container, { width }]}>
+      <QueueActionMenu
+        onClose={() => setActionTrack(null)}
+        track={actionTrack}
+        visible={Boolean(actionTrack)}
+      />
       <CommonHeader
         type={type}
         title={headerTitle}

@@ -2,6 +2,7 @@ import * as React from 'react';
 import { ScrollView } from 'react-native-gesture-handler';
 
 import { Greeting } from './Greeting';
+import { ResumeSessionCard } from '../Player/ResumeSessionCard';
 import { YourPlaylists } from './YourPlaylists';
 import { RecentlyPlayed } from './RecentlyPlayed';
 import { FeaturedPlaylists } from './FeaturedPlaylists';
@@ -34,6 +35,7 @@ export const Home = () => {
     >
       <ScrollView style={{ paddingVertical: 16 }}>
         <Greeting />
+        <ResumeSessionCard />
         <YourPlaylists />
         <RecentlyPlayed />
         <FeaturedPlaylists />
