@@ -45,7 +45,7 @@ object MelodixMediaController {
 
     // DIAG (4.4.5 + 4.4.7 miroir fichier) : réception d'une projection JS.
     Log.i("MXDIAG", "MEDIA_SESSION_UPDATE received")
-    MelodixDiagLog.step("MEDIA_SESSION_UPDATE received", "keys=${payload.keys.size}")
+    MelodixDiagLog.step("MEDIA_SESSION_UPDATE", "received keys=${payload.keys.size}")
 
     mainHandler.post {
       if (!serviceRunning) {

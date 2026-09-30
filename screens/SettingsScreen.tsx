@@ -28,7 +28,6 @@ import {
   SettingsSelect,
   SettingsSwitch,
 } from '@components';
-import { NativeDiagSection } from '../components/Settings/NativeDiagSection';
 
 const GITHUB_URL = 'https://github.com/Souxch06/Melodix';
 const VOLUME_STEP = 10;
@@ -424,9 +423,21 @@ export const SettingsScreen = () => {
         />
       </SettingsSection>
 
-      {/* SECTION TEMPORAIRE (4.4.7-diagnostic) : journal natif persistant +
-          drapeaux d'isolation MediaSession. À retirer après correction. */}
-      <NativeDiagSection />
+      {/* ENTRÉE TEMPORAIRE (4.4.7-diagnostic) : ouvre l'écran dédié
+          « Diagnostic technique » (journal natif persistant, copie
+          presse-papiers, drapeaux d'isolation). À retirer après correction. */}
+      <SettingsSection
+        testID="settings-section-native-diag"
+        title="Diagnostic"
+      >
+        <SettingsRow
+          isLast
+          label="Diagnostic technique"
+          showChevron
+          onPress={() => router.push({ pathname: '/settings/diag', params: {} })}
+          testID="settings-native-diag-open"
+        />
+      </SettingsSection>
     </SettingsScaffold>
   );
 };

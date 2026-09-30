@@ -124,11 +124,7 @@ object MelodixDiagLog {
       val previous = Thread.getDefaultUncaughtExceptionHandler()
 
       Thread.setDefaultUncaughtExceptionHandler { thread, error ->
-        appendRaw(
-          "FATAL_UNCAUGHT",
-          "thread=${thread.name} tid=${thread.id} ${error.javaClass.name}: ${error.message}",
-          error
-        )
+        writeFatal(thread, error)
         try {
           previous?.uncaughtException(thread, error)
         } catch (ignored: Throwable) {
@@ -137,6 +133,80 @@ object MelodixDiagLog {
       }
     } catch (t: Throwable) {
       Log.w(TAG, "crash trap non installé", t)
+    }
+  }
+
+  /**
+   * Entrée de crash FATAL au format BLOC exigé (§1) :
+   *
+   *   FATAL_UNCAUGHT
+   *   timestamp=<ISO-8601 UTC ms>
+   *   thread=<nom> (tid=<id>)
+   *   exception=<classe>
+   *   message=<message sanitizé>
+   *   cause=<classe: message de chaque cause imbriquée, chaînées>
+   *   stacktrace=<pile COMPLÈTE sanitizée, "Caused by:" inclus>
+   *
+   * Écriture synchrone best-effort AVANT la délégation au handler
+   * précédent : le fichier survit au crash et reste lisible au prochain
+   * lancement (§5).
+   */
+  private fun writeFatal(thread: Thread, error: Throwable) {
+    val file = logFile ?: return
+
+    try {
+      synchronized(this) {
+        val causes = buildString {
+          var current: Throwable? = error.cause
+          if (current == null) {
+            append("aucune")
+          }
+          var first = true
+          while (current != null) {
+            if (!first) {
+              append(" <- ")
+            }
+            append(current.javaClass.name)
+            append(": ")
+            append(current.message ?: "")
+            first = false
+            current = current.cause
+          }
+        }
+
+        val stack = StringWriter()
+        error.printStackTrace(PrintWriter(stack))
+
+        val block = buildString {
+          append("FATAL_UNCAUGHT\n")
+          append("timestamp=")
+          append(isoFormatter.get()?.format(Date()) ?: "?")
+          append('\n')
+          append("thread=")
+          append(sanitize(thread.name, 64))
+          append(" tid=")
+          append(thread.id)
+          append('\n')
+          append("exception=")
+          append(error.javaClass.name)
+          append('\n')
+          append("message=")
+          append(sanitize(error.message, MAX_EXTRA_CHARS))
+          append('\n')
+          append("cause=")
+          append(sanitize(causes, MAX_EXTRA_CHARS * 2))
+          append('\n')
+          append("stacktrace=\n")
+          append(sanitize(stack.toString(), MAX_STACK_CHARS))
+          append('\n')
+          append("===\n")
+        }
+
+        trimIfNeeded(file)
+        file.appendText(block)
+      }
+    } catch (t: Throwable) {
+      Log.w(TAG, "FATAL non écrit", t)
     }
   }
 
@@ -186,16 +256,7 @@ object MelodixDiagLog {
 
     try {
       synchronized(this) {
-        // Borne : tronque depuis le début pour garder les événements récents.
-        if (file.exists() && file.length() > MAX_BYTES) {
-          try {
-            val content = file.readText()
-            val tail = content.takeLast(KEEP_TAIL_BYTES.toInt())
-            file.writeText("…[journal tronqué aux ${KEEP_TAIL_BYTES / 1024} Ko récents]…\n$tail")
-          } catch (t: Throwable) {
-            Log.w(TAG, "trim ignoré", t)
-          }
-        }
+        trimIfNeeded(file)
 
         val currentThread = Thread.currentThread()
         // Format : ISO-8601 UTC ms | thread=<nom> tid=<id> | ÉTAPE | extra
@@ -230,6 +291,19 @@ object MelodixDiagLog {
       }
     } catch (t: Throwable) {
       Log.w(TAG, "append ignoré ($step)", t)
+    }
+  }
+
+  /** Borne : tronque depuis le début pour garder les événements récents. */
+  private fun trimIfNeeded(file: File) {
+    if (file.exists() && file.length() > MAX_BYTES) {
+      try {
+        val content = file.readText()
+        val tail = content.takeLast(KEEP_TAIL_BYTES.toInt())
+        file.writeText("…[journal tronqué aux ${KEEP_TAIL_BYTES / 1024} Ko récents]…\n$tail")
+      } catch (t: Throwable) {
+        Log.w(TAG, "trim ignoré", t)
+      }
     }
   }
 

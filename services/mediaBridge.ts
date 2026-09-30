@@ -202,6 +202,7 @@ const projectState = (state: PlayerState): void => {
   callNative(() => updateSession(payload));
   console.log('[MXDIAG] MEDIA_SESSION_UPDATE'); // DIAG
   diagNativeStep(`MEDIA_BRIDGE_START isPlaying=${payload.isPlaying}`);
+  diagNativeStep('MEDIA_SESSION_UPDATE_CALL'); // DIAG — appel JS → natif
 };
 
 /**
