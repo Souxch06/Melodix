@@ -40,6 +40,9 @@ import com.google.common.collect.ImmutableList
  */
 class MelodixMediaNotificationProvider(context: Context) : MediaNotification.Provider {
 
+  /** Contexte applicatif conservé (repli notification 5C.2). */
+  private val appContext: Context = context.applicationContext
+
   private val provider: DefaultMediaNotificationProvider
 
   init {
@@ -73,19 +76,17 @@ class MelodixMediaNotificationProvider(context: Context) : MediaNotification.Pro
       )
     } catch (t: Throwable) {
       android.util.Log.e(TAG, "Notification par défaut de repli", t)
-      fallbackNotification(mediaSession, onNotificationChangedCallback)
+      fallbackNotification(onNotificationChangedCallback)
     }
 
   /** Dernier recours absolu : notification minimale qui ne peut pas échouer. */
   private fun fallbackNotification(
-    mediaSession: MediaSession,
     onNotificationChangedCallback: MediaNotification.Provider.Callback
   ): MediaNotification {
-    val context: android.content.Context = mediaSession.context
-    ensureMediaChannel(context)
+    ensureMediaChannel(appContext)
 
-    val notification = androidx.core.app.NotificationCompat.Builder(context, CHANNEL_ID)
-      .setSmallIcon(context.applicationInfo.icon)
+    val notification = androidx.core.app.NotificationCompat.Builder(appContext, CHANNEL_ID)
+      .setSmallIcon(appContext.applicationInfo.icon)
       .setContentTitle(CHANNEL_NAME)
       .setContentText("Lecture en cours")
       .setOngoing(true)
