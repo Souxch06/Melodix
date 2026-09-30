@@ -45,4 +45,14 @@ dependencies {
   implementation("androidx.media3:media3-exoplayer:1.4.1")
   implementation("androidx.media3:media3-session:1.4.1")
   implementation("androidx.media3:media3-ui:1.4.1")
+
+  // Guava 5C.2 — épinglage de la VARIANTE ANDROID exacte attendue par
+  // media3 1.4.1 + ses artefacts de linkage. Sans ces pins, une résolution
+  // Gradle défavorable (variante JRE / failureaccess absent) provoque un
+  // NoClassDefFoundError/NoSuchMethodError AU PREMIER appel guava
+  // (ImmutableList/Futures) — c'est-à-dire au premier Play, exactement au
+  // démarrage de la MediaSession. Déclaration standard des apps média3.
+  implementation("com.google.guava:guava:31.1-android")
+  implementation("com.google.guava:failureaccess:1.0.1")
+  implementation("com.google.guava:listenablefuture:9999.0-empty-to-avoid-conflict-with-guava")
 }

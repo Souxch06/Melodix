@@ -41,45 +41,80 @@ class MelodixMediaService : MediaSessionService() {
   override fun onCreate() {
     super.onCreate()
 
-    // Phase 5C : notification Melodix (canal/petit icône) via delegation au
-    // DefaultMediaNotificationProvider — DOIT être posé avant la fin de
-    // onCreate (contrat setMediaNotificationProvider, API 1.3.1 auditée).
-    setMediaNotificationProvider(MelodixMediaNotificationProvider(this))
+    // 5C.2 — Blindage ANTI-CRASH : TOUT ce bloc tourne sur le MAIN thread
+    // au premier Play (le service n'existait jamais avant). La moindre
+    // exception non captée ici (linkage gradle, erreur média3, provider...)
+    // tuerait l'application ENTIÈRE alors que l'audio expo-av n'a strictement
+    // rien à voir. Comportement exigé par le cahier : log complet, arrêt
+    // propre du service — LA LECTURE CONTINUE, MediaSession = couche OPTIONNELLE.
+    try {
+      // Phase 5C : notification Melodix (canal/petit icône) via delegation au
+      // DefaultMediaNotificationProvider — DOIT être posé avant la fin de
+      // onCreate (contrat setMediaNotificationProvider, API 1.3.1 auditée).
+      setMediaNotificationProvider(MelodixMediaNotificationProvider(this))
 
-    val player = VirtualMediaPlayer(mainLooper)
-    virtualPlayer = player
+      val player = VirtualMediaPlayer(mainLooper)
+      virtualPlayer = player
 
-    // BitmapLoader 5C : pochettes HTTP asynchrones (executor dédié), cache
-    // borné, résilient — sans aucun impact sur la lecture expo-av.
-    val session = MediaSession.Builder(this, player)
-      .setBitmapLoader(MelodixArtworkLoader.create(this))
-      .build()
-    mediaSession = session
+      // BitmapLoader 5C : pochettes HTTP asynchrones (executor dédié), cache
+      // borné, résilient — sans aucun impact sur la lecture expo-av.
+      val session = MediaSession.Builder(this, player)
+        .setBitmapLoader(MelodixArtworkLoader.create(this))
+        .build()
+      mediaSession = session
 
-    // Enregistre la session auprès du gestionnaire de notification Media3 :
-    // c'est CE qui alimente la notification média système + met le service
-    // en avant-plan dès que l'état projeté devient PLAYING.
-    addSession(session)
+      // Enregistre la session auprès du gestionnaire de notification Media3 :
+      // c'est CE qui alimente la notification média système + met le service
+      // en avant-plan dès que l'état projeté devient PLAYING.
+      addSession(session)
 
-    // Le contrôleur fait suivre chaque projection au player virtuel.
-    sessionStateListener = { payload -> player.updateSession(payload) }
-
-    // Replay de la projection initiale : la projection qui a DÉCLENCHÉ le
-    // démarrage du service est arrivée avant que cette ligne existe.
-    MelodixMediaController.lastProjection()?.let { player.updateSession(it) }
-
-    // Android 12+ : le système peut REFUSER la mise en avant-plan depuis
-    // l'arrière-plan (ForegroundServiceStartNotAllowedException). Comportement
-    // conforme : journaliser + tout arrêter proprement — AUCUN contournement.
-    setListener(
-      object : MediaSessionService.Listener {
-        override fun onForegroundServiceStartNotAllowedException() {
-          Log.w(TAG, "Mise en avant-plan refusée par Android 12+ — arrêt propre")
-          MelodixMediaController.onServiceStartRejected()
-          stopSelf()
+      // Le contrôleur fait suivre chaque projection au player virtuel.
+      sessionStateListener = { payload ->
+        try {
+          player.updateSession(payload)
+        } catch (t: Throwable) {
+          Log.e(TAG, "Projection rejetée — la lecture n'est jamais touchée", t)
         }
       }
-    )
+
+      // Replay de la projection initiale : la projection qui a DÉCLENCHÉ le
+      // démarrage du service est arrivée avant que cette ligne existe.
+      try {
+        MelodixMediaController.lastProjection()?.let { player.updateSession(it) }
+      } catch (t: Throwable) {
+        Log.e(TAG, "Replay de la projection initiale rejeté", t)
+      }
+
+      // Android 12+ : le système peut REFUSER la mise en avant-plan depuis
+      // l'arrière-plan (ForegroundServiceStartNotAllowedException). Comportement
+      // conforme : journaliser + tout arrêter proprement — AUCUN contournement.
+      setListener(
+        object : MediaSessionService.Listener {
+          override fun onForegroundServiceStartNotAllowedException() {
+            Log.w(TAG, "Mise en avant-plan refusée par Android 12+ — arrêt propre")
+            MelodixMediaController.onServiceStartRejected()
+            stopSelf()
+          }
+        }
+      )
+    } catch (t: Throwable) {
+      // Échec de l'initialisation média : journal dev COMPLET (stacktrace
+      // précise pour le diagnostic), rollback de l'état contrôleur, arrêt du
+      // service. AUCUNE re-propagation : l'app ne doit JAMAIS mourir ici.
+      Log.e(TAG, "MediaSession indisponible — Melodix continue sans session", t)
+      sessionStateListener = null
+      virtualPlayer?.let {
+        try {
+          it.release()
+        } catch (releaseError: Throwable) {
+          Log.w(TAG, "Libération du player virtuel ignorée", releaseError)
+        }
+      }
+      virtualPlayer = null
+      mediaSession = null
+      MelodixMediaController.onServiceCrashed()
+      stopSelf()
+    }
   }
 
   override fun onGetSession(
@@ -103,11 +138,17 @@ class MelodixMediaService : MediaSessionService() {
 
   override fun onDestroy() {
     // Libération stricte, sans fuite possible : listener → session → player.
+    // Dernière barrière anti-crash (5C.2) : une erreur de libération ne doit
+    // jamais non plus tuer l'application en cours d'arrêt du service.
     sessionStateListener = null
-    mediaSession?.let { session ->
-      removeSession(session)
-      session.release()
-      session.player.release()
+    try {
+      mediaSession?.let { session ->
+        removeSession(session)
+        session.release()
+        session.player.release()
+      }
+    } catch (t: Throwable) {
+      Log.w(TAG, "Libération de session partielle — ignorée", t)
     }
     virtualPlayer = null
     mediaSession = null

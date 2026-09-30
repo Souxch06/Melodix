@@ -62,7 +62,14 @@ object MelodixMediaController {
 
       // Fait suivre la projection au service ACTIF. Si le service vient
       // d'être demandé, onCreate rejouera `lastPayload` (verrou de race).
-      MelodixMediaService.sessionStateListener?.invoke(payload)
+      // Blindage 5C.2 : une projection rejetée par le player virtuel ne doit
+      // jamais remonter en exception sur le main thread (crash de l'app) —
+      // log dev, lecture audio totalement préservée.
+      try {
+        MelodixMediaService.sessionStateListener?.invoke(payload)
+      } catch (t: Throwable) {
+        Log.e(TAG, "Projection rejetée par la session — lecture préservée", t)
+      }
     }
   }
 
@@ -93,6 +100,16 @@ object MelodixMediaController {
   /** Appelé par le service quand Android a refusé le FGS : état nettoyé. */
   fun onServiceStartRejected() {
     serviceRunning = false
+  }
+
+  /**
+   * Appelé par le service quand SON initialisation a échoué (blindage 5C.2) :
+   * le drapeau est nettoyé pour permettre une NOUVELLE tentative au prochain
+   * Play — la lecture audio, elle, n'a jamais dépendu de cette couche.
+   */
+  fun onServiceCrashed() {
+    serviceRunning = false
+    Log.w(TAG, "Service indisponible : prochaine projection retentera le démarrage")
   }
 
   private const val TAG = "MelodixMediaController"

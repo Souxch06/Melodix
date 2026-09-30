@@ -571,46 +571,36 @@ describe('mediaBridge — projection MediaSession (phase 5A)', () => {
       ].forEach((aiguille) => expect(serialized).not.toContain(aiguille));
     });
 
-    it('permission notification : demandée UNE FOIS à la vraie activation, jamais bloquante', async () => {
+    it('5C.2 : JAMAIS de demande de permission au Play (popup retiré — audio instantané)', async () => {
       mockRequestNotificationPermission.mockClear();
 
-      await melodixPlayer.playQueue([morceau('a', 'Photo')], 0);
-      await flush();
-
-      // 5C.1 : la 1re activation réelle (geste play, bridge activé) demande
-      // la permission — couvre le réglage RESTAURÉ à vrai (aucune demande
-      // au boot). Playback NEXT projections : jamais de redemande.
-      expect(mockRequestNotificationPermission).toHaveBeenCalledTimes(1);
-
-      await melodixPlayer.next(); // état suivant : pas de requête en plus
-      await flush();
-      expect(mockRequestNotificationPermission).toHaveBeenCalledTimes(1);
-    });
-
-    it('permission notification : réarmée après stop moteur (nouvelle activation)', async () => {
-      mockRequestNotificationPermission.mockClear();
-
+      // Activation réelle + activations suivantes : AUCUN appel à la
+      // permission. Seul le toggle « Lecture en arrière-plan » dans les
+      // réglages peut encore la demander (geste utilisateur dédié).
       await melodixPlayer.playQueue([morceau('a', 'Photo')], 0);
       await flush();
       await melodixPlayer.stop();
       await flush();
-
       await melodixPlayer.playQueue([morceau('b', 'Again')], 0);
       await flush();
 
-      expect(mockRequestNotificationPermission).toHaveBeenCalledTimes(2);
+      expect(mockRequestNotificationPermission).not.toHaveBeenCalled();
+      expect(melodixPlayer.getState().status).toBe('playing');
     });
 
-    it('permission notification : échec natif toleré — la lecture projette quand même', async () => {
-      mockRequestNotificationPermission.mockImplementationOnce(() => {
-        throw new Error('native perm boom');
+    it('5C.2 : service natif KO → projection tolérée, lecture audio PRESERVÉE', async () => {
+      // Simulation du crash potentiel ciblé par 5C.2 : le natif jette.
+      mockUpdateSession.mockImplementationOnce(() => {
+        throw new Error('native session boom');
       });
 
       await melodixPlayer.playQueue([morceau('a', 'Photo')], 0);
       await flush();
 
+      // Le moteur tourne indifféremment : MediaSession = couche OPTIONNELLE.
       expect(melodixPlayer.getState().status).toBe('playing');
-      expect(mockUpdateSession).toHaveBeenCalled();
+
+      mockUpdateSession.mockReset();
     });
 
     it('changement de morceau : la NOUVELLE pochette est projetée à la MediaSession', async () => {

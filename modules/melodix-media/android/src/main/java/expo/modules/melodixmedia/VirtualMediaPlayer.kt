@@ -69,6 +69,17 @@ class VirtualMediaPlayer(looper: Looper) : SimpleBasePlayer(looper) {
    * @param durationUs durée du morceau en µs (0 inconnue → non déclarée).
    */
   fun updateSession(payload: Map<String, Any?>) {
+    // Blindage 5C.2 : une projection MALFORMÉE ou un état média3 inattendu
+    // ne doit JAMAIS ressortir en exception (elle tourne sur le main thread
+    // — le moindre throw = crash de toute l'app alors que l'audio continue).
+    try {
+      updateSessionUnsafe(payload)
+    } catch (t: Throwable) {
+      android.util.Log.e(TAG, "Projection ignorée (état conservé)", t)
+    }
+  }
+
+  private fun updateSessionUnsafe(payload: Map<String, Any?>) {
     val trackId = payload["trackId"] as? String ?: "melodix-current"
     val title = payload["title"] as? String ?: ""
     val artist = payload["artist"] as? String ?: ""
@@ -112,9 +123,14 @@ class VirtualMediaPlayer(looper: Looper) : SimpleBasePlayer(looper) {
 
   // Les commandes système ne mutent PAS l'état local : le moteur JS décide
   // et pousse ensuite la projection confirmée (une seule source de vérité).
+  // Chaque commande est BORNÉE (5C.2) : un relais raté ne casse jamais Média3.
 
   override fun handleSetPlayWhenReady(playWhenReady: Boolean): ListenableFuture<*> {
-    MelodixMediaController.onMediaCommand(if (playWhenReady) "play" else "pause")
+    try {
+      MelodixMediaController.onMediaCommand(if (playWhenReady) "play" else "pause")
+    } catch (t: Throwable) {
+      android.util.Log.e(TAG, "Commande play/pause non relaûée", t)
+    }
 
     return Futures.immediateVoidFuture()
   }
@@ -124,24 +140,36 @@ class VirtualMediaPlayer(looper: Looper) : SimpleBasePlayer(looper) {
     positionMs: Long,
     seekCommand: Int
   ): ListenableFuture<*> {
-    when (seekCommand) {
-      Player.COMMAND_SEEK_TO_NEXT,
-      Player.COMMAND_SEEK_TO_NEXT_MEDIA_ITEM ->
-        MelodixMediaController.onMediaCommand("next")
+    try {
+      when (seekCommand) {
+        Player.COMMAND_SEEK_TO_NEXT,
+        Player.COMMAND_SEEK_TO_NEXT_MEDIA_ITEM ->
+          MelodixMediaController.onMediaCommand("next")
 
-      Player.COMMAND_SEEK_TO_PREVIOUS,
-      Player.COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM ->
-        MelodixMediaController.onMediaCommand("previous")
+        Player.COMMAND_SEEK_TO_PREVIOUS,
+        Player.COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM ->
+          MelodixMediaController.onMediaCommand("previous")
 
-      else -> MelodixMediaController.onMediaCommand("seek", positionMs)
+        else -> MelodixMediaController.onMediaCommand("seek", positionMs)
+      }
+    } catch (t: Throwable) {
+      android.util.Log.e(TAG, "Commande seek/non relaûée", t)
     }
 
     return Futures.immediateVoidFuture()
   }
 
   override fun handleStop(): ListenableFuture<*> {
-    MelodixMediaController.onMediaCommand("stop")
+    try {
+      MelodixMediaController.onMediaCommand("stop")
+    } catch (t: Throwable) {
+      android.util.Log.e(TAG, "Commande stop non relaûée", t)
+    }
 
     return Futures.immediateVoidFuture()
+  }
+
+  companion object {
+    private const val TAG = "VirtualMediaPlayer"
   }
 }

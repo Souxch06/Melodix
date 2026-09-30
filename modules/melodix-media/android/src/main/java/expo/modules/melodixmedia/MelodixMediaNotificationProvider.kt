@@ -59,20 +59,63 @@ class MelodixMediaNotificationProvider(context: Context) : MediaNotification.Pro
     actionFactory: MediaNotification.ActionFactory,
     onNotificationChangedCallback: MediaNotification.Provider.Callback
   ): MediaNotification =
-    provider.createNotification(
-      mediaSession,
-      customLayout,
-      actionFactory,
-      onNotificationChangedCallback
-    )
+    // Blindage 5C.2 : la construction de la notification est la DERNIÈRE
+    // ligne avant la mise en avant-plan — une erreur ici (delegation média3,
+    // artwork, layout) ne doit JAMAIS tuer l'application. Repli : notification
+    // média3 par défaut (même pipeline, sans customisation), puis
+    // notification minimale Melodix en tout dernier recours.
+    try {
+      provider.createNotification(
+        mediaSession,
+        customLayout,
+        actionFactory,
+        onNotificationChangedCallback
+      )
+    } catch (t: Throwable) {
+      android.util.Log.e(TAG, "Notification par défaut de repli", t)
+      fallbackNotification(mediaSession, onNotificationChangedCallback)
+    }
+
+  /** Dernier recours absolu : notification minimale qui ne peut pas échouer. */
+  private fun fallbackNotification(
+    mediaSession: MediaSession,
+    onNotificationChangedCallback: MediaNotification.Provider.Callback
+  ): MediaNotification {
+    val context: android.content.Context = mediaSession.context
+    ensureMediaChannel(context)
+
+    val notification = androidx.core.app.NotificationCompat.Builder(context, CHANNEL_ID)
+      .setSmallIcon(context.applicationInfo.icon)
+      .setContentTitle(CHANNEL_NAME)
+      .setContentText("Lecture en cours")
+      .setOngoing(true)
+      .build()
+
+    val mediaNotification = MediaNotification(MEDIA_NOTIFICATION_ID, notification)
+    onNotificationChangedCallback.onNotificationChanged(mediaNotification)
+
+    return mediaNotification
+  }
 
   override fun handleCustomCommand(
     session: MediaSession,
     action: String,
     extras: Bundle
-  ): Boolean = provider.handleCustomCommand(session, action, extras)
+  ): Boolean =
+    try {
+      provider.handleCustomCommand(session, action, extras)
+    } catch (t: Throwable) {
+      // Blindage 5C.2 : commande personnalisée ignorée plutôt qu'un crash.
+      android.util.Log.e(TAG, "Commande personnalisée ignorée", t)
+      false
+    }
 
   companion object {
+    private const val TAG = "MelodixNotificationProv"
+
+    /** ID de notification (celui par défaut de média3 : stable). */
+    private const val MEDIA_NOTIFICATION_ID = 1001
+
     /** ID de canal STABLE — jamais recréé autrement (§11 : une seule fois). */
     const val CHANNEL_ID = "melodix_media"
 
