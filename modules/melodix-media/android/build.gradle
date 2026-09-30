@@ -42,7 +42,7 @@ repositories {
 
 dependencies {
   // Media3 — moteur MediaSessionService natif (notification + player latéral).
-  implementation("androidx.media3:media3-exoplayer:1.8.0")
-  implementation("androidx.media3:media3-session:1.8.0")
-  implementation("androidx.media3:media3-ui:1.8.0")
+  implementation("androidx.media3:media3-exoplayer:1.4.1")
+  implementation("androidx.media3:media3-session:1.4.1")
+  implementation("androidx.media3:media3-ui:1.4.1")
 }
