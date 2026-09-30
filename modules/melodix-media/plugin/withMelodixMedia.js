@@ -48,7 +48,11 @@ const ensureUsesPermission = (manifest, name) => {
 };
 
 /**
- * Déclare MediaSessionService (Media3) : type `mediaPlayback`, non exporté.
+ * Déclare MediaSessionService (Media3) : type `mediaPlayback`, EXPORTÉ
+ * (pattern officiel AndroidX Media3 : le service de session média doit être
+ * visible du système — media buttons, lockscreen, MediaBrowser/Controller
+ * externes — ASSORTI à l'intent-filter obligatoire ci-dessous. Un service
+ * avec intent-filter + exported=false est une anomalie du pattern média3).
  * L'intent-filter `MediaSessionService` est REQUIS par AndroidX Media3.
  */
 const ensureMediaService = (application) => {
@@ -65,7 +69,7 @@ const ensureMediaService = (application) => {
   application.service.push({
     $: {
       'android:name': SERVICE_NAME,
-      'android:exported': 'false',
+      'android:exported': 'true',
       'android:foregroundServiceType': 'mediaPlayback',
     },
     'intent-filter': [

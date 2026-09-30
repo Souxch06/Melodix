@@ -34,13 +34,34 @@ import androidx.media3.session.MediaSessionService
  */
 class MelodixMediaService : MediaSessionService() {
 
+  // DIAG 4.4.6-diagnostic : si SERVICE_CLINIT apparaît mais PAS cette ligne,
+  // l'échec survient dans le CONSTRUCTEUR implicite (super-ctor MediaSessionService).
+  init {
+    Log.i("MXDIAG", "SERVICE_CONSTRUCTOR_ENTER")
+  }
+
   private var mediaSession: MediaSession? = null
   private var virtualPlayer: VirtualMediaPlayer? = null
 
   @OptIn(UnstableApi::class)
   override fun onCreate() {
-    super.onCreate()
-    Log.i("MXDIAG", "SERVICE_ONCREATE_BEGIN") // DIAG 4.4.5-diagnostic
+    // DIAG 4.4.6-diagnostic : localisation fine du crash — si SUPER_BEGIN
+    // apparaît sans SUPER_OK, l'exception vient de l'initialisation de la
+    // hiérarchie MediaSessionService (avant TOUTE logique Melodix). L'erreur
+    // est journalisée COMPLETE (jamais masquée) puis le service s'arrête
+    // proprement : MediaSession reste une couche optionnelle, l'app vit.
+    Log.i("MXDIAG", "SERVICE_SUPER_ONCREATE_BEGIN")
+    try {
+      super.onCreate()
+      Log.i("MXDIAG", "SERVICE_SUPER_ONCREATE_OK")
+    } catch (t: Throwable) {
+      Log.e("MXDIAG", "SERVICE_SUPER_ONCREATE_FAIL", t)
+      MelodixMediaController.onServiceCrashed()
+      stopSelf()
+      return
+    }
+
+    Log.i("MXDIAG", "SERVICE_ONCREATE_BEGIN")
 
     // 5C.2 — Blindage ANTI-CRASH : TOUT ce bloc tourne sur le MAIN thread
     // au premier Play (le service n'existait jamais avant). La moindre
