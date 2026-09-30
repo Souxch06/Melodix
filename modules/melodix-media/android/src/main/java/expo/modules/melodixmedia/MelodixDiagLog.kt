@@ -104,14 +104,20 @@ object MelodixDiagLog {
   }
 
   /** Contenu du journal (copie presse-papiers/partage depuis Réglages). */
-  fun readAll(): String =
-    try {
-      val file = logFile ?: return ""
-      if (!file.exists()) "" else file.readText()
+  fun readAll(): String {
+    return try {
+      val file = logFile
+
+      if (file == null || !file.exists()) {
+        ""
+      } else {
+        file.readText()
+      }
     } catch (t: Throwable) {
       Log.w(TAG, "readAll échoué", t)
       ""
     }
+  }
 
   /** Vide le journal (bouton Réglages). */
   fun clear() {
