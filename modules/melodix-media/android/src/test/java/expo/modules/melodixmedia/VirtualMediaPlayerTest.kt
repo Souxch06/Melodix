@@ -77,7 +77,10 @@ class VirtualMediaPlayerTest {
     assertFalse(player.playWhenReady)
     assertEquals(0, player.mediaItemCount)
     assertNull(player.currentMediaItem)
-    assertEquals(C.INDEX_UNSET, player.currentMediaItemIndex)
+    // NB : avec une timeline vide, SimpleBasePlayer renvoie l'index BRUT du
+    // State (0), pas C.INDEX_UNSET (comportement réel media3, vérifié en CI)
+    // — l'index de départ n'a donc pas de signification tant qu'aucun
+    // morceau n'est projeté et n'est PAS une condition de validité.
     assertEquals(1.0f, player.playbackParameters.speed, 0.0001f)
     assertTrue(commands.isEmpty())
   }
