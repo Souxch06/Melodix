@@ -104,6 +104,8 @@ class MelodixMediaService : MediaSessionService() {
       // Échec de l'initialisation média : journal dev COMPLET (stacktrace
       // précise pour le diagnostic), rollback de l'état contrôleur, arrêt du
       // service. AUCUNE re-propagation : l'app ne doit JAMAIS mourir ici.
+      // DIAG 4.4.5-diagnostic : marqueur canonique + pile complète.
+      Log.e("MXDIAG", "SERVICE_ONCREATE_FAIL", t)
       Log.e(TAG, "MediaSession indisponible — Melodix continue sans session", t)
       sessionStateListener = null
       virtualPlayer?.let {
@@ -168,6 +170,7 @@ class MelodixMediaService : MediaSessionService() {
     // les try/catch — la cause du crash au premier Play serait prouvée.
     init {
       Log.i("MXDIAG", "SERVICE_CLASS_LOADED")
+      Log.i("MXDIAG", "SERVICE_CLINIT") // DIAG (alias canonique)
     }
 
     /** Branche posée par onCreate ; null quand le service est arrêté. */

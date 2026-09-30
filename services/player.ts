@@ -639,6 +639,7 @@ class MelodixPlayer {
     console.log(
       `[MXDIAG] PLAY_REQUEST tracks=${tracks?.length ?? -1} startIndex=${startIndex}`
     );
+    console.log('[MXDIAG] PLAY_START'); // DIAG (alias canonique)
     const queue = tracks.filter((track) => Boolean(track?.id && track?.title));
 
     if (!queue.length) {
@@ -705,6 +706,7 @@ class MelodixPlayer {
 
     try {
       console.log(`[MXDIAG] RESOLVE_TRACK_START id=${track.id}`); // DIAG
+      console.log('[MXDIAG] RESOLVE_START'); // DIAG (alias canonique)
       const result = await this.resolveTrack(track);
 
       // Un autre morceau a pris la main pendant ce resolve : ignorer la fin.
@@ -728,6 +730,7 @@ class MelodixPlayer {
       console.log(
         `[MXDIAG] SOURCE_RESOLVED provider=${result.info.provider} score=${result.info.score}`
       );
+      console.log('[MXDIAG] RESOLVE_SUCCESS'); // DIAG (alias canonique)
 
       await this.ensureAudioMode();
       if (isStale()) {
