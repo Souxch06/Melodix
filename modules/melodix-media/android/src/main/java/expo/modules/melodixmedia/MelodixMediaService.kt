@@ -40,6 +40,7 @@ class MelodixMediaService : MediaSessionService() {
   @OptIn(UnstableApi::class)
   override fun onCreate() {
     super.onCreate()
+    Log.i("MXDIAG", "SERVICE_ONCREATE_BEGIN") // DIAG 4.4.5-diagnostic
 
     // 5C.2 — Blindage ANTI-CRASH : TOUT ce bloc tourne sur le MAIN thread
     // au premier Play (le service n'existait jamais avant). La moindre
@@ -97,6 +98,8 @@ class MelodixMediaService : MediaSessionService() {
           }
         }
       )
+
+      Log.i("MXDIAG", "SERVICE_ONCREATE_OK") // DIAG 4.4.5-diagnostic
     } catch (t: Throwable) {
       // Échec de l'initialisation média : journal dev COMPLET (stacktrace
       // précise pour le diagnostic), rollback de l'état contrôleur, arrêt du
@@ -158,6 +161,14 @@ class MelodixMediaService : MediaSessionService() {
 
   companion object {
     private const val TAG = "MelodixMediaService"
+
+    // DIAG 4.4.5-diagnostic : si SERVICE_START_OK apparaît dans le logcat
+    // mais PAS cette ligne, puis un FATAL NoClassDefFoundError/VerifyError →
+    // échec du CHARGEMENT de la classe (desugaring/dex), irrattrapable par
+    // les try/catch — la cause du crash au premier Play serait prouvée.
+    init {
+      Log.i("MXDIAG", "SERVICE_CLASS_LOADED")
+    }
 
     /** Branche posée par onCreate ; null quand le service est arrêté. */
     var sessionStateListener: ((payload: Map<String, Any?>) -> Unit)? = null

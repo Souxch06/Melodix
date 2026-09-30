@@ -50,15 +50,31 @@ export const resolveWithProviders = async (
   for (const provider of providers) {
     let match: { sourceId: string; score: number } | null = null;
 
+    // DIAG 4.4.5-diagnostic : point d'entrée/sortie de CHAQUE provider de la
+    // cascade (produit AUDIUS_MATCH_* puis YOUTUBE_MATCH_*). Titre/artiste
+    // uniquement — métadonnées publiques, jamais d'URL ni de clé.
+    const diag = provider.id.toUpperCase();
+    console.log(
+      `[MXDIAG] ${diag}_MATCH_START title=${query.title} artist=${query.artists.join(', ')}`
+    );
+
     try {
       match = await provider.resolveMatch(query);
     } catch (error) {
+      console.error(`[MXDIAG] ${diag}_MATCH_FAILED`, error); // DIAG
       console.warn(
         `TrackResolver: provider ${provider.id} threw, trying next`,
         error
       );
       continue;
     }
+
+    // DIAG : issue du provider (succès avec score / aucun candidat fiable).
+    console.log(
+      match
+        ? `[MXDIAG] ${diag}_MATCH_SUCCESS score=${match.score}`
+        : `[MXDIAG] ${diag}_MATCH_NONE`
+    );
 
     if (match) {
       return { provider, sourceId: match.sourceId, score: match.score };

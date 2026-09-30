@@ -57,6 +57,8 @@ class MelodixMediaModule : Module() {
      */
     Function("updateSession") { payload: Map<String, Any?> ->
       try {
+        // DIAG 4.4.5-diagnostic : la Function Expo est bien atteinte.
+        android.util.Log.i("MXDIAG", "MEDIA_SESSION_UPDATE_CALL")
         val context = appContext.reactContext ?: return@Function
         MelodixMediaController.updateSession(context, payload)
       } catch (t: Throwable) {

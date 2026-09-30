@@ -193,7 +193,13 @@ const projectState = (state: PlayerState): void => {
   sessionActivated = true;
   lastPushedSignature = pushed;
 
+  // DIAG 4.4.5-diagnostic : entrée/sortie de l'appel natif MediaSession.
+  // Métadonnées d'affichage uniquement (jamais d'URL de flux).
+  console.log(
+    `[MXDIAG] MEDIA_BRIDGE_START trackId=${payload.trackId} isPlaying=${payload.isPlaying}`
+  );
   callNative(() => updateSession(payload));
+  console.log('[MXDIAG] MEDIA_SESSION_UPDATE'); // DIAG
 };
 
 /**

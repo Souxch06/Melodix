@@ -195,6 +195,8 @@ class MelodixPlayer {
    * didJustFinish=true sur un nouveau tick du même vieux son pendant la
    * résolution du morceau suivant (field collant jusqu'à l'unload). */
   private lastFinishHandledForToken = -1;
+  /** DIAG 4.4.5-diagnostic : SOUND_PLAYING n'est tracé qu'une fois par son. */
+  private lastPlayingLoggedForToken = -1;
   /** Seek à consommer au prochain démarrage effectif du son (restauration). */
   private pendingSeekMillis = 0;
   /** Persistance session : dernière écriture + état déjà écrit (anti-spam). */
@@ -348,6 +350,13 @@ class MelodixPlayer {
         this.lastFinishHandledForToken = token;
         void this.advanceAuto();
       }
+    }
+
+    // DIAG 4.4.5-diagnostic : PREUVE de flux audio réel — premier tick
+    // isPlaying du SON courant (une seule ligne par morceau, anti-spam).
+    if (status?.isPlaying && this.lastPlayingLoggedForToken !== token) {
+      this.lastPlayingLoggedForToken = token;
+      console.log('[MXDIAG] SOUND_PLAYING');
     }
   };
 
@@ -626,6 +635,10 @@ class MelodixPlayer {
   // --- public API -----------------------------------------------------------
 
   playQueue = async (tracks: PlayerTrack[], startIndex = 0) => {
+    // DIAG 4.4.5-diagnostic : trace crash Play (logcat tag ReactNativeJS).
+    console.log(
+      `[MXDIAG] PLAY_REQUEST tracks=${tracks?.length ?? -1} startIndex=${startIndex}`
+    );
     const queue = tracks.filter((track) => Boolean(track?.id && track?.title));
 
     if (!queue.length) {
@@ -649,6 +662,9 @@ class MelodixPlayer {
       durationMillis: 0,
       resolved: null,
     });
+    console.log(
+      `[MXDIAG] PLAY_QUEUE_START queue=${queue.length} index=${index}`
+    ); // DIAG
     await this.playIndex(index);
   };
 
@@ -675,6 +691,7 @@ class MelodixPlayer {
     const token = ++this.playToken;
     const isStale = () => this.playToken !== token;
 
+    console.log(`[MXDIAG] PLAY_INDEX_START index=${index} id=${track.id}`); // DIAG
     this.emit({ index, current: track, status: 'loading' });
     this.persistSession(); // nouveau morceau pointe la session vers lui
     this.ensureAppStatePersistence();
@@ -687,6 +704,7 @@ class MelodixPlayer {
     }
 
     try {
+      console.log(`[MXDIAG] RESOLVE_TRACK_START id=${track.id}`); // DIAG
       const result = await this.resolveTrack(track);
 
       // Un autre morceau a pris la main pendant ce resolve : ignorer la fin.
@@ -695,6 +713,7 @@ class MelodixPlayer {
       }
 
       if (!result) {
+        console.log(`[MXDIAG] RESOLVE_TRACK_NONE id=${track.id}`); // DIAG
         if (this.state.current?.id !== track.id) {
           return; // The user moved on while we were resolving.
         }
@@ -705,12 +724,18 @@ class MelodixPlayer {
         return;
       }
 
+      // DIAG : provider + score uniquement — JAMAIS l'URL du flux (signée).
+      console.log(
+        `[MXDIAG] SOURCE_RESOLVED provider=${result.info.provider} score=${result.info.score}`
+      );
+
       await this.ensureAudioMode();
       if (isStale()) {
         return;
       }
 
       await this.unloadCurrent();
+      console.log('[MXDIAG] SOUND_CREATE_START'); // DIAG
       const { sound } = await av.Audio.Sound.createAsync(
         { uri: result.resolved.uri },
         {
@@ -720,6 +745,9 @@ class MelodixPlayer {
         },
         this.makeStatusHandler(token)
       );
+      // DIAG : créé = lecture demandée (shouldPlay:true dans createAsync).
+      console.log('[MXDIAG] SOUND_CREATED');
+      console.log('[MXDIAG] SOUND_PLAY_START');
 
       // The user may have skipped to another track while this one was loading —
       // ce son ORPHELIN est déchargé immédiatement (jamais deux sons ensemble).
@@ -771,6 +799,9 @@ class MelodixPlayer {
         { albumTitle: track.album ?? undefined }
       ).catch(() => undefined);
     } catch (error) {
+      // DIAG 4.4.5-diagnostic : exception COMPLÈTE (classe + pile) — la
+      // ligne existante plus bas garde le format historique.
+      console.error('[MXDIAG] PLAY_FAILED', error);
       console.error(`Failed to play "${track.title}" (${track.id}):`, error);
 
       if (!isStale() && this.state.current?.id === track.id) {

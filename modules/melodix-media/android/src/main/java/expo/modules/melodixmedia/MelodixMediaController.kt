@@ -43,14 +43,19 @@ object MelodixMediaController {
     lastPayload = payload
     val appContext = context.applicationContext
 
+    // DIAG 4.4.5-diagnostic : réception d'une projection JS.
+    Log.i("MXDIAG", "MEDIA_SESSION_UPDATE received")
+
     mainHandler.post {
       if (!serviceRunning) {
         serviceRunning = true
         try {
           // Démarrage depuis le FOREGROUND uniquement (lecture volontaire) :
           // Android 12+ autorise startForegroundService dans ce cas.
+          Log.i("MXDIAG", "SERVICE_START_ATTEMPT") // DIAG
           val intent = Intent(appContext, MelodixMediaService::class.java)
           ContextCompat.startForegroundService(appContext, intent)
+          Log.i("MXDIAG", "SERVICE_START_OK") // DIAG
         } catch (e: Exception) {
           // Lancement refusé (arrière-plan Android 12+, quota, OEM...) :
           // rollback propre, journalisation — AUCUN contournement, et le
