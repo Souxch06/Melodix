@@ -1,7 +1,7 @@
 {
   "name": "melodix",
   "main": "expo-router/entry",
-  "version": "4.4.6-diagnostic",
+  "version": "4.4.7-diagnostic",
   "engines": {
     "node": ">=20",
     "yarn": ">=1.22.17"

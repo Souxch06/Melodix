@@ -43,8 +43,9 @@ object MelodixMediaController {
     lastPayload = payload
     val appContext = context.applicationContext
 
-    // DIAG 4.4.5-diagnostic : réception d'une projection JS.
+    // DIAG (4.4.5 + 4.4.7 miroir fichier) : réception d'une projection JS.
     Log.i("MXDIAG", "MEDIA_SESSION_UPDATE received")
+    MelodixDiagLog.step("MEDIA_SESSION_UPDATE received", "keys=${payload.keys.size}")
 
     mainHandler.post {
       if (!serviceRunning) {
@@ -52,16 +53,27 @@ object MelodixMediaController {
         try {
           // Démarrage depuis le FOREGROUND uniquement (lecture volontaire) :
           // Android 12+ autorise startForegroundService dans ce cas.
-          Log.i("MXDIAG", "SERVICE_START_ATTEMPT") // DIAG
-          val intent = Intent(appContext, MelodixMediaService::class.java)
-          ContextCompat.startForegroundService(appContext, intent)
-          Log.i("MXDIAG", "SERVICE_START_OK") // DIAG
+          // A/B 4.4.7 : drapeau d'isolation — audio expo-av fond actif,
+          // service MediaSession JAMAIS démarré (rien d'autre ne change).
+          if (MelodixDiagLog.Flags.skipServiceStart) {
+            Log.i("MXDIAG", "SERVICE_START_SKIPPED")
+            MelodixDiagLog.step("SERVICE_START_SKIPPED", "drapeau noService")
+            serviceRunning = false
+          } else {
+            Log.i("MXDIAG", "SERVICE_START_ATTEMPT") // DIAG
+            MelodixDiagLog.step("SERVICE_START_ATTEMPT")
+            val intent = Intent(appContext, MelodixMediaService::class.java)
+            ContextCompat.startForegroundService(appContext, intent)
+            Log.i("MXDIAG", "SERVICE_START_OK") // DIAG
+            MelodixDiagLog.step("SERVICE_START_OK")
+          }
         } catch (e: Exception) {
           // Lancement refusé (arrière-plan Android 12+, quota, OEM...) :
           // rollback propre, journalisation — AUCUN contournement, et le
           // moteur JS n'en sait rien (la lecture ne casse JAMAIS).
           serviceRunning = false
           Log.w(TAG, "startForegroundService refusé: ${e.javaClass.simpleName}")
+          MelodixDiagLog.error("SERVICE_START_FAIL", e) // DIAG 4.4.7
         }
       }
 
@@ -74,6 +86,7 @@ object MelodixMediaController {
         MelodixMediaService.sessionStateListener?.invoke(payload)
       } catch (t: Throwable) {
         Log.e(TAG, "Projection rejetée par la session — lecture préservée", t)
+        MelodixDiagLog.error("PROJECTION_FAIL", t) // DIAG 4.4.7
       }
     }
   }

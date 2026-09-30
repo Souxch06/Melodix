@@ -33,6 +33,12 @@ class MelodixMediaModule : Module() {
     Events("mediaCommand")
 
     OnCreate {
+      // 4.4.7-diagnostic : journal persistant + piège d'exceptions non
+      // rattrapées (tous threads) — critique pour le diagnostic sans ADB.
+      appContext.reactContext?.let { MelodixDiagLog.init(it) }
+      MelodixDiagLog.installCrashTrap()
+      MelodixDiagLog.step("MODULE_ONCREATE")
+
       // Le canal JS → natif arrive prêt : le service re-transmet les
       // commandes (notification/verrou/casque) vers le bridge JS.
       MelodixMediaController.commandListener = { command, positionMillis ->
@@ -44,6 +50,50 @@ class MelodixMediaModule : Module() {
 
         this@MelodixMediaModule.sendEvent("mediaCommand", payload)
       }
+    }
+
+    // ------------------------------------------------------------------
+    // DIAGNOSTIC 4.4.7 (temporaire) — journal persistant + drapeaux A/B/C.
+    // AUCUN changement de comportement par défaut : tous les drapeaux sont
+    // à false tant que l'UI Réglages ne les active pas.
+    // ------------------------------------------------------------------
+
+    /** Alimente les drapeaux d'isolation (A/B service, Test C sous-étapes). */
+    Function("setDiagFlags") { flags: Map<String, Any?> ->
+      try {
+        MelodixDiagLog.Flags.apply(flags)
+      } catch (t: Throwable) {
+        android.util.Log.e("MXDIAG", "setDiagFlags ignoré", t)
+      }
+    }
+
+    /** Ajoute une ligne au journal (miroir des breadcrumbs JS). */
+    Function("appendDiagLog") { line: String ->
+      try {
+        MelodixDiagLog.step("JS", line)
+      } catch (t: Throwable) {
+        android.util.Log.e("MXDIAG", "appendDiagLog ignoré", t)
+      }
+    }
+
+    /** Lit le journal complet (copie/partage depuis Réglages). */
+    Function("readDiagLog") {
+      try {
+        return@Function MelodixDiagLog.readAll()
+      } catch (t: Throwable) {
+        android.util.Log.e("MXDIAG", "readDiagLog en échec", t)
+        return@Function ""
+      }
+    }
+
+    /** Vide le journal. */
+    Function("clearDiagLog") {
+      try {
+        MelodixDiagLog.clear()
+      } catch (t: Throwable) {
+        android.util.Log.e("MXDIAG", "clearDiagLog ignoré", t)
+      }
+      return@Function null
     }
 
     OnDestroy {

@@ -28,6 +28,7 @@ import type {
   MediaSessionPayload,
 } from '../modules/melodix-media';
 
+import { diagNativeStep } from './nativeDiag';
 import { melodixPlayer } from './player';
 import type { PlayerState } from './player';
 
@@ -200,6 +201,7 @@ const projectState = (state: PlayerState): void => {
   );
   callNative(() => updateSession(payload));
   console.log('[MXDIAG] MEDIA_SESSION_UPDATE'); // DIAG
+  diagNativeStep(`MEDIA_BRIDGE_START isPlaying=${payload.isPlaying}`);
 };
 
 /**

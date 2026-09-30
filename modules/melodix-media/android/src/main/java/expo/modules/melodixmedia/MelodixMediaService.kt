@@ -38,6 +38,7 @@ class MelodixMediaService : MediaSessionService() {
   // l'échec survient dans le CONSTRUCTEUR implicite (super-ctor MediaSessionService).
   init {
     Log.i("MXDIAG", "SERVICE_CONSTRUCTOR_ENTER")
+    MelodixDiagLog.step("SERVICE_CONSTRUCTOR_ENTER")
   }
 
   private var mediaSession: MediaSession? = null
@@ -51,17 +52,21 @@ class MelodixMediaService : MediaSessionService() {
     // est journalisée COMPLETE (jamais masquée) puis le service s'arrête
     // proprement : MediaSession reste une couche optionnelle, l'app vit.
     Log.i("MXDIAG", "SERVICE_SUPER_ONCREATE_BEGIN")
+    MelodixDiagLog.step("SERVICE_SUPER_ONCREATE_BEGIN")
     try {
       super.onCreate()
       Log.i("MXDIAG", "SERVICE_SUPER_ONCREATE_OK")
+      MelodixDiagLog.step("SERVICE_SUPER_ONCREATE_OK")
     } catch (t: Throwable) {
       Log.e("MXDIAG", "SERVICE_SUPER_ONCREATE_FAIL", t)
+      MelodixDiagLog.error("SERVICE_SUPER_ONCREATE_FAIL", t)
       MelodixMediaController.onServiceCrashed()
       stopSelf()
       return
     }
 
     Log.i("MXDIAG", "SERVICE_ONCREATE_BEGIN")
+    MelodixDiagLog.step("SERVICE_ONCREATE_BEGIN")
 
     // 5C.2 — Blindage ANTI-CRASH : TOUT ce bloc tourne sur le MAIN thread
     // au premier Play (le service n'existait jamais avant). La moindre
@@ -69,64 +74,113 @@ class MelodixMediaService : MediaSessionService() {
     // tuerait l'application ENTIÈRE alors que l'audio expo-av n'a strictement
     // rien à voir. Comportement exigé par le cahier : log complet, arrêt
     // propre du service — LA LECTURE CONTINUE, MediaSession = couche OPTIONNELLE.
+    // 4.4.7 : chaque sous-étape est tracée AUSSI dans le fichier persistant,
+    // et les drapeaux du Test C peuvent sauter UNE responsabilité à la fois.
     try {
-      // Phase 5C : notification Melodix (canal/petit icône) via delegation au
-      // DefaultMediaNotificationProvider — DOIT être posé avant la fin de
-      // onCreate (contrat setMediaNotificationProvider, API 1.3.1 auditée).
+      // 1) Provider de notification Melodix (délégation Default média3) —
+      //    DOIT être posé avant la fin de onCreate (API média3 auditée).
+      MelodixDiagLog.step("SERVICE_PROVIDER_BEGIN")
       setMediaNotificationProvider(MelodixMediaNotificationProvider(this))
+      MelodixDiagLog.step("SERVICE_PROVIDER_OK")
 
-      val player = VirtualMediaPlayer(mainLooper)
-      virtualPlayer = player
+      // 2) Player virtuel (Test C2 : peut être sauté — alors pas de session
+      //    non plus, elle en dépend).
+      val player: VirtualMediaPlayer?
+      if (MelodixDiagLog.Flags.skipPlayerCreate) {
+        Log.i("MXDIAG", "SERVICE_CREATE_PLAYER_SKIPPED")
+        MelodixDiagLog.step("SERVICE_CREATE_PLAYER_SKIPPED", "drapeau noPlayer")
+        player = null
+      } else {
+        MelodixDiagLog.step("SERVICE_CREATE_PLAYER_BEGIN")
+        player = VirtualMediaPlayer(mainLooper)
+        virtualPlayer = player
+        Log.i("MXDIAG", "SERVICE_CREATE_PLAYER_OK")
+        MelodixDiagLog.step("SERVICE_CREATE_PLAYER_OK")
+      }
 
-      // BitmapLoader 5C : pochettes HTTP asynchrones (executor dédié), cache
-      // borné, résilient — sans aucun impact sur la lecture expo-av.
-      val session = MediaSession.Builder(this, player)
-        .setBitmapLoader(MelodixArtworkLoader.create(this))
-        .build()
-      mediaSession = session
+      // 3) MediaSession (Test C1 : peut être sautée seule).
+      if (MelodixDiagLog.Flags.skipSessionCreate || player == null) {
+        val why =
+          if (player == null && !MelodixDiagLog.Flags.skipSessionCreate) {
+            "pas de player (skipPlayerCreate)"
+          } else {
+            "drapeau noSession"
+          }
+        Log.i("MXDIAG", "SERVICE_CREATE_SESSION_SKIPPED")
+        MelodixDiagLog.step("SERVICE_CREATE_SESSION_SKIPPED", why)
+      } else {
+        MelodixDiagLog.step("SERVICE_CREATE_SESSION_BEGIN")
+        // BitmapLoader 5C : pochettes HTTP asynchrones (executor dédié),
+        // cache borné, résilient — sans aucun impact sur la lecture expo-av.
+        val session = MediaSession.Builder(this, player)
+          .setBitmapLoader(MelodixArtworkLoader.create(this))
+          .build()
+        mediaSession = session
+        MelodixDiagLog.step("SERVICE_ADD_SESSION_BEGIN")
+        // Enregistre la session auprès du gestionnaire de notification
+        // Media3 : c'est CE qui alimente la notification média système et
+        // met le service en avant-plan dès PLAYING projeté.
+        addSession(session)
+        MelodixDiagLog.step("SERVICE_ADD_SESSION_OK")
+      }
 
-      // Enregistre la session auprès du gestionnaire de notification Media3 :
-      // c'est CE qui alimente la notification média système + met le service
-      // en avant-plan dès que l'état projeté devient PLAYING.
-      addSession(session)
+      // 4) Projection : listener vers le player virtuel + replay de la
+      //    projection initiale (Test C3 : peut être sautée).
+      if (MelodixDiagLog.Flags.skipProjection || player == null) {
+        Log.i("MXDIAG", "PROJECTION_SKIPPED")
+        MelodixDiagLog.step(
+          "PROJECTION_SKIPPED",
+          if (player == null) "pas de player" else "drapeau noProjection"
+        )
+      } else {
+        // Le contrôleur fait suivre chaque projection au player virtuel.
+        sessionStateListener = { payload ->
+          try {
+            MelodixDiagLog.step("PROJECTION_BEGIN")
+            player.updateSession(payload)
+            MelodixDiagLog.step("PROJECTION_OK")
+          } catch (t: Throwable) {
+            Log.e(TAG, "Projection rejetée — la lecture n'est jamais touchée", t)
+            MelodixDiagLog.error("PROJECTION_FAIL", t)
+          }
+        }
 
-      // Le contrôleur fait suivre chaque projection au player virtuel.
-      sessionStateListener = { payload ->
+        // Replay de la projection initiale : la projection qui a DÉCLENCHÉ
+        // le démarrage du service est arrivée avant que cette ligne existe.
         try {
-          player.updateSession(payload)
+          MelodixDiagLog.step("SERVICE_REPLAY_BEGIN")
+          MelodixMediaController.lastProjection()?.let { player.updateSession(it) }
+          MelodixDiagLog.step("SERVICE_REPLAY_OK")
         } catch (t: Throwable) {
-          Log.e(TAG, "Projection rejetée — la lecture n'est jamais touchée", t)
+          Log.e(TAG, "Replay de la projection initiale rejeté", t)
+          MelodixDiagLog.error("SERVICE_REPLAY_FAIL", t)
         }
       }
 
-      // Replay de la projection initiale : la projection qui a DÉCLENCHÉ le
-      // démarrage du service est arrivée avant que cette ligne existe.
-      try {
-        MelodixMediaController.lastProjection()?.let { player.updateSession(it) }
-      } catch (t: Throwable) {
-        Log.e(TAG, "Replay de la projection initiale rejeté", t)
-      }
-
-      // Android 12+ : le système peut REFUSER la mise en avant-plan depuis
-      // l'arrière-plan (ForegroundServiceStartNotAllowedException). Comportement
-      // conforme : journaliser + tout arrêter proprement — AUCUN contournement.
+      // 5) Android 12+ : le système peut REFUSER la mise en avant-plan
+      //    depuis l'arrière-plan. Comportement conforme : journaliser +
+      //    tout arrêter proprement — AUCUN contournement.
       setListener(
         object : MediaSessionService.Listener {
           override fun onForegroundServiceStartNotAllowedException() {
             Log.w(TAG, "Mise en avant-plan refusée par Android 12+ — arrêt propre")
+            MelodixDiagLog.step("FGS_START_NOT_ALLOWED") // DIAG 4.4.7
             MelodixMediaController.onServiceStartRejected()
             stopSelf()
           }
         }
       )
+      MelodixDiagLog.step("SERVICE_LISTENER_SET")
 
       Log.i("MXDIAG", "SERVICE_ONCREATE_OK") // DIAG 4.4.5-diagnostic
+      MelodixDiagLog.step("SERVICE_ONCREATE_OK")
     } catch (t: Throwable) {
       // Échec de l'initialisation média : journal dev COMPLET (stacktrace
       // précise pour le diagnostic), rollback de l'état contrôleur, arrêt du
       // service. AUCUNE re-propagation : l'app ne doit JAMAIS mourir ici.
       // DIAG 4.4.5-diagnostic : marqueur canonique + pile complète.
       Log.e("MXDIAG", "SERVICE_ONCREATE_FAIL", t)
+      MelodixDiagLog.error("SERVICE_ONCREATE_FAIL", t)
       Log.e(TAG, "MediaSession indisponible — Melodix continue sans session", t)
       sessionStateListener = null
       virtualPlayer?.let {
@@ -157,7 +211,9 @@ class MelodixMediaService : MediaSessionService() {
     //
     // Ne JAMAIS appeler ici une commande de pause : la source de vérité est
     // JS ; on ne fait qu'ajuster la survie du service à l'état PROJETÉ.
-    if (!MelodixMediaController.isLastKnownPlaying()) {
+    val playing = MelodixMediaController.isLastKnownPlaying()
+    MelodixDiagLog.step("SERVICE_TASK_REMOVED", "playing=$playing") // DIAG 4.4.7
+    if (!playing) {
       stopSelf()
     }
   }
@@ -166,6 +222,7 @@ class MelodixMediaService : MediaSessionService() {
     // Libération stricte, sans fuite possible : listener → session → player.
     // Dernière barrière anti-crash (5C.2) : une erreur de libération ne doit
     // jamais non plus tuer l'application en cours d'arrêt du service.
+    MelodixDiagLog.step("SERVICE_DESTROY_BEGIN") // DIAG 4.4.7
     sessionStateListener = null
     try {
       mediaSession?.let { session ->
@@ -192,6 +249,7 @@ class MelodixMediaService : MediaSessionService() {
     init {
       Log.i("MXDIAG", "SERVICE_CLASS_LOADED")
       Log.i("MXDIAG", "SERVICE_CLINIT") // DIAG (alias canonique)
+      MelodixDiagLog.step("SERVICE_CLINIT")
     }
 
     /** Branche posée par onCreate ; null quand le service est arrêté. */

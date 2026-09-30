@@ -76,6 +76,7 @@ class MelodixMediaNotificationProvider(context: Context) : MediaNotification.Pro
       )
     } catch (t: Throwable) {
       android.util.Log.e(TAG, "Notification par défaut de repli", t)
+      MelodixDiagLog.error("NOTIF_CREATE_FAIL", t) // DIAG 4.4.7
       fallbackNotification(onNotificationChangedCallback)
     }
 

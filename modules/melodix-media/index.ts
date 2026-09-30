@@ -33,6 +33,11 @@ type NativeMelodixMedia = {
   updateSession: (payload: MediaSessionPayload) => void;
   stopSession: () => void;
   requestNotificationPermission: () => boolean | null;
+  // DIAG 4.4.7 (temporaire) : journal persistant + drapeaux d'isolation.
+  setDiagFlags: (flags: Record<string, boolean>) => void;
+  appendDiagLog: (line: string) => void;
+  readDiagLog: () => string;
+  clearDiagLog: () => void;
 };
 
 let nativeModule: NativeMelodixMedia | null = null;
@@ -109,10 +114,55 @@ export const addMediaCommandListener = (
   }
 };
 
+// ---------------------------------------------------------------------------
+// DIAG 4.4.7 (temporaire) — journal persistant on-device, zéro ADB.
+// Tous les appels sont tolérants à l'absence du natif (Jest/iOS/web) : no-op.
+// ---------------------------------------------------------------------------
+
+/** Drapeaux d'isolation A/B + Test C (tous false par défaut). */
+export const setDiagFlags = (flags: Record<string, boolean>): void => {
+  try {
+    getNativeModule()?.setDiagFlags(flags);
+  } catch {
+    // Diagnostic jamais bloquant.
+  }
+};
+
+/** Ajoute une ligne au journal natif (miroir des breadcrumbs JS). */
+export const appendDiagLog = (line: string): void => {
+  try {
+    getNativeModule()?.appendDiagLog(line);
+  } catch {
+    // Diagnostic jamais bloquant.
+  }
+};
+
+/** Lit le journal natif complet ('' si absent/vide ou module indisponible). */
+export const readDiagLog = (): string => {
+  try {
+    return getNativeModule()?.readDiagLog() ?? '';
+  } catch {
+    return '';
+  }
+};
+
+/** Vide le journal natif. */
+export const clearDiagLog = (): void => {
+  try {
+    getNativeModule()?.clearDiagLog();
+  } catch {
+    // Diagnostic jamais bloquant.
+  }
+};
+
 export default {
   isMelodixMediaAvailable,
   updateSession,
   stopSession,
   requestMediaNotificationPermission,
   addMediaCommandListener,
+  setDiagFlags,
+  appendDiagLog,
+  readDiagLog,
+  clearDiagLog,
 };

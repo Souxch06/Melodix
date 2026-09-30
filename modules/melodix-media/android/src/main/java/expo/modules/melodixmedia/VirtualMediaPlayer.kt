@@ -73,9 +73,12 @@ class VirtualMediaPlayer(looper: Looper) : SimpleBasePlayer(looper) {
     // ne doit JAMAIS ressortir en exception (elle tourne sur le main thread
     // — le moindre throw = crash de toute l'app alors que l'audio continue).
     try {
+      MelodixDiagLog.step("VMP_UPDATE_BEGIN") // DIAG 4.4.7
       updateSessionUnsafe(payload)
+      MelodixDiagLog.step("VMP_UPDATE_OK")
     } catch (t: Throwable) {
       android.util.Log.e(TAG, "Projection ignorée (état conservé)", t)
+      MelodixDiagLog.error("VMP_UPDATE_FAIL", t) // DIAG 4.4.7
     }
   }
 
@@ -89,12 +92,20 @@ class VirtualMediaPlayer(looper: Looper) : SimpleBasePlayer(looper) {
     val positionMillis = (payload["positionMillis"] as? Number)?.toLong() ?: 0L
     val isPlaying = payload["isPlaying"] as? Boolean ?: false
 
-    val metadata = MediaMetadata.Builder()
-      .setTitle(title)
-      .setArtist(artist)
-      .setAlbumTitle(album)
-      .setArtworkUri(artworkUrl?.let(Uri::parse))
-      .build()
+    // Test C (4.4.7) : skipMetadata projette l'état SANS métadonnées/artwork
+    // — sépare la construction MediaMetadata du simple changement d'état.
+    val metadata =
+      if (MelodixDiagLog.Flags.skipMetadata) {
+        MelodixDiagLog.step("VMP_METADATA_SKIPPED", "drapeau noMetadata")
+        MediaMetadata.Builder().setMediaType(MediaMetadata.MEDIA_TYPE_MUSIC).build()
+      } else {
+        MediaMetadata.Builder()
+          .setTitle(title)
+          .setArtist(artist)
+          .setAlbumTitle(album)
+          .setArtworkUri(artworkUrl?.let(Uri::parse))
+          .build()
+      }
 
     // MediaItem : ID STABLE seulement (jamais d'URL de flux, token ni
     // credential — le player virtuel ne chargera jamais de média).
@@ -127,6 +138,7 @@ class VirtualMediaPlayer(looper: Looper) : SimpleBasePlayer(looper) {
 
   override fun handleSetPlayWhenReady(playWhenReady: Boolean): ListenableFuture<*> {
     try {
+      MelodixDiagLog.step("VMP_CMD", if (playWhenReady) "play" else "pause") // DIAG 4.4.7
       MelodixMediaController.onMediaCommand(if (playWhenReady) "play" else "pause")
     } catch (t: Throwable) {
       android.util.Log.e(TAG, "Commande play/pause non relaûée", t)
@@ -141,6 +153,7 @@ class VirtualMediaPlayer(looper: Looper) : SimpleBasePlayer(looper) {
     seekCommand: Int
   ): ListenableFuture<*> {
     try {
+      MelodixDiagLog.step("VMP_CMD", "seek cmd=$seekCommand pos=$positionMs") // DIAG 4.4.7
       when (seekCommand) {
         Player.COMMAND_SEEK_TO_NEXT,
         Player.COMMAND_SEEK_TO_NEXT_MEDIA_ITEM ->
@@ -161,6 +174,7 @@ class VirtualMediaPlayer(looper: Looper) : SimpleBasePlayer(looper) {
 
   override fun handleStop(): ListenableFuture<*> {
     try {
+      MelodixDiagLog.step("VMP_CMD", "stop") // DIAG 4.4.7
       MelodixMediaController.onMediaCommand("stop")
     } catch (t: Throwable) {
       android.util.Log.e(TAG, "Commande stop non relaûée", t)

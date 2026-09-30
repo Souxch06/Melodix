@@ -28,6 +28,7 @@ import {
   SettingsSelect,
   SettingsSwitch,
 } from '@components';
+import { NativeDiagSection } from '../components/Settings/NativeDiagSection';
 
 const GITHUB_URL = 'https://github.com/Souxch06/Melodix';
 const VOLUME_STEP = 10;
@@ -422,6 +423,10 @@ export const SettingsScreen = () => {
           testID="settings-credits"
         />
       </SettingsSection>
+
+      {/* SECTION TEMPORAIRE (4.4.7-diagnostic) : journal natif persistant +
+          drapeaux d'isolation MediaSession. À retirer après correction. */}
+      <NativeDiagSection />
     </SettingsScaffold>
   );
 };
