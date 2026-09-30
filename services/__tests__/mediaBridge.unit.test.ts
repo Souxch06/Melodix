@@ -354,6 +354,53 @@ describe('mediaBridge — projection MediaSession (phase 5A)', () => {
       expect(seekSpy).toHaveBeenCalledWith(42_000);
       expect(stopSpy).toHaveBeenCalledTimes(1);
     });
+    it('SCÉNARIO §5 complet : play→pause→play→next→previous→seek→stop, chaque projection vérifiée', async () => {
+      mockUpdateSession.mockClear();
+
+      await melodixPlayer.playQueue(
+        [morceau('a', 'Photo'), morceau('b', 'Again')],
+        0
+      );
+      await flush();
+
+      const payloads = (): Record<string, unknown>[] =>
+        mockUpdateSession.mock.calls.map((call) => call[0] as Record<string, unknown>);
+
+      // PLAY : première projection active (isPlaying=true, morceau 'a').
+      expect(mockUpdateSession).toHaveBeenCalledTimes(1);
+      expect(payloads().at(-1)).toMatchObject({ isPlaying: true, trackId: 'spotify:a' });
+
+      // PAUSE système → moteur pausé → projection isPlaying=false.
+      commandListener?.({ command: 'pause' });
+      await flush();
+      expect(payloads().at(-1)).toMatchObject({ isPlaying: false, trackId: 'spotify:a' });
+
+      // REPRISE système → projection isPlaying=true du même morceau.
+      commandListener?.({ command: 'play' });
+      await flush();
+      expect(payloads().at(-1)).toMatchObject({ isPlaying: true, trackId: 'spotify:a' });
+
+      // NEXT système → morceau 'b' projeté (nouvelle métadonnée).
+      commandListener?.({ command: 'next' });
+      await flush();
+      expect(payloads().at(-1)).toMatchObject({ trackId: 'spotify:b', isPlaying: true });
+
+      // PREVIOUS à > 3 s? position 0 → moteur recule vers 'a'.
+      commandListener?.({ command: 'previous' });
+      await flush();
+      expect(payloads().at(-1)).toMatchObject({ trackId: 'spotify:a', isPlaying: true });
+
+      // SEEK système → moteur consulte la MÊME méthode seekTo, projection bornée.
+      commandListener?.({ command: 'seek', positionMillis: 30_000 });
+      await flush();
+      expect((payloads().at(-1)?.positionMillis as number) ?? -1).toBeGreaterThanOrEqual(0);
+
+      // STOP système → moteur arrêté → session native FERMÉE (stopSession).
+      commandListener?.({ command: 'stop' });
+      await flush();
+      expect(mockStopSession).toHaveBeenCalled();
+      expect(melodixPlayer.getState().status).not.toBe('playing');
+    });
   });
 
   describe('anti-autoplay VERROUILLÉ (durcissement du contrat §9)', () => {

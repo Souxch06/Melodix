@@ -67,7 +67,7 @@ describe('À propos — version réelle, textes in-app', () => {
 
     expect(getByTestId('settings-about-screen')).toBeTruthy();
     expect(getByTestId('settings-about-version').props.children.join('')).toContain(
-      '4.4.2'
+      '4.4.3'
     );
     [
       'settings-about-terms',

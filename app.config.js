@@ -76,7 +76,7 @@ module.exports = {
   expo: {
     name: 'Melodix',
     slug: 'melodix',
-    version: '4.4.2',
+    version: '4.4.3',
     orientation: 'portrait',
     icon: './assets/images/icon.png',
     scheme: 'melodix',
@@ -94,7 +94,7 @@ module.exports = {
     },
     android: {
       package: 'com.souxch06.melodix',
-      versionCode: 44002,
+      versionCode: 44003,
       intentFilters: extraIntentFilters,
       adaptiveIcon: {
         foregroundImage: './assets/images/adaptive-icon.png',

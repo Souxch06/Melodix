@@ -68,6 +68,17 @@ class VirtualMediaPlayerTest {
   }
 
   @Test
+  fun `phase 5 — progression/durée ANNONCÉES (barre lockscreen et notification)`() {
+    // Sans GET_DURATION/GET_POSITION, certains systèmes masquent ou figent
+    // la progression ; SimpleBasePlayer les dérive de l'état projeté.
+    val available = player.getState().availableCommands
+
+    assertTrue(available.contains(Player.COMMAND_GET_DURATION))
+    assertTrue(available.contains(Player.COMMAND_GET_POSITION))
+    assertTrue(available.contains(Player.COMMAND_SEEK_IN_CURRENT_MEDIA_ITEM))
+  }
+
+  @Test
   fun `updateSession projette métadonnées, durée, position et état`() {
     player.updateSession(payload(isPlaying = true, positionMillis = 42_000L))
 

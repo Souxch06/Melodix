@@ -126,8 +126,11 @@ export const handleMediaCommand = (command: MediaCommand): void => {
       break;
 
     case 'stop':
-      sessionActivated = false;
-      lastPushedSignature = '';
+      // Phase 5 (Stop système) : NE PAS pré-invalider sessionActivated —
+      // le moteur émettra current=null et projectState() fermera alors la
+      // session native (stopSession) comme pour N'IMPORTE QUEL stop moteur.
+      // Une pré-invalidations laissait le service/la notification vivants
+      // après un STOP depuis la notification ou l'écran verrouillé.
       void melodixPlayer.stop();
       break;
   }
