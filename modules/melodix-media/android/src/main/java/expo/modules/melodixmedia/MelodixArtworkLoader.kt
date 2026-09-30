@@ -48,12 +48,16 @@ object MelodixArtworkLoader {
     BitmapFactory.Options().apply { inPreferredConfig = Bitmap.Config.RGB_565 }
 
   /** Construit le BitmapLoader de la MediaSession (cache borné intégré). */
-  fun create(context: Context): CacheBitmapLoader =
-    CacheBitmapLoader(
+  fun create(context: Context): CacheBitmapLoader {
+    // DIAG 4.4.7 : le chargement tourne sur le thread « MelodixArtwork » —
+    // toute exception non rattrapée y est écrite par le piège global.
+    MelodixDiagLog.step("ARTWORK_LOADER_CREATE")
+    return CacheBitmapLoader(
       DataSourceBitmapLoader(
         artworkExecutor,
         DefaultDataSource.Factory(context),
         bitmapOptions()
       )
     )
+  }
 }

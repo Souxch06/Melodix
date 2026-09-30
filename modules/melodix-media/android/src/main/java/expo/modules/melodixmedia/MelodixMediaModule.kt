@@ -96,6 +96,51 @@ class MelodixMediaModule : Module() {
       return@Function null
     }
 
+    /**
+     * Copie le diagnostic COMPLET dans le presse-papiers système Android
+     * (ClipboardManager — posté sur le main thread). Retourne true si la
+     * copie a été planifiée avec un contenu non vide, false sinon.
+     * Jamais de throw : le diagnostic ne doit pas perturber l'UI.
+     */
+    Function("copyDiagLog") {
+      try {
+        val context = appContext.reactContext
+        val content = MelodixDiagLog.readAll()
+        if (context == null || content.isEmpty()) {
+          return@Function false
+        }
+        android.os.Handler(android.os.Looper.getMainLooper()).post {
+          try {
+            val clipboard = context.getSystemService(
+              android.content.Context.CLIPBOARD_SERVICE
+            ) as? android.content.ClipboardManager
+            clipboard?.setPrimaryClip(
+              android.content.ClipData.newPlainText("Melodix diagnostic", content)
+            )
+          } catch (t: Throwable) {
+            android.util.Log.e("MXDIAG", "copie presse-papiers ignorée", t)
+          }
+        }
+        return@Function true
+      } catch (t: Throwable) {
+        android.util.Log.e("MXDIAG", "copyDiagLog ignoré", t)
+        return@Function false
+      }
+    }
+
+    /**
+     * Statut instantané de la couche MediaSession (booléens internes du
+     * contrôleur — aucune donnée sensible), pour l'écran Réglages.
+     */
+    Function("readDiagStatus") {
+      try {
+        return@Function MelodixMediaController.diagStatus()
+      } catch (t: Throwable) {
+        android.util.Log.e("MXDIAG", "readDiagStatus ignoré", t)
+        return@Function "indisponible"
+      }
+    }
+
     OnDestroy {
       MelodixMediaController.commandListener = null
     }

@@ -14,7 +14,9 @@
 import {
   appendDiagLog,
   clearDiagLog,
+  copyDiagLog,
   readDiagLog,
+  readDiagStatus,
   setDiagFlags,
 } from '../modules/melodix-media';
 
@@ -75,5 +77,29 @@ export const clearNativeDiagLog = (): void => {
     }
   } catch {
     // No-op hors natif / mock partiel.
+  }
+};
+
+/**
+ * Copie le diagnostic complet dans le PRESSE-PAPIERS système Android
+ * (ClipboardManager — exigé par le cahier §5, aucune dépendance JS ajoutée).
+ * Retourne true si le presse-papiers a reçu un contenu non vide.
+ */
+export const copyNativeDiagLog = (): boolean => {
+  try {
+    return typeof copyDiagLog === 'function' ? copyDiagLog() : false;
+  } catch {
+    return false;
+  }
+};
+
+/** Statut instantané de la couche MediaSession (booléens natifs). */
+export const readNativeDiagStatus = (): string => {
+  try {
+    return typeof readDiagStatus === 'function'
+      ? readDiagStatus()
+      : 'module natif absent';
+  } catch {
+    return 'module natif absent';
   }
 };

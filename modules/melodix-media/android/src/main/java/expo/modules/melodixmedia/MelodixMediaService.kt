@@ -77,11 +77,26 @@ class MelodixMediaService : MediaSessionService() {
     // 4.4.7 : chaque sous-étape est tracée AUSSI dans le fichier persistant,
     // et les drapeaux du Test C peuvent sauter UNE responsabilité à la fois.
     try {
+      // DIAG 4.4.7 : chaque sous-étape est tracée BEGIN/OK/FAIL dans le
+      // fichier persistant (avec pile complète au FAIL), puis RELANCÉE vers
+      // le catch global — l'arrêt propre du service est strictement inchangé.
+      fun <T> traced(name: String, block: () -> T): T {
+        MelodixDiagLog.step("SERVICE_${name}_BEGIN")
+        try {
+          val result = block()
+          MelodixDiagLog.step("SERVICE_${name}_OK")
+          return result
+        } catch (t: Throwable) {
+          MelodixDiagLog.error("SERVICE_${name}_FAIL", t)
+          throw t
+        }
+      }
+
       // 1) Provider de notification Melodix (délégation Default média3) —
       //    DOIT être posé avant la fin de onCreate (API média3 auditée).
-      MelodixDiagLog.step("SERVICE_PROVIDER_BEGIN")
-      setMediaNotificationProvider(MelodixMediaNotificationProvider(this))
-      MelodixDiagLog.step("SERVICE_PROVIDER_OK")
+      traced("NOTIFICATION_PROVIDER") {
+        setMediaNotificationProvider(MelodixMediaNotificationProvider(this))
+      }
 
       // 2) Player virtuel (Test C2 : peut être sauté — alors pas de session
       //    non plus, elle en dépend).
@@ -91,11 +106,9 @@ class MelodixMediaService : MediaSessionService() {
         MelodixDiagLog.step("SERVICE_CREATE_PLAYER_SKIPPED", "drapeau noPlayer")
         player = null
       } else {
-        MelodixDiagLog.step("SERVICE_CREATE_PLAYER_BEGIN")
-        player = VirtualMediaPlayer(mainLooper)
+        player = traced("CREATE_PLAYER") { VirtualMediaPlayer(mainLooper) }
         virtualPlayer = player
         Log.i("MXDIAG", "SERVICE_CREATE_PLAYER_OK")
-        MelodixDiagLog.step("SERVICE_CREATE_PLAYER_OK")
       }
 
       // 3) MediaSession (Test C1 : peut être sautée seule).
@@ -109,19 +122,18 @@ class MelodixMediaService : MediaSessionService() {
         Log.i("MXDIAG", "SERVICE_CREATE_SESSION_SKIPPED")
         MelodixDiagLog.step("SERVICE_CREATE_SESSION_SKIPPED", why)
       } else {
-        MelodixDiagLog.step("SERVICE_CREATE_SESSION_BEGIN")
         // BitmapLoader 5C : pochettes HTTP asynchrones (executor dédié),
         // cache borné, résilient — sans aucun impact sur la lecture expo-av.
-        val session = MediaSession.Builder(this, player)
-          .setBitmapLoader(MelodixArtworkLoader.create(this))
-          .build()
+        val session = traced("CREATE_SESSION") {
+          MediaSession.Builder(this, player)
+            .setBitmapLoader(MelodixArtworkLoader.create(this))
+            .build()
+        }
         mediaSession = session
-        MelodixDiagLog.step("SERVICE_ADD_SESSION_BEGIN")
         // Enregistre la session auprès du gestionnaire de notification
         // Media3 : c'est CE qui alimente la notification média système et
         // met le service en avant-plan dès PLAYING projeté.
-        addSession(session)
-        MelodixDiagLog.step("SERVICE_ADD_SESSION_OK")
+        traced("ADD_SESSION") { addSession(session) }
       }
 
       // 4) Projection : listener vers le player virtuel + replay de la
@@ -160,17 +172,18 @@ class MelodixMediaService : MediaSessionService() {
       // 5) Android 12+ : le système peut REFUSER la mise en avant-plan
       //    depuis l'arrière-plan. Comportement conforme : journaliser +
       //    tout arrêter proprement — AUCUN contournement.
-      setListener(
-        object : MediaSessionService.Listener {
-          override fun onForegroundServiceStartNotAllowedException() {
-            Log.w(TAG, "Mise en avant-plan refusée par Android 12+ — arrêt propre")
-            MelodixDiagLog.step("FGS_START_NOT_ALLOWED") // DIAG 4.4.7
-            MelodixMediaController.onServiceStartRejected()
-            stopSelf()
+      traced("LISTENER_SET") {
+        setListener(
+          object : MediaSessionService.Listener {
+            override fun onForegroundServiceStartNotAllowedException() {
+              Log.w(TAG, "Mise en avant-plan refusée par Android 12+ — arrêt propre")
+              MelodixDiagLog.step("FGS_START_NOT_ALLOWED") // DIAG 4.4.7
+              MelodixMediaController.onServiceStartRejected()
+              stopSelf()
+            }
           }
-        }
-      )
-      MelodixDiagLog.step("SERVICE_LISTENER_SET")
+        )
+      }
 
       Log.i("MXDIAG", "SERVICE_ONCREATE_OK") // DIAG 4.4.5-diagnostic
       MelodixDiagLog.step("SERVICE_ONCREATE_OK")
@@ -230,13 +243,16 @@ class MelodixMediaService : MediaSessionService() {
         session.release()
         session.player.release()
       }
+      MelodixDiagLog.step("SERVICE_DESTROY_SESSION_OK")
     } catch (t: Throwable) {
       Log.w(TAG, "Libération de session partielle — ignorée", t)
+      MelodixDiagLog.error("SERVICE_DESTROY_FAIL", t) // DIAG 4.4.7
     }
     virtualPlayer = null
     mediaSession = null
 
     super.onDestroy()
+    MelodixDiagLog.step("SERVICE_DESTROY_OK") // DIAG 4.4.7
   }
 
   companion object {

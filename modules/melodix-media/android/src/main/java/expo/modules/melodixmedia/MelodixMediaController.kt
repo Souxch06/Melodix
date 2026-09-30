@@ -115,6 +115,16 @@ object MelodixMediaController {
   /** État projeté : le JS lit-il actuellement ? (seule vérité : le bridge). */
   fun isLastKnownPlaying(): Boolean = lastPayload?.get("isPlaying") as? Boolean ?: false
 
+  /**
+   * Statut instantané de la couche MediaSession (DIAG 4.4.7 — affiché dans
+   * Réglages → « Diagnostic technique »). Aucune donnée sensible : uniquement
+   * des booléens d'état internes.
+   */
+  fun diagStatus(): String =
+    "serviceRunning=$serviceRunning " +
+      "projectionBuffered=${lastPayload != null} " +
+      "lastKnownPlaying=${isLastKnownPlaying()}"
+
   /** Appelé par le service quand Android a refusé le FGS : état nettoyé. */
   fun onServiceStartRejected() {
     serviceRunning = false

@@ -16,21 +16,24 @@ import java.util.concurrent.atomic.AtomicBoolean
  *
  * Pourquoi : le crash au Play est confirmé uniquement quand la couche
  * MediaSession est active, mais l'utilisateur ne peut PAS extraire un
- * logcat ADB. Ce collecteur écrit chaque breadcrumb native ET chaque
- * exception (rattrapée ou NON) dans un fichier applicatif lisible depuis
- * l'UI (Réglages → « Diagnostic technique ») — zéro ADB.
+ * logcat ADB. Ce collecteur écrit chaque breadcrumb natif ET chaque
+ * exception (rattrapée ou NON rattrapée) dans un fichier applicatif
+ * lisible depuis l'UI (Réglages → « Diagnostic technique ») — zéro ADB.
  *
  * Garanties strictes :
  *  - JAMAIS de throw : tout l'I/O est best-effort (diagnostiquer ne doit
  *    jamais pouvoir casser l'application) ;
  *  - fichier BORNÉ : quand > 512 Ko, on ne conserve que la queue ~256 Ko ;
- *  - pas de donnée sensible : étapes + classe d'exception + pile (pile de
- *    NOS exceptions natif uniquement — jamais d'URL/token/clé) ;
- *  - thread ET timestamp (UTC, millisecondes) sur chaque ligne.
+ *  - AUCUNE donnée sensible : tout texte écrit (extra ET pile) passe par
+ *    [sanitize] : URLs masquées, jetons/Bearer/en-têtes masqués, chaînes
+ *    hexadécimales longues (client id/secret) masquées ;
+ *  - thread (nom + id) ET timestamp (UTC, millisecondes) sur chaque ligne ;
+ *  - la pile complète inclut les causes imbriquées (« Caused by: … »)
+ *    via Throwable.printStackTrace standard.
  *
  * Le piège d'exceptions non rattrapées ENVELOPPE le handler précédent :
  * l'erreur est écrite (flush synchrone) PUIS le handler d'origine est
- * délégué — le comportement de crash reste strictement celui d'avant.
+ * délégué — le vrai crash est CONSERVÉ à l'identique.
  */
 object MelodixDiagLog {
 
@@ -38,6 +41,8 @@ object MelodixDiagLog {
   private const val FILE_NAME = "melodix-native-crash.log"
   private const val MAX_BYTES = 512 * 1024L
   private const val KEEP_TAIL_BYTES = 256 * 1024L
+  private const val MAX_EXTRA_CHARS = 512
+  private const val MAX_STACK_CHARS = 24 * 1024
 
   @Volatile
   private var logFile: File? = null
@@ -52,6 +57,48 @@ object MelodixDiagLog {
         }
     }
 
+  // --------------------------------------------------------------------
+  // Sanitisation — JAMAIS de token/secret/URL dans le journal (cahier §1).
+  // --------------------------------------------------------------------
+
+  /** URLs complètes (streaming, artwork) → <url>. */
+  private val URL_REGEX = Regex("https?://\\S+")
+
+  /**
+   * Jetons et secrets dans les formes « clé=valeur » habituelles des piles
+   * (Authorization, Bearer, token, client_secret, client_id, api_key...).
+   */
+  private val SECRET_KV_REGEX = Regex(
+    "(?i)(bearer\\s+|authorization\\s*[:=]\\s*|token\\s*[:=]\\s*|" +
+      "access_token\\s*[:=]\\s*|refresh_token\\s*[:=]\\s*|" +
+      "client_secret\\s*[:=]\\s*|client_id\\s*[:=]\\s*|api_key\\s*[:=]\\s*)\\S+"
+  )
+
+  /** Chaînes hexadécimales longues (client ids/secrets Spotify 32 hex). */
+  private val LONG_HEX_REGEX = Regex("\\b[0-9a-fA-F]{32,}\\b")
+
+  /** Jetons opaques longs (base64/base64url ≥ 60 chars, ex. jetons OAuth). */
+  private val LONG_TOKEN_REGEX = Regex("\\b[0-9A-Za-z_\\-+/=]{60,}\\b")
+
+  /**
+   * Masque URLs, jetons, secrets et identifiants longs, et borne la longueur.
+   * Appliqué à TOUT texte écrit : messages d'extra comme piles complètes.
+   */
+  private fun sanitize(raw: String?, maxChars: Int): String {
+    if (raw.isNullOrEmpty()) {
+      return ""
+    }
+
+    return raw
+      .replace(URL_REGEX, "<url>")
+      .replace(SECRET_KV_REGEX, "<redacted>")
+      .replace(LONG_HEX_REGEX, "<redacted-hex>")
+      .replace(LONG_TOKEN_REGEX, "<redacted-token>")
+      .take(maxChars)
+  }
+
+  // --------------------------------------------------------------- accès
+
   /** Une seule initialisation du contexte suffit (module OnCreate / service). */
   fun init(context: Context) {
     try {
@@ -63,7 +110,11 @@ object MelodixDiagLog {
     }
   }
 
-  /** Piège global : écrit TOUTE exception non rattrapée (tous threads). */
+  /**
+   * Piège global : écrit TOUTE exception non rattrapée (tous threads, y
+   * compris les callbacks/executors Media3 hors de tout try/catch Kotlin),
+   * PUIS délègue au handler précédent — le crash réel est CONSERVÉ.
+   */
   fun installCrashTrap() {
     if (!crashTrapInstalled.compareAndSet(false, true)) {
       return
@@ -75,13 +126,13 @@ object MelodixDiagLog {
       Thread.setDefaultUncaughtExceptionHandler { thread, error ->
         appendRaw(
           "FATAL_UNCAUGHT",
-          "thread=${thread.name} ${error.javaClass.name}: ${error.message}",
+          "thread=${thread.name} tid=${thread.id} ${error.javaClass.name}: ${error.message}",
           error
         )
         try {
           previous?.uncaughtException(thread, error)
         } catch (ignored: Throwable) {
-          // Le handler précédent ne doit pas faire échouer le notre.
+          // Le handler précédent ne doit pas faire échouer le nôtre.
         }
       }
     } catch (t: Throwable) {
@@ -89,12 +140,12 @@ object MelodixDiagLog {
     }
   }
 
-  /** Étape nommée (breadcrumbs DIAG du chemin service bridge→MediaSession). */
+  /** Étape nommée (breadcrumbs DIAG du chemin bridge→service→callbacks). */
   fun step(step: String, extra: String? = null) {
     appendRaw(step, extra, null)
   }
 
-  /** Exception RATTRAPÉE mais diagnostiquée (jamais masquée). */
+  /** Exception RATTRAPÉE mais diagnostiquée (jamais masquée silencieusement). */
   fun error(step: String, throwable: Throwable, extra: String? = null) {
     appendRaw(
       step,
@@ -146,15 +197,20 @@ object MelodixDiagLog {
           }
         }
 
+        val currentThread = Thread.currentThread()
+        // Format : ISO-8601 UTC ms | thread=<nom> tid=<id> | ÉTAPE | extra
         val line = buildString {
           append(isoFormatter.get()?.format(Date()) ?: "?")
-          append(" | t=")
-          append(Thread.currentThread().name)
+          append(" | thread=")
+          append(sanitize(currentThread.name, 64))
+          append(" tid=")
+          append(currentThread.id)
           append(" | ")
-          append(step)
-          if (!extra.isNullOrEmpty()) {
+          append(sanitize(step, 96))
+          val extraText = sanitize(extra, MAX_EXTRA_CHARS)
+          if (extraText.isNotEmpty()) {
             append(" | ")
-            append(extra)
+            append(extraText)
           }
           append('\n')
         }
@@ -162,10 +218,12 @@ object MelodixDiagLog {
         file.appendText(line)
 
         if (throwable != null) {
+          // Pile COMPLÈTE (causes imbriquées incluses), sanitée et bornée.
           val stack = StringWriter()
           throwable.printStackTrace(PrintWriter(stack))
-          file.appendText(stack.toString())
-          if (!stack.toString().endsWith("\n")) {
+          val stackText = sanitize(stack.toString(), MAX_STACK_CHARS)
+          file.appendText(stackText)
+          if (!stackText.endsWith("\n")) {
             file.appendText("\n")
           }
         }
@@ -181,8 +239,9 @@ object MelodixDiagLog {
    * Drapeaux d'isolation A/B + Test C (pilotés depuis Réglages, TEMPORAIRE).
    * Chaque drapeau désactive UNE SEULE responsabilité :
    *
-   *  - skipServiceStart : n'appelle PAS startForegroundService (A/B complet :
-   *    audio expo-av en arrière-plan actif, ZÉRO service Android démarré) ;
+   *  - skipServiceStart : coupe TOUTE la chaîne mediaBridge → contrôleur →
+   *    service (A/B complet : audio expo-av en arrière-plan actif, ZÉRO
+   *    service Android démarré) ;
    *  - skipSessionCreate : service créé MAIS pas de MediaSession.Builder
    *    (VirtualMediaPlayer toujours instancié) ;
    *  - skipPlayerCreate : service créé MAIS pas de VirtualMediaPlayer
@@ -193,6 +252,7 @@ object MelodixDiagLog {
    *    nu + état) — sépare la construction MediaMetadata du simple état.
    *
    * Volatiles (écrits depuis le thread module, lus sur le main thread).
+   * Tous à false par défaut : le comportement applicatif est IDENTIQUE.
    */
   object Flags {
     @Volatile var skipServiceStart: Boolean = false

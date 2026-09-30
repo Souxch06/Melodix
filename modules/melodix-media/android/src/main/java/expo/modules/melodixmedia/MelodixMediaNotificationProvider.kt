@@ -61,24 +61,30 @@ class MelodixMediaNotificationProvider(context: Context) : MediaNotification.Pro
     customLayout: ImmutableList<CommandButton>,
     actionFactory: MediaNotification.ActionFactory,
     onNotificationChangedCallback: MediaNotification.Provider.Callback
-  ): MediaNotification =
+  ): MediaNotification {
+    // DIAG 4.4.7 : callback chaud, hors try/catch du onCreate du service —
+    // chaque invocation est tracée (BEGIN/OK/FAIL + pile complète au FAIL).
+    MelodixDiagLog.step("NOTIF_CREATE_BEGIN")
     // Blindage 5C.2 : la construction de la notification est la DERNIÈRE
     // ligne avant la mise en avant-plan — une erreur ici (delegation média3,
     // artwork, layout) ne doit JAMAIS tuer l'application. Repli : notification
     // média3 par défaut (même pipeline, sans customisation), puis
     // notification minimale Melodix en tout dernier recours.
-    try {
-      provider.createNotification(
+    return try {
+      val notification = provider.createNotification(
         mediaSession,
         customLayout,
         actionFactory,
         onNotificationChangedCallback
       )
+      MelodixDiagLog.step("NOTIF_CREATE_OK")
+      notification
     } catch (t: Throwable) {
       android.util.Log.e(TAG, "Notification par défaut de repli", t)
       MelodixDiagLog.error("NOTIF_CREATE_FAIL", t) // DIAG 4.4.7
       fallbackNotification(onNotificationChangedCallback)
     }
+  }
 
   /** Dernier recours absolu : notification minimale qui ne peut pas échouer. */
   private fun fallbackNotification(
@@ -103,14 +109,18 @@ class MelodixMediaNotificationProvider(context: Context) : MediaNotification.Pro
     session: MediaSession,
     action: String,
     extras: Bundle
-  ): Boolean =
-    try {
+  ): Boolean {
+    // DIAG 4.4.7 : callback chaud hors try/catch du service — tracé + pile.
+    MelodixDiagLog.step("NOTIF_COMMAND", "action=$action")
+    return try {
       provider.handleCustomCommand(session, action, extras)
     } catch (t: Throwable) {
       // Blindage 5C.2 : commande personnalisée ignorée plutôt qu'un crash.
       android.util.Log.e(TAG, "Commande personnalisée ignorée", t)
+      MelodixDiagLog.error("NOTIF_COMMAND_FAIL", t, "action=$action") // DIAG 4.4.7
       false
     }
+  }
 
   companion object {
     private const val TAG = "MelodixNotificationProv"

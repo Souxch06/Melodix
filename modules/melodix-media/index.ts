@@ -38,6 +38,8 @@ type NativeMelodixMedia = {
   appendDiagLog: (line: string) => void;
   readDiagLog: () => string;
   clearDiagLog: () => void;
+  copyDiagLog: () => boolean;
+  readDiagStatus: () => string;
 };
 
 let nativeModule: NativeMelodixMedia | null = null;
@@ -155,6 +157,27 @@ export const clearDiagLog = (): void => {
   }
 };
 
+/**
+ * Copie le journal dans le PRESSE-PAPIERS système (ClipboardManager natif).
+ * Retourne true si le presse-papiers a reçu un contenu non vide.
+ */
+export const copyDiagLog = (): boolean => {
+  try {
+    return getNativeModule()?.copyDiagLog() ?? false;
+  } catch {
+    return false;
+  }
+};
+
+/** Statut instantané de la couche MediaSession (booléens internes natifs). */
+export const readDiagStatus = (): string => {
+  try {
+    return getNativeModule()?.readDiagStatus() ?? 'module natif absent';
+  } catch {
+    return 'module natif absent';
+  }
+};
+
 export default {
   isMelodixMediaAvailable,
   updateSession,
@@ -165,4 +188,6 @@ export default {
   appendDiagLog,
   readDiagLog,
   clearDiagLog,
+  copyDiagLog,
+  readDiagStatus,
 };

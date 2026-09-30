@@ -142,6 +142,7 @@ class VirtualMediaPlayer(looper: Looper) : SimpleBasePlayer(looper) {
       MelodixMediaController.onMediaCommand(if (playWhenReady) "play" else "pause")
     } catch (t: Throwable) {
       android.util.Log.e(TAG, "Commande play/pause non relaûée", t)
+      MelodixDiagLog.error("VMP_PLAY_FAIL", t) // DIAG 4.4.7
     }
 
     return Futures.immediateVoidFuture()
@@ -167,6 +168,7 @@ class VirtualMediaPlayer(looper: Looper) : SimpleBasePlayer(looper) {
       }
     } catch (t: Throwable) {
       android.util.Log.e(TAG, "Commande seek/non relaûée", t)
+      MelodixDiagLog.error("VMP_SEEK_FAIL", t) // DIAG 4.4.7 (seek/next/previous)
     }
 
     return Futures.immediateVoidFuture()
@@ -178,6 +180,7 @@ class VirtualMediaPlayer(looper: Looper) : SimpleBasePlayer(looper) {
       MelodixMediaController.onMediaCommand("stop")
     } catch (t: Throwable) {
       android.util.Log.e(TAG, "Commande stop non relaûée", t)
+      MelodixDiagLog.error("VMP_STOP_FAIL", t) // DIAG 4.4.7
     }
 
     return Futures.immediateVoidFuture()
