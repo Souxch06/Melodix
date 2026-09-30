@@ -1258,3 +1258,95 @@ describe('Phase 2 — file d attente avancée', () => {
     expect(state.current?.title).toBe('A');
   });
 });
+
+
+describe('Phase 5D — fiabilisation moteur (races / fin collante / seek en vol)', () => {
+  beforeEach(async () => {
+    await AsyncStorage.clear();
+    lastStatusCallback = null;
+    lastSound = null;
+    mockCreatedSounds = [];
+    __testSetAudioProviders({ audius: makeProvider() });
+    await melodixPlayer.__testReset();
+  });
+
+  it('§8 : deux ticks didJustFinish CONSÉCUTIFS du même son = UNE SEULE transition (jamais de saut à N+2)', async () => {
+    await melodixPlayer.playQueue([track('a', 'A'), track('b', 'B'), track('c', 'C')], 0);
+    await flush();
+
+    const callbackSonA = lastStatusCallback;
+    const sonsAvant = mockCreatedSounds.length;
+
+    // expo-av peut RÉÉMETTRE didJustFinish=true sur un tick collant (le
+    // vieux son n'est pas encore déchargé quand le suivant se résout).
+    callbackSonA?.({ isLoaded: true, didJustFinish: true });
+    callbackSonA?.({ isLoaded: true, didJustFinish: true });
+    await flush();
+
+    // UN SEUL son supplémentaire créé, morceau B joué — JAMAIS un saut vers C.
+    expect(mockCreatedSounds.length).toBe(sonsAvant + 1);
+    expect(melodixPlayer.getState().current?.id).toBe('spotify:b');
+
+    // Et le tick ORPHELIN du vieux son reste ignoré bien après la transition.
+    callbackSonA?.({ isLoaded: true, didJustFinish: true });
+    await flush();
+    expect(mockCreatedSounds.length).toBe(sonsAvant + 1);
+    expect(melodixPlayer.getState().current?.id).toBe('spotify:b');
+  });
+
+  it('§2 : « pause » PENDANT le chargement n est pas un redémarrage (garde loading)', async () => {
+    // Résolution artificiellement lente : la fenêtre loading existe vraiment.
+    const lente = new Promise<void>((resolve) => setTimeout(resolve, 25));
+    const provider = makeProvider({
+      resolveSource: jest.fn(async (sourceId: string) => {
+        await lente;
+        return { uri: `https://stream/${sourceId}` };
+      }),
+    });
+    __testSetAudioProviders({ audius: provider });
+
+    // Sans await : pendant la fenêtre réelle de chargement (résolution lente).
+    void melodixPlayer.playQueue([track('a', 'A')], 0);
+    await flush(); // pousse les microtâches : emit 'loading' fait, timer 25 ms pas encore
+    expect(melodixPlayer.getState().status).toBe('loading');
+
+    // Geste utilisateur très rapide — ignore proprement, aucune relance.
+    await melodixPlayer.togglePlayPause();
+    await melodixPlayer.togglePlayPause();
+
+    await flush();
+    await new Promise((resolve) => setTimeout(resolve, 40));
+
+    // UN SEUL son, UNE SEULE création — le morceau démarre normalement.
+    expect(melodixPlayer.getState().status).toBe('playing');
+    expect(mockCreatedSounds.length).toBe(1);
+  });
+
+  it('§3 : seek PENDANT le chargement est appliqué à l arrivée du son', async () => {
+    const lente = new Promise<void>((resolve) => setTimeout(resolve, 25));
+    const provider = makeProvider({
+      resolveSource: jest.fn(async (sourceId: string) => {
+        await lente;
+        return { uri: `https://stream/${sourceId}` };
+      }),
+    });
+    __testSetAudioProviders({ audius: provider });
+
+    // Sans await : pendant la fenêtre réelle de chargement (résolution lente).
+    void melodixPlayer.playQueue([track('a', 'A')], 0);
+    await flush(); // emit 'loading' fait, la résolution lente n'est pas finie
+    expect(melodixPlayer.getState().status).toBe('loading');
+
+    // L'utilisateur glisse la barre AVANT que la durée soit connue.
+    await melodixPlayer.seekTo(42_000);
+
+    await flush();
+    await new Promise((resolve) => setTimeout(resolve, 40));
+
+    // Le mécanisme existant (pendingSeekMillis, comme la restauration) a
+    // appliqué la cible au nouveau son — jamais de seek fantôme ni d'erreur.
+    expect(lastSound.setPositionAsync).toHaveBeenCalledWith(42_000);
+    expect(melodixPlayer.getState().positionMillis).toBe(42_000);
+    expect(melodixPlayer.getState().status).toBe('playing');
+  });
+});

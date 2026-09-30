@@ -362,7 +362,7 @@ describe('Paramètres — données, langue, aide et version', () => {
 
     const row = getByTestId('settings-version');
     const texts = row.findAllByType('Text').map((node: { props: { children?: unknown } }) => node.props.children);
-    expect(texts).toContain('4.4.3');
+    expect(texts).toContain('4.4.4');
   });
 
   it('audio : la cascade réelle des sources est affichée honnêtement', () => {

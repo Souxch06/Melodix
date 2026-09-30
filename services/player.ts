@@ -190,6 +190,11 @@ class MelodixPlayer {
   /** Monceau actif actuel : tout resolve/chargement d'un token périmé est
    * ignoré et son éventuel Sound immédiatement déchargé (anti-double-lecture). */
   private playToken = 0;
+  /** 5D : didJustFinish consommé UNE SEULE FOIS par session de lecture —
+   * empêche la double transition « fin → next → next » si expo-av réémet
+   * didJustFinish=true sur un nouveau tick du même vieux son pendant la
+   * résolution du morceau suivant (field collant jusqu'à l'unload). */
+  private lastFinishHandledForToken = -1;
   /** Seek à consommer au prochain démarrage effectif du son (restauration). */
   private pendingSeekMillis = 0;
   /** Persistance session : dernière écriture + état déjà écrit (anti-spam). */
@@ -295,7 +300,26 @@ class MelodixPlayer {
     }
   };
 
-  private onPlaybackStatusUpdate = (status: AvPlaybackStatus) => {
+  /**
+   * Handler AV scopé par token (5D) : tout status d'un Sound ORPHELIN
+   * (token périmé — l'utilisateur est passé à un autre morceau) est ignoré.
+   * Sans cette garde, le vieux son pouvait pousser position/fin après le
+   * départ de l'utilisateur — et rejouer `advanceAuto` sur le mauvais index.
+   */
+  private makeStatusHandler = (token: number) => {
+    return (status: AvPlaybackStatus) => {
+      if (this.playToken !== token) {
+        return; // son orphelin : émission parfaitement ignorée
+      }
+
+      this.onPlaybackStatusUpdate(token, status);
+    };
+  };
+
+  private onPlaybackStatusUpdate = (
+    token: number,
+    status: AvPlaybackStatus
+  ) => {
     if (status?.isLoaded === false) {
       if (status.error && this.state.status === 'playing') {
         void this.handleStreamFailure('play-failed');
@@ -317,7 +341,13 @@ class MelodixPlayer {
     }
 
     if (status?.didJustFinish) {
-      void this.advanceAuto();
+      // 5D : UNE SEULE avance par session de lecture. expo-av peut renvoyer
+      // didJustFinish=true sur un tick ultérieur du même son (fin collée) ;
+      // sans garde, cela déclenchait une SECONDE transition (saut à N+2).
+      if (this.lastFinishHandledForToken !== token) {
+        this.lastFinishHandledForToken = token;
+        void this.advanceAuto();
+      }
     }
   };
 
@@ -688,7 +718,7 @@ class MelodixPlayer {
           progressUpdateIntervalMillis: 500,
           volume: this.state.volume,
         },
-        this.onPlaybackStatusUpdate
+        this.makeStatusHandler(token)
       );
 
       // The user may have skipped to another track while this one was loading —
@@ -752,6 +782,14 @@ class MelodixPlayer {
   };
 
   togglePlayPause = async () => {
+    if (this.state.status === 'loading') {
+      // 5D race §2 : pendant la résolution/chargement le sound n'existe pas
+      // encore — « toggle » ici aurait RELANCÉ playIndex (pause devenue un
+      // redémarrage, double résolution). Comportement prévisible : on ignore
+      // le geste ; l'UI reste cohérente jusqu'au vrai démarrage.
+      return;
+    }
+
     if (!this.sound) {
       if (this.state.current && this.state.index >= 0) {
         await this.playIndex(this.state.index);
@@ -811,6 +849,12 @@ class MelodixPlayer {
       } catch (error) {
         console.error('Seek failed:', error);
       }
+    } else if (this.state.status === 'loading') {
+      // 5D §3 (seek avant durée connue) : pas de sound à commander — on
+      // mémorise la cible dans le MÊME canal que la restauration de session,
+      // elle sera appliquée à l'arrivée du son (pendingSeekMillis consommé
+      // une seule fois au démarrage effectif).
+      this.pendingSeekMillis = clamped;
     }
 
     this.emit({ positionMillis: clamped });
