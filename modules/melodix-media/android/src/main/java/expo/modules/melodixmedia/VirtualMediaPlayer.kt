@@ -46,13 +46,6 @@ class VirtualMediaPlayer(looper: Looper) : SimpleBasePlayer(looper) {
         .add(Player.COMMAND_GET_CURRENT_MEDIA_ITEM)
         .add(Player.COMMAND_SET_MEDIA_ITEM)
         .add(Player.COMMAND_GET_TIMELINE)
-        // Phase 5 (progression/lockscreen) : progression + durée ANNONCÉES —
-        // SimpleBasePlayer les dérive déjà de l'état projeté (position qui
-        // avance à 1.0x via playbackParameters). Sans cette annonce, la
-        // barre de progression de la notification/écran verrouillé peut
-        // rester figée ou masquée par certains systèmes.
-        .add(Player.COMMAND_GET_DURATION)
-        .add(Player.COMMAND_GET_POSITION)
         .build()
     )
     // État initial : PAUSED, prêt, vitesse normale — JAMAIS de "playing"

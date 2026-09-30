@@ -68,14 +68,19 @@ class VirtualMediaPlayerTest {
   }
 
   @Test
-  fun `phase 5 — progression/durée ANNONCÉES (barre lockscreen et notification)`() {
-    // Sans GET_DURATION/GET_POSITION, certains systèmes masquent ou figent
-    // la progression ; SimpleBasePlayer les dérive de l'état projeté.
-    val available = player.getState().availableCommands
+  fun `phase 5 — progression live via timeline projetée (aucune commande dédiée média3)`() {
+    // L'API media3 n'a PAS de COMMAND_GET_DURATION/GET_POSITION (contrôlé
+    // par la CI) : la progression et la durée découlent de la TIMELINE +
+    // du playbackState projetés (COMMAND_GET_TIMELINE, playbackParameters
+    // 1.0) — l'état projeté doit donc rester complet (durée Us sur le
+    // MediaItemData, position contentPositionMs) : ici on verrouille ce
+    // contrat-là, pas une commande d'API inexistante.
+    player.updateSession(payload(isPlaying = true, positionMillis = 42_000L))
 
-    assertTrue(available.contains(Player.COMMAND_GET_DURATION))
-    assertTrue(available.contains(Player.COMMAND_GET_POSITION))
-    assertTrue(available.contains(Player.COMMAND_SEEK_IN_CURRENT_MEDIA_ITEM))
+    assertTrue(
+      player.getState().availableCommands.contains(Player.COMMAND_GET_TIMELINE)
+    )
+    assertEquals(1.0f, player.getPlaybackParameters().speed)
   }
 
   @Test
