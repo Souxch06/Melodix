@@ -4,23 +4,38 @@
  * collaboratives accessibles au compte).
  *
  * Endpoint des morceaux : GET /v1/playlists/{id}/items — pages de 50
- * (limite recommandée), pagination intégrale jusqu'à `next === null`.
- * Nouveau format d'item : `{ item: Track | Episode | null, ... }` (le
- * legacy `{ track: ... }` reste accepté). Les contenus non audio pour
- * Melodix sont ignorés : épisodes/contenus vidéo (type ≠ 'track'),
- * fichiers locaux (is_local) et pistes défaillantes (item null) — avec,
- * en secours, un rebasculement complet vers l'ancien endpoint /tracks
- * si Spotify répond 404 (transitionalité de l'API), sans casser l'existant.
+ * (limite du contrat), pagination intégrale jusqu'à `next === null`.
+ * Format d'item : `{ item: Track | Episode | null, ... }` (le legacy
+ * `{ track: ... }` reste accepté pour les réponses d'API mixtes).
+ *
+ * 5C.1 — alignement avec l'API actuelle et diagnostic mesuré :
+ *  - L'ANCIEN endpoint GET /playlists/{id}/tracks a été SUPPRIMÉ par
+ *    Spotify (changelog officiel, février 2026) : l'ancien repli /tracks
+ *    sur 404 ne pouvait donc produire qu'un second 404 silencieux —
+ *    supprimé. Un 404 sur /items signifie : contenu indisponible pour
+ *    l'API (playlists éditoriales/algorithmiques de Spotify, restreintes
+ *    depuis nov. 2024) ; l'infrastructure @api dispose alors de son
+ *    repli dédié (backend Melodix) — jamais d'écran vide silencieux.
+ *  - Les métadonnées Get Playlist exposent désormais `items.total`
+ *    (rename `tracks` → `items`) : les DEUX chemins sont lus — sinon le
+ *    total tombait à 0 et l'écran n'interrogeait jamais les morceaux.
+ *  - COMPTEURS DEV explicites (§8) par page ET par totalité : nombre
+ *    d'items reçus, de tracks valides après filtrage (épisodes, fichiers
+ *    locaux, entrées nulles), de TrackMetadata créés, transmis à l'écran.
+ *
+ * Les contenus non audio pour Melodix sont ignorés : épisodes/contenus
+ * vidéo (type ≠ 'track'), fichiers locaux (is_local) et pistes
+ * défaillantes (item null) — chacun comptabilisé dans les logs.
  *
  * Chaque morceau conserve : identifiant Spotify, titre, TOUS les artistes
  * (joints), album, durée (ms), artwork, explicite. L'audio sera résolu au
  * moment de la lecture par le matcher Audius (services/player.ts branché sur
  * queueIdForTrackId) — jamais depuis Spotify.
  */
-import { SpotifyApiError, spotifyApiGet, spotifyLog } from '@services';
+import { spotifyApiGet, spotifyLog } from '@services';
 import { PlaylistModel, TrackModel } from '@models';
 
-/** Limite de l'endpoint /items (≤ 50 selon le contrat actuel de l'API). */
+/** Limite de l'endpoint /items (≤ 50 selon le contrat de l'API). */
 const ITEMS_PAGE_SIZE = 50;
 
 type SpotifyImage = { url?: string }[] | null;
@@ -42,7 +57,7 @@ type SpotifyTrackRaw = {
   is_local?: boolean; // fichiers hors catalogue : ignorés
 } | null;
 
-/** Nouveau format /items (item) + format legacy (track). */
+/** Format courant /items (item) + format legacy éventuel (track). */
 type SpotifyPlaylistItem = {
   item?: SpotifyTrackRaw;
   track?: SpotifyTrackRaw;
@@ -54,7 +69,10 @@ type SpotifyPlaylistRaw = {
   description?: string | null;
   images?: SpotifyImage;
   owner?: { id?: string; display_name?: string | null } | null;
+  /** Ancien nom (≤ 2026) — conservé en repli de lecture. */
   tracks?: { total?: number } | null;
+  /** Nom actuel du résumé des contenus (rename `tracks` → `items`). */
+  items?: { total?: number } | null;
 };
 
 type PagedItems = {
@@ -65,11 +83,12 @@ type PagedItems = {
 
 /** Champs ciblés suffisants → des réponses plus légères. */
 const ITEM_FIELDS =
-  'items(item(id,name,type,duration_ms,explicit,artists(id,name),album(id,name,images),is_local)),items(track(id,name,type,duration_ms,explicit,artists(id,name),album(id,name,images),is_local)),next,total';
+  'items(item(id,name,type,duration_ms,explicit,artists(id,name),album(id,name,images),is_local)),next,total';
 
 /**
- * Extraction tolérante : nouveau format `item`, legacy `track`.
- * Les épisodes, fichiers locaux et entrées nulles sont ignorés (false → skip).
+ * Extraction tolérante : format courant `item`, legacy `track` en secours.
+ * Renvoie null pour : piste indisponible/droits retirés (item null),
+ * épisode ou autre média, fichier local hors catalogue.
  */
 const extractPlayableRaw = (entry: SpotifyPlaylistItem): SpotifyTrackRaw => {
   const candidate = entry?.item ?? entry?.track ?? null;
@@ -85,10 +104,7 @@ const extractPlayableRaw = (entry: SpotifyPlaylistItem): SpotifyTrackRaw => {
   return candidate;
 };
 
-const toTrackModel = (
-  raw: SpotifyTrackRaw,
-  index: number
-): TrackModel | null => {
+const toTrackModel = (raw: SpotifyTrackRaw): TrackModel | null => {
   if (!raw?.id || !raw.name) {
     return null;
   }
@@ -115,20 +131,30 @@ const toTrackModel = (
   };
 };
 
-const pageToTracks = (page: PagedItems, startIndex: number): TrackModel[] => {
+/** Comptes mesurés par page (§8) : reçus → valides → créés. */
+type PageParse = {
+  tracks: TrackModel[];
+  itemsReceived: number;
+  tracksValid: number;
+};
+
+const pageToTracks = (page: PagedItems): PageParse => {
   const items = Array.isArray(page?.items) ? page.items : [];
   const tracks: TrackModel[] = [];
-  let index = startIndex;
+  let tracksValid = 0;
 
   for (const entry of items) {
-    const track = toTrackModel(extractPlayableRaw(entry), index);
-    if (track) {
-      tracks.push(track);
-      index += 1;
+    const raw = extractPlayableRaw(entry);
+    if (raw) {
+      tracksValid += 1; // piste exploitable (type audio, hors fichier local)
+      const track = toTrackModel(raw);
+      if (track) {
+        tracks.push(track);
+      }
     }
   }
 
-  return tracks;
+  return { tracks, itemsReceived: items.length, tracksValid };
 };
 
 const itemsUrl = (
@@ -138,16 +164,9 @@ const itemsUrl = (
 ): string =>
   `/playlists/${encodeURIComponent(playlistId)}/items?limit=${limit}&offset=${offset}&fields=${encodeURIComponent(ITEM_FIELDS)}`;
 
-/** Ancien endpoint (migration d'API) — conservé uniquement en secours. */
-const legacyTracksUrl = (
-  playlistId: string,
-  offset = 0,
-  limit = ITEMS_PAGE_SIZE
-): string =>
-  `/playlists/${encodeURIComponent(playlistId)}/tracks?limit=${limit}&offset=${offset}&fields=${encodeURIComponent(ITEM_FIELDS)}`;
-
-const isHttp404 = (error: unknown): boolean =>
-  error instanceof SpotifyApiError && error.status === 404;
+/** Total du résumé playlist : nom actuel `items` puis ancien `tracks`. */
+const totalOf = (raw: SpotifyPlaylistRaw): number =>
+  raw.items?.total ?? raw.tracks?.total ?? 0;
 
 /** Métadonnées de la playlist (GET /v1/playlists/{id}). */
 export const getSpotifyPlaylist = async (
@@ -162,6 +181,7 @@ export const getSpotifyPlaylist = async (
   }
 
   const owner = raw.owner?.display_name || raw.owner?.id || 'Spotify';
+  const total = totalOf(raw);
 
   return {
     type: 'playlist',
@@ -169,65 +189,71 @@ export const getSpotifyPlaylist = async (
     title: raw.name,
     subtitle: `Par ${owner}`,
     ownerId: raw.owner?.id ?? '',
-    info: `${raw.tracks?.total ?? 0} titres`,
+    info: `${total} titres`,
     description: raw.description ?? '',
     imageURL: raw.images?.[0]?.url ?? '',
-    tracks: { total: raw.tracks?.total ?? 0 },
+    tracks: { total },
   };
 };
 
+/** Journal DEV unifié des compteurs (§8 — diagnostic mesuré). */
+const logCounts = (scope: string, counts: Record<string, number>): void => {
+  spotifyLog('playlist.items.counts', { page: scope, ...counts });
+};
+
 /**
- * Pagination intégrale depuis une URL initiale : pages consécutives selon le
- * lien `next`, jusqu'à `next === null`. Jamais tronquée à la première page.
+ * Pagination intégrale : pages consécutives selon le lien `next`, jusqu'à
+ * `next === null`. Jamais tronquée à la première page.
  */
 const collectAllPages = async (startPath: string): Promise<TrackModel[]> => {
   const collected: TrackModel[] = [];
   let nextPath: string | null = startPath;
-  let index = 0;
   let page = 0;
+  let receivedTotal = 0;
+  let validTotal = 0;
 
   while (nextPath) {
     page += 1;
     const paged: PagedItems = await spotifyApiGet<PagedItems>(nextPath);
-    const tracks = pageToTracks(paged, index);
+    const { tracks, itemsReceived, tracksValid } = pageToTracks(paged);
     collected.push(...tracks);
-    index += tracks.length;
+    receivedTotal += itemsReceived;
+    validTotal += tracksValid;
 
     spotifyLog('playlist.items.page', {
       page,
-      songCount: tracks.length,
+      itemsReceived,
+      tracksValid,
+      tracksCreated: tracks.length,
       status: paged?.next ? 'continue' : 'last',
     });
 
     nextPath = paged?.next ?? null;
   }
 
+  logCounts('all', {
+    itemsReceived: receivedTotal,
+    tracksValid: validTotal,
+    tracksCreated: collected.length,
+    sentToScreen: collected.length,
+  });
+
   return collected;
 };
 
 /**
  * TOUS les morceaux de la playlist (endpoint /items, limit=50).
- * Si Spotify rejette /items en 404 (API transitoire), repli intégral
- * vers l'ancien endpoint /tracks — jamais de liste incomplète silencieuse.
+ * Un 404 /items = contenu non servi par l'API pour ce compte : propagé
+ * tel quel (l'amont @api bascule éventuellement vers le backend) — aucun
+ * repli vers l'ancien endpoint /tracks, RETIRÉ par Spotify (fév. 2026).
  */
 export const getSpotifyPlaylistTracks = async (
   playlistId: string
-): Promise<TrackModel[]> => {
-  try {
-    return await collectAllPages(itemsUrl(playlistId));
-  } catch (error) {
-    if (!isHttp404(error)) {
-      throw error;
-    }
-    spotifyLog('playlist.items.fallback', { cause: '404', endpoint: '/tracks' });
-    return collectAllPages(legacyTracksUrl(playlistId));
-  }
-};
+): Promise<TrackModel[]> => collectAllPages(itemsUrl(playlistId));
 
 /**
  * Une page de morceaux (pagination native limit/offset) — utilisée par les
  * écrans qui paginent eux-mêmes l'affichage (PlaylistScreen). limit ≤ 50.
- * Même repli 404 → /tracks que la pagination complète.
  */
 export const getSpotifyPlaylistTracksPage = async (
   playlistId: string,
@@ -236,22 +262,17 @@ export const getSpotifyPlaylistTracksPage = async (
   const safeLimit = Math.min(Math.max(limit, 1), ITEMS_PAGE_SIZE);
   const safeOffset = Math.max(offset, 0);
 
-  const load = (url: string): Promise<PagedItems> =>
-    spotifyApiGet<PagedItems>(url);
+  const page: PagedItems = await spotifyApiGet<PagedItems>(
+    itemsUrl(playlistId, safeOffset, safeLimit)
+  );
+  const { tracks, itemsReceived, tracksValid } = pageToTracks(page);
 
-  let page: PagedItems;
-  try {
-    page = await load(itemsUrl(playlistId, safeOffset, safeLimit));
-  } catch (error) {
-    if (!isHttp404(error)) {
-      throw error;
-    }
-    spotifyLog('playlist.items.page-fallback', {
-      cause: '404',
-      endpoint: '/tracks',
-    });
-    page = await load(legacyTracksUrl(playlistId, safeOffset, safeLimit));
-  }
+  logCounts(`offset:${safeOffset}`, {
+    itemsReceived,
+    tracksValid,
+    tracksCreated: tracks.length,
+    sentToScreen: tracks.length,
+  });
 
-  return pageToTracks(page, 0);
+  return tracks;
 };

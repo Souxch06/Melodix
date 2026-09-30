@@ -1,11 +1,16 @@
 /**
  * Endpoint des morceaux d'une playlist Spotify — CONTRAT ACTUEL DE L'API :
  *   GET /v1/playlists/{id}/items, pages de 50 (≤ 50), pagination intégrale
- *   jusqu'à next === null, nouveau format d'item `{ item: ... }` (legacy
+ *   jusqu'à next === null, format d'item `{ item: ... }` (legacy
  *   `{ track: ... }` accepté), filtrage des épisodes/fichiers locaux/pistes
- *   défaillantes, repli complet vers /tracks sur 404 transitoire.
+ *   défaillantes.
+ *
+ * 5C.1 : l'ancien endpoint /tracks est RETIRÉ par Spotify (changelog
+ * officiel février 2026) — un 404 /items est PROPAGÉ (plus de repli), et
+ * les compteurs de diagnostic (reçus → valides → créés → transmis) sont
+ * journalisés via spotifyLog('playlist.items.counts' / '.page').
  */
-import { SpotifyApiError, spotifyApiGet } from '@services';
+import { SpotifyApiError, spotifyApiGet, spotifyLog } from '@services';
 import {
   getSpotifyPlaylist,
   getSpotifyPlaylistTracks,
@@ -28,6 +33,7 @@ jest.mock('@services', () => ({
 }));
 
 const apiMock = spotifyApiGet as jest.Mock;
+const logMock = spotifyLog as jest.Mock;
 
 /** Morceau Spotify au NOUVEAU format /items (wrapper `item`). */
 const item = (id: string, name: string, artists: string[], ms = 200_000) => ({
@@ -60,6 +66,7 @@ const legacy = (id: string, name: string, artists: string[], ms = 200_000) => ({
 describe('api/spotify/playlist — endpoint /items (contrat actuel)', () => {
   beforeEach(() => {
     apiMock.mockReset();
+    logMock.mockClear();
   });
 
   it('getSpotifyPlaylist (métadonnées) : mapping inchangé', async () => {
@@ -83,6 +90,20 @@ describe('api/spotify/playlist — endpoint /items (contrat actuel)', () => {
       tracks: { total: 87 },
     });
     expect(result.subtitle).toContain('Julien');
+  });
+
+  it('métadonnées : lit items.total (rename `tracks`→`items`, API 2026)', async () => {
+    apiMock.mockResolvedValueOnce({
+      id: 'pl-2',
+      name: 'Hits',
+      owner: { id: 'spotify' },
+      items: { total: 42 },
+    });
+
+    const result = await getSpotifyPlaylist('pl-2');
+
+    expect(result.tracks.total).toBe(42);
+    expect(result.info).toContain('42');
   });
 
   it('PAGINATION COMPLÈTE : URL initiale /items limit=50, next suivi jusqu à null', async () => {
@@ -141,23 +162,19 @@ describe('api/spotify/playlist — endpoint /items (contrat actuel)', () => {
     expect(tracks.map(({ id }) => id)).toEqual(['ok']);
   });
 
-  it('REPLI : /items répond 404 → reprise INTÉGRALE sur /tracks, limit ≤ 50', async () => {
-    apiMock
-      .mockRejectedValueOnce(new SpotifyApiError('http', 'not found', 404))
-      .mockResolvedValueOnce({
-        items: [legacy('x1', 'Ancienne', ['Legacy'])],
-        next: null,
-        total: 1,
-      });
+  it('5C.1 : /items répond 404 → erreur PROPAGÉE, aucun appel /tracks (endpoint retiré)', async () => {
+    apiMock.mockRejectedValueOnce(new SpotifyApiError('http', 'not found', 404));
 
-    const tracks = await getSpotifyPlaylistTracks('pl');
+    await expect(getSpotifyPlaylistTracks('pl')).rejects.toMatchObject({
+      kind: 'http',
+      status: 404,
+    });
 
-    expect(tracks).toHaveLength(1);
-    expect(tracks[0].id).toBe('x1');
-    const [fallbackUrl] = apiMock.mock.calls[1] as [string];
-    expect(fallbackUrl).toContain('/playlists/pl/tracks');
-    expect(fallbackUrl).toContain('limit=50');
-    expect(fallbackUrl).not.toContain('limit=100');
+    // Endpoint /tracks OFFICIELLEMENT RETIRÉ (février 2026) : un seul appel,
+    // jamais de second 404 silencieux qui masquait la vraie cause.
+    expect(apiMock).toHaveBeenCalledTimes(1);
+    const [onlyUrl] = apiMock.mock.calls[0] as [string];
+    expect(onlyUrl).toContain('/playlists/pl/items');
   });
 
   it('erreurs NON 404 propagées (401/session, réseau…)', async () => {
@@ -168,7 +185,7 @@ describe('api/spotify/playlist — endpoint /items (contrat actuel)', () => {
     expect(apiMock).toHaveBeenCalledTimes(1);
   });
 
-  it('page native : borne limit à 50, offset ≥ 0, même repli 404', async () => {
+  it('page native : borne limit à 50, offset ≥ 0', async () => {
     apiMock.mockResolvedValueOnce({ items: [item('p1', 'Page', ['Un'])], next: null });
 
     await getSpotifyPlaylistTracksPage('pl', { limit: 500, offset: -4 });
@@ -177,16 +194,63 @@ describe('api/spotify/playlist — endpoint /items (contrat actuel)', () => {
     expect(url).toContain('/playlists/pl/items');
     expect(url).toContain('limit=50'); // 500 borné à 50, JAMAIS 100
     expect(url).toContain('offset=0');
+  });
 
+  it('5C.1 : page native 404 → propagée, jamais de repli /tracks', async () => {
+    apiMock.mockRejectedValueOnce(new SpotifyApiError('http', 'not found', 404));
+
+    await expect(
+      getSpotifyPlaylistTracksPage('pl', { limit: 30, offset: 5 })
+    ).rejects.toMatchObject({ kind: 'http', status: 404 });
+
+    expect(apiMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('5C.1 — COMPTEURS DEV : reçus → valides → créés → transmis journalisés', async () => {
+    apiMock.mockResolvedValueOnce({
+      items: [
+        item('t1', 'Song A', ['Alpha']),
+        { item: { id: 'e1', name: 'Episode', type: 'episode' } }, // filtré
+        { item: null }, // indisponible
+      ],
+      next: null,
+      total: 3,
+    });
+
+    await getSpotifyPlaylistTracksPage('pl', { limit: 50, offset: 0 });
+
+    const counters = logMock.mock.calls
+      .filter((call) => call[0] === 'playlist.items.counts')
+      .map((call) => call[1] as Record<string, unknown>);
+
+    expect(counters).toHaveLength(1);
+    expect(counters[0]).toMatchObject({
+      itemsReceived: 3,
+      tracksValid: 1,
+      tracksCreated: 1,
+      sentToScreen: 1,
+    });
+
+    // Chemin intégral : mêmes compteurs agrégés sur toutes les pages.
     apiMock.mockReset();
-    apiMock
-      .mockRejectedValueOnce(new SpotifyApiError('http', 'not found', 404))
-      .mockResolvedValueOnce({ items: [legacy('pf', 'Fallback', ['Deux'])], next: null });
+    logMock.mockClear();
+    apiMock.mockResolvedValueOnce({
+      items: [item('t2', 'Song B', ['Beta'])],
+      next: null,
+      total: 1,
+    });
 
-    const page = await getSpotifyPlaylistTracksPage('pl', { limit: 30, offset: 5 });
-    expect(page.map(({ id }) => id)).toEqual(['pf']);
-    const [fbUrl] = apiMock.mock.calls[1] as [string];
-    expect(fbUrl).toContain('/playlists/pl/tracks');
-    expect(fbUrl).toContain('limit=30'); // la page demandée est respectée
+    await getSpotifyPlaylistTracks('pl');
+
+    const total = logMock.mock.calls
+      .filter((call) => call[0] === 'playlist.items.counts')
+      .map((call) => call[1] as Record<string, unknown>);
+    expect(total).toHaveLength(1);
+    expect(total[0]).toMatchObject({
+      itemsReceived: 1,
+      tracksValid: 1,
+      tracksCreated: 1,
+      sentToScreen: 1,
+    });
   });
 });

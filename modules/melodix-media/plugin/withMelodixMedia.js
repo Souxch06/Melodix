@@ -23,7 +23,17 @@ const PERMISSIONS = [
   'android.permission.POST_NOTIFICATIONS',
 ];
 
-const SERVICE_NAME = '.MelodixMediaService';
+/**
+ * NOM DE CLASSE COMPLET — 5C.1 : un nom RELATIF ('.MelodixMediaService')
+ * est résolu par Android sous le PACKAGE DE L'APP
+ * (com.souxch06.melodix.MelodixMediaService), absent du DEX → le système
+ * répondait « Unable to start service … not found » : aucune session,
+ * aucune notification, et le try/catch du contrôleur ne voit rien (l'échec
+ * survient côté am, pas à startForegroundService). Son continue malgré
+ * tout via expo-av — symptôme exact v4.4.0. Le ComponentName du manifest
+ * DOIT correspondre à la classe réelle du module.
+ */
+const SERVICE_NAME = 'expo.modules.melodixmedia.MelodixMediaService';
 
 const ensureUsesPermission = (manifest, name) => {
   manifest['uses-permission'] = manifest['uses-permission'] ?? [];

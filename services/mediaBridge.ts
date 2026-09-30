@@ -20,6 +20,7 @@
  */
 import {
   addMediaCommandListener,
+  requestMediaNotificationPermission,
   stopSession,
   updateSession,
 } from '../modules/melodix-media';
@@ -37,6 +38,15 @@ let unsubscribePlayer: (() => void) | null = null;
 let unsubscribeCommands: (() => void) | null = null;
 /** Le service n'a été sollicité QUE si une lecture réelle l'a activé. */
 let sessionActivated = false;
+/**
+ * 5C.1 : permission de notification demandée UNE FOIS par activation —
+ * au moment du démarrage réel d'une lecture en arrière-plan (geste play
+ * récent, app au premier plan). Couvre le cas du réglage « lecture en
+ * arrière-plan » RESTAURÉ à vrai (aucune demande au boot, jamais) et un
+ * premier refus ignoré. Idempotent : si déjà accordée, l'appel natif
+ * retourne true sans aucune boîte de dialogue.
+ */
+let notificationPermissionAsked = false;
 /** Déduplication : signature JSON du dernier payload RÉELLEMENT poussé. */
 let lastPushedSignature = '';
 
@@ -161,6 +171,7 @@ const projectState = (state: PlayerState): void => {
     // avait été activé, sinon AUCUNE interaction avec le natif (anti-boot).
     if (sessionActivated) {
       sessionActivated = false;
+      notificationPermissionAsked = false;
       lastPushedSignature = '';
       callNative(stopSession);
     }
@@ -181,6 +192,18 @@ const projectState = (state: PlayerState): void => {
 
   sessionActivated = true;
   lastPushedSignature = pushed;
+
+  if (!notificationPermissionAsked) {
+    notificationPermissionAsked = true;
+    // Fire-and-forget : la lecture, le service et la session ne dépendent
+    // JAMAIS de la réponse (Android gère la visibilité de la notification).
+    try {
+      requestMediaNotificationPermission();
+    } catch {
+      // Tolérant : jamais de blocage pour l'audio (§10 phase 5C).
+    }
+  }
+
   callNative(() => updateSession(payload));
 };
 
@@ -193,6 +216,7 @@ export const setMediaBridgeEnabled = (enabled: boolean): void => {
 
   if (!enabled && sessionActivated) {
     sessionActivated = false;
+    notificationPermissionAsked = false;
     lastPushedSignature = '';
     callNative(stopSession);
   }
@@ -225,6 +249,7 @@ export const teardownMediaBridge = (): void => {
 
     if (sessionActivated) {
       sessionActivated = false;
+      notificationPermissionAsked = false;
       lastPushedSignature = '';
       callNative(stopSession);
     }

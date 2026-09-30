@@ -1,6 +1,7 @@
 import * as React from 'react';
 import { render, fireEvent, RenderResult } from '@testing-library/react-native';
 import { BottomTabBar } from '../BottomTabBar';
+import { styles } from '../styles';
 import { translations } from '@data';
 import { Pages } from '@config';
 
@@ -88,6 +89,18 @@ describe('BottomTabBar', () => {
 
     fireEvent.press(container.getByText(translations.router[Pages.HOME]));
     expect(props.navigate).not.toHaveBeenCalled();
+  });
+
+  it('5C.1 — container EN FLUX (jamais absolu) : cohabite avec le MiniPlayer dans le slot tabBar', () => {
+    // Régression 5C.1 : en position absolute, la barre ne comptait plus dans
+    // la mesure du slot tabBar personnalisé (MiniPlayer + barre) et se
+    // superposait au MiniPlayer. Le flux garde l'empilement attendu.
+    expect(styles.container).not.toMatchObject({ position: 'absolute' });
+    expect(styles.container).toMatchObject({
+      height: expect.any(Number),
+      flexDirection: 'row',
+      overflow: 'hidden',
+    });
   });
 
   it('respects a prevented default tab press', () => {

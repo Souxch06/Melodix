@@ -62,7 +62,14 @@ export const getPlaylist = async (
       if (error instanceof SpotifyApiError && error.kind === 'unauthenticated') {
         throw error; // session morte : l'écran affichera la reconnexion
       }
-      console.warn('Playlist via session indisponible, repli backend', error);
+      // 5C.1 : cause EXPLICITE du repli (404 = contenu non servi par l'API
+      // pour ce compte ; réseau/serveur sinon) — jamais d'écran vide muett.
+      console.warn(
+        'Playlist via session indisponible (repli backend) : %s',
+        error instanceof SpotifyApiError
+          ? `${error.kind}${error.status ? ` ${error.status}` : ''}`
+          : error
+      );
     }
   }
 
@@ -109,7 +116,15 @@ export const getPlaylistItems = async ({
       if (error instanceof SpotifyApiError && error.kind === 'unauthenticated') {
         throw error;
       }
-      console.warn('Pistes via session indisponibles, repli backend', error);
+      // 5C.1 : cause EXPLICITE du repli — surtout un 404 /items (playlist
+      // éditoriale/algorithmique, contenu non servi par l'API depuis 2024).
+      // Le backend Melodix reprend alors les métadonnées du catalogue.
+      console.warn(
+        'Pistes via session indisponibles (repli backend) : %s',
+        error instanceof SpotifyApiError
+          ? `${error.kind}${error.status ? ` ${error.status}` : ''}`
+          : error
+      );
     }
   }
 

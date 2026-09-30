@@ -3,8 +3,11 @@ import { BOTTOM_NAVIGATION_HEIGHT, COLORS } from '@config';
 
 export const styles = StyleSheet.create({
   container: {
-    ...StyleSheet.absoluteFillObject,
-    top: 'auto',
+    // 5C.1 — EN FLUX, JAMAIS en absolu : le slot `tabBar` personnalisé du
+    // layout empile MiniPlayer + BottomTabBar ; React Navigation mesure la
+    // hauteur du slot pour décrouper le contenu des écans. En absolu, la
+    // barre ne comptait plus dans la mesure et se SUPERPOSAIT au MiniPlayer
+    // (contenu → MiniPlayer → navigation reste l'empilement attendu).
     height: BOTTOM_NAVIGATION_HEIGHT,
     paddingBottom: 8,
     flexDirection: 'row',
