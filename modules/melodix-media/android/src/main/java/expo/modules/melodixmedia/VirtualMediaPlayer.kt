@@ -48,11 +48,20 @@ class VirtualMediaPlayer(looper: Looper) : SimpleBasePlayer(looper) {
         .add(Player.COMMAND_GET_TIMELINE)
         .build()
     )
-    // État initial : PAUSED, prêt, vitesse normale — JAMAIS de "playing"
+    // État initial : PAUSED, vitesse normale — JAMAIS de "playing"
     // spontané (anti-autoplay : seule une projection JS isPlaying=true peut
     // faire passer la MediaSession en PLAYING).
+    //
+    // INVARIANT MEDIA3 (correctif 4.4.8 — cause exacte du crash au Play,
+    // journal 4.4.7 : IllegalArgumentException "Empty playlist only allowed
+    // in STATE_IDLE or STATE_ENDED" à State.Builder.build(), ligne 57) :
+    // une playlist VIDE n'existe qu'en STATE_IDLE ou STATE_ENDED. L'état
+    // initial est donc IDLE : « la MediaSession existe mais aucun morceau
+    // n'est encore chargé ». La première projection JS (updateSession) fait
+    // passer l'état à STATE_READY avec un MediaItem réel — transition
+    // totalement valide (IDLE+vide → READY+1 item).
     .setPlayWhenReady(false, Player.PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST)
-    .setPlaybackState(Player.STATE_READY)
+    .setPlaybackState(Player.STATE_IDLE)
     .setPlaybackParameters(PlaybackParameters.DEFAULT) // vitesse = 1.0x
     .build()
 

@@ -60,11 +60,61 @@ class VirtualMediaPlayerTest {
   )
 
   @Test
-  fun `état initial — pause, vitesse 1x, jamais de playing spontané`() {
-    assertFalse(player.getState().playWhenReady)
-    assertEquals(Player.STATE_READY, player.getState().playbackState)
+  fun `état initial — IDLE, playlist VIDE, aucune exception (invariant media3 §4.4.8)`() {
+    // CONTRAT 4.4.8 (cause exacte du crash, journal 4.4.7) : l'état initial
+    // « session sans morceau chargé » DOIT être STATE_IDLE — une playlist
+    // vide n'est légale qu'en STATE_IDLE ou STATE_ENDED. Le constructeur
+    // (ligne 57 historique) ne doit plus jamais lever
+    // IllegalArgumentException "Empty playlist only allowed in STATE_IDLE
+    // or STATE_ENDED".
+    val state = player.getState()
+    assertEquals(Player.STATE_IDLE, state.playbackState)
+    assertFalse(state.playWhenReady)
+    assertTrue(state.playlist.isEmpty())
+    assertEquals(C.INDEX_UNSET, player.getCurrentMediaItemIndex())
     assertEquals(1.0f, player.getPlaybackParameters().speed)
     assertTrue(commands.isEmpty())
+  }
+
+  @Test
+  fun `transition IDLE+vide vers READY+1 morceau puis PLAYING sans exception`() {
+    // VÉRIFICATION §3 : IDLE/playlist vide → projection réelle → READY +
+    // 1 item → PLAYING. Aucune violation d'invariant media3 à la transition.
+    player.updateSession(payload(isPlaying = false))
+
+    assertEquals(Player.STATE_READY, player.getState().playbackState)
+    assertEquals(1, player.getState().playlist.size)
+    assertEquals(0, player.getCurrentMediaItemIndex())
+    assertFalse(player.getState().playWhenReady)
+
+    player.updateSession(payload(isPlaying = true))
+
+    assertEquals(Player.STATE_READY, player.getState().playbackState)
+    assertTrue(player.getState().playWhenReady)
+    assertEquals("spotify:abc", player.getCurrentMediaItem()?.mediaId)
+    assertTrue(commands.isEmpty())
+  }
+
+  @Test
+  fun `retour à aucun morceau — nouvelle instance après release redevient IDLE valide`() {
+    // CYCLE APPLICATIF RÉEL : stop moteur → service détruit → le prochain
+    // Play recrée une NOUVELLE instance. Le « retour à vide » est donc le
+    // cycle release+recréation, qui doit produire le même état initial
+    // valide (IDLE + playlist vide) sans aucune exception.
+    val live = VirtualMediaPlayer(Looper.getMainLooper())
+    live.updateSession(payload(isPlaying = true))
+    assertEquals(Player.STATE_READY, live.getState().playbackState)
+    live.release()
+
+    val fresh = VirtualMediaPlayer(Looper.getMainLooper())
+    try {
+      val state = fresh.getState()
+      assertEquals(Player.STATE_IDLE, state.playbackState)
+      assertTrue(state.playlist.isEmpty())
+      assertFalse(state.playWhenReady)
+    } finally {
+      fresh.release()
+    }
   }
 
   @Test
@@ -88,6 +138,9 @@ class VirtualMediaPlayerTest {
     player.updateSession(payload(isPlaying = true, positionMillis = 42_000L))
 
     assertTrue(player.getState().playWhenReady)
+    assertEquals(Player.STATE_READY, player.getState().playbackState)
+    // Index courant valide : 1 morceau projeté → index 0.
+    assertEquals(0, player.getCurrentMediaItemIndex())
 
     // APIs PUBLIQUES (Player) : MediaItemData est protected static par design
     // media3 — la lecture passe par currentMediaItem/duration.

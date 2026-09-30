@@ -33,6 +33,12 @@ android {
     sourceCompatibility JavaVersion.VERSION_11
     targetCompatibility JavaVersion.VERSION_11
   }
+  testOptions {
+    unitTests {
+      // Robolectric : accès aux ressources/manifest réels en tests JVM.
+      includeAndroidResources = true
+    }
+  }
 }
 
 repositories {
@@ -55,4 +61,9 @@ dependencies {
   implementation("com.google.guava:guava:31.1-android")
   implementation("com.google.guava:failureaccess:1.0.1")
   implementation("com.google.guava:listenablefuture:9999.0-empty-to-avoid-conflict-with-guava")
+
+  // Tests unitaires JVM (Robolectric, SDK 34 — stubs Android réels).
+  // AUCUN impact sur l'AAB/l'APK : scope testImplementation uniquement.
+  testImplementation("junit:junit:4.13.2")
+  testImplementation("org.robolectric:robolectric:4.12.2")
 }

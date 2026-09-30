@@ -1,5 +1,5 @@
 /**
- * nativeDiag — 4.4.7-diagnostic (TEMPORAIRE).
+ * nativeDiag — 4.4.8-diagnostic (TEMPORAIRE).
  *
  * Relais mince vers le journal persistant natif
  * (filesDir/melodix-native-crash.log, écrit par MelodixDiagLog) :

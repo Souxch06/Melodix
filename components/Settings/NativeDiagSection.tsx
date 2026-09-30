@@ -18,7 +18,7 @@ import { SettingsSection } from './SettingsSection';
 import { SettingsSwitch } from './SettingsSwitch';
 
 /**
- * SECTION TEMPORAIRE « Diagnostic technique » (4.4.7-diagnostic).
+ * SECTION TEMPORAIRE « Diagnostic technique » (4.4.8-diagnostic).
  *
  * Objectif : récupérer le crash natif DIRECTEMENT depuis l'application,
  * SANS ADB (cahier §5) :

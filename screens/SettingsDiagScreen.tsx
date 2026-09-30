@@ -4,7 +4,7 @@ import { SettingsScreen } from '@components';
 import { NativeDiagSection } from '../components/Settings/NativeDiagSection';
 
 /**
- * Écran TEMPORAIRE « Diagnostic technique » (4.4.7-diagnostic, cahier §4).
+ * Écran TEMPORAIRE « Diagnostic technique » (4.4.8-diagnostic, cahier §4).
  *
  * Ouvert depuis Réglages → « Diagnostic technique » (entrée chevronnée).
  * Contenu : version Melodix, dernier état MediaSession, breadcrumbs,

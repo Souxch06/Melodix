@@ -423,7 +423,7 @@ export const SettingsScreen = () => {
         />
       </SettingsSection>
 
-      {/* ENTRÉE TEMPORAIRE (4.4.7-diagnostic) : ouvre l'écran dédié
+      {/* ENTRÉE TEMPORAIRE (4.4.8-diagnostic) : ouvre l'écran dédié
           « Diagnostic technique » (journal natif persistant, copie
           presse-papiers, drapeaux d'isolation). À retirer après correction. */}
       <SettingsSection

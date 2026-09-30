@@ -122,6 +122,15 @@ jobs:
           }
           GRADLE
 
+      # Tests unitaires JVM du module natif (Robolectric) — exécutés AVANT
+      # l'assemble : un invariant Media3 cassé doit bloquer la release, pas
+      # passer en production. (4.4.8 : invariants d'état VirtualMediaPlayer.)
+      - name: Tests Kotlin du module média (Robolectric)
+        working-directory: android
+        run: |
+          set -o pipefail
+          ./gradlew :melodix-media:testDebugUnitTest --console=plain 2>&1 | tee ../gradle-test.log
+
       - name: Compiler l'APK
         working-directory: android
         run: |
@@ -133,11 +142,13 @@ jobs:
         run: |
           # Remonte l'erreur Gradle en annotation (visible dans l'onglet Actions et via l'API GitHub)
           esc() { local s="$1"; s="${s//'%'/'%25'}"; s="${s//$'\r'/'%0D'}"; s="${s//$'\n'/'%0A'}"; printf '%s' "$s"; }
-          if [ ! -f gradle-build.log ]; then exit 0; fi
-          WHAT=$(awk '/What went wrong/{f=1} f{print} /^\* Try:/{if(f) exit}' gradle-build.log | head -60)
-          if [ -n "$WHAT" ]; then echo "::error title=Gradle::$(esc "$WHAT")"; fi
-          ERRS=$(grep -E '^e: |error:|Error:|FAILED' gradle-build.log | head -30 || true)
-          if [ -n "$ERRS" ]; then echo "::error title=Erreurs de compilation::$(esc "$ERRS")"; fi
+          for LOG in gradle-build.log gradle-test.log; do
+            [ -f "$LOG" ] || continue
+            WHAT=$(awk '/What went wrong/{f=1} f{print} /^\* Try:/{if(f) exit}' "$LOG" | head -60)
+            if [ -n "$WHAT" ]; then echo "::error title=Gradle ($LOG)::$(esc "$WHAT")"; fi
+            ERRS=$(grep -E '^e: |error:|Error:|FAILED|AssertionError' "$LOG" | head -30 || true)
+            if [ -n "$ERRS" ]; then echo "::error title=Erreurs ($LOG)::$(esc "$ERRS")"; fi
+          done
 
       - name: Nommer l'APK
         id: apk
