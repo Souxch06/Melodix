@@ -23,7 +23,14 @@
 import Constants from 'expo-constants';
 
 type ExtraCarrier =
-  | { expoConfig?: { extra?: Record<string, unknown>; [k: string]: unknown } | null; manifest?: unknown; manifest2?: unknown }
+  | {
+      expoConfig?: {
+        extra?: Record<string, unknown>;
+        [k: string]: unknown;
+      } | null;
+      manifest?: unknown;
+      manifest2?: unknown;
+    }
   | null
   | undefined;
 
@@ -64,7 +71,9 @@ export const getClientIdInfo = (): ClientIdInfo => {
 
   const extra = readExtra();
   const embedded =
-    typeof extra.spotifyClientId === 'string' ? extra.spotifyClientId.trim() : '';
+    typeof extra.spotifyClientId === 'string'
+      ? extra.spotifyClientId.trim()
+      : '';
   if (embedded) {
     return { clientId: embedded, source: 'expo-config-extra' };
   }
@@ -79,12 +88,12 @@ export const isSpotifyLoginConfigured = (): boolean =>
   getSpotifyClientId() !== '';
 
 /**
- * Valeur par défaut du redirect OAuth : celui validé par l'application
- * publique de référence dont le Client ID est embarqué au build.
- * (Le scheme natif `melodix` reste déclaré dans le manifest à part —
- *  il n'est plus le flux par défaut, mais il reste fonctionnel.)
+ * Valeur par défaut du redirect OAuth : le redirect NATIF DE PRODUCTION de
+ * Melodix — `melodix://callback` (scheme `melodix` déclaré dans le
+ * manifest ; à déclarer tel quel dans le dashboard Spotify de
+ * l'application Melodix du mainteneur).
  */
-export const DEFAULT_SPOTIFY_REDIRECT_URI = 'comspotifytestsdk://callback';
+export const DEFAULT_SPOTIFY_REDIRECT_URI = 'melodix://callback';
 
 export type RedirectUriSource =
   | 'expo-public-env' // SPOTIFY_REDIRECT_URI → EXPO_PUBLIC_* inliné (robuste APK)
