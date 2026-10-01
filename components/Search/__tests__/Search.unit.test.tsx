@@ -152,3 +152,136 @@ describe('Search — PlayerTrack propagés (I-2)', () => {
     });
   });
 });
+
+describe('Search — debounce, races et états (zone 4)', () => {
+  it('deux requêtes rapides : la réponse TARDIVE de la 1re n écrase JAMAIS la 2e', async () => {
+    const pending: Record<string, (value: unknown) => void> = {};
+    searchCatalogMock.mockImplementation(
+      (q: string) =>
+        new Promise((resolve) => {
+          pending[q] = resolve;
+        })
+    );
+
+    const { getByPlaceholderText, getByText, queryByText } = render(<Search />);
+    const input = getByPlaceholderText(translations.searchPlaceholder);
+
+    fireEvent.changeText(input, 'ab');
+    // Avant la fin du debounce, l utilisateur affine → « ab » est annulée.
+    fireEvent.changeText(input, 'abc');
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, SEARCH_DELAY_MS + 50));
+    });
+
+    // La 2e répond d abord (rapide)…
+    pending['abc']?.({
+      artists: [],
+      tracks: [mkSlide({ id: 'new', title: 'Fresh Result' })],
+      albums: [],
+      playlists: [],
+    });
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    });
+    expect(getByText('Fresh Result')).toBeTruthy();
+
+    // …puis la 1re répond ENFIN : son résultat ne doit PAS apparaître.
+    pending['ab']?.({
+      artists: [],
+      tracks: [mkSlide({ id: 'old', title: 'Stale Result' })],
+      albums: [],
+      playlists: [],
+    });
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    });
+    expect(queryByText('Stale Result')).toBeNull();
+    expect(getByText('Fresh Result')).toBeTruthy();
+  });
+
+  it('erreur réseau : message d erreur explicite, puis la saisie suivante refonctionne', async () => {
+    searchCatalogMock.mockRejectedValueOnce(new Error('network down'));
+
+    const { getByPlaceholderText, getByText, queryByText } = render(<Search />);
+    fireEvent.changeText(
+      getByPlaceholderText(translations.searchPlaceholder),
+      'boom'
+    );
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, SEARCH_DELAY_MS + 50));
+    });
+
+    expect(getByText(translations.searchError)).toBeTruthy();
+
+    // Nouvelle saisie → nouvelle tentative : l ancien état erreur disparaît.
+    searchCatalogMock.mockResolvedValue({
+      artists: [],
+      tracks: [mkSlide({ id: 'ok', title: 'Recovered Track' })],
+      albums: [],
+      playlists: [],
+    });
+    fireEvent.changeText(
+      getByPlaceholderText(translations.searchPlaceholder),
+      'recovered'
+    );
+    expect(queryByText(translations.searchError)).toBeNull();
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, SEARCH_DELAY_MS + 50));
+    });
+    expect(getByText('Recovered Track')).toBeTruthy();
+  });
+
+  it('aucun résultat : message « pas de résultats » dédié (jamais vide blanc)', async () => {
+    searchCatalogMock.mockResolvedValue({
+      artists: [],
+      tracks: [],
+      albums: [],
+      playlists: [],
+    });
+
+    const { getByPlaceholderText, getByText } = render(<Search />);
+    fireEvent.changeText(
+      getByPlaceholderText(translations.searchPlaceholder),
+      'zzzz'
+    );
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, SEARCH_DELAY_MS + 50));
+    });
+
+    expect(getByText(translations.searchNoResults('zzzz'))).toBeTruthy();
+  });
+
+  it('effacer la barre : retour à l état initial et REQUÊTE EN VOL ANNULÉE', async () => {
+    let resolveLate: (value: unknown) => void = () => undefined;
+    searchCatalogMock.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolveLate = resolve;
+        })
+    );
+
+    const { getByPlaceholderText, getByText, queryByText } = render(<Search />);
+    const input = getByPlaceholderText(translations.searchPlaceholder);
+    fireEvent.changeText(input, 'hello');
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, SEARCH_DELAY_MS + 50));
+    });
+
+    // Effacement → état « idle » immédiat.
+    fireEvent.changeText(input, '');
+    expect(getByText(translations.searchHint)).toBeTruthy();
+
+    // La réponse tardive de « hello » arrive : RIEN ne s affiche.
+    resolveLate({
+      artists: [],
+      tracks: [mkSlide({ id: 'late', title: 'Zombie Result' })],
+      albums: [],
+      playlists: [],
+    });
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    });
+    expect(queryByText('Zombie Result')).toBeNull();
+    expect(getByText(translations.searchHint)).toBeTruthy();
+  });
+});
