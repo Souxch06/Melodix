@@ -3,10 +3,7 @@
  * Sans eux, toute la chaîne backend → TrackModel/LibraryItemModel →
  * PlayerTrack → matcher fonctionnait avec des métadonnées jetées.
  */
-import {
-  dtoTrackToLibraryItem,
-  dtoTrackToTrackModel,
-} from '../index';
+import { dtoTrackToLibraryItem, dtoTrackToTrackModel } from '../index';
 import type { TrackMetadataDTO } from '../dto';
 
 const dto = (overrides: Partial<TrackMetadataDTO> = {}): TrackMetadataDTO => ({
