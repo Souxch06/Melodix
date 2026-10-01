@@ -1,4 +1,6 @@
 export { Preview } from './Preview';
+export { ErrorCard } from './ErrorCard';
+export type { ErrorCardPropsType } from './ErrorCard';
 export { Library } from './Library';
 export { Header } from './Header';
 export { Home } from './Home';

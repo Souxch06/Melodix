@@ -59,13 +59,17 @@ const mockCaptured: {
   renders: number;
 } = { current: {}, renders: 0 };
 
-jest.mock('@components', () => ({
-  Preview: (props: PreviewProps) => {
-    mockCaptured.current = props;
-    mockCaptured.renders += 1;
-    return null;
-  },
-}));
+jest.mock('@components', () => {
+  const actual = jest.requireActual('@components');
+  return {
+    ...actual,
+    Preview: (props: PreviewProps) => {
+      mockCaptured.current = props;
+      mockCaptured.renders += 1;
+      return null;
+    },
+  };
+});
 
 const getPlaylistMock = getPlaylist as unknown as jest.Mock;
 const getPlaylistItemsMock = getPlaylistItems as unknown as jest.Mock;

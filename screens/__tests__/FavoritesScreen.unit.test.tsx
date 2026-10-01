@@ -36,12 +36,16 @@ type PreviewProps = {
 
 const captured: { current: PreviewProps } = { current: {} };
 
-jest.mock('@components', () => ({
-  Preview: (props: PreviewProps) => {
-    captured.current = props;
-    return null;
-  },
-}));
+jest.mock('@components', () => {
+  const actual = jest.requireActual('@components');
+  return {
+    ...actual,
+    Preview: (props: PreviewProps) => {
+      captured.current = props;
+      return null;
+    },
+  };
+});
 
 const listSavedTracksMock = listSavedTracks as unknown as jest.Mock;
 const toggleSavedTrackMock = toggleSavedTrack as unknown as jest.Mock;

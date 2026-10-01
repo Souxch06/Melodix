@@ -1,15 +1,13 @@
 import * as React from 'react';
-import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Alert } from 'react-native';
 import { useRouter } from 'expo-router';
-import Ionicons from '@expo/vector-icons/Ionicons';
-import { Preview } from '@components';
+import { ErrorCard, Preview } from '@components';
 
 import { PlaylistModel, TrackModel } from '@models';
 import { checkSavedTracks, getPlaylist, getPlaylistItems } from '@api';
 import { toggleSavedTrack, SpotifyApiError } from '@services';
 import { useUserData } from '@context';
 import { usePlaylistResolutions } from '@hooks';
-import { COLORS } from '@config';
 import { translations } from '@data';
 
 export type AlbumScreenPropsType = {
@@ -232,29 +230,15 @@ export const PlaylistScreen = ({ playlistId }: AlbumScreenPropsType) => {
     ]);
   }, []);
 
-  // M-5 : carte d'erreur à l'écran (même langage visuel que l'accueil) —
-  // état erreur EXPLICITE + retry, jamais de stack trace utilisateur.
+  // M-5 : carte d'erreur à l'écran (composant partagé) — état erreur
+  // EXPLICITE + retry, jamais de stack trace utilisateur.
   if (loadError) {
     return (
-      <View style={styles.errorWrap} testID="playlist-load-error">
-        <View style={styles.noticeCard}>
-          <Ionicons color={COLORS.RED} name="cloud-offline-outline" size={26} />
-          <Text style={styles.noticeTitle}>
-            {translations.homeLoadErrorTitle}
-          </Text>
-          <Pressable
-            accessibilityRole="button"
-            onPress={handleRetry}
-            style={({ pressed }) => [
-              styles.retryButton,
-              pressed && styles.retryButtonPressed,
-            ]}
-            testID="playlist-load-retry"
-          >
-            <Text style={styles.retryButtonText}>{translations.homeRetry}</Text>
-          </Pressable>
-        </View>
-      </View>
+      <ErrorCard
+        testID="playlist-load-error"
+        retryTestID="playlist-load-retry"
+        onRetry={handleRetry}
+      />
     );
   }
 
@@ -278,43 +262,3 @@ export const PlaylistScreen = ({ playlistId }: AlbumScreenPropsType) => {
     />
   );
 };
-
-const styles = StyleSheet.create({
-  errorWrap: {
-    alignItems: 'center',
-    flex: 1,
-    justifyContent: 'center',
-  },
-  noticeCard: {
-    alignItems: 'center',
-    backgroundColor: '#1A1A1A',
-    borderColor: '#2A2A2A',
-    borderRadius: 16,
-    borderWidth: StyleSheet.hairlineWidth,
-    marginHorizontal: 16,
-    paddingHorizontal: 24,
-    paddingVertical: 26,
-  },
-  noticeTitle: {
-    color: COLORS.WHITE,
-    fontFamily: 'SF-Semibold',
-    fontSize: 15,
-    marginTop: 12,
-    textAlign: 'center',
-  },
-  retryButton: {
-    backgroundColor: COLORS.WHITE,
-    borderRadius: 20,
-    marginTop: 16,
-    paddingHorizontal: 26,
-    paddingVertical: 10,
-  },
-  retryButtonPressed: {
-    opacity: 0.75,
-  },
-  retryButtonText: {
-    color: COLORS.BLACK,
-    fontFamily: 'SF-Semibold',
-    fontSize: 14,
-  },
-});

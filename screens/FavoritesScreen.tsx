@@ -1,13 +1,7 @@
 import * as React from 'react';
-import {
-  ActivityIndicator,
-  Pressable,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
+import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { Preview } from '@components';
+import { ErrorCard, Preview } from '@components';
 
 import type { TrackModel } from '@models';
 import {
@@ -106,25 +100,11 @@ export const FavoritesScreen = () => {
 
   if (loadError) {
     return (
-      <View style={styles.centerWrap} testID="favorites-load-error">
-        <View style={styles.noticeCard}>
-          <Ionicons color={COLORS.RED} name="cloud-offline-outline" size={26} />
-          <Text style={styles.noticeTitle}>
-            {translations.homeLoadErrorTitle}
-          </Text>
-          <Pressable
-            accessibilityRole="button"
-            onPress={handleRetry}
-            style={({ pressed }) => [
-              styles.retryButton,
-              pressed && styles.retryButtonPressed,
-            ]}
-            testID="favorites-load-retry"
-          >
-            <Text style={styles.retryButtonText}>{translations.homeRetry}</Text>
-          </Pressable>
-        </View>
-      </View>
+      <ErrorCard
+        testID="favorites-load-error"
+        retryTestID="favorites-load-retry"
+        onRetry={handleRetry}
+      />
     );
   }
 
@@ -195,20 +175,5 @@ const styles = StyleSheet.create({
     fontSize: 13,
     marginTop: 8,
     textAlign: 'center',
-  },
-  retryButton: {
-    backgroundColor: COLORS.WHITE,
-    borderRadius: 20,
-    marginTop: 16,
-    paddingHorizontal: 26,
-    paddingVertical: 10,
-  },
-  retryButtonPressed: {
-    opacity: 0.75,
-  },
-  retryButtonText: {
-    color: COLORS.BLACK,
-    fontFamily: 'SF-Semibold',
-    fontSize: 14,
   },
 });

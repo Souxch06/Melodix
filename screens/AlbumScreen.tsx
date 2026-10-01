@@ -1,6 +1,6 @@
 import * as React from 'react';
 
-import { Preview } from '@components';
+import { ErrorCard, Preview } from '@components';
 
 import { checkSavedTracks, getAlbum, getArtist } from '@api';
 import { toggleSavedTrack } from '@services';
@@ -23,7 +23,14 @@ export const AlbumScreen = ({ albumId }: AlbumScreenPropsType) => {
     ArtistFallback
   );
 
+  // Échec réseau du chargement initial : carte d'erreur VISIBLE + retry —
+  // contrat « jamais d'écran blanc sur erreur récupérable » (zone 11).
+  const [loadError, setLoadError] = React.useState(false);
+  const [retrySeed, setRetrySeed] = React.useState(0);
+
   React.useEffect(() => {
+    let disposed = false;
+
     (async () => {
       try {
         const albumData = await getAlbum(albumId);
@@ -35,6 +42,10 @@ export const AlbumScreen = ({ albumId }: AlbumScreenPropsType) => {
             return trackIds.map(() => false);
           }
         );
+
+        if (disposed) {
+          return;
+        }
         setAlbum({
           ...albumData,
           tracks: {
@@ -45,18 +56,43 @@ export const AlbumScreen = ({ albumId }: AlbumScreenPropsType) => {
             })),
           },
         });
+        setLoadError(false);
 
-        const artistsData = await Promise.all(
-          albumData.artists.map(async ({ id }) => await getArtist(id))
-        );
-        setArtists(artistsData);
+        // Artistes : chargement NON bloquant — leur échec ne doit JAMAIS
+        // effacer l'album déjà affiché (avant : un seul try englobant
+        // faisait disparaître tout l'écran pour une panne secondaire).
+        try {
+          const artistsData = await Promise.all(
+            albumData.artists.map(async ({ id }) => await getArtist(id))
+          );
+          if (!disposed) {
+            setArtists(artistsData);
+          }
+        } catch (artistError) {
+          console.warn('Artistes de l’album indisponibles', artistError);
+        }
       } catch (error) {
-        setAlbum(null);
-        setArtists(null);
+        if (!disposed) {
+          setAlbum(null);
+          setArtists(null);
+          setLoadError(true); // erreur visible + retry (plus d'écran blanc)
+        }
         console.error('Failed to get album data:', error);
       }
     })();
-  }, [albumId]);
+
+    return () => {
+      disposed = true;
+    };
+  }, [albumId, retrySeed]);
+
+  // « Réessayer » : squelette + relance du chargement complet.
+  const handleRetry = React.useCallback(() => {
+    setAlbum(AlbumFallback);
+    setArtists(ArtistFallback);
+    setLoadError(false);
+    setRetrySeed((seed) => seed + 1);
+  }, []);
 
   // @API_RATE
   // const artistSeed = React.useMemo(
@@ -145,6 +181,16 @@ export const AlbumScreen = ({ albumId }: AlbumScreenPropsType) => {
     },
     [album?.name]
   );
+
+  if (loadError) {
+    return (
+      <ErrorCard
+        testID="album-load-error"
+        retryTestID="album-load-retry"
+        onRetry={handleRetry}
+      />
+    );
+  }
 
   return (
     <Preview
