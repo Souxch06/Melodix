@@ -250,7 +250,16 @@ jobs:
           EXPECTED_ABIS: arm64-v8a,armeabi-v7a,x86,x86_64
         run: |
           chmod +x scripts/verify-android-apk.sh
+          set +e
           scripts/verify-android-apk.sh "$APK" apk-inspection.txt
+          VERIFY_EXIT=$?
+          set -e
+          if [ "$VERIFY_EXIT" -ne 0 ]; then
+            DETAIL=$(tail -80 apk-inspection.txt 2>/dev/null || echo 'rapport indisponible')
+            DETAIL="${DETAIL//'%'/'%25'}"; DETAIL="${DETAIL//$'\r'/'%0D'}"; DETAIL="${DETAIL//$'\n'/'%0A'}"
+            echo "::error title=APK non publiable::$DETAIL"
+            exit "$VERIFY_EXIT"
+          fi
           INFO=$(grep -E "^(package|application-label|sdkVersion|minSdkVersion|targetSdkVersion|native-code):" apk-inspection.txt | tr '\n' ' ')
           CERT=$(grep '^Signer #1 certificate SHA-256 digest:' apk-inspection.txt | head -1)
           echo "::notice title=$APK::$INFO| $CERT | taille $(du -h "$APK" | cut -f1) | sha256 $(sha256sum "$APK" | cut -d' ' -f1)"
