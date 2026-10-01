@@ -6,15 +6,17 @@
  * le player relit (sourceKeyOf d'une source métadonnée) — zéro re-recherche.
  */
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { renderHook, waitFor } from '@testing-library/react-native';
+import { act, renderHook, waitFor } from '@testing-library/react-native';
 
 import { usePlaylistResolutions } from '../usePlaylistResolutions';
 import {
   __testSetAudioProviders,
   MATCH_CACHE_STORAGE_KEY,
   matchSongs,
+  persistMatchCache,
+  writeMatchCacheEntry,
 } from '../../services/audio';
-import type { AudioProvider } from '../../services/audio';
+import type { AudioProvider, MatchCache } from '../../services/audio';
 import { fingerprintOf } from '../../services/audio/audiusTrackMatcher';
 import type { SongMatchCandidate } from '../../services/audio/audiusTrackMatcher';
 import type { TrackModel } from '../../models';
@@ -232,5 +234,95 @@ describe('usePlaylistResolutions (I-2)', () => {
     );
     expect(resolveAgain).not.toHaveBeenCalled();
     second.unmount();
+  });
+});
+
+/**
+ * I-3 — « Refaire le matching » : invalidation CIBLÉE par clé. La purge
+ * globale d'avant détruisait les décisions des autres playlists, des
+ * favoris et de l'historique partageant LE MÊME cache.
+ */
+describe('usePlaylistResolutions — refresh ciblé (I-3)', () => {
+  /** Écrit des décisions de matching pré-existantes dans LE cache partagé. */
+  const seedCache = async (entries: Record<string, string>): Promise<void> => {
+    const cache: MatchCache = {};
+    for (const [trackId, matchId] of Object.entries(entries)) {
+      writeMatchCacheEntry(
+        cache,
+        { provider: null, id: trackId },
+        'audius',
+        matchId,
+        80
+      );
+    }
+    await persistMatchCache(cache);
+  };
+
+  beforeEach(async () => {
+    await AsyncStorage.clear();
+  });
+
+  it('refresh A : A invalidée — playlist B et entrée sans rapport INTACTES', async () => {
+    // 1. cache playlist A (a1, a2) — 2. cache playlist B (b1) + sans rapport (z9)
+    await seedCache({ a1: 'm-a1', a2: 'm-a2', b1: 'm-b1', z9: 'm-z9' });
+
+    const resolveMatch: AudioProvider['resolveMatch'] = jest.fn(async () => ({
+      sourceId: 'm-new',
+      score: 0.7,
+    }));
+    __testSetAudioProviders({ audius: constProvider(resolveMatch) });
+
+    const { result } = renderHook(() =>
+      usePlaylistResolutions([track({ id: 'a1' }), track({ id: 'a2' })])
+    );
+
+    // Décisions relues du cache partagé : AUCUNE recherche initiale.
+    await waitFor(() =>
+      expect(result.current.byTrackId.a1?.status).toBe('resolved')
+    );
+    expect(resolveMatch).not.toHaveBeenCalled();
+
+    // 3. refresh playlist A (promesse réelle : le retrait est déjà persisté).
+    await act(async () => {
+      await (result.current.refresh as unknown as () => Promise<void>)();
+    });
+
+    // 4. A est invalidée — 5. B reste intacte — 6. sans rapport intact.
+    const cache = await readStoredCache();
+    expect(cache?.['spotify:a1']).toBeUndefined();
+    expect(cache?.['spotify:a2']).toBeUndefined();
+    expect(cache?.['spotify:b1']).toMatchObject({ matchId: 'm-b1' });
+    expect(cache?.['spotify:z9']).toMatchObject({ matchId: 'm-z9' });
+
+    // Et la file de CETTE liste est relancée (re-résolution d'a1 et a2).
+    await waitFor(() => expect(resolveMatch).toHaveBeenCalledTimes(2));
+  });
+
+  it('morceau PARTAGÉ A∩B : refresh A invalide sa clé (cache par morceau), le reste de B intact', async () => {
+    await seedCache({ s1: 'm-s1', a1: 'm-a1', b2: 'm-b2' });
+
+    __testSetAudioProviders({
+      audius: constProvider(jest.fn(async () => null)),
+    });
+
+    // Playlist A = { s1 (partagé avec B), a1 } ; B possède aussi s1, et b2.
+    const { result } = renderHook(() =>
+      usePlaylistResolutions([track({ id: 's1' }), track({ id: 'a1' })])
+    );
+    await waitFor(() =>
+      expect(result.current.byTrackId.s1?.status).toBe('resolved')
+    );
+
+    await act(async () => {
+      await (result.current.refresh as unknown as () => Promise<void>)();
+    });
+
+    const cache = await readStoredCache();
+    // Le cache étant PAR MORCEAU, « refaire le matching » de s1 (dans A)
+    // retire sa clé — B le verra comme « à refaire » : comportement cohérent.
+    expect(cache?.['spotify:s1']).toBeUndefined();
+    expect(cache?.['spotify:a1']).toBeUndefined();
+    // Mais les morceaux propres à B n'ont RIEN perdu.
+    expect(cache?.['spotify:b2']).toMatchObject({ matchId: 'm-b2' });
   });
 });

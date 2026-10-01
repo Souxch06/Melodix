@@ -3,11 +3,11 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import type { TrackModel } from '@models';
 import {
-  clearMatchCacheStorage,
   getAudioProviders,
   loadMatchCache,
   MATCH_CACHE_STORAGE_KEY,
   persistMatchCache,
+  removeMatchCacheEntry,
   ResolveQueue,
   resolveWithProviders,
   sourceKeyOf,
@@ -23,7 +23,9 @@ import type { MatchCache } from '@services';
  * - Chaque décision est écrite dans LE cache partagé du player : ouvrir un
  *   morceau déjà résolu ne recherche RIEN, et « indisponible » est mémorisé
  *   avec le même statut (providerId/matchId nuls).
- * - refresh() = « refaire le matching » explicitement (purge + file relancée).
+ * - refresh() = « refaire le matching » explicitement pour LES MORCEAUX DE
+ *   CETTE LISTE uniquement (invalidation ciblée par clé + file relancée) —
+ *   jamais de purge globale des autres playlists/favoris/historique.
  */
 
 export type TrackAvailability =
@@ -83,13 +85,43 @@ export const usePlaylistResolutions = (
   >({});
   const [refreshCount, setRefreshCount] = React.useState(0);
   const queueRef = React.useRef<ResolveQueue | null>(null);
+  // Référence fraîche pour refresh() : jamais de fermeture obsolète sur une
+  // ancienne liste (le compteur seul relance l'effet).
+  const tracksRef = React.useRef(tracks);
+  tracksRef.current = tracks;
 
   if (!queueRef.current) {
     queueRef.current = new ResolveQueue();
   }
 
+  /**
+   * « Refaire le matching » — invalidation CIBLÉE (I-3) : seules les clés
+   * des morceaux de CETTE liste sont supprimées (API existante du cache,
+   * aucune logique parallèle). Le cache étant partagé PAR MORCEAU, la
+   * décision d'un morceau présent aussi dans une autre playlist est
+   * naturellement refaite avec lui ; toutes les autres entrées (autres
+   * playlists, favoris, historique, décisions du player) restent intactes.
+   */
   const refresh = React.useCallback(() => {
-    void clearMatchCacheStorage().then(() => setRefreshCount((c) => c + 1));
+    return (async () => {
+      try {
+        const raw = await AsyncStorage.getItem(MATCH_CACHE_STORAGE_KEY);
+        const cache = loadMatchCache(raw);
+
+        for (const current of tracksRef.current) {
+          removeMatchCacheEntry(
+            cache,
+            sourceKeyOf({ provider: null, id: current.id })
+          );
+        }
+
+        await persistMatchCache(cache);
+      } catch {
+        // Non bloquant : la file est relancée quoi qu'il arrive.
+      }
+
+      setRefreshCount((c) => c + 1);
+    })();
   }, []);
 
   const trackIds = React.useMemo(
