@@ -138,7 +138,7 @@ done
 
 echo
 echo '=== Alignement ZIP ==='
-$ZIPALIGN -c -P 16 -v 4 "$APK"
+$ZIPALIGN -c -P 16 4 "$APK"
 
 echo
 echo '=== Signature et certificat ==='

@@ -187,6 +187,35 @@ jobs:
           # physique comme sur appareil/émulateur x86 ou x86_64.
           ./gradlew assembleRelease --console=plain 2>&1 | tee ../gradle-build.log
 
+      - name: Aligner 16 Kio et signer l'APK de test
+        working-directory: android
+        run: |
+          set -euo pipefail
+          APK=app/build/outputs/apk/release/app-release.apk
+          ALIGNED=app/build/outputs/apk/release/app-release-aligned.apk
+          BUILD_TOOLS="$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -1)"
+          # AGP/Expo 51 aligne encore les bibliothèques natives sur 4 Kio. Un
+          # appareil Android à pages mémoire de 16 Kio peut alors refuser ou ne
+          # pas lancer l'APK. Réalignement AVANT une nouvelle signature avec le
+          # même certificat de test stable fourni par le template Expo.
+          "$BUILD_TOOLS/zipalign" -f -P 16 4 "$APK" "$ALIGNED"
+          "$BUILD_TOOLS/apksigner" sign \
+            --ks app/debug.keystore \
+            --ks-key-alias androiddebugkey \
+            --ks-pass pass:android \
+            --key-pass pass:android \
+            --min-sdk-version 23 \
+            --v1-signing-enabled true \
+            --v2-signing-enabled true \
+            --v3-signing-enabled true \
+            --v4-signing-enabled false \
+            --out "$APK.signed" \
+            "$ALIGNED"
+          mv "$APK.signed" "$APK"
+          rm -f "$ALIGNED"
+          "$BUILD_TOOLS/zipalign" -c -P 16 4 "$APK"
+          "$BUILD_TOOLS/apksigner" verify --verbose --print-certs "$APK"
+
       - name: Afficher l'erreur de compilation
         if: failure()
         run: |
