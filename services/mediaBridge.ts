@@ -28,7 +28,6 @@ import type {
   MediaSessionPayload,
 } from '../modules/melodix-media';
 
-import { diagNativeStep } from './nativeDiag';
 import { melodixPlayer } from './player';
 import type { PlayerState } from './player';
 
@@ -194,15 +193,7 @@ const projectState = (state: PlayerState): void => {
   sessionActivated = true;
   lastPushedSignature = pushed;
 
-  // DIAG 4.4.5-diagnostic : entrée/sortie de l'appel natif MediaSession.
-  // Métadonnées d'affichage uniquement (jamais d'URL de flux).
-  console.log(
-    `[MXDIAG] MEDIA_BRIDGE_START trackId=${payload.trackId} isPlaying=${payload.isPlaying}`
-  );
   callNative(() => updateSession(payload));
-  console.log('[MXDIAG] MEDIA_SESSION_UPDATE'); // DIAG
-  diagNativeStep(`MEDIA_BRIDGE_START isPlaying=${payload.isPlaying}`);
-  diagNativeStep('MEDIA_SESSION_UPDATE_CALL'); // DIAG — appel JS → natif
 };
 
 /**

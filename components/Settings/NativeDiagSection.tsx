@@ -24,8 +24,8 @@ import { SettingsSwitch } from './SettingsSwitch';
  * SANS ADB (cahier §5) :
  *  1. AFFICHE version Melodix, statut instantané de la couche MediaSession
  *     (booléens natifs du contrôleur) et un aperçu du journal persistant
- *     filesDir/melodix-native-crash.log (breadcrumbs MXDIAG + exceptions
- *     rattrapées ou NON, pile complète, thread nom+id, timestamp UTC) ;
+ *     filesDir/melodix-native-crash.log (exceptions natives — rattrapées
+ *     ou NON, pile complète, thread nom+id, timestamp UTC) ;
  *  2. boutons : « Copier le diagnostic » (PRESSE-PAPIERS système via
  *     ClipboardManager natif), « Partager le journal » (feuille système),
  *     « Rafraîchir », « Effacer le diagnostic » ;
