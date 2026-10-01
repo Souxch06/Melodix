@@ -46,6 +46,10 @@ export const TopArtists = () => {
       size={Sizes.MEDIUM}
       shape={Shapes.CIRCLE}
       withShowAll={true}
+      // Contrat (M-6) : pas de page artiste dans l'application — les cartes
+      // sont donc EXPLICITEMENT inertes (no-op), jamais une navigation vers
+      // une route stub /artist/{id}. À retirer le jour où la page existe.
+      onSlidePress={() => undefined}
     />
   );
 };
