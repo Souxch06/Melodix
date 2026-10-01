@@ -128,9 +128,9 @@ done
 # .so. Une différence signale souvent un module natif incomplet qui plantera au
 # chargement sur une famille de processeurs seulement.
 reference_abi=${expected_abis[0]}
-reference=$(sed -n "s#^lib/$reference_abi/\([^/]*\.so\)$#\1#p" <<<"$entries" | sort)
+reference=$(awk -F/ -v abi="$reference_abi" '$1 == "lib" && $2 == abi && $3 ~ /\.so$/ { print $3 }' <<<"$entries" | sort)
 for abi in "${expected_abis[@]:1}"; do
-  current=$(sed -n "s#^lib/$abi/\([^/]*\.so\)$#\1#p" <<<"$entries" | sort)
+  current=$(awk -F/ -v abi="$abi" '$1 == "lib" && $2 == abi && $3 ~ /\.so$/ { print $3 }' <<<"$entries" | sort)
   if ! diff -u <(printf '%s\n' "$reference") <(printf '%s\n' "$current"); then
     fail "ensemble de bibliothèques différent entre $reference_abi et $abi"
   fi
