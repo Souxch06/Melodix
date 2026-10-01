@@ -1059,7 +1059,6 @@ class MelodixPlayer {
       // dormante éventuelle est conservée, le morceau démarre en fin.
       void this.playQueue([...queue, track], queue.length);
       return;
-      return;
     }
 
     const insertAt = index + 1;

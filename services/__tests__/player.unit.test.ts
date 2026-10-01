@@ -727,6 +727,52 @@ describe('Phase 1 — course critique : aucun double Sound, le dernier gagne', (
     expect(mockCreatedSounds).toHaveLength(1);
   });
 
+  it('Zone 7 : A en chargement → B lancé → C ajouté → A termine : AUCUNE contamination', async () => {
+    const provider = makeProvider();
+    const slowResolve = deferred<{
+      sourceId: string;
+      score: number;
+    } | null>();
+    (provider.resolveMatch as jest.Mock).mockReturnValueOnce(
+      slowResolve.promise
+    );
+    __testSetAudioProviders({ audius: provider });
+
+    void melodixPlayer.playTrack(track('one', 'Pending A'));
+    await flush(); // A en résolution
+
+    // B prend la main (provider frais, rapide).
+    __testSetAudioProviders({ audius: makeProvider() });
+    await melodixPlayer.playTrack(track('two', 'Active B'));
+    await flush();
+    await flush();
+    await flush();
+    expect(melodixPlayer.getState().current?.title).toBe('Active B');
+
+    // C ajouté à la file PENDANT que A n'a toujours pas répondu.
+    await melodixPlayer.addToQueue(track('three', 'Queued C'));
+    expect(melodixPlayer.getState().queue.map(({ title }) => title)).toEqual([
+      'Active B',
+      'Queued C',
+    ]);
+
+    // A termine ENFIN : aucun son, aucun changement d'état, C intact.
+    slowResolve.resolve({ sourceId: 'aud-zombie', score: 0.9 });
+    await flush();
+    await flush();
+    await flush();
+
+    const state = melodixPlayer.getState();
+    expect(state.current?.title).toBe('Active B');
+    expect(state.status).toBe('playing');
+    expect(state.queue.map(({ title }) => title)).toEqual([
+      'Active B',
+      'Queued C',
+    ]);
+    expect(mockCreatedSounds).toHaveLength(1); // B uniquement
+    await melodixPlayer.stop();
+  });
+
   it('A échoue (aucun match) après le démarrage de B : aucune notice fantôme', async () => {
     const failSlow = makeProvider();
     const slowFail = deferred<{ sourceId: string; score: number } | null>();
