@@ -439,4 +439,16 @@ describe('findBestAudiusMatch — cascade multi-requêtes (spécification matchi
       findBestAudiusMatch(query('Tame', ['Neffex']), search)
     ).resolves.toBeNull();
   });
+
+  it('candidat FAIBLE (sous le seuil de confiance) : aucun match retourné', async () => {
+    // Portes franchies de très loin (titre seulement apparenté, artiste
+    // partiel, durée lointaine) → score < 55 → null : jamais de match forcé.
+    const search = jest.fn(async () => [
+      audius('weak', 'Tame the Beast Unleashed', 'Neffex & Co', 999),
+    ]);
+
+    await expect(
+      findBestAudiusMatch(query('Tame', ['Neffex'], 200_000), search)
+    ).resolves.toBeNull();
+  });
 });
