@@ -259,6 +259,41 @@ describe('playHistory (historique local)', () => {
       expect(top[2].id).toBe('alb-tied1');
     });
 
+    it('sources agnostiques : Audius albumId utilisé tel quel (étape 4)', async () => {
+      // Le système ne présume JAMAIS que tout vient de Spotify : un albumId
+      // Audius est regroupé et émis exactement comme un albumId Spotify.
+      await recordPlay(albumTrack('audius:a-1', 'Open Song', 'Open Album'), {
+        albumTitle: 'Open Album',
+        albumId: 'audius-album-456',
+      });
+      await recordPlay(albumTrack('audius:a-2', 'Open Song 2', 'Open Album'), {
+        albumTitle: 'Open Album',
+        albumId: 'audius-album-456',
+      });
+      await recordPlay(albumTrack('spotify:trk-9', 'Song', 'Spot Album'), {
+        albumTitle: 'Spot Album',
+        albumId: 'spotify-album-123',
+      });
+
+      const top = await getTopAlbumsFromHistory(6);
+
+      const audiusAlbum = top.find(({ id }) => id === 'audius-album-456');
+      expect(audiusAlbum).toBeDefined();
+      expect(audiusAlbum?.count).toBe(2);
+      expect(audiusAlbum?.id).not.toBe('audius:a-1');
+      expect(audiusAlbum?.id).not.toBe('audius:a-2');
+
+      const spotifyAlbum = top.find(({ id }) => id === 'spotify-album-123');
+      expect(spotifyAlbum).toBeDefined();
+      expect(spotifyAlbum?.count).toBe(1);
+
+      // Jamais un track.id (spotify: ou audius:) émis comme id d'album.
+      for (const { id } of top) {
+        expect(id).not.toMatch(/^spotify:trk-/);
+        expect(id).not.toMatch(/^audius:a-/);
+      }
+    });
+
     it('track.id n est JAMAIS émis comme id d album', async () => {
       await recordPlay(albumTrack('spotify:track-99', 'Song', 'Confused'), {
         albumTitle: 'Confused',
