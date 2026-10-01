@@ -139,7 +139,17 @@ export const getPlaylistItems = async ({
   }
 
   const dto = await backendGetPlaylist(playlistId);
-  return (dto.tracks ?? []).map((track) => ({
+  const allTracks = dto.tracks ?? [];
+  // I-7 : le backend renvoie TOUTE la playlist ; le contrat offset/limit est
+  // honoré ici par une fenêtre bornée (sinon chaque page duplique la page 0).
+  // total/hasNext restent calculés par l'écran sur le total RÉEL du DTO.
+  const safeOffset = Math.min(
+    Math.max(0, Math.floor(offset)),
+    allTracks.length
+  );
+  const safeLimit = Math.max(1, Math.floor(limit));
+
+  return allTracks.slice(safeOffset, safeOffset + safeLimit).map((track) => ({
     id: track.id,
     title: track.title,
     subtitle: track.artists.join(', '),
