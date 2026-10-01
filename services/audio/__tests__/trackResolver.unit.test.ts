@@ -31,14 +31,17 @@ const QUERY = {
   durationMillis: 200_000,
 };
 
-describe('trackResolver — cascade Audius → YouTube → null', () => {
+describe('trackResolver — cascade Audius → YouTube → typée (I-5)', () => {
   it('Audius trouve : YouTube n\u2019est JAMAIS appelé (prioritaire)', async () => {
     const audius = makeProvider('audius', { sourceId: 'aud-1', score: 0.8 });
     const youtube = makeProvider('youtube', { sourceId: 'yt-1', score: 1 });
 
     const result = await resolveWithProviders(QUERY, [audius, youtube]);
 
-    expect(result?.provider.id).toBe('audius');
+    expect(result.status).toBe('matched');
+    if (result.status === 'matched') {
+      expect(result.provider.id).toBe('audius');
+    }
     expect(audius.resolveMatch).toHaveBeenCalledTimes(1);
     expect(youtube.resolveMatch).not.toHaveBeenCalled();
   });
@@ -49,8 +52,11 @@ describe('trackResolver — cascade Audius → YouTube → null', () => {
 
     const result = await resolveWithProviders(QUERY, [audius, youtube]);
 
-    expect(result?.provider.id).toBe('youtube');
-    expect(result?.sourceId).toBe('yt-42');
+    if (result.status !== 'matched') {
+      throw new Error(`attendu matched, reçu ${result.status}`);
+    }
+    expect(result.provider.id).toBe('youtube');
+    expect(result.sourceId).toBe('yt-42');
     expect(youtube.resolveMatch).toHaveBeenCalledTimes(1);
   });
 
@@ -60,27 +66,71 @@ describe('trackResolver — cascade Audius → YouTube → null', () => {
 
     const result = await resolveWithProviders(QUERY, [audius, youtube]);
 
-    expect(result?.provider.id).toBe('youtube');
+    if (result.status !== 'matched') {
+      throw new Error(`attendu matched, reçu ${result.status}`);
+    }
+    expect(result.provider.id).toBe('youtube');
   });
 
-  it('les deux échouent → null (indisponible, jamais de faux choix)', async () => {
+  it('les deux répondent « rien » → no-match PROUVÉ (négatif durable autorisé)', async () => {
     const audius = makeProvider('audius', null);
     const youtube = makeProvider('youtube', null);
 
     const result = await resolveWithProviders(QUERY, [audius, youtube]);
 
-    expect(result).toBeNull();
+    expect(result).toEqual({ status: 'no-match' });
+    // Les DEUX catalogues ont tranché : la preuve est complète.
+    expect(audius.resolveMatch).toHaveBeenCalledTimes(1);
+    expect(youtube.resolveMatch).toHaveBeenCalledTimes(1);
   });
 
   it('le PREMIER provider gagnant gagne (pas de meilleure offre ultérieure)', async () => {
     // Même si YouTube a un (hypothétique) meilleur score, la priorité Audius
     // est absolue — c'est le contrat « Audius d'abord ».
     const audius = makeProvider('audius', { sourceId: 'aud-mid', score: 0.55 });
-    const youtube = makeProvider('youtube', { sourceId: 'yt-best', score: 0.99 });
+    const youtube = makeProvider('youtube', {
+      sourceId: 'yt-best',
+      score: 0.99,
+    });
 
     const result = await resolveWithProviders(QUERY, [audius, youtube]);
 
-    expect(result?.provider.id).toBe('audius');
-    expect(result?.sourceId).toBe('aud-mid');
+    if (result.status !== 'matched') {
+      throw new Error(`attendu matched, reçu ${result.status}`);
+    }
+    expect(result.provider.id).toBe('audius');
+    expect(result.sourceId).toBe('aud-mid');
+  });
+});
+
+describe('trackResolver — I-5 : une panne n est PAS un « indisponible »', () => {
+  it('Audius timeout + YouTube timeout → error : JAMAIS de cache négatif durable', async () => {
+    const audius = makeProvider('audius', 'throw');
+    const youtube = makeProvider('youtube', 'throw');
+
+    const result = await resolveWithProviders(QUERY, [audius, youtube]);
+
+    expect(result).toEqual({ status: 'error' });
+    // Les deux ont été tentés — mais aucun n'a TRANCHÉ.
+    expect(audius.resolveMatch).toHaveBeenCalledTimes(1);
+    expect(youtube.resolveMatch).toHaveBeenCalledTimes(1);
+  });
+
+  it('Audius en panne + YouTube « rien » → error (preuve incomplète, jamais no-match)', async () => {
+    const audius = makeProvider('audius', 'throw');
+    const youtube = makeProvider('youtube', null);
+
+    const result = await resolveWithProviders(QUERY, [audius, youtube]);
+
+    expect(result).toEqual({ status: 'error' });
+  });
+
+  it('Audius « rien » + YouTube en panne → error (preuve incomplète)', async () => {
+    const audius = makeProvider('audius', null);
+    const youtube = makeProvider('youtube', 'throw');
+
+    const result = await resolveWithProviders(QUERY, [audius, youtube]);
+
+    expect(result).toEqual({ status: 'error' });
   });
 });

@@ -453,7 +453,7 @@ class MelodixPlayer {
       matchId = cached.matchId;
       score = cached.score;
     } else {
-      const match = await resolveWithProviders(
+      const outcome = await resolveWithProviders(
         {
           title: track.title,
           artists: track.artists,
@@ -463,11 +463,21 @@ class MelodixPlayer {
         getAudioProviders()
       );
 
-      providerId = match?.provider.id ?? null;
-      matchId = match?.sourceId ?? null;
-      score = Math.round((match?.score ?? 0) * 100);
-      writeMatchCacheEntry(cache, track.source, providerId, matchId, score);
-      void persistMatchCache(cache);
+      if (outcome.status === 'matched') {
+        providerId = outcome.provider.id;
+        matchId = outcome.sourceId;
+        score = Math.round(outcome.score * 100);
+        writeMatchCacheEntry(cache, track.source, providerId, matchId, score);
+        void persistMatchCache(cache);
+      } else if (outcome.status === 'no-match') {
+        // Négatif PROUVÉ (tous les providers ont répondu « introuvable ») :
+        // le cache négatif 30 jours évite la re-recherche à chaque lecture.
+        writeMatchCacheEntry(cache, track.source, null, null, 0);
+        void persistMatchCache(cache);
+      }
+      // I-5 : 'error' (panne réseau/timeout/provider) → RIEN d'écrit. Le
+      // morceau est sauté proprement maintenant, réessayable plus tard —
+      // jamais 30 jours d'« indisponible » pour une panne.
     }
 
     if (!matchId || !providerId) {
@@ -525,17 +535,25 @@ class MelodixPlayer {
       // Flux mort : tenter les fournisseurs RESTANTS, dans l'ordre de la
       // cascade (réutilise TrackResolver + cache existants — aucun 3e système).
       const remaining = chain.slice(chainIndex + 1);
-      let match = remaining.length
+      let outcome = remaining.length
         ? await resolveWithProviders(query, remaining)
         : null;
 
-      if (!match && !healedOnce) {
+      if (outcome?.status !== 'matched' && !healedOnce) {
         // Bout de chaîne : une seule re-cascade complète (ancienne guérison
         // d'un match périmé) avant de déclarer le morceau indisponible.
         healedOnce = true;
-        match = await resolveWithProviders(query, chain);
+        outcome = await resolveWithProviders(query, chain);
       }
 
+      // I-5 : la re-cascade n'a pas pu trancher (panne réseau/timeout) —
+      // on abandonne CE tour sans graver de négatif durable : le morceau
+      // restera re-tentable, alors que l'ancien code verrouillait 30 jours.
+      if (outcome?.status === 'error') {
+        return null;
+      }
+
+      const match = outcome?.status === 'matched' ? outcome : null;
       const isNewMatch =
         match !== null &&
         !(
@@ -544,8 +562,8 @@ class MelodixPlayer {
         );
 
       if (!isNewMatch || !match) {
-        // Même flux mort re-servi (ou plus rien) : négatif confirmé — le
-        // morceau sera sauté proprement, et jamais re-recherché avant TTL.
+        // Même flux mort re-servi (ou négatif PROUVÉ) : négatif confirmé —
+        // le morceau sera sauté proprement, et jamais re-recherché avant TTL.
         writeMatchCacheEntry(cache, track.source, null, null, 0);
         void persistMatchCache(cache);
         return null;

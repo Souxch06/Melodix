@@ -71,7 +71,7 @@ export {
   RESOLVE_QUEUE_CONCURRENCY,
   writeMatchCacheEntry,
 } from './audio';
-export type { ProviderChainResult, ResolvedTrack } from './audio';
+export type { ProviderChainOutcome, ResolvedTrack } from './audio';
 
 export {
   clearPlayHistory,

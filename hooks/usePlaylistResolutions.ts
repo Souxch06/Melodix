@@ -175,7 +175,7 @@ export const usePlaylistResolutions = (
           // (TrackModel.durationMs / albumName). Sans elles, la décision
           // écrite dans le cache PARTAGÉ était moins discriminante que
           // celle qu'aurait prise le player.
-          const match = await resolveWithProviders(
+          const outcome = await resolveWithProviders(
             {
               title: track.title,
               artists: track.subtitle
@@ -185,24 +185,28 @@ export const usePlaylistResolutions = (
               durationMillis: track.durationMs ?? null,
             },
             providers
-          ).catch(() => null);
+          ).catch(() => null); // ceinture : le resolver ne rejette jamais
 
           // Persiste la DÉCISION (provider + id) — partagée avec le player.
-          writeMatchCacheEntry(
-            cache,
-            { provider: null, id: track.id },
-            match ? match.provider.id : null,
-            match ? match.sourceId : null,
-            match ? Math.round(match.score * 100) : 0
-          );
-          dirty.value = true;
+          // I-5 : 'error' (panne) → RIEN d'écrit : jamais un badge figé
+          // 30 jours pour une panne réseau ; le morceau sera re-tenté.
+          if (outcome && outcome.status !== 'error') {
+            writeMatchCacheEntry(
+              cache,
+              { provider: null, id: track.id },
+              outcome.status === 'matched' ? outcome.provider.id : null,
+              outcome.status === 'matched' ? outcome.sourceId : null,
+              outcome.status === 'matched' ? Math.round(outcome.score * 100) : 0
+            );
+            dirty.value = true;
+          }
 
           patch(
             track.id,
-            match
+            outcome?.status === 'matched'
               ? {
                   status: 'resolved',
-                  providerId: match.provider.id as 'audius' | 'youtube',
+                  providerId: outcome.provider.id as 'audius' | 'youtube',
                 }
               : NONE_ENTRY
           );

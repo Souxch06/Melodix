@@ -235,6 +235,66 @@ describe('usePlaylistResolutions (I-2)', () => {
     expect(resolveAgain).not.toHaveBeenCalled();
     second.unmount();
   });
+
+  it('I-5 : provider EN PANNE → badge « none » mais RIEN de durable ; la re-tentative recherche réellement', async () => {
+    __testSetAudioProviders({
+      audius: constProvider(async () => {
+        throw new Error('timeout réseau');
+      }),
+    });
+
+    const first = renderHook(() => usePlaylistResolutions([track()]));
+    await waitFor(() =>
+      expect(first.result.current.byTrackId.t1?.status).toBe('none')
+    );
+
+    // Même après le flush d'écriture groupée : AUCUNE entrée pour t1.
+    await new Promise((resolve) => setTimeout(resolve, 2_000));
+    const stored = await readStoredCache();
+    expect(stored?.['spotify:t1']).toBeUndefined();
+    first.unmount();
+
+    // La panne réparée, la décision est recherchée pour de vrai (pas un
+    // « indisponible » figé 30 jours).
+    const resolveMatch: AudioProvider['resolveMatch'] = jest.fn(async () => ({
+      sourceId: 'aud-found',
+      score: 0.9,
+    }));
+    __testSetAudioProviders({ audius: constProvider(resolveMatch) });
+
+    const second = renderHook(() => usePlaylistResolutions([track()]));
+    await waitFor(() =>
+      expect(second.result.current.byTrackId.t1).toEqual({
+        status: 'resolved',
+        providerId: 'audius',
+      })
+    );
+    expect(resolveMatch).toHaveBeenCalledTimes(1);
+    second.unmount();
+  });
+
+  it('I-5 : no-match PROUVÉ → négatif durable autorisé (jamais de recherche refaite)', async () => {
+    __testSetAudioProviders({
+      audius: constProvider(async () => null), // catalogue interrogé, rien.
+    });
+
+    const first = renderHook(() => usePlaylistResolutions([track()]));
+    await waitFor(() =>
+      expect(first.result.current.byTrackId.t1?.status).toBe('none')
+    );
+
+    await waitFor(
+      async () => {
+        const cache = await readStoredCache();
+        expect(cache?.['spotify:t1']).toMatchObject({
+          providerId: null,
+          matchId: null,
+        });
+      },
+      { timeout: 6000 }
+    );
+    first.unmount();
+  });
 });
 
 /**

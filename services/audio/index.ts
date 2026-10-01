@@ -33,7 +33,9 @@ export const getAudioProviders = (): AudioProvider[] =>
   );
 
 // Tests : remplacement total (et restauration) des providers.
-export const __testSetAudioProviders = (next: Record<string, AudioProvider>) => {
+export const __testSetAudioProviders = (
+  next: Record<string, AudioProvider>
+) => {
   for (const key of Object.keys(providers)) {
     delete providers[key];
   }
@@ -56,8 +58,12 @@ export {
   stripFeatureSuffix,
   UNKNOWN_MATCH,
 } from './audiusTrackMatcher';
-export type { SongFingerprint, SongMatchCandidate, SongMatchResult } from './audiusTrackMatcher';
-export type { ResolvedTrack, ProviderChainResult } from './trackResolver';
+export type {
+  SongFingerprint,
+  SongMatchCandidate,
+  SongMatchResult,
+} from './audiusTrackMatcher';
+export type { ResolvedTrack, ProviderChainOutcome } from './trackResolver';
 export { resolveWithProviders } from './trackResolver';
 export {
   clearMatchCacheStorage,
@@ -70,7 +76,4 @@ export {
   writeMatchCacheEntry,
 } from './matchCache';
 export type { MatchCache, MatchCacheEntry } from './matchCache';
-export {
-  ResolveQueue,
-  RESOLVE_QUEUE_CONCURRENCY,
-} from './resolveQueue';
+export { ResolveQueue, RESOLVE_QUEUE_CONCURRENCY } from './resolveQueue';

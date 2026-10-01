@@ -31,12 +31,29 @@ export type ResolvedTrack =
     }
   | { provider: 'none' };
 
-export type ProviderChainResult = {
-  provider: AudioProvider;
-  sourceId: string;
-  /** 0..1 */
-  score: number;
-} | null;
+/**
+ * Issue typée de la cascade (I-5) — distingue le NÉGATIF PROUVÉ de la PANNE :
+ *
+ * - 'matched'  : premier provider avec un candidat fiable (ordre strict) ;
+ * - 'no-match' : TOUS les providers ont RÉPONDU « aucun candidat fiable » —
+ *                preuve complète → cache négatif durable AUTORISÉ ;
+ * - 'error'    : AU MOINS un provider a échoué (réseau/timeout/plan) — la
+ *                preuve est incomplète → JAMAIS de negative cache durable :
+ *                le morceau sera simplement re-tenté plus tard.
+ *
+ * Le décideur (player / hook de résolution) grave uniquement 'matched' ou
+ * 'no-match' ; 'error' n'écrit RIEN de persistant.
+ */
+export type ProviderChainOutcome =
+  | {
+      status: 'matched';
+      provider: AudioProvider;
+      sourceId: string;
+      /** 0..1 */
+      score: number;
+    }
+  | { status: 'no-match' }
+  | { status: 'error' };
 
 /**
  * Essaie les providers DANS L'ORDRE donné (Audius, puis YouTube) et rend
@@ -46,7 +63,9 @@ export type ProviderChainResult = {
 export const resolveWithProviders = async (
   query: AudioSourceQuery,
   providers: AudioProvider[]
-): Promise<ProviderChainResult> => {
+): Promise<ProviderChainOutcome> => {
+  let sawProviderError = false;
+
   for (const provider of providers) {
     let match: { sourceId: string; score: number } | null = null;
 
@@ -66,6 +85,7 @@ export const resolveWithProviders = async (
         `TrackResolver: provider ${provider.id} threw, trying next`,
         error
       );
+      sawProviderError = true;
       continue;
     }
 
@@ -77,9 +97,16 @@ export const resolveWithProviders = async (
     );
 
     if (match) {
-      return { provider, sourceId: match.sourceId, score: match.score };
+      return {
+        status: 'matched',
+        provider,
+        sourceId: match.sourceId,
+        score: match.score,
+      };
     }
   }
 
-  return null;
+  // Preuve incomplète (un provider en panne a empêché la vérification) :
+  // jamais de négatif durable sur une panne — le morceau est réessayable.
+  return sawProviderError ? { status: 'error' } : { status: 'no-match' };
 };

@@ -493,6 +493,120 @@ describe('melodixPlayer — cascade Audius → YouTube (fallback)', () => {
     ).toBe('Track yt-only');
   });
 
+  describe('I-5 — une PANNE réseau n est JAMAIS un « indisponible » durable', () => {
+    const readStoredCache = async () => {
+      const raw = await AsyncStorage.getItem(MATCH_CACHE_STORAGE_KEY);
+      return raw ? (JSON.parse(raw) as Record<string, unknown>) : null;
+    };
+
+    it('Audius timeout + YouTube timeout → skip propre, AUCUN cache négatif écrit', async () => {
+      audius = {
+        ...makeProvider(),
+        resolveMatch: jest.fn(async () => {
+          throw new Error('timeout');
+        }),
+      };
+      youtube = {
+        id: 'youtube',
+        displayName: 'YouTube',
+        matches: jest.fn(async () => []),
+        resolveMatch: jest.fn(async () => {
+          throw new Error('timeout');
+        }),
+        resolveSource: jest.fn(async (sourceId: string) => ({
+          uri: `https://yt-stream/${sourceId}`,
+        })),
+      };
+      __testSetAudioProviders({ audius, youtube });
+      await melodixPlayer.stop();
+
+      await melodixPlayer.playQueue([track('net', 'Track net')], 0);
+      await flush();
+      await flush();
+      await flush();
+
+      // Morceau sauté proprement : jamais de flux, message existant inchangé.
+      expect(youtube.resolveSource as jest.Mock).not.toHaveBeenCalled();
+      // MAIS rien n'a été gravé en "indisponible"…
+      expect(audius.resolveMatch).toHaveBeenCalledTimes(1);
+      expect(youtube.resolveMatch).toHaveBeenCalledTimes(1);
+      expect((await readStoredCache()) ?? {}).not.toHaveProperty('spotify:net');
+
+      // …alors qu'une NOUVELLE tentative effectue RÉELLEMENT une recherche.
+      audius = {
+        ...makeProvider(),
+        resolveMatch: jest.fn(async () => ({
+          sourceId: 'aud-back',
+          score: 0.9,
+        })),
+      };
+      __testSetAudioProviders({ audius, youtube });
+      await melodixPlayer.stop();
+
+      await melodixPlayer.playQueue([track('net', 'Track net')], 0);
+      await flush();
+      await flush();
+
+      expect(audius.resolveMatch).toHaveBeenCalledTimes(1); // recherche réelle
+      expect(melodixPlayer.getState().status).toBe('playing');
+      expect(await readStoredCache()).toMatchObject({
+        'spotify:net': { providerId: 'audius', matchId: 'aud-back' },
+      });
+    });
+
+    it('Audius « aucun résultat » + YouTube « aucun résultat » → cache négatif autorisé (prouvé)', async () => {
+      // Le beforeEach fournit déjà : audius null / youtube null (sauf yt-only).
+      await melodixPlayer.playQueue([track('nowhere', 'Track nowhere')], 0);
+      await flush();
+      await flush();
+      await flush();
+
+      expect(await readStoredCache()).toMatchObject({
+        'spotify:nowhere': { providerId: null, matchId: null },
+      });
+
+      // Le négatif PROUVÉ est conservé : replay sans AUCUNE re-recherche.
+      await melodixPlayer.stop();
+      (audius.resolveMatch as jest.Mock).mockClear();
+      (youtube.resolveMatch as jest.Mock).mockClear();
+
+      await melodixPlayer.playQueue([track('nowhere', 'Track nowhere')], 0);
+      await flush();
+      await flush();
+
+      expect(audius.resolveMatch).not.toHaveBeenCalled();
+      expect(youtube.resolveMatch).not.toHaveBeenCalled();
+    });
+
+    it('Audius en panne + YouTube TROUVE → le morceau JOUE (le provider utile gagne)', async () => {
+      audius = {
+        ...makeProvider(),
+        resolveMatch: jest.fn(async () => {
+          throw new Error('timeout');
+        }),
+      };
+      __testSetAudioProviders({ audius, youtube });
+      await melodixPlayer.stop();
+
+      await melodixPlayer.playQueue([track('yt-only', 'Track yt-only')], 0);
+      await flush();
+      await flush();
+
+      expect(youtube.resolveSource as jest.Mock).toHaveBeenCalledWith(
+        'yt-video-7'
+      );
+      expect(melodixPlayer.getState().status).toBe('playing');
+      expect(melodixPlayer.getState().resolved).toEqual({
+        provider: 'YouTube',
+        sourceId: 'yt-video-7',
+        score: 62,
+      });
+      expect(await readStoredCache()).toMatchObject({
+        'spotify:yt-only': { providerId: 'youtube', matchId: 'yt-video-7' },
+      });
+    });
+  });
+
   // ---------- Paramètres : méthodes ADDITIVES branchées par l'écran ----------
 
   it('setRepeat set explicit modes without cycling (settings switch)', async () => {
