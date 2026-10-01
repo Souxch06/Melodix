@@ -135,6 +135,13 @@ jobs:
           npm run prettier:check
 
       - name: Tests JavaScript / React Native
+        # Les tests pilotent eux-mêmes les états OAuth configuré/absent. Ils ne
+        # doivent pas dépendre des Variables du dépôt injectées pour l'APK.
+        env:
+          SPOTIFY_CLIENT_ID: ''
+          EXPO_PUBLIC_SPOTIFY_CLIENT_ID: ''
+          SPOTIFY_REDIRECT_URI: ''
+          EXPO_PUBLIC_SPOTIFY_REDIRECT_URI: ''
         run: |
           set -o pipefail
           npm test -- --runInBand 2>&1 | tee jest.log
