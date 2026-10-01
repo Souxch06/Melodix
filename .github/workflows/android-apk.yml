@@ -60,10 +60,10 @@ jobs:
       # permanence ; à déclarer identique dans le dashboard Spotify).
       SPOTIFY_REDIRECT_URI: ${{ inputs.spotify_redirect_uri || vars.SPOTIFY_REDIRECT_URI || 'melodix://callback' }}
       EXPO_PUBLIC_SPOTIFY_REDIRECT_URI: ${{ inputs.spotify_redirect_uri || vars.SPOTIFY_REDIRECT_URI || 'melodix://callback' }}
-      # Facultatif : empreinte SHA-256 du certificat attendue pour garantir que
-      # deux APK successifs restent installables en mise à jour. Laisser vide
-      # vérifie tout de même signature + certificat, sans inventer de clé CI.
-      EXPECTED_CERT_SHA256: ${{ vars.ANDROID_SIGNING_CERT_SHA256 || '' }}
+      # Empreinte SHA-256 attendue : variable mainteneur si définie, sinon
+      # certificat de TEST stable du template Expo actuel. Toute rotation
+      # involontaire casse le workflow plutôt que les mises à jour Android.
+      EXPECTED_CERT_SHA256: ${{ vars.ANDROID_SIGNING_CERT_SHA256 || 'fac61745dc0903786fb9ede62a962b399f7348f0bb6f899b8332667591033b9c' }}
       # Sur pull_request, github.sha est le commit de merge synthétique. On
       # construit et nomme explicitement le vrai HEAD de la branche testée.
       BUILD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
@@ -294,6 +294,47 @@ jobs:
           echo "::notice title=$APK::$INFO| $CERT | taille $(du -h "$APK" | cut -f1) | sha256 $(sha256sum "$APK" | cut -d' ' -f1)"
           echo "::notice title=Deep link OAuth::scheme melodix présent dans l'APK (melodix://callback déclenchable)"
 
+      - name: Autoriser l'accélération de l'émulateur Android
+        run: |
+          sudo usermod -aG kvm "$USER"
+          sudo chown "$USER" /dev/kvm
+
+      - name: Installer et lancer réellement l'APK sur Android 14
+        # Commit épinglé de ReactiveCircus/android-emulator-runner v2.38.0 :
+        # jamais de tag flottant pour une action qui exécute du code tiers.
+        uses: ReactiveCircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d
+        with:
+          api-level: 34
+          arch: x86_64
+          target: google_apis
+          profile: pixel_2
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          script: |
+            set -euo pipefail
+            APK="${{ steps.apk.outputs.name }}"
+            PACKAGE=com.souxch06.melodix
+            adb logcat -c
+            # Installation propre, puis mise à jour avec le même certificat :
+            # couvre à la fois un premier install et la cohérence de signature.
+            adb install --no-streaming "$APK"
+            adb install --no-streaming -r "$APK"
+            adb shell dumpsys package "$PACKAGE" | grep -F 'versionCode=44008'
+            adb shell am force-stop "$PACKAGE"
+            START=$(adb shell am start -W -n "$PACKAGE/.MainActivity")
+            echo "$START"
+            grep -Fq 'Status: ok' <<<"$START"
+            sleep 8
+            PID=$(adb shell pidof -s "$PACKAGE" | tr -d '\r')
+            if [ -z "$PID" ]; then
+              adb logcat -d -v time | tail -300
+              echo "::error title=Lancement Android::le processus $PACKAGE s'est arrêté après installation"
+              exit 1
+            fi
+            echo "Processus Melodix actif : pid=$PID"
+            echo "::notice title=Installation Android réelle::installation propre + mise à jour + lancement réussis sur Android 14 x86_64 (pid=$PID)"
+            echo "- Installation Android 14 : propre + mise à jour + lancement vérifiés sur émulateur x86_64" >> "$GITHUB_STEP_SUMMARY"
+
       - name: Diagnostic OAuth Spotify (TEMPORAIRE — build de test)
         # Oracle build-level : révèle QUELLE branche de la chaîne
         # input → Variable GitHub → défaut embarqué a gagné, sans exposer
@@ -309,9 +350,13 @@ jobs:
           echo "::notice title=SPOTIFY-DIAG 1/3 client_id::input=$(fp "$INP_CID") | vars=$(fp "$VAR_CID") | ret=[ENV] $(fp "$SPOTIFY_CLIENT_ID")"
           echo "::notice title=SPOTIFY-DIAG 2/3 redirect_uri::input='${INP_URI:-<vide>}' | vars='${VAR_URI:-<vide>}' | ret=[ENV] '${SPOTIFY_REDIRECT_URI}'"
           echo "::notice title=SPOTIFY-DIAG 2/3 redirect_uri expo-public::ret=[ENV] '${EXPO_PUBLIC_SPOTIFY_REDIRECT_URI}'"
-          AAPT2="$(ls -d "$ANDROID_HOME"/build-tools/*/ | sort -V | tail -1)aapt2"
-          SL=$("$AAPT2" dump badging "$APK" | grep '^schemes:' || true)
-          echo "::notice title=SPOTIFY-DIAG 3/3 schemes APK::${SL:-aucune ligne schemes:}"
+          APKANALYZER="$(find "$ANDROID_HOME/cmdline-tools" -type f -name apkanalyzer | sort -V | tail -1)"
+          if "$APKANALYZER" manifest print "$APK" | grep -Fq 'android:scheme="melodix"'; then
+            echo "::notice title=SPOTIFY-DIAG 3/3 scheme APK::melodix présent dans le manifest final"
+          else
+            echo "::error title=SPOTIFY-DIAG 3/3 scheme APK::melodix absent du manifest final"
+            exit 1
+          fi
 
       - name: Publier l'APK comme artefact
         uses: actions/upload-artifact@v7
