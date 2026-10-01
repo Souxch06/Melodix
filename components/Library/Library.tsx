@@ -1,5 +1,7 @@
 import * as React from 'react';
-import { FlatList, RefreshControl, Text, View } from 'react-native';
+import { FlatList, Pressable, RefreshControl, Text, View } from 'react-native';
+import { useRouter } from 'expo-router';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import Animated, {
   Extrapolation,
   interpolate,
@@ -41,6 +43,7 @@ export const Library = () => {
   const { librarySelectedCategory, animatedValue } =
     useLibrarySelectedCategory();
   const { width, height } = useApplicationDimensions();
+  const router = useRouter();
 
   const numColumns = 3;
   const initRenderAmount = 15;
@@ -188,11 +191,34 @@ export const Library = () => {
               />
             }
             ListHeaderComponent={
-              personalFetchFailed ? (
-                <Text style={styles.personalErrorBanner}>
-                  {translations.loginFetchFailed}
-                </Text>
-              ) : null
+              <>
+                {/* Entrée « Titres favoris » : page dédiée des morceaux cœur
+                    locaux (bibliothèque locale — aucun compte requis). */}
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={() => router.push('/library/favorites')}
+                  style={({ pressed }) => [
+                    styles.favoritesCard,
+                    pressed && styles.favoritesCardPressed,
+                  ]}
+                  testID="library-favorites-entry"
+                >
+                  <Ionicons color={COLORS.RED} name="heart" size={20} />
+                  <Text style={styles.favoritesCardText}>
+                    {translations.favoritesTitle}
+                  </Text>
+                  <Ionicons
+                    color={COLORS.GREY}
+                    name="chevron-forward"
+                    size={18}
+                  />
+                </Pressable>
+                {personalFetchFailed && (
+                  <Text style={styles.personalErrorBanner}>
+                    {translations.loginFetchFailed}
+                  </Text>
+                )}
+              </>
             }
           />
         )}

@@ -12,6 +12,10 @@ export default function LibraryLayout() {
         options={{ headerShown: false, animation: 'default' }}
       />
       <Stack.Screen
+        name="favorites"
+        options={{ headerShown: false, animation: 'default' }}
+      />
+      <Stack.Screen
         name="album"
         options={{ headerShown: false, animation: 'default' }}
       />

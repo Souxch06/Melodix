@@ -225,4 +225,11 @@ export const FR_FR_PLAYLIST = {
   providerAudius: 'Audius',
   providerYouTube: 'YouTube',
   providerUnavailable: 'Indisponible',
+  // Favoris (écran dédié de la bibliothèque locale — jamais d'écran blanc).
+  favoritesTitle: 'Titres favoris',
+  favoritesTracksInfo: (count: number) =>
+    count > 1 ? `${count} morceaux favoris` : `${count} morceau favori`,
+  favoritesEmptyTitle: 'Aucun favori pour le moment',
+  favoritesEmptyBody:
+    'Touche le cœur d’un morceau pour le retrouver ici — tes favoris restent stockés sur cet appareil.',
 };

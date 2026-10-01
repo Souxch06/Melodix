@@ -282,4 +282,11 @@ export const EN_GB_PLAYLIST = {
   providerAudius: 'Audius',
   providerYouTube: 'YouTube',
   providerUnavailable: 'Unavailable',
+  // Favorites (dedicated local-library screen — never a blank screen).
+  favoritesTitle: 'Favorite tracks',
+  favoritesTracksInfo: (count: number) =>
+    count > 1 ? `${count} favorite tracks` : `${count} favorite track`,
+  favoritesEmptyTitle: 'No favorites yet',
+  favoritesEmptyBody:
+    'Tap the heart on a track to find it here — your favorites stay on this device.',
 };
