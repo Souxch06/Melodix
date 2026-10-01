@@ -708,3 +708,91 @@ describe('matchSongs — portes durcies (titre partiel, duree)', () => {
     ).toBeNull();
   });
 });
+
+describe('matchSongs — homonymes, éditions et caractères (zone 3)', () => {
+  it('homonymes même titre + artiste, albums DIFFÉRENTS : l album EXACT l emporte', () => {
+    const match = matchSongs(
+      source('Tame', ['Neffex'], { album: 'Afterglow', durationSec: 189 }),
+      [
+        {
+          id: 'wrong-al',
+          title: 'Tame',
+          artistNames: ['Neffex'],
+          album: 'Other Album',
+          durationSec: 189,
+        },
+        {
+          id: 'right-al',
+          title: 'Tame',
+          artistNames: ['Neffex'],
+          album: 'Afterglow',
+          durationSec: 189,
+        },
+      ]
+    );
+
+    expect(match?.id).toBe('right-al');
+  });
+
+  it('deux albums exacts à durées DIFFÉRENTES : la durée départage l homonyme', () => {
+    const match = matchSongs(
+      source('Tame', ['Neffex'], { album: 'Afterglow', durationSec: 189 }),
+      [
+        {
+          id: 'short-cut',
+          title: 'Tame',
+          artistNames: ['Neffex'],
+          album: 'Afterglow',
+          durationSec: 189,
+        },
+        {
+          id: 'other-recording',
+          title: 'Tame',
+          artistNames: ['Neffex'],
+          album: 'Afterglow',
+          durationSec: 240,
+        },
+      ]
+    );
+
+    expect(match?.id).toBe('short-cut');
+  });
+
+  it('version « (Explicit) » : mauvais artiste JAMAIS choisi malgré le titre exact', () => {
+    const match = matchSongs(
+      source('Tame (Explicit)', ['Neffex'], { durationSec: 189 }),
+      [
+        {
+          id: 'imposter',
+          title: 'Tame (Explicit)',
+          artistNames: ['Not Neffex'],
+          durationSec: 189,
+        },
+        {
+          id: 'genuine',
+          title: 'Tame',
+          artistNames: ['Neffex'],
+          durationSec: 189,
+        },
+      ]
+    );
+
+    expect(match?.id).toBe('genuine');
+  });
+
+  it('caractères spéciaux (&, !) : la correspondance reste possible', () => {
+    const match = matchSongs(
+      source('Rock & Roll!!', ['Neffex'], { durationSec: 200 }),
+      [
+        {
+          id: 'sym',
+          title: 'Rock & Roll',
+          artistNames: ['Neffex'],
+          durationSec: 200,
+        },
+      ]
+    );
+
+    expect(match?.id).toBe('sym');
+  });
+});
