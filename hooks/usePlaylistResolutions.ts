@@ -92,7 +92,10 @@ export const usePlaylistResolutions = (
     void clearMatchCacheStorage().then(() => setRefreshCount((c) => c + 1));
   }, []);
 
-  const trackIds = React.useMemo(() => tracks.map((t) => t.id).join('\u0000'), [tracks]);
+  const trackIds = React.useMemo(
+    () => tracks.map((t) => t.id).join('\u0000'),
+    [tracks]
+  );
 
   React.useEffect(() => {
     const currentTracks = tracks;
@@ -135,14 +138,19 @@ export const usePlaylistResolutions = (
 
           patch(track.id, { status: 'resolving' });
 
+          // I-2 : la résolution UI utilise les MÊMES métadonnées que le
+          // chemin player — album + durée quand la source les fournit
+          // (TrackModel.durationMs / albumName). Sans elles, la décision
+          // écrite dans le cache PARTAGÉ était moins discriminante que
+          // celle qu'aurait prise le player.
           const match = await resolveWithProviders(
             {
               title: track.title,
               artists: track.subtitle
                 ? track.subtitle.split(', ').filter(Boolean)
                 : [],
-              album: null,
-              durationMillis: null,
+              album: track.albumName ?? null,
+              durationMillis: track.durationMs ?? null,
             },
             providers
           ).catch(() => null);
@@ -220,4 +228,3 @@ export const usePlaylistResolutions = (
 
   return { byTrackId, stats, refresh };
 };
-
