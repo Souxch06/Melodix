@@ -45,7 +45,8 @@ const ACCEPT_MATCH_SCORE = 55;
 
 const DASH_APPENDAGE_RX =
   /(?:\s[-–—−:]\s+(?:(?:[^\-–—−]*?\b(?:remix|mix|edit|remaster(?:ed)?|remake|version|vip|extend(?:ed)?|radio|live|acoustic|demo|mono|stereo|original|deluxe|single|instrumental|a cappella|censored|clean|explicit|reprise|session[s]?|version\s+\d{4}|\d{4})\b[^\-–—−]*)|.*?\d{4}.*?))$/iu;
-const EMPTY_PLACEHOLDER_RX = /^(?:\(?\s*(?:untitled|unknown|tba|track)\s*\)?)$/iu;
+const EMPTY_PLACEHOLDER_RX =
+  /^(?:\(?\s*(?:untitled|unknown|tba|track)\s*\)?)$/iu;
 const FEATURE_MARKER_RX = /^(?:feat\.?|ft\.?|featuring|with|w\/|&)$/i;
 const ALBUM_EDITION_TAIL_RX =
   /\s(?:[-–—−]\s+)?(?:\(\s*)?(?:deluxe(?:\s+(?:edition|version))?|expanded(?:\s+edition)?|special\s+edition|anniversary\s+edition|collector(?:'s)?\s+edition|remaster(?:ed)?(?:\s+\d{4})?|mono|stereo|original\s+(?:motion\s+picture\s+)?soundtrack|limited\s+edition|international\s+version|bonus\s+track\s+version|version|édition|éditions|single|ep)\)?\s*:?$/iu;
@@ -61,7 +62,10 @@ const trimOuterPunctuation = (text: string): string =>
 
 const cleanupWhitespace = (text: string): string =>
   trimOuterPunctuation(
-    text.replace(/[‹›«»„“”]/g, '').replace(/\s{2,}/g, ' ').trim()
+    text
+      .replace(/[‹›«»„“”]/g, '')
+      .replace(/\s{2,}/g, ' ')
+      .trim()
   );
 
 /** Full normalized form: case/accent uniform, punctuation cleaned, no suffixes. */
@@ -75,8 +79,14 @@ export const normalizeTitleText = (raw: string): string => {
 /** Removes trailing featured-artist markers from a title ("Song feat. X"). */
 export const stripFeatureSuffix = (title: string): string =>
   title
-    .replace(/\s*[-–—−]?\s*\((?:feat\.?|ft\.?|featuring|with|w\/)\s[^()]*\)\s*$/i, '')
-    .replace(/\s*[-–—−]?\s*\[(?:feat\.?|ft\.?|featuring|with|w\/)\s[^\][]*\]\s*$/i, '')
+    .replace(
+      /\s*[-–—−]?\s*\((?:feat\.?|ft\.?|featuring|with|w\/)\s[^()]*\)\s*$/i,
+      ''
+    )
+    .replace(
+      /\s*[-–—−]?\s*\[(?:feat\.?|ft\.?|featuring|with|w\/)\s[^\][]*\]\s*$/i,
+      ''
+    )
     .replace(/\s+[-–—−]\s+(?:feat\.?|ft\.?|featuring|with|w\/)\s.+$/i, '')
     .replace(/\s+(?:feat\.?|ft\.?|featuring|with|w\/)\s.+$/i, '')
     .trim();
@@ -127,7 +137,9 @@ const parseFeaturedArtists = (normalizedTitle: string): string[] => {
 
 const splitArtistNames = (raw: string): string[] =>
   raw
-    .split(/(?:\s*,\s*|\s*[&+|×⋅]\s*|\s+vs\.?\s+|\s+x\s+|\s+(?:and|et|en)\s+)/iu)
+    .split(
+      /(?:\s*,\s*|\s*[&+|×⋅]\s*|\s+vs\.?\s+|\s+x\s+|\s+(?:and|et|en)\s+)/iu
+    )
     .map((piece) => normalizeArtistText(piece))
     .filter(Boolean);
 
@@ -166,9 +178,7 @@ const hardVariantMismatch = (a: string[], b: string[]): boolean => {
 
   // Symmetrical difference non-empty → les deux versions ne racontent pas
   // la même chose (ex. source studio vs candidate live).
-  return (
-    a.some((tag) => !other.has(tag)) || b.some((tag) => !set.has(tag))
-  );
+  return a.some((tag) => !other.has(tag)) || b.some((tag) => !set.has(tag));
 };
 
 export const fingerprintOf = (input: {
@@ -189,7 +199,8 @@ export const fingerprintOf = (input: {
     ),
     album: input.album ? normalizeAlbumText(input.album) : null,
     durationSec:
-      typeof input.durationSec === 'number' && Number.isFinite(input.durationSec)
+      typeof input.durationSec === 'number' &&
+      Number.isFinite(input.durationSec)
         ? Math.max(0, input.durationSec)
         : null,
     hardVariants: hardVariantsOfTitle(input.title),
@@ -467,45 +478,60 @@ export const findBestAudiusMatch = async (
 
   let allCandidates: AudiusTrackMatch[] = [];
 
+  /**
+   * Déduplique + score le lot accumulé. AUCUNE protection n'est assouplie :
+   * seuil de score, accord du titre, contrôle artiste et pénalités de
+   * variantes restent intégralement ceux de matchSongs.
+   */
+  const scoreAccumulated = (): SongMatchResult | null => {
+    const candidates: SongMatchCandidate[] = [];
+    const seen = new Set<string>();
+
+    for (const track of allCandidates) {
+      if (!track.id || seen.has(track.id)) {
+        continue;
+      }
+
+      seen.add(track.id);
+      candidates.push({
+        id: track.id,
+        title: track.title ?? '',
+        artistNames: [track.user?.name ?? track.user?.handle ?? ''].filter(
+          Boolean
+        ),
+        album: null, // Audius v1 tracks do not expose the album title reliably.
+        durationSec:
+          typeof track.duration === 'number' && Number.isFinite(track.duration)
+            ? track.duration
+            : null,
+      });
+    }
+
+    return matchSongs(source, candidates, options);
+  };
+
+  // I-4 — boucle STRICTEMENT bornée (≤ 3 requêtes, jamais au-delà) : un lot
+  // NON VIDE mais sans candidat ADMISSIBLE n'arrête plus la cascade — la
+  // formulation suivante peut trouver le bon. On ne s'arrête tôt que sur
+  // match admissible (zéro requête superflue quand le 1er lot suffit).
   for (const attempt of attempts.slice(0, 3)) {
     try {
       const batch = await search(attempt);
 
       if (batch.length) {
         allCandidates = [...allCandidates, ...batch];
-        break;
+
+        const best = scoreAccumulated();
+        if (best) {
+          return best;
+        }
       }
     } catch (error) {
       console.warn(`Audius search failed for "${attempt}":`, error);
     }
   }
 
-  if (!allCandidates.length) {
-    return null;
-  }
-
-  const candidates: SongMatchCandidate[] = [];
-  const seen = new Set<string>();
-
-  for (const track of allCandidates) {
-    if (!track.id || seen.has(track.id)) {
-      continue;
-    }
-
-    seen.add(track.id);
-    candidates.push({
-      id: track.id,
-      title: track.title ?? '',
-      artistNames: [track.user?.name ?? track.user?.handle ?? ''].filter(
-        Boolean
-      ),
-      album: null, // Audius v1 tracks do not expose the album title reliably.
-      durationSec:
-        typeof track.duration === 'number' && Number.isFinite(track.duration)
-          ? track.duration
-          : null,
-    });
-  }
-
-  return matchSongs(source, candidates, options);
+  // Jamais de match forcé : null si aucune formulation n'a produit de
+  // candidat admissible (le player affichera « indisponible » et skip).
+  return scoreAccumulated();
 };
