@@ -1,6 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { melodixPlayer, PlayerTrack, spotifyTrackSource } from '../player';
+import { loadPlaybackSession } from '../playbackSession';
 import { __testSetAudioProviders, MATCH_CACHE_STORAGE_KEY } from '../audio';
 import type { AudioProvider, ResolvedStream } from '../audio';
 
@@ -1257,8 +1258,43 @@ describe('Phase 2 — file d attente avancée', () => {
     permutation(state.order as number[], 4);
     expect(state.current?.title).toBe('A');
   });
-});
 
+  // I-1 : file > 200 — la session persistée est FENÊTRÉE sur le courant ;
+  // la restauration retrouve le MÊME morceau (plus de « Reprendre » perdu).
+  it('I-1 : file de 500, position 250 — session fenêtrée, restauration = même morceau', async () => {
+    const queue500 = Array.from({ length: 500 }, (_, i) =>
+      track(`t${i}`, `T${i}`)
+    );
+    await melodixPlayer.playQueue(queue500, 250);
+    await flush();
+
+    // File EN MÉMOIRE intacte : 500 morceaux, index 250.
+    expect(melodixPlayer.getState().queue).toHaveLength(500);
+    expect(melodixPlayer.getState().index).toBe(250);
+
+    const raw = await AsyncStorage.getItem('@melodix/playback-session.v1');
+    expect(raw).not.toBeNull();
+    const saved = JSON.parse(raw as string);
+
+    // Fenêtre centrée : 150→349, index persisté = 100, courant dedans.
+    expect(saved.queue).toHaveLength(200);
+    expect(saved.index).toBe(100);
+    expect(saved.queue[saved.index].id).toBe('spotify:t250');
+    // La session fenêtrée est ACCEPTÉE par le chargeur strict.
+    const session = await loadPlaybackSession();
+    expect(session).not.toBeNull();
+
+    await melodixPlayer.stop();
+    await melodixPlayer.restoreSession(session as never);
+    await flush();
+
+    const state = melodixPlayer.getState();
+    expect(state.status).toBe('playing');
+    expect(state.current?.id).toBe('spotify:t250');
+    expect(state.index).toBe(100); // index réaligné dans la fenêtre
+    expect(state.queue).toHaveLength(200);
+  });
+});
 
 describe('Phase 5D — fiabilisation moteur (races / fin collante / seek en vol)', () => {
   beforeEach(async () => {
@@ -1271,7 +1307,10 @@ describe('Phase 5D — fiabilisation moteur (races / fin collante / seek en vol)
   });
 
   it('§8 : deux ticks didJustFinish CONSÉCUTIFS du même son = UNE SEULE transition (jamais de saut à N+2)', async () => {
-    await melodixPlayer.playQueue([track('a', 'A'), track('b', 'B'), track('c', 'C')], 0);
+    await melodixPlayer.playQueue(
+      [track('a', 'A'), track('b', 'B'), track('c', 'C')],
+      0
+    );
     await flush();
 
     const callbackSonA = lastStatusCallback;

@@ -34,6 +34,38 @@ export type PlaybackSession = {
 /** Persiste au plus 200 morceaux autour de l'actuel (queue longue = OK). */
 export const PLAYBACK_SESSION_MAX_QUEUE = 200;
 
+/**
+ * Fenêtrage de persistance (I-1) : quand la file dépasse
+ * PLAYBACK_SESSION_MAX_QUEUE, on mémorise une fenêtre ≤ MAX centrée sur le
+ * morceau courant (~100 avant / ~99 après), glissée aux extrémités de la
+ * file quand le centrage déborderait. Invariants garantis :
+ *  - le morceau courant est TOUJOURS dans la fenêtre ;
+ *  - l'index renvoyé pointe vers CE MÊME morceau dans la fenêtre —
+ *    sanitizePlaybackSession (index < queue.length) accepte la session ;
+ *  - file ≤ MAX : retournée telle quelle, index inchangé.
+ * La file EN MÉMOIRE n'est jamais modifiée : seule la copie persistée est
+ * découpée. Fonction PURE (testable sans le moteur).
+ */
+export const windowQueueForSession = (
+  queue: PlayerTrack[],
+  index: number
+): { queue: PlayerTrack[]; index: number } => {
+  if (queue.length <= PLAYBACK_SESSION_MAX_QUEUE) {
+    return { queue, index };
+  }
+
+  const half = Math.floor(PLAYBACK_SESSION_MAX_QUEUE / 2);
+  const start = Math.min(
+    Math.max(0, index - half),
+    queue.length - PLAYBACK_SESSION_MAX_QUEUE
+  );
+
+  return {
+    queue: queue.slice(start, start + PLAYBACK_SESSION_MAX_QUEUE),
+    index: index - start,
+  };
+};
+
 const sanitizeTrack = (value: unknown): PlayerTrack | null => {
   if (!value || typeof value !== 'object') {
     return null;

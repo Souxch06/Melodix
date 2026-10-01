@@ -16,6 +16,7 @@ import {
   PLAYBACK_SESSION_VERSION,
   sanitizePlaybackSession,
   savePlaybackSession,
+  windowQueueForSession,
 } from '../playbackSession';
 import type { PlaybackSession } from '../playbackSession';
 import { spotifyTrackSource } from '../player';
@@ -151,5 +152,87 @@ describe('playbackSession — persistance stricte de la session', () => {
       .mockRejectedValueOnce(new Error('full'));
 
     await expect(savePlaybackSession(makeSession())).resolves.toBeUndefined();
+  });
+});
+
+/**
+ * I-1 — fenêtrage de persistance : une file > 200 n'invalide JAMAIS la
+ * session. Le morceau courant reste dans la fenêtre et l'index persisté
+ * pointe vers LUI (plus jamais « Reprendre » perdu silencieusement).
+ */
+describe('windowQueueForSession (I-1)', () => {
+  const hugeQueue = (n: number) =>
+    Array.from({ length: n }, (_, i) => makeTrack(`t${i}`));
+
+  it('queue 500 / index 0 : fenêtre en tête (0→199), index conservé à 0', () => {
+    const { queue, index } = windowQueueForSession(hugeQueue(500), 0);
+
+    expect(queue).toHaveLength(PLAYBACK_SESSION_MAX_QUEUE);
+    expect(queue[0].id).toBe('t0');
+    expect(index).toBe(0);
+    expect(queue[index].id).toBe('t0'); // morceau courant dans la fenêtre
+  });
+
+  it('queue 500 / index 100 : fenêtre en tête (0→199), index conservé à 100', () => {
+    const { queue, index } = windowQueueForSession(hugeQueue(500), 100);
+
+    expect(queue).toHaveLength(PLAYBACK_SESSION_MAX_QUEUE);
+    expect(queue[0].id).toBe('t0');
+    expect(index).toBe(100);
+    expect(queue[index].id).toBe('t100');
+  });
+
+  it('queue 500 / index 250 : fenêtre centrée (150→349), index recalculé à 100', () => {
+    const { queue, index } = windowQueueForSession(hugeQueue(500), 250);
+
+    expect(queue).toHaveLength(PLAYBACK_SESSION_MAX_QUEUE);
+    expect(queue[0].id).toBe('t150');
+    expect(queue[queue.length - 1].id).toBe('t349');
+    expect(index).toBe(100);
+    expect(queue[index].id).toBe('t250');
+  });
+
+  it('queue 500 / index 499 : fenêtre glissée en queue (300→499), index 199', () => {
+    const { queue, index } = windowQueueForSession(hugeQueue(500), 499);
+
+    expect(queue).toHaveLength(PLAYBACK_SESSION_MAX_QUEUE);
+    expect(queue[0].id).toBe('t300');
+    expect(queue[queue.length - 1].id).toBe('t499');
+    expect(index).toBe(PLAYBACK_SESSION_MAX_QUEUE - 1);
+    expect(queue[index].id).toBe('t499');
+  });
+
+  it('queue < 200 : file RENVOYÉE TELLE QUELLE (même référence), index inchangé', () => {
+    const small = hugeQueue(150);
+
+    const { queue, index } = windowQueueForSession(small, 149);
+
+    expect(queue).toBe(small); // aucune copie, aucun découpage
+    expect(index).toBe(149);
+  });
+
+  it('queue exactement 200 : inchangée, index 199 valide', () => {
+    const exact = hugeQueue(PLAYBACK_SESSION_MAX_QUEUE);
+
+    const { queue, index } = windowQueueForSession(exact, 199);
+
+    expect(queue).toBe(exact);
+    expect(index).toBe(199);
+  });
+
+  it('TOUTE position : l index recalculé pointe TOUJOURS le même morceau', () => {
+    const queue500 = hugeQueue(500);
+
+    for (const i of [0, 1, 99, 100, 101, 250, 398, 399, 400, 499]) {
+      const { queue, index } = windowQueueForSession(queue500, i);
+
+      expect(queue[index].id).toBe(`t${i}`);
+      expect(index).toBeGreaterThanOrEqual(0);
+      expect(index).toBeLessThan(queue.length);
+      // Et la session fenêtrée passe le sanitize strict (jamais rejetée).
+      expect(
+        sanitizePlaybackSession(makeSession({ queue, index }))
+      ).not.toBeNull();
+    }
   });
 });

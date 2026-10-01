@@ -18,9 +18,9 @@ import {
 import type { MatchCache } from './audio/matchCache';
 import {
   clearPlaybackSession,
-  PLAYBACK_SESSION_MAX_QUEUE,
   PLAYBACK_SESSION_VERSION,
   savePlaybackSession,
+  windowQueueForSession,
 } from './playbackSession';
 import type { PlaybackSession } from './playbackSession';
 import { diagNativeStep } from './nativeDiag';
@@ -1003,11 +1003,16 @@ class MelodixPlayer {
     this.lastPersistedAt = Date.now();
     this.sessionDirty = false;
 
+    // File > 200 (I-1) : fenêtre centrée sur le morceau COURANT avec index
+    // réaligné — sinon l'index dépassait la tranche persistée et la session
+    // était rejetée silencieusement à la restauration (« Reprendre » perdu).
+    const windowed = windowQueueForSession(queue, index);
+
     void savePlaybackSession({
       version: PLAYBACK_SESSION_VERSION,
       savedAt: this.lastPersistedAt,
-      queue: queue.slice(0, PLAYBACK_SESSION_MAX_QUEUE),
-      index,
+      queue: windowed.queue,
+      index: windowed.index,
       positionMillis,
       shuffle,
       repeat,
