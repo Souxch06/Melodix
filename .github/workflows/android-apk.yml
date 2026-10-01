@@ -311,7 +311,8 @@ jobs:
           disable-animations: true
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
           script: |
-            set -euo pipefail
+            # L'action exécute ce bloc avec /usr/bin/sh, pas Bash.
+            set -eu
             APK="${{ steps.apk.outputs.name }}"
             PACKAGE=com.souxch06.melodix
             adb logcat -c
@@ -323,9 +324,9 @@ jobs:
             adb shell am force-stop "$PACKAGE"
             START=$(adb shell am start -W -n "$PACKAGE/.MainActivity")
             echo "$START"
-            grep -Fq 'Status: ok' <<<"$START"
+            printf '%s\n' "$START" | grep -Fq 'Status: ok'
             sleep 8
-            PID=$(adb shell pidof -s "$PACKAGE" | tr -d '\r')
+            PID=$(adb shell pidof -s "$PACKAGE" 2>/dev/null | tr -d '\r' || true)
             if [ -z "$PID" ]; then
               adb logcat -d -v time | tail -300
               echo "::error title=Lancement Android::le processus $PACKAGE s'est arrêté après installation"
