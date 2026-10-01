@@ -26,9 +26,23 @@ const makeTrack = (id: string) => ({
   title: `Titre ${id}`,
   artists: ['Artiste'],
   album: null,
+  albumId: null, // I-8 : champ restauré par sanitizeTrack (défaut null)
   durationMillis: null,
   imageURL: '',
   source: spotifyTrackSource(id),
+});
+
+it('I-8 : albumId présent est restauré à la réhydratation (absent → null)', async () => {
+  const withAlbum = { ...makeTrack('alb'), albumId: 'alb-1' };
+  const withoutAlbum = makeTrack('nul');
+  await savePlaybackSession(
+    makeSession({ queue: [withAlbum, withoutAlbum], index: 0 })
+  );
+
+  const loaded = await loadPlaybackSession();
+
+  expect(loaded?.queue[0].albumId).toBe('alb-1');
+  expect(loaded?.queue[1].albumId).toBeNull();
 });
 
 const makeSession = (

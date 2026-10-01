@@ -9,7 +9,7 @@ import * as React from 'react';
 
 import { act, render } from '@testing-library/react-native';
 
-import { checkSavedTracks, getPlaylist, getPlaylistItems } from '@api';
+import { getPlaylist, getPlaylistItems } from '@api';
 
 import { PlaylistScreen } from '../PlaylistScreen';
 
