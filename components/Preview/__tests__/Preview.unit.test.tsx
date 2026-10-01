@@ -6,6 +6,7 @@
  */
 import * as React from 'react';
 
+import { FlatList } from 'react-native';
 import { fireEvent, render } from '@testing-library/react-native';
 
 import type { TrackModel } from '@models';
@@ -190,5 +191,50 @@ describe('Preview — PlayerTrack propagés (I-2)', () => {
 
     expect(mockCaptured.current?.album).toBe('The Album');
     expect(mockCaptured.current?.durationMillis).toBeNull();
+  });
+});
+
+describe('Preview — pagination catalogue (I-6)', () => {
+  it('fetchTracks est branché sur la FIN de liste, jamais sur le début', () => {
+    const mockFetchTracks = jest.fn();
+    const { UNSAFE_getByType } = render(
+      <Preview
+        type="playlist"
+        {...baseProps}
+        tracks={[mkTrack()]}
+        fetchTracks={mockFetchTracks}
+      />
+    );
+
+    const list = UNSAFE_getByType(FlatList);
+    expect(list.props.onEndReached).toBe(mockFetchTracks);
+    expect(list.props.onStartReached).toBeUndefined();
+  });
+
+  it('arrivée en bas → page suivante demandée (un appel par franchissement)', () => {
+    const mockFetchTracks = jest.fn();
+    const { UNSAFE_getByType } = render(
+      <Preview
+        type="playlist"
+        {...baseProps}
+        tracks={[mkTrack()]}
+        fetchTracks={mockFetchTracks}
+      />
+    );
+
+    const list = UNSAFE_getByType(FlatList);
+    list.props.onEndReached();
+
+    expect(mockFetchTracks).toHaveBeenCalledTimes(1);
+  });
+
+  it('sans fetchTracks : aucun déclencheur de pagination', () => {
+    const { UNSAFE_getByType } = render(
+      <Preview type="album" {...baseProps} tracks={[mkTrack()]} />
+    );
+
+    const list = UNSAFE_getByType(FlatList);
+    expect(list.props.onEndReached).toBeUndefined();
+    expect(list.props.onStartReached).toBeUndefined();
   });
 });

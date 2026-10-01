@@ -245,8 +245,11 @@ export const Preview = ({
         renderItem={renderItem}
         disableScrollViewPanResponder
         {...(fetchTracks && {
-          onStartReached: fetchTracks,
-          onStartReachedThreshold: 1,
+          // I-6 : catalogue → page SUIVANTE à la FIN de la liste (et non au
+          // début). Le garde-fou isFetchingRef/offset de l'écran empêche tout
+          // double chargement de la même page.
+          onEndReached: fetchTracks,
+          onEndReachedThreshold: 1,
         })}
         scrollEventThrottle={16}
         onScroll={scrollHandler}
