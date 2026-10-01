@@ -10,6 +10,7 @@ import {
   searchYouTubeSongs,
   YouTubeSongCandidate,
 } from './youtubeInnertube';
+import { sanitizeErrorForLog } from '../logSanitize';
 
 /**
  * Provider audio de FALLBACK : YouTube / YouTube Music.
@@ -111,7 +112,9 @@ export const createYouTubeAudioProvider = (): AudioProvider => ({
       }
     }
 
-    return best ? { sourceId: best.sourceId, score: Math.min(1, best.raw / 100) } : null;
+    return best
+      ? { sourceId: best.sourceId, score: Math.min(1, best.raw / 100) }
+      : null;
   },
 
   resolveSource: async (sourceId: string): Promise<ResolvedStream | null> => {
@@ -119,7 +122,11 @@ export const createYouTubeAudioProvider = (): AudioProvider => ({
       const uri = await getYouTubeAudioStreamUrl(sourceId);
       return uri ? { uri } : null;
     } catch (error) {
-      console.warn(`YouTube stream unavailable for ${sourceId}:`, error);
+      // M-7 : l'erreur réseau peut citer l'URL du flux → assainie.
+      console.warn(
+        `YouTube stream unavailable for ${sourceId}:`,
+        sanitizeErrorForLog(error)
+      );
       return null;
     }
   },

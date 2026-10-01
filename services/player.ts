@@ -23,6 +23,7 @@ import {
   windowQueueForSession,
 } from './playbackSession';
 import type { PlaybackSession } from './playbackSession';
+import { sanitizeErrorForLog } from './logSanitize';
 
 /**
  * Melodix player engine.
@@ -800,7 +801,11 @@ class MelodixPlayer {
         }
       ).catch(() => undefined);
     } catch (error) {
-      console.error(`Failed to play "${track.title}" (${track.id}):`, error);
+      // M-7 : l'erreur expo-av peut citer l'URL SIGNÉE du flux → assainie.
+      console.error(
+        `Failed to play "${track.title}" (${track.id}):`,
+        sanitizeErrorForLog(error)
+      );
 
       if (!isStale() && this.state.current?.id === track.id) {
         this.markFailed(track, 'play-failed');
@@ -1036,8 +1041,14 @@ class MelodixPlayer {
 
     const { queue, order, index } = this.state;
 
-    if (!queue.length || index < 0) {
-      this.addToQueue(track); // pas de session : fin de file
+    if (index < 0 || index >= queue.length) {
+      // Pas de session active (index hors file — ex. après addToQueue sur
+      // file vide/dormante) : « Lire ensuite » LANCE la lecture. Ajouter
+      // silencieusement rendait l'action invisible (M-1 : current === null
+      // → MiniPlayer masqué, utilisateur sans aucun retour). La file
+      // dormante éventuelle est conservée, le morceau démarre en fin.
+      void this.playQueue([...queue, track], queue.length);
+      return;
       return;
     }
 

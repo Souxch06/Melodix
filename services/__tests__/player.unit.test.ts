@@ -1070,11 +1070,32 @@ describe('Phase 2 — file d attente avancée', () => {
     ).toBe('D');
   });
 
-  it('playNext SANS session : l élément devient la file à lui tout seul', () => {
+  it('playNext SANS session : la lecture DÉMARRE (action jamais invisible — M-1)', async () => {
     melodixPlayer.playNext(track('solo', 'Solo'));
+    await flush();
 
     const state = melodixPlayer.getState();
     expect(state.queue.map(({ title }) => title)).toEqual(['Solo']);
+    expect(state.index).toBe(0);
+    expect(state.current?.title).toBe('Solo');
+    expect(state.status).toBe('playing');
+  });
+
+  it('playNext sur file DORMANTE (addToQueue sans lecture) : conserve + joue la fin (M-1)', async () => {
+    // File dormante : « Ajouter à la file » seul ne lance rien (index -1).
+    melodixPlayer.addToQueue(track('a', 'A'));
+    expect(melodixPlayer.getState().queue.map(({ title }) => title)).toEqual([
+      'A',
+    ]);
+
+    melodixPlayer.playNext(track('b', 'B'));
+    await flush();
+
+    const state = melodixPlayer.getState();
+    // A conservé (jamais de perte silencieuse), B joue immédiatement.
+    expect(state.queue.map(({ title }) => title)).toEqual(['A', 'B']);
+    expect(state.current?.title).toBe('B');
+    expect(state.status).toBe('playing');
   });
 
   it('remove d un morceau APRÈS le courant : index et lecture inchangés', async () => {
@@ -1501,5 +1522,33 @@ describe('Phase 5D — fiabilisation moteur (races / fin collante / seek en vol)
     expect(lastSound.setPositionAsync).toHaveBeenCalledWith(42_000);
     expect(melodixPlayer.getState().positionMillis).toBe(42_000);
     expect(melodixPlayer.getState().status).toBe('playing');
+  });
+
+  it('M-7 : échec createAsync dont l erreur cite l URL SIGNÉE → journal ASSAINI', async () => {
+    const { Audio: av } = jest.requireMock('expo-av') as {
+      Audio: { Sound: { createAsync: jest.Mock } };
+    };
+    av.Sound.createAsync.mockRejectedValueOnce(
+      new Error(
+        'Player error for content https://cdn.private.invalid/audio.m4a?sig=SECRET_TOKEN&expire=999'
+      )
+    );
+    const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+
+    await melodixPlayer.playQueue([track('broken', 'Broken')], 0);
+    await flush();
+    await flush();
+
+    expect(errorSpy).toHaveBeenCalled();
+    const serialized = errorSpy.mock.calls
+      .flatMap((args) => args.map(String))
+      .join(' ');
+    expect(serialized).not.toContain('https://cdn.private.invalid');
+    expect(serialized).not.toContain('SECRET_TOKEN');
+    expect(serialized).toContain('<url>');
+    // file d un seul morceau → avance impossible → session stoppée proprement
+    expect(melodixPlayer.getState().status).toBe('idle');
+
+    errorSpy.mockRestore();
   });
 });

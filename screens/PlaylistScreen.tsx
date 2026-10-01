@@ -1,6 +1,7 @@
 import * as React from 'react';
-import { Alert } from 'react-native';
+import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { Preview } from '@components';
 
 import { PlaylistModel, TrackModel } from '@models';
@@ -8,6 +9,7 @@ import { checkSavedTracks, getPlaylist, getPlaylistItems } from '@api';
 import { toggleSavedTrack, SpotifyApiError } from '@services';
 import { useUserData } from '@context';
 import { usePlaylistResolutions } from '@hooks';
+import { COLORS } from '@config';
 import { translations } from '@data';
 
 export type AlbumScreenPropsType = {
@@ -21,13 +23,21 @@ export const PlaylistScreen = ({ playlistId }: AlbumScreenPropsType) => {
   const [tracks, setTracks] = React.useState<TrackModel[]>([]);
   const [offset, setOffset] = React.useState(0);
   const [limit] = React.useState(50);
+  // M-5 : échec réseau du chargement initial (playlist ou 1re page) → carte
+  // d'erreur VISIBLE + retry — avant, l'écran restait blanc sans possibilité
+  // de relancer (seule la session morte renvoyait vers le login).
+  const [loadError, setLoadError] = React.useState(false);
+  const [retrySeed, setRetrySeed] = React.useState(0);
 
   const isFetchingRef = React.useRef(false);
 
   // Session Spotify morte au milieu de la consultation : écran de connexion.
   const handleSessionDeath = React.useCallback(
     (error: unknown): boolean => {
-      if (error instanceof SpotifyApiError && error.kind === 'unauthenticated') {
+      if (
+        error instanceof SpotifyApiError &&
+        error.kind === 'unauthenticated'
+      ) {
         if (sessionStatus === 'spotify') {
           router.replace({ pathname: '/login', params: {} });
         }
@@ -39,7 +49,7 @@ export const PlaylistScreen = ({ playlistId }: AlbumScreenPropsType) => {
   );
 
   const fetchTracks = async () => {
-    if (!playlistId || !playlist || isFetchingRef.current) {
+    if (!playlistId || !playlist || isFetchingRef.current || loadError) {
       return;
     }
 
@@ -80,6 +90,12 @@ export const PlaylistScreen = ({ playlistId }: AlbumScreenPropsType) => {
       if (handleSessionDeath(error)) {
         return;
       }
+      // M-5 : si la 1re page ne s'est pas affichée (rien à l'écran), erreur
+      // visible + retry. Sinon la liste partielle reste ; l'offset n'avance
+      // pas → le prochain défilement retente implicitement la page.
+      if (offset === 0 && tracks.length === 0) {
+        setLoadError(true);
+      }
       console.error(error);
     } finally {
       isFetchingRef.current = false;
@@ -101,17 +117,34 @@ export const PlaylistScreen = ({ playlistId }: AlbumScreenPropsType) => {
           return;
         }
         setPlaylist(null);
+        setLoadError(true); // M-5 : erreur visible + retry (plus d'écran blanc)
         console.error('Failed to get playlist data:', error);
       }
     })();
-  }, [playlistId, handleSessionDeath]);
+    // Déclencheurs RÉELS uniquement : playlistId / retry explicite.
+    // handleSessionDeath est un utilitaire STABLE en production mais pas en
+    // test (router re-créé) — mis en dépendance il relançait le fetch à
+    // chaque rendu (M-5 : requêtes en double en cas de re-render).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [playlistId, retrySeed]);
 
-  // Load the first page as soon as the playlist metadata is available.
+  // M-5 : « Réessayer » — réinitialise et relance le chaînage complet
+  // (getPlaylist → getPlaylistItems) ; jamais de stack trace à l'utilisateur.
+  const handleRetry = React.useCallback(() => {
+    setLoadError(false);
+    setTracks([]);
+    setOffset(0);
+    setRetrySeed((seed) => seed + 1);
+  }, []);
+
+  // Load the first page as soon as the playlist metadata is available —
+  // et TOUT retry explicite : getPlaylist peut résoudre un objet identique
+  // (cache) → sans retrySeed, le chargement des titres ne repartait pas.
   React.useEffect(() => {
     fetchTracks();
 
     //eslint-disable-next-line
-  }, [playlist]);
+  }, [playlist, retrySeed]);
 
   const id = React.useMemo(() => (playlist ? playlist.id : ''), [playlist]);
   const ownerId = React.useMemo(
@@ -173,7 +206,7 @@ export const PlaylistScreen = ({ playlistId }: AlbumScreenPropsType) => {
           ? entry.providerId
           : entry?.status === 'none'
             ? 'none'
-            : entry?.status ?? 'pending';
+            : (entry?.status ?? 'pending');
     }
 
     return map;
@@ -187,7 +220,7 @@ export const PlaylistScreen = ({ playlistId }: AlbumScreenPropsType) => {
   }, [resolutions.stats]);
 
   const summaryDescription = React.useMemo(
-    () => (playlist ? playlist.description ?? '' : ''),
+    () => (playlist ? (playlist.description ?? '') : ''),
     [playlist]
   );
 
@@ -198,6 +231,32 @@ export const PlaylistScreen = ({ playlistId }: AlbumScreenPropsType) => {
       { text: 'OK' },
     ]);
   }, []);
+
+  // M-5 : carte d'erreur à l'écran (même langage visuel que l'accueil) —
+  // état erreur EXPLICITE + retry, jamais de stack trace utilisateur.
+  if (loadError) {
+    return (
+      <View style={styles.errorWrap} testID="playlist-load-error">
+        <View style={styles.noticeCard}>
+          <Ionicons color={COLORS.RED} name="cloud-offline-outline" size={26} />
+          <Text style={styles.noticeTitle}>
+            {translations.homeLoadErrorTitle}
+          </Text>
+          <Pressable
+            accessibilityRole="button"
+            onPress={handleRetry}
+            style={({ pressed }) => [
+              styles.retryButton,
+              pressed && styles.retryButtonPressed,
+            ]}
+            testID="playlist-load-retry"
+          >
+            <Text style={styles.retryButtonText}>{translations.homeRetry}</Text>
+          </Pressable>
+        </View>
+      </View>
+    );
+  }
 
   return (
     <Preview
@@ -219,3 +278,43 @@ export const PlaylistScreen = ({ playlistId }: AlbumScreenPropsType) => {
     />
   );
 };
+
+const styles = StyleSheet.create({
+  errorWrap: {
+    alignItems: 'center',
+    flex: 1,
+    justifyContent: 'center',
+  },
+  noticeCard: {
+    alignItems: 'center',
+    backgroundColor: '#1A1A1A',
+    borderColor: '#2A2A2A',
+    borderRadius: 16,
+    borderWidth: StyleSheet.hairlineWidth,
+    marginHorizontal: 16,
+    paddingHorizontal: 24,
+    paddingVertical: 26,
+  },
+  noticeTitle: {
+    color: COLORS.WHITE,
+    fontFamily: 'SF-Semibold',
+    fontSize: 15,
+    marginTop: 12,
+    textAlign: 'center',
+  },
+  retryButton: {
+    backgroundColor: COLORS.WHITE,
+    borderRadius: 20,
+    marginTop: 16,
+    paddingHorizontal: 26,
+    paddingVertical: 10,
+  },
+  retryButtonPressed: {
+    opacity: 0.75,
+  },
+  retryButtonText: {
+    color: COLORS.BLACK,
+    fontFamily: 'SF-Semibold',
+    fontSize: 14,
+  },
+});

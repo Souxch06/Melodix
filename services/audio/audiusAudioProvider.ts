@@ -1,4 +1,5 @@
 import { getAudiusStreamUrl, searchAudiusTracks } from '@api';
+import { sanitizeErrorForLog } from '../logSanitize';
 
 import type {
   AudioProvider,
@@ -50,9 +51,9 @@ export const createAudiusAudioProvider = (): AudioProvider => {
             {
               id: track.id,
               title: track.title ?? '',
-              artistNames: [track.user?.name ?? track.user?.handle ?? ''].filter(
-                Boolean
-              ),
+              artistNames: [
+                track.user?.name ?? track.user?.handle ?? '',
+              ].filter(Boolean),
               durationSec:
                 typeof track.duration === 'number' ? track.duration : null,
             },
@@ -84,7 +85,12 @@ export const createAudiusAudioProvider = (): AudioProvider => {
 
         return uri ? { uri } : null;
       } catch (error) {
-        console.warn(`Audius stream unavailable for ${sourceId}:`, error);
+        // M-7 : l'erreur peut citer l'URL du flux → assainie (jamais signée
+        // en clair dans les journaux).
+        console.warn(
+          `Audius stream unavailable for ${sourceId}:`,
+          sanitizeErrorForLog(error)
+        );
         return null;
       }
     },

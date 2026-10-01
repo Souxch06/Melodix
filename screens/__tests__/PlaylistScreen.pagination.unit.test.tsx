@@ -7,7 +7,7 @@
  */
 import * as React from 'react';
 
-import { act, render } from '@testing-library/react-native';
+import { act, fireEvent, render, screen } from '@testing-library/react-native';
 
 import { getPlaylist, getPlaylistItems } from '@api';
 
@@ -192,5 +192,64 @@ describe('PlaylistScreen — pagination (I-6/I-7)', () => {
       mockCaptured.current.fetchTracks?.();
     });
     expect(getPlaylistItemsMock).not.toHaveBeenCalled();
+  });
+});
+
+describe('PlaylistScreen — erreurs réseau (M-5)', () => {
+  it('getPlaylist échoue → carte erreur visible + retry relance le chaînage', async () => {
+    getPlaylistMock.mockRejectedValueOnce(new Error('network down'));
+
+    render(<PlaylistScreen playlistId="pl" />);
+    await act(async () => {});
+
+    // État erreur explicite (plus d'écran blanc silencieux).
+    expect(screen.getByTestId('playlist-load-error')).toBeTruthy();
+    expect(mockCaptured.current.tracks ?? []).toHaveLength(0);
+
+    // Retry → nouvelle tentative complète, cette fois un succès.
+    await act(async () => {
+      fireEvent.press(screen.getByTestId('playlist-load-retry'));
+    });
+
+    expect(getPlaylistMock).toHaveBeenCalledTimes(2);
+    expect(screen.queryByTestId('playlist-load-error')).toBeNull();
+    expect(mockCaptured.current.tracks).toHaveLength(PAGE);
+  });
+
+  it('1re page de pistes échoue → erreur + retry recharge les titres', async () => {
+    getPlaylistItemsMock.mockRejectedValueOnce(new Error('timeout'));
+
+    render(<PlaylistScreen playlistId="pl" />);
+    await act(async () => {});
+
+    expect(screen.getByTestId('playlist-load-error')).toBeTruthy();
+
+    await act(async () => {
+      fireEvent.press(screen.getByTestId('playlist-load-retry'));
+    });
+
+    expect(getPlaylistItemsMock).toHaveBeenCalledTimes(2);
+    expect(screen.queryByTestId('playlist-load-error')).toBeNull();
+    expect(mockCaptured.current.tracks).toHaveLength(PAGE);
+  });
+
+  it('échec d une page SUIVANTE : liste partielle conservée (pas d erreur écran)', async () => {
+    render(<PlaylistScreen playlistId="pl" />);
+    await act(async () => {});
+
+    getPlaylistItemsMock.mockRejectedValueOnce(new Error('flaky'));
+    await act(async () => {
+      mockCaptured.current.fetchTracks?.();
+    }); // page 1 → échec
+
+    // Les 50 titres de la page 0 restent affichés ; aucune carte erreur ;
+    // l offset n a pas avancé → le prochain défilement retente la page.
+    expect(screen.queryByTestId('playlist-load-error')).toBeNull();
+    expect(mockCaptured.current.tracks).toHaveLength(PAGE);
+
+    await act(async () => {
+      mockCaptured.current.fetchTracks?.();
+    }); // retry implicite au scroll
+    expect(mockCaptured.current.tracks).toHaveLength(TOTAL);
   });
 });
