@@ -89,13 +89,14 @@ echo "apkanalyzer: minSdk=$min_sdk targetSdk=$target_sdk"
 [[ "$min_sdk" == "$EXPECTED_MIN_SDK" ]] || fail "minSdk '$min_sdk' != '$EXPECTED_MIN_SDK'"
 [[ "$target_sdk" == "$EXPECTED_TARGET_SDK" ]] || fail "targetSdk '$target_sdk' != '$EXPECTED_TARGET_SDK'"
 
-schemes_line=$(grep '^schemes:' <<<"$badging" || true)
-tr " ,'" '\n' <<<"$schemes_line" | grep -Fxq "$EXPECTED_SCHEME" || fail "scheme '$EXPECTED_SCHEME' absent"
-
 echo
 echo '=== AndroidManifest final ==='
-manifest_xml=$($AAPT2 dump xmltree "$APK" --file AndroidManifest.xml)
+# `aapt2 badging` n'émet plus systématiquement de ligne `schemes:`. Le XML
+# décodé par apkanalyzer est le contrat stable pour le deep-link et les
+# composants du manifest fusionné réellement embarqué.
+manifest_xml=$($APKANALYZER manifest print "$APK")
 printf '%s\n' "$manifest_xml"
+grep -Eq "<data[^>]*android:scheme=\"$EXPECTED_SCHEME\"" <<<"$manifest_xml" || fail "scheme '$EXPECTED_SCHEME' absent"
 grep -Fq 'expo.modules.melodixmedia.MelodixMediaService' <<<"$manifest_xml" || fail 'MediaSessionService absent du manifest final'
 grep -Fq 'android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK' <<<"$manifest_xml" || fail 'permission mediaPlayback absente'
 # Ces permissions ne correspondent à aucune fonction de Melodix et rendent
