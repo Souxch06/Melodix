@@ -386,3 +386,73 @@ describe('usePlaylistResolutions — refresh ciblé (I-3)', () => {
     expect(cache?.['spotify:b2']).toMatchObject({ matchId: 'm-b2' });
   });
 });
+
+describe('usePlaylistResolutions — durée de vie des timers (perf)', () => {
+  beforeEach(async () => {
+    await AsyncStorage.clear();
+  });
+
+  it('démontage avec file NON vide : TOUS les intervals de l effet meurent (zéro timer orphelin)', async () => {
+    // t1 : décision rapide ; t2 : résolution JAMAIS finie → la file reste
+    // non vide, le watcher auto-nettoyant ne passe JAMAIS : sans cleanup de
+    // l effet, flush+watch cochaient indéfiniment dans un composant mort.
+    const originalSetInterval = global.setInterval;
+    const originalClearInterval = global.clearInterval;
+    const setIntervalSpy = jest
+      .spyOn(global, 'setInterval')
+      .mockImplementation(((handler: unknown, timeout?: unknown) =>
+        originalSetInterval(
+          handler as (...args: unknown[]) => void,
+          timeout as number
+        )) as typeof setInterval);
+    const clearIntervalSpy = jest
+      .spyOn(global, 'clearInterval')
+      .mockImplementation(((handle: unknown) =>
+        originalClearInterval(
+          handle as Parameters<typeof originalClearInterval>[0]
+        )) as typeof clearInterval);
+
+    try {
+      __testSetAudioProviders({
+        audius: constProvider(
+          jest.fn(async (query) => {
+            if (query.title.includes('Fast')) {
+              return { sourceId: 'm-fast', score: 0.9 };
+            }
+            return new Promise(() => undefined); // jamais résolu
+          })
+        ),
+      });
+
+      const { unmount } = renderHook(() =>
+        usePlaylistResolutions([
+          track({ id: 'fast1', title: 'Fast Song' }),
+          track({ id: 'slow1', title: 'Never Resolving Song' }),
+        ])
+      );
+
+      // Laisser t1 se résoudre et les deux intervals s armer.
+      await act(async () => {
+        await new Promise((resolve) => setTimeout(resolve, 200));
+      });
+
+      // Les deux intervals du hook existent (la file n est pas vide pour t2).
+      expect(setIntervalSpy.mock.results.length).toBeGreaterThanOrEqual(2);
+
+      unmount();
+
+      // APRÈS le démontage, chaque interval créé a été nettoyé EXACTEMENT.
+      // (RNTL en crée d autres pour waitFor : on ne vérifie que ceux du
+      // hook = les handles retournés par nôtre espion de setInterval.)
+      const handles = setIntervalSpy.mock.results
+        .map((result) => result.value)
+        .filter((value) => value !== undefined);
+      for (const handle of handles) {
+        expect(clearIntervalSpy.mock.calls.flat()).toContain(handle);
+      }
+    } finally {
+      setIntervalSpy.mockRestore();
+      clearIntervalSpy.mockRestore();
+    }
+  }, 10_000);
+});

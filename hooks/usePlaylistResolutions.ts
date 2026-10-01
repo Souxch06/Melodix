@@ -145,6 +145,11 @@ export const usePlaylistResolutions = (
   React.useEffect(() => {
     const currentTracks = tracks;
     let disposed = false;
+    // Intervals de persistance groupée : portée EFFET pour que le cleanup
+    // puisse TOUJOURS les arrêter au démontage (avant, une file non vide au
+    // démontage laissait tick deux setInterval dans un composant mort).
+    let flushInterval: ReturnType<typeof setInterval> | null = null;
+    let watchInterval: ReturnType<typeof setInterval> | null = null;
 
     const patch = (trackId: string, next: TrackAvailability) => {
       if (!disposed) {
@@ -231,21 +236,27 @@ export const usePlaylistResolutions = (
       }
 
       // Persist groupé quand tout est terminé (facile : petites tailles).
-      const flush = setInterval(() => {
+      flushInterval = setInterval(() => {
         if (dirty.value && !disposed) {
           dirty.value = false;
           void persistMatchCache(cache);
         }
       }, 1500);
 
-      const watch = setInterval(() => {
+      watchInterval = setInterval(() => {
         if (
           !queueRef.current ||
           (queueRef.current.inFlightCount === 0 &&
             queueRef.current.waitingCount === 0)
         ) {
-          clearInterval(watch);
-          clearInterval(flush);
+          if (watchInterval) {
+            clearInterval(watchInterval);
+            watchInterval = null;
+          }
+          if (flushInterval) {
+            clearInterval(flushInterval);
+            flushInterval = null;
+          }
           if (dirty.value && !disposed) {
             dirty.value = false;
             void persistMatchCache(cache);
@@ -256,7 +267,14 @@ export const usePlaylistResolutions = (
 
     return () => {
       disposed = true;
-      // Les intervals sont légers ; résolutions en vol écrasées par `disposed`.
+      // Démontage : les deux intervals meurent AVEC l'effet (aucun timer
+      // orphelin, même si la file n'était pas encore vide).
+      if (watchInterval) {
+        clearInterval(watchInterval);
+      }
+      if (flushInterval) {
+        clearInterval(flushInterval);
+      }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [trackIds, refreshCount]);
