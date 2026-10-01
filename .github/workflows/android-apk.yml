@@ -312,19 +312,23 @@ jobs:
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
           script: |
             # L'action exécute ce bloc avec /usr/bin/sh, pas Bash.
-            set -eu
+            set -u
             APK="${{ steps.apk.outputs.name }}"
             PACKAGE=com.souxch06.melodix
-            adb logcat -c
+            fail() { echo "::error title=Test installation Android::$1"; exit 1; }
+            adb logcat -c || fail "impossible de vider logcat"
             # Installation propre, puis mise à jour avec le même certificat :
             # couvre à la fois un premier install et la cohérence de signature.
-            adb install --no-streaming "$APK"
-            adb install --no-streaming -r "$APK"
-            adb shell dumpsys package "$PACKAGE" | grep -F 'versionCode=44008'
-            adb shell am force-stop "$PACKAGE"
-            START=$(adb shell am start -W -n "$PACKAGE/.MainActivity")
+            CLEAN=$(adb install --no-streaming "$APK" 2>&1) || fail "installation propre refusée : $CLEAN"
+            echo "$CLEAN"
+            UPDATE=$(adb install --no-streaming -r "$APK" 2>&1) || fail "mise à jour refusée : $UPDATE"
+            echo "$UPDATE"
+            PACKAGE_INFO=$(adb shell dumpsys package "$PACKAGE" 2>&1) || fail "dumpsys package impossible : $PACKAGE_INFO"
+            printf '%s\n' "$PACKAGE_INFO" | grep -Fq 'versionCode=44008' || fail "versionCode 44008 absente après installation"
+            adb shell am force-stop "$PACKAGE" || fail "force-stop impossible"
+            START=$(adb shell am start -W -n "$PACKAGE/.MainActivity" 2>&1) || fail "MainActivity non lançable : $START"
             echo "$START"
-            printf '%s\n' "$START" | grep -Fq 'Status: ok'
+            printf '%s\n' "$START" | grep -Fq 'Status: ok' || fail "ActivityManager n'a pas confirmé le lancement : $START"
             sleep 8
             PID=$(adb shell pidof -s "$PACKAGE" 2>/dev/null | tr -d '\r' || true)
             if [ -z "$PID" ]; then
