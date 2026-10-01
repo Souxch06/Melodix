@@ -13,6 +13,9 @@ export const getRecentlyPlayed = async (): Promise<RecentlyPlayedModel[]> => {
     id: item.id,
     title: item.title,
     imageURL: item.imageURL ?? '',
+    // I-8 : destination album si connue, snapshot du morceau sinon.
+    albumId: item.albumId,
+    track: item.track,
   }));
 };
 
@@ -20,6 +23,8 @@ export const getRecentlyPlayed = async (): Promise<RecentlyPlayedModel[]> => {
  * Conservée pour compatibilité : rafraîchir revient simplement à relire
  * l'historique local (rien à fusionner, aucune donnée distante).
  */
-export const updateRecentlyPlayed = async (): Promise<RecentlyPlayedModel[]> => {
+export const updateRecentlyPlayed = async (): Promise<
+  RecentlyPlayedModel[]
+> => {
   return getRecentlyPlayed();
 };

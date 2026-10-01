@@ -115,10 +115,13 @@ export const Preview = ({
             : [],
           album: track.albumName ?? (type === 'album' ? summaryTitle : null),
           durationMillis: track.durationMs ?? null,
+          // I-8 : l'écran album connaît son album — il voyage jusqu'à
+          // l'historique (navigation « Écoutés récemment » vers l'album).
+          albumId: type === 'album' ? id : null,
           imageURL: track.imageURL ?? '',
           source: sourceOfTrackId(track.id),
         })),
-    [tracks, type, summaryTitle]
+    [tracks, type, summaryTitle, id]
   );
 
   const handleTrackPress = React.useCallback(
@@ -158,11 +161,13 @@ export const Preview = ({
         artists: item.subtitle ? item.subtitle.split(', ').filter(Boolean) : [],
         album: item.albumName ?? (type === 'album' ? summaryTitle : null),
         durationMillis: item.durationMs ?? null,
+        // I-8 : albumId quand l'écran d'origine le connaît.
+        albumId: type === 'album' ? id : null,
         imageURL: item.imageURL ?? '',
         source: sourceForTrackId(item.id),
       });
     },
-    [type, summaryTitle]
+    [type, summaryTitle, id]
   );
 
   // Déstructuré pour des dépendances de hook explicites et stables.

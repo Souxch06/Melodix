@@ -94,6 +94,8 @@ const sanitizeTrack = (value: unknown): PlayerTrack | null => {
     title: record.title,
     artists: record.artists as string[],
     album: typeof record.album === 'string' ? record.album : null,
+    // I-8 : albumId optionnel, restauré quand présent — sinon jamais gagné.
+    albumId: typeof record.albumId === 'string' ? record.albumId : null,
     durationMillis:
       typeof record.durationMillis === 'number' &&
       Number.isFinite(record.durationMillis)

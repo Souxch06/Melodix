@@ -1,3 +1,5 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
 import { TrackModel } from '@models';
 
 import {
@@ -8,6 +10,7 @@ import {
   getTopArtistsFromHistory,
   hasPlayHistory,
   MAX_HISTORY,
+  PLAY_HISTORY_STORAGE_KEY,
   recordPlay,
 } from '../playHistory';
 
@@ -95,6 +98,57 @@ describe('playHistory (historique local)', () => {
     await clearPlayHistory();
     expect(await hasPlayHistory()).toBe(false);
     expect(await getRecentlyPlayedTracks()).toEqual([]);
+  });
+
+  it('I-8 : albumId enregistré quand connu, relu intact avec le snapshot', async () => {
+    await recordPlay(
+      {
+        id: 'spotify:trk-1',
+        title: 'Song',
+        subtitle: 'Artist',
+        albumName: 'The Album',
+        durationMs: 200_000,
+      },
+      { albumTitle: 'The Album', albumId: 'alb-42' }
+    );
+
+    const [entry] = await getRecentlyPlayedTracks(1);
+    expect(entry.albumId).toBe('alb-42');
+
+    const [tile] = await getRecentlyPlayedAlbumLike(8);
+    expect(tile.albumId).toBe('alb-42');
+    // Snapshot complet pour la lecture directe (I-2 conservé).
+    expect(tile.track).toMatchObject({
+      id: 'spotify:trk-1',
+      albumName: 'The Album',
+      durationMs: 200_000,
+    });
+  });
+
+  it('I-8 : entrées ANCIENNES sans albumId — aucune erreur, albumId null', async () => {
+    // Stockage écrit comme une version antérieure du format.
+    await AsyncStorage.setItem(
+      PLAY_HISTORY_STORAGE_KEY,
+      JSON.stringify({
+        entries: [
+          {
+            track: {
+              id: 'spotify:old-1',
+              title: 'Old Song',
+              subtitle: 'Old Artist',
+            },
+            playedAt: Date.now(),
+          },
+        ],
+      })
+    );
+
+    const [tile] = await getRecentlyPlayedAlbumLike(8);
+    expect(tile.albumId).toBeNull();
+    expect(tile.track).toMatchObject({
+      id: 'spotify:old-1',
+      title: 'Old Song',
+    });
   });
 
   it('snapshot sans état de lecture transitoire', async () => {

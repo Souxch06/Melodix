@@ -10,8 +10,41 @@ import { RecentlyPlayedModel } from '@models';
 import { COLORS, RECENTLY_PLAYED_COVER_SIZE } from '@config';
 import { getFallbackImage } from '@utils';
 import { translations } from '@data';
+import { usePlayer } from '@context';
+import type { PlayerTrack } from '@services';
+import { audiusTrackSource, spotifyTrackSource } from '@services';
 
 import { styles } from './styles';
+
+const AUDIUS_PREFIX = 'audius:';
+const SPOTIFY_PREFIX = 'spotify:';
+
+/**
+ * I-8 : l'historique stocke l'identifiant de QUEUE (déjà préfixé, validé
+ * depuis toujours par le player). Lecture directe d'une tuile sans album :
+ * on re-déduit la SOURCE en retirant le préfixe — jamais de double préfixe.
+ */
+const playerTrackFromHistory = (item: RecentlyPlayedModel): PlayerTrack => {
+  const snapshot = item.track;
+  const id = snapshot?.id || item.id;
+  const source = id.startsWith(AUDIUS_PREFIX)
+    ? audiusTrackSource(id.slice(AUDIUS_PREFIX.length))
+    : spotifyTrackSource(
+        id.startsWith(SPOTIFY_PREFIX) ? id.slice(SPOTIFY_PREFIX.length) : id
+      );
+
+  return {
+    id, // clé inchangée : cache de matching et historique réutilisés.
+    title: snapshot?.title ?? item.title,
+    artists: snapshot?.subtitle
+      ? snapshot.subtitle.split(', ').filter(Boolean)
+      : [],
+    album: snapshot?.albumName ?? null,
+    durationMillis: snapshot?.durationMs ?? null,
+    imageURL: item.imageURL,
+    source,
+  };
+};
 
 export const RecentlyPlayed = () => {
   const [recentlyPlayedData, setRecentlyPlayedData] = React.useState<
@@ -29,9 +62,29 @@ export const RecentlyPlayed = () => {
     | '(tabs)/library';
   const { width } = useApplicationDimensions();
   const router = useRouter();
+  const player = usePlayer();
 
   const gap = 8;
   const paddingHorizontal = 16;
+
+  // I-8 : une tuile reste TOUJOURS fonctionnelle.
+  //   albumId connu  → navigation vers l'ALBUM ;
+  //   sinon         → JAMAIS /album/<trackId> : lecture directe du morceau
+  //                   (identité déjà conservée dans l'historique), y compris
+  //                   les anciennes entrées sans albumId.
+  const handlePress = React.useCallback(
+    (item: RecentlyPlayedModel) => {
+      if (!item.id) {
+        return; // tuile squelette
+      }
+      if (item.albumId) {
+        router.push(`/${pathname}/album/${item.albumId}`);
+        return;
+      }
+      void player.playQueue([playerTrackFromHistory(item)], 0);
+    },
+    [pathname, router, player]
+  );
 
   React.useEffect(() => {
     let isMounted = true;
@@ -76,52 +129,58 @@ export const RecentlyPlayed = () => {
 
   return (
     <View style={sectionStyles.wrapper}>
-      <Text numberOfLines={1} style={sectionStyles.title} testID="home-recently-played-title">
+      <Text
+        numberOfLines={1}
+        style={sectionStyles.title}
+        testID="home-recently-played-title"
+      >
         {translations.homeRecentlyPlayed}
       </Text>
       <View style={[styles.container, { gap, paddingHorizontal }]}>
-      {recentlyPlayedData.map(({ id, title, imageURL }, index) => (
-        <Pressable
-          onPress={() => id && router.push(`/${pathname}/album/${id}`)}
-          key={index}
-          style={[
-            styles.link,
-            {
-              width: width / 2 - paddingHorizontal - gap / 2,
-            },
-          ]}
-        >
-          <View
+        {recentlyPlayedData.map((item, index) => (
+          <Pressable
+            onPress={() => handlePress(item)}
+            key={index}
             style={[
-              styles.imageView,
+              styles.link,
               {
-                width: RECENTLY_PLAYED_COVER_SIZE,
-                height: RECENTLY_PLAYED_COVER_SIZE,
+                width: width / 2 - paddingHorizontal - gap / 2,
               },
             ]}
           >
-            <Image
-              style={styles.image}
-              source={imageURL ? { uri: imageURL } : fallbackImageSource}
-            />
-          </View>
-          <Text
-            numberOfLines={2}
-            style={[
-              styles.text,
-              {
-                width:
-                  width / 2 -
-                  paddingHorizontal -
-                  gap / 2 -
-                  RECENTLY_PLAYED_COVER_SIZE,
-              },
-            ]}
-          >
-            {title}
-          </Text>
-        </Pressable>
-      ))}
+            <View
+              style={[
+                styles.imageView,
+                {
+                  width: RECENTLY_PLAYED_COVER_SIZE,
+                  height: RECENTLY_PLAYED_COVER_SIZE,
+                },
+              ]}
+            >
+              <Image
+                style={styles.image}
+                source={
+                  item.imageURL ? { uri: item.imageURL } : fallbackImageSource
+                }
+              />
+            </View>
+            <Text
+              numberOfLines={2}
+              style={[
+                styles.text,
+                {
+                  width:
+                    width / 2 -
+                    paddingHorizontal -
+                    gap / 2 -
+                    RECENTLY_PLAYED_COVER_SIZE,
+                },
+              ]}
+            >
+              {item.title}
+            </Text>
+          </Pressable>
+        ))}
       </View>
     </View>
   );

@@ -54,6 +54,8 @@ export type PlayerTrack = {
   artists: string[];
   album?: string | null;
   durationMillis?: number | null;
+  /** Album d'origine (I-8) quand l'écran le connaît — sert à l'historique. */
+  albumId?: string | null;
   imageURL: string;
   source: TrackSource;
 };
@@ -835,8 +837,17 @@ class MelodixPlayer {
           title: track.title,
           subtitle: track.artists.join(', '),
           imageURL: track.imageURL || undefined,
+          // Snapshot complet (I-2) : la relecture directe depuis
+          // l'historique matche avec les mêmes métadonnées.
+          albumName: track.album ?? null,
+          durationMs: track.durationMillis ?? null,
         },
-        { albumTitle: track.album ?? undefined }
+        {
+          albumTitle: track.album ?? undefined,
+          // I-8 : albumId conservé quand l'écran d'origine le connaît —
+          // « Écoutés récemment » pourra naviguer vers l'ALBUM.
+          albumId: track.albumId ?? null,
+        }
       ).catch(() => undefined);
     } catch (error) {
       // DIAG 4.4.5-diagnostic : exception COMPLÈTE (classe + pile) — la
