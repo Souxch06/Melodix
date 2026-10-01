@@ -85,6 +85,7 @@ export {
   recordPlay,
 } from './history/playHistory';
 export type { PlayHistoryEntry } from './history/playHistory';
+export { playerTrackFromHistoryEntry } from './history/historyPlayerTrack';
 
 export {
   checkSaved,

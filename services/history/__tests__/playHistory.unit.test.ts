@@ -151,6 +151,139 @@ describe('playHistory (historique local)', () => {
     });
   });
 
+  describe('getTopAlbumsFromHistory — jamais de faux album (extension I-8)', () => {
+    const albumTrack = (
+      id: string,
+      title: string,
+      albumTitle: string
+    ): TrackModel => ({ id, title, subtitle: 'Artist', albumName: albumTitle });
+
+    it('deux morceaux du MÊME albumId → UN seul album, comptes cumulés', async () => {
+      await recordPlay(albumTrack('spotify:t1', 'Song 1', 'The Album'), {
+        albumTitle: 'The Album',
+        albumId: 'alb-123',
+      });
+      await recordPlay(albumTrack('spotify:t2', 'Song 2', 'The Album'), {
+        albumTitle: 'The Album',
+        albumId: 'alb-123',
+      });
+
+      const top = await getTopAlbumsFromHistory(6);
+
+      expect(top).toHaveLength(1);
+      expect(top[0].id).toBe('alb-123');
+      expect(top[0].count).toBe(2);
+      expect(top[0].title).toBe('The Album');
+    });
+
+    it('deux albumIds distincts à titre IDENTIQUE → deux albums séparés', async () => {
+      await recordPlay(albumTrack('spotify:t1', 'Song 1', 'Homonym'), {
+        albumTitle: 'Homonym',
+        albumId: 'alb-123',
+      });
+      await recordPlay(albumTrack('spotify:t2', 'Song 2', 'Homonym'), {
+        albumTitle: 'Homonym',
+        albumId: 'alb-456',
+      });
+
+      const top = await getTopAlbumsFromHistory(6);
+
+      expect(top).toHaveLength(2);
+      expect(new Set(top.map(({ id }) => id))).toEqual(
+        new Set(['alb-123', 'alb-456'])
+      );
+    });
+
+    it('ancienne entrée titre-seul + nouvelle entrée du MÊME TITRE → regroupées par titre', async () => {
+      // Ancienne : pas d'albumId. Nouvelle (même album, id connu).
+      await AsyncStorage.setItem(
+        PLAY_HISTORY_STORAGE_KEY,
+        JSON.stringify({
+          entries: [
+            {
+              track: { id: 'spotify:old-1', title: 'Old Song', subtitle: 'A' },
+              albumTitle: 'Vintage',
+              playedAt: 100,
+            },
+            {
+              track: { id: 'spotify:new-1', title: 'New Song', subtitle: 'A' },
+              albumTitle: 'Vintage',
+              albumId: 'alb-vintage',
+              playedAt: 200,
+            },
+          ],
+        })
+      );
+
+      const top = await getTopAlbumsFromHistory(6);
+
+      // Deux clés distinctes (titre vs albumId) : PAS de fusion forcée —
+      // la fusion aurait RECRÉÉ un faux lien historique. L'ancienne entrée
+      // reste compat (agrégée par titre), un rejeu la rattrape par albumId.
+      expect(top.some(({ id }) => id === 'alb-vintage')).toBe(true);
+      expect(top.some(({ id }) => id === null)).toBe(true);
+      expect(top).toHaveLength(2);
+    });
+
+    it('classement : plus d écoutes en premier, à égalité le plus récent', async () => {
+      // 3 écoutes de l'album « Rare » = 3 morceaux DIFFÉRENTS (recordPlay
+      // déduplique par track.id).
+      await recordPlay(albumTrack('spotify:a1', 'A1', 'Rare'), {
+        albumTitle: 'Rare',
+        albumId: 'alb-rare',
+      });
+      await recordPlay(albumTrack('spotify:a2', 'A2', 'Rare'), {
+        albumTitle: 'Rare',
+        albumId: 'alb-rare',
+      });
+      await recordPlay(albumTrack('spotify:b1', 'B1', 'Tied1'), {
+        albumTitle: 'Tied1',
+        albumId: 'alb-tied1',
+      });
+      await recordPlay(albumTrack('spotify:a3', 'A3', 'Rare'), {
+        albumTitle: 'Rare',
+        albumId: 'alb-rare',
+      });
+      await recordPlay(albumTrack('spotify:b2', 'B2', 'Tied2'), {
+        albumTitle: 'Tied2',
+        albumId: 'alb-tied2',
+      });
+
+      const top = await getTopAlbumsFromHistory(6);
+
+      expect(top).toHaveLength(3);
+      expect(top[0].id).toBe('alb-rare');
+      expect(top[0].count).toBe(3);
+      // À égalité (1 vs 1) : l'album le plus récemment écouté d'abord.
+      expect(top[1].id).toBe('alb-tied2');
+      expect(top[2].id).toBe('alb-tied1');
+    });
+
+    it('track.id n est JAMAIS émis comme id d album', async () => {
+      await recordPlay(albumTrack('spotify:track-99', 'Song', 'Confused'), {
+        albumTitle: 'Confused',
+        albumId: 'alb-clear',
+      });
+      // albumTitle seul (albumId INCONNU) : le meta est toujours fourni par
+      // le player — seul l'albumId peut manquer.
+      await recordPlay(albumTrack('spotify:track-100', 'Song', 'Mere'), {
+        albumTitle: 'Mere',
+      });
+
+      const top = await getTopAlbumsFromHistory(6);
+
+      expect(top.map(({ id }) => id)).not.toContain('spotify:track-99');
+      expect(top.map(({ id }) => id)).not.toContain('spotify:track-100');
+      expect(top.find(({ title }) => title === 'Confused')?.id).toBe(
+        'alb-clear'
+      );
+      const simple = top.find(({ title }) => title === 'Mere');
+      expect(simple?.id).toBeNull();
+      // ...mais le snapshot sert la lecture directe.
+      expect(simple?.track.id).toBe('spotify:track-100');
+    });
+  });
+
   it('snapshot sans état de lecture transitoire', async () => {
     const playingTrack = { ...track('live'), isPlaying: true };
     await recordPlay(playingTrack);

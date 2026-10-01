@@ -10,8 +10,13 @@ export {
   updateRecentlyPlayed,
   checkSavedAlbums,
 } from './albums';
+export type { UserTopAlbumModel } from './albums';
 
-export { getArtist, getUserTopArtists, getUserFollowedArtists } from './artists';
+export {
+  getArtist,
+  getUserTopArtists,
+  getUserFollowedArtists,
+} from './artists';
 
 export {
   getSavedPlaylists,

@@ -6,3 +6,4 @@ export {
 } from './recentlyPlayedAlbums';
 export { checkSavedAlbums, getSavedAlbums } from './savedAlbums';
 export { getUserTopAlbums } from './topAlbums';
+export type { UserTopAlbumModel } from './topAlbums';

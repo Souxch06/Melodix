@@ -11,40 +11,9 @@ import { COLORS, RECENTLY_PLAYED_COVER_SIZE } from '@config';
 import { getFallbackImage } from '@utils';
 import { translations } from '@data';
 import { usePlayer } from '@context';
-import type { PlayerTrack } from '@services';
-import { audiusTrackSource, spotifyTrackSource } from '@services';
+import { playerTrackFromHistoryEntry } from '@services';
 
 import { styles } from './styles';
-
-const AUDIUS_PREFIX = 'audius:';
-const SPOTIFY_PREFIX = 'spotify:';
-
-/**
- * I-8 : l'historique stocke l'identifiant de QUEUE (déjà préfixé, validé
- * depuis toujours par le player). Lecture directe d'une tuile sans album :
- * on re-déduit la SOURCE en retirant le préfixe — jamais de double préfixe.
- */
-const playerTrackFromHistory = (item: RecentlyPlayedModel): PlayerTrack => {
-  const snapshot = item.track;
-  const id = snapshot?.id || item.id;
-  const source = id.startsWith(AUDIUS_PREFIX)
-    ? audiusTrackSource(id.slice(AUDIUS_PREFIX.length))
-    : spotifyTrackSource(
-        id.startsWith(SPOTIFY_PREFIX) ? id.slice(SPOTIFY_PREFIX.length) : id
-      );
-
-  return {
-    id, // clé inchangée : cache de matching et historique réutilisés.
-    title: snapshot?.title ?? item.title,
-    artists: snapshot?.subtitle
-      ? snapshot.subtitle.split(', ').filter(Boolean)
-      : [],
-    album: snapshot?.albumName ?? null,
-    durationMillis: snapshot?.durationMs ?? null,
-    imageURL: item.imageURL,
-    source,
-  };
-};
 
 export const RecentlyPlayed = () => {
   const [recentlyPlayedData, setRecentlyPlayedData] = React.useState<
@@ -81,7 +50,17 @@ export const RecentlyPlayed = () => {
         router.push(`/${pathname}/album/${item.albumId}`);
         return;
       }
-      void player.playQueue([playerTrackFromHistory(item)], 0);
+      void player.playQueue(
+        [
+          playerTrackFromHistoryEntry({
+            id: item.id,
+            title: item.title,
+            imageURL: item.imageURL,
+            snapshot: item.track,
+          }),
+        ],
+        0
+      );
     },
     [pathname, router, player]
   );

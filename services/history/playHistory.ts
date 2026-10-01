@@ -150,11 +150,12 @@ const topBy = (
   key: string;
   count: number;
   lastPlayedAt: number;
+  sampleEntry: PlayHistoryEntry;
   sampleTrack: TrackModel;
 }[] => {
   const buckets = new Map<
     string,
-    { count: number; lastPlayedAt: number; sampleTrack: TrackModel }
+    { count: number; lastPlayedAt: number; sampleEntry: PlayHistoryEntry }
   >();
   for (const entry of entries) {
     const key = pick(entry);
@@ -164,14 +165,18 @@ const topBy = (
     const bucket = buckets.get(key) ?? {
       count: 0,
       lastPlayedAt: 0,
-      sampleTrack: entry.track,
+      sampleEntry: entry,
     };
     bucket.count += 1;
     bucket.lastPlayedAt = Math.max(bucket.lastPlayedAt, entry.playedAt);
     buckets.set(key, bucket);
   }
   return [...buckets.entries()]
-    .map(([key, value]) => ({ key, ...value }))
+    .map(([key, value]) => ({
+      key,
+      ...value,
+      sampleTrack: value.sampleEntry.track,
+    }))
     .sort((a, b) => b.count - a.count || b.lastPlayedAt - a.lastPlayedAt)
     .slice(0, limit);
 };
@@ -189,27 +194,42 @@ export const getTopArtistsFromHistory = async (
   );
 };
 
+/**
+ * TOP-ALBUMS (extension I-8) — jamais de faux album :
+ * - regroupement par `albumId ?? albumTitle` (deux morceaux du MÊME
+ *   albumId se regroupent même si leur titre diffère ; deux albumIds
+ *   distincts restent séparés même à titre identique) ;
+ * - `id` = albumId RÉEL de l'entrée quand connu, sinon null — jamais
+ *   track.id déguisé en albumId (une tuile sans album réel reste
+ *   fonctionnelle via `track`, snapshot en lecture directe) ;
+ * - anciennes entrées sans albumId : regroupées par titre, id null.
+ */
 export const getTopAlbumsFromHistory = async (
   limit = 6
 ): Promise<
   {
-    id: string;
+    id: string | null;
     title: string;
     subtitle: string;
     imageURL?: string;
     count: number;
+    /** Snapshot du morceau échantillon : lecture directe si albumId absent. */
+    track: TrackModel;
   }[]
 > => {
   const entries = await readEntries();
-  return topBy(entries, (entry) => entry.albumTitle ?? null, limit).map(
-    ({ key, count, sampleTrack }) => ({
-      id: sampleTrack.id,
-      title: key,
-      subtitle: sampleTrack.subtitle,
-      imageURL: sampleTrack.imageURL,
-      count,
-    })
-  );
+  return topBy(
+    entries,
+    (entry) => entry.albumId ?? entry.albumTitle ?? null,
+    limit
+  ).map(({ key, count, sampleEntry, sampleTrack }) => ({
+    id: sampleEntry.albumId ?? null,
+    title: sampleEntry.albumTitle ?? sampleTrack.albumName ?? key,
+    subtitle: sampleTrack.subtitle,
+    imageURL: sampleTrack.imageURL,
+    count,
+    track: sampleTrack,
+  }));
 };
 
 /** Historique vide = sections masquées plutôt que vides. */
