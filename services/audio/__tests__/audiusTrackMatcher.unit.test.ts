@@ -452,3 +452,259 @@ describe('findBestAudiusMatch — cascade multi-requêtes (spécification matchi
     ).resolves.toBeNull();
   });
 });
+
+describe('matchSongs — portes durcies (titre partiel, duree)', () => {
+  const cand = (
+    id: string,
+    title: string,
+    artists: string[],
+    extra?: Partial<{
+      album: string | null;
+      durationSec: number | null;
+    }>
+  ): Candidate => ({
+    id,
+    title,
+    artistNames: artists,
+    album: extra?.album,
+    durationSec: extra?.durationSec ?? undefined,
+  });
+
+  // — Porte « titre partiel → 0 point de titre » —
+
+  it('titre partiel seul (prefixe) SANS album : JAMAIS accepte', () => {
+    expect(
+      matchSongs(source('Tame', ['Neffex'], { durationSec: 189 }), [
+        cand('p1', 'Tame the Beast Unleashed', ['Neffex'], {
+          durationSec: 189,
+        }),
+      ])
+    ).toBeNull();
+  });
+
+  it('titre partiel + album PARTIEL seulement : JAMAIS accepte', () => {
+    expect(
+      matchSongs(source('Tame', ['Neffex'], { album: 'Afterglow' }), [
+        cand('p2', 'Tame the Beast Unleashed', ['Neffex'], {
+          album: 'Afterglow Deluxe Sessions',
+        }),
+      ])
+    ).toBeNull();
+  });
+
+  it('titre partiel porte par album EXACT + artiste + duree proche : accepte (voie album-only)', () => {
+    const match = matchSongs(
+      source('Tame', ['Neffex'], { album: 'Afterglow', durationSec: 189 }),
+      [
+        cand('ok', 'Tame the Beast', ['Neffex'], {
+          album: 'Afterglow',
+          durationSec: 190,
+        }),
+      ]
+    );
+
+    expect(match?.id).toBe('ok');
+  });
+
+  it('titre partiel + album exact MAIS artiste incompatible : JAMAIS accepte (porte artiste intacte)', () => {
+    expect(
+      matchSongs(source('Tame', ['Neffex'], { album: 'Afterglow' }), [
+        cand('bad-artist', 'Tame the Beast', ['Somebody Else'], {
+          album: 'Afterglow',
+        }),
+      ])
+    ).toBeNull();
+  });
+
+  it('titre partiel via chiffres retires (song 1 vs song 2) : JAMAIS accepte sans album', () => {
+    expect(
+      matchSongs(source('Song 1', ['Neffex'], { durationSec: 200 }), [
+        cand('digits', 'Song 2', ['Neffex'], { durationSec: 200 }),
+      ])
+    ).toBeNull();
+  });
+
+  it('titre partiel + album inconnu + artiste plein + duree pile : JAMAIS accepte (regression pre-durcissement)', () => {
+    // Avant le durcissement : 18 (titre) + 25 (artiste) + 20 (duree) = 63
+    // passait le seuil. Desormais 0 + 25 + 20 = 45 → rejete. (Formulation
+    // sans parentheses : elles rendraient le titre canoniquement EXACT.)
+    expect(
+      matchSongs(source('Tame', ['Neffex'], { durationSec: 189 }), [
+        cand('reg', 'Tame Extended Universe Sessions', ['Neffex'], {
+          durationSec: 189,
+        }),
+      ])
+    ).toBeNull();
+  });
+
+  it('titre partiel + album exact + artiste FAIBLE : JAMAIS accepte (sous le seuil)', () => {
+    // 0 (titre) + 16 (artiste overlap 1/2, sans l artiste principal) + 15
+    // (album) + 20 (duree) = 51 < 55 → rejete.
+    expect(
+      matchSongs(
+        source('Tame', ['Neffex', 'North'], {
+          album: 'Afterglow',
+          durationSec: 189,
+        }),
+        [
+          cand('weak-artist', 'Tame the Beast', ['North'], {
+            album: 'Afterglow',
+            durationSec: 189,
+          }),
+        ],
+        { minimumAcceptedScore: 55 }
+      )
+    ).toBeNull();
+  });
+
+  it('titre partiel + album exact + variante dure (remix) : JAMAIS accepte', () => {
+    expect(
+      matchSongs(source('Tame', ['Neffex'], { album: 'Afterglow' }), [
+        cand('remix', 'Tame the Beast (Remix)', ['Neffex'], {
+          album: 'Afterglow',
+          durationSec: 189,
+        }),
+      ])
+    ).toBeNull();
+  });
+
+  it('titre EXACT bat un titre partiel porte par album exact (best-of)', () => {
+    const match = matchSongs(
+      source('Tame', ['Neffex'], { album: 'Afterglow', durationSec: 189 }),
+      [
+        cand('partial-first', 'Tame the Beast', ['Neffex'], {
+          album: 'Afterglow',
+          durationSec: 189,
+        }),
+        cand('exact', 'Tame', ['Neffex'], {
+          album: 'Afterglow',
+          durationSec: 189,
+        }),
+      ]
+    );
+
+    expect(match?.id).toBe('exact');
+  });
+
+  // — Porte « duree > 60 s ET > 30 % → rejet » —
+
+  it('ecart duree massif (200 s, 51 %) : JAMAIS accepte, meme tout exact', () => {
+    expect(
+      matchSongs(
+        source('Tame', ['Neffex'], { album: 'Afterglow', durationSec: 189 }),
+        [
+          cand('long', 'Tame', ['Neffex'], {
+            album: 'Afterglow',
+            durationSec: 389,
+          }),
+        ]
+      )
+    ).toBeNull();
+  });
+
+  it('ecart duree massif dans l autre sens (candidat plus court) : JAMAIS accepte', () => {
+    expect(
+      matchSongs(
+        source('Tame', ['Neffex'], { album: 'Afterglow', durationSec: 380 }),
+        [
+          cand('short', 'Tame', ['Neffex'], {
+            album: 'Afterglow',
+            durationSec: 180,
+          }),
+        ]
+      )
+    ).toBeNull();
+  });
+
+  it('ecart > 60 s MAIS <= 30 % (70 s sur 300 s) : la porte ne rejette PAS', () => {
+    const match = matchSongs(
+      source('Tame', ['Neffex'], { album: 'Afterglow', durationSec: 300 }),
+      [
+        cand('borderline', 'Tame', ['Neffex'], {
+          album: 'Afterglow',
+          durationSec: 230,
+        }),
+      ]
+    );
+
+    expect(match?.id).toBe('borderline');
+  });
+
+  it('ecart > 30 % MAIS <= 60 s (50 s sur 100 s) : la porte ne rejette PAS', () => {
+    const match = matchSongs(
+      source('Tame', ['Neffex'], { album: 'Afterglow', durationSec: 100 }),
+      [
+        cand('borderline2', 'Tame', ['Neffex'], {
+          album: 'Afterglow',
+          durationSec: 150,
+        }),
+      ]
+    );
+
+    expect(match?.id).toBe('borderline2');
+  });
+
+  it('duree source inconnue : la porte duree ne rejette JAMAIS', () => {
+    const match = matchSongs(
+      source('Tame', ['Neffex'], { album: 'Afterglow' }),
+      [
+        cand('unknown-src', 'Tame', ['Neffex'], {
+          album: 'Afterglow',
+          durationSec: 9999,
+        }),
+      ]
+    );
+
+    expect(match?.id).toBe('unknown-src');
+  });
+
+  it('duree candidate inconnue : la porte duree ne rejette JAMAIS', () => {
+    const match = matchSongs(
+      source('Tame', ['Neffex'], { album: 'Afterglow', durationSec: 189 }),
+      [cand('unknown-cand', 'Tame', ['Neffex'], { album: 'Afterglow' })]
+    );
+
+    expect(match?.id).toBe('unknown-cand');
+  });
+
+  it('cumul titre partiel + ecart duree massif : double porte, JAMAIS accepte', () => {
+    expect(
+      matchSongs(
+        source('Tame', ['Neffex'], { album: 'Afterglow', durationSec: 189 }),
+        [
+          cand('double', 'Tame the Beast', ['Neffex'], {
+            album: 'Afterglow',
+            durationSec: 500,
+          }),
+        ]
+      )
+    ).toBeNull();
+  });
+
+  it('extended mix refoule, version originale preferee dans la meme liste', () => {
+    const match = matchSongs(
+      source('Tame', ['Neffex'], { album: 'Afterglow', durationSec: 189 }),
+      [
+        cand('extended', 'Tame (Extended Mix)', ['Neffex'], {
+          album: 'Afterglow',
+          durationSec: 420,
+        }),
+        cand('original', 'Tame', ['Neffex'], {
+          album: 'Afterglow',
+          durationSec: 189,
+        }),
+      ]
+    );
+
+    expect(match?.id).toBe('original');
+  });
+
+  it('tout-rejet par la porte duree → null (pas de meilleur candidat)', () => {
+    expect(
+      matchSongs(source('Tame', ['Neffex'], { durationSec: 200 }), [
+        cand('x1', 'Tame', ['Neffex'], { durationSec: 480 }),
+        cand('x2', 'Tame', ['Neffex'], { durationSec: 550 }),
+      ])
+    ).toBeNull();
+  });
+});

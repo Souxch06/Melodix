@@ -332,6 +332,31 @@ const durationScore = (
   return 0;
 };
 
+/**
+ * Porte durée DURE : un écart > 60 s ET > 30 % ne peut être qu'un autre
+ * enregistrement (extended mix, version club, reprise ralongée) — jamais le
+ * même morceau. Durée inconnue d'un côté ou de l'autre : la porte ne dit rien.
+ */
+const durationGateRejects = (
+  expectedSec: number | null | undefined,
+  actualSec: number | null | undefined
+): boolean => {
+  if (
+    typeof expectedSec !== 'number' ||
+    typeof actualSec !== 'number' ||
+    !Number.isFinite(expectedSec) ||
+    !Number.isFinite(actualSec) ||
+    expectedSec <= 0 ||
+    actualSec <= 0
+  ) {
+    return false;
+  }
+
+  const diff = Math.abs(expectedSec - actualSec);
+
+  return diff > 60 && diff / Math.max(expectedSec, actualSec) > 0.3;
+};
+
 export const matchSongs = (
   source: SongFingerprint,
   candidates: SongMatchCandidate[],
@@ -382,6 +407,12 @@ export const matchSongs = (
       candidate.durationSec
     );
 
+    // Porte durée dure : un écart massif = autre enregistrement, jamais un
+    // match — peu importe la force du titre/artiste/album.
+    if (durationGateRejects(source.durationSec, candidate.durationSec)) {
+      continue;
+    }
+
     const candidateFingerprint = fingerprintOf({
       title: candidate.title,
       artistNames: candidateArtistNames,
@@ -401,9 +432,12 @@ export const matchSongs = (
       ? HARD_VARIANT_PENALTY
       : 0;
 
+    // Titre PARTIEL = 0 point de titre (durci) : un titre seulement
+    // apparenté n'ouvre plus la porte à lui seul — il ne peut survivre que
+    // porté par les autres signaux (album exact 15 pts, artiste, durée).
     const score =
       Math.round(
-        (titleStatus === 'exact' ? 35 : titleStatus === 'partial' ? 18 : 0) +
+        (titleStatus === 'exact' ? 35 : 0) +
           (exactTitle ? 5 : 0) +
           artistAgreement * 25 +
           (albumStatus === 'exact' ? 15 : albumStatus === 'partial' ? 7 : 0) +
