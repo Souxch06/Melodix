@@ -30,6 +30,17 @@ find_build_tool() {
   printf '%s' "$candidate"
 }
 
+find_sdk_tool() {
+  local name=$1
+  local candidate
+  candidate=$(command -v "$name" 2>/dev/null || true)
+  if [[ -z "$candidate" ]]; then
+    candidate=$(find "${ANDROID_HOME:?ANDROID_HOME absent}"/cmdline-tools -type f -name "$name" -print 2>/dev/null | sort -V | tail -1)
+  fi
+  [[ -n "$candidate" ]] || fail "outil Android SDK introuvable: $name"
+  printf '%s' "$candidate"
+}
+
 [[ -f "$APK" ]] || fail "fichier absent: $APK"
 [[ -s "$APK" ]] || fail "fichier vide: $APK"
 size=$(stat -c '%s' "$APK")
@@ -38,6 +49,7 @@ size=$(stat -c '%s' "$APK")
 AAPT2=$(find_build_tool aapt2)
 APKSIGNER=$(find_build_tool apksigner)
 ZIPALIGN=$(find_build_tool zipalign)
+APKANALYZER=$(find_sdk_tool apkanalyzer)
 
 # Le rapport est aussi publié avec l'APK : il permet de diagnostiquer un refus
 # d'installation sans dépendre des logs éphémères du runner.
@@ -69,8 +81,11 @@ version_name=$(sed -n "s/.* versionName='\([^']*\)'.*/\1/p" <<<"$package_line")
 [[ "$package_name" == "$EXPECTED_PACKAGE" ]] || fail "package '$package_name' != '$EXPECTED_PACKAGE'"
 [[ "$version_code" == "$EXPECTED_VERSION_CODE" ]] || fail "versionCode '$version_code' != '$EXPECTED_VERSION_CODE'"
 [[ "$version_name" == "$EXPECTED_VERSION_NAME" ]] || fail "versionName '$version_name' != '$EXPECTED_VERSION_NAME'"
-min_sdk=$(sed -n "s/^sdkVersion:'\([^']*\)'.*/\1/p" <<<"$badging" | head -1)
-target_sdk=$(sed -n "s/^targetSdkVersion:'\([^']*\)'.*/\1/p" <<<"$badging" | head -1)
+# apkanalyzer est utilisé pour les SDK : contrairement à `aapt2 badging`, il
+# expose ces valeurs de façon stable avec les build-tools récents.
+min_sdk=$($APKANALYZER manifest min-sdk "$APK" | tr -d '\r\n')
+target_sdk=$($APKANALYZER manifest target-sdk "$APK" | tr -d '\r\n')
+echo "apkanalyzer: minSdk=$min_sdk targetSdk=$target_sdk"
 [[ "$min_sdk" == "$EXPECTED_MIN_SDK" ]] || fail "minSdk '$min_sdk' != '$EXPECTED_MIN_SDK'"
 [[ "$target_sdk" == "$EXPECTED_TARGET_SDK" ]] || fail "targetSdk '$target_sdk' != '$EXPECTED_TARGET_SDK'"
 
