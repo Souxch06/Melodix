@@ -310,35 +310,10 @@ jobs:
           profile: pixel_2
           disable-animations: true
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
-          script: |
-            # L'action exécute ce bloc avec /usr/bin/sh, pas Bash.
-            set -u
-            APK="${{ steps.apk.outputs.name }}"
-            PACKAGE=com.souxch06.melodix
-            fail() { echo "::error title=Test installation Android::$1"; exit 1; }
-            adb logcat -c || fail "impossible de vider logcat"
-            # Installation propre, puis mise à jour avec le même certificat :
-            # couvre à la fois un premier install et la cohérence de signature.
-            CLEAN=$(adb install --no-streaming "$APK" 2>&1) || fail "installation propre refusée : $CLEAN"
-            echo "$CLEAN"
-            UPDATE=$(adb install --no-streaming -r "$APK" 2>&1) || fail "mise à jour refusée : $UPDATE"
-            echo "$UPDATE"
-            PACKAGE_INFO=$(adb shell dumpsys package "$PACKAGE" 2>&1) || fail "dumpsys package impossible : $PACKAGE_INFO"
-            printf '%s\n' "$PACKAGE_INFO" | grep -Fq 'versionCode=44008' || fail "versionCode 44008 absente après installation"
-            adb shell am force-stop "$PACKAGE" || fail "force-stop impossible"
-            START=$(adb shell am start -W -n "$PACKAGE/.MainActivity" 2>&1) || fail "MainActivity non lançable : $START"
-            echo "$START"
-            printf '%s\n' "$START" | grep -Fq 'Status: ok' || fail "ActivityManager n'a pas confirmé le lancement : $START"
-            sleep 8
-            PID=$(adb shell pidof -s "$PACKAGE" 2>/dev/null | tr -d '\r' || true)
-            if [ -z "$PID" ]; then
-              adb logcat -d -v time | tail -300
-              echo "::error title=Lancement Android::le processus $PACKAGE s'est arrêté après installation"
-              exit 1
-            fi
-            echo "Processus Melodix actif : pid=$PID"
-            echo "::notice title=Installation Android réelle::installation propre + mise à jour + lancement réussis sur Android 14 x86_64 (pid=$PID)"
-            echo "- Installation Android 14 : propre + mise à jour + lancement vérifiés sur émulateur x86_64" >> "$GITHUB_STEP_SUMMARY"
+          # Cette action découpe une valeur multiligne et exécute chaque ligne
+          # dans un shell indépendant. Toute la vérification doit donc vivre
+          # dans un script versionné appelé par une unique ligne.
+          script: scripts/smoke-test-android-apk.sh "${{ steps.apk.outputs.name }}"
 
       - name: Diagnostic OAuth Spotify (TEMPORAIRE — build de test)
         # Oracle build-level : révèle QUELLE branche de la chaîne
