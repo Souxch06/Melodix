@@ -96,7 +96,7 @@ echo '=== AndroidManifest final ==='
 # composants du manifest fusionné réellement embarqué.
 manifest_xml=$($APKANALYZER manifest print "$APK")
 printf '%s\n' "$manifest_xml"
-grep -Eq "<data[^>]*android:scheme=\"$EXPECTED_SCHEME\"" <<<"$manifest_xml" || fail "scheme '$EXPECTED_SCHEME' absent"
+grep -Fq "android:scheme=\"$EXPECTED_SCHEME\"" <<<"$manifest_xml" || fail "scheme '$EXPECTED_SCHEME' absent"
 grep -Fq 'expo.modules.melodixmedia.MelodixMediaService' <<<"$manifest_xml" || fail 'MediaSessionService absent du manifest final'
 grep -Fq 'android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK' <<<"$manifest_xml" || fail 'permission mediaPlayback absente'
 # Ces permissions ne correspondent à aucune fonction de Melodix et rendent
