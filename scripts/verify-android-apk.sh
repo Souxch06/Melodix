@@ -147,7 +147,7 @@ printf '%s\n' "$signing"
 grep -Fq 'Verifies' <<<"$signing" || fail 'signature APK invalide'
 grep -Eq 'Verified using v1 scheme.*: true' <<<"$signing" || fail 'signature v1 absente (requise pour minSdk 23)'
 grep -Eq 'Verified using v2 scheme.*: true' <<<"$signing" || fail 'signature v2 absente'
-cert_sha256=$(sed -n 's/^Signer #1 certificate SHA-256 digest: //p' <<<"$signing" | head -1 | tr '[:upper:]' '[:lower:]')
+cert_sha256=$(sed -nE 's/^(Signer #1|V3\.0 Signer): certificate SHA-256 digest: //p' <<<"$signing" | head -1 | tr '[:upper:]' '[:lower:]')
 [[ "$cert_sha256" =~ ^[0-9a-f]{64}$ ]] || fail 'certificat signataire absent'
 if [[ -n "$EXPECTED_CERT_SHA256" ]]; then
   expected_cert=$(tr '[:upper:]' '[:lower:]' <<<"$EXPECTED_CERT_SHA256")

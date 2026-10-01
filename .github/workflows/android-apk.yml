@@ -290,7 +290,7 @@ jobs:
             exit "$VERIFY_EXIT"
           fi
           INFO=$(grep -E "^(package|application-label|sdkVersion|minSdkVersion|targetSdkVersion|native-code):" apk-inspection.txt | tr '\n' ' ')
-          CERT=$(grep '^Signer #1 certificate SHA-256 digest:' apk-inspection.txt | head -1)
+          CERT=$(grep -E '^(Signer #1|V3\.0 Signer): certificate SHA-256 digest:' apk-inspection.txt | head -1)
           echo "::notice title=$APK::$INFO| $CERT | taille $(du -h "$APK" | cut -f1) | sha256 $(sha256sum "$APK" | cut -d' ' -f1)"
           echo "::notice title=Deep link OAuth::scheme melodix présent dans l'APK (melodix://callback déclenchable)"
 
