@@ -174,4 +174,23 @@ describe('PlaylistScreen — pagination (I-6/I-7)', () => {
     expect(ids).toHaveLength(TOTAL);
     expect(new Set(ids).size).toBe(TOTAL);
   });
+
+  it('playlist VIDE : aucune requête de pistes, aucune ligne (I-6)', async () => {
+    getPlaylistMock.mockResolvedValue({
+      ...fakePlaylist,
+      tracks: { total: 0 },
+    });
+
+    render(<PlaylistScreen playlistId="pl" />);
+    await act(async () => {});
+
+    expect(getPlaylistItemsMock).not.toHaveBeenCalled();
+    expect(mockCaptured.current.tracks ?? []).toHaveLength(0);
+
+    // Même un déclenchement de fin de liste n'émet aucune requête.
+    await act(async () => {
+      mockCaptured.current.fetchTracks?.();
+    });
+    expect(getPlaylistItemsMock).not.toHaveBeenCalled();
+  });
 });

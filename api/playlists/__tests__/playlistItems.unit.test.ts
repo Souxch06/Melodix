@@ -235,4 +235,19 @@ describe('getPlaylistItems — repli backend : pagination (I-7)', () => {
     expect(items).toHaveLength(50);
     expect(items[0].id).toBe('t0');
   });
+
+  it('bornes sûres : limit invalide (0) ne produit pas une page vide muette', async () => {
+    backendGetPlaylistMock.mockResolvedValue(backendTracksOf(100));
+
+    // limit=0 → bornée à 1 (bornes sûres) : toujours au moins le morceau à
+    // l'offset — jamais d'écran vide trompeur ni de boucle sans progrès.
+    const items = await getPlaylistItems({
+      playlistId: 'pl',
+      limit: 0,
+      offset: 10,
+    });
+
+    expect(items).toHaveLength(1);
+    expect(items[0].id).toBe('t10');
+  });
 });

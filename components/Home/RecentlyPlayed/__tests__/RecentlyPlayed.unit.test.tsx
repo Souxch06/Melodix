@@ -133,6 +133,24 @@ describe('RecentlyPlayed — navigation album (I-8)', () => {
     });
   });
 
+  it('track Audius AVEC albumId → bonne page album (même règle que Spotify)', async () => {
+    const { getByText } = await renderWith([
+      {
+        id: 'audius:aud-11',
+        title: 'Audius Album',
+        imageURL: '',
+        albumId: 'aud-alb-3',
+        track: { id: 'audius:aud-11', title: 'Audius Song', subtitle: 'DJ' },
+      },
+    ]);
+
+    fireEvent.press(getByText('Audius Album'));
+
+    expect(mockPush).toHaveBeenCalledTimes(1);
+    expect(mockPush).toHaveBeenCalledWith('/(tabs)/home/album/aud-alb-3');
+    expect(mockPlayQueue).not.toHaveBeenCalled();
+  });
+
   it('entrée Audius native : lecture directe avec source audius (pas de matching)', async () => {
     const { getByText } = await renderWith([
       {
