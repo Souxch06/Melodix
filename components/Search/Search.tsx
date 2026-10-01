@@ -79,12 +79,16 @@ export const Search = () => {
   );
 
   // Tracks of the catalog play immediately (metadata → Audius stream).
+  // I-2 : album + durée du résultat voyagent dans le PlayerTrack jusqu'au
+  // matcher — le badge de disponibilité et la lecture matchent à l'identique.
   const handleTrackPress = React.useCallback(
     (track: {
       id: string;
       title: string;
       subtitle?: string;
       imageURL?: string;
+      durationMs?: number | null;
+      albumName?: string | null;
     }) => {
       const queueId = queueIdForTrackId(track.id);
 
@@ -101,13 +105,17 @@ export const Search = () => {
       }
 
       void player.playQueue(
-        playable.map(({ id, title, subtitle, imageURL }) => ({
-          id: queueIdForTrackId(id),
-          title,
-          artists: subtitle ? subtitle.split(', ').filter(Boolean) : [],
-          imageURL: imageURL ?? '',
-          source: sourceForTrackId(id),
-        })),
+        playable.map(
+          ({ id, title, subtitle, imageURL, albumName, durationMs }) => ({
+            id: queueIdForTrackId(id),
+            title,
+            artists: subtitle ? subtitle.split(', ').filter(Boolean) : [],
+            album: albumName ?? null,
+            durationMillis: durationMs ?? null,
+            imageURL: imageURL ?? '',
+            source: sourceForTrackId(id),
+          })
+        ),
         startIndex
       );
     },
@@ -122,6 +130,8 @@ export const Search = () => {
       title: string;
       subtitle?: string;
       imageURL?: string;
+      durationMs?: number | null;
+      albumName?: string | null;
     }) => {
       if (!track.id) {
         return;
@@ -133,6 +143,8 @@ export const Search = () => {
         artists: track.subtitle
           ? track.subtitle.split(', ').filter(Boolean)
           : [],
+        album: track.albumName ?? null,
+        durationMillis: track.durationMs ?? null,
         imageURL: track.imageURL ?? '',
         source: sourceForTrackId(track.id),
       });

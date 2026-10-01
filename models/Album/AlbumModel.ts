@@ -14,6 +14,9 @@ export type AlbumModel = {
       subtitle: string;
       imageURL?: string;
       explicit?: boolean;
+      /** Métadonnées de matching (I-2) propagées à PlayerTrack → matcher. */
+      durationMs?: number | null;
+      albumName?: string | null;
     }[];
   };
   duration: number;

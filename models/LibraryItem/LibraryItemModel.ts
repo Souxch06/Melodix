@@ -9,4 +9,11 @@ export type LibraryItemModel = {
   ownerId?: string;
   /** Playlists Spotify : nombre total de titres (affiché sur la carte). */
   totalTracks?: number;
+  /**
+   * Métadonnées de matching (I-2) pour les items de type 'track' (recherche,
+   * recommandations) : propagées au PlayerTrack → matcher. null/absentes si
+   * la source ne les fournit pas.
+   */
+  durationMs?: number | null;
+  albumName?: string | null;
 };

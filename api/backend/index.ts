@@ -7,11 +7,7 @@
  */
 
 import { backendGet } from '@services';
-import {
-  LibraryItemModel,
-  SearchResultsModel,
-  TrackModel,
-} from '@models';
+import { LibraryItemModel, SearchResultsModel, TrackModel } from '@models';
 
 import type {
   AlbumMetadataDTO,
@@ -33,13 +29,19 @@ const artistsToSubtitle = (artists: string[]): string =>
 
 /**
  * DTO piste → carte bibliothèque (type 'track' : jouable immédiatement).
+ * Durée + album propagés (I-2) : la recherche joue ces pistes et le matcher
+ * a besoin des mêmes métadonnées que partout ailleurs.
  */
-export const dtoTrackToLibraryItem = (dto: TrackMetadataDTO): LibraryItemModel => ({
+export const dtoTrackToLibraryItem = (
+  dto: TrackMetadataDTO
+): LibraryItemModel => ({
   id: dto.id,
   type: 'track',
   title: dto.title,
   subtitle: artistsToSubtitle(dto.artists),
   imageURL: dto.coverUrl ?? '',
+  durationMs: dto.durationMs ?? null,
+  albumName: dto.album ?? null,
 });
 
 /** DTO piste → TrackModel du player (le resolver s'occupe de l'audio). */
@@ -48,6 +50,8 @@ export const dtoTrackToTrackModel = (dto: TrackMetadataDTO): TrackModel => ({
   title: dto.title,
   subtitle: artistsToSubtitle(dto.artists),
   imageURL: dto.coverUrl ?? undefined,
+  durationMs: dto.durationMs ?? null,
+  albumName: dto.album ?? null,
 });
 
 const dtoAlbumToLibraryItem = (dto: AlbumMetadataDTO): LibraryItemModel => ({
@@ -100,14 +104,18 @@ export const backendSearchTracks = async (
   return results?.tracks ?? [];
 };
 
-export const backendGetTrack = async (id: string): Promise<TrackMetadataDTO> => {
+export const backendGetTrack = async (
+  id: string
+): Promise<TrackMetadataDTO> => {
   const { track } = await backendGet<{ track: TrackMetadataDTO }>(
     `/api/v1/tracks/${encodeURIComponent(id)}`
   );
   return track;
 };
 
-export const backendGetAlbum = async (id: string): Promise<AlbumMetadataDTO> => {
+export const backendGetAlbum = async (
+  id: string
+): Promise<AlbumMetadataDTO> => {
   const { album } = await backendGet<{ album: AlbumMetadataDTO }>(
     `/api/v1/albums/${encodeURIComponent(id)}`
   );

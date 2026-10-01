@@ -27,6 +27,10 @@ export const getAlbum = async (albumId: string): Promise<AlbumModel> => {
           title: track.title,
           subtitle: track.artists.join(', '),
           imageURL: track.coverUrl ?? dto.coverUrl ?? undefined,
+          // Métadonnées de matching (I-2) : la durée vient de la source ;
+          // l'album est celui-ci par construction.
+          durationMs: track.durationMs ?? null,
+          albumName: dto.title,
         })),
       },
       duration: tracks.reduce(
@@ -38,7 +42,10 @@ export const getAlbum = async (albumId: string): Promise<AlbumModel> => {
       label: '',
     };
   } catch (error) {
-    console.error(`Erreur lors de la récupération de l'album : ${albumId}`, error);
+    console.error(
+      `Erreur lors de la récupération de l'album : ${albumId}`,
+      error
+    );
     throw error;
   }
 };

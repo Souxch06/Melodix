@@ -121,13 +121,10 @@ const toTrackModel = (raw: SpotifyTrackRaw): TrackModel | null => {
     subtitle: artistNames.join(', ') || 'Artiste inconnu',
     imageURL: raw.album?.images?.[0]?.url,
     explicit: !!raw.explicit,
-    // Durée et album conservés via le modèle d'extension (cf. queuePlayerTrack
-    // de Preview : les tracks lues embarquent déjà leurs métadonnées).
-    ...({
-      durationMs: raw.duration_ms,
-      albumId: raw.album?.id,
-      albumName: raw.album?.name,
-    } as Partial<TrackModel>),
+    // Durée + album = métadonnées de MATCHING (I-2) : champs typés du modèle,
+    // propagés au PlayerTrack par les écrans jusqu'au matcher partagé.
+    durationMs: typeof raw.duration_ms === 'number' ? raw.duration_ms : null,
+    albumName: raw.album?.name ?? null,
   };
 };
 

@@ -15,7 +15,8 @@ import {
 
 const AUDIUS_PREFIX = 'audius:';
 
-const isAudiusPlaylistId = (id: string): boolean => id.startsWith(AUDIUS_PREFIX);
+const isAudiusPlaylistId = (id: string): boolean =>
+  id.startsWith(AUDIUS_PREFIX);
 
 const audiusIdOf = (id: string): string => id.slice(AUDIUS_PREFIX.length);
 
@@ -59,7 +60,10 @@ export const getPlaylist = async (
     try {
       return await getSpotifyPlaylist(playlistId);
     } catch (error) {
-      if (error instanceof SpotifyApiError && error.kind === 'unauthenticated') {
+      if (
+        error instanceof SpotifyApiError &&
+        error.kind === 'unauthenticated'
+      ) {
         throw error; // session morte : l'écran affichera la reconnexion
       }
       // 5C.1 : cause EXPLICITE du repli (404 = contenu non servi par l'API
@@ -102,7 +106,10 @@ export const getPlaylistItems = async ({
   if (isAudiusPlaylistId(playlistId)) {
     const tracks = await audiusGet<AudiusPlaylistTracksRaw>(
       `/playlists/${encodeURIComponent(audiusIdOf(playlistId))}/tracks`,
-      { limit: String(Math.min(Math.max(limit, 1), 100)), offset: String(offset) }
+      {
+        limit: String(Math.min(Math.max(limit, 1), 100)),
+        offset: String(offset),
+      }
     );
     return (tracks ?? [])
       .filter((track): track is AudiusTrackMatch => Boolean(track && track.id))
@@ -113,7 +120,10 @@ export const getPlaylistItems = async ({
     try {
       return await getSpotifyPlaylistTracksPage(playlistId, { limit, offset });
     } catch (error) {
-      if (error instanceof SpotifyApiError && error.kind === 'unauthenticated') {
+      if (
+        error instanceof SpotifyApiError &&
+        error.kind === 'unauthenticated'
+      ) {
         throw error;
       }
       // 5C.1 : cause EXPLICITE du repli — surtout un 404 /items (playlist
@@ -134,5 +144,9 @@ export const getPlaylistItems = async ({
     title: track.title,
     subtitle: track.artists.join(', '),
     imageURL: track.coverUrl ?? undefined,
+    // Métadonnées de matching propagées (I-2) — absentes = null, jamais
+    // d'invention : le matcher voit les mêmes données que le chemin Spotify.
+    durationMs: track.durationMs ?? null,
+    albumName: track.album ?? null,
   }));
 };

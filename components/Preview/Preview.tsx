@@ -101,6 +101,8 @@ export const Preview = ({
 
   // Rows are playable everywhere: Spotify metadata is matched to an Audius
   // stream at play time (services/audio), the user never picks a provider.
+  // I-2 : album + durée de la source voyagent jusqu'au matcher — mêmes
+  // métadonnées ici que dans le badge de disponibilité (usePlaylistResolutions).
   const playableQueue = React.useMemo<PlayerTrack[]>(
     () =>
       (tracks ?? [])
@@ -111,7 +113,8 @@ export const Preview = ({
           artists: track.subtitle
             ? track.subtitle.split(', ').filter(Boolean)
             : [],
-          album: type === 'album' ? summaryTitle : null,
+          album: track.albumName ?? (type === 'album' ? summaryTitle : null),
+          durationMillis: track.durationMs ?? null,
           imageURL: track.imageURL ?? '',
           source: sourceOfTrackId(track.id),
         })),
@@ -143,19 +146,24 @@ export const Preview = ({
     null
   );
 
-  const openActions = React.useCallback((item: TrackModel) => {
-    if (!item.id) {
-      return;
-    }
+  const openActions = React.useCallback(
+    (item: TrackModel) => {
+      if (!item.id) {
+        return;
+      }
 
-    setActionTrack({
-      id: queueIdForTrackId(item.id),
-      title: item.title,
-      artists: item.subtitle ? item.subtitle.split(', ').filter(Boolean) : [],
-      imageURL: item.imageURL ?? '',
-      source: sourceForTrackId(item.id),
-    });
-  }, []);
+      setActionTrack({
+        id: queueIdForTrackId(item.id),
+        title: item.title,
+        artists: item.subtitle ? item.subtitle.split(', ').filter(Boolean) : [],
+        album: item.albumName ?? (type === 'album' ? summaryTitle : null),
+        durationMillis: item.durationMs ?? null,
+        imageURL: item.imageURL ?? '',
+        source: sourceForTrackId(item.id),
+      });
+    },
+    [type, summaryTitle]
+  );
 
   // Déstructuré pour des dépendances de hook explicites et stables.
   const playerCurrentId = player.current?.id;
