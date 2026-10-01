@@ -198,9 +198,13 @@ class MelodixPlayer {
    * didJustFinish=true sur un nouveau tick du même vieux son pendant la
    * résolution du morceau suivant (field collant jusqu'à l'unload). */
   private lastFinishHandledForToken = -1;
-  /** DIAG 4.4.5-diagnostic : SOUND_PLAYING n'est tracé qu'une fois par son. */
-  /** Seek à consommer au prochain démarrage effectif du son (restauration). */
+  /** Seek à consommer au démarrage effectif du son visé UNIQUEMENT (jamais
+   * appliqué à un autre morceau : tag d'identité — voir pendingSeekForId). */
   private pendingSeekMillis = 0;
+  /** Morceau auquel le seek pendant est destiné (sans ce tag, un changement
+   * de morceau AVANT l'arrivée du son faisait atterrir la cible de seek du
+   * morceau A sur le morceau B). */
+  private pendingSeekForId: string | null = null;
   /** Persistance session : dernière écriture + état déjà écrit (anti-spam). */
   private lastPersistedAt = 0;
   private sessionDirty = false;
@@ -767,15 +771,20 @@ class MelodixPlayer {
         durationMillis: track.durationMillis ?? this.state.durationMillis,
       });
 
-      // Reprise de session : position mémorisée consommée UNE fois le son prêt.
+      // Seek en attente : consommé UNE fois, UNIQUEMENT pour le morceau visé
+      // — un seek destiné à A ne se retrouve jamais appliqué à B.
       if (this.pendingSeekMillis > 0) {
         const target = this.pendingSeekMillis;
+        const targetForId = this.pendingSeekForId;
         this.pendingSeekMillis = 0;
-        try {
-          await sound.setPositionAsync(target);
-          this.emit({ positionMillis: target });
-        } catch (seekError) {
-          console.warn('Restore seek failed (tolerated):', seekError);
+        this.pendingSeekForId = null;
+        if (targetForId === track.id) {
+          try {
+            await sound.setPositionAsync(target);
+            this.emit({ positionMillis: target });
+          } catch (seekError) {
+            console.warn('Restore seek failed (tolerated):', seekError);
+          }
         }
       }
 
@@ -887,8 +896,9 @@ class MelodixPlayer {
       // 5D §3 (seek avant durée connue) : pas de sound à commander — on
       // mémorise la cible dans le MÊME canal que la restauration de session,
       // elle sera appliquée à l'arrivée du son (pendingSeekMillis consommé
-      // une seule fois au démarrage effectif).
+      // une seule fois au démarrage effectif) — TAGUÉE au morceau courant.
       this.pendingSeekMillis = clamped;
+      this.pendingSeekForId = this.state.current?.id ?? null;
     }
 
     this.emit({ positionMillis: clamped });
@@ -1194,11 +1204,14 @@ class MelodixPlayer {
     });
 
     this.pendingSeekMillis = Math.max(0, session.positionMillis);
+    this.pendingSeekForId = queue[index]?.id ?? null;
     await this.playIndex(index);
   };
 
   stop = async () => {
     this.playToken += 1; // tout resolve en vol devient orphelin
+    this.pendingSeekMillis = 0;
+    this.pendingSeekForId = null;
     await this.unloadCurrent();
     // Fermeture explicite : la session persistée est PURGÉE (Reprendre =
     // uniquement les sessions interrompues, jamais les arrêts volontaires).
@@ -1220,6 +1233,7 @@ class MelodixPlayer {
     this.matchCache = null;
     this.failedKeys = new Set();
     this.pendingSeekMillis = 0;
+    this.pendingSeekForId = null;
     this.lastPersistedAt = 0;
     this.sessionDirty = false;
     this.state = { ...INITIAL_PLAYER_STATE };

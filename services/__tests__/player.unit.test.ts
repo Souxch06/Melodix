@@ -1552,3 +1552,90 @@ describe('Phase 5D — fiabilisation moteur (races / fin collante / seek en vol)
     errorSpy.mockRestore();
   });
 });
+describe('Seek en attente, ciblage du morceau (BUG 1 + restauration)', () => {
+  beforeEach(async () => {
+    await AsyncStorage.clear();
+    lastStatusCallback = null;
+    lastSound = null;
+    mockCreatedSounds = [];
+    __testSetAudioProviders({ audius: makeProvider() });
+    await melodixPlayer.__testReset();
+  });
+
+  it('seekTo(en chargement) puis next → le seek de A ne atterrit PAS sur B', async () => {
+    // Resolve lent : laisse une vraie fenêtre « loading » pour le seek.
+    __testSetAudioProviders({
+      audius: makeProvider({
+        resolveSource: (sourceId: string) =>
+          new Promise((resolve) =>
+            setTimeout(() => resolve({ uri: `https://stream/${sourceId}` }), 25)
+          ),
+      }),
+    });
+    const playPromise = melodixPlayer.playQueue([track('a'), track('b')], 0);
+    await flush(); // émission « loading » effectuée, resolve en vol
+    // Le son n'existe pas encore : statut « loading » → cible mémorisée.
+    await melodixPlayer.seekTo(30_000);
+    await playPromise;
+    // Son A arrivé : son propre seek (30 s) lui est appliqué — trace valide.
+    const soundA = mockCreatedSounds[0];
+    expect(soundA.setPositionAsync).toHaveBeenCalledWith(30_000);
+
+    await melodixPlayer.next();
+    const soundB = mockCreatedSounds[1];
+    expect(soundB).toBeDefined();
+    // Le seek de 30 s visait « a » : « b » doit démarrer à 0, jamais à 30 s.
+    expect(soundB.setPositionAsync).not.toHaveBeenCalled();
+    await melodixPlayer.stop();
+  });
+
+  it('restoreSession puis next → la position restaurée N EST PAS re-appliquée au morceau suivant', async () => {
+    await melodixPlayer.restoreSession({
+      version: 1,
+      savedAt: Date.now(),
+      queue: [track('a', 'A'), track('b', 'B')],
+      index: 0,
+      positionMillis: 15_000,
+      shuffle: false,
+      repeat: 'all',
+      volume: 1,
+    });
+    await flush();
+    const soundA = mockCreatedSounds[0];
+    expect(soundA.setPositionAsync).toHaveBeenCalledWith(15_000);
+
+    await melodixPlayer.next();
+    const soundB = mockCreatedSounds[1];
+    expect(soundB).toBeDefined();
+    expect(soundB.setPositionAsync).not.toHaveBeenCalled();
+    await melodixPlayer.stop();
+  });
+
+  it('stop purgue un seek en attente (rien applique au morceau suivant)', async () => {
+    __testSetAudioProviders({
+      audius: makeProvider({
+        resolveSource: (sourceId: string) =>
+          new Promise((resolve) =>
+            setTimeout(
+              () =>
+                resolve({
+                  uri: `https://stream/${sourceId}`,
+                }),
+              25
+            )
+          ),
+      }),
+    });
+    const playPromise = melodixPlayer.playQueue([track('a'), track('b')], 0);
+    await melodixPlayer.seekTo(42_000);
+    // stop AVANT l arrivée du son : le seek mémorisé doit être purgé.
+    await melodixPlayer.stop();
+    await playPromise;
+    await melodixPlayer.playQueue([track('a'), track('b')], 1);
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    const soundB = mockCreatedSounds[0];
+    expect(soundB).toBeDefined();
+    expect(soundB.setPositionAsync).not.toHaveBeenCalled();
+    await melodixPlayer.stop();
+  });
+});
