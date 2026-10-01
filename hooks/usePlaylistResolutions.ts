@@ -3,11 +3,11 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import type { TrackModel } from '@models';
 import {
+  deleteMatchCacheEntryFromStorage,
   getAudioProviders,
   loadMatchCache,
   MATCH_CACHE_STORAGE_KEY,
   persistMatchCache,
-  removeMatchCacheEntry,
   ResolveQueue,
   resolveWithProviders,
   sourceKeyOf,
@@ -89,6 +89,10 @@ export const usePlaylistResolutions = (
   // ancienne liste (le compteur seul relance l'effet).
   const tracksRef = React.useRef(tracks);
   tracksRef.current = tracks;
+  // Carte en mémoire PARTAGÉE avec l'effet actif : refresh() y supprime ses
+  // clés sinon un flush différé de l'ancienne instance réécrirait les clés
+  // fraîchement invalidées (persistMatchCache FUSIONNE — voir matchCache).
+  const cacheRef = React.useRef<MatchCache | null>(null);
 
   if (!queueRef.current) {
     queueRef.current = new ResolveQueue();
@@ -104,18 +108,27 @@ export const usePlaylistResolutions = (
    */
   const refresh = React.useCallback(() => {
     return (async () => {
-      try {
-        const raw = await AsyncStorage.getItem(MATCH_CACHE_STORAGE_KEY);
-        const cache = loadMatchCache(raw);
-
+      // 1) Retrait IMMÉDIAT de la carte en mémoire de l'effet actif : un
+      // flush différé (setInterval de persistance groupée) ne pourra plus
+      // ressusciter ces clés — la fusion de persistMatchCache ne supprime
+      // rien, elle ne ferait que les RÉÉCRIRE depuis la vieille carte.
+      if (cacheRef.current) {
         for (const current of tracksRef.current) {
-          removeMatchCacheEntry(
-            cache,
+          delete cacheRef.current[
+            sourceKeyOf({ provider: null, id: current.id })
+          ];
+        }
+      }
+
+      // 2) Retrait PERSISTANT, transaction sans fusion, clé par clé : les
+      // autres entrées (autres playlists, favoris, historique, décisions du
+      // player) ne sont ni ajoutées ni perdues.
+      try {
+        for (const current of tracksRef.current) {
+          await deleteMatchCacheEntryFromStorage(
             sourceKeyOf({ provider: null, id: current.id })
           );
         }
-
-        await persistMatchCache(cache);
       } catch {
         // Non bloquant : la file est relancée quoi qu'il arrive.
       }
@@ -147,6 +160,10 @@ export const usePlaylistResolutions = (
       } catch {
         cache = {};
       }
+
+      // L'effet actif publie sa carte : refresh() la mutera en priorité (cf.
+      // commentaire cacheRef) — l'ancienne instance n'est plus jamais lue.
+      cacheRef.current = cache;
 
       if (disposed || !currentTracks.length) {
         return;

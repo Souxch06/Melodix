@@ -121,15 +121,58 @@ export const loadMatchCache = (raw: string | null): MatchCache => {
   }
 };
 
-export const persistMatchCache = (cache: MatchCache): Promise<void> => {
-  const entries = Object.entries(cache)
-    .sort(([, a], [, b]) => a.matchedAt - b.matchedAt)
-    .slice(-MAX_ENTRIES);
+/**
+ * Persiste par FUSION : relit le document stocké puis fusionne — les entrées
+ * reçues GAGNENT — avant de réécrire (LRU 500 conservées). Deux écrivains
+ * concurrents (player + écran de playlist) ne se suppriment plus jamais
+ * silencieusement leurs clés mutuelles (perte de décisions d'avant).
+ *
+ * ⚠️ Par construction, une fusion ne SUPPRIME rien : pour invalider une clé
+ * (« refaire le matching »), utiliser deleteMatchCacheEntryFromStorage.
+ */
+export const persistMatchCache = async (cache: MatchCache): Promise<void> => {
+  try {
+    const raw = await AsyncStorage.getItem(MATCH_CACHE_STORAGE_KEY);
+    const stored = loadMatchCache(raw);
+    const merged: MatchCache = { ...stored, ...cache };
+    const entries = Object.entries(merged)
+      .sort(([, a], [, b]) => a.matchedAt - b.matchedAt)
+      .slice(-MAX_ENTRIES);
 
-  return AsyncStorage.setItem(
-    MATCH_CACHE_STORAGE_KEY,
-    JSON.stringify(Object.fromEntries(entries))
-  ).catch((error) => console.warn('Failed to persist the match cache', error));
+    await AsyncStorage.setItem(
+      MATCH_CACHE_STORAGE_KEY,
+      JSON.stringify(Object.fromEntries(entries))
+    );
+  } catch (error) {
+    console.warn('Failed to persist the match cache', error);
+  }
+};
+
+/**
+ * Suppression CIBLÉE persistante — transaction SANS fusion : lire le
+ * document → retirer la clé → réécrire le document COMPLET tel quel.
+ * Contrairement à persistMatchCache (qui fusionne), les autres clés ne sont
+ * ni ajoutées ni supprimées, et la clé visée est réellement effacée : c'est
+ * le socle du « refaire le matching » ciblé (I-3). Fenêtre bornée : une
+ * écriture concurrente tombée EXACTEMENT entre la lecture et la réécriture
+ * pourrait être perdue — bornée à quelques ms et sans corruption possible.
+ */
+export const deleteMatchCacheEntryFromStorage = async (
+  cacheKey: string
+): Promise<void> => {
+  try {
+    const raw = await AsyncStorage.getItem(MATCH_CACHE_STORAGE_KEY);
+    const cache = loadMatchCache(raw);
+
+    if (!(cacheKey in cache)) {
+      return; // rien à retirer — aucun réécriture inutile
+    }
+
+    delete cache[cacheKey];
+    await AsyncStorage.setItem(MATCH_CACHE_STORAGE_KEY, JSON.stringify(cache));
+  } catch {
+    // Non bloquant : l'appelant relance sa file quoi qu'il arrive.
+  }
 };
 
 export const writeMatchCacheEntry = (

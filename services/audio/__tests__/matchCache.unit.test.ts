@@ -2,6 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import {
   clearMatchCacheStorage,
+  deleteMatchCacheEntryFromStorage,
   loadMatchCache,
   MATCH_CACHE_STORAGE_KEY,
   MATCH_CACHE_VERSION,
@@ -16,7 +17,9 @@ import { spotifyTrackSource } from '../../player';
 
 jest.mock('expo-constants', () => ({}));
 
-const entry = (overrides?: Partial<import('../matchCache').MatchCacheEntry>) => ({
+const entry = (
+  overrides?: Partial<import('../matchCache').MatchCacheEntry>
+) => ({
   version: MATCH_CACHE_VERSION,
   matchedAt: Date.now(),
   providerId: 'audius',
@@ -103,8 +106,20 @@ describe('match cache (v2 — provider mémorisé)', () => {
 
   it('persists and reloads through AsyncStorage round-trip (provider compris)', async () => {
     const cache: MatchCache = {};
-    writeMatchCacheEntry(cache, spotifyTrackSource('one'), 'audius', 'aud-one', 88);
-    writeMatchCacheEntry(cache, spotifyTrackSource('two'), 'youtube', 'yt-two', 66);
+    writeMatchCacheEntry(
+      cache,
+      spotifyTrackSource('one'),
+      'audius',
+      'aud-one',
+      88
+    );
+    writeMatchCacheEntry(
+      cache,
+      spotifyTrackSource('two'),
+      'youtube',
+      'yt-two',
+      66
+    );
     writeMatchCacheEntry(cache, spotifyTrackSource('three'), null, null, 0);
 
     await persistMatchCache(cache);
@@ -120,7 +135,13 @@ describe('match cache (v2 — provider mémorisé)', () => {
 
   it('removeMatchCacheEntry : « refaire le matching » pour UNE piste', () => {
     const cache: MatchCache = {};
-    writeMatchCacheEntry(cache, spotifyTrackSource('gone'), 'youtube', 'yt-gone', 75);
+    writeMatchCacheEntry(
+      cache,
+      spotifyTrackSource('gone'),
+      'youtube',
+      'yt-gone',
+      75
+    );
     removeMatchCacheEntry(cache, 'spotify:gone');
 
     expect(cache['spotify:gone']).toBeUndefined();
@@ -138,11 +159,81 @@ describe('match cache (v2 — provider mémorisé)', () => {
 
   it('can be invalidated by overwriting with a null entry', () => {
     const cache: MatchCache = {};
-    writeMatchCacheEntry(cache, spotifyTrackSource('gone'), 'audius', 'aud-gone', 75);
+    writeMatchCacheEntry(
+      cache,
+      spotifyTrackSource('gone'),
+      'audius',
+      'aud-gone',
+      75
+    );
     delete cache['spotify:gone'];
     writeMatchCacheEntry(cache, spotifyTrackSource('gone'), null, null, 0);
 
     expect(cache['spotify:gone'].matchId).toBeNull();
     expect(cache['spotify:gone'].providerId).toBeNull();
+  });
+});
+
+describe('persistMatchCache par fusion + deleteMatchCacheEntryFromStorage', () => {
+  beforeEach(async () => {
+    await AsyncStorage.clear();
+  });
+
+  it('persistMatchCache FUSIONNE : les clés d un autre écrivain ne sont jamais perdues', async () => {
+    // Écrivain 1 : décide « k1 » (le player, par exemple).
+    await persistMatchCache({ 'spotify:k1': entry() });
+
+    // Écrivain 2 : tient une carte chargée AVANT et ne connaît que « k2 ».
+    await persistMatchCache({ 'spotify:k2': entry({ matchId: 'aud-999' }) });
+
+    const cache = loadMatchCache(
+      await AsyncStorage.getItem(MATCH_CACHE_STORAGE_KEY)
+    );
+    // Avant (écrasement complet) : k1 était perdue silencieusement.
+    expect(cache['spotify:k1']).toMatchObject({ matchId: 'aud-123' });
+    expect(cache['spotify:k2']).toMatchObject({ matchId: 'aud-999' });
+  });
+
+  it('persistMatchCache : l entrée reçue GAGNE sur la valeur stockée', async () => {
+    await persistMatchCache({ 'spotify:k1': entry({ matchId: 'old' }) });
+    await persistMatchCache({
+      'spotify:k1': entry({ matchId: 'new', matchedAt: Date.now() + 1 }),
+    });
+
+    const cache = loadMatchCache(
+      await AsyncStorage.getItem(MATCH_CACHE_STORAGE_KEY)
+    );
+    expect(cache['spotify:k1']).toMatchObject({ matchId: 'new' });
+  });
+
+  it('deleteMatchCacheEntryFromStorage ne supprime QUE la clé visée (transaction sans fusion)', async () => {
+    await persistMatchCache({
+      'spotify:a1': entry({ matchId: 'm-a1' }),
+      'spotify:b1': entry({ matchId: 'm-b1' }),
+      'spotify:z9': entry({ matchId: 'm-z9' }),
+    });
+
+    await deleteMatchCacheEntryFromStorage('spotify:a1');
+
+    const cache = loadMatchCache(
+      await AsyncStorage.getItem(MATCH_CACHE_STORAGE_KEY)
+    );
+    expect(cache['spotify:a1']).toBeUndefined();
+    // Les autres entrées sont INTACTES — jamais ajoutées, jamais perdues.
+    expect(cache['spotify:b1']).toMatchObject({ matchId: 'm-b1' });
+    expect(cache['spotify:z9']).toMatchObject({ matchId: 'm-z9' });
+  });
+
+  it('deleteMatchCacheEntryFromStorage : no-op silencieux si clé absente ou document corrompu', async () => {
+    // Clé absente : pas de réécriture, pas d erreur.
+    await deleteMatchCacheEntryFromStorage('spotify:missing');
+    expect(await AsyncStorage.getItem(MATCH_CACHE_STORAGE_KEY)).toBeNull();
+
+    // Document corrompu : aucun crash (loadMatchCache traite l illisible
+    // comme vide ailleurs).
+    await AsyncStorage.setItem(MATCH_CACHE_STORAGE_KEY, '{not json');
+    await expect(
+      deleteMatchCacheEntryFromStorage('spotify:a1')
+    ).resolves.toBeUndefined();
   });
 });

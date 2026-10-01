@@ -60,6 +60,7 @@ export type {
 export {
   clearMatchCacheStorage,
   getAudioProviders,
+  deleteMatchCacheEntryFromStorage,
   loadMatchCache,
   MATCH_CACHE_STORAGE_KEY,
   MATCH_CACHE_TTL_MS,
