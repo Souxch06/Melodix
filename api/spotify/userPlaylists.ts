@@ -108,14 +108,14 @@ export const invalidateUserPlaylistsCache = async (): Promise<void> => {
 
 const fetchAllUserPlaylists = async (): Promise<LibraryItemModel[]> => {
   const collected: SpotifyPlaylistRaw[] = [];
-  let nextPath: string | null =
-    `/me/playlists?limit=${PAGE_SIZE}&offset=0`;
+  let nextPath: string | null = `/me/playlists?limit=${PAGE_SIZE}&offset=0`;
 
   spotifyDiag('PLAYLISTS', 'START');
   try {
     // Suit les liens `next` de la pagination Spotify jusqu'à épuisement.
     while (nextPath) {
-      const page: PagedResult<SpotifyPlaylistRaw> = await spotifyApiGet<PagedResult<SpotifyPlaylistRaw>>(nextPath);
+      const page: PagedResult<SpotifyPlaylistRaw> =
+        await spotifyApiGet<PagedResult<SpotifyPlaylistRaw>>(nextPath);
       const items = Array.isArray(page?.items) ? page.items : [];
       collected.push(...items);
       nextPath = page?.next ?? null;

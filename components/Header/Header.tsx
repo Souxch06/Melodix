@@ -12,7 +12,12 @@ import { LibraryRelated } from './LibraryRelated';
 import { useUserData } from '@context';
 // Import direct (hors barrel) : langue active pour la salutation d'accueil.
 import { useTranslations } from '../../context/PreferencesContext';
-import { COLORS, HEADER_CATEGORIES_HEIGHT, HEADER_HEIGHT, Pages } from '@config';
+import {
+  COLORS,
+  HEADER_CATEGORIES_HEIGHT,
+  HEADER_HEIGHT,
+  Pages,
+} from '@config';
 import { translations } from '@data';
 import { clearPlayHistory } from '@services';
 
@@ -155,7 +160,11 @@ export const Header = ({ tab }: HeaderPropsType) => {
               ]}
               testID="header-home-settings"
             >
-              <Icons.Ionicons color={COLORS.WHITE} name="settings-outline" size={21} />
+              <Icons.Ionicons
+                color={COLORS.WHITE}
+                name="settings-outline"
+                size={21}
+              />
             </Pressable>
           </View>
         );
@@ -205,7 +214,11 @@ export const Header = ({ tab }: HeaderPropsType) => {
           )}
         </Pressable>
         {tab === Pages.HOME ? (
-          <Text numberOfLines={1} style={styles.titleText} testID="header-home-hello">
+          <Text
+            numberOfLines={1}
+            style={styles.titleText}
+            testID="header-home-hello"
+          >
             {homeHello}
           </Text>
         ) : (
@@ -260,7 +273,10 @@ export const Header = ({ tab }: HeaderPropsType) => {
             ]}
             testID="account-signout-button"
           >
-            <Icons.Ionicons name="log-out-outline" style={accountStyles.signOutIcon} />
+            <Icons.Ionicons
+              name="log-out-outline"
+              style={accountStyles.signOutIcon}
+            />
             <Text style={accountStyles.signOutText}>
               {translations.accountSignOut}
             </Text>

@@ -14,7 +14,10 @@ export const checkSavedAlbums = async (
   try {
     return await checkSaved('album', albumIds);
   } catch (error) {
-    console.error('Erreur lors de la vérification des albums sauvegardés', error);
+    console.error(
+      'Erreur lors de la vérification des albums sauvegardés',
+      error
+    );
     return albumIds.map(() => false);
   }
 };

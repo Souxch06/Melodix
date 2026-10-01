@@ -62,10 +62,7 @@ export const SettingsRow = ({
     </>
   );
 
-  const rowStyle = [
-    styles.row,
-    !isLast && styles.separator,
-  ];
+  const rowStyle = [styles.row, !isLast && styles.separator];
 
   if (!onPress) {
     return (

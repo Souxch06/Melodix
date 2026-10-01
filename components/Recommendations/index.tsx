@@ -25,21 +25,30 @@ export const Recommendations = ({
 
   React.useEffect(() => {
     if (!seed) {
+      setRecommendedAlbums(null);
       return;
     }
 
+    let cancelled = false;
     (async () => {
       try {
         const recommendedAlbumsData = await getRecommendations({
           ...(type === 'tracks' && { tracksSeed: seed }),
           ...(type === 'artist' && { artistSeed: seed }),
         });
-        setRecommendedAlbums(recommendedAlbumsData);
+        if (!cancelled) setRecommendedAlbums(recommendedAlbumsData);
       } catch (error) {
-        setRecommendedAlbums(null);
-        console.error(error);
+        if (!cancelled) {
+          setRecommendedAlbums(null);
+          console.error(error);
+        }
       }
     })();
+
+    // Un ancien seed ne doit jamais remplacer les résultats du seed courant.
+    return () => {
+      cancelled = true;
+    };
   }, [type, seed]);
 
   return (

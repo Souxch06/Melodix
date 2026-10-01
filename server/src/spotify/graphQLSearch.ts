@@ -184,15 +184,12 @@ export const spotifyGraphQLSearch = async (
   url.searchParams.set('variables', JSON.stringify(variables));
   url.searchParams.set('extensions', JSON.stringify(extensions));
 
-  const response = await httpGet<SpotifyGraphQLSearchResponse>(
-    url.toString(),
-    {
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        'app-platform': 'WebPlayer',
-      },
-    }
-  );
+  const response = await httpGet<SpotifyGraphQLSearchResponse>(url.toString(), {
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      'app-platform': 'WebPlayer',
+    },
+  });
 
   const search = response?.data?.searchV2 ?? response?.data?.search;
   if (!search) {

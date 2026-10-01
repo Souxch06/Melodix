@@ -14,10 +14,7 @@
  */
 import { SPOTIFY_API_BASE_URL } from './authConfig';
 import { sanitizeErrorDescription, spotifyLog } from './devLog';
-import {
-  clearSessionAccessOnly,
-  getValidAccessToken,
-} from './session';
+import { clearSessionAccessOnly, getValidAccessToken } from './session';
 
 export type SpotifyApiErrorKind =
   | 'unauthenticated' // session absente ou définitivement invalide

@@ -1,0 +1,142 @@
+#!/usr/bin/env bash
+# Vérification structurelle et cryptographique d'un APK Melodix avant publication.
+# Cette vérification ne remplace pas un test sur appareil, mais bloque les causes
+# d'installation détectables hors appareil (ZIP/manifest/package/ABI/signature).
+set -Eeuo pipefail
+
+APK=${1:?Usage: verify-android-apk.sh APK [rapport]}
+REPORT=${2:-apk-inspection.txt}
+EXPECTED_PACKAGE=${EXPECTED_PACKAGE:-com.souxch06.melodix}
+EXPECTED_VERSION_CODE=${EXPECTED_VERSION_CODE:-44008}
+EXPECTED_VERSION_NAME=${EXPECTED_VERSION_NAME:-4.4.8-diagnostic}
+EXPECTED_MIN_SDK=${EXPECTED_MIN_SDK:-23}
+EXPECTED_TARGET_SDK=${EXPECTED_TARGET_SDK:-34}
+EXPECTED_SCHEME=${EXPECTED_SCHEME:-melodix}
+EXPECTED_ABIS=${EXPECTED_ABIS:-arm64-v8a,armeabi-v7a,x86,x86_64}
+# Optionnel : permet au dépôt de verrouiller le certificat d'une série de
+# builds. Une valeur vide conserve seulement la vérification cryptographique.
+EXPECTED_CERT_SHA256=${EXPECTED_CERT_SHA256:-}
+
+fail() {
+  printf 'ERREUR APK: %s\n' "$*" >&2
+  exit 1
+}
+
+find_build_tool() {
+  local name=$1
+  local candidate
+  candidate=$(find "${ANDROID_HOME:?ANDROID_HOME absent}"/build-tools -mindepth 2 -maxdepth 2 -type f -name "$name" -print 2>/dev/null | sort -V | tail -1)
+  [[ -n "$candidate" ]] || fail "outil Android introuvable: $name"
+  printf '%s' "$candidate"
+}
+
+[[ -f "$APK" ]] || fail "fichier absent: $APK"
+[[ -s "$APK" ]] || fail "fichier vide: $APK"
+size=$(stat -c '%s' "$APK")
+(( size >= 1000000 )) || fail "fichier anormalement petit: $size octets"
+
+AAPT2=$(find_build_tool aapt2)
+APKSIGNER=$(find_build_tool apksigner)
+ZIPALIGN=$(find_build_tool zipalign)
+
+# Le rapport est aussi publié avec l'APK : il permet de diagnostiquer un refus
+# d'installation sans dépendre des logs éphémères du runner.
+exec > >(tee "$REPORT") 2>&1
+
+echo "APK=$APK"
+echo "source_commit=${BUILD_SHA:-unknown}"
+echo "size_bytes=$size"
+echo "sha256=$(sha256sum "$APK" | awk '{print $1}')"
+echo
+
+echo '=== Intégrité ZIP ==='
+unzip -t "$APK"
+
+entries=$(unzip -Z1 "$APK")
+grep -qx 'AndroidManifest.xml' <<<"$entries" || fail 'AndroidManifest.xml absent'
+grep -Eq '^classes([0-9]*)?\.dex$' <<<"$entries" || fail 'aucun DEX présent'
+grep -qx 'assets/index.android.bundle' <<<"$entries" || fail 'bundle React Native absent'
+
+echo
+echo '=== aapt2 dump badging ==='
+badging=$($AAPT2 dump badging "$APK")
+printf '%s\n' "$badging"
+
+package_line=$(grep '^package:' <<<"$badging" | head -1)
+package_name=$(sed -n "s/.* name='\([^']*\)'.*/\1/p" <<<"$package_line")
+version_code=$(sed -n "s/.* versionCode='\([^']*\)'.*/\1/p" <<<"$package_line")
+version_name=$(sed -n "s/.* versionName='\([^']*\)'.*/\1/p" <<<"$package_line")
+[[ "$package_name" == "$EXPECTED_PACKAGE" ]] || fail "package '$package_name' != '$EXPECTED_PACKAGE'"
+[[ "$version_code" == "$EXPECTED_VERSION_CODE" ]] || fail "versionCode '$version_code' != '$EXPECTED_VERSION_CODE'"
+[[ "$version_name" == "$EXPECTED_VERSION_NAME" ]] || fail "versionName '$version_name' != '$EXPECTED_VERSION_NAME'"
+min_sdk=$(sed -n "s/^sdkVersion:'\([^']*\)'.*/\1/p" <<<"$badging" | head -1)
+target_sdk=$(sed -n "s/^targetSdkVersion:'\([^']*\)'.*/\1/p" <<<"$badging" | head -1)
+[[ "$min_sdk" == "$EXPECTED_MIN_SDK" ]] || fail "minSdk '$min_sdk' != '$EXPECTED_MIN_SDK'"
+[[ "$target_sdk" == "$EXPECTED_TARGET_SDK" ]] || fail "targetSdk '$target_sdk' != '$EXPECTED_TARGET_SDK'"
+
+schemes_line=$(grep '^schemes:' <<<"$badging" || true)
+tr " ,'" '\n' <<<"$schemes_line" | grep -Fxq "$EXPECTED_SCHEME" || fail "scheme '$EXPECTED_SCHEME' absent"
+
+echo
+echo '=== AndroidManifest final ==='
+manifest_xml=$($AAPT2 dump xmltree "$APK" --file AndroidManifest.xml)
+printf '%s\n' "$manifest_xml"
+grep -Fq 'expo.modules.melodixmedia.MelodixMediaService' <<<"$manifest_xml" || fail 'MediaSessionService absent du manifest final'
+grep -Fq 'android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK' <<<"$manifest_xml" || fail 'permission mediaPlayback absente'
+# Ces permissions ne correspondent à aucune fonction de Melodix et rendent
+# l'APK inutilement suspect lors de l'installation.
+for forbidden in RECORD_AUDIO ACCESS_FINE_LOCATION ACCESS_COARSE_LOCATION READ_EXTERNAL_STORAGE WRITE_EXTERNAL_STORAGE SYSTEM_ALERT_WINDOW; do
+  if grep -Fq "android.permission.$forbidden" <<<"$manifest_xml"; then
+    fail "permission Android inattendue: $forbidden"
+  fi
+done
+
+echo
+echo '=== ABI et bibliothèques natives ==='
+mapfile -t actual_abis < <(sed -n 's#^lib/\([^/]*\)/[^/]*\.so$#\1#p' <<<"$entries" | sort -u)
+((${#actual_abis[@]} > 0)) || fail 'aucune bibliothèque native dans APK'
+printf 'ABI présentes: %s\n' "${actual_abis[*]}"
+
+IFS=',' read -ra expected_abis <<<"$EXPECTED_ABIS"
+for abi in "${expected_abis[@]}"; do
+  printf '%s\n' "${actual_abis[@]}" | grep -Fxq "$abi" || fail "ABI attendue absente: $abi"
+  count=$(grep -c "^lib/$abi/.*\.so$" <<<"$entries")
+  ((count > 0)) || fail "aucune bibliothèque pour ABI $abi"
+  printf '%s: %s bibliothèques\n' "$abi" "$count"
+done
+for abi in "${actual_abis[@]}"; do
+  printf '%s\n' "${expected_abis[@]}" | grep -Fxq "$abi" || fail "ABI inattendue: $abi"
+done
+
+# Toutes les ABI du même APK universel doivent proposer le même ensemble de
+# .so. Une différence signale souvent un module natif incomplet qui plantera au
+# chargement sur une famille de processeurs seulement.
+reference_abi=${expected_abis[0]}
+reference=$(sed -n "s#^lib/$reference_abi/\([^/]*\.so\)$#\1#p" <<<"$entries" | sort)
+for abi in "${expected_abis[@]:1}"; do
+  current=$(sed -n "s#^lib/$abi/\([^/]*\.so\)$#\1#p" <<<"$entries" | sort)
+  if ! diff -u <(printf '%s\n' "$reference") <(printf '%s\n' "$current"); then
+    fail "ensemble de bibliothèques différent entre $reference_abi et $abi"
+  fi
+done
+
+echo
+echo '=== Alignement ZIP ==='
+$ZIPALIGN -c -P 16 -v 4 "$APK"
+
+echo
+echo '=== Signature et certificat ==='
+signing=$($APKSIGNER verify --verbose --print-certs "$APK")
+printf '%s\n' "$signing"
+grep -Fq 'Verifies' <<<"$signing" || fail 'signature APK invalide'
+grep -Eq 'Verified using v1 scheme.*: true' <<<"$signing" || fail 'signature v1 absente (requise pour minSdk 23)'
+grep -Eq 'Verified using v2 scheme.*: true' <<<"$signing" || fail 'signature v2 absente'
+cert_sha256=$(sed -n 's/^Signer #1 certificate SHA-256 digest: //p' <<<"$signing" | head -1 | tr '[:upper:]' '[:lower:]')
+[[ "$cert_sha256" =~ ^[0-9a-f]{64}$ ]] || fail 'certificat signataire absent'
+if [[ -n "$EXPECTED_CERT_SHA256" ]]; then
+  expected_cert=$(tr '[:upper:]' '[:lower:]' <<<"$EXPECTED_CERT_SHA256")
+  [[ "$cert_sha256" == "$expected_cert" ]] || fail "certificat inattendu: $cert_sha256"
+fi
+
+echo
+echo 'APK_VALID=true'

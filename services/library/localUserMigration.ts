@@ -67,7 +67,8 @@ const migrateAudiusFavorites = async (): Promise<number> => {
       id: `audius:${favorite.id}`,
       title: String(favorite.title),
       subtitle: String(favorite.artist ?? ''),
-      imageURL: typeof favorite.artwork === 'string' ? favorite.artwork : undefined,
+      imageURL:
+        typeof favorite.artwork === 'string' ? favorite.artwork : undefined,
     };
     await saveTrack(track, {
       artists: favorite.artist ? [String(favorite.artist)] : [],
@@ -107,7 +108,10 @@ export const runAccountlessMigration = async (): Promise<void> => {
   } catch (error) {
     // Une migration en échec NE DOIT PAS bloquer le démarrage : on réessaiera
     // au prochain lancement (le drapeau n'a pas été posé).
-    console.warn('Migration 3.0 interrompue (réessaiera au prochain lancement)', error);
+    console.warn(
+      'Migration 3.0 interrompue (réessaiera au prochain lancement)',
+      error
+    );
   }
 };
 

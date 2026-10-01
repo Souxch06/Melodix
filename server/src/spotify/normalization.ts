@@ -51,7 +51,6 @@ const EDITION_PATTERN = new RegExp(`\\b(?:${EDITION_WORDS.join('|')})\\b`, 'g');
 const foldToAscii = (value: string): string =>
   value.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
 
-
 /** Indicateurs de version détectés dans le titre ORIGINAL (scoring). */
 const VERSION_FLAGS: readonly { flag: string; pattern: RegExp }[] = [
   { flag: 'remix', pattern: /\bremix\b/i },

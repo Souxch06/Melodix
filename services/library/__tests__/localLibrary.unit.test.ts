@@ -116,6 +116,6 @@ describe('localLibrary (favoris locaux)', () => {
 
   it('refuse les entrées sans id', async () => {
     await saveTrack({ ...track(''), id: '' });
-    expect((await listSavedTracks())).toHaveLength(0);
+    expect(await listSavedTracks()).toHaveLength(0);
   });
 });

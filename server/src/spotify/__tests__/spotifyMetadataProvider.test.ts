@@ -8,10 +8,7 @@ import {
   createSpotifyMetadataProvider,
   type SpotifyProviderDeps,
 } from '../spotifyMetadataProvider';
-import type {
-  SpotifyRawAlbumHit,
-  SpotifyRawTrackHit,
-} from '../graphQLSearch';
+import type { SpotifyRawAlbumHit, SpotifyRawTrackHit } from '../graphQLSearch';
 import type { EmbedPayload } from '../embedEntity';
 
 const TRACK_HITS: SpotifyRawTrackHit[] = [
@@ -42,9 +39,14 @@ const ALBUM_HITS: SpotifyRawAlbumHit[] = [
   },
 ];
 
-const makeDeps = (overrides: Partial<SpotifyProviderDeps> = {}): SpotifyProviderDeps => ({
+const makeDeps = (
+  overrides: Partial<SpotifyProviderDeps> = {}
+): SpotifyProviderDeps => ({
   search: async () => ({ tracks: TRACK_HITS, albums: ALBUM_HITS }),
-  fetchEmbed: async (): Promise<EmbedPayload> => ({ entity: null, trackList: [] }),
+  fetchEmbed: async (): Promise<EmbedPayload> => ({
+    entity: null,
+    trackList: [],
+  }),
   ...overrides,
 });
 
@@ -58,8 +60,14 @@ test('search : mapping DTO, tri déterministe, jamais de champ interne', async (
   __resetServiceGuards();
   const provider = makeProvider(makeDeps());
 
-  const first = await provider.search('one more time', 10, ['tracks', 'albums']);
-  const second = await provider.search('one more time', 10, ['tracks', 'albums']);
+  const first = await provider.search('one more time', 10, [
+    'tracks',
+    'albums',
+  ]);
+  const second = await provider.search('one more time', 10, [
+    'tracks',
+    'albums',
+  ]);
 
   assert.deepEqual(first, second, 'ordre déterministe');
   assert.equal(first.tracks.length, 2);
@@ -161,12 +169,15 @@ test('search : après 5 échecs le circuit s ouvre et bloque sans appel upstream
 test('getTrack : 404 quand l embed ne fournit pas d entité', async () => {
   __resetServiceGuards();
   const provider = makeProvider(makeDeps());
-  await assert.rejects(provider.getTrack('4uLU6hMCjMI75M1A2tKUQC'), (error: unknown) => {
-    assert.ok(error instanceof ApiError);
-    assert.equal(error.code, 'NOT_FOUND');
-    assert.equal(error.httpStatus, 404);
-    return true;
-  });
+  await assert.rejects(
+    provider.getTrack('4uLU6hMCjMI75M1A2tKUQC'),
+    (error: unknown) => {
+      assert.ok(error instanceof ApiError);
+      assert.equal(error.code, 'NOT_FOUND');
+      assert.equal(error.httpStatus, 404);
+      return true;
+    }
+  );
 });
 
 test('getTrack : DTO complet depuis l embed', async () => {

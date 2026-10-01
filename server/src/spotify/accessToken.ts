@@ -21,10 +21,7 @@ import { SPOTIFY_WEB_BASE_URL } from '../config/constants';
 import { TtlCache } from '../cache/ttlCache';
 import { httpGet } from '../net/httpClient';
 import { createLogger } from '../logging/logger';
-import type {
-  SpotifyServerTimeResponse,
-  SpotifyTokenResponse,
-} from './types';
+import type { SpotifyServerTimeResponse, SpotifyTokenResponse } from './types';
 
 const logger = createLogger('SpotifyToken');
 
@@ -50,7 +47,10 @@ const XorCharCodes = (secret: string): number[] =>
 /**
  * TOTP 6 chiffres, fenêtre 30 s, ancré sur l'horloge SERVEUR de Spotify.
  */
-export const generateTotp = (serverTimeSeconds: number, secret: string): string => {
+export const generateTotp = (
+  serverTimeSeconds: number,
+  secret: string
+): string => {
   const transformed = XorCharCodes(secret).join('');
   const key = Buffer.from(transformed, 'utf8');
 

@@ -36,7 +36,8 @@ export const getBackendBaseUrl = (): string => {
   const extra = Constants.expoConfig?.extra as
     | { melodixBackendUrl?: unknown }
     | undefined;
-  const url = typeof extra?.melodixBackendUrl === 'string' ? extra.melodixBackendUrl : '';
+  const url =
+    typeof extra?.melodixBackendUrl === 'string' ? extra.melodixBackendUrl : '';
   return url.trim().replace(/\/+$/, '');
 };
 
@@ -89,7 +90,8 @@ export const backendGet = async <T>(
       const body = (await response.json()) as {
         error?: { code?: string; message?: string };
       };
-      code = typeof body?.error?.code === 'string' ? body.error.code : undefined;
+      code =
+        typeof body?.error?.code === 'string' ? body.error.code : undefined;
       if (typeof body?.error?.message === 'string' && body.error.message) {
         message = body.error.message;
       }

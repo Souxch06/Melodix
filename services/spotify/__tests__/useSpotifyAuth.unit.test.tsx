@@ -39,10 +39,12 @@ jest.mock('expo-auth-session', () => ({
 
 jest.mock('expo-linking', () => ({
   getInitialURL: jest.fn(async () => initialUrlHolder.current),
-  addEventListener: jest.fn((_event: string, fn: (event: { url: string }) => void) => {
-    linkListeners.push(fn);
-    return { remove: jest.fn() };
-  }),
+  addEventListener: jest.fn(
+    (_event: string, fn: (event: { url: string }) => void) => {
+      linkListeners.push(fn);
+      return { remove: jest.fn() };
+    }
+  ),
 }));
 
 jest.mock('expo-web-browser', () => ({
@@ -293,14 +295,20 @@ describe('useSpotifyAuth — taxonomie du diagnostic OAuth', () => {
       expect(result.current.state.outcome.kind).toBe('unknown');
       expect(result.current.state.outcome.cause).toContain('me:http');
       expect(result.current.state.outcome.cause).toContain('403');
-      expect(result.current.state.outcome.cause).toContain('developer.spotify.com/dashboard');
+      expect(result.current.state.outcome.cause).toContain(
+        'developer.spotify.com/dashboard'
+      );
     }
     const authLines = logSpy.mock.calls
       .map((call) => String(call[0]))
       .filter((text) => text.includes('[SPOTIFY AUTH]'));
-    expect(authLines.some((t) => t.includes('[SPOTIFY AUTH] /v1/me request started'))).toBe(true);
     expect(
-      authLines.some((t) => t.includes('[SPOTIFY AUTH] /v1/me HTTP status: 403'))
+      authLines.some((t) => t.includes('[SPOTIFY AUTH] /v1/me request started'))
+    ).toBe(true);
+    expect(
+      authLines.some((t) =>
+        t.includes('[SPOTIFY AUTH] /v1/me HTTP status: 403')
+      )
     ).toBe(true);
     expect(
       authLines.some(
@@ -382,7 +390,10 @@ describe('useSpotifyAuth — taxonomie du diagnostic OAuth', () => {
       });
 
       expect(redeemAuthorizationCode).toHaveBeenCalledWith(
-        expect.objectContaining({ code: 'deep-code', codeVerifier: 'verifier-test' })
+        expect.objectContaining({
+          code: 'deep-code',
+          codeVerifier: 'verifier-test',
+        })
       );
       expect(mockApplySpotifyUser).toHaveBeenCalled();
       expect(result.current.state).toEqual({ status: 'idle' });
@@ -435,7 +446,9 @@ describe('useSpotifyAuth — taxonomie du diagnostic OAuth', () => {
       });
 
       await act(async () => {
-        linkListeners[0]({ url: 'https://malicious.example/x?code=q&state=STATE-1' });
+        linkListeners[0]({
+          url: 'https://malicious.example/x?code=q&state=STATE-1',
+        });
       });
 
       expect(redeemAuthorizationCode).not.toHaveBeenCalled();

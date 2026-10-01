@@ -10,7 +10,8 @@ const withFetchStub = async (
   run: () => Promise<void>
 ): Promise<void> => {
   const original = globalThis.fetch;
-  globalThis.fetch = ((url: string | URL | Request) => stub({ url })) as typeof fetch; // injection de test
+  globalThis.fetch = ((url: string | URL | Request) =>
+    stub({ url })) as typeof fetch; // injection de test
   try {
     await run();
   } finally {
@@ -18,7 +19,11 @@ const withFetchStub = async (
   }
 };
 
-const jsonResponse = (status: number, body: unknown, headers: Record<string, string> = {}) =>
+const jsonResponse = (
+  status: number,
+  body: unknown,
+  headers: Record<string, string> = {}
+) =>
   new Response(JSON.stringify(body), {
     status,
     headers: { 'content-type': 'application/json', ...headers },
@@ -104,7 +109,10 @@ test('erreur réseau : retry puis abandon', async () => {
       throw new TypeError('fetch failed');
     },
     async () => {
-      await assert.rejects(httpGet('https://x.test/a', { retries: 2 }), TypeError);
+      await assert.rejects(
+        httpGet('https://x.test/a', { retries: 2 }),
+        TypeError
+      );
       assert.equal(calls, 3);
     }
   );

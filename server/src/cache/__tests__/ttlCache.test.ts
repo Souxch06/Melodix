@@ -10,7 +10,7 @@ test('get/set basique', () => {
   assert.equal(cache.get('missing'), undefined);
 });
 
-test('expiration : une entrée périmée est supprimée au get', t => {
+test('expiration : une entrée périmée est supprimée au get', (t) => {
   const cache = new TtlCache();
   const now = Date.now();
   const restoreNow = Date.now;
@@ -40,7 +40,7 @@ test('delete et clear', () => {
   assert.equal(cache.size(), 0);
 });
 
-test('set écrase la valeur et prolonge le TTL', t => {
+test('set écrase la valeur et prolonge le TTL', (t) => {
   const cache = new TtlCache();
   const restoreNow = Date.now;
   const now = restoreNow();

@@ -1,7 +1,11 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { ServiceGuard, getServiceGuard, __resetServiceGuards } from '../serviceGuard';
+import {
+  ServiceGuard,
+  getServiceGuard,
+  __resetServiceGuards,
+} from '../serviceGuard';
 
 const fastGuard = (overrides = {}) =>
   new ServiceGuard({

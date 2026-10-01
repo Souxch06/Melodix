@@ -34,7 +34,12 @@ export type AccentPreset = {
 
 /** Couleurs d'accent proposées — la 1ʳᵉ est l'accent historique de Melodix. */
 export const ACCENT_PRESETS: AccentPreset[] = [
-  { id: 'melodix', hex: '#1ed760', labelFr: 'Vert Melodix', labelEn: 'Melodix Green' },
+  {
+    id: 'melodix',
+    hex: '#1ed760',
+    labelFr: 'Vert Melodix',
+    labelEn: 'Melodix Green',
+  },
   { id: 'bleu', hex: '#3b82f6', labelFr: 'Bleu', labelEn: 'Blue' },
   { id: 'violet', hex: '#a855f7', labelFr: 'Violet', labelEn: 'Purple' },
   { id: 'rose', hex: '#ec4899', labelFr: 'Rose', labelEn: 'Pink' },
@@ -79,8 +84,7 @@ const sanitize = (raw: Partial<Preferences>): Preferences => ({
   backgroundAudio:
     typeof raw.backgroundAudio === 'boolean' ? raw.backgroundAudio : true,
   startupVolume:
-    typeof raw.startupVolume === 'number' &&
-    Number.isFinite(raw.startupVolume)
+    typeof raw.startupVolume === 'number' && Number.isFinite(raw.startupVolume)
       ? Math.min(100, Math.max(0, Math.round(raw.startupVolume)))
       : 100,
 });

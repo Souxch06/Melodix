@@ -1,5 +1,12 @@
 import * as React from 'react';
-import { Alert, Linking, Pressable, StyleSheet, Text, View } from 'react-native';
+import {
+  Alert,
+  Linking,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 
 import Constants from 'expo-constants';
 import { Image } from 'expo-image';
@@ -188,12 +195,19 @@ export const SettingsScreen = () => {
             </View>
           )}
           <View style={styles.accountTexts}>
-            <Text numberOfLines={1} style={styles.accountName} testID="settings-account-name">
+            <Text
+              numberOfLines={1}
+              style={styles.accountName}
+              testID="settings-account-name"
+            >
               {sessionStatus === 'spotify'
                 ? userData.displayName
                 : t.settingsLocalAccount}
             </Text>
-            <Text style={styles.accountSubtitle} testID="settings-account-subtitle">
+            <Text
+              style={styles.accountSubtitle}
+              testID="settings-account-subtitle"
+            >
               {accountSubtitle}
             </Text>
           </View>
@@ -249,9 +263,7 @@ export const SettingsScreen = () => {
         />
         <SettingsSwitch
           label={t.settingsRepeatAll}
-          onValueChange={(enabled) =>
-            player.setRepeat(enabled ? 'all' : 'off')
-          }
+          onValueChange={(enabled) => player.setRepeat(enabled ? 'all' : 'off')}
           subtitle={t.settingsRepeatAllHint}
           testID="settings-repeat-all"
           value={player.repeat === 'all'}
@@ -270,7 +282,10 @@ export const SettingsScreen = () => {
         <View style={styles.stepper} testID="settings-startup-volume">
           <View style={styles.stepperTexts}>
             <Text style={styles.stepperLabel}>{t.settingsStartupVolume}</Text>
-            <Text style={styles.stepperHint} testID="settings-startup-volume-hint">
+            <Text
+              style={styles.stepperHint}
+              testID="settings-startup-volume-hint"
+            >
               {t.settingsStartupVolumeHint(startupVolume)}
             </Text>
           </View>
@@ -282,12 +297,18 @@ export const SettingsScreen = () => {
               onPress={() =>
                 setStartupVolume(Math.max(0, startupVolume - VOLUME_STEP))
               }
-              style={[styles.stepperButton, startupVolume <= 0 && styles.stepperDisabled]}
+              style={[
+                styles.stepperButton,
+                startupVolume <= 0 && styles.stepperDisabled,
+              ]}
               testID="settings-volume-minus"
             >
               <Ionicons color={COLORS.WHITE} name="remove" size={18} />
             </Pressable>
-            <Text style={styles.stepperValue} testID="settings-startup-volume-value">
+            <Text
+              style={styles.stepperValue}
+              testID="settings-startup-volume-value"
+            >
               {startupVolume} %
             </Text>
             <Pressable
@@ -297,7 +318,10 @@ export const SettingsScreen = () => {
               onPress={() =>
                 setStartupVolume(Math.min(100, startupVolume + VOLUME_STEP))
               }
-              style={[styles.stepperButton, startupVolume >= 100 && styles.stepperDisabled]}
+              style={[
+                styles.stepperButton,
+                startupVolume >= 100 && styles.stepperDisabled,
+              ]}
               testID="settings-volume-plus"
             >
               <Ionicons color={COLORS.WHITE} name="add" size={18} />
@@ -391,19 +415,25 @@ export const SettingsScreen = () => {
         />
         <SettingsRow
           label={t.settingsTerms}
-          onPress={() => router.push({ pathname: '/settings/about', params: {} })}
+          onPress={() =>
+            router.push({ pathname: '/settings/about', params: {} })
+          }
           showChevron
           testID="settings-terms-link"
         />
         <SettingsRow
           label={t.settingsPrivacy}
-          onPress={() => router.push({ pathname: '/settings/about', params: {} })}
+          onPress={() =>
+            router.push({ pathname: '/settings/about', params: {} })
+          }
           showChevron
           testID="settings-privacy-link"
         />
         <SettingsRow
           label={t.settingsLicenses}
-          onPress={() => router.push({ pathname: '/settings/about', params: {} })}
+          onPress={() =>
+            router.push({ pathname: '/settings/about', params: {} })
+          }
           showChevron
           testID="settings-licenses-link"
         />
@@ -426,15 +456,14 @@ export const SettingsScreen = () => {
       {/* ENTRÉE TEMPORAIRE (4.4.8-diagnostic) : ouvre l'écran dédié
           « Diagnostic technique » (journal natif persistant, copie
           presse-papiers, drapeaux d'isolation). À retirer après correction. */}
-      <SettingsSection
-        testID="settings-section-native-diag"
-        title="Diagnostic"
-      >
+      <SettingsSection testID="settings-section-native-diag" title="Diagnostic">
         <SettingsRow
           isLast
           label="Diagnostic technique"
           showChevron
-          onPress={() => router.push({ pathname: '/settings/diag', params: {} })}
+          onPress={() =>
+            router.push({ pathname: '/settings/diag', params: {} })
+          }
           testID="settings-native-diag-open"
         />
       </SettingsSection>

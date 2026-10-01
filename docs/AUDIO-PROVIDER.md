@@ -9,7 +9,6 @@
 > métadonnées → audius:id) est **inchangé** : le matching ne dépendait que des
 > métadonnées, pas de leur canal.
 
-
 Ce document décrit comment Melodix sépare **compte/données** (Spotify) et
 **audio** (fournisseur, Audius par défaut), comment la correspondance entre
 morceaux est garantie fiable, et comment tout cela est testé.
@@ -52,8 +51,8 @@ elles) :
 
 - le compte propriétaire de l'application Spotify doit être **Premium** ;
 - l'application en mode développement est limitée à **5 utilisateurs** listés
-  dans *User Management* ;
-- pour ouvrir au public, il faut demander à Spotify l'*extended quota mode*.
+  dans _User Management_ ;
+- pour ouvrir au public, il faut demander à Spotify l'_extended quota mode_.
   Ces règles n'autorisent **aucun contournement** ; la solution est côté
   maintien (Client ID intégré + éventuelle demande de quota).
 
@@ -67,11 +66,11 @@ intercepté (`app/+native-intent.tsx`) : pas de page blanche.
 
 `services/audio/types.ts` définit `AudioProvider` :
 
-| Méthode | Rôle |
-| :-- | :-- |
-| `matches(query)` | candidats scorés (transparence / tests) |
-| `resolveMatch(query)` | **meilleur** match fiable ou `null` |
-| `resolveSource(id)` | URL de stream d'une piste native du provider |
+| Méthode               | Rôle                                         |
+| :-------------------- | :------------------------------------------- |
+| `matches(query)`      | candidats scorés (transparence / tests)      |
+| `resolveMatch(query)` | **meilleur** match fiable ou `null`          |
+| `resolveSource(id)`   | URL de stream d'une piste native du provider |
 
 `services/audio/index.ts` est le registre (`getAudioProvider`, id par défaut
 `'audius'`). Le lecteur ne connaît que l'interface ; ajouter un provider =
@@ -87,7 +86,7 @@ implémenter l'interface + s'enregistrer.
   clamp), **volume** (appliqué au son courant), fond en arrière-plan
   (mode audio expo).
 - Indisponibilité : si aucun match fiable n'existe ou si le stream tombe, le
-  lecteur émet un *notice* (« Ce titre n'est pas disponible sur Audius. »),
+  lecteur émet un _notice_ (« Ce titre n'est pas disponible sur Audius. »),
   marque la piste comme échouée pour la session et **passe à la suivante
   jouable** ; quand plus rien n'est jouable, la session s'arrête. **Jamais
   de substitution** par un morceau au titre vaguement ressemblant.
@@ -116,7 +115,7 @@ implémenter l'interface + s'enregistrer.
    `null` = « non disponible ».
 4. **Cache** `@melodix/match-cache` (JSON versionné) : `clé source`
    (`spotify:<trackId>`) → `{ matchId (audius ou null = négatif), score,
-   matchedAt }`. TTL 30 jours au chargement, 500 entrées max à l'écriture
+matchedAt }`. TTL 30 jours au chargement, 500 entrées max à l'écriture
    (les plus anciennes purgées), invalidation immédiate quand un stream mis
    en cache ne répond plus (+ **une** nouvelle recherche en ligne).
 
@@ -136,21 +135,21 @@ reste identique à la 1.2.x.
 
 ## 6. Couverture des tests (checklist §16)
 
-| Test demandé | Couverture |
-| :-- | :-- |
-| 1–2 App sans session → écran de connexion | Garde `app/index.tsx` (règle testée par `resolveInitialSource` → remplacée par session gate ; à vérifier manuellement sur appareil : lancer sans session → `/login`) |
-| 3–6 Connexion OAuth + méthodes Spotify + retour + profil | Rectangle de test manuel (page officielle Spotify = non pilotable en unitaire) ; `LoginScreen` vérifie le token (`verifySpotifyToken`) avant de charger le profil (`reloadUserData`) |
-| 7–8 Persistance | `api/config/__tests__/session.unit.test.ts` (stockage, refresh, mode) |
-| 9–10 Expiration + reconnexion | `sessionGuard.unit.test.ts` (refus /me → reconnexion propre) |
-| 11 Déconnexion | session tests + `signOut` arrête le lecteur (context) ; vérif. manuelle |
-| 12–15 Playlist Spotify → recherche Audius → bon morceau | `audiusTrackMatcher.unit.test.ts`, `audiusAudioProvider.unit.test.ts`, `player.unit.test.ts` (file d'attente Spotify-source) |
-| 16–17 lecture/pause/précédent/suivant | `player.unit.test.ts` (toggle, prev >3 s reprend, recule sinon) |
-| 18 seek | `player.unit.test.ts` (clamp + setPositionAsync) |
-| 19 shuffle/repeat | `player.unit.test.ts` (ordre, wrap, single) |
-| 20 passage auto au suivant | `player.unit.test.ts` (didJustFinish) |
-| 21–22 morceau absent → notice + skip, **jamais** de substitution | `matchSongs` (rejet titre proche / artiste étranger), player (notice + skip + arrêt fin de file), provider (null propre) |
-| 23 plusieurs morceaux d'affilée | `player.unit.test.ts` (file de 2/3/4 pistes) |
-| 24 cache des correspondances | `matchCache.unit.test.ts` + player (hit → pas de recherche, négatif, TTL) |
+| Test demandé                                                     | Couverture                                                                                                                                                                           |
+| :--------------------------------------------------------------- | :----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1–2 App sans session → écran de connexion                        | Garde `app/index.tsx` (règle testée par `resolveInitialSource` → remplacée par session gate ; à vérifier manuellement sur appareil : lancer sans session → `/login`)                 |
+| 3–6 Connexion OAuth + méthodes Spotify + retour + profil         | Rectangle de test manuel (page officielle Spotify = non pilotable en unitaire) ; `LoginScreen` vérifie le token (`verifySpotifyToken`) avant de charger le profil (`reloadUserData`) |
+| 7–8 Persistance                                                  | `api/config/__tests__/session.unit.test.ts` (stockage, refresh, mode)                                                                                                                |
+| 9–10 Expiration + reconnexion                                    | `sessionGuard.unit.test.ts` (refus /me → reconnexion propre)                                                                                                                         |
+| 11 Déconnexion                                                   | session tests + `signOut` arrête le lecteur (context) ; vérif. manuelle                                                                                                              |
+| 12–15 Playlist Spotify → recherche Audius → bon morceau          | `audiusTrackMatcher.unit.test.ts`, `audiusAudioProvider.unit.test.ts`, `player.unit.test.ts` (file d'attente Spotify-source)                                                         |
+| 16–17 lecture/pause/précédent/suivant                            | `player.unit.test.ts` (toggle, prev >3 s reprend, recule sinon)                                                                                                                      |
+| 18 seek                                                          | `player.unit.test.ts` (clamp + setPositionAsync)                                                                                                                                     |
+| 19 shuffle/repeat                                                | `player.unit.test.ts` (ordre, wrap, single)                                                                                                                                          |
+| 20 passage auto au suivant                                       | `player.unit.test.ts` (didJustFinish)                                                                                                                                                |
+| 21–22 morceau absent → notice + skip, **jamais** de substitution | `matchSongs` (rejet titre proche / artiste étranger), player (notice + skip + arrêt fin de file), provider (null propre)                                                             |
+| 23 plusieurs morceaux d'affilée                                  | `player.unit.test.ts` (file de 2/3/4 pistes)                                                                                                                                         |
+| 24 cache des correspondances                                     | `matchCache.unit.test.ts` + player (hit → pas de recherche, négatif, TTL)                                                                                                            |
 
 Tests unitaires : `yarn test:unit`. Les tests manuels de bout en bout restent
 à effectuer sur appareil/émulateur (Expo Go ou APK) : leurs résultats sont

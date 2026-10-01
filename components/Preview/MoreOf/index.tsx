@@ -43,22 +43,28 @@ export const MoreOf = ({ artists }: MoreOfPropsType) => {
       return;
     }
 
+    let cancelled = false;
     (async () => {
       try {
         const artistsAlbumsData = (
           await Promise.all(
-            artists.map(
-              async ({ id }) =>
-                await getArtistAlbums(id, 'album,compilation', 10)
+            artists.map(({ id }) =>
+              getArtistAlbums(id, 'album,compilation', 10)
             )
           )
-        ).map((albums, i) => ({ artist: artists[i].name, albums: albums }));
-        setArtistsAlbums(artistsAlbumsData);
+        ).map((albums, i) => ({ artist: artists[i].name, albums }));
+        if (!cancelled) setArtistsAlbums(artistsAlbumsData);
       } catch (error) {
-        setArtistsAlbums([{ artist: '', albums: null }]);
-        console.error("Failed to get artist's album data:", error);
+        if (!cancelled) {
+          setArtistsAlbums([{ artist: '', albums: null }]);
+          console.error("Failed to get artist's album data:", error);
+        }
       }
     })();
+
+    return () => {
+      cancelled = true;
+    };
   }, [checkArtistIDisEmpty, artists]);
 
   return artistsAlbums.map(({ artist, albums }, index) => (

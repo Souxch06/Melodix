@@ -59,7 +59,10 @@ const readLibrary = async (): Promise<LocalLibraryShape> => {
 };
 
 const writeLibrary = async (library: LocalLibraryShape): Promise<void> => {
-  await AsyncStorage.setItem(LOCAL_LIBRARY_STORAGE_KEY, JSON.stringify(library));
+  await AsyncStorage.setItem(
+    LOCAL_LIBRARY_STORAGE_KEY,
+    JSON.stringify(library)
+  );
 };
 
 const sanitizeItemsMap = (map: unknown): Record<string, LocalItemEntry> => {

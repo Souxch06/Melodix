@@ -36,7 +36,9 @@ export const SettingsAccentPicker = ({
           const selected = preset.id === accentId;
           return (
             <Pressable
-              accessibilityLabel={language === 'en' ? preset.labelEn : preset.labelFr}
+              accessibilityLabel={
+                language === 'en' ? preset.labelEn : preset.labelFr
+              }
               accessibilityRole="button"
               accessibilityState={{ selected }}
               key={preset.id}
@@ -58,7 +60,10 @@ export const SettingsAccentPicker = ({
           style={[styles.preview, { borderColor: accentHex }]}
           testID={`${testID}-preview`}
         >
-          <Text style={[styles.previewText, { color: accentHex }]} numberOfLines={1}>
+          <Text
+            style={[styles.previewText, { color: accentHex }]}
+            numberOfLines={1}
+          >
             Melodix
           </Text>
         </View>

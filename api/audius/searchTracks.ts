@@ -32,8 +32,8 @@ export const searchAudiusTracks = async (
       tracks?: (AudiusTrackResponseType | null)[] | null;
     }>('/search', params);
 
-    return (results?.tracks ?? []).filter(
-      (track): track is AudiusTrackMatch => hasId(track)
+    return (results?.tracks ?? []).filter((track): track is AudiusTrackMatch =>
+      hasId(track)
     );
   } catch (error) {
     // …and some (older) nodes only serve the per-type endpoint.

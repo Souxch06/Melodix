@@ -101,8 +101,8 @@ export const getAudiusTrendingTracks = async (
       '/tracks/trending',
       { limit: String(Math.min(Math.max(limit, 1), 25)) }
     );
-    return (tracks ?? []).filter(
-      (track): track is AudiusTrackMatch => Boolean(track && track.id)
+    return (tracks ?? []).filter((track): track is AudiusTrackMatch =>
+      Boolean(track && track.id)
     );
   } catch (error) {
     console.warn('Audius trending tracks unavailable', error);

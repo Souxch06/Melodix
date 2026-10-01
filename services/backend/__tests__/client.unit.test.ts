@@ -67,7 +67,9 @@ describe('backendGet', () => {
 
   it('effectue un GET JSON avec paramètres d URL', async () => {
     setBackendUrl('https://api.melodix.fr');
-    const fetchMock = jest.fn(async () => fakeResponse({ results: { tracks: [] } }));
+    const fetchMock = jest.fn(async () =>
+      fakeResponse({ results: { tracks: [] } })
+    );
     globalThis.fetch = fetchMock as unknown as typeof fetch;
 
     const data = await backendGet<{ results: { tracks: unknown[] } }>(
@@ -82,7 +84,9 @@ describe('backendGet', () => {
     expect(calledUrl).toContain('limit=5');
 
     // AUCUN secret ne part vers le backend : pas d en-tête Authorization.
-    const options = (fetchMock.mock.calls[0] as unknown as [string, RequestInit])[1];
+    const options = (
+      fetchMock.mock.calls[0] as unknown as [string, RequestInit]
+    )[1];
     expect(options?.headers && 'Authorization' in options.headers).toBe(false);
   });
 

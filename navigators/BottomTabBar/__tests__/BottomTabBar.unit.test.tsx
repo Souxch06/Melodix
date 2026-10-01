@@ -20,7 +20,15 @@ const makeProps = (
   ],
   activeIndex = 0
 ) => {
-  const state = { routes, index: activeIndex, key: 'tab', routeNames: routes.map((r) => r.name), history: [], type: 'tab', stale: false } as const;
+  const state = {
+    routes,
+    index: activeIndex,
+    key: 'tab',
+    routeNames: routes.map((r) => r.name),
+    history: [],
+    type: 'tab',
+    stale: false,
+  } as const;
   const descriptors = Object.fromEntries(
     routes.map((route) => [
       route.key,
@@ -58,7 +66,9 @@ describe('BottomTabBar', () => {
 
     expect(container.getByText(translations.router[Pages.HOME])).toBeTruthy();
     expect(container.getByText(translations.router[Pages.SEARCH])).toBeTruthy();
-    expect(container.getByText(translations.router[Pages.LIBRARY])).toBeTruthy();
+    expect(
+      container.getByText(translations.router[Pages.LIBRARY])
+    ).toBeTruthy();
   });
 
   it('navigates to an inactive tab on press', () => {
