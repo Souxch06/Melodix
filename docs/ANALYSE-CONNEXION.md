@@ -15,7 +15,6 @@
 > Document rédigé avant la refonte de la connexion, maintenu pour ses analyses
 > des restrictions Spotify. L'état « avant » ci-dessous n'est plus le code.
 
-
 ## 1. Architecture de Melodix avant la refonte
 
 Application **Expo SDK 51 / React Native 0.74 / TypeScript** (expo-router).
@@ -28,10 +27,10 @@ morceau n'est joué.
 Deux méthodes, produisant toutes deux un **token d'API Web Spotify** stocké
 dans `AsyncStorage` :
 
-| Méthode | Principe | Durée |
-| :-- | :-- | :-- |
-| Connexion rapide | Token copié depuis le tutoriel de developer.spotify.com | 1 h, non renouvelable |
-| Connexion permanente | OAuth *Authorization Code + PKCE* (expo-auth-session) avec un **Client ID** saisi par l'utilisateur ou intégré au build (`SPOTIFY_CLIENT_ID`) | Renouvellement auto ; reconnexion demandée par Spotify tous les ~6 mois |
+| Méthode              | Principe                                                                                                                                      | Durée                                                                   |
+| :------------------- | :-------------------------------------------------------------------------------------------------------------------------------------------- | :---------------------------------------------------------------------- |
+| Connexion rapide     | Token copié depuis le tutoriel de developer.spotify.com                                                                                       | 1 h, non renouvelable                                                   |
+| Connexion permanente | OAuth _Authorization Code + PKCE_ (expo-auth-session) avec un **Client ID** saisi par l'utilisateur ou intégré au build (`SPOTIFY_CLIENT_ID`) | Renouvellement auto ; reconnexion demandée par Spotify tous les ~6 mois |
 
 Mécanismes déjà en place et conservés :
 
@@ -39,7 +38,7 @@ Mécanismes déjà en place et conservés :
   `api/config/getSessionToken.ts`) ;
 - interception axios qui ne ramène à la connexion que si le token est
   réellement refusé par `GET /me` (`api/config/sessionGuard.ts`) — un simple
-  manque de *scope* ne déconnecte pas ;
+  manque de _scope_ ne déconnecte pas ;
 - callback `melodix://callback` intercepté par `app/+native-intent.tsx` :
   **pas de page blanche** au retour de Spotify ;
 - déconnexion propre (purge des tokens, retour `/login`) ; aucun mot de passe
@@ -49,9 +48,9 @@ Mécanismes déjà en place et conservés :
 
 - Depuis **février 2026**, le **propriétaire** d'une application Spotify en
   mode développement doit avoir **Premium** ; maximum **5 utilisateurs**
-  ajoutés manuellement. Pour servir le public, il faut l'*extended quota
-  mode*, accordé par Spotify essentiellement aux organisations.
-- L'*Implicit Grant* a été **supprimé le 27 novembre 2025** (PKCE obligatoire
+  ajoutés manuellement. Pour servir le public, il faut l'_extended quota
+  mode_, accordé par Spotify essentiellement aux organisations.
+- L'_Implicit Grant_ a été **supprimé le 27 novembre 2025** (PKCE obligatoire
   — déjà en place dans Melodix).
 - Les refresh tokens expirent après **6 mois** (juin 2026 — déjà géré).
 
@@ -59,8 +58,8 @@ Mécanismes déjà en place et conservés :
 public via la Web API sans qu'un Client ID soit fourni par quelqu'un. Seule
 exception propre : le mainteneur intègre son Client ID au build (variable de
 dépôt) — limité à 5 utilisateurs et subordonné à son abonnement Premium.
-Seuls les **utilisateurs** restent gratuits : c'est le *propriétaire de
-l'app* qui doit être Premium.
+Seuls les **utilisateurs** restent gratuits : c'est le _propriétaire de
+l'app_ qui doit être Premium.
 
 ## 2. Comment SpotiDuck fonctionne réellement
 
@@ -72,6 +71,7 @@ l'app* qui doit être Premium.
   Client ID nécessaire. La connexion se fait sur le site officiel de Spotify
   dans la WebView ; la session persiste via les cookies.
 - **Mais** l'expérience « tout gratuit » repose sur deux **contournements** :
+
   1. l'**usurpation du user-agent** (bureau / ChromeOS) pour obtenir le Web
      Player complet au lieu de la version mobile bridée que Spotify sert aux
      navigateurs mobiles (technique également documentée par le projet
@@ -81,6 +81,7 @@ l'app* qui doit être Premium.
 
   Ce sont tous deux des violations des conditions Spotify — et le contraire de
   l'exigence « ne pas contourner les protections ou restrictions de Spotify ».
+
 - Fragilités **documentées par SpotiDuck lui-même** : erreurs de lecture
   possibles pour les comptes gratuits, **connexion Google/Facebook bloquée**
   dans les WebViews (`disallowed_useragent`) → il faut se créer un mot de
@@ -158,14 +159,14 @@ fonctionnalités existantes.
 
 Correspondance avec les priorités :
 
-| Priorité | Réponse de l'architecture |
-| :-- | :-- |
-| Gratuit pour l'utilisateur | ✅ (Audius : gratuit ; Spotify : inchangé) |
-| Aucun Client ID à saisir | ✅ en mode invité |
-| Simple (bouton → c'est parti) | ✅ « Continuer sans compte » |
-| Conserver les fonctionnalités | ✅ mode Spotify intact à 100 % |
-| Stable | ✅ API publiques documentées des deux côtés |
-| Android | ✅ Expo + expo-av |
+| Priorité                                    | Réponse de l'architecture                                 |
+| :------------------------------------------ | :-------------------------------------------------------- |
+| Gratuit pour l'utilisateur                  | ✅ (Audius : gratuit ; Spotify : inchangé)                |
+| Aucun Client ID à saisir                    | ✅ en mode invité                                         |
+| Simple (bouton → c'est parti)               | ✅ « Continuer sans compte »                              |
+| Conserver les fonctionnalités               | ✅ mode Spotify intact à 100 %                            |
+| Stable                                      | ✅ API publiques documentées des deux côtés               |
+| Android                                     | ✅ Expo + expo-av                                         |
 | Aucun contournement des protections Spotify | ✅ la Web API et Audius sont utilisés tels que documentés |
 
 ### Limites assumées du mode invité

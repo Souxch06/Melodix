@@ -20,11 +20,11 @@ export const LibraryRelated = () => (
             category !== Categories.ALL
         ) as Exclude<Categories, Categories.ALL>[]
       ).map((currentCategory) => (
-          <CategoryPressable
-            key={currentCategory}
-            currentCategory={currentCategory}
-          />
-        ))}
+        <CategoryPressable
+          key={currentCategory}
+          currentCategory={currentCategory}
+        />
+      ))}
     </View>
   </ScrollView>
 );

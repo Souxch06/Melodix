@@ -64,7 +64,9 @@ export default function App() {
     );
   }
 
-  return <Redirect href={{ pathname: target as '/login' | '/home', params: {} }} />;
+  return (
+    <Redirect href={{ pathname: target as '/login' | '/home', params: {} }} />
+  );
 }
 
 const styles = StyleSheet.create({

@@ -78,9 +78,9 @@ export const getRecommendations = async ({
             collects.push(...artist.topTracks.map(dtoTrackToLibraryItem));
           } else if (artist.name) {
             collects.push(
-              ...(await backendSearchTracks(artist.name, MAX_RECOMMENDATIONS)).map(
-                dtoTrackToLibraryItem
-              )
+              ...(
+                await backendSearchTracks(artist.name, MAX_RECOMMENDATIONS)
+              ).map(dtoTrackToLibraryItem)
             );
           }
         } catch {

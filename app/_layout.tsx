@@ -41,35 +41,38 @@ export default function RootLayout() {
     <SafeAreaProvider>
       <PreferencesProvider>
         <UserDataProvider>
-        <PlayerProvider>
-          <LibrarySelectedCategoryProvider>
-            <GestureHandlerRootView style={styles.gestureHandlerRootView}>
-              <Stack screenOptions={{ headerShown: false }}>
-                <Stack.Screen
-                  name="index"
-                  options={{ headerShown: false, animation: 'fade' }}
-                />
-                <Stack.Screen
-                  name="login"
-                  options={{ headerShown: false, animation: 'fade' }}
-                />
-                <Stack.Screen
-                  name="(tabs)"
-                  options={{ headerShown: false, animation: 'fade' }}
-                />
-                <Stack.Screen
-                  name="settings"
-                  options={{ headerShown: false, animation: 'slide_from_right' }}
-                />
-                <Stack.Screen
-                  name="+not-found"
-                  options={{ headerShown: false, animation: 'fade' }}
-                />
-              </Stack>
-              <StatusBar style="light" />
-            </GestureHandlerRootView>
-          </LibrarySelectedCategoryProvider>
-        </PlayerProvider>
+          <PlayerProvider>
+            <LibrarySelectedCategoryProvider>
+              <GestureHandlerRootView style={styles.gestureHandlerRootView}>
+                <Stack screenOptions={{ headerShown: false }}>
+                  <Stack.Screen
+                    name="index"
+                    options={{ headerShown: false, animation: 'fade' }}
+                  />
+                  <Stack.Screen
+                    name="login"
+                    options={{ headerShown: false, animation: 'fade' }}
+                  />
+                  <Stack.Screen
+                    name="(tabs)"
+                    options={{ headerShown: false, animation: 'fade' }}
+                  />
+                  <Stack.Screen
+                    name="settings"
+                    options={{
+                      headerShown: false,
+                      animation: 'slide_from_right',
+                    }}
+                  />
+                  <Stack.Screen
+                    name="+not-found"
+                    options={{ headerShown: false, animation: 'fade' }}
+                  />
+                </Stack>
+                <StatusBar style="light" />
+              </GestureHandlerRootView>
+            </LibrarySelectedCategoryProvider>
+          </PlayerProvider>
         </UserDataProvider>
       </PreferencesProvider>
     </SafeAreaProvider>

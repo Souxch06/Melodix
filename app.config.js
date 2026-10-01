@@ -90,6 +90,9 @@ module.exports = {
     userInterfaceStyle: 'dark',
     plugins: [
       'expo-router',
+      // Melodix lit de l'audio mais n'enregistre jamais : ne pas demander une
+      // permission micro inutile (et anxiogène) dans l'APK final.
+      ['expo-av', { microphonePermission: false }],
       // Phase 5A : MediaSession/Foreground Service Android (manifest généré,
       // idempotent). android/ reste NON versionné (prebuild).
       './modules/melodix-media/plugin/withMelodixMedia',
@@ -103,6 +106,13 @@ module.exports = {
       package: 'com.souxch06.melodix',
       versionCode: 44008,
       intentFilters: extraIntentFilters,
+      // Le lecteur streame via le stockage privé d'expo-av : aucun accès au
+      // stockage partagé ni overlay système n'est nécessaire en production.
+      blockedPermissions: [
+        'android.permission.READ_EXTERNAL_STORAGE',
+        'android.permission.WRITE_EXTERNAL_STORAGE',
+        'android.permission.SYSTEM_ALERT_WINDOW',
+      ],
       adaptiveIcon: {
         foregroundImage: './assets/images/adaptive-icon.png',
         backgroundImage: './assets/images/adaptive-icon-background.png',

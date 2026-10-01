@@ -76,7 +76,10 @@ export class ServiceGuard {
 
   recordFailure(): void {
     const now = Date.now();
-    if (this.failures > 0 && now - this.firstFailureAt > this.config.failureWindowMs) {
+    if (
+      this.failures > 0 &&
+      now - this.firstFailureAt > this.config.failureWindowMs
+    ) {
       this.failures = 0;
     }
     if (this.failures === 0) {

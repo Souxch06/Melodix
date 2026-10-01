@@ -140,6 +140,8 @@ describe('getAudiusStreamUrl', () => {
     await expect(getAudiusStreamUrl('xyz')).resolves.toContain(
       `${AUDIUS_GATEWAY_URL}/v1/tracks/xyz/stream?`
     );
-    await expect(getAudiusStreamUrl('xyz')).resolves.toContain('api_key=key-123');
+    await expect(getAudiusStreamUrl('xyz')).resolves.toContain(
+      'api_key=key-123'
+    );
   });
 });

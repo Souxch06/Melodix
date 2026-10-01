@@ -70,7 +70,13 @@ export const Summary = ({
     (async () => {
       try {
         if (nextState) {
-          const item: LibraryItemModel = { id, type, title, subtitle, imageURL };
+          const item: LibraryItemModel = {
+            id,
+            type,
+            title,
+            subtitle,
+            imageURL,
+          };
           await saveItem(item);
         } else {
           await removeSavedItem(type, id);
@@ -94,7 +100,10 @@ export const Summary = ({
       <Text style={styles.subtitle}>{subtitle}</Text>
       <Text style={styles.info}>{info}</Text>
       {availabilityInfo ? (
-        <Text style={styles.availabilityInfo} testID="playlist-availability-stat">
+        <Text
+          style={styles.availabilityInfo}
+          testID="playlist-availability-stat"
+        >
           {availabilityInfo}
         </Text>
       ) : null}

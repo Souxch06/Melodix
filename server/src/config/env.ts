@@ -10,7 +10,10 @@
 
 export type LogLevel = 'debug' | 'info' | 'warn' | 'error';
 
-const parsePositiveInt = (raw: string | undefined, fallback: number): number => {
+const parsePositiveInt = (
+  raw: string | undefined,
+  fallback: number
+): number => {
   const value = Number.parseInt(raw ?? '', 10);
   return Number.isFinite(value) && value > 0 ? value : fallback;
 };

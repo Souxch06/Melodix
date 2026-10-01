@@ -21,16 +21,22 @@ export const BasedOnTopArtists = () => {
   ]);
 
   React.useEffect(() => {
+    let mounted = true;
     (async () => {
       try {
         const albumsBasedOnTopArtistsData =
           await getRecommendationsFromArtistSeeds();
-        setAlbumsBasedOnTopArtists(albumsBasedOnTopArtistsData);
+        if (mounted) setAlbumsBasedOnTopArtists(albumsBasedOnTopArtistsData);
       } catch (error) {
-        setAlbumsBasedOnTopArtists(null);
-        console.error(error);
+        if (mounted) {
+          setAlbumsBasedOnTopArtists(null);
+          console.error(error);
+        }
       }
     })();
+    return () => {
+      mounted = false;
+    };
   }, []);
 
   return (

@@ -217,7 +217,11 @@ export const LoginScreen = () => {
 
         {errorCard ? (
           <View style={styles.errorCard} testID="login-error-card">
-            <Ionicons color={COLORS.RED} name="alert-circle-outline" size={32} />
+            <Ionicons
+              color={COLORS.RED}
+              name="alert-circle-outline"
+              size={32}
+            />
             <Text style={styles.errorTitle}>{errorCard.title}</Text>
             <Text style={styles.errorBody}>{errorCard.body}</Text>
             {errorCard.retryable && (
@@ -278,7 +282,9 @@ export const LoginScreen = () => {
 
         <View style={styles.footer}>
           <Ionicons color={COLORS.GREY} name="lock-closed-outline" size={13} />
-          <Text style={styles.footerText}>{translations.loginRedirectNote}</Text>
+          <Text style={styles.footerText}>
+            {translations.loginRedirectNote}
+          </Text>
         </View>
         <Text style={styles.versionText} testID="login-version-text">
           Melodix v{Constants.expoConfig?.version ?? '4.1.2'}

@@ -66,16 +66,18 @@ describe('À propos — version réelle, textes in-app', () => {
     const { getByTestId, getByText } = render(<SettingsAboutScreen />);
 
     expect(getByTestId('settings-about-screen')).toBeTruthy();
-    expect(getByTestId('settings-about-version').props.children.join('')).toContain(
-      '4.4.8-diagnostic'
-    );
+    expect(
+      getByTestId('settings-about-version').props.children.join('')
+    ).toContain('4.4.8-diagnostic');
     [
       'settings-about-terms',
       'settings-about-privacy',
       'settings-about-licenses',
       'settings-about-credits',
     ].forEach((testID) => expect(getByTestId(testID)).toBeTruthy());
-    expect(getByText(/Melodix stocke tes données uniquement sur ton appareil/)).toBeTruthy();
+    expect(
+      getByText(/Melodix stocke tes données uniquement sur ton appareil/)
+    ).toBeTruthy();
   });
 
   it('le bouton retour revient à l écran Paramètres', () => {

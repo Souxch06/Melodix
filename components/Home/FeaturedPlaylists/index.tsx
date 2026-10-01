@@ -21,15 +21,21 @@ export const FeaturedPlaylists = () => {
   ]);
 
   React.useEffect(() => {
+    let mounted = true;
     (async () => {
       try {
         const featuredPlaylistsData = await getFeaturedPlaylists();
-        setDataFeaturedPlaylists(featuredPlaylistsData);
+        if (mounted) setDataFeaturedPlaylists(featuredPlaylistsData);
       } catch (error) {
-        setDataFeaturedPlaylists(null);
-        console.error(error);
+        if (mounted) {
+          setDataFeaturedPlaylists(null);
+          console.error(error);
+        }
       }
     })();
+    return () => {
+      mounted = false;
+    };
   }, []);
 
   // Featured playlists are not available to Spotify apps created after

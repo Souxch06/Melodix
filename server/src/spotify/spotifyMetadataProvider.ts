@@ -39,7 +39,11 @@ import {
   subtitleToArtists,
 } from './embedEntity';
 import type { SpotifyEmbedTrackListItem } from './types';
-import { normalizeArtist, normalizeTitle, tokenSimilarity } from './normalization';
+import {
+  normalizeArtist,
+  normalizeTitle,
+  tokenSimilarity,
+} from './normalization';
 
 const logger = createLogger('SpotifyProvider');
 
@@ -150,7 +154,9 @@ const embedTrackListToDTOs = (
 };
 
 /** Pertinence vs requête (titre + artistes), ordre déterministe. */
-const byQueryRelevance = <T extends { id: string; title: string; artists: string[] }>(
+const byQueryRelevance = <
+  T extends { id: string; title: string; artists: string[] },
+>(
   query: string
 ): ((a: T, b: T) => number) => {
   const normalizedQuery = normalizeTitle(query).base;
@@ -218,22 +224,14 @@ export const createSpotifyMetadataProvider = (
       return cached;
     }
 
-    const { tracks, albums } = await guardedCall(() =>
-      deps.search(q, limit)
-    );
+    const { tracks, albums } = await guardedCall(() => deps.search(q, limit));
 
     const result: SearchResultsDTO = {
       tracks: types.includes('tracks')
-        ? tracks
-            .map(toTrackDTO)
-            .sort(byQueryRelevance(q))
-            .slice(0, limit)
+        ? tracks.map(toTrackDTO).sort(byQueryRelevance(q)).slice(0, limit)
         : [],
       albums: types.includes('albums')
-        ? albums
-            .map(toAlbumDTO)
-            .sort(byQueryRelevance(q))
-            .slice(0, limit)
+        ? albums.map(toAlbumDTO).sort(byQueryRelevance(q)).slice(0, limit)
         : [],
     };
 
@@ -253,7 +251,12 @@ export const createSpotifyMetadataProvider = (
       deps.fetchEmbed('track', trackId)
     );
     if (!entity?.name) {
-      throw new ApiError('NOT_FOUND', 'Titre introuvable.', 404, 'embed: no entity');
+      throw new ApiError(
+        'NOT_FOUND',
+        'Titre introuvable.',
+        404,
+        'embed: no entity'
+      );
     }
 
     const dto: TrackMetadataDTO = {
@@ -285,7 +288,12 @@ export const createSpotifyMetadataProvider = (
       deps.fetchEmbed('album', albumId)
     );
     if (!entity?.name) {
-      throw new ApiError('NOT_FOUND', 'Album introuvable.', 404, 'embed: no entity');
+      throw new ApiError(
+        'NOT_FOUND',
+        'Album introuvable.',
+        404,
+        'embed: no entity'
+      );
     }
 
     const tracks: TrackMetadataDTO[] = embedTrackListToDTOs(
@@ -326,10 +334,7 @@ export const createSpotifyMetadataProvider = (
       );
     }
 
-    const tracks: TrackMetadataDTO[] = embedTrackListToDTOs(
-      trackList,
-      null
-    );
+    const tracks: TrackMetadataDTO[] = embedTrackListToDTOs(trackList, null);
 
     const dto: PlaylistMetadataDTO = {
       id: playlistId,
@@ -357,7 +362,12 @@ export const createSpotifyMetadataProvider = (
       deps.fetchEmbed('artist', artistId)
     );
     if (!entity?.name) {
-      throw new ApiError('NOT_FOUND', 'Artiste introuvable.', 404, 'embed: no entity');
+      throw new ApiError(
+        'NOT_FOUND',
+        'Artiste introuvable.',
+        404,
+        'embed: no entity'
+      );
     }
 
     const topTracks: TrackMetadataDTO[] = embedTrackListToDTOs(trackList, null);

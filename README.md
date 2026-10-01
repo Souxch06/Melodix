@@ -28,7 +28,7 @@
 
 ## Installer l'APK (Android)
 
-1. Sur ton téléphone, ouvre la [dernière version](https://github.com/Souxch06/Melodix/releases/latest) et télécharge le fichier **`Melodix-v….apk`** (section *Assets*).
+1. Sur ton téléphone, ouvre la [dernière version](https://github.com/Souxch06/Melodix/releases/latest) et télécharge le fichier **`Melodix-v….apk`** (section _Assets_).
 2. Ouvre le fichier téléchargé. Android te demande d'autoriser l'installation d'applications depuis ton navigateur ou ton gestionnaire de fichiers : accepte, puis appuie sur **Installer**.
 3. Lance Melodix : appuie sur **[ Continuer avec Spotify ]** — l'écran de connexion **obligatoire** s'affiche dès le premier lancement ; une fois connecté, tu arrives directement à l'accueil.
 
@@ -54,7 +54,7 @@ techniques : [`docs/AUDIO-PROVIDER.md`](docs/AUDIO-PROVIDER.md).
 
 **Au premier lancement sans session**, Melodix affiche son écran de connexion :
 un seul bouton **[ Continuer avec Spotify ]** ouvre la page officielle de
-Spotify (OAuth *Authorization Code + PKCE* — la page qui permet à l'utilisateur
+Spotify (OAuth _Authorization Code + PKCE_ — la page qui permet à l'utilisateur
 de choisir entre ses identifiants, Google, Apple…). Après autorisation, tu
 reviens automatiquement dans l'app, connecté.
 

@@ -34,9 +34,15 @@ describe('api/spotify/userPlaylists — playlists personnelles', () => {
   });
 
   it('PAGINATION COMPLÈTE : suit les liens next jusqu à épuisement', async () => {
-    const p1 = Array.from({ length: 50 }, (_, i) => playlist(`p1-${i}`, `A${i}`));
-    const p2 = Array.from({ length: 50 }, (_, i) => playlist(`p2-${i}`, `B${i}`));
-    const p3 = Array.from({ length: 23 }, (_, i) => playlist(`p3-${i}`, `C${i}`));
+    const p1 = Array.from({ length: 50 }, (_, i) =>
+      playlist(`p1-${i}`, `A${i}`)
+    );
+    const p2 = Array.from({ length: 50 }, (_, i) =>
+      playlist(`p2-${i}`, `B${i}`)
+    );
+    const p3 = Array.from({ length: 23 }, (_, i) =>
+      playlist(`p3-${i}`, `C${i}`)
+    );
 
     apiMock
       .mockResolvedValueOnce({
@@ -58,7 +64,10 @@ describe('api/spotify/userPlaylists — playlists personnelles', () => {
   });
 
   it('mapping complet : id, nom, image, propriétaire, nombre de titres', async () => {
-    apiMock.mockResolvedValueOnce({ items: [playlist('ab', 'Ma playlist', 42)], next: null });
+    apiMock.mockResolvedValueOnce({
+      items: [playlist('ab', 'Ma playlist', 42)],
+      next: null,
+    });
 
     const [item] = await getUserPlaylists({ forceRefresh: true });
 
@@ -75,7 +84,12 @@ describe('api/spotify/userPlaylists — playlists personnelles', () => {
 
   it('entrées invalides filtrées (sans id ou sans nom)', async () => {
     apiMock.mockResolvedValueOnce({
-      items: [{ name: 'Sans id' }, playlist('ok', 'OK'), null, { id: 'noname' }],
+      items: [
+        { name: 'Sans id' },
+        playlist('ok', 'OK'),
+        null,
+        { id: 'noname' },
+      ],
       next: null,
     });
 
@@ -109,11 +123,16 @@ describe('api/spotify/userPlaylists — playlists personnelles', () => {
 
   it('erreur propagée typée (l écran décide du message)', async () => {
     apiMock.mockRejectedValueOnce(new Error('down'));
-    await expect(getUserPlaylists({ forceRefresh: true })).rejects.toThrow('down');
+    await expect(getUserPlaylists({ forceRefresh: true })).rejects.toThrow(
+      'down'
+    );
   });
 
   it('le cache persisté survit à un vidage du cache mémoire', async () => {
-    apiMock.mockResolvedValue({ items: [playlist('persist', 'P')], next: null });
+    apiMock.mockResolvedValue({
+      items: [playlist('persist', 'P')],
+      next: null,
+    });
     await getUserPlaylists({ forceRefresh: true });
 
     // Simule un redémarrage de l app : mémoire perdue, AsyncStorage intact.

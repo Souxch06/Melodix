@@ -6,11 +6,11 @@ Thank you for helping keep our Spotify Clone project secure! We appreciate contr
 
 We support security updates for the following versions:
 
-| Version         | Supported          |
-| --------------- | ------------------ |
-| Latest release  | :white_check_mark: |
+| Version                    | Supported          |
+| -------------------------- | ------------------ |
+| Latest release             | :white_check_mark: |
 | Previous release (1 major) | :white_check_mark: |
-| Older versions  | :x:                |
+| Older versions             | :x:                |
 
 Please use the latest version of the project to ensure you have the latest security fixes.
 
@@ -40,6 +40,7 @@ We regularly review and address security issues and release updates as needed. S
 ## Best Practices for Users
 
 To keep your usage of the Spotify Clone project secure:
+
 - Always use the latest release.
 - Review our recommended [configuration and deployment practices](https://github.com/your-repo/docs/deployment).
 

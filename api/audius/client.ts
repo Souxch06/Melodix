@@ -207,11 +207,7 @@ export const toQueryString = (params: Record<string, string>) =>
     )
     .join('&');
 
-const buildUrl = (
-  host: string,
-  path: string,
-  params: Record<string, string>
-) =>
+const buildUrl = (host: string, path: string, params: Record<string, string>) =>
   `${host}/v1${path}?${toQueryString({ ...params, app_name: AUDIUS_APP_NAME })}`;
 
 // With an API key, all traffic goes through the managed gateway.

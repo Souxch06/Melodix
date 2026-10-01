@@ -14,17 +14,20 @@ test('normalizeTitle supprime les accents et plie en minuscules', () => {
 });
 
 test('normalizeTitle retire les featuring', () => {
-  assert.equal(normalizeTitle('One More Time (feat. Romanthony)').base, 'one more time');
+  assert.equal(
+    normalizeTitle('One More Time (feat. Romanthony)').base,
+    'one more time'
+  );
   assert.equal(normalizeTitle('Titre ft. Bidule').base, 'titre');
   assert.equal(normalizeTitle('Titre featuring Bb').base, 'titre');
 });
 
-test("normalizeTitle retire le contenu entre parenthèses et crochets", () => {
+test('normalizeTitle retire le contenu entre parenthèses et crochets', () => {
   assert.equal(normalizeTitle('Song (Radio Edit)').base, 'song');
   assert.equal(normalizeTitle('Song [Deluxe Version]').base, 'song');
 });
 
-test("normalizeTitle préserve les indicateurs de version", () => {
+test('normalizeTitle préserve les indicateurs de version', () => {
   const remixed = normalizeTitle('Song (Remix)');
   assert.equal(remixed.base, 'song');
   assert.deepEqual(remixed.versionFlags, ['remix']);
@@ -37,7 +40,7 @@ test("normalizeTitle préserve les indicateurs de version", () => {
   assert.deepEqual(clean.versionFlags, []);
 });
 
-test("normalizeTitle casse vide / ponctuation seule", () => {
+test('normalizeTitle casse vide / ponctuation seule', () => {
   assert.equal(normalizeTitle('!!!').base, '');
   assert.equal(normalizeTitle('').base, '');
 });

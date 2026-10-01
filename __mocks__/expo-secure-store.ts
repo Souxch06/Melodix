@@ -8,7 +8,10 @@ const vault = new Map<string, string>();
 export const getItemAsync = async (key: string): Promise<string | null> =>
   vault.has(key) ? (vault.get(key) as string) : null;
 
-export const setItemAsync = async (key: string, value: string): Promise<void> => {
+export const setItemAsync = async (
+  key: string,
+  value: string
+): Promise<void> => {
   vault.set(key, value);
 };
 

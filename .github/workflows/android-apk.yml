@@ -60,11 +60,20 @@ jobs:
       # permanence ; à déclarer identique dans le dashboard Spotify).
       SPOTIFY_REDIRECT_URI: ${{ inputs.spotify_redirect_uri || vars.SPOTIFY_REDIRECT_URI || 'melodix://callback' }}
       EXPO_PUBLIC_SPOTIFY_REDIRECT_URI: ${{ inputs.spotify_redirect_uri || vars.SPOTIFY_REDIRECT_URI || 'melodix://callback' }}
+      # Facultatif : empreinte SHA-256 du certificat attendue pour garantir que
+      # deux APK successifs restent installables en mise à jour. Laisser vide
+      # vérifie tout de même signature + certificat, sans inventer de clé CI.
+      EXPECTED_CERT_SHA256: ${{ vars.ANDROID_SIGNING_CERT_SHA256 || '' }}
+      # Sur pull_request, github.sha est le commit de merge synthétique. On
+      # construit et nomme explicitement le vrai HEAD de la branche testée.
+      BUILD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
       # AUCUN Client Secret / refresh token dans l'APK : le Client Secret n'existe
       # pas côté mobile (PKCE), aucun secret serveur dans le bundle.
     steps:
       - name: Récupérer le code
         uses: actions/checkout@v7
+        with:
+          ref: ${{ env.BUILD_SHA }}
 
       - name: Valider la config Spotify injectée (Client ID 32-hex ou absent)
         # Contrat STRICT — jamais d'application Spotify tierce/exemple :
@@ -119,23 +128,38 @@ jobs:
       - name: Installer les dépendances
         run: npm ci --legacy-peer-deps
 
+      - name: Vérifier TypeScript, ESLint et Prettier
+        run: |
+          npx tsc --noEmit
+          npm run lint
+          npm run prettier:check
+
+      - name: Tests JavaScript / React Native
+        run: npm test -- --runInBand
+
       - name: Générer le projet Android
         run: npx expo prebuild --platform android --no-install
 
-      - name: Limiter l'APK aux processeurs ARM
+      - name: Vérifier la configuration Android générée
         run: |
-          # Les téléphones Android utilisent des processeurs ARM : on n'embarque que
-          # ces architectures (APK plus léger, cohérent avec les modules natifs compilés).
-          cat >> android/app/build.gradle <<'GRADLE'
-
-          android {
-              defaultConfig {
-                  ndk {
-                      abiFilters "arm64-v8a", "armeabi-v7a"
-                  }
-              }
-          }
-          GRADLE
+          # APK universel : ne pas retirer x86/x86_64 sans connaître l'appareil
+          # cible. Le gradle.properties Expo généré doit conserver les quatre ABI.
+          grep -Fq "applicationId 'com.souxch06.melodix'" android/app/build.gradle
+          grep -Fq "namespace 'com.souxch06.melodix'" android/app/build.gradle
+          grep -Fq 'versionCode 44008' android/app/build.gradle
+          grep -Fq 'versionName "4.4.8-diagnostic"' android/app/build.gradle
+          grep -Eq '^reactNativeArchitectures=armeabi-v7a,arm64-v8a,x86,x86_64$' android/gradle.properties
+          grep -Fq 'android:scheme="melodix"' android/app/src/main/AndroidManifest.xml
+          grep -Fq 'expo.modules.melodixmedia.MelodixMediaService' android/app/src/main/AndroidManifest.xml
+          for permission in RECORD_AUDIO ACCESS_FINE_LOCATION ACCESS_COARSE_LOCATION READ_EXTERNAL_STORAGE WRITE_EXTERNAL_STORAGE SYSTEM_ALERT_WINDOW; do
+            # blockedPermissions laisse volontairement une directive
+            # tools:node="remove" dans le manifest source ; elle n'est pas une
+            # permission du manifest fusionné final.
+            if grep -F "android.permission.$permission" android/app/src/main/AndroidManifest.xml | grep -Fvq 'tools:node="remove"'; then
+              echo "::error title=Permission Android inattendue::$permission ne correspond à aucune fonction de Melodix"
+              exit 1
+            fi
+          done
 
       # Tests unitaires JVM du module natif (Robolectric) — exécutés AVANT
       # l'assemble : un invariant Media3 cassé doit bloquer la release, pas
@@ -150,7 +174,9 @@ jobs:
         working-directory: android
         run: |
           set -o pipefail
-          ./gradlew assembleRelease --console=plain -PreactNativeArchitectures=arm64-v8a,armeabi-v7a 2>&1 | tee ../gradle-build.log
+          # Conserver les quatre ABI Expo/RN : l'APK reste installable sur ARM
+          # physique comme sur appareil/émulateur x86 ou x86_64.
+          ./gradlew assembleRelease --console=plain 2>&1 | tee ../gradle-build.log
 
       - name: Afficher l'erreur de compilation
         if: failure()
@@ -174,7 +200,7 @@ jobs:
           if [ "$EVENT" = "release" ]; then
             VERSION="$TAG"
           else
-            VERSION="v$(node -p "require('./package.json').version")-${GITHUB_SHA::7}"
+            VERSION="v$(node -p "require('./package.json').version")-${BUILD_SHA::7}"
           fi
           NAME="Melodix-${VERSION}.apk"
           mv android/app/build/outputs/apk/release/app-release.apk "$NAME"
@@ -182,6 +208,7 @@ jobs:
           {
             echo "### 📱 $NAME"
             echo ""
+            echo "- Commit source : \`$BUILD_SHA\`"
             echo "- Taille : $(du -h "$NAME" | cut -f1)"
             echo "- SHA-256 : \`$(sha256sum "$NAME" | cut -d' ' -f1)\`"
             if [ -n "$MELODIX_BACKEND_URL" ]; then
@@ -202,27 +229,23 @@ jobs:
             echo "- Audio : Audius · Métadonnées : backend Melodix · Compte : connexion Spotify OAuth PKCE (Melodix 4.0)"
           } >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Vérifier l'APK
+      - name: Vérifier intégrité, installabilité et signature de l'APK
         env:
           APK: ${{ steps.apk.outputs.name }}
+          EXPECTED_PACKAGE: com.souxch06.melodix
+          EXPECTED_VERSION_CODE: '44008'
+          EXPECTED_VERSION_NAME: 4.4.8-diagnostic
+          EXPECTED_MIN_SDK: '23'
+          EXPECTED_TARGET_SDK: '34'
+          EXPECTED_SCHEME: melodix
+          EXPECTED_ABIS: arm64-v8a,armeabi-v7a,x86,x86_64
         run: |
-          AAPT2="$(ls -d "$ANDROID_HOME"/build-tools/*/ | sort -V | tail -1)aapt2"
-          INFO=$("$AAPT2" dump badging "$APK" | grep -E "^(package|application-label|sdkVersion|minSdkVersion|targetSdkVersion|native-code):" | tr '\n' ' ')
-          echo "$INFO"
-          echo "::notice title=$APK::$INFO| taille $(du -h "$APK" | cut -f1) | sha256 $(sha256sum "$APK" | cut -d' ' -f1)"
-          # Preuve pipeline du deep-link OAuth : le scheme melodix DOIT figurer
-          # dans un intent-filter de l'APK (sinon le callback ne revient jamais).
-          # La ligne 'schemes:' de dump badging est le canal STABLE d'aapt2
-          # (le format xmltree varie selon les toolchains → grep fragile).
-          SCHEMES_LINE=$("$AAPT2" dump badging "$APK" | grep '^schemes:' || true)
-          echo "schemes déclarés : $SCHEMES_LINE"
-          # Token EXACT 'melodix' (sans ça, 'com.souxch06.melodix' ferait un
-          # faux positif à lui seul).
-          if echo "$SCHEMES_LINE" | tr ' ,' '\n' | grep -qx 'melodix'; then
-            echo "::notice title=Deep link OAuth::scheme melodix présent dans l'APK (melodix://callback déclenchable)"
-          else
-            echo "::error title=Deep link OAuth::scheme melodix ABSENT de l'APK — le retour Spotify ne fonctionnera pas"
-          fi
+          chmod +x scripts/verify-android-apk.sh
+          scripts/verify-android-apk.sh "$APK" apk-inspection.txt
+          INFO=$(grep -E "^(package|application-label|sdkVersion|minSdkVersion|targetSdkVersion|native-code):" apk-inspection.txt | tr '\n' ' ')
+          CERT=$(grep '^Signer #1 certificate SHA-256 digest:' apk-inspection.txt | head -1)
+          echo "::notice title=$APK::$INFO| $CERT | taille $(du -h "$APK" | cut -f1) | sha256 $(sha256sum "$APK" | cut -d' ' -f1)"
+          echo "::notice title=Deep link OAuth::scheme melodix présent dans l'APK (melodix://callback déclenchable)"
 
       - name: Diagnostic OAuth Spotify (TEMPORAIRE — build de test)
         # Oracle build-level : révèle QUELLE branche de la chaîne
@@ -247,7 +270,9 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: ${{ steps.apk.outputs.name }}
-          path: ${{ steps.apk.outputs.name }}
+          path: |
+            ${{ steps.apk.outputs.name }}
+            apk-inspection.txt
           if-no-files-found: error
 
       - name: Publier l'APK de TEST (diagnostic OAuth uniquement)

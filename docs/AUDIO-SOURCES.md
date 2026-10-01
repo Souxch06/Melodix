@@ -22,12 +22,12 @@ d'une cascade de providers, dans l'ordre strict :
 ```
 
 - **Audius prioritaire, jamais contourné** : le premier provider est tenté
-  en premier et YouTube n'est *jamais* consulté s'il répond avec un match
+  en premier et YouTube n'est _jamais_ consulté s'il répond avec un match
   fiable (pas de « meilleure offre » ultérieure — priorité absolue).
 - **Même moteur de confiance** aux deux étages : normalisation complète
   (casse, accents, tirets, ponctuation), comparaison titre + artistes +
   album + durée, et **pénalité de variante dure** commune : un
-  `remix` / `live` / `instrumental` / `karaoke` / `acoustic` n'est *pas* une
+  `remix` / `live` / `instrumental` / `karaoke` / `acoustic` n'est _pas_ une
   correspondance exacte automatique si la source n'est pas cette version
   (ex. Spotify « Song » vs candidate « Song (Remix) » → rejet). À l'inverse,
   `radio edit`, `remastered`, `official audio/video`, `lyric video`
@@ -37,19 +37,19 @@ d'une cascade de providers, dans l'ordre strict :
 
 ## Où vit quoi
 
-| Morceau | Fichier |
-| :-- | :-- |
-| Abstraction provider (`AudioProvider`) | `services/audio/types.ts` |
-| Provider Audius | `services/audio/audiusAudioProvider.ts` |
-| Moteur de score partagé + pénalité variants | `services/audio/audiusTrackMatcher.ts` |
-| Provider YouTube | `services/audio/youtubeAudioProvider.ts` |
-| Client innertube (recherche + flux) | `services/audio/youtubeInnertube.ts` |
-| Cascade ordonnée | `services/audio/trackResolver.ts` |
-| File ≤ 5 simultanées (UI) | `services/audio/resolveQueue.ts` |
-| Cache des décisions (provider + score + statut) | `services/audio/matchCache.ts` (v2) |
-| Résolution progressive de l'écran | `hooks/usePlaylistResolutions.ts` |
-| Cascade du player (lecture) | `services/player.ts` `resolveTrack` |
-| Badges + statistique + description | `components/Preview/*`, `screens/PlaylistScreen.tsx` |
+| Morceau                                         | Fichier                                              |
+| :---------------------------------------------- | :--------------------------------------------------- |
+| Abstraction provider (`AudioProvider`)          | `services/audio/types.ts`                            |
+| Provider Audius                                 | `services/audio/audiusAudioProvider.ts`              |
+| Moteur de score partagé + pénalité variants     | `services/audio/audiusTrackMatcher.ts`               |
+| Provider YouTube                                | `services/audio/youtubeAudioProvider.ts`             |
+| Client innertube (recherche + flux)             | `services/audio/youtubeInnertube.ts`                 |
+| Cascade ordonnée                                | `services/audio/trackResolver.ts`                    |
+| File ≤ 5 simultanées (UI)                       | `services/audio/resolveQueue.ts`                     |
+| Cache des décisions (provider + score + statut) | `services/audio/matchCache.ts` (v2)                  |
+| Résolution progressive de l'écran               | `hooks/usePlaylistResolutions.ts`                    |
+| Cascade du player (lecture)                     | `services/player.ts` `resolveTrack`                  |
+| Badges + statistique + description              | `components/Preview/*`, `screens/PlaylistScreen.tsx` |
 
 ## YouTube/YouTube Music — décision d'intégration
 

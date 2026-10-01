@@ -68,9 +68,7 @@ export const YourPlaylists = () => {
     () =>
       !userData || !savedPlaylists
         ? null
-        : savedPlaylists.filter(
-            (playlist) => playlist.ownerId === userData.id
-          ),
+        : savedPlaylists.filter((playlist) => playlist.ownerId === userData.id),
     [userData, savedPlaylists]
   );
 
@@ -83,12 +81,10 @@ export const YourPlaylists = () => {
   if (phase === 'error') {
     return (
       <View style={styles.noticeCard} testID="home-playlists-error">
-        <Ionicons
-          color={COLORS.RED}
-          name="cloud-offline-outline"
-          size={26}
-        />
-        <Text style={styles.noticeTitle}>{translations.homeLoadErrorTitle}</Text>
+        <Ionicons color={COLORS.RED} name="cloud-offline-outline" size={26} />
+        <Text style={styles.noticeTitle}>
+          {translations.homeLoadErrorTitle}
+        </Text>
         <Pressable
           accessibilityRole="button"
           onPress={handleRefreshPress}
@@ -127,9 +123,7 @@ export const YourPlaylists = () => {
           ]}
           testID="home-playlists-refresh"
         >
-          <Text style={styles.retryButtonText}>
-            {translations.homeRefresh}
-          </Text>
+          <Text style={styles.retryButtonText}>{translations.homeRefresh}</Text>
         </Pressable>
       </View>
     );

@@ -36,7 +36,9 @@ describe('services/spotify/session (SecureStore)', () => {
   const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
 
   beforeEach(async () => {
-    (SecureStore as unknown as { __clearSecureStoreMock: () => void }).__clearSecureStoreMock();
+    (
+      SecureStore as unknown as { __clearSecureStoreMock: () => void }
+    ).__clearSecureStoreMock();
     jest.clearAllMocks();
   });
 
@@ -170,7 +172,10 @@ describe('services/spotify/session (SecureStore)', () => {
       globalThis.fetch = jest.fn(async () => ({
         ok: false,
         status: 400,
-        json: async () => ({ error: 'invalid_client', error_description: 'Invalid client' }),
+        json: async () => ({
+          error: 'invalid_client',
+          error_description: 'Invalid client',
+        }),
       })) as unknown as typeof fetch;
 
       const outcome = await redeem();
@@ -220,7 +225,9 @@ describe('services/spotify/session (SecureStore)', () => {
       globalThis.fetch = jest.fn(async () => ({
         ok: false,
         status: 429,
-        json: async () => { throw new Error('not json'); },
+        json: async () => {
+          throw new Error('not json');
+        },
       })) as unknown as typeof fetch;
 
       const outcome = await redeem();
@@ -277,11 +284,31 @@ describe('services/spotify/session (SecureStore)', () => {
       const lines = logSpy.mock.calls
         .map((call) => String(call[0]))
         .filter((text) => text.includes('[SPOTIFY AUTH]'));
-      expect(lines.some((t) => t.includes('[SPOTIFY AUTH] Token exchange started'))).toBe(true);
-      expect(lines.some((t) => t.includes('Token exchange params:') && t.includes('redirect_uri=melodix://callback'))).toBe(true);
-      expect(lines.some((t) => t.includes('[SPOTIFY AUTH] Token exchange HTTP status: 200'))).toBe(true);
-      expect(lines.some((t) => t.includes('[SPOTIFY AUTH] Access token received: YES'))).toBe(true);
-      expect(lines.some((t) => t.includes('[SPOTIFY AUTH] Refresh token received: YES'))).toBe(true);
+      expect(
+        lines.some((t) => t.includes('[SPOTIFY AUTH] Token exchange started'))
+      ).toBe(true);
+      expect(
+        lines.some(
+          (t) =>
+            t.includes('Token exchange params:') &&
+            t.includes('redirect_uri=melodix://callback')
+        )
+      ).toBe(true);
+      expect(
+        lines.some((t) =>
+          t.includes('[SPOTIFY AUTH] Token exchange HTTP status: 200')
+        )
+      ).toBe(true);
+      expect(
+        lines.some((t) =>
+          t.includes('[SPOTIFY AUTH] Access token received: YES')
+        )
+      ).toBe(true);
+      expect(
+        lines.some((t) =>
+          t.includes('[SPOTIFY AUTH] Refresh token received: YES')
+        )
+      ).toBe(true);
       for (const line of lines) {
         expect(line).not.toContain('TOP-SECRET-ACCESS');
         expect(line).not.toContain('TOP-SECRET-REFRESH');
@@ -316,7 +343,11 @@ describe('services/spotify/session (SecureStore)', () => {
             t.includes('invalid_client')
         )
       ).toBe(true);
-      expect(lines.some((t) => t.includes('[SPOTIFY AUTH] Access token received: NO'))).toBe(true);
+      expect(
+        lines.some((t) =>
+          t.includes('[SPOTIFY AUTH] Access token received: NO')
+        )
+      ).toBe(true);
       logSpy.mockRestore();
     });
 
@@ -351,7 +382,10 @@ describe('services/spotify/session (SecureStore)', () => {
 
   it('JAMAIS de token dans les logs développeur', async () => {
     await saveSession(expiredSession());
-    globalThis.fetch = jest.fn(async () => ({ ok: false, status: 500 })) as unknown as typeof fetch;
+    globalThis.fetch = jest.fn(async () => ({
+      ok: false,
+      status: 500,
+    })) as unknown as typeof fetch;
 
     await getValidAccessToken();
 

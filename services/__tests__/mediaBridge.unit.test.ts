@@ -34,8 +34,7 @@ jest.mock('../../modules/melodix-media', () => ({
   updateSession: (...args: never[]) => mockUpdateSession(...args),
   stopSession: () => mockStopSession(),
   isMelodixMediaAvailable: () => true,
-  requestMediaNotificationPermission: () =>
-    mockRequestNotificationPermission(),
+  requestMediaNotificationPermission: () => mockRequestNotificationPermission(),
   addMediaCommandListener: (listener: (command: unknown) => void) => {
     commandListener = listener;
 
@@ -364,36 +363,55 @@ describe('mediaBridge — projection MediaSession (phase 5A)', () => {
       await flush();
 
       const payloads = (): Record<string, unknown>[] =>
-        mockUpdateSession.mock.calls.map((call) => call[0] as Record<string, unknown>);
+        mockUpdateSession.mock.calls.map(
+          (call) => call[0] as Record<string, unknown>
+        );
 
       // PLAY : première projection active (isPlaying=true, morceau 'a').
       expect(mockUpdateSession).toHaveBeenCalledTimes(1);
-      expect(payloads().at(-1)).toMatchObject({ isPlaying: true, trackId: 'spotify:a' });
+      expect(payloads().at(-1)).toMatchObject({
+        isPlaying: true,
+        trackId: 'spotify:a',
+      });
 
       // PAUSE système → moteur pausé → projection isPlaying=false.
       commandListener?.({ command: 'pause' });
       await flush();
-      expect(payloads().at(-1)).toMatchObject({ isPlaying: false, trackId: 'spotify:a' });
+      expect(payloads().at(-1)).toMatchObject({
+        isPlaying: false,
+        trackId: 'spotify:a',
+      });
 
       // REPRISE système → projection isPlaying=true du même morceau.
       commandListener?.({ command: 'play' });
       await flush();
-      expect(payloads().at(-1)).toMatchObject({ isPlaying: true, trackId: 'spotify:a' });
+      expect(payloads().at(-1)).toMatchObject({
+        isPlaying: true,
+        trackId: 'spotify:a',
+      });
 
       // NEXT système → morceau 'b' projeté (nouvelle métadonnée).
       commandListener?.({ command: 'next' });
       await flush();
-      expect(payloads().at(-1)).toMatchObject({ trackId: 'spotify:b', isPlaying: true });
+      expect(payloads().at(-1)).toMatchObject({
+        trackId: 'spotify:b',
+        isPlaying: true,
+      });
 
       // PREVIOUS à > 3 s? position 0 → moteur recule vers 'a'.
       commandListener?.({ command: 'previous' });
       await flush();
-      expect(payloads().at(-1)).toMatchObject({ trackId: 'spotify:a', isPlaying: true });
+      expect(payloads().at(-1)).toMatchObject({
+        trackId: 'spotify:a',
+        isPlaying: true,
+      });
 
       // SEEK système → moteur consulte la MÊME méthode seekTo, projection bornée.
       commandListener?.({ command: 'seek', positionMillis: 30_000 });
       await flush();
-      expect((payloads().at(-1)?.positionMillis as number) ?? -1).toBeGreaterThanOrEqual(0);
+      expect(
+        (payloads().at(-1)?.positionMillis as number) ?? -1
+      ).toBeGreaterThanOrEqual(0);
 
       // STOP système → moteur arrêté → session native FERMÉE (stopSession).
       commandListener?.({ command: 'stop' });

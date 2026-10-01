@@ -40,7 +40,11 @@ export const Greeting = () => {
 
   return (
     <View style={styles.container} testID="home-greeting">
-      <Text numberOfLines={1} style={styles.greeting} testID="home-greeting-text">
+      <Text
+        numberOfLines={1}
+        style={styles.greeting}
+        testID="home-greeting-text"
+      >
         {greeting}
       </Text>
       <Text style={styles.prompt} testID="home-greeting-prompt">

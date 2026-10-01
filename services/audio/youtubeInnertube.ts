@@ -44,7 +44,8 @@ const ANDROID_MUSIC = {
 
 const SEARCH_URL =
   'https://music.youtube.com/youtubei/v1/search?prettyPrint=false';
-const PLAYER_URL = 'https://www.youtube.com/youtubei/v1/player?prettyPrint=false';
+const PLAYER_URL =
+  'https://www.youtube.com/youtubei/v1/player?prettyPrint=false';
 const REQUEST_TIMEOUT_MS = 12_000;
 
 export type YouTubeSongCandidate = {
@@ -146,9 +147,7 @@ const fetchJson = async (
 // --- recherche ----------------------------------------------------------------
 
 const itemToCandidate = (item: unknown): YouTubeSongCandidate | null => {
-  const renderer = asRecord(
-    asRecord(item)?.musicResponsiveListItemRenderer
-  );
+  const renderer = asRecord(asRecord(item)?.musicResponsiveListItemRenderer);
   if (!renderer) {
     return null;
   }
@@ -169,9 +168,7 @@ const itemToCandidate = (item: unknown): YouTubeSongCandidate | null => {
 
   const flex = asArray(renderer.flexColumns);
   const title = parseEncarts(
-    firstRunText(
-      asRecord(flex[0])?.musicResponsiveListItemFlexColumnRenderer
-    )
+    firstRunText(asRecord(flex[0])?.musicResponsiveListItemFlexColumnRenderer)
   );
   if (!title) {
     return null;

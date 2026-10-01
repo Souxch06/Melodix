@@ -25,7 +25,12 @@ afterEach(() => {
 });
 
 /** Petit morceau de messenger « musicResponsiveListItemRenderer ». */
-const songItem = (videoId: string, title: string, subtitle: string, duration: string) => ({
+const songItem = (
+  videoId: string,
+  title: string,
+  subtitle: string,
+  duration: string
+) => ({
   musicResponsiveListItemRenderer: {
     flexColumns: [
       {
@@ -75,10 +80,26 @@ describe('youtubeInnertube — clock & pickers purs', () => {
     const url = pickAudioStreamUrl({
       streamingData: {
         adaptiveFormats: [
-          { url: 'https://vid/audio-low.mp4', mimeType: 'audio/mp4', bitrate: 96_000 },
-          { url: 'https://vid/audio.opus', mimeType: 'audio/webm', bitrate: 160_000 },
-          { url: 'https://vid/audio-hq.mp4', mimeType: 'audio/mp4', bitrate: 160_000 },
-          { url: 'https://vid/video.mp4', mimeType: 'video/mp4', bitrate: 2_000_000 },
+          {
+            url: 'https://vid/audio-low.mp4',
+            mimeType: 'audio/mp4',
+            bitrate: 96_000,
+          },
+          {
+            url: 'https://vid/audio.opus',
+            mimeType: 'audio/webm',
+            bitrate: 160_000,
+          },
+          {
+            url: 'https://vid/audio-hq.mp4',
+            mimeType: 'audio/mp4',
+            bitrate: 160_000,
+          },
+          {
+            url: 'https://vid/video.mp4',
+            mimeType: 'video/mp4',
+            bitrate: 2_000_000,
+          },
         ],
       },
     });
@@ -87,7 +108,9 @@ describe('youtubeInnertube — clock & pickers purs', () => {
   });
 
   it('pickAudioStreamUrl : null sans streamingData (UNPLAYABLE/évolution)', () => {
-    expect(pickAudioStreamUrl({ playabilityStatus: { status: 'UNPLAYABLE' } })).toBeNull();
+    expect(
+      pickAudioStreamUrl({ playabilityStatus: { status: 'UNPLAYABLE' } })
+    ).toBeNull();
     expect(pickAudioStreamUrl(null)).toBeNull();
     expect(pickAudioStreamUrl({})).toBeNull();
   });
@@ -106,7 +129,12 @@ describe('youtubeInnertube — searchYouTubeSongs', () => {
                   content: {
                     sectionListRenderer: {
                       contents: [
-                        songItem('YT0001', 'Blinding Lights', 'The Weeknd • After Hours', '3:22'),
+                        songItem(
+                          'YT0001',
+                          'Blinding Lights',
+                          'The Weeknd • After Hours',
+                          '3:22'
+                        ),
                       ],
                     },
                   },
@@ -122,7 +150,10 @@ describe('youtubeInnertube — searchYouTubeSongs', () => {
     const results = await searchYouTubeSongs('The Weeknd Blinding Lights', 5);
 
     expect(fetchMock).toHaveBeenCalledTimes(1);
-    const [url, options] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
+    const [url, options] = fetchMock.mock.calls[0] as unknown as [
+      string,
+      RequestInit,
+    ];
     expect(url).toContain('music.youtube.com/youtubei/v1/search');
     expect(options.method).toBe('POST');
     const body = JSON.parse(String(options.body)) as {
@@ -175,7 +206,11 @@ describe('youtubeInnertube — getYouTubeAudioStreamUrl', () => {
       json: async () => ({
         streamingData: {
           adaptiveFormats: [
-            { url: 'https://stream/audio.mp4', mimeType: 'audio/mp4', bitrate: 129_000 },
+            {
+              url: 'https://stream/audio.mp4',
+              mimeType: 'audio/mp4',
+              bitrate: 129_000,
+            },
           ],
         },
       }),
@@ -184,7 +219,10 @@ describe('youtubeInnertube — getYouTubeAudioStreamUrl', () => {
 
     const uri = await getYouTubeAudioStreamUrl('VID1');
 
-    const [, options] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
+    const [, options] = fetchMock.mock.calls[0] as unknown as [
+      string,
+      RequestInit,
+    ];
     const body = JSON.parse(String(options.body)) as {
       videoId: string;
       context: { client: { clientName: string } };

@@ -8,11 +8,8 @@ import {
 import { isSaved, clearLocalLibrary } from '../localLibrary';
 import { clearPlayHistory } from '../../history/playHistory';
 
-const {
-  MIGRATION_FLAG_KEY,
-  LEGACY_KEYS_TO_PURGE,
-  AUDIUS_FAVORITES_KEY,
-} = MIGRATION_KEYS_FOR_TESTS;
+const { MIGRATION_FLAG_KEY, LEGACY_KEYS_TO_PURGE, AUDIUS_FAVORITES_KEY } =
+  MIGRATION_KEYS_FOR_TESTS;
 
 describe('runAccountlessMigration (migration 3.0 sans compte)', () => {
   beforeEach(async () => {

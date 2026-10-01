@@ -15,7 +15,10 @@ export const getArtist = async (artistId: string): Promise<ArtistModel> => {
       imageURL: dto.imageUrl ?? '',
     };
   } catch (error) {
-    console.error(`Erreur lors de la récupération de l'artiste : ${artistId}`, error);
+    console.error(
+      `Erreur lors de la récupération de l'artiste : ${artistId}`,
+      error
+    );
     throw error;
   }
 };

@@ -136,7 +136,10 @@ describe('api/spotify/playlist — endpoint /items (contrat actuel)', () => {
   it('NOUVEAU FORMAT : wrapper item prioritaire ; legacy track accepté', async () => {
     apiMock.mockResolvedValueOnce({
       items: [
-        { item: { id: 'n1', name: 'Neuf', artists: [{ name: 'A' }] }, track: { id: 'ignorer' } },
+        {
+          item: { id: 'n1', name: 'Neuf', artists: [{ name: 'A' }] },
+          track: { id: 'ignorer' },
+        },
         legacy('l1', 'Legacy', ['B']),
       ],
       next: null,
@@ -150,7 +153,14 @@ describe('api/spotify/playlist — endpoint /items (contrat actuel)', () => {
     apiMock.mockResolvedValueOnce({
       items: [
         { item: { id: 'e1', name: 'Episode 12', type: 'episode' } }, // podcast → rejeté
-        { item: { id: 'loc', name: 'Local MP3', is_local: true, artists: [{ name: 'Moi' }] } },
+        {
+          item: {
+            id: 'loc',
+            name: 'Local MP3',
+            is_local: true,
+            artists: [{ name: 'Moi' }],
+          },
+        },
         { item: null }, // indisponible / droits retirés
         { item: { id: 'or', name: undefined } }, // données incomplètes
         item('ok', 'Bonne', ['Auteur']),
@@ -163,7 +173,9 @@ describe('api/spotify/playlist — endpoint /items (contrat actuel)', () => {
   });
 
   it('5C.1 : /items répond 404 → erreur PROPAGÉE, aucun appel /tracks (endpoint retiré)', async () => {
-    apiMock.mockRejectedValueOnce(new SpotifyApiError('http', 'not found', 404));
+    apiMock.mockRejectedValueOnce(
+      new SpotifyApiError('http', 'not found', 404)
+    );
 
     await expect(getSpotifyPlaylistTracks('pl')).rejects.toMatchObject({
       kind: 'http',
@@ -186,7 +198,10 @@ describe('api/spotify/playlist — endpoint /items (contrat actuel)', () => {
   });
 
   it('page native : borne limit à 50, offset ≥ 0', async () => {
-    apiMock.mockResolvedValueOnce({ items: [item('p1', 'Page', ['Un'])], next: null });
+    apiMock.mockResolvedValueOnce({
+      items: [item('p1', 'Page', ['Un'])],
+      next: null,
+    });
 
     await getSpotifyPlaylistTracksPage('pl', { limit: 500, offset: -4 });
 
@@ -197,7 +212,9 @@ describe('api/spotify/playlist — endpoint /items (contrat actuel)', () => {
   });
 
   it('5C.1 : page native 404 → propagée, jamais de repli /tracks', async () => {
-    apiMock.mockRejectedValueOnce(new SpotifyApiError('http', 'not found', 404));
+    apiMock.mockRejectedValueOnce(
+      new SpotifyApiError('http', 'not found', 404)
+    );
 
     await expect(
       getSpotifyPlaylistTracksPage('pl', { limit: 30, offset: 5 })
