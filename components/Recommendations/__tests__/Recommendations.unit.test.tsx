@@ -50,6 +50,11 @@ describe('Recommendations — concurrence réseau', () => {
     const screen = render(
       <Recommendations type="artist" seed="ancien-artiste" />
     );
+    await waitFor(() => {
+      expect(getRecommendationsMock).toHaveBeenCalledWith({
+        artistSeed: 'ancien-artiste',
+      });
+    });
     screen.rerender(<Recommendations type="artist" seed="nouvel-artiste" />);
 
     await waitFor(() => {
