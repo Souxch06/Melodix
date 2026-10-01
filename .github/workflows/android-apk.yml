@@ -135,7 +135,9 @@ jobs:
           npm run prettier:check
 
       - name: Tests JavaScript / React Native
-        run: npm test -- --runInBand
+        run: |
+          set -o pipefail
+          npm test -- --runInBand 2>&1 | tee jest.log
 
       - name: Générer le projet Android
         run: npx expo prebuild --platform android --no-install
@@ -183,11 +185,11 @@ jobs:
         run: |
           # Remonte l'erreur Gradle en annotation (visible dans l'onglet Actions et via l'API GitHub)
           esc() { local s="$1"; s="${s//'%'/'%25'}"; s="${s//$'\r'/'%0D'}"; s="${s//$'\n'/'%0A'}"; printf '%s' "$s"; }
-          for LOG in gradle-build.log gradle-test.log; do
+          for LOG in gradle-build.log gradle-test.log jest.log; do
             [ -f "$LOG" ] || continue
             WHAT=$(awk '/What went wrong/{f=1} f{print} /^\* Try:/{if(f) exit}' "$LOG" | head -60)
             if [ -n "$WHAT" ]; then echo "::error title=Gradle ($LOG)::$(esc "$WHAT")"; fi
-            ERRS=$(grep -E '^e: |error:|Error:|FAILED|AssertionError' "$LOG" | head -30 || true)
+            ERRS=$(grep -E '^e: |error:|Error:|FAILED|AssertionError|^FAIL |Test Suites:.*failed|Tests:.*failed' "$LOG" | head -40 || true)
             if [ -n "$ERRS" ]; then echo "::error title=Erreurs ($LOG)::$(esc "$ERRS")"; fi
           done
 
