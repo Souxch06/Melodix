@@ -148,6 +148,55 @@ describe('playbackSession — persistance stricte de la session', () => {
     expect(sanitized?.queue.map(({ id }) => id)).toEqual(['ok', 'ok-aussi']);
   });
 
+  it('déduplique une ancienne session en conservant le morceau courant', () => {
+    const sanitized = sanitizePlaybackSession(
+      makeSession({
+        queue: [makeTrack('a'), makeTrack('b'), makeTrack('b'), makeTrack('c')],
+        index: 2,
+      })
+    );
+
+    expect(sanitized?.queue.map(({ id }) => id)).toEqual(['a', 'b', 'c']);
+    expect(sanitized?.index).toBe(1);
+    expect(sanitized?.queue[sanitized.index].id).toBe('b');
+  });
+
+  it('remappe le courant quand des morceaux invalides le précèdent', () => {
+    const sanitized = sanitizePlaybackSession(
+      makeSession({
+        queue: [
+          { id: '', title: '' } as never,
+          makeTrack('a'),
+          makeTrack('current-b'),
+        ],
+        index: 2,
+      })
+    );
+
+    expect(sanitized?.queue.map(({ id }) => id)).toEqual(['a', 'current-b']);
+    expect(sanitized?.index).toBe(1);
+    expect(sanitized?.queue[sanitized.index].id).toBe('current-b');
+  });
+
+  it('rejette timestamp non fini et provider inconnu', () => {
+    expect(
+      sanitizePlaybackSession({ ...makeSession(), savedAt: Number.NaN })
+    ).toBeNull();
+    expect(
+      sanitizePlaybackSession(
+        makeSession({
+          queue: [
+            {
+              ...makeTrack('unknown'),
+              source: { provider: 'mystery', id: 'x' } as never,
+            },
+          ],
+          index: 0,
+        })
+      )
+    ).toBeNull();
+  });
+
   it('la file est raccourcie au maximum autorisé', () => {
     const hugeQueue = Array.from({ length: 500 }, (_, i) => makeTrack(`t${i}`));
     const sanitized = sanitizePlaybackSession(

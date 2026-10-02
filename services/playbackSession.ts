@@ -89,15 +89,19 @@ const sanitizeTrack = (value: unknown): PlayerTrack | null => {
 
   if (
     typeof record.id !== 'string' ||
+    !record.id.trim() ||
     typeof record.title !== 'string' ||
+    !record.title.trim() ||
     !Array.isArray(record.artists) ||
     !record.artists.every((artist) => typeof artist === 'string') ||
     !record.source ||
     typeof record.source !== 'object' ||
     typeof record.source.id !== 'string' ||
+    !record.source.id.trim() ||
     !(
       record.source.provider === null ||
-      typeof record.source.provider === 'string'
+      record.source.provider === 'audius' ||
+      record.source.provider === 'youtube'
     )
   ) {
     return null;
@@ -139,24 +143,55 @@ export const sanitizePlaybackSession = (
     typeof record.version !== 'number' ||
     record.version !== PLAYBACK_SESSION_VERSION ||
     typeof record.savedAt !== 'number' ||
+    !Number.isFinite(record.savedAt) ||
+    record.savedAt < 0 ||
     !Array.isArray(record.queue)
   ) {
     return null;
   }
 
-  const queue = record.queue
-    .map(sanitizeTrack)
-    .filter((track): track is PlayerTrack => track !== null)
-    .slice(0, PLAYBACK_SESSION_MAX_QUEUE);
-
-  const index =
+  const rawIndex =
     typeof record.index === 'number' && Number.isFinite(record.index)
       ? Math.trunc(record.index)
       : -1;
-
-  if (!queue.length || index < 0 || index >= queue.length) {
-    return null; // session sans morceau courant valide : inutilisable
+  if (rawIndex < 0 || rawIndex >= record.queue.length) {
+    return null;
   }
+
+  const requestedTrack = sanitizeTrack(record.queue[rawIndex]);
+  const seenIds = new Set<string>();
+  const validTracks = record.queue.flatMap((value, originalIndex) => {
+    const track = sanitizeTrack(value);
+    if (!track || seenIds.has(track.id)) return [];
+    seenIds.add(track.id);
+    return [{ track, originalIndex }];
+  });
+  if (!validTracks.length) {
+    return null;
+  }
+
+  // Si le morceau courant est corrompu, reprendre au prochain valide (ou au
+  // précédent en fin de file). Surtout, les invalides placés AVANT le courant
+  // doivent décaler l'index : conserver l'index brut restaurait le mauvais ID
+  // ou rejetait toute une session pourtant récupérable. Une occurrence
+  // dupliquée pointe vers l'unique occurrence conservée du même ID.
+  let targetPosition = requestedTrack
+    ? validTracks.findIndex(({ track }) => track.id === requestedTrack.id)
+    : validTracks.findIndex(({ originalIndex }) => originalIndex >= rawIndex);
+  if (targetPosition < 0) {
+    targetPosition = validTracks.length - 1;
+  }
+  const half = Math.floor(PLAYBACK_SESSION_MAX_QUEUE / 2);
+  const start =
+    targetPosition < PLAYBACK_SESSION_MAX_QUEUE
+      ? 0
+      : Math.min(
+          Math.max(0, targetPosition - half),
+          Math.max(0, validTracks.length - PLAYBACK_SESSION_MAX_QUEUE)
+        );
+  const window = validTracks.slice(start, start + PLAYBACK_SESSION_MAX_QUEUE);
+  const queue = window.map(({ track }) => track);
+  const index = targetPosition - start;
 
   const repeat: RepeatMode =
     record.repeat === 'all' || record.repeat === 'one' ? record.repeat : 'off';

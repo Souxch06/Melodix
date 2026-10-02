@@ -14,11 +14,7 @@ import { LibraryItemModel, TrackModel } from '@models';
 export const LOCAL_LIBRARY_STORAGE_KEY = '@melodix/local-library';
 
 export type LocalLibraryEntityType =
-  | 'track'
-  | 'album'
-  | 'playlist'
-  | 'artist'
-  | 'show';
+  'track' | 'album' | 'playlist' | 'artist' | 'show';
 
 export type LocalTrackEntry = {
   addedAt: number;
@@ -79,6 +75,13 @@ const writeLibrary = async (library: LocalLibraryShape): Promise<void> => {
   );
 };
 
+/** Les lectures publiques doivent observer toutes les mutations déjà lancées.
+ * Sans cette barrière, un écran ouvert juste après un toggle fire-and-forget
+ * pouvait afficher l'ancien favori jusqu'au prochain rafraîchissement. */
+const awaitPendingMutations = async (): Promise<void> => {
+  await mutationQueue;
+};
+
 const sanitizeItemsMap = (map: unknown): Record<string, LocalItemEntry> => {
   if (!isPlainObject(map)) {
     return {};
@@ -117,6 +120,7 @@ const sanitizeTracksMap = (map: unknown): Record<string, LocalTrackEntry> => {
 
 /** Morceaux sauvegardés, les plus récents d'abord. */
 export const listSavedTracks = async (): Promise<LocalTrackEntry[]> => {
+  await awaitPendingMutations();
   const library = await readLibrary();
   return Object.values(sanitizeTracksMap(library.track)).sort(
     (a, b) => b.addedAt - a.addedAt
@@ -127,6 +131,7 @@ export const listSavedTracks = async (): Promise<LocalTrackEntry[]> => {
 export const listSavedItems = async (
   type: Exclude<LocalLibraryEntityType, 'track'>
 ): Promise<LibraryItemModel[]> => {
+  await awaitPendingMutations();
   const library = await readLibrary();
   return Object.values(sanitizeItemsMap(library[type]))
     .sort((a, b) => b.addedAt - a.addedAt)
@@ -136,6 +141,7 @@ export const listSavedItems = async (
 export const getSavedTrack = async (
   trackId: string
 ): Promise<LocalTrackEntry | undefined> => {
+  await awaitPendingMutations();
   const library = await readLibrary();
   return sanitizeTracksMap(library.track)[trackId];
 };
@@ -158,6 +164,7 @@ export const checkSaved = async (
   type: LocalLibraryEntityType,
   ids: string[]
 ): Promise<boolean[]> => {
+  await awaitPendingMutations();
   const library = await readLibrary();
   const map =
     type === 'track'

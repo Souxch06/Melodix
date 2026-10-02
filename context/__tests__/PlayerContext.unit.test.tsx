@@ -52,7 +52,7 @@ const mockActions = {
   restoreSession: jest.fn(async () => {}),
   loadPlaybackSession: jest.fn(async (): Promise<unknown> => null),
   clearPlaybackSession: jest.fn(async () => {}),
-  getState: () => INITIAL,
+  getState: jest.fn((): unknown => INITIAL),
   subscribe: jest.fn(),
 };
 
@@ -87,13 +87,16 @@ jest.mock('@services', () => ({
     moveInQueue: (...args: never[]) => mockActions.moveInQueue(...(args as [])),
     restoreSession: (...args: never[]) =>
       mockActions.restoreSession(...(args as [])),
-    getState: () => INITIAL,
+    getState: () => mockActions.getState(),
     subscribe: (...args: never[]) => mockActions.subscribe(...(args as [])),
   },
 }));
 
 describe('PlayerContext — état unique partagé par toute l UI', () => {
-  beforeEach(() => jest.clearAllMocks());
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockActions.getState.mockReturnValue(INITIAL);
+  });
 
   it('relaye l état du moteur : idle → hasActiveSession false', () => {
     const Probe = () => {
@@ -171,6 +174,7 @@ describe('PlayerContext — reprise de session (phase 2)', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    mockActions.getState.mockReturnValue(INITIAL);
     engineListener = null;
     mockActions.loadPlaybackSession.mockResolvedValue(null);
     mockActions.subscribe.mockImplementation(
@@ -221,6 +225,45 @@ describe('PlayerContext — reprise de session (phase 2)', () => {
     // AUCUN appel moteur de lecture : seule la carte est exposée.
     expect(mockActions.restoreSession).not.toHaveBeenCalled();
     expect(mockActions.playQueue).not.toHaveBeenCalled();
+  });
+
+  it('ignore une ancienne restauration finissant après une nouvelle lecture', async () => {
+    let releaseLoad!: (session: typeof SESSION) => void;
+    mockActions.loadPlaybackSession.mockReturnValueOnce(
+      new Promise((resolve) => {
+        releaseLoad = resolve;
+      })
+    );
+
+    const Probe = () => {
+      const { pendingRestore } = usePlayer();
+      return (
+        <View
+          testID="pending-state"
+          // @ts-expect-error — prop de vérification uniquement en test
+          pending={Boolean(pendingRestore)}
+        />
+      );
+    };
+    const { getByTestId } = render(
+      <PlayerProvider>
+        <Probe />
+      </PlayerProvider>
+    );
+    const loadingState = {
+      ...INITIAL,
+      current: SESSION.queue[0],
+      queue: SESSION.queue,
+      index: 0,
+      status: 'loading',
+    };
+    mockActions.getState.mockReturnValue(loadingState);
+    act(() => engineListener?.(loadingState));
+
+    await act(async () => releaseLoad(SESSION));
+
+    expect(getByTestId('pending-state').props.pending).toBe(false);
+    expect(mockActions.restoreSession).not.toHaveBeenCalled();
   });
 
   it('resumeSession : restaure côté moteur, purge le stockage, ferme la carte', async () => {
