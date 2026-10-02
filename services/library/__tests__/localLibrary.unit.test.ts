@@ -53,6 +53,27 @@ describe('localLibrary (favoris locaux)', () => {
     expect(await getSavedTrack('a')).toBeUndefined();
   });
 
+  it('deux sauvegardes concurrentes ne perdent aucun favori', async () => {
+    await Promise.all([
+      saveTrack(track('parallel-a')),
+      saveTrack(track('parallel-b')),
+    ]);
+
+    await expect(
+      checkSaved('track', ['parallel-a', 'parallel-b'])
+    ).resolves.toEqual([true, true]);
+  });
+
+  it('deux toggles concurrents sont atomiques (ajout puis retrait)', async () => {
+    await expect(
+      Promise.all([
+        toggleSavedTrack(track('double-tap')),
+        toggleSavedTrack(track('double-tap')),
+      ])
+    ).resolves.toEqual([true, false]);
+    await expect(isSaved('track', 'double-tap')).resolves.toBe(false);
+  });
+
   it('checkSaved conserve l ordre des ids', async () => {
     await saveTrack(track('a'));
     await saveTrack(track('d'));

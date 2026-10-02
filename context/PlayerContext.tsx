@@ -87,6 +87,7 @@ export const PlayerProvider = ({ children }: { children: React.ReactNode }) => {
   const [state, setState] = React.useState<PlayerState>(INITIAL_PLAYER_STATE);
   const [pendingRestore, setPendingRestore] =
     React.useState<PlaybackSession | null>(null);
+  const resumeInFlightRef = React.useRef(false);
 
   React.useEffect(() => melodixPlayer.subscribe(setState), []);
 
@@ -123,16 +124,23 @@ export const PlayerProvider = ({ children }: { children: React.ReactNode }) => {
   }, [pendingRestore, state.status]);
 
   const resumeSession = React.useCallback(async () => {
-    setPendingRestore((current) => {
-      if (current) {
-        // Ferme la carte immédiatement, restaure côté moteur, purge après.
-        void melodixPlayer.restoreSession(current);
-        void clearPlaybackSession();
-      }
+    // Un updater React doit rester pur : lancer restoreSession depuis
+    // setState pouvait être rejoué en Strict/Concurrent Mode. Le verrou évite
+    // aussi un double tap avant le prochain rendu.
+    if (!pendingRestore || resumeInFlightRef.current) {
+      return;
+    }
 
-      return null;
-    });
-  }, []);
+    const session = pendingRestore;
+    resumeInFlightRef.current = true;
+    setPendingRestore(null);
+    try {
+      await melodixPlayer.restoreSession(session);
+      await clearPlaybackSession();
+    } finally {
+      resumeInFlightRef.current = false;
+    }
+  }, [pendingRestore]);
 
   const dismissSession = React.useCallback(async () => {
     setPendingRestore(null);
