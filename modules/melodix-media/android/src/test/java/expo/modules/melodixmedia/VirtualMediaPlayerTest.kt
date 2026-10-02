@@ -144,6 +144,35 @@ class VirtualMediaPlayerTest {
   }
 
   @Test
+  fun `valeurs numeriques invalides sont neutralisees sans corrompre la session`() {
+    player.updateSession(
+      mapOf(
+        "trackId" to "spotify:corrupt",
+        "title" to "Corrupt",
+        "artist" to "Test",
+        "durationMillis" to Double.POSITIVE_INFINITY,
+        "positionMillis" to Double.NaN,
+        "isPlaying" to true
+      )
+    )
+
+    assertEquals(Player.STATE_READY, player.playbackState)
+    assertTrue(player.isPlaying)
+    assertEquals(C.TIME_UNSET, player.duration)
+    assertEquals(0L, player.contentPosition)
+  }
+
+  @Test
+  fun `position projetee est bornee par la duree`() {
+    player.updateSession(
+      payload(isPlaying = true, positionMillis = 500_000L, durationMillis = 200_000L)
+    )
+
+    assertEquals(200_000L, player.duration)
+    assertEquals(200_000L, player.contentPosition)
+  }
+
+  @Test
   fun `phase 5 — progression live via timeline projetée (aucune commande dédiée média3)`() {
     // L'API media3 n'a PAS de COMMAND_GET_DURATION/GET_POSITION : la
     // progression et la durée découlent de la TIMELINE + du playbackState
