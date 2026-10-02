@@ -107,6 +107,34 @@ describe('services/spotify/apiClient (API Web Spotify officielle)', () => {
     expect(apiCalls).toBe(2);
   });
 
+  it('un second 401 après refresh → unauthenticated, pas erreur HTTP', async () => {
+    await saveSession(validSession());
+    let apiCalls = 0;
+    globalThis.fetch = jest.fn(async (url) => {
+      if (String(url).includes('accounts.spotify.com')) {
+        return {
+          ok: true,
+          json: async () => ({
+            access_token: 'refreshed-but-rejected',
+            expires_in: 3600,
+          }),
+        } as Response;
+      }
+      apiCalls += 1;
+      return {
+        status: 401,
+        ok: false,
+        headers: { get: () => null },
+      } as unknown as Response;
+    }) as unknown as typeof fetch;
+
+    await expect(spotifyApiGet('/me')).rejects.toMatchObject({
+      kind: 'unauthenticated',
+      status: 401,
+    });
+    expect(apiCalls).toBe(2);
+  });
+
   it('401 STUBBORN (refresh refusé) → unauthenticated', async () => {
     await saveSession(validSession());
     globalThis.fetch = jest.fn(async (url) => {
