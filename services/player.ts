@@ -76,6 +76,12 @@ export type ResolverInfo = {
   score: number;
 };
 
+type ResolvedPlayback = {
+  provider: AudioProvider;
+  resolved: ResolvedStream;
+  info: ResolverInfo;
+};
+
 export type PlayerState = {
   queue: PlayerTrack[];
   index: number;
@@ -202,6 +208,9 @@ class MelodixPlayer {
    * la même carte mémoire, sinon le dernier getItem peut oublier la décision
    * écrite par l'autre requête et refaire inutilement le matching. */
   private matchCacheLoad: Promise<MatchCache> | null = null;
+  /** Deux commandes simultanées pour la même métadonnée partagent aussi la
+   * résolution provider/URL, pas seulement le chargement du cache. */
+  private resolutionLoads = new Map<string, Promise<ResolvedPlayback | null>>();
   private failedKeys = new Set<string>();
   /** Monceau actif actuel : tout resolve/chargement d'un token périmé est
    * ignoré et son éventuel Sound immédiatement déchargé (anti-double-lecture). */
@@ -498,13 +507,41 @@ class MelodixPlayer {
     }
   };
 
-  private resolveTrack = async (
+  private resolveTrack = (
     track: PlayerTrack
-  ): Promise<{
-    provider: AudioProvider;
-    resolved: ResolvedStream;
-    info: ResolverInfo;
-  } | null> => {
+  ): Promise<ResolvedPlayback | null> => {
+    // L'id seul ne suffit pas si une vue vient d'enrichir les métadonnées
+    // (ISRC/durée) pendant une résolution précédente. La clé garde donc tous
+    // les signaux susceptibles de modifier le choix strict du matcher.
+    const key = [
+      track.id,
+      track.source.provider ?? 'metadata',
+      track.source.id,
+      track.title,
+      track.artists.join('\u001f'),
+      track.album ?? '',
+      track.durationMillis ?? '',
+      track.isrc ?? '',
+    ].join('\u001e');
+    const existing = this.resolutionLoads.get(key);
+    if (existing) {
+      return existing;
+    }
+
+    const loading = this.resolveTrackUnshared(track);
+    this.resolutionLoads.set(key, loading);
+    const cleanup = () => {
+      if (this.resolutionLoads.get(key) === loading) {
+        this.resolutionLoads.delete(key);
+      }
+    };
+    void loading.then(cleanup, cleanup);
+    return loading;
+  };
+
+  private resolveTrackUnshared = async (
+    track: PlayerTrack
+  ): Promise<ResolvedPlayback | null> => {
     // Native provider track (ex. 'audius:xyz' ou 'youtube:abc') : lecture
     // directe via SON provider, sans matching — comportement inchangé.
     if (track.source.provider) {
@@ -780,13 +817,31 @@ class MelodixPlayer {
   // --- public API -----------------------------------------------------------
 
   playQueue = async (tracks: PlayerTrack[], startIndex = 0) => {
-    const queue = tracks.filter((track) => Boolean(track?.id && track?.title));
+    const validTracks = tracks.filter((track) =>
+      Boolean(track?.id && track?.title)
+    );
 
-    if (!queue.length) {
+    if (!validTracks.length) {
       return;
     }
 
-    const index = Math.min(Math.max(startIndex, 0), queue.length - 1);
+    const requestedIndex = Math.min(
+      Math.max(Number.isFinite(startIndex) ? Math.trunc(startIndex) : 0, 0),
+      validTracks.length - 1
+    );
+    const requestedId = validTracks[requestedIndex].id;
+    const seen = new Set<string>();
+    const queue = validTracks.filter((track) => {
+      if (seen.has(track.id)) return false;
+      seen.add(track.id);
+      return true;
+    });
+    // Si l'index visait une occurrence dupliquée, lire l'unique occurrence du
+    // même morceau plutôt qu'un voisin déplacé par la déduplication.
+    const index = Math.max(
+      0,
+      queue.findIndex((track) => track.id === requestedId)
+    );
 
     const requestToken = ++this.playToken; // invalide toute requête précédente
     await this.unloadCurrent();
@@ -905,6 +960,10 @@ class MelodixPlayer {
       }
 
       this.sound = sound;
+      // Une panne de flux est sessionnelle, pas une condamnation définitive :
+      // si l'utilisateur retente ce morceau et qu'il démarre réellement, il
+      // redevient candidat pour repeat-all et les avances ultérieures.
+      this.failedKeys.delete(track.id);
       appendDiagLog(
         `PLAYER_SOUND_LOADED trackId=${track.id} provider=${result.provider.id}`
       );
@@ -1102,16 +1161,20 @@ class MelodixPlayer {
     }
 
     const clamped = Math.min(1, Math.max(0, volume));
+    const sound = this.sound;
 
-    if (this.sound) {
+    // Le volume est une intention globale, pas un accusé de réception de
+    // l'ancien Sound. Le publier avant l'appel natif garantit qu'un morceau
+    // créé pendant un setVolumeAsync lent démarre déjà au bon niveau.
+    this.emit({ volume: clamped });
+
+    if (sound) {
       try {
-        await this.sound.setVolumeAsync(clamped);
+        await sound.setVolumeAsync(clamped);
       } catch (error) {
         console.error('Volume change failed:', error);
       }
     }
-
-    this.emit({ volume: clamped });
   };
 
   toggleShuffle = () => {
@@ -1481,6 +1544,7 @@ class MelodixPlayer {
     await this.unloadCurrent();
     this.matchCache = null;
     this.matchCacheLoad = null;
+    this.resolutionLoads.clear();
     this.failedKeys = new Set();
     this.pendingSeekMillis = 0;
     this.pendingSeekForId = null;
