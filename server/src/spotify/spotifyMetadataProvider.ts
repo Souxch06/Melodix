@@ -83,14 +83,16 @@ const guardedCall = async <T>(operation: () => Promise<T>): Promise<T> => {
     return result;
   } catch (error) {
     serviceGuard.recordFailure();
-    logger.error(
-      `appel provider en échec : ${error instanceof Error ? error.message : error}`
-    );
+    // Les messages upstream peuvent contenir URL signée, query OAuth ou
+    // payload privé. Le type suffit au diagnostic ; aucun contenu brut ne
+    // traverse les logs ni l'ApiError journalisée par la route.
+    const errorType = error instanceof Error ? error.name : typeof error;
+    logger.error(`appel provider en échec (${errorType})`);
     throw new ApiError(
       'PROVIDER_UNAVAILABLE',
       'Service de recherche temporairement indisponible.',
       503,
-      error instanceof Error ? error.message : String(error)
+      `provider failure (${errorType})`
     );
   }
 };
