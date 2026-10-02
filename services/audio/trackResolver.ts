@@ -81,6 +81,11 @@ export const resolveWithProviders = async (
     }
 
     if (match) {
+      console.info(
+        provider.id === 'audius'
+          ? '[AUDIO] Audius match'
+          : '[AUDIO] YouTube fallback'
+      );
       return {
         status: 'matched',
         provider,
@@ -92,5 +97,8 @@ export const resolveWithProviders = async (
 
   // Preuve incomplète (un provider en panne a empêché la vérification) :
   // jamais de négatif durable sur une panne — le morceau est réessayable.
+  if (!sawProviderError) {
+    console.info('[AUDIO] Track unavailable');
+  }
   return sawProviderError ? { status: 'error' } : { status: 'no-match' };
 };

@@ -205,6 +205,7 @@ export const usePlaylistResolutions = (
                 : [],
               album: track.albumName ?? null,
               durationMillis: track.durationMs ?? null,
+              isrc: track.isrc ?? null,
             },
             providers
           ).catch(() => null); // ceinture : le resolver ne rejette jamais

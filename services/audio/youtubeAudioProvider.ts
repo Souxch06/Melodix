@@ -4,7 +4,13 @@ import type {
   AudioSourceQuery,
   ResolvedStream,
 } from './types';
-import { fingerprintOf, matchSongs } from './audiusTrackMatcher';
+import {
+  canonicalizeFromTitle,
+  fingerprintOf,
+  matchSongs,
+  normalizeTitleText,
+  stripFeatureSuffix,
+} from './audiusTrackMatcher';
 import {
   getYouTubeAudioStreamUrl,
   searchYouTubeSongs,
@@ -35,12 +41,22 @@ const durationSecOf = (query: AudioSourceQuery): number | null =>
     ? Math.round(query.durationMillis / 1000)
     : null;
 
-const queryText = (query: AudioSourceQuery): string =>
-  // Recherche « artiste + titre » : jamais le titre seul (les doublons de
-  // titres pullulent sur YouTube).
-  `${query.artists.filter(Boolean).join(' ')} ${query.title}`
-    .replace(/\s{2,}/g, ' ')
-    .trim();
+const queryTexts = (query: AudioSourceQuery): string[] => {
+  const artists = query.artists.filter(Boolean).join(' ');
+  const original = stripFeatureSuffix(query.title).trim();
+  const canonical = canonicalizeFromTitle(normalizeTitleText(query.title));
+  return Array.from(
+    new Set(
+      [
+        `${artists} ${original}`,
+        `${original} ${artists}`,
+        `${artists} ${canonical}`,
+      ]
+        .map((text) => text.replace(/\s{2,}/g, ' ').trim())
+        .filter(Boolean)
+    )
+  ).slice(0, 3);
+};
 
 const scoreCandidate = (
   query: AudioSourceQuery,
@@ -51,6 +67,7 @@ const scoreCandidate = (
     artistNames: query.artists,
     album: query.album,
     durationSec: durationSecOf(query),
+    isrc: query.isrc,
   });
 
   const best = matchSongs(source, [
@@ -65,17 +82,42 @@ const scoreCandidate = (
   return best?.score ?? 0;
 };
 
+/** Recherche élargie mais bornée ; arrêt dès qu'un match fiable existe. */
+const searchCandidates = async (
+  query: AudioSourceQuery
+): Promise<YouTubeSongCandidate[]> => {
+  const collected: YouTubeSongCandidate[] = [];
+  const seen = new Set<string>();
+
+  for (const text of queryTexts(query)) {
+    const batch = await searchYouTubeSongs(text, 12);
+    batch.forEach((candidate) => {
+      if (candidate.videoId && !seen.has(candidate.videoId)) {
+        seen.add(candidate.videoId);
+        collected.push(candidate);
+      }
+    });
+    if (
+      collected.some(
+        (candidate) => scoreCandidate(query, candidate) >= ACCEPT_SCORE
+      )
+    ) {
+      break;
+    }
+  }
+  return collected;
+};
+
 export const createYouTubeAudioProvider = (): AudioProvider => ({
   id: 'youtube',
   displayName: 'YouTube',
 
   matches: async (query: AudioSourceQuery): Promise<AudioProviderMatch[]> => {
-    const text = queryText(query);
-    if (!text) {
+    if (!queryTexts(query).length) {
       return [];
     }
 
-    const candidates = await searchYouTubeSongs(text, 12).catch(() => []);
+    const candidates = await searchCandidates(query).catch(() => []);
 
     return candidates
       .map((candidate) => ({
@@ -90,14 +132,13 @@ export const createYouTubeAudioProvider = (): AudioProvider => ({
   resolveMatch: async (
     query: AudioSourceQuery
   ): Promise<{ sourceId: string; score: number } | null> => {
-    const text = queryText(query);
-    if (!text) {
+    if (!queryTexts(query).length) {
       return null;
     }
 
     let candidates: YouTubeSongCandidate[];
     try {
-      candidates = await searchYouTubeSongs(text, 12);
+      candidates = await searchCandidates(query);
     } catch (error) {
       console.warn('YouTube search failed:', error);
       return null;

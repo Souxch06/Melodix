@@ -159,7 +159,10 @@ jobs:
           grep -Fq 'versionName "4.4.8-diagnostic"' android/app/build.gradle
           grep -Eq '^reactNativeArchitectures=armeabi-v7a,arm64-v8a,x86,x86_64$' android/gradle.properties
           grep -Fq 'android:scheme="melodix"' android/app/src/main/AndroidManifest.xml
-          grep -Fq 'expo.modules.melodixmedia.MelodixMediaService' android/app/src/main/AndroidManifest.xml
+          grep -Fq 'android:name="expo.modules.melodixmedia.MelodixMediaService"' android/app/src/main/AndroidManifest.xml
+          grep -Fq 'android:foregroundServiceType="mediaPlayback"' android/app/src/main/AndroidManifest.xml
+          grep -Fq 'android:name="androidx.media3.session.MediaSessionService"' android/app/src/main/AndroidManifest.xml
+          grep -Fq 'android.permission.POST_NOTIFICATIONS' android/app/src/main/AndroidManifest.xml
           for permission in RECORD_AUDIO ACCESS_FINE_LOCATION ACCESS_COARSE_LOCATION READ_EXTERNAL_STORAGE WRITE_EXTERNAL_STORAGE SYSTEM_ALERT_WINDOW; do
             # blockedPermissions laisse volontairement une directive
             # tools:node="remove" dans le manifest source ; elle n'est pas une

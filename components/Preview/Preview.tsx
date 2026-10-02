@@ -115,6 +115,7 @@ export const Preview = ({
             : [],
           album: track.albumName ?? (type === 'album' ? summaryTitle : null),
           durationMillis: track.durationMs ?? null,
+          isrc: track.isrc ?? null,
           // I-8 : l'écran album connaît son album — il voyage jusqu'à
           // l'historique (navigation « Écoutés récemment » vers l'album).
           albumId: type === 'album' ? id : null,
@@ -161,6 +162,7 @@ export const Preview = ({
         artists: item.subtitle ? item.subtitle.split(', ').filter(Boolean) : [],
         album: item.albumName ?? (type === 'album' ? summaryTitle : null),
         durationMillis: item.durationMs ?? null,
+        isrc: item.isrc ?? null,
         // I-8 : albumId quand l'écran d'origine le connaît.
         albumId: type === 'album' ? id : null,
         imageURL: item.imageURL ?? '',

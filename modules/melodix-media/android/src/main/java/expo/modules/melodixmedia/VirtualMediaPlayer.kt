@@ -41,6 +41,8 @@ class VirtualMediaPlayer(looper: Looper) : SimpleBasePlayer(looper) {
         .add(Player.COMMAND_STOP)
         .add(Player.COMMAND_SEEK_TO_PREVIOUS)
         .add(Player.COMMAND_SEEK_TO_NEXT)
+        .add(Player.COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM)
+        .add(Player.COMMAND_SEEK_TO_NEXT_MEDIA_ITEM)
         .add(Player.COMMAND_SEEK_IN_CURRENT_MEDIA_ITEM)
         .add(Player.COMMAND_GET_METADATA)
         .add(Player.COMMAND_GET_CURRENT_MEDIA_ITEM)

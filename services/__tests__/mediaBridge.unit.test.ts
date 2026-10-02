@@ -27,7 +27,9 @@ import type { PlaybackSession } from '../playbackSession';
 // Le module natif local est mocké : le bridge parle à CES mocks.
 const mockUpdateSession = jest.fn();
 const mockStopSession = jest.fn();
-const mockRequestNotificationPermission = jest.fn(() => null);
+const mockRequestNotificationPermission = jest.fn<boolean | null, []>(
+  () => null
+);
 let commandListener: ((command: unknown) => void) | null = null;
 
 jest.mock('../../modules/melodix-media', () => ({
@@ -636,12 +638,10 @@ describe('mediaBridge — projection MediaSession (phase 5A)', () => {
       ].forEach((aiguille) => expect(serialized).not.toContain(aiguille));
     });
 
-    it('5C.2 : JAMAIS de demande de permission au Play (popup retiré — audio instantané)', async () => {
+    it('Android 13+ : demande la visibilité notification une seule fois à la première lecture', async () => {
       mockRequestNotificationPermission.mockClear();
+      mockRequestNotificationPermission.mockReturnValue(false);
 
-      // Activation réelle + activations suivantes : AUCUN appel à la
-      // permission. Seul le toggle « Lecture en arrière-plan » dans les
-      // réglages peut encore la demander (geste utilisateur dédié).
       await melodixPlayer.playQueue([morceau('a', 'Photo')], 0);
       await flush();
       await melodixPlayer.stop();
@@ -649,7 +649,7 @@ describe('mediaBridge — projection MediaSession (phase 5A)', () => {
       await melodixPlayer.playQueue([morceau('b', 'Again')], 0);
       await flush();
 
-      expect(mockRequestNotificationPermission).not.toHaveBeenCalled();
+      expect(mockRequestNotificationPermission).toHaveBeenCalledTimes(1);
       expect(melodixPlayer.getState().status).toBe('playing');
     });
 

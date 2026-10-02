@@ -153,6 +153,13 @@ class VirtualMediaPlayerTest {
     assertTrue(
       player.availableCommands.contains(Player.COMMAND_GET_TIMELINE)
     )
+    // Notification, écran verrouillé, Android Auto et casques n'emploient
+    // pas tous la même variante de commande suivant leur version Media3.
+    assertTrue(player.availableCommands.contains(Player.COMMAND_PLAY_PAUSE))
+    assertTrue(player.availableCommands.contains(Player.COMMAND_SEEK_TO_NEXT))
+    assertTrue(player.availableCommands.contains(Player.COMMAND_SEEK_TO_PREVIOUS))
+    assertTrue(player.availableCommands.contains(Player.COMMAND_SEEK_TO_NEXT_MEDIA_ITEM))
+    assertTrue(player.availableCommands.contains(Player.COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM))
     assertEquals(1.0f, player.playbackParameters.speed, 0.0001f)
   }
 

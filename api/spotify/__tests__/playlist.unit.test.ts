@@ -45,6 +45,7 @@ const item = (id: string, name: string, artists: string[], ms = 200_000) => ({
     explicit: true,
     artists: artists.map((artist) => ({ id: `a-${artist}`, name: artist })),
     album: { id: 'alb', name: 'Mon Album', images: [{ url: `cover-${id}` }] },
+    external_ids: { isrc: 'FRABC2412345' },
     is_local: false,
   },
 });
@@ -126,11 +127,13 @@ describe('api/spotify/playlist — endpoint /items (contrat actuel)', () => {
     expect((tracks[0] as { durationMs?: number }).durationMs).toBe(123_456);
     expect(tracks[0].explicit).toBe(true);
     expect(tracks[0].imageURL).toBe('cover-t1');
+    expect(tracks[0].isrc).toBe('FRABC2412345');
 
     const [firstUrl] = apiMock.mock.calls[0] as [string];
     expect(firstUrl).toContain('/playlists/pl/items');
     expect(firstUrl).toContain('limit=50');
     expect(firstUrl).not.toContain('limit=100');
+    expect(decodeURIComponent(firstUrl)).toContain('external_ids(isrc)');
   });
 
   it('NOUVEAU FORMAT : wrapper item prioritaire ; legacy track accepté', async () => {

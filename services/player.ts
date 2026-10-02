@@ -45,6 +45,8 @@ export type PlayerTrack = {
   artists: string[];
   album?: string | null;
   durationMillis?: number | null;
+  /** ISRC Spotify facultatif : signal fort pour la recherche/mise en relation. */
+  isrc?: string | null;
   /** Album d'origine (I-8) quand l'écran le connaît — sert à l'historique. */
   albumId?: string | null;
   imageURL: string;
@@ -447,6 +449,7 @@ class MelodixPlayer {
           artists: track.artists,
           album: track.album ?? null,
           durationMillis: track.durationMillis ?? null,
+          isrc: track.isrc ?? null,
         },
         getAudioProviders()
       );
@@ -490,6 +493,7 @@ class MelodixPlayer {
       artists: track.artists,
       album: track.album ?? null,
       durationMillis: track.durationMillis ?? null,
+      isrc: track.isrc ?? null,
     };
     const chain = getAudioProviders();
     let chainIndex = Math.max(

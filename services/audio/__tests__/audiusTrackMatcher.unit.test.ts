@@ -13,13 +13,18 @@ type Candidate = Parameters<typeof matchSongs>[1][number];
 const source = (
   title: string,
   artists: string[],
-  extra?: Partial<{ album: string | null; durationSec: number | null }>
+  extra?: Partial<{
+    album: string | null;
+    durationSec: number | null;
+    isrc: string | null;
+  }>
 ) =>
   fingerprintOf({
     title,
     artistNames: artists,
     album: extra?.album ?? null,
     durationSec: extra?.durationSec ?? null,
+    isrc: extra?.isrc ?? null,
   });
 
 describe('normalizeTitleText', () => {
@@ -243,6 +248,100 @@ describe('matchSongs — reliable matching', () => {
     expect(
       matchSongs(source('Home', ['Ultimo'], { durationSec: 180 }), [other])
     ).toBeNull();
+  });
+
+  it('utilise un ISRC exact comme signal prioritaire', () => {
+    const match = matchSongs(
+      source('Titre Spotify différent', ['Artiste'], {
+        isrc: 'FR-ABC-24-12345',
+        durationSec: 200,
+      }),
+      [
+        {
+          id: 'isrc-hit',
+          title: 'Titre distribué',
+          artistNames: ['Label Upload'],
+          isrc: 'FRABC2412345',
+          durationSec: 200,
+        },
+      ]
+    );
+    expect(match?.id).toBe('isrc-hit');
+    expect(match?.score).toBe(100);
+  });
+
+  it('retrouve un upload « Artiste - Titre » même si le compte Audius est un label', () => {
+    expect(
+      matchSongs(source('Été d’amour', ['Léa'], { durationSec: 201 }), [
+        {
+          id: 'prefixed',
+          title: "Lea - Ete d'amour (Official Audio)",
+          artistNames: ['Label Records'],
+          durationSec: 202,
+        },
+      ])?.id
+    ).toBe('prefixed');
+  });
+
+  it('tolère une faute légère mais refuse un titre seulement voisin', () => {
+    expect(
+      matchSongs(
+        source('Blinding Lights', ['The Weeknd'], { durationSec: 200 }),
+        [
+          {
+            id: 'typo',
+            title: 'Blinding Ligths',
+            artistNames: ['Weeknd'],
+            durationSec: 200,
+          },
+        ]
+      )?.id
+    ).toBe('typo');
+    expect(
+      matchSongs(
+        source('Blinding Lights', ['The Weeknd'], { durationSec: 200 }),
+        [
+          {
+            id: 'wrong',
+            title: 'Blinding Night',
+            artistNames: ['The Weeknd'],
+            durationSec: 200,
+          },
+        ]
+      )
+    ).toBeNull();
+  });
+
+  it('conserve la distinction live/acoustic/remix tout en acceptant remastered', () => {
+    const base = source('Héroïne (2020 Remastered)', ['Måneskin'], {
+      durationSec: 190,
+    });
+    expect(
+      matchSongs(base, [
+        {
+          id: 'remaster',
+          title: 'Heroine - Remaster',
+          artistNames: ['Maneskin'],
+          durationSec: 190,
+        },
+      ])?.id
+    ).toBe('remaster');
+    for (const title of [
+      'Heroine (Live)',
+      'Heroine (Acoustic)',
+      'Heroine (Club Remix)',
+    ]) {
+      expect(
+        matchSongs(base, [
+          {
+            id: title,
+            title,
+            artistNames: ['Maneskin'],
+            durationSec: 190,
+          },
+        ])
+      ).toBeNull();
+    }
   });
 
   it('uses duration to prefer the closest of two contenders', () => {

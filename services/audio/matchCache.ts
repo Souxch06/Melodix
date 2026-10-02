@@ -8,7 +8,8 @@ import { sourceKeyOf } from './sourceKey';
  * JSON unique (des centaines d'entrées restent très en dessous des limites
  * AsyncStorage).
  *
- * v2 : chaque décision mémorise AUSSI le provider (« audius » | « youtube ») —
+ * v3 : invalide les anciens négatifs après l'ajout ISRC + matching fuzzy.
+ * v2 : chaque décision mémorisait AUSSI le provider (« audius » | « youtube ») —
  * cas exigés :
  *
  *     Spotify 123 → Audius 456 (score 78)
@@ -25,7 +26,7 @@ import { sourceKeyOf } from './sourceKey';
  *   source décisionnelle d'alors (sans perte, sans recherche refaite).
  */
 
-export const MATCH_CACHE_VERSION = 2;
+export const MATCH_CACHE_VERSION = 3;
 export const MATCH_CACHE_LEGACY_VERSION = 1;
 
 export type MatchCacheEntry = {

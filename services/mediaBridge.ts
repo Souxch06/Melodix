@@ -20,6 +20,7 @@
  */
 import {
   addMediaCommandListener,
+  requestMediaNotificationPermission,
   stopSession,
   updateSession,
 } from '../modules/melodix-media';
@@ -39,6 +40,8 @@ let unsubscribeCommands: (() => void) | null = null;
 let sessionActivated = false;
 /** Déduplication : signature JSON du dernier payload RÉELLEMENT poussé. */
 let lastPushedSignature = '';
+/** Android 13+ : une seule demande liée à la première lecture volontaire. */
+let notificationPermissionRequested = false;
 
 /** Appel natif blindé : une couche de CONTRÔLE ne fait jamais crasher le
  * moteur audio même si Android jette (§11 résilience). */
@@ -182,14 +185,27 @@ const projectState = (state: PlayerState): void => {
     return; // rien de neuf à projeter (anti-spam sur ticks 500 ms)
   }
 
-  // 5C.2 : AUCUNE demande de permission au Play. La lecture démarre
-  // immédiatement, comme dans n'importe quelle application musicale :
-  //  - le FOREGROUND SERVICE média fonctionne sans POST_NOTIFICATIONS
-  //    (Android la gère au niveau système, elle n'est simplement pas
-  //    visible dans la zone des notifications tant que la permission
-  //    n'est pas accordée) ;
-  //  - la demande explicite reste UNIQUEMENT sur le toggle « Lecture en
-  //    arrière-plan » des réglages (geste utilisateur dédié).
+  // Android 13+ masque la notification dans le tiroir si la permission n'a
+  // jamais été accordée. Le réglage est activé par défaut : attendre que
+  // l'utilisateur le désactive/réactive rendait donc la notification
+  // introuvable. La première lecture VOLONTAIRE est le moment contextuel
+  // légitime pour demander une seule fois la permission. L'audio et le FGS
+  // restent non bloquants si Android refuse ou si le module est absent.
+  if (!notificationPermissionRequested) {
+    const result = (() => {
+      try {
+        return requestMediaNotificationPermission();
+      } catch (error) {
+        console.warn(
+          'MelodixMedia notification permission unavailable:',
+          error
+        );
+        return null;
+      }
+    })();
+    notificationPermissionRequested = result !== null;
+  }
+
   sessionActivated = true;
   lastPushedSignature = pushed;
 
@@ -242,5 +258,6 @@ export const teardownMediaBridge = (): void => {
     }
   } finally {
     initialized = false;
+    notificationPermissionRequested = false;
   }
 };
