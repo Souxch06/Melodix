@@ -97,8 +97,12 @@ echo '=== AndroidManifest final ==='
 manifest_xml=$($APKANALYZER manifest print "$APK")
 printf '%s\n' "$manifest_xml"
 grep -Fq "android:scheme=\"$EXPECTED_SCHEME\"" <<<"$manifest_xml" || fail "scheme '$EXPECTED_SCHEME' absent"
-grep -Fq 'expo.modules.melodixmedia.MelodixMediaService' <<<"$manifest_xml" || fail 'MediaSessionService absent du manifest final'
+grep -Fq 'android:name="expo.modules.melodixmedia.MelodixMediaService"' <<<"$manifest_xml" || fail 'MediaSessionService absent du manifest final'
+grep -Fq 'android:foregroundServiceType="mediaPlayback"' <<<"$manifest_xml" || fail 'type foreground mediaPlayback absent'
+grep -Fq 'android:name="androidx.media3.session.MediaSessionService"' <<<"$manifest_xml" || fail 'intent-filter MediaSessionService absent'
+grep -Fq 'android.permission.FOREGROUND_SERVICE"' <<<"$manifest_xml" || fail 'permission foreground service absente'
 grep -Fq 'android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK' <<<"$manifest_xml" || fail 'permission mediaPlayback absente'
+grep -Fq 'android.permission.POST_NOTIFICATIONS' <<<"$manifest_xml" || fail 'permission notification absente'
 # Ces permissions ne correspondent à aucune fonction de Melodix et rendent
 # l'APK inutilement suspect lors de l'installation.
 for forbidden in RECORD_AUDIO ACCESS_FINE_LOCATION ACCESS_COARSE_LOCATION READ_EXTERNAL_STORAGE WRITE_EXTERNAL_STORAGE SYSTEM_ALERT_WINDOW; do
