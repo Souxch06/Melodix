@@ -236,7 +236,7 @@ describe('usePlaylistResolutions (I-2)', () => {
     second.unmount();
   });
 
-  it('I-5 : provider EN PANNE → badge « none » mais RIEN de durable ; la re-tentative recherche réellement', async () => {
+  it('I-5 : provider EN PANNE → reste retentable, jamais affiché « indisponible »', async () => {
     __testSetAudioProviders({
       audius: constProvider(async () => {
         throw new Error('timeout réseau');
@@ -245,8 +245,9 @@ describe('usePlaylistResolutions (I-2)', () => {
 
     const first = renderHook(() => usePlaylistResolutions([track()]));
     await waitFor(() =>
-      expect(first.result.current.byTrackId.t1?.status).toBe('none')
+      expect(first.result.current.byTrackId.t1?.status).toBe('pending')
     );
+    expect(first.result.current.stats.decided).toBe(0);
 
     // Même après le flush d'écriture groupée : AUCUNE entrée pour t1.
     await new Promise((resolve) => setTimeout(resolve, 2_000));
