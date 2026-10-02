@@ -105,7 +105,16 @@ export const PlayerProvider = ({ children }: { children: React.ReactNode }) => {
     let isMounted = true;
 
     void loadPlaybackSession().then((session) => {
-      if (isMounted && session) {
+      const engineState = melodixPlayer.getState();
+      // Le chargement AsyncStorage peut finir après une nouvelle lecture. Une
+      // ancienne carte « Reprendre » ne doit alors jamais recouvrir la session
+      // active ni proposer de restaurer une queue obsolète.
+      if (
+        isMounted &&
+        session &&
+        engineState.current === null &&
+        engineState.status === 'idle'
+      ) {
         setPendingRestore(session);
       }
     });

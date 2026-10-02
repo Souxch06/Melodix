@@ -1,3 +1,5 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
 import { LibraryItemModel, TrackModel } from '@models';
 
 import {
@@ -62,6 +64,30 @@ describe('localLibrary (favoris locaux)', () => {
     await expect(
       checkSaved('track', ['parallel-a', 'parallel-b'])
     ).resolves.toEqual([true, true]);
+  });
+
+  it('une lecture lancée après une écriture lente observe le nouveau favori', async () => {
+    const setItemMock = AsyncStorage.setItem as jest.Mock;
+    const originalSetItem = setItemMock.getMockImplementation();
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    setItemMock.mockImplementationOnce(async (...args: unknown[]) => {
+      await gate;
+      return originalSetItem?.(...args);
+    });
+
+    const saving = saveTrack(track('slow-write'));
+    const reading = listSavedTracks();
+    release();
+
+    await saving;
+    await expect(reading).resolves.toEqual([
+      expect.objectContaining({
+        track: expect.objectContaining({ id: 'slow-write' }),
+      }),
+    ]);
   });
 
   it('deux toggles concurrents sont atomiques (ajout puis retrait)', async () => {
