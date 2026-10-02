@@ -1,6 +1,8 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { AppState } from 'react-native';
 
+import { appendDiagLog } from '../modules/melodix-media';
+
 import {
   DEFAULT_AUDIO_PROVIDER_ID,
   getAudioProvider,
@@ -212,6 +214,8 @@ class MelodixPlayer {
   private lastPersistedAt = 0;
   private sessionDirty = false;
   private appStateSubscribed = false;
+  /** Diagnostic appareil : position au plus toutes les 10 s, jamais d'URL. */
+  private lastPlaybackDiagAt = 0;
 
   getState = (): PlayerState => this.state;
 
@@ -364,6 +368,20 @@ class MelodixPlayer {
     }
 
     this.emit(playbackState);
+
+    const now = Date.now();
+    if (
+      typeof status.isPlaying === 'boolean' &&
+      (now - this.lastPlaybackDiagAt >= 10_000 || status.didJustFinish)
+    ) {
+      this.lastPlaybackDiagAt = now;
+      appendDiagLog(
+        `PLAYER_STATE state=${status.isPlaying ? 'PLAYING' : 'PAUSED'} ` +
+          `positionMs=${playbackState.positionMillis ?? 0} ` +
+          `durationMs=${playbackState.durationMillis ?? 0} ` +
+          `buffering=${status.isBuffering === true} finished=${status.didJustFinish === true}`
+      );
+    }
 
     // Persistance SOBRE : au plus une écriture toutes les 8 s pendant la
     // lecture (jamais à chaque tick 500 ms) — la dernière position suffit.
@@ -741,6 +759,11 @@ class MelodixPlayer {
     const token = ++this.playToken;
     const isStale = () => this.playToken !== token;
 
+    appendDiagLog(
+      `PLAYER_PLAY_REQUEST trackId=${track.id} index=${index} ` +
+        `titleLength=${track.title.length} artists=${track.artists.length} ` +
+        `hasIsrc=${Boolean(track.isrc)}`
+    );
     this.emit({ index, current: track, status: 'loading' });
     this.persistSession(); // nouveau morceau pointe la session vers lui
     this.ensureAppStatePersistence();
@@ -771,6 +794,10 @@ class MelodixPlayer {
         return;
       }
 
+      appendDiagLog(
+        `PLAYER_SOURCE_RESOLVED trackId=${track.id} provider=${result.provider.id} ` +
+          `sourceId=${result.info.sourceId} score=${result.info.score}`
+      );
       await this.ensureAudioMode();
       if (isStale()) {
         return;
@@ -802,6 +829,9 @@ class MelodixPlayer {
       }
 
       this.sound = sound;
+      appendDiagLog(
+        `PLAYER_SOUND_LOADED trackId=${track.id} provider=${result.provider.id}`
+      );
       this.emit({
         status: 'playing',
         resolved: result.info,
@@ -885,6 +915,9 @@ class MelodixPlayer {
       try {
         await this.sound.pauseAsync();
         this.emit({ status: 'paused' });
+        appendDiagLog(
+          `PLAYER_STATE state=PAUSED trackId=${this.state.current?.id ?? 'none'}`
+        );
         this.persistSession(); // position figée : moment idéal d'écrire
       } catch (error) {
         console.error('Failed to pause:', error);
@@ -897,6 +930,9 @@ class MelodixPlayer {
     try {
       await this.sound.playAsync();
       this.emit({ status: 'playing' });
+      appendDiagLog(
+        `PLAYER_STATE state=PLAYING trackId=${this.state.current?.id ?? 'none'}`
+      );
     } catch (error) {
       console.error('Failed to resume:', error);
       this.emit({ status: 'error' });

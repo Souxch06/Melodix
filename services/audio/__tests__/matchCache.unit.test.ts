@@ -28,7 +28,7 @@ const entry = (
   ...overrides,
 });
 
-describe('match cache (v2 — provider mémorisé)', () => {
+describe('match cache versionné — provider mémorisé', () => {
   beforeEach(async () => {
     await AsyncStorage.clear();
   });
@@ -100,6 +100,16 @@ describe('match cache (v2 — provider mémorisé)', () => {
     expect(cache['spotify:positive-two-days']).toBeDefined();
     expect(cache['spotify:negative-two-days']).toBeUndefined();
     expect(cache['spotify:stale']).toBeUndefined();
+  });
+
+  it('invalide une ancienne décision v3 potentiellement trop permissive', () => {
+    const cache = loadMatchCache(
+      JSON.stringify({
+        'spotify:old': entry({ version: 3, matchId: 'old-radio-match' }),
+      })
+    );
+
+    expect(cache['spotify:old']).toBeUndefined();
   });
 
   it('rejects unversioned/corrupted payloads instead of crashing', () => {

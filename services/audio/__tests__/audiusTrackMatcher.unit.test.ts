@@ -89,15 +89,9 @@ describe('matchSongs — reliable matching', () => {
     expect(match?.id).toBe('aud-1');
   });
 
-  it('matches despite radio-edit/remaster/official tails and case changes', () => {
-    // Versions d'édition acceptées (contrat « gérer les variantes », point 4).
+  it('matches despite remaster/official tails and case changes', () => {
+    // Décorations éditoriales acceptées ; les versions musicales restent dures.
     const variants: Candidate[] = [
-      {
-        id: 'a',
-        title: 'tame (radio edit)',
-        artistNames: ['neffex'],
-        durationSec: 188,
-      },
       {
         id: 'b',
         title: 'Tame (Official Audio)',
@@ -125,6 +119,25 @@ describe('matchSongs — reliable matching', () => {
         ])?.id
       ).toBe(candidate.id);
     }
+  });
+
+  it('expose une raison développeur sans assouplir le matcher', () => {
+    const decisions: string[] = [];
+    const result = matchSongs(
+      source('Blinding Lights', ['The Weeknd'], { durationSec: 200 }),
+      [
+        {
+          id: 'wrong',
+          title: 'Blinding Night',
+          artistNames: ['Unknown Artist'],
+          durationSec: 200,
+        },
+      ],
+      { onCandidateDecision: ({ reason }) => decisions.push(reason) }
+    );
+
+    expect(result).toBeNull();
+    expect(decisions).toContain('title-mismatch');
   });
 
   it('rejects hard variants (remix / live / instrumental / karaoke / acoustic) when the source is not that version', () => {
@@ -169,6 +182,44 @@ describe('matchSongs — reliable matching', () => {
         ])
       ).toBeNull();
     }
+  });
+
+  it('rejette radio edit / extended / sped up / slowed quand la source est studio', () => {
+    const variants = [
+      'Tame (Radio Edit)',
+      'Tame (Extended Mix)',
+      'Tame (Sped Up)',
+      'Tame (Slowed Down)',
+    ];
+
+    variants.forEach((title, index) => {
+      expect(
+        matchSongs(source('Tame', ['Neffex'], { durationSec: 189 }), [
+          {
+            id: `version-${index}`,
+            title,
+            artistNames: ['Neffex'],
+            durationSec: 189,
+          },
+        ])
+      ).toBeNull();
+    });
+  });
+
+  it('accepte radio edit lorsque les deux côtés demandent radio edit', () => {
+    expect(
+      matchSongs(
+        source('Tame (Radio Edit)', ['Neffex'], { durationSec: 188 }),
+        [
+          {
+            id: 'radio-ok',
+            title: 'Tame - Radio Edit',
+            artistNames: ['Neffex'],
+            durationSec: 189,
+          },
+        ]
+      )?.id
+    ).toBe('radio-ok');
   });
 
   it('accepts the variant when BOTH sides are the same variant (remix → remix)', () => {

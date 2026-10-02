@@ -120,10 +120,15 @@ class VirtualMediaPlayer(looper: Looper) : SimpleBasePlayer(looper) {
 
     // MediaItem : ID STABLE seulement (jamais d'URL de flux, token ni
     // credential — le player virtuel ne chargera jamais de média).
+    MelodixDiagLog.step(
+      "VMP_METADATA_SET",
+      "trackId=$trackId titleLength=${title.length} artistLength=${artist.length} artwork=${artworkUrl != null}"
+    )
     val mediaItem = MediaItem.Builder()
       .setMediaId(trackId)
       .setMediaMetadata(metadata)
       .build()
+    MelodixDiagLog.step("VMP_MEDIA_ITEM_SET", "trackId=$trackId")
 
     var track = MediaItemData.Builder(trackId)
       .setMediaItem(mediaItem)
@@ -141,6 +146,10 @@ class VirtualMediaPlayer(looper: Looper) : SimpleBasePlayer(looper) {
       .build()
 
     invalidateState()
+    MelodixDiagLog.step(
+      "VMP_PLAYBACK_STATE_SET",
+      "state=READY playWhenReady=$isPlaying positionMs=${positionMillis.coerceAtLeast(0L)} durationMs=$durationMillis"
+    )
   }
 
   // Les commandes système ne mutent PAS l'état local : le moteur JS décide

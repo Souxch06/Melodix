@@ -8,7 +8,9 @@ import { sourceKeyOf } from './sourceKey';
  * JSON unique (des centaines d'entrées restent très en dessous des limites
  * AsyncStorage).
  *
- * v3 : invalide les anciens négatifs après l'ajout ISRC + matching fuzzy.
+ * v4 : invalide les décisions antérieures aux portes strictes radio/extended/
+ *      sped/slowed et aux diagnostics de rejet détaillés.
+ * v3 : invalidait les anciens négatifs après l'ajout ISRC + matching fuzzy.
  * v2 : chaque décision mémorisait AUSSI le provider (« audius » | « youtube ») —
  * cas exigés :
  *
@@ -25,7 +27,7 @@ import { sourceKeyOf } from './sourceKey';
  *   source décisionnelle d'alors (sans perte, sans recherche refaite).
  */
 
-export const MATCH_CACHE_VERSION = 3;
+export const MATCH_CACHE_VERSION = 4;
 export const MATCH_CACHE_LEGACY_VERSION = 1;
 
 export type MatchCacheEntry = {
