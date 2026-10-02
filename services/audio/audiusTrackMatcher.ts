@@ -744,6 +744,7 @@ export const findBestAudiusMatch = async (
   pushAttempt(titleWithoutFeature || canonicalTitle);
 
   let allCandidates: AudiusTrackMatch[] = [];
+  let sawSearchError = false;
 
   /**
    * Déduplique + score le lot accumulé. AUCUNE protection n'est assouplie :
@@ -810,21 +811,30 @@ export const findBestAudiusMatch = async (
         }
       }
     } catch (error) {
+      sawSearchError = true;
       console.warn(`Audius search failed for "${attempt}":`, error);
     }
   }
 
   // Jamais de match forcé : null si aucune formulation n'a produit de
-  // candidat admissible (le player affichera « indisponible » et skip).
+  // candidat admissible. Une recherche partiellement en panne n'est en
+  // revanche PAS une preuve d'absence : propager l'erreur permet au resolver
+  // d'éviter tout cache négatif durable.
   const final = scoreAccumulated();
-  devMatcherLog(final ? 'selected-final' : 'unavailable', {
-    attempts,
-    results: allCandidates.length,
-    sourceId: final?.id ?? null,
-    score: final?.score ?? null,
-    rejected: Array.from(decisions.values()).filter(
-      (decision) => !decision.accepted
-    ),
-  });
+  devMatcherLog(
+    final ? 'selected-final' : sawSearchError ? 'error' : 'unavailable',
+    {
+      attempts,
+      results: allCandidates.length,
+      sourceId: final?.id ?? null,
+      score: final?.score ?? null,
+      rejected: Array.from(decisions.values()).filter(
+        (decision) => !decision.accepted
+      ),
+    }
+  );
+  if (!final && sawSearchError) {
+    throw new Error('Audius search incomplete');
+  }
   return final;
 };

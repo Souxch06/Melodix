@@ -61,11 +61,15 @@ const queryTexts = (query: AudioSourceQuery): string[] => {
         `${artists} ${original}`,
         `${original} ${artists}`,
         `${artists} ${canonical}`,
+        // Les formes élargies n'assouplissent jamais le score : elles ne font
+        // qu'exposer plus de candidats au même matcher strict.
+        `${artists} ${original} official audio`,
+        query.album ? `${artists} ${original} ${query.album}` : '',
       ]
         .map((text) => text.replace(/\s{2,}/g, ' ').trim())
         .filter(Boolean)
     )
-  ).slice(0, 3);
+  ).slice(0, 5);
 };
 
 const scoreCandidate = (
@@ -103,9 +107,17 @@ const searchCandidates = async (
 ): Promise<YouTubeSongCandidate[]> => {
   const collected: YouTubeSongCandidate[] = [];
   const seen = new Set<string>();
+  let sawSearchError = false;
 
   for (const text of queryTexts(query)) {
-    const batch = await searchYouTubeSongs(text, 12);
+    let batch: YouTubeSongCandidate[];
+    try {
+      batch = await searchYouTubeSongs(text, 12);
+    } catch {
+      sawSearchError = true;
+      devYouTubeLog('search-error', { query: text });
+      continue;
+    }
     devYouTubeLog('search', { query: text, results: batch.length });
     batch.forEach((candidate) => {
       if (candidate.videoId && !seen.has(candidate.videoId)) {
@@ -120,6 +132,13 @@ const searchCandidates = async (
     ) {
       break;
     }
+  }
+
+  const hasReliableCandidate = collected.some(
+    (candidate) => scoreCandidate(query, candidate) >= ACCEPT_SCORE
+  );
+  if (!hasReliableCandidate && sawSearchError) {
+    throw new Error('YouTube search incomplete');
   }
   return collected;
 };
@@ -165,7 +184,10 @@ export const createYouTubeAudioProvider = (): AudioProvider => ({
       candidates = await searchCandidates(query);
     } catch (error) {
       console.warn('YouTube search failed:', error);
-      return null;
+      // Une panne du fallback n'est pas un « morceau absent ». Le resolver
+      // central transforme cette exception en outcome=error, donc aucun cache
+      // négatif n'est persisté pour un incident réseau/protocole temporaire.
+      throw error;
     }
 
     let best: { sourceId: string; raw: number } | null = null;

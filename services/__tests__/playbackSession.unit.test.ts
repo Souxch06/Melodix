@@ -32,6 +32,19 @@ const makeTrack = (id: string) => ({
   source: spotifyTrackSource(id),
 });
 
+it('ISRC présent est conservé et normalisé à la réhydratation', async () => {
+  await savePlaybackSession(
+    makeSession({
+      queue: [{ ...makeTrack('isrc'), isrc: 'fr-abc-24-12345' }],
+      index: 0,
+    })
+  );
+
+  const loaded = await loadPlaybackSession();
+
+  expect(loaded?.queue[0].isrc).toBe('FR-ABC-24-12345');
+});
+
 it('I-8 : albumId présent est restauré à la réhydratation (absent → null)', async () => {
   const withAlbum = { ...makeTrack('alb'), albumId: 'alb-1' };
   const withoutAlbum = makeTrack('nul');

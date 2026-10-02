@@ -96,6 +96,12 @@ const sanitizeTrack = (value: unknown): PlayerTrack | null => {
     album: typeof record.album === 'string' ? record.album : null,
     // I-8 : albumId optionnel, restauré quand présent — sinon jamais gagné.
     albumId: typeof record.albumId === 'string' ? record.albumId : null,
+    // L'ISRC est un signal de matching autoritatif : une reprise de session
+    // ne doit pas retomber sur un matching textuel moins fiable. Les anciennes
+    // sessions sans champ restent strictement compatibles.
+    ...(typeof record.isrc === 'string' && record.isrc.trim()
+      ? { isrc: record.isrc.trim().toUpperCase() }
+      : {}),
     durationMillis:
       typeof record.durationMillis === 'number' &&
       Number.isFinite(record.durationMillis)

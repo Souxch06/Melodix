@@ -205,11 +205,35 @@ describe('youtubeAudioProvider', () => {
     await expect(provider.resolveMatch(QUERY)).resolves.toBeNull();
   });
 
-  it('erreur réseau/protocole → null propre (cascade → indisponible)', async () => {
+  it('erreur réseau/protocole → exception contrôlée (jamais de cache no-match)', async () => {
     const provider = createYouTubeAudioProvider();
     setFetch(jest.fn(async () => ({ ok: false, status: 500 })));
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+
+    await expect(provider.resolveMatch(QUERY)).rejects.toThrow(
+      'YouTube search incomplete'
+    );
+    warn.mockRestore();
+  });
+
+  it('échec honnête : requêtes bornées incluant official audio et album', async () => {
+    const provider = createYouTubeAudioProvider();
+    const fetchMock = fetchReturning([]);
+    setFetch(fetchMock);
 
     await expect(provider.resolveMatch(QUERY)).resolves.toBeNull();
+
+    const fetchCalls = (fetchMock as jest.Mock).mock.calls as [
+      string,
+      RequestInit,
+    ][];
+    const queries = fetchCalls.map(([, options]) => {
+      const body = JSON.parse(String(options.body)) as { query: string };
+      return body.query;
+    });
+    expect(queries.length).toBeLessThanOrEqual(5);
+    expect(queries.some((query) => /official audio/i.test(query))).toBe(true);
+    expect(queries.some((query) => query.includes('After Hours'))).toBe(true);
   });
 
   it('resolveSource : URL audio directe rendue pour expo-av, null si UNPLAYABLE', async () => {

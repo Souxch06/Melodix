@@ -489,6 +489,18 @@ describe('findBestAudiusMatch — cascade multi-requêtes (spécification matchi
     expect(match?.id).toBe('late');
   });
 
+  it('propage une panne de toutes les recherches (jamais transformée en no-match)', async () => {
+    const search = jest.fn(async () => {
+      throw new Error('offline');
+    });
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+
+    await expect(
+      findBestAudiusMatch(query('Tame', ['Neffex']), search)
+    ).rejects.toThrow('Audius search incomplete');
+    warn.mockRestore();
+  });
+
   it('renvoie null si TOUTES les tentatives sont vides (jamais de match forcé)', async () => {
     const search = jest.fn(async () => []);
     await expect(

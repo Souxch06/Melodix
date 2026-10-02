@@ -64,9 +64,10 @@ describe('AudiusAudioProvider', () => {
     expect(match).toBeNull();
   });
 
-  it('returns null when Audius search fails (offline belongs to "not available")', async () => {
+  it('propagates Audius outages so they are never cached as no-match', async () => {
     mockSearch.mockRejectedValue(new Error('network down'));
     const provider = createAudiusAudioProvider();
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
 
     await expect(
       provider.resolveMatch({
@@ -74,7 +75,8 @@ describe('AudiusAudioProvider', () => {
         artists: ['Neffex'],
         durationMillis: 189000,
       })
-    ).resolves.toBeNull();
+    ).rejects.toThrow('Audius search incomplete');
+    warn.mockRestore();
   });
 
   it('resolveSource maps an Audius id to a stream URL', async () => {
