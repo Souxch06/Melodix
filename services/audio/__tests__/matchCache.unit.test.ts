@@ -2,6 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import {
   clearMatchCacheStorage,
+  createMatchResolutionTimestamp,
   deleteMatchCacheEntryFromStorage,
   loadMatchCache,
   MATCH_CACHE_STORAGE_KEY,
@@ -31,6 +32,16 @@ const entry = (
 describe('match cache versionné — provider mémorisé', () => {
   beforeEach(async () => {
     await AsyncStorage.clear();
+  });
+
+  it('ordonne deux résolutions démarrées dans la même milliseconde', () => {
+    const now = jest.spyOn(Date, 'now').mockReturnValue(1_000);
+
+    const first = createMatchResolutionTimestamp();
+    const second = createMatchResolutionTimestamp();
+
+    expect(second).toBe(first + 1);
+    now.mockRestore();
   });
 
   it('loads valid entries and keeps the provider + match decision', () => {
@@ -249,16 +260,26 @@ describe('persistMatchCache par fusion + deleteMatchCacheEntryFromStorage', () =
     expect(cache['spotify:parallel-b']).toMatchObject({ matchId: 'aud-b' });
   });
 
-  it('persistMatchCache : l entrée reçue GAGNE sur la valeur stockée', async () => {
-    await persistMatchCache({ 'spotify:k1': entry({ matchId: 'old' }) });
+  it('persistMatchCache conserve la décision démarrée le plus récemment', async () => {
+    const base = Date.now();
     await persistMatchCache({
-      'spotify:k1': entry({ matchId: 'new', matchedAt: Date.now() + 1 }),
+      'spotify:k1': entry({ matchId: 'new-reliable', matchedAt: base + 20 }),
+    });
+    // Simule une vieille résolution lente qui termine APRÈS et tente d'écrire.
+    await persistMatchCache({
+      'spotify:k1': entry({ matchId: 'old-late', matchedAt: base }),
     });
 
-    const cache = loadMatchCache(
+    let cache = loadMatchCache(
       await AsyncStorage.getItem(MATCH_CACHE_STORAGE_KEY)
     );
-    expect(cache['spotify:k1']).toMatchObject({ matchId: 'new' });
+    expect(cache['spotify:k1']).toMatchObject({ matchId: 'new-reliable' });
+
+    await persistMatchCache({
+      'spotify:k1': entry({ matchId: 'newest', matchedAt: base + 30 }),
+    });
+    cache = loadMatchCache(await AsyncStorage.getItem(MATCH_CACHE_STORAGE_KEY));
+    expect(cache['spotify:k1']).toMatchObject({ matchId: 'newest' });
   });
 
   it('deleteMatchCacheEntryFromStorage ne supprime QUE la clé visée (transaction sans fusion)', async () => {

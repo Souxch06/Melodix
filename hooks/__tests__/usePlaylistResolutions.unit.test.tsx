@@ -97,6 +97,29 @@ describe('usePlaylistResolutions (I-2)', () => {
     );
   });
 
+  it('déduplique deux occurrences simultanées du même morceau', async () => {
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const resolveMatch = jest.fn(async () => {
+      await gate;
+      return { sourceId: 'aud-shared', score: 0.9 };
+    });
+    __testSetAudioProviders({ audius: constProvider(resolveMatch) });
+
+    const { result } = renderHook(() =>
+      usePlaylistResolutions([track(), track()])
+    );
+    await waitFor(() => expect(resolveMatch).toHaveBeenCalledTimes(1));
+    release();
+    await waitFor(() =>
+      expect(result.current.byTrackId.t1?.status).toBe('resolved')
+    );
+
+    expect(resolveMatch).toHaveBeenCalledTimes(1);
+  });
+
   it('TrackModel sans album/durée : null transmis (matching toujours possible)', async () => {
     const resolveMatch: AudioProvider['resolveMatch'] = jest.fn(
       async () => null
