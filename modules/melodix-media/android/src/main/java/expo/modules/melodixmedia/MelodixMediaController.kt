@@ -101,7 +101,12 @@ object MelodixMediaController {
       // jamais remonter en exception sur le main thread (crash de l'app) —
       // log dev, lecture audio totalement préservée.
       try {
-        MelodixMediaService.sessionStateListener?.invoke(payload)
+        val listener = MelodixMediaService.sessionStateListener
+        MelodixDiagLog.step(
+          "PROJECTION_DISPATCH",
+          "listenerAttached=${listener != null} serviceCreated=$serviceCreated"
+        )
+        listener?.invoke(payload)
       } catch (t: Throwable) {
         Log.e(TAG, "Projection rejetée par la session — lecture préservée", t)
         MelodixDiagLog.error("PROJECTION_FAIL", t) // DIAG 4.4.7

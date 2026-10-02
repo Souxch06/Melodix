@@ -51,8 +51,11 @@ const getNativeModule = (): NativeMelodixMedia | null => {
 
     try {
       nativeModule = requireNativeModule<NativeMelodixMedia>('MelodixMedia');
-    } catch {
+    } catch (error) {
       nativeModule = null; // Jest / web / iOS : couche contrôle absente, OK.
+      // Sur Android réel, ce marqueur logcat distingue un bridge JS actif
+      // d'un module Expo absent/non lié. Aucun secret ni payload n'est écrit.
+      console.warn('[MEDIA_DIAG] NATIVE_MODULE_UNAVAILABLE', error);
     }
   }
 
