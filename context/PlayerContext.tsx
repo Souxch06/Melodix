@@ -137,6 +137,10 @@ export const PlayerProvider = ({ children }: { children: React.ReactNode }) => {
     try {
       await melodixPlayer.restoreSession(session);
       await clearPlaybackSession();
+    } catch {
+      // La reprise a échoué avant sa purge : reproposer la session permet un
+      // retry explicite, sans rejet de promesse non géré depuis onPress.
+      setPendingRestore(session);
     } finally {
       resumeInFlightRef.current = false;
     }
