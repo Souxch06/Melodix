@@ -606,9 +606,15 @@ describe('mediaBridge — projection MediaSession (phase 5A)', () => {
 
       expect(mockUpdateSession).not.toHaveBeenCalled();
 
+      // `next` sur une file d'un seul titre termine désormais correctement la
+      // session quand repeat=off. Relancer côté moteur prouve que le handler
+      // direct fonctionne encore, sans réabonner le bridge démonté.
+      await melodixPlayer.playQueue([morceau('b', 'Grateful')], 0);
+      await flush();
       const toggleSpy = jest.spyOn(melodixPlayer, 'togglePlayPause');
       handleMediaCommand({ command: 'pause' }); // handler direct : moteur ok
       expect(toggleSpy).toHaveBeenCalledTimes(1);
+      expect(mockUpdateSession).not.toHaveBeenCalled();
     });
   });
 

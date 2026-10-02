@@ -151,6 +151,7 @@ export const EN_GB_PLAYER = {
   playerQueueTitle: 'Queue',
   playerQueuePlaying: 'Now playing',
   playerQueueEmpty: 'The queue is empty.',
+  playerQueueClear: 'Clear',
   playerQueueAdd: 'Add to queue',
   playerQueuePlayNext: 'Play next',
   playerQueueRemove: 'Remove from queue',

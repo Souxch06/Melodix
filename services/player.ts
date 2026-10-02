@@ -95,6 +95,7 @@ export type PlayerListener = (state: PlayerState) => void;
 type AvPlaybackStatus = {
   isLoaded?: boolean;
   isPlaying?: boolean;
+  isBuffering?: boolean;
   didJustFinish?: boolean;
   positionMillis?: number;
   durationMillis?: number | null;
@@ -338,10 +339,31 @@ class MelodixPlayer {
       return;
     }
 
-    this.emit({
-      positionMillis: status?.positionMillis ?? 0,
-      durationMillis: status?.durationMillis ?? 0,
-    });
+    // Certains callbacks expo-av (focus audio, buffering, fin) omettent la
+    // position ou la durée. Ne jamais effacer une valeur fiable avec zéro :
+    // le mini-player, le plein écran et la MediaSession partagent cet état.
+    const playbackState: Partial<PlayerState> = {
+      positionMillis: status?.positionMillis ?? this.state.positionMillis,
+      durationMillis: status?.durationMillis ?? this.state.durationMillis,
+    };
+
+    // Une interruption Audio Focus peut mettre le Sound en pause sans passer
+    // par togglePlayPause(). Refléter l'état RÉEL évite une notification qui
+    // resterait sur PLAYING. Le buffering et didJustFinish sont exclus : ils
+    // ne constituent pas une pause utilisateur et la transition de fin gère
+    // elle-même le prochain morceau.
+    if (!status.didJustFinish && !status.isBuffering) {
+      if (status.isPlaying === true) {
+        playbackState.status = 'playing';
+      } else if (
+        status.isPlaying === false &&
+        this.state.status === 'playing'
+      ) {
+        playbackState.status = 'paused';
+      }
+    }
+
+    this.emit(playbackState);
 
     // Persistance SOBRE : au plus une écriture toutes les 8 s pendant la
     // lecture (jamais à chaque tick 500 ms) — la dernière position suffit.
@@ -554,10 +576,11 @@ class MelodixPlayer {
         );
 
       if (!isNewMatch || !match) {
-        // Même flux mort re-servi (ou négatif PROUVÉ) : négatif confirmé —
-        // le morceau sera sauté proprement, et jamais re-recherché avant TTL.
-        writeMatchCacheEntry(cache, track.source, null, null, 0);
-        void persistMatchCache(cache);
+        // Un match de métadonnées suivi d'un flux indisponible n'est PAS la
+        // preuve que le titre est absent : le CDN/provider peut être en panne.
+        // Conserver la décision positive permet de retenter le flux plus tard,
+        // sans graver à tort 24 h d'indisponibilité. Seul le `no-match` initial
+        // de tous les providers produit une entrée négative.
         return null;
       }
 
@@ -634,11 +657,24 @@ class MelodixPlayer {
 
     const pointer = this.getOrderedPointer();
     const nextPointer = pointer + direction;
-    // Manual skip wraps around in one direction only (end → start / start → end).
-    const wrappedPointer =
-      ((nextPointer % indices.length) + indices.length) % indices.length;
 
-    await this.playIndex(indices[wrappedPointer]);
+    if (nextPointer < 0 || nextPointer >= indices.length) {
+      // Les actions manuelles ignorent repeat-one (l'utilisateur demande
+      // explicitement de changer), mais respectent la frontière de file :
+      // repeat-all boucle ; repeat-off s'arrête en fin et reste au début pour
+      // previous. L'ancien modulo bouclait même quand repeat était désactivé.
+      if (this.state.repeat === 'all') {
+        const wrapped = nextPointer < 0 ? indices.length - 1 : 0;
+        await this.playIndex(indices[wrapped]);
+      } else if (direction === 1) {
+        await this.stop();
+      } else {
+        await this.seekTo(0);
+      }
+      return;
+    }
+
+    await this.playIndex(indices[nextPointer]);
   };
 
   private handleStreamFailure = async (kind: PlayerNotice['kind']) => {
@@ -888,7 +924,12 @@ class MelodixPlayer {
   };
 
   seekTo = async (positionMillis: number) => {
-    const clamped = Math.max(0, positionMillis);
+    const finitePosition = Number.isFinite(positionMillis) ? positionMillis : 0;
+    const upperBound =
+      this.state.durationMillis > 0
+        ? this.state.durationMillis
+        : Number.POSITIVE_INFINITY;
+    const clamped = Math.min(upperBound, Math.max(0, finitePosition));
 
     if (this.sound) {
       try {
@@ -1029,22 +1070,45 @@ class MelodixPlayer {
     }
   };
 
-  /** « Ajouter à la file » : fin de la queue (+ fin d'ordre en shuffle). */
-  addToQueue = (track: PlayerTrack): void => {
-    if (!track?.id || !track?.title) {
+  /**
+   * Ajoute plusieurs morceaux en fin de file, sans recopier un morceau déjà
+   * présent ni un doublon du lot. Une seule émission/persistance garantit que
+   * mini-player, plein écran et MediaSession voient une mutation atomique.
+   */
+  addTracksToQueue = (tracks: PlayerTrack[]): void => {
+    const { queue, order } = this.state;
+    const seen = new Set(queue.map((item) => item.id));
+    const additions = tracks.filter((track) => {
+      if (!track?.id || !track?.title || seen.has(track.id)) {
+        return false;
+      }
+      seen.add(track.id);
+      return true;
+    });
+
+    if (!additions.length) {
       return;
     }
 
-    const { queue, order } = this.state;
-    const nextQueue = [...queue, track];
+    const nextQueue = [...queue, ...additions];
     const nextOrder =
       order && order.length === queue.length
-        ? [...order, nextQueue.length - 1]
+        ? [...order, ...additions.map((_, offset) => queue.length + offset)]
         : order;
 
     this.emit({ queue: nextQueue, order: nextOrder });
     this.persistSession();
     this.ensureAppStatePersistence();
+  };
+
+  /** « Ajouter à la file » : version unitaire de l'opération centralisée. */
+  addToQueue = (track: PlayerTrack): void => {
+    this.addTracksToQueue([track]);
+  };
+
+  /** Vide la file et ferme la session/audio de manière identique à Stop. */
+  clearQueue = async (): Promise<void> => {
+    await this.stop();
   };
 
   /** « Lire ensuite » : inséré JUSTE après le morceau courant. */

@@ -114,6 +114,39 @@ describe('melodixPlayer engine', () => {
     });
   });
 
+  it('synchronise l’état réel expo-av lors d’une interruption Audio Focus', async () => {
+    await melodixPlayer.playQueue([track('one')], 0);
+    await flush();
+
+    lastStatusCallback?.({
+      isLoaded: true,
+      isPlaying: true,
+      positionMillis: 12_000,
+      durationMillis: 180_000,
+    });
+    expect(melodixPlayer.getState()).toMatchObject({
+      status: 'playing',
+      positionMillis: 12_000,
+      durationMillis: 180_000,
+    });
+
+    // Android retire le focus : expo-av signale la pause sans appeler notre UI.
+    lastStatusCallback?.({ isLoaded: true, isPlaying: false });
+    expect(melodixPlayer.getState()).toMatchObject({
+      status: 'paused',
+      positionMillis: 12_000,
+      durationMillis: 180_000,
+    });
+
+    // Un callback de buffering n’est pas une pause et ne perd pas la durée.
+    lastStatusCallback?.({
+      isLoaded: true,
+      isPlaying: false,
+      isBuffering: true,
+    });
+    expect(melodixPlayer.getState().durationMillis).toBe(180_000);
+  });
+
   it('caches the decision: replaying does not search again', async () => {
     await melodixPlayer.playQueue([track('one')], 0);
     await flush();
@@ -246,6 +279,35 @@ describe('melodixPlayer engine', () => {
     expect(melodixPlayer.getState().repeat).toBe('off');
   });
 
+  it('next manuel respecte la fin de file et repeat-all', async () => {
+    await melodixPlayer.playQueue([track('one'), track('two')], 1);
+    await flush();
+
+    await melodixPlayer.next();
+    expect(melodixPlayer.getState().status).toBe('idle');
+    expect(melodixPlayer.getState().current).toBeNull();
+
+    melodixPlayer.setRepeat('all');
+    await melodixPlayer.playQueue([track('one'), track('two')], 1);
+    await flush();
+    await melodixPlayer.next();
+    await flush();
+
+    expect(melodixPlayer.getState().current?.id).toBe('spotify:one');
+  });
+
+  it('previous au début ne boucle que lorsque repeat-all est actif', async () => {
+    await melodixPlayer.playQueue([track('one'), track('two')], 0);
+    await flush();
+    await melodixPlayer.previous();
+    expect(melodixPlayer.getState().current?.id).toBe('spotify:one');
+
+    melodixPlayer.setRepeat('all');
+    await melodixPlayer.previous();
+    await flush();
+    expect(melodixPlayer.getState().current?.id).toBe('spotify:two');
+  });
+
   it('previous restarts the track after 3 seconds, else goes back', async () => {
     await melodixPlayer.playQueue([track('one'), track('two')], 1);
     await flush();
@@ -284,12 +346,24 @@ describe('melodixPlayer engine', () => {
   it('seek clamps and volume is applied', async () => {
     await melodixPlayer.playQueue([track('one')], 0);
     await flush();
+    lastStatusCallback?.({
+      isLoaded: true,
+      isPlaying: true,
+      durationMillis: 5_000,
+      positionMillis: 1_000,
+    });
 
     await melodixPlayer.seekTo(-500);
     expect(melodixPlayer.getState().positionMillis).toBe(0);
 
     await melodixPlayer.seekTo(1234);
     expect(melodixPlayer.getState().positionMillis).toBe(1234);
+
+    await melodixPlayer.seekTo(50_000);
+    expect(melodixPlayer.getState().positionMillis).toBe(5_000);
+
+    await melodixPlayer.seekTo(Number.NaN);
+    expect(melodixPlayer.getState().positionMillis).toBe(0);
 
     await melodixPlayer.setVolume(2);
     expect(melodixPlayer.getState().volume).toBe(1);
@@ -902,7 +976,7 @@ describe('Phase 1 — fallback en cours de lecture Audius → YouTube', () => {
     expect(melodixPlayer.getState().resolved?.provider).toBe('YouTube');
   });
 
-  it('Audius flux mort + YouTube indisponible → skip propre (négatif persisté)', async () => {
+  it('Audius flux mort + YouTube indisponible → skip propre sans négatif durable', async () => {
     // Seule « Dead A » a un flux Audius mort ; « Playable B » joue normalement.
     const audius = makeProvider({
       resolveMatch: jest.fn(async (query) =>
@@ -943,7 +1017,8 @@ describe('Phase 1 — fallback en cours de lecture Audius → YouTube', () => {
     });
     unsubscribe();
 
-    // Négatif confirmé : retenter A ne lance AUCUNE nouvelle recherche.
+    // Un flux mort peut être une panne CDN : la lecture suivante retente la
+    // décision au lieu de conserver 24 h un faux « indisponible ».
     (audius.resolveMatch as jest.Mock).mockClear();
     (youtube.resolveMatch as jest.Mock).mockClear();
     await melodixPlayer.playQueue([track('one', 'Dead A')], 0);
@@ -951,8 +1026,8 @@ describe('Phase 1 — fallback en cours de lecture Audius → YouTube', () => {
     await flush();
     await flush();
 
-    expect(audius.resolveMatch).not.toHaveBeenCalled();
-    expect(youtube.resolveMatch).not.toHaveBeenCalled();
+    expect(audius.resolveMatch).toHaveBeenCalledTimes(1);
+    expect(youtube.resolveMatch).toHaveBeenCalledTimes(1);
     expect(melodixPlayer.getState().status).toBe('idle'); // plus rien de jouable
   });
 
@@ -1074,6 +1149,37 @@ describe('Phase 2 — file d attente avancée', () => {
     permutation(state.order as number[], 4);
     // Le nouveau morceau est joué EN DERNIER de l'ordre.
     expect((state.order as number[])[3]).toBe(3);
+  });
+
+  it('addTracksToQueue ajoute un lot atomiquement sans doublons', async () => {
+    await jouerFileABC();
+    melodixPlayer.addTracksToQueue([
+      track('b', 'B dupliqué'),
+      track('d', 'D'),
+      track('d', 'D dupliqué dans le lot'),
+      track('e', 'E'),
+    ]);
+
+    expect(melodixPlayer.getState().queue.map(({ title }) => title)).toEqual([
+      'A',
+      'B',
+      'C',
+      'D',
+      'E',
+    ]);
+  });
+
+  it('clearQueue arrête le son et vide la source de vérité centrale', async () => {
+    await jouerFileABC();
+    await melodixPlayer.clearQueue();
+
+    expect(lastSound.unloadAsync).toHaveBeenCalled();
+    expect(melodixPlayer.getState()).toMatchObject({
+      queue: [],
+      index: -1,
+      current: null,
+      status: 'idle',
+    });
   });
 
   it('addToQueue ignore silencieusement un morceau sans id/titre', () => {

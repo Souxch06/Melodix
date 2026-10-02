@@ -33,6 +33,7 @@ const mockStop = jest.fn(async () => {});
 const mockClearNotice = jest.fn();
 const mockRemoveFromQueue = jest.fn();
 const mockMoveInQueue = jest.fn();
+const mockClearQueue = jest.fn(async () => {});
 const mockAddToQueue = jest.fn();
 const mockPlayNext = jest.fn();
 
@@ -74,6 +75,7 @@ jest.mock('@context', () => ({
     clearNotice: mockClearNotice,
     removeFromQueue: mockRemoveFromQueue,
     moveInQueue: mockMoveInQueue,
+    clearQueue: mockClearQueue,
     addToQueue: mockAddToQueue,
     playNext: mockPlayNext,
   }),
@@ -149,6 +151,13 @@ describe('FullPlayer — inventaire réel avant refonte éventuelle', () => {
     expect(mockSetVolume).toHaveBeenCalledTimes(1);
     expect(mockSetVolume).toHaveBeenCalledWith(0.25);
     // Le mute dédié existe désormais (phase 3) : couvert ci-dessous.
+  });
+
+  it('vide la file depuis son action dédiée', () => {
+    const { getByTestId } = render(<FullPlayer />);
+
+    fireEvent.press(getByTestId('queue-clear'));
+    expect(mockClearQueue).toHaveBeenCalledTimes(1);
   });
 
   it('play/pause, previous, next, shuffle, repeat : tous branchés', () => {
