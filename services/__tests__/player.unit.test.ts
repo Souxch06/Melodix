@@ -1203,6 +1203,24 @@ describe('Phase 2 — file d attente avancée', () => {
     expect(state.current?.title).toBe('D');
   });
 
+  it('playNext déplace une piste déjà en file au lieu de la dupliquer', async () => {
+    await jouerFileABC();
+    melodixPlayer.playNext(track('c', 'C actualisé'));
+
+    const state = melodixPlayer.getState();
+    expect(state.queue.map(({ id }) => id)).toEqual([
+      'spotify:a',
+      'spotify:c',
+      'spotify:b',
+    ]);
+    expect(state.queue.filter(({ id }) => id === 'spotify:c')).toHaveLength(1);
+    expect(state.current?.id).toBe('spotify:a');
+
+    await melodixPlayer.next();
+    await flush();
+    expect(melodixPlayer.getState().current?.id).toBe('spotify:c');
+  });
+
   it('playNext (shuffle ON) : D joué IMMÉDIATEMENT après le courant de l ordre', async () => {
     await jouerFileABC();
     melodixPlayer.toggleShuffle();
@@ -1220,6 +1238,18 @@ describe('Phase 2 — file d attente avancée', () => {
     expect(
       melodixPlayer.getState().queue[melodixPlayer.getState().index].title
     ).toBe('D');
+  });
+
+  it('playNext déduplique aussi sous shuffle et impose la piste suivante', async () => {
+    await jouerFileABC();
+    melodixPlayer.toggleShuffle();
+    melodixPlayer.playNext(track('c', 'C'));
+
+    const state = melodixPlayer.getState();
+    expect(state.queue.filter(({ id }) => id === 'spotify:c')).toHaveLength(1);
+    const order = state.order as number[];
+    const currentPointer = order.indexOf(state.index);
+    expect(state.queue[order[currentPointer + 1]].id).toBe('spotify:c');
   });
 
   it('playNext SANS session : la lecture DÉMARRE (action jamais invisible — M-1)', async () => {
@@ -1248,6 +1278,17 @@ describe('Phase 2 — file d attente avancée', () => {
     expect(state.queue.map(({ title }) => title)).toEqual(['A', 'B']);
     expect(state.current?.title).toBe('B');
     expect(state.status).toBe('playing');
+  });
+
+  it('playNext sur file dormante joue une piste existante sans doublon', async () => {
+    melodixPlayer.addToQueue(track('a', 'A'));
+
+    melodixPlayer.playNext(track('a', 'A actualisé'));
+    await flush();
+
+    const state = melodixPlayer.getState();
+    expect(state.queue.map(({ id }) => id)).toEqual(['spotify:a']);
+    expect(state.current?.id).toBe('spotify:a');
   });
 
   it('remove d un morceau APRÈS le courant : index et lecture inchangés', async () => {
