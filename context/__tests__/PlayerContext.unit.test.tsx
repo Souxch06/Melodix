@@ -297,6 +297,31 @@ describe('PlayerContext — reprise de session (phase 2)', () => {
     );
   });
 
+  it('resumeSession : un échec moteur repropose la session sans purge', async () => {
+    mockActions.loadPlaybackSession.mockResolvedValue(SESSION);
+    mockActions.restoreSession.mockRejectedValueOnce(new Error('load failed'));
+
+    const Probe = () => {
+      const { pendingRestore, resumeSession } = usePlayer();
+      return pendingRestore ? (
+        <Pressable onPress={() => void resumeSession()} testID="retry-resume" />
+      ) : null;
+    };
+
+    const { findByTestId } = render(
+      <PlayerProvider>
+        <Probe />
+      </PlayerProvider>
+    );
+    fireEvent.press(await findByTestId('retry-resume'));
+
+    await waitFor(() =>
+      expect(mockActions.restoreSession).toHaveBeenCalledTimes(1)
+    );
+    expect(await findByTestId('retry-resume')).toBeTruthy();
+    expect(mockActions.clearPlaybackSession).not.toHaveBeenCalled();
+  });
+
   it('dismissSession : purge le stockage SANS jouer, ferme la carte', async () => {
     mockActions.loadPlaybackSession.mockResolvedValue(SESSION);
 
