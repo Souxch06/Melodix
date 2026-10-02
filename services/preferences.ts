@@ -70,6 +70,10 @@ export const DEFAULT_PREFERENCES: Preferences = {
 
 export const PREFERENCES_STORAGE_KEY = '@melodix/preferences.v1';
 
+/** Préserve l'ordre des setters rapides (volume puis accent, etc.) même si
+ * AsyncStorage termine une ancienne écriture plus tard que la suivante. */
+let writeQueue: Promise<void> = Promise.resolve();
+
 const sanitize = (raw: Partial<Preferences>): Preferences => ({
   language: raw.language === 'en' ? 'en' : 'fr',
   themeMode:
@@ -91,6 +95,7 @@ const sanitize = (raw: Partial<Preferences>): Preferences => ({
 
 export const loadPreferences = async (): Promise<Preferences> => {
   try {
+    await writeQueue;
     const stored = await AsyncStorage.getItem(PREFERENCES_STORAGE_KEY);
     if (!stored) {
       return DEFAULT_PREFERENCES;
@@ -101,6 +106,17 @@ export const loadPreferences = async (): Promise<Preferences> => {
   }
 };
 
-export const savePreferences = async (prefs: Preferences): Promise<void> => {
-  await AsyncStorage.setItem(PREFERENCES_STORAGE_KEY, JSON.stringify(prefs));
+export const savePreferences = (prefs: Preferences): Promise<void> => {
+  const operation = writeQueue.then(async () => {
+    try {
+      await AsyncStorage.setItem(
+        PREFERENCES_STORAGE_KEY,
+        JSON.stringify(prefs)
+      );
+    } catch {
+      // Réglage en mémoire conservé ; l'UI et le moteur ne doivent pas casser.
+    }
+  });
+  writeQueue = operation;
+  return operation;
 };

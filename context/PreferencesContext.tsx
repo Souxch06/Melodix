@@ -79,6 +79,7 @@ export const PreferencesProvider = ({
   children: React.ReactNode;
 }) => {
   const [prefs, setPrefs] = React.useState<Preferences>(DEFAULT_PREFERENCES);
+  const prefsRef = React.useRef<Preferences>(DEFAULT_PREFERENCES);
   const [loading, setLoading] = React.useState(true);
 
   // Restauration au démarrage + application RÉELLE des réglages moteur
@@ -90,6 +91,7 @@ export const PreferencesProvider = ({
       if (!isMounted) {
         return;
       }
+      prefsRef.current = restored;
       setPrefs(restored);
       setLoading(false);
       void melodixPlayer.setVolume(restored.startupVolume / 100);
@@ -105,11 +107,13 @@ export const PreferencesProvider = ({
   }, []);
 
   const update = React.useCallback((patch: Partial<Preferences>) => {
-    setPrefs((current) => {
-      const next = { ...current, ...patch };
-      void savePreferences(next);
-      return next;
-    });
+    // Effet disque hors updater React : celui-ci doit rester pur en
+    // Strict/Concurrent Mode. La ref garantit aussi deux setters dans le même
+    // tick sans perdre le premier patch.
+    const next = { ...prefsRef.current, ...patch };
+    prefsRef.current = next;
+    setPrefs(next);
+    void savePreferences(next);
   }, []);
 
   const value = React.useMemo<PreferencesContextType>(

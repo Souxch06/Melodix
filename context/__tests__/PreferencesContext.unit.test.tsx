@@ -165,6 +165,17 @@ describe('PreferencesProvider — restauration et application réelle', () => {
         true
       );
     });
+
+    await waitFor(async () => {
+      const stored = JSON.parse(
+        (await AsyncStorage.getItem(PREFERENCES_STORAGE_KEY)) ?? '{}'
+      );
+      expect(stored).toMatchObject({
+        startupVolume: 70,
+        backgroundAudio: false,
+        accent: 'violet',
+      });
+    });
   });
 
   it('le dictionnaire par défaut reste celui de l application (FR)', () => {

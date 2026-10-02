@@ -40,6 +40,29 @@ describe('playHistory (historique local)', () => {
     expect(await hasPlayHistory()).toBe(true);
   });
 
+  it('conserve deux lectures enregistrées réellement en parallèle', async () => {
+    await Promise.all([
+      recordPlay(track('parallel-a')),
+      recordPlay(track('parallel-b')),
+    ]);
+
+    const recent = await getRecentlyPlayedTracks();
+    expect(new Set(recent.map(({ track: item }) => item.id))).toEqual(
+      new Set(['parallel-a', 'parallel-b'])
+    );
+  });
+
+  it('une lecture fire-and-forget est visible par la lecture suivante', async () => {
+    void recordPlay(track('pending'));
+
+    await expect(hasPlayHistory()).resolves.toBe(true);
+    await expect(getRecentlyPlayedTracks()).resolves.toEqual([
+      expect.objectContaining({
+        track: expect.objectContaining({ id: 'pending' }),
+      }),
+    ]);
+  });
+
   it('déduplique : rejouer un morceau le remonte en tête', async () => {
     await recordPlay(track('1'));
     await recordPlay(track('2'));
