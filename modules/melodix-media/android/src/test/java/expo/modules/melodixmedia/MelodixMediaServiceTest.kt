@@ -1,11 +1,13 @@
 package expo.modules.melodixmedia
 
+import android.app.Notification
 import android.app.NotificationManager
 import android.os.Looper
 import androidx.media3.common.Player
 import androidx.media3.session.MediaSession
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -35,6 +37,19 @@ class MelodixMediaServiceTest {
   fun tearDown() {
     controller.destroy()
     MelodixMediaController.onServiceCrashed()
+  }
+
+  @Test
+  fun `startForeground est explicite des onCreate avant meme la projection`() {
+    val foreground = shadowOf(service).lastForegroundNotification
+    assertNotNull("bootstrap foreground publié immédiatement", foreground)
+    assertEquals(
+      "Melodix",
+      foreground.extras.getCharSequence(Notification.EXTRA_TITLE)?.toString()
+    )
+    val publishedField = MelodixMediaService::class.java.getDeclaredField("foregroundPublished")
+    publishedField.isAccessible = true
+    assertTrue(publishedField.getBoolean(service))
   }
 
   @Test
@@ -71,9 +86,31 @@ class MelodixMediaServiceTest {
       "canal de notification média créé",
       manager.getNotificationChannel(MelodixMediaNotificationProvider.CHANNEL_ID)
     )
+    val foreground = shadowOf(service).lastForegroundNotification
     assertNotNull(
       "MediaSessionService passé en foreground avec une notification",
-      shadowOf(service).lastForegroundNotification
+      foreground
     )
+    assertEquals(
+      "Notification Test",
+      foreground.extras.getCharSequence(Notification.EXTRA_TITLE)?.toString()
+    )
+
+    MelodixMediaService.sessionStateListener?.invoke(
+      mapOf(
+        "trackId" to "spotify:next",
+        "title" to "Next Track",
+        "artist" to "Next Artist",
+        "album" to "Next Album",
+        "artworkUrl" to null,
+        "durationMillis" to 200_000L,
+        "positionMillis" to 42_000L,
+        "isPlaying" to false
+      )
+    )
+    shadowOf(Looper.getMainLooper()).idle()
+    assertFalse(player.isPlaying)
+    assertEquals("Next Track", player.mediaMetadata.title)
+    assertEquals(42_000L, player.currentPosition)
   }
 }

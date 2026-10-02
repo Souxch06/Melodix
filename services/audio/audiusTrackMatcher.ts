@@ -43,7 +43,36 @@ export type SongMatchResult = {
   candidate: SongMatchCandidate;
 };
 
+export type SongCandidateDecision = {
+  id: string;
+  accepted: boolean;
+  reason:
+    | 'invalid-candidate'
+    | 'title-mismatch'
+    | 'track-number-conflict'
+    | 'artist-mismatch'
+    | 'duration-mismatch'
+    | 'variant-mismatch'
+    | 'below-threshold'
+    | 'candidate-scored';
+  score?: number;
+};
+
+type MatchOptions = {
+  minimumAcceptedScore?: number;
+  onCandidateDecision?: (decision: SongCandidateDecision) => void;
+};
+
 const ACCEPT_MATCH_SCORE = 55;
+
+const devMatcherLog = (
+  event: string,
+  details: Record<string, unknown>
+): void => {
+  if (typeof __DEV__ !== 'undefined' && __DEV__) {
+    console.info(`[AUDIO_DIAG] Audius ${event}`, details);
+  }
+};
 
 const DASH_APPENDAGE_RX =
   /(?:\s[-–—−:]\s+(?:(?:[^\-–—−]*?\b(?:remix|mix|edit|remaster(?:ed)?|remake|version|vip|extend(?:ed)?|radio|live|acoustic|demo|mono|stereo|original|deluxe|single|instrumental|a cappella|censored|clean|explicit|reprise|session[s]?|official\s+(?:audio|video)|lyric(?:s|\s+video)?|visuali[sz]er|version\s+\d{4}|\d{4})\b[^\-–—−]*)|.*?\d{4}.*?))$/iu;
@@ -224,15 +253,21 @@ const splitArtistNames = (raw: string): string[] =>
  * Remastered/radio edit/extended/officiel/lyrics = versions acceptées (bruit
  * d'édition géré par canonicalizeFromTitle comme avant).
  */
-const HARD_VARIANT_RX = /\b(remix|live|instrumental|karaoke|acoustic)\b/giu;
-const HARD_VARIANT_PENALTY = 45;
+const HARD_VARIANT_RX =
+  /\b(remix|live|instrumental|karaoke|acoustic|radio\s+edit|extended(?:\s+(?:mix|version))?|sped\s+up|slowed(?:\s+down)?|nightcore)\b/giu;
+const canonicalVariantTag = (raw: string): string => {
+  const tag = raw.toLowerCase().replace(/\s+/g, ' ').trim();
+  if (tag.startsWith('extended')) return 'extended';
+  if (tag.startsWith('slowed')) return 'slowed';
+  return tag;
+};
 
 export const hardVariantsOfTitle = (title: string): string[] => {
   const normalized = normalizeTitleText(title);
   const found: string[] = [];
 
   for (const match of normalized.matchAll(HARD_VARIANT_RX)) {
-    const tag = (match[1] ?? '').toLowerCase();
+    const tag = canonicalVariantTag(match[1] ?? '');
     if (tag && !found.includes(tag)) {
       found.push(tag);
     }
@@ -457,9 +492,11 @@ const durationGateRejects = (
 export const matchSongs = (
   source: SongFingerprint,
   candidates: SongMatchCandidate[],
-  options?: { minimumAcceptedScore?: number }
+  options?: MatchOptions
 ): SongMatchResult | null => {
   const acceptScore = options?.minimumAcceptedScore ?? ACCEPT_MATCH_SCORE;
+  const decide = (decision: SongCandidateDecision): void =>
+    options?.onCandidateDecision?.(decision);
 
   if (!source.title || source.title.length < 2 || !candidates.length) {
     return null;
@@ -469,6 +506,7 @@ export const matchSongs = (
 
   for (const candidate of candidates) {
     if (!candidate.id) {
+      decide({ id: '', accepted: false, reason: 'invalid-candidate' });
       continue;
     }
 
@@ -492,6 +530,11 @@ export const matchSongs = (
       titleStatus === 'none' &&
       titleConfidence < MIN_FUZZY_TITLE_SIMILARITY
     ) {
+      decide({
+        id: candidate.id,
+        accepted: false,
+        reason: 'title-mismatch',
+      });
       continue;
     }
     const sourceDigits = source.title.match(/\d+/g) ?? [];
@@ -502,6 +545,11 @@ export const matchSongs = (
       candidateDigits.length > 0 &&
       sourceDigits.join(',') !== candidateDigits.join(',')
     ) {
+      decide({
+        id: candidate.id,
+        accepted: false,
+        reason: 'track-number-conflict',
+      });
       continue;
     }
 
@@ -521,6 +569,11 @@ export const matchSongs = (
     // Sans ISRC exact, aucun artiste commun = refus ferme. Les artistes
     // préfixés dans « Artist - Song » sont inclus via inferredArtists.
     if (!isrcExact && artistAgreement === 0 && source.artistNames.length > 0) {
+      decide({
+        id: candidate.id,
+        accepted: false,
+        reason: 'artist-mismatch',
+      });
       continue;
     }
 
@@ -532,7 +585,15 @@ export const matchSongs = (
 
     // Porte durée dure : un écart massif = autre enregistrement, jamais un
     // match — peu importe la force du titre/artiste/album.
-    if (durationGateRejects(source.durationSec, candidate.durationSec)) {
+    if (
+      !isrcExact &&
+      durationGateRejects(source.durationSec, candidate.durationSec)
+    ) {
+      decide({
+        id: candidate.id,
+        accepted: false,
+        reason: 'duration-mismatch',
+      });
       continue;
     }
 
@@ -545,16 +606,22 @@ export const matchSongs = (
     });
     const exactTitle = bestTitle === source.title;
 
-    // Pénalité « variante dure » partagée : remix/live/instrumental/karaoke/
-    // acoustic ne PASSENT PAS automatiquement quand l'autre côté n'est pas
-    // cette version (pénalité forte — elle peut faire repousser le candidat
-    // sous le seuil d'acceptation).
-    const variantPenalty = hardVariantMismatch(
-      source.hardVariants,
-      candidateFingerprint.hardVariants
-    )
-      ? HARD_VARIANT_PENALTY
-      : 0;
+    // Porte « variante dure » partagée : remix/live/instrumental/karaoke/
+    // acoustic/radio/extended/sped/slowed restent des versions distinctes.
+    if (
+      !isrcExact &&
+      hardVariantMismatch(
+        source.hardVariants,
+        candidateFingerprint.hardVariants
+      )
+    ) {
+      decide({
+        id: candidate.id,
+        accepted: false,
+        reason: 'variant-mismatch',
+      });
+      continue;
+    }
 
     // Titre PARTIEL = 0 point de titre (durci) : un titre seulement
     // apparenté n'ouvre plus la porte à lui seul — il ne peut survivre que
@@ -573,7 +640,14 @@ export const matchSongs = (
             artistAgreement * 25 +
             (albumStatus === 'exact' ? 15 : albumStatus === 'partial' ? 7 : 0) +
             durationConfidence * 20
-        ) - variantPenalty;
+        );
+
+    decide({
+      id: candidate.id,
+      accepted: score >= acceptScore,
+      reason: score >= acceptScore ? 'candidate-scored' : 'below-threshold',
+      score,
+    });
 
     // Keep a running best; hard gates are the same as acceptScore + a title
     // agreement floor so two remixes can't outrank an exact original.
@@ -626,7 +700,7 @@ export const UNKNOWN_MATCH: SongMatchResult | null = null;
 export const findBestAudiusMatch = async (
   query: AudioSourceQuery,
   search: (text: string) => Promise<AudiusTrackMatch[]>,
-  options?: { minimumAcceptedScore?: number }
+  options?: MatchOptions
 ): Promise<SongMatchResult | null> => {
   const source = fingerprintOf({
     title: query.title,
@@ -634,6 +708,15 @@ export const findBestAudiusMatch = async (
     album: query.album,
     durationSec: sec(query.durationMillis),
     isrc: query.isrc,
+  });
+
+  const decisions = new Map<string, SongCandidateDecision>();
+  devMatcherLog('spotify-input', {
+    title: query.title,
+    artists: query.artists,
+    album: query.album ?? null,
+    durationMillis: query.durationMillis ?? null,
+    isrc: query.isrc ?? null,
   });
 
   const attempts: string[] = [];
@@ -692,7 +775,13 @@ export const findBestAudiusMatch = async (
       });
     }
 
-    return matchSongs(source, candidates, options);
+    return matchSongs(source, candidates, {
+      ...options,
+      onCandidateDecision: (decision) => {
+        if (decision.id) decisions.set(decision.id, decision);
+        options?.onCandidateDecision?.(decision);
+      },
+    });
   };
 
   // Boucle STRICTEMENT bornée (≤ 5 requêtes, ISRC compris) : un lot
@@ -702,12 +791,21 @@ export const findBestAudiusMatch = async (
   for (const attempt of attempts.slice(0, 5)) {
     try {
       const batch = await search(attempt);
+      devMatcherLog('search', { query: attempt, results: batch.length });
 
       if (batch.length) {
         allCandidates = [...allCandidates, ...batch];
 
         const best = scoreAccumulated();
         if (best) {
+          devMatcherLog('selected', {
+            query: attempt,
+            sourceId: best.id,
+            score: best.score,
+            rejected: Array.from(decisions.values()).filter(
+              (decision) => !decision.accepted
+            ),
+          });
           return best;
         }
       }
@@ -718,5 +816,15 @@ export const findBestAudiusMatch = async (
 
   // Jamais de match forcé : null si aucune formulation n'a produit de
   // candidat admissible (le player affichera « indisponible » et skip).
-  return scoreAccumulated();
+  const final = scoreAccumulated();
+  devMatcherLog(final ? 'selected-final' : 'unavailable', {
+    attempts,
+    results: allCandidates.length,
+    sourceId: final?.id ?? null,
+    score: final?.score ?? null,
+    rejected: Array.from(decisions.values()).filter(
+      (decision) => !decision.accepted
+    ),
+  });
+  return final;
 };

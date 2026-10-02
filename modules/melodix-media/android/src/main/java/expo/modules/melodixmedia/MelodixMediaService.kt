@@ -1,9 +1,16 @@
 package expo.modules.melodixmedia
 
+import android.app.NotificationManager
 import android.content.Intent
+import android.content.pm.ServiceInfo
+import android.os.Build
+import android.os.Handler
+import android.os.Looper
 import android.util.Log
 import androidx.annotation.OptIn
+import androidx.core.app.ServiceCompat
 import androidx.media3.common.util.UnstableApi
+import androidx.media3.session.MediaNotification
 import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSessionService
 
@@ -43,6 +50,8 @@ class MelodixMediaService : MediaSessionService() {
 
   private var mediaSession: MediaSession? = null
   private var virtualPlayer: VirtualMediaPlayer? = null
+  private var foregroundPublished = false
+  private val mainHandler = Handler(Looper.getMainLooper())
 
   @OptIn(UnstableApi::class)
   override fun onCreate() {
@@ -67,6 +76,28 @@ class MelodixMediaService : MediaSessionService() {
 
     Log.i("MXDIAG", "SERVICE_ONCREATE_BEGIN")
     MelodixDiagLog.step("SERVICE_ONCREATE_BEGIN")
+
+    // `startForegroundService()` impose une publication sous 5 secondes.
+    // Auparavant Melodix attendait uniquement l'effet interne asynchrone de
+    // MediaSessionService : session créée ne signifiait donc pas notification
+    // effectivement publiée sur tous les appareils/OEM. Publier immédiatement
+    // un bootstrap, puis remplacer le MÊME id par la MediaStyle construite par
+    // Media3, rend le cycle de vie explicite et vérifiable.
+    MelodixMediaNotificationProvider.publicationListener = { notification ->
+      publishForeground(notification, "media-style")
+    }
+    try {
+      publishForeground(
+        MediaNotification(
+          MelodixMediaNotificationProvider.MEDIA_NOTIFICATION_ID,
+          MelodixMediaNotificationProvider.createBootstrapNotification(this)
+        ),
+        "bootstrap"
+      )
+    } catch (t: Throwable) {
+      Log.e(TAG, "Publication foreground bootstrap impossible", t)
+      MelodixDiagLog.error("FOREGROUND_BOOTSTRAP_FAIL", t)
+    }
 
     // 5C.2 — Blindage ANTI-CRASH : TOUT ce bloc tourne sur le MAIN thread
     // au premier Play (le service n'existait jamais avant). La moindre
@@ -134,6 +165,10 @@ class MelodixMediaService : MediaSessionService() {
         // Media3 : c'est CE qui alimente la notification média système et
         // met le service en avant-plan dès PLAYING projeté.
         traced("ADD_SESSION") { addSession(session) }
+        MelodixDiagLog.step(
+          "MEDIA_SESSION_ACTIVE",
+          "playerAttached=${session.player === player}"
+        )
       }
 
       // 4) Projection : listener vers le player virtuel + replay de la
@@ -210,6 +245,50 @@ class MelodixMediaService : MediaSessionService() {
     }
   }
 
+  /** Publication réelle du FGS, pas seulement construction de notification. */
+  private fun publishForeground(mediaNotification: MediaNotification, stage: String) {
+    MelodixDiagLog.step("FOREGROUND_PUBLISH_BEGIN", "stage=$stage id=${mediaNotification.notificationId}")
+    val foregroundType =
+      if (Build.VERSION.SDK_INT >= 29) {
+        ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK
+      } else {
+        0
+      }
+    ServiceCompat.startForeground(
+      this,
+      mediaNotification.notificationId,
+      mediaNotification.notification,
+      foregroundType
+    )
+    foregroundPublished = true
+    MelodixDiagLog.step("FOREGROUND_PUBLISH_OK", "stage=$stage")
+
+    // Vérification post-publication depuis le système lui-même. Cette trace
+    // distingue « notification construite » de « notification active ».
+    if (Build.VERSION.SDK_INT >= 23) {
+      mainHandler.postDelayed({
+        try {
+          val manager = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
+          val active = manager.activeNotifications.any {
+            it.id == mediaNotification.notificationId
+          }
+          val channel =
+            if (Build.VERSION.SDK_INT >= 26) {
+              mediaNotification.notification.channelId
+            } else {
+              "legacy"
+            }
+          MelodixDiagLog.step(
+            if (active) "NOTIFICATION_ACTIVE" else "NOTIFICATION_MISSING",
+            "stage=$stage channel=$channel"
+          )
+        } catch (t: Throwable) {
+          MelodixDiagLog.error("NOTIFICATION_VERIFY_FAIL", t, "stage=$stage")
+        }
+      }, 500L)
+    }
+  }
+
   override fun onGetSession(
     controllerInfo: MediaSession.ControllerInfo
   ): MediaSession? = mediaSession
@@ -235,8 +314,13 @@ class MelodixMediaService : MediaSessionService() {
     // Libération stricte, sans fuite possible : listener → session → player.
     // Dernière barrière anti-crash (5C.2) : une erreur de libération ne doit
     // jamais non plus tuer l'application en cours d'arrêt du service.
-    MelodixDiagLog.step("SERVICE_DESTROY_BEGIN") // DIAG 4.4.7
+    MelodixDiagLog.step(
+      "SERVICE_DESTROY_BEGIN",
+      "foregroundPublished=$foregroundPublished"
+    )
     sessionStateListener = null
+    MelodixMediaNotificationProvider.publicationListener = null
+    mainHandler.removeCallbacksAndMessages(null)
     try {
       mediaSession?.let { session ->
         removeSession(session)

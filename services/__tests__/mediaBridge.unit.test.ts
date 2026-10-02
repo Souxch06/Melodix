@@ -27,6 +27,7 @@ import type { PlaybackSession } from '../playbackSession';
 // Le module natif local est mocké : le bridge parle à CES mocks.
 const mockUpdateSession = jest.fn();
 const mockStopSession = jest.fn();
+const mockAppendDiagLog = jest.fn();
 const mockRequestNotificationPermission = jest.fn<boolean | null, []>(
   () => null
 );
@@ -35,6 +36,7 @@ let commandListener: ((command: unknown) => void) | null = null;
 jest.mock('../../modules/melodix-media', () => ({
   updateSession: (...args: never[]) => mockUpdateSession(...args),
   stopSession: () => mockStopSession(),
+  appendDiagLog: (line: string) => mockAppendDiagLog(line),
   isMelodixMediaAvailable: () => true,
   requestMediaNotificationPermission: () => mockRequestNotificationPermission(),
   addMediaCommandListener: (listener: (command: unknown) => void) => {

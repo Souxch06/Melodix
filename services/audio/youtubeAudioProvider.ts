@@ -11,6 +11,7 @@ import {
   normalizeTitleText,
   stripFeatureSuffix,
 } from './audiusTrackMatcher';
+import type { SongCandidateDecision } from './audiusTrackMatcher';
 import {
   getYouTubeAudioStreamUrl,
   searchYouTubeSongs,
@@ -36,6 +37,15 @@ import { sanitizeErrorForLog } from '../logSanitize';
 /** Seuil d'acceptation identique à Audius (voir findBestAudiusMatch). */
 const ACCEPT_SCORE = 55;
 
+const devYouTubeLog = (
+  event: string,
+  details: Record<string, unknown>
+): void => {
+  if (typeof __DEV__ !== 'undefined' && __DEV__) {
+    console.info(`[AUDIO_DIAG] YouTube ${event}`, details);
+  }
+};
+
 const durationSecOf = (query: AudioSourceQuery): number | null =>
   typeof query.durationMillis === 'number' && query.durationMillis > 0
     ? Math.round(query.durationMillis / 1000)
@@ -60,7 +70,8 @@ const queryTexts = (query: AudioSourceQuery): string[] => {
 
 const scoreCandidate = (
   query: AudioSourceQuery,
-  candidate: YouTubeSongCandidate
+  candidate: YouTubeSongCandidate,
+  onDecision?: (decision: SongCandidateDecision) => void
 ): number => {
   const source = fingerprintOf({
     title: query.title,
@@ -70,14 +81,18 @@ const scoreCandidate = (
     isrc: query.isrc,
   });
 
-  const best = matchSongs(source, [
-    {
-      id: candidate.videoId,
-      title: candidate.title,
-      artistNames: candidate.artists,
-      durationSec: candidate.durationSec,
-    },
-  ]);
+  const best = matchSongs(
+    source,
+    [
+      {
+        id: candidate.videoId,
+        title: candidate.title,
+        artistNames: candidate.artists,
+        durationSec: candidate.durationSec,
+      },
+    ],
+    { onCandidateDecision: onDecision }
+  );
 
   return best?.score ?? 0;
 };
@@ -91,6 +106,7 @@ const searchCandidates = async (
 
   for (const text of queryTexts(query)) {
     const batch = await searchYouTubeSongs(text, 12);
+    devYouTubeLog('search', { query: text, results: batch.length });
     batch.forEach((candidate) => {
       if (candidate.videoId && !seen.has(candidate.videoId)) {
         seen.add(candidate.videoId);
@@ -136,6 +152,14 @@ export const createYouTubeAudioProvider = (): AudioProvider => ({
       return null;
     }
 
+    devYouTubeLog('spotify-input', {
+      title: query.title,
+      artists: query.artists,
+      album: query.album ?? null,
+      durationMillis: query.durationMillis ?? null,
+      isrc: query.isrc ?? null,
+    });
+
     let candidates: YouTubeSongCandidate[];
     try {
       candidates = await searchCandidates(query);
@@ -145,13 +169,23 @@ export const createYouTubeAudioProvider = (): AudioProvider => ({
     }
 
     let best: { sourceId: string; raw: number } | null = null;
+    const decisions: SongCandidateDecision[] = [];
 
     for (const candidate of candidates) {
-      const raw = scoreCandidate(query, candidate);
+      const raw = scoreCandidate(query, candidate, (decision) =>
+        decisions.push(decision)
+      );
       if (raw >= ACCEPT_SCORE && (best === null || raw > best.raw)) {
         best = { sourceId: candidate.videoId, raw };
       }
     }
+
+    devYouTubeLog(best ? 'selected' : 'unavailable', {
+      results: candidates.length,
+      sourceId: best?.sourceId ?? null,
+      score: best?.raw ?? null,
+      rejected: decisions.filter((decision) => !decision.accepted),
+    });
 
     return best
       ? { sourceId: best.sourceId, score: Math.min(1, best.raw / 100) }

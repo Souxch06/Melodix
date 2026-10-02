@@ -5,6 +5,7 @@ import android.app.NotificationManager
 import android.content.Context
 import android.os.Build
 import android.os.Bundle
+import androidx.core.app.NotificationCompat
 import androidx.media3.session.CommandButton
 import androidx.media3.session.DefaultMediaNotificationProvider
 import androidx.media3.session.MediaNotification
@@ -78,6 +79,7 @@ class MelodixMediaNotificationProvider(context: Context) : MediaNotification.Pro
         onNotificationChangedCallback
       )
       MelodixDiagLog.step("NOTIF_CREATE_OK")
+      notifyPublication(notification)
       notification
     } catch (t: Throwable) {
       android.util.Log.e(TAG, "Notification par défaut de repli", t)
@@ -100,9 +102,19 @@ class MelodixMediaNotificationProvider(context: Context) : MediaNotification.Pro
       .build()
 
     val mediaNotification = MediaNotification(MEDIA_NOTIFICATION_ID, notification)
+    notifyPublication(mediaNotification)
     onNotificationChangedCallback.onNotificationChanged(mediaNotification)
 
     return mediaNotification
+  }
+
+  private fun notifyPublication(notification: MediaNotification) {
+    try {
+      publicationListener?.invoke(notification)
+    } catch (t: Throwable) {
+      android.util.Log.e(TAG, "Publication foreground explicite rejetée", t)
+      MelodixDiagLog.error("FOREGROUND_PUBLISH_FAIL", t)
+    }
   }
 
   override fun handleCustomCommand(
@@ -125,8 +137,33 @@ class MelodixMediaNotificationProvider(context: Context) : MediaNotification.Pro
   companion object {
     private const val TAG = "MelodixNotificationProv"
 
-    /** ID de notification (celui par défaut de média3 : stable). */
-    private const val MEDIA_NOTIFICATION_ID = 1001
+    /** ID unique partagé par la notification bootstrap et la MediaStyle finale. */
+    const val MEDIA_NOTIFICATION_ID = 1001
+
+    /**
+     * Callback détenu uniquement pendant la vie du service. Media3 construit
+     * la MediaStyle, puis le service publie explicitement CETTE notification
+     * via startForeground au lieu de dépendre d'un effet interne implicite.
+     */
+    var publicationListener: ((MediaNotification) -> Unit)? = null
+
+    /**
+     * Notification immédiatement publiable après startForegroundService().
+     * Elle respecte le délai Android de 5 s et est remplacée, sous le même id,
+     * par la MediaStyle avec contrôles dès la première projection du player.
+     */
+    fun createBootstrapNotification(context: Context): android.app.Notification {
+      ensureMediaChannel(context)
+      return NotificationCompat.Builder(context, CHANNEL_ID)
+        .setSmallIcon(context.applicationInfo.icon)
+        .setContentTitle(CHANNEL_NAME)
+        .setContentText("Préparation de la lecture")
+        .setCategory(NotificationCompat.CATEGORY_TRANSPORT)
+        .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+        .setOnlyAlertOnce(true)
+        .setOngoing(true)
+        .build()
+    }
 
     /** ID de canal STABLE — jamais recréé autrement (§11 : une seule fois). */
     const val CHANNEL_ID = "melodix_media"

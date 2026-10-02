@@ -20,6 +20,7 @@
  */
 import {
   addMediaCommandListener,
+  appendDiagLog,
   requestMediaNotificationPermission,
   stopSession,
   updateSession,
@@ -185,6 +186,15 @@ const projectState = (state: PlayerState): void => {
     return; // rien de neuf à projeter (anti-spam sur ticks 500 ms)
   }
 
+  appendDiagLog(
+    `BRIDGE_PROJECT state=${payload.isPlaying ? 'PLAYING' : 'PAUSED'} ` +
+      `trackId=${payload.trackId} titleLength=${payload.title.length} ` +
+      `artistLength=${payload.artist.length} artwork=${payload.artworkUrl !== null} ` +
+      `positionMs=${Math.round(payload.positionMillis)} durationMs=${Math.round(
+        payload.durationMillis
+      )}`
+  );
+
   // Android 13+ masque la notification dans le tiroir si la permission n'a
   // jamais été accordée. Le réglage est activé par défaut : attendre que
   // l'utilisateur le désactive/réactive rendait donc la notification
@@ -219,6 +229,9 @@ const projectState = (state: PlayerState): void => {
 export const setMediaBridgeEnabled = (enabled: boolean): void => {
   const wasEnabled = bridgeEnabled;
   bridgeEnabled = enabled;
+  appendDiagLog(
+    `BRIDGE_ENABLED enabled=${enabled} previous=${wasEnabled} initialized=${initialized}`
+  );
 
   // Les préférences sont restaurées de façon asynchrone. Si une lecture a
   // démarré entre l'initialisation du PlayerProvider et cette restauration,
@@ -250,6 +263,7 @@ export const initMediaBridge = (): void => {
   }
 
   initialized = true;
+  appendDiagLog(`BRIDGE_CREATED enabled=${bridgeEnabled}`);
 
   unsubscribePlayer = melodixPlayer.subscribe(projectState);
   unsubscribeCommands = addMediaCommandListener(handleMediaCommand);

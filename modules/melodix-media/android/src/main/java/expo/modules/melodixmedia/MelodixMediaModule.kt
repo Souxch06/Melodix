@@ -1,6 +1,7 @@
 package expo.modules.melodixmedia
 
 import android.Manifest
+import android.app.NotificationManager
 import android.content.pm.PackageManager
 import android.os.Build
 import androidx.core.app.ActivityCompat
@@ -163,9 +164,8 @@ class MelodixMediaModule : Module() {
 
     /**
      * Permission Android 13+ POST_NOTIFICATIONS (phase 5C, §10 du cahier) :
-     * demandée au RUNTIME, UNIQUEMENT depuis le toggle « Lecture en
-     * arrière-plan » des réglages (geste utilisateur dédié — 5C.2 : PLUS
-     * JAMAIS au démarrage d'une lecture). La lecture n'est JAMAIS bloquée :
+     * demandée au RUNTIME depuis un geste utilisateur : activation du réglage
+     * ou première lecture volontaire. La lecture n'est JAMAIS bloquée :
      * le Foreground Service média fonctionne sans cette permission, Android
      * gère seulement la VISIBILITÉ de la notification.
      *
@@ -180,11 +180,19 @@ class MelodixMediaModule : Module() {
         }
 
         val context = appContext.reactContext ?: return@Function null
-
-        if (
+        MelodixMediaNotificationProvider.ensureMediaChannel(context)
+        val manager = context.getSystemService(NotificationManager::class.java)
+        val channelImportance =
+          manager?.getNotificationChannel(MelodixMediaNotificationProvider.CHANNEL_ID)?.importance
+        val granted =
           ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) ==
             PackageManager.PERMISSION_GRANTED
-        ) {
+        MelodixDiagLog.step(
+          "NOTIFICATION_PERMISSION",
+          "granted=$granted channelImportance=$channelImportance notificationsEnabled=${manager?.areNotificationsEnabled()}"
+        )
+
+        if (granted) {
           return@Function true
         }
 
@@ -196,6 +204,7 @@ class MelodixMediaModule : Module() {
         // la lecture n'en dépend JAMAIS.
         activity.runOnUiThread {
           try {
+            MelodixDiagLog.step("NOTIFICATION_PERMISSION_REQUESTED")
             ActivityCompat.requestPermissions(
               activity,
               arrayOf(Manifest.permission.POST_NOTIFICATIONS),

@@ -50,7 +50,44 @@ if [ -z "$PID" ]; then
 fi
 
 echo "Processus Melodix actif : pid=$PID"
-echo "::notice title=Installation Android réelle::installation propre + mise à jour + lancement réussis sur Android 14 x86_64 (pid=$PID)"
+
+# Smoke natif réel (pas Robolectric) : Android démarre le MediaSessionService,
+# celui-ci doit respecter le contrat FGS, publier l'id 1001 sur le canal média,
+# enregistrer une MediaSession, puis survivre au passage de l'Activity en fond.
+# Cette simulation ne prétend pas charger un flux Audius : elle valide la
+# portion service → notification → System UI qui manquait au smoke précédent.
+SERVICE="$PACKAGE/expo.modules.melodixmedia.MelodixMediaService"
+SERVICE_START=$(adb shell am start-foreground-service -n "$SERVICE" 2>&1) || \
+  fail "MediaSessionService non démarrable : $SERVICE_START"
+echo "$SERVICE_START"
+sleep 3
+SERVICES=$(adb shell dumpsys activity services "$PACKAGE" 2>&1) || \
+  fail "dumpsys services impossible : $SERVICES"
+printf '%s\n' "$SERVICES" | grep -Fq 'MelodixMediaService' || \
+  fail "MelodixMediaService absent des services actifs"
+NOTIFICATIONS=$(adb shell dumpsys notification --noredact 2>&1) || \
+  fail "dumpsys notification impossible : $NOTIFICATIONS"
+printf '%s\n' "$NOTIFICATIONS" | grep -Fq "$PACKAGE" || \
+  fail "aucune notification active attribuée à Melodix"
+printf '%s\n' "$NOTIFICATIONS" | grep -Fq 'melodix_media' || \
+  fail "canal melodix_media absent de la notification système"
+SESSIONS=$(adb shell dumpsys media_session 2>&1) || \
+  fail "dumpsys media_session impossible : $SESSIONS"
+printf '%s\n' "$SESSIONS" | grep -Fq "$PACKAGE" || \
+  fail "MediaSession Melodix absente du système"
+
+adb shell input keyevent KEYCODE_HOME || fail "mise en arrière-plan impossible"
+sleep 2
+SERVICES_BG=$(adb shell dumpsys activity services "$PACKAGE" 2>&1) || \
+  fail "dumpsys services en arrière-plan impossible : $SERVICES_BG"
+printf '%s\n' "$SERVICES_BG" | grep -Fq 'MelodixMediaService' || \
+  fail "service média détruit au passage en arrière-plan"
+NOTIFICATIONS_BG=$(adb shell dumpsys notification --noredact 2>&1) || \
+  fail "dumpsys notification en arrière-plan impossible : $NOTIFICATIONS_BG"
+printf '%s\n' "$NOTIFICATIONS_BG" | grep -Fq 'melodix_media' || \
+  fail "notification média disparue en arrière-plan"
+
+echo "::notice title=Installation Android réelle::installation + lancement + service foreground + MediaSession + notification + arrière-plan réussis sur Android 14 x86_64 (pid=$PID)"
 if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
-  echo "- Installation Android 14 : propre + mise à jour + lancement vérifiés sur émulateur x86_64" >> "$GITHUB_STEP_SUMMARY"
+  echo "- Android 14 : installation, lancement, FGS média, MediaSession, notification système et survie arrière-plan vérifiés" >> "$GITHUB_STEP_SUMMARY"
 fi
