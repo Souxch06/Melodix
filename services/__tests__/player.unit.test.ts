@@ -179,6 +179,35 @@ describe('melodixPlayer engine', () => {
     expect(mockCreatedSounds).toHaveLength(2);
   });
 
+  it('un morceau rejoué avec succès sort de la liste des échecs sessionnels', async () => {
+    melodixPlayer.setRepeat('all');
+    await melodixPlayer.playQueue([track('one'), track('two')], 0);
+    await flush();
+
+    const firstACallback = lastStatusCallback;
+    firstACallback?.({ isLoaded: false, error: 'temporary stream failure' });
+    await flush();
+    await flush();
+    expect(melodixPlayer.getState().current?.id).toBe('spotify:two');
+
+    // Retente A manuellement : son démarrage réel doit le réhabiliter.
+    await melodixPlayer.playAtIndex(0);
+    await flush();
+    expect(melodixPlayer.getState().current?.id).toBe('spotify:one');
+
+    await melodixPlayer.playAtIndex(1);
+    await flush();
+    const bCallback = lastStatusCallback;
+    bCallback?.({ isLoaded: false, error: 'B unavailable now' });
+    await flush();
+    await flush();
+
+    // repeat-all peut revenir sur A ; sans réhabilitation, les deux IDs sont
+    // encore marqués en échec et le player s'arrête à tort.
+    expect(melodixPlayer.getState().current?.id).toBe('spotify:one');
+    expect(melodixPlayer.getState().status).toBe('playing');
+  });
+
   it('caches the decision: replaying does not search again', async () => {
     await melodixPlayer.playQueue([track('one')], 0);
     await flush();
@@ -853,6 +882,32 @@ describe('Phase 1 — course critique : aucun double Sound, le dernier gagne', (
     expect(melodixPlayer.getState().current?.id).toBe('spotify:one');
   });
 
+  it('deux play identiques partagent la résolution Audius en vol', async () => {
+    const matchGate = deferred<{ sourceId: string; score: number } | null>();
+    const provider = makeProvider({
+      resolveMatch: jest.fn(() => matchGate.promise),
+    });
+    __testSetAudioProviders({ audius: provider });
+
+    const first = melodixPlayer.playTrack(track('same'));
+    for (let attempt = 0; attempt < 10; attempt += 1) {
+      if ((provider.resolveMatch as jest.Mock).mock.calls.length > 0) break;
+      await flush();
+    }
+    const second = melodixPlayer.playTrack(track('same'));
+    await flush();
+
+    expect(provider.resolveMatch).toHaveBeenCalledTimes(1);
+    matchGate.resolve({ sourceId: 'aud-shared', score: 0.9 });
+    await Promise.all([first, second]);
+    await flush();
+
+    expect(provider.resolveMatch).toHaveBeenCalledTimes(1);
+    expect(provider.resolveSource).toHaveBeenCalledTimes(1);
+    expect(mockCreatedSounds).toHaveLength(1);
+    expect(melodixPlayer.getState().status).toBe('playing');
+  });
+
   it('un play lancé après un stop lent gagne toujours la course', async () => {
     await melodixPlayer.playTrack(track('one', 'Initial A'));
     await flush();
@@ -921,6 +976,35 @@ describe('Phase 1 — course critique : aucun double Sound, le dernier gagne', (
 
     expect(melodixPlayer.getState().current?.title).toBe('Latest B');
     expect(melodixPlayer.getState().positionMillis).toBe(0);
+  });
+
+  it('un volume lent est déjà appliqué au morceau de remplacement', async () => {
+    await melodixPlayer.playTrack(track('one', 'Initial A'));
+    await flush();
+    const oldSound = lastSound;
+    const slowVolume = deferred<void>();
+    oldSound.setVolumeAsync.mockReturnValueOnce(slowVolume.promise);
+
+    const changingVolume = melodixPlayer.setVolume(0.25);
+    expect(melodixPlayer.getState().volume).toBe(0.25);
+    const playingB = melodixPlayer.playTrack(track('two', 'Latest B'));
+    await playingB;
+    slowVolume.resolve();
+    await changingVolume;
+    await flush();
+
+    const { Audio: av } = jest.requireMock('expo-av') as {
+      Audio: { Sound: { createAsync: jest.Mock } };
+    };
+    const latestInitialStatus = av.Sound.createAsync.mock.calls.at(-1)?.[1];
+    expect(latestInitialStatus).toEqual(
+      expect.objectContaining({ volume: 0.25 })
+    );
+    expect(melodixPlayer.getState()).toMatchObject({
+      status: 'playing',
+      volume: 0.25,
+      current: expect.objectContaining({ title: 'Latest B' }),
+    });
   });
 
   it('next pendant loading invalide la résolution avant un unload lent', async () => {
@@ -1355,6 +1439,28 @@ describe('Phase 2 — file d attente avancée', () => {
     );
     await flush();
   };
+
+  it('playQueue déduplique et conserve le morceau demandé', async () => {
+    await melodixPlayer.playQueue(
+      [
+        track('a', 'A'),
+        track('b', 'B première'),
+        track('b', 'B dupliqué'),
+        track('c', 'C'),
+      ],
+      2
+    );
+    await flush();
+
+    const state = melodixPlayer.getState();
+    expect(state.queue.map(({ id }) => id)).toEqual([
+      'spotify:a',
+      'spotify:b',
+      'spotify:c',
+    ]);
+    expect(state.index).toBe(1);
+    expect(state.current?.title).toBe('B première');
+  });
 
   it('addToQueue (shuffle OFF) : place en FIN, lecture et index inchangés', async () => {
     await jouerFileABC();
