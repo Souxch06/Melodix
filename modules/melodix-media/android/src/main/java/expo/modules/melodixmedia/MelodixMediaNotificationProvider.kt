@@ -78,7 +78,10 @@ class MelodixMediaNotificationProvider(context: Context) : MediaNotification.Pro
         actionFactory,
         onNotificationChangedCallback
       )
-      MelodixDiagLog.step("NOTIF_CREATE_OK")
+      MelodixDiagLog.step(
+        "NOTIFICATION_CREATED",
+        "stage=media-style id=${notification.notificationId} channel=$CHANNEL_ID"
+      )
       notifyPublication(notification)
       notification
     } catch (t: Throwable) {
@@ -102,6 +105,10 @@ class MelodixMediaNotificationProvider(context: Context) : MediaNotification.Pro
       .build()
 
     val mediaNotification = MediaNotification(MEDIA_NOTIFICATION_ID, notification)
+    MelodixDiagLog.step(
+      "NOTIFICATION_CREATED",
+      "stage=fallback id=$MEDIA_NOTIFICATION_ID channel=$CHANNEL_ID"
+    )
     notifyPublication(mediaNotification)
     onNotificationChangedCallback.onNotificationChanged(mediaNotification)
 
@@ -154,6 +161,10 @@ class MelodixMediaNotificationProvider(context: Context) : MediaNotification.Pro
      */
     fun createBootstrapNotification(context: Context): android.app.Notification {
       ensureMediaChannel(context)
+      MelodixDiagLog.step(
+        "NOTIFICATION_CREATED",
+        "stage=bootstrap id=$MEDIA_NOTIFICATION_ID channel=$CHANNEL_ID"
+      )
       return NotificationCompat.Builder(context, CHANNEL_ID)
         .setSmallIcon(context.applicationInfo.icon)
         .setContentTitle(CHANNEL_NAME)

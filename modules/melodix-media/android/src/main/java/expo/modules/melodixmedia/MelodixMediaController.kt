@@ -29,8 +29,17 @@ object MelodixMediaController {
   @Volatile
   private var lastPayload: Map<String, Any?>? = null
 
+  /**
+   * Vrai dès que le démarrage a été demandé OU que le service est vivant.
+   * Ce drapeau doit impérativement être remis à false par onDestroy : sinon,
+   * après une destruction Android/OEM, les projections suivantes seraient
+   * envoyées vers un listener null sans jamais redémarrer le service.
+   */
   @Volatile
   private var serviceRunning = false
+
+  @Volatile
+  private var serviceCreated = false
 
   private val mainHandler = Handler(Looper.getMainLooper())
 
@@ -65,7 +74,16 @@ object MelodixMediaController {
             val intent = Intent(appContext, MelodixMediaService::class.java)
             ContextCompat.startForegroundService(appContext, intent)
             Log.i("MXDIAG", "SERVICE_START_OK") // DIAG
-            MelodixDiagLog.step("SERVICE_START_OK")
+            MelodixDiagLog.step("SERVICE_START_OK", "intentAccepted=true serviceCreated=$serviceCreated")
+            // Un retour sans exception prouve seulement que l'intent a été
+            // accepté. Si Android/OEM ne crée jamais le service, ne pas garder
+            // éternellement un drapeau optimiste qui bloquerait tout retry.
+            mainHandler.postDelayed({
+              if (serviceRunning && !serviceCreated) {
+                MelodixDiagLog.step("SERVICE_CREATE_TIMEOUT", "retryAllowed=true")
+                serviceRunning = false
+              }
+            }, 5_000L)
           }
         } catch (e: Exception) {
           // Lancement refusé (arrière-plan Android 12+, quota, OEM...) :
@@ -109,8 +127,34 @@ object MelodixMediaController {
     commandListener?.invoke(command, positionMillis)
   }
 
-  /** Dernière projection connue (replyée par MelodixMediaService.onCreate). */
+  /** Dernière projection connue (rejouée par MelodixMediaService.onCreate). */
   fun lastProjection(): Map<String, Any?>? = lastPayload
+
+  /**
+   * Force une nouvelle projection après l'accord runtime de notification.
+   * La lecture n'attend pas la boîte de dialogue Android, mais une réponse
+   * positive doit republier la MediaStyle : la première publication a pu
+   * avoir lieu pendant que POST_NOTIFICATIONS était encore refusée.
+   */
+  fun refreshLastProjection(context: Context) {
+    lastPayload?.let { updateSession(context, it) }
+  }
+
+  /** Appelé depuis le vrai cycle de vie du Service, sur le main thread. */
+  fun onServiceCreated() {
+    serviceRunning = true
+    serviceCreated = true
+  }
+
+  /**
+   * Invalide le drapeau optimiste posé par startForegroundService().
+   * Sans ceci, une destruction avec process JS encore vivant bloque tout
+   * redémarrage ultérieur : serviceRunning=true mais listener=null.
+   */
+  fun onServiceDestroyed() {
+    serviceCreated = false
+    serviceRunning = false
+  }
 
   /** État projeté : le JS lit-il actuellement ? (seule vérité : le bridge). */
   fun isLastKnownPlaying(): Boolean = lastPayload?.get("isPlaying") as? Boolean ?: false
@@ -121,12 +165,14 @@ object MelodixMediaController {
    * des booléens d'état internes.
    */
   fun diagStatus(): String =
-    "serviceRunning=$serviceRunning " +
+    "serviceStartRequested=$serviceRunning " +
+      "serviceCreated=$serviceCreated " +
       "projectionBuffered=${lastPayload != null} " +
       "lastKnownPlaying=${isLastKnownPlaying()}"
 
   /** Appelé par le service quand Android a refusé le FGS : état nettoyé. */
   fun onServiceStartRejected() {
+    serviceCreated = false
     serviceRunning = false
   }
 
@@ -136,6 +182,7 @@ object MelodixMediaController {
    * Play — la lecture audio, elle, n'a jamais dépendu de cette couche.
    */
   fun onServiceCrashed() {
+    serviceCreated = false
     serviceRunning = false
     Log.w(TAG, "Service indisponible : prochaine projection retentera le démarrage")
   }

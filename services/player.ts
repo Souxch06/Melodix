@@ -840,6 +840,10 @@ class MelodixPlayer {
         notice: null,
         durationMillis: track.durationMillis ?? this.state.durationMillis,
       });
+      appendDiagLog(
+        `[MEDIA_DIAG] PLAYBACK_STARTED trackId=${track.id} ` +
+          `provider=${result.provider.id} state=PLAYING`
+      );
 
       // Seek en attente : consommé UNE fois, UNIQUEMENT pour le morceau visé
       // — un seek destiné à A ne se retrouve jamais appliqué à B.
