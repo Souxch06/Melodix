@@ -150,6 +150,21 @@ describe('melodixPlayer engine', () => {
     expect(melodixPlayer.getState()).toMatchObject({
       positionMillis: 12_000,
       durationMillis: 180_000,
+      buffering: true,
+    });
+
+    // Retour du focus/réseau : même Sound, état playing et buffering nettoyé.
+    lastStatusCallback?.({
+      isLoaded: true,
+      isPlaying: true,
+      isBuffering: false,
+      positionMillis: 12_500,
+      durationMillis: 180_000,
+    });
+    expect(melodixPlayer.getState()).toMatchObject({
+      status: 'playing',
+      buffering: false,
+      positionMillis: 12_500,
     });
 
     // NaN ne doit jamais contaminer l'état partagé UI/MediaSession.
@@ -159,7 +174,7 @@ describe('melodixPlayer engine', () => {
       durationMillis: Number.NaN,
     });
     expect(melodixPlayer.getState()).toMatchObject({
-      positionMillis: 12_000,
+      positionMillis: 12_500,
       durationMillis: 180_000,
     });
   });
@@ -1487,6 +1502,34 @@ describe('Phase 2 — file d attente avancée', () => {
     expect((state.order as number[])[3]).toBe(3);
   });
 
+  it('orderPointer reste aligné après next, ajout, suppression et move en shuffle', async () => {
+    await jouerFileABC();
+    melodixPlayer.toggleShuffle();
+
+    await melodixPlayer.next();
+    let state = melodixPlayer.getState();
+    expect((state.order as number[])[state.orderPointer]).toBe(state.index);
+    expect(state.orderPointer).toBe(1);
+
+    melodixPlayer.addToQueue(track('d', 'D'));
+    state = melodixPlayer.getState();
+    expect((state.order as number[])[state.orderPointer]).toBe(state.index);
+
+    const removable = state.queue.findIndex(
+      (_, queueIndex) => queueIndex !== state.index
+    );
+    melodixPlayer.removeFromQueue(removable);
+    state = melodixPlayer.getState();
+    expect((state.order as number[])[state.orderPointer]).toBe(state.index);
+
+    const movable = state.queue.findIndex(
+      (_, queueIndex) => queueIndex !== state.index
+    );
+    melodixPlayer.moveInQueue(movable, state.queue.length - 1);
+    state = melodixPlayer.getState();
+    expect((state.order as number[])[state.orderPointer]).toBe(state.index);
+  });
+
   it('addTracksToQueue ajoute un lot atomiquement sans doublons', async () => {
     await jouerFileABC();
     melodixPlayer.addTracksToQueue([
@@ -1970,6 +2013,43 @@ describe('Phase 5D — fiabilisation moteur (races / fin collante / seek en vol)
     await melodixPlayer.__testReset();
   });
 
+  it('un callback initial synchrone ne fait pas rejeter le Sound créé', async () => {
+    const { Audio: av } = jest.requireMock('expo-av') as {
+      Audio: { Sound: { createAsync: jest.Mock } };
+    };
+    av.Sound.createAsync.mockImplementationOnce(
+      async (
+        _source: { uri: string },
+        _initial: Record<string, unknown>,
+        onStatus?: (status: Record<string, unknown>) => void
+      ) => {
+        const created = makeSound();
+        lastStatusCallback = onStatus ?? null;
+        // Comportement autorisé par expo-av : premier statut avant la
+        // résolution de createAsync.
+        onStatus?.({
+          isLoaded: true,
+          isPlaying: true,
+          positionMillis: 0,
+          durationMillis: 180_000,
+        });
+        lastSound = created;
+        mockCreatedSounds.push(created);
+        return { sound: created };
+      }
+    );
+
+    await melodixPlayer.playTrack(track('sync', 'Synchronous status'));
+    await flush();
+
+    expect(mockCreatedSounds).toHaveLength(1);
+    expect(lastSound.unloadAsync).not.toHaveBeenCalled();
+    expect(melodixPlayer.getState()).toMatchObject({
+      status: 'playing',
+      current: expect.objectContaining({ id: 'spotify:sync' }),
+    });
+  });
+
   it('§8 : deux ticks didJustFinish CONSÉCUTIFS du même son = UNE SEULE transition (jamais de saut à N+2)', async () => {
     await melodixPlayer.playQueue(
       [track('a', 'A'), track('b', 'B'), track('c', 'C')],
@@ -2051,6 +2131,59 @@ describe('Phase 5D — fiabilisation moteur (races / fin collante / seek en vol)
     expect(lastSound.setPositionAsync).toHaveBeenCalledWith(42_000);
     expect(melodixPlayer.getState().positionMillis).toBe(42_000);
     expect(melodixPlayer.getState().status).toBe('playing');
+  });
+
+  it('un seek différé lent de A ne modifie jamais la position de B', async () => {
+    const sourceGate = deferred<ResolvedStream | null>();
+    const seekGate = deferred<void>();
+    const provider = makeProvider({
+      resolveSource: jest
+        .fn()
+        .mockReturnValueOnce(sourceGate.promise)
+        .mockImplementation(async (sourceId: string) => ({
+          uri: `https://stream/${sourceId}`,
+        })),
+    });
+    __testSetAudioProviders({ audius: provider });
+    const { Audio: av } = jest.requireMock('expo-av') as {
+      Audio: { Sound: { createAsync: jest.Mock } };
+    };
+    av.Sound.createAsync.mockImplementationOnce(
+      async (
+        _source: { uri: string },
+        _initial: Record<string, unknown>,
+        onStatus?: (status: Record<string, unknown>) => void
+      ) => {
+        lastStatusCallback = onStatus ?? null;
+        const created = makeSound();
+        created.setPositionAsync.mockReturnValueOnce(seekGate.promise);
+        lastSound = created;
+        mockCreatedSounds.push(created);
+        return { sound: created };
+      }
+    );
+
+    const playingA = melodixPlayer.playQueue([track('a', 'A')], 0);
+    await flush();
+    await melodixPlayer.seekTo(42_000);
+    sourceGate.resolve({ uri: 'https://stream/a' });
+    for (let attempt = 0; attempt < 10; attempt += 1) {
+      if (lastSound?.setPositionAsync.mock.calls.length) break;
+      await flush();
+    }
+    expect(lastSound.setPositionAsync).toHaveBeenCalledWith(42_000);
+
+    await melodixPlayer.playTrack(track('b', 'B'));
+    expect(melodixPlayer.getState().current?.id).toBe('spotify:b');
+    seekGate.resolve();
+    await playingA;
+    await flush();
+
+    expect(melodixPlayer.getState()).toMatchObject({
+      current: expect.objectContaining({ id: 'spotify:b' }),
+      status: 'playing',
+      positionMillis: 0,
+    });
   });
 
   it('M-7 : échec createAsync dont l erreur cite l URL SIGNÉE → journal ASSAINI', async () => {

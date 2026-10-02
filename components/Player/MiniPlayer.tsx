@@ -28,6 +28,7 @@ export const MiniPlayer = () => {
   const {
     current,
     status,
+    buffering,
     positionMillis,
     durationMillis,
     notice,
@@ -60,7 +61,7 @@ export const MiniPlayer = () => {
     ? Math.min(positionMillis / durationMillis, 1)
     : 0;
 
-  const isBuffering = status === 'loading';
+  const isBuffering = status === 'loading' || buffering;
   const isPlaying = status === 'playing';
 
   return (
