@@ -54,28 +54,24 @@ describe('match cache versionné — provider mémorisé', () => {
     expect(cache['spotify:bad-one'].providerId).toBeNull();
   });
 
-  it('migrates legacy v1 entries to Audius (pas de recherche refaite)', () => {
+  it('invalide toutes les versions antérieures après une porte stricte', () => {
     const raw = JSON.stringify({
-      'spotify:legacy': {
+      'spotify:v1': {
         version: 1,
         matchedAt: Date.now(),
         matchId: 'aud-old',
         score: 70,
       },
-      'spotify:legacy-neg': {
-        version: 1,
-        matchedAt: Date.now(),
-        matchId: null,
-        score: 0,
-      },
+      'spotify:v4': entry({ version: 4, matchId: 'featured-only' }),
+      'spotify:v5': entry(),
     });
 
     const cache = loadMatchCache(raw);
 
-    expect(cache['spotify:legacy'].providerId).toBe('audius');
-    expect(cache['spotify:legacy'].matchId).toBe('aud-old');
-    expect(cache['spotify:legacy'].version).toBe(MATCH_CACHE_VERSION);
-    expect(cache['spotify:legacy-neg'].providerId).toBeNull();
+    expect(MATCH_CACHE_VERSION).toBe(5);
+    expect(cache['spotify:v1']).toBeUndefined();
+    expect(cache['spotify:v4']).toBeUndefined();
+    expect(cache['spotify:v5']).toBeDefined();
   });
 
   it('expire rapidement les négatifs mais conserve les matchs positifs fiables', () => {
@@ -122,6 +118,28 @@ describe('match cache versionné — provider mémorisé', () => {
         })
       )['spotify:ok'].matchId
     ).toBe('aud-123');
+  });
+
+  it('rejette les décisions incohérentes ou numériques corrompues', () => {
+    const cache = loadMatchCache(
+      JSON.stringify({
+        'spotify:no-provider': entry({
+          providerId: null,
+          matchId: 'orphan-match',
+        }),
+        'spotify:no-match': entry({
+          providerId: 'audius',
+          matchId: null,
+        }),
+        'spotify:negative-time': entry({ matchedAt: -1 }),
+        'spotify:bad-score': entry({ score: Number.NaN }),
+        'spotify:valid': entry(),
+      })
+    );
+
+    expect(cache).toEqual({
+      'spotify:valid': expect.objectContaining({ matchId: 'aud-123' }),
+    });
   });
 
   it('persists and reloads through AsyncStorage round-trip (provider compris)', async () => {
