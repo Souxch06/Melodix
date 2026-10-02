@@ -67,6 +67,23 @@ class MelodixMediaServiceTest {
   }
 
   @Test
+  fun `arret du bridge efface la projection et demande l arret du service`() {
+    MelodixMediaController.updateSession(
+      service,
+      mapOf("trackId" to "spotify:stale", "isPlaying" to true)
+    )
+    shadowOf(Looper.getMainLooper()).idle()
+    assertTrue(MelodixMediaController.diagStatus().contains("projectionBuffered=true"))
+
+    MelodixMediaController.stopSession(service)
+    shadowOf(Looper.getMainLooper()).idle()
+
+    val status = MelodixMediaController.diagStatus()
+    assertTrue(status.contains("projectionBuffered=false"))
+    assertTrue(status.contains("serviceStartRequested=false"))
+  }
+
+  @Test
   fun `service cree canal session et notification MediaStyle pour une projection playing`() {
     val field = MelodixMediaService::class.java.getDeclaredField("mediaSession")
     field.isAccessible = true

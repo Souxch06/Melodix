@@ -26,6 +26,7 @@ class MelodixMediaModule : Module() {
 
   private val mainHandler = Handler(Looper.getMainLooper())
   private var permissionPollGeneration = 0
+  private var applicationContext: Context? = null
 
   /**
    * ActivityCompat ne renvoie pas le résultat au Module Expo. On observe donc
@@ -71,9 +72,13 @@ class MelodixMediaModule : Module() {
     Events("mediaCommand")
 
     OnCreate {
+      // Retenir uniquement le contexte application : le ReactContext d'Expo
+      // est une WeakReference et peut déjà avoir disparu à OnDestroy.
+      applicationContext = appContext.reactContext?.applicationContext
+
       // 4.4.7-diagnostic : journal persistant + piège d'exceptions non
       // rattrapées (tous threads) — critique pour le diagnostic sans ADB.
-      appContext.reactContext?.let { MelodixDiagLog.init(it) }
+      applicationContext?.let { MelodixDiagLog.init(it) }
       MelodixDiagLog.installCrashTrap()
       MelodixDiagLog.step("MODULE_ONCREATE")
 
@@ -182,7 +187,13 @@ class MelodixMediaModule : Module() {
     OnDestroy {
       permissionPollGeneration += 1
       mainHandler.removeCallbacksAndMessages(null)
+      MelodixDiagLog.step("MODULE_ONDESTROY")
       MelodixMediaController.commandListener = null
+      // Une instance React détruite ne peut plus recevoir les commandes
+      // système ni projeter l'état réel. Ne jamais laisser une MediaSession
+      // figée afficher une ancienne chanson jusqu'au prochain lancement.
+      applicationContext?.let { MelodixMediaController.stopSession(it) }
+      applicationContext = null
     }
 
     /**
