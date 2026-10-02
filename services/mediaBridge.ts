@@ -225,7 +225,10 @@ export const setMediaBridgeEnabled = (enabled: boolean): void => {
   // aucun nouvel événement player n'est garanti : projeter immédiatement
   // l'état courant évite une lecture de fond sans MediaSession/notification.
   if (enabled && !wasEnabled) {
-    projectState(melodixPlayer.getState());
+    // Certains environnements de test isolent le bridge avec un player minimal.
+    // Le moteur de production expose toujours getState().
+    const currentState = melodixPlayer.getState?.();
+    if (currentState) projectState(currentState);
   }
 
   if (!enabled && sessionActivated) {
