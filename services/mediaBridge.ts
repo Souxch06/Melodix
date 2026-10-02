@@ -217,7 +217,16 @@ const projectState = (state: PlayerState): void => {
  * Désactivé : plus aucune projection et le service actif est arrêté.
  */
 export const setMediaBridgeEnabled = (enabled: boolean): void => {
+  const wasEnabled = bridgeEnabled;
   bridgeEnabled = enabled;
+
+  // Les préférences sont restaurées de façon asynchrone. Si une lecture a
+  // démarré entre l'initialisation du PlayerProvider et cette restauration,
+  // aucun nouvel événement player n'est garanti : projeter immédiatement
+  // l'état courant évite une lecture de fond sans MediaSession/notification.
+  if (enabled && !wasEnabled) {
+    projectState(melodixPlayer.getState());
+  }
 
   if (!enabled && sessionActivated) {
     sessionActivated = false;

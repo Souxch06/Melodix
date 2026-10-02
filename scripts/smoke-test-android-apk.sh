@@ -31,6 +31,10 @@ echo "$UPDATE"
 PACKAGE_INFO=$(adb shell dumpsys package "$PACKAGE" 2>&1) || fail "dumpsys package impossible : $PACKAGE_INFO"
 printf '%s\n' "$PACKAGE_INFO" | grep -Fq "versionCode=$EXPECTED_VERSION_CODE" || \
   fail "versionCode $EXPECTED_VERSION_CODE absente après installation"
+# Android 13+ : valide que la permission runtime déclarée peut réellement être
+# accordée. Le test Robolectric couvre ensuite la publication MediaStyle.
+adb shell pm grant "$PACKAGE" android.permission.POST_NOTIFICATIONS || \
+  fail "permission POST_NOTIFICATIONS impossible à accorder"
 
 adb shell am force-stop "$PACKAGE" || fail "force-stop impossible"
 START=$(adb shell am start -W -n "$PACKAGE/.MainActivity" 2>&1) || fail "MainActivity non lançable : $START"

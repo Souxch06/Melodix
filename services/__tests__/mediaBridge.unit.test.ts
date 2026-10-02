@@ -155,6 +155,19 @@ describe('mediaBridge — projection MediaSession (phase 5A)', () => {
     expect(mockStopSession).not.toHaveBeenCalled();
   });
 
+  it('restauration asynchrone du réglage : projette immédiatement une lecture déjà active', async () => {
+    setMediaBridgeEnabled(false);
+    await melodixPlayer.playQueue([morceau('a', 'Photo')], 0);
+    await flush();
+    expect(mockUpdateSession).not.toHaveBeenCalled();
+
+    setMediaBridgeEnabled(true);
+
+    expect(mockUpdateSession).toHaveBeenCalledWith(
+      expect.objectContaining({ title: 'Photo', isPlaying: true })
+    );
+  });
+
   it('lecture : projection EXACTE (titre, artistes joints, album, pochette, durée, position)', async () => {
     await melodixPlayer.playQueue([morceau('a', 'Photo')], 0);
     await flush();
