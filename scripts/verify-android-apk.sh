@@ -98,7 +98,13 @@ manifest_xml=$($APKANALYZER manifest print "$APK")
 printf '%s\n' "$manifest_xml"
 grep -Fq "android:scheme=\"$EXPECTED_SCHEME\"" <<<"$manifest_xml" || fail "scheme '$EXPECTED_SCHEME' absent"
 grep -Fq 'android:name="expo.modules.melodixmedia.MelodixMediaService"' <<<"$manifest_xml" || fail 'MediaSessionService absent du manifest final'
-grep -Fq 'android:foregroundServiceType="mediaPlayback"' <<<"$manifest_xml" || fail 'type foreground mediaPlayback absent'
+# apkanalyzer peut omettre les attributs enum inconnus de sa version. aapt2
+# expose alors sans ambiguïté la valeur compilée Android
+# (FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK = 0x2).
+if ! grep -Eq 'android:foregroundServiceType="(mediaPlayback|2|0x0*2)"' <<<"$manifest_xml"; then
+  manifest_tree=$($AAPT2 dump xmltree "$APK" --file AndroidManifest.xml)
+  grep -Eq 'foregroundServiceType.*=0x0*2([[:space:]]|$)' <<<"$manifest_tree" || fail 'type foreground mediaPlayback absent'
+fi
 grep -Fq 'android:name="androidx.media3.session.MediaSessionService"' <<<"$manifest_xml" || fail 'intent-filter MediaSessionService absent'
 grep -Fq 'android.permission.FOREGROUND_SERVICE"' <<<"$manifest_xml" || fail 'permission foreground service absente'
 grep -Fq 'android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK' <<<"$manifest_xml" || fail 'permission mediaPlayback absente'
