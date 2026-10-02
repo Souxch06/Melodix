@@ -253,6 +253,25 @@ class MelodixPlayer {
 
   private emit = (partial: Partial<PlayerState>) => {
     const next = { ...this.state, ...partial };
+
+    // Frontière numérique unique : aucun callback natif, payload restauré ou
+    // modèle distant malformé ne doit injecter NaN/Infinity/négatif dans
+    // l'état partagé par React et MediaSession.
+    next.durationMillis =
+      Number.isFinite(next.durationMillis) && next.durationMillis >= 0
+        ? next.durationMillis
+        : this.state.durationMillis;
+    next.positionMillis =
+      Number.isFinite(next.positionMillis) && next.positionMillis >= 0
+        ? next.positionMillis
+        : this.state.positionMillis;
+    if (next.durationMillis > 0) {
+      next.positionMillis = Math.min(next.positionMillis, next.durationMillis);
+    }
+    next.volume = Number.isFinite(next.volume)
+      ? Math.min(1, Math.max(0, next.volume))
+      : this.state.volume;
+
     // `orderPointer` est exposé à React au même titre que queue/index. Le
     // recalculer à chaque mutation évite un pointeur resté à 0 après
     // next/remove/move en shuffle, même si les helpers moteur utilisent index.
@@ -932,7 +951,26 @@ class MelodixPlayer {
         `titleLength=${track.title.length} artists=${track.artists.length} ` +
         `hasIsrc=${Boolean(track.isrc)}`
     );
-    this.emit({ index, current: track, status: 'loading', buffering: true });
+    const metadataDuration =
+      typeof track.durationMillis === 'number' &&
+      Number.isFinite(track.durationMillis) &&
+      track.durationMillis > 0
+        ? track.durationMillis
+        : 0;
+    const pendingPosition =
+      this.pendingSeekForId === track.id ? this.pendingSeekMillis : 0;
+    // Changer d'index invalide immédiatement les valeurs du morceau précédent.
+    // Sans ce reset, B pouvait afficher/projeter la position, la durée et le
+    // provider de A pendant toute sa résolution (voire jusqu'au premier tick).
+    this.emit({
+      index,
+      current: track,
+      status: 'loading',
+      buffering: true,
+      positionMillis: pendingPosition,
+      durationMillis: metadataDuration,
+      resolved: null,
+    });
     this.persistSession(); // nouveau morceau pointe la session vers lui
     this.ensureAppStatePersistence();
 
@@ -1024,7 +1062,10 @@ class MelodixPlayer {
       // Seek en attente : consommé UNE fois, UNIQUEMENT pour le morceau visé
       // — un seek destiné à A ne se retrouve jamais appliqué à B.
       if (this.pendingSeekMillis > 0) {
-        const target = this.pendingSeekMillis;
+        const target =
+          this.state.durationMillis > 0
+            ? Math.min(this.pendingSeekMillis, this.state.durationMillis)
+            : this.pendingSeekMillis;
         const targetForId = this.pendingSeekForId;
         this.pendingSeekMillis = 0;
         this.pendingSeekForId = null;
@@ -1144,8 +1185,11 @@ class MelodixPlayer {
     if (this.state.status === 'loading' && this.state.current) {
       // Invalider AVANT l'unload : si le resolver courant termine pendant une
       // libération native lente, il ne doit jamais créer un Sound dépassé.
-      this.playToken += 1;
+      const requestToken = ++this.playToken;
       await this.unloadCurrent();
+      if (this.playToken !== requestToken) {
+        return; // une commande plus récente a gagné pendant l'unload
+      }
     }
 
     await this.advanceManual(1);
@@ -1532,6 +1576,10 @@ class MelodixPlayer {
 
     const index = Math.min(Math.max(session.index, 0), queue.length - 1);
     const shuffle = session.shuffle === true;
+    const restoredPosition =
+      Number.isFinite(session.positionMillis) && session.positionMillis >= 0
+        ? session.positionMillis
+        : 0;
 
     const requestToken = ++this.playToken;
     this.failedKeys = new Set();
@@ -1553,13 +1601,13 @@ class MelodixPlayer {
       shuffle,
       repeat: session.repeat,
       volume: session.volume,
-      positionMillis: session.positionMillis,
+      positionMillis: restoredPosition,
       durationMillis: 0,
       resolved: null,
       notice: null,
     });
 
-    this.pendingSeekMillis = Math.max(0, session.positionMillis);
+    this.pendingSeekMillis = restoredPosition;
     this.pendingSeekForId = queue[index]?.id ?? null;
     await this.playIndex(index);
   };

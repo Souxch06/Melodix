@@ -244,6 +244,28 @@ describe('mediaBridge — projection MediaSession (phase 5A)', () => {
     ).toBe(65_000);
   });
 
+  it('une pochette ou un album corrigé invalide la signature native', async () => {
+    await melodixPlayer.playQueue([morceau('a', 'Photo')], 0);
+    await flush();
+    mockUpdateSession.mockClear();
+
+    const current = melodixPlayer.getState().current;
+    expect(current).not.toBeNull();
+    if (current) {
+      current.imageURL = 'https://img/corrected.jpg';
+      current.album = 'Corrected album';
+    }
+    await melodixPlayer.seekTo(0); // émission même état/seconde, métadonnées neuves
+
+    expect(mockUpdateSession).toHaveBeenCalledTimes(1);
+    expect(mockUpdateSession).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        artworkUrl: 'https://img/corrected.jpg',
+        album: 'Corrected album',
+      })
+    );
+  });
+
   it('changement de morceau : nouvelle projection (nouvelle signature)', async () => {
     await melodixPlayer.playQueue(
       [morceau('a', 'Photo'), morceau('b', 'Again')],
@@ -335,6 +357,25 @@ describe('mediaBridge — projection MediaSession (phase 5A)', () => {
       positionMillis: 0,
       isPlaying: true,
     });
+  });
+
+  it('builder pur : position infinie ou au-delà de la durée est bornée', () => {
+    const base = {
+      ...melodixPlayer.getState(),
+      current: morceau('x', 'Bornes'),
+      status: 'playing' as const,
+      durationMillis: 180_000,
+    };
+
+    expect(
+      buildMediaSessionPayload({
+        ...base,
+        positionMillis: Number.POSITIVE_INFINITY,
+      })
+    ).toMatchObject({ positionMillis: 0, durationMillis: 180_000 });
+    expect(
+      buildMediaSessionPayload({ ...base, positionMillis: 250_000 })
+    ).toMatchObject({ positionMillis: 180_000, durationMillis: 180_000 });
   });
 
   describe('commandes système → moteur (jamais de toggle perdu)', () => {

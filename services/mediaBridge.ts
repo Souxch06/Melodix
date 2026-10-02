@@ -77,10 +77,13 @@ export const buildMediaSessionPayload = (
     track.durationMillis > 0
       ? track.durationMillis
       : 0;
-  const position =
+  const duration = stateDuration ?? metadataDuration;
+  const safePosition =
     Number.isFinite(state.positionMillis) && state.positionMillis >= 0
       ? state.positionMillis
       : 0;
+  const position =
+    duration > 0 ? Math.min(safePosition, duration) : safePosition;
 
   return {
     trackId: track.id,
@@ -88,7 +91,7 @@ export const buildMediaSessionPayload = (
     artist: track.artists.join(', '),
     album: track.album ?? null,
     artworkUrl: track.imageURL || null,
-    durationMillis: stateDuration ?? metadataDuration,
+    durationMillis: duration,
     positionMillis: position,
     isPlaying: state.status === 'playing',
   };
@@ -103,6 +106,8 @@ const signatureOf = (payload: MediaSessionPayload): string =>
     payload.trackId,
     payload.title,
     payload.artist,
+    payload.album ?? '',
+    payload.artworkUrl ?? '',
     payload.durationMillis,
     Math.round(payload.positionMillis / 1000),
     payload.isPlaying ? 1 : 0,
