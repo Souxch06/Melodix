@@ -26,9 +26,11 @@ export type PlayerContextType = PlayerState & {
   toggleShuffle: () => void;
   /** File avancée (Phase 2) : ajout fin / lecture suivante / suppression. */
   addToQueue: (track: PlayerTrack) => void;
+  addTracksToQueue: (tracks: PlayerTrack[]) => void;
   playNext: (track: PlayerTrack) => void;
   removeFromQueue: (queueIndex: number) => void;
   moveInQueue: (from: number, to: number) => void;
+  clearQueue: () => Promise<void>;
   /** Session persistée VISIBLE (carte « Reprendre »), null sinon. */
   pendingRestore: PlaybackSession | null;
   /** Reprendre : restaure file/morceau/position puis joue — action explicite. */
@@ -59,9 +61,11 @@ const defaultActions = {
   setVolume: async () => {},
   toggleShuffle: () => {},
   addToQueue: () => {},
+  addTracksToQueue: () => {},
   playNext: () => {},
   removeFromQueue: () => {},
   moveInQueue: () => {},
+  clearQueue: async () => {},
   pendingRestore: null,
   resumeSession: async () => {},
   dismissSession: async () => {},
@@ -148,9 +152,11 @@ export const PlayerProvider = ({ children }: { children: React.ReactNode }) => {
       setVolume: melodixPlayer.setVolume,
       toggleShuffle: melodixPlayer.toggleShuffle,
       addToQueue: melodixPlayer.addToQueue,
+      addTracksToQueue: melodixPlayer.addTracksToQueue,
       playNext: melodixPlayer.playNext,
       removeFromQueue: melodixPlayer.removeFromQueue,
       moveInQueue: melodixPlayer.moveInQueue,
+      clearQueue: melodixPlayer.clearQueue,
       pendingRestore,
       resumeSession,
       dismissSession,

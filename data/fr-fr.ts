@@ -47,6 +47,7 @@ export const FR_FR_PLAYER = {
   playerQueueTitle: 'File d’attente',
   playerQueuePlaying: 'Lecture en cours',
   playerQueueEmpty: 'La file est vide.',
+  playerQueueClear: 'Vider',
   playerQueueAdd: 'Ajouter à la file',
   playerQueuePlayNext: 'Lire ensuite',
   playerQueueRemove: 'Supprimer de la file',

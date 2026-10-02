@@ -16,10 +16,9 @@ import { sourceKeyOf } from './sourceKey';
  *     Spotify 123 → YouTube ABC (score 62)
  *     Spotify 123 → unavailable (providerId: null, matchId: null)
  *
- * - TTL : les entrées périmées sont écartées au chargement ;
- * - négatif connus (matchId: null) revisités JAMAIS avant expiration ;
- * - un échec de lecture invalide l'entrée immédiatement (player.ts) : le
- *   flux disparu « guérit » à la prochaine lecture ;
+ * - TTL : 30 jours pour un match positif, 24 h seulement pour un négatif ;
+ * - un échec de flux n'est jamais transformé en négatif : une panne CDN ne
+ *   doit pas rendre le morceau durablement indisponible ;
  * - clearMatchCache/removeMatchCacheEntry = mécanisme « refaire le
  *   matching » explicitement requis ;
  * - migration : les caches v1 (sans providerId) deviennent Audius, la
@@ -42,7 +41,9 @@ export type MatchCacheEntry = {
 export type MatchCache = Record<string, MatchCacheEntry>;
 
 export const MATCH_CACHE_STORAGE_KEY = '@melodix/match-cache';
-export const MATCH_CACHE_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 jours
+export const MATCH_CACHE_TTL_MS = 30 * 24 * 60 * 60 * 1000; // positif : 30 jours
+/** Un catalogue évolue : un « introuvable » doit être retenté rapidement. */
+export const MATCH_CACHE_NEGATIVE_TTL_MS = 24 * 60 * 60 * 1000; // 24 heures
 const MAX_ENTRIES = 500;
 
 const isValidEntry = (value: unknown): value is MatchCacheEntry =>
@@ -109,7 +110,11 @@ export const loadMatchCache = (raw: string | null): MatchCache => {
         continue;
       }
 
-      if (now - entry.matchedAt > MATCH_CACHE_TTL_MS) {
+      const ttl =
+        entry.matchId === null
+          ? MATCH_CACHE_NEGATIVE_TTL_MS
+          : MATCH_CACHE_TTL_MS;
+      if (now - entry.matchedAt > ttl) {
         continue;
       }
 

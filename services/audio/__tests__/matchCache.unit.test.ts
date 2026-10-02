@@ -78,17 +78,27 @@ describe('match cache (v2 — provider mémorisé)', () => {
     expect(cache['spotify:legacy-neg'].providerId).toBeNull();
   });
 
-  it('drops stale entries when loading (TTL)', () => {
-    const old = Date.now() - 40 * 24 * 60 * 60 * 1000; // 40 days ago
+  it('expire rapidement les négatifs mais conserve les matchs positifs fiables', () => {
+    const fortyDaysAgo = Date.now() - 40 * 24 * 60 * 60 * 1000;
+    const twoDaysAgo = Date.now() - 2 * 24 * 60 * 60 * 1000;
 
     const cache = loadMatchCache(
       JSON.stringify({
         'spotify:fresh': entry(),
-        'spotify:stale': entry({ matchedAt: old }),
+        'spotify:positive-two-days': entry({ matchedAt: twoDaysAgo }),
+        'spotify:negative-two-days': entry({
+          matchedAt: twoDaysAgo,
+          providerId: null,
+          matchId: null,
+          score: 0,
+        }),
+        'spotify:stale': entry({ matchedAt: fortyDaysAgo }),
       })
     );
 
     expect(cache['spotify:fresh']).toBeDefined();
+    expect(cache['spotify:positive-two-days']).toBeDefined();
+    expect(cache['spotify:negative-two-days']).toBeUndefined();
     expect(cache['spotify:stale']).toBeUndefined();
   });
 
