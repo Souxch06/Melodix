@@ -25,9 +25,11 @@ import org.robolectric.annotation.Config
 class MelodixMediaServiceTest {
   private lateinit var controller: ServiceController<MelodixMediaService>
   private lateinit var service: MelodixMediaService
+  private var destroyed = false
 
   @Before
   fun setUp() {
+    destroyed = false
     MelodixDiagLog.Flags.apply(emptyMap())
     controller = Robolectric.buildService(MelodixMediaService::class.java).create()
     service = controller.get()
@@ -35,7 +37,7 @@ class MelodixMediaServiceTest {
 
   @After
   fun tearDown() {
-    controller.destroy()
+    if (!destroyed) controller.destroy()
     MelodixMediaController.onServiceCrashed()
   }
 
@@ -50,6 +52,18 @@ class MelodixMediaServiceTest {
     val publishedField = MelodixMediaService::class.java.getDeclaredField("foregroundPublished")
     publishedField.isAccessible = true
     assertTrue(publishedField.getBoolean(service))
+  }
+
+  @Test
+  fun `destruction du service invalide le drapeau natif pour permettre un redemarrage`() {
+    assertTrue(MelodixMediaController.diagStatus().contains("serviceCreated=true"))
+
+    controller.destroy()
+    destroyed = true
+
+    val status = MelodixMediaController.diagStatus()
+    assertTrue(status.contains("serviceCreated=false"))
+    assertTrue(status.contains("serviceStartRequested=false"))
   }
 
   @Test

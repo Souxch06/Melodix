@@ -220,6 +220,10 @@ const projectState = (state: PlayerState): void => {
   lastPushedSignature = pushed;
 
   callNative(() => updateSession(payload));
+  appendDiagLog(
+    `[MEDIA_DIAG] NATIVE_UPDATE_REQUESTED state=${payload.isPlaying ? 'PLAYING' : 'PAUSED'} ` +
+      `trackId=${payload.trackId}`
+  );
 };
 
 /**
@@ -230,7 +234,8 @@ export const setMediaBridgeEnabled = (enabled: boolean): void => {
   const wasEnabled = bridgeEnabled;
   bridgeEnabled = enabled;
   appendDiagLog(
-    `BRIDGE_ENABLED enabled=${enabled} previous=${wasEnabled} initialized=${initialized}`
+    `[MEDIA_DIAG] BRIDGE_ENABLED enabled=${enabled} previous=${wasEnabled} ` +
+      `initialized=${initialized} currentState=${melodixPlayer.getState?.().status ?? 'unknown'}`
   );
 
   // Les préférences sont restaurées de façon asynchrone. Si une lecture a

@@ -1,14 +1,18 @@
 package expo.modules.melodixmedia
 
+import android.Manifest
 import android.app.NotificationManager
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.content.pm.ServiceInfo
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
 import androidx.annotation.OptIn
+import androidx.core.app.NotificationManagerCompat
 import androidx.core.app.ServiceCompat
+import androidx.core.content.ContextCompat
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.session.MediaNotification
 import androidx.media3.session.MediaSession
@@ -64,8 +68,13 @@ class MelodixMediaService : MediaSessionService() {
     MelodixDiagLog.step("SERVICE_SUPER_ONCREATE_BEGIN")
     try {
       super.onCreate()
+      MelodixMediaController.onServiceCreated()
       Log.i("MXDIAG", "SERVICE_SUPER_ONCREATE_OK")
       MelodixDiagLog.step("SERVICE_SUPER_ONCREATE_OK")
+      MelodixDiagLog.step(
+        "SERVICE_CREATED",
+        "process=${android.os.Process.myPid()} mainThread=${Looper.myLooper() == Looper.getMainLooper()}"
+      )
     } catch (t: Throwable) {
       Log.e("MXDIAG", "SERVICE_SUPER_ONCREATE_FAIL", t)
       MelodixDiagLog.error("SERVICE_SUPER_ONCREATE_FAIL", t)
@@ -166,8 +175,9 @@ class MelodixMediaService : MediaSessionService() {
         // met le service en avant-plan dès PLAYING projeté.
         traced("ADD_SESSION") { addSession(session) }
         MelodixDiagLog.step(
-          "MEDIA_SESSION_ACTIVE",
-          "playerAttached=${session.player === player}"
+          "MEDIA_SESSION_CREATED",
+          "active=true playerAttached=${session.player === player} " +
+            "playbackState=${session.player.playbackState} isPlaying=${session.player.isPlaying}"
         )
       }
 
@@ -247,13 +257,34 @@ class MelodixMediaService : MediaSessionService() {
 
   /** Publication réelle du FGS, pas seulement construction de notification. */
   private fun publishForeground(mediaNotification: MediaNotification, stage: String) {
-    MelodixDiagLog.step("FOREGROUND_PUBLISH_BEGIN", "stage=$stage id=${mediaNotification.notificationId}")
+    val channel =
+      if (Build.VERSION.SDK_INT >= 26) {
+        mediaNotification.notification.channelId
+          ?: MelodixMediaNotificationProvider.CHANNEL_ID
+      } else {
+        "legacy"
+      }
+    val permissionGranted =
+      Build.VERSION.SDK_INT < 33 ||
+        ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) ==
+        PackageManager.PERMISSION_GRANTED
+    val manager = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
+    val channelImportance =
+      if (Build.VERSION.SDK_INT >= 26) manager.getNotificationChannel(channel)?.importance else null
+    val notificationsEnabled = NotificationManagerCompat.from(this).areNotificationsEnabled()
     val foregroundType =
       if (Build.VERSION.SDK_INT >= 29) {
         ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK
       } else {
         0
       }
+
+    MelodixDiagLog.step(
+      "START_FOREGROUND",
+      "stage=$stage id=${mediaNotification.notificationId} channel=$channel " +
+        "type=mediaPlayback permissionGranted=$permissionGranted " +
+        "notificationsEnabled=$notificationsEnabled channelImportance=$channelImportance"
+    )
     ServiceCompat.startForeground(
       this,
       mediaNotification.notificationId,
@@ -261,26 +292,41 @@ class MelodixMediaService : MediaSessionService() {
       foregroundType
     )
     foregroundPublished = true
-    MelodixDiagLog.step("FOREGROUND_PUBLISH_OK", "stage=$stage")
+    MelodixDiagLog.step(
+      "START_FOREGROUND_OK",
+      "stage=$stage id=${mediaNotification.notificationId} foreground=true"
+    )
 
-    // Vérification post-publication depuis le système lui-même. Cette trace
-    // distingue « notification construite » de « notification active ».
+    // activeNotifications prouve que NotificationManager connaît l'objet,
+    // pas que l'OEM l'affiche dans son tiroir. Les bloqueurs de visibilité
+    // sont donc journalisés séparément pour le diagnostic appareil réel.
     if (Build.VERSION.SDK_INT >= 23) {
       mainHandler.postDelayed({
         try {
-          val manager = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
           val active = manager.activeNotifications.any {
             it.id == mediaNotification.notificationId
           }
-          val channel =
+          val currentPermission =
+            Build.VERSION.SDK_INT < 33 ||
+              ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) ==
+              PackageManager.PERMISSION_GRANTED
+          val currentImportance =
             if (Build.VERSION.SDK_INT >= 26) {
-              mediaNotification.notification.channelId
+              manager.getNotificationChannel(channel)?.importance
             } else {
-              "legacy"
+              null
             }
+          val currentEnabled = NotificationManagerCompat.from(this).areNotificationsEnabled()
+          val notificationGateOpen =
+            currentEnabled &&
+              (currentImportance == null || currentImportance != NotificationManager.IMPORTANCE_NONE)
           MelodixDiagLog.step(
-            if (active) "NOTIFICATION_ACTIVE" else "NOTIFICATION_MISSING",
-            "stage=$stage channel=$channel"
+            if (active) "NOTIFICATION_POSTED" else "NOTIFICATION_MISSING",
+            "stage=$stage id=${mediaNotification.notificationId} channel=$channel " +
+              "active=$active permissionGranted=$currentPermission " +
+              "notificationsEnabled=$currentEnabled channelImportance=$currentImportance " +
+              "notificationGateOpen=$notificationGateOpen " +
+              "mediaSessionRuntimePermissionExemption=${stage == "media-style"}"
           )
         } catch (t: Throwable) {
           MelodixDiagLog.error("NOTIFICATION_VERIFY_FAIL", t, "stage=$stage")
@@ -334,9 +380,13 @@ class MelodixMediaService : MediaSessionService() {
     }
     virtualPlayer = null
     mediaSession = null
+    MelodixMediaController.onServiceDestroyed()
 
     super.onDestroy()
-    MelodixDiagLog.step("SERVICE_DESTROY_OK") // DIAG 4.4.7
+    MelodixDiagLog.step(
+      "SERVICE_DESTROYED",
+      "foregroundPublished=$foregroundPublished serviceCreated=false"
+    )
   }
 
   companion object {

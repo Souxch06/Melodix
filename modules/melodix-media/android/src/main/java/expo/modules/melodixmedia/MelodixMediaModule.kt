@@ -2,8 +2,11 @@ package expo.modules.melodixmedia
 
 import android.Manifest
 import android.app.NotificationManager
+import android.content.Context
 import android.content.pm.PackageManager
 import android.os.Build
+import android.os.Handler
+import android.os.Looper
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import expo.modules.kotlin.modules.Module
@@ -20,6 +23,40 @@ import expo.modules.kotlin.modules.ModuleDefinition
  *    et re-transmet les commandes système vers le JS.
  */
 class MelodixMediaModule : Module() {
+
+  private val mainHandler = Handler(Looper.getMainLooper())
+  private var permissionPollGeneration = 0
+
+  /**
+   * ActivityCompat ne renvoie pas le résultat au Module Expo. On observe donc
+   * brièvement l'état système après la boîte de dialogue. En cas d'accord,
+   * la dernière projection est rejouée afin de republier la notification qui
+   * a pu être créée avant que POST_NOTIFICATIONS ne soit accordée.
+   */
+  private fun observeNotificationPermissionResult(context: Context) {
+    val generation = ++permissionPollGeneration
+    var attempts = 0
+    val check = object : Runnable {
+      override fun run() {
+        if (generation != permissionPollGeneration) return
+        val granted =
+          ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) ==
+            PackageManager.PERMISSION_GRANTED
+        if (granted) {
+          MelodixDiagLog.step("NOTIFICATION_PERMISSION_RESULT", "granted=true")
+          MelodixMediaController.refreshLastProjection(context)
+          return
+        }
+        attempts += 1
+        if (attempts < 60) {
+          mainHandler.postDelayed(this, 500L)
+        } else {
+          MelodixDiagLog.step("NOTIFICATION_PERMISSION_RESULT", "granted=false timeout=true")
+        }
+      }
+    }
+    mainHandler.postDelayed(check, 500L)
+  }
 
   companion object {
     private const val TAG = "MelodixMediaModule"
@@ -143,6 +180,8 @@ class MelodixMediaModule : Module() {
     }
 
     OnDestroy {
+      permissionPollGeneration += 1
+      mainHandler.removeCallbacksAndMessages(null)
       MelodixMediaController.commandListener = null
     }
 
@@ -196,7 +235,13 @@ class MelodixMediaModule : Module() {
           return@Function true
         }
 
-        val activity = appContext.currentActivity ?: return@Function false
+        val activity = appContext.currentActivity
+        if (activity == null) {
+          // null indique au bridge JS qu'aucune demande n'a réellement été
+          // lancée : il pourra réessayer sur une projection ultérieure.
+          MelodixDiagLog.step("NOTIFICATION_PERMISSION_NO_ACTIVITY")
+          return@Function null
+        }
 
         // requestPermissions DOIT s'exécuter sur le thread principal ;
         // les Function Expo peuvent s'exécuter hors main thread. Toute
@@ -210,6 +255,7 @@ class MelodixMediaModule : Module() {
               arrayOf(Manifest.permission.POST_NOTIFICATIONS),
               REQUEST_CODE_POST_NOTIFICATIONS
             )
+            observeNotificationPermissionResult(context.applicationContext)
           } catch (t: Throwable) {
             android.util.Log.e(TAG, "Demande de permission non aboutie", t)
           }

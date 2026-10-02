@@ -121,8 +121,9 @@ class VirtualMediaPlayer(looper: Looper) : SimpleBasePlayer(looper) {
     // MediaItem : ID STABLE seulement (jamais d'URL de flux, token ni
     // credential — le player virtuel ne chargera jamais de média).
     MelodixDiagLog.step(
-      "VMP_METADATA_SET",
-      "trackId=$trackId titleLength=${title.length} artistLength=${artist.length} artwork=${artworkUrl != null}"
+      "METADATA_PROJECTED",
+      "trackId=$trackId titleLength=${title.length} artistLength=${artist.length} " +
+        "album=${album != null} artwork=${artworkUrl != null}"
     )
     val mediaItem = MediaItem.Builder()
       .setMediaId(trackId)
@@ -147,8 +148,10 @@ class VirtualMediaPlayer(looper: Looper) : SimpleBasePlayer(looper) {
 
     invalidateState()
     MelodixDiagLog.step(
-      "VMP_PLAYBACK_STATE_SET",
-      "state=READY playWhenReady=$isPlaying positionMs=${positionMillis.coerceAtLeast(0L)} durationMs=$durationMillis"
+      "PLAYBACK_STATE_PROJECTED",
+      "state=${if (isPlaying) "PLAYING" else "PAUSED"} media3State=READY " +
+        "playWhenReady=$isPlaying positionMs=${positionMillis.coerceAtLeast(0L)} " +
+        "durationMs=$durationMillis"
     )
   }
 
