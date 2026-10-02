@@ -165,6 +165,28 @@ describe('playbackSession — persistance stricte de la session', () => {
     await expect(loadPlaybackSession()).resolves.toBeNull();
   });
 
+  it('un save lent lancé avant clear ne ressuscite jamais la session', async () => {
+    const originalSetItem = AsyncStorage.setItem.bind(AsyncStorage);
+    let releaseSave!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      releaseSave = resolve;
+    });
+    jest
+      .spyOn(AsyncStorage, 'setItem')
+      .mockImplementationOnce(async (key, value) => {
+        await gate;
+        await originalSetItem(key, value);
+      });
+
+    const pendingSave = savePlaybackSession(makeSession());
+    await Promise.resolve();
+    const pendingClear = clearPlaybackSession();
+    releaseSave();
+    await Promise.all([pendingSave, pendingClear]);
+
+    await expect(loadPlaybackSession()).resolves.toBeNull();
+  });
+
   it('load avec stockage EN PANNE : null présenté, aucune propagation', async () => {
     jest
       .spyOn(AsyncStorage, 'getItem')

@@ -20,6 +20,20 @@ import type { PlayerTrack, RepeatMode } from './player';
 export const PLAYBACK_SESSION_STORAGE_KEY = '@melodix/playback-session.v1';
 export const PLAYBACK_SESSION_VERSION = 1;
 
+/** Garantit l'ordre causal save → clear malgré les I/O AsyncStorage. Sans
+ * cette file, un save lent lancé avant stop() pouvait terminer APRÈS la purge
+ * et ressusciter une carte « Reprendre » pourtant arrêtée explicitement. */
+let mutationQueue: Promise<void> = Promise.resolve();
+
+const enqueueMutation = (operation: () => Promise<void>): Promise<void> => {
+  const next = mutationQueue.then(operation, operation);
+  mutationQueue = next.then(
+    () => undefined,
+    () => undefined
+  );
+  return next;
+};
+
 export type PlaybackSession = {
   version: number;
   savedAt: number;
@@ -169,6 +183,7 @@ export const sanitizePlaybackSession = (
 export const loadPlaybackSession =
   async (): Promise<PlaybackSession | null> => {
     try {
+      await mutationQueue;
       const stored = await AsyncStorage.getItem(PLAYBACK_SESSION_STORAGE_KEY);
 
       if (!stored) {
@@ -181,23 +196,23 @@ export const loadPlaybackSession =
     }
   };
 
-export const savePlaybackSession = async (
-  session: PlaybackSession
-): Promise<void> => {
-  try {
-    await AsyncStorage.setItem(
-      PLAYBACK_SESSION_STORAGE_KEY,
-      JSON.stringify(session)
-    );
-  } catch {
-    // Persistance non bloquante — la lecture ne doit jamais en pâtir.
-  }
-};
+export const savePlaybackSession = (session: PlaybackSession): Promise<void> =>
+  enqueueMutation(async () => {
+    try {
+      await AsyncStorage.setItem(
+        PLAYBACK_SESSION_STORAGE_KEY,
+        JSON.stringify(session)
+      );
+    } catch {
+      // Persistance non bloquante — la lecture ne doit jamais en pâtir.
+    }
+  });
 
-export const clearPlaybackSession = async (): Promise<void> => {
-  try {
-    await AsyncStorage.removeItem(PLAYBACK_SESSION_STORAGE_KEY);
-  } catch {
-    // Best-effort.
-  }
-};
+export const clearPlaybackSession = (): Promise<void> =>
+  enqueueMutation(async () => {
+    try {
+      await AsyncStorage.removeItem(PLAYBACK_SESSION_STORAGE_KEY);
+    } catch {
+      // Best-effort.
+    }
+  });

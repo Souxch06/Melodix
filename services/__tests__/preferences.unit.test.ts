@@ -58,6 +58,46 @@ describe('preferences — stockage local des réglages', () => {
     expect(PREFERENCES_STORAGE_KEY).toBe('@melodix/preferences.v1');
   });
 
+  it('deux sauvegardes rapides restent dans l ordre même si la première est lente', async () => {
+    const originalSetItem = AsyncStorage.setItem.bind(AsyncStorage);
+    let releaseFirst!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      releaseFirst = resolve;
+    });
+    jest
+      .spyOn(AsyncStorage, 'setItem')
+      .mockImplementationOnce(async (key, value) => {
+        await gate;
+        await originalSetItem(key, value);
+      });
+
+    const first = savePreferences({
+      ...DEFAULT_PREFERENCES,
+      startupVolume: 20,
+    });
+    await Promise.resolve();
+    const second = savePreferences({
+      ...DEFAULT_PREFERENCES,
+      startupVolume: 80,
+      accent: 'violet',
+    });
+    releaseFirst();
+    await Promise.all([first, second]);
+
+    await expect(loadPreferences()).resolves.toMatchObject({
+      startupVolume: 80,
+      accent: 'violet',
+    });
+  });
+
+  it('une panne de stockage ne produit pas de rejet non géré', async () => {
+    jest
+      .spyOn(AsyncStorage, 'setItem')
+      .mockRejectedValueOnce(new Error('storage full'));
+
+    await expect(savePreferences(DEFAULT_PREFERENCES)).resolves.toBeUndefined();
+  });
+
   it('sanitize un accent inconnu et des valeurs hors limites', async () => {
     await AsyncStorage.setItem(
       PREFERENCES_STORAGE_KEY,
