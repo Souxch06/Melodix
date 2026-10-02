@@ -10,7 +10,7 @@
 import * as React from 'react';
 import { Pressable, View } from 'react-native';
 
-import { act, fireEvent, render } from '@testing-library/react-native';
+import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
 
 import { PlayerProvider, usePlayer } from '../PlayerContext';
 
@@ -242,10 +242,59 @@ describe('PlayerContext — reprise de session (phase 2)', () => {
 
     fireEvent.press(await findByTestId('resume'));
 
-    expect(mockActions.restoreSession).toHaveBeenCalledTimes(1);
-    expect(mockActions.clearPlaybackSession).toHaveBeenCalledTimes(1);
-    await findByTestId('resume').catch(() => null);
+    await waitFor(() => {
+      expect(mockActions.restoreSession).toHaveBeenCalledTimes(1);
+      expect(mockActions.clearPlaybackSession).toHaveBeenCalledTimes(1);
+    });
     expect(queryByTestId('resume')).toBeNull();
+  });
+
+  it('resumeSession : un double déclenchement ne restaure jamais deux fois', async () => {
+    mockActions.loadPlaybackSession.mockResolvedValue(SESSION);
+    let releaseRestore: (() => void) | null = null;
+    mockActions.restoreSession.mockImplementationOnce(
+      () =>
+        new Promise<void>((resolve) => {
+          releaseRestore = resolve;
+        })
+    );
+
+    const Probe = () => {
+      const { pendingRestore, resumeSession } = usePlayer();
+      return (
+        <>
+          <View
+            testID="restore-state"
+            // @ts-expect-error — prop de vérification uniquement en test
+            pending={Boolean(pendingRestore)}
+          />
+          <Pressable
+            onPress={() => void resumeSession()}
+            testID="resume-twice"
+          />
+        </>
+      );
+    };
+
+    const { getByTestId } = render(
+      <PlayerProvider>
+        <Probe />
+      </PlayerProvider>
+    );
+    await waitFor(() =>
+      expect(getByTestId('restore-state').props.pending).toBe(true)
+    );
+    const button = getByTestId('resume-twice');
+
+    fireEvent.press(button);
+    fireEvent.press(button);
+    expect(mockActions.restoreSession).toHaveBeenCalledTimes(1);
+    expect(mockActions.clearPlaybackSession).not.toHaveBeenCalled();
+
+    await act(async () => releaseRestore?.());
+    await waitFor(() =>
+      expect(mockActions.clearPlaybackSession).toHaveBeenCalledTimes(1)
+    );
   });
 
   it('dismissSession : purge le stockage SANS jouer, ferme la carte', async () => {
