@@ -53,6 +53,13 @@ const MAX_ENTRIES = 500;
  * ancien puis de s'écraser mutuellement au setItem.
  */
 let mutationQueue: Promise<void> = Promise.resolve();
+let lastResolutionTimestamp = 0;
+
+/** Horloge murale monotone dans ce runtime, y compris pour deux départs/ms. */
+export const createMatchResolutionTimestamp = (): number => {
+  lastResolutionTimestamp = Math.max(Date.now(), lastResolutionTimestamp + 1);
+  return lastResolutionTimestamp;
+};
 
 const enqueueMutation = <T>(operation: () => Promise<T>): Promise<T> => {
   const next = mutationQueue.then(operation, operation);
@@ -125,9 +132,9 @@ export const loadMatchCache = (raw: string | null): MatchCache => {
 };
 
 /**
- * Persiste par FUSION : relit le document stocké puis fusionne — les entrées
- * reçues GAGNENT — avant de réécrire (LRU 500 conservées). Deux écrivains
- * concurrents (player + écran de playlist) ne se suppriment plus jamais
+ * Persiste par FUSION : relit le document stocké puis conserve, clé par clé,
+ * la décision dont la résolution a commencé le plus récemment (LRU 500).
+ * Deux écrivains concurrents (player + écran de playlist) ne se perdent plus
  * silencieusement leurs clés mutuelles (perte de décisions d'avant).
  *
  * ⚠️ Par construction, une fusion ne SUPPRIME rien : pour invalider une clé
@@ -138,7 +145,17 @@ export const persistMatchCache = (cache: MatchCache): Promise<void> =>
     try {
       const raw = await AsyncStorage.getItem(MATCH_CACHE_STORAGE_KEY);
       const stored = loadMatchCache(raw);
-      const merged: MatchCache = { ...stored, ...cache };
+      const merged: MatchCache = { ...stored };
+      for (const [key, incoming] of Object.entries(cache)) {
+        const current = merged[key];
+        // Une carte chargée avant une résolution concurrente ne doit jamais
+        // remettre une ancienne décision par-dessus une décision plus récente.
+        // `matchedAt` représente le DÉBUT de la résolution, pas sa fin : une
+        // requête lente qui termine tard reste donc correctement plus vieille.
+        if (!current || incoming.matchedAt >= current.matchedAt) {
+          merged[key] = incoming;
+        }
+      }
       const entries = Object.entries(merged)
         .sort(([, a], [, b]) => a.matchedAt - b.matchedAt)
         .slice(-MAX_ENTRIES);

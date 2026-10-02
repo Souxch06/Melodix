@@ -5,6 +5,7 @@ import {
   INITIAL_PLAYER_STATE,
   loadPlaybackSession,
   melodixPlayer,
+  savePlaybackSession,
 } from '@services';
 import { initMediaBridge } from '@services';
 import type {
@@ -145,7 +146,19 @@ export const PlayerProvider = ({ children }: { children: React.ReactNode }) => {
     setPendingRestore(null);
     try {
       await melodixPlayer.restoreSession(session);
-      await clearPlaybackSession();
+      const restoredState = melodixPlayer.getState();
+      if (
+        restoredState.status !== 'playing' &&
+        restoredState.status !== 'paused'
+      ) {
+        // `playIndex` absorbe volontairement les pannes provider. Réécrire la
+        // session compense donc le stop/purge interne et garde la reprise
+        // retryable quand le réseau est absent ou tous les flux sont morts.
+        await savePlaybackSession(session);
+        setPendingRestore(session);
+      } else {
+        await clearPlaybackSession();
+      }
     } catch {
       // La reprise a échoué avant sa purge : reproposer la session permet un
       // retry explicite, sans rejet de promesse non géré depuis onPress.

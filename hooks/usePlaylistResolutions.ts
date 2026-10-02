@@ -3,6 +3,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import type { TrackModel } from '@models';
 import {
+  createMatchResolutionTimestamp,
   deleteMatchCacheEntryFromStorage,
   getAudioProviders,
   loadMatchCache,
@@ -178,12 +179,14 @@ export const usePlaylistResolutions = (
 
       const providers = getAudioProviders();
       const dirty = { value: false };
+      const scheduledKeys = new Set<string>();
 
       for (const track of currentTracks) {
         const cacheKey = sourceKeyOf({ provider: null, id: track.id });
-        if (cache[cacheKey]) {
-          continue; // déjà décidé (positif OU négatif connu) — jamais refait
+        if (cache[cacheKey] || scheduledKeys.has(cacheKey)) {
+          continue; // décidé OU déjà en vol dans ce lot — jamais de doublon
         }
+        scheduledKeys.add(cacheKey);
 
         void queueRef.current!.run(async () => {
           if (disposed) {
@@ -191,6 +194,9 @@ export const usePlaylistResolutions = (
           }
 
           patch(track.id, { status: 'resolving' });
+          // Utilisé comme ordre causal par le cache : une résolution lente
+          // ne devient pas artificiellement « plus récente » à sa fin.
+          const resolutionStartedAt = createMatchResolutionTimestamp();
 
           // I-2 : la résolution UI utilise les MÊMES métadonnées que le
           // chemin player — album + durée quand la source les fournit
@@ -219,7 +225,10 @@ export const usePlaylistResolutions = (
               { provider: null, id: track.id },
               outcome.status === 'matched' ? outcome.provider.id : null,
               outcome.status === 'matched' ? outcome.sourceId : null,
-              outcome.status === 'matched' ? Math.round(outcome.score * 100) : 0
+              outcome.status === 'matched'
+                ? Math.round(outcome.score * 100)
+                : 0,
+              resolutionStartedAt
             );
             dirty.value = true;
           }

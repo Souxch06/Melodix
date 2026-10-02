@@ -52,6 +52,7 @@ const mockActions = {
   restoreSession: jest.fn(async () => {}),
   loadPlaybackSession: jest.fn(async (): Promise<unknown> => null),
   clearPlaybackSession: jest.fn(async () => {}),
+  savePlaybackSession: jest.fn(async () => {}),
   getState: jest.fn((): unknown => INITIAL),
   subscribe: jest.fn(),
 };
@@ -62,6 +63,8 @@ jest.mock('@services', () => ({
     mockActions.loadPlaybackSession(...(args as [])),
   clearPlaybackSession: (...args: never[]) =>
     mockActions.clearPlaybackSession(...(args as [])),
+  savePlaybackSession: (...args: never[]) =>
+    mockActions.savePlaybackSession(...(args as [])),
   // Liaisons tardives : la factory s exécute avant les const du fichier.
   melodixPlayer: {
     playQueue: (...args: unknown[]) => mockActions.playQueue(...(args as [])),
@@ -96,6 +99,9 @@ describe('PlayerContext — état unique partagé par toute l UI', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockActions.getState.mockReturnValue(INITIAL);
+    mockActions.restoreSession.mockImplementation(async () => {
+      mockActions.getState.mockReturnValue({ ...INITIAL, status: 'playing' });
+    });
   });
 
   it('relaye l état du moteur : idle → hasActiveSession false', () => {
@@ -334,6 +340,7 @@ describe('PlayerContext — reprise de session (phase 2)', () => {
     expect(mockActions.restoreSession).toHaveBeenCalledTimes(1);
     expect(mockActions.clearPlaybackSession).not.toHaveBeenCalled();
 
+    mockActions.getState.mockReturnValue({ ...INITIAL, status: 'playing' });
     await act(async () => releaseRestore?.());
     await waitFor(() =>
       expect(mockActions.clearPlaybackSession).toHaveBeenCalledTimes(1)
@@ -363,6 +370,37 @@ describe('PlayerContext — reprise de session (phase 2)', () => {
     );
     expect(await findByTestId('retry-resume')).toBeTruthy();
     expect(mockActions.clearPlaybackSession).not.toHaveBeenCalled();
+  });
+
+  it('resumeSession : une panne provider absorbée réécrit la session pour retry', async () => {
+    mockActions.loadPlaybackSession.mockResolvedValue(SESSION);
+    mockActions.restoreSession.mockImplementationOnce(async () => {
+      mockActions.getState.mockReturnValue(INITIAL);
+      // Le moteur a pu purger la session en arrivant en fin de file.
+      await mockActions.clearPlaybackSession();
+    });
+
+    const Probe = () => {
+      const { pendingRestore, resumeSession } = usePlayer();
+      return pendingRestore ? (
+        <Pressable
+          onPress={() => void resumeSession()}
+          testID="retry-provider"
+        />
+      ) : null;
+    };
+
+    const { findByTestId } = render(
+      <PlayerProvider>
+        <Probe />
+      </PlayerProvider>
+    );
+    fireEvent.press(await findByTestId('retry-provider'));
+
+    await waitFor(() =>
+      expect(mockActions.savePlaybackSession).toHaveBeenCalledWith(SESSION)
+    );
+    expect(await findByTestId('retry-provider')).toBeTruthy();
   });
 
   it('dismissSession : purge le stockage SANS jouer, ferme la carte', async () => {

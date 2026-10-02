@@ -13,6 +13,7 @@ import {
 import type { AudioProvider, ResolvedStream, TrackSource } from './audio';
 import { recordPlay } from './history/playHistory';
 import {
+  createMatchResolutionTimestamp,
   loadMatchCache,
   persistMatchCache,
   writeMatchCacheEntry,
@@ -583,8 +584,10 @@ class MelodixPlayer {
         : null;
     }
 
-    // Métadonnées seules : cascade Audius → YouTube. Le cache v2 mémorise
-    // AUSSI le provider retenu (jamais de re-recherche sans nécessité).
+    // Métadonnées seules : cascade Audius → YouTube. Horodater le DÉBUT
+    // empêche cette requête, si elle termine très tard, d'écraser dans le
+    // stockage une résolution concurrente lancée plus récemment.
+    const resolutionStartedAt = createMatchResolutionTimestamp();
     const cache = await this.ensureCache();
     const cached = cache[track.id];
     let providerId: string | null = null;
@@ -615,12 +618,26 @@ class MelodixPlayer {
         providerId = outcome.provider.id;
         matchId = outcome.sourceId;
         score = Math.round(outcome.score * 100);
-        writeMatchCacheEntry(cache, track.source, providerId, matchId, score);
+        writeMatchCacheEntry(
+          cache,
+          track.source,
+          providerId,
+          matchId,
+          score,
+          resolutionStartedAt
+        );
         void persistMatchCache(cache);
       } else if (outcome.status === 'no-match') {
         // Négatif PROUVÉ (tous les providers ont répondu « introuvable ») :
         // le cache négatif 30 jours évite la re-recherche à chaque lecture.
-        writeMatchCacheEntry(cache, track.source, null, null, 0);
+        writeMatchCacheEntry(
+          cache,
+          track.source,
+          null,
+          null,
+          0,
+          resolutionStartedAt
+        );
         void persistMatchCache(cache);
       }
       // I-5 : 'error' (panne réseau/timeout/provider) → RIEN d'écrit. Le
