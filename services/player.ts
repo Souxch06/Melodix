@@ -1161,30 +1161,55 @@ class MelodixPlayer {
     }
 
     const { queue, order, index } = this.state;
+    const existingIndex = queue.findIndex((item) => item.id === track.id);
 
     if (index < 0 || index >= queue.length) {
       // Pas de session active (index hors file — ex. après addToQueue sur
       // file vide/dormante) : « Lire ensuite » LANCE la lecture. Ajouter
       // silencieusement rendait l'action invisible (M-1 : current === null
-      // → MiniPlayer masqué, utilisateur sans aucun retour). La file
-      // dormante éventuelle est conservée, le morceau démarre en fin.
-      void this.playQueue([...queue, track], queue.length);
+      // → MiniPlayer masqué, utilisateur sans aucun retour). Un morceau déjà
+      // présent est joué à sa place au lieu d'être dupliqué.
+      const nextQueue = existingIndex >= 0 ? queue : [...queue, track];
+      void this.playQueue(
+        nextQueue,
+        existingIndex >= 0 ? existingIndex : nextQueue.length - 1
+      );
       return;
     }
 
-    const insertAt = index + 1;
-    const nextQueue = [...queue];
+    // « Lire ensuite » est aussi une opération de déduplication : si la piste
+    // existe déjà ailleurs, la déplacer plutôt que créer deux entrées portant
+    // le même identifiant. Le morceau courant demandé à nouveau est un no-op.
+    if (existingIndex === index) {
+      return;
+    }
+
+    const queueWithoutExisting =
+      existingIndex >= 0
+        ? queue.filter((_, position) => position !== existingIndex)
+        : [...queue];
+    const nextCurrentIndex =
+      existingIndex >= 0 && existingIndex < index ? index - 1 : index;
+    const insertAt = nextCurrentIndex + 1;
+    const nextQueue = [...queueWithoutExisting];
     nextQueue.splice(insertAt, 0, track);
 
     let nextOrder = order;
     if (order && order.length === queue.length) {
-      // Positions décalées hors de l'index inséré uniquement.
-      nextOrder = order.map((pos) => (pos >= insertAt ? pos + 1 : pos));
-      const pointer = nextOrder.indexOf(index);
+      const withoutExisting =
+        existingIndex >= 0
+          ? order
+              .filter((pos) => pos !== existingIndex)
+              .map((pos) => (pos > existingIndex ? pos - 1 : pos))
+          : [...order];
+      nextOrder = withoutExisting.map((pos) =>
+        pos >= insertAt ? pos + 1 : pos
+      );
+      const pointer = nextOrder.indexOf(nextCurrentIndex);
       nextOrder.splice(pointer >= 0 ? pointer + 1 : 0, 0, insertAt);
     }
 
-    this.emit({ queue: nextQueue, order: nextOrder });
+    this.emit({ queue: nextQueue, index: nextCurrentIndex, order: nextOrder });
     this.persistSession();
     this.ensureAppStatePersistence();
   };
