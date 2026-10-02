@@ -30,20 +30,24 @@ const DEFAULTS = {
 
 export class ServiceGuard {
   private callCount = 0;
-  private windowStart = Date.now();
+  private windowStart: number;
   private failures = 0;
   private firstFailureAt = 0;
   private circuitOpen = false;
   private circuitOpenedAt = 0;
   private readonly logger;
 
-  constructor(private readonly config: ServiceGuardConfig) {
+  constructor(
+    private readonly config: ServiceGuardConfig,
+    private readonly now: () => number = Date.now
+  ) {
+    this.windowStart = this.now();
     this.logger = createLogger(`Guard:${config.name}`);
   }
 
   acquire(): boolean {
     if (this.circuitOpen) {
-      if (Date.now() - this.circuitOpenedAt >= this.config.cooldownMs) {
+      if (this.now() - this.circuitOpenedAt >= this.config.cooldownMs) {
         this.circuitOpen = false;
         this.failures = 0;
         this.logger.info('circuit half-open, autorisation d une sonde');
@@ -53,7 +57,7 @@ export class ServiceGuard {
       }
     }
 
-    const now = Date.now();
+    const now = this.now();
     if (now - this.windowStart >= this.config.windowMs) {
       this.callCount = 0;
       this.windowStart = now;
@@ -75,7 +79,7 @@ export class ServiceGuard {
   }
 
   recordFailure(): void {
-    const now = Date.now();
+    const now = this.now();
     if (
       this.failures > 0 &&
       now - this.firstFailureAt > this.config.failureWindowMs
@@ -95,7 +99,7 @@ export class ServiceGuard {
   }
 
   getStatus() {
-    const now = Date.now();
+    const now = this.now();
     return {
       callsUsed:
         now - this.windowStart >= this.config.windowMs ? 0 : this.callCount,
