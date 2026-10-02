@@ -48,6 +48,22 @@ export const MATCH_CACHE_TTL_MS = 30 * 24 * 60 * 60 * 1000; // positif : 30 jour
 export const MATCH_CACHE_NEGATIVE_TTL_MS = 24 * 60 * 60 * 1000; // 24 heures
 const MAX_ENTRIES = 500;
 
+/**
+ * AsyncStorage n'offre pas de transaction read-modify-write. Sérialiser les
+ * mutations empêche deux résolutions concurrentes de lire le même document
+ * ancien puis de s'écraser mutuellement au setItem.
+ */
+let mutationQueue: Promise<void> = Promise.resolve();
+
+const enqueueMutation = <T>(operation: () => Promise<T>): Promise<T> => {
+  const next = mutationQueue.then(operation, operation);
+  mutationQueue = next.then(
+    () => undefined,
+    () => undefined
+  );
+  return next;
+};
+
 const isValidEntry = (value: unknown): value is MatchCacheEntry =>
   !!value &&
   typeof value === 'object' &&
@@ -138,50 +154,55 @@ export const loadMatchCache = (raw: string | null): MatchCache => {
  * ⚠️ Par construction, une fusion ne SUPPRIME rien : pour invalider une clé
  * (« refaire le matching »), utiliser deleteMatchCacheEntryFromStorage.
  */
-export const persistMatchCache = async (cache: MatchCache): Promise<void> => {
-  try {
-    const raw = await AsyncStorage.getItem(MATCH_CACHE_STORAGE_KEY);
-    const stored = loadMatchCache(raw);
-    const merged: MatchCache = { ...stored, ...cache };
-    const entries = Object.entries(merged)
-      .sort(([, a], [, b]) => a.matchedAt - b.matchedAt)
-      .slice(-MAX_ENTRIES);
+export const persistMatchCache = (cache: MatchCache): Promise<void> =>
+  enqueueMutation(async () => {
+    try {
+      const raw = await AsyncStorage.getItem(MATCH_CACHE_STORAGE_KEY);
+      const stored = loadMatchCache(raw);
+      const merged: MatchCache = { ...stored, ...cache };
+      const entries = Object.entries(merged)
+        .sort(([, a], [, b]) => a.matchedAt - b.matchedAt)
+        .slice(-MAX_ENTRIES);
 
-    await AsyncStorage.setItem(
-      MATCH_CACHE_STORAGE_KEY,
-      JSON.stringify(Object.fromEntries(entries))
-    );
-  } catch (error) {
-    console.warn('Failed to persist the match cache', error);
-  }
-};
+      await AsyncStorage.setItem(
+        MATCH_CACHE_STORAGE_KEY,
+        JSON.stringify(Object.fromEntries(entries))
+      );
+    } catch (error) {
+      console.warn('Failed to persist the match cache', error);
+    }
+  });
 
 /**
  * Suppression CIBLÉE persistante — transaction SANS fusion : lire le
  * document → retirer la clé → réécrire le document COMPLET tel quel.
  * Contrairement à persistMatchCache (qui fusionne), les autres clés ne sont
  * ni ajoutées ni supprimées, et la clé visée est réellement effacée : c'est
- * le socle du « refaire le matching » ciblé (I-3). Fenêtre bornée : une
- * écriture concurrente tombée EXACTEMENT entre la lecture et la réécriture
- * pourrait être perdue — bornée à quelques ms et sans corruption possible.
+ * le socle du « refaire le matching » ciblé (I-3). La même file sérialise
+ * persist/delete/clear, donc aucune mutation de ce module ne peut se perdre
+ * entre cette lecture et cette réécriture.
  */
-export const deleteMatchCacheEntryFromStorage = async (
+export const deleteMatchCacheEntryFromStorage = (
   cacheKey: string
-): Promise<void> => {
-  try {
-    const raw = await AsyncStorage.getItem(MATCH_CACHE_STORAGE_KEY);
-    const cache = loadMatchCache(raw);
+): Promise<void> =>
+  enqueueMutation(async () => {
+    try {
+      const raw = await AsyncStorage.getItem(MATCH_CACHE_STORAGE_KEY);
+      const cache = loadMatchCache(raw);
 
-    if (!(cacheKey in cache)) {
-      return; // rien à retirer — aucun réécriture inutile
+      if (!(cacheKey in cache)) {
+        return; // rien à retirer — aucune réécriture inutile
+      }
+
+      delete cache[cacheKey];
+      await AsyncStorage.setItem(
+        MATCH_CACHE_STORAGE_KEY,
+        JSON.stringify(cache)
+      );
+    } catch {
+      // Non bloquant : l'appelant relance sa file quoi qu'il arrive.
     }
-
-    delete cache[cacheKey];
-    await AsyncStorage.setItem(MATCH_CACHE_STORAGE_KEY, JSON.stringify(cache));
-  } catch {
-    // Non bloquant : l'appelant relance sa file quoi qu'il arrive.
-  }
-};
+  });
 
 export const writeMatchCacheEntry = (
   cache: MatchCache,
@@ -212,10 +233,11 @@ export const removeMatchCacheEntry = (
 };
 
 /** Purge complète persistante — « tout rematcher » (ex. menu diagnostic). */
-export const clearMatchCacheStorage = async (): Promise<void> => {
-  try {
-    await AsyncStorage.removeItem(MATCH_CACHE_STORAGE_KEY);
-  } catch {
-    // Non bloquant.
-  }
-};
+export const clearMatchCacheStorage = (): Promise<void> =>
+  enqueueMutation(async () => {
+    try {
+      await AsyncStorage.removeItem(MATCH_CACHE_STORAGE_KEY);
+    } catch {
+      // Non bloquant.
+    }
+  });

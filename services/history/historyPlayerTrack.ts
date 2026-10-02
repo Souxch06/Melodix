@@ -46,6 +46,7 @@ export const playerTrackFromHistoryEntry = ({
     : [],
   album: snapshot?.albumName ?? null,
   durationMillis: snapshot?.durationMs ?? null,
+  ...(snapshot?.isrc ? { isrc: snapshot.isrc } : {}),
   imageURL,
   source: sourceFromQueueId(snapshot?.id || id),
 });

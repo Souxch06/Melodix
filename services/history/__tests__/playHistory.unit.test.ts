@@ -108,6 +108,7 @@ describe('playHistory (historique local)', () => {
         subtitle: 'Artist',
         albumName: 'The Album',
         durationMs: 200_000,
+        isrc: 'FRABC2412345',
       },
       { albumTitle: 'The Album', albumId: 'alb-42' }
     );
@@ -122,6 +123,7 @@ describe('playHistory (historique local)', () => {
       id: 'spotify:trk-1',
       albumName: 'The Album',
       durationMs: 200_000,
+      isrc: 'FRABC2412345',
     });
   });
 

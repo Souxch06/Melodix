@@ -875,6 +875,9 @@ class MelodixPlayer {
           // l'historique matche avec les mêmes métadonnées.
           albumName: track.album ?? null,
           durationMs: track.durationMillis ?? null,
+          // Conserver le signal exact jusque dans « Écoutés récemment » :
+          // une relecture ne doit pas perdre l'ISRC obtenu depuis Spotify.
+          isrc: track.isrc ?? null,
         },
         {
           albumTitle: track.album ?? undefined,

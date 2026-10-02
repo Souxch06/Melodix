@@ -214,6 +214,23 @@ describe('persistMatchCache par fusion + deleteMatchCacheEntryFromStorage', () =
     expect(cache['spotify:k2']).toMatchObject({ matchId: 'aud-999' });
   });
 
+  it('deux persistances réellement concurrentes conservent les deux décisions', async () => {
+    await Promise.all([
+      persistMatchCache({
+        'spotify:parallel-a': entry({ matchId: 'aud-a' }),
+      }),
+      persistMatchCache({
+        'spotify:parallel-b': entry({ matchId: 'aud-b' }),
+      }),
+    ]);
+
+    const cache = loadMatchCache(
+      await AsyncStorage.getItem(MATCH_CACHE_STORAGE_KEY)
+    );
+    expect(cache['spotify:parallel-a']).toMatchObject({ matchId: 'aud-a' });
+    expect(cache['spotify:parallel-b']).toMatchObject({ matchId: 'aud-b' });
+  });
+
   it('persistMatchCache : l entrée reçue GAGNE sur la valeur stockée', async () => {
     await persistMatchCache({ 'spotify:k1': entry({ matchId: 'old' }) });
     await persistMatchCache({
