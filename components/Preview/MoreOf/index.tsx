@@ -12,25 +12,23 @@ export type MoreOfPropsType = {
   artists: ArtistModel[] | null;
 };
 
+type ArtistAlbums = {
+  artist: string;
+  albums: LibraryItemModel[] | null;
+};
+
+const loadingAlbums = (): LibraryItemModel[] =>
+  Array.from({ length: 3 }, () => ({
+    id: '',
+    type: 'album' as const,
+    title: '',
+    imageURL: '',
+    subtitle: '',
+  }));
+
 export const MoreOf = ({ artists }: MoreOfPropsType) => {
-  const [artistsAlbums, setArtistsAlbums] = React.useState<
-    {
-      artist: string;
-      albums: LibraryItemModel[] | null;
-    }[]
-  >([
-    {
-      artist: '',
-      albums: [
-        ...Array(3).fill({
-          id: '',
-          type: 'album',
-          title: '',
-          imageURL: '',
-          subtitle: '',
-        }),
-      ],
-    },
+  const [artistsAlbums, setArtistsAlbums] = React.useState<ArtistAlbums[]>([
+    { artist: '', albums: loadingAlbums() },
   ]);
 
   const checkArtistIDisEmpty = React.useMemo(
@@ -40,10 +38,17 @@ export const MoreOf = ({ artists }: MoreOfPropsType) => {
 
   React.useEffect(() => {
     if (!artists || checkArtistIDisEmpty) {
+      setArtistsAlbums([]);
       return;
     }
 
     let cancelled = false;
+    // Ne laisse jamais les albums de l'artiste précédent visibles pendant le
+    // chargement du nouvel écran.
+    setArtistsAlbums(
+      artists.map(({ name }) => ({ artist: name, albums: loadingAlbums() }))
+    );
+
     (async () => {
       try {
         const artistsAlbumsData = (

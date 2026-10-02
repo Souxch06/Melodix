@@ -144,12 +144,6 @@ export const Summary = ({
             onPress={handleToggleSave}
           />
         )}
-        <AnimatedPressable
-          defaultIcon="arrow-down"
-          activeIcon="arrow-down"
-          // TODO: removed this true value and check if tracks are downloaded instead
-          isActive={true}
-        />
         <Pressable>
           <Entypo style={styles.moreIcon} name="dots-three-horizontal" />
         </Pressable>
