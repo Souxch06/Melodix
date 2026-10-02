@@ -14,7 +14,11 @@ import { LibraryItemModel, TrackModel } from '@models';
 export const LOCAL_LIBRARY_STORAGE_KEY = '@melodix/local-library';
 
 export type LocalLibraryEntityType =
-  'track' | 'album' | 'playlist' | 'artist' | 'show';
+  | 'track'
+  | 'album'
+  | 'playlist'
+  | 'artist'
+  | 'show';
 
 export type LocalTrackEntry = {
   addedAt: number;
