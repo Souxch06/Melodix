@@ -8,6 +8,8 @@ import { UserDataProvider, useUserData } from '../UserDataContext';
 const mockActions = {
   loadSession: jest.fn(),
   clearSession: jest.fn(async () => {}),
+  clearPlaybackSession: jest.fn(async () => {}),
+  stopPlayback: jest.fn(async () => {}),
   getCurrentUser: jest.fn(),
   invalidateUserPlaylistsCache: jest.fn(async () => {}),
 };
@@ -15,6 +17,11 @@ const mockActions = {
 jest.mock('@services', () => ({
   loadSession: (...args: never[]) => mockActions.loadSession(...(args as [])),
   clearSession: (...args: never[]) => mockActions.clearSession(...(args as [])),
+  clearPlaybackSession: (...args: never[]) =>
+    mockActions.clearPlaybackSession(...(args as [])),
+  melodixPlayer: {
+    stop: (...args: never[]) => mockActions.stopPlayback(...(args as [])),
+  },
 }));
 
 jest.mock('@api', () => ({
@@ -60,6 +67,8 @@ describe('UserDataContext — réponses Spotify obsolètes', () => {
     jest.clearAllMocks();
     mockActions.loadSession.mockResolvedValue({ accessToken: 'stored' });
     mockActions.clearSession.mockResolvedValue(undefined);
+    mockActions.clearPlaybackSession.mockResolvedValue(undefined);
+    mockActions.stopPlayback.mockResolvedValue(undefined);
     mockActions.invalidateUserPlaylistsCache.mockResolvedValue(undefined);
   });
 
@@ -80,6 +89,10 @@ describe('UserDataContext — réponses Spotify obsolètes', () => {
     await waitFor(() =>
       expect(getByTestId('user-state').props.status).toBe('local')
     );
+    expect(mockActions.stopPlayback).toHaveBeenCalledTimes(1);
+    expect(mockActions.clearPlaybackSession).toHaveBeenCalledTimes(1);
+    expect(mockActions.clearSession).toHaveBeenCalledTimes(1);
+    expect(mockActions.invalidateUserPlaylistsCache).toHaveBeenCalledTimes(1);
 
     profile.resolve(spotifyUser('stale'));
     await Promise.resolve();

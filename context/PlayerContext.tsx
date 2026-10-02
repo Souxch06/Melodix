@@ -90,7 +90,19 @@ export const PlayerProvider = ({ children }: { children: React.ReactNode }) => {
     React.useState<PlaybackSession | null>(null);
   const resumeInFlightRef = React.useRef(false);
 
-  React.useEffect(() => melodixPlayer.subscribe(setState), []);
+  React.useEffect(
+    () =>
+      melodixPlayer.subscribe((nextState) => {
+        setState(nextState);
+        // Un stop explicite (dont la déconnexion) purge aussi toute carte de
+        // reprise déjà chargée en mémoire. Effacer AsyncStorage seul ne suffit
+        // pas : le provider racine reste monté pendant le retour au login.
+        if (nextState.current === null && nextState.queue.length === 0) {
+          setPendingRestore(null);
+        }
+      }),
+    []
+  );
 
   // Phase 5A : le bridge MediaSession NE démarre AUCUN service au boot —
   // il se contente d'écouter ; l'activation réelle est conditionnée au

@@ -6,9 +6,10 @@ import type { AudiusTrackMatch } from '../../audius';
 import { backendSearchCatalog } from '../../backend';
 import { SEARCH_LIMIT, searchCatalog } from '../searchCatalog';
 
-// Le repli de recherche est contractual (audit Phase 6, §1) :
+// Le repli de recherche est contractuel (audit Phase 6, §1) :
 // backend Melodix → métadonnées Spotify ; Audius UNIQUEMENT en repli, ou
-// quand le backend n'est pas configuré — et la recherche ne casse JAMAIS.
+// quand le backend n'est pas configuré. Un double échec reste une ERREUR
+// réseau explicite : il ne doit jamais devenir un faux résultat vide.
 
 jest.mock('@services', () => ({
   isBackendConfigured: jest.fn(),
@@ -140,18 +141,24 @@ describe('searchCatalog — cascade backend → Audius', () => {
     expect(results.playlists).toEqual([]);
   });
 
-  it('returns empty results instead of propagating when Audius fails', async () => {
+  it('propagates an explicit network error when Audius also fails', async () => {
     mockedIsBackendConfigured.mockReturnValue(false);
+    const networkError = new Error('audius down');
+    mockedSearchAudiusTracks.mockRejectedValue(networkError);
+
+    await expect(searchCatalog('daft punk')).rejects.toBe(networkError);
+
+    expect(errorSpy).toHaveBeenCalled();
+  });
+
+  it('does not turn a backend + Audius outage into false empty results', async () => {
+    mockedIsBackendConfigured.mockReturnValue(true);
+    mockedBackendSearchCatalog.mockRejectedValue(new Error('backend down'));
     mockedSearchAudiusTracks.mockRejectedValue(new Error('audius down'));
 
-    const results = await searchCatalog('daft punk');
+    await expect(searchCatalog('daft punk')).rejects.toThrow('audius down');
 
-    expect(results).toEqual({
-      artists: [],
-      tracks: [],
-      albums: [],
-      playlists: [],
-    });
+    expect(warnSpy).toHaveBeenCalled();
     expect(errorSpy).toHaveBeenCalled();
   });
 });

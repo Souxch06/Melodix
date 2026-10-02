@@ -14,7 +14,12 @@
 import * as React from 'react';
 
 import { UserModel } from '@models';
-import { clearSession, loadSession } from '@services';
+import {
+  clearPlaybackSession,
+  clearSession,
+  loadSession,
+  melodixPlayer,
+} from '@services';
 
 import { getCurrentUser, invalidateUserPlaylistsCache } from '@api';
 
@@ -111,8 +116,25 @@ export const UserDataProvider = ({ children }: UserDataProviderPropsType) => {
     // Invalidation SYNCHRONE avant les I/O : aucun refresh déjà en vol ne
     // peut gagner la course pendant la purge SecureStore/cache.
     accountGenerationRef.current += 1;
-    await clearSession();
-    await invalidateUserPlaylistsCache();
+
+    // La déconnexion est aussi une frontière de lecture. `stop()` invalide
+    // immédiatement toute résolution en vol, décharge le son puis projette
+    // l'état vide vers le bridge natif (notification + MediaSession arrêtées).
+    // La purge explicite couvre également une carte « Reprendre » chargée
+    // avant que le moteur n'ait eu un morceau courant.
+    const cleanup = await Promise.allSettled([
+      melodixPlayer.stop(),
+      clearPlaybackSession(),
+      clearSession(),
+      invalidateUserPlaylistsCache(),
+    ]);
+
+    // SecureStore traite déjà sa suppression en best-effort. Les autres
+    // nettoyages ne doivent jamais laisser l'ancienne identité à l'écran si
+    // un stockage secondaire est momentanément indisponible.
+    if (cleanup.some((result) => result.status === 'rejected')) {
+      console.warn('Some local sign-out cleanup could not be completed');
+    }
     setUser(localUserData);
     setStatus('local');
   }, []);
