@@ -231,7 +231,9 @@ export const usePlaylistResolutions = (
                   status: 'resolved',
                   providerId: outcome.provider.id as 'audius' | 'youtube',
                 }
-              : NONE_ENTRY
+              : outcome?.status === 'no-match'
+                ? NONE_ENTRY
+                : { status: 'pending' }
           );
         });
       }

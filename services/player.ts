@@ -189,11 +189,19 @@ class MelodixPlayer {
   private state: PlayerState = INITIAL_PLAYER_STATE;
   private listeners = new Set<PlayerListener>();
   private sound: AvSound | null = null;
+  /** Tous les remplacements attendent la libération native précédente : mettre
+   * `sound = null` avant `unloadAsync()` ne doit jamais permettre à un nouveau
+   * Sound de démarrer pendant que l'ancien joue encore. */
+  private unloadQueue: Promise<void> = Promise.resolve();
   private avModule: ExpoAvModule | null | undefined;
   private audioModeReady = false;
   /** Réglage « Lecture en arrière-plan » (paramètres) — défaut historique. */
   private staysActiveInBackground = true;
   private matchCache: MatchCache | null = null;
+  /** Déduplique le chargement initial : deux play concurrents doivent partager
+   * la même carte mémoire, sinon le dernier getItem peut oublier la décision
+   * écrite par l'autre requête et refaire inutilement le matching. */
+  private matchCacheLoad: Promise<MatchCache> | null = null;
   private failedKeys = new Set<string>();
   /** Monceau actif actuel : tout resolve/chargement d'un token périmé est
    * ignoré et son éventuel Sound immédiatement déchargé (anti-double-lecture). */
@@ -203,6 +211,9 @@ class MelodixPlayer {
    * didJustFinish=true sur un nouveau tick du même vieux son pendant la
    * résolution du morceau suivant (field collant jusqu'à l'unload). */
   private lastFinishHandledForToken = -1;
+  /** Une erreur de flux peut être réémise plusieurs fois par expo-av avant
+   * l'unload. Une seule transition/avance est autorisée par Sound. */
+  private lastFailureHandledForToken = -1;
   /** Seek à consommer au démarrage effectif du son visé UNIQUEMENT (jamais
    * appliqué à un autre morceau : tag d'identité — voir pendingSeekForId). */
   private pendingSeekMillis = 0;
@@ -306,13 +317,22 @@ class MelodixPlayer {
     const sound = this.sound;
     this.sound = null;
 
-    if (sound) {
+    if (!sound) {
+      await this.unloadQueue;
+      return;
+    }
+
+    const operation = this.unloadQueue.then(async () => {
       try {
         await sound.unloadAsync();
       } catch (error) {
         console.warn('Failed to unload the previous sound:', error);
       }
-    }
+    });
+    // La chaîne ne rejette jamais (erreur déjà tolérée), ce qui garantit que
+    // les unload suivants ne restent pas bloqués derrière une panne native.
+    this.unloadQueue = operation;
+    await operation;
   };
 
   /**
@@ -336,19 +356,44 @@ class MelodixPlayer {
     status: AvPlaybackStatus
   ) => {
     if (status?.isLoaded === false) {
-      if (status.error && this.state.status === 'playing') {
-        void this.handleStreamFailure('play-failed');
+      if (
+        status.error &&
+        this.state.status === 'playing' &&
+        this.lastFailureHandledForToken !== token
+      ) {
+        this.lastFailureHandledForToken = token;
+        void this.handleStreamFailure('play-failed', token);
       }
 
       return;
     }
 
     // Certains callbacks expo-av (focus audio, buffering, fin) omettent la
-    // position ou la durée. Ne jamais effacer une valeur fiable avec zéro :
-    // le mini-player, le plein écran et la MediaSession partagent cet état.
+    // position/durée ou publient momentanément NaN/0. Ne jamais effacer une
+    // valeur fiable : mini-player, plein écran et MediaSession partagent cet
+    // état. Un zéro de position reste valide hors buffering (seek/restart).
+    const reportedPosition = status?.positionMillis;
+    const validPosition =
+      typeof reportedPosition === 'number' &&
+      Number.isFinite(reportedPosition) &&
+      reportedPosition >= 0 &&
+      !(
+        status.isBuffering === true &&
+        reportedPosition === 0 &&
+        this.state.positionMillis > 0
+      );
+    const reportedDuration = status?.durationMillis;
+    const validDuration =
+      typeof reportedDuration === 'number' &&
+      Number.isFinite(reportedDuration) &&
+      reportedDuration > 0;
     const playbackState: Partial<PlayerState> = {
-      positionMillis: status?.positionMillis ?? this.state.positionMillis,
-      durationMillis: status?.durationMillis ?? this.state.durationMillis,
+      positionMillis: validPosition
+        ? reportedPosition
+        : this.state.positionMillis,
+      durationMillis: validDuration
+        ? reportedDuration
+        : this.state.durationMillis,
     };
 
     // Une interruption Audio Focus peut mettre le Sound en pause sans passer
@@ -428,16 +473,29 @@ class MelodixPlayer {
     if (this.matchCache) {
       return this.matchCache;
     }
-
-    try {
-      const raw = await AsyncStorage.getItem(MATCH_CACHE_STORAGE_KEY);
-      this.matchCache = loadMatchCache(raw);
-    } catch (error) {
-      console.warn('Failed to load the match cache:', error);
-      this.matchCache = {};
+    if (this.matchCacheLoad) {
+      return this.matchCacheLoad;
     }
 
-    return this.matchCache;
+    const loading = (async (): Promise<MatchCache> => {
+      try {
+        const raw = await AsyncStorage.getItem(MATCH_CACHE_STORAGE_KEY);
+        this.matchCache = loadMatchCache(raw);
+      } catch (error) {
+        console.warn('Failed to load the match cache:', error);
+        this.matchCache = {};
+      }
+      return this.matchCache;
+    })();
+    this.matchCacheLoad = loading;
+
+    try {
+      return await loading;
+    } finally {
+      if (this.matchCacheLoad === loading) {
+        this.matchCacheLoad = null;
+      }
+    }
   };
 
   private resolveTrack = async (
@@ -623,12 +681,18 @@ class MelodixPlayer {
   };
 
   private advanceAfterFailure = async () => {
-    // Scan the ordered queue for the next track not yet failed this session.
+    // Comme une fin naturelle, un échec ne doit JAMAIS reboucler une file en
+    // repeat-off. On inspecte d'abord uniquement la suite ; le début de file
+    // n'est admissible qu'en repeat-all. Les morceaux déjà échoués pendant
+    // cette session restent exclus pour éviter toute boucle de panne.
     const indices = this.getOrderedIndices();
     const pointer = this.getOrderedPointer();
+    const candidates = [
+      ...indices.slice(pointer + 1),
+      ...(this.state.repeat === 'all' ? indices.slice(0, pointer + 1) : []),
+    ];
 
-    for (let step = 1; step <= indices.length; step++) {
-      const nextIndex = indices[(pointer + step) % indices.length];
+    for (const nextIndex of candidates) {
       const candidate = this.state.queue[nextIndex];
 
       if (candidate && !this.failedKeys.has(candidate.id)) {
@@ -637,7 +701,7 @@ class MelodixPlayer {
       }
     }
 
-    // Nothing playable left in this queue.
+    // Fin de file ou plus rien de jouable.
     await this.stop();
   };
 
@@ -695,15 +759,21 @@ class MelodixPlayer {
     await this.playIndex(indices[nextPointer]);
   };
 
-  private handleStreamFailure = async (kind: PlayerNotice['kind']) => {
+  private handleStreamFailure = async (
+    kind: PlayerNotice['kind'],
+    token: number
+  ) => {
     const track = this.state.current;
 
-    if (!track) {
+    if (!track || this.playToken !== token) {
       return;
     }
 
     this.markFailed(track, kind);
     await this.unloadCurrent();
+    if (this.playToken !== token) {
+      return; // une commande plus récente a gagné pendant l'unload natif
+    }
     await this.advanceAfterFailure();
   };
 
@@ -718,8 +788,11 @@ class MelodixPlayer {
 
     const index = Math.min(Math.max(startIndex, 0), queue.length - 1);
 
-    this.playToken += 1; // invalide tout resolve d'un morceau précédent
+    const requestToken = ++this.playToken; // invalide toute requête précédente
     await this.unloadCurrent();
+    if (this.playToken !== requestToken) {
+      return; // une lecture/stop plus récent a gagné pendant l'unload
+    }
     this.failedKeys = new Set();
     this.emit({
       queue,
@@ -804,6 +877,9 @@ class MelodixPlayer {
       }
 
       await this.unloadCurrent();
+      if (isStale()) {
+        return;
+      }
       const { sound } = await av.Audio.Sound.createAsync(
         { uri: result.resolved.uri },
         {
@@ -918,9 +994,15 @@ class MelodixPlayer {
       return;
     }
 
+    const sound = this.sound;
+    const token = this.playToken;
+
     if (this.state.status === 'playing') {
       try {
-        await this.sound.pauseAsync();
+        await sound.pauseAsync();
+        if (this.playToken !== token || this.sound !== sound) {
+          return;
+        }
         this.emit({ status: 'paused' });
         appendDiagLog(
           `PLAYER_STATE state=PAUSED trackId=${this.state.current?.id ?? 'none'}`
@@ -928,27 +1010,36 @@ class MelodixPlayer {
         this.persistSession(); // position figée : moment idéal d'écrire
       } catch (error) {
         console.error('Failed to pause:', error);
-        this.emit({ status: 'error' });
+        if (this.playToken === token && this.sound === sound) {
+          this.emit({ status: 'error' });
+        }
       }
 
       return;
     }
 
     try {
-      await this.sound.playAsync();
+      await sound.playAsync();
+      if (this.playToken !== token || this.sound !== sound) {
+        return;
+      }
       this.emit({ status: 'playing' });
       appendDiagLog(
         `PLAYER_STATE state=PLAYING trackId=${this.state.current?.id ?? 'none'}`
       );
     } catch (error) {
       console.error('Failed to resume:', error);
-      this.emit({ status: 'error' });
+      if (this.playToken === token && this.sound === sound) {
+        this.emit({ status: 'error' });
+      }
     }
   };
 
   next = async () => {
     if (this.state.status === 'loading' && this.state.current) {
-      // Let the current resolve finish; treat manual next as a queue move.
+      // Invalider AVANT l'unload : si le resolver courant termine pendant une
+      // libération native lente, il ne doit jamais créer un Sound dépassé.
+      this.playToken += 1;
       await this.unloadCurrent();
     }
 
@@ -967,18 +1058,29 @@ class MelodixPlayer {
   };
 
   seekTo = async (positionMillis: number) => {
-    const finitePosition = Number.isFinite(positionMillis) ? positionMillis : 0;
+    // Une valeur invalide issue d'un slider/callback transitoire ne doit pas
+    // téléporter la lecture au début ni contaminer l'état central.
+    if (!Number.isFinite(positionMillis)) {
+      return;
+    }
+
     const upperBound =
       this.state.durationMillis > 0
         ? this.state.durationMillis
         : Number.POSITIVE_INFINITY;
-    const clamped = Math.min(upperBound, Math.max(0, finitePosition));
+    const clamped = Math.min(upperBound, Math.max(0, positionMillis));
 
     if (this.sound) {
+      const sound = this.sound;
+      const token = this.playToken;
       try {
-        await this.sound.setPositionAsync(clamped);
+        await sound.setPositionAsync(clamped);
       } catch (error) {
         console.error('Seek failed:', error);
+        return; // les événements du Sound restent la source de vérité
+      }
+      if (this.playToken !== token || this.sound !== sound) {
+        return; // seek de l'ancien morceau terminé après un changement
       }
     } else if (this.state.status === 'loading') {
       // 5D §3 (seek avant durée connue) : pas de sound à commander — on
@@ -987,12 +1089,18 @@ class MelodixPlayer {
       // une seule fois au démarrage effectif) — TAGUÉE au morceau courant.
       this.pendingSeekMillis = clamped;
       this.pendingSeekForId = this.state.current?.id ?? null;
+    } else {
+      return;
     }
 
     this.emit({ positionMillis: clamped });
   };
 
   setVolume = async (volume: number) => {
+    if (!Number.isFinite(volume)) {
+      return;
+    }
+
     const clamped = Math.min(1, Math.max(0, volume));
 
     if (this.sound) {
@@ -1316,9 +1424,12 @@ class MelodixPlayer {
     const index = Math.min(Math.max(session.index, 0), queue.length - 1);
     const shuffle = session.shuffle === true;
 
-    this.playToken += 1;
+    const requestToken = ++this.playToken;
     this.failedKeys = new Set();
     await this.unloadCurrent();
+    if (this.playToken !== requestToken) {
+      return;
+    }
 
     this.emit({
       queue,
@@ -1344,10 +1455,13 @@ class MelodixPlayer {
   };
 
   stop = async () => {
-    this.playToken += 1; // tout resolve en vol devient orphelin
+    const requestToken = ++this.playToken; // tout resolve en vol devient orphelin
     this.pendingSeekMillis = 0;
     this.pendingSeekForId = null;
     await this.unloadCurrent();
+    if (this.playToken !== requestToken) {
+      return; // une lecture plus récente a gagné pendant l'unload
+    }
     // Fermeture explicite : la session persistée est PURGÉE (Reprendre =
     // uniquement les sessions interrompues, jamais les arrêts volontaires).
     void clearPlaybackSession().catch(() => undefined);
@@ -1366,6 +1480,7 @@ class MelodixPlayer {
   __testReset = async () => {
     await this.unloadCurrent();
     this.matchCache = null;
+    this.matchCacheLoad = null;
     this.failedKeys = new Set();
     this.pendingSeekMillis = 0;
     this.pendingSeekForId = null;

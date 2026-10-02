@@ -318,6 +318,25 @@ describe('mediaBridge — projection MediaSession (phase 5A)', () => {
     });
   });
 
+  it('builder pur : NaN ne traverse jamais vers MediaSession', () => {
+    const payload = buildMediaSessionPayload({
+      ...melodixPlayer.getState(),
+      current: {
+        ...morceau('x', 'Valeurs transitoires'),
+        durationMillis: Number.NaN,
+      },
+      status: 'playing',
+      durationMillis: Number.NaN,
+      positionMillis: Number.NaN,
+    });
+
+    expect(payload).toMatchObject({
+      durationMillis: 0,
+      positionMillis: 0,
+      isPlaying: true,
+    });
+  });
+
   describe('commandes système → moteur (jamais de toggle perdu)', () => {
     it('PLAY quand paused → lecture ; PLAY quand playing → AUCUN toggle', async () => {
       await melodixPlayer.playQueue([morceau('a', 'Photo')], 0);

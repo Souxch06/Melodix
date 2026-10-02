@@ -67,17 +67,29 @@ export const buildMediaSessionPayload = (
     return null;
   }
 
+  const stateDuration =
+    Number.isFinite(state.durationMillis) && state.durationMillis > 0
+      ? state.durationMillis
+      : null;
+  const metadataDuration =
+    typeof track.durationMillis === 'number' &&
+    Number.isFinite(track.durationMillis) &&
+    track.durationMillis > 0
+      ? track.durationMillis
+      : 0;
+  const position =
+    Number.isFinite(state.positionMillis) && state.positionMillis >= 0
+      ? state.positionMillis
+      : 0;
+
   return {
     trackId: track.id,
     title: track.title,
     artist: track.artists.join(', '),
     album: track.album ?? null,
     artworkUrl: track.imageURL || null,
-    durationMillis:
-      state.durationMillis > 0
-        ? state.durationMillis
-        : (track.durationMillis ?? 0),
-    positionMillis: Math.max(0, state.positionMillis),
+    durationMillis: stateDuration ?? metadataDuration,
+    positionMillis: position,
     isPlaying: state.status === 'playing',
   };
 };
