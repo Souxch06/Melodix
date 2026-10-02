@@ -91,6 +91,9 @@ export type PlayerState = {
   status: PlayerStatus;
   positionMillis: number;
   durationMillis: number;
+  /** Buffering runtime distinct de `loading`: le Sound existe et conserve
+   * son intention play/pause pendant que le réseau se recharge. */
+  buffering: boolean;
   shuffle: boolean;
   repeat: RepeatMode;
   volume: number;
@@ -140,6 +143,7 @@ export const INITIAL_PLAYER_STATE: PlayerState = {
   status: 'idle',
   positionMillis: 0,
   durationMillis: 0,
+  buffering: false,
   shuffle: false,
   repeat: 'off',
   volume: 1,
@@ -247,7 +251,15 @@ class MelodixPlayer {
   };
 
   private emit = (partial: Partial<PlayerState>) => {
-    this.state = { ...this.state, ...partial };
+    const next = { ...this.state, ...partial };
+    // `orderPointer` est exposé à React au même titre que queue/index. Le
+    // recalculer à chaque mutation évite un pointeur resté à 0 après
+    // next/remove/move en shuffle, même si les helpers moteur utilisent index.
+    next.orderPointer =
+      next.shuffle && next.order?.length === next.queue.length
+        ? next.order.indexOf(next.index)
+        : -1;
+    this.state = next;
     this.listeners.forEach((listener) => listener(this.state));
   };
 
@@ -355,6 +367,13 @@ class MelodixPlayer {
       if (this.playToken !== token) {
         return; // son orphelin : émission parfaitement ignorée
       }
+      // expo-av peut publier le statut initial AVANT que createAsync rende le
+      // Sound. Ce callback ne doit pas faire passer `loading` à `playing` : le
+      // garde post-create le prendrait alors pour une commande concurrente et
+      // déchargerait le Sound valide comme s'il était orphelin.
+      if (this.state.status === 'loading' && this.sound === null) {
+        return;
+      }
 
       this.onPlaybackStatusUpdate(token, status);
     };
@@ -403,6 +422,9 @@ class MelodixPlayer {
       durationMillis: validDuration
         ? reportedDuration
         : this.state.durationMillis,
+      ...(typeof status.isBuffering === 'boolean'
+        ? { buffering: status.isBuffering }
+        : {}),
     };
 
     // Une interruption Audio Focus peut mettre le Sound en pause sans passer
@@ -854,6 +876,7 @@ class MelodixPlayer {
       index,
       current: queue[index],
       status: 'loading',
+      buffering: true,
       order: this.state.shuffle
         ? buildShuffledOrder(queue.length, index)
         : null,
@@ -892,14 +915,14 @@ class MelodixPlayer {
         `titleLength=${track.title.length} artists=${track.artists.length} ` +
         `hasIsrc=${Boolean(track.isrc)}`
     );
-    this.emit({ index, current: track, status: 'loading' });
+    this.emit({ index, current: track, status: 'loading', buffering: true });
     this.persistSession(); // nouveau morceau pointe la session vers lui
     this.ensureAppStatePersistence();
 
     const av = this.getAv();
 
     if (!av?.Audio) {
-      this.emit({ status: 'unavailable' });
+      this.emit({ status: 'unavailable', buffering: false });
       return;
     }
 
@@ -969,6 +992,7 @@ class MelodixPlayer {
       );
       this.emit({
         status: 'playing',
+        buffering: false,
         resolved: result.info,
         // Un nouveau morceau commence : toute notice d'erreur disparaît —
         // jamais affichée sur le morceau suivant (cohérent mini/plein écran).
@@ -990,9 +1014,14 @@ class MelodixPlayer {
         if (targetForId === track.id) {
           try {
             await sound.setPositionAsync(target);
+            if (isStale() || this.sound !== sound) {
+              return; // seek différé de l'ancien morceau terminé trop tard
+            }
             this.emit({ positionMillis: target });
           } catch (seekError) {
-            console.warn('Restore seek failed (tolerated):', seekError);
+            if (!isStale()) {
+              console.warn('Restore seek failed (tolerated):', seekError);
+            }
           }
         }
       }
@@ -1062,7 +1091,7 @@ class MelodixPlayer {
         if (this.playToken !== token || this.sound !== sound) {
           return;
         }
-        this.emit({ status: 'paused' });
+        this.emit({ status: 'paused', buffering: false });
         appendDiagLog(
           `PLAYER_STATE state=PAUSED trackId=${this.state.current?.id ?? 'none'}`
         );
@@ -1070,7 +1099,7 @@ class MelodixPlayer {
       } catch (error) {
         console.error('Failed to pause:', error);
         if (this.playToken === token && this.sound === sound) {
-          this.emit({ status: 'error' });
+          this.emit({ status: 'error', buffering: false });
         }
       }
 
@@ -1082,14 +1111,14 @@ class MelodixPlayer {
       if (this.playToken !== token || this.sound !== sound) {
         return;
       }
-      this.emit({ status: 'playing' });
+      this.emit({ status: 'playing', buffering: false });
       appendDiagLog(
         `PLAYER_STATE state=PLAYING trackId=${this.state.current?.id ?? 'none'}`
       );
     } catch (error) {
       console.error('Failed to resume:', error);
       if (this.playToken === token && this.sound === sound) {
-        this.emit({ status: 'error' });
+        this.emit({ status: 'error', buffering: false });
       }
     }
   };
@@ -1499,6 +1528,7 @@ class MelodixPlayer {
       index,
       current: queue[index],
       status: 'idle',
+      buffering: false,
       // L'ordre de lecture shuffle est REBATI (il n'est pas persisté) : file
       // originale intacte, courant épinglé — mêmes règles que playQueue().
       order: shuffle ? buildShuffledOrder(queue.length, index) : null,

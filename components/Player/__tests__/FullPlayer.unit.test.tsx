@@ -42,6 +42,7 @@ let mockPlayerState: {
   queue: PlayerTrack[];
   index: number;
   status: string;
+  buffering?: boolean;
   positionMillis: number;
   durationMillis: number;
   shuffle: boolean;
@@ -103,6 +104,7 @@ describe('FullPlayer — inventaire réel avant refonte éventuelle', () => {
       ],
       index: 0,
       status: 'playing',
+      buffering: false,
       positionMillis: 65000,
       durationMillis: 180000,
       shuffle: false,
@@ -174,6 +176,18 @@ describe('FullPlayer — inventaire réel avant refonte éventuelle', () => {
     expect(mockNext).toHaveBeenCalledTimes(1);
     expect(mockToggleShuffle).toHaveBeenCalledTimes(1);
     expect(mockCycleRepeat).toHaveBeenCalledTimes(1);
+  });
+
+  it('affiche le spinner pendant un buffering runtime', () => {
+    mockPlayerState = {
+      ...mockPlayerState,
+      status: 'playing',
+      buffering: true,
+    };
+    const { getByLabelText, queryByLabelText } = render(<FullPlayer />);
+
+    expect(getByLabelText(translations.playerLoading)).toBeTruthy();
+    expect(queryByLabelText(translations.playerPause)).toBeNull();
   });
 
   it('« Répéter le titre » porte le libellé dédié en mode one', () => {

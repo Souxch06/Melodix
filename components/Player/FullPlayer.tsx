@@ -51,6 +51,7 @@ export const FullPlayer = () => {
     queue,
     index: currentIndex,
     status,
+    buffering,
     positionMillis,
     durationMillis,
     shuffle,
@@ -174,7 +175,7 @@ export const FullPlayer = () => {
   const isMuted = volume <= 0;
   const seekShownMillis = seekPreviewMillis ?? positionMillis;
   const isPlaying = status === 'playing';
-  const isBuffering = status === 'loading';
+  const isBuffering = status === 'loading' || buffering;
   // Durée réelle pas encore connue (avant le 1er statut expo-av ou sans
   // métadonnée Spotify) : « —:-- » honnête + seek désactivé — jamais « 0:00 »
   // présenté comme une durée réelle (phase 1, section 4).
