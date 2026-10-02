@@ -194,7 +194,15 @@ class MelodixMediaModule : Module() {
       try {
         // DIAG 4.4.5-diagnostic : la Function Expo est bien atteinte.
         android.util.Log.i("MXDIAG", "MEDIA_SESSION_UPDATE_CALL")
-        val context = appContext.reactContext ?: return@Function
+        val context = appContext.reactContext
+        if (context == null) {
+          MelodixDiagLog.step("NATIVE_UPDATE_NO_REACT_CONTEXT")
+          return@Function
+        }
+        MelodixDiagLog.step(
+          "NATIVE_UPDATE_RECEIVED",
+          "state=${if (payload["isPlaying"] == true) "PLAYING" else "PAUSED"} keys=${payload.keys.size}"
+        )
         MelodixMediaController.updateSession(context, payload)
       } catch (t: Throwable) {
         android.util.Log.e(TAG, "updateSession ignoré — lecture préservée", t)
