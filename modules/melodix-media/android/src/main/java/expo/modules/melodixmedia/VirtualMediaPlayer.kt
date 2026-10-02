@@ -93,14 +93,25 @@ class VirtualMediaPlayer(looper: Looper) : SimpleBasePlayer(looper) {
     }
   }
 
+  private fun safeNonNegativeMillis(value: Any?): Long {
+    val number = (value as? Number)?.toDouble() ?: return 0L
+    if (!number.isFinite() || number <= 0.0) return 0L
+    // La durée est ensuite convertie en microsecondes par Media3 : borner
+    // avant la multiplication évite tout overflow Long sur payload malformé.
+    return number.coerceAtMost(MAX_MEDIA_MILLIS.toDouble()).toLong()
+  }
+
   private fun updateSessionUnsafe(payload: Map<String, Any?>) {
     val trackId = payload["trackId"] as? String ?: "melodix-current"
     val title = payload["title"] as? String ?: ""
     val artist = payload["artist"] as? String ?: ""
     val album = payload["album"] as? String
     val artworkUrl = payload["artworkUrl"] as? String
-    val durationMillis = (payload["durationMillis"] as? Number)?.toLong() ?: 0L
-    val positionMillis = (payload["positionMillis"] as? Number)?.toLong() ?: 0L
+    val durationMillis = safeNonNegativeMillis(payload["durationMillis"])
+    val rawPositionMillis = safeNonNegativeMillis(payload["positionMillis"])
+    val positionMillis =
+      if (durationMillis > 0L) rawPositionMillis.coerceAtMost(durationMillis)
+      else rawPositionMillis
     val isPlaying = payload["isPlaying"] as? Boolean ?: false
 
     // Test C (4.4.7) : skipMetadata projette l'état SANS métadonnées/artwork
@@ -211,5 +222,6 @@ class VirtualMediaPlayer(looper: Looper) : SimpleBasePlayer(looper) {
 
   companion object {
     private const val TAG = "VirtualMediaPlayer"
+    private const val MAX_MEDIA_MILLIS = Long.MAX_VALUE / 1_000L
   }
 }

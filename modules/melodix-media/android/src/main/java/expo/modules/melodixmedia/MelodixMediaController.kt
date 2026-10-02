@@ -41,6 +41,11 @@ object MelodixMediaController {
   @Volatile
   private var serviceCreated = false
 
+  /** Identifie la tentative de démarrage courante. Un timeout retardé d'une
+   * tentative morte ne doit jamais annuler une tentative plus récente. */
+  @Volatile
+  private var serviceStartGeneration = 0
+
   private val mainHandler = Handler(Looper.getMainLooper())
 
   /**
@@ -59,6 +64,7 @@ object MelodixMediaController {
     mainHandler.post {
       if (!serviceRunning) {
         serviceRunning = true
+        val startGeneration = ++serviceStartGeneration
         try {
           // Démarrage depuis le FOREGROUND uniquement (lecture volontaire) :
           // Android 12+ autorise startForegroundService dans ce cas.
@@ -79,8 +85,15 @@ object MelodixMediaController {
             // accepté. Si Android/OEM ne crée jamais le service, ne pas garder
             // éternellement un drapeau optimiste qui bloquerait tout retry.
             mainHandler.postDelayed({
-              if (serviceRunning && !serviceCreated) {
-                MelodixDiagLog.step("SERVICE_CREATE_TIMEOUT", "retryAllowed=true")
+              if (
+                serviceStartGeneration == startGeneration &&
+                serviceRunning &&
+                !serviceCreated
+              ) {
+                MelodixDiagLog.step(
+                  "SERVICE_CREATE_TIMEOUT",
+                  "retryAllowed=true generation=$startGeneration"
+                )
                 serviceRunning = false
               }
             }, 5_000L)
@@ -120,6 +133,7 @@ object MelodixMediaController {
     val appContext = context.applicationContext
 
     mainHandler.post {
+      serviceStartGeneration += 1
       if (serviceRunning) {
         serviceRunning = false
         appContext.stopService(Intent(appContext, MelodixMediaService::class.java))
@@ -147,6 +161,7 @@ object MelodixMediaController {
 
   /** Appelé depuis le vrai cycle de vie du Service, sur le main thread. */
   fun onServiceCreated() {
+    serviceStartGeneration += 1
     serviceRunning = true
     serviceCreated = true
   }
@@ -157,6 +172,7 @@ object MelodixMediaController {
    * redémarrage ultérieur : serviceRunning=true mais listener=null.
    */
   fun onServiceDestroyed() {
+    serviceStartGeneration += 1
     serviceCreated = false
     serviceRunning = false
   }
@@ -177,6 +193,7 @@ object MelodixMediaController {
 
   /** Appelé par le service quand Android a refusé le FGS : état nettoyé. */
   fun onServiceStartRejected() {
+    serviceStartGeneration += 1
     serviceCreated = false
     serviceRunning = false
   }
@@ -187,6 +204,7 @@ object MelodixMediaController {
    * Play — la lecture audio, elle, n'a jamais dépendu de cette couche.
    */
   fun onServiceCrashed() {
+    serviceStartGeneration += 1
     serviceCreated = false
     serviceRunning = false
     Log.w(TAG, "Service indisponible : prochaine projection retentera le démarrage")

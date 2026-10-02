@@ -18,6 +18,7 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.Shadows.shadowOf
 import org.robolectric.android.controller.ServiceController
 import org.robolectric.annotation.Config
+import java.util.concurrent.TimeUnit
 
 /** Régression du bug « audio sans notification » sur le vrai service Media3. */
 @RunWith(RobolectricTestRunner::class)
@@ -64,6 +65,32 @@ class MelodixMediaServiceTest {
     val status = MelodixMediaController.diagStatus()
     assertTrue(status.contains("serviceCreated=false"))
     assertTrue(status.contains("serviceStartRequested=false"))
+  }
+
+  @Test
+  fun `timeout d une ancienne tentative n annule pas le redemarrage courant`() {
+    controller.destroy()
+    destroyed = true
+
+    val projection = mapOf<String, Any?>(
+      "trackId" to "spotify:retry",
+      "title" to "Retry",
+      "isPlaying" to true
+    )
+    MelodixMediaController.updateSession(service, projection)
+    shadowOf(Looper.getMainLooper()).idle()
+
+    // La première tentative échoue, puis une nouvelle commence une seconde
+    // plus tard. Son timeout doit rester à t+6 s, pas hériter de celui à t+5.
+    MelodixMediaController.onServiceCrashed()
+    shadowOf(Looper.getMainLooper()).idleFor(1, TimeUnit.SECONDS)
+    MelodixMediaController.updateSession(service, projection)
+    shadowOf(Looper.getMainLooper()).idle()
+    shadowOf(Looper.getMainLooper()).idleFor(4, TimeUnit.SECONDS)
+
+    val status = MelodixMediaController.diagStatus()
+    assertTrue(status.contains("serviceStartRequested=true"))
+    assertTrue(status.contains("serviceCreated=false"))
   }
 
   @Test
