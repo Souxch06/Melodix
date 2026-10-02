@@ -555,20 +555,34 @@ export const matchSongs = (
 
     const candidateArtistNames =
       candidate.artistNames?.map((name) => normalizeArtistText(name)) ?? [];
+    const comparableArtists = Array.from(
+      new Set([
+        ...candidateArtistNames,
+        ...views.inferredArtists,
+        ...parseFeaturedArtists(normalizeTitleText(candidate.title)),
+      ])
+    );
     const artistAgreement = artistOverlapScore(
       source.artistNames,
-      Array.from(
-        new Set([
-          ...candidateArtistNames,
-          ...views.inferredArtists,
-          ...parseFeaturedArtists(normalizeTitleText(candidate.title)),
-        ])
-      )
+      comparableArtists
     );
+    const primaryArtistAgreement = source.artistNames[0]
+      ? Math.max(
+          0,
+          ...comparableArtists.map((candidateArtist) =>
+            textSimilarity(source.artistNames[0], candidateArtist)
+          )
+        )
+      : 1;
 
-    // Sans ISRC exact, aucun artiste commun = refus ferme. Les artistes
-    // préfixés dans « Artist - Song » sont inclus via inferredArtists.
-    if (!isrcExact && artistAgreement === 0 && source.artistNames.length > 0) {
+    // Le featuring seul ne prouve jamais l'enregistrement : un upload par
+    // l'artiste invité portant le même titre peut être une reprise/remix. Le
+    // principal doit être présent, directement ou dans « Artist - Song ».
+    if (
+      !isrcExact &&
+      source.artistNames.length > 0 &&
+      (artistAgreement === 0 || primaryArtistAgreement < 0.82)
+    ) {
       decide({
         id: candidate.id,
         accepted: false,

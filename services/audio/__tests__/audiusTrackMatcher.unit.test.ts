@@ -89,6 +89,45 @@ describe('matchSongs — reliable matching', () => {
     expect(match?.id).toBe('aud-1');
   });
 
+  it('refuse un titre exact porté seulement par l artiste invité', () => {
+    const decisions: string[] = [];
+    const match = matchSongs(
+      source('Shared Name', ['Main Artist', 'Guest Artist'], {
+        durationSec: 200,
+      }),
+      [
+        {
+          id: 'guest-cover',
+          title: 'Shared Name',
+          artistNames: ['Guest Artist'],
+          durationSec: 200,
+        },
+      ],
+      { onCandidateDecision: (decision) => decisions.push(decision.reason) }
+    );
+
+    expect(match).toBeNull();
+    expect(decisions).toContain('artist-mismatch');
+  });
+
+  it('accepte le principal inféré depuis un titre Artist - Song', () => {
+    const match = matchSongs(
+      source('Shared Name', ['Main Artist', 'Guest Artist'], {
+        durationSec: 200,
+      }),
+      [
+        {
+          id: 'credited-upload',
+          title: 'Main Artist - Shared Name',
+          artistNames: ['Guest Artist'],
+          durationSec: 200,
+        },
+      ]
+    );
+
+    expect(match?.id).toBe('credited-upload');
+  });
+
   it('matches despite remaster/official tails and case changes', () => {
     // Décorations éditoriales acceptées ; les versions musicales restent dures.
     const variants: Candidate[] = [

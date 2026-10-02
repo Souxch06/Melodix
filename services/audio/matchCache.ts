@@ -8,9 +8,9 @@ import { sourceKeyOf } from './sourceKey';
  * JSON unique (des centaines d'entrées restent très en dessous des limites
  * AsyncStorage).
  *
- * v4 : invalide les décisions antérieures aux portes strictes radio/extended/
- *      sped/slowed et aux diagnostics de rejet détaillés.
- * v3 : invalidait les anciens négatifs après l'ajout ISRC + matching fuzzy.
+ * v5 : invalide les décisions antérieures à la porte d'artiste principal ;
+ *      un featuring seul ne suffit plus à identifier un enregistrement.
+ * v4 : ajoutait les portes strictes radio/extended/sped/slowed.
  * v2 : chaque décision mémorisait AUSSI le provider (« audius » | « youtube ») —
  * cas exigés :
  *
@@ -23,12 +23,11 @@ import { sourceKeyOf } from './sourceKey';
  *   doit pas rendre le morceau durablement indisponible ;
  * - clearMatchCache/removeMatchCacheEntry = mécanisme « refaire le
  *   matching » explicitement requis ;
- * - migration : les caches v1 (sans providerId) deviennent Audius, la
- *   source décisionnelle d'alors (sans perte, sans recherche refaite).
+ * - toute version antérieure est invalidée quand une porte stricte change :
+ *   mieux vaut rematcher que conserver un ancien faux positif.
  */
 
-export const MATCH_CACHE_VERSION = 4;
-export const MATCH_CACHE_LEGACY_VERSION = 1;
+export const MATCH_CACHE_VERSION = 5;
 
 export type MatchCacheEntry = {
   version: number;
@@ -64,42 +63,29 @@ const enqueueMutation = <T>(operation: () => Promise<T>): Promise<T> => {
   return next;
 };
 
-const isValidEntry = (value: unknown): value is MatchCacheEntry =>
-  !!value &&
-  typeof value === 'object' &&
-  typeof (value as MatchCacheEntry).matchedAt === 'number' &&
-  ((value as MatchCacheEntry).providerId === null ||
-    typeof (value as MatchCacheEntry).providerId === 'string') &&
-  ((value as MatchCacheEntry).matchId === null ||
-    typeof (value as MatchCacheEntry).matchId === 'string') &&
-  typeof (value as MatchCacheEntry).score === 'number';
-
-const migrateLegacyEntry = (value: unknown): MatchCacheEntry | null => {
-  // v1 : { version: 1, matchedAt, matchId, score } — la source était Audius.
-  const record = value as {
-    version?: unknown;
-    matchedAt?: unknown;
-    matchId?: unknown;
-    score?: unknown;
-  } | null;
-
-  if (
-    !record ||
-    record.version !== MATCH_CACHE_LEGACY_VERSION ||
-    typeof record.matchedAt !== 'number' ||
-    typeof record.score !== 'number' ||
-    (record.matchId !== null && typeof record.matchId !== 'string')
-  ) {
-    return null;
+const isValidEntry = (value: unknown): value is MatchCacheEntry => {
+  if (!value || typeof value !== 'object') {
+    return false;
   }
+  const entry = value as MatchCacheEntry;
+  const validProvider =
+    entry.providerId === null || typeof entry.providerId === 'string';
+  const validMatch =
+    entry.matchId === null || typeof entry.matchId === 'string';
+  const coherentDecision =
+    (entry.providerId === null && entry.matchId === null) ||
+    (typeof entry.providerId === 'string' && typeof entry.matchId === 'string');
 
-  return {
-    version: MATCH_CACHE_VERSION,
-    matchedAt: record.matchedAt,
-    providerId: record.matchId === null ? null : 'audius',
-    matchId: (record.matchId as string | null) ?? null,
-    score: record.score,
-  };
+  return (
+    typeof entry.matchedAt === 'number' &&
+    Number.isFinite(entry.matchedAt) &&
+    entry.matchedAt >= 0 &&
+    validProvider &&
+    validMatch &&
+    coherentDecision &&
+    typeof entry.score === 'number' &&
+    Number.isFinite(entry.score)
+  );
 };
 
 export const loadMatchCache = (raw: string | null): MatchCache => {
@@ -113,20 +99,13 @@ export const loadMatchCache = (raw: string | null): MatchCache => {
     const cache: MatchCache = {};
 
     for (const [key, value] of Object.entries(parsed)) {
-      let entry: MatchCacheEntry | null = null;
-
       if (
-        isValidEntry(value) &&
-        (value as MatchCacheEntry).version === MATCH_CACHE_VERSION
+        !isValidEntry(value) ||
+        (value as MatchCacheEntry).version !== MATCH_CACHE_VERSION
       ) {
-        entry = value as MatchCacheEntry;
-      } else {
-        entry = migrateLegacyEntry(value);
-      }
-
-      if (!entry) {
         continue;
       }
+      const entry = value as MatchCacheEntry;
 
       const ttl =
         entry.matchId === null
