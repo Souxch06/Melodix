@@ -19,7 +19,9 @@ const emptyResults = (): SearchResultsModel => ({
  * - Backend configuré ET joignable → métadonnées Spotify (catalogue complet,
  *   sans aucun compte pour l'utilisateur).
  * - Backend absent/joignable mal → REPLI Audius (catalogue audio direct,
- *   sans compte non plus) : la recherche ne casse jamais l'application.
+ *   sans compte non plus).
+ * - Si les deux sources échouent, l'erreur est propagée afin que l'UI affiche
+ *   un véritable état réseau, jamais un faux « aucun résultat ».
  */
 export const searchCatalog = async (
   query: string
@@ -50,6 +52,6 @@ export const searchCatalog = async (
     };
   } catch (error) {
     console.error(`Erreur de recherche Audius pour : ${q}`, error);
-    return emptyResults();
+    throw error;
   }
 };

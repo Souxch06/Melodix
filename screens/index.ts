@@ -4,6 +4,7 @@ export { LibraryScreen } from './LibraryScreen';
 export { FavoritesScreen } from './FavoritesScreen';
 export { PlaylistScreen } from './PlaylistScreen';
 export { AlbumScreen } from './AlbumScreen';
+export { ArtistScreen } from './ArtistScreen';
 export { PlayerScreen } from './PlayerScreen';
 export { LoginScreen } from './LoginScreen';
 export { SettingsScreen } from './SettingsScreen';
