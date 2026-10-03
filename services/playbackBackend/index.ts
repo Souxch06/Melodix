@@ -1,6 +1,7 @@
 export { AudiusYouTubeBackend } from './AudiusYouTubeBackend';
 export { buildBackendMediaSessionPayload } from './mediaProjection';
 export { SpotifyWebBackend } from './SpotifyWebBackend';
+export { SPOTIFY_WEB_MEDIA_SESSION_PROBE } from './spotifyWebMediaSessionProbe';
 export type { SpotifyWebRuntimeCommands } from './SpotifyWebBackend';
 export {
   INITIAL_SPOTIFY_WEB_STATE,
