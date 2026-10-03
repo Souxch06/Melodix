@@ -30,7 +30,7 @@ MediaSession -> mediaBridge -> melodixPlayer (inchangé pour cette phase)
 
 ## Limites volontaires de la phase 1
 
-- aucun script injecté ;
+- un probe minimal est injecté uniquement pour lire l'API Web standard W3C `navigator.mediaSession` (metadata + `playbackState`) et publier une enveloppe allowlistée ; il ne touche ni DOM, ni élément média, ni API Spotify privée ;
 - aucun scraping DOM ou contrôle d'élément média ;
 - aucune lecture de cookie, storage, token, credential, réponse réseau, DRM ou flux ;
 - aucune donnée OAuth PKCE transmise à la WebView ;
@@ -39,6 +39,8 @@ MediaSession -> mediaBridge -> melodixPlayer (inchangé pour cette phase)
 - play/pause/seek/next/previous Web sont définis dans le contrat mais restent non branchés et diagnostiqués comme indisponibles ; les commandes sont arbitrées `latest-command-wins`, mais ne peuvent réussir qu'après handshake et confirmation positive d'un runtime autorisé ;
 - connexion effective et session perdue ne sont pas déduites artificiellement : seul le passage par `accounts.spotify.com` puis le retour vers `open.spotify.com` est observé au niveau navigation ;
 - aucune projection MediaSession du Web Player avant une source d'état fiable et testée.
+
+Le probe standard peut fournir titre, artiste, artwork et état playing/paused uniquement si Spotify expose effectivement ces champs via `navigator.mediaSession` dans Android WebView. Cette disponibilité doit être confirmée pendant une vraie lecture connectée. L'API ne fournit pas de getter portable pour durée/position et n'offre pas de méthode play/pause/next/previous à appeler : ces valeurs restent donc à zéro et les commandes restent désactivées plutôt que simulées.
 
 Le smoke Android ouvre la route expérimentale par deep link, vérifie son rendu natif et exerce un cycle arrière-plan/retour. Il ne se connecte pas à un compte et ne prétend donc pas valider l'authentification, la lecture, la continuité audio de fond ni la récupération après destruction forcée du renderer.
 

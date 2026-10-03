@@ -31,7 +31,9 @@ describe('SpotifyWebPrototypeScreen', () => {
     expect(webView.props.source).toEqual({ uri: 'https://open.spotify.com' });
     expect(webView.props.sharedCookiesEnabled).toBe(true);
     expect(webView.props.thirdPartyCookiesEnabled).toBe(true);
-    expect(webView.props.injectedJavaScript).toBeUndefined();
+    expect(webView.props.injectedJavaScript).toContain(
+      'navigator.mediaSession'
+    );
 
     fireEvent(webView, 'navigationStateChange', {
       url: 'https://accounts.spotify.com/login',

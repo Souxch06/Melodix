@@ -11,6 +11,7 @@ import {
   diagnosticPageLabel,
   isAllowedSpotifyWebNavigation,
   SpotifyWebBackend,
+  SPOTIFY_WEB_MEDIA_SESSION_PROBE,
   type PlaybackBackendState,
   type SpotifyWebDiagnosticCode,
 } from '../services/playbackBackend';
@@ -195,6 +196,7 @@ export const SpotifyWebPrototypeScreen = () => {
           allowsInlineMediaPlayback
           cacheEnabled
           domStorageEnabled
+          injectedJavaScript={SPOTIFY_WEB_MEDIA_SESSION_PROBE}
           javaScriptEnabled
           mediaPlaybackRequiresUserAction
           mixedContentMode="never"

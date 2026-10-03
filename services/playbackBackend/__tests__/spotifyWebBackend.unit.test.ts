@@ -1,5 +1,6 @@
 import { buildBackendMediaSessionPayload } from '../mediaProjection';
 import { SpotifyWebBackend } from '../SpotifyWebBackend';
+import { SPOTIFY_WEB_MEDIA_SESSION_PROBE } from '../spotifyWebMediaSessionProbe';
 import {
   classifySpotifyWebBridgeMessage,
   parseSpotifyWebBridgeMessage,
@@ -11,6 +12,17 @@ import {
   diagnosticPageLabel,
   isAllowedSpotifyWebNavigation,
 } from '../spotifyWebRuntime';
+
+describe('Spotify Web standards-only Media Session probe', () => {
+  it('utilise uniquement navigator.mediaSession et le bridge allowlisté', () => {
+    expect(SPOTIFY_WEB_MEDIA_SESSION_PROBE).toContain('navigator.mediaSession');
+    expect(SPOTIFY_WEB_MEDIA_SESSION_PROBE).toContain("type: 'ready'");
+    expect(SPOTIFY_WEB_MEDIA_SESSION_PROBE).toContain("type: 'state'");
+    expect(SPOTIFY_WEB_MEDIA_SESSION_PROBE).not.toMatch(
+      /cookie|localStorage|sessionStorage|XMLHttpRequest|\bfetch\b|querySelector|\.mediaKeys|eme|token/i
+    );
+  });
+});
 
 describe('Spotify Web playback state normalization', () => {
   it('normalise playing/paused sans inventer les métadonnées absentes', () => {
