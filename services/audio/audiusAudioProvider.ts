@@ -44,6 +44,7 @@ export const createAudiusAudioProvider = (): AudioProvider => {
             ? query.durationMillis / 1000
             : null,
         isrc: query.isrc,
+        explicit: query.explicit,
       });
 
       return results

@@ -113,6 +113,7 @@ Spotify/API ou Audius metadata
 
 - score partagé Audius/YouTube ;
 - ISRC exact, titre normalisé, artiste principal/secondaires, album, durée ;
+- classification explicit/clean conservée de Spotify au matcher et à la reprise ;
 - portes dures contre remix/live/acoustic/instrumental/karaoke incorrects ;
 - refus sous seuil, jamais « premier résultat » ;
 - distinction `no-match` / panne provider pour ne pas mettre une panne réseau

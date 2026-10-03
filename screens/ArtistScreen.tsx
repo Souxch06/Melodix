@@ -34,6 +34,7 @@ const toPlayerTrack = (track: TrackModel): PlayerTrack => ({
   artists: track.subtitle ? track.subtitle.split(', ').filter(Boolean) : [],
   album: track.albumName ?? null,
   durationMillis: track.durationMs ?? null,
+  explicit: track.explicit ?? null,
   imageURL: track.imageURL ?? '',
   ...(track.isrc ? { isrc: track.isrc } : {}),
   source: sourceForTrackId(track.id),

@@ -50,6 +50,8 @@ export type PlayerTrack = {
   durationMillis?: number | null;
   /** ISRC Spotify facultatif : signal fort pour la recherche/mise en relation. */
   isrc?: string | null;
+  /** Classification Spotify : évite explicit ↔ clean quand le candidat l'annonce. */
+  explicit?: boolean | null;
   /** Album d'origine (I-8) quand l'écran le connaît — sert à l'historique. */
   albumId?: string | null;
   imageURL: string;
@@ -432,6 +434,7 @@ class MelodixPlayer {
         albumName: track.album ?? null,
         durationMs: track.durationMillis ?? null,
         isrc: track.isrc ?? null,
+        explicit: track.explicit ?? undefined,
       },
       { albumTitle: track.album ?? undefined, albumId: track.albumId ?? null }
     ).catch(() => undefined);
@@ -608,6 +611,7 @@ class MelodixPlayer {
       track.album ?? '',
       track.durationMillis ?? '',
       track.isrc ?? '',
+      typeof track.explicit === 'boolean' ? String(track.explicit) : '',
     ].join('\u001e');
     const existing = this.resolutionLoads.get(key);
     if (existing) {
@@ -673,6 +677,7 @@ class MelodixPlayer {
           album: track.album ?? null,
           durationMillis: track.durationMillis ?? null,
           isrc: track.isrc ?? null,
+          explicit: track.explicit ?? null,
         },
         getAudioProviders()
       );
@@ -731,6 +736,7 @@ class MelodixPlayer {
       album: track.album ?? null,
       durationMillis: track.durationMillis ?? null,
       isrc: track.isrc ?? null,
+      explicit: track.explicit ?? null,
     };
     const chain = getAudioProviders();
     let chainIndex = Math.max(

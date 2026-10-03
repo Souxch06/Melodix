@@ -45,6 +45,27 @@ it('ISRC présent est conservé et normalisé à la réhydratation', async () =>
   expect(loaded?.queue[0].isrc).toBe('FR-ABC-24-12345');
 });
 
+it('classification explicit/clean est conservée sans inventer une valeur absente', async () => {
+  await savePlaybackSession(
+    makeSession({
+      queue: [
+        { ...makeTrack('explicit'), explicit: true },
+        { ...makeTrack('clean'), explicit: false },
+        makeTrack('unknown'),
+      ],
+      index: 0,
+    })
+  );
+
+  const loaded = await loadPlaybackSession();
+
+  expect(loaded?.queue.map((track) => track.explicit)).toEqual([
+    true,
+    false,
+    undefined,
+  ]);
+});
+
 it('I-8 : albumId présent est restauré à la réhydratation (absent → null)', async () => {
   const withAlbum = { ...makeTrack('alb'), albumId: 'alb-1' };
   const withoutAlbum = makeTrack('nul');

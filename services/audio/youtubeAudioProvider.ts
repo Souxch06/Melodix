@@ -83,6 +83,7 @@ const scoreCandidate = (
     album: query.album,
     durationSec: durationSecOf(query),
     isrc: query.isrc,
+    explicit: query.explicit,
   });
 
   const best = matchSongs(
