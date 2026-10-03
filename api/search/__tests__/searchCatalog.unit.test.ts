@@ -15,6 +15,10 @@ jest.mock('@services', () => ({
   isBackendConfigured: jest.fn(),
 }));
 
+jest.mock('../../../services/logSanitize', () => ({
+  sanitizeErrorForLog: jest.fn(() => ({ name: 'Error' })),
+}));
+
 jest.mock('../../audius', () => ({
   audiusTrackToLibraryItem: jest.fn(),
   searchAudiusTracks: jest.fn(),
@@ -119,6 +123,7 @@ describe('searchCatalog — cascade backend → Audius', () => {
       tracks: [audiusItem],
       albums: [],
       playlists: [],
+      degraded: true,
     });
     expect(warnSpy).toHaveBeenCalled();
   });

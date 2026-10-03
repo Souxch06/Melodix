@@ -38,6 +38,13 @@ export const styles = StyleSheet.create({
     paddingHorizontal: 32,
     textAlign: 'center',
   },
+  degradedNotice: {
+    color: COLORS.LIGHT_GREY,
+    fontSize: 13,
+    lineHeight: 18,
+    marginBottom: 8,
+    paddingHorizontal: 20,
+  },
   errorState: {
     alignItems: 'center',
   },

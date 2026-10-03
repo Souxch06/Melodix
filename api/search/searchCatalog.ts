@@ -1,5 +1,6 @@
 import { SearchResultsModel } from '@models';
 import { isBackendConfigured } from '@services';
+import { sanitizeErrorForLog } from '../../services/logSanitize';
 
 import { audiusTrackToLibraryItem, searchAudiusTracks } from '../audius';
 import { backendSearchCatalog } from '../backend';
@@ -31,13 +32,17 @@ export const searchCatalog = async (
     return emptyResults();
   }
 
-  if (isBackendConfigured()) {
+  const backendConfigured = isBackendConfigured();
+  let backendUnavailable = false;
+  if (backendConfigured) {
     try {
       return await backendSearchCatalog(q, SEARCH_LIMIT);
     } catch (error) {
+      backendUnavailable = true;
+      // Ne jamais inclure la requête utilisateur dans ce diagnostic.
       console.warn(
         'Backend Melodix injoignable, la recherche bascule sur Audius',
-        error
+        sanitizeErrorForLog(error)
       );
     }
   }
@@ -49,9 +54,11 @@ export const searchCatalog = async (
       tracks: tracks.map(audiusTrackToLibraryItem),
       albums: [],
       playlists: [],
+      ...(backendUnavailable ? { degraded: true } : {}),
     };
   } catch (error) {
-    console.error(`Erreur de recherche Audius pour : ${q}`, error);
+    // La requête et les détails réseau peuvent contenir des données privées.
+    console.error('Erreur de recherche Audius', sanitizeErrorForLog(error));
     throw error;
   }
 };
