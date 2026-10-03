@@ -1030,6 +1030,26 @@ describe('Phase 1 — course critique : aucun double Sound, le dernier gagne', (
     expect(melodixPlayer.getState().status).toBe('playing');
   });
 
+  it('deux toggles pendant une pause native lente respectent le dernier geste', async () => {
+    await melodixPlayer.playTrack(track('one', 'Initial A'));
+    await flush();
+    const slowPause = deferred<void>();
+    lastSound.pauseAsync.mockReturnValueOnce(slowPause.promise);
+
+    const pause = melodixPlayer.togglePlayPause();
+    await Promise.resolve();
+    const resume = melodixPlayer.togglePlayPause();
+
+    // La reprise est sérialisée derrière la pause native en vol.
+    expect(lastSound.playAsync).not.toHaveBeenCalled();
+    slowPause.resolve();
+    await Promise.all([pause, resume]);
+
+    expect(lastSound.pauseAsync).toHaveBeenCalledTimes(1);
+    expect(lastSound.playAsync).toHaveBeenCalledTimes(1);
+    expect(melodixPlayer.getState().status).toBe('playing');
+  });
+
   it('un seek lent de l ancien Sound ne déplace pas le nouveau morceau', async () => {
     await melodixPlayer.playTrack(track('one', 'Initial A'));
     await flush();

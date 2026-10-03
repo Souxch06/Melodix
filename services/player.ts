@@ -241,6 +241,11 @@ class MelodixPlayer {
   private appStateSubscribed = false;
   /** Diagnostic appareil : position au plus toutes les 10 s, jamais d'URL. */
   private lastPlaybackDiagAt = 0;
+  /** Sérialise les commandes pause/reprise : un double geste pendant une
+   * opération native lente doit finir dans l'état du DERNIER geste. */
+  private transportQueue: Promise<void> = Promise.resolve();
+  private transportIntent: boolean | null = null;
+  private transportCommandToken = 0;
 
   getState = (): PlayerState => this.state;
 
@@ -944,6 +949,11 @@ class MelodixPlayer {
     }
 
     const token = ++this.playToken;
+    // Les commandes transport de l'ancien Sound ne doivent ni retarder ni
+    // inverser une commande destinée à ce nouveau morceau.
+    this.transportCommandToken += 1;
+    this.transportIntent = null;
+    this.transportQueue = Promise.resolve();
     const isStale = () => this.playToken !== token;
 
     appendDiagLog(
@@ -1125,10 +1135,8 @@ class MelodixPlayer {
 
   togglePlayPause = async () => {
     if (this.state.status === 'loading') {
-      // 5D race §2 : pendant la résolution/chargement le sound n'existe pas
-      // encore — « toggle » ici aurait RELANCÉ playIndex (pause devenue un
-      // redémarrage, double résolution). Comportement prévisible : on ignore
-      // le geste ; l'UI reste cohérente jusqu'au vrai démarrage.
+      // Pendant la résolution, aucun Sound n'existe encore. Ne jamais relancer
+      // playIndex depuis un toggle qui devait être une pause.
       return;
     }
 
@@ -1136,49 +1144,69 @@ class MelodixPlayer {
       if (this.state.current && this.state.index >= 0) {
         await this.playIndex(this.state.index);
       }
-
       return;
     }
 
     const sound = this.sound;
-    const token = this.playToken;
+    const playToken = this.playToken;
+    // L'intention en vol prime sur l'état React, qui ne change qu'après la
+    // réponse native. Deux taps rapides deviennent donc pause PUIS play, au
+    // lieu de deux pauses concurrentes laissant l'UI dans le mauvais état.
+    const desiredPlaying = !(
+      this.transportIntent ?? this.state.status === 'playing'
+    );
+    this.transportIntent = desiredPlaying;
+    const commandToken = ++this.transportCommandToken;
 
-    if (this.state.status === 'playing') {
+    const operation = this.transportQueue.then(async () => {
+      if (this.playToken !== playToken || this.sound !== sound) return;
       try {
-        await sound.pauseAsync();
-        if (this.playToken !== token || this.sound !== sound) {
+        if (desiredPlaying) {
+          await sound.playAsync();
+        } else {
+          await sound.pauseAsync();
+        }
+        if (
+          this.transportCommandToken !== commandToken ||
+          this.playToken !== playToken ||
+          this.sound !== sound
+        ) {
           return;
         }
-        this.emit({ status: 'paused', buffering: false });
+        this.emit({
+          status: desiredPlaying ? 'playing' : 'paused',
+          buffering: false,
+        });
         appendDiagLog(
-          `PLAYER_STATE state=PAUSED trackId=${this.state.current?.id ?? 'none'}`
+          `PLAYER_STATE state=${desiredPlaying ? 'PLAYING' : 'PAUSED'} ` +
+            `trackId=${this.state.current?.id ?? 'none'}`
         );
-        this.persistSession(); // position figée : moment idéal d'écrire
+        if (!desiredPlaying) this.persistSession();
       } catch (error) {
-        console.error('Failed to pause:', error);
-        if (this.playToken === token && this.sound === sound) {
+        console.error(
+          desiredPlaying ? 'Failed to resume:' : 'Failed to pause:',
+          error
+        );
+        if (
+          this.transportCommandToken === commandToken &&
+          this.playToken === playToken &&
+          this.sound === sound
+        ) {
           this.emit({ status: 'error', buffering: false });
         }
+      } finally {
+        if (this.transportCommandToken === commandToken) {
+          this.transportIntent = null;
+        }
       }
+    });
 
-      return;
-    }
-
-    try {
-      await sound.playAsync();
-      if (this.playToken !== token || this.sound !== sound) {
-        return;
-      }
-      this.emit({ status: 'playing', buffering: false });
-      appendDiagLog(
-        `PLAYER_STATE state=PLAYING trackId=${this.state.current?.id ?? 'none'}`
-      );
-    } catch (error) {
-      console.error('Failed to resume:', error);
-      if (this.playToken === token && this.sound === sound) {
-        this.emit({ status: 'error', buffering: false });
-      }
-    }
+    // Une panne native ne doit jamais bloquer les commandes suivantes.
+    this.transportQueue = operation.then(
+      () => undefined,
+      () => undefined
+    );
+    await operation;
   };
 
   next = async () => {
@@ -1614,6 +1642,9 @@ class MelodixPlayer {
 
   stop = async () => {
     const requestToken = ++this.playToken; // tout resolve en vol devient orphelin
+    this.transportCommandToken += 1;
+    this.transportIntent = null;
+    this.transportQueue = Promise.resolve();
     this.pendingSeekMillis = 0;
     this.pendingSeekForId = null;
     await this.unloadCurrent();
@@ -1643,6 +1674,9 @@ class MelodixPlayer {
     this.failedKeys = new Set();
     this.pendingSeekMillis = 0;
     this.pendingSeekForId = null;
+    this.transportCommandToken += 1;
+    this.transportIntent = null;
+    this.transportQueue = Promise.resolve();
     this.lastPersistedAt = 0;
     this.sessionDirty = false;
     this.state = { ...INITIAL_PLAYER_STATE };
