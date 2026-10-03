@@ -1,6 +1,6 @@
 /**
  * Chaîne métadonnées Spotify → providers : la REQUÊTE COMPLÈTE (titre,
- * artistes, album, durée) doit arriver INTACTE à chaque provider appelé —
+ * artistes, album, durée, ISRC, explicit) doit arriver INTACTE à chaque provider appelé —
  * c'est elle qui alimente le matcher (durée = garde-fou, album = relief).
  */
 import { resolveWithProviders } from '../trackResolver';
@@ -11,6 +11,8 @@ const QUERY: AudioSourceQuery = {
   artists: ['Daft Punk'],
   album: 'Discovery',
   durationMillis: 200000,
+  isrc: 'FRABC2412345',
+  explicit: true,
 };
 
 const makeProvider = (

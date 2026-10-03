@@ -120,6 +120,9 @@ const sanitizeTrack = (value: unknown): PlayerTrack | null => {
     ...(typeof record.isrc === 'string' && record.isrc.trim()
       ? { isrc: record.isrc.trim().toUpperCase() }
       : {}),
+    ...(typeof record.explicit === 'boolean'
+      ? { explicit: record.explicit }
+      : {}),
     durationMillis:
       typeof record.durationMillis === 'number' &&
       Number.isFinite(record.durationMillis)

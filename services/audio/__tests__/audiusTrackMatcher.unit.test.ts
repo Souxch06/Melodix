@@ -17,6 +17,7 @@ const source = (
     album: string | null;
     durationSec: number | null;
     isrc: string | null;
+    explicit: boolean | null;
   }>
 ) =>
   fingerprintOf({
@@ -25,6 +26,7 @@ const source = (
     album: extra?.album ?? null,
     durationSec: extra?.durationSec ?? null,
     isrc: extra?.isrc ?? null,
+    explicit: extra?.explicit ?? null,
   });
 
 describe('normalizeTitleText', () => {
@@ -1002,6 +1004,69 @@ describe('matchSongs — homonymes, éditions et caractères (zone 3)', () => {
     );
 
     expect(match?.id).toBe('genuine');
+  });
+
+  it('version explicite : refuse un candidat explicitement clean', () => {
+    const decisions: string[] = [];
+    const match = matchSongs(
+      source('Tame', ['Neffex'], { durationSec: 189, explicit: true }),
+      [
+        {
+          id: 'clean',
+          title: 'Tame (Clean)',
+          artistNames: ['Neffex'],
+          durationSec: 189,
+        },
+        {
+          id: 'explicit',
+          title: 'Tame (Explicit)',
+          artistNames: ['Neffex'],
+          durationSec: 189,
+        },
+      ],
+      { onCandidateDecision: ({ reason }) => decisions.push(reason) }
+    );
+
+    expect(match?.id).toBe('explicit');
+    expect(decisions).toContain('content-rating-mismatch');
+  });
+
+  it('version clean : refuse un candidat explicitement non censuré', () => {
+    const match = matchSongs(
+      source('Tame', ['Neffex'], { durationSec: 189, explicit: false }),
+      [
+        {
+          id: 'explicit',
+          title: 'Tame (Uncensored)',
+          artistNames: ['Neffex'],
+          durationSec: 189,
+        },
+        {
+          id: 'clean',
+          title: 'Tame (Censored)',
+          artistNames: ['Neffex'],
+          durationSec: 189,
+        },
+      ]
+    );
+
+    expect(match?.id).toBe('clean');
+  });
+
+  it('classification candidate absente : reste neutre, jamais rejetée par supposition', () => {
+    const match = matchSongs(
+      source('Tame', ['Neffex'], { durationSec: 189, explicit: true }),
+      [
+        {
+          id: 'unlabelled',
+          title: 'Tame',
+          artistNames: ['Neffex'],
+          durationSec: 189,
+        },
+      ]
+    );
+
+    expect(match?.id).toBe('unlabelled');
   });
 
   it('caractères spéciaux (&, !) : la correspondance reste possible', () => {

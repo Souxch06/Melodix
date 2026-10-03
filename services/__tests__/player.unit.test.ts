@@ -106,13 +106,20 @@ describe('melodixPlayer engine', () => {
   });
 
   it('plays a Spotify-source track by matching it to the provider', async () => {
-    await melodixPlayer.playQueue([track('one'), track('two')], 0);
+    await melodixPlayer.playQueue(
+      [{ ...track('one'), explicit: true }, track('two')],
+      0
+    );
     await flush();
 
     const state = melodixPlayer.getState();
 
     expect(provider.resolveMatch).toHaveBeenCalledWith(
-      expect.objectContaining({ title: 'Track one', artists: ['Neffex'] })
+      expect.objectContaining({
+        title: 'Track one',
+        artists: ['Neffex'],
+        explicit: true,
+      })
     );
     expect(provider.resolveSource).toHaveBeenCalledWith('aud-good');
     expect(state.status).toBe('playing');

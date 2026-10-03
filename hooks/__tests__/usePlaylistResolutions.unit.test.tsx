@@ -73,7 +73,7 @@ describe('usePlaylistResolutions (I-2)', () => {
     await AsyncStorage.clear();
   });
 
-  it('transmet album + durée réels du TrackModel à la cascade', async () => {
+  it('transmet album + durée + classification réels du TrackModel à la cascade', async () => {
     const resolveMatch: AudioProvider['resolveMatch'] = jest.fn(async () => ({
       sourceId: 'aud-1',
       score: 0.9,
@@ -82,7 +82,7 @@ describe('usePlaylistResolutions (I-2)', () => {
 
     renderHook(() =>
       usePlaylistResolutions([
-        track({ durationMs: 200_000, albumName: 'Album X' }),
+        track({ durationMs: 200_000, albumName: 'Album X', explicit: true }),
       ])
     );
 
@@ -93,6 +93,7 @@ describe('usePlaylistResolutions (I-2)', () => {
         artists: ['Artist'],
         album: 'Album X',
         durationMillis: 200_000,
+        explicit: true,
       })
     );
   });

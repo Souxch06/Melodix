@@ -51,6 +51,7 @@ type CapturedTrack = {
   artists: string[];
   album: string | null;
   durationMillis: number | null;
+  explicit: boolean | null;
   source: unknown;
 } | null;
 
@@ -79,6 +80,7 @@ const mkTrack = (overrides: Partial<TrackModel> = {}): TrackModel => ({
   imageURL: '',
   durationMs: 201_000,
   albumName: 'Album X',
+  explicit: true,
   ...overrides,
 });
 
@@ -104,6 +106,7 @@ describe('Preview — PlayerTrack propagés (I-2)', () => {
       artists: ['Artist A', 'Artist B'],
       durationMillis: 201_000,
       album: 'Album X',
+      explicit: true,
       source: { provider: null, id: 't1' },
     });
   });

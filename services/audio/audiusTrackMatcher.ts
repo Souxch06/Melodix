@@ -22,6 +22,8 @@ export type SongMatchCandidate = {
   album?: string | null;
   durationSec?: number | null;
   isrc?: string | null;
+  /** Classification fournie par le provider, sinon inférée du titre. */
+  explicit?: boolean | null;
 };
 
 export type SongFingerprint = {
@@ -30,6 +32,8 @@ export type SongFingerprint = {
   album?: string | null;
   durationSec?: number | null;
   isrc?: string | null;
+  /** `null` signifie que la version ne publie aucune classification fiable. */
+  explicit: boolean | null;
   /**
    * Marqueurs de variante dure détectés dans le titre SOURCE
    * (« remix », « live », « instrumental », « karaoke », « acoustic »).
@@ -53,6 +57,7 @@ export type SongCandidateDecision = {
     | 'artist-mismatch'
     | 'duration-mismatch'
     | 'variant-mismatch'
+    | 'content-rating-mismatch'
     | 'below-threshold'
     | 'candidate-scored';
   score?: number;
@@ -289,12 +294,20 @@ const hardVariantMismatch = (a: string[], b: string[]): boolean => {
   return a.some((tag) => !other.has(tag)) || b.some((tag) => !set.has(tag));
 };
 
+const contentRatingOfTitle = (title: string): boolean | null => {
+  const normalized = normalizeTitleText(title);
+  if (/\b(?:clean|censored)\b/u.test(normalized)) return false;
+  if (/\b(?:explicit|uncensored)\b/u.test(normalized)) return true;
+  return null;
+};
+
 export const fingerprintOf = (input: {
   title: string;
   artistNames: string[];
   album?: string | null;
   durationSec?: number | null;
   isrc?: string | null;
+  explicit?: boolean | null;
 }): SongFingerprint => {
   const normalizedTitle = normalizeTitleText(input.title);
 
@@ -313,6 +326,10 @@ export const fingerprintOf = (input: {
         ? Math.max(0, input.durationSec)
         : null,
     isrc: normalizeIsrc(input.isrc),
+    explicit:
+      typeof input.explicit === 'boolean'
+        ? input.explicit
+        : contentRatingOfTitle(input.title),
     hardVariants: hardVariantsOfTitle(input.title),
   };
 };
@@ -617,6 +634,7 @@ export const matchSongs = (
       album: candidate.album,
       durationSec: candidate.durationSec,
       isrc: candidate.isrc,
+      explicit: candidate.explicit,
     });
     const exactTitle = bestTitle === source.title;
 
@@ -633,6 +651,24 @@ export const matchSongs = (
         id: candidate.id,
         accepted: false,
         reason: 'variant-mismatch',
+      });
+      continue;
+    }
+
+    // Une classification connue des DEUX côtés est une identité de version,
+    // pas un simple bonus : ne jamais substituer une version clean à une
+    // demande explicite (ou inversement). Un candidat non étiqueté reste
+    // neutre car Audius/YouTube ne publient pas toujours cette information.
+    if (
+      !isrcExact &&
+      source.explicit !== null &&
+      candidateFingerprint.explicit !== null &&
+      source.explicit !== candidateFingerprint.explicit
+    ) {
+      decide({
+        id: candidate.id,
+        accepted: false,
+        reason: 'content-rating-mismatch',
       });
       continue;
     }
@@ -722,6 +758,7 @@ export const findBestAudiusMatch = async (
     album: query.album,
     durationSec: sec(query.durationMillis),
     isrc: query.isrc,
+    explicit: query.explicit,
   });
 
   const decisions = new Map<string, SongCandidateDecision>();
