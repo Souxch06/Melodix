@@ -19,7 +19,11 @@ export type SpotifyWebRuntimeCommands = {
 };
 
 export type SpotifyWebBridgeResult =
-  'ready' | 'state-updated' | 'error-updated' | 'ignored' | 'rejected';
+  | 'ready'
+  | 'state-updated'
+  | 'error-updated'
+  | 'ignored'
+  | 'rejected';
 
 /**
  * Isolated backend prototype. It is not selected by PlayerContext and cannot

@@ -1,5 +1,8 @@
 export type SpotifyWebPageKind =
-  'spotify-player' | 'spotify-login' | 'spotify-service' | 'blocked';
+  | 'spotify-player'
+  | 'spotify-login'
+  | 'spotify-service'
+  | 'blocked';
 
 export type SpotifyWebDiagnosticCode =
   | 'webview_loading'
