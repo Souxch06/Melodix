@@ -235,6 +235,11 @@ export const Search = () => {
             </Pressable>
           </View>
         )}
+        {status === 'done' && results?.degraded && (
+          <Text style={styles.degradedNotice} testID="search-degraded-notice">
+            {translations.searchDegraded}
+          </Text>
+        )}
         {status === 'done' && sections.length === 0 && (
           <Text style={styles.message}>
             {translations.searchNoResults(query.trim())}

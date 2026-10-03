@@ -49,6 +49,8 @@ export const EN_GB = {
   searchHint: 'Search the Spotify catalogue.',
   searchNoResults: (query: string) => `No results for "${query}".`,
   searchError: 'Search is unavailable right now. Please try again.',
+  searchDegraded:
+    'Showing track results from the fallback catalogue. Artists, albums and playlists may be unavailable.',
   browseAll: 'Browse all',
   featuredPlaylists: 'Popular Playlists',
 

@@ -258,6 +258,29 @@ describe('Search — debounce, races et états (zone 4)', () => {
     expect(getByText('Retry Result')).toBeTruthy();
   });
 
+  it('signale explicitement les résultats partiels du catalogue de repli', async () => {
+    searchCatalogMock.mockResolvedValue({
+      artists: [],
+      tracks: [mkSlide({ id: 'fallback', title: 'Fallback Track' })],
+      albums: [],
+      playlists: [],
+      degraded: true,
+    });
+
+    const { getByPlaceholderText, getByTestId, getByText } = render(<Search />);
+    fireEvent.changeText(
+      getByPlaceholderText(translations.searchPlaceholder),
+      'fallback'
+    );
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, SEARCH_DELAY_MS + 50));
+    });
+
+    expect(getByTestId('search-degraded-notice')).toBeTruthy();
+    expect(getByText(translations.searchDegraded)).toBeTruthy();
+    expect(getByText('Fallback Track')).toBeTruthy();
+  });
+
   it('aucun résultat : message « pas de résultats » dédié (jamais vide blanc)', async () => {
     searchCatalogMock.mockResolvedValue({
       artists: [],
