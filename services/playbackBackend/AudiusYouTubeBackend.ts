@@ -20,7 +20,7 @@ const normalizeExistingState = (state: PlayerState): PlaybackBackendState => ({
         : 'error',
   trackId: state.current?.id ?? null,
   title: state.current?.title ?? null,
-  artist: state.current?.artists.join(', ') || null,
+  artists: state.current?.artists ?? [],
   artworkUrl: state.current?.imageURL || null,
   durationMillis:
     Number.isFinite(state.durationMillis) && state.durationMillis >= 0
@@ -30,6 +30,8 @@ const normalizeExistingState = (state: PlayerState): PlaybackBackendState => ({
     Number.isFinite(state.positionMillis) && state.positionMillis >= 0
       ? state.positionMillis
       : 0,
+  isPlaying: state.status === 'playing',
+  isLoading: state.status === 'loading' || state.buffering,
   errorCode:
     state.status === 'error' || state.status === 'unavailable'
       ? state.status
@@ -57,6 +59,30 @@ export class AudiusYouTubeBackend implements PlaybackBackend {
       await melodixPlayer.togglePlayPause();
     }
     return melodixPlayer.getState().status === 'paused';
+  };
+
+  seek = async (positionMillis: number): Promise<boolean> => {
+    if (
+      !Number.isFinite(positionMillis) ||
+      positionMillis < 0 ||
+      !melodixPlayer.getState().current
+    ) {
+      return false;
+    }
+    await melodixPlayer.seekTo(positionMillis);
+    return true;
+  };
+
+  next = async (): Promise<boolean> => {
+    if (!melodixPlayer.getState().current) return false;
+    await melodixPlayer.next();
+    return true;
+  };
+
+  previous = async (): Promise<boolean> => {
+    if (!melodixPlayer.getState().current) return false;
+    await melodixPlayer.previous();
+    return true;
   };
 
   destroy = (): void => undefined;

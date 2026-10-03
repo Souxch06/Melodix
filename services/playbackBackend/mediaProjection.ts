@@ -20,7 +20,7 @@ export const buildBackendMediaSessionPayload = (
   return {
     trackId: state.trackId,
     title: state.title,
-    artist: state.artist ?? '',
+    artist: state.artists.join(', '),
     album: null,
     artworkUrl: state.artworkUrl,
     durationMillis: duration,
