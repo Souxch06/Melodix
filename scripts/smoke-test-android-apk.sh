@@ -51,6 +51,30 @@ fi
 
 echo "Processus Melodix actif : pid=$PID"
 
+# Prototype Spotify Web isolé : ouvre la route de diagnostic par deep link,
+# vérifie que la vraie vue Android est rendue, puis exerce arrière-plan/retour.
+# Aucun compte, cookie, token ou contenu DOM Spotify n'est lu par ce smoke.
+WEB_START=$(adb shell am start -W -a android.intent.action.VIEW \
+  -d "melodix://settings/spotify-web-player" -p "$PACKAGE" 2>&1) || \
+  fail "prototype Spotify Web non ouvrable : $WEB_START"
+echo "$WEB_START"
+sleep 8
+adb shell uiautomator dump /sdcard/melodix-web.xml >/dev/null 2>&1 || \
+  fail "hiérarchie UI du prototype inaccessible"
+WEB_UI=$(adb shell cat /sdcard/melodix-web.xml 2>&1) || \
+  fail "lecture hiérarchie UI prototype impossible : $WEB_UI"
+printf '%s\n' "$WEB_UI" | grep -Fq 'Prototype Spotify Web' || \
+  fail "écran de diagnostic Spotify Web absent après deep link"
+adb shell input keyevent KEYCODE_HOME || fail "prototype WebView impossible à mettre en arrière-plan"
+sleep 2
+WEB_RETURN=$(adb shell am start -W -n "$PACKAGE/.MainActivity" 2>&1) || \
+  fail "retour au prototype WebView impossible : $WEB_RETURN"
+echo "$WEB_RETURN"
+sleep 2
+WEB_PID=$(adb shell pidof -s "$PACKAGE" 2>/dev/null | tr -d '\r' || true)
+[ -n "$WEB_PID" ] || fail "processus détruit après arrière-plan/retour WebView"
+echo "Prototype Spotify Web rendu et survivant au cycle arrière-plan/retour (pid=$WEB_PID)"
+
 # Smoke natif réel (pas Robolectric) : Android démarre le MediaSessionService,
 # celui-ci doit respecter le contrat FGS, publier l'id 1001 sur le canal média,
 # enregistrer une MediaSession, puis survivre au passage de l'Activity en fond.
@@ -87,7 +111,7 @@ NOTIFICATIONS_BG=$(adb shell dumpsys notification --noredact 2>&1) || \
 printf '%s\n' "$NOTIFICATIONS_BG" | grep -Fq 'melodix_media' || \
   fail "notification média disparue en arrière-plan"
 
-echo "::notice title=Installation Android réelle::installation + lancement + service foreground + MediaSession + notification + arrière-plan réussis sur Android 14 x86_64 (pid=$PID)"
+echo "::notice title=Installation Android réelle::installation + prototype WebView + cycle arrière-plan/retour + service foreground + MediaSession + notification réussis sur Android 14 x86_64 (pid=$PID)"
 if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
-  echo "- Android 14 : installation, lancement, FGS média, MediaSession, notification système et survie arrière-plan vérifiés" >> "$GITHUB_STEP_SUMMARY"
+  echo "- Android 14 : installation, écran Spotify WebView, cycle arrière-plan/retour, FGS média, MediaSession et notification système vérifiés" >> "$GITHUB_STEP_SUMMARY"
 fi

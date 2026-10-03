@@ -458,13 +458,25 @@ export const SettingsScreen = () => {
           presse-papiers, drapeaux d'isolation). À retirer après correction. */}
       <SettingsSection testID="settings-section-native-diag" title="Diagnostic">
         <SettingsRow
-          isLast
           label="Diagnostic technique"
           showChevron
           onPress={() =>
             router.push({ pathname: '/settings/diag', params: {} })
           }
           testID="settings-native-diag-open"
+        />
+        <SettingsRow
+          isLast
+          label="Prototype Spotify Web Player"
+          subtitle="WebView isolée — aucune extraction de session"
+          showChevron
+          onPress={() =>
+            router.push({
+              pathname: '/settings/spotify-web-player',
+              params: {},
+            })
+          }
+          testID="settings-spotify-web-open"
         />
       </SettingsSection>
     </SettingsScaffold>

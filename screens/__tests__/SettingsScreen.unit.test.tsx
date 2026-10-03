@@ -138,7 +138,7 @@ describe('Paramètres — ouverture, sections et navigation', () => {
     expect(mockBack).toHaveBeenCalledTimes(1);
   });
 
-  it('les liens FAQ/À propos naviguent vers les vraies sous-pages', () => {
+  it('les liens FAQ/À propos et le prototype naviguent vers les vraies sous-pages', () => {
     const { getByTestId } = render(<SettingsScreen />);
 
     fireEvent.press(getByTestId('settings-faq-link'));
@@ -150,6 +150,12 @@ describe('Paramètres — ouverture, sections et navigation', () => {
     fireEvent.press(getByTestId('settings-terms-link'));
     expect(mockPush).toHaveBeenCalledWith({
       pathname: '/settings/about',
+      params: {},
+    });
+
+    fireEvent.press(getByTestId('settings-spotify-web-open'));
+    expect(mockPush).toHaveBeenCalledWith({
+      pathname: '/settings/spotify-web-player',
       params: {},
     });
   });

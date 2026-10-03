@@ -143,6 +143,10 @@ export {
   redeemAuthorizationCode,
 } from './spotify/session';
 export type { LoginOutcome, SpotifySession } from './spotify/session';
+
+// PlaybackBackend prototype boundary. PlayerContext still uses melodixPlayer
+// directly until the isolated Spotify Web runtime has been validated.
+export * from './playbackBackend';
 export { spotifyApiGet, SpotifyApiError } from './spotify/apiClient';
 export {
   sanitizeErrorDescription,
