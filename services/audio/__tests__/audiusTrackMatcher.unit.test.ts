@@ -540,6 +540,29 @@ describe('findBestAudiusMatch — cascade multi-requêtes (spécification matchi
     warn.mockRestore();
   });
 
+  it('ne journalise ni métadonnées écoutées ni détail d erreur réseau', async () => {
+    const privateTitle = 'Titre personnel confidentiel';
+    const privateArtist = 'Artiste privé';
+    const search = jest.fn(async () => {
+      throw new Error(
+        `failure for ${privateTitle} https://signed.example/token`
+      );
+    });
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    const info = jest.spyOn(console, 'info').mockImplementation(() => {});
+
+    await expect(
+      findBestAudiusMatch(query(privateTitle, [privateArtist]), search)
+    ).rejects.toThrow('Audius search incomplete');
+
+    const logged = JSON.stringify([...warn.mock.calls, ...info.mock.calls]);
+    warn.mockRestore();
+    info.mockRestore();
+    expect(logged).not.toContain(privateTitle);
+    expect(logged).not.toContain(privateArtist);
+    expect(logged).not.toContain('signed.example');
+  });
+
   it('renvoie null si TOUTES les tentatives sont vides (jamais de match forcé)', async () => {
     const search = jest.fn(async () => []);
     await expect(

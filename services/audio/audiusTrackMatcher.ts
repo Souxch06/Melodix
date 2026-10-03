@@ -725,12 +725,14 @@ export const findBestAudiusMatch = async (
   });
 
   const decisions = new Map<string, SongCandidateDecision>();
+  // Les diagnostics décrivent la forme de l'entrée sans recopier les
+  // métadonnées écoutées (titre, artiste, album ou ISRC) dans les logs.
   devMatcherLog('spotify-input', {
-    title: query.title,
-    artists: query.artists,
-    album: query.album ?? null,
-    durationMillis: query.durationMillis ?? null,
-    isrc: query.isrc ?? null,
+    titleLength: query.title.length,
+    artistCount: query.artists.length,
+    hasAlbum: Boolean(query.album),
+    hasDuration: query.durationMillis != null,
+    hasIsrc: Boolean(query.isrc),
   });
 
   const attempts: string[] = [];
@@ -806,7 +808,10 @@ export const findBestAudiusMatch = async (
   for (const attempt of attempts.slice(0, 5)) {
     try {
       const batch = await search(attempt);
-      devMatcherLog('search', { query: attempt, results: batch.length });
+      devMatcherLog('search', {
+        queryLength: attempt.length,
+        results: batch.length,
+      });
 
       if (batch.length) {
         allCandidates = [...allCandidates, ...batch];
@@ -814,7 +819,7 @@ export const findBestAudiusMatch = async (
         const best = scoreAccumulated();
         if (best) {
           devMatcherLog('selected', {
-            query: attempt,
+            queryLength: attempt.length,
             sourceId: best.id,
             score: best.score,
             rejected: Array.from(decisions.values()).filter(
@@ -826,7 +831,10 @@ export const findBestAudiusMatch = async (
       }
     } catch (error) {
       sawSearchError = true;
-      console.warn(`Audius search failed for "${attempt}":`, error);
+      console.warn(
+        'Audius search failed',
+        error instanceof Error ? error.name : typeof error
+      );
     }
   }
 
@@ -838,7 +846,7 @@ export const findBestAudiusMatch = async (
   devMatcherLog(
     final ? 'selected-final' : sawSearchError ? 'error' : 'unavailable',
     {
-      attempts,
+      attemptCount: attempts.length,
       results: allCandidates.length,
       sourceId: final?.id ?? null,
       score: final?.score ?? null,
