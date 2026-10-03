@@ -209,7 +209,10 @@ export const createMelodixServer = () =>
     handleRequest(req, res).catch((error) => {
       // Dernier filet : handleRequest contient déjà une garde, mais une
       // panne dans sendJson lui-même ne doit pas faire tomber le process.
-      logger.error(`erreur non rattrapée: ${error}`);
+      // L'erreur peut contenir une URL signée, un header ou un payload
+      // upstream. Le dernier filet ne journalise que sa catégorie.
+      const errorType = error instanceof Error ? error.name : typeof error;
+      logger.error(`erreur non rattrapée (${errorType})`);
       try {
         res.writeHead(500, { 'content-type': 'application/json' });
         res.end(

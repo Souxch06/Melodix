@@ -20,6 +20,14 @@ import type { SpotifyGraphQLSearchResponse } from './types';
 
 const logger = createLogger('SpotifySearch');
 
+/** Résumé volontairement non réversible : aucun texte de recherche en logs. */
+export const buildSearchLogSummary = (
+  queryLength: number,
+  trackCount: number,
+  albumCount: number
+): string =>
+  `recherche terminée (longueur=${queryLength}) → ${trackCount} pistes, ${albumCount} albums`;
+
 export type SpotifyRawTrackHit = {
   id: string;
   title: string;
@@ -210,8 +218,10 @@ export const spotifyGraphQLSearch = async (
     .map(unwrapAlbumItem)
     .filter((hit): hit is SpotifyRawAlbumHit => hit !== null);
 
+  // La requête peut contenir un nom personnel ou tout autre texte utilisateur :
+  // ne jamais la recopier dans les journaux serveur.
   logger.info(
-    `recherche "${query.slice(0, 60)}" → ${tracks.length} pistes, ${albums.length} albums`
+    buildSearchLogSummary(query.length, tracks.length, albums.length)
   );
 
   return { tracks, albums };
