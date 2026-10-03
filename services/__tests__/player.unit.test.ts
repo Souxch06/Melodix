@@ -2,6 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { melodixPlayer, PlayerTrack, spotifyTrackSource } from '../player';
 import { loadPlaybackSession } from '../playbackSession';
+import { PLAY_HISTORY_STORAGE_KEY } from '../history/playHistory';
 import { __testSetAudioProviders, MATCH_CACHE_STORAGE_KEY } from '../audio';
 import type { AudioProvider, ResolvedStream } from '../audio';
 
@@ -155,6 +156,7 @@ describe('melodixPlayer engine', () => {
       buffering: true,
       resolved: expect.objectContaining({ provider: 'Audius' }),
     });
+    expect(await AsyncStorage.getItem(PLAY_HISTORY_STORAGE_KEY)).toBeNull();
 
     lastStatusCallback?.({
       isLoaded: true,
@@ -168,6 +170,8 @@ describe('melodixPlayer engine', () => {
       buffering: false,
       positionMillis: 250,
     });
+    await flush();
+    expect(await AsyncStorage.getItem(PLAY_HISTORY_STORAGE_KEY)).not.toBeNull();
   });
 
   it('un Sound chargé mais non joué reste PAUSED, jamais faux PLAYING', async () => {
