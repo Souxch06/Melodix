@@ -21,8 +21,19 @@ let mockCreatedSounds: any[] = [];
 
 const makeSound = () => ({
   unloadAsync: jest.fn(async () => {}),
-  playAsync: jest.fn(async () => {}),
-  pauseAsync: jest.fn(async () => {}),
+  // Les commandes expo-av rendent un AVPlaybackStatus réel. Les tests gardent
+  // cette frontière : le moteur ne doit jamais inventer PLAYING/PAUSED à
+  // partir de la seule résolution d'une Promise native.
+  playAsync: jest.fn(async () => ({
+    isLoaded: true,
+    isPlaying: true,
+    isBuffering: false,
+  })),
+  pauseAsync: jest.fn(async () => ({
+    isLoaded: true,
+    isPlaying: false,
+    isBuffering: false,
+  })),
   setPositionAsync: jest.fn(async () => {}),
   setVolumeAsync: jest.fn(async () => {}),
 });
@@ -655,6 +666,38 @@ describe('melodixPlayer engine', () => {
     expect(melodixPlayer.getState().status).toBe('playing');
     // Aucune nouvelle résolution : la recherche initiale seule.
     expect(provider.resolveMatch).toHaveBeenCalledTimes(1);
+  });
+
+  it('resume ne publie PLAYING qu après confirmation du runtime', async () => {
+    await melodixPlayer.playQueue([track('one')], 0);
+    await flush();
+    await melodixPlayer.togglePlayPause();
+    expect(melodixPlayer.getState().status).toBe('paused');
+
+    // La commande a été acceptée, mais le runtime signale encore le buffering :
+    // ni Promise résolue ni intention utilisateur ne prouvent que l'audio joue.
+    lastSound.playAsync.mockResolvedValueOnce({
+      isLoaded: true,
+      isPlaying: false,
+      isBuffering: true,
+    });
+    await melodixPlayer.togglePlayPause();
+    expect(melodixPlayer.getState()).toMatchObject({
+      status: 'paused',
+      buffering: true,
+    });
+
+    lastStatusCallback?.({
+      isLoaded: true,
+      isPlaying: true,
+      isBuffering: false,
+      positionMillis: 500,
+    });
+    expect(melodixPlayer.getState()).toMatchObject({
+      status: 'playing',
+      buffering: false,
+      positionMillis: 500,
+    });
   });
 
   it('clearNotice emits ONLY when a notice exists', async () => {
