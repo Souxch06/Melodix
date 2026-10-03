@@ -130,7 +130,7 @@ type ExpoAvModule = {
         source: { uri: string },
         initialStatus: Record<string, unknown>,
         onPlaybackStatusUpdate?: (status: AvPlaybackStatus) => void
-      ) => Promise<{ sound: AvSound }>;
+      ) => Promise<{ sound: AvSound; status: AvPlaybackStatus }>;
     };
   };
 };
@@ -228,6 +228,9 @@ class MelodixPlayer {
   /** Une erreur de flux peut être réémise plusieurs fois par expo-av avant
    * l'unload. Une seule transition/avance est autorisée par Sound. */
   private lastFailureHandledForToken = -1;
+  /** Effets « lecture démarrée » (historique/diagnostic) une seule fois et
+   * uniquement après confirmation `isPlaying=true` du runtime expo-av. */
+  private lastPlaybackStartedForToken = -1;
   /** Seek à consommer au démarrage effectif du son visé UNIQUEMENT (jamais
    * appliqué à un autre morceau : tag d'identité — voir pendingSeekForId). */
   private pendingSeekMillis = 0;
@@ -404,6 +407,36 @@ class MelodixPlayer {
     };
   };
 
+  private markPlaybackStarted = (token: number): void => {
+    if (this.lastPlaybackStartedForToken === token) return;
+
+    const track = this.state.current;
+    const provider = this.state.resolved?.provider;
+    if (!track || !provider || this.playToken !== token) return;
+
+    this.lastPlaybackStartedForToken = token;
+    this.failedKeys.delete(track.id);
+    appendDiagLog(
+      `[MEDIA_DIAG] PLAYBACK_STARTED trackId=${track.id} ` +
+        `provider=${provider} state=PLAYING`
+    );
+
+    // Historique = écoute réellement commencée, pas seulement URL résolue ou
+    // Sound construit. Fire-and-forget : il ne perturbe jamais le runtime.
+    void recordPlay(
+      {
+        id: track.id,
+        title: track.title,
+        subtitle: track.artists.join(', '),
+        imageURL: track.imageURL || undefined,
+        albumName: track.album ?? null,
+        durationMs: track.durationMillis ?? null,
+        isrc: track.isrc ?? null,
+      },
+      { albumTitle: track.album ?? undefined, albumId: track.albumId ?? null }
+    ).catch(() => undefined);
+  };
+
   private onPlaybackStatusUpdate = (
     token: number,
     status: AvPlaybackStatus
@@ -462,13 +495,19 @@ class MelodixPlayer {
         playbackState.status = 'playing';
       } else if (
         status.isPlaying === false &&
-        this.state.status === 'playing'
+        (this.state.status === 'playing' || this.state.status === 'loading')
       ) {
+        // `createAsync({ shouldPlay: true })` ne constitue pas une preuve de
+        // lecture. Un statut chargé/non-buffering mais non joué reste PAUSED :
+        // seul expo-av peut faire passer le moteur à PLAYING.
         playbackState.status = 'paused';
       }
     }
 
     this.emit(playbackState);
+    if (status.isPlaying === true) {
+      this.markPlaybackStarted(token);
+    }
 
     const now = Date.now();
     if (
@@ -1023,7 +1062,7 @@ class MelodixPlayer {
       if (isStale()) {
         return;
       }
-      const { sound } = await av.Audio.Sound.createAsync(
+      const { sound, status: initialStatus } = await av.Audio.Sound.createAsync(
         { uri: result.resolved.uri },
         {
           shouldPlay: true,
@@ -1048,26 +1087,22 @@ class MelodixPlayer {
       }
 
       this.sound = sound;
-      // Une panne de flux est sessionnelle, pas une condamnation définitive :
-      // si l'utilisateur retente ce morceau et qu'il démarre réellement, il
-      // redevient candidat pour repeat-all et les avances ultérieures.
-      this.failedKeys.delete(track.id);
       appendDiagLog(
         `PLAYER_SOUND_LOADED trackId=${track.id} provider=${result.provider.id}`
       );
       this.emit({
-        status: 'playing',
-        buffering: false,
         resolved: result.info,
-        // Un nouveau morceau commence : toute notice d'erreur disparaît —
-        // jamais affichée sur le morceau suivant (cohérent mini/plein écran).
+        // Un Sound chargé n'est PAS nécessairement en lecture. Conserver
+        // `loading` jusqu'au statut initial expo-av empêche un faux PLAYING
+        // lorsque l'audio est encore en buffering ou n'a pas démarré.
+        status: 'loading',
+        buffering: true,
+        // La source est valide : toute ancienne notice peut disparaître, sans
+        // pour autant prétendre que du son sort déjà.
         notice: null,
         durationMillis: track.durationMillis ?? this.state.durationMillis,
       });
-      appendDiagLog(
-        `[MEDIA_DIAG] PLAYBACK_STARTED trackId=${track.id} ` +
-          `provider=${result.provider.id} state=PLAYING`
-      );
+      this.onPlaybackStatusUpdate(token, initialStatus);
 
       // Seek en attente : consommé UNE fois, UNIQUEMENT pour le morceau visé
       // — un seek destiné à A ne se retrouve jamais appliqué à B.
@@ -1093,31 +1128,6 @@ class MelodixPlayer {
           }
         }
       }
-
-      // Historique de lecture LOCAL (sans compte) : alimente les sections
-      // « Écoutés récemment », « en tête », seeds de recommandations.
-      // Fire-and-forget : l'historique ne doit jamais perturber la lecture.
-      void recordPlay(
-        {
-          id: track.id,
-          title: track.title,
-          subtitle: track.artists.join(', '),
-          imageURL: track.imageURL || undefined,
-          // Snapshot complet (I-2) : la relecture directe depuis
-          // l'historique matche avec les mêmes métadonnées.
-          albumName: track.album ?? null,
-          durationMs: track.durationMillis ?? null,
-          // Conserver le signal exact jusque dans « Écoutés récemment » :
-          // une relecture ne doit pas perdre l'ISRC obtenu depuis Spotify.
-          isrc: track.isrc ?? null,
-        },
-        {
-          albumTitle: track.album ?? undefined,
-          // I-8 : albumId conservé quand l'écran d'origine le connaît —
-          // « Écoutés récemment » pourra naviguer vers l'ALBUM.
-          albumId: track.albumId ?? null,
-        }
-      ).catch(() => undefined);
     } catch (error) {
       // M-7 : l'erreur expo-av peut citer l'URL SIGNÉE du flux → assainie.
       console.error(
@@ -1678,6 +1688,7 @@ class MelodixPlayer {
     this.transportIntent = null;
     this.transportQueue = Promise.resolve();
     this.lastPersistedAt = 0;
+    this.lastPlaybackStartedForToken = -1;
     this.sessionDirty = false;
     this.state = { ...INITIAL_PLAYER_STATE };
     this.listeners.forEach((listener) => listener(this.state));
