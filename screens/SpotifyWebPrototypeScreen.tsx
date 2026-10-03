@@ -64,6 +64,9 @@ export const SpotifyWebPrototypeScreen = () => {
     backend.attachRuntime({
       play: async () => false,
       pause: async () => false,
+      seek: async () => false,
+      next: async () => false,
+      previous: async () => false,
     });
     return () => {
       unsubscribe();

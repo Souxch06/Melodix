@@ -12,10 +12,12 @@ export type PlaybackBackendState = {
   status: PlaybackBackendStatus;
   trackId: string | null;
   title: string | null;
-  artist: string | null;
+  artists: string[];
   artworkUrl: string | null;
   durationMillis: number;
   positionMillis: number;
+  isPlaying: boolean;
+  isLoading: boolean;
   errorCode: string | null;
 };
 
@@ -31,5 +33,8 @@ export interface PlaybackBackend {
   subscribe(listener: PlaybackBackendListener): () => void;
   play(): Promise<boolean>;
   pause(): Promise<boolean>;
+  seek(positionMillis: number): Promise<boolean>;
+  next(): Promise<boolean>;
+  previous(): Promise<boolean>;
   destroy(): void;
 }
