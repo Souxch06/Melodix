@@ -38,7 +38,22 @@ export const styles = StyleSheet.create({
     paddingHorizontal: 32,
     textAlign: 'center',
   },
+  errorState: {
+    alignItems: 'center',
+  },
   loader: {
     marginTop: 32,
+  },
+  retryButton: {
+    backgroundColor: COLORS.WHITE,
+    borderRadius: 18,
+    marginTop: 16,
+    paddingHorizontal: 20,
+    paddingVertical: 9,
+  },
+  retryText: {
+    color: COLORS.PRIMARY,
+    fontSize: 14,
+    fontWeight: '700',
   },
 });
