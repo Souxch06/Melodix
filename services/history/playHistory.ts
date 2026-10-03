@@ -261,6 +261,17 @@ export const getTopAlbumsFromHistory = async (
 export const hasPlayHistory = async (): Promise<boolean> =>
   (await readStableEntries()).length > 0;
 
+/** Supprime une seule entrée sans perturber l'ordre des autres lectures. */
+export const removePlayHistoryEntry = (trackId: string): Promise<void> => {
+  if (!trackId) {
+    return Promise.resolve();
+  }
+  return enqueueMutation(async () => {
+    const entries = await readEntries();
+    await writeEntries(entries.filter((entry) => entry.track.id !== trackId));
+  });
+};
+
 export const clearPlayHistory = (): Promise<void> =>
   enqueueMutation(() => AsyncStorage.removeItem(PLAY_HISTORY_STORAGE_KEY));
 

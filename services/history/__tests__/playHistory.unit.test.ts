@@ -12,6 +12,7 @@ import {
   MAX_HISTORY,
   PLAY_HISTORY_STORAGE_KEY,
   recordPlay,
+  removePlayHistoryEntry,
 } from '../playHistory';
 
 const track = (id: string, artist = 'Artist', album?: string): TrackModel => ({
@@ -114,6 +115,18 @@ describe('playHistory (historique local)', () => {
   it('getTopAlbumsFromHistory ignore les lectures sans album', async () => {
     await recordPlay(track('orphan', 'Solo'));
     expect(await getTopAlbumsFromHistory(5)).toEqual([]);
+  });
+
+  it('supprime une seule lecture sans réordonner ni effacer les autres', async () => {
+    await recordPlay(track('1'));
+    await recordPlay(track('2'));
+    await recordPlay(track('3'));
+
+    await removePlayHistoryEntry('2');
+
+    expect(
+      (await getRecentlyPlayedTracks()).map(({ track: item }) => item.id)
+    ).toEqual(['3', '1']);
   });
 
   it('clearPlayHistory remet tout à zéro', async () => {
