@@ -54,7 +54,9 @@ export const dtoTrackToTrackModel = (dto: TrackMetadataDTO): TrackModel => ({
   albumName: dto.album ?? null,
 });
 
-const dtoAlbumToLibraryItem = (dto: AlbumMetadataDTO): LibraryItemModel => ({
+export const dtoAlbumToLibraryItem = (
+  dto: AlbumMetadataDTO
+): LibraryItemModel => ({
   id: dto.id,
   type: 'album',
   title: dto.title,

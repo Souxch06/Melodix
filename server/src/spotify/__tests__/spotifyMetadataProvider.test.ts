@@ -239,6 +239,58 @@ test('getAlbum : pistes embarquées normalisées, entrées incomplètes ignorée
   assert.equal(dto.tracks[0].album, 'Discovery');
 });
 
+test('getArtist : complète artistes manquants et filtre sa discographie', async () => {
+  __resetServiceGuards();
+  const provider = makeProvider(
+    makeDeps({
+      fetchEmbed: async (): Promise<EmbedPayload> => ({
+        entity: {
+          name: 'Daft Punk',
+          type: 'artist',
+          uri: 'spotify:artist:artist12345',
+          visualIdentity: { image: [{ url: 'artist.jpg', maxWidth: 640 }] },
+        },
+        trackList: [
+          {
+            uri: 'spotify:track:track123456',
+            title: 'One More Time',
+            // Spotify omet parfois subtitle dans les embeds artiste.
+            subtitle: '',
+            duration: 320_000,
+          },
+        ],
+      }),
+      search: async () => ({
+        tracks: [],
+        albums: [
+          {
+            id: 'album-daft',
+            title: 'Discovery',
+            artists: ['Daft Punk'],
+            coverUrl: 'discovery.jpg',
+          },
+          {
+            id: 'album-air',
+            title: 'Moon Safari',
+            artists: ['Air'],
+            coverUrl: 'moon.jpg',
+          },
+        ],
+      }),
+    })
+  );
+
+  const artist = await provider.getArtist('artist12345');
+
+  assert.equal(artist.name, 'Daft Punk');
+  assert.equal(artist.imageUrl, 'artist.jpg');
+  assert.deepEqual(artist.topTracks?.[0].artists, ['Daft Punk']);
+  assert.deepEqual(
+    artist.albums?.map((album) => album.title),
+    ['Discovery']
+  );
+});
+
 test('ids invalides → 400 BAD_REQUEST', async () => {
   __resetServiceGuards();
   const provider = makeProvider(makeDeps());

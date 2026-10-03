@@ -372,14 +372,46 @@ export const createSpotifyMetadataProvider = (
       );
     }
 
-    const topTracks: TrackMetadataDTO[] = embedTrackListToDTOs(trackList, null);
+    const pageArtistName = entity.name;
+    // Les embeds artiste omettent parfois le sous-titre sur chaque piste.
+    // L'identité de la page est alors une information plus fiable qu'un
+    // tableau d'artistes vide pour l'UI et le matcher audio.
+    const topTracks: TrackMetadataDTO[] = embedTrackListToDTOs(
+      trackList,
+      null
+    ).map((track) => ({
+      ...track,
+      artists: track.artists.length > 0 ? track.artists : [pageArtistName],
+    }));
+
+    // Discographie best-effort via la recherche publique déjà isolée dans ce
+    // provider. Une panne secondaire ne doit pas masquer les titres populaires
+    // obtenus depuis l'embed artiste.
+    let albums: AlbumMetadataDTO[] | null = null;
+    try {
+      const searchResult = await guardedCall(() =>
+        deps.search(pageArtistName, 20)
+      );
+      const artistName = normalizeArtist(pageArtistName);
+      const matchingAlbums = searchResult.albums
+        .filter((album) =>
+          album.artists.some(
+            (albumArtist) => normalizeArtist(albumArtist) === artistName
+          )
+        )
+        .map(toAlbumDTO)
+        .sort(byQueryRelevance(pageArtistName));
+      albums = matchingAlbums.length > 0 ? matchingAlbums : null;
+    } catch {
+      logger.warn('discographie artiste temporairement indisponible');
+    }
 
     const dto: ArtistMetadataDTO = {
       id: artistId,
-      name: entity.name,
+      name: pageArtistName,
       imageUrl: entityCoverUrl(entity),
       topTracks: topTracks.length > 0 ? topTracks : null,
-      albums: null,
+      albums,
     };
 
     caches.metadata.set(cacheKey, dto, env.cache.metadataTtlSeconds);
