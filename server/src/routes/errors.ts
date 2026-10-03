@@ -13,7 +13,10 @@ import { createLogger } from '../logging/logger';
 
 const logger = createLogger('Errors');
 
-export const errorBody = (code: ApiErrorCode, message: string): ApiErrorBody => ({
+export const errorBody = (
+  code: ApiErrorCode,
+  message: string
+): ApiErrorBody => ({
   error: { code, message },
 });
 
@@ -26,7 +29,9 @@ export const toHttpError = (
 ): { status: number; body: ApiErrorBody } => {
   if (error instanceof ApiError) {
     if (error.internalDetail) {
-      logger.warn(`${context} — ${error.code} — détail interne: ${error.internalDetail}`);
+      logger.warn(
+        `${context} — ${error.code} — détail interne: ${error.internalDetail}`
+      );
     }
     return {
       status: error.httpStatus,

@@ -23,15 +23,21 @@ export const TopArtists = () => {
   );
 
   React.useEffect(() => {
+    let mounted = true;
     (async () => {
       try {
         const topArtistsData = await getUserTopArtists();
-        setTopArtists(topArtistsData);
+        if (mounted) setTopArtists(topArtistsData);
       } catch (error) {
-        setTopArtists(null);
-        console.error(error);
+        if (mounted) {
+          setTopArtists(null);
+          console.error(error);
+        }
       }
     })();
+    return () => {
+      mounted = false;
+    };
   }, []);
 
   // Hidden when Spotify refuses the request (e.g. missing permission).

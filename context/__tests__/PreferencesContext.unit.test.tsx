@@ -39,16 +39,16 @@ const Consumer = () => {
       <Text testID="volume">{String(prefs.startupVolume)}</Text>
       <Text testID="background">{String(prefs.backgroundAudio)}</Text>
       <Text testID="accent">{prefs.accentHex}</Text>
-      <Pressable
-        onPress={() => prefs.setLanguage('en')}
-        testID="set-en"
-      >
+      <Pressable onPress={() => prefs.setLanguage('en')} testID="set-en">
         <Text>en</Text>
       </Pressable>
       <Pressable onPress={() => prefs.setStartupVolume(70)} testID="set-volume">
         <Text>volume</Text>
       </Pressable>
-      <Pressable onPress={() => prefs.setBackgroundAudio(false)} testID="set-background">
+      <Pressable
+        onPress={() => prefs.setBackgroundAudio(false)}
+        testID="set-background"
+      >
         <Text>background</Text>
       </Pressable>
       <Pressable onPress={() => prefs.setAccent('violet')} testID="set-accent">
@@ -155,11 +155,26 @@ describe('PreferencesProvider — restauration et application réelle', () => {
       const writes = (AsyncStorage.setItem as jest.Mock).mock.calls.filter(
         ([key]) => key === PREFERENCES_STORAGE_KEY
       );
-      expect(writes.some(([, raw]) => raw.includes('"startupVolume":70'))).toBe(true);
+      expect(writes.some(([, raw]) => raw.includes('"startupVolume":70'))).toBe(
+        true
+      );
       expect(
         writes.some(([, raw]) => raw.includes('"backgroundAudio":false'))
       ).toBe(true);
-      expect(writes.some(([, raw]) => raw.includes('"accent":"violet"'))).toBe(true);
+      expect(writes.some(([, raw]) => raw.includes('"accent":"violet"'))).toBe(
+        true
+      );
+    });
+
+    await waitFor(async () => {
+      const stored = JSON.parse(
+        (await AsyncStorage.getItem(PREFERENCES_STORAGE_KEY)) ?? '{}'
+      );
+      expect(stored).toMatchObject({
+        startupVolume: 70,
+        backgroundAudio: false,
+        accent: 'violet',
+      });
     });
   });
 

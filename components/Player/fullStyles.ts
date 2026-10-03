@@ -181,10 +181,20 @@ export const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
   },
+  queueHeaderActions: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 12,
+  },
   queueCount: {
     color: COLORS.GREY,
     fontSize: 11,
     fontWeight: '600',
+  },
+  queueClear: {
+    color: COLORS.TINT,
+    fontSize: 12,
+    fontWeight: '700',
   },
   queueEmpty: {
     color: COLORS.GREY,

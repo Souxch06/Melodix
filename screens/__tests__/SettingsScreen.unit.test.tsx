@@ -15,12 +15,7 @@
 import * as React from 'react';
 import { Alert } from 'react-native';
 
-import {
-  act,
-  fireEvent,
-  render,
-  waitFor,
-} from '@testing-library/react-native';
+import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
 
 import { SettingsScreen } from '../SettingsScreen';
 
@@ -98,7 +93,12 @@ jest.mock('@services', () => ({
   describeSession: (...args: []) => mockDescribeSession(...args),
   MATCH_CACHE_STORAGE_KEY: '@melodix/match-cache',
   ACCENT_PRESETS: [
-    { id: 'melodix', hex: '#1ed760', labelFr: 'Vert Melodix', labelEn: 'Melodix Green' },
+    {
+      id: 'melodix',
+      hex: '#1ed760',
+      labelFr: 'Vert Melodix',
+      labelEn: 'Melodix Green',
+    },
     { id: 'bleu', hex: '#3b82f6', labelFr: 'Bleu', labelEn: 'Blue' },
   ],
 }));
@@ -125,7 +125,9 @@ describe('Paramètres — ouverture, sections et navigation', () => {
       'settings-section-about',
     ].forEach((testID) => expect(getByTestId(testID)).toBeTruthy());
     // Titre FR par défaut (dictionnaire actif).
-    expect(getByTestId('settings-screen').findAllByType('Text').length).toBeGreaterThan(0);
+    expect(
+      getByTestId('settings-screen').findAllByType('Text').length
+    ).toBeGreaterThan(0);
   });
 
   it('le bouton retour ferme l écran (navigation arrière)', () => {
@@ -136,7 +138,7 @@ describe('Paramètres — ouverture, sections et navigation', () => {
     expect(mockBack).toHaveBeenCalledTimes(1);
   });
 
-  it('les liens FAQ/À propos naviguent vers les vraies sous-pages', () => {
+  it('les liens FAQ/À propos et le prototype naviguent vers les vraies sous-pages', () => {
     const { getByTestId } = render(<SettingsScreen />);
 
     fireEvent.press(getByTestId('settings-faq-link'));
@@ -148,6 +150,12 @@ describe('Paramètres — ouverture, sections et navigation', () => {
     fireEvent.press(getByTestId('settings-terms-link'));
     expect(mockPush).toHaveBeenCalledWith({
       pathname: '/settings/about',
+      params: {},
+    });
+
+    fireEvent.press(getByTestId('settings-spotify-web-open'));
+    expect(mockPush).toHaveBeenCalledWith({
+      pathname: '/settings/spotify-web-player',
       params: {},
     });
   });
@@ -226,9 +234,7 @@ describe('Paramètres — apparence (thème, accent)', () => {
   beforeEach(() => jest.clearAllMocks());
 
   it('thème sombre actif ; clair et système grisés « Bientôt disponible »', () => {
-    const { getByTestId, queryAllByText } = render(
-      <SettingsScreen />
-    );
+    const { getByTestId, queryAllByText } = render(<SettingsScreen />);
 
     const dark = getByTestId('settings-theme-dark');
     const light = getByTestId('settings-theme-light');
@@ -247,7 +253,6 @@ describe('Paramètres — apparence (thème, accent)', () => {
     // Le thème sombre, lui, est un vrai réglage.
     fireEvent.press(dark);
     expect(mockSetThemeMode).toHaveBeenCalledWith('dark');
-
   });
 
   it('choisir un accent appelle le setter persistant', () => {
@@ -265,7 +270,11 @@ describe('Paramètres — lecture (switches branchés)', () => {
   it('arrière-plan : le switch pilote le hook player réel', () => {
     const { getByTestId } = render(<SettingsScreen />);
 
-    fireEvent(getByTestId('settings-background-audio-switch'), 'valueChange', false);
+    fireEvent(
+      getByTestId('settings-background-audio-switch'),
+      'valueChange',
+      false
+    );
 
     expect(mockSetBackgroundAudio).toHaveBeenCalledWith(false);
   });
@@ -361,7 +370,9 @@ describe('Paramètres — données, langue, aide et version', () => {
     const { getByTestId } = render(<SettingsScreen />);
 
     const row = getByTestId('settings-version');
-    const texts = row.findAllByType('Text').map((node: { props: { children?: unknown } }) => node.props.children);
+    const texts = row
+      .findAllByType('Text')
+      .map((node: { props: { children?: unknown } }) => node.props.children);
     expect(texts).toContain('4.4.8-diagnostic');
   });
 

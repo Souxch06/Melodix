@@ -144,6 +144,35 @@ class VirtualMediaPlayerTest {
   }
 
   @Test
+  fun `valeurs numeriques invalides sont neutralisees sans corrompre la session`() {
+    player.updateSession(
+      mapOf(
+        "trackId" to "spotify:corrupt",
+        "title" to "Corrupt",
+        "artist" to "Test",
+        "durationMillis" to Double.POSITIVE_INFINITY,
+        "positionMillis" to Double.NaN,
+        "isPlaying" to true
+      )
+    )
+
+    assertEquals(Player.STATE_READY, player.playbackState)
+    assertTrue(player.isPlaying)
+    assertEquals(C.TIME_UNSET, player.duration)
+    assertEquals(0L, player.contentPosition)
+  }
+
+  @Test
+  fun `position projetee est bornee par la duree`() {
+    player.updateSession(
+      payload(isPlaying = true, positionMillis = 500_000L, durationMillis = 200_000L)
+    )
+
+    assertEquals(200_000L, player.duration)
+    assertEquals(200_000L, player.contentPosition)
+  }
+
+  @Test
   fun `phase 5 — progression live via timeline projetée (aucune commande dédiée média3)`() {
     // L'API media3 n'a PAS de COMMAND_GET_DURATION/GET_POSITION : la
     // progression et la durée découlent de la TIMELINE + du playbackState
@@ -153,6 +182,15 @@ class VirtualMediaPlayerTest {
     assertTrue(
       player.availableCommands.contains(Player.COMMAND_GET_TIMELINE)
     )
+    // Notification, écran verrouillé, Android Auto et casques n'emploient
+    // pas tous la même variante de commande suivant leur version Media3.
+    assertTrue(player.availableCommands.contains(Player.COMMAND_PLAY_PAUSE))
+    assertTrue(player.availableCommands.contains(Player.COMMAND_SEEK_TO_NEXT))
+    assertTrue(player.availableCommands.contains(Player.COMMAND_SEEK_TO_PREVIOUS))
+    assertTrue(player.availableCommands.contains(Player.COMMAND_SEEK_FORWARD))
+    assertTrue(player.availableCommands.contains(Player.COMMAND_SEEK_BACK))
+    assertTrue(player.availableCommands.contains(Player.COMMAND_SEEK_TO_NEXT_MEDIA_ITEM))
+    assertTrue(player.availableCommands.contains(Player.COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM))
     assertEquals(1.0f, player.playbackParameters.speed, 0.0001f)
   }
 
@@ -199,6 +237,22 @@ class VirtualMediaPlayerTest {
       ),
       commands
     )
+  }
+
+  @Test
+  fun `SEEK FORWARD et BACK routent une position absolue vers le meme JS`() {
+    player.updateSession(payload(isPlaying = true, positionMillis = 42_000L))
+
+    player.seekForward()
+    player.seekBack()
+
+    assertEquals(2, commands.size)
+    assertEquals("seek", commands[0].first)
+    assertEquals("seek", commands[1].first)
+    assertTrue((commands[0].second ?: 0L) > 42_000L)
+    assertTrue((commands[1].second ?: Long.MAX_VALUE) < 42_000L)
+    // Aucun état optimiste : les deux commandes partent de la projection JS.
+    assertEquals(42_000L, player.contentPosition)
   }
 
   @Test

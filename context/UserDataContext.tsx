@@ -14,7 +14,12 @@
 import * as React from 'react';
 
 import { UserModel } from '@models';
-import { clearSession, loadSession } from '@services';
+import {
+  clearPlaybackSession,
+  clearSession,
+  loadSession,
+  melodixPlayer,
+} from '@services';
 
 import { getCurrentUser, invalidateUserPlaylistsCache } from '@api';
 
@@ -56,16 +61,22 @@ export const UserDataContext = React.createContext<UserContextType>({
 export const UserDataProvider = ({ children }: UserDataProviderPropsType) => {
   const [status, setStatus] = React.useState<SessionStatus>('loading');
   const [user, setUser] = React.useState<UserModel>(localUserData);
+  // Invalide toute réponse profil appartenant à une ancienne session. Sans
+  // ce jeton, un refresh lent pouvait remettre l'utilisateur Spotify après
+  // une déconnexion déjà terminée.
+  const accountGenerationRef = React.useRef(0);
 
   // Restauration au démarrage : une session persistante doit éviter de
   // repasser par l'écran de connexion à chaque lancement.
   React.useEffect(() => {
     let cancelled = false;
 
+    const generation = accountGenerationRef.current;
+
     (async () => {
       const session = await loadSession();
 
-      if (cancelled) {
+      if (cancelled || generation !== accountGenerationRef.current) {
         return;
       }
 
@@ -77,14 +88,16 @@ export const UserDataProvider = ({ children }: UserDataProviderPropsType) => {
       try {
         setStatus('spotify');
         const freshUser = await getCurrentUser();
-        if (!cancelled) {
+        if (!cancelled && generation === accountGenerationRef.current) {
           setUser(freshUser);
         }
       } catch (error) {
         // Une session présente mais plus valide (offline, révoquée) :
         // l'utilisateur reste connecté côté stockage et verra les erreurs
         // propres au moment de la requête suivante ; on ne le déconnecte pas.
-        console.warn('Initial Spotify profile refresh failed', error);
+        if (!cancelled && generation === accountGenerationRef.current) {
+          console.warn('Initial Spotify profile refresh failed', error);
+        }
       }
     })();
 
@@ -94,13 +107,34 @@ export const UserDataProvider = ({ children }: UserDataProviderPropsType) => {
   }, []);
 
   const applySpotifyUser = React.useCallback((spotifyUser: UserModel) => {
+    accountGenerationRef.current += 1;
     setUser(spotifyUser);
     setStatus('spotify');
   }, []);
 
   const signOut = React.useCallback(async () => {
-    await clearSession();
-    await invalidateUserPlaylistsCache();
+    // Invalidation SYNCHRONE avant les I/O : aucun refresh déjà en vol ne
+    // peut gagner la course pendant la purge SecureStore/cache.
+    accountGenerationRef.current += 1;
+
+    // La déconnexion est aussi une frontière de lecture. `stop()` invalide
+    // immédiatement toute résolution en vol, décharge le son puis projette
+    // l'état vide vers le bridge natif (notification + MediaSession arrêtées).
+    // La purge explicite couvre également une carte « Reprendre » chargée
+    // avant que le moteur n'ait eu un morceau courant.
+    const cleanup = await Promise.allSettled([
+      melodixPlayer.stop(),
+      clearPlaybackSession(),
+      clearSession(),
+      invalidateUserPlaylistsCache(),
+    ]);
+
+    // SecureStore traite déjà sa suppression en best-effort. Les autres
+    // nettoyages ne doivent jamais laisser l'ancienne identité à l'écran si
+    // un stockage secondaire est momentanément indisponible.
+    if (cleanup.some((result) => result.status === 'rejected')) {
+      console.warn('Some local sign-out cleanup could not be completed');
+    }
     setUser(localUserData);
     setStatus('local');
   }, []);
@@ -109,8 +143,12 @@ export const UserDataProvider = ({ children }: UserDataProviderPropsType) => {
     if (status !== 'spotify') {
       return;
     }
+    const generation = accountGenerationRef.current;
     try {
-      setUser(await getCurrentUser());
+      const freshUser = await getCurrentUser();
+      if (generation === accountGenerationRef.current) {
+        setUser(freshUser);
+      }
     } catch (error) {
       console.warn('Profile refresh failed', error);
     }

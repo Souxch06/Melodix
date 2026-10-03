@@ -4,7 +4,14 @@ import type {
   AudioSourceQuery,
   ResolvedStream,
 } from './types';
-import { fingerprintOf, matchSongs } from './audiusTrackMatcher';
+import {
+  canonicalizeFromTitle,
+  fingerprintOf,
+  matchSongs,
+  normalizeTitleText,
+  stripFeatureSuffix,
+} from './audiusTrackMatcher';
+import type { SongCandidateDecision } from './audiusTrackMatcher';
 import {
   getYouTubeAudioStreamUrl,
   searchYouTubeSongs,
@@ -30,39 +37,111 @@ import { sanitizeErrorForLog } from '../logSanitize';
 /** Seuil d'acceptation identique à Audius (voir findBestAudiusMatch). */
 const ACCEPT_SCORE = 55;
 
+const devYouTubeLog = (
+  event: string,
+  details: Record<string, unknown>
+): void => {
+  if (typeof __DEV__ !== 'undefined' && __DEV__) {
+    console.info(`[AUDIO_DIAG] YouTube ${event}`, details);
+  }
+};
+
 const durationSecOf = (query: AudioSourceQuery): number | null =>
   typeof query.durationMillis === 'number' && query.durationMillis > 0
     ? Math.round(query.durationMillis / 1000)
     : null;
 
-const queryText = (query: AudioSourceQuery): string =>
-  // Recherche « artiste + titre » : jamais le titre seul (les doublons de
-  // titres pullulent sur YouTube).
-  `${query.artists.filter(Boolean).join(' ')} ${query.title}`
-    .replace(/\s{2,}/g, ' ')
-    .trim();
+const queryTexts = (query: AudioSourceQuery): string[] => {
+  const artists = query.artists.filter(Boolean).join(' ');
+  const original = stripFeatureSuffix(query.title).trim();
+  const canonical = canonicalizeFromTitle(normalizeTitleText(query.title));
+  return Array.from(
+    new Set(
+      [
+        `${artists} ${original}`,
+        `${original} ${artists}`,
+        `${artists} ${canonical}`,
+        // Les formes élargies n'assouplissent jamais le score : elles ne font
+        // qu'exposer plus de candidats au même matcher strict.
+        `${artists} ${original} official audio`,
+        query.album ? `${artists} ${original} ${query.album}` : '',
+      ]
+        .map((text) => text.replace(/\s{2,}/g, ' ').trim())
+        .filter(Boolean)
+    )
+  ).slice(0, 5);
+};
 
 const scoreCandidate = (
   query: AudioSourceQuery,
-  candidate: YouTubeSongCandidate
+  candidate: YouTubeSongCandidate,
+  onDecision?: (decision: SongCandidateDecision) => void
 ): number => {
   const source = fingerprintOf({
     title: query.title,
     artistNames: query.artists,
     album: query.album,
     durationSec: durationSecOf(query),
+    isrc: query.isrc,
+    explicit: query.explicit,
   });
 
-  const best = matchSongs(source, [
-    {
-      id: candidate.videoId,
-      title: candidate.title,
-      artistNames: candidate.artists,
-      durationSec: candidate.durationSec,
-    },
-  ]);
+  const best = matchSongs(
+    source,
+    [
+      {
+        id: candidate.videoId,
+        title: candidate.title,
+        artistNames: candidate.artists,
+        durationSec: candidate.durationSec,
+      },
+    ],
+    { onCandidateDecision: onDecision }
+  );
 
   return best?.score ?? 0;
+};
+
+/** Recherche élargie mais bornée ; arrêt dès qu'un match fiable existe. */
+const searchCandidates = async (
+  query: AudioSourceQuery
+): Promise<YouTubeSongCandidate[]> => {
+  const collected: YouTubeSongCandidate[] = [];
+  const seen = new Set<string>();
+  let sawSearchError = false;
+
+  for (const text of queryTexts(query)) {
+    let batch: YouTubeSongCandidate[];
+    try {
+      batch = await searchYouTubeSongs(text, 12);
+    } catch {
+      sawSearchError = true;
+      devYouTubeLog('search-error', { query: text });
+      continue;
+    }
+    devYouTubeLog('search', { query: text, results: batch.length });
+    batch.forEach((candidate) => {
+      if (candidate.videoId && !seen.has(candidate.videoId)) {
+        seen.add(candidate.videoId);
+        collected.push(candidate);
+      }
+    });
+    if (
+      collected.some(
+        (candidate) => scoreCandidate(query, candidate) >= ACCEPT_SCORE
+      )
+    ) {
+      break;
+    }
+  }
+
+  const hasReliableCandidate = collected.some(
+    (candidate) => scoreCandidate(query, candidate) >= ACCEPT_SCORE
+  );
+  if (!hasReliableCandidate && sawSearchError) {
+    throw new Error('YouTube search incomplete');
+  }
+  return collected;
 };
 
 export const createYouTubeAudioProvider = (): AudioProvider => ({
@@ -70,12 +149,11 @@ export const createYouTubeAudioProvider = (): AudioProvider => ({
   displayName: 'YouTube',
 
   matches: async (query: AudioSourceQuery): Promise<AudioProviderMatch[]> => {
-    const text = queryText(query);
-    if (!text) {
+    if (!queryTexts(query).length) {
       return [];
     }
 
-    const candidates = await searchYouTubeSongs(text, 12).catch(() => []);
+    const candidates = await searchCandidates(query).catch(() => []);
 
     return candidates
       .map((candidate) => ({
@@ -90,27 +168,47 @@ export const createYouTubeAudioProvider = (): AudioProvider => ({
   resolveMatch: async (
     query: AudioSourceQuery
   ): Promise<{ sourceId: string; score: number } | null> => {
-    const text = queryText(query);
-    if (!text) {
+    if (!queryTexts(query).length) {
       return null;
     }
+
+    devYouTubeLog('spotify-input', {
+      title: query.title,
+      artists: query.artists,
+      album: query.album ?? null,
+      durationMillis: query.durationMillis ?? null,
+      isrc: query.isrc ?? null,
+    });
 
     let candidates: YouTubeSongCandidate[];
     try {
-      candidates = await searchYouTubeSongs(text, 12);
+      candidates = await searchCandidates(query);
     } catch (error) {
       console.warn('YouTube search failed:', error);
-      return null;
+      // Une panne du fallback n'est pas un « morceau absent ». Le resolver
+      // central transforme cette exception en outcome=error, donc aucun cache
+      // négatif n'est persisté pour un incident réseau/protocole temporaire.
+      throw error;
     }
 
     let best: { sourceId: string; raw: number } | null = null;
+    const decisions: SongCandidateDecision[] = [];
 
     for (const candidate of candidates) {
-      const raw = scoreCandidate(query, candidate);
+      const raw = scoreCandidate(query, candidate, (decision) =>
+        decisions.push(decision)
+      );
       if (raw >= ACCEPT_SCORE && (best === null || raw > best.raw)) {
         best = { sourceId: candidate.videoId, raw };
       }
     }
+
+    devYouTubeLog(best ? 'selected' : 'unavailable', {
+      results: candidates.length,
+      sourceId: best?.sourceId ?? null,
+      score: best?.raw ?? null,
+      rejected: decisions.filter((decision) => !decision.accepted),
+    });
 
     return best
       ? { sourceId: best.sourceId, score: Math.min(1, best.raw / 100) }

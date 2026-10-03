@@ -39,7 +39,11 @@ import {
   subtitleToArtists,
 } from './embedEntity';
 import type { SpotifyEmbedTrackListItem } from './types';
-import { normalizeArtist, normalizeTitle, tokenSimilarity } from './normalization';
+import {
+  normalizeArtist,
+  normalizeTitle,
+  tokenSimilarity,
+} from './normalization';
 
 const logger = createLogger('SpotifyProvider');
 
@@ -79,14 +83,16 @@ const guardedCall = async <T>(operation: () => Promise<T>): Promise<T> => {
     return result;
   } catch (error) {
     serviceGuard.recordFailure();
-    logger.error(
-      `appel provider en échec : ${error instanceof Error ? error.message : error}`
-    );
+    // Les messages upstream peuvent contenir URL signée, query OAuth ou
+    // payload privé. Le type suffit au diagnostic ; aucun contenu brut ne
+    // traverse les logs ni l'ApiError journalisée par la route.
+    const errorType = error instanceof Error ? error.name : typeof error;
+    logger.error(`appel provider en échec (${errorType})`);
     throw new ApiError(
       'PROVIDER_UNAVAILABLE',
       'Service de recherche temporairement indisponible.',
       503,
-      error instanceof Error ? error.message : String(error)
+      `provider failure (${errorType})`
     );
   }
 };
@@ -150,7 +156,9 @@ const embedTrackListToDTOs = (
 };
 
 /** Pertinence vs requête (titre + artistes), ordre déterministe. */
-const byQueryRelevance = <T extends { id: string; title: string; artists: string[] }>(
+const byQueryRelevance = <
+  T extends { id: string; title: string; artists: string[] },
+>(
   query: string
 ): ((a: T, b: T) => number) => {
   const normalizedQuery = normalizeTitle(query).base;
@@ -218,22 +226,14 @@ export const createSpotifyMetadataProvider = (
       return cached;
     }
 
-    const { tracks, albums } = await guardedCall(() =>
-      deps.search(q, limit)
-    );
+    const { tracks, albums } = await guardedCall(() => deps.search(q, limit));
 
     const result: SearchResultsDTO = {
       tracks: types.includes('tracks')
-        ? tracks
-            .map(toTrackDTO)
-            .sort(byQueryRelevance(q))
-            .slice(0, limit)
+        ? tracks.map(toTrackDTO).sort(byQueryRelevance(q)).slice(0, limit)
         : [],
       albums: types.includes('albums')
-        ? albums
-            .map(toAlbumDTO)
-            .sort(byQueryRelevance(q))
-            .slice(0, limit)
+        ? albums.map(toAlbumDTO).sort(byQueryRelevance(q)).slice(0, limit)
         : [],
     };
 
@@ -253,7 +253,12 @@ export const createSpotifyMetadataProvider = (
       deps.fetchEmbed('track', trackId)
     );
     if (!entity?.name) {
-      throw new ApiError('NOT_FOUND', 'Titre introuvable.', 404, 'embed: no entity');
+      throw new ApiError(
+        'NOT_FOUND',
+        'Titre introuvable.',
+        404,
+        'embed: no entity'
+      );
     }
 
     const dto: TrackMetadataDTO = {
@@ -285,7 +290,12 @@ export const createSpotifyMetadataProvider = (
       deps.fetchEmbed('album', albumId)
     );
     if (!entity?.name) {
-      throw new ApiError('NOT_FOUND', 'Album introuvable.', 404, 'embed: no entity');
+      throw new ApiError(
+        'NOT_FOUND',
+        'Album introuvable.',
+        404,
+        'embed: no entity'
+      );
     }
 
     const tracks: TrackMetadataDTO[] = embedTrackListToDTOs(
@@ -326,10 +336,7 @@ export const createSpotifyMetadataProvider = (
       );
     }
 
-    const tracks: TrackMetadataDTO[] = embedTrackListToDTOs(
-      trackList,
-      null
-    );
+    const tracks: TrackMetadataDTO[] = embedTrackListToDTOs(trackList, null);
 
     const dto: PlaylistMetadataDTO = {
       id: playlistId,
@@ -357,17 +364,54 @@ export const createSpotifyMetadataProvider = (
       deps.fetchEmbed('artist', artistId)
     );
     if (!entity?.name) {
-      throw new ApiError('NOT_FOUND', 'Artiste introuvable.', 404, 'embed: no entity');
+      throw new ApiError(
+        'NOT_FOUND',
+        'Artiste introuvable.',
+        404,
+        'embed: no entity'
+      );
     }
 
-    const topTracks: TrackMetadataDTO[] = embedTrackListToDTOs(trackList, null);
+    const pageArtistName = entity.name;
+    // Les embeds artiste omettent parfois le sous-titre sur chaque piste.
+    // L'identité de la page est alors une information plus fiable qu'un
+    // tableau d'artistes vide pour l'UI et le matcher audio.
+    const topTracks: TrackMetadataDTO[] = embedTrackListToDTOs(
+      trackList,
+      null
+    ).map((track) => ({
+      ...track,
+      artists: track.artists.length > 0 ? track.artists : [pageArtistName],
+    }));
+
+    // Discographie best-effort via la recherche publique déjà isolée dans ce
+    // provider. Une panne secondaire ne doit pas masquer les titres populaires
+    // obtenus depuis l'embed artiste.
+    let albums: AlbumMetadataDTO[] | null = null;
+    try {
+      const searchResult = await guardedCall(() =>
+        deps.search(pageArtistName, 20)
+      );
+      const artistName = normalizeArtist(pageArtistName);
+      const matchingAlbums = searchResult.albums
+        .filter((album) =>
+          album.artists.some(
+            (albumArtist) => normalizeArtist(albumArtist) === artistName
+          )
+        )
+        .map(toAlbumDTO)
+        .sort(byQueryRelevance(pageArtistName));
+      albums = matchingAlbums.length > 0 ? matchingAlbums : null;
+    } catch {
+      logger.warn('discographie artiste temporairement indisponible');
+    }
 
     const dto: ArtistMetadataDTO = {
       id: artistId,
-      name: entity.name,
+      name: pageArtistName,
       imageUrl: entityCoverUrl(entity),
       topTracks: topTracks.length > 0 ? topTracks : null,
-      albums: null,
+      albums,
     };
 
     caches.metadata.set(cacheKey, dto, env.cache.metadataTtlSeconds);

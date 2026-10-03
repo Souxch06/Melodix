@@ -43,6 +43,8 @@ export const createAudiusAudioProvider = (): AudioProvider => {
           typeof query.durationMillis === 'number'
             ? query.durationMillis / 1000
             : null,
+        isrc: query.isrc,
+        explicit: query.explicit,
       });
 
       return results
@@ -56,6 +58,7 @@ export const createAudiusAudioProvider = (): AudioProvider => {
               ].filter(Boolean),
               durationSec:
                 typeof track.duration === 'number' ? track.duration : null,
+              isrc: track.isrc ?? null,
             },
           ]);
 

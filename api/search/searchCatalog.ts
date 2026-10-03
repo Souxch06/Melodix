@@ -19,7 +19,9 @@ const emptyResults = (): SearchResultsModel => ({
  * - Backend configuré ET joignable → métadonnées Spotify (catalogue complet,
  *   sans aucun compte pour l'utilisateur).
  * - Backend absent/joignable mal → REPLI Audius (catalogue audio direct,
- *   sans compte non plus) : la recherche ne casse jamais l'application.
+ *   sans compte non plus).
+ * - Si les deux sources échouent, l'erreur est propagée afin que l'UI affiche
+ *   un véritable état réseau, jamais un faux « aucun résultat ».
  */
 export const searchCatalog = async (
   query: string
@@ -29,13 +31,17 @@ export const searchCatalog = async (
     return emptyResults();
   }
 
-  if (isBackendConfigured()) {
+  const backendConfigured = isBackendConfigured();
+  let backendUnavailable = false;
+  if (backendConfigured) {
     try {
       return await backendSearchCatalog(q, SEARCH_LIMIT);
     } catch (error) {
+      backendUnavailable = true;
+      // Ne jamais inclure la requête utilisateur dans ce diagnostic.
       console.warn(
         'Backend Melodix injoignable, la recherche bascule sur Audius',
-        error
+        error instanceof Error ? error.name : typeof error
       );
     }
   }
@@ -47,9 +53,14 @@ export const searchCatalog = async (
       tracks: tracks.map(audiusTrackToLibraryItem),
       albums: [],
       playlists: [],
+      ...(backendUnavailable ? { degraded: true } : {}),
     };
   } catch (error) {
-    console.error(`Erreur de recherche Audius pour : ${q}`, error);
-    return emptyResults();
+    // La requête et les détails réseau peuvent contenir des données privées.
+    console.error(
+      'Erreur de recherche Audius',
+      error instanceof Error ? error.name : typeof error
+    );
+    throw error;
   }
 };

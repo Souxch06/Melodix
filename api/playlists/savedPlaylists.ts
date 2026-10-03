@@ -14,7 +14,10 @@ export const checkSavedPlaylists = async (
   try {
     return await checkSaved('playlist', playlistIds);
   } catch (error) {
-    console.error('Erreur lors de la vérification des playlists sauvegardées', error);
+    console.error(
+      'Erreur lors de la vérification des playlists sauvegardées',
+      error
+    );
     return playlistIds.map(() => false);
   }
 };

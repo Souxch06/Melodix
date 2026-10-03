@@ -32,19 +32,22 @@ export const searchAudiusTracks = async (
       tracks?: (AudiusTrackResponseType | null)[] | null;
     }>('/search', params);
 
-    return (results?.tracks ?? []).filter(
-      (track): track is AudiusTrackMatch => hasId(track)
+    return (results?.tracks ?? []).filter((track): track is AudiusTrackMatch =>
+      hasId(track)
     );
   } catch (error) {
     // …and some (older) nodes only serve the per-type endpoint.
     console.warn('Audius /search failed, trying /tracks/search', error);
 
+    // Ne pas convertir une deuxième panne réseau en « zéro résultat » : le
+    // resolver doit distinguer une indisponibilité temporaire d'un vrai
+    // no-match, sinon il persisterait un cache négatif pendant 24 heures.
     const fallbackTracks: (AudiusTrackResponseType | null)[] = await audiusGet<
       (AudiusTrackResponseType | null)[]
     >('/tracks/search', {
       ...params,
       app_user_id: 'Melodix',
-    }).catch(() => [] as (AudiusTrackResponseType | null)[]);
+    });
 
     return fallbackTracks.filter(hasId);
   }

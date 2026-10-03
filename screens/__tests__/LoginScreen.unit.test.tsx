@@ -24,9 +24,11 @@ import { useRouter } from 'expo-router';
 import { LoginScreen } from '../LoginScreen';
 
 // Environnement jsdom : les animations natives sont neutralisées.
-jest
-  .spyOn(Animated, 'parallel')
-  .mockReturnValue({ start: jest.fn(), stop: jest.fn(), reset: jest.fn() } as unknown as Animated.CompositeAnimation);
+jest.spyOn(Animated, 'parallel').mockReturnValue({
+  start: jest.fn(),
+  stop: jest.fn(),
+  reset: jest.fn(),
+} as unknown as Animated.CompositeAnimation);
 
 const mockStartLogin = jest.fn(async () => {});
 const mockResetError = jest.fn();
@@ -35,7 +37,10 @@ const mockReplace = jest.fn();
 let mockConfigured = true;
 let mockRequestPending = false;
 let mockSessionStatus = 'loading';
-let mockAuthState: { status: string; outcome?: { kind: string; cause?: string } } = {
+let mockAuthState: {
+  status: string;
+  outcome?: { kind: string; cause?: string };
+} = {
   status: 'idle',
 };
 let mockBusy = false;
@@ -101,11 +106,7 @@ describe('LoginScreen — parcours humain, connexion OBLIGATOIRE', () => {
     ).toBeTruthy();
     expect(root.getByTestId(TEST_IDS.SPOTIFY_BUTTON)).toBeTruthy();
     expect(root.getByText('Continuer avec Spotify')).toBeTruthy();
-    expect(
-      root.getByText(
-        'Connexion sécurisée avec Spotify'
-      )
-    ).toBeTruthy();
+    expect(root.getByText('Connexion sécurisée avec Spotify')).toBeTruthy();
     // Zéro échappatoire sans compte, zéro champ de saisie.
     expect(root.queryByText(/sans compte/i)).toBeNull();
     expect(root.UNSAFE_queryAllByType(TextInput)).toHaveLength(0);
@@ -173,7 +174,9 @@ describe('LoginScreen — parcours humain, connexion OBLIGATOIRE', () => {
         outcome: { kind: kind === 'not-configured-typo' ? 'unknown' : kind },
       };
       const root = render(<LoginScreen />);
-      expect(root.getByText('Impossible de se connecter à Spotify.')).toBeTruthy();
+      expect(
+        root.getByText('Impossible de se connecter à Spotify.')
+      ).toBeTruthy();
       expect(
         root.getByText('Vérifie ta connexion Internet puis réessaie.')
       ).toBeTruthy();

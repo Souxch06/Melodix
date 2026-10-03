@@ -21,6 +21,9 @@ export type SongMatchCandidate = {
   artistNames: string[];
   album?: string | null;
   durationSec?: number | null;
+  isrc?: string | null;
+  /** Classification fournie par le provider, sinon inférée du titre. */
+  explicit?: boolean | null;
 };
 
 export type SongFingerprint = {
@@ -28,6 +31,9 @@ export type SongFingerprint = {
   artistNames: string[];
   album?: string | null;
   durationSec?: number | null;
+  isrc?: string | null;
+  /** `null` signifie que la version ne publie aucune classification fiable. */
+  explicit: boolean | null;
   /**
    * Marqueurs de variante dure détectés dans le titre SOURCE
    * (« remix », « live », « instrumental », « karaoke », « acoustic »).
@@ -41,10 +47,40 @@ export type SongMatchResult = {
   candidate: SongMatchCandidate;
 };
 
+export type SongCandidateDecision = {
+  id: string;
+  accepted: boolean;
+  reason:
+    | 'invalid-candidate'
+    | 'title-mismatch'
+    | 'track-number-conflict'
+    | 'artist-mismatch'
+    | 'duration-mismatch'
+    | 'variant-mismatch'
+    | 'content-rating-mismatch'
+    | 'below-threshold'
+    | 'candidate-scored';
+  score?: number;
+};
+
+type MatchOptions = {
+  minimumAcceptedScore?: number;
+  onCandidateDecision?: (decision: SongCandidateDecision) => void;
+};
+
 const ACCEPT_MATCH_SCORE = 55;
 
+const devMatcherLog = (
+  event: string,
+  details: Record<string, unknown>
+): void => {
+  if (typeof __DEV__ !== 'undefined' && __DEV__) {
+    console.info(`[AUDIO_DIAG] Audius ${event}`, details);
+  }
+};
+
 const DASH_APPENDAGE_RX =
-  /(?:\s[-–—−:]\s+(?:(?:[^\-–—−]*?\b(?:remix|mix|edit|remaster(?:ed)?|remake|version|vip|extend(?:ed)?|radio|live|acoustic|demo|mono|stereo|original|deluxe|single|instrumental|a cappella|censored|clean|explicit|reprise|session[s]?|version\s+\d{4}|\d{4})\b[^\-–—−]*)|.*?\d{4}.*?))$/iu;
+  /(?:\s[-–—−:]\s+(?:(?:[^\-–—−]*?\b(?:remix|mix|edit|remaster(?:ed)?|remake|version|vip|extend(?:ed)?|radio|live|acoustic|demo|mono|stereo|original|deluxe|single|instrumental|a cappella|censored|clean|explicit|reprise|session[s]?|official\s+(?:audio|video)|lyric(?:s|\s+video)?|visuali[sz]er|version\s+\d{4}|\d{4})\b[^\-–—−]*)|.*?\d{4}.*?))$/iu;
 const EMPTY_PLACEHOLDER_RX =
   /^(?:\(?\s*(?:untitled|unknown|tba|track)\s*\)?)$/iu;
 const FEATURE_MARKER_RX = /^(?:feat\.?|ft\.?|featuring|with|w\/|&)$/i;
@@ -76,6 +112,77 @@ export const normalizeTitleText = (raw: string): string => {
   return noEllipsis.trim().toLowerCase();
 };
 
+/** Forme lexicale : apostrophes, slashs et ponctuation deviennent des espaces. */
+const comparableText = (raw: string): string =>
+  normalizeTitleText(raw)
+    .replace(/[^a-z0-9]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+const tokenSimilarity = (a: string, b: string): number => {
+  const left = new Set(comparableText(a).split(' ').filter(Boolean));
+  const right = new Set(comparableText(b).split(' ').filter(Boolean));
+  if (!left.size || !right.size) return 0;
+  let common = 0;
+  left.forEach((token) => {
+    if (right.has(token)) common += 1;
+  });
+  return (2 * common) / (left.size + right.size);
+};
+
+/** Dice sur bigrammes : tolère une petite faute sans accepter un autre titre. */
+const bigramSimilarity = (a: string, b: string): number => {
+  const left = comparableText(a).replace(/\s/g, '');
+  const right = comparableText(b).replace(/\s/g, '');
+  if (left === right) return left ? 1 : 0;
+  if (left.length < 2 || right.length < 2) return 0;
+
+  const counts = new Map<string, number>();
+  for (let i = 0; i < left.length - 1; i += 1) {
+    const pair = left.slice(i, i + 2);
+    counts.set(pair, (counts.get(pair) ?? 0) + 1);
+  }
+  let common = 0;
+  for (let i = 0; i < right.length - 1; i += 1) {
+    const pair = right.slice(i, i + 2);
+    const remaining = counts.get(pair) ?? 0;
+    if (remaining > 0) {
+      common += 1;
+      counts.set(pair, remaining - 1);
+    }
+  }
+  return (2 * common) / (left.length + right.length - 2);
+};
+
+const isAdjacentTransposition = (a: string, b: string): boolean => {
+  const left = comparableText(a).replace(/\s/g, '');
+  const right = comparableText(b).replace(/\s/g, '');
+  if (left.length !== right.length) return false;
+  const differences = Array.from(left)
+    .map((char, index) => (char === right[index] ? -1 : index))
+    .filter((index) => index >= 0);
+  return (
+    differences.length === 2 &&
+    differences[1] === differences[0] + 1 &&
+    left[differences[0]] === right[differences[1]] &&
+    left[differences[1]] === right[differences[0]]
+  );
+};
+
+const textSimilarity = (a: string, b: string): number =>
+  isAdjacentTransposition(a, b)
+    ? 0.92
+    : Math.max(tokenSimilarity(a, b), bigramSimilarity(a, b));
+
+const MIN_FUZZY_TITLE_SIMILARITY = 0.84;
+
+const normalizeIsrc = (value?: string | null): string | null => {
+  const normalized = String(value ?? '')
+    .replace(/[^a-z0-9]/gi, '')
+    .toUpperCase();
+  return /^[A-Z]{2}[A-Z0-9]{3}\d{7}$/.test(normalized) ? normalized : null;
+};
+
 /** Removes trailing featured-artist markers from a title ("Song feat. X"). */
 export const stripFeatureSuffix = (title: string): string =>
   title
@@ -92,7 +199,7 @@ export const stripFeatureSuffix = (title: string): string =>
     .trim();
 
 /** Longest title variant after removing parentheticals and remix/live tails. */
-const canonicalizeFromTitle = (normalizedTitle: string): string => {
+export const canonicalizeFromTitle = (normalizedTitle: string): string => {
   let text = stripFeatureSuffix(normalizedTitle);
   text = text.replace(/\([^()]*\)/g, ' ').replace(/\[[^\][]*\]/g, ' ');
 
@@ -151,15 +258,21 @@ const splitArtistNames = (raw: string): string[] =>
  * Remastered/radio edit/extended/officiel/lyrics = versions acceptées (bruit
  * d'édition géré par canonicalizeFromTitle comme avant).
  */
-const HARD_VARIANT_RX = /\b(remix|live|instrumental|karaoke|acoustic)\b/giu;
-const HARD_VARIANT_PENALTY = 45;
+const HARD_VARIANT_RX =
+  /\b(remix|live|instrumental|karaoke|acoustic|radio\s+edit|extended(?:\s+(?:mix|version))?|sped\s+up|slowed(?:\s+down)?|nightcore)\b/giu;
+const canonicalVariantTag = (raw: string): string => {
+  const tag = raw.toLowerCase().replace(/\s+/g, ' ').trim();
+  if (tag.startsWith('extended')) return 'extended';
+  if (tag.startsWith('slowed')) return 'slowed';
+  return tag;
+};
 
 export const hardVariantsOfTitle = (title: string): string[] => {
   const normalized = normalizeTitleText(title);
   const found: string[] = [];
 
   for (const match of normalized.matchAll(HARD_VARIANT_RX)) {
-    const tag = (match[1] ?? '').toLowerCase();
+    const tag = canonicalVariantTag(match[1] ?? '');
     if (tag && !found.includes(tag)) {
       found.push(tag);
     }
@@ -181,11 +294,20 @@ const hardVariantMismatch = (a: string[], b: string[]): boolean => {
   return a.some((tag) => !other.has(tag)) || b.some((tag) => !set.has(tag));
 };
 
+const contentRatingOfTitle = (title: string): boolean | null => {
+  const normalized = normalizeTitleText(title);
+  if (/\b(?:clean|censored)\b/u.test(normalized)) return false;
+  if (/\b(?:explicit|uncensored)\b/u.test(normalized)) return true;
+  return null;
+};
+
 export const fingerprintOf = (input: {
   title: string;
   artistNames: string[];
   album?: string | null;
   durationSec?: number | null;
+  isrc?: string | null;
+  explicit?: boolean | null;
 }): SongFingerprint => {
   const normalizedTitle = normalizeTitleText(input.title);
 
@@ -203,6 +325,11 @@ export const fingerprintOf = (input: {
       Number.isFinite(input.durationSec)
         ? Math.max(0, input.durationSec)
         : null,
+    isrc: normalizeIsrc(input.isrc),
+    explicit:
+      typeof input.explicit === 'boolean'
+        ? input.explicit
+        : contentRatingOfTitle(input.title),
     hardVariants: hardVariantsOfTitle(input.title),
   };
 };
@@ -231,15 +358,20 @@ const artistOverlapScore = (
     return 0;
   }
 
-  const candidateSet = new Set(candidateArtists);
-  const shared = sourceArtists.filter((name) => candidateSet.has(name));
-  const includesMain = candidateSet.has(sourceArtists[0]);
+  const scores = sourceArtists.map((source) =>
+    Math.max(
+      ...candidateArtists.map((candidate) => textSimilarity(source, candidate))
+    )
+  );
+  const shared = scores.filter((score) => score >= 0.78);
+  const includesMain = (scores[0] ?? 0) >= 0.82;
 
   return Math.min(
     1,
-    shared.length / Math.max(sourceArtists.length, candidateArtists.length) +
-      (includesMain ? 0.35 : 0) +
-      (shared.length ? 0.15 : 0)
+    shared.reduce((sum, score) => sum + score, 0) /
+      Math.max(sourceArtists.length, candidateArtists.length) +
+      (includesMain ? 0.25 : 0) +
+      (shared.length ? 0.1 : 0)
   );
 };
 
@@ -276,6 +408,23 @@ const titleAgreement = (
   }
 
   return 'none';
+};
+
+const candidateTitleViews = (
+  rawTitle: string,
+  sourceTitle: string
+): { titles: string[]; inferredArtists: string[] } => {
+  const normalized = normalizeTitleText(rawTitle);
+  const full = canonicalizeFromTitle(normalized);
+  const pieces = normalized
+    .split(/\s+[-–—:|]\s+/u)
+    .map((piece) => canonicalizeFromTitle(piece))
+    .filter((piece) => piece.length >= 2);
+  const titles = Array.from(new Set([full, ...pieces].filter(Boolean)));
+  const inferredArtists = pieces
+    .filter((piece) => textSimilarity(piece, sourceTitle) < 0.7)
+    .flatMap(splitArtistNames);
+  return { titles, inferredArtists };
 };
 
 const albumAgreement = (
@@ -360,9 +509,11 @@ const durationGateRejects = (
 export const matchSongs = (
   source: SongFingerprint,
   candidates: SongMatchCandidate[],
-  options?: { minimumAcceptedScore?: number }
+  options?: MatchOptions
 ): SongMatchResult | null => {
   const acceptScore = options?.minimumAcceptedScore ?? ACCEPT_MATCH_SCORE;
+  const decide = (decision: SongCandidateDecision): void =>
+    options?.onCandidateDecision?.(decision);
 
   if (!source.title || source.title.length < 2 || !candidates.length) {
     return null;
@@ -372,32 +523,88 @@ export const matchSongs = (
 
   for (const candidate of candidates) {
     if (!candidate.id) {
+      decide({ id: '', accepted: false, reason: 'invalid-candidate' });
       continue;
     }
 
-    const titleStatus = titleAgreement(
-      source.title,
-      canonicalizeFromTitle(normalizeTitleText(candidate.title))
+    const candidateIsrc = normalizeIsrc(candidate.isrc);
+    const isrcExact = Boolean(source.isrc && candidateIsrc === source.isrc);
+    const views = candidateTitleViews(candidate.title, source.title);
+    const bestTitle = views.titles.reduce(
+      (best, title) =>
+        textSimilarity(source.title, title) > textSimilarity(source.title, best)
+          ? title
+          : best,
+      views.titles[0] ?? ''
     );
+    const titleStatus = titleAgreement(source.title, bestTitle);
+    const titleConfidence = textSimilarity(source.title, bestTitle);
 
-    if (titleStatus === 'none') {
+    // Une légère variation typographique/orthographique est admise, mais un
+    // titre seulement vaguement proche ne franchit jamais cette porte.
+    if (
+      !isrcExact &&
+      titleStatus === 'none' &&
+      titleConfidence < MIN_FUZZY_TITLE_SIMILARITY
+    ) {
+      decide({
+        id: candidate.id,
+        accepted: false,
+        reason: 'title-mismatch',
+      });
+      continue;
+    }
+    const sourceDigits = source.title.match(/\d+/g) ?? [];
+    const candidateDigits = bestTitle.match(/\d+/g) ?? [];
+    if (
+      !isrcExact &&
+      sourceDigits.length > 0 &&
+      candidateDigits.length > 0 &&
+      sourceDigits.join(',') !== candidateDigits.join(',')
+    ) {
+      decide({
+        id: candidate.id,
+        accepted: false,
+        reason: 'track-number-conflict',
+      });
       continue;
     }
 
     const candidateArtistNames =
       candidate.artistNames?.map((name) => normalizeArtistText(name)) ?? [];
+    const comparableArtists = Array.from(
+      new Set([
+        ...candidateArtistNames,
+        ...views.inferredArtists,
+        ...parseFeaturedArtists(normalizeTitleText(candidate.title)),
+      ])
+    );
     const artistAgreement = artistOverlapScore(
       source.artistNames,
-      Array.from(
-        new Set([
-          ...candidateArtistNames,
-          ...parseFeaturedArtists(normalizeTitleText(candidate.title)),
-        ])
-      )
+      comparableArtists
     );
+    const primaryArtistAgreement = source.artistNames[0]
+      ? Math.max(
+          0,
+          ...comparableArtists.map((candidateArtist) =>
+            textSimilarity(source.artistNames[0], candidateArtist)
+          )
+        )
+      : 1;
 
-    // An artist who shares nothing means we refuse the candidate outright.
-    if (artistAgreement === 0 && source.artistNames.length > 0) {
+    // Le featuring seul ne prouve jamais l'enregistrement : un upload par
+    // l'artiste invité portant le même titre peut être une reprise/remix. Le
+    // principal doit être présent, directement ou dans « Artist - Song ».
+    if (
+      !isrcExact &&
+      source.artistNames.length > 0 &&
+      (artistAgreement === 0 || primaryArtistAgreement < 0.82)
+    ) {
+      decide({
+        id: candidate.id,
+        accepted: false,
+        reason: 'artist-mismatch',
+      });
       continue;
     }
 
@@ -409,7 +616,15 @@ export const matchSongs = (
 
     // Porte durée dure : un écart massif = autre enregistrement, jamais un
     // match — peu importe la force du titre/artiste/album.
-    if (durationGateRejects(source.durationSec, candidate.durationSec)) {
+    if (
+      !isrcExact &&
+      durationGateRejects(source.durationSec, candidate.durationSec)
+    ) {
+      decide({
+        id: candidate.id,
+        accepted: false,
+        reason: 'duration-mismatch',
+      });
       continue;
     }
 
@@ -418,31 +633,71 @@ export const matchSongs = (
       artistNames: candidateArtistNames,
       album: candidate.album,
       durationSec: candidate.durationSec,
+      isrc: candidate.isrc,
+      explicit: candidate.explicit,
     });
-    const exactTitle = candidateFingerprint.title === source.title;
+    const exactTitle = bestTitle === source.title;
 
-    // Pénalité « variante dure » partagée : remix/live/instrumental/karaoke/
-    // acoustic ne PASSENT PAS automatiquement quand l'autre côté n'est pas
-    // cette version (pénalité forte — elle peut faire repousser le candidat
-    // sous le seuil d'acceptation).
-    const variantPenalty = hardVariantMismatch(
-      source.hardVariants,
-      candidateFingerprint.hardVariants
-    )
-      ? HARD_VARIANT_PENALTY
-      : 0;
+    // Porte « variante dure » partagée : remix/live/instrumental/karaoke/
+    // acoustic/radio/extended/sped/slowed restent des versions distinctes.
+    if (
+      !isrcExact &&
+      hardVariantMismatch(
+        source.hardVariants,
+        candidateFingerprint.hardVariants
+      )
+    ) {
+      decide({
+        id: candidate.id,
+        accepted: false,
+        reason: 'variant-mismatch',
+      });
+      continue;
+    }
+
+    // Une classification connue des DEUX côtés est une identité de version,
+    // pas un simple bonus : ne jamais substituer une version clean à une
+    // demande explicite (ou inversement). Un candidat non étiqueté reste
+    // neutre car Audius/YouTube ne publient pas toujours cette information.
+    if (
+      !isrcExact &&
+      source.explicit !== null &&
+      candidateFingerprint.explicit !== null &&
+      source.explicit !== candidateFingerprint.explicit
+    ) {
+      decide({
+        id: candidate.id,
+        accepted: false,
+        reason: 'content-rating-mismatch',
+      });
+      continue;
+    }
 
     // Titre PARTIEL = 0 point de titre (durci) : un titre seulement
     // apparenté n'ouvre plus la porte à lui seul — il ne peut survivre que
     // porté par les autres signaux (album exact 15 pts, artiste, durée).
-    const score =
-      Math.round(
-        (titleStatus === 'exact' ? 35 : 0) +
-          (exactTitle ? 5 : 0) +
-          artistAgreement * 25 +
-          (albumStatus === 'exact' ? 15 : albumStatus === 'partial' ? 7 : 0) +
-          durationConfidence * 20
-      ) - variantPenalty;
+    const titlePoints =
+      titleStatus === 'exact'
+        ? 40
+        : titleStatus === 'partial'
+          ? 0
+          : titleConfidence * 35;
+    const score = isrcExact
+      ? 100
+      : Math.round(
+          titlePoints +
+            (exactTitle ? 5 : 0) +
+            artistAgreement * 25 +
+            (albumStatus === 'exact' ? 15 : albumStatus === 'partial' ? 7 : 0) +
+            durationConfidence * 20
+        );
+
+    decide({
+      id: candidate.id,
+      accepted: score >= acceptScore,
+      reason: score >= acceptScore ? 'candidate-scored' : 'below-threshold',
+      score,
+    });
 
     // Keep a running best; hard gates are the same as acceptScore + a title
     // agreement floor so two remixes can't outrank an exact original.
@@ -455,12 +710,24 @@ export const matchSongs = (
     return null;
   }
 
-  const titleOk = titleAgreement(
-    source.title,
-    canonicalizeFromTitle(normalizeTitleText(best.candidate.title))
+  const bestViews = candidateTitleViews(best.candidate.title, source.title);
+  const bestTitleConfidence = Math.max(
+    0,
+    ...bestViews.titles.map((title) => textSimilarity(source.title, title))
+  );
+  const bestIsrcExact = Boolean(
+    source.isrc && normalizeIsrc(best.candidate.isrc) === source.isrc
+  );
+  const bestHasPartialTitle = bestViews.titles.some(
+    (title) => titleAgreement(source.title, title) === 'partial'
   );
 
-  if (best.score < acceptScore || titleOk === 'none') {
+  if (
+    best.score < acceptScore ||
+    (!bestIsrcExact &&
+      !bestHasPartialTitle &&
+      bestTitleConfidence < MIN_FUZZY_TITLE_SIMILARITY)
+  ) {
     return null;
   }
 
@@ -483,34 +750,54 @@ export const UNKNOWN_MATCH: SongMatchResult | null = null;
 export const findBestAudiusMatch = async (
   query: AudioSourceQuery,
   search: (text: string) => Promise<AudiusTrackMatch[]>,
-  options?: { minimumAcceptedScore?: number }
+  options?: MatchOptions
 ): Promise<SongMatchResult | null> => {
   const source = fingerprintOf({
     title: query.title,
     artistNames: query.artists,
     album: query.album,
     durationSec: sec(query.durationMillis),
+    isrc: query.isrc,
+    explicit: query.explicit,
+  });
+
+  const decisions = new Map<string, SongCandidateDecision>();
+  // Les diagnostics décrivent la forme de l'entrée sans recopier les
+  // métadonnées écoutées (titre, artiste, album ou ISRC) dans les logs.
+  devMatcherLog('spotify-input', {
+    titleLength: query.title.length,
+    artistCount: query.artists.length,
+    hasAlbum: Boolean(query.album),
+    hasDuration: query.durationMillis != null,
+    hasIsrc: Boolean(query.isrc),
   });
 
   const attempts: string[] = [];
   const primary = query.artists[0];
+  const titleWithoutFeature = stripFeatureSuffix(query.title).trim();
+  const canonicalTitle = source.title;
   const pushAttempt = (text: string | null) => {
-    if (text) {
-      attempts.push(text);
+    const clean = text?.replace(/\s{2,}/g, ' ').trim();
+    if (
+      clean &&
+      !attempts.some((attempt) => attempt.toLowerCase() === clean.toLowerCase())
+    ) {
+      attempts.push(clean);
     }
   };
 
-  // Artiste + titre d'abord : le titre seul noie la recherche dans les
-  // homonymes (point 3 du plan — « The Weeknd Blinding Lights »).
+  // ISRC est le signal le plus précis lorsqu'il est indexé par Audius. Les
+  // formulations textuelles restent indispensables car ce champ est rare.
+  pushAttempt(source.isrc ?? null);
+  pushAttempt(primary ? `${primary} ${titleWithoutFeature}` : null);
+  pushAttempt(`${titleWithoutFeature} ${primary ?? ''}`);
   pushAttempt(
-    primary ? `${primary} ${stripFeatureSuffix(query.title).trim()}` : null
+    canonicalTitle && primary ? `${primary} ${canonicalTitle}` : canonicalTitle
   );
-  pushAttempt(
-    `${stripFeatureSuffix(query.title).trim()} ${primary ?? ''}`.trim() || null
-  );
-  pushAttempt(query.title.trim() || null);
+  pushAttempt(titleWithoutFeature || canonicalTitle);
 
   let allCandidates: AudiusTrackMatch[] = [];
+  let sawSearchError = false;
 
   /**
    * Déduplique + score le lot accumulé. AUCUNE protection n'est assouplie :
@@ -538,34 +825,75 @@ export const findBestAudiusMatch = async (
           typeof track.duration === 'number' && Number.isFinite(track.duration)
             ? track.duration
             : null,
+        isrc: track.isrc ?? null,
       });
     }
 
-    return matchSongs(source, candidates, options);
+    return matchSongs(source, candidates, {
+      ...options,
+      onCandidateDecision: (decision) => {
+        if (decision.id) decisions.set(decision.id, decision);
+        options?.onCandidateDecision?.(decision);
+      },
+    });
   };
 
-  // I-4 — boucle STRICTEMENT bornée (≤ 3 requêtes, jamais au-delà) : un lot
+  // Boucle STRICTEMENT bornée (≤ 5 requêtes, ISRC compris) : un lot
   // NON VIDE mais sans candidat ADMISSIBLE n'arrête plus la cascade — la
   // formulation suivante peut trouver le bon. On ne s'arrête tôt que sur
   // match admissible (zéro requête superflue quand le 1er lot suffit).
-  for (const attempt of attempts.slice(0, 3)) {
+  for (const attempt of attempts.slice(0, 5)) {
     try {
       const batch = await search(attempt);
+      devMatcherLog('search', {
+        queryLength: attempt.length,
+        results: batch.length,
+      });
 
       if (batch.length) {
         allCandidates = [...allCandidates, ...batch];
 
         const best = scoreAccumulated();
         if (best) {
+          devMatcherLog('selected', {
+            queryLength: attempt.length,
+            sourceId: best.id,
+            score: best.score,
+            rejected: Array.from(decisions.values()).filter(
+              (decision) => !decision.accepted
+            ),
+          });
           return best;
         }
       }
     } catch (error) {
-      console.warn(`Audius search failed for "${attempt}":`, error);
+      sawSearchError = true;
+      console.warn(
+        'Audius search failed',
+        error instanceof Error ? error.name : typeof error
+      );
     }
   }
 
   // Jamais de match forcé : null si aucune formulation n'a produit de
-  // candidat admissible (le player affichera « indisponible » et skip).
-  return scoreAccumulated();
+  // candidat admissible. Une recherche partiellement en panne n'est en
+  // revanche PAS une preuve d'absence : propager l'erreur permet au resolver
+  // d'éviter tout cache négatif durable.
+  const final = scoreAccumulated();
+  devMatcherLog(
+    final ? 'selected-final' : sawSearchError ? 'error' : 'unavailable',
+    {
+      attemptCount: attempts.length,
+      results: allCandidates.length,
+      sourceId: final?.id ?? null,
+      score: final?.score ?? null,
+      rejected: Array.from(decisions.values()).filter(
+        (decision) => !decision.accepted
+      ),
+    }
+  );
+  if (!final && sawSearchError) {
+    throw new Error('Audius search incomplete');
+  }
+  return final;
 };

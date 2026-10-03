@@ -34,6 +34,20 @@ export type LocalItemEntry = {
   item: LibraryItemModel;
 };
 
+// AsyncStorage n'a aucune transaction read-modify-write. Toutes les
+// mutations partagent donc une file afin que deux favoris ajoutés au même
+// instant ne s'écrasent pas mutuellement.
+let mutationQueue: Promise<void> = Promise.resolve();
+
+const enqueueMutation = <T>(operation: () => Promise<T>): Promise<T> => {
+  const next = mutationQueue.then(operation, operation);
+  mutationQueue = next.then(
+    () => undefined,
+    () => undefined
+  );
+  return next;
+};
+
 type LocalLibraryShape = Partial<{
   track: Record<string, LocalTrackEntry>;
   album: Record<string, LocalItemEntry>;
@@ -59,7 +73,17 @@ const readLibrary = async (): Promise<LocalLibraryShape> => {
 };
 
 const writeLibrary = async (library: LocalLibraryShape): Promise<void> => {
-  await AsyncStorage.setItem(LOCAL_LIBRARY_STORAGE_KEY, JSON.stringify(library));
+  await AsyncStorage.setItem(
+    LOCAL_LIBRARY_STORAGE_KEY,
+    JSON.stringify(library)
+  );
+};
+
+/** Les lectures publiques doivent observer toutes les mutations déjà lancées.
+ * Sans cette barrière, un écran ouvert juste après un toggle fire-and-forget
+ * pouvait afficher l'ancien favori jusqu'au prochain rafraîchissement. */
+const awaitPendingMutations = async (): Promise<void> => {
+  await mutationQueue;
 };
 
 const sanitizeItemsMap = (map: unknown): Record<string, LocalItemEntry> => {
@@ -100,6 +124,7 @@ const sanitizeTracksMap = (map: unknown): Record<string, LocalTrackEntry> => {
 
 /** Morceaux sauvegardés, les plus récents d'abord. */
 export const listSavedTracks = async (): Promise<LocalTrackEntry[]> => {
+  await awaitPendingMutations();
   const library = await readLibrary();
   return Object.values(sanitizeTracksMap(library.track)).sort(
     (a, b) => b.addedAt - a.addedAt
@@ -110,6 +135,7 @@ export const listSavedTracks = async (): Promise<LocalTrackEntry[]> => {
 export const listSavedItems = async (
   type: Exclude<LocalLibraryEntityType, 'track'>
 ): Promise<LibraryItemModel[]> => {
+  await awaitPendingMutations();
   const library = await readLibrary();
   return Object.values(sanitizeItemsMap(library[type]))
     .sort((a, b) => b.addedAt - a.addedAt)
@@ -119,6 +145,7 @@ export const listSavedItems = async (
 export const getSavedTrack = async (
   trackId: string
 ): Promise<LocalTrackEntry | undefined> => {
+  await awaitPendingMutations();
   const library = await readLibrary();
   return sanitizeTracksMap(library.track)[trackId];
 };
@@ -141,6 +168,7 @@ export const checkSaved = async (
   type: LocalLibraryEntityType,
   ids: string[]
 ): Promise<boolean[]> => {
+  await awaitPendingMutations();
   const library = await readLibrary();
   const map =
     type === 'track'
@@ -156,66 +184,91 @@ export const saveTrack = async (
   if (!track?.id) {
     return;
   }
-  const library = await readLibrary();
-  const tracks = sanitizeTracksMap(library.track);
-  tracks[track.id] = {
-    addedAt: Date.now(),
-    track: { ...track, isSaved: true, isPlaying: false },
-    albumTitle: meta.albumTitle,
-    artists: meta.artists,
-    durationMs: meta.durationMs,
-  };
-  library.track = tracks;
-  await writeLibrary(library);
+  return enqueueMutation(async () => {
+    const library = await readLibrary();
+    const tracks = sanitizeTracksMap(library.track);
+    tracks[track.id] = {
+      addedAt: Date.now(),
+      track: { ...track, isSaved: true, isPlaying: false },
+      albumTitle: meta.albumTitle,
+      artists: meta.artists,
+      durationMs: meta.durationMs,
+    };
+    library.track = tracks;
+    await writeLibrary(library);
+  });
 };
 
-export const removeSavedTrack = async (trackId: string): Promise<void> => {
-  const library = await readLibrary();
-  const tracks = sanitizeTracksMap(library.track);
-  delete tracks[trackId];
-  library.track = tracks;
-  await writeLibrary(library);
-};
+export const removeSavedTrack = (trackId: string): Promise<void> =>
+  enqueueMutation(async () => {
+    const library = await readLibrary();
+    const tracks = sanitizeTracksMap(library.track);
+    delete tracks[trackId];
+    library.track = tracks;
+    await writeLibrary(library);
+  });
 
 export const saveItem = async (item: LibraryItemModel): Promise<void> => {
   if (!item?.id || item.type === 'track') {
     return;
   }
-  const library = await readLibrary();
-  const type = item.type as Exclude<LocalLibraryEntityType, 'track'>;
-  const map = sanitizeItemsMap(library[type]);
-  map[item.id] = { addedAt: Date.now(), item };
-  library[type] = map;
-  await writeLibrary(library);
+  return enqueueMutation(async () => {
+    const library = await readLibrary();
+    const type = item.type as Exclude<LocalLibraryEntityType, 'track'>;
+    const map = sanitizeItemsMap(library[type]);
+    map[item.id] = { addedAt: Date.now(), item };
+    library[type] = map;
+    await writeLibrary(library);
+  });
 };
 
-export const removeSavedItem = async (
+export const removeSavedItem = (
   type: Exclude<LocalLibraryEntityType, 'track'>,
   id: string
-): Promise<void> => {
-  const library = await readLibrary();
-  const map = sanitizeItemsMap(library[type]);
-  delete map[id];
-  library[type] = map;
-  await writeLibrary(library);
-};
+): Promise<void> =>
+  enqueueMutation(async () => {
+    const library = await readLibrary();
+    const map = sanitizeItemsMap(library[type]);
+    delete map[id];
+    library[type] = map;
+    await writeLibrary(library);
+  });
 
 /** Bascule favori pour les morceaux et retourne le nouvel état. */
-export const toggleSavedTrack = async (
+export const toggleSavedTrack = (
   track: TrackModel,
   meta: { albumTitle?: string; artists?: string[]; durationMs?: number } = {}
-): Promise<boolean> => {
-  if (await isSaved('track', track.id)) {
-    await removeSavedTrack(track.id);
-    return false;
-  }
-  await saveTrack(track, meta);
-  return true;
-};
+): Promise<boolean> =>
+  enqueueMutation(async () => {
+    if (!track?.id) {
+      return false;
+    }
 
-export const clearLocalLibrary = async (): Promise<void> => {
-  await AsyncStorage.removeItem(LOCAL_LIBRARY_STORAGE_KEY);
-};
+    // La décision et son écriture appartiennent à UNE seule mutation : deux
+    // taps concurrents produisent bien ajout puis retrait, et non deux ajouts.
+    const library = await readLibrary();
+    const tracks = sanitizeTracksMap(library.track);
+    if (tracks[track.id]) {
+      delete tracks[track.id];
+      library.track = tracks;
+      await writeLibrary(library);
+      return false;
+    }
+
+    tracks[track.id] = {
+      addedAt: Date.now(),
+      track: { ...track, isSaved: true, isPlaying: false },
+      albumTitle: meta.albumTitle,
+      artists: meta.artists,
+      durationMs: meta.durationMs,
+    };
+    library.track = tracks;
+    await writeLibrary(library);
+    return true;
+  });
+
+export const clearLocalLibrary = (): Promise<void> =>
+  enqueueMutation(() => AsyncStorage.removeItem(LOCAL_LIBRARY_STORAGE_KEY));
 
 /** Tests uniquement. */
 export const __resetLocalLibraryForTests = clearLocalLibrary;

@@ -1,8 +1,12 @@
 package expo.modules.melodixmedia
 
 import android.Manifest
+import android.app.NotificationManager
+import android.content.Context
 import android.content.pm.PackageManager
 import android.os.Build
+import android.os.Handler
+import android.os.Looper
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import expo.modules.kotlin.modules.Module
@@ -20,6 +24,41 @@ import expo.modules.kotlin.modules.ModuleDefinition
  */
 class MelodixMediaModule : Module() {
 
+  private val mainHandler = Handler(Looper.getMainLooper())
+  private var permissionPollGeneration = 0
+  private var applicationContext: Context? = null
+
+  /**
+   * ActivityCompat ne renvoie pas le résultat au Module Expo. On observe donc
+   * brièvement l'état système après la boîte de dialogue. En cas d'accord,
+   * la dernière projection est rejouée afin de republier la notification qui
+   * a pu être créée avant que POST_NOTIFICATIONS ne soit accordée.
+   */
+  private fun observeNotificationPermissionResult(context: Context) {
+    val generation = ++permissionPollGeneration
+    var attempts = 0
+    val check = object : Runnable {
+      override fun run() {
+        if (generation != permissionPollGeneration) return
+        val granted =
+          ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) ==
+            PackageManager.PERMISSION_GRANTED
+        if (granted) {
+          MelodixDiagLog.step("NOTIFICATION_PERMISSION_RESULT", "granted=true")
+          MelodixMediaController.refreshLastProjection(context)
+          return
+        }
+        attempts += 1
+        if (attempts < 60) {
+          mainHandler.postDelayed(this, 500L)
+        } else {
+          MelodixDiagLog.step("NOTIFICATION_PERMISSION_RESULT", "granted=false timeout=true")
+        }
+      }
+    }
+    mainHandler.postDelayed(check, 500L)
+  }
+
   companion object {
     private const val TAG = "MelodixMediaModule"
 
@@ -33,9 +72,13 @@ class MelodixMediaModule : Module() {
     Events("mediaCommand")
 
     OnCreate {
+      // Retenir uniquement le contexte application : le ReactContext d'Expo
+      // est une WeakReference et peut déjà avoir disparu à OnDestroy.
+      applicationContext = appContext.reactContext?.applicationContext
+
       // 4.4.7-diagnostic : journal persistant + piège d'exceptions non
       // rattrapées (tous threads) — critique pour le diagnostic sans ADB.
-      appContext.reactContext?.let { MelodixDiagLog.init(it) }
+      applicationContext?.let { MelodixDiagLog.init(it) }
       MelodixDiagLog.installCrashTrap()
       MelodixDiagLog.step("MODULE_ONCREATE")
 
@@ -142,7 +185,15 @@ class MelodixMediaModule : Module() {
     }
 
     OnDestroy {
+      permissionPollGeneration += 1
+      mainHandler.removeCallbacksAndMessages(null)
+      MelodixDiagLog.step("MODULE_ONDESTROY")
       MelodixMediaController.commandListener = null
+      // Une instance React détruite ne peut plus recevoir les commandes
+      // système ni projeter l'état réel. Ne jamais laisser une MediaSession
+      // figée afficher une ancienne chanson jusqu'au prochain lancement.
+      applicationContext?.let { MelodixMediaController.stopSession(it) }
+      applicationContext = null
     }
 
     /**
@@ -154,7 +205,15 @@ class MelodixMediaModule : Module() {
       try {
         // DIAG 4.4.5-diagnostic : la Function Expo est bien atteinte.
         android.util.Log.i("MXDIAG", "MEDIA_SESSION_UPDATE_CALL")
-        val context = appContext.reactContext ?: return@Function
+        val context = appContext.reactContext
+        if (context == null) {
+          MelodixDiagLog.step("NATIVE_UPDATE_NO_REACT_CONTEXT")
+          return@Function
+        }
+        MelodixDiagLog.step(
+          "NATIVE_UPDATE_RECEIVED",
+          "state=${if (payload["isPlaying"] == true) "PLAYING" else "PAUSED"} keys=${payload.keys.size}"
+        )
         MelodixMediaController.updateSession(context, payload)
       } catch (t: Throwable) {
         android.util.Log.e(TAG, "updateSession ignoré — lecture préservée", t)
@@ -163,9 +222,8 @@ class MelodixMediaModule : Module() {
 
     /**
      * Permission Android 13+ POST_NOTIFICATIONS (phase 5C, §10 du cahier) :
-     * demandée au RUNTIME, UNIQUEMENT depuis le toggle « Lecture en
-     * arrière-plan » des réglages (geste utilisateur dédié — 5C.2 : PLUS
-     * JAMAIS au démarrage d'une lecture). La lecture n'est JAMAIS bloquée :
+     * demandée au RUNTIME depuis un geste utilisateur : activation du réglage
+     * ou première lecture volontaire. La lecture n'est JAMAIS bloquée :
      * le Foreground Service média fonctionne sans cette permission, Android
      * gère seulement la VISIBILITÉ de la notification.
      *
@@ -180,15 +238,29 @@ class MelodixMediaModule : Module() {
         }
 
         val context = appContext.reactContext ?: return@Function null
-
-        if (
+        MelodixMediaNotificationProvider.ensureMediaChannel(context)
+        val manager = context.getSystemService(NotificationManager::class.java)
+        val channelImportance =
+          manager?.getNotificationChannel(MelodixMediaNotificationProvider.CHANNEL_ID)?.importance
+        val granted =
           ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) ==
             PackageManager.PERMISSION_GRANTED
-        ) {
+        MelodixDiagLog.step(
+          "NOTIFICATION_PERMISSION",
+          "granted=$granted channelImportance=$channelImportance notificationsEnabled=${manager?.areNotificationsEnabled()}"
+        )
+
+        if (granted) {
           return@Function true
         }
 
-        val activity = appContext.currentActivity ?: return@Function false
+        val activity = appContext.currentActivity
+        if (activity == null) {
+          // null indique au bridge JS qu'aucune demande n'a réellement été
+          // lancée : il pourra réessayer sur une projection ultérieure.
+          MelodixDiagLog.step("NOTIFICATION_PERMISSION_NO_ACTIVITY")
+          return@Function null
+        }
 
         // requestPermissions DOIT s'exécuter sur le thread principal ;
         // les Function Expo peuvent s'exécuter hors main thread. Toute
@@ -196,11 +268,13 @@ class MelodixMediaModule : Module() {
         // la lecture n'en dépend JAMAIS.
         activity.runOnUiThread {
           try {
+            MelodixDiagLog.step("NOTIFICATION_PERMISSION_REQUESTED")
             ActivityCompat.requestPermissions(
               activity,
               arrayOf(Manifest.permission.POST_NOTIFICATIONS),
               REQUEST_CODE_POST_NOTIFICATIONS
             )
+            observeNotificationPermissionResult(context.applicationContext)
           } catch (t: Throwable) {
             android.util.Log.e(TAG, "Demande de permission non aboutie", t)
           }

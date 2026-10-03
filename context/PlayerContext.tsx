@@ -5,6 +5,7 @@ import {
   INITIAL_PLAYER_STATE,
   loadPlaybackSession,
   melodixPlayer,
+  savePlaybackSession,
 } from '@services';
 import { initMediaBridge } from '@services';
 import type {
@@ -26,9 +27,11 @@ export type PlayerContextType = PlayerState & {
   toggleShuffle: () => void;
   /** File avancée (Phase 2) : ajout fin / lecture suivante / suppression. */
   addToQueue: (track: PlayerTrack) => void;
+  addTracksToQueue: (tracks: PlayerTrack[]) => void;
   playNext: (track: PlayerTrack) => void;
   removeFromQueue: (queueIndex: number) => void;
   moveInQueue: (from: number, to: number) => void;
+  clearQueue: () => Promise<void>;
   /** Session persistée VISIBLE (carte « Reprendre »), null sinon. */
   pendingRestore: PlaybackSession | null;
   /** Reprendre : restaure file/morceau/position puis joue — action explicite. */
@@ -59,9 +62,11 @@ const defaultActions = {
   setVolume: async () => {},
   toggleShuffle: () => {},
   addToQueue: () => {},
+  addTracksToQueue: () => {},
   playNext: () => {},
   removeFromQueue: () => {},
   moveInQueue: () => {},
+  clearQueue: async () => {},
   pendingRestore: null,
   resumeSession: async () => {},
   dismissSession: async () => {},
@@ -83,8 +88,21 @@ export const PlayerProvider = ({ children }: { children: React.ReactNode }) => {
   const [state, setState] = React.useState<PlayerState>(INITIAL_PLAYER_STATE);
   const [pendingRestore, setPendingRestore] =
     React.useState<PlaybackSession | null>(null);
+  const resumeInFlightRef = React.useRef(false);
 
-  React.useEffect(() => melodixPlayer.subscribe(setState), []);
+  React.useEffect(
+    () =>
+      melodixPlayer.subscribe((nextState) => {
+        setState(nextState);
+        // Un stop explicite (dont la déconnexion) purge aussi toute carte de
+        // reprise déjà chargée en mémoire. Effacer AsyncStorage seul ne suffit
+        // pas : le provider racine reste monté pendant le retour au login.
+        if (nextState.current === null && nextState.queue.length === 0) {
+          setPendingRestore(null);
+        }
+      }),
+    []
+  );
 
   // Phase 5A : le bridge MediaSession NE démarre AUCUN service au boot —
   // il se contente d'écouter ; l'activation réelle est conditionnée au
@@ -100,7 +118,16 @@ export const PlayerProvider = ({ children }: { children: React.ReactNode }) => {
     let isMounted = true;
 
     void loadPlaybackSession().then((session) => {
-      if (isMounted && session) {
+      const engineState = melodixPlayer.getState();
+      // Le chargement AsyncStorage peut finir après une nouvelle lecture. Une
+      // ancienne carte « Reprendre » ne doit alors jamais recouvrir la session
+      // active ni proposer de restaurer une queue obsolète.
+      if (
+        isMounted &&
+        session &&
+        engineState.current === null &&
+        engineState.status === 'idle'
+      ) {
         setPendingRestore(session);
       }
     });
@@ -119,16 +146,39 @@ export const PlayerProvider = ({ children }: { children: React.ReactNode }) => {
   }, [pendingRestore, state.status]);
 
   const resumeSession = React.useCallback(async () => {
-    setPendingRestore((current) => {
-      if (current) {
-        // Ferme la carte immédiatement, restaure côté moteur, purge après.
-        void melodixPlayer.restoreSession(current);
-        void clearPlaybackSession();
-      }
+    // Un updater React doit rester pur : lancer restoreSession depuis
+    // setState pouvait être rejoué en Strict/Concurrent Mode. Le verrou évite
+    // aussi un double tap avant le prochain rendu.
+    if (!pendingRestore || resumeInFlightRef.current) {
+      return;
+    }
 
-      return null;
-    });
-  }, []);
+    const session = pendingRestore;
+    resumeInFlightRef.current = true;
+    setPendingRestore(null);
+    try {
+      await melodixPlayer.restoreSession(session);
+      const restoredState = melodixPlayer.getState();
+      if (
+        restoredState.status !== 'playing' &&
+        restoredState.status !== 'paused'
+      ) {
+        // `playIndex` absorbe volontairement les pannes provider. Réécrire la
+        // session compense donc le stop/purge interne et garde la reprise
+        // retryable quand le réseau est absent ou tous les flux sont morts.
+        await savePlaybackSession(session);
+        setPendingRestore(session);
+      } else {
+        await clearPlaybackSession();
+      }
+    } catch {
+      // La reprise a échoué avant sa purge : reproposer la session permet un
+      // retry explicite, sans rejet de promesse non géré depuis onPress.
+      setPendingRestore(session);
+    } finally {
+      resumeInFlightRef.current = false;
+    }
+  }, [pendingRestore]);
 
   const dismissSession = React.useCallback(async () => {
     setPendingRestore(null);
@@ -148,9 +198,11 @@ export const PlayerProvider = ({ children }: { children: React.ReactNode }) => {
       setVolume: melodixPlayer.setVolume,
       toggleShuffle: melodixPlayer.toggleShuffle,
       addToQueue: melodixPlayer.addToQueue,
+      addTracksToQueue: melodixPlayer.addTracksToQueue,
       playNext: melodixPlayer.playNext,
       removeFromQueue: melodixPlayer.removeFromQueue,
       moveInQueue: melodixPlayer.moveInQueue,
+      clearQueue: melodixPlayer.clearQueue,
       pendingRestore,
       resumeSession,
       dismissSession,

@@ -44,7 +44,11 @@ export const Artists = ({ artists }: ArtistsPropsType) => {
     >
       <View style={styles.container}>
         <View style={styles.imageView}>
-          <Image testID="artist-image" style={styles.image} source={{ uri: imageURL }} />
+          <Image
+            testID="artist-image"
+            style={styles.image}
+            source={{ uri: imageURL }}
+          />
         </View>
         <View>
           <Text testID="artist-name" style={styles.text}>

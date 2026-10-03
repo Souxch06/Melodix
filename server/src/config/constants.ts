@@ -11,10 +11,12 @@
 export const SPOTIFY_WEB_BASE_URL = 'https://open.spotify.com';
 
 /** Endpoint GraphQL interne du Web Player (recherche persistée). */
-export const SPOTIFY_PARTNER_API_URL = 'https://api-partner.spotify.com/pathfinder/v1';
+export const SPOTIFY_PARTNER_API_URL =
+  'https://api-partner.spotify.com/pathfinder/v1';
 
 /** API découverte Audius (audio autorisé, catalogue ouvert). */
-export const AUDIUS_DISCOVERY_API_URL = 'https://discoveryprovider.audius.co/v1';
+export const AUDIUS_DISCOVERY_API_URL =
+  'https://discoveryprovider.audius.co/v1';
 
 /** Nom d'appli déclaré à Audius (requis par la politique de l'API). */
 export const AUDIUS_APP_NAME = 'melodix';

@@ -28,7 +28,11 @@ jest.mock('../../../Slider', () => {
       ReactActual.createElement(
         View,
         { testID: 'yp-slider' },
-        ReactActual.createElement(Text, { testID: 'yp-slider-title' }, props.title),
+        ReactActual.createElement(
+          Text,
+          { testID: 'yp-slider-title' },
+          props.title
+        ),
         ReactActual.createElement(
           Text,
           { testID: 'yp-slider-count' },
@@ -78,7 +82,9 @@ describe('YourPlaylists — playlists Spotify réelles de l accueil', () => {
 
     const { getByTestId, getByText, queryByTestId } = render(<YourPlaylists />);
 
-    await waitFor(() => expect(getByTestId('home-playlists-empty')).toBeTruthy());
+    await waitFor(() =>
+      expect(getByTestId('home-playlists-empty')).toBeTruthy()
+    );
     expect(getByText(translations.homePlaylistsEmptyTitle)).toBeTruthy();
     expect(getByText(translations.homePlaylistsEmptyBody)).toBeTruthy();
     expect(queryByTestId('yp-slider')).toBeNull();
@@ -95,12 +101,18 @@ describe('YourPlaylists — playlists Spotify réelles de l accueil', () => {
   });
 
   it('erreur Spotify → message humain + Réessayer (refetch réussi ensuite)', async () => {
-    (getSavedPlaylists as jest.Mock).mockRejectedValueOnce(new Error('HTTP 500'));
+    (getSavedPlaylists as jest.Mock).mockRejectedValueOnce(
+      new Error('HTTP 500')
+    );
 
     const { getByTestId, getByText, queryByTestId } = render(<YourPlaylists />);
 
-    await waitFor(() => expect(getByTestId('home-playlists-error')).toBeTruthy());
-    expect(getByText('Impossible de charger tes données Spotify.')).toBeTruthy();
+    await waitFor(() =>
+      expect(getByTestId('home-playlists-error')).toBeTruthy()
+    );
+    expect(
+      getByText('Impossible de charger tes données Spotify.')
+    ).toBeTruthy();
     expect(getByText(translations.homeRetry)).toBeTruthy();
     expect(queryByTestId('home-playlists-empty')).toBeNull();
 
@@ -129,6 +141,8 @@ describe('YourPlaylists — playlists Spotify réelles de l accueil', () => {
     expect(getByTestId('yp-slider-count').props.children).toBe('3');
 
     resolveFetch([]);
-    await waitFor(() => expect(getByTestId('home-playlists-empty')).toBeTruthy());
+    await waitFor(() =>
+      expect(getByTestId('home-playlists-empty')).toBeTruthy()
+    );
   });
 });

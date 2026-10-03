@@ -25,7 +25,12 @@ import {
   SPOTIFY_DISCOVERY,
   SPOTIFY_SCOPES,
 } from './authConfig';
-import { sanitizeErrorDescription, spotifyConfigLine, spotifyDiag, spotifyLog } from './devLog';
+import {
+  sanitizeErrorDescription,
+  spotifyConfigLine,
+  spotifyDiag,
+  spotifyLog,
+} from './devLog';
 
 const SESSION_KEY = 'melodix.spotify.session.v1';
 
@@ -87,7 +92,9 @@ export type LoginErrorOutcome =
   | { kind: 'network'; cause: string }
   | { kind: 'unknown'; cause: string };
 
-export type LoginOutcome = { kind: 'ok'; session: SpotifySession } | LoginErrorOutcome;
+export type LoginOutcome =
+  | { kind: 'ok'; session: SpotifySession }
+  | LoginErrorOutcome;
 
 /** Whitelist RFC 6749 des codes d'erreur NON sensibles loguables. */
 const TOKEN_ERROR_WHITELIST = new Set([
@@ -167,7 +174,11 @@ const requestToken = async (
       errorCode = `http_${response.status}`;
     }
 
-    console.warn('Spotify token endpoint refused the request', response.status, errorCode);
+    console.warn(
+      'Spotify token endpoint refused the request',
+      response.status,
+      errorCode
+    );
     spotifyDiag('ERROR_CODE', errorCode);
     if (description) {
       spotifyDiag('ERROR_DESCRIPTION', description);
@@ -187,7 +198,10 @@ const requestToken = async (
   }
 
   try {
-    return { ok: true, payload: (await response.json()) as TokenEndpointResponse };
+    return {
+      ok: true,
+      payload: (await response.json()) as TokenEndpointResponse,
+    };
   } catch {
     spotifyLog(logStep, { status: 'invalid-json' });
     return { ok: false, reason: 'network' };
@@ -309,7 +323,10 @@ const doRefresh = async (session: SpotifySession): Promise<string | null> => {
     return null;
   }
 
-  const refreshed = sessionFromTokenResponse(call.payload, session.refreshToken);
+  const refreshed = sessionFromTokenResponse(
+    call.payload,
+    session.refreshToken
+  );
   if (!refreshed) {
     return null;
   }
@@ -357,7 +374,10 @@ export const describeSession = async (): Promise<{
   }
   return {
     connected: true,
-    expiresInSeconds: Math.max(0, Math.round((session.expiresAtMs - Date.now()) / 1000)),
+    expiresInSeconds: Math.max(
+      0,
+      Math.round((session.expiresAtMs - Date.now()) / 1000)
+    ),
     canRefresh: !!session.refreshToken,
   };
 };
@@ -404,7 +424,10 @@ export const redeemAuthorizationCode = async ({
 
   if (!call.ok) {
     if (call.reason === 'refused') {
-      spotifyDiag('TOKEN_EXCHANGE', `FAILED(${call.errorCode}, HTTP ${call.status})`);
+      spotifyDiag(
+        'TOKEN_EXCHANGE',
+        `FAILED(${call.errorCode}, HTTP ${call.status})`
+      );
       spotifyConfigLine(
         `[SPOTIFY AUTH] Token exchange HTTP status: ${call.status} (${call.errorCode}${call.description ? ` · ${call.description}` : ''})`
       );

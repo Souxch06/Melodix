@@ -2,6 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import {
   clearMatchCacheStorage,
+  createMatchResolutionTimestamp,
   deleteMatchCacheEntryFromStorage,
   loadMatchCache,
   MATCH_CACHE_STORAGE_KEY,
@@ -28,9 +29,19 @@ const entry = (
   ...overrides,
 });
 
-describe('match cache (v2 — provider mémorisé)', () => {
+describe('match cache versionné — provider mémorisé', () => {
   beforeEach(async () => {
     await AsyncStorage.clear();
+  });
+
+  it('ordonne deux résolutions démarrées dans la même milliseconde', () => {
+    const now = jest.spyOn(Date, 'now').mockReturnValue(1_000);
+
+    const first = createMatchResolutionTimestamp();
+    const second = createMatchResolutionTimestamp();
+
+    expect(second).toBe(first + 1);
+    now.mockRestore();
   });
 
   it('loads valid entries and keeps the provider + match decision', () => {
@@ -54,42 +65,58 @@ describe('match cache (v2 — provider mémorisé)', () => {
     expect(cache['spotify:bad-one'].providerId).toBeNull();
   });
 
-  it('migrates legacy v1 entries to Audius (pas de recherche refaite)', () => {
+  it('invalide toutes les versions antérieures après une porte stricte', () => {
     const raw = JSON.stringify({
-      'spotify:legacy': {
+      'spotify:v1': {
         version: 1,
         matchedAt: Date.now(),
         matchId: 'aud-old',
         score: 70,
       },
-      'spotify:legacy-neg': {
-        version: 1,
-        matchedAt: Date.now(),
-        matchId: null,
-        score: 0,
-      },
+      'spotify:v4': entry({ version: 4, matchId: 'featured-only' }),
+      'spotify:v5': entry(),
     });
 
     const cache = loadMatchCache(raw);
 
-    expect(cache['spotify:legacy'].providerId).toBe('audius');
-    expect(cache['spotify:legacy'].matchId).toBe('aud-old');
-    expect(cache['spotify:legacy'].version).toBe(MATCH_CACHE_VERSION);
-    expect(cache['spotify:legacy-neg'].providerId).toBeNull();
+    expect(MATCH_CACHE_VERSION).toBe(5);
+    expect(cache['spotify:v1']).toBeUndefined();
+    expect(cache['spotify:v4']).toBeUndefined();
+    expect(cache['spotify:v5']).toBeDefined();
   });
 
-  it('drops stale entries when loading (TTL)', () => {
-    const old = Date.now() - 40 * 24 * 60 * 60 * 1000; // 40 days ago
+  it('expire rapidement les négatifs mais conserve les matchs positifs fiables', () => {
+    const fortyDaysAgo = Date.now() - 40 * 24 * 60 * 60 * 1000;
+    const twoDaysAgo = Date.now() - 2 * 24 * 60 * 60 * 1000;
 
     const cache = loadMatchCache(
       JSON.stringify({
         'spotify:fresh': entry(),
-        'spotify:stale': entry({ matchedAt: old }),
+        'spotify:positive-two-days': entry({ matchedAt: twoDaysAgo }),
+        'spotify:negative-two-days': entry({
+          matchedAt: twoDaysAgo,
+          providerId: null,
+          matchId: null,
+          score: 0,
+        }),
+        'spotify:stale': entry({ matchedAt: fortyDaysAgo }),
       })
     );
 
     expect(cache['spotify:fresh']).toBeDefined();
+    expect(cache['spotify:positive-two-days']).toBeDefined();
+    expect(cache['spotify:negative-two-days']).toBeUndefined();
     expect(cache['spotify:stale']).toBeUndefined();
+  });
+
+  it('invalide une ancienne décision v3 potentiellement trop permissive', () => {
+    const cache = loadMatchCache(
+      JSON.stringify({
+        'spotify:old': entry({ version: 3, matchId: 'old-radio-match' }),
+      })
+    );
+
+    expect(cache['spotify:old']).toBeUndefined();
   });
 
   it('rejects unversioned/corrupted payloads instead of crashing', () => {
@@ -102,6 +129,28 @@ describe('match cache (v2 — provider mémorisé)', () => {
         })
       )['spotify:ok'].matchId
     ).toBe('aud-123');
+  });
+
+  it('rejette les décisions incohérentes ou numériques corrompues', () => {
+    const cache = loadMatchCache(
+      JSON.stringify({
+        'spotify:no-provider': entry({
+          providerId: null,
+          matchId: 'orphan-match',
+        }),
+        'spotify:no-match': entry({
+          providerId: 'audius',
+          matchId: null,
+        }),
+        'spotify:negative-time': entry({ matchedAt: -1 }),
+        'spotify:bad-score': entry({ score: Number.NaN }),
+        'spotify:valid': entry(),
+      })
+    );
+
+    expect(cache).toEqual({
+      'spotify:valid': expect.objectContaining({ matchId: 'aud-123' }),
+    });
   });
 
   it('persists and reloads through AsyncStorage round-trip (provider compris)', async () => {
@@ -194,16 +243,43 @@ describe('persistMatchCache par fusion + deleteMatchCacheEntryFromStorage', () =
     expect(cache['spotify:k2']).toMatchObject({ matchId: 'aud-999' });
   });
 
-  it('persistMatchCache : l entrée reçue GAGNE sur la valeur stockée', async () => {
-    await persistMatchCache({ 'spotify:k1': entry({ matchId: 'old' }) });
-    await persistMatchCache({
-      'spotify:k1': entry({ matchId: 'new', matchedAt: Date.now() + 1 }),
-    });
+  it('deux persistances réellement concurrentes conservent les deux décisions', async () => {
+    await Promise.all([
+      persistMatchCache({
+        'spotify:parallel-a': entry({ matchId: 'aud-a' }),
+      }),
+      persistMatchCache({
+        'spotify:parallel-b': entry({ matchId: 'aud-b' }),
+      }),
+    ]);
 
     const cache = loadMatchCache(
       await AsyncStorage.getItem(MATCH_CACHE_STORAGE_KEY)
     );
-    expect(cache['spotify:k1']).toMatchObject({ matchId: 'new' });
+    expect(cache['spotify:parallel-a']).toMatchObject({ matchId: 'aud-a' });
+    expect(cache['spotify:parallel-b']).toMatchObject({ matchId: 'aud-b' });
+  });
+
+  it('persistMatchCache conserve la décision démarrée le plus récemment', async () => {
+    const base = Date.now();
+    await persistMatchCache({
+      'spotify:k1': entry({ matchId: 'new-reliable', matchedAt: base + 20 }),
+    });
+    // Simule une vieille résolution lente qui termine APRÈS et tente d'écrire.
+    await persistMatchCache({
+      'spotify:k1': entry({ matchId: 'old-late', matchedAt: base }),
+    });
+
+    let cache = loadMatchCache(
+      await AsyncStorage.getItem(MATCH_CACHE_STORAGE_KEY)
+    );
+    expect(cache['spotify:k1']).toMatchObject({ matchId: 'new-reliable' });
+
+    await persistMatchCache({
+      'spotify:k1': entry({ matchId: 'newest', matchedAt: base + 30 }),
+    });
+    cache = loadMatchCache(await AsyncStorage.getItem(MATCH_CACHE_STORAGE_KEY));
+    expect(cache['spotify:k1']).toMatchObject({ matchId: 'newest' });
   });
 
   it('deleteMatchCacheEntryFromStorage ne supprime QUE la clé visée (transaction sans fusion)', async () => {

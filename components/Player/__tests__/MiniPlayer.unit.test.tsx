@@ -26,12 +26,14 @@ const mockSeekTo = jest.fn(async () => {});
 let mockPlayerState: {
   current: PlayerTrack | null;
   status: string;
+  buffering?: boolean;
   positionMillis: number;
   durationMillis: number;
   notice: { kind: 'not-available' | 'play-failed'; title: string } | null;
 } = {
   current: null,
   status: 'idle',
+  buffering: false,
   positionMillis: 0,
   durationMillis: 0,
   notice: null,
@@ -46,6 +48,7 @@ jest.mock('@context', () => ({
   usePlayer: () => ({
     current: mockPlayerState.current,
     status: mockPlayerState.status,
+    buffering: mockPlayerState.buffering,
     positionMillis: mockPlayerState.positionMillis,
     durationMillis: mockPlayerState.durationMillis,
     notice: mockPlayerState.notice,
@@ -74,6 +77,7 @@ describe('MiniPlayer — ce qui existe vraiment', () => {
     mockPlayerState = {
       current: sessionTrack,
       status: 'playing',
+      buffering: false,
       positionMillis: 45000,
       durationMillis: 180000,
       notice: null,
@@ -111,6 +115,18 @@ describe('MiniPlayer — ce qui existe vraiment', () => {
 
   it('en chargement : spinner AVEC label, pas de bouton play/pause', () => {
     mockPlayerState = { ...mockPlayerState, status: 'loading' };
+    const { getByLabelText, queryByLabelText } = render(<MiniPlayer />);
+
+    expect(getByLabelText(translations.playerLoading)).toBeTruthy();
+    expect(queryByLabelText(translations.playerPause)).toBeNull();
+  });
+
+  it('buffering runtime : spinner sans perdre l état playing central', () => {
+    mockPlayerState = {
+      ...mockPlayerState,
+      status: 'playing',
+      buffering: true,
+    };
     const { getByLabelText, queryByLabelText } = render(<MiniPlayer />);
 
     expect(getByLabelText(translations.playerLoading)).toBeTruthy();

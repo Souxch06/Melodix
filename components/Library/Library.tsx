@@ -1,6 +1,7 @@
 import * as React from 'react';
 import { FlatList, Pressable, RefreshControl, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useFocusEffect } from '@react-navigation/native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import Animated, {
   Extrapolation,
@@ -91,9 +92,14 @@ export const Library = () => {
     []
   );
 
-  React.useEffect(() => {
-    void load();
-  }, [load]);
+  // Une page album/playlist peut modifier les favoris pendant que cet écran
+  // reste monté sous la pile. Recharger à chaque retour au focus évite une
+  // bibliothèque périmée sans imposer de bus d'événements parallèle.
+  useFocusEffect(
+    React.useCallback(() => {
+      void load();
+    }, [load])
+  );
 
   const handleRefresh = React.useCallback(async () => {
     setIsRefreshing(true);

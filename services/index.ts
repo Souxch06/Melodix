@@ -59,6 +59,7 @@ export type {
 } from './audio';
 export {
   clearMatchCacheStorage,
+  createMatchResolutionTimestamp,
   getAudioProviders,
   deleteMatchCacheEntryFromStorage,
   loadMatchCache,
@@ -84,6 +85,7 @@ export {
   MAX_HISTORY,
   PLAY_HISTORY_STORAGE_KEY,
   recordPlay,
+  removePlayHistoryEntry,
 } from './history/playHistory';
 export type { PlayHistoryEntry } from './history/playHistory';
 export { playerTrackFromHistoryEntry } from './history/historyPlayerTrack';
@@ -141,6 +143,10 @@ export {
   redeemAuthorizationCode,
 } from './spotify/session';
 export type { LoginOutcome, SpotifySession } from './spotify/session';
+
+// PlaybackBackend prototype boundary. PlayerContext still uses melodixPlayer
+// directly until the isolated Spotify Web runtime has been validated.
+export * from './playbackBackend';
 export { spotifyApiGet, SpotifyApiError } from './spotify/apiClient';
 export {
   sanitizeErrorDescription,

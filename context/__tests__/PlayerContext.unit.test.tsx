@@ -10,7 +10,7 @@
 import * as React from 'react';
 import { Pressable, View } from 'react-native';
 
-import { act, fireEvent, render } from '@testing-library/react-native';
+import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
 
 import { PlayerProvider, usePlayer } from '../PlayerContext';
 
@@ -52,7 +52,8 @@ const mockActions = {
   restoreSession: jest.fn(async () => {}),
   loadPlaybackSession: jest.fn(async (): Promise<unknown> => null),
   clearPlaybackSession: jest.fn(async () => {}),
-  getState: () => INITIAL,
+  savePlaybackSession: jest.fn(async () => {}),
+  getState: jest.fn((): unknown => INITIAL),
   subscribe: jest.fn(),
 };
 
@@ -62,6 +63,8 @@ jest.mock('@services', () => ({
     mockActions.loadPlaybackSession(...(args as [])),
   clearPlaybackSession: (...args: never[]) =>
     mockActions.clearPlaybackSession(...(args as [])),
+  savePlaybackSession: (...args: never[]) =>
+    mockActions.savePlaybackSession(...(args as [])),
   // Liaisons tardives : la factory s exécute avant les const du fichier.
   melodixPlayer: {
     playQueue: (...args: unknown[]) => mockActions.playQueue(...(args as [])),
@@ -87,13 +90,19 @@ jest.mock('@services', () => ({
     moveInQueue: (...args: never[]) => mockActions.moveInQueue(...(args as [])),
     restoreSession: (...args: never[]) =>
       mockActions.restoreSession(...(args as [])),
-    getState: () => INITIAL,
+    getState: () => mockActions.getState(),
     subscribe: (...args: never[]) => mockActions.subscribe(...(args as [])),
   },
 }));
 
 describe('PlayerContext — état unique partagé par toute l UI', () => {
-  beforeEach(() => jest.clearAllMocks());
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockActions.getState.mockReturnValue(INITIAL);
+    mockActions.restoreSession.mockImplementation(async () => {
+      mockActions.getState.mockReturnValue({ ...INITIAL, status: 'playing' });
+    });
+  });
 
   it('relaye l état du moteur : idle → hasActiveSession false', () => {
     const Probe = () => {
@@ -171,6 +180,7 @@ describe('PlayerContext — reprise de session (phase 2)', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    mockActions.getState.mockReturnValue(INITIAL);
     engineListener = null;
     mockActions.loadPlaybackSession.mockResolvedValue(null);
     mockActions.subscribe.mockImplementation(
@@ -223,6 +233,45 @@ describe('PlayerContext — reprise de session (phase 2)', () => {
     expect(mockActions.playQueue).not.toHaveBeenCalled();
   });
 
+  it('ignore une ancienne restauration finissant après une nouvelle lecture', async () => {
+    let releaseLoad!: (session: typeof SESSION) => void;
+    mockActions.loadPlaybackSession.mockReturnValueOnce(
+      new Promise((resolve) => {
+        releaseLoad = resolve;
+      })
+    );
+
+    const Probe = () => {
+      const { pendingRestore } = usePlayer();
+      return (
+        <View
+          testID="pending-state"
+          // @ts-expect-error — prop de vérification uniquement en test
+          pending={Boolean(pendingRestore)}
+        />
+      );
+    };
+    const { getByTestId } = render(
+      <PlayerProvider>
+        <Probe />
+      </PlayerProvider>
+    );
+    const loadingState = {
+      ...INITIAL,
+      current: SESSION.queue[0],
+      queue: SESSION.queue,
+      index: 0,
+      status: 'loading',
+    };
+    mockActions.getState.mockReturnValue(loadingState);
+    act(() => engineListener?.(loadingState));
+
+    await act(async () => releaseLoad(SESSION));
+
+    expect(getByTestId('pending-state').props.pending).toBe(false);
+    expect(mockActions.restoreSession).not.toHaveBeenCalled();
+  });
+
   it('resumeSession : restaure côté moteur, purge le stockage, ferme la carte', async () => {
     mockActions.loadPlaybackSession.mockResolvedValue(SESSION);
 
@@ -242,10 +291,116 @@ describe('PlayerContext — reprise de session (phase 2)', () => {
 
     fireEvent.press(await findByTestId('resume'));
 
-    expect(mockActions.restoreSession).toHaveBeenCalledTimes(1);
-    expect(mockActions.clearPlaybackSession).toHaveBeenCalledTimes(1);
-    await findByTestId('resume').catch(() => null);
+    await waitFor(() => {
+      expect(mockActions.restoreSession).toHaveBeenCalledTimes(1);
+      expect(mockActions.clearPlaybackSession).toHaveBeenCalledTimes(1);
+    });
     expect(queryByTestId('resume')).toBeNull();
+  });
+
+  it('resumeSession : un double déclenchement ne restaure jamais deux fois', async () => {
+    mockActions.loadPlaybackSession.mockResolvedValue(SESSION);
+    let releaseRestore: (() => void) | null = null;
+    mockActions.restoreSession.mockImplementationOnce(
+      () =>
+        new Promise<void>((resolve) => {
+          releaseRestore = resolve;
+        })
+    );
+
+    const Probe = () => {
+      const { pendingRestore, resumeSession } = usePlayer();
+      return (
+        <>
+          <View
+            testID="restore-state"
+            // @ts-expect-error — prop de vérification uniquement en test
+            pending={Boolean(pendingRestore)}
+          />
+          <Pressable
+            onPress={() => void resumeSession()}
+            testID="resume-twice"
+          />
+        </>
+      );
+    };
+
+    const { getByTestId } = render(
+      <PlayerProvider>
+        <Probe />
+      </PlayerProvider>
+    );
+    await waitFor(() =>
+      expect(getByTestId('restore-state').props.pending).toBe(true)
+    );
+    const button = getByTestId('resume-twice');
+
+    fireEvent.press(button);
+    fireEvent.press(button);
+    expect(mockActions.restoreSession).toHaveBeenCalledTimes(1);
+    expect(mockActions.clearPlaybackSession).not.toHaveBeenCalled();
+
+    mockActions.getState.mockReturnValue({ ...INITIAL, status: 'playing' });
+    await act(async () => releaseRestore?.());
+    await waitFor(() =>
+      expect(mockActions.clearPlaybackSession).toHaveBeenCalledTimes(1)
+    );
+  });
+
+  it('resumeSession : un échec moteur repropose la session sans purge', async () => {
+    mockActions.loadPlaybackSession.mockResolvedValue(SESSION);
+    mockActions.restoreSession.mockRejectedValueOnce(new Error('load failed'));
+
+    const Probe = () => {
+      const { pendingRestore, resumeSession } = usePlayer();
+      return pendingRestore ? (
+        <Pressable onPress={() => void resumeSession()} testID="retry-resume" />
+      ) : null;
+    };
+
+    const { findByTestId } = render(
+      <PlayerProvider>
+        <Probe />
+      </PlayerProvider>
+    );
+    fireEvent.press(await findByTestId('retry-resume'));
+
+    await waitFor(() =>
+      expect(mockActions.restoreSession).toHaveBeenCalledTimes(1)
+    );
+    expect(await findByTestId('retry-resume')).toBeTruthy();
+    expect(mockActions.clearPlaybackSession).not.toHaveBeenCalled();
+  });
+
+  it('resumeSession : une panne provider absorbée réécrit la session pour retry', async () => {
+    mockActions.loadPlaybackSession.mockResolvedValue(SESSION);
+    mockActions.restoreSession.mockImplementationOnce(async () => {
+      mockActions.getState.mockReturnValue(INITIAL);
+      // Le moteur a pu purger la session en arrivant en fin de file.
+      await mockActions.clearPlaybackSession();
+    });
+
+    const Probe = () => {
+      const { pendingRestore, resumeSession } = usePlayer();
+      return pendingRestore ? (
+        <Pressable
+          onPress={() => void resumeSession()}
+          testID="retry-provider"
+        />
+      ) : null;
+    };
+
+    const { findByTestId } = render(
+      <PlayerProvider>
+        <Probe />
+      </PlayerProvider>
+    );
+    fireEvent.press(await findByTestId('retry-provider'));
+
+    await waitFor(() =>
+      expect(mockActions.savePlaybackSession).toHaveBeenCalledWith(SESSION)
+    );
+    expect(await findByTestId('retry-provider')).toBeTruthy();
   });
 
   it('dismissSession : purge le stockage SANS jouer, ferme la carte', async () => {

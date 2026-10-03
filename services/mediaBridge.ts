@@ -20,6 +20,8 @@
  */
 import {
   addMediaCommandListener,
+  appendDiagLog,
+  requestMediaNotificationPermission,
   stopSession,
   updateSession,
 } from '../modules/melodix-media';
@@ -39,6 +41,8 @@ let unsubscribeCommands: (() => void) | null = null;
 let sessionActivated = false;
 /** Déduplication : signature JSON du dernier payload RÉELLEMENT poussé. */
 let lastPushedSignature = '';
+/** Android 13+ : une seule demande liée à la première lecture volontaire. */
+let notificationPermissionRequested = false;
 
 /** Appel natif blindé : une couche de CONTRÔLE ne fait jamais crasher le
  * moteur audio même si Android jette (§11 résilience). */
@@ -63,17 +67,32 @@ export const buildMediaSessionPayload = (
     return null;
   }
 
+  const stateDuration =
+    Number.isFinite(state.durationMillis) && state.durationMillis > 0
+      ? state.durationMillis
+      : null;
+  const metadataDuration =
+    typeof track.durationMillis === 'number' &&
+    Number.isFinite(track.durationMillis) &&
+    track.durationMillis > 0
+      ? track.durationMillis
+      : 0;
+  const duration = stateDuration ?? metadataDuration;
+  const safePosition =
+    Number.isFinite(state.positionMillis) && state.positionMillis >= 0
+      ? state.positionMillis
+      : 0;
+  const position =
+    duration > 0 ? Math.min(safePosition, duration) : safePosition;
+
   return {
     trackId: track.id,
     title: track.title,
     artist: track.artists.join(', '),
     album: track.album ?? null,
     artworkUrl: track.imageURL || null,
-    durationMillis:
-      state.durationMillis > 0
-        ? state.durationMillis
-        : (track.durationMillis ?? 0),
-    positionMillis: Math.max(0, state.positionMillis),
+    durationMillis: duration,
+    positionMillis: position,
     isPlaying: state.status === 'playing',
   };
 };
@@ -87,6 +106,8 @@ const signatureOf = (payload: MediaSessionPayload): string =>
     payload.trackId,
     payload.title,
     payload.artist,
+    payload.album ?? '',
+    payload.artworkUrl ?? '',
     payload.durationMillis,
     Math.round(payload.positionMillis / 1000),
     payload.isPlaying ? 1 : 0,
@@ -182,18 +203,44 @@ const projectState = (state: PlayerState): void => {
     return; // rien de neuf à projeter (anti-spam sur ticks 500 ms)
   }
 
-  // 5C.2 : AUCUNE demande de permission au Play. La lecture démarre
-  // immédiatement, comme dans n'importe quelle application musicale :
-  //  - le FOREGROUND SERVICE média fonctionne sans POST_NOTIFICATIONS
-  //    (Android la gère au niveau système, elle n'est simplement pas
-  //    visible dans la zone des notifications tant que la permission
-  //    n'est pas accordée) ;
-  //  - la demande explicite reste UNIQUEMENT sur le toggle « Lecture en
-  //    arrière-plan » des réglages (geste utilisateur dédié).
+  appendDiagLog(
+    `BRIDGE_PROJECT state=${payload.isPlaying ? 'PLAYING' : 'PAUSED'} ` +
+      `trackId=${payload.trackId} titleLength=${payload.title.length} ` +
+      `artistLength=${payload.artist.length} artwork=${payload.artworkUrl !== null} ` +
+      `positionMs=${Math.round(payload.positionMillis)} durationMs=${Math.round(
+        payload.durationMillis
+      )}`
+  );
+
+  // Android 13+ masque la notification dans le tiroir si la permission n'a
+  // jamais été accordée. Le réglage est activé par défaut : attendre que
+  // l'utilisateur le désactive/réactive rendait donc la notification
+  // introuvable. La première lecture VOLONTAIRE est le moment contextuel
+  // légitime pour demander une seule fois la permission. L'audio et le FGS
+  // restent non bloquants si Android refuse ou si le module est absent.
+  if (!notificationPermissionRequested) {
+    const result = (() => {
+      try {
+        return requestMediaNotificationPermission();
+      } catch (error) {
+        console.warn(
+          'MelodixMedia notification permission unavailable:',
+          error
+        );
+        return null;
+      }
+    })();
+    notificationPermissionRequested = result !== null;
+  }
+
   sessionActivated = true;
   lastPushedSignature = pushed;
 
   callNative(() => updateSession(payload));
+  appendDiagLog(
+    `[MEDIA_DIAG] NATIVE_UPDATE_REQUESTED state=${payload.isPlaying ? 'PLAYING' : 'PAUSED'} ` +
+      `trackId=${payload.trackId}`
+  );
 };
 
 /**
@@ -201,7 +248,23 @@ const projectState = (state: PlayerState): void => {
  * Désactivé : plus aucune projection et le service actif est arrêté.
  */
 export const setMediaBridgeEnabled = (enabled: boolean): void => {
+  const wasEnabled = bridgeEnabled;
   bridgeEnabled = enabled;
+  appendDiagLog(
+    `[MEDIA_DIAG] BRIDGE_ENABLED enabled=${enabled} previous=${wasEnabled} ` +
+      `initialized=${initialized} currentState=${melodixPlayer.getState?.().status ?? 'unknown'}`
+  );
+
+  // Les préférences sont restaurées de façon asynchrone. Si une lecture a
+  // démarré entre l'initialisation du PlayerProvider et cette restauration,
+  // aucun nouvel événement player n'est garanti : projeter immédiatement
+  // l'état courant évite une lecture de fond sans MediaSession/notification.
+  if (enabled && !wasEnabled) {
+    // Certains environnements de test isolent le bridge avec un player minimal.
+    // Le moteur de production expose toujours getState().
+    const currentState = melodixPlayer.getState?.();
+    if (currentState) projectState(currentState);
+  }
 
   if (!enabled && sessionActivated) {
     sessionActivated = false;
@@ -222,6 +285,7 @@ export const initMediaBridge = (): void => {
   }
 
   initialized = true;
+  appendDiagLog(`BRIDGE_CREATED enabled=${bridgeEnabled}`);
 
   unsubscribePlayer = melodixPlayer.subscribe(projectState);
   unsubscribeCommands = addMediaCommandListener(handleMediaCommand);
@@ -242,5 +306,6 @@ export const teardownMediaBridge = (): void => {
     }
   } finally {
     initialized = false;
+    notificationPermissionRequested = false;
   }
 };

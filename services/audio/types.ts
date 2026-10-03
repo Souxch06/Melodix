@@ -13,6 +13,10 @@ export type AudioSourceQuery = {
   artists: string[];
   album?: string | null;
   durationMillis?: number | null;
+  /** Code ISRC Spotify, quand l'API l'expose. Jamais requis pour matcher. */
+  isrc?: string | null;
+  /** Classification Spotify connue. `null`/absent reste neutre. */
+  explicit?: boolean | null;
 };
 
 /** A streamable candidate inside the catalog of a provider. */

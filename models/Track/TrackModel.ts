@@ -16,4 +16,6 @@ export type TrackModel = {
    */
   durationMs?: number | null;
   albumName?: string | null;
+  /** Identifiant d'enregistrement Spotify, utilisé comme signal de matching. */
+  isrc?: string | null;
 };

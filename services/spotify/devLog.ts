@@ -41,8 +41,7 @@ const formatDetails = (details: Record<string, unknown>): string => {
   const safe: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(details)) {
     if (ALLOWED_DETAIL_KEYS.has(key)) {
-      safe[key] =
-        typeof value === 'string' ? value.slice(0, 80) : value;
+      safe[key] = typeof value === 'string' ? value.slice(0, 80) : value;
     }
   }
   const text = Object.keys(safe).length ? JSON.stringify(safe) : '';

@@ -1,6 +1,7 @@
 import * as React from 'react';
 import {
   ActivityIndicator,
+  Pressable,
   ScrollView,
   Text,
   TextInput,
@@ -38,6 +39,7 @@ export const Search = () => {
   const [query, setQuery] = React.useState('');
   const [results, setResults] = React.useState<SearchResultsModel | null>(null);
   const [status, setStatus] = React.useState<SearchStatus>('idle');
+  const [retrySeed, setRetrySeed] = React.useState(0);
 
   React.useEffect(() => {
     const q = query.trim();
@@ -71,7 +73,7 @@ export const Search = () => {
       isCancelled = true;
       clearTimeout(timeout);
     };
-  }, [query]);
+  }, [query, retrySeed]);
 
   const player = usePlayer();
   const [actionTrack, setActionTrack] = React.useState<PlayerTrack | null>(
@@ -221,7 +223,22 @@ export const Search = () => {
           <ActivityIndicator color={COLORS.TINT} style={styles.loader} />
         )}
         {status === 'error' && (
-          <Text style={styles.message}>{translations.searchError}</Text>
+          <View style={styles.errorState} testID="search-error-state">
+            <Text style={styles.message}>{translations.searchError}</Text>
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => setRetrySeed((seed) => seed + 1)}
+              style={styles.retryButton}
+              testID="search-retry"
+            >
+              <Text style={styles.retryText}>{translations.homeRetry}</Text>
+            </Pressable>
+          </View>
+        )}
+        {status === 'done' && results?.degraded && (
+          <Text style={styles.degradedNotice} testID="search-degraded-notice">
+            {translations.searchDegraded}
+          </Text>
         )}
         {status === 'done' && sections.length === 0 && (
           <Text style={styles.message}>

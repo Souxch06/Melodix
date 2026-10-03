@@ -14,10 +14,7 @@
  */
 import { SPOTIFY_API_BASE_URL } from './authConfig';
 import { sanitizeErrorDescription, spotifyLog } from './devLog';
-import {
-  clearSessionAccessOnly,
-  getValidAccessToken,
-} from './session';
+import { clearSessionAccessOnly, getValidAccessToken } from './session';
 
 export type SpotifyApiErrorKind =
   | 'unauthenticated' // session absente ou définitivement invalide
@@ -89,18 +86,30 @@ export const spotifyApiGet = async <T>(path: string): Promise<T> => {
       throw new SpotifyApiError('network', 'Spotify est injoignable.');
     }
 
-    if (response.status === 401 && !retried401) {
-      // Token refusé (révoqué, expiré) : on force un refresh puis on rejoue.
-      retried401 = true;
-      const refreshed = await forceRefreshAccessToken();
-      if (!refreshed) {
-        throw new SpotifyApiError(
-          'unauthenticated',
-          'La session Spotify a expiré.'
-        );
+    if (response.status === 401) {
+      if (!retried401) {
+        // Token refusé (révoqué, expiré) : on force un refresh puis on rejoue.
+        retried401 = true;
+        const refreshed = await forceRefreshAccessToken();
+        if (!refreshed) {
+          throw new SpotifyApiError(
+            'unauthenticated',
+            'La session Spotify a expiré.'
+          );
+        }
+        token = refreshed;
+        continue;
       }
-      token = refreshed;
-      continue;
+
+      // Le token fraîchement renouvelé est lui aussi refusé. Traiter ce cas
+      // comme une erreur HTTP générique laisserait l'UI croire que la session
+      // est encore valide et provoquerait une boucle de 401 aux appels suivants.
+      await clearSessionAccessOnly();
+      throw new SpotifyApiError(
+        'unauthenticated',
+        'La session Spotify a expiré.',
+        401
+      );
     }
 
     if (response.status === 429) {

@@ -18,6 +18,22 @@ export const PLAY_HISTORY_STORAGE_KEY = '@melodix/play-history';
 
 export const MAX_HISTORY = 100;
 
+/** AsyncStorage n'offre pas de transaction read-modify-write. Les lectures
+ * valides peuvent arriver presque simultanément lors d'un skip rapide : une
+ * file unique empêche la seconde d'écraser la première. */
+let mutationQueue: Promise<void> = Promise.resolve();
+
+const enqueueMutation = <T>(operation: () => Promise<T>): Promise<T> => {
+  const next = mutationQueue.then(operation, operation);
+  mutationQueue = next.then(
+    () => undefined,
+    () => undefined
+  );
+  return next;
+};
+
+const waitForMutations = async (): Promise<void> => mutationQueue;
+
 export type PlayHistoryEntry = {
   /** Snapshot du morceau tel qu'affiché à la lecture. */
   track: TrackModel;
@@ -61,26 +77,35 @@ const writeEntries = async (entries: PlayHistoryEntry[]): Promise<void> => {
   );
 };
 
+/** Les consommateurs voient aussi les écritures fire-and-forget déjà lancées. */
+const readStableEntries = async (): Promise<PlayHistoryEntry[]> => {
+  await waitForMutations();
+  return readEntries();
+};
+
 /**
  * Enregistre une lecture (idempotent : un même morceau rejoué remonte en
  * tête sans se dupliquer).
  */
-export const recordPlay = async (
+export const recordPlay = (
   track: TrackModel,
   meta: { albumTitle?: string; albumId?: string | null } = {}
 ): Promise<void> => {
   if (!track?.id) {
-    return;
+    return Promise.resolve();
   }
-  const entries = await readEntries();
-  const remaining = entries.filter((entry) => entry.track.id !== track.id);
-  remaining.unshift({
-    track: { ...track, isPlaying: false },
-    albumTitle: meta.albumTitle,
-    albumId: meta.albumId ?? null,
-    playedAt: Date.now(),
+
+  return enqueueMutation(async () => {
+    const entries = await readEntries();
+    const remaining = entries.filter((entry) => entry.track.id !== track.id);
+    remaining.unshift({
+      track: { ...track, isPlaying: false },
+      albumTitle: meta.albumTitle,
+      albumId: meta.albumId ?? null,
+      playedAt: Date.now(),
+    });
+    await writeEntries(remaining.slice(0, MAX_HISTORY));
   });
-  await writeEntries(remaining.slice(0, MAX_HISTORY));
 };
 
 /**
@@ -88,7 +113,7 @@ export const recordPlay = async (
  */
 export const getRecentlyPlayedTracks = async (
   limit = 20
-): Promise<PlayHistoryEntry[]> => (await readEntries()).slice(0, limit);
+): Promise<PlayHistoryEntry[]> => (await readStableEntries()).slice(0, limit);
 
 /**
  * Dédupliqué par id source Audius quand elle est connue (deux sources
@@ -117,7 +142,7 @@ export const getRecentlyPlayedAlbumLike = async (
     albumId: string | null;
     track: TrackModel;
   }[] = [];
-  for (const entry of await readEntries()) {
+  for (const entry of await readStableEntries()) {
     const key = entry.albumTitle ?? entry.track.id;
     if (seen.has(key)) {
       continue;
@@ -184,7 +209,7 @@ const topBy = (
 export const getTopArtistsFromHistory = async (
   limit = 5
 ): Promise<{ name: string; count: number; imageURL?: string }[]> => {
-  const entries = await readEntries();
+  const entries = await readStableEntries();
   return topBy(entries, (entry) => entry.track.subtitle || null, limit).map(
     ({ key, count, sampleTrack }) => ({
       name: key,
@@ -217,7 +242,7 @@ export const getTopAlbumsFromHistory = async (
     track: TrackModel;
   }[]
 > => {
-  const entries = await readEntries();
+  const entries = await readStableEntries();
   return topBy(
     entries,
     (entry) => entry.albumId ?? entry.albumTitle ?? null,
@@ -234,11 +259,21 @@ export const getTopAlbumsFromHistory = async (
 
 /** Historique vide = sections masquées plutôt que vides. */
 export const hasPlayHistory = async (): Promise<boolean> =>
-  (await readEntries()).length > 0;
+  (await readStableEntries()).length > 0;
 
-export const clearPlayHistory = async (): Promise<void> => {
-  await AsyncStorage.removeItem(PLAY_HISTORY_STORAGE_KEY);
+/** Supprime une seule entrée sans perturber l'ordre des autres lectures. */
+export const removePlayHistoryEntry = (trackId: string): Promise<void> => {
+  if (!trackId) {
+    return Promise.resolve();
+  }
+  return enqueueMutation(async () => {
+    const entries = await readEntries();
+    await writeEntries(entries.filter((entry) => entry.track.id !== trackId));
+  });
 };
+
+export const clearPlayHistory = (): Promise<void> =>
+  enqueueMutation(() => AsyncStorage.removeItem(PLAY_HISTORY_STORAGE_KEY));
 
 /** Tests uniquement. */
 export const __resetPlayHistoryForTests = clearPlayHistory;

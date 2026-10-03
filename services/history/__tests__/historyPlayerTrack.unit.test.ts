@@ -17,6 +17,8 @@ describe('playerTrackFromHistoryEntry', () => {
         subtitle: 'A, B',
         albumName: 'Album',
         durationMs: 123_000,
+        isrc: 'FRABC2412345',
+        explicit: true,
       },
     });
 
@@ -26,6 +28,8 @@ describe('playerTrackFromHistoryEntry', () => {
       artists: ['A', 'B'],
       album: 'Album',
       durationMillis: 123_000,
+      isrc: 'FRABC2412345',
+      explicit: true,
       imageURL: 'img',
       source: { provider: null, id: 't1' },
     });

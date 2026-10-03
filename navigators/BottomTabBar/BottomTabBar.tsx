@@ -108,10 +108,7 @@ export const BottomTabBar = ({
 
   return (
     <View
-      style={[
-        styles.container,
-        { paddingBottom: Math.max(gestureInset, 8) },
-      ]}
+      style={[styles.container, { paddingBottom: Math.max(gestureInset, 8) }]}
     >
       {/* Barre translucide : flou système + voile sombre + liseré supérieur. */}
       <BlurView intensity={40} style={styles.blurBackdrop} tint="dark" />

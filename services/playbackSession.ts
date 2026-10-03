@@ -20,6 +20,20 @@ import type { PlayerTrack, RepeatMode } from './player';
 export const PLAYBACK_SESSION_STORAGE_KEY = '@melodix/playback-session.v1';
 export const PLAYBACK_SESSION_VERSION = 1;
 
+/** Garantit l'ordre causal save → clear malgré les I/O AsyncStorage. Sans
+ * cette file, un save lent lancé avant stop() pouvait terminer APRÈS la purge
+ * et ressusciter une carte « Reprendre » pourtant arrêtée explicitement. */
+let mutationQueue: Promise<void> = Promise.resolve();
+
+const enqueueMutation = (operation: () => Promise<void>): Promise<void> => {
+  const next = mutationQueue.then(operation, operation);
+  mutationQueue = next.then(
+    () => undefined,
+    () => undefined
+  );
+  return next;
+};
+
 export type PlaybackSession = {
   version: number;
   savedAt: number;
@@ -75,15 +89,19 @@ const sanitizeTrack = (value: unknown): PlayerTrack | null => {
 
   if (
     typeof record.id !== 'string' ||
+    !record.id.trim() ||
     typeof record.title !== 'string' ||
+    !record.title.trim() ||
     !Array.isArray(record.artists) ||
     !record.artists.every((artist) => typeof artist === 'string') ||
     !record.source ||
     typeof record.source !== 'object' ||
     typeof record.source.id !== 'string' ||
+    !record.source.id.trim() ||
     !(
       record.source.provider === null ||
-      typeof record.source.provider === 'string'
+      record.source.provider === 'audius' ||
+      record.source.provider === 'youtube'
     )
   ) {
     return null;
@@ -96,6 +114,15 @@ const sanitizeTrack = (value: unknown): PlayerTrack | null => {
     album: typeof record.album === 'string' ? record.album : null,
     // I-8 : albumId optionnel, restauré quand présent — sinon jamais gagné.
     albumId: typeof record.albumId === 'string' ? record.albumId : null,
+    // L'ISRC est un signal de matching autoritatif : une reprise de session
+    // ne doit pas retomber sur un matching textuel moins fiable. Les anciennes
+    // sessions sans champ restent strictement compatibles.
+    ...(typeof record.isrc === 'string' && record.isrc.trim()
+      ? { isrc: record.isrc.trim().toUpperCase() }
+      : {}),
+    ...(typeof record.explicit === 'boolean'
+      ? { explicit: record.explicit }
+      : {}),
     durationMillis:
       typeof record.durationMillis === 'number' &&
       Number.isFinite(record.durationMillis)
@@ -119,24 +146,55 @@ export const sanitizePlaybackSession = (
     typeof record.version !== 'number' ||
     record.version !== PLAYBACK_SESSION_VERSION ||
     typeof record.savedAt !== 'number' ||
+    !Number.isFinite(record.savedAt) ||
+    record.savedAt < 0 ||
     !Array.isArray(record.queue)
   ) {
     return null;
   }
 
-  const queue = record.queue
-    .map(sanitizeTrack)
-    .filter((track): track is PlayerTrack => track !== null)
-    .slice(0, PLAYBACK_SESSION_MAX_QUEUE);
-
-  const index =
+  const rawIndex =
     typeof record.index === 'number' && Number.isFinite(record.index)
       ? Math.trunc(record.index)
       : -1;
-
-  if (!queue.length || index < 0 || index >= queue.length) {
-    return null; // session sans morceau courant valide : inutilisable
+  if (rawIndex < 0 || rawIndex >= record.queue.length) {
+    return null;
   }
+
+  const requestedTrack = sanitizeTrack(record.queue[rawIndex]);
+  const seenIds = new Set<string>();
+  const validTracks = record.queue.flatMap((value, originalIndex) => {
+    const track = sanitizeTrack(value);
+    if (!track || seenIds.has(track.id)) return [];
+    seenIds.add(track.id);
+    return [{ track, originalIndex }];
+  });
+  if (!validTracks.length) {
+    return null;
+  }
+
+  // Si le morceau courant est corrompu, reprendre au prochain valide (ou au
+  // précédent en fin de file). Surtout, les invalides placés AVANT le courant
+  // doivent décaler l'index : conserver l'index brut restaurait le mauvais ID
+  // ou rejetait toute une session pourtant récupérable. Une occurrence
+  // dupliquée pointe vers l'unique occurrence conservée du même ID.
+  let targetPosition = requestedTrack
+    ? validTracks.findIndex(({ track }) => track.id === requestedTrack.id)
+    : validTracks.findIndex(({ originalIndex }) => originalIndex >= rawIndex);
+  if (targetPosition < 0) {
+    targetPosition = validTracks.length - 1;
+  }
+  const half = Math.floor(PLAYBACK_SESSION_MAX_QUEUE / 2);
+  const start =
+    targetPosition < PLAYBACK_SESSION_MAX_QUEUE
+      ? 0
+      : Math.min(
+          Math.max(0, targetPosition - half),
+          Math.max(0, validTracks.length - PLAYBACK_SESSION_MAX_QUEUE)
+        );
+  const window = validTracks.slice(start, start + PLAYBACK_SESSION_MAX_QUEUE);
+  const queue = window.map(({ track }) => track);
+  const index = targetPosition - start;
 
   const repeat: RepeatMode =
     record.repeat === 'all' || record.repeat === 'one' ? record.repeat : 'off';
@@ -163,6 +221,7 @@ export const sanitizePlaybackSession = (
 export const loadPlaybackSession =
   async (): Promise<PlaybackSession | null> => {
     try {
+      await mutationQueue;
       const stored = await AsyncStorage.getItem(PLAYBACK_SESSION_STORAGE_KEY);
 
       if (!stored) {
@@ -175,23 +234,23 @@ export const loadPlaybackSession =
     }
   };
 
-export const savePlaybackSession = async (
-  session: PlaybackSession
-): Promise<void> => {
-  try {
-    await AsyncStorage.setItem(
-      PLAYBACK_SESSION_STORAGE_KEY,
-      JSON.stringify(session)
-    );
-  } catch {
-    // Persistance non bloquante — la lecture ne doit jamais en pâtir.
-  }
-};
+export const savePlaybackSession = (session: PlaybackSession): Promise<void> =>
+  enqueueMutation(async () => {
+    try {
+      await AsyncStorage.setItem(
+        PLAYBACK_SESSION_STORAGE_KEY,
+        JSON.stringify(session)
+      );
+    } catch {
+      // Persistance non bloquante — la lecture ne doit jamais en pâtir.
+    }
+  });
 
-export const clearPlaybackSession = async (): Promise<void> => {
-  try {
-    await AsyncStorage.removeItem(PLAYBACK_SESSION_STORAGE_KEY);
-  } catch {
-    // Best-effort.
-  }
-};
+export const clearPlaybackSession = (): Promise<void> =>
+  enqueueMutation(async () => {
+    try {
+      await AsyncStorage.removeItem(PLAYBACK_SESSION_STORAGE_KEY);
+    } catch {
+      // Best-effort.
+    }
+  });

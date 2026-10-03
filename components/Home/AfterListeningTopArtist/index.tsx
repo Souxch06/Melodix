@@ -32,21 +32,29 @@ export const AfterListeningTopArtist = () => {
     });
 
   React.useEffect(() => {
+    let mounted = true;
     (async () => {
       try {
         const topArtistRecommendationsData =
           await getRecommendationsFromTopArtistSeed();
-        setTopArtistRecommendations(
-          topArtistRecommendationsData ?? {
-            recommendations: null,
-            artist: null,
-          }
-        );
+        if (mounted) {
+          setTopArtistRecommendations(
+            topArtistRecommendationsData ?? {
+              recommendations: null,
+              artist: null,
+            }
+          );
+        }
       } catch (error) {
-        setTopArtistRecommendations({ recommendations: null, artist: null });
-        console.error(error);
+        if (mounted) {
+          setTopArtistRecommendations({ recommendations: null, artist: null });
+          console.error(error);
+        }
       }
     })();
+    return () => {
+      mounted = false;
+    };
   }, []);
 
   return (

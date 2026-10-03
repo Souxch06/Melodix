@@ -54,6 +54,7 @@ type SpotifyTrackRaw = {
   explicit?: boolean;
   artists?: { id?: string; name?: string }[] | null;
   album?: SpotifyAlbumRaw | null;
+  external_ids?: { isrc?: string | null } | null;
   is_local?: boolean; // fichiers hors catalogue : ignorés
 } | null;
 
@@ -83,7 +84,7 @@ type PagedItems = {
 
 /** Champs ciblés suffisants → des réponses plus légères. */
 const ITEM_FIELDS =
-  'items(item(id,name,type,duration_ms,explicit,artists(id,name),album(id,name,images),is_local)),next,total';
+  'items(item(id,name,type,duration_ms,explicit,artists(id,name),album(id,name,images),external_ids(isrc),is_local)),next,total';
 
 /**
  * Extraction tolérante : format courant `item`, legacy `track` en secours.
@@ -125,6 +126,10 @@ const toTrackModel = (raw: SpotifyTrackRaw): TrackModel | null => {
     // propagés au PlayerTrack par les écrans jusqu'au matcher partagé.
     durationMs: typeof raw.duration_ms === 'number' ? raw.duration_ms : null,
     albumName: raw.album?.name ?? null,
+    isrc:
+      typeof raw.external_ids?.isrc === 'string' && raw.external_ids.isrc.trim()
+        ? raw.external_ids.isrc.trim().toUpperCase()
+        : null,
   };
 };
 

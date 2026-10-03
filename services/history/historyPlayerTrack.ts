@@ -46,6 +46,10 @@ export const playerTrackFromHistoryEntry = ({
     : [],
   album: snapshot?.albumName ?? null,
   durationMillis: snapshot?.durationMs ?? null,
+  ...(typeof snapshot?.explicit === 'boolean'
+    ? { explicit: snapshot.explicit }
+    : {}),
+  ...(snapshot?.isrc ? { isrc: snapshot.isrc } : {}),
   imageURL,
   source: sourceFromQueueId(snapshot?.id || id),
 });

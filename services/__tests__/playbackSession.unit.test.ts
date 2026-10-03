@@ -32,6 +32,40 @@ const makeTrack = (id: string) => ({
   source: spotifyTrackSource(id),
 });
 
+it('ISRC présent est conservé et normalisé à la réhydratation', async () => {
+  await savePlaybackSession(
+    makeSession({
+      queue: [{ ...makeTrack('isrc'), isrc: 'fr-abc-24-12345' }],
+      index: 0,
+    })
+  );
+
+  const loaded = await loadPlaybackSession();
+
+  expect(loaded?.queue[0].isrc).toBe('FR-ABC-24-12345');
+});
+
+it('classification explicit/clean est conservée sans inventer une valeur absente', async () => {
+  await savePlaybackSession(
+    makeSession({
+      queue: [
+        { ...makeTrack('explicit'), explicit: true },
+        { ...makeTrack('clean'), explicit: false },
+        makeTrack('unknown'),
+      ],
+      index: 0,
+    })
+  );
+
+  const loaded = await loadPlaybackSession();
+
+  expect(loaded?.queue.map((track) => track.explicit)).toEqual([
+    true,
+    false,
+    undefined,
+  ]);
+});
+
 it('I-8 : albumId présent est restauré à la réhydratation (absent → null)', async () => {
   const withAlbum = { ...makeTrack('alb'), albumId: 'alb-1' };
   const withoutAlbum = makeTrack('nul');
@@ -135,6 +169,55 @@ describe('playbackSession — persistance stricte de la session', () => {
     expect(sanitized?.queue.map(({ id }) => id)).toEqual(['ok', 'ok-aussi']);
   });
 
+  it('déduplique une ancienne session en conservant le morceau courant', () => {
+    const sanitized = sanitizePlaybackSession(
+      makeSession({
+        queue: [makeTrack('a'), makeTrack('b'), makeTrack('b'), makeTrack('c')],
+        index: 2,
+      })
+    );
+
+    expect(sanitized?.queue.map(({ id }) => id)).toEqual(['a', 'b', 'c']);
+    expect(sanitized?.index).toBe(1);
+    expect(sanitized?.queue[sanitized.index].id).toBe('b');
+  });
+
+  it('remappe le courant quand des morceaux invalides le précèdent', () => {
+    const sanitized = sanitizePlaybackSession(
+      makeSession({
+        queue: [
+          { id: '', title: '' } as never,
+          makeTrack('a'),
+          makeTrack('current-b'),
+        ],
+        index: 2,
+      })
+    );
+
+    expect(sanitized?.queue.map(({ id }) => id)).toEqual(['a', 'current-b']);
+    expect(sanitized?.index).toBe(1);
+    expect(sanitized?.queue[sanitized.index].id).toBe('current-b');
+  });
+
+  it('rejette timestamp non fini et provider inconnu', () => {
+    expect(
+      sanitizePlaybackSession({ ...makeSession(), savedAt: Number.NaN })
+    ).toBeNull();
+    expect(
+      sanitizePlaybackSession(
+        makeSession({
+          queue: [
+            {
+              ...makeTrack('unknown'),
+              source: { provider: 'mystery', id: 'x' } as never,
+            },
+          ],
+          index: 0,
+        })
+      )
+    ).toBeNull();
+  });
+
   it('la file est raccourcie au maximum autorisé', () => {
     const hugeQueue = Array.from({ length: 500 }, (_, i) => makeTrack(`t${i}`));
     const sanitized = sanitizePlaybackSession(
@@ -148,6 +231,28 @@ describe('playbackSession — persistance stricte de la session', () => {
   it('clear supprime la clé : load après clear → null', async () => {
     await savePlaybackSession(makeSession());
     await clearPlaybackSession();
+
+    await expect(loadPlaybackSession()).resolves.toBeNull();
+  });
+
+  it('un save lent lancé avant clear ne ressuscite jamais la session', async () => {
+    const originalSetItem = AsyncStorage.setItem.bind(AsyncStorage);
+    let releaseSave!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      releaseSave = resolve;
+    });
+    jest
+      .spyOn(AsyncStorage, 'setItem')
+      .mockImplementationOnce(async (key, value) => {
+        await gate;
+        await originalSetItem(key, value);
+      });
+
+    const pendingSave = savePlaybackSession(makeSession());
+    await Promise.resolve();
+    const pendingClear = clearPlaybackSession();
+    releaseSave();
+    await Promise.all([pendingSave, pendingClear]);
 
     await expect(loadPlaybackSession()).resolves.toBeNull();
   });

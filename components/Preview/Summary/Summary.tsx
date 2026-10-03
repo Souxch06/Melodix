@@ -36,10 +36,24 @@ export const Summary = ({
   forceDisableSaveIcon,
 }: SummaryPropsType) => {
   const [isSaved, setIsSaved] = React.useState<boolean>(false);
+  const mountedRef = React.useRef(true);
+  const saveInFlightRef = React.useRef(false);
 
   React.useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
+
+  React.useEffect(() => {
+    let current = true;
+
     if (!id) {
-      return;
+      setIsSaved(false);
+      return () => {
+        current = false;
+      };
     }
 
     (async () => {
@@ -49,38 +63,57 @@ export const Summary = ({
             ? await checkSavedAlbums([id])
             : await checkSavedPlaylists([id]);
 
-        setIsSaved(checked[0]);
+        if (current && mountedRef.current) {
+          setIsSaved(Boolean(checked[0]));
+        }
       } catch (error) {
-        setIsSaved(false);
-        console.error(`Failed to check if ${type} is saved:`, error);
+        if (current && mountedRef.current) {
+          setIsSaved(false);
+          console.error(`Failed to check if ${type} is saved:`, error);
+        }
       }
     })();
+
+    return () => {
+      current = false;
+    };
   }, [type, id]);
 
   // Favori LOCAL (aucun compte) : persiste la carte complète dans la
   // bibliothèque de l'appareil, réversible.
-  const handleToggleSave = React.useCallback(() => {
-    if (!id || !title) {
+  const handleToggleSave = React.useCallback(async () => {
+    // Empêche deux écritures contradictoires de terminer dans le désordre.
+    if (!id || !title || saveInFlightRef.current) {
       return;
     }
 
+    saveInFlightRef.current = true;
     const nextState = !isSaved;
     setIsSaved(nextState);
 
-    (async () => {
-      try {
-        if (nextState) {
-          const item: LibraryItemModel = { id, type, title, subtitle, imageURL };
-          await saveItem(item);
-        } else {
-          await removeSavedItem(type, id);
-        }
-      } catch (error) {
-        // La persistance échoue : on revient à l'état affiché précédent.
-        console.error(`Failed to persist ${type} favorite state:`, error);
+    try {
+      if (nextState) {
+        const item: LibraryItemModel = {
+          id,
+          type,
+          title,
+          subtitle,
+          imageURL,
+        };
+        await saveItem(item);
+      } else {
+        await removeSavedItem(type, id);
+      }
+    } catch (error) {
+      // La persistance échoue : on revient à l'état affiché précédent, sauf si
+      // l'écran a été démonté entre-temps.
+      console.error(`Failed to persist ${type} favorite state:`, error);
+      if (mountedRef.current) {
         setIsSaved(!nextState);
       }
-    })();
+    } finally {
+      saveInFlightRef.current = false;
+    }
   }, [id, type, title, subtitle, imageURL, isSaved]);
 
   return (
@@ -94,7 +127,10 @@ export const Summary = ({
       <Text style={styles.subtitle}>{subtitle}</Text>
       <Text style={styles.info}>{info}</Text>
       {availabilityInfo ? (
-        <Text style={styles.availabilityInfo} testID="playlist-availability-stat">
+        <Text
+          style={styles.availabilityInfo}
+          testID="playlist-availability-stat"
+        >
           {availabilityInfo}
         </Text>
       ) : null}
@@ -108,12 +144,6 @@ export const Summary = ({
             onPress={handleToggleSave}
           />
         )}
-        <AnimatedPressable
-          defaultIcon="arrow-down"
-          activeIcon="arrow-down"
-          // TODO: removed this true value and check if tracks are downloaded instead
-          isActive={true}
-        />
         <Pressable>
           <Entypo style={styles.moreIcon} name="dots-three-horizontal" />
         </Pressable>

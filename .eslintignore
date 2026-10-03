@@ -1,2 +1,7 @@
 **/__mocks__/
 **/scripts/
+server/dist/
+server/dist-test/
+android/
+ios/
+build/

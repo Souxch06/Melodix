@@ -37,7 +37,11 @@ test('generateTotp = référence indépendante', () => {
     [0, 's3cr3t'],
   ];
   for (const [time, secret] of cases) {
-    assert.equal(generateTotp(time, secret), expectedTotp(time, secret), `t=${time}`);
+    assert.equal(
+      generateTotp(time, secret),
+      expectedTotp(time, secret),
+      `t=${time}`
+    );
   }
 });
 

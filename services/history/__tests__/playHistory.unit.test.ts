@@ -12,6 +12,7 @@ import {
   MAX_HISTORY,
   PLAY_HISTORY_STORAGE_KEY,
   recordPlay,
+  removePlayHistoryEntry,
 } from '../playHistory';
 
 const track = (id: string, artist = 'Artist', album?: string): TrackModel => ({
@@ -38,6 +39,29 @@ describe('playHistory (historique local)', () => {
     const recent = await getRecentlyPlayedTracks();
     expect(recent.map(({ track: t }) => t.id)).toEqual(['2', '1']);
     expect(await hasPlayHistory()).toBe(true);
+  });
+
+  it('conserve deux lectures enregistrées réellement en parallèle', async () => {
+    await Promise.all([
+      recordPlay(track('parallel-a')),
+      recordPlay(track('parallel-b')),
+    ]);
+
+    const recent = await getRecentlyPlayedTracks();
+    expect(new Set(recent.map(({ track: item }) => item.id))).toEqual(
+      new Set(['parallel-a', 'parallel-b'])
+    );
+  });
+
+  it('une lecture fire-and-forget est visible par la lecture suivante', async () => {
+    void recordPlay(track('pending'));
+
+    await expect(hasPlayHistory()).resolves.toBe(true);
+    await expect(getRecentlyPlayedTracks()).resolves.toEqual([
+      expect.objectContaining({
+        track: expect.objectContaining({ id: 'pending' }),
+      }),
+    ]);
   });
 
   it('déduplique : rejouer un morceau le remonte en tête', async () => {
@@ -93,6 +117,18 @@ describe('playHistory (historique local)', () => {
     expect(await getTopAlbumsFromHistory(5)).toEqual([]);
   });
 
+  it('supprime une seule lecture sans réordonner ni effacer les autres', async () => {
+    await recordPlay(track('1'));
+    await recordPlay(track('2'));
+    await recordPlay(track('3'));
+
+    await removePlayHistoryEntry('2');
+
+    expect(
+      (await getRecentlyPlayedTracks()).map(({ track: item }) => item.id)
+    ).toEqual(['3', '1']);
+  });
+
   it('clearPlayHistory remet tout à zéro', async () => {
     await recordPlay(track('x'));
     await clearPlayHistory();
@@ -108,6 +144,7 @@ describe('playHistory (historique local)', () => {
         subtitle: 'Artist',
         albumName: 'The Album',
         durationMs: 200_000,
+        isrc: 'FRABC2412345',
       },
       { albumTitle: 'The Album', albumId: 'alb-42' }
     );
@@ -122,6 +159,7 @@ describe('playHistory (historique local)', () => {
       id: 'spotify:trk-1',
       albumName: 'The Album',
       durationMs: 200_000,
+      isrc: 'FRABC2412345',
     });
   });
 

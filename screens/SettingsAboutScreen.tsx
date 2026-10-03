@@ -18,13 +18,28 @@ export const SettingsAboutScreen = () => {
 
   const blocks: { title: string; body: string; testID: string }[] = [
     { title: t.settingsTerms, body: t.aboutTermsBody, testID: 'about-terms' },
-    { title: t.settingsPrivacy, body: t.aboutPrivacyBody, testID: 'about-privacy' },
-    { title: t.settingsLicenses, body: t.aboutLicensesBody, testID: 'about-licenses' },
-    { title: t.settingsCredits, body: t.settingsCreditsBody, testID: 'about-credits' },
+    {
+      title: t.settingsPrivacy,
+      body: t.aboutPrivacyBody,
+      testID: 'about-privacy',
+    },
+    {
+      title: t.settingsLicenses,
+      body: t.aboutLicensesBody,
+      testID: 'about-licenses',
+    },
+    {
+      title: t.settingsCredits,
+      body: t.settingsCreditsBody,
+      testID: 'about-credits',
+    },
   ];
 
   return (
-    <SettingsScreen testID="settings-about-screen" title={t.settingsSectionAbout}>
+    <SettingsScreen
+      testID="settings-about-screen"
+      title={t.settingsSectionAbout}
+    >
       <View style={styles.hero} testID="settings-about-hero">
         <Text style={styles.appName}>Melodix</Text>
         <Text style={styles.version} testID="settings-about-version">

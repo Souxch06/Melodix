@@ -80,7 +80,9 @@ export const httpRequest = async <T>(
   for (let attempt = 0; attempt <= retries; attempt += 1) {
     if (attempt > 0) {
       const retryAfter =
-        lastError instanceof HttpClientError ? lastError.retryAfterSeconds : null;
+        lastError instanceof HttpClientError
+          ? lastError.retryAfterSeconds
+          : null;
       const delay = retryDelayMs(attempt, retryAfter);
       logger.debug(`retry ${attempt}/${retries} after ${delay}ms — ${url}`);
       await new Promise((resolve) => setTimeout(resolve, delay));

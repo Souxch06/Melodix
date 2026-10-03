@@ -19,7 +19,12 @@ afterEach(() => {
   jest.restoreAllMocks();
 });
 
-const songItem = (videoId: string, title: string, subtitle: string, duration: string) => ({
+const songItem = (
+  videoId: string,
+  title: string,
+  subtitle: string,
+  duration: string
+) => ({
   musicResponsiveListItemRenderer: {
     flexColumns: [
       {
@@ -85,7 +90,10 @@ describe('youtubeAudioProvider', () => {
 
     await provider.resolveMatch(QUERY);
 
-    const [, options] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
+    const [, options] = fetchMock.mock.calls[0] as unknown as [
+      string,
+      RequestInit,
+    ];
     const body = JSON.parse(String(options.body)) as { query: string };
     expect(body.query).toContain('The Weeknd');
     expect(body.query).toContain('Blinding Lights');
@@ -96,7 +104,12 @@ describe('youtubeAudioProvider', () => {
     const provider = createYouTubeAudioProvider();
     setFetch(
       fetchReturning([
-        songItem('Y-EXACT', 'Blinding Lights', 'The Weeknd • After Hours', '3:22'),
+        songItem(
+          'Y-EXACT',
+          'Blinding Lights',
+          'The Weeknd • After Hours',
+          '3:22'
+        ),
       ])
     );
 
@@ -111,7 +124,12 @@ describe('youtubeAudioProvider', () => {
     const provider = createYouTubeAudioProvider();
     setFetch(
       fetchReturning([
-        songItem('Y-REMIX', 'Blinding Lights (Remix)', 'The Weeknd • After Hours', '4:01'),
+        songItem(
+          'Y-REMIX',
+          'Blinding Lights (Remix)',
+          'The Weeknd • After Hours',
+          '4:01'
+        ),
       ])
     );
 
@@ -122,8 +140,18 @@ describe('youtubeAudioProvider', () => {
     const provider = createYouTubeAudioProvider();
     setFetch(
       fetchReturning([
-        songItem('Y-LIVE', 'Blinding Lights (Live at Coachella)', 'The Weeknd • Live', '6:11'),
-        songItem('Y-INSTRU', 'Blinding Lights Instrumental', 'The Weeknd • Karaoke', '3:20'),
+        songItem(
+          'Y-LIVE',
+          'Blinding Lights (Live at Coachella)',
+          'The Weeknd • Live',
+          '6:11'
+        ),
+        songItem(
+          'Y-INSTRU',
+          'Blinding Lights Instrumental',
+          'The Weeknd • Karaoke',
+          '3:20'
+        ),
       ])
     );
 
@@ -134,7 +162,12 @@ describe('youtubeAudioProvider', () => {
     const provider = createYouTubeAudioProvider();
     setFetch(
       fetchReturning([
-        songItem('Y-WRONG', 'Blinding Lights', 'Someone Else • Tributes', '3:25'),
+        songItem(
+          'Y-WRONG',
+          'Blinding Lights',
+          'Someone Else • Tributes',
+          '3:25'
+        ),
       ])
     );
 
@@ -172,11 +205,35 @@ describe('youtubeAudioProvider', () => {
     await expect(provider.resolveMatch(QUERY)).resolves.toBeNull();
   });
 
-  it('erreur réseau/protocole → null propre (cascade → indisponible)', async () => {
+  it('erreur réseau/protocole → exception contrôlée (jamais de cache no-match)', async () => {
     const provider = createYouTubeAudioProvider();
     setFetch(jest.fn(async () => ({ ok: false, status: 500 })));
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+
+    await expect(provider.resolveMatch(QUERY)).rejects.toThrow(
+      'YouTube search incomplete'
+    );
+    warn.mockRestore();
+  });
+
+  it('échec honnête : requêtes bornées incluant official audio et album', async () => {
+    const provider = createYouTubeAudioProvider();
+    const fetchMock = fetchReturning([]);
+    setFetch(fetchMock);
 
     await expect(provider.resolveMatch(QUERY)).resolves.toBeNull();
+
+    const fetchCalls = (fetchMock as jest.Mock).mock.calls as [
+      string,
+      RequestInit,
+    ][];
+    const queries = fetchCalls.map(([, options]) => {
+      const body = JSON.parse(String(options.body)) as { query: string };
+      return body.query;
+    });
+    expect(queries.length).toBeLessThanOrEqual(5);
+    expect(queries.some((query) => /official audio/i.test(query))).toBe(true);
+    expect(queries.some((query) => query.includes('After Hours'))).toBe(true);
   });
 
   it('resolveSource : URL audio directe rendue pour expo-av, null si UNPLAYABLE', async () => {
@@ -187,7 +244,11 @@ describe('youtubeAudioProvider', () => {
         json: async () => ({
           streamingData: {
             adaptiveFormats: [
-              { url: 'https://sot/audio.mp4', mimeType: 'audio/mp4', bitrate: 129_000 },
+              {
+                url: 'https://sot/audio.mp4',
+                mimeType: 'audio/mp4',
+                bitrate: 129_000,
+              },
             ],
           },
         }),
@@ -204,7 +265,12 @@ describe('youtubeAudioProvider', () => {
     setFetch(
       fetchReturning([
         songItem('Y-LOW', 'Random Noise', 'Nobody • Empty', '2:00'),
-        songItem('Y-HIGH', 'Blinding Lights', 'The Weeknd • After Hours', '3:22'),
+        songItem(
+          'Y-HIGH',
+          'Blinding Lights',
+          'The Weeknd • After Hours',
+          '3:22'
+        ),
       ])
     );
 

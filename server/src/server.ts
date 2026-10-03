@@ -8,7 +8,11 @@
  *   aucune redirection entrante et n'accepte que du GET.
  */
 
-import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
+import {
+  createServer,
+  type IncomingMessage,
+  type ServerResponse,
+} from 'node:http';
 
 import { env } from './config/env';
 import { ApiError } from './config/types';
@@ -23,7 +27,9 @@ import { errorBody, toHttpError } from './routes/errors';
 
 const logger = createLogger('Server');
 
-type RouteResult = Promise<{ status: number; body: unknown }> | { status: number; body: unknown };
+type RouteResult =
+  | Promise<{ status: number; body: unknown }>
+  | { status: number; body: unknown };
 
 type Route = {
   method: 'GET';
@@ -89,7 +95,9 @@ const matchRoute = (
   return null;
 };
 
-const resolveCorsOrigin = (requestOrigin: string | undefined): string | null => {
+const resolveCorsOrigin = (
+  requestOrigin: string | undefined
+): string | null => {
   const allowed = env.allowedOrigins;
   if (allowed.includes('*')) {
     return '*';
@@ -165,13 +173,23 @@ const handleRequest = async (
   try {
     url = new URL(req.url ?? '/', `http://${host}`);
   } catch {
-    sendJson(res, 400, errorBody('BAD_REQUEST', 'Requête invalide.'), corsOrigin);
+    sendJson(
+      res,
+      400,
+      errorBody('BAD_REQUEST', 'Requête invalide.'),
+      corsOrigin
+    );
     return;
   }
 
   const matched = matchRoute(req.method, url.pathname);
   if (!matched) {
-    sendJson(res, 404, errorBody('NOT_FOUND', 'Route introuvable.'), corsOrigin);
+    sendJson(
+      res,
+      404,
+      errorBody('NOT_FOUND', 'Route introuvable.'),
+      corsOrigin
+    );
     return;
   }
 
@@ -191,7 +209,10 @@ export const createMelodixServer = () =>
     handleRequest(req, res).catch((error) => {
       // Dernier filet : handleRequest contient déjà une garde, mais une
       // panne dans sendJson lui-même ne doit pas faire tomber le process.
-      logger.error(`erreur non rattrapée: ${error}`);
+      // L'erreur peut contenir une URL signée, un header ou un payload
+      // upstream. Le dernier filet ne journalise que sa catégorie.
+      const errorType = error instanceof Error ? error.name : typeof error;
+      logger.error(`erreur non rattrapée (${errorType})`);
       try {
         res.writeHead(500, { 'content-type': 'application/json' });
         res.end(

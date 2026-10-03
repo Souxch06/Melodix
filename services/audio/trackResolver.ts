@@ -72,15 +72,22 @@ export const resolveWithProviders = async (
     try {
       match = await provider.resolveMatch(query);
     } catch (error) {
+      // Une erreur provider peut embarquer une URL signée ou des métadonnées
+      // d'écoute : ne journaliser que sa catégorie.
       console.warn(
         `TrackResolver: provider ${provider.id} threw, trying next`,
-        error
+        error instanceof Error ? error.name : typeof error
       );
       sawProviderError = true;
       continue;
     }
 
     if (match) {
+      console.info(
+        provider.id === 'audius'
+          ? '[AUDIO] Audius match'
+          : '[AUDIO] YouTube fallback'
+      );
       return {
         status: 'matched',
         provider,
@@ -92,5 +99,8 @@ export const resolveWithProviders = async (
 
   // Preuve incomplète (un provider en panne a empêché la vérification) :
   // jamais de négatif durable sur une panne — le morceau est réessayable.
+  if (!sawProviderError) {
+    console.info('[AUDIO] Track unavailable');
+  }
   return sawProviderError ? { status: 'error' } : { status: 'no-match' };
 };

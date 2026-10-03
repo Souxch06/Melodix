@@ -51,6 +51,7 @@ export const FullPlayer = () => {
     queue,
     index: currentIndex,
     status,
+    buffering,
     positionMillis,
     durationMillis,
     shuffle,
@@ -70,6 +71,7 @@ export const FullPlayer = () => {
     clearNotice,
     removeFromQueue,
     moveInQueue,
+    clearQueue,
   } = player;
 
   // Menu d'actions du morceau COURANT (phase 4, §7) : le MÊME composant
@@ -173,7 +175,7 @@ export const FullPlayer = () => {
   const isMuted = volume <= 0;
   const seekShownMillis = seekPreviewMillis ?? positionMillis;
   const isPlaying = status === 'playing';
-  const isBuffering = status === 'loading';
+  const isBuffering = status === 'loading' || buffering;
   // Durée réelle pas encore connue (avant le 1er statut expo-av ou sans
   // métadonnée Spotify) : « —:-- » honnête + seek désactivé — jamais « 0:00 »
   // présenté comme une durée réelle (phase 1, section 4).
@@ -416,11 +418,24 @@ export const FullPlayer = () => {
 
       <View style={styles.queueHeaderRow}>
         <Text style={styles.queueTitle}>{translations.playerQueueTitle}</Text>
-        {/* Position réelle dans la file ORIGINALE (§5) — jamais l'ordre
-            shuffle affiché : `order` reste interne au moteur. */}
-        <Text style={styles.queueCount} testID="queue-count">
-          {currentIndex + 1} / {queue.length}
-        </Text>
+        <View style={styles.queueHeaderActions}>
+          {/* Position réelle dans la file ORIGINALE (§5) — jamais l'ordre
+              shuffle affiché : `order` reste interne au moteur. */}
+          <Text style={styles.queueCount} testID="queue-count">
+            {currentIndex + 1} / {queue.length}
+          </Text>
+          <Pressable
+            accessibilityLabel={translations.playerQueueClear}
+            accessibilityRole="button"
+            hitSlop={8}
+            onPress={() => void clearQueue()}
+            testID="queue-clear"
+          >
+            <Text style={styles.queueClear}>
+              {translations.playerQueueClear}
+            </Text>
+          </Pressable>
+        </View>
       </View>
       {queue.length ? (
         <FlatList

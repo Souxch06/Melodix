@@ -423,6 +423,8 @@ export type AudiusTrackResponseType = {
   favorite_count?: number | null;
   repost_count?: number | null;
   release_date?: string | null;
+  /** Certains nœuds Audius exposent l'ISRC importé par l'artiste. */
+  isrc?: string | null;
   permalink?: string | null;
   description?: string | null;
   is_unlisted?: boolean | null;

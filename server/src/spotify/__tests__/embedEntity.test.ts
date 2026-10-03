@@ -1,10 +1,17 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { spotifyIdFromUri, subtitleToArtists, entityCoverUrl } from '../embedEntity';
+import {
+  spotifyIdFromUri,
+  subtitleToArtists,
+  entityCoverUrl,
+} from '../embedEntity';
 
 test('spotifyIdFromUri', () => {
-  assert.equal(spotifyIdFromUri('spotify:track:4uLU6hMCjMI75M1A2tKUQC'), '4uLU6hMCjMI75M1A2tKUQC');
+  assert.equal(
+    spotifyIdFromUri('spotify:track:4uLU6hMCjMI75M1A2tKUQC'),
+    '4uLU6hMCjMI75M1A2tKUQC'
+  );
   assert.equal(spotifyIdFromUri('spotify:album:abc'), 'abc');
   assert.equal(spotifyIdFromUri('nope'), null);
   assert.equal(spotifyIdFromUri(undefined), null);

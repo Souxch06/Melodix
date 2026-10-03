@@ -26,7 +26,9 @@ describe('services/spotify/apiClient (API Web Spotify officielle)', () => {
   const originalFetch = globalThis.fetch;
 
   beforeEach(async () => {
-    (SecureStore as unknown as { __clearSecureStoreMock: () => void }).__clearSecureStoreMock();
+    (
+      SecureStore as unknown as { __clearSecureStoreMock: () => void }
+    ).__clearSecureStoreMock();
     jest.clearAllMocks();
     jest.useRealTimers();
   });
@@ -49,7 +51,7 @@ describe('services/spotify/apiClient (API Web Spotify officielle)', () => {
     expect(user.id).toBe('user-1');
     const [url, options] = fetchMock.mock.calls[0] as unknown as [
       string,
-      { headers: Record<string, string> }
+      { headers: Record<string, string> },
     ];
     expect(url).toBe('https://api.spotify.com/v1/me');
     expect(options.headers.Authorization).toBe('Bearer valid-token');
@@ -73,7 +75,10 @@ describe('services/spotify/apiClient (API Web Spotify officielle)', () => {
         // Le refresh fournit un nouveau token.
         return {
           ok: true,
-          json: async () => ({ access_token: 'refreshed-token', expires_in: 3600 }),
+          json: async () => ({
+            access_token: 'refreshed-token',
+            expires_in: 3600,
+          }),
         } as Response;
       }
 
@@ -102,13 +107,45 @@ describe('services/spotify/apiClient (API Web Spotify officielle)', () => {
     expect(apiCalls).toBe(2);
   });
 
+  it('un second 401 après refresh → unauthenticated, pas erreur HTTP', async () => {
+    await saveSession(validSession());
+    let apiCalls = 0;
+    globalThis.fetch = jest.fn(async (url) => {
+      if (String(url).includes('accounts.spotify.com')) {
+        return {
+          ok: true,
+          json: async () => ({
+            access_token: 'refreshed-but-rejected',
+            expires_in: 3600,
+          }),
+        } as Response;
+      }
+      apiCalls += 1;
+      return {
+        status: 401,
+        ok: false,
+        headers: { get: () => null },
+      } as unknown as Response;
+    }) as unknown as typeof fetch;
+
+    await expect(spotifyApiGet('/me')).rejects.toMatchObject({
+      kind: 'unauthenticated',
+      status: 401,
+    });
+    expect(apiCalls).toBe(2);
+  });
+
   it('401 STUBBORN (refresh refusé) → unauthenticated', async () => {
     await saveSession(validSession());
     globalThis.fetch = jest.fn(async (url) => {
       if (String(url).includes('accounts.spotify.com')) {
         return { ok: false, status: 400 } as Response;
       }
-      return { status: 401, ok: false, headers: { get: () => null } } as unknown as Response;
+      return {
+        status: 401,
+        ok: false,
+        headers: { get: () => null },
+      } as unknown as Response;
     }) as unknown as typeof fetch;
 
     await expect(spotifyApiGet('/me')).rejects.toMatchObject({
@@ -127,7 +164,9 @@ describe('services/spotify/apiClient (API Web Spotify officielle)', () => {
         return {
           status: 429,
           ok: false,
-          headers: { get: (name: string) => (name === 'Retry-After' ? '1' : null) },
+          headers: {
+            get: (name: string) => (name === 'Retry-After' ? '1' : null),
+          },
         };
       }
       return {
@@ -212,7 +251,9 @@ describe('services/spotify/apiClient (API Web Spotify officielle)', () => {
     const apiError = error as SpotifyApiError;
     expect(apiError.kind).toBe('http');
     expect(apiError.status).toBe(403);
-    expect(apiError.spotifyMessage).toContain('developer.spotify.com/dashboard');
+    expect(apiError.spotifyMessage).toContain(
+      'developer.spotify.com/dashboard'
+    );
     // Le message capturé ne doit JAMAIS contenir le token porteur.
     expect(apiError.spotifyMessage).not.toContain('valid-token');
   });

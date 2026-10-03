@@ -13,7 +13,10 @@ export const checkSavedTracks = async (
   try {
     return await checkSaved('track', trackIds);
   } catch (error) {
-    console.error('Erreur lors de la vérification des morceaux sauvegardés', error);
+    console.error(
+      'Erreur lors de la vérification des morceaux sauvegardés',
+      error
+    );
     return trackIds.map(() => false);
   }
 };

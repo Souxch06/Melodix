@@ -15,7 +15,11 @@ export const SettingsFaqScreen = () => {
 
   const entries: { question: string; answer: string; testID: string }[] = [
     { question: t.faqLoginQ, answer: t.faqLoginA, testID: 'faq-login' },
-    { question: t.faqPlaybackQ, answer: t.faqPlaybackA, testID: 'faq-playback' },
+    {
+      question: t.faqPlaybackQ,
+      answer: t.faqPlaybackA,
+      testID: 'faq-playback',
+    },
     { question: t.faqSourcesQ, answer: t.faqSourcesA, testID: 'faq-sources' },
     { question: t.faqCacheQ, answer: t.faqCacheA, testID: 'faq-cache' },
     { question: t.faqAccountQ, answer: t.faqAccountA, testID: 'faq-account' },

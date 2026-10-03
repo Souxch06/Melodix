@@ -6,4 +6,6 @@ export type SearchResultsModel = {
   tracks: LibraryItemModel[];
   albums: LibraryItemModel[];
   playlists: LibraryItemModel[];
+  /** Résultats utilisables mais incomplets après panne de la source primaire. */
+  degraded?: boolean;
 };

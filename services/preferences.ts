@@ -34,7 +34,12 @@ export type AccentPreset = {
 
 /** Couleurs d'accent proposées — la 1ʳᵉ est l'accent historique de Melodix. */
 export const ACCENT_PRESETS: AccentPreset[] = [
-  { id: 'melodix', hex: '#1ed760', labelFr: 'Vert Melodix', labelEn: 'Melodix Green' },
+  {
+    id: 'melodix',
+    hex: '#1ed760',
+    labelFr: 'Vert Melodix',
+    labelEn: 'Melodix Green',
+  },
   { id: 'bleu', hex: '#3b82f6', labelFr: 'Bleu', labelEn: 'Blue' },
   { id: 'violet', hex: '#a855f7', labelFr: 'Violet', labelEn: 'Purple' },
   { id: 'rose', hex: '#ec4899', labelFr: 'Rose', labelEn: 'Pink' },
@@ -65,6 +70,10 @@ export const DEFAULT_PREFERENCES: Preferences = {
 
 export const PREFERENCES_STORAGE_KEY = '@melodix/preferences.v1';
 
+/** Préserve l'ordre des setters rapides (volume puis accent, etc.) même si
+ * AsyncStorage termine une ancienne écriture plus tard que la suivante. */
+let writeQueue: Promise<void> = Promise.resolve();
+
 const sanitize = (raw: Partial<Preferences>): Preferences => ({
   language: raw.language === 'en' ? 'en' : 'fr',
   themeMode:
@@ -79,14 +88,14 @@ const sanitize = (raw: Partial<Preferences>): Preferences => ({
   backgroundAudio:
     typeof raw.backgroundAudio === 'boolean' ? raw.backgroundAudio : true,
   startupVolume:
-    typeof raw.startupVolume === 'number' &&
-    Number.isFinite(raw.startupVolume)
+    typeof raw.startupVolume === 'number' && Number.isFinite(raw.startupVolume)
       ? Math.min(100, Math.max(0, Math.round(raw.startupVolume)))
       : 100,
 });
 
 export const loadPreferences = async (): Promise<Preferences> => {
   try {
+    await writeQueue;
     const stored = await AsyncStorage.getItem(PREFERENCES_STORAGE_KEY);
     if (!stored) {
       return DEFAULT_PREFERENCES;
@@ -97,6 +106,17 @@ export const loadPreferences = async (): Promise<Preferences> => {
   }
 };
 
-export const savePreferences = async (prefs: Preferences): Promise<void> => {
-  await AsyncStorage.setItem(PREFERENCES_STORAGE_KEY, JSON.stringify(prefs));
+export const savePreferences = (prefs: Preferences): Promise<void> => {
+  const operation = writeQueue.then(async () => {
+    try {
+      await AsyncStorage.setItem(
+        PREFERENCES_STORAGE_KEY,
+        JSON.stringify(prefs)
+      );
+    } catch {
+      // Réglage en mémoire conservé ; l'UI et le moteur ne doivent pas casser.
+    }
+  });
+  writeQueue = operation;
+  return operation;
 };

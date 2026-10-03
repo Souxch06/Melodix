@@ -1,11 +1,14 @@
 export { HomeScreen } from './HomeScreen';
+export { HistoryScreen } from './HistoryScreen';
 export { SearchScreen } from './SearchScreen';
 export { LibraryScreen } from './LibraryScreen';
 export { FavoritesScreen } from './FavoritesScreen';
 export { PlaylistScreen } from './PlaylistScreen';
 export { AlbumScreen } from './AlbumScreen';
+export { ArtistScreen } from './ArtistScreen';
 export { PlayerScreen } from './PlayerScreen';
 export { LoginScreen } from './LoginScreen';
 export { SettingsScreen } from './SettingsScreen';
 export { SettingsFaqScreen } from './SettingsFaqScreen';
 export { SettingsAboutScreen } from './SettingsAboutScreen';
+export { SpotifyWebPrototypeScreen } from './SpotifyWebPrototypeScreen';

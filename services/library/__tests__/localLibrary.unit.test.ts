@@ -1,3 +1,5 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
 import { LibraryItemModel, TrackModel } from '@models';
 
 import {
@@ -51,6 +53,51 @@ describe('localLibrary (favoris locaux)', () => {
     await removeSavedTrack('a');
     expect(await isSaved('track', 'a')).toBe(false);
     expect(await getSavedTrack('a')).toBeUndefined();
+  });
+
+  it('deux sauvegardes concurrentes ne perdent aucun favori', async () => {
+    await Promise.all([
+      saveTrack(track('parallel-a')),
+      saveTrack(track('parallel-b')),
+    ]);
+
+    await expect(
+      checkSaved('track', ['parallel-a', 'parallel-b'])
+    ).resolves.toEqual([true, true]);
+  });
+
+  it('une lecture lancée après une écriture lente observe le nouveau favori', async () => {
+    const setItemMock = AsyncStorage.setItem as jest.Mock;
+    const originalSetItem = setItemMock.getMockImplementation();
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    setItemMock.mockImplementationOnce(async (...args: unknown[]) => {
+      await gate;
+      return originalSetItem?.(...args);
+    });
+
+    const saving = saveTrack(track('slow-write'));
+    const reading = listSavedTracks();
+    release();
+
+    await saving;
+    await expect(reading).resolves.toEqual([
+      expect.objectContaining({
+        track: expect.objectContaining({ id: 'slow-write' }),
+      }),
+    ]);
+  });
+
+  it('deux toggles concurrents sont atomiques (ajout puis retrait)', async () => {
+    await expect(
+      Promise.all([
+        toggleSavedTrack(track('double-tap')),
+        toggleSavedTrack(track('double-tap')),
+      ])
+    ).resolves.toEqual([true, false]);
+    await expect(isSaved('track', 'double-tap')).resolves.toBe(false);
   });
 
   it('checkSaved conserve l ordre des ids', async () => {
@@ -116,6 +163,6 @@ describe('localLibrary (favoris locaux)', () => {
 
   it('refuse les entrées sans id', async () => {
     await saveTrack({ ...track(''), id: '' });
-    expect((await listSavedTracks())).toHaveLength(0);
+    expect(await listSavedTracks()).toHaveLength(0);
   });
 });

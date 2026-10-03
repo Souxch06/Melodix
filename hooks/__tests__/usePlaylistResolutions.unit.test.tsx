@@ -73,7 +73,7 @@ describe('usePlaylistResolutions (I-2)', () => {
     await AsyncStorage.clear();
   });
 
-  it('transmet album + durée réels du TrackModel à la cascade', async () => {
+  it('transmet album + durée + classification réels du TrackModel à la cascade', async () => {
     const resolveMatch: AudioProvider['resolveMatch'] = jest.fn(async () => ({
       sourceId: 'aud-1',
       score: 0.9,
@@ -82,7 +82,7 @@ describe('usePlaylistResolutions (I-2)', () => {
 
     renderHook(() =>
       usePlaylistResolutions([
-        track({ durationMs: 200_000, albumName: 'Album X' }),
+        track({ durationMs: 200_000, albumName: 'Album X', explicit: true }),
       ])
     );
 
@@ -93,8 +93,32 @@ describe('usePlaylistResolutions (I-2)', () => {
         artists: ['Artist'],
         album: 'Album X',
         durationMillis: 200_000,
+        explicit: true,
       })
     );
+  });
+
+  it('déduplique deux occurrences simultanées du même morceau', async () => {
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const resolveMatch = jest.fn(async () => {
+      await gate;
+      return { sourceId: 'aud-shared', score: 0.9 };
+    });
+    __testSetAudioProviders({ audius: constProvider(resolveMatch) });
+
+    const { result } = renderHook(() =>
+      usePlaylistResolutions([track(), track()])
+    );
+    await waitFor(() => expect(resolveMatch).toHaveBeenCalledTimes(1));
+    release();
+    await waitFor(() =>
+      expect(result.current.byTrackId.t1?.status).toBe('resolved')
+    );
+
+    expect(resolveMatch).toHaveBeenCalledTimes(1);
   });
 
   it('TrackModel sans album/durée : null transmis (matching toujours possible)', async () => {
@@ -236,7 +260,7 @@ describe('usePlaylistResolutions (I-2)', () => {
     second.unmount();
   });
 
-  it('I-5 : provider EN PANNE → badge « none » mais RIEN de durable ; la re-tentative recherche réellement', async () => {
+  it('I-5 : provider EN PANNE → reste retentable, jamais affiché « indisponible »', async () => {
     __testSetAudioProviders({
       audius: constProvider(async () => {
         throw new Error('timeout réseau');
@@ -245,8 +269,9 @@ describe('usePlaylistResolutions (I-2)', () => {
 
     const first = renderHook(() => usePlaylistResolutions([track()]));
     await waitFor(() =>
-      expect(first.result.current.byTrackId.t1?.status).toBe('none')
+      expect(first.result.current.byTrackId.t1?.status).toBe('pending')
     );
+    expect(first.result.current.stats.decided).toBe(0);
 
     // Même après le flush d'écriture groupée : AUCUNE entrée pour t1.
     await new Promise((resolve) => setTimeout(resolve, 2_000));

@@ -1,6 +1,8 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { AppState } from 'react-native';
 
+import { appendDiagLog } from '../modules/melodix-media';
+
 import {
   DEFAULT_AUDIO_PROVIDER_ID,
   getAudioProvider,
@@ -11,6 +13,7 @@ import {
 import type { AudioProvider, ResolvedStream, TrackSource } from './audio';
 import { recordPlay } from './history/playHistory';
 import {
+  createMatchResolutionTimestamp,
   loadMatchCache,
   persistMatchCache,
   writeMatchCacheEntry,
@@ -45,6 +48,10 @@ export type PlayerTrack = {
   artists: string[];
   album?: string | null;
   durationMillis?: number | null;
+  /** ISRC Spotify facultatif : signal fort pour la recherche/mise en relation. */
+  isrc?: string | null;
+  /** Classification Spotify : évite explicit ↔ clean quand le candidat l'annonce. */
+  explicit?: boolean | null;
   /** Album d'origine (I-8) quand l'écran le connaît — sert à l'historique. */
   albumId?: string | null;
   imageURL: string;
@@ -72,6 +79,12 @@ export type ResolverInfo = {
   score: number;
 };
 
+type ResolvedPlayback = {
+  provider: AudioProvider;
+  resolved: ResolvedStream;
+  info: ResolverInfo;
+};
+
 export type PlayerState = {
   queue: PlayerTrack[];
   index: number;
@@ -81,6 +94,9 @@ export type PlayerState = {
   status: PlayerStatus;
   positionMillis: number;
   durationMillis: number;
+  /** Buffering runtime distinct de `loading`: le Sound existe et conserve
+   * son intention play/pause pendant que le réseau se recharge. */
+  buffering: boolean;
   shuffle: boolean;
   repeat: RepeatMode;
   volume: number;
@@ -93,6 +109,7 @@ export type PlayerListener = (state: PlayerState) => void;
 type AvPlaybackStatus = {
   isLoaded?: boolean;
   isPlaying?: boolean;
+  isBuffering?: boolean;
   didJustFinish?: boolean;
   positionMillis?: number;
   durationMillis?: number | null;
@@ -101,8 +118,11 @@ type AvPlaybackStatus = {
 
 type AvSound = {
   unloadAsync: () => Promise<unknown>;
-  playAsync: () => Promise<unknown>;
-  pauseAsync: () => Promise<unknown>;
+  /** expo-av renvoie le statut natif obtenu après la commande. Ce retour est
+   * une preuve d'état au même titre que le callback périodique : ne jamais
+   * déduire `playing` de la seule résolution de la Promise. */
+  playAsync: () => Promise<AvPlaybackStatus>;
+  pauseAsync: () => Promise<AvPlaybackStatus>;
   setPositionAsync: (positionMillis: number) => Promise<unknown>;
   setVolumeAsync: (volume: number) => Promise<unknown>;
 };
@@ -115,7 +135,7 @@ type ExpoAvModule = {
         source: { uri: string },
         initialStatus: Record<string, unknown>,
         onPlaybackStatusUpdate?: (status: AvPlaybackStatus) => void
-      ) => Promise<{ sound: AvSound }>;
+      ) => Promise<{ sound: AvSound; status: AvPlaybackStatus }>;
     };
   };
 };
@@ -129,6 +149,7 @@ export const INITIAL_PLAYER_STATE: PlayerState = {
   status: 'idle',
   positionMillis: 0,
   durationMillis: 0,
+  buffering: false,
   shuffle: false,
   repeat: 'off',
   volume: 1,
@@ -184,11 +205,22 @@ class MelodixPlayer {
   private state: PlayerState = INITIAL_PLAYER_STATE;
   private listeners = new Set<PlayerListener>();
   private sound: AvSound | null = null;
+  /** Tous les remplacements attendent la libération native précédente : mettre
+   * `sound = null` avant `unloadAsync()` ne doit jamais permettre à un nouveau
+   * Sound de démarrer pendant que l'ancien joue encore. */
+  private unloadQueue: Promise<void> = Promise.resolve();
   private avModule: ExpoAvModule | null | undefined;
   private audioModeReady = false;
   /** Réglage « Lecture en arrière-plan » (paramètres) — défaut historique. */
   private staysActiveInBackground = true;
   private matchCache: MatchCache | null = null;
+  /** Déduplique le chargement initial : deux play concurrents doivent partager
+   * la même carte mémoire, sinon le dernier getItem peut oublier la décision
+   * écrite par l'autre requête et refaire inutilement le matching. */
+  private matchCacheLoad: Promise<MatchCache> | null = null;
+  /** Deux commandes simultanées pour la même métadonnée partagent aussi la
+   * résolution provider/URL, pas seulement le chargement du cache. */
+  private resolutionLoads = new Map<string, Promise<ResolvedPlayback | null>>();
   private failedKeys = new Set<string>();
   /** Monceau actif actuel : tout resolve/chargement d'un token périmé est
    * ignoré et son éventuel Sound immédiatement déchargé (anti-double-lecture). */
@@ -198,6 +230,12 @@ class MelodixPlayer {
    * didJustFinish=true sur un nouveau tick du même vieux son pendant la
    * résolution du morceau suivant (field collant jusqu'à l'unload). */
   private lastFinishHandledForToken = -1;
+  /** Une erreur de flux peut être réémise plusieurs fois par expo-av avant
+   * l'unload. Une seule transition/avance est autorisée par Sound. */
+  private lastFailureHandledForToken = -1;
+  /** Effets « lecture démarrée » (historique/diagnostic) une seule fois et
+   * uniquement après confirmation `isPlaying=true` du runtime expo-av. */
+  private lastPlaybackStartedForToken = -1;
   /** Seek à consommer au démarrage effectif du son visé UNIQUEMENT (jamais
    * appliqué à un autre morceau : tag d'identité — voir pendingSeekForId). */
   private pendingSeekMillis = 0;
@@ -209,6 +247,13 @@ class MelodixPlayer {
   private lastPersistedAt = 0;
   private sessionDirty = false;
   private appStateSubscribed = false;
+  /** Diagnostic appareil : position au plus toutes les 10 s, jamais d'URL. */
+  private lastPlaybackDiagAt = 0;
+  /** Sérialise les commandes pause/reprise : un double geste pendant une
+   * opération native lente doit finir dans l'état du DERNIER geste. */
+  private transportQueue: Promise<void> = Promise.resolve();
+  private transportIntent: boolean | null = null;
+  private transportCommandToken = 0;
 
   getState = (): PlayerState => this.state;
 
@@ -220,7 +265,34 @@ class MelodixPlayer {
   };
 
   private emit = (partial: Partial<PlayerState>) => {
-    this.state = { ...this.state, ...partial };
+    const next = { ...this.state, ...partial };
+
+    // Frontière numérique unique : aucun callback natif, payload restauré ou
+    // modèle distant malformé ne doit injecter NaN/Infinity/négatif dans
+    // l'état partagé par React et MediaSession.
+    next.durationMillis =
+      Number.isFinite(next.durationMillis) && next.durationMillis >= 0
+        ? next.durationMillis
+        : this.state.durationMillis;
+    next.positionMillis =
+      Number.isFinite(next.positionMillis) && next.positionMillis >= 0
+        ? next.positionMillis
+        : this.state.positionMillis;
+    if (next.durationMillis > 0) {
+      next.positionMillis = Math.min(next.positionMillis, next.durationMillis);
+    }
+    next.volume = Number.isFinite(next.volume)
+      ? Math.min(1, Math.max(0, next.volume))
+      : this.state.volume;
+
+    // `orderPointer` est exposé à React au même titre que queue/index. Le
+    // recalculer à chaque mutation évite un pointeur resté à 0 après
+    // next/remove/move en shuffle, même si les helpers moteur utilisent index.
+    next.orderPointer =
+      next.shuffle && next.order?.length === next.queue.length
+        ? next.order.indexOf(next.index)
+        : -1;
+    this.state = next;
     this.listeners.forEach((listener) => listener(this.state));
   };
 
@@ -299,13 +371,22 @@ class MelodixPlayer {
     const sound = this.sound;
     this.sound = null;
 
-    if (sound) {
+    if (!sound) {
+      await this.unloadQueue;
+      return;
+    }
+
+    const operation = this.unloadQueue.then(async () => {
       try {
         await sound.unloadAsync();
       } catch (error) {
         console.warn('Failed to unload the previous sound:', error);
       }
-    }
+    });
+    // La chaîne ne rejette jamais (erreur déjà tolérée), ce qui garantit que
+    // les unload suivants ne restent pas bloqués derrière une panne native.
+    this.unloadQueue = operation;
+    await operation;
   };
 
   /**
@@ -319,9 +400,47 @@ class MelodixPlayer {
       if (this.playToken !== token) {
         return; // son orphelin : émission parfaitement ignorée
       }
+      // expo-av peut publier le statut initial AVANT que createAsync rende le
+      // Sound. Ce callback ne doit pas faire passer `loading` à `playing` : le
+      // garde post-create le prendrait alors pour une commande concurrente et
+      // déchargerait le Sound valide comme s'il était orphelin.
+      if (this.state.status === 'loading' && this.sound === null) {
+        return;
+      }
 
       this.onPlaybackStatusUpdate(token, status);
     };
+  };
+
+  private markPlaybackStarted = (token: number): void => {
+    if (this.lastPlaybackStartedForToken === token) return;
+
+    const track = this.state.current;
+    const provider = this.state.resolved?.provider;
+    if (!track || !provider || this.playToken !== token) return;
+
+    this.lastPlaybackStartedForToken = token;
+    this.failedKeys.delete(track.id);
+    appendDiagLog(
+      `[MEDIA_DIAG] PLAYBACK_STARTED trackId=${track.id} ` +
+        `provider=${provider} state=PLAYING`
+    );
+
+    // Historique = écoute réellement commencée, pas seulement URL résolue ou
+    // Sound construit. Fire-and-forget : il ne perturbe jamais le runtime.
+    void recordPlay(
+      {
+        id: track.id,
+        title: track.title,
+        subtitle: track.artists.join(', '),
+        imageURL: track.imageURL || undefined,
+        albumName: track.album ?? null,
+        durationMs: track.durationMillis ?? null,
+        isrc: track.isrc ?? null,
+        explicit: track.explicit ?? undefined,
+      },
+      { albumTitle: track.album ?? undefined, albumId: track.albumId ?? null }
+    ).catch(() => undefined);
   };
 
   private onPlaybackStatusUpdate = (
@@ -329,17 +448,86 @@ class MelodixPlayer {
     status: AvPlaybackStatus
   ) => {
     if (status?.isLoaded === false) {
-      if (status.error && this.state.status === 'playing') {
-        void this.handleStreamFailure('play-failed');
+      if (
+        status.error &&
+        this.state.status === 'playing' &&
+        this.lastFailureHandledForToken !== token
+      ) {
+        this.lastFailureHandledForToken = token;
+        void this.handleStreamFailure('play-failed', token);
       }
 
       return;
     }
 
-    this.emit({
-      positionMillis: status?.positionMillis ?? 0,
-      durationMillis: status?.durationMillis ?? 0,
-    });
+    // Certains callbacks expo-av (focus audio, buffering, fin) omettent la
+    // position/durée ou publient momentanément NaN/0. Ne jamais effacer une
+    // valeur fiable : mini-player, plein écran et MediaSession partagent cet
+    // état. Un zéro de position reste valide hors buffering (seek/restart).
+    const reportedPosition = status?.positionMillis;
+    const validPosition =
+      typeof reportedPosition === 'number' &&
+      Number.isFinite(reportedPosition) &&
+      reportedPosition >= 0 &&
+      !(
+        status.isBuffering === true &&
+        reportedPosition === 0 &&
+        this.state.positionMillis > 0
+      );
+    const reportedDuration = status?.durationMillis;
+    const validDuration =
+      typeof reportedDuration === 'number' &&
+      Number.isFinite(reportedDuration) &&
+      reportedDuration > 0;
+    const playbackState: Partial<PlayerState> = {
+      positionMillis: validPosition
+        ? reportedPosition
+        : this.state.positionMillis,
+      durationMillis: validDuration
+        ? reportedDuration
+        : this.state.durationMillis,
+      ...(typeof status.isBuffering === 'boolean'
+        ? { buffering: status.isBuffering }
+        : {}),
+    };
+
+    // Une interruption Audio Focus peut mettre le Sound en pause sans passer
+    // par togglePlayPause(). Refléter l'état RÉEL évite une notification qui
+    // resterait sur PLAYING. Le buffering et didJustFinish sont exclus : ils
+    // ne constituent pas une pause utilisateur et la transition de fin gère
+    // elle-même le prochain morceau.
+    if (!status.didJustFinish && !status.isBuffering) {
+      if (status.isPlaying === true) {
+        playbackState.status = 'playing';
+      } else if (
+        status.isPlaying === false &&
+        (this.state.status === 'playing' || this.state.status === 'loading')
+      ) {
+        // `createAsync({ shouldPlay: true })` ne constitue pas une preuve de
+        // lecture. Un statut chargé/non-buffering mais non joué reste PAUSED :
+        // seul expo-av peut faire passer le moteur à PLAYING.
+        playbackState.status = 'paused';
+      }
+    }
+
+    this.emit(playbackState);
+    if (status.isPlaying === true) {
+      this.markPlaybackStarted(token);
+    }
+
+    const now = Date.now();
+    if (
+      typeof status.isPlaying === 'boolean' &&
+      (now - this.lastPlaybackDiagAt >= 10_000 || status.didJustFinish)
+    ) {
+      this.lastPlaybackDiagAt = now;
+      appendDiagLog(
+        `PLAYER_STATE state=${status.isPlaying ? 'PLAYING' : 'PAUSED'} ` +
+          `positionMs=${playbackState.positionMillis ?? 0} ` +
+          `durationMs=${playbackState.durationMillis ?? 0} ` +
+          `buffering=${status.isBuffering === true} finished=${status.didJustFinish === true}`
+      );
+    }
 
     // Persistance SOBRE : au plus une écriture toutes les 8 s pendant la
     // lecture (jamais à chaque tick 500 ms) — la dernière position suffit.
@@ -386,25 +574,67 @@ class MelodixPlayer {
     if (this.matchCache) {
       return this.matchCache;
     }
-
-    try {
-      const raw = await AsyncStorage.getItem(MATCH_CACHE_STORAGE_KEY);
-      this.matchCache = loadMatchCache(raw);
-    } catch (error) {
-      console.warn('Failed to load the match cache:', error);
-      this.matchCache = {};
+    if (this.matchCacheLoad) {
+      return this.matchCacheLoad;
     }
 
-    return this.matchCache;
+    const loading = (async (): Promise<MatchCache> => {
+      try {
+        const raw = await AsyncStorage.getItem(MATCH_CACHE_STORAGE_KEY);
+        this.matchCache = loadMatchCache(raw);
+      } catch (error) {
+        console.warn('Failed to load the match cache:', error);
+        this.matchCache = {};
+      }
+      return this.matchCache;
+    })();
+    this.matchCacheLoad = loading;
+
+    try {
+      return await loading;
+    } finally {
+      if (this.matchCacheLoad === loading) {
+        this.matchCacheLoad = null;
+      }
+    }
   };
 
-  private resolveTrack = async (
+  private resolveTrack = (
     track: PlayerTrack
-  ): Promise<{
-    provider: AudioProvider;
-    resolved: ResolvedStream;
-    info: ResolverInfo;
-  } | null> => {
+  ): Promise<ResolvedPlayback | null> => {
+    // L'id seul ne suffit pas si une vue vient d'enrichir les métadonnées
+    // (ISRC/durée) pendant une résolution précédente. La clé garde donc tous
+    // les signaux susceptibles de modifier le choix strict du matcher.
+    const key = [
+      track.id,
+      track.source.provider ?? 'metadata',
+      track.source.id,
+      track.title,
+      track.artists.join('\u001f'),
+      track.album ?? '',
+      track.durationMillis ?? '',
+      track.isrc ?? '',
+      typeof track.explicit === 'boolean' ? String(track.explicit) : '',
+    ].join('\u001e');
+    const existing = this.resolutionLoads.get(key);
+    if (existing) {
+      return existing;
+    }
+
+    const loading = this.resolveTrackUnshared(track);
+    this.resolutionLoads.set(key, loading);
+    const cleanup = () => {
+      if (this.resolutionLoads.get(key) === loading) {
+        this.resolutionLoads.delete(key);
+      }
+    };
+    void loading.then(cleanup, cleanup);
+    return loading;
+  };
+
+  private resolveTrackUnshared = async (
+    track: PlayerTrack
+  ): Promise<ResolvedPlayback | null> => {
     // Native provider track (ex. 'audius:xyz' ou 'youtube:abc') : lecture
     // directe via SON provider, sans matching — comportement inchangé.
     if (track.source.provider) {
@@ -424,8 +654,10 @@ class MelodixPlayer {
         : null;
     }
 
-    // Métadonnées seules : cascade Audius → YouTube. Le cache v2 mémorise
-    // AUSSI le provider retenu (jamais de re-recherche sans nécessité).
+    // Métadonnées seules : cascade Audius → YouTube. Horodater le DÉBUT
+    // empêche cette requête, si elle termine très tard, d'écraser dans le
+    // stockage une résolution concurrente lancée plus récemment.
+    const resolutionStartedAt = createMatchResolutionTimestamp();
     const cache = await this.ensureCache();
     const cached = cache[track.id];
     let providerId: string | null = null;
@@ -447,6 +679,8 @@ class MelodixPlayer {
           artists: track.artists,
           album: track.album ?? null,
           durationMillis: track.durationMillis ?? null,
+          isrc: track.isrc ?? null,
+          explicit: track.explicit ?? null,
         },
         getAudioProviders()
       );
@@ -455,12 +689,26 @@ class MelodixPlayer {
         providerId = outcome.provider.id;
         matchId = outcome.sourceId;
         score = Math.round(outcome.score * 100);
-        writeMatchCacheEntry(cache, track.source, providerId, matchId, score);
+        writeMatchCacheEntry(
+          cache,
+          track.source,
+          providerId,
+          matchId,
+          score,
+          resolutionStartedAt
+        );
         void persistMatchCache(cache);
       } else if (outcome.status === 'no-match') {
         // Négatif PROUVÉ (tous les providers ont répondu « introuvable ») :
         // le cache négatif 30 jours évite la re-recherche à chaque lecture.
-        writeMatchCacheEntry(cache, track.source, null, null, 0);
+        writeMatchCacheEntry(
+          cache,
+          track.source,
+          null,
+          null,
+          0,
+          resolutionStartedAt
+        );
         void persistMatchCache(cache);
       }
       // I-5 : 'error' (panne réseau/timeout/provider) → RIEN d'écrit. Le
@@ -490,6 +738,8 @@ class MelodixPlayer {
       artists: track.artists,
       album: track.album ?? null,
       durationMillis: track.durationMillis ?? null,
+      isrc: track.isrc ?? null,
+      explicit: track.explicit ?? null,
     };
     const chain = getAudioProviders();
     let chainIndex = Math.max(
@@ -550,10 +800,11 @@ class MelodixPlayer {
         );
 
       if (!isNewMatch || !match) {
-        // Même flux mort re-servi (ou négatif PROUVÉ) : négatif confirmé —
-        // le morceau sera sauté proprement, et jamais re-recherché avant TTL.
-        writeMatchCacheEntry(cache, track.source, null, null, 0);
-        void persistMatchCache(cache);
+        // Un match de métadonnées suivi d'un flux indisponible n'est PAS la
+        // preuve que le titre est absent : le CDN/provider peut être en panne.
+        // Conserver la décision positive permet de retenter le flux plus tard,
+        // sans graver à tort 24 h d'indisponibilité. Seul le `no-match` initial
+        // de tous les providers produit une entrée négative.
         return null;
       }
 
@@ -578,12 +829,18 @@ class MelodixPlayer {
   };
 
   private advanceAfterFailure = async () => {
-    // Scan the ordered queue for the next track not yet failed this session.
+    // Comme une fin naturelle, un échec ne doit JAMAIS reboucler une file en
+    // repeat-off. On inspecte d'abord uniquement la suite ; le début de file
+    // n'est admissible qu'en repeat-all. Les morceaux déjà échoués pendant
+    // cette session restent exclus pour éviter toute boucle de panne.
     const indices = this.getOrderedIndices();
     const pointer = this.getOrderedPointer();
+    const candidates = [
+      ...indices.slice(pointer + 1),
+      ...(this.state.repeat === 'all' ? indices.slice(0, pointer + 1) : []),
+    ];
 
-    for (let step = 1; step <= indices.length; step++) {
-      const nextIndex = indices[(pointer + step) % indices.length];
+    for (const nextIndex of candidates) {
       const candidate = this.state.queue[nextIndex];
 
       if (candidate && !this.failedKeys.has(candidate.id)) {
@@ -592,7 +849,7 @@ class MelodixPlayer {
       }
     }
 
-    // Nothing playable left in this queue.
+    // Fin de file ou plus rien de jouable.
     await this.stop();
   };
 
@@ -630,44 +887,85 @@ class MelodixPlayer {
 
     const pointer = this.getOrderedPointer();
     const nextPointer = pointer + direction;
-    // Manual skip wraps around in one direction only (end → start / start → end).
-    const wrappedPointer =
-      ((nextPointer % indices.length) + indices.length) % indices.length;
 
-    await this.playIndex(indices[wrappedPointer]);
+    if (nextPointer < 0 || nextPointer >= indices.length) {
+      // Les actions manuelles ignorent repeat-one (l'utilisateur demande
+      // explicitement de changer), mais respectent la frontière de file :
+      // repeat-all boucle ; repeat-off s'arrête en fin et reste au début pour
+      // previous. L'ancien modulo bouclait même quand repeat était désactivé.
+      if (this.state.repeat === 'all') {
+        const wrapped = nextPointer < 0 ? indices.length - 1 : 0;
+        await this.playIndex(indices[wrapped]);
+      } else if (direction === 1) {
+        await this.stop();
+      } else {
+        await this.seekTo(0);
+      }
+      return;
+    }
+
+    await this.playIndex(indices[nextPointer]);
   };
 
-  private handleStreamFailure = async (kind: PlayerNotice['kind']) => {
+  private handleStreamFailure = async (
+    kind: PlayerNotice['kind'],
+    token: number
+  ) => {
     const track = this.state.current;
 
-    if (!track) {
+    if (!track || this.playToken !== token) {
       return;
     }
 
     this.markFailed(track, kind);
     await this.unloadCurrent();
+    if (this.playToken !== token) {
+      return; // une commande plus récente a gagné pendant l'unload natif
+    }
     await this.advanceAfterFailure();
   };
 
   // --- public API -----------------------------------------------------------
 
   playQueue = async (tracks: PlayerTrack[], startIndex = 0) => {
-    const queue = tracks.filter((track) => Boolean(track?.id && track?.title));
+    const validTracks = tracks.filter((track) =>
+      Boolean(track?.id && track?.title)
+    );
 
-    if (!queue.length) {
+    if (!validTracks.length) {
       return;
     }
 
-    const index = Math.min(Math.max(startIndex, 0), queue.length - 1);
+    const requestedIndex = Math.min(
+      Math.max(Number.isFinite(startIndex) ? Math.trunc(startIndex) : 0, 0),
+      validTracks.length - 1
+    );
+    const requestedId = validTracks[requestedIndex].id;
+    const seen = new Set<string>();
+    const queue = validTracks.filter((track) => {
+      if (seen.has(track.id)) return false;
+      seen.add(track.id);
+      return true;
+    });
+    // Si l'index visait une occurrence dupliquée, lire l'unique occurrence du
+    // même morceau plutôt qu'un voisin déplacé par la déduplication.
+    const index = Math.max(
+      0,
+      queue.findIndex((track) => track.id === requestedId)
+    );
 
-    this.playToken += 1; // invalide tout resolve d'un morceau précédent
+    const requestToken = ++this.playToken; // invalide toute requête précédente
     await this.unloadCurrent();
+    if (this.playToken !== requestToken) {
+      return; // une lecture/stop plus récent a gagné pendant l'unload
+    }
     this.failedKeys = new Set();
     this.emit({
       queue,
       index,
       current: queue[index],
       status: 'loading',
+      buffering: true,
       order: this.state.shuffle
         ? buildShuffledOrder(queue.length, index)
         : null,
@@ -699,16 +997,45 @@ class MelodixPlayer {
     }
 
     const token = ++this.playToken;
+    // Les commandes transport de l'ancien Sound ne doivent ni retarder ni
+    // inverser une commande destinée à ce nouveau morceau.
+    this.transportCommandToken += 1;
+    this.transportIntent = null;
+    this.transportQueue = Promise.resolve();
     const isStale = () => this.playToken !== token;
 
-    this.emit({ index, current: track, status: 'loading' });
+    appendDiagLog(
+      `PLAYER_PLAY_REQUEST trackId=${track.id} index=${index} ` +
+        `titleLength=${track.title.length} artists=${track.artists.length} ` +
+        `hasIsrc=${Boolean(track.isrc)}`
+    );
+    const metadataDuration =
+      typeof track.durationMillis === 'number' &&
+      Number.isFinite(track.durationMillis) &&
+      track.durationMillis > 0
+        ? track.durationMillis
+        : 0;
+    const pendingPosition =
+      this.pendingSeekForId === track.id ? this.pendingSeekMillis : 0;
+    // Changer d'index invalide immédiatement les valeurs du morceau précédent.
+    // Sans ce reset, B pouvait afficher/projeter la position, la durée et le
+    // provider de A pendant toute sa résolution (voire jusqu'au premier tick).
+    this.emit({
+      index,
+      current: track,
+      status: 'loading',
+      buffering: true,
+      positionMillis: pendingPosition,
+      durationMillis: metadataDuration,
+      resolved: null,
+    });
     this.persistSession(); // nouveau morceau pointe la session vers lui
     this.ensureAppStatePersistence();
 
     const av = this.getAv();
 
     if (!av?.Audio) {
-      this.emit({ status: 'unavailable' });
+      this.emit({ status: 'unavailable', buffering: false });
       return;
     }
 
@@ -731,13 +1058,20 @@ class MelodixPlayer {
         return;
       }
 
+      appendDiagLog(
+        `PLAYER_SOURCE_RESOLVED trackId=${track.id} provider=${result.provider.id} ` +
+          `sourceId=${result.info.sourceId} score=${result.info.score}`
+      );
       await this.ensureAudioMode();
       if (isStale()) {
         return;
       }
 
       await this.unloadCurrent();
-      const { sound } = await av.Audio.Sound.createAsync(
+      if (isStale()) {
+        return;
+      }
+      const { sound, status: initialStatus } = await av.Audio.Sound.createAsync(
         { uri: result.resolved.uri },
         {
           shouldPlay: true,
@@ -762,53 +1096,47 @@ class MelodixPlayer {
       }
 
       this.sound = sound;
+      appendDiagLog(
+        `PLAYER_SOUND_LOADED trackId=${track.id} provider=${result.provider.id}`
+      );
       this.emit({
-        status: 'playing',
         resolved: result.info,
-        // Un nouveau morceau commence : toute notice d'erreur disparaît —
-        // jamais affichée sur le morceau suivant (cohérent mini/plein écran).
+        // Un Sound chargé n'est PAS nécessairement en lecture. Conserver
+        // `loading` jusqu'au statut initial expo-av empêche un faux PLAYING
+        // lorsque l'audio est encore en buffering ou n'a pas démarré.
+        status: 'loading',
+        buffering: true,
+        // La source est valide : toute ancienne notice peut disparaître, sans
+        // pour autant prétendre que du son sort déjà.
         notice: null,
         durationMillis: track.durationMillis ?? this.state.durationMillis,
       });
+      this.onPlaybackStatusUpdate(token, initialStatus);
 
       // Seek en attente : consommé UNE fois, UNIQUEMENT pour le morceau visé
       // — un seek destiné à A ne se retrouve jamais appliqué à B.
       if (this.pendingSeekMillis > 0) {
-        const target = this.pendingSeekMillis;
+        const target =
+          this.state.durationMillis > 0
+            ? Math.min(this.pendingSeekMillis, this.state.durationMillis)
+            : this.pendingSeekMillis;
         const targetForId = this.pendingSeekForId;
         this.pendingSeekMillis = 0;
         this.pendingSeekForId = null;
         if (targetForId === track.id) {
           try {
             await sound.setPositionAsync(target);
+            if (isStale() || this.sound !== sound) {
+              return; // seek différé de l'ancien morceau terminé trop tard
+            }
             this.emit({ positionMillis: target });
           } catch (seekError) {
-            console.warn('Restore seek failed (tolerated):', seekError);
+            if (!isStale()) {
+              console.warn('Restore seek failed (tolerated):', seekError);
+            }
           }
         }
       }
-
-      // Historique de lecture LOCAL (sans compte) : alimente les sections
-      // « Écoutés récemment », « en tête », seeds de recommandations.
-      // Fire-and-forget : l'historique ne doit jamais perturber la lecture.
-      void recordPlay(
-        {
-          id: track.id,
-          title: track.title,
-          subtitle: track.artists.join(', '),
-          imageURL: track.imageURL || undefined,
-          // Snapshot complet (I-2) : la relecture directe depuis
-          // l'historique matche avec les mêmes métadonnées.
-          albumName: track.album ?? null,
-          durationMs: track.durationMillis ?? null,
-        },
-        {
-          albumTitle: track.album ?? undefined,
-          // I-8 : albumId conservé quand l'écran d'origine le connaît —
-          // « Écoutés récemment » pourra naviguer vers l'ALBUM.
-          albumId: track.albumId ?? null,
-        }
-      ).catch(() => undefined);
     } catch (error) {
       // M-7 : l'erreur expo-av peut citer l'URL SIGNÉE du flux → assainie.
       console.error(
@@ -826,10 +1154,8 @@ class MelodixPlayer {
 
   togglePlayPause = async () => {
     if (this.state.status === 'loading') {
-      // 5D race §2 : pendant la résolution/chargement le sound n'existe pas
-      // encore — « toggle » ici aurait RELANCÉ playIndex (pause devenue un
-      // redémarrage, double résolution). Comportement prévisible : on ignore
-      // le geste ; l'UI reste cohérente jusqu'au vrai démarrage.
+      // Pendant la résolution, aucun Sound n'existe encore. Ne jamais relancer
+      // playIndex depuis un toggle qui devait être une pause.
       return;
     }
 
@@ -837,36 +1163,80 @@ class MelodixPlayer {
       if (this.state.current && this.state.index >= 0) {
         await this.playIndex(this.state.index);
       }
-
       return;
     }
 
-    if (this.state.status === 'playing') {
+    const sound = this.sound;
+    const playToken = this.playToken;
+    // L'intention en vol prime sur l'état React, qui ne change qu'après la
+    // réponse native. Deux taps rapides deviennent donc pause PUIS play, au
+    // lieu de deux pauses concurrentes laissant l'UI dans le mauvais état.
+    const desiredPlaying = !(
+      this.transportIntent ?? this.state.status === 'playing'
+    );
+    this.transportIntent = desiredPlaying;
+    const commandToken = ++this.transportCommandToken;
+
+    const operation = this.transportQueue.then(async () => {
+      if (this.playToken !== playToken || this.sound !== sound) return;
       try {
-        await this.sound.pauseAsync();
-        this.emit({ status: 'paused' });
-        this.persistSession(); // position figée : moment idéal d'écrire
+        const runtimeStatus = desiredPlaying
+          ? await sound.playAsync()
+          : await sound.pauseAsync();
+        if (
+          this.transportCommandToken !== commandToken ||
+          this.playToken !== playToken ||
+          this.sound !== sound
+        ) {
+          return;
+        }
+
+        // La résolution d'une commande native n'est pas, à elle seule, une
+        // preuve de lecture. Expo-av renvoie normalement un AVPlaybackStatus :
+        // le faire passer par l'unique normaliseur garantit que PLAYING n'est
+        // publié que si le runtime confirme `isPlaying=true`. Si un adaptateur
+        // exotique ne renvoie aucun statut, le callback périodique décidera ;
+        // on conserve entre-temps le dernier état réellement observé.
+        if (runtimeStatus && typeof runtimeStatus === 'object') {
+          this.onPlaybackStatusUpdate(playToken, runtimeStatus);
+        }
+        if (!desiredPlaying) this.persistSession();
       } catch (error) {
-        console.error('Failed to pause:', error);
-        this.emit({ status: 'error' });
+        console.error(
+          desiredPlaying ? 'Failed to resume:' : 'Failed to pause:',
+          error
+        );
+        if (
+          this.transportCommandToken === commandToken &&
+          this.playToken === playToken &&
+          this.sound === sound
+        ) {
+          this.emit({ status: 'error', buffering: false });
+        }
+      } finally {
+        if (this.transportCommandToken === commandToken) {
+          this.transportIntent = null;
+        }
       }
+    });
 
-      return;
-    }
-
-    try {
-      await this.sound.playAsync();
-      this.emit({ status: 'playing' });
-    } catch (error) {
-      console.error('Failed to resume:', error);
-      this.emit({ status: 'error' });
-    }
+    // Une panne native ne doit jamais bloquer les commandes suivantes.
+    this.transportQueue = operation.then(
+      () => undefined,
+      () => undefined
+    );
+    await operation;
   };
 
   next = async () => {
     if (this.state.status === 'loading' && this.state.current) {
-      // Let the current resolve finish; treat manual next as a queue move.
+      // Invalider AVANT l'unload : si le resolver courant termine pendant une
+      // libération native lente, il ne doit jamais créer un Sound dépassé.
+      const requestToken = ++this.playToken;
       await this.unloadCurrent();
+      if (this.playToken !== requestToken) {
+        return; // une commande plus récente a gagné pendant l'unload
+      }
     }
 
     await this.advanceManual(1);
@@ -884,13 +1254,29 @@ class MelodixPlayer {
   };
 
   seekTo = async (positionMillis: number) => {
-    const clamped = Math.max(0, positionMillis);
+    // Une valeur invalide issue d'un slider/callback transitoire ne doit pas
+    // téléporter la lecture au début ni contaminer l'état central.
+    if (!Number.isFinite(positionMillis)) {
+      return;
+    }
+
+    const upperBound =
+      this.state.durationMillis > 0
+        ? this.state.durationMillis
+        : Number.POSITIVE_INFINITY;
+    const clamped = Math.min(upperBound, Math.max(0, positionMillis));
 
     if (this.sound) {
+      const sound = this.sound;
+      const token = this.playToken;
       try {
-        await this.sound.setPositionAsync(clamped);
+        await sound.setPositionAsync(clamped);
       } catch (error) {
         console.error('Seek failed:', error);
+        return; // les événements du Sound restent la source de vérité
+      }
+      if (this.playToken !== token || this.sound !== sound) {
+        return; // seek de l'ancien morceau terminé après un changement
       }
     } else if (this.state.status === 'loading') {
       // 5D §3 (seek avant durée connue) : pas de sound à commander — on
@@ -899,23 +1285,33 @@ class MelodixPlayer {
       // une seule fois au démarrage effectif) — TAGUÉE au morceau courant.
       this.pendingSeekMillis = clamped;
       this.pendingSeekForId = this.state.current?.id ?? null;
+    } else {
+      return;
     }
 
     this.emit({ positionMillis: clamped });
   };
 
   setVolume = async (volume: number) => {
-    const clamped = Math.min(1, Math.max(0, volume));
+    if (!Number.isFinite(volume)) {
+      return;
+    }
 
-    if (this.sound) {
+    const clamped = Math.min(1, Math.max(0, volume));
+    const sound = this.sound;
+
+    // Le volume est une intention globale, pas un accusé de réception de
+    // l'ancien Sound. Le publier avant l'appel natif garantit qu'un morceau
+    // créé pendant un setVolumeAsync lent démarre déjà au bon niveau.
+    this.emit({ volume: clamped });
+
+    if (sound) {
       try {
-        await this.sound.setVolumeAsync(clamped);
+        await sound.setVolumeAsync(clamped);
       } catch (error) {
         console.error('Volume change failed:', error);
       }
     }
-
-    this.emit({ volume: clamped });
   };
 
   toggleShuffle = () => {
@@ -1025,22 +1421,45 @@ class MelodixPlayer {
     }
   };
 
-  /** « Ajouter à la file » : fin de la queue (+ fin d'ordre en shuffle). */
-  addToQueue = (track: PlayerTrack): void => {
-    if (!track?.id || !track?.title) {
+  /**
+   * Ajoute plusieurs morceaux en fin de file, sans recopier un morceau déjà
+   * présent ni un doublon du lot. Une seule émission/persistance garantit que
+   * mini-player, plein écran et MediaSession voient une mutation atomique.
+   */
+  addTracksToQueue = (tracks: PlayerTrack[]): void => {
+    const { queue, order } = this.state;
+    const seen = new Set(queue.map((item) => item.id));
+    const additions = tracks.filter((track) => {
+      if (!track?.id || !track?.title || seen.has(track.id)) {
+        return false;
+      }
+      seen.add(track.id);
+      return true;
+    });
+
+    if (!additions.length) {
       return;
     }
 
-    const { queue, order } = this.state;
-    const nextQueue = [...queue, track];
+    const nextQueue = [...queue, ...additions];
     const nextOrder =
       order && order.length === queue.length
-        ? [...order, nextQueue.length - 1]
+        ? [...order, ...additions.map((_, offset) => queue.length + offset)]
         : order;
 
     this.emit({ queue: nextQueue, order: nextOrder });
     this.persistSession();
     this.ensureAppStatePersistence();
+  };
+
+  /** « Ajouter à la file » : version unitaire de l'opération centralisée. */
+  addToQueue = (track: PlayerTrack): void => {
+    this.addTracksToQueue([track]);
+  };
+
+  /** Vide la file et ferme la session/audio de manière identique à Stop. */
+  clearQueue = async (): Promise<void> => {
+    await this.stop();
   };
 
   /** « Lire ensuite » : inséré JUSTE après le morceau courant. */
@@ -1050,30 +1469,55 @@ class MelodixPlayer {
     }
 
     const { queue, order, index } = this.state;
+    const existingIndex = queue.findIndex((item) => item.id === track.id);
 
     if (index < 0 || index >= queue.length) {
       // Pas de session active (index hors file — ex. après addToQueue sur
       // file vide/dormante) : « Lire ensuite » LANCE la lecture. Ajouter
       // silencieusement rendait l'action invisible (M-1 : current === null
-      // → MiniPlayer masqué, utilisateur sans aucun retour). La file
-      // dormante éventuelle est conservée, le morceau démarre en fin.
-      void this.playQueue([...queue, track], queue.length);
+      // → MiniPlayer masqué, utilisateur sans aucun retour). Un morceau déjà
+      // présent est joué à sa place au lieu d'être dupliqué.
+      const nextQueue = existingIndex >= 0 ? queue : [...queue, track];
+      void this.playQueue(
+        nextQueue,
+        existingIndex >= 0 ? existingIndex : nextQueue.length - 1
+      );
       return;
     }
 
-    const insertAt = index + 1;
-    const nextQueue = [...queue];
+    // « Lire ensuite » est aussi une opération de déduplication : si la piste
+    // existe déjà ailleurs, la déplacer plutôt que créer deux entrées portant
+    // le même identifiant. Le morceau courant demandé à nouveau est un no-op.
+    if (existingIndex === index) {
+      return;
+    }
+
+    const queueWithoutExisting =
+      existingIndex >= 0
+        ? queue.filter((_, position) => position !== existingIndex)
+        : [...queue];
+    const nextCurrentIndex =
+      existingIndex >= 0 && existingIndex < index ? index - 1 : index;
+    const insertAt = nextCurrentIndex + 1;
+    const nextQueue = [...queueWithoutExisting];
     nextQueue.splice(insertAt, 0, track);
 
     let nextOrder = order;
     if (order && order.length === queue.length) {
-      // Positions décalées hors de l'index inséré uniquement.
-      nextOrder = order.map((pos) => (pos >= insertAt ? pos + 1 : pos));
-      const pointer = nextOrder.indexOf(index);
+      const withoutExisting =
+        existingIndex >= 0
+          ? order
+              .filter((pos) => pos !== existingIndex)
+              .map((pos) => (pos > existingIndex ? pos - 1 : pos))
+          : [...order];
+      nextOrder = withoutExisting.map((pos) =>
+        pos >= insertAt ? pos + 1 : pos
+      );
+      const pointer = nextOrder.indexOf(nextCurrentIndex);
       nextOrder.splice(pointer >= 0 ? pointer + 1 : 0, 0, insertAt);
     }
 
-    this.emit({ queue: nextQueue, order: nextOrder });
+    this.emit({ queue: nextQueue, index: nextCurrentIndex, order: nextOrder });
     this.persistSession();
     this.ensureAppStatePersistence();
   };
@@ -1179,16 +1623,24 @@ class MelodixPlayer {
 
     const index = Math.min(Math.max(session.index, 0), queue.length - 1);
     const shuffle = session.shuffle === true;
+    const restoredPosition =
+      Number.isFinite(session.positionMillis) && session.positionMillis >= 0
+        ? session.positionMillis
+        : 0;
 
-    this.playToken += 1;
+    const requestToken = ++this.playToken;
     this.failedKeys = new Set();
     await this.unloadCurrent();
+    if (this.playToken !== requestToken) {
+      return;
+    }
 
     this.emit({
       queue,
       index,
       current: queue[index],
       status: 'idle',
+      buffering: false,
       // L'ordre de lecture shuffle est REBATI (il n'est pas persisté) : file
       // originale intacte, courant épinglé — mêmes règles que playQueue().
       order: shuffle ? buildShuffledOrder(queue.length, index) : null,
@@ -1196,22 +1648,28 @@ class MelodixPlayer {
       shuffle,
       repeat: session.repeat,
       volume: session.volume,
-      positionMillis: session.positionMillis,
+      positionMillis: restoredPosition,
       durationMillis: 0,
       resolved: null,
       notice: null,
     });
 
-    this.pendingSeekMillis = Math.max(0, session.positionMillis);
+    this.pendingSeekMillis = restoredPosition;
     this.pendingSeekForId = queue[index]?.id ?? null;
     await this.playIndex(index);
   };
 
   stop = async () => {
-    this.playToken += 1; // tout resolve en vol devient orphelin
+    const requestToken = ++this.playToken; // tout resolve en vol devient orphelin
+    this.transportCommandToken += 1;
+    this.transportIntent = null;
+    this.transportQueue = Promise.resolve();
     this.pendingSeekMillis = 0;
     this.pendingSeekForId = null;
     await this.unloadCurrent();
+    if (this.playToken !== requestToken) {
+      return; // une lecture plus récente a gagné pendant l'unload
+    }
     // Fermeture explicite : la session persistée est PURGÉE (Reprendre =
     // uniquement les sessions interrompues, jamais les arrêts volontaires).
     void clearPlaybackSession().catch(() => undefined);
@@ -1230,10 +1688,16 @@ class MelodixPlayer {
   __testReset = async () => {
     await this.unloadCurrent();
     this.matchCache = null;
+    this.matchCacheLoad = null;
+    this.resolutionLoads.clear();
     this.failedKeys = new Set();
     this.pendingSeekMillis = 0;
     this.pendingSeekForId = null;
+    this.transportCommandToken += 1;
+    this.transportIntent = null;
+    this.transportQueue = Promise.resolve();
     this.lastPersistedAt = 0;
+    this.lastPlaybackStartedForToken = -1;
     this.sessionDirty = false;
     this.state = { ...INITIAL_PLAYER_STATE };
     this.listeners.forEach((listener) => listener(this.state));

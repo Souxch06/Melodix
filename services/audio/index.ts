@@ -67,6 +67,7 @@ export type { ResolvedTrack, ProviderChainOutcome } from './trackResolver';
 export { resolveWithProviders } from './trackResolver';
 export {
   clearMatchCacheStorage,
+  createMatchResolutionTimestamp,
   deleteMatchCacheEntryFromStorage,
   loadMatchCache,
   MATCH_CACHE_STORAGE_KEY,

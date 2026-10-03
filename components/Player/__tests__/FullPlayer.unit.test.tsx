@@ -33,6 +33,7 @@ const mockStop = jest.fn(async () => {});
 const mockClearNotice = jest.fn();
 const mockRemoveFromQueue = jest.fn();
 const mockMoveInQueue = jest.fn();
+const mockClearQueue = jest.fn(async () => {});
 const mockAddToQueue = jest.fn();
 const mockPlayNext = jest.fn();
 
@@ -41,6 +42,7 @@ let mockPlayerState: {
   queue: PlayerTrack[];
   index: number;
   status: string;
+  buffering?: boolean;
   positionMillis: number;
   durationMillis: number;
   shuffle: boolean;
@@ -74,6 +76,7 @@ jest.mock('@context', () => ({
     clearNotice: mockClearNotice,
     removeFromQueue: mockRemoveFromQueue,
     moveInQueue: mockMoveInQueue,
+    clearQueue: mockClearQueue,
     addToQueue: mockAddToQueue,
     playNext: mockPlayNext,
   }),
@@ -101,6 +104,7 @@ describe('FullPlayer — inventaire réel avant refonte éventuelle', () => {
       ],
       index: 0,
       status: 'playing',
+      buffering: false,
       positionMillis: 65000,
       durationMillis: 180000,
       shuffle: false,
@@ -151,6 +155,13 @@ describe('FullPlayer — inventaire réel avant refonte éventuelle', () => {
     // Le mute dédié existe désormais (phase 3) : couvert ci-dessous.
   });
 
+  it('vide la file depuis son action dédiée', () => {
+    const { getByTestId } = render(<FullPlayer />);
+
+    fireEvent.press(getByTestId('queue-clear'));
+    expect(mockClearQueue).toHaveBeenCalledTimes(1);
+  });
+
   it('play/pause, previous, next, shuffle, repeat : tous branchés', () => {
     const { getByLabelText } = render(<FullPlayer />);
 
@@ -165,6 +176,18 @@ describe('FullPlayer — inventaire réel avant refonte éventuelle', () => {
     expect(mockNext).toHaveBeenCalledTimes(1);
     expect(mockToggleShuffle).toHaveBeenCalledTimes(1);
     expect(mockCycleRepeat).toHaveBeenCalledTimes(1);
+  });
+
+  it('affiche le spinner pendant un buffering runtime', () => {
+    mockPlayerState = {
+      ...mockPlayerState,
+      status: 'playing',
+      buffering: true,
+    };
+    const { getByLabelText, queryByLabelText } = render(<FullPlayer />);
+
+    expect(getByLabelText(translations.playerLoading)).toBeTruthy();
+    expect(queryByLabelText(translations.playerPause)).toBeNull();
   });
 
   it('« Répéter le titre » porte le libellé dédié en mode one', () => {

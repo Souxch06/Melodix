@@ -4,7 +4,10 @@ import { clearLocalLibrary, saveItem } from '@services';
 
 import { getLibrary } from '../getLibrary';
 
-const item = (id: string, type: LibraryItemModel['type']): LibraryItemModel => ({
+const item = (
+  id: string,
+  type: LibraryItemModel['type']
+): LibraryItemModel => ({
   id,
   type,
   title: id,

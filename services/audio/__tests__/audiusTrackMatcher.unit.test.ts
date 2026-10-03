@@ -13,13 +13,20 @@ type Candidate = Parameters<typeof matchSongs>[1][number];
 const source = (
   title: string,
   artists: string[],
-  extra?: Partial<{ album: string | null; durationSec: number | null }>
+  extra?: Partial<{
+    album: string | null;
+    durationSec: number | null;
+    isrc: string | null;
+    explicit: boolean | null;
+  }>
 ) =>
   fingerprintOf({
     title,
     artistNames: artists,
     album: extra?.album ?? null,
     durationSec: extra?.durationSec ?? null,
+    isrc: extra?.isrc ?? null,
+    explicit: extra?.explicit ?? null,
   });
 
 describe('normalizeTitleText', () => {
@@ -84,15 +91,48 @@ describe('matchSongs — reliable matching', () => {
     expect(match?.id).toBe('aud-1');
   });
 
-  it('matches despite radio-edit/remaster/official tails and case changes', () => {
-    // Versions d'édition acceptées (contrat « gérer les variantes », point 4).
+  it('refuse un titre exact porté seulement par l artiste invité', () => {
+    const decisions: string[] = [];
+    const match = matchSongs(
+      source('Shared Name', ['Main Artist', 'Guest Artist'], {
+        durationSec: 200,
+      }),
+      [
+        {
+          id: 'guest-cover',
+          title: 'Shared Name',
+          artistNames: ['Guest Artist'],
+          durationSec: 200,
+        },
+      ],
+      { onCandidateDecision: (decision) => decisions.push(decision.reason) }
+    );
+
+    expect(match).toBeNull();
+    expect(decisions).toContain('artist-mismatch');
+  });
+
+  it('accepte le principal inféré depuis un titre Artist - Song', () => {
+    const match = matchSongs(
+      source('Shared Name', ['Main Artist', 'Guest Artist'], {
+        durationSec: 200,
+      }),
+      [
+        {
+          id: 'credited-upload',
+          title: 'Main Artist - Shared Name',
+          artistNames: ['Guest Artist'],
+          durationSec: 200,
+        },
+      ]
+    );
+
+    expect(match?.id).toBe('credited-upload');
+  });
+
+  it('matches despite remaster/official tails and case changes', () => {
+    // Décorations éditoriales acceptées ; les versions musicales restent dures.
     const variants: Candidate[] = [
-      {
-        id: 'a',
-        title: 'tame (radio edit)',
-        artistNames: ['neffex'],
-        durationSec: 188,
-      },
       {
         id: 'b',
         title: 'Tame (Official Audio)',
@@ -120,6 +160,25 @@ describe('matchSongs — reliable matching', () => {
         ])?.id
       ).toBe(candidate.id);
     }
+  });
+
+  it('expose une raison développeur sans assouplir le matcher', () => {
+    const decisions: string[] = [];
+    const result = matchSongs(
+      source('Blinding Lights', ['The Weeknd'], { durationSec: 200 }),
+      [
+        {
+          id: 'wrong',
+          title: 'Blinding Night',
+          artistNames: ['Unknown Artist'],
+          durationSec: 200,
+        },
+      ],
+      { onCandidateDecision: ({ reason }) => decisions.push(reason) }
+    );
+
+    expect(result).toBeNull();
+    expect(decisions).toContain('title-mismatch');
   });
 
   it('rejects hard variants (remix / live / instrumental / karaoke / acoustic) when the source is not that version', () => {
@@ -164,6 +223,44 @@ describe('matchSongs — reliable matching', () => {
         ])
       ).toBeNull();
     }
+  });
+
+  it('rejette radio edit / extended / sped up / slowed quand la source est studio', () => {
+    const variants = [
+      'Tame (Radio Edit)',
+      'Tame (Extended Mix)',
+      'Tame (Sped Up)',
+      'Tame (Slowed Down)',
+    ];
+
+    variants.forEach((title, index) => {
+      expect(
+        matchSongs(source('Tame', ['Neffex'], { durationSec: 189 }), [
+          {
+            id: `version-${index}`,
+            title,
+            artistNames: ['Neffex'],
+            durationSec: 189,
+          },
+        ])
+      ).toBeNull();
+    });
+  });
+
+  it('accepte radio edit lorsque les deux côtés demandent radio edit', () => {
+    expect(
+      matchSongs(
+        source('Tame (Radio Edit)', ['Neffex'], { durationSec: 188 }),
+        [
+          {
+            id: 'radio-ok',
+            title: 'Tame - Radio Edit',
+            artistNames: ['Neffex'],
+            durationSec: 189,
+          },
+        ]
+      )?.id
+    ).toBe('radio-ok');
   });
 
   it('accepts the variant when BOTH sides are the same variant (remix → remix)', () => {
@@ -243,6 +340,100 @@ describe('matchSongs — reliable matching', () => {
     expect(
       matchSongs(source('Home', ['Ultimo'], { durationSec: 180 }), [other])
     ).toBeNull();
+  });
+
+  it('utilise un ISRC exact comme signal prioritaire', () => {
+    const match = matchSongs(
+      source('Titre Spotify différent', ['Artiste'], {
+        isrc: 'FR-ABC-24-12345',
+        durationSec: 200,
+      }),
+      [
+        {
+          id: 'isrc-hit',
+          title: 'Titre distribué',
+          artistNames: ['Label Upload'],
+          isrc: 'FRABC2412345',
+          durationSec: 200,
+        },
+      ]
+    );
+    expect(match?.id).toBe('isrc-hit');
+    expect(match?.score).toBe(100);
+  });
+
+  it('retrouve un upload « Artiste - Titre » même si le compte Audius est un label', () => {
+    expect(
+      matchSongs(source('Été d’amour', ['Léa'], { durationSec: 201 }), [
+        {
+          id: 'prefixed',
+          title: "Lea - Ete d'amour (Official Audio)",
+          artistNames: ['Label Records'],
+          durationSec: 202,
+        },
+      ])?.id
+    ).toBe('prefixed');
+  });
+
+  it('tolère une faute légère mais refuse un titre seulement voisin', () => {
+    expect(
+      matchSongs(
+        source('Blinding Lights', ['The Weeknd'], { durationSec: 200 }),
+        [
+          {
+            id: 'typo',
+            title: 'Blinding Ligths',
+            artistNames: ['Weeknd'],
+            durationSec: 200,
+          },
+        ]
+      )?.id
+    ).toBe('typo');
+    expect(
+      matchSongs(
+        source('Blinding Lights', ['The Weeknd'], { durationSec: 200 }),
+        [
+          {
+            id: 'wrong',
+            title: 'Blinding Night',
+            artistNames: ['The Weeknd'],
+            durationSec: 200,
+          },
+        ]
+      )
+    ).toBeNull();
+  });
+
+  it('conserve la distinction live/acoustic/remix tout en acceptant remastered', () => {
+    const base = source('Héroïne (2020 Remastered)', ['Måneskin'], {
+      durationSec: 190,
+    });
+    expect(
+      matchSongs(base, [
+        {
+          id: 'remaster',
+          title: 'Heroine - Remaster',
+          artistNames: ['Maneskin'],
+          durationSec: 190,
+        },
+      ])?.id
+    ).toBe('remaster');
+    for (const title of [
+      'Heroine (Live)',
+      'Heroine (Acoustic)',
+      'Heroine (Club Remix)',
+    ]) {
+      expect(
+        matchSongs(base, [
+          {
+            id: title,
+            title,
+            artistNames: ['Maneskin'],
+            durationSec: 190,
+          },
+        ])
+      ).toBeNull();
+    }
   });
 
   it('uses duration to prefer the closest of two contenders', () => {
@@ -337,6 +528,41 @@ describe('findBestAudiusMatch — cascade multi-requêtes (spécification matchi
     warn.mockRestore();
 
     expect(match?.id).toBe('late');
+  });
+
+  it('propage une panne de toutes les recherches (jamais transformée en no-match)', async () => {
+    const search = jest.fn(async () => {
+      throw new Error('offline');
+    });
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+
+    await expect(
+      findBestAudiusMatch(query('Tame', ['Neffex']), search)
+    ).rejects.toThrow('Audius search incomplete');
+    warn.mockRestore();
+  });
+
+  it('ne journalise ni métadonnées écoutées ni détail d erreur réseau', async () => {
+    const privateTitle = 'Titre personnel confidentiel';
+    const privateArtist = 'Artiste privé';
+    const search = jest.fn(async () => {
+      throw new Error(
+        `failure for ${privateTitle} https://signed.example/token`
+      );
+    });
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    const info = jest.spyOn(console, 'info').mockImplementation(() => {});
+
+    await expect(
+      findBestAudiusMatch(query(privateTitle, [privateArtist]), search)
+    ).rejects.toThrow('Audius search incomplete');
+
+    const logged = JSON.stringify([...warn.mock.calls, ...info.mock.calls]);
+    warn.mockRestore();
+    info.mockRestore();
+    expect(logged).not.toContain(privateTitle);
+    expect(logged).not.toContain(privateArtist);
+    expect(logged).not.toContain('signed.example');
   });
 
   it('renvoie null si TOUTES les tentatives sont vides (jamais de match forcé)', async () => {
@@ -778,6 +1004,69 @@ describe('matchSongs — homonymes, éditions et caractères (zone 3)', () => {
     );
 
     expect(match?.id).toBe('genuine');
+  });
+
+  it('version explicite : refuse un candidat explicitement clean', () => {
+    const decisions: string[] = [];
+    const match = matchSongs(
+      source('Tame', ['Neffex'], { durationSec: 189, explicit: true }),
+      [
+        {
+          id: 'clean',
+          title: 'Tame (Clean)',
+          artistNames: ['Neffex'],
+          durationSec: 189,
+        },
+        {
+          id: 'explicit',
+          title: 'Tame (Explicit)',
+          artistNames: ['Neffex'],
+          durationSec: 189,
+        },
+      ],
+      { onCandidateDecision: ({ reason }) => decisions.push(reason) }
+    );
+
+    expect(match?.id).toBe('explicit');
+    expect(decisions).toContain('content-rating-mismatch');
+  });
+
+  it('version clean : refuse un candidat explicitement non censuré', () => {
+    const match = matchSongs(
+      source('Tame', ['Neffex'], { durationSec: 189, explicit: false }),
+      [
+        {
+          id: 'explicit',
+          title: 'Tame (Uncensored)',
+          artistNames: ['Neffex'],
+          durationSec: 189,
+        },
+        {
+          id: 'clean',
+          title: 'Tame (Censored)',
+          artistNames: ['Neffex'],
+          durationSec: 189,
+        },
+      ]
+    );
+
+    expect(match?.id).toBe('clean');
+  });
+
+  it('classification candidate absente : reste neutre, jamais rejetée par supposition', () => {
+    const match = matchSongs(
+      source('Tame', ['Neffex'], { durationSec: 189, explicit: true }),
+      [
+        {
+          id: 'unlabelled',
+          title: 'Tame',
+          artistNames: ['Neffex'],
+          durationSec: 189,
+        },
+      ]
+    );
+
+    expect(match?.id).toBe('unlabelled');
   });
 
   it('caractères spéciaux (&, !) : la correspondance reste possible', () => {
