@@ -15,10 +15,6 @@ jest.mock('@services', () => ({
   isBackendConfigured: jest.fn(),
 }));
 
-jest.mock('../../../services/logSanitize', () => ({
-  sanitizeErrorForLog: jest.fn(() => ({ name: 'Error' })),
-}));
-
 jest.mock('../../audius', () => ({
   audiusTrackToLibraryItem: jest.fn(),
   searchAudiusTracks: jest.fn(),
@@ -126,6 +122,21 @@ describe('searchCatalog — cascade backend → Audius', () => {
       degraded: true,
     });
     expect(warnSpy).toHaveBeenCalled();
+  });
+
+  it('does not copy query or upstream error details into fallback logs', async () => {
+    const privateQuery = 'private listening intent';
+    mockedIsBackendConfigured.mockReturnValue(true);
+    mockedBackendSearchCatalog.mockRejectedValue(
+      new Error(`${privateQuery} https://signed.example/token`)
+    );
+    mockedSearchAudiusTracks.mockResolvedValue([]);
+
+    await searchCatalog(privateQuery);
+
+    const logged = JSON.stringify(warnSpy.mock.calls);
+    expect(logged).not.toContain(privateQuery);
+    expect(logged).not.toContain('signed.example');
   });
 
   it('goes straight to Audius when the backend is not configured', async () => {
