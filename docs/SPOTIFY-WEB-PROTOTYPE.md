@@ -26,7 +26,7 @@ React Native UI
 MediaSession -> mediaBridge -> melodixPlayer (inchangé pour cette phase)
 ```
 
-`PlaybackBackend` expose un état normalisé minimal (status, titre, artiste, artwork, durée, position, erreur) ainsi que `play()` et `pause()`. L'adaptateur Audius/YouTube prouve que la frontière peut envelopper l'existant sans le réécrire. `SpotifyWebBackend` est instancié uniquement par l'écran expérimental.
+`PlaybackBackend` expose un état normalisé minimal (status, titre, artistes, artwork, durée, position, `isPlaying`, `isLoading`, erreur) ainsi que `play()`, `pause()`, `seek()`, `next()` et `previous()`. Le protocole Web est versionné (`version: 1`), borné, refuse tout champ inconnu et ne journalise jamais l'enveloppe brute. L'adaptateur Audius/YouTube prouve que la frontière peut envelopper l'existant sans le réécrire. `SpotifyWebBackend` est instancié uniquement par l'écran expérimental.
 
 ## Limites volontaires de la phase 1
 
@@ -34,7 +34,7 @@ MediaSession -> mediaBridge -> melodixPlayer (inchangé pour cette phase)
 - aucun scraping DOM ou contrôle d'élément média ;
 - aucune lecture de cookie, storage, token, credential, réponse réseau, DRM ou flux ;
 - aucune donnée OAuth PKCE transmise à la WebView ;
-- play/pause Web sont définis dans le contrat mais restent non branchés et diagnostiqués comme indisponibles ;
+- play/pause/seek/next/previous Web sont définis dans le contrat mais restent non branchés et diagnostiqués comme indisponibles ;
 - connexion effective et session perdue ne sont pas déduites artificiellement : seul le passage par `accounts.spotify.com` puis le retour vers `open.spotify.com` est observé au niveau navigation ;
 - aucune projection MediaSession du Web Player avant une source d'état fiable et testée.
 
