@@ -15,6 +15,11 @@ export type SpotifyWebBridgeMessage =
   | { version: 1; type: 'state'; payload: SpotifyWebPlaybackInput }
   | { version: 1; type: 'error'; code: string };
 
+export type SpotifyWebBridgeParseResult =
+  | { kind: 'accepted'; message: SpotifyWebBridgeMessage }
+  | { kind: 'ignored' }
+  | { kind: 'rejected' };
+
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
 
@@ -153,4 +158,38 @@ export const parseSpotifyWebBridgeMessage = (
     return { version: 1, type: 'error', code: value.code };
   }
   return null;
+};
+
+/**
+ * Distinguishes forward-compatible unknown message types from malformed known
+ * messages. Neither branch exposes or logs the raw payload.
+ */
+export const classifySpotifyWebBridgeMessage = (
+  raw: unknown
+): SpotifyWebBridgeParseResult => {
+  const message = parseSpotifyWebBridgeMessage(raw);
+  if (message) return { kind: 'accepted', message };
+  if (
+    typeof raw !== 'string' ||
+    raw.length === 0 ||
+    raw.length > MAX_MESSAGE_LENGTH
+  ) {
+    return { kind: 'rejected' };
+  }
+  try {
+    const value: unknown = JSON.parse(raw);
+    if (
+      isRecord(value) &&
+      value.version === SPOTIFY_WEB_BRIDGE_VERSION &&
+      typeof value.type === 'string' &&
+      value.type !== 'ready' &&
+      value.type !== 'state' &&
+      value.type !== 'error'
+    ) {
+      return { kind: 'ignored' };
+    }
+  } catch {
+    // Malformed JSON is rejected below.
+  }
+  return { kind: 'rejected' };
 };

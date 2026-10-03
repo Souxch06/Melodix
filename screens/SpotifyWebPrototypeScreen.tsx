@@ -17,6 +17,7 @@ import {
 
 const SPOTIFY_WEB_URL = 'https://open.spotify.com';
 const MAX_EVENTS = 12;
+export const SPOTIFY_WEB_BRIDGE_READY_TIMEOUT_MS = 8_000;
 
 type DiagnosticEvent = {
   id: number;
@@ -35,6 +36,10 @@ export const SpotifyWebPrototypeScreen = () => {
   const eventIdRef = React.useRef(0);
   const sawLoginRef = React.useRef(false);
   const currentPageRef = React.useRef('open.spotify.com');
+  const runtimeSessionRef = React.useRef(0);
+  const bridgeTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(
+    null
+  );
   const [backendState, setBackendState] = React.useState<PlaybackBackendState>(
     backendRef.current.getState()
   );
@@ -68,7 +73,9 @@ export const SpotifyWebPrototypeScreen = () => {
       next: async () => false,
       previous: async () => false,
     });
+    runtimeSessionRef.current = backend.beginRuntimeSession();
     return () => {
+      if (bridgeTimeoutRef.current) clearTimeout(bridgeTimeoutRef.current);
       unsubscribe();
       backend.destroy();
     };
@@ -103,10 +110,11 @@ export const SpotifyWebPrototypeScreen = () => {
   const handleRendererGone = React.useCallback(
     (_event: WebViewRenderProcessGoneEvent) => {
       setRendererAvailable(false);
-      backendRef.current.updateState({
-        status: 'error',
-        errorCode: 'renderer_destroyed',
-      });
+      if (bridgeTimeoutRef.current) clearTimeout(bridgeTimeoutRef.current);
+      backendRef.current.markRuntimeUnavailable(
+        runtimeSessionRef.current,
+        'renderer_destroyed'
+      );
       report('renderer_destroyed');
     },
     [report]
@@ -118,6 +126,20 @@ export const SpotifyWebPrototypeScreen = () => {
     report('webview_loading', 'rechargement manuel');
     webViewRef.current?.reload();
   }, [report]);
+
+  const handleBridgeMessage = React.useCallback(
+    (raw: unknown) => {
+      const result = backendRef.current.receiveBridgeMessage(raw);
+      if (result === 'ready') {
+        if (bridgeTimeoutRef.current) clearTimeout(bridgeTimeoutRef.current);
+        report('bridge_ready');
+      } else if (result === 'rejected') {
+        report('bridge_message_rejected');
+      }
+      // Unknown version-1 message types are deliberately ignored without log.
+    },
+    [report]
+  );
 
   const requestCommand = React.useCallback(
     async (command: 'play' | 'pause') => {
@@ -191,13 +213,29 @@ export const SpotifyWebPrototypeScreen = () => {
             report(code, `HTTP ${event.nativeEvent.statusCode}`);
           }}
           onLoadEnd={() => {
-            backendRef.current.updateState({ status: 'idle' });
             report('webview_loaded');
+            if (bridgeTimeoutRef.current)
+              clearTimeout(bridgeTimeoutRef.current);
+            const session = runtimeSessionRef.current;
+            bridgeTimeoutRef.current = setTimeout(() => {
+              if (
+                backendRef.current.markRuntimeUnavailable(
+                  session,
+                  'bridge_timeout'
+                )
+              ) {
+                report('bridge_timeout');
+              }
+            }, SPOTIFY_WEB_BRIDGE_READY_TIMEOUT_MS);
           }}
           onLoadStart={() => {
-            backendRef.current.updateState({ status: 'loading' });
+            if (bridgeTimeoutRef.current)
+              clearTimeout(bridgeTimeoutRef.current);
+            runtimeSessionRef.current =
+              backendRef.current.beginRuntimeSession();
             report('webview_loading');
           }}
+          onMessage={(event) => handleBridgeMessage(event.nativeEvent.data)}
           onNavigationStateChange={handleNavigation}
           onRenderProcessGone={handleRendererGone}
           onShouldStartLoadWithRequest={(request) => {
