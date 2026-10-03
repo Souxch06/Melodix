@@ -231,6 +231,33 @@ describe('Search — debounce, races et états (zone 4)', () => {
     expect(getByText('Recovered Track')).toBeTruthy();
   });
 
+  it('retry relance exactement la requête en erreur sans modifier la saisie', async () => {
+    searchCatalogMock.mockRejectedValueOnce(new Error('temporary outage'));
+    const { getByPlaceholderText, getByTestId, getByText } = render(<Search />);
+    fireEvent.changeText(
+      getByPlaceholderText(translations.searchPlaceholder),
+      'retry me'
+    );
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, SEARCH_DELAY_MS + 50));
+    });
+    expect(getByTestId('search-error-state')).toBeTruthy();
+
+    searchCatalogMock.mockResolvedValueOnce({
+      artists: [],
+      tracks: [mkSlide({ id: 'retry-ok', title: 'Retry Result' })],
+      albums: [],
+      playlists: [],
+    });
+    fireEvent.press(getByTestId('search-retry'));
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, SEARCH_DELAY_MS + 50));
+    });
+
+    expect(searchCatalogMock).toHaveBeenLastCalledWith('retry me');
+    expect(getByText('Retry Result')).toBeTruthy();
+  });
+
   it('aucun résultat : message « pas de résultats » dédié (jamais vide blanc)', async () => {
     searchCatalogMock.mockResolvedValue({
       artists: [],
