@@ -52,7 +52,11 @@ describe('SpotifyWebPrototypeScreen', () => {
     fireEvent(webView, 'renderProcessGone', {
       nativeEvent: { didCrash: true },
     });
-    await waitFor(() => expect(getByText(/renderer détruit/)).toBeTruthy());
+    await waitFor(() =>
+      expect(getByTestId('spotify-web-bridge-status').props.children).toContain(
+        'renderer détruit'
+      )
+    );
     expect(getByText(/renderer_destroyed/)).toBeTruthy();
   });
 
@@ -78,6 +82,9 @@ describe('SpotifyWebPrototypeScreen', () => {
       nativeEvent: { data: '{"version":1,"type":"ready"}' },
     });
     expect(getByText(/bridge_ready/)).toBeTruthy();
+    expect(getByTestId('spotify-web-bridge-status').props.children).toContain(
+      'prêt'
+    );
     fireEvent(webView, 'message', {
       nativeEvent: {
         data: JSON.stringify({

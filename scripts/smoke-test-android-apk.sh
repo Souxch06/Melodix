@@ -68,9 +68,9 @@ printf '%s\n' "$WEB_UI" | grep -Fq 'Prototype Spotify Web' || \
   fail "écran de diagnostic Spotify Web absent après deep link"
 # Le probe W3C doit produire un résultat explicite : handshake disponible ou
 # timeout honnête. Cela ne prétend toujours pas valider une lecture connectée.
-if printf '%s\n' "$WEB_UI" | grep -Fq 'bridge_ready'; then
+if printf '%s\n' "$WEB_UI" | grep -Fq 'Bridge: prêt'; then
   echo "Bridge WebView React Native prêt (probe navigator.mediaSession injecté)"
-elif printf '%s\n' "$WEB_UI" | grep -Fq 'bridge_timeout'; then
+elif printf '%s\n' "$WEB_UI" | grep -Fq 'Bridge: timeout'; then
   echo "::warning title=Bridge Spotify Web indisponible::handshake WebView expiré ; aucune capacité de lecture revendiquée"
 else
   fail "aucun résultat explicite du handshake Spotify Web (ready/timeout)"

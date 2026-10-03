@@ -51,6 +51,9 @@ export const SpotifyWebPrototypeScreen = () => {
   const [canGoBack, setCanGoBack] = React.useState(false);
   const [canGoForward, setCanGoForward] = React.useState(false);
   const [rendererAvailable, setRendererAvailable] = React.useState(true);
+  const [bridgeStatus, setBridgeStatus] = React.useState<
+    'attente' | 'prêt' | 'timeout' | 'renderer détruit'
+  >('attente');
 
   const report = React.useCallback(
     (code: DiagnosticEvent['code'], detail?: string) => {
@@ -119,6 +122,7 @@ export const SpotifyWebPrototypeScreen = () => {
         runtimeSessionRef.current,
         'renderer_destroyed'
       );
+      setBridgeStatus('renderer détruit');
       report('renderer_destroyed');
     },
     [report]
@@ -136,6 +140,7 @@ export const SpotifyWebPrototypeScreen = () => {
       const result = backendRef.current.receiveBridgeMessage(raw);
       if (result === 'ready') {
         if (bridgeTimeoutRef.current) clearTimeout(bridgeTimeoutRef.current);
+        setBridgeStatus('prêt');
         report('bridge_ready');
       } else if (result === 'capabilities-updated') {
         setRuntimeCapabilities(backendRef.current.getRuntimeCapabilities());
@@ -187,6 +192,9 @@ export const SpotifyWebPrototypeScreen = () => {
         <Text style={styles.statusText} testID="spotify-web-status">
           WebView: {rendererAvailable ? 'active' : 'renderer détruit'} · page:{' '}
           {currentPageRef.current}
+        </Text>
+        <Text style={styles.statusText} testID="spotify-web-bridge-status">
+          Bridge: {bridgeStatus}
         </Text>
         <Text style={styles.statusText}>
           Lecture: {backendState.status} · session: indéterminée
@@ -251,6 +259,7 @@ export const SpotifyWebPrototypeScreen = () => {
                   'bridge_timeout'
                 )
               ) {
+                setBridgeStatus('timeout');
                 report('bridge_timeout');
               }
             }, SPOTIFY_WEB_BRIDGE_READY_TIMEOUT_MS);
@@ -259,6 +268,7 @@ export const SpotifyWebPrototypeScreen = () => {
             if (bridgeTimeoutRef.current)
               clearTimeout(bridgeTimeoutRef.current);
             setRuntimeCapabilities(null);
+            setBridgeStatus('attente');
             runtimeSessionRef.current =
               backendRef.current.beginRuntimeSession();
             report('webview_loading');
