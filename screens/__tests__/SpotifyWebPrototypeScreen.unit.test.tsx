@@ -32,7 +32,7 @@ describe('SpotifyWebPrototypeScreen', () => {
     expect(webView.props.sharedCookiesEnabled).toBe(true);
     expect(webView.props.thirdPartyCookiesEnabled).toBe(true);
     expect(webView.props.injectedJavaScript).toContain(
-      'navigator.mediaSession'
+      'navigatorApi.mediaSession'
     );
 
     fireEvent(webView, 'navigationStateChange', {
@@ -78,6 +78,22 @@ describe('SpotifyWebPrototypeScreen', () => {
       nativeEvent: { data: '{"version":1,"type":"ready"}' },
     });
     expect(getByText(/bridge_ready/)).toBeTruthy();
+    fireEvent(webView, 'message', {
+      nativeEvent: {
+        data: JSON.stringify({
+          version: 1,
+          type: 'capabilities',
+          payload: { mediaSession: true, eme: true, widevine: false },
+        }),
+      },
+    });
+    const capabilitiesText = JSON.stringify(
+      getByTestId('spotify-web-capabilities').props.children
+    );
+    expect(capabilitiesText).toContain('MediaSession:');
+    expect(capabilitiesText).toContain('Widevine:');
+    expect(capabilitiesText).toContain('oui');
+    expect(capabilitiesText).toContain('non');
     fireEvent(webView, 'message', { nativeEvent: { data: stateMessage } });
     expect(getByText(/Lecture: playing/)).toBeTruthy();
   });

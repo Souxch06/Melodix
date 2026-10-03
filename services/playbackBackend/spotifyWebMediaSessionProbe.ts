@@ -5,8 +5,9 @@ import { SPOTIFY_WEB_BRIDGE_VERSION } from './spotifyWebBridge';
  *
  * It reads the public W3C Media Session surface exposed by the loaded page.
  * It never touches DOM nodes, cookies, storage, network APIs, credentials,
- * DRM, media elements or Spotify internals. Availability in Spotify's Android
- * WebView runtime remains an empirical question; absence is reported honestly.
+ * media elements or Spotify internals. It only queries EME/Widevine capability;
+ * it never creates a MediaKeys session or requests DRM keys. Availability in
+ * Spotify's Android WebView runtime remains empirical.
  */
 export const SPOTIFY_WEB_MEDIA_SESSION_PROBE = `
 (() => {
@@ -15,7 +16,35 @@ export const SPOTIFY_WEB_MEDIA_SESSION_PROBE = `
   const post = (message) => bridge.postMessage(JSON.stringify(message));
   post({ version: ${SPOTIFY_WEB_BRIDGE_VERSION}, type: 'ready' });
 
-  const mediaSession = globalThis.navigator && globalThis.navigator.mediaSession;
+  const navigatorApi = globalThis.navigator;
+  const mediaSession = navigatorApi && navigatorApi.mediaSession;
+  const eme = Boolean(
+    navigatorApi && typeof navigatorApi.requestMediaKeySystemAccess === 'function'
+  );
+  const publishCapabilities = async () => {
+    let widevine = false;
+    if (eme) {
+      try {
+        await navigatorApi.requestMediaKeySystemAccess(
+          'com.widevine.alpha',
+          [{
+            initDataTypes: ['cenc'],
+            audioCapabilities: [{ contentType: 'audio/mp4; codecs="mp4a.40.2"' }],
+          }]
+        );
+        widevine = true;
+      } catch (_) {
+        widevine = false;
+      }
+    }
+    post({
+      version: ${SPOTIFY_WEB_BRIDGE_VERSION},
+      type: 'capabilities',
+      payload: { mediaSession: Boolean(mediaSession), eme, widevine },
+    });
+  };
+  void publishCapabilities();
+
   if (!mediaSession) {
     post({ version: ${SPOTIFY_WEB_BRIDGE_VERSION}, type: 'error', code: 'media_session_unavailable' });
     return true;

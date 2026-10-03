@@ -3,7 +3,10 @@ import {
   normalizeSpotifyWebState,
   type SpotifyWebPlaybackInput,
 } from './spotifyWebState';
-import { classifySpotifyWebBridgeMessage } from './spotifyWebBridge';
+import {
+  classifySpotifyWebBridgeMessage,
+  type SpotifyWebRuntimeCapabilities,
+} from './spotifyWebBridge';
 import type {
   PlaybackBackend,
   PlaybackBackendListener,
@@ -21,6 +24,7 @@ export type SpotifyWebRuntimeCommands = {
 export type SpotifyWebBridgeResult =
   | 'ready'
   | 'state-updated'
+  | 'capabilities-updated'
   | 'error-updated'
   | 'ignored'
   | 'rejected';
@@ -37,6 +41,7 @@ export class SpotifyWebBackend implements PlaybackBackend {
   private runtimeSession = 0;
   private commandSequence = 0;
   private bridgeReady = false;
+  private capabilities: SpotifyWebRuntimeCapabilities | null = null;
 
   getState = (): PlaybackBackendState => this.state;
 
@@ -51,6 +56,7 @@ export class SpotifyWebBackend implements PlaybackBackend {
     this.runtimeSession += 1;
     this.commandSequence += 1;
     this.bridgeReady = false;
+    this.capabilities = null;
   };
 
   /** Starts a fresh document lifecycle and invalidates late messages/results. */
@@ -58,6 +64,7 @@ export class SpotifyWebBackend implements PlaybackBackend {
     this.runtimeSession += 1;
     this.commandSequence += 1;
     this.bridgeReady = false;
+    this.capabilities = null;
     this.updateState({ status: 'loading' });
     return this.runtimeSession;
   };
@@ -68,12 +75,16 @@ export class SpotifyWebBackend implements PlaybackBackend {
   ): boolean => {
     if (session !== this.runtimeSession) return false;
     this.bridgeReady = false;
+    this.capabilities = null;
     this.commandSequence += 1;
     this.updateState({ status: 'error', errorCode });
     return true;
   };
 
   isBridgeReady = (): boolean => this.bridgeReady;
+
+  getRuntimeCapabilities = (): SpotifyWebRuntimeCapabilities | null =>
+    this.capabilities ? { ...this.capabilities } : null;
 
   updateState = (input: SpotifyWebPlaybackInput): void => {
     this.state = normalizeSpotifyWebState(input);
@@ -96,6 +107,10 @@ export class SpotifyWebBackend implements PlaybackBackend {
     if (message.type === 'state') {
       this.updateState(message.payload);
       return 'state-updated';
+    }
+    if (message.type === 'capabilities') {
+      this.capabilities = { ...message.payload };
+      return 'capabilities-updated';
     }
     this.updateState({ status: 'error', errorCode: message.code });
     return 'error-updated';
@@ -143,6 +158,7 @@ export class SpotifyWebBackend implements PlaybackBackend {
     this.runtimeSession += 1;
     this.commandSequence += 1;
     this.bridgeReady = false;
+    this.capabilities = null;
     this.listeners.clear();
     this.state = INITIAL_SPOTIFY_WEB_STATE;
   };
