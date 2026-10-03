@@ -125,6 +125,22 @@ describe('trackResolver — I-5 : une panne n est PAS un « indisponible »', ()
     expect(result).toEqual({ status: 'error' });
   });
 
+  it('ne journalise pas les détails privés d une erreur provider', async () => {
+    const privateDetail = 'private title https://signed.example/token';
+    const audius = makeProvider('audius', null);
+    audius.resolveMatch.mockRejectedValue(new Error(privateDetail));
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+
+    await expect(resolveWithProviders(QUERY, [audius])).resolves.toEqual({
+      status: 'error',
+    });
+
+    const logged = JSON.stringify(warn.mock.calls);
+    warn.mockRestore();
+    expect(logged).not.toContain('private title');
+    expect(logged).not.toContain('signed.example');
+  });
+
   it('Audius « rien » + YouTube en panne → error (preuve incomplète)', async () => {
     const audius = makeProvider('audius', null);
     const youtube = makeProvider('youtube', 'throw');

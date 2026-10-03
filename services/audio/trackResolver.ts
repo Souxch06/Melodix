@@ -72,9 +72,11 @@ export const resolveWithProviders = async (
     try {
       match = await provider.resolveMatch(query);
     } catch (error) {
+      // Une erreur provider peut embarquer une URL signée ou des métadonnées
+      // d'écoute : ne journaliser que sa catégorie.
       console.warn(
         `TrackResolver: provider ${provider.id} threw, trying next`,
-        error
+        error instanceof Error ? error.name : typeof error
       );
       sawProviderError = true;
       continue;
