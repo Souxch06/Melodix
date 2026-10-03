@@ -118,8 +118,11 @@ type AvPlaybackStatus = {
 
 type AvSound = {
   unloadAsync: () => Promise<unknown>;
-  playAsync: () => Promise<unknown>;
-  pauseAsync: () => Promise<unknown>;
+  /** expo-av renvoie le statut natif obtenu après la commande. Ce retour est
+   * une preuve d'état au même titre que le callback périodique : ne jamais
+   * déduire `playing` de la seule résolution de la Promise. */
+  playAsync: () => Promise<AvPlaybackStatus>;
+  pauseAsync: () => Promise<AvPlaybackStatus>;
   setPositionAsync: (positionMillis: number) => Promise<unknown>;
   setVolumeAsync: (volume: number) => Promise<unknown>;
 };
@@ -1177,11 +1180,9 @@ class MelodixPlayer {
     const operation = this.transportQueue.then(async () => {
       if (this.playToken !== playToken || this.sound !== sound) return;
       try {
-        if (desiredPlaying) {
-          await sound.playAsync();
-        } else {
-          await sound.pauseAsync();
-        }
+        const runtimeStatus = desiredPlaying
+          ? await sound.playAsync()
+          : await sound.pauseAsync();
         if (
           this.transportCommandToken !== commandToken ||
           this.playToken !== playToken ||
@@ -1189,14 +1190,16 @@ class MelodixPlayer {
         ) {
           return;
         }
-        this.emit({
-          status: desiredPlaying ? 'playing' : 'paused',
-          buffering: false,
-        });
-        appendDiagLog(
-          `PLAYER_STATE state=${desiredPlaying ? 'PLAYING' : 'PAUSED'} ` +
-            `trackId=${this.state.current?.id ?? 'none'}`
-        );
+
+        // La résolution d'une commande native n'est pas, à elle seule, une
+        // preuve de lecture. Expo-av renvoie normalement un AVPlaybackStatus :
+        // le faire passer par l'unique normaliseur garantit que PLAYING n'est
+        // publié que si le runtime confirme `isPlaying=true`. Si un adaptateur
+        // exotique ne renvoie aucun statut, le callback périodique décidera ;
+        // on conserve entre-temps le dernier état réellement observé.
+        if (runtimeStatus && typeof runtimeStatus === 'object') {
+          this.onPlaybackStatusUpdate(playToken, runtimeStatus);
+        }
         if (!desiredPlaying) this.persistSession();
       } catch (error) {
         console.error(

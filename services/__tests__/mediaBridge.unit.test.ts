@@ -59,8 +59,18 @@ jest.mock('expo-av', () => ({
         ) => {
           void onStatus;
           const sound = {
-            playAsync: jest.fn(async () => {}),
-            pauseAsync: jest.fn(async () => {}),
+            // Contrat expo-av réel : les commandes rendent le statut natif.
+            // Le bridge ne doit jamais dépendre d'un état inventé par le test.
+            playAsync: jest.fn(async () => ({
+              isLoaded: true,
+              isPlaying: true,
+              isBuffering: false,
+            })),
+            pauseAsync: jest.fn(async () => ({
+              isLoaded: true,
+              isPlaying: false,
+              isBuffering: false,
+            })),
             unloadAsync: jest.fn(async () => {}),
             setPositionAsync: jest.fn(async () => {}),
             setVolumeAsync: jest.fn(async () => {}),
