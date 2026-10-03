@@ -58,13 +58,23 @@ WEB_START=$(adb shell am start -W -a android.intent.action.VIEW \
   -d "melodix://settings/spotify-web-player" -p "$PACKAGE" 2>&1) || \
   fail "prototype Spotify Web non ouvrable : $WEB_START"
 echo "$WEB_START"
-sleep 8
+# Laisse au chargement puis au timeout de handshake (8 s) le temps de conclure.
+sleep 15
 adb shell uiautomator dump /sdcard/melodix-web.xml >/dev/null 2>&1 || \
   fail "hiérarchie UI du prototype inaccessible"
 WEB_UI=$(adb shell cat /sdcard/melodix-web.xml 2>&1) || \
   fail "lecture hiérarchie UI prototype impossible : $WEB_UI"
 printf '%s\n' "$WEB_UI" | grep -Fq 'Prototype Spotify Web' || \
   fail "écran de diagnostic Spotify Web absent après deep link"
+# Le probe W3C doit produire un résultat explicite : handshake disponible ou
+# timeout honnête. Cela ne prétend toujours pas valider une lecture connectée.
+if printf '%s\n' "$WEB_UI" | grep -Fq 'bridge_ready'; then
+  echo "Bridge WebView React Native prêt (probe navigator.mediaSession injecté)"
+elif printf '%s\n' "$WEB_UI" | grep -Fq 'bridge_timeout'; then
+  echo "::warning title=Bridge Spotify Web indisponible::handshake WebView expiré ; aucune capacité de lecture revendiquée"
+else
+  fail "aucun résultat explicite du handshake Spotify Web (ready/timeout)"
+fi
 adb shell input keyevent KEYCODE_HOME || fail "prototype WebView impossible à mettre en arrière-plan"
 sleep 2
 WEB_RETURN=$(adb shell am start -W -n "$PACKAGE/.MainActivity" 2>&1) || \
