@@ -1,8 +1,5 @@
 export type SpotifyWebPageKind =
-  | 'spotify-player'
-  | 'spotify-login'
-  | 'spotify-service'
-  | 'blocked';
+  'spotify-player' | 'spotify-login' | 'spotify-service' | 'blocked';
 
 export type SpotifyWebDiagnosticCode =
   | 'webview_loading'
@@ -16,6 +13,9 @@ export type SpotifyWebDiagnosticCode =
   | 'network_error'
   | 'http_error'
   | 'web_player_inaccessible'
+  | 'bridge_ready'
+  | 'bridge_timeout'
+  | 'bridge_message_rejected'
   | 'playback_error'
   | 'session_lost'
   | 'navigation_blocked';

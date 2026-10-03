@@ -34,7 +34,9 @@ MediaSession -> mediaBridge -> melodixPlayer (inchangé pour cette phase)
 - aucun scraping DOM ou contrôle d'élément média ;
 - aucune lecture de cookie, storage, token, credential, réponse réseau, DRM ou flux ;
 - aucune donnée OAuth PKCE transmise à la WebView ;
-- play/pause/seek/next/previous Web sont définis dans le contrat mais restent non branchés et diagnostiqués comme indisponibles ;
+- `onMessage` est réellement relié au backend, mais un document doit d'abord envoyer le handshake strict `{ version: 1, type: "ready" }` avant que tout état soit accepté ; aucun script n'est injecté dans Spotify pour fabriquer ce handshake ;
+- un timeout de handshake après chargement classe explicitement le bridge comme indisponible (`bridge_timeout`) ; la destruction du renderer invalide de la même manière les messages et résultats de commandes tardifs ;
+- play/pause/seek/next/previous Web sont définis dans le contrat mais restent non branchés et diagnostiqués comme indisponibles ; les commandes sont arbitrées `latest-command-wins`, mais ne peuvent réussir qu'après handshake et confirmation positive d'un runtime autorisé ;
 - connexion effective et session perdue ne sont pas déduites artificiellement : seul le passage par `accounts.spotify.com` puis le retour vers `open.spotify.com` est observé au niveau navigation ;
 - aucune projection MediaSession du Web Player avant une source d'état fiable et testée.
 

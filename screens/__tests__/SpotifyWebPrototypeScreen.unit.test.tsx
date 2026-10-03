@@ -54,6 +54,32 @@ describe('SpotifyWebPrototypeScreen', () => {
     expect(getByText(/renderer_destroyed/)).toBeTruthy();
   });
 
+  it('branche réellement onMessage avec handshake obligatoire et état validé', () => {
+    const { getByTestId, getByText } = render(<SpotifyWebPrototypeScreen />);
+    const webView = getByTestId('spotify-webview');
+    const stateMessage = JSON.stringify({
+      version: 1,
+      type: 'state',
+      payload: {
+        status: 'playing',
+        trackId: 'spotify:test',
+        title: 'Track',
+        artists: ['Artist'],
+        isPlaying: true,
+      },
+    });
+
+    fireEvent(webView, 'message', { nativeEvent: { data: stateMessage } });
+    expect(getByText(/bridge_message_rejected/)).toBeTruthy();
+
+    fireEvent(webView, 'message', {
+      nativeEvent: { data: '{"version":1,"type":"ready"}' },
+    });
+    expect(getByText(/bridge_ready/)).toBeTruthy();
+    fireEvent(webView, 'message', { nativeEvent: { data: stateMessage } });
+    expect(getByText(/Lecture: playing/)).toBeTruthy();
+  });
+
   it('bloque les navigations externes et garde play/pause non branchés', async () => {
     const { getByTestId, getByText } = render(<SpotifyWebPrototypeScreen />);
     const webView = getByTestId('spotify-webview');

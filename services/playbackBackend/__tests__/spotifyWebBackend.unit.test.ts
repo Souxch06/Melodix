@@ -1,6 +1,7 @@
 import { buildBackendMediaSessionPayload } from '../mediaProjection';
 import { SpotifyWebBackend } from '../SpotifyWebBackend';
 import {
+  classifySpotifyWebBridgeMessage,
   parseSpotifyWebBridgeMessage,
   parseSpotifyWebCommand,
 } from '../spotifyWebBridge';
@@ -95,6 +96,19 @@ describe('Spotify Web bridge validation', () => {
     expect(parseSpotifyWebBridgeMessage(raw)).toBeNull();
   });
 
+  it('ignore un type futur mais rejette un message connu mal formé', () => {
+    expect(
+      classifySpotifyWebBridgeMessage(
+        '{"version":1,"type":"future-capability","payload":{"anything":true}}'
+      )
+    ).toEqual({ kind: 'ignored' });
+    expect(
+      classifySpotifyWebBridgeMessage(
+        '{"version":1,"type":"state","payload":{"cookie":"forbidden"}}'
+      )
+    ).toEqual({ kind: 'rejected' });
+  });
+
   it('rejette les commandes inconnues', () => {
     expect(parseSpotifyWebCommand({ version: 1, command: 'play' })).toEqual({
       version: 1,
@@ -174,6 +188,9 @@ describe('SpotifyWebBackend isolated lifecycle', () => {
       statuses.push(state.status)
     );
     backend.attachRuntime({ play, pause, seek, next, previous });
+    expect(backend.receiveBridgeMessage('{"version":1,"type":"ready"}')).toBe(
+      'ready'
+    );
 
     backend.updateState({ status: 'playing', title: 'Track' });
     backend.updateState({ status: 'paused', title: 'Track' });
@@ -202,6 +219,9 @@ describe('SpotifyWebBackend isolated lifecycle', () => {
 describe('SpotifyWebBackend bridge intake', () => {
   it('applique uniquement un message versionné et strictement validé', () => {
     const backend = new SpotifyWebBackend();
+    expect(backend.receiveBridgeMessage('{"version":1,"type":"ready"}')).toBe(
+      'ready'
+    );
     expect(
       backend.receiveBridgeMessage(
         JSON.stringify({
@@ -231,6 +251,85 @@ describe('SpotifyWebBackend bridge intake', () => {
       )
     ).toBe('rejected');
     expect(backend.getState().trackId).toBe('track-1');
+  });
+});
+
+describe('SpotifyWebBackend command and renderer lifecycle', () => {
+  it('refuse state et commandes avant handshake puis invalide un renderer détruit', async () => {
+    const backend = new SpotifyWebBackend();
+    const play = jest.fn(async () => true);
+    backend.attachRuntime({
+      play,
+      pause: jest.fn(async () => true),
+      seek: jest.fn(async () => true),
+      next: jest.fn(async () => true),
+      previous: jest.fn(async () => true),
+    });
+    const session = backend.beginRuntimeSession();
+
+    expect(
+      backend.receiveBridgeMessage(
+        '{"version":1,"type":"state","payload":{"status":"playing"}}'
+      )
+    ).toBe('rejected');
+    await expect(backend.play()).resolves.toBe(false);
+    expect(play).not.toHaveBeenCalled();
+
+    expect(backend.receiveBridgeMessage('{"version":1,"type":"ready"}')).toBe(
+      'ready'
+    );
+    expect(backend.markRuntimeUnavailable(session, 'renderer_destroyed')).toBe(
+      true
+    );
+    expect(backend.isBridgeReady()).toBe(false);
+    expect(backend.getState()).toMatchObject({
+      status: 'error',
+      errorCode: 'renderer_destroyed',
+    });
+    expect(backend.markRuntimeUnavailable(session - 1, 'bridge_timeout')).toBe(
+      false
+    );
+  });
+
+  it('latest-command-wins: une pause récente invalide un play lent', async () => {
+    const backend = new SpotifyWebBackend();
+    let resolvePlay: (accepted: boolean) => void = () => undefined;
+    const play = jest.fn(
+      () =>
+        new Promise<boolean>((resolve) => {
+          resolvePlay = resolve;
+        })
+    );
+    const pause = jest.fn(async () => true);
+    backend.attachRuntime({
+      play,
+      pause,
+      seek: jest.fn(async () => true),
+      next: jest.fn(async () => true),
+      previous: jest.fn(async () => true),
+    });
+    backend.receiveBridgeMessage('{"version":1,"type":"ready"}');
+
+    const oldPlay = backend.play();
+    const latestPause = backend.pause();
+    await expect(latestPause).resolves.toBe(true);
+    resolvePlay(true);
+    await expect(oldPlay).resolves.toBe(false);
+  });
+
+  it('convertit un rejet runtime en false sans fuite ni exception', async () => {
+    const backend = new SpotifyWebBackend();
+    backend.attachRuntime({
+      play: jest.fn(async () => {
+        throw new Error('private runtime detail');
+      }),
+      pause: jest.fn(async () => true),
+      seek: jest.fn(async () => true),
+      next: jest.fn(async () => true),
+      previous: jest.fn(async () => true),
+    });
+    backend.receiveBridgeMessage('{"version":1,"type":"ready"}');
+    await expect(backend.play()).resolves.toBe(false);
   });
 });
 
