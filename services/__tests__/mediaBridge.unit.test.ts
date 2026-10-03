@@ -66,7 +66,15 @@ jest.mock('expo-av', () => ({
             setVolumeAsync: jest.fn(async () => {}),
           };
 
-          return { sound };
+          return {
+            sound,
+            status: {
+              isLoaded: true,
+              isPlaying: true,
+              isBuffering: false,
+              positionMillis: 0,
+            },
+          };
         }
       ),
     },

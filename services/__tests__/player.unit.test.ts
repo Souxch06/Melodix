@@ -41,7 +41,15 @@ jest.mock('expo-av', () => ({
           lastSound = created;
           mockCreatedSounds.push(created);
 
-          return { sound: created };
+          return {
+            sound: created,
+            status: {
+              isLoaded: true,
+              isPlaying: true,
+              isBuffering: false,
+              positionMillis: 0,
+            },
+          };
         }
       ),
     },
@@ -111,6 +119,81 @@ describe('melodixPlayer engine', () => {
       provider: 'Audius',
       sourceId: 'aud-good',
       score: 90,
+    });
+  });
+
+  it('n expose PLAYING qu après confirmation réelle du runtime expo-av', async () => {
+    const { Audio: av } = jest.requireMock('expo-av') as {
+      Audio: { Sound: { createAsync: jest.Mock } };
+    };
+    av.Sound.createAsync.mockImplementationOnce(
+      async (
+        _source: { uri: string },
+        _initial: Record<string, unknown>,
+        onStatus?: (status: Record<string, unknown>) => void
+      ) => {
+        lastStatusCallback = onStatus ?? null;
+        const created = makeSound();
+        lastSound = created;
+        mockCreatedSounds.push(created);
+        return {
+          sound: created,
+          status: {
+            isLoaded: true,
+            isPlaying: false,
+            isBuffering: true,
+            positionMillis: 0,
+          },
+        };
+      }
+    );
+
+    await melodixPlayer.playTrack(track('buffering'));
+
+    expect(melodixPlayer.getState()).toMatchObject({
+      status: 'loading',
+      buffering: true,
+      resolved: expect.objectContaining({ provider: 'Audius' }),
+    });
+
+    lastStatusCallback?.({
+      isLoaded: true,
+      isPlaying: true,
+      isBuffering: false,
+      positionMillis: 250,
+    });
+
+    expect(melodixPlayer.getState()).toMatchObject({
+      status: 'playing',
+      buffering: false,
+      positionMillis: 250,
+    });
+  });
+
+  it('un Sound chargé mais non joué reste PAUSED, jamais faux PLAYING', async () => {
+    const { Audio: av } = jest.requireMock('expo-av') as {
+      Audio: { Sound: { createAsync: jest.Mock } };
+    };
+    av.Sound.createAsync.mockImplementationOnce(async () => {
+      const created = makeSound();
+      lastSound = created;
+      mockCreatedSounds.push(created);
+      return {
+        sound: created,
+        status: {
+          isLoaded: true,
+          isPlaying: false,
+          isBuffering: false,
+          positionMillis: 0,
+        },
+      };
+    });
+
+    await melodixPlayer.playTrack(track('not-started'));
+
+    expect(melodixPlayer.getState()).toMatchObject({
+      status: 'paused',
+      buffering: false,
     });
   });
 
@@ -2147,7 +2230,16 @@ describe('Phase 5D — fiabilisation moteur (races / fin collante / seek en vol)
         });
         lastSound = created;
         mockCreatedSounds.push(created);
-        return { sound: created };
+        return {
+          sound: created,
+          status: {
+            isLoaded: true,
+            isPlaying: true,
+            isBuffering: false,
+            positionMillis: 0,
+            durationMillis: 180_000,
+          },
+        };
       }
     );
 
@@ -2271,7 +2363,15 @@ describe('Phase 5D — fiabilisation moteur (races / fin collante / seek en vol)
         created.setPositionAsync.mockReturnValueOnce(seekGate.promise);
         lastSound = created;
         mockCreatedSounds.push(created);
-        return { sound: created };
+        return {
+          sound: created,
+          status: {
+            isLoaded: true,
+            isPlaying: true,
+            isBuffering: false,
+            positionMillis: 0,
+          },
+        };
       }
     );
 
