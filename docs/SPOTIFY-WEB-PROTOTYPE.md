@@ -1,5 +1,7 @@
 # Prototype Spotify Web Player — phase 1
 
+Pour le test sur téléphone sans exposer de données de compte, suivre [la procédure physique courte](./SPOTIFY-WEB-PHYSICAL-TEST.md).
+
 ## Audit du lecteur actuel
 
 - `context/PlayerContext.tsx` expose l'état et les commandes de `melodixPlayer`. Il propose la restauration persistée mais ne la lance jamais automatiquement.
