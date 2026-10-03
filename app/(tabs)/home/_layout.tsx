@@ -8,6 +8,10 @@ export default function HomeLayout() {
         options={{ headerShown: false, animation: 'default' }}
       />
       <Stack.Screen
+        name="history"
+        options={{ headerShown: false, animation: 'default' }}
+      />
+      <Stack.Screen
         name="playlist"
         options={{ headerShown: false, animation: 'default' }}
       />

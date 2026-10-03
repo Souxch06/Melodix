@@ -108,13 +108,22 @@ export const RecentlyPlayed = () => {
 
   return (
     <View style={sectionStyles.wrapper}>
-      <Text
-        numberOfLines={1}
-        style={sectionStyles.title}
-        testID="home-recently-played-title"
-      >
-        {translations.homeRecentlyPlayed}
-      </Text>
+      <View style={sectionStyles.titleRow}>
+        <Text
+          numberOfLines={1}
+          style={sectionStyles.title}
+          testID="home-recently-played-title"
+        >
+          {translations.homeRecentlyPlayed}
+        </Text>
+        <Pressable
+          accessibilityRole="button"
+          onPress={() => router.push('/home/history')}
+          testID="home-history-open"
+        >
+          <Text style={sectionStyles.showAll}>{translations.showAll}</Text>
+        </Pressable>
+      </View>
       <View style={[styles.container, { gap, paddingHorizontal }]}>
         {recentlyPlayedData.map((item, index) => (
           <Pressable
@@ -169,10 +178,20 @@ const sectionStyles = StyleSheet.create({
   wrapper: {
     marginBottom: 24,
   },
+  showAll: {
+    color: COLORS.LIGHT_GREY,
+    fontFamily: 'SF-Semibold',
+    fontSize: 13,
+  },
   title: {
     color: COLORS.WHITE,
     fontFamily: 'SF-Semibold',
     fontSize: 20,
+  },
+  titleRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     marginBottom: 14,
     paddingHorizontal: 16,
   },

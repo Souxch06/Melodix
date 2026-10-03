@@ -169,16 +169,9 @@ export const Header = ({ tab }: HeaderPropsType) => {
           </View>
         );
       case Pages.LIBRARY:
-        return (
-          <>
-            <Pressable>
-              <Icons.Ionicons style={styles.icon} name="search" />
-            </Pressable>
-            <Pressable>
-              <Icons.AntDesign style={styles.icon} name="plus" />
-            </Pressable>
-          </>
-        );
+        // Aucun faux contrôle : recherche/ajout Library restent masqués tant
+        // qu'ils ne déclenchent pas une action réelle.
+        return null;
       case Pages.SEARCH:
         return <>{/* Render search related icons */}</>;
       default:

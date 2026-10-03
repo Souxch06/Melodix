@@ -85,6 +85,7 @@ export {
   MAX_HISTORY,
   PLAY_HISTORY_STORAGE_KEY,
   recordPlay,
+  removePlayHistoryEntry,
 } from './history/playHistory';
 export type { PlayHistoryEntry } from './history/playHistory';
 export { playerTrackFromHistoryEntry } from './history/historyPlayerTrack';

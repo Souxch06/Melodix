@@ -62,6 +62,16 @@ beforeEach(() => {
 });
 
 describe('RecentlyPlayed — navigation album (I-8)', () => {
+  it('ouvre l écran complet d historique depuis Voir tout', () => {
+    getRecentlyPlayedMock.mockResolvedValue([
+      { id: 'spotify:one', title: 'One', imageURL: '', albumId: null },
+    ]);
+    const { getByTestId } = render(<RecentlyPlayed />);
+
+    fireEvent.press(getByTestId('home-history-open'));
+    expect(mockPush).toHaveBeenCalledWith('/home/history');
+  });
+
   it('entrée AVEC albumId → /album/{albumId}, JAMAIS l id du morceau', async () => {
     const { getByText } = await renderWith([
       {
