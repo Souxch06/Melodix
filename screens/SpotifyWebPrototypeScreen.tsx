@@ -14,6 +14,7 @@ import {
   SPOTIFY_WEB_MEDIA_SESSION_PROBE,
   type PlaybackBackendState,
   type SpotifyWebDiagnosticCode,
+  type SpotifyWebRuntimeCapabilities,
 } from '../services/playbackBackend';
 
 const SPOTIFY_WEB_URL = 'https://open.spotify.com';
@@ -44,6 +45,8 @@ export const SpotifyWebPrototypeScreen = () => {
   const [backendState, setBackendState] = React.useState<PlaybackBackendState>(
     backendRef.current.getState()
   );
+  const [runtimeCapabilities, setRuntimeCapabilities] =
+    React.useState<SpotifyWebRuntimeCapabilities | null>(null);
   const [events, setEvents] = React.useState<DiagnosticEvent[]>([]);
   const [canGoBack, setCanGoBack] = React.useState(false);
   const [canGoForward, setCanGoForward] = React.useState(false);
@@ -134,6 +137,8 @@ export const SpotifyWebPrototypeScreen = () => {
       if (result === 'ready') {
         if (bridgeTimeoutRef.current) clearTimeout(bridgeTimeoutRef.current);
         report('bridge_ready');
+      } else if (result === 'capabilities-updated') {
+        setRuntimeCapabilities(backendRef.current.getRuntimeCapabilities());
       } else if (result === 'rejected') {
         report('bridge_message_rejected');
       }
@@ -186,6 +191,26 @@ export const SpotifyWebPrototypeScreen = () => {
         <Text style={styles.statusText}>
           Lecture: {backendState.status} · session: indéterminée
         </Text>
+        <Text style={styles.statusText} testID="spotify-web-capabilities">
+          MediaSession:{' '}
+          {runtimeCapabilities
+            ? runtimeCapabilities.mediaSession
+              ? 'oui'
+              : 'non'
+            : 'inconnu'}{' '}
+          · EME:{' '}
+          {runtimeCapabilities
+            ? runtimeCapabilities.eme
+              ? 'oui'
+              : 'non'
+            : 'inconnu'}{' '}
+          · Widevine:{' '}
+          {runtimeCapabilities
+            ? runtimeCapabilities.widevine
+              ? 'oui'
+              : 'non'
+            : 'inconnu'}
+        </Text>
         <Text style={styles.disclaimer}>
           Aucun cookie, token, credential ou flux n’est lu par Melodix.
         </Text>
@@ -233,6 +258,7 @@ export const SpotifyWebPrototypeScreen = () => {
           onLoadStart={() => {
             if (bridgeTimeoutRef.current)
               clearTimeout(bridgeTimeoutRef.current);
+            setRuntimeCapabilities(null);
             runtimeSessionRef.current =
               backendRef.current.beginRuntimeSession();
             report('webview_loading');

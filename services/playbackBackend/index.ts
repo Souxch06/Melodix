@@ -15,6 +15,7 @@ export {
 export type {
   SpotifyWebBridgeMessage,
   SpotifyWebCommand,
+  SpotifyWebRuntimeCapabilities,
 } from './spotifyWebBridge';
 export {
   classifySpotifyWebUrl,

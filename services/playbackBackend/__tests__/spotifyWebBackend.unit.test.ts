@@ -15,11 +15,14 @@ import {
 
 describe('Spotify Web standards-only Media Session probe', () => {
   it('utilise uniquement navigator.mediaSession et le bridge allowlisté', () => {
-    expect(SPOTIFY_WEB_MEDIA_SESSION_PROBE).toContain('navigator.mediaSession');
+    expect(SPOTIFY_WEB_MEDIA_SESSION_PROBE).toContain(
+      'navigatorApi.mediaSession'
+    );
     expect(SPOTIFY_WEB_MEDIA_SESSION_PROBE).toContain("type: 'ready'");
     expect(SPOTIFY_WEB_MEDIA_SESSION_PROBE).toContain("type: 'state'");
+    expect(SPOTIFY_WEB_MEDIA_SESSION_PROBE).toContain("'com.widevine.alpha'");
     expect(SPOTIFY_WEB_MEDIA_SESSION_PROBE).not.toMatch(
-      /cookie|localStorage|sessionStorage|XMLHttpRequest|\bfetch\b|querySelector|\.mediaKeys|eme|token/i
+      /cookie|localStorage|sessionStorage|XMLHttpRequest|\bfetch\b|querySelector|createMediaKeys|setMediaKeys|generateRequest|token/i
     );
   });
 });
@@ -94,6 +97,15 @@ describe('Spotify Web bridge validation', () => {
         '{"version":1,"type":"error","code":"network_error"}'
       )
     ).toEqual({ version: 1, type: 'error', code: 'network_error' });
+    expect(
+      parseSpotifyWebBridgeMessage(
+        '{"version":1,"type":"capabilities","payload":{"mediaSession":true,"eme":true,"widevine":false}}'
+      )
+    ).toEqual({
+      version: 1,
+      type: 'capabilities',
+      payload: { mediaSession: true, eme: true, widevine: false },
+    });
   });
 
   it.each([
@@ -104,6 +116,7 @@ describe('Spotify Web bridge validation', () => {
     '{"type":"error","code":"token=secret"}',
     '{"version":1,"type":"state","payload":{"status":"playing","cookie":"forbidden"}}',
     '{"version":1,"type":"state","payload":{"artists":"not-an-array"}}',
+    '{"version":1,"type":"capabilities","payload":{"mediaSession":true,"eme":true,"widevine":true,"key":"secret"}}',
   ])('rejette un message invalide sans throw: %s', (raw) => {
     expect(parseSpotifyWebBridgeMessage(raw)).toBeNull();
   });
@@ -290,10 +303,21 @@ describe('SpotifyWebBackend command and renderer lifecycle', () => {
     expect(backend.receiveBridgeMessage('{"version":1,"type":"ready"}')).toBe(
       'ready'
     );
+    expect(
+      backend.receiveBridgeMessage(
+        '{"version":1,"type":"capabilities","payload":{"mediaSession":true,"eme":true,"widevine":false}}'
+      )
+    ).toBe('capabilities-updated');
+    expect(backend.getRuntimeCapabilities()).toEqual({
+      mediaSession: true,
+      eme: true,
+      widevine: false,
+    });
     expect(backend.markRuntimeUnavailable(session, 'renderer_destroyed')).toBe(
       true
     );
     expect(backend.isBridgeReady()).toBe(false);
+    expect(backend.getRuntimeCapabilities()).toBeNull();
     expect(backend.getState()).toMatchObject({
       status: 'error',
       errorCode: 'renderer_destroyed',

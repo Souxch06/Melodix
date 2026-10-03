@@ -75,6 +75,13 @@ elif printf '%s\n' "$WEB_UI" | grep -Fq 'bridge_timeout'; then
 else
   fail "aucun résultat explicite du handshake Spotify Web (ready/timeout)"
 fi
+if printf '%s\n' "$WEB_UI" | grep -Fq 'Widevine: oui'; then
+  echo "::notice title=Capacité DRM WebView::EME et Widevine déclarés disponibles par Android WebView"
+elif printf '%s\n' "$WEB_UI" | grep -Fq 'Widevine: non'; then
+  echo "::warning title=Capacité DRM WebView::Widevine indisponible pour la configuration audio EME testée"
+else
+  echo "::warning title=Capacité DRM WebView::résultat Widevine inconnu (probe non conclu)"
+fi
 adb shell input keyevent KEYCODE_HOME || fail "prototype WebView impossible à mettre en arrière-plan"
 sleep 2
 WEB_RETURN=$(adb shell am start -W -n "$PACKAGE/.MainActivity" 2>&1) || \

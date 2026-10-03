@@ -10,9 +10,20 @@ export type SpotifyWebCommand =
   | { version: 1; command: 'next' }
   | { version: 1; command: 'previous' };
 
+export type SpotifyWebRuntimeCapabilities = {
+  mediaSession: boolean;
+  eme: boolean;
+  widevine: boolean;
+};
+
 export type SpotifyWebBridgeMessage =
   | { version: 1; type: 'ready' }
   | { version: 1; type: 'state'; payload: SpotifyWebPlaybackInput }
+  | {
+      version: 1;
+      type: 'capabilities';
+      payload: SpotifyWebRuntimeCapabilities;
+    }
   | { version: 1; type: 'error'; code: string };
 
 export type SpotifyWebBridgeParseResult =
@@ -150,6 +161,25 @@ export const parseSpotifyWebBridgeMessage = (
     return { version: 1, type: 'state', payload: value.payload };
   }
   if (
+    value.type === 'capabilities' &&
+    hasOnlyKeys(value, ['version', 'type', 'payload']) &&
+    isRecord(value.payload) &&
+    hasOnlyKeys(value.payload, ['mediaSession', 'eme', 'widevine']) &&
+    typeof value.payload.mediaSession === 'boolean' &&
+    typeof value.payload.eme === 'boolean' &&
+    typeof value.payload.widevine === 'boolean'
+  ) {
+    return {
+      version: 1,
+      type: 'capabilities',
+      payload: {
+        mediaSession: value.payload.mediaSession,
+        eme: value.payload.eme,
+        widevine: value.payload.widevine,
+      },
+    };
+  }
+  if (
     value.type === 'error' &&
     hasOnlyKeys(value, ['version', 'type', 'code']) &&
     typeof value.code === 'string' &&
@@ -184,6 +214,7 @@ export const classifySpotifyWebBridgeMessage = (
       typeof value.type === 'string' &&
       value.type !== 'ready' &&
       value.type !== 'state' &&
+      value.type !== 'capabilities' &&
       value.type !== 'error'
     ) {
       return { kind: 'ignored' };
