@@ -350,6 +350,28 @@ jobs:
             echo "::error title=SPOTIFY-DIAG 3/3 scheme APK::melodix absent du manifest final"
             exit 1
           fi
+          # Cohérence redirect : le bundle JS de l'APK doit contenir l'URI
+          # effectif (inlinage EXPO_PUBLIC ou défaut natif) ; et si un scheme
+          # de TEST a été configuré, l'intent-filter correspondant doit être
+          # dans le manifest, sinon le callback ne reviendrait jamais à l'app.
+          EFFECTIVE_URI="${SPOTIFY_REDIRECT_URI:-melodix://callback}"
+          if unzip -p "$APK" assets/index.android.bundle 2>/dev/null | grep -aqF "$EFFECTIVE_URI"; then
+            echo "::notice title=SPOTIFY-DIAG 4/4 bundle::redirect URI effectif inliné dans le bundle JS de l'APK (getSpotifyRedirectUri renverra cette valeur)"
+          else
+            echo "::error title=SPOTIFY-DIAG 4/4 bundle::redirect URI effectif absent du bundle — build incohérent"
+            exit 1
+          fi
+          TEST_SCHEME="${EFFECTIVE_URI%%://*}"
+          if [ "$TEST_SCHEME" != "melodix" ]; then
+            if "$APKANALYZER" manifest print "$APK" | grep -Fq "android:scheme=\"$TEST_SCHEME\""; then
+              echo "::notice title=SPOTIFY-DIAG 5/5 intent-filter::intent-filter du scheme de test présent dans le manifest final ; fallback melodix conservé"
+            else
+              echo "::error title=SPOTIFY-DIAG 5/5 intent-filter::scheme de test '$TEST_SCHEME' absent du manifest — impossible de router le callback vers l'app"
+              exit 1
+            fi
+          else
+            echo "::notice title=SPOTIFY-DIAG 5/5 intent-filter::URI effectif = scheme natif melodix (défaut de production), aucun intent-filter additionnel requis"
+          fi
 
       - name: Publier l'APK comme artefact
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
@@ -367,11 +389,20 @@ jobs:
           APK: ${{ steps.apk.outputs.name }}
           URI: ${{ inputs.spotify_redirect_uri || vars.SPOTIFY_REDIRECT_URI || 'melodix://callback' }}
         run: |
+          SHA256=$(sha256sum "$APK" | cut -d' ' -f1)
+          SIZE=$(stat -c '%s' "$APK")
+          NOTES="Build de TEST publié par le workflow (run ${{ github.run_id }}). Redirect URI embarqué et vérifié dans l'APK : $URI. SHA-256 : $SHA256 — taille : $SIZE octets — commit exact : $BUILD_SHA. Revenir à la release officielle pour l'usage normal."
           gh release create spotify-oauth-test "$APK" \
             --repo "$GITHUB_REPOSITORY" \
+            --target "$BUILD_SHA" \
             --title "TEST OAuth Spotify (diagnostic — JAMAIS en usage normal)" \
-            --notes "Build de TEST. Redirect URI embarqué : $URI. Revenir à la release officielle pour l'usage normal." \
-            --prerelease || gh release upload spotify-oauth-test "$APK" --clobber
+            --notes "$NOTES" \
+            --prerelease \
+          || {
+            gh release edit spotify-oauth-test --repo "$GITHUB_REPOSITORY" \
+              --target "$BUILD_SHA" --notes "$NOTES"
+            gh release upload spotify-oauth-test "$APK" --clobber
+          }
 
       - name: Joindre l'APK à la release
         if: github.event_name == 'release'
