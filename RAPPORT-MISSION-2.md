@@ -2,15 +2,15 @@
 
 ## Build
 
-| Élément | Valeur |
-|---|---|
-| Workflow utilisé | `.github/workflows/android-apk.yml` (**l'existant**, aucun second créé) |
-| Déclenchement | `workflow_dispatch` sur `arena/01a106dd-melodix` avec `publish_test_apk: true` |
-| Version | `4.5.0-test.1` |
-| `versionCode` | `45001` (convention conservée `major*10000 + minor*1000 + patch` + itération) |
-| `applicationId` / namespace | `com.souxch06.melodix` |
-| APK attendu | `Melodix-v4.5.0-test.1.apk` (pas de suffixe SHA : build destiné à être publié) |
-| Node / Java / Gradle | Node 20 / Java 17 / Gradle (Expo) — versions existantes du workflow, non modifiées |
+| Élément                     | Valeur                                                                             |
+| --------------------------- | ---------------------------------------------------------------------------------- |
+| Workflow utilisé            | `.github/workflows/android-apk.yml` (**l'existant**, aucun second créé)            |
+| Déclenchement               | `workflow_dispatch` sur `arena/01a106dd-melodix` avec `publish_test_apk: true`     |
+| Version                     | `4.5.0-test.1`                                                                     |
+| `versionCode`               | `45001` (convention conservée `major*10000 + minor*1000 + patch` + itération)      |
+| `applicationId` / namespace | `com.souxch06.melodix`                                                             |
+| APK attendu                 | `Melodix-v4.5.0-test.1.apk` (pas de suffixe SHA : build destiné à être publié)     |
+| Node / Java / Gradle        | Node 20 / Java 17 / Gradle (Expo) — versions existantes du workflow, non modifiées |
 
 Ordre du pipeline (23 étapes, vérifié sur le YAML) :
 
@@ -57,13 +57,13 @@ Aucune Release « verte » ne peut sortir d'une étape rouge.
 
 ## APK
 
-| Élément | Valeur |
-|---|---|
-| SHA-256 | **à fournir après le run** — je n'ai pas pu construire l'APK |
-| Taille | **à fournir après le run** |
-| Commit | `c7c95d883d1faefa77ac745556669263fce5328c` |
-| Workflow run ID | **à fournir après le run** |
-| Tag | `v4.5.0-test.1` (vérifié libre sur le remote le 2026-10-04) |
+| Élément         | Valeur                                                       |
+| --------------- | ------------------------------------------------------------ |
+| SHA-256         | **à fournir après le run** — je n'ai pas pu construire l'APK |
+| Taille          | **à fournir après le run**                                   |
+| Commit          | `c7c95d883d1faefa77ac745556669263fce5328c`                   |
+| Workflow run ID | **à fournir après le run**                                   |
+| Tag             | `v4.5.0-test.1` (vérifié libre sur le remote le 2026-10-04)  |
 
 Je ne dispose d'aucune de ces valeurs réelles et je ne les invente pas.
 
@@ -101,30 +101,30 @@ et la lecture réelle y sont explicitement déclarés **non validés**.
 
 Tout ce qui suit a été exécuté localement sur le commit poussé :
 
-| Vérification | Résultat |
-|---|---|
-| `npx tsc --noEmit` | exit 0 |
-| `npx jest --runInBand` | **988 passent**, 15 ignorés, 1003 au total, 86 suites |
-| `npm run lint` (ESLint) | exit 0 |
-| `npm run prettier:check` | tous conformes |
-| `git diff --check` | exit 0 |
-| YAML du workflow (`js-yaml`) | valide, 23 étapes, `permissions: {contents: write}`, `on: [pull_request, workflow_dispatch, release]` |
-| `bash -n` sur les 17 scripts shell du workflow | syntaxe valide pour les 17 |
-| Scan de secrets dans le diff | aucun |
-| `expo prebuild` | `versionCode 45001`, `versionName "4.5.0-test.1"`, `com.souxch06.melodix`, 4 ABI |
-| Manifeste généré (avec le redirect de test) | contient **`comspotifytestsdk` ET `melodix`** |
-| Bundle Metro (`expo export:embed`) | 1711 modules, contient le littéral `comspotifytestsdk://callback` |
-| Résolution de tag | correcte dans les 5 cas testés (voir ci-dessous) |
+| Vérification                                   | Résultat                                                                                              |
+| ---------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| `npx tsc --noEmit`                             | exit 0                                                                                                |
+| `npx jest --runInBand`                         | **988 passent**, 15 ignorés, 1003 au total, 86 suites                                                 |
+| `npm run lint` (ESLint)                        | exit 0                                                                                                |
+| `npm run prettier:check`                       | tous conformes                                                                                        |
+| `git diff --check`                             | exit 0                                                                                                |
+| YAML du workflow (`js-yaml`)                   | valide, 23 étapes, `permissions: {contents: write}`, `on: [pull_request, workflow_dispatch, release]` |
+| `bash -n` sur les 17 scripts shell du workflow | syntaxe valide pour les 17                                                                            |
+| Scan de secrets dans le diff                   | aucun                                                                                                 |
+| `expo prebuild`                                | `versionCode 45001`, `versionName "4.5.0-test.1"`, `com.souxch06.melodix`, 4 ABI                      |
+| Manifeste généré (avec le redirect de test)    | contient **`comspotifytestsdk` ET `melodix`**                                                         |
+| Bundle Metro (`expo export:embed`)             | 1711 modules, contient le littéral `comspotifytestsdk://callback`                                     |
+| Résolution de tag                              | correcte dans les 5 cas testés (voir ci-dessous)                                                      |
 
 ### Résolution de tag — 5 cas testés en réel contre le dépôt
 
-| Cas | Comportement |
-|---|---|
-| Tag libre | utilisé directement |
-| `v4.4.0` (annoté) sur un autre commit | → `v4.4.0-test.2` |
-| `v4.3.0` (léger) sur un autre commit | → `v4.3.0-test.2` |
-| Tag sur le commit construit | tag réutilisé + `::notice` |
-| Réponse inattendue / 404 | tag libre (pas d'incrément parasite) |
+| Cas                                   | Comportement                         |
+| ------------------------------------- | ------------------------------------ |
+| Tag libre                             | utilisé directement                  |
+| `v4.4.0` (annoté) sur un autre commit | → `v4.4.0-test.2`                    |
+| `v4.3.0` (léger) sur un autre commit  | → `v4.3.0-test.2`                    |
+| Tag sur le commit construit           | tag réutilisé + `::notice`           |
+| Réponse inattendue / 404              | tag libre (pas d'incrément parasite) |
 
 ### Bugs trouvés en exécutant vraiment la logique
 
@@ -162,15 +162,15 @@ Deux bugs réels ont été trouvés par l'exécution, pas par lecture :
 
 ## Git
 
-| Élément | Valeur |
-|---|---|
-| Branche de travail | `arena/01a106dd-melodix` |
-| Commit poussé | `c7c95d8` `ci(android): publish a real, installable test Release` |
-| Parent | `9dd2b4a` (rapport mission 1) |
-| `main` | `fceab85` — **intact**, local == origin, jamais touché |
-| Fichiers modifiés | 10 (+232 / −34) |
-| Arbre de travail | propre |
-| `git ls-remote` | `arena/01a106dd-melodix` → `c7c95d8`, `main` → `fceab85` |
+| Élément            | Valeur                                                            |
+| ------------------ | ----------------------------------------------------------------- |
+| Branche de travail | `arena/01a106dd-melodix`                                          |
+| Commit poussé      | `c7c95d8` `ci(android): publish a real, installable test Release` |
+| Parent             | `9dd2b4a` (rapport mission 1)                                     |
+| `main`             | `fceab85` — **intact**, local == origin, jamais touché            |
+| Fichiers modifiés  | 10 (+232 / −34)                                                   |
+| Arbre de travail   | propre                                                            |
+| `git ls-remote`    | `arena/01a106dd-melodix` → `c7c95d8`, `main` → `fceab85`          |
 
 Fichiers : `.github/workflows/android-apk.yml`, `.gitignore` (ignore `android/`,
 généré par prebuild, jamais versionné), `app.config.js`, `package.json`,
@@ -184,7 +184,7 @@ Aucune logique applicative modifiée.
 
 **Déclencher le workflow**, car mon jeton n'a pas le scope `workflow` (403) :
 
-> Actions → **APK Android** → *Run workflow* → branche `arena/01a106dd-melodix` →
+> Actions → **APK Android** → _Run workflow_ → branche `arena/01a106dd-melodix` →
 > `spotify_redirect_uri` = `comspotifytestsdk://callback` →
 > `publish_test_apk` = `true` → Run.
 
