@@ -3,23 +3,24 @@ import { AppState, Pressable, StyleSheet, Text, View } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useRouter } from 'expo-router';
 import { WebView } from 'react-native-webview';
-import type { WebViewNavigation } from 'react-native-webview';
-import type { WebViewRenderProcessGoneEvent } from 'react-native-webview/lib/WebViewTypes';
 
 import { COLORS } from '@config';
 import {
-  diagnosticPageLabel,
+  DEFAULT_SPOTIFY_WEB_BRIDGE_READY_TIMEOUT_MS,
   isAllowedSpotifyWebNavigation,
   SpotifyWebBackend,
+  SpotifyWebRuntime,
   SPOTIFY_WEB_MEDIA_SESSION_PROBE,
   type PlaybackBackendState,
   type SpotifyWebDiagnosticCode,
   type SpotifyWebRuntimeCapabilities,
+  type SpotifyWebRuntimeSnapshot,
 } from '../services/playbackBackend';
 
 const SPOTIFY_WEB_URL = 'https://open.spotify.com';
 const MAX_EVENTS = 12;
-export const SPOTIFY_WEB_BRIDGE_READY_TIMEOUT_MS = 8_000;
+export const SPOTIFY_WEB_BRIDGE_READY_TIMEOUT_MS =
+  DEFAULT_SPOTIFY_WEB_BRIDGE_READY_TIMEOUT_MS;
 
 type DiagnosticEvent = {
   id: number;
@@ -30,30 +31,22 @@ type DiagnosticEvent = {
 /**
  * Experimental, isolated WebView probe. It does not receive OAuth PKCE data,
  * inspect cookies/storage, inject scripts, scrape the DOM or touch PlayerContext.
+ * The WebView lifecycle (loading / handshake / error, renderer loss and bounded
+ * reconnection) is owned by `SpotifyWebRuntime`; this screen only renders its
+ * snapshot and forwards WebView events to it.
  */
 export const SpotifyWebPrototypeScreen = () => {
   const router = useRouter();
   const webViewRef = React.useRef<WebView>(null);
   const backendRef = React.useRef(new SpotifyWebBackend());
   const eventIdRef = React.useRef(0);
-  const sawLoginRef = React.useRef(false);
-  const currentPageRef = React.useRef('open.spotify.com');
-  const runtimeSessionRef = React.useRef(0);
-  const bridgeTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(
-    null
-  );
   const [backendState, setBackendState] = React.useState<PlaybackBackendState>(
     backendRef.current.getState()
   );
   const [runtimeCapabilities, setRuntimeCapabilities] =
     React.useState<SpotifyWebRuntimeCapabilities | null>(null);
   const [events, setEvents] = React.useState<DiagnosticEvent[]>([]);
-  const [canGoBack, setCanGoBack] = React.useState(false);
-  const [canGoForward, setCanGoForward] = React.useState(false);
-  const [rendererAvailable, setRendererAvailable] = React.useState(true);
-  const [bridgeStatus, setBridgeStatus] = React.useState<
-    'attente' | 'prêt' | 'timeout' | 'renderer détruit'
-  >('attente');
+  const [webViewGeneration, setWebViewGeneration] = React.useState(0);
 
   const report = React.useCallback(
     (code: DiagnosticEvent['code'], detail?: string) => {
@@ -68,9 +61,28 @@ export const SpotifyWebPrototypeScreen = () => {
     []
   );
 
+  const [runtime] = React.useState(
+    () =>
+      new SpotifyWebRuntime({
+        backend: backendRef.current,
+        report,
+        reloadWebView: (scope) => {
+          if (scope === 'remount') {
+            // Recreated native surface after a destroyed renderer.
+            setWebViewGeneration((generation) => generation + 1);
+          } else {
+            webViewRef.current?.reload();
+          }
+        },
+      })
+  );
+  const [runtimeSnapshot, setRuntimeSnapshot] =
+    React.useState<SpotifyWebRuntimeSnapshot>(() => runtime.getSnapshot());
+
   React.useEffect(() => {
     const backend = backendRef.current;
     const unsubscribe = backend.subscribe(setBackendState);
+    const unsubscribeRuntime = runtime.subscribe(setRuntimeSnapshot);
     // Commands intentionally remain unavailable until a reliable, approved
     // runtime API exists. No DOM/media-element control is injected.
     backend.attachRuntime({
@@ -80,77 +92,30 @@ export const SpotifyWebPrototypeScreen = () => {
       next: async () => false,
       previous: async () => false,
     });
-    runtimeSessionRef.current = backend.beginRuntimeSession();
+    runtime.mount();
     return () => {
-      if (bridgeTimeoutRef.current) clearTimeout(bridgeTimeoutRef.current);
+      runtime.unmount();
+      unsubscribeRuntime();
       unsubscribe();
       backend.destroy();
     };
-  }, []);
+  }, [runtime]);
 
   React.useEffect(() => {
     const subscription = AppState.addEventListener('change', (nextState) => {
-      report(nextState === 'active' ? 'foreground' : 'background');
+      runtime.onAppStateChange(nextState);
     });
     return () => subscription.remove();
-  }, [report]);
+  }, [runtime]);
 
-  const handleNavigation = React.useCallback(
-    (navigation: WebViewNavigation) => {
-      const label = diagnosticPageLabel(navigation.url);
-      currentPageRef.current = label;
-      setCanGoBack(navigation.canGoBack);
-      setCanGoForward(navigation.canGoForward);
-      if (label === 'accounts.spotify.com') {
-        sawLoginRef.current = true;
-        report('login_page', label);
-      } else if (label === 'open.spotify.com') {
-        report(
-          sawLoginRef.current ? 'returned_from_login' : 'spotify_loaded',
-          label
-        );
-      }
-    },
-    [report]
-  );
-
-  const handleRendererGone = React.useCallback(
-    (_event: WebViewRenderProcessGoneEvent) => {
-      setRendererAvailable(false);
-      if (bridgeTimeoutRef.current) clearTimeout(bridgeTimeoutRef.current);
-      backendRef.current.markRuntimeUnavailable(
-        runtimeSessionRef.current,
-        'renderer_destroyed'
-      );
-      setBridgeStatus('renderer détruit');
-      report('renderer_destroyed');
-    },
-    [report]
-  );
-
-  const reload = React.useCallback(() => {
-    setRendererAvailable(true);
-    backendRef.current.updateState({ status: 'loading' });
-    report('webview_loading', 'rechargement manuel');
-    webViewRef.current?.reload();
-  }, [report]);
-
-  const handleBridgeMessage = React.useCallback(
-    (raw: unknown) => {
-      const result = backendRef.current.receiveBridgeMessage(raw);
-      if (result === 'ready') {
-        if (bridgeTimeoutRef.current) clearTimeout(bridgeTimeoutRef.current);
-        setBridgeStatus('prêt');
-        report('bridge_ready');
-      } else if (result === 'capabilities-updated') {
-        setRuntimeCapabilities(backendRef.current.getRuntimeCapabilities());
-      } else if (result === 'rejected') {
-        report('bridge_message_rejected');
-      }
-      // Unknown version-1 message types are deliberately ignored without log.
-    },
-    [report]
-  );
+  const snapshot = runtimeSnapshot;
+  const bridgeLabel = !snapshot.rendererAvailable
+    ? 'renderer détruit'
+    : snapshot.phase === 'ready'
+      ? 'prêt'
+      : snapshot.lossCause === 'bridge_timeout'
+        ? 'timeout'
+        : 'attente';
 
   const requestCommand = React.useCallback(
     async (command: 'play' | 'pause') => {
@@ -180,7 +145,7 @@ export const SpotifyWebPrototypeScreen = () => {
         </View>
         <Pressable
           accessibilityLabel="Recharger"
-          onPress={reload}
+          onPress={() => runtime.manualReload()}
           style={styles.iconButton}
           testID="spotify-web-reload"
         >
@@ -190,11 +155,15 @@ export const SpotifyWebPrototypeScreen = () => {
 
       <View style={styles.statusPanel}>
         <Text style={styles.statusText} testID="spotify-web-status">
-          WebView: {rendererAvailable ? 'active' : 'renderer détruit'} · page:{' '}
-          {currentPageRef.current}
+          WebView: {snapshot.rendererAvailable ? 'active' : 'renderer détruit'}{' '}
+          · page: {snapshot.page}
         </Text>
         <Text style={styles.statusText} testID="spotify-web-bridge-status">
-          Bridge: {bridgeStatus}
+          Bridge: {bridgeLabel}
+        </Text>
+        <Text style={styles.statusText} testID="spotify-web-runtime-status">
+          Runtime: {snapshot.phase} · reconnexion {snapshot.reconnectAttempt}/
+          {snapshot.maxReconnectAttempts}
         </Text>
         <Text style={styles.statusText}>
           Lecture: {backendState.status} · session: indéterminée
@@ -231,51 +200,36 @@ export const SpotifyWebPrototypeScreen = () => {
           domStorageEnabled
           injectedJavaScript={SPOTIFY_WEB_MEDIA_SESSION_PROBE}
           javaScriptEnabled
+          key={`spotify-webview-${webViewGeneration}`}
           mediaPlaybackRequiresUserAction
           mixedContentMode="never"
-          onError={() => {
-            backendRef.current.updateState({
-              status: 'error',
-              errorCode: 'network_error',
-            });
-            report('network_error');
-          }}
-          onHttpError={(event) => {
-            const code =
-              diagnosticPageLabel(event.nativeEvent.url) === 'open.spotify.com'
-                ? 'web_player_inaccessible'
-                : 'http_error';
-            report(code, `HTTP ${event.nativeEvent.statusCode}`);
-          }}
-          onLoadEnd={() => {
-            report('webview_loaded');
-            if (bridgeTimeoutRef.current)
-              clearTimeout(bridgeTimeoutRef.current);
-            const session = runtimeSessionRef.current;
-            bridgeTimeoutRef.current = setTimeout(() => {
-              if (
-                backendRef.current.markRuntimeUnavailable(
-                  session,
-                  'bridge_timeout'
-                )
-              ) {
-                setBridgeStatus('timeout');
-                report('bridge_timeout');
-              }
-            }, SPOTIFY_WEB_BRIDGE_READY_TIMEOUT_MS);
-          }}
+          onError={() => runtime.onNetworkError()}
+          onHttpError={(event) =>
+            runtime.onHttpError(
+              event.nativeEvent.url,
+              event.nativeEvent.statusCode
+            )
+          }
+          onLoadEnd={runtime.onLoadEnd}
           onLoadStart={() => {
-            if (bridgeTimeoutRef.current)
-              clearTimeout(bridgeTimeoutRef.current);
             setRuntimeCapabilities(null);
-            setBridgeStatus('attente');
-            runtimeSessionRef.current =
-              backendRef.current.beginRuntimeSession();
-            report('webview_loading');
+            runtime.onLoadStart();
           }}
-          onMessage={(event) => handleBridgeMessage(event.nativeEvent.data)}
-          onNavigationStateChange={handleNavigation}
-          onRenderProcessGone={handleRendererGone}
+          onMessage={(event) => {
+            const result = runtime.handleBridgeMessage(event.nativeEvent.data);
+            if (result === 'capabilities-updated') {
+              setRuntimeCapabilities(
+                backendRef.current.getRuntimeCapabilities()
+              );
+            }
+          }}
+          onNavigationStateChange={(navigation) =>
+            runtime.onNavigationState(navigation)
+          }
+          onRenderProcessGone={() => {
+            setRuntimeCapabilities(null);
+            runtime.onRendererGone();
+          }}
           onShouldStartLoadWithRequest={(request) => {
             const allowed = isAllowedSpotifyWebNavigation(request.url);
             if (!allowed) report('navigation_blocked');
@@ -295,8 +249,8 @@ export const SpotifyWebPrototypeScreen = () => {
       <View style={styles.controls}>
         <Pressable
           onPress={() => webViewRef.current?.goBack()}
-          disabled={!canGoBack}
-          style={[styles.control, !canGoBack && styles.disabled]}
+          disabled={!snapshot.canGoBack}
+          style={[styles.control, !snapshot.canGoBack && styles.disabled]}
           testID="spotify-web-back"
         >
           <Ionicons color={COLORS.WHITE} name="arrow-back" size={20} />
@@ -317,8 +271,8 @@ export const SpotifyWebPrototypeScreen = () => {
         </Pressable>
         <Pressable
           onPress={() => webViewRef.current?.goForward()}
-          disabled={!canGoForward}
-          style={[styles.control, !canGoForward && styles.disabled]}
+          disabled={!snapshot.canGoForward}
+          style={[styles.control, !snapshot.canGoForward && styles.disabled]}
           testID="spotify-web-forward"
         >
           <Ionicons color={COLORS.WHITE} name="arrow-forward" size={20} />
