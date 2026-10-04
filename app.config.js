@@ -83,7 +83,7 @@ module.exports = {
   expo: {
     name: 'Melodix',
     slug: 'melodix',
-    version: '4.4.8-diagnostic',
+    version: '4.5.0-test.1',
     orientation: 'portrait',
     icon: './assets/images/icon.png',
     scheme: 'melodix',
@@ -104,7 +104,7 @@ module.exports = {
     },
     android: {
       package: 'com.souxch06.melodix',
-      versionCode: 44008,
+      versionCode: 45001,
       intentFilters: extraIntentFilters,
       // Le lecteur streame via le stockage privé d'expo-av : aucun accès au
       // stockage partagé ni overlay système n'est nécessaire en production.
