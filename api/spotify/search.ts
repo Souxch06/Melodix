@@ -121,6 +121,10 @@ const trackToLibraryItem = (raw: SpotifyTrackHit): LibraryItemModel | null => {
     durationMs: typeof raw.duration_ms === 'number' ? raw.duration_ms : null,
     albumName: raw.album?.name ?? null,
     isrc: isrcOf(raw),
+    // Classification EXPLICIT : signal de VERSION, pas un simple bonus. Sans
+    // elle la porte content-rating du matcher restait muette et un upload
+    // clean pouvait être servi à la place d'une demande explicite.
+    explicit: typeof raw.explicit === 'boolean' ? raw.explicit : null,
   };
 };
 

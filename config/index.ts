@@ -21,7 +21,6 @@ export {
   BROWSE_CATEGORY_IMAGE_SIZE,
   APP_SCHEME,
   AUTH_REDIRECT_PATH,
-  SPOTIFY_SCOPES,
 } from './constants';
 export { COLORS, BROWSE_CATEGORIES_COLORS } from './colors';
 export {

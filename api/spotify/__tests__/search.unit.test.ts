@@ -121,6 +121,54 @@ it('keeps the matching metadata on tracks (duration, album, uppercase ISRC)', as
   });
 });
 
+/**
+ * DISPONIBILITÉ AUDIO — la classification explicit doit survivre au mapping.
+ *
+ * Sans elle, la porte `content-rating-mismatch` du matcher ne peut jamais
+ * s'appliquer : une demande EXPLICITE peut être servie par un upload CLEAN
+ * (et inversement). Ce n'est pas une indisponibilité, c'est un MAUVAIS
+ * enregistrement — exactement ce que le moteur de matching doit éviter.
+ */
+it('propage la classification explicit du résultat (jamais neutralisée)', async () => {
+  mockedGet.mockResolvedValue({
+    tracks: {
+      items: [
+        {
+          id: 'tr-explicit',
+          name: 'Aerodynamic',
+          explicit: true,
+          duration_ms: 212_000,
+          artists: [{ id: 'ar1', name: 'Daft Punk' }],
+          album: { name: 'Discovery' },
+        },
+        {
+          id: 'tr-clean',
+          name: 'One More Time',
+          explicit: false,
+          duration_ms: 320_000,
+          artists: [{ id: 'ar1', name: 'Daft Punk' }],
+          album: { name: 'Discovery' },
+        },
+        {
+          id: 'tr-inconnu',
+          name: 'Veridis Quo',
+          duration_ms: 344_000,
+          artists: [{ id: 'ar1', name: 'Daft Punk' }],
+          album: { name: 'Discovery' },
+        },
+      ],
+    },
+  });
+
+  const results = await searchSpotifyCatalog('daft punk');
+
+  expect(results.tracks.map((track) => track.explicit)).toEqual([
+    true,
+    false,
+    null,
+  ]);
+});
+
 it('joins every artist of a track into the subtitle', async () => {
   mockedGet.mockResolvedValue({
     tracks: {

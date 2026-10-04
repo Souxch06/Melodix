@@ -143,13 +143,26 @@ export const Search = () => {
 
       void player.playQueue(
         playable.map(
-          ({ id, title, subtitle, imageURL, albumName, durationMs, isrc }) => ({
+          ({
+            id,
+            title,
+            subtitle,
+            imageURL,
+            albumName,
+            durationMs,
+            isrc,
+            explicit,
+          }) => ({
             id: queueIdForTrackId(id),
             title,
             artists: artistsFromSubtitle(subtitle),
             album: albumName ?? null,
             durationMillis: durationMs ?? null,
             isrc: isrc ?? null,
+            // Classification de version : sans elle la porte content-rating du
+            // matcher reste muette (upload clean servi pour une demande
+            // explicite). Neutre quand la source ne la publie pas.
+            explicit: explicit ?? null,
             imageURL: imageURL ?? '',
             source: sourceForTrackId(id),
           })
@@ -171,6 +184,7 @@ export const Search = () => {
       durationMs?: number | null;
       albumName?: string | null;
       isrc?: string | null;
+      explicit?: boolean | null;
     }) => {
       if (!track.id) {
         return;
@@ -183,6 +197,7 @@ export const Search = () => {
         album: track.albumName ?? null,
         durationMillis: track.durationMs ?? null,
         isrc: track.isrc ?? null,
+        explicit: track.explicit ?? null,
         imageURL: track.imageURL ?? '',
         source: sourceForTrackId(track.id),
       });

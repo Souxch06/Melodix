@@ -169,6 +169,51 @@ describe('Search — PlayerTrack propagés (I-2)', () => {
       isrc: 'USRT19901234',
     });
   });
+
+  /**
+   * DISPONIBILITÉ AUDIO — la classification explicit du résultat doit
+   * atteindre le matcher, sinon la porte content-rating reste muette et un
+   * upload CLEAN peut remplacer une demande EXPLICITE.
+   */
+  it('pression : la classification explicit du résultat voyage jusqu au matcher', async () => {
+    searchCatalogMock.mockResolvedValue({
+      artists: [],
+      tracks: [
+        mkSlide({ id: 't1', title: 'Song One', explicit: true }),
+        mkSlide({ id: 't2', title: 'Song Two', explicit: false }),
+        mkSlide({ id: 't3', title: 'Song Three', explicit: null }),
+      ],
+      albums: [],
+      playlists: [],
+    });
+
+    const { getByPlaceholderText, getByText } = render(<Search />);
+    await typeQueryAndAdvance(getByPlaceholderText);
+
+    fireEvent.press(getByText('Song One'));
+
+    const [queue] = mockPlayQueue.mock.calls[0];
+    expect(queue.map((track) => track.explicit)).toEqual([true, false, null]);
+  });
+
+  it('appui long : la classification explicit est transmise au menu aussi', async () => {
+    searchCatalogMock.mockResolvedValue({
+      artists: [],
+      tracks: [mkSlide({ id: 't1', title: 'Song One', explicit: true })],
+      albums: [],
+      playlists: [],
+    });
+
+    const { getByPlaceholderText, getByText } = render(<Search />);
+    await typeQueryAndAdvance(getByPlaceholderText);
+
+    fireEvent(getByText('Song One'), 'longPress');
+
+    expect(mockCaptured.current).toMatchObject({
+      id: 'spotify:t1',
+      explicit: true,
+    });
+  });
 });
 
 describe('Search — debounce, races et états (zone 4)', () => {
