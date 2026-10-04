@@ -1,21 +1,32 @@
 export { AudiusYouTubeBackend } from './AudiusYouTubeBackend';
 export { buildBackendMediaSessionPayload } from './mediaProjection';
-export { SpotifyWebBackend } from './SpotifyWebBackend';
+export {
+  DEFAULT_SPOTIFY_WEB_COMMAND_TIMEOUT_MS,
+  SpotifyWebBackend,
+} from './SpotifyWebBackend';
 export { SPOTIFY_WEB_MEDIA_SESSION_PROBE } from './spotifyWebMediaSessionProbe';
 export type {
+  SpotifyWebBackendOptions,
   SpotifyWebBridgeResult,
+  SpotifyWebBridgeTransport,
+  SpotifyWebCommandScheduler,
   SpotifyWebRuntimeCommands,
 } from './SpotifyWebBackend';
 export {
   INITIAL_SPOTIFY_WEB_STATE,
+  mapSpotifyWebBridgePayload,
   normalizeSpotifyWebState,
 } from './spotifyWebState';
 export type { SpotifyWebPlaybackInput } from './spotifyWebState';
 export {
+  buildSpotifyWebBridgeCommandMessage,
   parseSpotifyWebBridgeMessage,
   parseSpotifyWebCommand,
+  SPOTIFY_WEB_BRIDGE_SUPPORTED_VERSIONS,
+  SPOTIFY_WEB_BRIDGE_VERSION,
 } from './spotifyWebBridge';
 export type {
+  SpotifyWebBridgeCommandName,
   SpotifyWebBridgeMessage,
   SpotifyWebCommand,
   SpotifyWebRuntimeCapabilities,
