@@ -53,3 +53,48 @@ Aucune capture ne doit montrer email, identifiant, QR code de connexion, cookie,
 - `Bridge: prêt` prouve uniquement le canal WebView ↔ React Native, pas l'authentification ni l'audio.
 - `Lecture: playing` provenant de `navigator.mediaSession` est un signal standard utile, mais le son audible reste la preuve nécessaire.
 - Durée et position peuvent rester indisponibles : l'API Media Session standard ne fournit pas de getter portable pour ces valeurs.
+
+## Extension pont v2 — ce que l'écran affiche désormais (depuis le commit `acac71b`+)
+
+Lignes du panneau de diagnostic Melodix, toutes en indicateurs contrôlés sans
+donnée sensible (jamais d'URL complète, cookie, token, credential, contenu de
+requête/réponse ni donnée de compte) :
+
+- `WebView: active | renderer détruit · page: …` — disponibilité du renderer et label de page ;
+- `Bridge: attente | prêt | timeout | renderer détruit` — handshake `bridge_ready` reçu ou non ;
+- `Runtime: idle|loading|awaiting-bridge|ready|recovering|failed · reconnexion n/3` — cycle de vie et budget de reconnexion automatique après perte (perte réseau, renderer, timeout) ;
+- `Lecture: …` — statut normalisé réellement publié par la page ;
+- `Métadonnées: titre=oui/non · artistes=oui/non · artwork=oui/non · durée=oui/non · position=oui/non · source: media-session|—` — présence des champs publiés via `navigator.mediaSession` et preuve que l'état vient du runtime de la page ;
+- `MediaSession: … · EME: … · Widevine: … · positionState: oui/non/inconnu` — capacités déclarées par le probe ;
+- panneau `Événements` — codes sûrs uniquement, y compris `command_unavailable · play · <code>` et `command_accepted · play`.
+
+### Résultat ATTENDU et VALIDE pour les commandes
+
+Sans intégration PlayerContext, la sonde `Play` envoie une vraie commande v2 corrélée.
+La page répond actuellement `{accepted:false, code:'no-authorized-execution-surface'}` :
+**c'est le résultat correct**, il prouve l'aller-retour émission → corrélation → réponse.
+
+- Ne pas transformer ce refus en succès (aucun DOM, aucun `HTMLMediaElement`, aucun `dispatchEvent`, aucun clavier synthétique — interdits de conception).
+- `command_accepted` n'est un signal positif que si la page l'a réellement publié ; même alors, la lecture « réelle » ne se prouve que par le son dans les haut-parleurs ET par `Lecture: playing` avec `source: media-session`.
+- Un bouton Spotify animé ou une page qui tourne ne prouve pas l'audio.
+
+### Lignes de résultat à ajouter au tableau existant
+
+| Point                                   | Valeur attendue à renseigner                                                                                 |
+| --------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| Handshake bridge (Bridge:)              | prêt / timeout / attente / renderer détruit                                                                  |
+| Reconnexion auto après perte réseau     | n/3 puis retour `ready` / échec                                                                              |
+| Statut lu (Lecture:) + source           | idle/playing/paused + media-session/—                                                                        |
+| Métadonnées (titre/artistes/artwork)    | oui/non par champ                                                                                            |
+| Durée/position publiées (positionState) | oui / non / inconnu                                                                                          |
+| Code réponse de commande                | no-authorized-execution-surface (valide) / command_accepted / expired / disconnected / transport-unavailable |
+| Audio après 30 s en arrière-plan (réel) | oui / non — à l'oreille, pas à l'écran                                                                       |
+
+### Ce que le smoke CI démontre déjà (Android 14 x86_64, Google Actions emulator)
+
+Le workflow `APK Android` installe le même APK sur un émulateur Android 14 réel, ouvre la
+route par deep link, vérifie l'absence de crash, le résultat explicite du handshake (`prêt`
+ou `timeout` honnête), le résultat Widevine du probe, la présence des lignes Métadonnées/
+positionState, exerce un appui réel sur la sonde `Commande lecture` (via uiautomator), puis le
+cycle arrière-plan/retour. **Ce n'est pas un test de compte Spotify** : pas de connexion, pas de
+lecture de musique — uniquement le canal WebView ↔ React Native sur un vrai runtime Android.

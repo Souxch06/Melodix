@@ -607,7 +607,124 @@ describe('Spotify Web bridge v2 : contrats purs et sécurité du probe', () => {
       )
     ).toBeNull(); // aucun champ inconnu
   });
+});
 
+describe('Spotify Web bridge v2 : diagnostics pour validation physique', () => {
+  it('journalise le refus honnête de la page sans jamais le transformer en succès', async () => {
+    const { backend, handshake, pageRespond, sent } = createHarness();
+    handshake();
+    const pending = backend.pause();
+    pageRespond(sent[0], false, 'no-authorized-execution-surface');
+    await expect(pending).resolves.toBe(false);
+    expect(backend.getLastCommandOutcome()).toEqual({
+      accepted: false,
+      code: 'no-authorized-execution-surface',
+    });
+    expect(backend.getState().status).toBe('idle');
+  });
+
+  it('marque le succès réel (accepted:true, code nul) sans toucher l’état', async () => {
+    const { backend, handshake, pageRespond, sent } = createHarness();
+    handshake();
+    const pending = backend.play();
+    pageRespond(sent[0], true);
+    await expect(pending).resolves.toBe(true);
+    expect(backend.getLastCommandOutcome()).toEqual({
+      accepted: true,
+      code: null,
+    });
+    expect(backend.getState().status).toBe('idle');
+  });
+
+  it('expire sur expired, déconnecte sur disconnected, refuse sur bridge-unavailable', async () => {
+    const { backend, handshake, scheduler } = createHarness({
+      commandTimeoutMillis: 100,
+    });
+    handshake();
+    const pending = backend.next();
+    expect(scheduler.pendingDelays).toEqual([100]);
+    scheduler.fireNext();
+    await expect(pending).resolves.toBe(false);
+    expect(backend.getLastCommandOutcome()).toEqual({
+      accepted: false,
+      code: 'expired',
+    });
+
+    expect(backend.receiveBridgeMessage(v2({ type: 'ready' }))).toBe('ready');
+    const pending2 = backend.previous();
+    backend.beginRuntimeSession(); // cycle de déconnexion/reconnexion
+    await expect(pending2).resolves.toBe(false);
+    expect(backend.getLastCommandOutcome()).toEqual({
+      accepted: false,
+      code: 'disconnected',
+    });
+
+    await expect(backend.play()).resolves.toBe(false);
+    expect(backend.getLastCommandOutcome()).toEqual({
+      accepted: false,
+      code: 'bridge-unavailable',
+    });
+  });
+
+  it('transport absent → transport-unavailable ; réponse à commande remplacée → stale', async () => {
+    const bare = new SpotifyWebBackend({ scheduler: new ManualScheduler() });
+    expect(bare.receiveBridgeMessage(v2({ type: 'ready' }))).toBe('ready');
+    await expect(bare.play()).resolves.toBe(false);
+    expect(bare.getLastCommandOutcome()).toEqual({
+      accepted: false,
+      code: 'transport-unavailable',
+    });
+
+    const { backend, handshake, pageRespond, sent } = createHarness();
+    handshake();
+    const oldPlay = backend.play();
+    backend.pause();
+    pageRespond(sent[0], true); // réponse à la commande remplacée
+    await expect(oldPlay).resolves.toBe(false);
+    expect(backend.getLastCommandOutcome()).toEqual({
+      accepted: false,
+      code: 'stale',
+    });
+  });
+
+  it('destroy() solde en disconnected puis purge le diagnostic', async () => {
+    const { backend, handshake } = createHarness();
+    handshake();
+    const pending = backend.play();
+    backend.destroy();
+    await expect(pending).resolves.toBe(false);
+    expect(backend.getLastCommandOutcome()).toBeNull();
+  });
+
+  it('expose la source bornée de l’état publié et la réinitialise au nouveau document', () => {
+    const { backend, handshake } = createHarness();
+    handshake();
+    expect(backend.getLastStateSource()).toBeNull();
+    expect(
+      backend.receiveBridgeMessage(
+        v2({
+          type: 'state',
+          payload: { status: 'playing', source: 'media-session' },
+        })
+      )
+    ).toBe('state-updated');
+    expect(backend.getLastStateSource()).toBe('media-session');
+    backend.receiveBridgeMessage(
+      v2({ type: 'state', payload: { status: 'paused' } })
+    );
+    expect(backend.getLastStateSource()).toBeNull();
+    backend.receiveBridgeMessage(
+      v2({
+        type: 'state',
+        payload: { status: 'paused', source: 'media-session' },
+      })
+    );
+    backend.beginRuntimeSession();
+    expect(backend.getLastStateSource()).toBeNull();
+  });
+});
+
+describe('Spotify Web bridge v2 : sécurité du probe injecté', () => {
   it('le probe v2 ne contient aucune surface d’exécution ou de collecte', () => {
     // Continuité du contrat v1 du probe (tests de garde existants).
     expect(SPOTIFY_WEB_MEDIA_SESSION_PROBE).toContain(

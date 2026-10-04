@@ -63,10 +63,20 @@ export type SpotifyWebBridgeResult =
   | 'ignored'
   | 'rejected';
 
+/**
+ * Physical-test diagnostic of the last bridge command. `code` is always a
+ * controlled safe identifier (never page content), used to distinguish an
+ * honest page refusal from an expiry or a disconnection.
+ */
+export type SpotifyWebCommandOutcome = {
+  accepted: boolean;
+  code: string | null;
+};
+
 type PendingCommand = {
   sequence: number;
   session: number;
-  settle: (accepted: boolean) => void;
+  settle: (accepted: boolean, code: string | null) => void;
 };
 
 /**
@@ -85,6 +95,8 @@ export class SpotifyWebBackend implements PlaybackBackend {
   private bridgeTransport: SpotifyWebBridgeTransport | null = null;
   private pendingCommands = new Map<string, PendingCommand>();
   private requestSequence = 0;
+  private lastCommandOutcome: SpotifyWebCommandOutcome | null = null;
+  private lastStateSource: string | null = null;
   private readonly commandTimeoutMillis: number;
   private readonly scheduler: SpotifyWebCommandScheduler;
 
@@ -133,6 +145,7 @@ export class SpotifyWebBackend implements PlaybackBackend {
     this.commandSequence += 1;
     this.bridgeReady = false;
     this.capabilities = null;
+    this.lastStateSource = null;
     this.flushPendingCommands();
     this.updateState({ status: 'loading' });
     return this.runtimeSession;
@@ -145,6 +158,7 @@ export class SpotifyWebBackend implements PlaybackBackend {
     if (session !== this.runtimeSession) return false;
     this.bridgeReady = false;
     this.capabilities = null;
+    this.lastStateSource = null;
     this.commandSequence += 1;
     this.flushPendingCommands();
     this.updateState({ status: 'error', errorCode });
@@ -155,6 +169,17 @@ export class SpotifyWebBackend implements PlaybackBackend {
 
   getRuntimeCapabilities = (): SpotifyWebRuntimeCapabilities | null =>
     this.capabilities ? { ...this.capabilities } : null;
+
+  /** Last bridge command outcome for diagnostics (never any page content). */
+  getLastCommandOutcome = (): SpotifyWebCommandOutcome | null =>
+    this.lastCommandOutcome ? { ...this.lastCommandOutcome } : null;
+
+  /**
+   * Bounded `source` label of the last accepted state payload (e.g.
+   * 'media-session'). Proves the state came from what the page published;
+   * reset with every new document session.
+   */
+  getLastStateSource = (): string | null => this.lastStateSource;
 
   updateState = (input: SpotifyWebPlaybackInput): void => {
     this.state = normalizeSpotifyWebState(input);
@@ -176,6 +201,9 @@ export class SpotifyWebBackend implements PlaybackBackend {
     if (!this.bridgeReady) return 'rejected';
     if (message.type === 'state') {
       this.updateState(mapSpotifyWebBridgePayload(message.payload));
+      const source = message.payload.source;
+      this.lastStateSource =
+        typeof source === 'string' ? source.slice(0, 64) : null;
       return 'state-updated';
     }
     if (message.type === 'capabilities') {
@@ -192,7 +220,10 @@ export class SpotifyWebBackend implements PlaybackBackend {
       const fresh =
         pending.session === this.runtimeSession &&
         pending.sequence === this.commandSequence;
-      pending.settle(fresh && message.accepted === true);
+      pending.settle(
+        fresh && message.accepted === true,
+        fresh ? (message.code ?? null) : 'stale'
+      );
       return 'command-response';
     }
     this.updateState({ status: 'error', errorCode: message.code });
@@ -230,20 +261,29 @@ export class SpotifyWebBackend implements PlaybackBackend {
     positionMillis?: number
   ): Promise<boolean> => {
     const transport = this.bridgeTransport;
-    if (!transport || !this.bridgeReady) return Promise.resolve(false);
+    if (!transport || !this.bridgeReady) {
+      this.lastCommandOutcome = {
+        accepted: false,
+        code: this.bridgeReady ? 'transport-unavailable' : 'bridge-unavailable',
+      };
+      return Promise.resolve(false);
+    }
     const requestId = `c${++this.requestSequence}`;
     const raw = buildSpotifyWebBridgeCommandMessage(
       command,
       requestId,
       positionMillis
     );
-    if (raw === null) return Promise.resolve(false);
+    if (raw === null) {
+      this.lastCommandOutcome = { accepted: false, code: 'invalid-command' };
+      return Promise.resolve(false);
+    }
     return new Promise<boolean>((resolve) => {
       const sequence = ++this.commandSequence;
       const session = this.runtimeSession;
       let expiryTimer: unknown = null;
       let settled = false;
-      const settle = (accepted: boolean): void => {
+      const settle = (accepted: boolean, code: string | null): void => {
         if (settled) return;
         settled = true;
         this.pendingCommands.delete(requestId);
@@ -251,7 +291,8 @@ export class SpotifyWebBackend implements PlaybackBackend {
           this.scheduler.clear(expiryTimer);
           expiryTimer = null;
         }
-        resolve(accepted);
+        this.lastCommandOutcome = { accepted: accepted === true, code };
+        resolve(accepted === true);
       };
       this.pendingCommands.set(requestId, {
         sequence,
@@ -261,7 +302,7 @@ export class SpotifyWebBackend implements PlaybackBackend {
       // The expiry is armed before delivery so a response arriving
       // synchronously inside `send` cannot leak a live timer.
       expiryTimer = this.scheduler.set(
-        () => settle(false),
+        () => settle(false, 'expired'),
         this.commandTimeoutMillis
       );
       let delivered = false;
@@ -270,7 +311,7 @@ export class SpotifyWebBackend implements PlaybackBackend {
       } catch {
         delivered = false;
       }
-      if (!delivered) settle(false);
+      if (!delivered) settle(false, 'undelivered');
     });
   };
 
@@ -278,7 +319,7 @@ export class SpotifyWebBackend implements PlaybackBackend {
     if (this.pendingCommands.size === 0) return;
     const pending = [...this.pendingCommands.values()];
     this.pendingCommands.clear();
-    pending.forEach((entry) => entry.settle(false));
+    pending.forEach((entry) => entry.settle(false, 'disconnected'));
   };
 
   private runCommand = (
@@ -326,7 +367,11 @@ export class SpotifyWebBackend implements PlaybackBackend {
     this.bridgeReady = false;
     this.capabilities = null;
     this.bridgeTransport = null;
+    this.lastStateSource = null;
     this.flushPendingCommands();
+    // Purge the diagnostic after the settle pass: a teardown must not leave
+    // a stale outcome behind for a future owner reusing this instance.
+    this.lastCommandOutcome = null;
     this.listeners.clear();
     this.state = INITIAL_SPOTIFY_WEB_STATE;
   };
