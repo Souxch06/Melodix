@@ -59,15 +59,33 @@ WEB_START=$(adb shell am start -W -a android.intent.action.VIEW \
   fail "prototype Spotify Web non ouvrable : $WEB_START"
 echo "$WEB_START"
 # Laisse au chargement puis au timeout de handshake (8 s) le temps de conclure.
-sleep 15
-adb shell uiautomator dump /sdcard/melodix-web.xml >/dev/null 2>&1 || \
-  fail "hiérarchie UI du prototype inaccessible"
-WEB_UI=$(adb shell cat /sdcard/melodix-web.xml 2>&1) || \
-  fail "lecture hiérarchie UI prototype impossible : $WEB_UI"
-printf '%s\n' "$WEB_UI" | grep -Fq 'Prototype Spotify Web' || \
-  fail "écran de diagnostic Spotify Web absent après deep link"
+# Sonde par itérations (jusqu'à 60 s) : un dump unique après un délai fixe est
+# un faux négatif classique sur émulateur CI lent (le dump peut précéder la
+# fin de la transition de route). Aucun comportement d'app n'est impliqué.
+WEB_UI=""
+DUMP_TRIES=0
+while [ "$DUMP_TRIES" -lt 12 ]; do
+  sleep 5
+  DUMP_TRIES=$(( DUMP_TRIES + 1 ))
+  adb shell uiautomator dump /sdcard/melodix-web.xml >/dev/null 2>&1 || continue
+  WEB_UI=$(adb shell cat /sdcard/melodix-web.xml 2>&1) || continue
+  printf '%s\n' "$WEB_UI" | grep -Fq 'Prototype Spotify Web' && break
+  WEB_UI=""
+done
+[ -n "$WEB_UI" ] || \
+  fail "écran de diagnostic Spotify Web absent après deep link ($DUMP_TRIES dumps)"
 # Le probe W3C doit produire un résultat explicite : handshake disponible ou
-# timeout honnête. Cela ne prétend toujours pas valider une lecture connectée.
+# timeout honnête. Si l'écran est apparu vite, le minuteur de handshake (8 s)
+# peut encore être en cours : on le laisse conclure, sans jamais l'embellir.
+BRIDGE_TRIES=0
+while ! printf '%s\n' "$WEB_UI" | grep -Eq 'Bridge: (prêt|timeout)'; do
+  BRIDGE_TRIES=$(( BRIDGE_TRIES + 1 ))
+  [ "$BRIDGE_TRIES" -ge 5 ] && break
+  sleep 5
+  adb shell uiautomator dump /sdcard/melodix-web.xml >/dev/null 2>&1 || continue
+  NEW_UI=$(adb shell cat /sdcard/melodix-web.xml 2>&1) || continue
+  printf '%s\n' "$NEW_UI" | grep -Fq 'Prototype Spotify Web' && WEB_UI="$NEW_UI"
+done
 if printf '%s\n' "$WEB_UI" | grep -Fq 'Bridge: prêt'; then
   echo "Bridge WebView React Native prêt (probe navigator.mediaSession injecté)"
 elif printf '%s\n' "$WEB_UI" | grep -Fq 'Bridge: timeout'; then
