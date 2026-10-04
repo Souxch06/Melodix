@@ -122,7 +122,10 @@ export const Header = ({ tab }: HeaderPropsType) => {
   }, [tab]);
 
   const handleHomeSearchPress = React.useCallback(() => {
-    router.push({ pathname: '/(tabs)/search', params: {} });
+    // `focus=1` : la loupe de l'accueil ouvre la recherche AVEC le clavier
+    // (l'utilisateur vient de demander à chercher). Ouvrir l'onglet
+    // Recherche directement ne déclenche pas ce paramètre.
+    router.push({ pathname: '/(tabs)/search', params: { focus: '1' } });
   }, [router]);
 
   // La roue ouvre le vrai écran Paramètres (/settings) ; le panneau « Compte

@@ -54,6 +54,31 @@ export const EN_GB = {
   browseAll: 'Browse all',
   featuredPlaylists: 'Popular Playlists',
 
+  // Recherche : barre moderne, historique, resultats groupes.
+  searchTopResult: 'Top result',
+  searchSectionSongs: 'Songs',
+  searchSectionArtists: 'Artists',
+  searchSectionAlbums: 'Albums',
+  searchSectionPlaylists: 'Playlists',
+  searchBarLabel: 'Search the catalogue',
+  searchBack: 'Back',
+  searchClose: 'Close the search',
+  searchClearField: 'Clear the search field',
+  searchClearFieldHint: 'Clear',
+  searchRecentTitle: 'Recent searches',
+  searchRecentEmpty: 'No recent search yet.',
+  searchRecentEmptyHint:
+    'Your searches appear here so you can find them again.',
+  searchRecentClearAll: 'Clear all',
+  searchRecentRemove: (query: string) =>
+    `Remove "${query}" from recent searches`,
+  searchLoading: 'Searching...',
+  searchExplicitBadge: 'Explicit',
+  searchUnavailableBadge: 'No audio source',
+  searchUnavailableHint:
+    'No audio source was found for this track on Audius or YouTube.',
+  searchDurationUnknown: '--:--',
+
   // Découverte Audius (catalogue libre) : aucun login n'existe dans
   // Melodix 3.0 ; les libellés profil/lecteur sont en français (fr-fr.ts).
   trendingTracks: 'Trending tracks',

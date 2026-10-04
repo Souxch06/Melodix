@@ -6,6 +6,34 @@
  * l'utilisateur final ne doit jamais voir ces concepts.
  */
 
+// Recherche : barre moderne, historique, résultats groupés.
+// Surcharges FR des messages visibles par l'utilisateur final.
+export const FR_FR_SEARCH = {
+  searchTopResult: 'Top résultat',
+  searchSectionSongs: 'Morceaux',
+  searchSectionArtists: 'Artistes',
+  searchSectionAlbums: 'Albums',
+  searchSectionPlaylists: 'Playlists',
+  searchBarLabel: 'Rechercher dans le catalogue',
+  searchBack: 'Retour',
+  searchClose: 'Fermer la recherche',
+  searchClearField: 'Effacer le champ de recherche',
+  searchClearFieldHint: 'Effacer',
+  searchRecentTitle: 'Recherches récentes',
+  searchRecentEmpty: 'Aucune recherche récente.',
+  searchRecentEmptyHint:
+    'Tes recherches apparaîtront ici pour que tu puisses les retrouver.',
+  searchRecentClearAll: 'Tout effacer',
+  searchRecentRemove: (query: string) =>
+    `Retirer « ${query} » des recherches récentes`,
+  searchLoading: 'Recherche…',
+  searchExplicitBadge: 'Explicit',
+  searchUnavailableBadge: 'Aucune source audio',
+  searchUnavailableHint:
+    "Aucune source audio n'a été trouvée pour ce morceau sur Audius ou YouTube.",
+  searchDurationUnknown: '—:--',
+};
+
 // Profil local (avatar en haut à gauche) : données stockées sur l'appareil.
 export const FR_FR_ACCOUNT = {
   accountTitle: 'Melodix',

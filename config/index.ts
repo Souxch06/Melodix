@@ -24,6 +24,19 @@ export {
 } from './constants';
 export { COLORS, BROWSE_CATEGORIES_COLORS } from './colors';
 export {
+  ELEVATION,
+  LAYOUT,
+  MOTION,
+  PALETTE,
+  RADIUS,
+  SECTION_LABEL,
+  SPACING,
+  TOUCH_TARGET,
+  TYPOGRAPHY,
+  theme,
+} from './theme';
+export type { Theme } from './theme';
+export {
   type ExpoConfigType,
   type AlbumResponseType,
   type ArtistResponseType,
