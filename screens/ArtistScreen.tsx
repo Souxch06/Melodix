@@ -17,6 +17,7 @@ import { Card } from '../components/Card';
 import { QueueActionMenu } from '../components/Player/QueueActionMenu';
 import { usePlayer } from '@context';
 import { COLORS, Shapes, Sizes } from '@config';
+import { artistsFromSubtitle } from '@models';
 import type { ArtistModel, TrackModel } from '@models';
 import {
   queueIdForTrackId,
@@ -31,7 +32,7 @@ export type ArtistScreenProps = {
 const toPlayerTrack = (track: TrackModel): PlayerTrack => ({
   id: queueIdForTrackId(track.id),
   title: track.title,
-  artists: track.subtitle ? track.subtitle.split(', ').filter(Boolean) : [],
+  artists: artistsFromSubtitle(track.subtitle),
   album: track.albumName ?? null,
   durationMillis: track.durationMs ?? null,
   explicit: track.explicit ?? null,

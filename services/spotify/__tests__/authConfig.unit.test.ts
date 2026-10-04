@@ -22,6 +22,7 @@ import {
   getSpotifyRedirectUri,
   getSpotifyRedirectUriSource,
   isSpotifyLoginConfigured,
+  SPOTIFY_SCOPES,
 } from '../authConfig';
 
 const setExtra = (patch: Record<string, unknown>) => {
@@ -92,5 +93,63 @@ describe('authConfig — Client ID configurable', () => {
       setExtra({ spotifyRedirectUri: '  melodix://callback  ' });
       expect(getSpotifyRedirectUri()).toBe('melodix://callback');
     });
+  });
+});
+
+/**
+ * COUVERTURE DES SCOPES — garde-fou de non-régression (audit build physique).
+ *
+ * Chaque endpoint Spotify appelé par l'app porte un scope OBLIGATOIRE. Un
+ * scope manquant ne casse PAS la connexion : l'utilisateur se loggue sans
+ * erreur, puis l'endpoint répond 403 « Insufficient client scope » au moment
+ * de l'utilisation — exactement le symptôme « l'écran affiche une erreur »
+ * observé sur le Samsung S24 pour les titres aimés.
+ *
+ * La table ci-dessous est la SEULE source de vérité : ajouter un endpoint
+ * sans son scope fait échouer ce test AVANT la mise en production.
+ */
+describe('couverture des scopes OAuth par endpoint', () => {
+  const ENDPOINT_SCOPES: Record<string, string> = {
+    // Profil (nom, photo) — api/spotify/me.ts
+    '/me': 'user-read-private',
+    // Playlists personnelles + collaboratives — api/spotify/userPlaylists.ts
+    '/me/playlists': 'playlist-read-private',
+    // TITRES AIMÉS — api/spotify/savedTracks.ts
+    '/me/tracks': 'user-library-read',
+  };
+
+  it('chaque endpoint appelé a son scope dans SPOTIFY_SCOPES', () => {
+    const declared = new Set<string>(SPOTIFY_SCOPES);
+    const missing: string[] = [];
+
+    for (const [endpoint, requiredScope] of Object.entries(ENDPOINT_SCOPES)) {
+      if (!declared.has(requiredScope)) {
+        // Message explicite : ajouter un endpoint sans son scope doit faire
+        // ÉCHOUER ce test, pas passer silencieusement.
+        missing.push(
+          `${endpoint} exige le scope "${requiredScope}" — sans lui Spotify répond 403 au lieu de renvoyer les données`
+        );
+      }
+    }
+
+    expect(missing).toEqual([]);
+  });
+
+  it('les titres aimés (/me/tracks) sont couverts par user-library-read', () => {
+    expect(SPOTIFY_SCOPES).toContain('user-library-read');
+  });
+
+  it('aucun scope d’écriture ou de lecture superflue n’est demandé', () => {
+    // Permission minimale : pas de modification de compte, pas de lecture de
+    // ce que l'app n'utilise pas.
+    for (const scope of SPOTIFY_SCOPES) {
+      expect(scope).not.toMatch(/modif|ugc-image/);
+      expect([
+        'user-read-private',
+        'user-library-read',
+        'playlist-read-private',
+        'playlist-read-collaborative',
+      ]).toContain(scope);
+    }
   });
 });

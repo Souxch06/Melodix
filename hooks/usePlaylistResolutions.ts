@@ -1,6 +1,7 @@
 import * as React from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
+import { artistsFromSubtitle } from '@models';
 import type { TrackModel } from '@models';
 import {
   createMatchResolutionTimestamp,
@@ -206,15 +207,10 @@ export const usePlaylistResolutions = (
           const outcome = await resolveWithProviders(
             {
               title: track.title,
-              // Même découpage tolérant que partout ailleurs : un espace
-              // manquant après la virgule ne doit pas fusionner deux artistes
-              // en un seul (la porte artiste rejetait alors le bon morceau).
-              artists: track.subtitle
-                ? track.subtitle
-                    .split(/\s*,\s*/u)
-                    .map((name) => name.trim())
-                    .filter(Boolean)
-                : [],
+              // Même découpage que le player (source unique : models) — un
+              // écart entre le badge et la lecture faisait annoncer
+              // « disponible » là où la lecture ne trouvait rien.
+              artists: artistsFromSubtitle(track.subtitle),
               album: track.albumName ?? null,
               durationMillis: track.durationMs ?? null,
               isrc: track.isrc ?? null,

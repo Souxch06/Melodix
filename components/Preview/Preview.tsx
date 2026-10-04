@@ -1,7 +1,8 @@
 import * as React from 'react';
 import { View } from 'react-native';
 
-import { ArtistModel, TrackModel } from '@models';
+import { ArtistModel, artistsFromSubtitle } from '@models';
+import type { TrackModel } from '@models';
 import { useApplicationDimensions } from '@hooks';
 import Animated, {
   useAnimatedScrollHandler,
@@ -110,9 +111,7 @@ export const Preview = ({
         .map((track) => ({
           id: queueIdOf(track.id),
           title: track.title,
-          artists: track.subtitle
-            ? track.subtitle.split(', ').filter(Boolean)
-            : [],
+          artists: artistsFromSubtitle(track.subtitle),
           album: track.albumName ?? (type === 'album' ? summaryTitle : null),
           durationMillis: track.durationMs ?? null,
           isrc: track.isrc ?? null,
@@ -160,7 +159,7 @@ export const Preview = ({
       setActionTrack({
         id: queueIdForTrackId(item.id),
         title: item.title,
-        artists: item.subtitle ? item.subtitle.split(', ').filter(Boolean) : [],
+        artists: artistsFromSubtitle(item.subtitle),
         album: item.albumName ?? (type === 'album' ? summaryTitle : null),
         durationMillis: item.durationMs ?? null,
         isrc: item.isrc ?? null,

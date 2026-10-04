@@ -3,7 +3,7 @@ import { Alert } from 'react-native';
 import { useRouter } from 'expo-router';
 import { ErrorCard, Preview } from '@components';
 
-import { PlaylistModel, TrackModel } from '@models';
+import { artistsFromSubtitle, PlaylistModel, TrackModel } from '@models';
 import { checkSavedTracks, getPlaylist, getPlaylistItems } from '@api';
 import { toggleSavedTrack, SpotifyApiError } from '@services';
 import { useUserData } from '@context';
@@ -177,7 +177,7 @@ export const PlaylistScreen = ({ playlistId }: AlbumScreenPropsType) => {
   const handleToggleTrackSaved = React.useCallback(
     async (track: TrackModel) => {
       const nowSaved = await toggleSavedTrack(track, {
-        artists: track.subtitle ? track.subtitle.split(', ') : [],
+        artists: artistsFromSubtitle(track.subtitle),
       });
       setTracks((prevTracks) =>
         prevTracks.map((item) =>

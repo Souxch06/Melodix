@@ -20,21 +20,69 @@ type AudiusPlaylistRaw = {
   user?: { name?: string; handle?: string } | null;
 };
 
-const BEST_ARTWORK_KEYS = ['_1000x1000', '_640x640', '_480x480'] as const;
+type AudiusArtwork =
+  | Record<string, string | null | undefined>
+  | null
+  | undefined;
 
-const artworkUrl = (
-  artwork: Record<string, string | null | undefined> | null | undefined
-): string => {
+/**
+ * Clés d'artwork Audius, de la PLUS GRANDE à la plus petite.
+ *
+ * Audius sert les pochettes sous la forme `{ "150x150": …, "480x480": …,
+ * "1000x1000": … }` — SANS underscore (voir `AudiusArtworkType` dans
+ * config/types.ts). L'ancienne implémentation cherchait `_1000x1000` /
+ * `_640x640` / `_480x480` : aucune de ces clés n'existe dans la réponse, donc
+ * `artworkUrl()` renvoyait TOUJOURS '' et toutes les images des playlists
+ * publiques et des morceaux Audius manquaient à l'écran.
+ *
+ * On ne se limite pas à cette liste : toute clé `<largeur>x<hauteur>` est
+ * acceptée et la plus grande est retenue, ce qui couvre aussi les variantes
+ * que certains nœuds renvoient (2000x2000, 640x640…).
+ */
+const ARTWORK_SIZE_RX = /^(\d{2,5})x(\d{2,5})$/u;
+
+const artworkPixels = (key: string): number => {
+  const match = ARTWORK_SIZE_RX.exec(key);
+
+  if (!match) {
+    return 0;
+  }
+
+  return Number(match[1]) * Number(match[2]);
+};
+
+/** Plus grande URL d'artwork disponible ; '' quand Audius n'en fournit aucune. */
+export const artworkUrl = (artwork: AudiusArtwork): string => {
   if (!artwork) {
     return '';
   }
-  for (const key of BEST_ARTWORK_KEYS) {
-    const url = artwork[key];
-    if (url) {
-      return url;
+
+  let bestUrl = '';
+  let bestPixels = 0;
+
+  for (const [key, url] of Object.entries(artwork)) {
+    if (typeof url !== 'string' || !url.trim()) {
+      continue;
+    }
+
+    const pixels = artworkPixels(key);
+
+    // Une clé non dimensionnée (ex. "master") vaut mieux que rien, mais
+    // moins qu'une taille connue : elle ne gagne que si aucune taille n'existe.
+    if (pixels === 0) {
+      if (bestPixels === 0 && !bestUrl) {
+        bestUrl = url.trim();
+      }
+      continue;
+    }
+
+    if (pixels > bestPixels) {
+      bestPixels = pixels;
+      bestUrl = url.trim();
     }
   }
-  return '';
+
+  return bestUrl;
 };
 
 /** Playlists tendance Audius → cartes bibliothèque (type 'playlist'). */

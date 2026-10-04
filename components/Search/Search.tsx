@@ -25,6 +25,7 @@ import {
   Sizes,
 } from '@config';
 import { translations } from '@data';
+import { artistsFromSubtitle } from '@models';
 import { usePlayer } from '@context';
 import { queueIdForTrackId, sourceForTrackId } from '@services';
 import type { PlayerTrack } from '@services';
@@ -145,7 +146,7 @@ export const Search = () => {
           ({ id, title, subtitle, imageURL, albumName, durationMs, isrc }) => ({
             id: queueIdForTrackId(id),
             title,
-            artists: subtitle ? subtitle.split(', ').filter(Boolean) : [],
+            artists: artistsFromSubtitle(subtitle),
             album: albumName ?? null,
             durationMillis: durationMs ?? null,
             isrc: isrc ?? null,
@@ -178,9 +179,7 @@ export const Search = () => {
       setActionTrack({
         id: queueIdForTrackId(track.id),
         title: track.title,
-        artists: track.subtitle
-          ? track.subtitle.split(', ').filter(Boolean)
-          : [],
+        artists: artistsFromSubtitle(track.subtitle),
         album: track.albumName ?? null,
         durationMillis: track.durationMs ?? null,
         isrc: track.isrc ?? null,

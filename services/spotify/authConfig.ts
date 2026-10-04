@@ -170,12 +170,21 @@ export const getSpotifyRedirectUriSource = (): RedirectUriSource => {
 /**
  * Scopes strictement nécessaires (permission minimale) :
  * - user-read-private        → profil (nom d'affichage, photo) ;
+ * - user-library-read        → TITRES AIMÉS (GET /v1/me/tracks) ;
  * - playlist-read-private    → playlists personnelles ;
  * - playlist-read-collaborative → playlists collaboratives.
- * Pas d'email : inutile au fonctionnement de Melodix.
+ *
+ * `user-library-read` est INDISPENSABLE : sans lui la connexion réussit mais
+ * /me/tracks répond 403 « Insufficient client scope » — l'écran « Titres
+ * aimés » ne peut alors afficher qu'une erreur. Un scope absent ne casse
+ * jamais le login, il casse l'endpoint : d'où le test de couverture par
+ * endpoint dans __tests__/authConfig.unit.test.ts.
+ *
+ * Pas d'email : inutile au fonctionnement de Melodix. Aucun scope d'écriture.
  */
 export const SPOTIFY_SCOPES = [
   'user-read-private',
+  'user-library-read',
   'playlist-read-private',
   'playlist-read-collaborative',
 ] as const;
