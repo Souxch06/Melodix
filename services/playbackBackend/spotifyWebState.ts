@@ -41,6 +41,37 @@ const safeArtwork = (value: unknown): string | null => {
   }
 };
 
+/**
+ * Translation of the extended Web Player bridge statuses (protocol v2) into
+ * the frozen `PlaybackBackendState` status enum. `buffering` projects as a
+ * loading state and `ended` as idle — both without ever inventing playback:
+ * `playing`/`paused` are only what the page itself published. The strict v1
+ * contract in `normalizeSpotifyWebState` stays untouched, so unknown or
+ * extended statuses can never sneak into the normalized state.
+ */
+export const mapSpotifyWebBridgePayload = (
+  input: SpotifyWebPlaybackInput
+): SpotifyWebPlaybackInput => {
+  if (input.status === 'buffering') {
+    // 'loading' is an explicit, whitelisted status for the frozen
+    // normalizer: the page booleans cannot override it.
+    return { ...input, status: 'loading' };
+  }
+  if (input.status === 'ended' || input.status === 'idle') {
+    // 'idle' is derived only when no contradicting boolean is present:
+    // drop the flags so a hostile payload cannot sneak 'playing' — nor a
+    // stale isPlaying:false masquerade as 'paused' — through the inference
+    // path, and let the normalizer derive false/false.
+    return {
+      ...input,
+      status: 'idle',
+      isPlaying: undefined,
+      isLoading: undefined,
+    };
+  }
+  return input;
+};
+
 /** Pure, strict normalization before data can reach UI or MediaSession. */
 export const normalizeSpotifyWebState = (
   input: SpotifyWebPlaybackInput

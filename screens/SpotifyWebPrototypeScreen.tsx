@@ -83,18 +83,25 @@ export const SpotifyWebPrototypeScreen = () => {
     const backend = backendRef.current;
     const unsubscribe = backend.subscribe(setBackendState);
     const unsubscribeRuntime = runtime.subscribe(setRuntimeSnapshot);
-    // Commands intentionally remain unavailable until a reliable, approved
-    // runtime API exists. No DOM/media-element control is injected.
-    backend.attachRuntime({
-      play: async () => false,
-      pause: async () => false,
-      seek: async () => false,
-      next: async () => false,
-      previous: async () => false,
+    // Real correlated command channel: v2 envelopes travel to the page through
+    // the WebView postMessage bridge; the versioned handshake stays mandatory
+    // and commands only ever report page acceptance, never simulated playback.
+    backend.attachBridgeTransport({
+      send: (rawMessage) => {
+        const webView = webViewRef.current;
+        if (!webView) return false;
+        try {
+          webView.postMessage(rawMessage);
+          return true;
+        } catch {
+          return false;
+        }
+      },
     });
     runtime.mount();
     return () => {
       runtime.unmount();
+      backend.attachBridgeTransport(null);
       unsubscribeRuntime();
       unsubscribe();
       backend.destroy();
