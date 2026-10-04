@@ -1,12 +1,18 @@
 /**
  * Configurabilité Spotify (Client ID + Redirect URI) :
- * - ordre de lecture : EXPO_PUBLIC_* inlinée → extra de app.config → défaut ;
+ * - ordre de lecture : EXPO_PUBLIC_* inlinée par Metro → extra de app.config
+ *   → défaut `melodix://callback` ;
  * - valeur par défaut de PRODUCTION : melodix://callback (redirect natif,
  *   scheme `melodix` déclaré dans le manifest) ;
  * - AUCUN identifiant tiers/exemple n'est embarqué : sans variable de
  *   build, l'app affiche proprement « Connexion Spotify non configurée » ;
  * - la même source alimente authorize ET token exchange (invariant testé
  *   côté useSpotifyAuth). Aucune valeur sensible n'est lue ni loguée ici.
+ *
+ * ⚠️ INLINING BABEL : `babel-preset-expo` inline `process.env.EXPO_PUBLIC_*`
+ * au build de production. En test, le `jest.config.js` force
+ * `preserveEnvVars: true` pour NE PAS inliner — la valeur d'env reste
+ * accessible au runtime et on peut mocker `process.env` normalement.
  */
 import Constants from 'expo-constants';
 

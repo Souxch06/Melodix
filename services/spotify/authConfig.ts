@@ -61,9 +61,17 @@ export type ClientIdInfo = {
 };
 
 export const getClientIdInfo = (): ClientIdInfo => {
+  // ⚠️ Accès DIRECT à `process.env.EXPO_PUBLIC_*` (sans optional chaining
+  // `?.`) : c'est la forme reconnue par `babel-preset-expo`
+  // (`inline-env-vars`) qui INLINE la valeur au build Metro. Avec un
+  // `process.env?.EXPO_PUBLIC_*` optionnel, l'inlining est sauté et la
+  // valeur reste résolue au runtime (où `process.env` n'est pas peuplé en
+  // APK bare). Les tests ci-dessous simulent la valeur résolue via le
+  // mock `process.env` — c'est exactement ce que le bundle de
+  // production voit après inlining.
   const envValue =
     typeof process !== 'undefined'
-      ? (process.env?.EXPO_PUBLIC_SPOTIFY_CLIENT_ID ?? '')
+      ? (process.env.EXPO_PUBLIC_SPOTIFY_CLIENT_ID ?? '')
       : '';
   if (typeof envValue === 'string' && envValue.trim()) {
     return { clientId: envValue.trim(), source: 'expo-public-env' };
@@ -115,9 +123,13 @@ export type RedirectUriSource =
  * c'est précisément ce que cette source unique élimine par construction.
  */
 export const getSpotifyRedirectUri = (): string => {
+  // ⚠️ Accès DIRECT à `process.env.EXPO_PUBLIC_*` : voir la note dans
+  // `getClientIdInfo` ci-dessus. Le `?.` empêcherait `babel-preset-expo`
+  // d'inliner la valeur au build, ce qui rendrait le canal `EXPO_PUBLIC_*`
+  // inopérant sur l'APK final.
   const envValue =
     typeof process !== 'undefined'
-      ? (process.env?.EXPO_PUBLIC_SPOTIFY_REDIRECT_URI ?? '')
+      ? (process.env.EXPO_PUBLIC_SPOTIFY_REDIRECT_URI ?? '')
       : '';
   if (typeof envValue === 'string' && envValue.trim()) {
     return envValue.trim();
@@ -137,9 +149,12 @@ export const getSpotifyRedirectUri = (): string => {
 
 /** Source du redirect (diagnostic LOG sans secret — l'URI est publique). */
 export const getSpotifyRedirectUriSource = (): RedirectUriSource => {
+  // ⚠️ Accès DIRECT à `process.env.EXPO_PUBLIC_*` : voir la note dans
+  // `getClientIdInfo` ci-dessus. Le `?.` empêcherait `babel-preset-expo`
+  // d'inliner la valeur au build.
   const envValue =
     typeof process !== 'undefined'
-      ? (process.env?.EXPO_PUBLIC_SPOTIFY_REDIRECT_URI ?? '')
+      ? (process.env.EXPO_PUBLIC_SPOTIFY_REDIRECT_URI ?? '')
       : '';
   if (typeof envValue === 'string' && envValue.trim()) {
     return 'expo-public-env';
