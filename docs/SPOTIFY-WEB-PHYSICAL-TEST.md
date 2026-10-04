@@ -104,16 +104,26 @@ lecture de musique — uniquement le canal WebView ↔ React Native sur un vrai 
 Preuves relevées dans les logs/annotations GitHub Actions (build officiel du workflow `APK Android`,
 APK signé v4.4.8-diagnostic/44008, sha256 `0e8e1dbf6d946749c4c115e5db541d6acb3aca9bfb22ae1db549dc7d5e51bcec`) :
 
-| Constat                                                          | Verdict sur cet émulateur                                                                                                                                                            |
-| ---------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Installation, lancement, ouverture de la route, absence de crash | **Démontré** (gate bloquante du smoke : pid survive, titre « Prototype Spotify Web » rendu)                                                                                          |
-| WebView réellement chargé + handshake v2 (`Bridge:` prêt)        | **Démontré** (ligne `prêt` présente au dump ; absence de warning timeout)                                                                                                            |
-| Cycle arrière-plan → retour, processus vivant                    | **Démontré** (gate du smoke)                                                                                                                                                         |
-| `source: media-session` publié par la page                       | **Non publié** — page sans session média (aucun compte connecté) : normal, non bloquant                                                                                              |
-| Largevine/EME                                                    | **Indisponible pour cette configuration d'émulateur** (image `google_apis` sans Play) : blocage documenté, non simulé                                                                |
-| Appui réel sur la sonde `Commande lecture`                       | **Exécuté** ; l'UI a affiché un refus immédiat sans code de la page (pont en cours de bascule de document) ; le run suivant (retry à 2 tentatives + observation `expired`) tranchera |
-| Lecture audio Spotify réelle                                     | **Non testé ici** (aucun compte sur l'émulateur) — reste à valider sur téléphone réel                                                                                                |
+| Constat                                                          | Verdict sur cet émulateur                                                                                                                                                                                  |
+| ---------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Installation, lancement, ouverture de la route, absence de crash | **Démontré** (gate bloquante du smoke : pid survive, titre « Prototype Spotify Web » rendu)                                                                                                                |
+| WebView réellement chargé + handshake v2 (`Bridge:` prêt)        | **Démontré** (ligne `prêt` présente au dump ; absence de warning timeout)                                                                                                                                  |
+| Cycle arrière-plan → retour, processus vivant                    | **Démontré** (gate du smoke)                                                                                                                                                                               |
+| `source: media-session` publié par la page                       | **Non publié** — page sans session média (aucun compte connecté) : normal, non bloquant                                                                                                                    |
+| Widevine/EME                                                     | **Indisponible pour cette configuration d'émulateur** (image `google_apis` sans Play) : blocage documenté, non simulé                                                                                      |
+| Appui réel sur la sonde `Commande lecture`                       | **Exécuté et aller simple prouvé** (run `37182486483`) : appui uiautomator réel → pont prêt réel → `transport.send` réel → commande corrélée soldée `expired` par le minuteur réel de 5 s ; rien de simulé |
+| Lecture audio Spotify réelle                                     | **Non testé ici** (aucun compte sur l'émulateur) — reste à valider sur téléphone réel                                                                                                                      |
 
 Aucune de ces constantes ne prouve une lecture réelle ; seule la procédure téléphone (section
 précédente) peut le faire. Le diagnostic complet d'un run est limité à ce que l'UI affiche :
 présences booléennes et codes sûrs, jamais d'URL complète, de cookie, de token ni de contenu réseau.
+
+### Interprétation exacte du résultat `expired` (run `37182486483`)
+
+`expired` sur l'émulateur prouve physiquement chaque maillon : appui réel → écouteur React Native
+réel → vérification du pont prêt → `transport.send` réel → minuteur d'expiration réel. Il prouve
+aussi l'absence de réponse de page : sans page Web Spotify réellement active (mur de connexion ou
+page d'erreur réseau du datacenter), le canal descendant `postWebMessage` d'Android ne délivre
+aucun message, et le probe n'exécute son écouteur que dans un document web vivant. La réponse de
+la page (`no-authorized-execution-surface` ou `command_accepted`) ainsi que l'audio réel ne peuvent
+être démontrés que par la procédure téléphone avec un vrai compte.
