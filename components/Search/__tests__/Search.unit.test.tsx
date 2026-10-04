@@ -47,10 +47,9 @@ jest.mock('@hooks', () => ({
   useApplicationDimensions: () => ({ width: 400, height: 800 }),
 }));
 
-const mockGetBrowseCategories = jest.fn<
-  Promise<BrowseCategoryModel[]>,
-  []
->(async () => []);
+const mockGetBrowseCategories = jest.fn<Promise<BrowseCategoryModel[]>, []>(
+  async () => []
+);
 
 jest.mock('@api', () => ({
   searchCatalog: jest.fn(),
