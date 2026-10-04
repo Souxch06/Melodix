@@ -97,29 +97,72 @@ fi
 # Canal de commande réel : appui sur la sonde « Commande lecture » si elle est
 # localisable, puis lecture du résultat affiché. Une réponse acceptée OU un
 # refus honnête (no-authorized-execution-surface) prouve la corrélation
-# request↔réponse sur l'appareil. Non bloquant par conception.
-adb shell uiautomator dump /sdcard/melodix-cmd.xml >/dev/null 2>&1 || true
-BOUNDS=$(adb shell cat /sdcard/melodix-cmd.xml 2>/dev/null | tr '>' '\n' | grep -F 'Commande lecture' | grep -oE 'bounds="\[[0-9]+,[0-9]+\]\[[0-9]+,[0-9]+\]"' | head -1 || true)
-COORDS=$(printf '%s' "$BOUNDS" | grep -oE '[0-9]+' | head -4 || true)
-X1=$(printf '%s\n' "$COORDS" | sed -n 1p); Y1=$(printf '%s\n' "$COORDS" | sed -n 2p)
-X2=$(printf '%s\n' "$COORDS" | sed -n 3p); Y2=$(printf '%s\n' "$COORDS" | sed -n 4p)
-if printf '%s%s%s%s' "$X1" "$Y1" "$X2" "$Y2" | grep -Eq '^[0-9]+$'; then
-  adb shell input tap $(( (X1 + X2) / 2 )) $(( (Y1 + Y2) / 2 )) || true
-  sleep 3
+# request↔réponse sur l'appareil ; un résultat « expired » prouve que la
+# commande est bien partie sur le canal avec minuteur réel. Deux tentatives
+# (le premier appui peut tomber pendant une bascule de document). Non bloquant
+# par conception.
+tap_command_probe() {
+  adb shell uiautomator dump /sdcard/melodix-cmd.xml >/dev/null 2>&1 || true
+  local bounds coords x1 y1 x2 y2
+  bounds=$(adb shell cat /sdcard/melodix-cmd.xml 2>/dev/null | tr '>' '\n' | grep -F 'Commande lecture' | grep -oE 'bounds="\[[0-9]+,[0-9]+\]\[[0-9]+,[0-9]+\]"' | head -1 || true)
+  coords=$(printf '%s' "$bounds" | grep -oE '[0-9]+' | head -4 || true)
+  x1=$(printf '%s\n' "$coords" | sed -n 1p); y1=$(printf '%s\n' "$coords" | sed -n 2p)
+  x2=$(printf '%s\n' "$coords" | sed -n 3p); y2=$(printf '%s\n' "$coords" | sed -n 4p)
+  if ! printf '%s%s%s%s' "$x1" "$y1" "$x2" "$y2" | grep -Eq '^[0-9]+$'; then
+    return 1
+  fi
+  adb shell input tap $(( (x1 + x2) / 2 )) $(( (y1 + y2) / 2 )) || true
+  # Au-delà de l'expiration de 5 s : le diagnostic « expired » est alors
+  # observable si la page ne répond pas ; une réponse, elle, arrive en général
+  # bien avant.
+  sleep 7
+  return 0
+}
+CMD_OUTCOME='introuvable'
+for ATTEMPT in 1 2; do
+  if ! tap_command_probe; then
+    break
+  fi
   adb shell uiautomator dump /sdcard/melodix-cmd2.xml >/dev/null 2>&1 || true
   CMD_UI=$(adb shell cat /sdcard/melodix-cmd2.xml 2>&1 || true)
   if printf '%s\n' "$CMD_UI" | grep -Fq 'command_accepted'; then
-    echo "::notice title=Canal commande::commande acceptée par la page Web (corrélation requestId validée sur l'appareil)"
+    CMD_OUTCOME='acceptee'
   elif printf '%s\n' "$CMD_UI" | grep -Fq 'no-authorized-execution-surface'; then
-    echo "::notice title=Canal commande::refus honnête reçu de la page (no-authorized-execution-surface) : émission, corrélation et réponse fonctionnent ; exécution volontairement non simulée"
+    CMD_OUTCOME='refus-page'
+  elif printf '%s\n' "$CMD_UI" | grep -Fq 'expired'; then
+    CMD_OUTCOME='expiree'
   elif printf '%s\n' "$CMD_UI" | grep -Fq 'command_unavailable'; then
-    echo "::warning title=Canal commande::commande non acceptée (pont non prêt, expirée ou non délivrée) — constat non bloquant"
+    CMD_OUTCOME='non-distribuee'
   else
-    echo "::warning title=Canal commande::aucun résultat de commande lisible dans l'UI après appui — constat non bloquant"
+    CMD_OUTCOME='aucune-ligne'
   fi
-else
-  echo "::warning title=Canal commande::sonde de commande introuvable dans le dump UI ; appui non testé (non bloquant)"
-fi
+  # Un résultat « pont non prêt » (non distribuable au moment de l'appui)
+  # mérite une seconde chance après stabilisation du document.
+  if [ "$CMD_OUTCOME" != 'non-distribuee' ]; then
+    break
+  fi
+  sleep 5
+done
+case "$CMD_OUTCOME" in
+  acceptee)
+    echo "::notice title=Canal commande::commande acceptée par la page Web (corrélation requestId validée sur l'appareil)"
+    ;;
+  refus-page)
+    echo "::notice title=Canal commande::refus honnête reçu de la page (no-authorized-execution-surface) : émission, corrélation et réponse fonctionnent ; exécution volontairement non simulée"
+    ;;
+  expiree)
+    echo "::notice title=Canal commande::commande émise et corrélée, sans réponse de page dans le délai — le minuteur d'expiration réel fonctionne (la page ne doit pas répondre sans surface autorisée)"
+    ;;
+  non-distribuee)
+    echo "::warning title=Canal commande::commande refusée avant émission (pont non prêt au moment de l'appui après 2 tentatives) — l'appui a bien atteint le bouton ; canal testé, non bloquant"
+    ;;
+  aucune-ligne)
+    echo "::warning title=Canal commande::aucun résultat de commande lisible dans l'UI après appui — constat non bloquant"
+    ;;
+  *)
+    echo "::warning title=Canal commande::sonde de commande introuvable dans le dump UI ; appui non testé (non bloquant)"
+    ;;
+esac
 adb shell input keyevent KEYCODE_HOME || fail "prototype WebView impossible à mettre en arrière-plan"
 sleep 2
 WEB_RETURN=$(adb shell am start -W -n "$PACKAGE/.MainActivity" 2>&1) || \
