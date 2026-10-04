@@ -15,6 +15,7 @@ import type { SongCandidateDecision } from './audiusTrackMatcher';
 import {
   getYouTubeAudioStreamUrl,
   searchYouTubeSongs,
+  youtubeContentQuality,
   YouTubeSongCandidate,
 } from './youtubeInnertube';
 import { sanitizeErrorForLog } from '../logSanitize';
@@ -37,6 +38,13 @@ import { sanitizeErrorForLog } from '../logSanitize';
 /** Seuil d'acceptation identique à Audius (voir findBestAudiusMatch). */
 const ACCEPT_SCORE = 55;
 
+/**
+ * Taille du lot demandé par formulation. Élargir le lot ne coûte aucune
+ * requête supplémentaire : YouTube Music renvoie souvent le « Topic » ou
+ * l'« Official Audio » au-delà de la 12e ligne de pertinence.
+ */
+const YOUTUBE_SEARCH_LIMIT = 20;
+
 const devYouTubeLog = (
   event: string,
   details: Record<string, unknown>
@@ -51,6 +59,16 @@ const durationSecOf = (query: AudioSourceQuery): number | null =>
     ? Math.round(query.durationMillis / 1000)
     : null;
 
+/**
+ * Formulations de recherche, de la plus précise à la plus large.
+ *
+ * Les deux dernières ne sont tentées QU'APRÈS échec des précédentes (la boucle
+ * de `searchCandidates` s'arrête dès qu'un candidat fiable apparaît) : elles
+ * n'ajoutent donc des requêtes que pour les morceaux qu'on cherche précisément
+ * à récupérer, jamais pour ceux déjà résolus.
+ */
+const MAX_QUERY_TEXTS = 7;
+
 const queryTexts = (query: AudioSourceQuery): string[] => {
   const artists = query.artists.filter(Boolean).join(' ');
   const original = stripFeatureSuffix(query.title).trim();
@@ -61,15 +79,18 @@ const queryTexts = (query: AudioSourceQuery): string[] => {
         `${artists} ${original}`,
         `${original} ${artists}`,
         `${artists} ${canonical}`,
-        // Les formes élargies n'assouplissent jamais le score : elles ne font
-        // qu'exposer plus de candidats au même matcher strict.
         `${artists} ${original} official audio`,
         query.album ? `${artists} ${original} ${query.album}` : '',
+        // Dernier recours : les formes qui remontent la piste publiée par le
+        // distributeur lui-même (chaîne « … - Topic »), généralement la
+        // référence audio la plus fiable du catalogue.
+        `${artists} ${canonical} topic`,
+        `${artists} ${original} audio`,
       ]
         .map((text) => text.replace(/\s{2,}/g, ' ').trim())
         .filter(Boolean)
     )
-  ).slice(0, 5);
+  ).slice(0, MAX_QUERY_TEXTS);
 };
 
 const scoreCandidate = (
@@ -94,6 +115,7 @@ const scoreCandidate = (
         title: candidate.title,
         artistNames: candidate.artists,
         durationSec: candidate.durationSec,
+        contentQuality: youtubeContentQuality(candidate),
       },
     ],
     { onCandidateDecision: onDecision }
@@ -113,7 +135,7 @@ const searchCandidates = async (
   for (const text of queryTexts(query)) {
     let batch: YouTubeSongCandidate[];
     try {
-      batch = await searchYouTubeSongs(text, 12);
+      batch = await searchYouTubeSongs(text, YOUTUBE_SEARCH_LIMIT);
     } catch {
       sawSearchError = true;
       devYouTubeLog('search-error', { query: text });

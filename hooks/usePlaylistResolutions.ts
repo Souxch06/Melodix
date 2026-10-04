@@ -206,8 +206,14 @@ export const usePlaylistResolutions = (
           const outcome = await resolveWithProviders(
             {
               title: track.title,
+              // Même découpage tolérant que partout ailleurs : un espace
+              // manquant après la virgule ne doit pas fusionner deux artistes
+              // en un seul (la porte artiste rejetait alors le bon morceau).
               artists: track.subtitle
-                ? track.subtitle.split(', ').filter(Boolean)
+                ? track.subtitle
+                    .split(/\s*,\s*/u)
+                    .map((name) => name.trim())
+                    .filter(Boolean)
                 : [],
               album: track.albumName ?? null,
               durationMillis: track.durationMs ?? null,

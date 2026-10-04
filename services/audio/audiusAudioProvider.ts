@@ -8,6 +8,7 @@ import type {
   ResolvedStream,
 } from './types';
 import {
+  audiusCandidateFromTrack,
   findBestAudiusMatch,
   fingerprintOf,
   matchSongs,
@@ -21,8 +22,19 @@ import {
  * Caching of decisions lives in the player (services/player.ts +
  * services/audio/matchCache.ts), so the provider stays trivial to replace.
  */
+
+/**
+ * Taille du lot demandé à Audius par formulation. Le catalogue Audius est
+ * nettement plus petit que celui de Spotify : pour un titre peu diffusé, le
+ * bon enregistrement arrive souvent au-delà de la 10e ligne de pertinence.
+ * Élargir le lot ne coûte AUCUNE requête supplémentaire — il rend simplement
+ * les requêtes existantes plus utiles.
+ */
+const AUDIUS_SEARCH_LIMIT = 24;
+
 export const createAudiusAudioProvider = (): AudioProvider => {
-  const search = (text: string) => searchAudiusTracks(text, 10);
+  const search = (text: string) =>
+    searchAudiusTracks(text, AUDIUS_SEARCH_LIMIT);
 
   return {
     id: 'audius',
@@ -32,7 +44,7 @@ export const createAudiusAudioProvider = (): AudioProvider => {
       const artists = query.artists.filter(Boolean).join(' ');
       const results = await searchAudiusTracks(
         `${artists} ${query.title}`.replace(/\s{2,}/g, ' ').trim(),
-        10
+        AUDIUS_SEARCH_LIMIT
       ).catch(() => []);
 
       const source = fingerprintOf({
@@ -47,20 +59,11 @@ export const createAudiusAudioProvider = (): AudioProvider => {
         explicit: query.explicit,
       });
 
+      // MÊME construction de candidat que le matcher : le badge affiché et la
+      // décision de lecture ne peuvent plus diverger.
       return results
         .map((track) => {
-          const best = matchSongs(source, [
-            {
-              id: track.id,
-              title: track.title ?? '',
-              artistNames: [
-                track.user?.name ?? track.user?.handle ?? '',
-              ].filter(Boolean),
-              durationSec:
-                typeof track.duration === 'number' ? track.duration : null,
-              isrc: track.isrc ?? null,
-            },
-          ]);
+          const best = matchSongs(source, [audiusCandidateFromTrack(track)]);
 
           return best
             ? {
