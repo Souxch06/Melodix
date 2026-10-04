@@ -125,6 +125,10 @@ export const handleMediaCommand = (command: MediaCommand): void => {
     case 'play':
       if (status === 'paused' || status === 'error') {
         void melodixPlayer.togglePlayPause();
+      } else if (status === 'ended') {
+        // Fin de file atteinte : PLAY système relance le morceau affiché
+        // depuis le début (pas un toggle qui resterait sur « terminé »).
+        void melodixPlayer.playAtIndex(melodixPlayer.getState().index);
       }
       break;
 

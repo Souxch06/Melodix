@@ -233,4 +233,17 @@ export const FR_FR_PLAYLIST = {
   favoritesEmptyTitle: 'Aucun favori pour le moment',
   favoritesEmptyBody:
     'Touche le cœur d’un morceau pour le retrouver ici — tes favoris restent stockés sur cet appareil.',
+  // Titres aimés du compte Spotify (source distincte des favoris locaux).
+  likedSongsTitle: 'Titres aimés',
+  likedSongsSubtitle: (count: number) =>
+    count > 1 ? `${count} titres aimés` : `${count} titre aimé`,
+  likedSongsLoading: 'Chargement de tes titres aimés…',
+  likedSongsErrorTitle: 'Impossible de charger tes titres aimés',
+  likedSongsErrorBody:
+    'Spotify n’a pas répondu. Vérifie ta connexion puis réessaie.',
+  likedSongsEmptyTitle: 'Aucun titre aimé',
+  likedSongsEmptyBody:
+    'Touche le cœur d’un morceau dans Spotify pour le retrouver ici.',
+  likedSongsTruncated: (count: number) =>
+    `Affichage des ${count} premiers titres aimés.`,
 };

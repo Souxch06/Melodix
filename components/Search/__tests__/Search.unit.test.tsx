@@ -10,7 +10,11 @@ import { act, fireEvent, render } from '@testing-library/react-native';
 
 import { translations } from '@data';
 import { searchCatalog } from '@api';
-import type { LibraryItemModel } from '@models';
+import type {
+  BrowseCategoryModel,
+  LibraryItemModel,
+  SearchResultsModel,
+} from '@models';
 import type { PlayerTrack } from '@services';
 
 import { Search, SEARCH_DELAY_MS } from '../Search';
@@ -20,9 +24,10 @@ const mockPlayQueue = jest.fn(
 );
 const mockTogglePlayPause = jest.fn(async () => {});
 const searchCatalogMock = searchCatalog as unknown as jest.Mock;
+const mockPush = jest.fn();
 
 jest.mock('expo-router', () => ({
-  useRouter: () => ({ push: jest.fn() }),
+  useRouter: () => ({ push: mockPush }),
   useSegments: () => ['(tabs)', 'search'],
 }));
 
@@ -42,8 +47,14 @@ jest.mock('@hooks', () => ({
   useApplicationDimensions: () => ({ width: 400, height: 800 }),
 }));
 
+const mockGetBrowseCategories = jest.fn<
+  Promise<BrowseCategoryModel[]>,
+  []
+>(async () => []);
+
 jest.mock('@api', () => ({
   searchCatalog: jest.fn(),
+  getBrowseCategories: () => mockGetBrowseCategories(),
 }));
 
 // Capture le morceau ciblé par le menu « appui long » (même rôle que le
@@ -96,7 +107,12 @@ beforeEach(() => {
   searchCatalogMock.mockResolvedValue({
     artists: [],
     tracks: [
-      mkSlide({ id: 't1', title: 'Song One', albumName: 'Album X' }),
+      mkSlide({
+        id: 't1',
+        title: 'Song One',
+        albumName: 'Album X',
+        isrc: 'USRT19901234',
+      }),
       mkSlide({
         id: 't2',
         title: 'Song Two',
@@ -134,6 +150,8 @@ describe('Search — PlayerTrack propagés (I-2)', () => {
       durationMillis: 201_000,
       album: 'Album X',
       artists: ['Artist A'],
+      // ISRC : signal de matching fort, propagé du résultat au matcher.
+      isrc: 'USRT19901234',
     });
   });
 
@@ -149,6 +167,7 @@ describe('Search — PlayerTrack propagés (I-2)', () => {
       artists: ['Artist A'],
       album: 'Album X',
       durationMillis: 201_000,
+      isrc: 'USRT19901234',
     });
   });
 });
@@ -333,5 +352,158 @@ describe('Search — debounce, races et états (zone 4)', () => {
     });
     expect(queryByText('Zombie Result')).toBeNull();
     expect(getByText(translations.searchHint)).toBeTruthy();
+  });
+});
+
+describe('Search — navigation réelle depuis les résultats', () => {
+  const renderWith = async (results: Partial<SearchResultsModel>) => {
+    searchCatalogMock.mockResolvedValue({
+      artists: [],
+      tracks: [],
+      albums: [],
+      playlists: [],
+      ...results,
+    });
+
+    const utils = render(<Search />);
+    await typeQueryAndAdvance(utils.getByPlaceholderText);
+
+    return utils;
+  };
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockPush.mockClear();
+  });
+
+  it('ouvre la page artiste au lieu de laisser le résultat inerte', async () => {
+    const { getByText } = await renderWith({
+      artists: [
+        {
+          id: 'ar-42',
+          type: 'artist',
+          title: 'Daft Punk',
+          subtitle: '',
+          imageURL: '',
+        },
+      ],
+    });
+
+    fireEvent.press(getByText('Daft Punk'));
+
+    expect(mockPush).toHaveBeenCalledWith('/search/artist/ar-42');
+  });
+
+  it('ouvre la page album', async () => {
+    const { getByText } = await renderWith({
+      albums: [
+        {
+          id: 'al-7',
+          type: 'album',
+          title: 'Discovery',
+          subtitle: 'Daft Punk',
+          imageURL: '',
+        },
+      ],
+    });
+
+    fireEvent.press(getByText('Discovery'));
+
+    expect(mockPush).toHaveBeenCalledWith('/search/album/al-7');
+  });
+
+  it('ouvre la page playlist', async () => {
+    const { getByText } = await renderWith({
+      playlists: [
+        {
+          id: 'pl-9',
+          type: 'playlist',
+          title: 'French Touch',
+          subtitle: 'Par SpotiFan',
+          imageURL: '',
+          totalTracks: 42,
+        },
+      ],
+    });
+
+    fireEvent.press(getByText('French Touch'));
+
+    expect(mockPush).toHaveBeenCalledWith('/search/playlist/pl-9');
+  });
+
+  it('encode les identifiants utilisés dans la route', async () => {
+    const { getByText } = await renderWith({
+      artists: [
+        {
+          id: 'ar/with spaces',
+          type: 'artist',
+          title: 'Étrange',
+          subtitle: '',
+          imageURL: '',
+        },
+      ],
+    });
+
+    fireEvent.press(getByText('Étrange'));
+
+    expect(mockPush).toHaveBeenCalledWith('/search/artist/ar%2Fwith%20spaces');
+  });
+});
+
+describe('Search — « Parcourir » lance une VRAIE recherche', () => {
+  const genres = [
+    { id: 'electronic', title: 'Électronique', imageURL: '' },
+    { id: 'jazz', title: 'Jazz', imageURL: '' },
+  ];
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockPush.mockClear();
+    mockGetBrowseCategories.mockResolvedValue(genres);
+    searchCatalogMock.mockResolvedValue({
+      artists: [],
+      tracks: [],
+      albums: [],
+      playlists: [],
+    });
+  });
+
+  it('affiche les genres du catalogue local à l état idle', async () => {
+    const { getByTestId, getByText } = render(<Search />);
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+
+    expect(getByTestId('search-browse')).toBeTruthy();
+    expect(getByText('Électronique')).toBeTruthy();
+    expect(getByText('Jazz')).toBeTruthy();
+  });
+
+  it('toucher un genre remplit la recherche et interroge le catalogue', async () => {
+    const { getByText } = render(<Search />);
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+
+    await act(async () => {
+      fireEvent.press(getByText('Jazz'));
+      await new Promise((resolve) => setTimeout(resolve, SEARCH_DELAY_MS + 30));
+    });
+
+    // Même chemin qu'une saisie manuelle : une vraie requête catalogue.
+    expect(searchCatalogMock).toHaveBeenCalledWith('Jazz');
+    // La section disparaît une fois la recherche lancée.
+    expect(() => getByText('Électronique')).toThrow();
+  });
+
+  it('masque la section si le catalogue de genres est indisponible', async () => {
+    mockGetBrowseCategories.mockResolvedValue([]);
+
+    const { queryByTestId } = render(<Search />);
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+
+    expect(queryByTestId('search-browse')).toBeNull();
   });
 });

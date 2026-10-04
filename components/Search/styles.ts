@@ -63,4 +63,34 @@ export const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '700',
   },
+  // « Parcourir » : raccourcis de recherche par genre (état idle).
+  browseSection: {
+    marginTop: 24,
+    paddingHorizontal: 16,
+  },
+  browseTitle: {
+    color: COLORS.WHITE,
+    fontSize: 16,
+    fontWeight: '700',
+    marginBottom: 12,
+  },
+  browseChips: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  browseChip: {
+    backgroundColor: COLORS.LIGHT_GREY,
+    borderRadius: 16,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+  },
+  browseChipPressed: {
+    opacity: 0.6,
+  },
+  browseChipText: {
+    color: COLORS.WHITE,
+    fontSize: 13,
+    fontWeight: '600',
+  },
 });

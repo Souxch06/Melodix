@@ -292,4 +292,16 @@ export const EN_GB_PLAYLIST = {
   favoritesEmptyTitle: 'No favorites yet',
   favoritesEmptyBody:
     'Tap the heart on a track to find it here — your favorites stay on this device.',
+  // Titres aimés du compte Spotify (source distincte des favoris locaux).
+  likedSongsTitle: 'Liked songs',
+  likedSongsSubtitle: (count: number) =>
+    count > 1 ? `${count} liked songs` : `${count} liked song`,
+  likedSongsLoading: 'Loading your liked songs…',
+  likedSongsErrorTitle: 'Could not load your liked songs',
+  likedSongsErrorBody:
+    'Spotify did not answer. Check your connection and try again.',
+  likedSongsEmptyTitle: 'No liked songs yet',
+  likedSongsEmptyBody: 'Tap the heart on a track in Spotify to find it here.',
+  likedSongsTruncated: (count: number) =>
+    `Showing the first ${count} liked songs.`,
 };

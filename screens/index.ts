@@ -3,6 +3,7 @@ export { HistoryScreen } from './HistoryScreen';
 export { SearchScreen } from './SearchScreen';
 export { LibraryScreen } from './LibraryScreen';
 export { FavoritesScreen } from './FavoritesScreen';
+export { LikedSongsScreen } from './LikedSongsScreen';
 export { PlaylistScreen } from './PlaylistScreen';
 export { AlbumScreen } from './AlbumScreen';
 export { ArtistScreen } from './ArtistScreen';

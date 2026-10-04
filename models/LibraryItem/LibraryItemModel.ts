@@ -16,4 +16,10 @@ export type LibraryItemModel = {
    */
   durationMs?: number | null;
   albumName?: string | null;
+  /**
+   * ISRC Spotify quand la source l'expose (recherche catalogue). Signal de
+   * matching FORT — voir services/audio/audiusTrackMatcher.ts. Facultatif :
+   * Audius et le backend ne le publient pas toujours.
+   */
+  isrc?: string | null;
 };

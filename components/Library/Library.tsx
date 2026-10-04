@@ -41,6 +41,9 @@ export const Library = () => {
   // Dernière erreur de récupération des playlists personnelles
   // (les favoris locaux restent affichés quoi qu'il arrive).
   const [personalFetchFailed, setPersonalFetchFailed] = React.useState(false);
+  // Session Spotify active : conditionne l'entrée « Titres aimés », qui
+  // expose la bibliothèque DU COMPTE (donnée distincte des favoris locaux).
+  const [spotifyLinked, setSpotifyLinked] = React.useState(false);
   const { librarySelectedCategory, animatedValue } =
     useLibrarySelectedCategory();
   const { width, height } = useApplicationDimensions();
@@ -62,7 +65,10 @@ export const Library = () => {
         // Compte Spotify connecté : playlists personnelles EN PREMIER dans
         // les catégories « playlist » et « all », par-dessus la copie de
         // travail locale (Spotify reste la source de vérité à la synchro).
-        if (await isSpotifySessionActive()) {
+        const sessionActive = await isSpotifySessionActive();
+        setSpotifyLinked(sessionActive);
+
+        if (sessionActive) {
           try {
             const personal = await getUserPlaylists({
               forceRefresh: forceRefreshPersonal,
@@ -219,6 +225,36 @@ export const Library = () => {
                     size={18}
                   />
                 </Pressable>
+
+                {/* Entrée « Titres aimés » : la bibliothèque du compte
+                    Spotify, distincte des favoris locaux ci-dessus. Présente
+                    UNIQUEMENT avec une session active — sinon elle mentirait
+                    sur l'origine des morceaux. */}
+                {spotifyLinked && (
+                  <Pressable
+                    accessibilityRole="button"
+                    onPress={() => router.push('/liked-songs')}
+                    style={({ pressed }) => [
+                      styles.favoritesCard,
+                      pressed && styles.favoritesCardPressed,
+                    ]}
+                    testID="library-liked-songs-entry"
+                  >
+                    <Ionicons
+                      color={COLORS.TINT}
+                      name="heart-circle"
+                      size={20}
+                    />
+                    <Text style={styles.favoritesCardText}>
+                      {translations.likedSongsTitle}
+                    </Text>
+                    <Ionicons
+                      color={COLORS.GREY}
+                      name="chevron-forward"
+                      size={18}
+                    />
+                  </Pressable>
+                )}
                 {personalFetchFailed && (
                   <Text style={styles.personalErrorBanner}>
                     {translations.loginFetchFailed}

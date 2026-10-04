@@ -36,7 +36,12 @@ export { getBrowseCategories, SEARCH_LIMIT, searchCatalog } from './search';
 
 export { getSavedShows } from './shows';
 
-export { checkSavedTracks, getSavedTracks } from './tracks';
+export {
+  checkSavedTracks,
+  getSavedTracks,
+  getSpotifySavedTracks,
+  getSpotifySavedTracksCount,
+} from './tracks';
 
 export { checkSavedItems } from './library';
 export type { LibraryItemType } from './library';

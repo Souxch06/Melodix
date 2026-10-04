@@ -8,9 +8,14 @@ import {
   View,
 } from 'react-native';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
+import { useRouter } from 'expo-router';
 
-import { searchCatalog } from '@api';
-import { SearchResultsModel } from '@models';
+import { getBrowseCategories, searchCatalog } from '@api';
+import {
+  BrowseCategoryModel,
+  LibraryItemModel,
+  SearchResultsModel,
+} from '@models';
 import { useApplicationDimensions } from '@hooks';
 import {
   BOTTOM_NAVIGATION_HEIGHT,
@@ -36,10 +41,38 @@ export const SEARCH_DELAY_MS = 400;
 
 export const Search = () => {
   const { width, height } = useApplicationDimensions();
+  const router = useRouter();
   const [query, setQuery] = React.useState('');
   const [results, setResults] = React.useState<SearchResultsModel | null>(null);
   const [status, setStatus] = React.useState<SearchStatus>('idle');
   const [retrySeed, setRetrySeed] = React.useState(0);
+  // « Parcourir » : le catalogue de genres local (data/genres) alimente des
+  // raccourcis de RECHERCHE. Toucher un genre remplit le champ et déclenche
+  // exactement la même requête qu'une saisie manuelle — aucun second système
+  // de recherche, aucun écran factice.
+  const [genres, setGenres] = React.useState<BrowseCategoryModel[]>([]);
+
+  React.useEffect(() => {
+    let disposed = false;
+
+    getBrowseCategories()
+      .then((loaded) => {
+        if (!disposed) {
+          setGenres(loaded);
+        }
+      })
+      .catch(() => {
+        // Catalogue statique local : un échec ici n'a aucun sens métier. On
+        // masque simplement la section plutôt que d'afficher une erreur.
+        if (!disposed) {
+          setGenres([]);
+        }
+      });
+
+    return () => {
+      disposed = true;
+    };
+  }, []);
 
   React.useEffect(() => {
     const q = query.trim();
@@ -91,6 +124,7 @@ export const Search = () => {
       imageURL?: string;
       durationMs?: number | null;
       albumName?: string | null;
+      isrc?: string | null;
     }) => {
       const queueId = queueIdForTrackId(track.id);
 
@@ -108,12 +142,13 @@ export const Search = () => {
 
       void player.playQueue(
         playable.map(
-          ({ id, title, subtitle, imageURL, albumName, durationMs }) => ({
+          ({ id, title, subtitle, imageURL, albumName, durationMs, isrc }) => ({
             id: queueIdForTrackId(id),
             title,
             artists: subtitle ? subtitle.split(', ').filter(Boolean) : [],
             album: albumName ?? null,
             durationMillis: durationMs ?? null,
+            isrc: isrc ?? null,
             imageURL: imageURL ?? '',
             source: sourceForTrackId(id),
           })
@@ -134,6 +169,7 @@ export const Search = () => {
       imageURL?: string;
       durationMs?: number | null;
       albumName?: string | null;
+      isrc?: string | null;
     }) => {
       if (!track.id) {
         return;
@@ -147,11 +183,41 @@ export const Search = () => {
           : [],
         album: track.albumName ?? null,
         durationMillis: track.durationMs ?? null,
+        isrc: track.isrc ?? null,
         imageURL: track.imageURL ?? '',
         source: sourceForTrackId(track.id),
       });
     },
     []
+  );
+
+  // Navigation réelle depuis chaque type de résultat. Les routes existent
+  // déjà (app/(tabs)/search/{artist,album,playlist}/[id].tsx) : un résultat
+  // de recherche ouvre donc la VRAIE page, jamais un cul-de-sac.
+  // Un genre n'est pas une page : c'est une RECHERCHE pré-remplie.
+  const handleGenrePress = React.useCallback((title: string) => {
+    setQuery(title);
+  }, []);
+
+  const openArtist = React.useCallback(
+    (slide: LibraryItemModel) => {
+      router.push(`/search/artist/${encodeURIComponent(slide.id)}`);
+    },
+    [router]
+  );
+
+  const openAlbum = React.useCallback(
+    (slide: LibraryItemModel) => {
+      router.push(`/search/album/${encodeURIComponent(slide.id)}`);
+    },
+    [router]
+  );
+
+  const openPlaylist = React.useCallback(
+    (slide: LibraryItemModel) => {
+      router.push(`/search/playlist/${encodeURIComponent(slide.id)}`);
+    },
+    [router]
   );
 
   const sections = results
@@ -161,7 +227,7 @@ export const Search = () => {
           title: translations.type.artists,
           slides: results.artists,
           shape: Shapes.CIRCLE,
-          onSlidePress: undefined,
+          onSlidePress: openArtist,
         },
         {
           key: 'tracks',
@@ -176,14 +242,14 @@ export const Search = () => {
           title: translations.type.albums,
           slides: results.albums,
           shape: Shapes.SQUARE_BORDER,
-          onSlidePress: undefined,
+          onSlidePress: openAlbum,
         },
         {
           key: 'playlists',
           title: translations.type.playlists,
           slides: results.playlists,
           shape: Shapes.SQUARE_BORDER,
-          onSlidePress: undefined,
+          onSlidePress: openPlaylist,
         },
       ].filter(({ slides }) => slides.length > 0)
     : [];
@@ -218,6 +284,27 @@ export const Search = () => {
       >
         {status === 'idle' && (
           <Text style={styles.message}>{translations.searchHint}</Text>
+        )}
+        {status === 'idle' && genres.length > 0 && (
+          <View style={styles.browseSection} testID="search-browse">
+            <Text style={styles.browseTitle}>{translations.browseAll}</Text>
+            <View style={styles.browseChips}>
+              {genres.map((genre) => (
+                <Pressable
+                  accessibilityRole="button"
+                  key={genre.id}
+                  onPress={() => handleGenrePress(genre.title)}
+                  style={({ pressed }) => [
+                    styles.browseChip,
+                    pressed && styles.browseChipPressed,
+                  ]}
+                  testID={`search-browse-${genre.id}`}
+                >
+                  <Text style={styles.browseChipText}>{genre.title}</Text>
+                </Pressable>
+              ))}
+            </View>
+          </View>
         )}
         {status === 'loading' && (
           <ActivityIndicator color={COLORS.TINT} style={styles.loader} />
