@@ -1,4 +1,18 @@
 export { AudiusYouTubeBackend } from './AudiusYouTubeBackend';
+export {
+  getSpotifyWebPhysicalValidation,
+  getSpotifyWebPhysicalValidationEvidence,
+  isSpotifyWebPlaybackEnabled,
+  recordSpotifyWebPhysicalValidation,
+  resetSpotifyWebPlaybackFeatureForTesting,
+  resolveSpotifyWebPlaybackActivation,
+  setSpotifyWebPlaybackEnabled,
+} from './spotifyWebFeature';
+export type {
+  SpotifyWebActivationDecision,
+  SpotifyWebPhysicalValidation,
+  SpotifyWebPlaybackEngagement,
+} from './spotifyWebFeature';
 export { buildBackendMediaSessionPayload } from './mediaProjection';
 export {
   DEFAULT_SPOTIFY_WEB_COMMAND_TIMEOUT_MS,
