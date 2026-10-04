@@ -2,6 +2,8 @@ import type { PlaybackBackendState } from './types';
 
 export type SpotifyWebPlaybackInput = {
   status?: unknown;
+  /** Bounded origin label validated by protocol v2 (e.g. 'media-session'). */
+  source?: unknown;
   trackId?: unknown;
   title?: unknown;
   artists?: unknown;

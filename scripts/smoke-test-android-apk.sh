@@ -82,6 +82,44 @@ elif printf '%s\n' "$WEB_UI" | grep -Fq 'Widevine: non'; then
 else
   echo "::warning title=Capacité DRM WebView::résultat Widevine inconnu (probe non conclu)"
 fi
+# Indicateurs non bloquants du pont v2 : le smoke constate, ne simule rien.
+if printf '%s\n' "$WEB_UI" | grep -Fq 'source: media-session'; then
+  echo "::notice title=État réel du Web Player::la page a publié un état via navigator.mediaSession"
+else
+  echo "::warning title=État réel du Web Player::aucun état mediaSession publié (normal sans lecture réelle de la part d'un compte)"
+fi
+if printf '%s\n' "$WEB_UI" | grep -Fq 'titre=oui'; then
+  echo "::notice title=Métadonnées MediaSession::titre publié par la page elle-même"
+fi
+if printf '%s\n' "$WEB_UI" | grep -Fq 'positionState: oui'; then
+  echo "::notice title=positionState::durée/position exposées par la page via MediaSession"
+fi
+# Canal de commande réel : appui sur la sonde « Commande lecture » si elle est
+# localisable, puis lecture du résultat affiché. Une réponse acceptée OU un
+# refus honnête (no-authorized-execution-surface) prouve la corrélation
+# request↔réponse sur l'appareil. Non bloquant par conception.
+adb shell uiautomator dump /sdcard/melodix-cmd.xml >/dev/null 2>&1 || true
+BOUNDS=$(adb shell cat /sdcard/melodix-cmd.xml 2>/dev/null | tr '>' '\n' | grep -F 'Commande lecture' | grep -oE 'bounds="\[[0-9]+,[0-9]+\]\[[0-9]+,[0-9]+\]"' | head -1 || true)
+COORDS=$(printf '%s' "$BOUNDS" | grep -oE '[0-9]+' | head -4 || true)
+X1=$(printf '%s\n' "$COORDS" | sed -n 1p); Y1=$(printf '%s\n' "$COORDS" | sed -n 2p)
+X2=$(printf '%s\n' "$COORDS" | sed -n 3p); Y2=$(printf '%s\n' "$COORDS" | sed -n 4p)
+if printf '%s%s%s%s' "$X1" "$Y1" "$X2" "$Y2" | grep -Eq '^[0-9]+$'; then
+  adb shell input tap $(( (X1 + X2) / 2 )) $(( (Y1 + Y2) / 2 )) || true
+  sleep 3
+  adb shell uiautomator dump /sdcard/melodix-cmd2.xml >/dev/null 2>&1 || true
+  CMD_UI=$(adb shell cat /sdcard/melodix-cmd2.xml 2>&1 || true)
+  if printf '%s\n' "$CMD_UI" | grep -Fq 'command_accepted'; then
+    echo "::notice title=Canal commande::commande acceptée par la page Web (corrélation requestId validée sur l'appareil)"
+  elif printf '%s\n' "$CMD_UI" | grep -Fq 'no-authorized-execution-surface'; then
+    echo "::notice title=Canal commande::refus honnête reçu de la page (no-authorized-execution-surface) : émission, corrélation et réponse fonctionnent ; exécution volontairement non simulée"
+  elif printf '%s\n' "$CMD_UI" | grep -Fq 'command_unavailable'; then
+    echo "::warning title=Canal commande::commande non acceptée (pont non prêt, expirée ou non délivrée) — constat non bloquant"
+  else
+    echo "::warning title=Canal commande::aucun résultat de commande lisible dans l'UI après appui — constat non bloquant"
+  fi
+else
+  echo "::warning title=Canal commande::sonde de commande introuvable dans le dump UI ; appui non testé (non bloquant)"
+fi
 adb shell input keyevent KEYCODE_HOME || fail "prototype WebView impossible à mettre en arrière-plan"
 sleep 2
 WEB_RETURN=$(adb shell am start -W -n "$PACKAGE/.MainActivity" 2>&1) || \

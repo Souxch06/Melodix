@@ -172,4 +172,41 @@ describe('SpotifyWebPrototypeScreen WebView lifecycle recovery', () => {
       spy.mockRestore();
     }
   });
+
+  it('canal de commande réel : réponse de la page rapportée, refus jamais simulé en succès', async () => {
+    const { getByTestId, getByText } = render(<SpotifyWebPrototypeScreen />);
+    const webView = getByTestId('spotify-webview');
+    fireEvent(webView, 'loadEnd');
+    fireEvent(webView, 'message', {
+      nativeEvent: { data: '{"version":2,"type":"ready"}' },
+    });
+    expect(textOf(getByTestId('spotify-web-bridge-status'))).toContain('prêt');
+    expect(textOf(getByTestId('spotify-web-metadata'))).toContain('titre=non');
+
+    // WebView simulée : pas de ref native → postMessage non délivré. Le
+    // diagnostic affiche le code sûr 'undelivered', jamais un faux succès.
+    fireEvent.press(getByTestId('spotify-web-play-probe'));
+    await act(async () => {
+      for (let hop = 0; hop < 8; hop += 1) await Promise.resolve();
+    });
+    expect(getByText(/command_unavailable · play · undelivered/)).toBeTruthy();
+
+    // État réellement publié par la page : présence et source exposées.
+    fireEvent(webView, 'message', {
+      nativeEvent: {
+        data: JSON.stringify({
+          version: 2,
+          type: 'state',
+          payload: { status: 'playing', title: 'T', source: 'media-session' },
+        }),
+      },
+    });
+    expect(textOf(getByTestId('spotify-web-metadata'))).toContain('titre=oui');
+    expect(textOf(getByTestId('spotify-web-metadata'))).toContain(
+      'source: media-session'
+    );
+    expect(textOf(getByTestId('spotify-web-metadata'))).toContain(
+      'artwork=non'
+    );
+  });
 });

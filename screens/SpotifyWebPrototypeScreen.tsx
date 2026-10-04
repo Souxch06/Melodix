@@ -24,9 +24,13 @@ export const SPOTIFY_WEB_BRIDGE_READY_TIMEOUT_MS =
 
 type DiagnosticEvent = {
   id: number;
-  code: SpotifyWebDiagnosticCode | 'command_unavailable';
+  code: SpotifyWebDiagnosticCode | 'command_unavailable' | 'command_accepted';
   detail?: string;
 };
+
+/** Non-sensitive presence indicators for the physical test. */
+const yesNo = (value: string | null | undefined): string =>
+  value ? 'oui' : 'non';
 
 /**
  * Experimental, isolated WebView probe. It does not receive OAuth PKCE data,
@@ -130,7 +134,15 @@ export const SpotifyWebPrototypeScreen = () => {
         command === 'play'
           ? await backendRef.current.play()
           : await backendRef.current.pause();
-      if (!accepted) report('command_unavailable', command);
+      // Diagnostic contrôlé : le code sûr de la réponse de la page
+      // (acceptée / refus honnête / expirée / déconnectée) est journalisé,
+      // jamais le contenu de la réponse.
+      const outcome = backendRef.current.getLastCommandOutcome();
+      const detail = outcome?.code ? ` · ${outcome.code}` : '';
+      report(
+        accepted ? 'command_accepted' : 'command_unavailable',
+        `${command}${detail}`
+      );
     },
     [report]
   );
@@ -175,6 +187,14 @@ export const SpotifyWebPrototypeScreen = () => {
         <Text style={styles.statusText}>
           Lecture: {backendState.status} · session: indéterminée
         </Text>
+        <Text style={styles.statusText} testID="spotify-web-metadata">
+          Métadonnées: titre={yesNo(backendState.title)} · artistes=
+          {yesNo(backendState.artists[0])} · artwork=
+          {yesNo(backendState.artworkUrl)} · durée=
+          {backendState.durationMillis > 0 ? 'oui' : 'non'} · position=
+          {backendState.positionMillis > 0 ? 'oui' : 'non'} · source:{' '}
+          {backendRef.current.getLastStateSource() ?? '—'}
+        </Text>
         <Text style={styles.statusText} testID="spotify-web-capabilities">
           MediaSession:{' '}
           {runtimeCapabilities
@@ -191,6 +211,12 @@ export const SpotifyWebPrototypeScreen = () => {
           · Widevine:{' '}
           {runtimeCapabilities
             ? runtimeCapabilities.widevine
+              ? 'oui'
+              : 'non'
+            : 'inconnu'}{' '}
+          · positionState:{' '}
+          {runtimeCapabilities
+            ? runtimeCapabilities.positionState
               ? 'oui'
               : 'non'
             : 'inconnu'}
@@ -263,6 +289,7 @@ export const SpotifyWebPrototypeScreen = () => {
           <Ionicons color={COLORS.WHITE} name="arrow-back" size={20} />
         </Pressable>
         <Pressable
+          accessibilityLabel="Commande lecture"
           onPress={() => void requestCommand('play')}
           style={styles.control}
           testID="spotify-web-play-probe"
