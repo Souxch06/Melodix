@@ -47,3 +47,13 @@ Le probe standard peut fournir titre, artiste, artwork et état playing/paused u
 Le smoke Android ouvre la route expérimentale par deep link, vérifie son rendu natif et exerce un cycle arrière-plan/retour. Il ne se connecte pas à un compte et ne prétend donc pas valider l'authentification, la lecture, la continuité audio de fond ni la récupération après destruction forcée du renderer.
 
 La WebView utilise son stockage/cookies normaux (`domStorageEnabled`, cookies partagés, mode non-incognito) sans les exposer au code Melodix. Les navigations sont limitées aux origines Spotify HTTPS. Les diagnostics ne conservent ni URL complète, ni path, ni query, ni fragment, ni texte d'erreur upstream.
+
+## Cycle de vie du runtime WebView (phase 1.1)
+
+Le cycle de vie WebView est centralisé dans `services/playbackBackend/spotifyWebRuntime.ts` (`SpotifyWebRuntime`) ; l’écran ne fait que relayer les événements de la WebView et rendre le snapshot du runtime.
+
+- `loading` à chaque nouveau document (montage, `onLoadStart`, rechargement manuel), `awaiting-bridge` à la fin du chargement, puis `ready` uniquement après le handshake versionné `bridge_ready` ; la deadline de handshake n’est jamais réarmée par un événement de sous-frame tardif ;
+- pertes traitées explicitement : `bridge_timeout`, `renderer_destroyed` et `network_error` marquent l’état `error` côté backend et invalident les résultats de commandes tardifs (sessions backend inchangées) ;
+- reconnexion automatique bornée : 3 tentatives au maximum avec backoff exponentiel borné (1,5 s puis 2×, plafond 15 s), rechargement simple si le renderer est vivant et recréation native de la WebView (`remount` via clé React) si le renderer est détruit ; budget réarmé par un handshake réussi ou par le bouton de rechargement manuel ; après épuisement, l’écran affiche `failed` et n’attend plus que l’utilisateur ;
+- en arrière-plan, la reconnexion planifiée est différée et reprend au retour au premier plan ; le runtime ne déduit jamais une connexion ou une session ;
+- aucune lecture simulée : ni mock de lecture, ni état playing inventé — un nouveau document doit rejouer le handshake strict pour que le pont accepte à nouveau l’état, et les commandes Web restent non branchées ; `PlayerContext`, `services/player.ts` et `mediaBridge` ne sont pas touchés.
