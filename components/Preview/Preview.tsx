@@ -87,6 +87,7 @@ export const Preview = ({
   tracks,
   fetchTracks,
   artists,
+  recommendationsType,
   recommendationsSeed,
   onToggleTrackSaved,
 }: PreviewPropsType) => {
