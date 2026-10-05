@@ -1,5 +1,6 @@
 import * as React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { useRouter } from 'expo-router';
 
 import Ionicons from '@expo/vector-icons/Ionicons';
 
@@ -51,6 +52,7 @@ const SKELETON_SLIDES: LibraryItemModel[] = Array(3).fill({
  * - aucune playlist → « Aucune playlist pour le moment » + bouton « Actualiser ».
  */
 export const YourPlaylists = () => {
+  const router = useRouter();
   const { userData, spotifyDataPlan, reloadUserData } = useUserData();
   const [phase, setPhase] = React.useState<FetchPhase>('loading');
   const [savedPlaylists, setSavedPlaylists] = React.useState<
@@ -243,6 +245,9 @@ export const YourPlaylists = () => {
       size={Sizes.MEDIUM}
       shape={Shapes.SQUARE_BORDER}
       withShowAll={true}
+      // Destination RÉELLE : l'onglet Bibliothèque, qui liste déjà toutes les
+      // playlists avec la même gestion d'identité (compte vs mode invité).
+      onShowAllPress={() => router.push('/library')}
     />
   );
 };

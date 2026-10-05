@@ -1,4 +1,5 @@
 import * as React from 'react';
+import { useRouter } from 'expo-router';
 
 import { Slider } from '../../Slider';
 
@@ -8,6 +9,7 @@ import { Shapes, Sizes } from '@config';
 import { translations } from '@data';
 
 export const BasedOnTopArtists = () => {
+  const router = useRouter();
   const [albumsBasedOnTopArtists, setAlbumsBasedOnTopArtists] = React.useState<
     LibraryItemModel[] | null
   >([
@@ -46,6 +48,7 @@ export const BasedOnTopArtists = () => {
       size={Sizes.MEDIUM}
       shape={Shapes.SQUARE}
       withShowAll={true}
+      onShowAllPress={() => router.push('/home/see-all/based-on-top-artists')}
     />
   );
 };
