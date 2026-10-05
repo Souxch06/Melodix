@@ -47,6 +47,29 @@ Aucune capture ne doit montrer email, identifiant, QR code de connexion, cookie,
 | Casque/Bluetooth                    | oui / non / non testé                       |
 | Retour après recréation activité    | propre / erreur / crash                     |
 
+### Champs ajoutés en Mission 6 — remplissables depuis les diagnostics
+
+Les neuf événements `SPOTIFY_WEB_*` sont horodatés séparément, donc ces trois
+lignes deviennent mesurables au lieu d'être des impressions. Si le pont n'est
+jamais arrivé à `READY`, laisser ces lignes vides plutôt que de les deviner.
+
+| Point                               | Valeur attendue à renseigner                  |
+| ----------------------------------- | --------------------------------------------- |
+| `SPOTIFY_WEB_LOAD` observé          | oui / non                                     |
+| `SPOTIFY_WEB_READY` observé         | oui / non                                     |
+| `SPOTIFY_WEB_PLAY_REQUEST` observé  | oui / non                                     |
+| `SPOTIFY_WEB_PLAY_ACCEPTED` observé | oui / non — si oui, la page a REÇU l'ordre    |
+| `SPOTIFY_WEB_PLAYING` observé       | oui / non — **seule vraie preuve de lecture** |
+| Latence demande → `PLAYING`         | ms (mesurée)                                  |
+| `SPOTIFY_WEB_BUFFERING` observé     | oui / non / non testé                         |
+| `SPOTIFY_WEB_ENDED` observé         | oui / non                                     |
+| `SPOTIFY_WEB_ERROR` observé         | non / code de cause (jamais de texte libre)   |
+
+> Rappel de méthode : `PLAY_ACCEPTED: oui` seul ne vaut PAS « lecture
+> fonctionnelle ». Seul `PLAYING` compte. Si les deux premiers arrivent et
+> que `PLAYING` manque, la conclusion est « commande acceptée, lecture non
+> démontrée » — pas « fonctionne ».
+
 ## Interprétation
 
 - `Widevine: non` avec lecture refusée indique un blocage DRM probable de cette WebView/appareil ; ne rien contourner.
