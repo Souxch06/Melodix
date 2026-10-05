@@ -1,10 +1,5 @@
 import { StyleSheet } from 'react-native';
-import {
-  APP_BACKGROUND_COLOR,
-  BOTTOM_NAVIGATION_HEIGHT,
-  COLORS,
-  PALETTE,
-} from '@config';
+import { BOTTOM_NAVIGATION_HEIGHT, COLORS, PALETTE } from '@config';
 
 export const styles = StyleSheet.create({
   container: {

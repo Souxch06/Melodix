@@ -188,22 +188,39 @@ describe('design system — fond unique réellement utilisé', () => {
     }
   });
 
-  it('aucun écran de production ne redéfinit le fond avec l ancien gris primaire', () => {
+  it('aucune surface de production ne redéfinit le fond avec l ancien gris primaire', () => {
     // Le prototype Spotify Web est VOLONTAIREMENT exclu : il reste isolé,
     // désactivé en production, et n'est pas un écran de l'application.
     const EXCLUDED = ['SpotifyWebPrototypeScreen.tsx'];
     const offenders: string[] = [];
 
-    for (const file of walk(path.join(ROOT, 'screens'))) {
-      if (EXCLUDED.includes(path.basename(file))) {
-        continue;
-      }
-      if (/backgroundColor:\s*COLORS\.PRIMARY/.test(read(file))) {
-        offenders.push(path.relative(ROOT, file));
+    for (const dir of ['screens', 'components']) {
+      for (const file of walk(path.join(ROOT, dir))) {
+        if (EXCLUDED.includes(path.basename(file))) {
+          continue;
+        }
+        if (/backgroundColor:\s*COLORS\.PRIMARY/.test(read(file))) {
+          offenders.push(path.relative(ROOT, file));
+        }
       }
     }
 
     expect(offenders).toEqual([]);
+  });
+
+  it('les surfaces communes (carte, erreur, reprise) consomment le design system', () => {
+    const surfaces = [
+      'components/Card/styles.ts',
+      'components/ErrorCard/styles.ts',
+      'components/Player/ResumeSessionCard.tsx',
+      'components/Player/QueueRow.tsx',
+      'components/Preview/Summary/styles.ts',
+    ];
+
+    for (const surface of surfaces) {
+      expect(read(surface)).toMatch(/PALETTE\./);
+      expect(read(surface)).toMatch(/(RADIUS|TYPOGRAPHY|SPACING)\./);
+    }
   });
 
   it('LAYOUT porte les hauteurs partagées (aucun calcul en pixels dupliqué)', () => {

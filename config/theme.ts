@@ -37,6 +37,11 @@ export const PALETTE = {
   /** États. */
   danger: COLORS.RED,
   warning: '#F2A93B',
+  /** Texte — niveaux sémantiques (jamais de blanc pur partout). */
+  textPrimary: '#F5F7FA',
+  textSecondary: 'rgba(245, 247, 250, 0.72)',
+  textTertiary: 'rgba(245, 247, 250, 0.48)',
+  textInverse: COLORS.PRIMARY,
   /** Voiles translucides. */
   veil: 'rgba(8, 11, 20, 0.72)',
   veilStrong: 'rgba(8, 11, 20, 0.92)',
