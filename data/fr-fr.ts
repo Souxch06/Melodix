@@ -279,4 +279,7 @@ export const FR_FR_PLAYLIST = {
     'Touche le cœur d’un morceau dans Spotify pour le retrouver ici.',
   likedSongsTruncated: (count: number) =>
     `Affichage des ${count} premiers titres aimés.`,
+  // Chargement progressif : jamais de plafond, on dit où on en est.
+  likedSongsProgress: (loaded: number, total: number) =>
+    `${loaded} sur ${total} titres aimés chargés — fais défiler pour charger la suite.`,
 };

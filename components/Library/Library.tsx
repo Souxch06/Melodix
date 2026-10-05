@@ -33,7 +33,7 @@ import { isSpotifySessionActive } from '@services';
 import { translations } from '@data';
 
 import { styles } from './styles';
-import { useLibrarySelectedCategory } from '@context';
+import { useLibrarySelectedCategory, useUserData } from '@context';
 
 export const Library = () => {
   const [data, setData] = React.useState<LibraryType | null>(null);
@@ -46,8 +46,14 @@ export const Library = () => {
   const [spotifyLinked, setSpotifyLinked] = React.useState(false);
   const { librarySelectedCategory, animatedValue } =
     useLibrarySelectedCategory();
+  const { userData, sessionStatus } = useUserData();
   const { width, height } = useApplicationDimensions();
   const router = useRouter();
+
+  // Identité du compte Spotify : clé du cache des playlists personnelles
+  // (aucun mélange possible entre deux comptes) et condition d'affichage.
+  const spotifyAccountId =
+    sessionStatus === 'spotify' && userData.id ? userData.id : null;
 
   const numColumns = 3;
   const initRenderAmount = 15;
@@ -72,14 +78,22 @@ export const Library = () => {
           try {
             const personal = await getUserPlaylists({
               forceRefresh: forceRefreshPersonal,
+              accountId: spotifyAccountId,
             });
+            // Les playlists Spotify PRIMENT : une copie locale du même id ne
+            // doit pas créer un doublon ni masquer la version du compte.
+            const personalIds = new Set(personal.map((item) => item.id));
+            const localPlaylists = libraryData[
+              Categories.SAVED_PLAYLISTS
+            ].filter((item) => !personalIds.has(item.id));
+            const localOthers = libraryData[Categories.ALL].filter(
+              (item) => !(item.type === 'playlist' && personalIds.has(item.id))
+            );
+
             merged = {
               ...libraryData,
-              [Categories.SAVED_PLAYLISTS]: [
-                ...personal,
-                ...libraryData[Categories.SAVED_PLAYLISTS],
-              ],
-              [Categories.ALL]: [...personal, ...libraryData[Categories.ALL]],
+              [Categories.SAVED_PLAYLISTS]: [...personal, ...localPlaylists],
+              [Categories.ALL]: [...personal, ...localOthers],
             };
             setPersonalFetchFailed(false);
           } catch (personalError) {
@@ -95,7 +109,7 @@ export const Library = () => {
         console.error(error);
       }
     },
-    []
+    [spotifyAccountId]
   );
 
   // Une page album/playlist peut modifier les favoris pendant que cet écran

@@ -333,4 +333,7 @@ export const EN_GB_PLAYLIST = {
   likedSongsEmptyBody: 'Tap the heart on a track in Spotify to find it here.',
   likedSongsTruncated: (count: number) =>
     `Showing the first ${count} liked songs.`,
+  // Progressive loading: no ceiling, we say where we stand.
+  likedSongsProgress: (loaded: number, total: number) =>
+    `${loaded} of ${total} liked songs loaded — scroll to load more.`,
 };

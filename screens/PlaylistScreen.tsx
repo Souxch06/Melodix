@@ -84,13 +84,19 @@ export const PlaylistScreen = ({ playlistId }: AlbumScreenPropsType) => {
         }
       );
 
-      setTracks((prevTracks) => [
-        ...prevTracks,
-        ...newTracks.map((item, i) => ({
-          ...item,
-          isSaved: savedPlaylistTracksArr[i],
-        })),
-      ]);
+      // Fusion SANS doublon : si la playlist a changé entre deux pages, une
+      // ligne déjà affichée n'est jamais ajoutée une seconde fois.
+      setTracks((prevTracks) => {
+        const knownIds = new Set(prevTracks.map((item) => item.id));
+        const fresh = newTracks
+          .map((item, i) => ({
+            ...item,
+            isSaved: savedPlaylistTracksArr[i],
+          }))
+          .filter((item) => !knownIds.has(item.id));
+
+        return [...prevTracks, ...fresh];
+      });
       setOffset((prevOffset) => prevOffset + limit);
     } catch (error) {
       // Session Spotify morte en cours de consultation : retour propre au
