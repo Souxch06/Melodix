@@ -69,6 +69,7 @@ export const Track = ({
 
   return (
     <Container
+      accessibilityLabel={`${title} — ${subtitle}`}
       style={styles.container}
       {...(onPress ? { onPress, accessibilityRole: 'button' as const } : {})}
     >
@@ -159,6 +160,11 @@ export const Track = ({
               : styles.isTrackUnsavedPressable
           }
           onPress={onToggleSaved}
+          accessibilityLabel={`${
+            isSaved
+              ? translations.trackRemoveSaved
+              : translations.trackSaveTrack
+          } — ${title}`}
           accessibilityRole="button"
         >
           <FontAwesome5

@@ -233,6 +233,8 @@ export const FR_FR_SETTINGS = {
   faqSourcesQ: "D'où vient le son ?",
   faqSourcesA:
     "De catalogues publics : Audius en priorité (artistes indépendants), sinon YouTube. La correspondance est mise en cache sur l'appareil, donc les écoutes suivantes sont immédiates.",
+  trackSaveTrack: 'Ajouter aux favoris',
+  trackRemoveSaved: 'Retirer des favoris',
   faqCacheQ: 'Que fait « Vider le cache » ?',
   faqCacheA:
     "Cela oublie les correspondances titre→source stockées sur l'appareil. La lecture suivante recherche à nouveau Audius puis YouTube. Ton compte, tes playlists et ton historique ne sont pas touchés.",

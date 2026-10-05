@@ -289,6 +289,8 @@ export const EN_GB_SETTINGS = {
   faqSourcesQ: 'Where does the sound come from?',
   faqSourcesA:
     'From public catalogues: Audius in priority (independent artists), otherwise YouTube. The match is cached on your device so replays are instant.',
+  trackSaveTrack: 'Add to favourites',
+  trackRemoveSaved: 'Remove from favourites',
   faqCacheQ: 'What does clearing the cache do?',
   faqCacheA:
     'It forgets the track-source matches stored on the device. The next playback re-searches Audius then YouTube. Your account, playlists and history are untouched.',
