@@ -309,7 +309,10 @@ export const Preview = ({
             {artists && <Artists artists={artists} />}
             {artists && <MoreOf artists={artists} />}
             {recommendationsSeed && (
-              <Recommendations type="artist" seed={recommendationsSeed} />
+              <Recommendations
+                type={recommendationsType === 'tracks' ? 'tracks' : 'artist'}
+                seed={recommendationsSeed}
+              />
             )}
             {copyrightTexts && <Copyrights copyrightTexts={copyrightTexts} />}
             <EmptySection />

@@ -178,15 +178,11 @@ export const PlaylistScreen = ({ playlistId }: AlbumScreenPropsType) => {
     () => (playlist ? playlist.imageURL : ''),
     [playlist]
   );
-  // @API_RATE
-  // const recommendationSeed = React.useMemo(
-  //   () =>
-  //     tracks
-  //       .slice(0, 5)
-  //       .map(({ id }) => id)
-  //       .join(','),
-  //   [tracks]
-  // );
+  // Recommandation basée sur le premier morceau valide de la playlist
+  const recommendationSeed = React.useMemo(
+    () => (tracks.length && tracks[0]?.id ? tracks[0].id : ''),
+    [tracks]
+  );
 
   // Favori LOCAL de la ligne : persistance immédiate (aucun compte), UI à
   // jour en fonction du résultat (réversible).
@@ -284,6 +280,8 @@ export const PlaylistScreen = ({ playlistId }: AlbumScreenPropsType) => {
       onUnavailableTrackPress={handleUnavailableTrackPress}
       tracks={tracks}
       fetchTracks={fetchTracks}
+      recommendationsSeed={recommendationSeed}
+      recommendationsType="tracks"
       onToggleTrackSaved={handleToggleTrackSaved}
     />
   );

@@ -99,17 +99,11 @@ export const AlbumScreen = ({ albumId }: AlbumScreenPropsType) => {
     setRetrySeed((seed) => seed + 1);
   }, []);
 
-  // @API_RATE
-  // const artistSeed = React.useMemo(
-  //   () =>
-  //     artists.length
-  //       ? artists
-  //           .map((a) => a.id)
-  //           .slice(0, 5)
-  //           .join(`,`)
-  //       : '',
-  //   [artists]
-  // );
+  // Recommandations basées sur le premier artiste de l'album
+  const artistSeed = React.useMemo(
+    () => (artists && artists.length && artists[0]?.id ? artists[0].id : ''),
+    [artists]
+  );
   const id = React.useMemo(() => (album ? album.id : ''), [album]);
   const title = React.useMemo(() => (album ? album.name : ''), [album]);
   const subtitle = React.useMemo(
@@ -210,6 +204,8 @@ export const AlbumScreen = ({ albumId }: AlbumScreenPropsType) => {
       copyrightTexts={copyrightTexts}
       tracks={tracks}
       artists={artists}
+      recommendationsSeed={artistSeed}
+      recommendationsType="artists"
       onToggleTrackSaved={handleToggleTrackSaved}
     />
   );
