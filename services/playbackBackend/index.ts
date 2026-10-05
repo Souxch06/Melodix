@@ -96,3 +96,89 @@ export {
   SpotifyWebDiagnosticLog,
 } from './spotifyWebDiagnostics';
 export type { SpotifyWebDiagnosticRecord } from './spotifyWebDiagnostics';
+export {
+  DEFAULT_PLAYBACK_MAX_RETRY_DELAY_MS,
+  DEFAULT_PLAYBACK_RETRY_BACKOFF_MS,
+  PLAYBACK_ENGINE_ORDER,
+  PHYSICAL_VALIDATION_BLOCKER,
+  collectPlaybackPlanDiagnostics,
+  engineForProviderId,
+  firstImmediatelyPlayableEngine,
+  isPlaybackPlanStale,
+  playbackBackendIdForEngine,
+  playbackPlanSignature,
+  selectPlaybackBackendPlan,
+} from './playbackBackendSelection';
+export type {
+  PlaybackBackendPlan,
+  PlaybackBackendSelectionInput,
+  PlaybackEngineAttempt,
+  PlaybackEngineId,
+  PlaybackEngineSkipCode,
+  PlaybackPlanDiagnostic,
+  PlaybackPlanSkip,
+  PlaybackPlanStep,
+  SpotifyWebRuntimeAvailability,
+} from './playbackBackendSelection';
+export {
+  buildSpotifyWebPlaybackPlan,
+  DEFAULT_SPOTIFY_WEB_PLAN_TTL_MS,
+  isSpotifyWebPlaybackPlanExpired,
+  matchesPlannedTrack,
+  SPOTIFY_WEB_DURATION_TOLERANCE_MS,
+  SPOTIFY_WEB_PLAYBACK_CONFIRMATION_SOURCE,
+  SPOTIFY_WEB_PLAN_WARNING_CODES,
+  SPOTIFY_WEB_RESUME_END_GUARD_MS,
+} from './spotifyWebPlaybackPlan';
+export type {
+  SpotifyWebCatalogExpectation,
+  SpotifyWebPlanRefusalCode,
+  SpotifyWebPlanWarningCode,
+  SpotifyWebPlannedCommand,
+  SpotifyWebPlaybackContext,
+  SpotifyWebPlaybackPlan,
+  SpotifyWebPlaybackPlanInput,
+  SpotifyWebPlaybackPlanResult,
+  SpotifyWebPlaybackRefusal,
+  SpotifyWebPlaybackTrack,
+  SpotifyWebRuntimeSnapshotInput,
+} from './spotifyWebPlaybackPlan';
+export {
+  advancePlanAfterFailure,
+  attemptFromTransportFailure,
+  SPOTIFY_WEB_SEEK_CONFIRMATION_TOLERANCE_MS,
+  SpotifyWebTrackTransport,
+} from './spotifyWebTrackTransport';
+export type {
+  SpotifyWebPageStatus,
+  SpotifyWebPlaybackConfirmation,
+  SpotifyWebTrackTransportOptions,
+  SpotifyWebTransportBackend,
+  SpotifyWebTransportCommandResult,
+  SpotifyWebTransportLoadResult,
+  SpotifyWebTransportStatus,
+} from './spotifyWebTrackTransport';
+export {
+  attemptSpotifyWebPlayback,
+  buildSpotifyWebSelectionInput,
+  DEFAULT_SPOTIFY_WEB_CONFIRMATION_TIMEOUT_MS,
+  getSpotifyWebPlaybackHost,
+  nextEngineAfterSpotifyWebFailure,
+  planSpotifyWebBackendSelection,
+  projectSpotifyWebMediaSessionPayload,
+  refusalToFailureCode,
+  registerSpotifyWebPlaybackHost,
+  resolveSpotifyWebIntegrationReadiness,
+  sendSpotifyWebIntegrationCommand,
+  SPOTIFY_WEB_BRIDGE_BLOCKER,
+  SPOTIFY_WEB_HOST_BLOCKER,
+  unregisterSpotifyWebPlaybackHost,
+} from './spotifyWebPlaybackIntegration';
+export type {
+  SpotifyWebAttemptOutcome,
+  SpotifyWebIntegrationCommand,
+  SpotifyWebIntegrationReadiness,
+  SpotifyWebIntegrationScheduler,
+  SpotifyWebPlaybackAttemptInput,
+  SpotifyWebPlaybackHost,
+} from './spotifyWebPlaybackIntegration';
