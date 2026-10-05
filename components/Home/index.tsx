@@ -8,6 +8,8 @@ import { RecentlyPlayed } from './RecentlyPlayed';
 import { FeaturedPlaylists } from './FeaturedPlaylists';
 import { TopAlbums } from './TopAlbums';
 import { TopArtists } from './TopArtists';
+import { BasedOnTopArtists } from './BasedOnTopArtists';
+import { AfterListeningTopArtist } from './AfterListeningTopArtist';
 import { EmptySection } from '../EmptySection';
 import {
   APP_BACKGROUND_COLOR,
@@ -45,6 +47,11 @@ export const Home = () => {
         <FeaturedPlaylists />
         <TopAlbums />
         <TopArtists />
+        {/* Recommandations dérivées des écoutes RÉELLES : plusieurs artistes
+            du moment (entrelacés) puis les propositions de l'artiste le plus
+            écouté. Chaque section se masque d'elle-même sans contenu réel. */}
+        <BasedOnTopArtists />
+        <AfterListeningTopArtist />
         <EmptySection />
       </ScrollView>
     </View>

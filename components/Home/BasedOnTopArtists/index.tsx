@@ -41,6 +41,13 @@ export const BasedOnTopArtists = () => {
     };
   }, []);
 
+  // Section OPTIONNELLE : rien de réel à proposer (aucun artiste écouté et
+  // aucune tendance disponible) → on la masque au lieu d'afficher un cadre
+  // vide. Le squelette de chargement, lui, reste visible.
+  if (!albumsBasedOnTopArtists?.length) {
+    return null;
+  }
+
   return (
     <Slider
       title={translations.basedOnYourTopArtists}

@@ -59,6 +59,15 @@ export const AfterListeningTopArtist = () => {
     };
   }, []);
 
+  // Aucun artiste écouté ou aucune proposition réelle → section masquée
+  // (jamais un titre suivi d'une rangée vide).
+  if (
+    !topArtistRecommendations.artist?.id ||
+    !topArtistRecommendations.recommendations?.length
+  ) {
+    return null;
+  }
+
   return (
     <Slider
       title={translations.afterListening(
