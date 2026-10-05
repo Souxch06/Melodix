@@ -8,7 +8,9 @@ export const styles = StyleSheet.create({
     height: Sizes.VERY_SMALL,
     borderRadius: Shapes.EDGED_BORDER,
     padding: 16,
-    marginTop: 16,
+  },
+  pressed: {
+    opacity: 0.75,
   },
   text: {
     fontSize: 16,

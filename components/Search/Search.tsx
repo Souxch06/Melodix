@@ -28,6 +28,7 @@ import type { PlayerTrack } from '@services';
 
 import { QueueActionMenu } from '../Player/QueueActionMenu';
 
+import { BrowseCategory } from './BrowseCategory';
 import { SearchBar } from './SearchBar';
 import { RecentSearches } from './RecentSearches';
 import { SearchResultRow } from './SearchResultRow';
@@ -481,19 +482,13 @@ export const Search = ({ autoFocus = false }: SearchProps = {}) => {
             <Text style={styles.browseTitle}>{translations.browseAll}</Text>
             <View style={styles.browseChips}>
               {genres.map((genre) => (
-                <Pressable
-                  accessibilityLabel={`Rechercher ${genre.title}`}
-                  accessibilityRole="button"
+                <BrowseCategory
+                  id={genre.id}
+                  imageURL={genre.imageURL}
                   key={genre.id}
                   onPress={() => handleGenrePress(genre.title)}
-                  style={({ pressed }) => [
-                    styles.browseChip,
-                    pressed && styles.browseChipPressed,
-                  ]}
-                  testID={`search-browse-${genre.id}`}
-                >
-                  <Text style={styles.browseChipText}>{genre.title}</Text>
-                </Pressable>
+                  title={genre.title}
+                />
               ))}
             </View>
           </View>
@@ -689,24 +684,11 @@ const styles = StyleSheet.create({
     color: COLORS.WHITE,
     marginBottom: SPACING.md,
   },
+  // Grille de cartes « Parcourir » : deux colonnes, écart constant.
   browseChips: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: SPACING.sm,
-  },
-  browseChip: {
-    backgroundColor: PALETTE.night600,
-    borderRadius: 20,
-    paddingHorizontal: SPACING.lg,
-    paddingVertical: SPACING.sm,
-  },
-  browseChipPressed: {
-    backgroundColor: PALETTE.violet700,
-  },
-  browseChipText: {
-    color: COLORS.WHITE,
-    fontSize: 13,
-    fontWeight: '600',
   },
 });
 
