@@ -32,6 +32,9 @@ const mockRequestNotificationPermission = jest.fn<boolean | null, []>(
   () => null
 );
 let commandListener: ((command: unknown) => void) | null = null;
+// §11 : signal système « casque/Bluetooth débranché » (natif → JS).
+let noisyListener: (() => void) | null = null;
+let mockNoisyUnsubscribe: jest.Mock | null = null;
 // Callback de statut expo-av du dernier Sound créé (fin de piste, etc.).
 let statusCallback: ((status: Record<string, unknown>) => void) | null = null;
 
@@ -45,6 +48,12 @@ jest.mock('../../modules/melodix-media', () => ({
     commandListener = listener;
 
     return jest.fn();
+  },
+  addAudioBecomingNoisyListener: (listener: () => void) => {
+    noisyListener = listener;
+    mockNoisyUnsubscribe = jest.fn();
+
+    return mockNoisyUnsubscribe;
   },
 }));
 
@@ -150,6 +159,8 @@ describe('mediaBridge — projection MediaSession (phase 5A)', () => {
     await AsyncStorage.clear();
     jest.clearAllMocks();
     commandListener = null;
+    noisyListener = null;
+    mockNoisyUnsubscribe = null;
     teardownMediaBridge();
     __testSetAudioProviders({ audius: makeProvider() });
     await melodixPlayer.__testReset();
@@ -700,6 +711,58 @@ describe('mediaBridge — projection MediaSession (phase 5A)', () => {
       };
 
       expect(dernier.isPlaying).toBe(true);
+    });
+  });
+
+  describe('casque/Bluetooth débranché (§11)', () => {
+    it('PLAYING → mise en PAUSE du morceau courant, sans saut', async () => {
+      await melodixPlayer.playQueue([morceau('a', 'Photo')], 0);
+      await flush();
+      expect(melodixPlayer.getState().status).toBe('playing');
+
+      noisyListener?.();
+      await flush();
+
+      // La coupure de sortie audio ne doit JAMAIS continuer dans le
+      // haut-parleur du téléphone : pause, même index, même morceau.
+      expect(melodixPlayer.getState().status).toBe('paused');
+      expect(melodixPlayer.getState().index).toBe(0);
+      expect(melodixPlayer.getState().current?.title).toBe('Photo');
+    });
+
+    it('DÉJÀ en pause → aucun effet (jamais une reprise)', async () => {
+      await melodixPlayer.playQueue([morceau('a', 'Photo')], 0);
+      await flush();
+      await melodixPlayer.togglePlayPause();
+      await flush();
+      expect(melodixPlayer.getState().status).toBe('paused');
+      const toggleSpy = jest.spyOn(melodixPlayer, 'togglePlayPause');
+      // Un espion peut déjà exister (spies partagés entre tests) : on
+      // compare donc le NOMBRE d'appels, jamais le compteur absolu.
+      const callsBefore = toggleSpy.mock.calls.length;
+
+      noisyListener?.();
+      await flush();
+
+      expect(toggleSpy.mock.calls.length).toBe(callsBefore);
+      expect(melodixPlayer.getState().status).toBe('paused');
+    });
+
+    it('AUCUNE lecture (boot) → aucun effet de bord', () => {
+      const toggleSpy = jest.spyOn(melodixPlayer, 'togglePlayPause');
+
+      noisyListener?.();
+
+      expect(toggleSpy).not.toHaveBeenCalled();
+      expect(melodixPlayer.getState().current).toBeNull();
+    });
+
+    it('le démontage retire l’écoute (aucun rappel fantôme)', () => {
+      expect(mockNoisyUnsubscribe).not.toBeNull();
+
+      teardownMediaBridge();
+
+      expect(mockNoisyUnsubscribe).toHaveBeenCalledTimes(1);
     });
   });
 
