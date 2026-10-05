@@ -75,6 +75,9 @@ export const FR_FR_PLAYER = {
   playerQueueTitle: 'File d’attente',
   playerQueuePlaying: 'Lecture en cours',
   playerQueueEmpty: 'La file est vide.',
+  previewNoTracksTitle: 'Rien à lire ici',
+  previewNoTracksBody:
+    "Cette liste ne contient aucun morceau diffusable pour l'instant.",
   playerQueueClear: 'Vider',
   playerQueueAdd: 'Ajouter à la file',
   playerQueuePlayNext: 'Lire ensuite',

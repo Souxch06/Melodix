@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { View } from 'react-native';
+import { Text, View } from 'react-native';
 
 import { ArtistModel, artistsFromSubtitle } from '@models';
 import type { TrackModel } from '@models';
@@ -22,6 +22,7 @@ import { Recommendations } from '../Recommendations';
 import { EmptySection } from '../EmptySection';
 
 import { BOTTOM_NAVIGATION_HEIGHT } from '@config';
+import { translations } from '@data';
 
 import { styles } from './styles';
 import { usePlayer, useUserData } from '@context';
@@ -280,6 +281,16 @@ export const Preview = ({
               forceDisableSaveIcon={!!(ownerId && ownerId === userData.id)}
             />
           </>
+        }
+        ListEmptyComponent={
+          <View style={styles.emptyState} testID="preview-empty-state">
+            <Text style={styles.emptyTitle}>
+              {translations.previewNoTracksTitle}
+            </Text>
+            <Text style={styles.emptyBody}>
+              {translations.previewNoTracksBody}
+            </Text>
+          </View>
         }
         ListFooterComponent={
           <>

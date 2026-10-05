@@ -482,6 +482,7 @@ export const Search = ({ autoFocus = false }: SearchProps = {}) => {
             <View style={styles.browseChips}>
               {genres.map((genre) => (
                 <Pressable
+                  accessibilityLabel={`Rechercher ${genre.title}`}
                   accessibilityRole="button"
                   key={genre.id}
                   onPress={() => handleGenrePress(genre.title)}
@@ -509,6 +510,7 @@ export const Search = ({ autoFocus = false }: SearchProps = {}) => {
           <View style={styles.errorState} testID="search-error-state">
             <Text style={styles.message}>{translations.searchError}</Text>
             <Pressable
+              accessibilityLabel="Relancer la recherche"
               accessibilityRole="button"
               onPress={() => setRetrySeed((seed) => seed + 1)}
               style={styles.retryButton}

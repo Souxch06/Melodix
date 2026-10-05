@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { Alert } from 'react-native';
+import { ActivityIndicator, Alert, StyleSheet, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { ErrorCard, Preview } from '@components';
 
@@ -7,12 +7,22 @@ import { artistsFromSubtitle, PlaylistModel, TrackModel } from '@models';
 import { checkSavedTracks, getPlaylist, getPlaylistItems } from '@api';
 import { toggleSavedTrack, SpotifyApiError } from '@services';
 import { useUserData } from '@context';
+import { APP_BACKGROUND_COLOR, PALETTE } from '@config';
 import { usePlaylistResolutions } from '@hooks';
 import { translations } from '@data';
 
 export type AlbumScreenPropsType = {
   playlistId: string;
 };
+
+const styles = StyleSheet.create({
+  loading: {
+    alignItems: 'center',
+    backgroundColor: APP_BACKGROUND_COLOR,
+    flex: 1,
+    justifyContent: 'center',
+  },
+});
 
 export const PlaylistScreen = ({ playlistId }: AlbumScreenPropsType) => {
   const router = useRouter();
@@ -232,6 +242,16 @@ export const PlaylistScreen = ({ playlistId }: AlbumScreenPropsType) => {
 
   // M-5 : carte d'erreur à l'écran (composant partagé) — état erreur
   // EXPLICITE + retry, jamais de stack trace utilisateur.
+  // Chargement initial : la playlist n'est pas encore connue ET aucune erreur
+  // n'est survenue → indicateur explicite (jamais un écran blanc).
+  if (!playlist && !loadError) {
+    return (
+      <View style={styles.loading} testID="playlist-loading">
+        <ActivityIndicator color={PALETTE.accent} size="large" />
+      </View>
+    );
+  }
+
   if (loadError) {
     return (
       <ErrorCard

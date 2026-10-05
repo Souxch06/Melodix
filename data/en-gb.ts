@@ -178,6 +178,8 @@ export const EN_GB_PLAYER = {
   playerQueueTitle: 'Queue',
   playerQueuePlaying: 'Now playing',
   playerQueueEmpty: 'The queue is empty.',
+  previewNoTracksTitle: 'Nothing to play here',
+  previewNoTracksBody: 'This list has no playable track right now.',
   playerQueueClear: 'Clear',
   playerQueueAdd: 'Add to queue',
   playerQueuePlayNext: 'Play next',
