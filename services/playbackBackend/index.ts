@@ -72,4 +72,27 @@ export type {
   PlaybackBackendListener,
   PlaybackBackendState,
   PlaybackBackendStatus,
+  PlaybackBackendTrack,
 } from './types';
+export {
+  ALL_BACKEND_FAILURE_CATEGORIES,
+  allowsNegativeCache,
+  classifyBackendFailure,
+  isRetryableFailure,
+  NEGATIVE_CACHE_MUST_STAY_EXCLUSIVE,
+} from './backendFailure';
+export type {
+  BackendFailureCategory,
+  BackendFailureDisposition,
+} from './backendFailure';
+export {
+  derivePlaybackProof,
+  isSanitizedSpotifyWebDiagnostic,
+  SPOTIFY_WEB_DIAGNOSTIC_CAUSES,
+  SPOTIFY_WEB_DIAGNOSTIC_CODES,
+  SPOTIFY_WEB_DIAGNOSTIC_LIMIT,
+  SPOTIFY_WEB_DIAGNOSTIC_SEQUENCE,
+  SPOTIFY_WEB_PLAYBACK_PROOF_CODES,
+  SpotifyWebDiagnosticLog,
+} from './spotifyWebDiagnostics';
+export type { SpotifyWebDiagnosticRecord } from './spotifyWebDiagnostics';
