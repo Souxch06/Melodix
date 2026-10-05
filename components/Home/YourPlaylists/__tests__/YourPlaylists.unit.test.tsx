@@ -12,12 +12,22 @@ import { YourPlaylists } from '..';
 
 const mockPush = jest.fn();
 
+type MockSpotifyDataPlan =
+  | { kind: 'restoring' }
+  | { kind: 'identity-unavailable' }
+  | { kind: 'local' }
+  | { kind: 'spotify'; accountId: string };
+
 const mockUserData: {
   userData: { id: string; displayName: string; imageURL: string };
-  sessionStatus: 'spotify' | 'local' | 'loading';
+  sessionStatus: 'spotify' | 'local' | 'loading' | 'spotify-unverified';
+  spotifyDataPlan: MockSpotifyDataPlan;
+  reloadUserData: jest.Mock;
 } = {
   userData: { id: 'owner-1', displayName: 'Julien', imageURL: '' },
   sessionStatus: 'spotify',
+  spotifyDataPlan: { kind: 'spotify', accountId: 'owner-1' },
+  reloadUserData: jest.fn(async () => {}),
 };
 
 jest.mock('@context', () => ({
@@ -75,7 +85,9 @@ describe('YourPlaylists — playlists Spotify réelles de l accueil', () => {
     getSpotifyPlaylistsMock.mockReset();
     getSavedPlaylistsMock.mockReset();
     invalidateMock.mockClear();
+    mockUserData.reloadUserData.mockClear();
     mockUserData.sessionStatus = 'spotify';
+    mockUserData.spotifyDataPlan = { kind: 'spotify', accountId: 'owner-1' };
     mockUserData.userData = {
       id: 'owner-1',
       displayName: 'Julien',
@@ -198,8 +210,38 @@ describe('YourPlaylists — playlists Spotify réelles de l accueil', () => {
     );
   });
 
+  it('restauration : ni Spotify ni local ne sont interrogés (skeleton seul)', () => {
+    mockUserData.sessionStatus = 'loading';
+    mockUserData.spotifyDataPlan = { kind: 'restoring' };
+
+    const { getByTestId } = render(<YourPlaylists />);
+
+    // Skeleton affiché, aucune donnée de compte ni donnée locale demandée.
+    expect(getByTestId('yp-slider-count').props.children).toBe('3');
+    expect(getSpotifyPlaylistsMock).not.toHaveBeenCalled();
+    expect(getSavedPlaylistsMock).not.toHaveBeenCalled();
+  });
+
+  it('identité indisponible : état explicite + Réessayer relance la vérification', () => {
+    mockUserData.sessionStatus = 'spotify-unverified';
+    mockUserData.spotifyDataPlan = { kind: 'identity-unavailable' };
+
+    const { getByTestId, queryByTestId } = render(<YourPlaylists />);
+
+    expect(getByTestId('home-playlists-identity-error')).toBeTruthy();
+    expect(queryByTestId('yp-slider')).toBeNull();
+    // Jamais de repli silencieux vers les playlists de l'appareil.
+    expect(getSavedPlaylistsMock).not.toHaveBeenCalled();
+    expect(getSpotifyPlaylistsMock).not.toHaveBeenCalled();
+
+    fireEvent.press(getByTestId('home-playlists-identity-retry'));
+
+    expect(mockUserData.reloadUserData).toHaveBeenCalledTimes(1);
+  });
+
   it('mode invité (aucun compte) : repli sur la bibliothèque LOCALE', async () => {
     mockUserData.sessionStatus = 'local';
+    mockUserData.spotifyDataPlan = { kind: 'local' };
     mockUserData.userData = {
       id: 'melodix-local-user',
       displayName: 'Mélomane',

@@ -52,6 +52,16 @@ export enum AlbumTypes {
   COMPILATION = 'compilation',
 }
 
+/**
+ * Identifiant canonique du profil LOCAL (aucun compte connecté).
+ *
+ * INVARIANT : cet id n'est JAMAIS un identifiant de compte Spotify. Il ne
+ * doit donc jamais servir de clé au cache des playlists Spotify, ni
+ * d'identité pour une donnée personnelle du compte (voir
+ * context/spotifyIdentity.ts et api/spotify/userPlaylists.ts).
+ */
+export const LOCAL_USER_ID = 'melodix-local-user';
+
 export const SEPARATOR = '\u2022';
 export const explicit_SIGN = 'E';
 

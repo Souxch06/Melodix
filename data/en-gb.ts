@@ -146,6 +146,13 @@ export const EN_GB_ACCOUNT = {
   accountClearHistory: 'Clear listening history',
   accountHistoryCleared: 'History cleared.',
   accountCancel: 'Cancel',
+  // Session restore: identity of the connected account not established yet
+  // (verification in progress) or temporarily unavailable.
+  spotifySessionRestoring: 'Checking your Spotify account…',
+  spotifyRestoreUnavailableTitle: 'Spotify account unavailable',
+  spotifyRestoreUnavailableBody:
+    'Your Spotify session is saved, but the account could not be verified right now (network or temporary error). Account data stays hidden until the identity is confirmed — nothing is signed out.',
+  spotifyRestoreRetry: 'Retry',
 };
 
 // Home screen (real Spotify data: greeting, sections, empty/error states).

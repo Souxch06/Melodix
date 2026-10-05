@@ -1,11 +1,22 @@
 /**
  * Données de l'utilisateur courant, avec ou sans compte.
  *
- * Trois états :
- * - 'local'   : aucun compte Spotify connecté (mode historique 3.0, profil
- *               local synthétique — favoris et historique restent 100 % local) ;
- * - 'spotify' : compte connecté via OAuth PKCE (profil Spotify : nom, photo) ;
- * - 'loading' : restauration de la session en cours au démarrage.
+ * États de session (voir context/spotifyIdentity.ts pour les règles) :
+ * - 'local'              : aucun compte Spotify connecté (mode historique 3.0,
+ *                          profil local synthétique — favoris et historique
+ *                          restent 100 % local) ;
+ * - 'spotify'            : compte connecté via OAuth PKCE ET profil du compte
+ *                          VÉRIFIÉ (nom, photo, id Spotify réel) ;
+ * - 'loading'            : restauration en cours — y compris le cas « session
+ *                          trouvée, profil pas encore vérifié » ;
+ * - 'spotify-unverified' : session stockée mais profil du compte indisponible
+ *                          (réseau/401 transitoire) : état explicite, jamais
+ *                          un compte local déguisé en compte Spotify.
+ *
+ * Invariant : `sessionStatus === 'spotify'` implique un `userData` Spotify
+ * avec un identifiant réel — jamais `LOCAL_USER_ID`. Les écrans reçoivent
+ * `spotifyDataPlan`, seule interprétation autorisée de cet état (chargement /
+ * identité indisponible / local / compte vérifié).
  *
  * La session (tokens) est gérée par services/spotify/session (Keystore
  * chiffré). La déconnexion supprime tokens + cache playlists ; conservés :
@@ -13,6 +24,7 @@
  */
 import * as React from 'react';
 
+import { LOCAL_USER_ID } from '@config';
 import { UserModel } from '@models';
 import {
   clearPlaybackSession,
@@ -23,25 +35,38 @@ import {
 
 import { getCurrentUser, invalidateUserPlaylistsCache } from '@api';
 
+import {
+  hasSpotifySession,
+  isSpotifyAccountId,
+  resolveSpotifyDataPlan,
+  type SessionStatus,
+  type SpotifyDataPlan,
+} from './spotifyIdentity';
+
+export { LOCAL_USER_ID };
+export type { SessionStatus, SpotifyDataPlan };
+
 export type UserDataProviderPropsType = {
   children: React.ReactNode;
 };
 
-export type SessionStatus = 'loading' | 'local' | 'spotify';
-
 export type UserContextType = {
   userData: UserModel;
   sessionStatus: SessionStatus;
-  /** Rétention conservée : re-hydrate le profil (local → no-op de fait). */
+  /**
+   * Identité Spotify VÉRIFIÉE, ou `null`. Jamais `LOCAL_USER_ID`, jamais un
+   * identifiant deviné : l'utiliser comme clé de cache est donc sûr.
+   */
+  spotifyAccountId: string | null;
+  /** Seule interprétation autorisée de l'état pour charger des données. */
+  spotifyDataPlan: SpotifyDataPlan;
+  /** Rétention conservée : re-hydrate / retente la vérification du profil. */
   reloadUserData: () => Promise<void>;
   /** Le login a abouti : mémorise le profil et reflète 'spotify'. */
   applySpotifyUser: (user: UserModel) => void;
   /** Déconnexion complète : purge session + caches liés au compte. */
   signOut: () => Promise<void>;
 };
-
-/** Identifiant canonique du profil LOCAL (jamais envoyé nulle part). */
-export const LOCAL_USER_ID = 'melodix-local-user';
 
 const localUserData: UserModel = {
   id: LOCAL_USER_ID,
@@ -53,6 +78,8 @@ const localUserData: UserModel = {
 export const UserDataContext = React.createContext<UserContextType>({
   userData: localUserData,
   sessionStatus: 'loading',
+  spotifyAccountId: null,
+  spotifyDataPlan: { kind: 'restoring' },
   reloadUserData: async () => {},
   applySpotifyUser: () => {},
   signOut: async () => {},
@@ -67,7 +94,10 @@ export const UserDataProvider = ({ children }: UserDataProviderPropsType) => {
   const accountGenerationRef = React.useRef(0);
 
   // Restauration au démarrage : une session persistante doit éviter de
-  // repasser par l'écran de connexion à chaque lancement.
+  // repasser par l'écran de connexion à chaque lancement. L'état 'spotify'
+  // n'est publié qu'APRÈS vérification du profil : tant que `getCurrentUser`
+  // n'a pas répondu, on reste en 'loading' (aucun écran ne peut prendre
+  // `localUserData` pour le compte connecté).
   React.useEffect(() => {
     let cancelled = false;
 
@@ -86,17 +116,30 @@ export const UserDataProvider = ({ children }: UserDataProviderPropsType) => {
       }
 
       try {
-        setStatus('spotify');
         const freshUser = await getCurrentUser();
-        if (!cancelled && generation === accountGenerationRef.current) {
-          setUser(freshUser);
+
+        if (cancelled || generation !== accountGenerationRef.current) {
+          return;
         }
+
+        if (!isSpotifyAccountId(freshUser?.id)) {
+          // Réponse sans identifiant Spotify exploitable : session présente,
+          // identité non établie — état explicite, jamais un faux 'spotify'.
+          setUser(localUserData);
+          setStatus('spotify-unverified');
+          return;
+        }
+
+        setUser({ ...freshUser, id: freshUser.id.trim() });
+        setStatus('spotify');
       } catch (error) {
-        // Une session présente mais plus valide (offline, révoquée) :
-        // l'utilisateur reste connecté côté stockage et verra les erreurs
-        // propres au moment de la requête suivante ; on ne le déconnecte pas.
+        // Session présente mais profil inaccessible (offline, 401
+        // transitoire) : état explicite 'spotify-unverified'. L'utilisateur
+        // n'est PAS déconnecté et aucun écran ne reçoit d'identité locale.
         if (!cancelled && generation === accountGenerationRef.current) {
           console.warn('Initial Spotify profile refresh failed', error);
+          setUser(localUserData);
+          setStatus('spotify-unverified');
         }
       }
     })();
@@ -108,7 +151,17 @@ export const UserDataProvider = ({ children }: UserDataProviderPropsType) => {
 
   const applySpotifyUser = React.useCallback((spotifyUser: UserModel) => {
     accountGenerationRef.current += 1;
-    setUser(spotifyUser);
+
+    if (!isSpotifyAccountId(spotifyUser?.id)) {
+      // Refus explicite : ne jamais promouvoir un profil sans identifiant
+      // réel (ni le profil local) en compte Spotify connecté.
+      console.warn('Ignored Spotify user without a real account id');
+      setUser(localUserData);
+      setStatus('spotify-unverified');
+      return;
+    }
+
+    setUser({ ...spotifyUser, id: spotifyUser.id.trim() });
     setStatus('spotify');
   }, []);
 
@@ -139,30 +192,83 @@ export const UserDataProvider = ({ children }: UserDataProviderPropsType) => {
     setStatus('local');
   }, []);
 
+  /**
+   * - 'spotify' : re-hydrate le profil (un échec ne remet pas en cause une
+   *   identité DÉJÀ vérifiée) ;
+   * - 'spotify-unverified' : RETENTE la vérification de l'identité ;
+   * - 'local' / 'loading' : sans objet.
+   */
   const reloadUserData = React.useCallback(async () => {
-    if (status !== 'spotify') {
+    if (status === 'local' || status === 'loading') {
       return;
     }
+
     const generation = accountGenerationRef.current;
+    const wasVerified = status === 'spotify';
+
     try {
       const freshUser = await getCurrentUser();
-      if (generation === accountGenerationRef.current) {
-        setUser(freshUser);
+
+      if (generation !== accountGenerationRef.current) {
+        return;
       }
+
+      if (!isSpotifyAccountId(freshUser?.id)) {
+        setUser(localUserData);
+        setStatus('spotify-unverified');
+        return;
+      }
+
+      setUser({ ...freshUser, id: freshUser.id.trim() });
+      setStatus('spotify');
     } catch (error) {
-      console.warn('Profile refresh failed', error);
+      if (generation !== accountGenerationRef.current) {
+        return;
+      }
+
+      if (wasVerified) {
+        // Identité déjà établie : le refresh échoue, elle reste valable.
+        console.warn('Profile refresh failed', error);
+        return;
+      }
+
+      console.warn('Spotify identity verification failed', error);
+      setStatus('spotify-unverified');
     }
   }, [status]);
+
+  const spotifyAccountId = React.useMemo(
+    () =>
+      status === 'spotify' && isSpotifyAccountId(user.id)
+        ? user.id.trim()
+        : null,
+    [status, user.id]
+  );
+
+  const spotifyDataPlan = React.useMemo(
+    () => resolveSpotifyDataPlan(status, spotifyAccountId),
+    [status, spotifyAccountId]
+  );
 
   const value = React.useMemo<UserContextType>(
     () => ({
       userData: user,
       sessionStatus: status,
+      spotifyAccountId,
+      spotifyDataPlan,
       reloadUserData,
       applySpotifyUser,
       signOut,
     }),
-    [user, status, reloadUserData, applySpotifyUser, signOut]
+    [
+      user,
+      status,
+      spotifyAccountId,
+      spotifyDataPlan,
+      reloadUserData,
+      applySpotifyUser,
+      signOut,
+    ]
   );
 
   return (
@@ -175,3 +281,6 @@ export const UserDataProvider = ({ children }: UserDataProviderPropsType) => {
 /** Accès aux informations/état du compte (voir usePlayer pour le pattern). */
 export const useUserData = (): UserContextType =>
   React.useContext(UserDataContext);
+
+/** Session Spotify stockée (profil vérifié ou non) — utilitaire partagé. */
+export { hasSpotifySession, isSpotifyAccountId };

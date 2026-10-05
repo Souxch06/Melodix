@@ -9,6 +9,7 @@ export {
   AuthResponse,
   SEPARATOR,
   explicit_SIGN,
+  LOCAL_USER_ID,
   BOTTOM_NAVIGATION_HEIGHT,
   COMMON_HEADER_HEIGHT,
   HEADER_HEIGHT,

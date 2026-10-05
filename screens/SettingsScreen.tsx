@@ -58,7 +58,7 @@ export const SettingsScreen = () => {
     startupVolume,
     themeMode,
   } = usePreferences();
-  const { userData, sessionStatus, signOut } = useUserData();
+  const { userData, sessionStatus, signOut, reloadUserData } = useUserData();
   const player = usePlayer();
 
   const [sessionInfo, setSessionInfo] = React.useState<{
@@ -157,6 +157,11 @@ export const SettingsScreen = () => {
     if (sessionStatus === 'loading') {
       return t.settingsCheckingSession;
     }
+    // Session présente mais identité du compte non vérifiée : on l'annonce
+    // explicitement — surtout pas le message « aucun compte » du mode local.
+    if (sessionStatus === 'spotify-unverified') {
+      return t.spotifyRestoreUnavailableBody;
+    }
     if (sessionStatus !== 'spotify') {
       return t.accountLocalInfo;
     }
@@ -202,7 +207,9 @@ export const SettingsScreen = () => {
             >
               {sessionStatus === 'spotify'
                 ? userData.displayName
-                : t.settingsLocalAccount}
+                : sessionStatus === 'spotify-unverified'
+                  ? t.spotifyRestoreUnavailableTitle
+                  : t.settingsLocalAccount}
             </Text>
             <Text
               style={styles.accountSubtitle}
@@ -212,7 +219,18 @@ export const SettingsScreen = () => {
             </Text>
           </View>
         </View>
-        {sessionStatus === 'spotify' ? (
+        {sessionStatus === 'spotify-unverified' ? (
+          <SettingsRow
+            isLast={false}
+            label={t.spotifyRestoreRetry}
+            subtitle={t.spotifyRestoreUnavailableTitle}
+            showChevron
+            onPress={() => void reloadUserData()}
+            testID="settings-identity-retry"
+          />
+        ) : null}
+        {sessionStatus === 'spotify' ||
+        sessionStatus === 'spotify-unverified' ? (
           <SettingsRow
             destructive
             isLast

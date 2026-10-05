@@ -42,6 +42,13 @@ export const FR_FR_ACCOUNT = {
   accountClearHistory: "Effacer l'historique d'écoute",
   accountHistoryCleared: 'Historique effacé.',
   accountCancel: 'Annuler',
+  // Restauration de session : identité du compte pas encore établie
+  // (vérification en cours) ou momentanément indisponible.
+  spotifySessionRestoring: 'Vérification de ton compte Spotify…',
+  spotifyRestoreUnavailableTitle: 'Compte Spotify indisponible',
+  spotifyRestoreUnavailableBody:
+    "Ta session Spotify est enregistrée, mais le compte n'a pas pu être vérifié pour l'instant (réseau ou erreur temporaire). Tes données de compte restent masquées tant que l'identité n'est pas confirmée — tu n'es PAS déconnecté.",
+  spotifyRestoreRetry: 'Réessayer',
 };
 
 // Lecteur et correspondances Audius

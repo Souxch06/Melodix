@@ -1,19 +1,28 @@
 import * as React from 'react';
-import { View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { Redirect, Tabs } from 'expo-router';
 
-import { MiniPlayer } from '@components';
+import { ErrorCard, MiniPlayer } from '@components';
 import { BottomTabBar } from '@navigators';
 import { useUserData } from '@context';
 import { useKeyboardVisible } from '@hooks';
+import { translations } from '@data';
 
 /**
- * Onglets — CONNEXION SPOTIFY OBLIGATOIRE. Pendant la restauration de la
- * session (ou l'overlay de login), un écran sombre neutre masque le contenu ;
- * un utilisateur non connecté est redirigé vers l'écran de connexion.
+ * Onglets — CONNEXION SPOTIFY OBLIGATOIRE.
+ *
+ * Trois cas distincts, pour ne JAMAIS confondre « pas de session » et
+ * « session présente, identité pas encore connue » :
+ * - 'loading' (aucune session lue, ou session trouvée mais profil pas encore
+ *   vérifié) → écran sombre neutre, aucune navigation ;
+ * - 'spotify-unverified' (session stockée, profil indisponible) → état
+ *   explicite + réessai : l'application n'ouvre pas ses onglets avec une
+ *   identité inconnue, mais ne renvoie PAS vers la connexion (la session
+ *   existe encore — ce serait perdre l'utilisateur) ;
+ * - 'local' (vraiment aucun compte) → redirection vers la connexion.
  */
 export default function Layout() {
-  const { sessionStatus } = useUserData();
+  const { sessionStatus, reloadUserData } = useUserData();
   /**
    * BUG CLAVIER — la barre d'onglets et le mini-lecteur sont MASQUÉS tant que
    * le clavier logiciel est ouvert.
@@ -41,6 +50,21 @@ export default function Layout() {
     return <View style={{ flex: 1, backgroundColor: '#121212' }} />;
   }
 
+  if (sessionStatus === 'spotify-unverified') {
+    return (
+      <View style={styles.identityError} testID="session-identity-unavailable">
+        <ErrorCard
+          testID="session-identity-error"
+          retryTestID="session-identity-retry"
+          icon="person-circle-outline"
+          title={translations.spotifyRestoreUnavailableTitle}
+          body={translations.spotifyRestoreUnavailableBody}
+          onRetry={() => void reloadUserData()}
+        />
+      </View>
+    );
+  }
+
   if (sessionStatus !== 'spotify') {
     // Aucun accès à l'application sans compte connecté.
     return <Redirect href={{ pathname: '/login', params: {} }} />;
@@ -64,3 +88,11 @@ export default function Layout() {
     </Tabs>
   );
 }
+
+const styles = StyleSheet.create({
+  identityError: {
+    backgroundColor: '#121212',
+    flex: 1,
+    justifyContent: 'center',
+  },
+});

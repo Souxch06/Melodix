@@ -34,6 +34,21 @@ export const styles = StyleSheet.create({
     textAlign: 'center',
     paddingVertical: SPACING.sm,
   },
+  // Restauration d'identité / identité du compte indisponible : message
+  // centré explicite — la bibliothèque ne montre jamais de données de compte
+  // avant d'avoir confirmé QUELLE compte les possède.
+  identityContainer: {
+    alignItems: 'center',
+    flex: 1,
+    gap: SPACING.md,
+    justifyContent: 'center',
+    paddingHorizontal: SPACING.xl,
+  },
+  identityText: {
+    ...TYPOGRAPHY.caption,
+    color: PALETTE.textSecondary,
+    textAlign: 'center',
+  },
   // Carte d'accès à l'écran Favoris (morceaux « cœur » locaux) en tête de
   // la bibliothèque — même langage visuel que les cartes de l'écran.
   favoritesCard: {

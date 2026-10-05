@@ -1,5 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
+import { LOCAL_USER_ID } from '@config';
 import { spotifyApiGet } from '@services';
 import {
   getUserPlaylists,
@@ -361,6 +362,22 @@ describe('api/spotify/userPlaylists — cache isolé par compte', () => {
     await getUserPlaylists();
 
     // Aucune entrée ne peut être garantie à un compte : deux requêtes.
+    expect(apiMock).toHaveBeenCalledTimes(2);
+    await expect(AsyncStorage.getItem(CACHE_STORAGE_KEY)).resolves.toBeNull();
+  });
+
+  it('LOCAL_USER_ID n est JAMAIS une clé de cache Spotify', async () => {
+    apiMock.mockResolvedValue({
+      items: [playlist('x', 'Profil local')],
+      next: null,
+    });
+
+    // Même si un appelant se trompait (identité locale passée en accountId),
+    // le cache ne doit ni la servir ni l'estampiller : le profil local n'est
+    // pas un compte Spotify.
+    await getUserPlaylists({ accountId: LOCAL_USER_ID });
+    await getUserPlaylists({ accountId: LOCAL_USER_ID });
+
     expect(apiMock).toHaveBeenCalledTimes(2);
     await expect(AsyncStorage.getItem(CACHE_STORAGE_KEY)).resolves.toBeNull();
   });

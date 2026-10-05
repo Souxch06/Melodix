@@ -9,7 +9,9 @@
  *   est estampillée avec l'identité Spotify (`accountId`) qui l'a produite.
  *   Une entrée écrite pour un AUTRE compte n'est jamais servie — même si le
  *   processus redémarre et que la session a changé. Sans identité connue
- *   (accountId absent), le cache n'est ni lu NI écrit : on interroge Spotify ;
+ *   (accountId absent) — ou si l'identité fournie est `LOCAL_USER_ID`, le
+ *   profil local n'étant jamais un compte — le cache n'est ni lu NI écrit :
+ *   on interroge Spotify ;
  * - un refresh utilisateur invalide le cache (Spotify reste la source de
  *   vérité — cf. invalidate…), et la déconnexion le vide entièrement ;
  * - en cas d'échec : exception `SpotifyApiError` typée (messages utilisateur
@@ -17,6 +19,7 @@
  */
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
+import { LOCAL_USER_ID } from '@config';
 import { spotifyApiGet, spotifyDiag, spotifyLog } from '@services';
 import { LibraryItemModel } from '@models';
 
@@ -55,6 +58,10 @@ let memoryCache: PlaylistCacheEnvelope | null = null;
 /**
  * Clé d'identité du cache : l'id Spotify du compte, ou `null` quand il est
  * inconnu. `null` ne partage JAMAIS d'entrée avec un compte réel.
+ *
+ * `LOCAL_USER_ID` (profil local, aucun compte) est REFUSÉ ici : même si un
+ * appelant se trompait, le profil local ne peut pas devenir une clé de cache
+ * Spotify — et donc pas non plus l'identité d'un autre compte.
  */
 const accountKeyOf = (accountId?: string | null): string | null => {
   if (typeof accountId !== 'string') {
@@ -62,7 +69,11 @@ const accountKeyOf = (accountId?: string | null): string | null => {
   }
   const trimmed = accountId.trim();
 
-  return trimmed ? trimmed : null;
+  if (!trimmed || trimmed === LOCAL_USER_ID) {
+    return null;
+  }
+
+  return trimmed;
 };
 
 const toLibraryItem = (
@@ -167,8 +178,8 @@ export type GetUserPlaylistsOptions = {
   /**
    * Identité Spotify du compte courant (profil `/me`). Sert de clé au cache :
    * une entrée estampillée pour un autre compte n'est JAMAIS servie. Absente
-   * → aucun cache n'est lu (on interroge Spotify) : jamais de mélange entre
-   * deux sessions.
+   * (ou égale à `LOCAL_USER_ID`) → aucun cache n'est lu ni écrit (on
+   * interroge Spotify) : jamais de mélange entre deux sessions.
    */
   accountId?: string | null;
 };
