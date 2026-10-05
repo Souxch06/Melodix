@@ -6,6 +6,34 @@
  * l'utilisateur final ne doit jamais voir ces concepts.
  */
 
+// Recherche : barre moderne, historique, résultats groupés.
+// Surcharges FR des messages visibles par l'utilisateur final.
+export const FR_FR_SEARCH = {
+  searchTopResult: 'Top résultat',
+  searchSectionSongs: 'Morceaux',
+  searchSectionArtists: 'Artistes',
+  searchSectionAlbums: 'Albums',
+  searchSectionPlaylists: 'Playlists',
+  searchBarLabel: 'Rechercher dans le catalogue',
+  searchBack: 'Retour',
+  searchClose: 'Fermer la recherche',
+  searchClearField: 'Effacer le champ de recherche',
+  searchClearFieldHint: 'Effacer',
+  searchRecentTitle: 'Recherches récentes',
+  searchRecentEmpty: 'Aucune recherche récente.',
+  searchRecentEmptyHint:
+    'Tes recherches apparaîtront ici pour que tu puisses les retrouver.',
+  searchRecentClearAll: 'Tout effacer',
+  searchRecentRemove: (query: string) =>
+    `Retirer « ${query} » des recherches récentes`,
+  searchLoading: 'Recherche…',
+  searchExplicitBadge: 'Explicit',
+  searchUnavailableBadge: 'Aucune source audio',
+  searchUnavailableHint:
+    "Aucune source audio n'a été trouvée pour ce morceau sur Audius ou YouTube.",
+  searchDurationUnknown: '—:--',
+};
+
 // Profil local (avatar en haut à gauche) : données stockées sur l'appareil.
 export const FR_FR_ACCOUNT = {
   accountTitle: 'Melodix',
@@ -14,6 +42,13 @@ export const FR_FR_ACCOUNT = {
   accountClearHistory: "Effacer l'historique d'écoute",
   accountHistoryCleared: 'Historique effacé.',
   accountCancel: 'Annuler',
+  // Restauration de session : identité du compte pas encore établie
+  // (vérification en cours) ou momentanément indisponible.
+  spotifySessionRestoring: 'Vérification de ton compte Spotify…',
+  spotifyRestoreUnavailableTitle: 'Compte Spotify indisponible',
+  spotifyRestoreUnavailableBody:
+    "Ta session Spotify est enregistrée, mais le compte n'a pas pu être vérifié pour l'instant (réseau ou erreur temporaire). Tes données de compte restent masquées tant que l'identité n'est pas confirmée — tu n'es PAS déconnecté.",
+  spotifyRestoreRetry: 'Réessayer',
 };
 
 // Lecteur et correspondances Audius
@@ -47,9 +82,19 @@ export const FR_FR_PLAYER = {
   playerQueueTitle: 'File d’attente',
   playerQueuePlaying: 'Lecture en cours',
   playerQueueEmpty: 'La file est vide.',
+  previewCollectionActions: 'Actions sur la liste',
+  previewNoTracksTitle: 'Rien à lire ici',
+  previewNoTracksBody:
+    "Cette liste ne contient aucun morceau diffusable pour l'instant.",
   playerQueueClear: 'Vider',
   playerQueueAdd: 'Ajouter à la file',
   playerQueuePlayNext: 'Lire ensuite',
+  // Mode COLLECTION (en-tête playlist/album) : le libellé dit exactement
+  // combien de morceaux déjà chargés partent dans la file.
+  playerQueueAddMany: (count: number) =>
+    count > 1
+      ? `Ajouter les ${count} morceaux à la file`
+      : 'Ajouter le morceau à la file',
   playerQueueRemove: 'Supprimer de la file',
   playerQueueMoveUp: 'Monter dans la file',
   playerQueueMoveDown: 'Descendre dans la file',
@@ -115,6 +160,17 @@ export const FR_FR_HOME = {
   homeYourPlaylists: 'Tes playlists',
   homeRecentlyPlayed: 'Récemment écouté',
   homeForYou: 'Pour toi',
+  // Écran « Tout afficher » : listes verticales complètes des sections.
+  seeAllBack: 'Retour',
+  seeAllRecommendationsForYou: 'Recommandations pour toi',
+  seeAllLoading: 'Chargement…',
+  seeAllEmptyTitle: 'Rien à afficher pour le moment',
+  seeAllEmptyBody: 'Cette liste se remplira au fil de tes écoutes.',
+  seeAllErrorTitle: 'Impossible de charger cette liste.',
+  seeAllErrorBody: 'Vérifie ta connexion puis réessaie.',
+  seeAllRetry: 'Réessayer',
+  seeAllUnknownTitle: 'Cette liste n’existe pas',
+  seeAllUnknownBody: 'Reviens à l’accueil et choisis à nouveau une section.',
   homePlaylistsEmptyTitle: 'Aucune playlist pour le moment',
   homePlaylistsEmptyBody: 'Tes playlists Spotify apparaîtront ici.',
   homeRefresh: 'Actualiser',
@@ -202,6 +258,8 @@ export const FR_FR_SETTINGS = {
   faqSourcesQ: "D'où vient le son ?",
   faqSourcesA:
     "De catalogues publics : Audius en priorité (artistes indépendants), sinon YouTube. La correspondance est mise en cache sur l'appareil, donc les écoutes suivantes sont immédiates.",
+  trackSaveTrack: 'Ajouter aux favoris',
+  trackRemoveSaved: 'Retirer des favoris',
   faqCacheQ: 'Que fait « Vider le cache » ?',
   faqCacheA:
     "Cela oublie les correspondances titre→source stockées sur l'appareil. La lecture suivante recherche à nouveau Audius puis YouTube. Ton compte, tes playlists et ton historique ne sont pas touchés.",
@@ -227,10 +285,31 @@ export const FR_FR_PLAYLIST = {
   providerYouTube: 'YouTube',
   providerUnavailable: 'Indisponible',
   // Favoris (écran dédié de la bibliothèque locale — jamais d'écran blanc).
+  // Menu contextuel : favori local accessible depuis n'importe quelle liste.
+  favoriteAddAction: 'Ajouter aux favoris',
+  favoriteRemoveAction: 'Retirer des favoris',
+  favoriteWriteError:
+    'Impossible de mettre à jour ce favori. Réessaie dans un instant.',
   favoritesTitle: 'Titres favoris',
   favoritesTracksInfo: (count: number) =>
     count > 1 ? `${count} morceaux favoris` : `${count} morceau favori`,
   favoritesEmptyTitle: 'Aucun favori pour le moment',
   favoritesEmptyBody:
     'Touche le cœur d’un morceau pour le retrouver ici — tes favoris restent stockés sur cet appareil.',
+  // Titres aimés du compte Spotify (source distincte des favoris locaux).
+  likedSongsTitle: 'Titres aimés',
+  likedSongsSubtitle: (count: number) =>
+    count > 1 ? `${count} titres aimés` : `${count} titre aimé`,
+  likedSongsLoading: 'Chargement de tes titres aimés…',
+  likedSongsErrorTitle: 'Impossible de charger tes titres aimés',
+  likedSongsErrorBody:
+    'Spotify n’a pas répondu. Vérifie ta connexion puis réessaie.',
+  likedSongsEmptyTitle: 'Aucun titre aimé',
+  likedSongsEmptyBody:
+    'Touche le cœur d’un morceau dans Spotify pour le retrouver ici.',
+  likedSongsTruncated: (count: number) =>
+    `Affichage des ${count} premiers titres aimés.`,
+  // Chargement progressif : jamais de plafond, on dit où on en est.
+  likedSongsProgress: (loaded: number, total: number) =>
+    `${loaded} sur ${total} titres aimés chargés — fais défiler pour charger la suite.`,
 };

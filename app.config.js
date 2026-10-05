@@ -83,7 +83,7 @@ module.exports = {
   expo: {
     name: 'Melodix',
     slug: 'melodix',
-    version: '4.4.8-diagnostic',
+    version: '4.5.0-test.1',
     orientation: 'portrait',
     icon: './assets/images/icon.png',
     scheme: 'melodix',
@@ -104,8 +104,26 @@ module.exports = {
     },
     android: {
       package: 'com.souxch06.melodix',
-      versionCode: 44008,
+      versionCode: 45001,
       intentFilters: extraIntentFilters,
+      /**
+       * MODE CLAVIER — `resize` est OBLIGATOIRE et désormais explicite.
+       *
+       * Bug d'origine : l'application ne déclarait aucun
+       * `softwareKeyboardLayoutMode`. À l'ouverture de la recherche, le
+       * clavier Android poussait la barre d'onglets vers le haut et celle-ci
+       * venait recouvrir les résultats — aucun `KeyboardAvoidingView`, aucun
+       * abonnement clavier, et une hauteur de conteneur calculée en PIXELS
+       * FIXES qui ne pouvait pas suivre la fenêtre.
+       *
+       * `resize` (WindowSoftInputMode = adjustResize) fait se REDIMENSIONNER
+       * la fenêtre : `useWindowDimensions()` rend la nouvelle hauteur et un
+       * conteneur `flex: 1` suit automatiquement. Combiné au masquage de la
+       * barre d'onglets pendant la saisie (app/(tabs)/_layout.tsx), les
+       * résultats défilent AU-DESSUS du clavier et la barre ne recouvre plus
+       * rien. Aucune marge arbitraire, aucun `position: absolute`.
+       */
+      softwareKeyboardLayoutMode: 'resize',
       // Le lecteur streame via le stockage privé d'expo-av : aucun accès au
       // stockage partagé ni overlay système n'est nécessaire en production.
       blockedPermissions: [

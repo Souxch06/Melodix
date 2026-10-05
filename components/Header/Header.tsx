@@ -31,7 +31,7 @@ export type HeaderPropsType = {
 
 export const Header = ({ tab }: HeaderPropsType) => {
   const { top: statusBarOffset } = useSafeAreaInsets();
-  const { userData, sessionStatus, signOut } = useUserData();
+  const { userData, sessionStatus, signOut, reloadUserData } = useUserData();
   const t = useTranslations();
   const router = useRouter();
   const [accountOpen, setAccountOpen] = React.useState(false);
@@ -65,6 +65,24 @@ export const Header = ({ tab }: HeaderPropsType) => {
       return;
     }
 
+    // Session Spotify présente mais identité non vérifiée : message exact et
+    // réessai — jamais l'alerte du mode local, qui affirmerait à tort qu'il
+    // n'y a « aucun compte ».
+    if (sessionStatus === 'spotify-unverified') {
+      Alert.alert(
+        translations.spotifyRestoreUnavailableTitle,
+        translations.spotifyRestoreUnavailableBody,
+        [
+          { text: translations.accountCancel, style: 'cancel' },
+          {
+            text: translations.spotifyRestoreRetry,
+            onPress: () => void reloadUserData(),
+          },
+        ]
+      );
+      return;
+    }
+
     Alert.alert(translations.accountTitle, translations.accountLocalInfo, [
       { text: translations.accountCancel, style: 'cancel' },
       {
@@ -88,12 +106,15 @@ export const Header = ({ tab }: HeaderPropsType) => {
 
   // Accueil : salutation personnalisée « Bonjour, [Prénom] » à côté de l'avatar
   // (le titre « Accueil » des autres onglets reste inchangé).
+  // Salutation nominative UNIQUEMENT avec une identité Spotify vérifiée :
+  // pendant une restauration, `userData` porte le profil local (« Mélomane »),
+  // qui ne doit pas être présenté comme le nom du compte connecté.
   const homeHello = React.useMemo(
     () =>
-      tab === Pages.HOME
+      tab === Pages.HOME && sessionStatus === 'spotify'
         ? t.homeHello(firstNameOf(userData?.displayName ?? ''))
         : null,
-    [tab, userData, t]
+    [tab, userData, sessionStatus, t]
   );
 
   const height = React.useMemo(() => {
@@ -122,7 +143,10 @@ export const Header = ({ tab }: HeaderPropsType) => {
   }, [tab]);
 
   const handleHomeSearchPress = React.useCallback(() => {
-    router.push({ pathname: '/(tabs)/search', params: {} });
+    // `focus=1` : la loupe de l'accueil ouvre la recherche AVEC le clavier
+    // (l'utilisateur vient de demander à chercher). Ouvrir l'onglet
+    // Recherche directement ne déclenche pas ce paramètre.
+    router.push({ pathname: '/(tabs)/search', params: { focus: '1' } });
   }, [router]);
 
   // La roue ouvre le vrai écran Paramètres (/settings) ; le panneau « Compte

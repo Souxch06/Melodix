@@ -19,6 +19,7 @@
  *    du morceau en cours projettent normalement.
  */
 import {
+  addAudioBecomingNoisyListener,
   addMediaCommandListener,
   appendDiagLog,
   requestMediaNotificationPermission,
@@ -37,6 +38,7 @@ let bridgeEnabled = false;
 let initialized = false;
 let unsubscribePlayer: (() => void) | null = null;
 let unsubscribeCommands: (() => void) | null = null;
+let unsubscribeNoisyAudio: (() => void) | null = null;
 /** Le service n'a été sollicité QUE si une lecture réelle l'a activé. */
 let sessionActivated = false;
 /** Déduplication : signature JSON du dernier payload RÉELLEMENT poussé. */
@@ -125,6 +127,10 @@ export const handleMediaCommand = (command: MediaCommand): void => {
     case 'play':
       if (status === 'paused' || status === 'error') {
         void melodixPlayer.togglePlayPause();
+      } else if (status === 'ended') {
+        // Fin de file atteinte : PLAY système relance le morceau affiché
+        // depuis le début (pas un toggle qui resterait sur « terminé »).
+        void melodixPlayer.playAtIndex(melodixPlayer.getState().index);
       }
       break;
 
@@ -154,6 +160,26 @@ export const handleMediaCommand = (command: MediaCommand): void => {
       // après un STOP depuis la notification ou l'écran verrouillé.
       void melodixPlayer.stop();
       break;
+  }
+};
+
+/**
+ * Casque filaire débranché / Bluetooth perdu (§11).
+ *
+ * Android signale `ACTION_AUDIO_BECOMING_NOISY` : continuer à jouer dans le
+ * haut-parleur du téléphone serait un comportement fautif. On met donc en
+ * PAUSE — jamais de saut, jamais de reprise — et UNIQUEMENT si le moteur
+ * joue réellement : une lecture déjà en pause, en chargement ou terminée
+ * n'est pas modifiée. Le natif ne décide rien (il notifie), le moteur reste
+ * la seule source de vérité, exactement comme pour une commande système.
+ */
+export const handleAudioBecomingNoisy = (): void => {
+  const status = melodixPlayer.getState().status;
+
+  appendDiagLog(`AUDIO_BECOMING_NOISY status=${status}`);
+
+  if (status === 'playing') {
+    void melodixPlayer.togglePlayPause();
   }
 };
 
@@ -289,6 +315,9 @@ export const initMediaBridge = (): void => {
 
   unsubscribePlayer = melodixPlayer.subscribe(projectState);
   unsubscribeCommands = addMediaCommandListener(handleMediaCommand);
+  unsubscribeNoisyAudio = addAudioBecomingNoisyListener(
+    handleAudioBecomingNoisy
+  );
 };
 
 /** Démontage complet (tests, logout éventuel) — idempotent. */
@@ -298,6 +327,8 @@ export const teardownMediaBridge = (): void => {
     unsubscribePlayer = null;
     unsubscribeCommands?.();
     unsubscribeCommands = null;
+    unsubscribeNoisyAudio?.();
+    unsubscribeNoisyAudio = null;
 
     if (sessionActivated) {
       sessionActivated = false;

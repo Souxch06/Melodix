@@ -24,6 +24,16 @@ export type SongMatchCandidate = {
   isrc?: string | null;
   /** Classification fournie par le provider, sinon inférée du titre. */
   explicit?: boolean | null;
+  /**
+   * Pertinence éditoriale du support (0..1), quand le provider sait la
+   * reconnaître : une chaîne « Topic » ou un « Official Audio » désigne le
+   * morceau lui-même, alors qu'une compilation ou un mix désigne autre chose.
+   *
+   * Sert UNIQUEMENT à départager deux candidats de score ÉGAL : elle ne
+   * franchit jamais le seuil à elle seule et ne peut donc pas transformer un
+   * candidat insuffisant en match.
+   */
+  contentQuality?: number | null;
 };
 
 export type SongFingerprint = {
@@ -198,6 +208,36 @@ export const stripFeatureSuffix = (title: string): string =>
     .replace(/\s+(?:feat\.?|ft\.?|featuring|with|w\/)\s.+$/i, '')
     .trim();
 
+/**
+ * Suffixes ÉDITORIAUX sans séparateur (« Song Official Audio », « Song HD »,
+ * « Song Topic »). Ils ne désignent jamais une version musicale différente —
+ * seulement la façon dont le support a été publié — mais sans ce retrait le
+ * titre restait « partiel », donc 0 point de titre, et le bon candidat était
+ * rejeté.
+ *
+ * Garde-fous : `\s+` initial (un titre mono-mot comme « Audio » n'est jamais
+ * amputé) et `length >= 2` (le titre ne peut pas disparaître).
+ */
+const EDITORIAL_TAIL_RX =
+  /\s+\b(?:official\s+(?:audio|video|music\s+video|lyric\s+video|visuali[sz]er)|color\s+coded\s+lyrics?|extended\s+audio|full\s+(?:album|video|ep|set)|prod\.?\s+by\s+.+|lyrics?|visuali[sz]er|audio|video|topic|hq|hd|edit)\s*$/iu;
+
+const stripEditorialTail = (text: string): string => {
+  let out = text;
+
+  // Borné : quelques passes suffisent (« Song Official Audio HD »).
+  for (let pass = 0; pass < 6; pass += 1) {
+    const stripped = out.replace(EDITORIAL_TAIL_RX, '').trim();
+
+    if (stripped === out || stripped.length < 2) {
+      break;
+    }
+
+    out = stripped;
+  }
+
+  return out;
+};
+
 /** Longest title variant after removing parentheticals and remix/live tails. */
 export const canonicalizeFromTitle = (normalizedTitle: string): string => {
   let text = stripFeatureSuffix(normalizedTitle);
@@ -215,14 +255,26 @@ export const canonicalizeFromTitle = (normalizedTitle: string): string => {
     }
   }
 
+  text = stripEditorialTail(text);
+
   return cleanupWhitespace(text);
 };
 
-/** Normalized artist/name for fuzzy equality (articles and featuring dropped). */
+/**
+ * Normalized artist/name for fuzzy equality (articles and featuring dropped).
+ *
+ * Le suffixe de chaîne « … - Topic » (piste publiée automatiquement par le
+ * distributeur) est retiré : ce n'est pas une partie du nom d'artiste, et sans
+ * ce retrait la porte artiste rejetait la source audio la plus fiable du
+ * catalogue. `Topic` seul (entrée de liste) est écarté pour la même raison.
+ */
 export const normalizeArtistText = (raw: string): string => {
   const text = normalizeTitleText(raw).replace(/^the\s+/i, '');
 
-  return text.replace(/\.$/, '').trim();
+  return text
+    .replace(/\s*[-–—−]\s*topic\s*$/u, '')
+    .replace(/\.$/, '')
+    .trim();
 };
 
 const parseFeaturedArtists = (normalizedTitle: string): string[] => {
@@ -242,13 +294,20 @@ const parseFeaturedArtists = (normalizedTitle: string): string[] => {
   return featured;
 };
 
+/**
+ * Découpe une chaîne d'artistes. Les séparateurs couvrent les formes que les
+ * catalogues utilisent réellement : virgule, « & », « x », « and/et/en »,
+ * « vs » — et les marqueurs de featuring (« feat. », « ft. », « featuring »,
+ * « with ») qui apparaissent DANS la liste d'artistes d'un support
+ * (« Dua Lipa feat. DaBaby »). Le marqueur disparaît, seuls les noms restent.
+ */
 const splitArtistNames = (raw: string): string[] =>
   raw
     .split(
-      /(?:\s*,\s*|\s*[&+|×⋅]\s*|\s+vs\.?\s+|\s+x\s+|\s+(?:and|et|en)\s+)/iu
+      /(?:\s*,\s*|\s*[&+|×⋅]\s*|\s+vs\.?\s+|\s+x\s+|\s+(?:and|et|en)\s+|\s+(?:feat\.?|ft\.?|featuring|with|w\/)\s+)/iu
     )
     .map((piece) => normalizeArtistText(piece))
-    .filter(Boolean);
+    .filter((piece) => piece && piece !== 'topic');
 
 /** Builds the normalized fingerprint of a source query or a candidate. */
 /**
@@ -350,6 +409,15 @@ export const normalizeAlbumText = (raw: string): string => {
   return cleanupWhitespace(text);
 };
 
+/**
+ * Accord artiste. Le dénominateur est la taille de l'ensemble ATTENDU (les
+ * artistes de la source), pas la plus grande des deux listes : un support qui
+ * cite PLUS d'artistes que Spotify (invités, remixeur, chaîne « … - Topic »)
+ * ne doit pas être dilué — c'est exactement le cas « YouTube/Audius représente
+ * différemment les artistes secondaires ». La porte dure sur l'artiste
+ * PRINCIPAL (`primaryArtistAgreement`) reste, elle, inchangée : un featuring
+ * seul ne suffit toujours pas à identifier un enregistrement.
+ */
 const artistOverlapScore = (
   sourceArtists: string[],
   candidateArtists: string[]
@@ -369,7 +437,7 @@ const artistOverlapScore = (
   return Math.min(
     1,
     shared.reduce((sum, score) => sum + score, 0) /
-      Math.max(sourceArtists.length, candidateArtists.length) +
+      Math.max(1, sourceArtists.length) +
       (includesMain ? 0.25 : 0) +
       (shared.length ? 0.1 : 0)
   );
@@ -410,6 +478,84 @@ const titleAgreement = (
   return 'none';
 };
 
+/**
+ * Pertinence éditoriale d'un candidat (0..1).
+ *
+ * - 1.0 : chaîne « … - Topic » (publiée automatiquement par le distributeur) ou
+ *   « Official Audio » / « Official Video » → le morceau lui-même ;
+ * - 0.6 : marqueur audio générique (audio, lyrics, visualizer) ;
+ * - 0.3 : supports qui CONTIENNENT plusieurs morceaux ou du hors-sujet
+ *   (compilation, mix, full album, playlist, interview, reaction…) ;
+ * - 0.5 : défaut neutre, aucune reconnaissance.
+ *
+ * Sert UNIQUEMENT de départage entre deux candidats de score égal : elle ne
+ * peut à aucun moment faire franchir le seuil d'acceptation.
+ */
+const TOPIC_CHANNEL_RX = /(?:^|\s)-\s*topic\s*$/iu;
+const OFFICIAL_SOURCE_RX =
+  /\bofficial\s+(?:audio|video|music\s+video|lyric\s+video|visuali[sz]er)\b/iu;
+const GENERIC_AUDIO_RX = /\b(?:audio|lyrics?|visuali[sz]er)\b/iu;
+const NOISE_CONTENT_RX =
+  /\b(?:compilation|mix|full\s+(?:album|video|ep|set|mixtape)|playlist|nonstop|medley|megamix|hours?|interview|behind\s+the\s+scenes|reaction|review|essay|documentary|live\s+at|concert|tour|karaoke\s+version|tribute|cover\s+by|top\s+\d+|best\s+of)\b/iu;
+
+export const candidateContentQuality = (
+  candidate: Pick<SongMatchCandidate, 'title' | 'artistNames'>
+): number => {
+  const title = normalizeTitleText(candidate.title ?? '');
+  const artists = (candidate.artistNames ?? [])
+    .map((name) => normalizeTitleText(name))
+    .join(' ');
+
+  if (TOPIC_CHANNEL_RX.test(artists) || OFFICIAL_SOURCE_RX.test(title)) {
+    return 1;
+  }
+
+  if (NOISE_CONTENT_RX.test(title) || NOISE_CONTENT_RX.test(artists)) {
+    return 0.3;
+  }
+
+  if (GENERIC_AUDIO_RX.test(title)) {
+    return 0.6;
+  }
+
+  return 0.5;
+};
+
+/**
+ * Groupes parenthésés/bracketés qui NE désignent PAS un artiste : marqueurs de
+ * variante (« Remix », « Live »), de featuring (déjà traité à part),
+ * d'édition (« Deluxe », « Remastered »), de classification (« Explicit ») ou
+ * simple millésime. Tout le reste est une mention d'artiste exploitable
+ * (« (Dua Lipa) Levitating », « Levitating [Dua Lipa] »).
+ */
+const NON_ARTIST_GROUP_RX =
+  /\b(?:feat\.?|ft\.?|featuring|with|w\/|remix|mix|edit|remaster(?:ed)?|remake|version|live|acoustic|instrumental|karaoke|radio|extended|sped\s+up|slowed|nightcore|demo|mono|stereo|original|deluxe|single|bonus|session|official|lyrics?|visuali[sz]er|audio|video|explicit|clean|censored|uncensored|prod\.?|from|performed|cover|tribute|anniversary|expanded)\b|^\d{4}$/iu;
+
+/**
+ * Artistes mentionnés entre parenthèses ou crochets dans le titre du support.
+ * `canonicalizeFromTitle` supprime déjà ces groupes du TITRE ; on les récupère
+ * ici comme source d'artiste, sans quoi un support intitulé
+ * « (Artiste) Titre » était rejeté par la porte artiste alors que le titre,
+ * lui, correspondait exactement.
+ */
+const artistGroupsOfTitle = (normalizedTitle: string): string[] => {
+  const found: string[] = [];
+
+  for (const match of normalizedTitle.matchAll(
+    /\(([^()]*)\)|\[([^[\]]*)\]/gu
+  )) {
+    const content = (match[1] ?? match[2] ?? '').trim();
+
+    if (content.length < 2 || NON_ARTIST_GROUP_RX.test(content)) {
+      continue;
+    }
+
+    found.push(...splitArtistNames(content));
+  }
+
+  return found.filter(Boolean);
+};
+
 const candidateTitleViews = (
   rawTitle: string,
   sourceTitle: string
@@ -421,9 +567,14 @@ const candidateTitleViews = (
     .map((piece) => canonicalizeFromTitle(piece))
     .filter((piece) => piece.length >= 2);
   const titles = Array.from(new Set([full, ...pieces].filter(Boolean)));
-  const inferredArtists = pieces
-    .filter((piece) => textSimilarity(piece, sourceTitle) < 0.7)
-    .flatMap(splitArtistNames);
+  const inferredArtists = Array.from(
+    new Set([
+      ...pieces
+        .filter((piece) => textSimilarity(piece, sourceTitle) < 0.7)
+        .flatMap(splitArtistNames),
+      ...artistGroupsOfTitle(normalized),
+    ])
+  );
   return { titles, inferredArtists };
 };
 
@@ -449,6 +600,15 @@ const albumAgreement = (
   return a.startsWith(b) || b.startsWith(a) ? 'partial' : 'none';
 };
 
+/**
+ * Tolérance de durée CALIBRÉE sur les écarts réels entre catalogues : un
+ * morceau Spotify de 3:42 face à une source de 3:45 (silences d'entrée, fondu
+ * différent) ne doit pas être pénalisé, alors qu'un écart de plusieurs dizaines
+ * de secondes désigne presque toujours un autre enregistrement.
+ *
+ * La porte DURE (`durationGateRejects`) reste le garde-fou définitif : au-delà
+ * de 60 s ET 30 %, le candidat est rejeté quel que soit son score.
+ */
 const durationScore = (
   expectedSec: number | null | undefined,
   actualSec: number | null | undefined
@@ -471,11 +631,15 @@ const durationScore = (
   }
 
   if (diff <= 8) {
-    return 0.6;
+    return 0.8;
   }
 
   if (diff <= 15) {
-    return 0.25;
+    return 0.45;
+  }
+
+  if (diff <= 30) {
+    return 0.15;
   }
 
   return 0;
@@ -520,6 +684,7 @@ export const matchSongs = (
   }
 
   let best: SongMatchResult | null = null;
+  let bestQuality = -1;
 
   for (const candidate of candidates) {
     if (!candidate.id) {
@@ -701,8 +866,17 @@ export const matchSongs = (
 
     // Keep a running best; hard gates are the same as acceptScore + a title
     // agreement floor so two remixes can't outrank an exact original.
+    // À score ÉGAL, la qualité éditoriale du support départage (une chaîne
+    // « Topic » ou un « Official Audio » désigne le morceau lui-même) — elle
+    // ne fait JAMAIS franchir le seuil à un candidat insuffisant.
+    const quality = candidateContentQuality(candidate);
+
     if (!best || score > best.score) {
       best = { id: candidate.id, score, candidate };
+      bestQuality = quality;
+    } else if (score === best.score && quality > bestQuality) {
+      best = { id: candidate.id, score, candidate };
+      bestQuality = quality;
     }
   }
 
@@ -742,6 +916,35 @@ const sec = (durationMillis?: number | null): number | null =>
 
 /** No reliable match: the player reports "track not available" and skips. */
 export const UNKNOWN_MATCH: SongMatchResult | null = null;
+
+/**
+ * Piste Audius brute → candidat scoré. UNE SEULE définition, partagée par le
+ * matcher (`findBestAudiusMatch`) et par le provider (`matches()`, badges UI) :
+ * les deux voient donc EXACTEMENT les mêmes champs — sinon l'écran pouvait
+ * annoncer « disponible » là où la lecture ne trouvait rien (et inversement).
+ *
+ * L'album reste `null` : l'endpoint de recherche Audius v1 n'expose pas le
+ * titre d'album de façon fiable. Ce n'est pas un signal perdu pour le
+ * matching — c'est un champ NEUTRE (voir `albumAgreement`), le titre, les
+ * artistes et la durée portent la décision.
+ */
+export const audiusCandidateFromTrack = (
+  track: AudiusTrackMatch
+): SongMatchCandidate => ({
+  id: track.id,
+  title: track.title ?? '',
+  artistNames: [track.user?.name ?? track.user?.handle ?? ''].filter(Boolean),
+  album: null,
+  durationSec:
+    typeof track.duration === 'number' && Number.isFinite(track.duration)
+      ? track.duration
+      : null,
+  isrc: track.isrc ?? null,
+  contentQuality: candidateContentQuality({
+    title: track.title ?? '',
+    artistNames: [track.user?.name ?? track.user?.handle ?? ''].filter(Boolean),
+  }),
+});
 
 /**
  * Search → score → best-of for the Audius provider. Returns the best match
@@ -814,19 +1017,7 @@ export const findBestAudiusMatch = async (
       }
 
       seen.add(track.id);
-      candidates.push({
-        id: track.id,
-        title: track.title ?? '',
-        artistNames: [track.user?.name ?? track.user?.handle ?? ''].filter(
-          Boolean
-        ),
-        album: null, // Audius v1 tracks do not expose the album title reliably.
-        durationSec:
-          typeof track.duration === 'number' && Number.isFinite(track.duration)
-            ? track.duration
-            : null,
-        isrc: track.isrc ?? null,
-      });
+      candidates.push(audiusCandidateFromTrack(track));
     }
 
     return matchSongs(source, candidates, {

@@ -36,7 +36,10 @@ const mockDescribeSession = jest.fn(async () => ({
   canRefresh: true,
 }));
 
-let mockSessionStatus: 'loading' | 'local' | 'spotify' = 'spotify';
+const mockReloadUserData = jest.fn(async () => {});
+
+let mockSessionStatus: 'loading' | 'local' | 'spotify' | 'spotify-unverified' =
+  'spotify';
 
 jest.mock('expo-router', () => ({
   useRouter: () => ({ push: mockPush, replace: mockReplace, back: mockBack }),
@@ -60,6 +63,7 @@ jest.mock('@context', () => {
       },
       sessionStatus: mockSessionStatus,
       signOut: mockSignOut,
+      reloadUserData: mockReloadUserData,
     }),
     usePlayer: () => ({
       repeat: 'off',
@@ -181,6 +185,27 @@ describe('Paramètres — compte et déconnexion', () => {
       expect(subtitle).toContain('Renouvellement automatique disponible');
     });
     expect(mockDescribeSession).toHaveBeenCalledTimes(1);
+  });
+
+  it('identité indisponible : message explicite, réessai réel, déconnexion possible', () => {
+    mockSessionStatus = 'spotify-unverified';
+    const { getByTestId, getByText, queryByTestId } = render(
+      <SettingsScreen />
+    );
+
+    // Jamais « Compte local » ni « Connecté à Spotify » : l'identité du
+    // compte n'est pas établie, et la session n'est pas perdue.
+    expect(getByTestId('settings-account-name').props.children).toBe(
+      'Compte Spotify indisponible'
+    );
+    expect(getByText(/n'a pas pu être vérifié/)).toBeTruthy();
+    expect(queryByTestId('settings-identity-retry')).toBeTruthy();
+
+    fireEvent.press(getByTestId('settings-identity-retry'));
+    expect(mockReloadUserData).toHaveBeenCalledTimes(1);
+
+    // L'utilisateur garde une porte de sortie explicite.
+    expect(getByTestId('settings-signout')).toBeTruthy();
   });
 
   it('mode local : affiche le compte local SANS bouton de déconnexion', () => {
@@ -373,7 +398,7 @@ describe('Paramètres — données, langue, aide et version', () => {
     const texts = row
       .findAllByType('Text')
       .map((node: { props: { children?: unknown } }) => node.props.children);
-    expect(texts).toContain('4.4.8-diagnostic');
+    expect(texts).toContain('4.5.0-test.1');
   });
 
   it('audio : la cascade réelle des sources est affichée honnêtement', () => {

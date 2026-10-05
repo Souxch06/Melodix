@@ -34,9 +34,24 @@ export {
 
 export { getBrowseCategories, SEARCH_LIMIT, searchCatalog } from './search';
 
+export { SEE_ALL_KINDS, SEE_ALL_SOURCES, isSeeAllKind } from './seeAll';
+export type {
+  SeeAllFetchContext,
+  SeeAllItem,
+  SeeAllKind,
+  SeeAllSource,
+} from './seeAll';
+
 export { getSavedShows } from './shows';
 
-export { checkSavedTracks, getSavedTracks } from './tracks';
+export {
+  checkSavedTracks,
+  getSavedTracks,
+  getSpotifySavedTracks,
+  getSpotifySavedTracksCount,
+  getSpotifySavedTracksPage,
+} from './tracks';
+export type { SpotifySavedTracksPage } from './tracks';
 
 export { checkSavedItems } from './library';
 export type { LibraryItemType } from './library';
@@ -46,6 +61,7 @@ export {
   getUserPlaylists,
   invalidateUserPlaylistsCache,
 } from './spotify/userPlaylists';
+export type { GetUserPlaylistsOptions } from './spotify/userPlaylists';
 export {
   getSpotifyPlaylist,
   getSpotifyPlaylistTracks,

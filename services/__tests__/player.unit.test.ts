@@ -3,6 +3,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { melodixPlayer, PlayerTrack, spotifyTrackSource } from '../player';
 import { loadPlaybackSession } from '../playbackSession';
 import { PLAY_HISTORY_STORAGE_KEY } from '../history/playHistory';
+import { PLAYBACK_SESSION_STORAGE_KEY } from '../playbackSession';
 import { __testSetAudioProviders, MATCH_CACHE_STORAGE_KEY } from '../audio';
 import type { AudioProvider, ResolvedStream } from '../audio';
 
@@ -170,7 +171,7 @@ describe('melodixPlayer engine', () => {
     await melodixPlayer.playTrack(track('buffering'));
 
     expect(melodixPlayer.getState()).toMatchObject({
-      status: 'loading',
+      status: 'buffering',
       buffering: true,
       resolved: expect.objectContaining({ provider: 'Audius' }),
     });
@@ -470,14 +471,32 @@ describe('melodixPlayer engine', () => {
     expect(melodixPlayer.getState().resolved?.sourceId).toBe('fresh-id');
   });
 
-  it('stops after the last track when repeat is off', async () => {
+  it('ends on "ended" (not "idle") after the last track when repeat is off', async () => {
     await melodixPlayer.playQueue([track('one')], 0);
     await flush();
 
     lastStatusCallback?.({ isLoaded: true, didJustFinish: true });
     await flush();
 
-    expect(melodixPlayer.getState().status).toBe('idle');
+    // Fin NATURELLE de file : 'ended' (et non un stop/idle) — le morceau
+    // reste affiché avec sa position de fin, et « Reprendre » peut le
+    // ramener. Un stop() explicite reste 'idle' (testé plus bas).
+    expect(melodixPlayer.getState().status).toBe('ended');
+    expect(melodixPlayer.getState().buffering).toBe(false);
+    expect(melodixPlayer.getState().current?.id).toBe('spotify:one');
+  });
+
+  it('a natural end of queue keeps the session resumable (not purged)', async () => {
+    await melodixPlayer.playQueue([track('one')], 0);
+    await flush();
+
+    lastStatusCallback?.({ isLoaded: true, didJustFinish: true });
+    await flush();
+
+    // Contrairement à stop(), la session persistée survit : « Reprendre la
+    // lecture » ramène l'utilisateur là où la file s'est arrêtée.
+    const stored = await AsyncStorage.getItem(PLAYBACK_SESSION_STORAGE_KEY);
+    expect(stored).not.toBeNull();
   });
 
   it('repeats the single track in repeat "one" mode', async () => {
@@ -1258,7 +1277,8 @@ describe('Phase 1 — course critique : aucun double Sound, le dernier gagne', (
 
     void melodixPlayer.playAtIndex(1);
     await flush();
-    expect(melodixPlayer.getState().status).toBe('loading');
+    // Phase de résolution explicite : la source audio n'est pas trouvée.
+    expect(melodixPlayer.getState().status).toBe('resolving');
     const slowUnload = deferred<void>();
     mockCreatedSounds[0].unloadAsync.mockReturnValueOnce(slowUnload.promise);
 
@@ -2348,8 +2368,8 @@ describe('Phase 5D — fiabilisation moteur (races / fin collante / seek en vol)
 
     // Sans await : pendant la fenêtre réelle de chargement (résolution lente).
     void melodixPlayer.playQueue([track('a', 'A')], 0);
-    await flush(); // pousse les microtâches : emit 'loading' fait, timer 25 ms pas encore
-    expect(melodixPlayer.getState().status).toBe('loading');
+    await flush(); // pousse les microtâches : emit 'resolving' fait, timer 25 ms pas encore
+    expect(melodixPlayer.getState().status).toBe('resolving');
 
     // Geste utilisateur très rapide — ignore proprement, aucune relance.
     await melodixPlayer.togglePlayPause();
@@ -2375,8 +2395,8 @@ describe('Phase 5D — fiabilisation moteur (races / fin collante / seek en vol)
 
     // Sans await : pendant la fenêtre réelle de chargement (résolution lente).
     void melodixPlayer.playQueue([track('a', 'A')], 0);
-    await flush(); // emit 'loading' fait, la résolution lente n'est pas finie
-    expect(melodixPlayer.getState().status).toBe('loading');
+    await flush(); // emit 'resolving' fait, la résolution lente n'est pas finie
+    expect(melodixPlayer.getState().status).toBe('resolving');
 
     // L'utilisateur glisse la barre AVANT que la durée soit connue.
     await melodixPlayer.seekTo(42_000);
@@ -2581,5 +2601,227 @@ describe('Seek en attente, ciblage du morceau (BUG 1 + restauration)', () => {
     expect(soundB).toBeDefined();
     expect(soundB.setPositionAsync).not.toHaveBeenCalled();
     await melodixPlayer.stop();
+  });
+});
+
+describe('Les NEUF états du moteur (spec lecteur)', () => {
+  beforeEach(async () => {
+    await AsyncStorage.clear();
+    lastStatusCallback = null;
+    lastSound = null;
+    mockCreatedSounds = [];
+    __testSetAudioProviders({ audius: makeProvider() });
+    await melodixPlayer.__testReset();
+  });
+
+  it('traverse loading → resolving → buffering → playing, jamais de saut', async () => {
+    const { Audio: av } = jest.requireMock('expo-av') as {
+      Audio: { Sound: { createAsync: jest.Mock } };
+    };
+    // Statut initial ENCORE EN BUFFERING : sans ça, le mock par défaut
+    // publierait playing dès la création du Sound.
+    av.Sound.createAsync.mockImplementationOnce(
+      async (
+        _source: { uri: string },
+        _initial: Record<string, unknown>,
+        onStatus?: (status: Record<string, unknown>) => void
+      ) => {
+        const created = makeSound();
+        lastStatusCallback = onStatus ?? null;
+        lastSound = created;
+        mockCreatedSounds.push(created);
+        return {
+          sound: created,
+          status: {
+            isLoaded: true,
+            isPlaying: true,
+            isBuffering: true,
+            positionMillis: 0,
+          },
+        };
+      }
+    );
+
+    // Fournisseur lent : on observe la fenêtre réelle de résolution.
+    const lente = new Promise<void>((resolve) => setTimeout(resolve, 25));
+    const provider = makeProvider({
+      resolveSource: jest.fn(async (sourceId: string) => {
+        await lente;
+        return { uri: `https://stream/${sourceId}` };
+      }),
+    });
+    __testSetAudioProviders({ audius: provider });
+
+    void melodixPlayer.playQueue([track('a', 'A')], 0);
+    await flush();
+
+    // 1. résolution en cours : la source audio n'est PAS encore trouvée.
+    expect(melodixPlayer.getState().status).toBe('resolving');
+    expect(melodixPlayer.getState().buffering).toBe(false);
+    // Une URL résolue n'est JAMAIS présentée comme une lecture en cours.
+    expect(melodixPlayer.getState().resolved).toBeNull();
+
+    await new Promise((resolve) => setTimeout(resolve, 40));
+
+    // 2. source trouvée, flux en cours de chargement.
+    expect(melodixPlayer.getState().status).toBe('buffering');
+    expect(melodixPlayer.getState().buffering).toBe(true);
+    expect(melodixPlayer.getState().resolved).not.toBeNull();
+
+    // 3. seul le runtime fait passer à playing.
+    lastStatusCallback?.({
+      isLoaded: true,
+      isPlaying: true,
+      isBuffering: false,
+    });
+    expect(melodixPlayer.getState().status).toBe('playing');
+    expect(melodixPlayer.getState().buffering).toBe(false);
+  });
+
+  it('ne publie JAMAIS playing pendant la résolution', async () => {
+    const lente = new Promise<void>((resolve) => setTimeout(resolve, 25));
+    const provider = makeProvider({
+      resolveSource: jest.fn(async (sourceId: string) => {
+        await lente;
+        return { uri: `https://stream/${sourceId}` };
+      }),
+    });
+    __testSetAudioProviders({ audius: provider });
+
+    void melodixPlayer.playQueue([track('a', 'A')], 0);
+    await flush();
+
+    const observed: string[] = [];
+    for (let i = 0; i < 3; i += 1) {
+      observed.push(melodixPlayer.getState().status);
+      await flush();
+    }
+
+    expect(observed).not.toContain('playing');
+    expect(observed.every((s) => s === 'resolving' || s === 'loading')).toBe(
+      true
+    );
+  });
+
+  it('un Sound chargé mais non joué reste paused, jamais faux playing', async () => {
+    await melodixPlayer.playTrack(track('a', 'A'));
+    await flush();
+
+    lastStatusCallback?.({
+      isLoaded: true,
+      isPlaying: false,
+      isBuffering: false,
+      positionMillis: 0,
+    });
+
+    expect(melodixPlayer.getState().status).toBe('paused');
+  });
+
+  it('ended : pause système puis lecture relance le morceau depuis le début', async () => {
+    await melodixPlayer.playQueue([track('one')], 0);
+    await flush();
+    lastStatusCallback?.({ isLoaded: true, didJustFinish: true });
+    await flush();
+
+    expect(melodixPlayer.getState().status).toBe('ended');
+
+    // Reprendre depuis l'état ended rejoue le morceau affiché.
+    await melodixPlayer.playAtIndex(melodixPlayer.getState().index);
+    await flush();
+
+    expect(mockCreatedSounds.length).toBe(2);
+    expect(melodixPlayer.getState().status).toBe('playing');
+    expect(melodixPlayer.getState().resolved).not.toBeNull();
+  });
+
+  it('ended ne bloque pas un nouveau morceau choisi par l utilisateur', async () => {
+    await melodixPlayer.playQueue([track('one')], 0);
+    await flush();
+    lastStatusCallback?.({ isLoaded: true, didJustFinish: true });
+    await flush();
+
+    await melodixPlayer.playTrack(track('two', 'Deuxième'));
+    await flush();
+
+    expect(melodixPlayer.getState().current?.id).toBe('spotify:two');
+    expect(melodixPlayer.getState().status).toBe('playing');
+    expect(mockCreatedSounds.length).toBe(2);
+  });
+
+  it('toggle pendant resolving ne relance PAS le morceau (garde anti-double commande)', async () => {
+    const lente = new Promise<void>((resolve) => setTimeout(resolve, 25));
+    const provider = makeProvider({
+      resolveSource: jest.fn(async (sourceId: string) => {
+        await lente;
+        return { uri: `https://stream/${sourceId}` };
+      }),
+    });
+    __testSetAudioProviders({ audius: provider });
+
+    void melodixPlayer.playQueue([track('a', 'A')], 0);
+    await flush();
+
+    expect(melodixPlayer.getState().status).toBe('resolving');
+    await melodixPlayer.togglePlayPause();
+    await melodixPlayer.togglePlayPause();
+
+    await new Promise((resolve) => setTimeout(resolve, 40));
+
+    // Un seul son, une seule création : le double toggle n'a rien relancé.
+    expect(mockCreatedSounds.length).toBe(1);
+  });
+
+  it('stop explicite reste idle (ce n est pas une fin naturelle)', async () => {
+    await melodixPlayer.playQueue([track('one')], 0);
+    await flush();
+
+    await melodixPlayer.stop();
+
+    expect(melodixPlayer.getState().status).toBe('idle');
+  });
+
+  it('unavailable reste distinct de error (aucune source jouable)', async () => {
+    const provider = makeProvider({
+      resolveMatch: jest.fn(async () => ({ sourceId: 'x', score: 0.9 })),
+      resolveSource: jest.fn(async () => null),
+    });
+    __testSetAudioProviders({ audius: provider });
+
+    await melodixPlayer.playQueue([track('one')], 0);
+    await flush();
+    await flush();
+
+    // File d'un seul morceau introuvable : session terminée proprement avec
+    // une notice explicite. Jamais 'playing', jamais 'error' (la résolution
+    // a réussi, c'est la LECTURE qui est impossible).
+    expect(melodixPlayer.getState().status).toBe('idle');
+    expect(melodixPlayer.getState().notice?.kind).toBe('not-available');
+  });
+
+  it('un morceau indisponible ne bloque JAMAIS la file (skip automatique)', async () => {
+    const provider = makeProvider({
+      // Le morceau « dead » n'a AUCUN correspondant fiable ; les autres oui.
+      resolveMatch: jest.fn(async (query: { title: string }) =>
+        query.title === 'Track dead'
+          ? null
+          : { sourceId: `aud-${query.title}`, score: 0.9 }
+      ),
+      resolveSource: jest.fn(
+        async (sourceId: string): Promise<ResolvedStream | null> => ({
+          uri: `https://stream/${sourceId}`,
+        })
+      ),
+    });
+    __testSetAudioProviders({ audius: provider });
+
+    await melodixPlayer.playQueue([track('dead'), track('ok', 'Vivant')], 0);
+    await flush();
+    await flush();
+    await flush();
+
+    // Le morceau suivant est joué : aucun blocage sur un introuvable.
+    expect(melodixPlayer.getState().current?.id).toBe('spotify:ok');
+    expect(melodixPlayer.getState().status).not.toBe('unavailable');
+    expect(melodixPlayer.getState().resolved).not.toBeNull();
   });
 });

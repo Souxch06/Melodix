@@ -4,7 +4,12 @@ import { ErrorCard, Preview } from '@components';
 
 import { checkSavedTracks, getAlbum, getArtist } from '@api';
 import { toggleSavedTrack } from '@services';
-import { AlbumModel, ArtistModel, TrackModel } from '@models';
+import {
+  AlbumModel,
+  ArtistModel,
+  artistsFromSubtitle,
+  TrackModel,
+} from '@models';
 import { AlbumFallback, ArtistFallback, SEPARATOR } from '@config';
 import {
   getDisplayCopyrightText,
@@ -163,7 +168,7 @@ export const AlbumScreen = ({ albumId }: AlbumScreenPropsType) => {
     async (track: TrackModel) => {
       const nowSaved = await toggleSavedTrack(track, {
         albumTitle: album?.name,
-        artists: track.subtitle ? track.subtitle.split(', ') : [],
+        artists: artistsFromSubtitle(track.subtitle),
       });
       setAlbum((prevAlbum) =>
         prevAlbum

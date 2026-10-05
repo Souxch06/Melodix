@@ -54,6 +54,31 @@ export const EN_GB = {
   browseAll: 'Browse all',
   featuredPlaylists: 'Popular Playlists',
 
+  // Recherche : barre moderne, historique, resultats groupes.
+  searchTopResult: 'Top result',
+  searchSectionSongs: 'Songs',
+  searchSectionArtists: 'Artists',
+  searchSectionAlbums: 'Albums',
+  searchSectionPlaylists: 'Playlists',
+  searchBarLabel: 'Search the catalogue',
+  searchBack: 'Back',
+  searchClose: 'Close the search',
+  searchClearField: 'Clear the search field',
+  searchClearFieldHint: 'Clear',
+  searchRecentTitle: 'Recent searches',
+  searchRecentEmpty: 'No recent search yet.',
+  searchRecentEmptyHint:
+    'Your searches appear here so you can find them again.',
+  searchRecentClearAll: 'Clear all',
+  searchRecentRemove: (query: string) =>
+    `Remove "${query}" from recent searches`,
+  searchLoading: 'Searching...',
+  searchExplicitBadge: 'Explicit',
+  searchUnavailableBadge: 'No audio source',
+  searchUnavailableHint:
+    'No audio source was found for this track on Audius or YouTube.',
+  searchDurationUnknown: '--:--',
+
   // Découverte Audius (catalogue libre) : aucun login n'existe dans
   // Melodix 3.0 ; les libellés profil/lecteur sont en français (fr-fr.ts).
   trendingTracks: 'Trending tracks',
@@ -121,6 +146,13 @@ export const EN_GB_ACCOUNT = {
   accountClearHistory: 'Clear listening history',
   accountHistoryCleared: 'History cleared.',
   accountCancel: 'Cancel',
+  // Session restore: identity of the connected account not established yet
+  // (verification in progress) or temporarily unavailable.
+  spotifySessionRestoring: 'Checking your Spotify account…',
+  spotifyRestoreUnavailableTitle: 'Spotify account unavailable',
+  spotifyRestoreUnavailableBody:
+    'Your Spotify session is saved, but the account could not be verified right now (network or temporary error). Account data stays hidden until the identity is confirmed — nothing is signed out.',
+  spotifyRestoreRetry: 'Retry',
 };
 
 // Home screen (real Spotify data: greeting, sections, empty/error states).
@@ -153,9 +185,16 @@ export const EN_GB_PLAYER = {
   playerQueueTitle: 'Queue',
   playerQueuePlaying: 'Now playing',
   playerQueueEmpty: 'The queue is empty.',
+  previewCollectionActions: 'List actions',
+  previewNoTracksTitle: 'Nothing to play here',
+  previewNoTracksBody: 'This list has no playable track right now.',
   playerQueueClear: 'Clear',
   playerQueueAdd: 'Add to queue',
   playerQueuePlayNext: 'Play next',
+  playerQueueAddMany: (count: number) =>
+    count > 1
+      ? `Add ${count} tracks to the queue`
+      : 'Add the track to the queue',
   playerQueueRemove: 'Remove from queue',
   playerQueueMoveUp: 'Move up in queue',
   playerQueueMoveDown: 'Move down in queue',
@@ -177,6 +216,17 @@ export const EN_GB_HOME = {
   homeYourPlaylists: 'Your playlists',
   homeRecentlyPlayed: 'Recently played',
   homeForYou: 'For you',
+  // Écran « Tout afficher » (listes verticales complètes des sections).
+  seeAllBack: 'Back',
+  seeAllRecommendationsForYou: 'Recommendations for you',
+  seeAllLoading: 'Loading…',
+  seeAllEmptyTitle: 'Nothing to show yet',
+  seeAllEmptyBody: 'This list will fill up as you listen.',
+  seeAllErrorTitle: 'Could not load this list.',
+  seeAllErrorBody: 'Check your connection and try again.',
+  seeAllRetry: 'Try again',
+  seeAllUnknownTitle: 'This list does not exist',
+  seeAllUnknownBody: 'Go back to the home screen and pick a section again.',
   homePlaylistsEmptyTitle: 'No playlists yet',
   homePlaylistsEmptyBody: 'Your Spotify playlists will show up here.',
   homeRefresh: 'Refresh',
@@ -262,6 +312,8 @@ export const EN_GB_SETTINGS = {
   faqSourcesQ: 'Where does the sound come from?',
   faqSourcesA:
     'From public catalogues: Audius in priority (independent artists), otherwise YouTube. The match is cached on your device so replays are instant.',
+  trackSaveTrack: 'Add to favourites',
+  trackRemoveSaved: 'Remove from favourites',
   faqCacheQ: 'What does clearing the cache do?',
   faqCacheA:
     'It forgets the track-source matches stored on the device. The next playback re-searches Audius then YouTube. Your account, playlists and history are untouched.',
@@ -286,10 +338,28 @@ export const EN_GB_PLAYLIST = {
   providerYouTube: 'YouTube',
   providerUnavailable: 'Unavailable',
   // Favorites (dedicated local-library screen — never a blank screen).
+  favoriteAddAction: 'Add to favorites',
+  favoriteRemoveAction: 'Remove from favorites',
+  favoriteWriteError: 'Could not update this favorite. Please try again.',
   favoritesTitle: 'Favorite tracks',
   favoritesTracksInfo: (count: number) =>
     count > 1 ? `${count} favorite tracks` : `${count} favorite track`,
   favoritesEmptyTitle: 'No favorites yet',
   favoritesEmptyBody:
     'Tap the heart on a track to find it here — your favorites stay on this device.',
+  // Titres aimés du compte Spotify (source distincte des favoris locaux).
+  likedSongsTitle: 'Liked songs',
+  likedSongsSubtitle: (count: number) =>
+    count > 1 ? `${count} liked songs` : `${count} liked song`,
+  likedSongsLoading: 'Loading your liked songs…',
+  likedSongsErrorTitle: 'Could not load your liked songs',
+  likedSongsErrorBody:
+    'Spotify did not answer. Check your connection and try again.',
+  likedSongsEmptyTitle: 'No liked songs yet',
+  likedSongsEmptyBody: 'Tap the heart on a track in Spotify to find it here.',
+  likedSongsTruncated: (count: number) =>
+    `Showing the first ${count} liked songs.`,
+  // Progressive loading: no ceiling, we say where we stand.
+  likedSongsProgress: (loaded: number, total: number) =>
+    `${loaded} of ${total} liked songs loaded — scroll to load more.`,
 };

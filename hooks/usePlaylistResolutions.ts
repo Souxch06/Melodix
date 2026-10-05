@@ -1,6 +1,7 @@
 import * as React from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
+import { artistsFromSubtitle } from '@models';
 import type { TrackModel } from '@models';
 import {
   createMatchResolutionTimestamp,
@@ -206,9 +207,10 @@ export const usePlaylistResolutions = (
           const outcome = await resolveWithProviders(
             {
               title: track.title,
-              artists: track.subtitle
-                ? track.subtitle.split(', ').filter(Boolean)
-                : [],
+              // Même découpage que le player (source unique : models) — un
+              // écart entre le badge et la lecture faisait annoncer
+              // « disponible » là où la lecture ne trouvait rien.
+              artists: artistsFromSubtitle(track.subtitle),
               album: track.albumName ?? null,
               durationMillis: track.durationMs ?? null,
               isrc: track.isrc ?? null,

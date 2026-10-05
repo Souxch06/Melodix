@@ -55,6 +55,57 @@ export type YouTubeSongCandidate = {
   durationSec: number | null;
 };
 
+/**
+ * Pertinence éditoriale d'un résultat YouTube (0..1), exposée au moteur de
+ * matching partagé.
+ *
+ * - 1.0 : chaîne « … - Topic » (piste publiée automatiquement par le
+ *   distributeur) ou titre « Official Audio / Official Video » → le morceau
+ *   lui-même, pas une réinterprétation ;
+ * - 0.3 : supports qui contiennent PLUSIEURS morceaux ou du hors-sujet
+ *   (compilation, mix, full album, playlist, medley, interview, reaction…) ;
+ * - 0.6 : marqueur audio générique (audio, lyrics, visualizer) ;
+ * - 0.5 : défaut neutre.
+ *
+ * Le moteur n'utilise cette valeur que pour DÉPARTAGER deux candidats de score
+ * égal : elle ne peut jamais faire accepter un candidat qui échoue aux portes
+ * titre/artiste/durée/variante.
+ */
+export const youtubeContentQuality = (candidate: {
+  title: string;
+  artists: string[];
+}): number => {
+  const title = candidate.title ?? '';
+  const artists = (candidate.artists ?? []).join(' ');
+  const haystack = `${title} ${artists}`;
+
+  if (/(?:^|\s)-\s*topic\s*$/iu.test(artists)) {
+    return 1;
+  }
+
+  if (
+    /\bofficial\s+(?:audio|video|music\s+video|lyric\s+video|visuali[sz]er)\b/iu.test(
+      title
+    )
+  ) {
+    return 1;
+  }
+
+  if (
+    /\b(?:compilation|mix|full\s+(?:album|video|ep|set|mixtape)|playlist|nonstop|medley|megamix|hours?|interview|behind\s+the\s+scenes|reaction|review|essay|documentary|live\s+at|concert|tour|karaoke\s+version|tribute|cover\s+by|top\s+\d+|best\s+of)\b/iu.test(
+      haystack
+    )
+  ) {
+    return 0.3;
+  }
+
+  if (/\b(?:audio|lyrics?|visuali[sz]er)\b/iu.test(title)) {
+    return 0.6;
+  }
+
+  return 0.5;
+};
+
 // --- helpers JSON défensifs ---------------------------------------------------
 
 type JsonValue =
@@ -84,11 +135,38 @@ const runsOf = (node: unknown): string[] =>
 
 const textOfTextField = (node: unknown): string => {
   const runs = runsOf(asRecord(node)?.text);
-  return runs.join('').trim();
+
+  if (runs.length) {
+    return runs.join('').trim();
+  }
+
+  // Certaines réponses exposent `text` comme chaîne directe plutôt que comme
+  // `{ runs: [...] }` : tolérant, sinon tout le sous-titre était perdu.
+  const direct = asRecord(node)?.text;
+
+  return typeof direct === 'string' ? direct.trim() : '';
 };
 
 const parseEncarts = (text: string): string =>
   text.replace(/\s{2,}/g, ' ').trim();
+
+/** « mm:ss » ou « h:mm:ss ». */
+const CLOCK_RX = /^\d{1,2}:\d{2}(?::\d{2})?$/;
+
+/** Comparaison de deux libellés indépendante de la casse et de la ponctuation. */
+const looseEquals = (a: string, b: string): boolean => {
+  const strip = (value: string) =>
+    value
+      .toLowerCase()
+      .replace(/[’ʻ’＇]/g, "'")
+      .replace(/[^a-z0-9]+/g, ' ')
+      .trim();
+
+  const left = strip(a);
+  const right = strip(b);
+
+  return left.length > 0 && left === right;
+};
 
 /** Parcours « value: runs » utile pour les cartilageurs dynamiques. */
 const firstRunText = (node: unknown): string => {
@@ -175,6 +253,10 @@ const itemToCandidate = (item: unknown): YouTubeSongCandidate | null => {
   }
 
   // 2e colonne flexible : « Artiste • Album • … » (séparateurs « • »).
+  // Certaines mises en page répètent d'abord le TITRE du morceau
+  // (« Song • Artiste • Album • … ») : une pièce qui duplique le titre de la
+  // ligne n'est pas un artiste et est écartée, sans quoi la porte artiste
+  // rejetait systématiquement le bon résultat.
   const subtitle = textOfTextField(
     asRecord(flex[1])?.musicResponsiveListItemFlexColumnRenderer
   );
@@ -182,8 +264,14 @@ const itemToCandidate = (item: unknown): YouTubeSongCandidate | null => {
     .split('•')
     .map((piece) => piece.trim())
     .filter(Boolean);
-  const artists = pieces.length
-    ? pieces[0]
+
+  const informativePieces = pieces.filter((piece) => !CLOCK_RX.test(piece));
+  const artistPieces =
+    informativePieces.length > 1 && looseEquals(informativePieces[0], title)
+      ? informativePieces.slice(1)
+      : informativePieces;
+  const artists = artistPieces.length
+    ? artistPieces[0]
         .split(/,\s*/)
         .map((name) => name.trim())
         .filter(Boolean)

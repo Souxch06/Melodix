@@ -8,6 +8,7 @@ import {
   getAudioProvider,
   getAudioProviders,
   MATCH_CACHE_STORAGE_KEY,
+  recordResolutionDiagnostic,
   resolveWithProviders,
 } from './audio';
 import type { AudioProvider, ResolvedStream, TrackSource } from './audio';
@@ -58,11 +59,35 @@ export type PlayerTrack = {
   source: TrackSource;
 };
 
+/**
+ * Les NEUF états du moteur, dans l'ordre où l'utilisateur les traverse :
+ *
+ *   idle        rien n'est chargé
+ *   loading     préparation (file en cours de montage, morceau choisi)
+ *   resolving   recherche de la source audio (cascade Audius → YouTube) —
+ *               RIEN n'est encore garni : aucun URL résolu n'est une preuve
+ *               de lecture. Distinguer cette phase est ce qui empêche
+ *               d'annoncer « playing » trop tôt.
+ *   buffering   source trouvée, le flux se charge encore
+ *   playing     le runtime confirme isPlaying=true (seule preuve acceptée)
+ *   paused      lecture interrompue, position conservée
+ *   ended       morceau terminé et file épuisée (repeat off) — l'UI peut
+ *               afficher « terminé » au lieu de rester bloquée sur playing
+ *   error       échec de lecture après résolution
+ *   unavailable aucune source audio jouable pour ce morceau
+ *
+ * `buffering` existe AUSSI en booléen dans l'état (voir plus bas) : les
+ * composants existants s'appuient dessus, il reste la source de vérité pour
+ * l'affichage du tampon pendant une lecture active.
+ */
 export type PlayerStatus =
   | 'idle'
   | 'loading'
+  | 'resolving'
+  | 'buffering'
   | 'playing'
   | 'paused'
+  | 'ended'
   | 'error'
   | 'unavailable';
 
@@ -401,10 +426,15 @@ class MelodixPlayer {
         return; // son orphelin : émission parfaitement ignorée
       }
       // expo-av peut publier le statut initial AVANT que createAsync rende le
-      // Sound. Ce callback ne doit pas faire passer `loading` à `playing` : le
-      // garde post-create le prendrait alors pour une commande concurrente et
-      // déchargerait le Sound valide comme s'il était orphelin.
-      if (this.state.status === 'loading' && this.sound === null) {
+      // Sound. Ce callback ne doit pas faire passer `resolving`/`loading` à
+      // `playing` : le garde post-create le prendrait alors pour une commande
+      // concurrente et déchargerait le Sound valide comme s'il était orphelin.
+      if (
+        (this.state.status === 'resolving' ||
+          this.state.status === 'loading' ||
+          this.state.status === 'buffering') &&
+        this.sound === null
+      ) {
         return;
       }
 
@@ -501,7 +531,9 @@ class MelodixPlayer {
         playbackState.status = 'playing';
       } else if (
         status.isPlaying === false &&
-        (this.state.status === 'playing' || this.state.status === 'loading')
+        (this.state.status === 'playing' ||
+          this.state.status === 'loading' ||
+          this.state.status === 'buffering')
       ) {
         // `createAsync({ shouldPlay: true })` ne constitue pas une preuve de
         // lecture. Un statut chargé/non-buffering mais non joué reste PAUSED :
@@ -871,11 +903,47 @@ class MelodixPlayer {
         return;
       }
 
-      await this.stop();
+      await this.finishQueue();
       return;
     }
 
     await this.playIndex(indices[nextPointer]);
+  };
+
+  /**
+   * Fin NATURELLE de la file (dernier morceau terminé, repeat désactivé).
+   *
+   Ce n'est PAS un `stop()` : la session persistée est conservée pour que
+   * « Reprendre la lecture » ramène l'utilisateur là où il en était, et le
+   * morceau courant reste affiché avec l'état `ended` (sinon l'UI restait
+   * bloquée sur `playing` alors qu'aucun son ne sortait plus).
+   */
+  private finishQueue = async () => {
+    const requestToken = ++this.playToken; // tout resolve en vol est orphelin
+    this.transportCommandToken += 1;
+    this.transportIntent = null;
+    this.transportQueue = Promise.resolve();
+    this.pendingSeekMillis = 0;
+    this.pendingSeekForId = null;
+
+    const lastPosition = this.state.positionMillis;
+    const lastDuration = this.state.durationMillis;
+
+    await this.unloadCurrent();
+
+    if (this.playToken !== requestToken) {
+      return; // une lecture plus récente a gagnée pendant l'unload
+    }
+
+    this.emit({
+      status: 'ended',
+      buffering: false,
+      resolved: null,
+      // Position/durée de fin conservées : la barre de progression montre
+      // l'état réel au lieu de repartir à zéro.
+      positionMillis: lastDuration > 0 ? lastDuration : lastPosition,
+      durationMillis: lastDuration,
+    });
   };
 
   private advanceManual = async (direction: 1 | -1) => {
@@ -1023,8 +1091,12 @@ class MelodixPlayer {
     this.emit({
       index,
       current: track,
-      status: 'loading',
-      buffering: true,
+      // On entre dans la cascade de résolution : le morceau est choisi, sa
+      // source audio n'est PAS encore trouvée. Cet état est distinct de
+      // 'loading' précisément pour qu'aucune couche (UI, MediaSession)
+      // n'interprète une URL résolue comme une lecture en cours.
+      status: 'resolving',
+      buffering: false,
       positionMillis: pendingPosition,
       durationMillis: metadataDuration,
       resolved: null,
@@ -1062,6 +1134,16 @@ class MelodixPlayer {
         `PLAYER_SOURCE_RESOLVED trackId=${track.id} provider=${result.provider.id} ` +
           `sourceId=${result.info.sourceId} score=${result.info.score}`
       );
+
+      // Source TROUVÉE (URL résolue) — mais aucun son ne sort encore. Cet
+      // état distinct est le garde-fou central : une URL résolue n'est JAMAIS
+      // présentée comme une lecture en cours.
+      this.emit({
+        resolved: result.info,
+        status: 'buffering',
+        buffering: true,
+      });
+
       await this.ensureAudioMode();
       if (isStale()) {
         return;
@@ -1085,7 +1167,7 @@ class MelodixPlayer {
       if (
         isStale() ||
         this.state.current?.id !== track.id ||
-        this.state.status !== 'loading'
+        (this.state.status !== 'buffering' && this.state.status !== 'loading')
       ) {
         try {
           await sound.unloadAsync();
@@ -1102,9 +1184,9 @@ class MelodixPlayer {
       this.emit({
         resolved: result.info,
         // Un Sound chargé n'est PAS nécessairement en lecture. Conserver
-        // `loading` jusqu'au statut initial expo-av empêche un faux PLAYING
-        // lorsque l'audio est encore en buffering ou n'a pas démarré.
-        status: 'loading',
+        // `buffering` jusqu'au statut initial expo-av empêche un faux PLAYING
+        // lorsque l'audio est encore en chargement ou n'a pas démarré.
+        status: 'buffering',
         buffering: true,
         // La source est valide : toute ancienne notice peut disparaître, sans
         // pour autant prétendre que du son sort déjà.
@@ -1139,10 +1221,23 @@ class MelodixPlayer {
       }
     } catch (error) {
       // M-7 : l'erreur expo-av peut citer l'URL SIGNÉE du flux → assainie.
+      // Le titre et l'ID Spotify sont des métadonnées d'écoute privées : on
+      // ne journalise que la CATÉGORIE d'erreur, comme partout ailleurs.
       console.error(
-        `Failed to play "${track.title}" (${track.id}):`,
+        'Failed to play the resolved stream:',
         sanitizeErrorForLog(error)
       );
+
+      // Source RÉSOLUE mais lecture en échec : ce n'est PAS un échec de
+      // résolution. Le diagnostic garde la distinction (résolu ≠ chargé ≠ lu).
+      recordResolutionDiagnostic({
+        code: 'PLAYER_LOAD_ERROR',
+        providerId: this.state.resolved?.provider ?? null,
+        rejectionCount: 0,
+        bestScore: null,
+        rejectedBy: {},
+        at: Date.now(),
+      });
 
       if (!isStale() && this.state.current?.id === track.id) {
         this.markFailed(track, 'play-failed');
@@ -1153,7 +1248,7 @@ class MelodixPlayer {
   };
 
   togglePlayPause = async () => {
-    if (this.state.status === 'loading') {
+    if (this.state.status === 'loading' || this.state.status === 'resolving') {
       // Pendant la résolution, aucun Sound n'existe encore. Ne jamais relancer
       // playIndex depuis un toggle qui devait être une pause.
       return;
@@ -1229,7 +1324,10 @@ class MelodixPlayer {
   };
 
   next = async () => {
-    if (this.state.status === 'loading' && this.state.current) {
+    if (
+      (this.state.status === 'loading' || this.state.status === 'resolving') &&
+      this.state.current
+    ) {
       // Invalider AVANT l'unload : si le resolver courant termine pendant une
       // libération native lente, il ne doit jamais créer un Sound dépassé.
       const requestToken = ++this.playToken;
@@ -1278,7 +1376,10 @@ class MelodixPlayer {
       if (this.playToken !== token || this.sound !== sound) {
         return; // seek de l'ancien morceau terminé après un changement
       }
-    } else if (this.state.status === 'loading') {
+    } else if (
+      this.state.status === 'loading' ||
+      this.state.status === 'resolving'
+    ) {
       // 5D §3 (seek avant durée connue) : pas de sound à commander — on
       // mémorise la cible dans le MÊME canal que la restauration de session,
       // elle sera appliquée à l'arrivée du son (pendingSeekMillis consommé

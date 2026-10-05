@@ -1,4 +1,5 @@
 import type { AudioProvider, AudioSourceQuery } from './types';
+import { recordResolutionDiagnostic } from './resolutionDiagnostics';
 
 /**
  * TrackResolver — point ENTREE unique de la chaîne de résolution.
@@ -78,6 +79,16 @@ export const resolveWithProviders = async (
         `TrackResolver: provider ${provider.id} threw, trying next`,
         error instanceof Error ? error.name : typeof error
       );
+      // Un fournisseur en panne n'est PAS un morceau absent : le code le dit,
+      // et le resolver ne gravera donc aucun négatif durable.
+      recordResolutionDiagnostic({
+        code: 'PROVIDER_ERROR',
+        providerId: provider.id,
+        rejectionCount: 0,
+        bestScore: null,
+        rejectedBy: {},
+        at: Date.now(),
+      });
       sawProviderError = true;
       continue;
     }
@@ -101,6 +112,19 @@ export const resolveWithProviders = async (
   // jamais de négatif durable sur une panne — le morceau est réessayable.
   if (!sawProviderError) {
     console.info('[AUDIO] Track unavailable');
+    // Tous les providers ont RÉPONDU sans rien trouver : le négatif est
+    // prouvé, et son motif exact est déjà dans le tampon (écrit par chaque
+    // provider). On ajoute la vue chaîne, utile quand les deux fournisseurs
+    // ont été muets sans même produire de candidat.
+    recordResolutionDiagnostic({
+      code: 'NO_PROVIDER_RESULT',
+      providerId: null,
+      rejectionCount: 0,
+      bestScore: null,
+      rejectedBy: {},
+      at: Date.now(),
+    });
   }
+
   return sawProviderError ? { status: 'error' } : { status: 'no-match' };
 };

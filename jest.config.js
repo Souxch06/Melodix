@@ -5,6 +5,27 @@ module.exports = {
   moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx', 'json', 'node'],
   testPathIgnorePatterns: ['/node_modules/', '/android/', '/ios/'],
   testMatch: ['**/__tests__/**/*.unit.test.ts?(x)'],
+  // En test, on force `preserveEnvVars: true` au caller babel-jest pour que
+  // `babel-preset-expo` N'INLINE PAS les `process.env.EXPO_PUBLIC_*` au
+  // build. Cela permet de tester le comportement runtime de la chaîne de
+  // priorité (env > extra > défaut) sans dépendre d'une valeur figée au
+  // moment de la transformation babel. En build de production (APK Metro),
+  // l'inlining est actif et la valeur d'env est figée au bundle — c'est
+  // exactement le comportement attendu (et documenté dans
+  // services/spotify/authConfig.ts).
+  transform: {
+    '^.+\\.[jt]sx?$': [
+      'babel-jest',
+      {
+        caller: {
+          name: 'metro',
+          bundler: 'metro',
+          platform: 'ios',
+          preserveEnvVars: true,
+        },
+      },
+    ],
+  },
   transformIgnorePatterns: [
     'node_modules/(?!(jest-)?@react-native|react-native|@expo|@expo-module|expo|@react-navigation|@unimodules|@expo/vector-icons|expo-modules-core|@testing-library|@shopify/react-native-skia)',
   ],
@@ -18,6 +39,13 @@ module.exports = {
     '^expo-constants$': '<rootDir>/__mocks__/expo-constants.ts',
     '^@config$': '<rootDir>/config/index.ts',
     '^@api$': '<rootDir>/api/index.ts',
+    // Alias présents dans tsconfig.json : sans eux, les suites qui chargent
+    // un écran (via jest.requireActual('@components')) échouaient à
+    // s'exécuter — « Cannot find module '@components' » — et ne testaient
+    // donc RIEN (bibliothèque, titres aimés, playlists).
+    '^@components$': '<rootDir>/components/index.ts',
+    '^@navigators$': '<rootDir>/navigators/index.ts',
+    '^@screens$': '<rootDir>/screens/index.ts',
     '^@models$': '<rootDir>/models/index.ts',
     '^@utils$': '<rootDir>/utils/index.ts',
     '^@data$': '<rootDir>/data/index.ts',

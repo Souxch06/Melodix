@@ -1,18 +1,28 @@
 import * as React from 'react';
-import { Alert } from 'react-native';
+import { ActivityIndicator, Alert, StyleSheet, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { ErrorCard, Preview } from '@components';
 
-import { PlaylistModel, TrackModel } from '@models';
+import { artistsFromSubtitle, PlaylistModel, TrackModel } from '@models';
 import { checkSavedTracks, getPlaylist, getPlaylistItems } from '@api';
 import { toggleSavedTrack, SpotifyApiError } from '@services';
 import { useUserData } from '@context';
+import { APP_BACKGROUND_COLOR, PALETTE } from '@config';
 import { usePlaylistResolutions } from '@hooks';
 import { translations } from '@data';
 
 export type AlbumScreenPropsType = {
   playlistId: string;
 };
+
+const styles = StyleSheet.create({
+  loading: {
+    alignItems: 'center',
+    backgroundColor: APP_BACKGROUND_COLOR,
+    flex: 1,
+    justifyContent: 'center',
+  },
+});
 
 export const PlaylistScreen = ({ playlistId }: AlbumScreenPropsType) => {
   const router = useRouter();
@@ -74,13 +84,19 @@ export const PlaylistScreen = ({ playlistId }: AlbumScreenPropsType) => {
         }
       );
 
-      setTracks((prevTracks) => [
-        ...prevTracks,
-        ...newTracks.map((item, i) => ({
-          ...item,
-          isSaved: savedPlaylistTracksArr[i],
-        })),
-      ]);
+      // Fusion SANS doublon : si la playlist a changé entre deux pages, une
+      // ligne déjà affichée n'est jamais ajoutée une seconde fois.
+      setTracks((prevTracks) => {
+        const knownIds = new Set(prevTracks.map((item) => item.id));
+        const fresh = newTracks
+          .map((item, i) => ({
+            ...item,
+            isSaved: savedPlaylistTracksArr[i],
+          }))
+          .filter((item) => !knownIds.has(item.id));
+
+        return [...prevTracks, ...fresh];
+      });
       setOffset((prevOffset) => prevOffset + limit);
     } catch (error) {
       // Session Spotify morte en cours de consultation : retour propre au
@@ -177,7 +193,7 @@ export const PlaylistScreen = ({ playlistId }: AlbumScreenPropsType) => {
   const handleToggleTrackSaved = React.useCallback(
     async (track: TrackModel) => {
       const nowSaved = await toggleSavedTrack(track, {
-        artists: track.subtitle ? track.subtitle.split(', ') : [],
+        artists: artistsFromSubtitle(track.subtitle),
       });
       setTracks((prevTracks) =>
         prevTracks.map((item) =>
@@ -232,6 +248,16 @@ export const PlaylistScreen = ({ playlistId }: AlbumScreenPropsType) => {
 
   // M-5 : carte d'erreur à l'écran (composant partagé) — état erreur
   // EXPLICITE + retry, jamais de stack trace utilisateur.
+  // Chargement initial : la playlist n'est pas encore connue ET aucune erreur
+  // n'est survenue → indicateur explicite (jamais un écran blanc).
+  if (!playlist && !loadError) {
+    return (
+      <View style={styles.loading} testID="playlist-loading">
+        <ActivityIndicator color={PALETTE.accent} size="large" />
+      </View>
+    );
+  }
+
   if (loadError) {
     return (
       <ErrorCard
