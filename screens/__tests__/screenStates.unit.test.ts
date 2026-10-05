@@ -98,12 +98,16 @@ describe('états — error / empty / loading', () => {
     expect(source).toMatch(/setLoadError\(true\)/);
   });
 
-  it('la troncature des morceaux aimés est annoncée, pas silencieuse', () => {
-    // Un plafonnement doit être DIT à l'utilisateur (données réelles mais
-    // partielles) : « ne pas présenter du cache comme du serveur ».
+  it('les titres aimés ne sont plus plafonnés : le chargement progressif est annoncé', () => {
+    // Plus de plafond artificiel (200 titres) : l'écran suit la pagination
+    // Spotify page après page et DIT honnêtement où il en est (titres chargés
+    // sur total réel du compte) — jamais de troncature silencieuse.
     const source = read('screens/LikedSongsScreen.tsx');
 
-    expect(source).toMatch(/Truncated|truncated/);
+    expect(source).toMatch(/getSpotifySavedTracksPage/);
+    expect(source).toMatch(/hasMore/);
+    expect(source).toMatch(/likedSongsProgress/);
+    expect(source).not.toMatch(/MAX_LIKED_SONGS/);
   });
 });
 

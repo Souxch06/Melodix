@@ -39,6 +39,13 @@ module.exports = {
     '^expo-constants$': '<rootDir>/__mocks__/expo-constants.ts',
     '^@config$': '<rootDir>/config/index.ts',
     '^@api$': '<rootDir>/api/index.ts',
+    // Alias présents dans tsconfig.json : sans eux, les suites qui chargent
+    // un écran (via jest.requireActual('@components')) échouaient à
+    // s'exécuter — « Cannot find module '@components' » — et ne testaient
+    // donc RIEN (bibliothèque, titres aimés, playlists).
+    '^@components$': '<rootDir>/components/index.ts',
+    '^@navigators$': '<rootDir>/navigators/index.ts',
+    '^@screens$': '<rootDir>/screens/index.ts',
     '^@models$': '<rootDir>/models/index.ts',
     '^@utils$': '<rootDir>/utils/index.ts',
     '^@data$': '<rootDir>/data/index.ts',
