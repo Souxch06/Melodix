@@ -207,6 +207,36 @@ describe('UserDataContext — identité Spotify pendant la restauration', () => 
     });
   });
 
+  // Matrice exigée : quelle que soit la forme de l'identifiant invalide, la
+  // session ne doit JAMAIS être promue 'spotify' et aucune identité ne doit
+  // être exploitable par un écran (donc aucune clé de cache possible).
+  it.each<[string, string | null | undefined]>([
+    ['id vide', ''],
+    ['id undefined', undefined],
+    ['id null', null],
+    ['id = LOCAL_USER_ID', LOCAL_USER_ID],
+  ])(
+    'profil /me invalide (%s) : spotify-unverified, jamais spotify',
+    async (_label, invalidId) => {
+      mockActions.getCurrentUser.mockResolvedValueOnce({
+        id: invalidId,
+        type: 'user',
+        displayName: 'Profil inexploitable',
+        imageURL: '',
+      });
+
+      renderProvider();
+
+      await waitFor(() =>
+        expect(observedState().status).toBe('spotify-unverified')
+      );
+      expect(observedState()).toMatchObject({
+        accountId: 'none',
+        planKind: 'identity-unavailable',
+      });
+    }
+  );
+
   it('aucune session stockée : mode invité local (comportement historique)', async () => {
     mockActions.loadSession.mockResolvedValueOnce(null);
 
