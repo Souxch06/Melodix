@@ -41,7 +41,9 @@ export {
   getSavedTracks,
   getSpotifySavedTracks,
   getSpotifySavedTracksCount,
+  getSpotifySavedTracksPage,
 } from './tracks';
+export type { SpotifySavedTracksPage } from './tracks';
 
 export { checkSavedItems } from './library';
 export type { LibraryItemType } from './library';
@@ -51,6 +53,7 @@ export {
   getUserPlaylists,
   invalidateUserPlaylistsCache,
 } from './spotify/userPlaylists';
+export type { GetUserPlaylistsOptions } from './spotify/userPlaylists';
 export {
   getSpotifyPlaylist,
   getSpotifyPlaylistTracks,
