@@ -196,6 +196,16 @@ export const LAYOUT = {
   listBottomPadding: 120,
 } as const;
 
+/**
+ * FOND DE L'APPLICATION — une seule définition, utilisée par tous les écrans.
+ *
+ * Avant, chaque écran écrivait `backgroundColor: COLORS.PRIMARY` (gris
+ * neutre) ou inventait son propre foncé. Un seul jeton garantit que Accueil,
+ * Bibliothèque, Artiste, Album, Playlist, Historique et lecteur partagent
+ * EXACTEMENT la même base bleu nuit.
+ */
+export const APP_BACKGROUND_COLOR = PALETTE.night900;
+
 export const theme = {
   palette: PALETTE,
   colors: COLORS,
@@ -207,6 +217,7 @@ export const theme = {
   motion: MOTION,
   touch: TOUCH_TARGET,
   layout: LAYOUT,
+  background: APP_BACKGROUND_COLOR,
 } as const;
 
 export type Theme = typeof theme;

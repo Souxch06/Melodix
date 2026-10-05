@@ -3,7 +3,7 @@ import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 
 import { Preview } from '@components';
 import { ErrorCard } from '@components';
-import { COLORS } from '@config';
+import { APP_BACKGROUND_COLOR, COLORS } from '@config';
 import { translations } from '@data';
 import { getSpotifySavedTracks } from '@api';
 
@@ -119,7 +119,7 @@ export const LikedSongsScreen = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.PRIMARY,
+    backgroundColor: APP_BACKGROUND_COLOR,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 24,

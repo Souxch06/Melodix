@@ -24,6 +24,7 @@ export {
 } from './constants';
 export { COLORS, BROWSE_CATEGORIES_COLORS } from './colors';
 export {
+  APP_BACKGROUND_COLOR,
   ELEVATION,
   LAYOUT,
   MOTION,

@@ -13,7 +13,7 @@ import { useRouter } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
 
 import { usePlayer } from '@context';
-import { COLORS } from '@config';
+import { APP_BACKGROUND_COLOR, COLORS } from '@config';
 import {
   getRecentlyPlayedTracks,
   playerTrackFromHistoryEntry,
@@ -165,7 +165,7 @@ export const HistoryScreen = () => {
 
 const styles = StyleSheet.create({
   center: { alignItems: 'center', flex: 1, justifyContent: 'center' },
-  container: { backgroundColor: COLORS.PRIMARY, flex: 1 },
+  container: { backgroundColor: APP_BACKGROUND_COLOR, flex: 1 },
   cover: { borderRadius: 5, height: 52, width: 52 },
   coverFallback: {
     alignItems: 'center',

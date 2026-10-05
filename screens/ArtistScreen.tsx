@@ -16,7 +16,7 @@ import { ErrorCard } from '@components';
 import { Card } from '../components/Card';
 import { QueueActionMenu } from '../components/Player/QueueActionMenu';
 import { usePlayer } from '@context';
-import { COLORS, Shapes, Sizes } from '@config';
+import { APP_BACKGROUND_COLOR, COLORS, Shapes, Sizes } from '@config';
 import { artistsFromSubtitle } from '@models';
 import type { ArtistModel, TrackModel } from '@models';
 import {
@@ -237,7 +237,7 @@ const styles = StyleSheet.create({
     width: 48,
     zIndex: 1,
   },
-  container: { backgroundColor: COLORS.PRIMARY, flex: 1 },
+  container: { backgroundColor: APP_BACKGROUND_COLOR, flex: 1 },
   emptySection: { alignItems: 'center', paddingHorizontal: 32, paddingTop: 36 },
   emptyText: { color: COLORS.LIGHT_GREY, textAlign: 'center' },
   hero: { alignItems: 'center', paddingHorizontal: 24 },

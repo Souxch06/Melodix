@@ -9,7 +9,11 @@ import { FeaturedPlaylists } from './FeaturedPlaylists';
 import { TopAlbums } from './TopAlbums';
 import { TopArtists } from './TopArtists';
 import { EmptySection } from '../EmptySection';
-import { BOTTOM_NAVIGATION_HEIGHT, COLORS, HEADER_HEIGHT } from '@config';
+import {
+  APP_BACKGROUND_COLOR,
+  BOTTOM_NAVIGATION_HEIGHT,
+  HEADER_HEIGHT,
+} from '@config';
 import { View } from 'react-native';
 import { useApplicationDimensions } from '@hooks';
 
@@ -29,7 +33,7 @@ export const Home = () => {
   return (
     <View
       style={{
-        backgroundColor: COLORS.PRIMARY,
+        backgroundColor: APP_BACKGROUND_COLOR,
         height: height - BOTTOM_NAVIGATION_HEIGHT - HEADER_HEIGHT,
       }}
     >
