@@ -8,6 +8,7 @@ import {
   getAudioProvider,
   getAudioProviders,
   MATCH_CACHE_STORAGE_KEY,
+  recordResolutionDiagnostic,
   resolveWithProviders,
 } from './audio';
 import type { AudioProvider, ResolvedStream, TrackSource } from './audio';
@@ -1220,10 +1221,23 @@ class MelodixPlayer {
       }
     } catch (error) {
       // M-7 : l'erreur expo-av peut citer l'URL SIGNÉE du flux → assainie.
+      // Le titre et l'ID Spotify sont des métadonnées d'écoute privées : on
+      // ne journalise que la CATÉGORIE d'erreur, comme partout ailleurs.
       console.error(
-        `Failed to play "${track.title}" (${track.id}):`,
+        'Failed to play the resolved stream:',
         sanitizeErrorForLog(error)
       );
+
+      // Source RÉSOLUE mais lecture en échec : ce n'est PAS un échec de
+      // résolution. Le diagnostic garde la distinction (résolu ≠ chargé ≠ lu).
+      recordResolutionDiagnostic({
+        code: 'PLAYER_LOAD_ERROR',
+        providerId: this.state.resolved?.provider ?? null,
+        rejectionCount: 0,
+        bestScore: null,
+        rejectedBy: {},
+        at: Date.now(),
+      });
 
       if (!isStale() && this.state.current?.id === track.id) {
         this.markFailed(track, 'play-failed');

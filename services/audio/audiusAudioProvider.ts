@@ -13,6 +13,11 @@ import {
   fingerprintOf,
   matchSongs,
 } from './audiusTrackMatcher';
+import type { SongCandidateDecision } from './audiusTrackMatcher';
+import {
+  buildNoMatchDiagnostic,
+  recordResolutionDiagnostic,
+} from './resolutionDiagnostics';
 
 /**
  * Default audio provider: Audius (Open Audio Protocol). Stateless:
@@ -78,11 +83,42 @@ export const createAudiusAudioProvider = (): AudioProvider => {
     },
 
     resolveMatch: async (query: AudioSourceQuery) => {
-      const result = await findBestAudiusMatch(query, search);
+      // Le moteur de matching expose DÉJÀ la décision de chaque candidat via
+      // `onCandidateDecision` : on la capte pendant le scoring existant. AUCUNE
+      // requête réseau supplémentaire, AUCUNE modification de l'algorithme.
+      const decisions: SongCandidateDecision[] = [];
+      const result = await findBestAudiusMatch(query, search, {
+        onCandidateDecision: (decision) => decisions.push(decision),
+      });
 
-      return result
-        ? { sourceId: result.id, score: Math.min(1, result.score / 100) }
-        : null;
+      if (result) {
+        return { sourceId: result.id, score: Math.min(1, result.score / 100) };
+      }
+
+      // Aucun candidat retenu : on explique POURQUOI, sans recopier une
+      // seule métadonnée d'écoute (compteurs et motifs seulement).
+      const diagnostic = buildNoMatchDiagnostic({
+        providerId: 'audius',
+        rejections: decisions
+          .filter((decision) => !decision.accepted)
+          .map((decision) => ({
+            accepted: decision.accepted,
+            reason: decision.reason,
+          })),
+        hadIsrc: Boolean(query.isrc),
+        bestScore: decisions.reduce<number | null>(
+          (best, decision) =>
+            typeof decision.score === 'number' &&
+            (best === null || decision.score > best)
+              ? decision.score
+              : best,
+          null
+        ),
+      });
+
+      recordResolutionDiagnostic(diagnostic);
+
+      return null;
     },
 
     resolveSource: async (sourceId: string): Promise<ResolvedStream | null> => {

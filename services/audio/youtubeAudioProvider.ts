@@ -19,6 +19,10 @@ import {
   YouTubeSongCandidate,
 } from './youtubeInnertube';
 import { sanitizeErrorForLog } from '../logSanitize';
+import {
+  buildNoMatchDiagnostic,
+  recordResolutionDiagnostic,
+} from './resolutionDiagnostics';
 
 /**
  * Provider audio de FALLBACK : YouTube / YouTube Music.
@@ -44,6 +48,31 @@ const ACCEPT_SCORE = 55;
  * l'« Official Audio » au-delà de la 12e ligne de pertinence.
  */
 const YOUTUBE_SEARCH_LIMIT = 20;
+
+/**
+ * Journalisation de diagnostic. RÈGLE : aucun détail d'écoute ne sort.
+ *
+ * Le matcher Audius s'impose déjà cette contrainte (`titleLength`,
+ * `artistCount`, `hasAlbum`…) ; le provider YouTube la respecte désormais
+ * aussi. Un logcat de téléphone physique, un rapport de bogue ou une
+ * capture d'écran partagée exposaient sinon le titre, les artistes, l'album
+ * et l'ISRC du morceau en cours — des métadonnées d'écoute PRIVÉES, au même
+ * titre qu'un jeton.
+ *
+ * Seule la FORME de la requête est journalisable (longueurs, présences,
+ * nombre de résultats) : assez pour diagnostiquer, jamais assez pour
+ * reconstituer ce qu'écoute l'utilisateur.
+ */
+const describeQueryShape = (
+  query: AudioSourceQuery
+): Record<string, unknown> => ({
+  titleLength: query.title.length,
+  artistCount: query.artists.length,
+  hasAlbum: Boolean(query.album),
+  hasDuration: query.durationMillis != null,
+  hasIsrc: Boolean(query.isrc),
+  explicitKnown: typeof query.explicit === 'boolean',
+});
 
 const devYouTubeLog = (
   event: string,
@@ -138,10 +167,16 @@ const searchCandidates = async (
       batch = await searchYouTubeSongs(text, YOUTUBE_SEARCH_LIMIT);
     } catch {
       sawSearchError = true;
-      devYouTubeLog('search-error', { query: text });
+      devYouTubeLog('search-error', {
+        queryLength: text.length,
+        queryTermCount: text.split(/\s+/).filter(Boolean).length,
+      });
       continue;
     }
-    devYouTubeLog('search', { query: text, results: batch.length });
+    devYouTubeLog('search', {
+      queryLength: text.length,
+      results: batch.length,
+    });
     batch.forEach((candidate) => {
       if (candidate.videoId && !seen.has(candidate.videoId)) {
         seen.add(candidate.videoId);
@@ -194,13 +229,7 @@ export const createYouTubeAudioProvider = (): AudioProvider => ({
       return null;
     }
 
-    devYouTubeLog('spotify-input', {
-      title: query.title,
-      artists: query.artists,
-      album: query.album ?? null,
-      durationMillis: query.durationMillis ?? null,
-      isrc: query.isrc ?? null,
-    });
+    devYouTubeLog('spotify-input', describeQueryShape(query));
 
     let candidates: YouTubeSongCandidate[];
     try {
@@ -227,14 +256,38 @@ export const createYouTubeAudioProvider = (): AudioProvider => ({
 
     devYouTubeLog(best ? 'selected' : 'unavailable', {
       results: candidates.length,
-      sourceId: best?.sourceId ?? null,
       score: best?.raw ?? null,
-      rejected: decisions.filter((decision) => !decision.accepted),
+      rejectedCount: decisions.filter((decision) => !decision.accepted).length,
     });
 
-    return best
-      ? { sourceId: best.sourceId, score: Math.min(1, best.raw / 100) }
-      : null;
+    if (best) {
+      return { sourceId: best.sourceId, score: Math.min(1, best.raw / 100) };
+    }
+
+    // Aucun candidat fiable : on explique la décision SANS journaliser le
+    // moindre candidat (motifs et compteurs seulement — même règle qu'Audius).
+    recordResolutionDiagnostic(
+      buildNoMatchDiagnostic({
+        providerId: 'youtube',
+        rejections: decisions
+          .filter((decision) => !decision.accepted)
+          .map((decision) => ({
+            accepted: decision.accepted,
+            reason: decision.reason,
+          })),
+        hadIsrc: Boolean(query.isrc),
+        bestScore: decisions.reduce<number | null>(
+          (top, decision) =>
+            typeof decision.score === 'number' &&
+            (top === null || decision.score > top)
+              ? decision.score
+              : top,
+          null
+        ),
+      })
+    );
+
+    return null;
   },
 
   resolveSource: async (sourceId: string): Promise<ResolvedStream | null> => {
