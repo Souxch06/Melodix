@@ -145,6 +145,15 @@ export const Preview = ({
     [player, playableQueue]
   );
 
+  // En-tête « ⋯ » : met en file TOUT le lot réellement chargé (playlist ou
+  // album paginé compris) via l'API de file existante — déduplication et
+  // émissions atomiques restent la responsabilité du moteur.
+  const handleAddAllToQueue = React.useCallback(() => {
+    if (playableQueue.length) {
+      player.addTracksToQueue(playableQueue);
+    }
+  }, [player, playableQueue]);
+
   // Menu d'actions « ⋯ » de la ligne : un seul état, un seul composant
   // réutilisable (jamais de menu dupliqué par écran).
   const [actionTrack, setActionTrack] = React.useState<PlayerTrack | null>(
@@ -279,6 +288,8 @@ export const Preview = ({
               availabilityInfo={summaryAvailability}
               imageURL={imageURL}
               forceDisableSaveIcon={!!(ownerId && ownerId === userData.id)}
+              loadedTrackCount={playableQueue.length}
+              onAddAllToQueue={handleAddAllToQueue}
             />
           </>
         }

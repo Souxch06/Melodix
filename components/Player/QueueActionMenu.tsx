@@ -6,24 +6,47 @@ import { usePlayer } from '@context';
 import { translations } from '@data';
 import type { PlayerTrack } from '@services';
 
+/** Lot de morceaux (playlist, album, file d'un artiste) à mettre en file. */
+export type QueueCollection = {
+  /** Titre affiché en en-tête du menu (nom de la playlist/album). */
+  title: string;
+  /** Nombre de morceaux RÉELLEMENT chargés côté écran (jamais deviné). */
+  trackCount: number;
+};
+
 /**
- * Menu d'actions contextuel d'un MORCEAU quelconque (recherche, playlists,
- * albums, recommandations…) : « Ajouter à la file » et « Lire ensuite ».
+ * Menu d'actions contextuel de file — LE SEUL endroit qui expose
+ * « Ajouter à la file » / « Lire ensuite » (recherche, playlists, albums,
+ * recommandations…), plus le mode COLLECTION des en-têtes playlist/album.
  *
- * Usage : le parent garde `visible`/`track`, rend le menu, et le ferme via
- * `onClose`. NE PAS dupliquer ces actions ailleurs : toujours réutiliser ce
- * composant.
+ * Deux modes exclusifs :
+ *  1. morceau (`track`) : « Ajouter à la file » + « Lire ensuite » ;
+ *  2. collection (`collection`) : « Ajouter les N morceaux à la file » —
+ *     le lot ajouté est celui déjà chargé par l'écran, et le libellé dit
+ *     combien de morceaux partent réellement (jamais « toute la playlist »
+ *     quand seule une page est chargée).
+ *
+ * Règle : sans morceau ET sans collection, rien n'est affiché — jamais
+ * d'action fantôme. Ne pas dupliquer ces actions ailleurs.
  */
 export const QueueActionMenu = ({
   visible,
   track,
+  collection,
+  onAddCollectionToQueue,
   onClose,
 }: {
   visible: boolean;
-  track: PlayerTrack | null;
+  track?: PlayerTrack | null;
+  collection?: QueueCollection | null;
+  onAddCollectionToQueue?: () => void;
   onClose: () => void;
 }) => {
   const { addToQueue, playNext } = usePlayer();
+
+  const trackMode = Boolean(track);
+  const collectionMode =
+    !trackMode && Boolean(collection) && Boolean(onAddCollectionToQueue);
 
   const handleAdd = () => {
     if (track) {
@@ -39,12 +62,19 @@ export const QueueActionMenu = ({
     onClose();
   };
 
+  const handleAddCollection = () => {
+    if (collection && onAddCollectionToQueue) {
+      onAddCollectionToQueue();
+    }
+    onClose();
+  };
+
   return (
     <Modal
       animationType="fade"
       onRequestClose={onClose}
       transparent
-      visible={visible && Boolean(track)}
+      visible={visible && (trackMode || collectionMode)}
     >
       <Pressable
         accessibilityLabel={translations.playerClose}
@@ -57,30 +87,54 @@ export const QueueActionMenu = ({
           style={styles.sheet}
         >
           <Text numberOfLines={1} style={styles.title}>
-            {track ? `${track.title} — ${track.artists.join(', ')}` : ''}
+            {track
+              ? `${track.title} — ${track.artists.join(', ')}`
+              : (collection?.title ?? '')}
           </Text>
 
-          <Pressable
-            accessibilityLabel={translations.playerQueueAdd}
-            accessibilityRole="button"
-            onPress={handleAdd}
-            style={styles.action}
-            testID="queue-action-add"
-          >
-            <Text style={styles.actionText}>{translations.playerQueueAdd}</Text>
-          </Pressable>
+          {trackMode ? (
+            <>
+              <Pressable
+                accessibilityLabel={translations.playerQueueAdd}
+                accessibilityRole="button"
+                onPress={handleAdd}
+                style={styles.action}
+                testID="queue-action-add"
+              >
+                <Text style={styles.actionText}>
+                  {translations.playerQueueAdd}
+                </Text>
+              </Pressable>
 
-          <Pressable
-            accessibilityLabel={translations.playerQueuePlayNext}
-            accessibilityRole="button"
-            onPress={handlePlayNext}
-            style={styles.action}
-            testID="queue-action-play-next"
-          >
-            <Text style={styles.actionText}>
-              {translations.playerQueuePlayNext}
-            </Text>
-          </Pressable>
+              <Pressable
+                accessibilityLabel={translations.playerQueuePlayNext}
+                accessibilityRole="button"
+                onPress={handlePlayNext}
+                style={styles.action}
+                testID="queue-action-play-next"
+              >
+                <Text style={styles.actionText}>
+                  {translations.playerQueuePlayNext}
+                </Text>
+              </Pressable>
+            </>
+          ) : null}
+
+          {collectionMode && collection ? (
+            <Pressable
+              accessibilityLabel={translations.playerQueueAddMany(
+                collection.trackCount
+              )}
+              accessibilityRole="button"
+              onPress={handleAddCollection}
+              style={styles.action}
+              testID="queue-action-add-collection"
+            >
+              <Text style={styles.actionText}>
+                {translations.playerQueueAddMany(collection.trackCount)}
+              </Text>
+            </Pressable>
+          ) : null}
         </Pressable>
       </Pressable>
     </Modal>

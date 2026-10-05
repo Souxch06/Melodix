@@ -185,11 +185,16 @@ export const EN_GB_PLAYER = {
   playerQueueTitle: 'Queue',
   playerQueuePlaying: 'Now playing',
   playerQueueEmpty: 'The queue is empty.',
+  previewCollectionActions: 'List actions',
   previewNoTracksTitle: 'Nothing to play here',
   previewNoTracksBody: 'This list has no playable track right now.',
   playerQueueClear: 'Clear',
   playerQueueAdd: 'Add to queue',
   playerQueuePlayNext: 'Play next',
+  playerQueueAddMany: (count: number) =>
+    count > 1
+      ? `Add ${count} tracks to the queue`
+      : 'Add the track to the queue',
   playerQueueRemove: 'Remove from queue',
   playerQueueMoveUp: 'Move up in queue',
   playerQueueMoveDown: 'Move down in queue',

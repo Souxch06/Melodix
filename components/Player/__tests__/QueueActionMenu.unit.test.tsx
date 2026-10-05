@@ -3,6 +3,8 @@
  *  1. Deux actions exactement : « Ajouter à la file », « Lire ensuite ».
  *  2. Chacune dispatch AU moteur via le contexte, puis FERME le menu.
  *  3. Sans morceau : rien d'affiché, jamais d'action fantôme.
+ *  4. Mode COLLECTION (en-tête playlist/album) : une seule action, le lot
+ *     RÉELLEMENT chargé, avec un libellé qui dit combien de morceaux.
  */
 import * as React from 'react';
 
@@ -79,5 +81,77 @@ describe('QueueActionMenu — actions de file réutilisables (phase 2)', () => {
     );
 
     expect(queryByLabelText(translations.playerQueueAdd)).toBeNull();
+  });
+});
+
+describe('QueueActionMenu — mode COLLECTION (en-tête playlist/album)', () => {
+  beforeEach(() => jest.clearAllMocks());
+
+  const collection = { title: 'Ma playlist', trackCount: 3 };
+
+  it('met le lot chargé en file puis ferme ; aucune action par-morceau', () => {
+    const onClose = jest.fn();
+    const onAddCollectionToQueue = jest.fn();
+    const { getByLabelText, queryByLabelText } = render(
+      <QueueActionMenu
+        collection={collection}
+        onAddCollectionToQueue={onAddCollectionToQueue}
+        onClose={onClose}
+        visible
+      />
+    );
+
+    fireEvent.press(
+      getByLabelText(translations.playerQueueAddMany(collection.trackCount))
+    );
+
+    expect(onAddCollectionToQueue).toHaveBeenCalledTimes(1);
+    expect(mockAddToQueue).not.toHaveBeenCalled();
+    expect(mockPlayNext).not.toHaveBeenCalled();
+    expect(onClose).toHaveBeenCalledTimes(1);
+    // Pas de doublon ligne par ligne : les actions de morceau restent masquées.
+    expect(queryByLabelText(translations.playerQueuePlayNext)).toBeNull();
+  });
+
+  it('le libellé dit le nombre RÉEL de morceaux chargés', () => {
+    const { getByText } = render(
+      <QueueActionMenu
+        collection={{ title: 'Album', trackCount: 1 }}
+        onAddCollectionToQueue={() => {}}
+        onClose={() => {}}
+        visible
+      />
+    );
+
+    expect(getByText(translations.playerQueueAddMany(1))).toBeTruthy();
+    expect(translations.playerQueueAddMany(1)).not.toContain('1 morceaux');
+  });
+
+  it('collection sans handler : aucune action affichée', () => {
+    const { queryByLabelText } = render(
+      <QueueActionMenu collection={collection} onClose={() => {}} visible />
+    );
+
+    expect(
+      queryByLabelText(translations.playerQueueAddMany(collection.trackCount))
+    ).toBeNull();
+  });
+
+  it('un morceau prime sur la collection (jamais deux modes mélangés)', () => {
+    const onAddCollectionToQueue = jest.fn();
+    const { getByLabelText, queryByLabelText } = render(
+      <QueueActionMenu
+        collection={collection}
+        onAddCollectionToQueue={onAddCollectionToQueue}
+        onClose={() => {}}
+        track={morceau}
+        visible
+      />
+    );
+
+    expect(getByLabelText(translations.playerQueueAdd)).toBeTruthy();
+    expect(
+      queryByLabelText(translations.playerQueueAddMany(collection.trackCount))
+    ).toBeNull();
   });
 });

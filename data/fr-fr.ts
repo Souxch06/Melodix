@@ -82,12 +82,19 @@ export const FR_FR_PLAYER = {
   playerQueueTitle: 'File d’attente',
   playerQueuePlaying: 'Lecture en cours',
   playerQueueEmpty: 'La file est vide.',
+  previewCollectionActions: 'Actions sur la liste',
   previewNoTracksTitle: 'Rien à lire ici',
   previewNoTracksBody:
     "Cette liste ne contient aucun morceau diffusable pour l'instant.",
   playerQueueClear: 'Vider',
   playerQueueAdd: 'Ajouter à la file',
   playerQueuePlayNext: 'Lire ensuite',
+  // Mode COLLECTION (en-tête playlist/album) : le libellé dit exactement
+  // combien de morceaux déjà chargés partent dans la file.
+  playerQueueAddMany: (count: number) =>
+    count > 1
+      ? `Ajouter les ${count} morceaux à la file`
+      : 'Ajouter le morceau à la file',
   playerQueueRemove: 'Supprimer de la file',
   playerQueueMoveUp: 'Monter dans la file',
   playerQueueMoveDown: 'Descendre dans la file',

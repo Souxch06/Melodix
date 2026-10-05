@@ -81,6 +81,13 @@ export const styles = StyleSheet.create({
   isDownloadedIconActive: {
     color: PALETTE.night900,
   },
+  moreButton: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: TOUCH_TARGET.minimum,
+    height: TOUCH_TARGET.minimum,
+    borderRadius: RADIUS.pill,
+  },
   moreIcon: {
     fontSize: 20,
     color: PALETTE.textSecondary,
