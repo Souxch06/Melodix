@@ -285,6 +285,11 @@ export const FR_FR_PLAYLIST = {
   providerYouTube: 'YouTube',
   providerUnavailable: 'Indisponible',
   // Favoris (écran dédié de la bibliothèque locale — jamais d'écran blanc).
+  // Menu contextuel : favori local accessible depuis n'importe quelle liste.
+  favoriteAddAction: 'Ajouter aux favoris',
+  favoriteRemoveAction: 'Retirer des favoris',
+  favoriteWriteError:
+    'Impossible de mettre à jour ce favori. Réessaie dans un instant.',
   favoritesTitle: 'Titres favoris',
   favoritesTracksInfo: (count: number) =>
     count > 1 ? `${count} morceaux favoris` : `${count} morceau favori`,

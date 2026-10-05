@@ -4,6 +4,7 @@ import { Modal, Pressable, StyleSheet, Text } from 'react-native';
 import { COLORS } from '@config';
 import { usePlayer } from '@context';
 import { translations } from '@data';
+import { useSavedTrack } from '@hooks';
 import type { PlayerTrack } from '@services';
 
 /** Lot de morceaux (playlist, album, file d'un artiste) à mettre en file. */
@@ -43,6 +44,10 @@ export const QueueActionMenu = ({
   onClose: () => void;
 }) => {
   const { addToQueue, playNext } = usePlayer();
+  // Favori LOCAL : même bibliothèque que l'écran Favoris (aucun scope
+  // Spotify). Disponible partout où le menu s'ouvre sur un vrai morceau.
+  const saved = useSavedTrack(track);
+  const [saveError, setSaveError] = React.useState(false);
 
   const trackMode = Boolean(track);
   const collectionMode =
@@ -67,6 +72,20 @@ export const QueueActionMenu = ({
       onAddCollectionToQueue();
     }
     onClose();
+  };
+
+  // Favori : on ne ferme le menu QUE si l'écriture a réellement abouti ;
+  // sinon l'utilisateur voit l'échec au lieu d'un silence trompeur.
+  const handleToggleSaved = async () => {
+    setSaveError(false);
+
+    const done = await saved.toggle();
+
+    if (done) {
+      onClose();
+    } else {
+      setSaveError(true);
+    }
   };
 
   return (
@@ -117,6 +136,32 @@ export const QueueActionMenu = ({
                   {translations.playerQueuePlayNext}
                 </Text>
               </Pressable>
+
+              <Pressable
+                accessibilityLabel={
+                  saved.isSaved
+                    ? translations.favoriteRemoveAction
+                    : translations.favoriteAddAction
+                }
+                accessibilityRole="button"
+                accessibilityState={{ selected: saved.isSaved }}
+                disabled={saved.isSaving}
+                onPress={() => void handleToggleSaved()}
+                style={[styles.action, saved.isSaving && styles.actionDisabled]}
+                testID="queue-action-toggle-saved"
+              >
+                <Text style={styles.actionText}>
+                  {saved.isSaved
+                    ? translations.favoriteRemoveAction
+                    : translations.favoriteAddAction}
+                </Text>
+              </Pressable>
+
+              {saveError ? (
+                <Text style={styles.errorText} testID="queue-action-save-error">
+                  {translations.favoriteWriteError}
+                </Text>
+              ) : null}
             </>
           ) : null}
 
@@ -170,9 +215,18 @@ const styles = StyleSheet.create({
     marginTop: 8,
     paddingVertical: 14,
   },
+  actionDisabled: {
+    opacity: 0.5,
+  },
   actionText: {
     color: COLORS.WHITE,
     fontSize: 15,
     fontWeight: '600',
+  },
+  errorText: {
+    color: COLORS.RED,
+    fontSize: 13,
+    marginTop: 8,
+    textAlign: 'center',
   },
 });

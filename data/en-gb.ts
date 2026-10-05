@@ -338,6 +338,9 @@ export const EN_GB_PLAYLIST = {
   providerYouTube: 'YouTube',
   providerUnavailable: 'Unavailable',
   // Favorites (dedicated local-library screen — never a blank screen).
+  favoriteAddAction: 'Add to favorites',
+  favoriteRemoveAction: 'Remove from favorites',
+  favoriteWriteError: 'Could not update this favorite. Please try again.',
   favoritesTitle: 'Favorite tracks',
   favoritesTracksInfo: (count: number) =>
     count > 1 ? `${count} favorite tracks` : `${count} favorite track`,
