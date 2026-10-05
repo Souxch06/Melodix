@@ -221,7 +221,7 @@ describe('« Tout afficher » — destinations réelles', () => {
 
     expect(mockPush).toHaveBeenCalledWith({
       pathname: '/home/see-all/[kind]',
-      params: { kind: 'recommendations', seed: 'artist-7' },
+      params: { kind: 'recommendations', seed: 'artist-7', type: 'artist' },
     });
     expect(mocked.getRecommendations).toHaveBeenCalledWith({
       artistSeed: 'artist-7',

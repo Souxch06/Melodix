@@ -10,10 +10,11 @@ import { SeeAllScreen } from '@screens';
  * explicite (jamais un écran blanc).
  */
 export default function SeeAll() {
-  const { kind, seed } = useLocalSearchParams<{
+  const { kind, seed, type } = useLocalSearchParams<{
     kind?: string;
     seed?: string;
+    type?: 'artist' | 'tracks';
   }>();
 
-  return <SeeAllScreen kind={kind ?? ''} seed={seed} />;
+  return <SeeAllScreen kind={kind ?? ''} seed={seed} type={type} />;
 }

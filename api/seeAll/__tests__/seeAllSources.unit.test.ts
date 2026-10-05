@@ -144,4 +144,26 @@ describe('SEE_ALL_SOURCES', () => {
     });
     expect(items[0].item.id).toBe('a3');
   });
+
+  it('recommendations : seed de type tracks voyage dans la requête', async () => {
+    mockedRecommendations.mockResolvedValue([
+      {
+        id: 't1',
+        type: 'album',
+        title: 'Rec Track',
+        subtitle: '',
+        imageURL: '',
+      },
+    ]);
+
+    const items = await SEE_ALL_SOURCES.recommendations.fetchItems({
+      seed: 'track-42',
+      type: 'tracks',
+    });
+
+    expect(mockedRecommendations).toHaveBeenCalledWith({
+      tracksSeed: 'track-42',
+    });
+    expect(items[0].item.id).toBe('t1');
+  });
 });

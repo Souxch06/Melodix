@@ -64,7 +64,7 @@ export const Recommendations = ({
       onShowAllPress={() =>
         router.push({
           pathname: '/home/see-all/[kind]',
-          params: { kind: 'recommendations', seed },
+          params: { kind: 'recommendations', seed, type },
         })
       }
     />

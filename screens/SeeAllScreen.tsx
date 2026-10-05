@@ -31,8 +31,10 @@ type LoadPhase = 'loading' | 'ready' | 'error';
 export type SeeAllScreenPropsType = {
   /** Type de liste transmis par l'URL (voir SEE_ALL_KINDS). */
   kind: string;
-  /** Seed optionnel (recommandations dérivées d'un artiste). */
+  /** Seed optionnel (recommandations dérivées d'un artiste ou morceau). */
   seed?: string;
+  /** Type optionnel de seed ('artist' | 'tracks'). */
+  type?: 'artist' | 'tracks';
 };
 
 /**
@@ -44,7 +46,7 @@ export type SeeAllScreenPropsType = {
  * Les tuiles sans identifiant navigable (album inconnu de l'historique)
  * jouent leur morceau échantillon au lieu d'ouvrir une page inexistante.
  */
-export const SeeAllScreen = ({ kind, seed }: SeeAllScreenPropsType) => {
+export const SeeAllScreen = ({ kind, seed, type }: SeeAllScreenPropsType) => {
   const router = useRouter();
   const player = usePlayer();
   const [phase, setPhase] = React.useState<LoadPhase>('loading');
@@ -62,7 +64,7 @@ export const SeeAllScreen = ({ kind, seed }: SeeAllScreenPropsType) => {
     let disposed = false;
     setPhase('loading');
     void source
-      .fetchItems({ seed })
+      .fetchItems({ seed, type })
       .then((nextItems) => {
         if (disposed) {
           return;
@@ -81,7 +83,7 @@ export const SeeAllScreen = ({ kind, seed }: SeeAllScreenPropsType) => {
     return () => {
       disposed = true;
     };
-  }, [source, seed, retrySeed]);
+  }, [source, seed, type, retrySeed]);
 
   const playFallback = React.useCallback(
     (item: SeeAllItem) => {

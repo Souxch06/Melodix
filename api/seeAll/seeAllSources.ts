@@ -39,8 +39,10 @@ export type SeeAllItem = {
 };
 
 export type SeeAllFetchContext = {
-  /** Seed transmis par l'URL (recommandations dérivées d'un artiste). */
+  /** Seed transmis par l'URL (recommandations dérivées d'un artiste ou d'un morceau). */
   seed?: string;
+  /** Type de recommandation ('artist' | 'tracks'). */
+  type?: 'artist' | 'tracks';
 };
 
 export type SeeAllSource = {
@@ -86,11 +88,15 @@ export const SEE_ALL_SOURCES: Record<SeeAllKind, SeeAllSource> = {
   },
   recommendations: {
     title: () => translations.recommendations,
-    fetchItems: async ({ seed }) => {
+    fetchItems: async ({ seed, type }) => {
       if (!seed) {
         return [];
       }
-      return asItems(await getRecommendations({ artistSeed: seed }));
+      return asItems(
+        await getRecommendations({
+          ...(type === 'tracks' ? { tracksSeed: seed } : { artistSeed: seed }),
+        })
+      );
     },
   },
 };
