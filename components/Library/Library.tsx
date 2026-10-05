@@ -33,6 +33,7 @@ import { isSpotifySessionActive } from '@services';
 import { translations } from '@data';
 
 import { styles } from './styles';
+import { mergeSpotifyPlaylistsIntoLibrary } from './libraryMerge';
 import { useLibrarySelectedCategory, useUserData } from '@context';
 
 export const Library = () => {
@@ -82,19 +83,7 @@ export const Library = () => {
             });
             // Les playlists Spotify PRIMENT : une copie locale du même id ne
             // doit pas créer un doublon ni masquer la version du compte.
-            const personalIds = new Set(personal.map((item) => item.id));
-            const localPlaylists = libraryData[
-              Categories.SAVED_PLAYLISTS
-            ].filter((item) => !personalIds.has(item.id));
-            const localOthers = libraryData[Categories.ALL].filter(
-              (item) => !(item.type === 'playlist' && personalIds.has(item.id))
-            );
-
-            merged = {
-              ...libraryData,
-              [Categories.SAVED_PLAYLISTS]: [...personal, ...localPlaylists],
-              [Categories.ALL]: [...personal, ...localOthers],
-            };
+            merged = mergeSpotifyPlaylistsIntoLibrary(libraryData, personal);
             setPersonalFetchFailed(false);
           } catch (personalError) {
             // Erreur propre : la bibliothèque locale reste consulted ;
