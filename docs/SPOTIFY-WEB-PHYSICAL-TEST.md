@@ -141,6 +141,59 @@ Aucune de ces constantes ne prouve une lecture réelle ; seule la procédure té
 précédente) peut le faire. Le diagnostic complet d'un run est limité à ce que l'UI affiche :
 présences booléennes et codes sûrs, jamais d'URL complète, de cookie, de token ni de contenu réseau.
 
+## Mission 7 — reconstruction propre et état honnête (2026-10-05)
+
+La précédente tentative de Mission 7 (trois fichiers jamais commités) a été
+définitivement perdue avec le sandbox. La Mission 7 a été reconstruite depuis
+le commit `662b65d` (fin Mission 6), en trois modules commités séparément, puis
+un orchestrateur d'intégration. **Aucune ligne de Mission 6 n'a été réécrite.**
+
+### PROUVÉ — par tests automatisés (Jest, sans appareil)
+
+| Élément                                 | Preuve                                                                                                                                                                                                                                              | Verdict           |
+| --------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------- |
+| Sélection `playbackBackendSelection`    | 24 tests : ordre Spotify Web → Audius → YouTube constant, incident ≠ absence, erreur inconnue jamais définitive, négatif durable réservé à l'absence PROUVÉE                                                                                        | PROUVÉ (unitaire) |
+| Plan `spotifyWebPlaybackPlan`           | 30 tests : refus explicites (explicit/version/durée/ISRC), autoplay, seek borné, reprise (dont reprise collée à la fin → repart du début), runtime pas prêt / recovering / failed, renderer détruit, péremption TTL                                 | PROUVÉ (unitaire) |
+| Transport `spotifyWebTrackTransport`    | 29 tests sur le VRAI `SpotifyWebBackend` Mission 6 : `PLAY_ACCEPTED ≠ PLAYING`, confirmation unique par chargement, seek non déclaré avant publication, `expired`, `disconnected`, `stale`, reconnexion, ready tardif refusé après renderer détruit | PROUVÉ (unitaire) |
+| Orchestrateur d'intégration             | 16 tests : porte fermée = zéro essai et zéro pénalité, `confirmation-timeout` classé incident **retentable** (jamais absence), cascade Spotify → Audius → YouTube → échec structuré, projection MediaSession via la fonction centrale               | PROUVÉ (unitaire) |
+| Garde-fou Mission 6 (lecteur non câblé) | `spotifyWebFeature.unit.test.ts` toujours vert : `services/player.ts`, `context/PlayerContext.tsx`, `services/mediaBridge.ts`, `services/playbackSession.ts` n'importent toujours pas Spotify Web                                                   | PROUVÉ            |
+
+### NON PROUVÉ — exige un appareil réel et un compte Spotify
+
+- lecture audio réelle (son audible) via Spotify Web dans la WebView ;
+- `PLAYING` réellement publié par la page après une commande acceptée ;
+- pause / reprise / seek confirmés par la page sur un vrai appareil ;
+- MediaSession Android alimentée par Spotify (notification, écran verrouillé,
+  Bluetooth/casque, commandes matérielles) ;
+- lecture en arrière-plan réelle ;
+- fallback réellement déclenché par une panne réelle (réseau, renderer tué).
+
+### BLOQUÉ
+
+- **Câblage du lecteur : volontairement non fait.** La Mission 6 porte un test
+  (`spotifyWebFeature.unit.test.ts`) qui INTERDIT au lecteur de référencer
+  `spotifyWebFeature`, `SpotifyWebBackend` ou la porte d'activation tant que
+  `recordSpotifyWebPhysicalValidation('PASSED_ON_DEVICE', preuve)` n'a pas été
+  consigné. Câbler avant le test téléphone reviendrait à casser un garde-fou
+  testé et à activer un chemin invérifiable. `spotifyWebPlaybackIntegration.ts`
+  fournit tout le câblage, testé ; l'étape finale est courte et doit être
+  faite APRÈS la validation téléphone, en levant explicitement ce garde-fou
+  dans le même commit.
+- **APK de la branche : `BLOCKED — GitHub Actions permissions`.** La
+  commande `gh workflow run "APK Android" --ref arena/01a10d1a-melodix`
+  renvoie : `HTTP 403: Resource not accessible by integration`. Aucune
+  permission n'a été contournée et la configuration Android n'a pas été
+  modifiée.
+- **Test physique minimal : impossible ici** (aucun appareil Android, aucun
+  compte Spotify dans l'environnement).
+
+### Rappel de méthode (inchangé)
+
+`code compilé` ≠ `lecture Spotify Web démontrée`. Et `PLAY_ACCEPTED: oui` ne
+vaut jamais `PLAYING`. Le tableau « PROUVÉ » ci-dessus ne contient QUE des
+garanties de logique (tests unitaires) : il ne contient pas une seule preuve
+de son.
+
 ### Interprétation exacte du résultat `expired` (run `37182486483`)
 
 `expired` sur l'émulateur prouve physiquement chaque maillon : appui réel → écouteur React Native
