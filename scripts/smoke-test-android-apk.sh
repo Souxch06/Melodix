@@ -6,7 +6,14 @@ set -u
 
 APK=${1:-}
 PACKAGE=com.souxch06.melodix
-EXPECTED_VERSION_CODE=${EXPECTED_VERSION_CODE:-45002}
+# Version attendue : source UNIQUE = app.config.js. Une constante en dur ici
+# (ex. 45002) divergeait à chaque bump et ferait échouer le smoke alors que
+# l'APK est correcte. `node` est disponible (Node 20). EXPECTED_VERSION_CODE
+# reste une surcharge explicite.
+if [ -z "${EXPECTED_VERSION_CODE:-}" ]; then
+  EXPECTED_VERSION_CODE=$(node -p "require('./app.config.js').expo.android.versionCode" 2>/dev/null || true)
+fi
+[ -n "$EXPECTED_VERSION_CODE" ] || EXPECTED_VERSION_CODE=45003
 
 fail() {
   # Les commandes de workflow GitHub doivent tenir sur une ligne.

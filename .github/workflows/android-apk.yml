@@ -245,12 +245,17 @@ jobs:
 
       - name: Vérifier la configuration Android générée
         run: |
+          # Version attendue : source UNIQUE = app.config.js. Le prebuild doit
+          # copier EXACTEMENT la version déclarée — vérifié sans constante qui
+          # divergerait à chaque bump.
+          EXPECTED_VC=$(node -p "require('./app.config.js').expo.android.versionCode")
+          EXPECTED_VN=$(node -p "require('./app.config.js').expo.version")
           # APK universel : ne pas retirer x86/x86_64 sans connaître l'appareil
           # cible. Le gradle.properties Expo généré doit conserver les quatre ABI.
           grep -Fq "applicationId 'com.souxch06.melodix'" android/app/build.gradle
           grep -Fq "namespace 'com.souxch06.melodix'" android/app/build.gradle
-          grep -Fq 'versionCode 45003' android/app/build.gradle
-          grep -Fq 'versionName "4.5.0-test.3"' android/app/build.gradle
+          grep -Fq "versionCode $EXPECTED_VC" android/app/build.gradle
+          grep -Fq "versionName \"$EXPECTED_VN\"" android/app/build.gradle
           grep -Eq '^reactNativeArchitectures=armeabi-v7a,arm64-v8a,x86,x86_64$' android/gradle.properties
           grep -Fq 'android:scheme="melodix"' android/app/src/main/AndroidManifest.xml
           grep -Fq 'android:name="expo.modules.melodixmedia.MelodixMediaService"' android/app/src/main/AndroidManifest.xml
