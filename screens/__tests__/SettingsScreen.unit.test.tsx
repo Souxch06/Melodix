@@ -398,7 +398,7 @@ describe('Paramètres — données, langue, aide et version', () => {
     const texts = row
       .findAllByType('Text')
       .map((node: { props: { children?: unknown } }) => node.props.children);
-    expect(texts).toContain('4.5.0-test.5');
+    expect(texts).toContain('4.5.0-test.6');
   });
 
   it('audio : la cascade réelle des sources est affichée honnêtement', () => {

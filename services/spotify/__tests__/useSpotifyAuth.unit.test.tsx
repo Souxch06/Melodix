@@ -39,7 +39,6 @@ let mockRequest: ReturnType<typeof makeRequest> | null = makeRequest();
 jest.mock('expo-auth-session', () => ({
   ...jest.requireActual('expo-auth-session'),
   useAuthRequest: jest.fn(() => [mockRequest, null, mockPromptAsync]),
-  makeRedirectUri: () => 'melodix://callback',
 }));
 
 jest.mock('expo-linking', () => ({
@@ -974,6 +973,146 @@ describe('useSpotifyAuth — taxonomie du diagnostic OAuth', () => {
       ]);
       expect(result.current.state).toEqual({ status: 'idle' });
       logSpy.mockRestore();
+    });
+  });
+
+  /**
+   * BUILD DE TEST DÉTERMINISTE — redirect comspotifytestsdk://callback :
+   * Spotify exige la MÊME chaîne exacte à /authorize, dans le callback reçu,
+   * dans la transaction et dans le redirect_uri de /api/token. Les tests
+   * ci-dessous prouvent que la valeur de build (canal env inliné par Metro,
+   * source prioritaire) alimente TOUTES les étapes — et qu'une divergence
+   * de redirect (transaction rédigée sous un autre scheme) est rejetée.
+   */
+  describe('redirect de build comspotifytestsdk://callback (build de test)', () => {
+    const flushTestFlow = async () => {
+      await act(async () => {
+        for (let i = 0; i < 8; i += 1) {
+          // eslint-disable-next-line no-await-in-loop
+          await Promise.resolve();
+        }
+      });
+    };
+
+    afterEach(() => {
+      delete process.env.EXPO_PUBLIC_SPOTIFY_REDIRECT_URI;
+    });
+
+    it('warm : la valeur de build alimente useAuthRequest, l authorize, la transaction, le callback et /api/token', async () => {
+      // Canal inlinage Metro (source prioritaire du build de test).
+      process.env.EXPO_PUBLIC_SPOTIFY_REDIRECT_URI =
+        'comspotifytestsdk://callback';
+
+      const { result } = renderHook(() => useSpotifyAuth());
+
+      // 1. useAuthRequest reçoit EXACTEMENT le redirect du build.
+      const requestOptions = (AuthSession.useAuthRequest as jest.Mock).mock
+        .calls[0][0];
+      expect(requestOptions.redirectUri).toBe('comspotifytestsdk://callback');
+
+      // 2. Flux warm complet (promptAsync → code → échange → /me → idle).
+      await act(async () => {
+        await result.current.startLogin();
+      });
+
+      // 3. /api/token reçoit le MÊME redirect (invariant authorize==échange).
+      expect(redeemAuthorizationCode).toHaveBeenCalledWith(
+        expect.objectContaining({
+          code: 'auth-code',
+          codeVerifier: 'verifier-test',
+          redirectUri: 'comspotifytestsdk://callback',
+        })
+      );
+      expect(mockApplySpotifyUser).toHaveBeenCalledWith(
+        expect.objectContaining({ id: 'user-1' })
+      );
+      expect(result.current.state).toEqual({ status: 'idle' });
+    });
+
+    it('cold : transaction persistée (redirect du build) + requête neuve → verifier PERSISTÉ + échange avec le redirect du build', async () => {
+      process.env.EXPO_PUBLIC_SPOTIFY_REDIRECT_URI =
+        'comspotifytestsdk://callback';
+      initialUrlHolder.current =
+        'comspotifytestsdk://callback?code=REALISTIC_CODE&state=state-A';
+      await savePendingOAuthTransaction({
+        verifier: 'verifier-A',
+        state: 'state-A',
+        redirectUri: 'comspotifytestsdk://callback',
+        createdAtMs: Date.now(),
+      });
+      mockRequest = { codeVerifier: 'verifier-B-neuf', state: 'state-B-neuf' };
+      (AuthSession.useAuthRequest as jest.Mock).mockImplementation(() => [
+        mockRequest,
+        null,
+        mockPromptAsync,
+      ]);
+
+      const { result } = renderHook(() => useSpotifyAuth());
+      await flushTestFlow();
+
+      expect(redeemAuthorizationCode).toHaveBeenCalledTimes(1);
+      expect(redeemAuthorizationCode).toHaveBeenCalledWith(
+        expect.objectContaining({
+          code: 'REALISTIC_CODE',
+          codeVerifier: 'verifier-A',
+          redirectUri: 'comspotifytestsdk://callback',
+        })
+      );
+      expect(result.current.state).toEqual({ status: 'idle' });
+    });
+
+    it('divergence authorize/échange : transaction sous redirect mélodix alors que le build utilise le redirect de test → mismatch, AUCUN échange', async () => {
+      // Le redirect effectif du build est le redirect de test, mais la
+      // transaction persistée a été rédigée sous UN AUTRE redirect
+      // (melodix://callback) : authorize et /api/token divergeraient →
+      // Spotify refuserait (redirect_uri_mismatch). Rejeté SANS échange.
+      process.env.EXPO_PUBLIC_SPOTIFY_REDIRECT_URI =
+        'comspotifytestsdk://callback';
+      initialUrlHolder.current =
+        'comspotifytestsdk://callback?code=REALISTIC_CODE&state=state-A';
+      await savePendingOAuthTransaction({
+        verifier: 'verifier-A',
+        state: 'state-A',
+        redirectUri: 'melodix://callback',
+        createdAtMs: Date.now(),
+      });
+      mockRequest = { codeVerifier: 'verifier-B-neuf', state: 'state-B-neuf' };
+      (AuthSession.useAuthRequest as jest.Mock).mockImplementation(() => [
+        mockRequest,
+        null,
+        mockPromptAsync,
+      ]);
+
+      const { result } = renderHook(() => useSpotifyAuth());
+      await flushTestFlow();
+
+      expect(redeemAuthorizationCode).not.toHaveBeenCalled();
+      expect(result.current.state).toEqual({
+        status: 'error',
+        outcome: { kind: 'callback-failed', cause: 'cold-start-mismatch' },
+      });
+    });
+
+    it('callback sur le redirect mélodix ignoré par le hook lorsque le build utilise le redirect de test', async () => {
+      process.env.EXPO_PUBLIC_SPOTIFY_REDIRECT_URI =
+        'comspotifytestsdk://callback';
+      // Spotify ne renverrait JAMAIS mélodix://callback pour ce build ; si
+      // une URL de ce type arrivait quand même, elle n'est pas le callback
+      // de CE build : pas de traitement, pas d'échange, pas d'erreur de flux.
+      initialUrlHolder.current =
+        'melodix://callback?code=REALISTIC_CODE&state=state-A';
+      await savePendingOAuthTransaction({
+        verifier: 'verifier-A',
+        state: 'state-A',
+        redirectUri: 'melodix://callback',
+        createdAtMs: Date.now(),
+      });
+
+      const { result } = renderHook(() => useSpotifyAuth());
+      await flushTestFlow();
+
+      expect(redeemAuthorizationCode).not.toHaveBeenCalled();
+      expect(result.current.state).toEqual({ status: 'idle' });
     });
   });
 

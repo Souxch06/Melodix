@@ -94,6 +94,17 @@ describe('authConfig — Client ID configurable', () => {
       setExtra({ spotifyRedirectUri: '  melodix://callback  ' });
       expect(getSpotifyRedirectUri()).toBe('melodix://callback');
     });
+
+    it('build de test : l inlinage EXPO_PUBLIC_SPOTIFY_REDIRECT_URI= comspotifytestsdk://callback gagne sur l extra (c est la valeur exacte que Spotify doit voir)', () => {
+      setExtra({ spotifyRedirectUri: 'melodix://callback' });
+      process.env.EXPO_PUBLIC_SPOTIFY_REDIRECT_URI =
+        'comspotifytestsdk://callback';
+      expect(getSpotifyRedirectUri()).toBe('comspotifytestsdk://callback');
+      expect(getSpotifyRedirectUriSource()).toBe('expo-public-env');
+      // Le scheme natif melodix reste le DÉFAUT de production : il n'est
+      // jamais la valeur effective du build de test.
+      expect(getSpotifyRedirectUri()).not.toBe('melodix://callback');
+    });
   });
 });
 

@@ -28,8 +28,6 @@ import {
   isSpotifyLoginConfigured,
   isSpotifyOAuthSmoke,
   SPOTIFY_DISCOVERY,
-  SPOTIFY_REDIRECT_PATH,
-  SPOTIFY_REDIRECT_SCHEME,
   SPOTIFY_SCOPES,
 } from './authConfig';
 import { isOAuthSmokeSeedUrl } from '../../utils/common/isAuthCallbackUrl';
@@ -138,20 +136,14 @@ export const useSpotifyAuth = (): {
   const clientInfo = getClientIdInfo();
   const configured = isSpotifyLoginConfigured();
 
-  // Redirect URI : configurable (env/extra), sinon celle calculée par Expo à
-  // partir du scheme natif (melodix://callback en build, exp://… en Expo Go).
-  // LA MÊME VARIABLE sert à authorize ET à l'échange — invariant anti
-  // invalid_grant, garanti par construction.
-  const redirectUri = React.useMemo(() => {
-    const configuredUri = getSpotifyRedirectUri();
-    return (
-      configuredUri ||
-      AuthSession.makeRedirectUri({
-        scheme: SPOTIFY_REDIRECT_SCHEME,
-        path: SPOTIFY_REDIRECT_PATH,
-      })
-    );
-  }, []);
+  // Redirect URI — SOURCE UNIQUE : env inlinée au build (canal Metro,
+  // robuste en APK bare) → extra natif (app.config.js) → défaut natif
+  // (melodix://callback, production). Aucune autre source, aucun fallback
+  // par scheme : LA MÊME VALEUR sert à authorize ET à l'échange — invariant
+  // anti invalid_grant / redirect_uri_mismatch, garanti par construction.
+  // Spotify exige cette chaîne EXACTE dans le dashboard, sur /authorize,
+  // dans le callback reçu et dans le redirect_uri de /api/token.
+  const redirectUri = React.useMemo(() => getSpotifyRedirectUri(), []);
 
   // Anti-états-croisés : une seule source (canal auth-session OU garde-fou)
   // pilote le flux — un code OAuth se consomme une seule fois.
