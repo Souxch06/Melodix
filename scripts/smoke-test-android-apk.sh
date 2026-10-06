@@ -6,7 +6,7 @@ set -u
 
 APK=${1:-}
 PACKAGE=com.souxch06.melodix
-EXPECTED_VERSION_CODE=${EXPECTED_VERSION_CODE:-45001}
+EXPECTED_VERSION_CODE=${EXPECTED_VERSION_CODE:-45002}
 
 fail() {
   # Les commandes de workflow GitHub doivent tenir sur une ligne.

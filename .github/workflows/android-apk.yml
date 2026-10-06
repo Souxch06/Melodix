@@ -249,8 +249,8 @@ jobs:
           # cible. Le gradle.properties Expo généré doit conserver les quatre ABI.
           grep -Fq "applicationId 'com.souxch06.melodix'" android/app/build.gradle
           grep -Fq "namespace 'com.souxch06.melodix'" android/app/build.gradle
-          grep -Fq 'versionCode 45001' android/app/build.gradle
-          grep -Fq 'versionName "4.5.0-test.1"' android/app/build.gradle
+          grep -Fq 'versionCode 45002' android/app/build.gradle
+          grep -Fq 'versionName "4.5.0-test.2"' android/app/build.gradle
           grep -Eq '^reactNativeArchitectures=armeabi-v7a,arm64-v8a,x86,x86_64$' android/gradle.properties
           grep -Fq 'android:scheme="melodix"' android/app/src/main/AndroidManifest.xml
           grep -Fq 'android:name="expo.modules.melodixmedia.MelodixMediaService"' android/app/src/main/AndroidManifest.xml
@@ -398,8 +398,8 @@ jobs:
         env:
           APK: ${{ steps.apk.outputs.name }}
           EXPECTED_PACKAGE: com.souxch06.melodix
-          EXPECTED_VERSION_CODE: '45001'
-          EXPECTED_VERSION_NAME: 4.5.0-test.1
+          EXPECTED_VERSION_CODE: '45002'
+          EXPECTED_VERSION_NAME: 4.5.0-test.2
           EXPECTED_MIN_SDK: '23'
           EXPECTED_TARGET_SDK: '34'
           EXPECTED_SCHEME: melodix
