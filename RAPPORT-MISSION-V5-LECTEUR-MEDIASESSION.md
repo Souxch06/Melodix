@@ -112,14 +112,19 @@ le mock du runtime, jamais sur la résolution d'une promesse.
 ## 4. Git
 
 - **Branche** : `arena/fcdae8c6-melodix` (aucune autre branche touchée)
-- **Ancien HEAD** : `ab6fa3b` (docs v4) — **Nouveau HEAD** : ce commit de
-  rapport sur `de4b9f5` (code)
-- **Commits** : `de4b9f5` (code, 7 fichiers) + `docs: rapport final mission v5`
-  (ce fichier) — **aucun commit vide**
+- **Ancien HEAD** : `ab6fa3b` (docs v4) — **Nouveau HEAD** : le commit de
+  rapport final sur `de4b9f5` (code)
+- **Commits** :
+  1. `de4b9f5` — code : 5 nouveaux tests + bump 4.5.0-test.8 (7 fichiers)
+  2. `6efea53` — `docs: rapport final mission v5` (ce fichier)
+  3. `0dca655` — `chore: formatting prettier rapport mission v5`
+  4. `fix(ci)`: retry des installations dans le smoke (run 37532126463 a
+     échoué sur une mémoire transitoire du runner GitHub — voir §6) —
+     **aucun commit vide**
 - **Push** : `git push origin arena/fcdae8c6-melodix` réussi ; **PR #6**
   mise à jour
 - **HEAD final ≠ `ab6fa3b`** ✓ (du code a réellement été modifié : 5 nouveaux
-  tests + version)
+  tests + version + durcissement CI)
 
 ---
 
@@ -136,7 +141,9 @@ le mock du runtime, jamais sur la résolution d'une promesse.
 
 ---
 
-## 6. CI — `37529857217` : **SUCCESS (16 min 57)**
+## 6. CI
+
+### Run `37529857217` (code `de4b9f5`) : **SUCCESS (16 min 57)**
 
 - Job **« Construire l'APK »** : success
 - **Smoke sur émulateur Android 14 x86_64** : « installation + prototype
@@ -150,6 +157,20 @@ le mock du runtime, jamais sur la résolution d'une promesse.
     SecureStore, séquence ordonnée en logcat) — PAS un login Spotify réel
     (aucun compte utilisable dans GitHub Actions — déclaré tel quel dans la
     CI)
+
+### Run `37532126463` (docs `0dca655`) : \*\*failure — infrastructure, pas
+
+code\*\*
+
+- Le build APK a réussi ; l'échec est survenu au push d'installation sur
+  l'émulateur : `error: fork failed: Out of memory Performing Push Install`
+  — mémoire transitoire du runner GitHub Actions (le même code avait passé
+  intégralement la run précédente).
+- **Correctif** : retry (3 essais, 10 s d'écart) des deux `adb install` dans
+  `scripts/smoke-test-android-apk.sh` — aucune vérification modifiée : un
+  échec après 3 essais reste un échec de l'APK, pas du runner.
+- Run de validation du HEAD final : voir fin de section (complétée au
+  résultat).
 
 ---
 

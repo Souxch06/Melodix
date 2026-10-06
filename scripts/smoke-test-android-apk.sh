@@ -37,9 +37,37 @@ adb logcat -c || fail "impossible de vider logcat"
 
 # L'installation propre démontre l'installabilité. La réinstallation démontre
 # aussi que le certificat de signature reste cohérent pour une mise à jour.
-CLEAN=$(adb install --no-streaming "$APK" 2>&1) || fail "installation propre refusée : $CLEAN"
+#
+# Les runners GitHub Actions manquent transitoirement de mémoire pendant le
+# push/install (run 37532126463 : « fork failed: Out of memory Performing
+# Push Install » sur un APK déjà validé par la run précédente). On retente
+# donc les deux installations — SANS rien changer aux vérifications : un
+# échec après 3 essais reste un échec de l'APK, pas du runner.
+adb_install_retry() {
+  _label=$1
+  _flag=$2
+  _attempt=1
+  _out=""
+  while [ "$_attempt" -le 3 ]; do
+    _out=$(adb install --no-streaming $_flag "$APK" 2>&1) && {
+      printf '%s' "$_out"
+      return 0
+    }
+    if [ "$_attempt" -ge 3 ]; then
+      printf '%s' "$_out"
+      return 1
+    fi
+    echo "::warning title=Install Android::$_label — essai $_attempt échoué (mémoire transitoire de l'émulateur possible) : $(printf '%s' "$_out" | tr '\r\n' '  ' | sed 's/%/%25/g') — nouvel essai"
+    sleep 10
+    _attempt=$((_attempt + 1))
+  done
+}
+
+CLEAN=$(adb_install_retry "installation propre" "") || \
+  fail "installation propre refusée après 3 essais : $CLEAN"
 echo "$CLEAN"
-UPDATE=$(adb install --no-streaming -r "$APK" 2>&1) || fail "mise à jour refusée : $UPDATE"
+UPDATE=$(adb_install_retry "mise à jour" "-r") || \
+  fail "mise à jour refusée après 3 essais : $UPDATE"
 echo "$UPDATE"
 
 PACKAGE_INFO=$(adb shell dumpsys package "$PACKAGE" 2>&1) || fail "dumpsys package impossible : $PACKAGE_INFO"
