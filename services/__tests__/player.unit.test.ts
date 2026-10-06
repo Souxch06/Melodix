@@ -338,6 +338,83 @@ describe('melodixPlayer engine', () => {
     });
   });
 
+  it('échec de CHARGEMENT initial (statut d error pendant buffering) → avance propre, jamais de spinner éternel', async () => {
+    const { Audio: av } = jest.requireMock('expo-av') as {
+      Audio: { Sound: { createAsync: jest.Mock } };
+    };
+    av.Sound.createAsync.mockImplementationOnce(async () => {
+      const created = makeSound();
+      lastSound = created;
+      mockCreatedSounds.push(created);
+
+      return {
+        sound: created,
+        // Le chargement du flux a ÉCHOUÉ avant toute lecture : le statut
+        // initial est déjà une erreur (le passage par 'playing' n'a JAMAIS
+        // eu lieu).
+        status: {
+          isLoaded: false,
+          error: 'load failed',
+          isPlaying: false,
+          isBuffering: false,
+          positionMillis: 0,
+        },
+      };
+    });
+
+    await melodixPlayer.playQueue([track('dead'), track('ok')], 0);
+    await flush();
+    await flush();
+    await flush();
+
+    // La piste morte est marquée (échec sessionnel) et la suivante joue :
+    // aucune impasse sur le spinner.
+    expect(melodixPlayer.getState().current?.id).toBe('spotify:ok');
+    expect(melodixPlayer.getState().status).toBe('playing');
+  });
+
+  it('erreur de flux PENDANT buffering (après création du Sound) → avance propre', async () => {
+    // Création normale (buffering), puis rupture du chargement AVANT la
+    // première confirmation isPlaying=true.
+    const { Audio: av } = jest.requireMock('expo-av') as {
+      Audio: { Sound: { createAsync: jest.Mock } };
+    };
+    let bufferingCallback: ((s: Record<string, unknown>) => void) | null = null;
+    av.Sound.createAsync.mockImplementationOnce(async (_s, _i, onStatus) => {
+      bufferingCallback = onStatus ?? null;
+      const created = makeSound();
+      lastSound = created;
+      mockCreatedSounds.push(created);
+
+      return {
+        sound: created,
+        status: {
+          isLoaded: true,
+          isPlaying: false,
+          isBuffering: true,
+          positionMillis: 0,
+        },
+      };
+    });
+
+    await melodixPlayer.playQueue([track('dead'), track('ok')], 0);
+    expect(melodixPlayer.getState().status).toBe('buffering');
+
+    // Le buffer se rompt : erreur alors que le moteur n'a JAMAIS vu playing.
+    bufferingCallback?.({
+      isLoaded: false,
+      error: 'buffer interrupted',
+      isPlaying: false,
+      isBuffering: false,
+    });
+    await flush();
+    await flush();
+    await flush();
+
+    expect(melodixPlayer.getState().current?.id).toBe('spotify:ok');
+    expect(melodixPlayer.getState().status).toBe('playing');
+  });
+
   it('ne traite qu une fois une erreur de flux répétée pour le même Sound', async () => {
     await melodixPlayer.playQueue([track('one'), track('two')], 0);
     await flush();

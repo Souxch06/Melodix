@@ -483,9 +483,16 @@ class MelodixPlayer {
     status: AvPlaybackStatus
   ) => {
     if (status?.isLoaded === false) {
+      // L'erreur de flux peut arriver SANS QUE le passage par `playing` ait
+      // eu lieu (échec du chargement initial : createAsync rend un Sound dont
+      // le statut initial est déjà isLoaded=false + error, ou le buffer se
+      // rompt avant la première confirmation). Sans `buffering` dans le
+      // prédicat, le moteur restait bloqué sur le spinner, le son jamais
+      // déchargé, aucune avance — la piste suivante ne jouait jamais.
       if (
         status.error &&
-        this.state.status === 'playing' &&
+        (this.state.status === 'playing' ||
+          this.state.status === 'buffering') &&
         this.lastFailureHandledForToken !== token
       ) {
         this.lastFailureHandledForToken = token;
