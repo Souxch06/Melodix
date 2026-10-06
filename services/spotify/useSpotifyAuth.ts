@@ -34,16 +34,22 @@ import {
 import {
   logRedirectUri,
   sanitizeErrorDescription,
+  spotifyAuthTrace,
   spotifyConfigLine,
   spotifyDiag,
   spotifyLog,
 } from './devLog';
 import { SpotifyApiError } from './apiClient';
 import {
+  clearPendingOAuthTransaction,
+  isPendingTransactionFresh,
+  loadPendingOAuthTransaction,
   LoginErrorOutcome,
   LoginOutcome,
+  PendingOAuthTransaction,
   redeemAuthorizationCode,
   sanitizeOAuthErrorCode,
+  savePendingOAuthTransaction,
   SpotifySession,
 } from './session';
 
@@ -65,17 +71,28 @@ const safeCause = (text: string): string => {
   return cleaned.length > 90 ? `${cleaned.slice(0, 87)}…` : cleaned;
 };
 
-/** Parsing minimal d'une querystring (code, state, error — jamais logués). */
+/**
+ * Parsing minimal d'une querystring (code, state, error — jamais logués).
+ * Convention d'encodage de formulaire des navigateurs : un `+` littéral dans
+ * l'URL signifie un ESPACE (`decodeURIComponent` seul le laisserait tel quel) ;
+ * un vrai `+` de valeur est transmis par le navigateur sous forme `%2B`.
+ */
 const readQueryParams = (url: string): Record<string, string> => {
   const question = url.indexOf('?');
   if (question < 0) {
     return {};
   }
+  const decode = (value: string): string =>
+    decodeURIComponent(value.replace(/\+/g, '%20'));
   const out: Record<string, string> = {};
   for (const pair of url.slice(question + 1).split('&')) {
-    const [key, value = ''] = pair.split('=');
+    // Découpe au PREMIER '=' seulement : une valeur peut elle-même en
+    // contenir (padding base64) sans être tronquée.
+    const eq = pair.indexOf('=');
+    const key = eq < 0 ? pair : pair.slice(0, eq);
+    const value = eq < 0 ? '' : pair.slice(eq + 1);
     if (key) {
-      out[decodeURIComponent(key)] = decodeURIComponent(value);
+      out[decode(key)] = decode(value);
     }
   }
   return out;
@@ -209,13 +226,27 @@ export const useSpotifyAuth = (): {
     [transition]
   );
 
-  /** Échange PKCE + profil /me, classifié. Commun canal natif + garde-fou. */
+  /**
+   * Échange PKCE + profil /me, classifié. Commun canal natif, garde-fou et
+   * COLD START (transaction persistée). `tx` n'est fourni QUE sur le chemin
+   * froid : le verifier vient alors de SecureStore (processus tué pendant la
+   * custom tab) au lieu de la requête vivante.
+   */
   const completeLogin = React.useCallback(
-    async (code: string): Promise<void> => {
+    async (code: string, tx?: PendingOAuthTransaction): Promise<void> => {
       const activeRequest = requestRef.current;
-      if (!activeRequest?.codeVerifier) {
-        // PKCE invalide : aucun verifier en mémoire (processus régénéré).
+      const codeVerifier = tx?.verifier ?? activeRequest?.codeVerifier;
+      // LE redirect de l'échange est celui de la TRANSACTION d'autorisation :
+      // pour un flux chaud c'est `redirectUri` (identique par construction),
+      // pour un flux froid c'est `tx.redirectUri` (celui de l'autorisation
+      // morte) — l'invariant « authorize == exchange » est vérifié à la
+      // lecture de la transaction, jamais déduit ici.
+      const exchangeRedirectUri = tx?.redirectUri ?? redirectUri;
+      if (!codeVerifier) {
+        // PKCE invalide : aucun verifier en mémoire (processus régénéré) et
+        // aucune transaction persistée — échange impossible.
         spotifyLog('pkce.verifier-missing', { verifierPresent: false });
+        spotifyAuthTrace('callback:error', 'pkce-verifier-missing');
         fail({ kind: 'callback-failed', cause: 'pkce-verifier-missing' });
         return;
       }
@@ -234,15 +265,21 @@ export const useSpotifyAuth = (): {
       redeemGateRef.current[code] = { state: 'in-flight' };
 
       spotifyLog('auth.exchange.start', { status: 'in-flight' });
+      spotifyAuthTrace('token_exchange:start');
       // Lignes [SPOTIFY AUTH] « Token exchange … » émises dans session.ts
       // (là où vivent le corps de la requête et la réponse /api/token).
       transition({ status: 'exchanging' });
 
       const outcome = await redeemAuthorizationCode({
         code,
-        codeVerifier: activeRequest.codeVerifier,
-        redirectUri,
+        codeVerifier,
+        redirectUri: exchangeRedirectUri,
       });
+
+      // La transaction PKCE persistée est MONO-UTILISATION : elle est
+      // consommée dès qu'un échange a été tenté, quel que soit le résultat
+      // (un 2e passage du même code serait un invalid_grant certain).
+      void clearPendingOAuthTransaction();
 
       // Toute réponse de Spotify (succès OU refus) CONSUME le code : il ne
       // peut plus être rééchangé. Seul un échec réseau pur (la requête n'a
@@ -265,6 +302,10 @@ export const useSpotifyAuth = (): {
           const causeText = `${outcome.errorCode} · HTTP ${outcome.status}${
             outcome.description ? ` · ${outcome.description}` : ''
           }`;
+          spotifyAuthTrace(
+            'token_exchange:error',
+            `status=${outcome.status} error=${outcome.errorCode}`
+          );
           fail({
             kind: serverSide ? 'network' : 'oauth-refused',
             cause: safeCause(causeText),
@@ -272,27 +313,41 @@ export const useSpotifyAuth = (): {
           return;
         }
         case 'network':
+          spotifyAuthTrace('token_exchange:error', 'status=unreachable');
           fail({ kind: 'network', cause: 'exchange-unreachable' });
           return;
         case 'invalid-response':
+          spotifyAuthTrace('token_exchange:error', 'status=invalid-response');
           fail({ kind: 'unknown', cause: 'invalid-token-response' });
           return;
         case 'save-failed':
         default:
+          spotifyAuthTrace(
+            'token_exchange:error',
+            'status=session-save-failed'
+          );
           fail({ kind: 'unknown', cause: 'session-save-failed' });
           return;
       }
 
       // Token reçu : récupération du profil /me (classification propre).
+      spotifyAuthTrace('token_exchange:success');
       spotifyDiag('PROFILE', 'START');
       spotifyConfigLine('[SPOTIFY AUTH] /v1/me request started');
+      spotifyAuthTrace('me:request');
       try {
         const user = await getCurrentUser();
         applySpotifyUser(user);
         spotifyDiag('PROFILE', 'SUCCESS');
         spotifyConfigLine('[SPOTIFY AUTH] /v1/me HTTP status: 200');
         spotifyConfigLine('[SPOTIFY AUTH] /v1/me success/error: success');
-        spotifyLog('auth.success', { scopesCount: SPOTIFY_SCOPES.length });
+        spotifyLog('auth.success', {
+          scopesCount: SPOTIFY_SCOPES.length,
+          userId: user.id,
+        });
+        // Connexion VRAIMENT établie : code → tokens → /me → identité OK.
+        spotifyAuthTrace('me:success', `user=${user.id}`);
+        spotifyAuthTrace('session:authenticated');
         transition({ status: 'idle' });
       } catch (error) {
         const kind =
@@ -313,6 +368,10 @@ export const useSpotifyAuth = (): {
         );
         spotifyConfigLine(
           `[SPOTIFY AUTH] /v1/me success/error: error (${detail})`
+        );
+        spotifyAuthTrace(
+          'me:error',
+          `status=${httpStatus !== null ? httpStatus : kind}`
         );
         spotifyLog('me.failed', { cause: kind });
         // Cause UI : 'me:network' reste inchangé, http/unauthenticated s'enrichissent.
@@ -343,6 +402,7 @@ export const useSpotifyAuth = (): {
       if (!url || !url.startsWith(redirectUri)) {
         return false;
       }
+      spotifyAuthTrace('callback:received', 'warm');
       // STATUT EN DIRECT (pas la closure du dernier render) : si le flux n'a
       // plus de code à échanger — canal natif déjà passé à l'échange, flux
       // terminé (idle) ou en erreur — un événement Linking livré quelques
@@ -357,6 +417,7 @@ export const useSpotifyAuth = (): {
           cause: 'flow-not-open',
           status: statusRef.current,
         });
+        spotifyAuthTrace('callback:ignored', `status=${statusRef.current}`);
         return true;
       }
       const activeRequest = requestRef.current;
@@ -377,6 +438,7 @@ export const useSpotifyAuth = (): {
         spotifyConfigLine(
           `[SPOTIFY AUTH] Authorization code received: NO (error: ${code}${desc ? ` · ${desc}` : ''} · deep-link)`
         );
+        spotifyAuthTrace('callback:error', code);
         fallbackUsedRef.current = true;
         void WebBrowser.dismissBrowser();
         fail({
@@ -391,6 +453,7 @@ export const useSpotifyAuth = (): {
         spotifyConfigLine(
           '[SPOTIFY AUTH] Authorization code received: NO (code-absent · deep-link)'
         );
+        spotifyAuthTrace('callback:error', 'code-absent');
         fallbackUsedRef.current = true;
         fail({ kind: 'callback-failed', cause: 'code-absent' });
         return true;
@@ -404,6 +467,7 @@ export const useSpotifyAuth = (): {
         spotifyConfigLine(
           '[SPOTIFY AUTH] Authorization code received: NO (state-invalid · deep-link)'
         );
+        spotifyAuthTrace('callback:error', 'state-invalid');
         fallbackUsedRef.current = true;
         fail({ kind: 'callback-failed', cause: 'state-invalid' });
         return true;
@@ -415,41 +479,116 @@ export const useSpotifyAuth = (): {
       spotifyConfigLine(
         '[SPOTIFY AUTH] Authorization code received: YES (deep-link)'
       );
+      spotifyAuthTrace('code:received', 'warm');
       void completeLogin(params.code);
       return true;
     },
     [redirectUri, completeLogin, fail]
   );
 
-  // Détection froide : l'app a été relancée PAR le deep-link (processus tué
-  // pendant la custom tab) : signalée proprement au lieu de rester muette.
+  // COLD START — LE cas physique qui échouait systématiquement : Android tue
+  // le processus pendant la custom tab (mémoire basse, optimisation batterie,
+  // OEM), puis relance l'app PAR le deep-link
+  // `melodix://callback?code=…&state=…`. Le flux d'origine est mort : la
+  // requête vivante a un verifier/state neufs qui ne correspondent PAS au
+  // callback. Le SEUL verifier valide est celui persisté dans SecureStore au
+  // lancement du flux (mono-utilisation, lié au state, TTL 10 min, jamais
+  // logué). On l'échange — plus jamais d'échec garanti par construction.
   React.useEffect(() => {
     let mounted = true;
-    void Linking.getInitialURL().then((url) => {
+    void (async () => {
+      const url = await Linking.getInitialURL();
       if (!mounted || !url || !url.startsWith(redirectUri)) {
         return;
       }
       const params = readQueryParams(url);
-      spotifyLog('callback.unexpected', {
+      spotifyAuthTrace('callback:received', 'cold-start');
+      spotifyLog('callback.cold-start', {
         codePresent: typeof params.code === 'string' && params.code.length > 0,
         cause: 'cold-start',
       });
-      if (typeof params.code === 'string' && params.code.length > 0) {
+
+      // Spotify a REFUSÉ sur la page authorize pendant que l'app était tuée
+      // : pas de code, pas d'échange possible — écran d'erreur honnête.
+      if (typeof params.error === 'string' && params.error.length > 0) {
+        const code = sanitizeOAuthErrorCode(params.error);
+        const desc = sanitizeErrorDescription(params.error_description);
+        spotifyAuthTrace('callback:error', `cold-start ${code}`);
+        void clearPendingOAuthTransaction();
+        if (statusRef.current === 'idle') {
+          transition({
+            status: 'error',
+            outcome: {
+              kind: 'oauth-refused',
+              cause: safeCause(desc ? `${code} · ${desc}` : code),
+            },
+          });
+        }
+        return;
+      }
+
+      if (typeof params.code !== 'string' || params.code.length === 0) {
+        spotifyAuthTrace('callback:error', 'cold-start code-absent');
+        void clearPendingOAuthTransaction();
         if (statusRef.current === 'idle') {
           transition({
             status: 'error',
             outcome: {
               kind: 'callback-failed',
-              cause: 'cold-start-no-verifier',
+              cause: 'cold-start-code-absent',
             },
           });
         }
+        return;
       }
-    });
+
+      spotifyAuthTrace('code:received', 'cold-start');
+      // Garde : si un flux est déjà ouvert (quasi impossible au boot), le
+      // canal vivant pilote — on ne double JAMAIS un échange.
+      if (statusRef.current !== 'idle') {
+        return;
+      }
+
+      // Mono-utilisation : la transaction est consommée AVANT l'échange,
+      // quel que soit le résultat (un 2e usage serait un invalid_grant).
+      const tx = await loadPendingOAuthTransaction();
+      void clearPendingOAuthTransaction();
+      if (!mounted) {
+        return;
+      }
+      const usable =
+        tx !== null &&
+        isPendingTransactionFresh(tx) &&
+        tx.state === params.state &&
+        tx.redirectUri === redirectUri;
+      if (!usable) {
+        // Chaque condition ratée est loguée (booléens seulement) : en 10 s
+        // on sait si c'était absence, staleness, state croisé ou redirect.
+        spotifyLog('callback.cold-start-unredeemable', {
+          txPresent: tx !== null,
+          txFresh: tx ? isPendingTransactionFresh(tx) : false,
+          txStateMatch: tx ? tx.state === params.state : false,
+          txRedirectMatch: tx ? tx.redirectUri === redirectUri : false,
+        });
+        spotifyAuthTrace(
+          'callback:error',
+          tx ? 'cold-start-mismatch' : 'cold-start-no-verifier'
+        );
+        transition({
+          status: 'error',
+          outcome: {
+            kind: 'callback-failed',
+            cause: tx ? 'cold-start-mismatch' : 'cold-start-no-verifier',
+          },
+        });
+        return;
+      }
+      await completeLogin(params.code, tx);
+    })();
     return () => {
       mounted = false;
     };
-  }, [redirectUri, transition]);
+  }, [redirectUri, transition, completeLogin]);
 
   // Garde-fou warm : si le canal promptAsync perd le retour (rare Android),
   // le listener reprend la main avec vérification du state.
@@ -464,6 +603,19 @@ export const useSpotifyAuth = (): {
   }, [state.status, handleCallbackUrl]);
 
   const startLogin = React.useCallback(async () => {
+    // Anti double-flux : un login est déjà en cours (double appui, retentative,
+    // deux canaux) → le 2e est ignoré AVANT tout effet. Deux flux simultanés
+    // se détruiraient mutuellement (verifiers/states mélangés, codes brûlés).
+    // Le guard est SYNCHRONE : `transition` met à jour statusRef immédiatement,
+    // donc un 2e appel du même tick voit déjà 'requesting'.
+    if (
+      statusRef.current === 'requesting' ||
+      statusRef.current === 'exchanging'
+    ) {
+      spotifyLog('auth.prompt.ignored', { cause: 'already-in-flight' });
+      return;
+    }
+
     if (!configured) {
       spotifyLog('auth.not-configured');
       fail({ kind: 'not-configured', cause: 'client-id-missing-in-build' });
@@ -482,6 +634,31 @@ export const useSpotifyAuth = (): {
     // consommés et ne peuvent plus être revus (un nouveau flux = un nouveau
     // code).
     redeemGateRef.current = {};
+
+    // Transaction PKCE PERSISTÉE (SecureStore, chiffré) : si Android tue le
+    // processus pendant la custom tab, le callback froid trouvera ici le
+    // verifier/state/redirect de CE flux. Écrasement sans état : un nouveau
+    // flux remplace toujours l'ancien (la transaction morte n'a plus de code
+    // valide chez Spotify — son TTL et son state en garantissent l'écart).
+    if (request.codeVerifier) {
+      void savePendingOAuthTransaction({
+        verifier: request.codeVerifier,
+        state: request.state,
+        redirectUri,
+        createdAtMs: Date.now(),
+      }).catch(() => {
+        // SecureStore indisponible : le chemin chaud reste opérationnel,
+        // seul le cold start perd sa résilience — diagnosticé à l'usage.
+        spotifyLog('auth.tx.persist-failed');
+      });
+    } else {
+      // Pas de verifier à persister : le chemin promptAsync échouera plus
+      // bas avec la cause dédiée (pkce-verifier-missing).
+      spotifyLog('auth.tx.skip-no-verifier');
+    }
+
+    spotifyAuthTrace('authorize:start');
+    spotifyAuthTrace(`redirect_uri=${redirectUri}`);
     spotifyDiag('PROMPT', 'OPENED');
     spotifyConfigLine('[SPOTIFY AUTH] Starting authorization (OAuth + PKCE)');
     spotifyConfigLine(`[SPOTIFY AUTH] Redirect URI: ${redirectUri}`);
@@ -492,6 +669,7 @@ export const useSpotifyAuth = (): {
     try {
       const result = await promptAsync();
 
+      spotifyAuthTrace('authorize:returned');
       spotifyDiag('RESPONSE_TYPE', result.type);
       spotifyConfigLine(
         `[SPOTIFY AUTH] Authorization response received (type: ${result.type})`
@@ -508,6 +686,9 @@ export const useSpotifyAuth = (): {
         spotifyConfigLine(
           `[SPOTIFY AUTH] Authorization code received: NO (user-${result.type})`
         );
+        // L'utilisateur n'autorise rien : aucun code ne sera émis — la
+        // transaction persistée devient inutile (hygiène : on la retire).
+        void clearPendingOAuthTransaction();
         fail({ kind: 'cancelled', cause: result.type });
         return;
       }
@@ -543,10 +724,12 @@ export const useSpotifyAuth = (): {
 
       if (!request.codeVerifier) {
         spotifyLog('pkce.verifier-missing', { verifierPresent: false });
+        spotifyAuthTrace('callback:error', 'pkce-verifier-missing');
         fail({ kind: 'callback-failed', cause: 'pkce-verifier-missing' });
         return;
       }
 
+      spotifyAuthTrace('code:received', 'native');
       await completeLogin(result.params.code);
     } catch (error) {
       // REJET INATTENDU (navigateur, module natif, JS) : nom d'erreur capturé

@@ -143,12 +143,17 @@ export {
   describeSession,
   redeemAuthorizationCode,
   resolveStartupSession,
+  savePendingOAuthTransaction,
+  loadPendingOAuthTransaction,
+  clearPendingOAuthTransaction,
+  isPendingTransactionFresh,
 } from './spotify/session';
 export type {
   LoginOutcome,
   SpotifySession,
   StartupSessionResolution,
   RefreshResult,
+  PendingOAuthTransaction,
 } from './spotify/session';
 
 // PlaybackBackend prototype boundary. PlayerContext still uses melodixPlayer

@@ -30,6 +30,11 @@ const ALLOWED_DETAIL_KEYS = new Set([
   'codePresent', // booléen — JAMAIS la valeur du code
   'statePresent', // booléen — JAMAIS la valeur du state complet
   'verifierPresent', // booléen — JAMAIS le code_verifier
+  'txPresent', // booléen — transaction PKCE persistée présente (cold start)
+  'txFresh', // booléen — transaction persistée encore dans son TTL
+  'txStateMatch', // booléen — state du callback = state de la transaction
+  'txRedirectMatch', // booléen — redirect de la transaction = redirect du build
+  'userId', // Spotify user ID APRES /me (diagnostic autorisé, jamais avant)
   'page',
   'songCount',
   'cachedSeconds',
@@ -81,6 +86,37 @@ export const spotifyDiag = (stage: string, value?: string): void => {
       : raw;
   // eslint-disable-next-line no-console
   console.log(`[Spotify OAuth] ${stage}${safe}`);
+};
+
+/**
+ * TRACE DU FLUX AU FORMAT EXACT exigé pour le diagnostic terrain :
+ *   [SpotifyAuth] <step>[: <detail non sensible>]
+ * Séquence nominale (lisible en logcat, à chaîner) :
+ *   authorize:start → redirect_uri=… → authorize:returned →
+ *   callback:received → code:received → token_exchange:start →
+ *   token_exchange:success → me:request → me:success → session:authenticated
+ * Séquences d'échec :
+ *   callback:error <cause> / token_exchange:error status=… / me:error status=…
+ * Le detail ne contient que : étapes, statuts HTTP, codes OAuth whitelistés,
+ * redirect URI (publique), Spotify user ID après /me. JAMAIS : token,
+ * refresh token, code d'autorisation, code_verifier, state, secret.
+ */
+export const spotifyAuthTrace = (step: string, detail?: string): void => {
+  // Format EXACT de la mission : `[SpotifyAuth] <step>` puis un détail
+  // éventuel séparé par une ESPECE — ex. `token_exchange:error status=400
+  // error=invalid_grant`, `me:error status=401`, `redirect_uri=…`.
+  const safeDetail =
+    detail === undefined
+      ? ''
+      : ` ${
+          sensitivePattern.test(detail)
+            ? '<redacted>'
+            : detail.length > 100
+              ? `${detail.slice(0, 97)}…`
+              : detail
+        }`;
+  // eslint-disable-next-line no-console
+  console.log(`[SpotifyAuth] ${step}${safeDetail}`);
 };
 
 /** Ligne verbatim de mise en config (ex. « Spotify Redirect URI: … »). */

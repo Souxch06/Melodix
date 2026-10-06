@@ -2,14 +2,21 @@ import Constants from 'expo-constants';
 import * as SecureStore from 'expo-secure-store';
 
 import {
+  clearPendingOAuthTransaction,
   clearSession,
   describeSession,
   getValidAccessToken,
+  isPendingTransactionFresh,
+  loadPendingOAuthTransaction,
   loadSession,
+  PENDING_TX_MAX_AGE_MS,
   redeemAuthorizationCode,
   resolveStartupSession,
+  savePendingOAuthTransaction,
   saveSession,
 } from '../session';
+
+const PENDING_TX_KEY = 'melodix.spotify.oauth-pending.v1';
 
 // Client ID factice via la configuration d'app (jamais saisi par l'utilisateur).
 beforeAll(() => {
@@ -503,6 +510,104 @@ describe('services/spotify/session (SecureStore)', () => {
         kind: 'session-kept-unverified',
       });
       expect(await loadSession()).not.toBeNull();
+    });
+  });
+
+  describe('transaction PKCE persistée (survie au cold start)', () => {
+    const tx = (
+      patch: Partial<Parameters<typeof savePendingOAuthTransaction>[0]> = {}
+    ) => ({
+      verifier: 'verifier-persisted',
+      state: 'STATE-1',
+      redirectUri: 'melodix://callback',
+      createdAtMs: Date.now(),
+      ...patch,
+    });
+
+    it('save → load round-trip : verifier/state/redirect/createdAtMs intacts', async () => {
+      await savePendingOAuthTransaction(tx());
+      expect(await loadPendingOAuthTransaction()).toEqual(
+        expect.objectContaining({
+          verifier: 'verifier-persisted',
+          state: 'STATE-1',
+          redirectUri: 'melodix://callback',
+        })
+      );
+    });
+
+    it('aucune transaction → null ; clear idempotent sans exception', async () => {
+      expect(await loadPendingOAuthTransaction()).toBeNull();
+      await clearPendingOAuthTransaction();
+      expect(await loadPendingOAuthTransaction()).toBeNull();
+    });
+
+    it('corps corrompu (JSON invalide) → null, JAMAIS d exception', async () => {
+      await SecureStore.setItemAsync(PENDING_TX_KEY, '{corrompu-pas-json');
+      expect(await loadPendingOAuthTransaction()).toBeNull();
+    });
+
+    it('champs manquants ou vides → null (jamais de transaction utilisable)', async () => {
+      const bad = tx({ verifier: '' });
+      await SecureStore.setItemAsync(PENDING_TX_KEY, JSON.stringify(bad));
+      expect(await loadPendingOAuthTransaction()).toBeNull();
+
+      await SecureStore.setItemAsync(
+        PENDING_TX_KEY,
+        JSON.stringify({
+          verifier: 'v',
+          state: '',
+          redirectUri: 'r',
+          createdAtMs: 1,
+        })
+      );
+      expect(await loadPendingOAuthTransaction()).toBeNull();
+
+      await SecureStore.setItemAsync(
+        PENDING_TX_KEY,
+        JSON.stringify({ verifier: 'v', state: 's', redirectUri: 'r' })
+      );
+      expect(await loadPendingOAuthTransaction()).toBeNull();
+    });
+
+    it('fresh : à l intérieur du TTL → true ; au-delà de PENDING_TX_MAX_AGE_MS → false', async () => {
+      const now = Date.now();
+      expect(
+        isPendingTransactionFresh(
+          tx({ createdAtMs: now - PENDING_TX_MAX_AGE_MS + 1000 }),
+          now
+        )
+      ).toBe(true);
+      expect(
+        isPendingTransactionFresh(
+          tx({ createdAtMs: now - PENDING_TX_MAX_AGE_MS - 1000 }),
+          now
+        )
+      ).toBe(false);
+      // Frontière exacte : égal au TTL = plus frais (refus d échanger à coup sûr).
+      expect(
+        isPendingTransactionFresh(
+          tx({ createdAtMs: now - PENDING_TX_MAX_AGE_MS }),
+          now
+        )
+      ).toBe(false);
+    });
+
+    it('clear retire la transaction ; load post-clear → null', async () => {
+      await savePendingOAuthTransaction(tx());
+      expect(await loadPendingOAuthTransaction()).not.toBeNull();
+      await clearPendingOAuthTransaction();
+      expect(await loadPendingOAuthTransaction()).toBeNull();
+    });
+
+    it('les logs N EXPOSENT JAMAIS le code_verifier persisté', async () => {
+      const logSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
+      await savePendingOAuthTransaction(tx());
+      await loadPendingOAuthTransaction();
+      await clearPendingOAuthTransaction();
+      for (const call of logSpy.mock.calls) {
+        expect(String(call[0])).not.toContain('verifier-persisted');
+      }
+      logSpy.mockRestore();
     });
   });
 });

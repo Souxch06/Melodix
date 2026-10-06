@@ -33,6 +33,7 @@ import {
 } from './devLog';
 
 const SESSION_KEY = 'melodix.spotify.session.v1';
+const PENDING_TX_KEY = 'melodix.spotify.oauth-pending.v1';
 
 /** Marge de sécurité avant expiration réelle du token d'accès. */
 const REFRESH_MARGIN_MS = 60_000;
@@ -573,3 +574,94 @@ export const redeemAuthorizationCode = async ({
   });
   return { kind: 'ok', session };
 };
+
+/**
+ * TRANSACTION PKCE EN ATTENTE — survie à la mort du processus Android.
+ *
+ * SUR LE TERRAIN : le callback OAuth arrive parfois quand le processus a été
+ * tué PAR ANDROID pendant la custom tab (mémoire basse, optimisation
+ * batterie, OEM agressifs). L'app repart à froid via
+ * `melodix://callback?code=…&state=…` mais le `code_verifier` PKCE vivait
+ * dans le tas JS : perdu. Sans lui, l'échange est impossible (invalid_grant
+ * garanti si on tente un verifier neuf) — c'est le « login qui ne fonctionne
+ * que sur émulateur » classique.
+ *
+ * Solution standard mobile : persister la TRANSACTION (verifier + state +
+ * redirect + horodatage) dans SecureStore (chiffré, Android Keystore) au
+ * lancement du flux, la consommer au premier échange, toujours.
+ *
+ * GARDE-FOUS :
+ * - le verifier est MONO-UTILISATION (consommé AVANT l'échange) ;
+ * - la transaction est liée au `state` du callback (CSRF : un autre flux a
+ *   son propre state, jamais de mélange) ;
+ * - `redirectUri` enregistré = celle de l'autorisation (invariant anti
+ *   invalid_grant, vérifié à la lecture) ;
+ * - TTL court : un code Spotify vit ~1 min, au-delà c'est Spotify qui
+ *   refuse (invalid_grant) — le TTL ne fait que refuser d'essayer à coup
+ *   sûr. Jamais plus long que nécessaire.
+ *
+ * AUCUN secret : le verifier n'est jamais logué (booléen de présence
+ * uniquement) ; il n'est que la pièce manquante d'une transaction déjà
+ * engagée (code + state requis ensemble pour la compléter).
+ */
+export type PendingOAuthTransaction = {
+  /** code_verifier PKCE de la transaction (jamais logué). */
+  verifier: string;
+  /** state OAuth de la transaction (lien CSRF avec le callback). */
+  state: string;
+  /** redirect URI utilisée à l'autorisation (doit être identique à l'échange). */
+  redirectUri: string;
+  createdAtMs: number;
+};
+
+/** Validité de la transaction : 10 min (le code Spotify expire bien avant). */
+export const PENDING_TX_MAX_AGE_MS = 10 * 60_000;
+
+export const savePendingOAuthTransaction = async (
+  tx: PendingOAuthTransaction
+): Promise<void> => {
+  await SecureStore.setItemAsync(PENDING_TX_KEY, JSON.stringify(tx));
+};
+
+export const loadPendingOAuthTransaction =
+  async (): Promise<PendingOAuthTransaction | null> => {
+    try {
+      const raw = await SecureStore.getItemAsync(PENDING_TX_KEY);
+      if (!raw) {
+        return null;
+      }
+      const parsed = JSON.parse(raw) as Partial<PendingOAuthTransaction>;
+      if (
+        typeof parsed.verifier !== 'string' ||
+        parsed.verifier.length === 0 ||
+        typeof parsed.state !== 'string' ||
+        parsed.state.length === 0 ||
+        typeof parsed.redirectUri !== 'string' ||
+        parsed.redirectUri.length === 0 ||
+        typeof parsed.createdAtMs !== 'number'
+      ) {
+        return null;
+      }
+      return {
+        verifier: parsed.verifier,
+        state: parsed.state,
+        redirectUri: parsed.redirectUri,
+        createdAtMs: parsed.createdAtMs,
+      };
+    } catch {
+      return null;
+    }
+  };
+
+export const clearPendingOAuthTransaction = async (): Promise<void> => {
+  try {
+    await SecureStore.deleteItemAsync(PENDING_TX_KEY);
+  } catch {
+    // Rien à signaler : l'absence de transaction est gérée au chargement.
+  }
+};
+
+export const isPendingTransactionFresh = (
+  tx: PendingOAuthTransaction,
+  nowMs: number = Date.now()
+): boolean => nowMs - tx.createdAtMs < PENDING_TX_MAX_AGE_MS;

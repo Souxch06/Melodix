@@ -17,9 +17,14 @@
 import { renderHook, act } from '@testing-library/react-native';
 import Constants from 'expo-constants';
 import * as AuthSession from 'expo-auth-session';
+import * as SecureStore from 'expo-secure-store';
 
 import { useSpotifyAuth } from '../useSpotifyAuth';
-import { redeemAuthorizationCode } from '../session';
+import {
+  loadPendingOAuthTransaction,
+  redeemAuthorizationCode,
+  savePendingOAuthTransaction,
+} from '../session';
 import { SpotifyApiError } from '../apiClient';
 import { getCurrentUser } from '@api';
 
@@ -84,6 +89,12 @@ let promptPromise: Promise<unknown> = Promise.resolve({
 describe('useSpotifyAuth — taxonomie du diagnostic OAuth', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    // Le coffre simulé est un module : une transaction PKCE d'un test
+    // précédent (flux démarré) ne doit JAMAIS survivre au suivant — sinon
+    // un callback froid verrait une transaction « d'un autre processus ».
+    (
+      SecureStore as unknown as { __clearSecureStoreMock: () => void }
+    ).__clearSecureStoreMock();
     linkListeners.length = 0;
     initialUrlHolder.current = null;
     mockRequest = makeRequest();
@@ -603,6 +614,396 @@ describe('useSpotifyAuth — taxonomie du diagnostic OAuth', () => {
       expect(mockApplySpotifyUser).toHaveBeenCalledWith(
         expect.objectContaining({ id: 'user-1' })
       );
+    });
+  });
+
+  /**
+   * COLD START — LE cas physique qui échouait systématiquement : Android tue
+   * le processus pendant la custom tab, puis relance l'app PAR le deep-link.
+   * Le verifier de la requête vivante (neuf) ne correspond PAS au callback ;
+   * seul le verifier PERSISTÉ (SecureStore) valide l'échange. Règles exigées :
+   *   - transaction cohérente (state + redirect + TTL) → échange ;
+   *   - transaction absente/croisée/expirée → JAMAIS d échange, cause classée ;
+   *   - mono-utilisation : consommée avant/après toute issue ;
+   *   - nouveau flux → écrasement propre (jamais de mélange de verifiers).
+   */
+  describe('cold start (processus tué pendant la custom tab)', () => {
+    /** Décharge complète des microtâches du flux froid, dans act. */
+    const flushColdFlow = async () => {
+      await act(async () => {
+        for (let i = 0; i < 8; i += 1) {
+          // eslint-disable-next-line no-await-in-loop
+          await Promise.resolve();
+        }
+      });
+    };
+
+    const seedTransaction = (
+      patch: Partial<{
+        verifier: string;
+        state: string;
+        redirectUri: string;
+        createdAtMs: number;
+      }> = {}
+    ) =>
+      savePendingOAuthTransaction({
+        verifier: 'verifier-persisted',
+        state: 'STATE-1',
+        redirectUri: 'melodix://callback',
+        createdAtMs: Date.now(),
+        ...patch,
+      });
+
+    it('callback froid + transaction cohérente → échange avec le verifier PERSISTÉ (jamais le verifier neuf)', async () => {
+      initialUrlHolder.current =
+        'melodix://callback?code=froid-code&state=STATE-1';
+      await seedTransaction();
+
+      const { result } = renderHook(() => useSpotifyAuth());
+      await flushColdFlow();
+
+      expect(redeemAuthorizationCode).toHaveBeenCalledWith(
+        expect.objectContaining({
+          code: 'froid-code',
+          codeVerifier: 'verifier-persisted',
+          // Redirect de l'échange = celui de l'autorisation (persisté).
+          redirectUri: 'melodix://callback',
+        })
+      );
+      expect(mockApplySpotifyUser).toHaveBeenCalledWith(
+        expect.objectContaining({ id: 'user-1' })
+      );
+      expect(result.current.state).toEqual({ status: 'idle' });
+    });
+
+    it('transaction mono-utilisation : NEANTISÉE après un callback froid réussi', async () => {
+      initialUrlHolder.current =
+        'melodix://callback?code=froid-code&state=STATE-1';
+      await seedTransaction();
+
+      const { result } = renderHook(() => useSpotifyAuth());
+      await flushColdFlow();
+
+      expect(result.current.state.status).toBe('idle');
+      expect(await loadPendingOAuthTransaction()).toBeNull();
+    });
+
+    it('callback froid + transaction au STATE DIFFÉRENT → mismatch, JAMAIS d échange (anti CSRF)', async () => {
+      initialUrlHolder.current =
+        'melodix://callback?code=froid-code&state=AUTRE-FLUX';
+      await seedTransaction({ state: 'STATE-1' });
+
+      const { result } = renderHook(() => useSpotifyAuth());
+      await flushColdFlow();
+
+      expect(redeemAuthorizationCode).not.toHaveBeenCalled();
+      expect(result.current.state).toEqual({
+        status: 'error',
+        outcome: { kind: 'callback-failed', cause: 'cold-start-mismatch' },
+      });
+      // Même en échec : la transaction ne survit pas (mono-utilisation).
+      expect(await loadPendingOAuthTransaction()).toBeNull();
+    });
+
+    it('callback froid + transaction EXPIRÉE (hors TTL 10 min) → mismatch, JAMAIS d échange', async () => {
+      initialUrlHolder.current =
+        'melodix://callback?code=froid-code&state=STATE-1';
+      await seedTransaction({ createdAtMs: Date.now() - 11 * 60_000 });
+
+      const { result } = renderHook(() => useSpotifyAuth());
+      await flushColdFlow();
+
+      expect(redeemAuthorizationCode).not.toHaveBeenCalled();
+      expect(result.current.state).toEqual({
+        status: 'error',
+        outcome: { kind: 'callback-failed', cause: 'cold-start-mismatch' },
+      });
+    });
+
+    it('callback froid + redirect de la transaction DIFFÉRENT du build → mismatch (invariant authorize == exchange)', async () => {
+      initialUrlHolder.current =
+        'melodix://callback?code=froid-code&state=STATE-1';
+      await seedTransaction({ redirectUri: 'autre://callback' });
+
+      const { result } = renderHook(() => useSpotifyAuth());
+      await flushColdFlow();
+
+      expect(redeemAuthorizationCode).not.toHaveBeenCalled();
+      expect(result.current.state).toEqual({
+        status: 'error',
+        outcome: { kind: 'callback-failed', cause: 'cold-start-mismatch' },
+      });
+    });
+
+    it('callback froid SANS transaction → cold-start-no-verifier, JAMAIS d échange avec un verifier neuf', async () => {
+      initialUrlHolder.current =
+        'melodix://callback?code=froid-code&state=STATE-1';
+
+      const { result } = renderHook(() => useSpotifyAuth());
+      await flushColdFlow();
+
+      expect(redeemAuthorizationCode).not.toHaveBeenCalled();
+      expect(result.current.state).toEqual({
+        status: 'error',
+        outcome: { kind: 'callback-failed', cause: 'cold-start-no-verifier' },
+      });
+    });
+
+    it('callback froid avec ERREUR Spotify (refus pendant que l app était tuée) → oauth-refused classé + transaction retirée', async () => {
+      initialUrlHolder.current =
+        'melodix://callback?error=access_denied&error_description=User+denied';
+      await seedTransaction();
+
+      const { result } = renderHook(() => useSpotifyAuth());
+      await flushColdFlow();
+
+      expect(redeemAuthorizationCode).not.toHaveBeenCalled();
+      expect(result.current.state).toEqual({
+        status: 'error',
+        outcome: {
+          kind: 'oauth-refused',
+          cause: 'access_denied · User denied',
+        },
+      });
+      expect(await loadPendingOAuthTransaction()).toBeNull();
+    });
+
+    it('callback froid SANS code ni erreur → cold-start-code-absent', async () => {
+      initialUrlHolder.current = 'melodix://callback?state=STATE-1';
+
+      const { result } = renderHook(() => useSpotifyAuth());
+      await flushColdFlow();
+
+      expect(redeemAuthorizationCode).not.toHaveBeenCalled();
+      expect(result.current.state).toEqual({
+        status: 'error',
+        outcome: { kind: 'callback-failed', cause: 'cold-start-code-absent' },
+      });
+    });
+
+    it('un nouveau flux ÉCRASE la transaction précédente (jamais de mélange de verifiers entre deux tentatives)', async () => {
+      promptPromise = new Promise<never>(() => {});
+
+      const first = renderHook(() => useSpotifyAuth());
+      await act(async () => {
+        void first.result.current.startLogin();
+      });
+      expect((await loadPendingOAuthTransaction())?.state).toBe('STATE-1');
+      first.unmount();
+
+      // « Processus tué » : nouveau rendu avec une NOUVELLE requête OAuth.
+      mockRequest = { codeVerifier: 'verifier-2', state: 'STATE-2' };
+      (AuthSession.useAuthRequest as jest.Mock).mockImplementation(() => [
+        mockRequest,
+        null,
+        mockPromptAsync,
+      ]);
+
+      const second = renderHook(() => useSpotifyAuth());
+      await act(async () => {
+        void second.result.current.startLogin();
+      });
+      const tx = await loadPendingOAuthTransaction();
+      expect(tx?.state).toBe('STATE-2');
+      expect(tx?.verifier).toBe('verifier-2');
+      second.unmount();
+    });
+
+    it('annulation utilisateur → transaction persistée retirée (hygiène)', async () => {
+      promptPromise = Promise.resolve({ type: 'cancel' });
+
+      const { result } = renderHook(() => useSpotifyAuth());
+      await act(async () => {
+        await result.current.startLogin();
+      });
+
+      expect(result.current.state).toEqual({
+        status: 'error',
+        outcome: { kind: 'cancelled', cause: 'cancel' },
+      });
+      expect(await loadPendingOAuthTransaction()).toBeNull();
+    });
+  });
+
+  describe('idempotence des tentatives de login', () => {
+    it('un 2e startLogin pendant un flux en cours est ignoré (1 seul prompt, 1 seul code, 1 seul verifier)', async () => {
+      promptPromise = new Promise<never>(() => {});
+
+      const { result } = renderHook(() => useSpotifyAuth());
+      await act(async () => {
+        void result.current.startLogin();
+      });
+      expect(result.current.state.status).toBe('requesting');
+
+      await act(async () => {
+        void result.current.startLogin();
+        await Promise.resolve();
+      });
+
+      expect(mockPromptAsync).toHaveBeenCalledTimes(1);
+      expect(result.current.state.status).toBe('requesting');
+    });
+  });
+
+  describe('cas d échecs complémentaires (mission OAuth)', () => {
+    it('callback WARM avec erreur Spotify (error=access_denied) → oauth-refused, JAMAIS d échange', async () => {
+      promptPromise = new Promise<never>(() => {});
+
+      const { result } = renderHook(() => useSpotifyAuth());
+      await act(async () => {
+        void result.current.startLogin();
+      });
+
+      await act(async () => {
+        linkListeners[0]({
+          url: 'melodix://callback?error=access_denied&error_description=User+denied',
+        });
+      });
+
+      expect(redeemAuthorizationCode).not.toHaveBeenCalled();
+      expect(result.current.state).toEqual({
+        status: 'error',
+        outcome: {
+          kind: 'oauth-refused',
+          cause: 'access_denied · User denied',
+        },
+      });
+    });
+
+    it('token exchange 401 → oauth-refused (statut + code dans la cause)', async () => {
+      (redeemAuthorizationCode as jest.Mock).mockResolvedValueOnce({
+        kind: 'refused',
+        status: 401,
+        errorCode: 'invalid_client',
+        description: '',
+      });
+
+      const { result } = renderHook(() => useSpotifyAuth());
+      await act(async () => {
+        await result.current.startLogin();
+      });
+
+      expect(result.current.state).toEqual({
+        status: 'error',
+        outcome: { kind: 'oauth-refused', cause: 'invalid_client · HTTP 401' },
+      });
+    });
+
+    it('/me 401 (unauthenticated) → oauth-refused : la connexion n est JAMAIS marquée établie', async () => {
+      (getCurrentUser as jest.Mock).mockRejectedValueOnce(
+        new SpotifyApiError(
+          'unauthenticated',
+          'Session Spotify absente.',
+          401,
+          'Invalid token'
+        )
+      );
+
+      const { result } = renderHook(() => useSpotifyAuth());
+      await act(async () => {
+        await result.current.startLogin();
+      });
+
+      expect(mockApplySpotifyUser).not.toHaveBeenCalled();
+      expect(result.current.state.status).toBe('error');
+      if (result.current.state.status === 'error') {
+        expect(result.current.state.outcome.kind).toBe('oauth-refused');
+        expect(result.current.state.outcome.cause).toContain(
+          'me:unauthenticated'
+        );
+        expect(result.current.state.outcome.cause).toContain('401');
+      }
+    });
+  });
+
+  describe('séquence de trace [SpotifyAuth] (diagnostic terrain)', () => {
+    it('succès NATIF : la séquence exacte de la mission est émise, dans l ordre, sans secret', async () => {
+      const logSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
+
+      const { result } = renderHook(() => useSpotifyAuth());
+      await act(async () => {
+        await result.current.startLogin();
+      });
+
+      const trace = logSpy.mock.calls
+        .map((call) => String(call[0]))
+        .filter((text) => text.startsWith('[SpotifyAuth]'));
+      expect(trace).toEqual([
+        '[SpotifyAuth] authorize:start',
+        '[SpotifyAuth] redirect_uri=melodix://callback',
+        '[SpotifyAuth] authorize:returned',
+        '[SpotifyAuth] code:received native',
+        '[SpotifyAuth] token_exchange:start',
+        '[SpotifyAuth] token_exchange:success',
+        '[SpotifyAuth] me:request',
+        '[SpotifyAuth] me:success user=user-1',
+        '[SpotifyAuth] session:authenticated',
+      ]);
+      expect(result.current.state).toEqual({ status: 'idle' });
+      logSpy.mockRestore();
+    });
+
+    it('succès COLD START : la séquence porte la provenance cold-start', async () => {
+      const logSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
+      initialUrlHolder.current =
+        'melodix://callback?code=froid-code&state=STATE-1';
+      await savePendingOAuthTransaction({
+        verifier: 'verifier-persisted',
+        state: 'STATE-1',
+        redirectUri: 'melodix://callback',
+        createdAtMs: Date.now(),
+      });
+
+      const { result } = renderHook(() => useSpotifyAuth());
+      await act(async () => {
+        for (let i = 0; i < 8; i += 1) {
+          // eslint-disable-next-line no-await-in-loop
+          await Promise.resolve();
+        }
+      });
+
+      const trace = logSpy.mock.calls
+        .map((call) => String(call[0]))
+        .filter((text) => text.startsWith('[SpotifyAuth]'));
+      expect(trace).toEqual([
+        '[SpotifyAuth] callback:received cold-start',
+        '[SpotifyAuth] code:received cold-start',
+        '[SpotifyAuth] token_exchange:start',
+        '[SpotifyAuth] token_exchange:success',
+        '[SpotifyAuth] me:request',
+        '[SpotifyAuth] me:success user=user-1',
+        '[SpotifyAuth] session:authenticated',
+      ]);
+      expect(result.current.state).toEqual({ status: 'idle' });
+      logSpy.mockRestore();
+    });
+
+    it('échange refusé : token_exchange:error porte le statut HTTP et le code OAuth', async () => {
+      const logSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
+      (redeemAuthorizationCode as jest.Mock).mockResolvedValueOnce({
+        kind: 'refused',
+        status: 400,
+        errorCode: 'invalid_grant',
+        description: 'redirect_uri mismatch',
+      });
+
+      const { result } = renderHook(() => useSpotifyAuth());
+      await act(async () => {
+        await result.current.startLogin();
+      });
+
+      const trace = logSpy.mock.calls
+        .map((call) => String(call[0]))
+        .filter((text) => text.startsWith('[SpotifyAuth]'));
+      expect(trace).toContain(
+        '[SpotifyAuth] token_exchange:error status=400 error=invalid_grant'
+      );
+      expect(result.current.state.status).toBe('error');
+      // Jamais de secret dans la trace (token, verifier, state, code).
+      for (const line of trace) {
+        expect(line).not.toMatch(/access_?token|refresh_?token|Bearer\s+/i);
+      }
+      logSpy.mockRestore();
     });
   });
 });
