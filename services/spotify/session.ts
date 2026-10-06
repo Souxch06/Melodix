@@ -665,3 +665,27 @@ export const isPendingTransactionFresh = (
   tx: PendingOAuthTransaction,
   nowMs: number = Date.now()
 ): boolean => nowMs - tx.createdAtMs < PENDING_TX_MAX_AGE_MS;
+
+/**
+ * SEED SMOKE (build de test, voir `isSpotifyOAuthSmoke`) : écrit une
+ * transaction PKCE DÉTERMINISTE dans SecureStore pour que le smoke Android
+ * puisse construire un callback cold-start dont le `state` est connu.
+ *
+ * Le verifier est une constante de test : le point vérifié est le WIRING
+ * (la transaction persistée est retrouvée et son verifier est celui utilisé
+ * pour l'échange), pas un login — le code factice du smoke sera refusé par
+ * Spotify (invalid_grant), jamais de faux login.
+ */
+export const SMOKE_TX_VERIFIER = 'smoke-verifier';
+
+export const saveSmokeOAuthTransaction = async (
+  state: string,
+  redirectUri: string
+): Promise<void> => {
+  await savePendingOAuthTransaction({
+    verifier: SMOKE_TX_VERIFIER,
+    state,
+    redirectUri,
+    createdAtMs: Date.now(),
+  });
+};

@@ -251,7 +251,8 @@ NOTIFICATIONS_BG=$(adb shell dumpsys notification --noredact 2>&1) || \
 printf '%s\n' "$NOTIFICATIONS_BG" | grep -Fq 'melodix_media' || \
   fail "notification média disparue en arrière-plan"
 
-# ── Sonde deep-link OAuth COLD START — le cas terrain du login Spotify ──
+# ── Sonde deep-link OAuth COLD START — SCÉNARIO A : callback SANS
+# transaction PKCE persistée (vault propre) ──
 # L'app est tuée, puis Android la relance PAR le callback
 # `melodix://callback?code=…`. Le runtime JS doit :
 #   1. démarrer via l'intent-filter du manifest ;
@@ -292,13 +293,113 @@ printf '%s\n' "$AUTH_TRACE" | grep -Fq 'callback:error cold-start-no-verifier' |
   fail "callback cold sans transaction PKCE non classé proprement : $AUTH_TRACE"
 COLD_PID=$(adb shell pidof -s "$PACKAGE" 2>/dev/null | tr -d '\r' || true)
 [ -n "$COLD_PID" ] || fail "processus détruit après cold start OAuth"
-echo "::notice title=Deep-link OAuth (cold start)::relance de l'app par melodix://callback traitée par le runtime JS — séquence [SpotifyAuth] complète, échec classé proprement sans compte (pid=$COLD_PID)"
-echo "::warning title=Login Spotify physique::PHYSICAL SPOTIFY LOGIN NOT TESTABLE IN CI — aucun compte Spotify utilisable dans GitHub Actions ; la suite [SpotifyAuth] prouve la chaîne deep-link → hook → classification, pas un login Spotify réel"
+echo "::notice title=Deep-link OAuth (cold start, scénario A)::callback SANS transaction persistée traité par le runtime JS — séquence [SpotifyAuth] complète, échec classé proprement sans compte (pid=$COLD_PID)"
+
+# ── Sonde deep-link OAuth COLD START — SCÉNARIO B : callback AVEC
+# transaction PKCE persistée (fixture smoke, build de test uniquement) ──
+# La fixture EXPO_PUBLIC_SPOTIFY_OAUTH_SMOKE=1 (voir SPOTIFY-DIAG 6/7)
+# permet de construire le cas complet SANS compte Spotify :
+#   1. cold launch via melodix://oauth-smoke-seed?state=smoke-state → le
+#      hook ÉCRIT une transaction PKCE DÉTERMINISTE dans SecureStore
+#      (verifier=smoke-verifier, state=smoke-state, redirect=melodix://callback)
+#      — c'est du wiring, PAS un faux login ;
+#   2. le processus est tué (force-stop) → le runtime est recréé ;
+#   3. Android relance l'app par melodix://callback?code=…&state=smoke-state
+#      (state identique au seed) ;
+#   4. le hook DOIT retrouver la transaction (state/redirect/fraîcheur OK)
+#      et lancer l'échange avec le verifier PERSISTÉ :
+#      callback:received → code:received → cold-start:transaction-present
+#      → cold-start:transaction-valid → cold-start:verifier-restored
+#      → token_exchange:start.
+# L'échange lui-même est REJETÉ par Spotify (code factice) : l'échec est
+# classé, jamais de faux login. Ce scénario prouve le wiring cold-start
+# avec transaction persistée, pas un login Spotify réel.
+adb shell am force-stop "$PACKAGE" || fail "force-stop avant seed smoke impossible"
+adb logcat -c || fail "impossible de vider logcat avant seed smoke"
+SMOKE_SEED_DL=$(adb shell "am start -W -a android.intent.action.VIEW -d 'melodix://oauth-smoke-seed?state=smoke-state' -p $PACKAGE" 2>&1) || \
+  fail "cold start via seed smoke impossible : $SMOKE_SEED_DL"
+echo "$SMOKE_SEED_DL"
+printf '%s\n' "$SMOKE_SEED_DL" | grep -Fq 'Status: ok' || \
+  fail "seed smoke non confirmée par ActivityManager"
+SEED_OK=""
+DL_TRIES_B=0
+while [ "$DL_TRIES_B" -lt 12 ]; do
+  sleep 5
+  DL_TRIES_B=$(( DL_TRIES_B + 1 ))
+  if adb logcat -d 2>/dev/null | grep -Fq 'smoke:seeded'; then
+    SEED_OK=1
+    break
+  fi
+done
+[ -n "$SEED_OK" ] || {
+  adb logcat -d -v time | tail -300
+  fail "seed smoke non traitée (aucune trace smoke:seeded après 60 s) — fixture inactive ou hook non monté"
+}
+# Destruction du runtime : processus tué, relance PAR le callback (state
+# identique au seed). SecureStore (Keystore Android) survit au kill.
+adb shell am force-stop "$PACKAGE" || fail "force-stop avant callback smoke B impossible"
+adb logcat -c || fail "impossible de vider logcat avant callback smoke B"
+SMOKE_CB_DL=$(adb shell "am start -W -a android.intent.action.VIEW -d 'melodix://callback?code=smoke-code&state=smoke-state' -p $PACKAGE" 2>&1) || \
+  fail "cold start via callback smoke B impossible : $SMOKE_CB_DL"
+echo "$SMOKE_CB_DL"
+printf '%s\n' "$SMOKE_CB_DL" | grep -Fq 'Status: ok' || \
+  fail "callback smoke B non confirmé par ActivityManager"
+AUTH_TRACE_B=""
+DL_TRIES_B=0
+while [ "$DL_TRIES_B" -lt 12 ]; do
+  sleep 5
+  DL_TRIES_B=$(( DL_TRIES_B + 1 ))
+  AUTH_TRACE_B=$(adb logcat -d 2>/dev/null | grep -F '[SpotifyAuth]' || true)
+  printf '%s\n' "$AUTH_TRACE_B" | grep -Fq 'token_exchange:start' && break
+done
+printf '%s\n' "$AUTH_TRACE_B" | grep -Fq 'callback:received cold-start' || \
+  fail "cold-start B : callback non identifié par le hook : $AUTH_TRACE_B"
+printf '%s\n' "$AUTH_TRACE_B" | grep -Fq 'cold-start:transaction-present' || \
+  fail "cold-start B : transaction persistée NON retrouvée (SecureStore/Keystore inopérant ou seed perdue) : $AUTH_TRACE_B"
+printf '%s\n' "$AUTH_TRACE_B" | grep -Fq 'cold-start:transaction-valid' || \
+  fail "cold-start B : transaction non acceptée (state/redirect/fraîcheur) : $AUTH_TRACE_B"
+printf '%s\n' "$AUTH_TRACE_B" | grep -Fq 'cold-start:verifier-restored' || \
+  fail "cold-start B : verifier persisté non restauré : $AUTH_TRACE_B"
+printf '%s\n' "$AUTH_TRACE_B" | grep -Fq 'token_exchange:start' || \
+  fail "cold-start B : échange non lancé avec la transaction persistée : $AUTH_TRACE_B"
+# AVEC une transaction valide, les erreurs d'absence/décalage sont INTERDITES.
+if printf '%s\n' "$AUTH_TRACE_B" | grep -Fq 'cold-start-no-verifier'; then
+  fail "cold-start B : erreur no-verifier malgré une transaction persistée valide — wiring cassé : $AUTH_TRACE_B"
+fi
+if printf '%s\n' "$AUTH_TRACE_B" | grep -Fq 'cold-start-mismatch'; then
+  fail "cold-start B : erreur mismatch malgré state/redirect identiques au seed — wiring cassé : $AUTH_TRACE_B"
+fi
+# ORDRE de la séquence : numéros de ligne réels dans le log (grep -n).
+SMOKE_LOG="$(mktemp /tmp/melodix-smoke-b.XXXXXX)"
+printf '%s\n' "$AUTH_TRACE_B" > "$SMOKE_LOG"
+line_of() { grep -Fn "$1" "$SMOKE_LOG" | head -1 | cut -d: -f1 || true; }
+LB1=$(line_of 'callback:received cold-start')
+LB2=$(line_of 'code:received cold-start')
+LB3=$(line_of 'cold-start:transaction-present')
+LB4=$(line_of 'cold-start:transaction-valid')
+LB5=$(line_of 'cold-start:verifier-restored')
+LB6=$(line_of 'token_exchange:start')
+rm -f "$SMOKE_LOG"
+if [ -z "$LB1" ] || [ -z "$LB2" ] || [ -z "$LB3" ] || [ -z "$LB4" ] || [ -z "$LB5" ] || [ -z "$LB6" ]; then
+  fail "cold-start B : séquence incomplète (lignes=$LB1,$LB2,$LB3,$LB4,$LB5,$LB6) : $AUTH_TRACE_B"
+fi
+ORDER_OK=1
+[ "$LB1" -lt "$LB2" ] || ORDER_OK=0
+[ "$LB2" -lt "$LB3" ] || ORDER_OK=0
+[ "$LB3" -lt "$LB4" ] || ORDER_OK=0
+[ "$LB4" -lt "$LB5" ] || ORDER_OK=0
+[ "$LB5" -lt "$LB6" ] || ORDER_OK=0
+[ "$ORDER_OK" -eq 1 ] || \
+  fail "cold-start B : séquence hors ordre (lignes=$LB1,$LB2,$LB3,$LB4,$LB5,$LB6)"
+SMOKE_B_PID=$(adb shell pidof -s "$PACKAGE" 2>/dev/null | tr -d '\r' || true)
+[ -n "$SMOKE_B_PID" ] || fail "processus détruit après cold start B"
+echo "::notice title=Deep-link OAuth (cold start, scénario B)::callback AVEC transaction PKCE persistée — transaction retrouvée en SecureStore, verifier restauré, échange lancé (token_exchange:start), séquence ordonnée vérifiée en logcat (pid=$SMOKE_B_PID) — wiring, PAS un login Spotify"
+echo "::warning title=Login Spotify physique::PHYSICAL SPOTIFY LOGIN NOT TESTABLE IN CI — aucun compte Spotify utilisable dans GitHub Actions ; les scénarios A/B prouvent la chaîne deep-link → hook → classification/wiring cold-start, pas un login Spotify réel"
 if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
-  echo "- Deep-link OAuth : warm (app vivante) et cold start (relance par callback) routés ; séquence [SpotifyAuth] vérifiée en logcat ; login Spotify réel NON testable en CI (pas de compte)" >> "$GITHUB_STEP_SUMMARY"
+  echo "- Deep-link OAuth : warm (app vivante) ; cold A (callback SANS tx → cold-start-no-verifier) ; cold B (callback AVEC tx persistée → verifier restauré → token_exchange:start, séquence ordonnée) ; login Spotify réel NON testable en CI (pas de compte)" >> "$GITHUB_STEP_SUMMARY"
 fi
 
-echo "::notice title=Installation Android réelle::installation + prototype WebView + cycle arrière-plan/retour + service foreground + MediaSession + notification + deep-link OAuth réussis sur Android 14 x86_64 (pid=$COLD_PID)"
+echo "::notice title=Installation Android réelle::installation + prototype WebView + cycle arrière-plan/retour + service foreground + MediaSession + notification + deep-link OAuth (A et B) réussis sur Android 14 x86_64 (pid=$SMOKE_B_PID)"
 if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
   echo "- Android 14 : installation, écran Spotify WebView, cycle arrière-plan/retour, FGS média, MediaSession et notification système vérifiés" >> "$GITHUB_STEP_SUMMARY"
 fi

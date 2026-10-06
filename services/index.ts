@@ -128,6 +128,7 @@ export type { BackendErrorKind } from './backend';
 export {
   getSpotifyClientId,
   isSpotifyLoginConfigured,
+  isSpotifyOAuthSmoke,
   SPOTIFY_SCOPES,
   SPOTIFY_DISCOVERY,
   SPOTIFY_REDIRECT_SCHEME,
@@ -147,6 +148,8 @@ export {
   loadPendingOAuthTransaction,
   clearPendingOAuthTransaction,
   isPendingTransactionFresh,
+  saveSmokeOAuthTransaction,
+  SMOKE_TX_VERIFIER,
 } from './spotify/session';
 export type {
   LoginOutcome,

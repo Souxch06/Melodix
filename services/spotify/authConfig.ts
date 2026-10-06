@@ -199,3 +199,24 @@ export const SPOTIFY_API_BASE_URL = 'https://api.spotify.com/v1';
 /** Lien de retour déclaré dans l'APK (voir app.config.js scheme). */
 export const SPOTIFY_REDIRECT_SCHEME = 'melodix';
 export const SPOTIFY_REDIRECT_PATH = 'callback';
+
+/**
+ * FIXTURE SMOKE CI — build de test uniquement (workflow Android).
+ *
+ * `EXPO_PUBLIC_SPOTIFY_OAUTH_SMOKE=1` (inliné par Metro) active la route de
+ * test `melodix://oauth-smoke-seed` : elle SEEDe une transaction PKCE
+ * déterministe dans SecureStore, ce qui permet au smoke Android de vérifier
+ * le wiring cold-start « transaction persistée → processus tué → callback →
+ * verifier restauré → exchange ».
+ *
+ * GARANTIES :
+ * - AUCUN faux login : le seed n'authentifie rien ; l'échange exige toujours
+ *   un code Spotify réel (un code factice est refusé par Spotify) ;
+ * - le login NORMAL est inchangé : sa transaction est la transaction LIVE
+ *   (verifier/state de la requête), pas la fixture ;
+ * - absente en build de production (variable jamais définie → route inactive,
+ *   aucun effet de bord, la deep-link ne mène nulle part).
+ */
+export const isSpotifyOAuthSmoke = (): boolean =>
+  typeof process !== 'undefined' &&
+  (process.env.EXPO_PUBLIC_SPOTIFY_OAUTH_SMOKE ?? '') === '1';

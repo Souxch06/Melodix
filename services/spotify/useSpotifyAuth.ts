@@ -26,11 +26,13 @@ import {
   getSpotifyRedirectUri,
   getSpotifyRedirectUriSource,
   isSpotifyLoginConfigured,
+  isSpotifyOAuthSmoke,
   SPOTIFY_DISCOVERY,
   SPOTIFY_REDIRECT_PATH,
   SPOTIFY_REDIRECT_SCHEME,
   SPOTIFY_SCOPES,
 } from './authConfig';
+import { isOAuthSmokeSeedUrl } from '../../utils/common/isAuthCallbackUrl';
 import {
   logRedirectUri,
   sanitizeErrorDescription,
@@ -50,6 +52,7 @@ import {
   redeemAuthorizationCode,
   sanitizeOAuthErrorCode,
   savePendingOAuthTransaction,
+  saveSmokeOAuthTransaction,
   SpotifySession,
 } from './session';
 
@@ -498,7 +501,32 @@ export const useSpotifyAuth = (): {
     let mounted = true;
     void (async () => {
       const url = await Linking.getInitialURL();
-      if (!mounted || !url || !url.startsWith(redirectUri)) {
+      if (!mounted || !url) {
+        return;
+      }
+
+      // ROUTE DE TEST (build EXPO_PUBLIC_SPOTIFY_OAUTH_SMOKE=1 uniquement) :
+      // `melodix://oauth-smoke-seed?state=…` seede une transaction PKCE
+      // DÉTERMINISTE dans SecureStore pour que le smoke Android puisse
+      // construire un callback cold-start AVEC transaction (wiring
+      // « transaction persistée → processus tué → callback → verifier
+      // restauré »). Ne logue rien d'autre que la présence — jamais de
+      // verifier, jamais de state en clair. En build sans flag : inerte.
+      if (isOAuthSmokeSeedUrl(url)) {
+        if (isSpotifyOAuthSmoke()) {
+          const seedState = readQueryParams(url).state || 'smoke-state';
+          try {
+            await saveSmokeOAuthTransaction(seedState, redirectUri);
+            spotifyAuthTrace('smoke:seeded', 'state-present');
+          } catch {
+            console.warn('Spotify smoke seed persistence failed');
+            spotifyAuthTrace('smoke:seed:error');
+          }
+        }
+        return;
+      }
+
+      if (!url.startsWith(redirectUri)) {
         return;
       }
       const params = readQueryParams(url);
@@ -556,6 +584,9 @@ export const useSpotifyAuth = (): {
       if (!mounted) {
         return;
       }
+      if (tx !== null) {
+        spotifyAuthTrace('cold-start:transaction-present');
+      }
       const usable =
         tx !== null &&
         isPendingTransactionFresh(tx) &&
@@ -583,6 +614,10 @@ export const useSpotifyAuth = (): {
         });
         return;
       }
+      // Le verifier utilisé pour l'échange est le PERSISTÉ (SecureStore),
+      // jamais celui de la requête vivante (neuve après reboot du runtime).
+      spotifyAuthTrace('cold-start:transaction-valid');
+      spotifyAuthTrace('cold-start:verifier-restored');
       await completeLogin(params.code, tx);
     })();
     return () => {
@@ -640,21 +675,34 @@ export const useSpotifyAuth = (): {
     // verifier/state/redirect de CE flux. Écrasement sans état : un nouveau
     // flux remplace toujours l'ancien (la transaction morte n'a plus de code
     // valide chez Spotify — son TTL et son state en garantissent l'écart).
-    if (request.codeVerifier) {
-      void savePendingOAuthTransaction({
+    //
+    // L'ÉCRITURE DOIT ÊTRE CONFIRMÉE AVANT d'ouvrir Spotify : un
+    // fire-and-forget laissait une fenêtre où le processus pouvait mourir
+    // (ou l'écriture échouer) alors que le navigateur était déjà ouvert —
+    // le cold start serait alors impossible et inexpliqué. Si SecureStore
+    // échoue, on n'ouvre PAS Spotify : échec explicite et actionnable.
+    spotifyAuthTrace('pkce:persist:start');
+    if (!request.codeVerifier) {
+      // PKCE impossible : aucun verifier à persister ni à échanger.
+      spotifyLog('pkce.verifier-missing', { verifierPresent: false });
+      spotifyAuthTrace('pkce:persist:error', 'verifier-missing');
+      fail({ kind: 'callback-failed', cause: 'pkce-verifier-missing' });
+      return;
+    }
+    try {
+      await savePendingOAuthTransaction({
         verifier: request.codeVerifier,
         state: request.state,
         redirectUri,
         createdAtMs: Date.now(),
-      }).catch(() => {
-        // SecureStore indisponible : le chemin chaud reste opérationnel,
-        // seul le cold start perd sa résilience — diagnosticé à l'usage.
-        spotifyLog('auth.tx.persist-failed');
       });
-    } else {
-      // Pas de verifier à persister : le chemin promptAsync échouera plus
-      // bas avec la cause dédiée (pkce-verifier-missing).
-      spotifyLog('auth.tx.skip-no-verifier');
+      spotifyAuthTrace('pkce:persist:success');
+    } catch (error) {
+      console.warn('Spotify PKCE transaction persistence failed', error);
+      spotifyLog('auth.tx.persist-failed');
+      spotifyAuthTrace('pkce:persist:error');
+      fail({ kind: 'callback-failed', cause: 'pkce-persistence-failed' });
+      return;
     }
 
     spotifyAuthTrace('authorize:start');

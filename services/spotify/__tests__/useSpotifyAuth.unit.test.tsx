@@ -62,6 +62,13 @@ jest.mock('../session', () => {
   return {
     ...actual,
     redeemAuthorizationCode: jest.fn(),
+    // Délègue au réel par défaut (écrit le vault simulé) ; un test peut le
+    // remplacer (rejet = échec SecureStore) pour prouver que le navigateur
+    // n'est JAMAIS ouvert sans transaction persistée confirmée.
+    savePendingOAuthTransaction: jest.fn(
+      (tx: Parameters<typeof actual.savePendingOAuthTransaction>[0]) =>
+        actual.savePendingOAuthTransaction(tx)
+    ),
   };
 });
 
@@ -146,6 +153,65 @@ describe('useSpotifyAuth — taxonomie du diagnostic OAuth', () => {
       expect.objectContaining({ id: 'user-1' })
     );
     expect(result.current.state).toEqual({ status: 'idle' });
+
+    // INVARIANT CRITIQUE : la transaction PKCE est écrite dans SecureStore
+    // AVANT l'ouverture du navigateur (sinon le cold start peut la rater).
+    const saveOrder = (savePendingOAuthTransaction as jest.Mock).mock
+      .invocationCallOrder[0];
+    const promptOrder = (mockPromptAsync as jest.Mock).mock
+      .invocationCallOrder[0];
+    expect(saveOrder).toBeLessThan(promptOrder);
+  });
+
+  it('SecureStore en échec → JAMAIS de navigateur, erreur explicite pkce-persistence-failed', async () => {
+    (savePendingOAuthTransaction as jest.Mock).mockRejectedValueOnce(
+      new Error('keystore-down')
+    );
+    const logSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
+    const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+
+    const { result } = renderHook(() => useSpotifyAuth());
+    await act(async () => {
+      await result.current.startLogin();
+    });
+
+    // Le navigateur n'est JAMAIS ouvert sans verifier persisté confirmé.
+    expect(mockPromptAsync).not.toHaveBeenCalled();
+    expect(redeemAuthorizationCode).not.toHaveBeenCalled();
+    expect(result.current.state).toEqual({
+      status: 'error',
+      outcome: { kind: 'callback-failed', cause: 'pkce-persistence-failed' },
+    });
+    const trace = logSpy.mock.calls
+      .map((call) => String(call[0]))
+      .filter((text) => text.startsWith('[SpotifyAuth]'));
+    expect(trace).toContain('[SpotifyAuth] pkce:persist:start');
+    expect(trace).toContain('[SpotifyAuth] pkce:persist:error');
+    expect(trace).not.toContain('[SpotifyAuth] pkce:persist:success');
+    expect(trace).not.toContain('[SpotifyAuth] authorize:start');
+    logSpy.mockRestore();
+    warnSpy.mockRestore();
+  });
+
+  it('startLogin sans verifier PKCE → pkce-verifier-missing, JAMAIS de navigateur ni d écriture', async () => {
+    mockRequest = { state: 'STATE-1' } as ReturnType<typeof makeRequest>;
+    (AuthSession.useAuthRequest as jest.Mock).mockImplementation(() => [
+      mockRequest,
+      null,
+      mockPromptAsync,
+    ]);
+
+    const { result } = renderHook(() => useSpotifyAuth());
+    await act(async () => {
+      await result.current.startLogin();
+    });
+
+    expect(savePendingOAuthTransaction).not.toHaveBeenCalled();
+    expect(mockPromptAsync).not.toHaveBeenCalled();
+    expect(result.current.state).toEqual({
+      status: 'error',
+      outcome: { kind: 'callback-failed', cause: 'pkce-verifier-missing' },
+    });
   });
 
   it('CLIENT_ID manquant → not-configured, promptAsync JAMAIS appelé', async () => {
@@ -823,6 +889,136 @@ describe('useSpotifyAuth — taxonomie du diagnostic OAuth', () => {
       });
       expect(await loadPendingOAuthTransaction()).toBeNull();
     });
+
+    /**
+     * LE test exigé — VRAI cold start PKCE, étape par étape :
+     *   1. transaction sauvegardée (verifier-A / state-A) par le flux mort ;
+     *   2. le runtime JS est détruit : une nouvelle instance du hook monte
+     *      avec une requête useAuthRequest NEUVE (verifier-B / state-B) ;
+     *   3. la nouvelle instance reçoit le callback
+     *      melodix://callback?code=REALISTIC_CODE&state=state-A ;
+     *   4. l'échange DOIT utiliser le verifier PERSISTÉ (verifier-A) —
+     *      jamais le verifier neuf (verifier-B) de la requête vivante.
+     */
+    it('VRAI cold start : la nouvelle instance a une requête NEUVE — l échange utilise le verifier PERSISTÉ (verifier-A), jamais le verifier neuf', async () => {
+      // Étape 1 : transaction du flux tué.
+      initialUrlHolder.current =
+        'melodix://callback?code=REALISTIC_CODE&state=state-A';
+      await savePendingOAuthTransaction({
+        verifier: 'verifier-A',
+        state: 'state-A',
+        redirectUri: 'melodix://callback',
+        createdAtMs: Date.now(),
+      });
+
+      // Étape 2 : runtime détruit → nouvelle requête OAuth (verifier +
+      // state neufs, différents de la transaction).
+      mockRequest = { codeVerifier: 'verifier-B-neuf', state: 'state-B-neuf' };
+      (AuthSession.useAuthRequest as jest.Mock).mockImplementation(() => [
+        mockRequest,
+        null,
+        mockPromptAsync,
+      ]);
+
+      // Étape 3 : nouvelle instance du hook, callback initial (cold).
+      const { result } = renderHook(() => useSpotifyAuth());
+      await flushColdFlow();
+
+      // Étape 4 : le verifier de l échange est celui PERSISTÉ.
+      expect(redeemAuthorizationCode).toHaveBeenCalledTimes(1);
+      expect(redeemAuthorizationCode).toHaveBeenCalledWith(
+        expect.objectContaining({
+          code: 'REALISTIC_CODE',
+          codeVerifier: 'verifier-A',
+          redirectUri: 'melodix://callback',
+        })
+      );
+      // Et explicitement PAS le verifier de la requête vivante.
+      expect(redeemAuthorizationCode).not.toHaveBeenCalledWith(
+        expect.objectContaining({ codeVerifier: 'verifier-B-neuf' })
+      );
+      expect(mockApplySpotifyUser).toHaveBeenCalledWith(
+        expect.objectContaining({ id: 'user-1' })
+      );
+      expect(result.current.state).toEqual({ status: 'idle' });
+    });
+
+    it('VRAI cold start : la séquence porte transaction-present → transaction-valid → verifier-restored → exchange', async () => {
+      const logSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
+      initialUrlHolder.current =
+        'melodix://callback?code=REALISTIC_CODE&state=state-A';
+      await savePendingOAuthTransaction({
+        verifier: 'verifier-A',
+        state: 'state-A',
+        redirectUri: 'melodix://callback',
+        createdAtMs: Date.now(),
+      });
+
+      const { result } = renderHook(() => useSpotifyAuth());
+      await flushColdFlow();
+
+      const trace = logSpy.mock.calls
+        .map((call) => String(call[0]))
+        .filter((text) => text.startsWith('[SpotifyAuth]'));
+      expect(trace).toEqual([
+        '[SpotifyAuth] callback:received cold-start',
+        '[SpotifyAuth] code:received cold-start',
+        '[SpotifyAuth] cold-start:transaction-present',
+        '[SpotifyAuth] cold-start:transaction-valid',
+        '[SpotifyAuth] cold-start:verifier-restored',
+        '[SpotifyAuth] token_exchange:start',
+        '[SpotifyAuth] token_exchange:success',
+        '[SpotifyAuth] me:request',
+        '[SpotifyAuth] me:success user=user-1',
+        '[SpotifyAuth] session:authenticated',
+      ]);
+      expect(result.current.state).toEqual({ status: 'idle' });
+      logSpy.mockRestore();
+    });
+  });
+
+  describe('route smoke-seed (EXPO_PUBLIC_SPOTIFY_OAUTH_SMOKE)', () => {
+    afterEach(() => {
+      delete process.env.EXPO_PUBLIC_SPOTIFY_OAUTH_SMOKE;
+    });
+
+    it('flag ON : l URL de seed écrit une transaction DÉTERMINISTE (verifier smoke, state de l URL) — sans faux login', async () => {
+      process.env.EXPO_PUBLIC_SPOTIFY_OAUTH_SMOKE = '1';
+      initialUrlHolder.current = 'melodix://oauth-smoke-seed?state=smoke-state';
+
+      const { result } = renderHook(() => useSpotifyAuth());
+      await act(async () => {
+        for (let i = 0; i < 4; i += 1) {
+          // eslint-disable-next-line no-await-in-loop
+          await Promise.resolve();
+        }
+      });
+
+      expect(await loadPendingOAuthTransaction()).toMatchObject({
+        verifier: 'smoke-verifier',
+        state: 'smoke-state',
+        redirectUri: 'melodix://callback',
+      });
+      // Pas de faux login : aucun échange, pas de profil appliqué, pas d erreur.
+      expect(redeemAuthorizationCode).not.toHaveBeenCalled();
+      expect(mockApplySpotifyUser).not.toHaveBeenCalled();
+      expect(result.current.state).toEqual({ status: 'idle' });
+    });
+
+    it('flag OFF : l URL de seed est INERTE (aucune écriture SecureStore, pas d erreur)', async () => {
+      initialUrlHolder.current = 'melodix://oauth-smoke-seed?state=smoke-state';
+
+      const { result } = renderHook(() => useSpotifyAuth());
+      await act(async () => {
+        for (let i = 0; i < 4; i += 1) {
+          // eslint-disable-next-line no-await-in-loop
+          await Promise.resolve();
+        }
+      });
+
+      expect(await loadPendingOAuthTransaction()).toBeNull();
+      expect(result.current.state).toEqual({ status: 'idle' });
+    });
   });
 
   describe('idempotence des tentatives de login', () => {
@@ -929,6 +1125,8 @@ describe('useSpotifyAuth — taxonomie du diagnostic OAuth', () => {
         .map((call) => String(call[0]))
         .filter((text) => text.startsWith('[SpotifyAuth]'));
       expect(trace).toEqual([
+        '[SpotifyAuth] pkce:persist:start',
+        '[SpotifyAuth] pkce:persist:success',
         '[SpotifyAuth] authorize:start',
         '[SpotifyAuth] redirect_uri=melodix://callback',
         '[SpotifyAuth] authorize:returned',
@@ -968,6 +1166,9 @@ describe('useSpotifyAuth — taxonomie du diagnostic OAuth', () => {
       expect(trace).toEqual([
         '[SpotifyAuth] callback:received cold-start',
         '[SpotifyAuth] code:received cold-start',
+        '[SpotifyAuth] cold-start:transaction-present',
+        '[SpotifyAuth] cold-start:transaction-valid',
+        '[SpotifyAuth] cold-start:verifier-restored',
         '[SpotifyAuth] token_exchange:start',
         '[SpotifyAuth] token_exchange:success',
         '[SpotifyAuth] me:request',

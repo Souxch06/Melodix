@@ -22,6 +22,7 @@ import {
   getSpotifyRedirectUri,
   getSpotifyRedirectUriSource,
   isSpotifyLoginConfigured,
+  isSpotifyOAuthSmoke,
   SPOTIFY_SCOPES,
 } from '../authConfig';
 
@@ -151,5 +152,25 @@ describe('couverture des scopes OAuth par endpoint', () => {
         'playlist-read-collaborative',
       ]).toContain(scope);
     }
+  });
+});
+
+describe('flag smoke CI (EXPO_PUBLIC_SPOTIFY_OAUTH_SMOKE)', () => {
+  afterEach(() => {
+    delete process.env.EXPO_PUBLIC_SPOTIFY_OAUTH_SMOKE;
+  });
+
+  it('=1 → fixture active (build de test uniquement)', () => {
+    process.env.EXPO_PUBLIC_SPOTIFY_OAUTH_SMOKE = '1';
+    expect(isSpotifyOAuthSmoke()).toBe(true);
+  });
+
+  it('absente ou autre valeur → inactive (build de production)', () => {
+    delete process.env.EXPO_PUBLIC_SPOTIFY_OAUTH_SMOKE;
+    expect(isSpotifyOAuthSmoke()).toBe(false);
+    process.env.EXPO_PUBLIC_SPOTIFY_OAUTH_SMOKE = '0';
+    expect(isSpotifyOAuthSmoke()).toBe(false);
+    process.env.EXPO_PUBLIC_SPOTIFY_OAUTH_SMOKE = 'true';
+    expect(isSpotifyOAuthSmoke()).toBe(false);
   });
 });
