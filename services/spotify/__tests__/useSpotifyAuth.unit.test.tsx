@@ -470,4 +470,139 @@ describe('useSpotifyAuth — taxonomie du diagnostic OAuth', () => {
     });
     expect(result.current.state).toEqual({ status: 'idle' });
   });
+
+  /**
+   * CONCURRENCE DE CANAUX DE CALLBACK — reproduction du défaut physique
+   * « connexion Spotify ne fonctionne plus » sur les vrais appareils :
+   *
+   * Sur Android, le callback OAuth peut arriver PAR LES DEUX canaux en même
+   * temps : le pont `promptAsync` (AuthSession) ET l'écouteur Linking chaud
+   * (le browser custom resout la deep-link pendant que les deux sont en
+   * attente). Si les deux canaux appellent `completeLogin(code)` en parallèle,
+   * le 2e échange du code OAuth reçoit `invalid_grant` (un code ne peut être
+   * échangé qu'UNE fois) — alors que le 1er échange avait réussi : l'utilisateur
+   * est connecté mais voit l'écran d'erreur.
+   *
+   * Ces tests exigent : UN SEUL échange par code, quel que soit le canal qui
+   * gagne, et une fin d'état propre (idle + utilisateur appliqué).
+   */
+  describe('concurrence des canaux de callback (1 seul échange par code)', () => {
+    let redeemedCodes: Set<string>;
+
+    beforeEach(() => {
+      // MOCK STATEFUL : chaque code OAuth ne peut être échangé qu'une fois,
+      // exactement comme l'endpoint /token de Spotify.
+      redeemedCodes = new Set();
+      (redeemAuthorizationCode as jest.Mock).mockImplementation(
+        async ({ code }: { code: string }) => {
+          if (redeemedCodes.has(code)) {
+            return {
+              kind: 'refused',
+              status: 400,
+              errorCode: 'invalid_grant',
+              description: 'Authorization code was already used',
+            };
+          }
+          redeemedCodes.add(code);
+          return {
+            kind: 'ok',
+            session: {
+              accessToken: 'access-race',
+              refreshToken: 'refresh-race',
+              expiresAtMs: Date.now() + 3_600_000,
+              scope: 'user-read-private user-read-email',
+            },
+          };
+        }
+      );
+    });
+
+    it('pont promptAsync ET garde-fou Linking résolvent le MÊME code en parallèle : 1 seul échange, pas d erreur invalid_grant', async () => {
+      let resolvePrompt: (v: unknown) => void = () => {};
+      promptPromise = new Promise((resolve) => {
+        resolvePrompt = resolve;
+      });
+      const { result } = renderHook(() => useSpotifyAuth());
+
+      await act(async () => {
+        // NE PAS attendre : le pont natif n est pas encore résolu.
+        void result.current.startLogin();
+      });
+      expect(result.current.state.status).toBe('requesting');
+      expect(linkListeners).toHaveLength(1);
+
+      await act(async () => {
+        // Canal 1 : le pont promptAsync résout avec le code.
+        resolvePrompt({
+          type: 'success',
+          params: { code: 'race-code', state: 'STATE-1' },
+        });
+        // 1 microtache : le chemin natif entre dans completeLogin() et
+        // l échange n°1 est en vol.
+        await Promise.resolve();
+        // Canal 2 : le garde-fou Linking reçoit le MÊME callback — l'écouteur
+        // est toujours enregistré (le re-render n a pas eu lieu) et le status
+        // n est pas encore reconsulté.
+        linkListeners[0]({
+          url: 'melodix://callback?code=race-code&state=STATE-1',
+        });
+        // Drainage complet des deux chemins.
+        await Promise.resolve();
+        await Promise.resolve();
+        await Promise.resolve();
+      });
+
+      // LA regression : l échange du code doit avoir eu lieu EXACTEMENT une
+      // fois. Avant la correction : 2 appels → invalid_grant → state 'error'.
+      expect(redeemAuthorizationCode).toHaveBeenCalledTimes(1);
+      expect(redeemAuthorizationCode).toHaveBeenCalledWith(
+        expect.objectContaining({
+          code: 'race-code',
+          codeVerifier: 'verifier-test',
+        })
+      );
+      expect(result.current.state.status).toBe('idle');
+      expect(mockApplySpotifyUser).toHaveBeenCalledWith(
+        expect.objectContaining({ id: 'user-1' })
+      );
+    });
+
+    it('le MÊME callback livré deux fois (double livraison Linking) : 1 seul échange, pas d erreur', async () => {
+      promptPromise = new Promise(() => {}); // le pont natif reste silencieux
+      const { result } = renderHook(() => useSpotifyAuth());
+
+      await act(async () => {
+        void result.current.startLogin();
+      });
+
+      const callback = {
+        url: 'melodix://callback?code=dup-code&state=STATE-1',
+      };
+      await act(async () => {
+        linkListeners[0](callback);
+        await Promise.resolve();
+        await Promise.resolve();
+        await Promise.resolve();
+      });
+      await act(async () => {
+        // Livraison dupliquée (certaines OEM rejouent l événement).
+        linkListeners[0](callback);
+        await Promise.resolve();
+        await Promise.resolve();
+        await Promise.resolve();
+      });
+
+      expect(redeemAuthorizationCode).toHaveBeenCalledTimes(1);
+      expect(redeemAuthorizationCode).toHaveBeenCalledWith(
+        expect.objectContaining({
+          code: 'dup-code',
+          codeVerifier: 'verifier-test',
+        })
+      );
+      expect(result.current.state.status).toBe('idle');
+      expect(mockApplySpotifyUser).toHaveBeenCalledWith(
+        expect.objectContaining({ id: 'user-1' })
+      );
+    });
+  });
 });

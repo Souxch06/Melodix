@@ -7,6 +7,7 @@ import {
   getValidAccessToken,
   loadSession,
   redeemAuthorizationCode,
+  resolveStartupSession,
   saveSession,
 } from '../session';
 
@@ -394,5 +395,114 @@ describe('services/spotify/session (SecureStore)', () => {
       expect(JSON.stringify(call)).not.toContain('refresh-old');
       expect(JSON.stringify(call)).not.toContain('Authorization');
     }
+  });
+
+  /**
+   * Décision de DÉMARRAGE (resolveStartupSession) : la distinction
+   * DÉFINITIF / TRANSITOIRE est ce qui empêche de jeter une session saine
+   * à cause d'une simple coupure réseau au boot.
+   */
+  describe('resolveStartupSession (classification définitif/transitoire)', () => {
+    it('aucune session → no-session', async () => {
+      await expect(resolveStartupSession()).resolves.toEqual({
+        kind: 'no-session',
+      });
+    });
+
+    it('token PAS expiré → valid, SANS appel réseau', async () => {
+      await saveSession(freshSession());
+      globalThis.fetch = jest.fn() as unknown as typeof fetch;
+
+      await expect(resolveStartupSession()).resolves.toEqual({
+        kind: 'valid',
+        token: 'access-new',
+      });
+      expect(globalThis.fetch).not.toHaveBeenCalled();
+    });
+
+    it('token expiré + refresh RÉUSSI → valid (nouveau token persisté)', async () => {
+      await saveSession(expiredSession());
+      globalThis.fetch = jest.fn(async () => ({
+        ok: true,
+        json: async () => ({
+          access_token: 'access-rafraichi',
+          expires_in: 3600,
+        }),
+      })) as unknown as typeof fetch;
+
+      await expect(resolveStartupSession()).resolves.toEqual({
+        kind: 'valid',
+        token: 'access-rafraichi',
+      });
+    });
+
+    it('refresh REFUSÉ 400 (invalid_grant) → session-dead (définitif)', async () => {
+      await saveSession(expiredSession());
+      globalThis.fetch = jest.fn(async () => ({
+        ok: false,
+        status: 400,
+        json: async () => ({
+          error: 'invalid_grant',
+          error_description: 'refresh token invalid',
+        }),
+      })) as unknown as typeof fetch;
+
+      await expect(resolveStartupSession()).resolves.toEqual({
+        kind: 'session-dead',
+        cause: 'refused',
+      });
+    });
+
+    it('session SANS refresh token expirée → session-dead (no-refresh-token)', async () => {
+      await saveSession({ ...expiredSession(), refreshToken: null });
+
+      await expect(resolveStartupSession()).resolves.toEqual({
+        kind: 'session-dead',
+        cause: 'no-refresh-token',
+      });
+    });
+
+    it('Coupure RÉSEAU au refresh → session-kept-unverified (transitoire, session CONSERVÉE)', async () => {
+      await saveSession(expiredSession());
+      globalThis.fetch = jest.fn(async () => {
+        throw new TypeError('Network request failed');
+      }) as unknown as typeof fetch;
+
+      await expect(resolveStartupSession()).resolves.toEqual({
+        kind: 'session-kept-unverified',
+        detail: 'network',
+      });
+      // La session n a PAS été détruite : elle sera retentée au prochain boot.
+      expect(await loadSession()).not.toBeNull();
+    });
+
+    it('refresh 500 (panne Spotify) → session-kept-unverified (transitoire)', async () => {
+      await saveSession(expiredSession());
+      globalThis.fetch = jest.fn(async () => ({
+        ok: false,
+        status: 500,
+        json: async () => ({}),
+      })) as unknown as typeof fetch;
+
+      await expect(resolveStartupSession()).resolves.toEqual({
+        kind: 'session-kept-unverified',
+        detail: expect.stringContaining('HTTP 500'),
+      });
+      expect(await loadSession()).not.toBeNull();
+    });
+
+    it('refresh 429 (limites) → session-kept-unverified (transitoire)', async () => {
+      await saveSession(expiredSession());
+      globalThis.fetch = jest.fn(async () => ({
+        ok: false,
+        status: 429,
+        json: async () => ({ error: 'temporarily_unavailable' }),
+      })) as unknown as typeof fetch;
+
+      await expect(resolveStartupSession()).resolves.toMatchObject({
+        kind: 'session-kept-unverified',
+      });
+      expect(await loadSession()).not.toBeNull();
+    });
   });
 });

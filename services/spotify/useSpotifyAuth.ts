@@ -59,8 +59,6 @@ export type SpotifyAuthState =
   | { status: 'exchanging' }
   | { status: 'error'; outcome: LoginErrorOutcome };
 
-const isIdle = (state: SpotifyAuthState): boolean => state.status === 'idle';
-
 /** Erreur courte, bornée, sûre à afficher (filtre mots sensibles). */
 const safeCause = (text: string): string => {
   const cleaned = text.replace(/[\r\n]+/g, ' ').trim();
@@ -95,6 +93,27 @@ export const useSpotifyAuth = (): {
   const [state, setState] = React.useState<SpotifyAuthState>({
     status: 'idle',
   });
+
+  // Statut EN DIRECT, mis à jour SYNCHRONONEMENT à chaque transition (et
+  // non au prochain render) : sur Android le callback OAuth est livré sur
+  // les deux canaux (promptAsync ET Linking) dans le même tick, avant tout
+  // re-render — un événement tardif doit voir l'état réel, pas la closure
+  // du render précédent.
+  const statusRef = React.useRef<SpotifyAuthState['status']>('idle');
+  const transition = React.useCallback((next: SpotifyAuthState) => {
+    statusRef.current = next.status;
+    setState(next);
+  }, []);
+
+  // SINGLE-FLIGHT par code OAuth : un code ne peut être échangé qu'UNE fois
+  // (tout nouvel échange = invalid_grant garanti). Si deux canaux appellent
+  // completeLogin(code) en parallèle, seul le premier passe ; le second est
+  // refusé AVANT toute requête redondante — plus d'écran d'erreur après un
+  // login réussi.
+  type RedeemGate =
+    | { state: 'in-flight' }
+    | { state: 'done'; consumed: boolean };
+  const redeemGateRef = React.useRef<Record<string, RedeemGate>>({});
 
   const clientInfo = getClientIdInfo();
   const configured = isSpotifyLoginConfigured();
@@ -177,13 +196,18 @@ export const useSpotifyAuth = (): {
   }, [request]);
 
   const resetError = React.useCallback(() => {
-    setState((current) => (isIdle(current) ? current : { status: 'idle' }));
-  }, []);
+    if (statusRef.current !== 'idle') {
+      transition({ status: 'idle' });
+    }
+  }, [transition]);
 
-  const fail = React.useCallback((outcome: LoginErrorOutcome) => {
-    spotifyDiag('OUTCOME', `${outcome.kind} — ${outcome.cause}`);
-    setState({ status: 'error', outcome });
-  }, []);
+  const fail = React.useCallback(
+    (outcome: LoginErrorOutcome) => {
+      spotifyDiag('OUTCOME', `${outcome.kind} — ${outcome.cause}`);
+      transition({ status: 'error', outcome });
+    },
+    [transition]
+  );
 
   /** Échange PKCE + profil /me, classifié. Commun canal natif + garde-fou. */
   const completeLogin = React.useCallback(
@@ -196,16 +220,38 @@ export const useSpotifyAuth = (): {
         return;
       }
 
+      // Single-flight : ce code est déjà en cours d'échange (autre canal,
+      // même tick) ou déjà consommé (Spotify a déjà répondu, succès ou
+      // refus) → un 2e échange serait un invalid_grant CERTAIN, et il
+      // écraserait l'écran de succès du 1er canal. Refus AVANT requête.
+      const gate = redeemGateRef.current[code];
+      if (gate && (gate.state === 'in-flight' || gate.consumed)) {
+        spotifyLog('auth.exchange.duplicate-skipped', {
+          cause: gate.state === 'in-flight' ? 'in-flight' : 'consumed',
+        });
+        return;
+      }
+      redeemGateRef.current[code] = { state: 'in-flight' };
+
       spotifyLog('auth.exchange.start', { status: 'in-flight' });
       // Lignes [SPOTIFY AUTH] « Token exchange … » émises dans session.ts
       // (là où vivent le corps de la requête et la réponse /api/token).
-      setState({ status: 'exchanging' });
+      transition({ status: 'exchanging' });
 
       const outcome = await redeemAuthorizationCode({
         code,
         codeVerifier: activeRequest.codeVerifier,
         redirectUri,
       });
+
+      // Toute réponse de Spotify (succès OU refus) CONSUME le code : il ne
+      // peut plus être rééchangé. Seul un échec réseau pur (la requête n'a
+      // jamais atteint Spotify) laisse le code réutilisable au prochain
+      // passage du canal qui perdait la course.
+      redeemGateRef.current[code] = {
+        state: 'done',
+        consumed: outcome.kind !== 'network',
+      };
 
       switch (outcome.kind) {
         case 'ok':
@@ -247,7 +293,7 @@ export const useSpotifyAuth = (): {
         spotifyConfigLine('[SPOTIFY AUTH] /v1/me HTTP status: 200');
         spotifyConfigLine('[SPOTIFY AUTH] /v1/me success/error: success');
         spotifyLog('auth.success', { scopesCount: SPOTIFY_SCOPES.length });
-        setState({ status: 'idle' });
+        transition({ status: 'idle' });
       } catch (error) {
         const kind =
           error && typeof error === 'object' && 'kind' in error
@@ -285,7 +331,7 @@ export const useSpotifyAuth = (): {
         });
       }
     },
-    [redirectUri, applySpotifyUser, fail]
+    [redirectUri, applySpotifyUser, fail, transition]
   );
 
   /**
@@ -296,6 +342,22 @@ export const useSpotifyAuth = (): {
     (url: string): boolean => {
       if (!url || !url.startsWith(redirectUri)) {
         return false;
+      }
+      // STATUT EN DIRECT (pas la closure du dernier render) : si le flux n'a
+      // plus de code à échanger — canal natif déjà passé à l'échange, flux
+      // terminé (idle) ou en erreur — un événement Linking livré quelques
+      // millisecondes plus tard est une LIVRAISON EN DOUBLE. Le traiter
+      // produirait le 2e échange du même code (invalid_grant après un
+      // login réussi) : c'est exactement la race reproduite par les tests.
+      if (
+        statusRef.current !== 'requesting' &&
+        statusRef.current !== 'exchanging'
+      ) {
+        spotifyLog('callback.ignored', {
+          cause: 'flow-not-open',
+          status: statusRef.current,
+        });
+        return true;
       }
       const activeRequest = requestRef.current;
       const params = readQueryParams(url);
@@ -373,23 +435,21 @@ export const useSpotifyAuth = (): {
         cause: 'cold-start',
       });
       if (typeof params.code === 'string' && params.code.length > 0) {
-        setState((current) =>
-          current.status === 'idle'
-            ? {
-                status: 'error',
-                outcome: {
-                  kind: 'callback-failed',
-                  cause: 'cold-start-no-verifier',
-                },
-              }
-            : current
-        );
+        if (statusRef.current === 'idle') {
+          transition({
+            status: 'error',
+            outcome: {
+              kind: 'callback-failed',
+              cause: 'cold-start-no-verifier',
+            },
+          });
+        }
       }
     });
     return () => {
       mounted = false;
     };
-  }, [redirectUri]);
+  }, [redirectUri, transition]);
 
   // Garde-fou warm : si le canal promptAsync perd le retour (rare Android),
   // le listener reprend la main avec vérification du state.
@@ -418,12 +478,16 @@ export const useSpotifyAuth = (): {
     }
 
     fallbackUsedRef.current = false;
+    // Remise à zéro du single-flight : les codes du flux précédent sont
+    // consommés et ne peuvent plus être revus (un nouveau flux = un nouveau
+    // code).
+    redeemGateRef.current = {};
     spotifyDiag('PROMPT', 'OPENED');
     spotifyConfigLine('[SPOTIFY AUTH] Starting authorization (OAuth + PKCE)');
     spotifyConfigLine(`[SPOTIFY AUTH] Redirect URI: ${redirectUri}`);
     spotifyConfigLine('[SPOTIFY AUTH] Authorization started');
     spotifyLog('auth.prompt.open', { status: 'opening' });
-    setState({ status: 'requesting' });
+    transition({ status: 'requesting' });
 
     try {
       const result = await promptAsync();
@@ -508,7 +572,15 @@ export const useSpotifyAuth = (): {
         cause: safeCause(`prompt-exception:${ctor}`),
       });
     }
-  }, [configured, promptAsync, request, completeLogin, fail, redirectUri]);
+  }, [
+    configured,
+    promptAsync,
+    request,
+    completeLogin,
+    fail,
+    redirectUri,
+    transition,
+  ]);
 
   return {
     state,

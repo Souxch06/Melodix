@@ -300,10 +300,30 @@ export const clearSessionAccessOnly = async (): Promise<void> => {
 
 let pendingRefresh: Promise<string | null> | null = null;
 
-const doRefresh = async (session: SpotifySession): Promise<string | null> => {
+/**
+ * Résultat CLASSIFIÉ d'un refresh : la distinction DÉFINITIF / TRANSITOIRE
+ * est ce qui protège la session stockée.
+ *
+ * - 'no-refresh-token' : la session ne pourra JAMAIS être rafraîchie
+ *   (définitif — la conserver est inutile) ;
+ * - 'refused' : Spotify a EXPLICITEMENT refusé le refresh token (4xx,
+ *   invalid_grant / invalid_client / …) — la session est morte (définitif) ;
+ * - 'transient' : coupure réseau, 5xx, 429, réponse illisible — le refresh
+ *   token est probablement encore bon : on NE SUPPRIME PAS la session, elle
+ *   sera retentée au prochain démarrage ou à la prochaine lecture.
+ */
+export type RefreshResult =
+  | { ok: true; token: string }
+  | { ok: false; cause: 'no-refresh-token' }
+  | { ok: false; cause: 'refused'; status: number; errorCode: string }
+  | { ok: false; cause: 'transient'; detail: string };
+
+const doRefreshClassified = async (
+  session: SpotifySession
+): Promise<RefreshResult> => {
   if (!session.refreshToken) {
     spotifyLog('token.refresh.impossible', { hasRefreshToken: false });
-    return null;
+    return { ok: false, cause: 'no-refresh-token' };
   }
 
   spotifyLog('token.refresh.start');
@@ -317,10 +337,32 @@ const doRefresh = async (session: SpotifySession): Promise<string | null> => {
   );
 
   if (!call.ok) {
+    if (call.reason === 'refused') {
+      // 429 (limites) et 5xx (panne Spotify) = TRANSITOIRE.
+      // Tout autre 4xx = Spotify a rejeté CE refresh token = DÉFINITIF.
+      const transient = call.status === 429 || call.status >= 500;
+      spotifyLog('token.refresh.failed', {
+        cause: call.errorCode,
+        classification: transient ? 'transient' : 'definitive',
+      });
+      return transient
+        ? {
+            ok: false,
+            cause: 'transient',
+            detail: `${call.errorCode} · HTTP ${call.status}`,
+          }
+        : {
+            ok: false,
+            cause: 'refused',
+            status: call.status,
+            errorCode: call.errorCode,
+          };
+    }
     spotifyLog('token.refresh.failed', {
-      cause: call.reason === 'refused' ? call.errorCode : call.reason,
+      cause: call.reason,
+      classification: 'transient',
     });
-    return null;
+    return { ok: false, cause: 'transient', detail: call.reason };
   }
 
   const refreshed = sessionFromTokenResponse(
@@ -328,14 +370,26 @@ const doRefresh = async (session: SpotifySession): Promise<string | null> => {
     session.refreshToken
   );
   if (!refreshed) {
-    return null;
+    // HTTP 200 sans access_token : réponse malformée. Le refresh token n'a
+    // PAS été refusé — transitoire (nouvelle chance au prochain essai),
+    // la session est conservée.
+    spotifyLog('token.refresh.failed', {
+      cause: 'invalid-response',
+      classification: 'transient',
+    });
+    return { ok: false, cause: 'transient', detail: 'invalid-response' };
   }
 
   spotifyLog('token.refresh.ok', {
     expiresInSeconds: Math.round((refreshed.expiresAtMs - Date.now()) / 1000),
   });
   await saveSession(refreshed);
-  return refreshed.accessToken;
+  return { ok: true, token: refreshed.accessToken };
+};
+
+const doRefresh = async (session: SpotifySession): Promise<string | null> => {
+  const result = await doRefreshClassified(session);
+  return result.ok ? result.token : null;
 };
 
 /**
@@ -361,6 +415,44 @@ export const getValidAccessToken = async (): Promise<string | null> => {
 
   return pendingRefresh;
 };
+
+/**
+ * Décision de DÉMARRAGE, fondée sur la cause RÉELLE de l'absence de token.
+ * C'est la distinction définitif/transitoire qui évite de jeter une session
+ * saine à cause d'une simple coupure réseau au boot.
+ */
+export type StartupSessionResolution =
+  | { kind: 'valid'; token: string }
+  | { kind: 'no-session' }
+  | { kind: 'session-dead'; cause: 'no-refresh-token' | 'refused' }
+  | { kind: 'session-kept-unverified'; detail: string };
+
+export const resolveStartupSession =
+  async (): Promise<StartupSessionResolution> => {
+    const session = await loadSession();
+    if (!session) {
+      return { kind: 'no-session' };
+    }
+
+    if (!isExpired(session)) {
+      return { kind: 'valid', token: session.accessToken };
+    }
+
+    const result = await doRefreshClassified(session);
+    if (result.ok) {
+      return { kind: 'valid', token: result.token };
+    }
+    if (result.cause === 'transient') {
+      // Coupure / 5xx / 429 : la session est PROBABLEMENT encore saine.
+      // On ne la supprime PAS — elle sera retentée au prochain démarrage
+      // (cette même fonction) ou à la prochaine lecture du token.
+      return {
+        kind: 'session-kept-unverified',
+        detail: result.detail,
+      };
+    }
+    return { kind: 'session-dead', cause: result.cause };
+  };
 
 /** Renvoie la session lisible pour l'UI (scopes, expiration) sans token. */
 export const describeSession = async (): Promise<{

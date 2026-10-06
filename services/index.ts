@@ -142,8 +142,14 @@ export {
   isSpotifySessionActive,
   describeSession,
   redeemAuthorizationCode,
+  resolveStartupSession,
 } from './spotify/session';
-export type { LoginOutcome, SpotifySession } from './spotify/session';
+export type {
+  LoginOutcome,
+  SpotifySession,
+  StartupSessionResolution,
+  RefreshResult,
+} from './spotify/session';
 
 // PlaybackBackend prototype boundary. PlayerContext still uses melodixPlayer
 // directly until the isolated Spotify Web runtime has been validated.
