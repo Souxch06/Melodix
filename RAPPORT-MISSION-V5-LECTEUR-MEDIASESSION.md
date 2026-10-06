@@ -15,7 +15,7 @@ intègre** — construite et verrouillée lors des phases précédentes (Phase 1
 5A, 5C, 5D, I-1, I-5, M-1, M-7) :
 
 - `PlayerController` (`services/player.ts`, 2397 L) : 9 états (`idle / loading /
-  resolving / buffering / playing / paused / ended / error / unavailable`),
+resolving / buffering / playing / paused / ended / error / unavailable`),
   `playing` publié **uniquement** après confirmation runtime réelle
   (`markPlaybackStarted` + `isPlaying` vrai, jamais `play() → playing`),
   progression = `positionMillis` réels expo-av (aucun timer), tokens de race
@@ -54,24 +54,24 @@ le mock du runtime, jamais sur la résolution d'une promesse.
 
 ## 2. Audit des critères §1–§16
 
-| § | Critère | Implémentation | Tests existants |
-|---|---------|----------------|-----------------|
-| 1 | PlayerController source de vérité, 9 états | `services/player.ts` | `player.unit.test.ts` (131 it) dont « engine's 9 states » |
-| 2 | Races (double play, play→pause, changement pendant résolution, événements périmés) | tokens `playToken`/`soundTrackId` | « Phase 1 — critical race » (10 it) + « Phase 5D » (7 it) |
-| 3 | next/previous, repeat off/all/one, shuffle déterministe sans répétition immédiate | `advanceAuto`/`advanceManual`/`buildShuffledOrder` | « Phase 2 — advanced queue » (24 it) + **2 nouveaux (ordre stable de session, shuffle off)** |
-| 4 | Queue cohérente (échec piste, échec fallback, sortie/retour app, arrière-plan) | §1 + persistance AppState | 24 it file + « Phase 1/5D » + **2 nouveaux (background/foreground)** |
-| 5 | Fallback Audius→YouTube uniquement après échec réel ; jamais si Audius joue | `trackResolver.ts` | « cascade Audius → YouTube » (7 it), dont « Audius OK → YouTube JAMAIS recherché » |
-| 6 | Source réellement jouée tracée (provider/sourceId/titre/artiste/durée/état) | `state.resolved` + `status` | « le morceau est lu, la source est tracée » + borne NaN/infini |
-| 7 | Mini + full player = MÊME état | `usePlayer()` (PlayerContext) | `PlayerContext.unit.test.tsx` (12 it : relais, 1 souscription, actions directes) + `MiniPlayer` (19 it) + `FullPlayer` |
-| 8 | Persistance queue/piste/position/shuffle/repeat ; restauration sans prétendre jouer | `playbackSession.ts` v1 | 6 it persistance/restore + **3 nouveaux (restauration = 1 lecteur, background, ordre shuffle)** |
-| 9 | Historique seulement si lecture confirmée | `markPlaybackStarted` → `recordPlay` | « recordPlay uniquement sur isPlaying confirmé » |
-| 10 | MediaSession : 2 sens, aucun 2e moteur, notification = piste réelle | `mediaBridge.ts` | `mediaBridge.unit.test.ts` (36 it) dont « §5 complet : play→pause→play→next→previous→seek→stop » |
-| 11 | Background (10 étapes) | `staysActiveInBackground` + audioMode + persistance AppState | « audio mode ONCE per change » + **2 nouveaux (AppState)** + smoke CI |
-| 12 | Casque/Bluetooth (câblage vérifiable) | `audio_becoming_noisy` → pause | 4 it noisy + 1 it teardown — **événement physique non testé (voir §8)** |
-| 13 | Spotify Web : ne PAS faire | non touché (livré v3, double gate CLOSED) | `playerSpotifyWeb.unit.test.ts` (19 it) intacts |
-| 14 | Tests obligatoires §17 | — | **complétés** : 5 nouveaux tests (fichier ci-dessous) |
-| 15 | Gates §18 | — | **§6 de ce rapport** |
-| 16 | Git §19 | — | **§4 de ce rapport** |
+| §   | Critère                                                                             | Implémentation                                               | Tests existants                                                                                                        |
+| --- | ----------------------------------------------------------------------------------- | ------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------- |
+| 1   | PlayerController source de vérité, 9 états                                          | `services/player.ts`                                         | `player.unit.test.ts` (131 it) dont « engine's 9 states »                                                              |
+| 2   | Races (double play, play→pause, changement pendant résolution, événements périmés)  | tokens `playToken`/`soundTrackId`                            | « Phase 1 — critical race » (10 it) + « Phase 5D » (7 it)                                                              |
+| 3   | next/previous, repeat off/all/one, shuffle déterministe sans répétition immédiate   | `advanceAuto`/`advanceManual`/`buildShuffledOrder`           | « Phase 2 — advanced queue » (24 it) + **2 nouveaux (ordre stable de session, shuffle off)**                           |
+| 4   | Queue cohérente (échec piste, échec fallback, sortie/retour app, arrière-plan)      | §1 + persistance AppState                                    | 24 it file + « Phase 1/5D » + **2 nouveaux (background/foreground)**                                                   |
+| 5   | Fallback Audius→YouTube uniquement après échec réel ; jamais si Audius joue         | `trackResolver.ts`                                           | « cascade Audius → YouTube » (7 it), dont « Audius OK → YouTube JAMAIS recherché »                                     |
+| 6   | Source réellement jouée tracée (provider/sourceId/titre/artiste/durée/état)         | `state.resolved` + `status`                                  | « le morceau est lu, la source est tracée » + borne NaN/infini                                                         |
+| 7   | Mini + full player = MÊME état                                                      | `usePlayer()` (PlayerContext)                                | `PlayerContext.unit.test.tsx` (12 it : relais, 1 souscription, actions directes) + `MiniPlayer` (19 it) + `FullPlayer` |
+| 8   | Persistance queue/piste/position/shuffle/repeat ; restauration sans prétendre jouer | `playbackSession.ts` v1                                      | 6 it persistance/restore + **3 nouveaux (restauration = 1 lecteur, background, ordre shuffle)**                        |
+| 9   | Historique seulement si lecture confirmée                                           | `markPlaybackStarted` → `recordPlay`                         | « recordPlay uniquement sur isPlaying confirmé »                                                                       |
+| 10  | MediaSession : 2 sens, aucun 2e moteur, notification = piste réelle                 | `mediaBridge.ts`                                             | `mediaBridge.unit.test.ts` (36 it) dont « §5 complet : play→pause→play→next→previous→seek→stop »                       |
+| 11  | Background (10 étapes)                                                              | `staysActiveInBackground` + audioMode + persistance AppState | « audio mode ONCE per change » + **2 nouveaux (AppState)** + smoke CI                                                  |
+| 12  | Casque/Bluetooth (câblage vérifiable)                                               | `audio_becoming_noisy` → pause                               | 4 it noisy + 1 it teardown — **événement physique non testé (voir §8)**                                                |
+| 13  | Spotify Web : ne PAS faire                                                          | non touché (livré v3, double gate CLOSED)                    | `playerSpotifyWeb.unit.test.ts` (19 it) intacts                                                                        |
+| 14  | Tests obligatoires §17                                                              | —                                                            | **complétés** : 5 nouveaux tests (fichier ci-dessous)                                                                  |
+| 15  | Gates §18                                                                           | —                                                            | **§6 de ce rapport**                                                                                                   |
+| 16  | Git §19                                                                             | —                                                            | **§4 de ce rapport**                                                                                                   |
 
 ---
 
@@ -82,6 +82,7 @@ le mock du runtime, jamais sur la résolution d'une promesse.
 
 1. **`services/__tests__/playerSessionReliability.unit.test.ts`** (nouveau, 256 L,
    5 tests) — les 3 chemins de la liste §17 qui n'avaient pas de test dédié :
+
    - **§4 arrière-plan pendant lecture** : transition AppState `background` →
      session persistée (file, index, position 45 s, shuffle, repeat) sans
      attendre le tick 8 s.
@@ -124,14 +125,14 @@ le mock du runtime, jamais sur la résolution d'une promesse.
 
 ## 5. Gates locales (chiffres exacts)
 
-| Gate | Résultat | Détail |
-|------|----------|--------|
-| **Jest** (`npx jest --runInBand`) | ✅ **1856 passed / 0 failed / 14 skipped** (1870 total) | 145/145 suites passées (14 skipped). Baseline `ab6fa3b` : 1851 → **+5** (les nouveaux tests) |
-| **TypeScript** (`tsc --noEmit`) | ✅ **0 erreur** | — |
-| **ESLint** (`expo lint`) | ✅ **0 erreur / 0 warning** | — |
-| **Prettier** (`prettier --check **/*.{ts,tsx,json,md}`) | ✅ **OK** — tous les fichiers conformes | — |
-| Build Android local | ⚠️ **impossible** | environnement sans Java/SDK/adb (ci-dessous, §9) — fait en CI |
-| Installation/lancement local | ⚠️ **impossible** | idem — fait en CI (émulateur) |
+| Gate                                                    | Résultat                                                | Détail                                                                                       |
+| ------------------------------------------------------- | ------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| **Jest** (`npx jest --runInBand`)                       | ✅ **1856 passed / 0 failed / 14 skipped** (1870 total) | 145/145 suites passées (14 skipped). Baseline `ab6fa3b` : 1851 → **+5** (les nouveaux tests) |
+| **TypeScript** (`tsc --noEmit`)                         | ✅ **0 erreur**                                         | —                                                                                            |
+| **ESLint** (`expo lint`)                                | ✅ **0 erreur / 0 warning**                             | —                                                                                            |
+| **Prettier** (`prettier --check **/*.{ts,tsx,json,md}`) | ✅ **OK** — tous les fichiers conformes                 | —                                                                                            |
+| Build Android local                                     | ⚠️ **impossible**                                       | environnement sans Java/SDK/adb (ci-dessous, §9) — fait en CI                                |
+| Installation/lancement local                            | ⚠️ **impossible**                                       | idem — fait en CI (émulateur)                                                                |
 
 ---
 
@@ -154,24 +155,25 @@ le mock du runtime, jamais sur la résolution d'une promesse.
 
 ## 7. APK
 
-| Champ | Valeur |
-|-------|--------|
-| Nom | `Melodix-v4.5.0-test.8-de4b9f5.apk` |
-| Version | **4.5.0-test.8** / versionCode **45008** |
-| Taille | **47 001 363 octets** (≈ 47 Mo ; 89 Mo non compressé) |
-| **SHA-256** | `d96f16289fd7425975cd60b59487c723a5735ad853280cbd9ab71efb47440ff0` |
-| Package | `com.souxch06.melodix` (signature V3, certificat `fac61745…b9c` identique aux versions précédentes) |
-| ABIs | `arm64-v8a`, `armeabi-v7a`, `x86`, `x86_64` |
-| SDK | minSdk 23 / targetSdk 34 / compileSdk 34 |
+| Champ        | Valeur                                                                                                                                                   |
+| ------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Nom          | `Melodix-v4.5.0-test.8-de4b9f5.apk`                                                                                                                      |
+| Version      | **4.5.0-test.8** / versionCode **45008**                                                                                                                 |
+| Taille       | **47 001 363 octets** (≈ 47 Mo ; 89 Mo non compressé)                                                                                                    |
+| **SHA-256**  | `d96f16289fd7425975cd60b59487c723a5735ad853280cbd9ab71efb47440ff0`                                                                                       |
+| Package      | `com.souxch06.melodix` (signature V3, certificat `fac61745…b9c` identique aux versions précédentes)                                                      |
+| ABIs         | `arm64-v8a`, `armeabi-v7a`, `x86`, `x86_64`                                                                                                              |
+| SDK          | minSdk 23 / targetSdk 34 / compileSdk 34                                                                                                                 |
 | Installation | **vérifiée en CI** (émulateur Android 14) — pas de téléphone dans cet environnement : à installer manuellement depuis l'artefact de la run `37529857217` |
-| Lancement | **vérifié en CI** (cold + warm, pid=6479) |
-| Nature | build de test (`publish_test_apk` désactivé — pas de release AAB) |
+| Lancement    | **vérifié en CI** (cold + warm, pid=6479)                                                                                                                |
+| Nature       | build de test (`publish_test_apk` désactivé — pas de release AAB)                                                                                        |
 
 ---
 
 ## 8. SÉPARATION STRICTE DES NIVEAUX DE PREUVE
 
 ### A. FONCTIONNEL (implémenté, câblé, code lisible)
+
 - 9 états du PlayerController ; `playing` **uniquement** sur confirmation
   runtime (`isPlaying` vrai) — jamais `play() → playing`, jamais de timer de
   progression
@@ -193,6 +195,7 @@ le mock du runtime, jamais sur la résolution d'une promesse.
 - Mini + full player alimentés par le même singleton moteur (un seul état)
 
 ### B. TESTÉ AUTOMATIQUEMENT (Jest 1856/0 — logique, pas appareil)
+
 - **PlayerController** : play/pause/seek/loading/buffering/playing/paused/
   ended/error/unavailable + races (≈131 it dont 9 états explicitement
   couverts, 17 it de races, 8 it buffering/createAsync en vol)
@@ -211,6 +214,7 @@ le mock du runtime, jamais sur la résolution d'une promesse.
   ResumeSessionCard
 
 ### C. TESTÉ SUR ÉMULATEUR (CI smoke, Android 14 x86_64)
+
 - Installation de l'APK 45008, cold/warm start
 - **Cycle arrière-plan/retour** de l'app
 - **Service foreground** démarré (lecteur en arrière-plan)
@@ -221,6 +225,7 @@ le mock du runtime, jamais sur la résolution d'une promesse.
   « son audible » prouvé en CI).
 
 ### D. TESTÉ PHYSIQUEMENT
+
 - (hérité v3, confirmé par l'utilisateur) : **login Spotify réel +
   lecteur Spotify Web** sur téléphone physique.
 - **Cette mission : rien.** Aucun téléphone n'est disponible dans cet
@@ -228,6 +233,7 @@ le mock du runtime, jamais sur la résolution d'une promesse.
   sur appareil physique dans cette mission.**
 
 ### E. NON TESTÉ
+
 - **Audio réel sur appareil physique** (débit/qualité des streams
   Audius/YouTube, latence de résolution) → à valider par l'utilisateur avec
   l'APK 4.5.0-test.8
