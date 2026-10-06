@@ -134,11 +134,25 @@ export const handleMediaCommand = (command: MediaCommand): void => {
       } else if (status === 'idle') {
         // Session restaurée ou morceau en attente dans la file
         void melodixPlayer.play();
+      } else if (status === 'buffering') {
+        // Mise en place en vol : play() garantit l'intention de lecture
+        // (jamais un toggle) — sans-op si la lecture part normalement,
+        // reprise assurée si une pause interne a interrompu le buffer.
+        void melodixPlayer.play();
       }
       break;
 
     case 'pause':
-      if (status === 'playing') {
+      // pause() du moteur est idempotente : playing → pauseAsync ;
+      // buffering → pauseAsync avant la fin du chargement (commande
+      // perdue si on ne traitait QUE 'playing') ; loading/resolving →
+      // annulation propre de la mise en place (Sound orphelin déchargé).
+      if (
+        status === 'playing' ||
+        status === 'buffering' ||
+        status === 'loading' ||
+        status === 'resolving'
+      ) {
         void melodixPlayer.pause();
       }
       break;

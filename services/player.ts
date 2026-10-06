@@ -230,6 +230,10 @@ class MelodixPlayer {
   private state: PlayerState = INITIAL_PLAYER_STATE;
   private listeners = new Set<PlayerListener>();
   private sound: AvSound | null = null;
+  /** Morceau auquel appartient le Sound chargé (anti-pause sur le mauvais
+   * morceau pendant un changement de piste en vol : l'ancien Sound peut être
+   * encore chargé alors que l'état pointe déjà sur le nouveau). */
+  private soundTrackId: string | null = null;
   /** Tous les remplacements attendent la libération native précédente : mettre
    * `sound = null` avant `unloadAsync()` ne doit jamais permettre à un nouveau
    * Sound de démarrer pendant que l'ancien joue encore. */
@@ -395,6 +399,7 @@ class MelodixPlayer {
   private unloadCurrent = async () => {
     const sound = this.sound;
     this.sound = null;
+    this.soundTrackId = null;
 
     if (!sound) {
       await this.unloadQueue;
@@ -1178,6 +1183,7 @@ class MelodixPlayer {
       }
 
       this.sound = sound;
+      this.soundTrackId = track.id;
       appendDiagLog(
         `PLAYER_SOUND_LOADED trackId=${track.id} provider=${result.provider.id}`
       );
@@ -1255,7 +1261,16 @@ class MelodixPlayer {
     if (this.state.status === 'playing') {
       return;
     }
-    if (this.state.status === 'loading' || this.state.status === 'resolving') {
+    if (
+      this.state.status === 'loading' ||
+      this.state.status === 'resolving' ||
+      (this.state.status === 'buffering' && !this.sound)
+    ) {
+      // La mise en place de la lecture est DÉJÀ en vol (résolution, ou
+      // createAsync entre « source trouvée » et Sound assigné). Relancer
+      // playIndex ici annulerait la requête en cours pour refaire le même
+      // travail — et pourrait rejouer un morceau que l'utilisateur venait
+      // de choisir. Le runtime confirmera ou échouera la lecture.
       return;
     }
     if (!this.sound) {
@@ -1267,7 +1282,10 @@ class MelodixPlayer {
     if (this.transportIntent === true) {
       return;
     }
-    await this.togglePlayPause();
+    // Intention explicite : un PLAY pendant `buffering` doit GARANTIR la
+    // lecture à la fin du chargement (jamais un toggle qui calculerait
+    // l'inverse si un statut transitoire disait « non joué »).
+    await this.togglePlayPause(true);
   };
 
   /**
@@ -1277,10 +1295,36 @@ class MelodixPlayer {
     if (this.state.status === 'paused' || this.state.status === 'idle') {
       return;
     }
-    if (this.state.status === 'loading' || this.state.status === 'resolving') {
-      // Pendant la résolution, annuler l'intention de lecture
+    if (
+      this.state.status === 'loading' ||
+      this.state.status === 'resolving' ||
+      (this.state.status === 'buffering' && !this.sound)
+    ) {
+      // Pendant la mise en place (résolution OU createAsync en vol, Sound pas
+      // encore assigné), annuler : le token orpheline fait décharger le Sound
+      // créé après coup — la pause ne peut pas rester perdue « en attente du
+      // buffer ».
       this.playToken += 1;
       await this.unloadCurrent();
+      this.emit({ status: 'paused', buffering: false });
+      return;
+    }
+    if (this.state.status === 'buffering' && this.sound) {
+      // Le Sound existe mais la mise en place n'est pas confirmée. Deux
+      // cas, distingués par le morceau auquel le Sound APPARTIENT :
+      if (this.soundTrackId === this.state.current?.id) {
+        // Le Sound EST la piste courante (créée, en train de bufferiser) :
+        // pauseAsync est une commande native valable à ce moment — c'est la
+        // SEULE façon d'honorer une pause tapée avant la fin du chargement.
+        await this.togglePlayPause(false);
+      } else {
+        // Changement de piste en vol : le Sound encore chargé est l'ancienne
+        // piste (A) alors que l'état pointe déjà sur la nouvelle (B). Il ne
+        // doit PAS rester en pause sous l'étiquette B : on l'abandonne et on
+        // invalide le passage ; la reprise relancera B proprement.
+        this.playToken += 1;
+        await this.unloadCurrent();
+      }
       this.emit({ status: 'paused', buffering: false });
       return;
     }
@@ -1288,7 +1332,7 @@ class MelodixPlayer {
       this.sound &&
       (this.state.status === 'playing' || this.transportIntent === true)
     ) {
-      await this.togglePlayPause();
+      await this.togglePlayPause(false);
     }
   };
 
@@ -1299,7 +1343,20 @@ class MelodixPlayer {
     await this.play();
   };
 
-  togglePlayPause = async () => {
+  /**
+   * Commande transport du Sound courant : lecture OU pause.
+   *
+   * - Sans argument (bouton UI) : bascule — l'intention en vol prime sur
+   *   l'état, qui ne change qu'après la réponse native. Deux taps rapides
+   *   deviennent donc pause PUIS play, au lieu de deux pauses concurrentes
+   *   laissant l'UI dans le mauvais état.
+   * - Avec argument (play()/pause()) : direction FORCÉE. C'est ce qui permet
+   *   d'honorer une PAUSE pendant `buffering` — l'état n'est pas encore
+   *   `playing` mais l'intention du Sound est la lecture : un toggle aurait
+   *   calculé « play » et la pause serait perdue — et d'assurer la reprise
+   *   après un buffering suivi d'une pause interne (focus audio).
+   */
+  togglePlayPause = async (desired?: boolean) => {
     if (this.state.status === 'loading' || this.state.status === 'resolving') {
       // Pendant la résolution, aucun Sound n'existe encore. Ne jamais relancer
       // playIndex depuis un toggle qui devait être une pause.
@@ -1316,11 +1373,11 @@ class MelodixPlayer {
     const sound = this.sound;
     const playToken = this.playToken;
     // L'intention en vol prime sur l'état React, qui ne change qu'après la
-    // réponse native. Deux taps rapides deviennent donc pause PUIS play, au
-    // lieu de deux pauses concurrentes laissant l'UI dans le mauvais état.
-    const desiredPlaying = !(
-      this.transportIntent ?? this.state.status === 'playing'
-    );
+    // réponse native.
+    const desiredPlaying =
+      desired === undefined
+        ? !(this.transportIntent ?? this.state.status === 'playing')
+        : desired;
     this.transportIntent = desiredPlaying;
     const commandToken = ++this.transportCommandToken;
 
@@ -1393,7 +1450,16 @@ class MelodixPlayer {
   };
 
   previous = async () => {
-    const { positionMillis, index } = this.state;
+    const { positionMillis, index, status, current } = this.state;
+
+    // Fin de file : plus aucun Sound. « Précédent » sur une piste terminée
+    // ne doit PAS être un no-op (UI mais surtout écran verrouilli) : on
+    // relit la piste affichée depuis le début — même contrat que le PLAY
+    // système dans `ended`.
+    if (status === 'ended' && current && index >= 0) {
+      await this.playIndex(index);
+      return;
+    }
 
     if (positionMillis > RESTART_THRESHOLD_MS && index >= 0) {
       await this.seekTo(0);
@@ -1438,6 +1504,18 @@ class MelodixPlayer {
       // une seule fois au démarrage effectif) — TAGUÉE au morceau courant.
       this.pendingSeekMillis = clamped;
       this.pendingSeekForId = this.state.current?.id ?? null;
+    } else if (
+      this.state.status === 'ended' &&
+      this.state.current &&
+      this.state.index >= 0
+    ) {
+      // Fin de file : plus aucun Sound — un seek sur une piste terminée la
+      // RELANCE à la position demandée (jamais de no-op sur l'écran
+      // verrouilli). Même canal que la restauration de session, tagué au
+      // morceau courant.
+      this.pendingSeekMillis = clamped;
+      this.pendingSeekForId = this.state.current.id;
+      void this.playIndex(this.state.index);
     } else {
       return;
     }
@@ -1457,6 +1535,7 @@ class MelodixPlayer {
     // l'ancien Sound. Le publier avant l'appel natif garantit qu'un morceau
     // créé pendant un setVolumeAsync lent démarre déjà au bon niveau.
     this.emit({ volume: clamped });
+    this.persistSession();
 
     if (sound) {
       try {
@@ -1472,11 +1551,15 @@ class MelodixPlayer {
 
     if (shuffle) {
       this.emit({ shuffle: false, order: null, orderPointer: -1 });
+      // Persistance immédiate : un kill de l'app entre deux ticks 8 s ne
+      // doit pas perdre le choix (la session restaurée relance en shuffle).
+      this.persistSession();
       return;
     }
 
     if (!queue.length || index < 0) {
       this.emit({ shuffle: true });
+      this.persistSession();
       return;
     }
 
@@ -1485,6 +1568,7 @@ class MelodixPlayer {
       order: buildShuffledOrder(queue.length, index),
       orderPointer: 0,
     });
+    this.persistSession();
   };
 
   cycleRepeat = () => {
@@ -1492,12 +1576,14 @@ class MelodixPlayer {
     const next = order[(order.indexOf(this.state.repeat) + 1) % order.length];
 
     this.emit({ repeat: next });
+    this.persistSession();
   };
 
   /** Réglage explicite (paramètres → switch « Répéter la file »). Additif. */
   setRepeat = (mode: RepeatMode) => {
     if (this.state.repeat !== mode) {
       this.emit({ repeat: mode });
+      this.persistSession();
     }
   };
 
@@ -1840,6 +1926,7 @@ class MelodixPlayer {
   // Test-only: complete engine reset (match cache + failures + preferences).
   __testReset = async () => {
     await this.unloadCurrent();
+    this.soundTrackId = null;
     this.matchCache = null;
     this.matchCacheLoad = null;
     this.resolutionLoads.clear();

@@ -2848,4 +2848,313 @@ describe('Les NEUF états du moteur (spec lecteur)', () => {
     expect(melodixPlayer.getState().status).not.toBe('unavailable');
     expect(melodixPlayer.getState().resolved).not.toBeNull();
   });
+
+  // ---------------------------------------------------------------------
+  // Fiabilité du transport : buffering, ended, persistance immédiate.
+  // ---------------------------------------------------------------------
+
+  /** createAsync contrôlé par une porte : la promesse ne rend QUE sur
+   *  release() — pour tester les fenêtres « Sound pas encore assigné ». */
+  const pendingCreate = () => {
+    const { Audio: av } = jest.requireMock('expo-av') as {
+      Audio: { Sound: { createAsync: jest.Mock } };
+    };
+
+    let release!: (value: {
+      sound: ReturnType<typeof makeSound>;
+      status: Record<string, unknown>;
+    }) => void;
+    const gate = new Promise<{
+      sound: ReturnType<typeof makeSound>;
+      status: Record<string, unknown>;
+    }>((resolve) => {
+      release = resolve;
+    });
+
+    av.Sound.createAsync.mockImplementationOnce(
+      (
+        _source: { uri: string },
+        _initial: Record<string, unknown>,
+        onStatus?: (status: Record<string, unknown>) => void
+      ) => {
+        lastStatusCallback = onStatus ?? null;
+        return gate;
+      }
+    );
+
+    return { release, av };
+  };
+
+  it('PAUSE pendant buffering (Sound déjà créé) est honorée : pauseAsync, jamais de faux PLAYING', async () => {
+    const { Audio: av } = jest.requireMock('expo-av') as {
+      Audio: { Sound: { createAsync: jest.Mock } };
+    };
+    av.Sound.createAsync.mockImplementationOnce(
+      async (
+        _source: { uri: string },
+        _initial: Record<string, unknown>,
+        onStatus?: (status: Record<string, unknown>) => void
+      ) => {
+        lastStatusCallback = onStatus ?? null;
+        const created = makeSound();
+        created.playAsync.mockResolvedValueOnce({
+          isLoaded: true,
+          isPlaying: false,
+          isBuffering: true,
+        });
+        lastSound = created;
+        mockCreatedSounds.push(created);
+
+        return {
+          sound: created,
+          status: {
+            isLoaded: true,
+            isPlaying: false,
+            isBuffering: true,
+            positionMillis: 0,
+          },
+        };
+      }
+    );
+
+    await melodixPlayer.playTrack(track('lent'));
+    expect(melodixPlayer.getState().status).toBe('buffering');
+
+    await melodixPlayer.pause();
+
+    expect(lastSound.pauseAsync).toHaveBeenCalledTimes(1);
+    expect(lastSound.playAsync).not.toHaveBeenCalled();
+    expect(melodixPlayer.getState()).toMatchObject({
+      status: 'paused',
+      buffering: false,
+    });
+  });
+
+  it('PAUSE pendant createAsync en vol (Sound pas encore assigné) annule la mise en place — aucun son orphelin ne joue', async () => {
+    const { release } = pendingCreate();
+
+    const playing = melodixPlayer.playTrack(track('lente'));
+    await flush();
+    expect(melodixPlayer.getState().status).toBe('buffering');
+
+    await melodixPlayer.pause();
+    expect(melodixPlayer.getState().status).toBe('paused');
+
+    const created = makeSound();
+    release({
+      sound: created,
+      status: {
+        isLoaded: true,
+        isPlaying: true,
+        isBuffering: false,
+        positionMillis: 0,
+      },
+    });
+    await playing;
+    await flush();
+
+    // Le Sound créé APRÈS la pause est orphelin : déchargé, jamais assigné,
+    // jamais joué — la pause tapée avant la fin du buffer n'est pas perdue.
+    expect(created.unloadAsync).toHaveBeenCalledTimes(1);
+    expect(melodixPlayer.getState()).toMatchObject({ status: 'paused' });
+  });
+
+  it('PLAY pendant buffering garantit la lecture (playAsync) — PLAYING uniquement après confirmation du runtime', async () => {
+    const { Audio: av } = jest.requireMock('expo-av') as {
+      Audio: { Sound: { createAsync: jest.Mock } };
+    };
+    av.Sound.createAsync.mockImplementationOnce(
+      async (
+        _source: { uri: string },
+        _initial: Record<string, unknown>,
+        onStatus?: (status: Record<string, unknown>) => void
+      ) => {
+        lastStatusCallback = onStatus ?? null;
+        const created = makeSound();
+        // playAsync répond « encore en buffer » : pas de preuve de lecture.
+        created.playAsync.mockResolvedValueOnce({
+          isLoaded: true,
+          isPlaying: false,
+          isBuffering: true,
+        });
+        lastSound = created;
+        mockCreatedSounds.push(created);
+
+        return {
+          sound: created,
+          status: {
+            isLoaded: true,
+            isPlaying: false,
+            isBuffering: true,
+            positionMillis: 0,
+          },
+        };
+      }
+    );
+
+    await melodixPlayer.playTrack(track('lent2'));
+    expect(melodixPlayer.getState().status).toBe('buffering');
+
+    await melodixPlayer.play();
+
+    expect(lastSound.playAsync).toHaveBeenCalledTimes(1);
+    // playAsync a répondu « buffer » : le moteur ne doit PAS inventer
+    // PLAYING — l'état reste buffering jusqu'à la vraie confirmation.
+    expect(melodixPlayer.getState().status).toBe('buffering');
+
+    lastStatusCallback?.({
+      isLoaded: true,
+      isPlaying: true,
+      isBuffering: false,
+      positionMillis: 250,
+    });
+    expect(melodixPlayer.getState()).toMatchObject({
+      status: 'playing',
+      positionMillis: 250,
+    });
+  });
+
+  it('PLAY pendant createAsync en vol ne relance PAS la mise en place (un seul createAsync)', async () => {
+    const { release, av } = pendingCreate();
+    // Compteur local : le mock expo-av est partagé par toute la suite.
+    const callsBefore = av.Sound.createAsync.mock.calls.length;
+
+    const playing = melodixPlayer.playTrack(track('lente2'));
+    await flush();
+    expect(av.Sound.createAsync.mock.calls.length - callsBefore).toBe(1);
+    expect(melodixPlayer.getState().status).toBe('buffering');
+
+    await melodixPlayer.play();
+    await flush();
+
+    // Aucune nouvelle création : la lecture déjà en vol est préservée
+    // (l'ancien code relançait playIndex = annulation + re-résolution).
+    expect(av.Sound.createAsync.mock.calls.length - callsBefore).toBe(1);
+    expect(melodixPlayer.getState().status).toBe('buffering');
+
+    release({
+      sound: makeSound(),
+      status: {
+        isLoaded: true,
+        isPlaying: true,
+        isBuffering: false,
+        positionMillis: 0,
+      },
+    });
+    await playing;
+    await flush();
+    expect(melodixPlayer.getState().status).toBe('playing');
+  });
+
+  it("PAUSE pendant resolving avec l'ancien Sound encore chargé : abandon propre, la nouvelle piste ne démarre jamais", async () => {
+    // 30 ms PAR appel de resolveSource (pas une promesse unique : la
+    // résolution de A la consommerait avant celle de B).
+    __testSetAudioProviders({
+      audius: makeProvider({
+        resolveSource: jest.fn(
+          async (sourceId: string): Promise<ResolvedStream> => {
+            await new Promise((resolve) => setTimeout(resolve, 30));
+            return { uri: `https://stream/${sourceId}` };
+          }
+        ),
+      }),
+    });
+
+    await melodixPlayer.playQueue([track('a'), track('b')], 0);
+    await flush();
+    expect(melodixPlayer.getState().status).toBe('playing');
+    const sonA = lastSound;
+    expect(sonA).not.toBeNull();
+
+    void melodixPlayer.next();
+    await flush();
+    // B est en résolution : l'état pointe sur B, le Sound de A est encore chargé.
+    expect(melodixPlayer.getState().status).toBe('resolving');
+    expect(melodixPlayer.getState().current?.id).toBe('spotify:b');
+
+    await melodixPlayer.pause();
+    await flush();
+
+    expect(melodixPlayer.getState()).toMatchObject({
+      status: 'paused',
+      current: { id: 'spotify:b' },
+    });
+    // Le Sound de A est abandonné (pas conservé sous l'étiquette de B).
+    expect(sonA.unloadAsync).toHaveBeenCalled();
+
+    // La résolution lente finit : B ne doit PAS démarrer malgré tout.
+    await new Promise((resolve) => setTimeout(resolve, 60));
+    expect(melodixPlayer.getState().status).toBe('paused');
+    expect(lastSound).toBe(sonA);
+    expect(mockCreatedSounds.length).toBe(1);
+  });
+
+  it('PREVIOUS en fin de file (ended) relit la piste affichée — jamais de no-op', async () => {
+    await melodixPlayer.playQueue([track('a'), track('b')], 0);
+    await flush();
+    await melodixPlayer.next();
+    await flush();
+    expect(melodixPlayer.getState().current?.id).toBe('spotify:b');
+
+    lastStatusCallback?.({ isLoaded: true, didJustFinish: true });
+    await flush();
+    expect(melodixPlayer.getState().status).toBe('ended');
+
+    const soundsBefore = mockCreatedSounds.length;
+    await melodixPlayer.previous();
+    await flush();
+
+    expect(melodixPlayer.getState()).toMatchObject({
+      status: 'playing',
+      current: { id: 'spotify:b' },
+      positionMillis: 0,
+    });
+    expect(mockCreatedSounds.length).toBe(soundsBefore + 1);
+  });
+
+  it('SEEK en fin de file (ended) relance la piste à la position demandée', async () => {
+    await melodixPlayer.playQueue([track('a'), track('b')], 0);
+    await flush();
+    await melodixPlayer.next();
+    await flush();
+    expect(melodixPlayer.getState().current?.id).toBe('spotify:b');
+
+    lastStatusCallback?.({ isLoaded: true, didJustFinish: true });
+    await flush();
+    expect(melodixPlayer.getState().status).toBe('ended');
+
+    await melodixPlayer.seekTo(3000);
+    await flush();
+    await flush();
+    await flush();
+
+    expect(melodixPlayer.getState()).toMatchObject({
+      status: 'playing',
+      current: { id: 'spotify:b' },
+      positionMillis: 3000,
+    });
+    expect(lastSound.setPositionAsync).toHaveBeenCalledWith(3000);
+  });
+
+  it('volume / shuffle / repeat sont persistés immédiatement (sans attendre le tick 8 s)', async () => {
+    await melodixPlayer.playQueue([track('one'), track('two')], 0);
+    await flush();
+
+    await melodixPlayer.setVolume(0.42);
+    melodixPlayer.toggleShuffle();
+    melodixPlayer.cycleRepeat();
+    // Écriture fire-and-forget : un court instant pour AsyncStorage.
+    await new Promise((resolve) => setTimeout(resolve, 25));
+
+    const raw = await AsyncStorage.getItem(PLAYBACK_SESSION_STORAGE_KEY);
+    expect(raw).not.toBeNull();
+    const session = JSON.parse(raw as string) as {
+      volume: number;
+      shuffle: boolean;
+      repeat: string;
+    };
+    expect(session.volume).toBeCloseTo(0.42);
+    expect(session.shuffle).toBe(true);
+    expect(session.repeat).toBe('all');
+  });
 });

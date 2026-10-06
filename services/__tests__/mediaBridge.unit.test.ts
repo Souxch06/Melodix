@@ -485,7 +485,7 @@ describe('mediaBridge — projection MediaSession (phase 5A)', () => {
       expect(playAtIndexSpy).not.toHaveBeenCalled();
     });
 
-    it('PAUSE pendant resolving → AUCUNE commande', async () => {
+    it('PAUSE pendant resolving → annule la mise en place (jamais de toggle, jamais de lecture)', async () => {
       __testSetAudioProviders({
         audius: {
           ...makeProvider(),
@@ -503,9 +503,115 @@ describe('mediaBridge — projection MediaSession (phase 5A)', () => {
       expect(melodixPlayer.getState().status).toBe('resolving');
 
       const toggleSpy = jest.spyOn(melodixPlayer, 'togglePlayPause');
+      const pauseSpy = jest.spyOn(melodixPlayer, 'pause');
       handleMediaCommand({ command: 'pause' });
 
+      // La commande système passe par pause() du moteur (idempotente),
+      // JAMAIS par un toggle — et la mise en place en vol est annulée.
+      expect(pauseSpy).toHaveBeenCalledTimes(1);
       expect(toggleSpy).not.toHaveBeenCalled();
+      await flush();
+      expect(melodixPlayer.getState().status).toBe('paused');
+
+      // La résolution lente finit : rien ne démarre malgré tout.
+      await new Promise((resolve) => setTimeout(resolve, 60));
+      expect(melodixPlayer.getState().status).toBe('paused');
+    });
+
+    it('PAUSE pendant buffering → pauseAsync sur le Sound (commande jamais perdue)', async () => {
+      const { Audio: av } = jest.requireMock('expo-av') as {
+        Audio: { Sound: { createAsync: jest.Mock } };
+      };
+      let created: {
+        playAsync: jest.Mock;
+        pauseAsync: jest.Mock;
+      } | null = null;
+      av.Sound.createAsync.mockImplementationOnce(async () => {
+        created = {
+          // Le runtime répond « encore en buffer » : pas de preuve de lecture.
+          playAsync: jest.fn(async () => ({
+            isLoaded: true,
+            isPlaying: false,
+            isBuffering: true,
+          })),
+          pauseAsync: jest.fn(async () => ({
+            isLoaded: true,
+            isPlaying: false,
+            isBuffering: false,
+          })),
+          unloadAsync: jest.fn(async () => {}),
+          setPositionAsync: jest.fn(async () => {}),
+          setVolumeAsync: jest.fn(async () => {}),
+        } as never;
+        return {
+          sound: created,
+          status: {
+            isLoaded: true,
+            isPlaying: false,
+            isBuffering: true,
+            positionMillis: 0,
+          },
+        };
+      });
+
+      await melodixPlayer.playQueue([morceau('a', 'Photo')], 0);
+      expect(melodixPlayer.getState().status).toBe('buffering');
+
+      handleMediaCommand({ command: 'pause' });
+      await flush();
+
+      expect(created?.pauseAsync).toHaveBeenCalledTimes(1);
+      expect(created?.playAsync).not.toHaveBeenCalled();
+      expect(melodixPlayer.getState().status).toBe('paused');
+    });
+
+    it("PLAY pendant buffering → le moteur garantit l'intention de lecture (playAsync, jamais de toggle)", async () => {
+      const { Audio: av } = jest.requireMock('expo-av') as {
+        Audio: { Sound: { createAsync: jest.Mock } };
+      };
+      let created: { playAsync: jest.Mock } | null = null;
+      av.Sound.createAsync.mockImplementationOnce(async () => {
+        created = {
+          playAsync: jest.fn(async () => ({
+            isLoaded: true,
+            isPlaying: false,
+            isBuffering: true,
+          })),
+          pauseAsync: jest.fn(async () => ({
+            isLoaded: true,
+            isPlaying: false,
+            isBuffering: false,
+          })),
+          unloadAsync: jest.fn(async () => {}),
+          setPositionAsync: jest.fn(async () => {}),
+          setVolumeAsync: jest.fn(async () => {}),
+        } as never;
+        return {
+          sound: created,
+          status: {
+            isLoaded: true,
+            isPlaying: false,
+            isBuffering: true,
+            positionMillis: 0,
+          },
+        };
+      });
+
+      await melodixPlayer.playQueue([morceau('a', 'Photo')], 0);
+      expect(melodixPlayer.getState().status).toBe('buffering');
+
+      const playSpy = jest.spyOn(melodixPlayer, 'play');
+      const toggleSpy = jest.spyOn(melodixPlayer, 'togglePlayPause');
+      handleMediaCommand({ command: 'play' });
+      await flush();
+
+      expect(playSpy).toHaveBeenCalledTimes(1);
+      // Intention EXPLICITE (true) — jamais un toggle nu qui pourrait
+      // calculer l'inverse sur un statut transitoire.
+      expect(toggleSpy).toHaveBeenCalledWith(true);
+      expect(created?.playAsync).toHaveBeenCalledTimes(1);
+      // playAsync a répondu « buffer » : le moteur ne peut PAS inventer PLAYING.
+      expect(melodixPlayer.getState().status).toBe('buffering');
     });
     it('NEXT / PREVIOUS / SEEK / STOP relèvent les mêmes méthodes moteur', async () => {
       await melodixPlayer.playQueue(
