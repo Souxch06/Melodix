@@ -17,7 +17,7 @@ export enum UserInterfaceIdiom {
 
 const expoConfig: { extra: Record<string, unknown>; version?: string } = {
   extra: {},
-  version: '4.5.0-test.3',
+  version: '4.5.0-test.4',
 };
 
 const Constants = {
