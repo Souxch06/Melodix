@@ -583,6 +583,113 @@ describe('findBestAudiusMatch — cascade multi-requêtes (spécification matchi
     expect(match?.id).toBe('dup');
   });
 
+  /**
+   * FORMULATIONS ALBUM (parité YouTube) — les pistes que « Artiste Titre »
+   * ne trouve pas sont souvent recoverables grâce à l'album : c'est le
+   * signal le plus discriminant quand l'upload Audius porte un titre
+   * légèrement différent du catalogue Spotify.
+   */
+  describe('formulations album (completude du catalogue)', () => {
+    const queryWithAlbum = (
+      title: string,
+      artists: string[],
+      album: string,
+      isrc?: string
+    ) => ({
+      title,
+      artists,
+      album,
+      isrc,
+      durationMillis: null as number | null,
+    });
+
+    it('tombe sur « artiste + titre + album » quand les requêtes sans album sont muettes', async () => {
+      const seen: string[] = [];
+      const search = jest.fn(async (text: string) => {
+        seen.push(text);
+        return text === 'Neffex Tame Discovery'
+          ? [audius('via-album', 'Tame', 'Neffex')]
+          : [];
+      });
+
+      const match = await findBestAudiusMatch(
+        queryWithAlbum('Tame', ['Neffex'], 'Discovery'),
+        search
+      );
+
+      expect(match?.id).toBe('via-album');
+      expect(seen).toContain('Neffex Tame Discovery');
+      // La formulation album arrive APRÈS « artiste + titre » et ses
+      // variantes : on ne paie la requête supplémentaire que si besoin.
+      expect(seen.indexOf('Neffex Tame Discovery')).toBeGreaterThan(
+        seen.indexOf('Neffex Tame')
+      );
+    });
+
+    it('tombe sur « artiste + album » quand le titre luimême ne ramène rien', async () => {
+      const search = jest.fn(async (text: string) =>
+        text === 'Neffex Discovery'
+          ? [audius('via-album-only', 'Tame', 'Neffex')]
+          : []
+      );
+
+      const match = await findBestAudiusMatch(
+        queryWithAlbum('Tame', ['Neffex'], 'Discovery'),
+        search
+      );
+
+      expect(match?.id).toBe('via-album-only');
+    });
+
+    it('borne la cascade : 3 requêtes sans album, 7 avec ISRC + album (jamais plus)', async () => {
+      const searchSansAlbum = jest.fn(async () => []);
+      await findBestAudiusMatch(query('Tame', ['Neffex']), searchSansAlbum);
+      // Artiste+titre, titre+artiste, titre seul (la forme canonique
+      // duplique la 1re : pas de requête en doublon).
+      expect(searchSansAlbum).toHaveBeenCalledTimes(3);
+
+      // Le cas maximal : ISRC + 6 formulations textuelles distinctes
+      // (l accent du titre rend la forme canonique distincte du brut).
+      const searchAvecAlbum = jest.fn(async () => []);
+      await findBestAudiusMatch(
+        queryWithAlbum('À Tame', ['Neffex'], 'Discovery', 'US1234567890'),
+        searchAvecAlbum
+      );
+      // ISRC, artiste+titre, titre+artiste, artiste+titre+album,
+      // artiste+canonique, artiste+album, titre seul = 7 (la borne).
+      expect(searchAvecAlbum).toHaveBeenCalledTimes(7);
+    });
+
+    it('aucune nouvelle requête quand le match est trouvé avant (économie préservée)', async () => {
+      const search = jest.fn(async () => [audius('first', 'Tame', 'Neffex')]);
+
+      const match = await findBestAudiusMatch(
+        queryWithAlbum('Tame', ['Neffex'], 'Discovery'),
+        search
+      );
+
+      expect(match?.id).toBe('first');
+      expect(search).toHaveBeenCalledTimes(1);
+    });
+
+    it('les protections du matcher restent INTACTES sur les lots album (mauvais artiste refusé)', async () => {
+      // Le lot « artiste + album » ramène un titre identique porté par un
+      // AUTRE artiste : le match doit être REFUSÉ comme partout ailleurs.
+      const search = jest.fn(async (text: string) =>
+        text === 'Neffex Discovery'
+          ? [audius('intrus', 'Tame', 'Autre Artiste')]
+          : []
+      );
+
+      const match = await findBestAudiusMatch(
+        queryWithAlbum('Tame', ['Neffex'], 'Discovery'),
+        search
+      );
+
+      expect(match).toBeNull();
+    });
+  });
+
   it('respecte un seuil minimum plus strict quand il est demandé', async () => {
     const search = jest.fn(async () => [
       audius('other', 'Tame Impala vs everything', 'Other Artist'),

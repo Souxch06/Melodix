@@ -20,10 +20,50 @@ import { LibraryItemModel } from '@models';
 /** Types demandés à Spotify — l'ordre de la réponse n'est pas garanti. */
 const SEARCH_TYPES = 'track,artist,album,playlist' as const;
 
-/** Borne Spotify : 50 par type et par page. */
+/** Borne Spotify : 50 par type et par page (on reste à 20 : pertinent + rapide). */
 const MAX_PER_TYPE = 20;
 
-const DEFAULT_LIMIT = 10;
+/**
+ * Nombre de résultats affichés par recherche. 20 (au lieu de 10) :
+ * le premier écran de résultats doit couvrir les déclinaisons d'un même
+ * morceau (remaster, version live, édition radio) sans faire défiler.
+ */
+const DEFAULT_LIMIT = 20;
+
+/** Nombre MAXIMAL de pages de tracks paginées (2 × 20 = 40 pistes). */
+const MAX_TRACK_PAGES = 2;
+
+/**
+ * Dédoublonne par identifiant Spotify — l'ordre de pertinence Spotify est
+ * conservé. Les lignes sans identifiant sont écartées ici : le mappage
+ * (trackToLibraryItem) les rejetterait de toute façon.
+ */
+const dedupeById = <T extends { id?: string | null } | null>(
+  value: T[]
+): T[] => {
+  const seen = new Set<string>();
+  return value.filter((item) => {
+    if (!item || !item.id || seen.has(item.id)) {
+      return false;
+    }
+    seen.add(item.id);
+    return true;
+  });
+};
+
+const fetchSearchPage = async (
+  q: string,
+  perType: number,
+  offset: number
+): Promise<SpotifySearchRaw> => {
+  const params = new URLSearchParams({
+    q,
+    type: SEARCH_TYPES,
+    limit: String(perType),
+    offset: String(offset),
+  });
+  return spotifyApiGet<SpotifySearchRaw>(`/search?${params.toString()}`);
+};
 
 export type SpotifySearchResults = {
   tracks: LibraryItemModel[];
@@ -181,6 +221,13 @@ const playlistToLibraryItem = (
  * Recherche catalogue authentifiée. Un type absent de la réponse Spotify
  * (playlists non disponibles pour un compte, par exemple) est simplement
  * rendu vide — jamais d'exception, la recherche reste utilisable.
+ *
+ * PAGINATION TRACKS (completude du catalogue) : la page 1 rend déjà des
+ * résultats ; si elle est COMPLETE (signe qu'il y en a d'autres), une 2e
+ * page est demandée (offset = limite) et les pistes sont fusionnées par
+ * ordre de pertinence Spotify puis dédoublonnées par identifiant. Les
+ * autres types (artistes/albums/playlists) restent en page unique : ce
+ * sont des entrées de navigation, pas le catalogue de morceaux.
  */
 export const searchSpotifyCatalog = async (
   query: string,
@@ -193,27 +240,34 @@ export const searchSpotifyCatalog = async (
   }
 
   const perType = Math.min(Math.max(limit, 1), MAX_PER_TYPE);
-  const params = new URLSearchParams({
-    q,
-    type: SEARCH_TYPES,
-    limit: String(perType),
-  });
+  const first = await fetchSearchPage(q, perType, 0);
 
-  const raw = await spotifyApiGet<SpotifySearchRaw>(
-    `/search?${params.toString()}`
-  );
+  // Page 2 de tracks uniquement si la 1e est pleine — sinon inutile.
+  // Si elle échoue (réseau), on garde la page 1 : la recherche reste
+  // servie, jamais bloquée par la pagination.
+  const firstTracks = items(first.tracks);
+  let trackHits = firstTracks;
+  if (firstTracks.length >= perType) {
+    try {
+      const second = await fetchSearchPage(q, perType, perType);
+      trackHits = [...firstTracks, ...items(second.tracks)];
+    } catch {
+      trackHits = firstTracks;
+    }
+  }
+  trackHits = dedupeById(trackHits).slice(0, perType * MAX_TRACK_PAGES);
 
   return {
-    tracks: items(raw.tracks)
+    tracks: trackHits
       .map(trackToLibraryItem)
       .filter((item): item is LibraryItemModel => Boolean(item)),
-    artists: items(raw.artists)
+    artists: items(first.artists)
       .map(artistToLibraryItem)
       .filter((item): item is LibraryItemModel => Boolean(item)),
-    albums: items(raw.albums)
+    albums: items(first.albums)
       .map(albumToLibraryItem)
       .filter((item): item is LibraryItemModel => Boolean(item)),
-    playlists: items(raw.playlists)
+    playlists: items(first.playlists)
       .map(playlistToLibraryItem)
       .filter((item): item is LibraryItemModel => Boolean(item)),
   };

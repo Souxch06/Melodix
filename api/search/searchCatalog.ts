@@ -6,7 +6,14 @@ import { audiusTrackToLibraryItem, searchAudiusTracks } from '../audius';
 import { backendSearchCatalog } from '../backend';
 import { searchSpotifyCatalog } from '../spotify/search';
 
-export const SEARCH_LIMIT = 10;
+/**
+ * Résultats par type par recherche : 20 (au lieu de 10). Le catalogue
+ * Spotify est vaste — 10 lignes masquaient les déclinaisons d'un même
+ * morceau (remaster, live, radio edit) et donnaient l'impression d'un
+ * catalogue « incomplet ». Côté Spotify, les tracks sont en outre
+ * paginés (2 pages) dans searchSpotifyCatalog.
+ */
+export const SEARCH_LIMIT = 20;
 
 const emptyResults = (): SearchResultsModel => ({
   artists: [],

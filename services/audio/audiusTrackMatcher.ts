@@ -991,12 +991,24 @@ export const findBestAudiusMatch = async (
 
   // ISRC est le signal le plus précis lorsqu'il est indexé par Audius. Les
   // formulations textuelles restent indispensables car ce champ est rare.
+  //
+  // Les formulations ALBUM (parité avec le fournisseur YouTube) : quand le
+  // titre seul ou « Artiste Titre » reste muet, l'album disambiguise — c'est
+  // la clé des morceaux peu diffusés dont l'upload Audius porte un titre
+  // légèrement différent du catalogue Spotify.
+  const album = query.album?.replace(/\s{2,}/g, ' ').trim() ?? '';
   pushAttempt(source.isrc ?? null);
   pushAttempt(primary ? `${primary} ${titleWithoutFeature}` : null);
   pushAttempt(`${titleWithoutFeature} ${primary ?? ''}`);
+  if (album) {
+    pushAttempt(primary ? `${primary} ${titleWithoutFeature} ${album}` : null);
+  }
   pushAttempt(
     canonicalTitle && primary ? `${primary} ${canonicalTitle}` : canonicalTitle
   );
+  if (album) {
+    pushAttempt(primary ? `${primary} ${album}` : album);
+  }
   pushAttempt(titleWithoutFeature || canonicalTitle);
 
   let allCandidates: AudiusTrackMatch[] = [];
@@ -1029,11 +1041,13 @@ export const findBestAudiusMatch = async (
     });
   };
 
-  // Boucle STRICTEMENT bornée (≤ 5 requêtes, ISRC compris) : un lot
-  // NON VIDE mais sans candidat ADMISSIBLE n'arrête plus la cascade — la
-  // formulation suivante peut trouver le bon. On ne s'arrête tôt que sur
-  // match admissible (zéro requête superflue quand le 1er lot suffit).
-  for (const attempt of attempts.slice(0, 5)) {
+  // Boucle STRICTEMENT bornée (≤ 7 requêtes, ISRC compris — 5 sans album,
+  // 7 avec) : un lot NON VIDE mais sans candidat ADMISSIBLE n'arrête plus
+  // la cascade — la formulation suivante peut trouver le bon. On ne
+  // s'arrête tôt que sur match admissible (zéro requête superflue quand le
+  // 1er lot suffit). Les requêtes additionnelles ne jouent QUE pour les
+  // titres que les 5 premières formulations n'ont pas résolus.
+  for (const attempt of attempts.slice(0, 7)) {
     try {
       const batch = await search(attempt);
       devMatcherLog('search', {

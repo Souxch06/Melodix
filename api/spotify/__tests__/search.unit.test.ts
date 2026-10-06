@@ -276,3 +276,101 @@ it('propagates the Spotify error to the caller (no silent empty result)', async 
     'spotify down'
   );
 });
+
+/**
+ * PAGINATION TRACKS — completude du catalogue : si la page 1 est pleine
+ * (signe qu'il y a d'autres pistes), une 2e page est demandée et les
+ * pistes sont fusionnées par ordre de pertinence, dédoublonnées par id.
+ */
+describe('pagination tracks (completude du catalogue)', () => {
+  const page = (ids: string[], extra: Record<string, unknown> = {}) => ({
+    tracks: {
+      items: ids.map((id) => ({
+        id,
+        name: `Titre ${id}`,
+        duration_ms: 200_000,
+        artists: [{ id: 'a', name: 'Artiste' }],
+        album: { name: 'Album' },
+        ...extra,
+      })),
+    },
+  });
+
+  it('page 1 PLEINE → 2e page demandée (offset = limite), pistes fusionnées', async () => {
+    // Limite 2 pour garder le test rapide : page 1 pleine = 2 pistes.
+    mockedGet.mockResolvedValueOnce(page(['t1', 't2']));
+    mockedGet.mockResolvedValueOnce(page(['t3', 't4']));
+
+    const results = await searchSpotifyCatalog('daft punk', 2);
+
+    expect(mockedGet).toHaveBeenCalledTimes(2);
+    expect(mockedGet.mock.calls[0][0]).toContain('limit=2');
+    expect(mockedGet.mock.calls[0][0]).toContain('offset=0');
+    expect(mockedGet.mock.calls[1][0]).toContain('offset=2');
+    // Ordre de pertinence Spotify conservé (page 1 d'abord).
+    expect(results.tracks.map((t) => t.id)).toEqual(['t1', 't2', 't3', 't4']);
+  });
+
+  it('page 1 INCOMPLÈTE → aucune 2e requête (zéro appel superflu)', async () => {
+    mockedGet.mockResolvedValue(page(['t1', 't2']));
+
+    await searchSpotifyCatalog('daft punk', 10);
+
+    expect(mockedGet).toHaveBeenCalledTimes(1);
+  });
+
+  it('les doublons entre pages sont supprimés (identique id = 1 seule carte)', async () => {
+    // Spotify peut renvoyer la même piste sur deux pages (reclassement).
+    mockedGet.mockResolvedValueOnce(page(['t1', 't2']));
+    mockedGet.mockResolvedValueOnce(page(['t2', 't3']));
+
+    const results = await searchSpotifyCatalog('daft punk', 2);
+
+    expect(results.tracks.map((t) => t.id)).toEqual(['t1', 't2', 't3']);
+  });
+
+  it('la 2e page qui ÉCHoue ne bloque PAS la recherche (page 1 servie)', async () => {
+    mockedGet.mockResolvedValueOnce(page(['t1', 't2']));
+    mockedGet.mockRejectedValueOnce(new Error('réseau'));
+
+    const results = await searchSpotifyCatalog('daft punk', 2);
+
+    expect(results.tracks.map((t) => t.id)).toEqual(['t1', 't2']);
+  });
+
+  it('le total de pistes est BORNE (2 × limite, jamais plus)', async () => {
+    // Limite 3 : max 3 + 3 = 6 pistes même si Spotify en renverrait plus.
+    mockedGet.mockResolvedValueOnce(page(['a1', 'a2', 'a3']));
+    mockedGet.mockResolvedValueOnce(page(['b1', 'b2', 'b3']));
+
+    const results = await searchSpotifyCatalog('daft punk', 3);
+
+    expect(results.tracks).toHaveLength(6);
+    expect(mockedGet).toHaveBeenCalledTimes(2);
+  });
+
+  it('les autres types restent en PAGE UNIQUE (navigation, pas catalogue)', async () => {
+    // Page 1 (pleine → déclenche la page 2 pour les tracks) porte les
+    // autres types ; la page 2 n est lue QUE pour les tracks.
+    mockedGet.mockResolvedValueOnce({
+      ...page(['t1', 't2']),
+      artists: { items: [{ id: 'ar', name: 'Artiste' }] },
+      albums: { items: [{ id: 'al', name: 'Album' }] },
+      playlists: { items: [{ id: 'pl', name: 'Playlist' }] },
+    });
+    mockedGet.mockResolvedValueOnce({
+      tracks: { items: [{ id: 't3', name: 'Titre t3' }] },
+      // Types dupliqués dans la page 2 : ils doivent être IGNORÉS.
+      artists: { items: [{ id: 'ar2', name: 'Artiste 2' }] },
+    });
+
+    const results = await searchSpotifyCatalog('daft punk', 2);
+
+    expect(mockedGet).toHaveBeenCalledTimes(2);
+    expect(results.tracks.map((t) => t.id)).toEqual(['t1', 't2', 't3']);
+    expect(results.artists).toHaveLength(1);
+    expect(results.artists[0].id).toBe('ar');
+    expect(results.albums).toHaveLength(1);
+    expect(results.playlists).toHaveLength(1);
+  });
+});
