@@ -87,7 +87,14 @@ export const createAudiusAudioProvider = (): AudioProvider => {
       // `onCandidateDecision` : on la capte pendant le scoring existant. AUCUNE
       // requête réseau supplémentaire, AUCUNE modification de l'algorithme.
       const decisions: SongCandidateDecision[] = [];
-      const result = await findBestAudiusMatch(query, search, {
+      // Nombre de REQUÊTES réellement émises (formulations, ISRC comprise) :
+      // un simple compteur autour de la recherche, aucune logique modifiée.
+      let searchQueryCount = 0;
+      const countingSearch = (text: string) => {
+        searchQueryCount += 1;
+        return search(text);
+      };
+      const result = await findBestAudiusMatch(query, countingSearch, {
         onCandidateDecision: (decision) => decisions.push(decision),
       });
 
@@ -114,6 +121,7 @@ export const createAudiusAudioProvider = (): AudioProvider => {
               : best,
           null
         ),
+        searchQueryCount,
       });
 
       recordResolutionDiagnostic(diagnostic);

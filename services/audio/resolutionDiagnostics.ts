@@ -79,9 +79,17 @@ export type ResolutionDiagnosticRecord = {
   /**
    * Nombre de PASSES de scoring refusées. Ce n'est PAS un nombre de
    * candidats distincts : le moteur teste plusieurs formulations de
-   * recherche et rescores le même lot à chaque fois.
+   * recherche et rescore le même lot à chaque fois.
    */
   rejectionCount: number;
+  /**
+   * Nombre de REQUÊTES de recherche réellement émises par le fournisseur
+   * (formulations Audius/YouTube, ISRC comprise). 0 pour une panne avant
+   * toute recherche ou pour un enregistrement structurel de la chaîne.
+   * Diagnostics : ça distingue « on a cherché 7 formulations et rien »
+   * d'« on n'a même pas pu chercher » — sans aucune donnée d'écoute.
+   */
+  searchQueryCount: number;
   /** Meilleur score observé (0..100), null si aucun candidat. */
   bestScore: number | null;
   /** Motifs de rejet rencontrés, avec leur nombre d'occurrences. */
@@ -177,6 +185,8 @@ export const buildNoMatchDiagnostic = (params: {
   rejections: readonly CandidateRejection[];
   hadIsrc: boolean;
   bestScore?: number | null;
+  /** Nombre de requêtes de recherche émises (défaut 0). */
+  searchQueryCount?: number;
 }): ResolutionDiagnosticRecord => {
   const rejectedBy = tallyRejections(params.rejections);
 
@@ -184,6 +194,12 @@ export const buildNoMatchDiagnostic = (params: {
     code: dominantRejectionCode(rejectedBy, params.hadIsrc),
     providerId: params.providerId,
     rejectionCount: params.rejections.length,
+    searchQueryCount:
+      typeof params.searchQueryCount === 'number' &&
+      Number.isInteger(params.searchQueryCount) &&
+      params.searchQueryCount >= 0
+        ? params.searchQueryCount
+        : 0,
     bestScore: typeof params.bestScore === 'number' ? params.bestScore : null,
     rejectedBy,
     at: nextTimestamp(),
@@ -225,6 +241,7 @@ const DIAGNOSTIC_FIELDS = [
   'code',
   'providerId',
   'rejectionCount',
+  'searchQueryCount',
   'bestScore',
   'rejectedBy',
   'at',
@@ -272,6 +289,13 @@ export const isSanitizedDiagnostic = (value: unknown): boolean => {
   ) {
     return false;
   }
+  if (
+    typeof record.searchQueryCount !== 'number' ||
+    !Number.isInteger(record.searchQueryCount) ||
+    record.searchQueryCount < 0
+  ) {
+    return false;
+  }
   if (record.bestScore !== null && typeof record.bestScore !== 'number') {
     return false;
   }
@@ -295,5 +319,248 @@ export const isSanitizedDiagnostic = (value: unknown): boolean => {
       key.length <= MAX_REASON_KEY_LENGTH &&
       typeof count === 'number' &&
       Number.isInteger(count)
+  );
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// TRACE DE RÉSOLUTION PAR PISTE — la chaîne complète, exploitable.
+//
+// Ce n'est PAS un nouveau tampon : c'est une VUE d'une seule résolution,
+// construite à la demande (tests / debug) à partir de l'issue de la cascade
+// et des enregistrements déjà enregistrés par les fournisseurs. Elle répond
+// précisément à « pourquoi ce morceau n'est-il pas dispo ? » :
+//
+//   Spotify trouvé ? · Audius cherché ? (combien de requêtes, meilleur score)
+//   · YouTube cherché ? (meilleur score) · motif du rejet · backend final.
+//
+// Même règle de confidentialité que le tampon : seuls des booléens, des
+// compteurs et des COURTS codes — jamais de titre, artiste, album, ISRC, id
+// de piste ou URL. `isSanitizedChainTrace` rend cette propriété vérifiable.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Issue structurelle de la cascade (aucun import de trackResolver).
+ * `score` est sur l'échelle 0..100 (même échelle que `bestScore`).
+ */
+export type ChainOutcomeLike =
+  | { status: 'matched'; providerId: 'audius' | 'youtube'; score: number }
+  | { status: 'no-match' }
+  | { status: 'error' };
+
+/** Vue d'un SEUL fournisseur pour une seule résolution. */
+export type ResolutionProviderTrace = {
+  /** Le fournisseur a-t-il réellement été consulté pour cette piste ? */
+  searched: boolean;
+  /**
+   * Nombre de requêtes de recherche émises. null = non déterminable : soit le
+   * fournisseur a MATCHÉ (aucun diagnostic d'échec n'est enregistré pour un
+   // succès), soit il n'a jamais été consulté.
+   */
+  queryCount: number | null;
+  /** Meilleur score observé (0..100), null si inconnu. */
+  bestScore: number | null;
+};
+
+/** Vue chaîne complète pour UNE piste. */
+export type ResolutionChainTrace = {
+  /** Spotify a-t-il fourni des métadonnées pour cette piste ? */
+  spotifyFound: boolean;
+  audius: ResolutionProviderTrace;
+  youtube: ResolutionProviderTrace;
+  /** Motif dominant de rejet (null si match). */
+  rejectionReason: ResolutionRejectionCode | null;
+  /** Backend final réellement sélectionné pour la lecture. */
+  backend: 'audius' | 'youtube' | 'none';
+};
+
+/**
+ * Précédence d'information d'un motif de rejet de chaîne : la porte la plus
+ * STRUCTURELLE (content rating, version, artiste…) remonte avant un simple
+ * « pas de candidat » ou une panne infrastructure.
+ */
+const CHAIN_REJECTION_PRECEDENCE: ResolutionRejectionCode[] = [
+  'CONTENT_RATING_MISMATCH',
+  'VERSION_MISMATCH',
+  'ARTIST_MISMATCH',
+  'TITLE_MISMATCH',
+  'DURATION_MISMATCH',
+  'NO_ISRC_MATCH',
+  'NO_CANDIDATE',
+  'PROVIDER_TIMEOUT',
+  'PROVIDER_ERROR',
+  'NO_PROVIDER_RESULT',
+];
+
+/**
+ * Construit la trace chaîne d'UNE résolution.
+ *
+ * `diagnostics` est le SNAPSHOT des enregistrements pertinents (les tests
+ * passent le tampon après `clearResolutionDiagnostics()` ; le player/hook
+ * peut passer une sous-fenêtre). `order` est l'ordre réel de la cascade
+ * (défaut Audius → YouTube, l'ordre de l'application).
+ */
+export const buildResolutionChainTrace = (
+  spotifyFound: boolean,
+  outcome: ChainOutcomeLike,
+  diagnostics: readonly ResolutionDiagnosticRecord[],
+  order: readonly string[] = ['audius', 'youtube']
+): ResolutionChainTrace => {
+  // Dernier enregistrement par fournisseur dans le snapshot : celui qui
+  // appartient à CETTE résolution (le tampon est borné et chronologique).
+  const latestByProvider = new Map<string, ResolutionDiagnosticRecord>();
+
+  for (const record of diagnostics) {
+    if (record.providerId) {
+      latestByProvider.set(record.providerId, record);
+    }
+  }
+
+  const matchedId = outcome.status === 'matched' ? outcome.providerId : null;
+  const matchedIndex = matchedId ? order.indexOf(matchedId) : -1;
+  // Score du match (échelle 0..100) capté AVANT la fermeture : le type de
+  // `outcome` n'y est plus rétréci (narrowing perdu dans une closure).
+  const matchedScore = outcome.status === 'matched' ? outcome.score : null;
+
+  const providerTrace = (id: string): ResolutionProviderTrace => {
+    const record = latestByProvider.get(id) ?? null;
+    const index = order.indexOf(id);
+    const isMatched = matchedId === id;
+
+    let searched: boolean;
+
+    if (outcome.status === 'matched') {
+      // Les fournisseurs AVANT le matché ont été consultés (et ont laissé un
+      // diagnostic no-match) ; le matché l'a été sans diagnostic ; ceux
+      // APRÈS n'ont jamais été touchés.
+      searched =
+        matchedIndex < 0
+          ? Boolean(record)
+          : index === matchedIndex || (index >= 0 && index < matchedIndex);
+    } else {
+      // no-match / error : la cascade a parcouru toute la chaîne — chaque
+      // fournisseur consulté a laissé un enregistrement.
+      searched = Boolean(record);
+    }
+
+    return {
+      searched,
+      queryCount: isMatched ? null : record ? record.searchQueryCount : null,
+      bestScore: isMatched
+        ? Math.round(matchedScore as number)
+        : record
+          ? record.bestScore
+          : null,
+    };
+  };
+
+  let rejectionReason: ResolutionRejectionCode | null = null;
+
+  if (outcome.status === 'matched') {
+    rejectionReason = null;
+  } else if (outcome.status === 'error') {
+    // Une PANNE est le motif : c'est elle qui distingue « réessayer plus
+    // tard » d'un négatif durable. On la remonte telle quelle.
+    rejectionReason = diagnostics.some(
+      (record) => record.code === 'PROVIDER_TIMEOUT'
+    )
+      ? 'PROVIDER_TIMEOUT'
+      : diagnostics.some((record) => record.code === 'PROVIDER_ERROR')
+        ? 'PROVIDER_ERROR'
+        : 'NO_PROVIDER_RESULT';
+  } else {
+    // no-match : la porte la plus structurelle observée sur un fournisseur
+    // consulté (ou « rien du tout » si les deux ont été muets).
+    rejectionReason =
+      CHAIN_REJECTION_PRECEDENCE.find((code) =>
+        diagnostics.some((record) => record.code === code)
+      ) ?? 'NO_PROVIDER_RESULT';
+  }
+
+  return {
+    spotifyFound,
+    audius: providerTrace('audius'),
+    youtube: providerTrace('youtube'),
+    rejectionReason,
+    backend: outcome.status === 'matched' ? outcome.providerId : 'none',
+  };
+};
+
+// ── Garde-fou structurel de la trace (même philosophie que le tampon) ──
+const CHAIN_TRACE_FIELDS = [
+  'spotifyFound',
+  'audius',
+  'youtube',
+  'rejectionReason',
+  'backend',
+] as const;
+const PROVIDER_TRACE_FIELDS = ['searched', 'queryCount', 'bestScore'] as const;
+const BACKEND_VALUES = ['audius', 'youtube', 'none'] as const;
+const REJECTION_REASON_RX = /^[A-Z0-9_]{2,32}$/;
+
+const isSanitizedProviderTrace = (value: unknown): boolean => {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return false;
+  }
+
+  const obj = value as Record<string, unknown>;
+
+  if (
+    Object.keys(obj).some(
+      (key) => !PROVIDER_TRACE_FIELDS.includes(key as never)
+    )
+  ) {
+    return false;
+  }
+  if (typeof obj.searched !== 'boolean') {
+    return false;
+  }
+  if (
+    obj.queryCount !== null &&
+    (typeof obj.queryCount !== 'number' ||
+      !Number.isInteger(obj.queryCount) ||
+      obj.queryCount < 0)
+  ) {
+    return false;
+  }
+  if (
+    obj.bestScore !== null &&
+    (typeof obj.bestScore !== 'number' || obj.bestScore < 0)
+  ) {
+    return false;
+  }
+
+  return true;
+};
+
+/** Vérifie qu'une trace chaîne est STRICTEMENT dénuée de donnée d'écoute. */
+export const isSanitizedChainTrace = (value: unknown): boolean => {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return false;
+  }
+
+  const trace = value as Record<string, unknown>;
+
+  if (
+    Object.keys(trace).some((key) => !CHAIN_TRACE_FIELDS.includes(key as never))
+  ) {
+    return false;
+  }
+  if (typeof trace.spotifyFound !== 'boolean') {
+    return false;
+  }
+  if (!BACKEND_VALUES.includes(trace.backend as never)) {
+    return false;
+  }
+  if (
+    trace.rejectionReason !== null &&
+    (typeof trace.rejectionReason !== 'string' ||
+      !REJECTION_REASON_RX.test(trace.rejectionReason))
+  ) {
+    return false;
+  }
+
+  return (
+    isSanitizedProviderTrace(trace.audius) &&
+    isSanitizedProviderTrace(trace.youtube)
   );
 };

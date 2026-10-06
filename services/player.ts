@@ -1606,6 +1606,7 @@ class MelodixPlayer {
         code: 'PLAYER_LOAD_ERROR',
         providerId: this.state.resolved?.provider ?? null,
         rejectionCount: 0,
+        searchQueryCount: 0,
         bestScore: null,
         rejectedBy: {},
         at: Date.now(),

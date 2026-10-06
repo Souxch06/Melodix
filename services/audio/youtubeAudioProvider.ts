@@ -155,7 +155,11 @@ const scoreCandidate = (
 
 /** Recherche élargie mais bornée ; arrêt dès qu'un match fiable existe. */
 const searchCandidates = async (
-  query: AudioSourceQuery
+  query: AudioSourceQuery,
+  searchFn: (
+    text: string,
+    limit: number
+  ) => Promise<YouTubeSongCandidate[]> = searchYouTubeSongs
 ): Promise<YouTubeSongCandidate[]> => {
   const collected: YouTubeSongCandidate[] = [];
   const seen = new Set<string>();
@@ -164,7 +168,7 @@ const searchCandidates = async (
   for (const text of queryTexts(query)) {
     let batch: YouTubeSongCandidate[];
     try {
-      batch = await searchYouTubeSongs(text, YOUTUBE_SEARCH_LIMIT);
+      batch = await searchFn(text, YOUTUBE_SEARCH_LIMIT);
     } catch {
       sawSearchError = true;
       devYouTubeLog('search-error', {
@@ -231,9 +235,21 @@ export const createYouTubeAudioProvider = (): AudioProvider => ({
 
     devYouTubeLog('spotify-input', describeQueryShape(query));
 
+    // Nombre de REQUÊTES réellement émises (formulations, y compris celles en
+    // échec) : un simple compteur autour de la recherche, aucune logique
+    // modifiée. Alimente le diagnostic chaîne « nb requêtes YouTube ».
+    let searchQueryCount = 0;
+    const countingSearch = (
+      text: string,
+      limit: number
+    ): Promise<YouTubeSongCandidate[]> => {
+      searchQueryCount += 1;
+      return searchYouTubeSongs(text, limit);
+    };
+
     let candidates: YouTubeSongCandidate[];
     try {
-      candidates = await searchCandidates(query);
+      candidates = await searchCandidates(query, countingSearch);
     } catch (error) {
       console.warn('YouTube search failed:', error);
       // Une panne du fallback n'est pas un « morceau absent ». Le resolver
@@ -284,6 +300,7 @@ export const createYouTubeAudioProvider = (): AudioProvider => ({
               : top,
           null
         ),
+        searchQueryCount,
       })
     );
 
