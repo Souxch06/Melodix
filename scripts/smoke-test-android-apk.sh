@@ -58,6 +58,22 @@ fi
 
 echo "Processus Melodix actif : pid=$PID"
 
+# Sonde deep-link OAuth WARM : l'app est déjà vivante (étage d'accueil/
+# connexion). Le callback `melodix://callback?code=…` est routé par le
+# manifest vers MainActivity (singleTask) ; en l'absence de flux OAuth en
+# cours le runtime ne doit CRASHER ni naviguer sur une page inconnue
+# (+native-intent retourne null pour ce lien). Code factice : JAMAIS échangé.
+WARM_DL=$(adb shell am start -W -a android.intent.action.VIEW \
+  -d "melodix://callback?code=smoke&state=smoke" -p "$PACKAGE" 2>&1) || \
+  fail "deep-link OAuth warm non routable (intent-filter manquant) : $WARM_DL"
+echo "$WARM_DL"
+printf '%s\n' "$WARM_DL" | grep -Fq 'Status: ok' || \
+  fail "ActivityManager n'a pas confirmé la route du deep-link OAuth warm"
+sleep 5
+WARM_PID=$(adb shell pidof -s "$PACKAGE" 2>/dev/null | tr -d '\r' || true)
+[ -n "$WARM_PID" ] || fail "processus détruit après deep-link OAuth warm"
+echo "::notice title=Deep-link OAuth (warm)::melodix://callback routé vers l'app vivante sans crash (pid=$WARM_PID)"
+
 # Prototype Spotify Web isolé : ouvre la route de diagnostic par deep link,
 # vérifie que la vraie vue Android est rendue, puis exerce arrière-plan/retour.
 # Aucun compte, cookie, token ou contenu DOM Spotify n'est lu par ce smoke.
@@ -234,7 +250,54 @@ NOTIFICATIONS_BG=$(adb shell dumpsys notification --noredact 2>&1) || \
 printf '%s\n' "$NOTIFICATIONS_BG" | grep -Fq 'melodix_media' || \
   fail "notification média disparue en arrière-plan"
 
-echo "::notice title=Installation Android réelle::installation + prototype WebView + cycle arrière-plan/retour + service foreground + MediaSession + notification réussis sur Android 14 x86_64 (pid=$PID)"
+# ── Sonde deep-link OAuth COLD START — le cas terrain du login Spotify ──
+# L'app est tuée, puis Android la relance PAR le callback
+# `melodix://callback?code=…`. Le runtime JS doit :
+#   1. démarrer via l'intent-filter du manifest ;
+#   2. passer la garde de démarrage (resolveStartupSession → /login) ;
+#   3. lire l'URL initiale et ÉMETTRE la séquence [SpotifyAuth] du cold
+#      start (callback:received → code:received → callback:error …).
+# Code factice : en CI il n'y a AUCUNE transaction PKCE persistée ni compte
+# Spotify — le hook DOIT classifier l'échec proprement (jamais de faux login,
+# jamais de crash). C'est la VRAIE chaîne deep-link → hook, testée sur
+# Android 14 réel (émulateur), sans prétendre à un login Spotify.
+adb shell am force-stop "$PACKAGE" || fail "force-stop avant sonde OAuth cold impossible"
+adb logcat -c || fail "impossible de vider logcat avant sonde OAuth cold"
+COLD_DL=$(adb shell am start -W -a android.intent.action.VIEW \
+  -d "melodix://callback?code=smoke&state=smoke" -p "$PACKAGE" 2>&1) || \
+  fail "cold start via deep-link OAuth impossible : $COLD_DL"
+echo "$COLD_DL"
+printf '%s\n' "$COLD_DL" | grep -Fq 'Status: ok' || \
+  fail "cold start via deep-link OAuth non confirmé par ActivityManager"
+# Sonde par itérations (émulateur CI lent) : le bundle JS + la garde de
+# démarrage + le montage du hook prennent un temps variable.
+AUTH_TRACE=""
+DL_TRIES=0
+while [ "$DL_TRIES" -lt 12 ]; do
+  sleep 5
+  DL_TRIES=$(( DL_TRIES + 1 ))
+  AUTH_TRACE=$(adb logcat -d 2>/dev/null | grep -F '[SpotifyAuth]' || true)
+  [ -n "$AUTH_TRACE" ] && break
+done
+if [ -z "$AUTH_TRACE" ]; then
+  adb logcat -d -v time | tail -300
+  fail "callback OAuth cold non traité par le runtime JS (aucune ligne [SpotifyAuth] après $DL_TRIES sondes)"
+fi
+printf '%s\n' "$AUTH_TRACE" | grep -Fq 'callback:received cold-start' || \
+  fail "cold start OAuth non identifié par le hook : $AUTH_TRACE"
+printf '%s\n' "$AUTH_TRACE" | grep -Fq 'code:received cold-start' || \
+  fail "code OAuth absent du callback cold identifié : $AUTH_TRACE"
+printf '%s\n' "$AUTH_TRACE" | grep -Fq 'callback:error cold-start-no-verifier' || \
+  fail "callback cold sans transaction PKCE non classé proprement : $AUTH_TRACE"
+COLD_PID=$(adb shell pidof -s "$PACKAGE" 2>/dev/null | tr -d '\r' || true)
+[ -n "$COLD_PID" ] || fail "processus détruit après cold start OAuth"
+echo "::notice title=Deep-link OAuth (cold start)::relance de l'app par melodix://callback traitée par le runtime JS — séquence [SpotifyAuth] complète, échec classé proprement sans compte (pid=$COLD_PID)"
+echo "::warning title=Login Spotify physique::PHYSICAL SPOTIFY LOGIN NOT TESTABLE IN CI — aucun compte Spotify utilisable dans GitHub Actions ; la suite [SpotifyAuth] prouve la chaîne deep-link → hook → classification, pas un login Spotify réel"
+if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
+  echo "- Deep-link OAuth : warm (app vivante) et cold start (relance par callback) routés ; séquence [SpotifyAuth] vérifiée en logcat ; login Spotify réel NON testable en CI (pas de compte)" >> "$GITHUB_STEP_SUMMARY"
+fi
+
+echo "::notice title=Installation Android réelle::installation + prototype WebView + cycle arrière-plan/retour + service foreground + MediaSession + notification + deep-link OAuth réussis sur Android 14 x86_64 (pid=$COLD_PID)"
 if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
   echo "- Android 14 : installation, écran Spotify WebView, cycle arrière-plan/retour, FGS média, MediaSession et notification système vérifiés" >> "$GITHUB_STEP_SUMMARY"
 fi

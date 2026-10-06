@@ -403,8 +403,8 @@ jobs:
         env:
           APK: ${{ steps.apk.outputs.name }}
           EXPECTED_PACKAGE: com.souxch06.melodix
-          EXPECTED_VERSION_CODE: '45003'
-          EXPECTED_VERSION_NAME: 4.5.0-test.3
+          EXPECTED_VERSION_CODE: '45004'
+          EXPECTED_VERSION_NAME: 4.5.0-test.4
           EXPECTED_MIN_SDK: '23'
           EXPECTED_TARGET_SDK: '34'
           EXPECTED_SCHEME: melodix
@@ -489,6 +489,11 @@ jobs:
           else
             echo "::notice title=SPOTIFY-DIAG 5/5 intent-filter::URI effectif = scheme natif melodix (défaut de production), aucun intent-filter additionnel requis"
           fi
+          # Limite CI DÉCLARÉE, jamais implicite : GitHub Actions n'a aucun
+          # compte Spotify utilisable. Le smoke ci-dessus prouve la chaîne
+          # deep-link → runtime JS → classification [SpotifyAuth] sur
+          # Android 14 réel (émulateur) — pas un login Spotify.
+          echo "::notice title=SPOTIFY-DIAG 6/6 limite CI::PHYSICAL SPOTIFY LOGIN NOT TESTABLE IN CI — le login Spotify réel exige un appareil + un compte ; la suite [SpotifyAuth] du logcat est la référence à comparer au test physique"
 
       - name: Publier l'APK comme artefact
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
