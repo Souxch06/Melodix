@@ -37,6 +37,14 @@ let noisyListener: (() => void) | null = null;
 let mockNoisyUnsubscribe: jest.Mock | null = null;
 // Callback de statut expo-av du dernier Sound créé (fin de piste, etc.).
 let statusCallback: ((status: Record<string, unknown>) => void) | null = null;
+// Sound factice créé par les mocks createAsync des tests buffering.
+let bufferingSound: {
+  playAsync: jest.Mock;
+  pauseAsync: jest.Mock;
+  unloadAsync: jest.Mock;
+  setPositionAsync: jest.Mock;
+  setVolumeAsync: jest.Mock;
+} | null = null;
 
 jest.mock('../../modules/melodix-media', () => ({
   updateSession: (...args: never[]) => mockUpdateSession(...args),
@@ -161,6 +169,7 @@ describe('mediaBridge — projection MediaSession (phase 5A)', () => {
     commandListener = null;
     noisyListener = null;
     mockNoisyUnsubscribe = null;
+    bufferingSound = null;
     teardownMediaBridge();
     __testSetAudioProviders({ audius: makeProvider() });
     await melodixPlayer.__testReset();
@@ -522,13 +531,9 @@ describe('mediaBridge — projection MediaSession (phase 5A)', () => {
       const { Audio: av } = jest.requireMock('expo-av') as {
         Audio: { Sound: { createAsync: jest.Mock } };
       };
-      let created: {
-        playAsync: jest.Mock;
-        pauseAsync: jest.Mock;
-      } | null = null;
       av.Sound.createAsync.mockImplementationOnce(async () => {
-        created = {
-          // Le runtime répond « encore en buffer » : pas de preuve de lecture.
+        // Le runtime répond « encore en buffer » : pas de preuve de lecture.
+        bufferingSound = {
           playAsync: jest.fn(async () => ({
             isLoaded: true,
             isPlaying: false,
@@ -542,9 +547,9 @@ describe('mediaBridge — projection MediaSession (phase 5A)', () => {
           unloadAsync: jest.fn(async () => {}),
           setPositionAsync: jest.fn(async () => {}),
           setVolumeAsync: jest.fn(async () => {}),
-        } as never;
+        };
         return {
-          sound: created,
+          sound: bufferingSound,
           status: {
             isLoaded: true,
             isPlaying: false,
@@ -560,8 +565,8 @@ describe('mediaBridge — projection MediaSession (phase 5A)', () => {
       handleMediaCommand({ command: 'pause' });
       await flush();
 
-      expect(created?.pauseAsync).toHaveBeenCalledTimes(1);
-      expect(created?.playAsync).not.toHaveBeenCalled();
+      expect(bufferingSound?.pauseAsync).toHaveBeenCalledTimes(1);
+      expect(bufferingSound?.playAsync).not.toHaveBeenCalled();
       expect(melodixPlayer.getState().status).toBe('paused');
     });
 
@@ -569,9 +574,8 @@ describe('mediaBridge — projection MediaSession (phase 5A)', () => {
       const { Audio: av } = jest.requireMock('expo-av') as {
         Audio: { Sound: { createAsync: jest.Mock } };
       };
-      let created: { playAsync: jest.Mock } | null = null;
       av.Sound.createAsync.mockImplementationOnce(async () => {
-        created = {
+        bufferingSound = {
           playAsync: jest.fn(async () => ({
             isLoaded: true,
             isPlaying: false,
@@ -585,9 +589,9 @@ describe('mediaBridge — projection MediaSession (phase 5A)', () => {
           unloadAsync: jest.fn(async () => {}),
           setPositionAsync: jest.fn(async () => {}),
           setVolumeAsync: jest.fn(async () => {}),
-        } as never;
+        };
         return {
-          sound: created,
+          sound: bufferingSound,
           status: {
             isLoaded: true,
             isPlaying: false,
@@ -609,7 +613,7 @@ describe('mediaBridge — projection MediaSession (phase 5A)', () => {
       // Intention EXPLICITE (true) — jamais un toggle nu qui pourrait
       // calculer l'inverse sur un statut transitoire.
       expect(toggleSpy).toHaveBeenCalledWith(true);
-      expect(created?.playAsync).toHaveBeenCalledTimes(1);
+      expect(bufferingSound?.playAsync).toHaveBeenCalledTimes(1);
       // playAsync a répondu « buffer » : le moteur ne peut PAS inventer PLAYING.
       expect(melodixPlayer.getState().status).toBe('buffering');
     });

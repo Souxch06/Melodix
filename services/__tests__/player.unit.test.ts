@@ -379,9 +379,8 @@ describe('melodixPlayer engine', () => {
     const { Audio: av } = jest.requireMock('expo-av') as {
       Audio: { Sound: { createAsync: jest.Mock } };
     };
-    let bufferingCallback: ((s: Record<string, unknown>) => void) | null = null;
     av.Sound.createAsync.mockImplementationOnce(async (_s, _i, onStatus) => {
-      bufferingCallback = onStatus ?? null;
+      lastStatusCallback = onStatus ?? null;
       const created = makeSound();
       lastSound = created;
       mockCreatedSounds.push(created);
@@ -401,7 +400,7 @@ describe('melodixPlayer engine', () => {
     expect(melodixPlayer.getState().status).toBe('buffering');
 
     // Le buffer se rompt : erreur alors que le moteur n'a JAMAIS vu playing.
-    bufferingCallback?.({
+    lastStatusCallback?.({
       isLoaded: false,
       error: 'buffer interrupted',
       isPlaying: false,
@@ -3243,6 +3242,103 @@ describe('Les NEUF états du moteur (spec lecteur)', () => {
       positionMillis: 3000,
     });
     expect(lastSound.setPositionAsync).toHaveBeenCalledWith(3000);
+  });
+
+  it('repeat-all + piste MORTE : la morte est traversée UNE SEULE FOIS — ensuite la file boucle sur A sans repasser par B', async () => {
+    // A joue normalement ; B n'a AUCUN match (morte pour cette session).
+    __testSetAudioProviders({
+      audius: makeProvider({
+        resolveMatch: jest.fn(async (query: { title: string }) =>
+          query.title === 'Track b' ? null : { sourceId: 'aud-x', score: 0.9 }
+        ),
+      }),
+    });
+    melodixPlayer.setRepeat('all');
+
+    // Observation : combien de fois l'état traverse B (current = 'spotify:b')
+    // et combien de fois la notice « B indisponible » est réémise ?
+    let currentBTransitions = 0;
+    let bNoticeTransitions = 0;
+    let lastCurrentB: boolean | null = null;
+    let lastBNotice: boolean | null = null;
+    const unsubscribe = melodixPlayer.subscribe((s) => {
+      const isB = s.current?.id === 'spotify:b';
+      if (lastCurrentB !== null && isB && !lastCurrentB) {
+        currentBTransitions += 1;
+      }
+      lastCurrentB = isB;
+      const hasBNotice = s.notice?.title === 'Track b';
+      if (lastBNotice !== null && hasBNotice && !lastBNotice) {
+        bNoticeTransitions += 1;
+      }
+      lastBNotice = hasBNotice;
+    });
+
+    await melodixPlayer.playQueue([track('a'), track('b')], 0);
+    await flush();
+    expect(melodixPlayer.getState().current?.id).toBe('spotify:a');
+    expect(melodixPlayer.getState().status).toBe('playing');
+    expect(mockCreatedSounds).toHaveLength(1);
+
+    // 1er passage : A finit → B est tentée (première et UNIQUE traversée) →
+    // échec → A rejoué (seule piste jouable restante — sémantique
+    // repeat-all : la file continue, B morte est écartée).
+    lastStatusCallback?.({ isLoaded: true, didJustFinish: true });
+    for (let i = 0; i < 12; i++) {
+      await flush();
+    }
+    expect(melodixPlayer.getState().current?.id).toBe('spotify:a');
+    expect(melodixPlayer.getState().status).toBe('playing');
+    expect(mockCreatedSounds).toHaveLength(2);
+    expect(currentBTransitions).toBe(1);
+
+    // 2e passage : A finit → B est dans failedKeys → l'avance automatique ne
+    // la traverse PLUS (pas de transition vers B, pas de notice réémise) —
+    // la file boucle sur A. Boucle de LECTURE, pas boucle de panne.
+    lastStatusCallback?.({ isLoaded: true, didJustFinish: true });
+    for (let i = 0; i < 12; i++) {
+      await flush();
+    }
+    expect(melodixPlayer.getState().status).toBe('playing');
+    expect(melodixPlayer.getState().current?.id).toBe('spotify:a');
+    expect(mockCreatedSounds).toHaveLength(3);
+    expect(currentBTransitions).toBe(1);
+    expect(bNoticeTransitions).toBe(1);
+
+    // Et quand la dernière piste jouable meurt aussi : arrêt propre —
+    // aucune boucle possible dans aucun état.
+    lastStatusCallback?.({ isLoaded: false, error: 'stream died' });
+    for (let i = 0; i < 12; i++) {
+      await flush();
+    }
+    expect(melodixPlayer.getState().status).toBe('idle');
+    expect(mockCreatedSounds).toHaveLength(3);
+    unsubscribe();
+  });
+
+  it('repeat-off + piste MORTE après la fin : un seul passage, arrêt propre, aucune boucle', async () => {
+    __testSetAudioProviders({
+      audius: makeProvider({
+        resolveMatch: jest.fn(async (query: { title: string }) =>
+          query.title === 'Track b' ? null : { sourceId: 'aud-x', score: 0.9 }
+        ),
+      }),
+    });
+
+    await melodixPlayer.playQueue([track('a'), track('b')], 0);
+    await flush();
+    expect(melodixPlayer.getState().current?.id).toBe('spotify:a');
+    expect(mockCreatedSounds).toHaveLength(1);
+
+    // A finit → B tentée une seule fois → échec → plus rien derrière
+    // (repeat off : jamais de retour au début) → arrêt.
+    lastStatusCallback?.({ isLoaded: true, didJustFinish: true });
+    for (let i = 0; i < 12; i++) {
+      await flush();
+    }
+
+    expect(melodixPlayer.getState().status).toBe('idle');
+    expect(mockCreatedSounds).toHaveLength(1);
   });
 
   it('volume / shuffle / repeat sont persistés immédiatement (sans attendre le tick 8 s)', async () => {

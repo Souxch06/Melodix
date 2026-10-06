@@ -898,7 +898,7 @@ class MelodixPlayer {
   };
 
   private advanceAuto = async () => {
-    const { repeat, index } = this.state;
+    const { repeat, index, queue } = this.state;
 
     if (repeat === 'one' && index >= 0) {
       await this.playIndex(index);
@@ -907,19 +907,47 @@ class MelodixPlayer {
 
     const indices = this.getOrderedIndices();
     const pointer = this.getOrderedPointer();
-    const nextPointer = pointer + 1;
 
-    if (nextPointer >= indices.length) {
-      if (repeat === 'all' && indices.length) {
-        await this.playIndex(indices[0]);
-        return;
+    // L'avance AUTOMATIQUE ne retente JAMAIS une piste marquée en échec
+    // cette session (no-match prouvé, flux mort) — même règle qu'
+    // advanceAfterFailure. Sans cette règle, en repeat-all, une piste MORTE
+    // qui suit une piste jouable produisait une boucle de panne infinie :
+    // A finit → B (échec) → A rejoué → finit → B (échec) → … à l'identique
+    // en shuffle. Chaque piste morte est donc tentée UNE seule fois par
+    // session, puis exclue de l'avance automatique (un geste MANUEL — next,
+    // playAtIndex, « Reprendre » — peut toujours la retenter explicitement).
+    const isPlayable = (candidateIndex: number): boolean =>
+      !this.failedKeys.has(queue[candidateIndex]?.id ?? '');
+
+    if (repeat === 'all') {
+      // Bouclage complet SANS rejouer la piste qui vient de finir (step ≥ 1)
+      // et sans retenter les pistes déjà échouées.
+      for (let step = 1; step <= indices.length; step++) {
+        const candidate = indices[(pointer + step) % indices.length];
+
+        if (isPlayable(candidate)) {
+          await this.playIndex(candidate);
+          return;
+        }
       }
 
+      // Plus rien de jouable cette session : fin de file SANS bouclage.
       await this.finishQueue();
       return;
     }
 
-    await this.playIndex(indices[nextPointer]);
+    // Repeat off : strictement la suite de l'ordre, jamais le retour au
+    // début, jamais une piste déjà échouée.
+    for (let step = 1; pointer + step < indices.length; step++) {
+      const candidate = indices[pointer + step];
+
+      if (isPlayable(candidate)) {
+        await this.playIndex(candidate);
+        return;
+      }
+    }
+
+    await this.finishQueue();
   };
 
   /**
