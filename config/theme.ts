@@ -37,10 +37,16 @@ export const PALETTE = {
   /** États. */
   danger: COLORS.RED,
   warning: '#F2A93B',
-  /** Texte — niveaux sémantiques (jamais de blanc pur partout). */
+  /**
+   * Texte — niveaux sémantiques (jamais de blanc pur partout).
+   * Alpha choisi pour garantir WCAG AA (≥ 4.5:1) sur TOUTES les surfaces
+   * sombres : tertiary = 0.58 → 5.63:1 sur #282828, 6.39:1 sur #121212,
+   * 6.46:1 sur night900. (L'ancien 0.48 restait à 4.1–4.4:1 — sous la
+   * norme AA du texte normal.)
+   */
   textPrimary: '#F5F7FA',
   textSecondary: 'rgba(245, 247, 250, 0.72)',
-  textTertiary: 'rgba(245, 247, 250, 0.48)',
+  textTertiary: 'rgba(245, 247, 250, 0.58)',
   textInverse: COLORS.PRIMARY,
   /** Voiles translucides. */
   veil: 'rgba(8, 11, 20, 0.72)',

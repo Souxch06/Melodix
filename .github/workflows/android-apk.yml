@@ -267,6 +267,26 @@ jobs:
             fi
           done
 
+          # THÈME DÉTERMINISTE (anti « double sombre » — plugins/withMelodixTheme) :
+          # sans forceDarkAllowed=false, les appareils au thème système sombre
+          # appliquent leur transformation forced dark sur notre UI déjà sombre
+          # (cause du contraste illisible observé au test physique 4.5.0-test.1).
+          FD_COUNT=$(grep -Fc 'android:forceDarkAllowed="false"' android/app/src/main/AndroidManifest.xml || true)
+          if [ "${FD_COUNT:-0}" -lt 2 ]; then
+            echo "::error title=Thème Android non déterministe::android:forceDarkAllowed=\"false\" manquant (application + MainActivity) — l OS peut double-assombrir l UI sur thème système sombre"
+            exit 1
+          fi
+          if grep -Fq 'Theme.AppCompat.Light' android/app/src/main/res/values/styles.xml; then
+            echo "::error title=Thème Android non déterministe::AppTheme hérite d un thème Light — le plugin withMelodixTheme ne s est pas appliqué"
+            exit 1
+          fi
+          grep -Fq '<item name="android:windowBackground">#121212</item>' android/app/src/main/res/values/styles.xml
+          grep -Fq '<item name="android:navigationBarColor">#121212</item>' android/app/src/main/res/values/styles.xml
+          if grep -Fq '@android:color/black' android/app/src/main/res/values/styles.xml; then
+            echo "::error title=Thème Android non déterministe::texte natif noir par défaut — une app sombre ne peut pas avoir de chrome natif clair"
+            exit 1
+          fi
+
       # Tests unitaires JVM du module natif (Robolectric) — exécutés AVANT
       # l'assemble : un invariant Media3 cassé doit bloquer la release, pas
       # passer en production. (4.4.8 : invariants d'état VirtualMediaPlayer.)

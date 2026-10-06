@@ -96,6 +96,10 @@ module.exports = {
       // Phase 5A : MediaSession/Foreground Service Android (manifest généré,
       // idempotent). android/ reste NON versionné (prebuild).
       './modules/melodix-media/plugin/withMelodixMedia',
+      // Thème Android DÉTERMINISTE : anti « double sombre » (forced dark de
+      // l'OS sur thème Light généré) + fenêtre/bars #121212 + texte natif
+      // clair. Regarde le fichier plugin pour la racine exacte du problème.
+      './plugins/withMelodixTheme',
     ],
     splash: {
       image: './assets/images/splash.png',

@@ -23,7 +23,11 @@ export {
   APP_SCHEME,
   AUTH_REDIRECT_PATH,
 } from './constants';
-export { COLORS, BROWSE_CATEGORIES_COLORS } from './colors';
+export {
+  COLORS,
+  BROWSE_CATEGORIES_COLORS,
+  BROWSE_CATEGORY_OVERLAY_ALPHA,
+} from './colors';
 export {
   APP_BACKGROUND_COLOR,
   ELEVATION,
