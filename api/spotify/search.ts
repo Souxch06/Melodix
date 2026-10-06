@@ -30,8 +30,20 @@ const MAX_PER_TYPE = 20;
  */
 const DEFAULT_LIMIT = 20;
 
-/** Nombre MAXIMAL de pages de tracks paginées (2 × 20 = 40 pistes). */
-const MAX_TRACK_PAGES = 2;
+/**
+ * BORNE DURE de la pagination tracks : au plus `MAX_TRACK_PAGES` pages
+ * (× la limite = le catalogue maximal servi, 100 pistes à la limite par
+ * défaut).
+ *
+ * Ce n'est PAS une « pagination massive » ni un simple 2 → 10 : la boucle
+ * (voir `fetchTrackPages`) s'arrête DES QUE la page précédente est
+ * INcomplète — c'est-à-dire dès que Spotify a épuisé les résultats
+ * pertinents du classement. La borne n'est donc atteinte QUE pour les
+ * requêtes qui remplissent réellement plusieurs dizaines de hits ; elle
+ * garantit seulement qu'aucune recherche ne génère une file de pages
+ * interminable.
+ */
+const MAX_TRACK_PAGES = 5;
 
 /**
  * Dédoublonne par identifiant Spotify — l'ordre de pertinence Spotify est
@@ -63,6 +75,62 @@ const fetchSearchPage = async (
     offset: String(offset),
   });
   return spotifyApiGet<SpotifySearchRaw>(`/search?${params.toString()}`);
+};
+
+/**
+ * Pagination TRACKS adaptative bornée (complétude du catalogue).
+ *
+ * Règles (verrouillées par les tests) :
+ *  1. la page 1 est TOUJOURS servie — sa faute est la faute de la recherche
+ *     (propagée par l'appelant) ;
+ *  2. une page suivante n'est demandée QUE si la précédente est PLEINE
+ *     (signe qu'il existe d'autres résultats, classés par pertinence) ;
+ *  3. une page INcomplète (Spotify a fini) interrompt IMMÉDIATEMENT la
+ *     pagination — c'est le signal « résultats déjà épuisés » ;
+ *  4. la borne dure `MAX_TRACK_PAGES` stoppe toute pagination massive ;
+ *  5. une page secondaire qui ÉCHoue (réseau) ne bloque PAS la recherche :
+ *     on conserve les pages déjà servies et on arrête la pagination ;
+ *  6. dédoublonnage par identifiant Spotify, ordre de pertinence conservé
+ *     (les pages s'enchaînent dans l'ordre demandé).
+ *
+ * `first` est la page 1 déjà fetchée par l'appelant (réutilisée pour les
+ * autres types : navigateurs, pas catalogue — donc jamais paginés).
+ */
+const fetchTrackPages = async (
+  q: string,
+  perType: number,
+  first: SpotifySearchRaw
+): Promise<SpotifyTrackHit[]> => {
+  const trackHits: SpotifyTrackHit[] = [...items(first.tracks)];
+  let page = first;
+  let pagesFetched = 1;
+
+  while (
+    items(page.tracks).length >= perType &&
+    pagesFetched < MAX_TRACK_PAGES
+  ) {
+    pagesFetched += 1;
+    let next: SpotifySearchRaw;
+
+    try {
+      next = await fetchSearchPage(q, perType, perType * (pagesFetched - 1));
+    } catch {
+      // Page secondaire en échec : la recherche reste servie (les pages déjà
+      // récupérées), la pagination s'arrête proprement.
+      break;
+    }
+
+    // Une page secondaire malformée (pas un objet) est traitée comme un
+    // échec : on conserve ce qui est servi, on n'arrête pas la recherche.
+    if (!next || typeof next !== 'object') {
+      break;
+    }
+
+    page = next;
+    trackHits.push(...items(next.tracks));
+  }
+
+  return dedupeById(trackHits).slice(0, perType * MAX_TRACK_PAGES);
 };
 
 export type SpotifySearchResults = {
@@ -222,12 +290,12 @@ const playlistToLibraryItem = (
  * (playlists non disponibles pour un compte, par exemple) est simplement
  * rendu vide — jamais d'exception, la recherche reste utilisable.
  *
- * PAGINATION TRACKS (completude du catalogue) : la page 1 rend déjà des
- * résultats ; si elle est COMPLETE (signe qu'il y en a d'autres), une 2e
- * page est demandée (offset = limite) et les pistes sont fusionnées par
- * ordre de pertinence Spotify puis dédoublonnées par identifiant. Les
- * autres types (artistes/albums/playlists) restent en page unique : ce
- * sont des entrées de navigation, pas le catalogue de morceaux.
+ * PAGINATION TRACKS (complétude du catalogue) : voir `fetchTrackPages` —
+ * adaptative et bornée (continue tant que la page précédente est pleine,
+ * stop dès qu'elle est incomplète ou à la borne dure, tolérante aux échecs
+ * de pages secondaires). Les autres types (artistes/albums/playlists)
+ * restent en page unique : ce sont des entrées de navigation, pas le
+ * catalogue de morceaux.
  */
 export const searchSpotifyCatalog = async (
   query: string,
@@ -240,22 +308,10 @@ export const searchSpotifyCatalog = async (
   }
 
   const perType = Math.min(Math.max(limit, 1), MAX_PER_TYPE);
+  // La page 1 sert ÉGALEMENT les types de navigation (artistes/albums/
+  // playlists) — seule la pagination tracks s'appuie sur elle.
   const first = await fetchSearchPage(q, perType, 0);
-
-  // Page 2 de tracks uniquement si la 1e est pleine — sinon inutile.
-  // Si elle échoue (réseau), on garde la page 1 : la recherche reste
-  // servie, jamais bloquée par la pagination.
-  const firstTracks = items(first.tracks);
-  let trackHits = firstTracks;
-  if (firstTracks.length >= perType) {
-    try {
-      const second = await fetchSearchPage(q, perType, perType);
-      trackHits = [...firstTracks, ...items(second.tracks)];
-    } catch {
-      trackHits = firstTracks;
-    }
-  }
-  trackHits = dedupeById(trackHits).slice(0, perType * MAX_TRACK_PAGES);
+  const trackHits = await fetchTrackPages(q, perType, first);
 
   return {
     tracks: trackHits

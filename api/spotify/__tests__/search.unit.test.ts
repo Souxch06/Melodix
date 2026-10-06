@@ -278,11 +278,15 @@ it('propagates the Spotify error to the caller (no silent empty result)', async 
 });
 
 /**
- * PAGINATION TRACKS — completude du catalogue : si la page 1 est pleine
- * (signe qu'il y a d'autres pistes), une 2e page est demandée et les
- * pistes sont fusionnées par ordre de pertinence, dédoublonnées par id.
+ * PAGINATION TRACKS — complétude du catalogue, adaptative et bornée.
+ *
+ * Ce n'est PAS un simple 2 → 10 : la boucle continue UNIQUEMENT tant que la
+ * page précédente est PLEINE (Spotify a encore des résultats pertinents),
+ * s'arrête dès qu'une page est INcomplète, et se heurte à une borne dure
+ * (5 pages) qui empêche toute pagination massive. Les tests verrouillent
+ * chaque règle individuellement.
  */
-describe('pagination tracks (completude du catalogue)', () => {
+describe('pagination tracks (complétude adaptative bornée)', () => {
   const page = (ids: string[], extra: Record<string, unknown> = {}) => ({
     tracks: {
       items: ids.map((id) => ({
@@ -296,10 +300,19 @@ describe('pagination tracks (completude du catalogue)', () => {
     },
   });
 
-  it('page 1 PLEINE → 2e page demandée (offset = limite), pistes fusionnées', async () => {
-    // Limite 2 pour garder le test rapide : page 1 pleine = 2 pistes.
+  /** N pages pleines de `limit` pistes, ids distincts. */
+  const fullPages = (limit: number, count: number) => {
+    for (let i = 0; i < count; i += 1) {
+      mockedGet.mockResolvedValueOnce(
+        page(Array.from({ length: limit }, (_, j) => `p${i + 1}t${j + 1}`))
+      );
+    }
+  };
+
+  it('page 1 PLEINE → page 2 demandée (offset = limite), pistes fusionnées', async () => {
+    // Limite 2 : page 1 pleine (2), page 2 INcomplète (1) → s'arrête là.
     mockedGet.mockResolvedValueOnce(page(['t1', 't2']));
-    mockedGet.mockResolvedValueOnce(page(['t3', 't4']));
+    mockedGet.mockResolvedValueOnce(page(['t3']));
 
     const results = await searchSpotifyCatalog('daft punk', 2);
 
@@ -308,10 +321,10 @@ describe('pagination tracks (completude du catalogue)', () => {
     expect(mockedGet.mock.calls[0][0]).toContain('offset=0');
     expect(mockedGet.mock.calls[1][0]).toContain('offset=2');
     // Ordre de pertinence Spotify conservé (page 1 d'abord).
-    expect(results.tracks.map((t) => t.id)).toEqual(['t1', 't2', 't3', 't4']);
+    expect(results.tracks.map((t) => t.id)).toEqual(['t1', 't2', 't3']);
   });
 
-  it('page 1 INCOMPLÈTE → aucune 2e requête (zéro appel superflu)', async () => {
+  it('page 1 INCOMPLÈTE → aucune autre requête (zéro appel superflu)', async () => {
     mockedGet.mockResolvedValue(page(['t1', 't2']));
 
     await searchSpotifyCatalog('daft punk', 10);
@@ -319,45 +332,82 @@ describe('pagination tracks (completude du catalogue)', () => {
     expect(mockedGet).toHaveBeenCalledTimes(1);
   });
 
-  it('les doublons entre pages sont supprimés (identique id = 1 seule carte)', async () => {
-    // Spotify peut renvoyer la même piste sur deux pages (reclassement).
-    mockedGet.mockResolvedValueOnce(page(['t1', 't2']));
-    mockedGet.mockResolvedValueOnce(page(['t2', 't3']));
+  it('continue AU-DELÀ de la page 2 tant que les pages sont pleines', async () => {
+    // Limite 2 : 3 pages pleines puis une INcomplète (1 piste) → 4 requêtes
+    // (l'ancien plafonnement à 2 pages n'aurait servi que 4 pistes au lieu
+    // de 7) et la pagination s'arrête sur la page incomplète.
+    fullPages(2, 3);
+    mockedGet.mockResolvedValueOnce(page(['p4t1']));
 
     const results = await searchSpotifyCatalog('daft punk', 2);
 
-    expect(results.tracks.map((t) => t.id)).toEqual(['t1', 't2', 't3']);
+    expect(mockedGet).toHaveBeenCalledTimes(4);
+    expect(mockedGet.mock.calls[3][0]).toContain('offset=6');
+    expect(results.tracks.map((t) => t.id)).toEqual([
+      'p1t1',
+      'p1t2',
+      'p2t1',
+      'p2t2',
+      'p3t1',
+      'p3t2',
+      'p4t1',
+    ]);
   });
 
-  it('la 2e page qui ÉCHoue ne bloque PAS la recherche (page 1 servie)', async () => {
+  it('la borne dure STOPPE la pagination (jamais massive, même pages pleines)', async () => {
+    // Limite 2, 5 pages pleines fournies : la boucle doit s'arrêter exactement
+    // à 5 requêtes (borne MAX_TRACK_PAGES), sans demander de 6e page.
+    fullPages(2, 5);
+
+    const results = await searchSpotifyCatalog('daft punk', 2);
+
+    expect(mockedGet).toHaveBeenCalledTimes(5);
+    expect(results.tracks).toHaveLength(10);
+  });
+
+  it('les doublons entre pages sont supprimés (même id = 1 seule carte)', async () => {
+    // Spotify peut renvoyer la même piste sur deux pages (reclassement).
+    // Page 2 incomplète → la pagination s'arrête après 2 requêtes.
     mockedGet.mockResolvedValueOnce(page(['t1', 't2']));
-    mockedGet.mockRejectedValueOnce(new Error('réseau'));
+    mockedGet.mockResolvedValueOnce(page(['t2']));
 
     const results = await searchSpotifyCatalog('daft punk', 2);
 
     expect(results.tracks.map((t) => t.id)).toEqual(['t1', 't2']);
   });
 
-  it('le total de pistes est BORNE (2 × limite, jamais plus)', async () => {
-    // Limite 3 : max 3 + 3 = 6 pistes même si Spotify en renverrait plus.
-    mockedGet.mockResolvedValueOnce(page(['a1', 'a2', 'a3']));
-    mockedGet.mockResolvedValueOnce(page(['b1', 'b2', 'b3']));
+  it('une page secondaire qui ÉCHoue ne bloque PAS la recherche', async () => {
+    // Page 1 pleine, page 2 en panne réseau : on conserve la page 1 et on
+    // arrête la pagination — la recherche reste servie.
+    mockedGet.mockResolvedValueOnce(page(['t1', 't2']));
+    mockedGet.mockRejectedValueOnce(new Error('réseau'));
 
-    const results = await searchSpotifyCatalog('daft punk', 3);
+    const results = await searchSpotifyCatalog('daft punk', 2);
 
-    expect(results.tracks).toHaveLength(6);
+    expect(results.tracks.map((t) => t.id)).toEqual(['t1', 't2']);
     expect(mockedGet).toHaveBeenCalledTimes(2);
   });
 
+  it('une page 1 en échec EST propagée (pas de faux vide)', async () => {
+    // La page 1 n'a pas de page de repli : sa faute est celle de la recherche.
+    mockedGet.mockRejectedValueOnce(new Error('spotify down'));
+
+    await expect(searchSpotifyCatalog('daft punk', 2)).rejects.toThrow(
+      'spotify down'
+    );
+    expect(mockedGet).toHaveBeenCalledTimes(1);
+  });
+
   it('les autres types restent en PAGE UNIQUE (navigation, pas catalogue)', async () => {
-    // Page 1 (pleine → déclenche la page 2 pour les tracks) porte les
-    // autres types ; la page 2 n est lue QUE pour les tracks.
+    // Page 1 (pleine → déclenche la page 2 pour les tracks) porte les autres
+    // types ; les pages suivantes ne sont lues QUE pour les tracks.
     mockedGet.mockResolvedValueOnce({
       ...page(['t1', 't2']),
       artists: { items: [{ id: 'ar', name: 'Artiste' }] },
       albums: { items: [{ id: 'al', name: 'Album' }] },
       playlists: { items: [{ id: 'pl', name: 'Playlist' }] },
     });
+    // Page 2 incomplète (1 piste) → s'arrête là.
     mockedGet.mockResolvedValueOnce({
       tracks: { items: [{ id: 't3', name: 'Titre t3' }] },
       // Types dupliqués dans la page 2 : ils doivent être IGNORÉS.
