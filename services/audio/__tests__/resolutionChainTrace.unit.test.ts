@@ -122,10 +122,12 @@ describe('trace chaîne — cas A : Spotify + Audius match → lecture Audius', 
     expect(trace.spotifyFound).toBe(true);
     expect(trace.rejectionReason).toBeNull();
     expect(trace.audius.searched).toBe(true);
-    // Le fournisseur qui a matché n'a pas de diagnostic d'échec : compteur
-    // non déterminable (null), score = celui du match.
-    expect(trace.audius.queryCount).toBeNull();
+    // Le fournisseur qui a matché porte désormais le diagnostic POSITIF :
+    // compteur de requêtes réel, score du match, MOYEN et VERSION choisis.
+    expect(trace.audius.queryCount).toBe(1);
     expect(trace.audius.bestScore).toBeGreaterThan(55);
+    expect(trace.audius.matchKind).toBe('exact-title');
+    expect(trace.audius.variant).toBe('original');
     // YouTube n'est touché QUE si Audius échoue : ici, jamais.
     expect(trace.youtube.searched).toBe(false);
     expect(trace.youtube.queryCount).toBeNull();
@@ -152,10 +154,13 @@ describe('trace chaîne — cas B : Audius rien → YouTube multi-stratégies', 
     expect(trace.audius.searched).toBe(true);
     expect(trace.audius.queryCount).toBeGreaterThan(0);
     expect(trace.audius.bestScore).toBeNull();
-    // YouTube a été cherché et a matché.
+    // YouTube a été cherché et a matché — son diagnostic POSITIF porte le
+    // compteur réel, le score, le MOYEN et la VERSION choisis.
     expect(trace.youtube.searched).toBe(true);
-    expect(trace.youtube.queryCount).toBeNull(); // match → pas de diagnostic
+    expect(trace.youtube.queryCount).toBe(1);
     expect(trace.youtube.bestScore).toBeGreaterThan(55);
+    expect(trace.youtube.matchKind).toBe('exact-title');
+    expect(trace.youtube.variant).toBe('original');
     expect(mockAudiusSearch).toHaveBeenCalled();
     expect(mockYouTubeSearch).toHaveBeenCalled();
     expect(isSanitizedChainTrace(trace)).toBe(true);

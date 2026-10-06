@@ -99,7 +99,16 @@ export const createAudiusAudioProvider = (): AudioProvider => {
       });
 
       if (result) {
-        return { sourceId: result.id, score: Math.min(1, result.score / 100) };
+        // Le diagnostic POSITIF (provider / moyen / variante / confiance)
+        // est écrit par le resolver central : ici on lui transmet simplement
+        // les codes courts déjà calculés par le moteur de matching.
+        return {
+          sourceId: result.id,
+          score: Math.min(1, result.score / 100),
+          matchKind: result.matchKind,
+          variantClass: result.variantClass,
+          searchQueryCount,
+        };
       }
 
       // Aucun candidat retenu : on explique POURQUOI, sans recopier une

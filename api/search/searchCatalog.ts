@@ -7,13 +7,15 @@ import { backendSearchCatalog } from '../backend';
 import { searchSpotifyCatalog } from '../spotify/search';
 
 /**
- * Résultats par type par recherche : 20 (au lieu de 10). Le catalogue
- * Spotify est vaste — 10 lignes masquaient les déclinaisons d'un même
- * morceau (remaster, live, radio edit) et donnaient l'impression d'un
- * catalogue « incomplet ». Côté Spotify, les tracks sont en outre
- * paginés (2 pages) dans searchSpotifyCatalog.
+ * Résultats par type par recherche : 50 (pleine page Spotify, la borne
+ * OFFICIELLE de l'API). Le catalogue Spotify est vaste — des listes plus
+ * courtes masquaient les déclinaisons d'un même morceau (remaster, live,
+ * radio edit) et donnaient l'impression d'un catalogue « incomplet ».
+ * Côté Spotify, les tracks sont en outre paginés de façon adaptative dans
+ * searchSpotifyCatalog (jusqu'à 10 pages × 50 = 500 pistes, arrêt dès que
+ * Spotify n'a plus de résultats ou que la borne dure est atteinte).
  */
-export const SEARCH_LIMIT = 20;
+export const SEARCH_LIMIT = 50;
 
 const emptyResults = (): SearchResultsModel => ({
   artists: [],

@@ -96,12 +96,20 @@ it('asks Spotify for the four types with a bounded limit', async () => {
   expect(path).toContain('q=daft+punk');
 });
 
-it('clamps the limit to the Spotify ceiling of 20', async () => {
+it('clamps the limit to the official Spotify ceiling of 50', async () => {
   mockedGet.mockResolvedValue({ tracks: { items: [] } });
 
   await searchSpotifyCatalog('daft punk', 500);
 
-  expect(mockedGet.mock.calls[0][0]).toContain('limit=20');
+  expect(mockedGet.mock.calls[0][0]).toContain('limit=50');
+});
+
+it('demands a full page of 50 by default (catalogue complet)', async () => {
+  mockedGet.mockResolvedValue({ tracks: { items: [] } });
+
+  await searchSpotifyCatalog('daft punk');
+
+  expect(mockedGet.mock.calls[0][0]).toContain('limit=50');
 });
 
 it('keeps the matching metadata on tracks (duration, album, uppercase ISRC)', async () => {
@@ -355,14 +363,29 @@ describe('pagination tracks (complétude adaptative bornée)', () => {
   });
 
   it('la borne dure STOPPE la pagination (jamais massive, même pages pleines)', async () => {
-    // Limite 2, 5 pages pleines fournies : la boucle doit s'arrêter exactement
-    // à 5 requêtes (borne MAX_TRACK_PAGES), sans demander de 6e page.
-    fullPages(2, 5);
+    // Limite 2, 10 pages pleines fournies : la boucle doit s'arrêter exactement
+    // à 10 requêtes (borne MAX_TRACK_PAGES), sans demander de 11e page.
+    fullPages(2, 10);
 
     const results = await searchSpotifyCatalog('daft punk', 2);
 
-    expect(mockedGet).toHaveBeenCalledTimes(5);
-    expect(results.tracks).toHaveLength(10);
+    expect(mockedGet).toHaveBeenCalledTimes(10);
+    expect(results.tracks).toHaveLength(20);
+  });
+
+  it('catalogue maximal par défaut : 10 pages × 50 = 500 pistes, jamais plus', async () => {
+    // Dix pages pleines de 50 pistes : la boucle les sert TOUTES (10
+    // requêtes, offset final 450) puis se heurte à la borne dure — jamais
+    // de 11e requête, jamais plus de 500 pistes. C'est la borne du
+    // catalogue, très en deçà de la capacité brute de l'API
+    // (offset+limit ≤ 5000).
+    fullPages(50, 10);
+
+    const results = await searchSpotifyCatalog('daft punk');
+
+    expect(mockedGet).toHaveBeenCalledTimes(10);
+    expect(mockedGet.mock.calls[9][0]).toContain('offset=450');
+    expect(results.tracks).toHaveLength(500);
   });
 
   it('les doublons entre pages sont supprimés (même id = 1 seule carte)', async () => {

@@ -1,5 +1,13 @@
-import type { AudioProvider, AudioSourceQuery } from './types';
-import { recordResolutionDiagnostic } from './resolutionDiagnostics';
+import type {
+  AudioProvider,
+  AudioSourceQuery,
+  SongMatchKind,
+  TrackVariantClass,
+} from './types';
+import {
+  buildMatchedDiagnostic,
+  recordResolutionDiagnostic,
+} from './resolutionDiagnostics';
 
 /**
  * TrackResolver — point ENTREE unique de la chaîne de résolution.
@@ -52,6 +60,10 @@ export type ProviderChainOutcome =
       sourceId: string;
       /** 0..1 */
       score: number;
+      /** MOYEN de la décision (null si le provider ne l'a pas précisé). */
+      matchKind: SongMatchKind | null;
+      /** Classe de variante du morceau choisi (null si inconnue). */
+      variantClass: TrackVariantClass | null;
     }
   | { status: 'no-match' }
   | { status: 'error' };
@@ -68,7 +80,13 @@ export const resolveWithProviders = async (
   let sawProviderError = false;
 
   for (const provider of providers) {
-    let match: { sourceId: string; score: number } | null = null;
+    let match: {
+      sourceId: string;
+      score: number;
+      matchKind?: SongMatchKind;
+      variantClass?: TrackVariantClass;
+      searchQueryCount?: number;
+    } | null = null;
 
     try {
       match = await provider.resolveMatch(query);
@@ -100,11 +118,26 @@ export const resolveWithProviders = async (
           ? '[AUDIO] Audius match'
           : '[AUDIO] YouTube fallback'
       );
+      // DIAGNOSTIC POSITIF : « pourquoi CE morceau a été choisi » — quel
+      // fournisseur, par quel moyen, quelle version, quelle confiance.
+      // Codes courts uniquement (voir buildMatchedDiagnostic) : jamais de
+      // titre, artiste, ISRC, identifiant de piste ou URL.
+      recordResolutionDiagnostic(
+        buildMatchedDiagnostic({
+          providerId: provider.id,
+          matchKind: match.matchKind ?? null,
+          variant: match.variantClass ?? null,
+          confidence: Math.round(match.score * 100),
+          searchQueryCount: match.searchQueryCount ?? 0,
+        })
+      );
       return {
         status: 'matched',
         provider,
         sourceId: match.sourceId,
         score: match.score,
+        matchKind: match.matchKind ?? null,
+        variantClass: match.variantClass ?? null,
       };
     }
   }

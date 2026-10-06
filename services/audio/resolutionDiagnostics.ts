@@ -71,6 +71,11 @@ export type RejectionTally = Partial<Record<ResolutionRejectionCode, number>>;
 /**
  * Enregistrement de diagnostic. Aucun champ ne peut contenir de métadonnée
  * d'écoute : le type l'interdit structurellement.
+ *
+ * Les trois champs `matchKind`/`variant`/`confidence` ne sont portés QUE par
+ * les enregistrements `MATCHED` (le diagnostic « pourquoi CE morceau a été
+ * choisi ») : codes courts issus de listes fermées (jamais de titre,
+ * artiste, ISRC ou URL), et null partout ailleurs.
  */
 export type ResolutionDiagnosticRecord = {
   code: ResolutionFailureCode;
@@ -94,6 +99,18 @@ export type ResolutionDiagnosticRecord = {
   bestScore: number | null;
   /** Motifs de rejet rencontrés, avec leur nombre d'occurrences. */
   rejectedBy: RejectionTally;
+  /**
+   * MOYEN de la décision pour un `MATCHED` (isrc / exact-title /
+   * title-artist-duration / fuzzy) ; null pour tout le reste.
+   */
+  matchKind?: string | null;
+  /**
+   * Classe de variante du morceau CHOISI (enum TrackVariantClass, ex.
+   * original / remix / live) ; null pour tout enregistrement non MATCHED.
+   */
+  variant?: string | null;
+  /** Confiance du match choisi (0..100) ; null hors MATCHED. */
+  confidence?: number | null;
   /** Horodatage monotone du runtime (pas d'information utilisateur). */
   at: number;
 };
@@ -244,11 +261,45 @@ const DIAGNOSTIC_FIELDS = [
   'searchQueryCount',
   'bestScore',
   'rejectedBy',
+  'matchKind',
+  'variant',
+  'confidence',
   'at',
 ] as const;
 
 /** Un motif de rejet est un code court, jamais une chaîne libre. */
 const MAX_REASON_KEY_LENGTH = 32;
+
+/** MOYENS de décision autorisés (codes courts, liste fermée). */
+const MATCH_KIND_VALUES = [
+  'isrc',
+  'exact-title',
+  'title-artist-duration',
+  'fuzzy',
+] as const;
+
+/** Classes de variante autorisées (enum TrackVariantClass, liste fermée). */
+const VARIANT_VALUES = [
+  'original',
+  'remix',
+  'live',
+  'acoustic',
+  'instrumental',
+  'radio_edit',
+  'extended',
+  'club',
+  'vip',
+  'sped_up',
+  'slowed',
+  'reverb',
+  'karaoke',
+  'demo',
+  'mashup',
+  'bootleg',
+  'alternate',
+  'remastered',
+  'unknown',
+] as const;
 
 /**
  * Vérifie qu'un enregistrement de diagnostic est STRICTEMENT dénaturé.
@@ -299,6 +350,33 @@ export const isSanitizedDiagnostic = (value: unknown): boolean => {
   if (record.bestScore !== null && typeof record.bestScore !== 'number') {
     return false;
   }
+  // Les champs du diagnostic POSITIF (MATCHED) : codes courts de listes
+  // fermées uniquement — un titre/artiste/ISRC collé ici échouerait.
+  if (record.matchKind !== undefined && record.matchKind !== null) {
+    if (
+      typeof record.matchKind !== 'string' ||
+      !MATCH_KIND_VALUES.includes(record.matchKind as never)
+    ) {
+      return false;
+    }
+  }
+  if (record.variant !== undefined && record.variant !== null) {
+    if (
+      typeof record.variant !== 'string' ||
+      !VARIANT_VALUES.includes(record.variant as never)
+    ) {
+      return false;
+    }
+  }
+  if (record.confidence !== undefined && record.confidence !== null) {
+    if (
+      typeof record.confidence !== 'number' ||
+      record.confidence < 0 ||
+      record.confidence > 100
+    ) {
+      return false;
+    }
+  }
   if (typeof record.at !== 'number') {
     return false;
   }
@@ -321,6 +399,44 @@ export const isSanitizedDiagnostic = (value: unknown): boolean => {
       Number.isInteger(count)
   );
 };
+
+/**
+ * Construit l'enregistrement `MATCHED` — le diagnostic POSITIF qui répond à
+ * « pourquoi CE morceau a été choisi » : quel fournisseur, par quel MOYEN
+ * (isrc / exact-title / title-artist-duration / fuzzy), quelle VERSION
+ * (original / remix / live / …) et avec quelle confiance (0..100).
+ *
+ * Même règle de confidentialité que le reste du module : uniquement des
+ * codes courts de listes fermées — jamais le titre, l'artiste, l'album,
+ * l'ISRC, l'identifiant du morceau ou une URL.
+ */
+export const buildMatchedDiagnostic = (params: {
+  providerId: string;
+  /** Code court (enum SongMatchKind) — `null` si inconnu. */
+  matchKind: string | null;
+  /** Classe de variante (enum TrackVariantClass) — `null` si inconnue. */
+  variant: string | null;
+  /** Confiance du match (0..100). */
+  confidence: number;
+  /** Nombre de requêtes émises par ce fournisseur (défaut 0). */
+  searchQueryCount?: number;
+}): ResolutionDiagnosticRecord => ({
+  code: 'MATCHED',
+  providerId: params.providerId,
+  rejectionCount: 0,
+  searchQueryCount:
+    typeof params.searchQueryCount === 'number' &&
+    Number.isInteger(params.searchQueryCount) &&
+    params.searchQueryCount >= 0
+      ? params.searchQueryCount
+      : 0,
+  bestScore: params.confidence,
+  rejectedBy: {},
+  matchKind: params.matchKind,
+  variant: params.variant,
+  confidence: params.confidence,
+  at: nextTimestamp(),
+});
 
 // ─────────────────────────────────────────────────────────────────────────────
 // TRACE DE RÉSOLUTION PAR PISTE — la chaîne complète, exploitable.
@@ -352,13 +468,23 @@ export type ResolutionProviderTrace = {
   /** Le fournisseur a-t-il réellement été consulté pour cette piste ? */
   searched: boolean;
   /**
-   * Nombre de requêtes de recherche émises. null = non déterminable : soit le
-   * fournisseur a MATCHÉ (aucun diagnostic d'échec n'est enregistré pour un
-   // succès), soit il n'a jamais été consulté.
+   * Nombre de requêtes de recherche émises. null = non déterminable : soit
+   * le fournisseur n'a jamais été consulté, soit le diagnostic positif ne
+   * précisait pas le nombre.
    */
   queryCount: number | null;
   /** Meilleur score observé (0..100), null si inconnu. */
   bestScore: number | null;
+  /**
+   * MOYEN de la décision quand CET fournisseur a fourni le morceau joué
+   * (isrc / exact-title / title-artist-duration / fuzzy) ; null sinon.
+   */
+  matchKind: string | null;
+  /**
+   * Classe de variante du morceau fourni par CE fournisseur (original /
+   * remix / live / …) ; null s'il n'a pas matché ou si c'est inconnu.
+   */
+  variant: string | null;
 };
 
 /** Vue chaîne complète pour UNE piste. */
@@ -444,12 +570,14 @@ export const buildResolutionChainTrace = (
 
     return {
       searched,
-      queryCount: isMatched ? null : record ? record.searchQueryCount : null,
+      queryCount: record ? record.searchQueryCount : null,
       bestScore: isMatched
         ? Math.round(matchedScore as number)
         : record
           ? record.bestScore
           : null,
+      matchKind: isMatched && record ? (record.matchKind ?? null) : null,
+      variant: isMatched && record ? (record.variant ?? null) : null,
     };
   };
 
@@ -493,7 +621,13 @@ const CHAIN_TRACE_FIELDS = [
   'rejectionReason',
   'backend',
 ] as const;
-const PROVIDER_TRACE_FIELDS = ['searched', 'queryCount', 'bestScore'] as const;
+const PROVIDER_TRACE_FIELDS = [
+  'searched',
+  'queryCount',
+  'bestScore',
+  'matchKind',
+  'variant',
+] as const;
 const BACKEND_VALUES = ['audius', 'youtube', 'none'] as const;
 const REJECTION_REASON_RX = /^[A-Z0-9_]{2,32}$/;
 
@@ -525,6 +659,21 @@ const isSanitizedProviderTrace = (value: unknown): boolean => {
   if (
     obj.bestScore !== null &&
     (typeof obj.bestScore !== 'number' || obj.bestScore < 0)
+  ) {
+    return false;
+  }
+  // Codes courts de listes fermées (jamais de métadonnée d'écoute).
+  if (
+    obj.matchKind !== null &&
+    (typeof obj.matchKind !== 'string' ||
+      !MATCH_KIND_VALUES.includes(obj.matchKind as never))
+  ) {
+    return false;
+  }
+  if (
+    obj.variant !== null &&
+    (typeof obj.variant !== 'string' ||
+      !VARIANT_VALUES.includes(obj.variant as never))
   ) {
     return false;
   }

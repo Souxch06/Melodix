@@ -3,6 +3,8 @@ import type {
   AudioProviderMatch,
   AudioSourceQuery,
   ResolvedStream,
+  SongMatchKind,
+  TrackVariantClass,
 } from './types';
 import {
   canonicalizeFromTitle,
@@ -122,11 +124,20 @@ const queryTexts = (query: AudioSourceQuery): string[] => {
   ).slice(0, MAX_QUERY_TEXTS);
 };
 
+/**
+ * Score un candidat avec le MÊME moteur partagé qu'Audius. Renvoie la
+ * décision complète (score + moyen + variante) ou null — le caller choisit
+ * ce qu'il en fait (seuil, diagnostic, UI).
+ */
 const scoreCandidate = (
   query: AudioSourceQuery,
   candidate: YouTubeSongCandidate,
   onDecision?: (decision: SongCandidateDecision) => void
-): number => {
+): {
+  score: number;
+  matchKind: SongMatchKind;
+  variantClass: TrackVariantClass;
+} | null => {
   const source = fingerprintOf({
     title: query.title,
     artistNames: query.artists,
@@ -150,8 +161,20 @@ const scoreCandidate = (
     { onCandidateDecision: onDecision }
   );
 
-  return best?.score ?? 0;
+  return best
+    ? {
+        score: best.score,
+        matchKind: best.matchKind,
+        variantClass: best.variantClass,
+      }
+    : null;
 };
+
+/** Seuil d'acceptation (même échelle 0..100 que le moteur partagé). */
+const meetsAcceptScore = (
+  query: AudioSourceQuery,
+  candidate: YouTubeSongCandidate
+): boolean => (scoreCandidate(query, candidate)?.score ?? 0) >= ACCEPT_SCORE;
 
 /** Recherche élargie mais bornée ; arrêt dès qu'un match fiable existe. */
 const searchCandidates = async (
@@ -187,17 +210,13 @@ const searchCandidates = async (
         collected.push(candidate);
       }
     });
-    if (
-      collected.some(
-        (candidate) => scoreCandidate(query, candidate) >= ACCEPT_SCORE
-      )
-    ) {
+    if (collected.some((candidate) => meetsAcceptScore(query, candidate))) {
       break;
     }
   }
 
-  const hasReliableCandidate = collected.some(
-    (candidate) => scoreCandidate(query, candidate) >= ACCEPT_SCORE
+  const hasReliableCandidate = collected.some((candidate) =>
+    meetsAcceptScore(query, candidate)
   );
   if (!hasReliableCandidate && sawSearchError) {
     throw new Error('YouTube search incomplete');
@@ -217,18 +236,30 @@ export const createYouTubeAudioProvider = (): AudioProvider => ({
     const candidates = await searchCandidates(query).catch(() => []);
 
     return candidates
-      .map((candidate) => ({
-        sourceId: candidate.videoId,
-        title: candidate.title,
-        artist: candidate.artists[0] ?? '',
-        score: Math.min(1, scoreCandidate(query, candidate) / 100),
-      }))
-      .filter((match) => match.score >= ACCEPT_SCORE / 100);
+      .map((candidate) => {
+        const result = scoreCandidate(query, candidate);
+
+        return result
+          ? {
+              sourceId: candidate.videoId,
+              title: candidate.title,
+              artist: candidate.artists[0] ?? '',
+              score: Math.min(1, result.score / 100),
+            }
+          : null;
+      })
+      .filter((match): match is AudioProviderMatch => !!match);
   },
 
   resolveMatch: async (
     query: AudioSourceQuery
-  ): Promise<{ sourceId: string; score: number } | null> => {
+  ): Promise<{
+    sourceId: string;
+    score: number;
+    matchKind?: SongMatchKind;
+    variantClass?: TrackVariantClass;
+    searchQueryCount?: number;
+  } | null> => {
     if (!queryTexts(query).length) {
       return null;
     }
@@ -258,15 +289,26 @@ export const createYouTubeAudioProvider = (): AudioProvider => ({
       throw error;
     }
 
-    let best: { sourceId: string; raw: number } | null = null;
+    let best: {
+      sourceId: string;
+      raw: number;
+      matchKind: SongMatchKind;
+      variantClass: TrackVariantClass;
+    } | null = null;
     const decisions: SongCandidateDecision[] = [];
 
     for (const candidate of candidates) {
-      const raw = scoreCandidate(query, candidate, (decision) =>
+      const result = scoreCandidate(query, candidate, (decision) =>
         decisions.push(decision)
       );
-      if (raw >= ACCEPT_SCORE && (best === null || raw > best.raw)) {
-        best = { sourceId: candidate.videoId, raw };
+      const raw = result?.score ?? 0;
+      if (result && raw >= ACCEPT_SCORE && (best === null || raw > best.raw)) {
+        best = {
+          sourceId: candidate.videoId,
+          raw,
+          matchKind: result.matchKind,
+          variantClass: result.variantClass,
+        };
       }
     }
 
@@ -277,7 +319,15 @@ export const createYouTubeAudioProvider = (): AudioProvider => ({
     });
 
     if (best) {
-      return { sourceId: best.sourceId, score: Math.min(1, best.raw / 100) };
+      // Le diagnostic POSITIF (provider / moyen / variante / confiance) est
+      // écrit par le resolver central : on lui transmet les codes courts.
+      return {
+        sourceId: best.sourceId,
+        score: Math.min(1, best.raw / 100),
+        matchKind: best.matchKind,
+        variantClass: best.variantClass,
+        searchQueryCount,
+      };
     }
 
     // Aucun candidat fiable : on explique la décision SANS journaliser le

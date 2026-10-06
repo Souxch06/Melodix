@@ -1,6 +1,10 @@
 import type { AudiusTrackMatch } from '@api';
 
-import type { AudioSourceQuery } from './types';
+import type {
+  AudioSourceQuery,
+  SongMatchKind,
+  TrackVariantClass,
+} from './types';
 
 /**
  * Reliability-first matching of a source track (Spotify metadata) against
@@ -12,7 +16,15 @@ import type { AudioSourceQuery } from './types';
  * - comparisons happen on TYPOGRAPHICALLY NORMALIZED variants (case, accents,
  *   dashes, ellipses, silence-padding metadata) so that titles like
  *   "Tame (feat. X) — Remastered 2024" still line up;
- * - artist agreement and duration agreement each contribute bounded weight.
+ * - artist agreement and duration agreement each contribute bounded weight;
+ * - the VERSION of a track is classified DETERMINISTICALLY
+ *   (`classifyVariantTitle`, classes `TrackVariantClass`) and a candidate
+ *   whose variant differs from the source is rejected BEFORE scoring — a
+ *   textual score can never make a remix beat the original;
+ * - ISRC is the strongest identity signal: an EXACT ISRC match wins over
+ *   every other signal; a DIFFERENT known ISRC is a penalty (the candidate
+ *   proves to be another recording) and can only survive with an otherwise
+ *   near-perfect match.
  */
 
 export type SongMatchCandidate = {
@@ -45,16 +57,27 @@ export type SongFingerprint = {
   /** `null` signifie que la version ne publie aucune classification fiable. */
   explicit: boolean | null;
   /**
-   * Marqueurs de variante dure détectés dans le titre SOURCE
-   * (« remix », « live », « instrumental », « karaoke », « acoustic »).
+   * Classes de variante DURE détectées dans le titre SOURCE (classes
+   * `TrackVariantClass`, `original`/`remastered`/`unknown` exclus — ils ne
+   * désignent pas un enregistrement différent).
    */
   hardVariants: string[];
+  /**
+   * Classe de variante DOMINANTE du titre SOURCE (classification
+   * déterministe) : `original` quand aucun marqueur, `remix` pour
+   * « Song (Remix) », etc. Alimente le diagnostic de résolution.
+   */
+  variantClass: TrackVariantClass;
 };
 
 export type SongMatchResult = {
   id: string;
   score: number;
   candidate: SongMatchCandidate;
+  /** MOYEN de la décision (isrc / exact-title / title-artist-duration / fuzzy). */
+  matchKind: SongMatchKind;
+  /** Classe de variante du candidat ACCEPTÉ (ce qui sera réellement joué). */
+  variantClass: TrackVariantClass;
 };
 
 export type SongCandidateDecision = {
@@ -311,34 +334,117 @@ const splitArtistNames = (raw: string): string[] =>
 
 /** Builds the normalized fingerprint of a source query or a candidate. */
 /**
- * Variantes « dures » : un remix / live / instrumental / karaoke / acoustic
- * N'EST PAS une correspondance exacte automatique quand la source n'est pas
- * cette version (point 4 : « Song » vs « Song (Remix) » → pénalité forte).
- * Remastered/radio edit/extended/officiel/lyrics = versions acceptées (bruit
- * d'édition géré par canonicalizeFromTitle comme avant).
+ * CLASSIFICATION DÉTERMINISTE des variantes de titre.
+ *
+ * Chaque marqueur reconnu mappe vers EXACTEMENT une classe
+ * `TrackVariantClass` (liste fermée, verrouillée par les tests) :
+ *
+ * - classes « DURES » : remix, live, acoustic, instrumental, radio_edit,
+ *   extended, club, vip, sped_up, slowed, reverb, karaoke, demo, mashup,
+ *   bootleg, alternate — un enregistrement DIFFÉRENT : la porte
+ *   `variant-mismatch` les rejette quand la source n'est pas cette version
+ *   (« Song » ≠ « Song (Remix) »), et réciproquement ;
+ * - `remastered` / `unknown` : bruit d'édition (même enregistrement, ou
+ *   marqueur ambigu) — classés mais JAMAIS rejettés à eux seuls ;
+ * - `original` : aucun marqueur détecté.
+ *
+ * La détection se fait sur le titre NORMALISÉ (minuscules, accents retirés) :
+ * « (REMASTERED 2011) » et « (Remastered 2011) » donnent la même classe.
+ * `nightcore` mappe sur `sped_up` (c'est littéralement une version accélérée)
+ * pour rester dans l'enum de la mission.
  */
-const HARD_VARIANT_RX =
-  /\b(remix|live|instrumental|karaoke|acoustic|radio\s+edit|extended(?:\s+(?:mix|version))?|sped\s+up|slowed(?:\s+down)?|nightcore)\b/giu;
-const canonicalVariantTag = (raw: string): string => {
-  const tag = raw.toLowerCase().replace(/\s+/g, ' ').trim();
-  if (tag.startsWith('extended')) return 'extended';
-  if (tag.startsWith('slowed')) return 'slowed';
-  return tag;
-};
+const VARIANT_MARKERS: readonly { rx: RegExp; cls: TrackVariantClass }[] = [
+  { rx: /\bmashup\b/iu, cls: 'mashup' },
+  { rx: /\bbootleg\b/iu, cls: 'bootleg' },
+  { rx: /\bremix\b/iu, cls: 'remix' },
+  { rx: /\bclub\s+(?:mix|version|edit)\b/iu, cls: 'club' },
+  { rx: /\blive\b/iu, cls: 'live' },
+  { rx: /\bacoustic\b/iu, cls: 'acoustic' },
+  { rx: /\binstrumental\b/iu, cls: 'instrumental' },
+  { rx: /\bkaraoke\b/iu, cls: 'karaoke' },
+  { rx: /\bradio\s+edit\b/iu, cls: 'radio_edit' },
+  { rx: /\bextended\b/iu, cls: 'extended' },
+  { rx: /\bvip\b/iu, cls: 'vip' },
+  { rx: /\bsped\s+up\b/iu, cls: 'sped_up' },
+  { rx: /\bnightcore\b/iu, cls: 'sped_up' },
+  { rx: /\bslowed(?:\s+down)?\b/iu, cls: 'slowed' },
+  { rx: /\breverb\b/iu, cls: 'reverb' },
+  { rx: /\bdemo\b/iu, cls: 'demo' },
+  {
+    rx: /\b(?:alternate|alternative)\s+(?:version|mix)\b/iu,
+    cls: 'alternate',
+  },
+  { rx: /\bremaster(?:ed)?\b/iu, cls: 'remastered' },
+];
 
-export const hardVariantsOfTitle = (title: string): string[] => {
+/**
+ * Ordre de PRÉCÉDENCE pour la classe DOMINANTE d'un titre multi-marqueurs
+ * (fixe → déterministe) : le marqueur le plus spécifique gagne, par exemple
+ * « Song (Mashup Remix) » → `mashup`.
+ */
+const VARIANT_CLASS_PRIORITY: readonly TrackVariantClass[] = [
+  'mashup',
+  'bootleg',
+  'remix',
+  'club',
+  'live',
+  'acoustic',
+  'instrumental',
+  'karaoke',
+  'radio_edit',
+  'extended',
+  'vip',
+  'sped_up',
+  'slowed',
+  'reverb',
+  'demo',
+  'alternate',
+  'remastered',
+  'unknown',
+];
+
+/**
+ * Classes détectées dans un titre, dans l'ordre de l'enum (stable).
+ * « Version » générique sans marqueur connu (« Version 2024 », « (Version 2)
+ * ») → `unknown` (édition ambiguë : classée, jamais porte dure).
+ */
+export const variantClassesOfTitle = (title: string): TrackVariantClass[] => {
   const normalized = normalizeTitleText(title);
-  const found: string[] = [];
+  const found = new Set<TrackVariantClass>();
 
-  for (const match of normalized.matchAll(HARD_VARIANT_RX)) {
-    const tag = canonicalVariantTag(match[1] ?? '');
-    if (tag && !found.includes(tag)) {
-      found.push(tag);
+  for (const { rx, cls } of VARIANT_MARKERS) {
+    if (rx.test(normalized)) {
+      found.add(cls);
     }
   }
 
-  return found;
+  if (!found.size && /\bversion\b/iu.test(normalized)) {
+    found.add('unknown');
+  }
+
+  return VARIANT_CLASS_PRIORITY.filter((cls) => found.has(cls));
 };
+
+/**
+ * Classe DOMINANTE d'un titre : la première classe détectée dans
+ * `VARIANT_CLASS_PRIORITY`, `original` quand aucun marqueur n'est présent.
+ * MÊME titre → MÊME classe, toujours (déterminisme verrouillé par les tests).
+ */
+export const classifyVariantTitle = (title: string): TrackVariantClass => {
+  const classes = variantClassesOfTitle(title);
+
+  return classes.length ? classes[0] : 'original';
+};
+
+/** Classes DURES uniquement (les seules qui alimentent la porte de variante). */
+const HARD_VARIANT_CLASSES: ReadonlySet<TrackVariantClass> = new Set(
+  VARIANT_CLASS_PRIORITY.filter(
+    (cls) => cls !== 'remastered' && cls !== 'unknown'
+  )
+);
+
+export const hardVariantsOfTitle = (title: string): string[] =>
+  variantClassesOfTitle(title).filter((cls) => HARD_VARIANT_CLASSES.has(cls));
 
 const hardVariantMismatch = (a: string[], b: string[]): boolean => {
   if (!a.length && !b.length) {
@@ -390,6 +496,7 @@ export const fingerprintOf = (input: {
         ? input.explicit
         : contentRatingOfTitle(input.title),
     hardVariants: hardVariantsOfTitle(input.title),
+    variantClass: classifyVariantTitle(input.title),
   };
 };
 
@@ -694,6 +801,18 @@ export const matchSongs = (
 
     const candidateIsrc = normalizeIsrc(candidate.isrc);
     const isrcExact = Boolean(source.isrc && candidateIsrc === source.isrc);
+    // CONFLIT ISRC : les deux côtés publient un ISRC et ils DIFFÈRENT.
+    // L'ISRC est l'identifiant d'un ENREGISTREMENT : un ISRC différent est
+    // la preuve qu'il s'agit d'un autre enregistrement (édition régionale,
+    // release séparée…), même quand titre/artiste/durée s'accordent.
+    // Règles (verrouillées par les tests) :
+    //  - jamais préféré à un ISRC IDENTIQUE (celui-ci vaut 100, ici ≤ 99) ;
+    //  - pénalité forte : le candidat ne survit QUE si le reste est quasi
+    //    parfait (titre exact + artiste quasi parfait + durée ≤ 3 s) —
+    //    l'« échappatoire » aux ISRC erronés côté distributeur ;
+    //  - ISRC différent + marqueur de variante → rejeté par la porte
+    //    variante ci-dessous, quel que soit le reste.
+    const isrcConflict = !isrcExact && Boolean(source.isrc && candidateIsrc);
     const views = candidateTitleViews(candidate.title, source.title);
     const bestTitle = views.titles.reduce(
       (best, title) =>
@@ -857,15 +976,39 @@ export const matchSongs = (
         : titleStatus === 'partial'
           ? 0
           : titleConfidence * 35;
+    const base =
+      titlePoints +
+      (exactTitle ? 5 : 0) +
+      artistAgreement * 25 +
+      (albumStatus === 'exact' ? 15 : albumStatus === 'partial' ? 7 : 0) +
+      durationConfidence * 20;
+    // ISRC exact = 100, TOUJOURS au-dessus de tout le reste. Sans ISRC
+    // exact, le score est borné à 99 (un ISRC identique prime toujours) et
+    // réduit de 25 points quand les deux ISRCs sont connus et différents.
+    // Calibrage (verrouillé par les tests) :
+    //  - « correspondance stricte » (titre exact + artiste ≥ 0.82 + durée
+    //    ≤ 8 s) : base ≥ 81.5 → 56.5 ≥ seuil → ACCEPTÉ (échappatoire aux
+    //    ISRC erronés côté distributeur, que la mission autorise) ;
+    //  - titre partiel, artiste flou ou durée > 8 s : base ≤ 74.5 →
+    //    49.5 < seuil → REJETÉ ;
+    //  - un ISRC identique (100) bat toujours un ISRC conflictuel (≤ 74)
+    //    et un candidat sans ISRC (≤ 99) est préféré à un ISRC
+    //    conflictuel avec le même profil de métadonnées.
     const score = isrcExact
       ? 100
-      : Math.round(
-          titlePoints +
-            (exactTitle ? 5 : 0) +
-            artistAgreement * 25 +
-            (albumStatus === 'exact' ? 15 : albumStatus === 'partial' ? 7 : 0) +
-            durationConfidence * 20
-        );
+      : Math.max(0, Math.min(99, Math.round(base - (isrcConflict ? 25 : 0))));
+    // MOYEN de la décision — alimente le diagnostic « pourquoi ce morceau
+    // a été choisi » (codes courts, sans métadonnée d'écoute).
+    const matchKind: SongMatchKind = isrcExact
+      ? 'isrc'
+      : titleStatus === 'exact'
+        ? 'exact-title'
+        : artistAgreement >= 0.82 &&
+            durationConfidence >= 0.8 &&
+            titleConfidence >= MIN_FUZZY_TITLE_SIMILARITY
+          ? 'title-artist-duration'
+          : 'fuzzy';
+    const variantClass = classifyVariantTitle(candidate.title);
 
     decide({
       id: candidate.id,
@@ -882,10 +1025,10 @@ export const matchSongs = (
     const quality = candidateContentQuality(candidate);
 
     if (!best || score > best.score) {
-      best = { id: candidate.id, score, candidate };
+      best = { id: candidate.id, score, candidate, matchKind, variantClass };
       bestQuality = quality;
     } else if (score === best.score && quality > bestQuality) {
-      best = { id: candidate.id, score, candidate };
+      best = { id: candidate.id, score, candidate, matchKind, variantClass };
       bestQuality = quality;
     }
   }

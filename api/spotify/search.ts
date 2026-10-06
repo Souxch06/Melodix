@@ -20,30 +20,39 @@ import { LibraryItemModel } from '@models';
 /** Types demandés à Spotify — l'ordre de la réponse n'est pas garanti. */
 const SEARCH_TYPES = 'track,artist,album,playlist' as const;
 
-/** Borne Spotify : 50 par type et par page (on reste à 20 : pertinent + rapide). */
-const MAX_PER_TYPE = 20;
+/**
+ * Borne Spotify OFFICIELLE : 50 résultats par type et par page (le maximum
+ * que `/v1/search` accepte). On utilise la pleine capacité : c'est la limite
+ * native de l'API, pas un choix arbitraire, et c'est ce qui permet au
+ * catalogue de servir 500 pistes sans multiplier les requêtes.
+ */
+const MAX_PER_TYPE = 50;
 
 /**
- * Nombre de résultats affichés par recherche. 20 (au lieu de 10) :
+ * Nombre de résultats demandés par défaut. 50 (= pleine page Spotify) :
  * le premier écran de résultats doit couvrir les déclinaisons d'un même
- * morceau (remaster, version live, édition radio) sans faire défiler.
+ * morceau (remaster, version live, édition radio) sans faire défiler, et la
+ * pagination tracks s'appuie sur cette même taille de page.
  */
-const DEFAULT_LIMIT = 20;
+const DEFAULT_LIMIT = 50;
 
 /**
  * BORNE DURE de la pagination tracks : au plus `MAX_TRACK_PAGES` pages
- * (× la limite = le catalogue maximal servi, 100 pistes à la limite par
- * défaut).
+ * (× la taille de page = le catalogue maximal servi, 500 pistes à la
+ * limite par défaut).
  *
- * Ce n'est PAS une « pagination massive » ni un simple 2 → 10 : la boucle
- * (voir `fetchTrackPages`) s'arrête DES QUE la page précédente est
- * INcomplète — c'est-à-dire dès que Spotify a épuisé les résultats
- * pertinents du classement. La borne n'est donc atteinte QUE pour les
- * requêtes qui remplissent réellement plusieurs dizaines de hits ; elle
- * garantit seulement qu'aucune recherche ne génère une file de pages
- * interminable.
+ * Ce n'est PAS une pagination infinie : l'API Spotify impose elle-même
+ * `offset + limit ≤ 5000` par requête ; ici on se borne à 500, soit 10 % de
+ * la capacité brute de l'API — la plus grande trame de pertinence qu'une
+ * recherche de catalogue puisse raisonnablement servir. La boucle
+ * (voir `fetchTrackPages`) s'arrête DE TOUTE FAÇON DES QUE la page
+ * précédente est INcomplète, c'est-à-dire dès que Spotify a épuisé les
+ * résultats pertinents du classement : la borne dure n'est atteinte QUE
+ * pour les requêtes très populaires qui remplissent réellement dix pages
+ * entières, et elle garantit qu'aucune recherche ne génère une file de
+ * pages interminable.
  */
-const MAX_TRACK_PAGES = 5;
+const MAX_TRACK_PAGES = 10;
 
 /**
  * Dédoublonne par identifiant Spotify — l'ordre de pertinence Spotify est
