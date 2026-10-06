@@ -735,8 +735,18 @@ export const matchSongs = (
       continue;
     }
 
-    const candidateArtistNames =
-      candidate.artistNames?.map((name) => normalizeArtistText(name)) ?? [];
+    // DÉCOUPAGE SYMÉTRIQUE des artistes (cas D) : la source EST déjà découpée
+    // par `splitArtistNames` (dans `fingerprintOf`). Le candidat l'était pas —
+    // il était seulement normalisé — si bien qu'un « A & B » (ou « A and B »)
+    // en UN seul nom ne correspondait jamais à la source « A, B », MÊME
+    // identique des deux côtés : la porte artiste rejetait le bon morceau.
+    // On applique ici le MÊME découpage qu'à la source (et sa normalisation,
+    // incluse). AUCUNE protection n'est retirée : l'accord du principal
+    // (`primaryArtistAgreement`) et le score d'ensemble restent les portes
+    // ci-dessous — le featuring seul ne suffit toujours pas.
+    const candidateArtistNames = (candidate.artistNames ?? []).flatMap((name) =>
+      splitArtistNames(name)
+    );
     const comparableArtists = Array.from(
       new Set([
         ...candidateArtistNames,
