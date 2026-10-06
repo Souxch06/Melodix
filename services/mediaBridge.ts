@@ -221,6 +221,24 @@ const projectState = (state: PlayerState): void => {
     return;
   }
 
+  // LECTURE SPOTIFY WEB : la piste est portée par la WebView (Chromium), qui
+  // intègre SA PROPRE MediaSession système — la notification, l'écran
+  // verrouillé, le Bluetooth et les boutons pilotent RÉELLEMENT la page via
+  // les MediaSessionActionEvent standards. Créer notre session Media3 ici
+  // donnerait UNE DEUXIÈME notification concurrente et des commandes mortes
+  // (le pont n'a pas de surface d'exécution autorisée). On arrête donc notre
+  // session (si elle était active pour un morceau Audius/YouTube) et on se
+  // tient hors du chemin système : l'UI Melodix suit toujours l'état publié,
+  // seul le porteur de la MediaSession système change.
+  if (state.resolved?.provider === 'Spotify Web') {
+    if (sessionActivated) {
+      sessionActivated = false;
+      lastPushedSignature = '';
+      callNative(stopSession);
+    }
+    return;
+  }
+
   const payload = buildMediaSessionPayload(state);
 
   if (!payload) {

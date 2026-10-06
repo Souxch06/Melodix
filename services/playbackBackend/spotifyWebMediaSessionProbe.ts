@@ -196,6 +196,16 @@ export const SPOTIFY_WEB_MEDIA_SESSION_PROBE = `
     }
   };
 
+  // Transitions IMMÉDIATES : l'API Media Session standard publie des
+  // événements (playbackstatechange, metadatachange). S'y abonner évite
+  // d'attendre jusqu'au prochain poll (1 s) pour playing/paused/ended et le
+  // changement de piste ; le poll reste le filet de sécurité pour la
+  // position. Aucune surface interdite : uniquement l'API publique.
+  if (typeof mediaSession.addEventListener === 'function') {
+    mediaSession.addEventListener('playbackstatechange', publish);
+    mediaSession.addEventListener('metadatachange', publish);
+  }
+
   publish();
   globalThis.setInterval(publish, 1000);
   true;

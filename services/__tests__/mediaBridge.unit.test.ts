@@ -1033,4 +1033,88 @@ describe('mediaBridge — projection MediaSession (phase 5A)', () => {
       expect(dernier.artworkUrl).toBe('https://img/nouvelle.png');
     });
   });
+
+  describe('Spotify Web : pas de MediaSession native concurrente', () => {
+    // Émission HYPOTHÉTIQUE d'un état moteur lu par Spotify Web (résolution
+    // confirmée par la page). En production c'est le port qui le produit ;
+    // ici on vérifie le CONTRACTE du bridge : la WebView (Chromium) porte la
+    // MediaSession système de cette lecture, la nôtre ne doit PAS la
+    // concurrencer.
+    const emitEngineState = (partial: Partial<PlayerState>): void => {
+      (
+        melodixPlayer as unknown as {
+          emit: (next: Partial<PlayerState>) => void;
+        }
+      ).emit(partial);
+    };
+
+    const etatSpotify = (
+      trackId: string,
+      titre: string,
+      status: PlayerState['status']
+    ): Partial<PlayerState> => ({
+      queue: [morceau(trackId, titre)],
+      index: 0,
+      current: morceau(trackId, titre),
+      status,
+      positionMillis: 10_000,
+      durationMillis: 200_000,
+      resolved: { provider: 'Spotify Web', sourceId: trackId, score: 100 },
+    });
+
+    it('état Spotify Web (playing) → AUCUNE projection native, aucune session', () => {
+      emitEngineState(etatSpotify('sp', 'Web Track', 'playing'));
+
+      expect(mockUpdateSession).not.toHaveBeenCalled();
+      expect(mockStopSession).not.toHaveBeenCalled(); // jamais activée
+    });
+
+    it("d'Audius (session active) à Spotify Web → stopSession, plus de projection", async () => {
+      await melodixPlayer.playQueue([morceau('a', 'Photo')], 0);
+      await flush();
+      expect(mockUpdateSession).toHaveBeenCalled(); // session Audius active
+
+      mockUpdateSession.mockClear();
+      mockStopSession.mockClear();
+
+      emitEngineState(etatSpotify('sp', 'Web Track', 'playing'));
+
+      // La session Audius est fermée (la WebView prend le relais) et aucune
+      // projection Spotify n'est poussée (pas de double notification).
+      expect(mockStopSession).toHaveBeenCalledTimes(1);
+      expect(mockUpdateSession).not.toHaveBeenCalled();
+    });
+
+    it('revenu à Audius après Spotify → la session native se RÉACTIVE', () => {
+      emitEngineState(etatSpotify('sp', 'Web Track', 'playing'));
+      expect(mockUpdateSession).not.toHaveBeenCalled();
+
+      // Un morceau Audius en lecture réelle réactive la session Media3.
+      emitEngineState({
+        queue: [morceau('b', 'Again')],
+        index: 0,
+        current: morceau('b', 'Again'),
+        status: 'playing',
+        positionMillis: 0,
+        durationMillis: 200_000,
+        resolved: { provider: 'Audius', sourceId: 'aud-x', score: 90 },
+      });
+
+      expect(mockUpdateSession).toHaveBeenCalledWith(
+        expect.objectContaining({
+          title: 'Again',
+          trackId: 'spotify:b',
+          isPlaying: true,
+        })
+      );
+    });
+
+    it('état Spotify Web pendant réglage DÉSACTIVÉ → rien du tout', () => {
+      setMediaBridgeEnabled(false);
+      emitEngineState(etatSpotify('sp', 'Web Track', 'playing'));
+
+      expect(mockUpdateSession).not.toHaveBeenCalled();
+      expect(mockStopSession).not.toHaveBeenCalled();
+    });
+  });
 });

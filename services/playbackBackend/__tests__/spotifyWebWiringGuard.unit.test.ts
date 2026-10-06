@@ -64,6 +64,17 @@ describe('garde du probe : mécanismes v2 de vérité de lecture', () => {
     expect(SPOTIFY_WEB_MEDIA_SESSION_PROBE).toContain("'media-session'");
   });
 
+  it('les transitions d’état sont ÉCOUTÉES (playbackstatechange/metadatachange), pas seulement pollées', () => {
+    expect(SPOTIFY_WEB_MEDIA_SESSION_PROBE).toContain(
+      "mediaSession.addEventListener('playbackstatechange', publish)"
+    );
+    expect(SPOTIFY_WEB_MEDIA_SESSION_PROBE).toContain(
+      "mediaSession.addEventListener('metadatachange', publish)"
+    );
+    // Le poll 1 s reste le filet de sécurité pour la position.
+    expect(SPOTIFY_WEB_MEDIA_SESSION_PROBE).toContain('setInterval(publish');
+  });
+
   it('les nouveaux mécanismes n’ouvrent aucune surface interdite', () => {
     expect(SPOTIFY_WEB_MEDIA_SESSION_PROBE).not.toMatch(
       /cookie|localStorage|sessionStorage|XMLHttpRequest|\bfetch\b|querySelector|getElementById|innerHTML|srcObject|\.play\(|\.pause\(|createMediaKeys|setMediaKeys|generateRequest|MediaElement|KeyboardEvent|dispatchEvent|token/i

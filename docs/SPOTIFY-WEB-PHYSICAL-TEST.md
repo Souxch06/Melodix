@@ -250,6 +250,39 @@ melodixPlayer (9 états, queue, shuffle/repeat, fallback)
   Spotify, porte fermée) retombe sur la cascade — **jamais** un fallback
   « parce qu'une promesse JS a fini ».
 
+### MediaSession Android : QUI la porte selon la source
+
+Deux porteurs de MediaSession existent et ils ne doivent JAMAIS coexister
+sur la même lecture (double notification + commandes mortes) :
+
+- **Source Audius / YouTube (expo-av)** → la session Media3 native de
+  Melodix (`mediaBridge` → `MelodixMediaService` + `VirtualMediaPlayer`)
+  projette l'état moteur et relaye les commandes système (play/pause/next/
+  previous/seek/stop) vers les MÊMES méthodes du moteur que l'UI.
+- **Source Spotify Web (WebView/Chromium)** → la WebView intègre SA PROPRE
+  MediaSession système : la notification, l'écran verrouillé, le Bluetooth
+  et les boutons pilotent RÉELLEMENT la page via les
+  `MediaSessionActionEvent` standards de Chromium. Le pont JS n'a pas de
+  surface d'exécution autorisée pour contrôler la page — donc c'est la
+  session de la page qui est la seule qui puisse le faire.
+
+Règle tenue par `mediaBridge` (testée) : dès que l'état moteur est lu par
+Spotify Web (`resolved.provider === 'Spotify Web'`), la session native est
+**fermée** (si elle était active pour un morceau Audius/YouTube) et plus
+aucune projection native n'est poussée pour cette piste. Au retour sur
+Audius/YouTube, la session native se réactive normalement. L'UI Melodix
+(MiniPlayer/FullPlayer) suit dans les deux cas l'état **publié** par le
+moteur — elle est agnostique du porteur de la MediaSession.
+
+### Événements de lecture de la probe (réactivité réelle)
+
+La probe s'abonne aux événements standards de l'API Media Session
+(`playbackstatechange`, `metadatachange`) : les transitions
+`playing`/`paused`/`ended` et le **changement de piste** sont publiés
+immédiatement, sans attendre le poll de 1 s. Le poll reste le filet de
+sécurité pour la **position** (`positionState`). Aucune surface interdite
+n'est ouverte : uniquement l'API publique W3C.
+
 ### Check-list physique — 18 points (à consigner sur appareil réel)
 
 | #   | Point                                                                                                    | Valeur attendue                         |
@@ -311,7 +344,8 @@ sur la cascade, testé).
 | `services/playbackBackend/__tests__/spotifyWebHost.unit.test.ts`                  | port hôte : bus d'état publié + visibilité ; tentatives (porte fermée, sans hôte, confirmée, timeout, **view-closed**) ; commande refusée → la vue réapparaît ; commande expirée → rien                                                                           |
 | `services/playbackBackend/__tests__/spotifyWebTransportUserGesture.unit.test.ts`  | transport : play refusé par le pont puis `playing` publié par la page → confirmation unique ; autoplay:false → rien n'est attribué ; `ended` ; document mort ne ressuscite rien                                                                                   |
 | `services/playbackBackend/__tests__/spotifyWebBackendPartialAdapter.unit.test.ts` | backend : adaptateur partiel (load/setVolume) → les 6 commandes passent par le canal bridge corrélé ; refus/timeout/tardif ; toggle suit l'état publié ; capacité non inventée                                                                                    |
-| `services/playbackBackend/__tests__/spotifyWebWiringGuard.unit.test.ts`           | garde de câblage : moteur ↔ porte uniquement ; contexte exempt de la chaîne WebView ; hôte au layout racine ; probe (mécanismes + surfaces interdites)                                                                                                           |
+| `services/playbackBackend/__tests__/spotifyWebWiringGuard.unit.test.ts`           | garde de câblage : moteur ↔ porte uniquement ; contexte exempt de la chaîne WebView ; hôte au layout racine ; probe (mécanismes + surfaces interdites + événements d'état)                                                                                       |
+| `services/__tests__/mediaBridge.unit.test.ts` (bloc Spotify Web)                  | MediaSession : source Spotify Web → AUCUNE session native concurrente (fermeture de la session Audius active, zéro projection) ; retour Audius → la session native se réactive ; réglage désactivé → rien                                                         |
 
 L'ancienne section « BLOQUÉ — Câblage du lecteur : volontairement non fait »
 (ci-dessus, Mission 7) est **obsolète** depuis cette Mission 8 : le câblage a
