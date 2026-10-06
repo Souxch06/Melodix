@@ -55,7 +55,7 @@ echo "Processus Melodix actif : pid=$PID"
 # vérifie que la vraie vue Android est rendue, puis exerce arrière-plan/retour.
 # Aucun compte, cookie, token ou contenu DOM Spotify n'est lu par ce smoke.
 WEB_START=$(adb shell am start -W -a android.intent.action.VIEW \
-  -d "melodix://settings/spotify-web-player" -p "$PACKAGE" 2>&1) || \
+  -d "melodix://settings/spotify-web-diagnostic" -p "$PACKAGE" 2>&1) || \
   fail "prototype Spotify Web non ouvrable : $WEB_START"
 echo "$WEB_START"
 # Laisse au chargement puis au timeout de handshake (8 s) le temps de conclure.
