@@ -19,6 +19,9 @@ export type PlayerContextType = PlayerState & {
   playQueue: (tracks: PlayerTrack[], startIndex?: number) => Promise<void>;
   playTrack: (track: PlayerTrack) => Promise<void>;
   playAtIndex: (index: number) => Promise<void>;
+  play: () => Promise<void>;
+  pause: () => Promise<void>;
+  resume: () => Promise<void>;
   togglePlayPause: () => Promise<void>;
   next: () => Promise<void>;
   previous: () => Promise<void>;
@@ -55,6 +58,9 @@ const defaultActions = {
   playQueue: async () => {},
   playTrack: async () => {},
   playAtIndex: async () => {},
+  play: async () => {},
+  pause: async () => {},
+  resume: async () => {},
   togglePlayPause: async () => {},
   next: async () => {},
   previous: async () => {},
@@ -191,6 +197,9 @@ export const PlayerProvider = ({ children }: { children: React.ReactNode }) => {
       playQueue: melodixPlayer.playQueue,
       playTrack: melodixPlayer.playTrack,
       playAtIndex: melodixPlayer.playAtIndex,
+      play: melodixPlayer.play,
+      pause: melodixPlayer.pause,
+      resume: melodixPlayer.resume,
       togglePlayPause: melodixPlayer.togglePlayPause,
       next: melodixPlayer.next,
       previous: melodixPlayer.previous,

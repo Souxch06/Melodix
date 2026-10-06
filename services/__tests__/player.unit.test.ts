@@ -1251,6 +1251,30 @@ describe('Phase 1 — course critique : aucun double Sound, le dernier gagne', (
     });
   });
 
+  it('méthodes de transport play, pause et resume idempotentes', async () => {
+    await melodixPlayer.playTrack(track('one', 'Track One'));
+    await flush();
+    expect(melodixPlayer.getState().status).toBe('playing');
+
+    // play() quand déjà en lecture est sans effet
+    await melodixPlayer.play();
+    expect(melodixPlayer.getState().status).toBe('playing');
+
+    // pause() passe en pause
+    await melodixPlayer.pause();
+    await flush();
+    expect(melodixPlayer.getState().status).toBe('paused');
+
+    // pause() quand déjà en pause est sans effet
+    await melodixPlayer.pause();
+    expect(melodixPlayer.getState().status).toBe('paused');
+
+    // resume() reprend la lecture
+    await melodixPlayer.resume();
+    await flush();
+    expect(melodixPlayer.getState().status).toBe('playing');
+  });
+
   it('next pendant loading invalide la résolution avant un unload lent', async () => {
     const slowB = deferred<ResolvedStream | null>();
     const provider = makeProvider({

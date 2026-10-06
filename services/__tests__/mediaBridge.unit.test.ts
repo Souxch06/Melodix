@@ -413,30 +413,30 @@ describe('mediaBridge — projection MediaSession (phase 5A)', () => {
     it('PLAY quand paused → lecture ; PLAY quand playing → AUCUN toggle', async () => {
       await melodixPlayer.playQueue([morceau('a', 'Photo')], 0);
       await flush();
-      const toggleSpy = jest.spyOn(melodixPlayer, 'togglePlayPause');
+      const resumeSpy = jest.spyOn(melodixPlayer, 'resume');
 
       commandListener?.({ command: 'play' }); // déjà en lecture
-      expect(toggleSpy).not.toHaveBeenCalled();
+      expect(resumeSpy).not.toHaveBeenCalled();
 
       await melodixPlayer.togglePlayPause(); // mise en pause (compte 1)
-      toggleSpy.mockClear();
+      resumeSpy.mockClear();
       commandListener?.({ command: 'play' }); // PLAY système → lecture
-      expect(toggleSpy).toHaveBeenCalledTimes(1);
+      expect(resumeSpy).toHaveBeenCalledTimes(1);
     });
 
     it('PAUSE quand playing → pause ; PAUSE quand paused → RIEN', async () => {
       await melodixPlayer.playQueue([morceau('a', 'Photo')], 0);
       await flush();
-      const toggleSpy = jest.spyOn(melodixPlayer, 'togglePlayPause');
+      const pauseSpy = jest.spyOn(melodixPlayer, 'pause');
 
       commandListener?.({ command: 'pause' });
-      expect(toggleSpy).toHaveBeenCalledTimes(1);
-      await flush(); // togglePlayPause est asynchrone
+      expect(pauseSpy).toHaveBeenCalledTimes(1);
+      await flush(); // pause est asynchrone
       expect(melodixPlayer.getState().status).toBe('paused');
 
-      toggleSpy.mockClear();
+      pauseSpy.mockClear();
       commandListener?.({ command: 'pause' }); // déjà en pause
-      expect(toggleSpy).not.toHaveBeenCalled();
+      expect(pauseSpy).not.toHaveBeenCalled();
     });
 
     it('PLAY quand ended → relance le morceau affiché (pas un toggle inutile)', async () => {

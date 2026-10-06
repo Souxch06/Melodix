@@ -1247,6 +1247,58 @@ class MelodixPlayer {
     }
   };
 
+  /**
+   * Commande Play idempotente : démarre ou reprend la lecture si non actif.
+   * Si en pause/erreur/terminé ou sans Sound avec piste courante, lance la lecture.
+   */
+  play = async (): Promise<void> => {
+    if (this.state.status === 'playing') {
+      return;
+    }
+    if (this.state.status === 'loading' || this.state.status === 'resolving') {
+      return;
+    }
+    if (!this.sound) {
+      if (this.state.current && this.state.index >= 0) {
+        await this.playIndex(this.state.index);
+      }
+      return;
+    }
+    if (this.transportIntent === true) {
+      return;
+    }
+    await this.togglePlayPause();
+  };
+
+  /**
+   * Commande Pause idempotente : suspend la lecture si active ou en vol.
+   */
+  pause = async (): Promise<void> => {
+    if (this.state.status === 'paused' || this.state.status === 'idle') {
+      return;
+    }
+    if (this.state.status === 'loading' || this.state.status === 'resolving') {
+      // Pendant la résolution, annuler l'intention de lecture
+      this.playToken += 1;
+      await this.unloadCurrent();
+      this.emit({ status: 'paused', buffering: false });
+      return;
+    }
+    if (
+      this.sound &&
+      (this.state.status === 'playing' || this.transportIntent === true)
+    ) {
+      await this.togglePlayPause();
+    }
+  };
+
+  /**
+   * Commande Resume idempotente : reprend la lecture si pausé ou après erreur/fin.
+   */
+  resume = async (): Promise<void> => {
+    await this.play();
+  };
+
   togglePlayPause = async () => {
     if (this.state.status === 'loading' || this.state.status === 'resolving') {
       // Pendant la résolution, aucun Sound n'existe encore. Ne jamais relancer
