@@ -1,0 +1,403 @@
+import * as React from 'react';
+import { AppState, Pressable, StyleSheet, Text, View } from 'react-native';
+import Ionicons from '@expo/vector-icons/Ionicons';
+import { WebView } from 'react-native-webview';
+
+import { COLORS } from '@config';
+import { usePreferences } from '@context';
+import { appendDiagLog } from '../../modules/melodix-media';
+import {
+  isAllowedSpotifyWebNavigation,
+  publishSpotifyWebPublishedState,
+  registerSpotifyWebPlaybackHost,
+  resolveSpotifyWebPlaybackActivation,
+  SPOTIFY_WEB_MEDIA_SESSION_PROBE,
+  SpotifyWebBackend,
+  SpotifyWebRuntime,
+  SpotifyWebTrackTransport,
+  subscribeSpotifyWebPlaybackActivation,
+  subscribeSpotifyWebHostVisibility,
+  unregisterSpotifyWebPlaybackHost,
+  type SpotifyWebDiagnosticCode,
+  type SpotifyWebPublishedState,
+  type SpotifyWebRuntimeSnapshot,
+} from '@services';
+
+const SPOTIFY_WEB_URL = 'https://open.spotify.com';
+
+/** Identifiant Spotify nu (22 caractères) — seules les URLs de piste publiques. */
+const SPOTIFY_TRACK_ID_PATTERN = /^[A-Za-z0-9]{22}$/;
+
+/**
+ * `loadUrl` est exposé par le runtime react-native-webview (commande native)
+ * mais ABSENT de la déclaration publique du type `WebView`. On ne le déclare
+ * qu'ici, au minimum strict, pour la navigation vers une page piste publique.
+ */
+type WebViewWithLoadUrl = WebView & {
+  loadUrl?: (url: string) => void;
+};
+
+/**
+ * Hôte de production de la lecture Spotify Web.
+ *
+ * Possède le document Spotify (WebView) ET le pont (backend + runtime +
+ * transport), et s'enregistre comme l'hôte de lecture connu de
+ * l'intégration. Monté pour la durée de vie de l'app ; ne construit
+ * NEANT tant que la porte d'activation n'est pas levée (flag local +
+ * validation physique consignée) ET que le réglage utilisateur
+ * « Lecture Spotify Web » est actif.
+ *
+ * Discipline :
+ *  - aucun cookie, jeton, credential ou flux lu — la WebView n'est touchée
+ *    que par ses événements standards (chargement, messages de pont,
+ *    navigation, perte de renderer) ;
+ *  - aucune injection DOM, aucun clic synthétique : l'adaptateur runtime
+ *    sait seulement CHARGER une page piste (URL publique) ; la lecture,
+ *    la pause et le seek restent des commandes de pont que la page peut
+ *    honnêtement refuser — c'est alors la vue elle-même qui contrôle ;
+ *  - l'état publié sur le bus vient exclusivement des messages de pont
+ *    ACCEPTÉS par le backend (handshake versionné), via le transport.
+ */
+export const SpotifyWebHostView = () => {
+  const { spotifyWebPlayback } = usePreferences();
+  const [activationActive, setActivationActive] = React.useState(
+    () => resolveSpotifyWebPlaybackActivation().active
+  );
+  const [overlayVisible, setOverlayVisible] = React.useState(false);
+  const [runtimeSnapshot, setRuntimeSnapshot] =
+    React.useState<SpotifyWebRuntimeSnapshot | null>(null);
+  const [webViewGeneration, setWebViewGeneration] = React.useState(0);
+
+  const webViewRef = React.useRef<WebView | null>(null);
+  const backendRef = React.useRef<SpotifyWebBackend | null>(null);
+  const runtimeRef = React.useRef<SpotifyWebRuntime | null>(null);
+  const transportRef = React.useRef<SpotifyWebTrackTransport | null>(null);
+
+  const enabled = activationActive && spotifyWebPlayback === true;
+
+  // Réactivité à l'activation (flag local + validation physique).
+  React.useEffect(
+    () =>
+      subscribeSpotifyWebPlaybackActivation(() => {
+        setActivationActive(resolveSpotifyWebPlaybackActivation().active);
+      }),
+    []
+  );
+
+  // Réactivité à la demande de visibilité (moteur / UI).
+  React.useEffect(
+    () => subscribeSpotifyWebHostVisibility(setOverlayVisible),
+    []
+  );
+
+  const pushPublishedState = React.useCallback(() => {
+    const backend = backendRef.current;
+    const transport = transportRef.current;
+    if (!backend || !transport) {
+      return;
+    }
+    const backendState = backend.getState();
+    const published: SpotifyWebPublishedState = {
+      // Le statut HONNÊTE vient du transport (état déclaré par la page),
+      // pas de la projection gelée à cinq valeurs du backend.
+      status: transport.getStatus(),
+      trackId: backendState.trackId,
+      title: backendState.title,
+      artists: backendState.artists,
+      artworkUrl: backendState.artworkUrl,
+      durationMillis: backendState.durationMillis,
+      positionMillis: backendState.positionMillis,
+      isPlaying: backendState.isPlaying,
+      isLoading: backendState.isLoading,
+      errorCode: backendState.errorCode,
+    };
+    publishSpotifyWebPublishedState(published);
+  }, []);
+
+  // Construction / destruction de l'hôte réel.
+  React.useEffect(() => {
+    if (!enabled) {
+      return;
+    }
+
+    const backend = new SpotifyWebBackend();
+    const runtime = new SpotifyWebRuntime({
+      backend,
+      report: (code: SpotifyWebDiagnosticCode, detail?: string) => {
+        // Diagnostic contrôlé : codes enum et libellés bornés, jamais de
+        // contenu de page ni d'URL.
+        appendDiagLog(
+          `SPOTIFY_WEB_HOST ${code}${typeof detail === 'string' ? ` ${detail.slice(0, 64)}` : ''}`
+        );
+      },
+      reloadWebView: (scope) => {
+        if (scope === 'remount') {
+          // Surface native recréée après un renderer détruit.
+          setWebViewGeneration((g) => g + 1);
+        } else {
+          webViewRef.current?.reload();
+        }
+      },
+    });
+    const transport = new SpotifyWebTrackTransport({
+      backend,
+      onStatusChange: () => pushPublishedState(),
+    });
+
+    backendRef.current = backend;
+    runtimeRef.current = runtime;
+    transportRef.current = transport;
+
+    // L'adaptateur runtime sait seulement CHARGER une page piste (URL
+    // publique du document). Toutes les autres commandes passent par le
+    // canal bridge corrélé — aucune n'est exécutée « depuis l'app ».
+    backend.attachRuntime({
+      load: (trackId: string) => {
+        if (!SPOTIFY_TRACK_ID_PATTERN.test(trackId)) {
+          return Promise.resolve(false);
+        }
+        const webView = webViewRef.current as WebViewWithLoadUrl | null;
+        if (!webView || typeof webView.loadUrl !== 'function') {
+          return Promise.resolve(false);
+        }
+        try {
+          // Navigation standard vers l'URL PUBLIQUE de la piste : c'est la
+          // page Spotify (et le geste utilisateur) qui décide de jouer.
+          webView.loadUrl(`https://open.spotify.com/track/${trackId}`);
+          return Promise.resolve(true);
+        } catch {
+          return Promise.resolve(false);
+        }
+      },
+    });
+
+    backend.attachBridgeTransport({
+      send: (rawMessage: string) => {
+        const webView = webViewRef.current;
+        if (!webView) {
+          return false;
+        }
+        try {
+          webView.postMessage(rawMessage);
+          return true;
+        } catch {
+          return false;
+        }
+      },
+    });
+
+    const unsubscribeBackend = backend.subscribe(() => pushPublishedState());
+    const unsubscribeRuntime = runtime.subscribe(setRuntimeSnapshot);
+    runtime.mount();
+
+    registerSpotifyWebPlaybackHost({
+      transport,
+      getRuntimeSnapshot: () => runtime.getSnapshot(),
+      getPublishedState: () => backend.getState(),
+    });
+
+    const appSub = AppState.addEventListener('change', (nextState) => {
+      runtime.onAppStateChange(nextState);
+    });
+
+    return () => {
+      appSub.remove();
+      unregisterSpotifyWebPlaybackHost();
+      runtime.unmount();
+      transport.destroy();
+      backend.attachBridgeTransport(null);
+      backend.attachRuntime(null);
+      unsubscribeBackend();
+      unsubscribeRuntime();
+      backend.destroy();
+      backendRef.current = null;
+      runtimeRef.current = null;
+      transportRef.current = null;
+    };
+  }, [enabled, pushPublishedState]);
+
+  // Purge de l'état publié dès que l'hôte disparaît : le moteur ne doit
+  // jamais consommer un état d'un hôte mort.
+  React.useEffect(() => {
+    if (enabled) {
+      return;
+    }
+    publishSpotifyWebPublishedState(null);
+  }, [enabled]);
+
+  const bridgeLabel = !enabled
+    ? 'inactif'
+    : !runtimeSnapshot
+      ? 'initialisation'
+      : !runtimeSnapshot.rendererAvailable
+        ? 'renderer détruit'
+        : runtimeSnapshot.phase === 'ready'
+          ? 'prêt'
+          : runtimeSnapshot.phase === 'recovering'
+            ? `reconnexion ${runtimeSnapshot.reconnectAttempt}/${runtimeSnapshot.maxReconnectAttempts}`
+            : runtimeSnapshot.phase === 'failed'
+              ? 'échec (rechargement manuel requis)'
+              : 'chargement';
+
+  if (!enabled) {
+    return null;
+  }
+
+  return (
+    <>
+      {/* La WebView reste MONTÉE même vue masquée (positionnée hors écran) :
+       * c'est la seule façon de conserver la session Spotify (connexion,
+       * piste chargée, pont) entre deux ouvertures de l'overlay. */}
+      <View
+        style={[styles.webContainer, !overlayVisible && styles.webHidden]}
+        testID="spotify-web-host-container"
+      >
+        <WebView
+          allowsInlineMediaPlayback
+          cacheEnabled
+          domStorageEnabled
+          injectedJavaScript={SPOTIFY_WEB_MEDIA_SESSION_PROBE}
+          javaScriptEnabled
+          key={`spotify-web-host-${webViewGeneration}`}
+          mediaPlaybackRequiresUserAction
+          mixedContentMode="never"
+          onError={() => runtimeRef.current?.onNetworkError()}
+          onHttpError={(event) =>
+            runtimeRef.current?.onHttpError(
+              event.nativeEvent.url,
+              event.nativeEvent.statusCode
+            )
+          }
+          onLoadEnd={() => runtimeRef.current?.onLoadEnd()}
+          onLoadStart={() => runtimeRef.current?.onLoadStart()}
+          onMessage={(event) => {
+            const transport = transportRef.current;
+            const runtime = runtimeRef.current;
+            if (transport && runtime) {
+              // Le message passe d'abord par le runtime (cycle de vie +
+              // garde du backend), le transport n'observe que ce qui est
+              // ACCEPTÉ.
+              transport.handleBridgeMessage(event.nativeEvent.data, (raw) =>
+                runtime.handleBridgeMessage(raw)
+              );
+            }
+          }}
+          onNavigationStateChange={(navigation) =>
+            runtimeRef.current?.onNavigationState(navigation)
+          }
+          onRenderProcessGone={() => runtimeRef.current?.onRendererGone()}
+          onShouldStartLoadWithRequest={(request) =>
+            isAllowedSpotifyWebNavigation(request.url)
+          }
+          originWhitelist={['https://*.spotify.com/*', 'https://spotify.com/*']}
+          ref={webViewRef}
+          setSupportMultipleWindows={false}
+          sharedCookiesEnabled
+          source={{ uri: SPOTIFY_WEB_URL }}
+          startInLoadingState
+          thirdPartyCookiesEnabled
+          testID="spotify-web-host-webview"
+        />
+      </View>
+
+      {/* Chrome au-dessus de la WebView : en-tête (statut du pont +
+       * fermeture) et Rappel (où sont les contrôles réels). La zone WebView
+       * entre les deux reste entièrement manœuvrable par l'utilisateur. */}
+      {overlayVisible && (
+        <View
+          style={styles.chrome}
+          pointerEvents="box-none"
+          testID="spotify-web-overlay"
+        >
+          <View style={styles.overlayHeader}>
+            <View style={styles.overlayHeaderText}>
+              <Text style={styles.overlayTitle}>Spotify Web</Text>
+              <Text
+                style={styles.overlayStatus}
+                testID="spotify-web-overlay-status"
+              >
+                Pont : {bridgeLabel}
+              </Text>
+            </View>
+            <Pressable
+              accessibilityLabel="Fermer la vue Spotify"
+              onPress={() => setOverlayVisible(false)}
+              style={styles.closeButton}
+              testID="spotify-web-overlay-close"
+            >
+              <Ionicons color={COLORS.WHITE} name="close" size={24} />
+            </Pressable>
+          </View>
+          <View style={styles.overlayHint}>
+            <Text style={styles.overlayHintText}>
+              La lecture est contrôlée dans cette vue : touchez Lecture dans la
+              page Spotify. Melodix suit l'état réellement publié, et bascule
+              sur sa source habituelle si rien ne démarre.
+            </Text>
+          </View>
+        </View>
+      )}
+    </>
+  );
+};
+
+const styles = StyleSheet.create({
+  closeButton: {
+    alignItems: 'center',
+    height: 44,
+    justifyContent: 'center',
+    width: 44,
+  },
+  chrome: {
+    bottom: 0,
+    left: 0,
+    position: 'absolute',
+    right: 0,
+    top: 0,
+    zIndex: 1001,
+  },
+  overlayHeader: {
+    alignItems: 'center',
+    backgroundColor: COLORS.NAV,
+    flexDirection: 'row',
+    paddingHorizontal: 8,
+    paddingTop: 12,
+    width: '100%',
+  },
+  overlayHeaderText: { alignItems: 'center', flex: 1 },
+  overlayHint: {
+    alignSelf: 'flex-end',
+    backgroundColor: COLORS.NAV,
+    bottom: 0,
+    paddingHorizontal: 16,
+    paddingTop: 8,
+    position: 'absolute',
+    width: '100%',
+  },
+  overlayHintText: {
+    color: COLORS.LIGHT_GREY,
+    fontSize: 12,
+    textAlign: 'center',
+  },
+  overlayStatus: { color: COLORS.TINT, fontSize: 11, marginTop: 2 },
+  overlayTitle: { color: COLORS.WHITE, fontSize: 17, fontWeight: '600' },
+  webContainer: {
+    backgroundColor: COLORS.WHITE,
+    bottom: 0,
+    left: 0,
+    position: 'absolute',
+    right: 0,
+    top: 0,
+    zIndex: 999,
+  },
+  // Hors écran (et non display:none) : le renderer et la session restent
+  // vivants sans couvrir l'interface.
+  webHidden: {
+    bottom: 0,
+    left: -6000,
+    position: 'absolute',
+    right: 6000,
+    top: 0,
+    zIndex: -1,
+  },
+});

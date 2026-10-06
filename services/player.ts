@@ -28,6 +28,10 @@ import {
 } from './playbackSession';
 import type { PlaybackSession } from './playbackSession';
 import { sanitizeErrorForLog } from './logSanitize';
+import type {
+  SpotifyWebSourcePort,
+  SpotifyWebPublishedState,
+} from './playbackBackend/spotifyWebHost';
 
 /**
  * Melodix player engine.
@@ -283,6 +287,29 @@ class MelodixPlayer {
   private transportQueue: Promise<void> = Promise.resolve();
   private transportIntent: boolean | null = null;
   private transportCommandToken = 0;
+  /**
+   * Source Spotify Web (optionnelle, injectée par PlayerContext). Le moteur
+   * ne connaît QUE ce port : jamais le backend, le runtime ni la porte
+   * d'activation. Invariant central : `playing` ne peut être émis que (a)
+   * après une confirmation RÉELLE (état publié par la page, voir
+   * `trySpotifyWeb`) ou (b) via les états publiés qui suivent — jamais à
+   * partir de l'acceptation d'une commande.
+   */
+  private spotifyWebSource: SpotifyWebSourcePort | null = null;
+  /** Piste actuellement lue PAR Spotify Web (null : expo-av ou rien). */
+  private spotifyWebActive: { queueId: string; spotifyId: string } | null =
+    null;
+  /**
+   * Le playIndex suivant est causé par un GESTE utilisateur (tap lecture,
+   * next/previous, « Reprendre », reprise de session) — il autorise à
+   * OUVRIR la vue Spotify. L'avance automatique (fin de morceau, échec) ne
+   * le met JAMAIS à true : elle n'essaie Spotify Web que si la vue est déjà
+   * visible (l'utilisateur est présent pour confirmer le geste de lecture).
+   */
+  private spotifyWebManualIntent = false;
+  /** Fin `ended` déjà consommée pour cette piste (anti-double avance). */
+  private spotifyEndedHandledForId: string | null = null;
+  private spotifyPublishedUnsubscribe: (() => void) | null = null;
 
   getState = (): PlayerState => this.state;
 
@@ -291,6 +318,53 @@ class MelodixPlayer {
     listener(this.state);
 
     return () => this.listeners.delete(listener);
+  };
+
+  /**
+   * Branche (ou débranche) la source Spotify Web. Le port est la SEULE
+   * surface Spotify Web connue du moteur : la disponibilité, la tentative,
+   * les commandes et les états publiés passent tous par lui, et tout verdict
+   * non confirmé par la page laisse la cascade Audius → YouTube intacte.
+   *
+   * Au réattachement, la piste active n'est conservée que si la page le
+   * publie encore (identité + `playing`) : sinon l'état devient `paused` —
+   * le seul état qu'on peut honnêtement soutenir sans preuve fraîche.
+   */
+  attachSpotifyWebSource = (port: SpotifyWebSourcePort | null): void => {
+    if (this.spotifyPublishedUnsubscribe) {
+      this.spotifyPublishedUnsubscribe();
+      this.spotifyPublishedUnsubscribe = null;
+    }
+    this.spotifyWebSource = port;
+
+    if (!port) {
+      this.spotifyWebActive = null;
+      this.spotifyWebManualIntent = false;
+      return;
+    }
+
+    const active = this.spotifyWebActive;
+    if (active) {
+      const published = port.getPublishedState();
+      const stillPlaying =
+        this.state.current?.id === active.queueId &&
+        published !== null &&
+        published.status === 'playing' &&
+        (published.trackId === null || published.trackId === active.spotifyId);
+      if (!stillPlaying) {
+        this.spotifyWebActive = null;
+        if (
+          this.state.status === 'playing' ||
+          this.state.status === 'buffering'
+        ) {
+          this.emit({ status: 'paused', buffering: false });
+        }
+      }
+    }
+
+    this.spotifyPublishedUnsubscribe = port.subscribePublishedState(
+      this.onSpotifyWebPublished
+    );
   };
 
   private emit = (partial: Partial<PlayerState>) => {
@@ -643,6 +717,219 @@ class MelodixPlayer {
     }
   };
 
+  // --- Source Spotify Web (optionnelle, via port uniquement) ----------------
+  // Invariants tenus ici :
+  //  - `playing` n'est émis que sur confirmation RÉELLE (voir trySpotifyWeb)
+  //    ou sur un état publié qui la suit ;
+  //  - un verdict non confirmé (not-ready / refused / failed / view-closed)
+  //    laisse la cascade Audius → YouTube décider — jamais une absence
+  //    durable n'est déduite d'un incident ;
+  //  - les états publiés d'une AUTRE piste (l'utilisateur change de morceau
+  //    dans la vue) ne sont jamais attribués à la piste que le moteur lit.
+
+  /**
+   * Consomme un état publié par la page pour la piste Spotify Web active.
+   * C'est le SEUL chemin par lequel la lecture Spotify Web met à jour
+   * l'état moteur : pas de commande, pas de timer, pas de déduction.
+   */
+  private onSpotifyWebPublished = (published: SpotifyWebPublishedState) => {
+    const active = this.spotifyWebActive;
+    if (!active) {
+      return;
+    }
+    // La file a bougé (suppression, autre morceau) : l'état publié ne
+    // concerne plus la piste que le moteur croit lire.
+    if (this.state.current?.id !== active.queueId) {
+      return;
+    }
+    // Identité déclarée par la page : une piste DIFFÉRENTE de la piste
+    // planifiée ne doit jamais déplacer la position ni le statut du moteur
+    // (garde anti-faux-positif). `null` = pas d'identité déclarée : on
+    // accepte l'état document (chargement, erreur de pont).
+    if (published.trackId !== null && published.trackId !== active.spotifyId) {
+      return;
+    }
+
+    switch (published.status) {
+      case 'ended':
+        // Fin RÉELLE publiée : la file avance exactement comme après un
+        // didJustFinish expo-av — un seul avancement par piste.
+        if (this.spotifyEndedHandledForId === active.queueId) {
+          return;
+        }
+        this.spotifyEndedHandledForId = active.queueId;
+        this.spotifyWebActive = null;
+        void this.advanceAuto();
+        return;
+      case 'error':
+        // Perte réelle (renderer détruit, pont mort, réseau) : la piste est
+        // en échec pour cette session ; la cascade retente la suite.
+        this.spotifyWebActive = null;
+        {
+          const track = this.state.current;
+          if (track) {
+            this.markFailed(track, 'play-failed');
+          }
+        }
+        void this.advanceAfterFailure();
+        return;
+      case 'idle':
+        // Transitoire (document rechargé, piste non démarrée) : rien à
+        // projeter — l'état moteur précédent reste le plus juste.
+        return;
+      case 'playing':
+      case 'paused':
+      case 'loading': {
+        // L'état publié est LA décision : toute intention en vol devient
+        // obsolète (le prochain toggle se recalcule sur l'état réel).
+        this.transportIntent = null;
+        const nextStatus: PlayerStatus =
+          published.status === 'playing'
+            ? 'playing'
+            : published.status === 'loading'
+              ? 'buffering'
+              : 'paused';
+        const positionMillis =
+          Number.isFinite(published.positionMillis) &&
+          published.positionMillis >= 0
+            ? published.positionMillis
+            : this.state.positionMillis;
+        const durationMillis =
+          Number.isFinite(published.durationMillis) &&
+          published.durationMillis > 0
+            ? published.durationMillis
+            : this.state.durationMillis;
+        if (
+          this.state.status === nextStatus &&
+          this.state.positionMillis === positionMillis &&
+          this.state.durationMillis === durationMillis
+        ) {
+          return;
+        }
+        this.emit({
+          status: nextStatus,
+          buffering: nextStatus === 'buffering',
+          positionMillis,
+          durationMillis,
+        });
+        return;
+      }
+      default:
+        return;
+    }
+  };
+
+  /**
+   * Tente la piste sur Spotify Web avant la cascade. Renvoie `confirmed`
+   * uniquement si la page a PUBLIÉ `playing` pour cette piste (via la
+   * fenêtre de confirmation du port) : le moteur émet alors `playing` avec
+   * l'état publié. Tout autre verdict → `skipped`, et la cascade décide.
+   *
+   * Règle d'intention : un geste utilisateur ouvre la vue et tente ; l'avance
+   * automatique ne tente que si la vue est déjà visible (l'utilisateur est
+   * présent pour le geste de lecture dans la page — c'est le seul démarrage
+   * légitime : aucune automatisation de la page n'est faite).
+   */
+  private trySpotifyWeb = async (
+    track: PlayerTrack,
+    isStale: () => boolean
+  ): Promise<'confirmed' | 'skipped'> => {
+    const port = this.spotifyWebSource;
+    if (!port) {
+      return 'skipped';
+    }
+    // Un morceau de catalogue Spotify porte son identifiant nu dans
+    // `source` (provider null) ; un morceau audius:/youtube: n'en a pas —
+    // il ne peut PAS transiter par Spotify Web.
+    const spotifyId = track.source.provider === null ? track.source.id : null;
+    // L'intention manuelle est consommée pour CHAQUE piste passant ici —
+    // y compris inéligible (pas d'id Spotify) ou porte fermée : sinon un
+    // « play » tapé pendant porte fermée rejaillirait sur la SUIVANTE
+    // (l'avance automatique deviendrait « manuelle » et ouvrirait la vue).
+    const manual = this.spotifyWebManualIntent;
+    this.spotifyWebManualIntent = false;
+    if (!spotifyId || !port.isReady()) {
+      return 'skipped';
+    }
+    if (!manual && !port.isViewVisible()) {
+      return 'skipped';
+    }
+
+    const metadataDuration =
+      typeof track.durationMillis === 'number' &&
+      Number.isFinite(track.durationMillis) &&
+      track.durationMillis > 0
+        ? track.durationMillis
+        : null;
+
+    port.setViewVisible(true); // la vue doit être manœuvrable par l'utilisateur
+    let outcome;
+    try {
+      outcome = await port.attempt({
+        trackKey: track.id,
+        track: {
+          trackId: spotifyId,
+          title: track.title,
+          artists: track.artists,
+          album: track.album ?? null,
+          artworkUrl: track.imageURL,
+          durationMillis: metadataDuration,
+          explicit: track.explicit ?? null,
+          isrc: track.isrc ?? null,
+        },
+        autoplay: true,
+        positionMillis:
+          this.state.positionMillis > 0 ? this.state.positionMillis : null,
+        nowMillis: Date.now(),
+        // Fenêtre de confirmation : le démarrage est un GESTE dans la vue ;
+        // trop court et l'utilisateur ne peut pas lire la page, trop long et
+        // le fallback n'arrive jamais. 20 s = lecture de la page + tap.
+        timeoutMillis: 20_000,
+      });
+    } catch {
+      return 'skipped';
+    }
+
+    if (outcome.status !== 'confirmed') {
+      // Échec RÉEL structuré (timeout de confirmation, commande refusée,
+      // plan refusé, vue fermée) : la cascade prend la main immédiatement.
+      appendDiagLog(
+        `PLAYER_SPOTIFY_WEB_FALLBACK trackId=${track.id} ` +
+          `reason=${outcome.status === 'failed' ? outcome.code : outcome.status}`
+      );
+      return 'skipped';
+    }
+
+    if (isStale() || this.state.current?.id !== track.id) {
+      return 'skipped'; // un autre morceau a pris la main pendant l'attente
+    }
+
+    // Confirmation RÉELLE : la page a publié `playing` pour cette piste.
+    // C'est l'unique autorisation à émettre `playing` ici.
+    this.spotifyWebActive = { queueId: track.id, spotifyId };
+    this.spotifyEndedHandledForId = null;
+    const published = port.getPublishedState();
+    this.emit({
+      resolved: { provider: 'Spotify Web', sourceId: spotifyId, score: 100 },
+      status: 'playing',
+      buffering: false,
+      notice: null,
+      positionMillis:
+        published !== null && published.positionMillis > 0
+          ? published.positionMillis
+          : 0,
+      durationMillis:
+        published !== null && published.durationMillis > 0
+          ? published.durationMillis
+          : (metadataDuration ?? 0),
+    });
+    appendDiagLog(
+      `PLAYER_SPOTIFY_WEB_CONFIRMED trackId=${track.id} sourceId=${spotifyId}`
+    );
+    this.persistSession();
+    return 'confirmed';
+  };
+
   private resolveTrack = (
     track: PlayerTrack
   ): Promise<ResolvedPlayback | null> => {
@@ -959,6 +1246,10 @@ class MelodixPlayer {
    * bloquée sur `playing` alors qu'aucun son ne sortait plus).
    */
   private finishQueue = async () => {
+    // Fin de file : la piste Spotify Web active est invalidée (le morceau
+    // est terminé, il ne doit plus recevoir d'états publiés ni de commandes).
+    this.spotifyWebActive = null;
+    this.spotifyEndedHandledForId = null;
     const requestToken = ++this.playToken; // tout resolve en vol est orphelin
     this.transportCommandToken += 1;
     this.transportIntent = null;
@@ -987,6 +1278,9 @@ class MelodixPlayer {
   };
 
   private advanceManual = async (direction: 1 | -1) => {
+    // next/previous tapés = intention explicite : la vue Spotify Web peut
+    // s'ouvrir pour la piste cible (voir trySpotifyWeb).
+    this.spotifyWebManualIntent = true;
     const indices = this.getOrderedIndices();
 
     if (!indices.length || this.state.index < 0) {
@@ -1062,6 +1356,9 @@ class MelodixPlayer {
       queue.findIndex((track) => track.id === requestedId)
     );
 
+    // Geste utilisateur explicite : autorise l'ouverture de la vue Spotify
+    // Web pour la piste cible (voir trySpotifyWeb).
+    this.spotifyWebManualIntent = true;
     const requestToken = ++this.playToken; // invalide toute requête précédente
     await this.unloadCurrent();
     if (this.playToken !== requestToken) {
@@ -1092,6 +1389,7 @@ class MelodixPlayer {
       return;
     }
 
+    this.spotifyWebManualIntent = true; // ligne de file tapée = geste explicite
     await this.playIndex(index);
   };
 
@@ -1103,6 +1401,15 @@ class MelodixPlayer {
       await this.stop();
       return;
     }
+
+    // Une piste Spotify Web active est invalidée dès qu'on change de cible :
+    // ses états publiés ne doivent plus être attribués au nouveau morceau.
+    // On la CONSERVE localement : si la nouvelle piste ne passe PAS par
+    // Spotify Web (cascade expo-av), la page Spotify joue encore l'ancien
+    // morceau et on devra lui demander de se mettre en pause (pas de double
+    // lecture). Dans les chemins « ended »/« error », c'est déjà nul ici.
+    const priorSpotifyActive = this.spotifyWebActive;
+    this.spotifyWebActive = null;
 
     const token = ++this.playToken;
     // Les commandes transport de l'ancien Sound ne doivent ni retarder ni
@@ -1143,6 +1450,30 @@ class MelodixPlayer {
     });
     this.persistSession(); // nouveau morceau pointe la session vers lui
     this.ensureAppStatePersistence();
+
+    // Spotify Web est la source PRIORITAIRE quand il est disponible (porte
+    // d'activation + hôte + pont) et que la piste porte un identifiant
+    // Spotify : la tentative s'exécute AVANT la cascade et ne la court-
+    // circuitte que sur confirmation RÉELLE. Tout verdict non confirmé
+    // retombe sur la cascade existante (Audius → YouTube) sans rien altérer.
+    const spotifyResult = await this.trySpotifyWeb(track, isStale);
+    if (isStale()) {
+      return;
+    }
+    if (spotifyResult === 'confirmed') {
+      return;
+    }
+
+    // La nouvelle piste ne passe PAS par Spotify Web (piste non éligible,
+    // porte fermée, verdict non confirmé) alors que la page jouait encore
+    // l'ancienne : on demande (best-effort) à la page de se mettre en pause
+    // AVANT de créer le Sound expo-av — sinon les deux sources joueraient en
+    // même temps. L'arrêt n'est « vrai » que sur publication de la page ; si
+    // la page refuse honnêtement, la vue se réaffiche et la cascade poursuit
+    // de toute façon (la commande est un best-effort, pas une preuve).
+    if (priorSpotifyActive && this.spotifyWebSource) {
+      void this.spotifyWebSource.sendCommand('pause').catch(() => undefined);
+    }
 
     const av = this.getAv();
 
@@ -1296,6 +1627,13 @@ class MelodixPlayer {
     if (this.state.status === 'playing') {
       return;
     }
+    // Piste lue par Spotify Web (confirmée puis suspendue par la page) : la
+    // reprise est une commande vers la page. L'état moteur ne redevient
+    // `playing` que si la page le PUBLIE — jamais ici.
+    if (this.spotifyWebActive && !this.sound) {
+      void this.spotifyWebSource?.sendCommand('play');
+      return;
+    }
     if (
       this.state.status === 'loading' ||
       this.state.status === 'resolving' ||
@@ -1310,6 +1648,7 @@ class MelodixPlayer {
     }
     if (!this.sound) {
       if (this.state.current && this.state.index >= 0) {
+        this.spotifyWebManualIntent = true; // reprise tapée = geste explicite
         await this.playIndex(this.state.index);
       }
       return;
@@ -1328,6 +1667,12 @@ class MelodixPlayer {
    */
   pause = async (): Promise<void> => {
     if (this.state.status === 'paused' || this.state.status === 'idle') {
+      return;
+    }
+    // Piste lue par Spotify Web : la pause est une commande vers la page ;
+    // l'état `paused` n'apparaît que sur publication réelle.
+    if (this.spotifyWebActive && !this.sound) {
+      void this.spotifyWebSource?.sendCommand('pause');
       return;
     }
     if (
@@ -1398,8 +1743,29 @@ class MelodixPlayer {
       return;
     }
 
+    // Piste lue par Spotify Web : même sémantique que la branche expo-av —
+    // l'intention en vol prime (deux taps rapides = pause PUIS play), et la
+    // décision se fait sur l'état publié quand aucune intention n'est en
+    // cours. La page peut honnêtement refuser la commande — c'est alors la
+    // vue qui se réaffiche — et seul l'état publié mettra l'UI à jour.
+    if (this.spotifyWebActive && !this.sound) {
+      const desiredPlaying =
+        desired === undefined
+          ? !(this.transportIntent ?? this.state.status === 'playing')
+          : desired;
+      this.transportIntent = desiredPlaying;
+      void this.spotifyWebSource?.sendCommand(
+        desiredPlaying ? 'play' : 'pause'
+      );
+      return;
+    }
+
     if (!this.sound) {
       if (this.state.current && this.state.index >= 0) {
+        // Tap lecture sur une piste en pause/erreur/fin : intention
+        // EXPLICITE — autorise l'ouverture de la vue Spotify Web si la
+        // piste en est une (voir trySpotifyWeb).
+        this.spotifyWebManualIntent = true;
         await this.playIndex(this.state.index);
       }
       return;
@@ -1492,6 +1858,7 @@ class MelodixPlayer {
     // relit la piste affichée depuis le début — même contrat que le PLAY
     // système dans `ended`.
     if (status === 'ended' && current && index >= 0) {
+      this.spotifyWebManualIntent = true; // relecture tapée = geste explicite
       await this.playIndex(index);
       return;
     }
@@ -1516,6 +1883,27 @@ class MelodixPlayer {
         ? this.state.durationMillis
         : Number.POSITIVE_INFINITY;
     const clamped = Math.min(upperBound, Math.max(0, positionMillis));
+
+    // Piste lue par Spotify Web : le seek est une commande vers la page.
+    // On n'émet PAS la position cible ici — ce serait inventer une
+    // position que la page n'a pas encore publiée. C'est l'état publié
+    // (ou le refus honnête de la page, qui réaffiche la vue) qui décide.
+    if (this.spotifyWebActive && !this.sound) {
+      if (
+        this.state.status === 'ended' &&
+        this.state.current &&
+        this.state.index >= 0
+      ) {
+        // Rejouer depuis la position demandée : relance la tentative.
+        this.pendingSeekMillis = clamped;
+        this.pendingSeekForId = this.state.current.id;
+        this.spotifyWebManualIntent = true;
+        void this.playIndex(this.state.index);
+        return;
+      }
+      void this.spotifyWebSource?.sendCommand('seek', clamped);
+      return;
+    }
 
     if (this.sound) {
       const sound = this.sound;
@@ -1575,6 +1963,14 @@ class MelodixPlayer {
     // créé pendant un setVolumeAsync lent démarre déjà au bon niveau.
     this.emit({ volume: clamped });
     this.persistSession();
+
+    // Piste lue par Spotify Web : le volume est transmis à l'adaptateur
+    // (best-effort — la page peut l'ignorer honnêtement) ; le volume moteur
+    // reste la référence pour les prochaines pistes expo-av.
+    if (this.spotifyWebActive && !this.sound) {
+      void this.spotifyWebSource?.sendCommand('volume', clamped);
+      return;
+    }
 
     if (sound) {
       try {
@@ -1934,10 +2330,21 @@ class MelodixPlayer {
 
     this.pendingSeekMillis = restoredPosition;
     this.pendingSeekForId = queue[index]?.id ?? null;
+    // « Reprendre » tapé = geste explicite : la vue Spotify Web peut
+    // s'ouvrir (la lecture ne démarre qu'avec la confirmation réelle).
+    this.spotifyWebManualIntent = true;
     await this.playIndex(index);
   };
 
   stop = async () => {
+    // Arrêt explicite : la piste Spotify Web active est invalidée, et une
+    // pause est demandée à la page (best-effort, honnête — aucun état n'est
+    // déduit de sa réponse).
+    if (this.spotifyWebActive) {
+      this.spotifyWebActive = null;
+      this.spotifyEndedHandledForId = null;
+      void this.spotifyWebSource?.sendCommand('pause');
+    }
     const requestToken = ++this.playToken; // tout resolve en vol devient orphelin
     this.transportCommandToken += 1;
     this.transportIntent = null;
@@ -1966,6 +2373,9 @@ class MelodixPlayer {
   __testReset = async () => {
     await this.unloadCurrent();
     this.soundTrackId = null;
+    this.spotifyWebActive = null;
+    this.spotifyWebManualIntent = false;
+    this.spotifyEndedHandledForId = null;
     this.matchCache = null;
     this.matchCacheLoad = null;
     this.resolutionLoads.clear();

@@ -18,11 +18,17 @@ import type {
 } from './types';
 
 export type SpotifyWebRuntimeCommands = {
-  play: () => Promise<boolean>;
-  pause: () => Promise<boolean>;
-  seek: (positionMillis: number) => Promise<boolean>;
-  next: () => Promise<boolean>;
-  previous: () => Promise<boolean>;
+  /**
+   * Chaque commande est OPTIONNELLE : une commande qu'un adaptateur n'implé-
+   * mente pas est routée vers le canal bridge versionné (commandes
+   * corrélées) au lieu d'être noyée. L'adaptateur de l'hôte produit n'implé-
+   * mente que `load`/`setVolume` — le reste passe par le pont.
+   */
+  play?: () => Promise<boolean>;
+  pause?: () => Promise<boolean>;
+  seek?: (positionMillis: number) => Promise<boolean>;
+  next?: () => Promise<boolean>;
+  previous?: () => Promise<boolean>;
   /** Only meaningful on protocol v2; legacy adapters may omit it. */
   toggle?: () => Promise<boolean>;
   /**
@@ -377,15 +383,27 @@ export class SpotifyWebBackend implements PlaybackBackend {
     invoke: (runtime: SpotifyWebRuntimeCommands) => Promise<boolean>,
     positionMillis?: number
   ): Promise<boolean> => {
-    if (this.runtime) return this.runLatestCommand(invoke);
+    // Un adaptateur runtime partial (par exemple : il sait seulement `load`
+    // une page piste et refuse le reste) ne doit pas priver les commandes
+    // qu'il n'implémente PAS du canal bridge corrélé : la commande part
+    // alors par le pont versionné, exactement comme sans runtime. Un
+    // adaptateur complet (les six commandes) conserve le canal runtime.
+    const runtime = this.runtime;
+    const adapterImplements =
+      runtime !== null &&
+      typeof (runtime as unknown as Record<string, unknown>)[name] ===
+        'function';
+    if (adapterImplements) return this.runLatestCommand(invoke);
     return this.beginBridgeCommand(name, positionMillis);
   };
 
+  // `!` : `runCommand` n'invoque `invoke` que si l'adaptateur implémente la
+  // commande (sinon la commande part par le canal bridge corrélé).
   play = async (): Promise<boolean> =>
-    this.runCommand('play', (runtime) => runtime.play());
+    this.runCommand('play', (runtime) => runtime.play!());
 
   pause = async (): Promise<boolean> =>
-    this.runCommand('pause', (runtime) => runtime.pause());
+    this.runCommand('pause', (runtime) => runtime.pause!());
 
   /**
    * Bascule lecture/pause. La décision est prise sur l'état PUBLIÉ par la
@@ -427,28 +445,23 @@ export class SpotifyWebBackend implements PlaybackBackend {
     return this.runLatestCommand((runtime) => runtime.setVolume!(ratio));
   };
 
-  toggle = async (): Promise<boolean> => {
-    if (this.runtime) {
-      if (!this.runtime.toggle) return false;
-      return this.runLatestCommand((runtime) => runtime.toggle!());
-    }
-    return this.runCommand('toggle', () => Promise.resolve(false));
-  };
+  toggle = async (): Promise<boolean> =>
+    this.runCommand('toggle', (runtime) => runtime.toggle!());
 
   seek = async (positionMillis: number): Promise<boolean> => {
     if (!Number.isFinite(positionMillis) || positionMillis < 0) return false;
     return this.runCommand(
       'seek',
-      (runtime) => runtime.seek(positionMillis),
+      (runtime) => runtime.seek!(positionMillis),
       positionMillis
     );
   };
 
   next = async (): Promise<boolean> =>
-    this.runCommand('next', (runtime) => runtime.next());
+    this.runCommand('next', (runtime) => runtime.next!());
 
   previous = async (): Promise<boolean> =>
-    this.runCommand('previous', (runtime) => runtime.previous());
+    this.runCommand('previous', (runtime) => runtime.previous!());
 
   destroy = (): void => {
     this.runtime = null;

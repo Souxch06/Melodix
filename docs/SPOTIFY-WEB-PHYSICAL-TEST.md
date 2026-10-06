@@ -203,3 +203,118 @@ page d'erreur réseau du datacenter), le canal descendant `postWebMessage` d'And
 aucun message, et le probe n'exécute son écouteur que dans un document web vivant. La réponse de
 la page (`no-authorized-execution-surface` ou `command_accepted`) ainsi que l'audio réel ne peuvent
 être démontrés que par la procédure téléphone avec un vrai compte.
+
+## Mission 8 — câblage réel du lecteur + procédure de validation (2026-10-06)
+
+### Ce qui a changé
+
+Le lecteur est maintenant **réellement câblé** — mais derrières un DOUBLE
+verrou, tous deux fermés par défaut :
+
+1. **Porte physique** : `recordSpotifyWebPhysicalValidation('PASSED_ON_DEVICE',
+preuve documentée)` (ci-dessous) ;
+2. **Réglage utilisateur** : « Lire via Spotify Web » (Réglages → Spotify
+   Web), **désactivé par défaut**, grisé tant que la porte physique est
+   fermée.
+
+Aucun des deux leviers activé = le moteur est littéralement le même que
+depuis la baseline (cascade Audius → YouTube, zéro tentative Spotify Web) —
+ceci est testé (`playerSpotifyWeb.unit.test.ts` : « sans port attaché →
+comportement 100 % cascade inchangé »).
+
+### Architecture du câblage (contrat de garde)
+
+```
+WebView Spotify (hôte SpotifyWebHostView, layout racine)
+   ↕ probe v2 (état publié / commandes corrélées, refus honnête)
+SpotifyWebPlaybackIntegration (tentative + confirmation réelle)
+   ↕ SpotifyWebSourcePort (seul canal connu du moteur)
+melodixPlayer (9 états, queue, shuffle/repeat, fallback)
+   → PlayerContext / MiniPlayer / FullPlayer / MediaBridge
+```
+
+- Le moteur ne connaît que la **porte** `SpotifyWebSourcePort`
+  (`attachSpotifyWebSource`), jamais le backend ni l'intégration —
+  verrouillé par `spotifyWebWiringGuard.unit.test.ts` ;
+- le contexte lecteur **fabrique** la porte et l'attache (detach au teardown)
+  sans jamais importer la chaîne WebView (les suites Jest qui chargent
+  `@services → @context` restent exemptes de `react-native-webview`) ;
+- **l'hôte** (WebView + pont) est monté au layout racine, au-dessus de la
+  pile UI, en hors-écran (jamais `display:none`) pour garder le renderer et
+  la session Spotify vivants quand la vue est masquée ;
+- `playing` n'est émis que sur **confirmation réelle** : la page publie
+  `playing` pour la piste planifiée. `PLAY_ACCEPTED ≠ PLAYING` reste la
+  loi ; un refus honnête de commande (`no-authorized-execution-surface`)
+  réaffiche la vue au lieu d'inventer un état ;
+- tout verdict non confirmé (timeout, plan refusé, vue fermée, pas d'id
+  Spotify, porte fermée) retombe sur la cascade — **jamais** un fallback
+  « parce qu'une promesse JS a fini ».
+
+### Check-list physique — 18 points (à consigner sur appareil réel)
+
+| #   | Point                                                                                                    | Valeur attendue                         |
+| --- | -------------------------------------------------------------------------------------------------------- | --------------------------------------- |
+| 1   | Connexion Spotify dans la WebView                                                                        | oui / non / fournisseur bloqué          |
+| 2   | Recherche depuis l'UI Melodix, résultat cliquable                                                        | oui / non                               |
+| 3   | LECTURE RÉELLE : son audible + `Lecture: playing` + `source: media-session`                              | oui / non (**seule preuve de lecture**) |
+| 4   | Pause : son s'arrête, état `paused` publié                                                               | oui / non                               |
+| 5   | Reprise : son reprend, position conservée                                                                | oui / non                               |
+| 6   | Seek : la position appliquée est confirmée par la page                                                   | oui / non / non testé                   |
+| 7   | Fin de morceau : `ended` publié → la file avance d'elle-même                                             | oui / non                               |
+| 8   | Morceau précédent (commande réelle)                                                                      | oui / non / non testé                   |
+| 9   | Shuffle : l'ordre est respecté, rien n'est perdu                                                         | oui / non                               |
+| 10  | Repeat one / all                                                                                         | oui / non / non testé                   |
+| 11  | Queue : liste entière, changement sans perte                                                             | oui / non                               |
+| 12  | Notification MediaSession : titre/artwork/commandes                                                      | oui / non                               |
+| 13  | Écran verrouillé : commandes + affichage                                                                 | oui / non / non testé                   |
+| 14  | Bluetooth / casque : démarrage, coupure, retour                                                          | oui / non / non testé                   |
+| 15  | Arrière-plan 30 s : audio réel à l'oreille                                                               | oui / non                               |
+| 16  | Fallback Audius : une panne RÉELLE Spotify → la cascade prend                                            | oui / non / non testé                   |
+| 17  | Fallback YouTube : double panne → YouTube                                                                | oui / non / non testé                   |
+| 18  | Fermeture/réouverture de l'app : session Spotify tenue, **aucun auto-start**, reprise explicite possible | oui / non                               |
+
+Règle de méthode (inchangée) : « oui » n'est validé QUE par un constat
+matériel (oreille, écran, notification) — jamais par la compilation, jamais
+par `PLAY_ACCEPTED`. Un point « non testé » doit rester « non testé ».
+
+### Enregistrement de la preuve (ce qui déblocle le réglage)
+
+1. Réglages → **Spotify Web** → bloc « Validation physique » ;
+2. Coller la **preuve documentée** dans le champ : appareil, version
+   Android, heures, et pour le point 3 la valeur exacte du panneau
+   diagnostique (`Lecture: playing · source: media-session`) + résultat
+   des 18 points ;
+3. Appuyer sur **« Marquer PASSED »** — sans texte, le bouton refuse
+   (preuve obligatoire, `recordSpotifyWebPhysicalValidation` est le même
+   verrou testé dans `spotifyWebFeature.unit.test.ts`) ;
+4. Le switch « Lire via Spotify Web » devient alors activable.
+
+Un « NOT PASSED » referme la porte immédiatement (le flag développeur et le
+réglage utilisateur perdent leur effet sans rien casser : le moteur retombe
+sur la cascade, testé).
+
+### État honnête de cette branche
+
+- **Câblage : IMPLÉMENTÉ et testé unitairement** (moteur, port, transport,
+  adaptateur partiel, garde de câblage — voir la liste des tests ci-dessous) ;
+- **Lecture réelle : NON VALIDÉE RÉELLEMENT** — aucun appareil ni compte
+  Spotify dans l'environnement de travail ; les 18 points ci-dessus sont à
+  exécuter sur téléphone ;
+- **Tests physiques : NON TESTÉS PHYSIQUEMENT** tant que la check-list
+  ci-dessus n'est pas consignée avec la preuve documentée.
+
+### Tests automatisés ajoutés avec le câblage
+
+| Fichier                                                                           | Couvre                                                                                                                                                                                                                                                            |
+| --------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `services/__tests__/playerSpotifyWeb.unit.test.ts`                                | moteur + port : confirmation réelle → `playing` sans expo-av ; timeout/not-ready/pas d'id → cascade ; intention (geste ouvre, auto non) ; états publiés (pause/position/ended/error, autre piste jamais attribué) ; stop invalide ; sans port = cascade inchangée |
+| `services/playbackBackend/__tests__/spotifyWebHost.unit.test.ts`                  | port hôte : bus d'état publié + visibilité ; tentatives (porte fermée, sans hôte, confirmée, timeout, **view-closed**) ; commande refusée → la vue réapparaît ; commande expirée → rien                                                                           |
+| `services/playbackBackend/__tests__/spotifyWebTransportUserGesture.unit.test.ts`  | transport : play refusé par le pont puis `playing` publié par la page → confirmation unique ; autoplay:false → rien n'est attribué ; `ended` ; document mort ne ressuscite rien                                                                                   |
+| `services/playbackBackend/__tests__/spotifyWebBackendPartialAdapter.unit.test.ts` | backend : adaptateur partiel (load/setVolume) → les 6 commandes passent par le canal bridge corrélé ; refus/timeout/tardif ; toggle suit l'état publié ; capacité non inventée                                                                                    |
+| `services/playbackBackend/__tests__/spotifyWebWiringGuard.unit.test.ts`           | garde de câblage : moteur ↔ porte uniquement ; contexte exempt de la chaîne WebView ; hôte au layout racine ; probe (mécanismes + surfaces interdites)                                                                                                           |
+
+L'ancienne section « BLOQUÉ — Câblage du lecteur : volontairement non fait »
+(ci-dessus, Mission 7) est **obsolète** depuis cette Mission 8 : le câblage a
+été fait **après** le re-câblage de la porte, en conservant le double verrou
+fermé par défaut et le même contrat de garde (le moteur ne référence ni
+`spotifyWebFeature`, ni `SpotifyWebBackend`, ni l'intégration).

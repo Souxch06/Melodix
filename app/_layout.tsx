@@ -15,6 +15,7 @@ import {
   PreferencesProvider,
   UserDataProvider,
 } from '@context';
+import { SpotifyWebHostView } from '../components/Player/SpotifyWebHostView';
 
 import 'react-native-reanimated';
 
@@ -73,6 +74,11 @@ export default function RootLayout() {
               </GestureHandlerRootView>
             </LibrarySelectedCategoryProvider>
           </PlayerProvider>
+          {/* Hôte Spotify Web (WebView + pont) : rendu APRÈS le reste pour
+           * rester au-dessus (overlay de la vue + WebView masquée hors
+           * écran). Ne monte NEANT tant que la porte d'activation ET le
+           * réglage utilisateur ne sont pas tous les deux actifs. */}
+          <SpotifyWebHostView />
         </UserDataProvider>
       </PreferencesProvider>
     </SafeAreaProvider>

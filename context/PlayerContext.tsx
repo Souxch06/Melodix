@@ -2,6 +2,7 @@ import * as React from 'react';
 
 import {
   clearPlaybackSession,
+  createSpotifyWebSourcePort,
   INITIAL_PLAYER_STATE,
   loadPlaybackSession,
   melodixPlayer,
@@ -118,6 +119,24 @@ export const PlayerProvider = ({ children }: { children: React.ReactNode }) => {
     (initMediaBridge as (() => void) | undefined)?.();
   }, []);
 
+  // Source Spotify Web : le moteur reçoit un PORT unique (disponibilité,
+  // tentative, commandes, états publiés). Le port ne promet rien : tout
+  // verdict non confirmé par la page laisse la cascade Audius → YouTube
+  // intacte. L'hôte réel (WebView + pont) vit dans SpotifyWebHostView,
+  // monté ci-dessous ; ici on ne câble que le canal.
+  React.useEffect(() => {
+    // Garde : en tests, `@services` est mocké sans ce port → le moteur
+    // reste simplement sans source Spotify Web (comportement par défaut).
+    const factory = createSpotifyWebSourcePort as
+      | (() => Parameters<typeof melodixPlayer.attachSpotifyWebSource>[0])
+      | undefined;
+    const port = typeof factory === 'function' ? factory() : null;
+    melodixPlayer.attachSpotifyWebSource(port);
+    return () => {
+      melodixPlayer.attachSpotifyWebSource(null);
+    };
+  }, []);
+
   // Restauration au boot : la session persistée est SEULEMENT PROPOSÉE
   // (jamais lue automatiquement — pas d'audio sans action utilisateur).
   React.useEffect(() => {
@@ -226,6 +245,10 @@ export const PlayerProvider = ({ children }: { children: React.ReactNode }) => {
     [state, pendingRestore, resumeSession, dismissSession]
   );
 
+  // Le HÔTE Spotify Web (WebView + pont) est monté dans le layout racine
+  // (app/_layout.tsx), en frère APRÈS ce provider : ici on ne câble que le
+  // canal (le port), jamais le composant natif lourd — les suites qui
+  // chargent @services → @context restent exemptes de react-native-webview.
   return (
     <PlayerContext.Provider value={value}>{children}</PlayerContext.Provider>
   );

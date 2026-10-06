@@ -271,10 +271,14 @@ export class SpotifyWebTrackTransport {
     if (result.autoplay) {
       const played = await this.backend.play();
       commandResults.push(asCommandResult(played, this.backend));
-      // Une commande acceptée ARME l'attente de confirmation, elle ne la
-      // remplace jamais : `playing` restera absent tant que la page n'aura
-      // rien publié.
-      this.awaitingConfirmation = played;
+      // L'attente est armée par le PLAN (l'intention autoplay), pas par
+      // l'acceptation de la commande : une page qui refuse honnêtement la
+      // commande de lecture (pas de surface d'exécution autorisée) peut
+      // tout de même démarrer réellement la piste — geste utilisateur dans
+      // la vue — et seul l'état PUBLIÉ confirmera. PLAY_ACCEPTED ≠ PLAYING
+      // dans les deux sens : ni l'acceptation ne prouve la lecture, ni le
+      // refus de la commande n'empêche de l'observer.
+      this.awaitingConfirmation = true;
     } else {
       this.awaitingConfirmation = false;
     }

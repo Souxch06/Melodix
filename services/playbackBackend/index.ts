@@ -7,7 +7,24 @@ export {
   resetSpotifyWebPlaybackFeatureForTesting,
   resolveSpotifyWebPlaybackActivation,
   setSpotifyWebPlaybackEnabled,
+  subscribeSpotifyWebPlaybackActivation,
 } from './spotifyWebFeature';
+export {
+  createSpotifyWebSourcePort,
+  getSpotifyWebPublishedState,
+  isSpotifyWebHostVisible,
+  publishSpotifyWebPublishedState,
+  requestSpotifyWebHostVisible,
+  resetSpotifyWebHostForTesting,
+  subscribeSpotifyWebPublishedState,
+  subscribeSpotifyWebHostVisibility,
+} from './spotifyWebHost';
+export type {
+  SpotifyWebPublishedState,
+  SpotifyWebSourceCommand,
+  SpotifyWebSourceCommandResult,
+  SpotifyWebSourcePort,
+} from './spotifyWebHost';
 export type {
   SpotifyWebActivationDecision,
   SpotifyWebPhysicalValidation,

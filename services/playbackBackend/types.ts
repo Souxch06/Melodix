@@ -37,6 +37,31 @@ export type PlaybackBackendState = {
   errorCode: string | null;
 };
 
+/**
+ * Statut HONNÊTE publié par l'hôte Spotify Web : la projection gelée à cinq
+ * valeurs ci-dessus aplatie volontairement `buffering` → `loading` et
+ * `ended` → `idle` (la MediaSession native ne sait pas les porter). Cet
+ * état, lui, porte les SIX statuts du protocole v2 tels que le transport les
+ * dérive de l'état DÉCLARÉ par la page — c'est la surface que le lecteur
+ * (PlayerController) consomme pour projeter ses propres états réels.
+ *
+ * Invariant inchangé : `playing` n'apparaît que si la page l'a publié ;
+ * aucune commande acceptée ne peut le produire.
+ */
+export type SpotifyWebPublishedState = {
+  status: 'idle' | 'loading' | 'paused' | 'playing' | 'ended' | 'error';
+  /** Identifiant Spotify publié par la page (URL publique du document). */
+  trackId: string | null;
+  title: string | null;
+  artists: readonly string[];
+  artworkUrl: string | null;
+  durationMillis: number;
+  positionMillis: number;
+  isPlaying: boolean;
+  isLoading: boolean;
+  errorCode: string | null;
+};
+
 export type PlaybackBackendListener = (state: PlaybackBackendState) => void;
 
 /**

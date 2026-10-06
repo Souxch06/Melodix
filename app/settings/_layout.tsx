@@ -16,6 +16,10 @@ export default function SettingsLayout() {
         name="spotify-web-player"
         options={{ headerShown: false }}
       />
+      <Stack.Screen
+        name="spotify-web-diagnostic"
+        options={{ headerShown: false }}
+      />
     </Stack>
   );
 }

@@ -19,7 +19,13 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
  *                     historique) ;
  * - startupVolume   : volume 0..100 appliqué au démarrage du moteur
  *                     (melodixPlayer.setVolume) — défaut 100 (comportement
- *                     historique).
+ *                     historique) ;
+ * - spotifyWebPlayback : lecture via le lecteur Spotify Web (hôte WebView) —
+ *                     défaut false. Ce réglage NE suffisait pas à lui seul :
+ *                     la porte d'activation (flag local + validation
+ *                     physique consignée) doit aussi être levée, sinon
+ *                     l'hôte ne monte rien et la cascade Audius → YouTube
+ *                     reste la seule voie.
  */
 
 export type AppLanguage = 'fr' | 'en';
@@ -58,6 +64,7 @@ export type Preferences = {
   accent: string;
   backgroundAudio: boolean;
   startupVolume: number;
+  spotifyWebPlayback: boolean;
 };
 
 export const DEFAULT_PREFERENCES: Preferences = {
@@ -66,6 +73,7 @@ export const DEFAULT_PREFERENCES: Preferences = {
   accent: DEFAULT_ACCENT_ID,
   backgroundAudio: true,
   startupVolume: 100,
+  spotifyWebPlayback: false,
 };
 
 export const PREFERENCES_STORAGE_KEY = '@melodix/preferences.v1';
@@ -91,6 +99,10 @@ const sanitize = (raw: Partial<Preferences>): Preferences => ({
     typeof raw.startupVolume === 'number' && Number.isFinite(raw.startupVolume)
       ? Math.min(100, Math.max(0, Math.round(raw.startupVolume)))
       : 100,
+  spotifyWebPlayback:
+    typeof raw.spotifyWebPlayback === 'boolean'
+      ? raw.spotifyWebPlayback
+      : false,
 });
 
 export const loadPreferences = async (): Promise<Preferences> => {

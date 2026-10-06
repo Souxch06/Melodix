@@ -43,9 +43,30 @@ export const isSpotifyWebPlaybackEnabled = (): boolean => enabledFlag;
 export const getSpotifyWebPhysicalValidation =
   (): SpotifyWebPhysicalValidation => physicalValidation;
 
+/**
+ * Abonnement à l'activation (UI réactive) : notifié à chaque bascule du
+ * flag ou consigne de validation physique. Additif — la surface
+ * décisionnelle de ce module reste inchangée.
+ */
+const activationListeners = new Set<() => void>();
+
+const notifyActivationListeners = (): void => {
+  activationListeners.forEach((listener) => listener());
+};
+
+export const subscribeSpotifyWebPlaybackActivation = (
+  listener: () => void
+): (() => void) => {
+  activationListeners.add(listener);
+  return () => {
+    activationListeners.delete(listener);
+  };
+};
+
 /** Bascule le flag LOCAL uniquement — ne prouve en rien une lecture réelle. */
 export const setSpotifyWebPlaybackEnabled = (value: boolean): void => {
   enabledFlag = value === true;
+  notifyActivationListeners();
 };
 
 /**
@@ -66,10 +87,11 @@ export const recordSpotifyWebPhysicalValidation = (
     }
     physicalValidation = 'PASSED_ON_DEVICE';
     physicalValidationEvidence = trimmed.slice(0, 200);
-    return;
+  } else {
+    physicalValidation = 'NOT_TESTED';
+    physicalValidationEvidence = null;
   }
-  physicalValidation = 'NOT_TESTED';
-  physicalValidationEvidence = null;
+  notifyActivationListeners();
 };
 
 export const getSpotifyWebPhysicalValidationEvidence = (): string | null =>
@@ -106,4 +128,5 @@ export const resetSpotifyWebPlaybackFeatureForTesting = (): void => {
   enabledFlag = false;
   physicalValidation = 'NOT_TESTED';
   physicalValidationEvidence = null;
+  activationListeners.clear();
 };
