@@ -118,9 +118,9 @@ le mock du runtime, jamais sur la résolution d'une promesse.
   1. `de4b9f5` — code : 5 nouveaux tests + bump 4.5.0-test.8 (7 fichiers)
   2. `6efea53` — `docs: rapport final mission v5` (ce fichier)
   3. `0dca655` — `chore: formatting prettier rapport mission v5`
-  4. `fix(ci)`: retry des installations dans le smoke (run 37532126463 a
-     échoué sur une mémoire transitoire du runner GitHub — voir §6) —
-     **aucun commit vide**
+  4. `af55095` — `fix(ci)`: retry des installations dans le smoke (la run
+     37532126463 a échoué sur une mémoire transitoire du runner GitHub —
+     voir §6) — **aucun commit vide**
 - **Push** : `git push origin arena/fcdae8c6-melodix` réussi ; **PR #6**
   mise à jour
 - **HEAD final ≠ `ab6fa3b`** ✓ (du code a réellement été modifié : 5 nouveaux
@@ -167,10 +167,19 @@ code\*\*
   — mémoire transitoire du runner GitHub Actions (le même code avait passé
   intégralement la run précédente).
 - **Correctif** : retry (3 essais, 10 s d'écart) des deux `adb install` dans
-  `scripts/smoke-test-android-apk.sh` — aucune vérification modifiée : un
-  échec après 3 essais reste un échec de l'APK, pas du runner.
-- Run de validation du HEAD final : voir fin de section (complétée au
-  résultat).
+  `scripts/smoke-test-android-apk.sh` (commit `af55095`) — aucune
+  vérification modifiée : un échec après 3 essais reste un échec de l'APK,
+  pas du runner.
+
+### Run `37534108220` (HEAD final `af55095`) : **SUCCESS (14 min 20)**
+
+- Job **« Construire l'APK »** : success
+- Smoke Android 14 x86_64 : « installation + prototype WebView + cycle
+  arrière-plan/retour + service foreground + MediaSession + notification +
+  deep-link OAuth (A et B) réussis sur Android 14 x86_64 (pid=6502) »
+- L'APK produite est **bit-identique** à celle de la run `37529857217`
+  (même SHA-256 ci-dessous) : le commit `af55095` ne touche que le script
+  smoke et le rapport.
 
 ---
 
@@ -178,9 +187,9 @@ code\*\*
 
 | Champ        | Valeur                                                                                                                                                   |
 | ------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Nom          | `Melodix-v4.5.0-test.8-de4b9f5.apk`                                                                                                                      |
+| Nom          | `Melodix-v4.5.0-test.8-af55095.apk` (artefact de la run `37534108220` ; version équivalente `…-de4b9f5.apk` sur la run `37529857217`, bit-identique)     |
 | Version      | **4.5.0-test.8** / versionCode **45008**                                                                                                                 |
-| Taille       | **47 001 363 octets** (≈ 47 Mo ; 89 Mo non compressé)                                                                                                    |
+| Taille       | **47 001 364 octets** (≈ 47 Mo ; 89 Mo non compressé)                                                                                                    |
 | **SHA-256**  | `d96f16289fd7425975cd60b59487c723a5735ad853280cbd9ab71efb47440ff0`                                                                                       |
 | Package      | `com.souxch06.melodix` (signature V3, certificat `fac61745…b9c` identique aux versions précédentes)                                                      |
 | ABIs         | `arm64-v8a`, `armeabi-v7a`, `x86`, `x86_64`                                                                                                              |
