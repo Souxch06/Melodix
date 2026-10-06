@@ -63,8 +63,9 @@ echo "Processus Melodix actif : pid=$PID"
 # manifest vers MainActivity (singleTask) ; en l'absence de flux OAuth en
 # cours le runtime ne doit CRASHER ni naviguer sur une page inconnue
 # (+native-intent retourne null pour ce lien). Code factice : JAMAIS échangé.
-WARM_DL=$(adb shell am start -W -a android.intent.action.VIEW \
-  -d "melodix://callback?code=smoke&state=smoke" -p "$PACKAGE" 2>&1) || \
+# L'URL doit être protégée pour le SHELL DE L'ÉMULATEUR : le '&' de la
+# querystring serait sinon interprété comme opérateur d'arrière-plan.
+WARM_DL=$(adb shell "am start -W -a android.intent.action.VIEW -d 'melodix://callback?code=smoke&state=smoke' -p $PACKAGE" 2>&1) || \
   fail "deep-link OAuth warm non routable (intent-filter manquant) : $WARM_DL"
 echo "$WARM_DL"
 printf '%s\n' "$WARM_DL" | grep -Fq 'Status: ok' || \
@@ -263,8 +264,8 @@ printf '%s\n' "$NOTIFICATIONS_BG" | grep -Fq 'melodix_media' || \
 # Android 14 réel (émulateur), sans prétendre à un login Spotify.
 adb shell am force-stop "$PACKAGE" || fail "force-stop avant sonde OAuth cold impossible"
 adb logcat -c || fail "impossible de vider logcat avant sonde OAuth cold"
-COLD_DL=$(adb shell am start -W -a android.intent.action.VIEW \
-  -d "melodix://callback?code=smoke&state=smoke" -p "$PACKAGE" 2>&1) || \
+# Même protection de l'URL pour le shell de l'émulateur ( '&' ).
+COLD_DL=$(adb shell "am start -W -a android.intent.action.VIEW -d 'melodix://callback?code=smoke&state=smoke' -p $PACKAGE" 2>&1) || \
   fail "cold start via deep-link OAuth impossible : $COLD_DL"
 echo "$COLD_DL"
 printf '%s\n' "$COLD_DL" | grep -Fq 'Status: ok' || \
