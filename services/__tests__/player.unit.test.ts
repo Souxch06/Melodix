@@ -3046,6 +3046,38 @@ describe('Les NEUF états du moteur (spec lecteur)', () => {
     expect(melodixPlayer.getState().status).toBe('playing');
   });
 
+  it("SEEK pendant createAsync en vol (buffering sans Sound) est appliqué à l'arrivée du son", async () => {
+    const { release } = pendingCreate();
+
+    const playing = melodixPlayer.playTrack(track('lente3'));
+    await flush();
+    expect(melodixPlayer.getState().status).toBe('buffering');
+
+    // Pas de Sound encore : le seek ne doit PAS être perdu — il est retenu
+    // dans le canal pendingSeek, tagué au morceau courant.
+    await melodixPlayer.seekTo(5000);
+    await flush();
+    expect(melodixPlayer.getState().positionMillis).toBe(5000);
+
+    const son = makeSound();
+    release({
+      sound: son,
+      status: {
+        isLoaded: true,
+        isPlaying: true,
+        isBuffering: false,
+        positionMillis: 0,
+      },
+    });
+    await playing;
+    await flush();
+
+    // Le seek différé est consommé par le SON de CE morceau (jamais un
+    // autre) — position finale = la cible demandée.
+    expect(son.setPositionAsync).toHaveBeenCalledWith(5000);
+    expect(melodixPlayer.getState().positionMillis).toBe(5000);
+  });
+
   it("PAUSE pendant resolving avec l'ancien Sound encore chargé : abandon propre, la nouvelle piste ne démarre jamais", async () => {
     // 30 ms PAR appel de resolveSource (pas une promesse unique : la
     // résolution de A la consommerait avant celle de B).

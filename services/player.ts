@@ -1496,12 +1496,16 @@ class MelodixPlayer {
       }
     } else if (
       this.state.status === 'loading' ||
-      this.state.status === 'resolving'
+      this.state.status === 'resolving' ||
+      this.state.status === 'buffering'
     ) {
       // 5D §3 (seek avant durée connue) : pas de sound à commander — on
       // mémorise la cible dans le MÊME canal que la restauration de session,
       // elle sera appliquée à l'arrivée du son (pendingSeekMillis consommé
       // une seule fois au démarrage effectif) — TAGUÉE au morceau courant.
+      // `buffering` inclus : la fenêtre entre « source trouvée » et Sound
+      // assigné (createAsync en vol) est une fenêtre de seek perdue pour
+      // une commande venue de l'écran verrouilli.
       this.pendingSeekMillis = clamped;
       this.pendingSeekForId = this.state.current?.id ?? null;
     } else if (
