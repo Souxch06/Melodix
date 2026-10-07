@@ -70,7 +70,7 @@ const PreferencesContext = React.createContext<PreferencesContextType>({
   accentId: ACCENT_PRESETS[0].id,
   backgroundAudio: true,
   startupVolume: 100,
-  spotifyWebPlayback: false,
+  spotifyWebPlayback: true,
   setLanguage: () => {},
   setThemeMode: () => {},
   setAccent: () => {},

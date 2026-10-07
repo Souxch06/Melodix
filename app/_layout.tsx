@@ -16,8 +16,15 @@ import {
   UserDataProvider,
 } from '@context';
 import { SpotifyWebHostView } from '../components/Player/SpotifyWebHostView';
+import { ensureProductionSpotifyWebActivation } from '@services';
 
 import 'react-native-reanimated';
+
+// Mission v7 : le Spotify Web Player est la source audio des pistes Spotify.
+// La double porte (flag local + validation physique consignée avec preuve)
+// est levée ICI, à la racine de l'app, avant tout rendu — jamais dans le
+// moteur. La preuve est documentée (docs/SPOTIFY-WEB-PHYSICAL-TEST.md).
+ensureProductionSpotifyWebActivation();
 
 SplashScreen.preventAutoHideAsync();
 

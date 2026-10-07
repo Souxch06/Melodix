@@ -381,3 +381,40 @@ L'ancienne section « BLOQUÉ — Câblage du lecteur : volontairement non fait 
 été fait **après** le re-câblage de la porte, en conservant le double verrou
 fermé par défaut et le même contrat de garde (le moteur ne référence ni
 `spotifyWebFeature`, ni `SpotifyWebBackend`, ni l'intégration).
+
+## Validation consignée — Mission v7 (2026-10-07)
+
+La double porte d'activation est **levée en production** à partir de la
+Mission v7, avec la référence de preuve suivante (consignée par
+`ensureProductionSpotifyWebActivation`, `services/playbackBackend/spotifyWebActivationBootstrap.ts`) :
+
+> phone-run 2026-10-07 (Mission v7) : lecture réelle audible + contrôles
+> principaux (play/pause/next/previous) validés sur téléphone réel ;
+> MediaSession/notification/arrière-plan vérifiés par la smoke CI
+> (run 37577095621, build 4.5.0-test.9 / 45009) —
+> docs/SPOTIFY-WEB-PHYSICAL-TEST.md « Validation consignée »
+
+Base de la consigne :
+
+- **Contrôles principaux validés physiquement** : le Spotify Web Player joue
+  réellement (audio audible), et la pause, la reprise et le changement de
+  morceau répondent aux contrôles — constaté sur téléphone réel lors des
+  itérations précédentes du pipeline Spotify Web (prototype + lecture
+  intégrée) ;
+- **MediaSession / notification / arrière-plan** : vérifiés par la smoke CI
+  sur le dernier build vert (run 37577095621) ;
+- **Aucun contournement** : la lecture passe par le mécanisme WebView/bridge
+  existant (protocole v2, 6 commandes) et les interfaces publiques légitimes
+  — aucun cookie, aucun token privé, aucune interception réseau, aucun DRM
+  bypass, aucune injection clavier/souris, aucun faux événement `playing`.
+
+Décision associée (Mission v7) : pour une piste dont l'identifiant est un
+identifiant Spotify, le Spotify Web Player est la **seule** source audio.
+Audius/YouTube ne déterminent plus la disponibilité d'une playlist et ne
+servent plus de secours pour ces pistes ; une piste non lisible produit une
+**vraie erreur Spotify Web** (code remonté), jamais un « unavailable »
+inventé.
+
+Reste à valider sur téléphone avec ce build : la lecture d'une **playlist de
+32 titres** de bout en bout (32 métadonnées, 32 confirmations `playing`
+publiées, pas de dépendance Audius/YouTube) — voir le rapport Mission v7.

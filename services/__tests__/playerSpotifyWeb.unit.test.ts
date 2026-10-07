@@ -26,16 +26,16 @@ import type {
   SpotifyWebSourceCommandResult,
   SpotifyWebPublishedState,
 } from '../playbackBackend/spotifyWebHost';
-import type { SpotifyWebAttemptOutcome } from '../playbackBackend/spotifyWebPlaybackIntegration';
+import type {
+  SpotifyWebAttemptOutcome,
+  SpotifyWebPlaybackAttemptInput,
+} from '../playbackBackend/spotifyWebPlaybackIntegration';
 
 jest.mock('expo-constants', () => ({ expoConfig: { extra: {} } }));
 
 // expo-av stub minimal (même contrat que player.unit.test.ts).
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 let mockCreatedSounds: any[] = [];
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-let lastStatusCallback: ((status: Record<string, unknown>) => void) | null =
-  null;
 
 const makeSound = () => ({
   unloadAsync: jest.fn(async () => {}),
@@ -61,9 +61,8 @@ jest.mock('expo-av', () => ({
         async (
           _source: { uri: string },
           _initial: Record<string, unknown>,
-          onStatus?: (status: Record<string, unknown>) => void
+          _onStatus?: (status: Record<string, unknown>) => void
         ) => {
-          lastStatusCallback = onStatus ?? null;
           const created = makeSound();
           mockCreatedSounds.push(created);
           return {
@@ -121,14 +120,27 @@ const flush = () => new Promise((resolve) => setTimeout(resolve, 0));
 /** Double de port : tout est piloté explicitement par le test. */
 const makeFakePort = () => {
   const publishedListeners: ((s: SpotifyWebPublishedState) => void)[] = [];
+  // Photo de disponibilité dérivée de `isReady` (cohérence du double) ;
+  // les blockers sont pilotables séparément (cas porte fermée).
+  let readinessBlockers: string[] = [];
+  const isReadyMock = jest.fn(() => true);
   // Pas d'annotation stricte ici : les méthodes `jest.fn` doivent garder
   // leurs handleurs de mock (mockResolvedValue/mockImplementation/…).
   const port = {
-    isReady: jest.fn(() => true),
+    isReady: isReadyMock,
+    getReadiness: jest.fn(() => ({
+      ready: isReadyMock(),
+      blockers: readinessBlockers,
+    })),
+    setReadinessBlockersForTesting: (blockers: string[]): void => {
+      readinessBlockers = blockers;
+    },
     isViewVisible: jest.fn(() => false),
     setViewVisible: jest.fn(),
     attempt: jest.fn(
-      async (): Promise<SpotifyWebAttemptOutcome> => ({
+      async (
+        _input: SpotifyWebPlaybackAttemptInput
+      ): Promise<SpotifyWebAttemptOutcome> => ({
         status: 'not-ready',
         blockers: [],
       })
@@ -183,7 +195,6 @@ describe('melodixPlayer + source Spotify Web (port)', () => {
   beforeEach(async () => {
     await AsyncStorage.clear();
     mockCreatedSounds = [];
-    lastStatusCallback = null;
     provider = makeProvider();
     __testSetAudioProviders({ audius: provider });
     await melodixPlayer.__testReset();
@@ -245,32 +256,106 @@ describe('melodixPlayer + source Spotify Web (port)', () => {
     });
   });
 
-  it('échec réel (timeout de confirmation) → fallback cascade Audius', async () => {
+  it('échec réel (timeout de confirmation) → VRAIE erreur Spotify Web, pas de cascade', async () => {
     fake.port.attempt.mockResolvedValue({
       status: 'failed',
       code: 'confirmation-timeout',
       attempts: [],
     });
 
+    const seenStatuses: string[] = [];
+    const unsubscribe = melodixPlayer.subscribe((s) => {
+      seenStatuses.push(s.status);
+    });
+
     await melodixPlayer.playTrack(spotifyTrack('abc'));
     await flush();
+    unsubscribe();
 
     const state = melodixPlayer.getState();
-    expect(state.status).toBe('playing');
-    expect(state.resolved?.provider).toBe('Audius');
-    expect(provider.resolveSource).toHaveBeenCalledWith('aud-good');
-    expect(mockCreatedSounds).toHaveLength(1);
+    // Jamais un « unavailable » inventé ni un relais Audius/YouTube :
+    // erreur réelle PUBLIÉE (statut « error ») + notice avec le code réel.
+    // File d'une piste → retour à l'idle, la notice reste visible.
+    expect(seenStatuses).toContain('error');
+    expect(seenStatuses).not.toContain('unavailable');
+    expect(state.resolved).toBeNull();
+    expect(state.notice).toEqual({
+      kind: 'play-failed',
+      title: 'Track abc',
+      code: 'confirmation-timeout',
+    });
+    expect(provider.resolveMatch).not.toHaveBeenCalled();
+    expect(provider.resolveSource).not.toHaveBeenCalled();
+    expect(mockCreatedSounds).toHaveLength(0);
   });
 
-  it('not-ready (porte fermée) → cascade immédiate, vue jamais ouverte', async () => {
+  it('porte fermée par décision → erreur immédiate (pas d’attente), pas de cascade', async () => {
     fake.port.isReady.mockReturnValue(false);
+    fake.port.setReadinessBlockersForTesting(['flag-local-desactive']);
+
+    const seenStatuses: string[] = [];
+    const unsubscribe = melodixPlayer.subscribe((s) => {
+      seenStatuses.push(s.status);
+    });
+    const started = Date.now();
+    await melodixPlayer.playTrack(spotifyTrack('abc'));
+    await flush();
+    unsubscribe();
+    // Immédiat : aucune grace bornée quand la porte est fermée.
+    expect(Date.now() - started).toBeLessThan(1_000);
+
+    const state = melodixPlayer.getState();
+    expect(seenStatuses).toContain('error');
+    expect(state.notice?.code).toBe('spotify-web-disabled');
+    expect(fake.port.setViewVisible).toHaveBeenCalledWith(true);
+    expect(fake.port.attempt).not.toHaveBeenCalled();
+    expect(provider.resolveMatch).not.toHaveBeenCalled();
+    expect(mockCreatedSounds).toHaveLength(0);
+  });
+
+  it('hôte/pont non prêt → grace bornée, puis vraie erreur (pas de cascade)', async () => {
+    fake.port.isReady.mockReturnValue(false);
+    fake.port.setReadinessBlockersForTesting(['pont-non-pret']);
+    melodixPlayer.__testSetSpotifyWebReadyGraceMs(30);
+
+    const seenStatuses: string[] = [];
+    const unsubscribe = melodixPlayer.subscribe((s) => {
+      seenStatuses.push(s.status);
+    });
+    await melodixPlayer.playTrack(spotifyTrack('abc'));
+    await flush();
+    unsubscribe();
+
+    const state = melodixPlayer.getState();
+    expect(seenStatuses).toContain('error');
+    expect(state.notice?.code).toBe('spotify-web-engine-not-ready');
+    expect(fake.port.attempt).not.toHaveBeenCalled();
+    expect(provider.resolveMatch).not.toHaveBeenCalled();
+    expect(mockCreatedSounds).toHaveLength(0);
+  });
+
+  it('hôte/pont non prêt puis prêt pendant la grace → la tentative a lieu', async () => {
+    fake.port.isReady.mockReturnValue(false);
+    fake.port.setReadinessBlockersForTesting(['pont-non-pret']);
+    melodixPlayer.__testSetSpotifyWebReadyGraceMs(500);
+    setTimeout(() => fake.port.isReady.mockReturnValue(true), 60);
+
+    fake.port.attempt.mockImplementation(async () => {
+      fake.publish({ status: 'playing', trackId: 'abc' });
+      return {
+        status: 'confirmed',
+        trackId: 'abc',
+        plan: { kind: 'ready' } as never,
+        confirmedAtMillis: Date.now(),
+      };
+    });
 
     await melodixPlayer.playTrack(spotifyTrack('abc'));
     await flush();
 
-    expect(fake.port.setViewVisible).not.toHaveBeenCalled();
-    expect(fake.port.attempt).not.toHaveBeenCalled();
-    expect(melodixPlayer.getState().resolved?.provider).toBe('Audius');
+    expect(fake.port.attempt).toHaveBeenCalledTimes(1);
+    expect(melodixPlayer.getState().status).toBe('playing');
+    expect(melodixPlayer.getState().resolved?.provider).toBe('Spotify Web');
   });
 
   it('piste audius: (sans identifiant Spotify) → jamais tentée', async () => {
@@ -282,27 +367,48 @@ describe('melodixPlayer + source Spotify Web (port)', () => {
     expect(melodixPlayer.getState().status).toBe('playing');
   });
 
-  it('avance AUTOMATIQUE (fin de morceau expo-av) sans vue visible → pas de tentative', async () => {
-    // Le 1er morceau est lu par la cascade (port non prêt).
-    fake.port.isReady.mockReturnValue(false);
+  it('avance AUTOMATIQUE sur piste Spotify → tentative Spotify Web (vue rouverte si masquée)', async () => {
+    // Le 1er morceau est confirmé via Spotify Web.
+    fake.port.attempt.mockImplementation(async (input) => {
+      fake.publish({
+        status: 'playing',
+        trackId: input.track.trackId,
+        durationMillis: 200_000,
+      });
+      return {
+        status: 'confirmed',
+        trackId: input.track.trackId,
+        plan: { kind: 'ready' } as never,
+        confirmedAtMillis: Date.now(),
+      };
+    });
     await melodixPlayer.playQueue([spotifyTrack('a'), spotifyTrack('b')], 0);
     await flush();
-    expect(melodixPlayer.getState().status).toBe('playing');
+    expect(melodixPlayer.getState().resolved?.provider).toBe('Spotify Web');
 
-    // Fin réelle du 1er morceau (didJustFinish expo-av) → avance auto.
-    fake.port.isReady.mockReturnValue(true);
-    lastStatusCallback?.({
-      isLoaded: true,
-      isPlaying: false,
-      isBuffering: false,
-      didJustFinish: true,
+    // La vue est masquée (l'utilisateur l'a fermée) — l'avance automatique
+    // doit MAINTENANT tenter Spotify Web (seule source, Mission v7) en
+    // rouvrant la vue : plus de « pas de tentative sans vue visible ».
+    fake.port.setViewVisible.mockClear();
+    fake.port.attempt.mockClear();
+    fake.port.isViewVisible.mockReturnValue(false);
+
+    // Fin RÉELLE publiée par la page → avance auto.
+    fake.publish({
+      status: 'ended',
+      trackId: 'a',
+      positionMillis: 200_000,
+      durationMillis: 200_000,
     });
     await flush();
 
-    expect(fake.port.setViewVisible).not.toHaveBeenCalled();
-    expect(fake.port.attempt).not.toHaveBeenCalled();
+    expect(fake.port.setViewVisible).toHaveBeenCalledWith(true);
+    expect(fake.port.attempt).toHaveBeenCalledTimes(1);
+    expect(fake.port.attempt).toHaveBeenCalledWith(
+      expect.objectContaining({ trackKey: 'spotify:b' })
+    );
     expect(melodixPlayer.getState().index).toBe(1);
-    expect(melodixPlayer.getState().resolved?.provider).toBe('Audius');
+    expect(melodixPlayer.getState().resolved?.provider).toBe('Spotify Web');
   });
 
   it('GESTE next pendant vue visible → la tentative est faite pour la suite', async () => {
@@ -368,15 +474,16 @@ describe('melodixPlayer + source Spotify Web (port)', () => {
   });
 
   it('fin publiée (ended) → la file avance comme après un didJustFinish', async () => {
-    fake.port.attempt.mockImplementation(async () => {
+    // Chaque tentative est confirmée pour LA PISTE TENTÉE (identité réelle).
+    fake.port.attempt.mockImplementation(async (input) => {
       fake.publish({
         status: 'playing',
-        trackId: 'a',
+        trackId: input.track.trackId,
         durationMillis: 200_000,
       });
       return {
         status: 'confirmed',
-        trackId: 'a',
+        trackId: input.track.trackId,
         plan: { kind: 'ready' } as never,
         confirmedAtMillis: Date.now(),
       };
@@ -395,10 +502,13 @@ describe('melodixPlayer + source Spotify Web (port)', () => {
     await flush();
 
     expect(melodixPlayer.getState().index).toBe(1);
-    // Vue masquée (défaut du double) + pas de geste → pas de tentative :
-    // la cascade prend le morceau suivant.
-    expect(fake.port.attempt).not.toHaveBeenCalled();
-    expect(melodixPlayer.getState().resolved?.provider).toBe('Audius');
+    // Mission v7 : le morceau suivant (Spotify) est tenté sur Spotify Web
+    // (seule source) — jamais de cascade Audius.
+    expect(fake.port.attempt).toHaveBeenCalledTimes(1);
+    expect(fake.port.attempt).toHaveBeenCalledWith(
+      expect.objectContaining({ trackKey: 'spotify:b' })
+    );
+    expect(melodixPlayer.getState().resolved?.provider).toBe('Spotify Web');
   });
 
   it('fin publiée N’avance qu’une fois (ré-émission ignorée)', async () => {
@@ -428,16 +538,16 @@ describe('melodixPlayer + source Spotify Web (port)', () => {
     expect(melodixPlayer.getState().index).toBe(firstIndex);
   });
 
-  it('erreur publiée (pont mort) → piste en échec, avance par la cascade', async () => {
-    fake.port.attempt.mockImplementation(async () => {
+  it('erreur publiée (pont mort) → piste en échec, avance sur Spotify Web', async () => {
+    fake.port.attempt.mockImplementation(async (input) => {
       fake.publish({
         status: 'playing',
-        trackId: 'a',
+        trackId: input.track.trackId,
         durationMillis: 100_000,
       });
       return {
         status: 'confirmed',
-        trackId: 'a',
+        trackId: input.track.trackId,
         plan: { kind: 'ready' } as never,
         confirmedAtMillis: Date.now(),
       };
@@ -445,6 +555,7 @@ describe('melodixPlayer + source Spotify Web (port)', () => {
     await melodixPlayer.playQueue([spotifyTrack('a'), spotifyTrack('b')], 0);
     await flush();
 
+    fake.port.attempt.mockClear();
     fake.publish({
       status: 'error',
       trackId: 'a',
@@ -452,8 +563,14 @@ describe('melodixPlayer + source Spotify Web (port)', () => {
     });
     await flush();
 
+    // Mission v7 : l'avancement retente la suite sur Spotify Web (seule
+    // source) — jamais de cascade Audius.
     expect(melodixPlayer.getState().index).toBe(1);
-    expect(melodixPlayer.getState().resolved?.provider).toBe('Audius');
+    expect(fake.port.attempt).toHaveBeenCalledTimes(1);
+    expect(fake.port.attempt).toHaveBeenCalledWith(
+      expect.objectContaining({ trackKey: 'spotify:b' })
+    );
+    expect(melodixPlayer.getState().resolved?.provider).toBe('Spotify Web');
   });
 
   it('état publié d’UNE AUTRE piste n’est jamais attribué', async () => {
@@ -573,14 +690,7 @@ describe('melodixPlayer + source Spotify Web (port)', () => {
     expect(melodixPlayer.getState().status).toBe('idle');
   });
 
-  it('reprise tapée (togglePlayPause sur piste pausée) → nouvelle tentative, vue ouverte', async () => {
-    // Piste Spotify restaurée en pause (jamais confirmée dans cette session).
-    await melodixPlayer.playQueue([spotifyTrack('a')], 0);
-    // Le premier play a essuyé un not-ready → cascade… pour ce test on
-    // neutralise la cascade : le port devient prêt APRÈS un stop.
-    await melodixPlayer.stop();
-
-    fake.port.isReady.mockReturnValue(true);
+  it('reprise tapée (play sur piste pausée) → commande port, vue ouverte', async () => {
     fake.port.attempt.mockImplementation(async () => {
       fake.publish({ status: 'playing', trackId: 'a' });
       return {
@@ -590,11 +700,10 @@ describe('melodixPlayer + source Spotify Web (port)', () => {
         confirmedAtMillis: Date.now(),
       };
     });
-    // Recharger la file en pause : playQueue lit directement. On simule une
-    // session en pause via playQueue puis pause.
     await melodixPlayer.playQueue([spotifyTrack('a')], 0);
     await flush();
     expect(melodixPlayer.getState().status).toBe('playing');
+    expect(fake.port.setViewVisible).toHaveBeenCalledWith(true);
     await melodixPlayer.pause();
     await flush();
     expect(fake.port.sendCommand).toHaveBeenCalledWith('pause');
@@ -610,12 +719,22 @@ describe('melodixPlayer + source Spotify Web (port)', () => {
     expect(fake.port.sendCommand).toHaveBeenCalledWith('play');
   });
 
-  it('sans port attaché (défaut) → comportement 100 % cascade inchangé', async () => {
+  it('sans port attaché (défaut) → VRAIE erreur Spotify Web, pas de cascade', async () => {
     melodixPlayer.attachSpotifyWebSource(null);
+
+    const seenStatuses: string[] = [];
+    const unsubscribe = melodixPlayer.subscribe((s) => {
+      seenStatuses.push(s.status);
+    });
     await melodixPlayer.playTrack(spotifyTrack('abc'));
     await flush();
+    unsubscribe();
 
-    expect(fake.port.attempt).not.toHaveBeenCalled();
-    expect(melodixPlayer.getState().resolved?.provider).toBe('Audius');
+    const state = melodixPlayer.getState();
+    expect(seenStatuses).toContain('error');
+    expect(state.notice?.code).toBe('spotify-web-port-missing');
+    expect(state.resolved).toBeNull();
+    expect(provider.resolveMatch).not.toHaveBeenCalled();
+    expect(mockCreatedSounds).toHaveLength(0);
   });
 });

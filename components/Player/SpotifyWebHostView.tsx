@@ -331,8 +331,9 @@ export const SpotifyWebHostView = () => {
           <View style={styles.overlayHint}>
             <Text style={styles.overlayHintText}>
               La lecture est contrôlée dans cette vue : touchez Lecture dans la
-              page Spotify. Melodix suit l'état réellement publié, et bascule
-              sur sa source habituelle si rien ne démarre.
+              page Spotify. Melodix suit l'état réellement publié ; si la
+              lecture n'est pas confirmée, une vraie erreur Spotify Web est
+              affichée (aucune autre source ne prend le relais).
             </Text>
           </View>
         </View>

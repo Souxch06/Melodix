@@ -74,8 +74,10 @@ export const FR_FR_PLAYER = {
     `« ${title} » n'est pas disponible sur Audius.`,
   playerMatchUncertain: (title: string) =>
     `La correspondance de « ${title} » est incertaine : aucun audio n'est joué.`,
-  playerTrackPlayFailed: (title: string) =>
-    `La lecture de « ${title} » a échoué.`,
+  playerTrackPlayFailed: (title: string, code?: string) =>
+    typeof code === 'string' && code !== ''
+      ? `La lecture de « ${title} » a échoué (${code}).`
+      : `La lecture de « ${title} » a échoué.`,
   playerError: 'La lecture a échoué. Essaie un autre titre.',
   playerUnavailable: "L'audio est indisponible sur cet appareil.",
   // File d'attente avancée (Phase 2) : actions de file, menu, reprise.
@@ -279,8 +281,15 @@ export const FR_FR_PLAYLIST = {
   /** « 85/100 morceaux disponibles » — calculée dynamiquement. */
   playlistAvailabilityInfo: (available: number, total: number) =>
     `${available}/${total} morceaux disponibles`,
+  /**
+   * Mission v7 : quand le lecteur Spotify Web est la source, on affiche la
+   * SOURCE (pas un ratio) — la preuve réelle de lisibilité intervient à la
+   * lecture. Jamais un « 32/32 disponibles » artificiel.
+   */
+  playlistSpotifyWebInfo: (total: number) =>
+    `${total} titres · lecture Spotify Web Player`,
   trackUnavailableNotice:
-    "Ce morceau n'est pas disponible sur les sources de lecture actuelles.",
+    "Ce morceau n'est pas lisible : la lecture Spotify Web Player est désactivée (Réglages → Lecture Spotify Web).",
   providerAudius: 'Audius',
   providerYouTube: 'YouTube',
   providerUnavailable: 'Indisponible',

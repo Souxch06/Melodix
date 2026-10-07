@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-import { melodixPlayer, PlayerTrack, spotifyTrackSource } from '../player';
+import { melodixPlayer, PlayerTrack } from '../player';
 import { loadPlaybackSession } from '../playbackSession';
 import { __testSetAudioProviders } from '../audio';
 import type { AudioProvider, ResolvedStream } from '../audio';
@@ -105,7 +105,7 @@ const track = (id: string): PlayerTrack => ({
   artists: ['Neffex'],
   album: null,
   imageURL: '',
-  source: spotifyTrackSource(id),
+  source: { provider: 'audius', id },
 });
 
 const flush = () => new Promise((resolve) => setTimeout(resolve, 0));

@@ -32,9 +32,11 @@ import { SettingsSwitch } from '../../components/Settings/SettingsSwitch';
  *  1. le réglage utilisateur (ce switch) ;
  *  2. le flag local en mémoire (section développeur) ;
  *  3. la validation physique consignée avec preuve (section développeur).
- * Tant que les deux verrous 2 et 3 ne sont pas levés, le switch est inactif
- * et la lecture Spotify Web est IMPOSSIBLE : la cascade Audius → YouTube
- * reste la seule voie. Rien n'est masqué, rien n'est simulé.
+ * Mission v7 : les verrous 2 et 3 sont LEVÉS AU DÉMARRAGE (preuve
+ * documentée, docs/SPOTIFY-WEB-PHYSICAL-TEST.md) — il reste le réglage
+ * utilisateur, actif par défaut. Quand le switch est éteint, les pistes
+ * Spotify ne sont plus lisibles (vraie erreur, pas de relais
+ * Audius/YouTube). Rien n'est masqué, rien n'est simulé.
  */
 export default function SpotifyWebPlayerSettings() {
   const router = useRouter();
@@ -114,7 +116,7 @@ export default function SpotifyWebPlayerSettings() {
             label="Lire via Spotify Web"
             subtitle={
               gateOpen
-                ? 'Source prioritaire quand disponible ; bascule sur Audius puis YouTube si la lecture n’est pas réellement confirmée.'
+                ? 'Seule source audio pour les pistes Spotify. Si la lecture n’est pas réellement confirmée, une vraie erreur Spotify Web est affichée (aucun relais Audius/YouTube).'
                 : 'Indisponible : la validation physique et le flag local doivent être levés (section développement ci-dessous).'
             }
             value={gateOpen && spotifyWebPlayback}

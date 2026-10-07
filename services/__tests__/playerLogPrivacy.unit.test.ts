@@ -13,7 +13,7 @@
  */
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-import { melodixPlayer, PlayerTrack, spotifyTrackSource } from '../player';
+import { melodixPlayer, PlayerTrack } from '../player';
 import { __testSetAudioProviders } from '../audio';
 import type { AudioProvider, ResolvedStream } from '../audio';
 
@@ -76,7 +76,7 @@ const track = (): PlayerTrack => ({
   album: PRIVATE.album,
   isrc: PRIVATE.isrc,
   imageURL: '',
-  source: spotifyTrackSource(PRIVATE.trackId),
+  source: { provider: 'audius', id: PRIVATE.trackId },
 });
 
 const flush = () => new Promise((resolve) => setTimeout(resolve, 0));

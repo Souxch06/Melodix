@@ -18,7 +18,7 @@
  * expo-av, et une fin naturelle est pilotée par `didJustFinish`, jamais par
  * `next()` (qui est un saut MANUEL et ne doit pas obéir à repeat `one`).
  */
-import { melodixPlayer, PlayerTrack, spotifyTrackSource } from '../player';
+import { melodixPlayer, PlayerTrack } from '../player';
 import { __testSetAudioProviders } from '../audio';
 import type { AudioProvider, ResolvedStream } from '../audio';
 
@@ -87,7 +87,7 @@ const track = (id: string, title = `Track ${id}`): PlayerTrack => ({
   artists: ['Artist'],
   album: null,
   imageURL: '',
-  source: spotifyTrackSource(id),
+  source: { provider: 'audius', id },
 });
 
 const flush = () => new Promise((resolve) => setTimeout(resolve, 0));

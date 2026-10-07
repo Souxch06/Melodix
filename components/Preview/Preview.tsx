@@ -51,10 +51,16 @@ export type PreviewPropsType = {
   summaryDescription?: string;
   /** Statistique dynamique « 85/100 morceaux disponibles ». */
   summaryAvailability?: string;
-  /** État de résolution par track.id (badge discret de ligne). */
+  /**
+   * État de disponibilité par track.id (badge discret de ligne). Mission v7 :
+   * `spotify-web` = le Spotify Web Player est la source (pas de badge — la
+   * preuve réelle intervient à la lecture) ; `none` = aucune source.
+   * Les valeurs `audius`/`youtube`/`pending`/`resolving` restent typées pour
+   * la rétrocompatibilité (plus d'écran ne les produit pour les playlists).
+   */
   availabilityById?: Record<
     string,
-    'audius' | 'youtube' | 'none' | 'pending' | 'resolving'
+    'spotify-web' | 'audius' | 'youtube' | 'none' | 'pending' | 'resolving'
   >;
   /** Tap sur une ligne indisponible → message clair, jamais de crash. */
   onUnavailableTrackPress?: (track: TrackModel) => void;

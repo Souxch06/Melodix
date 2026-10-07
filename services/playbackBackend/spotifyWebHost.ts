@@ -120,6 +120,16 @@ export type SpotifyWebSourceCommandResult = {
 export type SpotifyWebSourcePort = {
   /** Porte d'activation + hôte + pont tous ouverts. Ne promet rien de plus. */
   isReady: () => boolean;
+  /**
+   * Photo détaillée de disponibilité (blockers contrôlés). Permet au moteur
+   * de distinguer une porte FERMÉE PAR DÉCISION (erreur immédiate) d'un
+   * hôte/pont qui monte encore (grace bornée) — sans que le moteur importe
+   * la porte d'activation.
+   */
+  getReadiness: () => {
+    ready: boolean;
+    blockers: readonly string[];
+  };
   isViewVisible: () => boolean;
   setViewVisible: (visible: boolean) => void;
   /**
@@ -206,6 +216,11 @@ export const createSpotifyWebSourcePort = (): SpotifyWebSourcePort => {
 
   return {
     isReady: () => resolveSpotifyWebIntegrationReadiness().ready,
+
+    getReadiness: () => {
+      const readiness = resolveSpotifyWebIntegrationReadiness();
+      return { ready: readiness.ready, blockers: readiness.blockers };
+    },
 
     isViewVisible: () => isSpotifyWebHostVisible(),
 

@@ -288,7 +288,7 @@ export const FullPlayer = () => {
           <Text numberOfLines={2} style={styles.noticeText}>
             {notice.kind === 'not-available'
               ? translations.playerTrackUnavailable(notice.title)
-              : translations.playerTrackPlayFailed(notice.title)}
+              : translations.playerTrackPlayFailed(notice.title, notice.code)}
           </Text>
         ) : null}
       </View>

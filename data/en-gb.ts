@@ -180,7 +180,10 @@ export const EN_GB_PLAYER = {
     `"${title}" is not available on Audius.`,
   playerMatchUncertain: (title: string) =>
     `No reliable match for "${title}": no audio is playing.`,
-  playerTrackPlayFailed: (title: string) => `Playback of "${title}" failed.`,
+  playerTrackPlayFailed: (title: string, code?: string) =>
+    typeof code === 'string' && code !== ''
+      ? `Playback of "${title}" failed (${code}).`
+      : `Playback of "${title}" failed.`,
   playerError: 'Playback failed. Try another track.',
   playerQueueTitle: 'Queue',
   playerQueuePlaying: 'Now playing',
@@ -332,8 +335,15 @@ export const EN_GB_SETTINGS = {
 export const EN_GB_PLAYLIST = {
   playlistAvailabilityInfo: (available: number, total: number) =>
     `${available}/${total} tracks available`,
+  /**
+   * Mission v7: when the Spotify Web Player is the source, show the SOURCE
+   * (not a ratio) — real readability is proven at playback time. Never an
+   * artificial "32/32 available".
+   */
+  playlistSpotifyWebInfo: (total: number) =>
+    `${total} tracks · Spotify Web Player playback`,
   trackUnavailableNotice:
-    'This track is unavailable on the current playback sources.',
+    'This track cannot be played: Spotify Web Player playback is disabled (Settings → Spotify Web Player).',
   providerAudius: 'Audius',
   providerYouTube: 'YouTube',
   providerUnavailable: 'Unavailable',

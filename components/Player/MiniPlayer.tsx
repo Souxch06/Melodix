@@ -85,7 +85,7 @@ export const MiniPlayer = () => {
           <Text numberOfLines={1} style={styles.noticeText}>
             {notice.kind === 'not-available'
               ? translations.playerTrackUnavailable(notice.title)
-              : translations.playerTrackPlayFailed(notice.title)}
+              : translations.playerTrackPlayFailed(notice.title, notice.code)}
           </Text>
         </View>
       ) : null}

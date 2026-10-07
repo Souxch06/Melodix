@@ -10,6 +10,10 @@ export {
   subscribeSpotifyWebPlaybackActivation,
 } from './spotifyWebFeature';
 export {
+  ensureProductionSpotifyWebActivation,
+  SPOTIFY_WEB_PHYSICAL_VALIDATION_EVIDENCE,
+} from './spotifyWebActivationBootstrap';
+export {
   createSpotifyWebSourcePort,
   getSpotifyWebPublishedState,
   isSpotifyWebHostVisible,

@@ -121,9 +121,10 @@ export const PlayerProvider = ({ children }: { children: React.ReactNode }) => {
 
   // Source Spotify Web : le moteur reçoit un PORT unique (disponibilité,
   // tentative, commandes, états publiés). Le port ne promet rien : tout
-  // verdict non confirmé par la page laisse la cascade Audius → YouTube
-  // intacte. L'hôte réel (WebView + pont) vit dans SpotifyWebHostView,
-  // monté ci-dessous ; ici on ne câble que le canal.
+  // verdict non confirmé par la page est une vraie erreur Spotify Web
+  // (Mission v7 : plus de secours Audius/YouTube pour les pistes Spotify).
+  // L'hôte réel (WebView + pont) vit dans SpotifyWebHostView, monté dans le
+  // layout racine ; ici on ne câble que le canal.
   React.useEffect(() => {
     // Garde : en tests, `@services` est mocké sans ce port → le moteur
     // reste simplement sans source Spotify Web (comportement par défaut).

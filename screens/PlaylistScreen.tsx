@@ -200,33 +200,34 @@ export const PlaylistScreen = ({ playlistId }: AlbumScreenPropsType) => {
     []
   );
 
-  // Résolution progressive Audius → YouTube (≤ 5 simultanées, cache partagé).
+  // Mission v7 : la disponibilité suit la capacité RÉELLE du lecteur
+  // (Spotify Web Player = seule source des pistes Spotify) — plus de
+  // pré-matching Audius/YouTube, jamais un ratio artificiel.
   const resolutions = usePlaylistResolutions(tracks);
 
   const availabilityById = React.useMemo(() => {
-    const map: Record<
-      string,
-      'audius' | 'youtube' | 'none' | 'pending' | 'resolving'
-    > = {};
+    const map: Record<string, 'spotify-web' | 'none'> = {};
 
     for (const track of tracks) {
       const entry = resolutions.byTrackId[track.id];
-      map[track.id] =
-        entry?.status === 'resolved'
-          ? entry.providerId
-          : entry?.status === 'none'
-            ? 'none'
-            : (entry?.status ?? 'pending');
+      map[track.id] = entry?.status === 'eligible' ? 'spotify-web' : 'none';
     }
 
     return map;
   }, [tracks, resolutions.byTrackId]);
 
   const summaryAvailability = React.useMemo(() => {
-    const { available, total } = resolutions.stats;
-    return total > 0
-      ? translations.playlistAvailabilityInfo(available, total)
-      : '';
+    const { total, spotifyWebActive } = resolutions.stats;
+    if (total === 0) {
+      return '';
+    }
+    // Moteur actif : on affiche la SOURCE, pas un ratio (jamais un
+    // « 32/32 disponibles » inventé — la preuve réelle intervient à la
+    // lecture). Moteur inactif : honnêtement, aucune piste n'est lisible.
+    return spotifyWebActive
+      ? translations.playlistSpotifyWebInfo(total)
+      : translations.playlistAvailabilityInfo(0, total);
+    // `translations` est une constante de module (jamais mutée) : hors deps.
   }, [resolutions.stats]);
 
   const summaryDescription = React.useMemo(

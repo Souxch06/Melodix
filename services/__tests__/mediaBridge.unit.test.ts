@@ -19,7 +19,7 @@ import {
   setMediaBridgeEnabled,
   teardownMediaBridge,
 } from '../mediaBridge';
-import { melodixPlayer, spotifyTrackSource } from '../player';
+import { melodixPlayer } from '../player';
 import type { PlayerState, PlayerTrack } from '../player';
 import { PLAYBACK_SESSION_VERSION } from '../playbackSession';
 import type { PlaybackSession } from '../playbackSession';
@@ -110,12 +110,18 @@ jest.mock('expo-av', () => ({
   },
 }));
 
+// Mission v7 : les morceaux de ce fichier sont des pistes NATIVES (provider
+// Audius) — le moteur les lit via `resolveSource` (runtime expo-av). Les
+// pistes Spotify (provider null) sont lues par le Spotify Web Player et testées
+// ailleurs ; le bridge les distingue via `state.resolved?.provider`.
 const makeProvider = (): AudioProvider => ({
   id: 'audius',
   displayName: 'Audius',
   matches: jest.fn(async () => []),
-  resolveMatch: jest.fn(async () => ({ sourceId: 'aud-x', score: 0.9 })),
-  resolveSource: jest.fn(async () => ({ uri: 'https://stream/aud-x' })),
+  resolveMatch: jest.fn(async () => null),
+  resolveSource: jest.fn(async (sourceId: string) => ({
+    uri: `https://stream/${sourceId}`,
+  })),
 });
 
 const morceau = (
@@ -129,7 +135,7 @@ const morceau = (
   album: 'Good',
   durationMillis: 200_000,
   imageURL: 'https://img/p.jpg',
-  source: spotifyTrackSource(id),
+  source: { provider: 'audius', id },
 });
 
 const flush = () => new Promise((resolve) => setTimeout(resolve, 0));
@@ -149,7 +155,7 @@ const payloadLongSensible = (): Partial<PlayerState>[] => [
       album: 'Vox',
       durationMillis: 180_000,
       imageURL: 'https://img/cover.jpg',
-      source: spotifyTrackSource('sensible'),
+      source: { provider: 'audius', id: 'sensible' },
       // Champs parasites : flux + tokens qui DOIVENT rester hors projection.
       streamUrl: 'https://stream/vault?token=abc',
       youtubeUri: 'https://youtube/watch?v=dQw4w9WgXcQ',

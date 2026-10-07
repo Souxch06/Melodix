@@ -12,7 +12,7 @@
  * factices, et la frontière expo-av est respectée (un `isPlaying: true` ne
  * vient que du runtime, jamais d'une Promise résolue).
  */
-import { melodixPlayer, PlayerTrack, spotifyTrackSource } from '../player';
+import { melodixPlayer, PlayerTrack } from '../player';
 import { __testSetAudioProviders } from '../audio';
 import type { AudioProvider, ResolvedStream } from '../audio';
 
@@ -83,7 +83,7 @@ const track = (id: string, title = `Track ${id}`): PlayerTrack => ({
   artists: ['Artist'],
   album: null,
   imageURL: '',
-  source: spotifyTrackSource(id),
+  source: { provider: 'audius', id },
 });
 
 const flush = () => new Promise((resolve) => setTimeout(resolve, 0));
@@ -499,7 +499,7 @@ describe('file — courant, suivants, retrait, ajout, réordonnancement', () => 
       isrc: 'USRT19901234',
       explicit: true,
       imageURL: 'https://img/rich.jpg',
-      source: spotifyTrackSource('rich'),
+      source: { provider: 'audius', id: 'rich' },
     };
 
     await melodixPlayer.playQueue([rich], 0);
@@ -518,10 +518,9 @@ describe('file — courant, suivants, retrait, ajout, réordonnancement', () => 
       audius: makeProvider({
         // « Track nowhere » n'existe sur aucune source : le moteur doit passer
         // au morceau suivant au lieu de bloquer toute la playlist.
-        resolveMatch: jest.fn(async (query) =>
-          query.title === 'Track nowhere'
-            ? null
-            : { sourceId: 'aud-good', score: 0.9 }
+        // « nowhere » a un flux MORT ; le moteur passe au morceau suivant.
+        resolveSource: jest.fn(async (sourceId: string) =>
+          sourceId === 'nowhere' ? null : { uri: `https://stream/${sourceId}` }
         ),
       }),
     });

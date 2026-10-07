@@ -37,13 +37,16 @@ import type {
  * Melodix player engine.
  *
  * Queues mixes tracks from different sources: a track described by Spotify
- * metadata carries `{ provider: null }` and is MATCHED by the cascade —
- * Audius d'abord, YouTube en fallback (services/audio/trackResolver.ts) —
- * then streamed via the matched provider; a track already attached to a
- * provider id ('audius:xyz' / 'youtube:abc') is streamed directly by that
- * provider. When a track has no reliable match — or its stream fails — the
- * player reports a notice, marks the track as failed for this session and
- * SKIPS to the next playable one. It never substitutes a wrong track.
+ * metadata carries `{ provider: null }` and is played ONLY by the Spotify
+ * Web Player (Mission v7) — la confirmation RÉELLE de la page (un `playing`
+ * publié) est l'unique autorisation à émettre `playing` ; tout autre
+ * verdict est une vraie erreur Spotify Web, affichée et propagée, jamais
+ * convertie en « unavailable » Audius/YouTube ni en secours silencieux. A
+ * track already attached to a provider id ('audius:xyz' / 'youtube:abc')
+ * is streamed directly by that provider (sans matching). When playback
+ * fails, the player reports a notice, marks the track as failed for this
+ * session and SKIPS to the next playable one. It never substitutes a wrong
+ * track.
  */
 
 export type PlayerTrack = {
@@ -100,7 +103,35 @@ export type RepeatMode = 'off' | 'all' | 'one';
 export type PlayerNotice = {
   kind: 'not-available' | 'play-failed';
   title: string;
+  /**
+   * Code d'échec réel, contrôlé, quand l'échec vient d'un moteur (Mission
+   * v7 : `confirmation-timeout`, `view-closed`, `spotify-web-disabled`…).
+   * Jamais une valeur inventée : absent quand il n'y a pas de code.
+   */
+  code?: string;
 };
+
+/**
+ * Verdict de la tentative Spotify Web pour une piste Spotify (Mission v7).
+ * `confirmed` : la page a PUBLIÉ `playing` pour cette piste. `error` :
+ * vraie erreur Spotify Web structurée — le code vient du verdict du port
+ * (`confirmation-timeout`, `view-closed`, `spotify-web-disabled`,
+ * `spotify-web-engine-not-ready`, codes de refus du plan…), jamais inventé.
+ */
+export type SpotifyWebTryOutcome =
+  | { kind: 'confirmed' }
+  | { kind: 'error'; code: string };
+
+/**
+ * Grace bornée d'attente de l'hôte/pont (lancement de l'app, rechargement
+ * du document) avant de conclure à une vraie erreur d'indisponibilité.
+ * Jamais d'attente infinie ; une piste rendue obsolète aborte l'attente.
+ */
+const DEFAULT_SPOTIFY_WEB_READY_GRACE_MS = 10_000;
+const SPOTIFY_WEB_READY_POLL_MS = 250;
+// Mutable pour les tests (raccourcir la grace sans attendre 10 s réelles) ;
+// la valeur de production est DEFAULT_SPOTIFY_WEB_READY_GRACE_MS.
+let spotifyWebReadyGraceMs = DEFAULT_SPOTIFY_WEB_READY_GRACE_MS;
 
 export type ResolverInfo = {
   provider: string;
@@ -324,7 +355,8 @@ class MelodixPlayer {
    * Branche (ou débranche) la source Spotify Web. Le port est la SEULE
    * surface Spotify Web connue du moteur : la disponibilité, la tentative,
    * les commandes et les états publiés passent tous par lui, et tout verdict
-   * non confirmé par la page laisse la cascade Audius → YouTube intacte.
+   * non confirmé par la page est une vraie erreur Spotify Web (Mission v7 :
+   * plus de secours Audius/YouTube pour les pistes Spotify).
    *
    * Au réattachement, la piste active n'est conservée que si la page le
    * publie encore (identité + `playing`) : sinon l'état devient `paused` —
@@ -722,8 +754,9 @@ class MelodixPlayer {
   //  - `playing` n'est émis que sur confirmation RÉELLE (voir trySpotifyWeb)
   //    ou sur un état publié qui la suit ;
   //  - un verdict non confirmé (not-ready / refused / failed / view-closed)
-  //    laisse la cascade Audius → YouTube décider — jamais une absence
-  //    durable n'est déduite d'un incident ;
+  //    est une VRAIE erreur Spotify Web structurée, affichée/propagée —
+  //    jamais un « unavailable » inventé ni un secours silencieux (Mission
+  //    v7 : plus de fallback Audius/YouTube pour les pistes Spotify) ;
   //  - les états publiés d'une AUTRE piste (l'utilisateur change de morceau
   //    dans la vue) ne sont jamais attribués à la piste que le moteur lit.
 
@@ -763,7 +796,9 @@ class MelodixPlayer {
         return;
       case 'error':
         // Perte réelle (renderer détruit, pont mort, réseau) : la piste est
-        // en échec pour cette session ; la cascade retente la suite.
+        // en échec pour cette session ; l'avancement retente la suite sur
+        // Spotify Web (seule source, Mission v7) — grace bornée si le pont
+        // remonte.
         this.spotifyWebActive = null;
         {
           const track = this.state.current;
@@ -820,39 +855,70 @@ class MelodixPlayer {
   };
 
   /**
-   * Tente la piste sur Spotify Web avant la cascade. Renvoie `confirmed`
-   * uniquement si la page a PUBLIÉ `playing` pour cette piste (via la
-   * fenêtre de confirmation du port) : le moteur émet alors `playing` avec
-   * l'état publié. Tout autre verdict → `skipped`, et la cascade décide.
+   * Tente la piste sur Spotify Web — sa SEULE source audio (Mission v7).
    *
-   * Règle d'intention : un geste utilisateur ouvre la vue et tente ; l'avance
-   * automatique ne tente que si la vue est déjà visible (l'utilisateur est
-   * présent pour le geste de lecture dans la page — c'est le seul démarrage
-   * légitime : aucune automatisation de la page n'est faite).
+   * Renvoie `confirmed` uniquement si la page a PUBLIÉ `playing` pour cette
+   * piste (via la fenêtre de confirmation du port) : le moteur émet alors
+   * `playing` avec l'état publié. Tout autre verdict est une VRAIE erreur
+   * Spotify Web, structurée par son code — elle est affichée/propagée,
+   * jamais convertie en « unavailable » Audius/YouTube ni en secours
+   * silencieux.
+   *
+   * Vue : la lecture vit dans la vue Spotify Web. Un geste manuel l'ouvre ;
+   * l'avance automatique la rouvre si besoin — aucune automatisation de la
+   * page : on rend la vue visible et on délivre les commandes de pont
+   * existantes ; seul l'état PUBLIÉ confirme.
+   *
+   * Grace bornée : l'hôte/le pont peuvent encore monter (lancement de
+   * l'app, rechargement du document) — attente courte bornée, puis vraie
+   * erreur. Une porte FERMÉE PAR DÉCISION (flag/validation) est une erreur
+   * immédiate : rien d'utile n'attend derrière.
    */
   private trySpotifyWeb = async (
     track: PlayerTrack,
     isStale: () => boolean
-  ): Promise<'confirmed' | 'skipped'> => {
+  ): Promise<SpotifyWebTryOutcome> => {
     const port = this.spotifyWebSource;
     if (!port) {
-      return 'skipped';
+      return { kind: 'error', code: 'spotify-web-port-missing' };
     }
     // Un morceau de catalogue Spotify porte son identifiant nu dans
-    // `source` (provider null) ; un morceau audius:/youtube: n'en a pas —
-    // il ne peut PAS transiter par Spotify Web.
+    // `source` (provider null). Cette méthode n'est appelée que pour les
+    // pistes Spotify ; un morceau audius:/youtube: ne transite jamais par
+    // ici (lecture directe par son provider).
     const spotifyId = track.source.provider === null ? track.source.id : null;
-    // L'intention manuelle est consommée pour CHAQUE piste passant ici —
-    // y compris inéligible (pas d'id Spotify) ou porte fermée : sinon un
-    // « play » tapé pendant porte fermée rejaillirait sur la SUIVANTE
-    // (l'avance automatique deviendrait « manuelle » et ouvrirait la vue).
-    const manual = this.spotifyWebManualIntent;
-    this.spotifyWebManualIntent = false;
-    if (!spotifyId || !port.isReady()) {
-      return 'skipped';
+    if (!spotifyId) {
+      return { kind: 'error', code: 'no-spotify-track-id' };
     }
-    if (!manual && !port.isViewVisible()) {
-      return 'skipped';
+    // L'intention manuelle est consommée pour CHAQUE piste passant ici :
+    // sinon un « play » tapé pendant moteur non prêt rejaillirait sur la
+    // SUIVANTE (l'avance automatique deviendrait « manuelle »).
+    this.spotifyWebManualIntent = false;
+
+    // La vue est le lieu de la lecture : la rendre manœuvrable par
+    // l'utilisateur, qu'il s'agisse d'un geste manuel ou de l'avance
+    // automatique (après Mission v7, il n'y a pas d'autre source).
+    port.setViewVisible(true);
+
+    const readiness = port.getReadiness();
+    if (
+      !readiness.ready &&
+      (readiness.blockers.includes('flag-local-desactive') ||
+        readiness.blockers.includes('validation-physique-non-consignee'))
+    ) {
+      // Porte fermée par décision : Spotify Web ne peut pas démarrer —
+      // vraie erreur immédiate (pas d'attente inutile).
+      return { kind: 'error', code: 'spotify-web-disabled' };
+    }
+    if (!readiness.ready) {
+      // Hôte/pont en cours de montée (lancement, rechargement) : grace
+      // bornée, puis vraie erreur si rien.
+      if (!(await this.waitSpotifyWebReady(port, isStale))) {
+        return { kind: 'error', code: 'spotify-web-engine-not-ready' };
+      }
+    }
+    if (isStale()) {
+      return { kind: 'error', code: 'stale' };
     }
 
     const metadataDuration =
@@ -862,7 +928,6 @@ class MelodixPlayer {
         ? track.durationMillis
         : null;
 
-    port.setViewVisible(true); // la vue doit être manœuvrable par l'utilisateur
     let outcome;
     try {
       outcome = await port.attempt({
@@ -883,25 +948,32 @@ class MelodixPlayer {
         nowMillis: Date.now(),
         // Fenêtre de confirmation : le démarrage est un GESTE dans la vue ;
         // trop court et l'utilisateur ne peut pas lire la page, trop long et
-        // le fallback n'arrive jamais. 20 s = lecture de la page + tap.
+        // la vraie erreur n'arrive jamais. 20 s = lecture de la page + tap.
         timeoutMillis: 20_000,
       });
     } catch {
-      return 'skipped';
+      // Le port a rejeté l'appel lui-même : vraie erreur, code contrôlé.
+      return { kind: 'error', code: 'attempt-exception' };
     }
 
     if (outcome.status !== 'confirmed') {
       // Échec RÉEL structuré (timeout de confirmation, commande refusée,
-      // plan refusé, vue fermée) : la cascade prend la main immédiatement.
+      // plan refusé, vue fermée, non-prêt) : c'est une vraie erreur Spotify
+      // Web — le code est remonté tel quel, rien n'est inventé ni masqué.
+      const code =
+        outcome.status === 'failed'
+          ? outcome.code
+          : outcome.status === 'refused'
+            ? outcome.refusal.code
+            : 'spotify-web-engine-not-ready';
       appendDiagLog(
-        `PLAYER_SPOTIFY_WEB_FALLBACK trackId=${track.id} ` +
-          `reason=${outcome.status === 'failed' ? outcome.code : outcome.status}`
+        `PLAYER_SPOTIFY_WEB_ERROR trackId=${track.id} code=${code}`
       );
-      return 'skipped';
+      return { kind: 'error', code };
     }
 
     if (isStale() || this.state.current?.id !== track.id) {
-      return 'skipped'; // un autre morceau a pris la main pendant l'attente
+      return { kind: 'error', code: 'stale' }; // un autre morceau a pris la main
     }
 
     // Confirmation RÉELLE : la page a publié `playing` pour cette piste.
@@ -927,7 +999,35 @@ class MelodixPlayer {
       `PLAYER_SPOTIFY_WEB_CONFIRMED trackId=${track.id} sourceId=${spotifyId}`
     );
     this.persistSession();
-    return 'confirmed';
+    return { kind: 'confirmed' };
+  };
+
+  /**
+   * Attente bornée de la disponibilité de l'hôte/pont (grace de lancement).
+   * Retourne `true` dès que `isReady` passe à vrai ; `false` si la fenêtre
+   * expire ou si la piste devient obsolète (un autre morceau a pris la
+   * main). Jamais d'attente infinie : le bornage est la règle.
+   */
+  private waitSpotifyWebReady = async (
+    port: SpotifyWebSourcePort,
+    isStale: () => boolean
+  ): Promise<boolean> => {
+    const deadline = Date.now() + spotifyWebReadyGraceMs;
+    while (Date.now() < deadline) {
+      if (isStale()) {
+        return false;
+      }
+      await new Promise((resolve) => {
+        setTimeout(resolve, SPOTIFY_WEB_READY_POLL_MS);
+      });
+      if (isStale()) {
+        return false;
+      }
+      if (port.isReady()) {
+        return true;
+      }
+    }
+    return port.isReady();
   };
 
   private resolveTrack = (
@@ -1154,9 +1254,18 @@ class MelodixPlayer {
 
   // --- skip logic -----------------------------------------------------------
 
-  private markFailed = (track: PlayerTrack, kind: PlayerNotice['kind']) => {
+  private markFailed = (
+    track: PlayerTrack,
+    kind: PlayerNotice['kind'],
+    code?: string
+  ) => {
     this.failedKeys.add(track.id);
-    this.emit({ notice: { kind, title: track.title } });
+    this.emit({
+      notice:
+        typeof code === 'string' && code !== ''
+          ? { kind, title: track.title, code }
+          : { kind, title: track.title },
+    });
   };
 
   private advanceAfterFailure = async () => {
@@ -1438,10 +1547,12 @@ class MelodixPlayer {
     this.emit({
       index,
       current: track,
-      // On entre dans la cascade de résolution : le morceau est choisi, sa
-      // source audio n'est PAS encore trouvée. Cet état est distinct de
-      // 'loading' précisément pour qu'aucune couche (UI, MediaSession)
-      // n'interprète une URL résolue comme une lecture en cours.
+      // On entre dans la phase de résolution : le morceau est choisi, sa
+      // source audio n'est PAS encore établie (tentative Spotify Web pour
+      // une piste Spotify, résolution provider pour une piste native). Cet
+      // état est distinct de 'loading' pour qu'aucune couche (UI,
+      // MediaSession) n'interprète une source trouvée comme une lecture en
+      // cours.
       status: 'resolving',
       buffering: false,
       positionMillis: pendingPosition,
@@ -1451,26 +1562,48 @@ class MelodixPlayer {
     this.persistSession(); // nouveau morceau pointe la session vers lui
     this.ensureAppStatePersistence();
 
-    // Spotify Web est la source PRIORITAIRE quand il est disponible (porte
-    // d'activation + hôte + pont) et que la piste porte un identifiant
-    // Spotify : la tentative s'exécute AVANT la cascade et ne la court-
-    // circuitte que sur confirmation RÉELLE. Tout verdict non confirmé
-    // retombe sur la cascade existante (Audius → YouTube) sans rien altérer.
-    const spotifyResult = await this.trySpotifyWeb(track, isStale);
-    if (isStale()) {
-      return;
-    }
-    if (spotifyResult === 'confirmed') {
+    // Mission v7 : une piste portant un identifiant Spotify est lue UNIQUE-
+    // MENT par le Spotify Web Player — sa seule source audio. La tentative
+    // ne court-circuite rien : la confirmation RÉELLE (un `playing` publié
+    // par la page) démarre la lecture ; tout autre verdict est une VRAIE
+    // erreur Spotify Web, affichée et propagée — jamais convertie en
+    // « unavailable » Audius/YouTube, jamais suivie d'un secours silencieux.
+    if (track.source.provider === null) {
+      const spotifyResult = await this.trySpotifyWeb(track, isStale);
+      if (isStale()) {
+        return;
+      }
+      if (spotifyResult.kind === 'confirmed') {
+        return;
+      }
+      // Vraie erreur Spotify Web structurée : le code du verdict est
+      // remonté tel quel dans la notice (jamais de valeur inventée).
+      this.markFailed(track, 'play-failed', spotifyResult.code);
+      this.emit({
+        status: 'error',
+        buffering: false,
+        resolved: null,
+        notice: {
+          kind: 'play-failed',
+          title: track.title,
+          code: spotifyResult.code,
+        },
+      });
+      // La page n'a pas confirmé : éviter toute double lecture en demandant
+      // (best-effort) l'arrêt de la page avant d'avancer — l'arrêt n'est «
+      // vrai » que sur publication de la page ; la commande est un
+      // best-effort, pas une preuve.
+      void this.spotifyWebSource?.sendCommand('pause').catch(() => undefined);
+      await this.advanceAfterFailure();
       return;
     }
 
-    // La nouvelle piste ne passe PAS par Spotify Web (piste non éligible,
-    // porte fermée, verdict non confirmé) alors que la page jouait encore
-    // l'ancienne : on demande (best-effort) à la page de se mettre en pause
-    // AVANT de créer le Sound expo-av — sinon les deux sources joueraient en
-    // même temps. L'arrêt n'est « vrai » que sur publication de la page ; si
-    // la page refuse honnêtement, la vue se réaffiche et la cascade poursuit
-    // de toute façon (la commande est un best-effort, pas une preuve).
+    // Piste native (audius:/youtube:) : lecture directe par SON provider.
+    // Si la page Spotify jouait encore la piste précédente, on lui demande
+    // (best-effort) de se mettre en pause AVANT de créer le Sound expo-av —
+    // sinon les deux sources joueraient en même temps. L'arrêt n'est « vrai
+    // » que sur publication de la page ; si la page refuse honnêtement, la
+    // vue se réaffiche (la commande est un best-effort, pas une preuve).
     if (priorSpotifyActive && this.spotifyWebSource) {
       void this.spotifyWebSource.sendCommand('pause').catch(() => undefined);
     }
@@ -2370,8 +2503,15 @@ class MelodixPlayer {
     });
   };
 
+  /** Test-only : raccourcit la grace Spotify Web (défaut 10 s) pour les
+   *  tests déterministes ; réinitialisée par `__testReset`. */
+  __testSetSpotifyWebReadyGraceMs = (ms: number): void => {
+    spotifyWebReadyGraceMs = Math.max(0, ms);
+  };
+
   // Test-only: complete engine reset (match cache + failures + preferences).
   __testReset = async () => {
+    spotifyWebReadyGraceMs = DEFAULT_SPOTIFY_WEB_READY_GRACE_MS;
     await this.unloadCurrent();
     this.soundTrackId = null;
     this.spotifyWebActive = null;
