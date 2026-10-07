@@ -327,13 +327,14 @@ jobs:
           grep -Fq "versionCode $EXPECTED_VC" android/app/build.gradle
           grep -Fq "versionName \"$EXPECTED_VN\"" android/app/build.gradle
           grep -Eq '^reactNativeArchitectures=armeabi-v7a,arm64-v8a,x86,x86_64$' android/gradle.properties
-          # Redirect Spotify CANONIQUE : le prebuild a dû ajouter l'intent-filter
-          # melodix://callback (app.config.js le dérive de SPOTIFY_REDIRECT_URI).
-          # Sans lui, le callback Spotify ne reviendrait jamais à l'app → échec
-          # AVANT de construire l'APK. Le scheme natif `melodix` est ici le
-          # scheme MÊME du redirect OAuth (Dashboard Spotify : melodix://callback).
+          # Redirect Spotify CANONIQUE (melodix://callback) : le scheme natif
+          # `melodix` (déclaré SANS host) est l'intent-filter MÊME qui route
+          # le callback Spotify — un data à scheme seul matche TOUTES les
+          # URLs melodix://*, dont melodix://callback?code=…&state=… (l'app
+          # vérifie ensuite le redirect exact côté JS). Sans lui, le callback
+          # Spotify ne reviendrait jamais à l'app → échec AVANT de construire
+          # l'APK.
           grep -Fq 'android:scheme="melodix"' android/app/src/main/AndroidManifest.xml
-          grep -Fq 'android:host="callback"' android/app/src/main/AndroidManifest.xml
           # L'ancienne URI de test historique ne doit JAMAIS se retrouver dans
           # un build réel : son dashboard est périmé (mismatch garanti).
           if grep -Fq 'android:scheme="comspotifytestsdk"' android/app/src/main/AndroidManifest.xml; then
@@ -594,12 +595,27 @@ jobs:
             echo "::error title=SPOTIFY-DIAG 5/7 manifest final contaminé::l'ancienne URI de test comspotifytestsdk est présente dans le manifest final du build — test physique garanti défaillant"
             exit 1
           fi
-          if printf '%s\n' "$MANIFEST_PRINT" | grep -Fq "android:scheme=\"$REDIRECT_SCHEME\"" \
-            && printf '%s\n' "$MANIFEST_PRINT" | grep -Fq "android:host=\"$REDIRECT_HOST\""; then
-            echo "::notice title=SPOTIFY-DIAG 5/7 intent-filter::intent-filter $REDIRECT_SCHEME://$REDIRECT_HOST présent dans le manifest final — le callback Spotify est routable vers l'app"
+          if [ "$REDIRECT_SCHEME" = "melodix" ]; then
+            # Redirect canonique : le scheme natif `melodix` (déclaré SANS
+            # host) route TOUTES les URLs melodix://*, dont le callback —
+            # la vérification du host exact est faite par l'app elle-même
+            # (url.startsWith(redirect)).
+            if printf '%s\n' "$MANIFEST_PRINT" | grep -Fq "android:scheme=\"$REDIRECT_SCHEME\""; then
+              echo "::notice title=SPOTIFY-DIAG 5/7 intent-filter::intent-filter $REDIRECT_SCHEME (redirect canonique $EFFECTIVE_URI) présent dans le manifest final — le callback Spotify est routable vers l'app"
+            else
+              echo "::error title=SPOTIFY-DIAG 5/7 intent-filter::intent-filter $REDIRECT_SCHEME absent du manifest final — Android ne routerait jamais le callback Spotify vers l'app"
+              exit 1
+            fi
           else
-            echo "::error title=SPOTIFY-DIAG 5/7 intent-filter::intent-filter $REDIRECT_SCHEME://$REDIRECT_HOST absent du manifest final — Android ne routerait jamais le callback Spotify vers l'app"
-            exit 1
+            # Scheme non canonique (refusé par la validation pré-build) : le
+            # filtre dérivé par app.config.js doit déclarer scheme ET host.
+            if printf '%s\n' "$MANIFEST_PRINT" | grep -Fq "android:scheme=\"$REDIRECT_SCHEME\"" \
+              && printf '%s\n' "$MANIFEST_PRINT" | grep -Fq "android:host=\"$REDIRECT_HOST\""; then
+              echo "::notice title=SPOTIFY-DIAG 5/7 intent-filter::intent-filter $REDIRECT_SCHEME://$REDIRECT_HOST présent dans le manifest final — le callback Spotify est routable vers l'app"
+            else
+              echo "::error title=SPOTIFY-DIAG 5/7 intent-filter::intent-filter $REDIRECT_SCHEME://$REDIRECT_HOST absent du manifest final — Android ne routerait jamais le callback Spotify vers l'app"
+              exit 1
+            fi
           fi
           # Fixture smoke (build de test) : le bundle DOIT contenir la route
           # de seed — sinon le scénario B du smoke Android est inopérant.

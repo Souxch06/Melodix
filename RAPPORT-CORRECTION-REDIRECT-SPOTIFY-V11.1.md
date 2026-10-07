@@ -51,17 +51,19 @@ Sur le téléphone (Galaxy S24), le login Spotify a échoué avec l'erreur Spoti
     échec.
   - Node 20 est installé AVANT cette étape (résolution de la config
     effective).
-- **Vérification du manifest généré (post-prebuild)** : l'intent-filter
-  `melodix://callback` (scheme `melodix` + host `callback`) doit être
-  présent ; la présence de `comspotifytestsdk` dans le manifest → échec
-  (« build contaminé »).
+- **Vérification du manifest généré (post-prebuild)** : le scheme natif
+  `melodix` — l'intent-filter qui route le callback (un filtre à scheme
+  seul matche TOUTES les URLs `melodix://*`, dont
+  `melodix://callback?code=…&state=…` ; le manifest généré n'a volontairement
+  pas de `host="callback"`) — doit être présent ; la présence de
+  `comspotifytestsdk` dans le manifest → échec (« build contaminé »).
 - **Diagnostic SPOTIFY-DIAG (APK final)** :
   - 4/7 : le redirect effectif doit être `melodix://callback` (inversion de
     l'ancienne garde) et présent dans le bundle JS ;
-  - 5/7 : l'intent-filter `melodix://callback` doit être présent dans le
-    manifest final de l'APK, ET `comspotifytestsdk` doit être ABSENT du
-    manifest final (un build physique réel ne peut pas retomber
-    silencieusement sur l'ancienne URI).
+  - 5/7 : le scheme natif `melodix` (intent-filter du redirect canonique)
+    doit être présent dans le manifest final de l'APK, ET
+    `comspotifytestsdk` doit être ABSENT du manifest final (un build
+    physique réel ne peut pas retomber silencieusement sur l'ancienne URI).
 - **Garde de publication (Release)** : un build n'est publié qu'avec
   `EFFECTIVE_URI = melodix://callback` ; sinon échec avant publication.
 - Notes de Release : section Spotify réécrite (redirect canonique, jamais
@@ -165,7 +167,8 @@ Sur le téléphone (Galaxy S24), le login Spotify a échoué avec l'erreur Spoti
 ## 5. Ce que la CI vérifie (build-level, sur émulateur Android 14)
 
 - Redirect effectif = `melodix://callback` : avant build (validation), dans
-  le manifest généré (intent-filter scheme `melodix` + host `callback`),
+  le manifest généré (scheme natif `melodix`, le filtre qui route le
+  callback),
   dans le bundle JS de l'APK final, dans le manifest final (apkanalyzer),
   et au moment de la publication (garde Release).
 - Présence du Client ID effectif (variable de dépôt ou défaut committé) dans
