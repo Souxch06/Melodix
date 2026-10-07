@@ -91,6 +91,7 @@ export type SongCandidateDecision = {
     | 'duration-mismatch'
     | 'variant-mismatch'
     | 'content-rating-mismatch'
+    | 'isrc-conflict'
     | 'below-threshold'
     | 'candidate-scored';
   score?: number;
@@ -113,7 +114,7 @@ const devMatcherLog = (
 };
 
 const DASH_APPENDAGE_RX =
-  /(?:\s[-–—−:]\s+(?:(?:[^\-–—−]*?\b(?:remix|mix|edit|remaster(?:ed)?|remake|version|vip|extend(?:ed)?|radio|live|acoustic|demo|mono|stereo|original|deluxe|single|instrumental|a cappella|censored|clean|explicit|reprise|session[s]?|official\s+(?:audio|video)|lyric(?:s|\s+video)?|visuali[sz]er|version\s+\d{4}|\d{4})\b[^\-–—−]*)|.*?\d{4}.*?))$/iu;
+  /(?:\s[-–—−:]\s+(?:(?:[^\-–—−]*?\b(?:remix|mix|edit|remaster(?:ed)?|remake|version|vip|extend(?:ed)?|radio|live|acoustic|demo|mono|stereo|original|deluxe|single|instrumental|a cappella|acapella|censored|clean|explicit|reprise|session[s]?|official\s+(?:audio|video)|lyric(?:s|\s+video)?|visuali[sz]er|cover|tribute|piano|re-?recording|version\s+\d{4}|\d{4})\b[^\-–—−]*)|.*?\d{4}.*?))$/iu;
 const EMPTY_PLACEHOLDER_RX =
   /^(?:\(?\s*(?:untitled|unknown|tba|track)\s*\)?)$/iu;
 const FEATURE_MARKER_RX = /^(?:feat\.?|ft\.?|featuring|with|w\/|&)$/i;
@@ -361,8 +362,11 @@ const VARIANT_MARKERS: readonly { rx: RegExp; cls: TrackVariantClass }[] = [
   { rx: /\blive\b/iu, cls: 'live' },
   { rx: /\bacoustic\b/iu, cls: 'acoustic' },
   { rx: /\binstrumental\b/iu, cls: 'instrumental' },
+  { rx: /\ba\s*c?ap{1,2}ella\b/iu, cls: 'acapella' },
+  { rx: /\bpiano\b/iu, cls: 'piano' },
   { rx: /\bkaraoke\b/iu, cls: 'karaoke' },
   { rx: /\bradio\s+edit\b/iu, cls: 'radio_edit' },
+  { rx: /\bedit(?:ed)?\b/iu, cls: 'edit' },
   { rx: /\bextended\b/iu, cls: 'extended' },
   { rx: /\bvip\b/iu, cls: 'vip' },
   { rx: /\bsped\s+up\b/iu, cls: 'sped_up' },
@@ -374,6 +378,9 @@ const VARIANT_MARKERS: readonly { rx: RegExp; cls: TrackVariantClass }[] = [
     rx: /\b(?:alternate|alternative)\s+(?:version|mix)\b/iu,
     cls: 'alternate',
   },
+  { rx: /\bcover\b/iu, cls: 'cover' },
+  { rx: /\btribute\b/iu, cls: 'tribute' },
+  { rx: /\bre-?\s?recor(?:ding|ded)\b/iu, cls: 'rerecording' },
   { rx: /\bremaster(?:ed)?\b/iu, cls: 'remastered' },
 ];
 
@@ -390,8 +397,11 @@ const VARIANT_CLASS_PRIORITY: readonly TrackVariantClass[] = [
   'live',
   'acoustic',
   'instrumental',
+  'acapella',
+  'piano',
   'karaoke',
   'radio_edit',
+  'edit',
   'extended',
   'vip',
   'sped_up',
@@ -399,6 +409,9 @@ const VARIANT_CLASS_PRIORITY: readonly TrackVariantClass[] = [
   'reverb',
   'demo',
   'alternate',
+  'cover',
+  'tribute',
+  'rerecording',
   'remastered',
   'unknown',
 ];
@@ -636,7 +649,7 @@ export const candidateContentQuality = (
  * (« (Dua Lipa) Levitating », « Levitating [Dua Lipa] »).
  */
 const NON_ARTIST_GROUP_RX =
-  /\b(?:feat\.?|ft\.?|featuring|with|w\/|remix|mix|edit|remaster(?:ed)?|remake|version|live|acoustic|instrumental|karaoke|radio|extended|sped\s+up|slowed|nightcore|demo|mono|stereo|original|deluxe|single|bonus|session|official|lyrics?|visuali[sz]er|audio|video|explicit|clean|censored|uncensored|prod\.?|from|performed|cover|tribute|anniversary|expanded)\b|^\d{4}$/iu;
+  /\b(?:feat\.?|ft\.?|featuring|with|w\/|remix|mix|edit|remaster(?:ed)?|remake|version|live|acoustic|instrumental|a\s*c?ap{1,2}ella|piano|karaoke|radio|extended|sped\s+up|slowed|nightcore|demo|mono|stereo|original|deluxe|single|bonus|session|official|lyrics?|visuali[sz]er|audio|video|explicit|clean|censored|uncensored|prod\.?|from|performed|cover|tribute|anniversary|expanded|re-?recording|re-?recorded)\b|^\d{4}$/iu;
 
 /**
  * Artistes mentionnés entre parenthèses ou crochets dans le titre du support.
@@ -714,7 +727,8 @@ const albumAgreement = (
  * de secondes désigne presque toujours un autre enregistrement.
  *
  * La porte DURE (`durationGateRejects`) reste le garde-fou définitif : au-delà
- * de 60 s ET 30 %, le candidat est rejeté quel que soit son score.
+ * de la tolérance documentée (45 s absolues ou 25 % relatifs), le candidat
+ * est rejeté quel que soit son score.
  */
 const durationScore = (
   expectedSec: number | null | undefined,
@@ -753,9 +767,23 @@ const durationScore = (
 };
 
 /**
- * Porte durée DURE : un écart > 60 s ET > 30 % ne peut être qu'un autre
- * enregistrement (extended mix, version club, reprise ralongée) — jamais le
- * même morceau. Durée inconnue d'un côté ou de l'autre : la porte ne dit rien.
+ * Porte durée DURE (calibration mission « exactitude ») : la durée Spotify
+ * est la référence de l'enregistrement DEMANDÉ. Un écart au-delà de la
+ * tolérance documentée ci-dessous ne peut être qu'un autre enregistrement
+ * (extended mix, version club, reprise ralongée, édition différente) —
+ * jamais le même morceau, même si le titre et l'artiste sont quasi parfaits.
+ *
+ * Tolérance documentée :
+ *  - écart absolu > 45 s → REJET : les écarts « fondu/outro différent » entre
+ *    distributeurs restent en deçà (~10-30 s) ; 45 s est au-delà de cette
+ *    bande, dans la zone des éditions allongées ;
+ *  - écart relatif ≥ 25 % de la plus longue durée → REJET : un candidat d'un
+ *    quart plus long/plus court est une autre édition (ex. 3:42 demandé /
+ *    4:55 servi = +33 % → rejet, même titre exact et artiste identique) ;
+ *  - sinon → admissible : 3:42 / 3:41 (1 s) est accepté, 5:00 / 5:25
+ *    (25 s, 8 %) reste admissible si les autres signaux concordent.
+ *
+ * Durée inconnue d'un côté ou de l'autre : la porte ne dit rien.
  */
 const durationGateRejects = (
   expectedSec: number | null | undefined,
@@ -774,7 +802,7 @@ const durationGateRejects = (
 
   const diff = Math.abs(expectedSec - actualSec);
 
-  return diff > 60 && diff / Math.max(expectedSec, actualSec) > 0.3;
+  return diff > 45 || diff / Math.max(expectedSec, actualSec) >= 0.25;
 };
 
 export const matchSongs = (
@@ -1013,7 +1041,15 @@ export const matchSongs = (
     decide({
       id: candidate.id,
       accepted: score >= acceptScore,
-      reason: score >= acceptScore ? 'candidate-scored' : 'below-threshold',
+      // ISRC différent connu : le motif est EXPLICITE dans le diagnostic
+      // (le score a déjà été raboté de 25 points) — le « pourquoi » n'est
+      // pas dilué dans un « below-threshold » générique.
+      reason:
+        score >= acceptScore
+          ? 'candidate-scored'
+          : isrcConflict
+            ? 'isrc-conflict'
+            : 'below-threshold',
       score,
     });
 

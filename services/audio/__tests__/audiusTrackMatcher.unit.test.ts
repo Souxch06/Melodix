@@ -919,7 +919,107 @@ describe('matchSongs — portes durcies (titre partiel, duree)', () => {
     expect(match?.id).toBe('exact');
   });
 
-  // — Porte « duree > 60 s ET > 30 % → rejet » —
+  // — Porte duree (calibration mission exactitude) : > 45 s absolues OU
+  //    >= 25 % relatifs → REJET, meme si titre + artiste + album sont
+  //    quasi parfaits — « mieux vaut indisponible qu une mauvaise version ».
+
+  it('3:42 demandé / 4:55 servi (+33 %) : JAMAIS accepte, meme titre + artiste exacts', () => {
+    expect(
+      matchSongs(
+        source('Tame', ['Neffex'], { album: 'Afterglow', durationSec: 222 }),
+        [
+          cand('long33', 'Tame', ['Neffex'], {
+            album: 'Afterglow',
+            durationSec: 295,
+          }),
+        ]
+      )
+    ).toBeNull();
+  });
+
+  it('3:42 demandé / 5:18 servi (+43 %, extended) : JAMAIS accepte', () => {
+    expect(
+      matchSongs(
+        source('Tame', ['Neffex'], { album: 'Afterglow', durationSec: 222 }),
+        [
+          cand('long43', 'Tame', ['Neffex'], {
+            album: 'Afterglow',
+            durationSec: 318,
+          }),
+        ]
+      )
+    ).toBeNull();
+  });
+
+  it('3:42 demandé / 3:41 servi (1 s) : accepte (ecart d encodage)', () => {
+    const match = matchSongs(
+      source('Tame', ['Neffex'], { album: 'Afterglow', durationSec: 222 }),
+      [
+        cand('one-second', 'Tame', ['Neffex'], {
+          album: 'Afterglow',
+          durationSec: 221,
+        }),
+      ]
+    );
+
+    expect(match?.id).toBe('one-second');
+  });
+
+  it('5:00 demandé / 5:25 servi (25 s, 8 % — outro different) : accepte', () => {
+    const match = matchSongs(
+      source('Tame', ['Neffex'], { album: 'Afterglow', durationSec: 300 }),
+      [
+        cand('fade', 'Tame', ['Neffex'], {
+          album: 'Afterglow',
+          durationSec: 325,
+        }),
+      ]
+    );
+
+    expect(match?.id).toBe('fade');
+  });
+
+  it('10:00 demandé / 10:40 servi (40 s, 6,5 % — longue piece) : accepte', () => {
+    const match = matchSongs(
+      source('Tame', ['Neffex'], { album: 'Afterglow', durationSec: 600 }),
+      [
+        cand('longtrack', 'Tame', ['Neffex'], {
+          album: 'Afterglow',
+          durationSec: 640,
+        }),
+      ]
+    );
+
+    expect(match?.id).toBe('longtrack');
+  });
+
+  it('ecart > 45 s (70 s sur 300 s) : la porte rejette DESORMAIS (ancienne toleree trop large)', () => {
+    expect(
+      matchSongs(
+        source('Tame', ['Neffex'], { album: 'Afterglow', durationSec: 300 }),
+        [
+          cand('borderline', 'Tame', ['Neffex'], {
+            album: 'Afterglow',
+            durationSec: 230,
+          }),
+        ]
+      )
+    ).toBeNull();
+  });
+
+  it('ecart >= 25 % (50 s sur 100 s) : la porte rejette DESORMAIS', () => {
+    expect(
+      matchSongs(
+        source('Tame', ['Neffex'], { album: 'Afterglow', durationSec: 100 }),
+        [
+          cand('borderline2', 'Tame', ['Neffex'], {
+            album: 'Afterglow',
+            durationSec: 150,
+          }),
+        ]
+      )
+    ).toBeNull();
+  });
 
   it('ecart duree massif (200 s, 51 %) : JAMAIS accepte, meme tout exact', () => {
     expect(
@@ -949,32 +1049,32 @@ describe('matchSongs — portes durcies (titre partiel, duree)', () => {
     ).toBeNull();
   });
 
-  it('ecart > 60 s MAIS <= 30 % (70 s sur 300 s) : la porte ne rejette PAS', () => {
-    const match = matchSongs(
-      source('Tame', ['Neffex'], { album: 'Afterglow', durationSec: 300 }),
-      [
-        cand('borderline', 'Tame', ['Neffex'], {
-          album: 'Afterglow',
-          durationSec: 230,
-        }),
-      ]
-    );
-
-    expect(match?.id).toBe('borderline');
+  it('ecart > 45 s (70 s sur 300 s) : REJET (calibration v6 — l ancienne tolérance servait des extended)', () => {
+    expect(
+      matchSongs(
+        source('Tame', ['Neffex'], { album: 'Afterglow', durationSec: 300 }),
+        [
+          cand('borderline', 'Tame', ['Neffex'], {
+            album: 'Afterglow',
+            durationSec: 230,
+          }),
+        ]
+      )
+    ).toBeNull();
   });
 
-  it('ecart > 30 % MAIS <= 60 s (50 s sur 100 s) : la porte ne rejette PAS', () => {
-    const match = matchSongs(
-      source('Tame', ['Neffex'], { album: 'Afterglow', durationSec: 100 }),
-      [
-        cand('borderline2', 'Tame', ['Neffex'], {
-          album: 'Afterglow',
-          durationSec: 150,
-        }),
-      ]
-    );
-
-    expect(match?.id).toBe('borderline2');
+  it('ecart >= 25 % (50 s sur 100 s) : REJET (calibration v6 — un quart d ecart = autre édition)', () => {
+    expect(
+      matchSongs(
+        source('Tame', ['Neffex'], { album: 'Afterglow', durationSec: 100 }),
+        [
+          cand('borderline2', 'Tame', ['Neffex'], {
+            album: 'Afterglow',
+            durationSec: 150,
+          }),
+        ]
+      )
+    ).toBeNull();
   });
 
   it('duree source inconnue : la porte duree ne rejette JAMAIS', () => {

@@ -11,9 +11,10 @@ import { searchSpotifyCatalog } from '../spotify/search';
  * OFFICIELLE de l'API). Le catalogue Spotify est vaste — des listes plus
  * courtes masquaient les déclinaisons d'un même morceau (remaster, live,
  * radio edit) et donnaient l'impression d'un catalogue « incomplet ».
- * Côté Spotify, les tracks sont en outre paginés de façon adaptative dans
- * searchSpotifyCatalog (jusqu'à 10 pages × 50 = 500 pistes, arrêt dès que
- * Spotify n'a plus de résultats ou que la borne dure est atteinte).
+ * Côté Spotify, les tracks sont en outre paginés de façon adaptative et
+ * parallélisée dans searchSpotifyCatalog (jusqu'à 40 pages × 50 = 2000
+ * pistes, arrêt dès que Spotify n'a plus de résultats ou que la borne dure
+ * est atteinte — voir le commentaire de MAX_TRACK_PAGES).
  */
 export const SEARCH_LIMIT = 50;
 

@@ -32,6 +32,10 @@
  * - `TITLE_MISMATCH` / `ARTIST_MISMATCH` / `DURATION_MISMATCH` /
  *   `CONTENT_RATING_MISMATCH` / `VERSION_MISMATCH` : la porte stricte qui a
  *   refusé le meilleur candidat (jamais assouplie pour « gagner » un morceau) ;
+ * - `ISRC_MISMATCH` : un candidat portait un ISRC CONNU et DIFFÉRENT de
+ *   l'ISRC source (preuve d'un autre enregistrement) et n'a pas atteint
+ *   l'échappatoire quasi-parfaite — le motif est explicite, jamais dilué
+ *   dans `NO_CANDIDATE` ;
  * - `PROVIDER_ERROR` : un fournisseur a levé (réseau, protocole) ;
  * - `PROVIDER_TIMEOUT` : un fournisseur a dépassé son délai ;
  * - `NO_PROVIDER_RESULT` : les fournisseurs ont répondu, sans rien renvoyer ;
@@ -48,6 +52,7 @@ export type ResolutionFailureCode =
   | 'DURATION_MISMATCH'
   | 'CONTENT_RATING_MISMATCH'
   | 'VERSION_MISMATCH'
+  | 'ISRC_MISMATCH'
   | 'PROVIDER_ERROR'
   | 'PROVIDER_TIMEOUT'
   | 'NO_PROVIDER_RESULT'
@@ -137,6 +142,7 @@ const REASON_TO_CODE: Record<string, ResolutionRejectionCode> = {
   'duration-mismatch': 'DURATION_MISMATCH',
   'content-rating-mismatch': 'CONTENT_RATING_MISMATCH',
   'variant-mismatch': 'VERSION_MISMATCH',
+  'isrc-conflict': 'ISRC_MISMATCH',
   'below-threshold': 'NO_CANDIDATE',
   'invalid-candidate': 'NO_CANDIDATE',
   'track-number-conflict': 'NO_CANDIDATE',
@@ -167,6 +173,7 @@ export const tallyRejections = (
 const DOMINANCE_ORDER: ResolutionRejectionCode[] = [
   'CONTENT_RATING_MISMATCH',
   'VERSION_MISMATCH',
+  'ISRC_MISMATCH',
   'ARTIST_MISMATCH',
   'TITLE_MISMATCH',
   'DURATION_MISMATCH',
@@ -285,7 +292,10 @@ const VARIANT_VALUES = [
   'live',
   'acoustic',
   'instrumental',
+  'acapella',
+  'piano',
   'radio_edit',
+  'edit',
   'extended',
   'club',
   'vip',
@@ -297,6 +307,9 @@ const VARIANT_VALUES = [
   'mashup',
   'bootleg',
   'alternate',
+  'cover',
+  'tribute',
+  'rerecording',
   'remastered',
   'unknown',
 ] as const;
@@ -507,6 +520,7 @@ export type ResolutionChainTrace = {
 const CHAIN_REJECTION_PRECEDENCE: ResolutionRejectionCode[] = [
   'CONTENT_RATING_MISMATCH',
   'VERSION_MISMATCH',
+  'ISRC_MISMATCH',
   'ARTIST_MISMATCH',
   'TITLE_MISMATCH',
   'DURATION_MISMATCH',

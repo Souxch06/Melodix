@@ -36,7 +36,10 @@ export type TrackVariantClass =
   | 'live'
   | 'acoustic'
   | 'instrumental'
+  | 'acapella'
+  | 'piano'
   | 'radio_edit'
+  | 'edit'
   | 'extended'
   | 'club'
   | 'vip'
@@ -48,6 +51,9 @@ export type TrackVariantClass =
   | 'mashup'
   | 'bootleg'
   | 'alternate'
+  | 'cover'
+  | 'tribute'
+  | 'rerecording'
   | 'remastered'
   | 'unknown';
 

@@ -69,7 +69,11 @@ const SPOTIFY_SEARCH_RESPONSE = {
 };
 
 beforeEach(() => {
-  jest.clearAllMocks();
+  // mockReset (pas seulement clearAllMocks) : les `mockResolvedValue`
+  // PERMANENTS d'un test précédent ne doivent jamais survivre — le modèle
+  // en vagues parallèles demande plus d'appels que la file de `…Once`, et
+  // un défaut résiduel ferait des pages fantômes « pleines ».
+  mockedGet.mockReset();
 });
 
 it('maps every Spotify search type into its own section', async () => {
@@ -294,7 +298,7 @@ it('propagates the Spotify error to the caller (no silent empty result)', async 
  * (5 pages) qui empêche toute pagination massive. Les tests verrouillent
  * chaque règle individuellement.
  */
-describe('pagination tracks (complétude adaptative bornée)', () => {
+describe('pagination tracks (complétude adaptative bornée, vagues parallèles)', () => {
   const page = (ids: string[], extra: Record<string, unknown> = {}) => ({
     tracks: {
       items: ids.map((id) => ({
@@ -317,18 +321,25 @@ describe('pagination tracks (complétude adaptative bornée)', () => {
     }
   };
 
-  it('page 1 PLEINE → page 2 demandée (offset = limite), pistes fusionnées', async () => {
-    // Limite 2 : page 1 pleine (2), page 2 INcomplète (1) → s'arrête là.
+  it('page 1 PLEINE → vague de 4 pages demandée EN PARALLÈLE, pistes fusionnées dans l ordre d offset', async () => {
+    // Limite 2 : page 1 pleine (2) → vague 1 = pages 2-5 (offsets 2, 4, 6, 8)
+    // part en parallèle. La page 2 est INcomplète (1 piste) : les pages 3-5
+    // de la vague sont déjà parties (jamais annulées en vol) mais la
+    // pagination s'arrête APRÈS la vague — les 3 pages supplémentaires
+    // répondent « vide » (file de mocks épuisée = undefined = trou).
     mockedGet.mockResolvedValueOnce(page(['t1', 't2']));
     mockedGet.mockResolvedValueOnce(page(['t3']));
 
     const results = await searchSpotifyCatalog('daft punk', 2);
 
-    expect(mockedGet).toHaveBeenCalledTimes(2);
+    expect(mockedGet).toHaveBeenCalledTimes(5);
     expect(mockedGet.mock.calls[0][0]).toContain('limit=2');
     expect(mockedGet.mock.calls[0][0]).toContain('offset=0');
     expect(mockedGet.mock.calls[1][0]).toContain('offset=2');
-    // Ordre de pertinence Spotify conservé (page 1 d'abord).
+    expect(mockedGet.mock.calls[2][0]).toContain('offset=4');
+    expect(mockedGet.mock.calls[3][0]).toContain('offset=6');
+    expect(mockedGet.mock.calls[4][0]).toContain('offset=8');
+    // Ordre de pertinence Spotify conservé (page 1 d'abord, puis offsets).
     expect(results.tracks.map((t) => t.id)).toEqual(['t1', 't2', 't3']);
   });
 
@@ -340,57 +351,66 @@ describe('pagination tracks (complétude adaptative bornée)', () => {
     expect(mockedGet).toHaveBeenCalledTimes(1);
   });
 
-  it('continue AU-DELÀ de la page 2 tant que les pages sont pleines', async () => {
-    // Limite 2 : 3 pages pleines puis une INcomplète (1 piste) → 4 requêtes
-    // (l'ancien plafonnement à 2 pages n'aurait servi que 4 pistes au lieu
-    // de 7) et la pagination s'arrête sur la page incomplète.
-    fullPages(2, 3);
-    mockedGet.mockResolvedValueOnce(page(['p4t1']));
+  it('continue vague après vague tant que les pages sont pleines', async () => {
+    // Limite 2 : 12 pages pleines fournies (page 1 + 2 vagues complètes de 4)
+    // → la 3e vague part (pages 13-16) mais la file de mocks est épuisée →
+    // trou de vague → la pagination s'arrête exactement à 13 requêtes.
+    fullPages(2, 12);
 
     const results = await searchSpotifyCatalog('daft punk', 2);
 
-    expect(mockedGet).toHaveBeenCalledTimes(4);
-    expect(mockedGet.mock.calls[3][0]).toContain('offset=6');
-    expect(results.tracks.map((t) => t.id)).toEqual([
-      'p1t1',
-      'p1t2',
-      'p2t1',
-      'p2t2',
-      'p3t1',
-      'p3t2',
-      'p4t1',
-    ]);
+    expect(mockedGet).toHaveBeenCalledTimes(13);
+    expect(mockedGet.mock.calls[12][0]).toContain('offset=24');
+    expect(results.tracks).toHaveLength(24);
   });
 
-  it('la borne dure STOPPE la pagination (jamais massive, même pages pleines)', async () => {
-    // Limite 2, 10 pages pleines fournies : la boucle doit s'arrêter exactement
-    // à 10 requêtes (borne MAX_TRACK_PAGES), sans demander de 11e page.
-    fullPages(2, 10);
+  it('une vague INcomplète (page épuisée dedans) arrête la pagination APRÈS la vague', async () => {
+    // Limite 2 : pages 1-8 pleines, page 9 INcomplète (1 piste) dans la
+    // 2e vague (offset 16) — la page 9 est la DERNIÈRE de la vague, donc la
+    // vague sert ses 4 pages (16 + 1 pistes) et la pagination s'arrête
+    // APRÈS elle : plus aucune vague, jamais de 10e requête. Tout ce qui a
+    // été servi reste servi (ordre d'offset conservé).
+    fullPages(2, 8);
+    mockedGet.mockResolvedValueOnce(page(['p9t1']));
 
     const results = await searchSpotifyCatalog('daft punk', 2);
 
-    expect(mockedGet).toHaveBeenCalledTimes(10);
-    expect(results.tracks).toHaveLength(20);
+    // 1 (page 1) + 4 (vague 1) + 4 (vague 2) = 9 requêtes, jamais une 10e.
+    expect(mockedGet).toHaveBeenCalledTimes(9);
+    expect(results.tracks).toHaveLength(17);
+    expect(results.tracks[16].id).toBe('p9t1');
   });
 
-  it('catalogue maximal par défaut : 10 pages × 50 = 500 pistes, jamais plus', async () => {
-    // Dix pages pleines de 50 pistes : la boucle les sert TOUTES (10
-    // requêtes, offset final 450) puis se heurte à la borne dure — jamais
-    // de 11e requête, jamais plus de 500 pistes. C'est la borne du
-    // catalogue, très en deçà de la capacité brute de l'API
-    // (offset+limit ≤ 5000).
-    fullPages(50, 10);
+  it('la borne dure (40 pages) STOPPE la pagination (jamais massive, même pages pleines)', async () => {
+    // Limite 2, 40 pages pleines fournies : la boucle doit s'arrêter
+    // exactement à 40 requêtes (borne MAX_TRACK_PAGES), sans demander de
+    // 41e page.
+    fullPages(2, 40);
+
+    const results = await searchSpotifyCatalog('daft punk', 2);
+
+    expect(mockedGet).toHaveBeenCalledTimes(40);
+    expect(results.tracks).toHaveLength(80);
+  });
+
+  it('catalogue maximal par défaut : 40 pages × 50 = 2000 pistes, jamais plus', async () => {
+    // Quarante pages pleines de 50 pistes : la boucle les sert TOUTES (40
+    // requêtes, offset final 1950) puis se heurte à la borne dure — jamais
+    // de 41e requête, jamais plus de 2000 pistes. La borne reste dans la
+    // capacité brute de l'API (offset+limit ≤ 5000).
+    fullPages(50, 40);
 
     const results = await searchSpotifyCatalog('daft punk');
 
-    expect(mockedGet).toHaveBeenCalledTimes(10);
-    expect(mockedGet.mock.calls[9][0]).toContain('offset=450');
-    expect(results.tracks).toHaveLength(500);
+    expect(mockedGet).toHaveBeenCalledTimes(40);
+    expect(mockedGet.mock.calls[39][0]).toContain('offset=1950');
+    expect(results.tracks).toHaveLength(2000);
   });
 
   it('les doublons entre pages sont supprimés (même id = 1 seule carte)', async () => {
     // Spotify peut renvoyer la même piste sur deux pages (reclassement).
-    // Page 2 incomplète → la pagination s'arrête après 2 requêtes.
+    // Page 2 incomplète + file épuisée → la pagination s'arrête après la
+    // vague 1 (5 requêtes).
     mockedGet.mockResolvedValueOnce(page(['t1', 't2']));
     mockedGet.mockResolvedValueOnce(page(['t2']));
 
@@ -399,16 +419,17 @@ describe('pagination tracks (complétude adaptative bornée)', () => {
     expect(results.tracks.map((t) => t.id)).toEqual(['t1', 't2']);
   });
 
-  it('une page secondaire qui ÉCHoue ne bloque PAS la recherche', async () => {
-    // Page 1 pleine, page 2 en panne réseau : on conserve la page 1 et on
-    // arrête la pagination — la recherche reste servie.
+  it('une page secondaire qui ÉCHoue ne bloque PAS la recherche (conservée + arrêt prudent)', async () => {
+    // Page 1 pleine, page 2 en panne réseau au milieu de la vague : on
+    // conserve la page 1 et on arrête la pagination après la vague — la
+    // recherche reste servie, jamais de faux « aucun résultat ».
     mockedGet.mockResolvedValueOnce(page(['t1', 't2']));
     mockedGet.mockRejectedValueOnce(new Error('réseau'));
 
     const results = await searchSpotifyCatalog('daft punk', 2);
 
     expect(results.tracks.map((t) => t.id)).toEqual(['t1', 't2']);
-    expect(mockedGet).toHaveBeenCalledTimes(2);
+    expect(mockedGet).toHaveBeenCalledTimes(5);
   });
 
   it('une page 1 en échec EST propagée (pas de faux vide)', async () => {
@@ -422,7 +443,7 @@ describe('pagination tracks (complétude adaptative bornée)', () => {
   });
 
   it('les autres types restent en PAGE UNIQUE (navigation, pas catalogue)', async () => {
-    // Page 1 (pleine → déclenche la page 2 pour les tracks) porte les autres
+    // Page 1 (pleine → déclenche la vague 1 pour les tracks) porte les autres
     // types ; les pages suivantes ne sont lues QUE pour les tracks.
     mockedGet.mockResolvedValueOnce({
       ...page(['t1', 't2']),
@@ -430,7 +451,7 @@ describe('pagination tracks (complétude adaptative bornée)', () => {
       albums: { items: [{ id: 'al', name: 'Album' }] },
       playlists: { items: [{ id: 'pl', name: 'Playlist' }] },
     });
-    // Page 2 incomplète (1 piste) → s'arrête là.
+    // Page 2 incomplète (1 piste) dans la vague 1 → s'arrête après la vague.
     mockedGet.mockResolvedValueOnce({
       tracks: { items: [{ id: 't3', name: 'Titre t3' }] },
       // Types dupliqués dans la page 2 : ils doivent être IGNORÉS.
@@ -439,7 +460,7 @@ describe('pagination tracks (complétude adaptative bornée)', () => {
 
     const results = await searchSpotifyCatalog('daft punk', 2);
 
-    expect(mockedGet).toHaveBeenCalledTimes(2);
+    expect(mockedGet).toHaveBeenCalledTimes(5);
     expect(results.tracks.map((t) => t.id)).toEqual(['t1', 't2', 't3']);
     expect(results.artists).toHaveLength(1);
     expect(results.artists[0].id).toBe('ar');

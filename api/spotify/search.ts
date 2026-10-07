@@ -24,7 +24,7 @@ const SEARCH_TYPES = 'track,artist,album,playlist' as const;
  * Borne Spotify OFFICIELLE : 50 résultats par type et par page (le maximum
  * que `/v1/search` accepte). On utilise la pleine capacité : c'est la limite
  * native de l'API, pas un choix arbitraire, et c'est ce qui permet au
- * catalogue de servir 500 pistes sans multiplier les requêtes.
+ * catalogue de servir 2000 pistes en 40 pages parallélisées.
  */
 const MAX_PER_TYPE = 50;
 
@@ -38,21 +38,31 @@ const DEFAULT_LIMIT = 50;
 
 /**
  * BORNE DURE de la pagination tracks : au plus `MAX_TRACK_PAGES` pages
- * (× la taille de page = le catalogue maximal servi, 500 pistes à la
+ * (× la taille de page = le catalogue maximal servi, 2000 pistes à la
  * limite par défaut).
  *
  * Ce n'est PAS une pagination infinie : l'API Spotify impose elle-même
- * `offset + limit ≤ 5000` par requête ; ici on se borne à 500, soit 10 % de
- * la capacité brute de l'API — la plus grande trame de pertinence qu'une
- * recherche de catalogue puisse raisonnablement servir. La boucle
- * (voir `fetchTrackPages`) s'arrête DE TOUTE FAÇON DES QUE la page
- * précédente est INcomplète, c'est-à-dire dès que Spotify a épuisé les
- * résultats pertinents du classement : la borne dure n'est atteinte QUE
- * pour les requêtes très populaires qui remplissent réellement dix pages
- * entières, et elle garantit qu'aucune recherche ne génère une file de
- * pages interminable.
+ * `offset + limit ≤ 5000` par requête ; ici on se borne à 2000, soit 40 %
+ * de la capacité brute de l'API — la couverture la plus large raisonnable
+ * pour une recherche de catalogue (les requêtes populaires n'atteignent
+ * cette borne que si 2000 pistes remplissent réellement dix vagues de
+ * pages). La boucle (voir `fetchTrackPages`) s'arrête DE TOUTE FAÇON DES
+ * QUE la vague précédente est INcomplète, c'est-à-dire dès que Spotify a
+ * épuisé les résultats pertinents du classement : la borne dure n'est
+ * atteinte QUE pour les requêtes très populaires, et elle garantit qu'aucune
+ * recherche ne génère une file de pages interminable.
  */
-const MAX_TRACK_PAGES = 10;
+const MAX_TRACK_PAGES = 40;
+
+/**
+ * Parallélisme de la pagination : les pages d'une vague sont demandées EN
+ * MÊME TEMPS (4 requêtes). C'est ce qui permet de quadrupler la couverture
+ * (500 → 2000 pistes) SANS dégrader la latence : 40 pages en 10 vagues
+ * parallèles restent au même ordre de grandeur qu'ancien 10 pages
+ * séquentielles. Le débit Spotify tolère largement 4 requêtes en parallèle
+ * par recherche utilisateur.
+ */
+const TRACK_PAGE_CONCURRENCY = 4;
 
 /**
  * Dédoublonne par identifiant Spotify — l'ordre de pertinence Spotify est
@@ -87,20 +97,26 @@ const fetchSearchPage = async (
 };
 
 /**
- * Pagination TRACKS adaptative bornée (complétude du catalogue).
+ * Pagination TRACKS adaptative bornée, en vagues PARALLÈLES (complétude du
+ * catalogue sans dégrader la latence).
  *
  * Règles (verrouillées par les tests) :
  *  1. la page 1 est TOUJOURS servie — sa faute est la faute de la recherche
  *     (propagée par l'appelant) ;
- *  2. une page suivante n'est demandée QUE si la précédente est PLEINE
- *     (signe qu'il existe d'autres résultats, classés par pertinence) ;
- *  3. une page INcomplète (Spotify a fini) interrompt IMMÉDIATEMENT la
- *     pagination — c'est le signal « résultats déjà épuisés » ;
+ *  2. une vague suivante n'est demandée QUE si la vague précédente est
+ *     COMPLÈTE (toutes ses pages PLEINES — signe qu'il existe d'autres
+ *     résultats, classés par pertinence) ;
+ *  3. une page INcomplète dans une vague (Spotify a fini) interrompt la
+ *     pagination APRÈS cette vague — c'est le signal « résultats déjà
+ *     épuisés » ; les pages de la même vague déjà récupérées sont
+ *     conservées (elles précèdent le point d'épuisement) ;
  *  4. la borne dure `MAX_TRACK_PAGES` stoppe toute pagination massive ;
  *  5. une page secondaire qui ÉCHoue (réseau) ne bloque PAS la recherche :
- *     on conserve les pages déjà servies et on arrête la pagination ;
+ *     on conserve les pages déjà servies et on arrête la pagination
+ *     prudemment (on ne peut pas prouver l'épuisement au-delà) ;
  *  6. dédoublonnage par identifiant Spotify, ordre de pertinence conservé
- *     (les pages s'enchaînent dans l'ordre demandé).
+ *     (les pages s'accumulent dans l'ordre d'offset demandé, `Promise.all`
+ *     préserve l'ordre de la vague).
  *
  * `first` est la page 1 déjà fetchée par l'appelant (réutilisée pour les
  * autres types : navigateurs, pas catalogue — donc jamais paginés).
@@ -111,32 +127,58 @@ const fetchTrackPages = async (
   first: SpotifySearchRaw
 ): Promise<SpotifyTrackHit[]> => {
   const trackHits: SpotifyTrackHit[] = [...items(first.tracks)];
-  let page = first;
   let pagesFetched = 1;
+  let offset = perType;
+  let previousWaveComplete = items(first.tracks).length >= perType;
 
-  while (
-    items(page.tracks).length >= perType &&
-    pagesFetched < MAX_TRACK_PAGES
-  ) {
-    pagesFetched += 1;
-    let next: SpotifySearchRaw;
+  while (previousWaveComplete && pagesFetched < MAX_TRACK_PAGES) {
+    const waveSize = Math.min(
+      TRACK_PAGE_CONCURRENCY,
+      MAX_TRACK_PAGES - pagesFetched
+    );
 
-    try {
-      next = await fetchSearchPage(q, perType, perType * (pagesFetched - 1));
-    } catch {
-      // Page secondaire en échec : la recherche reste servie (les pages déjà
-      // récupérées), la pagination s'arrête proprement.
-      break;
+    // Les pages de la vague partent EN PARALLÈLE (mêmes règles par page :
+    // un échec réseau ou une réponse malformée = null, jamais d'exception).
+    const wave = await Promise.all(
+      Array.from({ length: waveSize }, (_, i) => {
+        const pageOffset = offset + i * perType;
+
+        return (async () => {
+          try {
+            const next = await fetchSearchPage(q, perType, pageOffset);
+
+            return next && typeof next === 'object' ? next : null;
+          } catch {
+            // Page secondaire en échec : la recherche reste servie (les
+            // pages déjà récupérées), la vague marque un trou.
+            return null;
+          }
+        })();
+      })
+    );
+
+    offset += waveSize * perType;
+    pagesFetched += waveSize;
+
+    let sawIncomplete = false;
+    let sawError = false;
+
+    for (const page of wave) {
+      if (!page) {
+        sawError = true;
+        continue;
+      }
+
+      const entries = items(page.tracks);
+
+      if (entries.length < perType) {
+        sawIncomplete = true;
+      }
+
+      trackHits.push(...entries);
     }
 
-    // Une page secondaire malformée (pas un objet) est traitée comme un
-    // échec : on conserve ce qui est servi, on n'arrête pas la recherche.
-    if (!next || typeof next !== 'object') {
-      break;
-    }
-
-    page = next;
-    trackHits.push(...items(next.tracks));
+    previousWaveComplete = !sawIncomplete && !sawError;
   }
 
   return dedupeById(trackHits).slice(0, perType * MAX_TRACK_PAGES);

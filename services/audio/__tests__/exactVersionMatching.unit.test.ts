@@ -351,13 +351,19 @@ describe('matrice imposée : chaîne Audius → YouTube → unavailable', () => 
 
 // ── Classification déterministe des variantes ───────────────────────────────
 
-describe('classification déterministe (17 classes + original + unknown)', () => {
+describe('classification déterministe (23 classes + original + unknown)', () => {
   it.each([
     ['remix', 'Song (Remix)'],
     ['live', 'Song (Live)'],
     ['acoustic', 'Song (Acoustic)'],
     ['instrumental', 'Song (Instrumental)'],
+    ['acapella', 'Song (Acapella)'],
+    ['acapella', 'Song (A Cappella)'],
+    ['piano', 'Song (Piano Version)'],
+    ['piano', 'Song (Piano)'],
     ['radio_edit', 'Song (Radio Edit)'],
+    ['edit', 'Song (Edit)'],
+    ['edit', 'Song (Edited)'],
     ['extended', 'Song (Extended Mix)'],
     ['club', 'Song (Club Mix)'],
     ['vip', 'Song (VIP)'],
@@ -369,6 +375,10 @@ describe('classification déterministe (17 classes + original + unknown)', () =>
     ['mashup', 'Song (Mashup)'],
     ['bootleg', 'Song (Bootleg)'],
     ['alternate', 'Song (Alternate Version)'],
+    ['cover', 'Song (Cover)'],
+    ['tribute', 'Song (Tribute)'],
+    ['rerecording', 'Song (Re-recording)'],
+    ['rerecording', 'Song (Rerecording)'],
     ['remastered', 'Song (Remastered 2024)'],
   ] as [TrackVariantClass, string][])(
     'classifie « %2 » → %1',
@@ -413,9 +423,20 @@ describe('classification déterministe (17 classes + original + unknown)', () =>
     ['Song (Mashup)'],
     ['Song (Bootleg)'],
     ['Song (Alternate Version)'],
-  ])('variante dure nouvelle « %s » : source studio → REJECT', (title) => {
-    expect(acceptedId(source('Song'), [cand('a1', title)])).toBeNull();
-  });
+    ['Song (Instrumental)'],
+    ['Song (Extended Mix)'],
+    ['Song (Acapella)'],
+    ['Song (Piano Version)'],
+    ['Song (Cover)'],
+    ['Song (Tribute)'],
+    ['Song (Re-recording)'],
+    ['Song (Edit)'],
+  ])(
+    'variante dure « %s » : source studio (original) → REJECT (jamais de substitut)',
+    (title) => {
+      expect(acceptedId(source('Song'), [cand('a1', title)])).toBeNull();
+    }
+  );
 
   it('symétrie : la source DEMANDE une variante → cette variante est ACCEPTÉE…', () => {
     // « Variante explicite dans le morceau Spotify → rechercher CETTE variante ».
