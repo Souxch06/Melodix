@@ -11,13 +11,28 @@
  *   - la variable d'env OVERRIDES la valeur committée (architecture de
  *     build inchangée, pas de deuxième configuration) ;
  *   - le redirect de production reste EXACTEMENT `melodix://callback` ;
+ *   - le deep link `melodix://callback` est reconnu (scheme natif +
+ *     package — expo prebuild dérive l'intent-filter de ces valeurs) ;
+ *   - l'ancienne URI de test historique `comspotifytestsdk://callback`
+ *     (dashboard périmé) ne peut JAMAIS ressortir des sources du build
+ *     — un build physique réel ne doit pas retomber silencieusement dessus
+ *     (erreur « redirect_uri: not matching configuration » au login) ;
  *   - aucun secret n'apparaît dans la configuration générée (ni
  *     client_secret, ni token, ni cookie) — le Client ID seul est public.
  */
 
+import { readFileSync } from 'fs';
+import { join } from 'path';
+
 const PRODUCTION_CLIENT_ID = '7c5af4cd57e646c49a6266222c2ed9d6';
 
-type AppConfig = { expo: { extra: Record<string, unknown> } };
+type AppConfig = {
+  expo: {
+    extra: Record<string, unknown>;
+    scheme?: string;
+    android?: { package?: string };
+  };
+};
 
 const loadAppConfig = (): AppConfig => {
   // app.config.js lit process.env AU REQUIRE : on réexige à chaque test
@@ -69,6 +84,34 @@ describe('app.config.js — Client ID Spotify (source unique committée)', () =>
   it('redirect de production inchangé : extra.spotifyRedirectUri = melodix://callback', () => {
     const config = loadAppConfig();
     expect(config.expo.extra.spotifyRedirectUri).toBe('melodix://callback');
+  });
+
+  it('deep link melodix://callback reconnu : scheme natif + package de l app', () => {
+    // L'APK génère l'intent-filter melodix://callback à partir de ces deux
+    // valeurs (expo prebuild) : si l'une bouge, le téléphone ne rouvrirait
+    // plus l'app sur le callback Spotify.
+    const config = loadAppConfig();
+    expect(config.expo.scheme).toBe('melodix');
+    expect(config.expo.android?.package).toBe('com.souxch06.melodix');
+    expect(config.expo.extra.spotifyRedirectUri).toBe('melodix://callback');
+  });
+
+  it('regression : les sources du build ne contiennent JAMAIS l ancienne URI de test historique', () => {
+    // Le dashboard de test comspotifytestsdk est périmé : si cette URI
+    // resurgissait dans l'une des sources qui alimentent le build (config,
+    // résolution du redirect, routage du callback), un build physique réel
+    // retomberait silencieusement dessus → « redirect_uri: not matching
+    // configuration » garanti au login Spotify.
+    const sources = [
+      'app.config.js',
+      'services/spotify/authConfig.ts',
+      'app/+native-intent.tsx',
+      'utils/common/isAuthCallbackUrl.ts',
+    ];
+    for (const source of sources) {
+      const content = readFileSync(join(__dirname, '..', source), 'utf8');
+      expect(content).not.toContain('comspotifytestsdk');
+    }
   });
 
   it('aucun secret dans la configuration générée (Client ID seul, public)', () => {

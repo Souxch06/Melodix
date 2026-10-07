@@ -1116,6 +1116,99 @@ describe('useSpotifyAuth — taxonomie du diagnostic OAuth', () => {
     });
   });
 
+  describe('redirect canonique melodix://callback (build physique réel)', () => {
+    // Scénario du build réel : le redirect effectif vient du canal extra
+    // (app.config.js → melodix://callback, déclaré dans le Dashboard Spotify
+    // du client) — le canal inlinage Metro EXPO_PUBLIC_* est ABSENT.
+    // L'ancienne URI de test historique comspotifytestsdk://callback ne doit
+    // JAMAIS apparaître ni dans /authorize ni dans /api/token.
+    const flushTestFlow = async () => {
+      await act(async () => {
+        for (let i = 0; i < 8; i += 1) {
+          // eslint-disable-next-line no-await-in-loop
+          await Promise.resolve();
+        }
+      });
+    };
+
+    beforeEach(() => {
+      delete process.env.EXPO_PUBLIC_SPOTIFY_REDIRECT_URI;
+      delete process.env.EXPO_PUBLIC_SPOTIFY_CLIENT_ID;
+    });
+
+    afterEach(() => {
+      delete process.env.EXPO_PUBLIC_SPOTIFY_REDIRECT_URI;
+      delete process.env.EXPO_PUBLIC_SPOTIFY_CLIENT_ID;
+    });
+
+    it('warm : l authorize ET /api/token utilisent EXACTEMENT melodix://callback', async () => {
+      // Le beforeEach principal pose extra.spotifyRedirectUri =
+      // 'melodix://callback' — le redirect du build physique réel.
+
+      const { result } = renderHook(() => useSpotifyAuth());
+
+      // 1. useAuthRequest reçoit le redirect canonique (JAMAIS l'URI de test
+      //    historique) : c'est la valeur envoyée dans l'URL /authorize.
+      const requestOptions = (AuthSession.useAuthRequest as jest.Mock).mock
+        .calls[0][0];
+      expect(requestOptions.redirectUri).toBe('melodix://callback');
+      expect(requestOptions.redirectUri).not.toBe(
+        'comspotifytestsdk://callback'
+      );
+
+      // 2. Flux warm complet (promptAsync → code → échange → /me → idle).
+      await act(async () => {
+        await result.current.startLogin();
+      });
+
+      // 3. /api/token reçoit le MÊME redirect canonique (invariant
+      //    authorize==échange) : un seul littéral, les deux canaux du build
+      //    (Metro + extra) ne peuvent pas diverger.
+      expect(redeemAuthorizationCode).toHaveBeenCalledWith(
+        expect.objectContaining({
+          code: 'auth-code',
+          codeVerifier: 'verifier-test',
+          redirectUri: 'melodix://callback',
+        })
+      );
+      expect(result.current.state).toEqual({ status: 'idle' });
+    });
+
+    it('cold : le téléphone rouvre l app sur melodix://callback?code=…&state=… + transaction persistée → verifier PERSISTÉ + échange sous le redirect canonique', async () => {
+      // C'est exactement la forme du lien que Spotify envoie au téléphone
+      // (intent VIEW mélodix://callback?code=…&state=… après le login).
+      initialUrlHolder.current =
+        'melodix://callback?code=REALISTIC_CODE&state=state-A';
+      await savePendingOAuthTransaction({
+        verifier: 'verifier-A',
+        state: 'state-A',
+        redirectUri: 'melodix://callback',
+        createdAtMs: Date.now(),
+      });
+      mockRequest = { codeVerifier: 'verifier-B-neuf', state: 'state-B-neuf' };
+      (AuthSession.useAuthRequest as jest.Mock).mockImplementation(() => [
+        mockRequest,
+        null,
+        mockPromptAsync,
+      ]);
+
+      const { result } = renderHook(() => useSpotifyAuth());
+      await flushTestFlow();
+
+      // Le verifier vient de la transaction PERSISTÉE (pas de la requête
+      // neuve) et l'échange repart sous le redirect canonique du build.
+      expect(redeemAuthorizationCode).toHaveBeenCalledTimes(1);
+      expect(redeemAuthorizationCode).toHaveBeenCalledWith(
+        expect.objectContaining({
+          code: 'REALISTIC_CODE',
+          codeVerifier: 'verifier-A',
+          redirectUri: 'melodix://callback',
+        })
+      );
+      expect(result.current.state).toEqual({ status: 'idle' });
+    });
+  });
+
   describe('route smoke-seed (EXPO_PUBLIC_SPOTIFY_OAUTH_SMOKE)', () => {
     afterEach(() => {
       delete process.env.EXPO_PUBLIC_SPOTIFY_OAUTH_SMOKE;

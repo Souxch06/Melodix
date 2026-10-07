@@ -116,7 +116,7 @@ module.exports = {
     },
     android: {
       package: 'com.souxch06.melodix',
-      versionCode: 45015,
+      versionCode: 45016,
       intentFilters: extraIntentFilters,
       /**
        * MODE CLAVIER — `resize` est OBLIGATOIRE et désormais explicite.

@@ -6,13 +6,16 @@ set -u
 
 APK=${1:-}
 PACKAGE=com.souxch06.melodix
-# Redirect URI Spotify du BUILD DE TEST — source unique = workflow
-# (.github/workflows/android-apk.yml, valeur déterministe). Le build de test
-# embarque EXACTEMENT cette URI (vérifié avant build et dans l'APK final) :
-# les sondes deep-link OAuth de ce smoke l'utilisent donc telle quelle. Le
-# scheme natif melodix sert au reste de l'app (deep links internes + route de
-# seed interne du scénario B, hors chaîne OAuth Spotify).
-SPOTIFY_TEST_REDIRECT='comspotifytestsdk://callback'
+# Redirect URI Spotify CANONIQUE de l'application — source unique = workflow
+# (.github/workflows/android-apk.yml, valeur déterministe). Le build embarque
+# EXACTEMENT cette URI (vérifiée avant build et dans l'APK final) : les sondes
+# deep-link OAuth de ce smoke l'utilisent donc telle quelle. L'ancienne URI de
+# test historique comspotifytestsdk://callback (dashboard périmé) ne doit
+# JAMAIS alimenter un build : elle produirait une erreur « redirect_uri: not
+# matching configuration » au login physique. Le scheme natif melodix EST le
+# scheme de ce redirect ; la route de seed interne (scénario B) reste hors
+# chaîne OAuth Spotify.
+SPOTIFY_REDIRECT='melodix://callback'
 # Version attendue : source UNIQUE = app.config.js. Une constante en dur ici
 # (ex. 45002) divergeait à chaque bump et ferait échouer le smoke alors que
 # l'APK est correcte. `node` est disponible (Node 20). EXPECTED_VERSION_CODE
@@ -94,22 +97,22 @@ fi
 echo "Processus Melodix actif : pid=$PID"
 
 # Sonde deep-link OAuth WARM : l'app est déjà vivante (étage d'accueil/
-# connexion). Le callback comspotifytestsdk://callback?code=… (redirect du
-# BUILD DE TEST) est routé par l'intent-filter du manifest vers MainActivity
+# connexion). Le callback melodix://callback?code=… (redirect CANONIQUE de
+# l'app) est routé par l'intent-filter du manifest vers MainActivity
 # (singleTask) ; en l'absence de flux OAuth en cours le runtime ne doit
 # CRASHER ni naviguer sur une page inconnue (+native-intent retourne null
 # pour ce lien). Code factice : JAMAIS échangé.
 # L'URL doit être protégée pour le SHELL DE L'ÉMULATEUR : le '&' de la
 # querystring serait sinon interprété comme opérateur d'arrière-plan.
-WARM_DL=$(adb shell "am start -W -a android.intent.action.VIEW -d '${SPOTIFY_TEST_REDIRECT}?code=smoke&state=smoke' -p $PACKAGE" 2>&1) || \
-  fail "deep-link OAuth warm non routable (intent-filter comspotifytestsdk manquant) : $WARM_DL"
+WARM_DL=$(adb shell "am start -W -a android.intent.action.VIEW -d '${SPOTIFY_REDIRECT}?code=smoke&state=smoke' -p $PACKAGE" 2>&1) || \
+  fail "deep-link OAuth warm non routable (intent-filter melodix://callback manquant) : $WARM_DL"
 echo "$WARM_DL"
 printf '%s\n' "$WARM_DL" | grep -Fq 'Status: ok' || \
   fail "ActivityManager n'a pas confirmé la route du deep-link OAuth warm"
 sleep 5
 WARM_PID=$(adb shell pidof -s "$PACKAGE" 2>/dev/null | tr -d '\r' || true)
 [ -n "$WARM_PID" ] || fail "processus détruit après deep-link OAuth warm"
-echo "::notice title=Deep-link OAuth (warm)::${SPOTIFY_TEST_REDIRECT} routé vers l'app vivante sans crash (pid=$WARM_PID)"
+echo "::notice title=Deep-link OAuth (warm)::${SPOTIFY_REDIRECT} routé vers l'app vivante sans crash (pid=$WARM_PID)"
 
 # Prototype Spotify Web isolé : ouvre la route de diagnostic par deep link,
 # vérifie que la vraie vue Android est rendue, puis exerce arrière-plan/retour.
@@ -290,7 +293,7 @@ printf '%s\n' "$NOTIFICATIONS_BG" | grep -Fq 'melodix_media' || \
 # ── Sonde deep-link OAuth COLD START — SCÉNARIO A : callback SANS
 # transaction PKCE persistée (vault propre) ──
 # L'app est tuée, puis Android la relance PAR le callback
-# `comspotifytestsdk://callback?code=…` (redirect du build de test).
+# `melodix://callback?code=…` (redirect canonique de l'app).
 # Le runtime JS doit :
 #   1. démarrer via l'intent-filter du manifest ;
 #   2. passer la garde de démarrage (resolveStartupSession → /login) ;
@@ -303,7 +306,7 @@ printf '%s\n' "$NOTIFICATIONS_BG" | grep -Fq 'melodix_media' || \
 adb shell am force-stop "$PACKAGE" || fail "force-stop avant sonde OAuth cold impossible"
 adb logcat -c || fail "impossible de vider logcat avant sonde OAuth cold"
 # Même protection de l'URL pour le shell de l'émulateur ( '&' ).
-COLD_DL=$(adb shell "am start -W -a android.intent.action.VIEW -d '${SPOTIFY_TEST_REDIRECT}?code=smoke&state=smoke' -p $PACKAGE" 2>&1) || \
+COLD_DL=$(adb shell "am start -W -a android.intent.action.VIEW -d '${SPOTIFY_REDIRECT}?code=smoke&state=smoke' -p $PACKAGE" 2>&1) || \
   fail "cold start via deep-link OAuth impossible : $COLD_DL"
 echo "$COLD_DL"
 printf '%s\n' "$COLD_DL" | grep -Fq 'Status: ok' || \
@@ -338,13 +341,13 @@ echo "::notice title=Deep-link OAuth (cold start, scénario A)::callback SANS tr
 # permet de construire le cas complet SANS compte Spotify :
 #   1. cold launch via la route de seed interne
 #      melodix://oauth-smoke-seed?state=smoke-state (fixture de test, HORS
-#      chaîne OAuth Spotify — le callback Spotify reste comspotifytestsdk) →
+#      chaîne OAuth Spotify — le callback Spotify est melodix://callback) →
 #      le hook ÉCRIT une transaction PKCE DÉTERMINISTE dans SecureStore
 #      (verifier=smoke-verifier, state=smoke-state, redirect=redirect
-#      effectif du build de test = comspotifytestsdk://callback) — c'est du
+#      effectif du build = melodix://callback, canonique) — c'est du
 #      wiring, PAS un faux login ;
 #   2. le processus est tué (force-stop) → le runtime est recréé ;
-#   3. Android relance l'app par comspotifytestsdk://callback?code=…&state=smoke-state
+#   3. Android relance l'app par melodix://callback?code=…&state=smoke-state
 #      (state ET redirect identiques au seed) ;
 #   4. le hook DOIT retrouver la transaction (state/redirect/fraîcheur OK)
 #      et lancer l'échange avec le verifier PERSISTÉ :
@@ -379,7 +382,7 @@ done
 # identique au seed). SecureStore (Keystore Android) survit au kill.
 adb shell am force-stop "$PACKAGE" || fail "force-stop avant callback smoke B impossible"
 adb logcat -c || fail "impossible de vider logcat avant callback smoke B"
-SMOKE_CB_DL=$(adb shell "am start -W -a android.intent.action.VIEW -d '${SPOTIFY_TEST_REDIRECT}?code=smoke-code&state=smoke-state' -p $PACKAGE" 2>&1) || \
+SMOKE_CB_DL=$(adb shell "am start -W -a android.intent.action.VIEW -d '${SPOTIFY_REDIRECT}?code=smoke-code&state=smoke-state' -p $PACKAGE" 2>&1) || \
   fail "cold start via callback smoke B impossible : $SMOKE_CB_DL"
 echo "$SMOKE_CB_DL"
 printf '%s\n' "$SMOKE_CB_DL" | grep -Fq 'Status: ok' || \
