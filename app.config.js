@@ -91,7 +91,7 @@ module.exports = {
   expo: {
     name: 'Melodix',
     slug: 'melodix',
-    version: '4.5.0-test.15',
+    version: '4.5.0-test.16',
     orientation: 'portrait',
     icon: './assets/images/icon.png',
     scheme: 'melodix',
