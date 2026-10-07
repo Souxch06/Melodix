@@ -46,6 +46,9 @@ import type {
 const mockUpdateSession = jest.fn();
 const mockStopSession = jest.fn();
 const mockAppendDiagLog = jest.fn();
+// Android 13+ : par défaut « accordée » (le drapeau du bridge sature) ;
+// chaque test peut observer le NOMBRE de demandes.
+const mockRequestPermission = jest.fn((): boolean | null => true);
 let commandListener: ((command: unknown) => void) | null = null;
 let noisyListener: (() => void) | null = null;
 
@@ -54,7 +57,7 @@ jest.mock('../../modules/melodix-media', () => ({
   stopSession: () => mockStopSession(),
   appendDiagLog: (line: string) => mockAppendDiagLog(line),
   isMelodixMediaAvailable: () => true,
-  requestMediaNotificationPermission: () => null,
+  requestMediaNotificationPermission: () => mockRequestPermission(),
   addMediaCommandListener: (listener: (command: unknown) => void) => {
     commandListener = listener;
     return jest.fn();
@@ -518,6 +521,75 @@ describe('Melodix v9 — MediaSession / noisy / projection (chemin Spotify Web)'
       expect(mockUpdateSession).toHaveBeenLastCalledWith(
         expect.objectContaining({ isPlaying: false })
       );
+    });
+  });
+
+  describe('§4/§11 — permission POST_NOTIFICATIONS (Android 13+) sur le chemin Spotify', () => {
+    it('première lecture Spotify CONFIRMÉE → la permission est demandée, et UNIQUEMENT une fois (pas de re-demande aux états suivants)', async () => {
+      confirmEachAttempt(fake);
+      await melodixPlayer.playTrack(spotifyTrack('a'));
+      await flush();
+      expect(melodixPlayer.getState().status).toBe('playing');
+
+      // Première lecture volontaire confirmée → demande contextuelle.
+      expect(mockRequestPermission).toHaveBeenCalledTimes(1);
+
+      // États suivants de la MÊME piste (ticks de position, pause) :
+      // AUCUNE re-demande — la boîte de dialogue Android n'apparaît
+      // jamais deux fois.
+      fake.publish({
+        status: 'playing',
+        trackId: 'a',
+        positionMillis: 30_000,
+        durationMillis: 200_000,
+      });
+      await flush();
+      fake.publish({
+        status: 'paused',
+        trackId: 'a',
+        positionMillis: 30_000,
+        durationMillis: 200_000,
+      });
+      await flush();
+      expect(mockRequestPermission).toHaveBeenCalledTimes(1);
+    });
+
+    it('Spotify → native (même session) : la demande reste unique, la session Media3 native est projetée normalement', async () => {
+      confirmEachAttempt(fake);
+      await melodixPlayer.playTrack(spotifyTrack('a'));
+      await flush();
+      expect(mockRequestPermission).toHaveBeenCalledTimes(1);
+
+      // Bascule sur une piste native : la permission NE doit PAS être
+      // re-demandée (drapeau partagé entre les deux porteurs), et la
+      // projection Media3 repart normalement pour la lecture native.
+      mockUpdateSession.mockClear();
+      await melodixPlayer.playTrack(nativeTrack('n1'));
+      await flush();
+      expect(melodixPlayer.getState().status).toBe('playing');
+      expect(mockRequestPermission).toHaveBeenCalledTimes(1);
+      expect(mockUpdateSession).toHaveBeenCalledWith(
+        expect.objectContaining({ trackId: 'audius:n1', isPlaying: true })
+      );
+    });
+
+    it('réponse indéterminée (null) du natif → nouvelle tentative à l’état suivant, jamais de re-demande une fois déterminée', async () => {
+      mockRequestPermission.mockReturnValue(null);
+      confirmEachAttempt(fake);
+      await melodixPlayer.playTrack(spotifyTrack('a'));
+      await flush();
+
+      // null = « impossible à savoir » (pas de contexte) : le drapeau ne
+      // sature PAS, l'état suivant retente — comportement inchangé.
+      expect(mockRequestPermission).toHaveBeenCalledTimes(1);
+      fake.publish({
+        status: 'playing',
+        trackId: 'a',
+        positionMillis: 10_000,
+        durationMillis: 200_000,
+      });
+      await flush();
+      expect(mockRequestPermission).toHaveBeenCalledTimes(2);
     });
   });
 });

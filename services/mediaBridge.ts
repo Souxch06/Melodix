@@ -201,6 +201,36 @@ export const handleAudioBecomingNoisy = (): void => {
 };
 
 /**
+ * Android 13+ : demande UNIQUE de la permission de notification, liée à la
+ * première lecture volontaire — QUEL QUE SOIT LE PORTEUR AUDIO.
+ *
+ * Pourquoi aussi sur le chemin Spotify Web : la MediaSession système d'une
+ * piste Spotify est portée par la MediaSession PROPRE de la WebView
+ * (Chromium), mais la notification correspondante est postée par le
+ * PROCESSUS DE L'APPLICATION. Sur Android 13+, sans `POST_NOTIFICATIONS`
+ * accordée, ce processus ne peut rien afficher dans le tiroir : la
+ * notification média reste invisible alors que la lecture tourne. La
+ * demande est contextuelle (geste utilisateur : première lecture volontaire
+ * confirmée), unique (drapeau partagé avec le chemin natif) et
+ * JAMAIS bloquante : le refus ne change rien à l'audio.
+ */
+const ensureNotificationPermissionRequested = (): void => {
+  if (notificationPermissionRequested) {
+    return;
+  }
+
+  const result = (() => {
+    try {
+      return requestMediaNotificationPermission();
+    } catch (error) {
+      console.warn('MelodixMedia notification permission unavailable:', error);
+      return null;
+    }
+  })();
+  notificationPermissionRequested = result !== null;
+};
+
+/**
  * Projection d'un nouvel état moteur (appelée via subscribe).
  *
  * ANTI-AUTOPLAY VERROUILLÉ (§9 durci) : TANT QU'AUCUNE lecture RÉELLE n'a
@@ -236,6 +266,10 @@ const projectState = (state: PlayerState): void => {
       lastPushedSignature = '';
       callNative(stopSession);
     }
+    // Android 13+ : la notification de la MediaSession portée par la WebView
+    // est postée par le processus de l'app — la demander ici (unique,
+    // non bloquante) ou la notification média restera invisible.
+    ensureNotificationPermissionRequested();
     return;
   }
 
@@ -274,25 +308,12 @@ const projectState = (state: PlayerState): void => {
   );
 
   // Android 13+ masque la notification dans le tiroir si la permission n'a
-  // jamais été accordée. Le réglage est activé par défaut : attendre que
-  // l'utilisateur le désactive/réactive rendait donc la notification
-  // introuvable. La première lecture VOLONTAIRE est le moment contextuel
-  // légitime pour demander une seule fois la permission. L'audio et le FGS
-  // restent non bloquants si Android refuse ou si le module est absent.
-  if (!notificationPermissionRequested) {
-    const result = (() => {
-      try {
-        return requestMediaNotificationPermission();
-      } catch (error) {
-        console.warn(
-          'MelodixMedia notification permission unavailable:',
-          error
-        );
-        return null;
-      }
-    })();
-    notificationPermissionRequested = result !== null;
-  }
+  // jamais été accordée. La première lecture VOLONTAIRE est le moment
+  // contextuel légitime pour demander une seule fois la permission. L'audio
+  // et le FGS restent non bloquants si Android refuse ou si le module est
+  // absent. (Même helper que le chemin Spotify Web : une seule demande,
+  // quel que soit le porteur.)
+  ensureNotificationPermissionRequested();
 
   sessionActivated = true;
   lastPushedSignature = pushed;
