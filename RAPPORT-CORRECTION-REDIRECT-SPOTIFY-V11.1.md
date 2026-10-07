@@ -119,9 +119,9 @@ Sur le téléphone (Galaxy S24), le login Spotify a échoué avec l'erreur Spoti
 
 ## 3. Protocole de test exact (à réaliser sur le téléphone)
 
-1. **Installer le nouvel APK** `Melodix-v4.5.0-test.16-<sha>.apk` (artefact
-   de la CI sur le commit corrigé — versionCode 45016 > 45015, mise à jour
-   normale).
+1. **Installer le nouvel APK** `Melodix-v4.5.0-test.16-8ecf0e2.apk`
+   (artefact du run CI `37687644135` — success, commit `8ecf0e2` ;
+   versionCode 45016 > 45015, mise à jour normale).
 2. **Ouvrir Melodix** (écran de connexion, bouton « Continuer avec
    Spotify »).
 3. **Appuyer sur « Continuer avec Spotify »** (custom tab / navigateur
@@ -196,11 +196,11 @@ Sur le téléphone (Galaxy S24), le login Spotify a échoué avec l'erreur Spoti
 
 ## 7. Statut final (séparation stricte)
 
-| Élément                                                       | Statut                                                                         |
-| ------------------------------------------------------------- | ------------------------------------------------------------------------------ |
-| Code applicatif OAuth (PKCE, SecureStore, cold start, redeem) | **inchangé** — jugé correct (chaîne canonique `melodix://callback` par défaut) |
-| Build pipeline (workflow + smoke)                             | **CORRIGÉ** — redirect canonique forcé, URI de test historique refusée partout |
-| Tests automatiques                                            | **PASSANTS** (1959/0/14) — incluant les 4 nouveaux gardes                      |
-| CI                                                            | en cours sur le commit corrigé (build 45016)                                   |
-| Dashboard Spotify                                             | **non vérifiable sans accès** (action mainteneur)                              |
-| Test physique (login réel sur le téléphone)                   | **À RÉALISER** par le mainteneur — protocole §3                                |
+| Élément                                                       | Statut                                                                                                                                                                                                                                                                                                                                                    |
+| ------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Code applicatif OAuth (PKCE, SecureStore, cold start, redeem) | **inchangé** — jugé correct (chaîne canonique `melodix://callback` par défaut)                                                                                                                                                                                                                                                                            |
+| Build pipeline (workflow + smoke)                             | **CORRIGÉ** — redirect canonique forcé, URI de test historique refusée partout                                                                                                                                                                                                                                                                            |
+| Tests automatiques                                            | **PASSANTS** (1959/0/14) — incluant les 4 nouveaux gardes                                                                                                                                                                                                                                                                                                 |
+| CI                                                            | **VERTE** — run `37687644135` (success, 14 min 41 s) sur `8ecf0e2` : validation redirect canonique, manifest (scheme natif `melodix`, absence `comspotifytestsdk`), build 45016, intégrité/signature, smoke Android 14 (warm / cold A / cold B sur `melodix://callback`), SPOTIFY-DIAG 1/7→7/7. Artefact : `Melodix-v4.5.0-test.16-8ecf0e2.apk` (47,0 Mo) |
+| Dashboard Spotify                                             | **non vérifiable sans accès** (action mainteneur)                                                                                                                                                                                                                                                                                                         |
+| Test physique (login réel sur le téléphone)                   | **À RÉALISER** par le mainteneur — protocole §3                                                                                                                                                                                                                                                                                                           |
