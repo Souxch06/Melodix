@@ -133,6 +133,42 @@ const SPOTIFY_WEB_READY_POLL_MS = 250;
 // la valeur de production est DEFAULT_SPOTIFY_WEB_READY_GRACE_MS.
 let spotifyWebReadyGraceMs = DEFAULT_SPOTIFY_WEB_READY_GRACE_MS;
 
+/**
+ * Mission v9 — codes d'échec TENTATIFS d'une tentative Spotify Web qui
+ * signalent une PERTE D'INFRASTRUCTURE : le problème est la source (hôte,
+ * pont, WebView), pas la piste.
+ *
+ *  - `spotify-web-port-missing`   : aucun port source attaché ;
+ *  - `spotify-web-engine-not-ready`: hôte/pont pas montés après la grace ;
+ *  - `attempt-exception`          : le port a jeté pendant la tentative ;
+ *  - `expired` / `disconnected` / `undelivered` / `transport-unavailable` /
+ *    `bridge-unavailable`         : une commande du pont n'a pas pu être
+ *    acheminée/ackuée (transport mort ou absent).
+ *
+ * Sur ces codes, `playTrack` ne marque PAS la piste en échec et ne fait PAS
+ * avancer la file : le moteur RESTE sur la piste avec l'erreur honnête, et le
+ * prochain PLAY explicite (UI, écran verrouillé, casque — tous relayés vers
+ * `play()`/`resume()`) retente la MÊME piste. Sans cette distinction, une
+ * WebView détruite pendant plusieurs dizaines de secondes consumait la file
+ * entière (une piste par grace de 10 s), toutes marquées échec — la file,
+ * l'index et le contexte de lecture étaient perdus (§8).
+ *
+ * À l'inverse, un code « piste/surface » (timeout de confirmation, refus de
+ * plan, identifiant absent, `spotify-web-disabled` = porte fermée par
+ * décision) concerne la piste ou une décision persistante : la file avance,
+ * comportement v7 verrouillé par les tests existants.
+ */
+export const SPOTIFY_WEB_TRANSIENT_LOSS_CODES = new Set<string>([
+  'spotify-web-port-missing',
+  'spotify-web-engine-not-ready',
+  'attempt-exception',
+  'expired',
+  'disconnected',
+  'undelivered',
+  'transport-unavailable',
+  'bridge-unavailable',
+]);
+
 export type ResolverInfo = {
   provider: string;
   sourceId: string;
@@ -1578,7 +1614,33 @@ class MelodixPlayer {
       }
       // Vraie erreur Spotify Web structurée : le code du verdict est
       // remonté tel quel dans la notice (jamais de valeur inventée).
-      this.markFailed(track, 'play-failed', spotifyResult.code);
+      const code = spotifyResult.code;
+      if (SPOTIFY_WEB_TRANSIENT_LOSS_CODES.has(code)) {
+        // Mission v9 — PERTE D'INFRASTRUCTURE (hôte/pont/WebView bas,
+        // commande non acheminée) : la piste n'y est pour RIEN. Ne pas la
+        // marquer en échec, ne pas faire avancer la file : le moteur RESTE
+        // sur la piste, émet l'erreur honnête (jamais `playing`), et le
+        // prochain PLAY explicite (UI, écran verrouillé, casque) retente la
+        // MÊME piste — le comportement « lecture interrompue » d'un lecteur
+        // classique. Une WebView morte pendant des dizaines de secondes ne
+        // consume plus la file (une piste par grace de 10 s, toutes marquées
+        // échec) : file, index, shuffle et repeat sont préservés (§8).
+        this.emit({
+          status: 'error',
+          buffering: false,
+          resolved: null,
+          notice: {
+            kind: 'play-failed',
+            title: track.title,
+            code,
+          },
+        });
+        appendDiagLog(
+          `PLAYER_SPOTIFY_WEB_TRANSIENT_LOSS trackId=${track.id} code=${code}`
+        );
+        return;
+      }
+      this.markFailed(track, 'play-failed', code);
       this.emit({
         status: 'error',
         buffering: false,
@@ -1586,7 +1648,7 @@ class MelodixPlayer {
         notice: {
           kind: 'play-failed',
           title: track.title,
-          code: spotifyResult.code,
+          code,
         },
       });
       // La page n'a pas confirmé : éviter toute double lecture en demandant

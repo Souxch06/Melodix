@@ -201,6 +201,27 @@ export const SpotifyWebHostView = () => {
     });
 
     return () => {
+      // Mission v9 — PERTE DE SOURCE HONNÊTE : si la lecture Spotify Web
+      // était confirmée et que l'hôte disparaît (réglage désactivé,
+      // activation révoquée, démontage), le moteur ne doit JAMAIS rester
+      // silencieusement sur `playing`. Un dernier état publié `error`
+      // (identifiante nulle : l'identité exacte n'a plus d'importance, la
+      // page n'est plus là pour la confirmer) force la transition d'état
+      // réelle du PlayerController ; le purgage `null` du bus qui suit ne
+      // notifie pas les abonnés par contrat, c'est pour ça que CET état est
+      // publié avant la destruction.
+      publishSpotifyWebPublishedState({
+        status: 'error',
+        trackId: null,
+        title: null,
+        artists: [],
+        artworkUrl: null,
+        durationMillis: 0,
+        positionMillis: 0,
+        isPlaying: false,
+        isLoading: false,
+        errorCode: 'host-unmounted',
+      });
       appSub.remove();
       unregisterSpotifyWebPlaybackHost();
       runtime.unmount();
@@ -238,6 +259,16 @@ export const SpotifyWebHostView = () => {
             : runtimeSnapshot.phase === 'failed'
               ? 'échec (rechargement manuel requis)'
               : 'chargement';
+
+  // Mission v9 — le budget de reconnexion automatique est borné (3
+  // tentatives, backoff) et passe en phase `failed` : sans levier manuel,
+  // l'échec définitif serait irrécupérable sans redémarrer l'app. Le
+  // rechargement manuel réinitialise le budget et ouvre un nouveau document
+  // (nouveau handshake) — c'est la seule porte de sortie de `failed`.
+  const canReload =
+    runtimeSnapshot !== null &&
+    (runtimeSnapshot.phase === 'recovering' ||
+      runtimeSnapshot.phase === 'failed');
 
   if (!enabled) {
     return null;
@@ -327,6 +358,17 @@ export const SpotifyWebHostView = () => {
             >
               <Ionicons color={COLORS.WHITE} name="close" size={24} />
             </Pressable>
+            {canReload && (
+              <Pressable
+                accessibilityLabel="Recharger la vue Spotify"
+                hitSlop={8}
+                onPress={() => runtimeRef.current?.manualReload()}
+                style={styles.reloadButton}
+                testID="spotify-web-overlay-reload"
+              >
+                <Ionicons color={COLORS.WHITE} name="refresh" size={24} />
+              </Pressable>
+            )}
           </View>
           <View style={styles.overlayHint}>
             <Text style={styles.overlayHintText}>
@@ -347,6 +389,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     height: 44,
     justifyContent: 'center',
+    width: 44,
+  },
+  reloadButton: {
+    alignItems: 'center',
+    height: 44,
+    justifyContent: 'center',
+    marginLeft: 4,
     width: 44,
   },
   chrome: {
