@@ -95,6 +95,7 @@ Retour : Web Player → pont (spotifyWebHost) → PlayerController → MediaSess
 ## Fichiers modifiés (35)
 
 **Moteur / activation**
+
 - `services/player.ts` — `trySpotifyWeb`, vraie erreur (code), avance sans
   cascade, `__testSetSpotifyWebReadyGraceMs`.
 - `services/playbackBackend/spotifyWebActivationBootstrap.ts` — **nouveau**,
@@ -105,6 +106,7 @@ Retour : Web Player → pont (spotifyWebHost) → PlayerController → MediaSess
   `SpotifyWebHostView`.
 
 **Disponibilité / UI**
+
 - `hooks/usePlaylistResolutions.ts` — **réécrit** (eligible/none, zéro
   réseau, réactif).
 - `screens/PlaylistScreen.tsx` — `'spotify-web' | 'none'`, info source.
@@ -120,6 +122,7 @@ Retour : Web Player → pont (spotifyWebHost) → PlayerController → MediaSess
   `spotifyWebPlayback` défaut `true`, docs.
 
 **Tests**
+
 - `services/__tests__/playerSpotifyWebPlaylist32.unit.test.ts` — **nouveau**
   (7 tests bout-en-bout 32 titres).
 - `services/__tests__/playerSpotifyWeb.unit.test.ts` — réécrit (vraies
@@ -127,19 +130,21 @@ Retour : Web Player → pont (spotifyWebHost) → PlayerController → MediaSess
 - `hooks/__tests__/usePlaylistResolutions.unit.test.tsx` — réécrit (6 tests).
 - Adaptés au modèle v7 (pistes natives pour la mécanique expo-av) :
   `player.unit.test.ts`, `mediaBridge.unit.test.ts`, `shuffleRepeat.unit.
-  test.ts`, `shuffleRepeatCombinations.unit.test.ts`,
+test.ts`, `shuffleRepeatCombinations.unit.test.ts`,
   `playerSessionReliability.unit.test.ts`, `playerLogPrivacy.unit.test.ts`.
 - **Supprimé** `fullChainResolution.unit.test.ts` (chaîne Spotify→Audius→
   YouTube de **lecture**, comportement retiré ; sa couverture « chaîne
   complète » est celle du Spotify Web).
 
 **Version / CI** (8 refs)
+
 - `package.json`, `app.config.js` (×2), `__mocks__/expo-constants.ts`,
   `.github/workflows/android-apk.yml` (×2), `screens/__tests__/
-  SettingsScreen.unit.test.tsx`, `screens/__tests__/
-  SettingsSubScreens.unit.test.tsx`.
+SettingsScreen.unit.test.tsx`, `screens/__tests__/
+SettingsSubScreens.unit.test.tsx`.
 
 **Docs**
+
 - `docs/SPOTIFY-WEB-PHYSICAL-TEST.md` — section « Validation consignée —
   Mission v7 ».
 
@@ -147,14 +152,14 @@ Retour : Web Player → pont (spotifyWebHost) → PlayerController → MediaSess
 
 ## Gates (toutes vertes)
 
-| Gate | Résultat |
-|---|---|
-| `npx tsc --noEmit` | ✓ 0 erreur |
-| `npm run lint` (expo lint) | ✓ |
-| `npm run prettier:check` | ✓ |
-| `npm test -- --runInBand` (Jest) | ✓ **1901 passés / 0 échec / 14 skips** |
-| `npx expo prebuild` + build APK (CI) | ✓ |
-| APK smoke (CI) | ✓ |
+| Gate                                 | Résultat                               |
+| ------------------------------------ | -------------------------------------- |
+| `npx tsc --noEmit`                   | ✓ 0 erreur                             |
+| `npm run lint` (expo lint)           | ✓                                      |
+| `npm run prettier:check`             | ✓                                      |
+| `npm test -- --runInBand` (Jest)     | ✓ **1901 passés / 0 échec / 14 skips** |
+| `npx expo prebuild` + build APK (CI) | ✓                                      |
+| APK smoke (CI)                       | ✓                                      |
 
 **CI** : [run 37584612704](https://github.com/Souxch06/Melodix/actions/runs/37584612704)
 — **success**. APK `versionCode=45010`, `versionName=4.5.0-test.10`, 89 Mo,
@@ -181,7 +186,7 @@ signé V3.
   → 32 éligibles ; réglage off → none ; porte fermée → none ; bascule live ;
   liste vide ; refresh stable.
 - **Média / mécanique** : `mediaBridge.unit.test.ts` (45), `player.unit.
-  test.ts` (106), `shuffleRepeat*`, `playerSessionReliability`,
+test.ts` (106), `shuffleRepeat*`, `playerSessionReliability`,
   `playerLogPrivacy` — tous adaptés au modèle v7 et verts.
 
 ---
