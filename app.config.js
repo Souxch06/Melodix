@@ -14,13 +14,17 @@
  * - AUDIUS_API_KEY : clé API Audius (gratuite, dashboard Audius) intégrée à
  *   l'application par le mainteneur — jamais par l'utilisateur. Sans elle,
  *   l'app interroge les nœuds publics de découverte Audius.
- * - SPOTIFY_CLIENT_ID : Client ID de l'application Spotify « Melodix » du
- *   mainteneur (OAuth Authorization Code + PKCE ; aucun Client Secret —
- *   PKCE l'exclut). Rôle UNIQUE : l'écran de connexion. Jamais saisi par
- *   l'utilisateur. ABSENT : l'app compile quand même et l'écran affiche
- *   proprement « Connexion Spotify non configurée » (rien d'autre ne
- *   change : recherche, favoris, historique et lecture Audius/YouTube
- *   restent pleinement fonctionnels sans compte).
+ * - SPOTIFY_CLIENT_ID : override BUILD du Client ID. La valeur par défaut
+ *   (application Spotify « Melodix » du projet — information publique,
+ *   client public OAuth, PKCE exclut tout Client Secret) est COMMITTÉE en
+ *   source unique dans ce fichier (DEFAULT_SPOTIFY_CLIENT_ID) : tout build
+ *   embarque donc la config de connexion sans variable. Définir
+ *   SPOTIFY_CLIENT_ID (env locale ou variable de dépôt CI) remplace cette
+ *   valeur — utile pour éprouver une autre application Spotify sans
+ *   toucher au code. Rôle UNIQUE du Client ID : l'écran de connexion.
+ *   Jamais saisi ni affiché par l'utilisateur. Le redirect de production
+ *   `melodix://callback` doit être déclaré tel quel dans le dashboard de
+ *   l'application par défaut (voir docs/ANALYSE-CONNEXION.md).
  * - SPOTIFY_REDIRECT_URI : redirect URI OAuth (défaut de PRODUCTION :
  *   'melodix://callback' — le scheme `melodix` est déclaré dans le
  *   manifest). À déclarer identique dans le dashboard Spotify. Sert aussi
@@ -37,11 +41,15 @@
  */
 const melodixBackendUrl = process.env.MELODIX_BACKEND_URL || '';
 const audiusApiKey = process.env.AUDIUS_API_KEY || '';
-// ▸ Client ID intégré au build : UNIQUEMENT la variable d'environnement du
-//   mainteneur. AUCUN identifiant tiers/exemple n'est embarqué en
-//   production : sans variable, la valeur reste vide et l'app signale
-//   proprement « Connexion Spotify non configurée » (PKCE — aucun secret).
-const spotifyClientId = (process.env.SPOTIFY_CLIENT_ID || '').trim();
+// ▸ Client ID : application Spotify « Melodix » du projet. Information
+//   PUBLIQUE par conception (client public OAuth — PKCE exclut tout
+//   Client Secret). SOURCE UNIQUE COMMITTÉE ci-dessous ; la variable
+//   d'environnement SPOTIFY_CLIENT_ID (env de build / variable de dépôt
+//   CI) reste l'OVERRIDE pour éprouver une autre application Spotify
+//   sans modifier le code. Jamais saisi ni affiché par l'utilisateur.
+const DEFAULT_SPOTIFY_CLIENT_ID = '7c5af4cd57e646c49a6266222c2ed9d6';
+const spotifyClientId =
+  (process.env.SPOTIFY_CLIENT_ID || '').trim() || DEFAULT_SPOTIFY_CLIENT_ID;
 // ▸ Redirect OAuth PAR DÉFAUT : celui de production de Melodix
 //   (`melodix://callback` — le scheme natif `melodix` est TOUJOURS déclaré
 //   dans le manifest via la clé `scheme` ci-dessous). Un redirect
@@ -83,7 +91,7 @@ module.exports = {
   expo: {
     name: 'Melodix',
     slug: 'melodix',
-    version: '4.5.0-test.14',
+    version: '4.5.0-test.15',
     orientation: 'portrait',
     icon: './assets/images/icon.png',
     scheme: 'melodix',
@@ -108,7 +116,7 @@ module.exports = {
     },
     android: {
       package: 'com.souxch06.melodix',
-      versionCode: 45014,
+      versionCode: 45015,
       intentFilters: extraIntentFilters,
       /**
        * MODE CLAVIER — `resize` est OBLIGATOIRE et désormais explicite.

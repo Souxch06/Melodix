@@ -4,8 +4,9 @@
  *   → défaut `melodix://callback` ;
  * - valeur par défaut de PRODUCTION : melodix://callback (redirect natif,
  *   scheme `melodix` déclaré dans le manifest) ;
- * - AUCUN identifiant tiers/exemple n'est embarqué : sans variable de
- *   build, l'app affiche proprement « Connexion Spotify non configurée » ;
+ * - le Client ID embarqué vient de la SOURCE UNIQUE de app.config.js
+ *   (valeur committée du projet, override SPOTIFY_CLIENT_ID) : le cas
+ *   « non configuré » ne reste atteignable qu'avec un build à extra vide ;
  * - la même source alimente authorize ET token exchange (invariant testé
  *   côté useSpotifyAuth). Aucune valeur sensible n'est lue ni loguée ici.
  *
@@ -60,6 +61,24 @@ describe('authConfig — Client ID configurable', () => {
     setExtra({ spotifyClientId: '' });
     expect(getSpotifyClientId()).toBe('');
     expect(isSpotifyLoginConfigured()).toBe(false);
+  });
+
+  it('chaîne de build → runtime : la valeur committée dans app.config.js alimente extra puis getSpotifyClientId (source expo-config-extra)', () => {
+    // La valeur est LUE dans la source unique (app.config.js) — jamais
+    // dupliquée dans ce test. Sans variable EXPO_PUBLIC (canal 1 absent),
+    // c'est le canal « extra » (asset natif généré au build) qui porte la
+    // valeur committée.
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const appConfig = require('../../../app.config.js') as {
+      expo: { extra: Record<string, unknown> };
+    };
+    const committed = appConfig.expo.extra.spotifyClientId;
+    expect(committed).toMatch(/^[0-9a-f]{32}$/);
+
+    setExtra({ spotifyClientId: committed, spotifyRedirectUri: undefined });
+    expect(getSpotifyClientId()).toBe(committed);
+    expect(isSpotifyLoginConfigured()).toBe(true);
+    expect(getSpotifyRedirectUri()).toBe('melodix://callback');
   });
 
   describe('spotifyRedirectUri — ordre env → extra → défaut', () => {
