@@ -278,7 +278,12 @@ export const FR_FR_SETTINGS = {
 };
 
 export const FR_FR_PLAYLIST = {
-  /** « 85/100 morceaux disponibles » — calculée dynamiquement. */
+  /**
+   * « 85/100 morceaux disponibles » — ratio générique. Mission v7.1 : NE
+   * PLUS utilisé pour les playlists Spotify (le compteur N/M a disparu au
+   * profit des états « Spotify Web » / « Spotify Web désactivé »). Conservé
+   * pour parité de typage entre les deux locales.
+   */
   playlistAvailabilityInfo: (available: number, total: number) =>
     `${available}/${total} morceaux disponibles`,
   /**
@@ -288,6 +293,16 @@ export const FR_FR_PLAYLIST = {
    */
   playlistSpotifyWebInfo: (total: number) =>
     `${total} titres · lecture Spotify Web Player`,
+  /**
+   * Mission v7.1 : moteur Spotify Web INACTIF (réglage « Lecture Spotify Web »
+   * éteint ou porte d'activation fermée). On indique clairement que Spotify
+   * Web est désactivé — JAMAIS un ratio « 0/33 morceaux disponibles » :
+   * un moteur inactif ne signifie PAS « 0 morceaux disponibles sur le
+   * catalogue Spotify », et aucun matching Audius/YouTube ne décide cette
+   * disponibilité.
+   */
+  playlistSpotifyWebDisabledInfo: (total: number) =>
+    `${total} titres · Spotify Web Player désactivé`,
   trackUnavailableNotice:
     "Ce morceau n'est pas lisible : la lecture Spotify Web Player est désactivée (Réglages → Lecture Spotify Web).",
   providerAudius: 'Audius',

@@ -333,6 +333,12 @@ export const EN_GB_SETTINGS = {
 };
 
 export const EN_GB_PLAYLIST = {
+  /**
+   * "85/100 tracks available" — generic ratio. Mission v7.1: NO LONGER used
+   * for Spotify playlists (the N/M counter is gone in favor of the
+   * "Spotify Web" / "Spotify Web disabled" states). Kept for type parity
+   * between the two locales.
+   */
   playlistAvailabilityInfo: (available: number, total: number) =>
     `${available}/${total} tracks available`,
   /**
@@ -342,6 +348,15 @@ export const EN_GB_PLAYLIST = {
    */
   playlistSpotifyWebInfo: (total: number) =>
     `${total} tracks · Spotify Web Player playback`,
+  /**
+   * Mission v7.1: Spotify Web engine INACTIVE (user setting off or the
+   * activation gate closed). Clearly state that Spotify Web is disabled —
+   * NEVER an "0/33 tracks available" ratio: an inactive engine does NOT
+   * mean "0 tracks available on the Spotify catalog", and no Audius/YouTube
+   * matching decides that availability.
+   */
+  playlistSpotifyWebDisabledInfo: (total: number) =>
+    `${total} tracks · Spotify Web Player disabled`,
   trackUnavailableNotice:
     'This track cannot be played: Spotify Web Player playback is disabled (Settings → Spotify Web Player).',
   providerAudius: 'Audius',

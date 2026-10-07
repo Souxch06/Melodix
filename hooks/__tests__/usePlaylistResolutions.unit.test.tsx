@@ -43,9 +43,12 @@ const track = (
   ...overrides,
 });
 
-/** Les 32 métadonnées d'une playlist Spotify (le scénario de la mission). */
-const tracks32: TrackModel[] = Array.from({ length: 32 }, (_, i) =>
-  track(`t${i}`)
+/**
+ * Les 33 métadonnées d'une playlist Spotify — la reproduction EXACTE de la
+ * régression physique « 0/33 disponibles » (identifiants `spotify-${i}`).
+ */
+const tracks33: TrackModel[] = Array.from({ length: 33 }, (_, i) =>
+  track(`spotify-${i}`)
 );
 
 const openGate = (): void => {
@@ -59,31 +62,34 @@ describe('usePlaylistResolutions (Mission v7 : capacité réelle du moteur)', ()
     mockUserSetting = true;
   });
 
-  it('moteur actif : 32 pistes éligibles, aucune recherche, aucun ratio inventé', () => {
+  it('moteur actif : 33 pistes éligibles, aucune recherche, aucun compteur', () => {
     openGate();
-    const { result } = renderHook(() => usePlaylistResolutions(tracks32));
+    const { result } = renderHook(() => usePlaylistResolutions(tracks33));
 
-    // Les 32 métadonnées sont toutes « éligibles » : capacité d'ESSAI du
-    // moteur — jamais une promesse de lecture (pas de « 32/32 »).
+    // Les 33 métadonnées sont toutes « éligibles » : capacité d'ESSAI du
+    // moteur — jamais une promesse de lecture (pas de « 33/33 »).
     const ids = Object.keys(result.current.byTrackId);
-    expect(ids).toHaveLength(32);
+    expect(ids).toHaveLength(33);
     for (const id of ids) {
       expect(result.current.byTrackId[id]).toEqual({ status: 'eligible' });
     }
+    // Contrat exact : la stats ne porte QUE total + spotifyWebActive —
+    // AUCUN compteur `available` (source du faux ratio « N/33 »).
     expect(result.current.stats).toEqual({
-      total: 32,
+      total: 33,
       spotifyWebActive: true,
     });
   });
 
-  it('réglage utilisateur ÉTEINT : aucune piste lisible — honnêtement', () => {
+  it('réglage utilisateur ÉTEINT : 33 pistes « none » — honnêtement', () => {
     openGate();
     mockUserSetting = false;
-    const { result } = renderHook(() => usePlaylistResolutions(tracks32));
+    const { result } = renderHook(() => usePlaylistResolutions(tracks33));
 
     // L'hôte WebView ne monte pas sans le réglage : le moteur est inactif.
+    // L'UI affichera « Spotify Web désactivé », JAMAIS « 0/33 disponibles ».
     expect(result.current.stats).toEqual({
-      total: 32,
+      total: 33,
       spotifyWebActive: false,
     });
     for (const id of Object.keys(result.current.byTrackId)) {
@@ -91,30 +97,37 @@ describe('usePlaylistResolutions (Mission v7 : capacité réelle du moteur)', ()
     }
   });
 
-  it('porte fermée (validation non consignée) : aucune piste lisible', () => {
+  it('porte fermée (validation non consignée) : 33 pistes « none »', () => {
     // Pas d'ouverture de porte : flag local + validation fermés.
-    const { result } = renderHook(() => usePlaylistResolutions(tracks32));
+    const { result } = renderHook(() => usePlaylistResolutions(tracks33));
     expect(result.current.stats.spotifyWebActive).toBe(false);
-    expect(result.current.byTrackId['t0']).toEqual({ status: 'none' });
+    expect(result.current.stats.total).toBe(33);
+    expect(result.current.byTrackId['spotify-0']).toEqual({ status: 'none' });
   });
 
   it('bascule en direct : refermée → « none » ; rouverte → « eligible »', async () => {
     openGate();
-    const { result } = renderHook(() => usePlaylistResolutions(tracks32));
-    expect(result.current.byTrackId['t0']).toEqual({ status: 'eligible' });
+    const { result } = renderHook(() => usePlaylistResolutions(tracks33));
+    expect(result.current.byTrackId['spotify-0']).toEqual({
+      status: 'eligible',
+    });
 
     await act(async () => {
       setSpotifyWebPlaybackEnabled(false);
     });
     await waitFor(() =>
-      expect(result.current.byTrackId['t0']).toEqual({ status: 'none' })
+      expect(result.current.byTrackId['spotify-0']).toEqual({
+        status: 'none',
+      })
     );
 
     await act(async () => {
       setSpotifyWebPlaybackEnabled(true);
     });
     await waitFor(() =>
-      expect(result.current.byTrackId['t0']).toEqual({ status: 'eligible' })
+      expect(result.current.byTrackId['spotify-0']).toEqual({
+        status: 'eligible',
+      })
     );
   });
 
@@ -127,14 +140,16 @@ describe('usePlaylistResolutions (Mission v7 : capacité réelle du moteur)', ()
 
   it('refresh() : stable (plus de matching à refaire)', () => {
     openGate();
-    const { result } = renderHook(() => usePlaylistResolutions(tracks32));
+    const { result } = renderHook(() => usePlaylistResolutions(tracks33));
     act(() => {
       result.current.refresh();
     });
     expect(result.current.stats).toEqual({
-      total: 32,
+      total: 33,
       spotifyWebActive: true,
     });
-    expect(result.current.byTrackId['t31']).toEqual({ status: 'eligible' });
+    expect(result.current.byTrackId['spotify-32']).toEqual({
+      status: 'eligible',
+    });
   });
 });

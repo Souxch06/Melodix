@@ -221,12 +221,16 @@ export const PlaylistScreen = ({ playlistId }: AlbumScreenPropsType) => {
     if (total === 0) {
       return '';
     }
-    // Moteur actif : on affiche la SOURCE, pas un ratio (jamais un
-    // « 32/32 disponibles » inventé — la preuve réelle intervient à la
-    // lecture). Moteur inactif : honnêtement, aucune piste n'est lisible.
+    // Mission v7.1 : jamais un ratio « N/33 disponibles » pour une playlist
+    // Spotify. Moteur actif → on affiche la SOURCE (Spotify Web Player) ;
+    // la preuve réelle de lisibilité intervient à la LECTURE, pas ici.
+    // Moteur inactif (réglage éteint ou porte fermée) → on indique
+    // clairement que Spotify Web est désactivé : un moteur inactif ne
+    // signifie PAS « 0/33 morceaux disponibles », et aucun matching
+    // Audius/YouTube ne décide la disponibilité d'une piste Spotify.
     return spotifyWebActive
       ? translations.playlistSpotifyWebInfo(total)
-      : translations.playlistAvailabilityInfo(0, total);
+      : translations.playlistSpotifyWebDisabledInfo(total);
     // `translations` est une constante de module (jamais mutée) : hors deps.
   }, [resolutions.stats]);
 
