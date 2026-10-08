@@ -113,7 +113,7 @@ chemin de la requête).
 | `context/UserDataContext.tsx`     | `classifyVerificationFailure` (http) : transmet `meta` (finalUrl + headers) uniquement sans message disponible — jamais le corps                                                                                                                                                                                                                                                                                                                                                                                  |
 | `data/fr-fr.ts` / `data/en-gb.ts` | 2 clés × 2 langues (`inconnu`/`inconnue` — `unknown`)                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
 | Tests                             | +13 tests de contrôle (ci-dessous)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
-| Version                           | `4.5.0-test.21` / `45021` en 8 endroits (5 fichiers)                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| Version                           | `4.5.0-test.21` / `45021` en 8 endroits (6 fichiers)                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
 
 **INTOUCHÉS (0 ligne au diff)** : `session.ts` (PKCE/SecureStore/refresh),
 `authConfig.ts` (**Client ID**, **redirect URI**, **scopes**),
@@ -155,7 +155,7 @@ Tests de contrôle du diagnostic 403 :
 ## 8. Git
 
 - **HEAD avant** : `b540a58` (V15)
-- **HEAD après** : SHA final après push
+- **HEAD après** : `ad9c12d` (+ commit docs du rapport)
 - **Branche** : `arena/fcdae8c6-melodix` — **PR** : #6
 - **CI** : run `android-apk.yml` après push — ID + statut
 - Invariants vérifiés avant commit : Client ID absent du diff, redirect
