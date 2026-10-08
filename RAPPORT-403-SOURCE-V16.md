@@ -157,9 +157,11 @@ Tests de contrôle du diagnostic 403 :
 - **HEAD avant** : `b540a58` (V15)
 - **HEAD après** : `bee2097` (code `ad9c12d` + commits docs)
 - **Branche** : `arena/fcdae8c6-melodix` — **PR** : #6
-- **CI** : `android-apk.yml` run **37789364299 — SUCCESS** (sur `bee2097`) ;
-  artefact **`Melodix-v4.5.0-test.21-bee2097.apk`** (téléchargeable depuis
-  l'UI GitHub / artefacts de la run)
+- **CI** : `android-apk.yml` run **37789364299 — SUCCESS** (code `bee2097`) ;
+  run docs finale **37793591044 — SUCCESS** (`9464dc4`) ; artefacts
+  **`Melodix-v4.5.0-test.21-bee2097.apk`** et
+  **`Melodix-v4.5.0-test.21-9464dc4.apk`** (code identique —
+  téléchargeables depuis l'UI GitHub / artefacts des runs)
 - Invariants vérifiés avant commit : Client ID absent du diff, redirect
   `melodix://callback` intact, scopes/auth/PKCE/SecureStore à 0 ligne
 
