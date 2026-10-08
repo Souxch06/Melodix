@@ -1,6 +1,7 @@
 # Rapport — HTTP 403 sur `GET /v1/me` : audit du flux + diagnostic du message Spotify réel (v14, 4.5.0-test.19)
 
 **Date** : 2026-10-08 — **Branche** : `arena/fcdae8c6-melodix` — **Base** : `0221771`
+**Commit** : `501a21b` — **CI** : run `37748687725` SUCCESS —
 **Version** : `4.5.0-test.19` / versionCode `45019`
 **Test physique déclencheur (APK test.18)** : OAuth + callback + session OK, puis
 `GET /v1/me` → **HTTP 403 — accès refusé**, systématique.
@@ -116,10 +117,14 @@ Tests nouveaux (tous verts) :
 
 ## 6. Git
 
-- Commit de code sur `arena/fcdae8c6-melodix` (base `0221771`) + push ; CI
-  GitHub Actions `android-apk.yml` (gates version + invariants redirect +
-  build + smoke) — **résultat à confirmer après push**.
-- APK attendu : `Melodix-v4.5.0-test.19-<sha>.apk`.
+- Commit de code **`501a21b`** sur `arena/fcdae8c6-melodix` (base `0221771`)
+  - push.
+- CI GitHub Actions `android-apk.yml` (gates version 45019 + invariants
+  redirect + build + signature + smoke) : **run 37748687725 SUCCESS**
+  (24 min 07 s).
+- APK : artefact CI **`Melodix-v4.5.0-test.19-501a21b.apk`** (Actions →
+  run 37748687725 → artefacts), à installer depuis le téléphone (pas de
+  release GitHub — même modalité que les versions précédentes).
 - Invariants vérifiés avant commit : redirect canonique `melodix://callback`
   inchangé ; aucun `client_secret` dans le code source (seules les fixtures de
   tests d'hygiène le mentionnent, comme avant) ; Client ID inchangé.
