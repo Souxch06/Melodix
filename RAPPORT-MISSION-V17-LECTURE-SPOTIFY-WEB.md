@@ -4,7 +4,9 @@
 livré — audit complet de la chaîne (aucun bug fonctionnel trouvé),
 breadcrumbs logcat `[MelodixSpotifyWeb]`, section smoke CI de l'HÔTE DE
 PRODUCTION (gap §13), 7 tests automatiques nouveaux, version
-`4.5.0-test.22` / `45022`.
+`4.5.0-test.22` / `45022`, CI **success** (run 37807489704) avec smoke
+Android 14 de l'hôte production : `host-mounted` confirmé, handshake
+explicite (`bridge_timeout` sans compte — honnête), **aucun faux playing**.
 
 Mission : faire fonctionner la chaîne réelle
 `Spotify track → PlayerController → SpotifyWebBackend → SpotifyWebHost/WebView →
@@ -134,14 +136,14 @@ settings, workflow `EXPECTED_VERSION_CODE/NAME`).
 
 ## 3. Gates exécutées
 
-| Gate                                         | Résultat                                                            |
-| -------------------------------------------- | ------------------------------------------------------------------- |
-| `npx tsc --noEmit`                           | OK (0 erreur)                                                       |
-| `npx eslint` (fichiers modifiés)             | OK (0 finding)                                                      |
-| `npx prettier --check` (fichiers modifiés)   | OK                                                                  |
-| `npx jest` (suite complète)                  | **2052 passés / 14 skipped / 0 échec** (baseline 2045 + 7 nouveaux) |
-| `sh -n scripts/smoke-test-android-apk.sh`    | OK (POSIX)                                                          |
-| CI GitHub Actions (build + smoke Android 14) | en attente du push (APK `4.5.0-test.22`/`45022`)                    |
+| Gate                                         | Résultat                                                                                                                                                              |
+| -------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `npx tsc --noEmit`                           | OK (0 erreur)                                                                                                                                                         |
+| `npx eslint` (fichiers modifiés)             | OK (0 finding)                                                                                                                                                        |
+| `npx prettier --check` (fichiers modifiés)   | OK                                                                                                                                                                    |
+| `npx jest` (suite complète)                  | **2052 passés / 14 skipped / 0 échec** (baseline 2045 + 7 nouveaux)                                                                                                   |
+| `sh -n scripts/smoke-test-android-apk.sh`    | OK (POSIX)                                                                                                                                                            |
+| CI GitHub Actions (build + smoke Android 14) | **SUCCESS** — run `37807489704` (17m48s) ; step « Installer et lancer réellement l'APK sur Android 14 » success ; APK `versionCode=45022` `versionName=4.5.0-test.22` |
 
 ---
 
@@ -218,6 +220,20 @@ projection MediaSession validée en CI.
 - Handshake sans résultat explicite → **la CI échoue** (stall non géré).
 - `playback-confirmed` présent → **la CI échoue** (faux playing).
 - Tout le reste sans compte Spotify est attendu et honnêtement signalé.
+
+**Résultat observé (run `37807489704`, Android 14, sans compte Spotify)** :
+
+```
+✓ host-mounted confirmé en logcat — la WebView open.spotify.com (hors écran) est montée à la racine de l'app
+⚠ handshake non prêt (codes: bridge_timeout) — aucune capacité de lecture revendiquée (comportement honnête sans compte Spotify)
+✓ aucun playback-confirmed sur tout le run (aucun faux playing)
+```
+
+L'hôte de production monte bien, le runtime conclut le handshake par un
+`bridge_timeout` honnête (normal sans compte : la page ne complète pas la
+poignée de main du player), et aucun `playing` inventé n'apparaît. C'est
+exactement le comportement que la mission demandait d'observer — **sans
+prétendre à une lecture réelle**.
 
 ## 6. Fichiers modifiés (13)
 
