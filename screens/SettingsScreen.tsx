@@ -17,6 +17,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { COLORS } from '@config';
 import {
+  describeSpotifyVerificationFailure,
   usePlayer,
   usePreferences,
   useTranslations,
@@ -58,7 +59,13 @@ export const SettingsScreen = () => {
     startupVolume,
     themeMode,
   } = usePreferences();
-  const { userData, sessionStatus, signOut, reloadUserData } = useUserData();
+  const {
+    userData,
+    sessionStatus,
+    signOut,
+    reloadUserData,
+    verificationFailure,
+  } = useUserData();
   const player = usePlayer();
 
   const [sessionInfo, setSessionInfo] = React.useState<{
@@ -157,10 +164,18 @@ export const SettingsScreen = () => {
     if (sessionStatus === 'loading') {
       return t.settingsCheckingSession;
     }
+    // Réessai en cours : changement visible — plus de « indisponible ».
+    if (sessionStatus === 'spotify-verifying') {
+      return t.settingsCheckingSession;
+    }
     // Session présente mais identité du compte non vérifiée : on l'annonce
-    // explicitement — surtout pas le message « aucun compte » du mode local.
+    // explicitement + la cause SÛRE du dernier échec (diagnostic) — surtout
+    // pas le message « aucun compte » du mode local.
     if (sessionStatus === 'spotify-unverified') {
-      return t.spotifyRestoreUnavailableBody;
+      const detail = describeSpotifyVerificationFailure(t, verificationFailure);
+      return detail
+        ? `${t.spotifyRestoreUnavailableBody}\n${detail}`
+        : t.spotifyRestoreUnavailableBody;
     }
     if (sessionStatus !== 'spotify') {
       return t.accountLocalInfo;
@@ -175,7 +190,7 @@ export const SettingsScreen = () => {
       ? t.settingsSessionCanRefresh
       : t.settingsSessionNoRefresh;
     return `${t.settingsConnectedSpotify}\n${expiry} · ${refresh}`;
-  }, [sessionStatus, sessionInfo, t]);
+  }, [sessionStatus, sessionInfo, t, verificationFailure]);
 
   const version = Constants.expoConfig?.version ?? '—';
 
@@ -207,9 +222,11 @@ export const SettingsScreen = () => {
             >
               {sessionStatus === 'spotify'
                 ? userData.displayName
-                : sessionStatus === 'spotify-unverified'
-                  ? t.spotifyRestoreUnavailableTitle
-                  : t.settingsLocalAccount}
+                : sessionStatus === 'spotify-verifying'
+                  ? t.spotifySessionRestoring
+                  : sessionStatus === 'spotify-unverified'
+                    ? t.spotifyRestoreUnavailableTitle
+                    : t.settingsLocalAccount}
             </Text>
             <Text
               style={styles.accountSubtitle}

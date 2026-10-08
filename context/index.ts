@@ -3,8 +3,16 @@ export type {
   UserContextType,
   UserDataProviderPropsType,
 } from './UserDataContext';
-export { isSpotifyAccountId, hasSpotifySession } from './spotifyIdentity';
-export type { SessionStatus, SpotifyDataPlan } from './spotifyIdentity';
+export {
+  isSpotifyAccountId,
+  hasSpotifySession,
+  describeSpotifyVerificationFailure,
+} from './spotifyIdentity';
+export type {
+  SessionStatus,
+  SpotifyDataPlan,
+  SpotifyVerificationFailure,
+} from './spotifyIdentity';
 
 export {
   LibrarySelectedCategoryProvider,

@@ -49,6 +49,15 @@ export const FR_FR_ACCOUNT = {
   spotifyRestoreUnavailableBody:
     "Ta session Spotify est enregistrée, mais le compte n'a pas pu être vérifié pour l'instant (réseau ou erreur temporaire). Tes données de compte restent masquées tant que l'identité n'est pas confirmée — tu n'es PAS déconnecté.",
   spotifyRestoreRetry: 'Réessayer',
+  // Diagnostic de vérification (SÛR : statuts + libellés, jamais de token).
+  spotifyVerifyErrorInvalidResponse: 'Réponse Spotify invalide',
+  spotifyVerifyErrorNetwork: 'Réseau indisponible',
+  spotifyVerifyErrorRateLimited: 'HTTP 429 — trop de requêtes',
+  spotifyVerifyError401: 'HTTP 401 — access token invalide ou expiré',
+  spotifyVerifyError403: 'HTTP 403 — accès refusé',
+  spotifyVerifyErrorServer: (status: number) =>
+    `Erreur Spotify (HTTP ${status}) — erreur temporaire`,
+  spotifyVerifyErrorGeneric: 'Erreur inattendue — tu peux réessayer',
 };
 
 // Lecteur et correspondances Audius

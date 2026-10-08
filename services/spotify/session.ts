@@ -179,25 +179,61 @@ type TokenCallResult =
       description: string;
     };
 
+const REQUEST_TIMEOUT_TOKEN_MS = 15_000;
+
 /**
  * POST /api/token. Codes d'erreur parseés UNIQUEMENT sur la branche d'échec
  * (RFC 6749 : error/error_description) — le corps de SUCCÈS, qui contient les
  * tokens, n'est jamais lu ici à des fins de log.
+ *
+ * TIMEOUT DURCIE : une connexion qui PLANTE (ni réponse, ni reset) ne peut
+ * plus bloquer la promesse indéfiniment — sans ce garde-fou, un « Réessayer »
+ * pendant une telle coupure ne se résout jamais (bouton apparemment mort).
+ * L'échec est classé 'network' (transitoire : la session est conservée).
  */
 const requestToken = async (
   body: Record<string, string>,
   logStep: string
 ): Promise<TokenCallResult> => {
+  const controller = new AbortController();
+  let timedOut = false;
+
   let response: Response;
   try {
-    response = await fetch(SPOTIFY_DISCOVERY.tokenEndpoint, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: new URLSearchParams(body).toString(),
+    // La promesse se résout TOUJOURS : soit le fetch répond, soit le timer
+    // coupe l'attente (abort + rejet) — rien ne peut planter le « Réessayer »
+    // indéfiniment pendant une coupure réseau.
+    response = await new Promise<Response>((resolve, reject) => {
+      const timer = setTimeout(() => {
+        timedOut = true;
+        controller.abort();
+        reject(new Error('token-request-timeout'));
+      }, REQUEST_TIMEOUT_TOKEN_MS);
+
+      fetch(SPOTIFY_DISCOVERY.tokenEndpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams(body).toString(),
+        signal: controller.signal,
+      }).then(
+        (res) => {
+          clearTimeout(timer);
+          resolve(res);
+        },
+        (err) => {
+          clearTimeout(timer);
+          reject(err);
+        }
+      );
     });
   } catch (error) {
-    console.warn('Spotify token endpoint unreachable', error);
-    spotifyLog(logStep, { status: 'unreachable' });
+    console.warn(
+      'Spotify token endpoint unreachable',
+      timedOut ? 'timeout' : error
+    );
+    spotifyLog(logStep, {
+      status: timedOut ? 'timeout' : 'unreachable',
+    });
     return { ok: false, reason: 'network' };
   }
 
@@ -348,22 +384,25 @@ export const clearSessionAccessOnly = async (): Promise<void> => {
   }
 };
 
-let pendingRefresh: Promise<string | null> | null = null;
+let pendingRefresh: Promise<RefreshResult> | null = null;
 
 /**
  * Résultat CLASSIFIÉ d'un refresh : la distinction DÉFINITIF / TRANSITOIRE
  * est ce qui protège la session stockée.
  *
+ * - 'no-session' : plus aucune session stockée (définitif — il faut se
+ *   reconnecter) ;
  * - 'no-refresh-token' : la session ne pourra JAMAIS être rafraîchie
  *   (définitif — la conserver est inutile) ;
  * - 'refused' : Spotify a EXPLICITEMENT refusé le refresh token (4xx,
  *   invalid_grant / invalid_client / …) — la session est morte (définitif) ;
- * - 'transient' : coupure réseau, 5xx, 429, réponse illisible — le refresh
- *   token est probablement encore bon : on NE SUPPRIME PAS la session, elle
- *   sera retentée au prochain démarrage ou à la prochaine lecture.
+ * - 'transient' : coupure réseau, 5xx, 429, timeout, réponse illisible — le
+ *   refresh token est probablement encore bon : on NE SUPPRIME PAS la
+ *   session, elle sera retentée au prochain réessai.
  */
 export type RefreshResult =
   | { ok: true; token: string }
+  | { ok: false; cause: 'no-session' }
   | { ok: false; cause: 'no-refresh-token' }
   | { ok: false; cause: 'refused'; status: number; errorCode: string }
   | { ok: false; cause: 'transient'; detail: string };
@@ -437,33 +476,49 @@ const doRefreshClassified = async (
   return { ok: true, token: refreshed.accessToken };
 };
 
-const doRefresh = async (session: SpotifySession): Promise<string | null> => {
-  const result = await doRefreshClassified(session);
-  return result.ok ? result.token : null;
-};
-
 /**
- * Token d'accès prêt à l'emploi.
  * RAE : plusieurs appels concurrents partagent UNE seule requête de refresh
  * (anti-double-refresh, hérité du design historique de l'app).
  */
-export const getValidAccessToken = async (): Promise<string | null> => {
-  const session = await loadSession();
-  if (!session) {
-    return null;
-  }
-
-  if (!isExpired(session)) {
-    return session.accessToken;
-  }
-
+const ensureRefresh = (session: SpotifySession): Promise<RefreshResult> => {
   if (!pendingRefresh) {
-    pendingRefresh = doRefresh(session).finally(() => {
+    pendingRefresh = doRefreshClassified(session).finally(() => {
       pendingRefresh = null;
     });
   }
-
   return pendingRefresh;
+};
+
+/**
+ * Refresh CLASSIFIÉ, prêt à l'emploi (RAE).
+ * - token pas expiré → renvoie le token courant, sans appel réseau ;
+ * - token expiré → UNE seule requête de refresh partagée par tous les
+ *   concurrents, avec la classification définitif/transitoire qui permet au
+ *   caller de trancher : CONSERVER la session (transitoire, réessayer) ou la
+ *   PURGER et demander une reconnexion (définitif).
+ */
+export const refreshAccessTokenClassified =
+  async (): Promise<RefreshResult> => {
+    const session = await loadSession();
+    if (!session) {
+      return { ok: false, cause: 'no-session' };
+    }
+
+    if (!isExpired(session)) {
+      return { ok: true, token: session.accessToken };
+    }
+
+    return ensureRefresh(session);
+  };
+
+/**
+ * Token d'accès prêt à l'emploi (API historique, conservée pour les callers
+ * qui n'ont pas besoin de la classification) : `null` si pas de session ou
+ * si le refresh n'a pas abouti.
+ */
+export const getValidAccessToken = async (): Promise<string | null> => {
+  const result = await refreshAccessTokenClassified();
+  return result.ok ? result.token : null;
 };
 
 /**
@@ -500,6 +555,10 @@ export const resolveStartupSession =
         kind: 'session-kept-unverified',
         detail: result.detail,
       };
+    }
+    if (result.cause === 'no-session') {
+      // Défensif : une session a été lue en entrée de cette fonction.
+      return { kind: 'no-session' };
     }
     return { kind: 'session-dead', cause: result.cause };
   };

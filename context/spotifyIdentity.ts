@@ -22,6 +22,11 @@
  *                           invalide). État explicite : ni « connecté » avec
  *                           une identité locale, ni « local » (qui ferait
  *                           croire à une absence de session).
+ * - 'spotify-verifying'   : une VÉRIFICATION (ou ré-vérification) du profil
+ *                           est EN COURS (bouton « Réessayer »). État
+ *                           explicite : changement visible (plus l'écran
+ *                           d'erreur), et les 2ᵉ clics sont ignorés (aucune
+ *                           double requête).
  */
 import { LOCAL_USER_ID } from '@config';
 
@@ -29,7 +34,20 @@ export type SessionStatus =
   | 'loading'
   | 'local'
   | 'spotify'
-  | 'spotify-unverified';
+  | 'spotify-unverified'
+  | 'spotify-verifying';
+
+/**
+ * Échec de vérification du compte, CLASSÉ et SANS AUCUNE VALEUR SENSIBLE
+ * (jamais de token, de refresh_token, de code_verifier ni d'en-tête) :
+ * l'écran traduit `kind`/`status` en message utilisateur localisé.
+ */
+export type SpotifyVerificationFailure =
+  | { kind: 'invalid-response' } // réponse sans profil exploitable
+  | { kind: 'network' } // réseau indisponible / Spotify injoignable
+  | { kind: 'rate-limited' } // 429 — trop de requêtes
+  | { kind: 'http'; status: number } // autre statut (401, 403, 5xx, …)
+  | { kind: 'generic' }; // erreur inattendue
 
 /**
  * Vrai si `id` peut être utilisé comme identifiant de compte Spotify :
@@ -47,7 +65,9 @@ export const isSpotifyAccountId = (id: unknown): id is string => {
 
 /** Une session Spotify est stockée (que son profil soit vérifié ou non). */
 export const hasSpotifySession = (status: SessionStatus): boolean =>
-  status === 'spotify' || status === 'spotify-unverified';
+  status === 'spotify' ||
+  status === 'spotify-unverified' ||
+  status === 'spotify-verifying';
 
 /**
  * Ce qu'un écran dépendant du compte a le droit de faire dans l'état courant.
@@ -69,6 +89,9 @@ export const resolveSpotifyDataPlan = (
 ): SpotifyDataPlan => {
   switch (status) {
     case 'loading':
+    case 'spotify-verifying':
+      // Vérification en cours : aucun écran ne charge de donnée (chargement),
+      // et aucun repli local/identité inconnue n'est possible.
       return { kind: 'restoring' };
     case 'spotify-unverified':
       return { kind: 'identity-unavailable' };
@@ -81,5 +104,50 @@ export const resolveSpotifyDataPlan = (
     case 'local':
     default:
       return { kind: 'local' };
+  }
+};
+
+/**
+ * Traduit un échec de vérification en message utilisateur LISIBLE et SÛR.
+ * `null`/absence → `null` (rien à afficher). Jamais de valeur technique
+ * brute, jamais de secret : uniquement des statuts HTTP et des libellés.
+ */
+export const describeSpotifyVerificationFailure = (
+  t: {
+    spotifyVerifyErrorInvalidResponse: string;
+    spotifyVerifyErrorNetwork: string;
+    spotifyVerifyErrorRateLimited: string;
+    spotifyVerifyError401: string;
+    spotifyVerifyError403: string;
+    spotifyVerifyErrorServer: (status: number) => string;
+    spotifyVerifyErrorGeneric: string;
+  },
+  failure: SpotifyVerificationFailure | null | undefined
+): string | null => {
+  if (!failure) {
+    return null;
+  }
+
+  switch (failure.kind) {
+    case 'invalid-response':
+      return t.spotifyVerifyErrorInvalidResponse;
+    case 'network':
+      return t.spotifyVerifyErrorNetwork;
+    case 'rate-limited':
+      return t.spotifyVerifyErrorRateLimited;
+    case 'http':
+      if (failure.status === 401) {
+        return t.spotifyVerifyError401;
+      }
+      if (failure.status === 403) {
+        return t.spotifyVerifyError403;
+      }
+      if (failure.status >= 500) {
+        return t.spotifyVerifyErrorServer(failure.status);
+      }
+      return t.spotifyVerifyErrorGeneric;
+    case 'generic':
+    default:
+      return t.spotifyVerifyErrorGeneric;
   }
 };

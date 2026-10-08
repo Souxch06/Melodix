@@ -140,6 +140,7 @@ export {
   clearSession,
   clearSessionAccessOnly,
   getValidAccessToken,
+  refreshAccessTokenClassified,
   isSpotifySessionActive,
   describeSession,
   redeemAuthorizationCode,

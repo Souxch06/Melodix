@@ -8,11 +8,15 @@
 import { LOCAL_USER_ID } from '@config';
 
 import {
+  describeSpotifyVerificationFailure,
   hasSpotifySession,
   isSpotifyAccountId,
   resolveSpotifyDataPlan,
   type SessionStatus,
+  type SpotifyVerificationFailure,
 } from '../spotifyIdentity';
+
+import { translations } from '@data';
 
 describe('spotifyIdentity — isSpotifyAccountId', () => {
   it('accepte un identifiant Spotify réel (espaces compris)', () => {
@@ -31,9 +35,10 @@ describe('spotifyIdentity — isSpotifyAccountId', () => {
 });
 
 describe('spotifyIdentity — hasSpotifySession', () => {
-  it('une session Spotify existe pour spotify ET spotify-unverified', () => {
+  it('une session Spotify existe pour spotify, spotify-unverified ET spotify-verifying', () => {
     expect(hasSpotifySession('spotify')).toBe(true);
     expect(hasSpotifySession('spotify-unverified')).toBe(true);
+    expect(hasSpotifySession('spotify-verifying')).toBe(true);
   });
 
   it("aucune session pour 'loading' (aucune session lue) ni 'local'", () => {
@@ -74,6 +79,13 @@ describe('spotifyIdentity — resolveSpotifyDataPlan', () => {
       reason: 'aucune donnée de compte sans profil vérifié',
     },
     {
+      status: 'spotify-verifying',
+      accountId: 'account-a',
+      expected: 'restoring',
+      reason:
+        'réessai en cours → chargement, aucune donnée chargée en parallèle',
+    },
+    {
       status: 'local',
       accountId: null,
       expected: 'local',
@@ -106,5 +118,52 @@ describe('spotifyIdentity — resolveSpotifyDataPlan', () => {
         kind: 'restoring',
       });
     }
+  });
+});
+
+describe('spotifyIdentity — diagnostic de vérification (sûr, lisible)', () => {
+  const cases: { failure: SpotifyVerificationFailure; contains: string }[] = [
+    {
+      failure: { kind: 'invalid-response' },
+      contains: 'Réponse Spotify invalide',
+    },
+    { failure: { kind: 'network' }, contains: 'Réseau indisponible' },
+    {
+      failure: { kind: 'rate-limited' },
+      contains: 'HTTP 429 — trop de requêtes',
+    },
+    {
+      failure: { kind: 'http', status: 401 },
+      contains: 'HTTP 401 — access token invalide ou expiré',
+    },
+    {
+      failure: { kind: 'http', status: 403 },
+      contains: 'HTTP 403 — accès refusé',
+    },
+    { failure: { kind: 'http', status: 503 }, contains: 'HTTP 503' },
+    {
+      failure: { kind: 'generic' },
+      contains: 'Erreur inattendue',
+    },
+  ];
+
+  it.each(cases)(
+    '$failure → message lisible « $contains »',
+    ({ failure, contains }) => {
+      const text = describeSpotifyVerificationFailure(translations, failure);
+      expect(text).toContain(contains);
+      // Jamais de valeur illisible ni de secret.
+      expect(text).not.toMatch(/undefined|NaN|\[object Object\]/);
+      expect(text).not.toMatch(
+        /access_token=|refresh_token=|code_verifier=|Bearer /
+      );
+    }
+  );
+
+  it('absence d échec → null (rien à afficher), jamais « undefined »', () => {
+    expect(describeSpotifyVerificationFailure(translations, null)).toBeNull();
+    expect(
+      describeSpotifyVerificationFailure(translations, undefined)
+    ).toBeNull();
   });
 });

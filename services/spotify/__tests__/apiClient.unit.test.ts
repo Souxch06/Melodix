@@ -2,7 +2,7 @@ import Constants from 'expo-constants';
 import * as SecureStore from 'expo-secure-store';
 
 import { spotifyApiGet, SpotifyApiError } from '../apiClient';
-import { saveSession } from '../session';
+import { loadSession, saveSession } from '../session';
 
 beforeAll(() => {
   (Constants.default ?? Constants).__setExpoConfigExtra({
@@ -107,7 +107,12 @@ describe('services/spotify/apiClient (API Web Spotify officielle)', () => {
     expect(apiCalls).toBe(2);
   });
 
-  it('un second 401 après refresh → unauthenticated, pas erreur HTTP', async () => {
+  it('un second 401 après refresh RÉUSSI → http 401 retryable, session CONSERVÉE', async () => {
+    // Le refresh token vient d'être VALIDÉ par Spotify (il vient de délivrer
+    // un token) : forcer une reconnexion ('unauthenticated') serait une
+    // perte inutile. L'erreur est retryable (« Réessayer » rafraîchira de
+    // nouveau) et la session reste stockée. Pas de boucle : 1 refresh +
+    // 1 retry par appel.
     await saveSession(validSession());
     let apiCalls = 0;
     globalThis.fetch = jest.fn(async (url) => {
@@ -129,10 +134,11 @@ describe('services/spotify/apiClient (API Web Spotify officielle)', () => {
     }) as unknown as typeof fetch;
 
     await expect(spotifyApiGet('/me')).rejects.toMatchObject({
-      kind: 'unauthenticated',
+      kind: 'http',
       status: 401,
     });
     expect(apiCalls).toBe(2);
+    expect(await loadSession()).not.toBeNull();
   });
 
   it('401 STUBBORN (refresh refusé) → unauthenticated', async () => {
@@ -201,6 +207,123 @@ describe('services/spotify/apiClient (API Web Spotify officielle)', () => {
       status: 429,
     });
     jest.useRealTimers();
+  });
+
+  describe('classification du refresh sur 401 (retryable vs reconnexion)', () => {
+    const expiredSession = () => ({
+      accessToken: 'stale-token',
+      refreshToken: 'rt-stale',
+      expiresAtMs: Date.now() - 3600_000,
+      scope: 'user-read-private',
+    });
+
+    it('401 + refresh REFUSÉ (invalid_grant) → unauthenticated + détail SÛR, jamais de token', async () => {
+      await saveSession(expiredSession());
+      globalThis.fetch = jest.fn(async (url) => {
+        if (String(url).includes('accounts.spotify.com')) {
+          return {
+            ok: false,
+            status: 400,
+            json: async () => ({
+              error: 'invalid_grant',
+              error_description: 'Invalid refresh token',
+            }),
+          } as Response;
+        }
+        return {
+          status: 401,
+          ok: false,
+          headers: { get: () => null },
+        } as unknown as Response;
+      }) as unknown as typeof fetch;
+
+      let error: unknown;
+      try {
+        await spotifyApiGet('/me');
+      } catch (e) {
+        error = e;
+      }
+      expect(error).toMatchObject({
+        kind: 'unauthenticated',
+        status: 400,
+      });
+      // Le détail technique est sûr : code whitelisté + statut — et JAMAIS
+      // les tokens (ni celui de la session, ni un hypothétique neuf), ni
+      // l'en-tête Authorization.
+      const serialized = JSON.stringify(error);
+      expect(serialized).toContain('invalid_grant');
+      expect(serialized).not.toContain('stale-token');
+      expect(serialized).not.toContain('rt-stale');
+      expect(serialized).not.toContain('Bearer');
+    });
+
+    it('401 + refresh TRANSITOIRE (réseau au token endpoint) → network, session CONSERVÉE', async () => {
+      await saveSession(expiredSession());
+      globalThis.fetch = jest.fn(async (url) => {
+        if (String(url).includes('accounts.spotify.com')) {
+          throw new Error('network down');
+        }
+        return {
+          status: 401,
+          ok: false,
+          headers: { get: () => null },
+        } as unknown as Response;
+      }) as unknown as typeof fetch;
+
+      await expect(spotifyApiGet('/me')).rejects.toMatchObject({
+        kind: 'network',
+      });
+      // La session n'a PAS été jetée : le refresh token est probablement
+      // encore bon — « Réessayer » devra retenter.
+      expect(await loadSession()).not.toBeNull();
+    });
+
+    it('401 + refresh 429 → rate-limited, session CONSERVÉE', async () => {
+      await saveSession(expiredSession());
+      globalThis.fetch = jest.fn(async (url) => {
+        if (String(url).includes('accounts.spotify.com')) {
+          return {
+            ok: false,
+            status: 429,
+            json: async () => ({ error: 'temporarily_unavailable' }),
+          } as Response;
+        }
+        return {
+          status: 401,
+          ok: false,
+          headers: { get: () => null },
+        } as unknown as Response;
+      }) as unknown as typeof fetch;
+
+      await expect(spotifyApiGet('/me')).rejects.toMatchObject({
+        kind: 'rate-limited',
+        status: 429,
+      });
+      expect(await loadSession()).not.toBeNull();
+    });
+
+    it('401 + refresh 5xx (panne Spotify) → network (transitoire), session CONSERVÉE', async () => {
+      await saveSession(expiredSession());
+      globalThis.fetch = jest.fn(async (url) => {
+        if (String(url).includes('accounts.spotify.com')) {
+          return {
+            ok: false,
+            status: 503,
+            json: async () => ({ error: 'temporarily_unavailable' }),
+          } as Response;
+        }
+        return {
+          status: 401,
+          ok: false,
+          headers: { get: () => null },
+        } as unknown as Response;
+      }) as unknown as typeof fetch;
+
+      await expect(spotifyApiGet('/me')).rejects.toMatchObject({
+        kind: 'network',
+      });
+      expect(await loadSession()).not.toBeNull();
+    });
   });
 
   it('panne réseau → kind network', async () => {

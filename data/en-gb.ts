@@ -166,6 +166,15 @@ export const EN_GB_ACCOUNT = {
   spotifyRestoreUnavailableBody:
     'Your Spotify session is saved, but the account could not be verified right now (network or temporary error). Account data stays hidden until the identity is confirmed — nothing is signed out.',
   spotifyRestoreRetry: 'Retry',
+  // Verification diagnostics (SAFE: statuses + labels, never any token).
+  spotifyVerifyErrorInvalidResponse: 'Invalid Spotify response',
+  spotifyVerifyErrorNetwork: 'Network unavailable',
+  spotifyVerifyErrorRateLimited: 'HTTP 429 — too many requests',
+  spotifyVerifyError401: 'HTTP 401 — access token invalid or expired',
+  spotifyVerifyError403: 'HTTP 403 — access denied',
+  spotifyVerifyErrorServer: (status: number) =>
+    `Spotify server error (HTTP ${status}) — temporary error`,
+  spotifyVerifyErrorGeneric: 'Unexpected error — you can retry',
 };
 
 // Home screen (real Spotify data: greeting, sections, empty/error states).

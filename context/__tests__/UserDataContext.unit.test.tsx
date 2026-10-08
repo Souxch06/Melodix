@@ -21,6 +21,12 @@ import {
   UserDataProvider,
   useUserData,
 } from '../UserDataContext';
+import {
+  describeSpotifyVerificationFailure,
+  type SpotifyVerificationFailure,
+} from '../spotifyIdentity';
+import { SpotifyApiError } from '@services';
+import { translations } from '@data';
 
 const mockActions = {
   loadSession: jest.fn(),
@@ -39,6 +45,10 @@ jest.mock('@services', () => ({
   melodixPlayer: {
     stop: (...args: never[]) => mockActions.stopPlayback(...(args as [])),
   },
+  // Classe RÉELLE (module pur) : le contexte la teste avec `instanceof`
+  // pour isoler l'échec de session DÉFINITIF (reconnexion demandée).
+  SpotifyApiError: jest.requireActual('../../services/spotify/apiClient')
+    .SpotifyApiError,
 }));
 
 jest.mock('@api', () => ({
@@ -70,6 +80,8 @@ type ObservedState = {
   userId: string;
   accountId: string;
   planKind: string;
+  /** Kind du diagnostic de vérification ('none' si aucun). */
+  failure: string;
 };
 
 /**
@@ -83,6 +95,7 @@ const Probe = () => {
     sessionStatus,
     spotifyAccountId,
     spotifyDataPlan,
+    verificationFailure,
     signOut,
     reloadUserData,
     applySpotifyUser,
@@ -93,7 +106,7 @@ const Probe = () => {
       <View
         testID={`user-state|${sessionStatus}|${userData.id}|${
           spotifyAccountId ?? 'none'
-        }|${spotifyDataPlan.kind}`}
+        }|${spotifyDataPlan.kind}|${verificationFailure?.kind ?? 'none'}`}
       />
       <Pressable testID="sign-out" onPress={() => void signOut()} />
       <Pressable testID="reload" onPress={() => void reloadUserData()} />
@@ -122,11 +135,11 @@ const Probe = () => {
 
 const observedState = (): ObservedState => {
   const node = screen.getByTestId(/^user-state\|/);
-  const [, status, userId, accountId, planKind] = String(
+  const [, status, userId, accountId, planKind, failure] = String(
     node.props.testID
   ).split('|');
 
-  return { status, userId, accountId, planKind };
+  return { status, userId, accountId, planKind, failure };
 };
 
 const renderProvider = () =>
@@ -352,5 +365,165 @@ describe('UserDataContext — identité Spotify pendant la restauration', () => 
       userId: LOCAL_USER_ID,
       accountId: 'none',
     });
+  });
+});
+
+describe('Réessayer — vérification réelle /me + refresh + aucun état bloqué (mission)', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockActions.loadSession.mockResolvedValue({ accessToken: 'stored' });
+    mockActions.clearSession.mockResolvedValue(undefined);
+    mockActions.clearPlaybackSession.mockResolvedValue(undefined);
+    mockActions.stopPlayback.mockResolvedValue(undefined);
+    mockActions.invalidateUserPlaylistsCache.mockResolvedValue(undefined);
+  });
+
+  const networkError = () =>
+    new SpotifyApiError('network', 'Spotify est injoignable.');
+  const rateLimitedError = () =>
+    new SpotifyApiError('rate-limited', 'Trop de requêtes vers Spotify.', 429);
+  const unauthenticatedError = () =>
+    new SpotifyApiError(
+      'unauthenticated',
+      'La session Spotify a expiré.',
+      401,
+      'invalid_grant · HTTP 400'
+    );
+
+  // Amène le provider à l'état bloqué historique : session stockée +
+  // profil indisponible (l'écran « Compte Spotify indisponible »).
+  const bootUnverified = async (rejection: unknown) => {
+    mockActions.getCurrentUser.mockRejectedValueOnce(rejection);
+    renderProvider();
+    await waitFor(() =>
+      expect(observedState().status).toBe('spotify-unverified')
+    );
+  };
+
+  it('cas 1 — unverified → réessayer : état VISIBLE « verifying », puis /me 200 → spotify, diagnostic purgé', async () => {
+    mockActions.getCurrentUser.mockRejectedValueOnce(new Error('offline'));
+    renderProvider();
+    await waitFor(() =>
+      expect(observedState().status).toBe('spotify-unverified')
+    );
+    // Le boot explique sa cause (diagnostic affiché, jamais vide).
+    expect(observedState().failure).toBe('generic');
+
+    const profile = deferred<ReturnType<typeof spotifyUser>>();
+    mockActions.getCurrentUser.mockReturnValueOnce(profile.promise);
+    fireEvent.press(screen.getByTestId('reload'));
+
+    // Changement VISIBLE pendant la tentative (le bouton n'est jamais
+    // décoratif) : plus d'erreur, plan « restoring ».
+    await waitFor(() =>
+      expect(observedState().status).toBe('spotify-verifying')
+    );
+    expect(observedState().planKind).toBe('restoring');
+
+    profile.resolve(spotifyUser('account-a'));
+    await waitFor(() => expect(observedState().status).toBe('spotify'));
+    expect(observedState()).toMatchObject({
+      userId: 'account-a',
+      accountId: 'account-a',
+      planKind: 'spotify',
+      failure: 'none',
+    });
+  });
+
+  it('cas 4 — /me 429 → compte NON détruit (session conservée), diagnostic temporaire, réessai effectif', async () => {
+    await bootUnverified(rateLimitedError());
+    expect(observedState().failure).toBe('rate-limited');
+    expect(mockActions.clearSession).not.toHaveBeenCalled();
+
+    mockActions.getCurrentUser.mockResolvedValueOnce(spotifyUser('account-a'));
+    fireEvent.press(screen.getByTestId('reload'));
+    await waitFor(() => expect(observedState().status).toBe('spotify'));
+    expect(observedState().failure).toBe('none');
+  });
+
+  it('cas 5 — erreur réseau → compte NON détruit, diagnostic réseau ; le Réessayer relance RÉELLEMENT /me', async () => {
+    await bootUnverified(networkError());
+    expect(observedState().failure).toBe('network');
+    expect(mockActions.clearSession).not.toHaveBeenCalled();
+
+    mockActions.getCurrentUser.mockResolvedValueOnce(spotifyUser('account-a'));
+    fireEvent.press(screen.getByTestId('reload'));
+    await waitFor(() => expect(observedState().status).toBe('spotify'));
+    // /me a été effectué deux fois : au boot puis par le bouton — le
+    // réessai n'est pas un coup d'épée dans l'eau.
+    expect(mockActions.getCurrentUser).toHaveBeenCalledTimes(2);
+  });
+
+  it('cas 3 — /me 401 + refresh invalid_grant (unauthenticated) : credentials invalides nettoyés, retour connexion demandée, AUCUNE boucle', async () => {
+    // Boot déjà mort : la session est purgée immédiatement, pas d'écran
+    // « indisponible » infini.
+    mockActions.getCurrentUser.mockRejectedValueOnce(unauthenticatedError());
+    renderProvider();
+    await waitFor(() => expect(observedState().status).toBe('local'));
+    expect(mockActions.clearSession).toHaveBeenCalledTimes(1);
+    expect(observedState()).toMatchObject({
+      userId: LOCAL_USER_ID,
+      accountId: 'none',
+      planKind: 'local',
+      failure: 'none',
+    });
+    // Aucune re-tentative automatique : un refresh refusé ne boucle pas.
+    expect(mockActions.getCurrentUser).toHaveBeenCalledTimes(1);
+  });
+
+  it('cas 3 (réessai) — session meurt PENDANT un réessai : purge + « local » (nouvelle connexion demandée), pas de boucle', async () => {
+    await bootUnverified(networkError());
+    mockActions.getCurrentUser.mockRejectedValueOnce(unauthenticatedError());
+
+    fireEvent.press(screen.getByTestId('reload'));
+    await waitFor(() => expect(observedState().status).toBe('local'));
+    expect(mockActions.clearSession).toHaveBeenCalledTimes(1);
+    expect(mockActions.getCurrentUser).toHaveBeenCalledTimes(2); // boot + 1 réessai
+  });
+
+  it('cas 7 — double clic sur Réessayer → UNE seule vérification en vol (aucune double requête)', async () => {
+    await bootUnverified(networkError());
+    const profile = deferred<ReturnType<typeof spotifyUser>>();
+    mockActions.getCurrentUser.mockReturnValueOnce(profile.promise);
+
+    fireEvent.press(screen.getByTestId('reload'));
+    fireEvent.press(screen.getByTestId('reload')); // double clic immédiat
+    await waitFor(() =>
+      expect(observedState().status).toBe('spotify-verifying')
+    );
+    // boot + UN seul /me de réessai (le 2ᵉ clic est ignoré).
+    expect(mockActions.getCurrentUser).toHaveBeenCalledTimes(2);
+
+    profile.resolve(spotifyUser('account-a'));
+    await waitFor(() => expect(observedState().status).toBe('spotify'));
+    expect(mockActions.getCurrentUser).toHaveBeenCalledTimes(2);
+  });
+
+  it('cas 8 — sécurité : le diagnostic utilisateur ne contient JAMAIS token / refresh_token / code_verifier / header, ni « undefined »', () => {
+    const failures: (SpotifyVerificationFailure | null)[] = [
+      { kind: 'invalid-response' },
+      { kind: 'network' },
+      { kind: 'rate-limited' },
+      { kind: 'http', status: 401 },
+      { kind: 'http', status: 403 },
+      { kind: 'http', status: 429 },
+      { kind: 'http', status: 503 },
+      { kind: 'http', status: 404 },
+      { kind: 'generic' },
+      null,
+    ];
+
+    for (const failure of failures) {
+      const text = describeSpotifyVerificationFailure(translations, failure);
+      if (text === null) {
+        continue;
+      }
+      expect(text.length).toBeGreaterThan(0);
+      expect(text).not.toMatch(/undefined|NaN|\[object Object\]/);
+      expect(text).not.toMatch(
+        /access_token|refresh_token|code_verifier|Bearer|authorization/i
+      );
+    }
+    expect(describeSpotifyVerificationFailure(translations, null)).toBeNull();
   });
 });

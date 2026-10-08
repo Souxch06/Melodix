@@ -38,8 +38,17 @@ const mockDescribeSession = jest.fn(async () => ({
 
 const mockReloadUserData = jest.fn(async () => {});
 
-let mockSessionStatus: 'loading' | 'local' | 'spotify' | 'spotify-unverified' =
-  'spotify';
+let mockSessionStatus:
+  | 'loading'
+  | 'local'
+  | 'spotify'
+  | 'spotify-unverified'
+  | 'spotify-verifying' = 'spotify';
+
+let mockVerificationFailure: {
+  kind: 'network' | 'rate-limited' | 'http' | 'invalid-response' | 'generic';
+  status?: number;
+} | null = null;
 
 jest.mock('expo-router', () => ({
   useRouter: () => ({ push: mockPush, replace: mockReplace, back: mockBack }),
@@ -52,6 +61,11 @@ jest.mock('react-native-safe-area-context', () => ({
 jest.mock('@context', () => {
   // Dictionnaire RÉEL (FR par défaut) chargé paresseusement dans la factory.
   const { translations: realTranslations } = jest.requireActual('@data');
+  // Traducteur de diagnostic RÉEL (module pur) : les tests de rendu
+  // contrôlent le comportement réel (aucun secret, jamais « undefined »).
+  const { describeSpotifyVerificationFailure } = jest.requireActual(
+    '../../context/spotifyIdentity'
+  );
 
   return {
     useUserData: () => ({
@@ -62,6 +76,7 @@ jest.mock('@context', () => {
         imageURL: '',
       },
       sessionStatus: mockSessionStatus,
+      verificationFailure: mockVerificationFailure,
       signOut: mockSignOut,
       reloadUserData: mockReloadUserData,
     }),
@@ -88,6 +103,7 @@ jest.mock('@context', () => {
     useTranslations: () => realTranslations,
     useAccent: () => '#1ed760',
     useLanguage: () => 'fr',
+    describeSpotifyVerificationFailure,
   };
 });
 
@@ -206,6 +222,35 @@ describe('Paramètres — compte et déconnexion', () => {
 
     // L'utilisateur garde une porte de sortie explicite.
     expect(getByTestId('settings-signout')).toBeTruthy();
+  });
+
+  it('identité indisponible + cause connue : le diagnostic SÛR est visible dans le sous-titre', () => {
+    mockSessionStatus = 'spotify-unverified';
+    mockVerificationFailure = { kind: 'http', status: 401 };
+
+    const { getByTestId } = render(<SettingsScreen />);
+    const subtitle = String(
+      getByTestId('settings-account-subtitle').props.children
+    );
+
+    expect(subtitle).toContain('HTTP 401 — access token invalide ou expiré');
+    expect(subtitle).not.toMatch(
+      /access_token=|refresh_token=|code_verifier=|Bearer |undefined/
+    );
+    expect(getByTestId('settings-identity-retry')).toBeTruthy();
+    mockVerificationFailure = null;
+  });
+
+  it('réessai en cours (« spotify-verifying ») : libellé de vérification visible, PLUS de bouton Réessayer', () => {
+    mockSessionStatus = 'spotify-verifying';
+
+    const { getByTestId, queryByTestId } = render(<SettingsScreen />);
+
+    expect(getByTestId('settings-account-name').props.children).toBe(
+      'Vérification de ton compte Spotify…'
+    );
+    // Pendant la tentative, le 2ᵉ clic est impossible depuis cet écran.
+    expect(queryByTestId('settings-identity-retry')).toBeNull();
   });
 
   it('mode local : affiche le compte local SANS bouton de déconnexion', () => {
@@ -398,7 +443,7 @@ describe('Paramètres — données, langue, aide et version', () => {
     const texts = row
       .findAllByType('Text')
       .map((node: { props: { children?: unknown } }) => node.props.children);
-    expect(texts).toContain('4.5.0-test.17');
+    expect(texts).toContain('4.5.0-test.18');
   });
 
   it('audio : la cascade réelle des sources est affichée honnêtement', () => {

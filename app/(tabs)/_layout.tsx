@@ -4,7 +4,7 @@ import { Redirect, Tabs } from 'expo-router';
 
 import { ErrorCard, MiniPlayer } from '@components';
 import { BottomTabBar } from '@navigators';
-import { useUserData } from '@context';
+import { describeSpotifyVerificationFailure, useUserData } from '@context';
 import { useKeyboardVisible } from '@hooks';
 import { translations } from '@data';
 
@@ -16,13 +16,17 @@ import { translations } from '@data';
  * - 'loading' (aucune session lue, ou session trouvée mais profil pas encore
  *   vérifié) → écran sombre neutre, aucune navigation ;
  * - 'spotify-unverified' (session stockée, profil indisponible) → état
- *   explicite + réessai : l'application n'ouvre pas ses onglets avec une
- *   identité inconnue, mais ne renvoie PAS vers la connexion (la session
- *   existe encore — ce serait perdre l'utilisateur) ;
+ *   explicite + réessai + cause SÛRE affichée (diagnostic) : l'application
+ *   n'ouvre pas ses onglets avec une identité inconnue, mais ne renvoie PAS
+ *   vers la connexion (la session existe encore — ce serait perdre
+ *   l'utilisateur) ;
+ * - 'spotify-verifying' (réessai en cours) → écran de chargement neutre :
+ *   changement visible (l'écran d'erreur disparaît) et le bouton « Réessayer
+ *   » n'existe plus → aucun double clic possible ;
  * - 'local' (vraiment aucun compte) → redirection vers la connexion.
  */
 export default function Layout() {
-  const { sessionStatus, reloadUserData } = useUserData();
+  const { sessionStatus, reloadUserData, verificationFailure } = useUserData();
   /**
    * BUG CLAVIER — la barre d'onglets et le mini-lecteur sont MASQUÉS tant que
    * le clavier logiciel est ouvert.
@@ -46,11 +50,19 @@ export default function Layout() {
    */
   const keyboardVisible = useKeyboardVisible();
 
-  if (sessionStatus === 'loading') {
+  if (sessionStatus === 'loading' || sessionStatus === 'spotify-verifying') {
+    // Démarrage OU réessai en cours : écran neutre (aucune navigation,
+    // aucun bouton — pendant un réessai, l'erreur n'est plus affichée).
     return <View style={{ flex: 1, backgroundColor: '#121212' }} />;
   }
 
   if (sessionStatus === 'spotify-unverified') {
+    // Cause SÛRE du dernier échec (réseau, 401, 429, 5xx, réponse invalide)
+    // — jamais de token ni de valeur technique brute.
+    const detail = describeSpotifyVerificationFailure(
+      translations,
+      verificationFailure
+    );
     return (
       <View style={styles.identityError} testID="session-identity-unavailable">
         <ErrorCard
@@ -58,7 +70,11 @@ export default function Layout() {
           retryTestID="session-identity-retry"
           icon="person-circle-outline"
           title={translations.spotifyRestoreUnavailableTitle}
-          body={translations.spotifyRestoreUnavailableBody}
+          body={
+            detail
+              ? `${translations.spotifyRestoreUnavailableBody}\n\n${detail}`
+              : translations.spotifyRestoreUnavailableBody
+          }
           onRetry={() => void reloadUserData()}
         />
       </View>

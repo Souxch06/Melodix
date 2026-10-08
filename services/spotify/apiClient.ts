@@ -7,14 +7,22 @@
  * un token utilisateur par le serveur serait une exposition inutile.)
  *
  * Comportements :
- * - 401 → UNE tentative de refresh puis UNE seule retry ; si la session est
- *   morte, erreur 'unauthenticated' (le contexte ramène au login) ;
- * - 429 → attente Retry-After puis une retry silencieuse ;
- * - jamais d'en-tête Authorization ni de token dans les logs.
+ * - 401 → UNE tentative de refresh (RAE) puis UNE seule retry. Si le refresh
+ *   est DÉFINITIF (refusé / absent) → 'unauthenticated' (le contexte purger
+ *   les credentials morts et demande une reconnexion) ; si le refresh est
+ *   TRANSITOIRE (429/5xx/réseau) → erreur retryable, session CONSERVÉE ;
+ * - un 2ᵉ 401 après un refresh RÉUSSI → 'http' 401 retryable (le refresh
+ *   token vient d'être validé : on ne force PAS une reconnexion) ;
+ * - 429 sur l'API → attente Retry-After puis une retry silencieuse ;
+ * - jamais d'en-tête Authorization ni de token dans les logs ni les erreurs.
  */
 import { SPOTIFY_API_BASE_URL } from './authConfig';
 import { sanitizeErrorDescription, spotifyLog } from './devLog';
-import { clearSessionAccessOnly, getValidAccessToken } from './session';
+import {
+  clearSessionAccessOnly,
+  refreshAccessTokenClassified,
+} from './session';
+import type { RefreshResult } from './session';
 
 export type SpotifyApiErrorKind =
   | 'unauthenticated' // session absente ou définitivement invalide
@@ -64,16 +72,52 @@ const doFetch = async (
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 /**
+ * Convertit un refresh ÉCHOUÉ en erreur API classée :
+ * - transitoire (429/5xx/réseau/timeout) → erreur RETRYABLE ('network' ou
+ *   'rate-limited'), la session est CONSERVÉE — « Réessayer » doit
+ *   fonctionner ;
+ * - définitif (pas de session / pas de refresh token / refus explicite) →
+ *   'unauthenticated' : le contexte purge les credentials morts et demande
+ *   une nouvelle connexion.
+ * Seules des infos SÛRES sont portées (code whitelisté + statut HTTP) —
+ * jamais de token, de refresh_token ni d'en-tête.
+ */
+const throwForRefreshFailure = (
+  refreshed: Exclude<RefreshResult, { ok: true }>
+): never => {
+  if (refreshed.cause === 'transient') {
+    const rateLimited = refreshed.detail.includes('429');
+    throw new SpotifyApiError(
+      rateLimited ? 'rate-limited' : 'network',
+      'Renouvellement de session impossible pour le moment (erreur temporaire).',
+      rateLimited ? 429 : undefined
+    );
+  }
+
+  // Définitif : refresh token refusé (invalid_grant, invalid_client, …)
+  // ou absent — la session est morte.
+  throw new SpotifyApiError(
+    'unauthenticated',
+    'La session Spotify a expiré.',
+    refreshed.cause === 'refused' ? refreshed.status : undefined,
+    refreshed.cause === 'refused'
+      ? `${refreshed.errorCode} · HTTP ${refreshed.status}`
+      : ''
+  );
+};
+
+/**
  * GET authentifié, avec retry sain (401 → refresh ×1, 429 → attente ×2).
  * En-dehors des cas de session, `null` est renvoyé pour un corps non JSON
  — les couches au-dessus décident du message utilisateur.
  */
 export const spotifyApiGet = async <T>(path: string): Promise<T> => {
-  let token = await getValidAccessToken();
-
-  if (!token) {
-    throw new SpotifyApiError('unauthenticated', 'Session Spotify absente.');
+  const acquired = await refreshAccessTokenClassified();
+  if (!acquired.ok) {
+    throw throwForRefreshFailure(acquired);
   }
+
+  let token = acquired.token;
 
   let retries429 = 0;
   let retried401 = false;
@@ -88,26 +132,33 @@ export const spotifyApiGet = async <T>(path: string): Promise<T> => {
 
     if (response.status === 401) {
       if (!retried401) {
-        // Token refusé (révoqué, expiré) : on force un refresh puis on rejoue.
+        // Token refusé (expiré, tourné, révoqué) : on l'INVALIDE d'abord —
+        // un 401 arrive même si le token n'est pas expiré localement
+        // (révocation serveur, rotation, dérive d'horloge) — puis UNE
+        // tentative de refresh (partagée RAE) avant de rejouer la requête.
         retried401 = true;
-        const refreshed = await forceRefreshAccessToken();
-        if (!refreshed) {
-          throw new SpotifyApiError(
-            'unauthenticated',
-            'La session Spotify a expiré.'
-          );
+        await clearSessionAccessOnly();
+        const refreshed = await refreshAccessTokenClassified();
+        if (refreshed.ok) {
+          token = refreshed.token;
+          continue;
         }
-        token = refreshed;
-        continue;
+        // Refresh impossible ou refusé : classification définitif/transitoire
+        // (transitoire → erreur retryable, session conservée ; définitif →
+        // unauthenticated, reconnexion demandée par le contexte).
+        throw throwForRefreshFailure(refreshed);
       }
 
-      // Le token fraîchement renouvelé est lui aussi refusé. Traiter ce cas
-      // comme une erreur HTTP générique laisserait l'UI croire que la session
-      // est encore valide et provoquerait une boucle de 401 aux appels suivants.
+      // Le token fraîchement renouvelé est lui-aussi refusé : le refresh
+      // token vient d'être VALIDÉ par Spotify (il vient de délivrer un token)
+      // → la session est CONSERVÉE. On invalide l'access token refusé (le
+      // prochain essai rafraîchira à nouveau) et on expose une erreur
+      // RETRYABLE — pas 'unauthenticated', qui forcerait une reconnexion
+      // inutile. Pas de boucle : au plus UN refresh + UNE retry par appel.
       await clearSessionAccessOnly();
       throw new SpotifyApiError(
-        'unauthenticated',
-        'La session Spotify a expiré.',
+        'http',
+        'Access token refusé après renouvellement.',
         401
       );
     }
@@ -160,10 +211,4 @@ export const spotifyApiGet = async <T>(path: string): Promise<T> => {
 
     return (await response.json()) as T;
   }
-};
-
-/** Forçage explicite (invalide l'accès courant puis refetch du token). */
-const forceRefreshAccessToken = async (): Promise<string | null> => {
-  await clearSessionAccessOnly();
-  return getValidAccessToken();
 };

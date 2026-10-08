@@ -17,11 +17,24 @@ import { fireEvent, render, screen } from '@testing-library/react-native';
 import Layout from '../_layout';
 
 const mockState: {
-  sessionStatus: 'loading' | 'local' | 'spotify' | 'spotify-unverified';
+  sessionStatus:
+    | 'loading'
+    | 'local'
+    | 'spotify'
+    | 'spotify-unverified'
+    | 'spotify-verifying';
   reloadUserData: jest.Mock;
+  verificationFailure:
+    | { kind: 'network' }
+    | { kind: 'rate-limited' }
+    | { kind: 'http'; status: number }
+    | { kind: 'invalid-response' }
+    | { kind: 'generic' }
+    | null;
 } = {
   sessionStatus: 'spotify',
   reloadUserData: jest.fn(async () => {}),
+  verificationFailure: null,
 };
 
 const redirects: unknown[] = [];
@@ -30,7 +43,12 @@ jest.mock('@context', () => ({
   useUserData: () => ({
     sessionStatus: mockState.sessionStatus,
     reloadUserData: mockState.reloadUserData,
+    verificationFailure: mockState.verificationFailure,
   }),
+  // Traducteur de diagnostic RÉEL (module pur, sans dépendance native).
+  describeSpotifyVerificationFailure: jest.requireActual(
+    '../../../context/spotifyIdentity'
+  ).describeSpotifyVerificationFailure,
 }));
 
 jest.mock('@hooks', () => ({
@@ -47,12 +65,28 @@ jest.mock('@components', () => {
     ErrorCard: (props: {
       testID?: string;
       retryTestID?: string;
+      title?: string;
+      body?: string;
       onRetry: () => void;
     }) =>
       ReactActual.createElement(
-        PressableActual,
-        { testID: props.retryTestID, onPress: props.onRetry },
-        ReactActual.createElement(TextActual, { testID: props.testID })
+        ReactActual.Fragment,
+        null,
+        ReactActual.createElement(
+          TextActual,
+          { testID: 'card-title' },
+          props.title
+        ),
+        ReactActual.createElement(
+          TextActual,
+          { testID: 'card-body' },
+          props.body
+        ),
+        ReactActual.createElement(
+          PressableActual,
+          { testID: props.retryTestID, onPress: props.onRetry },
+          ReactActual.createElement(TextActual, { testID: props.testID })
+        )
       ),
   };
 });
@@ -82,6 +116,7 @@ beforeEach(() => {
   jest.clearAllMocks();
   redirects.length = 0;
   mockState.sessionStatus = 'spotify';
+  mockState.verificationFailure = null;
 });
 
 describe('Onglets — restauration d’identité', () => {
@@ -121,5 +156,54 @@ describe('Onglets — restauration d’identité', () => {
     render(<Layout />);
 
     expect(redirects).toHaveLength(0);
+  });
+
+  it("'spotify-verifying' (réessai en cours) : écran neutre, PLUS de bouton Réessayer (anti double-clic), aucune redirection", () => {
+    mockState.sessionStatus = 'spotify-verifying';
+
+    render(<Layout />);
+
+    // Changement visible : l'écran d'erreur a disparu (plus de carte, plus
+    // de bouton) — pendant la tentative, un 2ᵉ clic est impossible.
+    expect(screen.queryByTestId('session-identity-unavailable')).toBeNull();
+    expect(screen.queryByTestId('session-identity-retry')).toBeNull();
+    expect(redirects).toHaveLength(0);
+  });
+
+  it("'spotify-unverified' + échec réseau : la cause SÛRE est affichée dans la carte", () => {
+    mockState.sessionStatus = 'spotify-unverified';
+    mockState.verificationFailure = { kind: 'network' };
+
+    render(<Layout />);
+
+    expect(screen.getByTestId('card-body').props.children).toContain(
+      'Réseau indisponible'
+    );
+    // Jamais de valeur technique brute ni de secret dans la carte.
+    expect(
+      JSON.stringify(screen.getByTestId('card-body').props.children)
+    ).not.toMatch(/access_token|refresh_token|code_verifier|Bearer |undefined/);
+  });
+
+  it("'spotify-unverified' + HTTP 401 : message explicite « access token invalide ou expiré »", () => {
+    mockState.sessionStatus = 'spotify-unverified';
+    mockState.verificationFailure = { kind: 'http', status: 401 };
+
+    render(<Layout />);
+
+    expect(screen.getByTestId('card-body').props.children).toContain(
+      'HTTP 401 — access token invalide ou expiré'
+    );
+  });
+
+  it("'spotify-unverified' SANS cause connue : le corps d'origine reste seul (pas de ligne vide/undefined)", () => {
+    mockState.sessionStatus = 'spotify-unverified';
+
+    render(<Layout />);
+
+    const body = String(screen.getByTestId('card-body').props.children);
+    expect(body).toContain("n'a pas pu être vérifié");
+    expect(body).not.toContain('undefined');
+    expect(body).not.toContain('\n\n');
   });
 });

@@ -11,6 +11,7 @@ import {
   loadSession,
   PENDING_TX_MAX_AGE_MS,
   redeemAuthorizationCode,
+  refreshAccessTokenClassified,
   resolveStartupSession,
   savePendingOAuthTransaction,
   saveSession,
@@ -42,6 +43,11 @@ const expiredSession = () => ({
 describe('services/spotify/session (SecureStore)', () => {
   const originalFetch = globalThis.fetch;
   const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+
+  const setFetchStub = (impl: (url: string) => Promise<unknown>): jest.Mock => {
+    globalThis.fetch = jest.fn(impl as never) as unknown as typeof fetch;
+    return globalThis.fetch as unknown as jest.Mock;
+  };
 
   beforeEach(async () => {
     (
@@ -608,6 +614,146 @@ describe('services/spotify/session (SecureStore)', () => {
         expect(String(call[0])).not.toContain('verifier-persisted');
       }
       logSpy.mockRestore();
+    });
+  });
+
+  describe('refreshAccessTokenClassified (RAE, définitif vs transitoire)', () => {
+    it('token PAS expiré → token courant, SANS appel réseau', async () => {
+      const fetchMock = setFetchStub(async () => {
+        throw new Error('aucun appel réseau attendu');
+      });
+      await saveSession(freshSession());
+
+      await expect(refreshAccessTokenClassified()).resolves.toEqual({
+        ok: true,
+        token: 'access-new',
+      });
+      expect(fetchMock).not.toHaveBeenCalled();
+    });
+
+    it('expiré + refresh REFUSÉ 400 invalid_grant → refused (définitif), session non modifiée', async () => {
+      setFetchStub(async (url: string) => {
+        if (url.includes('accounts.spotify.com')) {
+          return {
+            ok: false,
+            status: 400,
+            json: async () => ({
+              error: 'invalid_grant',
+              error_description: 'Invalid refresh token',
+            }),
+          };
+        }
+        return { ok: false, status: 401 };
+      });
+      await saveSession(expiredSession());
+
+      await expect(refreshAccessTokenClassified()).resolves.toEqual({
+        ok: false,
+        cause: 'refused',
+        status: 400,
+        errorCode: 'invalid_grant',
+      });
+      // Le refresh refusé ne doit PAS corrompre la session stockée :
+      // c'est le caller (contexte) qui décide de la purge.
+      expect((await loadSession())?.refreshToken).toBe('refresh-old');
+    });
+
+    it('expiré + refresh 500 → transient (la session sera retentée)', async () => {
+      setFetchStub(async (url: string) => {
+        if (url.includes('accounts.spotify.com')) {
+          return {
+            ok: false,
+            status: 500,
+            json: async () => ({ error: 'temporarily_unavailable' }),
+          };
+        }
+        return { ok: false, status: 401 };
+      });
+      await saveSession(expiredSession());
+
+      const result = await refreshAccessTokenClassified();
+      expect(result).toMatchObject({ ok: false, cause: 'transient' });
+      expect(await loadSession()).not.toBeNull();
+    });
+
+    it('expiré + refresh RÉUSSI → ok + nouveau token persisté (l ancien refresh conservé si absent)', async () => {
+      setFetchStub(async (url: string) => {
+        if (url.includes('accounts.spotify.com')) {
+          // Spotify ne renvoie PAS de nouveau refresh token ici.
+          return {
+            ok: true,
+            json: async () => ({
+              access_token: 'access-rotated',
+              expires_in: 3600,
+            }),
+          };
+        }
+        return { ok: false, status: 401 };
+      });
+      await saveSession(expiredSession());
+
+      await expect(refreshAccessTokenClassified()).resolves.toEqual({
+        ok: true,
+        token: 'access-rotated',
+      });
+      const stored = await loadSession();
+      expect(stored?.accessToken).toBe('access-rotated');
+      expect(stored?.refreshToken).toBe('refresh-old');
+    });
+
+    it('deux concurrents → UNE seule requête de refresh (RAE classifié)', async () => {
+      let calls = 0;
+      setFetchStub(async (url: string) => {
+        if (url.includes('accounts.spotify.com')) {
+          calls += 1;
+          return {
+            ok: true,
+            json: async () => ({
+              access_token: 'access-rotated',
+              expires_in: 3600,
+            }),
+          };
+        }
+        return { ok: false, status: 401 };
+      });
+      await saveSession(expiredSession());
+
+      const [a, b] = await Promise.all([
+        refreshAccessTokenClassified(),
+        refreshAccessTokenClassified(),
+      ]);
+      expect(a).toEqual({ ok: true, token: 'access-rotated' });
+      expect(b).toEqual({ ok: true, token: 'access-rotated' });
+      expect(calls).toBe(1);
+    });
+  });
+
+  describe('requestToken — timeout durci (anti-hang du « Réessayer »)', () => {
+    it('connexion qui PLANTE (ni réponse, ni reset) → network au bout du timeout, pas de hang', async () => {
+      jest.useFakeTimers({ advanceTimers: true });
+      const fetchMock = setFetchStub(() => {
+        // Promesse qui ne se résout JAMAIS (la coupure ne répond pas).
+        return new Promise(() => {});
+      });
+      await saveSession(expiredSession());
+
+      const pending = refreshAccessTokenClassified();
+      // Tant que le timer n'avance pas, rien ne se résout — mais au bout du
+      // timeout (15 s), la promesse se résout en transitoire.
+      await jest.advanceTimersByTimeAsync(16_000);
+      await expect(pending).resolves.toMatchObject({
+        ok: false,
+        cause: 'transient',
+        detail: 'network',
+      });
+      // L'abort a bien été demandé au fetch réel (signal interrompu).
+      const [, options] = fetchMock.mock.calls[0] as unknown as [
+        string,
+        { signal?: { aborted: boolean } },
+      ];
+      expect(options.signal?.aborted).toBe(true);
+      expect(await loadSession()).not.toBeNull();
+      jest.useRealTimers();
     });
   });
 });
