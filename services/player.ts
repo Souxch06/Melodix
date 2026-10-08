@@ -2,6 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { AppState } from 'react-native';
 
 import { appendDiagLog } from '../modules/melodix-media';
+import { spotifyWebTrace } from './spotify/devLog';
 
 import {
   DEFAULT_AUDIO_PROVIDER_ID,
@@ -1005,6 +1006,10 @@ class MelodixPlayer {
       appendDiagLog(
         `PLAYER_SPOTIFY_WEB_ERROR trackId=${track.id} code=${code}`
       );
+      // Miroir logcat : verdict NON confirmé (le code est contrôlé). En
+      // l'absence de compte Spotify (CI), c'est la seule ligne attendue si
+      // une tentative a lieu — jamais de `playback-confirmed`.
+      spotifyWebTrace('playback-error', `code=${code}`);
       return { kind: 'error', code };
     }
 
@@ -1034,6 +1039,10 @@ class MelodixPlayer {
     appendDiagLog(
       `PLAYER_SPOTIFY_WEB_CONFIRMED trackId=${track.id} sourceId=${spotifyId}`
     );
+    // Miroir logcat : UNIQUE ligne qui autorise un `playing` moteur — la
+    // page a RÉELLEMENT publié `playing`. Sa présence sans compte Spotify
+    // (CI) signifierait un faux `playing`.
+    spotifyWebTrace('playback-confirmed');
     this.persistSession();
     return { kind: 'confirmed' };
   };
@@ -1638,6 +1647,9 @@ class MelodixPlayer {
         appendDiagLog(
           `PLAYER_SPOTIFY_WEB_TRANSIENT_LOSS trackId=${track.id} code=${code}`
         );
+        // Miroir logcat : perte d'infrastructure (pas une erreur du
+        // morceau). Jamais de `playback-confirmed` sur ce chemin.
+        spotifyWebTrace('playback-error', `code=${code}`);
         return;
       }
       this.markFailed(track, 'play-failed', code);

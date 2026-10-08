@@ -132,6 +132,43 @@ export const spotifyConfigLine = (line: string): void => {
 };
 
 /**
+ * TRACE de la chaîne LECTURE Spotify Web (hôte de production + moteur).
+ *
+ * Format logcat (lisible sur appareil ET depuis la smoke CI sur émulateur) :
+ *   [MelodixSpotifyWeb] <step>[: <detail non sensible>]
+ *
+ * Étapes CONTRÔLÉES (identifiants fixes, jamais de contenu de page) :
+ *   host-mounted            l'hôte de production est monté (porte ouverte)
+ *   host-unmounted          l'hôte de production est démonté
+ *   bridge-state            un état publié par la page a été ACCEPTÉ par le
+ *                           backend (pipeline page → app prouvé)
+ *   playback-confirmed      seule ligne qui puisse suivre un `playing` moteur :
+ *                           la page a réellement publié `playing`
+ *   playback-error          verdict non confirmé (detail `code=<code contrôlé>`)
+ *   + les codes de diagnostic du runtime tels quels (webview_loading,
+ *     webview_loaded, bridge_ready, bridge_timeout, network_error,
+ *     renderer_destroyed, navigation_blocked, http_error, …) — enum bornée.
+ *
+ * Le detail passe par la MÊME garde sensible que les traces OAuth : tout
+ * motif token/secret/Bearer est masqué. JAMAIS : cookie, corps de page,
+ * URL de flux, token, code.
+ */
+export const spotifyWebTrace = (step: string, detail?: string): void => {
+  const safeDetail =
+    detail === undefined
+      ? ''
+      : ` ${
+          sensitivePattern.test(detail)
+            ? '<redacted>'
+            : detail.length > 100
+              ? `${detail.slice(0, 97)}…`
+              : detail
+        }`;
+  // eslint-disable-next-line no-console
+  console.log(`[MelodixSpotifyWeb] ${step}${safeDetail}`);
+};
+
+/**
  * Motifs à ne JAMAIS laisser passer dans une ligne de diagnostic — ciblés
  * sur les SECRETS (valeurs d'en-tête ou de clé), pas sur les intitulés
  * d'étape : « Authorization code received: YES » ou

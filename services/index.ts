@@ -172,6 +172,7 @@ export {
   sanitizeErrorDescription,
   spotifyDiag,
   spotifyLog,
+  spotifyWebTrace,
 } from './spotify/devLog';
 export { useSpotifyAuth } from './spotify/useSpotifyAuth';
 export type { SpotifyAuthState } from './spotify/useSpotifyAuth';

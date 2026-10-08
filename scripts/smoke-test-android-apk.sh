@@ -114,6 +114,76 @@ WARM_PID=$(adb shell pidof -s "$PACKAGE" 2>/dev/null | tr -d '\r' || true)
 [ -n "$WARM_PID" ] || fail "processus détruit après deep-link OAuth warm"
 echo "::notice title=Deep-link OAuth (warm)::${SPOTIFY_REDIRECT} routé vers l'app vivante sans crash (pid=$WARM_PID)"
 
+# ── HÔTE Spotify Web de PRODUCTION (V17) — breadcrumb logcat [MelodixSpotifyWeb] ──
+# L'hôte de production est monté à la racine de l'app (hors Stack) : la WebView
+# (hors écran) charge open.spotify.com et le runtime y gère handshake + bridge.
+# La porte est OUVERTE en production (défaut de préférence + bootstrap).
+# L'APK assembleRelease n'est pas debuggable (pas de run-as) : le breadcrumb
+# console.log → logcat est la SEULE observabilité CI de cet hôte.
+# CI = AUCUN compte Spotify : aucune tentative de lecture n'est engagée →
+# ni `playback-confirmed` ni `playback-error` ne doivent apparaître ici ;
+# l'absence de FAUX `playing` est re-vérifiée en fin de run (toute la durée).
+# (Le prototype de diagnostic plus bas reste couvert séparément : il est un
+# écran settings distinct de l'hôte de production.)
+WEB_HOST_LOGCAT_FILE=$(mktemp /tmp/melodix-web-host.XXXXXX)
+capture_web_host_lines() {
+  # Snapshote les lignes [MelodixSpotifyWeb] dans le fichier de run :
+  # logcat est vidé (adb logcat -c) entre les scénarios OAuth, sans ce
+  # snapshot la vérification finale « faux playing » serait aveugle à la
+  # première moitié du run.
+  _hlines=$(adb logcat -d 2>/dev/null | grep -F '[MelodixSpotifyWeb]' || true)
+  if [ -n "$_hlines" ]; then
+    printf '%s\n' "$_hlines" >> "$WEB_HOST_LOGCAT_FILE"
+  fi
+}
+capture_web_host_lines
+# 1. MONTAGE de l'hôte production : REQUIS (porte ouverte en production).
+# Émulateur CI lent : on laisse du temps au bundle + au montage (sondes).
+_htries=0
+while ! grep -Fq 'host-mounted' "$WEB_HOST_LOGCAT_FILE"; do
+  [ "$_htries" -ge 3 ] && break
+  sleep 5
+  _htries=$((_htries + 1))
+  capture_web_host_lines
+done
+grep -Fq 'host-mounted' "$WEB_HOST_LOGCAT_FILE" || \
+  fail "hôte de production non monté (aucune ligne [MelodixSpotifyWeb] host-mounted en logcat après ~45 s de run)"
+echo "::notice title=Hôte Spotify Web (production)::host-mounted confirmé en logcat — la WebView open.spotify.com (hors écran) est montée à la racine de l'app"
+# 2. Résultat du HANDSHAKE : explicite et borné (le runtime rapporte TOUJOURS
+# un code de l'enum contrôlée — prêt ou erreur nommée). Attendu sans compte.
+_hdone=0
+_htries=0
+while [ "$_hdone" -eq 0 ]; do
+  [ "$_htries" -ge 6 ] && break
+  sleep 5
+  _htries=$((_htries + 1))
+  capture_web_host_lines
+  if grep -Eq 'bridge_ready|bridge_timeout|network_error|http_error|web_player_inaccessible|navigation_blocked|renderer_destroyed|webview_reconnect_exhausted' "$WEB_HOST_LOGCAT_FILE"; then
+    _hdone=1
+  fi
+done
+if grep -Fq 'bridge_ready' "$WEB_HOST_LOGCAT_FILE"; then
+  echo "::notice title=Handshake hôte production::bridge_ready — le pont page ↔ app est établi sur l'hôte de production"
+elif grep -Eq 'bridge_timeout|network_error|http_error|web_player_inaccessible|navigation_blocked|renderer_destroyed|webview_reconnect_exhausted' "$WEB_HOST_LOGCAT_FILE"; then
+  _hcodes=$(grep -Eo 'bridge_timeout|network_error|http_error|web_player_inaccessible|navigation_blocked|renderer_destroyed|webview_reconnect_exhausted' "$WEB_HOST_LOGCAT_FILE" | sort -u | tr '\n' ',' | sed 's/,$//')
+  echo "::warning title=Handshake hôte production::handshake non prêt (codes: ${_hcodes:-inconnu}) — aucune capacité de lecture revendiquée (comportement honnête sans compte Spotify)"
+else
+  _observed=$(grep -F '[MelodixSpotifyWeb]' "$WEB_HOST_LOGCAT_FILE" | grep -Eo '\] [a-z0-9_-]+' | tr -d ']' | sort -u | tr '\n' ',' | sed 's/^, //;s/,$//')
+  fail "aucun résultat explicite du handshake de l'hôte de production en logcat (ni bridge_ready ni code de diagnostic) — codes observés: ${_observed:-aucun}"
+fi
+# 3. Premier état publié ACCEPTÉ par le backend (pipeline page → app).
+# Non bloquant : sans compte, la page peut n'accepter aucun état — mais si
+# elle publie, le backend doit l'accepter (jamais d'état fantôme).
+if grep -Fq 'bridge-state' "$WEB_HOST_LOGCAT_FILE"; then
+  echo "::notice title=Bridge hôte production::bridge-state — un état publié par la page a été accepté par le backend (pipeline page → app prouvé)"
+else
+  echo "::warning title=Bridge hôte production::aucun état de page accepté observé (bridge-state) — sans compte Spotify la lecture réelle n'est pas démontrée en CI"
+fi
+# 4. Dès maintenant (avant toute interaction) : AUCUNE ligne de lecture.
+if grep -Fq 'playback-confirmed' "$WEB_HOST_LOGCAT_FILE"; then
+  fail "FAUX PLAYING : [MelodixSpotifyWeb] playback-confirmed présent en logcat alors qu'aucun compte Spotify et aucune interaction utilisateur n'existent"
+fi
+
 # Prototype Spotify Web isolé : ouvre la route de diagnostic par deep link,
 # vérifie que la vraie vue Android est rendue, puis exerce arrière-plan/retour.
 # Aucun compte, cookie, token ou contenu DOM Spotify n'est lu par ce smoke.
@@ -442,7 +512,27 @@ if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
   echo "- Deep-link OAuth : warm (app vivante) ; cold A (callback SANS tx → cold-start-no-verifier) ; cold B (callback AVEC tx persistée → verifier restauré → token_exchange:start, séquence ordonnée) ; login Spotify réel NON testable en CI (pas de compte)" >> "$GITHUB_STEP_SUMMARY"
 fi
 
-echo "::notice title=Installation Android réelle::installation + prototype WebView + cycle arrière-plan/retour + service foreground + MediaSession + notification + deep-link OAuth (A et B) réussis sur Android 14 x86_64 (pid=$SMOKE_B_PID)"
+# ── VÉRIFICATION FINALE FAUX PLAYING (V17) — TOUT LE RUN ──
+# Snapshot initial (début de run) + logcat courant : sans compte Spotify
+# (CI), aucune tentative de lecture n'est engagée et la ligne
+# `playback-confirmed` est INTERDITE. Sa présence prouverait un faux
+# `playing` — un `playing` moteur sans publication RÉELLE de la page
+# (mission V17 : interdit). L'absence est l'attente honnête : la lecture
+# réelle Spotify Web exige un compte + geste utilisateur dans la page.
+capture_web_host_lines
+if grep -Fq 'playback-confirmed' "$WEB_HOST_LOGCAT_FILE"; then
+  fail "FAUX PLAYING : [MelodixSpotifyWeb] playback-confirmed présent en logcat (run complet) sans compte Spotify — playback non réellement publié par la page"
+fi
+if grep -Fq 'playback-error' "$WEB_HOST_LOGCAT_FILE"; then
+  _ecodes=$(grep -F 'playback-error' "$WEB_HOST_LOGCAT_FILE" | grep -Eo 'code=[a-z0-9-]+' | sort -u | tr '\n' ',' | sed 's/,$//')
+  echo "::notice title=Fake playing (run complet)::aucun playback-confirmed (attendu sans compte Spotify) — une tentative réelle a été engagée, verdict honnête documenté : ${_ecodes:-code inconnu}"
+else
+  echo "::notice title=Fake playing (run complet)::aucun playback-confirmed ni playback-error en logcat : sans compte Spotify, aucune tentative de lecture n'a été engagée — aucun faux playing ; la lecture RÉELLE Spotify Web reste NON DÉMONTRÉE en CI (test physique : non effectué)"
+fi
+echo "::warning title=Lecture Spotify Web (CI)::PLAYBACK SPOTIFY WEB RÉEL NON TESTABLE IN CI — pas de compte Spotify ni d'interaction utilisateur possible dans la page ; la CI valide l'hôte production (montage/handshake/bridge) et l'absence de faux playing, pas une lecture Spotify"
+rm -f "$WEB_HOST_LOGCAT_FILE"
+echo "::notice title=Installation Android réelle::installation + HÔTE Spotify Web production (montage/handshake/bridge, aucun faux playing) + prototype WebView + cycle arrière-plan/retour + service foreground + MediaSession + notification + deep-link OAuth (A et B) réussis sur Android 14 x86_64 (pid=$SMOKE_B_PID)"
 if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
-  echo "- Android 14 : installation, écran Spotify WebView, cycle arrière-plan/retour, FGS média, MediaSession et notification système vérifiés" >> "$GITHUB_STEP_SUMMARY"
+  echo "- Android 14 : installation, HÔTE Spotify Web production (host-mounted, handshake explicite, bridge, AUCUN faux playing), écran prototype, cycle arrière-plan/retour, FGS média, MediaSession et notification système vérifiés" >> "$GITHUB_STEP_SUMMARY"
+  echo "- Spotify Web : lecture RÉELLE non testable en CI (pas de compte) — chaîne hôte production observée par logcat ; TEST PHYSIQUE : NON EFFECTUÉ" >> "$GITHUB_STEP_SUMMARY"
 fi

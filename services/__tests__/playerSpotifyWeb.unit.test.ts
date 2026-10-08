@@ -738,3 +738,76 @@ describe('melodixPlayer + source Spotify Web (port)', () => {
     expect(mockCreatedSounds).toHaveLength(0);
   });
 });
+
+/**
+ * V17 — Miroir logcat de la chaîne [MelodixSpotifyWeb].
+ *
+ * La smoke CI sur émulateur (APK release, sans run-as) ne peut lire que le
+ * logcat. L'INVARIAnte de mission : `playback-confirmed` est la SEULE ligne
+ * qui accompagne un `playing` moteur, et elle n'existe qu'après une
+ * confirmation RÉELLE de la page. Sans compte Spotify (CI), elle ne doit
+ * jamais apparaître ; un verdict non confirmé produit au contraire une
+ * ligne `playback-error code=<code contrôlé>`. On teste le MOTEUR ici :
+ * la vue (montage/handshake/bridge-state) est couverte dans
+ * SpotifyWebHostView.unit.test.tsx.
+ */
+describe('melodixPlayer — V17 : miroir logcat [MelodixSpotifyWeb]', () => {
+  let logSpy: jest.SpyInstance;
+
+  const webLogLines = (): string[] =>
+    logSpy.mock.calls
+      .map((c) => (typeof c[0] === 'string' ? c[0] : ''))
+      .filter((l) => l.startsWith('[MelodixSpotifyWeb]'));
+
+  beforeEach(async () => {
+    await AsyncStorage.clear();
+    mockCreatedSounds = [];
+    __testSetAudioProviders({});
+    await melodixPlayer.__testReset();
+    logSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
+  });
+
+  afterEach(async () => {
+    logSpy.mockRestore();
+    melodixPlayer.attachSpotifyWebSource(null);
+    await melodixPlayer.__testReset();
+  });
+
+  it('confirmation RÉELLE → exactement une ligne « playback-confirmed » (et un `playing` moteur)', async () => {
+    const fake = makeFakePort();
+    melodixPlayer.attachSpotifyWebSource(fake.port);
+    fake.port.attempt.mockResolvedValue({
+      status: 'confirmed',
+      trackId: 'abc',
+      plan: { kind: 'ready' } as never,
+      confirmedAtMillis: Date.now(),
+    });
+
+    await melodixPlayer.playTrack(spotifyTrack('abc'));
+    await flush();
+
+    expect(webLogLines()).toEqual(['[MelodixSpotifyWeb] playback-confirmed']);
+    expect(melodixPlayer.getState().status).toBe('playing');
+  });
+
+  it('verdict NON confirmé → « playback-error code=… », JAMAIS « playback-confirmed »', async () => {
+    const fake = makeFakePort();
+    melodixPlayer.attachSpotifyWebSource(fake.port);
+    fake.port.attempt.mockResolvedValue({
+      status: 'failed',
+      code: 'confirmation-timeout',
+      attempts: [],
+    });
+
+    await melodixPlayer.playTrack(spotifyTrack('abc'));
+    await flush();
+
+    // Une seule ligne miroir, avec le code contrôlé du verdict.
+    expect(webLogLines()).toEqual([
+      '[MelodixSpotifyWeb] playback-error code=confirmation-timeout',
+    ]);
+    // Le moteur n'émet PAS `playing` sur une non-confirmation.
+    expect(melodixPlayer.getState().status).not.toBe('playing');
+    expect(melodixPlayer.getState().resolved).toBeNull();
+  });
+});

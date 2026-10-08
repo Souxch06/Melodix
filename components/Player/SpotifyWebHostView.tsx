@@ -15,6 +15,7 @@ import {
   SpotifyWebBackend,
   SpotifyWebRuntime,
   SpotifyWebTrackTransport,
+  spotifyWebTrace,
   subscribeSpotifyWebPlaybackActivation,
   subscribeSpotifyWebHostVisibility,
   unregisterSpotifyWebPlaybackHost,
@@ -72,6 +73,12 @@ export const SpotifyWebHostView = () => {
   const backendRef = React.useRef<SpotifyWebBackend | null>(null);
   const runtimeRef = React.useRef<SpotifyWebRuntime | null>(null);
   const transportRef = React.useRef<SpotifyWebTrackTransport | null>(null);
+  /**
+   * Trace logcat `bridge-state` : une ligne par DOCUMENT — le premier état
+   * publié par la page et ACCEPTÉ par le backend prouve le pipeline
+   * page → app. Re-ouvert à chaque nouveau document (onLoadStart).
+   */
+  const bridgeStateSeenRef = React.useRef(false);
 
   const enabled = activationActive && spotifyWebPlayback === true;
 
@@ -129,6 +136,10 @@ export const SpotifyWebHostView = () => {
         appendDiagLog(
           `SPOTIFY_WEB_HOST ${code}${typeof detail === 'string' ? ` ${detail.slice(0, 64)}` : ''}`
         );
+        // Miroir logcat de l'ÉVÉNEMENT (jamais du detail) : la smoke CI sur
+        // émulateur en déduit montage / handshake / perte du HÔTE DE
+        // PRODUCTION (distinct du prototype de diagnostic).
+        spotifyWebTrace(code);
       },
       reloadWebView: (scope) => {
         if (scope === 'remount') {
@@ -195,6 +206,11 @@ export const SpotifyWebHostView = () => {
       getRuntimeSnapshot: () => runtime.getSnapshot(),
       getPublishedState: () => backend.getState(),
     });
+    // L'hôte de PRODUCTION est vivant et connu de l'intégration : la
+    // WebView (hors écran) charge open.spotify.com ; le runtime vient de
+    // monter sa première session document (webview_loading suit).
+    bridgeStateSeenRef.current = false;
+    spotifyWebTrace('host-mounted');
 
     const appSub = AppState.addEventListener('change', (nextState) => {
       runtime.onAppStateChange(nextState);
@@ -224,6 +240,10 @@ export const SpotifyWebHostView = () => {
       });
       appSub.remove();
       unregisterSpotifyWebPlaybackHost();
+      // Dernier breadcrumb de vie de l'hôte (la perte d'état publiée juste
+      // avant reste le fait de lecture ; celle-ci documente le cycle de
+      // vie de l'hôte pour le diagnostic logcat).
+      spotifyWebTrace('host-unmounted');
       runtime.unmount();
       transport.destroy();
       backend.attachBridgeTransport(null);
@@ -300,7 +320,12 @@ export const SpotifyWebHostView = () => {
             )
           }
           onLoadEnd={() => runtimeRef.current?.onLoadEnd()}
-          onLoadStart={() => runtimeRef.current?.onLoadStart()}
+          onLoadStart={() => {
+            // Nouveau document : la preuve de pipeline (bridge-state) se
+            // re-ouvre — l'ancienne ne vaut que pour l'ancien renderer.
+            bridgeStateSeenRef.current = false;
+            runtimeRef.current?.onLoadStart();
+          }}
           onMessage={(event) => {
             const transport = transportRef.current;
             const runtime = runtimeRef.current;
@@ -308,9 +333,22 @@ export const SpotifyWebHostView = () => {
               // Le message passe d'abord par le runtime (cycle de vie +
               // garde du backend), le transport n'observe que ce qui est
               // ACCEPTÉ.
-              transport.handleBridgeMessage(event.nativeEvent.data, (raw) =>
-                runtime.handleBridgeMessage(raw)
+              const result = transport.handleBridgeMessage(
+                event.nativeEvent.data,
+                (raw) => runtime.handleBridgeMessage(raw)
               );
+              // Un état publié par la page et ACCEPTÉ par le backend
+              // prouve le pipeline page → app (handshake compris). Une
+              // ligne par document : jamais de flux de logs pendant la
+              // lecture (l'état publié arrive alors chaque seconde).
+              if (
+                (result === 'state-updated' ||
+                  result === 'capabilities-updated') &&
+                !bridgeStateSeenRef.current
+              ) {
+                bridgeStateSeenRef.current = true;
+                spotifyWebTrace('bridge-state');
+              }
             }
           }}
           onNavigationStateChange={(navigation) =>
