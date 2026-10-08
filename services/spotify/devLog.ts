@@ -143,6 +143,15 @@ const sensitivePattern =
   /[Bb]earer\s+\S|access_?token\s*[=:]|refresh_?token\s*[=:]|client_?secret|code_?verifier/i;
 
 /**
+ * Garde d'AFFICHAGE (mode diagnostic visible de l'écran de connexion) :
+ * true si la valeur ressemble à un secret (token/secret/verifier/Bearer).
+ * Chaque champ du diagnostic est contrôlé avec cette garde avant rendu —
+ * défense en profondeur par-dessus la sanitisation déjà faite à la source.
+ */
+export const isSensitiveDiagnosticValue = (value: string): boolean =>
+  sensitivePattern.test(value);
+
+/**
  * Sanitise une description d'erreur OAuth (corps RFC 6749 / authorize) pour
  * la diagnostics : coupe à 80 caractères, refuse tout contenu à mot sensible.
  */

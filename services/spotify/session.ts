@@ -82,16 +82,65 @@ export type TokenExchangeOutcome =
   | { kind: 'save-failed' };
 
 /**
+ * ÉTAPES du flux OAuth — celle qui a échoué (affichée dans le diagnostic
+ * visible de l'écran de connexion, mode temporaire de la mission).
+ */
+export type SpotifyOAuthDiagnosticStage =
+  | 'authorize' // refus Spotify sur la page d'autorisation
+  | 'callback' // callback deep-link mal formé / PKCE / cold start
+  | 'token-exchange' // POST /api/token
+  | 'session-save' // sauvegarde SecureStore après échange réussi
+  | 'profile' // GET /v1/me
+  | 'config' // configuration du build
+  | 'other'; // inattendu
+
+/**
+ * DIAGNOSTIC SÛR À AFFICHER d'un échec de login (mode diagnostic visible,
+ * écran de connexion). Chaque champ est construit EXCLUSIVEMENT depuis des
+ * valeurs déjà non sensibles : codes OAuth whitelistés (RFC 6749), statuts
+ * HTTP, descriptions sanitisées (sanitizeErrorDescription), chaînes
+ * techniques bornées. JAMAIS : access/refresh token, code d'autorisation,
+ * code_verifier, Client Secret, cookies, headers, corps de requête.
+ * L'écran contrôle en plus chaque champ avec isSensitiveDiagnosticValue.
+ */
+export type SpotifyOAuthDiagnostic = {
+  /** Étape du flux qui a échoué. */
+  stage: SpotifyOAuthDiagnosticStage;
+  /** Statut HTTP de la réponse défaillante (null si aucune réponse HTTP). */
+  httpStatus: number | null;
+  /** Code d'erreur court (whitelist OAuth ou jeton technique). */
+  errorCode: string | null;
+  /** Description Spotify sanitisée ('' ou null si absente). */
+  description: string | null;
+  /** Message technique sûr, borné — toujours non vide (fallback lisible). */
+  message: string;
+};
+
+/**
  * Outcomes complets du login (hook → écran). Chaque KIND de la taxonomie
  * correspond à UNE cause visible pour l'utilisateur (cf. LoginScreen).
+ * `diagnostic` (optionnel) porte les détails SÛRS affichés sous le bouton
+ * « Voir les détails » — jamais de valeur sensible.
  */
 export type LoginErrorOutcome =
-  | { kind: 'cancelled'; cause: string }
-  | { kind: 'not-configured'; cause: string }
-  | { kind: 'oauth-refused'; cause: string }
-  | { kind: 'callback-failed'; cause: string }
-  | { kind: 'network'; cause: string }
-  | { kind: 'unknown'; cause: string };
+  | { kind: 'cancelled'; cause: string; diagnostic?: SpotifyOAuthDiagnostic }
+  | {
+      kind: 'not-configured';
+      cause: string;
+      diagnostic?: SpotifyOAuthDiagnostic;
+    }
+  | {
+      kind: 'oauth-refused';
+      cause: string;
+      diagnostic?: SpotifyOAuthDiagnostic;
+    }
+  | {
+      kind: 'callback-failed';
+      cause: string;
+      diagnostic?: SpotifyOAuthDiagnostic;
+    }
+  | { kind: 'network'; cause: string; diagnostic?: SpotifyOAuthDiagnostic }
+  | { kind: 'unknown'; cause: string; diagnostic?: SpotifyOAuthDiagnostic };
 
 export type LoginOutcome =
   | { kind: 'ok'; session: SpotifySession }
@@ -524,6 +573,9 @@ export const redeemAuthorizationCode = async ({
       spotifyConfigLine(
         `[SPOTIFY AUTH] Token exchange HTTP status: ${call.status} (${call.errorCode}${call.description ? ` · ${call.description}` : ''})`
       );
+      spotifyConfigLine(
+        `[Spotify OAuth] stage=token_exchange status=${call.status} error=${call.errorCode}`
+      );
       spotifyConfigLine('[SPOTIFY AUTH] Access token received: NO');
       return {
         kind: 'refused',
@@ -536,6 +588,9 @@ export const redeemAuthorizationCode = async ({
     spotifyConfigLine(
       '[SPOTIFY AUTH] Token exchange HTTP status: unreachable (network)'
     );
+    spotifyConfigLine(
+      '[Spotify OAuth] stage=token_exchange status=unreachable error=network'
+    );
     return { kind: 'network' };
   }
 
@@ -544,6 +599,9 @@ export const redeemAuthorizationCode = async ({
     spotifyDiag('TOKEN_EXCHANGE', 'FAILED(invalid-response)');
     spotifyConfigLine(
       '[SPOTIFY AUTH] Access token received: NO (HTTP 200 without access_token field)'
+    );
+    spotifyConfigLine(
+      '[Spotify OAuth] stage=token_exchange status=200 error=invalid-response'
     );
     spotifyLog('exchange.invalid-response');
     return { kind: 'invalid-response' };
@@ -562,6 +620,9 @@ export const redeemAuthorizationCode = async ({
   } catch (error) {
     console.warn('Spotify session persistence failed', error);
     spotifyDiag('SESSION', 'FAILED');
+    spotifyConfigLine(
+      '[Spotify OAuth] stage=session_save status=n/a error=save-failed'
+    );
     spotifyLog('exchange.save-failed');
     return { kind: 'save-failed' };
   }

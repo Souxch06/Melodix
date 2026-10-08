@@ -152,7 +152,10 @@ export {
   SMOKE_TX_VERIFIER,
 } from './spotify/session';
 export type {
+  LoginErrorOutcome,
   LoginOutcome,
+  SpotifyOAuthDiagnostic,
+  SpotifyOAuthDiagnosticStage,
   SpotifySession,
   StartupSessionResolution,
   RefreshResult,
@@ -164,6 +167,7 @@ export type {
 export * from './playbackBackend';
 export { spotifyApiGet, SpotifyApiError } from './spotify/apiClient';
 export {
+  isSensitiveDiagnosticValue,
   sanitizeErrorDescription,
   spotifyDiag,
   spotifyLog,

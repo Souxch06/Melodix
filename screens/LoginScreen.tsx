@@ -17,7 +17,13 @@
  *
  * - Appui → EXACTEMENT le système OAuth Spotify actuel (+ PKCE), inchangé.
  * - Pendant : « Connexion à Spotify… » puis « Finalisation de la connexion… ».
- * - Erreur : message HUMAIN + bouton « Réessayer » (jamais de cause codée).
+ * - Erreur : message HUMAIN + bouton « Réessayer ».
+ * - MODE DIAGNOSTIC (temporaire, mission) : SI le hook a produit un
+ *   diagnostic, un bouton « Voir les détails » apparaît sous la carte
+ *   d'erreur. Il affiche des détails techniques NON SENSIBLES (étape, type,
+ *   HTTP, code, description, message) et « Masquer les détails » referme.
+ *   Chaque champ est contrôlé : jamais de token, code, code_verifier,
+ *   secret, cookie, header ; jamais de « undefined » ni d'objet illisible.
  * - Config absente : « La connexion Spotify n'est pas disponible pour le
  *   moment. Réessaie plus tard. » — jamais de champ Client ID/secret.
  * - Succès : confirmation brève « Connexion réussie ! » puis l'accueil,
@@ -44,7 +50,11 @@ import { useUserData } from '@context';
 // simulé dans les tests historiques du parcours de connexion.
 import { useAccent } from '../context/PreferencesContext';
 import { translations } from '@data';
-import { isSpotifyLoginConfigured, useSpotifyAuth } from '@services';
+import {
+  isSensitiveDiagnosticValue,
+  isSpotifyLoginConfigured,
+  useSpotifyAuth,
+} from '@services';
 
 /** Messages HUMAINS uniquement — dérivés du LoginOutcome, sans cause dupliquée. */
 type ErrorCard = {
@@ -68,6 +78,9 @@ export const LoginScreen = () => {
   const configured = React.useMemo(() => isSpotifyLoginConfigured(), []);
   const [successShown, setSuccessShown] = React.useState(false);
   const successHandledRef = React.useRef(false);
+  // Mode diagnostic (temporaire) : les détails restent FERMÉS par défaut et
+  // se remettent à zéro à chaque changement d'état/erreur.
+  const [detailsOpen, setDetailsOpen] = React.useState(false);
 
   // La session vient d'être ouverte (OAuth terminé côté hook) : petite
   // confirmation « Connexion réussie ! » puis l'accueil — sans écran
@@ -101,6 +114,56 @@ export const LoginScreen = () => {
       }),
     ]).start();
   }, [fadeAnim, slideAnim]);
+
+  // Clé d'identité de l'erreur courante : le diagnostic s'y raccroche (et
+  // se referme quand l'erreur change ou disparaît).
+  const errorKey =
+    state.status === 'error'
+      ? `${state.outcome.kind}:${state.outcome.cause}`
+      : '';
+  React.useEffect(() => {
+    setDetailsOpen(false);
+  }, [state.status, errorKey]);
+
+  // Lignes du diagnostic visible — construites UNIQUEMENT à partir des
+  // champs déjà non sensibles portés par le hook. Aucune valeur nulle ni
+  // vide n'est rendue (pas de « undefined ») ; toute valeur qui ressemblerait
+  // à un secret est masquée (défense en profondeur).
+  const diagLines: string[] = React.useMemo(() => {
+    if (state.status !== 'error') {
+      return [];
+    }
+    const d = state.outcome.diagnostic;
+    if (!d) {
+      return [];
+    }
+    const field = (
+      label: string,
+      value: string | number | null | undefined
+    ): string | null => {
+      if (value === null || value === undefined) {
+        return null;
+      }
+      const text = typeof value === 'number' ? String(value) : value.trim();
+      if (!text) {
+        return null;
+      }
+      const safe = isSensitiveDiagnosticValue(text)
+        ? translations.loginDiagRedacted
+        : text.length > 120
+          ? `${text.slice(0, 117)}…`
+          : text;
+      return `${label} : ${safe}`;
+    };
+    return [
+      field(translations.loginDiagStage, d.stage),
+      field(translations.loginDiagType, state.outcome.kind),
+      field(translations.loginDiagHttp, d.httpStatus),
+      field(translations.loginDiagCode, d.errorCode),
+      field(translations.loginDiagDescription, d.description),
+      field(translations.loginDiagMessage, d.message),
+    ].filter((line): line is string => line !== null);
+  }, [state]);
 
   const errorCard: ErrorCard = React.useMemo(() => {
     if (!configured) {
@@ -239,6 +302,41 @@ export const LoginScreen = () => {
                   {translations.loginValidate}
                 </Text>
               </Pressable>
+            )}
+
+            {/* Mode diagnostic (temporaire) : détails NON sensibles, masqués
+                par défaut. N'apparaît que si le hook a produit un
+                diagnostic — jamais de valeur sensible (garde par champ). */}
+            {diagLines.length > 0 && (
+              <View style={styles.diagWrap} testID="login-diag-wrap">
+                {detailsOpen && (
+                  <View style={styles.diagCard} testID="login-diag-card">
+                    <Text style={styles.diagTitle}>
+                      {translations.loginDetailsTitle}
+                    </Text>
+                    {diagLines.map((line) => (
+                      <Text key={line} style={styles.diagLine}>
+                        {line}
+                      </Text>
+                    ))}
+                  </View>
+                )}
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={() => setDetailsOpen((open) => !open)}
+                  style={({ pressed }) => [
+                    styles.diagToggle,
+                    pressed && styles.diagTogglePressed,
+                  ]}
+                  testID={detailsOpen ? 'login-diag-hide' : 'login-diag-show'}
+                >
+                  <Text style={styles.diagToggleText}>
+                    {detailsOpen
+                      ? translations.loginDetailsHide
+                      : translations.loginDetailsShow}
+                  </Text>
+                </Pressable>
+              </View>
             )}
           </View>
         ) : (
@@ -407,6 +505,49 @@ const styles = StyleSheet.create({
     color: COLORS.BLACK,
     fontFamily: 'SF-Semibold',
     fontSize: 15,
+  },
+  diagWrap: {
+    alignItems: 'center',
+    marginTop: 16,
+  },
+  diagCard: {
+    alignItems: 'flex-start',
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderRadius: 14,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(255, 255, 255, 0.14)',
+    marginBottom: 10,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    width: '100%',
+  },
+  diagTitle: {
+    color: COLORS.LIGHT_GREY,
+    fontFamily: 'SF-Semibold',
+    fontSize: 12,
+    letterSpacing: 0.3,
+    marginBottom: 6,
+  },
+  diagLine: {
+    color: COLORS.WHITE,
+    fontFamily: 'SF-Regular',
+    fontSize: 13,
+    lineHeight: 20,
+  },
+  diagToggle: {
+    borderRadius: 999,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(255, 255, 255, 0.28)',
+    paddingHorizontal: 18,
+    paddingVertical: 9,
+  },
+  diagTogglePressed: {
+    opacity: 0.85,
+  },
+  diagToggleText: {
+    color: COLORS.LIGHT_GREY,
+    fontFamily: 'SF-Regular',
+    fontSize: 13,
   },
   footer: {
     alignItems: 'center',

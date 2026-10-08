@@ -122,6 +122,19 @@ export const EN_GB_LOGIN = {
     'Make sure you authorize Melodix on the Spotify page, then try again.',
   loginNotConfigured: 'Spotify sign-in is unavailable right now.',
   loginNotConfiguredBody: 'Please try again later.',
+  // TEMPORARY DIAGNOSTIC MODE: non-sensitive technical details, hidden by
+  // default — "Show details" button under the error card. NEVER any token,
+  // code, code_verifier, secret, cookie or header.
+  loginDetailsShow: 'Show details',
+  loginDetailsHide: 'Hide details',
+  loginDetailsTitle: 'Technical diagnostic (non-sensitive)',
+  loginDiagStage: 'Stage',
+  loginDiagType: 'Type',
+  loginDiagHttp: 'HTTP',
+  loginDiagCode: 'Code',
+  loginDiagDescription: 'Description',
+  loginDiagMessage: 'Message',
+  loginDiagRedacted: '<redacted>',
   loginPrivacyNote:
     'Secure sign-in with Spotify. You will never be asked for a key: you sign in on the official Spotify page, then return to Melodix.',
   loginSecureFootnote: 'Secure sign-in with Spotify',

@@ -32,6 +32,7 @@ import {
 } from './authConfig';
 import { isOAuthSmokeSeedUrl } from '../../utils/common/isAuthCallbackUrl';
 import {
+  isSensitiveDiagnosticValue,
   logRedirectUri,
   sanitizeErrorDescription,
   spotifyAuthTrace,
@@ -51,6 +52,8 @@ import {
   sanitizeOAuthErrorCode,
   savePendingOAuthTransaction,
   saveSmokeOAuthTransaction,
+  SpotifyOAuthDiagnostic,
+  SpotifyOAuthDiagnosticStage,
   SpotifySession,
 } from './session';
 
@@ -71,6 +74,50 @@ const safeCause = (text: string): string => {
   const cleaned = text.replace(/[\r\n]+/g, ' ').trim();
   return cleaned.length > 90 ? `${cleaned.slice(0, 87)}…` : cleaned;
 };
+
+/**
+ * Construit le diagnostic SÛR À AFFICHER d'un échec (écran de connexion,
+ * bouton « Voir les détails »). Défense en profondeur : chaque champ CHAÎNE
+ * est re-vérifié ici (borne + masque des valeurs qui ressemblent à un
+ * secret), sans confiance aveugle en l'amont — si une valeur sensible
+ * traversait un chemin inattendu, elle est masquée AVANT tout stockage.
+ * `message` est toujours non vide (fallback lisible).
+ * JAMAIS : token, code, code_verifier, secret, cookies, headers.
+ */
+const cleanDiagnosticField = (
+  value: string | null | undefined
+): string | null => {
+  if (value === null || value === undefined) {
+    return null;
+  }
+  const text = value.trim();
+  if (!text) {
+    return null;
+  }
+  if (isSensitiveDiagnosticValue(text)) {
+    return '<redacted>';
+  }
+  return text.length > 120 ? `${text.slice(0, 117)}…` : text;
+};
+
+const buildDiagnostic = (
+  stage: SpotifyOAuthDiagnosticStage,
+  message: string,
+  extra: {
+    httpStatus?: number | null;
+    errorCode?: string | null;
+    description?: string | null;
+  } = {}
+): SpotifyOAuthDiagnostic => ({
+  stage,
+  httpStatus:
+    typeof extra.httpStatus === 'number' && Number.isFinite(extra.httpStatus)
+      ? extra.httpStatus
+      : null,
+  errorCode: cleanDiagnosticField(extra.errorCode),
+  description: cleanDiagnosticField(extra.description),
+  message: cleanDiagnosticField(safeCause(message)) ?? 'erreur inconnue',
+});
 
 /**
  * Parsing minimal d'une querystring (code, state, error — jamais logués).
@@ -214,9 +261,12 @@ export const useSpotifyAuth = (): {
   }, [transition]);
 
   const fail = React.useCallback(
-    (outcome: LoginErrorOutcome) => {
+    (outcome: LoginErrorOutcome, diagnostic?: SpotifyOAuthDiagnostic) => {
       spotifyDiag('OUTCOME', `${outcome.kind} — ${outcome.cause}`);
-      transition({ status: 'error', outcome });
+      transition({
+        status: 'error',
+        outcome: diagnostic ? { ...outcome, diagnostic } : outcome,
+      });
     },
     [transition]
   );
@@ -242,7 +292,14 @@ export const useSpotifyAuth = (): {
         // aucune transaction persistée — échange impossible.
         spotifyLog('pkce.verifier-missing', { verifierPresent: false });
         spotifyAuthTrace('callback:error', 'pkce-verifier-missing');
-        fail({ kind: 'callback-failed', cause: 'pkce-verifier-missing' });
+        fail(
+          { kind: 'callback-failed', cause: 'pkce-verifier-missing' },
+          buildDiagnostic(
+            'callback',
+            'PKCE : verifier introuvable (mémoire perdue et aucune transaction persistée) — échange impossible',
+            { errorCode: 'pkce-verifier-missing' }
+          )
+        );
         return;
       }
 
@@ -301,19 +358,42 @@ export const useSpotifyAuth = (): {
             'token_exchange:error',
             `status=${outcome.status} error=${outcome.errorCode}`
           );
-          fail({
-            kind: serverSide ? 'network' : 'oauth-refused',
-            cause: safeCause(causeText),
-          });
+          fail(
+            {
+              kind: serverSide ? 'network' : 'oauth-refused',
+              cause: safeCause(causeText),
+            },
+            // Diagnostic VISIBLE : les valeurs viennent de la réponse
+            // d'échec RFC 6749 (code whitelisté + description sanitisée).
+            buildDiagnostic('token-exchange', causeText, {
+              httpStatus: outcome.status,
+              errorCode: outcome.errorCode,
+              description: outcome.description || null,
+            })
+          );
           return;
         }
         case 'network':
           spotifyAuthTrace('token_exchange:error', 'status=unreachable');
-          fail({ kind: 'network', cause: 'exchange-unreachable' });
+          fail(
+            { kind: 'network', cause: 'exchange-unreachable' },
+            buildDiagnostic(
+              'token-exchange',
+              'Endpoint Spotify injoignable (réseau) — la requête n’a pas abouti',
+              { errorCode: 'network' }
+            )
+          );
           return;
         case 'invalid-response':
           spotifyAuthTrace('token_exchange:error', 'status=invalid-response');
-          fail({ kind: 'unknown', cause: 'invalid-token-response' });
+          fail(
+            { kind: 'unknown', cause: 'invalid-token-response' },
+            buildDiagnostic(
+              'token-exchange',
+              'Réponse du token endpoint illisible ou sans access_token',
+              { httpStatus: 200, errorCode: 'invalid-response' }
+            )
+          );
           return;
         case 'save-failed':
         default:
@@ -321,7 +401,14 @@ export const useSpotifyAuth = (): {
             'token_exchange:error',
             'status=session-save-failed'
           );
-          fail({ kind: 'unknown', cause: 'session-save-failed' });
+          fail(
+            { kind: 'unknown', cause: 'session-save-failed' },
+            buildDiagnostic(
+              'session-save',
+              'Session obtenue mais impossible à sauvegarder (SecureStore/Keystore indisponible)',
+              { errorCode: 'session-save-failed' }
+            )
+          );
           return;
       }
 
@@ -374,15 +461,28 @@ export const useSpotifyAuth = (): {
           kind === 'network'
             ? 'me:network'
             : `me:${kind}${httpStatus !== null ? `·${httpStatus}` : ''}${spotifyMessage ? `·${spotifyMessage}` : ''}`;
-        fail({
-          kind:
-            kind === 'unauthenticated'
-              ? 'oauth-refused'
-              : kind === 'http'
-                ? 'unknown'
-                : 'network',
-          cause: safeCause(uiCause),
-        });
+        fail(
+          {
+            kind:
+              kind === 'unauthenticated'
+                ? 'oauth-refused'
+                : kind === 'http'
+                  ? 'unknown'
+                  : 'network',
+            cause: safeCause(uiCause),
+          },
+          buildDiagnostic(
+            'profile',
+            kind === 'network'
+              ? 'Profil /me : Spotify injoignable (réseau)'
+              : `Profil /me en échec (${kind})`,
+            {
+              httpStatus,
+              errorCode: kind,
+              description: spotifyMessage || null,
+            }
+          )
+        );
       }
     },
     [redirectUri, applySpotifyUser, fail, transition]
@@ -436,10 +536,17 @@ export const useSpotifyAuth = (): {
         spotifyAuthTrace('callback:error', code);
         fallbackUsedRef.current = true;
         void WebBrowser.dismissBrowser();
-        fail({
-          kind: 'oauth-refused',
-          cause: safeCause(desc ? `${code} · ${desc}` : code),
-        });
+        fail(
+          {
+            kind: 'oauth-refused',
+            cause: safeCause(desc ? `${code} · ${desc}` : code),
+          },
+          buildDiagnostic(
+            'authorize',
+            `Spotify a refusé sur la page d'autorisation (${code})`,
+            { errorCode: code, description: desc || null }
+          )
+        );
         return true;
       }
 
@@ -450,7 +557,14 @@ export const useSpotifyAuth = (): {
         );
         spotifyAuthTrace('callback:error', 'code-absent');
         fallbackUsedRef.current = true;
-        fail({ kind: 'callback-failed', cause: 'code-absent' });
+        fail(
+          { kind: 'callback-failed', cause: 'code-absent' },
+          buildDiagnostic(
+            'callback',
+            'Callback Spotify reçu sans code d’autorisation',
+            { errorCode: 'code-absent' }
+          )
+        );
         return true;
       }
 
@@ -464,7 +578,14 @@ export const useSpotifyAuth = (): {
         );
         spotifyAuthTrace('callback:error', 'state-invalid');
         fallbackUsedRef.current = true;
-        fail({ kind: 'callback-failed', cause: 'state-invalid' });
+        fail(
+          { kind: 'callback-failed', cause: 'state-invalid' },
+          buildDiagnostic(
+            'callback',
+            'State du callback invalide (sécurité CSRF / session croisée)',
+            { errorCode: 'state-invalid' }
+          )
+        );
         return true;
       }
 
@@ -541,6 +662,11 @@ export const useSpotifyAuth = (): {
             outcome: {
               kind: 'oauth-refused',
               cause: safeCause(desc ? `${code} · ${desc}` : code),
+              diagnostic: buildDiagnostic(
+                'authorize',
+                `Spotify a refusé sur la page d'autorisation (${code}) — reçu au cold start`,
+                { errorCode: code, description: desc || null }
+              ),
             },
           });
         }
@@ -556,6 +682,11 @@ export const useSpotifyAuth = (): {
             outcome: {
               kind: 'callback-failed',
               cause: 'cold-start-code-absent',
+              diagnostic: buildDiagnostic(
+                'callback',
+                'Cold start : callback Spotify reçu sans code d’autorisation',
+                { errorCode: 'cold-start-code-absent' }
+              ),
             },
           });
         }
@@ -602,6 +733,17 @@ export const useSpotifyAuth = (): {
           outcome: {
             kind: 'callback-failed',
             cause: tx ? 'cold-start-mismatch' : 'cold-start-no-verifier',
+            diagnostic: buildDiagnostic(
+              'callback',
+              tx
+                ? 'Transaction PKCE persistée non utilisable au cold start (state, redirect ou fraîcheur incohérents)'
+                : 'Aucune transaction PKCE persistée au cold start (processus tué avant sauvegarde, ou session croisée)',
+              {
+                errorCode: tx
+                  ? 'cold-start-mismatch'
+                  : 'cold-start-no-verifier',
+              }
+            ),
           },
         });
         return;
@@ -645,14 +787,28 @@ export const useSpotifyAuth = (): {
 
     if (!configured) {
       spotifyLog('auth.not-configured');
-      fail({ kind: 'not-configured', cause: 'client-id-missing-in-build' });
+      fail(
+        { kind: 'not-configured', cause: 'client-id-missing-in-build' },
+        buildDiagnostic(
+          'config',
+          'Client ID Spotify absent du build (configuration manquante)',
+          { errorCode: 'client-id-missing' }
+        )
+      );
       return;
     }
 
     if (!request) {
       // La requête n'est pas encore chargée : on réessaiera au prochain clic.
       spotifyLog('auth.prompt.not-ready');
-      fail({ kind: 'unknown', cause: 'auth-request-not-ready' });
+      fail(
+        { kind: 'unknown', cause: 'auth-request-not-ready' },
+        buildDiagnostic(
+          'other',
+          'Requête OAuth pas encore chargée — réessaie dans un instant',
+          { errorCode: 'auth-request-not-ready' }
+        )
+      );
       return;
     }
 
@@ -678,7 +834,14 @@ export const useSpotifyAuth = (): {
       // PKCE impossible : aucun verifier à persister ni à échanger.
       spotifyLog('pkce.verifier-missing', { verifierPresent: false });
       spotifyAuthTrace('pkce:persist:error', 'verifier-missing');
-      fail({ kind: 'callback-failed', cause: 'pkce-verifier-missing' });
+      fail(
+        { kind: 'callback-failed', cause: 'pkce-verifier-missing' },
+        buildDiagnostic(
+          'callback',
+          'PKCE impossible : aucun verifier généré avant l’ouverture de Spotify',
+          { errorCode: 'pkce-verifier-missing' }
+        )
+      );
       return;
     }
     try {
@@ -693,7 +856,14 @@ export const useSpotifyAuth = (): {
       console.warn('Spotify PKCE transaction persistence failed', error);
       spotifyLog('auth.tx.persist-failed');
       spotifyAuthTrace('pkce:persist:error');
-      fail({ kind: 'callback-failed', cause: 'pkce-persistence-failed' });
+      fail(
+        { kind: 'callback-failed', cause: 'pkce-persistence-failed' },
+        buildDiagnostic(
+          'callback',
+          'Impossible de persister la transaction PKCE (SecureStore/Keystore) — Spotify n’est pas ouvert',
+          { errorCode: 'pkce-persistence-failed' }
+        )
+      );
       return;
     }
 
@@ -742,10 +912,17 @@ export const useSpotifyAuth = (): {
         spotifyConfigLine(
           `[SPOTIFY AUTH] Authorization code received: NO (error: ${code}${desc ? ` · ${desc}` : ''})`
         );
-        fail({
-          kind: 'oauth-refused',
-          cause: safeCause(desc ? `${code} · ${desc}` : code),
-        });
+        fail(
+          {
+            kind: 'oauth-refused',
+            cause: safeCause(desc ? `${code} · ${desc}` : code),
+          },
+          buildDiagnostic(
+            'authorize',
+            `Spotify a refusé sur la page d'autorisation (${code})`,
+            { errorCode: code, description: desc || null }
+          )
+        );
         return;
       }
 
@@ -755,7 +932,14 @@ export const useSpotifyAuth = (): {
           resultType: result.type,
           codePresent: false,
         });
-        fail({ kind: 'callback-failed', cause: 'code-absent' });
+        fail(
+          { kind: 'callback-failed', cause: 'code-absent' },
+          buildDiagnostic(
+            'callback',
+            'Retour de Spotify sans code d’autorisation',
+            { errorCode: 'code-absent' }
+          )
+        );
         return;
       }
 
@@ -765,7 +949,14 @@ export const useSpotifyAuth = (): {
       if (!request.codeVerifier) {
         spotifyLog('pkce.verifier-missing', { verifierPresent: false });
         spotifyAuthTrace('callback:error', 'pkce-verifier-missing');
-        fail({ kind: 'callback-failed', cause: 'pkce-verifier-missing' });
+        fail(
+          { kind: 'callback-failed', cause: 'pkce-verifier-missing' },
+          buildDiagnostic(
+            'callback',
+            'PKCE : verifier perdu après le retour de Spotify (mémoire) — échange impossible',
+            { errorCode: 'pkce-verifier-missing' }
+          )
+        );
         return;
       }
 
@@ -790,10 +981,23 @@ export const useSpotifyAuth = (): {
         sanitizeErrorDescription(name) || 'unlogged'
       );
       spotifyLog('auth.exception');
-      fail({
-        kind: 'unknown',
-        cause: safeCause(`prompt-exception:${ctor}`),
-      });
+      fail(
+        {
+          kind: 'unknown',
+          cause: safeCause(`prompt-exception:${ctor}`),
+        },
+        buildDiagnostic(
+          'authorize',
+          `Exception pendant le flux navigateur Spotify (${ctor})`,
+          {
+            errorCode: ctor,
+            description:
+              sanitizeErrorDescription(name) && name !== ctor
+                ? sanitizeErrorDescription(name)
+                : null,
+          }
+        )
+      );
     }
   }, [
     configured,

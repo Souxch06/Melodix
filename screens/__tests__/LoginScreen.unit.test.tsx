@@ -8,8 +8,11 @@
  *     anti-double-clic, bouton désactivé tant que la requête n'est pas prête.
  *  3. Chargement : « Connexion à Spotify… » puis « Finalisation de la
  *     connexion… ».
- *  4. Erreurs : messages humains UNIQUEMENT (jamais de code, cause, step,
- *     « Diagnostic », redirect_uri, PKCE ou token à l'écran) + « Réessayer ».
+ *  4. Erreurs : message HUMAIN + « Réessayer ». Le détail technique reste
+ *     MASQUÉ par défaut ; s'il existe, un bouton « Voir les détails »
+ *     (mode diagnostic temporaire) l'affiche — détails NON SENSIBLES
+ *     (étape/type/HTTP/code/description/message), « Masquer les détails »
+ *     pour refermer, jamais de token/code/verifier/secret ni de « undefined ».
  *  5. Config absente : « La connexion Spotify n'est pas disponible pour le
  *     moment / Réessaie plus tard. » — pas de Réessayer inutile, jamais de
  *     champ de saisie.
@@ -39,7 +42,17 @@ let mockRequestPending = false;
 let mockSessionStatus = 'loading';
 let mockAuthState: {
   status: string;
-  outcome?: { kind: string; cause?: string };
+  outcome?: {
+    kind: string;
+    cause?: string;
+    diagnostic?: {
+      stage: string;
+      httpStatus: number | null;
+      errorCode: string | null;
+      description: string | null;
+      message: string;
+    };
+  };
 } = {
   status: 'idle',
 };
@@ -50,6 +63,8 @@ jest.mock('expo-router', () => ({
 }));
 
 // Le bouton déclenche l'OAuth réel (couvert ailleurs) ; ici le hook est piloté.
+// La garde de sensibilité est la VRAIE implémentation (module pur, sans
+// dépendance native) : les tests de masquage contrôlent le comportement réel.
 jest.mock('@services', () => ({
   isSpotifyLoginConfigured: () => mockConfigured,
   useSpotifyAuth: () => ({
@@ -59,6 +74,9 @@ jest.mock('@services', () => ({
     startLogin: mockStartLogin,
     resetError: mockResetError,
   }),
+  isSensitiveDiagnosticValue: jest.requireActual(
+    '../../services/spotify/devLog'
+  ).isSensitiveDiagnosticValue,
 }));
 
 jest.mock('@context', () => ({
@@ -184,7 +202,7 @@ describe('LoginScreen — parcours humain, connexion OBLIGATOIRE', () => {
     }
   );
 
-  it('AUCUN détail technique à l’écran (cause, Diagnostic, redirect_uri, PKCE, token, HTTP)', () => {
+  it('AUCUN détail technique par défaut (cause, Diagnostic, redirect_uri, PKCE, token, HTTP) — sans diagnostic, pas même le bouton détails', () => {
     mockAuthState = {
       status: 'error',
       outcome: { kind: 'callback-failed', cause: 'code-absent' },
@@ -199,6 +217,119 @@ describe('LoginScreen — parcours humain, connexion OBLIGATOIRE', () => {
     expect(hasTextContaining(root, 'token')).toBe(false);
     expect(hasTextContaining(root, 'HTTP')).toBe(false);
     expect(hasTextContaining(root, 'ERR')).toBe(false);
+    // Pas de diagnostic produit par le hook → pas de bouton « Voir les détails ».
+    expect(root.queryByTestId('login-diag-show')).toBeNull();
+    expect(root.queryByTestId('login-diag-card')).toBeNull();
+  });
+
+  it('annulation (pas de diagnostic) : la carte reste humaine, pas de bouton détails', () => {
+    mockAuthState = {
+      status: 'error',
+      outcome: { kind: 'cancelled', cause: 'dismiss' },
+    };
+    const root = render(<LoginScreen />);
+    expect(root.getByText('Connexion annulée')).toBeTruthy();
+    expect(root.queryByTestId('login-diag-show')).toBeNull();
+  });
+
+  it('diagnostic présent : « Voir les détails » affiche les champs NON sensibles, « Masquer les détails » referme', () => {
+    mockAuthState = {
+      status: 'error',
+      outcome: {
+        kind: 'oauth-refused',
+        cause: 'invalid_grant · HTTP 400 · Invalid authorization code',
+        diagnostic: {
+          stage: 'token-exchange',
+          httpStatus: 400,
+          errorCode: 'invalid_grant',
+          description: 'Invalid authorization code',
+          message: 'invalid_grant · HTTP 400 · Invalid authorization code',
+        },
+      },
+    };
+    const root = render(<LoginScreen />);
+
+    // Le message humain reste le premier niveau — le diagnostic est FERMÉ.
+    expect(root.getByText('Spotify a refusé la connexion')).toBeTruthy();
+    const show = root.getByTestId('login-diag-show');
+    expect(hasTextContaining(root, 'invalid_grant')).toBe(false);
+
+    fireEvent.press(show);
+
+    // Les détails s’affichent, champ par champ, lisibles sur téléphone.
+    expect(root.getByTestId('login-diag-card')).toBeTruthy();
+    expect(root.getByText('Étape : token-exchange')).toBeTruthy();
+    expect(root.getByText('Type : oauth-refused')).toBeTruthy();
+    expect(root.getByText('HTTP : 400')).toBeTruthy();
+    expect(root.getByText('Code : invalid_grant')).toBeTruthy();
+    expect(
+      root.getByText('Description : Invalid authorization code')
+    ).toBeTruthy();
+    expect(root.getByText(/Message : invalid_grant · HTTP 400/)).toBeTruthy();
+    expect(hasTextContaining(root, 'undefined')).toBe(false);
+
+    // « Masquer les détails » referme le bloc.
+    fireEvent.press(root.getByTestId('login-diag-hide'));
+    expect(root.queryByTestId('login-diag-card')).toBeNull();
+    expect(root.getByTestId('login-diag-show')).toBeTruthy();
+  });
+
+  it('fallback : diagnostic partiel (sans HTTP/code/description) → seulement les champs présents, jamais « undefined »', () => {
+    mockAuthState = {
+      status: 'error',
+      outcome: {
+        kind: 'callback-failed',
+        cause: 'code-absent',
+        diagnostic: {
+          stage: 'callback',
+          httpStatus: null,
+          errorCode: null,
+          description: null,
+          message: 'Callback Spotify reçu sans code d’autorisation',
+        },
+      },
+    };
+    const root = render(<LoginScreen />);
+    fireEvent.press(root.getByTestId('login-diag-show'));
+
+    expect(root.getByText('Étape : callback')).toBeTruthy();
+    expect(root.getByText('Type : callback-failed')).toBeTruthy();
+    expect(
+      root.getByText('Message : Callback Spotify reçu sans code d’autorisation')
+    ).toBeTruthy();
+    // Ni ligne HTTP, ni Code, ni Description (valeurs nulle → pas rendues).
+    expect(hasTextContaining(root, 'HTTP')).toBe(false);
+    expect(hasTextContaining(root, 'Code :')).toBe(false);
+    expect(hasTextContaining(root, 'Description :')).toBe(false);
+    expect(hasTextContaining(root, 'undefined')).toBe(false);
+  });
+
+  it('sécurité (écran) : une valeur qui ressemblerait à un secret est MASQUÉE au rendu', () => {
+    // Contournement hypothétique d’une future régression amont : l’écran
+    // doit refuser de RENDRE une valeur sensible (garde par champ).
+    mockAuthState = {
+      status: 'error',
+      outcome: {
+        kind: 'oauth-refused',
+        cause: 'invalid_grant',
+        diagnostic: {
+          stage: 'token-exchange',
+          httpStatus: 400,
+          errorCode: 'invalid_grant',
+          description: 'Leak access_token=SECR3TVALUE ici',
+          message: 'Leak code_verifier=VERISECRET42 ici',
+        },
+      },
+    };
+    const root = render(<LoginScreen />);
+    fireEvent.press(root.getByTestId('login-diag-show'));
+
+    expect(hasTextContaining(root, 'SECR3TVALUE')).toBe(false);
+    expect(hasTextContaining(root, 'VERISECRET42')).toBe(false);
+    // Les deux champs rendus en <masqué> (jamais en clair).
+    expect(root.getByText('Description : <masqué>')).toBeTruthy();
+    expect(root.getByText('Message : <masqué>')).toBeTruthy();
+    expect(hasTextContaining(root, 'undefined')).toBe(false);
   });
 
   it('config absente : message « indisponible » SANS Réessayer ni champ Client ID, startLogin jamais appelé', () => {

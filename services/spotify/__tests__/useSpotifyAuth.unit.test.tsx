@@ -20,6 +20,7 @@ import * as AuthSession from 'expo-auth-session';
 import * as SecureStore from 'expo-secure-store';
 
 import { useSpotifyAuth } from '../useSpotifyAuth';
+import type { SpotifyAuthState } from '../useSpotifyAuth';
 import {
   loadPendingOAuthTransaction,
   redeemAuthorizationCode,
@@ -179,7 +180,10 @@ describe('useSpotifyAuth — taxonomie du diagnostic OAuth', () => {
     expect(redeemAuthorizationCode).not.toHaveBeenCalled();
     expect(result.current.state).toEqual({
       status: 'error',
-      outcome: { kind: 'callback-failed', cause: 'pkce-persistence-failed' },
+      outcome: expect.objectContaining({
+        kind: 'callback-failed',
+        cause: 'pkce-persistence-failed',
+      }),
     });
     const trace = logSpy.mock.calls
       .map((call) => String(call[0]))
@@ -209,7 +213,10 @@ describe('useSpotifyAuth — taxonomie du diagnostic OAuth', () => {
     expect(mockPromptAsync).not.toHaveBeenCalled();
     expect(result.current.state).toEqual({
       status: 'error',
-      outcome: { kind: 'callback-failed', cause: 'pkce-verifier-missing' },
+      outcome: expect.objectContaining({
+        kind: 'callback-failed',
+        cause: 'pkce-verifier-missing',
+      }),
     });
   });
 
@@ -224,7 +231,10 @@ describe('useSpotifyAuth — taxonomie du diagnostic OAuth', () => {
     expect(mockPromptAsync).not.toHaveBeenCalled();
     expect(result.current.state).toEqual({
       status: 'error',
-      outcome: { kind: 'not-configured', cause: 'client-id-missing-in-build' },
+      outcome: expect.objectContaining({
+        kind: 'not-configured',
+        cause: 'client-id-missing-in-build',
+      }),
     });
   });
 
@@ -239,7 +249,7 @@ describe('useSpotifyAuth — taxonomie du diagnostic OAuth', () => {
     expect(redeemAuthorizationCode).not.toHaveBeenCalled();
     expect(result.current.state).toEqual({
       status: 'error',
-      outcome: { kind: 'cancelled', cause: 'cancel' },
+      outcome: expect.objectContaining({ kind: 'cancelled', cause: 'cancel' }),
     });
   });
 
@@ -256,10 +266,10 @@ describe('useSpotifyAuth — taxonomie du diagnostic OAuth', () => {
 
     expect(result.current.state).toEqual({
       status: 'error',
-      outcome: {
+      outcome: expect.objectContaining({
         kind: 'oauth-refused',
         cause: 'unlisted',
-      },
+      }),
     });
   });
 
@@ -277,10 +287,10 @@ describe('useSpotifyAuth — taxonomie du diagnostic OAuth', () => {
 
     expect(result.current.state).toEqual({
       status: 'error',
-      outcome: {
+      outcome: expect.objectContaining({
         kind: 'oauth-refused',
         cause: 'invalid_client · HTTP 400',
-      },
+      }),
     });
   });
 
@@ -298,7 +308,10 @@ describe('useSpotifyAuth — taxonomie du diagnostic OAuth', () => {
 
     expect(result.current.state).toEqual({
       status: 'error',
-      outcome: { kind: 'network', cause: 'temporarily_unavailable · HTTP 502' },
+      outcome: expect.objectContaining({
+        kind: 'network',
+        cause: 'temporarily_unavailable · HTTP 502',
+      }),
     });
   });
 
@@ -314,7 +327,10 @@ describe('useSpotifyAuth — taxonomie du diagnostic OAuth', () => {
 
     expect(result.current.state).toEqual({
       status: 'error',
-      outcome: { kind: 'network', cause: 'exchange-unreachable' },
+      outcome: expect.objectContaining({
+        kind: 'network',
+        cause: 'exchange-unreachable',
+      }),
     });
   });
 
@@ -330,7 +346,10 @@ describe('useSpotifyAuth — taxonomie du diagnostic OAuth', () => {
 
     expect(result.current.state).toEqual({
       status: 'error',
-      outcome: { kind: 'unknown', cause: 'invalid-token-response' },
+      outcome: expect.objectContaining({
+        kind: 'unknown',
+        cause: 'invalid-token-response',
+      }),
     });
   });
 
@@ -346,7 +365,10 @@ describe('useSpotifyAuth — taxonomie du diagnostic OAuth', () => {
 
     expect(result.current.state).toEqual({
       status: 'error',
-      outcome: { kind: 'network', cause: 'me:network' },
+      outcome: expect.objectContaining({
+        kind: 'network',
+        cause: 'me:network',
+      }),
     });
   });
 
@@ -408,7 +430,10 @@ describe('useSpotifyAuth — taxonomie du diagnostic OAuth', () => {
 
     expect(result.current.state).toEqual({
       status: 'error',
-      outcome: { kind: 'unknown', cause: 'session-save-failed' },
+      outcome: expect.objectContaining({
+        kind: 'unknown',
+        cause: 'session-save-failed',
+      }),
     });
   });
 
@@ -428,7 +453,10 @@ describe('useSpotifyAuth — taxonomie du diagnostic OAuth', () => {
     expect(mockPromptAsync).not.toHaveBeenCalled();
     expect(result.current.state).toEqual({
       status: 'error',
-      outcome: { kind: 'unknown', cause: 'auth-request-not-ready' },
+      outcome: expect.objectContaining({
+        kind: 'unknown',
+        cause: 'auth-request-not-ready',
+      }),
     });
   });
 
@@ -443,7 +471,10 @@ describe('useSpotifyAuth — taxonomie du diagnostic OAuth', () => {
 
       expect(result.current.state).toEqual({
         status: 'error',
-        outcome: { kind: 'callback-failed', cause: 'code-absent' },
+        outcome: expect.objectContaining({
+          kind: 'callback-failed',
+          cause: 'code-absent',
+        }),
       });
     });
 
@@ -492,7 +523,10 @@ describe('useSpotifyAuth — taxonomie du diagnostic OAuth', () => {
       expect(redeemAuthorizationCode).not.toHaveBeenCalled();
       expect(result.current.state).toEqual({
         status: 'error',
-        outcome: { kind: 'callback-failed', cause: 'state-invalid' },
+        outcome: expect.objectContaining({
+          kind: 'callback-failed',
+          cause: 'state-invalid',
+        }),
       });
     });
 
@@ -509,7 +543,10 @@ describe('useSpotifyAuth — taxonomie du diagnostic OAuth', () => {
       expect(redeemAuthorizationCode).not.toHaveBeenCalled();
       expect(result.current.state).toEqual({
         status: 'error',
-        outcome: { kind: 'callback-failed', cause: 'cold-start-no-verifier' },
+        outcome: expect.objectContaining({
+          kind: 'callback-failed',
+          cause: 'cold-start-no-verifier',
+        }),
       });
     });
 
@@ -764,7 +801,10 @@ describe('useSpotifyAuth — taxonomie du diagnostic OAuth', () => {
       expect(redeemAuthorizationCode).not.toHaveBeenCalled();
       expect(result.current.state).toEqual({
         status: 'error',
-        outcome: { kind: 'callback-failed', cause: 'cold-start-mismatch' },
+        outcome: expect.objectContaining({
+          kind: 'callback-failed',
+          cause: 'cold-start-mismatch',
+        }),
       });
       // Même en échec : la transaction ne survit pas (mono-utilisation).
       expect(await loadPendingOAuthTransaction()).toBeNull();
@@ -781,7 +821,10 @@ describe('useSpotifyAuth — taxonomie du diagnostic OAuth', () => {
       expect(redeemAuthorizationCode).not.toHaveBeenCalled();
       expect(result.current.state).toEqual({
         status: 'error',
-        outcome: { kind: 'callback-failed', cause: 'cold-start-mismatch' },
+        outcome: expect.objectContaining({
+          kind: 'callback-failed',
+          cause: 'cold-start-mismatch',
+        }),
       });
     });
 
@@ -796,7 +839,10 @@ describe('useSpotifyAuth — taxonomie du diagnostic OAuth', () => {
       expect(redeemAuthorizationCode).not.toHaveBeenCalled();
       expect(result.current.state).toEqual({
         status: 'error',
-        outcome: { kind: 'callback-failed', cause: 'cold-start-mismatch' },
+        outcome: expect.objectContaining({
+          kind: 'callback-failed',
+          cause: 'cold-start-mismatch',
+        }),
       });
     });
 
@@ -810,7 +856,10 @@ describe('useSpotifyAuth — taxonomie du diagnostic OAuth', () => {
       expect(redeemAuthorizationCode).not.toHaveBeenCalled();
       expect(result.current.state).toEqual({
         status: 'error',
-        outcome: { kind: 'callback-failed', cause: 'cold-start-no-verifier' },
+        outcome: expect.objectContaining({
+          kind: 'callback-failed',
+          cause: 'cold-start-no-verifier',
+        }),
       });
     });
 
@@ -825,10 +874,10 @@ describe('useSpotifyAuth — taxonomie du diagnostic OAuth', () => {
       expect(redeemAuthorizationCode).not.toHaveBeenCalled();
       expect(result.current.state).toEqual({
         status: 'error',
-        outcome: {
+        outcome: expect.objectContaining({
           kind: 'oauth-refused',
           cause: 'access_denied · User denied',
-        },
+        }),
       });
       expect(await loadPendingOAuthTransaction()).toBeNull();
     });
@@ -842,7 +891,10 @@ describe('useSpotifyAuth — taxonomie du diagnostic OAuth', () => {
       expect(redeemAuthorizationCode).not.toHaveBeenCalled();
       expect(result.current.state).toEqual({
         status: 'error',
-        outcome: { kind: 'callback-failed', cause: 'cold-start-code-absent' },
+        outcome: expect.objectContaining({
+          kind: 'callback-failed',
+          cause: 'cold-start-code-absent',
+        }),
       });
     });
 
@@ -884,7 +936,10 @@ describe('useSpotifyAuth — taxonomie du diagnostic OAuth', () => {
 
       expect(result.current.state).toEqual({
         status: 'error',
-        outcome: { kind: 'cancelled', cause: 'cancel' },
+        outcome: expect.objectContaining({
+          kind: 'cancelled',
+          cause: 'cancel',
+        }),
       });
       expect(await loadPendingOAuthTransaction()).toBeNull();
     });
@@ -1089,7 +1144,10 @@ describe('useSpotifyAuth — taxonomie du diagnostic OAuth', () => {
       expect(redeemAuthorizationCode).not.toHaveBeenCalled();
       expect(result.current.state).toEqual({
         status: 'error',
-        outcome: { kind: 'callback-failed', cause: 'cold-start-mismatch' },
+        outcome: expect.objectContaining({
+          kind: 'callback-failed',
+          cause: 'cold-start-mismatch',
+        }),
       });
     });
 
@@ -1209,6 +1267,150 @@ describe('useSpotifyAuth — taxonomie du diagnostic OAuth', () => {
     });
   });
 
+  describe('diagnostic OAuth visible (écran de connexion — mode temporaire)', () => {
+    // Le diagnostic est transmis au hook → état 'error' → écran. Il ne
+    // contient QUE des valeurs non sensibles : codes whitelistés, statuts
+    // HTTP, descriptions sanitisées, messages techniques bornés.
+
+    type DiagnosticLike = {
+      stage: string;
+      httpStatus: number | null;
+      errorCode: string | null;
+      description: string | null;
+      message: string;
+    };
+    const outcomeOf = (result: {
+      current: { state: SpotifyAuthState };
+    }): { kind: string; cause: string; diagnostic?: DiagnosticLike } => {
+      if (result.current.state.status !== 'error') {
+        throw new Error(
+          `état attendu 'error', reçu '${result.current.state.status}'`
+        );
+      }
+      const { kind, cause, diagnostic } = result.current.state.outcome;
+      return { kind, cause, diagnostic };
+    };
+
+    it('cas 1 — Spotify 400 invalid_grant : le diagnostic contient invalid_grant, HTTP 400 et la description', async () => {
+      (redeemAuthorizationCode as jest.Mock).mockResolvedValue({
+        kind: 'refused',
+        status: 400,
+        errorCode: 'invalid_grant',
+        description: 'Invalid authorization code',
+      });
+
+      const { result } = renderHook(() => useSpotifyAuth());
+      await act(async () => {
+        await result.current.startLogin();
+      });
+
+      const outcome = outcomeOf(result);
+      expect(outcome.kind).toBe('oauth-refused');
+      expect(outcome.diagnostic).toBeDefined();
+      expect(outcome.diagnostic?.stage).toBe('token-exchange');
+      expect(outcome.diagnostic?.httpStatus).toBe(400);
+      expect(outcome.diagnostic?.errorCode).toBe('invalid_grant');
+      expect(outcome.diagnostic?.description).toBe(
+        'Invalid authorization code'
+      );
+      expect(outcome.diagnostic?.message).toContain('invalid_grant');
+    });
+
+    it('cas 2 — Spotify 400 invalid_client : le diagnostic contient invalid_client', async () => {
+      (redeemAuthorizationCode as jest.Mock).mockResolvedValue({
+        kind: 'refused',
+        status: 400,
+        errorCode: 'invalid_client',
+        description: '',
+      });
+
+      const { result } = renderHook(() => useSpotifyAuth());
+      await act(async () => {
+        await result.current.startLogin();
+      });
+
+      const outcome = outcomeOf(result);
+      expect(outcome.kind).toBe('oauth-refused');
+      expect(outcome.diagnostic?.stage).toBe('token-exchange');
+      expect(outcome.diagnostic?.httpStatus).toBe(400);
+      expect(outcome.diagnostic?.errorCode).toBe('invalid_client');
+      // Description absente → null (jamais « undefined » côté écran).
+      expect(outcome.diagnostic?.description).toBeNull();
+    });
+
+    it('cas 3 — erreur réseau : le diagnostic indique network', async () => {
+      (redeemAuthorizationCode as jest.Mock).mockResolvedValue({
+        kind: 'network',
+      });
+
+      const { result } = renderHook(() => useSpotifyAuth());
+      await act(async () => {
+        await result.current.startLogin();
+      });
+
+      const outcome = outcomeOf(result);
+      expect(outcome.kind).toBe('network');
+      expect(outcome.diagnostic?.stage).toBe('token-exchange');
+      expect(outcome.diagnostic?.errorCode).toBe('network');
+      expect(JSON.stringify(outcome.diagnostic)).toContain('network');
+      // Pas de réponse HTTP → status null.
+      expect(outcome.diagnostic?.httpStatus).toBeNull();
+    });
+
+    it('cas 4 — erreur inconnue : aucun crash, diagnostic lisible (pas de « undefined »)', async () => {
+      (redeemAuthorizationCode as jest.Mock).mockResolvedValue({
+        kind: 'invalid-response',
+      });
+
+      const { result } = renderHook(() => useSpotifyAuth());
+      await act(async () => {
+        await result.current.startLogin();
+      });
+
+      const outcome = outcomeOf(result);
+      expect(outcome.kind).toBe('unknown');
+      const d = outcome.diagnostic;
+      expect(d).toBeDefined();
+      // Lisible : chaque champ est soit null, soit une chaîne propre —
+      // jamais « undefined », NaN ni [object Object].
+      const serialized = JSON.stringify(d);
+      expect(serialized).not.toMatch(/undefined|NaN|\[object Object\]/);
+      expect(typeof d?.message).toBe('string');
+      expect((d?.message ?? '').trim().length).toBeGreaterThan(0);
+      expect(d?.stage).toBe('token-exchange');
+    });
+
+    it('cas 5 — sécurité : tokens / code_verifier JAMAIS présents dans le diagnostic', async () => {
+      // Spotify « renvoie » une description empoisonnée (poids sensible) :
+      // la sanitisation DOIT masquer l’ensemble, jamais le laisser passer.
+      (redeemAuthorizationCode as jest.Mock).mockResolvedValue({
+        kind: 'refused',
+        status: 400,
+        errorCode: 'invalid_grant',
+        description:
+          'Invalid authorization code access_token=SECRETTOKEN123 refresh_token=R3FRESHXYZ code_verifier=VERIFIERSECRET99',
+      });
+
+      const { result } = renderHook(() => useSpotifyAuth());
+      await act(async () => {
+        await result.current.startLogin();
+      });
+
+      const outcome = outcomeOf(result);
+      const serialized = JSON.stringify(outcome.diagnostic);
+      // Ni les valeurs empoisonnées…
+      expect(serialized).not.toContain('SECRETTOKEN123');
+      expect(serialized).not.toContain('R3FRESHXYZ');
+      expect(serialized).not.toContain('VERIFIERSECRET99');
+      // …ni le code_verifier réel de l’échange (jamais transmis au
+      // diagnostic, ni dans aucune chaîne de l’outcome).
+      expect(serialized).not.toContain('verifier-test');
+      expect(JSON.stringify(outcome.cause)).not.toContain('verifier-test');
+      // La description empoisonnée est intégralement masquée.
+      expect(outcome.diagnostic?.description).toBe('<redacted>');
+    });
+  });
+
   describe('route smoke-seed (EXPO_PUBLIC_SPOTIFY_OAUTH_SMOKE)', () => {
     afterEach(() => {
       delete process.env.EXPO_PUBLIC_SPOTIFY_OAUTH_SMOKE;
@@ -1291,10 +1493,10 @@ describe('useSpotifyAuth — taxonomie du diagnostic OAuth', () => {
       expect(redeemAuthorizationCode).not.toHaveBeenCalled();
       expect(result.current.state).toEqual({
         status: 'error',
-        outcome: {
+        outcome: expect.objectContaining({
           kind: 'oauth-refused',
           cause: 'access_denied · User denied',
-        },
+        }),
       });
     });
 
@@ -1313,7 +1515,10 @@ describe('useSpotifyAuth — taxonomie du diagnostic OAuth', () => {
 
       expect(result.current.state).toEqual({
         status: 'error',
-        outcome: { kind: 'oauth-refused', cause: 'invalid_client · HTTP 401' },
+        outcome: expect.objectContaining({
+          kind: 'oauth-refused',
+          cause: 'invalid_client · HTTP 401',
+        }),
       });
     });
 

@@ -135,6 +135,19 @@ export const FR_FR_LOGIN = {
   loginNotConfigured:
     "La connexion Spotify n'est pas disponible pour le moment.",
   loginNotConfiguredBody: 'Réessaie plus tard.',
+  // MODE DIAGNOSTIC (temporaire) : détails techniques NON sensibles,
+  // masqués par défaut — bouton « Voir les détails » sous la carte d'erreur.
+  // JAMAIS de token, code, code_verifier, secret, cookie ou header.
+  loginDetailsShow: 'Voir les détails',
+  loginDetailsHide: 'Masquer les détails',
+  loginDetailsTitle: 'Diagnostic technique (non sensible)',
+  loginDiagStage: 'Étape',
+  loginDiagType: 'Type',
+  loginDiagHttp: 'HTTP',
+  loginDiagCode: 'Code',
+  loginDiagDescription: 'Description',
+  loginDiagMessage: 'Message',
+  loginDiagRedacted: '<masqué>',
   loginPrivacyNote:
     'Connexion sécurisée avec Spotify. Aucune clé ne te sera demandée : tu te connectes sur la page officielle de Spotify, puis tu reviens à Melodix.',
   loginSecureFootnote: 'Connexion sécurisée avec Spotify',
