@@ -433,6 +433,8 @@ describe('services/spotify/apiClient (API Web Spotify officielle)', () => {
       bodyShape: 'json',
       contentType: 'application/json',
       headers: {},
+      // 403 AVEC message = cause définitive : AUCUNE retentative.
+      attempts: 1,
     });
     // Le message capturé ne doit JAMAIS contenir le token porteur.
     expect(apiError.spotifyMessage).not.toContain('valid-token');
@@ -480,6 +482,8 @@ describe('services/spotify/apiClient (API Web Spotify officielle)', () => {
         bodyShape: 'json',
         contentType: 'application/json',
         headers: {},
+        // 1 initiale + 2 retentatives 403-edge (borne atteinte).
+        attempts: 3,
       });
       expect(await loadSession()).not.toBeNull();
     });
@@ -495,6 +499,7 @@ describe('services/spotify/apiClient (API Web Spotify officielle)', () => {
         bodyShape: 'empty',
         contentType: 'application/json',
         headers: {},
+        attempts: 3,
       });
     });
 
@@ -512,6 +517,7 @@ describe('services/spotify/apiClient (API Web Spotify officielle)', () => {
         bodyShape: 'non-json',
         contentType: 'text/html; charset=utf-8',
         headers: {},
+        attempts: 3,
       });
       // Jamais de contenu de page ni de token dans l’erreur exposée.
       const serialized = JSON.stringify(error);

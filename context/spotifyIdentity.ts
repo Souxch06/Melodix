@@ -75,6 +75,14 @@ export type SpotifyVerificationFailure =
       meta?: {
         finalUrl?: string;
         headers?: Record<string, string>;
+        /**
+         * 403 uniquement — nombre total de requêtes émises (1 initiale +
+         * retentatives bornées du 403 edge sans message). >= 2 = 403
+         * PERSISTANT : la retentative n'a pas abouti — c'est la donnée qui
+         * oriente vers une cause déterministe (configuration du
+         * Developer Dashboard) plutôt qu'une instabilité edge passagère.
+         */
+        attempts?: number;
       };
     }
   | { kind: 'generic' }; // erreur inattendue
@@ -249,6 +257,17 @@ export const describeSpotifyVerificationFailure = (
             if (safeValue) {
               lines.push(`${label} : ${safeValue}`);
             }
+          }
+          // 403 PERSISTANT à travers le retry borné (au moins une
+          // retentative sans succès) : la donnée la plus utile pour trancher
+          // instabilité edge vs refus déterministe (Developer Dashboard).
+          if (
+            typeof failure.meta.attempts === 'number' &&
+            failure.meta.attempts >= 2
+          ) {
+            lines.push(
+              `Tentatives : ${failure.meta.attempts} — 403 persistant`
+            );
           }
           text += `\n${lines.join('\n')}`;
         } else {

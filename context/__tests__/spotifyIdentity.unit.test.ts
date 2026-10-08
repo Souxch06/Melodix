@@ -316,6 +316,28 @@ describe('spotifyIdentity — diagnostic de vérification (sûr, lisible)', () =
       );
     });
 
+    it('attempts >= 2 → ligne « Tentatives : N — 403 persistant » ; attempts 1 ou absente → aucune ligne', () => {
+      const withAttempts = describeSpotifyVerificationFailure(translations, {
+        ...meta403,
+        meta: { ...meta403.meta, attempts: 3 },
+      });
+      expect(withAttempts).toContain('Tentatives : 3 — 403 persistant');
+      // La ligne suit les headers (dernière ligne du bloc méta).
+      const lines = (withAttempts as string).split('\n');
+      expect(lines[lines.length - 1]).toBe('Tentatives : 3 — 403 persistant');
+
+      const oneAttempt = describeSpotifyVerificationFailure(translations, {
+        ...meta403,
+        meta: { ...meta403.meta, attempts: 1 },
+      });
+      expect(oneAttempt).not.toContain('Tentatives');
+
+      // attempts absente (403 avec message / ancien diagnostic) : aucune ligne.
+      expect(
+        describeSpotifyVerificationFailure(translations, meta403)
+      ).not.toContain('Tentatives');
+    });
+
     it('Content-Type absent → « Content-Type : inconnu » ; URL absente → « URL : inconnue »', () => {
       const text = describeSpotifyVerificationFailure(translations, {
         kind: 'http',

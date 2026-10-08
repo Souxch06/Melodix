@@ -72,6 +72,16 @@ export type SpotifyApiHttpDiagnostics = {
   statusText?: string;
   /** 403 uniquement — headers allowlistés, valeurs sanitisées (jamais de secret). */
   headers?: Record<string, string>;
+  /**
+   * 403 uniquement — nombre total de requêtes émises pour cette URL
+   * (1 initiale + retentatives du 403 edge sans message, au plus 2).
+   * `attempts >= 2` = le 403 est PERSISTANT à travers le retry borné :
+   * c'est la donnée qui distingue une instabilité edge passagère (la
+   * retentative aurait réussi — pas d'erreur exposée) d'un refus
+   * déterministe (configuration du compte/de l'application côté
+   * Developer Dashboard — à vérifier manuellement).
+   */
+  attempts?: number;
 };
 
 export class SpotifyApiError extends Error {
@@ -308,6 +318,9 @@ export const spotifyApiGet = async <T>(path: string): Promise<T> => {
             statusTextRaw && statusTextRaw !== '<redacted>'
               ? statusTextRaw
               : undefined,
+          // Nombre total de requêtes (1 + retentatives 403-edge déjà faites)
+          // : l'UI expose « 403 persistant » seulement si >= 2.
+          attempts: 1 + edge403Retries,
         };
       }
       // 403 SANS message détaillé = refus NIVEAU EDGE de l'edge Spotify

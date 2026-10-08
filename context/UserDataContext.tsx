@@ -89,6 +89,9 @@ const classifyVerificationFailure = (
               : {
                   finalUrl: http.finalUrl,
                   headers: http.headers,
+                  // Nombre de requêtes (1 + retentatives 403-edge) : >= 2
+                  // = 403 persistant → l'UI l'expose explicitement.
+                  attempts: http.attempts,
                 },
         };
       }

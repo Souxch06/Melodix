@@ -33,8 +33,9 @@ modules + `player.ts`). Baseline avant toute modification :
 
 **Conclusion A : aucun défaut réel trouvé → aucun correctif moteur, aucun
 commit artificiel** (consigne : « Si cause réelle trouvée : corriger + test
-de régression. Sinon : documenter »). Les 2070 tests automatiques (2052
-existants + 18 nouveaux de cette mission — cf. §4) restent tous verts.
+de régression. Sinon : documenter »). La suite Jest complète
+(2056 passés / 14 ignorés — baseline 2052 + 4 nouveaux de cette mission — cf.
+§4) reste entièrement verte.
 
 ### 2. `no-authorized-execution-surface` — ce que c'est et ce qu'il empêche
 
