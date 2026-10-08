@@ -1,7 +1,8 @@
 # Rapport — Pourquoi « HTTP 403 — accès refusé » sans le message exact : diagnostic explicite du corps 403 (v15, 4.5.0-test.20)
 
 **Date** : 2026-10-08 — **Branche** : `arena/fcdae8c6-melodix`
-**HEAD avant** : `20c41ee` (code V14 = `501a21b`) — **HEAD après** : voir §Git
+**HEAD avant** : `20c41ee` (code V14 = `501a21b`) — **HEAD après** : `d1dc71b`
+**CI** : run `37772231920` SUCCESS (16 min 49 s)
 **Version** : `4.5.0-test.20` / versionCode `45020`
 **Test physique déclencheur (APK test.19)** : `Compte Spotify indisponible` puis
 **`HTTP 403 — accès refusé`** — le message exact attendu par V14 n'apparaît pas.
@@ -120,18 +121,20 @@ Tests clés du diagnostic 403 :
 ## 5. Git
 
 - **SHA HEAD avant** : `20c41ee` (V14 : code `501a21b` + rapport `20c41ee`)
-- **Commits** : 1 commit code + version (+ éventuel commit rapport) — SHA final
-  après push
+- **SHA final** : `d1dc71b` (commit code + version + rapport)
 - **Branche** : `arena/fcdae8c6-melodix` — **PR** : #6
-- **CI** : run(s) `android-apk.yml` déclenché(s) par le push — ID + statut
-  après push
+- **CI** : run **`37772231920` SUCCESS** (16 min 49 s) — gates version 45020,
+  invariants redirect `melodix://callback`, build release, signature,
+  inspection APK, **smoke**
+- **APK** : artefact CI **`Melodix-v4.5.0-test.20-d1dc71b.apk`** (Actions →
+  run 37772231920 → artefacts)
 - Invariants vérifiés avant commit : `melodix://callback` canonique intact,
   Client ID `7c5af4cd…` absent du diff, bouton Réessayer inchangé
 
 ## 6. TEST PHYSIQUE : NON EFFECTUÉ — matériel/compte indisponible
 
 Aucune prétention de test physique. Protocole sur téléphone avec l'APK
-**`Melodix-v4.5.0-test.20-<sha>.apk`** (artefact CI) :
+**`Melodix-v4.5.0-test.20-d1dc71b.apk`** (artefact CI du run 37772231920) :
 
 | Affichage dans l'app                                                           | Signification                                                                            | Action                                                                                                                                   |
 | ------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
