@@ -155,7 +155,7 @@ Tests de contrôle du diagnostic 403 :
 ## 8. Git
 
 - **HEAD avant** : `b540a58` (V15)
-- **HEAD après** : `ad9c12d` (+ commit docs du rapport)
+- **HEAD après** : `7ca465b` (code `ad9c12d` + commit docs)
 - **Branche** : `arena/fcdae8c6-melodix` — **PR** : #6
 - **CI** : run `android-apk.yml` après push — ID + statut
 - Invariants vérifiés avant commit : Client ID absent du diff, redirect
