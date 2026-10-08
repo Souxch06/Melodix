@@ -354,6 +354,50 @@ describe('services/spotify/apiClient (API Web Spotify officielle)', () => {
     await expect(spotifyApiGet('/x')).rejects.toBeInstanceOf(SpotifyApiError);
   });
 
+  it('403 → reste un 403 (kind http, status 403) : AUCUN refresh, session CONSERVÉE, message Spotify conservé', async () => {
+    // Un 403 n’est JAMAIS converti en 401 et ne déclenche JAMAIS de refresh
+    // (le token n’est pas en cause — ex. « User not approved for app »).
+    await saveSession(validSession());
+    let tokenEndpointCalls = 0;
+    globalThis.fetch = jest.fn(async (url) => {
+      if (String(url).includes('accounts.spotify.com')) {
+        tokenEndpointCalls += 1;
+        return {
+          ok: true,
+          json: async () => ({
+            access_token: 'should-never-be-used',
+            expires_in: 3600,
+          }),
+        } as Response;
+      }
+      return {
+        status: 403,
+        ok: false,
+        headers: { get: () => null },
+        json: async () => ({
+          error: { status: 403, message: 'User not approved for app' },
+        }),
+      } as unknown as Response;
+    }) as unknown as typeof fetch;
+
+    const error = await spotifyApiGet('/me').catch((caught: unknown) => caught);
+    expect(error).toBeInstanceOf(SpotifyApiError);
+    expect(error).toMatchObject({ kind: 'http', status: 403 });
+    expect((error as SpotifyApiError).spotifyMessage).toBe(
+      'User not approved for app'
+    );
+    // Aucun appel au token endpoint (pas de refresh déclenché).
+    expect(tokenEndpointCalls).toBe(0);
+    // La session n’est PAS purgée : « Réessayer » doit pouvoir retenter.
+    expect(await loadSession()).not.toBeNull();
+    // Aucune valeur sensible dans l’erreur exposée.
+    const serialized = JSON.stringify(error);
+    expect(serialized).not.toContain('valid-token');
+    expect(serialized).not.toContain('"rt"');
+    expect(serialized).not.toContain('should-never-be-used');
+    expect(serialized).not.toContain('Bearer');
+  });
+
   it("403 + corps d'erreur Spotify → statut ET message consignés (jamais le token)", async () => {
     await saveSession(validSession());
     setFetch(async () => ({

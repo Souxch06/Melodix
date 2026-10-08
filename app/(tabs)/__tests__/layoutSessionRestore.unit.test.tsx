@@ -27,7 +27,7 @@ const mockState: {
   verificationFailure:
     | { kind: 'network' }
     | { kind: 'rate-limited' }
-    | { kind: 'http'; status: number }
+    | { kind: 'http'; status: number; message?: string }
     | { kind: 'invalid-response' }
     | { kind: 'generic' }
     | null;
@@ -193,6 +193,36 @@ describe('Onglets — restauration d’identité', () => {
 
     expect(screen.getByTestId('card-body').props.children).toContain(
       'HTTP 401 — access token invalide ou expiré'
+    );
+  });
+
+  it("'spotify-unverified' + HTTP 403 + message Spotify : cause exacte affichée « HTTP 403 — User not approved for app »", () => {
+    mockState.sessionStatus = 'spotify-unverified';
+    mockState.verificationFailure = {
+      kind: 'http',
+      status: 403,
+      message: 'User not approved for app',
+    };
+
+    render(<Layout />);
+
+    expect(screen.getByTestId('card-body').props.children).toContain(
+      'HTTP 403 — User not approved for app'
+    );
+    // Jamais de valeur sensible ni de « undefined » dans la carte.
+    expect(
+      JSON.stringify(screen.getByTestId('card-body').props.children)
+    ).not.toMatch(/access_token|refresh_token|code_verifier|Bearer |undefined/);
+  });
+
+  it("'spotify-unverified' + HTTP 403 SANS message Spotify : libellé localisé 403", () => {
+    mockState.sessionStatus = 'spotify-unverified';
+    mockState.verificationFailure = { kind: 'http', status: 403 };
+
+    render(<Layout />);
+
+    expect(screen.getByTestId('card-body').props.children).toContain(
+      'HTTP 403 — accès refusé'
     );
   });
 

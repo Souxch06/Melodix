@@ -166,4 +166,55 @@ describe('spotifyIdentity — diagnostic de vérification (sûr, lisible)', () =
       describeSpotifyVerificationFailure(translations, undefined)
     ).toBeNull();
   });
+
+  it('HTTP 403 + message Spotify SÛR → « HTTP 403 — <message> » (cause exacte affichée)', () => {
+    const text = describeSpotifyVerificationFailure(translations, {
+      kind: 'http',
+      status: 403,
+      message: 'User not approved for app',
+    });
+    expect(text).toBe('HTTP 403 — User not approved for app');
+  });
+
+  it('HTTP 503 + message Spotify SÛR → « HTTP 503 — <message> »', () => {
+    const text = describeSpotifyVerificationFailure(translations, {
+      kind: 'http',
+      status: 503,
+      message: 'Service temporarily unavailable',
+    });
+    expect(text).toBe('HTTP 503 — Service temporarily unavailable');
+  });
+
+  it.each([
+    ['masqué en amont', '<redacted>'],
+    ['sensible — Bearer', 'Bearer eyJabc123'],
+    ['sensible — access_token', 'access_token=abc123'],
+    ['sensible — code_verifier', 'code_verifier=abc123'],
+    ['sensible — client_secret', 'client_secret=abc123'],
+    ['vide', '   '],
+    ['longue chaîne sensible', 'x'.repeat(70) + ' refresh_token=abc'],
+  ])(
+    'HTTP 403 + message %s → libellé générique 403, JAMAIS de fuite',
+    (_label, message) => {
+      const text = describeSpotifyVerificationFailure(translations, {
+        kind: 'http',
+        status: 403,
+        message,
+      });
+      // Repli sur le libellé localisé sûr, sans le message d'origine.
+      expect(text).toBe('HTTP 403 — accès refusé');
+      expect(text).not.toMatch(
+        /access_token|refresh_token|code_verifier|client_secret|Bearer/
+      );
+    }
+  );
+
+  it('message sans espace exploitable → repli localisé, jamais de « undefined »', () => {
+    const text = describeSpotifyVerificationFailure(translations, {
+      kind: 'http',
+      status: 403,
+      message: undefined,
+    });
+    expect(text).toBe('HTTP 403 — accès refusé');
+  });
 });

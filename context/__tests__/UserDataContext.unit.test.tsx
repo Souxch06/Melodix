@@ -82,6 +82,12 @@ type ObservedState = {
   planKind: string;
   /** Kind du diagnostic de vérification ('none' si aucun). */
   failure: string;
+  /**
+   * Message Spotify du diagnostic (variante http, '' sinon). Testé pour
+   * garantir que la cause exacte (ex. « User not approved for app ») est
+   * transmise à l'écran — jamais un secret (le mock est lui-même sûr).
+   */
+  failureMessage: string;
 };
 
 /**
@@ -106,7 +112,11 @@ const Probe = () => {
       <View
         testID={`user-state|${sessionStatus}|${userData.id}|${
           spotifyAccountId ?? 'none'
-        }|${spotifyDataPlan.kind}|${verificationFailure?.kind ?? 'none'}`}
+        }|${spotifyDataPlan.kind}|${verificationFailure?.kind ?? 'none'}|${
+          verificationFailure?.kind === 'http'
+            ? (verificationFailure.message ?? '').replace(/\|/g, '/')
+            : ''
+        }`}
       />
       <Pressable testID="sign-out" onPress={() => void signOut()} />
       <Pressable testID="reload" onPress={() => void reloadUserData()} />
@@ -135,11 +145,10 @@ const Probe = () => {
 
 const observedState = (): ObservedState => {
   const node = screen.getByTestId(/^user-state\|/);
-  const [, status, userId, accountId, planKind, failure] = String(
-    node.props.testID
-  ).split('|');
+  const [, status, userId, accountId, planKind, failure, failureMessage] =
+    String(node.props.testID).split('|');
 
-  return { status, userId, accountId, planKind, failure };
+  return { status, userId, accountId, planKind, failure, failureMessage };
 };
 
 const renderProvider = () =>
@@ -439,6 +448,37 @@ describe('Réessayer — vérification réelle /me + refresh + aucun état bloqu
     fireEvent.press(screen.getByTestId('reload'));
     await waitFor(() => expect(observedState().status).toBe('spotify'));
     expect(observedState().failure).toBe('none');
+  });
+
+  it('cas 9 — /me 403 + message Spotify : spotify-unverified, diagnostic HTTP 403 + message, session CONSERVÉE, réessai → succès', async () => {
+    const forbiddenError = () =>
+      new SpotifyApiError(
+        'http',
+        'Réponse Spotify non valide (403).',
+        403,
+        'User not approved for app'
+      );
+
+    await bootUnverified(forbiddenError());
+    expect(observedState()).toMatchObject({
+      status: 'spotify-unverified',
+      planKind: 'identity-unavailable',
+      failure: 'http',
+      failureMessage: 'User not approved for app',
+    });
+    // Un 403 ne signifie PAS « session morte » : la session n'est PAS purgée.
+    expect(mockActions.clearSession).not.toHaveBeenCalled();
+
+    // Le Réessayer relance RÉELLEMENT /me : la 2ᵉ tentative réussit.
+    mockActions.getCurrentUser.mockResolvedValueOnce(spotifyUser('account-a'));
+    fireEvent.press(screen.getByTestId('reload'));
+    await waitFor(() => expect(observedState().status).toBe('spotify'));
+    expect(observedState()).toMatchObject({
+      userId: 'account-a',
+      accountId: 'account-a',
+      failure: 'none',
+    });
+    expect(mockActions.getCurrentUser).toHaveBeenCalledTimes(2); // boot + 1 réessai
   });
 
   it('cas 5 — erreur réseau → compte NON détruit, diagnostic réseau ; le Réessayer relance RÉELLEMENT /me', async () => {

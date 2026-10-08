@@ -59,7 +59,14 @@ const classifyVerificationFailure = (
       case 'rate-limited':
         return { kind: 'rate-limited' };
       case 'http':
-        return { kind: 'http', status: error.status ?? 0 };
+        // Le message Spotify (ex. « User not approved for app ») est déjà
+        // sanitisé en amont (80 caractères, valeurs sensibles masquées) :
+        // on le transmet tel quel — le descriptor le re-vérifie au rendu.
+        return {
+          kind: 'http',
+          status: error.status ?? 0,
+          message: error.spotifyMessage.trim() || undefined,
+        };
       case 'unauthenticated':
       default:
         // Défensif (le cas de session morte est géré avant cette branche).

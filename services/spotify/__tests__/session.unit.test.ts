@@ -74,6 +74,34 @@ describe('services/spotify/session (SecureStore)', () => {
     expect(description?.expiresInSeconds).toBeGreaterThan(3000);
   });
 
+  it('save → load : access token LONG (~1500 car.) revenu INTACT (aucune troncature)', async () => {
+    // Régression §4 : un token tronqué au stockage produirait un Bearer
+    // invalide (401) — le round-trip doit être bit-perfect, y compris pour
+    // les JWT Spotify typiques (~1–3 Ko).
+    const longAccessToken =
+      'eyJhbGciOiJSUzI1NiIsImtpZCI6ImFiYyJ9.' +
+      'x'.repeat(1400) +
+      '.signature-part';
+    const longRefreshToken = 'r' + 't'.repeat(200);
+    const session = {
+      accessToken: longAccessToken,
+      refreshToken: longRefreshToken,
+      expiresAtMs: Date.now() + 3600_000,
+      scope:
+        'user-read-private user-library-read playlist-read-private playlist-read-collaborative',
+    };
+
+    await saveSession(session);
+
+    const loaded = await loadSession();
+    expect(loaded?.accessToken).toBe(longAccessToken);
+    expect(loaded?.refreshToken).toBe(longRefreshToken);
+    expect(loaded?.scope).toBe(session.scope);
+    expect(loaded?.expiresAtMs).toBe(session.expiresAtMs);
+    // Le token servi par le client API est bien celui complet.
+    await expect(getValidAccessToken()).resolves.toBe(longAccessToken);
+  });
+
   it('aucune session → loadSession null, token null', async () => {
     await expect(loadSession()).resolves.toBeNull();
     await expect(getValidAccessToken()).resolves.toBeNull();

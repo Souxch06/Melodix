@@ -29,6 +29,7 @@
  *                           double requête).
  */
 import { LOCAL_USER_ID } from '@config';
+import { isSensitiveDiagnosticValue } from '@services';
 
 export type SessionStatus =
   | 'loading'
@@ -40,13 +41,16 @@ export type SessionStatus =
 /**
  * Échec de vérification du compte, CLASSÉ et SANS AUCUNE VALEUR SENSIBLE
  * (jamais de token, de refresh_token, de code_verifier ni d'en-tête) :
- * l'écran traduit `kind`/`status` en message utilisateur localisé.
+ * l'écran traduit `kind`/`status`/`message` en message utilisateur
+ * localisé. `message` (variante http) est le message d'erreur RENDU PAR
+ * SPOTIFY (ex. « User not approved for app ») — capté SANS token, borné à
+ * 80 caractères en amont, et re-vérifié au rendu.
  */
 export type SpotifyVerificationFailure =
   | { kind: 'invalid-response' } // réponse sans profil exploitable
   | { kind: 'network' } // réseau indisponible / Spotify injoignable
   | { kind: 'rate-limited' } // 429 — trop de requêtes
-  | { kind: 'http'; status: number } // autre statut (401, 403, 5xx, …)
+  | { kind: 'http'; status: number; message?: string } // 401, 403, 5xx, …
   | { kind: 'generic' }; // erreur inattendue
 
 /**
@@ -108,9 +112,30 @@ export const resolveSpotifyDataPlan = (
 };
 
 /**
+ * Message renvoyé par Spotify (ex. « User not approved for app »), capté
+ * par l'apiClient (borné à 80 caractères, `<redacted>` s'il contenait une
+ * valeur sensible). Retourne le message SEULEMENT s'il est non vide, non
+ * masqué, et re-vérifié non sensible (défense en profondeur : JAMAIS de
+ * token, secret, header ni code_verifier dans un texte utilisateur).
+ */
+const safeSpotifyHttpMessage = (message: string | undefined): string | null => {
+  if (typeof message !== 'string') {
+    return null;
+  }
+  const trimmed = message.trim();
+  if (!trimmed || trimmed === '<redacted>') {
+    return null;
+  }
+  return isSensitiveDiagnosticValue(trimmed) ? null : trimmed;
+};
+
+/**
  * Traduit un échec de vérification en message utilisateur LISIBLE et SÛR.
- * `null`/absence → `null` (rien à afficher). Jamais de valeur technique
- * brute, jamais de secret : uniquement des statuts HTTP et des libellés.
+ * `null`/absence → `null` (rien à afficher). Pour un statut http, si
+ * Spotify a fourni un message d'erreur SAFE, il est affiché tel quel
+ * (`HTTP 403 — User not approved for app`) — c'est lui qui identifie la
+ * cause (compte non inscrit au dashboard, panne, …) ; sinon le libellé
+ * localisé du statut. Jamais de valeur technique brute, jamais de secret.
  */
 export const describeSpotifyVerificationFailure = (
   t: {
@@ -135,7 +160,11 @@ export const describeSpotifyVerificationFailure = (
       return t.spotifyVerifyErrorNetwork;
     case 'rate-limited':
       return t.spotifyVerifyErrorRateLimited;
-    case 'http':
+    case 'http': {
+      const spotifyMessage = safeSpotifyHttpMessage(failure.message);
+      if (spotifyMessage) {
+        return `HTTP ${failure.status} — ${spotifyMessage}`;
+      }
       if (failure.status === 401) {
         return t.spotifyVerifyError401;
       }
@@ -146,6 +175,7 @@ export const describeSpotifyVerificationFailure = (
         return t.spotifyVerifyErrorServer(failure.status);
       }
       return t.spotifyVerifyErrorGeneric;
+    }
     case 'generic':
     default:
       return t.spotifyVerifyErrorGeneric;

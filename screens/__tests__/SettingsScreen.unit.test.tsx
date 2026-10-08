@@ -48,6 +48,7 @@ let mockSessionStatus:
 let mockVerificationFailure: {
   kind: 'network' | 'rate-limited' | 'http' | 'invalid-response' | 'generic';
   status?: number;
+  message?: string;
 } | null = null;
 
 jest.mock('expo-router', () => ({
@@ -121,6 +122,11 @@ jest.mock('@services', () => ({
     },
     { id: 'bleu', hex: '#3b82f6', labelFr: 'Bleu', labelEn: 'Blue' },
   ],
+  // Garde de SANITISATION réelle (module pur) : le diagnostic http du
+  // contexte utilisateur la passe sur chaque message avant affichage.
+  isSensitiveDiagnosticValue: jest.requireActual(
+    '../../services/spotify/devLog'
+  ).isSensitiveDiagnosticValue,
 }));
 
 describe('Paramètres — ouverture, sections et navigation', () => {
@@ -234,6 +240,27 @@ describe('Paramètres — compte et déconnexion', () => {
     );
 
     expect(subtitle).toContain('HTTP 401 — access token invalide ou expiré');
+    expect(subtitle).not.toMatch(
+      /access_token=|refresh_token=|code_verifier=|Bearer |undefined/
+    );
+    expect(getByTestId('settings-identity-retry')).toBeTruthy();
+    mockVerificationFailure = null;
+  });
+
+  it('identité indisponible + HTTP 403 + message Spotify : cause exacte visible dans le sous-titre', () => {
+    mockSessionStatus = 'spotify-unverified';
+    mockVerificationFailure = {
+      kind: 'http',
+      status: 403,
+      message: 'User not approved for app',
+    };
+
+    const { getByTestId } = render(<SettingsScreen />);
+    const subtitle = String(
+      getByTestId('settings-account-subtitle').props.children
+    );
+
+    expect(subtitle).toContain('HTTP 403 — User not approved for app');
     expect(subtitle).not.toMatch(
       /access_token=|refresh_token=|code_verifier=|Bearer |undefined/
     );
@@ -443,7 +470,7 @@ describe('Paramètres — données, langue, aide et version', () => {
     const texts = row
       .findAllByType('Text')
       .map((node: { props: { children?: unknown } }) => node.props.children);
-    expect(texts).toContain('4.5.0-test.18');
+    expect(texts).toContain('4.5.0-test.19');
   });
 
   it('audio : la cascade réelle des sources est affichée honnêtement', () => {
