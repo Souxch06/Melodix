@@ -346,10 +346,18 @@ APK vérifiée : `versionCode='45024'` `versionName='4.5.0-test.24'`.
 
 ## 8. Identifiants finaux
 
-- **HEAD** : **`04fa17cbe1785e6e36469ea0c7e02190e38079a6`**.
+- **HEAD** : code **`04fa17cbe1785e6e36469ea0c7e02190e38079a6`**
+  (source de l'APK 45024) ; le présent rapport est porté par le commit
+  **`dd7a0e1c2d420c01a6d378d36bbbd8815401f5c6`** (HEAD de branche après
+  ce commit).
 - **Branche** : `arena/fcdae8c6-melodix` (poussée).
 - **Worktree** : propre (0 fichier modifié après commit).
-- **Commits créés cette mission** : `04fa17c` (V19 : diagnostic 403
-  persistant + correction chiffres V18 + bump 45024).
-- **Runs CI** : `37836789648` (code, SUCCESS).
+- **Commits créés cette mission** :
+  - `04fa17cbe1785e6e36469ea0c7e02190e38079a6` — diagnostic 403 persistant
+    (champ `attempts` + UI), correction des chiffres V18, bump
+    `4.5.0-test.24/45024` ;
+  - `dd7a0e1c2d420c01a6d378d36bbbd8815401f5c6` — ce rapport.
+- **Runs CI** : `37836789648` (commit code — SUCCESS, APK 45024) ; le
+  commit rapport déclenche une run CI de documentation (sans impact
+  binaire).
 - **Base** : `05e6e76579d2dd96baaf5868fbc137909acfb00f` (V18 final).
