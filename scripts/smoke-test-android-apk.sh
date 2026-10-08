@@ -192,12 +192,17 @@ WEB_START=$(adb shell am start -W -a android.intent.action.VIEW \
   fail "prototype Spotify Web non ouvrable : $WEB_START"
 echo "$WEB_START"
 # Laisse au chargement puis au timeout de handshake (8 s) le temps de conclure.
-# Sonde par itérations (jusqu'à 60 s) : un dump unique après un délai fixe est
+# Sonde par itérations (jusqu'à 80 s) : un dump unique après un délai fixe est
 # un faux négatif classique sur émulateur CI lent (le dump peut précéder la
 # fin de la transition de route). Aucun comportement d'app n'est impliqué.
+# (V17 : la section hôte de production qui précède cette sonde laisse l'émulateur
+# plus chargé — WebView open.spotify.com off-screen + attente du handshake — ce
+# qui a fait dépasser la fenêtre de 60 s sur un runner lent, run 37810103366 :
+# « écran de diagnostic Spotify Web absent après deep link (12 dumps) ». La
+# fenêtre est donc portée à 80 s sans rien assouplir : l'écran doit EXISTER.)
 WEB_UI=""
 DUMP_TRIES=0
-while [ "$DUMP_TRIES" -lt 12 ]; do
+while [ "$DUMP_TRIES" -lt 16 ]; do
   sleep 5
   DUMP_TRIES=$(( DUMP_TRIES + 1 ))
   adb shell uiautomator dump /sdcard/melodix-web.xml >/dev/null 2>&1 || continue
