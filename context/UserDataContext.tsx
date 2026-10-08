@@ -58,15 +58,31 @@ const classifyVerificationFailure = (
         return { kind: 'network' };
       case 'rate-limited':
         return { kind: 'rate-limited' };
-      case 'http':
+      case 'http': {
         // Le message Spotify (ex. « User not approved for app ») est déjà
         // sanitisé en amont (80 caractères, valeurs sensibles masquées) :
         // on le transmet tel quel — le descriptor le re-vérifie au rendu.
+        // S'il est ABSENT (Spotify a renvoyé un 403 sans message : corps
+        // vide, JSON sans error.message, non JSON) ou MASQUÉ ('<redacted>'),
+        // on transmet la FORME de la réponse : l'UI doit dire explicitement
+        // « aucun message détaillé fourni » — jamais de repli silencieux
+        // sur le libellé générique « accès refusé ».
+        const raw = error.spotifyMessage.trim();
+        const message = raw && raw !== '<redacted>' ? raw : undefined;
         return {
           kind: 'http',
           status: error.status ?? 0,
-          message: error.spotifyMessage.trim() || undefined,
+          message,
+          detail: message
+            ? undefined
+            : raw === '<redacted>'
+              ? 'redacted'
+              : error.httpDiagnostics?.bodyShape,
+          contentType: message
+            ? undefined
+            : error.httpDiagnostics?.contentType || undefined,
         };
+      }
       case 'unauthenticated':
       default:
         // Défensif (le cas de session morte est géré avant cette branche).

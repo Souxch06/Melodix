@@ -55,6 +55,19 @@ export const FR_FR_ACCOUNT = {
   spotifyVerifyErrorRateLimited: 'HTTP 429 — trop de requêtes',
   spotifyVerifyError401: 'HTTP 401 — access token invalide ou expiré',
   spotifyVerifyError403: 'HTTP 403 — accès refusé',
+  spotifyVerifyErrorNoDetail: (
+    status: number,
+    detail: 'empty' | 'json' | 'non-json' | 'redacted'
+  ) =>
+    `HTTP ${status} — Spotify n'a fourni aucun message détaillé (${
+      detail === 'empty'
+        ? 'corps de réponse vide'
+        : detail === 'json'
+          ? "réponse JSON sans message d'erreur"
+          : detail === 'redacted'
+            ? 'message masqué pour votre sécurité'
+            : 'réponse non JSON'
+    })`,
   spotifyVerifyErrorServer: (status: number) =>
     `Erreur Spotify (HTTP ${status}) — erreur temporaire`,
   spotifyVerifyErrorGeneric: 'Erreur inattendue — tu peux réessayer',

@@ -41,16 +41,32 @@ export type SessionStatus =
 /**
  * Échec de vérification du compte, CLASSÉ et SANS AUCUNE VALEUR SENSIBLE
  * (jamais de token, de refresh_token, de code_verifier ni d'en-tête) :
- * l'écran traduit `kind`/`status`/`message` en message utilisateur
- * localisé. `message` (variante http) est le message d'erreur RENDU PAR
- * SPOTIFY (ex. « User not approved for app ») — capté SANS token, borné à
- * 80 caractères en amont, et re-vérifié au rendu.
+ * l'écran traduit `kind`/`status`/`message`/`detail` en message utilisateur
+ * localisé.
+ *
+ * - `message` (variante http) : le message d'erreur RENDU PAR SPOTIFY
+ *   (ex. « User not approved for app ») — capté SANS token, borné à
+ *   80 caractères en amont, re-vérifié au rendu.
+ * - `detail` (variante http) : présent uniquement quand Spotify n'a PAS
+ *   rendu de message exploitable — la FORME de la réponse (corps vide /
+ *   JSON sans `error.message` / non JSON) ou « redacted » si un message
+ *   existait mais a été masqué pour sécurité. L'UI dit alors EXPLICITE-
+ *   MENT qu'aucun message détaillé n'a été fourni — jamais de repli
+ *   silencieux sur le libellé générique.
+ * - `contentType` : en-tête Content-Type de la réponse (sanitisé) —
+ *   métadonnée réseau non sensible (jamais le corps, jamais un token).
  */
 export type SpotifyVerificationFailure =
   | { kind: 'invalid-response' } // réponse sans profil exploitable
   | { kind: 'network' } // réseau indisponible / Spotify injoignable
   | { kind: 'rate-limited' } // 429 — trop de requêtes
-  | { kind: 'http'; status: number; message?: string } // 401, 403, 5xx, …
+  | {
+      kind: 'http'; // 401, 403, 5xx, …
+      status: number;
+      message?: string;
+      detail?: 'empty' | 'json' | 'non-json' | 'redacted';
+      contentType?: string;
+    }
   | { kind: 'generic' }; // erreur inattendue
 
 /**
@@ -131,11 +147,16 @@ const safeSpotifyHttpMessage = (message: string | undefined): string | null => {
 
 /**
  * Traduit un échec de vérification en message utilisateur LISIBLE et SÛR.
- * `null`/absence → `null` (rien à afficher). Pour un statut http, si
- * Spotify a fourni un message d'erreur SAFE, il est affiché tel quel
- * (`HTTP 403 — User not approved for app`) — c'est lui qui identifie la
- * cause (compte non inscrit au dashboard, panne, …) ; sinon le libellé
- * localisé du statut. Jamais de valeur technique brute, jamais de secret.
+ * `null`/absence → `null` (rien à afficher). Pour un statut http :
+ * 1. si Spotify a fourni un message d'erreur SAFE, il est affiché tel quel
+ *    (`HTTP 403 — User not approved for app`) — c'est lui qui identifie la
+ *    cause (compte non inscrit au dashboard, panne, …) ;
+ * 2. sinon, si la forme de la réponse est connue (`detail`), on dit
+ *    EXPLICITEMENT que Spotify n'a fourni aucun message détaillé (corps
+ *    vide / sans error.message / non JSON / masqué) — jamais de repli
+ *    silencieux sur le libellé générique ;
+ * 3. sinon le libellé localisé du statut.
+ * Jamais de valeur technique brute, jamais de secret.
  */
 export const describeSpotifyVerificationFailure = (
   t: {
@@ -144,6 +165,10 @@ export const describeSpotifyVerificationFailure = (
     spotifyVerifyErrorRateLimited: string;
     spotifyVerifyError401: string;
     spotifyVerifyError403: string;
+    spotifyVerifyErrorNoDetail: (
+      status: number,
+      detail: 'empty' | 'json' | 'non-json' | 'redacted'
+    ) => string;
     spotifyVerifyErrorServer: (status: number) => string;
     spotifyVerifyErrorGeneric: string;
   },
@@ -164,6 +189,17 @@ export const describeSpotifyVerificationFailure = (
       const spotifyMessage = safeSpotifyHttpMessage(failure.message);
       if (spotifyMessage) {
         return `HTTP ${failure.status} — ${spotifyMessage}`;
+      }
+      if (failure.detail) {
+        // Spotify n'a fourni AUCUN message exploitable : on le dit
+        // explicitement (le libellé générique masquerait cette info) +
+        // le Content-Type sûr (métadonnée, jamais le corps ni un token).
+        let text = t.spotifyVerifyErrorNoDetail(failure.status, failure.detail);
+        const contentType = safeSpotifyHttpMessage(failure.contentType);
+        if (contentType) {
+          text += ` (Content-Type: ${contentType})`;
+        }
+        return text;
       }
       if (failure.status === 401) {
         return t.spotifyVerifyError401;

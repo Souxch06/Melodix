@@ -443,7 +443,17 @@ export const useSpotifyAuth = (): {
             : null;
         const spotifyMessage =
           error instanceof SpotifyApiError ? error.spotifyMessage : '';
-        const detail = `${kind}${httpStatus !== null ? ` · HTTP ${httpStatus}` : ''}${spotifyMessage ? ` · ${spotifyMessage}` : ''}`;
+        const httpDiagnostics =
+          error instanceof SpotifyApiError ? error.httpDiagnostics : undefined;
+        const detail = `${kind}${httpStatus !== null ? ` · HTTP ${httpStatus}` : ''}${spotifyMessage ? ` · ${spotifyMessage}` : ''}${
+          httpDiagnostics
+            ? ` · corps=${httpDiagnostics.bodyShape}${
+                httpDiagnostics.contentType
+                  ? ` content-type=${httpDiagnostics.contentType}`
+                  : ''
+              }`
+            : ''
+        }`;
         spotifyDiag('PROFILE', `FAILED(${kind})`);
         spotifyConfigLine(
           `[SPOTIFY AUTH] /v1/me HTTP status: ${httpStatus !== null ? httpStatus : kind}`

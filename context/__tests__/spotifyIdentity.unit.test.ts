@@ -217,4 +217,67 @@ describe('spotifyIdentity — diagnostic de vérification (sûr, lisible)', () =
     });
     expect(text).toBe('HTTP 403 — accès refusé');
   });
+
+  describe('403 SANS message Spotify — rendu EXPLICITE (jamais « accès refusé » masquant)', () => {
+    it.each([
+      ['empty', 'corps de réponse vide'],
+      ['json', "réponse JSON sans message d'erreur"],
+      ['non-json', 'réponse non JSON'],
+      ['redacted', 'message masqué pour votre sécurité'],
+    ] as const)(
+      "detail %s → « Spotify n'a fourni aucun message détaillé (%s) »",
+      (detail, expectedFragment) => {
+        const text = describeSpotifyVerificationFailure(translations, {
+          kind: 'http',
+          status: 403,
+          detail,
+        });
+        expect(text).toContain("Spotify n'a fourni aucun message détaillé");
+        expect(text).toContain(expectedFragment);
+        // Le libellé générique ne doit PAS masquer l'information.
+        expect(text).not.toContain('accès refusé');
+      }
+    );
+
+    it('Content-Type sûr est joint ; Content-Type sensible est OMIS (zéro fuite)', () => {
+      const withType = describeSpotifyVerificationFailure(translations, {
+        kind: 'http',
+        status: 403,
+        detail: 'non-json',
+        contentType: 'text/html; charset=utf-8',
+      });
+      expect(withType).toContain('(Content-Type: text/html; charset=utf-8)');
+
+      const sensitive = describeSpotifyVerificationFailure(translations, {
+        kind: 'http',
+        status: 403,
+        detail: 'empty',
+        contentType: 'Bearer xyz123',
+      });
+      expect(sensitive).toContain("Spotify n'a fourni aucun message détaillé");
+      expect(sensitive).not.toContain('Bearer');
+      expect(sensitive).not.toContain('Content-Type');
+    });
+
+    it('message présent + detail présent → le message gagne (pas de double info)', () => {
+      const text = describeSpotifyVerificationFailure(translations, {
+        kind: 'http',
+        status: 403,
+        message: 'User not approved for app',
+        detail: 'json',
+      });
+      expect(text).toBe('HTTP 403 — User not approved for app');
+      expect(text).not.toContain("n'a fourni aucun message");
+    });
+
+    it('5xx sans message → rendu explicite avec le statut réel', () => {
+      const text = describeSpotifyVerificationFailure(translations, {
+        kind: 'http',
+        status: 503,
+        detail: 'empty',
+      });
+      expect(text).toContain('HTTP 503');
+      expect(text).toContain("Spotify n'a fourni aucun message détaillé");
+    });
+  });
 });

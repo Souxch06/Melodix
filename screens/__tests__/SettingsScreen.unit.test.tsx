@@ -49,6 +49,8 @@ let mockVerificationFailure: {
   kind: 'network' | 'rate-limited' | 'http' | 'invalid-response' | 'generic';
   status?: number;
   message?: string;
+  detail?: 'empty' | 'json' | 'non-json' | 'redacted';
+  contentType?: string;
 } | null = null;
 
 jest.mock('expo-router', () => ({
@@ -268,6 +270,31 @@ describe('Paramètres — compte et déconnexion', () => {
     mockVerificationFailure = null;
   });
 
+  it('identité indisponible + HTTP 403 SANS message (corps vide) : « aucun message détaillé » visible dans le sous-titre', () => {
+    mockSessionStatus = 'spotify-unverified';
+    mockVerificationFailure = {
+      kind: 'http',
+      status: 403,
+      detail: 'empty',
+      contentType: 'application/json',
+    };
+
+    const { getByTestId } = render(<SettingsScreen />);
+    const subtitle = String(
+      getByTestId('settings-account-subtitle').props.children
+    );
+
+    expect(subtitle).toContain("Spotify n'a fourni aucun message détaillé");
+    expect(subtitle).toContain('corps de réponse vide');
+    // Le libellé générique ne masque pas l'information disponible.
+    expect(subtitle).not.toContain('accès refusé');
+    expect(subtitle).not.toMatch(
+      /access_token=|refresh_token=|code_verifier=|Bearer |undefined/
+    );
+    expect(getByTestId('settings-identity-retry')).toBeTruthy();
+    mockVerificationFailure = null;
+  });
+
   it('réessai en cours (« spotify-verifying ») : libellé de vérification visible, PLUS de bouton Réessayer', () => {
     mockSessionStatus = 'spotify-verifying';
 
@@ -470,7 +497,7 @@ describe('Paramètres — données, langue, aide et version', () => {
     const texts = row
       .findAllByType('Text')
       .map((node: { props: { children?: unknown } }) => node.props.children);
-    expect(texts).toContain('4.5.0-test.19');
+    expect(texts).toContain('4.5.0-test.20');
   });
 
   it('audio : la cascade réelle des sources est affichée honnêtement', () => {

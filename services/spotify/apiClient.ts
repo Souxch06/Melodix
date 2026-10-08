@@ -30,13 +30,32 @@ export type SpotifyApiErrorKind =
   | 'rate-limited' // 429 malgré l'attente
   | 'http'; // autre statut (403 scope manquant, 404, …)
 
+/**
+ * Forme du corps d'une réponse HTTP — classification SANS CONTENU :
+ * elle permet de distinguer « Spotify a renvoyé un message détaillé »
+ * de « 403 sans message » (corps vide / JSON sans `error.message` /
+ * réponse non JSON — ex. page HTML d'un CDN ou d'un filtre réseau).
+ */
+export type SpotifyApiResponseBodyShape = 'empty' | 'json' | 'non-json';
+
+/**
+ * Diagnostics HTTP SÛRS (jamais le corps de la réponse, jamais un token) :
+ * Content-Type (en-tête, borné) + forme du corps (classification).
+ */
+export type SpotifyApiHttpDiagnostics = {
+  contentType: string;
+  bodyShape: SpotifyApiResponseBodyShape;
+};
+
 export class SpotifyApiError extends Error {
   constructor(
     public readonly kind: SpotifyApiErrorKind,
     message: string,
     public readonly status?: number,
     /** Message d'erreur renvoyé par Spotify, sanitisé (jamais de token). */
-    public readonly spotifyMessage: string = ''
+    public readonly spotifyMessage: string = '',
+    /** Diagnostics HTTP sûrs (forme du corps + Content-Type) — kind 'http'. */
+    public readonly httpDiagnostics?: SpotifyApiHttpDiagnostics
   ) {
     super(message);
     this.name = 'SpotifyApiError';
@@ -185,27 +204,54 @@ export const spotifyApiGet = async <T>(path: string): Promise<T> => {
       // Corps d'erreur Spotify : { "error": { "status": N, "message": "…" } }.
       // Le MESSAGE est informatif (scope manquant, utilisateur non inscrit au
       // dashboard…) et ne contient JAMAIS de token — il est consigné sanitisé.
+      // La FORME du corps (vide / JSON / non JSON) et le Content-Type sont
+      // aussi consignés : si Spotify renvoie un 403 SANS message, l'UI doit
+      // le dire explicitement — jamais se cacher derrière « accès refusé ».
       let spotifyMessage = '';
+      let bodyShape: SpotifyApiResponseBodyShape = 'empty';
+      let contentType = '';
       try {
-        const errBody = (await response.json()) as {
-          error?: { status?: unknown; message?: unknown };
-        };
-        if (errBody && typeof errBody.error?.message === 'string') {
-          spotifyMessage = sanitizeErrorDescription(errBody.error.message);
+        const rawText = await response.text();
+        contentType = sanitizeErrorDescription(
+          response.headers.get('Content-Type') ?? ''
+        );
+        if (rawText.trim()) {
+          try {
+            const parsed = JSON.parse(rawText) as { error?: unknown };
+            bodyShape = 'json';
+            const err = parsed?.error;
+            if (
+              err &&
+              typeof err === 'object' &&
+              typeof (err as { message?: unknown }).message === 'string'
+            ) {
+              spotifyMessage = sanitizeErrorDescription(
+                (err as { message: string }).message
+              );
+            } else if (typeof err === 'string') {
+              // Format alternatif : { "error": "code" }.
+              spotifyMessage = sanitizeErrorDescription(err);
+            }
+          } catch {
+            bodyShape = 'non-json';
+          }
         }
       } catch {
-        // Corps illisible : statut seul consigné.
+        // Corps illisible : forme restée 'empty', statut seul consigné.
       }
       spotifyLog('api.http', {
         status: response.status,
         endpoint: path.split('?')[0].slice(0, 80),
         cause: spotifyMessage || undefined,
+        bodyShape,
+        contentType: contentType || undefined,
       });
       throw new SpotifyApiError(
         'http',
         `Réponse Spotify non valide (${response.status}).`,
         response.status,
-        spotifyMessage
+        spotifyMessage,
+        { bodyShape, contentType }
       );
     }
 

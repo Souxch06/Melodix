@@ -27,7 +27,13 @@ const mockState: {
   verificationFailure:
     | { kind: 'network' }
     | { kind: 'rate-limited' }
-    | { kind: 'http'; status: number; message?: string }
+    | {
+        kind: 'http';
+        status: number;
+        message?: string;
+        detail?: 'empty' | 'json' | 'non-json' | 'redacted';
+        contentType?: string;
+      }
     | { kind: 'invalid-response' }
     | { kind: 'generic' }
     | null;
@@ -224,6 +230,47 @@ describe('Onglets — restauration d’identité', () => {
     expect(screen.getByTestId('card-body').props.children).toContain(
       'HTTP 403 — accès refusé'
     );
+  });
+
+  it("'spotify-unverified' + HTTP 403 corps VIDE : rendu explicite « aucun message détaillé » (jamais « accès refusé » masquant)", () => {
+    mockState.sessionStatus = 'spotify-unverified';
+    mockState.verificationFailure = {
+      kind: 'http',
+      status: 403,
+      detail: 'empty',
+      contentType: 'application/json',
+    };
+
+    render(<Layout />);
+
+    const body = String(screen.getByTestId('card-body').props.children);
+    expect(body).toContain("Spotify n'a fourni aucun message détaillé");
+    expect(body).toContain('corps de réponse vide');
+    expect(body).toContain('(Content-Type: application/json)');
+    // Le libellé générique ne doit PAS masquer l'information disponible.
+    expect(body).not.toContain('accès refusé');
+    // Jamais de valeur sensible ni de « undefined ».
+    expect(
+      JSON.stringify(screen.getByTestId('card-body').props.children)
+    ).not.toMatch(/access_token|refresh_token|code_verifier|Bearer |undefined/);
+  });
+
+  it("'spotify-unverified' + HTTP 403 réponse NON JSON (HTML) : « réponse non JSON » + Content-Type HTML", () => {
+    mockState.sessionStatus = 'spotify-unverified';
+    mockState.verificationFailure = {
+      kind: 'http',
+      status: 403,
+      detail: 'non-json',
+      contentType: 'text/html; charset=utf-8',
+    };
+
+    render(<Layout />);
+
+    const body = String(screen.getByTestId('card-body').props.children);
+    expect(body).toContain("Spotify n'a fourni aucun message détaillé");
+    expect(body).toContain('réponse non JSON');
+    expect(body).toContain('(Content-Type: text/html; charset=utf-8)');
+    expect(body).not.toContain('accès refusé');
   });
 
   it("'spotify-unverified' SANS cause connue : le corps d'origine reste seul (pas de ligne vide/undefined)", () => {

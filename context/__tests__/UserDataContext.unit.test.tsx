@@ -88,6 +88,11 @@ type ObservedState = {
    * transmise à l'écran — jamais un secret (le mock est lui-même sûr).
    */
   failureMessage: string;
+  /**
+   * Forme de la réponse quand Spotify n'a fourni aucun message (variante
+   * http : 'empty' / 'json' / 'non-json' / 'redacted', '' sinon).
+   */
+  failureDetail: string;
 };
 
 /**
@@ -116,7 +121,7 @@ const Probe = () => {
           verificationFailure?.kind === 'http'
             ? (verificationFailure.message ?? '').replace(/\|/g, '/')
             : ''
-        }`}
+        }|${verificationFailure?.kind === 'http' ? (verificationFailure.detail ?? '') : ''}`}
       />
       <Pressable testID="sign-out" onPress={() => void signOut()} />
       <Pressable testID="reload" onPress={() => void reloadUserData()} />
@@ -145,10 +150,26 @@ const Probe = () => {
 
 const observedState = (): ObservedState => {
   const node = screen.getByTestId(/^user-state\|/);
-  const [, status, userId, accountId, planKind, failure, failureMessage] =
-    String(node.props.testID).split('|');
+  const [
+    ,
+    status,
+    userId,
+    accountId,
+    planKind,
+    failure,
+    failureMessage,
+    failureDetail,
+  ] = String(node.props.testID).split('|');
 
-  return { status, userId, accountId, planKind, failure, failureMessage };
+  return {
+    status,
+    userId,
+    accountId,
+    planKind,
+    failure,
+    failureMessage,
+    failureDetail: failureDetail ?? '',
+  };
 };
 
 const renderProvider = () =>
@@ -479,6 +500,65 @@ describe('Réessayer — vérification réelle /me + refresh + aucun état bloqu
       failure: 'none',
     });
     expect(mockActions.getCurrentUser).toHaveBeenCalledTimes(2); // boot + 1 réessai
+  });
+
+  it('cas 10 — /me 403 SANS message (corps vide) : diagnostic {http,403,detail empty}, session CONSERVÉE, réessai → succès', async () => {
+    // Spotify renvoie 403 sans aucun message exploitable : le contexte doit
+    // transmettre la FORME de la réponse (detail 'empty') pour que l'UI dise
+    // explicitement « aucun message détaillé fourni » — jamais le libellé
+    // générique seul.
+    const emptyBody403 = () =>
+      new SpotifyApiError(
+        'http',
+        'Réponse Spotify non valide (403).',
+        403,
+        '',
+        { bodyShape: 'empty', contentType: 'application/json' }
+      );
+
+    await bootUnverified(emptyBody403());
+    expect(observedState()).toMatchObject({
+      status: 'spotify-unverified',
+      failure: 'http',
+      failureMessage: '',
+      failureDetail: 'empty',
+    });
+    expect(mockActions.clearSession).not.toHaveBeenCalled();
+
+    // Le Réessayer fonctionne quand même : la 2ᵉ tentative réussit.
+    mockActions.getCurrentUser.mockResolvedValueOnce(spotifyUser('account-a'));
+    fireEvent.press(screen.getByTestId('reload'));
+    await waitFor(() => expect(observedState().status).toBe('spotify'));
+    expect(observedState()).toMatchObject({ failure: 'none' });
+    expect(mockActions.getCurrentUser).toHaveBeenCalledTimes(2);
+  });
+
+  it('cas 11 — /me 403 avec message MASQUÉ (<redacted>) : detail « redacted », jamais de fuite, réessai → succès', async () => {
+    // Défense en profondeur : si un message contenait une valeur sensible,
+    // il est masqué en amont ; le contexte ne transmet alors AUCUN message et
+    // signale le masquage (detail 'redacted') au lieu d'un repli silencieux.
+    const redacted403 = () =>
+      new SpotifyApiError(
+        'http',
+        'Réponse Spotify non valide (403).',
+        403,
+        '<redacted>',
+        { bodyShape: 'json', contentType: 'application/json' }
+      );
+
+    await bootUnverified(redacted403());
+    expect(observedState()).toMatchObject({
+      status: 'spotify-unverified',
+      failure: 'http',
+      failureMessage: '',
+      failureDetail: 'redacted',
+    });
+    expect(mockActions.clearSession).not.toHaveBeenCalled();
+
+    mockActions.getCurrentUser.mockResolvedValueOnce(spotifyUser('account-a'));
+    fireEvent.press(screen.getByTestId('reload'));
+    await waitFor(() => expect(observedState().status).toBe('spotify'));
+    expect(observedState()).toMatchObject({ failure: 'none' });
   });
 
   it('cas 5 — erreur réseau → compte NON détruit, diagnostic réseau ; le Réessayer relance RÉELLEMENT /me', async () => {

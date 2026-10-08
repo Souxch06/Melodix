@@ -172,6 +172,19 @@ export const EN_GB_ACCOUNT = {
   spotifyVerifyErrorRateLimited: 'HTTP 429 — too many requests',
   spotifyVerifyError401: 'HTTP 401 — access token invalid or expired',
   spotifyVerifyError403: 'HTTP 403 — access denied',
+  spotifyVerifyErrorNoDetail: (
+    status: number,
+    detail: 'empty' | 'json' | 'non-json' | 'redacted'
+  ) =>
+    `HTTP ${status} — Spotify provided no detailed message (${
+      detail === 'empty'
+        ? 'empty response body'
+        : detail === 'json'
+          ? 'JSON response without an error message'
+          : detail === 'redacted'
+            ? 'message hidden for your security'
+            : 'non-JSON response'
+    })`,
   spotifyVerifyErrorServer: (status: number) =>
     `Spotify server error (HTTP ${status}) — temporary error`,
   spotifyVerifyErrorGeneric: 'Unexpected error — you can retry',
