@@ -69,6 +69,7 @@ const classifyVerificationFailure = (
         // sur le libellé générique « accès refusé ».
         const raw = error.spotifyMessage.trim();
         const message = raw && raw !== '<redacted>' ? raw : undefined;
+        const http = error.httpDiagnostics;
         return {
           kind: 'http',
           status: error.status ?? 0,
@@ -77,10 +78,18 @@ const classifyVerificationFailure = (
             ? undefined
             : raw === '<redacted>'
               ? 'redacted'
-              : error.httpDiagnostics?.bodyShape,
-          contentType: message
-            ? undefined
-            : error.httpDiagnostics?.contentType || undefined,
+              : http?.bodyShape,
+          contentType: message ? undefined : http?.contentType || undefined,
+          // Métadonnées 403 (identification de la source du refus) :
+          // uniquement quand il n'y a pas de message — URL finale +
+          // en-têtes non sensibles déjà filtrés par allowlist en amont.
+          meta:
+            message || !http || http.headers === undefined
+              ? undefined
+              : {
+                  finalUrl: http.finalUrl,
+                  headers: http.headers,
+                },
         };
       }
       case 'unauthenticated':

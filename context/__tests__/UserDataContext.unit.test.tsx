@@ -93,6 +93,11 @@ type ObservedState = {
    * http : 'empty' / 'json' / 'non-json' / 'redacted', '' sinon).
    */
   failureDetail: string;
+  /**
+   * Valeur de l'en-tête « Server » des métadonnées 403 (variante http avec
+   * meta, '' sinon) — identification de la source du refus.
+   */
+  failureMetaServer: string;
 };
 
 /**
@@ -121,7 +126,14 @@ const Probe = () => {
           verificationFailure?.kind === 'http'
             ? (verificationFailure.message ?? '').replace(/\|/g, '/')
             : ''
-        }|${verificationFailure?.kind === 'http' ? (verificationFailure.detail ?? '') : ''}`}
+        }|${verificationFailure?.kind === 'http' ? (verificationFailure.detail ?? '') : ''}|${
+          verificationFailure?.kind === 'http'
+            ? (verificationFailure.meta?.headers?.server ?? '').replace(
+                /\|/g,
+                '/'
+              )
+            : ''
+        }`}
       />
       <Pressable testID="sign-out" onPress={() => void signOut()} />
       <Pressable testID="reload" onPress={() => void reloadUserData()} />
@@ -159,6 +171,7 @@ const observedState = (): ObservedState => {
     failure,
     failureMessage,
     failureDetail,
+    failureMetaServer,
   ] = String(node.props.testID).split('|');
 
   return {
@@ -169,6 +182,7 @@ const observedState = (): ObservedState => {
     failure,
     failureMessage,
     failureDetail: failureDetail ?? '',
+    failureMetaServer: failureMetaServer ?? '',
   };
 };
 
@@ -559,6 +573,41 @@ describe('Réessayer — vérification réelle /me + refresh + aucun état bloqu
     fireEvent.press(screen.getByTestId('reload'));
     await waitFor(() => expect(observedState().status).toBe('spotify'));
     expect(observedState()).toMatchObject({ failure: 'none' });
+  });
+
+  it('cas 12 — /me 403 NON JSON + métadonnées (Server) : detail « non-json » + meta conservés, session CONSERVÉE, réessai → succès', async () => {
+    // Réponse 403 non JSON (ex. page d'un intermédiaire) : le contexte
+    // conserve les métadonnées sûres (Server, …) pour identifier la source
+    // du refus — sans jamais le corps ni un token.
+    const nonJson403 = () =>
+      new SpotifyApiError(
+        'http',
+        'Réponse Spotify non valide (403).',
+        403,
+        '',
+        {
+          bodyShape: 'non-json',
+          contentType: 'text/html; charset=utf-8',
+          headers: { server: 'envoy', via: '1.1 varnish' },
+          finalUrl: 'https://api.spotify.com/v1/me',
+        }
+      );
+
+    await bootUnverified(nonJson403());
+    expect(observedState()).toMatchObject({
+      status: 'spotify-unverified',
+      failure: 'http',
+      failureMessage: '',
+      failureDetail: 'non-json',
+      failureMetaServer: 'envoy',
+    });
+    expect(mockActions.clearSession).not.toHaveBeenCalled();
+
+    mockActions.getCurrentUser.mockResolvedValueOnce(spotifyUser('account-a'));
+    fireEvent.press(screen.getByTestId('reload'));
+    await waitFor(() => expect(observedState().status).toBe('spotify'));
+    expect(observedState()).toMatchObject({ failure: 'none' });
+    expect(mockActions.getCurrentUser).toHaveBeenCalledTimes(2);
   });
 
   it('cas 5 — erreur réseau → compte NON détruit, diagnostic réseau ; le Réessayer relance RÉELLEMENT /me', async () => {

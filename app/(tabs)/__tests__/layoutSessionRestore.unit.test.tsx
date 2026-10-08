@@ -33,6 +33,10 @@ const mockState: {
         message?: string;
         detail?: 'empty' | 'json' | 'non-json' | 'redacted';
         contentType?: string;
+        meta?: {
+          finalUrl?: string;
+          headers?: Record<string, string>;
+        };
       }
     | { kind: 'invalid-response' }
     | { kind: 'generic' }
@@ -271,6 +275,59 @@ describe('Onglets — restauration d’identité', () => {
     expect(body).toContain('réponse non JSON');
     expect(body).toContain('(Content-Type: text/html; charset=utf-8)');
     expect(body).not.toContain('accès refusé');
+  });
+
+  it("'spotify-unverified' + HTTP 403 NON JSON + métadonnées : source identifiable (URL/Content-Type/Server/Via), jamais de body/token", () => {
+    mockState.sessionStatus = 'spotify-unverified';
+    mockState.verificationFailure = {
+      kind: 'http',
+      status: 403,
+      detail: 'non-json',
+      contentType: 'text/html; charset=utf-8',
+      meta: {
+        finalUrl: 'https://api.spotify.com/v1/me',
+        headers: {
+          server: 'envoy',
+          via: '1.1 varnish',
+          'x-cache': 'MISS',
+        },
+      },
+    };
+
+    render(<Layout />);
+
+    const body = String(screen.getByTestId('card-body').props.children);
+    // Libellé + métadonnées de la source, ligne par ligne.
+    expect(body).toContain(
+      "HTTP 403 — Spotify n'a fourni aucun message détaillé (réponse non JSON)"
+    );
+    expect(body).toContain('URL : https://api.spotify.com/v1/me');
+    expect(body).toContain('Content-Type : text/html; charset=utf-8');
+    expect(body).toContain('Server : envoy');
+    expect(body).toContain('Via : 1.1 varnish');
+    expect(body).toContain('X-Cache : MISS');
+    // Jamais de corps, de cookie, de token, ni de « undefined ».
+    expect(body).not.toContain('Proxy Access Denied');
+    expect(body).not.toMatch(
+      /access_token|refresh_token|code_verifier|Bearer |set-cookie|undefined/i
+    );
+  });
+
+  it("'spotify-unverified' + HTTP 403 NON JSON + métadonnées incomplètes : « inconnu »/« inconnue », jamais « undefined »", () => {
+    mockState.sessionStatus = 'spotify-unverified';
+    mockState.verificationFailure = {
+      kind: 'http',
+      status: 403,
+      detail: 'non-json',
+      meta: { headers: {} },
+    };
+
+    render(<Layout />);
+
+    const body = String(screen.getByTestId('card-body').props.children);
+    expect(body).toContain('URL : inconnue');
+    expect(body).toContain('Content-Type : inconnu');
+    expect(body).not.toContain('undefined');
   });
 
   it("'spotify-unverified' SANS cause connue : le corps d'origine reste seul (pas de ligne vide/undefined)", () => {

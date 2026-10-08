@@ -55,6 +55,11 @@ export type SessionStatus =
  *   silencieux sur le libellé générique.
  * - `contentType` : en-tête Content-Type de la réponse (sanitisé) —
  *   métadonnée réseau non sensible (jamais le corps, jamais un token).
+ * - `meta` (403 uniquement) : métadonnées SÛRES d'identification de la
+ *   source du refus — URL finale de la réponse + en-têtes NON SENSIBLES
+ *   filtrés par allowlist explicite en amont (Server, Via, X-Cache, CF-*,
+ *   WWW-Authenticate, …). Jamais le corps, jamais un token, jamais
+ *   Authorization/cookies.
  */
 export type SpotifyVerificationFailure =
   | { kind: 'invalid-response' } // réponse sans profil exploitable
@@ -66,6 +71,11 @@ export type SpotifyVerificationFailure =
       message?: string;
       detail?: 'empty' | 'json' | 'non-json' | 'redacted';
       contentType?: string;
+      /** 403 uniquement — métadonnées sûres de la réponse (source du 403). */
+      meta?: {
+        finalUrl?: string;
+        headers?: Record<string, string>;
+      };
     }
   | { kind: 'generic' }; // erreur inattendue
 
@@ -158,6 +168,23 @@ const safeSpotifyHttpMessage = (message: string | undefined): string | null => {
  * 3. sinon le libellé localisé du statut.
  * Jamais de valeur technique brute, jamais de secret.
  */
+/**
+ * Affichage des en-têtes de diagnostic 403 (clés = noms bruts de
+ * l'allowlist, valeurs = libellés lisibles). Liste EXPLICITE : tout
+ * en-tête non référencé ici n'est jamais affiché.
+ */
+const HTTP_META_HEADER_LABELS: Record<string, string> = {
+  'content-length': 'Content-Length',
+  server: 'Server',
+  via: 'Via',
+  'x-cache': 'X-Cache',
+  'cf-cache-status': 'CF-Cache-Status',
+  'cf-ray': 'CF-Ray',
+  'cf-server': 'CF-Server',
+  'www-authenticate': 'WWW-Authenticate',
+  'x-request-id': 'X-Request-Id',
+};
+
 export const describeSpotifyVerificationFailure = (
   t: {
     spotifyVerifyErrorInvalidResponse: string;
@@ -169,6 +196,8 @@ export const describeSpotifyVerificationFailure = (
       status: number,
       detail: 'empty' | 'json' | 'non-json' | 'redacted'
     ) => string;
+    spotifyVerifyErrorUnknown: string;
+    spotifyVerifyErrorUrlUnknown: string;
     spotifyVerifyErrorServer: (status: number) => string;
     spotifyVerifyErrorGeneric: string;
   },
@@ -192,12 +221,41 @@ export const describeSpotifyVerificationFailure = (
       }
       if (failure.detail) {
         // Spotify n'a fourni AUCUN message exploitable : on le dit
-        // explicitement (le libellé générique masquerait cette info) +
-        // le Content-Type sûr (métadonnée, jamais le corps ni un token).
+        // explicitement (le libellé générique masquerait cette info).
         let text = t.spotifyVerifyErrorNoDetail(failure.status, failure.detail);
-        const contentType = safeSpotifyHttpMessage(failure.contentType);
-        if (contentType) {
-          text += ` (Content-Type: ${contentType})`;
+        if (failure.meta) {
+          // MÉTADONNÉES 403 sûres — identifier la SOURCE du refus
+          // (API Spotify / edge-CDN / intermédiaire) : URL finale +
+          // en-têtes allowlistés sanitisés. Jamais le corps, jamais un
+          // token. Chaque valeur est re-vérifiée avant affichage.
+          const lines = [
+            `URL : ${
+              safeSpotifyHttpMessage(failure.meta.finalUrl) ??
+              t.spotifyVerifyErrorUrlUnknown
+            }`,
+            `Content-Type : ${
+              safeSpotifyHttpMessage(failure.contentType) ??
+              t.spotifyVerifyErrorUnknown
+            }`,
+          ];
+          for (const [name, value] of Object.entries(
+            failure.meta.headers ?? {}
+          )) {
+            const label = HTTP_META_HEADER_LABELS[name];
+            if (!label) {
+              continue; // allowlist stricte : jamais d'en-tête inconnu
+            }
+            const safeValue = safeSpotifyHttpMessage(value);
+            if (safeValue) {
+              lines.push(`${label} : ${safeValue}`);
+            }
+          }
+          text += `\n${lines.join('\n')}`;
+        } else {
+          const contentType = safeSpotifyHttpMessage(failure.contentType);
+          if (contentType) {
+            text += ` (Content-Type: ${contentType})`;
+          }
         }
         return text;
       }

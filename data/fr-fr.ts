@@ -68,6 +68,8 @@ export const FR_FR_ACCOUNT = {
             ? 'message masqué pour votre sécurité'
             : 'réponse non JSON'
     })`,
+  spotifyVerifyErrorUnknown: 'inconnu',
+  spotifyVerifyErrorUrlUnknown: 'inconnue',
   spotifyVerifyErrorServer: (status: number) =>
     `Erreur Spotify (HTTP ${status}) — erreur temporaire`,
   spotifyVerifyErrorGeneric: 'Erreur inattendue — tu peux réessayer',

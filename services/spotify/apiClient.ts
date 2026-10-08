@@ -39,12 +39,39 @@ export type SpotifyApiErrorKind =
 export type SpotifyApiResponseBodyShape = 'empty' | 'json' | 'non-json';
 
 /**
+ * En-têtes de réponse NON SENSIBLES autorisés dans le diagnostic 403
+ * (allowlist EXPLICITE : tout ce qui n'est pas listé — Authorization,
+ * Set-Cookie, cookies, valeurs d'en-tête porteuses — est EXCLU). Ces
+ * métadonnées servent à identifier QUI renvoie le 403 (API Spotify /
+ * edge-CDN / intermédiaire réseau) sans jamais révéler de secret.
+ */
+export const RESPONSE_HEADER_ALLOWLIST = [
+  'content-type',
+  'content-length',
+  'server',
+  'via',
+  'x-cache',
+  'cf-cache-status',
+  'cf-ray',
+  'cf-server',
+  'www-authenticate',
+  'x-request-id',
+] as const;
+
+/**
  * Diagnostics HTTP SÛRS (jamais le corps de la réponse, jamais un token) :
- * Content-Type (en-tête, borné) + forme du corps (classification).
+ * Content-Type (en-tête, borné) + forme du corps (classification) +
+ * métadonnées 403 (URL finale, statusText, headers allowlistés sanitisés).
  */
 export type SpotifyApiHttpDiagnostics = {
   contentType: string;
   bodyShape: SpotifyApiResponseBodyShape;
+  /** 403 uniquement — URL de la réponse (peut différer de la URL demandée si redirection). */
+  finalUrl?: string;
+  /** 403 uniquement — statusText brut borné (ex. « Forbidden »), s'il existe. */
+  statusText?: string;
+  /** 403 uniquement — headers allowlistés, valeurs sanitisées (jamais de secret). */
+  headers?: Record<string, string>;
 };
 
 export class SpotifyApiError extends Error {
@@ -239,19 +266,57 @@ export const spotifyApiGet = async <T>(path: string): Promise<T> => {
       } catch {
         // Corps illisible : forme restée 'empty', statut seul consigné.
       }
+      // MÉTADONNÉES 403 (identifiant de la source du refus) : uniquement
+      // des en-têtes NON SENSIBLES (allowlist explicite), valeurs bornées et
+      // re-vérifiées. JAMAIS Authorization, cookies, corps, ni token.
+      // En cas de redirection, `finalUrl` peut différer de l'URL demandée —
+      // le nombre de sauts n'est PAS exposé par l'API fetch de React Native.
+      let diagnostics: SpotifyApiHttpDiagnostics = { bodyShape, contentType };
+      if (response.status === 403) {
+        const headers: Record<string, string> = {};
+        for (const name of RESPONSE_HEADER_ALLOWLIST) {
+          const value = sanitizeErrorDescription(
+            response.headers.get(name) ?? ''
+          );
+          if (value && value !== '<redacted>') {
+            headers[name] = value;
+          }
+        }
+        const rawUrl: unknown = (response as { url?: unknown }).url;
+        const finalUrlRaw = typeof rawUrl === 'string' ? rawUrl : '';
+        const statusTextRaw =
+          typeof response.statusText === 'string'
+            ? sanitizeErrorDescription(response.statusText)
+            : '';
+        diagnostics = {
+          bodyShape,
+          contentType,
+          headers,
+          finalUrl:
+            finalUrlRaw.trim() !== ''
+              ? sanitizeErrorDescription(finalUrlRaw)
+              : undefined,
+          statusText:
+            statusTextRaw && statusTextRaw !== '<redacted>'
+              ? statusTextRaw
+              : undefined,
+        };
+      }
       spotifyLog('api.http', {
         status: response.status,
         endpoint: path.split('?')[0].slice(0, 80),
         cause: spotifyMessage || undefined,
         bodyShape,
         contentType: contentType || undefined,
+        finalUrl: diagnostics.finalUrl,
+        headers: diagnostics.headers,
       });
       throw new SpotifyApiError(
         'http',
         `Réponse Spotify non valide (${response.status}).`,
         response.status,
         spotifyMessage,
-        { bodyShape, contentType }
+        diagnostics
       );
     }
 

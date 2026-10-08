@@ -280,4 +280,99 @@ describe('spotifyIdentity — diagnostic de vérification (sûr, lisible)', () =
       expect(text).toContain("Spotify n'a fourni aucun message détaillé");
     });
   });
+
+  describe('403 — métadonnées de la source (safe, allowlist stricte, jamais body/token)', () => {
+    const meta403 = {
+      kind: 'http' as const,
+      status: 403,
+      detail: 'non-json' as const,
+      contentType: 'text/html; charset=utf-8',
+      meta: {
+        finalUrl: 'https://api.spotify.com/v1/me',
+        headers: {
+          server: 'envoy',
+          via: '1.1 varnish',
+          'x-cache': 'MISS',
+          'cf-ray': 'abcd1234',
+        },
+      },
+    };
+
+    it('rendu multi-lignes : libellé + URL + Content-Type + headers (ordre stable)', () => {
+      const text = describeSpotifyVerificationFailure(translations, meta403);
+      const lines = (text as string).split('\n');
+      expect(lines[0]).toBe(
+        "HTTP 403 — Spotify n'a fourni aucun message détaillé (réponse non JSON)"
+      );
+      expect(lines[1]).toBe('URL : https://api.spotify.com/v1/me');
+      expect(lines[2]).toBe('Content-Type : text/html; charset=utf-8');
+      expect(lines).toContain('Server : envoy');
+      expect(lines).toContain('Via : 1.1 varnish');
+      expect(lines).toContain('X-Cache : MISS');
+      expect(lines).toContain('CF-Ray : abcd1234');
+      // Jamais de valeur sensible ni de « undefined ».
+      expect(text).not.toMatch(
+        /access_token|refresh_token|code_verifier|Bearer |undefined|NaN/
+      );
+    });
+
+    it('Content-Type absent → « Content-Type : inconnu » ; URL absente → « URL : inconnue »', () => {
+      const text = describeSpotifyVerificationFailure(translations, {
+        kind: 'http',
+        status: 403,
+        detail: 'non-json',
+        meta: { headers: {} },
+      });
+      expect(text).toContain('URL : inconnue');
+      expect(text).toContain('Content-Type : inconnu');
+      expect(text).not.toContain('undefined');
+    });
+
+    it('en-tête HORS allowlist (x-internal) → JAMAIS affiché', () => {
+      const text = describeSpotifyVerificationFailure(translations, {
+        kind: 'http',
+        status: 403,
+        detail: 'empty',
+        meta: {
+          headers: {
+            'x-internal': 'value',
+            server: 'envoy',
+          },
+        },
+      });
+      expect(text).toContain('Server : envoy');
+      expect(text).not.toContain('x-internal');
+      expect(text).not.toContain('X-Internal');
+    });
+
+    it('valeur d’en-tête SENSIBLE (Bearer) → omise (défense en profondeur)', () => {
+      const text = describeSpotifyVerificationFailure(translations, {
+        kind: 'http',
+        status: 403,
+        detail: 'empty',
+        meta: {
+          headers: {
+            server: 'Bearer eyJleHQy',
+            via: '1.1 ok',
+          },
+        },
+      });
+      expect(text).toContain('Via : 1.1 ok');
+      expect(text).not.toContain('Bearer');
+    });
+
+    it('finalUrl contenant une valeur sensible → « inconnue » (pas de fuite d’URL signée)', () => {
+      const text = describeSpotifyVerificationFailure(translations, {
+        kind: 'http',
+        status: 403,
+        detail: 'empty',
+        meta: {
+          finalUrl: 'https://x.example/?access_token=abc123',
+          headers: {},
+        },
+      });
+      expect(text).toContain('URL : inconnue');
+      expect(text).not.toContain('access_token=abc123');
+    });
+  });
 });

@@ -432,6 +432,7 @@ describe('services/spotify/apiClient (API Web Spotify officielle)', () => {
     expect(apiError.httpDiagnostics).toEqual({
       bodyShape: 'json',
       contentType: 'application/json',
+      headers: {},
     });
     // Le message capturé ne doit JAMAIS contenir le token porteur.
     expect(apiError.spotifyMessage).not.toContain('valid-token');
@@ -460,6 +461,7 @@ describe('services/spotify/apiClient (API Web Spotify officielle)', () => {
       expect((error as SpotifyApiError).httpDiagnostics).toEqual({
         bodyShape: 'json',
         contentType: 'application/json',
+        headers: {},
       });
       expect(await loadSession()).not.toBeNull();
     });
@@ -474,6 +476,7 @@ describe('services/spotify/apiClient (API Web Spotify officielle)', () => {
       expect((error as SpotifyApiError).httpDiagnostics).toEqual({
         bodyShape: 'empty',
         contentType: 'application/json',
+        headers: {},
       });
     });
 
@@ -492,6 +495,7 @@ describe('services/spotify/apiClient (API Web Spotify officielle)', () => {
       expect((error as SpotifyApiError).httpDiagnostics).toEqual({
         bodyShape: 'non-json',
         contentType: 'text/html; charset=utf-8',
+        headers: {},
       });
       // Jamais de contenu de page ni de token dans l’erreur exposée.
       const serialized = JSON.stringify(error);
@@ -512,6 +516,173 @@ describe('services/spotify/apiClient (API Web Spotify officielle)', () => {
       expect((error as SpotifyApiError).httpDiagnostics?.bodyShape).toBe(
         'json'
       );
+    });
+  });
+
+  describe("403 — métadonnées SÛRES d'identification de la source (jamais body/token)", () => {
+    const forbiddenWith = (opts: {
+      body: string;
+      headers: Record<string, string>;
+      url?: string;
+      statusText?: string;
+    }): unknown =>
+      ({
+        status: 403,
+        ok: false,
+        statusText: opts.statusText ?? 'Forbidden',
+        url: opts.url,
+        headers: {
+          get: (name: string) => {
+            const found = Object.keys(opts.headers).find(
+              (k) => k.toLowerCase() === name.toLowerCase()
+            );
+            return found ? opts.headers[found] : null;
+          },
+        },
+        text: async () => opts.body,
+      }) as unknown as Response;
+
+    it('403 + Content-Type: text/html + Server/Via/X-Cache/CF-Ray → conservés, SANS Set-Cookie, SANS body, SANS token', async () => {
+      await saveSession(validSession());
+      let tokenEndpointCalls = 0;
+      globalThis.fetch = jest.fn(async (url) => {
+        if (String(url).includes('accounts.spotify.com')) {
+          tokenEndpointCalls += 1;
+          return {
+            ok: true,
+            json: async () => ({
+              access_token: 'should-never-be-used',
+              expires_in: 3600,
+            }),
+          } as Response;
+        }
+        return forbiddenWith({
+          body: '<!DOCTYPE html><html><body>Proxy Access Denied - secret-marker</body></html>',
+          headers: {
+            'Content-Type': 'text/html; charset=utf-8',
+            'Content-Length': '54',
+            Server: 'envoy',
+            Via: '1.1 varnish',
+            'X-Cache': 'MISS',
+            'CF-Ray': 'abcd1234',
+            'Set-Cookie': 'session=super-secret',
+            Authorization: 'Bearer leaked-token',
+          },
+          url: 'https://api.spotify.com/v1/me',
+          statusText: 'Forbidden',
+        });
+      }) as unknown as typeof fetch;
+
+      const error = await spotifyApiGet('/me').catch((e: unknown) => e);
+      expect(error).toMatchObject({ kind: 'http', status: 403 });
+      const diag = (error as SpotifyApiError).httpDiagnostics;
+      expect(diag?.bodyShape).toBe('non-json');
+      expect(diag?.contentType).toBe('text/html; charset=utf-8');
+      expect(diag?.finalUrl).toBe('https://api.spotify.com/v1/me');
+      expect(diag?.statusText).toBe('Forbidden');
+      // En-têtes NON SENSIBLES conservés (allowlist).
+      expect(diag?.headers).toMatchObject({
+        'content-length': '54',
+        server: 'envoy',
+        via: '1.1 varnish',
+        'x-cache': 'MISS',
+        'cf-ray': 'abcd1234',
+      });
+      // En-têtes SENSIBLES / hors allowlist : JAMAIS conservés.
+      expect(diag?.headers).not.toHaveProperty('set-cookie');
+      expect(diag?.headers).not.toHaveProperty('authorization');
+      expect(tokenEndpointCalls).toBe(0);
+      expect(await loadSession()).not.toBeNull();
+      // NI le contenu du body, NI le token, NI un cookie ne fuient.
+      const serialized = JSON.stringify(error);
+      expect(serialized).not.toContain('Proxy Access Denied');
+      expect(serialized).not.toContain('secret-marker');
+      expect(serialized).not.toContain('super-secret');
+      expect(serialized).not.toContain('leaked-token');
+      expect(serialized).not.toContain('valid-token');
+    });
+
+    it("403 + AUCUN header + pas d'url → headers {} + finalUrl undefined (l'UI dira « inconnu »/« inconnue »)", async () => {
+      await saveSession(validSession());
+      setFetch(async () =>
+        forbiddenWith({
+          body: 'forbidden',
+          headers: {},
+          statusText: '',
+        })
+      );
+
+      const error = await spotifyApiGet('/me').catch((e: unknown) => e);
+      const diag = (error as SpotifyApiError).httpDiagnostics;
+      expect(error).toMatchObject({ kind: 'http', status: 403 });
+      expect(diag?.bodyShape).toBe('non-json');
+      expect(diag?.contentType).toBe('');
+      expect(diag?.headers).toEqual({});
+      expect(diag?.finalUrl).toBeUndefined();
+      expect(diag?.statusText).toBeUndefined();
+    });
+
+    it("403 + REDIRECTION → finalUrl diffère de l'URL demandée (exposé tel quel)", async () => {
+      await saveSession(validSession());
+      setFetch(async () =>
+        forbiddenWith({
+          body: '{"error":{"status":403}}',
+          headers: { 'Content-Type': 'application/json' },
+          url: 'https://edge.example-cdn.com/denied',
+        })
+      );
+
+      const error = await spotifyApiGet('/me').catch((e: unknown) => e);
+      expect(error).toMatchObject({ kind: 'http', status: 403 });
+      // L'URL finale (celle qui a réellement répondu) est exposée — elle
+      // diffère de l'URL demandée (https://api.spotify.com/v1/me).
+      expect((error as SpotifyApiError).httpDiagnostics?.finalUrl).toBe(
+        'https://edge.example-cdn.com/denied'
+      );
+    });
+
+    it('403 + JSON AVEC message → message conservé ET métadonnées capturées (403 uniquement)', async () => {
+      await saveSession(validSession());
+      setFetch(async () =>
+        forbiddenWith({
+          body: '{"error":{"status":403,"message":"User not approved for app"}}',
+          headers: {
+            'Content-Type': 'application/json',
+            Server: 'envoy',
+          },
+          url: 'https://api.spotify.com/v1/me',
+        })
+      );
+
+      const error = await spotifyApiGet('/me').catch((e: unknown) => e);
+      expect(error).toMatchObject({ kind: 'http', status: 403 });
+      expect((error as SpotifyApiError).spotifyMessage).toBe(
+        'User not approved for app'
+      );
+      expect((error as SpotifyApiError).httpDiagnostics?.headers).toMatchObject(
+        { server: 'envoy' }
+      );
+    });
+
+    it('5xx (≠403) → PAS de bloc métadonnées (finalUrl/headers absents)', async () => {
+      await saveSession(validSession());
+      setFetch(
+        async () =>
+          ({
+            status: 503,
+            ok: false,
+            statusText: 'Service Unavailable',
+            headers: { get: () => null },
+            text: async () => '',
+          }) as unknown as Response
+      );
+
+      const error = await spotifyApiGet('/x').catch((e: unknown) => e);
+      expect(error).toMatchObject({ kind: 'http', status: 503 });
+      const diag = (error as SpotifyApiError).httpDiagnostics;
+      expect(diag?.bodyShape).toBe('empty');
+      expect(diag?.finalUrl).toBeUndefined();
+      expect(diag?.headers).toBeUndefined();
     });
   });
 });

@@ -185,6 +185,8 @@ export const EN_GB_ACCOUNT = {
             ? 'message hidden for your security'
             : 'non-JSON response'
     })`,
+  spotifyVerifyErrorUnknown: 'unknown',
+  spotifyVerifyErrorUrlUnknown: 'unknown',
   spotifyVerifyErrorServer: (status: number) =>
     `Spotify server error (HTTP ${status}) — temporary error`,
   spotifyVerifyErrorGeneric: 'Unexpected error — you can retry',
