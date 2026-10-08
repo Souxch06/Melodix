@@ -4,7 +4,7 @@
 livré — audit complet de la chaîne (aucun bug fonctionnel trouvé),
 breadcrumbs logcat `[MelodixSpotifyWeb]`, section smoke CI de l'HÔTE DE
 PRODUCTION (gap §13), 7 tests automatiques nouveaux, version
-`4.5.0-test.22` / `45022`, CI **success** (run 37807489704) avec smoke
+`4.5.0-test.22` / `45022`, CI **success** (run final 37813922432) avec smoke
 Android 14 de l'hôte production : `host-mounted` confirmé, handshake
 explicite (`bridge_timeout` sans compte — honnête), **aucun faux playing**.
 
@@ -54,7 +54,7 @@ simulé, aucun faux `playing`, `play()` accepté ne produit jamais un `playing`
 4. **CI sans compte Spotify** : aucune tentative de lecture réelle n'est
    possible → la CI valide l'hôte (montage/handshake/bridge) et l'**absence de
    faux playing** (ci-dessous), pas une lecture.
-5. **Pas de téléphone** : aucun test physique possible — see §4.
+5. **Pas de téléphone** : aucun test physique possible — voir §4.
 
 ---
 
@@ -136,14 +136,14 @@ settings, workflow `EXPECTED_VERSION_CODE/NAME`).
 
 ## 3. Gates exécutées
 
-| Gate                                         | Résultat                                                                                                                                                              |
-| -------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `npx tsc --noEmit`                           | OK (0 erreur)                                                                                                                                                         |
-| `npx eslint` (fichiers modifiés)             | OK (0 finding)                                                                                                                                                        |
-| `npx prettier --check` (fichiers modifiés)   | OK                                                                                                                                                                    |
-| `npx jest` (suite complète)                  | **2052 passés / 14 skipped / 0 échec** (baseline 2045 + 7 nouveaux)                                                                                                   |
-| `sh -n scripts/smoke-test-android-apk.sh`    | OK (POSIX)                                                                                                                                                            |
-| CI GitHub Actions (build + smoke Android 14) | **SUCCESS** — run `37807489704` (17m48s) ; step « Installer et lancer réellement l'APK sur Android 14 » success ; APK `versionCode=45022` `versionName=4.5.0-test.22` |
+| Gate                                         | Résultat                                                                                                                                                                                                                                                                                                                                                       |
+| -------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `npx tsc --noEmit`                           | OK (0 erreur)                                                                                                                                                                                                                                                                                                                                                  |
+| `npx eslint` (fichiers modifiés)             | OK (0 finding)                                                                                                                                                                                                                                                                                                                                                 |
+| `npx prettier --check` (fichiers modifiés)   | OK                                                                                                                                                                                                                                                                                                                                                             |
+| `npx jest` (suite complète)                  | **2052 passés / 14 skipped / 0 échec** (baseline 2045 + 7 nouveaux)                                                                                                                                                                                                                                                                                            |
+| `sh -n scripts/smoke-test-android-apk.sh`    | OK (POSIX)                                                                                                                                                                                                                                                                                                                                                     |
+| CI GitHub Actions (build + smoke Android 14) | **SUCCESS final** — run `37813922432` ; step « Installer et lancer réellement l'APK sur Android 14 » success ; APK `versionCode=45022` `versionName=4.5.0-test.22`. Historique : `37807489704` success ; `37810103366` failure transitoire (check prototype existant sur runner lent — §5) ; `37813922432` success après élargissement de la fenêtre prototype |
 
 ---
 
@@ -221,12 +221,15 @@ projection MediaSession validée en CI.
 - `playback-confirmed` présent → **la CI échoue** (faux playing).
 - Tout le reste sans compte Spotify est attendu et honnêtement signalé.
 
-**Résultat observé (run `37807489704`, Android 14, sans compte Spotify)** :
+**Résultat observé (run final `37813922432`, Android 14, sans compte
+Spotify — même résultat sur `37807489704`)** :
 
 ```
-✓ host-mounted confirmé en logcat — la WebView open.spotify.com (hors écran) est montée à la racine de l'app
-⚠ handshake non prêt (codes: bridge_timeout) — aucune capacité de lecture revendiquée (comportement honnête sans compte Spotify)
-✓ aucun playback-confirmed sur tout le run (aucun faux playing)
+✓ Hôte Spotify Web (production): host-mounted confirmé en logcat — la WebView open.spotify.com (hors écran) est montée à la racine de l'app
+⚠ Handshake hôte production: handshake non prêt (codes: bridge_timeout) — aucune capacité de lecture revendiquée (comportement honnête sans compte Spotify)
+⚠ Bridge hôte production: aucun état de page accepté observé (bridge-state) — sans compte Spotify la lecture réelle n'est pas démontrée en CI
+✓ Fake playing (run complet): aucun playback-confirmed ni playback-error — aucun faux playing ; lecture RÉELLE NON DÉMONTRÉE en CI
+⚠ Lecture Spotify Web (CI): PLAYBACK SPOTIFY WEB RÉEL NON TESTABLE IN CI (pas de compte, pas d'interaction possible dans la page)
 ```
 
 L'hôte de production monte bien, le runtime conclut le handshake par un
@@ -235,18 +238,28 @@ poignée de main du player), et aucun `playing` inventé n'apparaît. C'est
 exactement le comportement que la mission demandait d'observer — **sans
 prétendre à une lecture réelle**.
 
+**Incident CI documenté (run `37810103366`, commit docs uniquement)** :
+le run a échoué sur le check **existant** du prototype (« écran de
+diagnostic Spotify Web absent après deep link (12 dumps) ») — faux négatif
+d'émulateur lent, mode d'échec déjà documenté dans le script ; la section
+hôte production avait, elle, réussi (mêmes notices que ci-dessus). Le même
+code était SUCCESS 30 minutes plus tôt (run `37807489704`). Correctif :
+fenêtre d'apparition du prototype portée de 60 s à 80 s (le check reste
+strict : l'écran doit exister) → **run final `37813922432` SUCCESS**,
+smoke hôte production + prototype tous au vert.
+
 ## 6. Fichiers modifiés (13)
 
-| Fichier                                                                                                                                                                                                          | Changement                                                                                                        |
-| ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
-| `services/spotify/devLog.ts`                                                                                                                                                                                     | `spotifyWebTrace` (+ garde sensible)                                                                              |
-| `services/index.ts`                                                                                                                                                                                              | export `spotifyWebTrace`                                                                                          |
-| `components/Player/SpotifyWebHostView.tsx`                                                                                                                                                                       | traces `host-mounted`/`host-unmounted`, miroir codes runtime, `bridge-state` 1×/document                          |
-| `services/player.ts`                                                                                                                                                                                             | `playback-confirmed` (confirmation réelle) / `playback-error code=…` (verdicts non confirmés + perte transitoire) |
-| `components/Player/__tests__/SpotifyWebHostView.unit.test.tsx`                                                                                                                                                   | 5 tests traces hôte (doubles étendus : options runtime, résultat bridge, props WebView)                           |
-| `services/__tests__/playerSpotifyWeb.unit.test.ts`                                                                                                                                                               | 2 tests traces moteur (confirmed unique / error sans confirmed)                                                   |
-| `scripts/smoke-test-android-apk.sh`                                                                                                                                                                              | section hôte production + vérification finale faux playing + step summary                                         |
-| `app.config.js` · `package.json` · `__mocks__/expo-constants.ts` · `screens/__tests__/SettingsScreen.unit.test.tsx` · `screens/__tests__/SettingsSubScreens.unit.test.tsx` · `.github/workflows/android-apk.yml` | bump `4.5.0-test.22` / `45022`                                                                                    |
+| Fichier                                                                                                                                                                                                          | Changement                                                                                                                            |
+| ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| `services/spotify/devLog.ts`                                                                                                                                                                                     | `spotifyWebTrace` (+ garde sensible)                                                                                                  |
+| `services/index.ts`                                                                                                                                                                                              | export `spotifyWebTrace`                                                                                                              |
+| `components/Player/SpotifyWebHostView.tsx`                                                                                                                                                                       | traces `host-mounted`/`host-unmounted`, miroir codes runtime, `bridge-state` 1×/document                                              |
+| `services/player.ts`                                                                                                                                                                                             | `playback-confirmed` (confirmation réelle) / `playback-error code=…` (verdicts non confirmés + perte transitoire)                     |
+| `components/Player/__tests__/SpotifyWebHostView.unit.test.tsx`                                                                                                                                                   | 5 tests traces hôte (doubles étendus : options runtime, résultat bridge, props WebView)                                               |
+| `services/__tests__/playerSpotifyWeb.unit.test.ts`                                                                                                                                                               | 2 tests traces moteur (confirmed unique / error sans confirmed)                                                                       |
+| `scripts/smoke-test-android-apk.sh`                                                                                                                                                                              | section hôte production + vérification finale faux playing + step summary + fenêtre prototype 60→80 s (run transitoire `37810103366`) |
+| `app.config.js` · `package.json` · `__mocks__/expo-constants.ts` · `screens/__tests__/SettingsScreen.unit.test.tsx` · `screens/__tests__/SettingsSubScreens.unit.test.tsx` · `.github/workflows/android-apk.yml` | bump `4.5.0-test.22` / `45022`                                                                                                        |
 
 **Règles respectées** : aucun mock de lecture, aucun faux `playing`, aucun
 timer simulé, aucun fallback Spotify→Audius/YouTube, aucun cookie/token
