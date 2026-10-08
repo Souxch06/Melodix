@@ -12,7 +12,9 @@ dépannage : le diagnostic 403 expose désormais **le nombre de tentatives**
 (l'UI affiche « Tentatives : 3 — 403 persistant ») — version
 `4.5.0-test.24/45024` ; (5) chiffres de tests V18 **réconciliés et corrigés**
 (erreur du rapport V18 : « 18 nouveaux » → 4 nouveaux ; 2070 = total
-passés+ignorés, pas des passés) ; CI **success** (run 37836789648).
+passés+ignorés, pas des passés) ; CI **success** (run 37837109994 — la run
+37836789648 du commit code a été annulée par la politique
+`cancel-in-progress` du workflow au push du rapport — voir §7).
 
 ---
 
@@ -55,11 +57,11 @@ passés+ignorés, pas des passés) ; CI **success** (run 37836789648).
 - **ESLint** (fichiers modifiés) : 0 finding.
 - **Prettier** (fichiers modifiés) : conforme.
 - **Android/Robolectric + Gradle + APK + signature + 16 KiB + smoke** :
-  exécutés par la CI — **run `37836789648` SUCCESS** (tous steps success ;
+  exécutés par la CI — **run `37837109994` SUCCESS** (tous steps success ;
   APK `versionCode='45024'` `versionName='4.5.0-test.24'` ; hôte production
   `host-mounted` ; handshake honnête sans compte ; **aucun faux playing** ;
   OAuth A/B wiring ; cycle bg/retour). Détail §7.
-- **APK de test** : artefact GitHub Actions de la run `37836789648`
+- **APK de test** : artefact GitHub Actions de la run `37837109994`
   (workflow `APK Android`) — `Melodix-v4.5.0-test.24-*.apk`, à installer
   sur le téléphone pour le test physique du §5.
 
@@ -237,7 +239,7 @@ les étapes manuelles ci-dessous, qui sont rapides et sans risque.
    `/v1/me` et les playlists).
 5. **Attendre quelques minutes** (propagation du dashboard), puis sur le
    téléphone (build **4.5.0-test.24 / 45024** de la run CI
-   `37836789648`) : **se déconnecter puis se reconnecter** (nouvel
+   `37837109994`) : **se déconnecter puis se reconnecter** (nouvel
    échange, token frais) et observer.
 6. **Si 403 persistant malgré le dashboard corrigé** : tester sur
    **DEUX réseaux différents** (Wi-Fi vs données mobiles). 403 sur les
@@ -328,19 +330,24 @@ contrôle `/v1/me`.
 
 ---
 
-## 7. Gates CI (run `37836789648`, workflow `APK Android`) — **SUCCESS**
+## 7. Gates CI (workflow `APK Android`) — **SUCCESS**
 
-Déclenchée par le push du commit `04fa17c` (SHA complet
-`04fa17c…` — voir bas de rapport). Tous les steps success : TypeScript/
-ESLint/Prettier, Jest complet en CI, Robolectric Kotlin, Gradle +
-compilation APK, **alignement 16 KiB + signature**, intégrité/signature de
-l'APK, **installation et lancement réel sur Android 14** (smoke) :
-`host-mounted` confirmé (hôte de production), handshake honnête sans
-compte (`bridge_timeout`), **aucun `playback-confirmed`** (aucun faux
-playing — lecture réelle NON démontrée en CI, déclarée tel quel), OAuth A/B
-wiring (callback avec transaction PKCE persistée / sans), cycle
-arrière-plan/retour, service foreground + MediaSession + notification.
-APK vérifiée : `versionCode='45024'` `versionName='4.5.0-test.24'`.
+- **Run `37836789648`** (commit code `04fa17c`) : **annulée après 4 min**
+  par la politique `concurrency.cancel-in-progress: true` du workflow
+  (le push du commit rapport a déclenché une run plus récente sur la même
+  branche) — **ceci n'est PAS un échec de test** ; aucun step n'a échoué.
+- **Run `37837109994`** (commit rapport `dd7a0e1`, **code identique** —
+  seule différence : le présent rapport) : **SUCCESS**. C'est elle la run
+  de preuve. Tous les steps success : TypeScript/
+  ESLint/Prettier, Jest complet en CI, Robolectric Kotlin, Gradle +
+  compilation APK, **alignement 16 KiB + signature**, intégrité/signature de
+  l'APK, **installation et lancement réel sur Android 14** (smoke) :
+  `host-mounted` confirmé (hôte de production), handshake honnête sans
+  compte (`bridge_timeout`), **aucun `playback-confirmed`** (aucun faux
+  playing — lecture réelle NON démontrée en CI, déclarée tel quel), OAuth A/B
+  wiring (callback avec transaction PKCE persistée / sans), cycle
+  arrière-plan/retour, service foreground + MediaSession + notification.
+  APK vérifiée : `versionCode='45024'` `versionName='4.5.0-test.24'`.
 
 ---
 
@@ -357,7 +364,8 @@ APK vérifiée : `versionCode='45024'` `versionName='4.5.0-test.24'`.
     (champ `attempts` + UI), correction des chiffres V18, bump
     `4.5.0-test.24/45024` ;
   - `dd7a0e1c2d420c01a6d378d36bbbd8815401f5c6` — ce rapport.
-- **Runs CI** : `37836789648` (commit code — SUCCESS, APK 45024) ; le
-  commit rapport déclenche une run CI de documentation (sans impact
-  binaire).
+- **Runs CI** : `37836789648` (commit code `04fa17c`) — **annulée par la
+  politique `cancel-in-progress` du workflow** au push du rapport (pas un
+  échec de test) ; **`37837109994`** (commit `dd7a0e1`, code identique) —
+  **SUCCESS**, APK 45024 (run de preuve, §7).
 - **Base** : `05e6e76579d2dd96baaf5868fbc137909acfb00f` (V18 final).
