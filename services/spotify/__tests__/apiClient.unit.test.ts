@@ -449,13 +449,31 @@ describe('services/spotify/apiClient (API Web Spotify officielle)', () => {
         text: async () => body,
       }) as unknown as Response;
 
-    it('JSON sans error.message → spotifyMessage vide + forme « json » + Content-Type', async () => {
-      await saveSession(validSession());
-      setFetch(async () =>
-        forbidden('{"error":{"status":403}}', 'application/json')
-      );
+    /**
+     * Le 403 « edge » (sans message) est retenté 2× (1,5 s puis 3 s) avant
+     * d'être exposé — timer réel interdit en test : horloges factices et
+     * avancement unique couvrant les deux backoffs (fenêtre 10 s).
+     */
+    const getForbiddenAfterRetries = async (
+      impl: Parameters<typeof setFetch>[0]
+    ): Promise<unknown> => {
+      jest.useFakeTimers();
+      setFetch(impl);
+      const promise = spotifyApiGet('/me').catch((e: unknown) => e);
+      await jest.advanceTimersByTimeAsync(10_000);
+      const error = await promise;
+      jest.useRealTimers();
+      return error;
+    };
 
-      const error = await spotifyApiGet('/me').catch((e: unknown) => e);
+    it('JSON sans error.message → spotifyMessage vide + forme « json » + Content-Type (après 2 retentatives)', async () => {
+      await saveSession(validSession());
+      let calls = 0;
+      const error = await getForbiddenAfterRetries(async () => {
+        calls += 1;
+        return forbidden('{"error":{"status":403}}', 'application/json');
+      });
+      expect(calls).toBe(3); // 1 initiale + 2 retentatives (borne atteinte)
       expect(error).toMatchObject({ kind: 'http', status: 403 });
       expect((error as SpotifyApiError).spotifyMessage).toBe('');
       expect((error as SpotifyApiError).httpDiagnostics).toEqual({
@@ -466,11 +484,11 @@ describe('services/spotify/apiClient (API Web Spotify officielle)', () => {
       expect(await loadSession()).not.toBeNull();
     });
 
-    it('corps VIDE → spotifyMessage vide + forme « empty »', async () => {
+    it('corps VIDE → spotifyMessage vide + forme « empty » (après 2 retentatives)', async () => {
       await saveSession(validSession());
-      setFetch(async () => forbidden('', 'application/json'));
-
-      const error = await spotifyApiGet('/me').catch((e: unknown) => e);
+      const error = await getForbiddenAfterRetries(async () =>
+        forbidden('', 'application/json')
+      );
       expect(error).toMatchObject({ kind: 'http', status: 403 });
       expect((error as SpotifyApiError).spotifyMessage).toBe('');
       expect((error as SpotifyApiError).httpDiagnostics).toEqual({
@@ -480,16 +498,14 @@ describe('services/spotify/apiClient (API Web Spotify officielle)', () => {
       });
     });
 
-    it('réponse NON JSON (HTML, ex. CDN/filtre) → forme « non-json » + Content-Type HTML', async () => {
+    it('réponse NON JSON (HTML, ex. CDN/filtre) → forme « non-json » + Content-Type HTML (après 2 retentatives)', async () => {
       await saveSession(validSession());
-      setFetch(async () =>
+      const error = await getForbiddenAfterRetries(async () =>
         forbidden(
           '<!DOCTYPE html><html><body>Access denied</body></html>',
           'text/html; charset=utf-8'
         )
       );
-
-      const error = await spotifyApiGet('/me').catch((e: unknown) => e);
       expect(error).toMatchObject({ kind: 'http', status: 403 });
       expect((error as SpotifyApiError).spotifyMessage).toBe('');
       expect((error as SpotifyApiError).httpDiagnostics).toEqual({
@@ -516,6 +532,135 @@ describe('services/spotify/apiClient (API Web Spotify officielle)', () => {
       expect((error as SpotifyApiError).httpDiagnostics?.bodyShape).toBe(
         'json'
       );
+    });
+  });
+
+  describe('403 « edge » (sans message) — retry borné et transparent', () => {
+    // Terrain documenté (Spotify Community) : l'edge Spotify (signature
+    // server:envoy / via:HTTP/2 edgeproxy+1.1 google) refuse INTERMITTEMMENT
+    // des requêtes valides par un 403 sans corps JSON (corps vide ou non
+    // JSON) ; la même requête réussit après quelques tentatives. Le client
+    // retente donc au plus 2× (1,5 s puis 3 s) — JAMAIS un 403 traité comme
+    // succès, et un 403 persistant est exposé tel quel (mêmes diagnostics).
+    const edge403 = (call: number, succeedFrom: number): unknown =>
+      call < succeedFrom
+        ? ({
+            status: 403,
+            ok: false,
+            headers: {
+              get: (name: string) =>
+                name === 'Content-Type' ? 'text/html; charset=utf-8' : null,
+            },
+            text: async () => '<html>edge denied</html>',
+          } as unknown as Response)
+        : ({
+            status: 200,
+            ok: true,
+            headers: { get: () => null },
+            json: async () => ({ id: 'user-recovered' }),
+          } as unknown as Response);
+
+    it('403 edge intermittente → retentative BORNEE puis 200 : donnée servie (jamais de faux succès)', async () => {
+      await saveSession(validSession());
+      jest.useFakeTimers();
+      let calls = 0;
+      globalThis.fetch = jest.fn(async () => {
+        calls += 1;
+        return edge403(calls, 3); // 403, 403, 200
+      }) as unknown as typeof fetch;
+
+      const promise = spotifyApiGet<{ id: string }>('/me');
+      await jest.advanceTimersByTimeAsync(10_000);
+      const user = await promise;
+      jest.useRealTimers();
+
+      expect(user.id).toBe('user-recovered');
+      expect(calls).toBe(3);
+      // Le 200 est RÉEL : aucun 403 n'a été assimilé à un succès.
+      expect(await loadSession()).not.toBeNull();
+    });
+
+    it('403 edge persistante → borne atteinte (3 appels max), 403 exposé AVEC diagnostics, session conservée', async () => {
+      await saveSession(validSession());
+      jest.useFakeTimers();
+      let calls = 0;
+      globalThis.fetch = jest.fn(async () => {
+        calls += 1;
+        return edge403(calls, 99); // toujours 403
+      }) as unknown as typeof fetch;
+
+      const promise = spotifyApiGet('/me').catch((e: unknown) => e);
+      await jest.advanceTimersByTimeAsync(10_000);
+      const error = await promise;
+      jest.useRealTimers();
+
+      expect(calls).toBe(3); // 1 initiale + 2 retentatives — PAS de boucle
+      expect(error).toMatchObject({ kind: 'http', status: 403 });
+      expect((error as SpotifyApiError).spotifyMessage).toBe('');
+      expect((error as SpotifyApiError).httpDiagnostics?.bodyShape).toBe(
+        'non-json'
+      );
+      // Jamais de contenu de page ni de token dans l'erreur exposée.
+      const serialized = JSON.stringify(error);
+      expect(serialized).not.toContain('edge denied');
+      expect(serialized).not.toContain('valid-token');
+      expect(await loadSession()).not.toBeNull();
+    });
+
+    it('403 AVEC message JSON (cause API définitive) → AUCUNE retentative (1 appel seul)', async () => {
+      await saveSession(validSession());
+      let calls = 0;
+      globalThis.fetch = jest.fn(async () => {
+        calls += 1;
+        return {
+          status: 403,
+          ok: false,
+          headers: {
+            get: (name: string) =>
+              name === 'Content-Type' ? 'application/json' : null,
+          },
+          text: async () =>
+            '{"error":{"status":403,"message":"User not approved for app"}}',
+        } as unknown as Response;
+      }) as unknown as typeof fetch;
+
+      // Timer RÉEL : si une retentative (injustifiée) survenait, le test
+      // prendrait ≥1,5 s et l'appel serait ×2 — les deux sont interdits.
+      const start = Date.now();
+      const error = await spotifyApiGet('/me').catch((e: unknown) => e);
+      expect(Date.now() - start).toBeLessThan(1000);
+      expect(calls).toBe(1);
+      expect(error).toMatchObject({ kind: 'http', status: 403 });
+      expect((error as SpotifyApiError).spotifyMessage).toBe(
+        'User not approved for app'
+      );
+    });
+
+    it("403 edge + 5xx en cours de route → le premier verdict non-403 lève l'erreur (pas de retry sur 5xx)", async () => {
+      await saveSession(validSession());
+      jest.useFakeTimers();
+      let calls = 0;
+      globalThis.fetch = jest.fn(async () => {
+        calls += 1;
+        return calls === 1
+          ? (edge403(1, 99) as Response)
+          : ({
+              status: 503,
+              ok: false,
+              headers: { get: () => null },
+              text: async () => '',
+            } as unknown as Response);
+      }) as unknown as typeof fetch;
+
+      const promise = spotifyApiGet('/x').catch((e: unknown) => e);
+      await jest.advanceTimersByTimeAsync(10_000);
+      const error = await promise;
+      jest.useRealTimers();
+
+      // La retentative a lieu (le 1er verdict était un 403 edge), puis le
+      // 503 est levé tel quel — le retry ne transforme pas l'erreur.
+      expect(calls).toBe(2);
+      expect(error).toMatchObject({ kind: 'http', status: 503 });
     });
   });
 
@@ -573,7 +718,12 @@ describe('services/spotify/apiClient (API Web Spotify officielle)', () => {
         });
       }) as unknown as typeof fetch;
 
-      const error = await spotifyApiGet('/me').catch((e: unknown) => e);
+      // 403 edge (sans message) : 2 retentatives bornées → horloges factices.
+      jest.useFakeTimers();
+      const promise = spotifyApiGet('/me').catch((e: unknown) => e);
+      await jest.advanceTimersByTimeAsync(10_000);
+      const error = await promise;
+      jest.useRealTimers();
       expect(error).toMatchObject({ kind: 'http', status: 403 });
       const diag = (error as SpotifyApiError).httpDiagnostics;
       expect(diag?.bodyShape).toBe('non-json');
@@ -604,6 +754,8 @@ describe('services/spotify/apiClient (API Web Spotify officielle)', () => {
 
     it("403 + AUCUN header + pas d'url → headers {} + finalUrl undefined (l'UI dira « inconnu »/« inconnue »)", async () => {
       await saveSession(validSession());
+      // 403 edge (sans message) : 2 retentatives bornées → horloges factices.
+      jest.useFakeTimers();
       setFetch(async () =>
         forbiddenWith({
           body: 'forbidden',
@@ -611,8 +763,10 @@ describe('services/spotify/apiClient (API Web Spotify officielle)', () => {
           statusText: '',
         })
       );
-
-      const error = await spotifyApiGet('/me').catch((e: unknown) => e);
+      const promise = spotifyApiGet('/me').catch((e: unknown) => e);
+      await jest.advanceTimersByTimeAsync(10_000);
+      const error = await promise;
+      jest.useRealTimers();
       const diag = (error as SpotifyApiError).httpDiagnostics;
       expect(error).toMatchObject({ kind: 'http', status: 403 });
       expect(diag?.bodyShape).toBe('non-json');
@@ -624,6 +778,8 @@ describe('services/spotify/apiClient (API Web Spotify officielle)', () => {
 
     it("403 + REDIRECTION → finalUrl diffère de l'URL demandée (exposé tel quel)", async () => {
       await saveSession(validSession());
+      // 403 edge (JSON sans error.message) : 2 retentatives bornées → horloges factices.
+      jest.useFakeTimers();
       setFetch(async () =>
         forbiddenWith({
           body: '{"error":{"status":403}}',
@@ -631,8 +787,10 @@ describe('services/spotify/apiClient (API Web Spotify officielle)', () => {
           url: 'https://edge.example-cdn.com/denied',
         })
       );
-
-      const error = await spotifyApiGet('/me').catch((e: unknown) => e);
+      const promise = spotifyApiGet('/me').catch((e: unknown) => e);
+      await jest.advanceTimersByTimeAsync(10_000);
+      const error = await promise;
+      jest.useRealTimers();
       expect(error).toMatchObject({ kind: 'http', status: 403 });
       // L'URL finale (celle qui a réellement répondu) est exposée — elle
       // diffère de l'URL demandée (https://api.spotify.com/v1/me).

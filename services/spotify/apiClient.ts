@@ -91,6 +91,13 @@ export class SpotifyApiError extends Error {
 
 const REQUEST_TIMEOUT_MS = 10_000;
 const MAX_RATE_LIMIT_RETRIES = 2;
+/**
+ * Retries du 403 « edge » (sans message JSON) : voir la branche `!response.ok`.
+ * Borne explicite : au plus 2 retentatives, backoff 1,5 s puis 3 s — jamais
+ * de boucle (un 403 persistant reste un 403 exposé, mêmes diagnostics).
+ */
+const MAX_EDGE_403_RETRIES = 2;
+const EDGE_403_RETRY_BASE_MS = 1500;
 
 const doFetch = async (
   path: string,
@@ -167,6 +174,7 @@ export const spotifyApiGet = async <T>(path: string): Promise<T> => {
 
   let retries429 = 0;
   let retried401 = false;
+  let edge403Retries = 0;
 
   for (;;) {
     let response: Response;
@@ -301,6 +309,31 @@ export const spotifyApiGet = async <T>(path: string): Promise<T> => {
               ? statusTextRaw
               : undefined,
         };
+      }
+      // 403 SANS message détaillé = refus NIVEAU EDGE de l'edge Spotify
+      // (signature server:envoy / via:HTTP/2 edgeproxy+1.1 google — l'edge
+      // renvoie alors un corps vide ou non JSON, jamais l'erreur JSON
+      // standard de l'API). Le terrain (Spotify Community) documente ce
+      // 403 comme INTERMITTENT : la même requête réussit après quelques
+      // tentatives. Retry BORNE et TRANSPARENT — même philosophie que les
+      // 429 (attente) et 401 (refresh+retry) déjà présents : JAMAIS un 403
+      // traité comme succès (seul un 200 au profil valide libère), et si le
+      // 403 persiste il est exposé avec les MÊMES diagnostics que sans
+      // retry. 403 AVEC message JSON (allowlist, scope, premium) : cause
+      // DÉFINITIVE de l'API → pas de retry (ne pas retarder l'info utile).
+      if (
+        response.status === 403 &&
+        spotifyMessage === '' &&
+        edge403Retries < MAX_EDGE_403_RETRIES
+      ) {
+        edge403Retries += 1;
+        await sleep(EDGE_403_RETRY_BASE_MS * edge403Retries);
+        spotifyLog('api.http-403-retry', {
+          endpoint: path.split('?')[0].slice(0, 80),
+          attempt: edge403Retries,
+          bodyShape,
+        });
+        continue;
       }
       spotifyLog('api.http', {
         status: response.status,
