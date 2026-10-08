@@ -93,8 +93,8 @@ humain, comme avant.
 | TypeScript                  | `tsc --noEmit` : **0 erreur**                                                                                                                                                                                                                                                                                                                                                         |
 | ESLint                      | `npm run lint` : **0 erreur**                                                                                                                                                                                                                                                                                                                                                         |
 | Prettier                    | `npm run prettier:check` : **clean**                                                                                                                                                                                                                                                                                                                                                  |
-| CI Android (GitHub Actions) | **run `37731100081` — SUCCESS** (16 min 31 s, commit `92f50bb`, job « Construire l'APK » success) : build EAS, vérification versionName `4.5.0-test.17`/versionCode `45017`, canaux `melodix://callback`, Client ID public, invariants (aucun secret, PKCE, `melodix://callback`), smoke Android (boot + `melodix://callback?code=…` + `melodix://diagnostics`), `SPOTIFY-DIAG` clean |
-| Référence APK               | **`Melodix-v4.5.0-test.17-92f50bb.apk`** (47 005 027 octets, artifact #11530317720) — télécharger depuis le run CI (l'API sandbox ne permet pas de calculer son SHA-256 ici)                                                                                                                                                                                                          |
+| CI Android (GitHub Actions) | **run `37731100081` — SUCCESS** (16 min 31 s, commit fonctionnel `92f50bb`) **et run `37733414255` — SUCCESS** (12 min 11 s, SHA final `a5ca6b1`) : build EAS, vérification versionName `4.5.0-test.17`/versionCode `45017`, canaux `melodix://callback`, Client ID public, invariants (aucun secret, PKCE, `melodix://callback`), smoke Android (boot + `melodix://callback?code=…` + `melodix://diagnostics`), `SPOTIFY-DIAG` clean |
+| Référence APK | **`Melodix-v4.5.0-test.17-92f50bb.apk`** (47 005 027 octets, artifact #11530317720) et `Melodix-v4.5.0-test.17-a5ca6b1.apk` (run final) — télécharger depuis le run CI (l'API sandbox ne permet pas de calculer leur SHA-256 ici) |
 
 ## 7. Physique
 
@@ -129,6 +129,8 @@ debug**.
 ## 9. Références
 
 - Commit fonctionnel : `92f50bb` (sur `f64f87c`)
-- CI : run **37731100081** (SUCCESS) — APK **`Melodix-v4.5.0-test.17-92f50bb.apk`**
+- SHA final : `a5ca6b1`
+- CI : runs **37731100081** (commit fonctionnel, SUCCESS) et **37733414255** (SHA final, SUCCESS)
+- APK : **`Melodix-v4.5.0-test.17-92f50bb.apk`** / `Melodix-v4.5.0-test.17-a5ca6b1.apk`
 - Versions : `4.5.0-test.17` / `45017`
 - Rapport précédent : `RAPPORT-CORRECTION-REDIRECT-SPOTIFY-V11.1.md`
