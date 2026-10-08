@@ -137,7 +137,7 @@ indiquée explicitement). L'URL finale de la réponse est exposée via
 - **Prettier** : fichiers modifiés propres (`--write` + `--check`).
 - **Android build + APK smoke** : CI GitHub Actions `android-apk.yml`
   (build release, signature, vérification version 45021, invariants redirect,
-  inspection APK, smoke) — résultat dans §Git.
+  inspection APK, smoke) — **SUCCESS** (run 37789364299, §Git).
 
 Tests de contrôle du diagnostic 403 :
 
@@ -155,9 +155,11 @@ Tests de contrôle du diagnostic 403 :
 ## 8. Git
 
 - **HEAD avant** : `b540a58` (V15)
-- **HEAD après** : `7ca465b` (code `ad9c12d` + commit docs)
+- **HEAD après** : `bee2097` (code `ad9c12d` + commits docs)
 - **Branche** : `arena/fcdae8c6-melodix` — **PR** : #6
-- **CI** : run `android-apk.yml` après push — ID + statut
+- **CI** : `android-apk.yml` run **37789364299 — SUCCESS** (sur `bee2097`) ;
+  artefact **`Melodix-v4.5.0-test.21-bee2097.apk`** (téléchargeable depuis
+  l'UI GitHub / artefacts de la run)
 - Invariants vérifiés avant commit : Client ID absent du diff, redirect
   `melodix://callback` intact, scopes/auth/PKCE/SecureStore à 0 ligne
 
