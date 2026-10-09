@@ -21,46 +21,53 @@ import { LibraryItemModel } from '@models';
 const SEARCH_TYPES = 'track,artist,album,playlist' as const;
 
 /**
- * Borne Spotify OFFICIELLE : 50 résultats par type et par page (le maximum
- * que `/v1/search` accepte). On utilise la pleine capacité : c'est la limite
- * native de l'API, pas un choix arbitraire, et c'est ce qui permet au
- * catalogue de servir 2000 pistes en 40 pages parallélisées.
+ * Borne Spotify OFFICIELLE (contrat API en vigueur — migration dev-mode
+ * février 2026, guide officiel + référence `/v1/search`) : **10 résultats
+ * par type et par page** (`limit` : plage 0-10, défaut 5 ; avant 2026 : 50).
+ * Demander plus n'est plus valide vis-à-vis de l'API documentée : avant ce
+ * correctif le code demandait `limit=50` — selon le comportement de l'edge
+ * Spotify, le catalogue Spotify était soit rejeté (erreur → repli backend
+ * dégradé), soit SILENCEUSEMENT borné à 10 résultats par requête : la page 1
+ * renvoyant moins de `perType` résultats, `previousWaveComplete` restait
+ * faux, la pagination s'arrêtait après la première page et la couverture du
+ * matcher Audius/YouTube s'effondrait (10 pistes au lieu du plafond conçu).
  */
-const MAX_PER_TYPE = 50;
+const MAX_PER_TYPE = 10;
 
 /**
- * Nombre de résultats demandés par défaut. 50 (= pleine page Spotify) :
- * le premier écran de résultats doit couvrir les déclinaisons d'un même
- * morceau (remaster, version live, édition radio) sans faire défiler, et la
- * pagination tracks s'appuie sur cette même taille de page.
+ * Nombre de résultats demandés par défaut : 10 (= pleine page sous le
+ * plafond API de 2026). Le premier écran de résultats couvre les
+ * déclinaisons d'un même morceau (remaster, version live, édition radio)
+ * sans faire défiler, et la pagination tracks s'appuie sur cette même
+ * taille de page.
  */
-const DEFAULT_LIMIT = 50;
+const DEFAULT_LIMIT = 10;
 
 /**
- * BORNE DURE de la pagination tracks : au plus `MAX_TRACK_PAGES` pages
- * (× la taille de page = le catalogue maximal servi, 2000 pistes à la
- * limite par défaut).
+ * BORNE DURE de la pagination tracks : au plus `MAX_TRACK_PAGES` pages.
  *
- * Ce n'est PAS une pagination infinie : l'API Spotify impose elle-même
- * `offset + limit ≤ 5000` par requête ; ici on se borne à 2000, soit 40 %
- * de la capacité brute de l'API — la couverture la plus large raisonnable
- * pour une recherche de catalogue (les requêtes populaires n'atteignent
- * cette borne que si 2000 pistes remplissent réellement dix vagues de
- * pages). La boucle (voir `fetchTrackPages`) s'arrête DE TOUTE FAÇON DES
- * QUE la vague précédente est INcomplète, c'est-à-dire dès que Spotify a
- * épuisé les résultats pertinents du classement : la borne dure n'est
- * atteinte QUE pour les requêtes très populaires, et elle garantit qu'aucune
- * recherche ne génère une file de pages interminable.
+ * Ce n'est PAS une pagination infinie : l'API Spotify (contrat 2026) borne
+ * `offset` à **1000** — avec `limit` = 10, le plafond ABSOLU par requête est
+ * donc 101 pages = 1010 résultats par type (avant 2026 : `offset + limit ≤
+ * 5000`, plafond conçu 2000). La borne dure est calée SUR ce plafond : la
+ * boucle ne peut jamais demander un `offset` > 1000 (requête invalide) et
+ * ne génère jamais une file de pages interminable. La boucle
+ * (`fetchTrackPages`) s'arrête DE TOUTE FAÇON DÈS QUE la vague précédente
+ * est INcomplète, c'est-à-dire dès que Spotify a épuisé les résultats
+ * pertinents du classement : la borne dure n'est atteinte QUE pour les
+ * requêtes très populaires (1010 résultats classés).
  */
-const MAX_TRACK_PAGES = 40;
+const MAX_TRACK_PAGES = 101;
 
 /**
  * Parallélisme de la pagination : les pages d'une vague sont demandées EN
- * MÊME TEMPS (4 requêtes). C'est ce qui permet de quadrupler la couverture
- * (500 → 2000 pistes) SANS dégrader la latence : 40 pages en 10 vagues
- * parallèles restent au même ordre de grandeur qu'ancien 10 pages
- * séquentielles. Le débit Spotify tolère largement 4 requêtes en parallèle
- * par recherche utilisateur.
+ * MÊME TEMPS (4 requêtes). Sous le contrat 2026 (pages de 10, plafond 101
+ * pages), le parallélisme est ce qui rend le plafond atteignable sans
+ * dégrader la latence : 101 pages en ~25 vagues parallèles restent au même
+ * ordre de grandeur que des dizaines de pages séquentielles. Le débit
+ * Spotify tolère largement 4 requêtes en parallèle par recherche
+ * utilisateur ; la boucle s'arrête bien avant la borne dure dès que
+ * Spotify a épuisé les résultats (la grande majorité des requêtes).
  */
 const TRACK_PAGE_CONCURRENCY = 4;
 

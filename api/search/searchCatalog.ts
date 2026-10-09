@@ -7,14 +7,15 @@ import { backendSearchCatalog } from '../backend';
 import { searchSpotifyCatalog } from '../spotify/search';
 
 /**
- * Résultats par type par recherche : 50 (pleine page Spotify, la borne
- * OFFICIELLE de l'API). Le catalogue Spotify est vaste — des listes plus
- * courtes masquaient les déclinaisons d'un même morceau (remaster, live,
- * radio edit) et donnaient l'impression d'un catalogue « incomplet ».
- * Côté Spotify, les tracks sont en outre paginés de façon adaptative et
- * parallélisée dans searchSpotifyCatalog (jusqu'à 40 pages × 50 = 2000
- * pistes, arrêt dès que Spotify n'a plus de résultats ou que la borne dure
- * est atteinte — voir le commentaire de MAX_TRACK_PAGES).
+ * Résultats par type par recherche : 50 = nombre de résultats SOUHAITÉS
+ * pour les sources backend/Audius (leur page naturelle). Le catalogue
+ * Spotify est plus vaste : côté Spotify, les tracks sont paginés de façon
+ * adaptative et parallélisée dans searchSpotifyCatalog (contrat API 2026 :
+ * pages de 10, plafond 101 pages = 1010 pistes par requête, arrêt dès que
+ * Spotify n'a plus de résultats ou que la borne dure est atteinte — voir
+ * les commentaires de MAX_PER_TYPE / MAX_TRACK_PAGES). Le `limit` passé à
+ * Spotify est donc simplement plafonné à sa page native (10) ; la quantité
+ * totale vient de la pagination, pas de ce nombre.
  */
 export const SEARCH_LIMIT = 50;
 
