@@ -134,6 +134,23 @@ describe('Copier le rapport (UN appui)', () => {
     expect(copied).toBe(REPORT);
   });
 
+  it('V25 — l’input du builder porte le Client ID du build (recoupement dashboard Spotify)', async () => {
+    renderActions();
+    fireEvent.press(screen.getByTestId('spotify-diag-copy'));
+    await waitFor(() =>
+      expect(Clipboard.setStringAsync).toHaveBeenCalledTimes(1)
+    );
+    const [input] = mockServices.buildSpotifyDiagnosticReport.mock.calls[0];
+    expect(
+      (input as { config: { clientId: string; clientIdSource: string } }).config
+        .clientId
+    ).toBe('test-client-id');
+    expect(
+      (input as { config: { clientId: string; clientIdSource: string } }).config
+        .clientIdSource
+    ).toBe('expo-public-env');
+  });
+
   it('anti-double-appui : deux pressions → une seule copie', async () => {
     (Clipboard.setStringAsync as jest.Mock).mockImplementation(
       () => new Promise((r) => setTimeout(r, 10))

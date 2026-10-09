@@ -123,6 +123,10 @@ export const SpotifyDiagnosticActions = ({
       config: {
         clientIdPresent: isSpotifyLoginConfigured(),
         clientIdSource: getClientIdInfo().source,
+        // V25 — valeur intégrée au build (identifiant PUBLIC, jamais un
+        // secret) : le rapport ne l'affiche qu'en forme valide (32 hex),
+        // ce qui permet de recouper l'APK avec le dashboard Spotify.
+        clientId: getClientIdInfo().clientId,
         redirectUri: getSpotifyRedirectUri(),
       },
       events,

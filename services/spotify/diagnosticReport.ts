@@ -25,6 +25,7 @@
  */
 import type { SessionStatus, SpotifyVerificationFailure } from '@context';
 import type { SpotifyDiagnosticEvent } from './diagnosticHistory';
+import { isSpotifyClientIdShape } from './authConfig';
 import { isSensitiveDiagnosticValue } from './devLog';
 
 /** Taille maximale du rapport (caractères) — au-delà : troncature. */
@@ -48,10 +49,17 @@ export type SpotifyDiagnosticReportInput = {
   } | null;
   /** Dernier échec de vérification (classé, sans valeur sensible). */
   failure: SpotifyVerificationFailure | null;
-  /** Configuration Spotify du build (présence, source, redirect). */
+  /**
+   * Configuration Spotify du build (présence, source, redirect).
+   * `clientId` = valeur intégrée au build (identifiant PUBLIC — jamais un
+   * secret). Le builder n'en affiche la valeur QUE si sa forme est celle
+   * d'un Client ID Spotify (32 hex, voir isSpotifyClientIdShape) : sinon il
+   * signale un format inhabituel SANS renvoyer la valeur.
+   */
   config: {
     clientIdPresent: boolean;
     clientIdSource: string;
+    clientId?: string | null;
     redirectUri: string | null;
   } | null;
   /** Historique local borné (chronologique, anciens en premier). */
@@ -122,6 +130,10 @@ const L = {
     sessionChecking: 'vérification en cours',
     configOk: 'présente',
     configMissing: 'ABSENTE (connexion impossible dans ce build)',
+    clientIdFormatInvalid:
+      'présent mais format inhabituel (non affiché — vérifier la configuration du build)',
+    clientIdSourceExpoPublicEnv: 'EXPO_PUBLIC inliné au build',
+    clientIdSourceExpoConfigExtra: 'config Expo du build (extra)',
     oauthOk: 'réussi (événement local)',
     oauthError: 'échec',
     retryNote: 'non déclenché (seul un 401 déclenche le refresh)',
@@ -246,6 +258,10 @@ const L = {
     sessionChecking: 'verification in progress',
     configOk: 'present',
     configMissing: 'MISSING (sign-in impossible in this build)',
+    clientIdFormatInvalid:
+      'present but unusual format (not shown — check the build configuration)',
+    clientIdSourceExpoPublicEnv: 'EXPO_PUBLIC inlined at build time',
+    clientIdSourceExpoConfigExtra: 'Expo build config (extra)',
     oauthOk: 'succeeded (local event)',
     oauthError: 'failed',
     retryNote: 'not triggered (only a 401 triggers a refresh)',
@@ -498,9 +514,28 @@ export const buildSpotifyDiagnosticReport = (
     if (!input.config.clientIdPresent) {
       return t.configMissing;
     }
-    const source = sanitizeReportValue(input.config.clientIdSource, 40);
+    // V25 — le rapport affiche le Client ID RÉEL du build (identifiant
+    // PUBLIC de l'application — pas un secret) : c'est la donnée qui permet
+    // au propriétaire de recouper quel dashboard Spotify l'APK installé
+    // utilise. Seule une valeur de FORME valide (32 hex) est affichée ;
+    // tout le reste est signalé « format inhabituel » SANS jamais renvoyer
+    // la valeur brute (une valeur erronée peut être un token collé par
+    // erreur dans la variable de build — le rapport ne doit pas le répéter).
+    const rawClientId =
+      typeof input.config.clientId === 'string'
+        ? input.config.clientId.trim()
+        : '';
+    const clientIdShown = isSpotifyClientIdShape(rawClientId)
+      ? rawClientId
+      : t.clientIdFormatInvalid;
+    const sourceLabel =
+      input.config.clientIdSource === 'expo-public-env'
+        ? t.clientIdSourceExpoPublicEnv
+        : input.config.clientIdSource === 'expo-config-extra'
+          ? t.clientIdSourceExpoConfigExtra
+          : sanitizeReportValue(input.config.clientIdSource, 40);
     const redirect = sanitizeReportValue(input.config.redirectUri, 80);
-    return `${t.configOk} — Client ID : ${source} — redirect : ${redirect}`;
+    return `${t.configOk} — Client ID : ${clientIdShown} (source : ${sourceLabel}) — redirect : ${redirect}`;
   })();
   push(`${t.config} : ${configLine}`);
   const login = lastLoginOutcome(input.events);

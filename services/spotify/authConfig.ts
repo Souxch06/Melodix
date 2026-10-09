@@ -96,6 +96,20 @@ export const isSpotifyLoginConfigured = (): boolean =>
   getSpotifyClientId() !== '';
 
 /**
+ * Forme d'un Client ID Spotify : exactement 32 chiffres hexadécimaux
+ * (identifiant PUBLIC de l'application — pas un secret ; la règle ne porte
+ * que sur la FORME, jamais sur une valeur attendue).
+ *
+ * V25 — utilisé par le rapport de diagnostic : seule une valeur de cette
+ * forme est affichée comme « Client ID ». Tout le reste (libellé de source
+ * collé par erreur, token collé dans SPOTIFY_CLIENT_ID, valeur tronquée…)
+ * est signalé « format inhabituel » SANS être affiché — un rapport ne doit
+ * jamais renvoyer une valeur qui ne peut être un Client ID.
+ */
+export const isSpotifyClientIdShape = (value: string): boolean =>
+  /^[0-9a-fA-F]{32}$/.test(value);
+
+/**
  * Valeur par défaut du redirect OAuth : le redirect NATIF DE PRODUCTION de
  * Melodix — `melodix://callback` (scheme `melodix` déclaré dans le
  * manifest ; à déclarer tel quel dans le dashboard Spotify de

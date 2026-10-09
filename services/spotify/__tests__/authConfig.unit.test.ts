@@ -22,6 +22,7 @@ import {
   getSpotifyClientId,
   getSpotifyRedirectUri,
   getSpotifyRedirectUriSource,
+  isSpotifyClientIdShape,
   isSpotifyLoginConfigured,
   isSpotifyOAuthSmoke,
   SPOTIFY_SCOPES,
@@ -124,6 +125,44 @@ describe('authConfig — Client ID configurable', () => {
       // jamais la valeur effective du build de test.
       expect(getSpotifyRedirectUri()).not.toBe('melodix://callback');
     });
+  });
+});
+
+describe('isSpotifyClientIdShape — forme d’un Client ID Spotify (32 hex)', () => {
+  it('accepte 32 chiffres hexadécimaux (minuscules ET majuscules)', () => {
+    expect(isSpotifyClientIdShape('7c5af4cd57e646c49a6266222c2ed9d6')).toBe(
+      true
+    );
+    expect(isSpotifyClientIdShape('7C5AF4CD57E646C49A6266222C2ED9D6')).toBe(
+      true
+    );
+  });
+
+  it('rejette tout ce qui n’est pas un Client ID : libellé, token, tronqué', () => {
+    // Libellé de source (le défaut corrigé en V25 — il n’est JAMAIS un ID).
+    expect(isSpotifyClientIdShape('expo-public-env')).toBe(false);
+    // Longueurs / caractères invalides.
+    expect(isSpotifyClientIdShape('7c5af4cd57e646c49a6266222c2ed9d')).toBe(
+      false
+    ); // 31
+    expect(isSpotifyClientIdShape('7c5af4cd57e646c49a6266222c2ed9d6a')).toBe(
+      false
+    ); // 33
+    expect(isSpotifyClientIdShape('7c5af4cd-57e6-46c4-9a62-66222c2ed9d6')).toBe(
+      false
+    ); // tirets
+    expect(isSpotifyClientIdShape('')).toBe(false);
+    expect(isSpotifyClientIdShape('  7c5af4cd57e646c49a6266222c2ed9d6  ')).toBe(
+      false
+    ); // espaces
+    // Valeurs SENSIBLES collées par erreur dans la variable de build.
+    expect(isSpotifyClientIdShape('access_token=abc123xyz')).toBe(false);
+    expect(isSpotifyClientIdShape('Bearer eyJhbGciOiJIUzI1NiJ9.abc.def')).toBe(
+      false
+    );
+    expect(
+      isSpotifyClientIdShape('ghp_000000000000000000000000000000000000')
+    ).toBe(false);
   });
 });
 

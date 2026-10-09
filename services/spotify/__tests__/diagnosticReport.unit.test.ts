@@ -302,6 +302,114 @@ describe('taille bornée', () => {
   });
 });
 
+describe('buildSpotifyDiagnosticReport — Client ID du build (mission V25)', () => {
+  const VALID_ID = '7c5af4cd57e646c49a6266222c2ed9d6';
+
+  it('Client ID valide (32 hex) → la valeur réelle est affichée + source lisible (jamais le libellé brut)', () => {
+    const r = buildSpotifyDiagnosticReport(
+      baseInput({
+        config: {
+          clientIdPresent: true,
+          clientIdSource: 'expo-public-env',
+          clientId: VALID_ID,
+          redirectUri: 'melodix://callback',
+        },
+      })
+    );
+    // La valeur effective du build est visible (identifiant public — pas un
+    // secret) : c'est elle qu'on recoupe avec le dashboard Spotify.
+    expect(r).toContain(
+      `Client ID : ${VALID_ID} (source : EXPO_PUBLIC inliné au build)`
+    );
+    // Le libellé de source brut n'est plus présenté comme s'il était la
+    // valeur (le défaut exact du rapport d'appareil de la mission V25).
+    expect(r).not.toContain('Client ID : expo-public-env');
+    expect(r).toContain('redirect : melodix://callback');
+  });
+
+  it('source expo-config-extra → libellé natif de la config du build', () => {
+    const r = buildSpotifyDiagnosticReport(
+      baseInput({
+        config: {
+          clientIdPresent: true,
+          clientIdSource: 'expo-config-extra',
+          clientId: VALID_ID,
+          redirectUri: 'melodix://callback',
+        },
+      })
+    );
+    expect(r).toContain(
+      `Client ID : ${VALID_ID} (source : config Expo du build (extra))`
+    );
+  });
+
+  it('Client ID absent de l’input mais présent dans le build → format inhabituel, rien d’inventé', () => {
+    const r = buildSpotifyDiagnosticReport(
+      baseInput({
+        config: {
+          clientIdPresent: true,
+          clientIdSource: 'expo-config-extra',
+          clientId: null,
+          redirectUri: 'melodix://callback',
+        },
+      })
+    );
+    expect(r).toContain('format inhabituel (non affiché');
+    expect(r).not.toContain('Client ID : null');
+    expect(r).not.toContain('Client ID : —');
+  });
+
+  it('Client ID au format INHABITUEL (libellé collé) → signalé SANS renvoyer la valeur', () => {
+    const r = buildSpotifyDiagnosticReport(
+      baseInput({
+        config: {
+          clientIdPresent: true,
+          clientIdSource: 'expo-config-extra',
+          clientId: 'expo-public-env',
+          redirectUri: 'melodix://callback',
+        },
+      })
+    );
+    expect(r).toContain('format inhabituel (non affiché');
+    // La valeur brute ne figure nulle part dans le rapport.
+    expect(r).not.toContain('expo-public-env');
+  });
+
+  it('valeur SENSIBLE collée dans le Client ID → jamais reprenue, format signalé', () => {
+    const r = buildSpotifyDiagnosticReport(
+      baseInput({
+        config: {
+          clientIdPresent: true,
+          clientIdSource: 'expo-public-env',
+          clientId: 'access_token=verysecretvalue0123456789abcd',
+          redirectUri: 'melodix://callback',
+        },
+      })
+    );
+    expect(r).toContain('format inhabituel (non affiché');
+    expect(r).not.toContain('verysecretvalue');
+    expect(r).not.toContain('access_token=');
+  });
+
+  it('parité en : Client ID valide + source lisible anglaise', () => {
+    const r = buildSpotifyDiagnosticReport(
+      baseInput({
+        lang: 'en',
+        locale: 'en',
+        config: {
+          clientIdPresent: true,
+          clientIdSource: 'expo-public-env',
+          clientId: VALID_ID,
+          redirectUri: 'melodix://callback',
+        },
+      })
+    );
+    expect(r).toContain(
+      `Client ID : ${VALID_ID} (source : EXPO_PUBLIC inlined at build time)`
+    );
+  });
+});
+
 describe('buildSpotifyDiagnosticReport — parité fr/en', () => {
   it('en : titre anglais + classification « access denied »', () => {
     const r = buildSpotifyDiagnosticReport(

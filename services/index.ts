@@ -129,6 +129,7 @@ export {
   getClientIdInfo,
   getSpotifyClientId,
   getSpotifyRedirectUri,
+  isSpotifyClientIdShape,
   isSpotifyLoginConfigured,
   isSpotifyOAuthSmoke,
   SPOTIFY_SCOPES,
