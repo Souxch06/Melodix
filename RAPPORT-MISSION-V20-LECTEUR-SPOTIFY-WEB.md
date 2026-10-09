@@ -8,7 +8,10 @@ auditée fichier par fichier ; **7 défauts concrets démontrés** dans le
 parcours post-load (D8a–D8d, D3, D2) ont été corrigés, chacun avec son
 test de régression ciblé ; **aucun mock de lecture, aucun état inventé** ;
 rien n'a été fait sur le 403 (hors périmètre V20, instruction mission) ;
-version **`4.5.0-test.25/45025`**.
+version **`4.5.0-test.25/45025`** ; **CI finale SUCCESS (run
+`37892926828`)** avec APK `45025` produite, vérifiée et lancée sur
+émulateur Android 14 (smoke) — **lecture audio réelle NON testée ici
+(pas de téléphone), procédure en §4**.
 
 ---
 
@@ -282,11 +285,14 @@ conçu et verrouillé en v7 (`SPOTIFY_WEB_TRANSIENT_LOSS_CODES` inchangé).
 - `35b3293` — F1/F2/F5/F6/F7 + tests de régression (D8/D3)
 - `137f85a` — F3 adoption tardive + tests (D2)
 - `d273e12` — bump version `4.5.0-test.25/45025`
+- `34aed7c` — rapport + pin workflow synchronisé (voir §7)
+- (dernier commit) — version définitive du présent rapport (chiffres CI)
 
-**HEAD final** : `d273e121e57edd78b18ce49569adeff5342bdeb0`
-(40 premiers caractères : `d273e121e57edd78b18ce49569adeff5342bdeb0`)
-— HEAD local = HEAD remote vérifié après push. **PR #6** : ouverte,
-mergeable (non fusionnée, aucune action sur `main`).
+**HEAD de code final** : `d273e121e57edd78b18ce49569adeff5342bdeb0`
+(toutes les corrections + bump) ; **HEAD final de branche** : le commit
+qui contient la version définitive du présent rapport — HEAD local =
+HEAD remote vérifié après le dernier push. **PR #6** : ouverte,
+mergeable (base `main`, non fusionnée — aucune action sur `main`).
 
 ---
 
@@ -303,13 +309,26 @@ mergeable (non fusionnée, aucune action sur `main`).
   version, pas le code.
 - **Correction** : pin du workflow mis à jour
   (`EXPECTED_VERSION_CODE: '45025'`, `EXPECTED_VERSION_NAME:
-4.5.0-test.25`) dans le même commit que le présent rapport.
-- **Run finale valide** : la run du dernier commit de la branche
-  (code + rapport + pin workflow) — identifiante dès complétion ; c'est
-  elle qui produit l'APK `45025` publiable.
+4.5.0-test.25`) dans le commit `34aed7c` (rapport + pin).
+- **RUN PRODUCTRICE / FINALE : `37892926828` (commit `34aed7c`) —
+  SUCCESS** — toutes les steps passées : TypeScript/ESLint/Prettier,
+  Jest, Robolectric, Gradle + compilation APK, alignement 16 KiB +
+  signature, **vérification intégrité/instalabilité/signature**
+  (`com.souxch06.melodix`, versionCode **`45025`**, versionName
+  **`4.5.0-test.25`**, 4 ABI), **installation ET lancement réel de
+  l'APK sur émulateur Android 14** (smoke) et publication de
+  l'artifact. (La step Release est désactivée dans le workflow —
+  l'APK est un artifact de run, comme en V19.)
+- **Lien APK** : `Melodix-v4.5.0-test.25-34aed7c.apk` (44,8 MiB) —
+  artifact de la run `37892926828` :
+  <https://github.com/Souxch06/Melodix/actions/runs/37892926828>
+  (onglet « Artifacts »).
+- La CI du commit final de la branche (celui qui contient la version
+  définitive du présent rapport) est visible SUCCESS dans les checks de
+  la PR #6 ; elle re-valide le code strictement identique (docs seules
+  modifiées depuis `34aed7c`).
 - Runs V19 toujours valides sur leurs commits respectifs : `37837109994`
   et `37839363320` (APK `45024`).
-- **Lien APK** : artifact de la run finale (workflow `APK Android`).
 
 ---
 
