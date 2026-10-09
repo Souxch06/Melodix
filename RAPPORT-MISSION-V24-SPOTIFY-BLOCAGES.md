@@ -8,15 +8,16 @@
 
 ## 1. État du dépôt (SHAs, PR, main, version)
 
-| Élément                | Valeur                                                                                                                                                       |
-| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| SHA initial (base V23) | `ab3ff8294e2da9a05afe9990894a51274eda5a5a` (4.5.0-test.28, build 45028)                                                                                      |
-| SHA final — code V24   | `23bd95c4493a9efd9b85c2168d0abb9231b6288f`                                                                                                                   |
-| SHA final — rapport    | commit suivant ce rapport (`git log -1` sur la branche)                                                                                                      |
-| `main`                 | `fceab85950b069edcb65ed718a8ffd419a1bc785` — **INTACTE** (aucune écriture)                                                                                   |
-| PR #6                  | **OPEN**, `MERGEABLE`, head = `arena/fcdae8c6-melodix` — **non fusionnée** (aucune fusion, aucun merge de `main`)                                            |
-| Version app            | `4.5.0-test.29` / `versionCode 45029` (`app.config.js`, `package.json`)                                                                                      |
-| Nouvelle dépendance    | `expo-clipboard ~6.0.0` (installée : 6.0.3) — presse-papiers. **Corrigée après un échec CI réel** (défaut Gradle d'`expo-clipboard@5.0.1` documenté en §3.1) |
+| Élément                                 | Valeur                                                                                                                                                       |
+| --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| SHA initial (base V23)                  | `ab3ff8294e2da9a05afe9990894a51274eda5a5a` (4.5.0-test.28, build 45028)                                                                                      |
+| SHA code V24                            | `23bd95c4493a9efd9b85c2168d0abb9231b6288f` (commit A)                                                                                                        |
+| SHA code + workflow validé par CI verte | `5f724882fb22fe83652e6cc10b12eae87b0730eb` (commit D — run `37981870318` ✅)                                                                                 |
+| SHA final — rapport                     | dernier commit de la branche (`git log -1`) : ce rapport y est inclus                                                                                        |
+| `main`                                  | `fceab85950b069edcb65ed718a8ffd419a1bc785` — **INTACTE** (aucune écriture)                                                                                   |
+| PR #6                                   | **OPEN**, `MERGEABLE`, head = `arena/fcdae8c6-melodix` — **non fusionnée** (aucune fusion, aucun merge de `main`)                                            |
+| Version app                             | `4.5.0-test.29` / `versionCode 45029` (`app.config.js`, `package.json`)                                                                                      |
+| Nouvelle dépendance                     | `expo-clipboard ~6.0.0` (installée : 6.0.3) — presse-papiers. **Corrigée après un échec CI réel** (défaut Gradle d'`expo-clipboard@5.0.1` documenté en §3.1) |
 
 ---
 
@@ -168,14 +169,14 @@ Fait officiel / hypothèse / non vérifiable — clairement séparés.
 - Historique des runs de cette mission :
   - Run `37978060029` (1er push, commit A) : **ÉCHEC** en 4 min 16 s — défaut Gradle `expo-clipboard@5.0.1` (détail + preuve en §3.1).
   - Run `37980049382` (commit C, bump `expo-clipboard ~6.0.0`) : **ÉCHEC** en 13 min 29 s, mais **beaucoup plus loin** : TypeScript/ESLint/Prettier ✅, Jest ✅, prebuild ✅, Robolectric ✅, **compilation APK ✅** (le correctif Gradle fonctionne), alignement/signature ✅ — échec unique à la step « Vérifier intégrité, installabilité et signature de l'APK » : **pins de version du workflow obsolètes** (`EXPECTED_VERSION_CODE: '45028'` / `EXPECTED_VERSION_NAME: 4.5.0-test.28` hérités de V23, non resynchronisés au bump V24 — convention V23 « pins workflow — même commit » non suivie). Corrigé (45029 / 4.5.0-test.29) : le reste de la step (intégrité aapt, signature, scheme, ABIs, min/target SDK) était cohérent, seule la comparaison de version échouait.
-  - Run sur le **commit D** (pins workflow corrigées) : à consulter sur le workflow — c'est lui qui doit valider définitivement la CI complète (y compris le smoke-test émulateur Android 14).
-- Nom APK attendu : **`Melodix-4.5.0-test.29.apk`** (aligné 16 Ko + signé ; artefact + `apk-inspection.txt`).
+  - Run `37981870318` (commit D `5f72488`, pins workflow corrigées) : **SUCCÈS en 17 min 19 s** — CI complète verte : TS/ESLint/Prettier, Jest, prebuild, Robolectric, compilation APK, alignement 16 Ko + signature, vérification intégrité/scheme/ABIs, **et smoke-test émulateur Android 14 réel** : « installation + HÔTE Spotify Web production (montage/handshake/bridge, **aucun faux playing**) + prototype WebView + cycle arrière-plan/retour + service foreground + MediaSession + notification + deep-link OAuth (A et B) réussis sur Android 14 x86_64 ». Honnêteté CI conservée : « aucun playback-confirmed ni playback-error en logcat… la lecture RÉELLE Spotify Web reste NON DÉMONTRÉE en CI (test physique : non effectué) ».
+- **APK livré (artefact CI)** : **`Melodix-v4.5.0-test.29-5f72488.apk`** (47 049 480 octets, aligné 16 Ko + signé ; artefact `apk-inspection.txt` inclus) — téléchargable sur la run `37981870318`.
 
 ---
 
 ## 8. Validation téléphone réel — **NON EFFECTUÉ**
 
-Aucun téléphone physique n'est disponible dans l'environnement de travail. **Aucun login réel n'a été simulé ni présenté comme tel.** Procédure à exécuter manuellement (10 items) : installer `Melodix-4.5.0-test.29.apk` (CI) → se connecter Spotify → constater le 403 classé (plus jamais « erreur réseau temporaire ») → ouvrir **Réglages → Diagnostic Spotify** → **Copier** (coller dans Notes/courriel : vérifier que **aucun** token/code n'apparaît) → **Partager** (menu Android) → **Réessayer** (deux appuis rapides = une seule requête) → couper le réseau puis le rétablir (comportement borné) → fermer/rouvrir l'app (l'historique **survit**) → effacer l'historique (Alert destructive) → re-tenter après les actions §12 (le 200 devrait apparaître).
+Aucun téléphone physique n'est disponible dans l'environnement de travail. **Aucun login réel n'a été simulé ni présenté comme tel.** Procédure à exécuter manuellement (10 items) : installer `Melodix-v4.5.0-test.29-5f72488.apk` (artefact CI) → se connecter Spotify → constater le 403 classé (plus jamais « erreur réseau temporaire ») → ouvrir **Réglages → Diagnostic Spotify** → **Copier** (coller dans Notes/courriel : vérifier que **aucun** token/code n'apparaît) → **Partager** (menu Android) → **Réessayer** (deux appuis rapides = une seule requête) → couper le réseau puis le rétablir (comportement borné) → fermer/rouvrir l'app (l'historique **survit**) → effacer l'historique (Alert destructive) → re-tenter après les actions §12 (le 200 devrait apparaître).
 
 ---
 
@@ -261,7 +262,7 @@ Pas de demande de nouvelle application, pas de contournement, pas de modificatio
 
 ## 12. Recommandation mission suivante
 
-1. **Attendre** l'exécution des actions P0-1/P0-2 par le propriétaire + le **test physique** (§8) avec l'APK CI `Melodix-4.5.0-test.29.apk` — sans cela, la mission reste **partiellement réussie** par construction (restriction externe non levée).
+1. **CI complète verte** (run `37981870318`) et **APK livré** (`Melodix-v4.5.0-test.29-5f72488.apk`). Il reste à **attendre** l'exécution des actions P0-1/P0-2 par le propriétaire + le **test physique** (§8) avec cet APK — sans cela, la mission reste **partiellement réussie** par construction (restriction externe non levée, lecture réelle NON DÉMONTRÉE).
 2. Ensuite : décision d'architecture **consciente** (conserver A conditionnée au résultat physique + voie B en repli, cf. V23) — **aucun basculement silencieux** de piste Spotify vers un enregistrement similaire ; provenance toujours claire.
 3. Ne fusionner **rien** vers `main` avant revue ; `main` reste intouché.
 
