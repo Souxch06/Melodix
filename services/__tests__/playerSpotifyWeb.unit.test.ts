@@ -811,3 +811,187 @@ describe('melodixPlayer — V17 : miroir logcat [MelodixSpotifyWeb]', () => {
     expect(melodixPlayer.getState().resolved).toBeNull();
   });
 });
+
+/**
+ * V20 (F3) — adoption tardive de la lecture réelle in-page : quand la page
+ * publie `playing` alors que le moteur est encore sur la MÊME piste
+ * (verdict transitoire v9 qui garde le moteur sur la piste, ou concurrence
+ * de confirmation), l'état prouvé par la page EST la confirmation réelle —
+ * le moteur l'adopte exactement comme la branche confirmed (resolved +
+ * progression), purge le bandeau d'échec, et n'émet JAMAIS une seconde
+ * confirmation pour la même piste.
+ */
+describe('melodixPlayer — V20 : adoption tardive de la lecture in-page (F3)', () => {
+  let provider: AudioProvider;
+  let fake: ReturnType<typeof makeFakePort>;
+
+  beforeEach(async () => {
+    await AsyncStorage.clear();
+    mockCreatedSounds = [];
+    provider = makeProvider();
+    __testSetAudioProviders({ audius: provider });
+    await melodixPlayer.__testReset();
+    fake = makeFakePort();
+    melodixPlayer.attachSpotifyWebSource(fake.port);
+  });
+
+  afterEach(async () => {
+    melodixPlayer.attachSpotifyWebSource(null);
+    await melodixPlayer.__testReset();
+  });
+
+  it('verdict transitoire + lecture in-page de la même piste → adoption (playing, resolved, notice purgée)', async () => {
+    // bridge-unavailable (v9) : le moteur RESTE sur la piste (pas d'avance,
+    // pas de stop) — l'utilisateur peut encore appuyer sur Lecture DANS la
+    // page.
+    fake.port.attempt.mockResolvedValue({
+      status: 'failed',
+      code: 'bridge-unavailable',
+      attempts: [],
+    });
+    await melodixPlayer.playTrack(spotifyTrack('abc'));
+    await flush();
+
+    const before = melodixPlayer.getState();
+    expect(before.status).toBe('error');
+    expect(before.current?.id).toBe('spotify:abc');
+
+    // L'utilisateur tape Lecture dans la page : la page publie l'état réel
+    // `playing` avec l'identité exacte de la piste courante.
+    fake.publish({
+      status: 'playing',
+      trackId: 'abc',
+      title: 'Track abc',
+      artists: ['Neffex'],
+      positionMillis: 4_000,
+      durationMillis: 200_000,
+    });
+    await flush();
+
+    const state = melodixPlayer.getState();
+    expect(state.status).toBe('playing');
+    expect(state.resolved).toEqual({
+      provider: 'Spotify Web',
+      sourceId: 'abc',
+      score: 100,
+    });
+    expect(state.notice).toBeNull();
+    expect(state.positionMillis).toBe(4_000);
+    expect(state.durationMillis).toBe(200_000);
+  });
+
+  it('lecture publiée d’une AUTRE piste → jamais adoptée (moteur inchangé)', async () => {
+    fake.port.attempt.mockResolvedValue({
+      status: 'failed',
+      code: 'bridge-unavailable',
+      attempts: [],
+    });
+    await melodixPlayer.playTrack(spotifyTrack('abc'));
+    await flush();
+    expect(melodixPlayer.getState().status).toBe('error');
+
+    // La page publie `playing` pour une autre piste (obsolète/manuel) → la
+    // garde d'identité bloque l'adoption.
+    fake.publish({
+      status: 'playing',
+      trackId: 'different0000000000000',
+      positionMillis: 1_000,
+      durationMillis: 180_000,
+    });
+    await flush();
+
+    const state = melodixPlayer.getState();
+    expect(state.status).toBe('error');
+    expect(state.resolved).toBeNull();
+  });
+
+  it('une adoption tardive finit la session adoptée (ended → avance auto de la file)', async () => {
+    // L'essai de B sera confirmé ; celui de A est transitoire.
+    fake.port.attempt.mockImplementation(async (input) => {
+      if (input.trackKey === 'spotify:b') {
+        return {
+          status: 'confirmed',
+          trackId: 'b',
+          plan: { kind: 'ready' } as never,
+          confirmedAtMillis: Date.now(),
+        };
+      }
+      return { status: 'failed', code: 'bridge-unavailable', attempts: [] };
+    });
+
+    await melodixPlayer.playQueue([spotifyTrack('a'), spotifyTrack('b')], 0);
+    await flush();
+    // A en échec transitoire : le moteur reste sur A (notice, pas d'avance).
+    expect(melodixPlayer.getState().current?.id).toBe('spotify:a');
+
+    // L'utilisateur démarre A dans la page (adoption tardive).
+    fake.publish({
+      status: 'playing',
+      trackId: 'a',
+      positionMillis: 2_000,
+      durationMillis: 190_000,
+    });
+    await flush();
+    expect(melodixPlayer.getState().status).toBe('playing');
+    expect(melodixPlayer.getState().current?.id).toBe('spotify:a');
+
+    // A se termine dans la page : la session adoptée finit → la file
+    // avance vers B (confirmé par le double de port).
+    fake.publish({
+      status: 'ended',
+      trackId: 'a',
+      positionMillis: 190_000,
+      durationMillis: 190_000,
+    });
+    await flush();
+    await flush();
+
+    const state = melodixPlayer.getState();
+    expect(state.current?.id).toBe('spotify:b');
+    expect(state.status).toBe('playing');
+    expect(state.resolved?.sourceId).toBe('b');
+  });
+
+  it('lecture in-page publiée PENDANT l’essai + verdict confirmé → UNE seule émission', async () => {
+    const logSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
+    const confirmedLines = (): string[] =>
+      logSpy.mock.calls
+        .map((c) => String(c[0]))
+        .filter((l) => l.includes('[MelodixSpotifyWeb] playback-confirmed'));
+
+    // La page publie `playing` pendant que l'essai est en cours, puis le
+    // verdict de l'essai est `confirmed` (même page, même piste).
+    fake.port.attempt.mockImplementation(async () => {
+      fake.publish({
+        status: 'playing',
+        trackId: 'abc',
+        positionMillis: 2_000,
+        durationMillis: 200_000,
+      });
+      await new Promise((r) => setTimeout(r, 15));
+      return {
+        status: 'confirmed',
+        trackId: 'abc',
+        plan: { kind: 'ready' } as never,
+        confirmedAtMillis: Date.now(),
+      };
+    });
+
+    await melodixPlayer.playTrack(spotifyTrack('abc'));
+    await flush();
+    await flush();
+
+    const state = melodixPlayer.getState();
+    expect(state.status).toBe('playing');
+    expect(state.resolved).toEqual({
+      provider: 'Spotify Web',
+      sourceId: 'abc',
+      score: 100,
+    });
+    // Anti-double : exactement UN `playback-confirmed` pour la session —
+    // la branche adoptée l'émet, la branche confirmed reconnaît que la
+    // piste est déjà adoptée et ne ré-émet pas.
+    expect(confirmedLines()).toHaveLength(1);
+    logSpy.mockRestore();
+  });
+});

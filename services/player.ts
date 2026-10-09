@@ -801,11 +801,70 @@ class MelodixPlayer {
    * Consomme un état publié par la page pour la piste Spotify Web active.
    * C'est le SEUL chemin par lequel la lecture Spotify Web met à jour
    * l'état moteur : pas de commande, pas de timer, pas de déduction.
+   *
+   * Adoption tardive : si la fenêtre de confirmation d'une tentative s'est
+   * fermée (verdict d'échec) mais que l'utilisateur a démarré la lecture
+   * DANS la vue, la page continue de publier l'état réel. Le moteur l'adopte
+   * — c'est toujours un `playing` PUBLIÉ (preuve d'état), jamais une
+   * commande : le verdict d'échec précédent n'était qu'une absence de
+   * confirmation dans la fenêtre, pas un refus de lecture.
    */
   private onSpotifyWebPublished = (published: SpotifyWebPublishedState) => {
-    const active = this.spotifyWebActive;
+    let active = this.spotifyWebActive;
     if (!active) {
-      return;
+      const current = this.state.current;
+      const adopted =
+        published.status === 'playing' &&
+        current !== null &&
+        current.source.provider === null &&
+        published.trackId !== null &&
+        published.trackId === current.source.id;
+      if (!adopted) {
+        return;
+      }
+      // Trois conditions tenues : (1) la piste courante est une piste
+      // Spotify ; (2) la page déclare l'identité Spotify EXACTE de cette
+      // piste (une autre piste n'est JAMAIS adoptée — garde
+      // anti-faux-positif) ; (3) le statut publié est `playing` (le fait de
+      // lecture — idle/paused/loading ne lèvent pas un verdict).
+      // L'émission est l'équivalent exact de la confirmation d'une tentative
+      // (resolved + playing + purge de la notice) : l'adoption EST la
+      // confirmation, décalée dans le temps.
+      active = { queueId: current.id, spotifyId: current.source.id };
+      this.spotifyWebActive = active;
+      this.spotifyEndedHandledForId = null;
+      this.transportIntent = null;
+      const metadataDuration =
+        typeof current.durationMillis === 'number' &&
+        Number.isFinite(current.durationMillis) &&
+        current.durationMillis > 0
+          ? current.durationMillis
+          : 0;
+      this.emit({
+        resolved: {
+          provider: 'Spotify Web',
+          sourceId: active.spotifyId,
+          score: 100,
+        },
+        status: 'playing',
+        buffering: false,
+        notice: null,
+        positionMillis:
+          Number.isFinite(published.positionMillis) &&
+          published.positionMillis >= 0
+            ? published.positionMillis
+            : 0,
+        durationMillis:
+          Number.isFinite(published.durationMillis) &&
+          published.durationMillis > 0
+            ? published.durationMillis
+            : metadataDuration,
+      });
+      appendDiagLog(
+        `PLAYER_SPOTIFY_WEB_CONFIRMED trackId=${current.id} sourceId=${current.source.id} late=true`
+      );
+      spotifyWebTrace('playback-confirmed');
+      this.persistSession();
     }
     // La file a bougé (suppression, autre morceau) : l'état publié ne
     // concerne plus la piste que le moteur croit lire.
@@ -1018,32 +1077,38 @@ class MelodixPlayer {
     }
 
     // Confirmation RÉELLE : la page a publié `playing` pour cette piste.
-    // C'est l'unique autorisation à émettre `playing` ici.
-    this.spotifyWebActive = { queueId: track.id, spotifyId };
-    this.spotifyEndedHandledForId = null;
-    const published = port.getPublishedState();
-    this.emit({
-      resolved: { provider: 'Spotify Web', sourceId: spotifyId, score: 100 },
-      status: 'playing',
-      buffering: false,
-      notice: null,
-      positionMillis:
-        published !== null && published.positionMillis > 0
-          ? published.positionMillis
-          : 0,
-      durationMillis:
-        published !== null && published.durationMillis > 0
-          ? published.durationMillis
-          : (metadataDuration ?? 0),
-    });
-    appendDiagLog(
-      `PLAYER_SPOTIFY_WEB_CONFIRMED trackId=${track.id} sourceId=${spotifyId}`
-    );
-    // Miroir logcat : UNIQUE ligne qui autorise un `playing` moteur — la
-    // page a RÉELLEMENT publié `playing`. Sa présence sans compte Spotify
-    // (CI) signifierait un faux `playing`.
-    spotifyWebTrace('playback-confirmed');
-    this.persistSession();
+    // C'est l'unique autorisation à émettre `playing` ici. L'adoption
+    // tardive (onSpotifyWebPublished) peut avoir déjà consumé ce même
+    // `playing` publié avant la résolution de la fenêtre : l'émission, la
+    // trace et la persistance sont alors déjà faites — ne pas les dupliquer.
+    const alreadyAdopted = this.spotifyWebActive?.queueId === track.id;
+    if (!alreadyAdopted) {
+      this.spotifyWebActive = { queueId: track.id, spotifyId };
+      this.spotifyEndedHandledForId = null;
+      const published = port.getPublishedState();
+      this.emit({
+        resolved: { provider: 'Spotify Web', sourceId: spotifyId, score: 100 },
+        status: 'playing',
+        buffering: false,
+        notice: null,
+        positionMillis:
+          published !== null && published.positionMillis > 0
+            ? published.positionMillis
+            : 0,
+        durationMillis:
+          published !== null && published.durationMillis > 0
+            ? published.durationMillis
+            : (metadataDuration ?? 0),
+      });
+      appendDiagLog(
+        `PLAYER_SPOTIFY_WEB_CONFIRMED trackId=${track.id} sourceId=${spotifyId}`
+      );
+      // Miroir logcat : UNIQUE ligne qui autorise un `playing` moteur — la
+      // page a RÉELLEMENT publié `playing`. Sa présence sans compte Spotify
+      // (CI) signifierait un faux `playing`.
+      spotifyWebTrace('playback-confirmed');
+      this.persistSession();
+    }
     return { kind: 'confirmed' };
   };
 
