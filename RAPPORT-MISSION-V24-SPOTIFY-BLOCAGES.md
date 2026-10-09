@@ -8,15 +8,15 @@
 
 ## 1. État du dépôt (SHAs, PR, main, version)
 
-| Élément                | Valeur                                                                                                            |
-| ---------------------- | ----------------------------------------------------------------------------------------------------------------- |
-| SHA initial (base V23) | `ab3ff8294e2da9a05afe9990894a51274eda5a5a` (4.5.0-test.28, build 45028)                                           |
-| SHA final — code V24   | `23bd95c4493a9efd9b85c2168d0abb9231b6288f`                                                                        |
-| SHA final — rapport    | commit suivant ce rapport (`git log -1` sur la branche)                                                           |
-| `main`                 | `fceab85950b069edcb65ed718a8ffd419a1bc785` — **INTACTE** (aucune écriture)                                        |
-| PR #6                  | **OPEN**, `MERGEABLE`, head = `arena/fcdae8c6-melodix` — **non fusionnée** (aucune fusion, aucun merge de `main`) |
-| Version app            | `4.5.0-test.29` / `versionCode 45029` (`app.config.js`, `package.json`)                                           |
-| Nouvelle dépendance    | `expo-clipboard ~5.0.1` (presse-papiers ; version alignée SDK 51)                                                 |
+| Élément                | Valeur                                                                                                                                                       |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| SHA initial (base V23) | `ab3ff8294e2da9a05afe9990894a51274eda5a5a` (4.5.0-test.28, build 45028)                                                                                      |
+| SHA final — code V24   | `23bd95c4493a9efd9b85c2168d0abb9231b6288f`                                                                                                                   |
+| SHA final — rapport    | commit suivant ce rapport (`git log -1` sur la branche)                                                                                                      |
+| `main`                 | `fceab85950b069edcb65ed718a8ffd419a1bc785` — **INTACTE** (aucune écriture)                                                                                   |
+| PR #6                  | **OPEN**, `MERGEABLE`, head = `arena/fcdae8c6-melodix` — **non fusionnée** (aucune fusion, aucun merge de `main`)                                            |
+| Version app            | `4.5.0-test.29` / `versionCode 45029` (`app.config.js`, `package.json`)                                                                                      |
+| Nouvelle dépendance    | `expo-clipboard ~6.0.0` (installée : 6.0.3) — presse-papiers. **Corrigée après un échec CI réel** (défaut Gradle d'`expo-clipboard@5.0.1` documenté en §3.1) |
 
 ---
 
@@ -86,6 +86,30 @@ Chaque étape vérifiée dans le code (aucune cause supposée sans lecture) :
 | Non JSON              | Rejet edge (corps non exploitable)               | Signale un refus par l'infrastructure                            | Classer selon statut (403 → §3)           |
 | Config manquante      | Client ID absent du build                        | Build incomplet                                                  | Rebuild avec extra complet                |
 
+### 3.1 Échec CI réel + correctif de dépendance (preuve et cause racine)
+
+Le premier push a déclenché la CI (run `37978060029`) qui a **échoué en 4 min 16 s** — un échec **précoce et reproductible**, pas un flaky. Annotations du job Gradle (preuve brute) :
+
+```
+BUILD FAILED in 49s
+* What went wrong:
+A problem occurred configuring project ':expo-clipboard'.
+   > Failed to notify project evaluation listener.
+      > compileSdkVersion is not specified. Please add it to build.gradle
+      > Could not get unknown property 'release' for SoftwareComponent container ...
+```
+
+**Cause racine (défaut réel dans `expo-clipboard@5.0.1`, pas dans Melodix)** : le `android/build.gradle` du module 5.0.1 est en « dual-mode SDK49/SDK50 ». Sous prebuild (workflow bare, mode source) avec SDK ≥ 50, le drapeau `expoProvidesDefaultConfig` est `true` et le module invoque `useExpoPublishing()` + `useCoreDependencies()` **mais JAMAIS `useDefaultAndroidSdkVersions()`** — la fonction qui pose `compileSdkVersion`. Résultat : le bloc `android {}` n'a plus de `compileSdkVersion` et AGP 8.2.1 échoue à la configuration. Le défaut n'apparaît pas en mode Expo Go/AAR (modules précompilés) — c'est pourquoi il est passé inaperçu, et c'est un **bug du paquet Expo 5.0.1**, pas de notre config.
+
+**Correctif (option choisie)** : monter la dépendance à `expo-clipboard ~6.0.0` (installée **6.0.3**). Le 6.x a **supprimé le dual-mode** et appelle `useDefaultAndroidSdkVersions()` sans condition → `compileSdkVersion` est fourni. Vérifications faites avant de re-pusher :
+
+- build.gradle 6.0.3 : format corrigé (`useDefaultAndroidSdkVersions()` présent, sans `if`).
+- Surface JS identique : `requireNativeModule('ExpoClipboard')` + `EventEmitter`/`UnavailabilityError`/`requireNativeViewManager` — tous exportés par `expo-modules-core@1.12.26` (SDK 51).
+- Code Kotlin 6.x : uniquement des APIs stables `expo.modules.kotlin.*` (Module, ModuleDefinition, Field, Record, CodedException) — présentes en 1.12.
+- peer `expo: '*'` → s'installe proprement avec `--legacy-peer-deps`.
+
+**Re-validation locale après le bump** : Jest full **2131/14/0**, `tsc --noEmit` 0, ESLint 0, Prettier conforme (le mock `__mocks__/expo-clipboard.ts` est inchangé — même nom de module). La confirmation Gradle définitive vient de la CI du commit corrigé (§7). Aucune version de 5.x corrigée n'existe sur npm (seuls 5.0.0/5.0.1), d'où le choix du 6.x plutôt qu'un patch manuel du paquet.
+
 ---
 
 ## 4. Exigences officielles Spotify (ré-consultées le **2026-10-09**)
@@ -123,14 +147,15 @@ Fait officiel / hypothèse / non vérifiable — clairement séparés.
 
 ## 6. Résultats de tests — EXACTS (exécutés le 2026-10-09 sur le commit A)
 
-| Gate                                                      | Résultat                                                                                                                                                                                                      |
-| --------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Jest (full)                                               | **2131 passés / 14 ignorés / 0 échoué** (158 suites passées / 14 ignorées / 172 total) — baseline V23 : 2084 → **+47 tests V24** (17 rapport + 14 historique + 11 composant + 4 identité + 1 UserDataContext) |
-| `tsc --noEmit`                                            | **0 erreur**                                                                                                                                                                                                  |
-| ESLint                                                    | **0 erreur**                                                                                                                                                                                                  |
-| Prettier                                                  | **conforme** (0 fichier non conforme)                                                                                                                                                                         |
-| Robolectric / Android                                     | non exécutés en local (couverts par la CI)                                                                                                                                                                    |
-| Aucun test supprimé, aucune assertion de sécurité réduite | **confirmé**                                                                                                                                                                                                  |
+| Gate                                                        | Résultat                                                                                                                                                                                                      |
+| ----------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Jest (full)                                                 | **2131 passés / 14 ignorés / 0 échoué** (158 suites passées / 14 ignorées / 172 total) — baseline V23 : 2084 → **+47 tests V24** (17 rapport + 14 historique + 11 composant + 4 identité + 1 UserDataContext) |
+| `tsc --noEmit`                                              | **0 erreur**                                                                                                                                                                                                  |
+| ESLint                                                      | **0 erreur**                                                                                                                                                                                                  |
+| Prettier                                                    | **conforme** (0 fichier non conforme)                                                                                                                                                                         |
+| Robolectric / Android                                       | non exécutés en local (couverts par la CI)                                                                                                                                                                    |
+| Aucun test supprimé, aucune assertion de sécurité réduite   | **confirmé**                                                                                                                                                                                                  |
+| Re-validation **après** le bump `expo-clipboard` 5→6 (§3.1) | **identique** : 2131/14/0, `tsc` 0, ESLint 0, Prettier conforme                                                                                                                                               |
 
 **20 scénarios mission — statut** : les 20 sont couverts par la suite (200/401/403 JSON/403 HTML/403 vide/headers incomplets/refresh ok-échec/réseau-timeout/429+Retry-After/5xx/2 vérifs simultanées/sessions croisées/contenu rapport/**zéro secret**/copie fonctionnelle/historique borné+effaçable/Réessayer = vraie requête/**403 ≠ vérifié**/non-JSON sans crash/survie redémarrage). **Véridique : verts en local ; le comportement réel téléphone reste NON TESTÉ** (§9).
 
@@ -140,6 +165,9 @@ Fait officiel / hypothèse / non vérifiable — clairement séparés.
 
 - Workflow : **« APK Android »** (`.github/workflows/android-apk.yml`).
 - Lien CI : `https://github.com/Souxch06/Melodix/actions/workflows/android-apk.yml` — consulter l'exécution sur le **commit final** (après push). Les chiffres de CI d'un ancien commit ne sont **pas** cités comme preuve.
+- Historique des runs de cette mission :
+  - Run `37978060029` (1er push, commit A) : **ÉCHEC** en 4 min 16 s — défaut Gradle `expo-clipboard@5.0.1` (détail + preuve en §3.1).
+  - Run sur le **commit corrigé** (bump `expo-clipboard ~6.0.0`) : à consulter sur le workflow — c'est lui qui valide définitivement la config Gradle et produit l'APK.
 - Nom APK attendu : **`Melodix-4.5.0-test.29.apk`** (aligné 16 Ko + signé ; artefact + `apk-inspection.txt`).
 
 ---
