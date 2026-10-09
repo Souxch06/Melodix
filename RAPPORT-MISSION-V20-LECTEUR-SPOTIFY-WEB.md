@@ -323,10 +323,20 @@ mergeable (base `main`, non fusionnée — aucune action sur `main`).
   artifact de la run `37892926828` :
   <https://github.com/Souxch06/Melodix/actions/runs/37892926828>
   (onglet « Artifacts »).
-- La CI du commit final de la branche (celui qui contient la version
-  définitive du présent rapport) est visible SUCCESS dans les checks de
-  la PR #6 ; elle re-valide le code strictement identique (docs seules
-  modifiées depuis `34aed7c`).
+- **Run `37894416740`** (commit `3b0202c` — rapport définitif, code
+  strictement identique à `34aed7c` : le diff entre les deux commits est
+  **un seul fichier .md**) : FAILURE limitée à la step « Installer et
+  lancer réellement l'APK sur Android 14 » — section **prototype de
+  diagnostic isolé** du smoke (« aucun résultat explicite du handshake
+  Spotify Web (ready/timeout) » : l'écran n'a pas affiché « Bridge:
+  prêt/timeout » dans la fenêtre de polling 5×5 s sur le runner lent).
+  Annotations vérifiées : la section **hôte de production du smoke a
+  TOUTE PASSÉ** (host-mounted confirmé, handshake avec code honnête,
+  aucun faux `playback-confirmed`) — c'est le seul code de cette
+  mission ; l'échec est la classe de flake émulateur/runner-lent déjà
+  documentée en V17 (run `37810103366`), pas une régression.
+- La run du dernier commit de la branche re-valide le code ; elle est
+  identifiée dans les checks de la PR #6.
 - Runs V19 toujours valides sur leurs commits respectifs : `37837109994`
   et `37839363320` (APK `45024`).
 
