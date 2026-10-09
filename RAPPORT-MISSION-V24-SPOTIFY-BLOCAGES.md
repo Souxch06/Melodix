@@ -167,7 +167,8 @@ Fait officiel / hypothèse / non vérifiable — clairement séparés.
 - Lien CI : `https://github.com/Souxch06/Melodix/actions/workflows/android-apk.yml` — consulter l'exécution sur le **commit final** (après push). Les chiffres de CI d'un ancien commit ne sont **pas** cités comme preuve.
 - Historique des runs de cette mission :
   - Run `37978060029` (1er push, commit A) : **ÉCHEC** en 4 min 16 s — défaut Gradle `expo-clipboard@5.0.1` (détail + preuve en §3.1).
-  - Run sur le **commit corrigé** (bump `expo-clipboard ~6.0.0`) : à consulter sur le workflow — c'est lui qui valide définitivement la config Gradle et produit l'APK.
+  - Run `37980049382` (commit C, bump `expo-clipboard ~6.0.0`) : **ÉCHEC** en 13 min 29 s, mais **beaucoup plus loin** : TypeScript/ESLint/Prettier ✅, Jest ✅, prebuild ✅, Robolectric ✅, **compilation APK ✅** (le correctif Gradle fonctionne), alignement/signature ✅ — échec unique à la step « Vérifier intégrité, installabilité et signature de l'APK » : **pins de version du workflow obsolètes** (`EXPECTED_VERSION_CODE: '45028'` / `EXPECTED_VERSION_NAME: 4.5.0-test.28` hérités de V23, non resynchronisés au bump V24 — convention V23 « pins workflow — même commit » non suivie). Corrigé (45029 / 4.5.0-test.29) : le reste de la step (intégrité aapt, signature, scheme, ABIs, min/target SDK) était cohérent, seule la comparaison de version échouait.
+  - Run sur le **commit D** (pins workflow corrigées) : à consulter sur le workflow — c'est lui qui doit valider définitivement la CI complète (y compris le smoke-test émulateur Android 14).
 - Nom APK attendu : **`Melodix-4.5.0-test.29.apk`** (aligné 16 Ko + signé ; artefact + `apk-inspection.txt`).
 
 ---
