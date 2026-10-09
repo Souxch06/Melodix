@@ -35,6 +35,9 @@ const fakes = (
       trace: jest.Mock;
       activation: { active: boolean; blockers: string[] };
       overlayVisible: boolean;
+      isOverlayVisible: () => boolean;
+      /** Bus de visibilité (sémantique idempotente de la production). */
+      requestOverlayVisible: (visible: boolean) => void;
       emitOverlayVisible: (visible: boolean) => void;
       currentSnapshot: Record<string, unknown>;
       emitSnapshot: (s: Record<string, unknown>) => void;
@@ -107,6 +110,18 @@ jest.mock('@services', () => {
       | 'state-updated'
       | 'capabilities-updated'
       | 'command-acknowledged',
+  };
+
+  // Sémantique EXACTE du bus de visibilité en production (spotifyWebHost) :
+  // IDEMPOTENT — aucune notification si la valeur ne change pas. C'est
+  // cette idempotence que la régression D1 repose sur (un set local seul
+  // laisse le drapeau bus orphelin « visible », et la prochaine ouverture
+  // du moteur — déjà « visible » selon le bus — ne notifie plus rien).
+  const requestOverlayVisible = (visible: boolean): void => {
+    const next = visible === true;
+    if (state.overlayVisible === next) return;
+    state.overlayVisible = next;
+    overlayListeners.forEach((l) => l(next));
   };
 
   class MockSpotifyWebBackend {
@@ -205,6 +220,14 @@ jest.mock('@services', () => {
     SpotifyWebRuntime: MockSpotifyWebRuntime,
     SpotifyWebTrackTransport: MockSpotifyWebTrackTransport,
     spotifyWebTrace: mockTrace,
+    // Sémantique EXACTE de la production (spotifyWebHost) : le bus de
+    // visibilité est IDEMPOTENT — aucune notification si la valeur ne
+    // change pas. C'est cette idempotence que la régression D1 repose sur
+    // (un set local seul laisse le drapeau bus orphelin « visible », et la
+    // prochaine ouverture du moteur — déjà « visible » selon le bus — ne
+    // notifie plus rien : overlay jamais affiché).
+    requestSpotifyWebHostVisible: requestOverlayVisible,
+    isSpotifyWebHostVisible: () => state.overlayVisible,
     // Accès tests aux doubles (jamais consommé par la production).
     __testFakes: {
       publish: mockPublish,
@@ -224,7 +247,15 @@ jest.mock('@services', () => {
       get lastRuntime() {
         return state.lastRuntime;
       },
-      overlayVisible: state.overlayVisible,
+      // Getter live (l'ancien snapshot figé était obsolète après le premier
+      // changement de visibilité).
+      get overlayVisible() {
+        return state.overlayVisible;
+      },
+      isOverlayVisible: () => state.overlayVisible,
+      // Même fonction que l'export mocké : le test l'invoque comme le
+      // moteur le ferait (ouverture programmée de la vue).
+      requestOverlayVisible,
       setBridgeMessageResult: (
         result: (typeof state)['bridgeMessageResult']
       ) => {
@@ -630,5 +661,76 @@ describe('SpotifyWebHostView — V20 : load idempotent + clôture synchrone (F2/
     expect(loaded).toBe(false);
     expect(inst!.loadUrl).not.toHaveBeenCalled();
     expect(fakes.lastRuntime?.onLoadStart).not.toHaveBeenCalled();
+  });
+});
+
+/**
+ * V22 (D1) — Le bouton « Fermer » de l'overlay doit passer par le BUS de
+ * visibilité partagé, pas par un set de l'état local seul.
+ *
+ * Défaut corrigé : la fermeture ne faisait que `setOverlayVisible(false)`
+ * (état React local). Le drapeau bus restait alors « visible » :
+ *   1. le contrat « fermeture pendant une tentative = abandon explicite »
+ *      (le port raced l'attente de confirmation contre
+ *      `subscribeSpotifyWebHostVisibility(false)`) n'était JAMAIS honoré
+ *      par la fermeture UI — la fenêtre de confirmation courait son plein
+ *      des 20 s au lieu de s'arrêter à `view-closed` ;
+ *   2. plus grave : la PROCHAINE tentative du moteur appelle
+ *      `requestSpotifyWebHostVisible(true)`, idempotent — « déjà visible »
+ *      selon le bus → aucune notification → l'overlay reste FERMÉ à jamais.
+ *      L'utilisateur ne voit plus la page Spotify, ne peut plus confirmer,
+ *      et chaque tentative s'éteint en `confirmation-timeout` (piste marquée
+ *      échec + avancement de file) jusqu'au redémarrage de l'app.
+ *
+ * Le double `requestSpotifyWebHostVisible` ci-dessus reprend la sémantique
+ * idempotente EXACTE du bus de production : c'est elle qui rend la régression
+ * détectable (sans elle, le faux « déjà visible » passerait inaperçu).
+ */
+describe('SpotifyWebHostView — V22 (D1) : fermeture via le bus de visibilité', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    fakes.activation.active = true;
+    fakes.activation.blockers = [];
+    fakes.currentSnapshot = fakes.makeSnapshot();
+    mockPreferencesVisible = true;
+    // État bus propre : un test précédent peut avoir laissé le drapeau
+    // « visible » (le module mock est un singleton par fichier).
+    fakes.requestOverlayVisible(false);
+    fakes.emitOverlayVisible(false);
+  });
+
+  it('bouton « Fermer » → l’overlay disparaît ET le bus de visibilité est remis à faux (pas un set local orphelin)', () => {
+    const { queryByTestId } = render(<SpotifyWebHostView />);
+
+    // Le moteur (ou la réapparence après un refus honnête) ouvre la vue.
+    fakes.requestOverlayVisible(true);
+    expect(queryByTestId('spotify-web-overlay')).toBeTruthy();
+
+    // L'utilisateur ferme la vue depuis le chrome de l'overlay.
+    fireEvent.press(queryByTestId('spotify-web-overlay-close')!);
+
+    // L'overlay est masqué…
+    expect(queryByTestId('spotify-web-overlay')).toBeNull();
+    // …ET le bus est à faux : sans ce reset, le drapeau bus resterait
+    // « visible » alors que rien n'est affiché (l'état local seul ne
+    // suffisait pas — c'était le défaut).
+    expect(fakes.isOverlayVisible()).toBe(false);
+  });
+
+  it('après une fermeture, le moteur peut RE-OUVRIR la vue (aucun drapeau « visible » obsolète)', () => {
+    const { queryByTestId } = render(<SpotifyWebHostView />);
+
+    // Ouverture, fermeture (comportement utilisateur courant).
+    fakes.requestOverlayVisible(true);
+    expect(queryByTestId('spotify-web-overlay')).toBeTruthy();
+    fireEvent.press(queryByTestId('spotify-web-overlay-close')!);
+    expect(queryByTestId('spotify-web-overlay')).toBeNull();
+
+    // Piste Spotify suivante : le moteur demande à nouveau la vue.
+    // AVEC le défaut : le bus était déjà « visible » → idempotence → aucun
+    // effet → l'overlay ne se ré-ouvre JAMAIS → timeout systématique.
+    fakes.requestOverlayVisible(true);
+    expect(queryByTestId('spotify-web-overlay')).toBeTruthy();
+    expect(fakes.isOverlayVisible()).toBe(true);
   });
 });

@@ -31,21 +31,23 @@ import {
  * (`spotifyWebFeature`) et l'hôte WebView réel (le prototype), en exposant
  * au lecteur une surface unique et HONNÊTE.
  *
- * ┌─ POURQUOI CE MODULE N'EST PAS ENCORE IMPORTÉ PAR LE LECTEUR ─────────┐
- * │ La Mission 6 porte un garde-fou TESTÉ : `services/player.ts`,         │
- * │ `context/PlayerContext.tsx`, `services/mediaBridge.ts` et             │
- * │ `services/playbackSession.ts` ne doivent référencer NI               │
- * │ `spotifyWebFeature`, NI `SpotifyWebBackend`, NI la porte              │
- * │ d'activation — tant que la validation physique n'est pas consignée.   │
- * │ (`services/playbackBackend/__tests__/spotifyWebFeature.unit.test.ts`) │
- * │                                                                        │
- * │ Câbler le lecteur AVANT ce test sur téléphone réel reviendrait à       │
- * │ casser ce garde-fou et à activer un chemin invérifiable. Ce module     │
- * │ fournit donc TOUT le câblage, testé avec des doubles, sans être        │
- * │ importé par le lecteur : l'activation se limite à                │
- * │ `resolveSpotifyWebIntegrationReadiness()` === `ready` APRÈS la         │
- * │ validation physique consignée.                                         │
- * └────────────────────────────────────────────────────────────────────────┘
+ * ┌─ CÂBLAGE ACTUEL (V17→V22) ──────────────────────────────────────────┐
+ * │ Le lecteur ne référence JAMAIS ce module directement : il consomme   │
+ * │ uniquement le PORT `SpotifyWebSourcePort` (`spotifyWebHost.ts`),     │
+ * │ qui importe ce module et la porte d'activation. Les quatre fichiers  │
+ * │ de lecture (`services/player.ts`, `context/PlayerContext.tsx`,       │
+ * │ `services/mediaBridge.ts`, `services/playbackSession.ts`) restent    │
+ * │ tenus par le garde-fou TESTÉ à ne référencer NI `spotifyWebFeature`,  │
+ * │ NI `SpotifyWebBackend` directement — la chaîne passe par le port     │
+ * │ (seule surface Spotify du moteur ; test : `spotifyWebFeature.unit.   │
+ * │ test.ts` + `spotifyWebWiringGuard.unit.test.ts`).                    │
+ * │                                                                      │
+ * │ L'activation est TECHNIQUE (flag local levé à la racine de l'app)    │
+ * │ depuis l'audit V21 : la validation physique est un STATUT affiché,   │
+ * │ non bloquant — et aucun `playing` moteur n'existe sans un état       │
+ * │ `playing` PUBLIÉ par la page pour la bonne piste et la bonne session │
+ * │ (`confirmation: 'page-state'`, jamais l'acceptation d'une commande). │
+ * └──────────────────────────────────────────────────────────────────────┘
  *
  * Aucune MediaSession parallèle : la projection passe par
  * `buildBackendMediaSessionPayload` (module central de la Mission 6), jamais

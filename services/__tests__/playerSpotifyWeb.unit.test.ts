@@ -1199,3 +1199,112 @@ describe('melodixPlayer — V21 : commande ≠ lecture, identité, pas de double
     logSpy.mockRestore();
   });
 });
+
+/**
+ * V22 (D3) — `playing`/`ended` SANS identité ne sont JAMAIS projetés sur la
+ * piste active.
+ *
+ * Défaut corrigé : la garde d'identité de `onSpotifyWebPublished` acceptait
+ * `trackId: null` pour TOUS les états (« on accepte l'état document »),
+ * y compris `playing` et `ended`. Or le probe ne publie d'identité que
+ * depuis l'URL du document (/track/<id>) : dès que le document n'est PLUS la
+ * page piste (navigation SPA vers l'accueil/une playlist, contexte pub,
+ * file interne du Web Player), un `playing` publié sans identité prouve
+ * RIEN sur la piste que le moteur croit lire — le projeter serait une
+ * attribution croisée, et un `ended` sans identité ferait avancer la file
+ * sans preuve de fin de LA piste courante. Même standard que le chemin
+ * d'adoption, qui exige déjà l'identité exacte. Les états document
+ * (paused/loading/idle/error — dont « host-unmounted » qui publie identité
+ * nulle par construction) restent acceptés sans identité.
+ */
+describe('melodixPlayer + Spotify Web — V22 (D3) : identité exigée pour playing/ended', () => {
+  let provider: AudioProvider;
+  let fake: ReturnType<typeof makeFakePort>;
+
+  beforeEach(async () => {
+    await AsyncStorage.clear();
+    mockCreatedSounds = [];
+    provider = makeProvider();
+    __testSetAudioProviders({ audius: provider });
+    await melodixPlayer.__testReset();
+    fake = makeFakePort();
+    melodixPlayer.attachSpotifyWebSource(fake.port);
+    // Confirmation immédiate à l'identité de la piste tentée (flux légitime :
+    // le document est bien la page piste).
+    fake.port.attempt.mockImplementation(async (input) => {
+      fake.publish({
+        status: 'playing',
+        trackId: input.track.trackId,
+        positionMillis: 5_000,
+        durationMillis: 200_000,
+      });
+      return {
+        status: 'confirmed',
+        trackId: input.track.trackId,
+        plan: { kind: 'ready' } as never,
+        confirmedAtMillis: Date.now(),
+      };
+    });
+  });
+
+  afterEach(async () => {
+    melodixPlayer.attachSpotifyWebSource(null);
+    await melodixPlayer.__testReset();
+  });
+
+  it('« playing » sans identité (document hors page piste) n’est JAMAIS projeté sur la piste active', async () => {
+    await melodixPlayer.playTrack(spotifyTrack('a'));
+    await flush();
+    expect(melodixPlayer.getState().status).toBe('playing');
+
+    // La page se met en pause (identité exacte : projeté).
+    fake.publish({ status: 'paused', trackId: 'a', positionMillis: 15_000 });
+    await flush();
+    expect(melodixPlayer.getState().status).toBe('paused');
+
+    // Le document n'est plus la page piste (navigation SPA / contexte pub) :
+    // le probe publie « playing » SANS identité. Projeté, ce serait de la
+    // musique inconnue déclarée comme « piste a » — le moteur reste en pause.
+    fake.publish({ status: 'playing', positionMillis: 70_000 });
+    await flush();
+    const state = melodixPlayer.getState();
+    expect(state.status).toBe('paused');
+    expect(state.positionMillis).toBe(15_000); // position non contaminée
+
+    // Garde non sur-réservative : avec l'identité exacte, le playing est
+    // bien projeté (le flux légitime reste entier).
+    fake.publish({
+      status: 'playing',
+      trackId: 'a',
+      positionMillis: 16_000,
+    });
+    await flush();
+    expect(melodixPlayer.getState().status).toBe('playing');
+    expect(melodixPlayer.getState().positionMillis).toBe(16_000);
+  });
+
+  it('« ended » sans identité ne fait PAS avancer la file ; avec l’identité exacte, si', async () => {
+    await melodixPlayer.playQueue([spotifyTrack('a'), spotifyTrack('b')], 0);
+    await flush();
+    await flush();
+    expect(melodixPlayer.getState().current?.id).toBe('spotify:a');
+    expect(melodixPlayer.getState().status).toBe('playing');
+
+    // Fin publiée SANS identité (le document a bougé) : pas de preuve que
+    // c'est « a » qui s'est terminé → la file ne doit pas avancer.
+    fake.publish({ status: 'ended', positionMillis: 200_000 });
+    await flush();
+    await flush();
+    let state = melodixPlayer.getState();
+    expect(state.current?.id).toBe('spotify:a');
+    expect(state.status).not.toBe('idle');
+
+    // Fin publiée avec l'identité exacte : avancement normal vers « b ».
+    fake.publish({ status: 'ended', trackId: 'a' });
+    await flush();
+    await flush();
+    state = melodixPlayer.getState();
+    expect(state.current?.id).toBe('spotify:b');
+    expect(state.status).toBe('playing');
+  });
+});

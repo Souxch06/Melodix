@@ -874,8 +874,26 @@ class MelodixPlayer {
     // Identité déclarée par la page : une piste DIFFÉRENTE de la piste
     // planifiée ne doit jamais déplacer la position ni le statut du moteur
     // (garde anti-faux-positif). `null` = pas d'identité déclarée : on
-    // accepte l'état document (chargement, erreur de pont).
+    // accepte l'état document (chargement, pause, erreur de pont) — et
+    // uniquement ceux-là.
     if (published.trackId !== null && published.trackId !== active.spotifyId) {
+      return;
+    }
+    // `playing` et `ended` sont des AFFIRMATIONS de lecture (l'un projette
+    // le son, l'autre fait avancer la file) : ils exigent l'identité EXACTE
+    // de la piste planifiée. Un `playing`/`ended` publié SANS identité
+    // (le document n'est pas la page piste — navigation SPA, accueil, file
+    // interne du Web Player, contexte pub) ne prouve rien sur la piste que
+    // le moteur lit : le projeter serait une attribution croisée. Même
+    // standard que le chemin d'adoption, qui exige déjà l'identité exacte.
+    // Le flux légitime n'est pas touché : le moteur charge /track/<id> avant
+    // toute tentative, et le probe lit l'identité depuis l'URL du document.
+    // (`error` reste accepté sans identité : l'hôte démonté publie
+    // « host-unmounted » avec identité nulle par construction.)
+    if (
+      (published.status === 'playing' || published.status === 'ended') &&
+      published.trackId !== active.spotifyId
+    ) {
       return;
     }
 

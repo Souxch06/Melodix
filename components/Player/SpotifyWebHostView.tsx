@@ -11,6 +11,7 @@ import {
   publishSpotifyWebPublishedState,
   registerSpotifyWebPlaybackHost,
   resolveSpotifyWebPlaybackActivation,
+  requestSpotifyWebHostVisible,
   SPOTIFY_WEB_MEDIA_SESSION_PROBE,
   SpotifyWebBackend,
   SpotifyWebRuntime,
@@ -260,6 +261,14 @@ export const SpotifyWebHostView = () => {
     });
 
     return () => {
+      // Le bus de visibilité ne doit jamais survivre à l'hôte : sans ce
+      // reset, un drapeau « visible » orphelin (1) ferait réouvrir
+      // immédiatement l'overlay au prochain montage (l'abonnement initial
+      // re-notify avec la valeur bus), et (2) rendrait muettes les
+      // prochaines ouvertures du moteur (idempotence du bus : « déjà
+      // visible » → aucune notification → overlay jamais affiché).
+      // Idempotent : s'il est déjà faux, rien ne se passe.
+      requestSpotifyWebHostVisible(false);
       // Mission v9 — PERTE DE SOURCE HONNÊTE : si la lecture Spotify Web
       // était confirmée et que l'hôte disparaît (réglage désactivé,
       // activation révoquée, démontage), le moteur ne doit JAMAIS rester
@@ -433,7 +442,16 @@ export const SpotifyWebHostView = () => {
             </View>
             <Pressable
               accessibilityLabel="Fermer la vue Spotify"
-              onPress={() => setOverlayVisible(false)}
+              // La fermeture passe par le BUS de visibilité (jamais un set
+              // local) : (1) c'est le contrat « fermeture pendant une
+              // tentative = abandon explicite » que le port (spotifyWebHost)
+              // s'appuie sur ; (2) un set local seul laisserait le drapeau
+              // bus « visible » — et la PROCHAINE tentative du moteur, qui
+              // demanderait « visible » alors qu'il l'est déjà d'après le
+              // bus, ne re-notifierait RIEN : l'overlay resterait fermé,
+              // l'utilisateur ne verrait plus jamais la page Spotify et
+              // chaque tentative s'éteindrait en timeout.
+              onPress={() => requestSpotifyWebHostVisible(false)}
               style={styles.closeButton}
               testID="spotify-web-overlay-close"
             >
