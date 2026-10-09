@@ -36,6 +36,8 @@ const SPOTIFY_TRACK_ID_PATTERN = /^[A-Za-z0-9]{22}$/;
  */
 type WebViewWithLoadUrl = WebView & {
   loadUrl?: (url: string) => void;
+  /** URL courante du document (API standard du WebView natif, hors DOM). */
+  getURL?: () => Promise<string | undefined>;
 };
 
 /**
@@ -163,21 +165,62 @@ export const SpotifyWebHostView = () => {
     // publique du document). Toutes les autres commandes passent par le
     // canal bridge corrélé — aucune n'est exécutée « depuis l'app ».
     backend.attachRuntime({
-      load: (trackId: string) => {
+      load: async (trackId: string) => {
         if (!SPOTIFY_TRACK_ID_PATTERN.test(trackId)) {
-          return Promise.resolve(false);
+          return false;
         }
         const webView = webViewRef.current as WebViewWithLoadUrl | null;
         if (!webView || typeof webView.loadUrl !== 'function') {
-          return Promise.resolve(false);
+          return false;
+        }
+        // IDÉMPOTENCE : si le document courant est déjà la page piste
+        // demandée, ne PAS re-naviguer. Une re-navigation détruirait le
+        // document VIVANT — y compris une lecture déjà démarrée dans la
+        // page par le geste utilisateur — et relancerait la charge réseau
+        // + le handshake complet, au lieu de laisser le transport envoyer
+        // ses commandes au document prêt. La comparaison porte sur le
+        // chemin de piste (l'SPA de Spotify pousse l'URL à la navigation
+        // interne) ; le reste de l'URL (query, fragment) est sans objet.
+        if (typeof webView.getURL === 'function') {
+          let currentHref: string | undefined;
+          try {
+            currentHref = await webView.getURL();
+          } catch {
+            currentHref = undefined;
+          }
+          if (typeof currentHref === 'string') {
+            try {
+              const currentPath = new URL(currentHref).pathname;
+              const currentTrack = /^\/track\/([a-z0-9]{22})/.exec(
+                currentPath
+              )?.[1];
+              if (
+                currentTrack !== undefined &&
+                currentTrack === trackId.toLowerCase()
+              ) {
+                return true;
+              }
+            } catch {
+              // URL illisible : on navigue (comportement d'origine).
+            }
+          }
         }
         try {
           // Navigation standard vers l'URL PUBLIQUE de la piste : c'est la
           // page Spotify (et le geste utilisateur) qui décide de jouer.
           webView.loadUrl(`https://open.spotify.com/track/${trackId}`);
-          return Promise.resolve(true);
+          // Clôture SYNCHRONE de la session du document précédent : l'événement
+          // natif `onLoadStart` arrive quelques millisecondes PLUS TARD (pont
+          // natif → JS) — sans cette clôture immédiate, une commande envoyée
+          // dans l'interval irait au document qui meurt (perdue, ou refusée
+          // `stale`). La session ne rouvre que sur le `ready` du NOUVEAU
+          // document (handshake versionné) — jamais avant. L'appel natif de
+          // `onLoadStart` qui suivra re-ouvre simplement la session (comportement
+          // idempotent du runtime : timers purgés, phase `loading`).
+          runtimeRef.current?.onLoadStart();
+          return true;
         } catch {
-          return Promise.resolve(false);
+          return false;
         }
       },
     });

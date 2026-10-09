@@ -32,7 +32,6 @@ export const SPOTIFY_WEB_MEDIA_SESSION_PROBE = `
       bridge.postMessage(JSON.stringify(message));
     } catch (_) {}
   };
-  post({ version: ${SPOTIFY_WEB_BRIDGE_VERSION}, type: 'ready' });
 
   const SAFE_ID = /^[A-Za-z0-9_-]{1,40}$/;
   const COMMANDS = { play: 1, pause: 1, toggle: 1, seek: 1, next: 1, previous: 1 };
@@ -45,6 +44,10 @@ export const SPOTIFY_WEB_MEDIA_SESSION_PROBE = `
       code,
     });
   };
+  // Le listener de commandes est enregistré AVANT le ready : le handshake
+  // ne doit se terminer que lorsque le recepteur est capable de RECEVOIR —
+  // une commande partie entre le ready et l'ecoute serait perdue (timeout
+  // "expired" cote app) alors que la page etait prete a y repondre.
   globalThis.addEventListener('message', (event) => {
     let value = null;
     try {
@@ -80,6 +83,7 @@ export const SPOTIFY_WEB_MEDIA_SESSION_PROBE = `
     // honestly instead of simulating anything.
     respond(requestId, false, 'no-authorized-execution-surface');
   });
+  post({ version: ${SPOTIFY_WEB_BRIDGE_VERSION}, type: 'ready' });
 
   const navigatorApi = globalThis.navigator;
   const mediaSession = navigatorApi && navigatorApi.mediaSession;

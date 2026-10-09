@@ -435,8 +435,22 @@ export class SpotifyWebBackend implements PlaybackBackend {
    */
   load = async (track: PlaybackBackendTrack): Promise<boolean> => {
     if (!track?.trackId || !track.title) return false;
-    if (!this.runtime?.load) return false;
-    return this.runLatestCommand((runtime) => runtime.load!(track.trackId));
+    const runtime = this.runtime;
+    if (!runtime?.load) return false;
+    // Le `load` est le SEUL commandement qui change LÉGITIMEMENT la session
+    // de document : un adaptateur qui navigue ferme la session précédente
+    // (nouveau document en route) PENDANT son exécution. La validation
+    // session/séquence de `runLatestCommand` (conçue pour invalider une
+    // commande LENTE arrivée après un changement de document) le
+    // transformerait en faux refus ; la vérité est le booléen de
+    // l'adaptateur (il a accepté la charge), jamais la stabilité de la
+    // session. Les AUTRES commandes gardent la validation stricte.
+    try {
+      const accepted = await runtime.load(track.trackId);
+      return accepted === true;
+    } catch {
+      return false;
+    }
   };
 
   setVolume = async (ratio: number): Promise<boolean> => {

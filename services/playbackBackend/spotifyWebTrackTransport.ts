@@ -84,6 +84,31 @@ export type SpotifyWebPageStatus =
 export const SPOTIFY_WEB_SEEK_CONFIRMATION_TOLERANCE_MS = 3_000;
 
 /**
+ * Après un `load` qui a NAVIGUÉ le document, délai maximal d'attente du
+ * handshake du NOUVEAU document avant d'envoyer les commandes de pont.
+ *
+ * Sans cette attente, la course est déterministe : `load` résout avant que
+ * `onLoadStart` ne soit traité par le runtime, donc `seek`/`play` sont
+ * délivrés au document qui meurt — perdus (timeout 5 s de commande) ou
+ * refusés `bridge-unavailable` — et la page ne répond JAMAIS honnêtement.
+ * Le nouveau document fait son handshake en quelques secondes (le script
+ * injecté envoie `ready` au démarrage) ; l'attente couvre charge réseau +
+ * handshake et s'interrompt immédiatement si le runtime condamne le
+ * document (état `error`) ou si le pont est déjà prêt (aucune navigation —
+ * coût zéro).
+ */
+export const SPOTIFY_WEB_POST_LOAD_BRIDGE_WAIT_MS = 12_000;
+
+/** Pas de scrutation de l'attente de pont (bornée par le deadline ci-dessus). */
+export const SPOTIFY_WEB_POST_LOAD_BRIDGE_POLL_MS = 100;
+
+/** Horloge/timer injectables : l'attente de pont reste testable sans fake timers. */
+export type SpotifyWebTransportScheduler = {
+  set: (callback: () => void, delayMs: number) => unknown;
+  clear: (handle: unknown) => void;
+};
+
+/**
  * Port du backend : le contrat `PlaybackBackend` existant, complété par les
  * deux lectures de diagnostic que `SpotifyWebBackend` expose déjà. Les
  * membres optionnels gardent le port satisfait par n'importe quel backend.
@@ -129,6 +154,13 @@ export type SpotifyWebTrackTransportOptions = {
   /** Horloge injectable (déterminisme des tests, gate d'historique). */
   now?: () => number;
   /**
+   * Délai maximal d'attente du handshake après une navigation de document
+   * (voir SPOTIFY_WEB_POST_LOAD_BRIDGE_WAIT_MS).
+   */
+  postLoadBridgeWaitMs?: number;
+  /** Timer injectable pour l'attente de pont (tests déterministes). */
+  scheduler?: SpotifyWebTransportScheduler;
+  /**
    * Appelé UNE SEULE FOIS par morceau et par chargement réellement confirmé
    * par la page. C'est le seul signal qui autorise l'historique à enregistrer
    * une écoute (`PLAYBACK_STARTED` de la Mission 5/6).
@@ -159,6 +191,8 @@ const asCommandResult = (
 export class SpotifyWebTrackTransport {
   private readonly backend: SpotifyWebTransportBackend;
   private readonly now: () => number;
+  private readonly postLoadBridgeWaitMs: number;
+  private readonly scheduler: SpotifyWebTransportScheduler;
   private readonly onPlaybackConfirmed:
     | ((event: SpotifyWebPlaybackConfirmation) => void)
     | undefined;
@@ -180,6 +214,20 @@ export class SpotifyWebTrackTransport {
   constructor(options: SpotifyWebTrackTransportOptions) {
     this.backend = options.backend;
     this.now = options.now ?? (() => Date.now());
+    this.postLoadBridgeWaitMs =
+      typeof options.postLoadBridgeWaitMs === 'number' &&
+      Number.isFinite(options.postLoadBridgeWaitMs) &&
+      options.postLoadBridgeWaitMs > 0
+        ? Math.trunc(options.postLoadBridgeWaitMs)
+        : SPOTIFY_WEB_POST_LOAD_BRIDGE_WAIT_MS;
+    this.scheduler =
+      options.scheduler ??
+      ({
+        set: (callback: () => void, delayMs: number) =>
+          setTimeout(callback, delayMs),
+        clear: (handle: unknown) =>
+          clearTimeout(handle as ReturnType<typeof setTimeout>),
+      } as SpotifyWebTransportScheduler);
     this.onPlaybackConfirmed = options.onPlaybackConfirmed;
     this.onStatusChange = options.onStatusChange;
     this.unsubscribe = this.backend.subscribe(() => this.onBackendState());
@@ -259,6 +307,16 @@ export class SpotifyWebTrackTransport {
     if (!loaded) {
       // Rien n'a été chargé : le plan ne peut pas prétendre exécuter la suite.
       return { ok: true, plan: { ...result }, commandResults };
+    }
+
+    // Après une navigation, les commandes de pont doivent cibler le document
+    // VIVANT : la session précédente est fermée par le nouveau document, et
+    // une commande envoyée immédiatement serait délivrée au renderer en
+    // train de mourir (perdue, timeout de commande). Attendre le handshake —
+    // borné, interrompt si le document est condamné — est gratuit quand la
+    // charge n'a pas navigué (le pont est déjà prêt).
+    if (result.startPositionMillis > 0 || result.autoplay) {
+      await this.waitForBridgeReadyAfterLoad();
     }
 
     if (result.startPositionMillis > 0) {
@@ -385,6 +443,42 @@ export class SpotifyWebTrackTransport {
   };
 
   // ── interne ─────────────────────────────────────────────────────────────
+
+  /**
+   * Attend (borné) que le document fraîchement chargé ait terminé le
+   * handshake de pont avant que les commandes ne partent.
+   *
+   *  - pont déjà prêt (aucune navigation : le chargement était idempotent)
+   *    → retour IMMÉDIAT, aucun délai ;
+   *  - runtime condamnant le document (état `error` : bridge_timeout,
+   *    renderer_destroyed) → interruption IMMÉDIATE ; la commande envoyée
+   *    alors reçoit le refus honnête `bridge-unavailable` ;
+   *  - délai écoulé sans handshake → la commande part quand même : le
+   *    refus qu'elle reçoit (`bridge-unavailable`) est le diagnostic exact
+   *    d'un document qui ne répond pas — jamais d'invention d'état.
+   *
+   * Aucune commande n'est émise par cette méthode : elle décide seulement
+   * QUAND les commandes planifiées peuvent l'être.
+   */
+  private waitForBridgeReadyAfterLoad = async (): Promise<boolean> => {
+    const isBridgeReady = this.backend.isBridgeReady;
+    if (typeof isBridgeReady !== 'function') {
+      return true; // adaptateur sans photo de pont : aucune attente inventée
+    }
+    if (isBridgeReady()) return true;
+    const deadline = this.now() + this.postLoadBridgeWaitMs;
+    while (this.now() < deadline) {
+      if (this.backend.getState().status === 'error') return false;
+      await new Promise<void>((resolve) => {
+        this.scheduler.set(
+          () => resolve(),
+          SPOTIFY_WEB_POST_LOAD_BRIDGE_POLL_MS
+        );
+      });
+      if (isBridgeReady()) return true;
+    }
+    return isBridgeReady();
+  };
 
   private remember = (
     result: SpotifyWebTransportCommandResult

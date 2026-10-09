@@ -50,6 +50,12 @@ const fakes = (
         report?: (code: string, detail?: string) => void;
         reloadWebView?: unknown;
       } | null;
+      /** Adaptateur runtime attaché par la vue (load de page piste). */
+      runtimeAdapter: {
+        load?: (trackId: string) => Promise<boolean>;
+      } | null;
+      /** Dernière instance de runtime construite (callbacks de cycle). */
+      lastRuntime: { onLoadStart: jest.Mock } | null;
       /** Pilote le résultat renvoyé par `handleBridgeMessage` du transport. */
       setBridgeMessageResult: (
         result:
@@ -92,6 +98,10 @@ jest.mock('@services', () => {
       report?: (code: string, detail?: string) => void;
       reloadWebView?: unknown;
     } | null,
+    runtimeAdapter: null as {
+      load?: (trackId: string) => Promise<boolean>;
+    } | null,
+    lastRuntime: null as { onLoadStart: jest.Mock } | null,
     bridgeMessageResult: 'ignored' as
       | 'ignored'
       | 'state-updated'
@@ -113,7 +123,11 @@ jest.mock('@services', () => {
       errorCode: null,
     }));
     subscribe = jest.fn(() => jest.fn());
-    attachRuntime = jest.fn();
+    attachRuntime = (adapter: {
+      load?: (trackId: string) => Promise<boolean>;
+    }): void => {
+      state.runtimeAdapter = adapter;
+    };
     attachBridgeTransport = jest.fn();
     destroy = jest.fn();
   }
@@ -129,6 +143,7 @@ jest.mock('@services', () => {
         report: options.report,
         reloadWebView: options.reloadWebView,
       };
+      state.lastRuntime = this;
     }
     manualReload = mockManualReload;
     mount = jest.fn();
@@ -203,6 +218,12 @@ jest.mock('@services', () => {
       get runtimeOptions() {
         return state.runtimeOptions;
       },
+      get runtimeAdapter() {
+        return state.runtimeAdapter;
+      },
+      get lastRuntime() {
+        return state.lastRuntime;
+      },
       overlayVisible: state.overlayVisible,
       setBridgeMessageResult: (
         result: (typeof state)['bridgeMessageResult']
@@ -228,6 +249,15 @@ jest.mock('react-native-webview', () => {
   const ReactMock = require('react');
 
   let lastProps: Record<string, unknown> | null = null;
+  // Instance fake STABLE par montage : l'adaptateur de la vue appelle
+  // loadUrl / getURL / postMessage / reload sur la ref (commandes native) —
+  // le test les pilote et les assert.
+  let lastInstance: {
+    loadUrl: jest.Mock;
+    getURL: jest.Mock;
+    postMessage: jest.Mock;
+    reload: jest.Mock;
+  } | null = null;
 
   return {
     WebView: ReactMock.forwardRef(
@@ -235,13 +265,22 @@ jest.mock('react-native-webview', () => {
         // Capture des props câblées par la vue : le test peut invoquer
         // onLoadStart / onMessage / onLoadEnd comme le ferait le native.
         lastProps = props;
+        const instance = {
+          loadUrl: jest.fn(),
+          // getURL natif : Promise<string | null> (URL du document courant).
+          getURL: jest.fn(async (): Promise<string | null> => null),
+          postMessage: jest.fn(),
+          reload: jest.fn(),
+        };
+        lastInstance = instance;
+        ReactMock.useImperativeHandle(ref, () => instance);
         return ReactMock.createElement('MockWebView', {
           testID: 'mock-webview',
-          ref,
         });
       }
     ),
     __getLastWebViewProps: () => lastProps,
+    __getLastWebViewInstance: () => lastInstance,
   };
 });
 
@@ -472,5 +511,124 @@ describe('SpotifyWebHostView — V17 : traces logcat [MelodixSpotifyWeb]', () =>
     fakes.setBridgeMessageResult('ignored');
     props!.onMessage({ nativeEvent: { data: '{"status":"state"}' } });
     expect(traceCalls().filter((t) => t === 'bridge-state')).toHaveLength(0);
+  });
+});
+
+/**
+ * V20 (F2/F5) — IDÉMPOTENCE du chargement de page piste + CLOTURE SYNCHRONE
+ * de session lors d'une navigation.
+ *
+ *  F2 (D3) : si le document courant est déjà la page piste demandée,
+ *  `load` ne re-navigue PAS — une re-navigation détruirait le document
+ *  VIVANT (y compris une lecture déjà démarrée dans la page par le geste
+ *  utilisateur) et relancerait la charge réseau + le handshake complet.
+ *  F5 (D8b) : après un `loadUrl` réel (navigation), l'adaptateur clôt
+ *  SYNCHRONEMENT la session du document précédent : l'événement natif
+ *  `onLoadStart` arrive quelques millisecondes plus tard (pont natif → JS)
+ *  — sans cette clôture immédiate, une commande envoyée dans l'interval
+ *  irait au document qui meurt (perdue, ou refusée « stale »).
+ */
+describe('SpotifyWebHostView — V20 : load idempotent + clôture synchrone (F2/F5)', () => {
+  const TRACK = 'abc123def456ghi789jkl0'; // 22 caractères alphanumériques
+
+  const webviewInstance = (): {
+    loadUrl: jest.Mock;
+    getURL: jest.Mock;
+    postMessage: jest.Mock;
+    reload: jest.Mock;
+  } | null =>
+    (
+      jest.requireMock('react-native-webview') as {
+        __getLastWebViewInstance: () => {
+          loadUrl: jest.Mock;
+          getURL: jest.Mock;
+          postMessage: jest.Mock;
+          reload: jest.Mock;
+        } | null;
+      }
+    ).__getLastWebViewInstance();
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    fakes.activation.active = true;
+    fakes.activation.blockers = [];
+    fakes.currentSnapshot = fakes.makeSnapshot();
+    mockPreferencesVisible = true;
+  });
+
+  it('F2 — document courant déjà la page piste demandée → AUCUNE re-navigation (true, pas de loadUrl, pas de clôture de session)', async () => {
+    render(<SpotifyWebHostView />);
+    const inst = webviewInstance();
+    expect(inst).not.toBeNull();
+    // L'SPA pousse des query params (si=…) : la comparaison porte sur le
+    // chemin de piste uniquement.
+    inst!.getURL.mockResolvedValue(
+      `https://open.spotify.com/track/${TRACK}?si=xYz123`
+    );
+
+    // ID en MAJUSCULES (le moteur conserve les IDs Spotify en majuscules) :
+    // la comparaison est insensible à la casse.
+    const loaded = await fakes.runtimeAdapter?.load?.(TRACK.toUpperCase());
+    expect(loaded).toBe(true);
+    // Pas de navigation : ni loadUrl, ni nouveau document, ni clôture de
+    // session — le document vivant (et sa lecture éventuelle) est préservé.
+    expect(inst!.loadUrl).not.toHaveBeenCalled();
+    expect(fakes.lastRuntime?.onLoadStart).not.toHaveBeenCalled();
+  });
+
+  it('F2 — document courant autre → navigation réelle vers l’URL publique de la piste', async () => {
+    render(<SpotifyWebHostView />);
+    const inst = webviewInstance();
+    expect(inst).not.toBeNull();
+    inst!.getURL.mockResolvedValue(
+      'https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M'
+    );
+
+    const loaded = await fakes.runtimeAdapter?.load?.(TRACK);
+    expect(loaded).toBe(true);
+    expect(inst!.loadUrl).toHaveBeenCalledTimes(1);
+    expect(inst!.loadUrl).toHaveBeenCalledWith(
+      `https://open.spotify.com/track/${TRACK}`
+    );
+  });
+
+  it('F5 — après navigation, clôture SYNCHRONE de la session du document précédent (sans attendre l’événement natif)', async () => {
+    render(<SpotifyWebHostView />);
+    const inst = webviewInstance();
+    expect(inst).not.toBeNull();
+    inst!.getURL.mockResolvedValue('about:blank');
+
+    const loaded = await fakes.runtimeAdapter?.load?.(TRACK);
+    expect(loaded).toBe(true);
+    expect(inst!.loadUrl).toHaveBeenCalledTimes(1);
+    // Clôture synchrone : le runtime a reçu onLoadStart de l'ADAPTATEUR,
+    // immédiatement après loadUrl — sans que le test n'invoque la prop
+    // native (l'événement natif arrive plus tard ; quand il arrive, le
+    // runtime le traite de façon idempotente : timers purgés, re-ouverture
+    // — couvert par les tests du runtime lui-même).
+    expect(fakes.lastRuntime?.onLoadStart).toHaveBeenCalledTimes(1);
+  });
+
+  it('fallback — getURL indisponible/illisible → navigation (comportement d’origine) + clôture de session', async () => {
+    render(<SpotifyWebHostView />);
+    const inst = webviewInstance();
+    expect(inst).not.toBeNull();
+    inst!.getURL.mockRejectedValue(new Error('unsupported'));
+
+    const loaded = await fakes.runtimeAdapter?.load?.(TRACK);
+    expect(loaded).toBe(true);
+    expect(inst!.loadUrl).toHaveBeenCalledTimes(1);
+    expect(fakes.lastRuntime?.onLoadStart).toHaveBeenCalledTimes(1);
+  });
+
+  it('ID de piste mal formé → refusé (pas de navigation, pas de clôture)', async () => {
+    render(<SpotifyWebHostView />);
+    const inst = webviewInstance();
+    expect(inst).not.toBeNull();
+
+    const loaded = await fakes.runtimeAdapter?.load?.('https://evil.example');
+    expect(loaded).toBe(false);
+    expect(inst!.loadUrl).not.toHaveBeenCalled();
+    expect(fakes.lastRuntime?.onLoadStart).not.toHaveBeenCalled();
   });
 });
