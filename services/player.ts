@@ -1000,6 +1000,11 @@ class MelodixPlayer {
     if (
       !readiness.ready &&
       (readiness.blockers.includes('flag-local-desactive') ||
+        // V21 : HÉRITÉ de la Mission v7 — la validation physique n'est plus
+        // un blocker d'activation (elle est un STATUT affiché, non
+        // bloquant). La branche reste comme garde défensive : si une
+        // source de blockers legacy réémettait ce code, la porte serait
+        // fermée par décision (erreur immédiate) et non attendue.
         readiness.blockers.includes('validation-physique-non-consignee'))
     ) {
       // Porte fermée par décision : Spotify Web ne peut pas démarrer —

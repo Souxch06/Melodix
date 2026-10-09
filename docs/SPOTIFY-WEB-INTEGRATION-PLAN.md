@@ -1,8 +1,17 @@
 # Spotify Web — plan d'intégration à l'architecture de lecture
 
-Statut global : **PROTOTYPE ONLY**. Ce document prépare l'intégration ; il ne
-l'active pas. Spotify Web **n'est pas** un moteur de production et ce plan
-n'affirme nulle part qu'il fonctionne.
+> **Statut (mis à jour — audit Mission V21)** : intégration RÉALISÉE depuis
+> la Mission v7 (Spotify Web = source audio des pistes Spotify, derrière
+> l'activation technique). Le contrat d'activation a été corrigé par
+> l'audit V21 : l'activation TECHNIQUE (flag local) est séparée de la
+> validation PHYSIQUE (statut affiché, non bloquant, non auto-consignée) —
+> voir `spotifyWebFeature.ts`, `spotifyWebActivationBootstrap.ts` et
+> `docs/SPOTIFY-WEB-PHYSICAL-TEST.md` (rectificatif V21). Le corps de ce
+> document reste un plan historique (snapshot au commit `83e646e`).
+
+Statut global à l'origine : **PROTOTYPE ONLY**. Ce document préparait
+l'intégration ; il ne l'activait pas. Spotify Web **n'est pas** un moteur de
+production et ce plan n'affirme nulle part qu'il fonctionne.
 
 Références de code vérifiées au commit `83e646e` (relues dans le dépôt réel,
 pas depuis une maquette).

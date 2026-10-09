@@ -995,3 +995,207 @@ describe('melodixPlayer — V20 : adoption tardive de la lecture in-page (F3)', 
     logSpy.mockRestore();
   });
 });
+
+/**
+ * Audit Mission V21 — contrats durs du moteur (priorités Objectif 4) :
+ *  - une commande `play` ACCEPTÉE ne produit JAMAIS seule un `playing`
+ *    moteur (seul un état publié par la page le fait) ;
+ *  - une confirmation/état tardif concernant l’AUTRE (ancienne) piste ne
+ *    valide jamais la piste courante ;
+ *  - le changement Spotify A → B ne produit jamais de double lecture ni de
+ *    confusion d’identité.
+ */
+describe('melodixPlayer — V21 : commande ≠ lecture, identité, pas de double lecture', () => {
+  let provider: AudioProvider;
+  let fake: ReturnType<typeof makeFakePort>;
+
+  beforeEach(async () => {
+    await AsyncStorage.clear();
+    mockCreatedSounds = [];
+    provider = makeProvider();
+    __testSetAudioProviders({ audius: provider });
+    await melodixPlayer.__testReset();
+    fake = makeFakePort();
+    melodixPlayer.attachSpotifyWebSource(fake.port);
+  });
+
+  afterEach(async () => {
+    melodixPlayer.attachSpotifyWebSource(null);
+    await melodixPlayer.__testReset();
+  });
+
+  it('commande play ACCEPTÉE ne produit JAMAIS seule un `playing` moteur (seul un état publié le fait)', async () => {
+    const logSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
+    // Isoler le comptage : un espion posé sur un console.log déjà espionné
+    // partage le tableau mock.calls (jonc jest) — le vider garantit que le
+    // comptage ne couvre que ce test.
+    logSpy.mockClear();
+    const confirmedLines = (): string[] =>
+      logSpy.mock.calls
+        .map((call) => String(call[0]))
+        .filter((l) => l.includes('[MelodixSpotifyWeb] playback-confirmed'));
+
+    const attemptResolver: {
+      resolve: ((value: SpotifyWebAttemptOutcome) => void) | null;
+    } = { resolve: null };
+    // L’essai est en vol : fenêtre de confirmation ouverte, état moteur
+    // « resolving » (aucune lecture déclarée).
+    fake.port.attempt.mockImplementation(
+      () =>
+        new Promise<SpotifyWebAttemptOutcome>((resolve) => {
+          attemptResolver.resolve = resolve;
+        })
+    );
+    const pendingPlay = melodixPlayer.playTrack(spotifyTrack('abc'));
+    await flush();
+    expect(melodixPlayer.getState().status).toBe('resolving');
+
+    // Une commande `play` « acceptée » (réponse corrélée) n’engage rien :
+    // le moteur ne consomme PAS la réponse de commande pour déclarer une
+    // lecture — seul un état `playing` PUBLIÉ par la page le permet.
+    fake.port.sendCommand.mockResolvedValueOnce({ accepted: true, code: null });
+    await fake.port.sendCommand('play');
+    await flush();
+    expect(melodixPlayer.getState().status).toBe('resolving');
+    expect(confirmedLines()).toHaveLength(0);
+
+    // La page publie un `loading` : pendant un essai en vol, seul un état
+    // `playing` publié porte (l’adoption) — le moteur reste `resolving`,
+    // jamais `playing` (ni d’état inventé).
+    fake.publish({ status: 'loading', trackId: 'abc', positionMillis: 0 });
+    await flush();
+    expect(melodixPlayer.getState().status).toBe('resolving');
+    expect(confirmedLines()).toHaveLength(0);
+
+    // La fenêtre expire sans `playing` publié : VRAIE erreur, jamais de
+    // `playing` — le moteur s’arrête proprement (file unique).
+    attemptResolver.resolve?.({
+      status: 'failed',
+      code: 'confirmation-timeout',
+      attempts: [],
+    });
+    await pendingPlay;
+    await flush();
+    await flush();
+
+    const state = melodixPlayer.getState();
+    expect(state.status).not.toBe('playing');
+    expect(state.resolved).toBeNull();
+    expect(confirmedLines()).toHaveLength(0);
+    logSpy.mockRestore();
+  });
+
+  it('état playing TARDIF de l’ancienne piste (A) ne valide jamais la piste courante (B)', async () => {
+    // B est confirmé et courant (l’ancienne piste A est abandonnée).
+    fake.port.attempt.mockImplementation(async (input) => {
+      fake.publish({
+        status: 'playing',
+        trackId: input.track.trackId,
+        positionMillis: 5_000,
+        durationMillis: 190_000,
+      });
+      return {
+        status: 'confirmed',
+        trackId: input.track.trackId,
+        plan: { kind: 'ready' } as never,
+        confirmedAtMillis: Date.now(),
+      };
+    });
+    await melodixPlayer.playQueue(
+      [spotifyTrack('aaa'), spotifyTrack('bbb')],
+      1
+    );
+    await flush();
+    await flush();
+    const before = melodixPlayer.getState();
+    expect(before.current?.id).toBe('spotify:bbb');
+    expect(before.status).toBe('playing');
+    expect(before.resolved?.sourceId).toBe('bbb');
+
+    // L’ancienne piste A publie un `playing` TARDIF (document mort, race
+    // d’avancement) : l’identité ne correspond pas → ignoré, B intact.
+    fake.publish({
+      status: 'playing',
+      trackId: 'aaa',
+      positionMillis: 2_000,
+      durationMillis: 180_000,
+    });
+    await flush();
+
+    const state = melodixPlayer.getState();
+    expect(state.current?.id).toBe('spotify:bbb');
+    expect(state.status).toBe('playing');
+    expect(state.resolved?.sourceId).toBe('bbb');
+    expect(state.positionMillis).toBe(5_000); // pas de position d’A
+  });
+
+  it('changement Spotify A → B : l’essai tardif d’A ne confirme rien, B seul joue (pas de double lecture)', async () => {
+    const logSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
+    // Isoler le comptage (même raison que dans le test précédent).
+    logSpy.mockClear();
+    const confirmedLines = (): string[] =>
+      logSpy.mock.calls
+        .map((call) => String(call[0]))
+        .filter((l) => l.includes('[MelodixSpotifyWeb] playback-confirmed'));
+
+    const attemptResolver: {
+      resolve: ((value: SpotifyWebAttemptOutcome) => void) | null;
+    } = { resolve: null };
+    // A : l’essai reste PENDANT. B : confirmation immédiate à son identité.
+    fake.port.attempt.mockImplementation((input) => {
+      if (input.trackKey === 'spotify:aaa') {
+        return new Promise<SpotifyWebAttemptOutcome>((resolve) => {
+          attemptResolver.resolve = resolve;
+        });
+      }
+      fake.publish({
+        status: 'playing',
+        trackId: 'bbb',
+        positionMillis: 3_000,
+        durationMillis: 200_000,
+      });
+      return Promise.resolve({
+        status: 'confirmed',
+        trackId: 'bbb',
+        plan: { kind: 'ready' } as never,
+        confirmedAtMillis: Date.now(),
+      });
+    });
+
+    // A démarre (NON attendu : l’essai reste en vol) ; l’utilisateur
+    // bascule sur B pendant la fenêtre d’A.
+    const pendingA = melodixPlayer.playTrack(spotifyTrack('aaa'));
+    await flush();
+    await melodixPlayer.playTrack(spotifyTrack('bbb'));
+    await flush();
+    await flush();
+
+    // B est confirmé et courant (état publié à son identité exacte).
+    let state = melodixPlayer.getState();
+    expect(state.current?.id).toBe('spotify:bbb');
+    expect(state.status).toBe('playing');
+    expect(state.resolved?.sourceId).toBe('bbb');
+    expect(state.positionMillis).toBe(3_000);
+
+    // L’essai TARDIF d’A résout « confirmé » : obsolète — aucune émission
+    // pour A, B reste seul lecteur.
+    attemptResolver.resolve?.({
+      status: 'confirmed',
+      trackId: 'aaa',
+      plan: { kind: 'ready' } as never,
+      confirmedAtMillis: Date.now(),
+    });
+    await pendingA;
+    await flush();
+    await flush();
+
+    state = melodixPlayer.getState();
+    expect(state.current?.id).toBe('spotify:bbb');
+    expect(state.resolved?.sourceId).toBe('bbb');
+    // Une seule ligne miroir de confirmation pour la session (celle de B).
+    expect(confirmedLines()).toHaveLength(1);
+    // Aucun Sound expo-av créé (pas de double source audio).
+    expect(mockCreatedSounds).toHaveLength(0);
+    logSpy.mockRestore();
+  });
+});

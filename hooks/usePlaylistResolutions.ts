@@ -91,8 +91,8 @@ export const usePlaylistResolutions = (
   );
   const [seedCount, setSeedCount] = React.useState(0);
 
-  // Réactivité à l'activation (flag local + validation physique) : la
-  // disponibilité suit la capacité RÉELLE du moteur, en direct.
+  // Réactivité à l'activation technique (flag local) : la disponibilité
+  // suit la capacité RÉELLE du moteur, en direct.
   React.useEffect(
     () =>
       subscribeSpotifyWebPlaybackActivation(() => {

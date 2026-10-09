@@ -20,10 +20,14 @@ import { ensureProductionSpotifyWebActivation } from '@services';
 
 import 'react-native-reanimated';
 
-// Mission v7 : le Spotify Web Player est la source audio des pistes Spotify.
-// La double porte (flag local + validation physique consignée avec preuve)
-// est levée ICI, à la racine de l'app, avant tout rendu — jamais dans le
-// moteur. La preuve est documentée (docs/SPOTIFY-WEB-PHYSICAL-TEST.md).
+// Mission v7 (corrigée audit V21) : le Spotify Web Player est la source
+// audio des pistes Spotify. L'activation TECHNIQUE (flag local) est levée
+// ICI, à la racine de l'app, avant tout rendu — jamais dans le moteur.
+// La validation PHYSIQUE n'est PAS consignée par le code (audit V21) :
+// son statut est affiché honnêtement dans Réglages → Lecture Spotify Web
+// (NOT_TESTED jusqu'à une consigne utilisateur avec preuve documentée),
+// et une lecture n'est jamais déclarée sans l'état `playing` publié par
+// la page.
 ensureProductionSpotifyWebActivation();
 
 SplashScreen.preventAutoHideAsync();

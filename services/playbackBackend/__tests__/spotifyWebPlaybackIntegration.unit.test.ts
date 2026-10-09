@@ -3,7 +3,6 @@ import { SpotifyWebBackend } from '../SpotifyWebBackend';
 import type { SpotifyWebRuntimeSnapshot } from '../spotifyWebRuntime';
 import {
   resetSpotifyWebPlaybackFeatureForTesting,
-  recordSpotifyWebPhysicalValidation,
   setSpotifyWebPlaybackEnabled,
 } from '../spotifyWebFeature';
 import { SpotifyWebTrackTransport } from '../spotifyWebTrackTransport';
@@ -124,9 +123,13 @@ const makeHost = () => {
   };
 };
 
+/**
+ * Lève l'activation TECHNIQUE (flag local). Audit V21 : la validation
+ * physique n'est plus un verrou d'activation — elle est un statut affiché,
+ * et n'a pas à être consignée pour que le lecteur tente Spotify Web.
+ */
 const openGate = (): void => {
   setSpotifyWebPlaybackEnabled(true);
-  recordSpotifyWebPhysicalValidation(true, 'run de test');
 };
 
 beforeEach(() => {
@@ -140,16 +143,13 @@ afterEach(() => {
 });
 
 describe('porte fermée : le lecteur ne change RIEN', () => {
-  it('la disponibilité est refusée avec les deux blockers d’origine', () => {
+  it('activation technique désactivée → refusée avec le blocker « flag-local-desactive » (V21 : la validation physique n’est plus un blocker)', () => {
     const { host } = makeHost();
     registerSpotifyWebPlaybackHost(host);
 
     const readiness = resolveSpotifyWebIntegrationReadiness();
     expect(readiness.ready).toBe(false);
-    expect(readiness.blockers).toEqual([
-      'flag-local-desactive',
-      'validation-physique-non-consignee',
-    ]);
+    expect(readiness.blockers).toEqual(['flag-local-desactive']);
     expect(readiness.engines).toEqual(['audius-youtube']);
   });
 
@@ -175,7 +175,7 @@ describe('porte fermée : le lecteur ne change RIEN', () => {
     expect(plan.steps[0].engine).toBe('audius');
     expect(
       plan.skipped.find((entry) => entry.engine === 'spotify-web')?.code
-    ).toBe('physical-validation-missing');
+    ).toBe('feature-disabled');
     expect(plan.skipped.some((entry) => entry.code === 'proven-absence')).toBe(
       false
     );

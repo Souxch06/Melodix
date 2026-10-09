@@ -66,9 +66,13 @@ export const DEFAULT_PLAYBACK_RETRY_BACKOFF_MS = 2_000;
 export const DEFAULT_PLAYBACK_MAX_RETRY_DELAY_MS = 30_000;
 
 /**
- * Blocker émis par `spotifyWebFeature.resolveSpotifyWebPlaybackActivation()`
- * quand la validation physique n'a pas été consignée. Distinguer ce cas de
- * « flag désactivé » permet au diagnostic de dire la VRAIE raison.
+ * Code de blocker HÉRITÉ (Mission 6) : il désignait le cas « flag levé mais
+ * validation physique non consignée ». Depuis l'audit Mission V21, la
+ * validation physique n'est PLUS un blocker d'activation (statut affiché,
+ * non bloquant — voir `spotifyWebFeature.ts`) : le module de feature n'émet
+ * plus ce code. La constante et le skip `physical-validation-missing` sont
+ * conservés pour la stabilité du contrat de plan (et restent testés) ;
+ * ils ne sont plus atteignables via l'activation.
  */
 export const PHYSICAL_VALIDATION_BLOCKER = 'validation-physique-non-consignee';
 
@@ -83,9 +87,13 @@ const MAX_BACKOFF_EXPONENT = 10;
 export type PlaybackEngineSkipCode =
   /** Le morceau n'a pas d'identifiant Spotify : Spotify Web ne peut rien lire. */
   | 'no-spotify-track-id'
-  /** Double verrou de la feature Spotify Web non levé (flag local). */
+  /** Activation technique non levée (flag local désactivé). */
   | 'feature-disabled'
-  /** Flag levé mais validation physique non consignée (porte Mission 6). */
+  /**
+   * HÉRITÉ (porte Mission 6) : flag levé mais validation physique non
+   * consignée. Non émis depuis l'audit V21 (la validation physique est un
+   * statut affiché, non bloquant) ; code conservé pour stabilité du contrat.
+   */
   | 'physical-validation-missing'
   /** Pont/renderer pas prêts MAINTENANT (état temporaire, réévaluable). */
   | 'runtime-unavailable'
@@ -115,7 +123,7 @@ export type PlaybackEngineAttempt = {
  * est temporaire, et l'état du renderer commande un remount.
  */
 export type SpotifyWebRuntimeAvailability = {
-  /** `resolveSpotifyWebPlaybackActivation().active` (flag + validation). */
+  /** `resolveSpotifyWebPlaybackActivation().active` (activation technique). */
   activationActive: boolean;
   /** Blockers bruts de l'activation, pour distinguer les deux causes. */
   activationBlockers?: readonly string[];

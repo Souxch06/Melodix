@@ -382,39 +382,59 @@ L'ancienne section « BLOQUÉ — Câblage du lecteur : volontairement non fait 
 fermé par défaut et le même contrat de garde (le moteur ne référence ni
 `spotifyWebFeature`, ni `SpotifyWebBackend`, ni l'intégration).
 
-## Validation consignée — Mission v7 (2026-10-07)
+## Activation technique + statut de validation physique (corrigé — audit Mission V21)
 
-La double porte d'activation est **levée en production** à partir de la
-Mission v7, avec la référence de preuve suivante (consignée par
-`ensureProductionSpotifyWebActivation`, `services/playbackBackend/spotifyWebActivationBootstrap.ts`) :
+> **RECTIFICATIF V21 (2026-10-09).** La section précédente (« Validation
+> consignée — Mission v7 ») affirmait que la double porte était levée avec
+> une référence de preuve **consignée par le code**
+> (`ensureProductionSpotifyWebActivation`). Cette affirmation était
+> incohérente : une chaîne de texte écrite dans le code ne constitue pas une
+> preuve d'exécution d'un test physique, et **aucun compte rendu fiable ne
+> figure dans le dépôt** pour la consigne auto. Les faits contradictoires
+> dans le dépôt :
+>
+> - le **rapport Mission V10** du même jour (build 45014) consigne
+>   « validation physique **NON exécutable** depuis ce sandbox » et sa
+>   section « TESTÉ PHYSIQUEMENT » est explicitement **VIDE** ;
+> - le **rapport « Premier test réel Spotify »** (build 45015, même jour)
+>   dit « le code est **PRÊT** pour le premier test Spotify réel » ;
+> - la référence CI (run 37577095621) existe et est SUCCESS, mais son head
+>   (`f821485`) est un build **v6 antérieur à l'intégration** du lecteur —
+>   sa smoke ne testait pas la MediaSession du lecteur intégré.
+>
+> **Corrige : le code ne consigne plus jamais une validation physique.**
+> Le bootstrap (`spotifyWebActivationBootstrap.ts`) lève uniquement
+> l'**activation technique** (flag local). Le statut de validation physique
+> repart honnêtement à `NOT_TESTED` et n'est levé que par une **consigne
+> utilisateur** (cette page, bouton « Consigner PASSED (preuve
+> ci-dessus) ») avec une preuve documentée non vide.
 
-> phone-run 2026-10-07 (Mission v7) : lecture réelle audible + contrôles
-> principaux (play/pause/next/previous) validés sur téléphone réel ;
-> MediaSession/notification/arrière-plan vérifiés par la smoke CI
-> (run 37577095621, build 4.5.0-test.9 / 45009) —
-> docs/SPOTIFY-WEB-PHYSICAL-TEST.md « Validation consignée »
+Séparation des trois états (contractuelle, testée) :
 
-Base de la consigne :
+1. **Activation technique du moteur** — le flag local décide si Spotify Web
+   est autorisé à ESSAYER. Levée au démarrage en production.
+2. **Validation physique de l'appareil** — statut `NOT_TESTED` /
+   `PASSED_ON_DEVICE`, **affiché, non bloquant**. Levé uniquement par une
+   consigne utilisateur avec preuve (aucune consigne automatique).
+3. **Confirmation réelle de lecture** — seul un état `playing` **publié par
+   la page** (bonne piste, bonne session) autorise un `playing` moteur. Ni
+   le flag, ni la validation physique, ni une commande `play` ne le font.
 
-- **Contrôles principaux validés physiquement** : le Spotify Web Player joue
-  réellement (audio audible), et la pause, la reprise et le changement de
-  morceau répondent aux contrôles — constaté sur téléphone réel lors des
-  itérations précédentes du pipeline Spotify Web (prototype + lecture
-  intégrée) ;
-- **MediaSession / notification / arrière-plan** : vérifiés par la smoke CI
-  sur le dernier build vert (run 37577095621) ;
-- **Aucun contournement** : la lecture passe par le mécanisme WebView/bridge
-  existant (protocole v2, 6 commandes) et les interfaces publiques légitimes
-  — aucun cookie, aucun token privé, aucune interception réseau, aucun DRM
-  bypass, aucune injection clavier/souris, aucun faux événement `playing`.
-
-Décision associée (Mission v7) : pour une piste dont l'identifiant est un
+Décision (Mission v7, inchangée) : pour une piste dont l'identifiant est un
 identifiant Spotify, le Spotify Web Player est la **seule** source audio.
 Audius/YouTube ne déterminent plus la disponibilité d'une playlist et ne
 servent plus de secours pour ces pistes ; une piste non lisible produit une
 **vraie erreur Spotify Web** (code remonté), jamais un « unavailable »
 inventé.
 
-Reste à valider sur téléphone avec ce build : la lecture d'une **playlist de
-32 titres** de bout en bout (32 métadonnées, 32 confirmations `playing`
-publiées, pas de dépendance Audius/YouTube) — voir le rapport Mission v7.
+**Aucun contournement** : la lecture passe par le mécanisme WebView/bridge
+existant (protocole v2, 6 commandes) et les interfaces publiques légitimes
+— aucun cookie, aucun token privé, aucune interception réseau, aucun DRM
+bypass, aucune injection clavier/souris, aucun faux événement `playing`.
+
+Reste à valider sur téléphone avec un build actuel : la lecture d'une
+**playlist de 32 titres** de bout en bout (32 métadonnées, 32
+confirmations `playing` publiées, pas de dépendance Audius/YouTube) — puis
+consigner le compte rendu ici (table de résultats remplie) et lever le
+statut depuis l'UI. La réussite d'un test automatisé ne se présente JAMAIS
+comme une preuve d'écoute réelle.

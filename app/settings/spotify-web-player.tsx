@@ -28,15 +28,20 @@ import { SettingsSwitch } from '../../components/Settings/SettingsSwitch';
 /**
  * Réglage « Lecture Spotify Web » — et l'état HONNÊTE de la porte.
  *
- * Trois verrous, tous affichés :
- *  1. le réglage utilisateur (ce switch) ;
- *  2. le flag local en mémoire (section développeur) ;
- *  3. la validation physique consignée avec preuve (section développeur).
- * Mission v7 : les verrous 2 et 3 sont LEVÉS AU DÉMARRAGE (preuve
- * documentée, docs/SPOTIFY-WEB-PHYSICAL-TEST.md) — il reste le réglage
- * utilisateur, actif par défaut. Quand le switch est éteint, les pistes
- * Spotify ne sont plus lisibles (vraie erreur, pas de relais
- * Audius/YouTube). Rien n'est masqué, rien n'est simulé.
+ * Trois états distincts, tous affichés (audit Mission V21) :
+ *  1. le réglage utilisateur (ce switch, actif par défaut) ;
+ *  2. l'activation technique (flag local en mémoire, levée au démarrage —
+ *     section développeur) : elle autorise l'ESSAI, rien de plus ;
+ *  3. la validation physique (section développeur) : STATUT, non verrou.
+ *     `NOT_TESTED` par défaut — le code ne consigne jamais lui-même un
+ *     test physique (correction V21). Elle est levée uniquement par une
+ *     consigne utilisateur avec preuve documentée
+ *     (docs/SPOTIFY-WEB-PHYSICAL-TEST.md, table de résultats remplie).
+ * Une lecture n'est JAMAIS déclarée par un switch ni un statut : seul un
+ * état `playing` publié par la page Spotify (bonne piste, bonne session)
+ * le permet. Quand le switch utilisateur est éteint, les pistes Spotify ne
+ * sont plus lisibles (vraie erreur, pas de relais Audius/YouTube). Rien
+ * n'est masqué, rien n'est simulé.
  */
 export default function SpotifyWebPlayerSettings() {
   const router = useRouter();
@@ -117,7 +122,7 @@ export default function SpotifyWebPlayerSettings() {
             subtitle={
               gateOpen
                 ? 'Seule source audio pour les pistes Spotify. Si la lecture n’est pas réellement confirmée, une vraie erreur Spotify Web est affichée (aucun relais Audius/YouTube).'
-                : 'Indisponible : la validation physique et le flag local doivent être levés (section développement ci-dessous).'
+                : 'Indisponible : l’activation technique (flag local) doit être levée (section développement ci-dessous).'
             }
             value={gateOpen && spotifyWebPlayback}
             onValueChange={(value) => {
@@ -141,8 +146,10 @@ export default function SpotifyWebPlayerSettings() {
             </Text>
           ))}
           <Text style={styles.readinessHint}>
-            « prête » = flag local + validation physique + hôte monté + pont
-            prêt. Un morceau n’est jamais déclaré lu avant confirmation réelle.
+            « prête » = activation technique + hôte monté + pont prêt. La
+            validation physique est un statut affiché ci-dessous (non bloquant)
+            — et un morceau n’est jamais déclaré lu avant confirmation réelle
+            (état publié par la page).
           </Text>
         </View>
 
@@ -158,17 +165,18 @@ export default function SpotifyWebPlayerSettings() {
             testID="spotify-web-flag"
           />
           <SettingsSwitch
-            label="Validation physique consignée"
+            label="Validation physique (statut, non bloquant)"
             subtitle={
               physicalValidation === 'PASSED_ON_DEVICE'
                 ? `Consignée : ${getSpotifyWebPhysicalValidationEvidence() ?? ''}`
-                : 'NON TESTÉE : le test sur téléphone réel (docs/SPOTIFY-WEB-PHYSICAL-TEST.md) doit être consigné avec preuve documentée.'
+                : 'NON VÉRIFIÉE SUR APPAREIL : le code ne consigne jamais un test physique (audit V21). Le moteur reste actif en mode technique ; pour consigner un test réel, remplir la référence ci-dessous (docs/SPOTIFY-WEB-PHYSICAL-TEST.md) puis « Consigner PASSED ».'
             }
             value={physicalValidation === 'PASSED_ON_DEVICE'}
             onValueChange={(value) => {
               if (value) {
-                // La porte exige une preuve : on ne peut pas la lever par un
-                // simple switch — le champ ci-dessous porte la référence.
+                // Une preuve documentée est exigée : le statut ne peut pas
+                // être levé par un simple switch — le champ porte la
+                // référence du compte rendu.
                 recordPassed();
               } else {
                 recordNotPassed();
@@ -210,8 +218,11 @@ export default function SpotifyWebPlayerSettings() {
             ) : null}
           </View>
           <Text style={styles.cardNote}>
-            La lecture Spotify Web ne s’active JAMAIS sans les deux verrous :
-            c’est la règle qui empêche d’activer un chemin invérifiable.
+            Séparation des trois états (audit V21) : l’activation technique
+            (flag) autorise l’essai ; la validation physique est un statut
+            affiché honnêtement ; seule la confirmation réelle — un état «
+            playing » publié par la page pour la bonne piste et la bonne session
+            — déclare une lecture.
           </Text>
         </View>
 
