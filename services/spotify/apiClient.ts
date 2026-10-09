@@ -17,6 +17,7 @@
  * - jamais d'en-tête Authorization ni de token dans les logs ni les erreurs.
  */
 import { SPOTIFY_API_BASE_URL } from './authConfig';
+import { recordSpotifyDiagnosticEvent } from './diagnosticHistory';
 import { sanitizeErrorDescription, spotifyLog } from './devLog';
 import {
   clearSessionAccessOnly,
@@ -174,6 +175,29 @@ const throwForRefreshFailure = (
  * En-dehors des cas de session, `null` est renvoyé pour un corps non JSON
  — les couches au-dessus décident du message utilisateur.
  */
+/**
+ * V24 — consigne l'échec final d'un appel API Spotify dans l'historique du
+ * rapport (chronologie). `/me` est EXCLU : la vérification du compte
+ * (verify-me) le couvre déjà avec plus de contexte (double entrée inutile).
+ * Valeurs sûres uniquement : chemin (sans query), statut, forme de corps.
+ */
+const recordApiErrorEvent = (
+  path: string,
+  code: string,
+  detail?: string
+): void => {
+  if (path === '/me' || path.startsWith('/me?')) {
+    return;
+  }
+  const cleanPath = path.split('?')[0].slice(0, 60);
+  recordSpotifyDiagnosticEvent(
+    'api-error',
+    'error',
+    code,
+    detail ? `${cleanPath} ${detail}` : cleanPath
+  );
+};
+
 export const spotifyApiGet = async <T>(path: string): Promise<T> => {
   const acquired = await refreshAccessTokenClassified();
   if (!acquired.ok) {
@@ -191,6 +215,7 @@ export const spotifyApiGet = async <T>(path: string): Promise<T> => {
     try {
       response = await doFetch(path, token);
     } catch {
+      recordApiErrorEvent(path, 'network', 'timeout/indisponible');
       throw new SpotifyApiError('network', 'Spotify est injoignable.');
     }
 
@@ -220,6 +245,7 @@ export const spotifyApiGet = async <T>(path: string): Promise<T> => {
       // RETRYABLE — pas 'unauthenticated', qui forcerait une reconnexion
       // inutile. Pas de boucle : au plus UN refresh + UNE retry par appel.
       await clearSessionAccessOnly();
+      recordApiErrorEvent(path, '401', 'refresh-refusé');
       throw new SpotifyApiError(
         'http',
         'Access token refusé après renouvellement.',
@@ -229,6 +255,7 @@ export const spotifyApiGet = async <T>(path: string): Promise<T> => {
 
     if (response.status === 429) {
       if (retries429 >= MAX_RATE_LIMIT_RETRIES) {
+        recordApiErrorEvent(path, '429', 'rate-limit persistant');
         throw new SpotifyApiError(
           'rate-limited',
           'Trop de requêtes vers Spotify.',
@@ -357,6 +384,16 @@ export const spotifyApiGet = async <T>(path: string): Promise<T> => {
         finalUrl: diagnostics.finalUrl,
         headers: diagnostics.headers,
       });
+      // V24 — chronologie du rapport : statut + forme de corps (sûrs).
+      recordApiErrorEvent(
+        path,
+        String(response.status),
+        `shape=${bodyShape}${
+          typeof diagnostics.attempts === 'number'
+            ? ` attempts=${diagnostics.attempts}`
+            : ''
+        }`
+      );
       throw new SpotifyApiError(
         'http',
         `Réponse Spotify non valide (${response.status}).`,

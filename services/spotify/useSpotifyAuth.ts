@@ -41,6 +41,7 @@ import {
   spotifyLog,
 } from './devLog';
 import { SpotifyApiError } from './apiClient';
+import { recordSpotifyDiagnosticEvent } from './diagnosticHistory';
 import {
   clearPendingOAuthTransaction,
   isPendingTransactionFresh,
@@ -263,6 +264,14 @@ export const useSpotifyAuth = (): {
   const fail = React.useCallback(
     (outcome: LoginErrorOutcome, diagnostic?: SpotifyOAuthDiagnostic) => {
       spotifyDiag('OUTCOME', `${outcome.kind} — ${outcome.cause}`);
+      // V24 — chronologie du rapport : issue du login (étape + kind sûrs —
+      // jamais de token/code/verifier : diagnostic est déjà classé SÛR).
+      recordSpotifyDiagnosticEvent(
+        'login',
+        'error',
+        outcome.kind,
+        diagnostic ? `stage=${diagnostic.stage}` : null
+      );
       transition({
         status: 'error',
         outcome: diagnostic ? { ...outcome, diagnostic } : outcome,
@@ -430,6 +439,8 @@ export const useSpotifyAuth = (): {
         // Connexion VRAIMENT établie : code → tokens → /me → identité OK.
         spotifyAuthTrace('me:success', `user=${user.id}`);
         spotifyAuthTrace('session:authenticated');
+        // V24 — chronologie du rapport : login réussi (valeurs sûres).
+        recordSpotifyDiagnosticEvent('login', 'ok');
         transition({ status: 'idle' });
       } catch (error) {
         const kind =

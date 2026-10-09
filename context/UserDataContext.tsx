@@ -31,6 +31,7 @@ import {
   clearSession,
   loadSession,
   melodixPlayer,
+  recordSpotifyDiagnosticEvent,
   SpotifyApiError,
 } from '@services';
 
@@ -102,6 +103,34 @@ const classifyVerificationFailure = (
     }
   }
   return { kind: 'generic' };
+};
+
+/**
+ * V24 — décompose un échec classé en (code, détail) SÛRS pour l'historique
+ * du rapport de diagnostic : statut HTTP + forme de réponse + tentatives.
+ * Jamais de token, d'en-tête ou de valeur brute — la classification amont
+ * (classifyVerificationFailure) a déjà filtré tout le reste.
+ */
+const verifyEventParts = (
+  failure: SpotifyVerificationFailure
+): [string | null, string | null] => {
+  if (failure.kind === 'http') {
+    const bits: string[] = [];
+    if (failure.detail) {
+      bits.push(`shape=${failure.detail}`);
+    }
+    if (typeof failure.meta?.attempts === 'number') {
+      bits.push(`attempts=${failure.meta.attempts}`);
+    }
+    return [String(failure.status), bits.length ? bits.join(' ') : null];
+  }
+  if (failure.kind === 'network') {
+    return ['network', null];
+  }
+  if (failure.kind === 'rate-limited') {
+    return ['429', null];
+  }
+  return [failure.kind, null];
 };
 
 export { LOCAL_USER_ID };
@@ -226,12 +255,14 @@ export const UserDataProvider = ({ children }: UserDataProviderPropsType) => {
         setUser(localUserData);
         setVerificationFailure({ kind: 'invalid-response' });
         setStatus('spotify-unverified');
+        recordSpotifyDiagnosticEvent('verify-me', 'error', 'invalid-response');
         return;
       }
 
       setUser({ ...freshUser, id: freshUser.id.trim() });
       setVerificationFailure(null);
       setStatus('spotify');
+      recordSpotifyDiagnosticEvent('verify-me', 'ok');
     } catch (error) {
       if (isStale()) {
         return;
@@ -249,6 +280,7 @@ export const UserDataProvider = ({ children }: UserDataProviderPropsType) => {
         console.warn(
           'Spotify session definitively invalid — credentials cleared, re-login required'
         );
+        recordSpotifyDiagnosticEvent('verify-me', 'error', 'unauthenticated');
         await signOut();
         return;
       }
@@ -256,8 +288,16 @@ export const UserDataProvider = ({ children }: UserDataProviderPropsType) => {
       // Transitoire : l'utilisateur n'est PAS déconnecté, aucun écran ne
       // reçoit d'identité locale, et la cause SÛRE est affichée.
       console.warn('Spotify identity verification failed', error);
-      setVerificationFailure(classifyVerificationFailure(error));
+      const failure = classifyVerificationFailure(error);
+      setVerificationFailure(failure);
       setStatus('spotify-unverified');
+      // V24 — chronologie du rapport : valeurs SÛRES (statut + forme),
+      // jamais de token ni d'en-tête (voir diagnosticHistory.ts).
+      recordSpotifyDiagnosticEvent(
+        'verify-me',
+        'error',
+        ...verifyEventParts(failure)
+      );
     }
   }, [signOut]);
 

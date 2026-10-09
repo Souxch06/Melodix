@@ -59,6 +59,9 @@ jest.mock('@context', () => ({
   describeSpotifyVerificationFailure: jest.requireActual(
     '../../../context/spotifyIdentity'
   ).describeSpotifyVerificationFailure,
+  // V24 — corps CLASSÉ (403 → « refus d'accès ») : implémentation RÉELLE.
+  spotifyUnavailableBody: jest.requireActual('../../../context/spotifyIdentity')
+    .spotifyUnavailableBody,
 }));
 
 jest.mock('@hooks', () => ({
@@ -72,6 +75,9 @@ jest.mock('@components', () => {
 
   return {
     MiniPlayer: () => null,
+    // V24 — rapport copiable : stub (ses propres tests couvrent le
+    // comportement réel ; ici on ne teste que l'écran d'état de session).
+    SpotifyDiagnosticActions: () => null,
     ErrorCard: (props: {
       testID?: string;
       retryTestID?: string;
@@ -251,8 +257,11 @@ describe('Onglets — restauration d’identité', () => {
     expect(body).toContain("Spotify n'a fourni aucun message détaillé");
     expect(body).toContain('corps de réponse vide');
     expect(body).toContain('(Content-Type: application/json)');
-    // Le libellé générique ne doit PAS masquer l'information disponible.
-    expect(body).not.toContain('accès refusé');
+    // V24 — le corps 403 est le corps DÉDIÉ « refus d'accès » : jamais le
+    // corps générique « (réseau ou erreur temporaire) », et le détail
+    // disponible (forme + Content-Type) reste affiché.
+    expect(body).toContain("Ce n'est PAS une erreur réseau temporaire");
+    expect(body).not.toContain('(réseau ou erreur temporaire)');
     // Jamais de valeur sensible ni de « undefined ».
     expect(
       JSON.stringify(screen.getByTestId('card-body').props.children)
@@ -274,7 +283,9 @@ describe('Onglets — restauration d’identité', () => {
     expect(body).toContain("Spotify n'a fourni aucun message détaillé");
     expect(body).toContain('réponse non JSON');
     expect(body).toContain('(Content-Type: text/html; charset=utf-8)');
-    expect(body).not.toContain('accès refusé');
+    // V24 — corps 403 dédié, jamais le corps générique « réseau temporaire ».
+    expect(body).toContain("Ce n'est PAS une erreur réseau temporaire");
+    expect(body).not.toContain('(réseau ou erreur temporaire)');
   });
 
   it("'spotify-unverified' + HTTP 403 NON JSON + métadonnées : source identifiable (URL/Content-Type/Server/Via), jamais de body/token", () => {

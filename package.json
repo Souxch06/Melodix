@@ -1,7 +1,7 @@
 {
   "name": "melodix",
   "main": "expo-router/entry",
-  "version": "4.5.0-test.28",
+  "version": "4.5.0-test.29",
   "engines": {
     "node": ">=20",
     "yarn": ">=1.22.17"
@@ -40,6 +40,7 @@
     "expo-auth-session": "~5.5.2",
     "expo-av": "~14.0.7",
     "expo-blur": "^13.0.2",
+    "expo-clipboard": "~5.0.1",
     "expo-constants": "~16.0.2",
     "expo-crypto": "~13.0.2",
     "expo-file-system": "^17.0.1",

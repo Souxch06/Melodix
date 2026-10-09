@@ -48,6 +48,27 @@ export const FR_FR_ACCOUNT = {
   spotifyRestoreUnavailableTitle: 'Compte Spotify indisponible',
   spotifyRestoreUnavailableBody:
     "Ta session Spotify est enregistrée, mais le compte n'a pas pu être vérifié pour l'instant (réseau ou erreur temporaire). Tes données de compte restent masquées tant que l'identité n'est pas confirmée — tu n'es PAS déconnecté.",
+  // V24 — variante DÉDIÉE au HTTP 403 : un refus d'accès n'est JAMAIS
+  // présenté comme une erreur réseau temporaire (rigueur mission V24).
+  spotifyRestoreUnavailableDeniedBody:
+    "Ta session Spotify est enregistrée, mais Spotify a REFUSÉ de vérifier le compte (HTTP 403 — accès refusé). Ce n'est PAS une erreur réseau temporaire : un 403 peut persister (compte non autorisé dans le Developer Dashboard de l'application, ou Premium de son propriétaire exigé/invalide). Tes données de compte restent masquées tant que l'identité n'est pas confirmée — tu n'es PAS déconnecté. Utilise « Copier le rapport » pour les détails.",
+  // V24 — boutons du rapport de diagnostic (écran « indisponible » + réglages).
+  spotifyDiagnosticCopy: 'Copier le rapport',
+  spotifyDiagnosticCopied: 'Rapport copié ✓',
+  spotifyDiagnosticCopyFailed:
+    "La copie n'a pas abouti : utilise « Voir les détails » pour sélectionner le texte, ou « Partager le rapport ».",
+  spotifyDiagnosticShare: 'Partager le rapport',
+  spotifyDiagnosticDetails: 'Voir les détails',
+  spotifyDiagnosticHideDetails: 'Masquer les détails',
+  spotifyDiagnosticClearHistory: "Effacer l'historique",
+  spotifyDiagnosticClearHistoryTitle: "Effacer l'historique de diagnostic ?",
+  spotifyDiagnosticClearHistoryMessage:
+    "L'historique local des événements Spotify (borné à 7 jours) sera supprimé de cet appareil.",
+  spotifyDiagnosticHistoryCleared: 'Historique de diagnostic effacé.',
+  spotifyDiagnosticEmpty:
+    "Aucun événement de diagnostic enregistré pour l'instant.",
+  spotifyDiagnosticRetryBusy: 'Vérification en cours…',
+  spotifyDiagnosticSettingsRow: 'Diagnostics Spotify',
   spotifyRestoreRetry: 'Réessayer',
   // Diagnostic de vérification (SÛR : statuts + libellés, jamais de token).
   spotifyVerifyErrorInvalidResponse: 'Réponse Spotify invalide',

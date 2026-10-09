@@ -66,9 +66,8 @@ jest.mock('@context', () => {
   const { translations: realTranslations } = jest.requireActual('@data');
   // Traducteur de diagnostic RÉEL (module pur) : les tests de rendu
   // contrôlent le comportement réel (aucun secret, jamais « undefined »).
-  const { describeSpotifyVerificationFailure } = jest.requireActual(
-    '../../context/spotifyIdentity'
-  );
+  const { describeSpotifyVerificationFailure, spotifyUnavailableBody } =
+    jest.requireActual('../../context/spotifyIdentity');
 
   return {
     useUserData: () => ({
@@ -107,6 +106,8 @@ jest.mock('@context', () => {
     useAccent: () => '#1ed760',
     useLanguage: () => 'fr',
     describeSpotifyVerificationFailure,
+    // V24 — corps CLASSÉ (403 → « refus d'accès ») : implémentation RÉELLE.
+    spotifyUnavailableBody,
   };
 });
 
@@ -286,8 +287,10 @@ describe('Paramètres — compte et déconnexion', () => {
 
     expect(subtitle).toContain("Spotify n'a fourni aucun message détaillé");
     expect(subtitle).toContain('corps de réponse vide');
-    // Le libellé générique ne masque pas l'information disponible.
-    expect(subtitle).not.toContain('accès refusé');
+    // V24 — corps 403 dédié « refus d'accès » : jamais le corps générique
+    // « (réseau ou erreur temporaire) ».
+    expect(subtitle).toContain("Ce n'est PAS une erreur réseau temporaire");
+    expect(subtitle).not.toContain('(réseau ou erreur temporaire)');
     expect(subtitle).not.toMatch(
       /access_token=|refresh_token=|code_verifier=|Bearer |undefined/
     );

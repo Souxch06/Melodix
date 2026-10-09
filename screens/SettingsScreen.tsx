@@ -18,6 +18,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { COLORS } from '@config';
 import {
   describeSpotifyVerificationFailure,
+  spotifyUnavailableBody,
   usePlayer,
   usePreferences,
   useTranslations,
@@ -173,9 +174,10 @@ export const SettingsScreen = () => {
     // pas le message « aucun compte » du mode local.
     if (sessionStatus === 'spotify-unverified') {
       const detail = describeSpotifyVerificationFailure(t, verificationFailure);
-      return detail
-        ? `${t.spotifyRestoreUnavailableBody}\n${detail}`
-        : t.spotifyRestoreUnavailableBody;
+      // V24 — corps CLASSÉ : 403 → « refus d'accès », jamais « erreur
+      // réseau temporaire ».
+      const body = spotifyUnavailableBody(t, verificationFailure);
+      return detail ? `${body}\n${detail}` : body;
     }
     if (sessionStatus !== 'spotify') {
       return t.accountLocalInfo;
@@ -492,6 +494,20 @@ export const SettingsScreen = () => {
           « Diagnostic technique » (journal natif persistant, copie
           presse-papiers, drapeaux d'isolation). À retirer après correction. */}
       <SettingsSection testID="settings-section-native-diag" title="Diagnostic">
+        {/* V24 — rapport de diagnostic Spotify copiable (état du compte,
+            403 classé, historique borné, copier/partager/effacer). */}
+        <SettingsRow
+          label={t.spotifyDiagnosticSettingsRow}
+          subtitle="Rapport copiable — aucune donnée sensible"
+          showChevron
+          onPress={() =>
+            router.push({
+              pathname: '/settings/spotify-diagnostic',
+              params: {},
+            })
+          }
+          testID="settings-spotify-diag-open"
+        />
         <SettingsRow
           label="Diagnostic technique"
           showChevron

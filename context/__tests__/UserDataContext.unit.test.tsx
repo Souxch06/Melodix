@@ -35,6 +35,13 @@ const mockActions = {
   stopPlayback: jest.fn(async () => {}),
   getCurrentUser: jest.fn(),
   invalidateUserPlaylistsCache: jest.fn(async () => {}),
+  recordSpotifyDiagnosticEvent: jest.fn((..._args: unknown[]) => ({
+    at: 0,
+    step: '',
+    result: 'info' as const,
+    code: null,
+    detail: null,
+  })),
 };
 
 jest.mock('@services', () => ({
@@ -42,6 +49,10 @@ jest.mock('@services', () => ({
   clearSession: (...args: never[]) => mockActions.clearSession(...(args as [])),
   clearPlaybackSession: (...args: never[]) =>
     mockActions.clearPlaybackSession(...(args as [])),
+  // Transmission des args tels quels (pas d'`undefined` ajoutés) : les
+  // assertions `toHaveBeenCalledWith` restent strictes et fidèles.
+  recordSpotifyDiagnosticEvent: (...args: unknown[]) =>
+    mockActions.recordSpotifyDiagnosticEvent(...args),
   melodixPlayer: {
     stop: (...args: never[]) => mockActions.stopPlayback(...(args as [])),
   },
@@ -545,6 +556,41 @@ describe('Réessayer — vérification réelle /me + refresh + aucun état bloqu
     await waitFor(() => expect(observedState().status).toBe('spotify'));
     expect(observedState()).toMatchObject({ failure: 'none' });
     expect(mockActions.getCurrentUser).toHaveBeenCalledTimes(2);
+  });
+
+  it('V24 — chaque vérification consigne un événement SÛR (chronologie du rapport)', async () => {
+    const nonJson403 = () =>
+      new SpotifyApiError(
+        'http',
+        'Réponse Spotify non valide (403).',
+        403,
+        '',
+        {
+          bodyShape: 'non-json',
+          contentType: 'text/html',
+          headers: { server: 'envoy' },
+          attempts: 3,
+        }
+      );
+
+    await bootUnverified(nonJson403());
+    // Échec 403 → événement « verify-me / error / 403 » + détail SÛR
+    // (forme + tentatives) — jamais de token ni d'en-tête dans l'événement.
+    expect(mockActions.recordSpotifyDiagnosticEvent).toHaveBeenCalledWith(
+      'verify-me',
+      'error',
+      '403',
+      'shape=non-json attempts=3'
+    );
+
+    // Réessai réussi → événement « verify-me / ok ».
+    mockActions.getCurrentUser.mockResolvedValueOnce(spotifyUser('account-a'));
+    fireEvent.press(screen.getByTestId('reload'));
+    await waitFor(() => expect(observedState().status).toBe('spotify'));
+    expect(mockActions.recordSpotifyDiagnosticEvent).toHaveBeenCalledWith(
+      'verify-me',
+      'ok'
+    );
   });
 
   it('cas 11 — /me 403 avec message MASQUÉ (<redacted>) : detail « redacted », jamais de fuite, réessai → succès', async () => {

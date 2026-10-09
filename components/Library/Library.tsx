@@ -45,7 +45,11 @@ import { translations } from '@data';
 
 import { styles } from './styles';
 import { mergeSpotifyPlaylistsIntoLibrary } from './libraryMerge';
-import { useLibrarySelectedCategory, useUserData } from '@context';
+import {
+  spotifyUnavailableBody,
+  useLibrarySelectedCategory,
+  useUserData,
+} from '@context';
 
 export const Library = () => {
   const [data, setData] = React.useState<LibraryType | null>(null);
@@ -61,7 +65,8 @@ export const Library = () => {
   const [spotifyLinked, setSpotifyLinked] = React.useState(false);
   const { librarySelectedCategory, animatedValue } =
     useLibrarySelectedCategory();
-  const { spotifyDataPlan, reloadUserData } = useUserData();
+  const { spotifyDataPlan, reloadUserData, verificationFailure } =
+    useUserData();
   const { width, height } = useApplicationDimensions();
   const router = useRouter();
 
@@ -233,7 +238,8 @@ export const Library = () => {
           testID="library-identity-error"
           retryTestID="library-identity-retry"
           title={translations.spotifyRestoreUnavailableTitle}
-          body={translations.spotifyRestoreUnavailableBody}
+          // V24 — corps CLASSÉ : 403 → « refus d'accès ».
+          body={spotifyUnavailableBody(translations, verificationFailure)}
           onRetry={() => void reloadUserData()}
         />
       </View>

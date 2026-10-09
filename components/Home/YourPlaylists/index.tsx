@@ -10,7 +10,7 @@ import {
   invalidateUserPlaylistsCache,
 } from '@api';
 import { LibraryItemModel } from '@models';
-import { useUserData } from '@context';
+import { spotifyUnavailableBody, useUserData } from '@context';
 import { COLORS, Shapes, Sizes } from '@config';
 import { translations } from '@data';
 
@@ -53,7 +53,8 @@ const SKELETON_SLIDES: LibraryItemModel[] = Array(3).fill({
  */
 export const YourPlaylists = () => {
   const router = useRouter();
-  const { userData, spotifyDataPlan, reloadUserData } = useUserData();
+  const { userData, spotifyDataPlan, reloadUserData, verificationFailure } =
+    useUserData();
   const [phase, setPhase] = React.useState<FetchPhase>('loading');
   const [savedPlaylists, setSavedPlaylists] = React.useState<
     LibraryItemModel[] | null
@@ -170,7 +171,8 @@ export const YourPlaylists = () => {
           {translations.spotifyRestoreUnavailableTitle}
         </Text>
         <Text style={styles.noticeBody}>
-          {translations.spotifyRestoreUnavailableBody}
+          {/* V24 — corps CLASSÉ : 403 → « refus d'accès ». */}
+          {spotifyUnavailableBody(translations, verificationFailure)}
         </Text>
         <Pressable
           accessibilityRole="button"

@@ -165,6 +165,26 @@ export const EN_GB_ACCOUNT = {
   spotifyRestoreUnavailableTitle: 'Spotify account unavailable',
   spotifyRestoreUnavailableBody:
     'Your Spotify session is saved, but the account could not be verified right now (network or temporary error). Account data stays hidden until the identity is confirmed — nothing is signed out.',
+  // V24 — DEDICATED variant for HTTP 403: an access refusal is NEVER
+  // presented as a temporary network error (mission V24 strictness).
+  spotifyRestoreUnavailableDeniedBody:
+    'Your Spotify session is saved, but Spotify REFUSED to verify the account (HTTP 403 — access denied). This is NOT a temporary network error: a 403 can persist (account not authorised in the app\'s Developer Dashboard, or the owner\'s Premium required/invalid). Account data stays hidden until the identity is confirmed — you are NOT signed out. Use "Copy the report" for details.',
+  // V24 — diagnostic report buttons (unavailable screen + settings).
+  spotifyDiagnosticCopy: 'Copy the report',
+  spotifyDiagnosticCopied: 'Report copied ✓',
+  spotifyDiagnosticCopyFailed:
+    'Copying failed: use "See details" to select the text, or "Share the report".',
+  spotifyDiagnosticShare: 'Share the report',
+  spotifyDiagnosticDetails: 'See details',
+  spotifyDiagnosticHideDetails: 'Hide details',
+  spotifyDiagnosticClearHistory: 'Clear history',
+  spotifyDiagnosticClearHistoryTitle: 'Clear diagnostic history?',
+  spotifyDiagnosticClearHistoryMessage:
+    'The local Spotify event history (bounded to 7 days) will be removed from this device.',
+  spotifyDiagnosticHistoryCleared: 'Diagnostic history cleared.',
+  spotifyDiagnosticEmpty: 'No diagnostic event recorded yet.',
+  spotifyDiagnosticRetryBusy: 'Verifying…',
+  spotifyDiagnosticSettingsRow: 'Spotify diagnostics',
   spotifyRestoreRetry: 'Retry',
   // Verification diagnostics (SAFE: statuses + labels, never any token).
   spotifyVerifyErrorInvalidResponse: 'Invalid Spotify response',

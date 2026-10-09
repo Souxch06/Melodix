@@ -5,8 +5,10 @@ export type {
 } from './UserDataContext';
 export {
   isSpotifyAccountId,
+  isSpotifyAccessDenied,
   hasSpotifySession,
   describeSpotifyVerificationFailure,
+  spotifyUnavailableBody,
 } from './spotifyIdentity';
 export type {
   SessionStatus,

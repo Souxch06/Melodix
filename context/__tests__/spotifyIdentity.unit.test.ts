@@ -11,7 +11,9 @@ import {
   describeSpotifyVerificationFailure,
   hasSpotifySession,
   isSpotifyAccountId,
+  isSpotifyAccessDenied,
   resolveSpotifyDataPlan,
+  spotifyUnavailableBody,
   type SessionStatus,
   type SpotifyVerificationFailure,
 } from '../spotifyIdentity';
@@ -396,5 +398,68 @@ describe('spotifyIdentity — diagnostic de vérification (sûr, lisible)', () =
       expect(text).toContain('URL : inconnue');
       expect(text).not.toContain('access_token=abc123');
     });
+  });
+});
+
+describe('spotifyIdentity — V24 : un 403 n’est JAMAIS « erreur réseau temporaire »', () => {
+  it('isSpotifyAccessDenied : vrai seulement pour un HTTP 403', () => {
+    expect(isSpotifyAccessDenied({ kind: 'http', status: 403 })).toBe(true);
+    expect(
+      isSpotifyAccessDenied({
+        kind: 'http',
+        status: 403,
+        detail: 'non-json',
+        meta: { attempts: 3 },
+      })
+    ).toBe(true);
+    expect(isSpotifyAccessDenied({ kind: 'http', status: 401 })).toBe(false);
+    expect(isSpotifyAccessDenied({ kind: 'http', status: 503 })).toBe(false);
+    expect(isSpotifyAccessDenied({ kind: 'network' })).toBe(false);
+    expect(isSpotifyAccessDenied({ kind: 'rate-limited' })).toBe(false);
+    expect(isSpotifyAccessDenied(null)).toBe(false);
+    expect(isSpotifyAccessDenied(undefined)).toBe(false);
+  });
+
+  it('spotifyUnavailableBody : 403 → corps dédié « refus d’accès »', () => {
+    const body = spotifyUnavailableBody(translations, {
+      kind: 'http',
+      status: 403,
+      detail: 'non-json',
+      meta: { attempts: 3 },
+    });
+    expect(body).toBe(translations.spotifyRestoreUnavailableDeniedBody);
+    expect(body).toContain('REFUSÉ');
+    expect(body).toContain("Ce n'est PAS une erreur réseau temporaire");
+    // Le corps 403 ne présente pas la 403 comme instabilité réseau.
+    expect(body).not.toContain('(réseau ou erreur temporaire)');
+  });
+
+  it('spotifyUnavailableBody : autre échec → corps générique historique', () => {
+    for (const failure of [
+      { kind: 'network' },
+      { kind: 'rate-limited' },
+      { kind: 'http', status: 401 },
+      { kind: 'http', status: 500 },
+      { kind: 'invalid-response' },
+      { kind: 'generic' },
+      null,
+      undefined,
+    ] as (SpotifyVerificationFailure | null | undefined)[]) {
+      expect(spotifyUnavailableBody(translations, failure)).toBe(
+        translations.spotifyRestoreUnavailableBody
+      );
+    }
+  });
+
+  it('les deux corps existent en fr ET en en (parité)', () => {
+    expect(typeof translations.spotifyRestoreUnavailableDeniedBody).toBe(
+      'string'
+    );
+    expect(
+      translations.spotifyRestoreUnavailableDeniedBody.length
+    ).toBeGreaterThan(40);
+    expect(translations.spotifyRestoreUnavailableBody).toContain(
+      'réseau ou erreur temporaire'
+    );
   });
 });

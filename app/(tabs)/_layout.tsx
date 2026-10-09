@@ -2,9 +2,13 @@ import * as React from 'react';
 import { StyleSheet, View } from 'react-native';
 import { Redirect, Tabs } from 'expo-router';
 
-import { ErrorCard, MiniPlayer } from '@components';
+import { ErrorCard, MiniPlayer, SpotifyDiagnosticActions } from '@components';
 import { BottomTabBar } from '@navigators';
-import { describeSpotifyVerificationFailure, useUserData } from '@context';
+import {
+  describeSpotifyVerificationFailure,
+  spotifyUnavailableBody,
+  useUserData,
+} from '@context';
 import { useKeyboardVisible } from '@hooks';
 import { translations } from '@data';
 
@@ -63,6 +67,9 @@ export default function Layout() {
       translations,
       verificationFailure
     );
+    // V24 — corps CLASSÉ : 403 → texte « refus d'accès », jamais « réseau ou
+    // erreur temporaire » (helper unique spotifyUnavailableBody).
+    const body = spotifyUnavailableBody(translations, verificationFailure);
     return (
       <View style={styles.identityError} testID="session-identity-unavailable">
         <ErrorCard
@@ -70,13 +77,12 @@ export default function Layout() {
           retryTestID="session-identity-retry"
           icon="person-circle-outline"
           title={translations.spotifyRestoreUnavailableTitle}
-          body={
-            detail
-              ? `${translations.spotifyRestoreUnavailableBody}\n\n${detail}`
-              : translations.spotifyRestoreUnavailableBody
-          }
+          body={detail ? `${body}\n\n${detail}` : body}
           onRetry={() => void reloadUserData()}
         />
+        {/* V24 — rapport de bug copiable en UN appui (copier / partager /
+            détails / effacer l'historique). Aucune donnée sensible. */}
+        <SpotifyDiagnosticActions />
       </View>
     );
   }
@@ -110,5 +116,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#121212',
     flex: 1,
     justifyContent: 'center',
+    padding: 16,
+    gap: 12,
   },
 });

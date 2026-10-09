@@ -46,6 +46,9 @@ jest.mock('@context', () => ({
     setLibrarySelectedCategory: jest.fn(),
     animatedValue: { value: 0 },
   }),
+  // V24 — corps CLASSÉ (403 → « refus d'accès ») : implémentation RÉELLE.
+  spotifyUnavailableBody: jest.requireActual('../../../context/spotifyIdentity')
+    .spotifyUnavailableBody,
 }));
 
 jest.mock('@hooks', () => ({

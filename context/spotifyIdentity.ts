@@ -88,6 +88,37 @@ export type SpotifyVerificationFailure =
   | { kind: 'generic' }; // erreur inattendue
 
 /**
+ * V24 — un HTTP 403 est un REFUS D'ACCÈS côté serveur, PAS une « erreur
+ * réseau temporaire ». Rigueur imposée : présenter un 403 (surtout
+ * persistant, `attempts >= 2`) comme instabilité réseau induit en erreur
+ * l'utilisateur et masque la cause réelle (restriction dev-mode de
+ * l'application — voir rapport mission V24).
+ */
+export const isSpotifyAccessDenied = (
+  failure: SpotifyVerificationFailure | null | undefined
+): boolean => failure?.kind === 'http' && failure.status === 403;
+
+/**
+ * V24 — corps de l'écran « Compte Spotify indisponible » CLASSÉ :
+ * - échec HTTP 403 → texte dédié « refus d'accès » (jamais « réseau ou
+ *   erreur temporaire ») ;
+ * - tout autre échec (réseau, 429, 401 transitoire, réponse invalide…) →
+ *   le texte générique historique.
+ * Les 6 call sites de l'écran (layout tabs, Header, YourPlaylists, Library,
+ * Paramètres) passent par ce helper : une seule source de vérité.
+ */
+export const spotifyUnavailableBody = (
+  t: {
+    spotifyRestoreUnavailableBody: string;
+    spotifyRestoreUnavailableDeniedBody: string;
+  },
+  failure: SpotifyVerificationFailure | null | undefined
+): string =>
+  isSpotifyAccessDenied(failure)
+    ? t.spotifyRestoreUnavailableDeniedBody
+    : t.spotifyRestoreUnavailableBody;
+
+/**
  * Vrai si `id` peut être utilisé comme identifiant de compte Spotify :
  * chaîne non vide ET différente du profil local (jamais `LOCAL_USER_ID`).
  */

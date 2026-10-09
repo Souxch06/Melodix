@@ -9,7 +9,7 @@ import * as Icons from '@expo/vector-icons';
 
 import { LibraryRelated } from './LibraryRelated';
 
-import { useUserData } from '@context';
+import { spotifyUnavailableBody, useUserData } from '@context';
 // Import direct (hors barrel) : langue active pour la salutation d'accueil.
 import { useTranslations } from '../../context/PreferencesContext';
 import {
@@ -31,7 +31,13 @@ export type HeaderPropsType = {
 
 export const Header = ({ tab }: HeaderPropsType) => {
   const { top: statusBarOffset } = useSafeAreaInsets();
-  const { userData, sessionStatus, signOut, reloadUserData } = useUserData();
+  const {
+    userData,
+    sessionStatus,
+    signOut,
+    reloadUserData,
+    verificationFailure,
+  } = useUserData();
   const t = useTranslations();
   const router = useRouter();
   const [accountOpen, setAccountOpen] = React.useState(false);
@@ -71,7 +77,9 @@ export const Header = ({ tab }: HeaderPropsType) => {
     if (sessionStatus === 'spotify-unverified') {
       Alert.alert(
         translations.spotifyRestoreUnavailableTitle,
-        translations.spotifyRestoreUnavailableBody,
+        // V24 — corps CLASSÉ : 403 → « refus d'accès », jamais « erreur
+        // réseau temporaire ».
+        spotifyUnavailableBody(translations, verificationFailure),
         [
           { text: translations.accountCancel, style: 'cancel' },
           {

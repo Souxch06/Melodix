@@ -32,6 +32,10 @@ const mockUserData: {
 
 jest.mock('@context', () => ({
   useUserData: () => mockUserData,
+  // V24 — corps CLASSÉ (403 → « refus d'accès ») : implémentation RÉELLE.
+  spotifyUnavailableBody: jest.requireActual(
+    '../../../../context/spotifyIdentity'
+  ).spotifyUnavailableBody,
 }));
 
 jest.mock('@api', () => ({

@@ -126,7 +126,9 @@ export type { BackendErrorKind } from './backend';
 
 // Connexion Spotify (OAuth PKCE), session et client API officiel.
 export {
+  getClientIdInfo,
   getSpotifyClientId,
+  getSpotifyRedirectUri,
   isSpotifyLoginConfigured,
   isSpotifyOAuthSmoke,
   SPOTIFY_SCOPES,
@@ -174,6 +176,26 @@ export {
   spotifyLog,
   spotifyWebTrace,
 } from './spotify/devLog';
+// V24 — rapport de diagnostic copiable (historique borné + builder).
+export {
+  DIAGNOSTIC_HISTORY_MAX_AGE_MS,
+  DIAGNOSTIC_HISTORY_MAX_EVENTS,
+  clearSpotifyDiagnosticHistory,
+  ensureDiagnosticHistoryLoaded,
+  getSpotifyDiagnosticEvents,
+  pruneDiagnosticEvents,
+  recordSpotifyDiagnosticEvent,
+} from './spotify/diagnosticHistory';
+export type {
+  SpotifyDiagnosticEvent,
+  SpotifyDiagnosticEventResult,
+} from './spotify/diagnosticHistory';
+export {
+  DIAGNOSTIC_REPORT_MAX_LENGTH,
+  buildSpotifyDiagnosticReport,
+  formatDiagnosticLocalTime,
+} from './spotify/diagnosticReport';
+export type { SpotifyDiagnosticReportInput } from './spotify/diagnosticReport';
 export { useSpotifyAuth } from './spotify/useSpotifyAuth';
 export type { SpotifyAuthState } from './spotify/useSpotifyAuth';
 export type { SpotifyApiErrorKind } from './spotify/apiClient';

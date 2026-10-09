@@ -37,6 +37,8 @@ module.exports = {
       '@react-native-async-storage/async-storage/jest/async-storage-mock',
     // expo-constants : expoConfig mutable (client Spotify de test, URL…).
     '^expo-constants$': '<rootDir>/__mocks__/expo-constants.ts',
+    // expo-clipboard (V24) : presse-papiers factice configurable par test.
+    '^expo-clipboard$': '<rootDir>/__mocks__/expo-clipboard.ts',
     '^@config$': '<rootDir>/config/index.ts',
     '^@api$': '<rootDir>/api/index.ts',
     // Alias présents dans tsconfig.json : sans eux, les suites qui chargent
