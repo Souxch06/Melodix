@@ -1,6 +1,9 @@
 import type { LibraryItemModel } from '@models';
 
-import { searchYouTubeSongs } from '../../services/audio/youtubeInnertube';
+import {
+  searchYouTubeSongs,
+  youtubeContentQuality,
+} from '../../services/audio/youtubeInnertube';
 
 /**
  * Recherche YouTube Music comme SOURCE DE CATALOGUE de la recherche Melodix
@@ -52,10 +55,20 @@ export const youtubeTrackToLibraryItem = (candidate: {
  * Recherche YouTube Music bornée. Toute erreur (réseau, protocole changé,
  * timeout interne du client) est propagée : le moteur progressif l'isole
  * comme l'échec d'UNE source, jamais comme l'échec de la recherche.
+ *
+ * V31 : les faux positifs éditoriaux (compilations, mix DJ, « full album »,
+ * playlists, medleys, réactions…) sont ÉCARTÉS du catalogue — leur présence
+ * donnait l'impression que la recherche « trouve n'importe quoi ». La porte
+ * est la pertinence éditoriale ≤ 0,3 de `youtubeContentQuality` ; les
+ * morceaux officiels (1.0), audio générique (0.6) et neutres (0.5) restent.
+ * Le chemin de SECOURS de lecture (matcher du player) n'est pas concerné :
+ * il interroge `searchYouTubeSongs` directement et applique ses propres
+ * portes titre/artiste/durée.
  */
 export const searchYouTubeTracks = async (
   query: string,
-  limit = YOUTUBE_SEARCH_LIMIT
+  limit = YOUTUBE_SEARCH_LIMIT,
+  options: { signal?: AbortSignal } = {}
 ): Promise<LibraryItemModel[]> => {
   const q = query.trim();
 
@@ -63,9 +76,14 @@ export const searchYouTubeTracks = async (
     return [];
   }
 
-  const candidates = await searchYouTubeSongs(q, limit);
+  // Signature historique à deux arguments conservée quand aucun signal n'est
+  // fourni (verrouillée par les tests) ; le signal ne s'ajoute qu'à la demande.
+  const candidates = options.signal
+    ? await searchYouTubeSongs(q, limit, { signal: options.signal })
+    : await searchYouTubeSongs(q, limit);
 
   return candidates
+    .filter((candidate) => youtubeContentQuality(candidate) > 0.3)
     .map(youtubeTrackToLibraryItem)
     .filter((item): item is LibraryItemModel => item !== null);
 };

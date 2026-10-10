@@ -26,6 +26,11 @@
  *   2. lecteur (youtube.com/v1/player, client ANDROID_MUSIC) — URL audio.
  */
 
+import {
+  isExternalAbort,
+  linkAbortSignals,
+} from '../../utils/common/abortSignals';
+
 /** Versions épinglées — point UNIQUE d'ajustement si le protocole évolue. */
 const WEB_REMIX = {
   clientName: 'WEB_REMIX',
@@ -196,13 +201,42 @@ export const parseClockText = (raw: string): number | null => {
   return hours * 3600 + minutes * 60 + seconds;
 };
 
+/** V31 — erreur innertube CLASSIFIÉE (avant : `Error('innertube <status>')`
+ * illisible pour les circuits et le failover). */
+export type InnertubeErrorKind =
+  | 'network'
+  | 'timeout'
+  | 'rate-limited'
+  | 'unauthorized'
+  | 'forbidden'
+  | 'server'
+  | 'http'
+  | 'invalid'
+  | 'aborted';
+
+export class InnertubeError extends Error {
+  constructor(
+    public readonly kind: InnertubeErrorKind,
+    message: string,
+    public readonly status?: number
+  ) {
+    super(message);
+    this.name = 'InnertubeError';
+  }
+}
+
 const fetchJson = async (
   url: string,
   payload: unknown,
-  timeoutMs = REQUEST_TIMEOUT_MS
+  options: { timeoutMs?: number; signal?: AbortSignal } = {}
 ): Promise<unknown> => {
+  const externalSignal = options.signal ?? null;
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  const detach = linkAbortSignals(controller, externalSignal);
+  const timeout = setTimeout(
+    () => controller.abort(),
+    options.timeoutMs ?? REQUEST_TIMEOUT_MS
+  );
 
   try {
     const response = await fetch(url, {
@@ -213,12 +247,52 @@ const fetchJson = async (
     });
 
     if (!response.ok) {
-      throw new Error(`innertube ${response.status}`);
+      const kind: InnertubeErrorKind =
+        response.status === 429
+          ? 'rate-limited'
+          : response.status === 401
+            ? 'unauthorized'
+            : response.status === 403
+              ? 'forbidden'
+              : response.status >= 500
+                ? 'server'
+                : 'http';
+      // Le format historique « innertube <status> » est conservé dans le
+      // MESSAGE (contrat de journalisation) ; la classification machine vit
+      // dans `kind` (V31).
+      throw new InnertubeError(
+        kind,
+        `innertube ${response.status}`,
+        response.status
+      );
     }
 
-    return await response.json();
+    try {
+      return await response.json();
+    } catch {
+      throw new InnertubeError(
+        'invalid',
+        'innertube a renvoyé un JSON invalide'
+      );
+    }
+  } catch (error) {
+    if (error instanceof InnertubeError) {
+      throw error;
+    }
+    // Annulation DEMANDÉE : jamais comptée comme panne.
+    if (isExternalAbort(error, externalSignal)) {
+      throw new InnertubeError('aborted', 'recherche YouTube annulée');
+    }
+    if (error instanceof Error && error.name === 'AbortError') {
+      throw new InnertubeError('timeout', 'innertube a expiré le délai');
+    }
+    throw new InnertubeError(
+      'network',
+      error instanceof Error ? error.message : 'network error'
+    );
   } finally {
     clearTimeout(timeout);
+    detach();
   }
 };
 
@@ -296,12 +370,17 @@ const itemToCandidate = (item: unknown): YouTubeSongCandidate | null => {
 /** Recherche YouTube Music : chaîne telle que fournie (artiste + titre). */
 export const searchYouTubeSongs = async (
   query: string,
-  limit = 12
+  limit = 12,
+  options: { signal?: AbortSignal } = {}
 ): Promise<YouTubeSongCandidate[]> => {
-  const json = await fetchJson(SEARCH_URL, {
-    context: { client: WEB_REMIX },
-    query,
-  });
+  const json = await fetchJson(
+    SEARCH_URL,
+    {
+      context: { client: WEB_REMIX },
+      query,
+    },
+    options.signal ? { signal: options.signal } : {}
+  );
 
   const root = asRecord(json);
   const contents = (root?.contents ?? null) as JsonValue;
@@ -346,12 +425,17 @@ export const searchYouTubeSongs = async (
 
 /** URL de flux audio direct (expirante ~6 h) pour un videoId, sinon null. */
 export const getYouTubeAudioStreamUrl = async (
-  videoId: string
+  videoId: string,
+  options: { signal?: AbortSignal } = {}
 ): Promise<string | null> => {
-  const json = await fetchJson(PLAYER_URL, {
-    context: { client: ANDROID_MUSIC },
-    videoId,
-  });
+  const json = await fetchJson(
+    PLAYER_URL,
+    {
+      context: { client: ANDROID_MUSIC },
+      videoId,
+    },
+    options.signal ? { signal: options.signal } : {}
+  );
 
   return pickAudioStreamUrl(json);
 };

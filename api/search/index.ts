@@ -8,13 +8,26 @@ export {
   SEARCH_HARD_LIMIT_MS,
   AUDIUS_SEARCH_LIMIT,
   BACKEND_SEARCH_LIMIT,
+  CONFIRMED_EMPTY_TTL_MS,
+  getSourceCircuitStates,
+  resetSourceCircuits,
+  SOURCE_CIRCUIT_MAX_FAILURES,
+  SOURCE_CIRCUIT_OPEN_MS,
 } from './progressiveSearch';
 export type {
   ProgressiveSearchUpdate,
   ProgressiveSearchHandle,
   ProgressiveSearchOptions,
   ProgressiveSearchSourceState,
+  ProgressiveSearchTimings,
 } from './progressiveSearch';
+export {
+  classifySourceError,
+  isSourceCircuitOpen,
+  recordSourceFailure,
+  recordSourceSuccess,
+} from './sourceCircuit';
+export type { GenericCircuitSource, SourceErrorVerdict } from './sourceCircuit';
 export {
   mergeAndRankResults,
   normalizeForSearch,
@@ -33,6 +46,7 @@ export {
   clearSearchCache,
   searchCacheSize,
   searchCacheEntryAgeMs,
+  searchCacheEntryTtlMs,
   DEFAULT_SEARCH_CACHE_TTL_MS,
   SEARCH_CACHE_MAX_ENTRIES,
 } from './searchResultsCache';

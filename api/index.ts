@@ -62,14 +62,24 @@ export {
   resetSpotifySearchCircuit,
   classifySpotifySearchError,
   SPOTIFY_SEARCH_CIRCUIT_TTL_MS,
+  // V31 — disjoncteurs génériques par source + vide confirmé + timings.
+  getSourceCircuitStates,
+  resetSourceCircuits,
+  SOURCE_CIRCUIT_MAX_FAILURES,
+  SOURCE_CIRCUIT_OPEN_MS,
+  CONFIRMED_EMPTY_TTL_MS,
+  searchCacheEntryTtlMs,
 } from './search';
 export type {
   ProgressiveSearchUpdate,
   ProgressiveSearchHandle,
   ProgressiveSearchOptions,
   ProgressiveSearchSourceState,
+  ProgressiveSearchTimings,
   SearchSourceId,
   SearchCacheEntry,
+  GenericCircuitSource,
+  SourceErrorVerdict,
 } from './search';
 
 // YouTube Music (source de catalogue V30 — lecture via le provider existant)

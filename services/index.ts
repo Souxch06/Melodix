@@ -124,6 +124,14 @@ export {
 } from './backend';
 export type { BackendErrorKind } from './backend';
 
+// V31 — état de connectivité (NetInfo), défensif : « en ligne » par défaut.
+export {
+  getIsOnline,
+  subscribeNetworkState,
+  resetNetworkStateForTests,
+  setNetworkStateForTests,
+} from './network/networkState';
+
 // Connexion Spotify (OAuth PKCE), session et client API officiel.
 export {
   getClientIdInfo,

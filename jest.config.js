@@ -39,6 +39,8 @@ module.exports = {
     '^expo-constants$': '<rootDir>/__mocks__/expo-constants.ts',
     // expo-clipboard (V24) : presse-papiers factice configurable par test.
     '^expo-clipboard$': '<rootDir>/__mocks__/expo-clipboard.ts',
+    // netinfo (V31) : connectivité simulée « en ligne » par défaut.
+    '^@react-native-community/netinfo$': '<rootDir>/__mocks__/netinfo.ts',
     '^@config$': '<rootDir>/config/index.ts',
     '^@api$': '<rootDir>/api/index.ts',
     // Alias présents dans tsconfig.json : sans eux, les suites qui chargent

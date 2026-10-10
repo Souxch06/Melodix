@@ -6,6 +6,9 @@ import {
 } from '../searchTracks';
 
 jest.mock('../../../services/audio/youtubeInnertube', () => ({
+  // Fonction PURE réelle : la porte éditoriale V31 doit être testée telle
+  // qu'elle est livrée (le reste du module réseau reste mocké).
+  ...jest.requireActual('../../../services/audio/youtubeInnertube'),
   searchYouTubeSongs: jest.fn(),
 }));
 

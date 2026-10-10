@@ -5,6 +5,9 @@ import {
   queueIdForTrackId,
 } from '@services';
 
+import { linkAbortSignals } from '../../utils/common/abortSignals';
+import { getIsOnline } from '../../services/network/networkState';
+
 import { audiusTrackToLibraryItem, searchAudiusTracks } from '../audius';
 import { backendSearchCatalog } from '../backend';
 import { searchSpotifyCatalogQuick } from '../spotify/search';
@@ -20,7 +23,15 @@ import {
   getSearchCacheTtlMs,
   putSearchCacheEntry,
   searchCacheEntryAgeMs,
+  searchCacheEntryTtlMs,
 } from './searchResultsCache';
+import {
+  classifySourceError,
+  isSourceCircuitOpen,
+  recordSourceFailure,
+  recordSourceSuccess,
+  type GenericCircuitSource,
+} from './sourceCircuit';
 import {
   mergeAndRankResults,
   normalizeForSearch,
@@ -28,6 +39,12 @@ import {
 } from './searchRanking';
 
 export { configureSearchCache, getSearchCacheTtlMs };
+export {
+  getSourceCircuitStates,
+  resetSourceCircuits,
+  SOURCE_CIRCUIT_MAX_FAILURES,
+  SOURCE_CIRCUIT_OPEN_MS,
+} from './sourceCircuit';
 
 /**
  * Recherche V30 — moteur PROGRESSIF.
@@ -81,11 +98,29 @@ export const SEARCH_HARD_LIMIT_MS = 9_000;
  * (stale-while-revalidate) tout en restant affichée immédiatement. */
 export const SEARCH_CACHE_REFRESH_RATIO = 0.5;
 
+/** V31 — durée de mémorisation d'un « vide confirmé » (toutes les sources
+ * saines ont répondu : aucun résultat EXISTE, ce n'est pas une panne). Court
+ * pour ne pas figer le retour d'une source et rester réactif au catalogue. */
+export const CONFIRMED_EMPTY_TTL_MS = 90_000;
+
 export type ProgressiveSearchSourceState =
   | 'pending'
   | 'done'
   | 'error'
-  | 'skipped';
+  | 'skipped'
+  /** V31 : écartée par son disjoncteur (panne récente répétée) — aucune
+   * requête réseau n'est partie pour elle pendant cette recherche. */
+  | 'circuit';
+
+/** V31 — mesures de temps (aucune requête journalisée, jamais d'URL). */
+export type ProgressiveSearchTimings = {
+  /** Durée totale de la recherche (dernier snapshot). */
+  totalMs: number;
+  /** Instant du PREMIER résultat non vide, si arrivé (relatif au départ). */
+  firstResultMs: number | null;
+  /** Durée individuelle de chaque source (settled), par source. */
+  perSourceMs: Partial<Record<SearchSourceId, number>>;
+};
 
 export type ProgressiveSearchUpdate = {
   /** Snapshot CUMULATIF fusionné/dédoublonné/classé (jamais un effacement). */
@@ -96,6 +131,15 @@ export type ProgressiveSearchUpdate = {
   failed: boolean;
   /** Sources réellement échouées (diagnostic UI discret, pas de journal). */
   failedSources: SearchSourceId[];
+  /** V31 : sources écartées par leur disjoncteur (aucune requête émise).
+   * Optionnel pour la compatibilité des producteurs historiques ; absent =
+   * aucune source disjonctée. */
+  circuitSources?: SearchSourceId[];
+  /** V31 : l'appareil était HORS LIGNE — aucune requête n'est partie ;
+   * l'UI affiche un état dédié (réseau), pas une panne de source. */
+  offline?: boolean;
+  /** V31 : timings du snapshot final uniquement (absent sinon). */
+  timings?: ProgressiveSearchTimings;
 };
 
 type SourceContributions = {
@@ -119,18 +163,25 @@ class SearchSourceTimeoutError extends Error {
   }
 }
 
+/**
+ * Budget de source. V31 : à l'expiration du budget, on ABORTE réellement la
+ * requête réseau sous-jacente via le signal de la course (avant, le
+ * `Promise.race` se contentait d'ignorer une requête qui continuait de
+ * tourner — consommation réseau et risques de réponses fantômes).
+ */
 const withSourceTimeout = async <T>(
   source: SearchSourceId,
   promise: Promise<T>,
-  timeoutMs: number
+  timeoutMs: number,
+  onBudgetExceeded: () => void
 ): Promise<T> => {
   let timer: ReturnType<typeof setTimeout> | undefined;
 
   const timeout = new Promise<never>((_, reject) => {
-    timer = setTimeout(
-      () => reject(new SearchSourceTimeoutError(source)),
-      timeoutMs
-    );
+    timer = setTimeout(() => {
+      onBudgetExceeded();
+      reject(new SearchSourceTimeoutError(source));
+    }, timeoutMs);
   });
 
   try {
@@ -152,6 +203,15 @@ type Run = {
   lastUpdate: ProgressiveSearchUpdate | null;
   settled: boolean;
   cancelled: boolean;
+  /** V31 : réessai explicite (« Réessayer ») — ignore les disjoncteurs. */
+  bypassCache: boolean;
+  /** V31 : annulation RÉELLE — propagée jusqu'aux fetch des clients. */
+  controller: AbortController;
+  startedAtMs: number;
+  firstResultAtMs: number | null;
+  sourceElapsedMs: Partial<Record<SearchSourceId, number>>;
+  /** V31 : l'appareil était hors ligne au lancement (aucune requête émise). */
+  offline: boolean;
 };
 
 const activeRuns = new Map<string, Run>();
@@ -201,6 +261,10 @@ const buildUpdate = (run: Run): ProgressiveSearchUpdate => {
     (source) => run.states[source] === 'error'
   );
 
+  const circuitSources = (Object.keys(run.states) as SearchSourceId[]).filter(
+    (source) => run.states[source] === 'circuit'
+  );
+
   // Dégradé = la session Spotify EXISTAIT mais n'a rien pu fournir (403,
   // panne, disjoncteur) alors que d'autres sources servent la recherche.
   // Le mode invité (pas de session) n'est PAS dégradé : Audius + YouTube
@@ -217,9 +281,46 @@ const buildUpdate = (run: Run): ProgressiveSearchUpdate => {
 
   const total = countResults(merged);
   const settled = !pending;
-  const failed = settled && total === 0 && failedSources.length > 0;
+  // Échec global : aucun résultat ET (au moins une panne OU toutes les
+  // sources actives écartées par leur disjoncteur — l'utilisateur doit
+  // pouvoir « Réessayer », ce qui sonde à nouveau les sources).
+  const allActiveCircuited =
+    circuitSources.length > 0 &&
+    failedSources.length === 0 &&
+    (Object.keys(run.states) as SearchSourceId[]).every(
+      (source) =>
+        run.states[source] === 'circuit' || run.states[source] === 'skipped'
+    );
+  const failed =
+    settled && total === 0 && (failedSources.length > 0 || allActiveCircuited);
 
-  return { results, pending, failed, failedSources };
+  const update: ProgressiveSearchUpdate = {
+    results,
+    pending,
+    failed,
+    failedSources,
+    circuitSources,
+    ...(run.offline ? { offline: true } : {}),
+  };
+
+  // Timings : uniquement au snapshot FINAL (jamais de requête journalisée).
+  if (settled) {
+    // Le premier résultat peut apparaître DANS ce snapshot final : l'instant
+    // est alors « maintenant » (l'enregistrement dans `emit` suit la construction).
+    const firstResultAtMs =
+      run.firstResultAtMs ?? (total > 0 ? Date.now() : null);
+
+    update.timings = {
+      totalMs: Math.max(0, Date.now() - run.startedAtMs),
+      firstResultMs:
+        firstResultAtMs !== null
+          ? Math.max(0, firstResultAtMs - run.startedAtMs)
+          : null,
+      perSourceMs: { ...run.sourceElapsedMs },
+    };
+  }
+
+  return update;
 };
 
 const emit = (run: Run): void => {
@@ -228,6 +329,11 @@ const emit = (run: Run): void => {
   }
 
   const update = buildUpdate(run);
+
+  if (run.firstResultAtMs === null && countResults(update.results) > 0) {
+    run.firstResultAtMs = Date.now();
+  }
+
   run.lastUpdate = update;
 
   for (const subscriber of [...run.subscribers]) {
@@ -244,7 +350,14 @@ const settleSource = (
   source: SearchSourceId,
   state: ProgressiveSearchSourceState
 ): void => {
+  // Une recherche déjà soldée (borne dure) n'accepte plus aucun règlement
+  // tardif : aucune émission supplémentaire après le snapshot final.
+  if (run.settled) {
+    return;
+  }
+
   run.states[source] = state;
+  run.sourceElapsedMs[source] = Math.max(0, Date.now() - run.startedAtMs);
   emit(run);
 
   const pending = (Object.keys(run.states) as SearchSourceId[]).some(
@@ -258,9 +371,29 @@ const settleSource = (
     const total = update ? countResults(update.results) : 0;
 
     // Cache : uniquement des réponses avec résultats — jamais une panne ni un
-    // « aucun résultat » (resservir un échec comme un résultat = interdit).
+    // « aucun résultat » (resservir un échec comme un résultat = interdit)…
     if (update && total > 0) {
       putSearchCacheEntry(run.cacheKey, update.results, Date.now());
+    } else if (update && total === 0) {
+      // …SAUF le « vide confirmé » V31 : TOUTES les sources ont répondu
+      // sainement (done/skipped) et aucune n'est en panne ni disjonctée →
+      // l'absence de résultat est un FAIT, pas un défaut de connexion. Il
+      // est mémorisé avec un TTL COURT (90 s) pour ne pas re-interroger le
+      // réseau à chaque frappe identique, sans figer le retour d'une source.
+      const states = Object.values(run.states);
+      const spotifyUnknown =
+        run.spotifySessionActive && run.states.spotify !== 'done';
+      const confirmedEmpty =
+        states.every((s) => s === 'done' || s === 'skipped') &&
+        states.some((s) => s === 'done') &&
+        !spotifyUnknown;
+
+      if (confirmedEmpty) {
+        putSearchCacheEntry(run.cacheKey, update.results, Date.now(), {
+          allowConfirmedEmpty: true,
+          ttlMsOverride: CONFIRMED_EMPTY_TTL_MS,
+        });
+      }
     }
 
     // Fin de course : la requête en vol partagée est libérée. Un léger délai
@@ -284,9 +417,10 @@ const spotifySource =
       return;
     }
 
-    if (isSpotifySearchCircuitOpen(nowMs)) {
+    if (!run.bypassCache && isSpotifySearchCircuitOpen(nowMs)) {
       // Refus 403 récent déjà constaté : la source est écartée sans refaire
       // d'appel (ni latence, ni fausse promesse, ni boucle de tentatives).
+      // « Réessayer » (bypassCache) force une nouvelle sonde.
       settleSource(run, 'spotify', 'skipped');
       return;
     }
@@ -295,7 +429,11 @@ const spotifySource =
       const found = await withSourceTimeout(
         'spotify',
         searchSpotifyCatalogQuick(run.query),
-        SOURCE_TIMEOUTS_MS.spotify
+        SOURCE_TIMEOUTS_MS.spotify,
+        () => {
+          // La pile Spotify n'accepte pas encore de signal externe : le
+          // budget échoit, la réponse tardive sera ignorée (état 'error').
+        }
       );
 
       run.contributions.spotify = {
@@ -306,41 +444,112 @@ const spotifySource =
       };
       settleSource(run, 'spotify', 'done');
     } catch (error) {
-      classifySpotifySearchError(error, Date.now());
-      settleSource(run, 'spotify', 'error');
+      // Ni annulation ni coupure locale ne doivent ouvrir le disjoncteur
+      // Spotify (403 dev-mode) : elles ne disent rien de l'accès au compte.
+      if (!run.cancelled && getIsOnline()) {
+        classifySpotifySearchError(error, Date.now());
+      } else if (!getIsOnline()) {
+        run.offline = true;
+      }
+      settleSource(run, 'spotify', run.cancelled ? 'skipped' : 'error');
     }
   };
 
+/** V31 — exécution d'une source à disjoncteur générique (audius/backend/
+ * youtube) : vérification du disjoncteur, signal d'annulation réel,
+ * classification de l'erreur (panne ≠ requête invalide ≠ annulation).
+ *
+ * Chaque source reçoit SON contrôleur, enfant du contrôleur de la course :
+ * - budget de la source dépassé → seul SON fetch est stoppé ;
+ * - annulation de la course (saisie suivante, démontage) → tous les enfants
+ *   s'arrêtent en cascade (via `linkAbortSignals`). */
+const withGenericCircuit =
+  (run: Run, source: GenericCircuitSource, nowMs: number) =>
+  (execute: (controller: AbortController) => Promise<void>): Promise<void> =>
+    (async () => {
+      if (!run.bypassCache && isSourceCircuitOpen(source, nowMs)) {
+        settleSource(run, source, 'circuit');
+        return;
+      }
+
+      // Contrôleur ENFANT de la course : l'annulation de la course (saisie
+      // suivante, démontage) coupe cette source ; l'expiration du budget de
+      // cette source ne coupe QU'ELLE (les autres continuent).
+      const sourceController = new AbortController();
+      const detach = linkAbortSignals(sourceController, run.controller.signal);
+
+      try {
+        await execute(sourceController);
+        recordSourceSuccess(source);
+        settleSource(run, source, 'done');
+      } catch (error) {
+        // Annulation (nouvelle saisie, budget, démontage) : JAMAIS comptée
+        // comme panne — pas d'éviction de nœud, pas d'ouverture de circuit.
+        if (run.cancelled || classifySourceError(error) === 'aborted') {
+          settleSource(run, source, 'skipped');
+          return;
+        }
+
+        // Coupure réseau locale : la source n'y est pour rien → pas de
+        // disjoncteur (le retour en ligne doit retrouver des sources saines).
+        const offlineNow = !getIsOnline();
+        if (offlineNow) {
+          run.offline = true;
+        }
+
+        if (classifySourceError(error) === 'failure' && !offlineNow) {
+          recordSourceFailure(source, Date.now());
+        } else if (classifySourceError(error) === 'benign') {
+          // Erreur bénigne (ex. 404) : la source répond → compteur remis à
+          // zéro ; la recherche n'a simplement rien trouvé de ce côté.
+          recordSourceSuccess(source);
+        }
+        settleSource(run, source, 'error');
+      } finally {
+        detach();
+      }
+    })();
+
 const audiusSource =
-  (run: Run): SourceFetcher =>
-  async () => {
-    try {
+  (run: Run, nowMs: number): SourceFetcher =>
+  () =>
+    withGenericCircuit(
+      run,
+      'audius',
+      nowMs
+    )(async (controller) => {
       const tracks = await withSourceTimeout(
         'audius',
-        searchAudiusTracks(run.query, AUDIUS_SEARCH_LIMIT),
-        SOURCE_TIMEOUTS_MS.audius
+        searchAudiusTracks(run.query, AUDIUS_SEARCH_LIMIT, {
+          signal: controller.signal,
+        }),
+        SOURCE_TIMEOUTS_MS.audius,
+        () => controller.abort()
       );
 
       run.contributions.audius.tracks = tracks.map(audiusTrackToLibraryItem);
-      settleSource(run, 'audius', 'done');
-    } catch {
-      settleSource(run, 'audius', 'error');
-    }
-  };
+    });
 
 const backendSource =
-  (run: Run): SourceFetcher =>
+  (run: Run, nowMs: number): SourceFetcher =>
   async () => {
     if (!isBackendConfigured()) {
       settleSource(run, 'backend', 'skipped');
       return;
     }
 
-    try {
+    await withGenericCircuit(
+      run,
+      'backend',
+      nowMs
+    )(async (controller) => {
       const found = await withSourceTimeout(
         'backend',
-        backendSearchCatalog(run.query, BACKEND_SEARCH_LIMIT),
-        SOURCE_TIMEOUTS_MS.backend
+        backendSearchCatalog(run.query, BACKEND_SEARCH_LIMIT, {
+          signal: controller.signal,
+        }),
+        SOURCE_TIMEOUTS_MS.backend,
+        () => controller.abort()
       );
 
       run.contributions.backend = {
@@ -349,38 +558,60 @@ const backendSource =
         albums: found.albums ?? [],
         playlists: found.playlists ?? [],
       };
-      settleSource(run, 'backend', 'done');
-    } catch {
-      settleSource(run, 'backend', 'error');
-    }
+    });
   };
 
 const youtubeSource =
-  (run: Run): SourceFetcher =>
-  async () => {
-    try {
+  (run: Run, nowMs: number): SourceFetcher =>
+  () =>
+    withGenericCircuit(
+      run,
+      'youtube',
+      nowMs
+    )(async (controller) => {
       const tracks = await withSourceTimeout(
         'youtube',
-        searchYouTubeTracks(run.query),
-        SOURCE_TIMEOUTS_MS.youtube
+        searchYouTubeTracks(run.query, undefined, {
+          signal: controller.signal,
+        }),
+        SOURCE_TIMEOUTS_MS.youtube,
+        () => controller.abort()
       );
 
       run.contributions.youtube.tracks = tracks;
-      settleSource(run, 'youtube', 'done');
-    } catch {
-      settleSource(run, 'youtube', 'error');
-    }
-  };
+    });
 
 const startRun = (run: Run, nowMs: number): void => {
-  void spotifySource(run, nowMs)();
-  void audiusSource(run)();
-  void backendSource(run)();
-  void youtubeSource(run)();
+  // V31 — HORS LIGNE : si l'appareil n'a pas de réseau au lancement, on
+  // n'émet AUCUNE requête (ni latence à attendre un timeout, ni disjoncteur
+  // de source ouvert pour une coupure locale). Toutes les sources passent en
+  // échec immédiatement et l'update porte `offline: true` pour que l'UI
+  // affiche un état réseau dédié (« vérifie ta connexion ») plutôt qu'une
+  // panne de source. Le bouton « Réessayer » relance normalement.
+  if (!getIsOnline()) {
+    run.offline = true;
+    (Object.keys(run.states) as SearchSourceId[]).forEach((source) => {
+      run.states[source] = 'error';
+      run.sourceElapsedMs[source] = 0;
+    });
+    emit(run);
+    run.settled = true;
+    if (activeRuns.get(run.cacheKey) === run) {
+      activeRuns.delete(run.cacheKey);
+    }
+    return;
+  }
 
-  // Ceinture : même si une source ignorait son budget, la recherche solde.
+  void spotifySource(run, nowMs)();
+  void audiusSource(run, nowMs)();
+  void backendSource(run, nowMs)();
+  void youtubeSource(run, nowMs)();
+
+  // Ceinture : même si une source ignorait son budget, la recherche solde —
+  // et V31 coupe RÉELLEMENT les requêtes encore en vol.
   setTimeout(() => {
     if (!run.settled && !run.cancelled) {
+      run.controller.abort();
       (Object.keys(run.states) as SearchSourceId[]).forEach((source) => {
         if (run.states[source] === 'pending') {
           run.states[source] = 'error';
@@ -452,9 +683,10 @@ export const searchCatalogProgressive = (
           pending: false,
           failed: false,
           failedSources: [],
+          circuitSources: [],
         });
 
-        const ttl = getSearchCacheTtlMs();
+        const ttl = searchCacheEntryTtlMs(cached);
         const age = searchCacheEntryAgeMs(cached, nowMs);
 
         // Entrée encore jeune : rien de plus à faire.
@@ -497,6 +729,12 @@ export const searchCatalogProgressive = (
         lastUpdate: null,
         settled: false,
         cancelled: false,
+        bypassCache: Boolean(options.bypassCache),
+        controller: new AbortController(),
+        startedAtMs: nowMs,
+        firstResultAtMs: null,
+        sourceElapsedMs: {},
+        offline: false,
       };
 
       run = created;
@@ -535,12 +773,12 @@ export const searchCatalogProgressive = (
 
       target.subscribers.delete(onUpdate);
 
-      // Plus personne n'écoute cette course : ses résultats sont jetés à
-      // l'arrivée (les requêtes réseau en cours ne sont pas abortables via
-      // les clients existants — limite documentée ; l'écran n'est JAMAIS
-      // atteint par une réponse annulée).
+      // Plus personne n'écoute cette course : V31 coupe RÉELLEMENT les
+      // requêtes réseau en vol (signal propagé aux clients), puis jette la
+      // course. Une annulation n'est jamais comptée comme une panne.
       if (target.subscribers.size === 0) {
         target.cancelled = true;
+        target.controller.abort();
         if (activeRuns.get(target.cacheKey) === target) {
           activeRuns.delete(target.cacheKey);
         }
@@ -553,6 +791,7 @@ export const searchCatalogProgressive = (
 export const resetProgressiveSearchEngine = (): void => {
   for (const run of activeRuns.values()) {
     run.cancelled = true;
+    run.controller.abort();
     run.subscribers.clear();
   }
   activeRuns.clear();

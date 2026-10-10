@@ -20,6 +20,13 @@ export const SEARCH_CACHE_MAX_ENTRIES = 50;
 export type SearchCacheEntry = {
   results: SearchResultsModel;
   storedAtMs: number;
+  /**
+   * V31 — TTL propre à l'entrée (défaut : TTL global). Utilisé pour le
+   * « vide confirmé » : un résultat VIDE obtenu avec toutes les sources
+   * saines est mémorisé, mais beaucoup moins longtemps qu'un résultat
+   * rempli (l'absence peut être démentie par un retour de source).
+   */
+  ttlMs?: number;
 };
 
 let ttlMs = DEFAULT_SEARCH_CACHE_TTL_MS;
@@ -51,7 +58,9 @@ export const getSearchCacheEntry = (
     return null;
   }
 
-  if (ttlMs <= 0 || nowMs - entry.storedAtMs > ttlMs) {
+  const effectiveTtlMs = entry.ttlMs ?? ttlMs;
+
+  if (effectiveTtlMs <= 0 || nowMs - entry.storedAtMs > effectiveTtlMs) {
     entries.delete(key);
     return null;
   }
@@ -69,14 +78,29 @@ export const searchCacheEntryAgeMs = (
   nowMs: number
 ): number => Math.max(0, nowMs - entry.storedAtMs);
 
+/** TTL effectif d'une entrée (le sien, sinon le TTL global courant). */
+export const searchCacheEntryTtlMs = (entry: SearchCacheEntry): number =>
+  entry.ttlMs ?? ttlMs;
+
 /**
- * Écriture : uniquement des résultats exploitables (au moins un item dans une
- * section). LRU : l'insertion la plus ancienne au-delà du plafond est évincée.
+ * Écriture.
+ *
+ * Par défaut : uniquement des résultats exploitables (au moins un item dans
+ * une section) — une panne n'est jamais resservie comme un résultat.
+ *
+ * V31 — `allowConfirmedEmpty` : le moteur PEUT mémoriser un résultat VIDE
+ * quand toutes les sources ont répondu sainement (« vide confirmé »). Cette
+ * entrée reçoit alors un TTL court (`ttlMsOverride`) pour ne pas figer un
+ * éventuel retour de source, et reste distinguable d'une panne (le moteur ne
+ * l'écrit QUE si aucune source n'est en échec).
+ *
+ * LRU : l'insertion la plus ancienne au-delà du plafond est évincée.
  */
 export const putSearchCacheEntry = (
   key: string,
   results: SearchResultsModel,
-  nowMs: number
+  nowMs: number,
+  options: { allowConfirmedEmpty?: boolean; ttlMsOverride?: number } = {}
 ): void => {
   if (ttlMs <= 0) {
     return;
@@ -88,12 +112,18 @@ export const putSearchCacheEntry = (
     results.albums.length > 0 ||
     results.playlists.length > 0;
 
-  if (!hasAnything) {
+  if (!hasAnything && !options.allowConfirmedEmpty) {
     return;
   }
 
   entries.delete(key);
-  entries.set(key, { results, storedAtMs: nowMs });
+  entries.set(key, {
+    results,
+    storedAtMs: nowMs,
+    ...(options.ttlMsOverride !== undefined
+      ? { ttlMs: options.ttlMsOverride }
+      : {}),
+  });
 
   while (entries.size > SEARCH_CACHE_MAX_ENTRIES) {
     const oldest = entries.keys().next();
