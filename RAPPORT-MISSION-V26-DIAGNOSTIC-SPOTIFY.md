@@ -14,15 +14,15 @@
 
 ## 1. HEAD initial / HEAD final
 
-| Champ                            | Valeur                                                                                       |
-| -------------------------------- | -------------------------------------------------------------------------------------------- |
-| HEAD initial (référence mission) | `178edb0739fc3dfd0717c3392993f9d821012154` (fin V25)                                         |
-| Commit V26 (tests)               | `d49cae9`                                                                                    |
-| HEAD final — rapport             | dernier commit de la branche (`git log -1`) : ce rapport y est inclus                        |
-| `main`                           | `fceab85950b069edcb65ed718a8ffd419a1bc785` — **INTACTE** (aucune écriture, aucun merge)      |
-| PR #6                            | **OPEN**, **MERGEABLE**, head = `arena/fcdae8c6-melodix`, base = `main` — **non fusionnée**  |
-| Taille de la PR                  | 104 commits / 323 fichiers (+55 985 / −3 310) vs `main` (`git rev-list --count`)             |
-| Version app                      | `4.5.0-test.30` / `versionCode 45030` — **inchangée** (aucun code applicatif modifié en V26) |
+| Champ                            | Valeur                                                                                                                                                                                             |
+| -------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| HEAD initial (référence mission) | `178edb0739fc3dfd0717c3392993f9d821012154` (fin V25)                                                                                                                                               |
+| Commit V26 (tests)               | `d49cae9`                                                                                                                                                                                          |
+| HEAD final — rapport             | `c10a9488a0a824b3983e9c015243df095ce2c68b` (ce rapport ; vérifié sur le distant en V26.1)                                                                                                          |
+| `main`                           | `fceab85950b069edcb65ed718a8ffd419a1bc785` — **INTACTE** (aucune écriture, aucun merge)                                                                                                            |
+| PR #6                            | **OPEN**, **MERGEABLE**, head = `arena/fcdae8c6-melodix`, base = `main` — **non fusionnée**                                                                                                        |
+| Taille de la PR                  | **150 commits / 324 fichiers (+56 242 / −3 310)** vs `main` — **métadonnées GitHub de la PR** (API `pulls/6`, relues le 2026-10-10 ; le décompte GitHub inclut l'historique complet de la branche) |
+| Version app                      | `4.5.0-test.30` / `versionCode 45030` — **inchangée** (aucun code applicatif modifié en V26)                                                                                                       |
 
 **Note sandbox** : au démarrage de la mission, le workspace local avait été réinitialisé par
 le sandbox vers un commit antérieur (8ᵉ occurrence) ; l'inspection du worktree a montré
@@ -151,11 +151,16 @@ aucun vrai compte contacté, aucune simulation présentée comme test réel de l
 ## 6. Workflow (CI)
 
 - **Workflow** : **« APK Android »** — `.github/workflows/android-apk.yml`.
-- **URL du run du HEAD final** :
-  `https://github.com/Souxch06/Melodix/actions/runs/38039240422` (head `d49cae9`).
-- **Statut / conclusion** : **`success`** (`completed`) — **aucune étape non verte**
-  (toutes `success`/`skipped`) : config Spotify du build (déterministe), tsc/ESLint/
-  Prettier, Jest, Robolectric, build Gradle, alignement 16 Kio + signature,
+- **Deux runs SUCCESS distincts à distinguer** (même version `4.5.0-test.30`) :
+  - **Run `38039240422`** — head **`d49cae9`** (commit V26 tests) →
+    `https://github.com/Souxch06/Melodix/actions/runs/38039240422` — **`success`** ;
+    artefact `Melodix-v4.5.0-test.30-d49cae9.apk` (47 051 116 o).
+  - **Run `38040043658`** — head **`c10a948`** (**HEAD final**, commit rapport V26) →
+    `https://github.com/Souxch06/Melodix/actions/runs/38040043658` — **`success`** ;
+    artefact `Melodix-v4.5.0-test.30-c10a948.apk` (47 051 116 o).
+- **Statut / conclusion des deux runs** : **`success`** (`completed`) — **aucune étape non
+  verte** (toutes `success`/`skipped`) : config Spotify du build (déterministe),
+  tsc/ESLint/Prettier, Jest, Robolectric, build Gradle, alignement 16 Kio + signature,
   intégrité/installabilité, smoke émulateur Android 14, diagnostic OAuth (build de test),
   publication de l'artefact.
 - **Runs antérieurs verts (mêmes versions)** : `37994878862` (code V25 `ea730be`) et
@@ -165,11 +170,12 @@ aucun vrai compte contacté, aucune simulation présentée comme test réel de l
 
 ## 7. APK
 
-| Artefact                             | Version / versionCode | Taille           | Disponibilité                                      |
-| ------------------------------------ | --------------------- | ---------------- | -------------------------------------------------- |
-| `Melodix-v4.5.0-test.30-d49cae9.apk` | 4.5.0-test.30 / 45030 | **47 051 116 o** | artefact du run `38039240422` (**HEAD final V26**) |
-| `Melodix-v4.5.0-test.30-178edb0.apk` | 4.5.0-test.30 / 45030 | 47 051 117 o     | artefact du run `37996663601` (HEAD V25)           |
-| `Melodix-v4.5.0-test.30-ea730be.apk` | 4.5.0-test.30 / 45030 | 47 051 114 o     | artefact du run `37994878862` (code V25)           |
+| Artefact                             | Version / versionCode | Taille           | Disponibilité                                              |
+| ------------------------------------ | --------------------- | ---------------- | ---------------------------------------------------------- |
+| `Melodix-v4.5.0-test.30-c10a948.apk` | 4.5.0-test.30 / 45030 | **47 051 116 o** | artefact du run `38040043658` (**HEAD final `c10a948`**)   |
+| `Melodix-v4.5.0-test.30-d49cae9.apk` | 4.5.0-test.30 / 45030 | **47 051 116 o** | artefact du run `38039240422` (commit V26 tests `d49cae9`) |
+| `Melodix-v4.5.0-test.30-178edb0.apk` | 4.5.0-test.30 / 45030 | 47 051 117 o     | artefact du run `37996663601` (HEAD V25)                   |
+| `Melodix-v4.5.0-test.30-ea730be.apk` | 4.5.0-test.30 / 45030 | 47 051 114 o     | artefact du run `37994878862` (code V25)                   |
 
 - **Vérification version/versionCode** : les pins du workflow (`EXPECTED_VERSION_CODE
 45030` / `EXPECTED_VERSION_NAME 4.5.0-test.30`) sont **synchronisés** avec
