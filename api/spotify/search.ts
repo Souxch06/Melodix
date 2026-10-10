@@ -198,6 +198,43 @@ export type SpotifySearchResults = {
   playlists: LibraryItemModel[];
 };
 
+/**
+ * V30 — variante RAPIDE (page unique) de la recherche Spotify, pour
+ * l'affichage interactif. La pagination profonde de `searchSpotifyCatalog`
+ * (jusqu'à 101 pages en vagues parallèles) est précieuse pour la complétude
+ * du matcher, mais elle faisait attendre TOUTES les pages avant d'afficher
+ * le premier résultat : ici, UNE seule requête (10 pistes + artistes/albums/
+ * playlists) — les premiers résultats Spotify arrivent en une latence réseau,
+ * et la recherche progressive (api/search/progressiveSearch) ne bloque plus
+ * jamais dessus.
+ */
+export const searchSpotifyCatalogQuick = async (
+  query: string
+): Promise<SpotifySearchResults> => {
+  const q = query.trim();
+
+  if (!q) {
+    return { tracks: [], artists: [], albums: [], playlists: [] };
+  }
+
+  const first = await fetchSearchPage(q, MAX_PER_TYPE, 0);
+
+  return {
+    tracks: items(first.tracks)
+      .map(trackToLibraryItem)
+      .filter((item): item is LibraryItemModel => Boolean(item)),
+    artists: items(first.artists)
+      .map(artistToLibraryItem)
+      .filter((item): item is LibraryItemModel => Boolean(item)),
+    albums: items(first.albums)
+      .map(albumToLibraryItem)
+      .filter((item): item is LibraryItemModel => Boolean(item)),
+    playlists: items(first.playlists)
+      .map(playlistToLibraryItem)
+      .filter((item): item is LibraryItemModel => Boolean(item)),
+  };
+};
+
 type SpotifyImage = { url?: string }[] | null;
 
 type SpotifyArtistRef = { id?: string; name?: string } | null;

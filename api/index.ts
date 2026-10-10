@@ -33,6 +33,51 @@ export {
 } from './recommendations';
 
 export { getBrowseCategories, SEARCH_LIMIT, searchCatalog } from './search';
+export {
+  searchCatalogProgressive,
+  resetProgressiveSearchEngine,
+  playableQueueIdOf,
+  SOURCE_TIMEOUTS_MS,
+  SEARCH_HARD_LIMIT_MS,
+  AUDIUS_SEARCH_LIMIT,
+  BACKEND_SEARCH_LIMIT,
+  mergeAndRankResults,
+  normalizeForSearch,
+  rankItems,
+  dedupeItems,
+  matchScore,
+  trackDedupeKey,
+  SEARCH_SOURCE_PRIORITY,
+  configureSearchCache,
+  getSearchCacheTtlMs,
+  getSearchCacheEntry,
+  putSearchCacheEntry,
+  clearSearchCache,
+  searchCacheSize,
+  searchCacheEntryAgeMs,
+  DEFAULT_SEARCH_CACHE_TTL_MS,
+  SEARCH_CACHE_MAX_ENTRIES,
+  isSpotifySearchCircuitOpen,
+  openSpotifySearchCircuit,
+  resetSpotifySearchCircuit,
+  classifySpotifySearchError,
+  SPOTIFY_SEARCH_CIRCUIT_TTL_MS,
+} from './search';
+export type {
+  ProgressiveSearchUpdate,
+  ProgressiveSearchHandle,
+  ProgressiveSearchOptions,
+  ProgressiveSearchSourceState,
+  SearchSourceId,
+  SearchCacheEntry,
+} from './search';
+
+// YouTube Music (source de catalogue V30 — lecture via le provider existant)
+export {
+  searchYouTubeTracks,
+  youtubeTrackToLibraryItem,
+  YOUTUBE_SEARCH_LIMIT,
+} from './youtube';
 
 export { SEE_ALL_KINDS, SEE_ALL_SOURCES, isSeeAllKind } from './seeAll';
 export type {

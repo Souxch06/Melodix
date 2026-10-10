@@ -23,7 +23,19 @@ import { AUDIUS_APP_NAME, AUDIUS_HOST_CACHE_KEY } from './constants';
  * Spotify mode is not affected.
  */
 
-const REQUEST_TIMEOUT_MS = 12000;
+// V30 : 6 s par requête nœud (12 s auparavant). Le moteur de recherche
+// progressive borne de toute façon la source Audius à 7,5 s : un nœud plus
+// lent que cela ne peut PAS être attendu sans bloquer l'affichage des autres
+// sources. Le flux audio n'est pas affecté (URL construite, pas fetchée ici).
+const REQUEST_TIMEOUT_MS = 6000;
+
+// V30 : budget « premier contact » du registre de nœuds. Avant, la PREMIÈRE
+// requête sans nœud en cache attendait le registre jusqu'au timeout complet
+// (12 s) avant même d'interroger un nœud — une des causes des recherches à
+// ~20 s. Désormais : le registre a 1,5 s pour répondre ; sinon la requête
+// part immédiatement sur les nœuds de repli, et la réponse tardive du
+// registre (si elle arrive) alimente les requêtes SUIVANTES.
+const REGISTRY_FAST_BUDGET_MS = 1500;
 
 export const AUDIUS_GATEWAY_URL = 'https://api.audius.co';
 
@@ -115,26 +127,59 @@ export const fetchJson = async (
   }
 };
 
+const parseRegistryHosts = (payload: unknown): string[] => {
+  const data = (payload as { data?: unknown } | null)?.data;
+
+  if (!Array.isArray(data)) {
+    return [];
+  }
+
+  return data.map(trimHost).filter((host) => host.startsWith('https://'));
+};
+
 const fetchDiscoveryHosts = async (): Promise<string[]> => {
+  // The registry endpoint answers `{ data: ["https://…", …] }`.
+  const registryLookup = (async (): Promise<string[]> => {
+    const payload = await fetchJson(AUDIUS_GATEWAY_URL);
+    return parseRegistryHosts(payload);
+  })();
+
+  let timer: ReturnType<typeof setTimeout> | undefined;
+
   try {
-    // The registry endpoint answers `{ data: ["https://…", …] }`.
-    const payload = (await fetchJson(AUDIUS_GATEWAY_URL)) as {
-      data?: unknown;
-    };
+    // Voie RAPIDE : le registre a un budget borné. S'il répond à temps, sa
+    // liste fait foi (comportement historique, verrouillé par les tests).
+    const fast = await Promise.race([
+      registryLookup.then((hosts) => hosts).catch(() => null),
+      new Promise<null>((resolve) => {
+        timer = setTimeout(() => resolve(null), REGISTRY_FAST_BUDGET_MS);
+      }),
+    ]);
 
-    if (Array.isArray(payload?.data)) {
-      const hosts = payload.data
-        .map(trimHost)
-        .filter((host) => host.startsWith('https://'));
-
-      if (hosts.length) {
-        discoveredHosts = hosts;
-        return hosts;
-      }
+    if (fast && fast.length) {
+      discoveredHosts = fast;
+      return fast;
     }
   } catch (error) {
     console.warn('Audius node registry unreachable, using fallbacks', error);
+  } finally {
+    if (timer !== undefined) {
+      clearTimeout(timer);
+    }
   }
+
+  // Budget dépassé ou registre muet : la requête part sur les replis SANS
+  // attendre. Si le registre répond plus tard, sa liste servira aux requêtes
+  // suivantes (aucun résultat perdu, aucune seconde requête registre).
+  void registryLookup
+    .then((hosts) => {
+      if (hosts.length) {
+        discoveredHosts = hosts;
+      }
+    })
+    .catch(() => {
+      // Déjà signalé par la voie rapide : rien de plus à faire.
+    });
 
   return FALLBACK_HOSTS;
 };
