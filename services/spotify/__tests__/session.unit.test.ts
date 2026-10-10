@@ -157,6 +157,90 @@ describe('services/spotify/session (SecureStore)', () => {
     expect(calls).toBe(1);
   });
 
+  it('V28 — un refresh lent né d’une session périmée n’écrase JAMAIS une session plus récente (garde anti-course)', async () => {
+    // Scénario réel : pendant qu'un refresh est EN VOL (déclenché sur la
+    // session expirée), l'utilisateur se reconnecte — l'échange PKCE écrit
+    // une session FRAÎCHE dans le coffre. Sans garde, la fin du refresh
+    // réécrirait le coffre avec le résultat du token périmé : l'ancien token
+    // reviendrait hanter la session neuve.
+    await saveSession(expiredSession());
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const fetchMock = jest.fn(async () => {
+      await gate;
+      return {
+        ok: true,
+        json: async () => ({
+          access_token: 'access-refreshed',
+          expires_in: 3600,
+        }),
+      } as Response;
+    });
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
+
+    const inFlight = refreshAccessTokenClassified();
+    // Laisse le refresh démarrer jusqu'à son appel fetch (microtâches).
+    while (fetchMock.mock.calls.length === 0) {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    }
+
+    // La reconnexion gagne pendant que le refresh attend sa réponse :
+    await saveSession({
+      accessToken: 'access-newer',
+      refreshToken: 'refresh-newer',
+      expiresAtMs: Date.now() + 3600_000,
+      scope: 'user-read-private',
+    });
+
+    release();
+    const result = await inFlight;
+
+    // Le caller reçoit quand même un token exploitable (pas de crash, pas de
+    // null) MAIS le coffre garde la session LA PLUS RÉCENTE :
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.token).toBe('access-refreshed');
+    }
+    const stored = await loadSession();
+    expect(stored?.accessToken).toBe('access-newer');
+    expect(stored?.refreshToken).toBe('refresh-newer');
+  });
+
+  it('V28 — échange dune NOUVELLE connexion écrase lancienne session : le token ensuite servi est le FRAIS', async () => {
+    // Un échange réussi persiste la session neuve ; toute lecture suivante
+    // (dont l'appel /v1/me qui suit immédiatement dans le flux login) doit
+    // recevoir le token FRAIS, jamais l'ancien resté au coffre.
+    await saveSession({
+      accessToken: 'access-STALE',
+      refreshToken: 'refresh-STALE',
+      expiresAtMs: Date.now() + 3600_000,
+      scope: 'user-read-private',
+    });
+    globalThis.fetch = jest.fn(async () => ({
+      ok: true,
+      json: async () => ({
+        access_token: 'access-FRESH',
+        refresh_token: 'refresh-FRESH',
+        expires_in: 3600,
+      }),
+    })) as unknown as typeof fetch;
+
+    const outcome = await redeemAuthorizationCode({
+      code: 'code-x',
+      codeVerifier: 'verifier-x',
+      redirectUri: 'melodix://callback',
+    });
+
+    expect(outcome.kind).toBe('ok');
+    const stored = await loadSession();
+    expect(stored?.accessToken).toBe('access-FRESH');
+    // Token PAS expiré → servi tel quel : c'est bien le NEUF qui part sur
+    // /v1/me (aucune réutilisation de access-STALE possible).
+    await expect(getValidAccessToken()).resolves.toBe('access-FRESH');
+  });
+
   it('refresh refusé → null (session invalide propagée proprement)', async () => {
     await saveSession(expiredSession());
     globalThis.fetch = jest.fn(async () => ({
