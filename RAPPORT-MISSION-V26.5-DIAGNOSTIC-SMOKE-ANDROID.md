@@ -78,11 +78,28 @@ complet) :
 1. **Le message final cité dans l'énoncé de la mission est une fausse piste.**
    « handshake non prêt (codes: bridge_timeout) — aucune capacité de lecture
    revendiquée » est émis en `::warning` par la section « hôte de production »
-   du smoke, et **ce warning figure à l'identique dans les runs verts**
-   `38051128062` (557d8f7) et `38057481568` (46e6650) — c'est le comportement
-   honnête attendu sans compte Spotify en CI (la section 2 du script l'accepte
-   explicitement : « Attendu sans compte »). Le bridge n'a donc « jamais été »
-   la cause de l'exit 1.
+   du smoke. Preuve V26.6 — lignes BRUTES des quatre logs de job GitHub :
+   | Run | Résultat du run | Ligne brute du log |
+   | --- | --- | --- |
+   | `38051128062` (vert, `557d8f7`) | success | `2026-10-10T12:26:58.5749898Z ##[warning]handshake non prêt (codes: bridge_timeout) — …` |
+   | `38057481568` (vert, `46e6650`) | success | `2026-10-10T14:08:15.3060567Z ##[warning]handshake non prêt (codes: bridge_timeout) — …` |
+   | `38059652388` (rouge, `e30461a`) | failure | `2026-10-10T14:42:07.5239640Z ##[warning]handshake non prêt (codes: bridge_timeout) — …` ; l'unique `##[error]` bloquant est `2026-10-10T14:44:08.6315051Z ##[error]écran de diagnostic Spotify Web absent après deep link (16 dumps)` |
+   | `38063512026` (vert post-fix, `d8dbc7a`) | success | `2026-10-10T15:36:08.6861830Z ##[warning]handshake non prêt (codes: bridge_timeout) — …` |
+
+   **Conclusion V26.6 : le message apparaît en `##[warning]` dans les QUATRE
+   runs (y compris les trois verts) et comme erreur bloquante dans AUCUN.**
+   C'est le comportement honnête attendu sans compte Spotify en CI (la section
+   2 du script l'accepte explicitement : « Attendu sans compte »). Le bridge
+   n'a donc jamais été la cause de l'exit 1. **Erreur documentaire relevée en
+   V26.6** : le message du commit `d8dbc7a` contient la phrase
+   « absent de tout run vert précédent », qui contredit les logs ci-dessus
+   (le warning EST présent dans les runs verts) ; le sens général du commit
+   (warning non bloquant ≠ cause de l'échec) reste exact. Le commit étant
+   immuable et l'historique partagé ne devant pas être réécrit, la correction
+   figure ici même et dans le §9. Le corps de la PR #8 et le présent rapport
+   disaient déjà la vérité (« présent aussi dans les runs verts ») — aucune
+   correction requise de leur fait.
+
 2. **L'émulateur n'était pas en cause au sens « pas prêt »** : boot 51,5 s,
    installations réussies dès le 1ᵉʳ essai (pas d'OOM), lancement confirmé,
    processus vivant (`pid=4281` présent y compris après le deep link warm),
@@ -243,6 +260,50 @@ Aucun risque d'atteindre le timeout du job ; aucune autre étape n'est modifiée
    `pull_request` de la PR #6 sur `arena/fcdae8c6-melodix` restent la référence
    pour le code produit (inchangé ici).
 
+## 9. Vérification finale V26.6 (10/10/2026)
+
+État vérifié point par point via l'API GitHub (`gh api`), indépendamment des
+annonces des missions précédentes :
+
+- **Contradiction documentaire** : résolue au §3 point 1 (tableau des lignes
+  brutes des quatre logs de job). Verdict : `bridge_timeout` est un
+  **avertissement non bloquant présent dans les QUATRE runs** (les trois verts
+  `38051128062`, `38057481568`, `38063512026` ET le run rouge
+  `38059652388`) ; c'est l'unique `##[error]` du run rouge — la sonde d'écran
+  « (16 dumps) » — qui était bloquante, et elle a disparu au run suivant. Le
+  seul énoncé faux retrouvé est une phrase du message du commit `d8dbc7a`
+  (« absent de tout run vert précédent »). Ce commit étant immuable et la
+  réécriture d'historique partagé proscrite, l'erratum est consigné ici (et
+  devra être reporté dans la description de la révision fusionnée de la
+  PR #8). Le corps de la PR #8 — relu après son amendement V26.5 — dit la
+  vérité (« présent aussi dans les runs verts ») : **aucune correction du
+  corps de la PR n'était requise**, et le rapport était déjà conforme sur ce
+  point ; l'amendement V26.6 se borne à y ajouter la preuve brute et ce §9.
+- **État distant vérifié** : `arena/9dadfbee-melodix` HEAD `ffcb25c` à la
+  date de vérification (travail de mission intact ; le présent amendement
+  documentaire V26.6 s'y ajoute sans toucher au code) ;
+  `arena/fcdae8c6-melodix` HEAD `e30461a` (inchangée ;
+  PR #6 `open`, `merged=false` — jamais fusionnée dans main) ; `main` =
+  `fceab85950b069edcb65ed718a8ffd419a1bc785` inchangé (comparaison
+  `git ls-remote`) ; PR #8 `open`, base `arena/fcdae8c6-melodix`, head
+  `ffcb25c`, `mergeable_state` clean.
+- **Diff de la PR #8 borné au harnais + documentation** (`pulls/8/files`) :
+  exactement 2 fichiers — `scripts/smoke-test-android-apk.sh` (+326 −7) et le
+  présent rapport (+281 au commit `ffcb25c`). Aucun fichier produit (JS/TS,
+  natif, config Expo, workflow, secrets) touché.
+- **Validation finale reconfirmée** : run `38063512026` `completed`/`success`
+  sur head `d8dbc7a`, étape 21 (« Smoke test émulateur + preuve du contrat de
+  garde-fous ») SUCCESS en 199 s ; run documentation `38064876714` `success`.
+  Aucune suite relancée inutilement ; aucun défaut de code produit démontré
+  → aucun changement de comportement produit.
+- **Recommandation** : **PR #8 prête à être fusionnée dans la branche de
+  travail `arena/fcdae8c6-melodix`** — en gardant la main sur la fusion (cette
+  mission ne fusionne rien, ne touche jamais `main`). Réserves inchangées du
+  §8 : téléphone réel non testé ; la fenêtre élargie n'a pas eu à s'exercer
+  contre un runner aussi lent que celui du run rouge (le run vert s'est joué
+  en 199 s, boucle rompue dès les premières itérations) ; la famine JS du
+  WebView reste une inférence forte et instrumentée, pas une preuve directe.
+
 ## Bilan
 
 **Corrigé et validé** — au périmètre honnête de la mission :
@@ -279,3 +340,7 @@ Aucun risque d'atteindre le timeout du job ; aucune autre étape n'est modifiée
   fusionnée** (base = branche de travail, jamais `main`) ; aucun secret ;
   aucune saisie manuelle de Client ID ; cascade Audius → YouTube intacte ;
   lecture Spotify Web expérimentale toujours désactivée par défaut.
+
+---
+
+_Rapport V26.5 — généré le 10/10/2026 ; §9 et preuve brute des quatre runs ajoutés lors de la vérification finale V26.6 (même jour), après redémarrage du bac à sable — dépôt retrouvé intact, HEAD `ffcb25c` vérifié contre `git ls-remote`._
