@@ -14,16 +14,18 @@
 
 ## 1. HEAD initial / HEAD final
 
-| Champ                              | Valeur                                                                                                                                                                                                                                                                                                                                                                                                                                                |
-| ---------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| HEAD initial (référence mission)   | `178edb0739fc3dfd0717c3392993f9d821012154` (fin V25)                                                                                                                                                                                                                                                                                                                                                                                                  |
-| Commit V26 (tests)                 | `d49cae9`                                                                                                                                                                                                                                                                                                                                                                                                                                             |
-| Commit V26.1 (corrections)         | `b979ba8f38269b3ee378ddc8541a504259112807` (HEAD V26.1, confirmé par l'audit GitHub de V26.2 ; run CI `38043068453` `success`)                                                                                                                                                                                                                                                                                                                        |
-| HEAD final — rapport               | le commit **V26.2** (ce rapport) : successeur de `b979ba8` — l'auto-référence SHA est impossible dans son propre commit ; SHA à lire via `git log -1` sur la branche après cette synchro                                                                                                                                                                                                                                                              |
-| `main`                             | `fceab85950b069edcb65ed718a8ffd419a1bc785` — **INTACTE** (aucune écriture, aucun merge ; SHA re-vérifiée auprès de GitHub le 2026-10-10)                                                                                                                                                                                                                                                                                                              |
-| PR #6                              | **OPEN**, **MERGEABLE**, head = `arena/fcdae8c6-melodix`, base = `main` — **non fusionnée** (re-vérifié via API `pulls/6` le 2026-10-10)                                                                                                                                                                                                                                                                                                              |
-| Taille de la PR (chiffres actuels) | **151 commits / 324 fichiers (+56 248 / −3 310)** vs `main` — page GitHub de la PR, relue le 2026-10-10 (V26.2) ; `commits=151` et `changed_files=324` re-vérifiés via API `pulls/6` et API `compare` (`total_commits=151`, ahead, behind_by=0). Transparence : la somme par fichier de l'API `pulls/6/files` donne +49 238 / −3 240 — écart de décompte GitHub connu entre la page et l'API (fichiers binaires/générés) ; **aucune valeur inventée** |
-| Version app                        | `4.5.0-test.30` / `versionCode 45030` — **inchangée** (aucun code applicatif modifié en V26/V26.1/V26.2)                                                                                                                                                                                                                                                                                                                                              |
+| Champ                              | Valeur                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| HEAD initial (référence mission)   | `178edb0739fc3dfd0717c3392993f9d821012154` (fin V25)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| Commit V26 (tests)                 | `d49cae9042ab371c93ed8f6bf428fb4ec0262f5f` — run CI `38039240422` `success`, artefact `Melodix-v4.5.0-test.30-d49cae9.apk` (47 051 116 o)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| Commit rapport V26                 | `c10a9488a0a824b3983e9c015243df095ce2c68b` — run CI `38040043658` `success`, artefact `Melodix-v4.5.0-test.30-c10a948.apk` (47 051 116 o)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| Commit V26.1 (corrections)         | `b979ba8f38269b3ee378ddc8541a504259112807` (**HEAD V26.1**) — run CI `38043068453` `success`, artefact `Melodix-v4.5.0-test.30-b979ba8.apk` (47 051 117 o)                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| Commit V26.2 (synchro documents)   | `557d8f72c8ad11562655c467710efd1bb55e380c` (**HEAD de la branche de la PR `arena/fcdae8c6-melodix`**) — run CI `38051128062` `success`, artefact `Melodix-v4.5.0-test.30-557d8f7.apk` (47 051 117 o)                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| HEAD final — rapport               | le commit **V26.3** (ce rapport) : successeur de `557d8f7`, poussé sur la branche de session `arena/95205ecf-melodix` (ce chat Arena ne peut pas écrire sur la branche de la PR) — l'auto-référence SHA est impossible dans son propre commit ; SHA à lire via `git log -1` sur cette branche après cette synchro                                                                                                                                                                                                                                                                                                               |
+| `main`                             | `fceab85950b069edcb65ed718a8ffd419a1bc785` — **INTACTE** (aucune écriture, aucun merge ; SHA re-vérifiée auprès de GitHub le 2026-10-10, V26.3)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| PR #6                              | **OPEN**, **MERGEABLE** (`clean`), head = `arena/fcdae8c6-melodix` @ `557d8f7`, base = `main` @ `fceab859` — **non fusionnée** (re-vérifié via API `pulls/6` le 2026-10-10, V26.3)                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| Taille de la PR (chiffres actuels) | **152 commits / 324 fichiers (+56 258 / −3 310)** vs `main`, au head de la branche de la PR (`557d8f7`) — API GitHub `pulls/6` (`additions=56 258`, `deletions=3 310`, `changed_files=324`) et API `compare` (`total_commits=152`, ahead_by=152, behind_by=0), relus le 2026-10-10 (V26.3). (À `b979ba8`, avant la synchro V26.2 : 151 commits / +56 248 / −3 310 — « état constaté » de l'audit V26.2.) Transparence : la somme par fichier de l'API `pulls/6/files` au head `557d8f7` donne +49 248 / −3 240 — écart de décompte GitHub connu entre la page et l'API (fichiers binaires/générés) ; **aucune valeur inventée** |
+| Version app                        | `4.5.0-test.30` / `versionCode 45030` — **inchangée** (aucun code applicatif modifié en V26/V26.1/V26.2/V26.3)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 
 **Note sandbox** : au démarrage de la mission, le workspace local avait été réinitialisé par
 le sandbox vers un commit antérieur (8ᵉ occurrence) ; l'inspection du worktree a montré
@@ -151,20 +153,24 @@ aucun vrai compte contacté, aucune simulation présentée comme test réel de l
 
 ## 6. Workflow (CI)
 
-- **Workflow** : **« APK Android »** — `.github/workflows/android-apk.yml`.
-- **Trois runs SUCCESS distincts, à ne pas confondre** (même version `4.5.0-test.30`) :
-  - **Run `38039240422`** — head **`d49cae9`** (commit V26 tests) →
+- **Workflow** : **« APK Android »** — `.github/workflows/android-apk.yml` (déclenché par `pull_request` / `workflow_dispatch` / `release` — **pas de trigger `push`**).
+- **Quatre runs SUCCESS distincts, à ne pas confondre** (même version `4.5.0-test.30`) :
+  - **Run `38039240422`** — head **`d49cae9042ab371c93ed8f6bf428fb4ec0262f5f`** (V26 tests) →
     `https://github.com/Souxch06/Melodix/actions/runs/38039240422` — **`success`** ;
     artefact `Melodix-v4.5.0-test.30-d49cae9.apk` (47 051 116 o).
-  - **Run `38040043658`** — head **`c10a948`** (commit rapport V26) →
+  - **Run `38040043658`** — head **`c10a9488a0a824b3983e9c015243df095ce2c68b`** (rapport V26) →
     `https://github.com/Souxch06/Melodix/actions/runs/38040043658` — **`success`** ;
     artefact `Melodix-v4.5.0-test.30-c10a948.apk` (47 051 116 o).
-  - **Run `38043068453`** — head **`b979ba8`** (commit corrections V26.1, **HEAD V26.1**) →
+  - **Run `38043068453`** — head **`b979ba8f38269b3ee378ddc8541a504259112807`** (V26.1, **HEAD V26.1**) →
     `https://github.com/Souxch06/Melodix/actions/runs/38043068453` — **`success`** ;
     artefact `Melodix-v4.5.0-test.30-b979ba8.apk` (47 051 117 o).
-- Le run CI du commit V26.2 (ce rapport) est déclenché par le push de cette synchro —
-  suivi et vérifié dans la mission (rapport final).
-- **Statut / conclusion des trois runs** : **`success`** (`completed`) — **aucune étape non
+  - **Run `38051128062`** — head **`557d8f72c8ad11562655c467710efd1bb55e380c`** (V26.2, **HEAD de la branche de la PR**) →
+    `https://github.com/Souxch06/Melodix/actions/runs/38051128062` — **`success`** ;
+    artefact `Melodix-v4.5.0-test.30-557d8f7.apk` (47 051 117 o) — **artefact le plus récent (HEAD `557d8f7`)**.
+- Le commit V26.3 (ce rapport) est poussé sur la branche de session `arena/95205ecf-melodix`,
+  qui n'est le head d'aucune PR : il **ne déclenche aucun run CI** (pas de trigger `push`) —
+  le run CI de référence de la PR reste `38051128062` (HEAD `557d8f7`, `success`).
+- **Statut / conclusion des quatre runs** : **`success`** (`completed`) — **aucune étape non
   verte** (toutes `success`/`skipped`) : config Spotify du build (déterministe),
   tsc/ESLint/Prettier, Jest, Robolectric, build Gradle, alignement 16 Kio + signature,
   intégrité/installabilité, smoke émulateur Android 14, diagnostic OAuth (build de test),
@@ -176,16 +182,20 @@ aucun vrai compte contacté, aucune simulation présentée comme test réel de l
 
 ## 7. APK
 
-| Artefact                             | Version / versionCode | Taille           | Disponibilité                                                               |
-| ------------------------------------ | --------------------- | ---------------- | --------------------------------------------------------------------------- |
-| `Melodix-v4.5.0-test.30-b979ba8.apk` | 4.5.0-test.30 / 45030 | **47 051 117 o** | artefact du run `38043068453` (**HEAD V26.1 `b979ba8`**) — artefact courant |
-| `Melodix-v4.5.0-test.30-c10a948.apk` | 4.5.0-test.30 / 45030 | **47 051 116 o** | artefact du run `38040043658` (commit rapport V26 `c10a948`)                |
-| `Melodix-v4.5.0-test.30-d49cae9.apk` | 4.5.0-test.30 / 45030 | **47 051 116 o** | artefact du run `38039240422` (commit V26 tests `d49cae9`)                  |
-| `Melodix-v4.5.0-test.30-178edb0.apk` | 4.5.0-test.30 / 45030 | 47 051 117 o     | artefact du run `37996663601` (HEAD V25)                                    |
-| `Melodix-v4.5.0-test.30-ea730be.apk` | 4.5.0-test.30 / 45030 | 47 051 114 o     | artefact du run `37994878862` (code V25)                                    |
+| Artefact                             | Version / versionCode | Taille           | Disponibilité                                                                                                  |
+| ------------------------------------ | --------------------- | ---------------- | -------------------------------------------------------------------------------------------------------------- |
+| `Melodix-v4.5.0-test.30-557d8f7.apk` | 4.5.0-test.30 / 45030 | **47 051 117 o** | artefact du run `38051128062` (**HEAD `557d8f7`** = HEAD de la branche de la PR) — **artefact le plus récent** |
+| `Melodix-v4.5.0-test.30-b979ba8.apk` | 4.5.0-test.30 / 45030 | **47 051 117 o** | artefact du run `38043068453` (**HEAD V26.1 `b979ba8`**)                                                       |
+| `Melodix-v4.5.0-test.30-c10a948.apk` | 4.5.0-test.30 / 45030 | **47 051 116 o** | artefact du run `38040043658` (commit rapport V26 `c10a948`)                                                   |
+| `Melodix-v4.5.0-test.30-d49cae9.apk` | 4.5.0-test.30 / 45030 | **47 051 116 o** | artefact du run `38039240422` (commit V26 tests `d49cae9`)                                                     |
+| `Melodix-v4.5.0-test.30-178edb0.apk` | 4.5.0-test.30 / 45030 | 47 051 117 o     | artefact du run `37996663601` (HEAD V25)                                                                       |
+| `Melodix-v4.5.0-test.30-ea730be.apk` | 4.5.0-test.30 / 45030 | 47 051 114 o     | artefact du run `37994878862` (code V25)                                                                       |
 
-- Le run du commit V26.2 (ce rapport) publiera également son artefact
-  `Melodix-v4.5.0-test.30-<sha>.apk` (SHA = nouveau HEAD) — vérifié post-push (rapport final).
+- L'artefact du commit V26.2 est **publié et vérifié** via l'API artefacts :
+  `Melodix-v4.5.0-test.30-557d8f7.apk` (run `38051128062`, 47 051 117 o) — c'est
+  **l'artefact du HEAD `557d8f7`** (HEAD de la branche de la PR).
+- Le commit V26.3 (ce rapport, branche de session) n'est le head d'aucune PR :
+  **aucun run CI, aucun artefact** associé (pas de trigger `push`).
 
 - **Vérification version/versionCode** : les pins du workflow (`EXPECTED_VERSION_CODE
 45030` / `EXPECTED_VERSION_NAME 4.5.0-test.30`) sont **synchronisés** avec
@@ -267,7 +277,18 @@ disponible) ; `/search` limit max 10. Compléments (changelogs) :
 
 ## État final
 
-- **`main` intouché** (`fceab859`), **PR #6 OPEN/MERGEABLE, non fusionnée**.
-- Corrections nécessaires poussées sur la branche de la PR (tests V26) ; rapport commité ;
-  build Android + artefact vérifiés par la CI du HEAD final.
-- **Aucun secret exposé**, **aucun contournement**, **aucun test supprimé**.
+- **`main` intouchée** (`fceab85950b069edcb65ed718a8ffd419a1bc785`), **PR #6 OPEN/MERGEABLE
+  (`clean`), non fusionnée** — re-vérifiés via l'API GitHub le 2026-10-10 (V26.3).
+- Corrections poussées sur la branche de la PR : tests V26 (`d49cae9`), corrections V26.1
+  (`b979ba8`), synchro documents V26.2 (`557d8f7`) — builds Android + artefacts vérifiés
+  par la CI (runs `38039240422` / `38040043658` / `38043068453` / `38051128062`, tous
+  `success`).
+- **V26.3** : ce rapport est poussé uniquement sur la branche de session
+  `arena/95205ecf-melodix` — la branche de la PR (`arena/fcdae8c6-melodix`) **n'est pas
+  modifiable depuis ce chat Arena** (session verrouillée sur la branche de session) ; la
+  version du rapport conservée dans la branche de la PR reste donc celle de `557d8f7`
+  (V26.2). La **description de la PR #6** a été mise à jour séparément via l'API GitHub
+  (chiffres au head `557d8f7` : 152 commits / 324 fichiers / +56 258 / −3 310, relus le
+  2026-10-10).
+- **Aucun secret exposé**, **aucun contournement**, **aucun test supprimé** (tests 500/503/
+  timeout inchangés).
