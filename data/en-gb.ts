@@ -120,6 +120,10 @@ export const EN_GB_LOGIN = {
   loginOAuthRefusedTitle: 'Spotify refused the connection',
   loginOAuthRefusedBody:
     'Make sure you authorize Melodix on the Spotify page, then try again.',
+  // V27 — OAuth exchange succeeded but Spotify denies this app's API calls.
+  loginProfileForbiddenTitle: 'Spotify denied access to this app.',
+  loginProfileForbiddenBody:
+    'Sign-in itself worked, but Spotify is rejecting this app’s requests (HTTP 403). In development mode, the app requires an active Premium subscription for its owner, and your account must be listed under “Users and Access”. Nothing has been deleted — try again after checking the Spotify developer dashboard.',
   loginNotConfigured: 'Spotify sign-in is unavailable right now.',
   loginNotConfiguredBody: 'Please try again later.',
   // TEMPORARY DIAGNOSTIC MODE: non-sensitive technical details, hidden by

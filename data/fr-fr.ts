@@ -177,6 +177,10 @@ export const FR_FR_LOGIN = {
   loginOAuthRefusedTitle: 'Spotify a refusé la connexion',
   loginOAuthRefusedBody:
     'Autorise bien Melodix sur la page Spotify, puis réessaie.',
+  // V27 — échange OAuth réussi mais Spotify refuse les appels de l'app.
+  loginProfileForbiddenTitle: 'Spotify a refusé l’accès à cette application.',
+  loginProfileForbiddenBody:
+    'La connexion en elle-même a réussi, mais Spotify rejette les requêtes de cette application (HTTP 403). En mode développement, l’application exige un abonnement Premium actif pour son propriétaire et que ton compte figure dans « Users and Access ». Rien n’a été supprimé — réessaie après vérification dans le tableau de bord développeur Spotify.',
   loginNotConfigured:
     "La connexion Spotify n'est pas disponible pour le moment.",
   loginNotConfiguredBody: 'Réessaie plus tard.',

@@ -140,6 +140,19 @@ export type LoginErrorOutcome =
       diagnostic?: SpotifyOAuthDiagnostic;
     }
   | { kind: 'network'; cause: string; diagnostic?: SpotifyOAuthDiagnostic }
+  /**
+   * V27 — échange OAuth RÉUSSI (session enregistrée) mais premier appel
+   * `/v1/me` refusé par HTTP 403 : la session n'est PAS une session
+   * entièrement validée. Cause la plus probable en mode développement :
+   * compte absent de « Users and Access » ou Premium du propriétaire
+   * requis/expiré (règles Spotify 2026) — voir l'écran dédié, JAMAIS un
+   * simple « erreur inattendue », et AUCUN re-refresh automatique.
+   */
+  | {
+      kind: 'profile-forbidden';
+      cause: string;
+      diagnostic?: SpotifyOAuthDiagnostic;
+    }
   | { kind: 'unknown'; cause: string; diagnostic?: SpotifyOAuthDiagnostic };
 
 export type LoginOutcome =

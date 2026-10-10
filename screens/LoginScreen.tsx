@@ -190,6 +190,16 @@ export const LoginScreen = () => {
           body: translations.loginOAuthRefusedBody,
           retryable: true,
         };
+      case 'profile-forbidden':
+        // V27 — échange OAuth réussi mais /v1/me refusé (HTTP 403) : le
+        // message dit EXACTEMENT cela (refus d'accès de configuration, pas
+        // réseau, pas « erreur inattendue »). Réessai manuel autorisé après
+        // correction dans le tableau de bord — aucune boucle automatique.
+        return {
+          title: translations.loginProfileForbiddenTitle,
+          body: translations.loginProfileForbiddenBody,
+          retryable: true,
+        };
       case 'not-configured':
         return {
           title: translations.loginNotConfigured,

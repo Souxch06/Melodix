@@ -184,6 +184,31 @@ describe('LoginScreen — parcours humain, connexion OBLIGATOIRE', () => {
     ).toBeTruthy();
   });
 
+  it('403 sur /me après échange réussi : diagnostic « accès refusé » dédié, jamais le message générique (V27)', () => {
+    mockAuthState = {
+      status: 'error',
+      outcome: { kind: 'profile-forbidden', cause: 'me:http·403' },
+    };
+    const root = render(<LoginScreen />);
+    expect(
+      root.getByText('Spotify a refusé l’accès à cette application.')
+    ).toBeTruthy();
+    // Le corps nomme la cause ET les deux vérifications utiles, sans secret.
+    expect(hasTextContaining(root, 'HTTP 403')).toBe(true);
+    expect(hasTextContaining(root, 'Premium')).toBe(true);
+    expect(hasTextContaining(root, 'Users and Access')).toBe(true);
+    // Jamais le texte générique « vérifie ta connexion » sur ce cas : un 403
+    // n'est PAS une panne réseau, et ne doit pas être présenté comme telle.
+    expect(
+      root.queryByText('Impossible de se connecter à Spotify.')
+    ).toBeNull();
+    // Réessai manuel autorisé (après correction au dashboard) :
+    expect(root.getByTestId(TEST_IDS.RETRY_BUTTON)).toBeTruthy();
+    // Et le « Réessayer » relance le login NORMAL, sans champ de credential :
+    expect(hasTextContaining(root, 'Client ID')).toBe(false);
+    expect(hasTextContaining(root, 'client_secret')).toBe(false);
+  });
+
   it.each(['network', 'callback-failed', 'unknown', 'not-configured-typo'])(
     'erreur %s → message HUMAIN générique demandé, pas de poussière technique',
     (kind) => {
