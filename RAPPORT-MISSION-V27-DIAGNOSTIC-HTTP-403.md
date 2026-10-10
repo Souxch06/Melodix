@@ -117,7 +117,7 @@ assimilé à une session validée (le kind dédié le dit à l'utilisateur).
   « CONNEXION SPOTIFY OBLIGATOIRE » bloque l'accès aux écrans** : en
   `spotify-unverified`, le layout n'ouvre PAS les onglets → la recherche
   Audius (écran search) est inaccessible tant que `/me` échoue. Le moteur
-  n'est pas cassé par le 403 ; c'est la PORTENTE qui l'est.
+  n'est pas cassé par le 403 ; c'est la porte d’entrée du compte qui l’est.
 
 **Proposition de continuité (décision produit propriétaire — non implémentée
 ici, car elle change le contrat d'usage et ne répare aucun défaut démontré
@@ -198,7 +198,7 @@ developer.spotify.com → Dashboard → application Melodix (Client ID public
   (`attempts=3`) ; la nature exacte de la réponse edge (CDN vs API) n'est
   visible que via les en-têtes du rapport de diagnostic de l'app, non
   depuis ce bac à sable.
-- La portente « connexion obligatoire » demeure inchangée : tant que le
+- La porte d’entrée « connexion obligatoire » demeure inchangée : tant que le
   `/me` échoue, l'app reste bloquée à l'écran d'identité (comportement
   voulu jusqu'à décision produit sur le plan V28 du §4).
 - Téléphone physique toujours non testé par la CI (émulateur ≠ API 36
