@@ -153,14 +153,21 @@ layout — ~10 lignes + tests — à valider par le propriétaire).
 - Résultats RÉELS : Jest complet local **2146 passés / 14 ignorés / 0
   échoué** (158 suites ; +3 vs base V26.5) ; `tsc --noEmit` sans erreur ;
   `eslint` des 8 fichiers sans erreur ; `prettier --check` OK.
-- Workflow Android complet : lancé par le push (événement `pull_request` de
-  la PR #8) — statut consigné dans la PR et le message final ; l'APK de test
-  est construit par ce run (jamais publié en Release : `publish_test_apk`
-  désactivé hors tag).
-- Branche : `arena/9dadfbee-melodix` (la session Arena est fixée à cette
-  branche ; elle sert de branche de mission dédiée). PR : **#8** mise à jour
-  (base = branche de travail `arena/fcdae8c6-melodix`, JAMAIS `main`) ;
-  **aucune PR fusionnée** ; PR #6 laissée ouverte.
+- Workflow Android complet (déclenché par le push, événement
+  `pull_request` de la PR #8) : run `38072616374` sur head `114f879` —
+  **completed / success** en 14 min 18 s (17:39:19Z → 17:53:37Z) ; étape 21
+  « Installer et lancer réellement l'APK sur Android 14 » SUCCESS, étapes
+  signature/diagnostic OAuth SUCCESS, **0 annotation `failure`** ; l'APK de
+  test est produit et disponible en artefact :
+  `Melodix-v4.5.0-test.30-114f879.apk` (47 051 434 octets, non expiré).
+  Aucune Release publiée (`publish_test_apk` désactivé hors tag). Le run du
+  présent commit documentaire est consigné en commentaire de la PR #8.
+- Commits V27 : `3efb8b3` (correctif + tests, 8 fichiers) puis le commit
+  documentaire portant le présent rapport. Branche :
+  `arena/9dadfbee-melodix` (la session Arena est fixée à cette branche ;
+  elle sert de branche de mission dédiée). PR : **#8** mise à jour (base =
+  branche de travail `arena/fcdae8c6-melodix`, JAMAIS `main`) ; **aucune PR
+  fusionnée** ; PR #6 laissée ouverte.
 
 ## 6. À vérifier manuellement (Dashboard Spotify)
 
