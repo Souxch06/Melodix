@@ -1,13 +1,38 @@
 import { AlbumModel } from '@models';
+import { isSpotifySessionActive, SpotifyApiError } from '@services';
 
 import { backendGetAlbum } from '../backend';
+import { getSpotifyAlbum } from '../spotify/album';
 
 /**
- * Métadonnées d'album via le backend Melodix.
- * Les champs que la source publique ne fournit pas (label, copyrights…) sont
+ * Métadonnées d'album — cascade session Spotify → backend Melodix.
+ *
+ * Même contrat que api/playlists/playlist.ts : la session du compte fournit
+ * l'album COMPLET (titres réels, durées, ISRC, copyrights, label) ; le
+ * backend Melodix, qui ne sert qu'un sous-ensemble, reste le repli. Les
+ * champs que la source publique ne fournit pas (label, copyrights) sont
  * renvoyés vides — l'écran album n'en dépend pas pour fonctionner.
  */
 export const getAlbum = async (albumId: string): Promise<AlbumModel> => {
+  if (await isSpotifySessionActive()) {
+    try {
+      return await getSpotifyAlbum(albumId);
+    } catch (error) {
+      if (
+        error instanceof SpotifyApiError &&
+        error.kind === 'unauthenticated'
+      ) {
+        throw error; // session morte : l'écran affichera la reconnexion
+      }
+      // Cause EXPLICITE du repli (404 = contenu non servi pour ce compte ;
+      // réseau/serveur sinon) — jamais d'écran vide muet.
+      console.warn(
+        'Album via session indisponible (repli backend) : %s',
+        error instanceof SpotifyApiError ? error.kind : typeof error
+      );
+    }
+  }
+
   try {
     const dto = await backendGetAlbum(albumId);
     const tracks = dto.tracks ?? [];

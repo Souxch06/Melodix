@@ -99,6 +99,30 @@ export const requestMediaNotificationPermission = (): boolean | null => {
   }
 };
 
+/**
+ * Abonnement au signal système « casque/Bluetooth débranché »
+ * (ACTION_AUDIO_BECOMING_NOISY, §11). Le natif ne fait que NOTIFIER : c'est
+ * le moteur JS qui met en pause. NO-OP silencieux hors Android natif.
+ */
+export const addAudioBecomingNoisyListener = (
+  listener: () => void
+): (() => void) => {
+  const module = getNativeModule();
+
+  if (!module) {
+    return () => {};
+  }
+
+  try {
+    const emitter = new EventEmitter(module as never);
+    const subscription = emitter.addListener('audioBecomingNoisy', listener);
+
+    return () => subscription.remove();
+  } catch {
+    return () => {};
+  }
+};
+
 /** Abonnement aux commandes système (notification/verrou/casque BT). */
 export const addMediaCommandListener = (
   listener: (command: MediaCommand) => void
@@ -186,6 +210,7 @@ export default {
   updateSession,
   stopSession,
   requestMediaNotificationPermission,
+  addAudioBecomingNoisyListener,
   addMediaCommandListener,
   setDiagFlags,
   appendDiagLog,

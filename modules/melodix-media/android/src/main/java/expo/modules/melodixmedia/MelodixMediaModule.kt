@@ -3,7 +3,9 @@ package expo.modules.melodixmedia
 import android.Manifest
 import android.app.NotificationManager
 import android.content.Context
+import android.content.IntentFilter
 import android.content.pm.PackageManager
+import android.media.AudioManager
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
@@ -27,6 +29,55 @@ class MelodixMediaModule : Module() {
   private val mainHandler = Handler(Looper.getMainLooper())
   private var permissionPollGeneration = 0
   private var applicationContext: Context? = null
+
+  /** Récepteur « casque débranché » (enregistré tant que l'app vit). */
+  private var noisyAudioReceiver: MelodixNoisyAudioReceiver? = null
+
+  /**
+   * §11 — casque filaire débranché / Bluetooth perdu : Android diffuse
+   * ACTION_AUDIO_BECOMING_NOISY. On enregistre un récepteur DYNAMIQUE (aucune
+   * permission, aucune entrée de manifeste, broadcast système uniquement) et
+   * on remonte l'événement au JS. Le natif n'agit pas sur la lecture : le
+   * moteur JS décide la pause, comme pour toute commande système.
+   */
+  private fun registerNoisyAudioReceiver(context: Context) {
+    if (noisyAudioReceiver != null) return
+
+    val receiver = MelodixNoisyAudioReceiver {
+      MelodixDiagLog.step("AUDIO_BECOMING_NOISY", "relayedToJs=true")
+      try {
+        this@MelodixMediaModule.sendEvent("audioBecomingNoisy", emptyMap<String, Any>())
+      } catch (t: Throwable) {
+        MelodixDiagLog.error("AUDIO_BECOMING_NOISY_SEND_FAIL", t)
+      }
+    }
+
+    try {
+      ContextCompat.registerReceiver(
+        context,
+        receiver,
+        IntentFilter(AudioManager.ACTION_AUDIO_BECOMING_NOISY),
+        ContextCompat.RECEIVER_NOT_EXPORTED
+      )
+      noisyAudioReceiver = receiver
+      MelodixDiagLog.step("NOISY_RECEIVER_REGISTERED")
+    } catch (t: Throwable) {
+      // Jamais bloquant : sans récepteur, l'application fonctionne comme avant.
+      MelodixDiagLog.error("NOISY_RECEIVER_REGISTER_FAIL", t)
+    }
+  }
+
+  private fun unregisterNoisyAudioReceiver(context: Context) {
+    val receiver = noisyAudioReceiver ?: return
+    noisyAudioReceiver = null
+
+    try {
+      context.unregisterReceiver(receiver)
+      MelodixDiagLog.step("NOISY_RECEIVER_UNREGISTERED")
+    } catch (t: Throwable) {
+      MelodixDiagLog.error("NOISY_RECEIVER_UNREGISTER_FAIL", t)
+    }
+  }
 
   /**
    * ActivityCompat ne renvoie pas le résultat au Module Expo. On observe donc
@@ -69,12 +120,16 @@ class MelodixMediaModule : Module() {
   override fun definition() = ModuleDefinition {
     Name("MelodixMedia")
 
-    Events("mediaCommand")
+    Events("mediaCommand", "audioBecomingNoisy")
 
     OnCreate {
       // Retenir uniquement le contexte application : le ReactContext d'Expo
       // est une WeakReference et peut déjà avoir disparu à OnDestroy.
       applicationContext = appContext.reactContext?.applicationContext
+
+      // §11 : casque débranché → pause. Enregistré dès que l'app vit, la
+      // décision de pause restant entièrement côté moteur JS.
+      applicationContext?.let { registerNoisyAudioReceiver(it) }
 
       // 4.4.7-diagnostic : journal persistant + piège d'exceptions non
       // rattrapées (tous threads) — critique pour le diagnostic sans ADB.
@@ -187,6 +242,9 @@ class MelodixMediaModule : Module() {
     OnDestroy {
       permissionPollGeneration += 1
       mainHandler.removeCallbacksAndMessages(null)
+      // Le contexte React n'existe plus : plus aucun événement ne peut être
+      // délivré au JS, le récepteur doit donc être retiré du système.
+      applicationContext?.let { unregisterNoisyAudioReceiver(it) }
       MelodixDiagLog.step("MODULE_ONDESTROY")
       MelodixMediaController.commandListener = null
       // Une instance React détruite ne peut plus recevoir les commandes

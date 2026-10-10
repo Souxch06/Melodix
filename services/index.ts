@@ -89,6 +89,7 @@ export {
 } from './history/playHistory';
 export type { PlayHistoryEntry } from './history/playHistory';
 export { playerTrackFromHistoryEntry } from './history/historyPlayerTrack';
+export { trackModelFromPlayerTrack } from './trackModelFromPlayer';
 
 export {
   checkSaved,
@@ -125,8 +126,12 @@ export type { BackendErrorKind } from './backend';
 
 // Connexion Spotify (OAuth PKCE), session et client API officiel.
 export {
+  getClientIdInfo,
   getSpotifyClientId,
+  getSpotifyRedirectUri,
+  isSpotifyClientIdShape,
   isSpotifyLoginConfigured,
+  isSpotifyOAuthSmoke,
   SPOTIFY_SCOPES,
   SPOTIFY_DISCOVERY,
   SPOTIFY_REDIRECT_SCHEME,
@@ -138,21 +143,60 @@ export {
   clearSession,
   clearSessionAccessOnly,
   getValidAccessToken,
+  refreshAccessTokenClassified,
   isSpotifySessionActive,
   describeSession,
   redeemAuthorizationCode,
+  resolveStartupSession,
+  savePendingOAuthTransaction,
+  loadPendingOAuthTransaction,
+  clearPendingOAuthTransaction,
+  isPendingTransactionFresh,
+  saveSmokeOAuthTransaction,
+  SMOKE_TX_VERIFIER,
 } from './spotify/session';
-export type { LoginOutcome, SpotifySession } from './spotify/session';
+export type {
+  LoginErrorOutcome,
+  LoginOutcome,
+  SpotifyOAuthDiagnostic,
+  SpotifyOAuthDiagnosticStage,
+  SpotifySession,
+  StartupSessionResolution,
+  RefreshResult,
+  PendingOAuthTransaction,
+} from './spotify/session';
 
 // PlaybackBackend prototype boundary. PlayerContext still uses melodixPlayer
 // directly until the isolated Spotify Web runtime has been validated.
 export * from './playbackBackend';
 export { spotifyApiGet, SpotifyApiError } from './spotify/apiClient';
 export {
+  isSensitiveDiagnosticValue,
   sanitizeErrorDescription,
   spotifyDiag,
   spotifyLog,
+  spotifyWebTrace,
 } from './spotify/devLog';
+// V24 — rapport de diagnostic copiable (historique borné + builder).
+export {
+  DIAGNOSTIC_HISTORY_MAX_AGE_MS,
+  DIAGNOSTIC_HISTORY_MAX_EVENTS,
+  clearSpotifyDiagnosticHistory,
+  ensureDiagnosticHistoryLoaded,
+  getSpotifyDiagnosticEvents,
+  pruneDiagnosticEvents,
+  recordSpotifyDiagnosticEvent,
+} from './spotify/diagnosticHistory';
+export type {
+  SpotifyDiagnosticEvent,
+  SpotifyDiagnosticEventResult,
+} from './spotify/diagnosticHistory';
+export {
+  DIAGNOSTIC_REPORT_MAX_LENGTH,
+  buildSpotifyDiagnosticReport,
+  formatDiagnosticLocalTime,
+} from './spotify/diagnosticReport';
+export type { SpotifyDiagnosticReportInput } from './spotify/diagnosticReport';
 export { useSpotifyAuth } from './spotify/useSpotifyAuth';
 export type { SpotifyAuthState } from './spotify/useSpotifyAuth';
 export type { SpotifyApiErrorKind } from './spotify/apiClient';

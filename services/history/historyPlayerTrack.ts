@@ -11,6 +11,7 @@
  */
 import type { PlayerTrack } from '../player';
 import type { TrackSource } from '../audio/types';
+import { artistsFromSubtitle } from '@models';
 import type { TrackModel } from '@models';
 
 const AUDIUS_PREFIX = 'audius:';
@@ -41,9 +42,7 @@ export const playerTrackFromHistoryEntry = ({
 }): PlayerTrack => ({
   id,
   title: snapshot?.title ?? title,
-  artists: snapshot?.subtitle
-    ? snapshot.subtitle.split(', ').filter(Boolean)
-    : [],
+  artists: artistsFromSubtitle(snapshot?.subtitle),
   album: snapshot?.albumName ?? null,
   durationMillis: snapshot?.durationMs ?? null,
   ...(typeof snapshot?.explicit === 'boolean'

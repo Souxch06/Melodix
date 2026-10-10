@@ -16,4 +16,19 @@ export type LibraryItemModel = {
    */
   durationMs?: number | null;
   albumName?: string | null;
+  /**
+   * ISRC Spotify quand la source l'expose (recherche catalogue). Signal de
+   * matching FORT — voir services/audio/audiusTrackMatcher.ts. Facultatif :
+   * Audius et le backend ne le publient pas toujours.
+   */
+  isrc?: string | null;
+  /**
+   * Classification du morceau quand la source la publie (`/v1/search` de
+   * Spotify renvoie `explicit`). `null`/absent = inconnue, et le matcher la
+   * traite alors comme NEUTRE : il ne rejette jamais un candidat par
+   * supposition. Sans ce champ, la porte `content-rating-mismatch` ne pouvait
+   * jamais s'appliquer et une demande explicite pouvait être servie par un
+   * upload clean — un mauvais enregistrement, pas une simple indisponibilité.
+   */
+  explicit?: boolean | null;
 };

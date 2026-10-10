@@ -52,6 +52,16 @@ export enum AlbumTypes {
   COMPILATION = 'compilation',
 }
 
+/**
+ * Identifiant canonique du profil LOCAL (aucun compte connecté).
+ *
+ * INVARIANT : cet id n'est JAMAIS un identifiant de compte Spotify. Il ne
+ * doit donc jamais servir de clé au cache des playlists Spotify, ni
+ * d'identité pour une donnée personnelle du compte (voir
+ * context/spotifyIdentity.ts et api/spotify/userPlaylists.ts).
+ */
+export const LOCAL_USER_ID = 'melodix-local-user';
+
 export const SEPARATOR = '\u2022';
 export const explicit_SIGN = 'E';
 
@@ -71,16 +81,9 @@ export const BROWSE_CATEGORY_HEIGHT = 55;
 
 // Spotify sign-in (Authorization Code + PKCE).
 // Redirect URI of the installed app: melodix://callback
+// ⚠️ SOURCE UNIQUE des scopes OAuth : services/spotify/authConfig.ts.
+// Ne JAMAIS redéclarer la liste des scopes ici — deux listes divergentes
+// laissaient croire que modifier @config changeait l'autorisation demandée à
+// Spotify alors que rien ne se passait (voir services/spotify/__tests__).
 export const APP_SCHEME = 'melodix';
 export const AUTH_REDIRECT_PATH = 'callback';
-export const SPOTIFY_SCOPES = [
-  'user-read-recently-played',
-  'user-top-read',
-  'user-library-read',
-  'user-read-playback-position',
-  'user-read-private',
-  'user-read-email',
-  'user-follow-read',
-  'playlist-read-private',
-  'playlist-read-collaborative',
-];
