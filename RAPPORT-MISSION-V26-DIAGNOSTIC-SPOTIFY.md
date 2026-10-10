@@ -14,15 +14,16 @@
 
 ## 1. HEAD initial / HEAD final
 
-| Champ                            | Valeur                                                                                                                                                                                             |
-| -------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| HEAD initial (référence mission) | `178edb0739fc3dfd0717c3392993f9d821012154` (fin V25)                                                                                                                                               |
-| Commit V26 (tests)               | `d49cae9`                                                                                                                                                                                          |
-| HEAD final — rapport             | `c10a9488a0a824b3983e9c015243df095ce2c68b` (ce rapport ; vérifié sur le distant en V26.1)                                                                                                          |
-| `main`                           | `fceab85950b069edcb65ed718a8ffd419a1bc785` — **INTACTE** (aucune écriture, aucun merge)                                                                                                            |
-| PR #6                            | **OPEN**, **MERGEABLE**, head = `arena/fcdae8c6-melodix`, base = `main` — **non fusionnée**                                                                                                        |
-| Taille de la PR                  | **150 commits / 324 fichiers (+56 242 / −3 310)** vs `main` — **métadonnées GitHub de la PR** (API `pulls/6`, relues le 2026-10-10 ; le décompte GitHub inclut l'historique complet de la branche) |
-| Version app                      | `4.5.0-test.30` / `versionCode 45030` — **inchangée** (aucun code applicatif modifié en V26)                                                                                                       |
+| Champ                              | Valeur                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| ---------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| HEAD initial (référence mission)   | `178edb0739fc3dfd0717c3392993f9d821012154` (fin V25)                                                                                                                                                                                                                                                                                                                                                                                                  |
+| Commit V26 (tests)                 | `d49cae9`                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| Commit V26.1 (corrections)         | `b979ba8f38269b3ee378ddc8541a504259112807` (HEAD V26.1, confirmé par l'audit GitHub de V26.2 ; run CI `38043068453` `success`)                                                                                                                                                                                                                                                                                                                        |
+| HEAD final — rapport               | le commit **V26.2** (ce rapport) : successeur de `b979ba8` — l'auto-référence SHA est impossible dans son propre commit ; SHA à lire via `git log -1` sur la branche après cette synchro                                                                                                                                                                                                                                                              |
+| `main`                             | `fceab85950b069edcb65ed718a8ffd419a1bc785` — **INTACTE** (aucune écriture, aucun merge ; SHA re-vérifiée auprès de GitHub le 2026-10-10)                                                                                                                                                                                                                                                                                                              |
+| PR #6                              | **OPEN**, **MERGEABLE**, head = `arena/fcdae8c6-melodix`, base = `main` — **non fusionnée** (re-vérifié via API `pulls/6` le 2026-10-10)                                                                                                                                                                                                                                                                                                              |
+| Taille de la PR (chiffres actuels) | **151 commits / 324 fichiers (+56 248 / −3 310)** vs `main` — page GitHub de la PR, relue le 2026-10-10 (V26.2) ; `commits=151` et `changed_files=324` re-vérifiés via API `pulls/6` et API `compare` (`total_commits=151`, ahead, behind_by=0). Transparence : la somme par fichier de l'API `pulls/6/files` donne +49 238 / −3 240 — écart de décompte GitHub connu entre la page et l'API (fichiers binaires/générés) ; **aucune valeur inventée** |
+| Version app                        | `4.5.0-test.30` / `versionCode 45030` — **inchangée** (aucun code applicatif modifié en V26/V26.1/V26.2)                                                                                                                                                                                                                                                                                                                                              |
 
 **Note sandbox** : au démarrage de la mission, le workspace local avait été réinitialisé par
 le sandbox vers un commit antérieur (8ᵉ occurrence) ; l'inspection du worktree a montré
@@ -151,14 +152,19 @@ aucun vrai compte contacté, aucune simulation présentée comme test réel de l
 ## 6. Workflow (CI)
 
 - **Workflow** : **« APK Android »** — `.github/workflows/android-apk.yml`.
-- **Deux runs SUCCESS distincts à distinguer** (même version `4.5.0-test.30`) :
+- **Trois runs SUCCESS distincts, à ne pas confondre** (même version `4.5.0-test.30`) :
   - **Run `38039240422`** — head **`d49cae9`** (commit V26 tests) →
     `https://github.com/Souxch06/Melodix/actions/runs/38039240422` — **`success`** ;
     artefact `Melodix-v4.5.0-test.30-d49cae9.apk` (47 051 116 o).
-  - **Run `38040043658`** — head **`c10a948`** (**HEAD final**, commit rapport V26) →
+  - **Run `38040043658`** — head **`c10a948`** (commit rapport V26) →
     `https://github.com/Souxch06/Melodix/actions/runs/38040043658` — **`success`** ;
     artefact `Melodix-v4.5.0-test.30-c10a948.apk` (47 051 116 o).
-- **Statut / conclusion des deux runs** : **`success`** (`completed`) — **aucune étape non
+  - **Run `38043068453`** — head **`b979ba8`** (commit corrections V26.1, **HEAD V26.1**) →
+    `https://github.com/Souxch06/Melodix/actions/runs/38043068453` — **`success`** ;
+    artefact `Melodix-v4.5.0-test.30-b979ba8.apk` (47 051 117 o).
+- Le run CI du commit V26.2 (ce rapport) est déclenché par le push de cette synchro —
+  suivi et vérifié dans la mission (rapport final).
+- **Statut / conclusion des trois runs** : **`success`** (`completed`) — **aucune étape non
   verte** (toutes `success`/`skipped`) : config Spotify du build (déterministe),
   tsc/ESLint/Prettier, Jest, Robolectric, build Gradle, alignement 16 Kio + signature,
   intégrité/installabilité, smoke émulateur Android 14, diagnostic OAuth (build de test),
@@ -170,12 +176,16 @@ aucun vrai compte contacté, aucune simulation présentée comme test réel de l
 
 ## 7. APK
 
-| Artefact                             | Version / versionCode | Taille           | Disponibilité                                              |
-| ------------------------------------ | --------------------- | ---------------- | ---------------------------------------------------------- |
-| `Melodix-v4.5.0-test.30-c10a948.apk` | 4.5.0-test.30 / 45030 | **47 051 116 o** | artefact du run `38040043658` (**HEAD final `c10a948`**)   |
-| `Melodix-v4.5.0-test.30-d49cae9.apk` | 4.5.0-test.30 / 45030 | **47 051 116 o** | artefact du run `38039240422` (commit V26 tests `d49cae9`) |
-| `Melodix-v4.5.0-test.30-178edb0.apk` | 4.5.0-test.30 / 45030 | 47 051 117 o     | artefact du run `37996663601` (HEAD V25)                   |
-| `Melodix-v4.5.0-test.30-ea730be.apk` | 4.5.0-test.30 / 45030 | 47 051 114 o     | artefact du run `37994878862` (code V25)                   |
+| Artefact                             | Version / versionCode | Taille           | Disponibilité                                                               |
+| ------------------------------------ | --------------------- | ---------------- | --------------------------------------------------------------------------- |
+| `Melodix-v4.5.0-test.30-b979ba8.apk` | 4.5.0-test.30 / 45030 | **47 051 117 o** | artefact du run `38043068453` (**HEAD V26.1 `b979ba8`**) — artefact courant |
+| `Melodix-v4.5.0-test.30-c10a948.apk` | 4.5.0-test.30 / 45030 | **47 051 116 o** | artefact du run `38040043658` (commit rapport V26 `c10a948`)                |
+| `Melodix-v4.5.0-test.30-d49cae9.apk` | 4.5.0-test.30 / 45030 | **47 051 116 o** | artefact du run `38039240422` (commit V26 tests `d49cae9`)                  |
+| `Melodix-v4.5.0-test.30-178edb0.apk` | 4.5.0-test.30 / 45030 | 47 051 117 o     | artefact du run `37996663601` (HEAD V25)                                    |
+| `Melodix-v4.5.0-test.30-ea730be.apk` | 4.5.0-test.30 / 45030 | 47 051 114 o     | artefact du run `37994878862` (code V25)                                    |
+
+- Le run du commit V26.2 (ce rapport) publiera également son artefact
+  `Melodix-v4.5.0-test.30-<sha>.apk` (SHA = nouveau HEAD) — vérifié post-push (rapport final).
 
 - **Vérification version/versionCode** : les pins du workflow (`EXPECTED_VERSION_CODE
 45030` / `EXPECTED_VERSION_NAME 4.5.0-test.30`) sont **synchronisés** avec
