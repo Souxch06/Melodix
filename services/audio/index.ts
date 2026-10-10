@@ -79,3 +79,25 @@ export {
 } from './matchCache';
 export type { MatchCache, MatchCacheEntry } from './matchCache';
 export { ResolveQueue, RESOLVE_QUEUE_CONCURRENCY } from './resolveQueue';
+export {
+  buildNoMatchDiagnostic,
+  buildResolutionChainTrace,
+  clearResolutionDiagnostics,
+  isSanitizedChainTrace,
+  isSanitizedDiagnostic,
+  dominantRejectionCode,
+  getLastResolutionDiagnostic,
+  getResolutionDiagnostics,
+  recordResolutionDiagnostic,
+  tallyRejections,
+} from './resolutionDiagnostics';
+export type {
+  CandidateRejection,
+  ChainOutcomeLike,
+  ResolutionChainTrace,
+  ResolutionDiagnosticRecord,
+  ResolutionFailureCode,
+  ResolutionProviderTrace,
+  ResolutionRejectionCode,
+  RejectionTally,
+} from './resolutionDiagnostics';
