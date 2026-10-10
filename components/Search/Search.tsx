@@ -13,7 +13,8 @@ import {
 import type { TextInput } from 'react-native';
 import { useRouter } from 'expo-router';
 
-import { getBrowseCategories, searchCatalog } from '@api';
+import { getBrowseCategories, searchCatalogProgressive } from '@api';
+import type { ProgressiveSearchUpdate } from '@api';
 import type {
   BrowseCategoryModel,
   LibraryItemModel,
@@ -36,8 +37,11 @@ import { useRecentSearches } from './useRecentSearches';
 
 type SearchStatus = 'idle' | 'loading' | 'done' | 'error';
 
-// Wait for the user to stop typing before calling the API.
-export const SEARCH_DELAY_MS = 400;
+// Wait for the user to stop typing before calling the API. V30 : 300 ms
+// (400 ms auparavant) — la fourchette demandée (250-350 ms), calibrée pour
+// ne JAMAIS lancer de requête à chaque caractère sans rendre la saisie
+// nerveuse.
+export const SEARCH_DELAY_MS = 300;
 
 /**
  * RECHERCHE — écran refondu.
@@ -61,10 +65,16 @@ export const SEARCH_DELAY_MS = 400;
  *     badge explicit et menu « … ».
  *  6. Debounce + annulation des réponses périmées : une réponse TARDIVE d'une
  *     ancienne requête n'écrase JAMAIS les résultats de la nouvelle.
+ *  7. V30 — RECHERCHE PROGRESSIVE : les sources (Spotify, backend, Audius,
+ *     YouTube Music) partent EN PARALLÈLE et leurs résultats s'affichent AU
+ *     FUR ET À MESURE de leur arrivée (snapshot cumulatif). La source la
+ *     plus lente ne bloque plus JAMAIS les autres ; le cache TTL borné
+ *     ressert instantanément une recherche récente ; Spotify (facultatif)
+ *     passe par un disjoncteur 403 — son indisponibilité n'efface ni ne
+ *     retarde les résultats sans compte.
  *
- * Ce qui ne change PAS : la cascade de sources (Spotify → backend → Audius),
- * le moteur de matching, la lecture, le menu de file. Il n'y a qu'UN seul
- * système de recherche.
+ * Ce qui ne change PAS : le moteur de matching, la lecture, le menu de file.
+ * Il n'y a qu'UN seul système de recherche.
  */
 export type SearchProps = {
   /**
@@ -82,6 +92,11 @@ export const Search = ({ autoFocus = false }: SearchProps = {}) => {
   const [results, setResults] = React.useState<SearchResultsModel | null>(null);
   const [status, setStatus] = React.useState<SearchStatus>('idle');
   const [retrySeed, setRetrySeed] = React.useState(0);
+  // Des sources travaillent encore : indicateur DISCRET sous les résultats
+  // déjà affichés (jamais un écran de chargement bloquant — V30).
+  const [pendingMore, setPendingMore] = React.useState(false);
+  // Le bouton « Réessayer » doit ignorer le cache (revalidation forcée).
+  const bypassCacheRef = React.useRef(false);
   // « Parcourir » : le catalogue de genres local (data/genres) alimente des
   // raccourcis de RECHERCHE. Toucher un genre remplit le champ et déclenche
   // exactement la même requête qu'une saisie manuelle — aucun second système
@@ -120,34 +135,75 @@ export const Search = ({ autoFocus = false }: SearchProps = {}) => {
     if (!q) {
       setResults(null);
       setStatus('idle');
+      setPendingMore(false);
       return;
     }
 
     let isCancelled = false;
+    let sawResults = false;
+    let cleanupHandle: { cancel: () => void } | null = null;
     setStatus('loading');
+    setPendingMore(false);
 
-    const timeout = setTimeout(async () => {
-      try {
-        const data = await searchCatalog(q);
-
-        // Garde anti-résultat périmé : une réponse TARDIVE d'une ancienne
-        // requête ne doit jamais écraser celle de la requête courante.
-        if (!isCancelled) {
-          setResults(data);
-          setStatus('done');
-          recent.add(q);
-        }
-      } catch {
-        if (!isCancelled) {
-          setResults(null);
-          setStatus('error');
-        }
+    const timeout = setTimeout(() => {
+      if (isCancelled) {
+        return;
       }
+
+      const handle = searchCatalogProgressive(
+        q,
+        (update: ProgressiveSearchUpdate) => {
+          // Garde anti-résultat périmé : `cancel()` coupe déjà l'émetteur,
+          // cette garde rend la fermeture hermétique quoi qu'il arrive.
+          if (isCancelled) {
+            return;
+          }
+
+          const hasResultsNow =
+            update.results.tracks.length > 0 ||
+            update.results.artists.length > 0 ||
+            update.results.albums.length > 0 ||
+            update.results.playlists.length > 0;
+
+          setPendingMore(update.pending);
+
+          // Une revalidation qui tourne mal n'EFFACE JAMAIS des résultats
+          // déjà affichés : l'échec global ne s'affiche que sur écran vide.
+          if (hasResultsNow) {
+            sawResults = true;
+            setResults(update.results);
+            setStatus('done');
+          } else if (!update.pending && !sawResults) {
+            if (update.failed) {
+              setResults(null);
+              setStatus('error');
+            } else {
+              // Recherche terminée, vraiment rien : message dédié (jamais
+              // d'écran blanc, jamais de faux état chargement infini).
+              setResults(update.results);
+              setStatus('done');
+            }
+          }
+
+          if (hasResultsNow && !update.pending) {
+            recent.add(q);
+          }
+        },
+        { bypassCache: bypassCacheRef.current }
+      );
+
+      bypassCacheRef.current = false;
+
+      cleanupHandle = handle;
     }, SEARCH_DELAY_MS);
 
     return () => {
       isCancelled = true;
       clearTimeout(timeout);
+      // Annulation : les réponses tardives de CETTE recherche ne pourront
+      // plus atteindre l'écran (la garde `isCancelled` ferme le reste).
+      cleanupHandle?.cancel();
+      cleanupHandle = null;
     };
     // `recent.add` est stable (useCallback sans dépendance) : l'inclure
     // relancerait la recherche à chaque rendu.
@@ -507,7 +563,12 @@ export const Search = ({ autoFocus = false }: SearchProps = {}) => {
             <Pressable
               accessibilityLabel="Relancer la recherche"
               accessibilityRole="button"
-              onPress={() => setRetrySeed((seed) => seed + 1)}
+              onPress={() => {
+                // Revalidation FORCÉE : l'entrée en cache (si l'erreur en
+                // avait produit une — normalement non) est contournée.
+                bypassCacheRef.current = true;
+                setRetrySeed((seed) => seed + 1);
+              }}
               style={styles.retryButton}
               testID="search-retry"
             >
@@ -520,6 +581,15 @@ export const Search = ({ autoFocus = false }: SearchProps = {}) => {
           <Text style={styles.degradedNotice} testID="search-degraded-notice">
             {translations.searchDegraded}
           </Text>
+        )}
+
+        {status === 'done' && pendingMore && (
+          <View style={styles.pendingMore} testID="search-pending-more">
+            <ActivityIndicator color={PALETTE.violet400} size="small" />
+            <Text style={styles.pendingMoreText}>
+              {translations.searchLoading}
+            </Text>
+          </View>
         )}
 
         {status === 'done' && !hasResults && (
@@ -650,6 +720,19 @@ const styles = StyleSheet.create({
     lineHeight: 18,
     marginBottom: SPACING.sm,
     paddingHorizontal: SPACING.xl,
+  },
+  // V30 : indicateur DISCRET de complétion (sources encore en cours) alors
+  // que des résultats sont DÉJÀ affichés — jamais bloquant.
+  pendingMore: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: SPACING.sm,
+    justifyContent: 'center',
+    paddingVertical: SPACING.sm,
+  },
+  pendingMoreText: {
+    color: COLORS.GREY,
+    fontSize: 12,
   },
   errorState: {
     alignItems: 'center',

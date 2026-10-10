@@ -3,13 +3,20 @@
  * album du résultat voyagent jusqu'à playQueue (lecture) et au menu
  * « appui long », exactement comme le badge de disponibilité. Drift testé :
  * un homonyme d'un AUTRE album ne doit plus pouvoir être matché par mégarde.
+ *
+ * V30 — couture de mock adaptée au moteur PROGRESSIF
+ * (`searchCatalogProgressive`) : les assertions métier sont CONSERVÉES,
+ * seule la forme de la réponse change (snapshots cumulatifs au lieu d'une
+ * promesse unique). Le helper `deliver` simule une arrivée de résultats ;
+ * `failAll` simule l'échec de toutes les sources.
  */
 import * as React from 'react';
 
 import { act, fireEvent, render } from '@testing-library/react-native';
 
 import { translations } from '@data';
-import { searchCatalog } from '@api';
+import { searchCatalogProgressive } from '@api';
+import type { ProgressiveSearchUpdate } from '@api';
 import type {
   BrowseCategoryModel,
   LibraryItemModel,
@@ -23,7 +30,7 @@ const mockPlayQueue = jest.fn(
   async (_queue: PlayerTrack[], _startIndex: number) => {}
 );
 const mockTogglePlayPause = jest.fn(async () => {});
-const searchCatalogMock = searchCatalog as unknown as jest.Mock;
+const searchProgressiveMock = searchCatalogProgressive as unknown as jest.Mock;
 const mockPush = jest.fn();
 
 jest.mock('expo-router', () => ({
@@ -52,7 +59,7 @@ const mockGetBrowseCategories = jest.fn<Promise<BrowseCategoryModel[]>, []>(
 );
 
 jest.mock('@api', () => ({
-  searchCatalog: jest.fn(),
+  searchCatalogProgressive: jest.fn(),
   getBrowseCategories: () => mockGetBrowseCategories(),
 }));
 
@@ -86,6 +93,43 @@ const mkSlide = (overrides: Partial<LibraryItemModel>): LibraryItemModel => ({
   ...overrides,
 });
 
+const emptyResults = (): SearchResultsModel => ({
+  artists: [],
+  tracks: [],
+  albums: [],
+  playlists: [],
+});
+
+const updateWith = (
+  results: Partial<SearchResultsModel>,
+  extra: Partial<ProgressiveSearchUpdate> = {}
+): ProgressiveSearchUpdate => ({
+  results: { ...emptyResults(), ...results },
+  pending: false,
+  failed: false,
+  failedSources: [],
+  ...extra,
+});
+
+/** Résolution « immédiate » (source rapide) : émission en microtâche. */
+const mockImmediate = (results: Partial<SearchResultsModel>) => {
+  searchProgressiveMock.mockImplementation(
+    (_q: string, onUpdate: (u: ProgressiveSearchUpdate) => void) => {
+      let cancelled = false;
+      void Promise.resolve().then(() => {
+        if (!cancelled) {
+          onUpdate(updateWith(results));
+        }
+      });
+      return {
+        cancel: () => {
+          cancelled = true;
+        },
+      };
+    }
+  );
+};
+
 const typeQueryAndAdvance = async (
   getByPlaceholderText: (text: string) => unknown
 ) => {
@@ -93,7 +137,7 @@ const typeQueryAndAdvance = async (
     getByPlaceholderText(translations.searchPlaceholder),
     'song'
   );
-  // Debounce réel (400 ms) : on laisse le timer produire puis se résoudre.
+  // Debounce réel (300 ms) : on laisse le timer produire puis se résoudre.
   await act(async () => {
     await new Promise((resolve) => setTimeout(resolve, SEARCH_DELAY_MS + 50));
   });
@@ -102,9 +146,8 @@ const typeQueryAndAdvance = async (
 beforeEach(() => {
   mockPlayQueue.mockClear();
   mockCaptured.current = null;
-  searchCatalogMock.mockReset();
-  searchCatalogMock.mockResolvedValue({
-    artists: [],
+  searchProgressiveMock.mockReset();
+  mockImmediate({
     tracks: [
       mkSlide({
         id: 't1',
@@ -119,8 +162,6 @@ beforeEach(() => {
         albumName: null,
       }),
     ],
-    albums: [],
-    playlists: [],
   });
 });
 
@@ -176,15 +217,12 @@ describe('Search — PlayerTrack propagés (I-2)', () => {
    * upload CLEAN peut remplacer une demande EXPLICITE.
    */
   it('pression : la classification explicit du résultat voyage jusqu au matcher', async () => {
-    searchCatalogMock.mockResolvedValue({
-      artists: [],
+    mockImmediate({
       tracks: [
         mkSlide({ id: 't1', title: 'Song One', explicit: true }),
         mkSlide({ id: 't2', title: 'Song Two', explicit: false }),
         mkSlide({ id: 't3', title: 'Song Three', explicit: null }),
       ],
-      albums: [],
-      playlists: [],
     });
 
     const { getByPlaceholderText, getByText } = render(<Search />);
@@ -197,11 +235,8 @@ describe('Search — PlayerTrack propagés (I-2)', () => {
   });
 
   it('appui long : la classification explicit est transmise au menu aussi', async () => {
-    searchCatalogMock.mockResolvedValue({
-      artists: [],
+    mockImmediate({
       tracks: [mkSlide({ id: 't1', title: 'Song One', explicit: true })],
-      albums: [],
-      playlists: [],
     });
 
     const { getByPlaceholderText, getByText } = render(<Search />);
@@ -214,16 +249,45 @@ describe('Search — PlayerTrack propagés (I-2)', () => {
       explicit: true,
     });
   });
+
+  it('V30 : un résultat YouTube natif part au lecteur avec sa source youtube:*', async () => {
+    mockImmediate({
+      tracks: [mkSlide({ id: 'youtube:v42', title: 'Native YT' })],
+    });
+
+    const { getByPlaceholderText, getByText } = render(<Search />);
+    await typeQueryAndAdvance(getByPlaceholderText);
+
+    fireEvent.press(getByText('Native YT'));
+
+    const [queue] = mockPlayQueue.mock.calls[0];
+    expect(queue[0]).toMatchObject({
+      id: 'youtube:v42',
+      source: { provider: 'youtube', id: 'v42' },
+    });
+  });
 });
 
 describe('Search — debounce, races et états (zone 4)', () => {
   it('deux requêtes rapides : la réponse TARDIVE de la 1re n écrase JAMAIS la 2e', async () => {
-    const pending: Record<string, (value: unknown) => void> = {};
-    searchCatalogMock.mockImplementation(
-      (q: string) =>
-        new Promise((resolve) => {
-          pending[q] = resolve;
-        })
+    const pending: Record<
+      string,
+      (results: Partial<SearchResultsModel>) => void
+    > = {};
+    searchProgressiveMock.mockImplementation(
+      (q: string, onUpdate: (u: ProgressiveSearchUpdate) => void) => {
+        let cancelled = false;
+        pending[q] = (results) => {
+          if (!cancelled) {
+            onUpdate(updateWith(results));
+          }
+        };
+        return {
+          cancel: () => {
+            cancelled = true;
+          },
+        };
+      }
     );
 
     const { getByPlaceholderText, getByText, queryByText } = render(<Search />);
@@ -237,11 +301,10 @@ describe('Search — debounce, races et états (zone 4)', () => {
     });
 
     // La 2e répond d abord (rapide)…
-    pending['abc']?.({
-      artists: [],
-      tracks: [mkSlide({ id: 'new', title: 'Fresh Result' })],
-      albums: [],
-      playlists: [],
+    act(() => {
+      pending['abc']?.({
+        tracks: [mkSlide({ id: 'new', title: 'Fresh Result' })],
+      });
     });
     await act(async () => {
       await new Promise((resolve) => setTimeout(resolve, 20));
@@ -249,11 +312,12 @@ describe('Search — debounce, races et états (zone 4)', () => {
     expect(getByText('Fresh Result')).toBeTruthy();
 
     // …puis la 1re répond ENFIN : son résultat ne doit PAS apparaître.
-    pending['ab']?.({
-      artists: [],
-      tracks: [mkSlide({ id: 'old', title: 'Stale Result' })],
-      albums: [],
-      playlists: [],
+    // (La recherche « ab » a été annulée AVANT son lancement par le
+    // debounce ; même forcée, l annulation la rend hermétique.)
+    act(() => {
+      pending['ab']?.({
+        tracks: [mkSlide({ id: 'old', title: 'Stale Result' })],
+      });
     });
     await act(async () => {
       await new Promise((resolve) => setTimeout(resolve, 20));
@@ -263,7 +327,20 @@ describe('Search — debounce, races et états (zone 4)', () => {
   });
 
   it('erreur réseau : message d erreur explicite, puis la saisie suivante refonctionne', async () => {
-    searchCatalogMock.mockRejectedValueOnce(new Error('network down'));
+    // Toutes les sources en panne, aucun résultat : échec global.
+    searchProgressiveMock.mockImplementationOnce(
+      (_q: string, onUpdate: (u: ProgressiveSearchUpdate) => void) => {
+        void Promise.resolve().then(() => {
+          onUpdate(
+            updateWith(
+              {},
+              { failed: true, failedSources: ['audius', 'youtube'] }
+            )
+          );
+        });
+        return { cancel: () => {} };
+      }
+    );
 
     const { getByPlaceholderText, getByText, queryByText } = render(<Search />);
     fireEvent.changeText(
@@ -277,11 +354,8 @@ describe('Search — debounce, races et états (zone 4)', () => {
     expect(getByText(translations.searchError)).toBeTruthy();
 
     // Nouvelle saisie → nouvelle tentative : l ancien état erreur disparaît.
-    searchCatalogMock.mockResolvedValue({
-      artists: [],
+    mockImmediate({
       tracks: [mkSlide({ id: 'ok', title: 'Recovered Track' })],
-      albums: [],
-      playlists: [],
     });
     fireEvent.changeText(
       getByPlaceholderText(translations.searchPlaceholder),
@@ -294,8 +368,15 @@ describe('Search — debounce, races et états (zone 4)', () => {
     expect(getByText('Recovered Track')).toBeTruthy();
   });
 
-  it('retry relance exactement la requête en erreur sans modifier la saisie', async () => {
-    searchCatalogMock.mockRejectedValueOnce(new Error('temporary outage'));
+  it('retry relance exactement la requête en erreur en contournant le cache', async () => {
+    searchProgressiveMock.mockImplementationOnce(
+      (_q: string, onUpdate: (u: ProgressiveSearchUpdate) => void) => {
+        void Promise.resolve().then(() => {
+          onUpdate(updateWith({}, { failed: true, failedSources: ['audius'] }));
+        });
+        return { cancel: () => {} };
+      }
+    );
     const { getByPlaceholderText, getByTestId, getByText } = render(<Search />);
     fireEvent.changeText(
       getByPlaceholderText(translations.searchPlaceholder),
@@ -306,29 +387,28 @@ describe('Search — debounce, races et états (zone 4)', () => {
     });
     expect(getByTestId('search-error-state')).toBeTruthy();
 
-    searchCatalogMock.mockResolvedValueOnce({
-      artists: [],
+    mockImmediate({
       tracks: [mkSlide({ id: 'retry-ok', title: 'Retry Result' })],
-      albums: [],
-      playlists: [],
     });
     fireEvent.press(getByTestId('search-retry'));
     await act(async () => {
       await new Promise((resolve) => setTimeout(resolve, SEARCH_DELAY_MS + 50));
     });
 
-    expect(searchCatalogMock).toHaveBeenLastCalledWith('retry me');
+    // Même requête, mais revalidation FORCÉE (bypassCache du bouton).
+    expect(searchProgressiveMock).toHaveBeenLastCalledWith(
+      'retry me',
+      expect.any(Function),
+      expect.objectContaining({ bypassCache: true })
+    );
     expect(getByText('Retry Result')).toBeTruthy();
   });
 
   it('signale explicitement les résultats partiels du catalogue de repli', async () => {
-    searchCatalogMock.mockResolvedValue({
-      artists: [],
+    mockImmediate({
       tracks: [mkSlide({ id: 'fallback', title: 'Fallback Track' })],
-      albums: [],
-      playlists: [],
       degraded: true,
-    });
+    } as Partial<SearchResultsModel>);
 
     const { getByPlaceholderText, getByTestId, getByText } = render(<Search />);
     fireEvent.changeText(
@@ -345,12 +425,7 @@ describe('Search — debounce, races et états (zone 4)', () => {
   });
 
   it('aucun résultat : message « pas de résultats » dédié (jamais vide blanc)', async () => {
-    searchCatalogMock.mockResolvedValue({
-      artists: [],
-      tracks: [],
-      albums: [],
-      playlists: [],
-    });
+    mockImmediate({});
 
     const { getByPlaceholderText, getByText } = render(<Search />);
     fireEvent.changeText(
@@ -365,12 +440,22 @@ describe('Search — debounce, races et états (zone 4)', () => {
   });
 
   it('effacer la barre : retour à l état initial et REQUÊTE EN VOL ANNULÉE', async () => {
-    let resolveLate: (value: unknown) => void = () => undefined;
-    searchCatalogMock.mockImplementation(
-      () =>
-        new Promise((resolve) => {
-          resolveLate = resolve;
-        })
+    let resolveLate: (results: Partial<SearchResultsModel>) => void = () =>
+      undefined;
+    searchProgressiveMock.mockImplementation(
+      (_q: string, onUpdate: (u: ProgressiveSearchUpdate) => void) => {
+        let cancelled = false;
+        resolveLate = (results) => {
+          if (!cancelled) {
+            onUpdate(updateWith(results));
+          }
+        };
+        return {
+          cancel: () => {
+            cancelled = true;
+          },
+        };
+      }
     );
 
     const { getByPlaceholderText, getByText, queryByText } = render(<Search />);
@@ -385,11 +470,10 @@ describe('Search — debounce, races et états (zone 4)', () => {
     expect(getByText(translations.searchHint)).toBeTruthy();
 
     // La réponse tardive de « hello » arrive : RIEN ne s affiche.
-    resolveLate({
-      artists: [],
-      tracks: [mkSlide({ id: 'late', title: 'Zombie Result' })],
-      albums: [],
-      playlists: [],
+    act(() => {
+      resolveLate({
+        tracks: [mkSlide({ id: 'late', title: 'Zombie Result' })],
+      });
     });
     await act(async () => {
       await new Promise((resolve) => setTimeout(resolve, 20));
@@ -397,17 +481,44 @@ describe('Search — debounce, races et états (zone 4)', () => {
     expect(queryByText('Zombie Result')).toBeNull();
     expect(getByText(translations.searchHint)).toBeTruthy();
   });
+
+  it('V30 — affichage progressif : résultats immédiats pendant que d autres sources tournent encore', async () => {
+    searchProgressiveMock.mockImplementation(
+      (_q: string, onUpdate: (u: ProgressiveSearchUpdate) => void) => {
+        let cancelled = false;
+        // 1) Audius répond en premier : résultats exploitables, recherche
+        //    ENCORE en cours (autres sources).
+        void Promise.resolve().then(() => {
+          if (!cancelled) {
+            onUpdate(
+              updateWith(
+                { tracks: [mkSlide({ id: 't1', title: 'Song One' })] },
+                { pending: true }
+              )
+            );
+          }
+        });
+        return {
+          cancel: () => {
+            cancelled = true;
+          },
+        };
+      }
+    );
+
+    const { getByPlaceholderText, getByText, getByTestId } = render(<Search />);
+    await typeQueryAndAdvance(getByPlaceholderText);
+
+    // Les résultats sont DÉJÀ affichés alors que des sources tournent :
+    // indicateur discret, pas d écran de chargement bloquant.
+    expect(getByText('Song One')).toBeTruthy();
+    expect(getByTestId('search-pending-more')).toBeTruthy();
+  });
 });
 
 describe('Search — navigation réelle depuis les résultats', () => {
   const renderWith = async (results: Partial<SearchResultsModel>) => {
-    searchCatalogMock.mockResolvedValue({
-      artists: [],
-      tracks: [],
-      albums: [],
-      playlists: [],
-      ...results,
-    });
+    mockImmediate(results);
 
     const utils = render(<Search />);
     await typeQueryAndAdvance(utils.getByPlaceholderText);
@@ -504,12 +615,7 @@ describe('Search — « Parcourir » lance une VRAIE recherche', () => {
     jest.clearAllMocks();
     mockPush.mockClear();
     mockGetBrowseCategories.mockResolvedValue(genres);
-    searchCatalogMock.mockResolvedValue({
-      artists: [],
-      tracks: [],
-      albums: [],
-      playlists: [],
-    });
+    mockImmediate({});
   });
 
   it('affiche les genres du catalogue local à l état idle', async () => {
@@ -535,7 +641,11 @@ describe('Search — « Parcourir » lance une VRAIE recherche', () => {
     });
 
     // Même chemin qu'une saisie manuelle : une vraie requête catalogue.
-    expect(searchCatalogMock).toHaveBeenCalledWith('Jazz');
+    expect(searchProgressiveMock).toHaveBeenCalledWith(
+      'Jazz',
+      expect.any(Function),
+      expect.anything()
+    );
     // La section disparaît une fois la recherche lancée.
     expect(() => getByText('Électronique')).toThrow();
   });

@@ -285,18 +285,33 @@ export const audiusTrackSource = (id: string): TrackSource => ({
 });
 
 /**
- * Id logique de file d'attente pour un TrackModel.id : `audius:*` reste tel
- * quel (fournisseur natif), tout le reste est une métadonnée catalogue à
- * matcher (`spotify:`).
+ * Id logique de file d'attente pour un TrackModel.id : `audius:*` et
+ * `youtube:*` restent tels quels (fournisseurs NATIFS — flux direct sans
+ * matching, V30 : la recherche catalogue YouTube alimente le lecteur), tout
+ * le reste est une métadonnée catalogue à matcher (`spotify:`).
  */
 export const queueIdForTrackId = (trackId: string): string =>
-  trackId.startsWith('audius:') ? trackId : `spotify:${trackId}`;
+  trackId.startsWith('audius:') || trackId.startsWith('youtube:')
+    ? trackId
+    : `spotify:${trackId}`;
+
+/** Une piste YouTube native (identifiée, lue en flux direct par son
+ * provider) — même statut qu'une piste Audius native. */
+export const youtubeTrackSource = (id: string): TrackSource => ({
+  provider: 'youtube',
+  id,
+});
 
 /** Source de lecture associée (même règle que queueIdForTrackId). */
-export const sourceForTrackId = (trackId: string): TrackSource =>
-  trackId.startsWith('audius:')
-    ? audiusTrackSource(trackId.slice('audius:'.length))
-    : spotifyTrackSource(trackId);
+export const sourceForTrackId = (trackId: string): TrackSource => {
+  if (trackId.startsWith('audius:')) {
+    return audiusTrackSource(trackId.slice('audius:'.length));
+  }
+  if (trackId.startsWith('youtube:')) {
+    return youtubeTrackSource(trackId.slice('youtube:'.length));
+  }
+  return spotifyTrackSource(trackId);
+};
 
 class MelodixPlayer {
   private state: PlayerState = INITIAL_PLAYER_STATE;

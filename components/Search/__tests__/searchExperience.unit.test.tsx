@@ -13,6 +13,10 @@
  * Ces tests ne simulent AUCUNE lecture : ils vérifient la géométrie, la
  * navigation et l'annulation des requêtes. La disponibilité audio réelle est
  * testée dans services/audio/__tests__/.
+ *
+ * V30 — couture adaptée au moteur progressif (`searchCatalogProgressive`) :
+ * les huit scénarios et leurs assertions sont CONSERVÉS ; la couture de mock
+ * émet des snapshots cumulatifs (`deliver`) au lieu de résoudre une promesse.
  */
 import * as React from 'react';
 import { Keyboard, View } from 'react-native';
@@ -20,14 +24,15 @@ import { Keyboard, View } from 'react-native';
 import { act, fireEvent, render } from '@testing-library/react-native';
 
 import { translations } from '@data';
-import { searchCatalog } from '@api';
-import type { LibraryItemModel } from '@models';
+import { searchCatalogProgressive } from '@api';
+import type { ProgressiveSearchUpdate } from '@api';
+import type { LibraryItemModel, SearchResultsModel } from '@models';
 
 import { Search, SEARCH_DELAY_MS } from '../Search';
 
 const mockPlayQueue = jest.fn(async () => {});
 const mockTogglePlayPause = jest.fn(async () => {});
-const searchCatalogMock = searchCatalog as unknown as jest.Mock;
+const searchProgressiveMock = searchCatalogProgressive as unknown as jest.Mock;
 const mockPush = jest.fn();
 const mockBack = jest.fn();
 
@@ -68,7 +73,7 @@ const mockGetBrowseCategories = jest.fn(async () => [
 ]);
 
 jest.mock('@api', () => ({
-  searchCatalog: jest.fn(),
+  searchCatalogProgressive: jest.fn(),
   getBrowseCategories: () => mockGetBrowseCategories(),
 }));
 
@@ -87,7 +92,7 @@ const track = (
   ...overrides,
 });
 
-const DAFT_PUNK_RESULTS = {
+const DAFT_PUNK_RESULTS: SearchResultsModel = {
   artists: [
     {
       id: 'ar1',
@@ -121,6 +126,36 @@ const DAFT_PUNK_RESULTS = {
   ],
 };
 
+const updateWith = (
+  results: SearchResultsModel,
+  extra: Partial<ProgressiveSearchUpdate> = {}
+): ProgressiveSearchUpdate => ({
+  results,
+  pending: false,
+  failed: false,
+  failedSources: [],
+  ...extra,
+});
+
+/** Émission « immédiate » d'un snapshot complet (toutes sources d'un coup). */
+const mockImmediate = (results: SearchResultsModel) => {
+  searchProgressiveMock.mockImplementation(
+    (_q: string, onUpdate: (u: ProgressiveSearchUpdate) => void) => {
+      let cancelled = false;
+      void Promise.resolve().then(() => {
+        if (!cancelled) {
+          onUpdate(updateWith(results));
+        }
+      });
+      return {
+        cancel: () => {
+          cancelled = true;
+        },
+      };
+    }
+  );
+};
+
 const settle = async () => {
   await act(async () => {
     await new Promise((resolve) => setTimeout(resolve, SEARCH_DELAY_MS + 60));
@@ -140,7 +175,7 @@ const type = async (
 
 beforeEach(() => {
   jest.clearAllMocks();
-  searchCatalogMock.mockResolvedValue(DAFT_PUNK_RESULTS);
+  mockImmediate(DAFT_PUNK_RESULTS);
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -161,7 +196,7 @@ describe('1. ouvrir la recherche → navigation normale', () => {
   it('ne déclenche aucune requête catalogue au montage', () => {
     render(<Search />);
 
-    expect(searchCatalogMock).not.toHaveBeenCalled();
+    expect(searchProgressiveMock).not.toHaveBeenCalled();
   });
 
   it('la loupe de l accueil demande l auto-focus, l onglet non', () => {
@@ -214,12 +249,21 @@ describe('2. toucher la barre → clavier → la navigation basse NE gêne PAS',
 // ─────────────────────────────────────────────────────────────────────────────
 describe('3. saisie rapide « daft punk » → aucun résultat périmé', () => {
   it('la réponse TARDIVE de « daft » n écrase JAMAIS « daft punk »', async () => {
-    const pending: Record<string, (value: unknown) => void> = {};
-    searchCatalogMock.mockImplementation(
-      (query: string) =>
-        new Promise((resolve) => {
-          pending[query] = resolve;
-        })
+    const pending: Record<string, (results: SearchResultsModel) => void> = {};
+    searchProgressiveMock.mockImplementation(
+      (query: string, onUpdate: (u: ProgressiveSearchUpdate) => void) => {
+        let cancelled = false;
+        pending[query] = (results) => {
+          if (!cancelled) {
+            onUpdate(updateWith(results));
+          }
+        };
+        return {
+          cancel: () => {
+            cancelled = true;
+          },
+        };
+      }
     );
 
     const { getByPlaceholderText, queryByText } = render(<Search />);
@@ -239,7 +283,7 @@ describe('3. saisie rapide « daft punk » → aucun résultat périmé', () => 
     expect(Object.keys(pending).sort()).toEqual(['daft', 'daft punk']);
 
     // La réponse de « daft punk » arrive EN PREMIER, puis celle de « daft ».
-    await act(async () => {
+    act(() => {
       pending['daft punk']({
         ...DAFT_PUNK_RESULTS,
         tracks: [track('t9', 'Da Funk')],
@@ -268,8 +312,12 @@ describe('3. saisie rapide « daft punk » → aucun résultat périmé', () => 
     await settle();
 
     // Le debounce a absorbé les quatre frappes : une seule requête.
-    expect(searchCatalogMock).toHaveBeenCalledTimes(1);
-    expect(searchCatalogMock).toHaveBeenCalledWith('daft');
+    expect(searchProgressiveMock).toHaveBeenCalledTimes(1);
+    expect(searchProgressiveMock).toHaveBeenCalledWith(
+      'daft',
+      expect.any(Function),
+      expect.anything()
+    );
   });
 });
 
@@ -292,12 +340,21 @@ describe('4. effacer → état propre', () => {
   });
 
   it('le bouton effacer annule la requête EN VOL', async () => {
-    const pending: Record<string, (value: unknown) => void> = {};
-    searchCatalogMock.mockImplementation(
-      (query: string) =>
-        new Promise((resolve) => {
-          pending[query] = resolve;
-        })
+    const pending: Record<string, (results: SearchResultsModel) => void> = {};
+    searchProgressiveMock.mockImplementation(
+      (query: string, onUpdate: (u: ProgressiveSearchUpdate) => void) => {
+        let cancelled = false;
+        pending[query] = (results) => {
+          if (!cancelled) {
+            onUpdate(updateWith(results));
+          }
+        };
+        return {
+          cancel: () => {
+            cancelled = true;
+          },
+        };
+      }
     );
 
     const { getByPlaceholderText, getByTestId } = render(<Search />);
@@ -312,7 +369,7 @@ describe('4. effacer → état propre', () => {
     fireEvent.press(getByTestId('search-clear-button'));
 
     // La réponse tardive ne doit RIEN afficher.
-    await act(async () => {
+    act(() => {
       pending['daft punk'](DAFT_PUNK_RESULTS);
     });
 
@@ -409,7 +466,7 @@ describe('6. ouvrir un résultat → navigation correcte', () => {
   });
 
   it('encode les identifiants utilisés dans la route', async () => {
-    searchCatalogMock.mockResolvedValue({
+    mockImmediate({
       artists: [
         {
           id: 'artiste/avec espace',
