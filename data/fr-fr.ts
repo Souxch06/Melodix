@@ -40,6 +40,7 @@ export const FR_FR_ACCOUNT = {
   accountLocalInfo:
     "Aucun compte n'est nécessaire : tes favoris, ta bibliothèque et ton historique sont stockés uniquement sur cet appareil.",
   accountClearHistory: "Effacer l'historique d'écoute",
+  accountConnect: 'Se connecter à Spotify',
   accountHistoryCleared: 'Historique effacé.',
   accountCancel: 'Annuler',
   // Restauration de session : identité du compte pas encore établie
@@ -175,6 +176,7 @@ export const FR_FR_LOGIN = {
   loginCancelledTitle: 'Connexion annulée',
   loginCancelledBody: 'Tu peux réessayer quand tu veux.',
   loginOAuthRefusedTitle: 'Spotify a refusé la connexion',
+  loginSkip: 'Continuer sans Spotify',
   loginOAuthRefusedBody:
     'Autorise bien Melodix sur la page Spotify, puis réessaie.',
   // V27 — échange OAuth réussi mais Spotify refuse les appels de l'app.
@@ -259,6 +261,7 @@ export const FR_FR_SETTINGS = {
   settingsSessionCanRefresh: 'Renouvellement automatique disponible',
   settingsSessionNoRefresh: "Nouvelle connexion requise à l'expiration",
   settingsSignOut: 'Se déconnecter',
+  settingsConnectSpotify: 'Se connecter à Spotify (facultatif)',
   settingsSignOutTitle: 'Es-tu sûr de vouloir te déconnecter de Melodix ?',
   settingsCancel: 'Annuler',
   settingsSignOutConfirm: 'Se déconnecter',

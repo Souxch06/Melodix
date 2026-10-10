@@ -67,20 +67,22 @@ jest.mock('expo-router', () => ({
 // dépendance native) : les tests de masquage contrôlent le comportement réel.
 jest.mock('@services', () => ({
   isSpotifyLoginConfigured: () => mockConfigured,
-  useSpotifyAuth: () => ({
+  isSensitiveDiagnosticValue: jest.requireActual(
+    '../../services/spotify/devLog'
+  ).isSensitiveDiagnosticValue,
+}));
+
+// V29 — le flux OAuth vient du SpotifyAuthProvider RACINE (single-flight) :
+// l'écran consomme le contexte, il ne monte plus le hook lui-même.
+jest.mock('@context', () => ({
+  useUserData: () => ({ sessionStatus: mockSessionStatus }),
+  useSpotifyAuthContext: () => ({
     state: mockAuthState,
     isBusy: mockBusy,
     isAuthRequestPending: mockRequestPending,
     startLogin: mockStartLogin,
     resetError: mockResetError,
   }),
-  isSensitiveDiagnosticValue: jest.requireActual(
-    '../../services/spotify/devLog'
-  ).isSensitiveDiagnosticValue,
-}));
-
-jest.mock('@context', () => ({
-  useUserData: () => ({ sessionStatus: mockSessionStatus }),
 }));
 
 const TEST_IDS = {
@@ -102,9 +104,17 @@ const hasTextContaining = (root: ReturnType<typeof render>, needle: string) =>
     return typeof flat === 'string' ? flat.includes(needle) : false;
   });
 
-describe('LoginScreen — parcours humain, connexion OBLIGATOIRE', () => {
+describe('LoginScreen — parcours humain, connexion FACULTATIVE (V29)', () => {
+  let mockCanGoBack = false;
+  const mockBack = jest.fn();
+
   beforeEach(() => {
-    (useRouter as jest.Mock).mockReturnValue({ replace: mockReplace });
+    mockCanGoBack = false;
+    (useRouter as jest.Mock).mockReturnValue({
+      replace: mockReplace,
+      back: mockBack,
+      canGoBack: () => mockCanGoBack,
+    });
     mockAuthState = { status: 'idle' };
     mockConfigured = true;
     mockBusy = false;
@@ -114,7 +124,7 @@ describe('LoginScreen — parcours humain, connexion OBLIGATOIRE', () => {
     jest.clearAllMocks();
   });
 
-  it('écran initial : bienvenue, accroche, UN SEUL bouton Spotify, note, pied de confidentialité implicitement humain', () => {
+  it('écran initial : bienvenue, accroche, bouton Spotify + issue « sans Spotify » (V29), zéro champ de saisie', () => {
     const root = render(<LoginScreen />);
 
     expect(root.getByTestId('login-screen')).toBeTruthy();
@@ -124,11 +134,49 @@ describe('LoginScreen — parcours humain, connexion OBLIGATOIRE', () => {
     ).toBeTruthy();
     expect(root.getByTestId(TEST_IDS.SPOTIFY_BUTTON)).toBeTruthy();
     expect(root.getByText('Continuer avec Spotify')).toBeTruthy();
-    expect(root.getByText('Connexion sécurisée avec Spotify')).toBeTruthy();
-    // Zéro échappatoire sans compte, zéro champ de saisie.
-    expect(root.queryByText(/sans compte/i)).toBeNull();
+    // V29 — le compte est FACULTATIF : une issue explicite « Continuer sans
+    // Spotify » doit exister (le lecteur local fonctionne sans compte).
+    expect(root.getByTestId('login-skip-button')).toBeTruthy();
+    expect(root.getByText('Continuer sans Spotify')).toBeTruthy();
+    // Zéro champ de saisie (jamais de Client ID manuel, jamais de secret).
     expect(root.UNSAFE_queryAllByType(TextInput)).toHaveLength(0);
     expect(root.queryByText(/Client ID|secret/i)).toBeNull();
+  });
+
+  it('« Continuer sans Spotify » depuis la racine (aucun historique) → accueil en mode local', () => {
+    const root = render(<LoginScreen />);
+    root.getByTestId('login-skip-button');
+    fireEvent.press(root.getByTestId('login-skip-button'));
+    expect(mockReplace).toHaveBeenCalledWith({
+      pathname: '/(tabs)/home',
+      params: {},
+    });
+    // Aucune OAuth déclenchée par l'issue de secours.
+    expect(mockStartLogin).not.toHaveBeenCalled();
+  });
+
+  it("« Continuer sans Spotify » ouvert depuis l'app → retour simple (back)", () => {
+    mockCanGoBack = true;
+    const root = render(<LoginScreen />);
+    fireEvent.press(root.getByTestId('login-skip-button'));
+    expect(mockBack).toHaveBeenCalledTimes(1);
+    expect(mockReplace).not.toHaveBeenCalled();
+  });
+
+  it('le bouton « Continuer sans Spotify » reste ACTIF même sans config Spotify (jamais de piège)', () => {
+    mockConfigured = false;
+    const root = render(<LoginScreen />);
+    // Sans config : aucune action OAuth possible (bouton Spotify absent,
+    // remplacé par la carte d'erreur humaine)…
+    expect(root.queryByTestId(TEST_IDS.SPOTIFY_BUTTON)).toBeNull();
+    // …l'issue de secours, elle, fonctionne TOUJOURS (le skip vit hors de
+    // la condition d'erreur — personne n'est coincé sur cet écran).
+    expect(root.getByTestId('login-skip-button')).toBeTruthy();
+    fireEvent.press(root.getByTestId('login-skip-button'));
+    expect(mockReplace).toHaveBeenCalledWith({
+      pathname: '/(tabs)/home',
+      params: {},
+    });
   });
 
   it('le bouton lance le VRAI OAuth (startLogin) exactement une fois', () => {

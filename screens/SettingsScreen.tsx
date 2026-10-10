@@ -137,9 +137,9 @@ export const SettingsScreen = () => {
         text: t.settingsSignOutConfirm,
         style: 'destructive',
         onPress: () => {
-          void signOut().then(() => {
-            router.replace({ pathname: '/login', params: {} });
-          });
+          // V29 — déconnexion : retour au mode LOCAL, l'app reste ouverte
+          // et utilisable (plus jamais de renvoi forcé vers /login).
+          void signOut();
         },
       },
     ]);
@@ -246,6 +246,19 @@ export const SettingsScreen = () => {
             showChevron
             onPress={() => void reloadUserData()}
             testID="settings-identity-retry"
+          />
+        ) : null}
+        {sessionStatus === 'local' ? (
+          // V29 — connexion FACULTATIVE : proposée ici, jamais imposée au
+          // démarrage. Les données Spotify restent soumises aux
+          // autorisations du compte (dev-mode) ; le lecteur, lui, fonctionne
+          // sans.
+          <SettingsRow
+            isLast={false}
+            label={t.settingsConnectSpotify}
+            showChevron
+            onPress={() => router.push({ pathname: '/login', params: {} })}
+            testID="settings-connect-spotify"
           />
         ) : null}
         {sessionStatus === 'spotify' ||

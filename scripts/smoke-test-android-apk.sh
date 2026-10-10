@@ -409,7 +409,9 @@ printf '%s\n' "$NOTIFICATIONS_BG" | grep -Fq 'melodix_media' || \
 # `melodix://callback?code=…` (redirect canonique de l'app).
 # Le runtime JS doit :
 #   1. démarrer via l'intent-filter du manifest ;
-#   2. passer la garde de démarrage (resolveStartupSession → /login) ;
+#   2. DÉMARRER EN MODE LOCAL (V29 : la garde n'envoie plus jamais vers
+#      /login — le flux OAuth vit dans SpotifyAuthProvider monté à la
+#      RACINE, donc le callback est lu quel que soit l'écran affiché) ;
 #   3. lire l'URL initiale et ÉMETTRE la séquence [SpotifyAuth] du cold
 #      start (callback:received → code:received → callback:error …).
 # Code factice : en CI il n'y a AUCUNE transaction PKCE persistée ni compte

@@ -118,6 +118,7 @@ export const EN_GB_LOGIN = {
   loginCancelledTitle: 'Sign-in cancelled',
   loginCancelledBody: 'You can try again whenever you like.',
   loginOAuthRefusedTitle: 'Spotify refused the connection',
+  loginSkip: 'Continue without Spotify',
   loginOAuthRefusedBody:
     'Make sure you authorize Melodix on the Spotify page, then try again.',
   // V27 — OAuth exchange succeeded but Spotify denies this app's API calls.
@@ -160,6 +161,7 @@ export const EN_GB_ACCOUNT = {
   accountTitle: 'Melodix',
   accountLocalInfo:
     'No account required: your favorites, library and history are stored only on this device.',
+  accountConnect: 'Connect to Spotify',
   accountClearHistory: 'Clear listening history',
   accountHistoryCleared: 'History cleared.',
   accountCancel: 'Cancel',
@@ -313,6 +315,7 @@ export const EN_GB_SETTINGS = {
   settingsSessionCanRefresh: 'Automatic renewal available',
   settingsSessionNoRefresh: 'Sign-in required at the next expiration',
   settingsSignOut: 'Sign out',
+  settingsConnectSpotify: 'Connect to Spotify (optional)',
   settingsSignOutTitle: 'Are you sure you want to sign out of Melodix?',
   settingsCancel: 'Cancel',
   settingsSignOutConfirm: 'Sign out',

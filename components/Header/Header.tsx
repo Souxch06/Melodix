@@ -56,9 +56,11 @@ export const Header = ({ tab }: HeaderPropsType) => {
           text: translations.loginSignOutConfirm,
           style: 'destructive',
           onPress: () => {
-            void signOut().then(() => {
-              router.replace({ pathname: '/login', params: {} });
-            });
+            // V29 — déconnexion = retour au MODE LOCAL, pas à un écran de
+            // connexion : l'app reste utilisable (recherche + lecture
+            // Audius → YouTube). « Se connecter » est une action de
+            // l'en-tête, plus une porte d'entrée.
+            void signOut();
           },
         },
       ]
@@ -93,6 +95,14 @@ export const Header = ({ tab }: HeaderPropsType) => {
 
     Alert.alert(translations.accountTitle, translations.accountLocalInfo, [
       { text: translations.accountCancel, style: 'cancel' },
+      {
+        // V29 — la connexion Spotify est FACULTATIVE : elle s'ouvre ici,
+        // comme action, jamais comme obstacle au démarrage.
+        text: translations.accountConnect,
+        onPress: () => {
+          router.push({ pathname: '/login', params: {} });
+        },
+      },
       {
         text: translations.accountClearHistory,
         style: 'destructive',
