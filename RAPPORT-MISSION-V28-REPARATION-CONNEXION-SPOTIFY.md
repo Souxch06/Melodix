@@ -160,21 +160,31 @@ privées.
 - `tsc --noEmit` : 0 erreur ; `eslint` fichiers touchés : 0 erreur ;
   `prettier --check` : OK.
 - **CI GitHub (workflow complet APK Android, déclenchée par le push — pas de
-  relance manuelle)** : résultat consigné au §6 et en commentaire de la
-  PR #8 dès l'achèvement du run sur le head final.
+  relance manuelle)** : run `38077666142` sur le head `77b2e63` (contenant
+  le fix `d17dcd3`) — **completed / success**, détails et artefact au §6. Le
+  run du head documentaire final est consigné en commentaire de la PR #8.
+  Note d'état : le workflow porte `concurrency.cancel-in-progress: true`,
+  donc le run du commit `d17dcd3` seul a été supplanté à l'arrivée du commit
+  documentaire — le run complet sur `77b2e63` couvre exactement le même code
+  (le commit documentaire ne touche aucun fichier de code).
 
 ## 6. Workflow et APK
 
-- Workflow : « APK Android » — `.github/workflows/android-apk.yml` ; URL des
-  runs : https://github.com/Souxch06/Melodix/actions
-- Le run du head V28 fournit l'artefact
-  `Melodix-v4.5.0-test.30-<sha>.apk` (APK signé avec la clé de debug des
-  builds de test, cert SHA-256 `fac617…` vérifiée par le smoke, versionName
-  4.5.0-test.30, build 45030 ; lien exact de l'artefact :
-  page du run → « Artifacts »). Le Client ID effectif de cet APK est le
-  défaut committé `7c5af4cd…` (la variable de dépôt est absente — la CI
-  l'annonce en `::notice` et **refuserait** de produire un APK au Client ID
-  mal formé).
+- Workflow : « APK Android » — `.github/workflows/android-apk.yml`.
+- Run V28 sur le head documentaire `77b2e63` :
+  **https://github.com/Souxch06/Melodix/actions/runs/38077666142** —
+  `completed / success` ; étapes 21 (smoke émulateur + contrat de
+  garde-fous) et 22 (diagnostic OAuth) SUCCESS, 0 étape en échec.
+- Artefact APK signé (build de test, clé de debug, cert `fac617…` vérifié
+  par le smoke, versionName 4.5.0-test.30, build 45030) :
+  `Melodix-v4.5.0-test.30-77b2e63.apk` (47 051 894 octets) —
+  https://github.com/Souxch06/Melodix/actions/runs/38077666142/artifacts/11678673557
+  (téléchargement via session GitHub ; jamais via lien dérobé). Le head
+  documentaire final produit son propre run/artefact équivalent, listé en
+  commentaire de la PR #8.
+- Client ID effectif de cet APK : le défaut committé `7c5af4cd…` (variable
+  de dépôt absente — `::notice` de la CI ; la workflow REFUSERAIT de
+  produire un APK au Client ID mal formé ou absent).
 
 ## 7. Validation réelle sur téléphone
 
