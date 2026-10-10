@@ -201,6 +201,50 @@ describe('searchCatalog — session Spotify (catalogue complet)', () => {
     expect(warnSpy).toHaveBeenCalled();
   });
 
+  it('Spotify HTTP 403 (session saine, accès refusé) → repli backend dégradé, PAS de purge ni reconnexion forcée', async () => {
+    // V27 — le 403 est une refus de l'API, pas une session morte : la
+    // recherche doit continuer sur les sources indépendantes (règle : un
+    // échec de Spotify ne casse ni la recherche ni le moteur audio).
+    mockedIsSpotifySessionActive.mockResolvedValue(true);
+    mockedSearchSpotifyCatalog.mockRejectedValue(
+      new SpotifyApiError('http', 'Réponse Spotify non valide (403).', 403, '')
+    );
+    mockedIsBackendConfigured.mockReturnValue(true);
+    mockedBackendSearchCatalog.mockResolvedValue(backendResults);
+
+    const results = await searchCatalog('daft punk');
+
+    expect(results.tracks).toEqual(backendResults.tracks);
+    expect(results.degraded).toBe(true);
+    // Un 403 ne remonte JAMAIS comme 'unauthenticated' (pas de déconnexion).
+    expect(mockedSearchAudiusTracks).not.toHaveBeenCalled();
+  });
+
+  it('Spotify 403 + backend en panne → Audius servi malgré tout (cascade préservée)', async () => {
+    mockedIsSpotifySessionActive.mockResolvedValue(true);
+    mockedSearchSpotifyCatalog.mockRejectedValue(
+      new SpotifyApiError('http', 'Réponse Spotify non valide (403).', 403, '')
+    );
+    mockedIsBackendConfigured.mockReturnValue(true);
+    mockedBackendSearchCatalog.mockRejectedValue(new Error('backend down'));
+    mockedSearchAudiusTracks.mockResolvedValue([audiusTrack]);
+    mockedAudiusTrackToLibraryItem.mockReturnValue(audiusItem);
+
+    const results = await searchCatalog('daft punk');
+
+    expect(mockedSearchAudiusTracks).toHaveBeenCalledWith(
+      'daft punk',
+      SEARCH_LIMIT
+    );
+    expect(results).toEqual({
+      artists: [],
+      tracks: [audiusItem],
+      albums: [],
+      playlists: [],
+      degraded: true,
+    });
+  });
+
   it('propagates a dead Spotify session so the UI can reconnect', async () => {
     mockedIsSpotifySessionActive.mockResolvedValue(true);
     mockedSearchSpotifyCatalog.mockRejectedValue(

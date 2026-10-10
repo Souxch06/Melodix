@@ -31,3 +31,7 @@ export {
   useTranslations,
 } from './PreferencesContext';
 export type { PreferencesContextType } from './PreferencesContext';
+export {
+  SpotifyAuthProvider,
+  useSpotifyAuthContext,
+} from './SpotifyAuthContext';

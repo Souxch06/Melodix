@@ -13,6 +13,7 @@ import {
   LibrarySelectedCategoryProvider,
   PlayerProvider,
   PreferencesProvider,
+  SpotifyAuthProvider,
   UserDataProvider,
 } from '@context';
 import { SpotifyWebHostView } from '../components/Player/SpotifyWebHostView';
@@ -53,38 +54,44 @@ export default function RootLayout() {
     <SafeAreaProvider>
       <PreferencesProvider>
         <UserDataProvider>
-          <PlayerProvider>
-            <LibrarySelectedCategoryProvider>
-              <GestureHandlerRootView style={styles.gestureHandlerRootView}>
-                <Stack screenOptions={{ headerShown: false }}>
-                  <Stack.Screen
-                    name="index"
-                    options={{ headerShown: false, animation: 'fade' }}
-                  />
-                  <Stack.Screen
-                    name="login"
-                    options={{ headerShown: false, animation: 'fade' }}
-                  />
-                  <Stack.Screen
-                    name="(tabs)"
-                    options={{ headerShown: false, animation: 'fade' }}
-                  />
-                  <Stack.Screen
-                    name="settings"
-                    options={{
-                      headerShown: false,
-                      animation: 'slide_from_right',
-                    }}
-                  />
-                  <Stack.Screen
-                    name="+not-found"
-                    options={{ headerShown: false, animation: 'fade' }}
-                  />
-                </Stack>
-                <StatusBar style="light" />
-              </GestureHandlerRootView>
-            </LibrarySelectedCategoryProvider>
-          </PlayerProvider>
+          {/* V29 — le flux OAuth vit À LA RACINE, en une seule instance :
+              le callback froid (processus tué pendant la custom tab) est
+              traité même si l'utilisateur n'est pas sur l'écran de
+              connexion, et la connexion devient facultative. */}
+          <SpotifyAuthProvider>
+            <PlayerProvider>
+              <LibrarySelectedCategoryProvider>
+                <GestureHandlerRootView style={styles.gestureHandlerRootView}>
+                  <Stack screenOptions={{ headerShown: false }}>
+                    <Stack.Screen
+                      name="index"
+                      options={{ headerShown: false, animation: 'fade' }}
+                    />
+                    <Stack.Screen
+                      name="login"
+                      options={{ headerShown: false, animation: 'fade' }}
+                    />
+                    <Stack.Screen
+                      name="(tabs)"
+                      options={{ headerShown: false, animation: 'fade' }}
+                    />
+                    <Stack.Screen
+                      name="settings"
+                      options={{
+                        headerShown: false,
+                        animation: 'slide_from_right',
+                      }}
+                    />
+                    <Stack.Screen
+                      name="+not-found"
+                      options={{ headerShown: false, animation: 'fade' }}
+                    />
+                  </Stack>
+                  <StatusBar style="light" />
+                </GestureHandlerRootView>
+              </LibrarySelectedCategoryProvider>
+            </PlayerProvider>
+          </SpotifyAuthProvider>
           {/* Hôte Spotify Web (WebView + pont) : rendu APRÈS le reste pour
            * rester au-dessus (overlay de la vue + WebView masquée hors
            * écran). Ne monte NEANT tant que la porte d'activation ET le

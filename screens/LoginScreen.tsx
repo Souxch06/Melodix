@@ -1,12 +1,17 @@
 /**
- * Écran de connexion — CONNEXION SPOTIFY OBLIGATOIRE.
+ * LoginScreen — CONNEXION SPOTIFY FACULTATIVE (V29).
  *
  * Objectif UX : l'utilisateur a simplement l'impression de « se connecter à
  * Melodix avec son compte Spotify », comme sur n'importe quelle application.
  * AUCUN détail technique n'est affiché (jamais de redirect_uri, PKCE, token,
- * code d'erreur ou « diagnostic » — le diagnostic vit uniquement en logcat).
+ * code d'erreur ou « diagnostic » — le diagnostic vit en logcat et dans le
+ * rapport copiable de Réglages).
  *
- * Parcours :
+ * La connexion ouvre les données de COMPTE Spotify (profils, playlists,
+ * titres aimés) ; elle n'est plus une porte d'entrée du lecteur. Le bouton
+ * « Continuer sans Spotify » ferme cet écran vers l'accueil (mode local :
+ * recherche + lecture Audius → YouTube, favoris et historiques locaux).
+ *
  *
  *    [Logo Melodix]
  *    Bienvenue sur Melodix
@@ -44,7 +49,10 @@ import Constants from 'expo-constants';
 import { useRouter } from 'expo-router';
 
 import { COLORS } from '@config';
-import { useUserData } from '@context';
+// V29 — le flux OAuth vit dans SpotifyAuthProvider (racine) : cet écran
+// CONSOMME le contexte, il ne monte plus le hook lui-même. Un seul flux
+// tournant, même si la route de connexion est remontée/démontée.
+import { useSpotifyAuthContext, useUserData } from '@context';
 // Import direct (hors barrel @context) : l'accent vient des préférences mais
 // l'écran doit rester fonctionnel quand le seul contexte utilisateur est
 // simulé dans les tests historiques du parcours de connexion.
@@ -53,7 +61,6 @@ import { translations } from '@data';
 import {
   isSensitiveDiagnosticValue,
   isSpotifyLoginConfigured,
-  useSpotifyAuth,
 } from '@services';
 
 /** Messages HUMAINS uniquement — dérivés du LoginOutcome, sans cause dupliquée. */
@@ -71,7 +78,7 @@ const SUCCESS_DISPLAY_MS = 1300;
 export const LoginScreen = () => {
   const router = useRouter();
   const { state, isBusy, isAuthRequestPending, startLogin, resetError } =
-    useSpotifyAuth();
+    useSpotifyAuthContext();
   const { sessionStatus } = useUserData();
   // Accent choisi dans les paramètres (teinte Spotify historique par défaut).
   const accent = useAccent();
@@ -190,6 +197,16 @@ export const LoginScreen = () => {
           body: translations.loginOAuthRefusedBody,
           retryable: true,
         };
+      case 'profile-forbidden':
+        // V27 — échange OAuth réussi mais /v1/me refusé (HTTP 403) : le
+        // message dit EXACTEMENT cela (refus d'accès de configuration, pas
+        // réseau, pas « erreur inattendue »). Réessai manuel autorisé après
+        // correction dans le tableau de bord — aucune boucle automatique.
+        return {
+          title: translations.loginProfileForbiddenTitle,
+          body: translations.loginProfileForbiddenBody,
+          retryable: true,
+        };
       case 'not-configured':
         return {
           title: translations.loginNotConfigured,
@@ -229,6 +246,18 @@ export const LoginScreen = () => {
     }
     void startLogin(); // ← l'OAuth Spotify actuel, inchangé
   }, [buttonDisabled, startLogin]);
+
+  // V29 — « Continuer sans Spotify » : ferme cet écran SANS OAuth. Depuis la
+  // racine, canGoBack() est faux → accueil ; ouvert depuis l'app (Header,
+  // Réglages) → retour à l'écran d'origine. Jamais désactivé : il doit
+  // rester possible de sortir même si la config Spotify manque.
+  const handleSkipPress = React.useCallback(() => {
+    if (router.canGoBack()) {
+      router.back();
+      return;
+    }
+    router.replace({ pathname: '/(tabs)/home', params: {} });
+  }, [router]);
 
   const handleRetryPress = React.useCallback(() => {
     resetError();
@@ -378,6 +407,21 @@ export const LoginScreen = () => {
           </>
         )}
 
+        {/* V29 — issue facultative, rendue HORS condition d'erreur : même
+            sans config Spotify ou après un échec, l'utilisateur peut toujours
+            sortir vers le lecteur local (jamais de piège sur cet écran). */}
+        <Pressable
+          accessibilityRole="button"
+          onPress={handleSkipPress}
+          style={({ pressed }) => [
+            styles.skipButton,
+            pressed && styles.skipButtonPressed,
+          ]}
+          testID="login-skip-button"
+        >
+          <Text style={styles.skipButtonText}>{translations.loginSkip}</Text>
+        </Pressable>
+
         <View style={styles.footer}>
           <Ionicons color={COLORS.GREY} name="lock-closed-outline" size={13} />
           <Text style={styles.footerText}>
@@ -428,6 +472,23 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 22,
     marginTop: 14,
+  },
+  skipButton: {
+    alignSelf: 'center',
+    marginTop: 18,
+    paddingVertical: 12,
+    paddingHorizontal: 18,
+    borderRadius: 999,
+  },
+  skipButtonPressed: {
+    opacity: 0.7,
+  },
+  skipButtonText: {
+    color: COLORS.LIGHT_GREY,
+    fontFamily: 'SF-Regular',
+    fontSize: 14,
+    letterSpacing: 0.3,
+    textDecorationLine: 'underline',
   },
   primaryButton: {
     backgroundColor: COLORS.TINT,

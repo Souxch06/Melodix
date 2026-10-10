@@ -192,26 +192,64 @@ WEB_START=$(adb shell am start -W -a android.intent.action.VIEW \
   fail "prototype Spotify Web non ouvrable : $WEB_START"
 echo "$WEB_START"
 # Laisse au chargement puis au timeout de handshake (8 s) le temps de conclure.
-# Sonde par itérations (jusqu'à 80 s) : un dump unique après un délai fixe est
-# un faux négatif classique sur émulateur CI lent (le dump peut précéder la
-# fin de la transition de route). Aucun comportement d'app n'est impliqué.
+# Sonde par itérations : un dump unique après un délai fixe est un faux négatif
+# classique sur émulateur CI lent (le dump peut précéder la fin de la
+# transition de route). Aucun comportement d'app n'est impliqué.
 # (V17 : la section hôte de production qui précède cette sonde laisse l'émulateur
 # plus chargé — WebView open.spotify.com off-screen + attente du handshake — ce
 # qui a fait dépasser la fenêtre de 60 s sur un runner lent, run 37810103366 :
 # « écran de diagnostic Spotify Web absent après deep link (12 dumps) ». La
 # fenêtre est donc portée à 80 s sans rien assouplir : l'écran doit EXISTER.)
+# (V26.5, run 38059652388 : même famille sur un runner encore plus lent — le
+# build testé était IDENTIQUE AU BIT PRÈS à celui du run vert 38057481568
+# (arbres git d2907e0f, 33 min d'écart), le pont de production avait rendu son
+# verdict honnête (bridge_timeout = warning non bloquant, déjà vu dans les runs
+# verts) et seul ce sondage UI a expiré : 16 itérations × (5 s de sommeil +
+# ~2,5 s de dump) ≈ 121 s mesurées sans que la navigation JS — affamée par le
+# rendu logiciel swiftshader sur 2 cœurs — atteigne l'écran. La fenêtre passe à
+# 24 itérations (~180 s au total) : le délai reste BORNE et l'assertion est
+# inchangée — l'écran doit TOUJOURS EXISTER.)
+# Détection durcie : les échecs de dump (uiautomator « could not get idle
+# state » quand la fenêtre ne se stabilise jamais) ne sont plus avalés en
+# /dev/null ; dumps réussis et échoués sont comptés séparément et le dernier
+# message d'erreur est conservé pour le rapport de faille.
 WEB_UI=""
 DUMP_TRIES=0
-while [ "$DUMP_TRIES" -lt 16 ]; do
+DUMP_OK=0
+DUMP_FAIL=0
+LAST_DUMP_ERR=""
+LAST_OK_UI=""
+while [ "$DUMP_TRIES" -lt 24 ]; do
   sleep 5
   DUMP_TRIES=$(( DUMP_TRIES + 1 ))
-  adb shell uiautomator dump /sdcard/melodix-web.xml >/dev/null 2>&1 || continue
+  if ! DUMP_OUT=$(adb shell uiautomator dump /sdcard/melodix-web.xml 2>&1); then
+    DUMP_FAIL=$(( DUMP_FAIL + 1 ))
+    LAST_DUMP_ERR=$(printf '%s' "$DUMP_OUT" | tr '\r\n' '  ' | cut -c1-160)
+    continue
+  fi
   WEB_UI=$(adb shell cat /sdcard/melodix-web.xml 2>&1) || continue
+  DUMP_OK=$(( DUMP_OK + 1 ))
+  LAST_OK_UI="$WEB_UI"
   printf '%s\n' "$WEB_UI" | grep -Fq 'Prototype Spotify Web' && break
   WEB_UI=""
 done
-[ -n "$WEB_UI" ] || \
-  fail "écran de diagnostic Spotify Web absent après deep link ($DUMP_TRIES dumps)"
+if [ -z "$WEB_UI" ]; then
+  # Le fail() reste un échec ; la preuve est rendue lisible dans le log du
+  # step pour distinguer, à la prochaine occurrence, « navigation en retard »
+  # (fenêtre focalisée = MainActivity mais écran absent) de « UI jamais idle »
+  # (dumps KO majoritaires) ou de « app morte » (pid absent).
+  echo "--- diag écran diagnostic : tentatives=$DUMP_TRIES, dumps réussis=$DUMP_OK, dumps en échec=$DUMP_FAIL"
+  if [ -n "$LAST_DUMP_ERR" ]; then
+    echo "--- diag : dernière erreur uiautomator : $LAST_DUMP_ERR"
+  fi
+  echo "--- diag : focalisation : $(adb shell dumpsys window 2>/dev/null | grep -E 'mCurrentFocus|mFocusedApp' | tr '\r\n' '  ' | cut -c1-300)"
+  echo "--- diag : pid : $(adb shell pidof -s "$PACKAGE" 2>/dev/null | tr -d '\r' || true)"
+  if [ -n "$LAST_OK_UI" ]; then
+    echo "--- diag : textes visibles du dernier dump réussi : $(printf '%s' "$LAST_OK_UI" | tr '<' '\n' | grep -oE 'text="[^"]+"' | grep -v 'text=""' | sort -u | head -25 | tr '\n' '|' | cut -c1-900)"
+  fi
+  echo "--- diag : fin de fil [MelodixSpotifyWeb] : $(adb logcat -d 2>/dev/null | grep -F '[MelodixSpotifyWeb]' | tail -12 | tr '\n' '|' | cut -c1-900)"
+  fail "écran de diagnostic Spotify Web absent après deep link ($DUMP_TRIES dumps : $DUMP_OK réussis, $DUMP_FAIL en échec${LAST_DUMP_ERR:+; dernière erreur: $LAST_DUMP_ERR}) — voir lignes « diag » ci-dessus"
+fi
 # Le probe W3C doit produire un résultat explicite : handshake disponible ou
 # timeout honnête. Si l'écran est apparu vite, le minuteur de handshake (8 s)
 # peut encore être en cours : on le laisse conclure, sans jamais l'embellir.
@@ -371,7 +409,9 @@ printf '%s\n' "$NOTIFICATIONS_BG" | grep -Fq 'melodix_media' || \
 # `melodix://callback?code=…` (redirect canonique de l'app).
 # Le runtime JS doit :
 #   1. démarrer via l'intent-filter du manifest ;
-#   2. passer la garde de démarrage (resolveStartupSession → /login) ;
+#   2. DÉMARRER EN MODE LOCAL (V29 : la garde n'envoie plus jamais vers
+#      /login — le flux OAuth vit dans SpotifyAuthProvider monté à la
+#      RACINE, donc le callback est lu quel que soit l'écran affiché) ;
 #   3. lire l'URL initiale et ÉMETTRE la séquence [SpotifyAuth] du cold
 #      start (callback:received → code:received → callback:error …).
 # Code factice : en CI il n'y a AUCUNE transaction PKCE persistée ni compte

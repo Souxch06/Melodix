@@ -40,6 +40,7 @@ export const FR_FR_ACCOUNT = {
   accountLocalInfo:
     "Aucun compte n'est nécessaire : tes favoris, ta bibliothèque et ton historique sont stockés uniquement sur cet appareil.",
   accountClearHistory: "Effacer l'historique d'écoute",
+  accountConnect: 'Se connecter à Spotify',
   accountHistoryCleared: 'Historique effacé.',
   accountCancel: 'Annuler',
   // Restauration de session : identité du compte pas encore établie
@@ -175,8 +176,13 @@ export const FR_FR_LOGIN = {
   loginCancelledTitle: 'Connexion annulée',
   loginCancelledBody: 'Tu peux réessayer quand tu veux.',
   loginOAuthRefusedTitle: 'Spotify a refusé la connexion',
+  loginSkip: 'Continuer sans Spotify',
   loginOAuthRefusedBody:
     'Autorise bien Melodix sur la page Spotify, puis réessaie.',
+  // V27 — échange OAuth réussi mais Spotify refuse les appels de l'app.
+  loginProfileForbiddenTitle: 'Spotify a refusé l’accès à cette application.',
+  loginProfileForbiddenBody:
+    'La connexion en elle-même a réussi, mais Spotify rejette les requêtes de cette application (HTTP 403). En mode développement, l’application exige un abonnement Premium actif pour son propriétaire et que ton compte figure dans « Users and Access ». Rien n’a été supprimé — réessaie après vérification dans le tableau de bord développeur Spotify.',
   loginNotConfigured:
     "La connexion Spotify n'est pas disponible pour le moment.",
   loginNotConfiguredBody: 'Réessaie plus tard.',
@@ -255,6 +261,7 @@ export const FR_FR_SETTINGS = {
   settingsSessionCanRefresh: 'Renouvellement automatique disponible',
   settingsSessionNoRefresh: "Nouvelle connexion requise à l'expiration",
   settingsSignOut: 'Se déconnecter',
+  settingsConnectSpotify: 'Se connecter à Spotify (facultatif)',
   settingsSignOutTitle: 'Es-tu sûr de vouloir te déconnecter de Melodix ?',
   settingsCancel: 'Annuler',
   settingsSignOutConfirm: 'Se déconnecter',

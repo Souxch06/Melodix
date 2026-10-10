@@ -320,7 +320,7 @@ describe('Paramètres — compte et déconnexion', () => {
     expect(queryByTestId('settings-signout')).toBeNull();
   });
 
-  it('déconnexion : confirmation exacte, signOut système, retour login', async () => {
+  it('déconnexion V29 : confirmation exacte, signOut système, RETOUR AU MODE LOCAL — plus jamais de renvoi forcé vers /login', async () => {
     const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
     const { getByTestId } = render(<SettingsScreen />);
 
@@ -349,11 +349,30 @@ describe('Paramètres — compte et déconnexion', () => {
     });
 
     expect(mockSignOut).toHaveBeenCalledTimes(1);
-    expect(mockReplace).toHaveBeenCalledWith({
+    // V29 — la déconnexion laisse l'utilisateur DANS l'app (mode local :
+    // recherche + lecture Audius → YouTube). Aucune navigation forcée.
+    expect(mockReplace).not.toHaveBeenCalledWith({
       pathname: '/login',
       params: {},
     });
     alertSpy.mockRestore();
+  });
+
+  it("mode 'local' : ligne « Se connecter à Spotify (facultatif) » → ouvre la connexion", () => {
+    mockSessionStatus = 'local';
+    const { getByTestId } = render(<SettingsScreen />);
+
+    fireEvent.press(getByTestId('settings-connect-spotify'));
+    expect(mockPush).toHaveBeenCalledWith({
+      pathname: '/login',
+      params: {},
+    });
+  });
+
+  it("session Spotify active : la ligne « Se connecter » n'est PAS proposée", () => {
+    mockSessionStatus = 'spotify';
+    const { queryByTestId } = render(<SettingsScreen />);
+    expect(queryByTestId('settings-connect-spotify')).toBeNull();
   });
 });
 

@@ -390,13 +390,22 @@ describe('useSpotifyAuth — taxonomie du diagnostic OAuth', () => {
 
     expect(result.current.state.status).toBe('error');
     if (result.current.state.status === 'error') {
-      expect(result.current.state.outcome.kind).toBe('unknown');
+      // V27 — un 403 sur /me après échange réussi a son propre kind :
+      // « accès refusé par l'API », JAMAIS l'erreur inattendue générique.
+      expect(result.current.state.outcome.kind).toBe('profile-forbidden');
       expect(result.current.state.outcome.cause).toContain('me:http');
       expect(result.current.state.outcome.cause).toContain('403');
       expect(result.current.state.outcome.cause).toContain(
         'developer.spotify.com/dashboard'
       );
     }
+    // Aucun enchaînement automatique inutile : PAS de second échange, PAS de
+    // re-refresh déclenché par le flux login (le hook appelle /me UNE fois ;
+    // d'éventuelles retentatives nées du 403 appartiennent au client, pas à
+    // la boucle de login), et la session stockée n'est PAS purgée (403 ≠
+    // session morte — seule une authentification insuffisante purge).
+    expect(redeemAuthorizationCode).toHaveBeenCalledTimes(1);
+    expect(getCurrentUser).toHaveBeenCalledTimes(1);
     const authLines = logSpy.mock.calls
       .map((call) => String(call[0]))
       .filter((text) => text.includes('[SPOTIFY AUTH]'));

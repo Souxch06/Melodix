@@ -482,21 +482,34 @@ export const useSpotifyAuth = (): {
           kind === 'network'
             ? 'me:network'
             : `me:${kind}${httpStatus !== null ? `·${httpStatus}` : ''}${spotifyMessage ? `·${spotifyMessage}` : ''}`;
+        // V27 — 403 SUR /me après un échange OAuth réussi : un échange
+        // réussi n'est PAS une session entièrement validée. Le 403 est une
+        // CAUSE DE CONFIGURATION (compte non répertorié dans « Users and
+        // Access », Premium du propriétaire requis/expiré en mode développeur
+        // — règles Spotify 2026), jamais une expiration de session : AUCUN
+        // re-refresh, AUCUN nouvel échange, aucune reconnexion forcée — la
+        // session stockée reste utilisable dès que Spotify autorise le
+        // compte. L'écran dédié (LoginScreen) porte le diagnostic lisible.
+        const profileForbidden = kind === 'http' && httpStatus === 403;
         fail(
           {
             kind:
               kind === 'unauthenticated'
                 ? 'oauth-refused'
-                : kind === 'http'
-                  ? 'unknown'
-                  : 'network',
+                : profileForbidden
+                  ? 'profile-forbidden'
+                  : kind === 'http'
+                    ? 'unknown'
+                    : 'network',
             cause: safeCause(uiCause),
           },
           buildDiagnostic(
             'profile',
             kind === 'network'
               ? 'Profil /me : Spotify injoignable (réseau)'
-              : `Profil /me en échec (${kind})`,
+              : profileForbidden
+                ? 'Profil /me : accès refusé par Spotify (HTTP 403) — session enregistrée, API Web indisponible pour ce compte'
+                : `Profil /me en échec (${kind})`,
             {
               httpStatus,
               errorCode: kind,

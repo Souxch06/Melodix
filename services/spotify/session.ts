@@ -140,6 +140,19 @@ export type LoginErrorOutcome =
       diagnostic?: SpotifyOAuthDiagnostic;
     }
   | { kind: 'network'; cause: string; diagnostic?: SpotifyOAuthDiagnostic }
+  /**
+   * V27 — échange OAuth RÉUSSI (session enregistrée) mais premier appel
+   * `/v1/me` refusé par HTTP 403 : la session n'est PAS une session
+   * entièrement validée. Cause la plus probable en mode développement :
+   * compte absent de « Users and Access » ou Premium du propriétaire
+   * requis/expiré (règles Spotify 2026) — voir l'écran dédié, JAMAIS un
+   * simple « erreur inattendue », et AUCUN re-refresh automatique.
+   */
+  | {
+      kind: 'profile-forbidden';
+      cause: string;
+      diagnostic?: SpotifyOAuthDiagnostic;
+    }
   | { kind: 'unknown'; cause: string; diagnostic?: SpotifyOAuthDiagnostic };
 
 export type LoginOutcome =
@@ -407,6 +420,32 @@ export type RefreshResult =
   | { ok: false; cause: 'refused'; status: number; errorCode: string }
   | { ok: false; cause: 'transient'; detail: string };
 
+/**
+ * V28 — garde anti-écrasement : écrit le résultat d'un refresh UNIQUEMENT si
+ * la session du coffre n'a pas changé depuis la lecture qui a déclenché ce
+ * refresh. COURSE RÉELLE corrigée : un refresh lent déclenché sur une session
+ * expirée peut finir APRÈS qu'une nouvelle connexion (échange PKCE) ait écrit
+ * une session fraîche — sans garde, il écraserait cette session fraîche avec
+ * le résultat du token périmé (le « viex token réutilisé après reconnexion »
+ * classique). La session la plus récente gagne toujours ; le caller reçoit
+ * quand même le token du refresh (validité immédiate, pas de crash).
+ */
+const saveRefreshedSession = async (
+  expected: SpotifySession,
+  next: SpotifySession
+): Promise<void> => {
+  const current = await loadSession();
+  const replaced =
+    current !== null &&
+    (current.accessToken !== expected.accessToken ||
+      (current.refreshToken ?? null) !== (expected.refreshToken ?? null));
+  if (replaced) {
+    spotifyLog('token.refresh.stale-write-skipped');
+    return;
+  }
+  await saveSession(next);
+};
+
 const doRefreshClassified = async (
   session: SpotifySession
 ): Promise<RefreshResult> => {
@@ -472,7 +511,9 @@ const doRefreshClassified = async (
   spotifyLog('token.refresh.ok', {
     expiresInSeconds: Math.round((refreshed.expiresAtMs - Date.now()) / 1000),
   });
-  await saveSession(refreshed);
+  // V28 — écriture CONDITIONNELLE (voir saveRefreshedSession) : un refresh
+  // né d'une session périmée ne remplace jamais une session plus récente.
+  await saveRefreshedSession(session, refreshed);
   return { ok: true, token: refreshed.accessToken };
 };
 
