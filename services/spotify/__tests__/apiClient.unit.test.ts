@@ -354,6 +354,53 @@ describe('services/spotify/apiClient (API Web Spotify officielle)', () => {
     await expect(spotifyApiGet('/x')).rejects.toBeInstanceOf(SpotifyApiError);
   });
 
+  // Mission V26 — la 5xx est testée pour CHAQUE statut (500 et 503 en plus
+  // du 502 ci-dessus) : une panne serveur est toujours un `http` RETRYABLE,
+  // jamais un refus d'accès (403) ni une mort de session, et le statut exact
+  // est conservé tel quel.
+  it.each([500, 503])(
+    '5xx (%i) → kind http avec le statut exact, session CONSERVÉE (panne serveur ≠ refus)',
+    async (status) => {
+      await saveSession(validSession());
+      setFetch(async () => ({
+        status,
+        ok: false,
+        headers: { get: () => null },
+        text: async () => '',
+      }));
+      await expect(spotifyApiGet('/x')).rejects.toMatchObject({
+        kind: 'http',
+        status,
+      });
+      // Panne 5xx : le refresh token n'est PAS en cause — session conservée.
+      const session = await loadSession();
+      expect(session?.refreshToken).toBe('rt');
+    }
+  );
+
+  // Mission V26 — TIMEOUT : une requête qui pend (serveur silencieux) est
+  // abortée à la borne de 10 s et classée `network` — distincte d'un statut
+  // HTTP et d'une coupure immédiate ; aucune boucle, aucun refresh.
+  it('timeout (fetch qui pend) → abort à 10 s, kind network (distinct d’un HTTP)', async () => {
+    jest.useFakeTimers();
+    await saveSession(validSession());
+    setFetch(
+      (_url: string, options?: { signal?: AbortSignal }): Promise<never> =>
+        new Promise((_resolve, reject) => {
+          options?.signal?.addEventListener('abort', () =>
+            reject(new DOMException('aborted', 'AbortError'))
+          );
+        })
+    );
+    const promise = spotifyApiGet('/x').catch((error) => error);
+    await jest.advanceTimersByTimeAsync(10_000);
+    await expect(promise).resolves.toMatchObject({ kind: 'network' });
+    // La session survit à un simple timeout (pas de purge arbitraire).
+    const session = await loadSession();
+    expect(session?.refreshToken).toBe('rt');
+    jest.useRealTimers();
+  });
+
   it('403 → reste un 403 (kind http, status 403) : AUCUN refresh, session CONSERVÉE, message Spotify conservé', async () => {
     // Un 403 n’est JAMAIS converti en 401 et ne déclenche JAMAIS de refresh
     // (le token n’est pas en cause — ex. « User not approved for app »).
