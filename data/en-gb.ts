@@ -49,6 +49,8 @@ export const EN_GB = {
   searchHint: 'Search the Spotify catalogue.',
   searchNoResults: (query: string) => `No results for "${query}".`,
   searchError: 'Search is unavailable right now. Please try again.',
+  searchOfflineError:
+    'Your device is offline. Check your connection — the search will retry as soon as the network is back.',
   searchDegraded:
     'Showing track results from the fallback catalogue. Artists, albums and playlists may be unavailable.',
   browseAll: 'Browse all',
@@ -73,6 +75,7 @@ export const EN_GB = {
   searchRecentRemove: (query: string) =>
     `Remove "${query}" from recent searches`,
   searchLoading: 'Searching...',
+  searchPreviousResults: 'Previous results — updating…',
   searchExplicitBadge: 'Explicit',
   searchUnavailableBadge: 'No audio source',
   searchUnavailableHint:

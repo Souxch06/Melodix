@@ -27,6 +27,7 @@ export const FR_FR_SEARCH = {
   searchRecentRemove: (query: string) =>
     `Retirer « ${query} » des recherches récentes`,
   searchLoading: 'Recherche…',
+  searchPreviousResults: 'Résultats précédents — mise à jour…',
   searchExplicitBadge: 'Explicit',
   searchUnavailableBadge: 'Aucune source audio',
   searchUnavailableHint:

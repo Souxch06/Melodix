@@ -24,7 +24,11 @@ import { COLORS, PALETTE, SECTION_LABEL, SPACING, TYPOGRAPHY } from '@config';
 import { translations } from '@data';
 import { artistsFromSubtitle } from '@models';
 import { usePlayer } from '@context';
-import { queueIdForTrackId, sourceForTrackId } from '@services';
+import {
+  queueIdForTrackId,
+  sourceForTrackId,
+  subscribeNetworkState,
+} from '@services';
 import type { PlayerTrack } from '@services';
 
 import { QueueActionMenu } from '../Player/QueueActionMenu';
@@ -95,6 +99,22 @@ export const Search = ({ autoFocus = false }: SearchProps = {}) => {
   // Des sources travaillent encore : indicateur DISCRET sous les résultats
   // déjà affichés (jamais un écran de chargement bloquant — V30).
   const [pendingMore, setPendingMore] = React.useState(false);
+  // V31 : pendant qu'une NOUVELLE requête travaille, les résultats de la
+  // requête précédente restent visibles, GRISÉS et NON INTERACTIFS, sous une
+  // bannière « Résultats précédents » — ils ne sont JAMAIS présentés comme
+  // ceux de la nouvelle requête, et disparaissent dès la première arrivée.
+  const [staleResults, setStaleResults] =
+    React.useState<SearchResultsModel | null>(null);
+  const resultsRef = React.useRef<SearchResultsModel | null>(null);
+  resultsRef.current = results;
+  // V31 : la dernière recherche a échoué parce que l'appareil était HORS
+  // LIGNE → message dédié (état réseau, pas une panne de source) et reprise
+  // AUTOMATIQUE au retour de la connectivité.
+  const [offlineFailure, setOfflineFailure] = React.useState(false);
+  const offlineFailureRef = React.useRef(false);
+  offlineFailureRef.current = offlineFailure;
+  const statusRef = React.useRef<SearchStatus>('idle');
+  statusRef.current = status;
   // Le bouton « Réessayer » doit ignorer le cache (revalidation forcée).
   const bypassCacheRef = React.useRef(false);
   // « Parcourir » : le catalogue de genres local (data/genres) alimente des
@@ -129,6 +149,23 @@ export const Search = ({ autoFocus = false }: SearchProps = {}) => {
     };
   }, []);
 
+  // V31 — reprise réseau : si l'appareil était HORS LIGNE (échec dédié) et
+  // que la connectivité REVIENT, la dernière recherche est relancée une
+  // seule fois, sans geste de l'utilisateur. Aucune boucle possible : la
+  // reprise ne se déclenche QUE sur un échec hors-ligne consommé.
+  React.useEffect(() => {
+    const unsubscribe = subscribeNetworkState((online) => {
+      if (online && offlineFailureRef.current) {
+        offlineFailureRef.current = false;
+        setOfflineFailure(false);
+        bypassCacheRef.current = true;
+        setRetrySeed((seed) => seed + 1);
+      }
+    });
+
+    return unsubscribe;
+  }, []);
+
   React.useEffect(() => {
     const q = query.trim();
 
@@ -136,12 +173,31 @@ export const Search = ({ autoFocus = false }: SearchProps = {}) => {
       setResults(null);
       setStatus('idle');
       setPendingMore(false);
+      setStaleResults(null);
       return;
     }
 
     let isCancelled = false;
     let sawResults = false;
     let cleanupHandle: { cancel: () => void } | null = null;
+
+    // V31 : les résultats de la requête PRÉCÉDENTE sont conservés, grisés,
+    // pendant que la nouvelle travaille (plus d'écran vide / spinner qui
+    // « efface » des résultats utiles). Ils ne sont JAMAIS présentés comme
+    // ceux de la nouvelle requête : bannière dédiée, non interactifs, et
+    // remplacés dès la première arrivée réelle.
+    const previous = resultsRef.current;
+    setStaleResults(
+      previous &&
+        (previous.tracks.length > 0 ||
+          previous.artists.length > 0 ||
+          previous.albums.length > 0 ||
+          previous.playlists.length > 0)
+        ? previous
+        : null
+    );
+
+    setResults(null);
     setStatus('loading');
     setPendingMore(false);
 
@@ -171,15 +227,22 @@ export const Search = ({ autoFocus = false }: SearchProps = {}) => {
           // déjà affichés : l'échec global ne s'affiche que sur écran vide.
           if (hasResultsNow) {
             sawResults = true;
+            setStaleResults(null);
+            setOfflineFailure(false);
             setResults(update.results);
             setStatus('done');
           } else if (!update.pending && !sawResults) {
+            setStaleResults(null);
             if (update.failed) {
               setResults(null);
               setStatus('error');
+              // V31 : distinguer « appareil hors ligne » (état réseau, reprise
+              // auto) d'une vraie panne de source.
+              setOfflineFailure(Boolean(update.offline));
             } else {
               // Recherche terminée, vraiment rien : message dédié (jamais
               // d'écran blanc, jamais de faux état chargement infini).
+              setOfflineFailure(false);
               setResults(update.results);
               setStatus('done');
             }
@@ -345,6 +408,7 @@ export const Search = ({ autoFocus = false }: SearchProps = {}) => {
     setQuery('');
     setResults(null);
     setStatus('idle');
+    setStaleResults(null);
     inputRef.current?.focus();
   }, []);
 
@@ -550,7 +614,49 @@ export const Search = ({ autoFocus = false }: SearchProps = {}) => {
           </View>
         )}
 
-        {status === 'loading' && (
+        {status === 'loading' && staleResults && (
+          <View testID="search-stale-results">
+            <View style={styles.pendingMore} testID="search-loading">
+              <ActivityIndicator color={PALETTE.violet400} size="small" />
+              <Text style={styles.pendingMoreText}>
+                {translations.searchLoading}
+              </Text>
+            </View>
+            <Text style={styles.staleBanner} testID="search-stale-banner">
+              {translations.searchPreviousResults}
+            </Text>
+            {/* GRISÉ + NON INTERACTIF : jamais confondu avec les résultats
+                de la requête en cours, jamais cliquable. */}
+            <View pointerEvents="none" style={styles.staleBlock}>
+              {(
+                [
+                  ['tracks', 'track'],
+                  ['artists', 'artist'],
+                  ['albums', 'album'],
+                  ['playlists', 'playlist'],
+                ] as const
+              ).flatMap(([sectionKey, variant]) =>
+                staleResults[sectionKey]
+                  .slice(0, 10)
+                  .map((slide, index) => (
+                    <SearchResultRow
+                      explicit={slide.explicit}
+                      id={slide.id}
+                      imageURL={slide.imageURL}
+                      key={`stale-${sectionKey}-${slide.id}-${index}`}
+                      meta={metaOf(slide)}
+                      onPress={() => undefined}
+                      subtitle={subtitleOf(slide)}
+                      title={slide.title}
+                      variant={variant}
+                    />
+                  ))
+              )}
+            </View>
+          </View>
+        )}
+
+        {status === 'loading' && !staleResults && (
           <View style={styles.loadingState} testID="search-loading">
             <ActivityIndicator color={PALETTE.violet400} />
             <Text style={styles.loadingText}>{translations.searchLoading}</Text>
@@ -559,7 +665,14 @@ export const Search = ({ autoFocus = false }: SearchProps = {}) => {
 
         {status === 'error' && (
           <View style={styles.errorState} testID="search-error-state">
-            <Text style={styles.message}>{translations.searchError}</Text>
+            <Text
+              style={styles.message}
+              testID={offlineFailure ? 'search-offline-state' : undefined}
+            >
+              {offlineFailure
+                ? translations.searchOfflineError
+                : translations.searchError}
+            </Text>
             <Pressable
               accessibilityLabel="Relancer la recherche"
               accessibilityRole="button"
@@ -567,6 +680,7 @@ export const Search = ({ autoFocus = false }: SearchProps = {}) => {
                 // Revalidation FORCÉE : l'entrée en cache (si l'erreur en
                 // avait produit une — normalement non) est contournée.
                 bypassCacheRef.current = true;
+                setOfflineFailure(false);
                 setRetrySeed((seed) => seed + 1);
               }}
               style={styles.retryButton}
@@ -733,6 +847,16 @@ const styles = StyleSheet.create({
   pendingMoreText: {
     color: COLORS.GREY,
     fontSize: 12,
+  },
+  // V31 : résultats de la requête PRÉCÉDENTE, grisés, non interactifs.
+  staleBanner: {
+    color: COLORS.GREY,
+    fontSize: 12,
+    paddingHorizontal: SPACING.xl,
+    paddingTop: SPACING.sm,
+  },
+  staleBlock: {
+    opacity: 0.45,
   },
   errorState: {
     alignItems: 'center',
