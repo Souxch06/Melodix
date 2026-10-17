@@ -18,7 +18,7 @@ Les versions publiées se trouvent dans [GitHub Releases](https://github.com/Sou
 - `android/apktool-framework/1.apk` : framework requis par Apktool pour reconstruire les ressources.
 - `releases/apk/` : APK signés des tests.3 à .7 et leurs fichiers SHA-256. Les tests.3 et .4 sont conservés comme historique; ils sont remplacés par les tests plus récents.
 
-Les APK publiés et l'extraction brute restent des instantanés des tests précédents : la nouvelle icône est intégrée au projet Apktool pour la prochaine compilation. Le projet Apktool est **décompilé** depuis un APK; ce n'est pas le projet Kotlin/Java/Gradle original, qui n'était pas fourni dans l'archive.
+La page GitHub Releases ne conserve que la test.7; les pages et tags test.1 à test.6 ont été retirés. Leurs APK pertinents restent dans `releases/apk/` pour l'historique. Les APK publiés et l'extraction brute sont des instantanés des tests précédents : la nouvelle icône est intégrée au projet Apktool pour la prochaine compilation. Le projet Apktool est **décompilé** depuis un APK; ce n'est pas le projet Kotlin/Java/Gradle original, qui n'était pas fourni dans l'archive.
 
 ## Releases depuis GitHub, sans commandes locales
 
