@@ -87,15 +87,16 @@ jobs:
         run: |
           set -euo pipefail
           output="$RUNNER_TEMP/$APK_NAME"
+          prebuilt_path="releases/apk/$APK_NAME"
           source_dir="android/apktool-project"
 
           # Existing signed APKs can be attached without exposing a signing key.
-          if [[ -f "$APK_NAME" && ( "$FORCE_BUILD" != "true" || ! -d "$source_dir" ) ]]; then
-            echo "Using the already-built APK committed in this ref."
-            cp "$APK_NAME" "$output"
+          if [[ -f "$prebuilt_path" && ( "$FORCE_BUILD" != "true" || ! -d "$source_dir" ) ]]; then
+            echo "Using the already-built APK committed at $prebuilt_path."
+            cp "$prebuilt_path" "$output"
           else
             if [[ ! -d "$source_dir" ]]; then
-              echo "::error::No prebuilt $APK_NAME or Apktool source project was found."
+              echo "::error::No prebuilt $prebuilt_path or Apktool source project was found."
               exit 1
             fi
             if [[ -z "$MELODIX_KEYSTORE_B64" || -z "$MELODIX_KEYSTORE_PASSWORD" ]]; then
@@ -134,11 +135,12 @@ jobs:
             "$build_tools/apksigner" verify --verbose --min-sdk-version 24 "$output"
           fi
 
-          cp "$output" "$GITHUB_WORKSPACE/$APK_NAME"
+          mkdir -p "$GITHUB_WORKSPACE/releases/apk"
+          cp "$output" "$GITHUB_WORKSPACE/$prebuilt_path"
           sha_name="$APK_NAME.sha256"
-          (cd "$GITHUB_WORKSPACE" && sha256sum "$APK_NAME" > "$sha_name")
-          echo "apk_path=$APK_NAME" >> "$GITHUB_OUTPUT"
-          echo "sha_path=$sha_name" >> "$GITHUB_OUTPUT"
+          (cd "$GITHUB_WORKSPACE/releases/apk" && sha256sum "$APK_NAME" > "$sha_name")
+          echo "apk_path=$prebuilt_path" >> "$GITHUB_OUTPUT"
+          echo "sha_path=releases/apk/$sha_name" >> "$GITHUB_OUTPUT"
 
       - name: Attach APK and checksum to release
         uses: softprops/action-gh-release@v2

@@ -1,6 +1,8 @@
 # Projet Android décompilé
 
-`apktool-project/` est le projet Apktool complet extrait de `Melodix-v1.2.2-test7.apk` : manifeste, ressources Android, assets Web, bibliothèques et Smali. Il permet de modifier/reconstruire l'APK, mais ne remplace pas les sources Kotlin/Gradle originales, qui ne figuraient pas dans l'archive d'origine.
+`apk-extracted/` est l'extraction brute du contenu de l'APK Melodix test.7 : manifeste, `classes.dex`, ressources, assets, bibliothèques et métadonnées de signature. Elle permet d'inspecter chaque entrée du paquet original.
+
+`apktool-project/` est le projet Apktool décompilé depuis le même APK, avec les ressources Android, les assets Web et les sources Smali. Il permet de modifier/reconstruire l'application, mais ne remplace pas les sources Kotlin/Gradle originales, qui ne figuraient pas dans l'archive d'origine.
 
 `apktool-framework/1.apk` est le framework Android requis par Apktool pour reconstruire les ressources de cette application. Il ne fait pas partie de l'APK Melodix.
 

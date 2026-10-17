@@ -1,0 +1,16 @@
+# Local Android/Apktool build outputs.
+.gradle/
+**/build/
+**/dist/
+local.properties
+
+# Private signing material and generated signing sidecars.
+*.jks
+*.keystore
+*.p12
+*.apk.idsig
+
+# Editor and operating-system files.
+.idea/
+.DS_Store
+Thumbs.db
