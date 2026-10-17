@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<adaptive-icon
+  xmlns:android="http://schemas.android.com/apk/res/android">
+    <background android:drawable="@drawable/ic_launcher_background" />
+    <foreground>
+        <layer-list>
+            <item android:drawable="@drawable/waves_black" />
+            <item android:drawable="@drawable/ic_duck_foreground" android:left="10.0dip" android:top="10.0dip" android:right="10.0dip" android:bottom="10.0dip" />
+        </layer-list>
+    </foreground>
+</adaptive-icon>

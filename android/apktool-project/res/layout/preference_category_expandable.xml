@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout android:gravity="center_vertical" android:orientation="horizontal" android:id="@id/category_header_container" android:background="?android:selectableItemBackground" android:paddingTop="18.0dip" android:paddingBottom="18.0dip" android:focusable="true" android:clickable="true" android:layout_width="fill_parent" android:layout_height="wrap_content" android:minHeight="64.0dip" android:paddingStart="20.0dip" android:paddingEnd="20.0dip"
+  xmlns:android="http://schemas.android.com/apk/res/android">
+    <TextView android:textSize="18.0sp" android:textStyle="bold" android:textColor="@color/teal_200" android:ellipsize="end" android:id="@android:id/title" android:layout_width="0.0dip" android:layout_height="wrap_content" android:maxLines="1" android:layout_weight="1.0" />
+    <ImageView android:id="@id/expand_indicator" android:layout_width="24.0dip" android:layout_height="24.0dip" android:src="@drawable/expand_more" android:tint="@color/teal_200" android:contentDescription="Expand or collapse section" android:layout_marginStart="12.0dip" />
+</LinearLayout>

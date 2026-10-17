@@ -1,0 +1,10 @@
+# Never commit private signing material.
+*.jks
+*.keystore
+*.p12
+*.pem
+
+# Local/generated build outputs.
+/apktool-project/dist/
+/apktool-project/build/
+*.idsig

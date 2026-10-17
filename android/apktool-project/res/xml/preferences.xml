@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="utf-8"?>
+<PreferenceScreen xmlns:app="http://schemas.android.com/apk/res-auto">
+    <com.melodix.music.CustomPrefTitle app:selectable="false" app:title="@string/app_name" />
+    <com.melodix.music.ExpandablePreferenceCategory app:title="Multi-Account Profiles">
+        <Preference app:icon="@drawable/ic_account_active" app:key="ActiveAccountBadge" app:layout="@layout/preference" app:summary="No saved profile active" app:title="Active Profile" />
+        <Preference app:icon="@drawable/ic_account_switch" app:key="SwitchAccount" app:layout="@layout/preference" app:summary="Switch to another saved account" app:title="Switch Profile" />
+        <Preference app:icon="@drawable/ic_account_add" app:key="SaveCurrentAccount" app:layout="@layout/preference" app:summary="Save active login session as a profile" app:title="Save Current Account" />
+        <Preference app:icon="@drawable/ic_account_manage" app:key="ManageAccounts" app:layout="@layout/preference" app:summary="Rename or delete saved account profiles" app:title="Manage Profiles" />
+    </com.melodix.music.ExpandablePreferenceCategory>
+    <com.melodix.music.ExpandablePreferenceCategory app:title="@string/menu_cat_service">
+        <SwitchPreferenceCompat app:defaultValue="true" app:icon="@drawable/action" app:key="ServiceOn" app:layout="@layout/preference" app:summary="Run the background player service" app:title="@string/txt_startservice" />
+        <SwitchPreferenceCompat app:defaultValue="false" app:icon="@drawable/statusbar" app:key="HideStatusBar" app:layout="@layout/preference" app:summary="Hide the system status bar across the entire app" app:title="Hide Status Bar" />
+        <Preference app:icon="@drawable/ic_proxy" app:key="ProxySettings" app:layout="@layout/preference" app:summary="@string/menu_proxy_settings_sum" app:title="@string/menu_proxy_settings" />
+    </com.melodix.music.ExpandablePreferenceCategory>
+    <com.melodix.music.ExpandablePreferenceCategory app:title="@string/menu_cat_player">
+        <ListPreference app:defaultValue="disabled" app:entries="@array/aplay_entries" app:entryValues="@array/aplay_values" app:icon="@drawable/autoplay" app:key="APlayMode" app:layout="@layout/preference" app:title="@string/menu_ap_mode" app:useSimpleSummaryProvider="true" />
+        <SwitchPreferenceCompat app:defaultValue="false" app:icon="@drawable/autoclose" app:key="CloseNowPlay" app:layout="@layout/preference" app:title="@string/menu_closenowplay" />
+        <SwitchPreferenceCompat app:defaultValue="false" app:icon="@drawable/ic_keep_screen_on" app:key="KeepScreenOn" app:layout="@layout/preference" app:summary="Prevent screen from turning off while using the app" app:title="Keep Screen On" />
+        <SwitchPreferenceCompat app:defaultValue="true" app:icon="@drawable/takecontrol" app:key="TakeControl" app:layout="@layout/preference" app:title="@string/menu_takecontrol" />
+        <SwitchPreferenceCompat app:defaultValue="true" app:icon="@drawable/canvas" app:key="DisableCanvas" app:layout="@layout/preference" app:title="Disable Canvas" />
+        <Preference app:icon="@drawable/adblock" app:key="AdBlockMode" app:layout="@layout/preference" app:title="@string/menu_adblock_mode" />
+    </com.melodix.music.ExpandablePreferenceCategory>
+    <com.melodix.music.ExpandablePreferenceCategory app:title="@string/menu_cat_gui">
+        <ListPreference app:defaultValue="csshack" app:entries="@array/gui_entries" app:entryValues="@array/gui_values" app:icon="@drawable/guimode" app:key="GuiMode" app:layout="@layout/preference" app:title="@string/menu_guimode" app:useSimpleSummaryProvider="true" />
+        <Preference app:icon="@drawable/ic_custom_css" app:key="CustomCss" app:layout="@layout/preference" app:summary="Inject custom CSS styles into the Web Player" app:title="Custom CSS Injector" />
+        <Preference app:icon="@drawable/andauto" app:key="AndAuto" app:layout="@layout/preference" app:summary="Configure player controls, notification bar, and Android Auto" app:title="@string/menu_andauto" />
+        <SwitchPreferenceCompat app:defaultValue="false" app:icon="@drawable/ic_dock_sidebar" app:key="DockLeftSidebar" app:layout="@layout/preference" app:summary="@string/menu_dock_left_sidebar_sum" app:title="@string/menu_dock_left_sidebar" />
+        <SwitchPreferenceCompat app:defaultValue="true" app:icon="@drawable/fullscreen" app:key="ExpandedFullScreen" app:layout="@layout/preference" app:title="Immersive Full-screen" />
+        <SwitchPreferenceCompat app:defaultValue="false" app:icon="@drawable/amoled" app:key="Amoled" app:layout="@layout/preference" app:summary="@string/menu_amoled_sum" app:title="@string/menu_amoled" />
+    </com.melodix.music.ExpandablePreferenceCategory>
+    <com.melodix.music.ExpandablePreferenceCategory app:title="@string/menu_actions">
+        <SwitchPreferenceCompat app:defaultValue="false" app:icon="@drawable/headphones" app:key="HPAP" app:layout="@layout/preference" app:title="@string/menu_hpap" />
+        <SwitchPreferenceCompat app:defaultValue="false" app:icon="@drawable/ic_headphones_off" app:key="HPAS" app:layout="@layout/preference" app:title="@string/menu_hpas" />
+        <SwitchPreferenceCompat app:defaultValue="false" app:icon="@drawable/bluetooth" app:key="BTAP" app:layout="@layout/preference" app:title="@string/menu_btap" />
+        <SwitchPreferenceCompat app:defaultValue="false" app:icon="@drawable/ic_bluetooth_off" app:key="BTAS" app:layout="@layout/preference" app:title="@string/menu_btas" />
+    </com.melodix.music.ExpandablePreferenceCategory>
+    <com.melodix.music.ExpandablePreferenceCategory app:title="@string/menu_cat_system">
+        <Preference app:icon="@drawable/clearcache" app:key="ClearCache" app:layout="@layout/preference" app:summary="@string/menu_clearcachesum" app:title="@string/menu_clearcache" />
+        <Preference app:icon="@drawable/cleardata" app:key="ClearData" app:layout="@layout/preference" app:summary="@string/menu_cleardatasum" app:title="@string/menu_cleardata" />
+        <SwitchPreferenceCompat app:defaultValue="true" app:icon="@drawable/swipe" app:key="SwipeStop" app:layout="@layout/preference" app:title="@string/menu_swipestop" />
+        <ListPreference app:defaultValue="0" app:entries="@array/ashut_entries" app:entryValues="@array/ashut_values" app:icon="@drawable/autoshut" app:key="AutoShut" app:layout="@layout/preference" app:title="@string/menu_autoshut" app:useSimpleSummaryProvider="true" />
+        <ListPreference app:defaultValue="0" app:entries="@array/ashut_entries" app:entryValues="@array/ashut_values" app:icon="@drawable/autosleep" app:key="AutoSleep" app:layout="@layout/preference" app:title="@string/menu_autosleep" app:useSimpleSummaryProvider="true" />
+        <SwitchPreferenceCompat app:defaultValue="false" app:icon="@drawable/forceportrait" app:key="ForcePortrait" app:layout="@layout/preference" app:title="@string/menu_forceportrait" />
+        <SwitchPreferenceCompat app:defaultValue="false" app:icon="@drawable/language" app:key="ForceEn" app:layout="@layout/preference" app:summary="@string/menu_forceensum" app:title="@string/menu_forceen" />
+        <SwitchPreferenceCompat app:defaultValue="true" app:icon="@drawable/developer" app:key="PrioritizeLocalAssets" app:layout="@layout/preference" app:summary="Load local APK assets instead of hotfixes" app:title="Prioritize Local Assets (Debug)" />
+    </com.melodix.music.ExpandablePreferenceCategory>
+    <com.melodix.music.CustomPrefFooter app:selectable="false" />
+</PreferenceScreen>
