@@ -1265,7 +1265,6 @@
     <public type="drawable" name="$avd_show_password__0" id="0x7f080003" />
     <public type="drawable" name="$avd_show_password__1" id="0x7f080004" />
     <public type="drawable" name="$avd_show_password__2" id="0x7f080005" />
-    <public type="drawable" name="$ic_launcher_background__0" id="0x7f080006" />
     <public type="drawable" name="$mtrl_checkbox_button_checked_unchecked__0" id="0x7f08000d" />
     <public type="drawable" name="$mtrl_checkbox_button_checked_unchecked__1" id="0x7f08000e" />
     <public type="drawable" name="$mtrl_checkbox_button_checked_unchecked__2" id="0x7f08000f" />
@@ -1376,7 +1375,6 @@
     <public type="drawable" name="ic_custom_css" id="0x7f0800c0" />
     <public type="drawable" name="ic_discord" id="0x7f0800c1" />
     <public type="drawable" name="ic_dock_sidebar" id="0x7f0800c2" />
-    <public type="drawable" name="ic_duck_foreground" id="0x7f0800c3" />
     <public type="drawable" name="ic_github" id="0x7f0800c4" />
     <public type="drawable" name="ic_headphones_off" id="0x7f0800c5" />
     <public type="drawable" name="ic_keep_screen_on" id="0x7f0800c6" />
@@ -1387,7 +1385,7 @@
     <public type="drawable" name="ic_mtrl_chip_close_circle" id="0x7f0800cf" />
     <public type="drawable" name="ic_proxy" id="0x7f0800d0" />
     <public type="drawable" name="language" id="0x7f0800d5" />
-    <public type="drawable" name="logo_duck" id="0x7f0800d6" />
+    <public type="drawable" name="logo_melodix" id="0x7f0800d6" />
     <public type="drawable" name="mtrl_checkbox_button" id="0x7f0800ee" />
     <public type="drawable" name="mtrl_checkbox_button_checked_unchecked" id="0x7f0800ef" />
     <public type="drawable" name="mtrl_checkbox_button_icon" id="0x7f0800f0" />
@@ -1425,7 +1423,6 @@
     <public type="drawable" name="takecontrol" id="0x7f08012e" />
     <public type="drawable" name="tooltip_frame_dark" id="0x7f080130" />
     <public type="drawable" name="tooltip_frame_light" id="0x7f080131" />
-    <public type="drawable" name="waves_black" id="0x7f080132" />
     <public type="drawable" name="waves_white" id="0x7f080133" />
     <public type="drawable" name="waves_white_bg" id="0x7f080134" />
     <public type="drawable" name="widget_art_mask" id="0x7f080135" />
