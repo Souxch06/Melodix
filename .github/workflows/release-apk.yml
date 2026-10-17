@@ -1,0 +1,154 @@
+name: Build APK and attach to GitHub Release
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: Existing release tag to build/attach (for example v1.2.2-test.7)
+        required: true
+        type: string
+        default: v1.2.2-test.7
+      rebuild:
+        description: Force a fresh build instead of reusing an APK already in the repository
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-attach:
+    name: Build and publish signed APK
+    runs-on: ubuntu-latest
+    steps:
+      - name: Select release tag
+        id: release
+        shell: bash
+        env:
+          EVENT_TAG: ${{ github.event.release.tag_name || '' }}
+          INPUT_TAG: ${{ inputs.release_tag || '' }}
+          INPUT_REBUILD: ${{ inputs.rebuild || 'false' }}
+        run: |
+          set -euo pipefail
+          if [[ "$GITHUB_EVENT_NAME" == "release" ]]; then
+            tag="$EVENT_TAG"
+            force_build=false
+          else
+            tag="$INPUT_TAG"
+            force_build="$INPUT_REBUILD"
+          fi
+
+          if [[ ! "$tag" =~ ^v([0-9]+\.[0-9]+\.[0-9]+)-test\.([0-9]+)$ ]]; then
+            echo "::error::Expected a test release tag such as v1.2.2-test.8"
+            exit 1
+          fi
+
+          version="${BASH_REMATCH[1]}"
+          test_number="${BASH_REMATCH[2]}"
+          apk_name="Melodix-v${version}-test${test_number}.apk"
+          IFS=. read -r major minor patch <<< "$version"
+          version_code=$((major * 1000000 + minor * 10000 + patch * 100 + test_number))
+
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "apk_name=$apk_name" >> "$GITHUB_OUTPUT"
+          echo "version_code=$version_code" >> "$GITHUB_OUTPUT"
+          echo "force_build=$force_build" >> "$GITHUB_OUTPUT"
+
+      - name: Check out main source
+        uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android build tools
+        run: sdkmanager --install "build-tools;35.0.0"
+
+      - name: Build or reuse APK
+        id: package
+        shell: bash
+        env:
+          APK_NAME: ${{ steps.release.outputs.apk_name }}
+          VERSION_CODE: ${{ steps.release.outputs.version_code }}
+          FORCE_BUILD: ${{ steps.release.outputs.force_build }}
+          MELODIX_KEYSTORE_B64: ${{ secrets.MELODIX_KEYSTORE_B64 }}
+          MELODIX_KEYSTORE_PASSWORD: ${{ secrets.MELODIX_KEYSTORE_PASSWORD }}
+          MELODIX_KEY_PASSWORD: ${{ secrets.MELODIX_KEY_PASSWORD || secrets.MELODIX_KEYSTORE_PASSWORD }}
+        run: |
+          set -euo pipefail
+          output="$RUNNER_TEMP/$APK_NAME"
+          prebuilt_path="releases/apk/$APK_NAME"
+          source_dir="android/apktool-project"
+
+          # Existing signed APKs can be attached without exposing a signing key.
+          if [[ -f "$prebuilt_path" && ( "$FORCE_BUILD" != "true" || ! -d "$source_dir" ) ]]; then
+            echo "Using the already-built APK committed at $prebuilt_path."
+            cp "$prebuilt_path" "$output"
+          else
+            if [[ ! -d "$source_dir" ]]; then
+              echo "::error::No prebuilt $prebuilt_path or Apktool source project was found."
+              exit 1
+            fi
+            if [[ -z "$MELODIX_KEYSTORE_B64" || -z "$MELODIX_KEYSTORE_PASSWORD" ]]; then
+              echo "::error::A new signed build needs the GitHub Actions secrets MELODIX_KEYSTORE_B64 and MELODIX_KEYSTORE_PASSWORD. The keystore is deliberately not stored in the public repository."
+              exit 1
+            fi
+
+            work_dir="$RUNNER_TEMP/melodix-apktool-project"
+            framework_dir="$RUNNER_TEMP/melodix-apktool-framework"
+            mkdir -p "$framework_dir"
+            cp -a "$source_dir" "$work_dir"
+            sed -i -E "s/^  versionCode: .*/  versionCode: $VERSION_CODE/" "$work_dir/apktool.yml"
+            sed -i -E "s/^apkFileName: .*/apkFileName: $APK_NAME/" "$work_dir/apktool.yml"
+
+            curl --fail --silent --show-error --location \
+              "https://github.com/iBotPeaches/Apktool/releases/download/v2.9.3/apktool_2.9.3.jar" \
+              --output "$RUNNER_TEMP/apktool.jar"
+            java -jar "$RUNNER_TEMP/apktool.jar" if \
+              --frame-path "$framework_dir" android/apktool-framework/1.apk
+            java -jar "$RUNNER_TEMP/apktool.jar" b "$work_dir" \
+              --frame-path "$framework_dir" \
+              --output "$RUNNER_TEMP/unsigned.apk" \
+              --force-all
+
+            build_tools="$ANDROID_HOME/build-tools/35.0.0"
+            "$build_tools/zipalign" -f 4 \
+              "$RUNNER_TEMP/unsigned.apk" "$RUNNER_TEMP/aligned.apk"
+            printf '%s' "$MELODIX_KEYSTORE_B64" | base64 --decode \
+              > "$RUNNER_TEMP/melodix-signing.jks"
+            "$build_tools/apksigner" sign \
+              --ks "$RUNNER_TEMP/melodix-signing.jks" \
+              --ks-key-alias MELODIX \
+              --ks-pass env:MELODIX_KEYSTORE_PASSWORD \
+              --key-pass env:MELODIX_KEY_PASSWORD \
+              --out "$output" "$RUNNER_TEMP/aligned.apk"
+            "$build_tools/apksigner" verify --verbose --min-sdk-version 24 "$output"
+          fi
+
+          mkdir -p "$GITHUB_WORKSPACE/releases/apk"
+          cp "$output" "$GITHUB_WORKSPACE/$prebuilt_path"
+          sha_name="$APK_NAME.sha256"
+          (cd "$GITHUB_WORKSPACE/releases/apk" && sha256sum "$APK_NAME" > "$sha_name")
+          echo "apk_path=$prebuilt_path" >> "$GITHUB_OUTPUT"
+          echo "sha_path=releases/apk/$sha_name" >> "$GITHUB_OUTPUT"
+
+      - name: Attach APK and checksum to release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.release.outputs.tag }}
+          files: |
+            ${{ steps.package.outputs.apk_path }}
+            ${{ steps.package.outputs.sha_path }}
+          overwrite_files: true
+          fail_on_unmatched_files: true
+          token: ${{ secrets.GITHUB_TOKEN }}
