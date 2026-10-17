@@ -1,10 +1,10 @@
 Signature-Version: 1.0
 Created-By: 1.0 (Android)
-SHA-256-Digest-Manifest: eOVjvxTdWfIfk5nYCFOJxQvYB/IIWhKnXAEvl4RY2mo=
+SHA-256-Digest-Manifest: 15kjl1D1A8g1th1Y55wA8eoESqhm/FWPF85fLkvoWz8=
 X-Android-APK-Signed: 2, 3
 
 Name: AndroidManifest.xml
-SHA-256-Digest: kBq2KNzFPikswvJO2194+Ky0UzFsBGLJ5bOuTgn5Y7c=
+SHA-256-Digest: NRB/NKKlmkJKjVcxmrpJDRAEjZgx2mvh8Y36p9cu2XQ=
 
 Name: DebugProbesKt.bin
 SHA-256-Digest: J5JwGqN5sZzpUMmX6fGo7x3RaJgYMZDYkkXqeCjUMyg=
@@ -22,7 +22,7 @@ Name: assets/classic_login.js
 SHA-256-Digest: JDXendB7eHIuYU/G6e3T9v3gkAyr3z546Br9K2vQKDE=
 
 Name: assets/css_hacks.css
-SHA-256-Digest: Brd/qrvsDihEwSaHMkuvwW7Hl4mMxKEvYK1cps1/4xk=
+SHA-256-Digest: 44o9cR++plOomWmIzz3kTNS7Jle/CF5qhpdaYOCC01Y=
 
 Name: assets/desktop_spoof.js
 SHA-256-Digest: 1B0DRVU/6oD6pFzs6jxVj7EXr5InU+NNWTlwTi+a0Js=

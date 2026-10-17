@@ -1,7 +1,7 @@
 Manifest-Version: 1.0
 
 Name: AndroidManifest.xml
-SHA-256-Digest: A9quOT3B2cqBsSqOsJiDwEcYN27zEKVjIkGmzFcwwfk=
+SHA-256-Digest: YFU0zfICEoH8nZ1RGymH58OLb3pUleIP0MNQzcwUbQo=
 
 Name: DebugProbesKt.bin
 SHA-256-Digest: TRO9kvhqCxQVBiuO1XZVwHOMz73weGwdcw2Yiyf9RAA=
@@ -19,7 +19,7 @@ Name: assets/classic_login.js
 SHA-256-Digest: R54ZBPYn6N2wkpgrj1JLkplvd4DyAplXQI+gBSb24Gg=
 
 Name: assets/css_hacks.css
-SHA-256-Digest: 2YGvkCtD1+wkm6FJn8GJuqzEYFpO+FM/n1xFd2V1Mf4=
+SHA-256-Digest: 7jDgd1+uuM/aY5dnHwilZ9jyzsgF+RTJDuXTlNoJ0H4=
 
 Name: assets/desktop_spoof.js
 SHA-256-Digest: +A3qoE8LqoQSypwGMVs4nc8gbQKj0FodYtYYM2gDYRA=
