@@ -1,7 +1,7 @@
 Manifest-Version: 1.0
 
 Name: AndroidManifest.xml
-SHA-256-Digest: XheDuhUjzWm+TiMVyS1A+gvAIvmBllSMKu/7k80ev+Y=
+SHA-256-Digest: A9quOT3B2cqBsSqOsJiDwEcYN27zEKVjIkGmzFcwwfk=
 
 Name: DebugProbesKt.bin
 SHA-256-Digest: TRO9kvhqCxQVBiuO1XZVwHOMz73weGwdcw2Yiyf9RAA=
@@ -2055,5 +2055,5 @@ Name: res/xml/preferences.xml
 SHA-256-Digest: NRvMEjaCpTXGpiI+xy7CLfdHaWf3a6NbsQ14T5znSrU=
 
 Name: resources.arsc
-SHA-256-Digest: S4Uuj2unFxDmRajXZS149jnvnxUhFTiA3KpDANtXr30=
+SHA-256-Digest: GGz5y4xxKOv5dHmztqZ/9Ru/AfHXQ+JKIJhbKd2w53o=
 

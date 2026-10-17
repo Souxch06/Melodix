@@ -1,10 +1,10 @@
 Signature-Version: 1.0
 Created-By: 1.0 (Android)
-SHA-256-Digest-Manifest: Xx+d4XbiRYJKwzV9I3OvQ+ho+/RlMZoYs7WLtInXfqY=
+SHA-256-Digest-Manifest: eOVjvxTdWfIfk5nYCFOJxQvYB/IIWhKnXAEvl4RY2mo=
 X-Android-APK-Signed: 2, 3
 
 Name: AndroidManifest.xml
-SHA-256-Digest: z+lTO0BrhOB3oTCJZciKcJ2uYwVFNXEC+EL5Ho1b00g=
+SHA-256-Digest: kBq2KNzFPikswvJO2194+Ky0UzFsBGLJ5bOuTgn5Y7c=
 
 Name: DebugProbesKt.bin
 SHA-256-Digest: J5JwGqN5sZzpUMmX6fGo7x3RaJgYMZDYkkXqeCjUMyg=
@@ -2058,5 +2058,5 @@ Name: res/xml/preferences.xml
 SHA-256-Digest: dxV8kSO5wi4WnpHarTcetXachcZi3qeIjvgonL0GJzg=
 
 Name: resources.arsc
-SHA-256-Digest: 8zfEIzRlUcTYMouMDFK17AIk6Bf/dwdDoYW0tlgGpBY=
+SHA-256-Digest: Jys4TXbsNyRWGqH6wkGev5zb8Lvr74aVv5o1nDlMrsY=
 
