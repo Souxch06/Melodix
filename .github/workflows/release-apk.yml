@@ -83,6 +83,7 @@ jobs:
           FORCE_BUILD: ${{ steps.release.outputs.force_build }}
           MELODIX_KEYSTORE_B64: ${{ secrets.MELODIX_KEYSTORE_B64 }}
           MELODIX_KEYSTORE_PASSWORD: ${{ secrets.MELODIX_KEYSTORE_PASSWORD }}
+          MELODIX_KEY_PASSWORD: ${{ secrets.MELODIX_KEY_PASSWORD || secrets.MELODIX_KEYSTORE_PASSWORD }}
         run: |
           set -euo pipefail
           output="$RUNNER_TEMP/$APK_NAME"
@@ -128,7 +129,7 @@ jobs:
               --ks "$RUNNER_TEMP/melodix-signing.jks" \
               --ks-key-alias MELODIX \
               --ks-pass env:MELODIX_KEYSTORE_PASSWORD \
-              --key-pass env:MELODIX_KEYSTORE_PASSWORD \
+              --key-pass env:MELODIX_KEY_PASSWORD \
               --out "$output" "$RUNNER_TEMP/aligned.apk"
             "$build_tools/apksigner" verify --verbose --min-sdk-version 24 "$output"
           fi

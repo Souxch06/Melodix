@@ -6,4 +6,4 @@
 
 ## Publication depuis GitHub
 
-Le workflow `.github/workflows/release-apk.yml` peut soit réutiliser un APK signé déjà commité, soit rebâtir le projet puis l'attacher à une release avec son checksum. Pour créer une nouvelle version mise à jour, ajoutez dans **Settings → Secrets and variables → Actions** les secrets `MELODIX_KEYSTORE_B64` (keystore encodé en Base64) et `MELODIX_KEYSTORE_PASSWORD`. Le keystore n'est jamais commité dans ce dépôt public.
+Le workflow `.github/workflows/release-apk.yml` peut soit réutiliser un APK signé déjà commité, soit rebâtir le projet puis l'attacher à une release avec son checksum. Pour créer une nouvelle version mise à jour, ajoutez dans **Settings → Secrets and variables → Actions** les secrets `MELODIX_KEYSTORE_B64` (keystore encodé en Base64) et `MELODIX_KEYSTORE_PASSWORD`. Ajoutez aussi `MELODIX_KEY_PASSWORD` si le mot de passe de la clé diffère de celui du keystore; sinon le workflow réutilise le même mot de passe. Le keystore n'est jamais commité dans ce dépôt public.
