@@ -1499,11 +1499,11 @@
                         manageWake(true);
                         ulFlag = true;
                         setTimeout(() => {
-                            if (ulFlag && window.pBtn.getAttribute('aria-label') === 'Play') {
-                                AndBridge.deferMessage('unlock');
-                                actSkipForward();
-                                trigUnlock();
-                            } else if (ulFlag) {
+                            if (ulFlag) {
+                                if (window.pBtn && window.pBtn.getAttribute('aria-label') === 'Play') {
+                                    console.warn('[Melodix] Playback did not start; automatic skip cancelled.');
+                                }
+                                // Release the retry guard, but never advance past the selected track.
                                 ulFlag = false;
                             }
                         }, 10000);

@@ -1,7 +1,7 @@
 Manifest-Version: 1.0
 
 Name: AndroidManifest.xml
-SHA-256-Digest: YFU0zfICEoH8nZ1RGymH58OLb3pUleIP0MNQzcwUbQo=
+SHA-256-Digest: fWKvSag2U1ghzrvxA/udD8kEVBOGtkrenfGC91RoYHI=
 
 Name: DebugProbesKt.bin
 SHA-256-Digest: TRO9kvhqCxQVBiuO1XZVwHOMz73weGwdcw2Yiyf9RAA=
@@ -43,10 +43,10 @@ Name: assets/silent.mp3
 SHA-256-Digest: aTt/i0NfS14396SQrhQCEAGHlSqzJcpMv6IaNOy6SEY=
 
 Name: assets/spotify_bridge.js
-SHA-256-Digest: z6Lqeu1F30a0aNkmORZxDLUTT+7prrEIIl3mR8PUBUE=
+SHA-256-Digest: L/1N5pw9UdG5XtapyIVfiIocOB+Y1G/QseoaoFjqRfs=
 
 Name: classes.dex
-SHA-256-Digest: wxWGphzh0hkE/CoqKUEedgnVtxcQ1Jldx2yJFUO7ij4=
+SHA-256-Digest: 4L34wzYzfTdz52fKKzV4FiZv0nZBQi865p2thoeESOM=
 
 Name: client_analytics.proto
 SHA-256-Digest: DHZzJ3Z3KyYFKFWPm2daSVKcrXhcQhyhG0hxebgWJhA=

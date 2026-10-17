@@ -1,10 +1,10 @@
 Signature-Version: 1.0
 Created-By: 1.0 (Android)
-SHA-256-Digest-Manifest: 15kjl1D1A8g1th1Y55wA8eoESqhm/FWPF85fLkvoWz8=
+SHA-256-Digest-Manifest: UIqlkM3xE/inhn14Nq8tkBJxCftBI1xwhxwLwIN/+XM=
 X-Android-APK-Signed: 2, 3
 
 Name: AndroidManifest.xml
-SHA-256-Digest: NRB/NKKlmkJKjVcxmrpJDRAEjZgx2mvh8Y36p9cu2XQ=
+SHA-256-Digest: UgsvLG3KV8A2DY5SuXSe+i2oLVy6ShH/MGxaEomObQM=
 
 Name: DebugProbesKt.bin
 SHA-256-Digest: J5JwGqN5sZzpUMmX6fGo7x3RaJgYMZDYkkXqeCjUMyg=
@@ -46,10 +46,10 @@ Name: assets/silent.mp3
 SHA-256-Digest: RGvATxFZhqxaAvu/Mio5e6yjw7vAGiJo5MYmE4EmFa0=
 
 Name: assets/spotify_bridge.js
-SHA-256-Digest: FxzHTipMwPAUsRdM7cZjzMI3p/c+OsPOqO0DD9bCZu8=
+SHA-256-Digest: dJ4IwSYWUe9PozBzsZuP4qJyLTKye521tgkIEeEYwKc=
 
 Name: classes.dex
-SHA-256-Digest: smPIOUTT7hnVy8tuHP52PugcBS57heSm03wrI5rb+NY=
+SHA-256-Digest: CVv3GZoaSHIn4uOpcdZF8MjZo3oFeR0Lchz/sXOXKvU=
 
 Name: client_analytics.proto
 SHA-256-Digest: EsiOhXZ9ARjm/oKvt02rDTapjzIdPYgYWzazsNC7GXU=
