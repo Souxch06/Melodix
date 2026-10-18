@@ -49,7 +49,7 @@ jobs:
             -no-boot-anim \
             -no-snapshot \
             -gpu swiftshader_indirect \
-            -accel on \
+            -accel off \
             > "$RUNNER_TEMP/melodix-emulator.log" 2>&1 &
           emulator_pid=$!
           adb start-server
