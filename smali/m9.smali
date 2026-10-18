@@ -1012,7 +1012,7 @@
 .end method
 
 .method public static g(Landroid/content/Context;)Landroid/webkit/WebView;
-    .locals 4
+    .locals 5
 
     .line 1
     invoke-virtual {p0}, Ljava/lang/Object;->getClass()Ljava/lang/Class;
@@ -1283,13 +1283,32 @@
     .line 131
     .line 132
     .line 133
+    sget-object v3, Lcom/melodix/music/AppSingleton;->z:Ljava/lang/String;
+
+    const-string v4, "csshack"
+
+    invoke-static {v3, v4}, Ldl1;->a(Ljava/lang/Object;Ljava/lang/Object;)Z
+
+    move-result v3
+
+    if-eqz v3, :cond_default_viewport_mode
+
+    # CSS-hack UI is phone-first; do not let the desktop UA trigger WebView's
+    # wide 980px layout viewport or overview scaling on a phone.
+    const/4 v3, 0x0
+
+    invoke-virtual {v2, v3}, Landroid/webkit/WebSettings;->setUseWideViewPort(Z)V
+
+    invoke-virtual {v2, v3}, Landroid/webkit/WebSettings;->setLoadWithOverviewMode(Z)V
+
+    goto :goto_viewport_mode_ready
+
+    :cond_default_viewport_mode
     invoke-virtual {v2, v0}, Landroid/webkit/WebSettings;->setUseWideViewPort(Z)V
 
-    .line 134
-    .line 135
-    .line 136
     invoke-virtual {v2, v0}, Landroid/webkit/WebSettings;->setLoadWithOverviewMode(Z)V
 
+    :goto_viewport_mode_ready
     .line 137
     .line 138
     .line 139
