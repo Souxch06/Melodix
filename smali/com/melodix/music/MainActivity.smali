@@ -3205,6 +3205,10 @@
     .line 535
     invoke-virtual {v5, v8}, Landroid/widget/TextView;->setText(Ljava/lang/CharSequence;)V
 
+    # Keep the existing settings shortcut, but hide the separate password-mode selector.
+    const/16 v15, 0x8
+    invoke-virtual {v5, v15}, Landroid/view/View;->setVisibility(I)V
+
     .line 536
     .line 537
     .line 538
@@ -3509,6 +3513,10 @@
     .line 699
     .line 700
     invoke-virtual {v2, v5}, Landroid/widget/TextView;->setText(Ljava/lang/CharSequence;)V
+
+    # Spotify's standard login page already provides these authentication options.
+    const/16 v15, 0x8
+    invoke-virtual {v2, v15}, Landroid/view/View;->setVisibility(I)V
 
     .line 701
     .line 702

@@ -4,10 +4,10 @@ on:
   workflow_dispatch:
     inputs:
       release_tag:
-        description: Preview tag (for example v1.2.2-test.8-preview)
+        description: Preview tag (for example v1.2.2-test.9-preview)
         required: true
         type: string
-        default: v1.2.2-test.8-preview
+        default: v1.2.2-test.9-preview
 
 permissions:
   contents: write
@@ -26,7 +26,7 @@ jobs:
           set -euo pipefail
           tag="$INPUT_TAG"
           if [[ ! "$tag" =~ ^v([0-9]+\.[0-9]+\.[0-9]+)-test\.([0-9]+)-preview$ ]]; then
-            echo "::error::Expected a preview tag such as v1.2.2-test.8-preview"
+            echo "::error::Expected a preview tag such as v1.2.2-test.9-preview"
             exit 1
           fi
 
@@ -34,7 +34,7 @@ jobs:
           test_number="${BASH_REMATCH[2]}"
           apk_name="Melodix-Preview-v${version}-test${test_number}.apk"
           IFS=. read -r major minor patch <<< "$version"
-          # Increment the first preview APK's code so this corrected build updates it in place.
+          # Increment the preview version code so each new preview can update the previous one.
           version_code=$((major * 1000000 + minor * 10000 + patch * 100 + test_number + 1))
           release_name="Melodix Preview v${version} test.${test_number}"
 
@@ -55,10 +55,8 @@ jobs:
             exit 1
           fi
 
-      - name: Check out main source
+      - name: Check out selected source branch
         uses: actions/checkout@v7.0.1
-        with:
-          ref: main
 
       - name: Set up Java
         uses: actions/setup-java@v6.1.0
