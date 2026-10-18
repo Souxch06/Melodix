@@ -1,0 +1,182 @@
+name: Build Melodix Preview APK
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: Preview tag (for example v1.2.2-test.8-preview)
+        required: true
+        type: string
+        default: v1.2.2-test.8-preview
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release-preview:
+    name: Build and publish separate preview app
+    runs-on: ubuntu-latest
+    steps:
+      - name: Select preview release tag
+        id: release
+        shell: bash
+        env:
+          INPUT_TAG: ${{ inputs.release_tag }}
+        run: |
+          set -euo pipefail
+          tag="$INPUT_TAG"
+          if [[ ! "$tag" =~ ^v([0-9]+\.[0-9]+\.[0-9]+)-test\.([0-9]+)-preview$ ]]; then
+            echo "::error::Expected a preview tag such as v1.2.2-test.8-preview"
+            exit 1
+          fi
+
+          version="${BASH_REMATCH[1]}"
+          test_number="${BASH_REMATCH[2]}"
+          apk_name="Melodix-Preview-v${version}-test${test_number}.apk"
+          IFS=. read -r major minor patch <<< "$version"
+          version_code=$((major * 1000000 + minor * 10000 + patch * 100 + test_number))
+          release_name="Melodix Preview v${version} test.${test_number}"
+
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "apk_name=$apk_name" >> "$GITHUB_OUTPUT"
+          echo "version_code=$version_code" >> "$GITHUB_OUTPUT"
+          echo "release_name=$release_name" >> "$GITHUB_OUTPUT"
+
+      - name: Check preview signing secrets
+        shell: bash
+        env:
+          KEYSTORE_B64: ${{ secrets.MELODIX_PREVIEW_KEYSTORE_B64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.MELODIX_PREVIEW_KEYSTORE_PASSWORD }}
+        run: |
+          set -euo pipefail
+          if [[ -z "$KEYSTORE_B64" || -z "$KEYSTORE_PASSWORD" ]]; then
+            echo "::error::Add the GitHub Actions secrets MELODIX_PREVIEW_KEYSTORE_B64 and MELODIX_PREVIEW_KEYSTORE_PASSWORD before running this workflow. Do not put the keystore or its passwords in the repository."
+            exit 1
+          fi
+
+      - name: Check out main source
+        uses: actions/checkout@v7.0.1
+        with:
+          ref: main
+
+      - name: Set up Java
+        uses: actions/setup-java@v6.1.0
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v4.0.4
+
+      - name: Install Android build tools
+        run: sdkmanager --install "build-tools;35.0.0"
+
+      - name: Build and sign preview APK
+        id: package
+        shell: bash
+        env:
+          APK_NAME: ${{ steps.release.outputs.apk_name }}
+          VERSION_CODE: ${{ steps.release.outputs.version_code }}
+          MELODIX_PREVIEW_KEYSTORE_B64: ${{ secrets.MELODIX_PREVIEW_KEYSTORE_B64 }}
+          MELODIX_PREVIEW_KEYSTORE_PASSWORD: ${{ secrets.MELODIX_PREVIEW_KEYSTORE_PASSWORD }}
+          MELODIX_PREVIEW_KEY_PASSWORD: ${{ secrets.MELODIX_PREVIEW_KEY_PASSWORD || secrets.MELODIX_PREVIEW_KEYSTORE_PASSWORD }}
+        run: |
+          set -euo pipefail
+          source_dir="android/apktool-project"
+          work_dir="$RUNNER_TEMP/melodix-preview-apktool-project"
+          framework_dir="$RUNNER_TEMP/melodix-preview-apktool-framework"
+          output="$RUNNER_TEMP/$APK_NAME"
+          mkdir -p "$framework_dir"
+          cp -a "$source_dir" "$work_dir"
+
+          python3 - "$work_dir/AndroidManifest.xml" <<'PY'
+          import sys
+          import xml.etree.ElementTree as ET
+
+          manifest_path = sys.argv[1]
+          android_ns = "http://schemas.android.com/apk/res/android"
+          android = "{" + android_ns + "}"
+          ET.register_namespace("android", android_ns)
+          tree = ET.parse(manifest_path)
+          root = tree.getroot()
+          original_id = "com.melodix.music"
+          preview_id = "com.melodix.music.preview"
+          if root.get("package") != original_id:
+              raise SystemExit("Unexpected base package id; refusing to rewrite the preview manifest.")
+          root.set("package", preview_id)
+
+          for element in root.iter():
+              name = element.get(android + "name")
+              if name == original_id + ".DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION":
+                  element.set(android + "name", preview_id + ".DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION")
+              authorities = element.get(android + "authorities")
+              if authorities and authorities.startswith(original_id + "."):
+                  element.set(android + "authorities", preview_id + authorities[len(original_id):])
+              if element.get(android + "label") == "Melodix":
+                  element.set(android + "label", "Melodix Preview")
+
+          tree.write(manifest_path, encoding="utf-8", xml_declaration=True, short_empty_elements=True)
+          PY
+
+          sed -i -E 's#(<string name="app_name">)[^<]*(</string>)#\1Melodix Preview\2#' \
+            "$work_dir/res/values/strings.xml"
+
+          # Keep picture-in-picture broadcast actions unique to the side-by-side preview app.
+          find "$work_dir" -type f -name '*.smali' -exec sed -i \
+            's/com\.melodix\.music\.PIP_/com.melodix.music.preview.PIP_/g' {} +
+
+          sed -i -E "s/^apkFileName:.*/apkFileName: $APK_NAME/" "$work_dir/apktool.yml"
+          sed -i -E "s/^  versionCode: .*/  versionCode: $VERSION_CODE/" "$work_dir/apktool.yml"
+
+          curl --fail --silent --show-error --location \
+            "https://github.com/iBotPeaches/Apktool/releases/download/v2.9.3/apktool_2.9.3.jar" \
+            --output "$RUNNER_TEMP/apktool.jar"
+          java -jar "$RUNNER_TEMP/apktool.jar" if \
+            --frame-path "$framework_dir" android/apktool-framework/1.apk
+          java -jar "$RUNNER_TEMP/apktool.jar" b "$work_dir" \
+            --frame-path "$framework_dir" \
+            --output "$RUNNER_TEMP/unsigned.apk" \
+            --force-all
+
+          build_tools="$ANDROID_HOME/build-tools/35.0.0"
+          "$build_tools/zipalign" -f 4 \
+            "$RUNNER_TEMP/unsigned.apk" "$RUNNER_TEMP/aligned.apk"
+          printf '%s' "$MELODIX_PREVIEW_KEYSTORE_B64" | base64 --decode \
+            > "$RUNNER_TEMP/melodix-preview-signing.jks"
+          "$build_tools/apksigner" sign \
+            --ks "$RUNNER_TEMP/melodix-preview-signing.jks" \
+            --ks-key-alias MELODIX_PREVIEW \
+            --ks-pass env:MELODIX_PREVIEW_KEYSTORE_PASSWORD \
+            --key-pass env:MELODIX_PREVIEW_KEY_PASSWORD \
+            --out "$output" "$RUNNER_TEMP/aligned.apk"
+          "$build_tools/apksigner" verify --verbose --min-sdk-version 24 "$output"
+
+          package_id="$("$build_tools/aapt" dump badging "$output" | sed -n "s/^package: name='\([^']*\)'.*/\1/p")"
+          if [[ "$package_id" != "com.melodix.music.preview" ]]; then
+            echo "::error::Preview APK has unexpected package id: $package_id"
+            exit 1
+          fi
+
+          mkdir -p "$GITHUB_WORKSPACE/preview-output"
+          cp "$output" "$GITHUB_WORKSPACE/preview-output/$APK_NAME"
+          (cd "$GITHUB_WORKSPACE/preview-output" && sha256sum "$APK_NAME" > "$APK_NAME.sha256")
+          echo "apk_path=preview-output/$APK_NAME" >> "$GITHUB_OUTPUT"
+          echo "sha_path=preview-output/$APK_NAME.sha256" >> "$GITHUB_OUTPUT"
+
+      - name: Create preview release and attach APK
+        uses: softprops/action-gh-release@v3.0.3
+        with:
+          tag_name: ${{ steps.release.outputs.tag }}
+          target_commitish: main
+          name: ${{ steps.release.outputs.release_name }}
+          body: |
+            Separate Melodix preview build with package id `com.melodix.music.preview`.
+
+            It installs alongside the regular app and is not an update to the existing `com.melodix.music` installation. Preview data is separate.
+          files: |
+            ${{ steps.package.outputs.apk_path }}
+            ${{ steps.package.outputs.sha_path }}
+          prerelease: true
+          overwrite_files: true
+          fail_on_unmatched_files: true
+          token: ${{ secrets.GITHUB_TOKEN }}
