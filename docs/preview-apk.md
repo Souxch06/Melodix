@@ -45,15 +45,15 @@ Cette commande copie le texte encodé dans le presse-papiers sans l'afficher. Co
 1. Sur GitHub, ouvre le dépôt puis l'onglet **Actions**.
 2. Sélectionne **Build Melodix Preview APK**.
 3. Dans la liste des branches, sélectionne la branche qui contient les modifications à tester. Le workflow compile cette branche sans qu'il soit nécessaire de la fusionner dans `main`.
-4. Laisse le tag par défaut `v1.2.2-test.25-preview`, puis clique **Run workflow**. Ce nouveau tag crée une pré-release distincte de la test.24, conserve l'historique et incrémente le `versionCode` pour mettre à jour la Preview installée.
+4. Laisse le tag par défaut `v1.2.2-test.26-preview`, puis clique **Run workflow**. Ce nouveau tag crée une pré-release distincte de la test.25, conserve l'historique et incrémente le `versionCode` pour mettre à jour la Preview installée.
 5. Attends que le run soit terminé avec l'état vert **Success**.
 
-Le workflow crée la pré-release `Melodix Preview v1.2.2 test.25` à partir du commit de la branche sélectionnée et y attache :
+Le workflow crée la pré-release `Melodix Preview v1.2.2 test.26` à partir du commit de la branche sélectionnée et y attache :
 
-- `Melodix-Preview-v1.2.2-test25.apk`
+- `Melodix-Preview-v1.2.2-test26.apk`
 - son fichier `.sha256`
 
-La test.25 corrige le viewport mobile de l'écran Spotify et garde les diagnostics réseau/WebView de la test.24. Si la création de WebView échoue, elle affiche uniquement la classe de l'exception, jamais son message ni sa pile. Elle n'enregistre ni URL, ni jeton, ni donnée de compte Spotify; elle ne prétend pas que la connectivité est réparée.
+La test.26 revient au style de base et au comportement de navigation de la V18 pour l'écran Spotify, en retirant la coque mobile, l'onglet inférieur et la mise en page compacte du lecteur ajoutés ensuite. Elle conserve le flux de connexion actuel, le viewport mobile de la V25 et les protections WebView. En cas d'échec de création WebView, seul le nom de classe de l'exception est affiché; ni message, pile, URL, jeton ni donnée de compte ne sont enregistrés.
 
 La pré-release apparaîtra sur GitHub dans **Releases**. Télécharge l'APK depuis cette page et installe-la sur Android. Elle apparaîtra sous le nom **Melodix Preview** et ne remplacera pas l'application normale.
 

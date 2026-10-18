@@ -89,25 +89,19 @@ test('unknown state after previously signed-out UI still reaches the unconfirmed
     assert.doesNotMatch(bridge, /machine\.getConfirmedState\(\) === runtime\.AUTH_STATE\.SIGNED_OUT/);
 });
 
-test('drawer state is closed initially and toggles deterministically', () => {
-    const drawer = runtime.createDrawerState();
-    assert.equal(drawer.isOpen(), false);
-    assert.equal(drawer.toggle(), true);
-    assert.equal(drawer.isOpen(), true);
-    assert.equal(drawer.setOpen(false), false);
-    assert.equal(drawer.toggle(), true);
-
+test('V18-style Spotify UI is restored while the mobile viewport fix and current auth flow stay enabled', () => {
     const bridge = read('assets/spotify_bridge.js');
-    const switchStart = bridge.indexOf('window.switchLs = function(forceExpanded)');
-    const switchStateWrite = bridge.indexOf('window.__sfLibraryExpanded = expanded;', switchStart);
-    const noSidebarGuard = bridge.indexOf('if (!ls)', switchStart);
-    assert.ok(switchStart >= 0 && switchStateWrite > switchStart && noSidebarGuard > switchStateWrite);
-    assert.match(bridge, /if \(window\.__sfDrawerState\) window\.__sfDrawerState\.setOpen\(false\)/);
-    assert.match(bridge, /window\.switchLs\(false\)/);
-    assert.match(bridge, /function closeLibraryDrawer\(\)[\s\S]*?window\.lBtn\.setAttribute\('aria-expanded', 'false'\)/);
-    assert.match(bridge, /closeLibraryDrawer\(\);\s*activateRoute\(kind\)/);
-    assert.match(bridge, /const safeTop = 'max\(var\(--sf-safe-area-top, 0px\), env\(safe-area-inset-top, 0px\), 24px\)'/);
-    assert.match(bridge, /env\(safe-area-inset-bottom, 0px\)/);
+    const css = read('assets/css_hacks.css');
+
+    assert.match(bridge, /window\.switchLs = function\(\)/);
+    assert.match(bridge, /switchLs\(\);/);
+    assert.doesNotMatch(bridge, /installMobileNavigation|sf-mobile-navigation|mobileRuntimeStyles|switchLs\(false\)/);
+    assert.match(bridge, /window\.__sfApplyDeviceViewport/);
+    assert.match(bridge, /window\.__sfMarkLoggedOut/);
+    assert.match(bridge, /window\.__sfMarkLoggedIn/);
+    assert.doesNotMatch(css, /sf-mobile-shell|sf-mobile-navigation/);
+    assert.match(css, /body:has\(input\[type="password"\]\)/);
+    assert.match(css, /#sf-auth-status\s*\{[^}]*position:\s*relative/);
 });
 
 test('unknown-session notice is in document flow, not over primary UI', () => {

@@ -116,10 +116,7 @@
         }
         if (document.body) {
             document.body.classList.add('sf-guest');
-            document.body.classList.remove('sf-library-open');
         }
-        window.__sfLibraryExpanded = false;
-        if (window.__sfDrawerState) window.__sfDrawerState.setOpen(false);
     };
 
     window.__sfMarkLoggedIn = function() {
@@ -264,488 +261,8 @@
         scheduleInspection();
     })();
 
-    // A small native-feeling tab bar for portrait phones. It delegates to the
-    // existing Spotify navigation and Library toggle, so routes and handlers
-    // remain Spotify's own rather than being reimplemented.
-    (function installMobileNavigation() {
-        if (window.location.hostname !== 'open.spotify.com') return;
-        const config = window.SF_CONFIG || {};
-        const initialMetrics = getDeviceViewportMetrics();
-        const isPortraitPhone = !isDeviceLandscape()
-            && initialMetrics.width > 0
-            && initialMetrics.width <= 700;
-        // The app may retain the Wide Window setting across updates. On an
-        // actual portrait phone, do not let that setting disable mobile UI.
-        if (config.guiMode && config.guiMode !== 'csshack' && !isPortraitPhone) return;
-        if (document.body) document.body.classList.add('sf-mobile-shell');
-
-        const icons = {
-            home: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3 10 9-7 9 7v10a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>',
-            search: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.8" cy="10.8" r="6.8" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="m16 16 4.5 4.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',
-            library: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5.5h16M4 10.5h16M4 15.5h11M4 20h11" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>'
-        };
-
-        const libraryElement = () => document.querySelector('#Desktop_LeftSidebar_Id');
-        const mobileRuntimeStyles = `
-            body.sf-mobile-shell { background: #121212 !important; color: #f7f7f7 !important; }
-            body.sf-mobile-shell #main-view-container,
-            body.sf-mobile-shell .main-view-container,
-            body.sf-mobile-shell #main-view {
-                box-sizing: border-box !important;
-                width: 100vw !important;
-                min-width: 0 !important;
-                max-width: 100vw !important;
-                margin-left: 0 !important;
-                margin-right: 0 !important;
-                background: #121212 !important;
-                overflow-x: hidden !important;
-            }
-            body.sf-mobile-shell:not(.sf-expanded):not(.sf-statusbar-hidden) #global-nav-bar {
-                position: sticky !important;
-                top: 0 !important;
-                z-index: 2147482000 !important;
-                box-sizing: border-box !important;
-                display: flex !important;
-                align-items: center !important;
-                justify-content: flex-start !important;
-                gap: 8px !important;
-                width: 100vw !important;
-                height: calc(58px + max(var(--sf-safe-area-top, 0px), env(safe-area-inset-top, 0px), 24px)) !important;
-                min-height: calc(58px + max(var(--sf-safe-area-top, 0px), env(safe-area-inset-top, 0px), 24px)) !important;
-                padding: calc(max(var(--sf-safe-area-top, 0px), env(safe-area-inset-top, 0px), 24px) + 6px) 12px 6px !important;
-                border: 0 !important;
-                background: #121212 !important;
-                box-shadow: none !important;
-            }
-            body.sf-mobile-shell.sf-statusbar-hidden:not(.sf-expanded) #global-nav-bar {
-                height: 58px !important;
-                min-height: 58px !important;
-                padding: 6px 12px !important;
-            }
-            body.sf-mobile-shell:not(.sf-expanded) #global-nav-bar::before {
-                content: "M" !important;
-                display: grid !important;
-                flex: 0 0 34px !important;
-                width: 34px !important;
-                height: 34px !important;
-                place-items: center !important;
-                border-radius: 11px !important;
-                background: #1ed760 !important;
-                color: #07110a !important;
-                font-size: 20px !important;
-                font-weight: 900 !important;
-            }
-            body.sf-mobile-shell:not(.sf-expanded) #global-nav-bar::after {
-                content: "Melodix" !important;
-                position: absolute !important;
-                left: 58px !important;
-                top: 50% !important;
-                color: #fff !important;
-                font-size: 17px !important;
-                font-weight: 800 !important;
-                transform: translateY(-50%) !important;
-                pointer-events: none !important;
-            }
-            body.sf-mobile-shell:not(.sf-expanded) #global-nav-bar button[data-testid="home-button"],
-            body.sf-mobile-shell:not(.sf-expanded) #global-nav-bar form[role="search"],
-            body.sf-mobile-shell:not(.sf-expanded) #global-nav-bar a[href="/search"],
-            body.sf-mobile-shell:not(.sf-expanded) #global-nav-bar button[data-testid="search-icon"],
-            body.sf-mobile-shell:not(.sf-expanded) #global-nav-bar button[aria-label*="Search" i],
-            body.sf-mobile-shell:not(.sf-expanded) #global-nav-bar button[data-testid*="back" i],
-            body.sf-mobile-shell:not(.sf-expanded) #global-nav-bar button[data-testid*="forward" i],
-            body.sf-mobile-shell:not(.sf-expanded) #global-nav-bar button[aria-label*="notification" i],
-            body.sf-mobile-shell:not(.sf-expanded) #global-nav-bar [data-testid*="notification"],
-            body.sf-mobile-shell:not(.sf-expanded) #global-nav-bar button[aria-label*="friend" i],
-            body.sf-mobile-shell:not(.sf-expanded) #global-nav-bar [data-testid*="friend"] {
-                display: none !important;
-            }
-            body.sf-mobile-shell:not(.sf-expanded) #global-nav-bar button[data-testid="user-widget-link"] {
-                display: inline-flex !important;
-                flex: 0 0 38px !important;
-                width: 38px !important;
-                height: 38px !important;
-                min-width: 38px !important;
-                min-height: 38px !important;
-                margin-left: auto !important;
-                padding: 0 !important;
-                border-radius: 50% !important;
-            }
-            body.sf-mobile-shell:not(.sf-library-open) #Desktop_LeftSidebar_Id { display: none !important; }
-            body.sf-mobile-shell #Desktop_PanelContainer_Id,
-            body.sf-mobile-shell aside[data-testid="right-sidebar"],
-            body.sf-mobile-shell aside[data-testid="now-playing-view"] {
-                box-sizing: border-box !important;
-                width: 100vw !important;
-                min-width: 0 !important;
-                max-width: 100vw !important;
-                margin-left: 0 !important;
-                margin-right: 0 !important;
-                overflow-x: hidden !important;
-                border-radius: 0 !important;
-                background: #121212 !important;
-            }
-            body.sf-mobile-shell:not(.sf-expanded) #main-view [data-testid="cover-art-image"],
-            body.sf-mobile-shell:not(.sf-expanded) #Desktop_PanelContainer_Id [data-testid="cover-art-image"],
-            body.sf-mobile-shell:not(.sf-expanded) aside[data-testid="now-playing-view"] [data-testid="cover-art-image"] {
-                display: block !important;
-                width: min(64vw, 30vh, 248px) !important;
-                height: min(64vw, 30vh, 248px) !important;
-                max-width: calc(100vw - 28px) !important;
-                max-height: min(64vw, 30vh, 248px) !important;
-                margin: 8px auto 14px !important;
-                border-radius: 12px !important;
-                object-fit: cover !important;
-            }
-            body.sf-mobile-shell:not(.sf-expanded) #main-view div:has(> [data-testid="cover-art-image"]),
-            body.sf-mobile-shell:not(.sf-expanded) #Desktop_PanelContainer_Id div:has(> [data-testid="cover-art-image"]),
-            body.sf-mobile-shell:not(.sf-expanded) aside[data-testid="now-playing-view"] div:has(> [data-testid="cover-art-image"]) {
-                display: flex !important;
-                flex: 0 0 auto !important;
-                align-items: center !important;
-                justify-content: center !important;
-                width: min(64vw, 30vh, 248px) !important;
-                height: min(64vw, 30vh, 248px) !important;
-                max-width: calc(100vw - 28px) !important;
-                margin: 8px auto 14px !important;
-                overflow: hidden !important;
-                border-radius: 12px !important;
-            }
-            body.sf-mobile-shell:not(.sf-expanded) div:has(> #VideoPlayerCinema_ReactPortal):not(:has(video)) > div > div {
-                width: min(64vw, 30vh, 248px) !important;
-                height: min(64vw, 30vh, 248px) !important;
-                max-width: calc(100vw - 28px) !important;
-                margin: 8px auto 14px !important;
-                overflow: hidden !important;
-                border-radius: 12px !important;
-            }
-            body.sf-mobile-shell:not(.sf-expanded) div:has(> #VideoPlayerCinema_ReactPortal):has(video) > div,
-            body.sf-mobile-shell:not(.sf-expanded) div:has(> #VideoPlayerCinema_ReactPortal):has(video) > div > div,
-            body.sf-mobile-shell:not(.sf-expanded) div[data-testid="video-player-cinema"]:has(video),
-            body.sf-mobile-shell:not(.sf-expanded) .VideoPlayer__container:has(video) {
-                width: 100% !important;
-                max-width: 100% !important;
-                max-height: min(42vh, 320px) !important;
-                aspect-ratio: 16 / 9 !important;
-                margin: 8px auto 14px !important;
-                overflow: hidden !important;
-            }
-            body.sf-mobile-shell:not(.sf-expanded) div[data-testid="video-player-cinema"] video,
-            body.sf-mobile-shell:not(.sf-expanded) .VideoPlayer__container video,
-            body.sf-mobile-shell:not(.sf-expanded) #main-view video,
-            body.sf-mobile-shell:not(.sf-expanded) aside[data-testid="now-playing-view"] video {
-                display: block !important;
-                width: 100% !important;
-                max-width: 100% !important;
-                max-height: min(42vh, 320px) !important;
-                object-fit: contain !important;
-            }
-            body.sf-mobile-shell #sf-mobile-navigation {
-                position: fixed !important;
-                left: 0 !important;
-                right: 0 !important;
-                bottom: 0 !important;
-                z-index: 2147483001 !important;
-                box-sizing: border-box !important;
-                display: grid !important;
-                grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
-                align-items: stretch !important;
-                height: calc(62px + env(safe-area-inset-bottom, 0px)) !important;
-                padding: 5px 14px calc(5px + env(safe-area-inset-bottom, 0px)) !important;
-                border: 0 !important;
-                border-top: 1px solid rgba(255, 255, 255, 0.06) !important;
-                border-radius: 0 !important;
-                background: #121212 !important;
-            }
-            body.sf-mobile-shell #sf-mobile-navigation .sf-mobile-tab {
-                display: flex !important;
-                flex-direction: column !important;
-                align-items: center !important;
-                justify-content: center !important;
-                gap: 3px !important;
-                min-width: 0 !important;
-                min-height: 48px !important;
-                padding: 3px !important;
-                border: 0 !important;
-                background: transparent !important;
-                color: #b3b3b3 !important;
-                font: 500 10px/1.1 Arial, sans-serif !important;
-            }
-            body.sf-mobile-shell #sf-mobile-navigation .sf-mobile-tab svg {
-                display: block !important;
-                width: 21px !important;
-                height: 21px !important;
-            }
-            body.sf-mobile-shell #sf-mobile-navigation .sf-mobile-tab[aria-current="page"] {
-                color: #1ed760 !important;
-            }
-            body.sf-mobile-shell.sf-library-open #sf-mobile-navigation,
-            body.sf-mobile-shell.sf-guest #sf-mobile-navigation,
-            body.sf-expanded #sf-mobile-navigation { display: none !important; }
-            body.sf-mobile-shell:not(.sf-expanded):not(.sf-guest):not(.sf-library-open) #main-view {
-                padding-bottom: calc(142px + env(safe-area-inset-bottom, 0px)) !important;
-            }
-            body.sf-mobile-shell:not(.sf-expanded) aside[data-testid="now-playing-bar"] {
-                position: fixed !important;
-                left: 6px !important;
-                right: 6px !important;
-                bottom: calc(69px + env(safe-area-inset-bottom, 0px)) !important;
-                z-index: 2147483000 !important;
-                box-sizing: border-box !important;
-                display: flex !important;
-                flex-direction: row !important;
-                align-items: center !important;
-                width: auto !important;
-                min-width: 0 !important;
-                height: 56px !important;
-                min-height: 56px !important;
-                max-height: 56px !important;
-                margin: 0 !important;
-                padding: 4px 8px !important;
-                overflow: hidden !important;
-                border: 0 !important;
-                border-radius: 7px !important;
-                background: #282828 !important;
-                box-shadow: none !important;
-            }
-            body.sf-mobile-shell:not(.sf-expanded) aside[data-testid="now-playing-bar"] [data-testid="cover-art-image"] {
-                flex: 0 0 42px !important;
-                width: 42px !important;
-                height: 42px !important;
-                object-fit: cover !important;
-            }
-            body.sf-mobile-shell:not(.sf-expanded) aside[data-testid="now-playing-bar"] [data-testid="general-controls"] button:not([data-testid="control-button-playpause"]) {
-                display: none !important;
-            }
-            body.sf-mobile-shell:not(.sf-expanded) aside[data-testid="now-playing-bar"] [data-testid="general-controls"] {
-                position: absolute !important;
-                top: 50% !important;
-                right: 8px !important;
-                width: 42px !important;
-                margin: 0 !important;
-                transform: translateY(-50%) !important;
-            }
-            body.sf-mobile-shell:not(.sf-expanded) aside[data-testid="now-playing-bar"] button[data-testid="control-button-playpause"] {
-                width: 38px !important;
-                height: 38px !important;
-                min-width: 38px !important;
-                min-height: 38px !important;
-            }
-            body.sf-mobile-shell:not(.sf-expanded) aside[data-testid="now-playing-bar"] [data-testid="playback-progressbar"] {
-                position: absolute !important;
-                left: 8px !important;
-                right: 8px !important;
-                bottom: 1px !important;
-                height: 2px !important;
-                min-height: 2px !important;
-                margin: 0 !important;
-            }
-            body.sf-mobile-shell:not(.sf-expanded) aside[data-testid="now-playing-bar"] > div > div:last-child {
-                display: none !important;
-            }
-            body.sf-mobile-shell aside[data-testid="now-playing-view"] [data-testid="grid-container"] {
-                display: flex !important;
-                flex-wrap: nowrap !important;
-                gap: 12px !important;
-                overflow-x: auto !important;
-                overflow-y: hidden !important;
-                scroll-snap-type: x mandatory !important;
-                scrollbar-width: none !important;
-                -webkit-overflow-scrolling: touch !important;
-            }
-            body.sf-mobile-shell aside[data-testid="now-playing-view"] [data-testid="grid-container"] > [data-testid="card"] {
-                flex: 0 0 min(42vw, 148px) !important;
-                min-width: 0 !important;
-                scroll-snap-align: start !important;
-            }
-        `;
-
-        function ensureMobileRuntimeStyles() {
-            if (!document.body) return;
-            let style = document.getElementById('sf-mobile-runtime-style');
-            if (!style) {
-                style = document.createElement('style');
-                style.id = 'sf-mobile-runtime-style';
-                (document.head || document.documentElement).appendChild(style);
-            }
-            if (style.textContent !== mobileRuntimeStyles) style.textContent = mobileRuntimeStyles;
-        }
-
-        function updateActiveTab(nav) {
-            if (!nav || !document.body) return;
-            const path = window.location.pathname || '/';
-            const libraryOpen = !!window.__sfLibraryExpanded || document.body.classList.contains('sf-library-open');
-            const active = libraryOpen || path.startsWith('/collection')
-                ? 'library'
-                : (path.startsWith('/search') ? 'search' : 'home');
-            nav.querySelectorAll('[data-sf-tab]').forEach(button => {
-                if (button.dataset.sfTab === active) button.setAttribute('aria-current', 'page');
-                else button.removeAttribute('aria-current');
-            });
-        }
-
-        function setLibraryExpanded(expanded) {
-            const sidebar = libraryElement();
-            expanded = window.__sfDrawerState
-                ? window.__sfDrawerState.setOpen(expanded)
-                : expanded === true;
-            window.__sfLibraryExpanded = expanded;
-            if (!sidebar) {
-                const isCollectionRoute = (window.location.pathname || '').startsWith('/collection');
-                if (expanded && !isCollectionRoute) {
-                    const libraryLink = document.querySelector(
-                        '#global-nav-bar a[href^="/collection"], a[href^="/collection"], #global-nav-bar button[data-testid*="library" i]'
-                    );
-                    if (libraryLink) libraryLink.click();
-                    else window.location.assign('https://open.spotify.com/collection/tracks');
-                } else if (!expanded && isCollectionRoute) {
-                    window.location.assign('https://open.spotify.com/');
-                }
-                updateActiveTab(document.getElementById('sf-mobile-navigation'));
-                return;
-            }
-
-            if (typeof window.switchLs === 'function') {
-                window.switchLs(expanded);
-            } else {
-                const safeTop = 'var(--sf-safe-area-top, env(safe-area-inset-top, 0px))';
-                sidebar.style.setProperty('position', 'fixed', 'important');
-                if (expanded) {
-                    sidebar.style.setProperty('top', `calc(${safeTop} + 48px)`, 'important');
-                    sidebar.style.setProperty('left', '0px', 'important');
-                    sidebar.style.setProperty('width', '100%', 'important');
-                    sidebar.style.setProperty('height', `calc(100dvh - ${safeTop} - 48px)`, 'important');
-                    sidebar.style.setProperty('bottom', '0px', 'important');
-                    sidebar.style.setProperty('overflow-y', 'auto', 'important');
-                    sidebar.style.setProperty('z-index', '2147483000', 'important');
-                } else {
-                    sidebar.style.setProperty('top', safeTop, 'important');
-                    sidebar.style.setProperty('left', '60px', 'important');
-                    sidebar.style.setProperty('width', '48px', 'important');
-                    sidebar.style.setProperty('height', '48px', 'important');
-                    sidebar.style.removeProperty('bottom');
-                    sidebar.style.removeProperty('overflow-y');
-                    sidebar.style.setProperty('z-index', '1', 'important');
-                }
-                window.__sfLibraryExpanded = expanded;
-            }
-
-            document.body.classList.toggle('sf-library-open', expanded);
-            if (window.lBtn) window.lBtn.setAttribute('aria-expanded', String(expanded));
-            updateActiveTab(document.getElementById('sf-mobile-navigation'));
-        }
-
-        function closeLibraryDrawer() {
-            const sidebar = libraryElement();
-            if (sidebar) {
-                // Reuse the existing close path so inline geometry, heading, and
-                // aria-expanded are restored along with the JS/CSS state.
-                setLibraryExpanded(false);
-                return;
-            }
-
-            if (window.__sfDrawerState) window.__sfDrawerState.setOpen(false);
-            window.__sfLibraryExpanded = false;
-            if (document.body) document.body.classList.remove('sf-library-open');
-            if (window.lBtn) window.lBtn.setAttribute('aria-expanded', 'false');
-            updateActiveTab(document.getElementById('sf-mobile-navigation'));
-        }
-
-        function activateRoute(kind) {
-            const selectors = kind === 'home'
-                ? ['#global-nav-bar button[data-testid="home-button"]', '#global-nav-bar a[href="/"]', 'a[href="/"]']
-                : ['#global-nav-bar a[href="/search"]', 'a[href="/search"]', '#global-nav-bar button[data-testid="search-icon"]', '#global-nav-bar button[aria-label*="Search" i]'];
-            const target = selectors.map(selector => document.querySelector(selector)).find(Boolean);
-            if (target) target.click();
-            else window.location.assign(kind === 'home' ? 'https://open.spotify.com/' : 'https://open.spotify.com/search');
-        }
-
-        function ensureMobileNavigation() {
-            if (!document.body) return false;
-            const sidebar = libraryElement();
-
-            // The mobile shell must not depend on Spotify mounting its desktop
-            // library sidebar: narrow player/detail routes may omit that panel.
-            document.body.classList.add('sf-mobile-shell');
-            document.body.classList.toggle('sf-statusbar-hidden', !!config.hideStatusBar);
-            ensureMobileRuntimeStyles();
-            if (typeof window.__sfLogoutBridgeNotified !== 'boolean') window.__sfLogoutBridgeNotified = false;
-            if (!window.__sfDrawerState && window.MelodixRuntime) {
-                window.__sfDrawerState = window.MelodixRuntime.createDrawerState(false);
-            }
-            if (typeof window.__sfLibraryExpanded !== 'boolean') {
-                window.__sfLibraryExpanded = window.__sfDrawerState
-                    ? window.__sfDrawerState.setOpen(false)
-                    : false;
-            } else if (window.__sfDrawerState) {
-                window.__sfDrawerState.setOpen(window.__sfLibraryExpanded);
-            }
-
-            let nav = document.getElementById('sf-mobile-navigation');
-            if (!nav) {
-                nav = document.createElement('nav');
-                nav.id = 'sf-mobile-navigation';
-                nav.setAttribute('aria-label', 'Navigation mobile');
-                nav.innerHTML = `
-                    <button type="button" class="sf-mobile-tab" data-sf-tab="home" aria-label="Accueil">
-                        ${icons.home}<span>Accueil</span>
-                    </button>
-                    <button type="button" class="sf-mobile-tab" data-sf-tab="search" aria-label="Recherche">
-                        ${icons.search}<span>Recherche</span>
-                    </button>
-                    <button type="button" class="sf-mobile-tab" data-sf-tab="library" aria-label="Bibliothèque">
-                        ${icons.library}<span>Bibliothèque</span>
-                    </button>`;
-                nav.addEventListener('click', event => {
-                    const button = event.target.closest('[data-sf-tab]');
-                    if (!button) return;
-                    const kind = button.dataset.sfTab;
-                    if (kind === 'library') {
-                        setLibraryExpanded(!window.__sfLibraryExpanded);
-                    } else {
-                        closeLibraryDrawer();
-                        activateRoute(kind);
-                        updateActiveTab(nav);
-                    }
-                });
-                document.body.appendChild(nav);
-            }
-
-            if (sidebar && !sidebar.dataset.sfMobileCloseBound) {
-                sidebar.dataset.sfMobileCloseBound = 'true';
-                sidebar.addEventListener('click', event => {
-                    if (!event.target.closest('header button, header [role="button"]')) return;
-                    window.setTimeout(() => {
-                        const open = window.__sfDrawerState
-                            ? window.__sfDrawerState.isOpen()
-                            : !!window.__sfLibraryExpanded;
-                        document.body.classList.toggle('sf-library-open', open);
-                        updateActiveTab(nav);
-                    }, 0);
-                }, true);
-            }
-
-            updateActiveTab(nav);
-            return !!sidebar;
-        }
-
-        let mobileNavObserver = null;
-        if (!ensureMobileNavigation() && document.documentElement) {
-            mobileNavObserver = new MutationObserver(() => {
-                if (ensureMobileNavigation()) {
-                    mobileNavObserver.disconnect();
-                    mobileNavObserver = null;
-                }
-            });
-            mobileNavObserver.observe(document.documentElement, { childList: true, subtree: true });
-            window.setTimeout(() => {
-                if (mobileNavObserver) mobileNavObserver.disconnect();
-                mobileNavObserver = null;
-            }, 30000);
-        }
-        window.addEventListener('DOMContentLoaded', ensureMobileNavigation, { once: true });
-
-        window.addEventListener('popstate', () => updateActiveTab(document.getElementById('sf-mobile-navigation')));
-
+    // Track explicit sign-out actions on the Web Player without replacing its navigation.
+    if (window.location.hostname === 'open.spotify.com') {
         document.addEventListener('click', event => {
             const action = event.target.closest('button, a, [role="menuitem"]');
             if (!action) return;
@@ -754,7 +271,7 @@
                 if (typeof window.__sfMarkLoggedOut === 'function') window.__sfMarkLoggedOut();
             }
         }, true);
-    })();
+    }
 
     // Spotify's private Webpack modules and session credentials are not accessed.
 
@@ -2382,14 +1899,7 @@
                         lb.addEventListener('click', function() {
                             setTimeout(() => switchLs(), 0);
                         });
-                        // Start with the library closed, so the public home or sign-in
-                        // screen is not covered by the full-width library drawer.
-                        if (!window.__sfLibraryInitialized) {
-                            window.__sfLibraryInitialized = true;
-                            switchLs(false);
-                        } else {
-                            window.lBtn.setAttribute('aria-expanded', String(!!window.__sfLibraryExpanded));
-                        }
+                        switchLs();
                         AndBridge.cssInjected();
                     }
 
@@ -2515,64 +2025,36 @@
                 }
             }, 3000);
 
-            // Library sidebar toggler helper. Track our own state instead of
-            // inferring it from Spotify's changing CSS class count.
-            window.switchLs = function(forceExpanded) {
-                const ls = document.querySelector('#Desktop_LeftSidebar_Id');
-                if (!window.__sfDrawerState && window.MelodixRuntime) {
-                    window.__sfDrawerState = window.MelodixRuntime.createDrawerState(false);
-                }
-                const expanded = typeof forceExpanded === 'boolean'
-                    ? (window.__sfDrawerState ? window.__sfDrawerState.setOpen(forceExpanded) : forceExpanded)
-                    : (window.__sfDrawerState ? window.__sfDrawerState.toggle() : !window.__sfLibraryExpanded);
-                window.__sfLibraryExpanded = expanded;
-                if (document.body) document.body.classList.toggle('sf-library-open', expanded);
-                if (!ls) {
-                    updateActiveTab(document.getElementById('sf-mobile-navigation'));
-                    return;
-                }
-
-                const heading = ls.querySelector('header>div>div:first-child h1');
-                if (heading && !heading.dataset.sfOriginalTitle) {
-                    heading.dataset.sfOriginalTitle = heading.innerHTML;
-                }
-
-                if (expanded) {
-                    ls.style.setProperty('position', 'fixed', 'important');
-                    ls.style.setProperty('width', '100%', 'important');
-                    const safeTop = 'max(var(--sf-safe-area-top, 0px), env(safe-area-inset-top, 0px), 24px)';
-                    ls.style.setProperty('height', `calc(var(--sf-device-height, 100dvh) - 58px - ${safeTop} - env(safe-area-inset-bottom, 0px))`, 'important');
-                    ls.style.setProperty('top', `calc(58px + ${safeTop})`, 'important');
-                    ls.style.setProperty('bottom', 'env(safe-area-inset-bottom, 0px)', 'important');
-                    ls.style.setProperty('left', '0px', 'important');
-                    ls.style.setProperty('overflow-y', 'auto', 'important');
-                    ls.style.setProperty('z-index', 'calc(var(--above-everything-grid-area-z-index) + 5)', 'important');
-                    if (heading) heading.innerHTML = '✖ &nbsp; ' + (window.SF_CONFIG?.closeLibText || 'Library');
-                } else {
-                    ls.style.setProperty('z-index', '1', 'important');
-                    ls.style.setProperty('position', 'fixed', 'important');
-                    ls.style.setProperty('top', 'var(--sf-safe-area-top, env(safe-area-inset-top))', 'important');
-                    ls.style.setProperty('left', '60px', 'important');
-                    ls.style.setProperty('width', '48px', 'important');
-                    ls.style.setProperty('height', '48px', 'important');
-                    ls.style.removeProperty('bottom');
-                    ls.style.removeProperty('overflow-y');
-                    if (heading && heading.dataset.sfOriginalTitle) {
-                        heading.innerHTML = heading.dataset.sfOriginalTitle;
+            // Library sidebar toggler helper
+            window.switchLs = function() {
+                let ls = document.querySelector('#Desktop_LeftSidebar_Id');
+                if (ls) {
+                    let navDiv = ls.querySelector('nav>div>div:first-child');
+                    if (!navDiv) return;
+                    let exp = navDiv.classList.length;
+                    if (exp == 2) {
+                        ls.style.setProperty('position', 'fixed', 'important');
+                        ls.style.setProperty('width', '100%', 'important');
+                        ls.style.setProperty('height', 'calc(100vh - 48px - var(--sf-safe-area-top, env(safe-area-inset-top)))', 'important');
+                        ls.style.setProperty('top', 'calc(48px + var(--sf-safe-area-top, env(safe-area-inset-top)))', 'important');
+                        ls.style.setProperty('bottom', '0px', 'important');
+                        ls.style.setProperty('left', '0px', 'important');
+                        ls.style.setProperty('overflow-y', 'auto', 'important');
+                        ls.style.setProperty('z-index', 'calc(var(--above-everything-grid-area-z-index) + 5)', 'important');
+                        let lh = ls.querySelector('header>div>div:first-child h1');
+                        if (lh) lh.innerHTML = '✖ &nbsp; ' + (window.SF_CONFIG?.closeLibText || "Library");
+                    } else {
+                        ls.style.setProperty('z-index', '1', 'important');
+                        ls.style.setProperty('position', 'fixed', 'important');
+                        ls.style.setProperty('top', 'var(--sf-safe-area-top, env(safe-area-inset-top))', 'important');
+                        ls.style.setProperty('left', '60px', 'important');
+                        ls.style.setProperty('width', '48px', 'important');
+                        ls.style.setProperty('height', '48px', 'important');
+                        ls.style.removeProperty('bottom');
+                        ls.style.removeProperty('overflow-y');
                     }
                 }
-
-                if (document.body) document.body.classList.toggle('sf-library-open', expanded);
-                if (window.lBtn) window.lBtn.setAttribute('aria-expanded', String(expanded));
-                updateActiveTab(document.getElementById('sf-mobile-navigation'));
             };
-
-            // Collapse the drawer as soon as it exists; the slower polling loop
-            // below still attaches the live toggle to Spotify's header button.
-            if (!window.SF_CONFIG?.dockLeftSidebar && !window.__sfLibraryInitialized && document.querySelector('#Desktop_LeftSidebar_Id')) {
-                window.__sfLibraryInitialized = true;
-                window.switchLs(false);
-            }
         }
     };
 
