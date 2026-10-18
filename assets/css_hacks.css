@@ -1480,3 +1480,397 @@ body.sf-tv-nav input:focus-visible {
         padding-right: 12px !important;
     }
 }
+
+/* =========================================================================
+   SECTION 10: MELODIX MOBILE APP SHELL
+   A stronger mobile-first reskin of Spotify's existing views. This section is
+   presentation-only: it does not replace controls or change their behavior.
+   ========================================================================= */
+@media screen and (max-width: 640px) {
+    :root {
+        --melodix-app-bg: #0b100d;
+        --melodix-app-surface: #121915;
+        --melodix-app-surface-raised: #19221c;
+        --melodix-app-surface-highlight: #202b23;
+        --melodix-app-line: rgba(255, 255, 255, 0.075);
+        --melodix-app-green: #1ed760;
+        --melodix-app-green-soft: rgba(30, 215, 96, 0.14);
+        --melodix-app-text: #f5f8f5;
+        --melodix-app-muted: #a5b0a8;
+        --melodix-app-safe-bottom: env(safe-area-inset-bottom, 0px);
+    }
+
+    html,
+    body {
+        width: 100% !important;
+        min-width: 0 !important;
+        background: var(--melodix-app-bg) !important;
+        color: var(--melodix-app-text) !important;
+        font-family: Inter, Roboto, "Helvetica Neue", Arial, sans-serif !important;
+    }
+
+    body {
+        background:
+            radial-gradient(ellipse 120% 34% at 50% 0%, rgba(30, 215, 96, 0.13), transparent 72%),
+            linear-gradient(180deg, #0e1510 0%, #0b100d 38%, #090c0a 100%) !important;
+        overscroll-behavior-y: contain;
+    }
+
+    .encore-dark-theme {
+        --background-base: #0b100d !important;
+        --background-highlight: #121915 !important;
+        --background-press: #202b23 !important;
+        --background-elevated-base: #151d18 !important;
+        --background-elevated-highlight: #202a23 !important;
+        --background-elevated-press: #29352c !important;
+        --background-tinted-base: #101712 !important;
+        --background-tinted-highlight: #1a241d !important;
+        --text-base: #f5f8f5 !important;
+        --text-subdued: #a5b0a8 !important;
+        --text-bright-accent: #1ed760 !important;
+        --essential-base: #f5f8f5 !important;
+        --essential-subdued: #a5b0a8 !important;
+        --essential-bright-accent: #1ed760 !important;
+        --decorative-subdued: #59645c !important;
+    }
+
+    #main-view-container,
+    .main-view-container,
+    #main-view {
+        min-width: 0 !important;
+        max-width: 100vw !important;
+        background: transparent !important;
+        border-radius: 0 !important;
+    }
+
+    #main-view-container {
+        overflow-x: hidden !important;
+    }
+
+    #main-view {
+        padding-bottom: calc(176px + var(--melodix-app-safe-bottom)) !important;
+        overscroll-behavior-y: contain;
+    }
+
+    #main-view .contentSpacing {
+        padding: 12px 16px 24px !important;
+    }
+
+    /* Compact, branded app bar; the original navigation controls remain live. */
+    #global-nav-bar {
+        position: sticky !important;
+        top: 0 !important;
+        z-index: 1000 !important;
+        box-sizing: border-box !important;
+        display: flex !important;
+        align-items: center !important;
+        gap: 8px !important;
+        width: 100% !important;
+        height: calc(62px + var(--sf-safe-area-top, env(safe-area-inset-top))) !important;
+        min-height: calc(62px + var(--sf-safe-area-top, env(safe-area-inset-top))) !important;
+        padding: calc(var(--sf-safe-area-top, env(safe-area-inset-top)) + 7px) 12px 7px !important;
+        background: rgba(10, 15, 12, 0.9) !important;
+        border-bottom: 1px solid var(--melodix-app-line) !important;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.22) !important;
+        -webkit-backdrop-filter: blur(18px) saturate(150%) !important;
+        backdrop-filter: blur(18px) saturate(150%) !important;
+    }
+
+    #global-nav-bar::before {
+        content: "M";
+        display: grid;
+        flex: 0 0 34px;
+        width: 34px;
+        height: 34px;
+        place-items: center;
+        border-radius: 11px;
+        color: #07110a;
+        background: linear-gradient(145deg, #35ed79, #12a94b);
+        box-shadow: 0 5px 16px rgba(30, 215, 96, 0.22);
+        font-size: 20px;
+        font-weight: 900;
+        letter-spacing: -0.06em;
+    }
+
+    #global-nav-bar > div:not([style*="justify-content: center"]) {
+        display: flex !important;
+        align-items: center !important;
+        flex: 0 0 auto !important;
+        min-width: 0 !important;
+        width: auto !important;
+        gap: 4px !important;
+    }
+
+    #global-nav-bar button,
+    #global-nav-bar [role="button"] {
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        min-width: 40px !important;
+        min-height: 40px !important;
+        padding: 0 10px !important;
+        border: 1px solid transparent !important;
+        border-radius: 14px !important;
+        background: rgba(255, 255, 255, 0.055) !important;
+        color: var(--melodix-app-muted) !important;
+        transition: background-color 160ms ease, color 160ms ease, transform 160ms ease !important;
+    }
+
+    #global-nav-bar button[data-testid="home-button"] {
+        flex: 0 0 42px !important;
+        width: 42px !important;
+        min-width: 42px !important;
+        padding: 0 !important;
+        border-radius: 14px !important;
+        color: var(--melodix-app-text) !important;
+        background: var(--melodix-app-surface-raised) !important;
+        border-color: var(--melodix-app-line) !important;
+    }
+
+    #global-nav-bar button[data-testid="home-button"][aria-current="page"],
+    #global-nav-bar button[data-testid="home-button"][aria-pressed="true"] {
+        color: var(--melodix-app-green) !important;
+        background: var(--melodix-app-green-soft) !important;
+        border-color: rgba(30, 215, 96, 0.22) !important;
+    }
+
+    #global-nav-bar button:active,
+    #global-nav-bar [role="button"]:active {
+        transform: scale(0.96) !important;
+        background-color: var(--melodix-app-green-soft) !important;
+    }
+
+    #global-nav-bar form[role="search"] {
+        display: flex !important;
+        align-items: center !important;
+        flex: 1 1 auto !important;
+        min-width: 64px !important;
+        max-width: none !important;
+        min-height: 42px !important;
+        margin: 0 !important;
+        padding: 0 10px !important;
+        border: 1px solid var(--melodix-app-line) !important;
+        border-radius: 15px !important;
+        background: rgba(255, 255, 255, 0.065) !important;
+        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.035) !important;
+        transition: border-color 160ms ease, box-shadow 160ms ease, background-color 160ms ease !important;
+    }
+
+    #global-nav-bar form[role="search"]:focus-within {
+        border-color: rgba(30, 215, 96, 0.55) !important;
+        background: rgba(30, 215, 96, 0.075) !important;
+        box-shadow: 0 0 0 3px var(--melodix-app-green-soft) !important;
+    }
+
+    #global-nav-bar input[data-testid="search-input"] {
+        min-width: 0 !important;
+        min-height: 40px !important;
+        color: var(--melodix-app-text) !important;
+        font-size: 14px !important;
+        font-weight: 500 !important;
+    }
+
+    #global-nav-bar input[data-testid="search-input"]::placeholder {
+        color: var(--melodix-app-muted) !important;
+        opacity: 0.88 !important;
+    }
+
+    #main-view h1 {
+        margin: 8px 0 18px !important;
+        color: var(--melodix-app-text) !important;
+        font-size: clamp(28px, 7.5vw, 34px) !important;
+        line-height: 1.08 !important;
+        letter-spacing: -0.045em !important;
+        font-weight: 800 !important;
+    }
+
+    #main-view h2 {
+        margin-block: 20px 12px !important;
+        color: var(--melodix-app-text) !important;
+        font-size: clamp(20px, 5.8vw, 24px) !important;
+        line-height: 1.18 !important;
+        letter-spacing: -0.03em !important;
+        font-weight: 750 !important;
+    }
+
+    #main-view [data-testid="grid-container"] {
+        display: grid !important;
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+        gap: 12px !important;
+        padding: 2px 0 8px !important;
+    }
+
+    #main-view [data-testid="card"] {
+        min-width: 0 !important;
+        overflow: hidden !important;
+        border: 1px solid rgba(255, 255, 255, 0.055) !important;
+        border-radius: 18px !important;
+        background: linear-gradient(145deg, rgba(255, 255, 255, 0.055), rgba(255, 255, 255, 0.018)) !important;
+        box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15) !important;
+        transition: transform 160ms ease, border-color 160ms ease, background-color 160ms ease !important;
+    }
+
+    #main-view [data-testid="card"]:active {
+        transform: scale(0.975) !important;
+        border-color: rgba(30, 215, 96, 0.3) !important;
+        background: linear-gradient(145deg, rgba(30, 215, 96, 0.13), rgba(255, 255, 255, 0.025)) !important;
+    }
+
+    #main-view [data-testid="card-image"],
+    #main-view [data-testid="card-image"] img,
+    #main-view [data-testid="card"] img {
+        border-radius: 12px !important;
+    }
+
+    #main-view [data-testid="card"] [data-encore-id="text"] {
+        color: var(--melodix-app-text) !important;
+    }
+
+    #main-view [data-testid="tracklist-row"] {
+        box-sizing: border-box !important;
+        min-height: 60px !important;
+        padding: 6px 8px !important;
+        border: 1px solid transparent !important;
+        border-radius: 13px !important;
+        transition: background-color 150ms ease, border-color 150ms ease !important;
+    }
+
+    #main-view [data-testid="tracklist-row"]:active {
+        background: rgba(30, 215, 96, 0.09) !important;
+        border-color: rgba(30, 215, 96, 0.18) !important;
+    }
+
+    #main-view [data-testid="tracklist-row"] button:not([data-testid="add-to-playlist-button"]) {
+        min-width: 40px !important;
+        min-height: 40px !important;
+        transform: none !important;
+        opacity: 0.9 !important;
+    }
+
+    #main-view [data-testid="tracklist-row"] [role="gridcell"][aria-colindex="1"] {
+        transform: none !important;
+    }
+
+    #main-view button[data-testid*="filter"],
+    #main-view [data-testid*="chip"] button {
+        min-height: 38px !important;
+        padding: 0 15px !important;
+        border: 1px solid var(--melodix-app-line) !important;
+        border-radius: 999px !important;
+        background: rgba(255, 255, 255, 0.045) !important;
+        color: var(--melodix-app-muted) !important;
+        font-weight: 650 !important;
+    }
+
+    #main-view button[data-testid*="filter"][aria-pressed="true"],
+    #main-view button[data-testid*="filter"][aria-selected="true"] {
+        border-color: transparent !important;
+        background: var(--melodix-app-green) !important;
+        color: #07110a !important;
+    }
+
+    /* Library stays the same feature, but its mobile drawer gets a sheet-like skin. */
+    #Desktop_LeftSidebar_Id {
+        background: rgba(12, 17, 14, 0.985) !important;
+        border-right: 1px solid var(--melodix-app-line) !important;
+        box-shadow: 16px 0 42px rgba(0, 0, 0, 0.42) !important;
+        -webkit-backdrop-filter: blur(20px) saturate(140%) !important;
+        backdrop-filter: blur(20px) saturate(140%) !important;
+    }
+
+    #Desktop_LeftSidebar_Id .YourLibraryX,
+    #Desktop_LeftSidebar_Id .YourLibraryX header {
+        background: transparent !important;
+    }
+
+    #Desktop_LeftSidebar_Id .YourLibraryX header {
+        padding: 16px !important;
+        border-bottom: 1px solid var(--melodix-app-line) !important;
+    }
+
+    #Desktop_LeftSidebar_Id .lbtn {
+        border: 1px solid rgba(30, 215, 96, 0.24) !important;
+        border-radius: 15px !important;
+        background: var(--melodix-app-surface-raised) !important;
+        box-shadow: 0 8px 20px rgba(0, 0, 0, 0.24) !important;
+    }
+
+    /* Turn the existing player strip into a softly elevated mobile dock. */
+    body:not(.sf-expanded) aside[data-testid="now-playing-bar"] {
+        box-sizing: border-box !important;
+        width: calc(100% - 16px) !important;
+        min-width: 0 !important;
+        margin: 0 8px 8px !important;
+        overflow: hidden !important;
+        border: 1px solid rgba(255, 255, 255, 0.09) !important;
+        border-radius: 18px !important;
+        background: linear-gradient(120deg, rgba(31, 51, 38, 0.97), rgba(14, 19, 16, 0.98)) !important;
+        box-shadow: 0 12px 30px rgba(0, 0, 0, 0.38) !important;
+        -webkit-backdrop-filter: blur(18px) saturate(150%) !important;
+        backdrop-filter: blur(18px) saturate(150%) !important;
+    }
+
+    body:not(.sf-expanded) aside[data-testid="now-playing-bar"] [data-testid="cover-art-image"] {
+        border-radius: 10px !important;
+    }
+
+    body:not(.sf-expanded) aside[data-testid="now-playing-bar"] .sf-player-widget {
+        align-items: center !important;
+        gap: 10px !important;
+        min-width: 0 !important;
+    }
+
+    body:not(.sf-expanded) aside[data-testid="now-playing-bar"] .sf-track-info {
+        min-width: 0 !important;
+        text-align: left !important;
+    }
+
+    body:not(.sf-expanded) aside[data-testid="now-playing-bar"] .sf-track-info a {
+        color: var(--melodix-app-text) !important;
+        font-weight: 650 !important;
+    }
+
+    #main-view a:focus-visible,
+    #main-view button:focus-visible,
+    #global-nav-bar a:focus-visible,
+    #global-nav-bar button:focus-visible {
+        outline: 2px solid var(--melodix-app-green) !important;
+        outline-offset: 3px !important;
+        box-shadow: 0 0 0 4px var(--melodix-app-green-soft) !important;
+    }
+}
+
+@media screen and (max-width: 390px) {
+    #global-nav-bar {
+        gap: 6px !important;
+        padding-left: 10px !important;
+        padding-right: 10px !important;
+    }
+
+    #global-nav-bar::before {
+        flex-basis: 31px;
+        width: 31px;
+        height: 31px;
+        font-size: 18px;
+    }
+
+    #global-nav-bar button[data-testid="home-button"] {
+        flex-basis: 40px !important;
+        width: 40px !important;
+        min-width: 40px !important;
+    }
+
+    #main-view .contentSpacing {
+        padding-left: 13px !important;
+        padding-right: 13px !important;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    #main-view [data-testid="card"],
+    #main-view [data-testid="tracklist-row"],
+    #global-nav-bar button,
+    #global-nav-bar [role="button"] {
+        transition: none !important;
+    }
+}
