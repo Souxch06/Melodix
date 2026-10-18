@@ -819,7 +819,7 @@
 .end method
 
 .method public final onReceivedError(Landroid/webkit/WebView;Landroid/webkit/WebResourceRequest;Landroid/webkit/WebResourceError;)V
-    .locals 2
+    .locals 3
 
     invoke-super {p0, p1, p2, p3}, Landroid/webkit/WebViewClient;->onReceivedError(Landroid/webkit/WebView;Landroid/webkit/WebResourceRequest;Landroid/webkit/WebResourceError;)V
 
@@ -848,26 +848,41 @@
 
     # Preserve only the numeric WebView error code for diagnosis; never retain or
     # display the request URL, query, headers, or Spotify account data.
+    move v2, p0
     new-instance v0, Ljava/lang/StringBuilder;
     const-string v1, "WebView error code: "
     invoke-direct {v0, v1}, Ljava/lang/StringBuilder;-><init>(Ljava/lang/String;)V
-    invoke-virtual {v0, p0}, Ljava/lang/StringBuilder;->append(I)Ljava/lang/StringBuilder;
+    invoke-virtual {v0, v2}, Ljava/lang/StringBuilder;->append(I)Ljava/lang/StringBuilder;
     move-result-object v0
     invoke-virtual {v0}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
     move-result-object v0
     sput-object v0, Lcom/melodix/music/AppSingleton;->g0:Ljava/lang/String;
 
-    const/4 p0, 0x1
-    sput-boolean p0, Lcom/melodix/music/AppSingleton;->m:Z
-    sput p0, Lcom/melodix/music/AppSingleton;->n:I
-
+    # Let MainActivity own the offline-state transition. Pre-setting m/n here
+    # would make D() treat this as an unchanged state and skip its text update.
     sget-object p1, Lcom/melodix/music/AppSingleton;->t:Ljava/lang/ref/WeakReference;
     if-eqz p1, :cond_webview_done
     invoke-virtual {p1}, Ljava/lang/ref/Reference;->get()Ljava/lang/Object;
     move-result-object p1
     check-cast p1, Lcom/melodix/music/MainActivity;
     if-eqz p1, :cond_webview_done
+    const/4 p0, 0x1
     invoke-virtual {p1, p0}, Lcom/melodix/music/MainActivity;->D(Z)V
+
+    # Also refresh the visible text if the offline overlay was already active.
+    new-instance v0, Ljava/lang/StringBuilder;
+    const-string v1, "Network Error\nTap to retry\n"
+    invoke-direct {v0, v1}, Ljava/lang/StringBuilder;-><init>(Ljava/lang/String;)V
+    const-string v1, "WebView error code: "
+    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    move-result-object v0
+    invoke-virtual {v0, v2}, Ljava/lang/StringBuilder;->append(I)Ljava/lang/StringBuilder;
+    move-result-object v0
+    invoke-virtual {v0}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
+    move-result-object v0
+    iget-object p0, p1, Lcom/melodix/music/MainActivity;->K:Landroid/widget/TextView;
+    if-eqz p0, :cond_webview_done
+    invoke-virtual {p0, v0}, Landroid/widget/TextView;->setText(Ljava/lang/CharSequence;)V
 
     :cond_webview_done
     return-void

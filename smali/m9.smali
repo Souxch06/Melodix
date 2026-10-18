@@ -1218,7 +1218,10 @@
     move-result-object v2
 
     .line 116
-    # Retain the platform WebView user agent for official Spotify sign-in.
+    # Restore only V19's last-known-working HTTP User-Agent; do not restore its
+    # global JavaScript fingerprint spoofing, request proxy, or capability rewrite.
+    const-string v3, "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36"
+    invoke-virtual {v2, v3}, Landroid/webkit/WebSettings;->setUserAgentString(Ljava/lang/String;)V
 
     .line 119
     .line 120

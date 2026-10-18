@@ -165,7 +165,12 @@ test('auth and WebView code do not capture credentials or proxy Spotify requests
     assert.match(webViewClient, /const\/16 v5, 0x1bb/);
     assert.doesNotMatch(webViewClient, /google_spoof\.js|desktop_spoof\.js|playlist_sort\.js|facebook_consent\.js|classic_login\.js/);
     assert.doesNotMatch(app, /CookieManager/);
-    assert.doesNotMatch(appWebView, /setUserAgentString|desktop_spoof\.js/);
+    assert.doesNotMatch(appWebView, /desktop_spoof\.js/);
+    const webViewFactory = appWebView.match(/\.method public static g\(Landroid\/content\/Context;\)Landroid\/webkit\/WebView;([\s\S]*?)\.end method/);
+    assert.ok(webViewFactory, 'WebView factory should exist');
+    assert.match(webViewFactory[1], /const-string v3, "Mozilla\/5\.0 \(Windows NT 10\.0; Win64; x64\).*Chrome\/134\.0\.0\.0 Safari\/537\.36"/);
+    assert.match(webViewFactory[1], /invoke-virtual \{v2, v3\}, Landroid\/webkit\/WebSettings;->setUserAgentString\(Ljava\/lang\/String;\)V/);
+    assert.doesNotMatch(read('assets/desktop_spoof.js'), /navigator\.userAgentData|can_be_player|serviceWorker\.register|connect-state/);
     assert.match(appWebView, /DOCUMENT_START_SCRIPT/);
     assert.match(appWebView, /spotify_sw_compat\.js/);
     assert.match(webViewClient, /const-string v2, "runtime_state\.js"/);
@@ -210,7 +215,10 @@ test('HTTP status responses are not misreported as network disconnections', () =
     assert.match(transportError[1], /WebView error code:/);
     assert.match(transportError[1], /AppSingleton;->g0:Ljava\/lang\/String;/);
     assert.doesNotMatch(transportError[1], /WebResourceRequest;->getUrl/);
-    assert.match(transportError[1], /sput-boolean p0, Lcom\/melodix\/music\/AppSingleton;->m:Z/);
+    assert.doesNotMatch(transportError[1], /sput-boolean p0, Lcom\/melodix\/music\/AppSingleton;->m:Z|sput p0, Lcom\/melodix\/music\/AppSingleton;->n:I/);
+    assert.match(transportError[1], /MainActivity;->D\(Z\)V/);
+    assert.match(transportError[1], /MainActivity;->K:Landroid\/widget\/TextView;/);
+    assert.match(transportError[1], /TextView;->setText\(Ljava\/lang\/CharSequence;\)V/);
     assert.match(read('smali/zk0.smali'), /AppSingleton;->g0:Ljava\/lang\/String;/);
 });
 
