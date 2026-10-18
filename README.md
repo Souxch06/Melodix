@@ -4,13 +4,13 @@
 
 Application Android personnalisée à partir d'un APK. Le dépôt contient l'archive originale, son extraction et le projet Apktool décompilé qui sert aux modifications.
 
-## Version de test conservée
+## Versions Preview de test
 
-La release Preview conservée est la **V1**, reconstruite à partir du code de la test.18 (`v1.2.2-test.18-preview`, commit `81ef774fcb2208d4c4e999943411040aa1bfa33f`). Son tag est `v1.2.2-test.1-preview`. Les anciennes releases de test et leurs tags ont été retirés; l'historique des commits du dépôt reste intact.
+La dernière release est la **Preview test.2** : [`v1.2.2-test.2-preview`](https://github.com/Souxch06/Melodix/releases/tag/v1.2.2-test.2-preview), construite depuis le commit `750834e20eca6f240a84ef164ce492f989e29458`. Elle applique le dock mobile Accueil / Recherche / Bibliothèque, le mini-lecteur compact et la fermeture de la bibliothèque à la page Spotify réelle. Les titres et pochettes restent ceux du compte Spotify; aucun contenu fictif des maquettes n'est embarqué. L'APK s'appelle `Melodix-Preview-v1.2.2-test2.apk` et son fichier SHA-256 est joint à la release.
 
-La V1 est une application d'essai séparée, d'identifiant `com.melodix.music.preview`. Elle s'installe à côté de l'application normale `com.melodix.music`, avec des données séparées. Son `versionCode` Android reste supérieur à celui de l'ancienne Preview test.27 afin de permettre une mise à jour sans désinstaller la Preview déjà installée. Cette version reprend volontairement le comportement V18; les protections ajoutées dans les versions ultérieures n'y sont pas incluses.
+La Preview est une application d'essai séparée, d'identifiant `com.melodix.music.preview`, avec des données séparées. Elle s'installe à côté de l'application normale `com.melodix.music`, sans désinstaller celle-ci. Son `versionCode` Android (`1020230`) permet aussi de mettre à jour la Preview test.1 avec la même clé de signature. La release V1, tag [`v1.2.2-test.1-preview`](https://github.com/Souxch06/Melodix/releases/tag/v1.2.2-test.1-preview), reste disponible comme build exact du commit V18 `81ef774fcb2208d4c4e999943411040aa1bfa33f`.
 
-Les versions publiées se trouvent dans [GitHub Releases](https://github.com/Souxch06/Melodix/releases). Sur Android, ouvre la release V1, télécharge l'APK puis touche le fichier téléchargé pour l'installer.
+La compilation et la vérification de signature/package ont réussi pour la test.2; aucun appareil ni émulateur n'a été testé pour cette version. Sur Android, ouvre la release test.2, télécharge l'APK puis touche le fichier téléchargé pour l'installer.
 
 ## Arborescence
 

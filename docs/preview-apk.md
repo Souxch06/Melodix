@@ -1,6 +1,6 @@
 # Créer et publier l'APK Melodix Preview
 
-La Preview est une application d'essai séparée, identifiant `com.melodix.music.preview`, nommée **Melodix Preview**. Elle s'installe à côté de l'application normale `com.melodix.music` sans la désinstaller et garde ses propres données. La release actuelle, **V1**, reprend le code de test.18 (commit `81ef774fcb2208d4c4e999943411040aa1bfa33f`).
+La Preview est une application d'essai séparée, identifiant `com.melodix.music.preview`, nommée **Melodix Preview**. Elle s'installe à côté de l'application normale `com.melodix.music` sans la désinstaller et garde ses propres données. La release actuelle est la **test.2** (`v1.2.2-test.2-preview`), construite depuis le commit `750834e20eca6f240a84ef164ce492f989e29458`; elle applique le dock mobile, le mini-lecteur compact et la bibliothèque fermable à la page Spotify réelle. La Preview V1 (`v1.2.2-test.1-preview`) reste disponible comme build exact du commit V18 `81ef774fcb2208d4c4e999943411040aa1bfa33f`.
 
 La Preview doit être signée avec sa propre clé. Conserve cette clé pour les prochaines versions afin qu'elles puissent mettre à jour la même application.
 
@@ -40,26 +40,20 @@ Pour préparer la valeur de `MELODIX_PREVIEW_KEYSTORE_B64`, exécute dans PowerS
 
 Cette commande copie le texte encodé dans le presse-papiers sans l'afficher. Colle-le directement dans le champ **Value** du secret `MELODIX_PREVIEW_KEYSTORE_B64`. Pour le secret du mot de passe, saisis le mot de passe du keystore. N'envoie aucune de ces valeurs dans le chat.
 
-## 3. Publier la V1 basée sur V18
+## 3. Publier une version Preview
+
+Pour reproduire la release mobile test.2 :
 
 1. Sur GitHub, ouvre le dépôt puis l'onglet **Actions**.
 2. Sélectionne **Build Melodix Preview APK** et clique **Run workflow** sur la branche de travail.
-3. Laisse le tag par défaut `v1.2.2-test.1-preview`.
-4. Laisse le commit source par défaut `81ef774fcb2208d4c4e999943411040aa1bfa33f` pour reconstruire exactement la base V18, puis clique **Run workflow**.
-5. Attends que le run soit terminé avec l'état vert **Success**.
+3. Saisis le tag `v1.2.2-test.2-preview` et le commit source `750834e20eca6f240a84ef164ce492f989e29458`, puis lance le workflow.
+4. Attends que le run soit terminé avec l'état vert **Success**.
 
-Le workflow crée la release `Melodix Preview v1.2.2 test.1` sur le commit V18 et y attache :
+Le workflow publie `Melodix Preview v1.2.2 test.2` et y attache `Melodix-Preview-v1.2.2-test2.apk` ainsi que son fichier `.sha256`. Son `versionCode` est `1020230`, supérieur à celui de la Preview test.1 et de l'ancienne test.27 : avec la même clé Preview, elle met à jour l'application Preview déjà installée. Elle ne remplace pas l'application normale et ne nécessite pas sa désinstallation.
 
-- `Melodix-Preview-v1.2.2-test1.apk`
-- son fichier `.sha256`
+Pour reconstruire l'ancienne base V18, choisis plutôt le tag `v1.2.2-test.1-preview` et le commit source `81ef774fcb2208d4c4e999943411040aa1bfa33f`.
 
-Le nom de version repart à test.1, mais le `versionCode` Android est volontairement supérieur à celui de l'ancienne test.27. La Preview V1 peut ainsi mettre à jour la Preview déjà installée, sans toucher à l'application normale.
-
-La V1 reprend volontairement le comportement du projet V18; les protections ajoutées dans les versions ultérieures ne sont pas incluses. L'affichage peut conserver les dimensions de cette ancienne version. La Preview reste une application séparée avec des données distinctes.
-
-La release apparaît sur GitHub dans **Releases**. Télécharge l'APK et installe-la sur Android. Elle apparaît sous le nom **Melodix Preview** et ne remplace pas l'application normale.
-
-Le workflow adapte uniquement sa copie temporaire du projet à la signature Preview et au `versionCode`. Le projet source et la signature de l'application normale restent inchangés. Pour créer une version suivante, choisis un nouveau tag test et un commit source adapté; garde la même clé et laisse le `versionCode` augmenter.
+Pour une version suivante, choisis un nouveau tag test et le commit source voulu; garde la même clé Preview. Le workflow augmente le `versionCode` au-dessus de l'ancienne Preview test.27. Il adapte uniquement sa copie temporaire du projet à la signature Preview et au `versionCode`; le projet source et la signature de l'application normale restent inchangés.
 
 ## Si le workflow échoue
 
