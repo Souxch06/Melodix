@@ -216,9 +216,9 @@ jobs:
           body: |
             Separate Melodix preview build with package id `com.melodix.music.preview`.
 
-            It installs alongside the regular app and is not an update to the existing `com.melodix.music` installation. Preview data is separate.
+            Built from source commit `${{ steps.release.outputs.source_ref }}`; consult that commit for the changes included in this test build.
 
-            Test.1 is rebuilt from the exact V18 source commit (81ef774fcb2208d4c4e999943411040aa1bfa33f). The release labels restart at test.1; its Android versionCode remains above the former test.27 so it can update an already-installed Preview. This restores the V18-era app behavior and does not include later hardening. Preview remains separate from the regular app and uses separate data.
+            It installs alongside the regular app and is not an update to the existing `com.melodix.music` installation. Preview data is separate. The Android versionCode remains above the former test.27 so it can update an already-installed Preview.
           files: |
             ${{ steps.package.outputs.apk_path }}
             ${{ steps.package.outputs.sha_path }}
