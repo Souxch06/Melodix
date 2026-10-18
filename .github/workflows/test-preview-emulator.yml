@@ -46,7 +46,7 @@ jobs:
             -no-boot-anim \
             -no-snapshot \
             -gpu swiftshader_indirect \
-            -accel off \
+            -accel on \
             > "$RUNNER_TEMP/melodix-emulator.log" 2>&1 &
           emulator_pid=$!
           adb start-server
@@ -65,8 +65,11 @@ jobs:
             sleep 5
           done
           if [[ "$booted" != "1" ]]; then
-            echo "::error::Android emulator did not finish booting."
-            tail -n 80 "$RUNNER_TEMP/melodix-emulator.log"
+            boot_completed="$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\r' || true)"
+            boot_animation="$(adb shell getprop init.svc.bootanim 2>/dev/null | tr -d '\r' || true)"
+            echo "::error title=Android boot state::sys.boot_completed=$boot_completed; bootanim=$boot_animation; kvm=$([[ -e /dev/kvm ]] && echo present || echo absent)"
+            log_tail="$(tail -n 40 "$RUNNER_TEMP/melodix-emulator.log" | base64 -w0)"
+            echo "::error title=Android emulator log tail (base64)::${log_tail}"
             exit 1
           fi
           adb shell settings put global window_animation_scale 0
