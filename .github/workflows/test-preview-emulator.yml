@@ -1,0 +1,154 @@
+name: Smoke test Preview APK on Android 16 emulator
+
+on:
+  push:
+    branches:
+      - arena/dbf2d44f-melodix
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  update-and-launch:
+    name: Update V21 to V22 and inspect WebView error state
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Check out test workflow
+        uses: actions/checkout@v7.0.1
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v4.0.4
+
+      - name: Install Android 16 emulator
+        shell: bash
+        run: |
+          set -euo pipefail
+          sdkmanager --install \
+            "platform-tools" \
+            "emulator" \
+            "system-images;android-36;google_apis;x86_64"
+          printf 'no\n' | avdmanager create avd \
+            --force \
+            --name MelodixApi36 \
+            --package "system-images;android-36;google_apis;x86_64" \
+            --device pixel_2
+
+      - name: Boot Android 16 emulator
+        shell: bash
+        run: |
+          set -euo pipefail
+          "$ANDROID_HOME/emulator/emulator" \
+            -avd MelodixApi36 \
+            -no-window \
+            -no-audio \
+            -no-boot-anim \
+            -no-snapshot \
+            -gpu swiftshader_indirect \
+            > "$RUNNER_TEMP/melodix-emulator.log" 2>&1 &
+          adb start-server
+          timeout 180 adb wait-for-device
+          booted=0
+          for _ in $(seq 1 60); do
+            if [[ "$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" == "1" ]]; then
+              booted=1
+              break
+            fi
+            sleep 5
+          done
+          if [[ "$booted" != "1" ]]; then
+            echo "::error::Android emulator did not finish booting."
+            tail -n 80 "$RUNNER_TEMP/melodix-emulator.log"
+            exit 1
+          fi
+          adb shell settings put global window_animation_scale 0
+          adb shell settings put global transition_animation_scale 0
+          adb shell settings put global animator_duration_scale 0
+          echo "Android API: $(adb shell getprop ro.build.version.sdk | tr -d '\r')"
+          adb shell dumpsys webviewupdate | grep -E "Current WebView package|WebView package" | head -n 3 || true
+
+      - name: Download published V21 and V22 Preview APKs
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/melodix-apks"
+          gh release download v1.2.2-test.21-preview \
+            --repo Souxch06/Melodix \
+            --pattern Melodix-Preview-v1.2.2-test21.apk \
+            --dir "$RUNNER_TEMP/melodix-apks"
+          gh release download v1.2.2-test.22-preview \
+            --repo Souxch06/Melodix \
+            --pattern Melodix-Preview-v1.2.2-test22.apk \
+            --dir "$RUNNER_TEMP/melodix-apks"
+
+      - name: Install V21, upgrade to V22, and inspect only diagnostic text
+        shell: bash
+        run: |
+          set -euo pipefail
+          apk_dir="$RUNNER_TEMP/melodix-apks"
+          state_dir="$RUNNER_TEMP/melodix-emulator-state"
+          mkdir -p "$state_dir"
+
+          launch_and_capture() {
+            local label="$1"
+            adb shell am force-stop com.melodix.music.preview >/dev/null 2>&1 || true
+            adb shell monkey -p com.melodix.music.preview -c android.intent.category.LAUNCHER 1 >/dev/null
+            sleep 60
+            adb shell uiautomator dump --compressed /sdcard/melodix-window.xml >/dev/null 2>&1
+            adb exec-out cat /sdcard/melodix-window.xml > "$state_dir/$label.xml"
+            python3 - "$state_dir/$label.xml" "$label" "$state_dir/$label.json" <<'PY'
+          import json
+          import re
+          import sys
+          import xml.etree.ElementTree as ET
+
+          xml_path, label, json_path = sys.argv[1:]
+          root = ET.parse(xml_path).getroot()
+          text = "\n".join(
+              value
+              for node in root.iter()
+              for value in (node.get("text", ""), node.get("content-desc", ""))
+              if value
+          )
+          codes = sorted(set(re.findall(r"WebView error code: -?\d+", text)))
+          state = {
+              "network_error": "Network Error" in text,
+              "webview_codes": codes,
+              "spotify_text_visible": any(term in text.lower() for term in ("spotify", "log in", "sign up")),
+          }
+          with open(json_path, "w", encoding="utf-8") as output:
+              json.dump(state, output)
+          print(
+              f"{label}: network_error={str(state['network_error']).lower()}, "
+              f"webview_codes={','.join(codes) if codes else 'none'}, "
+              f"spotify_text_visible={str(state['spotify_text_visible']).lower()}"
+          )
+          PY
+          }
+
+          adb install "$apk_dir/Melodix-Preview-v1.2.2-test21.apk"
+          launch_and_capture v21
+
+          # Upgrade in place; intentionally preserve WebView/app data so an
+          # existing Spotify service-worker registration survives the update.
+          adb install -r "$apk_dir/Melodix-Preview-v1.2.2-test22.apk"
+          launch_and_capture v22_first_launch
+          launch_and_capture v22_second_launch
+
+          python3 - "$state_dir" <<'PY'
+          import json
+          import pathlib
+          import sys
+
+          state_dir = pathlib.Path(sys.argv[1])
+          states = {
+              name: json.loads((state_dir / f"{name}.json").read_text(encoding="utf-8"))
+              for name in ("v21", "v22_first_launch", "v22_second_launch")
+          }
+          if states["v22_first_launch"]["network_error"] and states["v22_second_launch"]["network_error"]:
+              raise SystemExit("V22 still showed the native Network Error overlay on both launches.")
+          print("Emulator smoke test completed; no account was signed in and no page URLs or WebView data were collected.")
+          PY
