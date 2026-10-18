@@ -2,6 +2,26 @@
     // Global flags injected by Android:
     // window.SF_CONFIG = { ... };
 
+    // The app deliberately uses Spotify's desktop user-agent. Reset any wide
+    // desktop viewport before the mobile CSS is injected, otherwise Android
+    // WebView can keep a ~980px layout viewport and never match phone media queries.
+    (function applyPhoneViewport() {
+        try {
+            const isBigWindow = window.SF_CONFIG && window.SF_CONFIG.guiMode === 'bigwindow';
+            const isLandscape = window.matchMedia('(orientation: landscape)').matches;
+            if (isBigWindow && isLandscape) return;
+
+            const content = 'width=device-width, initial-scale=1.0, viewport-fit=cover';
+            let meta = document.querySelector('meta[name="viewport"]');
+            if (!meta) {
+                meta = document.createElement('meta');
+                meta.name = 'viewport';
+                document.head.appendChild(meta);
+            }
+            meta.setAttribute('content', content);
+        } catch (_) {}
+    })();
+
     // =========================================================================
     // SECTION 1: CORE CONTEXT & INITIALIZATION
     // =========================================================================
@@ -2244,14 +2264,10 @@
         }
 
         if (meta) {
-            if (isBigWindow && isLandscape) {
-                meta.setAttribute('content', content);
-            } else {
-                let current = meta.getAttribute('content') || "";
-                if (!current.includes('viewport-fit=cover')) {
-                    meta.setAttribute('content', current + ', viewport-fit=cover');
-                }
-            }
+            // Keep the device-width layout in CSS mode even though the WebView
+            // advertises a desktop UA. Preserve the 1280px big-window landscape
+            // viewport only when that mode was explicitly selected.
+            meta.setAttribute('content', content);
         } else {
             meta = document.createElement('meta');
             meta.name = "viewport";
