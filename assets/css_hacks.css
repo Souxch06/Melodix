@@ -2554,3 +2554,379 @@ body.sf-tv-nav input:focus-visible {
         max-width: var(--sf-device-width, 100vw) !important;
     }
 }
+
+/* =========================================================================
+   SECTION 14: COMPACT DEVICE-PROPORTIONAL UI
+   Reduce oversized portrait controls and artwork. The viewport units now map
+   to the measured device dimensions from SECTION 13.
+   ========================================================================= */
+@media screen {
+    :root {
+        --melodix-compact-control: clamp(36px, 9.5vw, 40px);
+        --melodix-compact-art: min(68vw, 34vh, 280px);
+        --melodix-compact-art: min(68vw, 34dvh, 280px);
+    }
+
+    #global-nav-bar {
+        height: calc(54px + var(--sf-safe-area-top, env(safe-area-inset-top, 0px))) !important;
+        min-height: calc(54px + var(--sf-safe-area-top, env(safe-area-inset-top, 0px))) !important;
+        padding: calc(var(--sf-safe-area-top, env(safe-area-inset-top, 0px)) + 5px) 10px 5px !important;
+        gap: 6px !important;
+    }
+
+    #global-nav-bar::before {
+        flex-basis: 29px !important;
+        width: 29px !important;
+        height: 29px !important;
+        border-radius: 9px !important;
+        font-size: 17px !important;
+    }
+
+    #global-nav-bar button,
+    #global-nav-bar [role="button"] {
+        min-width: var(--melodix-compact-control) !important;
+        min-height: var(--melodix-compact-control) !important;
+        padding: 0 7px !important;
+        border-radius: 11px !important;
+    }
+
+    #global-nav-bar button[data-testid="home-button"] {
+        flex-basis: 38px !important;
+        width: 38px !important;
+        min-width: 38px !important;
+        min-height: 38px !important;
+    }
+
+    #global-nav-bar form[role="search"] {
+        min-height: 36px !important;
+        padding: 0 8px !important;
+        border-radius: 12px !important;
+    }
+
+    #global-nav-bar input[data-testid="search-input"] {
+        min-height: 34px !important;
+        font-size: 13px !important;
+    }
+
+    #main-view .contentSpacing {
+        padding: 10px 12px 18px !important;
+    }
+
+    #main-view h1 {
+        margin: 6px 0 14px !important;
+        font-size: clamp(23px, 6vw, 29px) !important;
+    }
+
+    #main-view h2 {
+        margin-block: 16px 10px !important;
+        font-size: clamp(18px, 4.8vw, 22px) !important;
+    }
+
+    #main-view [data-testid="grid-container"] {
+        gap: 9px !important;
+    }
+
+    #main-view [data-testid="card"] {
+        border-radius: 14px !important;
+    }
+
+    #main-view [data-testid="tracklist-row"] {
+        min-height: 52px !important;
+    }
+
+    #main-view button[data-testid*="filter"],
+    #main-view [data-testid*="chip"] button {
+        min-height: 34px !important;
+        padding: 0 12px !important;
+        font-size: 13px !important;
+    }
+
+    #sf-mobile-navigation {
+        height: 56px !important;
+        padding: 4px !important;
+        border-radius: 17px !important;
+    }
+
+    #sf-mobile-navigation .sf-mobile-tab {
+        min-height: 46px !important;
+        gap: 2px !important;
+        font-size: 9px !important;
+    }
+
+    #sf-mobile-navigation .sf-mobile-tab svg {
+        width: 20px !important;
+        height: 20px !important;
+        flex-basis: 20px !important;
+    }
+
+    /* Compact mini-player dock without shrinking its visible tap targets too far. */
+    body:not(.sf-expanded) #main-view {
+        padding-bottom: calc(158px + var(--melodix-phone-safe-bottom)) !important;
+    }
+
+    body:not(.sf-expanded) aside[data-testid="now-playing-bar"] {
+        height: 58px !important;
+        min-height: 58px !important;
+        max-height: 58px !important;
+        padding: 5px 8px !important;
+        border-radius: 15px !important;
+    }
+
+    body:not(.sf-expanded) aside[data-testid="now-playing-bar"] [data-testid="cover-art-image"] {
+        flex: 0 0 40px !important;
+        width: 40px !important;
+        height: 40px !important;
+        border-radius: 9px !important;
+    }
+
+    body:not(.sf-expanded) aside[data-testid="now-playing-bar"] button[data-testid="control-button-playpause"] {
+        width: 38px !important;
+        height: 38px !important;
+        min-width: 38px !important;
+        min-height: 38px !important;
+    }
+
+    body:not(.sf-expanded) aside[data-testid="now-playing-bar"] [data-testid="general-controls"] {
+        width: 40px !important;
+        right: 7px !important;
+    }
+
+    /* Reduce the oversized full-screen artwork and player controls proportionally. */
+    #sf-fs-player {
+        padding: 12px 14px calc(12px + env(safe-area-inset-bottom, 0px)) !important;
+    }
+
+    #sf-fs-player .sf-fs-top {
+        flex: 0 0 40px !important;
+        height: 40px !important;
+    }
+
+    #sf-fs-player .sf-fs-top-title {
+        font-size: 12px !important;
+        letter-spacing: 0.7px !important;
+    }
+
+    #sf-fs-player .sf-fs-min,
+    #sf-fs-player .sf-fs-top-right button {
+        box-sizing: border-box !important;
+        width: 36px !important;
+        height: 36px !important;
+        min-width: 36px !important;
+        min-height: 36px !important;
+        padding: 5px !important;
+    }
+
+    #sf-fs-player .sf-fs-min svg {
+        width: 24px !important;
+        height: 24px !important;
+    }
+
+    #sf-fs-player .sf-fs-top-right svg {
+        width: 19px !important;
+        height: 19px !important;
+    }
+
+    #sf-fs-player .sf-fs-art-container {
+        box-sizing: border-box !important;
+        flex: 0 0 auto !important;
+        width: var(--melodix-compact-art) !important;
+        height: var(--melodix-compact-art) !important;
+        max-width: 100% !important;
+        max-height: 100% !important;
+        margin: clamp(8px, 1.5vh, 14px) auto !important;
+        margin: clamp(8px, 1.5dvh, 14px) auto !important;
+        padding: 0 !important;
+    }
+
+    #sf-fs-player .sf-fs-art-container::before {
+        width: 100% !important;
+        height: 100% !important;
+        max-width: none !important;
+        max-height: none !important;
+        filter: blur(23px) !important;
+        opacity: 0.6 !important;
+    }
+
+    #sf-fs-player #sf-fs-art {
+        box-sizing: border-box !important;
+        width: 100% !important;
+        height: 100% !important;
+        max-width: none !important;
+        max-height: none !important;
+        border-radius: 14px !important;
+    }
+
+    #sf-fs-player .sf-fs-player-card {
+        box-sizing: border-box !important;
+        flex: 0 0 auto !important;
+        width: 100% !important;
+        max-width: 440px !important;
+        min-width: 0 !important;
+        margin: 0 auto !important;
+    }
+
+    #sf-fs-player .sf-fs-info {
+        margin-bottom: 10px !important;
+        padding: 0 4px !important;
+    }
+
+    #sf-fs-player #sf-fs-title {
+        font-size: clamp(18px, 5vw, 21px) !important;
+    }
+
+    #sf-fs-player #sf-fs-artist {
+        font-size: 14px !important;
+    }
+
+    #sf-fs-player .sf-fs-progress {
+        gap: 8px !important;
+        margin-bottom: 10px !important;
+        padding: 0 4px !important;
+    }
+
+    #sf-fs-player #sf-fs-pos,
+    #sf-fs-player #sf-fs-dur {
+        min-width: 31px !important;
+        font-size: 11px !important;
+    }
+
+    #sf-fs-player #sf-fs-bar-container {
+        height: 20px !important;
+    }
+
+    #sf-fs-player #sf-fs-bar-rail {
+        height: 3px !important;
+    }
+
+    #sf-fs-player #sf-fs-bar-handle {
+        width: 10px !important;
+        height: 10px !important;
+    }
+
+    #sf-fs-player .sf-fs-controls {
+        gap: clamp(14px, 4.5vw, 21px) !important;
+        margin-bottom: 8px !important;
+    }
+
+    #sf-fs-player .sf-fs-controls button,
+    #sf-fs-player .sf-fs-extra-controls button {
+        box-sizing: border-box !important;
+        min-width: 36px !important;
+        min-height: 36px !important;
+        padding: 5px !important;
+    }
+
+    #sf-fs-player .sf-fs-controls svg,
+    #sf-fs-player .sf-fs-extra-controls svg,
+    #sf-fs-player .sf-fs-controls span,
+    #sf-fs-player .sf-fs-extra-controls span {
+        width: 22px !important;
+        height: 22px !important;
+    }
+
+    #sf-fs-player #sf-fs-play-svg {
+        width: 34px !important;
+        height: 34px !important;
+    }
+
+    #sf-fs-player .sf-fs-play {
+        width: 56px !important;
+        height: 56px !important;
+        min-width: 56px !important;
+        min-height: 56px !important;
+    }
+
+    #sf-fs-player .sf-fs-extra-controls {
+        gap: clamp(14px, 5vw, 22px) !important;
+        margin-bottom: 0 !important;
+        padding: 0 6px !important;
+    }
+
+    /* Compact Spotify's own expanded audio artwork/player controls too. */
+    body.sf-expanded div:has(> #VideoPlayerCinema_ReactPortal):not(:has(video)) > div > div {
+        --cinema-media-height: min(68vw, 34vh, 280px) !important;
+        --cinema-media-height: min(68vw, 34dvh, 280px) !important;
+        width: min(68vw, 34vh, 280px) !important;
+        width: min(68vw, 34dvh, 280px) !important;
+        height: min(68vw, 34vh, 280px) !important;
+        height: min(68vw, 34dvh, 280px) !important;
+        max-width: min(68vw, 34vh, 280px) !important;
+        max-width: min(68vw, 34dvh, 280px) !important;
+        max-height: min(68vw, 34vh, 280px) !important;
+        max-height: min(68vw, 34dvh, 280px) !important;
+    }
+
+    body.sf-fullscreen-enabled.sf-expanded div:has(> #VideoPlayerCinema_ReactPortal):not(:has(video)) > div {
+        transform: translateY(clamp(8px, 1.5vh, 16px)) !important;
+        transform: translateY(clamp(8px, 1.5dvh, 16px)) !important;
+    }
+
+    body.sf-expanded aside[data-testid="now-playing-view"] [data-testid="cover-art-image"] {
+        width: min(68vw, 34vh, 280px) !important;
+        width: min(68vw, 34dvh, 280px) !important;
+        height: min(68vw, 34vh, 280px) !important;
+        height: min(68vw, 34dvh, 280px) !important;
+        max-width: min(68vw, 34vh, 280px) !important;
+        max-width: min(68vw, 34dvh, 280px) !important;
+        max-height: min(68vw, 34vh, 280px) !important;
+        max-height: min(68vw, 34dvh, 280px) !important;
+        object-fit: cover !important;
+    }
+
+    body.sf-expanded #main-view {
+        padding-bottom: calc(150px + var(--melodix-phone-safe-bottom)) !important;
+    }
+
+    body.sf-expanded aside[data-testid="now-playing-bar"] {
+        max-height: 174px !important;
+        padding: 8px 10px calc(var(--melodix-phone-safe-bottom) + 6px) !important;
+        border-radius: 17px !important;
+    }
+
+    body.sf-expanded aside[data-testid="now-playing-bar"] [data-testid="general-controls"] button {
+        min-width: 36px !important;
+        min-height: 38px !important;
+    }
+
+    body.sf-expanded aside[data-testid="now-playing-bar"] button[data-testid="control-button-playpause"] {
+        width: 48px !important;
+        height: 48px !important;
+        min-width: 48px !important;
+        min-height: 48px !important;
+    }
+
+    body.sf-expanded aside[data-testid="now-playing-bar"] > div > div:last-child button {
+        min-width: 36px !important;
+        min-height: 36px !important;
+    }
+}
+
+@media screen and (orientation: portrait) {
+    /* Remove legacy scale-up transforms which make real touch controls oversized. */
+    body.sf-mobile-shell div[data-testid="general-controls"] button,
+    body.sf-mobile-shell aside[data-testid="now-playing-bar"] > div > div:last-child button {
+        transform: none !important;
+        margin-left: 3px !important;
+        margin-right: 3px !important;
+    }
+
+    body.sf-mobile-shell div[data-testid="tracklist-row"] button:not([data-testid="add-to-playlist-button"]) {
+        transform: none !important;
+    }
+}
+
+@media screen and (orientation: landscape) {
+    #sf-fs-player .sf-fs-art-container {
+        width: min(45vh, 36vw, 250px) !important;
+        width: min(45dvh, 36vw, 250px) !important;
+        height: min(45vh, 36vw, 250px) !important;
+        height: min(45dvh, 36vw, 250px) !important;
+    }
+}
+
+@media screen and (max-height: 700px) {
+    :root {
+        --melodix-compact-art: min(64vw, 31vh, 230px);
+        --melodix-compact-art: min(64vw, 31dvh, 230px);
+    }
+}
