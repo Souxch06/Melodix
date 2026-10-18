@@ -2167,7 +2167,12 @@
                         });
                         // Start with the library closed, so the public home or sign-in
                         // screen is not covered by the full-width library drawer.
-                        switchLs(false);
+                        if (!window.__sfLibraryInitialized) {
+                            window.__sfLibraryInitialized = true;
+                            switchLs(false);
+                        } else {
+                            window.lBtn.setAttribute('aria-expanded', String(!!window.__sfLibraryExpanded));
+                        }
                         AndBridge.cssInjected();
                     }
 
@@ -2335,6 +2340,13 @@
 
                 if (window.lBtn) window.lBtn.setAttribute('aria-expanded', String(expanded));
             };
+
+            // Collapse the drawer as soon as it exists; the slower polling loop
+            // below still attaches the live toggle to Spotify's header button.
+            if (!window.SF_CONFIG?.dockLeftSidebar && !window.__sfLibraryInitialized && document.querySelector('#Desktop_LeftSidebar_Id')) {
+                window.__sfLibraryInitialized = true;
+                window.switchLs(false);
+            }
         }
     };
 
