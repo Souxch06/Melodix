@@ -1,8 +1,8 @@
 # Créer et publier l'APK Melodix Preview
 
-Cette procédure crée une application d'essai séparée, package `com.melodix.music.preview`, nommée **Melodix Preview**. Elle peut être installée à côté de l'application normale `com.melodix.music` sans la désinstaller. Ce n'est pas une mise à jour de test.7 : l'application et ses données sont séparées.
+La Preview est une application d'essai séparée, identifiant `com.melodix.music.preview`, nommée **Melodix Preview**. Elle s'installe à côté de l'application normale `com.melodix.music` sans la désinstaller et garde ses propres données. La release actuelle, **V1**, reprend le code de test.18 (commit `81ef774fcb2208d4c4e999943411040aa1bfa33f`).
 
-La clé de test.7 n'étant pas disponible, cette prévisualisation doit avoir sa propre clé. Il faut conserver cette nouvelle clé pour que les prochaines versions Preview puissent mettre à jour cette même application.
+La Preview doit être signée avec sa propre clé. Conserve cette clé pour les prochaines versions afin qu'elles puissent mettre à jour la même application.
 
 ## 1. Créer la clé Preview sur Windows
 
@@ -40,24 +40,26 @@ Pour préparer la valeur de `MELODIX_PREVIEW_KEYSTORE_B64`, exécute dans PowerS
 
 Cette commande copie le texte encodé dans le presse-papiers sans l'afficher. Colle-le directement dans le champ **Value** du secret `MELODIX_PREVIEW_KEYSTORE_B64`. Pour le secret du mot de passe, saisis le mot de passe du keystore. N'envoie aucune de ces valeurs dans le chat.
 
-## 3. Lancer la pré-release
+## 3. Publier la V1 basée sur V18
 
 1. Sur GitHub, ouvre le dépôt puis l'onglet **Actions**.
-2. Sélectionne **Build Melodix Preview APK**.
-3. Dans la liste des branches, sélectionne la branche qui contient les modifications à tester. Le workflow compile cette branche sans qu'il soit nécessaire de la fusionner dans `main`.
-4. Laisse le tag par défaut `v1.2.2-test.27-preview`, puis clique **Run workflow**. Ce nouveau tag crée une pré-release distincte de la test.26, conserve l'historique et incrémente le `versionCode` pour mettre à jour la Preview installée.
+2. Sélectionne **Build Melodix Preview APK** et clique **Run workflow** sur la branche de travail.
+3. Laisse le tag par défaut `v1.2.2-test.1-preview`.
+4. Laisse le commit source par défaut `81ef774fcb2208d4c4e999943411040aa1bfa33f` pour reconstruire exactement la base V18, puis clique **Run workflow**.
 5. Attends que le run soit terminé avec l'état vert **Success**.
 
-Le workflow crée la pré-release `Melodix Preview v1.2.2 test.27` à partir du commit de la branche sélectionnée et y attache :
+Le workflow crée la release `Melodix Preview v1.2.2 test.1` sur le commit V18 et y attache :
 
-- `Melodix-Preview-v1.2.2-test27.apk`
+- `Melodix-Preview-v1.2.2-test1.apk`
 - son fichier `.sha256`
 
-La test.27 restaure les fichiers du projet qui existaient au tag V18 (`v1.2.2-test.18-preview`, commit `81ef774`) afin de comparer directement cette base. Elle réintroduit donc les mécanismes WebView et scripts de compatibilité de cette version; les protections ajoutées ensuite ne sont pas présentes dans cette APK de diagnostic. L'échelle d'affichage de V18 peut donc rester petite. L'application Preview reste distincte de SpotiDuck et utilise ses propres données.
+Le nom de version repart à test.1, mais le `versionCode` Android est volontairement supérieur à celui de l'ancienne test.27. La Preview V1 peut ainsi mettre à jour la Preview déjà installée, sans toucher à l'application normale.
 
-La pré-release apparaîtra sur GitHub dans **Releases**. Télécharge l'APK depuis cette page et installe-la sur Android. Elle apparaîtra sous le nom **Melodix Preview** et ne remplacera pas l'application normale.
+La V1 reprend volontairement le comportement du projet V18; les protections ajoutées dans les versions ultérieures ne sont pas incluses. L'affichage peut conserver les dimensions de cette ancienne version. La Preview reste une application séparée avec des données distinctes.
 
-Le workflow adapte dans sa copie temporaire l'empreinte de signature intégrée à l'application pour qu'elle corresponde à la clé Preview, puis augmente le `versionCode` afin que cette nouvelle Preview puisse mettre à jour la version précédente déjà installée. Le projet source et la signature de l'application normale restent inchangés.
+La release apparaît sur GitHub dans **Releases**. Télécharge l'APK et installe-la sur Android. Elle apparaît sous le nom **Melodix Preview** et ne remplace pas l'application normale.
+
+Le workflow adapte uniquement sa copie temporaire du projet à la signature Preview et au `versionCode`. Le projet source et la signature de l'application normale restent inchangés. Pour créer une version suivante, choisis un nouveau tag test et un commit source adapté; garde la même clé et laisse le `versionCode` augmenter.
 
 ## Si le workflow échoue
 

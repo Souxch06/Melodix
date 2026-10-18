@@ -2,31 +2,34 @@
 
 <p align="center"><img src="android/branding/melodix-icon-master.png" alt="Icône Melodix — onde musicale en forme de M" width="176"></p>
 
-Application Android personnalisée à partir d'un APK. Le dépôt est organisé pour parcourir l'archive d'origine, l'extraction brute des APK et le projet décompilé qui sert aux modifications.
+Application Android personnalisée à partir d'un APK. Le dépôt contient l'archive originale, son extraction et le projet Apktool décompilé qui sert aux modifications.
 
-## Installer une version
+## Version de test conservée
 
-Les versions publiées se trouvent dans [GitHub Releases](https://github.com/Souxch06/Melodix/releases). Sur Android, ouvre une release, télécharge l'APK puis touche le fichier téléchargé pour l'installer. Les tests.5 à .7 gardent la même signature pour permettre les mises à jour sans désinstallation.
+La release Preview conservée est la **V1**, reconstruite à partir du code de la test.18 (`v1.2.2-test.18-preview`, commit `81ef774fcb2208d4c4e999943411040aa1bfa33f`). Son tag est `v1.2.2-test.1-preview`. Les anciennes releases de test et leurs tags ont été retirés; l'historique des commits du dépôt reste intact.
+
+La V1 est une application d'essai séparée, d'identifiant `com.melodix.music.preview`. Elle s'installe à côté de l'application normale `com.melodix.music`, avec des données séparées. Son `versionCode` Android reste supérieur à celui de l'ancienne Preview test.27 afin de permettre une mise à jour sans désinstaller la Preview déjà installée. Cette version reprend volontairement le comportement V18; les protections ajoutées dans les versions ultérieures n'y sont pas incluses.
+
+Les versions publiées se trouvent dans [GitHub Releases](https://github.com/Souxch06/Melodix/releases). Sur Android, ouvre la release V1, télécharge l'APK puis touche le fichier téléchargé pour l'installer.
 
 ## Arborescence
 
 - `source/SpotiDuck-v1.2.2-3d2c473.zip` : archive originale, **inchangée**.
 - `source/SpotiDuck-v1.2.2-3d2c473/` : contenu extrait de cette archive.
-- À la racine (`AndroidManifest.xml`, `apktool.yml`, `assets/`, `smali/`, `res/`, `lib/`, `kotlin/`, `META-INF/`, `original/`, `unknown/`) : projet Apktool décompilé complet et modifiable. Les ressources, assets et sources Smali sont directement visibles à la racine, dans l'organisation de Melodix version 1.
-- `android/apk-extracted/` : extraction brute de l'APK test.7, avec `classes.dex`, `resources.arsc`, les ressources, assets et bibliothèques.
-- `android/branding/melodix-icon-master.png` : image maître de la nouvelle icône de l'application.
+- À la racine (`AndroidManifest.xml`, `apktool.yml`, `assets/`, `smali/`, `res/`, `lib/`, `kotlin/`, `META-INF/`, `original/`, `unknown/`) : projet Apktool décompilé et modifiable, remis à la base V18.
+- `android/apk-extracted/` : extraction brute historique de l'APK d'origine.
+- `android/branding/melodix-icon-master.png` : image maître de la nouvelle icône.
 - `android/apktool-framework/1.apk` : framework requis par Apktool pour reconstruire les ressources.
-- `releases/apk/` : APK signés des tests.3 à .7 et leurs fichiers SHA-256. Les tests.3 et .4 sont conservés comme historique; ils sont remplacés par les tests plus récents.
 
-La page GitHub Releases ne conserve que la test.7; les pages et tags test.1 à test.6 ont été retirés. Leurs APK pertinents restent dans `releases/apk/` pour l'historique. Les APK publiés et l'extraction brute sont des instantanés des tests précédents : la nouvelle icône est intégrée au projet Apktool pour la prochaine compilation. Le projet Apktool est **décompilé** depuis un APK; ce n'est pas le projet Kotlin/Java/Gradle original, qui n'était pas fourni dans l'archive.
+Les APK archivés des anciennes versions ont été retirés du répertoire `releases/apk/`. Le projet Apktool est **décompilé** depuis un APK; ce n'est pas le projet Kotlin/Java/Gradle original, qui n'était pas fourni dans l'archive.
 
 ## Releases depuis GitHub
 
 Les workflows de publication sont disponibles dans l'onglet **Actions**.
 
-- `Build APK and attach to GitHub Release` sert aux versions normales du package `com.melodix.music`. Une mise à jour doit être signée avec la même clé que les APK test.5 à test.7; sans cette clé, Android ne l'acceptera pas comme mise à jour.
-- `Build Melodix Preview APK` construit une application d'essai séparée, avec l'identifiant `com.melodix.music.preview`. Elle s'installe à côté de l'application normale, sans la désinstaller, mais possède des données séparées et ne la remplace pas. Elle utilise une nouvelle clé de prévisualisation.
+- `Build APK and attach to GitHub Release` sert aux versions normales du package `com.melodix.music`; elle nécessite la clé de signature de l'application normale.
+- `Build Melodix Preview APK` construit l'application d'essai séparée `com.melodix.music.preview`, signée avec la clé Preview.
 
-Pour la prévisualisation, ajoute les secrets Actions `MELODIX_PREVIEW_KEYSTORE_B64` et `MELODIX_PREVIEW_KEYSTORE_PASSWORD` (et `MELODIX_PREVIEW_KEY_PASSWORD` uniquement si le mot de passe de la clé est différent). Le workflow reste lançable depuis **Actions → Build Melodix Preview APK → Run workflow** : choisis la branche à tester; le tag par défaut est `v1.2.2-test.27-preview`, le `versionCode` est supérieur à la test.26, et l'APK peut mettre à jour la Preview installée. Le tag de release est lié au commit sélectionné. Pour cette branche, seul un push explicitement marqué `[preview-release]` déclenche la publication automatiquement; les autres pushes ne lancent pas de build Preview. Le workflow crée la pré-release GitHub et y ajoute l'APK et son checksum.
+Pour reconstruire la V1, ajoute les secrets Actions `MELODIX_PREVIEW_KEYSTORE_B64` et `MELODIX_PREVIEW_KEYSTORE_PASSWORD` (et `MELODIX_PREVIEW_KEY_PASSWORD` uniquement si le mot de passe de la clé est différent), puis lance **Actions → Build Melodix Preview APK → Run workflow** sur la branche de travail. Le tag par défaut est `v1.2.2-test.1-preview`; le commit source par défaut est le commit V18 `81ef774fcb2208d4c4e999943411040aa1bfa33f`. Le workflow ajuste le `versionCode` Android pour permettre la mise à jour de la Preview précédente.
 
-Le guide détaillé de création de la clé et de publication est dans [`docs/preview-apk.md`](docs/preview-apk.md). **Ne mets jamais un fichier de signature ni ses mots de passe dans le dépôt.**
+Le guide détaillé est dans [`docs/preview-apk.md`](docs/preview-apk.md). **Ne mets jamais un fichier de signature ni ses mots de passe dans le dépôt.**
