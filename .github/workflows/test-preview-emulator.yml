@@ -46,9 +46,16 @@ jobs:
             -no-boot-anim \
             -no-snapshot \
             -gpu swiftshader_indirect \
+            -accel off \
             > "$RUNNER_TEMP/melodix-emulator.log" 2>&1 &
+          emulator_pid=$!
           adb start-server
-          timeout 180 adb wait-for-device
+          if ! timeout 300 adb wait-for-device; then
+            echo "::error::No Android emulator device appeared."
+            ps -p "$emulator_pid" -o pid=,stat=,args= || true
+            tail -n 100 "$RUNNER_TEMP/melodix-emulator.log"
+            exit 1
+          fi
           booted=0
           for _ in $(seq 1 60); do
             if [[ "$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" == "1" ]]; then
@@ -126,6 +133,11 @@ jobs:
               f"webview_codes={','.join(codes) if codes else 'none'}, "
               f"spotify_text_visible={str(state['spotify_text_visible']).lower()}"
           )
+          print(
+              f"::notice title={label}::network_error={str(state['network_error']).lower()}; "
+              f"webview_codes={','.join(codes) if codes else 'none'}; "
+              f"spotify_text_visible={str(state['spotify_text_visible']).lower()}"
+          )
           PY
           }
 
@@ -140,6 +152,7 @@ jobs:
 
           python3 - "$state_dir" <<'PY'
           import json
+          import os
           import pathlib
           import sys
 
@@ -148,6 +161,24 @@ jobs:
               name: json.loads((state_dir / f"{name}.json").read_text(encoding="utf-8"))
               for name in ("v21", "v22_first_launch", "v22_second_launch")
           }
+          summary = [
+              "## Android 16 emulator smoke test",
+              "| Install state | Native network error | WebView code | Spotify/login text visible |",
+              "| --- | --- | --- | --- |",
+          ]
+          for name, state in states.items():
+              summary.append(
+                  f"| {name} | {str(state['network_error']).lower()} | "
+                  f"{', '.join(state['webview_codes']) or 'none'} | "
+                  f"{str(state['spotify_text_visible']).lower()} |"
+              )
+              print(
+                  f"::notice title={name}::network_error={str(state['network_error']).lower()}; "
+                  f"webview_codes={', '.join(state['webview_codes']) or 'none'}; "
+                  f"spotify_text_visible={str(state['spotify_text_visible']).lower()}"
+              )
+          with open(os.environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8") as output:
+              output.write("\n".join(summary) + "\n")
           if states["v22_first_launch"]["network_error"] and states["v22_second_launch"]["network_error"]:
               raise SystemExit("V22 still showed the native Network Error overlay on both launches.")
           print("Emulator smoke test completed; no account was signed in and no page URLs or WebView data were collected.")
