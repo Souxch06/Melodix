@@ -2930,3 +2930,233 @@ body.sf-tv-nav input:focus-visible {
         --melodix-compact-art: min(64vw, 31dvh, 230px);
     }
 }
+
+/* =========================================================================
+   SECTION 15: SPOTIFY-INSPIRED MOBILE HOME, LIBRARY AND PLAYER SHELL
+   Keep Melodix branding and green accents while using the compact hierarchy,
+   dark surfaces, quick-access tiles, horizontal shelves and flat bottom tabs
+   familiar from the Spotify mobile app. Existing Spotify controls stay live.
+   ========================================================================= */
+@media screen {
+    body.sf-mobile-shell {
+        background: #121212 !important;
+        color: #f7f7f7 !important;
+    }
+
+    body.sf-mobile-shell #global-nav-bar {
+        background: #121212 !important;
+        border: 0 !important;
+        box-shadow: none !important;
+        -webkit-backdrop-filter: none !important;
+        backdrop-filter: none !important;
+    }
+
+    body.sf-mobile-shell #global-nav-bar button[data-testid="user-widget-link"] {
+        width: 34px !important;
+        height: 34px !important;
+        min-width: 34px !important;
+        min-height: 34px !important;
+        border: 0 !important;
+        background: #282828 !important;
+    }
+
+    body.sf-mobile-shell #main-view {
+        background: #121212 !important;
+        padding-top: 4px !important;
+    }
+
+    body.sf-mobile-shell #main-view .contentSpacing {
+        padding: 8px 12px 20px !important;
+    }
+
+    body.sf-mobile-shell #main-view h1 {
+        color: #fff !important;
+        font-size: clamp(24px, 6.2vw, 29px) !important;
+        font-weight: 750 !important;
+        letter-spacing: -0.035em !important;
+    }
+
+    body.sf-mobile-shell #main-view h2 {
+        margin: 20px 0 12px !important;
+        color: #fff !important;
+        font-size: clamp(18px, 5vw, 22px) !important;
+        font-weight: 700 !important;
+        letter-spacing: -0.02em !important;
+    }
+
+    /* Spotify-style two-column quick-access cards for short home grids. */
+    body.sf-mobile-shell #main-view [data-testid="grid-container"]:not(:has(> [data-testid="card"]:nth-child(7))) {
+        display: grid !important;
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+        gap: 8px !important;
+        padding: 0 0 6px !important;
+    }
+
+    body.sf-mobile-shell #main-view [data-testid="grid-container"]:not(:has(> [data-testid="card"]:nth-child(7))) > [data-testid="card"] {
+        display: flex !important;
+        flex-direction: row !important;
+        align-items: center !important;
+        min-width: 0 !important;
+        min-height: 58px !important;
+        overflow: hidden !important;
+        padding: 0 !important;
+        border: 0 !important;
+        border-radius: 5px !important;
+        background: #292929 !important;
+        box-shadow: none !important;
+    }
+
+    body.sf-mobile-shell #main-view [data-testid="grid-container"]:not(:has(> [data-testid="card"]:nth-child(7))) [data-testid="card-image"] {
+        flex: 0 0 58px !important;
+        width: 58px !important;
+        height: 58px !important;
+        overflow: hidden !important;
+        border-radius: 4px !important;
+    }
+
+    body.sf-mobile-shell #main-view [data-testid="grid-container"]:not(:has(> [data-testid="card"]:nth-child(7))) [data-testid="card-image"] img,
+    body.sf-mobile-shell #main-view [data-testid="grid-container"]:not(:has(> [data-testid="card"]:nth-child(7))) [data-testid="card"] > img {
+        display: block !important;
+        width: 58px !important;
+        height: 58px !important;
+        border-radius: 4px !important;
+        object-fit: cover !important;
+    }
+
+    body.sf-mobile-shell #main-view [data-testid="grid-container"]:not(:has(> [data-testid="card"]:nth-child(7))) [data-testid="card"] [data-encore-id="text"] {
+        display: -webkit-box !important;
+        min-width: 0 !important;
+        max-height: 2.5em !important;
+        margin: 0 !important;
+        padding: 0 9px !important;
+        overflow: hidden !important;
+        color: #fff !important;
+        font-size: 12px !important;
+        line-height: 1.2 !important;
+        font-weight: 650 !important;
+        -webkit-box-orient: vertical !important;
+        -webkit-line-clamp: 2 !important;
+    }
+
+    /* Larger home shelves become horizontal, touch-scrollable cover carousels. */
+    body.sf-mobile-shell #main-view [data-testid="grid-container"]:has(> [data-testid="card"]:nth-child(7)) {
+        display: flex !important;
+        gap: 12px !important;
+        overflow-x: auto !important;
+        overflow-y: hidden !important;
+        padding: 0 12px 8px 0 !important;
+        scroll-snap-type: x mandatory !important;
+        scrollbar-width: none !important;
+        -webkit-overflow-scrolling: touch !important;
+    }
+
+    body.sf-mobile-shell #main-view [data-testid="grid-container"]:has(> [data-testid="card"]:nth-child(7))::-webkit-scrollbar {
+        display: none !important;
+    }
+
+    body.sf-mobile-shell #main-view [data-testid="grid-container"]:has(> [data-testid="card"]:nth-child(7)) > [data-testid="card"] {
+        display: flex !important;
+        flex: 0 0 min(42vw, 156px) !important;
+        flex-direction: column !important;
+        min-width: 0 !important;
+        padding: 0 0 4px !important;
+        overflow: hidden !important;
+        border: 0 !important;
+        border-radius: 9px !important;
+        background: transparent !important;
+        box-shadow: none !important;
+        scroll-snap-align: start !important;
+    }
+
+    body.sf-mobile-shell #main-view [data-testid="grid-container"]:has(> [data-testid="card"]:nth-child(7)) [data-testid="card-image"],
+    body.sf-mobile-shell #main-view [data-testid="grid-container"]:has(> [data-testid="card"]:nth-child(7)) [data-testid="card-image"] img,
+    body.sf-mobile-shell #main-view [data-testid="grid-container"]:has(> [data-testid="card"]:nth-child(7)) [data-testid="card"] > img {
+        display: block !important;
+        width: 100% !important;
+        height: auto !important;
+        aspect-ratio: 1 / 1 !important;
+        border-radius: 9px !important;
+        object-fit: cover !important;
+    }
+
+    body.sf-mobile-shell #main-view [data-testid="grid-container"]:has(> [data-testid="card"]:nth-child(7)) [data-testid="card"] [data-encore-id="text"] {
+        display: -webkit-box !important;
+        max-height: 2.5em !important;
+        margin-top: 8px !important;
+        overflow: hidden !important;
+        color: #f5f5f5 !important;
+        font-size: 12px !important;
+        line-height: 1.25 !important;
+        -webkit-box-orient: vertical !important;
+        -webkit-line-clamp: 2 !important;
+    }
+
+    /* Familiar compact filter pills, retaining Melodix green as the accent. */
+    body.sf-mobile-shell #main-view button[data-testid*="filter"],
+    body.sf-mobile-shell #main-view [data-testid*="chip"] button {
+        min-height: 32px !important;
+        padding: 0 12px !important;
+        border: 0 !important;
+        border-radius: 999px !important;
+        background: #242424 !important;
+        color: #f5f5f5 !important;
+        font-size: 12px !important;
+        font-weight: 600 !important;
+    }
+
+    body.sf-mobile-shell #main-view button[data-testid*="filter"][aria-pressed="true"],
+    body.sf-mobile-shell #main-view button[data-testid*="filter"][aria-selected="true"] {
+        background: #1ed760 !important;
+        color: #07110a !important;
+    }
+
+    /* Flat Spotify-like navigation rail, with the mini-player just above it. */
+    body.sf-mobile-shell #sf-mobile-navigation {
+        left: 0 !important;
+        right: 0 !important;
+        bottom: 0 !important;
+        height: calc(62px + env(safe-area-inset-bottom, 0px)) !important;
+        padding: 5px 14px calc(5px + env(safe-area-inset-bottom, 0px)) !important;
+        border: 0 !important;
+        border-top: 1px solid rgba(255, 255, 255, 0.06) !important;
+        border-radius: 0 !important;
+        background: #121212 !important;
+        box-shadow: none !important;
+        -webkit-backdrop-filter: none !important;
+        backdrop-filter: none !important;
+    }
+
+    body.sf-mobile-shell #sf-mobile-navigation .sf-mobile-tab {
+        min-height: 48px !important;
+        border-radius: 8px !important;
+        color: #b3b3b3 !important;
+        font-size: 10px !important;
+        font-weight: 500 !important;
+    }
+
+    body.sf-mobile-shell #sf-mobile-navigation .sf-mobile-tab[aria-current="page"] {
+        background: transparent !important;
+        color: #1ed760 !important;
+        font-weight: 650 !important;
+    }
+
+    body.sf-mobile-shell:not(.sf-expanded):not(.sf-guest) aside[data-testid="now-playing-bar"] {
+        bottom: calc(62px + env(safe-area-inset-bottom, 0px) + 7px) !important;
+    }
+
+    body.sf-mobile-shell:not(.sf-expanded) aside[data-testid="now-playing-bar"] {
+        left: 6px !important;
+        right: 6px !important;
+        width: auto !important;
+        height: 56px !important;
+        min-height: 56px !important;
+        max-height: 56px !important;
+        padding: 4px 8px !important;
+        border: 0 !important;
+        border-radius: 7px !important;
+        background: #282828 !important;
+        box-shadow: none !important;
+        -webkit-backdrop-filter: none !important;
+        backdrop-filter: none !important;
+    }
+}
