@@ -1464,7 +1464,33 @@ body.sf-tv-nav input:focus-visible {
     }
 
     #Desktop_LeftSidebar_Id .YourLibraryX header {
-        padding: 14px 16px !important;
+        position: relative !important;
+        min-height: 56px !important;
+        padding: 14px 16px 14px 58px !important;
+    }
+
+    #Desktop_LeftSidebar_Id .sf-mobile-library-close {
+        display: none !important;
+        position: absolute !important;
+        left: 12px !important;
+        top: 50% !important;
+        width: 40px !important;
+        height: 40px !important;
+        min-width: 40px !important;
+        min-height: 40px !important;
+        align-items: center !important;
+        justify-content: center !important;
+        transform: translateY(-50%) !important;
+        color: #f5f7f5 !important;
+        background: rgba(255, 255, 255, 0.08) !important;
+        border: 1px solid rgba(255, 255, 255, 0.1) !important;
+        border-radius: 50% !important;
+        font: 400 28px/1 system-ui, sans-serif !important;
+        z-index: 2 !important;
+    }
+
+    body.sf-library-open #Desktop_LeftSidebar_Id .sf-mobile-library-close {
+        display: flex !important;
     }
 
     #main-view a:focus-visible,

@@ -15,6 +15,7 @@ test('phone layout adds a safe-area-aware bottom dock and compact player', () =>
     assert.match(css, /#sf-mobile-nav \.sf-mobile-nav__item\[aria-current="page"\]/);
     assert.match(css, /aside\[data-testid="now-playing-bar"\]\s*\{[\s\S]*?height: 68px/);
     assert.match(css, /body\.sf-library-open #Desktop_LeftSidebar_Id/);
+    assert.match(css, /\.sf-mobile-library-close/);
     assert.match(css, /scroll-padding-bottom: calc\(160px \+ env\(safe-area-inset-bottom\)\)/);
 });
 
@@ -28,7 +29,22 @@ test('mobile dock reuses Spotify home, search, and library controls', () => {
     assert.match(bridge, /button\[data-testid="home-button"\]/);
     assert.match(bridge, /url\.pathname === '\/search'/);
     assert.match(bridge, /function mobileLibraryButton\(\)/);
-    assert.match(bridge, /document\.body\.classList\.add\('sf-library-open'\)/);
-    assert.match(bridge, /document\.body\.classList\.remove\('sf-library-open'\)/);
+    assert.match(bridge, /classList\.toggle\('sf-library-open', shouldOpen\)/);
     assert.match(bridge, /installMobileNavigation\(\);/);
+});
+
+test('mobile shell initializes before playback and library state can be forced open or closed', () => {
+    const bridge = read('assets/spotify_bridge.js');
+
+    assert.match(bridge, /function initializeMobileShell\(\)/);
+    assert.match(bridge, /document\.addEventListener\('DOMContentLoaded', start/);
+    assert.match(bridge, /window\.addCSSJSHack\(\)/);
+    assert.match(bridge, /const shouldOpen = typeof forceOpen === 'boolean' \? forceOpen : !mobileLibraryOpen/);
+    assert.match(bridge, /function setMobileLibraryOpen\(shouldOpen\)/);
+    assert.match(bridge, /setMobileLibraryOpen\(shouldOpen\)/);
+    assert.match(bridge, /classList\.toggle\('sf-library-open', shouldOpen\)/);
+    assert.match(bridge, /switchLs\(document\.body\.classList\.contains\('sf-library-open'\)\)/);
+    assert.match(bridge, /ensureMobileLibraryCloseButton\(ls\)/);
+    assert.match(bridge, /fr: 'Fermer la bibliothèque'/);
+    assert.match(bridge, /closeButton\.setAttribute\('aria-label', closeLabels\[locale\] \|\| 'Close library'\)/);
 });

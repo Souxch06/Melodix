@@ -89,19 +89,18 @@ test('unknown state after previously signed-out UI still reaches the unconfirmed
     assert.doesNotMatch(bridge, /machine\.getConfirmedState\(\) === runtime\.AUTH_STATE\.SIGNED_OUT/);
 });
 
-test('V18-style Spotify UI is restored while the mobile viewport fix and current auth flow stay enabled', () => {
+test('mobile home shell installs at startup and keeps native drawer state explicit', () => {
     const bridge = read('assets/spotify_bridge.js');
     const css = read('assets/css_hacks.css');
 
-    assert.match(bridge, /window\.switchLs = function\(\)/);
-    assert.match(bridge, /switchLs\(\);/);
-    assert.doesNotMatch(bridge, /installMobileNavigation|sf-mobile-navigation|mobileRuntimeStyles|switchLs\(false\)/);
-    assert.match(bridge, /window\.__sfApplyDeviceViewport/);
-    assert.match(bridge, /window\.__sfMarkLoggedOut/);
-    assert.match(bridge, /window\.__sfMarkLoggedIn/);
-    assert.doesNotMatch(css, /sf-mobile-shell|sf-mobile-navigation/);
-    assert.match(css, /body:has\(input\[type="password"\]\)/);
-    assert.match(css, /#sf-auth-status\s*\{[^}]*position:\s*relative/);
+    assert.match(bridge, /window\.switchLs = function\(forceOpen\)/);
+    assert.match(bridge, /setTimeout\(\(\) => switchLs\(\), 0\)/);
+    assert.match(bridge, /installMobileNavigation/);
+    assert.match(bridge, /switchLs\(document\.body\.classList\.contains\('sf-library-open'\)\);/);
+    assert.match(bridge, /function initializeMobileShell\(\)/);
+    assert.match(bridge, /document\.addEventListener\('DOMContentLoaded', start/);
+    assert.match(css, /@media screen and \(max-width: 640px\) and \(orientation: portrait\)/);
+    assert.match(css, /#sf-mobile-nav/);
 });
 
 test('unknown-session notice is in document flow, not over primary UI', () => {

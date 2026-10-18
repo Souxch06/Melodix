@@ -21,6 +21,7 @@
     let tagint = null;
     let fsUpdateTimer = null;
     let fsScrubbing = false;
+    let mobileLibraryOpen = false;
 
     try {
         window.spotAuthToken = window.spotAuthToken || localStorage.getItem('spot_auth_token') || null;
@@ -2020,6 +2021,10 @@
                 button.removeAttribute('aria-current');
             }
         });
+        const libraryTab = nav.querySelector('[data-sf-mobile-action="library"]');
+        if (libraryTab) {
+            libraryTab.setAttribute('aria-expanded', String(document.body.classList.contains('sf-library-open')));
+        }
     }
 
     function mobileLibraryButton() {
@@ -2028,14 +2033,52 @@
                document.querySelector('#Desktop_LeftSidebar_Id button[aria-label*="Library" i]');
     }
 
+    function setMobileLibraryOpen(shouldOpen) {
+        const isOpen = !!document.body?.classList.contains('sf-library-open');
+        if (isOpen === shouldOpen) {
+            if (typeof window.switchLs === 'function') window.switchLs(shouldOpen);
+            return;
+        }
+
+        const library = mobileLibraryButton();
+        if (library) {
+            library.click();
+            window.setTimeout(() => {
+                if (typeof window.switchLs === 'function') window.switchLs(shouldOpen);
+            }, 0);
+        } else if (typeof window.switchLs === 'function') {
+            window.switchLs(shouldOpen);
+        }
+    }
+
+    function ensureMobileLibraryCloseButton(sidebar) {
+        const header = sidebar.querySelector('.YourLibraryX header') || sidebar.querySelector('header');
+        if (!header || header.querySelector('.sf-mobile-library-close')) return;
+
+        const closeButton = document.createElement('button');
+        closeButton.type = 'button';
+        closeButton.className = 'sf-mobile-library-close';
+        const locale = (document.documentElement.lang || navigator.language || 'en').toLowerCase().split('-')[0];
+        const closeLabels = {
+            fr: 'Fermer la bibliothèque',
+            es: 'Cerrar la biblioteca',
+            de: 'Bibliothek schließen',
+            it: 'Chiudi la libreria',
+            pt: 'Fechar biblioteca'
+        };
+        closeButton.setAttribute('aria-label', closeLabels[locale] || 'Close library');
+        closeButton.textContent = '×';
+        closeButton.addEventListener('click', (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            setMobileLibraryOpen(false);
+        });
+        header.appendChild(closeButton);
+    }
+
     function closeMobileLibrary() {
         if (!document.body?.classList.contains('sf-library-open')) return;
-        const button = mobileLibraryButton();
-        if (button) {
-            button.click();
-        } else if (typeof window.switchLs === 'function') {
-            window.switchLs();
-        }
+        setMobileLibraryOpen(false);
     }
 
     function installMobileNavigation() {
@@ -2053,6 +2096,14 @@
                 pt: ['Início', 'Buscar', 'Biblioteca']
             };
             const defaults = fallbacks[locale] || fallbacks.en;
+            const navigationLabels = {
+                fr: 'Navigation principale',
+                en: 'Main navigation',
+                es: 'Navegación principal',
+                de: 'Hauptnavigation',
+                it: 'Navigazione principale',
+                pt: 'Navegação principal'
+            };
             const readLabel = (element, fallback) => {
                 const value = element && (
                     element.getAttribute('aria-label') ||
@@ -2068,7 +2119,7 @@
             nav = document.createElement('nav');
             nav.id = 'sf-mobile-nav';
             nav.className = 'sf-mobile-nav';
-            nav.setAttribute('aria-label', 'Main navigation');
+            nav.setAttribute('aria-label', navigationLabels[locale] || navigationLabels.en);
             nav.style.display = 'none';
             nav.innerHTML = `
                 <button class="sf-mobile-nav__item" type="button" data-sf-mobile-action="home">
@@ -2130,9 +2181,8 @@
                 }
 
                 if (action === 'library') {
-                    const library = mobileLibraryButton();
-                    if (library) library.click();
-                    else if (typeof window.switchLs === 'function') window.switchLs();
+                    const shouldOpen = !document.body.classList.contains('sf-library-open');
+                    setMobileLibraryOpen(shouldOpen);
                     setTimeout(syncMobileNavigation, 80);
                     setTimeout(syncMobileNavigation, 260);
                 }
@@ -2266,7 +2316,7 @@
                         lb.addEventListener('click', function() {
                             setTimeout(() => switchLs(), 0);
                         });
-                        switchLs();
+                        switchLs(document.body.classList.contains('sf-library-open'));
                         AndBridge.cssInjected();
                     }
 
@@ -2393,14 +2443,17 @@
             }, 3000);
 
             // Library sidebar toggler helper
-            window.switchLs = function() {
-                let ls = document.querySelector('#Desktop_LeftSidebar_Id');
+            window.switchLs = function(forceOpen) {
+                const ls = document.querySelector('#Desktop_LeftSidebar_Id');
+                const shouldOpen = typeof forceOpen === 'boolean' ? forceOpen : !mobileLibraryOpen;
+                mobileLibraryOpen = shouldOpen;
+
+                if (document.body) {
+                    document.body.classList.toggle('sf-library-open', shouldOpen);
+                }
+
                 if (ls) {
-                    let navDiv = ls.querySelector('nav>div>div:first-child');
-                    if (!navDiv) return;
-                    let exp = navDiv.classList.length;
-                    if (exp == 2) {
-                        document.body.classList.add('sf-library-open');
+                    if (shouldOpen) {
                         ls.style.setProperty('position', 'fixed', 'important');
                         ls.style.setProperty('width', '100%', 'important');
                         ls.style.setProperty('height', 'calc(100vh - 48px - var(--sf-safe-area-top, env(safe-area-inset-top)))', 'important');
@@ -2408,11 +2461,9 @@
                         ls.style.setProperty('bottom', '0px', 'important');
                         ls.style.setProperty('left', '0px', 'important');
                         ls.style.setProperty('overflow-y', 'auto', 'important');
-                        ls.style.setProperty('z-index', 'calc(var(--above-everything-grid-area-z-index) + 5)', 'important');
-                        let lh = ls.querySelector('header>div>div:first-child h1');
-                        if (lh) lh.innerHTML = '✖ &nbsp; ' + (window.SF_CONFIG?.closeLibText || "Library");
+                        ls.style.setProperty('z-index', '10020', 'important');
+                        ensureMobileLibraryCloseButton(ls);
                     } else {
-                        document.body.classList.remove('sf-library-open');
                         ls.style.setProperty('z-index', '1', 'important');
                         ls.style.setProperty('position', 'fixed', 'important');
                         ls.style.setProperty('top', 'var(--sf-safe-area-top, env(safe-area-inset-top))', 'important');
@@ -2422,8 +2473,8 @@
                         ls.style.removeProperty('bottom');
                         ls.style.removeProperty('overflow-y');
                     }
-                    syncMobileNavigation();
                 }
+                syncMobileNavigation();
             };
         }
     };
@@ -3134,5 +3185,19 @@
     }
     window.searchMediaItems = searchMediaItems;
 
+    function initializeMobileShell() {
+        const start = () => {
+            if (window.SF_CONFIG?.guiMode === 'csshack' && typeof window.addCSSJSHack === 'function') {
+                window.addCSSJSHack();
+            }
+        };
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', start, { once: true });
+        } else {
+            window.setTimeout(start, 0);
+        }
+    }
+
+    initializeMobileShell();
     firstFuck();
 })();
