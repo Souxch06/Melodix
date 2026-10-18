@@ -1529,7 +1529,7 @@
 
     .line 744
     .line 745
-    const-string v0, "No saved profiles to manage."
+    const-string v0, "Saved session profiles are disabled. Use Spotify's official sign-in."
 
     .line 746
     .line 747
@@ -3352,7 +3352,7 @@
 
     .line 1693
     .line 1694
-    const-string v5, "Switch Account Profile"
+    const-string v5, "Session Switching Disabled"
 
     .line 1695
     .line 1696
@@ -3629,7 +3629,7 @@
 
     .line 1837
     .line 1838
-    const-string v10, "Save Current Account"
+    const-string v10, "Session Profiles Disabled"
 
     .line 1839
     .line 1840
@@ -3637,7 +3637,7 @@
 
     .line 1841
     .line 1842
-    const-string v10, "Save active Spotify session as a quick-switch profile:"
+    const-string v10, "Session import/export is disabled. Use Spotify's official sign-in."
 
     .line 1843
     .line 1844

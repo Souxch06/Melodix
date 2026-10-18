@@ -1021,10 +1021,12 @@
     .line 3
     .line 4
     const/4 v0, 0x1
+    const/4 v1, 0x0
 
     .line 5
     :try_start_0
-    invoke-static {v0}, Landroid/webkit/WebView;->setWebContentsDebuggingEnabled(Z)V
+    # Remote WebView debugging can expose Spotify's authenticated page; keep it off.
+    invoke-static {v1}, Landroid/webkit/WebView;->setWebContentsDebuggingEnabled(Z)V
     :try_end_0
     .catchall {:try_start_0 .. :try_end_0} :catchall_0
 
@@ -1092,68 +1094,7 @@
     .line 35
     .line 36
     :catch_0
-    :try_start_3
-    const-string v1, "DOCUMENT_START_SCRIPT"
-
-    .line 37
-    .line 38
-    invoke-static {v1}, Ljj1;->b(Ljava/lang/String;)Z
-
-    .line 39
-    .line 40
-    .line 41
-    move-result v1
-    :try_end_3
-    .catchall {:try_start_3 .. :try_end_3} :catchall_1
-
-    .line 42
-    if-eqz v1, :cond_0
-
-    .line 43
-    .line 44
-    :try_start_4
-    sget v1, Lcom/melodix/music/AppSingleton;->j:I
-
-    .line 45
-    .line 46
-    const-string v1, "desktop_spoof.js"
-
-    .line 47
-    .line 48
-    invoke-static {v1}, Lm9;->d(Ljava/lang/String;)Ljava/lang/String;
-
-    .line 49
-    .line 50
-    .line 51
-    move-result-object v1
-
-    .line 52
-    const-string v2, "*"
-
-    .line 53
-    .line 54
-    invoke-static {v2}, Ljava/util/Collections;->singleton(Ljava/lang/Object;)Ljava/util/Set;
-
-    .line 55
-    .line 56
-    .line 57
-    move-result-object v2
-
-    .line 58
-    invoke-virtual {v2}, Ljava/lang/Object;->getClass()Ljava/lang/Class;
-
-    .line 59
-    .line 60
-    .line 61
-    invoke-static {p0, v1, v2}, Lgj1;->a(Ll9;Ljava/lang/String;Ljava/util/Set;)V
-    :try_end_4
-    .catch Ljava/lang/Exception; {:try_start_4 .. :try_end_4} :catch_1
-    .catchall {:try_start_4 .. :try_end_4} :catchall_1
-
-    .line 62
-    .line 63
-    .line 64
-    :catch_1
+    # Document-start browser spoofing has been removed.
     :cond_0
     const/4 v1, 0x2
 
@@ -1254,11 +1195,7 @@
     move-result-object v2
 
     .line 116
-    const-string v3, "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36"
-
-    .line 117
-    .line 118
-    invoke-virtual {v2, v3}, Landroid/webkit/WebSettings;->setUserAgentString(Ljava/lang/String;)V
+    # Retain the platform WebView user agent for official Spotify sign-in.
 
     .line 119
     .line 120
@@ -1317,17 +1254,20 @@
     .line 140
     .line 141
     .line 142
-    invoke-virtual {v2, v1}, Landroid/webkit/WebSettings;->setMixedContentMode(I)V
+    # Use WebSettings.MIXED_CONTENT_NEVER_ALLOW for the HTTPS Spotify sign-in flow.
+    const/4 v3, 0x1
+    invoke-virtual {v2, v3}, Landroid/webkit/WebSettings;->setMixedContentMode(I)V
 
     .line 143
     .line 144
     .line 145
-    invoke-virtual {v2, v0}, Landroid/webkit/WebSettings;->setAllowFileAccess(Z)V
+    const/4 v1, 0x0
+    invoke-virtual {v2, v1}, Landroid/webkit/WebSettings;->setAllowFileAccess(Z)V
 
     .line 146
     .line 147
     .line 148
-    invoke-virtual {v2, v0}, Landroid/webkit/WebSettings;->setAllowContentAccess(Z)V
+    invoke-virtual {v2, v1}, Landroid/webkit/WebSettings;->setAllowContentAccess(Z)V
 
     .line 149
     .line 150

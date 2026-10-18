@@ -45,12 +45,12 @@ Cette commande copie le texte encodé dans le presse-papiers sans l'afficher. Co
 1. Sur GitHub, ouvre le dépôt puis l'onglet **Actions**.
 2. Sélectionne **Build Melodix Preview APK**.
 3. Dans la liste des branches, sélectionne la branche qui contient les modifications à tester. Le workflow compile cette branche sans qu'il soit nécessaire de la fusionner dans `main`.
-4. Laisse le tag par défaut `v1.2.2-test.9-preview`, puis clique **Run workflow**. Ce nouveau tag crée une version Preview distincte de la test.8, conserve l'historique et incrémente le `versionCode` pour mettre à jour l'application Preview installée.
+4. Laisse le tag par défaut `v1.2.2-test.20-preview`, puis clique **Run workflow**. Ce nouveau tag crée une pré-release distincte de la test.19, conserve l'historique et incrémente le `versionCode` pour mettre à jour la Preview installée.
 5. Attends que le run soit terminé avec l'état vert **Success**.
 
-Le workflow crée la pré-release `Melodix Preview v1.2.2 test.9` et y attache :
+Le workflow crée la pré-release `Melodix Preview v1.2.2 test.20` à partir du commit de la branche sélectionnée et y attache :
 
-- `Melodix-Preview-v1.2.2-test9.apk`
+- `Melodix-Preview-v1.2.2-test20.apk`
 - son fichier `.sha256`
 
 La pré-release apparaîtra sur GitHub dans **Releases**. Télécharge l'APK depuis cette page et installe-la sur Android. Elle apparaîtra sous le nom **Melodix Preview** et ne remplacera pas l'application normale.

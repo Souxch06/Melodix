@@ -102,17 +102,10 @@
     let fsUpdateTimer = null;
     let fsScrubbing = false;
 
-    // Keep Android's persisted session state and the cached Spotify API tokens in
-    // sync with Spotify's signed-out screen. This only runs after an explicit
-    // sign-out action or when Spotify confirms that the session is gone.
+    // Session state is observed only from Spotify's rendered sign-in/player UI.
+    // No cookies, OAuth headers, localStorage credentials, or private Web APIs are read.
     window.__sfMarkLoggedOut = function() {
-        try {
-            localStorage.removeItem('spot_auth_token');
-            localStorage.removeItem('spot_cli_token');
-        } catch (_) {}
-        window.spotAuthToken = null;
-        window.spotCliToken = null;
-
+        window.__sfAuthBridgeState = 'signed-out';
         if (!window.__sfLogoutBridgeNotified) {
             window.__sfLogoutBridgeNotified = true;
             try {
@@ -121,61 +114,154 @@
                 }
             } catch (_) {}
         }
-
         if (document.body) {
             document.body.classList.add('sf-guest');
             document.body.classList.remove('sf-library-open');
         }
         window.__sfLibraryExpanded = false;
+        if (window.__sfDrawerState) window.__sfDrawerState.setOpen(false);
     };
 
-    // A stale persisted login flag can reopen Spotify's public home instead of the
-    // sign-in form. If Spotify still exposes its guest login action after hydration,
-    // reset that flag and return to Spotify's standard authentication flow.
-    (function recoverGuestSession() {
-        if (window.location.hostname !== 'open.spotify.com' || !document.documentElement) return;
-
-        const loginUrl = 'https://accounts.spotify.com/en/login?continue=https%3A%2F%2Fopen.spotify.com%2F&allow_signup=1';
-        let observer = null;
-        let guestSince = 0;
-        let redirected = false;
-
-        const checkGuestState = () => {
-            if (redirected || window.location.hostname !== 'open.spotify.com') return;
-
-            const loginButton = document.querySelector('button[data-testid="web-player-link"]');
-            const buttonText = loginButton
-                ? `${loginButton.innerText || ''} ${loginButton.getAttribute('aria-label') || ''}`.trim().toLowerCase()
-                : '';
-            const isVisible = !!(loginButton && (
-                loginButton.offsetWidth > 0 || loginButton.offsetHeight > 0 || loginButton.getClientRects().length > 0
-            ));
-            const isGuestAction = isVisible && /se\s+connecter|log\s*in|sign\s*in|connexion|login/.test(buttonText);
-
-            if (!isGuestAction) {
-                guestSince = 0;
-                return;
+    window.__sfMarkLoggedIn = function() {
+        window.__sfAuthBridgeState = 'signed-in';
+        window.__sfLogoutBridgeNotified = false;
+        if (document.body) document.body.classList.remove('sf-guest');
+        try {
+            if (window.AndBridge && typeof window.AndBridge.loginDetected === 'function') {
+                window.AndBridge.loginDetected();
             }
+        } catch (_) {}
+    };
 
-            if (!guestSince) {
-                guestSince = Date.now();
-                window.setTimeout(checkGuestState, 1200);
-                return;
-            }
-            if (Date.now() - guestSince < 1000) return;
-
-            redirected = true;
-            if (observer) observer.disconnect();
-            if (typeof window.__sfMarkLoggedOut === 'function') {
-                window.__sfMarkLoggedOut();
-            }
-            window.location.replace(loginUrl);
+    (function observeSpotifyAuthUi() {
+        const hideAuthNotice = () => {
+            const notice = document.getElementById('sf-auth-status');
+            if (notice) notice.remove();
         };
 
-        observer = new MutationObserver(checkGuestState);
-        observer.observe(document.documentElement, { childList: true, subtree: true, characterData: true });
-        checkGuestState();
-        window.setTimeout(() => observer && observer.disconnect(), 15000);
+        const showAuthNotice = () => {
+            if (!document.body || document.getElementById('sf-auth-status')) return;
+            const notice = document.createElement('div');
+            notice.id = 'sf-auth-status';
+            notice.setAttribute('role', 'status');
+            notice.setAttribute('aria-live', 'polite');
+            const message = document.createElement('span');
+            message.textContent = 'Session Spotify non confirmée par Melodix. Vérifiez votre session sur le lecteur officiel, puis rechargez si nécessaire.';
+            const retry = document.createElement('button');
+            retry.type = 'button';
+            retry.textContent = 'Recharger';
+            retry.setAttribute('aria-label', 'Recharger le lecteur Spotify');
+            retry.addEventListener('click', () => window.location.reload());
+            notice.append(message, retry);
+            const mainView = document.querySelector('#main-view');
+            if (mainView) mainView.insertBefore(notice, mainView.firstChild);
+            else {
+                notice.classList.add('sf-auth-status-body-root');
+                document.body.insertBefore(notice, document.body.firstChild);
+            }
+        };
+
+        const runtime = window.MelodixRuntime;
+        if (!runtime || !document.documentElement) {
+            console.warn('[Melodix] Session state helper unavailable; authentication remains unconfirmed.');
+            window.setTimeout(showAuthNotice, 15000);
+            return;
+        }
+
+        const machine = runtime.createAuthStateMachine((state) => {
+            if (state === runtime.AUTH_STATE.SIGNED_IN) window.__sfMarkLoggedIn();
+            else if (state === runtime.AUTH_STATE.SIGNED_OUT) window.__sfMarkLoggedOut();
+        });
+        window.__sfAuthStateMachine = machine;
+
+        let unknownNoticeTimer = null;
+        let scheduled = false;
+        let observer = null;
+
+        const isVisible = (element) => {
+            if (!element || element.hidden || element.getAttribute('aria-hidden') === 'true') return false;
+            try {
+                const style = window.getComputedStyle ? window.getComputedStyle(element) : null;
+                if (style && (style.display === 'none' || style.visibility === 'hidden' || style.opacity === '0')) return false;
+            } catch (_) {}
+            return typeof element.getClientRects !== 'function' || element.getClientRects().length > 0;
+        };
+
+        const getAuthSignals = () => {
+            const host = (window.location.hostname || '').toLowerCase();
+            const pathname = (window.location.pathname || '/').toLowerCase();
+            const accountsPage = host === 'accounts.spotify.com' || host.endsWith('.accounts.spotify.com');
+            const loginRoute = /(?:^|\/)(?:login|auth)(?:\/|$)/i.test(pathname);
+            const signInText = /\b(log\s*in|sign\s*in|sign\s*up|log\s*out|connexion|se\s+connecter|s'inscrire|déconnexion)\b/i;
+            const guestActions = Array.from(document.querySelectorAll(
+                'button[data-testid="web-player-link"], button[data-testid="login-button"], a[href*="/login"], button[aria-label*="sign in" i], button[aria-label*="log in" i]'
+            ));
+            const loginAction = guestActions.some((element) => {
+                if (!isVisible(element)) return false;
+                // The public Web Player CTA is a guest signal only; it is never an auth success signal.
+                if (element.matches && element.matches('button[data-testid="web-player-link"]')) return true;
+                const label = `${element.innerText || ''} ${element.getAttribute('aria-label') || ''}`;
+                return signInText.test(label);
+            });
+            const profiles = Array.from(document.querySelectorAll(
+                'button[data-testid="user-widget-link"], a[data-testid="user-widget-link"], [data-testid="user-widget-avatar"], button[aria-label*="profile" i]'
+            ));
+            const profileControl = profiles.some((element) => {
+                if (!isVisible(element)) return false;
+                const label = `${element.innerText || ''} ${element.getAttribute('aria-label') || ''}`;
+                const href = element.getAttribute('href') || '';
+                const hasAccountIdentity = /\/user\//i.test(href) || !!element.querySelector('img[src]');
+                return hasAccountIdentity && !signInText.test(label);
+            });
+            const playerBar = document.querySelector('aside[data-testid="now-playing-bar"]');
+            const playControl = document.querySelector('button[data-testid="control-button-playpause"]');
+            const playerControls = isVisible(playerBar) && isVisible(playControl) && !playControl.disabled;
+
+            return { accountsPage, loginRoute, loginAction, profileControl, playerControls };
+        };
+
+        const inspectAuthUi = () => {
+            const state = machine.observe(getAuthSignals());
+            window.__sfObservedAuthState = state;
+            if (state !== runtime.AUTH_STATE.UNKNOWN) {
+                if (unknownNoticeTimer) {
+                    window.clearTimeout(unknownNoticeTimer);
+                    unknownNoticeTimer = null;
+                }
+                hideAuthNotice();
+                return;
+            }
+            // Do not gate this on the last confirmed state: after the official
+            // sign-in page, signed-out can transition to unknown while the player hydrates.
+            if (!unknownNoticeTimer) {
+                unknownNoticeTimer = window.setTimeout(() => {
+                    unknownNoticeTimer = null;
+                    if (runtime.shouldShowUnconfirmedNotice(machine.getState())) showAuthNotice();
+                }, 15000);
+            }
+        };
+
+        const scheduleInspection = () => {
+            if (scheduled) return;
+            scheduled = true;
+            window.setTimeout(() => {
+                scheduled = false;
+                inspectAuthUi();
+            }, 100);
+        };
+
+        window.__sfRefreshAuthState = scheduleInspection;
+        observer = new MutationObserver(scheduleInspection);
+        observer.observe(document.documentElement, {
+            childList: true,
+            subtree: true,
+            attributes: true,
+            attributeFilter: ['aria-label', 'aria-hidden', 'class', 'style', 'href', 'data-testid']
+        });
+        window.addEventListener('popstate', scheduleInspection);
+        window.addEventListener('pageshow', scheduleInspection);
+        document.addEventListener('DOMContentLoaded', scheduleInspection, { once: true });
+        scheduleInspection();
     })();
 
     // A small native-feeling tab bar for portrait phones. It delegates to the
@@ -499,8 +585,11 @@
 
         function setLibraryExpanded(expanded) {
             const sidebar = libraryElement();
+            expanded = window.__sfDrawerState
+                ? window.__sfDrawerState.setOpen(expanded)
+                : expanded === true;
+            window.__sfLibraryExpanded = expanded;
             if (!sidebar) {
-                window.__sfLibraryExpanded = expanded;
                 const isCollectionRoute = (window.location.pathname || '').startsWith('/collection');
                 if (expanded && !isCollectionRoute) {
                     const libraryLink = document.querySelector(
@@ -545,6 +634,22 @@
             updateActiveTab(document.getElementById('sf-mobile-navigation'));
         }
 
+        function closeLibraryDrawer() {
+            const sidebar = libraryElement();
+            if (sidebar) {
+                // Reuse the existing close path so inline geometry, heading, and
+                // aria-expanded are restored along with the JS/CSS state.
+                setLibraryExpanded(false);
+                return;
+            }
+
+            if (window.__sfDrawerState) window.__sfDrawerState.setOpen(false);
+            window.__sfLibraryExpanded = false;
+            if (document.body) document.body.classList.remove('sf-library-open');
+            if (window.lBtn) window.lBtn.setAttribute('aria-expanded', 'false');
+            updateActiveTab(document.getElementById('sf-mobile-navigation'));
+        }
+
         function activateRoute(kind) {
             const selectors = kind === 'home'
                 ? ['#global-nav-bar button[data-testid="home-button"]', '#global-nav-bar a[href="/"]', 'a[href="/"]']
@@ -560,15 +665,19 @@
 
             // The mobile shell must not depend on Spotify mounting its desktop
             // library sidebar: narrow player/detail routes may omit that panel.
-            document.body.classList.remove('sf-guest');
             document.body.classList.add('sf-mobile-shell');
             document.body.classList.toggle('sf-statusbar-hidden', !!config.hideStatusBar);
             ensureMobileRuntimeStyles();
-            window.__sfLogoutBridgeNotified = false;
+            if (typeof window.__sfLogoutBridgeNotified !== 'boolean') window.__sfLogoutBridgeNotified = false;
+            if (!window.__sfDrawerState && window.MelodixRuntime) {
+                window.__sfDrawerState = window.MelodixRuntime.createDrawerState(false);
+            }
             if (typeof window.__sfLibraryExpanded !== 'boolean') {
-                window.__sfLibraryExpanded = sidebar
-                    ? sidebar.getBoundingClientRect().width > 80
-                    : (window.location.pathname || '').startsWith('/collection');
+                window.__sfLibraryExpanded = window.__sfDrawerState
+                    ? window.__sfDrawerState.setOpen(false)
+                    : false;
+            } else if (window.__sfDrawerState) {
+                window.__sfDrawerState.setOpen(window.__sfLibraryExpanded);
             }
 
             let nav = document.getElementById('sf-mobile-navigation');
@@ -593,8 +702,7 @@
                     if (kind === 'library') {
                         setLibraryExpanded(!window.__sfLibraryExpanded);
                     } else {
-                        document.body.classList.remove('sf-library-open');
-                        window.__sfLibraryExpanded = false;
+                        closeLibraryDrawer();
                         activateRoute(kind);
                         updateActiveTab(nav);
                     }
@@ -607,7 +715,9 @@
                 sidebar.addEventListener('click', event => {
                     if (!event.target.closest('header button, header [role="button"]')) return;
                     window.setTimeout(() => {
-                        const open = !!window.__sfLibraryExpanded;
+                        const open = window.__sfDrawerState
+                            ? window.__sfDrawerState.isOpen()
+                            : !!window.__sfLibraryExpanded;
                         document.body.classList.toggle('sf-library-open', open);
                         updateActiveTab(nav);
                     }, 0);
@@ -646,41 +756,7 @@
         }, true);
     })();
 
-    try {
-        window.spotAuthToken = window.spotAuthToken || localStorage.getItem('spot_auth_token') || null;
-        window.spotCliToken = window.spotCliToken || localStorage.getItem('spot_cli_token') || null;
-        window.spotDevId = window.spotDevId || localStorage.getItem('spot_dev_id') || localStorage.getItem('spot_device_id') || null;
-    } catch (_) {}
-
-    // --- Webpack Module Hook: Capture Melodix Platform APIs & CosmosAsync ---
-    (function hookMelodixPlatform() {
-        const chunkName = window.webpackChunkopen_spotify ? "webpackChunkopen_spotify" : "webpackChunkxpui";
-        const chunkArray = window[chunkName] = window[chunkName] || [];
-
-        chunkArray.push([
-            [Symbol("sf-melodix-platform")],
-            {},
-            (require) => {
-                try {
-                    const modules = require.m;
-                    for (const id in modules) {
-                        try {
-                            const mod = require(id);
-                            if (mod && mod.Platform) {
-                                window.Melodix = window.Melodix || {};
-                                window.Melodix.Platform = mod.Platform;
-                                console.log("[Melodix] Captured Native Spotify Platform API!", mod.Platform);
-                            }
-                            if (mod && mod.CosmosAsync) {
-                                window.Melodix = window.Melodix || {};
-                                window.Melodix.CosmosAsync = mod.CosmosAsync;
-                            }
-                        } catch (e) {}
-                    }
-                } catch (e) {}
-            }
-        ]);
-    })();
+    // Spotify's private Webpack modules and session credentials are not accessed.
 
     // --- Native SVG Paths (Spotifuck Assets) ---
     const NATIVE_SVGS = {
@@ -1545,61 +1621,7 @@
         }
     };
 
-    window.syncUserInfo = function() {
-        try {
-            let username = '';
-            let displayName = '';
-            let avatarUrl = '';
-
-            // 1. Spicetify / Spotify internal UserAPI memory lookup
-            if (window.Spicetify && window.Spicetify.Platform && window.Spicetify.Platform.UserAPI) {
-                window.Spicetify.Platform.UserAPI.getUser().then(u => {
-                    if (u) {
-                        username = u.uri ? u.uri.replace('spotify:user:', '') : (u.username || '');
-                        displayName = u.name || u.displayName || username;
-                        avatarUrl = u.images && u.images[0] ? u.images[0].url : '';
-                        if (window.AndBridge && typeof window.AndBridge.onUserInfoCaptured === 'function' && displayName) {
-                            window.AndBridge.onUserInfoCaptured(username, displayName, avatarUrl);
-                        }
-                    }
-                }).catch(() => {});
-            }
-
-            // 2. DOM Selector Fallback (Target explicit profile widget buttons)
-            const userBtn = document.querySelector('button[data-testid="user-widget-link"]') ||
-                            document.querySelector('[data-testid="user-widget-avatar"]') ||
-                            document.querySelector('button[aria-label*="Profile" i]') ||
-                            document.querySelector('a[data-testid="user-widget-link"]') ||
-                            Array.from(document.querySelectorAll('a[href*="/user/"]')).find(a => {
-                                const href = a.getAttribute('href') || '';
-                                return !href.includes('/collection') && !href.includes('/playlist') && !href.includes('/album');
-                            });
-
-            if (userBtn) {
-                const userHref = userBtn.getAttribute('href') || '';
-                if (userHref.includes('/user/')) {
-                    const candidate = userHref.split('/user/')[1].split('?')[0].split('/')[0];
-                    if (candidate && candidate !== 'collection') {
-                        username = candidate;
-                        window.spotUserId = username;
-                    }
-                }
-                const rawName = (userBtn.getAttribute('aria-label') || userBtn.innerText || '').replace(/^Profile:\s*/i, '').trim();
-                const invalidNames = ['Liked Songs', 'Your Library', 'Home', 'Search', 'Create Playlist', 'Liked songs'];
-                if (rawName && !invalidNames.includes(rawName)) {
-                    displayName = rawName;
-                }
-                const avatarImg = userBtn.querySelector('img');
-                if (avatarImg && avatarImg.src) {
-                    avatarUrl = avatarImg.src;
-                }
-
-                if (window.AndBridge && typeof window.AndBridge.onUserInfoCaptured === 'function' && (displayName || username)) {
-                    window.AndBridge.onUserInfoCaptured(username, displayName, avatarUrl);
-                }
-            }
-        } catch(e) {}
-    };
+    window.syncUserInfo = function() {};
 
     window.updMedia = function(force = false) {
         const currState = [
@@ -1635,420 +1657,61 @@
         window.syncUserInfo();
     };
 
-    const oriFetch = window.fetch;
-    window.fetch = async function(...args) {
-        const [url, opts] = args;
-        const method = opts?.method?.toUpperCase?.() || 'GET';
-        
-        if (window.SF_CONFIG.isCanvasDisabled && (url.includes('canvas-storage') || url.includes('/v1/canvas'))) {
-            return new Response(JSON.stringify({canvases:[]}), {status: 200});
-        }
-        
-        const headers = opts?.headers || {};
-        if (method === 'POST' && url.includes('/track-playback/v1/devices') && opts?.body) {
-            const body = JSON.parse(opts.body);
-            const deviceId = body?.device?.device_id;
-            if (deviceId && deviceId !== window.spotDevId) {
-                window.spotDevId = deviceId;
-                try { localStorage.setItem('spot_dev_id', deviceId); } catch(_) {}
-                typeof checkMediaLib === 'function' && checkMediaLib();
-            }
-        }
-        
-        const cliToken = headers['Client-Token'] || headers['client-token'];
-        if (cliToken && cliToken !== window.spotCliToken) {
-            window.spotCliToken = cliToken;
-            try { localStorage.setItem('spot_cli_token', cliToken); } catch(_) {}
-            typeof checkMediaLib === 'function' && checkMediaLib();
-        }
-        
-        const authHead = headers.Authorization || headers.authorization;
-        if (authHead?.startsWith('Bearer ') && authHead !== window.spotAuthToken) {
-            window.spotAuthToken = authHead;
-            try { localStorage.setItem('spot_auth_token', authHead); } catch(_) {}
-            typeof checkMediaLib === 'function' && checkMediaLib();
-        }
-        
-        if (method === 'POST' && url.includes('pathfinder/v2/query') && opts?.body) {
-            try {
-                const bodyObj = typeof opts.body === 'string' ? JSON.parse(opts.body) : null;
-                const opName = bodyObj?.operationName;
-                const hash = bodyObj?.extensions?.persistedQuery?.sha256Hash;
-                if (opName && hash) {
-                    window.spHashes = window.spHashes || {};
-                    if (window.spHashes[opName] !== hash) {
-                        window.spHashes[opName] = hash;
-                        try { localStorage.setItem('sp_hash_' + opName, hash); } catch(_) {}
-                        console.log(`[Spotifuck] Dynamic GQL hash captured for ${opName}: ${hash.substring(0, 10)}...`);
-                        if (opName === 'libraryV3' || opName === 'fetchLibraryTracks') {
-                            typeof checkMediaLib === 'function' && checkMediaLib(true);
-                        }
-                    }
-                }
-            } catch(e) {}
-        }
-        
-        if (ffDone && url.includes('/track-playback/') && method === 'PUT') {
-            const bodyStr = opts?.body ? (typeof opts.body === 'string' ? opts.body : '') : '';
-            if (bodyStr.includes('"paused":true')) {
-                manageAll(false);
-            } else if (bodyStr.includes('"paused":false')) {
-                manageAll(true);
-            }
-        }
-        
-        const strUrl = typeof url === 'string' ? url : (url && url.url ? url.url : '');
-        if (strUrl && (strUrl.includes('connect-state') || strUrl.includes('melody/v1/msg'))) {
-            try {
-                const reqHeaders = opts?.headers || {};
-                const reqBody = opts?.body ? (typeof opts.body === 'string' ? opts.body : JSON.stringify(opts.body)) : null;
-                const rawRes = AndBridge.nativeFetch(strUrl, method, JSON.stringify(reqHeaders), reqBody);
-                if (rawRes) {
-                    const parsed = JSON.parse(rawRes);
-                    const status = parsed.status || 200;
-                    const resBody = parsed.body || '';
-                    return {
-                        ok: status >= 200 && status < 300,
-                        status: status,
-                        statusText: status === 200 ? 'OK' : '',
-                        headers: new Headers(parsed.headers || {}),
-                        url: strUrl,
-                        json: async () => JSON.parse(resBody || '{}'),
-                        text: async () => resBody,
-                        arrayBuffer: async () => new TextEncoder().encode(resBody).buffer,
-                        clone: function() { return this; }
-                    };
-                }
-            } catch (e) {
-                console.error('[Spotifuck] Proxy nativeFetch error:', e);
-            }
-        }
-
-        try {
-            const resp = await oriFetch(url, opts);
-            if (resp.status === 404 && url.includes('connect-state') && url.includes('/command/from/')) {
-                AndBridge.deferMessage('reload');
-                location.reload();
-            }
-            return resp;
-        } catch (err) {
-            throw err;
-        }
-    };
+    // Leave Spotify's network stack untouched: no Authorization interception,
+    // token persistence, CORS proxy, or private endpoint calls.
 
     // =========================================================================
     // SECTION 3: WAKE LOCK & BACKGROUND CONTROL
     // =========================================================================
 
-    window.playFromUri = function(uri, contextUri) {
-        if (!uri) return;
-
-        if (uri && (uri.startsWith('http://') || uri.startsWith('https://'))) {
+    function officialSpotifyUrl(uri) {
+        if (!uri) return null;
+        const value = String(uri).trim();
+        if (/^https:\/\//i.test(value)) {
             try {
-                const u = new URL(uri);
-                let pathSegments = u.pathname.split('/').filter(Boolean);
-                if (pathSegments.length > 0 && pathSegments[0].startsWith('intl-')) {
-                    pathSegments = pathSegments.slice(1);
-                }
-                if (pathSegments.length >= 2) {
-                    uri = 'spotify:' + pathSegments.join(':');
-                } else if (pathSegments.length === 1) {
-                    uri = 'spotify:' + pathSegments[0];
-                }
-            } catch(e) {}
-        }
-
-        if (uri && uri.startsWith('spotify:search:')) {
-            const query = decodeURIComponent(uri.substring('spotify:search:'.length));
-            if (typeof window.openSearch === 'function') {
-                window.openSearch(query);
-            }
-            return;
-        }
-
-        const devId = window.spotDevId || localStorage.getItem('spot_dev_id');
-        if (!devId) {
-            console.warn('[Spotifuck] Cannot playFromUri: device ID not ready yet');
-            return;
-        }
-
-        let playContext = contextUri || uri;
-        let isTrack = uri && uri.startsWith('spotify:track:');
-        let isContextItem = uri && (uri.startsWith('spotify:album:') || uri.startsWith('spotify:playlist:') || uri.startsWith('spotify:artist:') || uri.startsWith('spotify:show:'));
-
-        if (isContextItem) {
-            playContext = uri;
-        }
-
-        let isLikedSongs = (playContext === 'your_library' || playContext.includes('collection') || playContext === 'playlists' || playContext === 'spotify:collection:tracks');
-
-        let playOptions = {
-            license: 'tft',
-            skip_to: {},
-            player_options_override: {}
-        };
-
-        let commandContext = {
-            uri: playContext,
-            url: 'context://' + playContext,
-            metadata: {}
-        };
-
-        let featIdent = playContext.match(/^spotify:([^:]+)/)?.[1];
-        if (featIdent == 'user' || isLikedSongs) featIdent = 'your_library';
-
-        if (isLikedSongs) {
-            let tracks = window.likedSongsCache || [];
-            let targetUri = isTrack ? uri : (tracks[0]?.id || uri);
-            let trackList = (tracks || []).map(t => t.id || t.uri || t).filter(Boolean);
-
-            if (targetUri && targetUri.includes(':track:') && !trackList.includes(targetUri)) {
-                trackList.unshift(targetUri);
-            }
-
-            let collectionUri = window.spotUserId ? `spotify:user:${window.spotUserId}:collection` : "spotify:collection:tracks";
-
-            commandContext = {
-                uri: collectionUri,
-                url: "context://" + collectionUri,
-                metadata: {
-                    context_description: "Liked Songs"
-                },
-                pages: [{
-                    page_url: "context://" + collectionUri,
-                    tracks: trackList.map(u => ({ uri: u }))
-                }]
-            };
-
-            featIdent = 'collection-tracks';
-
-            playOptions.skip_to = {
-                track_uri: targetUri
-            };
-        } else if (isTrack) {
-            if (contextUri && contextUri !== uri && !contextUri.startsWith('spotify:track:')) {
-                playOptions.skip_to = {
-                    track_uri: uri
-                };
-            } else {
-                commandContext = {
-                    uri: uri,
-                    url: "context://" + uri,
-                    metadata: {},
-                    pages: [{
-                        page_url: "context://" + uri,
-                        tracks: [{ uri: uri }]
-                    }]
-                };
-                playOptions.skip_to = {
-                    track_uri: uri
-                };
-                featIdent = 'search';
+                const parsed = new URL(value);
+                if (parsed.hostname !== 'open.spotify.com' || parsed.port || parsed.username || parsed.password) return null;
+                return `https://open.spotify.com${parsed.pathname}${parsed.search}${parsed.hash}`;
+            } catch (_) {
+                return null;
             }
         }
+        if (value === 'spotify:collection:tracks') return 'https://open.spotify.com/collection/tracks';
+        const match = value.match(/^spotify:(track|album|artist|playlist|show|episode):([A-Za-z0-9]+)(?::.*)?$/i);
+        if (!match) return null;
+        return `https://open.spotify.com/${match[1].toLowerCase()}/${match[2]}`;
+    }
 
-        const token = window.spotAuthToken || localStorage.getItem('spot_auth_token');
-        const cliTok = window.spotCliToken || localStorage.getItem('spot_cli_token');
-        if (!token) {
-            console.warn('[Spotifuck] Cannot playFromUri: AuthToken not ready');
+    // External intents are routed to Spotify's own Web Player page. Playback and
+    // access checks remain in Spotify's UI; Melodix does not issue player commands.
+    window.playFromUri = function(uri) {
+        if (!uri) return;
+        const value = String(uri);
+        if (value.startsWith('spotify:search:')) {
+            const encodedQuery = value.substring('spotify:search:'.length);
+            let query = encodedQuery;
+            try {
+                query = decodeURIComponent(encodedQuery);
+            } catch (_) {}
+            window.openSearch(query);
             return;
         }
-
-        console.log(`[Spotifuck] playFromUri sending command for uri=${uri}, contextUri=${contextUri}, devId=${devId}`);
-
-        fetch(`https://gew4-spclient.spotify.com/connect-state/v1/player/command/from/${devId}/to/${devId}`, {
-            method: 'POST',
-            headers: {
-                'Authorization': token,
-                'Client-Token': cliTok || '',
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                command: {
-                    context: commandContext,
-                    play_origin: {
-                        feature_identifier: featIdent || 'your_library',
-                        feature_version: featVer || '1.2.40.0',
-                        referrer_identifier: 'your_library'
-                    },
-                    options: playOptions,
-                    endpoint: 'play'
-                }
-            })
-        });
+        const target = officialSpotifyUrl(value);
+        if (!target) {
+            console.warn('[Melodix] Unsupported Spotify URI; open it in the official Spotify player.');
+            return;
+        }
+        window.location.assign(target);
     };
 
-    async function searchAndPlay(query) {
-        if (!query) return;
-        try {
-            await ensureAuthToken();
-            const token = window.spotAuthToken || (function() { try { return localStorage.getItem('spot_auth_token'); } catch(_) { return null; } })();
-            const cliTok = window.spotCliToken || (function() { try { return localStorage.getItem('spot_cli_token'); } catch(_) { return null; } })();
-            if (!token) {
-                console.warn('[Spotifuck] searchAndPlay: Auth token unavailable.');
-                return;
-            }
-            const headers = {
-                'Authorization': token,
-                'Content-Type': 'application/json;charset=UTF-8',
-                'app-platform': 'WebPlayer',
-                'spotify-app-version': '1.2.40.0'
-            };
-            if (cliTok) {
-                headers['Client-Token'] = cliTok;
-            }
-            const resp = await oriFetch('https://api-partner.spotify.com/pathfinder/v2/query', {
-                method: 'POST',
-                mode: 'cors',
-                credentials: 'include',
-                headers: headers,
-                body: JSON.stringify({
-                    variables: {
-                        searchTerm: query,
-                        offset: 0,
-                        limit: 10,
-                        numberOfTopResults: 5,
-                        includeAudiobooks: false,
-                        includeArtistHasConcertsField: false,
-                        includePreReleases: false,
-                        includeLocalConcertsField: false,
-                        includeAuthors: false
-                    },
-                    operationName: 'searchDesktop',
-                    extensions: {
-                        persistedQuery: {
-                            version: 1,
-                            sha256Hash: getGqlHash('searchDesktop', '4801118d4a100f756e833d33984436a3899cff359c532f8fd3aaf174b60b3b49')
-                        }
-                    }
-                })
-            });
-            if (!resp.ok) return;
-            const data = await resp.json();
-            const searchData = data?.data?.searchV2 || data?.data?.search;
-            const topResults = searchData?.topResultsV2?.items || searchData?.topResults?.items || [];
-            let targetUri = null;
-            for (const elem of topResults) {
-                const itemWrapper = elem?.item || elem;
-                const d = itemWrapper?.data || itemWrapper;
-                const uri = itemWrapper?.uri || d?.uri || (d?.id ? 'spotify:' + (d?.__typename?.toLowerCase().replace('responsewrapper', '') || 'track') + ':' + d?.id : null);
-                if (uri) {
-                    targetUri = uri;
-                    break;
-                }
-            }
-            if (!targetUri) {
-                const tracks = searchData?.tracksV2?.items || searchData?.tracks?.items || [];
-                const firstTrack = tracks[0]?.item || tracks[0];
-                const d = firstTrack?.data || firstTrack;
-                targetUri = firstTrack?.uri || d?.uri || (d?.id ? 'spotify:track:' + d.id : null);
-            }
-            if (targetUri) {
-                window.playFromUri(targetUri);
-            }
-        } catch (e) {
-            console.error('[Spotifuck] searchAndPlay failed for ' + query, e);
-        }
-    }
-    window.searchAndPlay = searchAndPlay;
+    window.searchAndPlay = function(query) {
+        if (query) window.openSearch(query);
+    };
 
     window.openSearch = function(query) {
-        if (!query) return;
-        console.log('[Spotifuck] openSearch called with query:', query);
-
-        const executeSearchOnInput = (sr) => {
-            if (sr._valueTracker) {
-                try { sr._valueTracker.setValue(''); } catch(e) {}
-            }
-            const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')?.set;
-            if (nativeInputValueSetter) {
-                nativeInputValueSetter.call(sr, query);
-            } else {
-                sr.value = query;
-            }
-
-            try {
-                sr.dispatchEvent(new InputEvent('input', { bubbles: true, cancelable: true, inputType: 'insertText', data: query }));
-            } catch(e) {}
-            sr.dispatchEvent(new Event('input', { bubbles: true, cancelable: true }));
-            sr.dispatchEvent(new Event('change', { bubbles: true, cancelable: true }));
-
-            // Dispatch React Fiber synthetic onChange
-            const reactKey = Object.keys(sr).find(k => k.startsWith('__reactProps$') || k.startsWith('__reactEventHandlers$'));
-            if (reactKey && sr[reactKey]?.onChange) {
-                try {
-                    sr[reactKey].onChange({
-                        target: sr,
-                        currentTarget: sr,
-                        bubbles: true,
-                        preventDefault: () => {},
-                        stopPropagation: () => {}
-                    });
-                } catch(e) {}
-            }
-
-            // Step 2: After React batches the input change, submit the search via Enter and Form submit
-            setTimeout(() => {
-                const enterInit = { key: 'Enter', code: 'Enter', keyCode: 13, which: 13, bubbles: true, cancelable: true };
-                sr.dispatchEvent(new KeyboardEvent('keydown', enterInit));
-                sr.dispatchEvent(new KeyboardEvent('keypress', enterInit));
-                sr.dispatchEvent(new KeyboardEvent('keyup', enterInit));
-
-                if (reactKey && sr[reactKey]?.onKeyDown) {
-                    try {
-                        sr[reactKey].onKeyDown({
-                            ...enterInit,
-                            target: sr,
-                            currentTarget: sr,
-                            preventDefault: () => {},
-                            stopPropagation: () => {}
-                        });
-                    } catch(e) {}
-                }
-
-                const form = sr.closest('form');
-                if (form) {
-                    const formReactKey = Object.keys(form).find(k => k.startsWith('__reactProps$') || k.startsWith('__reactEventHandlers$'));
-                    if (formReactKey && form[formReactKey]?.onSubmit) {
-                        try {
-                            form[formReactKey].onSubmit({
-                                target: form,
-                                currentTarget: form,
-                                bubbles: true,
-                                preventDefault: () => {},
-                                stopPropagation: () => {}
-                            });
-                        } catch(e) {}
-                    }
-                    try {
-                        if (typeof form.requestSubmit === 'function') {
-                            form.requestSubmit();
-                        } else {
-                            form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
-                        }
-                    } catch(e) {}
-                }
-            }, 50);
-        };
-
-        const tryPopulate = () => {
-            let sr = document.querySelector('input[data-testid="search-input"]');
-            if (sr) {
-                executeSearchOnInput(sr);
-                return true;
-            }
-            return false;
-        };
-
-        if (!tryPopulate()) {
-            const navBtn = document.querySelector('a[href="/search"]') ||
-                           document.querySelector('button[data-testid="search-icon"]') ||
-                           document.querySelector('button[aria-label*="Search" i]');
-            if (navBtn) navBtn.click();
-            setTimeout(tryPopulate, 150);
-            setTimeout(tryPopulate, 400);
-            setTimeout(tryPopulate, 800);
-        }
+        const value = String(query || '').trim();
+        if (!value) return;
+        window.location.assign(`https://open.spotify.com/search/${encodeURIComponent(value)}`);
     };
 
     window.firstFuck = function() {
@@ -2231,11 +1894,6 @@
             e.preventDefault();
             e.stopPropagation();
         }
-        if (window.Melodix && window.Melodix.Platform && window.Melodix.Platform.PlayerAPI) {
-            manageWake(true);
-            window.Melodix.Platform.PlayerAPI.previous();
-            return;
-        }
         let bb = document.querySelector('button[data-testid=control-button-skip-back]');
         if (bb) {
             manageWake(true);
@@ -2248,11 +1906,6 @@
             e.preventDefault();
             e.stopPropagation();
         }
-        if (window.Melodix && window.Melodix.Platform && window.Melodix.Platform.PlayerAPI) {
-            manageWake(true);
-            window.Melodix.Platform.PlayerAPI.next();
-            return;
-        }
         let fb = document.querySelector('button[data-testid=control-button-skip-forward]');
         if (fb) {
             manageWake(true);
@@ -2264,11 +1917,6 @@
         if (e) {
             e.preventDefault();
             e.stopPropagation();
-        }
-        if (window.Melodix && window.Melodix.Platform && window.Melodix.Platform.PlayerAPI) {
-            window.Melodix.Platform.PlayerAPI.toggleRepeat();
-            setTimeout(() => addAndAuto(true), 100);
-            return;
         }
         let rb = document.querySelector('button[data-testid=control-button-repeat]');
         if (rb) {
@@ -2299,14 +1947,6 @@
         if (e) {
             e.preventDefault();
             e.stopPropagation();
-        }
-        if (window.Melodix && window.Melodix.Platform && window.Melodix.Platform.PlayerAPI) {
-            window.Melodix.Platform.PlayerAPI.toggleShuffle();
-            setTimeout(() => {
-                if (typeof window.syncShuffleState === 'function') window.syncShuffleState();
-                if (typeof updMedia === 'function') updMedia(true);
-            }, 150);
-            return;
         }
         let sb = getShuffleButton();
         if (sb) {
@@ -2879,12 +2519,18 @@
             // inferring it from Spotify's changing CSS class count.
             window.switchLs = function(forceExpanded) {
                 const ls = document.querySelector('#Desktop_LeftSidebar_Id');
-                if (!ls) return;
-
+                if (!window.__sfDrawerState && window.MelodixRuntime) {
+                    window.__sfDrawerState = window.MelodixRuntime.createDrawerState(false);
+                }
                 const expanded = typeof forceExpanded === 'boolean'
-                    ? forceExpanded
-                    : !window.__sfLibraryExpanded;
+                    ? (window.__sfDrawerState ? window.__sfDrawerState.setOpen(forceExpanded) : forceExpanded)
+                    : (window.__sfDrawerState ? window.__sfDrawerState.toggle() : !window.__sfLibraryExpanded);
                 window.__sfLibraryExpanded = expanded;
+                if (document.body) document.body.classList.toggle('sf-library-open', expanded);
+                if (!ls) {
+                    updateActiveTab(document.getElementById('sf-mobile-navigation'));
+                    return;
+                }
 
                 const heading = ls.querySelector('header>div>div:first-child h1');
                 if (heading && !heading.dataset.sfOriginalTitle) {
@@ -2894,9 +2540,10 @@
                 if (expanded) {
                     ls.style.setProperty('position', 'fixed', 'important');
                     ls.style.setProperty('width', '100%', 'important');
-                    ls.style.setProperty('height', 'calc(100vh - 48px - var(--sf-safe-area-top, env(safe-area-inset-top)))', 'important');
-                    ls.style.setProperty('top', 'calc(48px + var(--sf-safe-area-top, env(safe-area-inset-top)))', 'important');
-                    ls.style.setProperty('bottom', '0px', 'important');
+                    const safeTop = 'max(var(--sf-safe-area-top, 0px), env(safe-area-inset-top, 0px), 24px)';
+                    ls.style.setProperty('height', `calc(var(--sf-device-height, 100dvh) - 58px - ${safeTop} - env(safe-area-inset-bottom, 0px))`, 'important');
+                    ls.style.setProperty('top', `calc(58px + ${safeTop})`, 'important');
+                    ls.style.setProperty('bottom', 'env(safe-area-inset-bottom, 0px)', 'important');
                     ls.style.setProperty('left', '0px', 'important');
                     ls.style.setProperty('overflow-y', 'auto', 'important');
                     ls.style.setProperty('z-index', 'calc(var(--above-everything-grid-area-z-index) + 5)', 'important');
@@ -2915,7 +2562,9 @@
                     }
                 }
 
+                if (document.body) document.body.classList.toggle('sf-library-open', expanded);
                 if (window.lBtn) window.lBtn.setAttribute('aria-expanded', String(expanded));
+                updateActiveTab(document.getElementById('sf-mobile-navigation'));
             };
 
             // Collapse the drawer as soon as it exists; the slower polling loop
@@ -2927,711 +2576,26 @@
         }
     };
 
-    // =========================================================================
-    // SECTION 4: LIBRARY & FOLDER RESOLUTION
-    // =========================================================================
-
-    async function ensureAuthToken() {
-        if (!window.spotAuthToken) {
-            try {
-                window.spotAuthToken = localStorage.getItem('spot_auth_token') || null;
-                window.spotCliToken = localStorage.getItem('spot_cli_token') || null;
-                window.spotDevId = localStorage.getItem('spot_dev_id') || localStorage.getItem('spot_device_id') || null;
-            } catch (_) {}
-        }
-        if (window.spotAuthToken) return true;
-        // Passive check: wait up to 3 seconds for Spotify's native Web Player fetch interceptor or localStorage to capture headers
-        let attempts = 0;
-        while (!window.spotAuthToken && attempts < 30) {
-            await new Promise(r => setTimeout(r, 100));
-            attempts++;
-            if (!window.spotAuthToken) {
-                try {
-                    window.spotAuthToken = localStorage.getItem('spot_auth_token') || null;
-                    window.spotCliToken = localStorage.getItem('spot_cli_token') || null;
-                    window.spotDevId = localStorage.getItem('spot_dev_id') || localStorage.getItem('spot_device_id') || null;
-                } catch (_) {}
-            }
-        }
-        return !!window.spotAuthToken;
-    }
-    window.ensureAuthToken = ensureAuthToken;
-
-    function getGqlHash(opName, fallbackHash) {
-        if (window.spHashes && window.spHashes[opName]) return window.spHashes[opName];
+    // Spotify's private Pathfinder library/search endpoints are deliberately not
+    // called. Keep the Android MediaBrowser callbacks complete so the unsupported
+    // native catalog reports an empty result instead of leaving a request pending.
+    window.fetchMediaItems = function(parentId) {
+        console.warn('[Melodix] Native library browsing is unavailable; use Spotify\'s official Library tab.');
         try {
-            const stored = localStorage.getItem('sp_hash_' + opName);
-            if (stored) return stored;
-        } catch(_) {}
-        return fallbackHash;
-    }
-    window.getGqlHash = getGqlHash;
+            if (window.AndBridge && typeof window.AndBridge.onMediaItemsLoaded === 'function') {
+                window.AndBridge.onMediaItemsLoaded(String(parentId || ''), '[]');
+            }
+        } catch (_) {}
+    };
 
-    window.pendingMediaRequests = window.pendingMediaRequests || new Set();
-    let isFetchingLib = false;
-    async function checkMediaLib(force = false) {
-        if (isFetchingLib && !force) return;
-        await ensureAuthToken();
-        if (!window.spotAuthToken) {
-            console.warn("[Spotifuck] checkMediaLib: Auth token unavailable.");
-            return;
-        }
-        isFetchingLib = true;
+    window.searchMediaItems = function(query) {
+        console.warn('[Melodix] Native catalog search is unavailable; use Spotify\'s official Search page.');
         try {
-            const allItems = await fetchAllLibrary();
-            window.mediaLib = parseLibrary(allItems);
-            console.log("[Spotifuck] checkMediaLib: Successfully loaded mediaLib! Draining pending requests:", Array.from(window.pendingMediaRequests));
-            if (window.pendingMediaRequests && window.pendingMediaRequests.size > 0) {
-                for (const reqId of window.pendingMediaRequests) {
-                    const items = window.mediaLib?.[reqId] || [];
-                    AndBridge.onMediaItemsLoaded(reqId, JSON.stringify(items));
-                }
-                window.pendingMediaRequests.clear();
+            if (window.AndBridge && typeof window.AndBridge.onSearchCompleted === 'function') {
+                window.AndBridge.onSearchCompleted(String(query || ''), '[]');
             }
-        } catch (e) {
-            console.error("Error fetching/parsing media library: ", e);
-        } finally {
-            isFetchingLib = false;
-        }
-    }
-    window.checkMediaLib = checkMediaLib;
-
-    async function fetchAllLibrary() {
-        if (!window.spotAuthToken || !window.spotAuthToken.startsWith('Bearer ')) {
-            console.warn("[Spotifuck] fetchAllLibrary: Authorization token not ready.");
-            return [];
-        }
-        const limit = 50;
-        let offset = 0;
-        let allItems = [];
-        let hasMore = true;
-        
-        while (hasMore && offset < 1000) {
-            const headers = {
-                'Authorization': window.spotAuthToken,
-                'Content-Type': 'application/json;charset=UTF-8',
-                'app-platform': 'WebPlayer',
-                'spotify-app-version': '1.2.40.0'
-            };
-            if (window.spotCliToken) {
-                headers['Client-Token'] = window.spotCliToken;
-            }
-            const activeHash = getGqlHash('libraryV3', '0082bf82412db50128add72dbdb73e2961d59100b9cbf41fb25c568bd8bc358b');
-            const resp = await oriFetch('https://api-partner.spotify.com/pathfinder/v2/query', {
-                method: 'POST',
-                mode: 'cors',
-                credentials: 'include',
-                headers: headers,
-                body: JSON.stringify({
-                    variables: {
-                        filters: [],
-                        order: null,
-                        textFilter: '',
-                        features: ['LIKED_SONGS', 'YOUR_EPISODES_V2', 'PRERELEASES', 'EVENTS'],
-                        limit: limit,
-                        offset: offset,
-                        flatten: false,
-                        expandedFolders: [],
-                        folderUri: null,
-                        includeFoldersWhenFlattening: true
-                    },
-                    operationName: 'libraryV3',
-                    extensions: {
-                        persistedQuery: {
-                            version: 1,
-                            sha256Hash: activeHash
-                        }
-                    }
-                })
-            });
-            
-            if (!resp.ok) {
-                console.error("Pathfinder query failed: ", resp.statusText);
-                break;
-            }
-            
-            const data = await resp.json();
-            const items = data?.data?.me?.libraryV3?.items || [];
-            allItems = allItems.concat(items);
-            
-            if (items.length < limit) {
-                hasMore = false;
-            } else {
-                offset += limit;
-            }
-        }
-        return allItems;
-    }
-    window.fetchAllLibrary = fetchAllLibrary;
-
-    function parseLibrary(items) {
-        const res = { playlists: [], albums: [], artists: [], podcasts: [] };
-        if (!Array.isArray(items)) return res;
-        
-        items.forEach((elem) => {
-            const data = elem?.item?.data || elem?.data || elem?.item || elem;
-            if (!data) return;
-            const typename = data.__typename || data.type || '';
-            const uri = data.uri || data._uri || (data.id ? 'spotify:' + typename.toLowerCase() + ':' + data.id : '') || '';
-            const name = data.name || data.title || data.profile?.name || 'Unknown';
-            const image = data.images?.items?.[0]?.sources?.[0]?.url || data.images?.[0]?.url || data.coverArt?.sources?.[0]?.url || data.visuals?.avatarImage?.sources?.[0]?.url || null;
-
-            if (!uri) return;
-
-            if (typename.includes('Playlist') || uri.includes(':playlist:')) {
-                const isLiked = name === 'Liked Songs' || uri.includes('collection');
-                if (isLiked) {
-                    if (res.playlists.some(p => p.name === 'Liked Songs' || p.id.includes('collection'))) return;
-                } else if (res.playlists.some(p => p.id === uri)) {
-                    return;
-                }
-                res.playlists.push({
-                    id: isLiked ? 'spotify:collection:tracks' : uri,
-                    name: name,
-                    image: isLiked ? 'https://misc.scdn.co/liked-songs/liked-songs-640.png' : image,
-                    browsable: true
-                });
-            } else if (typename.includes('Album') || uri.includes(':album:')) {
-                res.albums.push({
-                    id: uri,
-                    name: name,
-                    image: image,
-                    artists: data.artists?.items?.map(a => a.profile?.name).filter(Boolean) || [],
-                    browsable: true
-                });
-            } else if (typename.includes('Artist') || uri.includes(':artist:')) {
-                res.artists.push({
-                    id: uri,
-                    name: name,
-                    image: image,
-                    browsable: true
-                });
-            } else if (typename.includes('Podcast') || typename.includes('Show') || uri.includes(':show:')) {
-                res.podcasts.push({
-                    id: uri,
-                    name: name,
-                    image: image,
-                    artists: data.publisher?.name ? [data.publisher.name] : [],
-                    browsable: true
-                });
-            }
-        });
-        console.log(`[Spotifuck] parseLibrary parsed ${res.playlists.length} playlists, ${res.albums.length} albums, ${res.artists.length} artists, ${res.podcasts.length} podcasts`);
-        return res;
-    }
-    window.parseLibrary = parseLibrary;
-
-    // =========================================================================
-    // SECTION 5: ASYNCHRONOUS MEDIA BROWSER & SEARCH
-    // =========================================================================
-
-    async function fetchMediaItems(parentId) {
-        try {
-            await ensureAuthToken();
-            // 1. Root categories (playlists, albums, artists, podcasts)
-            if (parentId === 'playlists' || parentId === 'albums' || parentId === 'artists' || parentId === 'podcasts') {
-                if (!window.mediaLib || !window.mediaLib[parentId]?.length) {
-                    window.pendingMediaRequests.add(parentId);
-                    await checkMediaLib();
-                }
-                if (window.mediaLib && window.mediaLib[parentId]) {
-                    window.pendingMediaRequests.delete(parentId);
-                    const items = window.mediaLib[parentId].map(item => {
-                        let img = item.image;
-                        if (item.name === 'Liked Songs' || (item.id && (item.id.includes('collection') || item.id === 'spotify:playlist:liked'))) {
-                            img = 'https://misc.scdn.co/liked-songs/liked-songs-640.png';
-                        }
-                        return { ...item, image: img, isGrid: true };
-                    });
-                    AndBridge.onMediaItemsLoaded(parentId, JSON.stringify(items));
-                    return;
-                }
-                console.log("[Spotifuck] fetchMediaItems: mediaLib not ready yet for " + parentId + ". Queued in pendingMediaRequests.");
-                return;
-            }
-
-        window.likedSongsCache = window.likedSongsCache || null;
-
-        async function getLikedSongsTracks() {
-            if (window.likedSongsCache && window.likedSongsCache.length > 0) {
-                return window.likedSongsCache;
-            }
-
-            const activeHash = getGqlHash('fetchLibraryTracks', '087278b20b743578a6262c2b0b4bcd20d879c503cc359a2285baf083ef944240');
-
-            try {
-                console.log("[Spotifuck] Fetching Liked Songs via fetchLibraryTracks GQL (hash: " + activeHash.substring(0, 8) + ")...");
-                await ensureAuthToken();
-                const headers = {
-                    'Authorization': window.spotAuthToken,
-                    'Content-Type': 'application/json;charset=UTF-8',
-                    'app-platform': 'WebPlayer',
-                    'spotify-app-version': '1.2.40.0'
-                };
-                if (window.spotCliToken) {
-                    headers['Client-Token'] = window.spotCliToken;
-                }
-                const resp = await oriFetch('https://api-partner.spotify.com/pathfinder/v2/query', {
-                    method: 'POST',
-                    mode: 'cors',
-                    credentials: 'include',
-                    headers: headers,
-                    body: JSON.stringify({
-                        variables: {
-                            offset: 0,
-                            limit: 50
-                        },
-                        operationName: 'fetchLibraryTracks',
-                        extensions: {
-                            persistedQuery: {
-                                version: 1,
-                                sha256Hash: activeHash
-                            }
-                        }
-                    })
-                });
-                console.log("[Spotifuck] fetchLibraryTracks status:", resp.status);
-                if (resp.ok) {
-                    const data = await resp.json();
-                    const tracksData = data?.data?.me?.library?.tracks || data?.data?.me?.libraryV3 || data?.data?.libraryTracks || data?.data;
-                    const items = tracksData?.items || [];
-                    const tracks = items.map(elem => {
-                        const trackWrapper = elem?.track || elem?.itemV2 || elem;
-                        const trackData = trackWrapper?.data || trackWrapper;
-                        if (!trackData) return null;
-                        const uri = trackWrapper?._uri || trackWrapper?.uri || trackData?.uri || (trackData?.id ? 'spotify:track:' + trackData.id : '') || "";
-                        if (!uri || !uri.includes(':track:')) return null;
-                        const artists = trackData.artists?.items?.map(a => a.profile?.name || a.name).filter(Boolean) || trackData.artists?.map(a => a.name).filter(Boolean) || [];
-                        const albumData = trackData.albumOfTrack || trackData.album || {};
-                        const coverUrl = albumData.coverArt?.sources?.[0]?.url || albumData.images?.[0]?.url || null;
-                        return {
-                            id: uri,
-                            name: trackData.name || trackData.title || "Unknown Track",
-                            image: coverUrl,
-                            artists: artists,
-                            browsable: false
-                        };
-                    }).filter(Boolean);
-                    console.log(`[Spotifuck] fetchLibraryTracks parsed ${tracks.length} Liked Songs tracks!`);
-                    if (tracks.length > 0) {
-                        window.likedSongsCache = tracks;
-                        return tracks;
-                    }
-                }
-            } catch (e) {
-                console.error("[Spotifuck] fetchLibraryTracks fetch failed:", e);
-            }
-
-            return window.likedSongsCache || [];
-        }
-
-        // 2. Liked Songs
-        if (parentId === 'spotify:collection:tracks' || parentId.endsWith(':collection') || parentId.startsWith('spotify:collection')) {
-            console.log("[Spotifuck] Liked Songs requested for parentId:", parentId);
-            const tracks = await getLikedSongsTracks();
-            console.log(`[Spotifuck] Returning ${tracks.length} Liked Songs tracks to Android Auto for ${parentId}`);
-            AndBridge.onMediaItemsLoaded(parentId, JSON.stringify(tracks));
-            return;
-        }
-
-            // 3. Specific Playlist tracks (using GQL fetchPlaylist)
-            if (parentId.startsWith('spotify:playlist:') || (parentId.includes(':user:') && parentId.includes(':playlist:'))) {
-                const resp = await oriFetch('https://api-partner.spotify.com/pathfinder/v2/query', {
-                    method: 'POST',
-                    mode: 'cors',
-                    credentials: 'include',
-                    headers: {
-                        'Authorization': window.spotAuthToken,
-                        'Client-Token': window.spotCliToken,
-                        'Content-Type': 'application/json;charset=UTF-8',
-                        'app-platform': 'WebPlayer',
-                        'spotify-app-version': '1.2.40.0'
-                    },
-                    body: JSON.stringify({
-                        variables: {
-                            uri: parentId,
-                            offset: 0,
-                            limit: 100,
-                            enableWatchFeedEntrypoint: false
-                        },
-                        operationName: 'fetchPlaylist',
-                        extensions: {
-                            persistedQuery: {
-                                version: 1,
-                                sha256Hash: getGqlHash('fetchPlaylist', '346811f856fb0b7e4f6c59f8ebea78dd081c6e2fb01b77c954b26259d5fc6763')
-                            }
-                        }
-                    })
-                });
-                if (!resp.ok) throw new Error("Failed to fetch playlist tracks GQL: " + resp.statusText);
-                const data = await resp.json();
-                const playlistObj = data?.data?.playlistV2 || data?.data?.playlist || data?.data?.playlistUnion || data?.data?.me?.library || data?.data?.me;
-                const content = playlistObj?.content || playlistObj?.tracks || playlistObj;
-                const items = content?.items || playlistObj?.items || [];
-                const tracks = items.map(elem => {
-                    const itemV2 = elem?.itemV2 || elem?.item;
-                    const trackData = itemV2?.data || elem?.track || itemV2 || elem;
-                    if (!trackData) return null;
-                    const uri = trackData.uri || trackData._uri || elem?.uri || (trackData.id ? 'spotify:track:' + trackData.id : '') || "";
-                    if (!uri || !uri.includes(':track:')) return null;
-                    const artists = trackData.artists?.items?.map(a => a.profile?.name || a.name).filter(Boolean) || trackData.artists?.map(a => a.name).filter(Boolean) || [];
-                    const albumData = trackData.albumOfTrack || trackData.album || {};
-                    const coverUrl = albumData.coverArt?.sources?.[0]?.url || albumData.images?.[0]?.url || null;
-                    return {
-                        id: uri,
-                        name: trackData.name || trackData.title || "Unknown Track",
-                        image: coverUrl,
-                        artists: artists,
-                        browsable: false
-                    };
-                }).filter(Boolean);
-                console.log(`[Spotifuck] fetchPlaylist parsed ${tracks.length} tracks for ${parentId}`);
-                AndBridge.onMediaItemsLoaded(parentId, JSON.stringify(tracks));
-                return;
-            }
-
-            // 3. Specific Album tracks (using GQL getAlbum)
-            if (parentId.startsWith('spotify:album:')) {
-                const albumId = parentId.split(':')[2];
-                const resp = await oriFetch('https://api-partner.spotify.com/pathfinder/v2/query', {
-                    method: 'POST',
-                    mode: 'cors',
-                    credentials: 'include',
-                    headers: {
-                        'Authorization': window.spotAuthToken,
-                        'Client-Token': window.spotCliToken,
-                        'Content-Type': 'application/json;charset=UTF-8',
-                        'app-platform': 'WebPlayer',
-                        'spotify-app-version': '1.2.40.0'
-                    },
-                    body: JSON.stringify({
-                        variables: {
-                            uri: `spotify:album:${albumId}`,
-                            locale: "",
-                            offset: 0,
-                            limit: 100
-                        },
-                        operationName: 'getAlbum',
-                        extensions: {
-                            persistedQuery: {
-                                version: 1,
-                                sha256Hash: getGqlHash('getAlbum', 'b9bfabef66ed756e5e13f68a942deb60bd4125ec1f1be8cc42769dc0259b4b10')
-                            }
-                        }
-                    })
-                });
-                if (!resp.ok) throw new Error("Failed to fetch album GQL: " + resp.statusText);
-                const data = await resp.json();
-                const albumData = data?.data?.albumUnion || data?.data?.album || data?.data?.albumV2;
-                const albumCover = albumData?.coverArt?.sources?.[0]?.url || albumData?.images?.[0]?.url || null;
-                const items = albumData?.tracksV2?.items || albumData?.tracks?.items || albumData?.tracks || [];
-                const tracks = items.map(elem => {
-                    const trackObj = elem?.track || elem?.item?.data || elem;
-                    if (!trackObj) return null;
-                    const uri = trackObj.uri || trackObj._uri || (trackObj.id ? 'spotify:track:' + trackObj.id : '') || "";
-                    if (!uri) return null;
-                    const artists = trackObj.artists?.items?.map(a => a.profile?.name || a.name).filter(Boolean) || trackObj.artists?.map(a => a.name).filter(Boolean) || [];
-                    return {
-                        id: uri,
-                        name: trackObj.name || trackObj.title || "Unknown Track",
-                        image: albumCover,
-                        artists: artists,
-                        browsable: false
-                    };
-                }).filter(Boolean);
-                console.log(`[Spotifuck] getAlbum parsed ${tracks.length} tracks for ${parentId}`);
-                AndBridge.onMediaItemsLoaded(parentId, JSON.stringify(tracks));
-                return;
-            }
-
-            // 4. Specific Artist (fetch their top tracks using GQL queryArtistOverview)
-            if (parentId.startsWith('spotify:artist:')) {
-                const artistId = parentId.split(':')[2];
-                const resp = await oriFetch('https://api-partner.spotify.com/pathfinder/v2/query', {
-                    method: 'POST',
-                    mode: 'cors',
-                    credentials: 'include',
-                    headers: {
-                        'Authorization': window.spotAuthToken,
-                        'Client-Token': window.spotCliToken,
-                        'Content-Type': 'application/json;charset=UTF-8',
-                        'app-platform': 'WebPlayer',
-                        'spotify-app-version': '1.2.40.0'
-                    },
-                    body: JSON.stringify({
-                        variables: {
-                            uri: `spotify:artist:${artistId}`,
-                            locale: ""
-                        },
-                        operationName: 'queryArtistOverview',
-                        extensions: {
-                            persistedQuery: {
-                                version: 1,
-                                sha256Hash: getGqlHash('queryArtistOverview', '5b9e64f43843fa3a9b6a98543600299b0a2cbbbccfdcdcef2402eb9c1017ca4c')
-                            }
-                        }
-                    })
-                });
-                if (!resp.ok) throw new Error("Failed to fetch artist top tracks GQL: " + resp.statusText);
-                const data = await resp.json();
-                const artistData = data?.data?.artistUnion || data?.data?.artist;
-                const items = artistData?.discography?.topTracks?.items || artistData?.topTracks?.items || artistData?.topTracks || [];
-                const tracks = items.map(elem => {
-                    const trackObj = elem?.track || elem?.item?.data || elem;
-                    if (!trackObj) return null;
-                    const uri = trackObj.uri || trackObj._uri || (trackObj.id ? 'spotify:track:' + trackObj.id : '') || "";
-                    if (!uri) return null;
-                    const artists = trackObj.artists?.items?.map(a => a.profile?.name || a.name).filter(Boolean) || [];
-                    const albumData = trackObj.albumOfTrack || trackObj.album || {};
-                    const coverUrl = albumData.coverArt?.sources?.[0]?.url || albumData.images?.[0]?.url || null;
-                    return {
-                        id: uri,
-                        name: trackObj.name || trackObj.title || "Unknown Track",
-                        image: coverUrl,
-                        artists: artists,
-                        browsable: false
-                    };
-                }).filter(Boolean);
-                console.log(`[Spotifuck] queryArtistOverview parsed ${tracks.length} tracks for ${parentId}`);
-                AndBridge.onMediaItemsLoaded(parentId, JSON.stringify(tracks));
-                return;
-            }
-
-            // 5. Specific Podcast (fetch show episodes)
-            if (parentId.startsWith('spotify:show:')) {
-                const showId = parentId.split(':')[2];
-                const resp = await fetch(`https://api.spotify.com/v1/shows/${showId}/episodes?limit=50`, {
-                    headers: { 
-                        'Authorization': window.spotAuthToken,
-                        'Client-Token': window.spotCliToken,
-                        'app-platform': 'WebPlayer'
-                    }
-                });
-                if (!resp.ok) throw new Error("Failed to fetch show episodes");
-                const data = await resp.json();
-                const episodes = (data.items || []).map(e => {
-                    const uri = e.uri || e._uri || (e.id ? 'spotify:episode:' + e.id : '') || "";
-                    return {
-                        id: uri,
-                        name: e.name,
-                        image: e.images?.[0]?.url || null,
-                        browsable: false
-                    };
-                });
-                AndBridge.onMediaItemsLoaded(parentId, JSON.stringify(episodes));
-                return;
-            }
-
-            // Fallback for unknown categories
-            AndBridge.onMediaItemsLoaded(parentId, "[]");
-        } catch (e) {
-            console.error("Error loading media items for " + parentId, e);
-            AndBridge.onMediaItemsLoaded(parentId, "[]");
-        }
-    }
-    window.fetchMediaItems = fetchMediaItems;
-
-    async function searchMediaItems(query) {
-        try {
-            await ensureAuthToken();
-            const token = window.spotAuthToken || (function() { try { return localStorage.getItem('spot_auth_token'); } catch(_) { return null; } })();
-            const cliTok = window.spotCliToken || (function() { try { return localStorage.getItem('spot_cli_token'); } catch(_) { return null; } })();
-            if (!token) {
-                console.warn("[Spotifuck] searchMediaItems: Auth token unavailable.");
-                AndBridge.onSearchCompleted(query, "[]");
-                return;
-            }
-            const headers = {
-                'Authorization': token,
-                'Content-Type': 'application/json;charset=UTF-8',
-                'app-platform': 'WebPlayer',
-                'spotify-app-version': '1.2.40.0'
-            };
-            if (cliTok) {
-                headers['Client-Token'] = cliTok;
-            }
-            const resp = await oriFetch('https://api-partner.spotify.com/pathfinder/v2/query', {
-                method: 'POST',
-                mode: 'cors',
-                credentials: 'include',
-                headers: headers,
-                body: JSON.stringify({
-                    variables: {
-                        searchTerm: query,
-                        offset: 0,
-                        limit: 30,
-                        numberOfTopResults: 5,
-                        includeAudiobooks: false,
-                        includeArtistHasConcertsField: false,
-                        includePreReleases: false,
-                        includeLocalConcertsField: false,
-                        includeAuthors: false
-                    },
-                    operationName: 'searchDesktop',
-                    extensions: {
-                        persistedQuery: {
-                            version: 1,
-                            sha256Hash: getGqlHash('searchDesktop', '4801118d4a100f756e833d33984436a3899cff359c532f8fd3aaf174b60b3b49')
-                        }
-                    }
-                })
-            });
-            if (!resp.ok) throw new Error("Failed to search GQL: " + resp.statusText);
-            const data = await resp.json();
-            const searchData = data?.data?.searchV2 || data?.data?.search;
-            const results = [];
-            const seenUris = new Set();
-
-            const pushItem = (item) => {
-                if (!item || !item.id || seenUris.has(item.id)) return;
-                seenUris.add(item.id);
-                results.push(item);
-            };
-
-            // 1. Top Result (Spotify's best direct match - Song, Artist, Album, etc.)
-            const topResults = searchData?.topResultsV2?.items || searchData?.topResults?.items || [];
-            topResults.forEach(elem => {
-                const itemWrapper = elem?.item || elem;
-                const data = itemWrapper?.data || itemWrapper;
-                if (!data) return;
-                const typeName = data.__typename || '';
-                const uri = itemWrapper.uri || data.uri || (data.id ? 'spotify:' + (typeName.toLowerCase().replace('responsewrapper', '') || 'track') + ':' + data.id : '') || "";
-                if (!uri) return;
-
-                let type = 'Song';
-                let isBrowsable = false;
-                let artistsList = [];
-                let img = null;
-
-                if (uri.includes(':track:')) {
-                    type = 'Song';
-                    isBrowsable = false;
-                    artistsList = data.artists?.items?.map(a => a.profile?.name || a.name).filter(Boolean) || data.artists?.map(a => a.name).filter(Boolean) || [];
-                    const albumData = data.albumOfTrack || data.album || {};
-                    img = albumData.coverArt?.sources?.[0]?.url || albumData.images?.[0]?.url || null;
-                } else if (uri.includes(':artist:')) {
-                    type = 'Artist';
-                    isBrowsable = true;
-                    img = data.visuals?.avatarImage?.sources?.[0]?.url || data.images?.[0]?.url || null;
-                } else if (uri.includes(':album:')) {
-                    type = 'Album';
-                    isBrowsable = true;
-                    artistsList = data.artists?.items?.map(a => a.profile?.name || a.name).filter(Boolean) || [];
-                    img = data.coverArt?.sources?.[0]?.url || data.images?.[0]?.url || null;
-                } else if (uri.includes(':playlist:')) {
-                    type = 'Playlist';
-                    isBrowsable = true;
-                    const owner = data.ownerV2?.data?.name || data.owner?.name || "";
-                    if (owner) artistsList = [owner];
-                    img = data.images?.items?.[0]?.sources?.[0]?.url || data.images?.[0]?.url || null;
-                }
-
-                pushItem({
-                    id: uri,
-                    name: data.name || data.title || "Top Result",
-                    image: img,
-                    type: type,
-                    artists: artistsList,
-                    browsable: isBrowsable
-                });
-            });
-
-            // Extract all category pools
-            const rawSongs = [];
-            (searchData?.tracksV2?.items || searchData?.tracks?.items || []).forEach(elem => {
-                const itemWrapper = elem?.item || elem;
-                const data = itemWrapper?.data || itemWrapper;
-                if (!data) return;
-                const uri = itemWrapper.uri || data.uri || (data.id ? 'spotify:track:' + data.id : '') || "";
-                if (!uri || !uri.includes(':track:')) return;
-                const artistsList = data.artists?.items?.map(a => a.profile?.name || a.name).filter(Boolean) || data.artists?.map(a => a.name).filter(Boolean) || [];
-                const albumData = data.albumOfTrack || data.album || {};
-                const coverUrl = albumData.coverArt?.sources?.[0]?.url || albumData.images?.[0]?.url || null;
-                rawSongs.push({
-                    id: uri,
-                    name: data.name || data.title || "Track",
-                    image: coverUrl,
-                    type: 'Song',
-                    artists: artistsList,
-                    browsable: false
-                });
-            });
-
-            const rawAlbums = [];
-            (searchData?.albumsV2?.items || searchData?.albums?.items || []).forEach(elem => {
-                const item = elem?.data || elem;
-                if (!item) return;
-                const uri = item.uri || (item.id ? 'spotify:album:' + item.id : '');
-                if (!uri) return;
-                const name = item.name || "Album";
-                const img = item.coverArt?.sources?.[0]?.url || item.images?.[0]?.url || null;
-                const artists = item.artists?.items?.map(a => a.profile?.name || a.name).filter(Boolean) || [];
-                rawAlbums.push({
-                    id: uri,
-                    name: name,
-                    image: img,
-                    type: 'Album',
-                    artists: artists,
-                    browsable: true
-                });
-            });
-
-            const rawPlaylists = [];
-            (searchData?.playlists?.items || []).forEach(elem => {
-                const item = elem?.data || elem;
-                if (!item) return;
-                const uri = item.uri || (item.id ? 'spotify:playlist:' + item.id : '');
-                if (!uri) return;
-                const name = item.name || item.title || "Playlist";
-                const img = item.images?.items?.[0]?.sources?.[0]?.url || item.images?.[0]?.url || null;
-                const owner = item.ownerV2?.data?.name || item.owner?.name || "";
-                rawPlaylists.push({
-                    id: uri,
-                    name: name,
-                    image: img,
-                    type: 'Playlist',
-                    artists: owner ? [owner] : [],
-                    browsable: true
-                });
-            });
-
-            const rawArtists = [];
-            (searchData?.artists?.items || []).forEach(elem => {
-                const item = elem?.data || elem;
-                if (!item) return;
-                const uri = item.uri || (item.id ? 'spotify:artist:' + item.id : '');
-                if (!uri) return;
-                const name = item.profile?.name || item.name || "Artist";
-                const img = item.visuals?.avatarImage?.sources?.[0]?.url || item.images?.[0]?.url || null;
-                rawArtists.push({
-                    id: uri,
-                    name: name,
-                    image: img,
-                    type: 'Artist',
-                    artists: [],
-                    browsable: true
-                });
-            });
-
-            // 2. Interleave: Top 4 Songs -> Top 3 Albums -> Top 3 Playlists -> Top 2 Artists -> Remaining
-            rawSongs.slice(0, 4).forEach(pushItem);
-            rawAlbums.slice(0, 3).forEach(pushItem);
-            rawPlaylists.slice(0, 3).forEach(pushItem);
-            rawArtists.slice(0, 2).forEach(pushItem);
-
-            // 3. Append remaining results
-            rawSongs.slice(4).forEach(pushItem);
-            rawAlbums.slice(3).forEach(pushItem);
-            rawPlaylists.slice(3).forEach(pushItem);
-            rawArtists.slice(2).forEach(pushItem);
-            console.log(`[Spotifuck] Search parsed ${results.length} ordered results (Top -> Songs -> Albums -> Playlists -> Artists) for "${query}"`);
-            AndBridge.onSearchCompleted(query, JSON.stringify(results));
-        } catch (e) {
-            console.error("Error searching for " + query, e);
-            AndBridge.onSearchCompleted(query, "[]");
-        }
-    }
-    window.searchMediaItems = searchMediaItems;
+        } catch (_) {}
+    };
 
     firstFuck();
 })();

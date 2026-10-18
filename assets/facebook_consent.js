@@ -1,4 +1,1 @@
-(function() {
-    let btn = document.querySelector('#facebook div[role=button]');
-    if (btn) btn.click();
-})();
+// Legacy automatic consent clicking is intentionally disabled. Use the provider UI.
