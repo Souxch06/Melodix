@@ -3320,7 +3320,12 @@
     sput-object v5, Lml;->h:Lg6;
 
     .line 598
+    const/16 v15, 0x8
+
     .line 599
+    invoke-virtual {v5, v15}, Landroid/view/View;->setVisibility(I)V
+
+    .line 600
     new-instance v2, Ln7;
 
     .line 600
@@ -3609,12 +3614,6 @@
     sput-object v2, Lml;->i:Lg6;
 
     .line 755
-    const/16 v5, 0x8
-
-    .line 756
-    invoke-virtual {v2, v5}, Landroid/view/View;->setVisibility(I)V
-
-    .line 757
     sget-object v2, Lml;->g:Landroid/widget/LinearLayout;
 
     .line 758

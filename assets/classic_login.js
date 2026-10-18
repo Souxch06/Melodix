@@ -1,31 +1,12 @@
-(function hideAlternativeLoginMethods() {
-    const passwordlessLabel = /^(?:log|sign)\s+in\s+without\s+(?:a\s+)?password$|^(?:se\s+connecter|connexion)\s+sans\s+(?:mot\s+de\s+)?passe$/i;
-    const passwordlessTestId = /(?:passwordless|magic[-_ ]?link|one[-_ ]?time[-_ ]?passcode)/i;
-
-    function hidePasswordlessOptions() {
-        document.querySelectorAll('a, button, [role="link"], [role="button"]').forEach((element) => {
-            const label = (element.innerText || element.textContent || element.getAttribute('aria-label') || '')
-                .replace(/\s+/g, ' ')
-                .trim();
-            const testId = element.getAttribute('data-testid') || '';
-
-            if (passwordlessLabel.test(label) || passwordlessTestId.test(testId)) {
-                element.style.setProperty('display', 'none', 'important');
-                element.setAttribute('aria-hidden', 'true');
-                element.setAttribute('tabindex', '-1');
-            }
-        });
-    }
-
-    hidePasswordlessOptions();
-
-    if (typeof MutationObserver !== 'undefined' && document.documentElement) {
-        const observer = new MutationObserver(hidePasswordlessOptions);
-        observer.observe(document.documentElement, {
-            childList: true,
-            subtree: true,
-            characterData: true
-        });
-        window.addEventListener('pagehide', () => observer.disconnect(), { once: true });
+(function() {
+    let gl = document.querySelector('section>div>div>div>div>a:first-child:not(.fuckd)') ||
+             document.querySelector('a[data-testid="login-username-password"]:not(.fuckd)');
+    if (gl) {
+        let cl = document.createElement('a');
+        cl.className = 'fuckd';
+        cl.innerText = 'Email + Password Classic Login';
+        cl.style.cssText = 'display:block;padding:10px;margin:10px 0;color:white;font-weight:bold;text-decoration:none;border:1px solid #ddd;background:#339;border-radius:30px';
+        cl.href = window.location.href.includes('?') ? window.location.href + '&allow_password=1' : window.location.href + '?allow_password=1';
+        gl.parentNode.insertBefore(cl, gl);
     }
 })();
