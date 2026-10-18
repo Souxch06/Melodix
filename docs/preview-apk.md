@@ -1,6 +1,6 @@
 # Créer et publier l'APK Melodix Preview
 
-La Preview est une application d'essai séparée, identifiant `com.melodix.music.preview`, nommée **Melodix Preview**. Elle s'installe à côté de l'application normale `com.melodix.music` sans la désinstaller et garde ses propres données. La release actuelle est la **test.2** (`v1.2.2-test.2-preview`), construite depuis le commit `750834e20eca6f240a84ef164ce492f989e29458`; elle applique le dock mobile, le mini-lecteur compact et la bibliothèque fermable à la page Spotify réelle. La Preview V1 (`v1.2.2-test.1-preview`) reste disponible comme build exact du commit V18 `81ef774fcb2208d4c4e999943411040aa1bfa33f`.
+La Preview est une application d'essai séparée, identifiant `com.melodix.music.preview`, nommée **Melodix Preview**. Elle s'installe à côté de l'application normale `com.melodix.music` sans la désinstaller et garde ses propres données. La release actuelle est la **test.3** (`v1.2.2-test.3-preview`), construite depuis le commit `576d9fade2d71c75b795a6bdb67300388a26fe2e`. Elle garde le dock mobile et le mini-lecteur visibles même lorsque le lecteur Spotify est déplié, et couvre les écrans portrait jusqu'à 820 px CSS. La test.2 (`v1.2.2-test.2-preview`) et la Preview V1 (`v1.2.2-test.1-preview`), build exact du commit V18 `81ef774fcb2208d4c4e999943411040aa1bfa33f`, restent disponibles.
 
 La Preview doit être signée avec sa propre clé. Conserve cette clé pour les prochaines versions afin qu'elles puissent mettre à jour la même application.
 
@@ -42,16 +42,18 @@ Cette commande copie le texte encodé dans le presse-papiers sans l'afficher. Co
 
 ## 3. Publier une version Preview
 
-Pour reproduire la release mobile test.2 :
+Pour reproduire la release mobile test.3 :
 
 1. Sur GitHub, ouvre le dépôt puis l'onglet **Actions**.
 2. Sélectionne **Build Melodix Preview APK** et clique **Run workflow** sur la branche de travail.
-3. Saisis le tag `v1.2.2-test.2-preview` et le commit source `750834e20eca6f240a84ef164ce492f989e29458`, puis lance le workflow.
+3. Saisis le tag `v1.2.2-test.3-preview` et le commit source `576d9fade2d71c75b795a6bdb67300388a26fe2e`, puis lance le workflow.
 4. Attends que le run soit terminé avec l'état vert **Success**.
 
-Le workflow publie `Melodix Preview v1.2.2 test.2` et y attache `Melodix-Preview-v1.2.2-test2.apk` ainsi que son fichier `.sha256`. Son `versionCode` est `1020230`, supérieur à celui de la Preview test.1 et de l'ancienne test.27 : avec la même clé Preview, elle met à jour l'application Preview déjà installée. Elle ne remplace pas l'application normale et ne nécessite pas sa désinstallation.
+Le workflow publie `Melodix Preview v1.2.2 test.3` et y attache `Melodix-Preview-v1.2.2-test3.apk` ainsi que son fichier `.sha256`. Son `versionCode` est `1020231`, supérieur à celui de la Preview test.2 : avec la même clé Preview, elle met à jour l'application Preview déjà installée. Elle ne remplace pas l'application normale et ne nécessite pas sa désinstallation.
 
-Pour reconstruire l'ancienne base V18, choisis plutôt le tag `v1.2.2-test.1-preview` et le commit source `81ef774fcb2208d4c4e999943411040aa1bfa33f`.
+Après installation, vérifie que tu as lancé **Melodix Preview** et que **Paramètres → GUI Mode** est réglé sur **CSS+JS Mobile**. C'est ce mode qui active les styles et la navigation mobile.
+
+Pour reconstruire l'ancienne base V18, choisis le tag `v1.2.2-test.1-preview` et le commit source `81ef774fcb2208d4c4e999943411040aa1bfa33f`.
 
 Pour une version suivante, choisis un nouveau tag test et le commit source voulu; garde la même clé Preview. Le workflow augmente le `versionCode` au-dessus de l'ancienne Preview test.27. Il adapte uniquement sa copie temporaire du projet à la signature Preview et au `versionCode`; le projet source et la signature de l'application normale restent inchangés.
 
