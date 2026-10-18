@@ -57,12 +57,13 @@ jobs:
           for _ in $(seq 1 120); do
             device_id="$(adb devices | awk '$1 ~ /^emulator-/ && $2 == "device" {print $1; exit}')"
             if [[ -n "$device_id" ]]; then break; fi
-            if ! kill -0 "$emulator_pid" 2>/dev/null; then break; fi
             sleep 5
           done
           if [[ -z "$device_id" ]]; then
-            log_tail="$(tail -n 40 "$RUNNER_TEMP/melodix-emulator.log" | base64 | tr -d '\n')"
-            echo "::error title=Android emulator log tail (base64)::${log_tail}"
+            device_list="$(adb devices | awk 'NR > 1 && NF >= 2 {printf "%s:%s,", $1, $2}')"
+            process_state="$(ps -p "$emulator_pid" -o stat=,command= 2>/dev/null || true)"
+            emulator_errors="$(grep -Ei 'ERROR|FATAL|PANIC|failed|failure|cannot|could not' "$RUNNER_TEMP/melodix-emulator.log" | tail -n 15 | tr '\n' ' ' | cut -c1-2500 || true)"
+            echo "::error title=Android emulator startup::adb_devices=${device_list:-none}; process=${process_state:-exited}; log=${emulator_errors:-no matching error lines}"
             exit 1
           fi
           booted=0
@@ -76,9 +77,8 @@ jobs:
           if [[ "$booted" != "1" ]]; then
             boot_completed="$(adb -s "$device_id" shell getprop sys.boot_completed 2>/dev/null | tr -d '\r' || true)"
             boot_animation="$(adb -s "$device_id" shell getprop init.svc.bootanim 2>/dev/null | tr -d '\r' || true)"
-            echo "::error title=Android boot state::sys.boot_completed=$boot_completed; bootanim=$boot_animation; host_arch=$(uname -m)"
-            log_tail="$(tail -n 40 "$RUNNER_TEMP/melodix-emulator.log" | base64 | tr -d '\n')"
-            echo "::error title=Android emulator log tail (base64)::${log_tail}"
+            emulator_errors="$(grep -Ei 'ERROR|FATAL|PANIC|failed|failure|cannot|could not' "$RUNNER_TEMP/melodix-emulator.log" | tail -n 15 | tr '\n' ' ' | cut -c1-2500 || true)"
+            echo "::error title=Android boot state::sys.boot_completed=$boot_completed; bootanim=$boot_animation; host_arch=$(uname -m); log=${emulator_errors:-no matching error lines}"
             exit 1
           fi
           adb -s "$device_id" shell settings put global window_animation_scale 0
