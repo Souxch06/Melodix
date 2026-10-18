@@ -1819,7 +1819,7 @@
 
     .line 229
     .line 230
-    const-string v2, "(function() {let l=document.querySelector(\'button[data-testid=web-player-link]\');if(l) { AndBridge.loginDetected(); l.click(); }})();"
+    const-string v2, "(function() {let l=document.querySelector(\'button[data-testid=web-player-link]\');if(l) l.click();})();"
 
     .line 231
     .line 232

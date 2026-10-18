@@ -797,6 +797,54 @@
     return-void
 .end method
 
+.method public final logoutDetected()V
+    .locals 2
+    .annotation runtime Landroid/webkit/JavascriptInterface;
+    .end annotation
+
+    .line 1
+    const/4 p0, 0x0
+
+    .line 2
+    sput-boolean p0, Lcom/melodix/music/AppSingleton;->B:Z
+
+    .line 3
+    .line 4
+    sget v0, Lcom/melodix/music/AppSingleton;->j:I
+
+    .line 5
+    .line 6
+    invoke-static {}, Lm9;->f()Landroid/content/SharedPreferences$Editor;
+
+    .line 7
+    .line 8
+    .line 9
+    move-result-object v0
+
+    .line 10
+    const-string v1, "LoggedIn"
+
+    .line 11
+    .line 12
+    invoke-interface {v0, v1, p0}, Landroid/content/SharedPreferences$Editor;->putBoolean(Ljava/lang/String;Z)Landroid/content/SharedPreferences$Editor;
+
+    .line 13
+    .line 14
+    .line 15
+    move-result-object p0
+
+    .line 16
+    invoke-interface {p0}, Landroid/content/SharedPreferences$Editor;->commit()Z
+
+    .line 17
+    .line 18
+    invoke-static {}, Lm9;->k()V
+
+    .line 19
+    .line 20
+    return-void
+.end method
+
 .method public final manageTShut(Z)V
     .locals 0
     .annotation runtime Landroid/webkit/JavascriptInterface;

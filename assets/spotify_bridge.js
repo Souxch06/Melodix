@@ -22,6 +22,57 @@
     let fsUpdateTimer = null;
     let fsScrubbing = false;
 
+    // A stale persisted login flag can reopen Spotify's public home instead of the
+    // sign-in form. If Spotify still exposes its guest login action after hydration,
+    // reset that flag and return to Spotify's standard authentication flow.
+    (function recoverGuestSession() {
+        if (window.location.hostname !== 'open.spotify.com' || !document.documentElement) return;
+
+        const loginUrl = 'https://accounts.spotify.com/en/login?continue=https%3A%2F%2Fopen.spotify.com%2F&allow_signup=1';
+        let observer = null;
+        let guestSince = 0;
+        let redirected = false;
+
+        const checkGuestState = () => {
+            if (redirected || window.location.hostname !== 'open.spotify.com') return;
+
+            const loginButton = document.querySelector('button[data-testid="web-player-link"]');
+            const buttonText = loginButton
+                ? `${loginButton.innerText || ''} ${loginButton.getAttribute('aria-label') || ''}`.trim().toLowerCase()
+                : '';
+            const isVisible = !!(loginButton && (
+                loginButton.offsetWidth > 0 || loginButton.offsetHeight > 0 || loginButton.getClientRects().length > 0
+            ));
+            const isGuestAction = isVisible && /se\s+connecter|log\s*in|sign\s*in|connexion|login/.test(buttonText);
+
+            if (!isGuestAction) {
+                guestSince = 0;
+                return;
+            }
+
+            if (!guestSince) {
+                guestSince = Date.now();
+                window.setTimeout(checkGuestState, 1200);
+                return;
+            }
+            if (Date.now() - guestSince < 1000) return;
+
+            redirected = true;
+            if (observer) observer.disconnect();
+            try {
+                if (window.AndBridge && typeof window.AndBridge.logoutDetected === 'function') {
+                    window.AndBridge.logoutDetected();
+                }
+            } catch (_) {}
+            window.location.replace(loginUrl);
+        };
+
+        observer = new MutationObserver(checkGuestState);
+        observer.observe(document.documentElement, { childList: true, subtree: true, characterData: true });
+        checkGuestState();
+        window.setTimeout(() => observer && observer.disconnect(), 15000);
+    })();
+
     try {
         window.spotAuthToken = window.spotAuthToken || localStorage.getItem('spot_auth_token') || null;
         window.spotCliToken = window.spotCliToken || localStorage.getItem('spot_cli_token') || null;
@@ -2114,7 +2165,9 @@
                         lb.addEventListener('click', function() {
                             setTimeout(() => switchLs(), 0);
                         });
-                        switchLs();
+                        // Start with the library closed, so the public home or sign-in
+                        // screen is not covered by the full-width library drawer.
+                        switchLs(false);
                         AndBridge.cssInjected();
                     }
 
@@ -2240,35 +2293,47 @@
                 }
             }, 3000);
 
-            // Library sidebar toggler helper
-            window.switchLs = function() {
-                let ls = document.querySelector('#Desktop_LeftSidebar_Id');
-                if (ls) {
-                    let navDiv = ls.querySelector('nav>div>div:first-child');
-                    if (!navDiv) return;
-                    let exp = navDiv.classList.length;
-                    if (exp == 2) {
-                        ls.style.setProperty('position', 'fixed', 'important');
-                        ls.style.setProperty('width', '100%', 'important');
-                        ls.style.setProperty('height', 'calc(100vh - 48px - var(--sf-safe-area-top, env(safe-area-inset-top)))', 'important');
-                        ls.style.setProperty('top', 'calc(48px + var(--sf-safe-area-top, env(safe-area-inset-top)))', 'important');
-                        ls.style.setProperty('bottom', '0px', 'important');
-                        ls.style.setProperty('left', '0px', 'important');
-                        ls.style.setProperty('overflow-y', 'auto', 'important');
-                        ls.style.setProperty('z-index', 'calc(var(--above-everything-grid-area-z-index) + 5)', 'important');
-                        let lh = ls.querySelector('header>div>div:first-child h1');
-                        if (lh) lh.innerHTML = '✖ &nbsp; ' + (window.SF_CONFIG?.closeLibText || "Library");
-                    } else {
-                        ls.style.setProperty('z-index', '1', 'important');
-                        ls.style.setProperty('position', 'fixed', 'important');
-                        ls.style.setProperty('top', 'var(--sf-safe-area-top, env(safe-area-inset-top))', 'important');
-                        ls.style.setProperty('left', '60px', 'important');
-                        ls.style.setProperty('width', '48px', 'important');
-                        ls.style.setProperty('height', '48px', 'important');
-                        ls.style.removeProperty('bottom');
-                        ls.style.removeProperty('overflow-y');
+            // Library sidebar toggler helper. Track our own state instead of
+            // inferring it from Spotify's changing CSS class count.
+            window.switchLs = function(forceExpanded) {
+                const ls = document.querySelector('#Desktop_LeftSidebar_Id');
+                if (!ls) return;
+
+                const expanded = typeof forceExpanded === 'boolean'
+                    ? forceExpanded
+                    : !window.__sfLibraryExpanded;
+                window.__sfLibraryExpanded = expanded;
+
+                const heading = ls.querySelector('header>div>div:first-child h1');
+                if (heading && !heading.dataset.sfOriginalTitle) {
+                    heading.dataset.sfOriginalTitle = heading.innerHTML;
+                }
+
+                if (expanded) {
+                    ls.style.setProperty('position', 'fixed', 'important');
+                    ls.style.setProperty('width', '100%', 'important');
+                    ls.style.setProperty('height', 'calc(100vh - 48px - var(--sf-safe-area-top, env(safe-area-inset-top)))', 'important');
+                    ls.style.setProperty('top', 'calc(48px + var(--sf-safe-area-top, env(safe-area-inset-top)))', 'important');
+                    ls.style.setProperty('bottom', '0px', 'important');
+                    ls.style.setProperty('left', '0px', 'important');
+                    ls.style.setProperty('overflow-y', 'auto', 'important');
+                    ls.style.setProperty('z-index', 'calc(var(--above-everything-grid-area-z-index) + 5)', 'important');
+                    if (heading) heading.innerHTML = '✖ &nbsp; ' + (window.SF_CONFIG?.closeLibText || 'Library');
+                } else {
+                    ls.style.setProperty('z-index', '1', 'important');
+                    ls.style.setProperty('position', 'fixed', 'important');
+                    ls.style.setProperty('top', 'var(--sf-safe-area-top, env(safe-area-inset-top))', 'important');
+                    ls.style.setProperty('left', '60px', 'important');
+                    ls.style.setProperty('width', '48px', 'important');
+                    ls.style.setProperty('height', '48px', 'important');
+                    ls.style.removeProperty('bottom');
+                    ls.style.removeProperty('overflow-y');
+                    if (heading && heading.dataset.sfOriginalTitle) {
+                        heading.innerHTML = heading.dataset.sfOriginalTitle;
                     }
                 }
+
+                if (window.lBtn) window.lBtn.setAttribute('aria-expanded', String(expanded));
             };
         }
     };
