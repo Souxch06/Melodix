@@ -198,7 +198,9 @@
             if (!nav || !document.body) return;
             const path = window.location.pathname || '/';
             const libraryOpen = !!window.__sfLibraryExpanded || document.body.classList.contains('sf-library-open');
-            const active = libraryOpen ? 'library' : (path.startsWith('/search') ? 'search' : 'home');
+            const active = libraryOpen || path.startsWith('/collection')
+                ? 'library'
+                : (path.startsWith('/search') ? 'search' : 'home');
             nav.querySelectorAll('[data-sf-tab]').forEach(button => {
                 if (button.dataset.sfTab === active) button.setAttribute('aria-current', 'page');
                 else button.removeAttribute('aria-current');
@@ -207,7 +209,21 @@
 
         function setLibraryExpanded(expanded) {
             const sidebar = libraryElement();
-            if (!sidebar) return;
+            if (!sidebar) {
+                window.__sfLibraryExpanded = expanded;
+                const isCollectionRoute = (window.location.pathname || '').startsWith('/collection');
+                if (expanded && !isCollectionRoute) {
+                    const libraryLink = document.querySelector(
+                        '#global-nav-bar a[href^="/collection"], a[href^="/collection"], #global-nav-bar button[data-testid*="library" i]'
+                    );
+                    if (libraryLink) libraryLink.click();
+                    else window.location.assign('https://open.spotify.com/collection/tracks');
+                } else if (!expanded && isCollectionRoute) {
+                    window.location.assign('https://open.spotify.com/');
+                }
+                updateActiveTab(document.getElementById('sf-mobile-navigation'));
+                return;
+            }
 
             if (typeof window.switchLs === 'function') {
                 window.switchLs(expanded);
@@ -249,14 +265,18 @@
         }
 
         function ensureMobileNavigation() {
+            if (!document.body) return false;
             const sidebar = libraryElement();
-            if (!document.body || !sidebar) return false;
 
+            // The mobile shell must not depend on Spotify mounting its desktop
+            // library sidebar: narrow player/detail routes may omit that panel.
             document.body.classList.remove('sf-guest');
             document.body.classList.add('sf-mobile-shell');
             window.__sfLogoutBridgeNotified = false;
             if (typeof window.__sfLibraryExpanded !== 'boolean') {
-                window.__sfLibraryExpanded = sidebar.getBoundingClientRect().width > 80;
+                window.__sfLibraryExpanded = sidebar
+                    ? sidebar.getBoundingClientRect().width > 80
+                    : (window.location.pathname || '').startsWith('/collection');
             }
 
             let nav = document.getElementById('sf-mobile-navigation');
@@ -290,7 +310,7 @@
                 document.body.appendChild(nav);
             }
 
-            if (!sidebar.dataset.sfMobileCloseBound) {
+            if (sidebar && !sidebar.dataset.sfMobileCloseBound) {
                 sidebar.dataset.sfMobileCloseBound = 'true';
                 sidebar.addEventListener('click', event => {
                     if (!event.target.closest('header button, header [role="button"]')) return;
@@ -303,16 +323,24 @@
             }
 
             updateActiveTab(nav);
-            return true;
+            return !!sidebar;
         }
 
+        let mobileNavObserver = null;
         if (!ensureMobileNavigation() && document.documentElement) {
-            const observer = new MutationObserver(() => {
-                if (ensureMobileNavigation()) observer.disconnect();
+            mobileNavObserver = new MutationObserver(() => {
+                if (ensureMobileNavigation()) {
+                    mobileNavObserver.disconnect();
+                    mobileNavObserver = null;
+                }
             });
-            observer.observe(document.documentElement, { childList: true, subtree: true });
-            window.setTimeout(() => observer.disconnect(), 30000);
+            mobileNavObserver.observe(document.documentElement, { childList: true, subtree: true });
+            window.setTimeout(() => {
+                if (mobileNavObserver) mobileNavObserver.disconnect();
+                mobileNavObserver = null;
+            }, 30000);
         }
+        window.addEventListener('DOMContentLoaded', ensureMobileNavigation, { once: true });
 
         window.addEventListener('popstate', () => updateActiveTab(document.getElementById('sf-mobile-navigation')));
 
@@ -2345,13 +2373,20 @@
             });
         }
 
-        let existingVal = parseInt(document.documentElement.style.getPropertyValue('--sf-safe-area-top')) || 0;
+        const root = document.documentElement;
+        const existingVal = parseFloat(root.style.getPropertyValue('--sf-safe-area-top')) || 0;
+        const config = window.SF_CONFIG || {};
+        const statusBarHidden = !!(document.body && document.body.classList.contains('sf-statusbar-hidden'));
         let sbHeight = existingVal;
-        if (window.SF_CONFIG && !window.SF_CONFIG.hideStatusBar) {
-            sbHeight = window.SF_CONFIG.statusBarHeight || existingVal || 0;
+        if (!config.hideStatusBar && !statusBarHidden) {
+            sbHeight = Math.max(Number(config.statusBarHeight) || 0, existingVal);
+            // Android WebView can report a zero inset while drawing under the
+            // visible status bar. Reserve its standard 24dp height until native
+            // WindowInsets delivers the device-specific value.
+            if (config.guiMode === 'csshack' && !isDeviceLandscape()) sbHeight = Math.max(sbHeight, 24);
         }
         if (sbHeight > 0) {
-            document.documentElement.style.setProperty('--sf-safe-area-top', sbHeight + 'px');
+            root.style.setProperty('--sf-safe-area-top', sbHeight + 'px');
         }
 
         if (window.SF_CONFIG.guiMode === "csshack") {

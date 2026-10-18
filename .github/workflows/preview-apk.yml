@@ -7,10 +7,10 @@ on:
   workflow_dispatch:
     inputs:
       release_tag:
-        description: Preview tag (for example v1.2.2-test.17-preview)
+        description: Preview tag (for example v1.2.2-test.18-preview)
         required: true
         type: string
-        default: v1.2.2-test.17-preview
+        default: v1.2.2-test.18-preview
 
 permissions:
   contents: write
@@ -25,12 +25,12 @@ jobs:
         id: release
         shell: bash
         env:
-          INPUT_TAG: ${{ inputs.release_tag || 'v1.2.2-test.17-preview' }}
+          INPUT_TAG: ${{ inputs.release_tag || 'v1.2.2-test.18-preview' }}
         run: |
           set -euo pipefail
           tag="$INPUT_TAG"
           if [[ ! "$tag" =~ ^v([0-9]+\.[0-9]+\.[0-9]+)-test\.([0-9]+)-preview$ ]]; then
-            echo "::error::Expected a preview tag such as v1.2.2-test.17-preview"
+            echo "::error::Expected a preview tag such as v1.2.2-test.18-preview"
             exit 1
           fi
 
