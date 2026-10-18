@@ -73,8 +73,12 @@ jobs:
         run: |
           set -euo pipefail
           prebuilt_path="releases/apk/$APK_NAME"
-          source_dir="android/apktool-project"
-          if [[ -f "$prebuilt_path" && ( "$FORCE_BUILD" != "true" || ! -d "$source_dir" ) ]]; then
+          source_dir="$GITHUB_WORKSPACE"
+          has_source=false
+          if [[ -f "$source_dir/AndroidManifest.xml" && -f "$source_dir/apktool.yml" && -d "$source_dir/res" && -d "$source_dir/smali" ]]; then
+            has_source=true
+          fi
+          if [[ -f "$prebuilt_path" && ( "$FORCE_BUILD" != "true" || "$has_source" != "true" ) ]]; then
             echo "needs_build=false" >> "$GITHUB_OUTPUT"
             echo "A signed APK already exists; SDK setup and compilation can be skipped."
           else
@@ -111,15 +115,15 @@ jobs:
           set -euo pipefail
           output="$RUNNER_TEMP/$APK_NAME"
           prebuilt_path="releases/apk/$APK_NAME"
-          source_dir="android/apktool-project"
+          source_dir="$GITHUB_WORKSPACE"
 
           # Existing signed APKs can be attached without exposing a signing key.
-          if [[ -f "$prebuilt_path" && ( "$FORCE_BUILD" != "true" || ! -d "$source_dir" ) ]]; then
+          if [[ -f "$prebuilt_path" && ( "$FORCE_BUILD" != "true" || ! -f "$source_dir/AndroidManifest.xml" ) ]]; then
             echo "Using the already-built APK committed at $prebuilt_path."
             cp "$prebuilt_path" "$output"
           else
-            if [[ ! -d "$source_dir" ]]; then
-              echo "::error::No prebuilt $prebuilt_path or Apktool source project was found."
+            if [[ ! -f "$source_dir/AndroidManifest.xml" || ! -f "$source_dir/apktool.yml" || ! -d "$source_dir/res" || ! -d "$source_dir/smali" ]]; then
+              echo "::error::No prebuilt $prebuilt_path or complete root-level Apktool project was found."
               exit 1
             fi
             if [[ -z "$MELODIX_KEYSTORE_B64" || -z "$MELODIX_KEYSTORE_PASSWORD" ]]; then
@@ -129,8 +133,15 @@ jobs:
 
             work_dir="$RUNNER_TEMP/melodix-apktool-project"
             framework_dir="$RUNNER_TEMP/melodix-apktool-framework"
-            mkdir -p "$framework_dir"
-            cp -a "$source_dir" "$work_dir"
+            mkdir -p "$framework_dir" "$work_dir"
+            project_items=(AndroidManifest.xml META-INF apktool.yml assets kotlin lib original res smali unknown)
+            for item in "${project_items[@]}"; do
+              if [[ ! -e "$source_dir/$item" ]]; then
+                echo "::error::Root-level Apktool project item is missing: $item"
+                exit 1
+              fi
+              cp -a "$source_dir/$item" "$work_dir/"
+            done
             sed -i -E "s/^  versionCode: .*/  versionCode: $VERSION_CODE/" "$work_dir/apktool.yml"
             sed -i -E "s/^apkFileName: .*/apkFileName: $APK_NAME/" "$work_dir/apktool.yml"
 
