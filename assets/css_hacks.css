@@ -1301,8 +1301,8 @@ body.sf-tv-nav input:focus-visible {
 
 /* =========================================================================
    SECTION 9: MELODIX MOBILE HOME & NAVIGATION POLISH
-   Scoped to phone-width layouts so tablet and landscape player layouts keep
-   their existing behavior. The Spotify content itself remains untouched.
+   Applied in the app's CSS-hack mobile mode even if WebView reports a desktop
+   layout width. Spotify's content and control handlers remain untouched.
    ========================================================================= */
 :root {
     --melodix-mobile-accent: #1ed760;
@@ -1311,7 +1311,7 @@ body.sf-tv-nav input:focus-visible {
     --melodix-mobile-outline: rgba(255, 255, 255, 0.07);
 }
 
-@media screen and (max-width: 640px) {
+@media screen {
     html,
     body {
         max-width: 100vw !important;
@@ -1486,7 +1486,7 @@ body.sf-tv-nav input:focus-visible {
    A stronger mobile-first reskin of Spotify's existing views. This section is
    presentation-only: it does not replace controls or change their behavior.
    ========================================================================= */
-@media screen and (max-width: 640px) {
+@media screen {
     :root {
         --melodix-app-bg: #0b100d;
         --melodix-app-surface: #121915;
@@ -1877,10 +1877,10 @@ body.sf-tv-nav input:focus-visible {
 
 /* =========================================================================
    SECTION 11: PHONE PLAYER LAYOUT
-   Use the available width on portrait phones and remove desktop chrome while
-   the Now Playing view is open. All existing playback buttons stay functional.
+   Use the available width even when WebView reports a desktop-sized viewport;
+   remove desktop chrome in Now Playing. Existing playback buttons stay functional.
    ========================================================================= */
-@media screen and (max-width: 900px) and (orientation: portrait) {
+@media screen {
     :root {
         --melodix-phone-safe-bottom: env(safe-area-inset-bottom, 0px);
     }
@@ -2244,7 +2244,7 @@ body.sf-tv-nav input:focus-visible {
     }
 }
 
-/* Keep the injected phone tab bar out of desktop and landscape layouts. */
+/* Keep the injected phone tab bar hidden until the mobile shell is active. */
 #sf-mobile-navigation {
     display: none !important;
 }
@@ -2254,7 +2254,7 @@ body.sf-tv-nav input:focus-visible {
    A real three-tab phone navigation, a compact account header, and touch-sized
    sign-in controls for the logged-out state.
    ========================================================================= */
-@media screen and (max-width: 900px) and (orientation: portrait) {
+@media screen {
     body.sf-mobile-shell:not(.sf-expanded) #global-nav-bar {
         position: sticky !important;
         top: 0 !important;

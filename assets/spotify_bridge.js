@@ -123,6 +123,8 @@
     // remain Spotify's own rather than being reimplemented.
     (function installMobileNavigation() {
         if (window.location.hostname !== 'open.spotify.com') return;
+        if (window.SF_CONFIG && window.SF_CONFIG.guiMode !== 'csshack') return;
+        if (document.body) document.body.classList.add('sf-mobile-shell');
 
         const icons = {
             home: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3 10 9-7 9 7v10a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>',
