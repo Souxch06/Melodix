@@ -12,8 +12,8 @@ permissions:
 jobs:
   update-and-launch:
     name: Update V21 to V22 and inspect WebView error state
-    runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    runs-on: macos-15
+    timeout-minutes: 45
     steps:
       - name: Check out test workflow
         uses: actions/checkout@v7.0.1
@@ -25,14 +25,17 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          sdkmanager --install \
-            "platform-tools" \
-            "emulator" \
-            "system-images;android-36;google_apis;x86_64"
+          case "$(uname -m)" in
+            arm64) system_image="system-images;android-36;google_apis;arm64-v8a" ;;
+            x86_64) system_image="system-images;android-36;google_apis;x86_64" ;;
+            *) echo "::error::Unsupported emulator host architecture: $(uname -m)"; exit 1 ;;
+          esac
+          echo "Using Android system image: $system_image"
+          sdkmanager --install "platform-tools" "emulator" "$system_image"
           printf 'no\n' | avdmanager create avd \
             --force \
             --name MelodixApi36 \
-            --package "system-images;android-36;google_apis;x86_64" \
+            --package "$system_image" \
             --device pixel_2
 
       - name: Boot Android 16 emulator
@@ -50,33 +53,39 @@ jobs:
             > "$RUNNER_TEMP/melodix-emulator.log" 2>&1 &
           emulator_pid=$!
           adb start-server
-          if ! timeout 300 adb wait-for-device; then
-            echo "::error::No Android emulator device appeared."
-            ps -p "$emulator_pid" -o pid=,stat=,args= || true
-            tail -n 100 "$RUNNER_TEMP/melodix-emulator.log"
+          device_id=""
+          for _ in $(seq 1 120); do
+            device_id="$(adb devices | awk '$1 ~ /^emulator-/ && $2 == "device" {print $1; exit}')"
+            if [[ -n "$device_id" ]]; then break; fi
+            if ! kill -0 "$emulator_pid" 2>/dev/null; then break; fi
+            sleep 5
+          done
+          if [[ -z "$device_id" ]]; then
+            log_tail="$(tail -n 40 "$RUNNER_TEMP/melodix-emulator.log" | base64 | tr -d '\n')"
+            echo "::error title=Android emulator log tail (base64)::${log_tail}"
             exit 1
           fi
           booted=0
-          for _ in $(seq 1 60); do
-            if [[ "$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" == "1" ]]; then
+          for _ in $(seq 1 120); do
+            if [[ "$(adb -s "$device_id" shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" == "1" ]]; then
               booted=1
               break
             fi
             sleep 5
           done
           if [[ "$booted" != "1" ]]; then
-            boot_completed="$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\r' || true)"
-            boot_animation="$(adb shell getprop init.svc.bootanim 2>/dev/null | tr -d '\r' || true)"
-            echo "::error title=Android boot state::sys.boot_completed=$boot_completed; bootanim=$boot_animation; kvm=$([[ -e /dev/kvm ]] && echo present || echo absent)"
-            log_tail="$(tail -n 40 "$RUNNER_TEMP/melodix-emulator.log" | base64 -w0)"
+            boot_completed="$(adb -s "$device_id" shell getprop sys.boot_completed 2>/dev/null | tr -d '\r' || true)"
+            boot_animation="$(adb -s "$device_id" shell getprop init.svc.bootanim 2>/dev/null | tr -d '\r' || true)"
+            echo "::error title=Android boot state::sys.boot_completed=$boot_completed; bootanim=$boot_animation; host_arch=$(uname -m)"
+            log_tail="$(tail -n 40 "$RUNNER_TEMP/melodix-emulator.log" | base64 | tr -d '\n')"
             echo "::error title=Android emulator log tail (base64)::${log_tail}"
             exit 1
           fi
-          adb shell settings put global window_animation_scale 0
-          adb shell settings put global transition_animation_scale 0
-          adb shell settings put global animator_duration_scale 0
-          echo "Android API: $(adb shell getprop ro.build.version.sdk | tr -d '\r')"
-          adb shell dumpsys webviewupdate | grep -E "Current WebView package|WebView package" | head -n 3 || true
+          adb -s "$device_id" shell settings put global window_animation_scale 0
+          adb -s "$device_id" shell settings put global transition_animation_scale 0
+          adb -s "$device_id" shell settings put global animator_duration_scale 0
+          echo "Android API: $(adb -s "$device_id" shell getprop ro.build.version.sdk | tr -d '\r')"
+          adb -s "$device_id" shell dumpsys webviewupdate | grep -E "Current WebView package|WebView package" | head -n 3 || true
 
       - name: Download published V21 and V22 Preview APKs
         env:
