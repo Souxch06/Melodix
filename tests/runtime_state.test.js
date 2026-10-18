@@ -222,6 +222,27 @@ test('HTTP status responses are not misreported as network disconnections', () =
     assert.match(read('smali/zk0.smali'), /AppSingleton;->g0:Ljava\/lang\/String;/);
 });
 
+test('every native network-error path exposes a safe diagnostic source', () => {
+    const mainActivity = read('smali/com/melodix/music/MainActivity.smali');
+    const connectivityCheck = read('smali/s4.smali');
+    const errorState = mainActivity.match(/\.method public final D\(Z\)V([\s\S]*?)\.end method/);
+    const diagnosticHelper = mainActivity.match(/\.method public final setNetworkErrorDiagnostic\(Ljava\/lang\/String;\)V([\s\S]*?)\.end method/);
+    const webViewCreation = mainActivity.match(/\.method public final C\(\)V([\s\S]*?)\.end method/);
+    const connectivityFailure = connectivityCheck.match(/invoke-static \{\}, Lm9;->i\(\)Z([\s\S]*?)\n    :cond_e/);
+
+    assert.ok(errorState, 'native network-error state handler should exist');
+    assert.ok(diagnosticHelper, 'network diagnostic text helper should exist');
+    assert.ok(webViewCreation, 'WebView creation path should exist');
+    assert.ok(connectivityFailure, 'Android connectivity check path should exist');
+    assert.match(errorState[1], /Source: no WebView error detail captured/);
+    assert.match(errorState[1], /setNetworkErrorDiagnostic\(Ljava\/lang\/String;\)V/);
+    assert.match(diagnosticHelper[1], /Network Error\\nTap to retry\\n/);
+    assert.match(diagnosticHelper[1], /AppSingleton;->g0:Ljava\/lang\/String;/);
+    assert.match(webViewCreation[1], /Source: WebView factory returned null/);
+    assert.match(connectivityFailure[1], /Source: Android ConnectivityManager check returned false/);
+    assert.doesNotMatch(diagnosticHelper[1], /WebResourceRequest;->getUrl|CookieManager;->getCookie|openConnection/);
+});
+
 test('Spotify service-worker compatibility is exact-origin and does not spoof player identity', () => {
     const webViewFactory = read('smali/m9.smali');
     const serviceWorkerCompat = read('assets/spotify_sw_compat.js');

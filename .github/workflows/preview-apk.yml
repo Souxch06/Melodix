@@ -7,10 +7,10 @@ on:
   workflow_dispatch:
     inputs:
       release_tag:
-        description: Preview tag (for example v1.2.2-test.23-preview)
+        description: Preview tag (for example v1.2.2-test.24-preview)
         required: true
         type: string
-        default: v1.2.2-test.23-preview
+        default: v1.2.2-test.24-preview
 
 permissions:
   contents: write
@@ -25,12 +25,12 @@ jobs:
         id: release
         shell: bash
         env:
-          INPUT_TAG: ${{ inputs.release_tag || 'v1.2.2-test.23-preview' }}
+          INPUT_TAG: ${{ inputs.release_tag || 'v1.2.2-test.24-preview' }}
         run: |
           set -euo pipefail
           tag="$INPUT_TAG"
           if [[ ! "$tag" =~ ^v([0-9]+\.[0-9]+\.[0-9]+)-test\.([0-9]+)-preview$ ]]; then
-            echo "::error::Expected a preview tag such as v1.2.2-test.23-preview"
+            echo "::error::Expected a preview tag such as v1.2.2-test.24-preview"
             exit 1
           fi
 
@@ -204,6 +204,8 @@ jobs:
             Separate Melodix preview build with package id `com.melodix.music.preview`.
 
             It installs alongside the regular app and is not an update to the existing `com.melodix.music` installation. Preview data is separate.
+
+            Test.24 adds source labels to the network-error screen to distinguish Android connectivity checks, WebView initialization, and missing WebView error details. It does not collect URLs, tokens, or Spotify account data and is diagnostic only, not a claim that network access is fixed.
           files: |
             ${{ steps.package.outputs.apk_path }}
             ${{ steps.package.outputs.sha_path }}

@@ -423,6 +423,8 @@
     .line 20
     .line 21
     :cond_0
+    const-string v2, "Source: WebView factory returned null"
+    sput-object v2, Lcom/melodix/music/AppSingleton;->g0:Ljava/lang/String;
     invoke-virtual {p0, v1}, Lcom/melodix/music/MainActivity;->D(Z)V
 
     .line 22
@@ -726,6 +728,17 @@
 .method public final D(Z)V
     .locals 3
 
+    # Refresh the diagnostic even when the offline overlay is already active.
+    # A null detail is explicitly marked so V24 can distinguish a missing
+    # WebView callback from the generic error text; no URL or account data is read.
+    if-eqz p1, :cond_network_diagnostic_done
+    sget-object v0, Lcom/melodix/music/AppSingleton;->g0:Ljava/lang/String;
+    if-nez v0, :cond_network_diagnostic_ready
+    const-string v0, "Source: no WebView error detail captured"
+    :cond_network_diagnostic_ready
+    invoke-virtual {p0, v0}, Lcom/melodix/music/MainActivity;->setNetworkErrorDiagnostic(Ljava/lang/String;)V
+    :cond_network_diagnostic_done
+
     .line 1
     sget-boolean v0, Lcom/melodix/music/AppSingleton;->m:Z
 
@@ -973,6 +986,27 @@
     .line 117
     .line 118
     .line 119
+    return-void
+.end method
+
+.method public final setNetworkErrorDiagnostic(Ljava/lang/String;)V
+    .locals 3
+
+    if-eqz p1, :cond_network_diagnostic_helper_done
+    sput-object p1, Lcom/melodix/music/AppSingleton;->g0:Ljava/lang/String;
+    iget-object v0, p0, Lcom/melodix/music/MainActivity;->K:Landroid/widget/TextView;
+    if-eqz v0, :cond_network_diagnostic_helper_done
+
+    new-instance v1, Ljava/lang/StringBuilder;
+    const-string v2, "Network Error\nTap to retry\n"
+    invoke-direct {v1, v2}, Ljava/lang/StringBuilder;-><init>(Ljava/lang/String;)V
+    invoke-virtual {v1, p1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    move-result-object v1
+    invoke-virtual {v1}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
+    move-result-object v1
+    invoke-virtual {v0, v1}, Landroid/widget/TextView;->setText(Ljava/lang/CharSequence;)V
+
+    :cond_network_diagnostic_helper_done
     return-void
 .end method
 

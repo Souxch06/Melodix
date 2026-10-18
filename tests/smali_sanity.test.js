@@ -10,6 +10,7 @@ const smaliFiles = [
     'smali/com/melodix/music/AndBridge.smali',
     'smali/com/melodix/music/AppSingleton.smali',
     'smali/com/melodix/music/MainActivity.smali',
+    'smali/s4.smali',
     'smali/bh.smali',
     'smali/u51.smali',
     'smali/v51.smali',
