@@ -792,6 +792,9 @@
     if-eqz v2, :cond_bridge_remove
 
     :cond_bridge_add
+    # Reset diagnostics only after confirming a new top-level Spotify Web Player navigation.
+    const/4 v0, 0x0
+    sput-object v0, Lcom/melodix/music/AppSingleton;->g0:Ljava/lang/String;
     new-instance v0, Lcom/melodix/music/AndBridge;
     invoke-virtual {p1}, Landroid/view/View;->getContext()Landroid/content/Context;
     move-result-object v1
@@ -816,132 +819,57 @@
 .end method
 
 .method public final onReceivedError(Landroid/webkit/WebView;Landroid/webkit/WebResourceRequest;Landroid/webkit/WebResourceError;)V
-    .locals 0
+    .locals 2
 
-    .line 1
     invoke-super {p0, p1, p2, p3}, Landroid/webkit/WebViewClient;->onReceivedError(Landroid/webkit/WebView;Landroid/webkit/WebResourceRequest;Landroid/webkit/WebResourceError;)V
 
-    .line 2
-    .line 3
-    .line 4
     const/4 p0, 0x0
-
-    .line 5
-    if-eqz p2, :cond_0
-
-    .line 6
-    .line 7
+    if-eqz p2, :cond_webview_no_request
     invoke-interface {p2}, Landroid/webkit/WebResourceRequest;->isForMainFrame()Z
-
-    .line 8
-    .line 9
-    .line 10
     move-result p1
+    goto :goto_webview_mainframe
 
-    .line 11
-    goto :goto_0
-
-    .line 12
-    :cond_0
+    :cond_webview_no_request
     move p1, p0
 
-    .line 13
-    :goto_0
-    if-eqz p3, :cond_1
-
-    .line 14
-    .line 15
+    :goto_webview_mainframe
+    if-eqz p3, :cond_webview_no_error
     invoke-virtual {p3}, Landroid/webkit/WebResourceError;->getErrorCode()I
-
-    .line 16
-    .line 17
-    .line 18
     move-result p0
 
-    .line 19
-    :cond_1
-    if-eqz p2, :cond_2
-
-    .line 20
-    .line 21
-    invoke-interface {p2}, Landroid/webkit/WebResourceRequest;->getUrl()Landroid/net/Uri;
-
-    .line 22
-    .line 23
-    .line 24
-    move-result-object p2
-
-    .line 25
-    if-eqz p2, :cond_2
-
-    .line 26
-    .line 27
-    invoke-virtual {p2}, Landroid/net/Uri;->toString()Ljava/lang/String;
-
-    .line 28
-    .line 29
-    .line 30
-    move-result-object p2
-
-    .line 31
-    :cond_2
+    :cond_webview_no_error
+    # ERR_ABORTED is expected during redirects/reloads and is not an offline state.
     const/4 p2, -0x3
+    if-ne p0, p2, :cond_webview_not_aborted
+    return-void
 
-    .line 32
-    if-ne p0, p2, :cond_3
+    :cond_webview_not_aborted
+    if-eqz p1, :cond_webview_done
 
-    .line 33
-    .line 34
-    goto :goto_1
+    # Preserve only the numeric WebView error code for diagnosis; never retain or
+    # display the request URL, query, headers, or Spotify account data.
+    new-instance v0, Ljava/lang/StringBuilder;
+    const-string v1, "WebView error code: "
+    invoke-direct {v0, v1}, Ljava/lang/StringBuilder;-><init>(Ljava/lang/String;)V
+    invoke-virtual {v0, p0}, Ljava/lang/StringBuilder;->append(I)Ljava/lang/StringBuilder;
+    move-result-object v0
+    invoke-virtual {v0}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
+    move-result-object v0
+    sput-object v0, Lcom/melodix/music/AppSingleton;->g0:Ljava/lang/String;
 
-    .line 35
-    :cond_3
-    if-eqz p1, :cond_4
-
-    .line 36
-    .line 37
     const/4 p0, 0x1
-
-    .line 38
     sput-boolean p0, Lcom/melodix/music/AppSingleton;->m:Z
-
-    .line 39
-    .line 40
     sput p0, Lcom/melodix/music/AppSingleton;->n:I
 
-    .line 41
-    .line 42
     sget-object p1, Lcom/melodix/music/AppSingleton;->t:Ljava/lang/ref/WeakReference;
-
-    .line 43
-    .line 44
-    if-eqz p1, :cond_4
-
-    .line 45
-    .line 46
+    if-eqz p1, :cond_webview_done
     invoke-virtual {p1}, Ljava/lang/ref/Reference;->get()Ljava/lang/Object;
-
-    .line 47
-    .line 48
-    .line 49
     move-result-object p1
-
-    .line 50
     check-cast p1, Lcom/melodix/music/MainActivity;
-
-    .line 51
-    .line 52
-    if-eqz p1, :cond_4
-
-    .line 53
-    .line 54
+    if-eqz p1, :cond_webview_done
     invoke-virtual {p1, p0}, Lcom/melodix/music/MainActivity;->D(Z)V
 
-    .line 55
-    .line 56
-    .line 57
-    :cond_4
-    :goto_1
+    :cond_webview_done
     return-void
 .end method
 

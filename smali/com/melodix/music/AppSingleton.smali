@@ -68,6 +68,9 @@
 
 .field public static final f0:Ljava/util/concurrent/ConcurrentHashMap;
 
+# Safe WebView load diagnostic code, with no URL or request contents.
+.field public static g0:Ljava/lang/String; = null
+
 .field public static j:I = 0x0
 
 .field public static k:I = 0x0

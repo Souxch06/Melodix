@@ -1094,7 +1094,30 @@
     .line 35
     .line 36
     :catch_0
-    # Document-start browser spoofing has been removed.
+    # Keep the stale Spotify player service worker from poisoning WebView loads,
+    # but do not spoof browser identity or player capability data.
+    :try_sw_feature_start
+    const-string v1, "DOCUMENT_START_SCRIPT"
+    invoke-static {v1}, Ljj1;->b(Ljava/lang/String;)Z
+    move-result v1
+    :try_sw_feature_end
+    .catch Ljava/lang/Exception; {:try_sw_feature_start .. :try_sw_feature_end} :cond_0
+
+    if-eqz v1, :cond_0
+
+    :try_sw_script_start
+    const-string v1, "spotify_sw_compat.js"
+    invoke-static {v1}, Lm9;->d(Ljava/lang/String;)Ljava/lang/String;
+    move-result-object v1
+    const-string v2, "https://open.spotify.com"
+    invoke-static {v2}, Ljava/util/Collections;->singleton(Ljava/lang/Object;)Ljava/util/Set;
+    move-result-object v2
+    invoke-static {p0, v1, v2}, Lgj1;->a(Ll9;Ljava/lang/String;Ljava/util/Set;)V
+    :try_sw_script_end
+    .catch Ljava/lang/Exception; {:try_sw_script_start .. :try_sw_script_end} :sw_script_failure
+    goto :cond_0
+
+    :sw_script_failure
     :cond_0
     const/4 v1, 0x2
 

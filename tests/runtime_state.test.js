@@ -165,7 +165,9 @@ test('auth and WebView code do not capture credentials or proxy Spotify requests
     assert.match(webViewClient, /const\/16 v5, 0x1bb/);
     assert.doesNotMatch(webViewClient, /google_spoof\.js|desktop_spoof\.js|playlist_sort\.js|facebook_consent\.js|classic_login\.js/);
     assert.doesNotMatch(app, /CookieManager/);
-    assert.doesNotMatch(appWebView, /setUserAgentString|desktop_spoof\.js|DOCUMENT_START_SCRIPT/);
+    assert.doesNotMatch(appWebView, /setUserAgentString|desktop_spoof\.js/);
+    assert.match(appWebView, /DOCUMENT_START_SCRIPT/);
+    assert.match(appWebView, /spotify_sw_compat\.js/);
     assert.match(webViewClient, /const-string v2, "runtime_state\.js"/);
     assert.match(assetLoader, /const-string v7, "runtime_state\.js"/);
 });
@@ -185,6 +187,7 @@ test('WebView rejects TLS/mixed content and gates bridge attachment by top-level
     assert.doesNotMatch(webViewClient, /SslErrorHandler;->proceed/);
     assert.match(webViewClient, /SslErrorHandler;->cancel/);
     assert.match(pageStart[1], /const-string v2, "open\.spotify\.com"/);
+    assert.match(pageStart[1], /sput-object v0, Lcom\/melodix\/music\/AppSingleton;->g0:Ljava\/lang\/String;/);
     assert.match(pageStart[1], /addJavascriptInterface/);
     assert.match(pageStart[1], /removeJavascriptInterface/);
     assert.match(pageStart[1], /Uri;->getPort\(\)I/);
@@ -203,7 +206,26 @@ test('HTTP status responses are not misreported as network disconnections', () =
     assert.doesNotMatch(httpError[1], /AppSingleton;->m:Z|MainActivity;->D\(Z\)V/);
     assert.ok(transportError, 'transport error callback should exist');
     assert.match(transportError[1], /WebResourceRequest;->isForMainFrame\(\)Z/);
+    assert.match(transportError[1], /WebResourceError;->getErrorCode\(\)I/);
+    assert.match(transportError[1], /WebView error code:/);
+    assert.match(transportError[1], /AppSingleton;->g0:Ljava\/lang\/String;/);
+    assert.doesNotMatch(transportError[1], /WebResourceRequest;->getUrl/);
     assert.match(transportError[1], /sput-boolean p0, Lcom\/melodix\/music\/AppSingleton;->m:Z/);
+    assert.match(read('smali/zk0.smali'), /AppSingleton;->g0:Ljava\/lang\/String;/);
+});
+
+test('Spotify service-worker compatibility is exact-origin and does not spoof player identity', () => {
+    const webViewFactory = read('smali/m9.smali');
+    const serviceWorkerCompat = read('assets/spotify_sw_compat.js');
+
+    assert.match(webViewFactory, /DOCUMENT_START_SCRIPT/);
+    assert.match(webViewFactory, /spotify_sw_compat\.js/);
+    assert.ok(webViewFactory.includes('https://open.spotify.com'));
+    assert.match(webViewFactory, /Lgj1;->a\(Ll9;Ljava\/lang\/String;Ljava\/util\/Set;\)V/);
+    assert.ok(serviceWorkerCompat.includes("window.location.origin !== 'https://open.spotify.com'"));
+    assert.match(serviceWorkerCompat, /serviceWorker\.getRegistrations/);
+    assert.match(serviceWorkerCompat, /registration\.unregister\(\)/);
+    assert.doesNotMatch(serviceWorkerCompat, /can_be_player|connect-state|userAgent|webdriver|navigator\.platform/);
 });
 
 test('native media artwork accepts only bounded HTTPS Spotify CDN URIs', () => {
