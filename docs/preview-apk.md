@@ -55,6 +55,8 @@ Le workflow crée la pré-release `Melodix Preview v1.2.2 test.8` et y attache :
 
 La pré-release apparaîtra sur GitHub dans **Releases**. Télécharge l'APK depuis cette page et installe-la sur Android. Elle apparaîtra sous le nom **Melodix Preview** et ne remplacera pas l'application normale.
 
+Le workflow adapte dans sa copie temporaire l'empreinte de signature intégrée à l'application pour qu'elle corresponde à la clé Preview, puis augmente le `versionCode` afin que la correction puisse mettre à jour la première APK Preview déjà installée. Le projet source et la signature de l'application normale restent inchangés.
+
 ## Si le workflow échoue
 
 - S'il indique que les secrets de signature sont absents, vérifie leur nom exact dans **Settings → Secrets and variables → Actions**.
