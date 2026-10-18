@@ -9,12 +9,14 @@ const read = (file) => fs.readFileSync(path.join(root, file), 'utf8');
 test('phone layout adds a safe-area-aware bottom dock and compact player', () => {
     const css = read('assets/css_hacks.css');
 
-    assert.match(css, /@media screen and \(max-width: 640px\) and \(orientation: portrait\)/);
+    assert.match(css, /@media screen and \(max-width: 820px\) and \(orientation: portrait\)/);
     assert.match(css, /#sf-mobile-nav\s*\{[\s\S]*?height: calc\(72px \+ env\(safe-area-inset-bottom\)\)/);
     assert.match(css, /#sf-mobile-nav \.sf-mobile-nav__item\s*\{[\s\S]*?min-width: 44px/);
     assert.match(css, /#sf-mobile-nav \.sf-mobile-nav__item\[aria-current="page"\]/);
     assert.match(css, /aside\[data-testid="now-playing-bar"\]\s*\{[\s\S]*?height: 68px/);
     assert.match(css, /body\.sf-library-open #Desktop_LeftSidebar_Id/);
+    assert.doesNotMatch(css, /body\.sf-expanded #sf-mobile-nav/);
+    assert.match(css, /body:not\(\.sf-fs-open\) aside\[data-testid="now-playing-bar"\]/);
     assert.match(css, /\.sf-mobile-library-close/);
     assert.match(css, /scroll-padding-bottom: calc\(160px \+ env\(safe-area-inset-bottom\)\)/);
 });
