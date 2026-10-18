@@ -243,6 +243,25 @@ test('every native network-error path exposes a safe diagnostic source', () => {
     assert.doesNotMatch(diagnosticHelper[1], /WebResourceRequest;->getUrl|CookieManager;->getCookie|openConnection/);
 });
 
+test('mobile viewport avoids tiny desktop scaling and optional WebView failures do not abort creation', () => {
+    const appWebView = read('smali/m9.smali');
+    const methodStart = appWebView.indexOf('.method public static g(');
+    const methodEnd = appWebView.indexOf('.end method', methodStart);
+    const factory = appWebView.slice(methodStart, methodEnd);
+
+    assert.ok(methodStart >= 0 && methodEnd > methodStart, 'WebView factory should exist');
+    assert.ok(factory.includes('const/4 v3, 0x0\n    invoke-virtual {v2, v3}, Landroid/webkit/WebSettings;->setUseWideViewPort(Z)V'));
+    const resetDiagnostic = factory.indexOf('sput-object v1, Lcom/melodix/music/AppSingleton;->g0:Ljava/lang/String;');
+    const createWebView = factory.indexOf(':try_start_1');
+    assert.ok(resetDiagnostic >= 0 && resetDiagnostic < createWebView, 'fresh factory attempts should clear stale diagnostics');
+    assert.ok(factory.includes('invoke-virtual {v2, v3}, Landroid/webkit/WebSettings;->setLoadWithOverviewMode(Z)V'));
+    assert.ok(factory.includes('.catchall {:try_sw_feature_start .. :try_sw_feature_end} :cond_0'));
+    assert.ok(factory.includes('.catchall {:try_sw_script_start .. :try_sw_script_end} :sw_script_failure'));
+    assert.ok(factory.includes('Class;->getSimpleName()Ljava/lang/String;'));
+    assert.ok(factory.includes('AppSingleton;->g0:Ljava/lang/String;'));
+    assert.doesNotMatch(factory, /getMessage|printStackTrace/);
+});
+
 test('Spotify service-worker compatibility is exact-origin and does not spoof player identity', () => {
     const webViewFactory = read('smali/m9.smali');
     const serviceWorkerCompat = read('assets/spotify_sw_compat.js');

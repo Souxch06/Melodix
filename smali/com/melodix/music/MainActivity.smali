@@ -423,8 +423,13 @@
     .line 20
     .line 21
     :cond_0
+    sget-object v2, Lcom/melodix/music/AppSingleton;->g0:Ljava/lang/String;
+    if-eqz v2, :cond_webview_factory_generic
+    goto :cond_webview_factory_diagnostic_ready
+    :cond_webview_factory_generic
     const-string v2, "Source: WebView factory returned null"
     sput-object v2, Lcom/melodix/music/AppSingleton;->g0:Ljava/lang/String;
+    :cond_webview_factory_diagnostic_ready
     invoke-virtual {p0, v1}, Lcom/melodix/music/MainActivity;->D(Z)V
 
     .line 22

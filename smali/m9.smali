@@ -1040,6 +1040,10 @@
     .line 10
     if-nez v1, :cond_a
 
+    # Reset the previous network/factory diagnostic only when creating a new view.
+    const/4 v1, 0x0
+    sput-object v1, Lcom/melodix/music/AppSingleton;->g0:Ljava/lang/String;
+
     .line 11
     .line 12
     :try_start_1
@@ -1101,7 +1105,9 @@
     invoke-static {v1}, Ljj1;->b(Ljava/lang/String;)Z
     move-result v1
     :try_sw_feature_end
-    .catch Ljava/lang/Exception; {:try_sw_feature_start .. :try_sw_feature_end} :cond_0
+    # These are optional AndroidX WebKit features. A provider-specific LinkageError
+    # must not abort creation of the whole WebView.
+    .catchall {:try_sw_feature_start .. :try_sw_feature_end} :cond_0
 
     if-eqz v1, :cond_0
 
@@ -1114,7 +1120,7 @@
     move-result-object v2
     invoke-static {p0, v1, v2}, Lgj1;->a(Ll9;Ljava/lang/String;Ljava/util/Set;)V
     :try_sw_script_end
-    .catch Ljava/lang/Exception; {:try_sw_script_start .. :try_sw_script_end} :sw_script_failure
+    .catchall {:try_sw_script_start .. :try_sw_script_end} :sw_script_failure
     goto :cond_0
 
     :sw_script_failure
@@ -1246,32 +1252,11 @@
     .line 131
     .line 132
     .line 133
-    sget-object v3, Lcom/melodix/music/AppSingleton;->z:Ljava/lang/String;
-
-    const-string v4, "csshack"
-
-    invoke-static {v3, v4}, Ldl1;->a(Ljava/lang/Object;Ljava/lang/Object;)Z
-
-    move-result v3
-
-    if-eqz v3, :cond_default_viewport_mode
-
-    # CSS-hack UI is phone-first; do not let the desktop UA trigger WebView's
-    # wide 980px layout viewport or overview scaling on a phone.
+    # Use the phone's layout viewport in every UI mode. With the desktop UA,
+    # WebView's 980px wide viewport plus overview scaling shrinks Spotify login.
     const/4 v3, 0x0
-
     invoke-virtual {v2, v3}, Landroid/webkit/WebSettings;->setUseWideViewPort(Z)V
-
     invoke-virtual {v2, v3}, Landroid/webkit/WebSettings;->setLoadWithOverviewMode(Z)V
-
-    goto :goto_viewport_mode_ready
-
-    :cond_default_viewport_mode
-    invoke-virtual {v2, v0}, Landroid/webkit/WebSettings;->setUseWideViewPort(Z)V
-
-    invoke-virtual {v2, v0}, Landroid/webkit/WebSettings;->setLoadWithOverviewMode(Z)V
-
-    :goto_viewport_mode_ready
     .line 137
     .line 138
     .line 139
@@ -1629,6 +1614,21 @@
 
     .line 306
     :catchall_1
+    # Keep only the exception class name for diagnosis. Exception messages and
+    # stack traces can contain URLs or account data, so they are never displayed.
+    move-exception v2
+    invoke-virtual {v2}, Ljava/lang/Object;->getClass()Ljava/lang/Class;
+    move-result-object v2
+    invoke-virtual {v2}, Ljava/lang/Class;->getSimpleName()Ljava/lang/String;
+    move-result-object v2
+    new-instance v3, Ljava/lang/StringBuilder;
+    const-string v4, "Source: WebView init exception: "
+    invoke-direct {v3, v4}, Ljava/lang/StringBuilder;-><init>(Ljava/lang/String;)V
+    invoke-virtual {v3, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    move-result-object v3
+    invoke-virtual {v3}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
+    move-result-object v3
+    sput-object v3, Lcom/melodix/music/AppSingleton;->g0:Ljava/lang/String;
     const/4 p0, 0x0
 
     .line 307
