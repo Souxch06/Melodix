@@ -14,6 +14,7 @@ const smaliFiles = [
     'smali/com/melodix/music/RuntimeDiagnostic$Callback.smali',
     'smali/com/melodix/music/RuntimeDiagnostic$ShowRunnable.smali',
     'smali/com/melodix/music/RuntimeDiagnostic$CopyListener.smali',
+    'smali/com/melodix/music/RuntimeDiagnostic$FetchRunnable.smali',
     'smali/s4.smali',
     'smali/bh.smali',
     'smali/u51.smali',
@@ -101,7 +102,8 @@ const diagnosticSmaliFiles = [
     'smali/com/melodix/music/RuntimeDiagnostic.smali',
     'smali/com/melodix/music/RuntimeDiagnostic$Callback.smali',
     'smali/com/melodix/music/RuntimeDiagnostic$ShowRunnable.smali',
-    'smali/com/melodix/music/RuntimeDiagnostic$CopyListener.smali'
+    'smali/com/melodix/music/RuntimeDiagnostic$CopyListener.smali',
+    'smali/com/melodix/music/RuntimeDiagnostic$FetchRunnable.smali'
 ];
 
 function countIncomingRegisters(methodDeclaration) {

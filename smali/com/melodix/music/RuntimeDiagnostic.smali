@@ -70,7 +70,7 @@
     if-lez v2, :return
 
     new-instance v2, Lcom/melodix/music/RuntimeDiagnostic$Callback;
-    invoke-direct {v2, v0}, Lcom/melodix/music/RuntimeDiagnostic$Callback;-><init>(Landroid/app/Activity;)V
+    invoke-direct {v2, v0, p0}, Lcom/melodix/music/RuntimeDiagnostic$Callback;-><init>(Landroid/app/Activity;Landroid/webkit/WebView;)V
     invoke-virtual {p0, v1, v2}, Landroid/webkit/WebView;->evaluateJavascript(Ljava/lang/String;Landroid/webkit/ValueCallback;)V
 
     :return

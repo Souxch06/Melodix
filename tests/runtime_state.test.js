@@ -133,6 +133,25 @@ test('startup never trusts a persisted LoggedIn flag and starts auth unconfirmed
     assert.match(mainActivity, /AppSingleton;->B:Z/);
 });
 
+test('Spotify home uses the Android WebView default UA while account login retains desktop UA', () => {
+    const appWebView = read('smali/m9.smali');
+    const webViewFactory = appWebView.match(/\.method public static g\(Landroid\/content\/Context;\)Landroid\/webkit\/WebView;([\s\S]*?)\.end method/);
+    assert.ok(webViewFactory, 'WebView factory should exist');
+
+    const factory = webViewFactory[1];
+    const mobileUserAgentIndex = factory.indexOf('WebSettings;->getDefaultUserAgent(Landroid/content/Context;)Ljava/lang/String;');
+    const spotifyLoadIndex = factory.indexOf('https://open.spotify.com/');
+    const desktopUserAgentIndex = factory.indexOf('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36');
+    const accountsLoadIndex = factory.indexOf('https://accounts.spotify.com/en/login');
+
+    assert.ok(mobileUserAgentIndex >= 0 && mobileUserAgentIndex < spotifyLoadIndex,
+        'open.spotify.com should use Android WebView default mobile UA before loading');
+    assert.ok(desktopUserAgentIndex > spotifyLoadIndex && desktopUserAgentIndex < accountsLoadIndex,
+        'desktop UA should be applied only on the accounts.spotify.com login branch');
+    assert.match(factory, /invoke-virtual \{v2, v3\}, Landroid\/webkit\/WebSettings;->setUserAgentString\(Ljava\/lang\/String;\)V/);
+    assert.match(factory, /invoke-virtual \{v1, v0\}, Landroid\/webkit\/WebSettings;->setUserAgentString\(Ljava\/lang\/String;\)V/);
+});
+
 test('auth and WebView code do not capture credentials or proxy Spotify requests', () => {
     const bridge = read('assets/spotify_bridge.js');
     const nativeBridge = read('smali/com/melodix/music/AndBridge.smali');
@@ -161,8 +180,6 @@ test('auth and WebView code do not capture credentials or proxy Spotify requests
     assert.doesNotMatch(appWebView, /desktop_spoof\.js/);
     const webViewFactory = appWebView.match(/\.method public static g\(Landroid\/content\/Context;\)Landroid\/webkit\/WebView;([\s\S]*?)\.end method/);
     assert.ok(webViewFactory, 'WebView factory should exist');
-    assert.match(webViewFactory[1], /const-string v3, "Mozilla\/5\.0 \(Windows NT 10\.0; Win64; x64\).*Chrome\/134\.0\.0\.0 Safari\/537\.36"/);
-    assert.match(webViewFactory[1], /invoke-virtual \{v2, v3\}, Landroid\/webkit\/WebSettings;->setUserAgentString\(Ljava\/lang\/String;\)V/);
     assert.doesNotMatch(read('assets/desktop_spoof.js'), /navigator\.userAgentData|can_be_player|serviceWorker\.register|connect-state/);
     assert.match(appWebView, /DOCUMENT_START_SCRIPT/);
     assert.match(appWebView, /spotify_sw_compat\.js/);
