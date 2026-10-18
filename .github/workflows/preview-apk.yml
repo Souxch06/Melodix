@@ -83,12 +83,19 @@ jobs:
           MELODIX_PREVIEW_KEY_PASSWORD: ${{ secrets.MELODIX_PREVIEW_KEY_PASSWORD || secrets.MELODIX_PREVIEW_KEYSTORE_PASSWORD }}
         run: |
           set -euo pipefail
-          source_dir="android/apktool-project"
+          source_dir="$GITHUB_WORKSPACE"
           work_dir="$RUNNER_TEMP/melodix-preview-apktool-project"
           framework_dir="$RUNNER_TEMP/melodix-preview-apktool-framework"
           output="$RUNNER_TEMP/$APK_NAME"
-          mkdir -p "$framework_dir"
-          cp -a "$source_dir" "$work_dir"
+          mkdir -p "$framework_dir" "$work_dir"
+          project_items=(AndroidManifest.xml META-INF apktool.yml assets kotlin lib original res smali unknown)
+          for item in "${project_items[@]}"; do
+            if [[ ! -e "$source_dir/$item" ]]; then
+              echo "::error::Root-level Apktool project item is missing: $item"
+              exit 1
+            fi
+            cp -a "$source_dir/$item" "$work_dir/"
+          done
 
           # The app validates its signing certificate at startup. Set the preview
           # fingerprint in the temporary build so the new package passes that check.

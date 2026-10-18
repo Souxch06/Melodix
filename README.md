@@ -12,8 +12,8 @@ Les versions publiées se trouvent dans [GitHub Releases](https://github.com/Sou
 
 - `source/SpotiDuck-v1.2.2-3d2c473.zip` : archive originale, **inchangée**.
 - `source/SpotiDuck-v1.2.2-3d2c473/` : contenu extrait de cette archive.
+- À la racine (`AndroidManifest.xml`, `apktool.yml`, `assets/`, `smali/`, `res/`, `lib/`, `kotlin/`, `META-INF/`, `original/`, `unknown/`) : projet Apktool décompilé complet et modifiable. Les ressources, assets et sources Smali sont directement visibles à la racine, dans l'organisation de Melodix version 1.
 - `android/apk-extracted/` : extraction brute de l'APK test.7, avec `classes.dex`, `resources.arsc`, les ressources, assets et bibliothèques.
-- `android/apktool-project/` : projet décompilé complet et modifiable, avec les sources Smali lisibles. Il inclut maintenant la nouvelle icône Melodix.
 - `android/branding/melodix-icon-master.png` : image maître de la nouvelle icône de l'application.
 - `android/apktool-framework/1.apk` : framework requis par Apktool pour reconstruire les ressources.
 - `releases/apk/` : APK signés des tests.3 à .7 et leurs fichiers SHA-256. Les tests.3 et .4 sont conservés comme historique; ils sont remplacés par les tests plus récents.
