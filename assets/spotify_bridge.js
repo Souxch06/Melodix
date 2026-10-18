@@ -2,23 +2,83 @@
     // Global flags injected by Android:
     // window.SF_CONFIG = { ... };
 
-    // The app deliberately uses Spotify's desktop user-agent. Reset any wide
-    // desktop viewport before the mobile CSS is injected, otherwise Android
-    // WebView can keep a ~980px layout viewport and never match phone media queries.
+    // Spotify is loaded with a desktop UA. Use Android's actual display metrics
+    // to prevent WebView from falling back to a 980px desktop layout viewport.
+    function isDeviceLandscape() {
+        const orientationType = window.screen && window.screen.orientation && window.screen.orientation.type;
+        if (orientationType) return orientationType.indexOf('landscape') === 0;
+        const config = window.SF_CONFIG || {};
+        const width = Number(config.screenWidth) || Number(window.screen && window.screen.width) || 0;
+        const height = Number(config.screenHeight) || Number(window.screen && window.screen.height) || 0;
+        return width && height ? width > height : window.matchMedia('(orientation: landscape)').matches;
+    }
+
+    function getDeviceViewportMetrics() {
+        const config = window.SF_CONFIG || {};
+        const rawWidth = Number(config.screenWidth) || Number(window.screen && window.screen.width) || 0;
+        const rawHeight = Number(config.screenHeight) || Number(window.screen && window.screen.height) || 0;
+        const orientationType = window.screen && window.screen.orientation && window.screen.orientation.type;
+        const portrait = orientationType
+            ? orientationType.indexOf('portrait') === 0
+            : (rawWidth && rawHeight ? rawWidth <= rawHeight : window.matchMedia('(orientation: portrait)').matches);
+        const deviceWidth = rawWidth && rawHeight
+            ? (portrait ? Math.min(rawWidth, rawHeight) : Math.max(rawWidth, rawHeight))
+            : rawWidth;
+        const deviceHeight = rawWidth && rawHeight
+            ? (portrait ? Math.max(rawWidth, rawHeight) : Math.min(rawWidth, rawHeight))
+            : rawHeight;
+        const root = document.documentElement;
+        let width = Math.round((root && root.clientWidth) || window.innerWidth || 0);
+        let height = Math.round((window.visualViewport && window.visualViewport.height) || window.innerHeight || (root && root.clientHeight) || 0);
+
+        // Correct an unscaled desktop layout width with the native device width;
+        // otherwise keep the narrower WebView width (for insets or split-screen).
+        if (deviceWidth > 0 && (!width || width > deviceWidth + 64)) width = deviceWidth;
+        if (!width) width = deviceWidth;
+        if (!height) height = deviceHeight;
+        return { width: Math.max(0, Math.round(width)), height: Math.max(0, Math.round(height)) };
+    }
+
     (function applyPhoneViewport() {
         try {
-            const isBigWindow = window.SF_CONFIG && window.SF_CONFIG.guiMode === 'bigwindow';
-            const isLandscape = window.matchMedia('(orientation: landscape)').matches;
-            if (isBigWindow && isLandscape) return;
+            const updateViewport = () => {
+                const config = window.SF_CONFIG || {};
+                const isBigWindow = config.guiMode === 'bigwindow';
+                const isLandscape = isDeviceLandscape();
+                if (isBigWindow && isLandscape) return;
 
-            const content = 'width=device-width, initial-scale=1.0, viewport-fit=cover';
-            let meta = document.querySelector('meta[name="viewport"]');
-            if (!meta) {
-                meta = document.createElement('meta');
-                meta.name = 'viewport';
-                document.head.appendChild(meta);
+                const root = document.documentElement;
+                if (!root) return;
+                const metrics = getDeviceViewportMetrics();
+                root.style.setProperty('--sf-device-width', metrics.width > 0 ? `${metrics.width}px` : '100vw');
+                root.style.setProperty('--sf-device-height', metrics.height > 0 ? `${metrics.height}px` : '100dvh');
+                if (metrics.width > 0 && metrics.height > 0) {
+                    root.style.setProperty('--sf-device-aspect', `${metrics.width} / ${metrics.height}`);
+                }
+
+                let meta = document.querySelector('meta[name="viewport"]');
+                if (!meta) {
+                    meta = document.createElement('meta');
+                    meta.name = 'viewport';
+                    (document.head || root).appendChild(meta);
+                }
+                const viewportWidth = metrics.width > 0 ? metrics.width : 'device-width';
+                const content = `width=${viewportWidth}, initial-scale=1.0, viewport-fit=cover`;
+                if (meta.getAttribute('content') !== content) meta.setAttribute('content', content);
+            };
+
+            window.__sfApplyDeviceViewport = updateViewport;
+            updateViewport();
+            if (!window.__sfDeviceViewportListenersAttached) {
+                window.__sfDeviceViewportListenersAttached = true;
+                const scheduleUpdate = () => window.requestAnimationFrame(() => window.__sfApplyDeviceViewport && window.__sfApplyDeviceViewport());
+                window.addEventListener('resize', scheduleUpdate, { passive: true });
+                window.addEventListener('orientationchange', scheduleUpdate, { passive: true });
+                if (window.visualViewport) window.visualViewport.addEventListener('resize', scheduleUpdate, { passive: true });
+                if (window.screen && window.screen.orientation && window.screen.orientation.addEventListener) {
+                    window.screen.orientation.addEventListener('change', scheduleUpdate);
+                }
             }
-            meta.setAttribute('content', content);
         } catch (_) {}
     })();
 
@@ -2249,7 +2309,7 @@
     window.addCSSJSHack = function() {
         let meta = document.querySelector('meta[name="viewport"]');
         let isBigWindow = window.SF_CONFIG && window.SF_CONFIG.guiMode === "bigwindow";
-        let isLandscape = window.matchMedia("(orientation: landscape)").matches;
+        let isLandscape = isDeviceLandscape();
         
         let content = "width=device-width, initial-scale=1.0, viewport-fit=cover";
         if (isBigWindow && isLandscape) {
@@ -2276,6 +2336,7 @@
             meta.content = content;
             document.head.appendChild(meta);
         }
+        if (window.__sfApplyDeviceViewport) window.__sfApplyDeviceViewport();
 
         if (!window._sfResizeListenerAttached) {
             window._sfResizeListenerAttached = true;

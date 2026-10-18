@@ -2513,3 +2513,44 @@ body.sf-tv-nav input:focus-visible {
         color: #55e986 !important;
     }
 }
+
+/* =========================================================================
+   SECTION 13: DEVICE-FORMAT SIZING
+   Constrain the Web player to the live device viewport measured by the bridge,
+   so desktop-UA fallbacks cannot stretch the mobile shell beyond the screen.
+   ========================================================================= */
+@media screen {
+    html,
+    body {
+        box-sizing: border-box !important;
+        width: 100% !important;
+        min-width: 0 !important;
+        max-width: var(--sf-device-width, 100vw) !important;
+        overflow-x: hidden !important;
+    }
+
+    body {
+        min-height: var(--sf-device-height, 100dvh) !important;
+    }
+
+    div[data-testid="root"],
+    #main-view-container,
+    .main-view-container,
+    #main-view {
+        box-sizing: border-box !important;
+        min-width: 0 !important;
+        max-width: var(--sf-device-width, 100vw) !important;
+    }
+
+    #main-view-container,
+    .main-view-container,
+    #main-view {
+        width: 100% !important;
+        margin-left: 0 !important;
+        margin-right: 0 !important;
+    }
+
+    body.sf-expanded aside[data-testid="now-playing-view"] {
+        max-width: var(--sf-device-width, 100vw) !important;
+    }
+}

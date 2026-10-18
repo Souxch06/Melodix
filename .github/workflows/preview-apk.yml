@@ -4,15 +4,13 @@ on:
   push:
     branches:
       - arena/dbf2d44f-melodix
-    paths:
-      - .github/workflows/preview-apk.yml
   workflow_dispatch:
     inputs:
       release_tag:
-        description: Preview tag (for example v1.2.2-test.14-preview)
+        description: Preview tag (for example v1.2.2-test.15-preview)
         required: true
         type: string
-        default: v1.2.2-test.14-preview
+        default: v1.2.2-test.15-preview
 
 permissions:
   contents: write
@@ -27,12 +25,12 @@ jobs:
         id: release
         shell: bash
         env:
-          INPUT_TAG: ${{ inputs.release_tag || 'v1.2.2-test.14-preview' }}
+          INPUT_TAG: ${{ inputs.release_tag || 'v1.2.2-test.15-preview' }}
         run: |
           set -euo pipefail
           tag="$INPUT_TAG"
           if [[ ! "$tag" =~ ^v([0-9]+\.[0-9]+\.[0-9]+)-test\.([0-9]+)-preview$ ]]; then
-            echo "::error::Expected a preview tag such as v1.2.2-test.14-preview"
+            echo "::error::Expected a preview tag such as v1.2.2-test.15-preview"
             exit 1
           fi
 
