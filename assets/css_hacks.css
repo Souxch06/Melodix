@@ -2243,3 +2243,273 @@ body.sf-tv-nav input:focus-visible {
         display: none !important;
     }
 }
+
+/* Keep the injected phone tab bar out of desktop and landscape layouts. */
+#sf-mobile-navigation {
+    display: none !important;
+}
+
+/* =========================================================================
+   SECTION 12: MOBILE NAVIGATION AND SIGN-IN SURFACES
+   A real three-tab phone navigation, a compact account header, and touch-sized
+   sign-in controls for the logged-out state.
+   ========================================================================= */
+@media screen and (max-width: 900px) and (orientation: portrait) {
+    body.sf-mobile-shell:not(.sf-expanded) #global-nav-bar {
+        position: sticky !important;
+        top: 0 !important;
+        justify-content: space-between !important;
+        height: calc(58px + var(--sf-safe-area-top, env(safe-area-inset-top, 0px))) !important;
+        min-height: calc(58px + var(--sf-safe-area-top, env(safe-area-inset-top, 0px))) !important;
+        padding: calc(var(--sf-safe-area-top, env(safe-area-inset-top, 0px)) + 7px) 16px 7px !important;
+        background: rgba(9, 14, 11, 0.92) !important;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2) !important;
+        z-index: 1200 !important;
+    }
+
+    body.sf-mobile-shell:not(.sf-expanded) #global-nav-bar::after {
+        content: "Melodix";
+        position: absolute;
+        left: 58px;
+        top: 50%;
+        color: #f5f8f5;
+        font-size: 17px;
+        font-weight: 800;
+        letter-spacing: -0.04em;
+        transform: translateY(-50%);
+        pointer-events: none;
+    }
+
+    body.sf-mobile-shell:not(.sf-expanded) #global-nav-bar button[data-testid="home-button"],
+    body.sf-mobile-shell:not(.sf-expanded) #global-nav-bar form[role="search"],
+    body.sf-mobile-shell:not(.sf-expanded) #global-nav-bar a[href="/search"],
+    body.sf-mobile-shell:not(.sf-expanded) #global-nav-bar button[data-testid="search-icon"],
+    body.sf-mobile-shell:not(.sf-expanded) #global-nav-bar button[aria-label*="Search" i],
+    body.sf-mobile-shell:not(.sf-expanded) #global-nav-bar button[data-testid*="back" i],
+    body.sf-mobile-shell:not(.sf-expanded) #global-nav-bar button[data-testid*="forward" i],
+    body.sf-mobile-shell:not(.sf-expanded) #global-nav-bar button[aria-label*="go back" i],
+    body.sf-mobile-shell:not(.sf-expanded) #global-nav-bar button[aria-label*="go forward" i],
+    body.sf-mobile-shell:not(.sf-expanded) #global-nav-bar button[aria-label*="notification" i],
+    body.sf-mobile-shell:not(.sf-expanded) #global-nav-bar [data-testid*="notification"],
+    body.sf-mobile-shell:not(.sf-expanded) #global-nav-bar button[aria-label*="friend" i],
+    body.sf-mobile-shell:not(.sf-expanded) #global-nav-bar [data-testid*="friend"] {
+        display: none !important;
+    }
+
+    body.sf-mobile-shell:not(.sf-expanded) #global-nav-bar button[data-testid="user-widget-link"] {
+        display: inline-flex !important;
+        flex: 0 0 42px !important;
+        width: 42px !important;
+        height: 42px !important;
+        min-width: 42px !important;
+        min-height: 42px !important;
+        margin-left: auto !important;
+        padding: 0 !important;
+        border: 1px solid rgba(255, 255, 255, 0.12) !important;
+        border-radius: 50% !important;
+        background: #18211b !important;
+    }
+
+    body.sf-mobile-shell:not(.sf-expanded):not(.sf-library-open):not(.sf-guest) #Desktop_LeftSidebar_Id {
+        display: none !important;
+    }
+
+    body.sf-mobile-shell.sf-library-open #Desktop_LeftSidebar_Id {
+        display: block !important;
+        width: 100vw !important;
+        max-width: 100vw !important;
+        border: 0 !important;
+        border-radius: 0 0 20px 20px !important;
+        background: rgba(10, 15, 12, 0.99) !important;
+        box-shadow: 0 18px 42px rgba(0, 0, 0, 0.5) !important;
+    }
+
+    body.sf-mobile-shell.sf-library-open #Desktop_LeftSidebar_Id .YourLibraryX,
+    body.sf-mobile-shell.sf-library-open #Desktop_LeftSidebar_Id .YourLibraryX header {
+        background: transparent !important;
+    }
+
+    body.sf-mobile-shell.sf-library-open #sf-mobile-navigation {
+        display: none !important;
+    }
+
+    body.sf-mobile-shell:not(.sf-expanded):not(.sf-guest) #main-view {
+        padding-bottom: calc(174px + var(--melodix-phone-safe-bottom)) !important;
+    }
+
+    body.sf-mobile-shell:not(.sf-expanded):not(.sf-guest) aside[data-testid="now-playing-bar"] {
+        bottom: calc(72px + var(--melodix-phone-safe-bottom) + 12px) !important;
+    }
+
+    #sf-mobile-navigation {
+        position: fixed !important;
+        left: 8px !important;
+        right: 8px !important;
+        bottom: calc(var(--melodix-phone-safe-bottom) + 7px) !important;
+        z-index: 2147483001 !important;
+        box-sizing: border-box !important;
+        display: grid !important;
+        grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+        align-items: stretch !important;
+        height: 64px !important;
+        padding: 5px !important;
+        border: 1px solid rgba(255, 255, 255, 0.09) !important;
+        border-radius: 19px !important;
+        background: rgba(13, 18, 15, 0.96) !important;
+        box-shadow: 0 10px 28px rgba(0, 0, 0, 0.4) !important;
+        -webkit-backdrop-filter: blur(18px) saturate(150%) !important;
+        backdrop-filter: blur(18px) saturate(150%) !important;
+    }
+
+    #sf-mobile-navigation .sf-mobile-tab {
+        display: flex !important;
+        flex-direction: column !important;
+        align-items: center !important;
+        justify-content: center !important;
+        gap: 3px !important;
+        min-width: 0 !important;
+        min-height: 52px !important;
+        padding: 4px 2px !important;
+        border: 0 !important;
+        border-radius: 14px !important;
+        background: transparent !important;
+        color: #9ba69e !important;
+        font: 600 10px/1.1 Inter, Roboto, Arial, sans-serif !important;
+        -webkit-tap-highlight-color: transparent !important;
+    }
+
+    #sf-mobile-navigation .sf-mobile-tab svg {
+        display: block !important;
+        width: 22px !important;
+        height: 22px !important;
+        flex: 0 0 22px !important;
+    }
+
+    #sf-mobile-navigation .sf-mobile-tab[aria-current="page"] {
+        color: #1ed760 !important;
+        background: rgba(30, 215, 96, 0.09) !important;
+    }
+
+    #sf-mobile-navigation .sf-mobile-tab:active {
+        transform: scale(0.96) !important;
+        background: rgba(30, 215, 96, 0.13) !important;
+    }
+
+    body.sf-expanded #sf-mobile-navigation,
+    body.sf-guest #sf-mobile-navigation,
+    body.sf-guest #Desktop_LeftSidebar_Id,
+    body.sf-guest aside[data-testid="now-playing-bar"] {
+        display: none !important;
+    }
+
+    /* A clear, thumb-friendly Spotify sign-in action on the public landing page. */
+    body.sf-guest button[data-testid="web-player-link"],
+    body:has(button[data-testid="web-player-link"]) button[data-testid="web-player-link"] {
+        box-sizing: border-box !important;
+        width: min(100%, 440px) !important;
+        min-width: 0 !important;
+        min-height: 54px !important;
+        padding: 0 24px !important;
+        border: 0 !important;
+        border-radius: 999px !important;
+        background: linear-gradient(135deg, #35ed79, #16b957) !important;
+        color: #06110a !important;
+        font-size: 16px !important;
+        font-weight: 750 !important;
+        box-shadow: 0 10px 28px rgba(30, 215, 96, 0.22) !important;
+    }
+
+    /* Restyle the actual account form shown after logout without intercepting it. */
+    body:has(input[type="password"]) {
+        min-height: 100dvh !important;
+        background:
+            radial-gradient(ellipse 100% 38% at 50% 0%, rgba(30, 215, 96, 0.16), transparent 75%),
+            #090d0a !important;
+        color: #f5f8f5 !important;
+        font-family: Inter, Roboto, "Helvetica Neue", Arial, sans-serif !important;
+    }
+
+    body:has(input[type="password"])::before {
+        content: "M";
+        position: fixed;
+        top: calc(var(--sf-safe-area-top, env(safe-area-inset-top, 0px)) + 16px);
+        left: 18px;
+        z-index: 2147483000;
+        display: grid;
+        width: 36px;
+        height: 36px;
+        place-items: center;
+        border-radius: 12px;
+        background: linear-gradient(145deg, #35ed79, #12a94b);
+        color: #07110a;
+        font-size: 21px;
+        font-weight: 900;
+        pointer-events: none;
+    }
+
+    body:has(input[type="password"])::after {
+        content: "Melodix";
+        position: fixed;
+        top: calc(var(--sf-safe-area-top, env(safe-area-inset-top, 0px)) + 24px);
+        left: 64px;
+        z-index: 2147483000;
+        color: #f5f8f5;
+        font-size: 17px;
+        font-weight: 800;
+        letter-spacing: -0.04em;
+        pointer-events: none;
+    }
+
+    body:has(input[type="password"]) form:has(input[type="password"]) {
+        box-sizing: border-box !important;
+        width: min(calc(100% - 32px), 420px) !important;
+        margin: 24px auto !important;
+        padding: 24px !important;
+        border: 1px solid rgba(255, 255, 255, 0.09) !important;
+        border-radius: 24px !important;
+        background: rgba(18, 25, 20, 0.96) !important;
+        box-shadow: 0 18px 44px rgba(0, 0, 0, 0.38) !important;
+    }
+
+    body:has(input[type="password"]) input[type="email"],
+    body:has(input[type="password"]) input[type="text"],
+    body:has(input[type="password"]) input[type="password"] {
+        box-sizing: border-box !important;
+        width: 100% !important;
+        min-width: 0 !important;
+        min-height: 52px !important;
+        padding: 0 14px !important;
+        border: 1px solid rgba(255, 255, 255, 0.16) !important;
+        border-radius: 13px !important;
+        background: #101712 !important;
+        color: #f5f8f5 !important;
+        font-size: 16px !important;
+    }
+
+    body:has(input[type="password"]) input[type="email"]:focus,
+    body:has(input[type="password"]) input[type="text"]:focus,
+    body:has(input[type="password"]) input[type="password"]:focus {
+        border-color: #1ed760 !important;
+        outline: 2px solid rgba(30, 215, 96, 0.18) !important;
+        outline-offset: 1px !important;
+    }
+
+    body:has(input[type="password"]) form button[type="submit"],
+    body:has(input[type="password"]) form input[type="submit"],
+    body:has(input[type="password"]) button[data-testid="login-button"] {
+        box-sizing: border-box !important;
+        width: 100% !important;
+        min-height: 54px !important;
+        margin-top: 12px !important;
+        border: 0 !important;
+        border-radius: 999px !important;
+        background: linear-gradient(135deg, #35ed79, #16b957) !important;
+        color: #06110a !important;
+        font-size: 16px !important;
+        font-weight: 750 !important;
+    }
+
+    body:has(input[type="password"]) a {
+        color: #55e986 !important;
+    }
+}

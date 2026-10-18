@@ -22,6 +22,33 @@
     let fsUpdateTimer = null;
     let fsScrubbing = false;
 
+    // Keep Android's persisted session state and the cached Spotify API tokens in
+    // sync with Spotify's signed-out screen. This only runs after an explicit
+    // sign-out action or when Spotify confirms that the session is gone.
+    window.__sfMarkLoggedOut = function() {
+        try {
+            localStorage.removeItem('spot_auth_token');
+            localStorage.removeItem('spot_cli_token');
+        } catch (_) {}
+        window.spotAuthToken = null;
+        window.spotCliToken = null;
+
+        if (!window.__sfLogoutBridgeNotified) {
+            window.__sfLogoutBridgeNotified = true;
+            try {
+                if (window.AndBridge && typeof window.AndBridge.logoutDetected === 'function') {
+                    window.AndBridge.logoutDetected();
+                }
+            } catch (_) {}
+        }
+
+        if (document.body) {
+            document.body.classList.add('sf-guest');
+            document.body.classList.remove('sf-library-open');
+        }
+        window.__sfLibraryExpanded = false;
+    };
+
     // A stale persisted login flag can reopen Spotify's public home instead of the
     // sign-in form. If Spotify still exposes its guest login action after hydration,
     // reset that flag and return to Spotify's standard authentication flow.
@@ -59,11 +86,9 @@
 
             redirected = true;
             if (observer) observer.disconnect();
-            try {
-                if (window.AndBridge && typeof window.AndBridge.logoutDetected === 'function') {
-                    window.AndBridge.logoutDetected();
-                }
-            } catch (_) {}
+            if (typeof window.__sfMarkLoggedOut === 'function') {
+                window.__sfMarkLoggedOut();
+            }
             window.location.replace(loginUrl);
         };
 
@@ -71,6 +96,152 @@
         observer.observe(document.documentElement, { childList: true, subtree: true, characterData: true });
         checkGuestState();
         window.setTimeout(() => observer && observer.disconnect(), 15000);
+    })();
+
+    // A small native-feeling tab bar for portrait phones. It delegates to the
+    // existing Spotify navigation and Library toggle, so routes and handlers
+    // remain Spotify's own rather than being reimplemented.
+    (function installMobileNavigation() {
+        if (window.location.hostname !== 'open.spotify.com') return;
+
+        const icons = {
+            home: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3 10 9-7 9 7v10a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>',
+            search: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.8" cy="10.8" r="6.8" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="m16 16 4.5 4.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',
+            library: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5.5h16M4 10.5h16M4 15.5h11M4 20h11" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>'
+        };
+
+        const libraryElement = () => document.querySelector('#Desktop_LeftSidebar_Id');
+
+        function updateActiveTab(nav) {
+            if (!nav || !document.body) return;
+            const path = window.location.pathname || '/';
+            const libraryOpen = !!window.__sfLibraryExpanded || document.body.classList.contains('sf-library-open');
+            const active = libraryOpen ? 'library' : (path.startsWith('/search') ? 'search' : 'home');
+            nav.querySelectorAll('[data-sf-tab]').forEach(button => {
+                if (button.dataset.sfTab === active) button.setAttribute('aria-current', 'page');
+                else button.removeAttribute('aria-current');
+            });
+        }
+
+        function setLibraryExpanded(expanded) {
+            const sidebar = libraryElement();
+            if (!sidebar) return;
+
+            if (typeof window.switchLs === 'function') {
+                window.switchLs(expanded);
+            } else {
+                const safeTop = 'var(--sf-safe-area-top, env(safe-area-inset-top, 0px))';
+                sidebar.style.setProperty('position', 'fixed', 'important');
+                if (expanded) {
+                    sidebar.style.setProperty('top', `calc(${safeTop} + 48px)`, 'important');
+                    sidebar.style.setProperty('left', '0px', 'important');
+                    sidebar.style.setProperty('width', '100%', 'important');
+                    sidebar.style.setProperty('height', `calc(100dvh - ${safeTop} - 48px)`, 'important');
+                    sidebar.style.setProperty('bottom', '0px', 'important');
+                    sidebar.style.setProperty('overflow-y', 'auto', 'important');
+                    sidebar.style.setProperty('z-index', '2147483000', 'important');
+                } else {
+                    sidebar.style.setProperty('top', safeTop, 'important');
+                    sidebar.style.setProperty('left', '60px', 'important');
+                    sidebar.style.setProperty('width', '48px', 'important');
+                    sidebar.style.setProperty('height', '48px', 'important');
+                    sidebar.style.removeProperty('bottom');
+                    sidebar.style.removeProperty('overflow-y');
+                    sidebar.style.setProperty('z-index', '1', 'important');
+                }
+                window.__sfLibraryExpanded = expanded;
+            }
+
+            document.body.classList.toggle('sf-library-open', expanded);
+            if (window.lBtn) window.lBtn.setAttribute('aria-expanded', String(expanded));
+            updateActiveTab(document.getElementById('sf-mobile-navigation'));
+        }
+
+        function activateRoute(kind) {
+            const selectors = kind === 'home'
+                ? ['#global-nav-bar button[data-testid="home-button"]', '#global-nav-bar a[href="/"]', 'a[href="/"]']
+                : ['#global-nav-bar a[href="/search"]', 'a[href="/search"]', '#global-nav-bar button[data-testid="search-icon"]', '#global-nav-bar button[aria-label*="Search" i]'];
+            const target = selectors.map(selector => document.querySelector(selector)).find(Boolean);
+            if (target) target.click();
+            else window.location.assign(kind === 'home' ? 'https://open.spotify.com/' : 'https://open.spotify.com/search');
+        }
+
+        function ensureMobileNavigation() {
+            const sidebar = libraryElement();
+            if (!document.body || !sidebar) return false;
+
+            document.body.classList.remove('sf-guest');
+            document.body.classList.add('sf-mobile-shell');
+            window.__sfLogoutBridgeNotified = false;
+            if (typeof window.__sfLibraryExpanded !== 'boolean') {
+                window.__sfLibraryExpanded = sidebar.getBoundingClientRect().width > 80;
+            }
+
+            let nav = document.getElementById('sf-mobile-navigation');
+            if (!nav) {
+                nav = document.createElement('nav');
+                nav.id = 'sf-mobile-navigation';
+                nav.setAttribute('aria-label', 'Navigation mobile');
+                nav.innerHTML = `
+                    <button type="button" class="sf-mobile-tab" data-sf-tab="home" aria-label="Accueil">
+                        ${icons.home}<span>Accueil</span>
+                    </button>
+                    <button type="button" class="sf-mobile-tab" data-sf-tab="search" aria-label="Recherche">
+                        ${icons.search}<span>Recherche</span>
+                    </button>
+                    <button type="button" class="sf-mobile-tab" data-sf-tab="library" aria-label="Bibliothèque">
+                        ${icons.library}<span>Bibliothèque</span>
+                    </button>`;
+                nav.addEventListener('click', event => {
+                    const button = event.target.closest('[data-sf-tab]');
+                    if (!button) return;
+                    const kind = button.dataset.sfTab;
+                    if (kind === 'library') {
+                        setLibraryExpanded(!window.__sfLibraryExpanded);
+                    } else {
+                        document.body.classList.remove('sf-library-open');
+                        window.__sfLibraryExpanded = false;
+                        activateRoute(kind);
+                        updateActiveTab(nav);
+                    }
+                });
+                document.body.appendChild(nav);
+            }
+
+            if (!sidebar.dataset.sfMobileCloseBound) {
+                sidebar.dataset.sfMobileCloseBound = 'true';
+                sidebar.addEventListener('click', event => {
+                    if (!event.target.closest('header button, header [role="button"]')) return;
+                    window.setTimeout(() => {
+                        const open = !!window.__sfLibraryExpanded;
+                        document.body.classList.toggle('sf-library-open', open);
+                        updateActiveTab(nav);
+                    }, 0);
+                }, true);
+            }
+
+            updateActiveTab(nav);
+            return true;
+        }
+
+        if (!ensureMobileNavigation() && document.documentElement) {
+            const observer = new MutationObserver(() => {
+                if (ensureMobileNavigation()) observer.disconnect();
+            });
+            observer.observe(document.documentElement, { childList: true, subtree: true });
+            window.setTimeout(() => observer.disconnect(), 30000);
+        }
+
+        window.addEventListener('popstate', () => updateActiveTab(document.getElementById('sf-mobile-navigation')));
+
+        document.addEventListener('click', event => {
+            const action = event.target.closest('button, a, [role="menuitem"]');
+            if (!action) return;
+            const label = `${action.innerText || ''} ${action.getAttribute('aria-label') || ''}`.trim().toLowerCase();
+            if (/^(log out|logout|sign out|déconnexion|se déconnecter)(\s|$)/.test(label)) {
+                if (typeof window.__sfMarkLoggedOut === 'function') window.__sfMarkLoggedOut();
+            }
+        }, true);
     })();
 
     try {

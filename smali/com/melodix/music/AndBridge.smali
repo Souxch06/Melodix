@@ -798,7 +798,7 @@
 .end method
 
 .method public final logoutDetected()V
-    .locals 2
+    .locals 3
     .annotation runtime Landroid/webkit/JavascriptInterface;
     .end annotation
 
@@ -838,6 +838,24 @@
 
     .line 17
     .line 18
+    # Expire Spotify's device session cookie locally so a late page callback
+    # cannot mistake a just-signed-out WebView for an authenticated session.
+    invoke-static {}, Landroid/webkit/CookieManager;->getInstance()Landroid/webkit/CookieManager;
+
+    move-result-object v0
+
+    const-string v1, "https://open.spotify.com/"
+
+    const-string v2, "sp_dc=; Max-Age=0; Path=/; Secure; HttpOnly"
+
+    invoke-virtual {v0, v1, v2}, Landroid/webkit/CookieManager;->setCookie(Ljava/lang/String;Ljava/lang/String;)V
+
+    const-string v2, "sp_dc=; Max-Age=0; Domain=.spotify.com; Path=/; Secure; HttpOnly"
+
+    invoke-virtual {v0, v1, v2}, Landroid/webkit/CookieManager;->setCookie(Ljava/lang/String;Ljava/lang/String;)V
+
+    invoke-virtual {v0}, Landroid/webkit/CookieManager;->flush()V
+
     invoke-static {}, Lm9;->k()V
 
     .line 19
