@@ -20,11 +20,13 @@ Les versions publiées se trouvent dans [GitHub Releases](https://github.com/Sou
 
 La page GitHub Releases ne conserve que la test.7; les pages et tags test.1 à test.6 ont été retirés. Leurs APK pertinents restent dans `releases/apk/` pour l'historique. Les APK publiés et l'extraction brute sont des instantanés des tests précédents : la nouvelle icône est intégrée au projet Apktool pour la prochaine compilation. Le projet Apktool est **décompilé** depuis un APK; ce n'est pas le projet Kotlin/Java/Gradle original, qui n'était pas fourni dans l'archive.
 
-## Releases depuis GitHub, sans commandes locales
+## Releases depuis GitHub
 
-Le workflow `.github/workflows/release-apk.yml` sera disponible dans l'onglet **Actions** après intégration de la PR dans `main`.
+Les workflows de publication sont disponibles dans l'onglet **Actions**.
 
-- Pour ajouter l'APK test.7 déjà publié à sa release, ouvre **Actions → Build APK and attach to GitHub Release → Run workflow**, indique `v1.2.2-test.7` et laisse **rebuild** désactivé. Cela téléverse l'APK existant et son checksum; il n'inclut pas encore la nouvelle icône.
-- Pour publier la nouvelle icône dans une APK, configure les secrets Actions `MELODIX_KEYSTORE_B64` et `MELODIX_KEYSTORE_PASSWORD` (ajoute `MELODIX_KEY_PASSWORD` seulement si le mot de passe de la clé est différent), puis crée et publie une release de test, par exemple `v1.2.2-test.8`, ciblant `main`. Le workflow construira et signera l'APK avant de l'attacher.
+- `Build APK and attach to GitHub Release` sert aux versions normales du package `com.melodix.music`. Une mise à jour doit être signée avec la même clé que les APK test.5 à test.7; sans cette clé, Android ne l'acceptera pas comme mise à jour.
+- `Build Melodix Preview APK` construit une application d'essai séparée, avec l'identifiant `com.melodix.music.preview`. Elle s'installe à côté de l'application normale, sans la désinstaller, mais possède des données séparées et ne la remplace pas. Elle utilise une nouvelle clé de prévisualisation.
 
-La clé privée n'est jamais conservée dans le dépôt public. Sans les secrets de signature, le workflow peut téléverser les APK déjà construits, mais ne peut pas créer une mise à jour signée avec la même identité.
+Pour la prévisualisation, ajoute les secrets Actions `MELODIX_PREVIEW_KEYSTORE_B64` et `MELODIX_PREVIEW_KEYSTORE_PASSWORD` (et `MELODIX_PREVIEW_KEY_PASSWORD` uniquement si le mot de passe de la clé est différent). Puis lance **Actions → Build Melodix Preview APK → Run workflow** sur `main`; le tag par défaut est `v1.2.2-test.8-preview`. Le workflow crée la pré-release GitHub et y ajoute l'APK et son checksum.
+
+Le guide détaillé de création de la clé et de publication est dans [`docs/preview-apk.md`](docs/preview-apk.md). **Ne mets jamais un fichier de signature ni ses mots de passe dans le dépôt.**
