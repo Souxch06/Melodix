@@ -7,10 +7,10 @@ on:
   workflow_dispatch:
     inputs:
       release_tag:
-        description: Preview tag (for example v1.2.2-test.26-preview)
+        description: Preview tag (for example v1.2.2-test.27-preview)
         required: true
         type: string
-        default: v1.2.2-test.26-preview
+        default: v1.2.2-test.27-preview
 
 permissions:
   contents: write
@@ -25,12 +25,12 @@ jobs:
         id: release
         shell: bash
         env:
-          INPUT_TAG: ${{ inputs.release_tag || 'v1.2.2-test.26-preview' }}
+          INPUT_TAG: ${{ inputs.release_tag || 'v1.2.2-test.27-preview' }}
         run: |
           set -euo pipefail
           tag="$INPUT_TAG"
           if [[ ! "$tag" =~ ^v([0-9]+\.[0-9]+\.[0-9]+)-test\.([0-9]+)-preview$ ]]; then
-            echo "::error::Expected a preview tag such as v1.2.2-test.26-preview"
+            echo "::error::Expected a preview tag such as v1.2.2-test.27-preview"
             exit 1
           fi
 
@@ -205,7 +205,7 @@ jobs:
 
             It installs alongside the regular app and is not an update to the existing `com.melodix.music` installation. Preview data is separate.
 
-            Test.26 restores the V18 base Spotify styling and drawer behavior, removing the later custom mobile shell, tab bar, and compact player layout. It keeps the current standard Spotify login flow, mobile viewport fix, WebView protections, and safe initialization diagnostics; no old debugging, spoofing, proxy, or credential-capture code is restored.
+            Test.27 restores the application files that existed at v1.2.2-test.18-preview (commit 81ef774) for direct comparison. It intentionally uses that older WebView setup and compatibility behavior; later hardening is not included in this diagnostic build. Preview remains a separate package with separate app data.
           files: |
             ${{ steps.package.outputs.apk_path }}
             ${{ steps.package.outputs.sha_path }}

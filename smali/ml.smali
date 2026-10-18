@@ -28,7 +28,7 @@
 
 .field public static l:Ljava/lang/ref/WeakReference; = null
 
-.field public static m:Ljava/lang/String; = "social"
+.field public static m:Ljava/lang/String; = "password"
 
 .field public static n:I
 
@@ -520,7 +520,7 @@
 
     .line 13
     .line 14
-    const-string p0, "https://accounts.spotify.com/en/login?continue=https%3A%2F%2Fopen.spotify.com%2F&allow_signup=1"
+    const-string p0, "https://accounts.spotify.com/en/login?continue=https%3A%2F%2Fopen.spotify.com%2F&method=password&allow_password=1&allow_signup=1"
 
     .line 15
     .line 16

@@ -68,9 +68,6 @@
 
 .field public static final f0:Ljava/util/concurrent/ConcurrentHashMap;
 
-# Safe WebView load diagnostic code, with no URL or request contents.
-.field public static g0:Ljava/lang/String; = null
-
 .field public static j:I = 0x0
 
 .field public static k:I = 0x0
@@ -495,9 +492,202 @@
     :catch_0
     :cond_1
     :goto_2
-    # Do not read or mirror any stored Spotify account cookie into WebView domains.
+    invoke-static {p0}, Lbh;->n(Landroid/content/Context;)Le2;
+
+    .line 113
+    .line 114
+    .line 115
+    move-result-object v0
+
+    .line 116
     const/4 v1, 0x1
 
+    .line 117
+    if-nez v0, :cond_2
+
+    .line 118
+    .line 119
+    goto :goto_4
+
+    .line 120
+    :cond_2
+    invoke-static {}, Landroid/webkit/CookieManager;->getInstance()Landroid/webkit/CookieManager;
+
+    .line 121
+    .line 122
+    .line 123
+    move-result-object v2
+
+    .line 124
+    invoke-virtual {v2, v1}, Landroid/webkit/CookieManager;->setAcceptCookie(Z)V
+
+    .line 125
+    .line 126
+    .line 127
+    const-string v3, "https://spotify.com"
+
+    .line 128
+    .line 129
+    const-string v4, "https://open.spotify.com"
+
+    .line 130
+    .line 131
+    const-string v5, "https://accounts.spotify.com"
+
+    .line 132
+    .line 133
+    const-string v6, "https://spclient.wg.spotify.com"
+
+    .line 134
+    .line 135
+    filled-new-array {v3, v4, v5, v6}, [Ljava/lang/String;
+
+    .line 136
+    .line 137
+    .line 138
+    move-result-object v3
+
+    .line 139
+    invoke-static {v3}, Lcl;->u([Ljava/lang/Object;)Ljava/util/List;
+
+    .line 140
+    .line 141
+    .line 142
+    move-result-object v3
+
+    .line 143
+    iget-object v0, v0, Le2;->e:Ljava/lang/String;
+
+    .line 144
+    .line 145
+    const-string v4, ";"
+
+    .line 146
+    .line 147
+    filled-new-array {v4}, [Ljava/lang/String;
+
+    .line 148
+    .line 149
+    .line 150
+    move-result-object v4
+
+    .line 151
+    invoke-static {v0, v4}, Lda1;->M(Ljava/lang/CharSequence;[Ljava/lang/String;)Ljava/util/List;
+
+    .line 152
+    .line 153
+    .line 154
+    move-result-object v0
+
+    .line 155
+    invoke-interface {v0}, Ljava/util/List;->iterator()Ljava/util/Iterator;
+
+    .line 156
+    .line 157
+    .line 158
+    move-result-object v0
+
+    .line 159
+    :cond_3
+    invoke-interface {v0}, Ljava/util/Iterator;->hasNext()Z
+
+    .line 160
+    .line 161
+    .line 162
+    move-result v4
+
+    .line 163
+    if-eqz v4, :cond_4
+
+    .line 164
+    .line 165
+    invoke-interface {v0}, Ljava/util/Iterator;->next()Ljava/lang/Object;
+
+    .line 166
+    .line 167
+    .line 168
+    move-result-object v4
+
+    .line 169
+    check-cast v4, Ljava/lang/String;
+
+    .line 170
+    .line 171
+    invoke-static {v4}, Lda1;->Q(Ljava/lang/String;)Ljava/lang/CharSequence;
+
+    .line 172
+    .line 173
+    .line 174
+    move-result-object v4
+
+    .line 175
+    invoke-virtual {v4}, Ljava/lang/Object;->toString()Ljava/lang/String;
+
+    .line 176
+    .line 177
+    .line 178
+    move-result-object v4
+
+    .line 179
+    invoke-virtual {v4}, Ljava/lang/String;->length()I
+
+    .line 180
+    .line 181
+    .line 182
+    move-result v5
+
+    .line 183
+    if-lez v5, :cond_3
+
+    .line 184
+    .line 185
+    invoke-interface {v3}, Ljava/util/List;->iterator()Ljava/util/Iterator;
+
+    .line 186
+    .line 187
+    .line 188
+    move-result-object v5
+
+    .line 189
+    :goto_3
+    invoke-interface {v5}, Ljava/util/Iterator;->hasNext()Z
+
+    .line 190
+    .line 191
+    .line 192
+    move-result v6
+
+    .line 193
+    if-eqz v6, :cond_3
+
+    .line 194
+    .line 195
+    invoke-interface {v5}, Ljava/util/Iterator;->next()Ljava/lang/Object;
+
+    .line 196
+    .line 197
+    .line 198
+    move-result-object v6
+
+    .line 199
+    check-cast v6, Ljava/lang/String;
+
+    .line 200
+    .line 201
+    invoke-virtual {v2, v6, v4}, Landroid/webkit/CookieManager;->setCookie(Ljava/lang/String;Ljava/lang/String;)V
+
+    .line 202
+    .line 203
+    .line 204
+    goto :goto_3
+
+    .line 205
+    :cond_4
+    invoke-virtual {v2}, Landroid/webkit/CookieManager;->flush()V
+
+    .line 206
+    .line 207
+    .line 208
     :goto_4
     invoke-static {p0}, Lju0;->a(Landroid/content/Context;)Ljava/lang/String;
 
@@ -584,8 +774,18 @@
     move-result-object v0
 
     .line 251
-    # A persisted flag is not proof of an active Spotify session.
-    const/4 v0, 0x0
+    const-string v3, "LoggedIn"
+
+    .line 252
+    .line 253
+    invoke-interface {v0, v3, v2}, Landroid/content/SharedPreferences;->getBoolean(Ljava/lang/String;Z)Z
+
+    .line 254
+    .line 255
+    .line 256
+    move-result v0
+
+    .line 257
     sput-boolean v0, Lcom/melodix/music/AppSingleton;->B:Z
 
     .line 258

@@ -120,7 +120,7 @@
 
     .line 28
     .line 29
-    const-string p1, "https://accounts.spotify.com/en/login?continue=https%3A%2F%2Fopen.spotify.com%2F&allow_signup=1"
+    const-string p1, "https://accounts.spotify.com/en/login?continue=https%3A%2F%2Fopen.spotify.com%2F&method=password&allow_password=1&allow_signup=1"
 
     .line 30
     .line 31
