@@ -190,6 +190,42 @@ test('WebView rejects TLS/mixed content and gates bridge attachment by top-level
     assert.match(pageStart[1], /Uri;->getPort\(\)I/);
 });
 
+test('HTTP status responses are not misreported as network disconnections', () => {
+    const webViewClient = read('smali/c91.smali');
+    const legacyError = webViewClient.match(/\.method public final onReceivedError\(Landroid\/webkit\/WebView;ILjava\/lang\/String;Ljava\/lang\/String;\)V([\s\S]*?)\.end method/);
+    const httpError = webViewClient.match(/\.method public final onReceivedHttpError\(Landroid\/webkit\/WebView;Landroid\/webkit\/WebResourceRequest;Landroid\/webkit\/WebResourceResponse;\)V([\s\S]*?)\.end method/);
+    const transportError = webViewClient.match(/\.method public final onReceivedError\(Landroid\/webkit\/WebView;Landroid\/webkit\/WebResourceRequest;Landroid\/webkit\/WebResourceError;\)V([\s\S]*?)\.end method/);
+
+    assert.ok(legacyError, 'legacy error callback should exist');
+    assert.doesNotMatch(legacyError[1], /AppSingleton;->m:Z|MainActivity;->D\(Z\)V/);
+    assert.ok(httpError, 'HTTP error callback should exist');
+    assert.match(httpError[1], /invoke-super[\s\S]*?onReceivedHttpError/);
+    assert.doesNotMatch(httpError[1], /AppSingleton;->m:Z|MainActivity;->D\(Z\)V/);
+    assert.ok(transportError, 'transport error callback should exist');
+    assert.match(transportError[1], /WebResourceRequest;->isForMainFrame\(\)Z/);
+    assert.match(transportError[1], /sput-boolean p0, Lcom\/melodix\/music\/AppSingleton;->m:Z/);
+});
+
+test('native media artwork accepts only bounded HTTPS Spotify CDN URIs', () => {
+    const nativeBridge = read('smali/com/melodix/music/AndBridge.smali');
+    const method = nativeBridge.match(/\.method public final recMediaStatus\(Ljava\/lang\/String;\)V([\s\S]*?)\.end method/);
+
+    assert.ok(method, 'recMediaStatus method should exist');
+    assert.match(method[1], /const\/16 v2, 0x800/);
+    assert.match(method[1], /Uri;->getScheme\(\)Ljava\/lang\/String;/);
+    assert.match(method[1], /const-string v3, "https"/);
+    assert.match(method[1], /Uri;->getPort\(\)I/);
+    assert.match(method[1], /const\/16 v3, 0x1bb/);
+    assert.match(method[1], /Uri;->getUserInfo\(\)Ljava\/lang\/String;/);
+    assert.match(method[1], /Uri;->getHost\(\)Ljava\/lang\/String;/);
+    assert.match(method[1], /Locale;->ROOT:Ljava\/util\/Locale;/);
+    assert.match(method[1], /String;->toLowerCase\(Ljava\/util\/Locale;\)Ljava\/lang\/String;/);
+    assert.match(method[1], /const-string v2, "\.scdn\.co"/);
+    assert.match(method[1], /const-string v2, "\.spotifycdn\.com"/);
+    assert.match(method[1], /:cond_artwork_invalid[\s\S]*?const-string p0, ""[\s\S]*?:goto_artwork_validated/);
+    assert.ok(method[1].indexOf(':cond_artwork_safe') < method[1].indexOf('invoke-static {p0, p1, v0}, Lla1;->v'), 'validation must precede image-size rewriting and loading');
+});
+
 test('JavascriptInterface annotations are limited to bridge methods used by active JavaScript', () => {
     const bridge = [read('assets/runtime_state.js'), read('assets/spotify_bridge.js')].join('\n');
     const nativeBridge = read('smali/com/melodix/music/AndBridge.smali');

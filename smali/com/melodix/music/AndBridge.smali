@@ -2464,6 +2464,66 @@
     .line 109
     .line 110
     .line 111
+    # Native artwork loading is a network sink: accept only HTTPS Spotify CDN URIs.
+    # Reject arbitrary schemes/hosts and non-default ports before Picasso is invoked.
+    invoke-virtual {p0}, Ljava/lang/String;->length()I
+    move-result v1
+    const/16 v2, 0x800
+    if-gt v1, v2, :cond_artwork_invalid
+
+    invoke-static {p0}, Landroid/net/Uri;->parse(Ljava/lang/String;)Landroid/net/Uri;
+    move-result-object v1
+    invoke-virtual {v1}, Landroid/net/Uri;->getScheme()Ljava/lang/String;
+    move-result-object v2
+    const-string v3, "https"
+    invoke-virtual {v3, v2}, Ljava/lang/String;->equalsIgnoreCase(Ljava/lang/String;)Z
+    move-result v2
+    if-eqz v2, :cond_artwork_invalid
+
+    invoke-virtual {v1}, Landroid/net/Uri;->getPort()I
+    move-result v2
+    const/4 v3, -0x1
+    if-eq v2, v3, :cond_artwork_port_ok
+    const/16 v3, 0x1bb
+    if-ne v2, v3, :cond_artwork_invalid
+
+    :cond_artwork_port_ok
+    invoke-virtual {v1}, Landroid/net/Uri;->getUserInfo()Ljava/lang/String;
+    move-result-object v2
+    if-nez v2, :cond_artwork_invalid
+
+    invoke-virtual {v1}, Landroid/net/Uri;->getHost()Ljava/lang/String;
+    move-result-object v1
+    if-eqz v1, :cond_artwork_invalid
+    sget-object v2, Ljava/util/Locale;->ROOT:Ljava/util/Locale;
+    invoke-virtual {v1, v2}, Ljava/lang/String;->toLowerCase(Ljava/util/Locale;)Ljava/lang/String;
+    move-result-object v1
+
+    const-string v2, ".scdn.co"
+    invoke-virtual {v1, v2}, Ljava/lang/String;->endsWith(Ljava/lang/String;)Z
+    move-result v2
+    if-nez v2, :cond_artwork_safe
+    const-string v2, "scdn.co"
+    invoke-virtual {v2, v1}, Ljava/lang/String;->equalsIgnoreCase(Ljava/lang/String;)Z
+    move-result v2
+    if-nez v2, :cond_artwork_safe
+
+    const-string v2, ".spotifycdn.com"
+    invoke-virtual {v1, v2}, Ljava/lang/String;->endsWith(Ljava/lang/String;)Z
+    move-result v2
+    if-nez v2, :cond_artwork_safe
+    const-string v2, "spotifycdn.com"
+    invoke-virtual {v2, v1}, Ljava/lang/String;->equalsIgnoreCase(Ljava/lang/String;)Z
+    move-result v2
+    if-eqz v2, :cond_artwork_invalid
+
+    :cond_artwork_safe
+    goto :goto_artwork_validated
+
+    :cond_artwork_invalid
+    const-string p0, ""
+
+    :goto_artwork_validated
     const-string p1, "00004851"
 
     .line 112

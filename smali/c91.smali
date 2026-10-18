@@ -809,71 +809,9 @@
 .method public final onReceivedError(Landroid/webkit/WebView;ILjava/lang/String;Ljava/lang/String;)V
     .locals 0
 
-    .line 58
+    # Legacy callback has no isForMainFrame flag and can report subresource failures.
+    # Decoded APK metadata sets minSdkVersion 24; the request overload handles main-frame errors.
     invoke-super {p0, p1, p2, p3, p4}, Landroid/webkit/WebViewClient;->onReceivedError(Landroid/webkit/WebView;ILjava/lang/String;Ljava/lang/String;)V
-
-    const/4 p0, -0x3
-
-    if-ne p2, p0, :cond_0
-
-    goto :goto_1
-
-    :cond_0
-    const/4 p0, 0x0
-
-    const/4 p1, 0x1
-
-    if-eqz p4, :cond_1
-
-    .line 59
-    const-string p2, "open.spotify.com"
-
-    .line 60
-    invoke-static {p4, p2, p0}, Lda1;->y(Ljava/lang/CharSequence;Ljava/lang/String;Z)Z
-
-    move-result p2
-
-    if-ne p2, p1, :cond_1
-
-    goto :goto_0
-
-    :cond_1
-    if-eqz p4, :cond_2
-
-    .line 61
-    const-string p2, "accounts.spotify.com"
-
-    .line 62
-    invoke-static {p4, p2, p0}, Lda1;->y(Ljava/lang/CharSequence;Ljava/lang/String;Z)Z
-
-    move-result p0
-
-    if-ne p0, p1, :cond_2
-
-    .line 63
-    :goto_0
-    sput-boolean p1, Lcom/melodix/music/AppSingleton;->m:Z
-
-    .line 64
-    sput p1, Lcom/melodix/music/AppSingleton;->n:I
-
-    .line 65
-    sget-object p0, Lcom/melodix/music/AppSingleton;->t:Ljava/lang/ref/WeakReference;
-
-    if-eqz p0, :cond_2
-
-    invoke-virtual {p0}, Ljava/lang/ref/Reference;->get()Ljava/lang/Object;
-
-    move-result-object p0
-
-    check-cast p0, Lcom/melodix/music/MainActivity;
-
-    if-eqz p0, :cond_2
-
-    invoke-virtual {p0, p1}, Lcom/melodix/music/MainActivity;->D(Z)V
-
-    :cond_2
-    :goto_1
     return-void
 .end method
 
@@ -1010,110 +948,9 @@
 .method public final onReceivedHttpError(Landroid/webkit/WebView;Landroid/webkit/WebResourceRequest;Landroid/webkit/WebResourceResponse;)V
     .locals 0
 
-    .line 1
+    # An HTTP status (including 4xx/5xx) is a server response, not loss of network.
+    # Let WebView render Spotify's response; only transport errors show the offline UI.
     invoke-super {p0, p1, p2, p3}, Landroid/webkit/WebViewClient;->onReceivedHttpError(Landroid/webkit/WebView;Landroid/webkit/WebResourceRequest;Landroid/webkit/WebResourceResponse;)V
-
-    .line 2
-    .line 3
-    .line 4
-    if-eqz p2, :cond_1
-
-    .line 5
-    .line 6
-    invoke-interface {p2}, Landroid/webkit/WebResourceRequest;->isForMainFrame()Z
-
-    .line 7
-    .line 8
-    .line 9
-    move-result p0
-
-    .line 10
-    const/4 p1, 0x1
-
-    .line 11
-    if-ne p0, p1, :cond_1
-
-    .line 12
-    .line 13
-    if-eqz p3, :cond_0
-
-    .line 14
-    .line 15
-    invoke-virtual {p3}, Landroid/webkit/WebResourceResponse;->getStatusCode()I
-
-    .line 16
-    .line 17
-    .line 18
-    move-result p0
-
-    .line 19
-    goto :goto_0
-
-    .line 20
-    :cond_0
-    const/4 p0, 0x0
-
-    .line 21
-    :goto_0
-    invoke-interface {p2}, Landroid/webkit/WebResourceRequest;->getUrl()Landroid/net/Uri;
-
-    .line 22
-    .line 23
-    .line 24
-    move-result-object p2
-
-    .line 25
-    invoke-static {p2}, Ljava/util/Objects;->toString(Ljava/lang/Object;)Ljava/lang/String;
-
-    .line 26
-    .line 27
-    .line 28
-    const/16 p2, 0x190
-
-    .line 29
-    .line 30
-    if-lt p0, p2, :cond_1
-
-    .line 31
-    .line 32
-    sput-boolean p1, Lcom/melodix/music/AppSingleton;->m:Z
-
-    .line 33
-    .line 34
-    sput p1, Lcom/melodix/music/AppSingleton;->n:I
-
-    .line 35
-    .line 36
-    sget-object p0, Lcom/melodix/music/AppSingleton;->t:Ljava/lang/ref/WeakReference;
-
-    .line 37
-    .line 38
-    if-eqz p0, :cond_1
-
-    .line 39
-    .line 40
-    invoke-virtual {p0}, Ljava/lang/ref/Reference;->get()Ljava/lang/Object;
-
-    .line 41
-    .line 42
-    .line 43
-    move-result-object p0
-
-    .line 44
-    check-cast p0, Lcom/melodix/music/MainActivity;
-
-    .line 45
-    .line 46
-    if-eqz p0, :cond_1
-
-    .line 47
-    .line 48
-    invoke-virtual {p0, p1}, Lcom/melodix/music/MainActivity;->D(Z)V
-
-    .line 49
-    .line 50
-    .line 51
-    :cond_1
     return-void
 .end method
 
