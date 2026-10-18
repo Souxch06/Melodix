@@ -183,7 +183,14 @@
     // remain Spotify's own rather than being reimplemented.
     (function installMobileNavigation() {
         if (window.location.hostname !== 'open.spotify.com') return;
-        if (window.SF_CONFIG && window.SF_CONFIG.guiMode !== 'csshack') return;
+        const config = window.SF_CONFIG || {};
+        const initialMetrics = getDeviceViewportMetrics();
+        const isPortraitPhone = !isDeviceLandscape()
+            && initialMetrics.width > 0
+            && initialMetrics.width <= 700;
+        // The app may retain the Wide Window setting across updates. On an
+        // actual portrait phone, do not let that setting disable mobile UI.
+        if (config.guiMode && config.guiMode !== 'csshack' && !isPortraitPhone) return;
         if (document.body) document.body.classList.add('sf-mobile-shell');
 
         const icons = {
@@ -193,6 +200,289 @@
         };
 
         const libraryElement = () => document.querySelector('#Desktop_LeftSidebar_Id');
+        const mobileRuntimeStyles = `
+            body.sf-mobile-shell { background: #121212 !important; color: #f7f7f7 !important; }
+            body.sf-mobile-shell #main-view-container,
+            body.sf-mobile-shell .main-view-container,
+            body.sf-mobile-shell #main-view {
+                box-sizing: border-box !important;
+                width: 100vw !important;
+                min-width: 0 !important;
+                max-width: 100vw !important;
+                margin-left: 0 !important;
+                margin-right: 0 !important;
+                background: #121212 !important;
+                overflow-x: hidden !important;
+            }
+            body.sf-mobile-shell:not(.sf-expanded):not(.sf-statusbar-hidden) #global-nav-bar {
+                position: sticky !important;
+                top: 0 !important;
+                z-index: 2147482000 !important;
+                box-sizing: border-box !important;
+                display: flex !important;
+                align-items: center !important;
+                justify-content: flex-start !important;
+                gap: 8px !important;
+                width: 100vw !important;
+                height: calc(58px + max(var(--sf-safe-area-top, 0px), env(safe-area-inset-top, 0px), 24px)) !important;
+                min-height: calc(58px + max(var(--sf-safe-area-top, 0px), env(safe-area-inset-top, 0px), 24px)) !important;
+                padding: calc(max(var(--sf-safe-area-top, 0px), env(safe-area-inset-top, 0px), 24px) + 6px) 12px 6px !important;
+                border: 0 !important;
+                background: #121212 !important;
+                box-shadow: none !important;
+            }
+            body.sf-mobile-shell.sf-statusbar-hidden:not(.sf-expanded) #global-nav-bar {
+                height: 58px !important;
+                min-height: 58px !important;
+                padding: 6px 12px !important;
+            }
+            body.sf-mobile-shell:not(.sf-expanded) #global-nav-bar::before {
+                content: "M" !important;
+                display: grid !important;
+                flex: 0 0 34px !important;
+                width: 34px !important;
+                height: 34px !important;
+                place-items: center !important;
+                border-radius: 11px !important;
+                background: #1ed760 !important;
+                color: #07110a !important;
+                font-size: 20px !important;
+                font-weight: 900 !important;
+            }
+            body.sf-mobile-shell:not(.sf-expanded) #global-nav-bar::after {
+                content: "Melodix" !important;
+                position: absolute !important;
+                left: 58px !important;
+                top: 50% !important;
+                color: #fff !important;
+                font-size: 17px !important;
+                font-weight: 800 !important;
+                transform: translateY(-50%) !important;
+                pointer-events: none !important;
+            }
+            body.sf-mobile-shell:not(.sf-expanded) #global-nav-bar button[data-testid="home-button"],
+            body.sf-mobile-shell:not(.sf-expanded) #global-nav-bar form[role="search"],
+            body.sf-mobile-shell:not(.sf-expanded) #global-nav-bar a[href="/search"],
+            body.sf-mobile-shell:not(.sf-expanded) #global-nav-bar button[data-testid="search-icon"],
+            body.sf-mobile-shell:not(.sf-expanded) #global-nav-bar button[aria-label*="Search" i],
+            body.sf-mobile-shell:not(.sf-expanded) #global-nav-bar button[data-testid*="back" i],
+            body.sf-mobile-shell:not(.sf-expanded) #global-nav-bar button[data-testid*="forward" i],
+            body.sf-mobile-shell:not(.sf-expanded) #global-nav-bar button[aria-label*="notification" i],
+            body.sf-mobile-shell:not(.sf-expanded) #global-nav-bar [data-testid*="notification"],
+            body.sf-mobile-shell:not(.sf-expanded) #global-nav-bar button[aria-label*="friend" i],
+            body.sf-mobile-shell:not(.sf-expanded) #global-nav-bar [data-testid*="friend"] {
+                display: none !important;
+            }
+            body.sf-mobile-shell:not(.sf-expanded) #global-nav-bar button[data-testid="user-widget-link"] {
+                display: inline-flex !important;
+                flex: 0 0 38px !important;
+                width: 38px !important;
+                height: 38px !important;
+                min-width: 38px !important;
+                min-height: 38px !important;
+                margin-left: auto !important;
+                padding: 0 !important;
+                border-radius: 50% !important;
+            }
+            body.sf-mobile-shell:not(.sf-library-open) #Desktop_LeftSidebar_Id { display: none !important; }
+            body.sf-mobile-shell #Desktop_PanelContainer_Id,
+            body.sf-mobile-shell aside[data-testid="right-sidebar"],
+            body.sf-mobile-shell aside[data-testid="now-playing-view"] {
+                box-sizing: border-box !important;
+                width: 100vw !important;
+                min-width: 0 !important;
+                max-width: 100vw !important;
+                margin-left: 0 !important;
+                margin-right: 0 !important;
+                overflow-x: hidden !important;
+                border-radius: 0 !important;
+                background: #121212 !important;
+            }
+            body.sf-mobile-shell:not(.sf-expanded) #main-view [data-testid="cover-art-image"],
+            body.sf-mobile-shell:not(.sf-expanded) #Desktop_PanelContainer_Id [data-testid="cover-art-image"],
+            body.sf-mobile-shell:not(.sf-expanded) aside[data-testid="now-playing-view"] [data-testid="cover-art-image"] {
+                display: block !important;
+                width: min(64vw, 30vh, 248px) !important;
+                height: min(64vw, 30vh, 248px) !important;
+                max-width: calc(100vw - 28px) !important;
+                max-height: min(64vw, 30vh, 248px) !important;
+                margin: 8px auto 14px !important;
+                border-radius: 12px !important;
+                object-fit: cover !important;
+            }
+            body.sf-mobile-shell:not(.sf-expanded) #main-view div:has(> [data-testid="cover-art-image"]),
+            body.sf-mobile-shell:not(.sf-expanded) #Desktop_PanelContainer_Id div:has(> [data-testid="cover-art-image"]),
+            body.sf-mobile-shell:not(.sf-expanded) aside[data-testid="now-playing-view"] div:has(> [data-testid="cover-art-image"]) {
+                display: flex !important;
+                flex: 0 0 auto !important;
+                align-items: center !important;
+                justify-content: center !important;
+                width: min(64vw, 30vh, 248px) !important;
+                height: min(64vw, 30vh, 248px) !important;
+                max-width: calc(100vw - 28px) !important;
+                margin: 8px auto 14px !important;
+                overflow: hidden !important;
+                border-radius: 12px !important;
+            }
+            body.sf-mobile-shell:not(.sf-expanded) div:has(> #VideoPlayerCinema_ReactPortal):not(:has(video)) > div > div {
+                width: min(64vw, 30vh, 248px) !important;
+                height: min(64vw, 30vh, 248px) !important;
+                max-width: calc(100vw - 28px) !important;
+                margin: 8px auto 14px !important;
+                overflow: hidden !important;
+                border-radius: 12px !important;
+            }
+            body.sf-mobile-shell:not(.sf-expanded) div:has(> #VideoPlayerCinema_ReactPortal):has(video) > div,
+            body.sf-mobile-shell:not(.sf-expanded) div:has(> #VideoPlayerCinema_ReactPortal):has(video) > div > div,
+            body.sf-mobile-shell:not(.sf-expanded) div[data-testid="video-player-cinema"]:has(video),
+            body.sf-mobile-shell:not(.sf-expanded) .VideoPlayer__container:has(video) {
+                width: 100% !important;
+                max-width: 100% !important;
+                max-height: min(42vh, 320px) !important;
+                aspect-ratio: 16 / 9 !important;
+                margin: 8px auto 14px !important;
+                overflow: hidden !important;
+            }
+            body.sf-mobile-shell:not(.sf-expanded) div[data-testid="video-player-cinema"] video,
+            body.sf-mobile-shell:not(.sf-expanded) .VideoPlayer__container video,
+            body.sf-mobile-shell:not(.sf-expanded) #main-view video,
+            body.sf-mobile-shell:not(.sf-expanded) aside[data-testid="now-playing-view"] video {
+                display: block !important;
+                width: 100% !important;
+                max-width: 100% !important;
+                max-height: min(42vh, 320px) !important;
+                object-fit: contain !important;
+            }
+            body.sf-mobile-shell #sf-mobile-navigation {
+                position: fixed !important;
+                left: 0 !important;
+                right: 0 !important;
+                bottom: 0 !important;
+                z-index: 2147483001 !important;
+                box-sizing: border-box !important;
+                display: grid !important;
+                grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+                align-items: stretch !important;
+                height: calc(62px + env(safe-area-inset-bottom, 0px)) !important;
+                padding: 5px 14px calc(5px + env(safe-area-inset-bottom, 0px)) !important;
+                border: 0 !important;
+                border-top: 1px solid rgba(255, 255, 255, 0.06) !important;
+                border-radius: 0 !important;
+                background: #121212 !important;
+            }
+            body.sf-mobile-shell #sf-mobile-navigation .sf-mobile-tab {
+                display: flex !important;
+                flex-direction: column !important;
+                align-items: center !important;
+                justify-content: center !important;
+                gap: 3px !important;
+                min-width: 0 !important;
+                min-height: 48px !important;
+                padding: 3px !important;
+                border: 0 !important;
+                background: transparent !important;
+                color: #b3b3b3 !important;
+                font: 500 10px/1.1 Arial, sans-serif !important;
+            }
+            body.sf-mobile-shell #sf-mobile-navigation .sf-mobile-tab svg {
+                display: block !important;
+                width: 21px !important;
+                height: 21px !important;
+            }
+            body.sf-mobile-shell #sf-mobile-navigation .sf-mobile-tab[aria-current="page"] {
+                color: #1ed760 !important;
+            }
+            body.sf-mobile-shell.sf-library-open #sf-mobile-navigation,
+            body.sf-mobile-shell.sf-guest #sf-mobile-navigation,
+            body.sf-expanded #sf-mobile-navigation { display: none !important; }
+            body.sf-mobile-shell:not(.sf-expanded):not(.sf-guest):not(.sf-library-open) #main-view {
+                padding-bottom: calc(142px + env(safe-area-inset-bottom, 0px)) !important;
+            }
+            body.sf-mobile-shell:not(.sf-expanded) aside[data-testid="now-playing-bar"] {
+                position: fixed !important;
+                left: 6px !important;
+                right: 6px !important;
+                bottom: calc(69px + env(safe-area-inset-bottom, 0px)) !important;
+                z-index: 2147483000 !important;
+                box-sizing: border-box !important;
+                display: flex !important;
+                flex-direction: row !important;
+                align-items: center !important;
+                width: auto !important;
+                min-width: 0 !important;
+                height: 56px !important;
+                min-height: 56px !important;
+                max-height: 56px !important;
+                margin: 0 !important;
+                padding: 4px 8px !important;
+                overflow: hidden !important;
+                border: 0 !important;
+                border-radius: 7px !important;
+                background: #282828 !important;
+                box-shadow: none !important;
+            }
+            body.sf-mobile-shell:not(.sf-expanded) aside[data-testid="now-playing-bar"] [data-testid="cover-art-image"] {
+                flex: 0 0 42px !important;
+                width: 42px !important;
+                height: 42px !important;
+                object-fit: cover !important;
+            }
+            body.sf-mobile-shell:not(.sf-expanded) aside[data-testid="now-playing-bar"] [data-testid="general-controls"] button:not([data-testid="control-button-playpause"]) {
+                display: none !important;
+            }
+            body.sf-mobile-shell:not(.sf-expanded) aside[data-testid="now-playing-bar"] [data-testid="general-controls"] {
+                position: absolute !important;
+                top: 50% !important;
+                right: 8px !important;
+                width: 42px !important;
+                margin: 0 !important;
+                transform: translateY(-50%) !important;
+            }
+            body.sf-mobile-shell:not(.sf-expanded) aside[data-testid="now-playing-bar"] button[data-testid="control-button-playpause"] {
+                width: 38px !important;
+                height: 38px !important;
+                min-width: 38px !important;
+                min-height: 38px !important;
+            }
+            body.sf-mobile-shell:not(.sf-expanded) aside[data-testid="now-playing-bar"] [data-testid="playback-progressbar"] {
+                position: absolute !important;
+                left: 8px !important;
+                right: 8px !important;
+                bottom: 1px !important;
+                height: 2px !important;
+                min-height: 2px !important;
+                margin: 0 !important;
+            }
+            body.sf-mobile-shell:not(.sf-expanded) aside[data-testid="now-playing-bar"] > div > div:last-child {
+                display: none !important;
+            }
+            body.sf-mobile-shell aside[data-testid="now-playing-view"] [data-testid="grid-container"] {
+                display: flex !important;
+                flex-wrap: nowrap !important;
+                gap: 12px !important;
+                overflow-x: auto !important;
+                overflow-y: hidden !important;
+                scroll-snap-type: x mandatory !important;
+                scrollbar-width: none !important;
+                -webkit-overflow-scrolling: touch !important;
+            }
+            body.sf-mobile-shell aside[data-testid="now-playing-view"] [data-testid="grid-container"] > [data-testid="card"] {
+                flex: 0 0 min(42vw, 148px) !important;
+                min-width: 0 !important;
+                scroll-snap-align: start !important;
+            }
+        `;
+
+        function ensureMobileRuntimeStyles() {
+            if (!document.body) return;
+            let style = document.getElementById('sf-mobile-runtime-style');
+            if (!style) {
+                style = document.createElement('style');
+                style.id = 'sf-mobile-runtime-style';
+                (document.head || document.documentElement).appendChild(style);
+            }
+            if (style.textContent !== mobileRuntimeStyles) style.textContent = mobileRuntimeStyles;
+        }
 
         function updateActiveTab(nav) {
             if (!nav || !document.body) return;
@@ -272,6 +562,8 @@
             // library sidebar: narrow player/detail routes may omit that panel.
             document.body.classList.remove('sf-guest');
             document.body.classList.add('sf-mobile-shell');
+            document.body.classList.toggle('sf-statusbar-hidden', !!config.hideStatusBar);
+            ensureMobileRuntimeStyles();
             window.__sfLogoutBridgeNotified = false;
             if (typeof window.__sfLibraryExpanded !== 'boolean') {
                 window.__sfLibraryExpanded = sidebar

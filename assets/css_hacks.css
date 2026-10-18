@@ -3221,6 +3221,8 @@ body.sf-tv-nav input:focus-visible {
         background: #121212 !important;
     }
 
+    body.sf-mobile-shell:not(.sf-expanded) #main-view [data-testid="cover-art-image"],
+    body.sf-mobile-shell:not(.sf-expanded) #Desktop_PanelContainer_Id [data-testid="cover-art-image"],
     body.sf-mobile-shell:not(.sf-expanded) aside[data-testid="now-playing-view"] [data-testid="cover-art-image"] {
         display: block !important;
         width: var(--melodix-detail-art) !important;
@@ -3232,6 +3234,8 @@ body.sf-tv-nav input:focus-visible {
         object-fit: cover !important;
     }
 
+    body.sf-mobile-shell:not(.sf-expanded) #main-view div:has(> [data-testid="cover-art-image"]),
+    body.sf-mobile-shell:not(.sf-expanded) #Desktop_PanelContainer_Id div:has(> [data-testid="cover-art-image"]),
     body.sf-mobile-shell:not(.sf-expanded) aside[data-testid="now-playing-view"] div:has(> [data-testid="cover-art-image"]) {
         display: flex !important;
         flex: 0 0 auto !important;
@@ -3258,6 +3262,8 @@ body.sf-tv-nav input:focus-visible {
         overflow: hidden !important;
     }
 
+    body.sf-mobile-shell:not(.sf-expanded) div:has(> #VideoPlayerCinema_ReactPortal):has(video) > div,
+    body.sf-mobile-shell:not(.sf-expanded) div:has(> #VideoPlayerCinema_ReactPortal):has(video) > div > div,
     body.sf-mobile-shell:not(.sf-expanded) div[data-testid="video-player-cinema"]:has(video),
     body.sf-mobile-shell:not(.sf-expanded) .VideoPlayer__container:has(video) {
         box-sizing: border-box !important;
