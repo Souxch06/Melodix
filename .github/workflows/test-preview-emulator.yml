@@ -1,21 +1,6 @@
 name: Smoke test V1 Preview on Android 16 emulator
 
 on:
-  push:
-    branches:
-      - arena/dbf2d44f-melodix
-    paths:
-      - AndroidManifest.xml
-      - apktool.yml
-      - assets/**
-      - smali/**
-      - res/**
-      - lib/**
-      - kotlin/**
-      - META-INF/**
-      - original/**
-      - unknown/**
-      - .github/workflows/preview-apk.yml
   workflow_dispatch:
 
 permissions:

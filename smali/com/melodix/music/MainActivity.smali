@@ -3609,10 +3609,14 @@
     sput-object v2, Lml;->i:Lg6;
 
     .line 755
+    const/16 v5, 0x8
+
     .line 756
-    sget-object v2, Lml;->g:Landroid/widget/LinearLayout;
+    invoke-virtual {v2, v5}, Landroid/view/View;->setVisibility(I)V
 
     .line 757
+    sget-object v2, Lml;->g:Landroid/widget/LinearLayout;
+
     .line 758
     if-eqz v2, :cond_e
 
