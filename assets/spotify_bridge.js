@@ -2002,6 +2002,156 @@
         aaint = setInterval(run, 1000);
     };
 
+    function syncMobileNavigation() {
+        const nav = document.getElementById('sf-mobile-nav');
+        if (!nav || !document.body) return;
+
+        const pathname = window.location.pathname || '/';
+        const active = document.body.classList.contains('sf-library-open')
+            ? 'library'
+            : (pathname === '/search' || pathname.startsWith('/search/') || document.body.classList.contains('sf-search-focused'))
+                ? 'search'
+                : 'home';
+
+        nav.querySelectorAll('[data-sf-mobile-action]').forEach((button) => {
+            if (button.getAttribute('data-sf-mobile-action') === active) {
+                button.setAttribute('aria-current', 'page');
+            } else {
+                button.removeAttribute('aria-current');
+            }
+        });
+    }
+
+    function mobileLibraryButton() {
+        if (window.lBtn && window.lBtn.isConnected) return window.lBtn;
+        return document.querySelector('#Desktop_LeftSidebar_Id header>div>div:first-child button') ||
+               document.querySelector('#Desktop_LeftSidebar_Id button[aria-label*="Library" i]');
+    }
+
+    function closeMobileLibrary() {
+        if (!document.body?.classList.contains('sf-library-open')) return;
+        const button = mobileLibraryButton();
+        if (button) {
+            button.click();
+        } else if (typeof window.switchLs === 'function') {
+            window.switchLs();
+        }
+    }
+
+    function installMobileNavigation() {
+        if (!document.body || window.SF_CONFIG?.guiMode !== 'csshack') return;
+
+        let nav = document.getElementById('sf-mobile-nav');
+        if (!nav) {
+            const locale = (document.documentElement.lang || navigator.language || 'en').toLowerCase().split('-')[0];
+            const fallbacks = {
+                fr: ['Accueil', 'Recherche', 'Bibliothèque'],
+                en: ['Home', 'Search', 'Library'],
+                es: ['Inicio', 'Buscar', 'Biblioteca'],
+                de: ['Start', 'Suche', 'Bibliothek'],
+                it: ['Home', 'Cerca', 'Libreria'],
+                pt: ['Início', 'Buscar', 'Biblioteca']
+            };
+            const defaults = fallbacks[locale] || fallbacks.en;
+            const readLabel = (element, fallback) => {
+                const value = element && (
+                    element.getAttribute('aria-label') ||
+                    element.getAttribute('title') ||
+                    element.textContent
+                );
+                return String(value || fallback).replace(/\s+/g, ' ').trim().slice(0, 32) || fallback;
+            };
+            const homeControl = document.querySelector('#global-nav-bar button[data-testid="home-button"]');
+            const searchControl = document.querySelector('#global-nav-bar button[data-testid="search-icon"], #global-nav-bar a[href="/search"]');
+            const libraryHeading = document.querySelector('#Desktop_LeftSidebar_Id .YourLibraryX header h1, #Desktop_LeftSidebar_Id header h1');
+
+            nav = document.createElement('nav');
+            nav.id = 'sf-mobile-nav';
+            nav.className = 'sf-mobile-nav';
+            nav.setAttribute('aria-label', 'Main navigation');
+            nav.style.display = 'none';
+            nav.innerHTML = `
+                <button class="sf-mobile-nav__item" type="button" data-sf-mobile-action="home">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3 10 9-7 9 7v10a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg>
+                    <span data-sf-mobile-label="home"></span>
+                </button>
+                <button class="sf-mobile-nav__item" type="button" data-sf-mobile-action="search">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.8" cy="10.8" r="6.8"/><path d="m16 16 5 5"/></svg>
+                    <span data-sf-mobile-label="search"></span>
+                </button>
+                <button class="sf-mobile-nav__item" type="button" data-sf-mobile-action="library">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3 6 9-4 9 4-9 4zM3 12l9 4 9-4M3 18l9 4 9-4"/></svg>
+                    <span data-sf-mobile-label="library"></span>
+                </button>
+            `;
+            nav.querySelector('[data-sf-mobile-label="home"]').textContent = readLabel(homeControl, defaults[0]);
+            nav.querySelector('[data-sf-mobile-label="search"]').textContent = readLabel(searchControl, defaults[1]);
+            nav.querySelector('[data-sf-mobile-label="library"]').textContent = readLabel(libraryHeading, defaults[2]);
+
+            nav.addEventListener('click', (event) => {
+                const button = event.target.closest('[data-sf-mobile-action]');
+                if (!button) return;
+
+                const action = button.getAttribute('data-sf-mobile-action');
+                if (action === 'home') {
+                    closeMobileLibrary();
+                    const home = document.querySelector('#global-nav-bar button[data-testid="home-button"]') ||
+                                 document.querySelector('#global-nav-bar a[href="/"]');
+                    if (home) home.click();
+                    else window.location.assign('/');
+                    setTimeout(syncMobileNavigation, 250);
+                    return;
+                }
+
+                if (action === 'search') {
+                    closeMobileLibrary();
+                    const searchLink = Array.from(document.querySelectorAll('a[href]')).find((link) => {
+                        try {
+                            const url = new URL(link.href, window.location.href);
+                            return url.origin === window.location.origin && url.pathname === '/search';
+                        } catch (_) {
+                            return false;
+                        }
+                    });
+                    if (searchLink) {
+                        searchLink.click();
+                    } else {
+                        const searchButton = document.querySelector('#global-nav-bar button[data-testid="search-icon"]');
+                        const searchInput = document.querySelector('input[data-testid="search-input"]');
+                        if (searchButton) searchButton.click();
+                        if (searchInput) setTimeout(() => searchInput.focus(), 80);
+                        if (!searchButton && !searchInput) window.location.assign('/search');
+                    }
+                    setTimeout(() => {
+                        button.setAttribute('aria-current', 'page');
+                        syncMobileNavigation();
+                    }, 250);
+                    return;
+                }
+
+                if (action === 'library') {
+                    const library = mobileLibraryButton();
+                    if (library) library.click();
+                    else if (typeof window.switchLs === 'function') window.switchLs();
+                    setTimeout(syncMobileNavigation, 80);
+                    setTimeout(syncMobileNavigation, 260);
+                }
+            });
+
+            document.body.appendChild(nav);
+            window.addEventListener('popstate', syncMobileNavigation);
+        }
+
+        if (!window._sfMobileNavObserver) {
+            window._sfMobileNavObserver = new MutationObserver(syncMobileNavigation);
+            window._sfMobileNavObserver.observe(document.body, {
+                attributes: true,
+                attributeFilter: ['class']
+            });
+        }
+        syncMobileNavigation();
+    }
+
     window.addCSSJSHack = function() {
         let meta = document.querySelector('meta[name="viewport"]');
         let isBigWindow = window.SF_CONFIG && window.SF_CONFIG.guiMode === "bigwindow";
@@ -2052,6 +2202,8 @@
         if (sbHeight > 0) {
             document.documentElement.style.setProperty('--sf-safe-area-top', sbHeight + 'px');
         }
+
+        installMobileNavigation();
 
         if (window.SF_CONFIG.guiMode === "csshack") {
             const checkExpanded = () => {
@@ -2248,6 +2400,7 @@
                     if (!navDiv) return;
                     let exp = navDiv.classList.length;
                     if (exp == 2) {
+                        document.body.classList.add('sf-library-open');
                         ls.style.setProperty('position', 'fixed', 'important');
                         ls.style.setProperty('width', '100%', 'important');
                         ls.style.setProperty('height', 'calc(100vh - 48px - var(--sf-safe-area-top, env(safe-area-inset-top)))', 'important');
@@ -2259,6 +2412,7 @@
                         let lh = ls.querySelector('header>div>div:first-child h1');
                         if (lh) lh.innerHTML = '✖ &nbsp; ' + (window.SF_CONFIG?.closeLibText || "Library");
                     } else {
+                        document.body.classList.remove('sf-library-open');
                         ls.style.setProperty('z-index', '1', 'important');
                         ls.style.setProperty('position', 'fixed', 'important');
                         ls.style.setProperty('top', 'var(--sf-safe-area-top, env(safe-area-inset-top))', 'important');
@@ -2268,6 +2422,7 @@
                         ls.style.removeProperty('bottom');
                         ls.style.removeProperty('overflow-y');
                     }
+                    syncMobileNavigation();
                 }
             };
         }
