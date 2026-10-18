@@ -99,7 +99,7 @@ test('native hook is restricted to Preview and exact Spotify HTTPS origin', () =
     const packageGuard = helperSmali.indexOf('com.melodix.music.preview');
     const assetLoad = helperSmali.indexOf('runtime_diagnostic.js');
     assert.ok(packageGuard >= 0 && assetLoad > packageGuard, 'package guard must precede asset loading');
-    assert.match(webViewClientSmali, /invoke-static \{p1, p2\}, Lcom\/melodix\/music\/RuntimeDiagnostic;->runIfPreview/);
+    assert.match(webViewClientSmali, /invoke-static\/range \{p1 \.\. p2\}, Lcom\/melodix\/music\/RuntimeDiagnostic;->runIfPreview/);
 });
 
 test('result dialog is selectable and its copy button writes only the diagnostic JSON', () => {

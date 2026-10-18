@@ -95,3 +95,115 @@ test('modified Smali files have balanced methods and resolvable direct branch la
         assert.deepEqual(checkSmaliStructure(file), [], `${file} has a structural Smali error`);
     }
 });
+
+const diagnosticSmaliFiles = [
+    'smali/c91.smali',
+    'smali/com/melodix/music/RuntimeDiagnostic.smali',
+    'smali/com/melodix/music/RuntimeDiagnostic$Callback.smali',
+    'smali/com/melodix/music/RuntimeDiagnostic$ShowRunnable.smali',
+    'smali/com/melodix/music/RuntimeDiagnostic$CopyListener.smali'
+];
+
+function countIncomingRegisters(methodDeclaration) {
+    const open = methodDeclaration.indexOf('(');
+    const close = methodDeclaration.indexOf(')', open + 1);
+    if (open < 0 || close < 0) return null;
+
+    const flags = methodDeclaration.slice(0, open).trim().split(/\s+/);
+    const isStatic = flags.includes('static');
+    const parameters = methodDeclaration.slice(open + 1, close);
+    let registerCount = isStatic ? 0 : 1;
+
+    for (let index = 0; index < parameters.length;) {
+        let isArray = false;
+        while (parameters[index] === '[') {
+            isArray = true;
+            index += 1;
+        }
+
+        const type = parameters[index];
+        if (!type) break;
+        if (type === 'L') {
+            const end = parameters.indexOf(';', index);
+            if (end < 0) return null;
+            registerCount += 1;
+            index = end + 1;
+        } else {
+            registerCount += !isArray && (type === 'J' || type === 'D') ? 2 : 1;
+            index += 1;
+        }
+    }
+
+    return registerCount;
+}
+
+function checkNonRangeInvokeRegisters(relativePath) {
+    const lines = fs.readFileSync(path.join(repo, relativePath), 'utf8').split(/\r?\n/);
+    const errors = [];
+    let methodDeclaration = null;
+    let incomingRegisters = null;
+    let localRegisters = null;
+
+    for (let index = 0; index < lines.length; index += 1) {
+        const line = lines[index];
+        const lineNumber = index + 1;
+
+        if (/^\.method\b/.test(line)) {
+            methodDeclaration = line.trim();
+            incomingRegisters = countIncomingRegisters(methodDeclaration);
+            localRegisters = null;
+            continue;
+        }
+        if (/^\.end method\b/.test(line)) {
+            methodDeclaration = null;
+            incomingRegisters = null;
+            localRegisters = null;
+            continue;
+        }
+        if (methodDeclaration === null) continue;
+
+        const declaration = line.match(/^\s*\.(locals|registers)\s+(\d+)\b/);
+        if (declaration) {
+            const registerCount = Number(declaration[2]);
+            localRegisters = declaration[1] === 'locals'
+                ? registerCount
+                : registerCount - incomingRegisters;
+            if (localRegisters < 0) {
+                errors.push(`line ${lineNumber}: register declaration is smaller than the method parameters`);
+            }
+            continue;
+        }
+
+        const instruction = line.split('#', 1)[0].trim();
+        const invoke = instruction.match(/^(invoke-[\w/-]+)\s+\{([^}]*)\}/);
+        if (!invoke || invoke[1].endsWith('/range')) continue;
+        if (localRegisters === null || incomingRegisters === null) {
+            errors.push(`line ${lineNumber}: cannot resolve registers without a method register declaration`);
+            continue;
+        }
+
+        const registers = [...invoke[2].matchAll(/\b([vp])(\d+)\b/g)];
+        for (const register of registers) {
+            const kind = register[1];
+            const number = Number(register[2]);
+            const actual = kind === 'v' ? number : localRegisters + number;
+            if (kind === 'p' && number >= incomingRegisters) {
+                errors.push(`line ${lineNumber}: ${invoke[1]} uses invalid parameter register p${number}`);
+            } else if (actual > 15) {
+                errors.push(`line ${lineNumber}: ${invoke[1]} uses ${kind}${number} (v${actual}), above v15`);
+            }
+        }
+    }
+
+    return errors;
+}
+
+test('modified Smali non-range invoke instructions use only v0-v15', () => {
+    for (const file of diagnosticSmaliFiles) {
+        assert.deepEqual(
+            checkNonRangeInvokeRegisters(file),
+            [],
+            `${file} has a non-range invoke with a register above v15`
+        );
+    }
+});

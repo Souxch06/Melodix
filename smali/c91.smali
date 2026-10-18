@@ -2483,7 +2483,7 @@
     :cond_13
     :goto_4
     # Preview-only DOM diagnostic; the helper rejects all packages/origins except the test Preview and open.spotify.com.
-    invoke-static {p1, p2}, Lcom/melodix/music/RuntimeDiagnostic;->runIfPreview(Landroid/webkit/WebView;Ljava/lang/String;)V
+    invoke-static/range {p1 .. p2}, Lcom/melodix/music/RuntimeDiagnostic;->runIfPreview(Landroid/webkit/WebView;Ljava/lang/String;)V
 
     sget-object v0, Lcom/melodix/music/AppSingleton;->b0:Ljava/lang/String;
 
