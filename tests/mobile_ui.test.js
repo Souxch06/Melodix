@@ -57,6 +57,25 @@ test('phone-sized windows keep the login WebView on the device width', () => {
     assert.match(bridge, /\(\(isBigWindow && isLandscape\) \|\| isCompactWindow\)/);
 });
 
+test('phone dock is mounted outside CSS+JS mode and stale fullscreen state cannot hide it', () => {
+    const bridge = read('assets/spotify_bridge.js');
+
+    assert.match(bridge, /function isMobileNavigationViewport\(\)/);
+    assert.match(bridge, /const isMobileViewport = isMobileNavigationViewport\(\)/);
+    assert.match(bridge, /guiMode !== 'csshack' && !isMobileViewport/);
+    assert.match(bridge, /if \(isMobileViewport\) ensureMobileShellFallbackStyles\(\)/);
+    assert.match(bridge, /function ensureMobileShellFallbackStyles\(\)/);
+    assert.match(bridge, /sf-mobile-shell-fallback-style/);
+    assert.match(bridge, /#sf-mobile-nav\s*\{[\s\S]*?display: grid !important;[\s\S]*?height: calc\(72px \+ env\(safe-area-inset-bottom\)\)/);
+    assert.match(
+        bridge,
+        /classList\.contains\('sf-fs-open'\)[\s\S]*?getElementById\('sf-fs-player'\)[\s\S]*?classList\.remove\('sf-fs-open'\)/
+    );
+    assert.match(bridge, /window\.SF_CONFIG\?\.guiMode === 'csshack' \|\| isMobileNavigationViewport\(\)/);
+    assert.match(bridge, /typeof window\.switchLs !== 'function'[\s\S]*?classList\.toggle\('sf-library-open', shouldOpen\)/);
+    assert.match(bridge, /body\.sf-library-open #Desktop_LeftSidebar_Id \.sf-mobile-library-close/);
+});
+
 test('mobile shell initializes before playback and library state can be forced open or closed', () => {
     const bridge = read('assets/spotify_bridge.js');
 

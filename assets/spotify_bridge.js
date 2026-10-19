@@ -2007,8 +2007,17 @@
     };
 
     function syncMobileNavigation() {
+        if (!document.body) return;
+        // A stale state after a route transition must not permanently hide the mobile dock.
+        if (
+            document.body.classList.contains('sf-fs-open') &&
+            !document.getElementById('sf-fs-player')
+        ) {
+            document.body.classList.remove('sf-fs-open');
+        }
+
         const nav = document.getElementById('sf-mobile-nav');
-        if (!nav || !document.body) return;
+        if (!nav) return;
 
         const pathname = window.location.pathname || '/';
         const active = document.body.classList.contains('sf-library-open')
@@ -2030,6 +2039,196 @@
         }
     }
 
+    function isMobileNavigationViewport() {
+        try {
+            if (typeof window.matchMedia === 'function') {
+                return window.matchMedia(
+                    '(max-width: 820px) and (orientation: portrait), (hover: none) and (pointer: coarse)'
+                ).matches;
+            }
+        } catch (_) {}
+        return Number(window.innerWidth || 0) <= 820;
+    }
+
+    function ensureMobileShellFallbackStyles() {
+        if (document.getElementById('sf-mobile-shell-fallback-style')) return;
+        const style = document.createElement('style');
+        style.id = 'sf-mobile-shell-fallback-style';
+        style.textContent = `
+@media screen and (max-width: 820px) and (orientation: portrait),
+       screen and (hover: none) and (pointer: coarse) {
+    #sf-mobile-nav {
+        position: fixed !important;
+        left: 0 !important;
+        right: 0 !important;
+        bottom: 0 !important;
+        box-sizing: border-box !important;
+        display: grid !important;
+        grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+        align-items: stretch !important;
+        width: 100vw !important;
+        height: calc(72px + env(safe-area-inset-bottom)) !important;
+        padding: 5px 16px calc(5px + env(safe-area-inset-bottom)) !important;
+        background: rgba(13, 16, 14, 0.97) !important;
+        border-top: 1px solid rgba(255, 255, 255, 0.09) !important;
+        z-index: 10010 !important;
+    }
+    #sf-mobile-nav .sf-mobile-nav__item {
+        display: flex !important;
+        flex-direction: column !important;
+        align-items: center !important;
+        justify-content: center !important;
+        gap: 4px !important;
+        min-width: 44px !important;
+        min-height: 54px !important;
+        margin: 0 4px !important;
+        padding: 5px 8px !important;
+        color: #a6ada8 !important;
+        background: transparent !important;
+        border: 0 !important;
+        border-radius: 14px !important;
+        font: 600 10px/1.1 system-ui, sans-serif !important;
+    }
+    #sf-mobile-nav .sf-mobile-nav__item svg {
+        display: block !important;
+        width: 23px !important;
+        height: 23px !important;
+        fill: none !important;
+        stroke: currentColor !important;
+        stroke-width: 1.8 !important;
+        stroke-linecap: round !important;
+        stroke-linejoin: round !important;
+    }
+    #sf-mobile-nav .sf-mobile-nav__item[aria-current="page"] {
+        color: #1ed760 !important;
+    }
+    body.sf-fs-open #sf-mobile-nav { display: none !important; }
+    body:not(.sf-library-open) #Desktop_LeftSidebar_Id {
+        visibility: hidden !important;
+        opacity: 0 !important;
+        pointer-events: none !important;
+    }
+    body.sf-library-open #Desktop_LeftSidebar_Id {
+        position: fixed !important;
+        top: calc(48px + env(safe-area-inset-top)) !important;
+        left: 0 !important;
+        right: 0 !important;
+        bottom: calc(72px + env(safe-area-inset-bottom)) !important;
+        width: 100% !important;
+        overflow-y: auto !important;
+        visibility: visible !important;
+        opacity: 1 !important;
+        pointer-events: auto !important;
+        z-index: 10005 !important;
+    }
+    #Desktop_LeftSidebar_Id .YourLibraryX header,
+    #Desktop_LeftSidebar_Id header {
+        position: relative !important;
+        min-height: 56px !important;
+        padding: 14px 16px 14px 58px !important;
+    }
+    #Desktop_LeftSidebar_Id .sf-mobile-library-close {
+        display: none !important;
+        position: absolute !important;
+        left: 12px !important;
+        top: 50% !important;
+        width: 40px !important;
+        height: 40px !important;
+        min-width: 40px !important;
+        min-height: 40px !important;
+        align-items: center !important;
+        justify-content: center !important;
+        transform: translateY(-50%) !important;
+        color: #f5f7f5 !important;
+        background: rgba(255, 255, 255, 0.08) !important;
+        border: 1px solid rgba(255, 255, 255, 0.1) !important;
+        border-radius: 50% !important;
+        font: 400 28px/1 system-ui, sans-serif !important;
+        z-index: 2 !important;
+    }
+    body.sf-library-open #Desktop_LeftSidebar_Id .sf-mobile-library-close {
+        display: flex !important;
+    }
+    #main-view,
+    #main-view [data-overlayscrollbars-viewport] {
+        scroll-padding-bottom: calc(160px + env(safe-area-inset-bottom)) !important;
+        padding-bottom: calc(160px + env(safe-area-inset-bottom)) !important;
+    }
+    body:not(.sf-fs-open) aside[data-testid="now-playing-bar"] {
+        position: fixed !important;
+        left: 10px !important;
+        right: 10px !important;
+        bottom: calc(78px + env(safe-area-inset-bottom)) !important;
+        box-sizing: border-box !important;
+        width: auto !important;
+        min-width: 0 !important;
+        max-width: calc(100vw - 20px) !important;
+        height: 68px !important;
+        min-height: 68px !important;
+        max-height: 68px !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: space-between !important;
+        gap: 8px !important;
+        padding: 8px 12px !important;
+        overflow: hidden !important;
+        border: 1px solid rgba(255, 255, 255, 0.09) !important;
+        border-radius: 16px !important;
+        background: rgba(24, 28, 25, 0.97) !important;
+        box-shadow: 0 12px 30px rgba(0, 0, 0, 0.46) !important;
+        z-index: 10015 !important;
+    }
+    body:not(.sf-fs-open) aside[data-testid="now-playing-bar"] > div:first-child,
+    body:not(.sf-fs-open) aside[data-testid="now-playing-bar"] [data-testid="now-playing-widget"] {
+        display: flex !important;
+        flex: 1 1 auto !important;
+        align-items: center !important;
+        min-width: 0 !important;
+        overflow: hidden !important;
+    }
+    body:not(.sf-fs-open) aside[data-testid="now-playing-bar"] [data-testid="CoverSlotCollapsed__container"] {
+        flex: 0 0 48px !important;
+        width: 48px !important;
+        height: 48px !important;
+        margin: 0 10px 0 0 !important;
+        overflow: hidden !important;
+        border-radius: 9px !important;
+    }
+    body:not(.sf-fs-open) aside[data-testid="now-playing-bar"] > div:nth-child(2) {
+        display: flex !important;
+        flex: 0 0 auto !important;
+        align-items: center !important;
+        margin: 0 !important;
+    }
+    body:not(.sf-fs-open) aside[data-testid="now-playing-bar"] > div:nth-child(n + 3) {
+        display: none !important;
+    }
+    body:not(.sf-fs-open) aside[data-testid="now-playing-bar"] [data-testid="general-controls"] button:not([data-testid="control-button-playpause"]) {
+        display: none !important;
+    }
+    body:not(.sf-fs-open) aside[data-testid="now-playing-bar"] button[data-testid="control-button-playpause"] {
+        display: flex !important;
+        width: 44px !important;
+        height: 44px !important;
+        min-width: 44px !important;
+        min-height: 44px !important;
+        align-items: center !important;
+        justify-content: center !important;
+        margin: 0 !important;
+    }
+    body:not(.sf-fs-open) aside[data-testid="now-playing-bar"] [data-testid="playback-progressbar"],
+    body:not(.sf-fs-open) aside[data-testid="now-playing-bar"] [data-testid*="volume"],
+    body:not(.sf-fs-open) aside[data-testid="now-playing-bar"] [data-testid*="queue"] {
+        display: none !important;
+    }
+    body.sf-library-open aside[data-testid="now-playing-bar"] {
+        bottom: calc(10px + env(safe-area-inset-bottom)) !important;
+    }
+}
+`;
+        (document.head || document.documentElement).appendChild(style);
+    }
+
     function mobileLibraryButton() {
         if (window.lBtn && window.lBtn.isConnected) return window.lBtn;
         return document.querySelector('#Desktop_LeftSidebar_Id header>div>div:first-child button') ||
@@ -2040,6 +2239,14 @@
         const isOpen = !!document.body?.classList.contains('sf-library-open');
         if (isOpen === shouldOpen) {
             if (typeof window.switchLs === 'function') window.switchLs(shouldOpen);
+            return;
+        }
+
+        if (typeof window.switchLs !== 'function') {
+            document.body.classList.toggle('sf-library-open', shouldOpen);
+            const sidebar = document.querySelector('#Desktop_LeftSidebar_Id');
+            if (shouldOpen && sidebar) ensureMobileLibraryCloseButton(sidebar);
+            syncMobileNavigation();
             return;
         }
 
@@ -2085,7 +2292,10 @@
     }
 
     function installMobileNavigation() {
-        if (!document.body || window.SF_CONFIG?.guiMode !== 'csshack') return;
+        const guiMode = window.SF_CONFIG?.guiMode;
+        const isMobileViewport = isMobileNavigationViewport();
+        if (!document.body || (guiMode !== 'csshack' && !isMobileViewport)) return;
+        if (isMobileViewport) ensureMobileShellFallbackStyles();
         document.body.classList.add('sf-mobile-shell');
 
         let nav = document.getElementById('sf-mobile-nav');
@@ -3215,7 +3425,10 @@
             retryTimer = null;
             if (document.getElementById('sf-mobile-nav')) return;
 
-            if (document.body && window.SF_CONFIG?.guiMode === 'csshack') {
+            if (
+                document.body &&
+                (window.SF_CONFIG?.guiMode === 'csshack' || isMobileNavigationViewport())
+            ) {
                 try {
                     installMobileNavigation();
                     if (typeof window.addCSSJSHack === 'function') {
