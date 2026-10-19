@@ -153,6 +153,19 @@
       dockLeftSidebar: window.SF_CONFIG
         ? window.SF_CONFIG.dockLeftSidebar
         : null,
+      pageState: {
+        readyState: document.readyState || null,
+        bodyExists: Boolean(body),
+        bodyChildElementCount: body ? body.childElementCount : null,
+        documentElementChildElementCount: document.documentElement
+          ? document.documentElement.childElementCount
+          : null
+      },
+      bridge: {
+        addCSSJSHackAvailable: typeof window.addCSSJSHack === 'function',
+        mobileNavObserverAttached: Boolean(window._sfMobileNavObserver),
+        expandedObserverAttached: Boolean(window._sfExpandedObserver)
+      },
       bodyClasses: body ? body.className : null,
       drawer: {
         expanded: typeof window.__sfLibraryExpanded === 'boolean'
