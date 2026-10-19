@@ -2534,6 +2534,10 @@
     .line 1
     invoke-super {p0, p1, p2, p3}, Landroid/webkit/WebViewClient;->onPageStarted(Landroid/webkit/WebView;Ljava/lang/String;Landroid/graphics/Bitmap;)V
 
+    if-eqz p1, :watchdog_skipped
+    invoke-static {p1}, Lcom/melodix/music/StartupLoadWatchdog;->arm(Landroid/webkit/WebView;)V
+    :watchdog_skipped
+
     .line 2
     .line 3
     .line 4
@@ -2889,6 +2893,12 @@
     .line 51
     .line 52
     if-eqz p1, :cond_4
+
+    iget-object p2, p1, Lcom/melodix/music/MainActivity;->R:Landroid/widget/ProgressBar;
+    if-eqz p2, :skip_progressbar_hide
+    const/16 p3, 0x8
+    invoke-virtual {p2, p3}, Landroid/view/View;->setVisibility(I)V
+    :skip_progressbar_hide
 
     .line 53
     .line 54

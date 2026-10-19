@@ -10,6 +10,7 @@ const smaliFiles = [
     'smali/com/melodix/music/AndBridge.smali',
     'smali/com/melodix/music/AppSingleton.smali',
     'smali/com/melodix/music/MainActivity.smali',
+    'smali/com/melodix/music/StartupLoadWatchdog.smali',
     'smali/com/melodix/music/RuntimeDiagnostic.smali',
     'smali/com/melodix/music/RuntimeDiagnostic$Callback.smali',
     'smali/com/melodix/music/RuntimeDiagnostic$ShowRunnable.smali',
@@ -99,6 +100,7 @@ test('modified Smali files have balanced methods and resolvable direct branch la
 
 const diagnosticSmaliFiles = [
     'smali/c91.smali',
+    'smali/com/melodix/music/StartupLoadWatchdog.smali',
     'smali/com/melodix/music/RuntimeDiagnostic.smali',
     'smali/com/melodix/music/RuntimeDiagnostic$Callback.smali',
     'smali/com/melodix/music/RuntimeDiagnostic$ShowRunnable.smali',
@@ -233,4 +235,28 @@ test('successful authenticated Spotify home load dismisses the native splash', (
         splashDismiss[1],
         /iget-object v9, v2, Lcom\/melodix\/music\/MainActivity;->R:Landroid\/widget\/ProgressBar;[\s\S]*?invoke-virtual \{v9, v10\}, Landroid\/view\/View;->setVisibility\(I\)V/
     );
+});
+
+test('a stalled Spotify page load leaves the splash and exposes retry after 30 seconds', () => {
+    const webViewClient = fs.readFileSync(path.join(repo, 'smali/c91.smali'), 'utf8');
+    const pageStarted = webViewClient.match(
+        /\.method public onPageStarted\(Landroid\/webkit\/WebView;Ljava\/lang\/String;Landroid\/graphics\/Bitmap;\)V([\s\S]*?)\.end method/
+    );
+    const networkError = webViewClient.match(
+        /\.method public final onReceivedError\(Landroid\/webkit\/WebView;Landroid\/webkit\/WebResourceRequest;Landroid\/webkit\/WebResourceError;\)V([\s\S]*?)\.end method/
+    );
+    const watchdog = fs.readFileSync(path.join(repo, 'smali/com/melodix/music/StartupLoadWatchdog.smali'), 'utf8');
+
+    assert.ok(pageStarted, 'WebView page-start callback should exist');
+    assert.match(pageStarted[1], /StartupLoadWatchdog;->arm\(Landroid\/webkit\/WebView;\)V/);
+    assert.ok(networkError, 'WebView network-error callback should exist');
+    assert.match(
+        networkError[1],
+        /MainActivity;->R:Landroid\/widget\/ProgressBar;[\s\S]*?setVisibility\(I\)V[\s\S]*?MainActivity;->D\(Z\)V/
+    );
+    assert.match(watchdog, /const-wide\/16 v2, 0x7530/);
+    assert.match(watchdog, /MainActivity;->H:Landroidx\/constraintlayout\/widget\/ConstraintLayout;/);
+    assert.match(watchdog, /MainActivity;->R:Landroid\/widget\/ProgressBar;/);
+    assert.match(watchdog, /sput-boolean v1, Lcom\/melodix\/music\/AppSingleton;->m:Z[\s\S]*?sput v1, Lcom\/melodix\/music\/AppSingleton;->n:I[\s\S]*?MainActivity;->D\(Z\)V/);
+    assert.match(watchdog, /generationAtArm:I[\s\S]*?if-ne v0, v1, :return/);
 });
