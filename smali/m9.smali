@@ -1609,6 +1609,12 @@
 
     .line 286
     .line 287
+    # Match native requests to the Chrome version already exposed through desktop_spoof.js client hints.
+    const-string v0, "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36"
+    invoke-virtual {p0}, Landroid/webkit/WebView;->getSettings()Landroid/webkit/WebSettings;
+    move-result-object v1
+    invoke-virtual {v1, v0}, Landroid/webkit/WebSettings;->setUserAgentString(Ljava/lang/String;)V
+
     const-string v0, "https://open.spotify.com/"
 
     .line 288

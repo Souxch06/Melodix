@@ -133,23 +133,29 @@ test('startup never trusts a persisted LoggedIn flag and starts auth unconfirmed
     assert.match(mainActivity, /AppSingleton;->B:Z/);
 });
 
-test('Spotify home uses the Android WebView default UA while account login retains desktop UA', () => {
+test('Spotify player and account login use the desktop profile expected by the Web Player', () => {
     const appWebView = read('smali/m9.smali');
+    const desktopSpoof = read('assets/desktop_spoof.js');
     const webViewFactory = appWebView.match(/\.method public static g\(Landroid\/content\/Context;\)Landroid\/webkit\/WebView;([\s\S]*?)\.end method/);
     assert.ok(webViewFactory, 'WebView factory should exist');
 
     const factory = webViewFactory[1];
     const mobileUserAgentIndex = factory.indexOf('WebSettings;->getDefaultUserAgent(Landroid/content/Context;)Ljava/lang/String;');
     const spotifyLoadIndex = factory.indexOf('https://open.spotify.com/');
-    const desktopUserAgentIndex = factory.indexOf('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36');
+    const desktopUa = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36';
+    const playerDesktopUaIndex = factory.indexOf(desktopUa);
+    const accountsDesktopUaIndex = factory.lastIndexOf(desktopUa);
     const accountsLoadIndex = factory.indexOf('https://accounts.spotify.com/en/login');
 
-    assert.ok(mobileUserAgentIndex >= 0 && mobileUserAgentIndex < spotifyLoadIndex,
-        'open.spotify.com should use Android WebView default mobile UA before loading');
-    assert.ok(desktopUserAgentIndex > spotifyLoadIndex && desktopUserAgentIndex < accountsLoadIndex,
-        'desktop UA should be applied only on the accounts.spotify.com login branch');
+    assert.ok(mobileUserAgentIndex >= 0 && mobileUserAgentIndex < playerDesktopUaIndex,
+        'WebView starts from the platform UA before setting Spotify\'s desktop profile');
+    assert.ok(playerDesktopUaIndex > mobileUserAgentIndex && playerDesktopUaIndex < spotifyLoadIndex,
+        'native requests to open.spotify.com should use the same desktop profile as the player spoof');
+    assert.ok(accountsDesktopUaIndex > spotifyLoadIndex && accountsDesktopUaIndex < accountsLoadIndex,
+        'account login retains its existing desktop UA');
     assert.match(factory, /invoke-virtual \{v2, v3\}, Landroid\/webkit\/WebSettings;->setUserAgentString\(Ljava\/lang\/String;\)V/);
     assert.match(factory, /invoke-virtual \{v1, v0\}, Landroid\/webkit\/WebSettings;->setUserAgentString\(Ljava\/lang\/String;\)V/);
+    assert.match(desktopSpoof, /uaFullVersion: '134\.0\.0\.0'/);
 });
 
 test('auth and WebView code do not capture credentials or proxy Spotify requests', () => {
