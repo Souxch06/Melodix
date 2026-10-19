@@ -3657,6 +3657,10 @@
     .line 754
     sput-object v2, Lml;->i:Lg6;
 
+    const/16 v5, 0x8
+
+    invoke-virtual {v2, v5}, Landroid/view/View;->setVisibility(I)V
+
     .line 755
     sget-object v2, Lml;->g:Landroid/widget/LinearLayout;
 

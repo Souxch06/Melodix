@@ -81,7 +81,7 @@ test('login screen adds a device-width viewport when the provider page has none'
     assert.equal(viewport.content, 'width=device-width, initial-scale=1, viewport-fit=cover');
 });
 
-test('Google / Apple / OTP mode is the only visible default and password remains a selectable route', () => {
+test('social login stays the default while its redundant native shortcut is hidden', () => {
     const mlSmali = fs.readFileSync(path.join(root, 'smali/ml.smali'), 'utf8');
     assert.match(mlSmali, /\.field public static m:Ljava\/lang\/String; = "social"/);
     const loginStart = mlSmali.indexOf('.method public static final D(Ljava/lang/String;)V');
@@ -101,7 +101,10 @@ test('Google / Apple / OTP mode is the only visible default and password remains
     assert.notEqual(socialTabStart, -1);
     const nextAdd = activity.indexOf('sget-object v2, Lml;->g:Landroid/widget/LinearLayout;', socialTabStart);
     assert.notEqual(nextAdd, -1);
-    assert.doesNotMatch(activity.slice(socialTabStart, nextAdd), /setVisibility\(I\)V/);
+    assert.match(
+        activity.slice(socialTabStart, nextAdd),
+        /const\/16 v5, 0x8\s+invoke-virtual \{v2, v5\}, Landroid\/view\/View;->setVisibility\(I\)V/
+    );
 
     for (const file of ['smali/m9.smali', 'smali/c2.smali']) {
         const source = fs.readFileSync(path.join(root, file), 'utf8');
