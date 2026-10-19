@@ -2477,12 +2477,12 @@
                     if (shouldOpen) {
                         ls.style.setProperty('position', 'fixed', 'important');
                         ls.style.setProperty('width', '100%', 'important');
-                        ls.style.setProperty('height', 'calc(100vh - 48px - var(--sf-safe-area-top, env(safe-area-inset-top)))', 'important');
+                        ls.style.setProperty('height', 'calc(100vh - 48px - 72px - var(--sf-safe-area-top, env(safe-area-inset-top)) - env(safe-area-inset-bottom))', 'important');
                         ls.style.setProperty('top', 'calc(48px + var(--sf-safe-area-top, env(safe-area-inset-top)))', 'important');
-                        ls.style.setProperty('bottom', '0px', 'important');
+                        ls.style.setProperty('bottom', 'calc(72px + env(safe-area-inset-bottom))', 'important');
                         ls.style.setProperty('left', '0px', 'important');
                         ls.style.setProperty('overflow-y', 'auto', 'important');
-                        ls.style.setProperty('z-index', '10020', 'important');
+                        ls.style.setProperty('z-index', '10005', 'important');
                         ensureMobileLibraryCloseButton(ls);
                     } else {
                         ls.style.setProperty('z-index', '1', 'important');

@@ -15,6 +15,9 @@ test('phone layout adds a safe-area-aware bottom dock and compact player', () =>
     assert.match(css, /#sf-mobile-nav \.sf-mobile-nav__item\[aria-current="page"\]/);
     assert.match(css, /aside\[data-testid="now-playing-bar"\]\s*\{[\s\S]*?height: 68px/);
     assert.match(css, /body\.sf-library-open #Desktop_LeftSidebar_Id/);
+    assert.match(css, /body\.sf-library-open #Desktop_LeftSidebar_Id\s*\{[\s\S]*?bottom: calc\(72px \+ env\(safe-area-inset-bottom\)\)[\s\S]*?z-index: 10005/);
+    assert.match(css, /body\.sf-fs-open #sf-mobile-nav\s*\{\s*display: none/);
+    assert.doesNotMatch(css, /body\.sf-library-open #sf-mobile-nav/);
     assert.doesNotMatch(css, /body\.sf-expanded #sf-mobile-nav/);
     assert.match(css, /body:not\(\.sf-fs-open\) aside\[data-testid="now-playing-bar"\]/);
     assert.match(css, /\.sf-mobile-library-close/);
@@ -34,6 +37,9 @@ test('mobile dock reuses Spotify home, search, and library controls', () => {
     assert.match(bridge, /url\.pathname === '\/search'/);
     assert.match(bridge, /function mobileLibraryButton\(\)/);
     assert.match(bridge, /classList\.toggle\('sf-library-open', shouldOpen\)/);
+    assert.match(bridge, /height', 'calc\(100vh - 48px - 72px/);
+    assert.match(bridge, /bottom', 'calc\(72px \+ env\(safe-area-inset-bottom\)\)/);
+    assert.match(bridge, /z-index', '10005'/);
     assert.match(bridge, /installMobileNavigation\(\);/);
 });
 

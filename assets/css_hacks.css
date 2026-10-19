@@ -1597,13 +1597,13 @@ body.sf-tv-nav input:focus-visible {
     }
 
     body.sf-library-open #Desktop_LeftSidebar_Id {
+        bottom: calc(72px + env(safe-area-inset-bottom)) !important;
         visibility: visible !important;
         opacity: 1 !important;
         pointer-events: auto !important;
-        z-index: 10020 !important;
+        z-index: 10005 !important;
     }
 
-    body.sf-library-open #sf-mobile-nav,
     body.sf-fs-open #sf-mobile-nav {
         display: none !important;
     }
