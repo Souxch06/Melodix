@@ -225,4 +225,12 @@ test('successful authenticated Spotify home load dismisses the native splash', (
     const splashDismiss = pageFinished[1].match(/^\s*:cond_5\s*$([\s\S]*?)^\s*:cond_7\s*$/m);
     assert.ok(splashDismiss, 'authenticated and login routes should share the splash-dismiss block');
     assert.match(splashDismiss[1], /new-instance v8, Lzk0;[\s\S]*?invoke-direct \{v8, v2, v7, v7\}/);
+    assert.match(
+        splashDismiss[1],
+        /const\/4 v8, 0x0\s+sput-boolean v8, Lcom\/melodix\/music\/AppSingleton;->m:Z[\s\S]*?const\/4 v8, -0x1\s+sput v8, Lcom\/melodix\/music\/AppSingleton;->n:I[\s\S]*?sget-boolean v8, Lcom\/melodix\/music\/AppSingleton;->m:Z/
+    );
+    assert.match(
+        splashDismiss[1],
+        /iget-object v9, v2, Lcom\/melodix\/music\/MainActivity;->R:Landroid\/widget\/ProgressBar;[\s\S]*?invoke-virtual \{v9, v10\}, Landroid\/view\/View;->setVisibility\(I\)V/
+    );
 });

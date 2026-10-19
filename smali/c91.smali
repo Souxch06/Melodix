@@ -1658,6 +1658,15 @@
     .line 145
     .line 146
     :cond_5
+    # A completed Spotify login/home document supersedes any stale splash error from startup or a failed redirect.
+    const/4 v8, 0x0
+
+    sput-boolean v8, Lcom/melodix/music/AppSingleton;->m:Z
+
+    const/4 v8, -0x1
+
+    sput v8, Lcom/melodix/music/AppSingleton;->n:I
+
     sget-object v2, Lcom/melodix/music/AppSingleton;->t:Ljava/lang/ref/WeakReference;
 
     .line 147
@@ -1680,8 +1689,16 @@
     .line 156
     if-eqz v2, :cond_7
 
-    .line 157
-    .line 158
+    # A successful page load must also clear the loading indicator before dismissing the native splash.
+    iget-object v9, v2, Lcom/melodix/music/MainActivity;->R:Landroid/widget/ProgressBar;
+
+    if-eqz v9, :cond_16
+
+    const/16 v10, 0x8
+
+    invoke-virtual {v9, v10}, Landroid/view/View;->setVisibility(I)V
+
+    :cond_16
     sget-boolean v8, Lcom/melodix/music/AppSingleton;->m:Z
 
     .line 159
