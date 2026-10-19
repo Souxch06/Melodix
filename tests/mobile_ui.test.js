@@ -1,6 +1,7 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
+const vm = require('node:vm');
 const test = require('node:test');
 
 const root = path.resolve(__dirname, '..');
@@ -55,6 +56,32 @@ test('phone-sized windows keep the login WebView on the device width', () => {
     const bridge = read('assets/spotify_bridge.js');
     assert.match(bridge, /const isCompactWindow = shortestScreenSide > 0 && shortestScreenSide < 600/);
     assert.match(bridge, /\(\(isBigWindow && isLandscape\) \|\| isCompactWindow\)/);
+});
+
+test('Premium trial upsells are dismissed without hiding unrelated dialogs or error alerts', () => {
+    const bridge = read('assets/spotify_bridge.js');
+
+    assert.match(bridge, /function premiumOfferText\(text\)/);
+    assert.match(bridge, /mentionsPremium = \/\\bpremium\\b\/i\.test\(normalized\)/);
+    assert.match(bridge, /hasTwoMonthFreeOffer =/);
+    assert.match(bridge, /hasExplicitFreeTrial =/);
+    assert.match(bridge, /button\[aria-label\*="fermer" i\]/);
+    assert.match(bridge, /data-melodix-premium-dismissed/);
+    assert.match(bridge, /window\._sfPremiumPromoObserver = new MutationObserver/);
+    assert.match(bridge, /initializeMobileShell\(\);\s*installPremiumPromotionCleanup\(\);\s*firstFuck\(\);/);
+    assert.doesNotMatch(bridge, /\[role="dialog"\]\s*\{\s*display:\s*none/);
+
+    const helper = bridge.match(/function premiumOfferText\(text\) \{[\s\S]*?\n    \}/);
+    assert.ok(helper, 'Premium offer text filter should be available');
+    const context = {};
+    vm.runInNewContext(`${helper[0]}; globalThis.isPremiumOffer = premiumOfferText;`, context);
+    assert.equal(
+        context.isPremiumOffer('Votre musique sans limites. Essayez Premium Personnel pendant 2 mois pour 0 €.'),
+        true
+    );
+    assert.equal(context.isPremiumOffer('Network Error — tap to retry'), false);
+    assert.equal(context.isPremiumOffer('Premium settings'), false);
+    assert.equal(context.isPremiumOffer('Connectez-vous à votre compte Premium'), false);
 });
 
 test('phone dock is mounted outside CSS+JS mode and stale fullscreen state cannot hide it', () => {

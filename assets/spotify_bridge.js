@@ -1739,7 +1739,101 @@
         // Kept empty to prevent Spotify's internal global video player from being disabled for Video Podcasts
     };
 
+    function premiumOfferText(text) {
+        const normalized = String(text || '').replace(/\s+/g, ' ').trim();
+        const mentionsPremium = /\bpremium\b/i.test(normalized);
+        const hasTwoMonthFreeOffer = /2\s*(?:mois|months?)/i.test(normalized) &&
+            /(?:0\s*(?:€|euros?)|€\s*0|free|gratuit)/i.test(normalized);
+        const hasExplicitFreeTrial = /(?:free\s+trial|trial\s+for\s+free|essai\s+gratuit|essai\s+offert|try.{0,30}premium.{0,40}free|essayez.{0,30}premium.{0,40}gratuit)/i.test(normalized);
+        return mentionsPremium && (hasTwoMonthFreeOffer || hasExplicitFreeTrial);
+    }
+
+    function premiumOfferCloseButton(container) {
+        const labeledClose = container.querySelector(
+            'button[aria-label*="close" i], button[aria-label*="dismiss" i], button[aria-label*="fermer" i], ' +
+            '[role="button"][aria-label*="close" i], [role="button"][aria-label*="fermer" i], ' +
+            'button[title*="close" i], button[title*="fermer" i]'
+        );
+        if (labeledClose) return labeledClose;
+        return Array.from(container.querySelectorAll('button, [role="button"]')).find((button) => {
+            const label = String(button.getAttribute('aria-label') || button.title || button.innerText || button.textContent || '')
+                .replace(/\s+/g, '')
+                .trim();
+            return /^[x×✕✖]$/i.test(label);
+        }) || null;
+    }
+
+    function dismissPremiumOfferFrom(seed) {
+        let element = seed && seed.nodeType === 1 ? seed : seed?.parentElement;
+        for (let depth = 0; element && depth < 10; depth += 1, element = element.parentElement) {
+            if (element === document.body || element === document.documentElement) break;
+            const text = String(element.innerText || element.textContent || '').replace(/\s+/g, ' ').trim();
+            if (!text || text.length > 2400 || !premiumOfferText(text)) continue;
+
+            const testId = String(element.getAttribute('data-testid') || '').toLowerCase();
+            const role = String(element.getAttribute('role') || '').toLowerCase();
+            const closeButton = premiumOfferCloseButton(element);
+            const knownPromoContainer = /premium.*(?:offer|upsell|promo|trial)|(?:offer|upsell|promo|trial).*premium/.test(testId);
+            if (!closeButton && role !== 'dialog' && !knownPromoContainer) continue;
+            if (element.getAttribute('data-melodix-premium-dismissed') === 'true') return true;
+
+            element.setAttribute('data-melodix-premium-dismissed', 'true');
+            if (element.style && typeof element.style.setProperty === 'function') {
+                element.style.setProperty('display', 'none', 'important');
+            }
+            if (closeButton) {
+                try { closeButton.click(); } catch (_) {}
+            }
+            return true;
+        }
+        return false;
+    }
+
+    function dismissPremiumUpsells(root) {
+        if (!root) return;
+        const scanRoot = root.nodeType === 1 ? root : root.parentElement;
+        if (!scanRoot) return;
+        dismissPremiumOfferFrom(scanRoot);
+        if (typeof scanRoot.querySelectorAll !== 'function') return;
+        scanRoot.querySelectorAll('h1, h2, h3, h4, p, span, [data-testid], [role="dialog"]').forEach((element) => {
+            const text = String(element.innerText || element.textContent || '');
+            if (premiumOfferText(text)) dismissPremiumOfferFrom(element);
+        });
+    }
+
+    function installPremiumPromotionCleanup() {
+        if (!document.body) {
+            document.addEventListener('DOMContentLoaded', installPremiumPromotionCleanup, { once: true });
+            return;
+        }
+        if (!document.getElementById('sf-premium-promo-cleanup-style')) {
+            const style = document.createElement('style');
+            style.id = 'sf-premium-promo-cleanup-style';
+            style.textContent = `
+                [data-melodix-premium-dismissed="true"],
+                [data-testid*="premium-upsell" i],
+                [data-testid*="premium-offer" i],
+                [data-testid*="premium-promo" i],
+                [data-testid*="premium-trial" i] { display: none !important; }
+            `;
+            (document.head || document.documentElement).appendChild(style);
+        }
+        dismissPremiumUpsells(document.body);
+        if (window._sfPremiumPromoObserver) return;
+
+        let scanTimer = null;
+        window._sfPremiumPromoObserver = new MutationObserver(() => {
+            if (scanTimer) return;
+            scanTimer = setTimeout(() => {
+                scanTimer = null;
+                dismissPremiumUpsells(document.body);
+            }, 80);
+        });
+        window._sfPremiumPromoObserver.observe(document.body, { childList: true, subtree: true });
+    }
+
     window.addGlobalCleanup = function() {
+        installPremiumPromotionCleanup();
         let gst = document.createElement('style');
         gst.id = 'global-cleanup-style';
         gst.textContent = `
@@ -3468,5 +3562,6 @@
     }
 
     initializeMobileShell();
+    installPremiumPromotionCleanup();
     firstFuck();
 })();
