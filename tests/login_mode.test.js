@@ -67,3 +67,28 @@ test('Google / Apple / OTP mode is the only visible default and password remains
         assert.doesNotMatch(source, /accounts\.spotify\.com\/en\/login[^"\n]*method=password/);
     }
 });
+
+test('native social-login shortcut is compact, right-aligned and keeps a subtle Spotify accent', () => {
+    const activity = fs.readFileSync(path.join(root, 'smali/com/melodix/music/MainActivity.smali'), 'utf8');
+    const socialButtonStart = activity.indexOf('const-string v5, "Google / Apple / OTP"');
+    assert.notEqual(socialButtonStart, -1);
+    const socialButtonEnd = activity.indexOf('sput-object v2, Lml;->i:Lg6;', socialButtonStart);
+    const socialButtonSetup = activity.slice(socialButtonStart, socialButtonEnd);
+    assert.match(
+        socialButtonSetup,
+        /const\/4 v9, -0x2\s+const\/4 v6, 0x0\s+invoke-direct \{v5, v9, v8, v6\}, Landroid\/widget\/LinearLayout\$LayoutParams;-><init>\(IIF\)V/
+    );
+
+    const spacerStart = activity.indexOf('new-instance v5, Landroid/view/View;', socialButtonEnd);
+    assert.notEqual(spacerStart, -1);
+    const spacerEnd = activity.indexOf('sget-object v5, Lml;->i:Lg6;', spacerStart);
+    const spacerSetup = activity.slice(spacerStart, spacerEnd);
+    assert.match(spacerSetup, /const\/4 v8, 0x0[\s\S]*const\/4 v9, -0x1[\s\S]*const\/high16 v10, 0x3f800000[\s\S]*LinearLayout\$LayoutParams;-><init>\(IIF\)V/);
+
+    const modeStyling = fs.readFileSync(path.join(root, 'smali/ml.smali'), 'utf8')
+        .match(/\.method public static F\(\)V([\s\S]*?)\.end method/);
+    assert.ok(modeStyling, 'native login mode styling should exist');
+    assert.match(modeStyling[1], /const-string v3, "#1C1C1C"/);
+    assert.match(modeStyling[1], /GradientDrawable;->setStroke\(II\)V/);
+    assert.match(modeStyling[1], /move v4, v3/);
+});

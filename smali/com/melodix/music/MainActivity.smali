@@ -3576,7 +3576,11 @@
     move-result v8
 
     .line 735
-    invoke-direct {v5, v3, v8, v6}, Landroid/widget/LinearLayout$LayoutParams;-><init>(IIF)V
+    const/4 v9, -0x2
+
+    const/4 v6, 0x0
+
+    invoke-direct {v5, v9, v8, v6}, Landroid/widget/LinearLayout$LayoutParams;-><init>(IIF)V
 
     .line 736
     .line 737
@@ -3654,6 +3658,24 @@
     .line 775
     .line 776
     if-eqz v2, :cond_10
+
+    new-instance v5, Landroid/view/View;
+
+    invoke-direct {v5, v0}, Landroid/view/View;-><init>(Landroid/content/Context;)V
+
+    new-instance v6, Landroid/widget/LinearLayout$LayoutParams;
+
+    const/4 v8, 0x0
+
+    const/4 v9, -0x1
+
+    const/high16 v10, 0x3f800000    # 1.0f
+
+    invoke-direct {v6, v8, v9, v10}, Landroid/widget/LinearLayout$LayoutParams;-><init>(IIF)V
+
+    invoke-virtual {v5, v6}, Landroid/view/View;->setLayoutParams(Landroid/view/ViewGroup$LayoutParams;)V
+
+    invoke-virtual {v2, v5}, Landroid/view/ViewGroup;->addView(Landroid/view/View;)V
 
     .line 777
     .line 778

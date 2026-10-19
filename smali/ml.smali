@@ -741,7 +741,7 @@
     .line 38
     .line 39
     .line 40
-    const-string v3, "#1ED760"
+    const-string v3, "#1C1C1C"
 
     .line 41
     .line 42
@@ -760,6 +760,18 @@
     .line 49
     invoke-virtual {v1, v0}, Landroid/graphics/drawable/GradientDrawable;->setCornerRadius(F)V
 
+    const-string v3, "#1ED760"
+
+    invoke-static {v3}, Landroid/graphics/Color;->parseColor(Ljava/lang/String;)I
+
+    move-result v3
+
+    move v4, v3
+
+    const/4 v2, 0x2
+
+    invoke-virtual {v1, v2, v3}, Landroid/graphics/drawable/GradientDrawable;->setStroke(II)V
+
     .line 50
     .line 51
     .line 52
@@ -768,6 +780,8 @@
     .line 53
     .line 54
     invoke-direct {v3}, Landroid/graphics/drawable/GradientDrawable;-><init>()V
+
+    const/4 v2, 0x0
 
     .line 55
     .line 56
@@ -816,9 +830,6 @@
 
     .line 80
     const/4 v2, -0x1
-
-    .line 81
-    const/high16 v4, -0x1000000
 
     .line 82
     .line 83
