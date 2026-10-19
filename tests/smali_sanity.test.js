@@ -2,6 +2,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
+const vm = require('node:vm');
 
 const repo = path.resolve(__dirname, '..');
 const smaliFiles = [
@@ -208,4 +209,87 @@ test('modified Smali non-range invoke instructions use only v0-v15', () => {
             `${file} has a non-range invoke with a register above v15`
         );
     }
+});
+
+function getNativeMobileShellFallback() {
+    const source = fs.readFileSync(path.join(repo, 'smali/c91.smali'), 'utf8');
+    const methodStart = source.indexOf('.method public final onPageFinished(');
+    const methodEnd = source.indexOf('.end method', methodStart);
+    assert.ok(methodStart >= 0 && methodEnd > methodStart, 'onPageFinished method is present');
+
+    const methodSource = source.slice(methodStart, methodEnd);
+    const fallbackMarker = '# Native lifecycle fallback: retry the mobile shell separately after the bridge evaluation.';
+    const fallbackIndex = methodSource.indexOf(fallbackMarker);
+    const bridgeAssetIndex = methodSource.indexOf('const-string v3, "spotify_bridge.js"');
+    const playlistAssetIndex = methodSource.indexOf('const-string v1, "playlist_sort.js"');
+    assert.ok(bridgeAssetIndex >= 0 && bridgeAssetIndex < fallbackIndex, 'fallback follows the bridge asset');
+    assert.ok(fallbackIndex >= 0 && fallbackIndex < playlistAssetIndex, 'fallback runs before later page scripts');
+
+    const fallbackLine = methodSource.slice(fallbackIndex).split(/\r?\n/)
+        .find((line) => line.includes('const-string v1, '));
+    const match = fallbackLine && fallbackLine.match(/^\s*const-string v1, "(.*)"$/);
+    assert.ok(match, 'fallback JavaScript is a single Smali string');
+
+    const interceptStart = source.indexOf('.method public final shouldInterceptRequest(');
+    const interceptEnd = source.indexOf('.end method', interceptStart);
+    assert.ok(interceptStart >= 0 && interceptEnd > interceptStart, 'shouldInterceptRequest method is present');
+    assert.equal(
+        source.slice(interceptStart, interceptEnd).includes(fallbackMarker),
+        false,
+        'fallback does not modify shouldInterceptRequest'
+    );
+
+    return match[1];
+}
+
+test('onPageFinished retries the mobile shell in an isolated, guarded evaluation', () => {
+    const fallback = getNativeMobileShellFallback();
+    assert.doesNotThrow(() => new vm.Script(fallback), 'fallback JavaScript parses');
+
+    let calls = 0;
+    const fakeDocument = {
+        body: {},
+        navPresent: false,
+        getElementById(id) {
+            return id === 'sf-mobile-nav' && this.navPresent ? {} : null;
+        }
+    };
+    const fakeWindow = {
+        SF_CONFIG: { guiMode: 'csshack' },
+        addCSSJSHack() {
+            calls += 1;
+            fakeDocument.navPresent = true;
+            this._sfMobileNavObserver = {};
+            this._sfExpandedObserver = {};
+        }
+    };
+
+    vm.runInNewContext(fallback, { window: fakeWindow, document: fakeDocument });
+    vm.runInNewContext(fallback, { window: fakeWindow, document: fakeDocument });
+
+    assert.equal(calls, 1, 'a successful initialization is not repeated');
+    assert.equal(fakeWindow.__sfMobileShellInitState.status, 'initialized');
+    assert.equal(fakeWindow.__sfMobileShellInitState.attempts, 1);
+    assert.equal(fakeWindow.__sfMobileShellInitState.mobileNavPresent, true);
+    assert.equal(fakeWindow.__sfMobileShellInitState.mobileNavObserverAttached, true);
+    assert.equal(fakeWindow.__sfMobileShellInitState.expandedObserverAttached, true);
+});
+
+test('native fallback records only a filtered error name if shell initialization throws', () => {
+    const fallback = getNativeMobileShellFallback();
+    const fakeWindow = {
+        SF_CONFIG: { guiMode: 'csshack' },
+        addCSSJSHack() {
+            const error = new Error('sensitive detail must not be retained');
+            error.name = 'TypeError';
+            throw error;
+        }
+    };
+    const fakeDocument = { body: {}, getElementById: () => null };
+
+    vm.runInNewContext(fallback, { window: fakeWindow, document: fakeDocument });
+
+    assert.equal(fakeWindow.__sfMobileShellInitState.status, 'error');
+    assert.equal(fakeWindow.__sfMobileShellInitState.errorName, 'TypeError');
+    assert.equal(JSON.stringify(fakeWindow.__sfMobileShellInitState).includes('sensitive detail'), false);
 });
