@@ -608,6 +608,34 @@
     .locals 5
 
     .line 1
+    # Preview must exercise the APK-bundled bridge, not a persistent remote hotfix.
+    const-string v0, "spotify_bridge.js"
+
+    invoke-virtual {v0, p0}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+
+    move-result v0
+
+    if-eqz v0, :cond_preview_hotfix
+
+    invoke-static {}, Lm9;->c()Landroid/content/Context;
+
+    move-result-object v0
+
+    invoke-virtual {v0}, Landroid/content/Context;->getPackageName()Ljava/lang/String;
+
+    move-result-object v0
+
+    const-string v1, "com.melodix.music.preview"
+
+    invoke-virtual {v1, v0}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+
+    move-result v0
+
+    if-eqz v0, :cond_preview_hotfix
+
+    goto :cond_2
+
+    :cond_preview_hotfix
     sget-object v0, Lcom/melodix/music/AppSingleton;->f0:Ljava/util/concurrent/ConcurrentHashMap;
 
     .line 2

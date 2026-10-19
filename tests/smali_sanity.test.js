@@ -293,3 +293,21 @@ test('native fallback records only a filtered error name if shell initialization
     assert.equal(fakeWindow.__sfMobileShellInitState.errorName, 'TypeError');
     assert.equal(JSON.stringify(fakeWindow.__sfMobileShellInitState).includes('sensitive detail'), false);
 });
+
+test('Preview loads the APK-bundled Spotify bridge instead of a persistent hotfix', () => {
+    const source = fs.readFileSync(path.join(repo, 'smali/m9.smali'), 'utf8');
+    const methodStart = source.indexOf('.method public static d(Ljava/lang/String;)Ljava/lang/String;');
+    const methodEnd = source.indexOf('.end method', methodStart);
+    assert.ok(methodStart >= 0 && methodEnd > methodStart, 'asset loader method is present');
+
+    const method = source.slice(methodStart, methodEnd);
+    const bridgeGuard = method.indexOf('const-string v0, "spotify_bridge.js"');
+    const previewGuard = method.indexOf('const-string v1, "com.melodix.music.preview"');
+    const bundledAssetBranch = method.indexOf('goto :cond_2', previewGuard);
+    const cacheRead = method.indexOf('sget-object v0, Lcom/melodix/music/AppSingleton;->f0:');
+    const hotfixPath = method.indexOf('const-string v4, "hotfixes/"');
+
+    assert.ok(bridgeGuard >= 0 && bridgeGuard < previewGuard, 'special case is limited to the bridge name');
+    assert.ok(previewGuard < bundledAssetBranch && bundledAssetBranch < cacheRead, 'Preview bypasses the old cache');
+    assert.ok(cacheRead < hotfixPath, 'normal app flow still retains its hotfix behavior');
+});
