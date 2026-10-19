@@ -3186,16 +3186,38 @@
     window.searchMediaItems = searchMediaItems;
 
     function initializeMobileShell() {
+        const retryDelayMs = 250;
+        const maxAttempts = 120;
+        let attempts = 0;
+        let retryTimer = null;
+        let initialized = false;
+
         const start = () => {
-            if (window.SF_CONFIG?.guiMode === 'csshack' && typeof window.addCSSJSHack === 'function') {
-                window.addCSSJSHack();
+            if (initialized) return;
+            if (retryTimer !== null) {
+                window.clearTimeout(retryTimer);
+                retryTimer = null;
             }
+
+            if (
+                document.body &&
+                window.SF_CONFIG?.guiMode === 'csshack' &&
+                typeof window.addCSSJSHack === 'function'
+            ) {
+                window.addCSSJSHack();
+                initialized = true;
+                return;
+            }
+
+            if (attempts >= maxAttempts) return;
+            attempts += 1;
+            retryTimer = window.setTimeout(start, retryDelayMs);
         };
+
         if (document.readyState === 'loading') {
             document.addEventListener('DOMContentLoaded', start, { once: true });
-        } else {
-            window.setTimeout(start, 0);
         }
+        start();
     }
 
     initializeMobileShell();
