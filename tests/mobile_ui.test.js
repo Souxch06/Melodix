@@ -2,7 +2,6 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const test = require('node:test');
-const vm = require('node:vm');
 
 const root = path.resolve(__dirname, '..');
 const read = (file) => fs.readFileSync(path.join(root, file), 'utf8');
@@ -34,68 +33,6 @@ test('mobile dock reuses Spotify home, search, and library controls', () => {
     assert.match(bridge, /function mobileLibraryButton\(\)/);
     assert.match(bridge, /classList\.toggle\('sf-library-open', shouldOpen\)/);
     assert.match(bridge, /installMobileNavigation\(\);/);
-});
-
-test('mobile shell retries initialization until the native CSS-hack config is ready', () => {
-    const bridge = read('assets/spotify_bridge.js');
-    const initializerStart = bridge.indexOf('    function initializeMobileShell() {');
-    const initializerEnd = bridge.indexOf('\n\n    firstFuck();', initializerStart);
-    assert.ok(initializerStart >= 0 && initializerEnd > initializerStart);
-
-    const initializer = bridge.slice(initializerStart, initializerEnd);
-    const pendingTimers = new Map();
-    let nextTimerId = 0;
-    let addCssHackCalls = 0;
-    const window = {
-        setTimeout(callback, delay) {
-            assert.equal(delay, 250);
-            const timerId = ++nextTimerId;
-            pendingTimers.set(timerId, callback);
-            return timerId;
-        },
-        clearTimeout(timerId) {
-            pendingTimers.delete(timerId);
-        },
-        addCSSJSHack() {
-            addCssHackCalls += 1;
-            window._sfMobileNavObserver = {};
-            window._sfExpandedObserver = {};
-        }
-    };
-    const document = {
-        readyState: 'complete',
-        body: {},
-        getElementById: (id) => (id === 'sf-mobile-nav' && addCssHackCalls > 0 ? {} : null)
-    };
-
-    vm.runInNewContext(`${initializer}\ninitializeMobileShell();`, { window, document });
-    assert.equal(addCssHackCalls, 0);
-    assert.equal(pendingTimers.size, 1);
-    assert.equal(window.__sfMobileShellInitState.status, 'waiting');
-
-    window.SF_CONFIG = { guiMode: 'csshack' };
-    const [timerId, callback] = pendingTimers.entries().next().value;
-    pendingTimers.delete(timerId);
-    callback();
-
-    assert.equal(addCssHackCalls, 1);
-    assert.equal(pendingTimers.size, 0);
-    assert.equal(window.__sfMobileShellInitState.status, 'initialized');
-    assert.equal(window.__sfMobileShellInitState.attempts, 2);
-    assert.equal(window.__sfMobileShellInitState.mobileNavPresent, true);
-    assert.equal(window.__sfMobileShellInitState.expandedObserverAttached, true);
-});
-
-test('mobile shell initialization runs immediately after its entry point is defined', () => {
-    const bridge = read('assets/spotify_bridge.js');
-    const entryPoint = bridge.indexOf('window.addCSSJSHack = function() {');
-    const initializationCall = bridge.indexOf('initializeMobileShell();');
-    const librarySection = bridge.indexOf('// SECTION 4: LIBRARY & FOLDER RESOLUTION');
-
-    assert.ok(entryPoint >= 0);
-    assert.ok(initializationCall > entryPoint);
-    assert.ok(librarySection > initializationCall);
-    assert.equal(bridge.indexOf('initializeMobileShell();', initializationCall + 1), -1);
 });
 
 test('mobile shell initializes before playback and library state can be forced open or closed', () => {

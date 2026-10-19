@@ -2163,10 +2163,7 @@
     invoke-virtual {v0, v1, v8}, Landroid/webkit/WebView;->evaluateJavascript(Ljava/lang/String;Landroid/webkit/ValueCallback;)V
 
     .line 399
-    # Native lifecycle fallback: retry the mobile shell separately after the bridge evaluation.
-    const-string v1, "(function(){try{if(!window.SF_CONFIG||window.SF_CONFIG.guiMode!=='csshack')return;var s=window.__sfMobileShellInitState;if(!s||typeof s!=='object'){s={status:'waiting',attempts:0,bodyReady:false,configReady:false,entryPointAvailable:false,mobileNavPresent:false,mobileNavObserverAttached:false,expandedObserverAttached:false,errorName:null};window.__sfMobileShellInitState=s;}if(s.status==='initialized')return;s.attempts=Math.min(120,(Number.isInteger(s.attempts)?s.attempts:0)+1);s.bodyReady=!!document.body;s.configReady=true;s.entryPointAvailable=typeof window.addCSSJSHack==='function';if(!s.bodyReady||!s.entryPointAvailable){s.mobileNavPresent=!!document.getElementById('sf-mobile-nav');s.mobileNavObserverAttached=!!window._sfMobileNavObserver;s.expandedObserverAttached=!!window._sfExpandedObserver;s.status='waiting';return;}s.errorName=null;s.status='initializing';try{window.addCSSJSHack();s.mobileNavPresent=!!document.getElementById('sf-mobile-nav');s.mobileNavObserverAttached=!!window._sfMobileNavObserver;s.expandedObserverAttached=!!window._sfExpandedObserver;s.status=s.mobileNavPresent?'initialized':'no-mobile-nav';}catch(e){s.mobileNavPresent=!!document.getElementById('sf-mobile-nav');s.mobileNavObserverAttached=!!window._sfMobileNavObserver;s.expandedObserverAttached=!!window._sfExpandedObserver;s.status='error';var n=e&&typeof e.name==='string'?e.name:'Error';s.errorName=/^[A-Za-z][A-Za-z0-9]{0,31}$/.test(n)?n:'Error';}}catch(e){}})();"
-    invoke-virtual {v0, v1, v8}, Landroid/webkit/WebView;->evaluateJavascript(Ljava/lang/String;Landroid/webkit/ValueCallback;)V
-
+    .line 400
     .line 401
     const-string v1, "playlist_sort.js"
 

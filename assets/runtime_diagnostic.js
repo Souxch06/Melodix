@@ -136,27 +136,6 @@
     const sidebar = document.querySelector('#Desktop_LeftSidebar_Id');
     const v20Dock = document.querySelector('#sf-mobile-navigation');
     const currentDock = document.querySelector('#sf-mobile-nav');
-    const initState = window.__sfMobileShellInitState;
-    const initStatuses = ['waiting', 'initializing', 'initialized', 'no-mobile-nav', 'timed-out', 'error'];
-    const initErrorName = initState && typeof initState.errorName === 'string' &&
-      /^[A-Za-z][A-Za-z0-9]{0,31}$/.test(initState.errorName)
-      ? initState.errorName
-      : null;
-    const mobileShellInit = initState && typeof initState === 'object'
-      ? {
-          status: initStatuses.includes(initState.status) ? initState.status : null,
-          attempts: Number.isInteger(initState.attempts) && initState.attempts >= 0 && initState.attempts <= 120
-            ? initState.attempts
-            : null,
-          bodyReady: initState.bodyReady === true,
-          configReady: initState.configReady === true,
-          entryPointAvailable: initState.entryPointAvailable === true,
-          mobileNavPresent: initState.mobileNavPresent === true,
-          mobileNavObserverAttached: initState.mobileNavObserverAttached === true,
-          expandedObserverAttached: initState.expandedObserverAttached === true,
-          errorName: initErrorName
-        }
-      : null;
 
     return {
       elapsedMs: Math.max(0, Math.round(performance.now() - startedAt)),
@@ -174,20 +153,6 @@
       dockLeftSidebar: window.SF_CONFIG
         ? window.SF_CONFIG.dockLeftSidebar
         : null,
-      pageState: {
-        readyState: document.readyState || null,
-        bodyExists: Boolean(body),
-        bodyChildElementCount: body ? body.childElementCount : null,
-        documentElementChildElementCount: document.documentElement
-          ? document.documentElement.childElementCount
-          : null
-      },
-      bridge: {
-        addCSSJSHackAvailable: typeof window.addCSSJSHack === 'function',
-        mobileNavObserverAttached: Boolean(window._sfMobileNavObserver),
-        expandedObserverAttached: Boolean(window._sfExpandedObserver)
-      },
-      mobileShellInit,
       bodyClasses: body ? body.className : null,
       drawer: {
         expanded: typeof window.__sfLibraryExpanded === 'boolean'
