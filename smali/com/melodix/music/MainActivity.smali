@@ -498,6 +498,20 @@
     .line 53
     if-nez v0, :cond_4
 
+    invoke-virtual {p0}, Le6;->getResources()Landroid/content/res/Resources;
+
+    move-result-object v4
+
+    invoke-virtual {v4}, Landroid/content/res/Resources;->getConfiguration()Landroid/content/res/Configuration;
+
+    move-result-object v4
+
+    iget v4, v4, Landroid/content/res/Configuration;->smallestScreenWidthDp:I
+
+    const/16 v0, 0x258
+
+    if-lt v4, v0, :cond_4
+
     .line 54
     .line 55
     iget-object v0, p0, Lcom/melodix/music/MainActivity;->M:Lcom/melodix/music/LockableHScrollView;
@@ -3524,6 +3538,32 @@
     .line 705
     .line 706
     invoke-virtual {v2, v4, v8}, Lg6;->setTextSize(IF)V
+
+    const/high16 v5, 0x43340000    # 180.0f
+
+    invoke-static {v5}, Ljava/lang/Float;->valueOf(F)Ljava/lang/Float;
+
+    move-result-object v5
+
+    invoke-virtual {v14, v5}, Lqk0;->g(Ljava/lang/Object;)Ljava/lang/Object;
+
+    move-result-object v5
+
+    check-cast v5, Ljava/lang/Number;
+
+    invoke-virtual {v5}, Ljava/lang/Number;->intValue()I
+
+    move-result v5
+
+    invoke-virtual {v2, v5}, Landroid/widget/TextView;->setMaxWidth(I)V
+
+    const/4 v5, 0x1
+
+    invoke-virtual {v2, v5}, Landroid/widget/TextView;->setSingleLine(Z)V
+
+    sget-object v5, Landroid/text/TextUtils$TruncateAt;->END:Landroid/text/TextUtils$TruncateAt;
+
+    invoke-virtual {v2, v5}, Landroid/widget/TextView;->setEllipsize(Landroid/text/TextUtils$TruncateAt;)V
 
     .line 707
     .line 708

@@ -35,6 +35,20 @@ test('mobile dock reuses Spotify home, search, and library controls', () => {
     assert.match(bridge, /installMobileNavigation\(\);/);
 });
 
+test('phone-sized windows keep the login WebView on the device width', () => {
+    const activity = read('smali/com/melodix/music/MainActivity.smali');
+    const webViewSizing = activity.match(/\.method public final C\(\)V([\s\S]*?)\.end method/);
+    assert.ok(webViewSizing, 'responsive WebView sizing method should exist');
+    assert.match(
+        webViewSizing[1],
+        /Configuration;->smallestScreenWidthDp:I[\s\S]*?const\/16 v0, 0x258[\s\S]*?if-lt v4, v0, :cond_4[\s\S]*?const\/16 v0, 0x640/
+    );
+
+    const bridge = read('assets/spotify_bridge.js');
+    assert.match(bridge, /const isCompactWindow = shortestScreenSide > 0 && shortestScreenSide < 600/);
+    assert.match(bridge, /\(\(isBigWindow && isLandscape\) \|\| isCompactWindow\)/);
+});
+
 test('mobile shell initializes before playback and library state can be forced open or closed', () => {
     const bridge = read('assets/spotify_bridge.js');
 

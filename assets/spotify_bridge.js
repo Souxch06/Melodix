@@ -2204,7 +2204,13 @@
 
     window.addCSSJSHack = function() {
         let meta = document.querySelector('meta[name="viewport"]');
-        let isBigWindow = window.SF_CONFIG && window.SF_CONFIG.guiMode === "bigwindow";
+        const config = window.SF_CONFIG || {};
+        const screen = window.screen || {};
+        const screenWidth = Number(config.screenWidth || screen.width || 0);
+        const screenHeight = Number(config.screenHeight || screen.height || 0);
+        const shortestScreenSide = Math.min(screenWidth, screenHeight);
+        const isCompactWindow = shortestScreenSide > 0 && shortestScreenSide < 600;
+        let isBigWindow = config.guiMode === "bigwindow" && !isCompactWindow;
         let isLandscape = window.matchMedia("(orientation: landscape)").matches;
 
         let content = "width=device-width, initial-scale=1.0, viewport-fit=cover";
@@ -2222,7 +2228,7 @@
         }
 
         if (meta) {
-            if (isBigWindow && isLandscape) {
+            if ((isBigWindow && isLandscape) || isCompactWindow) {
                 meta.setAttribute('content', content);
             } else {
                 let current = meta.getAttribute('content') || "";

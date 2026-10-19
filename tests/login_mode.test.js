@@ -16,9 +16,16 @@ test('default Spotify login page keeps the password option available', () => {
         }
     };
     const createdLink = { style: {} };
+    const viewport = {
+        content: 'width=980, initial-scale=1',
+        setAttribute(name, value) {
+            if (name === 'content') this.content = value;
+        }
+    };
     const context = {
         document: {
             querySelector(selector) {
+                if (selector === 'meta[name="viewport"]') return viewport;
                 return selector.startsWith('section>') ? anchor : null;
             },
             createElement(tagName) {
@@ -32,11 +39,46 @@ test('default Spotify login page keeps the password option available', () => {
     const script = fs.readFileSync(path.join(root, 'assets/classic_login.js'), 'utf8');
     vm.runInNewContext(script, context);
 
+    assert.equal(viewport.content, 'width=device-width, initial-scale=1, viewport-fit=cover');
     assert.equal(createdLink.innerText, 'Email + Password Classic Login');
     assert.equal(createdLink.className, 'fuckd');
+    assert.match(createdLink.style.cssText, /box-sizing:border-box;width:100%;max-width:100%;min-height:44px/);
     assert.match(createdLink.href, /allow_password=1/);
     assert.equal(inserted.element, createdLink);
     assert.equal(inserted.before, anchor);
+});
+
+test('login screen adds a device-width viewport when the provider page has none', () => {
+    let viewport = null;
+    const context = {
+        document: {
+            querySelector(selector) {
+                if (selector === 'meta[name="viewport"]') return viewport;
+                return null;
+            },
+            createElement(tagName) {
+                assert.equal(tagName, 'meta');
+                return {
+                    setAttribute(name, value) {
+                        if (name === 'content') this.content = value;
+                    }
+                };
+            },
+            head: {
+                appendChild(element) {
+                    viewport = element;
+                }
+            }
+        },
+        window: { location: { href: 'https://accounts.spotify.com/en/login' } }
+    };
+
+    const script = fs.readFileSync(path.join(root, 'assets/classic_login.js'), 'utf8');
+    vm.runInNewContext(script, context);
+
+    assert.ok(viewport);
+    assert.equal(viewport.name, 'viewport');
+    assert.equal(viewport.content, 'width=device-width, initial-scale=1, viewport-fit=cover');
 });
 
 test('Google / Apple / OTP mode is the only visible default and password remains a selectable route', () => {
@@ -78,6 +120,9 @@ test('native social-login shortcut is compact, right-aligned and keeps a subtle 
         socialButtonSetup,
         /const\/4 v9, -0x2\s+const\/4 v6, 0x0\s+invoke-direct \{v5, v9, v8, v6\}, Landroid\/widget\/LinearLayout\$LayoutParams;-><init>\(IIF\)V/
     );
+    assert.match(socialButtonSetup, /TextView;->setMaxWidth\(I\)V/);
+    assert.match(socialButtonSetup, /TextView;->setSingleLine\(Z\)V/);
+    assert.match(socialButtonSetup, /TextUtils\$TruncateAt;->END/);
 
     const spacerStart = activity.indexOf('new-instance v5, Landroid/view/View;', socialButtonEnd);
     assert.notEqual(spacerStart, -1);
