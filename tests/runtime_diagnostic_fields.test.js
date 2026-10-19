@@ -35,6 +35,17 @@ test('runtime diagnostic reports safe document and bridge readiness fields', () 
         SF_CONFIG: { guiMode: 'csshack' },
         addCSSJSHack() {},
         _sfExpandedObserver: {},
+        __sfMobileShellInitState: {
+            status: 'error',
+            attempts: 2,
+            bodyReady: true,
+            configReady: true,
+            entryPointAvailable: true,
+            mobileNavPresent: false,
+            mobileNavObserverAttached: false,
+            expandedObserverAttached: false,
+            errorName: 'TypeError'
+        },
         getComputedStyle: (element) => ({ display: element.display }),
         setTimeout: (callback, delay) => {
             timers.push({ callback, delay });
@@ -64,7 +75,21 @@ test('runtime diagnostic reports safe document and bridge readiness fields', () 
         mobileNavObserverAttached: false,
         expandedObserverAttached: true
     });
-    assert.doesNotMatch(JSON.stringify(sample.pageState) + JSON.stringify(sample.bridge), /text|url|cookie|token|secret/i);
+    assert.deepEqual(sample.mobileShellInit, {
+        status: 'error',
+        attempts: 2,
+        bodyReady: true,
+        configReady: true,
+        entryPointAvailable: true,
+        mobileNavPresent: false,
+        mobileNavObserverAttached: false,
+        expandedObserverAttached: false,
+        errorName: 'TypeError'
+    });
+    assert.doesNotMatch(
+        JSON.stringify(sample.pageState) + JSON.stringify(sample.bridge) + JSON.stringify(sample.mobileShellInit),
+        /text|url|cookie|token|secret/i
+    );
 });
 
 test('runtime diagnostic contains no page-content or credential reads', () => {

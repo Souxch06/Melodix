@@ -2479,6 +2479,9 @@
         }
     };
 
+    // Start the shell before later bridge helpers run; the declaration is hoisted.
+    initializeMobileShell();
+
     // =========================================================================
     // SECTION 4: LIBRARY & FOLDER RESOLUTION
     // =========================================================================
@@ -3191,6 +3194,18 @@
         let attempts = 0;
         let retryTimer = null;
         let initialized = false;
+        const initState = {
+            status: 'waiting',
+            attempts: 0,
+            bodyReady: false,
+            configReady: false,
+            entryPointAvailable: false,
+            mobileNavPresent: false,
+            mobileNavObserverAttached: false,
+            expandedObserverAttached: false,
+            errorName: null
+        };
+        window.__sfMobileShellInitState = initState;
 
         const start = () => {
             if (initialized) return;
@@ -3199,18 +3214,39 @@
                 retryTimer = null;
             }
 
-            if (
-                document.body &&
-                window.SF_CONFIG?.guiMode === 'csshack' &&
-                typeof window.addCSSJSHack === 'function'
-            ) {
-                window.addCSSJSHack();
+            attempts += 1;
+            initState.attempts = attempts;
+            initState.bodyReady = Boolean(document.body);
+            initState.configReady = window.SF_CONFIG?.guiMode === 'csshack';
+            initState.entryPointAvailable = typeof window.addCSSJSHack === 'function';
+
+            if (initState.bodyReady && initState.configReady && initState.entryPointAvailable) {
+                initState.status = 'initializing';
+                try {
+                    window.addCSSJSHack();
+                    initState.mobileNavPresent = Boolean(document.getElementById('sf-mobile-nav'));
+                    initState.mobileNavObserverAttached = Boolean(window._sfMobileNavObserver);
+                    initState.expandedObserverAttached = Boolean(window._sfExpandedObserver);
+                    initState.status = initState.mobileNavPresent ? 'initialized' : 'no-mobile-nav';
+                } catch (error) {
+                    const errorName = error && typeof error.name === 'string' ? error.name : 'Error';
+                    initState.mobileNavPresent = Boolean(document.getElementById('sf-mobile-nav'));
+                    initState.mobileNavObserverAttached = Boolean(window._sfMobileNavObserver);
+                    initState.expandedObserverAttached = Boolean(window._sfExpandedObserver);
+                    initState.errorName = /^[A-Za-z][A-Za-z0-9]{0,31}$/.test(errorName)
+                        ? errorName
+                        : 'Error';
+                    initState.status = 'error';
+                }
                 initialized = true;
                 return;
             }
 
-            if (attempts >= maxAttempts) return;
-            attempts += 1;
+            if (attempts >= maxAttempts) {
+                initState.status = 'timed-out';
+                return;
+            }
+            initState.status = 'waiting';
             retryTimer = window.setTimeout(start, retryDelayMs);
         };
 
@@ -3220,6 +3256,5 @@
         start();
     }
 
-    initializeMobileShell();
     firstFuck();
 })();
