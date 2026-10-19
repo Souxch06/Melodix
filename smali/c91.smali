@@ -1597,8 +1597,20 @@
 
     .line 121
     .line 122
-    if-nez v2, :cond_7
+    # A persisted session can land directly on Spotify home; use the existing splash-dismiss path after load.
+    if-eqz v2, :cond_15
 
+    const-string v2, "open.spotify.com"
+
+    invoke-static {v1, v2, v3}, Lda1;->y(Ljava/lang/CharSequence;Ljava/lang/String;Z)Z
+
+    move-result v2
+
+    if-eqz v2, :cond_7
+
+    goto :cond_5
+
+    :cond_15
     .line 123
     .line 124
     invoke-static {v1, v5, v3}, Lda1;->y(Ljava/lang/CharSequence;Ljava/lang/String;Z)Z

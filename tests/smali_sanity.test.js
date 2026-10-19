@@ -209,3 +209,20 @@ test('modified Smali non-range invoke instructions use only v0-v15', () => {
         );
     }
 });
+
+test('successful authenticated Spotify home load dismisses the native splash', () => {
+    const webViewClient = fs.readFileSync(path.join(repo, 'smali/c91.smali'), 'utf8');
+    const pageFinished = webViewClient.match(
+        /\.method public final onPageFinished\(Landroid\/webkit\/WebView;Ljava\/lang\/String;\)V([\s\S]*?)\.end method/
+    );
+
+    assert.ok(pageFinished, 'WebView page-finished callback should exist');
+    assert.match(
+        pageFinished[1],
+        /sget-boolean v2, Lcom\/melodix\/music\/AppSingleton;->B:Z[\s\S]*?if-eqz v2, :cond_15[\s\S]*?const-string v2, "open\.spotify\.com"[\s\S]*?if-eqz v2, :cond_7\s+goto :cond_5/
+    );
+
+    const splashDismiss = pageFinished[1].match(/^\s*:cond_5\s*$([\s\S]*?)^\s*:cond_7\s*$/m);
+    assert.ok(splashDismiss, 'authenticated and login routes should share the splash-dismiss block');
+    assert.match(splashDismiss[1], /new-instance v8, Lzk0;[\s\S]*?invoke-direct \{v8, v2, v7, v7\}/);
+});
