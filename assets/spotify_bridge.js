@@ -2133,15 +2133,26 @@
         }
     }
 
+    function hasTouchInput() {
+        try {
+            const navigatorInfo = window.navigator || {};
+            return Number(navigatorInfo.maxTouchPoints || navigatorInfo.msMaxTouchPoints || 0) > 0 ||
+                ('ontouchstart' in window);
+        } catch (_) {
+            return false;
+        }
+    }
+
     function isMobileNavigationViewport() {
+        const touchInput = hasTouchInput();
         try {
             if (typeof window.matchMedia === 'function') {
                 return window.matchMedia(
                     '(max-width: 820px) and (orientation: portrait), (hover: none) and (pointer: coarse)'
-                ).matches;
+                ).matches || touchInput;
             }
         } catch (_) {}
-        return Number(window.innerWidth || 0) <= 820;
+        return Number(window.innerWidth || 0) <= 820 || touchInput;
     }
 
     function ensureMobileShellFallbackStyles() {
@@ -2149,9 +2160,7 @@
         const style = document.createElement('style');
         style.id = 'sf-mobile-shell-fallback-style';
         style.textContent = `
-@media screen and (max-width: 820px) and (orientation: portrait),
-       screen and (hover: none) and (pointer: coarse) {
-    #sf-mobile-nav {
+    body.sf-mobile-shell #sf-mobile-nav {
         position: fixed !important;
         left: 0 !important;
         right: 0 !important;
@@ -2318,7 +2327,11 @@
     body.sf-library-open aside[data-testid="now-playing-bar"] {
         bottom: calc(10px + env(safe-area-inset-bottom)) !important;
     }
-}
+    @media screen and (orientation: landscape) {
+        body.sf-mobile-shell #global-nav-bar {
+            display: none !important;
+        }
+    }
 `;
         (document.head || document.documentElement).appendChild(style);
     }
@@ -2529,7 +2542,8 @@
         const screenHeight = Number(config.screenHeight || screen.height || 0);
         const shortestScreenSide = Math.min(screenWidth, screenHeight);
         const isCompactWindow = shortestScreenSide > 0 && shortestScreenSide < 600;
-        let isBigWindow = config.guiMode === "bigwindow" && !isCompactWindow;
+        const hasTouch = hasTouchInput();
+        let isBigWindow = config.guiMode === "bigwindow" && !isCompactWindow && !hasTouch;
         let isLandscape = window.matchMedia("(orientation: landscape)").matches;
 
         let content = "width=device-width, initial-scale=1.0, viewport-fit=cover";

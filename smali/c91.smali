@@ -2231,8 +2231,15 @@
 
     .line 419
     .line 420
+    if-nez v1, :inject_full_css
+
+    sget-object v1, Lcom/melodix/music/AppSingleton;->z:Ljava/lang/String;
+    const-string v3, "bigwindow"
+    invoke-static {v1, v3}, Ldl1;->a(Ljava/lang/Object;Ljava/lang/Object;)Z
+    move-result v1
     if-eqz v1, :cond_12
 
+    :inject_full_css
     .line 421
     .line 422
     invoke-static {v2}, Lm9;->d(Ljava/lang/String;)Ljava/lang/String;
@@ -2406,10 +2413,12 @@
     .line 505
     invoke-virtual {v0, v1, v8}, Landroid/webkit/WebView;->evaluateJavascript(Ljava/lang/String;Landroid/webkit/ValueCallback;)V
 
+    const-string v2, "css_hacks.css"
+
     .line 506
     .line 507
     .line 508
-    goto :goto_4
+    goto :cond_12
 
     .line 509
     :cond_12

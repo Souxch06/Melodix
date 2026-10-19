@@ -44,6 +44,21 @@ test('mobile dock reuses Spotify home, search, and library controls', () => {
     assert.match(bridge, /installMobileNavigation\(\);/);
 });
 
+test('touch tablets receive the mobile shell even when the viewport is wider than a phone', () => {
+    const bridge = read('assets/spotify_bridge.js');
+    const fallback = bridge.match(/function ensureMobileShellFallbackStyles\(\) \{([\s\S]*?)\n    \}/);
+
+    assert.match(bridge, /function hasTouchInput\(\)/);
+    assert.match(bridge, /maxTouchPoints \|\| navigatorInfo\.msMaxTouchPoints/);
+    assert.match(bridge, /'ontouchstart' in window/);
+    assert.match(bridge, /\.matches \|\| touchInput/);
+    assert.match(bridge, /config\.guiMode === "bigwindow" && !isCompactWindow && !hasTouch/);
+    assert.ok(fallback, 'touch fallback stylesheet should be available');
+    assert.match(fallback[1], /body\.sf-mobile-shell #sf-mobile-nav\s*\{[\s\S]*?display: grid !important/);
+    assert.doesNotMatch(fallback[1], /@media screen and \(max-width: 820px\)/);
+    assert.match(bridge, /body\.sf-mobile-shell #global-nav-bar/);
+});
+
 test('phone-sized windows keep the login WebView on the device width', () => {
     const activity = read('smali/com/melodix/music/MainActivity.smali');
     const webViewSizing = activity.match(/\.method public final C\(\)V([\s\S]*?)\.end method/);

@@ -257,6 +257,39 @@ test('a stalled Spotify page load leaves the splash and exposes retry after 30 s
     assert.match(watchdog, /const-wide\/16 v2, 0x7530/);
     assert.match(watchdog, /MainActivity;->H:Landroidx\/constraintlayout\/widget\/ConstraintLayout;/);
     assert.match(watchdog, /MainActivity;->R:Landroid\/widget\/ProgressBar;/);
-    assert.match(watchdog, /sput-boolean v1, Lcom\/melodix\/music\/AppSingleton;->m:Z[\s\S]*?sput v1, Lcom\/melodix\/music\/AppSingleton;->n:I[\s\S]*?MainActivity;->D\(Z\)V/);
+    assert.match(watchdog, /sput-boolean v2, Lcom\/melodix\/music\/AppSingleton;->m:Z[\s\S]*?sput v2, Lcom\/melodix\/music\/AppSingleton;->n:I[\s\S]*?MainActivity;->D\(Z\)V/);
+    assert.match(watchdog, /WebView;->getProgress\(\)I/);
+    assert.match(watchdog, /AppSingleton;->m:Z[\s\S]*?if-eqz v2, :check_page_progress[\s\S]*?AppSingleton;->n:I[\s\S]*?if-nez v2, :show_network_error[\s\S]*?goto :return/);
+    assert.match(watchdog, /Lzk0;-><init>\(Lcom\/melodix\/music\/MainActivity;ZI\)V/);
     assert.match(watchdog, /generationAtArm:I[\s\S]*?if-ne v0, v1, :return/);
+});
+
+test('full CSS is injected in both Mobile CSS and Wide Window modes', () => {
+    const webViewClient = fs.readFileSync(path.join(repo, 'smali/c91.smali'), 'utf8');
+    const pageFinished = webViewClient.match(
+        /\.method public final onPageFinished\(Landroid\/webkit\/WebView;Ljava\/lang\/String;\)V([\s\S]*?)\.end method/
+    );
+
+    assert.ok(pageFinished, 'WebView page-finished callback should exist');
+    assert.match(
+        pageFinished[1],
+        /const-string v2, "csshack"[\s\S]*?move-result v1[\s\S]*?const-string v2, "css_hacks\.css"[\s\S]*?if-nez v1, :inject_full_css[\s\S]*?const-string v3, "bigwindow"[\s\S]*?if-eqz v1, :cond_12[\s\S]*?:inject_full_css[\s\S]*?invoke-static \{v2\}, Lm9;->d\(Ljava\/lang\/String;\)Ljava\/lang\/String;/
+    );
+    assert.match(pageFinished[1], /style\.textContent = %s \+ %s/);
+    assert.match(pageFinished[1], /goto :cond_12[\s\S]*?:cond_12[\s\S]*?AppSingleton;->z:Ljava\/lang\/String;/);
+});
+
+test('returning from background rearms recovery and restores a completed WebView', () => {
+    const activity = fs.readFileSync(path.join(repo, 'smali/com/melodix/music/MainActivity.smali'), 'utf8');
+    const onStop = activity.match(/\.method public final onStop\(\)V([\s\S]*?)\.end method/);
+    const onResume = activity.match(/\.method public final onResume\(\)V([\s\S]*?)\.end method/);
+    const watchdog = fs.readFileSync(path.join(repo, 'smali/com/melodix/music/StartupLoadWatchdog.smali'), 'utf8');
+
+    assert.ok(onStop, 'Activity stop callback should exist');
+    assert.match(onStop[1], /iput-boolean v0, p0, Lcom\/melodix\/music\/MainActivity;->sfResumePending:Z/);
+    assert.ok(onResume, 'Activity resume callback should exist');
+    assert.match(onResume[1], /sfResumePending:Z[\s\S]*?StartupLoadWatchdog;->armAfterResume\(Landroid\/webkit\/WebView;\)V/);
+    assert.match(watchdog, /\.method public static armAfterResume\(Landroid\/webkit\/WebView;\)V[\s\S]*?const-wide\/16 v2, 0x1f40/);
+    assert.match(watchdog, /WebView;->getProgress\(\)I[\s\S]*?Lzk0;-><init>\(Lcom\/melodix\/music\/MainActivity;ZI\)V[\s\S]*?MainActivity;->D\(Z\)V/);
+    assert.match(onResume[1], /window\.__sfEnsureMobileShell\) window\.__sfEnsureMobileShell\(\)/);
 });

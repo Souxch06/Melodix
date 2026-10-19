@@ -16,6 +16,8 @@ test('default Spotify login page keeps the password option available', () => {
         }
     };
     const createdLink = { style: {} };
+    const createdStyles = [];
+    const listeners = [];
     const viewport = {
         content: 'width=980, initial-scale=1',
         setAttribute(name, value) {
@@ -28,10 +30,15 @@ test('default Spotify login page keeps the password option available', () => {
                 if (selector === 'meta[name="viewport"]') return viewport;
                 return selector.startsWith('section>') ? anchor : null;
             },
+            getElementById() { return null; },
             createElement(tagName) {
-                assert.equal(tagName, 'a');
-                return createdLink;
-            }
+                if (tagName === 'a') return createdLink;
+                if (tagName === 'style') return { textContent: '' };
+                assert.fail(`Unexpected element: ${tagName}`);
+            },
+            head: { appendChild(element) { createdStyles.push(element); } },
+            documentElement: { appendChild(element) { createdStyles.push(element); } },
+            addEventListener(name, handler, options) { listeners.push({ name, handler, options }); }
         },
         window: { location: { href: 'https://accounts.spotify.com/en/login?continue=home' } }
     };
@@ -39,7 +46,19 @@ test('default Spotify login page keeps the password option available', () => {
     const script = fs.readFileSync(path.join(root, 'assets/classic_login.js'), 'utf8');
     vm.runInNewContext(script, context);
 
-    assert.equal(viewport.content, 'width=device-width, initial-scale=1, viewport-fit=cover');
+    assert.equal(
+        viewport.content,
+        'width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover'
+    );
+    assert.equal(createdStyles.length, 1);
+    assert.match(createdStyles[0].textContent, /position: fixed/);
+    assert.match(createdStyles[0].textContent, /overflow-y: auto/);
+    assert.equal(listeners.filter(({ name }) => name === 'touchmove').length, 1);
+    assert.equal(listeners.filter(({ name }) => name === 'wheel').length, 1);
+    const pinchGuard = listeners.find(({ name }) => name === 'touchmove');
+    let pinchPrevented = false;
+    pinchGuard.handler({ touches: [{}, {}], cancelable: true, preventDefault() { pinchPrevented = true; } });
+    assert.equal(pinchPrevented, true);
     assert.equal(createdLink.innerText, 'Email + Password Classic Login');
     assert.equal(createdLink.className, 'fuckd');
     assert.match(createdLink.style.cssText, /box-sizing:border-box;width:100%;max-width:100%;min-height:44px/);
@@ -56,19 +75,24 @@ test('login screen adds a device-width viewport when the provider page has none'
                 if (selector === 'meta[name="viewport"]') return viewport;
                 return null;
             },
+            getElementById() { return null; },
             createElement(tagName) {
-                assert.equal(tagName, 'meta');
-                return {
-                    setAttribute(name, value) {
-                        if (name === 'content') this.content = value;
-                    }
-                };
+                if (tagName === 'meta') {
+                    return {
+                        setAttribute(name, value) {
+                            if (name === 'content') this.content = value;
+                        }
+                    };
+                }
+                if (tagName === 'style') return { textContent: '' };
+                assert.fail(`Unexpected element: ${tagName}`);
             },
             head: {
                 appendChild(element) {
-                    viewport = element;
+                    if (element.name === 'viewport') viewport = element;
                 }
-            }
+            },
+            documentElement: { appendChild() {} }
         },
         window: { location: { href: 'https://accounts.spotify.com/en/login' } }
     };
@@ -78,7 +102,10 @@ test('login screen adds a device-width viewport when the provider page has none'
 
     assert.ok(viewport);
     assert.equal(viewport.name, 'viewport');
-    assert.equal(viewport.content, 'width=device-width, initial-scale=1, viewport-fit=cover');
+    assert.equal(
+        viewport.content,
+        'width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover'
+    );
 });
 
 test('social login stays the default while its redundant native shortcut is hidden', () => {

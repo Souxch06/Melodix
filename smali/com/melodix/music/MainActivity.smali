@@ -42,6 +42,8 @@
 
 .field public S:Ljava/lang/String;
 
+.field private sfResumePending:Z
+
 .field public volatile T:Landroid/graphics/Bitmap;
 
 .field public volatile U:Z
@@ -4784,7 +4786,7 @@
 
     .line 97
     .line 98
-    const-string v4, "try {\n    window.__sdBg = false;\n    if(window.__sdWasPfint) { window.__sdWasPfint = false; if(typeof firstFuck === \'function\') firstFuck(); }\n    if(window.__sdWasAfint) { window.__sdWasAfint = false; if(typeof addAutoFeatures === \'function\') addAutoFeatures(); }\n    if(window.__sdWasCssint) { window.__sdWasCssint = false; if(typeof addCSSJSHack === \'function\') addCSSJSHack(); }\n} catch(e) {}"
+    const-string v4, "try {\n    window.__sdBg = false;\n    if(window.__sfEnsureMobileShell) window.__sfEnsureMobileShell();\n    if(window.__sdWasPfint) { window.__sdWasPfint = false; if(typeof firstFuck === \'function\') firstFuck(); }\n    if(window.__sdWasAfint) { window.__sdWasAfint = false; if(typeof addAutoFeatures === \'function\') addAutoFeatures(); }\n    if(window.__sdWasCssint) { window.__sdWasCssint = false; if(typeof addCSSJSHack === \'function\') addCSSJSHack(); }\n} catch(e) {}"
 
     .line 99
     .line 100
@@ -4792,6 +4794,13 @@
 
     .line 101
     invoke-virtual {v0, v4, v5}, Landroid/webkit/WebView;->evaluateJavascript(Ljava/lang/String;Landroid/webkit/ValueCallback;)V
+
+    iget-boolean v4, p0, Lcom/melodix/music/MainActivity;->sfResumePending:Z
+    if-eqz v4, :resume_watchdog_done
+    const/4 v4, 0x0
+    iput-boolean v4, p0, Lcom/melodix/music/MainActivity;->sfResumePending:Z
+    invoke-static {v0}, Lcom/melodix/music/StartupLoadWatchdog;->armAfterResume(Landroid/webkit/WebView;)V
+    :resume_watchdog_done
 
     .line 102
     .line 103
@@ -5265,6 +5274,9 @@
 
 .method public final onStop()V
     .locals 2
+
+    const/4 v0, 0x1
+    iput-boolean v0, p0, Lcom/melodix/music/MainActivity;->sfResumePending:Z
 
     .line 1
     invoke-super {p0}, Le6;->onStop()V
