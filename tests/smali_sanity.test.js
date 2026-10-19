@@ -279,6 +279,19 @@ test('full CSS is injected in both Mobile CSS and Wide Window modes', () => {
     assert.match(pageFinished[1], /goto :cond_12[\s\S]*?:cond_12[\s\S]*?AppSingleton;->z:Ljava\/lang\/String;/);
 });
 
+test('native touch capability reaches JS without enabling the tablet shell on Leanback TV', () => {
+    const webViewClient = fs.readFileSync(path.join(repo, 'smali/c91.smali'), 'utf8');
+    const pageFinished = webViewClient.match(
+        /\.method public final onPageFinished\(Landroid\/webkit\/WebView;Ljava\/lang\/String;\)V([\s\S]*?)\.end method/
+    );
+
+    assert.ok(pageFinished, 'WebView page-finished callback should exist');
+    assert.match(pageFinished[1], /getPackageManager\(\)[\s\S]*?android\.hardware\.touchscreen[\s\S]*?hasSystemFeature\(Ljava\/lang\/String;\)Z/);
+    assert.match(pageFinished[1], /android\.software\.leanback[\s\S]*?hasSystemFeature\(Ljava\/lang\/String;\)Z[\s\S]*?if-eqz v3, :sf_touch_configured[\s\S]*?const\/4 v6, 0x0/);
+    assert.match(pageFinished[1], /touchInput: %b/);
+    assert.match(pageFinished[1], /filled-new-array\/range \{v9 \.\. v23\}[\s\S]*?const\/16 v2, 0xf/);
+});
+
 test('returning from background rearms recovery and restores a completed WebView', () => {
     const activity = fs.readFileSync(path.join(repo, 'smali/com/melodix/music/MainActivity.smali'), 'utf8');
     const onStop = activity.match(/\.method public final onStop\(\)V([\s\S]*?)\.end method/);

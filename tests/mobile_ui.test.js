@@ -49,14 +49,40 @@ test('touch tablets receive the mobile shell even when the viewport is wider tha
     const fallback = bridge.match(/function ensureMobileShellFallbackStyles\(\) \{([\s\S]*?)\n    \}/);
 
     assert.match(bridge, /function hasTouchInput\(\)/);
+    assert.match(bridge, /typeof config\.touchInput === 'boolean'\) return config\.touchInput/);
     assert.match(bridge, /maxTouchPoints \|\| navigatorInfo\.msMaxTouchPoints/);
     assert.match(bridge, /'ontouchstart' in window/);
+    assert.match(bridge, /any-pointer: coarse/);
     assert.match(bridge, /\.matches \|\| touchInput/);
     assert.match(bridge, /config\.guiMode === "bigwindow" && !isCompactWindow && !hasTouch/);
     assert.ok(fallback, 'touch fallback stylesheet should be available');
     assert.match(fallback[1], /body\.sf-mobile-shell #sf-mobile-nav\s*\{[\s\S]*?display: grid !important/);
     assert.doesNotMatch(fallback[1], /@media screen and \(max-width: 820px\)/);
     assert.match(bridge, /body\.sf-mobile-shell #global-nav-bar/);
+});
+
+test('native touchscreen capability survives a desktop UA while Leanback TV remains non-touch UI', () => {
+    const bridge = read('assets/spotify_bridge.js');
+    const touchHelper = bridge.match(/function hasTouchInput\(\) \{[\s\S]*?\n    \}/);
+    assert.ok(touchHelper, 'touch capability helper should exist');
+
+    const tabletTouch = vm.runInNewContext(
+        `${touchHelper[0]}; hasTouchInput();`,
+        { window: { SF_CONFIG: { touchInput: true }, navigator: { maxTouchPoints: 0 } } }
+    );
+    const leanbackTvTouch = vm.runInNewContext(
+        `${touchHelper[0]}; hasTouchInput();`,
+        {
+            window: {
+                SF_CONFIG: { touchInput: false },
+                navigator: { maxTouchPoints: 10 },
+                ontouchstart: null
+            }
+        }
+    );
+
+    assert.equal(tabletTouch, true);
+    assert.equal(leanbackTvTouch, false);
 });
 
 test('phone-sized windows keep the login WebView on the device width', () => {

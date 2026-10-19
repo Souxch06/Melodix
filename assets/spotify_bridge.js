@@ -2134,10 +2134,16 @@
     }
 
     function hasTouchInput() {
+        const config = window.SF_CONFIG || {};
+        if (typeof config.touchInput === 'boolean') return config.touchInput;
         try {
             const navigatorInfo = window.navigator || {};
+            const coarsePointer = typeof window.matchMedia === 'function' && (
+                window.matchMedia('(any-pointer: coarse)').matches ||
+                window.matchMedia('(pointer: coarse)').matches
+            );
             return Number(navigatorInfo.maxTouchPoints || navigatorInfo.msMaxTouchPoints || 0) > 0 ||
-                ('ontouchstart' in window);
+                ('ontouchstart' in window) || coarsePointer;
         } catch (_) {
             return false;
         }

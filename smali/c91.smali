@@ -1350,7 +1350,7 @@
 
 # virtual methods
 .method public final onPageFinished(Landroid/webkit/WebView;Ljava/lang/String;)V
-    .locals 23
+    .locals 24
 
     .line 1
     move-object/from16 v0, p1
@@ -2024,6 +2024,21 @@
     .line 315
     move-result-object v17
 
+    # Report native touchscreen capability so desktop UA spoofing cannot hide tablet touch input.
+    invoke-virtual {v5}, Landroid/content/Context;->getPackageManager()Landroid/content/pm/PackageManager;
+    move-result-object v5
+    const-string v6, "android.hardware.touchscreen"
+    invoke-virtual {v5, v6}, Landroid/content/pm/PackageManager;->hasSystemFeature(Ljava/lang/String;)Z
+    move-result v6
+    const-string v3, "android.software.leanback"
+    invoke-virtual {v5, v3}, Landroid/content/pm/PackageManager;->hasSystemFeature(Ljava/lang/String;)Z
+    move-result v3
+    if-eqz v3, :sf_touch_configured
+    const/4 v6, 0x0
+    :sf_touch_configured
+    invoke-static {v6}, Ljava/lang/Boolean;->valueOf(Z)Ljava/lang/Boolean;
+    move-result-object v23
+
     .line 316
     sget-boolean v5, Lcom/melodix/music/AppSingleton;->T:Z
 
@@ -2106,7 +2121,7 @@
     move-result-object v22
 
     .line 355
-    filled-new-array/range {v9 .. v22}, [Ljava/lang/Object;
+    filled-new-array/range {v9 .. v23}, [Ljava/lang/Object;
 
     .line 356
     .line 357
@@ -2114,7 +2129,7 @@
     move-result-object v1
 
     .line 359
-    const/16 v2, 0xe
+    const/16 v2, 0xf
 
     .line 360
     .line 361
@@ -2126,7 +2141,7 @@
     move-result-object v1
 
     .line 365
-    const-string v2, "window.SF_CONFIG = { isAndAutoEnabled: %b, guiMode: \'%s\', isCanvasDisabled: %b, isFullScreenEnabled: %b, isAmoled: %b, autoPlayMode: \'%s\', closeNowPlay: %b, takeControl: %b, closeLibText: \'%s\', hideStatusBar: %b, statusBarHeight: %d, screenWidth: %d, screenHeight: %d, dockLeftSidebar: %b };"
+    const-string v2, "window.SF_CONFIG = { isAndAutoEnabled: %b, guiMode: \'%s\', isCanvasDisabled: %b, isFullScreenEnabled: %b, isAmoled: %b, autoPlayMode: \'%s\', closeNowPlay: %b, takeControl: %b, closeLibText: \'%s\', hideStatusBar: %b, statusBarHeight: %d, screenWidth: %d, screenHeight: %d, dockLeftSidebar: %b, touchInput: %b };"
 
     .line 366
     .line 367

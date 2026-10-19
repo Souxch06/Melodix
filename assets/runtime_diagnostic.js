@@ -150,6 +150,9 @@
       },
       selectors: presence,
       guiMode: window.SF_CONFIG ? window.SF_CONFIG.guiMode : null,
+      touchInput: window.SF_CONFIG && typeof window.SF_CONFIG.touchInput === 'boolean'
+        ? window.SF_CONFIG.touchInput
+        : null,
       dockLeftSidebar: window.SF_CONFIG
         ? window.SF_CONFIG.dockLeftSidebar
         : null,

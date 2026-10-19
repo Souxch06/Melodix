@@ -77,7 +77,7 @@ function executeDiagnostic() {
         innerWidth: 390,
         screen: { width: 432 },
         visualViewport: { width: 390 },
-        SF_CONFIG: { guiMode: 'csshack', dockLeftSidebar: false },
+        SF_CONFIG: { guiMode: 'csshack', touchInput: true, dockLeftSidebar: false },
         __sfLibraryExpanded: true,
         getComputedStyle: (element) => ({ display: element.display }),
         setTimeout: (callback, delay) => {
@@ -146,6 +146,7 @@ test('Preview diagnostic returns four timed samples with the existing report fie
     assert.equal(samples[0].selectors['[data-testid="now-playing-bar"]'], true);
     assert.equal(Object.values(samples[0].selectors).every((value) => typeof value === 'boolean'), true);
     assert.equal(samples[0].guiMode, 'csshack');
+    assert.equal(samples[0].touchInput, true);
     assert.equal(samples[0].dockLeftSidebar, false);
     assert.equal(samples[0].bodyClasses, 'sf-mobile-shell sf-library-open');
     assert.deepEqual(samples[0].drawer, {
