@@ -25,6 +25,8 @@ test('mobile dock reuses Spotify home, search, and library controls', () => {
     const bridge = read('assets/spotify_bridge.js');
 
     assert.match(bridge, /function installMobileNavigation\(\)/);
+    assert.match(bridge, /document\.body\.classList\.add\('sf-mobile-shell'\)/);
+    assert.match(bridge, /childList: true/);
     assert.match(bridge, /data-sf-mobile-action="home"/);
     assert.match(bridge, /data-sf-mobile-action="search"/);
     assert.match(bridge, /data-sf-mobile-action="library"/);
@@ -53,7 +55,10 @@ test('mobile shell initializes before playback and library state can be forced o
     const bridge = read('assets/spotify_bridge.js');
 
     assert.match(bridge, /function initializeMobileShell\(\)/);
-    assert.match(bridge, /document\.addEventListener\('DOMContentLoaded', start/);
+    assert.match(bridge, /const maxRetries = 40/);
+    assert.match(bridge, /document\.addEventListener\('DOMContentLoaded', ensure/);
+    assert.match(bridge, /window\.addEventListener\('load', ensure/);
+    assert.match(bridge, /window\.__sfEnsureMobileShell = ensure/);
     assert.match(bridge, /window\.addCSSJSHack\(\)/);
     assert.match(bridge, /const shouldOpen = typeof forceOpen === 'boolean' \? forceOpen : !mobileLibraryOpen/);
     assert.match(bridge, /function setMobileLibraryOpen\(shouldOpen\)/);

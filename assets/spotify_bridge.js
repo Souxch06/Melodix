@@ -871,6 +871,9 @@
     window.SF_UPDATE = function(config) {
         if (!config) return;
         window.SF_CONFIG = Object.assign(window.SF_CONFIG || {}, config);
+        if (typeof window.__sfEnsureMobileShell === 'function') {
+            window.__sfEnsureMobileShell();
+        }
 
         if (typeof config.isCanvasDisabled !== 'undefined') {
             if (config.isCanvasDisabled) {
@@ -2083,6 +2086,7 @@
 
     function installMobileNavigation() {
         if (!document.body || window.SF_CONFIG?.guiMode !== 'csshack') return;
+        document.body.classList.add('sf-mobile-shell');
 
         let nav = document.getElementById('sf-mobile-nav');
         if (!nav) {
@@ -2193,10 +2197,21 @@
         }
 
         if (!window._sfMobileNavObserver) {
-            window._sfMobileNavObserver = new MutationObserver(syncMobileNavigation);
+            window._sfMobileNavObserver = new MutationObserver(() => {
+                if (!document.getElementById('sf-mobile-nav')) {
+                    if (typeof window.__sfEnsureMobileShell === 'function') {
+                        window.__sfEnsureMobileShell();
+                    } else {
+                        installMobileNavigation();
+                    }
+                    return;
+                }
+                syncMobileNavigation();
+            });
             window._sfMobileNavObserver.observe(document.body, {
                 attributes: true,
-                attributeFilter: ['class']
+                attributeFilter: ['class'],
+                childList: true
             });
         }
         syncMobileNavigation();
@@ -3192,16 +3207,51 @@
     window.searchMediaItems = searchMediaItems;
 
     function initializeMobileShell() {
-        const start = () => {
-            if (window.SF_CONFIG?.guiMode === 'csshack' && typeof window.addCSSJSHack === 'function') {
-                window.addCSSJSHack();
+        const maxRetries = 40;
+        let retries = 0;
+        let retryTimer = null;
+
+        const attempt = () => {
+            retryTimer = null;
+            if (document.getElementById('sf-mobile-nav')) return;
+
+            if (document.body && window.SF_CONFIG?.guiMode === 'csshack') {
+                try {
+                    installMobileNavigation();
+                    if (typeof window.addCSSJSHack === 'function') {
+                        window.addCSSJSHack();
+                    }
+                } catch (_) {
+                    try {
+                        installMobileNavigation();
+                    } catch (_) {}
+                }
+            }
+
+            if (!document.getElementById('sf-mobile-nav') && retries < maxRetries) {
+                retries += 1;
+                retryTimer = window.setTimeout(attempt, 500);
             }
         };
+
+        const ensure = () => {
+            if (document.getElementById('sf-mobile-nav')) {
+                if (retryTimer) window.clearTimeout(retryTimer);
+                retryTimer = null;
+                return;
+            }
+            if (retryTimer) return;
+            if (retries >= maxRetries) retries = 0;
+            attempt();
+        };
+
+        window.__sfEnsureMobileShell = ensure;
         if (document.readyState === 'loading') {
-            document.addEventListener('DOMContentLoaded', start, { once: true });
+            document.addEventListener('DOMContentLoaded', ensure, { once: true });
         } else {
-            window.setTimeout(start, 0);
+            window.setTimeout(ensure, 0);
         }
+        window.addEventListener('load', ensure, { once: true });
     }
 
     initializeMobileShell();
