@@ -102,3 +102,66 @@ s'affiche à **chaque** lancement, avant toute autre chose.
 L'appel au garde est aussi entouré d'un `catch (Throwable)` dans
 `AppSingleton.onCreate` et `MainActivity.onCreate` : si la classe de diagnostic
 était elle-même invalide, elle ne peut plus faire échouer le démarrage.
+
+## diag-4 : la porte de signature, seule fermeture silencieuse connue
+
+Constat de depart : sur la build diag-2, l application revient a l accueil
+immediatement, sans toast et sans dialogue « Dernier plantage Melodix ». Or le
+garde installe un `Thread.UncaughtExceptionHandler` des `onCreate` de
+`AppSingleton` et de `MainActivity`. Une exception non rattrapee aurait donc
+ecrit un rapport et affiche un dialogue au lancement suivant. L absence de ce
+dialogue designe une **fermeture volontaire**, pas un plantage.
+
+Une seule voie de ce type existe dans le code d origine : `MainActivity.u()`.
+
+    boolean u() {
+        if (new AndBridge(this).isSignatureValid()) return true;
+        try {
+            startActivity(Intent(ACTION_VIEW, Uri.parse("https://github.com/Souxch06/Melodix")));
+        } catch (Exception e) {
+            finishAffinity();      // aucune trace, aucun message
+        }
+        return false;              // onCreate fait return-void juste apres
+    }
+
+Deux consequences, toutes deux invisibles pour l utilisateur :
+
+1. si l empreinte du certificat ne correspond pas a `expected_signature_sha256`,
+   `onCreate` s arrete avant `setContentView` : l ecran de l application n est
+   jamais dessine et le lanceur reapparait ;
+2. si `startActivity` echoue (aucun navigateur), `finishAffinity()` ferme la
+   tache sans le moindre message.
+
+La CI derive pourtant l empreinte du keystore de preview et l injecte dans la
+build (`.github/workflows/preview-apk.yml`, etape « Set the preview signing
+fingerprint »). Un decalage d une seule ligne suffit donc a rendre l APK
+inutilisable, en silence.
+
+### Corrections livrees
+
+- `u()` : les builds `.preview` **ne passent plus par la porte**. L application
+  signee garde la verification. Un marqueur `gate-preview-skip` est emis.
+- refus de signature : la build de test **reste ouverte** et affiche l empreinte
+  attendue a l ecran au lieu de se fermer.
+- `NativeCrashGuard.stage()` : chaque etape emet un toast, uniquement pour
+  `.preview`. Un toast deja remis au systeme s affiche meme si le processus
+  meurt juste apres ; le **dernier toast visible** nomme donc la derniere etape
+  atteinte.
+
+### Lecture du resultat sur le telephone
+
+Toasts attendus, dans l ordre :
+
+    Melodix diag-4 : demarrage
+    application
+    activity-create
+    gate-preview-skip
+    signature-ok
+    content-view
+    ready
+
+- la suite complete puis l interface : demarrage retabli ;
+- arret apres un toast : l etape suivante est la fautive, elle est nommee ;
+- aucun toast du tout : le processus meurt avant `Application.onCreate`, ou
+  l APK installe n est pas celui-ci (comparer le numero de version dans
+  Parametres > Applications > Melodix).

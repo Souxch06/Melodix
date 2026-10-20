@@ -2431,6 +2431,54 @@
 
     invoke-static/range {v2 .. v2}, Lcom/melodix/music/NativeCrashGuard;->record(Ljava/lang/Throwable;)V
 
+    # Keep the reason on screen: this is the only trace a silent self-close can
+    # leave, and it names the fingerprint the APK was expected to carry.
+    const v2, 0x7f110052
+
+    invoke-virtual {v0, v2}, Landroid/content/Context;->getString(I)Ljava/lang/String;
+    move-result-object v4
+
+    new-instance v3, Ljava/lang/StringBuilder;
+
+    invoke-direct {v3}, Ljava/lang/StringBuilder;-><init>()V
+
+    const-string v5, "Controle de signature refuse.\n\nCette build de test reste ouverte pour montrer le probleme ; l application normale se ferme ici.\n\nEmpreinte attendue :\n"
+
+    invoke-virtual {v3, v5}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    invoke-virtual {v3, v4}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    const-string v5, "\n\nLe certificat de signature de l APK ne correspond pas a cette empreinte."
+
+    invoke-virtual {v3, v5}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    invoke-virtual {v3}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
+    move-result-object v4
+
+    new-instance v2, Landroid/widget/TextView;
+
+    invoke-direct {v2, v0}, Landroid/widget/TextView;-><init>(Landroid/content/Context;)V
+
+    invoke-virtual {v2, v4}, Landroid/widget/TextView;->setText(Ljava/lang/CharSequence;)V
+
+    const v4, -0x1
+
+    invoke-virtual {v2, v4}, Landroid/widget/TextView;->setTextColor(I)V
+
+    const/high16 v4, 0x41400000
+
+    invoke-virtual {v2, v4}, Landroid/widget/TextView;->setTextSize(F)V
+
+    const v4, -0x1000000
+
+    invoke-virtual {v2, v4}, Landroid/view/View;->setBackgroundColor(I)V
+
+    const/16 v4, 0x18
+
+    invoke-virtual {v2, v4, v4, v4, v4}, Landroid/view/View;->setPadding(IIII)V
+
+    invoke-virtual {v0, v2}, Landroid/app/Activity;->setContentView(Landroid/view/View;)V
+
     return-void
 
     .line 105
@@ -6050,6 +6098,32 @@
 .method public final u()Z
     .locals 3
 
+    # The preview APK is signed by the CI keystore. Letting the signature gate
+    # run there means it can close the app with no message at all, which is the
+    # exact symptom being chased. Preview builds skip the gate; the real app
+    # keeps it.
+    invoke-virtual {p0}, Landroid/content/Context;->getPackageName()Ljava/lang/String;
+
+    move-result-object v0
+
+    const-string v1, ".preview"
+
+    invoke-virtual {v0, v1}, Ljava/lang/String;->endsWith(Ljava/lang/String;)Z
+
+    move-result v0
+
+    if-nez v0, :gate_not_preview
+
+    const-string v1, "gate-preview-skip"
+
+    invoke-static {v1}, Lcom/melodix/music/NativeCrashGuard;->stage(Ljava/lang/String;)V
+
+    const/4 p0, 0x1
+
+    return p0
+
+    :gate_not_preview
+
     .line 1
     new-instance v0, Lcom/melodix/music/AndBridge;
 
@@ -6115,7 +6189,22 @@
     .line 32
     .line 33
     :catch_0
+    # Closing without a message is what made the launch failure invisible. A
+    # preview build stays open so the reason can be shown; the real app closes.
+    invoke-virtual {p0}, Landroid/content/Context;->getPackageName()Ljava/lang/String;
+    move-result-object v0
+
+    const-string v1, ".preview"
+
+    invoke-virtual {v0, v1}, Ljava/lang/String;->endsWith(Ljava/lang/String;)Z
+
+    move-result v0
+
+    if-eqz v0, :gate_keep_running
+
     invoke-virtual {p0}, Landroid/app/Activity;->finishAffinity()V
+
+    :gate_keep_running
 
     .line 34
     .line 35

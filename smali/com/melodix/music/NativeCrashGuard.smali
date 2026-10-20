@@ -181,7 +181,7 @@
     :toast_alive
     # Unconditional marker: it proves which build is installed and that the
     # process reached Application.onCreate before anything else failed.
-    const-string v1, "Melodix preview diag-3 : demarrage"
+    const-string v1, "Melodix preview diag-4 : demarrage"
 
     :toast_show
     const/4 v2, 0x1
@@ -452,6 +452,39 @@
     sget-object v0, Lcom/melodix/music/NativeCrashGuard;->context:Landroid/content/Context;
 
     if-nez v0, :done
+
+    # Phone-only diagnosis: a toast already handed to the system is drawn even
+    # if the process dies right after it, so the last toast names the last stage
+    # that was actually reached. Preview builds only.
+    invoke-virtual {v0}, Landroid/content/Context;->getPackageName()Ljava/lang/String;
+
+    move-result-object v1
+
+    const-string v2, ".preview"
+
+    invoke-virtual {v1, v2}, Ljava/lang/String;->endsWith(Ljava/lang/String;)Z
+
+    move-result v1
+
+    if-eqz v1, :prefs
+
+    const/4 v2, 0x0
+
+    :try_start_toast
+    invoke-static {v0, p0, v2}, Landroid/widget/Toast;->makeText(Landroid/content/Context;Ljava/lang/CharSequence;I)Landroid/widget/Toast;
+
+    move-result-object v1
+
+    invoke-virtual {v1}, Landroid/widget/Toast;->show()V
+    :try_end_toast
+    .catch Ljava/lang/Throwable; {:try_start_toast .. :try_end_toast} :catch_toast
+
+    goto :prefs
+
+    :catch_toast
+    move-exception v1
+
+    :prefs
 
     :try_start_0
     const-string v1, "melodix_native"
