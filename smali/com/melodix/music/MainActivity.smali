@@ -82,6 +82,7 @@
 .field private nativeReturnJson:Ljava/lang/String;
 .field private nativeReturnExpectedId:Ljava/lang/String;
 .field private nativeReturnSearch:Ljava/lang/String;
+.field private nativeSearchWatcherAttached:Z
 
 
 # direct methods
@@ -6741,6 +6742,21 @@
     invoke-virtual {v1, v3}, Landroid/widget/TextView;->setTextColor(I)V
 
     :set_default_screen
+    iget-boolean v0, p0, Lcom/melodix/music/MainActivity;->nativeSearchWatcherAttached:Z
+    if-nez v0, :check_default_screen
+    const v0, 0x7f090233
+    invoke-virtual {p0, v0}, Landroid/app/Activity;->findViewById(I)Landroid/view/View;
+    move-result-object v1
+    if-eqz v1, :check_default_screen
+    check-cast v1, Landroid/widget/EditText;
+    new-instance v2, Lcom/melodix/music/NativeSearchWatcher;
+    invoke-direct {v2, p0, v1}, Lcom/melodix/music/NativeSearchWatcher;-><init>(Lcom/melodix/music/MainActivity;Landroid/widget/EditText;)V
+    invoke-virtual {v1, v2}, Landroid/widget/TextView;->addTextChangedListener(Landroid/text/TextWatcher;)V
+    invoke-virtual {v1, v2}, Landroid/widget/TextView;->setOnEditorActionListener(Landroid/widget/TextView$OnEditorActionListener;)V
+    const/4 v0, 0x1
+    iput-boolean v0, p0, Lcom/melodix/music/MainActivity;->nativeSearchWatcherAttached:Z
+
+    :check_default_screen
     iget-object v0, p0, Lcom/melodix/music/MainActivity;->nativeCurrentScreen:Ljava/lang/String;
     if-nez v0, :show_done
     const-string v0, "home"
@@ -7472,6 +7488,31 @@
     return-void
 .end method
 
+.method public final performNativeLiveSearch(Ljava/lang/String;)V
+    .locals 3
+
+    if-eqz p1, :live_search_done
+    invoke-virtual {p1}, Ljava/lang/String;->trim()Ljava/lang/String;
+    move-result-object v0
+    invoke-virtual {v0}, Ljava/lang/String;->isEmpty()Z
+    move-result v1
+    if-nez v1, :live_search_done
+
+    iget-object v1, p0, Lcom/melodix/music/MainActivity;->nativeCurrentScreen:Ljava/lang/String;
+    if-eqz v1, :live_search_done
+    const-string v2, "search"
+    invoke-virtual {v1, v2}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    move-result v1
+    if-eqz v1, :live_search_done
+
+    iput-object v0, p0, Lcom/melodix/music/MainActivity;->nativeExpectedSearch:Ljava/lang/String;
+    const-string v1, "window.searchMediaItems"
+    invoke-virtual {p0, v1, v0}, Lcom/melodix/music/MainActivity;->runNativeFunction(Ljava/lang/String;Ljava/lang/String;)V
+
+    :live_search_done
+    return-void
+.end method
+
 .method public final onNativeSearchSubmit(Landroid/view/View;)V
     .locals 6
 
@@ -7480,6 +7521,18 @@
     move-result-object v0
     if-eqz v0, :native_search_submit_done
     check-cast v0, Landroid/widget/EditText;
+    invoke-virtual {v0}, Landroid/view/View;->clearFocus()V
+    const-string v4, "input_method"
+    invoke-virtual {p0, v4}, Landroid/content/Context;->getSystemService(Ljava/lang/String;)Ljava/lang/Object;
+    move-result-object v4
+    if-eqz v4, :read_search_text
+    check-cast v4, Landroid/view/inputmethod/InputMethodManager;
+    invoke-virtual {v0}, Landroid/view/View;->getWindowToken()Landroid/os/IBinder;
+    move-result-object v5
+    const/4 v2, 0x0
+    invoke-virtual {v4, v5, v2}, Landroid/view/inputmethod/InputMethodManager;->hideSoftInputFromWindow(Landroid/os/IBinder;I)Z
+
+    :read_search_text
     invoke-virtual {v0}, Landroid/widget/EditText;->getText()Landroid/text/Editable;
     move-result-object v1
     invoke-virtual {v1}, Ljava/lang/Object;->toString()Ljava/lang/String;
@@ -7625,6 +7678,14 @@
     const-string v2, "/show/"
     invoke-virtual {p1, v2}, Ljava/lang/String;->contains(Ljava/lang/CharSequence;)Z
     move-result v3
+    if-nez v3, :native_collection
+    const-string v2, ":collection"
+    invoke-virtual {p1, v2}, Ljava/lang/String;->contains(Ljava/lang/CharSequence;)Z
+    move-result v3
+    if-nez v3, :native_collection
+    const-string v2, "/collection"
+    invoke-virtual {p1, v2}, Ljava/lang/String;->contains(Ljava/lang/CharSequence;)Z
+    move-result v3
     if-eqz v3, :native_open_single
 
 :native_collection
@@ -7678,7 +7739,7 @@
 .method public final onNativePlayPauseClick(Landroid/view/View;)V
     .locals 1
 
-    const-string v0, "(function(){if(typeof window.actPlayPause===\'function\'){window.actPlayPause();return;}var b=document.querySelector(\'[data-testid=\"control-button-playpause\"]\')||document.querySelector(\'button[aria-label=\"Play\"],button[aria-label=\"Pause\"],button[aria-label=\"Lecture\"]\');if(b){b.click();}})();"
+    const-string v0, "(function(){window.__sfUserRequestedPause=Boolean(window.playing);if(!window.playing){window.__sfLastPlayRequestAt=Date.now();}if(typeof window.actPlayPause===\'function\'){window.actPlayPause();return;}var b=document.querySelector(\'[data-testid=\"control-button-playpause\"]\')||document.querySelector(\'button[aria-label=\"Play\"],button[aria-label=\"Pause\"],button[aria-label=\"Lecture\"]\');if(b){b.click();}})();"
     invoke-virtual {p0, v0}, Lcom/melodix/music/MainActivity;->runNativeJavascript(Ljava/lang/String;)V
     return-void
 .end method

@@ -674,4 +674,26 @@ test('Home separates user playlists from Spotify official recommendations and pr
     assert.ok(layout.includes('@drawable/next'));
 });
 
+test('playback stability and fast live search optimizations are active across Smali and JS', () => {
+    const c40 = read('smali/c40.smali');
+    const m9 = read('smali/m9.smali');
+    const c91 = read('smali/c91.smali');
+    const bridge = read('assets/spotify_bridge.js');
+    const activity = read('smali/com/melodix/music/MainActivity.smali');
+    const watcher = read('smali/com/melodix/music/NativeSearchWatcher.smali');
+
+    assert.match(c40, /\.method public static a\(Landroid\/content\/ContextWrapper;\)V\s+\.locals 12\s+return-void/);
+    assert.match(m9, /:cond_0\s+goto :cond_2/);
+    assert.match(c91, /:cond_2c\s+goto\/16 :cond_31/);
+    assert.match(c91, /const-string v0, "akamaized\.net"/);
+    assert.match(bridge, /if \(window\.__sfMelodixBridgeCompleted\)/);
+    assert.doesNotMatch(bridge, /AndBridge\.deferMessage\('reload'\);\s*location\.reload\(\)/);
+    assert.match(bridge, /limit:\s*12/);
+    assert.match(bridge, /window\.__sfSearchCache/);
+    assert.match(activity, /performNativeLiveSearch\(Ljava\/lang\/String;\)V/);
+    assert.match(activity, /NativeSearchWatcher;-><init>/);
+    assert.match(watcher, /implements Landroid\/text\/TextWatcher;/);
+});
+
+
 

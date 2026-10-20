@@ -632,6 +632,8 @@
 
     .line 12
     :cond_0
+    goto :cond_2
+
     invoke-static {}, Lm9;->c()Landroid/content/Context;
 
     .line 13

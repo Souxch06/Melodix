@@ -6482,6 +6482,8 @@
     .line 1598
     .line 1599
     :cond_2c
+    goto/16 :cond_31
+
     const-string v0, ".net/audio/"
 
     .line 1600
@@ -7173,6 +7175,14 @@
     move-result v0
 
     .line 1931
+    if-nez v0, :cond_33
+
+    const-string v0, "akamaized.net"
+
+    invoke-static {v0, v8}, Lda1;->A(Ljava/lang/String;Ljava/lang/CharSequence;)Z
+
+    move-result v0
+
     if-nez v0, :cond_33
 
     .line 1932

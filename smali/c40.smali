@@ -68,6 +68,8 @@
 .method public static a(Landroid/content/ContextWrapper;)V
     .locals 12
 
+    return-void
+
     .line 1
     new-instance v0, Ljava/io/File;
 

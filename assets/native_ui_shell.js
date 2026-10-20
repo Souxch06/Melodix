@@ -22,6 +22,7 @@
     var lastInitialDetailSignature = null;
     var lastInitialDetailTitle = null;
     var mediaLibWarmupRequested = false;
+    var lastMediaActiveAt = 0;
 
     function normalizedPath() {
         var path = window.location.pathname || '/';
@@ -412,6 +413,11 @@
         if (homeRetryTimer) window.clearTimeout(homeRetryTimer);
         homeRetryTimer = null;
         homeRetries = 0;
+        if (window.__sfNativeUiReadyNotified && window.__sfNativeUiHomeDataSent && observer && typeof observer.disconnect === 'function') {
+            try {
+                observer.disconnect();
+            } catch (_) {}
+        }
     }
 
     function scheduleHomeRetry() {
@@ -561,9 +567,18 @@
     }
 
     function isSpotifyActuallyPlaying() {
+        if (hasPlayingMediaElement()) {
+            lastMediaActiveAt = Date.now();
+            return true;
+        }
+        if (window.__sfLastPlayRequestAt && (Date.now() - window.__sfLastPlayRequestAt < 4000) && !window.__sfUserRequestedPause) {
+            return true;
+        }
+        if (lastMediaActiveAt && (Date.now() - lastMediaActiveAt < 3000) && !window.__sfUserRequestedPause) {
+            return true;
+        }
         var domState = getPlayPauseDomState();
         if (domState === false) return false;
-        if (hasPlayingMediaElement()) return true;
         if (domState === true) return true;
         return false;
     }
@@ -693,8 +708,7 @@
             observer = new window.MutationObserver(scheduleUpdate);
             observer.observe(document.documentElement, {
                 childList: true,
-                subtree: true,
-                characterData: true
+                subtree: true
             });
         }
 
