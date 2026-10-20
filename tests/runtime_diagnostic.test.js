@@ -190,6 +190,8 @@ test('Preview diagnostic returns four timed samples with the existing report fie
         nativeUiShellCompleted: true,
         nativeUiShellErrors: 0,
         nativeUiReadyNotified: true,
+        nativeUiRoute: null,
+        nativeHomeRouteRecognized: null,
         nativeHomeRowsCount: 4,
         nativeHomeDataSent: true,
         customStylesheetInjected: true

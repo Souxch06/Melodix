@@ -21,6 +21,7 @@
     var initialScreen = 'home';
     var lastInitialDetailSignature = null;
     var lastInitialDetailTitle = null;
+    var mediaLibWarmupRequested = false;
 
     function normalizedPath() {
         var path = window.location.pathname || '/';
@@ -28,12 +29,20 @@
         return path || '/';
     }
 
+    function spotifyRoutePath() {
+        var parts = normalizedPath().split('/').filter(Boolean);
+        // Spotify may prefix app routes with a locale, for example /intl-fr/.
+        // Strip only that known locale segment; never inspect or retain IDs here.
+        if (parts.length && /^intl-[a-z]{2}(?:-[a-z]{2})?$/i.test(parts[0])) parts.shift();
+        return parts.length ? '/' + parts.join('/') : '/';
+    }
+
     function isSpotifyHome() {
-        return window.location.hostname === 'open.spotify.com' && HOME_PATHS.indexOf(normalizedPath()) >= 0;
+        return window.location.hostname === 'open.spotify.com' && HOME_PATHS.indexOf(spotifyRoutePath()) >= 0;
     }
 
     function nativeScreenForPath() {
-        var path = normalizedPath();
+        var path = spotifyRoutePath();
         if (HOME_PATHS.indexOf(path) >= 0) return 'home';
         if (path === '/search' || path.indexOf('/search/') === 0) return 'search';
         if (path === '/collection' || path.indexOf('/collection/') === 0 || path.indexOf('/your-library') === 0) return 'library';
@@ -83,7 +92,7 @@
             var query = url.searchParams.get('query') || url.searchParams.get('q') || '';
             if (query) return String(query).trim().slice(0, 100);
         } catch (_) {}
-        pathParts = normalizedPath().split('/').filter(Boolean);
+        pathParts = spotifyRoutePath().split('/').filter(Boolean);
         if (pathParts.length > 1 && pathParts[0] === 'search') {
             try {
                 return decodeURIComponent(pathParts.slice(1).join('/')).trim().slice(0, 100);
@@ -278,28 +287,54 @@
         ];
         var seen = new Set(rows.map(function(row) { return row.uri; }).filter(Boolean));
         var result = rows.slice();
+        var sidebar;
 
-        if (!library || result.length >= 8) return result;
-        groups.forEach(function(group) {
-            var items = Array.isArray(library[group[0]]) ? library[group[0]] : [];
-            items.forEach(function(item) {
-                var uri = nativeSpotifyUri(item && (item.uri || item.id || item.href));
-                var title = String(item && (item.name || item.title) || '').trim();
-                var artistList = item && Array.isArray(item.artists)
-                    ? item.artists.filter(Boolean).join(', ')
-                    : '';
-                var subtitle = String(artistList || item && (item.owner || item.description || item.type) || '').trim();
-                if (!uri || !title || seen.has(uri) || result.length >= 8) return;
-                seen.add(uri);
-                result.push({
-                    title: title,
-                    subtitle: subtitle,
-                    section: group[1],
-                    image: safeSpotifyImage(item.image || item.cover || item.artwork || ''),
-                    uri: uri
+        if (!library && !mediaLibWarmupRequested && typeof window.checkMediaLib === 'function') {
+            mediaLibWarmupRequested = true;
+            try {
+                window.checkMediaLib();
+            } catch (_) {}
+        }
+
+        if (library && result.length < 8) {
+            groups.forEach(function(group) {
+                var items = Array.isArray(library[group[0]]) ? library[group[0]] : [];
+                items.forEach(function(item) {
+                    var uri = nativeSpotifyUri(item && (item.uri || item.id || item.href));
+                    var title = String(item && (item.name || item.title) || '').trim();
+                    var artistList = item && Array.isArray(item.artists)
+                        ? item.artists.filter(Boolean).join(', ')
+                        : '';
+                    var subtitle = String(artistList || item && (item.owner || item.description || item.type) || '').trim();
+                    if (!uri || !title || seen.has(uri) || result.length >= 8) return;
+                    seen.add(uri);
+                    result.push({
+                        title: title,
+                        subtitle: subtitle,
+                        section: group[1],
+                        image: safeSpotifyImage(item.image || item.cover || item.artwork || ''),
+                        uri: uri
+                    });
                 });
             });
-        });
+        }
+
+        if (result.length < 8 && document && typeof document.querySelector === 'function') {
+            sidebar = document.querySelector('#Desktop_LeftSidebar_Id');
+            if (sidebar && typeof sidebar.querySelectorAll === 'function') {
+                collectHomeRows(sidebar).forEach(function(row) {
+                    if (!row.uri || !row.title || seen.has(row.uri) || result.length >= 8) return;
+                    seen.add(row.uri);
+                    result.push({
+                        title: row.title,
+                        subtitle: row.subtitle,
+                        section: row.section || 'Your library',
+                        image: row.image,
+                        uri: row.uri
+                    });
+                });
+            }
+        }
         return result;
     }
 
@@ -321,7 +356,9 @@
     function updateHomeRows(mainView) {
         var rows;
         var signature;
-        if (!isSpotifyHome() || !mainView) {
+        var homeRoute = window.location.hostname === 'open.spotify.com' && isSpotifyHome();
+        window.__sfNativeUiHomeRouteRecognized = homeRoute;
+        if (!homeRoute || !mainView) {
             clearHomeRetry();
             return;
         }
@@ -347,7 +384,7 @@
         var rows;
         var signature;
         var bridge;
-        if (initialScreen !== 'detail' || normalizedPath() !== initialPath || !mainView) return;
+        if (initialScreen !== 'detail' || spotifyRoutePath() !== initialPath || !mainView) return;
 
         titleNode = mainView.querySelector
             ? mainView.querySelector('h1, [data-testid="entityTitle"], [data-testid="entity-title"]')
@@ -446,7 +483,7 @@
 
     window.__sfNativeRequestHome = function() {
         if (window.location.hostname !== 'open.spotify.com') return false;
-        if (HOME_PATHS.indexOf(normalizedPath()) < 0) {
+        if (!isSpotifyHome()) {
             window.location.assign('https://open.spotify.com/');
             return false;
         }
@@ -487,8 +524,9 @@
         if (window._sfNativeUiShellListenersAttached) return;
         window._sfNativeUiShellListenersAttached = true;
         window.__sfNativeUiShellReady = true;
-        initialPath = normalizedPath();
+        initialPath = spotifyRoutePath();
         initialScreen = nativeScreenForPath();
+        window.__sfNativeUiRoute = initialScreen;
 
         window.addEventListener('popstate', scheduleUpdate);
         window.addEventListener('hashchange', scheduleUpdate);

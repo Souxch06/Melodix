@@ -6887,16 +6887,18 @@
     check-cast v1, Landroid/widget/Button;
     if-eqz v0, :native_tab_inactive
     const v2, 0xff1ed760
-    const v3, 0xff12351f
+    const v3, 0xff163520
     goto :native_tab_apply
 
     :native_tab_inactive
-    const v2, -0x4a3f48
-    const v3, 0xff0b100d
+    const v2, -0x5e514f
+    const/4 v3, 0x0
 
     :native_tab_apply
     invoke-virtual {v1, v2}, Landroid/widget/TextView;->setTextColor(I)V
-    invoke-virtual {v1, v3}, Landroid/view/View;->setBackgroundColor(I)V
+    invoke-static {v3}, Landroid/content/res/ColorStateList;->valueOf(I)Landroid/content/res/ColorStateList;
+    move-result-object v3
+    invoke-virtual {v1, v3}, Landroid/view/View;->setBackgroundTintList(Landroid/content/res/ColorStateList;)V
 
     :native_tab_style_done
     return-void

@@ -50,6 +50,11 @@ test('native shell overlays, but does not replace or detach, the existing WebVie
     assert.match(layout, /android:id="@id\/nativePlayerArtwork"/);
     assert.match(layout, /android:id="@id\/nativePlayerLargeArtwork"/);
     assert.match(layout, /android:id="@id\/nativeHomeTab"/);
+    assert.match(layout, /@drawable\/native_shell_background/);
+    assert.match(layout, /@drawable\/native_mini_player_bg/);
+    assert.match(layout, /@drawable\/native_nav_home/);
+    assert.match(layout, /@drawable\/native_nav_search/);
+    assert.match(layout, /@drawable\/native_nav_library/);
     assert.match(layout, /android:onClick="onNativePlayPauseClick"/);
     assert.match(layout, /android:onClick="onNativeSearchSubmit"/);
     assert.match(layout, /android:id="@id\/nativePlayerPanel"/);
@@ -88,6 +93,7 @@ test('native bridge exposes UI callbacks and routes media, search and player dat
     assert.doesNotMatch(hotfixList, /native_ui_shell\.js/);
     assert.doesNotMatch(read('assets/spotify_bridge.js'), /notifyNativeUiReady\(/);
     assert.match(activity, /\.method public final showNativeUi\(\)V/);
+    assert.match(activity, /styleNativeTab[\s\S]*?setBackgroundTintList/);
     assert.match(activity, /\.method public final postNativeUiRoute\(Ljava\/lang\/String;\)V/);
     assert.match(activity, /\.method public final applyNativeUiData\(Ljava\/lang\/String;Ljava\/lang\/String;\)V/);
     assert.match(activity, /\.method public final runNativeJavascript\(Ljava\/lang\/String;\)V/);
@@ -228,6 +234,61 @@ test('Home uses saved library items as a fallback when Spotify has no visible Ho
     }]);
 });
 
+test('localized Spotify Home routes still collect and send Home rows', () => {
+    const routes = [];
+    const calls = [];
+    const mainView = { querySelectorAll: () => [] };
+    const document = {
+        readyState: 'complete',
+        documentElement: {},
+        querySelector: (selector) => selector === '#main-view'
+            ? mainView
+            : selector.indexOf('user-widget-link') >= 0 ? {} : null,
+        addEventListener: () => {}
+    };
+    class TestMutationObserver {
+        observe() {}
+    }
+    const window = {
+        location: {
+            hostname: 'open.spotify.com',
+            pathname: '/intl-fr/',
+            href: 'https://open.spotify.com/intl-fr/',
+            assign: () => {}
+        },
+        mediaLib: {
+            playlists: [{
+                id: 'spotify:playlist:fr123',
+                name: 'Sélection du jour',
+                image: 'https://i.scdn.co/image/fr-cover',
+                type: 'Playlist'
+            }]
+        },
+        AndBridge: {
+            onNativeUiRoute: (screen) => routes.push(screen),
+            onNativeUiReady: () => {},
+            onNativeUiData: (screen, data) => calls.push({ screen, data })
+        },
+        MutationObserver: TestMutationObserver,
+        addEventListener: () => {},
+        setTimeout: () => 1,
+        clearTimeout: () => {}
+    };
+
+    vm.runInNewContext(read('assets/native_ui_shell.js'), { window, document, URL });
+
+    assert.deepEqual(routes, ['home']);
+    assert.equal(calls.length, 1);
+    assert.equal(calls[0].screen, 'home');
+    assert.deepEqual(JSON.parse(calls[0].data), [{
+        title: 'Sélection du jour',
+        subtitle: 'Playlist',
+        section: 'Your playlists',
+        image: 'https://i.scdn.co/image/fr-cover',
+        uri: 'spotify:playlist:fr123'
+    }]);
+});
+
 test('native shell routes a Spotify detail deep link and transfers its title and rows', () => {
     const routes = [];
     const calls = [];
@@ -319,8 +380,8 @@ test('native search deep links preserve their query in the native search field',
     const window = {
         location: {
             hostname: 'open.spotify.com',
-            pathname: '/search',
-            href: 'https://open.spotify.com/search?query=Jazz+Funk',
+            pathname: '/intl-fr/search',
+            href: 'https://open.spotify.com/intl-fr/search?query=Jazz+Funk',
             assign: () => {}
         },
         AndBridge: {

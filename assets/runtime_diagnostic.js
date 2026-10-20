@@ -202,6 +202,12 @@
           ? window.__sfNativeUiShellErrors
           : null,
         nativeUiReadyNotified: window.__sfNativeUiReadyNotified === true,
+        nativeUiRoute: ['home', 'search', 'library', 'detail'].indexOf(window.__sfNativeUiRoute) >= 0
+          ? window.__sfNativeUiRoute
+          : null,
+        nativeHomeRouteRecognized: typeof window.__sfNativeUiHomeRouteRecognized === 'boolean'
+          ? window.__sfNativeUiHomeRouteRecognized
+          : null,
         nativeHomeRowsCount: Number.isInteger(window.__sfNativeUiHomeRowsCount)
           ? window.__sfNativeUiHomeRowsCount
           : null,
