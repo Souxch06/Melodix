@@ -285,3 +285,44 @@ La redefinition est supprimee : la classe se charge a nouveau.
   d empreinte en CI, versionCode croissant) restent en place : elles etaient
   necessaires mais ne pouvaient rien afficher tant que la classe ne se chargeait
   pas.
+
+### diag-7 : deuxieme erreur, puis lancement confirme
+
+Apres suppression de la redefinition, la classe se charge mais le verificateur
+refuse `onCreate` :
+
+    java.lang.VerifyError: Verifier rejected class com.melodix.music.MainActivity:
+    void onCreate(android.os.Bundle) failed to verify:
+    [0x108] args to 'if' (Conflict, Imprecise Constant: 127) must be integral
+
+Cause : le marqueur de demarrage avait ete ecrit directement dans `onCreate`,
+en reutilisant `v2`, qui contient `SDK_INT` et sert plus loin a un `if-lt`.
+Le registre devenait ambigu sur ce chemin, donc la methode entiere etait
+rejetee. Le dessin du marqueur est deplace dans
+`NativeCrashGuard.showLaunchMarker(Activity)`, qui possede ses propres
+registres ; `onCreate` ne fait plus qu un `invoke-static/range {p0 .. p0}`.
+
+### Resultat du lancement reel
+
+Execution sur emulateur Android 15 (API 35), APK publie :
+
+    installed: versionCode=1020376  versionName=1.2.2-74b77a5
+    release advertises: 74b77a5e3fb4fe44e3e7bc71f24732ab96ad807f
+    resumed: com.android.permissioncontroller/.GrantPermissionsActivity
+    fatal: (aucune ligne)
+
+- plus aucune `FATAL EXCEPTION` pour `com.melodix.music.preview` ;
+- l activite au premier plan est la demande de permission declenchee par
+  l application elle-meme (`BLUETOOTH_CONNECT`), ce qui prouve que `onCreate`
+  s execute jusqu a la demande de permission ;
+- le tampon de plantage ne contient plus qu un abandon de la pile Bluetooth de
+  l emulateur (`droid.bluetooth`, SIGABRT), sans rapport avec Melodix.
+
+### Limites connues
+
+- `last_stage` n a pas pu etre relu pendant cette execution (`adb root` n a pas
+  pris effet a temps sur l image `google_apis`). Le marqueur et le dialogue de
+  plantage restent les canaux utilisables depuis le telephone.
+- Le retour systeme ne ramene plus a l accueil depuis un ecran natif : le
+  dispatcher androidx est obfusque et sa classe de callback est `final`, donc
+  non heritable. Le bouton retour de l interface reste fonctionnel.
