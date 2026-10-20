@@ -333,10 +333,24 @@
     invoke-virtual {v0, v1}, Landroid/widget/LinearLayout;->setOrientation(I)V
     const/16 v1, 0x11
     invoke-virtual {v0, v1}, Landroid/widget/LinearLayout;->setGravity(I)V
-    const/4 v1, 0x4
+    # Subtle hero gradient, the way Spotify tints a playlist header.
+    new-instance v1, Landroid/graphics/drawable/GradientDrawable;
+    sget-object v3, Landroid/graphics/drawable/GradientDrawable$Orientation;->TOP_BOTTOM:Landroid/graphics/drawable/GradientDrawable$Orientation;
+    const/4 v4, 0x2
+    new-array v4, v4, [I
+    fill-array-data v4, :banner_gradient
+    invoke-direct {v1, v3, v4}, Landroid/graphics/drawable/GradientDrawable;-><init>(Landroid/graphics/drawable/GradientDrawable$Orientation;[I)V
+    invoke-virtual {v0, v1}, Landroid/view/View;->setBackground(Landroid/graphics/drawable/Drawable;)V
+    const/16 v1, 0x10
     invoke-static {p0, v1}, Lcom/melodix/music/NativeUiRowFactory;->dp(Landroid/content/Context;I)I
     move-result v1
-    invoke-virtual {v0, v1, v1, v1, v1}, Landroid/view/View;->setPadding(IIII)V
+    const/16 v3, 0xc
+    invoke-static {p0, v3}, Lcom/melodix/music/NativeUiRowFactory;->dp(Landroid/content/Context;I)I
+    move-result v3
+    const/16 v4, 0x10
+    invoke-static {p0, v4}, Lcom/melodix/music/NativeUiRowFactory;->dp(Landroid/content/Context;I)I
+    move-result v4
+    invoke-virtual {v0, v1, v3, v1, v4}, Landroid/view/View;->setPadding(IIII)V
 
     new-instance v2, Landroid/widget/ImageView;
     invoke-direct {v2, p0}, Landroid/widget/ImageView;-><init>(Landroid/content/Context;)V
@@ -346,7 +360,7 @@
     invoke-direct {v1}, Landroid/graphics/drawable/GradientDrawable;-><init>()V
     const v3, -0xd5d5d6
     invoke-virtual {v1, v3}, Landroid/graphics/drawable/GradientDrawable;->setColor(I)V
-    const/high16 v3, 0x41800000
+    const/high16 v3, 0x41400000
     invoke-virtual {v1, v3}, Landroid/graphics/drawable/GradientDrawable;->setCornerRadius(F)V
     invoke-virtual {v2, v1}, Landroid/view/View;->setBackground(Landroid/graphics/drawable/Drawable;)V
     const/4 v1, 0x1
@@ -354,7 +368,7 @@
     const-string v1, "native_cover_placeholder"
     invoke-static {p0, v2, v1}, Lcom/melodix/music/NativeUiRowFactory;->applyDrawableImage(Landroid/content/Context;Landroid/widget/ImageView;Ljava/lang/String;)V
     new-instance v1, Landroid/widget/LinearLayout$LayoutParams;
-    const/16 v3, 0xdc
+    const/16 v3, 0xc8
     invoke-static {p0, v3}, Lcom/melodix/music/NativeUiRowFactory;->dp(Landroid/content/Context;I)I
     move-result v3
     invoke-direct {v1, v3, v3}, Landroid/widget/LinearLayout$LayoutParams;-><init>(II)V
@@ -476,6 +490,12 @@
     invoke-virtual {v0, v1}, Landroid/view/View;->setLayoutParams(Landroid/view/ViewGroup$LayoutParams;)V
 
     return-object v0
+
+    :banner_gradient
+    .array-data 4
+        0xff232323
+        0xff121212
+    .end array-data
 .end method
 
 .method public static applyDrawableBackground(Landroid/content/Context;Landroid/view/View;Ljava/lang/String;)V

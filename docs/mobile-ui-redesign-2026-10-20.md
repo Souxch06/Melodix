@@ -233,3 +233,18 @@ registres, les identifiants et la présence des appels.
   chips, elle porte huit tuiles, `onNativeGenreClick` appelle bien
   `performNativeLiveSearch`, et la visibilité des deux panneaux est pilotée par
   `setNativeScreen`, `renderNativeRows` et `onNativeSearchClick`.
+
+## En-tete de playlist : bandeau « hero »
+
+`NativeUiRowFactory.createPlaylistBanner` dessinait la pochette sur un fond
+plat, avec 4 dp de marge : le bloc paraissait collé aux bords et se confondait
+avec la liste.
+
+- Marges 16 dp horizontales, 12 dp en haut, 16 dp en bas.
+- Pochette 200 dp (au lieu de 220 dp), coins 12 dp (au lieu de 16 dp).
+- Fond en degrade vertical `#232323` -> `#121212` (`GradientDrawable` +
+  `fill-array-data`), ce qui detache l en-tete de la liste sans introduire de
+  couleur arbitraire liee a la pochette.
+
+Les 220 dp de pochette et les 4 dp de marge tenaient sur un ecran de 360 dp
+mais laissaient le titre demarrer trop pres du bord.
