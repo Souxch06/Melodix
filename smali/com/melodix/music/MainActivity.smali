@@ -6885,35 +6885,42 @@
     invoke-virtual {p1, v0}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
     move-result v1
     if-eqz v1, :title_search
-    const-string v4, "Home"
+    const-string v4, "Accueil"
     goto :write_screen_title
     :title_search
     const-string v0, "search"
     invoke-virtual {p1, v0}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
     move-result v1
     if-eqz v1, :title_library
-    const-string v4, "Search"
+    const-string v4, "Rechercher"
     goto :write_screen_title
     :title_library
     const-string v0, "library"
     invoke-virtual {p1, v0}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
     move-result v1
     if-eqz v1, :title_player
-    const-string v4, "Your Library"
+    const-string v4, "Votre bibliothèque"
     goto :write_screen_title
     :title_player
     const-string v0, "player"
     invoke-virtual {p1, v0}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
     move-result v1
+    if-eqz v1, :title_settings
+    const-string v4, "Lecture en cours"
+    goto :write_screen_title
+    :title_settings
+    const-string v0, "settings"
+    invoke-virtual {p1, v0}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    move-result v1
     if-eqz v1, :title_detail
-    const-string v4, "Now Playing"
+    const-string v4, "Paramètres"
     goto :write_screen_title
     :title_detail
     const-string v0, "detail"
     invoke-virtual {p1, v0}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
     move-result v1
     if-eqz v1, :screen_done
-    const-string v4, "Details"
+    const-string v4, "Détails"
     :write_screen_title
     iput-object v4, p0, Lcom/melodix/music/MainActivity;->nativeCurrentTitle:Ljava/lang/String;
     const v5, 0x7f090230
@@ -6949,11 +6956,15 @@
     if-eqz v0, :native_tab_inactive
     const v2, -0x1
     const v4, 0xff1ed760
-    goto :native_tab_apply
+    goto :native_tab_highlight
 
     :native_tab_inactive
     const v2, -0x888889
     const v4, -0x888889
+    goto :native_tab_apply
+
+    :native_tab_highlight
+    const v3, -0xe0c5d6
 
     :native_tab_apply
     invoke-virtual {v1, v2}, Landroid/widget/TextView;->setTextColor(I)V
@@ -6971,6 +6982,14 @@
 .method public final applyNativeUiData(Ljava/lang/String;Ljava/lang/String;)V
     .locals 10
 
+    const-string v0, "profile-image"
+    invoke-virtual {p1, v0}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    move-result v1
+    if-eqz v1, :check_initial_search
+    invoke-virtual {p0, p2}, Lcom/melodix/music/MainActivity;->setNativeProfileImage(Ljava/lang/String;)V
+    return-void
+
+    :check_initial_search
     const-string v0, "initial-search"
     invoke-virtual {p1, v0}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
     move-result v1
@@ -6989,7 +7008,7 @@
     check-cast v1, Landroid/widget/EditText;
     invoke-virtual {v1, p2}, Landroid/widget/EditText;->setText(Ljava/lang/CharSequence;)V
     :native_initial_search_submit
-    const-string v2, "Search results"
+    const-string v2, "Résultats de recherche"
     const-string v3, "[]"
     invoke-virtual {p0, v2, v3}, Lcom/melodix/music/MainActivity;->renderNativeRows(Ljava/lang/String;Ljava/lang/String;)V
     const-string v2, "window.searchMediaItems"
@@ -7029,7 +7048,7 @@
     invoke-virtual {p0, v2, p2}, Lcom/melodix/music/MainActivity;->renderNativeRows(Ljava/lang/String;Ljava/lang/String;)V
     return-void
     :native_route_default_title
-    const-string v2, "Details"
+    const-string v2, "Détails"
     invoke-virtual {p0, v2, p2}, Lcom/melodix/music/MainActivity;->renderNativeRows(Ljava/lang/String;Ljava/lang/String;)V
     return-void
 
@@ -7053,7 +7072,7 @@
     move-result v4
     if-eqz v4, :apply_done
     :apply_home
-    const-string v2, "Home"
+    const-string v2, "Accueil"
     invoke-virtual {p0, v2, p2}, Lcom/melodix/music/MainActivity;->renderNativeRows(Ljava/lang/String;Ljava/lang/String;)V
     return-void
 
@@ -7061,7 +7080,7 @@
     const-string v0, "media:"
     invoke-virtual {p1, v0}, Ljava/lang/String;->startsWith(Ljava/lang/String;)Z
     move-result v1
-    if-eqz v1, :check_search
+    if-eqz v1, :check_settings
     const/4 v0, 0x6
     invoke-virtual {p1, v0}, Ljava/lang/String;->substring(I)Ljava/lang/String;
     move-result-object v2
@@ -7081,7 +7100,7 @@
     invoke-virtual {p0, v8, p2}, Lcom/melodix/music/MainActivity;->renderNativeRows(Ljava/lang/String;Ljava/lang/String;)V
     return-void
     :library_default_title
-    const-string v8, "Your Library"
+    const-string v8, "Votre bibliothèque"
     invoke-virtual {p0, v8, p2}, Lcom/melodix/music/MainActivity;->renderNativeRows(Ljava/lang/String;Ljava/lang/String;)V
     return-void
 
@@ -7097,6 +7116,21 @@
     :detail_default_title
     const-string v8, "Playlist"
     invoke-virtual {p0, v8, p2}, Lcom/melodix/music/MainActivity;->renderNativeRows(Ljava/lang/String;Ljava/lang/String;)V
+    return-void
+
+    :check_settings
+    const-string v0, "settings"
+    invoke-virtual {p1, v0}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    move-result v1
+    if-eqz v1, :check_search
+    iget-object v2, p0, Lcom/melodix/music/MainActivity;->nativeCurrentScreen:Ljava/lang/String;
+    if-eqz v2, :apply_done
+    const-string v3, "settings"
+    invoke-virtual {v2, v3}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    move-result v4
+    if-eqz v4, :apply_done
+    const-string v2, "Paramètres"
+    invoke-virtual {p0, v2, p2}, Lcom/melodix/music/MainActivity;->renderNativeRows(Ljava/lang/String;Ljava/lang/String;)V
     return-void
 
     :check_search
@@ -7118,7 +7152,7 @@
     invoke-virtual {v5, v6}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
     move-result v7
     if-eqz v7, :apply_done
-    const-string v8, "Search results"
+    const-string v8, "Résultats de recherche"
     invoke-virtual {p0, v8, p2}, Lcom/melodix/music/MainActivity;->renderNativeRows(Ljava/lang/String;Ljava/lang/String;)V
 
     :apply_done
@@ -7126,13 +7160,13 @@
 .end method
 
 .method public final updateNativePlayer(Ljava/lang/String;)V
-    .locals 10
+    .locals 12
 
     :try_start_native_player
     new-instance v0, Lorg/json/JSONObject;
     invoke-direct {v0, p1}, Lorg/json/JSONObject;-><init>(Ljava/lang/String;)V
     const-string v1, "track"
-    const-string v2, "Nothing playing"
+    const-string v2, "Aucune lecture en cours"
     invoke-virtual {v0, v1, v2}, Lorg/json/JSONObject;->optString(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;
     move-result-object v2
     const-string v1, "artist"
@@ -7202,6 +7236,10 @@
     const-wide/16 v6, 0x0
     invoke-virtual {v0, v1, v6, v7}, Lorg/json/JSONObject;->optLong(Ljava/lang/String;J)J
     move-result-wide v4
+    invoke-static {v4, v5}, Lcom/melodix/music/MainActivity;->formatNativeTime(J)Ljava/lang/String;
+    move-result-object v11
+    invoke-static {v2, v3}, Lcom/melodix/music/MainActivity;->formatNativeTime(J)Ljava/lang/String;
+    move-result-object v10
     const v8, 0x7f09023d
     invoke-virtual {p0, v8}, Landroid/app/Activity;->findViewById(I)Landroid/view/View;
     move-result-object v9
@@ -7221,6 +7259,21 @@
     const/4 v4, 0x0
     :native_player_set_progress
     invoke-virtual {v9, v4}, Landroid/widget/ProgressBar;->setProgress(I)V
+
+    const v8, 0x7f09024a
+    invoke-virtual {p0, v8}, Landroid/app/Activity;->findViewById(I)Landroid/view/View;
+    move-result-object v9
+    if-eqz v9, :native_player_label_duration
+    check-cast v9, Landroid/widget/TextView;
+    invoke-virtual {v9, v11}, Landroid/widget/TextView;->setText(Ljava/lang/CharSequence;)V
+
+    :native_player_label_duration
+    const v8, 0x7f09024b
+    invoke-virtual {p0, v8}, Landroid/app/Activity;->findViewById(I)Landroid/view/View;
+    move-result-object v9
+    if-eqz v9, :native_player_play_state
+    check-cast v9, Landroid/widget/TextView;
+    invoke-virtual {v9, v10}, Landroid/widget/TextView;->setText(Ljava/lang/CharSequence;)V
 
     :native_player_play_state
     const-string v1, "playing"
@@ -7277,6 +7330,34 @@
     :catch_native_player
     move-exception v0
     return-void
+.end method
+
+.method private static formatNativeTime(J)Ljava/lang/String;
+    .locals 6
+
+    const-wide/16 v0, 0x3e8
+    div-long v0, p0, v0
+    const-wide/16 v2, 0x3c
+    div-long v2, v0, v2
+    const-wide/16 v4, 0x3c
+    rem-long v4, v0, v4
+
+    new-instance v0, Ljava/lang/StringBuilder;
+    invoke-direct {v0}, Ljava/lang/StringBuilder;-><init>()V
+    invoke-virtual {v0, v2, v3}, Ljava/lang/StringBuilder;->append(J)Ljava/lang/StringBuilder;
+    const-string v1, ":"
+    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    const-wide/16 v2, 0xa
+    cmp-long v1, v4, v2
+    if-ltz v1, :native_time_pad
+    const-string v1, "0"
+    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    :native_time_pad
+    invoke-virtual {v0, v4, v5}, Ljava/lang/StringBuilder;->append(J)Ljava/lang/StringBuilder;
+    invoke-virtual {v0}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
+    move-result-object v0
+    return-object v0
 .end method
 
 .method public final renderNativeRows(Ljava/lang/String;Ljava/lang/String;)V
@@ -7370,8 +7451,21 @@
     invoke-virtual {v2, v0}, Landroid/widget/LinearLayout;->addView(Landroid/view/View;)V
 
     :native_row_build_card
+    const-string v0, "settingValue"
+    invoke-virtual {v6, v0}, Lorg/json/JSONObject;->optString(Ljava/lang/String;)Ljava/lang/String;
+    move-result-object v0
+    invoke-virtual {v0}, Ljava/lang/String;->isEmpty()Z
+    move-result v1
+    if-eqz v1, :native_row_create_standard
+    invoke-static {p0, v6}, Lcom/melodix/music/NativeSettingsRowFactory;->create(Lcom/melodix/music/MainActivity;Lorg/json/JSONObject;)Landroid/widget/LinearLayout;
+    move-result-object v0
+    goto :native_row_created
+
+    :native_row_create_standard
     invoke-static {p0, v6}, Lcom/melodix/music/NativeUiRowFactory;->create(Lcom/melodix/music/MainActivity;Lorg/json/JSONObject;)Landroid/widget/LinearLayout;
     move-result-object v0
+
+    :native_row_created
     if-eqz v0, :native_row_increment
     invoke-virtual {v2, v0}, Landroid/widget/LinearLayout;->addView(Landroid/view/View;)V
     goto :native_row_increment
@@ -7409,7 +7503,7 @@
     const-string v0, "Recherchez un artiste, un titre, un album ou une playlist ci-dessus"
     goto :native_rows_set_empty
     :native_rows_default_empty
-    const-string v0, "No items to show yet"
+    const-string v0, "Rien à afficher pour le moment"
     :native_rows_set_empty
     invoke-virtual {v6, v0}, Landroid/widget/TextView;->setText(Ljava/lang/CharSequence;)V
     const/high16 v0, 0x41800000
@@ -7475,7 +7569,7 @@
 
     const-string v0, "home"
     invoke-virtual {p0, v0}, Lcom/melodix/music/MainActivity;->setNativeScreen(Ljava/lang/String;)V
-    const-string v1, "Home"
+    const-string v1, "Accueil"
     const-string v2, "[]"
     invoke-virtual {p0, v1, v2}, Lcom/melodix/music/MainActivity;->renderNativeRows(Ljava/lang/String;Ljava/lang/String;)V
     const-string v0, "window.__sfNativeRequestHome && window.__sfNativeRequestHome();"
@@ -7561,7 +7655,7 @@
     iput-object v1, p0, Lcom/melodix/music/MainActivity;->nativeExpectedSearch:Ljava/lang/String;
     const-string v2, "search"
     invoke-virtual {p0, v2}, Lcom/melodix/music/MainActivity;->setNativeScreen(Ljava/lang/String;)V
-    const-string v2, "Search results"
+    const-string v2, "Résultats de recherche"
     const-string v3, "[]"
     invoke-virtual {p0, v2, v3}, Lcom/melodix/music/MainActivity;->renderNativeRows(Ljava/lang/String;Ljava/lang/String;)V
     const-string v2, "window.searchMediaItems"
@@ -7578,7 +7672,7 @@
     invoke-virtual {p0, v0}, Lcom/melodix/music/MainActivity;->setNativeScreen(Ljava/lang/String;)V
     const-string v1, "playlists"
     iput-object v1, p0, Lcom/melodix/music/MainActivity;->nativeExpectedId:Ljava/lang/String;
-    const-string v2, "Your Library"
+    const-string v2, "Votre bibliothèque"
     const-string v0, "[]"
     invoke-virtual {p0, v2, v0}, Lcom/melodix/music/MainActivity;->renderNativeRows(Ljava/lang/String;Ljava/lang/String;)V
     const-string v0, "window.fetchMediaItems"
@@ -7597,7 +7691,7 @@
     iput-object v0, p0, Lcom/melodix/music/MainActivity;->nativeExpectedId:Ljava/lang/String;
     const-string v1, "library"
     invoke-virtual {p0, v1}, Lcom/melodix/music/MainActivity;->setNativeScreen(Ljava/lang/String;)V
-    const-string v1, "Your Library"
+    const-string v1, "Votre bibliothèque"
     const-string v2, "[]"
     invoke-virtual {p0, v1, v2}, Lcom/melodix/music/MainActivity;->renderNativeRows(Ljava/lang/String;Ljava/lang/String;)V
     const-string v1, "window.fetchMediaItems"
@@ -7627,19 +7721,19 @@
     if-eqz v2, :native_back_title_default
     goto :native_back_title_ready
     :native_back_title_default
-    const-string v2, "Home"
+    const-string v2, "Accueil"
     const-string v3, "library"
     invoke-virtual {v0, v3}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
     move-result v3
     if-eqz v3, :native_back_check_search
-    const-string v2, "Your Library"
+    const-string v2, "Votre bibliothèque"
     goto :native_back_title_ready
     :native_back_check_search
     const-string v3, "search"
     invoke-virtual {v0, v3}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
     move-result v3
     if-eqz v3, :native_back_title_ready
-    const-string v2, "Search results"
+    const-string v2, "Résultats de recherche"
 
     :native_back_title_ready
     iget-object v4, p0, Lcom/melodix/music/MainActivity;->nativeReturnJson:Ljava/lang/String;
@@ -7661,6 +7755,15 @@
     move-result v0
     if-nez v0, :native_row_click_done
 
+    const-string v2, "spotify:settings:"
+    invoke-virtual {p1, v2}, Ljava/lang/String;->startsWith(Ljava/lang/String;)Z
+    move-result v3
+    if-nez v3, :native_row_settings_done
+    const-string v2, "window.__sfToggleSpotifySetting"
+    invoke-virtual {p0, v2, p1}, Lcom/melodix/music/MainActivity;->runNativeFunction(Ljava/lang/String;Ljava/lang/String;)V
+    return-void
+
+    :native_row_settings_done
     const/4 v1, 0x0
     const-string v2, ":playlist:"
     invoke-virtual {p1, v2}, Ljava/lang/String;->contains(Ljava/lang/CharSequence;)Z
@@ -7723,7 +7826,7 @@
     move-object v3, p2
     goto :native_collection_title_ready
     :native_collection_default_title
-    const-string v3, "Details"
+    const-string v3, "Détails"
     :native_collection_title_ready
     invoke-virtual {p0, v3, v2}, Lcom/melodix/music/MainActivity;->renderNativeRows(Ljava/lang/String;Ljava/lang/String;)V
     const-string v1, "window.fetchMediaItems"
@@ -7739,15 +7842,70 @@
 .end method
 
 .method public final onNativeSettingsClick(Landroid/view/View;)V
-    .locals 2
+    .locals 0
 
-    const v0, 0x7f090060
-    invoke-virtual {p0, v0}, Landroid/app/Activity;->findViewById(I)Landroid/view/View;
-    move-result-object v1
-    if-eqz v1, :native_settings_done
-    invoke-virtual {v1}, Landroid/view/View;->performClick()Z
+    invoke-virtual {p0}, Lcom/melodix/music/MainActivity;->openNativeSettings()V
+    return-void
+.end method
+
+.method public final openNativeSettings()V
+    .locals 4
+
+    iget-object v0, p0, Lcom/melodix/music/MainActivity;->nativeCurrentScreen:Ljava/lang/String;
+    if-eqz v0, :native_settings_default_screen
+    const-string v1, "settings"
+    invoke-virtual {v0, v1}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    move-result v1
+    if-nez v1, :native_settings_save_return
+    return-void
+
+    :native_settings_save_return
+    iput-object v0, p0, Lcom/melodix/music/MainActivity;->nativeReturnScreen:Ljava/lang/String;
+    iget-object v0, p0, Lcom/melodix/music/MainActivity;->nativeCurrentTitle:Ljava/lang/String;
+    iput-object v0, p0, Lcom/melodix/music/MainActivity;->nativeReturnTitle:Ljava/lang/String;
+    iget-object v0, p0, Lcom/melodix/music/MainActivity;->nativeCurrentJson:Ljava/lang/String;
+    iput-object v0, p0, Lcom/melodix/music/MainActivity;->nativeReturnJson:Ljava/lang/String;
+    iget-object v0, p0, Lcom/melodix/music/MainActivity;->nativeExpectedId:Ljava/lang/String;
+    iput-object v0, p0, Lcom/melodix/music/MainActivity;->nativeReturnExpectedId:Ljava/lang/String;
+    iget-object v0, p0, Lcom/melodix/music/MainActivity;->nativeExpectedSearch:Ljava/lang/String;
+    iput-object v0, p0, Lcom/melodix/music/MainActivity;->nativeReturnSearch:Ljava/lang/String;
+    goto :native_settings_show
+
+    :native_settings_default_screen
+    const-string v0, "home"
+    iput-object v0, p0, Lcom/melodix/music/MainActivity;->nativeReturnScreen:Ljava/lang/String;
+    const-string v0, "Accueil"
+    iput-object v0, p0, Lcom/melodix/music/MainActivity;->nativeReturnTitle:Ljava/lang/String;
+
+    :native_settings_show
+    const-string v0, "settings"
+    invoke-virtual {p0, v0}, Lcom/melodix/music/MainActivity;->setNativeScreen(Ljava/lang/String;)V
+    const-string v1, "Paramètres"
+    const-string v2, "[]"
+    invoke-virtual {p0, v1, v2}, Lcom/melodix/music/MainActivity;->renderNativeRows(Ljava/lang/String;Ljava/lang/String;)V
+    const-string v1, "window.__sfRequestSpotifySettings && window.__sfRequestSpotifySettings();"
+    invoke-virtual {p0, v1}, Lcom/melodix/music/MainActivity;->runNativeJavascript(Ljava/lang/String;)V
 
     :native_settings_done
+    return-void
+.end method
+
+.method public final setNativeProfileImage(Ljava/lang/String;)V
+    .locals 3
+
+    if-eqz p1, :native_profile_done
+    invoke-virtual {p1}, Ljava/lang/String;->isEmpty()Z
+    move-result v0
+    if-eqz v0, :native_profile_done
+    const v0, 0x7f090249
+    invoke-virtual {p0, v0}, Landroid/app/Activity;->findViewById(I)Landroid/view/View;
+    move-result-object v1
+    if-eqz v1, :native_profile_done
+    check-cast v1, Landroid/widget/ImageView;
+    const/16 v2, 0x90
+    invoke-static {v1, p1, v2}, Lcom/melodix/music/NativeImageLoader;->load(Landroid/widget/ImageView;Ljava/lang/String;I)V
+
+    :native_profile_done
     return-void
 .end method
 

@@ -329,31 +329,21 @@
 
     new-instance v0, Landroid/widget/TextView;
     invoke-direct {v0, p0}, Landroid/widget/TextView;-><init>(Landroid/content/Context;)V
-    const-string v1, "Your playlists"
-    invoke-virtual {v1, p1}, Ljava/lang/String;->equalsIgnoreCase(Ljava/lang/String;)Z
-    move-result v1
-    if-eqz v1, :section_other
-    const-string v1, "★ Mes playlists & Titres likés"
-    const v2, 0xff1ed760
-    goto :section_apply
-    :section_other
-    move-object v1, p1
-    const v2, -0x1
-    :section_apply
-    invoke-virtual {v0, v1}, Landroid/widget/TextView;->setText(Ljava/lang/CharSequence;)V
-    const/high16 v1, 0x418c0000
+    invoke-virtual {v0, p1}, Landroid/widget/TextView;->setText(Ljava/lang/CharSequence;)V
+    const/high16 v1, 0x41980000
     invoke-virtual {v0, v1}, Landroid/widget/TextView;->setTextSize(F)V
-    invoke-virtual {v0, v2}, Landroid/widget/TextView;->setTextColor(I)V
+    const v1, -0x1
+    invoke-virtual {v0, v1}, Landroid/widget/TextView;->setTextColor(I)V
     const/4 v1, 0x0
     const/4 v2, 0x1
     invoke-virtual {v0, v1, v2}, Landroid/widget/TextView;->setTypeface(Landroid/graphics/Typeface;I)V
-    const/4 v1, 0x4
+    const/4 v1, 0x2
     invoke-static {p0, v1}, Lcom/melodix/music/NativeUiRowFactory;->dp(Landroid/content/Context;I)I
     move-result v1
-    const/16 v2, 0xe
+    const/16 v2, 0x10
     invoke-static {p0, v2}, Lcom/melodix/music/NativeUiRowFactory;->dp(Landroid/content/Context;I)I
     move-result v2
-    const/16 v3, 0x8
+    const/16 v3, 0xa
     invoke-static {p0, v3}, Lcom/melodix/music/NativeUiRowFactory;->dp(Landroid/content/Context;I)I
     move-result v3
     invoke-virtual {v0, v1, v2, v1, v3}, Landroid/view/View;->setPadding(IIII)V

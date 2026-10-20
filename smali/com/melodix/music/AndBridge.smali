@@ -89,6 +89,16 @@
     return-void
 .end method
 
+.method public final onNativeProfileImage(Ljava/lang/String;)V
+    .locals 1
+    .annotation runtime Landroid/webkit/JavascriptInterface;
+    .end annotation
+
+    const-string v0, "profile-image"
+    invoke-direct {p0, v0, p1}, Lcom/melodix/music/AndBridge;->dispatchNativeUi(Ljava/lang/String;Ljava/lang/String;)V
+    return-void
+.end method
+
 .method public final cssInjected()V
     .locals 0
     .annotation runtime Landroid/webkit/JavascriptInterface;

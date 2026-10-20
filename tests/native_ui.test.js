@@ -33,7 +33,10 @@ const nativeIds = [
     'nativePlayerLargeArtwork',
     'nativeHomeTab',
     'nativeSearchTab',
-    'nativeLibraryTab'
+    'nativeLibraryTab',
+    'nativeHeaderAvatar',
+    'nativePlayerPositionText',
+    'nativePlayerDurationText'
 ];
 
 test('native shell overlays, but does not replace or detach, the existing WebView', () => {
@@ -228,7 +231,7 @@ test('Home uses saved library items as a fallback when Spotify has no visible Ho
     assert.deepEqual(JSON.parse(calls[0].data), [{
         title: 'Saved mix',
         subtitle: 'Playlist',
-        section: 'Your playlists',
+        section: 'Vos playlists',
         image: 'https://i.scdn.co/image/saved',
         uri: 'spotify:playlist:saved123'
     }]);
@@ -283,7 +286,7 @@ test('localized Spotify Home routes still collect and send Home rows', () => {
     assert.deepEqual(JSON.parse(calls[0].data), [{
         title: 'Sélection du jour',
         subtitle: 'Playlist',
-        section: 'Your playlists',
+        section: 'Vos playlists',
         image: 'https://i.scdn.co/image/fr-cover',
         uri: 'spotify:playlist:fr123'
     }]);
@@ -660,9 +663,9 @@ test('Home separates user playlists from Spotify official recommendations and pr
 
     const rows = JSON.parse(calls[0].data);
     assert.equal(rows[0].title, 'Liked Songs');
-    assert.equal(rows[0].section, 'Your playlists');
+    assert.equal(rows[0].section, 'Vos playlists');
     assert.equal(rows[1].title, 'Ma Playlist Perso');
-    assert.equal(rows[1].section, 'Your playlists');
+    assert.equal(rows[1].section, 'Vos playlists');
     assert.equal(rows[2].title, 'Spotify Mix 0');
     assert.equal(rows[2].section, 'Sélections Spotify');
 
@@ -692,5 +695,88 @@ test('playback stability and fast live search optimizations are active across Sm
     assert.match(watcher, /implements Landroid\/text\/TextWatcher;/);
 });
 
+test('native Spotify settings screen replaces the web settings sheet', () => {
+    const shell = read('assets/native_ui_shell.js');
+    const activity = read('smali/com/melodix/music/MainActivity.smali');
+    const bridge = read('smali/com/melodix/music/AndBridge.smali');
+    const factory = read('smali/com/melodix/music/NativeSettingsRowFactory.smali');
 
+    assert.match(shell, /window\.__sfRequestSpotifySettings/);
+    assert.match(shell, /window\.__sfToggleSpotifySetting/);
+    for (const key of [
+        'account_info', 'logout', 'audio_quality', 'normalize_volume', 'data_saver',
+        'gapless', 'autoplay', 'shuffle', 'repeat', 'explicit', 'canvas', 'bg_audio',
+        'clear_cache', 'resync', 'about'
+    ]) {
+        assert.ok(shell.includes(`spotify:settings:${key}`), `${key} should be a settings row`);
+    }
 
+    assert.match(activity, /\.method public final openNativeSettings\(\)V/);
+    assert.match(activity, /onNativeSettingsClick[\s\S]*?openNativeSettings\(\)V/);
+    assert.match(activity, /"spotify:settings:"[\s\S]*?__sfToggleSpotifySetting/);
+    assert.match(activity, /:check_settings[\s\S]*?"Paramètres"/);
+    assert.match(activity, /NativeSettingsRowFactory;->create\(Lcom\/melodix\/music\/MainActivity;Lorg\/json\/JSONObject;\)Landroid\/widget\/LinearLayout;/);
+    assert.match(bridge, /onNativeProfileImage\(Ljava\/lang\/String;\)V[\s\S]*?JavascriptInterface/);
+    assert.match(factory, /GradientDrawable;->setCornerRadius[\s\S]*?setTextColor\(I\)V/);
+    assert.match(read('res/layout/activity_main.xml'), /@id\/nativeHeaderAvatar/);
+});
+
+test('native settings rows expose real Spotify options and toggles persist locally', () => {
+    const calls = [];
+    const store = new Map();
+    const document = {
+        readyState: 'complete',
+        documentElement: {},
+        querySelector: () => null,
+        addEventListener: () => {}
+    };
+    class TestMutationObserver {
+        observe() {}
+    }
+    const window = {
+        location: {
+            hostname: 'open.spotify.com',
+            pathname: '/',
+            href: 'https://open.spotify.com/'
+        },
+        AndBridge: {
+            onNativeUiReady: () => {},
+            onNativeUiData: (screen, data) => calls.push({ screen, data })
+        },
+        MutationObserver: TestMutationObserver,
+        addEventListener: () => {},
+        setTimeout: () => 1,
+        clearTimeout: () => {},
+        localStorage: {
+            getItem: (key) => (store.has(key) ? store.get(key) : null),
+            setItem: (key, value) => store.set(key, value),
+            clear: () => store.clear()
+        }
+    };
+
+    vm.runInNewContext(read('assets/native_ui_shell.js'), { window, document, URL, MutationObserver: TestMutationObserver });
+
+    assert.equal(typeof window.__sfRequestSpotifySettings, 'function');
+    calls.length = 0;
+    window.__sfRequestSpotifySettings();
+    assert.equal(calls.length, 1);
+    assert.equal(calls[0].screen, 'settings');
+
+    const rows = JSON.parse(calls[0].data);
+    assert.ok(rows.length >= 14, 'the native settings screen lists the real Spotify options');
+    const canvasRow = rows.find((row) => row.uri === 'spotify:settings:canvas');
+    assert.equal(canvasRow.settingValue, 'ON');
+    assert.equal(canvasRow.section, 'Vidéos et Arrière-plan');
+
+    calls.length = 0;
+    window.__sfToggleSpotifySetting('spotify:settings:canvas');
+    assert.equal(calls.length, 1);
+    const toggled = JSON.parse(calls[0].data).find((row) => row.uri === 'spotify:settings:canvas');
+    assert.equal(toggled.settingValue, 'OFF');
+    assert.ok(store.get('melodix_spotify_settings_v1').includes('"canvas":false'));
+
+    calls.length = 0;
+    window.__sfToggleSpotifySetting('spotify:settings:audio_quality');
+    const quality = JSON.parse(calls[0].data).find((row) => row.uri === 'spotify:settings:audio_quality');
+    assert.equal(quality.settingValue, 'Élevée (160 kbit/s)');
+});
