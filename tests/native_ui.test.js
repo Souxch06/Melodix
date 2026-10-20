@@ -1132,3 +1132,45 @@ test('the shell pause button latches the pause and a skip releases it', () => {
     assert.equal(harness.window.__sfIsUserPaused(), false, 'a skip releases the pause latch');
     assert.equal(harness.window.__sfPauseHoldActive, false);
 });
+
+test('the library tab never reloads its own page in a loop', () => {
+    const build = (pathname) => {
+        const navigations = [];
+        const window = {
+            location: {
+                hostname: 'open.spotify.com',
+                pathname,
+                href: 'https://open.spotify.com' + pathname,
+                assign: (url) => navigations.push(url)
+            },
+            AndBridge: { onNativeUiReady: () => {}, onNativeUiData: () => {} },
+            MutationObserver: class { observe() {} },
+            addEventListener: () => {},
+            setTimeout: () => 1,
+            clearTimeout: () => {},
+            setInterval: () => 1,
+            clearInterval: () => {}
+        };
+        const document = {
+            readyState: 'complete',
+            documentElement: {},
+            querySelector: () => null,
+            querySelectorAll: () => [],
+            addEventListener: () => {}
+        };
+        vm.runInNewContext(read('assets/native_ui_shell.js'), { window, document, URL });
+        return { window, navigations };
+    };
+
+    const onPlaylists = build('/collection/playlists');
+    onPlaylists.window.__sfOpenLibrary();
+    assert.deepEqual(onPlaylists.navigations, [], 'the playlists tab is already displayed');
+
+    const onAlbums = build('/collection/albums');
+    onAlbums.window.__sfOpenLibraryCategory('albums');
+    assert.deepEqual(onAlbums.navigations, [], 'the selected chip is already displayed');
+
+    const onHome = build('/');
+    onHome.window.__sfOpenLibrary();
+    assert.match(onHome.navigations[0] || '', /\/collection\/playlists$/);
+});
