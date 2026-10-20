@@ -182,18 +182,69 @@
         }
     }
 
-    function findImageUrl(element, sourceAnchor) {
+    function extractImgUrl(image) {
+        if (!image) return '';
+        var raw = image.currentSrc ||
+            (typeof image.getAttribute === 'function' && (image.getAttribute('src') || image.getAttribute('data-src'))) ||
+            image.src ||
+            '';
+        if (!raw && typeof image.getAttribute === 'function') {
+            var srcset = image.getAttribute('srcset') || '';
+            var firstEntry = String(srcset).split(',')[0] || '';
+            raw = firstEntry.trim().split(/\s+/)[0] || '';
+        }
+        return raw ? safeSpotifyImage(raw) : '';
+    }
+
+    function findCardContainer(sourceAnchor, candidate, rootView) {
+        var container = closest(sourceAnchor, '[data-testid="card"]') ||
+            closest(sourceAnchor, '[data-encore-id="card"]') ||
+            closest(sourceAnchor, '[data-testid="tracklist-row"]') ||
+            closest(candidate, '[data-testid="card"]') ||
+            closest(candidate, '[data-encore-id="card"]') ||
+            closest(candidate, '[data-testid="tracklist-row"]');
+        if (container) return container;
+
+        var node = sourceAnchor || candidate;
+        var depth = 0;
+        while (node && node.parentElement && node.parentElement !== rootView && depth < 4) {
+            var parent = node.parentElement;
+            if (parent.tagName === 'SECTION') break;
+            if (typeof parent.querySelector === 'function' && parent.querySelector('img')) {
+                return parent;
+            }
+            node = parent;
+            depth += 1;
+        }
+        return candidate || sourceAnchor;
+    }
+
+    function findImageUrl(element, sourceAnchor, rootView) {
         var image = sourceAnchor && sourceAnchor.querySelector && sourceAnchor.querySelector('img');
-        var raw = '';
+        var url = extractImgUrl(image);
         var styledNode;
         var background;
         var match;
+        var node;
+        var depth;
 
-        if (!image && element && element.querySelector) image = element.querySelector('img');
-        if (image) {
-            raw = image.currentSrc || image.getAttribute('src') || image.getAttribute('data-src') || '';
+        if (url) return url;
+        if (element && element.querySelector) {
+            url = extractImgUrl(element.querySelector('img'));
+            if (url) return url;
         }
-        if (raw) return safeSpotifyImage(raw);
+
+        node = sourceAnchor || element;
+        depth = 0;
+        while (node && node.parentElement && node.parentElement !== rootView && depth < 4) {
+            node = node.parentElement;
+            if (node.tagName === 'SECTION') break;
+            if (typeof node.querySelector === 'function') {
+                url = extractImgUrl(node.querySelector('img'));
+                if (url) return url;
+            }
+            depth += 1;
+        }
 
         styledNode = element && element.querySelector
             ? element.querySelector('[style*="background-image"]')
@@ -225,10 +276,7 @@
                 : candidate.querySelector && candidate.querySelector('a[href]');
             var href = sourceAnchor && (sourceAnchor.href || sourceAnchor.getAttribute('href'));
             var uri = spotifyResourceUri(href);
-            var card = closest(sourceAnchor, '[data-testid="card"]') ||
-                closest(sourceAnchor, '[data-testid="tracklist-row"]') ||
-                closest(candidate, '[data-testid="card"]') ||
-                closest(candidate, '[data-testid="tracklist-row"]') || candidate;
+            var card = findCardContainer(sourceAnchor, candidate, mainView);
             var lines;
             var title;
             var subtitle;
@@ -240,7 +288,7 @@
 
             if (!sourceAnchor || !uri || seen.has(uri)) return;
             lines = textLines(card);
-            imageUrl = findImageUrl(card, sourceAnchor);
+            imageUrl = findImageUrl(card, sourceAnchor, mainView);
             title = String(
                 card.getAttribute && card.getAttribute('aria-label') ||
                 sourceAnchor.getAttribute && sourceAnchor.getAttribute('aria-label') ||
@@ -374,7 +422,7 @@
             window.__sfNativeUiHomeDataSent = true;
         }
 
-        if (rows.length > 0) clearHomeRetry();
+        if (rows.length > 0 && rows.some(function(row) { return Boolean(row && row.image); })) clearHomeRetry();
         else scheduleHomeRetry();
     }
 

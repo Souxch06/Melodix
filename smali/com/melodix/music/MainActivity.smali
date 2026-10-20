@@ -6694,7 +6694,7 @@
 .end method
 
 .method public final showNativeUi()V
-    .locals 4
+    .locals 5
 
     const v0, 0x7f09022f
     invoke-virtual {p0, v0}, Landroid/app/Activity;->findViewById(I)Landroid/view/View;
@@ -6707,9 +6707,49 @@
     const v0, 0x7f090060
     invoke-virtual {p0, v0}, Landroid/app/Activity;->findViewById(I)Landroid/view/View;
     move-result-object v1
-    if-eqz v1, :set_default_screen
+    if-eqz v1, :style_native_controls
     const/16 v2, 0x8
     invoke-virtual {v1, v2}, Landroid/view/View;->setVisibility(I)V
+
+    :style_native_controls
+    const/4 v2, 0x0
+    const v0, 0x7f09023e
+    invoke-virtual {p0, v0}, Landroid/app/Activity;->findViewById(I)Landroid/view/View;
+    move-result-object v1
+    if-eqz v1, :style_mini_play_button
+    check-cast v1, Landroid/widget/Button;
+    invoke-virtual {v1, v2, v2, v2, v2}, Landroid/view/View;->setPadding(IIII)V
+    const v3, -0x1
+    invoke-static {v3}, Landroid/content/res/ColorStateList;->valueOf(I)Landroid/content/res/ColorStateList;
+    move-result-object v3
+    invoke-virtual {v1, v3}, Landroid/view/View;->setBackgroundTintList(Landroid/content/res/ColorStateList;)V
+    const v3, -0xededee
+    invoke-virtual {v1, v3}, Landroid/widget/TextView;->setTextColor(I)V
+
+    :style_mini_play_button
+    const v0, 0x7f090238
+    invoke-virtual {p0, v0}, Landroid/app/Activity;->findViewById(I)Landroid/view/View;
+    move-result-object v1
+    if-eqz v1, :style_back_button
+    check-cast v1, Landroid/widget/Button;
+    invoke-virtual {v1, v2, v2, v2, v2}, Landroid/view/View;->setPadding(IIII)V
+    const v3, 0xff1ed760
+    invoke-static {v3}, Landroid/content/res/ColorStateList;->valueOf(I)Landroid/content/res/ColorStateList;
+    move-result-object v3
+    invoke-virtual {v1, v3}, Landroid/view/View;->setBackgroundTintList(Landroid/content/res/ColorStateList;)V
+    const v3, -0xededee
+    invoke-virtual {v1, v3}, Landroid/widget/TextView;->setTextColor(I)V
+
+    :style_back_button
+    const v0, 0x7f090231
+    invoke-virtual {p0, v0}, Landroid/app/Activity;->findViewById(I)Landroid/view/View;
+    move-result-object v1
+    if-eqz v1, :set_default_screen
+    invoke-virtual {v1, v2, v2, v2, v2}, Landroid/view/View;->setPadding(IIII)V
+    const v3, -0xdbdbdc
+    invoke-static {v3}, Landroid/content/res/ColorStateList;->valueOf(I)Landroid/content/res/ColorStateList;
+    move-result-object v3
+    invoke-virtual {v1, v3}, Landroid/view/View;->setBackgroundTintList(Landroid/content/res/ColorStateList;)V
 
     :set_default_screen
     iget-object v0, p0, Lcom/melodix/music/MainActivity;->nativeCurrentScreen:Ljava/lang/String;
@@ -6896,6 +6936,7 @@
     const v4, -0x888889
 
     :native_tab_apply
+    invoke-virtual {v1, v3, v3, v3, v3}, Landroid/view/View;->setPadding(IIII)V
     invoke-virtual {v1, v2}, Landroid/widget/TextView;->setTextColor(I)V
     invoke-static {v3}, Landroid/content/res/ColorStateList;->valueOf(I)Landroid/content/res/ColorStateList;
     move-result-object v3
@@ -7179,6 +7220,14 @@
     const-string v7, "▶"
     :native_player_mini_set
     invoke-virtual {v9, v7}, Landroid/widget/Button;->setText(Ljava/lang/CharSequence;)V
+    const/4 v8, 0x0
+    invoke-virtual {v9, v8, v8, v8, v8}, Landroid/view/View;->setPadding(IIII)V
+    const v8, 0xff1ed760
+    invoke-static {v8}, Landroid/content/res/ColorStateList;->valueOf(I)Landroid/content/res/ColorStateList;
+    move-result-object v8
+    invoke-virtual {v9, v8}, Landroid/view/View;->setBackgroundTintList(Landroid/content/res/ColorStateList;)V
+    const v8, -0xededee
+    invoke-virtual {v9, v8}, Landroid/widget/TextView;->setTextColor(I)V
 
     :native_player_large_button
     const v8, 0x7f09023e
@@ -7193,6 +7242,14 @@
     const-string v7, "▶"
     :native_player_large_set
     invoke-virtual {v9, v7}, Landroid/widget/Button;->setText(Ljava/lang/CharSequence;)V
+    const/4 v8, 0x0
+    invoke-virtual {v9, v8, v8, v8, v8}, Landroid/view/View;->setPadding(IIII)V
+    const v8, -0x1
+    invoke-static {v8}, Landroid/content/res/ColorStateList;->valueOf(I)Landroid/content/res/ColorStateList;
+    move-result-object v8
+    invoke-virtual {v9, v8}, Landroid/view/View;->setBackgroundTintList(Landroid/content/res/ColorStateList;)V
+    const v8, -0xededee
+    invoke-virtual {v9, v8}, Landroid/widget/TextView;->setTextColor(I)V
 
     :native_player_try_done
     :try_end_native_player

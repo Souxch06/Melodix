@@ -505,3 +505,80 @@ test('bundled native bootstrap activates the shell, sends Home rows, and only op
     assert.equal(calls.length, 2, 'requesting Home should resend current rows');
     assert.equal(timers.length, 0, 'a signed-in page with a ready bridge should not keep retry timers');
 });
+
+test('Home cards with sibling artwork outside the title anchor still resolve their cover image', () => {
+    const script = read('assets/native_ui_shell.js');
+    const calls = [];
+    const artwork = {
+        currentSrc: '',
+        getAttribute: (name) => name === 'srcset'
+            ? 'https://i.scdn.co/image/ep123 300w, https://i.scdn.co/image/ep123_large 640w'
+            : null
+    };
+    const cardWrapper = {
+        tagName: 'DIV',
+        innerText: 'UHQ FREESTYLE #1\nCreator Name',
+        getAttribute: () => null,
+        querySelector: (selector) => selector === 'img' ? artwork : null,
+        closest: () => null
+    };
+    const textWrapper = {
+        tagName: 'DIV',
+        parentElement: cardWrapper,
+        querySelector: () => null
+    };
+    const anchor = {
+        href: 'https://open.spotify.com/episode/ep123',
+        innerText: 'UHQ FREESTYLE #1',
+        parentElement: textWrapper,
+        matches: (selector) => selector === 'a[href]',
+        getAttribute: (name) => name === 'href' ? '/episode/ep123' : null,
+        querySelector: () => null,
+        closest: () => null
+    };
+    const mainView = {
+        querySelectorAll: (selector) => selector === 'a[href]' ? [anchor] : []
+    };
+    cardWrapper.parentElement = mainView;
+
+    const document = {
+        readyState: 'complete',
+        documentElement: {},
+        querySelector: (selector) => {
+            if (selector === '#main-view') return mainView;
+            if (selector.indexOf('user-widget-link') >= 0) return {};
+            return null;
+        },
+        addEventListener: () => {}
+    };
+    class TestMutationObserver {
+        observe() {}
+    }
+    const window = {
+        location: {
+            hostname: 'open.spotify.com',
+            pathname: '/intl-fr/',
+            href: 'https://open.spotify.com/intl-fr/'
+        },
+        AndBridge: {
+            onNativeUiReady: () => {},
+            onNativeUiData: (screen, data) => calls.push({ screen, data })
+        },
+        MutationObserver: TestMutationObserver,
+        addEventListener: () => {},
+        setTimeout: () => 1,
+        clearTimeout: () => {}
+    };
+
+    vm.runInNewContext(script, { window, document, URL, MutationObserver: TestMutationObserver });
+
+    assert.equal(calls.length, 1);
+    assert.deepEqual(JSON.parse(calls[0].data), [{
+        title: 'UHQ FREESTYLE #1',
+        subtitle: 'Creator Name',
+        section: '',
+        image: 'https://i.scdn.co/image/ep123',
+        uri: 'spotify:episode:ep123'
+    }]);
+});
+
