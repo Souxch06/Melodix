@@ -35,8 +35,23 @@ test('custom home only renders real Spotify cards and leaves original navigation
     assert.match(bridge, /window\.location\.assign\(card\.href\)/);
     assert.match(bridge, /body\.classList\.add\('sf-melodix-home-active'\)/);
     assert.match(css, /body\.sf-melodix-home-active #main-view\s*\{\s*display: none !important/);
+    assert.match(css, /body\.sf-melodix-home-active #sf-melodix-home\s*\{[\s\S]*?display: flex !important[\s\S]*?visibility: visible !important/);
     assert.match(css, /#sf-melodix-home\s*\{[\s\S]*?position: fixed !important/);
     assert.match(css, /env\(safe-area-inset-bottom\)/);
+});
+
+test('Home bootstrap precedes optional hooks and mobile shell initialization is idempotent', () => {
+    const bridge = read('assets/spotify_bridge.js');
+    const earlyBootstrap = bridge.slice(0, bridge.indexOf('// --- Webpack Module Hook'));
+    const shellInitializer = bridge.match(/function initializeMobileShell\(\) \{([\s\S]*?)\n        const maxRetries/);
+
+    assert.match(earlyBootstrap, /window\.__sfMelodixBridgeStarted = true/);
+    assert.match(earlyBootstrap, /initializeMelodixHome\(\)/);
+    assert.doesNotMatch(earlyBootstrap, /initializeMobileShell\(\)/);
+    assert.match(earlyBootstrap, /window\.__sfMelodixBridgeBootstrapReady = true/);
+    assert.ok(shellInitializer, 'mobile shell initializer should exist');
+    assert.match(shellInitializer[1], /if \(window\._sfMobileShellListenersAttached\) return;/);
+    assert.match(bridge, /window\.__sfMelodixBridgeCompleted = true/);
 });
 
 test('home waits for Spotify to mount its delayed SPA view before collecting cards', () => {

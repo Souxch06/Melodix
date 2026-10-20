@@ -23,6 +23,19 @@
     let fsScrubbing = false;
     let mobileLibraryOpen = false;
 
+    // Start the Home and shell observers before optional player integrations.
+    // Function declarations are hoisted; their scheduled work runs after this
+    // script yields, and the initializers are idempotent.
+    window.__sfMelodixBridgeStarted = true;
+    window.__sfMelodixBridgeBootstrapErrors = 0;
+    window.__sfMelodixHomeInitAttempted = true;
+    try {
+        initializeMelodixHome();
+    } catch (_) {
+        window.__sfMelodixBridgeBootstrapErrors += 1;
+    }
+    window.__sfMelodixBridgeBootstrapReady = true;
+
     try {
         window.spotAuthToken = window.spotAuthToken || localStorage.getItem('spot_auth_token') || null;
         window.spotCliToken = window.spotCliToken || localStorage.getItem('spot_cli_token') || null;
@@ -3808,6 +3821,10 @@
     }
 
     function initializeMobileShell() {
+        window.__sfMelodixMobileShellInitAttempted = true;
+        if (window._sfMobileShellListenersAttached) return;
+        window._sfMobileShellListenersAttached = true;
+
         const maxRetries = 40;
         let retries = 0;
         let retryTimer = null;
@@ -3862,4 +3879,5 @@
     initializeMelodixHome();
     installPremiumPromotionCleanup();
     firstFuck();
+    window.__sfMelodixBridgeCompleted = true;
 })();

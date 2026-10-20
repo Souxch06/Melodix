@@ -91,6 +91,7 @@
       '#global-nav-bar',
       '#Desktop_LeftSidebar_Id',
       '#main-view',
+      '#sf-melodix-home',
       '#sf-mobile-nav',
       '#sf-mobile-navigation',
       '[data-testid="mobile-nav"]',
@@ -178,6 +179,24 @@
       sidebarDisplay: sidebar
         ? window.getComputedStyle(sidebar).display
         : null,
+      ui: {
+        bridgeStarted: window.__sfMelodixBridgeStarted === true,
+        bridgeBootstrapReady: window.__sfMelodixBridgeBootstrapReady === true,
+        bridgeCompleted: window.__sfMelodixBridgeCompleted === true,
+        bridgeBootstrapErrors: Number.isInteger(window.__sfMelodixBridgeBootstrapErrors)
+          ? window.__sfMelodixBridgeBootstrapErrors
+          : null,
+        mobileShellInitAttempted: window.__sfMelodixMobileShellInitAttempted === true,
+        homeInitAttempted: window.__sfMelodixHomeInitAttempted === true,
+        mobileShellClass: body
+          ? body.classList.contains('sf-mobile-shell')
+          : null,
+        homeActiveClass: body
+          ? body.classList.contains('sf-melodix-home-active')
+          : null,
+        homeRootPresent: document.querySelector('#sf-melodix-home') !== null,
+        customStylesheetInjected: document.querySelector('#sf-custom-style') !== null
+      },
       mutations: {
         addedNodeCount: state.mutations.addedNodeCount,
         addedNodeCountCapped: state.mutations.addedNodeCountCapped,

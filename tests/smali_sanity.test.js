@@ -279,6 +279,24 @@ test('full CSS is injected in both Mobile CSS and Wide Window modes', () => {
     assert.match(pageFinished[1], /goto :cond_12[\s\S]*?:cond_12[\s\S]*?AppSingleton;->z:Ljava\/lang\/String;/);
 });
 
+test('Spotify bridge is evaluated independently from the desktop spoof script', () => {
+    const webViewClient = fs.readFileSync(path.join(repo, 'smali/c91.smali'), 'utf8');
+    const pageFinished = webViewClient.match(
+        /\.method public final onPageFinished\(Landroid\/webkit\/WebView;Ljava\/lang\/String;\)V([\s\S]*?)\.end method/
+    );
+
+    assert.ok(pageFinished, 'WebView page-finished callback should exist');
+    const bridgeInjection = pageFinished[1].match(
+        /const-string v2, "desktop_spoof\.js"([\s\S]*?)const-string v1, "playlist_sort\.js"/
+    );
+    assert.ok(bridgeInjection, 'desktop spoof and Spotify bridge injection block should exist');
+    assert.match(
+        bridgeInjection[1],
+        /invoke-virtual \{v5, v2\}, Ljava\/lang\/StringBuilder;->append\(Ljava\/lang\/String;\)Ljava\/lang\/StringBuilder;[\s\S]*?invoke-virtual \{v0, v1, v8\}, Landroid\/webkit\/WebView;->evaluateJavascript[\s\S]*?invoke-virtual \{v0, v3, v8\}, Landroid\/webkit\/WebView;->evaluateJavascript/
+    );
+    assert.doesNotMatch(bridgeInjection[1], /invoke-virtual \{v5, v3\}, Ljava\/lang\/StringBuilder;->append/);
+});
+
 test('native touch capability reaches JS without enabling the tablet shell on Leanback TV', () => {
     const webViewClient = fs.readFileSync(path.join(repo, 'smali/c91.smali'), 'utf8');
     const pageFinished = webViewClient.match(

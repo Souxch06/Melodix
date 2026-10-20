@@ -2191,20 +2191,18 @@
     .line 389
     .line 390
     .line 391
-    invoke-virtual {v5, v3}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    invoke-virtual {v5}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
 
     .line 392
     .line 393
     .line 394
-    invoke-virtual {v5}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
-
-    .line 395
-    .line 396
-    .line 397
     move-result-object v1
 
-    .line 398
+    .line 395
     invoke-virtual {v0, v1, v8}, Landroid/webkit/WebView;->evaluateJavascript(Ljava/lang/String;Landroid/webkit/ValueCallback;)V
+
+    # Run the main bridge independently so an exception in the optional desktop spoof cannot suppress Home setup.
+    invoke-virtual {v0, v3, v8}, Landroid/webkit/WebView;->evaluateJavascript(Ljava/lang/String;Landroid/webkit/ValueCallback;)V
 
     .line 399
     .line 400

@@ -1752,6 +1752,14 @@ body.sf-melodix-home-active #main-view {
     display: none !important;
 }
 
+body.sf-melodix-home-active #sf-melodix-home {
+    display: flex !important;
+    flex-direction: column !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    pointer-events: auto !important;
+}
+
 #sf-melodix-home {
     position: fixed !important;
     inset: var(--sf-melodix-home-top, 0px) 0 calc(154px + env(safe-area-inset-bottom)) !important;

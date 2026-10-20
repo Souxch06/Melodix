@@ -39,6 +39,7 @@ function executeDiagnostic() {
     const nodes = new Map([
         ['#global-nav-bar', { display: 'flex' }],
         ['#Desktop_LeftSidebar_Id', { display: 'block' }],
+        ['#sf-custom-style', { display: 'block' }],
         ['#sf-mobile-navigation', { display: 'grid' }],
         ['[data-testid="bottom-nav-bar"]', { display: 'flex' }],
         ['[data-testid="now-playing-bar"]', { display: 'flex' }]
@@ -79,6 +80,12 @@ function executeDiagnostic() {
         visualViewport: { width: 390 },
         SF_CONFIG: { guiMode: 'csshack', touchInput: true, dockLeftSidebar: false },
         __sfLibraryExpanded: true,
+        __sfMelodixBridgeStarted: true,
+        __sfMelodixBridgeBootstrapReady: true,
+        __sfMelodixBridgeCompleted: true,
+        __sfMelodixBridgeBootstrapErrors: 0,
+        __sfMelodixMobileShellInitAttempted: true,
+        __sfMelodixHomeInitAttempted: true,
         getComputedStyle: (element) => ({ display: element.display }),
         setTimeout: (callback, delay) => {
             timers.push({ callback, delay });
@@ -140,6 +147,7 @@ test('Preview diagnostic returns four timed samples with the existing report fie
     assert.equal(samples[0].selectors['#global-nav-bar'], true);
     assert.equal(samples[0].selectors['#Desktop_LeftSidebar_Id'], true);
     assert.equal(samples[0].selectors['#main-view'], false);
+    assert.equal(samples[0].selectors['#sf-melodix-home'], false);
     assert.equal(samples[0].selectors['#sf-mobile-nav'], false);
     assert.equal(samples[0].selectors['#sf-mobile-navigation'], true);
     assert.equal(samples[0].selectors['[data-testid="bottom-nav-bar"]'], true);
@@ -160,6 +168,18 @@ test('Preview diagnostic returns four timed samples with the existing report fie
         sfMobileNavigation: 'grid'
     });
     assert.equal(samples[0].sidebarDisplay, 'block');
+    assert.deepEqual(samples[0].ui, {
+        bridgeStarted: true,
+        bridgeBootstrapReady: true,
+        bridgeCompleted: true,
+        bridgeBootstrapErrors: 0,
+        mobileShellInitAttempted: true,
+        homeInitAttempted: true,
+        mobileShellClass: true,
+        homeActiveClass: false,
+        homeRootPresent: false,
+        customStylesheetInjected: true
+    });
     assert.equal(samples[3].mutations.observerStopped, true);
     assert.equal(run.observers[0].disconnected, true);
 });
