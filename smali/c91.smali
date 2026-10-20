@@ -2202,12 +2202,18 @@
     invoke-virtual {v0, v1, v8}, Landroid/webkit/WebView;->evaluateJavascript(Ljava/lang/String;Landroid/webkit/ValueCallback;)V
 
     # Keep the native shell entry point separate from remotely hotfixed Spotify behavior.
-    # This bundled asset still runs when a stale spotify_bridge.js hotfix is active.
-    invoke-virtual {v0, v3, v8}, Landroid/webkit/WebView;->evaluateJavascript(Ljava/lang/String;Landroid/webkit/ValueCallback;)V
-
+    # The shell is injected first: it owns the loader that executes the bridge.
     const-string v5, "native_ui_shell.js"
     invoke-static {v5}, Lm9;->d(Ljava/lang/String;)Ljava/lang/String;
     move-result-object v5
+    invoke-virtual {v0, v5, v8}, Landroid/webkit/WebView;->evaluateJavascript(Ljava/lang/String;Landroid/webkit/ValueCallback;)V
+
+    # spotify_bridge.js is ~200 KB. A single evaluateJavascript call of that size
+    # is dropped without any error on device (the bridge never started, so every
+    # pause guard stayed inactive). The shell therefore reads the asset through
+    # AndBridge.readBundledAsset and executes it in small steps instead.
+    # v3 still holds the bridge text: reading it here keeps the asset cache warm.
+    const-string v5, "(window.__sfLoadBundledBridge||function(){})(\'spotify_bridge.js\');"
     invoke-virtual {v0, v5, v8}, Landroid/webkit/WebView;->evaluateJavascript(Ljava/lang/String;Landroid/webkit/ValueCallback;)V
 
     .line 399

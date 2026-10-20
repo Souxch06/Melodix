@@ -55,3 +55,20 @@ les titres de section étaient collés et la barre de lecture était surchargée
 3. Le mini-lecteur affiche pochette, titre, artiste et un seul bouton lecture/pause ;
    un appui ouvre le lecteur plein écran (précédent/suivant y sont toujours présents).
 4. Recherche, bibliothèque et détail de playlist utilisent la même rangée mobile.
+
+## Correctif du 2026-10-20 (après capture d'écran)
+
+La capture montrait encore l'ancien rendu : titre sur deux lignes collées, petit carré gris à
+droite, aucun espacement. Ce n'était **pas** un problème de style mais d'aiguillage Smali.
+
+Dans `MainActivity.renderNativeRows`, le test `settingValue` était inversé :
+`if-eqz v1, :native_row_create_standard` envoyait les lignes **sans** `settingValue` (tout le
+contenu : playlists, radios, sélections) vers `NativeSettingsRowFactory`. Toutes les rangées
+d'accueil étaient donc dessinées par le générateur des réglages — d'où le petit carré gris à
+droite, l'absence de vignette et de sous-titre. Corrigé en `if-nez v1`, avec un commentaire
+explicite et un test de non-régression.
+
+Deuxième correctif : Spotify fusionne parfois titre et description dans `aria-label`
+(« Radio ecstasyAvec SUICIDAL-IDOL, Rebzyyx… »). `native_ui_shell.js` découpe maintenant sur
+`Avec`/`With` : titre propre + sous-titre réel. Le titre accepte deux lignes (15 sp) pour rester
+lisible sur 384 px.

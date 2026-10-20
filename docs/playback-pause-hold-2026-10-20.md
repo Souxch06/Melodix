@@ -72,17 +72,29 @@ node --test tests/*.test.js
 `tests/playback_pause.test.js` couvre l'intention de pause, l'idempotence, le verrou, les
 protections contre les fausses reprises et les cibles tactiles des contrôles de lecture.
 
-## Filet de sécurité : réinjection du bridge
+## Cause racine trouvée le 2026-10-20 : un script de 200 Ko avalé par le WebView
 
-Le 2026-10-20, le rapport de diagnostic Preview d'un appareil montrait
-`nativeUiShellStarted/Ready/Completed: true` **mais** `bridgeStarted: false`,
-`homeInitAttempted: false` et aucun marqueur `#sf-mobile-nav` : le shell natif tournait,
-tandis que `assets/spotify_bridge.js` n'avait jamais démarré sur cette page. Toutes les
-correctifs de pause vivant dans ce fichier étaient donc inactifs.
+Deux rapports de diagnostic successifs montraient `nativeUiShellStarted/Ready/Completed: true`
+**mais** `bridgeStarted: false`, `homeInitAttempted: false`, `pauseHoldReapplies: 0` et
+`playback.trace: null`, après six tentatives de réinjection. Le shell tournait, le bridge non.
 
-`assets/native_ui_shell.js` (asset séparé, toujours exécuté) surveille désormais le démarrage du
-bridge. S'il est absent au bout de 3 s, il appelle
-`AndBridge.injectBundledAsset('spotify_bridge.js')` : `AndBridge` relit l'asset via `m9.d`,
-puis `NativeAssetRunner` poste `evaluateJavascript` sur le thread UI. Six tentatives maximum,
-espacées de 3 s. Le diagnostic expose `ui.bridgeRecoveryAttempts` et `ui.bridgeRecovered`
-pour distinguer « le bridge s'est lancé tard » de « le bridge ne démarre jamais ».
+`smali/c91.smali` évaluait `assets/spotify_bridge.js` (~200 Ko) d'un seul
+`evaluateJavascript(...)`. Sur ce WebView, un script de cette taille est abandonné **sans
+erreur** : aucune exception, aucun callback. Le bridge ne démarrait donc jamais, et tous les
+garde-fous de pause — qui vivent dans ce fichier — restaient inactifs. C'est pourquoi la pause
+pouvait encore sauter de piste et pourquoi aucune trace n'était enregistrée.
+
+Le chargement est maintenant découpé :
+
+1. `native_ui_shell.js` est injecté **en premier** (il reste petit et démarre toujours).
+2. Il lit l'asset via `AndBridge.readBundledAsset('spotify_bridge.js')` (liste blanche :
+   ce nom uniquement), récupère le texte complet et l'exécute lui-même.
+3. Quatre stratégies sont tentées jusqu'à ce que `__sfMelodixBridgeStarted` passe à `true` :
+   balise `<script>` inline, `eval` indirect, `new Function`, puis URL `blob:`.
+4. Si tout échoue, il retombe sur l'ancien `AndBridge.injectBundledAsset` (évaluation native).
+5. `securitypolicyviolation` est écouté : une CSP bloquante est enregistrée au lieu d'être devinée.
+
+Le diagnostic expose désormais `ui.bridgeExecMode` (`inline-script`, `eval`, `function`, `blob`,
+`native`), `ui.bridgeBytes` (taille réellement reçue), `ui.bridgeLastError` et
+`ui.bridgeCspViolation`. Si `bridgeStarted` reste `false`, ces quatre champs disent exactement
+pourquoi, sans nouvelle supposition.

@@ -217,11 +217,11 @@
     new-instance v3, Landroid/widget/TextView;
     invoke-direct {v3, p0}, Landroid/widget/TextView;-><init>(Landroid/content/Context;)V
     invoke-virtual {v3, v6}, Landroid/widget/TextView;->setText(Ljava/lang/CharSequence;)V
-    const/high16 v10, 0x41780000
+    const/high16 v10, 0x41700000
     invoke-virtual {v3, v10}, Landroid/widget/TextView;->setTextSize(F)V
     const v10, -0x1
     invoke-virtual {v3, v10}, Landroid/widget/TextView;->setTextColor(I)V
-    const/4 v10, 0x1
+    const/4 v10, 0x2
     invoke-virtual {v3, v10}, Landroid/widget/TextView;->setMaxLines(I)V
     const/4 v10, 0x0
     const/4 v11, 0x1

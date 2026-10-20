@@ -4783,3 +4783,31 @@
     :asset_inject_done
     return-void
 .end method
+
+.method public final readBundledAsset(Ljava/lang/String;)Ljava/lang/String;
+    .locals 2
+    .annotation runtime Landroid/webkit/JavascriptInterface;
+    .end annotation
+
+    # The playback bridge is a 200 KB asset. Sending it through a single
+    # evaluateJavascript call silently fails on some WebViews, so JavaScript
+    # fetches the text through this whitelisted getter and executes it itself.
+    const-string v1, ""
+
+    if-eqz p1, :read_bundled_asset_done
+
+    const-string v0, "spotify_bridge.js"
+
+    invoke-virtual {v0, p1}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+
+    move-result v0
+
+    if-nez v0, :read_bundled_asset_done
+
+    invoke-static {p1}, Lm9;->d(Ljava/lang/String;)Ljava/lang/String;
+
+    move-result-object v1
+
+    :read_bundled_asset_done
+    return-object v1
+.end method

@@ -7476,7 +7476,8 @@
     move-result-object v0
     invoke-virtual {v0}, Ljava/lang/String;->isEmpty()Z
     move-result v1
-    if-eqz v1, :native_row_create_standard
+    # Empty settingValue = content row (cover + title + subtitle): it must reach the content factory.
+    if-nez v1, :native_row_create_standard
     invoke-static {p0, v6}, Lcom/melodix/music/NativeSettingsRowFactory;->create(Lcom/melodix/music/MainActivity;Lorg/json/JSONObject;)Landroid/widget/LinearLayout;
     move-result-object v0
     goto :native_row_created

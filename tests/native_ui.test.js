@@ -808,13 +808,71 @@ test('the native shell can ask Android to evaluate the playback bridge again', (
     const runner = read('smali/com/melodix/music/NativeAssetRunner.smali');
     const diagnostic = read('assets/runtime_diagnostic.js');
 
-    assert.match(shell, /injectBundledAsset\('spotify_bridge\.js'\)/);
+    assert.match(shell, /__sfLoadBundledBridge/);
+    assert.match(shell, /readBundledAsset\('spotify_bridge\.js'|readBundledAsset\(name\)/);
     assert.match(shell, /__sfMelodixBridgeStarted === true/);
     assert.match(shell, /__sfNativeUiBridgeRecoveryAttempts/);
+    assert.match(shell, /securitypolicyviolation/, 'CSP rejections must be recorded, not guessed');
+    assert.match(shell, /__sfBridgeExecMode/, 'the execution strategy must be reported');
+    assert.match(bridge, /\.method public final readBundledAsset\(Ljava\/lang\/String;\)Ljava\/lang\/String;[\s\S]*?JavascriptInterface/);
+    assert.match(bridge, /const-string v0, "spotify_bridge\.js"[\s\S]*?Lm9;->d/, 'only whitelisted assets are readable');
     assert.match(bridge, /\.method public final injectBundledAsset\(Ljava\/lang\/String;\)V[\s\S]*?JavascriptInterface/);
-    assert.match(bridge, /const-string v0, "spotify_bridge\.js"[\s\S]*?Lm9;->d/);
     assert.match(bridge, /NativeAssetRunner;-><init>[\s\S]*?runOnUiThread/, 'evaluation must be posted to the UI thread');
     assert.match(runner, /implements Ljava\/lang\/Runnable;/);
     assert.match(runner, /runNativeJavascript/);
     assert.match(diagnostic, /bridgeRecoveryAttempts/);
+    assert.match(diagnostic, /bridgeExecMode/);
+    assert.match(read('smali/c91.smali'), /__sfLoadBundledBridge[\s\S]*?native_ui_shell\.js|native_ui_shell\.js[\s\S]*?__sfLoadBundledBridge/);
+    assert.doesNotMatch(
+        read('smali/c91.smali'),
+        /invoke-virtual \{v0, v3, v8\}, Landroid\/webkit\/WebView;->evaluateJavascript/,
+        'the 200 KB bridge must not be evaluated in a single call'
+    );
+});
+
+test('content rows reach the cover factory instead of the settings factory', () => {
+    const activity = read('smali/com/melodix/music/MainActivity.smali');
+    // Several jumps reference the label: the definition is the last match.
+    const start = activity.lastIndexOf(':native_row_build_card');
+    assert.ok(start > 0, 'the row dispatch label should exist');
+    // The label is referenced by a goto before its definition: take a window
+    // that always covers the whole dispatch block.
+    const dispatch = activity.slice(start, start + 1400);
+
+    assert.match(dispatch, /const-string v0, "settingValue"[\s\S]*?isEmpty\(\)Z[\s\S]*?move-result v1/);
+    assert.match(
+        dispatch,
+        /if-nez v1, :native_row_create_standard/,
+        'an empty settingValue marks a content row and must use the cover factory'
+    );
+    assert.doesNotMatch(
+        dispatch,
+        /if-eqz v1, :native_row_create_standard/,
+        'the inverted jump rendered every Home row with the settings factory'
+    );
+
+    const settingsAt = dispatch.indexOf('NativeSettingsRowFactory;->create');
+    // The jump instruction also contains the label name: take its definition.
+    const standardLabel = dispatch.lastIndexOf(':native_row_create_standard');
+    const contentAt = dispatch.indexOf('NativeUiRowFactory;->create(');
+    assert.ok(settingsAt > 0, 'settings rows still need the settings factory');
+    assert.ok(standardLabel > settingsAt && contentAt > standardLabel);
+});
+
+test('merged Spotify card labels are split into a title and a subtitle', () => {
+    const shell = read('assets/native_ui_shell.js');
+    const helper = shell.match(/function splitCardTitle\(value\) \{[\s\S]*?\n    \}/);
+    assert.ok(helper, 'splitCardTitle should exist');
+
+    const fn = new Function(`${helper[0]}; return splitCardTitle;`)();
+    assert.deepEqual(fn('Radio ecstasyAvec SUICIDAL-IDOL, Rebzyyx, SyKo'), {
+        title: 'Radio ecstasy',
+        subtitle: 'SUICIDAL-IDOL, Rebzyyx, SyKo'
+    });
+    assert.deepEqual(fn('Radio Night , Blooming Jasmine .Avec fakemink'), {
+        title: 'Radio Night , Blooming Jasmine',
+        subtitle: 'fakemink'
+    });
+    assert.deepEqual(fn('Titres likés'), { title: 'Titres likés', subtitle: '' });
+    assert.match(shell, /heading\.subtitle \|\|/, 'the split subtitle must feed the row subtitle');
 });

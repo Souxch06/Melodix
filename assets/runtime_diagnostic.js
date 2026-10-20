@@ -201,6 +201,14 @@
           ? window.__sfNativeUiBridgeRecoveryAttempts
           : 0,
         bridgeRecovered: window.__sfNativeUiBridgeRecovered === true,
+        bridgeExecMode: typeof window.__sfBridgeExecMode === 'string' ? window.__sfBridgeExecMode : null,
+        bridgeBytes: Number.isInteger(window.__sfBridgeBytes) ? window.__sfBridgeBytes : null,
+        bridgeLastError: typeof window.__sfBridgeLastError === 'string'
+          ? window.__sfBridgeLastError.slice(0, 160)
+          : null,
+        bridgeCspViolation: typeof window.__sfBridgeCspViolation === 'string'
+          ? window.__sfBridgeCspViolation.slice(0, 120)
+          : null,
         mobileShellInitAttempted: window.__sfMelodixMobileShellInitAttempted === true,
         homeInitAttempted: window.__sfMelodixHomeInitAttempted === true,
         mobileShellClass: body

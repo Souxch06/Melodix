@@ -179,6 +179,32 @@
         }).filter(Boolean);
     }
 
+    // Spotify folds a card title and its description into one string in
+    // aria-label and in some shelves' innerText: "Radio ecstasyAvec
+    // SUICIDAL-IDOL, Rebzyyx…". Rows must show the real title on one line and
+    // the description underneath, so split on the French/English connector.
+    function splitCardTitle(value) {
+        var text = String(value || '').replace(/\s+/g, ' ').trim();
+        var match;
+        if (!text) return { title: '', subtitle: '' };
+        match = /^(.{2,70}?)[\s.,;:–—-]*(?:avec|with)\s+(.{3,})$/i.exec(text);
+        if (match) {
+            return { title: match[1].trim(), subtitle: match[2].trim() };
+        }
+        return { title: text, subtitle: '' };
+    }
+
+    function firstCardText(card, selector) {
+        var node = null;
+        if (!card || typeof card.querySelector !== 'function') return '';
+        try {
+            node = card.querySelector(selector);
+        } catch (_) {
+            return '';
+        }
+        return String(node && (node.textContent || node.innerText) || '').replace(/\s+/g, ' ').trim();
+    }
+
     function closest(element, selector) {
         try {
             return element && typeof element.closest === 'function' ? element.closest(selector) : null;
@@ -283,6 +309,7 @@
             var uri = spotifyResourceUri(href);
             var card = findCardContainer(sourceAnchor, candidate, mainView);
             var lines;
+            var heading;
             var title;
             var subtitle;
             var imageUrl;
@@ -294,12 +321,16 @@
             if (!sourceAnchor || !uri || seen.has(uri)) return;
             lines = textLines(card);
             imageUrl = findImageUrl(card, sourceAnchor, mainView);
-            title = String(
-                card.getAttribute && card.getAttribute('aria-label') ||
-                sourceAnchor.getAttribute && sourceAnchor.getAttribute('aria-label') ||
+            // Prefer the visible first line (the real title) and only fall back
+            // to aria-label, which glues the title to its description.
+            heading = splitCardTitle(
+                (lines[0] && lines[0].length <= 90 ? lines[0] : '') ||
+                (card.getAttribute && card.getAttribute('aria-label')) ||
+                (sourceAnchor.getAttribute && sourceAnchor.getAttribute('aria-label')) ||
                 lines[0] ||
                 ''
-            ).replace(/\s+/g, ' ').trim().slice(0, 100);
+            );
+            title = heading.title.slice(0, 100);
             if (!title && sourceAnchor.querySelector) {
                 var image = sourceAnchor.querySelector('img');
                 title = String(image && image.getAttribute('alt') || '').replace(/\s+/g, ' ').trim().slice(0, 100);
@@ -307,7 +338,10 @@
             if (!title) return;
             seen.add(uri);
 
-            subtitle = lines.find(function(line) { return line !== title; }) || '';
+            subtitle = heading.subtitle ||
+                firstCardText(card, '[data-testid="card-subtitle"], [data-encore-id="cardSubtitle"]') ||
+                lines.find(function(line) { return line !== title && line !== lines[0]; }) ||
+                '';
             section = closest(card, 'section') || closest(candidate, 'section') || mainView;
             headings = section === mainView || !section.querySelectorAll
                 ? []
@@ -1071,33 +1105,144 @@
         return true;
     };
 
-    // The native shell is a separate asset from the playback bridge. If the
-    // bridge never starts (dropped evaluation, reloaded document), the user
-    // pause guard and the Spotify CSS shell would silently disappear, so ask
-    // the native side to evaluate the bundled bridge again.
-    function installBridgeRecovery() {
-        var attempts = 0;
-        var timer = null;
-        var bridge = window.AndBridge;
-        if (!bridge || typeof bridge.injectBundledAsset !== 'function') return;
+    // ---- Bundled bridge loader ---------------------------------------------
+    // spotify_bridge.js carries every playback guard (explicit pause intent,
+    // pause hold, media tracing) plus the Spotify CSS shell. It is ~200 KB, and
+    // a single evaluateJavascript call of that size is silently dropped by the
+    // WebView on device: the native shell starts, the bridge never does, and a
+    // pause can then jump to another track without any trace. The asset is
+    // fetched through AndBridge.readBundledAsset and executed here, trying each
+    // strategy until the bridge reports that it started.
+    var bridgeLoadAttempts = 0;
+    var bridgeRetryTimer = null;
+    var bridgeBlobUrl = null;
+    var bridgeCspListenerAttached = false;
 
-        function requestBridge() {
-            timer = null;
-            if (window.__sfMelodixBridgeStarted === true) {
-                window.__sfNativeUiBridgeRecovered = attempts > 0;
-                return;
-            }
-            attempts += 1;
-            window.__sfNativeUiBridgeRecoveryAttempts = attempts;
-            try {
-                if (window.AndBridge && typeof window.AndBridge.injectBundledAsset === 'function') {
-                    window.AndBridge.injectBundledAsset('spotify_bridge.js');
-                }
-            } catch (_) {}
-            if (attempts < 6 && timer === null) timer = window.setTimeout(requestBridge, 3000);
+    function bridgeHasStarted() {
+        return window.__sfMelodixBridgeStarted === true;
+    }
+
+    function recordBridgeFailure(stage, error) {
+        var message = error && error.message ? error.message : String(error || '');
+        window.__sfBridgeLastError = stage + (message ? ': ' + message : '');
+    }
+
+    function executeBridgeSource(source) {
+        var node;
+        window.__sfBridgeBytes = source.length;
+
+        // 1. Inline script: the way the asset used to be executed.
+        try {
+            node = document.createElement('script');
+            node.textContent = source;
+            (document.head || document.documentElement).appendChild(node);
+            if (node.parentNode) node.parentNode.removeChild(node);
+        } catch (error) {
+            recordBridgeFailure('inline-script', error);
+        }
+        if (bridgeHasStarted()) {
+            window.__sfBridgeExecMode = 'inline-script';
+            return true;
         }
 
-        timer = window.setTimeout(requestBridge, 3000);
+        // 2. Direct eval (rejected when the page forbids unsafe-eval).
+        try {
+            (0, eval)(source);
+        } catch (error) {
+            recordBridgeFailure('eval', error);
+        }
+        if (bridgeHasStarted()) {
+            window.__sfBridgeExecMode = 'eval';
+            return true;
+        }
+
+        // 3. Function constructor.
+        try {
+            (new Function(source))();
+        } catch (error) {
+            recordBridgeFailure('function', error);
+        }
+        if (bridgeHasStarted()) {
+            window.__sfBridgeExecMode = 'function';
+            return true;
+        }
+
+        // 4. Blob URL: asynchronous, so the next diagnostic sample confirms it.
+        try {
+            if (bridgeBlobUrl && typeof URL.revokeObjectURL === 'function') URL.revokeObjectURL(bridgeBlobUrl);
+            bridgeBlobUrl = URL.createObjectURL(new Blob([source], { type: 'text/javascript' }));
+            node = document.createElement('script');
+            node.src = bridgeBlobUrl;
+            (document.head || document.documentElement).appendChild(node);
+            window.__sfBridgeExecMode = 'blob';
+            return true;
+        } catch (error) {
+            recordBridgeFailure('blob', error);
+        }
+        return false;
+    }
+
+    function loadBundledBridge(name) {
+        var source = '';
+        if (bridgeHasStarted()) return true;
+        try {
+            if (window.AndBridge && typeof window.AndBridge.readBundledAsset === 'function') {
+                source = String(window.AndBridge.readBundledAsset(name) || '');
+            }
+        } catch (error) {
+            recordBridgeFailure('read-asset', error);
+        }
+        if (source) return executeBridgeSource(source);
+        recordBridgeFailure('read-asset', 'empty');
+        // Last resort: let Android evaluate the asset, even though that call is
+        // the one that fails on device.
+        try {
+            if (window.AndBridge && typeof window.AndBridge.injectBundledAsset === 'function') {
+                window.AndBridge.injectBundledAsset(name);
+                window.__sfBridgeExecMode = window.__sfBridgeExecMode || 'native';
+            }
+        } catch (error) {
+            recordBridgeFailure('native-eval', error);
+        }
+        return false;
+    }
+    window.__sfLoadBundledBridge = loadBundledBridge;
+
+    function installBridgeRecovery() {
+        var bridge = window.AndBridge;
+        if (!bridge) return;
+        if (typeof bridge.readBundledAsset !== 'function' && typeof bridge.injectBundledAsset !== 'function') return;
+
+        // A CSP violation explains why an execution strategy was rejected.
+        if (!bridgeCspListenerAttached) {
+            bridgeCspListenerAttached = true;
+            try {
+                document.addEventListener('securitypolicyviolation', function(event) {
+                    var directive = String(event && (event.effectiveDirective || event.violatedDirective) || '');
+                    var blocked = String(event && event.blockedURI || '');
+                    window.__sfBridgeCspViolation = (directive + ' ' + blocked).trim().slice(0, 120);
+                }, true);
+            } catch (_) {}
+        }
+
+        function attempt() {
+            bridgeRetryTimer = null;
+            if (bridgeHasStarted()) {
+                window.__sfNativeUiBridgeRecovered = bridgeLoadAttempts > 0;
+                return;
+            }
+            bridgeLoadAttempts += 1;
+            window.__sfNativeUiBridgeRecoveryAttempts = bridgeLoadAttempts;
+            loadBundledBridge('spotify_bridge.js');
+            if (bridgeHasStarted()) {
+                window.__sfNativeUiBridgeRecovered = true;
+                return;
+            }
+            if (bridgeLoadAttempts < 8) bridgeRetryTimer = window.setTimeout(attempt, 2500);
+        }
+
+        if (bridgeHasStarted()) return;
+        window.setTimeout(attempt, 1200);
     }
 
     function install() {
