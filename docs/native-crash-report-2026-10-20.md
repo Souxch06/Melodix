@@ -147,6 +147,8 @@ inutilisable, en silence.
   `.preview`. Un toast deja remis au systeme s affiche meme si le processus
   meurt juste apres ; le **dernier toast visible** nomme donc la derniere etape
   atteinte.
+- le marqueur de demarrage de `install()` est lui aussi reserve a `.preview` :
+  l application de production reste muette.
 
 ### Lecture du resultat sur le telephone
 

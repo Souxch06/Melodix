@@ -179,9 +179,21 @@
     goto :toast_show
 
     :toast_alive
-    # Unconditional marker: it proves which build is installed and that the
-    # process reached Application.onCreate before anything else failed.
-    const-string v1, "Melodix preview diag-4 : demarrage"
+    # Marker of the build actually installed, shown right after the process
+    # reached Application.onCreate. Preview only: production must stay silent.
+    invoke-virtual {v0}, Landroid/content/Context;->getPackageName()Ljava/lang/String;
+
+    move-result-object v1
+
+    const-string v3, ".preview"
+
+    invoke-virtual {v1, v3}, Ljava/lang/String;->endsWith(Ljava/lang/String;)Z
+
+    move-result v1
+
+    if-eqz v1, :done_toast
+
+    const-string v1, "Melodix diag-4 : demarrage"
 
     :toast_show
     const/4 v2, 0x1
