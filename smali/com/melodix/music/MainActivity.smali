@@ -7932,7 +7932,11 @@
 .method public final onNativePlayPauseClick(Landroid/view/View;)V
     .locals 1
 
-    const-string v0, "(function(){try{var snap=null;if(typeof window.__sfGetPlaybackSnapshot===\'function\'){snap=window.__sfGetPlaybackSnapshot();}var s=snap?Boolean(snap.playing):Boolean(window.playing);if(typeof window.__sfMarkUserPlaybackIntent===\'function\'){window.__sfMarkUserPlaybackIntent(!s);}else{window.__sfUserRequestedPause=s;if(!s){window.__sfLastPlayRequestAt=Date.now();}}if(typeof window.actPlayPause===\'function\'){window.actPlayPause(!s);return;}var p=document.querySelector(\'button[data-testid=\"control-button-playpause\"]\')||window.pBtn;if(p){p.click();}}catch(e){}})();"
+    # Drive the toggle from the player's own button label instead of the
+    # possibly stale window.playing flag: the click must always match what the
+    # user sees, even when the bridge has not (re)started yet.
+    const-string v0, "(function(){try{var p=document.querySelector(\\'button[data-testid=\"control-button-playpause\"]\\')||window.pBtn;var label=p&&p.getAttribute?String(p.getAttribute(\\'aria-label\\')||\\'\\'):\\'\\';var playing=/paus/i.test(label);if(!label&&typeof window.__sfGetPlaybackSnapshot===\\'function\\'){var snap=window.__sfGetPlaybackSnapshot();playing=snap?Boolean(snap.playing):Boolean(window.playing);}if(typeof window.__sfMarkUserPlaybackIntent===\\'function\\'){window.__sfMarkUserPlaybackIntent(!playing);}else{window.__sfUserRequestedPause=!playing;if(!playing){window.__sfLastPlayRequestAt=Date.now();}}if(typeof window.actPlayPause===\\'function\\'){window.actPlayPause(!playing);return;}if(p&&typeof p.click===\\'function\\'){p.click();}}catch(e){}})();"
+
     invoke-virtual {p0, v0}, Lcom/melodix/music/MainActivity;->runNativeJavascript(Ljava/lang/String;)V
     return-void
 .end method

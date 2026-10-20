@@ -4733,3 +4733,53 @@
     :cond_0
     return-void
 .end method
+
+.method public final injectBundledAsset(Ljava/lang/String;)V
+    .locals 4
+    .annotation runtime Landroid/webkit/JavascriptInterface;
+    .end annotation
+
+    # Recovery hook: pages can ask for a bundled script to be evaluated again
+    # when its first injection never started (for example a stale WebView or a
+    # dropped evaluateJavascript call). Only whitelisted assets are accepted.
+    if-eqz p1, :asset_inject_done
+
+    const-string v0, "spotify_bridge.js"
+
+    invoke-virtual {v0, p1}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+
+    move-result v0
+
+    if-nez v0, :asset_inject_done
+
+    invoke-static {p1}, Lm9;->d(Ljava/lang/String;)Ljava/lang/String;
+
+    move-result-object v1
+
+    invoke-virtual {v1}, Ljava/lang/String;->isEmpty()Z
+
+    move-result v0
+
+    if-nez v0, :asset_inject_done
+
+    sget-object v0, Lcom/melodix/music/AppSingleton;->t:Ljava/lang/ref/WeakReference;
+
+    if-eqz v0, :asset_inject_done
+
+    invoke-virtual {v0}, Ljava/lang/ref/Reference;->get()Ljava/lang/Object;
+
+    move-result-object v2
+
+    check-cast v2, Lcom/melodix/music/MainActivity;
+
+    if-eqz v2, :asset_inject_done
+
+    new-instance v3, Lcom/melodix/music/NativeAssetRunner;
+
+    invoke-direct {v3, v2, v1}, Lcom/melodix/music/NativeAssetRunner;-><init>(Lcom/melodix/music/MainActivity;Ljava/lang/String;)V
+
+    invoke-virtual {v2, v3}, Landroid/app/Activity;->runOnUiThread(Ljava/lang/Runnable;)V
+
+    :asset_inject_done
+    return-void
+.end method

@@ -208,6 +208,17 @@ jobs:
             exit 1
           fi
 
+          # The JS bridge and the native shell are read from assets at runtime. A
+          # build where one of them is missing or truncated makes the app start
+          # without its playback guards, so fail the build instead of shipping it.
+          for asset in spotify_bridge.js native_ui_shell.js runtime_diagnostic.js css_hacks.css; do
+            extracted_size="$(unzip -p "$output" "assets/$asset" 2>/dev/null | wc -c | tr -d ' ')"
+            if [[ "${extracted_size:-0}" -lt 1000 ]]; then
+              echo "::error::assets/$asset is missing or truncated (${extracted_size:-0} bytes) in the preview APK."
+              exit 1
+            fi
+          done
+
           mkdir -p "$GITHUB_WORKSPACE/preview-output"
           cp "$output" "$GITHUB_WORKSPACE/preview-output/$APK_NAME"
           (cd "$GITHUB_WORKSPACE/preview-output" && sha256sum "$APK_NAME" > "$APK_NAME.sha256")

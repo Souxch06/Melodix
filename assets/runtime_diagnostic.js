@@ -197,6 +197,10 @@
         bridgeBootstrapErrors: Number.isInteger(window.__sfMelodixBridgeBootstrapErrors)
           ? window.__sfMelodixBridgeBootstrapErrors
           : null,
+        bridgeRecoveryAttempts: Number.isInteger(window.__sfNativeUiBridgeRecoveryAttempts)
+          ? window.__sfNativeUiBridgeRecoveryAttempts
+          : 0,
+        bridgeRecovered: window.__sfNativeUiBridgeRecovered === true,
         mobileShellInitAttempted: window.__sfMelodixMobileShellInitAttempted === true,
         homeInitAttempted: window.__sfMelodixHomeInitAttempted === true,
         mobileShellClass: body

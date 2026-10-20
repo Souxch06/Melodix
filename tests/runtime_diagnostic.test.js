@@ -180,6 +180,8 @@ test('Preview diagnostic returns four timed samples with the existing report fie
         bridgeBootstrapReady: true,
         bridgeCompleted: true,
         bridgeBootstrapErrors: 0,
+        bridgeRecoveryAttempts: 0,
+        bridgeRecovered: false,
         mobileShellInitAttempted: true,
         homeInitAttempted: true,
         mobileShellClass: true,

@@ -784,3 +784,37 @@ test('native settings rows expose real Spotify options and toggles persist local
     const quality = JSON.parse(calls[0].data).find((row) => row.uri === 'spotify:settings:audio_quality');
     assert.equal(quality.settingValue, 'Élevée (160 kbit/s)');
 });
+
+test('mobile rows lead with the cover and drop the legacy play badge', () => {
+    const factory = read('smali/com/melodix/music/NativeUiRowFactory.smali');
+    const create = factory.slice(
+        factory.indexOf('.method public static create('),
+        factory.indexOf('.method public static createSectionHeader(')
+    );
+
+    assert.ok(create.includes('Landroid/widget/ImageView;-><init>'), 'rows must build a cover ImageView');
+    assert.ok(
+        create.indexOf('Landroid/widget/ImageView;-><init>') < create.indexOf(':native_row_text_column'),
+        'the cover is added before the text column so it reads as a mobile list row'
+    );
+    assert.match(create, /const\/high16 v11, 0x41000000/, 'the cover keeps rounded corners');
+    assert.match(create, /MarginLayoutParams;->topMargin:I/, 'the subtitle sits just under the title');
+    assert.doesNotMatch(create, /▶/, 'the decorative grey play badge must not come back');
+});
+
+test('the native shell can ask Android to evaluate the playback bridge again', () => {
+    const shell = read('assets/native_ui_shell.js');
+    const bridge = read('smali/com/melodix/music/AndBridge.smali');
+    const runner = read('smali/com/melodix/music/NativeAssetRunner.smali');
+    const diagnostic = read('assets/runtime_diagnostic.js');
+
+    assert.match(shell, /injectBundledAsset\('spotify_bridge\.js'\)/);
+    assert.match(shell, /__sfMelodixBridgeStarted === true/);
+    assert.match(shell, /__sfNativeUiBridgeRecoveryAttempts/);
+    assert.match(bridge, /\.method public final injectBundledAsset\(Ljava\/lang\/String;\)V[\s\S]*?JavascriptInterface/);
+    assert.match(bridge, /const-string v0, "spotify_bridge\.js"[\s\S]*?Lm9;->d/);
+    assert.match(bridge, /NativeAssetRunner;-><init>[\s\S]*?runOnUiThread/, 'evaluation must be posted to the UI thread');
+    assert.match(runner, /implements Ljava\/lang\/Runnable;/);
+    assert.match(runner, /runNativeJavascript/);
+    assert.match(diagnostic, /bridgeRecoveryAttempts/);
+});

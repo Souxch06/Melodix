@@ -190,10 +190,15 @@ test('the legacy take-control auto-click on paused playback is gone', () => {
 test('automatic resume helpers respect the pause intent latch', () => {
     assert.match(bridge, /autoPlayMode === "permanent"[\s\S]{0,200}?__sfUserRequestedPause/);
     assert.match(bridge, /autoPlayMode === "onetime"[\s\S]{0,200}?__sfUserRequestedPause/);
-    assert.match(bridge, /function markUserPlaybackIntent\(playing\)/);
+    assert.match(bridge, /function markUserPlaybackIntent\(playing, options\)/);
     assert.match(bridge, /window\.__sfMarkUserPlaybackIntent = markUserPlaybackIntent;/);
     assert.match(bridge, /window\.playFromUri = function\(uri, contextUri\) \{[\s\S]{0,300}?markUserPlaybackIntent\(true\)/);
-    assert.match(bridge, /window\.manageAll = function\(play\) \{[\s\S]{0,200}?if \(play\) markUserPlaybackIntent\(true\)/);
+    assert.match(
+        bridge,
+        /window\.manageAll = function\(play\) \{[\s\S]{0,200}?if \(play\) markUserPlaybackIntent\(true, \{ explicit: !window\.__sfUserRequestedPause \}\)/,
+        'a Spotify state echo must not clear a pause the user asked for'
+    );
+    assert.match(bridge, /auto-resume-ignored/, 'automatic resumes are traced and then ignored');
 });
 
 test('the native play/pause button asks for an explicit state instead of toggling blindly', () => {
@@ -203,9 +208,10 @@ test('the native play/pause button asks for an explicit state instead of togglin
         'return-void\n.end method'
     );
 
+    assert.match(method, /aria-label/, 'the toggle must follow the button label the user sees');
     assert.match(method, /__sfGetPlaybackSnapshot/);
     assert.match(method, /__sfMarkUserPlaybackIntent/);
-    assert.match(method, /actPlayPause\(!s\)/);
+    assert.match(method, /actPlayPause\(!playing\)/);
     assert.doesNotMatch(method, /window\.actPlayPause\(\);return;/);
 });
 

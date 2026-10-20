@@ -197,17 +197,36 @@
         }, true);
     } catch (_) {}
 
+    // Record DOM activations that can change the track, so a field report shows
+    // whether the change came from the app or from Spotify's own player.
+    try {
+        document.addEventListener('click', function(event) {
+            const target = event && event.target;
+            if (!target || typeof target.closest !== 'function') return;
+            try {
+                const skip = target.closest('[data-testid="control-button-skip-forward"], [data-testid="control-button-skip-back"]');
+                if (skip) {
+                    tracePlayback('dom-skip', String(skip.getAttribute('data-testid') || ''));
+                    return;
+                }
+                if (!window.__sfUserRequestedPause) return;
+                const row = target.closest('[data-testid="tracklist-row"]');
+                if (row) tracePlayback('dom-track-row-while-paused', String(row.innerText || '').slice(0, 24));
+            } catch (_) {}
+        }, true);
+    } catch (_) {}
+
     // ---- Sticky pause hold -------------------------------------------------
     // After an explicit pause the player is watched for a short while. If
     // playback restarts without a user play request (native timer, media
     // session echo, Spotify autoplay/queue logic), the pause is re-applied at
     // once instead of letting the next track play. Any explicit play or skip
     // request ends the hold immediately.
-    const PAUSE_HOLD_MS = 20000;
+    const PAUSE_HOLD_MS = 45000;
     const PAUSE_HOLD_SETTLE_MS = 1200;
     const PAUSE_HOLD_TICK_MS = 300;
-    const PAUSE_HOLD_MAX_REAPPLIES = 2;
-    const PAUSE_HOLD_REAPPLY_GAP_MS = 2000;
+    const PAUSE_HOLD_MAX_REAPPLIES = 5;
+    const PAUSE_HOLD_REAPPLY_GAP_MS = 1500;
     let pauseHoldTimer = null;
     let pauseHoldSince = 0;
     let pauseHoldUntil = 0;
@@ -260,8 +279,15 @@
     }
 
     function startPauseHold(source) {
-        pauseHoldSince = Date.now();
-        pauseHoldUntil = pauseHoldSince + PAUSE_HOLD_MS;
+        const now = Date.now();
+        if (pauseHoldTimer && now < pauseHoldUntil) {
+            // Our own re-pause click fires the player button listener; it must
+            // not restart the window or reset the re-apply budget.
+            tracePlayback('pause-hold-kept', source);
+            return;
+        }
+        pauseHoldSince = now;
+        pauseHoldUntil = now + PAUSE_HOLD_MS;
         pauseHoldReapplies = 0;
         pauseHoldLastReapplyAt = 0;
         lastAudibleTime = -1;
@@ -274,8 +300,16 @@
         pauseHoldTimer = window.setInterval(pauseHoldTick, PAUSE_HOLD_TICK_MS);
     }
 
-    function markUserPlaybackIntent(playing) {
+    function markUserPlaybackIntent(playing, options) {
+        const explicit = !options || options.explicit !== false;
         const paused = !playing;
+        if (!paused && !explicit) {
+            // Spotify resumed on its own: autoplay, a queue hand-off or a ghost
+            // media-session command. The user asked for a pause, so the latch
+            // and the hold stay armed until an explicit play or the hold ends.
+            tracePlayback('auto-resume-ignored', 'user-pause-active');
+            return;
+        }
         window.__sfUserRequestedPause = paused;
         reqPause = paused;
         if (paused) {
@@ -1853,7 +1887,7 @@
     window.manageAll = function(play) {
         window.playing = play;
         tracePlayback(play ? 'manage-all-play' : 'manage-all-pause');
-        if (play) markUserPlaybackIntent(true);
+        if (play) markUserPlaybackIntent(true, { explicit: !window.__sfUserRequestedPause });
         AndBridge.manageTShut(!play);
         AndBridge.manageTSleep(play);
         if (play) {
@@ -2330,6 +2364,13 @@
                 window.track = (ta.textContent || ta.innerText || '').trim();
             } else {
                 window.track = null;
+            }
+
+            if (window.track !== window.__sfLastTrackTitle) {
+                if (typeof window.__sfLastTrackTitle !== 'undefined' && window.track) {
+                    tracePlayback('track-change', window.__sfUserRequestedPause ? 'while-user-paused' : 'while-playing');
+                }
+                window.__sfLastTrackTitle = window.track;
             }
 
             if (window.track !== window.__sfLastTrackTitle) {

@@ -1071,12 +1071,42 @@
         return true;
     };
 
+    // The native shell is a separate asset from the playback bridge. If the
+    // bridge never starts (dropped evaluation, reloaded document), the user
+    // pause guard and the Spotify CSS shell would silently disappear, so ask
+    // the native side to evaluate the bundled bridge again.
+    function installBridgeRecovery() {
+        var attempts = 0;
+        var timer = null;
+        var bridge = window.AndBridge;
+        if (!bridge || typeof bridge.injectBundledAsset !== 'function') return;
+
+        function requestBridge() {
+            timer = null;
+            if (window.__sfMelodixBridgeStarted === true) {
+                window.__sfNativeUiBridgeRecovered = attempts > 0;
+                return;
+            }
+            attempts += 1;
+            window.__sfNativeUiBridgeRecoveryAttempts = attempts;
+            try {
+                if (window.AndBridge && typeof window.AndBridge.injectBundledAsset === 'function') {
+                    window.AndBridge.injectBundledAsset('spotify_bridge.js');
+                }
+            } catch (_) {}
+            if (attempts < 6 && timer === null) timer = window.setTimeout(requestBridge, 3000);
+        }
+
+        timer = window.setTimeout(requestBridge, 3000);
+    }
+
     function install() {
         if (window._sfNativeUiShellListenersAttached) return;
         window._sfNativeUiShellListenersAttached = true;
         window.__sfNativeUiShellReady = true;
         window.playing = false;
         installPlaybackStateGuard();
+        installBridgeRecovery();
         initialPath = spotifyRoutePath();
         initialScreen = nativeScreenForPath();
         window.__sfNativeUiRoute = initialScreen;
