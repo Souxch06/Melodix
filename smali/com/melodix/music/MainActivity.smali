@@ -73,6 +73,10 @@
 .field public final g0:Ls4;
 
 .field private nativeCurrentScreen:Ljava/lang/String;
+
+# True once Spotify reports a track: the mini player card stays hidden until
+# then instead of showing an empty "Aucune lecture en cours" bar everywhere.
+.field private nativeHasTrack:Z
 .field private nativeCurrentTitle:Ljava/lang/String;
 .field private nativeCurrentJson:Ljava/lang/String;
 .field private nativeExpectedId:Ljava/lang/String;
@@ -4304,6 +4308,26 @@
     return-void
 .end method
 
+.method public onBackPressed()V
+    .locals 2
+
+    # In the native shell the system back gesture must first leave the current
+    # native screen (detail, player, settings) instead of closing the app.
+    iget-object v0, p0, Lcom/melodix/music/MainActivity;->nativeCurrentScreen:Ljava/lang/String;
+    if-eqz v0, :native_back_super
+    const-string v1, "home"
+    invoke-virtual {v0, v1}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    move-result v1
+    if-eqz v1, :native_back_super
+    const/4 v1, 0x0
+    invoke-virtual {p0, v1}, Lcom/melodix/music/MainActivity;->onNativeBackClick(Landroid/view/View;)V
+    return-void
+
+    :native_back_super
+    invoke-super {p0}, Le6;->onBackPressed()V
+    return-void
+.end method
+
 .method public final onKeyDown(ILandroid/view/KeyEvent;)Z
     .locals 1
 
@@ -6728,33 +6752,11 @@
     invoke-virtual {v1, v2}, Landroid/view/View;->setVisibility(I)V
 
     :style_native_controls
+    # The play/pause buttons are ImageViews styled in XML (white circle + black
+    # glyph); no runtime patching is needed any more.
     const/4 v2, 0x0
-    const v0, 0x7f09023e
-    invoke-virtual {p0, v0}, Landroid/app/Activity;->findViewById(I)Landroid/view/View;
-    move-result-object v1
-    if-eqz v1, :style_mini_play_button
-    check-cast v1, Landroid/widget/TextView;
-    invoke-virtual {v1, v2, v2, v2, v2}, Landroid/view/View;->setPadding(IIII)V
-    const v3, -0x1
-    invoke-static {v3}, Landroid/content/res/ColorStateList;->valueOf(I)Landroid/content/res/ColorStateList;
-    move-result-object v3
-    invoke-virtual {v1, v3}, Landroid/view/View;->setBackgroundTintList(Landroid/content/res/ColorStateList;)V
-    const v3, -0xededee
-    invoke-virtual {v1, v3}, Landroid/widget/TextView;->setTextColor(I)V
 
     :style_mini_play_button
-    const v0, 0x7f090238
-    invoke-virtual {p0, v0}, Landroid/app/Activity;->findViewById(I)Landroid/view/View;
-    move-result-object v1
-    if-eqz v1, :set_default_screen
-    check-cast v1, Landroid/widget/TextView;
-    invoke-virtual {v1, v2, v2, v2, v2}, Landroid/view/View;->setPadding(IIII)V
-    const v3, 0xff1ed760
-    invoke-static {v3}, Landroid/content/res/ColorStateList;->valueOf(I)Landroid/content/res/ColorStateList;
-    move-result-object v3
-    invoke-virtual {v1, v3}, Landroid/view/View;->setBackgroundTintList(Landroid/content/res/ColorStateList;)V
-    const v3, -0xededee
-    invoke-virtual {v1, v3}, Landroid/widget/TextView;->setTextColor(I)V
 
     :set_default_screen
     iget-boolean v0, p0, Lcom/melodix/music/MainActivity;->nativeSearchWatcherAttached:Z
@@ -6818,13 +6820,27 @@
     invoke-virtual {v2, v3}, Landroid/view/View;->setVisibility(I)V
 
     :back_button
+    # The back arrow must exist on both screens the user can enter from a row
+    # or the mini player. The old test overwrote the detail flag with the
+    # player flag, so the button was hidden everywhere.
     const-string v0, "detail"
     invoke-virtual {p1, v0}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
     move-result v1
-    if-nez v1, :set_back_button_visibility
+    if-nez v1, :native_back_check_player
+    const/4 v1, 0x1
+    goto :set_back_button_visibility
+    :native_back_check_player
     const-string v0, "player"
     invoke-virtual {p1, v0}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
     move-result v1
+    if-eqz v1, :native_back_show
+    const-string v0, "settings"
+    invoke-virtual {p1, v0}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    move-result v1
+    if-eqz v1, :native_back_show
+    goto :set_back_button_visibility
+    :native_back_show
+    const/4 v1, 0x1
     :set_back_button_visibility
     const v2, 0x7f090231
     invoke-virtual {p0, v2}, Landroid/app/Activity;->findViewById(I)Landroid/view/View;
@@ -6868,16 +6884,34 @@
     invoke-virtual {v2, v3}, Landroid/view/View;->setVisibility(I)V
 
     :native_mini_player
-    const v2, 0x7f090243
+    # Hide the whole card (row + progress line), not just the row, and keep it
+    # hidden until Spotify reports a track.
+    const v2, 0x7f09024c
     invoke-virtual {p0, v2}, Landroid/app/Activity;->findViewById(I)Landroid/view/View;
     move-result-object v2
-    if-eqz v2, :screen_title
-    if-eqz v1, :show_native_mini_player
+    if-eqz v2, :native_tab_bar
+    if-eqz v1, :hide_native_mini_player
+    iget-boolean v3, p0, Lcom/melodix/music/MainActivity;->nativeHasTrack:Z
+    if-eqz v3, :show_native_mini_player
+    :hide_native_mini_player
     const/16 v3, 0x8
     goto :set_native_mini_player
     :show_native_mini_player
     const/4 v3, 0x0
     :set_native_mini_player
+    invoke-virtual {v2, v3}, Landroid/view/View;->setVisibility(I)V
+
+    :native_tab_bar
+    const v2, 0x7f09024e
+    invoke-virtual {p0, v2}, Landroid/app/Activity;->findViewById(I)Landroid/view/View;
+    move-result-object v2
+    if-eqz v2, :screen_title
+    if-eqz v1, :show_native_tab_bar
+    const/16 v3, 0x8
+    goto :set_native_tab_bar
+    :show_native_tab_bar
+    const/4 v3, 0x0
+    :set_native_tab_bar
     invoke-virtual {v2, v3}, Landroid/view/View;->setVisibility(I)V
 
     :screen_title
@@ -6964,7 +6998,9 @@
     goto :native_tab_apply
 
     :native_tab_highlight
-    const v3, -0xe0c5d6
+    # No heavy pill behind the active tab: Spotify only brightens the icon and
+    # keeps the label white.
+    const/4 v3, 0x0
 
     :native_tab_apply
     invoke-virtual {v1, v2}, Landroid/widget/TextView;->setTextColor(I)V
@@ -7042,7 +7078,7 @@
     if-eqz v1, :check_detail_data
     invoke-virtual {p2}, Ljava/lang/String;->isEmpty()Z
     move-result v1
-    if-nez v1, :apply_done
+    if-eqz v1, :apply_done
     iput-object p2, p0, Lcom/melodix/music/MainActivity;->nativeCurrentTitle:Ljava/lang/String;
     const v0, 0x7f090230
     invoke-virtual {p0, v0}, Landroid/app/Activity;->findViewById(I)Landroid/view/View;
@@ -7189,6 +7225,15 @@
     const-string v2, "Aucune lecture en cours"
     invoke-virtual {v0, v1, v2}, Lorg/json/JSONObject;->optString(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;
     move-result-object v2
+    invoke-virtual {v2}, Ljava/lang/String;->isEmpty()Z
+    move-result v1
+    if-eqz v1, :native_player_no_track
+    const/4 v1, 0x1
+    goto :native_player_track_flag
+    :native_player_no_track
+    const/4 v1, 0x0
+    :native_player_track_flag
+    iput-boolean v1, p0, Lcom/melodix/music/MainActivity;->nativeHasTrack:Z
     const-string v1, "artist"
     const-string v3, ""
     invoke-virtual {v0, v1, v3}, Lorg/json/JSONObject;->optString(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;
@@ -7280,6 +7325,14 @@
     :native_player_set_progress
     invoke-virtual {v9, v4}, Landroid/widget/ProgressBar;->setProgress(I)V
 
+    const v8, 0x7f09024d
+    invoke-virtual {p0, v8}, Landroid/app/Activity;->findViewById(I)Landroid/view/View;
+    move-result-object v9
+    if-eqz v9, :native_player_mini_progress
+    check-cast v9, Landroid/widget/ProgressBar;
+    invoke-virtual {v9, v4}, Landroid/widget/ProgressBar;->setProgress(I)V
+
+    :native_player_mini_progress
     const v8, 0x7f09024a
     invoke-virtual {p0, v8}, Landroid/app/Activity;->findViewById(I)Landroid/view/View;
     move-result-object v9
@@ -7304,46 +7357,52 @@
     invoke-virtual {p0, v8}, Landroid/app/Activity;->findViewById(I)Landroid/view/View;
     move-result-object v9
     if-eqz v9, :native_player_large_button
-    check-cast v9, Landroid/widget/TextView;
+    check-cast v9, Landroid/widget/ImageView;
     if-eqz v6, :native_player_mini_play
-    const-string v7, "Ⅱ"
+    const v7, 0x7f080121
     goto :native_player_mini_set
     :native_player_mini_play
-    const-string v7, "▶"
+    const v7, 0x7f080122
     :native_player_mini_set
-    invoke-virtual {v9, v7}, Landroid/widget/TextView;->setText(Ljava/lang/CharSequence;)V
-    const/4 v8, 0x0
-    invoke-virtual {v9, v8, v8, v8, v8}, Landroid/view/View;->setPadding(IIII)V
-    const v8, 0xff1ed760
-    invoke-static {v8}, Landroid/content/res/ColorStateList;->valueOf(I)Landroid/content/res/ColorStateList;
-    move-result-object v8
-    invoke-virtual {v9, v8}, Landroid/view/View;->setBackgroundTintList(Landroid/content/res/ColorStateList;)V
-    const v8, -0xededee
-    invoke-virtual {v9, v8}, Landroid/widget/TextView;->setTextColor(I)V
+    invoke-virtual {v9, v7}, Landroid/widget/ImageView;->setImageResource(I)V
 
     :native_player_large_button
     const v8, 0x7f09023e
     invoke-virtual {p0, v8}, Landroid/app/Activity;->findViewById(I)Landroid/view/View;
     move-result-object v9
     if-eqz v9, :native_player_try_done
-    check-cast v9, Landroid/widget/TextView;
+    check-cast v9, Landroid/widget/ImageView;
     if-eqz v6, :native_player_large_play
-    const-string v7, "Ⅱ"
+    const v7, 0x7f080121
     goto :native_player_large_set
     :native_player_large_play
-    const-string v7, "▶"
+    const v7, 0x7f080122
     :native_player_large_set
-    invoke-virtual {v9, v7}, Landroid/widget/TextView;->setText(Ljava/lang/CharSequence;)V
-    const/4 v8, 0x0
-    invoke-virtual {v9, v8, v8, v8, v8}, Landroid/view/View;->setPadding(IIII)V
-    const v8, -0x1
-    invoke-static {v8}, Landroid/content/res/ColorStateList;->valueOf(I)Landroid/content/res/ColorStateList;
-    move-result-object v8
-    invoke-virtual {v9, v8}, Landroid/view/View;->setBackgroundTintList(Landroid/content/res/ColorStateList;)V
-    const v8, -0xededee
-    invoke-virtual {v9, v8}, Landroid/widget/TextView;->setTextColor(I)V
+    invoke-virtual {v9, v7}, Landroid/widget/ImageView;->setImageResource(I)V
 
     :native_player_try_done
+    # Show the mini player card only when a track exists, and never while the
+    # full player is open.
+    iget-object v1, p0, Lcom/melodix/music/MainActivity;->nativeCurrentScreen:Ljava/lang/String;
+    if-eqz v1, :native_player_mini_visibility
+    const-string v2, "player"
+    invoke-virtual {v1, v2}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    move-result v1
+    if-eqz v1, :native_player_mini_visibility
+    iget-boolean v1, p0, Lcom/melodix/music/MainActivity;->nativeHasTrack:Z
+    if-eqz v1, :native_player_mini_visible
+    const/16 v1, 0x8
+    goto :native_player_mini_apply
+    :native_player_mini_visible
+    const/4 v1, 0x0
+    :native_player_mini_apply
+    const v2, 0x7f09024c
+    invoke-virtual {p0, v2}, Landroid/app/Activity;->findViewById(I)Landroid/view/View;
+    move-result-object v2
+    if-eqz v2, :native_player_mini_visibility
+    invoke-virtual {v2, v1}, Landroid/view/View;->setVisibility(I)V
+
+    :native_player_mini_visibility
     :try_end_native_player
     .catch Lorg/json/JSONException; {:try_start_native_player .. :try_end_native_player} :catch_native_player
     return-void
@@ -7471,10 +7530,10 @@
     move-result-object v9
     invoke-virtual {v9}, Ljava/lang/String;->isEmpty()Z
     move-result v0
-    if-nez v0, :native_row_build_card
+    if-eqz v0, :native_row_build_card
     invoke-virtual {v9, v8}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
     move-result v0
-    if-nez v0, :native_row_build_card
+    if-eqz v0, :native_row_build_card
     move-object v8, v9
     invoke-static {p0, v9}, Lcom/melodix/music/NativeUiRowFactory;->createSectionHeader(Lcom/melodix/music/MainActivity;Ljava/lang/String;)Landroid/widget/TextView;
     move-result-object v0
@@ -7488,7 +7547,7 @@
     invoke-virtual {v0}, Ljava/lang/String;->isEmpty()Z
     move-result v1
     # Empty settingValue = content row (cover + title + subtitle): it must reach the content factory.
-    if-nez v1, :native_row_create_standard
+    if-eqz v1, :native_row_create_standard
     invoke-static {p0, v6}, Lcom/melodix/music/NativeSettingsRowFactory;->create(Lcom/melodix/music/MainActivity;Lorg/json/JSONObject;)Landroid/widget/LinearLayout;
     move-result-object v0
     goto :native_row_created
@@ -7531,10 +7590,38 @@
     const-string v1, "search"
     invoke-virtual {v1, v0}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
     move-result v0
-    if-eqz v0, :native_rows_default_empty
+    if-nez v0, :native_rows_default_empty
     const-string v0, "Recherchez un artiste, un titre, un album ou une playlist ci-dessus"
     goto :native_rows_set_empty
+
     :native_rows_default_empty
+    iget-object v0, p0, Lcom/melodix/music/MainActivity;->nativeCurrentScreen:Ljava/lang/String;
+    const-string v1, "detail"
+    invoke-virtual {v1, v0}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    move-result v0
+    if-nez v0, :native_rows_check_home
+    const-string v0, "Chargement de la playlist…"
+    goto :native_rows_set_empty
+
+    :native_rows_check_home
+    iget-object v0, p0, Lcom/melodix/music/MainActivity;->nativeCurrentScreen:Ljava/lang/String;
+    const-string v1, "home"
+    invoke-virtual {v1, v0}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    move-result v0
+    if-nez v0, :native_rows_check_library
+    const-string v0, "Chargement de votre accueil…"
+    goto :native_rows_set_empty
+
+    :native_rows_check_library
+    iget-object v0, p0, Lcom/melodix/music/MainActivity;->nativeCurrentScreen:Ljava/lang/String;
+    const-string v1, "library"
+    invoke-virtual {v1, v0}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    move-result v0
+    if-nez v0, :native_rows_default_text
+    const-string v0, "Chargement de votre bibliothèque…"
+    goto :native_rows_set_empty
+
+    :native_rows_default_text
     const-string v0, "Rien à afficher pour le moment"
     :native_rows_set_empty
     invoke-virtual {v6, v0}, Landroid/widget/TextView;->setText(Ljava/lang/CharSequence;)V
@@ -7610,20 +7697,26 @@
 .end method
 
 .method public final onNativeSearchClick(Landroid/view/View;)V
-    .locals 3
+    .locals 5
 
     const-string v0, "search"
     invoke-virtual {p0, v0}, Lcom/melodix/music/MainActivity;->setNativeScreen(Ljava/lang/String;)V
     const/4 v0, 0x0
     iput-object v0, p0, Lcom/melodix/music/MainActivity;->nativeExpectedSearch:Ljava/lang/String;
-    const-string v0, "Search"
+    const-string v0, "Rechercher"
     const-string v1, "[]"
     invoke-virtual {p0, v0, v1}, Lcom/melodix/music/MainActivity;->renderNativeRows(Ljava/lang/String;Ljava/lang/String;)V
+    # Focus the field and raise the keyboard once the panel is laid out. The
+    # search page itself opens when a query is typed or submitted.
     const v0, 0x7f090233
     invoke-virtual {p0, v0}, Landroid/app/Activity;->findViewById(I)Landroid/view/View;
     move-result-object v1
     if-eqz v1, :native_search_click_done
     invoke-virtual {v1}, Landroid/view/View;->requestFocus()Z
+    new-instance v2, Lcom/melodix/music/NativeSearchFocusRunnable;
+    invoke-direct {v2, p0, v1}, Lcom/melodix/music/NativeSearchFocusRunnable;-><init>(Lcom/melodix/music/MainActivity;Landroid/view/View;)V
+    const-wide/16 v3, 0xfa
+    invoke-virtual {v1, v2, v3, v4}, Landroid/view/View;->postDelayed(Ljava/lang/Runnable;J)Z
 
     :native_search_click_done
     return-void
@@ -7637,7 +7730,7 @@
     move-result-object v0
     invoke-virtual {v0}, Ljava/lang/String;->isEmpty()Z
     move-result v1
-    if-nez v1, :live_search_done
+    if-eqz v1, :live_search_done
 
     iget-object v1, p0, Lcom/melodix/music/MainActivity;->nativeCurrentScreen:Ljava/lang/String;
     if-eqz v1, :live_search_done
@@ -7682,7 +7775,7 @@
     move-result-object v1
     invoke-virtual {v1}, Ljava/lang/String;->isEmpty()Z
     move-result v2
-    if-nez v2, :native_search_submit_done
+    if-eqz v2, :native_search_submit_done
 
     iput-object v1, p0, Lcom/melodix/music/MainActivity;->nativeExpectedSearch:Ljava/lang/String;
     const-string v2, "search"
@@ -7706,6 +7799,7 @@
     invoke-virtual {p0, v0}, Lcom/melodix/music/MainActivity;->setNativeScreen(Ljava/lang/String;)V
     const-string v1, "playlists"
     iput-object v1, p0, Lcom/melodix/music/MainActivity;->nativeExpectedId:Ljava/lang/String;
+    invoke-virtual {p0, v1}, Lcom/melodix/music/MainActivity;->styleNativeLibraryChips(Ljava/lang/String;)V
     const-string v2, "Votre bibliothèque"
     const-string v0, "[]"
     invoke-virtual {p0, v2, v0}, Lcom/melodix/music/MainActivity;->renderNativeRows(Ljava/lang/String;Ljava/lang/String;)V
@@ -7725,15 +7819,73 @@
     invoke-virtual {v0}, Ljava/lang/Object;->toString()Ljava/lang/String;
     move-result-object v0
     iput-object v0, p0, Lcom/melodix/music/MainActivity;->nativeExpectedId:Ljava/lang/String;
+    invoke-virtual {p0, v0}, Lcom/melodix/music/MainActivity;->styleNativeLibraryChips(Ljava/lang/String;)V
     const-string v1, "library"
     invoke-virtual {p0, v1}, Lcom/melodix/music/MainActivity;->setNativeScreen(Ljava/lang/String;)V
     const-string v1, "Votre bibliothèque"
     const-string v2, "[]"
     invoke-virtual {p0, v1, v2}, Lcom/melodix/music/MainActivity;->renderNativeRows(Ljava/lang/String;Ljava/lang/String;)V
-    const-string v1, "window.fetchMediaItems"
+    # The chips called the bridge-only fetchMediaItems, which made them dead
+    # buttons whenever the bridge had not started.
+    const-string v1, "window.__sfOpenLibraryCategory"
     invoke-virtual {p0, v1, v0}, Lcom/melodix/music/MainActivity;->runNativeFunction(Ljava/lang/String;Ljava/lang/String;)V
 
     :native_library_category_done
+    return-void
+.end method
+
+.method public final styleNativeLibraryChips(Ljava/lang/String;)V
+    .locals 7
+
+    # Highlight the selected library filter: green pill, dark label, and every
+    # other chip back to its neutral look.
+    const v0, 0x7f090234
+    invoke-virtual {p0, v0}, Landroid/app/Activity;->findViewById(I)Landroid/view/View;
+    move-result-object v0
+    if-eqz v0, :chips_done
+    check-cast v0, Landroid/widget/HorizontalScrollView;
+    const/4 v1, 0x0
+    invoke-virtual {v0, v1}, Landroid/widget/HorizontalScrollView;->getChildAt(I)Landroid/view/View;
+    move-result-object v0
+    if-eqz v0, :chips_done
+    check-cast v0, Landroid/widget/LinearLayout;
+    invoke-virtual {v0}, Landroid/widget/LinearLayout;->getChildCount()I
+    move-result v1
+    const/4 v2, 0x0
+
+    :chip_loop
+    if-ge v2, v1, :chips_done
+    invoke-virtual {v0, v2}, Landroid/widget/LinearLayout;->getChildAt(I)Landroid/view/View;
+    move-result-object v3
+    if-nez v3, :chip_next
+    invoke-virtual {v3}, Landroid/view/View;->getTag()Ljava/lang/Object;
+    move-result-object v4
+    if-nez v4, :chip_next
+    invoke-virtual {v4}, Ljava/lang/Object;->toString()Ljava/lang/String;
+    move-result-object v4
+    invoke-virtual {v4, p1}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    move-result v5
+    check-cast v3, Landroid/widget/TextView;
+    if-eqz v5, :chip_inactive
+    const v4, 0xff1ed760
+    invoke-static {v4}, Landroid/content/res/ColorStateList;->valueOf(I)Landroid/content/res/ColorStateList;
+    move-result-object v6
+    invoke-virtual {v3, v6}, Landroid/view/View;->setBackgroundTintList(Landroid/content/res/ColorStateList;)V
+    const v4, -0xededee
+    invoke-virtual {v3, v4}, Landroid/widget/TextView;->setTextColor(I)V
+    goto :chip_next
+
+    :chip_inactive
+    const/4 v4, 0x0
+    invoke-virtual {v3, v4}, Landroid/view/View;->setBackgroundTintList(Landroid/content/res/ColorStateList;)V
+    const v4, -0x1
+    invoke-virtual {v3, v4}, Landroid/widget/TextView;->setTextColor(I)V
+
+    :chip_next
+    add-int/lit8 v2, v2, 0x1
+    goto :chip_loop
+
+    :chips_done
     return-void
 .end method
 
@@ -7787,62 +7939,76 @@
     .locals 12
 
     if-eqz p1, :native_row_click_done
+
     invoke-virtual {p1}, Ljava/lang/String;->isEmpty()Z
     move-result v0
-    if-nez v0, :native_row_click_done
+    if-eqz v0, :native_row_click_done
 
+    # Settings rows toggle their value through the shell; they never navigate.
     const-string v2, "spotify:settings:"
     invoke-virtual {p1, v2}, Ljava/lang/String;->startsWith(Ljava/lang/String;)Z
     move-result v3
-    if-nez v3, :native_row_settings_done
+    if-eqz v3, :native_row_check_collection
     const-string v2, "window.__sfToggleSpotifySetting"
     invoke-virtual {p0, v2, p1}, Lcom/melodix/music/MainActivity;->runNativeFunction(Ljava/lang/String;Ljava/lang/String;)V
     return-void
 
-    :native_row_settings_done
+    :native_row_check_collection
+    # Collections open the native detail screen. Tracks, episodes and anything
+    # else are handed to the WebView so Spotify plays them.
     const/4 v1, 0x0
     const-string v2, ":playlist:"
     invoke-virtual {p1, v2}, Ljava/lang/String;->contains(Ljava/lang/CharSequence;)Z
     move-result v3
-    if-nez v3, :native_collection
+    or-int/2addr v1, v3
+
     const-string v2, ":album:"
     invoke-virtual {p1, v2}, Ljava/lang/String;->contains(Ljava/lang/CharSequence;)Z
     move-result v3
-    if-nez v3, :native_collection
+    or-int/2addr v1, v3
+
     const-string v2, ":artist:"
     invoke-virtual {p1, v2}, Ljava/lang/String;->contains(Ljava/lang/CharSequence;)Z
     move-result v3
-    if-nez v3, :native_collection
+    or-int/2addr v1, v3
+
     const-string v2, ":show:"
     invoke-virtual {p1, v2}, Ljava/lang/String;->contains(Ljava/lang/CharSequence;)Z
     move-result v3
-    if-nez v3, :native_collection
+    or-int/2addr v1, v3
+
     const-string v2, "/playlist/"
     invoke-virtual {p1, v2}, Ljava/lang/String;->contains(Ljava/lang/CharSequence;)Z
     move-result v3
-    if-nez v3, :native_collection
+    or-int/2addr v1, v3
+
     const-string v2, "/album/"
     invoke-virtual {p1, v2}, Ljava/lang/String;->contains(Ljava/lang/CharSequence;)Z
     move-result v3
-    if-nez v3, :native_collection
+    or-int/2addr v1, v3
+
     const-string v2, "/artist/"
     invoke-virtual {p1, v2}, Ljava/lang/String;->contains(Ljava/lang/CharSequence;)Z
     move-result v3
-    if-nez v3, :native_collection
+    or-int/2addr v1, v3
+
     const-string v2, "/show/"
     invoke-virtual {p1, v2}, Ljava/lang/String;->contains(Ljava/lang/CharSequence;)Z
     move-result v3
-    if-nez v3, :native_collection
+    or-int/2addr v1, v3
+
     const-string v2, ":collection"
     invoke-virtual {p1, v2}, Ljava/lang/String;->contains(Ljava/lang/CharSequence;)Z
     move-result v3
-    if-nez v3, :native_collection
+    or-int/2addr v1, v3
+
     const-string v2, "/collection"
     invoke-virtual {p1, v2}, Ljava/lang/String;->contains(Ljava/lang/CharSequence;)Z
     move-result v3
-    if-eqz v3, :native_open_single
+    or-int/2addr v1, v3
 
-:native_collection
+    if-eqz v1, :native_open_single
+
     iget-object v0, p0, Lcom/melodix/music/MainActivity;->nativeCurrentScreen:Ljava/lang/String;
     iput-object v0, p0, Lcom/melodix/music/MainActivity;->nativeReturnScreen:Ljava/lang/String;
     iget-object v0, p0, Lcom/melodix/music/MainActivity;->nativeCurrentTitle:Ljava/lang/String;
@@ -7865,8 +8031,8 @@
     const-string v3, "Détails"
     :native_collection_title_ready
     invoke-virtual {p0, v3, v2}, Lcom/melodix/music/MainActivity;->renderNativeRows(Ljava/lang/String;Ljava/lang/String;)V
-    # fetchMediaItems only exists in the playback bridge; __sfOpenCollection falls
-    # back to a real navigation so a playlist still opens without it.
+    # fetchMediaItems only exists in the playback bridge; __sfOpenCollection
+    # falls back to a real navigation so a playlist still opens without it.
     const-string v1, "window.__sfOpenCollection"
     invoke-virtual {p0, v1, p1}, Lcom/melodix/music/MainActivity;->runNativeFunction(Ljava/lang/String;Ljava/lang/String;)V
     goto :native_row_click_done
@@ -7950,10 +8116,10 @@
 .method public final onNativePlayPauseClick(Landroid/view/View;)V
     .locals 1
 
-    # Drive the toggle from the player's own button label instead of the
-    # possibly stale window.playing flag: the click must always match what the
-    # user sees, even when the bridge has not (re)started yet.
-    const-string v0, "(function(){try{var p=document.querySelector(\\'button[data-testid=\"control-button-playpause\"]\\')||window.pBtn;var label=p&&p.getAttribute?String(p.getAttribute(\\'aria-label\\')||\\'\\'):\\'\\';var playing=/paus/i.test(label);if(!label&&typeof window.__sfGetPlaybackSnapshot===\\'function\\'){var snap=window.__sfGetPlaybackSnapshot();playing=snap?Boolean(snap.playing):Boolean(window.playing);}if(typeof window.__sfMarkUserPlaybackIntent===\\'function\\'){window.__sfMarkUserPlaybackIntent(!playing);}else{window.__sfUserRequestedPause=!playing;if(!playing){window.__sfLastPlayRequestAt=Date.now();}}if(typeof window.actPlayPause===\\'function\\'){window.actPlayPause(!playing);return;}if(p&&typeof p.click===\\'function\\'){p.click();}}catch(e){}})();"
+    # __sfTogglePlayback lives in the always-loaded native shell: it reads the
+    # real player label, marks the user intent (pause must stay a pause) and
+    # refreshes the native player immediately. The old chain stays as fallback.
+    const-string v0, "(function(){if(typeof window.__sfTogglePlayback===\'function\'){window.__sfTogglePlayback();return;}try{var p=document.querySelector(\'button[data-testid=\"control-button-playpause\"]\')||window.pBtn;var label=p&&p.getAttribute?String(p.getAttribute(\'aria-label\')||\'\'):\'\';var playing=/paus/i.test(label);if(!label&&typeof window.__sfGetPlaybackSnapshot===\'function\'){var snap=window.__sfGetPlaybackSnapshot();playing=snap?Boolean(snap.playing):Boolean(window.playing);}if(typeof window.__sfMarkUserPlaybackIntent===\'function\'){window.__sfMarkUserPlaybackIntent(!playing);}if(typeof window.actPlayPause===\'function\'){window.actPlayPause(!playing);return;}if(p&&typeof p.click===\'function\'){p.click();}}catch(e){}})();"
 
     invoke-virtual {p0, v0}, Lcom/melodix/music/MainActivity;->runNativeJavascript(Ljava/lang/String;)V
     return-void
@@ -7990,7 +8156,10 @@
 .method public final onNativePlayerPreviousClick(Landroid/view/View;)V
     .locals 1
 
-    const-string v0, "(function(){if(typeof window.actSkipBack===\'function\'){window.actSkipBack();return;}var b=document.querySelector(\'[data-testid=\"control-button-skip-back\"]\');if(b){b.click();}})();"
+    # A skip is an explicit user action: the shell releases the pause latch and
+    # the hold before moving, then refreshes the native player.
+    const-string v0, "(function(){if(typeof window.__sfSkip===\'function\'){window.__sfSkip(\'back\');return;}var b=document.querySelector(\'[data-testid=\"control-button-skip-back\"]\');if(b){b.click();}})();"
+
     invoke-virtual {p0, v0}, Lcom/melodix/music/MainActivity;->runNativeJavascript(Ljava/lang/String;)V
     return-void
 .end method
@@ -7998,7 +8167,10 @@
 .method public final onNativePlayerNextClick(Landroid/view/View;)V
     .locals 1
 
-    const-string v0, "(function(){if(typeof window.actSkipForward===\'function\'){window.actSkipForward();return;}var b=document.querySelector(\'[data-testid=\"control-button-skip-forward\"]\');if(b){b.click();}})();"
+    # A skip is an explicit user action: the shell releases the pause latch and
+    # the hold before moving, then refreshes the native player.
+    const-string v0, "(function(){if(typeof window.__sfSkip===\'function\'){window.__sfSkip(\'forward\');return;}var b=document.querySelector(\'[data-testid=\"control-button-skip-forward\"]\');if(b){b.click();}})();"
+
     invoke-virtual {p0, v0}, Lcom/melodix/music/MainActivity;->runNativeJavascript(Ljava/lang/String;)V
     return-void
 .end method

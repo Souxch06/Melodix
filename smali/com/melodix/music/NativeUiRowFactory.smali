@@ -24,7 +24,7 @@
     :native_row_title_ready
     invoke-virtual {v6}, Ljava/lang/String;->isEmpty()Z
     move-result v0
-    if-nez v0, :native_row_default_title
+    if-eqz v0, :native_row_default_title
     goto :native_row_read_subtitle
     :native_row_default_title
     const-string v6, "Untitled"
@@ -71,7 +71,7 @@
     move-result-object v10
     invoke-virtual {v10}, Ljava/lang/String;->isEmpty()Z
     move-result v11
-    if-nez v11, :native_artists_next
+    if-eqz v11, :native_artists_next
     invoke-virtual {v4}, Ljava/lang/StringBuilder;->length()I
     move-result v11
     if-lez v11, :native_artists_append
@@ -92,10 +92,10 @@
     move-result-object v10
     invoke-virtual {v10}, Ljava/lang/String;->isEmpty()Z
     move-result v0
-    if-nez v0, :native_row_section_done
+    if-eqz v0, :native_row_section_done
     invoke-virtual {v7}, Ljava/lang/String;->isEmpty()Z
     move-result v0
-    if-eqz v0, :native_row_section_done
+    if-nez v0, :native_row_section_done
     move-object v7, v10
 
     :native_row_section_done
@@ -118,7 +118,7 @@
     :native_row_uri_done
     invoke-virtual {v7}, Ljava/lang/String;->isEmpty()Z
     move-result v0
-    if-eqz v0, :native_row_read_image
+    if-nez v0, :native_row_read_image
     const-string v0, ":track:"
     invoke-virtual {v8, v0}, Ljava/lang/String;->contains(Ljava/lang/CharSequence;)Z
     move-result v0
@@ -197,7 +197,7 @@
 
     invoke-virtual {v9}, Ljava/lang/String;->isEmpty()Z
     move-result v10
-    if-nez v10, :native_row_text_column
+    if-eqz v10, :native_row_text_column
     const/16 v10, 0xb0
     invoke-static {v1, v9, v10}, Lcom/melodix/music/NativeImageLoader;->load(Landroid/widget/ImageView;Ljava/lang/String;I)V
 
@@ -275,7 +275,7 @@
     invoke-virtual {v11, v6}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
     invoke-virtual {v7}, Ljava/lang/String;->isEmpty()Z
     move-result v10
-    if-nez v10, :native_row_accessibility_ready
+    if-eqz v10, :native_row_accessibility_ready
     const-string v10, ", "
     invoke-virtual {v11, v10}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
     invoke-virtual {v11, v7}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
@@ -285,7 +285,7 @@
     invoke-virtual {v0, v11}, Landroid/view/View;->setContentDescription(Ljava/lang/CharSequence;)V
     invoke-virtual {v8}, Ljava/lang/String;->isEmpty()Z
     move-result v10
-    if-nez v10, :native_row_return
+    if-eqz v10, :native_row_return
     new-instance v10, Lcom/melodix/music/NativeRowClickListener;
     invoke-direct {v10, p0, v8, v6}, Lcom/melodix/music/NativeRowClickListener;-><init>(Lcom/melodix/music/MainActivity;Ljava/lang/String;Ljava/lang/String;)V
     invoke-virtual {v0, v10}, Landroid/view/View;->setOnClickListener(Landroid/view/View$OnClickListener;)V

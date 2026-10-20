@@ -535,6 +535,13 @@
         }
     }
 
+    function libraryCategoryForPath(path) {
+        var match = /^\/collection\/([a-z]+)/.exec(String(path || ''));
+        var key = match && match[1];
+        if (key === 'albums' || key === 'artists' || key === 'podcasts' || key === 'playlists') return key;
+        return 'playlists';
+    }
+
     function updateLibraryRows(mainView) {
         var path = spotifyRoutePath();
         var rows;
@@ -554,7 +561,7 @@
         window.__sfNativeUiLibraryRowsCount = rows.length;
         // "media:playlists" is the payload the native library screen already
         // renders; using it keeps one code path for bridge and shell data.
-        if (rows.length > 0 && signature !== lastLibrarySignature && sendNativeUiData('media:playlists', rows)) {
+        if (rows.length > 0 && signature !== lastLibrarySignature && sendNativeUiData('media:' + libraryCategoryForPath(path), rows)) {
             lastLibrarySignature = signature;
         }
     }
@@ -748,6 +755,478 @@
                 } catch (_) {}
             }
         }
+    }
+
+    // ---- Now-playing feed -------------------------------------------------
+    // The playback bridge normally publishes the player state, but it does not
+    // start on every device. The shell always runs, so it reads the real
+    // Spotify now-playing bar itself and keeps the native mini player, the full
+    // player and every button state accurate without the bridge.
+    var PLAYER_SEND_INTERVAL_MS = 1000;
+    var playerFeedTimer = null;
+    var lastPlayerSignature = '';
+    var lastPlayerSentAt = 0;
+
+    function playPauseButton() {
+        var pb = null;
+        if (document && typeof document.querySelector === 'function') {
+            try {
+                pb = document.querySelector('[data-testid="now-playing-bar"] button[data-testid="control-button-playpause"]') ||
+                    document.querySelector('aside[data-testid="now-playing-bar"] button[data-testid="control-button-playpause"]') ||
+                    document.querySelector('button[data-testid="control-button-playpause"]');
+            } catch (_) {
+                pb = null;
+            }
+        }
+        return pb || window.pBtn || null;
+    }
+
+    function playPauseLabelPlaying() {
+        var pb = playPauseButton();
+        var label = '';
+        if (!pb || typeof pb.getAttribute !== 'function') return null;
+        try {
+            label = String(pb.getAttribute('aria-label') || '').trim();
+        } catch (_) {
+            return null;
+        }
+        if (!label) return null;
+        // French labels are "Mettre en pause" / "Lire"; both match this test.
+        return /paus/i.test(label);
+    }
+
+    function mediaNodes() {
+        var nodes = [];
+        var list;
+        var i;
+        if (typeof document.querySelectorAll !== 'function') return nodes;
+        try {
+            list = document.querySelectorAll('audio, video');
+        } catch (_) {
+            return nodes;
+        }
+        if (!list || typeof list.length !== 'number') return nodes;
+        for (i = 0; i < list.length; i += 1) nodes.push(list[i]);
+        return nodes;
+    }
+
+    function isSilentMedia(el) {
+        return !el || /silent\.mp3/i.test(String(el.currentSrc || el.src || ''));
+    }
+
+    function isAudibleElement(el) {
+        if (!el || el.paused !== false || el.ended || el.muted) return false;
+        if (String(el.tagName || '').toUpperCase() === 'VIDEO' && el.muted) return false;
+        return !isSilentMedia(el);
+    }
+
+    function isMediaPlaying() {
+        var nodes = mediaNodes();
+        var i;
+        for (i = 0; i < nodes.length; i += 1) {
+            if (isAudibleElement(nodes[i])) return true;
+        }
+        return false;
+    }
+
+    var lastAudibleTime = -1;
+
+    // Real, audible content only, and only when the playhead actually moves.
+    // A paused player keeps its position, a buffering element does not advance
+    // and the silent keep-alive media never counts.
+    function isAudiblePlaybackAdvancing() {
+        var nodes = mediaNodes();
+        var position = -1;
+        var i;
+        var el;
+        var current;
+        for (i = 0; i < nodes.length; i += 1) {
+            el = nodes[i];
+            if (!isAudibleElement(el)) continue;
+            current = Number(el.currentTime || 0);
+            if (current > position) position = current;
+        }
+        var advancing = position >= 0 && lastAudibleTime >= 0 && position > lastAudibleTime + 0.05;
+        lastAudibleTime = position;
+        return advancing;
+    }
+
+    function playbackSnapshot() {
+        var labelState = playPauseLabelPlaying();
+        var playing = labelState === null ? Boolean(window.playing) : labelState;
+        if (!playing && isMediaPlaying()) playing = true;
+        return { playing: playing, hasButton: Boolean(playPauseButton()) };
+    }
+
+    window.__sfGetPlaybackSnapshot = playbackSnapshot;
+
+    var PAUSE_HOLD_MS = 45000;
+    var PAUSE_HOLD_SETTLE_MS = 1200;
+    var PAUSE_HOLD_TICK_MS = 300;
+    var PAUSE_HOLD_MAX_REAPPLIES = 5;
+    var PAUSE_HOLD_REAPPLY_GAP_MS = 1500;
+    var pauseHoldTimer = null;
+    var pauseHoldSince = 0;
+    var pauseHoldUntil = 0;
+    var pauseHoldReapplies = 0;
+    var pauseHoldLastReapplyAt = 0;
+
+    function endPauseHold() {
+        if (pauseHoldTimer) {
+            try {
+                window.clearInterval(pauseHoldTimer);
+            } catch (_) {}
+            pauseHoldTimer = null;
+        }
+        pauseHoldUntil = 0;
+        pauseHoldReapplies = 0;
+        window.__sfPauseHoldActive = false;
+    }
+
+    function pauseHoldTick() {
+        if (!window.__sfUserRequestedPause) {
+            endPauseHold();
+            return;
+        }
+        var now = Date.now();
+        if (now > pauseHoldUntil || pauseHoldReapplies >= PAUSE_HOLD_MAX_REAPPLIES) {
+            endPauseHold();
+            return;
+        }
+        if (now - pauseHoldSince < PAUSE_HOLD_SETTLE_MS) return;
+        if (now - pauseHoldLastReapplyAt < PAUSE_HOLD_REAPPLY_GAP_MS) return;
+        if (window.__sfLastPlayRequestAt && now - window.__sfLastPlayRequestAt < PAUSE_HOLD_SETTLE_MS) return;
+
+        // Two independent signals are required before touching the player: the
+        // playhead must really move AND the button must label itself as playing.
+        // A pause that is still settling is therefore never toggled back on.
+        var pb = playPauseButton();
+        if (!pb || typeof pb.click !== 'function') return;
+        if (playPauseLabelPlaying() !== true) return;
+        if (!isAudiblePlaybackAdvancing()) return;
+
+        try {
+            pb.click();
+        } catch (_) {
+            return;
+        }
+        pauseHoldReapplies += 1;
+        pauseHoldLastReapplyAt = now;
+        lastAudibleTime = -1;
+        window.__sfPauseHoldReapplies = (window.__sfPauseHoldReapplies || 0) + 1;
+    }
+
+    function startPauseHold() {
+        var now = Date.now();
+        if (pauseHoldTimer && now < pauseHoldUntil) return;
+        pauseHoldSince = now;
+        pauseHoldUntil = now + PAUSE_HOLD_MS;
+        pauseHoldReapplies = 0;
+        pauseHoldLastReapplyAt = 0;
+        lastAudibleTime = -1;
+        window.__sfPauseHoldActive = true;
+        if (pauseHoldTimer) {
+            try {
+                window.clearInterval(pauseHoldTimer);
+            } catch (_) {}
+        }
+        if (typeof window.setInterval === 'function') {
+            pauseHoldTimer = window.setInterval(pauseHoldTick, PAUSE_HOLD_TICK_MS);
+        }
+    }
+
+    // A pause the user explicitly asked for must stay a pause. Automatic
+    // resumes are ignored until an explicit play or the hold window ends.
+    function markUserPlaybackIntent(playing, options) {
+        var explicit = !options || options.explicit !== false;
+        var paused = !playing;
+        if (!paused && !explicit) return;
+        window.__sfUserRequestedPause = paused;
+        if (paused) {
+            window.__sfUserPausedAt = Date.now();
+            startPauseHold();
+        } else {
+            window.__sfLastPlayRequestAt = Date.now();
+            endPauseHold();
+        }
+    }
+
+    window.__sfMarkUserPlaybackIntent = markUserPlaybackIntent;
+    window.__sfIsUserPaused = function() {
+        return Boolean(window.__sfUserRequestedPause);
+    };
+    window.__sfEndPauseHold = endPauseHold;
+
+    function clockSeconds(value) {
+        var parts = String(value || '').trim().split(':');
+        var total = 0;
+        var i;
+        var n;
+        if (parts.length < 2 || parts.length > 3) return -1;
+        for (i = 0; i < parts.length; i += 1) {
+            n = parseInt(parts[i], 10);
+            if (isNaN(n) || n < 0) return -1;
+            total = total * 60 + n;
+        }
+        return total;
+    }
+
+    function readClock(selectors) {
+        var i;
+        var node;
+        var seconds;
+        for (i = 0; i < selectors.length; i += 1) {
+            node = document.querySelector(selectors[i]);
+            if (!node) continue;
+            seconds = clockSeconds(node.textContent);
+            if (seconds >= 0) return seconds;
+        }
+        return -1;
+    }
+
+    function readMediaProgress() {
+        var nodes = mediaNodes();
+        var fallback = { position: -1, duration: -1 };
+        var i;
+        var el;
+        for (i = 0; i < nodes.length; i += 1) {
+            el = nodes[i];
+            if (!el || !isFinite(el.duration) || el.duration <= 0) continue;
+            if (isSilentMedia(el)) continue;
+            if (!isAudibleElement(el)) {
+                if (fallback.position < 0) {
+                    fallback.position = Number(el.currentTime || 0);
+                    fallback.duration = Number(el.duration);
+                }
+                continue;
+            }
+            return { position: Number(el.currentTime || 0), duration: Number(el.duration) };
+        }
+        return fallback;
+    }
+
+    function textOf(selectors) {
+        var i;
+        var node;
+        for (i = 0; i < selectors.length; i += 1) {
+            node = document.querySelector(selectors[i]);
+            if (!node) continue;
+            var text = String(node.textContent || '').replace(/\s+/g, ' ').trim();
+            if (text) return text;
+        }
+        return '';
+    }
+
+    function imageOf(selectors) {
+        var i;
+        var node;
+        var img;
+        for (i = 0; i < selectors.length; i += 1) {
+            node = document.querySelector(selectors[i]);
+            if (!node) continue;
+            img = node.tagName && String(node.tagName).toUpperCase() === 'IMG' ? node : node.querySelector && node.querySelector('img');
+            if (img) {
+                var url = safeSpotifyImage(img.currentSrc || img.src || '');
+                if (url) return url;
+            }
+        }
+        return '';
+    }
+
+    function readNowPlaying() {
+        var bar = null;
+        try {
+            bar = document.querySelector('[data-testid="now-playing-bar"], [data-testid="now-playing-widget"]');
+        } catch (_) {
+            bar = null;
+        }
+        var titleSelectors = [
+            '[data-testid="context-item-link"]',
+            '[data-testid="nowplaying-track-link"]',
+            '[data-testid="now-playing-widget"] a[href*="/track/"]'
+        ];
+        var artistSelectors = [
+            '[data-testid="context-item-info-artist"]',
+            '[data-testid="nowplaying-artist"]',
+            '[data-testid="context-item-info"] a[href*="/artist/"]'
+        ];
+        var coverSelectors = [
+            '[data-testid="cover-art-image"]',
+            '[data-testid="now-playing-widget"] img',
+            '[data-testid="now-playing-bar"] img'
+        ];
+        var title = bar ? textIn(bar, titleSelectors) : textOf(titleSelectors);
+        var artist = bar ? textIn(bar, artistSelectors) : textOf(artistSelectors);
+        var cover = bar ? imageIn(bar, coverSelectors) : imageOf(coverSelectors);
+        var progress = readMediaProgress();
+        var position = progress.position;
+        var duration = progress.duration;
+        if (position < 0) position = readClock(['[data-testid="playback-position"]']);
+        if (duration <= 0) duration = readClock(['[data-testid="playback-duration"]']);
+        return {
+            title: String(title || '').slice(0, 120),
+            artist: String(artist || '').slice(0, 120),
+            cover: cover || '',
+            position: position > 0 ? Math.round(position) : 0,
+            duration: duration > 0 ? Math.round(duration) : 0
+        };
+    }
+
+    function textIn(root, selectors) {
+        var i;
+        var node;
+        var text;
+        if (!root || typeof root.querySelector !== 'function') return '';
+        for (i = 0; i < selectors.length; i += 1) {
+            node = root.querySelector(selectors[i]);
+            if (!node) continue;
+            text = String(node.textContent || '').replace(/\s+/g, ' ').trim();
+            if (text) return text;
+        }
+        return '';
+    }
+
+    function imageIn(root, selectors) {
+        var i;
+        var node;
+        var img;
+        var url;
+        if (!root || typeof root.querySelector !== 'function') return '';
+        for (i = 0; i < selectors.length; i += 1) {
+            node = root.querySelector(selectors[i]);
+            if (!node) continue;
+            img = node.tagName && String(node.tagName).toUpperCase() === 'IMG' ? node : node.querySelector && node.querySelector('img');
+            if (!img) continue;
+            url = safeSpotifyImage(img.currentSrc || img.src || '');
+            if (url) return url;
+        }
+        return '';
+    }
+
+    function playerPayload() {
+        var info = readNowPlaying();
+        return {
+            track: info.title || 'Aucune lecture en cours',
+            artist: info.artist || '',
+            cover: info.cover || '',
+            playing: playbackSnapshot().playing,
+            position: info.position,
+            duration: info.duration
+        };
+    }
+
+    function publishPlayerState(force) {
+        var bridge = window.AndBridge;
+        var payload;
+        var signature;
+        var now;
+        if (!bridge || typeof bridge.onNativeUiData !== 'function') return false;
+        payload = playerPayload();
+        // Nothing is playing yet: leave the native defaults alone instead of
+        // pushing an empty "Aucune lecture en cours" player to the UI.
+        if (!payload.playing && (!payload.track || payload.track === 'Aucune lecture en cours')) return false;
+        now = Date.now();
+        signature = [
+            payload.track,
+            payload.artist,
+            payload.playing ? '1' : '0',
+            payload.duration,
+            Math.floor(payload.position / 5)
+        ].join('|');
+        if (!force && signature === lastPlayerSignature && now - lastPlayerSentAt < 4000) return false;
+        lastPlayerSignature = signature;
+        lastPlayerSentAt = now;
+        window.__sfPlayerPayload = payload;
+        try {
+            bridge.onNativeUiData('player', JSON.stringify(payload));
+            return true;
+        } catch (_) {
+            return false;
+        }
+    }
+
+    function refreshPlayerSoon(delay) {
+        window.setTimeout(function() {
+            publishPlayerState(true);
+        }, delay || 400);
+    }
+
+    // Single entry point for the native play/pause button.
+    window.__sfTogglePlayback = function() {
+        var playing = playbackSnapshot().playing;
+        var target = !playing;
+        markUserPlaybackIntent(target);
+        if (typeof window.actPlayPause === 'function') {
+            try {
+                window.actPlayPause(target);
+            } catch (_) {}
+        } else {
+            var pb = playPauseButton();
+            if (pb && typeof pb.click === 'function') {
+                try {
+                    pb.click();
+                } catch (_) {}
+            }
+        }
+        refreshPlayerSoon(350);
+        refreshPlayerSoon(1400);
+        return target;
+    };
+
+    // Single entry point for the native previous/next buttons. A skip is an
+    // explicit user action, so it releases the pause latch and the hold.
+    window.__sfSkip = function(direction) {
+        var back = String(direction || '') === 'back' || String(direction || '') === 'previous';
+        window.__sfUserRequestedPause = false;
+        window.__sfLastPlayRequestAt = Date.now();
+        endPauseHold();
+        if (back && typeof window.actSkipBack === 'function') {
+            try {
+                window.actSkipBack();
+                refreshPlayerSoon(600);
+                return true;
+            } catch (_) {}
+        }
+        if (!back && typeof window.actSkipForward === 'function') {
+            try {
+                window.actSkipForward();
+                refreshPlayerSoon(600);
+                return true;
+            } catch (_) {}
+        }
+        var btn = document.querySelector(back
+            ? '[data-testid="control-button-skip-back"]'
+            : '[data-testid="control-button-skip-forward"]');
+        if (btn && typeof btn.click === 'function') {
+            try {
+                btn.click();
+            } catch (_) {}
+        }
+        refreshPlayerSoon(700);
+        return false;
+    };
+
+    function installPlayerFeed() {
+        if (window.__sfPlayerFeedInstalled) return;
+        window.__sfPlayerFeedInstalled = true;
+        publishPlayerState(true);
+        if (typeof window.setInterval === 'function') {
+            playerFeedTimer = window.setInterval(function() {
+                publishPlayerState(false);
+            }, PLAYER_SEND_INTERVAL_MS);
+        }
+        try {
+            document.addEventListener('click', function(event) {
+                var target = event && event.target;
+                if (!target || typeof target.closest !== 'function') return;
+                var control = target.closest(
+                    '[data-testid="control-button-playpause"], [data-testid="control-button-skip-forward"], ' +
+                    '[data-testid="control-button-skip-back"], [data-testid="control-button-shuffle"], ' +
+                    '[data-testid="control-button-repeat"]'
+                );
+                if (control) refreshPlayerSoon(500);
+            }, true);
+        } catch (_) {}
     }
 
     function runUpdate() {
@@ -1238,13 +1717,33 @@
     // keystrokes cannot reload the page on every character.
     var searchNavigateTimer = 0;
 
+    var lastSearchNavigation = { query: '', at: 0 };
+
+    function currentSearchPathQuery() {
+        var path = spotifyRoutePath();
+        if (path === '/search') return '';
+        if (path.indexOf('/search/') !== 0) return '';
+        try {
+            return decodeURIComponent(path.slice('/search/'.length));
+        } catch (_) {
+            return path.slice('/search/'.length);
+        }
+    }
+
     function navigateToSearch(query) {
         var q = String(query || '').trim().slice(0, 100);
+        var now = Date.now();
         if (!q) return false;
         if (searchNavigateTimer) {
             window.clearTimeout(searchNavigateTimer);
             searchNavigateTimer = 0;
         }
+        // The search field is re-filled from the URL after each load; without
+        // these guards the live search would reload its own page in a loop.
+        if (currentSearchPathQuery().toLowerCase() === q.toLowerCase()) return true;
+        if (lastSearchNavigation.query === q && now - lastSearchNavigation.at < 4000) return true;
+        lastSearchNavigation.query = q;
+        lastSearchNavigation.at = now;
         window.location.assign('https://open.spotify.com/search/' + encodeURIComponent(q));
         return true;
     }
@@ -1279,7 +1778,34 @@
                 return true;
             } catch (_) {}
         }
+        // The tab always means the playlists filter, so only that route is a
+        // no-op; another collection page is reloaded to match the selected chip.
+        if (spotifyRoutePath() === '/collection/playlists') return true;
         window.location.assign('https://open.spotify.com/collection/playlists');
+        return true;
+    };
+
+    // Library filters. The chips used to call fetchMediaItems directly, which
+    // only exists in the bridge; without it every chip was a dead button.
+    var LIBRARY_CATEGORY_PATHS = {
+        playlists: '/collection/playlists',
+        albums: '/collection/albums',
+        artists: '/collection/artists',
+        podcasts: '/collection/podcasts'
+    };
+
+    window.__sfOpenLibraryCategory = function(tag) {
+        var key = String(tag || '').trim().toLowerCase();
+        var target = LIBRARY_CATEGORY_PATHS[key] || '/collection/playlists';
+        if (window.__sfMelodixBridgeStarted === true && typeof window.fetchMediaItems === 'function') {
+            try {
+                window.fetchMediaItems(key || 'playlists');
+                return true;
+            } catch (_) {}
+        }
+        var path = spotifyRoutePath();
+        if (path === target || path.indexOf(target + '/') === 0) return true;
+        window.location.assign('https://open.spotify.com' + target);
         return true;
     };
 
@@ -1429,6 +1955,7 @@
         window.__sfNativeUiShellReady = true;
         window.playing = false;
         installPlaybackStateGuard();
+        installPlayerFeed();
         installBridgeRecovery();
         initialPath = spotifyRoutePath();
         initialScreen = nativeScreenForPath();

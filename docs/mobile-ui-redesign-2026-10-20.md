@@ -111,3 +111,57 @@ le détail s'ouvrait vide. Désormais :
 3. Onglet Bibliothèque : les playlists apparaissent (bridge ou page de collection réelle).
 4. Recherche : la saisie puis validation affiche des résultats.
 5. Diagnostic : `bridgeExecMode` / `bridgeBytes` / `bridgeLastError` dans le rapport runtime.
+
+## Passe du 2026-10-20 (boutons morts, conditions inversées et lecteur réel)
+
+Cette passe répare les commandes qui ne répondaient pas, puis affine le rendu mobile.
+
+### Pourquoi « rien ne marchait »
+
+Plusieurs tests Smali étaient inversés sur `String.isEmpty()` : la rangée affichait
+« Untitled » à la place du titre, la pochette n'était jamais chargée (`NativeImageLoader`
+effaçait l'image quand l'URL était valide), le listener de clic n'était jamais attaché, les
+en-têtes de section ne s'affichaient pas, le champ de recherche ignorait le texte saisi et
+`openNativeRow` sortait immédiatement pour toute URI non vide. Chaque test a été remis dans
+le bon sens et verrouillé par un test de non-régression.
+
+Autres corrections de la même famille :
+
+- `openNativeRow` distingue maintenant trois cas : réglages (`spotify:settings:`),
+  collections (playlist, album, artiste, podcast, `/collection`) et lecture simple (titre,
+  épisode) qui repart vers `__sfNativeOpenUri`.
+- `NativeUiRowFactory` : le contenu (sans `settingValue`) va bien vers la fabrique de
+  couverture, et les réglages vers la fabrique de pastilles.
+- `setNativeScreen` : la flèche retour apparaît sur détail, lecteur **et** paramètres ; la
+  barre d'onglets et la carte du mini-lecteur disparaissent sur le lecteur plein écran.
+- `NativeUiUpdateRunnable` ne rappelle plus `onNativeLibraryClick` à chaque route
+  « library » : ce rappel renvoyait vers `/collection/playlists` à chaque chargement et
+  provoquait une boucle de rechargement de la WebView.
+- Les chips de bibliothèque utilisent `__sfOpenLibraryCategory` (jamais `fetchMediaItems`),
+  restent sur la bonne catégorie (`media:albums`, `media:artists`…) et s'affichent en vert
+  quand elles sont sélectionnées.
+- La touche retour système (`onBackPressed`) quitte d'abord l'écran natif courant au lieu
+  de fermer l'application.
+
+### Lecteur réellement piloté
+
+`spotify_bridge.js` était le seul à publier l'état du lecteur. Quand il ne démarre pas,
+l'interface restait sur « Aucune lecture en cours ». `native_ui_shell.js` lit désormais la
+barre *now playing* de Spotify (titre, artiste, pochette, position, durée, état) et pousse
+un payload `player` chaque seconde, uniquement quand une piste existe. Le mini-lecteur
+apparaît à ce moment-là, avec sa ligne de progression.
+
+Le verrou de pause (45 s, 5 ré-applications, seuil 1200 ms et intervalle 1500 ms) vit
+maintenant dans le shell toujours chargé, avec `__sfTogglePlayback` et `__sfSkip`. Un saut
+libère le verrou ; une reprise automatique de Spotify est immédiatement re-mise en pause.
+
+### Détails d'interface
+
+- Boutons lecture/pause : icônes vectorielles Spotify sur cercle blanc (48 dp mini,
+  72 dp plein écran) au lieu des caractères « ▶ » / « Ⅱ ».
+- Mini-lecteur : carte arrondie 12 dp, marges 8 dp, ligne de progression 3 dp, masquée
+  tant qu'aucune piste n'est chargée.
+- Lecteur plein écran : fond dégradé vert sombre, pochette 272 dp (rayon 8 dp), titre 24 sp.
+- Onglets : pastille verte supprimée, icône verte + libellé blanc sur l'onglet actif.
+- Écrans vides : « Chargement de votre accueil… », « Chargement de la playlist… »,
+  « Chargement de votre bibliothèque… » et le message de recherche.

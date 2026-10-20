@@ -33,7 +33,7 @@
 
     move-result v1
 
-    if-lez v1, :shelf_done
+    if-lez v1, :shelf_empty
 
     const-string v2, ""
 
@@ -74,7 +74,7 @@
 
     move-result v7
 
-    if-nez v7, :shelf_header_done
+    if-eqz v7, :shelf_header_done
 
     invoke-static {p0, v6}, Lcom/melodix/music/NativeUiRowFactory;->createSectionHeader(Lcom/melodix/music/MainActivity;Ljava/lang/String;)Landroid/widget/TextView;
 
@@ -240,7 +240,7 @@
 
     move-result v11
 
-    if-nez v11, :shelf_title
+    if-eqz v11, :shelf_title
 
     const/16 v11, 0xb0
 
@@ -305,7 +305,7 @@
 
     move-result v11
 
-    if-nez v11, :shelf_click
+    if-eqz v11, :shelf_click
 
     new-instance v11, Landroid/widget/TextView;
 
@@ -362,7 +362,7 @@
 
     move-result v11
 
-    if-nez v11, :shelf_add
+    if-eqz v11, :shelf_add
 
     const/4 v11, 0x1
 
@@ -402,6 +402,23 @@
     invoke-direct {v6, p0}, Landroid/view/View;-><init>(Landroid/content/Context;)V
 
     invoke-virtual {v13, v6, v5}, Landroid/widget/LinearLayout;->addView(Landroid/view/View;Landroid/view/ViewGroup$LayoutParams;)V
+    goto :shelf_done
+
+    :shelf_empty
+    # Empty payload: keep a friendly loading line instead of a blank screen.
+    new-instance v0, Landroid/widget/TextView;
+    invoke-direct {v0, p0}, Landroid/widget/TextView;-><init>(Landroid/content/Context;)V
+    const-string v1, "Chargement de votre accueil…"
+    invoke-virtual {v0, v1}, Landroid/widget/TextView;->setText(Ljava/lang/CharSequence;)V
+    const/high16 v1, 0x41800000
+    invoke-virtual {v0, v1}, Landroid/widget/TextView;->setTextSize(F)V
+    const v1, -0x4c4c4d
+    invoke-virtual {v0, v1}, Landroid/widget/TextView;->setTextColor(I)V
+    const/16 v1, 0x11
+    invoke-virtual {v0, v1}, Landroid/widget/TextView;->setGravity(I)V
+    const/16 v1, 0x18
+    invoke-virtual {v0, v1, v1, v1, v1}, Landroid/view/View;->setPadding(IIII)V
+    invoke-virtual {v13, v0}, Landroid/widget/LinearLayout;->addView(Landroid/view/View;)V
 
     :shelf_done
     return-void

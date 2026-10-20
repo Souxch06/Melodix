@@ -105,7 +105,10 @@ test('native bridge exposes UI callbacks and routes media, search and player dat
     assert.match(activity, /\.method public final onNativePlayerNextClick\(Landroid\/view\/View;\)V/);
     assert.match(activity, /\.method public final updateNativePlayer\(Ljava\/lang\/String;\)V[\s\S]*?"cover"[\s\S]*?NativeImageLoader;->load[\s\S]*?"duration"[\s\S]*?"position"[\s\S]*?setProgress\(I\)V/);
     assert.match(activity, /applyNativeUiData[\s\S]*?"screen-title"[\s\S]*?"detail"[\s\S]*?renderNativeRows[\s\S]*?NativeUiRowFactory;->create/);
-    assert.match(read('smali/com/melodix/music/NativeUiUpdateRunnable.smali'), /const\/4 v2, 0x2[\s\S]*?onNativeLibraryClick/);
+    const runnable = read('smali/com/melodix/music/NativeUiUpdateRunnable.smali');
+    assert.match(runnable, /const\/4 v2, 0x2[\s\S]*?applyNativeUiData/);
+    assert.match(runnable, /setNativeScreen\(Ljava\/lang\/String;\)V/);
+    assert.doesNotMatch(runnable, /onNativeLibraryClick/, 'a route update must not re-trigger the library tab');
     assert.match(activity, /renderNativeRows[\s\S]*?NativeUiRowFactory;->create/);
     assert.match(read('smali/com/melodix/music/NativeImageLoader.smali'), /Picasso;->load[\s\S]*?RequestCreator;->into/);
     assert.match(read('smali/com/melodix/music/NativeUiRowFactory.smali'), /GradientDrawable;->setCornerRadius[\s\S]*?setContentDescription/);
@@ -842,13 +845,13 @@ test('content rows reach the cover factory instead of the settings factory', () 
     assert.match(dispatch, /const-string v0, "settingValue"[\s\S]*?isEmpty\(\)Z[\s\S]*?move-result v1/);
     assert.match(
         dispatch,
-        /if-nez v1, :native_row_create_standard/,
+        /if-eqz v1, :native_row_create_standard/,
         'an empty settingValue marks a content row and must use the cover factory'
     );
     assert.doesNotMatch(
         dispatch,
-        /if-eqz v1, :native_row_create_standard/,
-        'the inverted jump rendered every Home row with the settings factory'
+        /if-nez v1, :native_row_create_standard/,
+        'the inverted jump rendered every content row with the settings factory'
     );
 
     const settingsAt = dispatch.indexOf('NativeSettingsRowFactory;->create');
@@ -889,7 +892,8 @@ test('Home is rendered as Spotify-style cover shelves, not a flat settings list'
     assert.match(renderer, /NativeImageLoader;->load/, 'shelf covers load Spotify CDN artwork');
     assert.match(renderer, /const\/16 v9, 0x94/, 'cards are 148 dp wide');
     assert.match(renderer, /createSectionHeader/, 'every shelf keeps its section title');
-    assert.match(layout, /android:id="@id\/nativeMiniPlayer"[\s\S]{0,600}?android:layout_marginLeft="8\.0dip"/);
+    assert.match(layout, /android:id="@id\/nativeMiniPlayerContainer"[\s\S]{0,400}?android:layout_marginLeft="8\.0dip"/);
+    assert.match(layout, /android:id="@id\/nativeMiniProgress"/, 'the mini player shows a progress line');
 });
 
 test('opening a playlist no longer depends on the playback bridge', () => {
@@ -931,7 +935,8 @@ test('library and search still work when the bridge never starts', () => {
 
     // Rows are still harvested from the real library and search pages.
     assert.match(shell, /function updateLibraryRows\(mainView\)/);
-    assert.match(shell, /sendNativeUiData\('media:playlists', rows\)/);
+    assert.match(shell, /sendNativeUiData\('media:' \+ libraryCategoryForPath\(path\), rows\)/);
+    assert.match(shell, /function libraryCategoryForPath\(path\)/);
     assert.match(shell, /function updateSearchRows\(mainView\)/);
     assert.match(shell, /sendNativeUiData\('search:' \+ query, rows\)/);
 
@@ -943,4 +948,187 @@ test('library and search still work when the bridge never starts', () => {
     // Submitting jumps immediately instead of waiting for the debounce.
     const submit = activity.slice(activity.indexOf('.method public final onNativeSearchSubmit'));
     assert.match(submit, /const-string v2, "\(window\.__sfSubmitSearch\|\|window\.searchMediaItems\)"/);
+});
+
+test('content rows keep their title, cover and tap target', () => {
+    const factory = read('smali/com/melodix/music/NativeUiRowFactory.smali');
+    const loader = read('smali/com/melodix/music/NativeImageLoader.smali');
+
+    // Inverted empty checks used to rename every row "Untitled", drop artwork
+    // and leave rows unclickable.
+    assert.match(factory, /if-eqz v0, :native_row_default_title/);
+    assert.match(factory, /if-eqz v10, :native_row_text_column/, 'the cover loads only for a real URL');
+    assert.match(factory, /if-eqz v10, :native_row_return/);
+    assert.ok(
+        factory.indexOf('NativeRowClickListener;-><init>') > factory.lastIndexOf('if-eqz v10, :native_row_return'),
+        'the click listener is attached to rows with a URI'
+    );
+    assert.match(loader, /if-eqz v1, :clear_native_image/, 'a non-empty https URL is loaded, not cleared');
+});
+
+test('row taps open playlists, albums and tracks', () => {
+    const activity = read('smali/com/melodix/music/MainActivity.smali');
+    const openRow = activity.slice(
+        activity.indexOf('.method public final openNativeRow'),
+        activity.indexOf('.end method', activity.indexOf('.method public final openNativeRow'))
+    );
+
+    assert.match(openRow, /if-eqz v0, :native_row_click_done/, 'only empty URIs are ignored');
+    assert.match(openRow, /const-string v2, ":playlist:"/);
+    assert.match(openRow, /const-string v2, "\/collection"/);
+    assert.match(openRow, /if-eqz v1, :native_open_single/, 'tracks are played by the WebView');
+    assert.match(openRow, /window\.__sfOpenCollection/);
+    assert.match(openRow, /window\.__sfNativeOpenUri/);
+});
+
+test('detail and player screens expose the back arrow and hide the tab bar', () => {
+    const activity = read('smali/com/melodix/music/MainActivity.smali');
+    const screen = activity.slice(
+        activity.indexOf('.method public final setNativeScreen'),
+        activity.indexOf('.end method', activity.indexOf('.method public final setNativeScreen'))
+    );
+
+    assert.match(screen, /:native_back_check_player/);
+    assert.match(screen, /if-nez v1, :native_back_check_player/, 'detail shows the arrow');
+    assert.match(screen, /const\/4 v1, 0x1\s+goto :set_back_button_visibility/);
+    assert.match(screen, /const v2, 0x7f09024c/, 'the whole mini player card is hidden on the full player');
+    assert.match(screen, /const v2, 0x7f09024e/, 'the tab bar is hidden on the full player');
+});
+
+test('library chips and the search tab never call a bridge-only function', () => {
+    const activity = read('smali/com/melodix/music/MainActivity.smali');
+    const shell = read('assets/native_ui_shell.js');
+    const categories = activity.slice(
+        activity.indexOf('.method public final onNativeLibraryCategoryClick'),
+        activity.indexOf('.end method', activity.indexOf('.method public final onNativeLibraryCategoryClick'))
+    );
+
+    assert.match(categories, /window\.__sfOpenLibraryCategory/);
+    assert.doesNotMatch(categories, /window\.fetchMediaItems/);
+    assert.match(shell, /window\.__sfOpenLibraryCategory = function\(tag\)/);
+    assert.match(shell, /LIBRARY_CATEGORY_PATHS/);
+    assert.match(read('smali/com/melodix/music/NativeSearchFocusRunnable.smali'), /showSoftInput/);
+    assert.match(activity, /new-instance v2, Lcom\/melodix\/music\/NativeSearchFocusRunnable;/, 'the search tab raises the keyboard');
+});
+
+test('the shell publishes the real player state without the bridge', () => {
+    const shell = read('assets/native_ui_shell.js');
+    const activity = read('smali/com/melodix/music/MainActivity.smali');
+
+    assert.match(shell, /function readNowPlaying\(\)/);
+    assert.match(shell, /bridge\.onNativeUiData\('player', JSON\.stringify\(payload\)\)/);
+    assert.match(shell, /PLAYER_SEND_INTERVAL_MS = 1000/);
+    assert.match(shell, /function publishPlayerState\(force\)/);
+
+    // The pause latch and the sticky hold live in the always-loaded shell now.
+    assert.match(shell, /PAUSE_HOLD_MS = 45000/);
+    assert.match(shell, /PAUSE_HOLD_MAX_REAPPLIES = 5/);
+    assert.match(shell, /window\.__sfTogglePlayback = function\(\)/);
+    assert.match(shell, /window\.__sfSkip = function\(direction\)/);
+    assert.match(shell, /window\.__sfMarkUserPlaybackIntent = markUserPlaybackIntent/);
+
+    assert.match(activity, /window\.__sfTogglePlayback/);
+    assert.match(activity, /window\.__sfSkip/);
+    assert.match(activity, /window\.__sfSkip\(\\'back\\'\)/);
+    assert.match(activity, /window\.__sfSkip\(\\'forward\\'\)/);
+});
+
+function buildPlayerShellHarness(options) {
+    const opts = options || {};
+    const calls = [];
+    const store = new Map();
+    const clicks = { playpause: 0, forward: 0, back: 0 };
+    const media = {
+        tagName: 'AUDIO',
+        paused: false,
+        ended: false,
+        muted: false,
+        currentTime: opts.position === undefined ? 42 : opts.position,
+        duration: opts.duration === undefined ? 200 : opts.duration,
+        src: 'https://open.spotify.com/blobs/audio'
+    };
+    const playButton = {
+        getAttribute: (name) => name === 'aria-label' ? (opts.label || 'Mettre en pause') : null,
+        click: () => { clicks.playpause += 1; }
+    };
+    const nodes = {
+        '[data-testid="context-item-link"]': { textContent: opts.track || 'Titre test' },
+        '[data-testid="context-item-info-artist"]': { textContent: opts.artist || 'Artiste test' },
+        '[data-testid="cover-art-image"]': {
+            tagName: 'IMG',
+            src: 'https://i.scdn.co/image/abc123'
+        }
+    };
+    const bar = {
+        querySelector: (selector) => nodes[selector] || null
+    };
+    const document = {
+        readyState: 'complete',
+        documentElement: {},
+        querySelector: (selector) => {
+            if (selector === '#main-view') return null;
+            if (selector.indexOf('control-button-playpause') >= 0) return playButton;
+            if (selector.indexOf('control-button-skip-forward') >= 0) return { click: () => { clicks.forward += 1; } };
+            if (selector.indexOf('control-button-skip-back') >= 0) return { click: () => { clicks.back += 1; } };
+            if (selector.indexOf('now-playing-bar') >= 0 || selector.indexOf('now-playing-widget') >= 0) return bar;
+            return null;
+        },
+        querySelectorAll: (selector) => selector === 'audio, video' ? [media] : [],
+        addEventListener: () => {}
+    };
+    const window = {
+        location: {
+            hostname: 'open.spotify.com',
+            pathname: '/',
+            href: 'https://open.spotify.com/',
+            assign: () => {}
+        },
+        AndBridge: {
+            onNativeUiReady: () => {},
+            onNativeUiRoute: () => {},
+            onNativeUiData: (screen, data) => calls.push({ screen, data })
+        },
+        MutationObserver: class { observe() {} },
+        addEventListener: () => {},
+        setTimeout: (fn) => { try { fn(); } catch (_) {} return 1; },
+        clearTimeout: () => {},
+        setInterval: () => 1,
+        clearInterval: () => {},
+        localStorage: {
+            getItem: (key) => store.has(key) ? store.get(key) : null,
+            setItem: (key, value) => store.set(key, String(value)),
+            removeItem: (key) => store.delete(key)
+        }
+    };
+    vm.runInNewContext(read('assets/native_ui_shell.js'), { window, document, URL });
+    return { window, calls, clicks, store };
+}
+
+test('the shell sends the real now-playing state to the native player', () => {
+    const harness = buildPlayerShellHarness();
+    const playerCall = harness.calls.find((call) => call.screen === 'player');
+
+    assert.ok(playerCall, 'the shell publishes a player payload');
+    const payload = JSON.parse(playerCall.data);
+    assert.equal(payload.track, 'Titre test');
+    assert.equal(payload.artist, 'Artiste test');
+    assert.equal(payload.cover, 'https://i.scdn.co/image/abc123');
+    assert.equal(payload.playing, true);
+    assert.equal(payload.duration, 200);
+    assert.equal(payload.position, 42);
+});
+
+test('the shell pause button latches the pause and a skip releases it', () => {
+    const harness = buildPlayerShellHarness();
+    const target = harness.window.__sfTogglePlayback();
+
+    assert.equal(target, false, 'a playing player is paused');
+    assert.equal(harness.clicks.playpause, 1);
+    assert.equal(harness.window.__sfIsUserPaused(), true);
+    assert.equal(harness.window.__sfPauseHoldActive, true);
+
+    harness.window.__sfSkip('forward');
+    assert.equal(harness.clicks.forward, 1);
+    assert.equal(harness.window.__sfIsUserPaused(), false, 'a skip releases the pause latch');
+    assert.equal(harness.window.__sfPauseHoldActive, false);
 });
