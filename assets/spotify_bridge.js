@@ -3619,10 +3619,16 @@
         document.body?.classList.remove('sf-melodix-home-active');
         document.getElementById('sf-melodix-home')?.remove();
         window._sfMelodixHomeSignature = '';
-        if (disconnectObserver && window._sfMelodixHomeObserver) {
-            window._sfMelodixHomeObserver.disconnect();
-            window._sfMelodixHomeObserver = null;
-            window._sfMelodixHomeView = null;
+        if (disconnectObserver) {
+            if (window._sfMelodixHomeDocumentObserver) {
+                window._sfMelodixHomeDocumentObserver.disconnect();
+                window._sfMelodixHomeDocumentObserver = null;
+            }
+            if (window._sfMelodixHomeObserver) {
+                window._sfMelodixHomeObserver.disconnect();
+                window._sfMelodixHomeObserver = null;
+                window._sfMelodixHomeView = null;
+            }
         }
     }
 
@@ -3640,6 +3646,25 @@
         window._sfMelodixHomeView = mainView;
         window._sfMelodixHomeObserver = new MutationObserver(scheduleMelodixHomeUpdate);
         window._sfMelodixHomeObserver.observe(mainView, { childList: true, subtree: true });
+    }
+
+    function observeMelodixHomeDocument() {
+        if (!document.body || window._sfMelodixHomeDocumentObserver) return;
+        const attachToMainView = () => {
+            const mainView = document.querySelector('#main-view');
+            if (!mainView) return false;
+            if (window._sfMelodixHomeDocumentObserver) {
+                window._sfMelodixHomeDocumentObserver.disconnect();
+                window._sfMelodixHomeDocumentObserver = null;
+            }
+            observeMelodixHomeView(mainView);
+            scheduleMelodixHomeUpdate();
+            return true;
+        };
+
+        if (attachToMainView()) return;
+        window._sfMelodixHomeDocumentObserver = new MutationObserver(attachToMainView);
+        window._sfMelodixHomeDocumentObserver.observe(document.body, { childList: true, subtree: true });
     }
 
     function renderMelodixHomeCard(card) {
@@ -3699,9 +3724,9 @@
         }
 
         const mainView = document.querySelector('#main-view');
-        const homeControl = document.querySelector('#global-nav-bar button[data-testid="home-button"]');
-        if (!mainView || !homeControl) {
-            deactivateMelodixHome(false);
+        if (!mainView) {
+            deactivateMelodixHome(true);
+            observeMelodixHomeDocument();
             return;
         }
         observeMelodixHomeView(mainView);
@@ -3770,10 +3795,15 @@
         window.addEventListener('resize', scheduleMelodixHomeUpdate);
         window.addEventListener('load', scheduleMelodixHomeUpdate, { once: true });
         document.addEventListener('click', (event) => {
-            if (event.target?.closest?.('#global-nav-bar button[data-testid="home-button"], #sf-mobile-nav [data-sf-mobile-action="home"]')) {
+            if (event.target?.closest?.('#global-nav-bar [data-testid="home-button"], #sf-mobile-nav [data-sf-mobile-action="home"], #sf-melodix-home .sf-melodix-home__card')) {
                 scheduleMelodixHomeUpdate();
             }
         });
+        document.addEventListener('DOMContentLoaded', () => {
+            observeMelodixHomeDocument();
+            scheduleMelodixHomeUpdate();
+        }, { once: true });
+        observeMelodixHomeDocument();
         scheduleMelodixHomeUpdate();
     }
 

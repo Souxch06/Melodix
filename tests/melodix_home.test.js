@@ -39,6 +39,18 @@ test('custom home only renders real Spotify cards and leaves original navigation
     assert.match(css, /env\(safe-area-inset-bottom\)/);
 });
 
+test('home waits for Spotify to mount its delayed SPA view before collecting cards', () => {
+    const bridge = read('assets/spotify_bridge.js');
+    const update = bridge.match(/function updateMelodixHome\(\) \{([\s\S]*?)\n    \}\n\n    function initializeMelodixHome/);
+    assert.ok(update, 'custom home update function should exist');
+
+    assert.match(bridge, /function observeMelodixHomeDocument\(\)/);
+    assert.match(bridge, /new MutationObserver\(attachToMainView\)/);
+    assert.match(bridge, /observer\.observe\(document\.body, \{ childList: true, subtree: true \}\)/);
+    assert.match(update[1], /if \(!mainView\) \{\s*deactivateMelodixHome\(true\);\s*observeMelodixHomeDocument\(\);\s*return;/);
+    assert.doesNotMatch(update[1], /homeControl/);
+});
+
 test('home card URLs must stay on Spotify and point to a real content route', () => {
     const bridge = read('assets/spotify_bridge.js');
     const helper = bridge.match(/function melodixHomeResourcePath\(href\) \{[\s\S]*?\n    \}/);
