@@ -520,6 +520,53 @@
     return-void
 .end method
 
+# Paints a small marker with its own registers. Called from onCreate before the
+# signature gate: if this text never shows, the process died before the activity
+# existed; if it flashes, the failure is later and the stage trail says where.
+.method public static showLaunchMarker(Landroid/app/Activity;)V
+    .locals 3
+
+    if-nez p0, :done
+
+    :try_start_0
+    new-instance v0, Landroid/widget/TextView;
+
+    invoke-direct {v0, p0}, Landroid/widget/TextView;-><init>(Landroid/content/Context;)V
+
+    const-string v1, "Melodix diag-6 : demarrage"
+
+    invoke-virtual {v0, v1}, Landroid/widget/TextView;->setText(Ljava/lang/CharSequence;)V
+
+    const/16 v1, 0x11
+
+    invoke-virtual {v0, v1}, Landroid/widget/TextView;->setGravity(I)V
+
+    const/high16 v1, 0x41a00000
+
+    invoke-virtual {v0, v1}, Landroid/widget/TextView;->setTextSize(F)V
+
+    const/4 v1, -0x1
+
+    invoke-virtual {v0, v1}, Landroid/widget/TextView;->setTextColor(I)V
+
+    const v1, -0x1000000
+
+    invoke-virtual {v0, v1}, Landroid/view/View;->setBackgroundColor(I)V
+
+    invoke-virtual {p0, v0}, Landroid/app/Activity;->setContentView(Landroid/view/View;)V
+    :try_end_0
+    .catch Ljava/lang/Throwable; {:try_start_0 .. :try_end_0} :catch_0
+
+    goto :done
+
+    :catch_0
+    move-exception v0
+
+    :done
+    return-void
+.end method
+
+
 .method public uncaughtException(Ljava/lang/Thread;Ljava/lang/Throwable;)V
     .locals 1
 

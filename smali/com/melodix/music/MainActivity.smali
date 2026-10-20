@@ -2408,36 +2408,19 @@
     # seen, the process dies before the activity exists; if it flashes, the
     # failure is later and the stage trail says where. This cannot be muted by
     # the system the way a toast posted before the first window can.
+    # The marker is drawn by a helper: inlining it here meant reusing registers
+    # that carry SDK_INT for the rest of onCreate, which the verifier rejects.
     :try_start_marker
-    new-instance v1, Landroid/widget/TextView;
-
-    invoke-direct {v1, v0}, Landroid/widget/TextView;-><init>(Landroid/content/Context;)V
-
-    const-string v2, "Melodix diag-6 : demarrage"
-
-    invoke-virtual {v1, v2}, Landroid/widget/TextView;->setText(Ljava/lang/CharSequence;)V
-
-    const/16 v2, 0x11
-
-    invoke-virtual {v1, v2}, Landroid/widget/TextView;->setGravity(I)V
-
-    const/high16 v2, 0x41a00000
-
-    invoke-virtual {v1, v2}, Landroid/widget/TextView;->setTextSize(F)V
-
-    const v2, -0x1
-
-    invoke-virtual {v1, v2}, Landroid/widget/TextView;->setTextColor(I)V
-
-    const v2, -0x1000000
-
-    invoke-virtual {v1, v2}, Landroid/view/View;->setBackgroundColor(I)V
-
-    invoke-virtual {v0, v1}, Landroid/app/Activity;->setContentView(Landroid/view/View;)V
+    invoke-static/range {p0 .. p0}, Lcom/melodix/music/NativeCrashGuard;->showLaunchMarker(Landroid/app/Activity;)V
     :try_end_marker
     .catch Ljava/lang/Throwable; {:try_start_marker .. :try_end_marker} :catch_marker
 
+    goto :marker_done
+
     :catch_marker
+    move-exception v1
+
+    :marker_done
     :try_start_stage
     const-string v1, "activity-create"
 
