@@ -675,17 +675,14 @@ test('Home separates user playlists from Spotify official recommendations and pr
 });
 
 test('playback stability and fast live search optimizations are active across Smali and JS', () => {
-    const c40 = read('smali/c40.smali');
-    const m9 = read('smali/m9.smali');
-    const c91 = read('smali/c91.smali');
+    const shell = read('assets/native_ui_shell.js');
     const bridge = read('assets/spotify_bridge.js');
     const activity = read('smali/com/melodix/music/MainActivity.smali');
     const watcher = read('smali/com/melodix/music/NativeSearchWatcher.smali');
 
-    assert.match(c40, /\.method public static a\(Landroid\/content\/ContextWrapper;\)V\s+\.locals 12\s+return-void/);
-    assert.match(m9, /:cond_0\s+goto :cond_2/);
-    assert.match(c91, /:cond_2c\s+goto\/16 :cond_31/);
-    assert.match(c91, /const-string v0, "akamaized\.net"/);
+    assert.match(activity, /\.method public final showNativeUi\(\)V[\s\S]*?sput-boolean v0, Lcom\/melodix\/music\/AppSingleton;->l:Z[\s\S]*?MainActivity;->H:Landroidx\/constraintlayout\/widget\/ConstraintLayout;/);
+    assert.match(shell, /window\.__sfSearchCache/);
+    assert.doesNotMatch(shell, /function clearHomeRetry\(\) \{[^}]*observer\.disconnect\(\)/);
     assert.match(bridge, /if \(window\.__sfMelodixBridgeCompleted\)/);
     assert.doesNotMatch(bridge, /AndBridge\.deferMessage\('reload'\);\s*location\.reload\(\)/);
     assert.match(bridge, /limit:\s*12/);

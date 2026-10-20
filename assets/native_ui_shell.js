@@ -413,11 +413,6 @@
         if (homeRetryTimer) window.clearTimeout(homeRetryTimer);
         homeRetryTimer = null;
         homeRetries = 0;
-        if (window.__sfNativeUiReadyNotified && window.__sfNativeUiHomeDataSent && observer && typeof observer.disconnect === 'function') {
-            try {
-                observer.disconnect();
-            } catch (_) {}
-        }
     }
 
     function scheduleHomeRetry() {
@@ -584,6 +579,27 @@
     }
 
     function installPlaybackStateGuard() {
+        if (window.__sfNativeUiReadyNotified && window.gobserver && typeof window.gobserver.disconnect === 'function') {
+            try {
+                window.gobserver.disconnect();
+            } catch (_) {}
+        }
+        if (typeof window.searchMediaItems === 'function' && !window.searchMediaItems._sfCached) {
+            var origSearch = window.searchMediaItems;
+            window.__sfSearchCache = window.__sfSearchCache || new Map();
+            var cachedSearch = function(query) {
+                var norm = String(query || '').trim().toLowerCase();
+                if (norm && window.__sfSearchCache && window.__sfSearchCache.has(norm) && window.AndBridge && typeof window.AndBridge.onSearchCompleted === 'function') {
+                    try {
+                        window.AndBridge.onSearchCompleted(query, JSON.stringify(window.__sfSearchCache.get(norm)));
+                        return;
+                    } catch (_) {}
+                }
+                return origSearch.call(this, query);
+            };
+            cachedSearch._sfCached = true;
+            window.searchMediaItems = cachedSearch;
+        }
         if (typeof window.updMedia === 'function' && !window.updMedia._sfGuarded) {
             var origUpdMedia = window.updMedia;
             var guardedUpdMedia = function(force) {

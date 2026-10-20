@@ -6697,6 +6697,21 @@
 .method public final showNativeUi()V
     .locals 5
 
+    const/4 v0, 0x1
+    sput-boolean v0, Lcom/melodix/music/AppSingleton;->l:Z
+
+    iget-object v1, p0, Lcom/melodix/music/MainActivity;->H:Landroidx/constraintlayout/widget/ConstraintLayout;
+    if-eqz v1, :hide_splash_progress
+    const/16 v2, 0x8
+    invoke-virtual {v1, v2}, Landroid/view/View;->setVisibility(I)V
+
+    :hide_splash_progress
+    iget-object v1, p0, Lcom/melodix/music/MainActivity;->R:Landroid/widget/ProgressBar;
+    if-eqz v1, :show_native_root
+    const/16 v2, 0x8
+    invoke-virtual {v1, v2}, Landroid/view/View;->setVisibility(I)V
+
+    :show_native_root
     const v0, 0x7f09022f
     invoke-virtual {p0, v0}, Landroid/app/Activity;->findViewById(I)Landroid/view/View;
     move-result-object v1
