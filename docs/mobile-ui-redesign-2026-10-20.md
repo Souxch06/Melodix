@@ -185,10 +185,11 @@ réparées juste avant : elle ne fait qu'ajouter du rendu.
   transparent : l'ancien `setBackgroundTintList(0)` supprimait aussi le ripple.
 - **Transition d'écran.** `setNativeScreen` compare la destination à
   `nativeCurrentScreen` avant de l'écraser et pose `nativeFadeNextScreen` ;
-  `fadeNativeScreen` relance alors une alpha 0,5 → 1 en 180 ms sur la racine
+  `fadeNativeScreen` relance alors une alpha 0,875 → 1 en 180 ms sur la racine
   `0x7f09022f`. Le flux « lecteur » qui republie son état chaque seconde ne
-  déclenche donc aucune animation. Départ à 0,5 et non à 0 : une animation
-  annulée ne peut jamais laisser l'écran invisible.
+  déclenche donc aucune animation. Le fond du shell étant opaque, un départ
+  plus bas laisserait apparaître la WebView ; une animation annulée ne peut
+  pas non plus laisser l'écran vide.
 - **En-tête.** Le caractère « ⚙ » est remplacé par un vecteur `native_nav_settings`
   (20 dp), aligné dans le bouton rond de 40 dp.
 - **Vérifié, déjà correct :** `updateNativePlayer` affecte bien `v2` (titre) à

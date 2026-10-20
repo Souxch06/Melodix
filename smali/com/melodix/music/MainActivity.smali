@@ -7056,9 +7056,10 @@
 
     if-nez v0, :fade_done
 
-    # Start half transparent: even if a newer animation cancels this one the
-    # content can never be left invisible, unlike an alpha-0 start.
-    const/high16 v1, 0x3f000000
+    # Start slightly transparent instead of fully invisible: the shell gradient
+    # is opaque, so a lower alpha would flash the WebView underneath, and a
+    # cancelled animation can never leave the screen blank.
+    const/high16 v1, 0x3f600000
 
     invoke-virtual {v0, v1}, Landroid/view/View;->setAlpha(F)V
 
