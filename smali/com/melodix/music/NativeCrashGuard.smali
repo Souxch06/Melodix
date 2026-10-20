@@ -11,7 +11,7 @@
 
 .field private static context:Landroid/content/Context;
 
-.field private static installed:Z;
+.field private static installed:Z
 
 .field private static previous:Ljava/lang/Thread$UncaughtExceptionHandler;
 
@@ -49,10 +49,13 @@
     move-result-object v0
 
     invoke-interface {v0}, Landroid/content/SharedPreferences$Editor;->commit()Z
+    move-result v0
     :try_end_0
     .catch Ljava/lang/Throwable; {:try_start_0 .. :try_end_0} :catch_0
 
     :catch_0
+    move-exception v0
+
     :done
     return-void
 .end method
@@ -147,6 +150,8 @@
     goto :done
 
     :catch_0
+    move-exception v2
+
     const/4 v0, 0x0
 
     :done
@@ -166,6 +171,8 @@
     .catch Ljava/lang/Throwable; {:try_start_0 .. :try_end_0} :catch_0
 
     :catch_0
+    move-exception v0
+
     return-void
 .end method
 
@@ -231,6 +238,8 @@
     goto :done
 
     :catch_0
+    move-exception v2
+
     const/4 v0, 0x0
 
     :done
@@ -252,6 +261,8 @@
     .catch Ljava/lang/Throwable; {:try_start_0 .. :try_end_0} :catch_0
 
     :catch_0
+    move-exception v0
+
     invoke-direct {p0, p1, p2}, Lcom/melodix/music/NativeCrashGuard;->dispatch(Ljava/lang/Thread;Ljava/lang/Throwable;)V
 
     return-void
@@ -284,10 +295,13 @@
     move-result-object v0
 
     invoke-interface {v0}, Landroid/content/SharedPreferences$Editor;->commit()Z
+    move-result v0
     :try_end_0
     .catch Ljava/lang/Throwable; {:try_start_0 .. :try_end_0} :catch_0
 
     :catch_0
+    move-exception v0
+
     :done
     return-void
 .end method
