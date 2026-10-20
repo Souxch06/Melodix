@@ -55,3 +55,34 @@ l'entrée, donc le dialogue revient au lancement suivant.
   signature `(Landroid/view/View;)V`.
 - `node --test tests/*.test.js` : 86 réussites / 16 échecs, identiques à la
   base (`runtime_state`).
+
+## Mise à jour : le diagnostic doit sortir au tout premier écran
+
+Le premier essai ne suffisait pas : le rapport n'était affiché qu'après la porte
+de signature et après `showLastReport`, donc un plantage plus tôt restait muet.
+
+Trois canaux, du plus précoce au plus tardif :
+
+1. **Toast à `Application.onCreate`** — dès que le drapeau est installé, si la
+   session précédente a laissé une trace, un toast long affiche
+   « Melodix a plante : <exception + message> » (240 caractères) ou, si aucune
+   exception Java n'a été écrite (crash natif), « Melodix s est arrete a l etape :
+   <étape> ». Visible avant même que l'activité n'existe.
+2. **Écran d'erreur immédiat** — `setContentView` est entouré d'un
+   `try/catch (Throwable)`. Si le layout ne s'inflate pas, l'application affiche
+   la pile d'exception dans un `TextView` plein écran au lieu de mourir : une
+   seule photo suffit, pas besoin de relancer.
+3. **Dialogue au lancement suivant** — déplacé juste après `install`, donc avant
+   la porte de signature (`u()`), qui fermait l'application sans rien afficher.
+
+Étapes enregistrées (`last_stage`) : `application` → `activity-create` →
+`signature-ok` → `content-view` → `ready`. Une étape `ready` signifie que le
+shell natif s'est affiché : les lancements suivants ne montrent plus de toast.
+
+## Ce qu'il faut m'envoyer
+
+- Une photo de l'écran si un texte d'exception apparaît (noir, texte blanc).
+- Sinon, une photo du toast « Melodix a plante : … » au lancement.
+- Sinon, une photo du dialogue « Dernier plantage Melodix ».
+
+Aucun de ces trois écrans ne demande d'ordinateur ni de logcat.

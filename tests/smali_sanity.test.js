@@ -413,3 +413,32 @@ test('a failing native render is recorded instead of killing the process', () =>
     assert.match(run[1], /\.catch Ljava\/lang\/Throwable; \{:try_start_0 \.\. :try_end_0\} :catch_0/);
     assert.match(run[1], /:catch_0\s+move-exception v0[\s\S]*?NativeCrashGuard;->record\(Ljava\/lang\/Throwable;\)V/);
 });
+
+test('the crash report is shown before the signature gate and the inflation', () => {
+    const activity = fs.readFileSync(path.join(repo, 'smali/com/melodix/music/MainActivity.smali'), 'utf8');
+    const onCreate = activity.match(/\.method public final onCreate\(Landroid\/os\/Bundle;\)V([\s\S]*?)\.end method/);
+
+    assert.ok(onCreate, 'Activity create callback should exist');
+    const report = onCreate[1].indexOf('NativeCrashGuard;->showLastReport');
+    const gate = onCreate[1].indexOf('Lcom/melodix/music/MainActivity;->u()Z');
+
+    assert.ok(report >= 0, 'the report screen should be requested from onCreate');
+    assert.ok(gate >= 0, 'the signature gate should exist');
+    assert.ok(
+        report < gate,
+        'the report must be shown before the signature gate, which can close the app without a trace'
+    );
+});
+
+test('an inflation failure shows the trace instead of killing the launch', () => {
+    const activity = fs.readFileSync(path.join(repo, 'smali/com/melodix/music/MainActivity.smali'), 'utf8');
+    const onCreate = activity.match(/\.method public final onCreate\(Landroid\/os\/Bundle;\)V([\s\S]*?)\.end method/);
+    const guarded = onCreate[1].match(
+        /:native_content_try_start\s+invoke-virtual \{v0, v1\}, Le6;->setContentView\(I\)V\s+:native_content_try_end\s+\.catch Ljava\/lang\/Throwable; \{:native_content_try_start \.\. :native_content_try_end\} :native_content_failed([\s\S]*?)\.end method/
+    );
+
+    assert.ok(guarded, 'setContentView must be guarded by a try/catch');
+    assert.match(guarded[1], /NativeCrashGuard;->record\(Ljava\/lang\/Throwable;\)V/);
+    assert.match(guarded[1], /NativeCrashGuard;->excerpt\(Ljava\/lang\/Throwable;\)Ljava\/lang\/String;/);
+    assert.match(guarded[1], /TextView;->setText\(Ljava\/lang\/CharSequence;\)V[\s\S]*?Landroid\/app\/Activity;->setContentView\(Landroid\/view\/View;\)V[\s\S]*?return-void/);
+});

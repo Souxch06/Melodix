@@ -2382,6 +2382,21 @@
     # next launch can show it instead of dying silently.
     invoke-static/range {p0 .. p0}, Lcom/melodix/music/NativeCrashGuard;->install(Landroid/content/Context;)V
 
+    const-string v1, "activity-create"
+
+    invoke-static/range {v1 .. v1}, Lcom/melodix/music/NativeCrashGuard;->stage(Ljava/lang/String;)V
+
+    # Show the previous crash before anything else can fail: the signature gate
+    # and the layout inflation both run after this point.
+    invoke-static/range {p0 .. p0}, Lcom/melodix/music/NativeCrashGuard;->showLastReport(Landroid/app/Activity;)Z
+
+    move-result v1
+
+    if-eqz v1, :native_no_crash_report
+
+    return-void
+
+    :native_no_crash_report
     .line 96
     .line 97
     .line 98
@@ -2409,6 +2424,10 @@
 
     .line 105
     :cond_4
+    const-string v1, "signature-ok"
+
+    invoke-static/range {v1 .. v1}, Lcom/melodix/music/NativeCrashGuard;->stage(Ljava/lang/String;)V
+
     invoke-virtual {v0}, Landroid/app/Activity;->getWindow()Landroid/view/Window;
 
     .line 106
@@ -2483,16 +2502,6 @@
     .line 142
     .line 143
     :cond_6
-    invoke-static/range {p0 .. p0}, Lcom/melodix/music/NativeCrashGuard;->showLastReport(Landroid/app/Activity;)Z
-
-    move-result v1
-
-    if-eqz v1, :native_no_crash_report
-
-    # The report is on screen; stop here so the crash it describes cannot hide it.
-    return-void
-
-    :native_no_crash_report
     new-instance v1, Ljava/lang/ref/WeakReference;
 
     .line 144
@@ -2511,7 +2520,53 @@
     .line 151
     .line 152
     .line 153
+    :native_content_try_start
     invoke-virtual {v0, v1}, Le6;->setContentView(I)V
+    :native_content_try_end
+    .catch Ljava/lang/Throwable; {:native_content_try_start .. :native_content_try_end} :native_content_failed
+
+    goto :native_content_ok
+
+    :native_content_failed
+    move-exception v2
+
+    # A broken layout must not kill the launch: show the trace on the screen the
+    # user is already looking at instead of a blank crash.
+    invoke-static {v2}, Lcom/melodix/music/NativeCrashGuard;->record(Ljava/lang/Throwable;)V
+
+    invoke-static {v2}, Lcom/melodix/music/NativeCrashGuard;->excerpt(Ljava/lang/Throwable;)Ljava/lang/String;
+    move-result-object v4
+
+    new-instance v3, Landroid/widget/TextView;
+
+    invoke-direct {v3, v0}, Landroid/widget/TextView;-><init>(Landroid/content/Context;)V
+
+    invoke-virtual {v3, v4}, Landroid/widget/TextView;->setText(Ljava/lang/CharSequence;)V
+
+    const v4, -0x1
+
+    invoke-virtual {v3, v4}, Landroid/widget/TextView;->setTextColor(I)V
+
+    const/high16 v4, 0x41400000
+
+    invoke-virtual {v3, v4}, Landroid/widget/TextView;->setTextSize(F)V
+
+    const v4, -0x1000000
+
+    invoke-virtual {v3, v4}, Landroid/view/View;->setBackgroundColor(I)V
+
+    const/16 v4, 0x18
+
+    invoke-virtual {v3, v4, v4, v4, v4}, Landroid/view/View;->setPadding(IIII)V
+
+    invoke-virtual {v0, v3}, Landroid/app/Activity;->setContentView(Landroid/view/View;)V
+
+    return-void
+
+    :native_content_ok
+    const-string v1, "content-view"
+
+    invoke-static/range {v1 .. v1}, Lcom/melodix/music/NativeCrashGuard;->stage(Ljava/lang/String;)V
 
     .line 154
     .line 155
@@ -6806,6 +6861,10 @@
     invoke-virtual {p0, v0}, Lcom/melodix/music/MainActivity;->setNativeScreen(Ljava/lang/String;)V
 
     :show_done
+    const-string v0, "ready"
+
+    invoke-static {v0}, Lcom/melodix/music/NativeCrashGuard;->stage(Ljava/lang/String;)V
+
     return-void
 .end method
 

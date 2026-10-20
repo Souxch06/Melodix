@@ -253,6 +253,10 @@
     # application itself starts up must be readable on the next launch too.
     invoke-static/range {p0 .. p0}, Lcom/melodix/music/NativeCrashGuard;->install(Landroid/content/Context;)V
 
+    const-string v1, "application"
+
+    invoke-static/range {v1 .. v1}, Lcom/melodix/music/NativeCrashGuard;->stage(Ljava/lang/String;)V
+
     .line 2
     .line 3
     .line 4
