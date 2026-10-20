@@ -2404,6 +2404,40 @@
     return-void
 
     :native_no_crash_report
+    # Paint a small marker before anything else can fail. If this text is never
+    # seen, the process dies before the activity exists; if it flashes, the
+    # failure is later and the stage trail says where. This cannot be muted by
+    # the system the way a toast posted before the first window can.
+    :try_start_marker
+    new-instance v1, Landroid/widget/TextView;
+
+    invoke-direct {v1, v0}, Landroid/widget/TextView;-><init>(Landroid/content/Context;)V
+
+    const-string v2, "Melodix diag-6 : demarrage"
+
+    invoke-virtual {v1, v2}, Landroid/widget/TextView;->setText(Ljava/lang/CharSequence;)V
+
+    const/16 v2, 0x11
+
+    invoke-virtual {v1, v2}, Landroid/widget/TextView;->setGravity(I)V
+
+    const/high16 v2, 0x41a00000
+
+    invoke-virtual {v1, v2}, Landroid/widget/TextView;->setTextSize(F)V
+
+    const v2, -0x1
+
+    invoke-virtual {v1, v2}, Landroid/widget/TextView;->setTextColor(I)V
+
+    const v2, -0x1000000
+
+    invoke-virtual {v1, v2}, Landroid/view/View;->setBackgroundColor(I)V
+
+    invoke-virtual {v0, v1}, Landroid/app/Activity;->setContentView(Landroid/view/View;)V
+    :try_end_marker
+    .catch Ljava/lang/Throwable; {:try_start_marker .. :try_end_marker} :catch_marker
+
+    :catch_marker
     :try_start_stage
     const-string v1, "activity-create"
 

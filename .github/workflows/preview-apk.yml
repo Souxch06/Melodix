@@ -140,9 +140,11 @@ jobs:
             exit 1
           fi
 
-          python3 - "$work_dir/AndroidManifest.xml" <<'PY'
+          python3 - "$work_dir/AndroidManifest.xml" "$SOURCE_REF" <<'PY'
           import sys
           import xml.etree.ElementTree as ET
+
+          BUILD_ID = sys.argv[2][:7]
 
           manifest_path = sys.argv[1]
           android_ns = "http://schemas.android.com/apk/res/android"
@@ -164,12 +166,12 @@ jobs:
               if authorities and authorities.startswith(original_id + "."):
                   element.set(android + "authorities", preview_id + authorities[len(original_id):])
               if element.get(android + "label") == "Melodix":
-                  element.set(android + "label", "Melodix Preview")
+                  element.set(android + "label", "Melodix Preview " + BUILD_ID)
 
           tree.write(manifest_path, encoding="utf-8", xml_declaration=True, short_empty_elements=True)
           PY
 
-          sed -i -E 's#(<string name="app_name">)[^<]*(</string>)#\1Melodix Preview\2#' \
+          sed -i -E "s#(<string name=\"app_name\">)[^<]*(</string>)#\1Melodix Preview ${SOURCE_REF:0:7}\2#" \
             "$work_dir/res/values/strings.xml"
           sed -i -E "s#<string name=\"expected_signature_sha256\">[^<]*</string>#<string name=\"expected_signature_sha256\">$preview_fingerprint</string>#" \
             "$work_dir/res/values/strings.xml"
