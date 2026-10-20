@@ -224,3 +224,64 @@ Si l une echoue, la CI echoue au lieu de publier un APK condamne a se fermer.
 Le nom de version affiche desormais le prefixe du commit
 (`1.2.2-<7 caracteres>`), ce qui permet de verifier sur le telephone quelle
 build est installee.
+
+## diag-6 : cause reelle, trace FATAL EXCEPTION obtenue sur emulateur
+
+Le telephone ne peut pas donner de logcat et la CI ne publiait aucun journal
+lisible. Un workflow dedie installe desormais l APK publie sur un emulateur
+Android 15 (API 35), le lance et rapporte ce qui se passe : activite au premier
+plan, texte affiche, etapes enregistrees et tampon de plantage. Le rapport est
+ecrit dans les annotations du job et dans un commentaire de commit, donc
+lisible sans telecharger d artefact.
+
+Premiere execution :
+
+    FATAL EXCEPTION: main
+    Process: com.melodix.music.preview, PID: 2469
+    java.lang.LinkageError: Method void com.melodix.music.MainActivity.onBackPressed()
+    overrides final method in class Landroidx/activity/a;
+        at bh.<clinit>
+        at com.google.firebase.provider.FirebaseInitProvider.attachInfo
+        at android.app.ActivityThread.installProvider
+        at android.app.ActivityThread.installContentProviders
+        at android.app.ActivityThread.handleBindApplication
+
+### Pourquoi aucun diagnostic ne pouvait fonctionner
+
+La pile s arrete dans `installContentProviders`. Les `ContentProvider` sont
+installes **avant** `Application.onCreate()`. Le processus mourait donc avant
+la premiere ligne de code applicatif : ni garde installe, ni jalon ecrit, ni
+toast, ni dialogue. Ce n etait pas un defaut du diagnostic mais un plantage
+situe en amont de tout ce que l application controle.
+
+Le declencheur est `FirebaseInitProvider.attachInfo`, dont le `<clinit>` charge
+`MainActivity`, ce qui force la verification de la classe.
+
+### Cause exacte
+
+`androidx.activity.a` (ComponentActivity) declare :
+
+    .method public final onBackPressed()V
+
+`MainActivity` redefinissait cette methode. Un `LinkageError` est leve des que
+la classe est verifiee : l application ne peut pas demarrer, quelle que soit la
+suite du code. L historique montre que cette redefinition a ete ajoutee par le
+commit `c925fd5` (« Repare les boutons morts et pilote le lecteur sans le
+bridge ») et n existe pas dans le commit de base `81ef774`. La regression vient
+donc de ce travail, pas du depot d origine.
+
+La classe du callback androidx (`Lr70;`) est `final` et obfusquee, donc il est
+impossible d en heriter pour reintroduire le comportement par le dispatcher.
+La redefinition est supprimee : la classe se charge a nouveau.
+
+### Consequences
+
+- L application redemarre. C est desormais verifie par execution reelle sur
+  emulateur, plus par deduction.
+- Le retour systeme ne ramene plus a l accueil depuis un ecran natif ; il
+  reprend le comportement d origine. Le bouton retour de l interface
+  (`onNativeBackClick`, identifiant `0x7f090231`) reste fonctionnel.
+- Les corrections precedentes (conditions de nullite du garde, verification
+  d empreinte en CI, versionCode croissant) restent en place : elles etaient
+  necessaires mais ne pouvaient rien afficher tant que la classe ne se chargeait
+  pas.

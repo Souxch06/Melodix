@@ -4521,26 +4521,6 @@
     return-void
 .end method
 
-.method public onBackPressed()V
-    .locals 2
-
-    # In the native shell the system back gesture must first leave the current
-    # native screen (detail, player, settings) instead of closing the app.
-    iget-object v0, p0, Lcom/melodix/music/MainActivity;->nativeCurrentScreen:Ljava/lang/String;
-    if-eqz v0, :native_back_super
-    const-string v1, "home"
-    invoke-virtual {v0, v1}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
-    move-result v1
-    if-eqz v1, :native_back_super
-    const/4 v1, 0x0
-    invoke-virtual {p0, v1}, Lcom/melodix/music/MainActivity;->onNativeBackClick(Landroid/view/View;)V
-    return-void
-
-    :native_back_super
-    invoke-super {p0}, Le6;->onBackPressed()V
-    return-void
-.end method
-
 .method public final onKeyDown(ILandroid/view/KeyEvent;)Z
     .locals 1
 
