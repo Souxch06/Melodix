@@ -203,7 +203,7 @@
     goto :toast_show
 
     :toast_stage
-    if-nez v2, :done_toast
+    if-eqz v2, :toast_alive
 
     const-string v1, "ready"
 
@@ -211,7 +211,7 @@
 
     move-result v1
 
-    if-eqz v1, :done_toast
+    if-eqz v1, :toast_alive
 
     new-instance v1, Ljava/lang/StringBuilder;
 
@@ -226,6 +226,14 @@
     invoke-virtual {v1}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
 
     move-result-object v1
+
+    goto :toast_show
+
+    # Nothing to report: still announce that this build ran, so a phone that
+    # shows nothing at all can be told apart from an APK that never reaches
+    # application code.
+    :toast_alive
+    const-string v1, "Melodix preview diag-5 : actif"
 
     :toast_show
     const/4 v2, 0x1

@@ -2404,9 +2404,19 @@
     return-void
 
     :native_no_crash_report
+    :try_start_stage
     const-string v1, "activity-create"
 
     invoke-static/range {v1 .. v1}, Lcom/melodix/music/NativeCrashGuard;->stage(Ljava/lang/String;)V
+    :try_end_stage
+    .catch Ljava/lang/Throwable; {:try_start_stage .. :try_end_stage} :catch_stage
+
+    goto :stage_done
+
+    :catch_stage
+    move-exception v1
+
+    :stage_done
 
     .line 96
     .line 97
