@@ -109,7 +109,7 @@ test('Premium trial upsells are dismissed without hiding unrelated dialogs or er
     assert.match(bridge, /button\[aria-label\*="fermer" i\]/);
     assert.match(bridge, /data-melodix-premium-dismissed/);
     assert.match(bridge, /window\._sfPremiumPromoObserver = new MutationObserver/);
-    assert.match(bridge, /initializeMobileShell\(\);\s*installPremiumPromotionCleanup\(\);\s*firstFuck\(\);/);
+    assert.match(bridge, /initializeMobileShell\(\);\s*initializeMelodixHome\(\);\s*installPremiumPromotionCleanup\(\);\s*firstFuck\(\);/);
     assert.doesNotMatch(bridge, /\[role="dialog"\]\s*\{\s*display:\s*none/);
 
     const helper = bridge.match(/function premiumOfferText\(text\) \{[\s\S]*?\n    \}/);

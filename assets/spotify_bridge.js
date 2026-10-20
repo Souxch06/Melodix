@@ -2131,6 +2131,7 @@
         if (libraryTab) {
             libraryTab.setAttribute('aria-expanded', String(document.body.classList.contains('sf-library-open')));
         }
+        updateMelodixHome();
     }
 
     function hasTouchInput() {
@@ -3530,6 +3531,248 @@
     }
     window.searchMediaItems = searchMediaItems;
 
+    function melodixHomeCopy() {
+        const locale = (document.documentElement.lang || navigator.language || 'en').toLowerCase().split('-')[0];
+        const copy = {
+            fr: { morning: 'Bonjour', afternoon: 'Bon après-midi', evening: 'Bonsoir', discover: 'À découvrir' },
+            en: { morning: 'Good morning', afternoon: 'Good afternoon', evening: 'Good evening', discover: 'Discover' },
+            es: { morning: 'Buenos días', afternoon: 'Buenas tardes', evening: 'Buenas noches', discover: 'Descubre' },
+            de: { morning: 'Guten Morgen', afternoon: 'Guten Tag', evening: 'Guten Abend', discover: 'Entdecken' },
+            it: { morning: 'Buongiorno', afternoon: 'Buon pomeriggio', evening: 'Buonasera', discover: 'Scopri' },
+            pt: { morning: 'Bom dia', afternoon: 'Boa tarde', evening: 'Boa noite', discover: 'Descobrir' }
+        };
+        const labels = copy[locale] || copy.en;
+        const hour = new Date().getHours();
+        return {
+            greeting: hour < 12 ? labels.morning : hour < 18 ? labels.afternoon : labels.evening,
+            discover: labels.discover
+        };
+    }
+
+    function melodixHomeResourcePath(href) {
+        try {
+            const url = new URL(href, window.location.href);
+            if (url.origin !== window.location.origin) return false;
+            return /^\/(playlist|album|artist|track|show|episode|audiobook)\/[^/]+/.test(url.pathname);
+        } catch (_) {
+            return false;
+        }
+    }
+
+    function collectMelodixHomeSections(mainView) {
+        if (!mainView) return [];
+        const cardNodes = Array.from(mainView.querySelectorAll('[data-testid="card"]'));
+        const candidates = cardNodes.length
+            ? cardNodes
+            : Array.from(mainView.querySelectorAll('a[href]')).filter((anchor) => anchor.querySelector('img'));
+        const grouped = new Map();
+        const seen = new Set();
+
+        candidates.forEach((candidate) => {
+            const sourceAnchor = candidate.matches('a[href]')
+                ? candidate
+                : candidate.querySelector('a[href]');
+            if (!sourceAnchor || !melodixHomeResourcePath(sourceAnchor.href)) return;
+            const image = sourceAnchor.querySelector('img') || candidate.querySelector('img');
+            const imageUrl = image?.currentSrc || image?.getAttribute('src') || image?.getAttribute('data-src') || '';
+            const href = sourceAnchor.href;
+            if (seen.has(href)) return;
+            seen.add(href);
+
+            const lines = String(candidate.innerText || candidate.textContent || sourceAnchor.innerText || sourceAnchor.textContent || '')
+                .split('\n')
+                .map((line) => line.replace(/\s+/g, ' ').trim())
+                .filter(Boolean);
+            const title = String(
+                candidate.getAttribute('aria-label') ||
+                sourceAnchor.getAttribute('aria-label') ||
+                lines[0] ||
+                image?.getAttribute('alt') || ''
+            ).replace(/\s+/g, ' ').trim().slice(0, 100);
+            if (!title) return;
+            const subtitle = lines.find((line) => line !== title) || '';
+            const section = candidate.closest('section') || mainView;
+            const headingNode = section === mainView
+                ? null
+                : Array.from(section.querySelectorAll('h2, h3, [data-testid="shelf-title"]'))
+                    .find((node) => !node.closest('[data-testid="card"]'));
+            const heading = String(headingNode?.textContent || '')
+                .replace(/\s+/g, ' ').trim().slice(0, 80);
+            const group = grouped.get(section) || { title: heading, cards: [] };
+            group.cards.push({
+                title,
+                subtitle: subtitle.slice(0, 120),
+                image: imageUrl,
+                href,
+                sourceAnchor
+            });
+            grouped.set(section, group);
+        });
+
+        return Array.from(grouped.values())
+            .map((group) => ({ ...group, cards: group.cards.slice(0, 8) }))
+            .filter((group) => group.cards.length > 0)
+            .slice(0, 4);
+    }
+
+    function deactivateMelodixHome(disconnectObserver = false) {
+        document.body?.classList.remove('sf-melodix-home-active');
+        document.getElementById('sf-melodix-home')?.remove();
+        window._sfMelodixHomeSignature = '';
+        if (disconnectObserver && window._sfMelodixHomeObserver) {
+            window._sfMelodixHomeObserver.disconnect();
+            window._sfMelodixHomeObserver = null;
+            window._sfMelodixHomeView = null;
+        }
+    }
+
+    function scheduleMelodixHomeUpdate() {
+        if (window._sfMelodixHomeTimer != null) return;
+        window._sfMelodixHomeTimer = window.setTimeout(() => {
+            window._sfMelodixHomeTimer = null;
+            updateMelodixHome();
+        }, 80);
+    }
+
+    function observeMelodixHomeView(mainView) {
+        if (window._sfMelodixHomeView === mainView && window._sfMelodixHomeObserver) return;
+        if (window._sfMelodixHomeObserver) window._sfMelodixHomeObserver.disconnect();
+        window._sfMelodixHomeView = mainView;
+        window._sfMelodixHomeObserver = new MutationObserver(scheduleMelodixHomeUpdate);
+        window._sfMelodixHomeObserver.observe(mainView, { childList: true, subtree: true });
+    }
+
+    function renderMelodixHomeCard(card) {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'sf-melodix-home__card';
+        button.setAttribute('aria-label', card.subtitle ? `${card.title}, ${card.subtitle}` : card.title);
+
+        if (card.image) {
+            const image = document.createElement('img');
+            image.className = 'sf-melodix-home__artwork';
+            image.src = card.image;
+            image.alt = '';
+            image.loading = 'lazy';
+            button.appendChild(image);
+        }
+
+        const title = document.createElement('span');
+        title.className = 'sf-melodix-home__title';
+        title.textContent = card.title;
+        button.appendChild(title);
+
+        if (card.subtitle) {
+            const subtitle = document.createElement('span');
+            subtitle.className = 'sf-melodix-home__subtitle';
+            subtitle.textContent = card.subtitle;
+            button.appendChild(subtitle);
+        }
+
+        button.addEventListener('click', () => {
+            if (card.sourceAnchor && (card.sourceAnchor.isConnected || document.contains(card.sourceAnchor))) {
+                card.sourceAnchor.click();
+            } else {
+                window.location.assign(card.href);
+            }
+        });
+        return button;
+    }
+
+    function updateMelodixHome() {
+        if (!document.body) return;
+        const homePath = window.location.pathname.replace(/\/+$/, '') || '/';
+        const isSpotifyHome = window.location.hostname === 'open.spotify.com' &&
+            (homePath === '/' || homePath === '/home');
+        const isCustomMobileMode = window.SF_CONFIG?.guiMode === 'csshack' && isMobileNavigationViewport();
+        if (!isSpotifyHome || !isCustomMobileMode) {
+            deactivateMelodixHome(true);
+            return;
+        }
+        if (document.body.classList.contains('sf-fs-open')) {
+            deactivateMelodixHome(false);
+            return;
+        }
+
+        const mainView = document.querySelector('#main-view');
+        const homeControl = document.querySelector('#global-nav-bar button[data-testid="home-button"]');
+        if (!mainView || !homeControl) {
+            deactivateMelodixHome(false);
+            return;
+        }
+        observeMelodixHomeView(mainView);
+
+        const sections = collectMelodixHomeSections(mainView);
+        const itemCount = sections.reduce((count, section) => count + section.cards.length, 0);
+        if (itemCount < 2) {
+            deactivateMelodixHome(false);
+            return;
+        }
+
+        const labels = melodixHomeCopy();
+        const signature = sections.map((section) => `${section.title}:${section.cards.map((card) => `${card.href}|${card.title}|${card.image}`).join(',')}`).join('||');
+        let home = document.getElementById('sf-melodix-home');
+        if (!home) {
+            home = document.createElement('main');
+            home.id = 'sf-melodix-home';
+            home.className = 'sf-melodix-home';
+            home.setAttribute('aria-label', 'Melodix');
+            document.body.appendChild(home);
+        }
+
+        const globalNav = document.querySelector('#global-nav-bar');
+        const navVisible = !!(globalNav && getComputedStyle(globalNav).display !== 'none');
+        const navBottom = navVisible ? Math.max(0, globalNav.getBoundingClientRect().bottom) : 0;
+        home.style.setProperty('--sf-melodix-home-top', `${Math.ceil(navBottom)}px`);
+        home.style.setProperty('--sf-melodix-home-extra-safe-top', navVisible ? '0px' : 'env(safe-area-inset-top)');
+
+        if (window._sfMelodixHomeSignature === signature && document.body.classList.contains('sf-melodix-home-active')) {
+            return;
+        }
+
+        const header = document.createElement('header');
+        header.className = 'sf-melodix-home__header';
+        const brand = document.createElement('p');
+        brand.className = 'sf-melodix-home__brand';
+        brand.textContent = 'MELODIX';
+        const greeting = document.createElement('h1');
+        greeting.textContent = labels.greeting;
+        header.append(brand, greeting);
+        home.replaceChildren(header);
+
+        sections.forEach((section) => {
+            const sectionElement = document.createElement('section');
+            sectionElement.className = 'sf-melodix-home__section';
+            const heading = document.createElement('h2');
+            heading.className = 'sf-melodix-home__section-title';
+            heading.textContent = section.title || labels.discover;
+            sectionElement.appendChild(heading);
+
+            const cards = document.createElement('div');
+            cards.className = 'sf-melodix-home__cards';
+            section.cards.forEach((card) => cards.appendChild(renderMelodixHomeCard(card)));
+            sectionElement.appendChild(cards);
+            home.appendChild(sectionElement);
+        });
+
+        window._sfMelodixHomeSignature = signature;
+        document.body.classList.add('sf-melodix-home-active');
+    }
+
+    function initializeMelodixHome() {
+        if (window._sfMelodixHomeListenersAttached) return;
+        window._sfMelodixHomeListenersAttached = true;
+        window.addEventListener('popstate', scheduleMelodixHomeUpdate);
+        window.addEventListener('resize', scheduleMelodixHomeUpdate);
+        window.addEventListener('load', scheduleMelodixHomeUpdate, { once: true });
+        document.addEventListener('click', (event) => {
+            if (event.target?.closest?.('#global-nav-bar button[data-testid="home-button"], #sf-mobile-nav [data-sf-mobile-action="home"]')) {
+                scheduleMelodixHomeUpdate();
+            }
+        });
+        scheduleMelodixHomeUpdate();
+    }
+
     function initializeMobileShell() {
         const maxRetries = 40;
         let retries = 0;
@@ -3582,6 +3825,7 @@
     }
 
     initializeMobileShell();
+    initializeMelodixHome();
     installPremiumPromotionCleanup();
     firstFuck();
 })();
