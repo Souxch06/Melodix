@@ -1175,29 +1175,47 @@ test('the library tab never reloads its own page in a loop', () => {
     assert.match(onHome.navigations[0] || '', /\/collection\/playlists$/);
 });
 
-test('the browse grid opens on the empty search tab and hands the term to the real search', () => {
+test('browse tiles drive the live search and the grid yields to real results', () => {
     const layout = read('res/layout/activity_main.xml');
-    const publicXml = read('res/values/public.xml');
     const activity = read('smali/com/melodix/music/MainActivity.smali');
-    const gridStart = layout.indexOf('android:id="@+id/nativeGenreScroll"');
-    const gridEnd = layout.indexOf('android:id="@id/nativeLibraryCategories"');
-    const grid = layout.slice(gridStart, gridEnd);
-    const openSearchAt = activity.indexOf('.method public final onNativeSearchClick(Landroid/view/View;)V');
-    const renderRowsAt = activity.indexOf('.method public final renderNativeRows(Ljava/lang/String;Ljava/lang/String;)V');
-    const openSearch = activity.slice(openSearchAt, openSearchAt + 2200);
-    const renderRows = activity.slice(renderRowsAt, renderRowsAt + 2600);
+    const publicXml = read('res/values/public.xml');
+    const gridAt = layout.indexOf('@id/nativeGenreScroll');
+    const chipsAt = layout.indexOf('@id/nativeLibraryCategories');
+    const grid = layout.slice(gridAt, chipsAt);
+    const handlerAt = activity.indexOf('.method public final onNativeGenreClick(Landroid/view/View;)V');
+    const handler = activity.slice(handlerAt, handlerAt + 1400);
+    const rowsAt = activity.indexOf('.method public final renderNativeRows(Ljava/lang/String;Ljava/lang/String;)V');
+    const rows = activity.slice(rowsAt, rowsAt + 1600);
+    const searchAt = activity.indexOf('.method public final onNativeSearchClick(Landroid/view/View;)V');
+    const search = activity.slice(searchAt, searchAt + 2200);
+    const screenAt = activity.indexOf('.method public final setNativeScreen(Ljava/lang/String;)V');
+    const screen = activity.slice(screenAt, screenAt + 1600);
 
-    assert.ok(gridStart > 0 && gridEnd > gridStart, 'the grid sits between the search field and the library chips');
+    assert.ok(gridAt > layout.indexOf('@+id/nativeSearchPanel'), 'the grid sits under the search field');
+    assert.ok(gridAt < chipsAt, 'the grid sits above the library chips');
     assert.match(publicXml, /name="nativeGenreScroll" id="0x7f09024f"/);
-    assert.equal((grid.match(/android:onClick="onNativeGenreClick"/g) || []).length, 8, 'eight browse tiles');
+    assert.equal((grid.match(/android:onClick="onNativeGenreClick"/g) || []).length, 8);
     assert.match(grid, /android:text="Parcourir tout"/);
-    assert.match(activity, /\.method public final onNativeGenreClick\(Landroid\/view\/View;\)V/);
-    assert.match(activity, /invoke-virtual \{p0, v0\}, Lcom\/melodix\/music\/MainActivity;->performNativeLiveSearch\(Ljava\/lang\/String;\)V/);
-    assert.match(activity, /const-string v1, "screen-title"/);
+    assert.ok(handlerAt > 0, 'the tile handler exists');
+    assert.match(handler, /performNativeLiveSearch/);
+    assert.match(handler, /"screen-title"/, 'the header echoes the chosen genre');
 
-    // The grid is shown only by the search tab; every row render restores the list.
-    assert.match(openSearch, /0x7f09024f/);
-    assert.match(openSearch, /0x7f090239/);
-    assert.match(renderRows, /0x7f09024f/);
-    assert.match(renderRows, /0x7f090239/);
+    // Every row render restores the list and hides the grid; the search tab does
+    // the opposite, and leaving the screen always hides the grid.
+    assert.match(rows, /0x7f090239/);
+    assert.match(rows, /0x7f09024f/);
+    assert.match(search, /0x7f09024f/);
+    assert.match(search, /0x7f090239/);
+    assert.match(screen, /0x7f09024f/);
+});
+
+test('search results coming from the fallback path reach the native list', () => {
+    const activity = read('smali/com/melodix/music/MainActivity.smali');
+    const applyAt = activity.indexOf('.method public final applyNativeUiData(Ljava/lang/String;Ljava/lang/String;)V');
+    const applyEnd = activity.indexOf('.method public final updateNativePlayer(Ljava/lang/String;)V', applyAt);
+    const apply = activity.slice(applyAt, applyEnd);
+
+    assert.match(apply, /const-string v0, "search:"/);
+    assert.match(apply, /nativeExpectedSearch/);
+    assert.match(apply, /const-string v8, "Résultats de recherche"/);
 });

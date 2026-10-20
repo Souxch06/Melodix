@@ -188,7 +188,7 @@
         </LinearLayout>
 
         <ScrollView
-            android:id="@+id/nativeGenreScroll"
+            android:id="@id/nativeGenreScroll"
             android:visibility="gone"
             android:overScrollMode="never"
             android:scrollbars="none"
