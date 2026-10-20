@@ -249,6 +249,10 @@
     .line 1
     invoke-super {p0}, Landroid/app/Application;->onCreate()V
 
+    # Install the crash recorder as early as possible: a failure while the
+    # application itself starts up must be readable on the next launch too.
+    invoke-static/range {p0 .. p0}, Lcom/melodix/music/NativeCrashGuard;->install(Landroid/content/Context;)V
+
     .line 2
     .line 3
     .line 4

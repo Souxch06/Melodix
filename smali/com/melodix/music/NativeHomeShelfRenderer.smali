@@ -367,9 +367,9 @@
     if-eqz v11, :shelf_add
 
     # Rounded ripple so a cover card reacts to the touch like the Spotify app.
-    const v11, 0x7f08013e
+    const-string v11, "native_card_ripple"
 
-    invoke-virtual {v7, v11}, Landroid/view/View;->setBackgroundResource(I)V
+    invoke-static {p0, v7, v11}, Lcom/melodix/music/NativeUiRowFactory;->applyDrawableBackground(Landroid/content/Context;Landroid/view/View;Ljava/lang/String;)V
 
     const/4 v11, 0x1
 
@@ -474,9 +474,9 @@
 
     invoke-virtual {v3, v4}, Landroid/widget/LinearLayout;->setGravity(I)V
 
-    const v4, 0x7f080140
+    const-string v4, "native_quick_tile"
 
-    invoke-virtual {v3, v4}, Landroid/view/View;->setBackgroundResource(I)V
+    invoke-static {p0, v3, v4}, Lcom/melodix/music/NativeUiRowFactory;->applyDrawableBackground(Landroid/content/Context;Landroid/view/View;Ljava/lang/String;)V
 
     const/4 v4, 0x1
 

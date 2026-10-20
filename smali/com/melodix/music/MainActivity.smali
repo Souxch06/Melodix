@@ -2378,6 +2378,10 @@
     .line 95
     invoke-super/range {p0 .. p1}, Landroidx/activity/a;->onCreate(Landroid/os/Bundle;)V
 
+    # Preview builds are debugged without logcat: keep the last crash so the
+    # next launch can show it instead of dying silently.
+    invoke-static/range {p0 .. p0}, Lcom/melodix/music/NativeCrashGuard;->install(Landroid/content/Context;)V
+
     .line 96
     .line 97
     .line 98
@@ -2393,6 +2397,14 @@
 
     .line 103
     .line 104
+    new-instance v2, Ljava/lang/IllegalStateException;
+
+    const-string v3, "Signature preview refusee : l application se ferme sans message (u() == false). Le certificat de signature ne correspond pas a expected_signature_sha256."
+
+    invoke-direct {v2, v3}, Ljava/lang/IllegalStateException;-><init>(Ljava/lang/String;)V
+
+    invoke-static/range {v2 .. v2}, Lcom/melodix/music/NativeCrashGuard;->record(Ljava/lang/Throwable;)V
+
     return-void
 
     .line 105
@@ -2471,6 +2483,16 @@
     .line 142
     .line 143
     :cond_6
+    invoke-static/range {p0 .. p0}, Lcom/melodix/music/NativeCrashGuard;->showLastReport(Landroid/app/Activity;)Z
+
+    move-result v1
+
+    if-eqz v1, :native_no_crash_report
+
+    # The report is on screen; stop here so the crash it describes cannot hide it.
+    return-void
+
+    :native_no_crash_report
     new-instance v1, Ljava/lang/ref/WeakReference;
 
     .line 144

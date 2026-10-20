@@ -21,6 +21,7 @@
 .method public final run()V
     .locals 3
 
+    :try_start_0
     iget-object v0, p0, Lcom/melodix/music/NativeUiUpdateRunnable;->activity:Lcom/melodix/music/MainActivity;
     iget v1, p0, Lcom/melodix/music/NativeUiUpdateRunnable;->action:I
     if-eqz v1, :show_native_shell
@@ -42,5 +43,15 @@
     iget-object v1, p0, Lcom/melodix/music/NativeUiUpdateRunnable;->screen:Ljava/lang/String;
     iget-object v2, p0, Lcom/melodix/music/NativeUiUpdateRunnable;->data:Ljava/lang/String;
     invoke-virtual {v0, v1, v2}, Lcom/melodix/music/MainActivity;->applyNativeUiData(Ljava/lang/String;Ljava/lang/String;)V
+    return-void
+    :try_end_0
+    .catch Ljava/lang/Throwable; {:try_start_0 .. :try_end_0} :catch_0
+
+    :catch_0
+    move-exception v0
+
+    # A failing native render must not kill the app: keep the WebView usable and
+    # leave the trace for the next launch.
+    invoke-static {v0}, Lcom/melodix/music/NativeCrashGuard;->record(Ljava/lang/Throwable;)V
     return-void
 .end method

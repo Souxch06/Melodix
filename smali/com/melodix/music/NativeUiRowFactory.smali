@@ -182,8 +182,8 @@
     const/4 v10, 0x1
     invoke-virtual {v1, v10}, Landroid/view/View;->setClipToOutline(Z)V
     # Neutral note instead of the app logo while a cover loads.
-    const v10, 0x7f080141
-    invoke-virtual {v1, v10}, Landroid/widget/ImageView;->setImageResource(I)V
+    const-string v10, "native_cover_placeholder"
+    invoke-static {p0, v1, v10}, Lcom/melodix/music/NativeUiRowFactory;->applyDrawableImage(Landroid/content/Context;Landroid/widget/ImageView;Ljava/lang/String;)V
     invoke-virtual {v1, v6}, Landroid/view/View;->setContentDescription(Ljava/lang/CharSequence;)V
     new-instance v5, Landroid/widget/LinearLayout$LayoutParams;
     const/16 v10, 0x30
@@ -272,8 +272,8 @@
     invoke-virtual {v0, v10}, Landroid/view/View;->setClickable(Z)V
     invoke-virtual {v0, v10}, Landroid/view/View;->setFocusable(Z)V
     # Press feedback: the row itself stays transparent, only the ripple shows.
-    const v10, 0x7f08013d
-    invoke-virtual {v0, v10}, Landroid/view/View;->setBackgroundResource(I)V
+    const-string v10, "native_row_ripple"
+    invoke-static {p0, v0, v10}, Lcom/melodix/music/NativeUiRowFactory;->applyDrawableBackground(Landroid/content/Context;Landroid/view/View;Ljava/lang/String;)V
     new-instance v11, Ljava/lang/StringBuilder;
     invoke-direct {v11}, Ljava/lang/StringBuilder;-><init>()V
     invoke-virtual {v11, v6}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
@@ -351,8 +351,8 @@
     invoke-virtual {v2, v1}, Landroid/view/View;->setBackground(Landroid/graphics/drawable/Drawable;)V
     const/4 v1, 0x1
     invoke-virtual {v2, v1}, Landroid/view/View;->setClipToOutline(Z)V
-    const v1, 0x7f080141
-    invoke-virtual {v2, v1}, Landroid/widget/ImageView;->setImageResource(I)V
+    const-string v1, "native_cover_placeholder"
+    invoke-static {p0, v2, v1}, Lcom/melodix/music/NativeUiRowFactory;->applyDrawableImage(Landroid/content/Context;Landroid/widget/ImageView;Ljava/lang/String;)V
     new-instance v1, Landroid/widget/LinearLayout$LayoutParams;
     const/16 v3, 0xdc
     invoke-static {p0, v3}, Lcom/melodix/music/NativeUiRowFactory;->dp(Landroid/content/Context;I)I
@@ -476,6 +476,70 @@
     invoke-virtual {v0, v1}, Landroid/view/View;->setLayoutParams(Landroid/view/ViewGroup$LayoutParams;)V
 
     return-object v0
+.end method
+
+.method public static applyDrawableBackground(Landroid/content/Context;Landroid/view/View;Ljava/lang/String;)V
+    .locals 3
+
+    # Resolve by name: a hard-coded id would crash with
+    # Resources$NotFoundException if the rebuild ever renumbered a drawable.
+    if-nez p0, :background_done
+
+    if-nez p1, :background_done
+
+    if-nez p2, :background_done
+
+    invoke-virtual {p0}, Landroid/content/Context;->getResources()Landroid/content/res/Resources;
+
+    move-result-object v0
+
+    const-string v1, "drawable"
+
+    invoke-virtual {p0}, Landroid/content/Context;->getPackageName()Ljava/lang/String;
+
+    move-result-object v2
+
+    invoke-virtual {v0, p2, v1, v2}, Landroid/content/res/Resources;->getIdentifier(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)I
+
+    move-result v0
+
+    if-nez v0, :background_done
+
+    invoke-virtual {p1, v0}, Landroid/view/View;->setBackgroundResource(I)V
+
+    :background_done
+    return-void
+.end method
+
+.method public static applyDrawableImage(Landroid/content/Context;Landroid/widget/ImageView;Ljava/lang/String;)V
+    .locals 3
+
+    if-nez p0, :image_done
+
+    if-nez p1, :image_done
+
+    if-nez p2, :image_done
+
+    invoke-virtual {p0}, Landroid/content/Context;->getResources()Landroid/content/res/Resources;
+
+    move-result-object v0
+
+    const-string v1, "drawable"
+
+    invoke-virtual {p0}, Landroid/content/Context;->getPackageName()Ljava/lang/String;
+
+    move-result-object v2
+
+    invoke-virtual {v0, p2, v1, v2}, Landroid/content/res/Resources;->getIdentifier(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)I
+
+    move-result v0
+
+    if-nez v0, :image_done
+
+    invoke-virtual {p1, v0}, Landroid/widget/ImageView;->setImageResource(I)V
+
+    :image_done
+    return-void
 .end method
 
 .method private static dp(Landroid/content/Context;I)I
