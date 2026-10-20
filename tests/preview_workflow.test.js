@@ -15,4 +15,7 @@ test('Preview workflow requires an explicit full source SHA instead of defaultin
     assert.match(sourceInput[0], /required: true/);
     assert.doesNotMatch(sourceInput[0], /default:/);
     assert.match(workflow, /source_ref must be a full 40-character commit SHA/);
+    assert.match(workflow, /if: github\.event_name == 'push' \|\| github\.event_name == 'workflow_dispatch'/);
+    assert.match(workflow, /INPUT_SOURCE_REF: \$\{\{ inputs\.source_ref \|\| github\.sha \}\}/);
 });
+

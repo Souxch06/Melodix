@@ -21,10 +21,7 @@ permissions:
 
 jobs:
   build-and-release-preview:
-    if: >-
-      github.event_name == 'workflow_dispatch' ||
-      startsWith(github.event.head_commit.message, '[preview-release]') ||
-      startsWith(github.event.head_commit.message, '[preview-release-v18]')
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
     name: Build and publish separate preview app
     runs-on: ubuntu-latest
     steps:
@@ -34,7 +31,7 @@ jobs:
         env:
           INPUT_TAG: ${{ inputs.release_tag || '' }}
           EVENT_COMMIT_MESSAGE: ${{ github.event.head_commit.message || '' }}
-          INPUT_SOURCE_REF: ${{ inputs.source_ref || (startsWith(github.event.head_commit.message, '[preview-release-v18]') && '81ef774fcb2208d4c4e999943411040aa1bfa33f') || github.sha }}
+          INPUT_SOURCE_REF: ${{ inputs.source_ref || github.sha }}
         run: |
           set -euo pipefail
           if [[ "$GITHUB_EVENT_NAME" == "workflow_dispatch" && ! "$INPUT_SOURCE_REF" =~ ^[0-9a-fA-F]{40}$ ]]; then
