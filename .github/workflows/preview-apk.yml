@@ -56,7 +56,11 @@ jobs:
           IFS=. read -r major minor patch <<< "$version"
           # Restart the release labels at test.1 while keeping Android versionCode
           # above the previously published test.27 so installed Preview apps update in place.
-          version_code=$((major * 1000000 + minor * 10000 + patch * 100 + test_number + 28))
+          # The run number is added so every published build has a strictly higher
+          # versionCode: a phone that silently ignores a same-version "update" would
+          # otherwise keep launching the previous APK, and every diagnostic would be
+          # written against code that is no longer being tested.
+          version_code=$((major * 1000000 + minor * 10000 + patch * 100 + test_number + 28 + GITHUB_RUN_NUMBER))
           release_name="Melodix Preview v${version} test.${test_number}"
 
           echo "tag=$tag" >> "$GITHUB_OUTPUT"
