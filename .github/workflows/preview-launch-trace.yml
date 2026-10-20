@@ -1,0 +1,145 @@
+name: Capture preview launch trace on emulator
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  issues: write
+
+jobs:
+  launch-trace:
+    name: Launch published preview and capture the fatal trace
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7.0.1
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v4.0.4
+
+      - name: Install emulator packages
+        shell: bash
+        run: |
+          set -euo pipefail
+          sdkmanager --install "platform-tools" "emulator" "system-images;android-35;google_apis;x86_64"
+
+      - name: Download the published preview APK
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/apk"
+          gh release download v1.2.2-test.1-preview \
+            --repo Souxch06/Melodix \
+            --pattern Melodix-Preview-v1.2.2-test1.apk \
+            --dir "$RUNNER_TEMP/apk"
+          gh release view v1.2.2-test.1-preview --repo Souxch06/Melodix --json body \
+            --jq .body > "$RUNNER_TEMP/release-body.txt"
+          echo "release_advertises=$(grep -oE '[0-9a-f]{40}' "$RUNNER_TEMP/release-body.txt" | head -n 1)" >> "$GITHUB_ENV"
+          ls -l "$RUNNER_TEMP/apk"
+
+      - name: Allow KVM access
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTION+="static_node=kvm"' \
+            | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+          ls -l /dev/kvm
+
+      - name: Boot emulator
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo 'no' | avdmanager create avd --force --name MelodixApi35 \
+            --package "system-images;android-35;google_apis;x86_64" --device pixel_2
+          "$ANDROID_HOME/emulator/emulator" -avd MelodixApi35 \
+            -no-window -no-audio -no-boot-anim -no-snapshot -gpu swiftshader_indirect \
+            > "$RUNNER_TEMP/emulator.log" 2>&1 &
+          adb start-server
+          for _ in $(seq 1 120); do
+            if [[ "$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" == "1" ]]; then
+              echo "booted"
+              exit 0
+            fi
+            sleep 5
+          done
+          grep -Ei 'error|fatal|panic' "$RUNNER_TEMP/emulator.log" | tail -n 10 || true
+          exit 1
+
+      - name: Install and launch, then capture the trace
+        shell: bash
+        run: |
+          set -euo pipefail
+          state="$RUNNER_TEMP/state"
+          mkdir -p "$state"
+          adb install -r "$RUNNER_TEMP/apk/Melodix-Preview-v1.2.2-test1.apk"
+          adb shell dumpsys package com.melodix.music.preview \
+            | grep -E 'versionName|versionCode' | head -n 2 | tee "$state/installed.txt"
+          adb logcat -c || true
+          adb shell am force-stop com.melodix.music.preview || true
+          adb shell monkey -p com.melodix.music.preview -c android.intent.category.LAUNCHER 1 >/dev/null 2>&1 || true
+          sleep 25
+
+          adb shell dumpsys activity activities | grep -E 'mResumedActivity|topResumedActivity' \
+            | tee "$state/resumed.txt" || true
+
+          adb logcat -d -b crash > "$state/crash.txt" || true
+          adb logcat -d > "$state/logcat.txt" || true
+          grep -n -A 40 'FATAL EXCEPTION' "$state/logcat.txt" > "$state/fatal.txt" || true
+
+          adb uiautomator dump --compressed /sdcard/window.xml >/dev/null 2>&1 || true
+          adb exec-out cat /sdcard/window.xml > "$state/window.xml" 2>/dev/null || true
+          grep -o 'text="[^"]*"' "$state/window.xml" | head -n 40 > "$state/window-text.txt" || true
+
+          adb root >/dev/null 2>&1 || true
+          sleep 3
+          adb shell cat /data/data/com.melodix.music.preview/shared_prefs/melodix_native.xml \
+            > "$state/prefs.xml" 2>/dev/null || echo "prefs unavailable" > "$state/prefs.xml"
+
+      - name: Report the result
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          state="$RUNNER_TEMP/state"
+          {
+            echo "installed: $(tr '\n' ' ' < "$state/installed.txt" 2>/dev/null || echo unknown)"
+            echo "release advertises: ${release_advertises:-unknown}"
+            echo "resumed: $(tr '\n' ' ' < "$state/resumed.txt" 2>/dev/null || echo none)"
+            echo "stage prefs: $(tr -d '\n' < "$state/prefs.xml" 2>/dev/null | cut -c1-400)"
+            echo "visible text: $(tr '\n' ' ' < "$state/window-text.txt" 2>/dev/null | cut -c1-400)"
+            echo "fatal: $(head -c 1200 "$state/fatal.txt" 2>/dev/null || echo none)"
+            echo "crash buffer: $(head -c 1200 "$state/crash.txt" 2>/dev/null || echo empty)"
+          } > "$state/report.txt"
+          cat "$state/report.txt"
+
+          python3 - "$state/report.txt" "$GITHUB_STEP_SUMMARY" <<'PY'
+          import pathlib
+          import sys
+          report = pathlib.Path(sys.argv[1]).read_text(encoding="utf-8", errors="replace")
+          with open(sys.argv[2], "a", encoding="utf-8") as output:
+              output.write("## Preview launch trace\n\n```\n" + report[:60000] + "\n```\n")
+          print("::notice title=preview-launch-trace::" + report.replace("\n", " | ")[:1000])
+          PY
+
+          # Keep the trace readable from outside the run, without downloading artifacts.
+          jq -n --rawfile body "$state/report.txt" '{body: ("Preview emulator trace\n\n```\n" + ($body | .[0:60000]) + "\n```")}' \
+            > "$state/comment.json"
+          gh api "repos/Souxch06/Melodix/commits/${release_advertises}/comments" \
+            --input "$state/comment.json" >/dev/null 2>&1 \
+            || gh api "repos/Souxch06/Melodix/commits/${{ github.sha }}/comments" --input "$state/comment.json" >/dev/null
+
+      - name: Upload logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: preview-launch-trace
+          path: ${{ runner.temp }}/state/
+          if-no-files-found: warn
