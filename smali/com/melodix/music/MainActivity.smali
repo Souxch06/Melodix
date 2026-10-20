@@ -2383,10 +2383,6 @@
     :native_guard_try_start
     invoke-static/range {p0 .. p0}, Lcom/melodix/music/NativeCrashGuard;->install(Landroid/content/Context;)V
 
-    const-string v1, "activity-create"
-
-    invoke-static/range {v1 .. v1}, Lcom/melodix/music/NativeCrashGuard;->stage(Ljava/lang/String;)V
-
     # Show the previous crash before anything else can fail: the signature gate
     # and the layout inflation both run after this point.
     invoke-static/range {p0 .. p0}, Lcom/melodix/music/NativeCrashGuard;->showLastReport(Landroid/app/Activity;)Z
@@ -2408,6 +2404,10 @@
     return-void
 
     :native_no_crash_report
+    const-string v1, "activity-create"
+
+    invoke-static/range {v1 .. v1}, Lcom/melodix/music/NativeCrashGuard;->stage(Ljava/lang/String;)V
+
     .line 96
     .line 97
     .line 98
@@ -2430,6 +2430,20 @@
     invoke-direct {v2, v3}, Ljava/lang/IllegalStateException;-><init>(Ljava/lang/String;)V
 
     invoke-static/range {v2 .. v2}, Lcom/melodix/music/NativeCrashGuard;->record(Ljava/lang/Throwable;)V
+
+    # Only a preview shows the expected fingerprint. Production keeps its
+    # original silent stop, so the value is never exposed there.
+    invoke-virtual {v0}, Landroid/content/Context;->getPackageName()Ljava/lang/String;
+
+    move-result-object v4
+
+    const-string v5, ".preview"
+
+    invoke-virtual {v4, v5}, Ljava/lang/String;->endsWith(Ljava/lang/String;)Z
+
+    move-result v4
+
+    if-eqz v4, :gate_refusal_return
 
     # Keep the reason on screen: this is the only trace a silent self-close can
     # leave, and it names the fingerprint the APK was expected to carry.
@@ -2479,6 +2493,7 @@
 
     invoke-virtual {v0, v2}, Landroid/app/Activity;->setContentView(Landroid/view/View;)V
 
+    :gate_refusal_return
     return-void
 
     .line 105
@@ -2614,9 +2629,23 @@
 
     invoke-virtual {v3, v4}, Landroid/view/View;->setBackgroundColor(I)V
 
-    const/16 v4, 0x18
+    invoke-virtual {v0}, Landroid/content/Context;->getResources()Landroid/content/res/Resources;
 
-    invoke-virtual {v3, v4, v4, v4, v4}, Landroid/view/View;->setPadding(IIII)V
+    move-result-object v5
+
+    invoke-virtual {v5}, Landroid/content/res/Resources;->getDisplayMetrics()Landroid/util/DisplayMetrics;
+
+    move-result-object v5
+
+    iget v5, v5, Landroid/util/DisplayMetrics;->density:F
+
+    const/high16 v6, 0x41c00000
+
+    mul-float/2addr v5, v6
+
+    float-to-int v5, v5
+
+    invoke-virtual {v3, v5, v5, v5, v5}, Landroid/view/View;->setPadding(IIII)V
 
     invoke-virtual {v0, v3}, Landroid/app/Activity;->setContentView(Landroid/view/View;)V
 
@@ -6098,31 +6127,8 @@
 .method public final u()Z
     .locals 3
 
-    # The preview APK is signed by the CI keystore. Letting the signature gate
-    # run there means it can close the app with no message at all, which is the
-    # exact symptom being chased. Preview builds skip the gate; the real app
-    # keeps it.
-    invoke-virtual {p0}, Landroid/content/Context;->getPackageName()Ljava/lang/String;
-
-    move-result-object v0
-
-    const-string v1, ".preview"
-
-    invoke-virtual {v0, v1}, Ljava/lang/String;->endsWith(Ljava/lang/String;)Z
-
-    move-result v0
-
-    if-nez v0, :gate_not_preview
-
-    const-string v1, "gate-preview-skip"
-
-    invoke-static {v1}, Lcom/melodix/music/NativeCrashGuard;->stage(Ljava/lang/String;)V
-
-    const/4 p0, 0x1
-
-    return p0
-
-    :gate_not_preview
+    # The signature check runs for every build, preview included: security is
+    # never skipped. A preview simply must not open a browser or close itself.
 
     .line 1
     new-instance v0, Lcom/melodix/music/AndBridge;
@@ -6144,6 +6150,23 @@
     .line 10
     if-nez v0, :cond_0
 
+    invoke-virtual {p0}, Landroid/content/Context;->getPackageName()Ljava/lang/String;
+
+    move-result-object v1
+
+    const-string v2, ".preview"
+
+    invoke-virtual {v1, v2}, Ljava/lang/String;->endsWith(Ljava/lang/String;)Z
+
+    move-result v1
+
+    if-eqz v1, :gate_browser
+
+    const/4 p0, 0x0
+
+    return p0
+
+    :gate_browser
     .line 11
     .line 12
     :try_start_0
@@ -6189,22 +6212,7 @@
     .line 32
     .line 33
     :catch_0
-    # Closing without a message is what made the launch failure invisible. A
-    # preview build stays open so the reason can be shown; the real app closes.
-    invoke-virtual {p0}, Landroid/content/Context;->getPackageName()Ljava/lang/String;
-    move-result-object v0
-
-    const-string v1, ".preview"
-
-    invoke-virtual {v0, v1}, Ljava/lang/String;->endsWith(Ljava/lang/String;)Z
-
-    move-result v0
-
-    if-eqz v0, :gate_keep_running
-
     invoke-virtual {p0}, Landroid/app/Activity;->finishAffinity()V
-
-    :gate_keep_running
 
     .line 34
     .line 35

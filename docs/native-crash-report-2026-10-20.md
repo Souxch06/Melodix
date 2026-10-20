@@ -167,3 +167,60 @@ Toasts attendus, dans l ordre :
 - aucun toast du tout : le processus meurt avant `Application.onCreate`, ou
   l APK installe n est pas celui-ci (comparer le numero de version dans
   Parametres > Applications > Melodix).
+
+## diag-5 : le garde etait du code mort (tests de nullite inverses)
+
+Relecture ligne par ligne de `NativeCrashGuard` apres le constat « aucun toast,
+aucun dialogue ». En smali, `if-eqz vA, label` saute si vA vaut **zero** (nul),
+et `if-nez vA, label` saute si vA est **non nul**. Seize instructions ecrites
+avec `if-nez` alors qu elles testaient une nullite :
+
+| methode | effet reel |
+| --- | --- |
+| `install(Context)` | sautait des que le contexte etait non nul : **le garde n a jamais ete installe** |
+| `stage(String)` | n ecrivait jamais `last_stage` : **aucun jalon enregistre** |
+| `write(String)` | n ecrivait jamais `last_crash` : **aucun rapport enregistre** |
+| `lastReport`, `lastStage` | renvoyaient toujours `null` |
+| `showLastReport` | renvoyait toujours `false` : **aucun dialogue possible** |
+| `excerpt`, `shorten`, `clearReport` | no-op |
+
+Conclusion : tous les diagnostics annonces dans les sections precedentes
+(toasts « demarrage », dialogue « Dernier plantage », etapes `last_stage`)
+etaient **inoperants**. Les reponses « aucun toast / aucun dialogue » ne
+disaient donc rien du plantage, et les hypotheses baties dessus sont annulees.
+Le crash n a jamais ete observe.
+
+`MainActivity.u()` portait deux inversions du meme type : le contournement
+`.preview` envoyait la preview dans la porte de signature et la production dans
+le contournement, et `finishAffinity()` fermait la preview au lieu de la
+production.
+
+### Corrections
+
+- Les 16 conditions sont passees en `if-eqz` (saut uniquement si nul) et le
+  fichier a ete relu methode par methode.
+- `u()` : le contournement `.preview` est **supprime**. La verification de
+  signature s applique a toutes les builds. Une preview qui echoue revient
+  simplement de `u()` (pas de navigateur, pas de fermeture) et affiche
+  l empreinte attendue ; la production garde son comportement d origine
+  (navigateur puis `finishAffinity()`).
+- `stage("activity-create")` etait ecrit **avant** `showLastReport`, donc le
+  rapport affichait l etape du lancement en cours au lieu de celle du plantage.
+  Il est deplace apres la lecture du rapport.
+
+### Verification de l empreinte
+
+La CI injecte `expected_signature_sha256` a partir du certificat du keystore,
+mais rien ne prouvait que l APK publie etait bien signe par ce certificat. Deux
+verifications bloquantes sont ajoutees apres la signature :
+
+1. `apksigner verify --print-certs` : le SHA-256 du certificat signataire doit
+   egaler l empreinte injectee ;
+2. l empreinte doit etre presente dans `resources.arsc` (donc reellement
+   compilee, pas seulement ecrite dans le XML source).
+
+Si l une echoue, la CI echoue au lieu de publier un APK condamne a se fermer.
+
+Le nom de version affiche desormais le prefixe du commit
+(`1.2.2-<7 caracteres>`), ce qui permet de verifier sur le telephone quelle
+build est installee.

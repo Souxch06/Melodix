@@ -100,6 +100,7 @@ jobs:
         env:
           APK_NAME: ${{ steps.release.outputs.apk_name }}
           VERSION_CODE: ${{ steps.release.outputs.version_code }}
+          SOURCE_REF: ${{ steps.release.outputs.source_ref }}
           MELODIX_PREVIEW_KEYSTORE_B64: ${{ secrets.MELODIX_PREVIEW_KEYSTORE_B64 }}
           MELODIX_PREVIEW_KEYSTORE_PASSWORD: ${{ secrets.MELODIX_PREVIEW_KEYSTORE_PASSWORD }}
           MELODIX_PREVIEW_KEY_PASSWORD: ${{ secrets.MELODIX_PREVIEW_KEY_PASSWORD || secrets.MELODIX_PREVIEW_KEYSTORE_PASSWORD }}
@@ -180,6 +181,7 @@ jobs:
 
           sed -i -E "s/^apkFileName:.*/apkFileName: $APK_NAME/" "$work_dir/apktool.yml"
           sed -i -E "s/^  versionCode: .*/  versionCode: $VERSION_CODE/" "$work_dir/apktool.yml"
+          sed -i -E "s/^  versionName: .*/  versionName: 1.2.2-${SOURCE_REF:0:7}/" "$work_dir/apktool.yml"
 
           curl --fail --silent --show-error --location \
             "https://github.com/iBotPeaches/Apktool/releases/download/v2.9.3/apktool_2.9.3.jar" \
@@ -201,6 +203,21 @@ jobs:
             --key-pass env:MELODIX_PREVIEW_KEY_PASSWORD \
             --out "$output" "$RUNNER_TEMP/aligned.apk"
           "$build_tools/apksigner" verify --verbose --min-sdk-version 24 "$output"
+
+          # The app refuses to start when the fingerprint in strings.xml is not
+          # the one of the certificate that signed this very APK. Check it here
+          # instead of shipping an APK that can only close itself.
+          signed_fingerprint="$("$build_tools/apksigner" verify --print-certs "$output" \
+            | sed -n 's/^Signer #1 certificate SHA-256 digest: //p' \
+            | head -n 1 | tr -d '\r' | tr 'a-f' 'A-F')"
+          if [[ "$signed_fingerprint" != "$fingerprint_hex" ]]; then
+            echo "::error::Embedded fingerprint does not match the signing certificate."
+            exit 1
+          fi
+          if ! unzip -p "$output" resources.arsc | tr -d '\000' | grep -Fq "$preview_fingerprint"; then
+            echo "::error::expected_signature_sha256 was not compiled into resources.arsc."
+            exit 1
+          fi
 
           package_id="$("$build_tools/aapt" dump badging "$output" | sed -n "s/^package: name='\([^']*\)'.*/\1/p")"
           if [[ "$package_id" != "com.melodix.music.preview" ]]; then
