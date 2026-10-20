@@ -71,8 +71,12 @@
         const nodes = playbackMediaNodes();
         for (let i = 0; i < nodes.length; i += 1) {
             const el = nodes[i];
-            if (!el || el.paused !== false || el.ended) continue;
+            if (!el || el.paused !== false || el.ended || el.muted) continue;
             if (String(el.tagName || '').toUpperCase() === 'VIDEO' && el.muted) continue;
+            // The silent keep-alive track is not Spotify playback: counting it
+            // here would make every "is it paused?" check answer "playing" and
+            // turn a pause request into a resume.
+            if (/silent\.mp3/i.test(String(el.currentSrc || el.src || ''))) continue;
             return true;
         }
         return false;

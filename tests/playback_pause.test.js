@@ -295,3 +295,10 @@ test('the transport controls expose thumb-sized touch targets', () => {
     assert.ok(largePause, 'the full player pause button must declare a width');
     assert.ok(Number(largePause[1]) >= 56, `full pause target is ${largePause[1]}dp, expected >= 56dp`);
 });
+
+test('a silent keep-alive element never makes the snapshot report playback', () => {
+    const silent = { tagName: 'AUDIO', paused: false, ended: false, currentTime: 1, muted: false, src: 'https://open.spotify.com/silent.mp3' };
+    const harness = buildPlayPauseHarness({ label: 'Play', playing: false, media: [silent] });
+
+    assert.equal(harness.window.__sfGetPlaybackSnapshot().playing, false);
+});
