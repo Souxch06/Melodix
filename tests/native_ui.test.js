@@ -715,6 +715,8 @@ test('native Spotify settings screen replaces the web settings sheet', () => {
     assert.match(activity, /onNativeSettingsClick[\s\S]*?openNativeSettings\(\)V/);
     assert.match(activity, /"spotify:settings:"[\s\S]*?__sfToggleSpotifySetting/);
     assert.match(activity, /:check_settings[\s\S]*?"Paramètres"/);
+    assert.match(activity, /"home-greeting"[\s\S]*?"home"[\s\S]*?setText\(Ljava\/lang\/CharSequence;\)V/);
+    assert.match(shell, /onNativeUiData\('home-greeting', greeting\)/);
     assert.match(activity, /NativeSettingsRowFactory;->create\(Lcom\/melodix\/music\/MainActivity;Lorg\/json\/JSONObject;\)Landroid\/widget\/LinearLayout;/);
     assert.match(bridge, /onNativeProfileImage\(Ljava\/lang\/String;\)V[\s\S]*?JavascriptInterface/);
     assert.match(bridge, /nativeLogout\(\)V[\s\S]*?JavascriptInterface[\s\S]*?NativeLogoutRunnable/);

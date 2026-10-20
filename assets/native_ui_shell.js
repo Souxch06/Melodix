@@ -703,14 +703,14 @@
                 profileAvatarSent = avatar;
                 window.AndBridge.onNativeProfileImage(avatar);
             }
-            if (name && name !== profileNameSent && window.AndBridge && typeof window.AndBridge.onNativeUiData === 'function' && isSpotifyHome()) {
-                profileNameSent = name;
+            if (name && window.AndBridge && typeof window.AndBridge.onNativeUiData === 'function' && isSpotifyHome()) {
                 var first = name.split(/\s+/)[0] || name;
                 var greeting = greetingPrefix() + ', ' + first;
                 if (greeting !== greetingSent || (Date.now() - lastGreetingAt) > 8000) {
+                    profileNameSent = name;
                     greetingSent = greeting;
                     lastGreetingAt = Date.now();
-                    window.AndBridge.onNativeUiData('screen-title', greeting);
+                    window.AndBridge.onNativeUiData('home-greeting', greeting);
                 }
             }
         } catch (_) {}
