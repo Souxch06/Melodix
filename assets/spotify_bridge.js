@@ -21,6 +21,80 @@
     let lastState = null;
     let lastPos = null;
     window.playing = false;
+
+    // >>> sf-pause-intent
+    // A pause the user explicitly asked for must stay a pause. Every automatic
+    // playback helper (resume, retry, "take control", autoplay) checks this
+    // latch before touching the player, so pausing never jumps to another
+    // track. The latch is cleared by explicit play requests only.
+    function isPlayPauseLabelPlaying(pb) {
+        if (!pb || typeof pb.getAttribute !== 'function') return null;
+        let label = '';
+        try {
+            label = String(pb.getAttribute('aria-label') || '').trim();
+        } catch (_) {
+            return null;
+        }
+        if (!label) return null;
+        return /paus/i.test(label);
+    }
+
+    function getPlayPauseButton() {
+        let pb = null;
+        if (document && typeof document.querySelector === 'function') {
+            try {
+                pb = document.querySelector('[data-testid="now-playing-bar"] button[data-testid="control-button-playpause"]') ||
+                     document.querySelector('aside[data-testid="now-playing-bar"] button[data-testid="control-button-playpause"]') ||
+                     document.querySelector('button[data-testid="control-button-playpause"]');
+            } catch (_) {
+                pb = null;
+            }
+        }
+        return pb || window.pBtn || null;
+    }
+
+    function isMediaElementPlaying() {
+        if (!document || typeof document.querySelectorAll !== 'function') return false;
+        let nodes = [];
+        try {
+            nodes = document.querySelectorAll('audio, video');
+        } catch (_) {
+            return false;
+        }
+        for (let i = 0; i < nodes.length; i += 1) {
+            const el = nodes[i];
+            if (!el || el.paused !== false || el.ended) continue;
+            if (String(el.tagName || '').toUpperCase() === 'VIDEO' && el.muted) continue;
+            return true;
+        }
+        return false;
+    }
+
+    // Single source of truth for "is the player running right now?". The DOM
+    // label is preferred, the cached flag is only a fallback, and a live media
+    // element always wins so a stale label can never flip a pause into a play.
+    function getPlaybackSnapshot() {
+        const pb = getPlayPauseButton();
+        const labelState = isPlayPauseLabelPlaying(pb);
+        let playing = labelState === null ? Boolean(window.playing) : labelState;
+        if (!playing && isMediaElementPlaying()) playing = true;
+        return { playing: playing, hasButton: Boolean(pb) };
+    }
+    window.__sfGetPlaybackSnapshot = getPlaybackSnapshot;
+
+    function markUserPlaybackIntent(playing) {
+        window.__sfUserRequestedPause = !playing;
+        reqPause = !playing;
+        if (playing) {
+            ulFlag = false;
+            window.__sfLastPlayRequestAt = Date.now();
+        }
+    }
+    window.__sfMarkUserPlaybackIntent = markUserPlaybackIntent;
+    window.__sfIsUserPaused = function() {
+        return Boolean(window.__sfUserRequestedPause);
+    };
+    // <<< sf-pause-intent
     let pfint = null;
     let afint = null;
     let cssint = null;
@@ -1147,8 +1221,8 @@
 
     window.playFromUri = function(uri, contextUri) {
         if (!uri) return;
-        window.__sfLastPlayRequestAt = Date.now();
-        window.__sfUserRequestedPause = false;
+        // An explicit play request always wins over a previous pause.
+        markUserPlaybackIntent(true);
 
         if (uri && (uri.startsWith('http://') || uri.startsWith('https://'))) {
             try {
@@ -1529,10 +1603,12 @@
                 window.pBtn = pb;
                 window.pBtn.addEventListener('click', () => {
                     if (/paus/i.test(window.pBtn.getAttribute('aria-label') || '')) {
+                        markUserPlaybackIntent(false);
                         reqPause = true;
                         ulFlag = false;
                         manageWake(false);
                     } else if (!ulFlag) {
+                        markUserPlaybackIntent(true);
                         reqPause = false;
                         manageWake(true);
                         ulFlag = true;
@@ -1576,6 +1652,7 @@
 
     window.manageAll = function(play) {
         window.playing = play;
+        if (play) markUserPlaybackIntent(true);
         AndBridge.manageTShut(!play);
         AndBridge.manageTSleep(play);
         if (play) {
@@ -1628,16 +1705,25 @@
             e.preventDefault();
             e.stopPropagation();
         }
-        const pb = document.querySelector('button[data-testid="control-button-playpause"]') || window.pBtn;
+        const pb = getPlayPauseButton();
         if (!pb) return;
 
-        if (play === null || typeof play === 'undefined') {
-            pb.click();
-        } else if (play === true) {
-            if (!window.playing) pb.click();
-        } else if (play === false) {
-            if (window.playing) pb.click();
+        const currentlyPlaying = getPlaybackSnapshot().playing;
+
+        let target = play;
+        if (target === null || typeof target === 'undefined') {
+            target = !currentlyPlaying;
         }
+        target = Boolean(target);
+
+        // Record the intent before clicking so no helper can undo the pause.
+        markUserPlaybackIntent(target);
+
+        // Only click when the player is not already in the requested state; a
+        // blind click here used to toggle playback back on (and, through the
+        // legacy retry hooks, could advance to the next track).
+        if (currentlyPlaying === target) return;
+        pb.click();
     };
 
     window.actSkipBack = function(e) {
@@ -1996,7 +2082,7 @@
 
     window.addAutoFeatures = function() {
         if (window.SF_CONFIG.autoPlayMode === "onetime") {
-            if ('pBtn' in window && firstPlay && window.pBtn.getAttribute('aria-label') === 'Play') {
+            if ('pBtn' in window && firstPlay && !window.__sfUserRequestedPause && window.pBtn.getAttribute('aria-label') === 'Play') {
                 window.pBtn.click();
                 firstPlay = false;
             }
@@ -2015,18 +2101,13 @@
                 if (window.SF_CONFIG.closeNowPlay) {
                     closeNowPlay();
                 }
-                if (window.SF_CONFIG.takeControl && !window.playing) {
-                    let ft = document.querySelector('aside div.encore-bright-accent-set button');
-                    if (ft) {
-                        ft.click();
-                        setTimeout(() => {
-                            let cb = document.querySelector('aside ul[role=list] li[role=listitem] div[role=button]');
-                            if (cb) cb.click();
-                        }, 500);
-                    }
-                }
+                // Legacy "take control" (`TakeControl` preference) clicked a green
+                // play button and then the first list row as soon as the player
+                // looked paused. In Melodix that hijacked a real pause and could
+                // start another track, so it is now intentionally inert: the user
+                // is the only one allowed to (re)start playback.
                 if (window.SF_CONFIG.autoPlayMode === "permanent") {
-                    if ('pBtn' in window && !reqPause && !ulFlag && window.pBtn.getAttribute('aria-label') === 'Play') {
+                    if ('pBtn' in window && !reqPause && !ulFlag && !window.__sfUserRequestedPause && window.pBtn.getAttribute('aria-label') === 'Play') {
                         window.pBtn.click();
                     }
                 }

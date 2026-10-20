@@ -7932,7 +7932,7 @@
 .method public final onNativePlayPauseClick(Landroid/view/View;)V
     .locals 1
 
-    const-string v0, "(function(){window.__sfUserRequestedPause=Boolean(window.playing);if(!window.playing){window.__sfLastPlayRequestAt=Date.now();}if(typeof window.actPlayPause===\'function\'){window.actPlayPause();return;}var b=document.querySelector(\'[data-testid=\"control-button-playpause\"]\')||document.querySelector(\'button[aria-label=\"Play\"],button[aria-label=\"Pause\"],button[aria-label=\"Lecture\"]\');if(b){b.click();}})();"
+    const-string v0, "(function(){try{var snap=null;if(typeof window.__sfGetPlaybackSnapshot===\'function\'){snap=window.__sfGetPlaybackSnapshot();}var s=snap?Boolean(snap.playing):Boolean(window.playing);if(typeof window.__sfMarkUserPlaybackIntent===\'function\'){window.__sfMarkUserPlaybackIntent(!s);}else{window.__sfUserRequestedPause=s;if(!s){window.__sfLastPlayRequestAt=Date.now();}}if(typeof window.actPlayPause===\'function\'){window.actPlayPause(!s);return;}var p=document.querySelector(\'button[data-testid=\"control-button-playpause\"]\')||window.pBtn;if(p){p.click();}}catch(e){}})();"
     invoke-virtual {p0, v0}, Lcom/melodix/music/MainActivity;->runNativeJavascript(Ljava/lang/String;)V
     return-void
 .end method
