@@ -202,6 +202,10 @@
           ? window.__sfNativeUiShellErrors
           : null,
         nativeUiReadyNotified: window.__sfNativeUiReadyNotified === true,
+        nativeHomeRowsCount: Number.isInteger(window.__sfNativeUiHomeRowsCount)
+          ? window.__sfNativeUiHomeRowsCount
+          : null,
+        nativeHomeDataSent: window.__sfNativeUiHomeDataSent === true,
         customStylesheetInjected: document.querySelector('#sf-custom-style') !== null
       },
       mutations: {

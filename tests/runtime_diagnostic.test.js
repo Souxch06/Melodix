@@ -91,6 +91,8 @@ function executeDiagnostic() {
         __sfNativeUiShellCompleted: true,
         __sfNativeUiShellErrors: 0,
         __sfNativeUiReadyNotified: true,
+        __sfNativeUiHomeRowsCount: 4,
+        __sfNativeUiHomeDataSent: true,
         getComputedStyle: (element) => ({ display: element.display }),
         setTimeout: (callback, delay) => {
             timers.push({ callback, delay });
@@ -188,6 +190,8 @@ test('Preview diagnostic returns four timed samples with the existing report fie
         nativeUiShellCompleted: true,
         nativeUiShellErrors: 0,
         nativeUiReadyNotified: true,
+        nativeHomeRowsCount: 4,
+        nativeHomeDataSent: true,
         customStylesheetInjected: true
     });
     assert.equal(samples[3].mutations.observerStopped, true);

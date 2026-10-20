@@ -28,7 +28,12 @@ const nativeIds = [
     'nativePlayerNextButton',
     'nativePlayerShuffleButton',
     'nativePlayerRepeatButton',
-    'nativeMiniPlayer'
+    'nativeMiniPlayer',
+    'nativePlayerArtwork',
+    'nativePlayerLargeArtwork',
+    'nativeHomeTab',
+    'nativeSearchTab',
+    'nativeLibraryTab'
 ];
 
 test('native shell overlays, but does not replace or detach, the existing WebView', () => {
@@ -41,6 +46,10 @@ test('native shell overlays, but does not replace or detach, the existing WebVie
     assert.match(layout.slice(nativeRootPosition, nativeRootPosition + 900), /android:visibility="gone"/);
     assert.match(layout.slice(nativeRootPosition, nativeRootPosition + 900), /android:clickable="true"/);
     assert.match(layout, /android:id="@id\/nativeContent"/);
+    assert.match(layout, /Loading your music/);
+    assert.match(layout, /android:id="@id\/nativePlayerArtwork"/);
+    assert.match(layout, /android:id="@id\/nativePlayerLargeArtwork"/);
+    assert.match(layout, /android:id="@id\/nativeHomeTab"/);
     assert.match(layout, /android:onClick="onNativePlayPauseClick"/);
     assert.match(layout, /android:onClick="onNativeSearchSubmit"/);
     assert.match(layout, /android:id="@id\/nativePlayerPanel"/);
@@ -63,6 +72,7 @@ test('native bridge exposes UI callbacks and routes media, search and player dat
     const activity = read('smali/com/melodix/music/MainActivity.smali');
 
     assert.match(bridge, /\.method public final onNativeUiReady\(\)V[\s\S]*?JavascriptInterface/);
+    assert.match(bridge, /\.method public final onNativeUiRoute\(Ljava\/lang\/String;\)V[\s\S]*?JavascriptInterface/);
     assert.match(bridge, /\.method public final onNativeUiData\(Ljava\/lang\/String;Ljava\/lang\/String;\)V[\s\S]*?JavascriptInterface/);
     assert.match(bridge, /const-string v1, "media:"[\s\S]*?dispatchNativeUi/);
     assert.match(bridge, /const-string v1, "search:"[\s\S]*?dispatchNativeUi/);
@@ -78,12 +88,18 @@ test('native bridge exposes UI callbacks and routes media, search and player dat
     assert.doesNotMatch(hotfixList, /native_ui_shell\.js/);
     assert.doesNotMatch(read('assets/spotify_bridge.js'), /notifyNativeUiReady\(/);
     assert.match(activity, /\.method public final showNativeUi\(\)V/);
+    assert.match(activity, /\.method public final postNativeUiRoute\(Ljava\/lang\/String;\)V/);
     assert.match(activity, /\.method public final applyNativeUiData\(Ljava\/lang\/String;Ljava\/lang\/String;\)V/);
     assert.match(activity, /\.method public final runNativeJavascript\(Ljava\/lang\/String;\)V/);
     assert.match(activity, /\.method public final openNativeRow\(Ljava\/lang\/String;Ljava\/lang\/String;\)V/);
     assert.match(activity, /\.method public final onNativePlayerExpandClick\(Landroid\/view\/View;\)V/);
     assert.match(activity, /\.method public final onNativePlayerNextClick\(Landroid\/view\/View;\)V/);
-    assert.match(activity, /\.method public final updateNativePlayer\(Ljava\/lang\/String;\)V[\s\S]*?"duration"[\s\S]*?"position"[\s\S]*?setProgress\(I\)V/);
+    assert.match(activity, /\.method public final updateNativePlayer\(Ljava\/lang\/String;\)V[\s\S]*?"cover"[\s\S]*?NativeImageLoader;->load[\s\S]*?"duration"[\s\S]*?"position"[\s\S]*?setProgress\(I\)V/);
+    assert.match(activity, /applyNativeUiData[\s\S]*?"screen-title"[\s\S]*?"detail"[\s\S]*?renderNativeRows[\s\S]*?NativeUiRowFactory;->create/);
+    assert.match(read('smali/com/melodix/music/NativeUiUpdateRunnable.smali'), /const\/4 v2, 0x2[\s\S]*?onNativeLibraryClick/);
+    assert.match(activity, /renderNativeRows[\s\S]*?NativeUiRowFactory;->create/);
+    assert.match(read('smali/com/melodix/music/NativeImageLoader.smali'), /Picasso;->load[\s\S]*?RequestCreator;->into/);
+    assert.match(read('smali/com/melodix/music/NativeUiRowFactory.smali'), /GradientDrawable;->setCornerRadius[\s\S]*?setContentDescription/);
 });
 
 test('Spotify links are normalized to safe native row URIs', () => {
@@ -102,6 +118,228 @@ test('Spotify links are normalized to safe native row URIs', () => {
     assert.equal(context.nativeSpotifyUri('https://example.org/playlist/abc123'), 'https://example.org/playlist/abc123');
 });
 
+test('native Home collector keeps image-less Spotify links and filters non-Spotify artwork', () => {
+    const calls = [];
+    const externalArtwork = {
+        currentSrc: 'https://example.org/cover.jpg',
+        getAttribute: (name) => name === 'src' ? 'https://example.org/cover.jpg' : null
+    };
+    const anchor = {
+        href: 'https://open.spotify.com/track/track99',
+        innerText: 'Fallback track\nArtist name',
+        textContent: 'Fallback track\nArtist name',
+        matches: () => true,
+        getAttribute: () => null,
+        querySelector: (selector) => selector === 'img' ? externalArtwork : null,
+        closest: () => null
+    };
+    const mainView = {
+        querySelectorAll: (selector) => selector === 'a[href]' ? [anchor] : []
+    };
+    const document = {
+        readyState: 'complete',
+        documentElement: {},
+        querySelector: (selector) => selector === '#main-view'
+            ? mainView
+            : selector.indexOf('user-widget-link') >= 0 ? {} : null,
+        addEventListener: () => {}
+    };
+    class TestMutationObserver {
+        observe() {}
+    }
+    const window = {
+        location: {
+            hostname: 'open.spotify.com',
+            pathname: '/',
+            href: 'https://open.spotify.com/',
+            assign: () => {}
+        },
+        AndBridge: {
+            onNativeUiReady: () => {},
+            onNativeUiData: (screen, data) => calls.push({ screen, data })
+        },
+        MutationObserver: TestMutationObserver,
+        addEventListener: () => {},
+        setTimeout: () => 1,
+        clearTimeout: () => {}
+    };
+
+    vm.runInNewContext(read('assets/native_ui_shell.js'), { window, document, URL });
+
+    assert.equal(calls.length, 1);
+    assert.equal(calls[0].screen, 'home');
+    assert.deepEqual(JSON.parse(calls[0].data), [{
+        title: 'Fallback track',
+        subtitle: 'Artist name',
+        section: '',
+        image: '',
+        uri: 'spotify:track:track99'
+    }]);
+});
+
+test('Home uses saved library items as a fallback when Spotify has no visible Home cards', () => {
+    const calls = [];
+    const mainView = { querySelectorAll: () => [] };
+    const document = {
+        readyState: 'complete',
+        documentElement: {},
+        querySelector: (selector) => selector === '#main-view'
+            ? mainView
+            : selector.indexOf('user-widget-link') >= 0 ? {} : null,
+        addEventListener: () => {}
+    };
+    class TestMutationObserver {
+        observe() {}
+    }
+    const window = {
+        location: {
+            hostname: 'open.spotify.com',
+            pathname: '/',
+            href: 'https://open.spotify.com/',
+            assign: () => {}
+        },
+        mediaLib: {
+            playlists: [{
+                id: 'spotify:playlist:saved123',
+                name: 'Saved mix',
+                image: 'https://i.scdn.co/image/saved',
+                type: 'Playlist'
+            }]
+        },
+        AndBridge: {
+            onNativeUiReady: () => {},
+            onNativeUiData: (screen, data) => calls.push({ screen, data })
+        },
+        MutationObserver: TestMutationObserver,
+        addEventListener: () => {},
+        setTimeout: () => 1,
+        clearTimeout: () => {}
+    };
+
+    vm.runInNewContext(read('assets/native_ui_shell.js'), { window, document, URL });
+
+    assert.equal(calls.length, 1);
+    assert.deepEqual(JSON.parse(calls[0].data), [{
+        title: 'Saved mix',
+        subtitle: 'Playlist',
+        section: 'Your playlists',
+        image: 'https://i.scdn.co/image/saved',
+        uri: 'spotify:playlist:saved123'
+    }]);
+});
+
+test('native shell routes a Spotify detail deep link and transfers its title and rows', () => {
+    const routes = [];
+    const calls = [];
+    let readyCount = 0;
+    const anchor = {
+        href: 'https://open.spotify.com/track/track123',
+        innerText: 'A track\nAn artist',
+        textContent: 'A track\nAn artist',
+        matches: () => true,
+        getAttribute: () => null,
+        querySelector: () => null,
+        closest: (selector) => selector === '[data-testid="card"]' ? card : null
+    };
+    const card = {
+        innerText: 'A track\nAn artist',
+        textContent: 'A track\nAn artist',
+        matches: () => false,
+        getAttribute: () => null,
+        querySelector: (selector) => selector === 'a[href]' ? anchor : null,
+        querySelectorAll: () => [],
+        closest: () => null
+    };
+    const heading = { innerText: 'A playlist', textContent: 'A playlist' };
+    const mainView = {
+        querySelector: () => heading,
+        querySelectorAll: (selector) => selector === '[data-testid="card"]'
+            ? [card]
+            : selector === 'a[href]' ? [anchor] : []
+    };
+    const document = {
+        readyState: 'complete',
+        documentElement: {},
+        querySelector: (selector) => selector === '#main-view'
+            ? mainView
+            : selector.indexOf('user-widget-link') >= 0 ? {} : null,
+        addEventListener: () => {}
+    };
+    class TestMutationObserver {
+        observe() {}
+    }
+    const window = {
+        location: {
+            hostname: 'open.spotify.com',
+            pathname: '/playlist/playlist123',
+            href: 'https://open.spotify.com/playlist/playlist123',
+            assign: () => {}
+        },
+        AndBridge: {
+            onNativeUiRoute: (screen) => routes.push(screen),
+            onNativeUiReady: () => { readyCount += 1; },
+            onNativeUiData: (screen, data) => calls.push({ screen, data })
+        },
+        MutationObserver: TestMutationObserver,
+        addEventListener: () => {},
+        setTimeout: () => 1,
+        clearTimeout: () => {}
+    };
+
+    vm.runInNewContext(read('assets/native_ui_shell.js'), { window, document, URL });
+
+    assert.deepEqual(routes, ['detail']);
+    assert.equal(readyCount, 1);
+    assert.deepEqual(calls.map((call) => call.screen), ['screen-title', 'detail']);
+    assert.equal(calls[0].data, 'A playlist');
+    assert.deepEqual(JSON.parse(calls[1].data), [{
+        title: 'A track',
+        subtitle: 'An artist',
+        section: '',
+        image: '',
+        uri: 'spotify:track:track123'
+    }]);
+});
+
+test('native search deep links preserve their query in the native search field', () => {
+    const routes = [];
+    const calls = [];
+    const mainView = { querySelectorAll: () => [], querySelector: () => null };
+    const document = {
+        readyState: 'complete',
+        documentElement: {},
+        querySelector: (selector) => selector === '#main-view'
+            ? mainView
+            : selector.indexOf('user-widget-link') >= 0 ? {} : null,
+        addEventListener: () => {}
+    };
+    class TestMutationObserver {
+        observe() {}
+    }
+    const window = {
+        location: {
+            hostname: 'open.spotify.com',
+            pathname: '/search',
+            href: 'https://open.spotify.com/search?query=Jazz+Funk',
+            assign: () => {}
+        },
+        AndBridge: {
+            onNativeUiRoute: (screen) => routes.push(screen),
+            onNativeUiReady: () => {},
+            onNativeUiData: (screen, data) => calls.push({ screen, data })
+        },
+        MutationObserver: TestMutationObserver,
+        addEventListener: () => {},
+        setTimeout: () => 1,
+        clearTimeout: () => {}
+    };
+
+    vm.runInNewContext(read('assets/native_ui_shell.js'), { window, document, URL });
+
+    assert.deepEqual(routes, ['search']);
+    assert.deepEqual(calls, [{ screen: 'initial-search', data: 'Jazz Funk' }]);
+});
+
 test('bundled native bootstrap activates the shell, sends Home rows, and only opens Spotify links', () => {
     const script = read('assets/native_ui_shell.js');
     const calls = [];
@@ -109,23 +347,32 @@ test('bundled native bootstrap activates the shell, sends Home rows, and only op
     const timers = [];
     let readyCount = 0;
 
+    const artwork = {
+        currentSrc: 'https://i.scdn.co/image/focus',
+        getAttribute: (name) => name === 'src' ? 'https://i.scdn.co/image/focus' : null
+    };
     const anchor = {
         href: 'https://open.spotify.com/playlist/abc123?si=xyz',
         innerText: 'Focus Mix',
         textContent: 'Focus Mix',
         getAttribute: () => null,
-        querySelector: () => null
+        matches: () => true,
+        closest: (selector) => selector === '[data-testid="card"]' ? card : null,
+        querySelector: (selector) => selector === 'img' ? artwork : null
     };
     const card = {
         innerText: 'Focus Mix\nPicked for you',
         textContent: 'Focus Mix\nPicked for you',
         matches: () => false,
-        querySelector: (selector) => selector === 'a[href]' ? anchor : null,
+        querySelector: (selector) => selector === 'a[href]' ? anchor : selector === 'img' ? artwork : null,
+        querySelectorAll: () => [],
         getAttribute: () => null,
         closest: () => null
     };
     const mainView = {
-        querySelectorAll: (selector) => selector === '[data-testid="card"]' ? [card] : []
+        querySelectorAll: (selector) => selector === '[data-testid="card"]'
+            ? [card]
+            : selector === 'a[href]' ? [anchor] : []
     };
     const document = {
         readyState: 'complete',
@@ -145,6 +392,13 @@ test('bundled native bootstrap activates the shell, sends Home rows, and only op
             href: 'https://open.spotify.com/',
             assign: (value) => assigned.push(value)
         },
+        _sfNativeHomeSignature: JSON.stringify([{
+            title: 'Focus Mix',
+            subtitle: 'Picked for you',
+            section: '',
+            image: 'https://i.scdn.co/image/focus',
+            uri: 'spotify:playlist:abc123'
+        }]),
         AndBridge: {
             onNativeUiReady: () => { readyCount += 1; },
             onNativeUiData: (screen, data) => calls.push({ screen, data })
@@ -169,8 +423,19 @@ test('bundled native bootstrap activates the shell, sends Home rows, and only op
     assert.deepEqual(JSON.parse(calls[0].data), [{
         title: 'Focus Mix',
         subtitle: 'Picked for you',
+        section: '',
+        image: 'https://i.scdn.co/image/focus',
         uri: 'spotify:playlist:abc123'
     }]);
+    assert.equal(window.__sfNativeUiHomeRowsCount, 1);
+    assert.equal(window.__sfNativeUiHomeDataSent, true);
+    assert.equal(window._sfNativeHomeSignature, JSON.stringify([{
+        title: 'Focus Mix',
+        subtitle: 'Picked for you',
+        section: '',
+        image: 'https://i.scdn.co/image/focus',
+        uri: 'spotify:playlist:abc123'
+    }]), 'the shell must not overwrite or depend on the shared legacy signature');
 
     assert.equal(window.__sfNativeOpenUri('spotify:track:track123'), true);
     assert.equal(assigned.pop(), 'https://open.spotify.com/track/track123');

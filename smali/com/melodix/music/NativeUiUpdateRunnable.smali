@@ -23,8 +23,24 @@
 
     iget-object v0, p0, Lcom/melodix/music/NativeUiUpdateRunnable;->activity:Lcom/melodix/music/MainActivity;
     iget v1, p0, Lcom/melodix/music/NativeUiUpdateRunnable;->action:I
-    if-nez v1, :apply_data
+    if-eqz v1, :show_native_shell
+    const/4 v2, 0x2
+    if-ne v1, v2, :apply_data
 
+    iget-object v1, p0, Lcom/melodix/music/NativeUiUpdateRunnable;->screen:Ljava/lang/String;
+    const-string v2, "library"
+    invoke-virtual {v1, v2}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    move-result v2
+    if-eqz v2, :set_native_route
+    const/4 v2, 0x0
+    invoke-virtual {v0, v2}, Lcom/melodix/music/MainActivity;->onNativeLibraryClick(Landroid/view/View;)V
+    return-void
+
+    :set_native_route
+    invoke-virtual {v0, v1}, Lcom/melodix/music/MainActivity;->setNativeScreen(Ljava/lang/String;)V
+    return-void
+
+    :show_native_shell
     invoke-virtual {v0}, Lcom/melodix/music/MainActivity;->showNativeUi()V
     return-void
 

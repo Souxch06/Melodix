@@ -1,9 +1,7 @@
 (function() {
     'use strict';
 
-    // This small, versioned entry point is intentionally separate from the
-    // remotely hotfixable spotify_bridge.js so a stale remote bridge cannot
-    // prevent the Android shell from being activated.
+    // Keep native activation independent from the remotely hotfixable bridge.
     if (window.__sfNativeUiShellStarted) return;
     window.__sfNativeUiShellStarted = true;
     window.__sfNativeUiShellErrors = 0;
@@ -11,10 +9,18 @@
     var HOME_PATHS = ['/', '/home'];
     var SUPPORTED_TYPES = ['playlist', 'album', 'artist', 'track', 'show', 'episode', 'audiobook'];
     var MAX_READY_RETRIES = 60;
+    var MAX_HOME_RETRIES = 40;
     var readyRetries = 0;
+    var homeRetries = 0;
     var readyRetryTimer = null;
+    var homeRetryTimer = null;
     var updateTimer = null;
     var observer = null;
+    var lastHomeSignature = null;
+    var initialPath = '';
+    var initialScreen = 'home';
+    var lastInitialDetailSignature = null;
+    var lastInitialDetailTitle = null;
 
     function normalizedPath() {
         var path = window.location.pathname || '/';
@@ -24,6 +30,16 @@
 
     function isSpotifyHome() {
         return window.location.hostname === 'open.spotify.com' && HOME_PATHS.indexOf(normalizedPath()) >= 0;
+    }
+
+    function nativeScreenForPath() {
+        var path = normalizedPath();
+        if (HOME_PATHS.indexOf(path) >= 0) return 'home';
+        if (path === '/search' || path.indexOf('/search/') === 0) return 'search';
+        if (path === '/collection' || path.indexOf('/collection/') === 0 || path.indexOf('/your-library') === 0) return 'library';
+        var firstSegment = path.split('/')[1];
+        if (SUPPORTED_TYPES.indexOf(firstSegment) >= 0 && path.split('/')[2]) return 'detail';
+        return 'home';
     }
 
     function nativeSpotifyUri(value) {
@@ -58,6 +74,43 @@
         return raw;
     }
 
+    function initialSearchQuery() {
+        var url;
+        var pathParts;
+        if (initialScreen !== 'search') return '';
+        try {
+            url = new URL(window.location.href);
+            var query = url.searchParams.get('query') || url.searchParams.get('q') || '';
+            if (query) return String(query).trim().slice(0, 100);
+        } catch (_) {}
+        pathParts = normalizedPath().split('/').filter(Boolean);
+        if (pathParts.length > 1 && pathParts[0] === 'search') {
+            try {
+                return decodeURIComponent(pathParts.slice(1).join('/')).trim().slice(0, 100);
+            } catch (_) {
+                return pathParts.slice(1).join('/').trim().slice(0, 100);
+            }
+        }
+        return '';
+    }
+
+    function safeSpotifyImage(value) {
+        var url;
+        var hostname;
+        try {
+            url = new URL(String(value || '').trim(), window.location.href);
+            hostname = url.hostname.toLowerCase();
+            if (url.protocol !== 'https:') return '';
+            if (
+                hostname !== 'scdn.co' && !hostname.endsWith('.scdn.co') &&
+                hostname !== 'spotifycdn.com' && !hostname.endsWith('.spotifycdn.com')
+            ) return '';
+            return url.href;
+        } catch (_) {
+            return '';
+        }
+    }
+
     function sendNativeUiData(screen, items) {
         var bridge = window.AndBridge;
         var rows;
@@ -66,8 +119,16 @@
         rows = (Array.isArray(items) ? items : []).map(function(item) {
             var title = String(item && (item.title || item.name || item.label) || '').trim();
             var subtitle = String(item && (item.subtitle || item.artist || item.description) || '').trim();
+            var section = String(item && (item.section || item.sectionTitle) || '').trim();
             var rawUri = item && (item.uri || item.id || item.href) || '';
-            return { title: title, subtitle: subtitle, uri: nativeSpotifyUri(rawUri) };
+            var rawImage = item && (item.image || item.cover || item.artwork) || '';
+            return {
+                title: title,
+                subtitle: subtitle,
+                section: section,
+                image: safeSpotifyImage(rawImage),
+                uri: nativeSpotifyUri(rawUri)
+            };
         }).filter(function(item) {
             return item.title || item.uri;
         });
@@ -104,51 +165,102 @@
         }).filter(Boolean);
     }
 
+    function closest(element, selector) {
+        try {
+            return element && typeof element.closest === 'function' ? element.closest(selector) : null;
+        } catch (_) {
+            return null;
+        }
+    }
+
+    function findImageUrl(element, sourceAnchor) {
+        var image = sourceAnchor && sourceAnchor.querySelector && sourceAnchor.querySelector('img');
+        var raw = '';
+        var styledNode;
+        var background;
+        var match;
+
+        if (!image && element && element.querySelector) image = element.querySelector('img');
+        if (image) {
+            raw = image.currentSrc || image.getAttribute('src') || image.getAttribute('data-src') || '';
+        }
+        if (raw) return safeSpotifyImage(raw);
+
+        styledNode = element && element.querySelector
+            ? element.querySelector('[style*="background-image"]')
+            : null;
+        if (!styledNode) return '';
+        background = styledNode.style && styledNode.style.backgroundImage || '';
+        if (!background && typeof window.getComputedStyle === 'function') {
+            try {
+                background = window.getComputedStyle(styledNode).backgroundImage || '';
+            } catch (_) {}
+        }
+        match = /url\((?:['"])?(.*?)(?:['"])?\)/i.exec(background);
+        return match ? safeSpotifyImage(match[1]) : '';
+    }
+
     function collectHomeRows(mainView) {
         var cardNodes = Array.prototype.slice.call(mainView.querySelectorAll('[data-testid="card"]'));
-        var candidates = cardNodes.length
-            ? cardNodes
-            : Array.prototype.slice.call(mainView.querySelectorAll('a[href]')).filter(function(anchor) {
-                return !!anchor.querySelector('img');
-            });
+        var anchors = Array.prototype.slice.call(mainView.querySelectorAll('a[href]'));
+        // Keep anchors as a fallback even when Spotify renders non-link cards or
+        // card anchors without an <img>. A card and its nested anchor are de-duped
+        // by their Spotify URI below.
+        var candidates = cardNodes.concat(anchors);
         var seen = new Set();
         var rows = [];
 
         candidates.forEach(function(candidate) {
-            var sourceAnchor = candidate.matches('a[href]') ? candidate : candidate.querySelector('a[href]');
-            var uri = sourceAnchor && spotifyResourceUri(sourceAnchor.href);
-            var image = sourceAnchor && sourceAnchor.querySelector('img') || candidate.querySelector('img');
+            var sourceAnchor = candidate.matches && candidate.matches('a[href]')
+                ? candidate
+                : candidate.querySelector && candidate.querySelector('a[href]');
+            var href = sourceAnchor && (sourceAnchor.href || sourceAnchor.getAttribute('href'));
+            var uri = spotifyResourceUri(href);
+            var card = closest(sourceAnchor, '[data-testid="card"]') ||
+                closest(sourceAnchor, '[data-testid="tracklist-row"]') ||
+                closest(candidate, '[data-testid="card"]') ||
+                closest(candidate, '[data-testid="tracklist-row"]') || candidate;
             var lines;
             var title;
             var subtitle;
+            var imageUrl;
             var section;
             var headingNode;
+            var headings;
             var sectionTitle;
 
             if (!sourceAnchor || !uri || seen.has(uri)) return;
-            seen.add(uri);
-            lines = textLines(candidate);
+            lines = textLines(card);
+            imageUrl = findImageUrl(card, sourceAnchor);
             title = String(
-                candidate.getAttribute('aria-label') ||
-                sourceAnchor.getAttribute('aria-label') ||
+                card.getAttribute && card.getAttribute('aria-label') ||
+                sourceAnchor.getAttribute && sourceAnchor.getAttribute('aria-label') ||
                 lines[0] ||
-                image && image.getAttribute('alt') ||
                 ''
             ).replace(/\s+/g, ' ').trim().slice(0, 100);
+            if (!title && sourceAnchor.querySelector) {
+                var image = sourceAnchor.querySelector('img');
+                title = String(image && image.getAttribute('alt') || '').replace(/\s+/g, ' ').trim().slice(0, 100);
+            }
             if (!title) return;
+            seen.add(uri);
 
             subtitle = lines.find(function(line) { return line !== title; }) || '';
-            section = candidate.closest('section') || mainView;
-            headingNode = section === mainView
-                ? null
-                : Array.prototype.slice.call(section.querySelectorAll('h2, h3, [data-testid="shelf-title"]'))
-                    .find(function(node) { return !node.closest('[data-testid="card"]'); });
+            section = closest(card, 'section') || closest(candidate, 'section') || mainView;
+            headings = section === mainView || !section.querySelectorAll
+                ? []
+                : Array.prototype.slice.call(section.querySelectorAll('h1, h2, h3, [data-testid="shelf-title"]'));
+            headingNode = headings.find(function(node) {
+                return !closest(node, '[data-testid="card"]');
+            });
             sectionTitle = String(headingNode && headingNode.textContent || '')
                 .replace(/\s+/g, ' ').trim().slice(0, 80);
 
             rows.push({
                 title: title,
-                subtitle: [sectionTitle, subtitle.slice(0, 120)].filter(Boolean).join(' · '),
+                subtitle: subtitle.slice(0, 120),
+                section: sectionTitle,
+                image: imageUrl,
                 uri: uri
             });
         });
@@ -156,14 +268,106 @@
         return rows.slice(0, 32);
     }
 
+    function supplementHomeRowsWithLibrary(rows) {
+        var library = window.mediaLib;
+        var groups = [
+            ['playlists', 'Your playlists'],
+            ['albums', 'Saved albums'],
+            ['artists', 'Followed artists'],
+            ['podcasts', 'Podcasts']
+        ];
+        var seen = new Set(rows.map(function(row) { return row.uri; }).filter(Boolean));
+        var result = rows.slice();
+
+        if (!library || result.length >= 8) return result;
+        groups.forEach(function(group) {
+            var items = Array.isArray(library[group[0]]) ? library[group[0]] : [];
+            items.forEach(function(item) {
+                var uri = nativeSpotifyUri(item && (item.uri || item.id || item.href));
+                var title = String(item && (item.name || item.title) || '').trim();
+                var artistList = item && Array.isArray(item.artists)
+                    ? item.artists.filter(Boolean).join(', ')
+                    : '';
+                var subtitle = String(artistList || item && (item.owner || item.description || item.type) || '').trim();
+                if (!uri || !title || seen.has(uri) || result.length >= 8) return;
+                seen.add(uri);
+                result.push({
+                    title: title,
+                    subtitle: subtitle,
+                    section: group[1],
+                    image: safeSpotifyImage(item.image || item.cover || item.artwork || ''),
+                    uri: uri
+                });
+            });
+        });
+        return result;
+    }
+
+    function clearHomeRetry() {
+        if (homeRetryTimer) window.clearTimeout(homeRetryTimer);
+        homeRetryTimer = null;
+        homeRetries = 0;
+    }
+
+    function scheduleHomeRetry() {
+        if (homeRetryTimer || homeRetries >= MAX_HOME_RETRIES) return;
+        homeRetries += 1;
+        homeRetryTimer = window.setTimeout(function() {
+            homeRetryTimer = null;
+            if (isSpotifyHome()) runUpdate();
+        }, 500);
+    }
+
     function updateHomeRows(mainView) {
         var rows;
         var signature;
-        if (!isSpotifyHome() || !mainView) return;
+        if (!isSpotifyHome() || !mainView) {
+            clearHomeRetry();
+            return;
+        }
+
+        rows = supplementHomeRowsWithLibrary(collectHomeRows(mainView));
+        signature = JSON.stringify(rows);
+        window.__sfNativeUiHomeRowsCount = rows.length;
+        if (lastHomeSignature !== signature && sendNativeUiData('home', rows)) {
+            // This state is intentionally closure-local. Older hotfixable bridge
+            // code used the same window property and could suppress the first
+            // native Home update with a stale/empty signature.
+            lastHomeSignature = signature;
+            window.__sfNativeUiHomeDataSent = true;
+        }
+
+        if (rows.length > 0) clearHomeRetry();
+        else scheduleHomeRetry();
+    }
+
+    function updateInitialDetailRows(mainView) {
+        var titleNode;
+        var title;
+        var rows;
+        var signature;
+        var bridge;
+        if (initialScreen !== 'detail' || normalizedPath() !== initialPath || !mainView) return;
+
+        titleNode = mainView.querySelector
+            ? mainView.querySelector('h1, [data-testid="entityTitle"], [data-testid="entity-title"]')
+            : null;
+        title = String(titleNode && (titleNode.innerText || titleNode.textContent) || '')
+            .replace(/\s+/g, ' ').trim().slice(0, 100);
+        bridge = window.AndBridge;
+        if (title && title !== lastInitialDetailTitle && bridge && typeof bridge.onNativeUiData === 'function') {
+            try {
+                bridge.onNativeUiData('screen-title', title);
+                lastInitialDetailTitle = title;
+            } catch (_) {}
+        }
+
         rows = collectHomeRows(mainView);
         signature = JSON.stringify(rows);
-        if (window._sfNativeHomeSignature === signature) return;
-        if (sendNativeUiData('home', rows)) window._sfNativeHomeSignature = signature;
+        window.__sfNativeUiDetailRowsCount = rows.length;
+        if (rows.length > 0 && signature !== lastInitialDetailSignature && sendNativeUiData('detail', rows)) {
+            lastInitialDetailSignature = signature;
+        }
     }
 
     function scheduleReadinessRetry() {
@@ -179,12 +383,18 @@
     function notifyNativeUiReady(mainView) {
         var bridge = window.AndBridge;
         var userWidget;
+        var searchQuery;
         if (!mainView || window.location.hostname !== 'open.spotify.com' || window.__sfNativeUiReadyNotified) return false;
 
-        // Wait for Spotify's signed-in account control before covering the page,
-        // preserving the existing login and authentication flow.
+        // Do not cover Spotify's page until its signed-in account control is present.
         userWidget = document.querySelector('button[data-testid="user-widget-link"], a[data-testid="user-widget-link"]');
         if (!userWidget || !bridge || typeof bridge.onNativeUiReady !== 'function') return false;
+
+        if (typeof bridge.onNativeUiRoute === 'function') {
+            try {
+                bridge.onNativeUiRoute(initialScreen);
+            } catch (_) {}
+        }
 
         try {
             bridge.onNativeUiReady();
@@ -192,10 +402,17 @@
             window.__sfNativeUiReadyRetries = 0;
             if (readyRetryTimer) window.clearTimeout(readyRetryTimer);
             readyRetryTimer = null;
-            return true;
         } catch (_) {
             return false;
         }
+
+        searchQuery = initialSearchQuery();
+        if (searchQuery && typeof bridge.onNativeUiData === 'function') {
+            try {
+                bridge.onNativeUiData('initial-search', searchQuery);
+            } catch (_) {}
+        }
+        return true;
     }
 
     function runUpdate() {
@@ -206,6 +423,7 @@
             if (mainView) {
                 notifyNativeUiReady(mainView);
                 updateHomeRows(mainView);
+                updateInitialDetailRows(mainView);
             }
         } catch (_) {
             window.__sfNativeUiShellErrors += 1;
@@ -232,7 +450,8 @@
             window.location.assign('https://open.spotify.com/');
             return false;
         }
-        window._sfNativeHomeSignature = null;
+        lastHomeSignature = null;
+        homeRetries = 0;
         runUpdate();
         return true;
     };
@@ -268,6 +487,8 @@
         if (window._sfNativeUiShellListenersAttached) return;
         window._sfNativeUiShellListenersAttached = true;
         window.__sfNativeUiShellReady = true;
+        initialPath = normalizedPath();
+        initialScreen = nativeScreenForPath();
 
         window.addEventListener('popstate', scheduleUpdate);
         window.addEventListener('hashchange', scheduleUpdate);
@@ -275,7 +496,7 @@
         document.addEventListener('DOMContentLoaded', scheduleUpdate, { once: true });
 
         if (window.MutationObserver && document.documentElement) {
-            observer = new MutationObserver(scheduleUpdate);
+            observer = new window.MutationObserver(scheduleUpdate);
             observer.observe(document.documentElement, {
                 childList: true,
                 subtree: true,

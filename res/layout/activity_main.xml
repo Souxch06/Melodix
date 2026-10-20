@@ -205,7 +205,17 @@
                 android:paddingTop="4.0dip"
                 android:paddingBottom="16.0dip"
                 android:layout_width="fill_parent"
-                android:layout_height="wrap_content" />
+                android:layout_height="wrap_content">
+                <TextView
+                    android:text="Loading your music…"
+                    android:textSize="16.0sp"
+                    android:textColor="#ffb5c0b8"
+                    android:gravity="center"
+                    android:paddingTop="28.0dip"
+                    android:paddingBottom="28.0dip"
+                    android:layout_width="fill_parent"
+                    android:layout_height="wrap_content" />
+            </LinearLayout>
         </ScrollView>
 
         <LinearLayout
@@ -228,6 +238,15 @@
                 android:letterSpacing="0.12"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content" />
+            <ImageView
+                android:id="@id/nativePlayerLargeArtwork"
+                android:contentDescription="Current track artwork"
+                android:scaleType="centerCrop"
+                android:background="#ff202722"
+                android:layout_width="220.0dip"
+                android:layout_height="220.0dip"
+                android:layout_marginTop="20.0dip"
+                android:layout_marginBottom="8.0dip" />
             <TextView
                 android:id="@id/nativePlayerLargeTitle"
                 android:text="Nothing playing"
@@ -296,6 +315,14 @@
             android:paddingBottom="6.0dip"
             android:layout_width="fill_parent"
             android:layout_height="64.0dip">
+            <ImageView
+                android:id="@id/nativePlayerArtwork"
+                android:contentDescription="Current track artwork"
+                android:scaleType="centerCrop"
+                android:background="#ff202722"
+                android:layout_width="48.0dip"
+                android:layout_height="48.0dip"
+                android:layout_marginRight="10.0dip" />
             <LinearLayout
                 android:orientation="vertical"
                 android:gravity="center_vertical"
@@ -342,9 +369,9 @@
             android:paddingTop="6.0dip"
             android:layout_width="fill_parent"
             android:layout_height="56.0dip">
-            <Button android:text="Home" android:textColor="#ffffffff" android:backgroundTint="#ff202722" android:onClick="onNativeHomeClick" android:layout_width="0.0dip" android:layout_height="48.0dip" android:layout_weight="1.0" />
-            <Button android:text="Search" android:textColor="#ffffffff" android:backgroundTint="#ff202722" android:onClick="onNativeSearchClick" android:layout_width="0.0dip" android:layout_height="48.0dip" android:layout_weight="1.0" />
-            <Button android:text="Library" android:textColor="#ffffffff" android:backgroundTint="#ff202722" android:onClick="onNativeLibraryClick" android:layout_width="0.0dip" android:layout_height="48.0dip" android:layout_weight="1.0" />
+            <Button android:id="@id/nativeHomeTab" android:text="Home" android:textColor="#ffffffff" android:backgroundTint="#ff202722" android:contentDescription="Home" android:onClick="onNativeHomeClick" android:minHeight="48.0dip" android:layout_width="0.0dip" android:layout_height="48.0dip" android:layout_weight="1.0" />
+            <Button android:id="@id/nativeSearchTab" android:text="Search" android:textColor="#ffffffff" android:backgroundTint="#ff202722" android:contentDescription="Search" android:onClick="onNativeSearchClick" android:minHeight="48.0dip" android:layout_width="0.0dip" android:layout_height="48.0dip" android:layout_weight="1.0" />
+            <Button android:id="@id/nativeLibraryTab" android:text="Library" android:textColor="#ffffffff" android:backgroundTint="#ff202722" android:contentDescription="Library" android:onClick="onNativeLibraryClick" android:minHeight="48.0dip" android:layout_width="0.0dip" android:layout_height="48.0dip" android:layout_weight="1.0" />
         </LinearLayout>
     </LinearLayout>
 

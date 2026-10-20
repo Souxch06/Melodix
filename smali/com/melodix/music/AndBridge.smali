@@ -63,6 +63,23 @@
     return-void
 .end method
 
+.method public final onNativeUiRoute(Ljava/lang/String;)V
+    .locals 2
+    .annotation runtime Landroid/webkit/JavascriptInterface;
+    .end annotation
+
+    sget-object v0, Lcom/melodix/music/AppSingleton;->t:Ljava/lang/ref/WeakReference;
+    if-eqz v0, :native_route_done
+    invoke-virtual {v0}, Ljava/lang/ref/Reference;->get()Ljava/lang/Object;
+    move-result-object v1
+    check-cast v1, Lcom/melodix/music/MainActivity;
+    if-eqz v1, :native_route_done
+    invoke-virtual {v1, p1}, Lcom/melodix/music/MainActivity;->postNativeUiRoute(Ljava/lang/String;)V
+
+    :native_route_done
+    return-void
+.end method
+
 .method public final onNativeUiData(Ljava/lang/String;Ljava/lang/String;)V
     .locals 0
     .annotation runtime Landroid/webkit/JavascriptInterface;
