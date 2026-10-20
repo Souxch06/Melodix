@@ -1174,3 +1174,30 @@ test('the library tab never reloads its own page in a loop', () => {
     onHome.window.__sfOpenLibrary();
     assert.match(onHome.navigations[0] || '', /\/collection\/playlists$/);
 });
+
+test('the browse grid opens on the empty search tab and hands the term to the real search', () => {
+    const layout = read('res/layout/activity_main.xml');
+    const publicXml = read('res/values/public.xml');
+    const activity = read('smali/com/melodix/music/MainActivity.smali');
+    const gridStart = layout.indexOf('android:id="@+id/nativeGenreScroll"');
+    const gridEnd = layout.indexOf('android:id="@id/nativeLibraryCategories"');
+    const grid = layout.slice(gridStart, gridEnd);
+    const openSearchAt = activity.indexOf('.method public final onNativeSearchClick(Landroid/view/View;)V');
+    const renderRowsAt = activity.indexOf('.method public final renderNativeRows(Ljava/lang/String;Ljava/lang/String;)V');
+    const openSearch = activity.slice(openSearchAt, openSearchAt + 2200);
+    const renderRows = activity.slice(renderRowsAt, renderRowsAt + 2600);
+
+    assert.ok(gridStart > 0 && gridEnd > gridStart, 'the grid sits between the search field and the library chips');
+    assert.match(publicXml, /name="nativeGenreScroll" id="0x7f09024f"/);
+    assert.equal((grid.match(/android:onClick="onNativeGenreClick"/g) || []).length, 8, 'eight browse tiles');
+    assert.match(grid, /android:text="Parcourir tout"/);
+    assert.match(activity, /\.method public final onNativeGenreClick\(Landroid\/view\/View;\)V/);
+    assert.match(activity, /invoke-virtual \{p0, v0\}, Lcom\/melodix\/music\/MainActivity;->performNativeLiveSearch\(Ljava\/lang\/String;\)V/);
+    assert.match(activity, /const-string v1, "screen-title"/);
+
+    // The grid is shown only by the search tab; every row render restores the list.
+    assert.match(openSearch, /0x7f09024f/);
+    assert.match(openSearch, /0x7f090239/);
+    assert.match(renderRows, /0x7f09024f/);
+    assert.match(renderRows, /0x7f090239/);
+});

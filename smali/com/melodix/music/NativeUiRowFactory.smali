@@ -173,7 +173,7 @@
     invoke-direct {v10}, Landroid/graphics/drawable/GradientDrawable;-><init>()V
     const v11, -0xe0e0e1
     invoke-virtual {v10, v11}, Landroid/graphics/drawable/GradientDrawable;->setColor(I)V
-    const/4 v11, 0x3
+    const/4 v11, 0x4
     invoke-static {p0, v11}, Lcom/melodix/music/NativeUiRowFactory;->dp(Landroid/content/Context;I)I
     move-result v11
     int-to-float v11, v11
@@ -181,11 +181,12 @@
     invoke-virtual {v1, v10}, Landroid/view/View;->setBackground(Landroid/graphics/drawable/Drawable;)V
     const/4 v10, 0x1
     invoke-virtual {v1, v10}, Landroid/view/View;->setClipToOutline(Z)V
-    const v10, 0x7f0800d6
+    # Neutral note instead of the app logo while a cover loads.
+    const v10, 0x7f080141
     invoke-virtual {v1, v10}, Landroid/widget/ImageView;->setImageResource(I)V
     invoke-virtual {v1, v6}, Landroid/view/View;->setContentDescription(Ljava/lang/CharSequence;)V
     new-instance v5, Landroid/widget/LinearLayout$LayoutParams;
-    const/16 v10, 0x2c
+    const/16 v10, 0x30
     invoke-static {p0, v10}, Lcom/melodix/music/NativeUiRowFactory;->dp(Landroid/content/Context;I)I
     move-result v10
     invoke-direct {v5, v10, v10}, Landroid/widget/LinearLayout$LayoutParams;-><init>(II)V
@@ -350,7 +351,7 @@
     invoke-virtual {v2, v1}, Landroid/view/View;->setBackground(Landroid/graphics/drawable/Drawable;)V
     const/4 v1, 0x1
     invoke-virtual {v2, v1}, Landroid/view/View;->setClipToOutline(Z)V
-    const v1, 0x7f0800d6
+    const v1, 0x7f080141
     invoke-virtual {v2, v1}, Landroid/widget/ImageView;->setImageResource(I)V
     new-instance v1, Landroid/widget/LinearLayout$LayoutParams;
     const/16 v3, 0xdc

@@ -6811,6 +6811,20 @@
 
     iput-object p1, p0, Lcom/melodix/music/MainActivity;->nativeCurrentScreen:Ljava/lang/String;
 
+    # The browse grid belongs to the empty search screen only.
+    const v0, 0x7f09024f
+
+    invoke-virtual {p0, v0}, Landroid/app/Activity;->findViewById(I)Landroid/view/View;
+
+    move-result-object v0
+
+    if-eqz v0, :native_genre_hidden_once
+
+    const/16 v1, 0x8
+
+    invoke-virtual {v0, v1}, Landroid/view/View;->setVisibility(I)V
+
+    :native_genre_hidden_once
     const-string v0, "search"
     invoke-virtual {p1, v0}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
     move-result v1
@@ -7510,6 +7524,34 @@
 .method public final renderNativeRows(Ljava/lang/String;Ljava/lang/String;)V
     .locals 10
 
+    # Rendering rows always means the list is the visible content, so leave the
+    # browse grid and restore the scrolling list.
+    const v0, 0x7f090239
+
+    invoke-virtual {p0, v0}, Landroid/app/Activity;->findViewById(I)Landroid/view/View;
+
+    move-result-object v0
+
+    if-eqz v0, :native_rows_visible
+
+    const/4 v1, 0x0
+
+    invoke-virtual {v0, v1}, Landroid/view/View;->setVisibility(I)V
+
+    :native_rows_visible
+    const v0, 0x7f09024f
+
+    invoke-virtual {p0, v0}, Landroid/app/Activity;->findViewById(I)Landroid/view/View;
+
+    move-result-object v0
+
+    if-eqz v0, :native_genre_gone
+
+    const/16 v1, 0x8
+
+    invoke-virtual {v0, v1}, Landroid/view/View;->setVisibility(I)V
+
+    :native_genre_gone
     iput-object p1, p0, Lcom/melodix/music/MainActivity;->nativeCurrentTitle:Ljava/lang/String;
     iput-object p2, p0, Lcom/melodix/music/MainActivity;->nativeCurrentJson:Ljava/lang/String;
 
@@ -7787,6 +7829,32 @@
     invoke-virtual {v1, v2, v3, v4}, Landroid/view/View;->postDelayed(Ljava/lang/Runnable;J)Z
 
     :native_search_click_done
+    const v0, 0x7f09024f
+
+    invoke-virtual {p0, v0}, Landroid/app/Activity;->findViewById(I)Landroid/view/View;
+
+    move-result-object v0
+
+    if-eqz v0, :native_search_genre_shown
+
+    const/4 v1, 0x0
+
+    invoke-virtual {v0, v1}, Landroid/view/View;->setVisibility(I)V
+
+    :native_search_genre_shown
+    const v0, 0x7f090239
+
+    invoke-virtual {p0, v0}, Landroid/app/Activity;->findViewById(I)Landroid/view/View;
+
+    move-result-object v0
+
+    if-eqz v0, :native_search_rows_hidden
+
+    const/16 v1, 0x8
+
+    invoke-virtual {v0, v1}, Landroid/view/View;->setVisibility(I)V
+
+    :native_search_rows_hidden
     return-void
 .end method
 
@@ -7899,6 +7967,38 @@
     invoke-virtual {p0, v1, v0}, Lcom/melodix/music/MainActivity;->runNativeFunction(Ljava/lang/String;Ljava/lang/String;)V
 
     :native_library_category_done
+    return-void
+.end method
+
+.method public final onNativeGenreClick(Landroid/view/View;)V
+    .locals 2
+
+    # One handler for the whole browse grid: the tag carries the search term.
+    invoke-virtual {p1}, Landroid/view/View;->getTag()Ljava/lang/Object;
+
+    move-result-object v0
+
+    if-eqz v0, :native_genre_done
+
+    invoke-virtual {v0}, Ljava/lang/Object;->toString()Ljava/lang/String;
+
+    move-result-object v0
+
+    invoke-virtual {v0}, Ljava/lang/String;->isEmpty()Z
+
+    move-result v1
+
+    if-eqz v1, :native_genre_done
+
+    # Keep the browse grid until results land (a failed search must not leave a
+    # blank screen); only the header echoes the choice.
+    invoke-virtual {p0, v0}, Lcom/melodix/music/MainActivity;->performNativeLiveSearch(Ljava/lang/String;)V
+
+    const-string v1, "screen-title"
+
+    invoke-virtual {p0, v1, v0}, Lcom/melodix/music/MainActivity;->applyNativeUiData(Ljava/lang/String;Ljava/lang/String;)V
+
+    :native_genre_done
     return-void
 .end method
 

@@ -204,3 +204,29 @@ téléchargeable dans l'atelier, la compilation et la vérification syntaxique
 Smali passent uniquement par la CI. Les contrôles statiques
 (`tests/smali_sanity.test.js`, `tests/native_ui.test.js`) couvrent les bornes de
 registres, les identifiants et la présence des appels.
+
+## Passe du 2026-10-20 (onglet Rechercher et détails de liste)
+
+- **Onglet Rechercher : grille « Parcourir tout ».** Le panneau de recherche
+  affichait un champ puis un texte d'aide. Il affiche maintenant huit tuiles
+  colorées sur deux colonnes (Pop, Hip-hop, Rock, Latino, Détente, Sport,
+  Podcasts, Nouveautés), dans un `ScrollView` dédié (`nativeGenreScroll`,
+  `0x7f09024f`) inséré entre le champ et les chips de bibliothèque.
+  `onNativeGenreClick` lit le `tag` de la tuile, appelle `performNativeLiveSearch`
+  (donc `window.searchMediaItems`, qui existe aussi sans bridge via le repli du
+  shell) et recopie le terme dans l'en-tête. La grille reste affichée tant que
+  les résultats ne sont pas arrivés : une recherche qui échoue ne laisse pas un
+  écran vide derrière elle.
+- **Visibilité des panneaux.** `setNativeScreen` masque toujours la grille ;
+  `renderNativeRows` la masque et réaffiche la liste défilante dès qu'il y a des
+  lignes ; `onNativeSearchClick` fait l'inverse pour l'onglet vierge. Le flux
+  « onglet → grille → résultats → liste » est donc déterministe.
+- **Pochettes des lignes : 48 dp, rayon 4 dp** et un pictogramme de note neutre
+  (`native_cover_placeholder`, `0x7f080141`) au lieu du logo de l'application,
+  qui apparaissait sur chaque ligne sans pochette.
+- **Barre de défilement masquée** sur la liste native (`scrollbars="none"`),
+  comme dans l'application Spotify.
+- Nouveau test `tests/native_ui.test.js` : la grille est entre le champ et les
+  chips, elle porte huit tuiles, `onNativeGenreClick` appelle bien
+  `performNativeLiveSearch`, et la visibilité des deux panneaux est pilotée par
+  `setNativeScreen`, `renderNativeRows` et `onNativeSearchClick`.
