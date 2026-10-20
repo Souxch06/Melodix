@@ -7,14 +7,17 @@ const test = require('node:test');
 const root = path.resolve(__dirname, '..');
 const read = (file) => fs.readFileSync(path.join(root, file), 'utf8');
 
-test('custom home is limited to connected mobile CSS+JS mode and the Spotify home route', () => {
+test('custom home supports both full-style GUI modes and only the Spotify home route', () => {
     const bridge = read('assets/spotify_bridge.js');
+    const update = bridge.match(/function updateMelodixHome\(\) \{([\s\S]*?)\n    \}\n\n    function initializeMelodixHome/);
+    assert.ok(update, 'custom home update function should exist');
 
     assert.match(bridge, /const homePath = window\.location\.pathname\.replace\(/);
     assert.match(bridge, /window\.location\.hostname === 'open\.spotify\.com'/);
     assert.match(bridge, /homePath === '\/' \|\| homePath === '\/home'/);
-    assert.match(bridge, /window\.SF_CONFIG\?\.guiMode === 'csshack' && isMobileNavigationViewport\(\)/);
-    assert.match(bridge, /if \(!isSpotifyHome \|\| !isCustomMobileMode\)/);
+    assert.match(update[1], /const hasMelodixHomeStyles = guiMode === 'csshack' \|\| guiMode === 'bigwindow'/);
+    assert.match(update[1], /if \(!isSpotifyHome \|\| !hasMelodixHomeStyles\)/);
+    assert.doesNotMatch(update[1], /isMobileNavigationViewport\(\)/);
     assert.match(bridge, /document\.body\.classList\.contains\('sf-fs-open'\)/);
     assert.match(bridge, /function initializeMelodixHome\(\)/);
     assert.match(bridge, /window\.addEventListener\('popstate', scheduleMelodixHomeUpdate\)/);

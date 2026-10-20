@@ -3684,8 +3684,12 @@
         const homePath = window.location.pathname.replace(/\/+$/, '') || '/';
         const isSpotifyHome = window.location.hostname === 'open.spotify.com' &&
             (homePath === '/' || homePath === '/home');
-        const isCustomMobileMode = window.SF_CONFIG?.guiMode === 'csshack' && isMobileNavigationViewport();
-        if (!isSpotifyHome || !isCustomMobileMode) {
+        const guiMode = window.SF_CONFIG?.guiMode;
+        // The full stylesheet is injected in both supported visual modes. Do not
+        // restrict the custom home to csshack: tablet/landscape devices may use
+        // bigwindow while still expecting the same WebView home.
+        const hasMelodixHomeStyles = guiMode === 'csshack' || guiMode === 'bigwindow';
+        if (!isSpotifyHome || !hasMelodixHomeStyles) {
             deactivateMelodixHome(true);
             return;
         }
