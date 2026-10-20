@@ -17,6 +17,7 @@ const smaliFiles = [
     'smali/com/melodix/music/NativeImageLoader.smali',
     'smali/com/melodix/music/NativeSearchWatcher.smali',
     'smali/com/melodix/music/NativeSettingsRowFactory.smali',
+    'smali/com/melodix/music/NativeLogoutRunnable.smali',
     'smali/com/melodix/music/StartupLoadWatchdog.smali',
     'smali/com/melodix/music/RuntimeDiagnostic.smali',
     'smali/com/melodix/music/RuntimeDiagnostic$Callback.smali',

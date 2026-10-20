@@ -1009,6 +1009,10 @@
                 if (window.localStorage) window.localStorage.clear();
                 if (window.sessionStorage) window.sessionStorage.clear();
             } catch (_) {}
+            if (window.AndBridge && typeof window.AndBridge.nativeLogout === 'function') {
+                window.AndBridge.nativeLogout();
+                return true;
+            }
             window.location.assign('https://accounts.spotify.com/logout');
             return true;
         }

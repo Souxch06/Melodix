@@ -89,6 +89,25 @@
     return-void
 .end method
 
+.method public final nativeLogout()V
+    .locals 2
+    .annotation runtime Landroid/webkit/JavascriptInterface;
+    .end annotation
+
+    sget-object v0, Lcom/melodix/music/AppSingleton;->t:Ljava/lang/ref/WeakReference;
+    if-eqz v0, :native_logout_done
+    invoke-virtual {v0}, Ljava/lang/ref/Reference;->get()Ljava/lang/Object;
+    move-result-object v1
+    check-cast v1, Lcom/melodix/music/MainActivity;
+    if-eqz v1, :native_logout_done
+    new-instance v0, Lcom/melodix/music/NativeLogoutRunnable;
+    invoke-direct {v0, v1}, Lcom/melodix/music/NativeLogoutRunnable;-><init>(Lcom/melodix/music/MainActivity;)V
+    invoke-virtual {v1, v0}, Landroid/app/Activity;->runOnUiThread(Ljava/lang/Runnable;)V
+
+    :native_logout_done
+    return-void
+.end method
+
 .method public final onNativeProfileImage(Ljava/lang/String;)V
     .locals 1
     .annotation runtime Landroid/webkit/JavascriptInterface;
