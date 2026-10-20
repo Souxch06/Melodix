@@ -13,7 +13,9 @@ jobs:
   launch-trace:
     name: Launch published preview and capture the fatal trace
     if: contains(github.event.head_commit.message, '[launch-trace]')
-    runs-on: ubuntu-latest
+    # ubuntu-latest migrates to Ubuntu 26, where the emulator/adb pair failed
+    # twice with exit code 224. Pin the image the emulator is known to work on.
+    runs-on: ubuntu-24.04
     timeout-minutes: 45
     steps:
       - name: Check out repository
@@ -71,6 +73,7 @@ jobs:
           profile: pixel_2
           disable-animations: true
           emulator-boot-timeout: 1200
+          force-avd-creation: true
           emulator-options: -no-window -no-audio -no-boot-anim -no-snapshot -gpu swiftshader_indirect
           script: bash scripts/preview-launch-trace.sh
 
