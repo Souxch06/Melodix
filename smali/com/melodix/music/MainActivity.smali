@@ -2380,6 +2380,7 @@
 
     # Preview builds are debugged without logcat: keep the last crash so the
     # next launch can show it instead of dying silently.
+    :native_guard_try_start
     invoke-static/range {p0 .. p0}, Lcom/melodix/music/NativeCrashGuard;->install(Landroid/content/Context;)V
 
     const-string v1, "activity-create"
@@ -2391,7 +2392,17 @@
     invoke-static/range {p0 .. p0}, Lcom/melodix/music/NativeCrashGuard;->showLastReport(Landroid/app/Activity;)Z
 
     move-result v1
+    :native_guard_try_end
+    .catch Ljava/lang/Throwable; {:native_guard_try_start .. :native_guard_try_end} :native_guard_failed
 
+    goto :native_guard_done
+
+    :native_guard_failed
+    move-exception v1
+
+    const/4 v1, 0x0
+
+    :native_guard_done
     if-eqz v1, :native_no_crash_report
 
     return-void

@@ -86,3 +86,19 @@ shell natif s'est affiché : les lancements suivants ne montrent plus de toast.
 - Sinon, une photo du dialogue « Dernier plantage Melodix ».
 
 Aucun de ces trois écrans ne demande d'ordinateur ni de logcat.
+
+## diag-3 : marqueur inconditionnel
+
+Nouvelle build : un toast court « Melodix preview diag-3 : demarrage »
+s'affiche à **chaque** lancement, avant toute autre chose.
+
+- toast visible → l'APK installé est bien celui-ci et le processus atteint
+  `Application.onCreate` : le plantage est plus tardif, et le message du toast
+  (plantage ou étape) donne la position ;
+- aucun toast → soit l'APK n'est pas celui installé, soit le processus meurt
+  avant `Application.onCreate`, ce qui exclut tout le code Java applicatif et
+  pointe vers l'APK lui-même (dex, manifeste, bibliothèques natives).
+
+L'appel au garde est aussi entouré d'un `catch (Throwable)` dans
+`AppSingleton.onCreate` et `MainActivity.onCreate` : si la classe de diagnostic
+était elle-même invalide, elle ne peut plus faire échouer le démarrage.

@@ -154,14 +154,14 @@
     goto :toast_show
 
     :toast_stage
-    if-nez v2, :done_toast
+    if-nez v2, :toast_alive
 
     const-string v1, "ready"
 
     invoke-virtual {v1, v2}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
     move-result v1
 
-    if-eqz v1, :done_toast
+    if-eqz v1, :toast_alive
 
     new-instance v1, Ljava/lang/StringBuilder;
 
@@ -175,6 +175,13 @@
 
     invoke-virtual {v1}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
     move-result-object v1
+
+    goto :toast_show
+
+    :toast_alive
+    # Unconditional marker: it proves which build is installed and that the
+    # process reached Application.onCreate before anything else failed.
+    const-string v1, "Melodix preview diag-3 : demarrage"
 
     :toast_show
     const/4 v2, 0x1
