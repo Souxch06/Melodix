@@ -53,14 +53,22 @@
         return pb || window.pBtn || null;
     }
 
-    function isMediaElementPlaying() {
-        if (!document || typeof document.querySelectorAll !== 'function') return false;
-        let nodes = [];
+    function playbackMediaNodes() {
+        if (!document || typeof document.querySelectorAll !== 'function') return [];
+        let nodes = null;
         try {
             nodes = document.querySelectorAll('audio, video');
         } catch (_) {
-            return false;
+            return [];
         }
+        if (!nodes || typeof nodes.length !== 'number') return [];
+        const list = [];
+        for (let i = 0; i < nodes.length; i += 1) list.push(nodes[i]);
+        return list;
+    }
+
+    function isMediaElementPlaying() {
+        const nodes = playbackMediaNodes();
         for (let i = 0; i < nodes.length; i += 1) {
             const el = nodes[i];
             if (!el || el.paused !== false || el.ended) continue;
@@ -68,6 +76,29 @@
             return true;
         }
         return false;
+    }
+
+    // Real, audible content only, and only when the playhead actually moves.
+    // A paused player keeps its position, a buffering/preloading element does
+    // not advance and the silent keep-alive media never counts. Requiring a
+    // moving playhead makes the pause hold unable to mistake a frozen element
+    // for a resume (which would turn a pause into a play).
+    let lastAudibleTime = -1;
+
+    function isAudiblePlaybackAdvancing() {
+        const nodes = playbackMediaNodes();
+        let position = -1;
+        for (let i = 0; i < nodes.length; i += 1) {
+            const el = nodes[i];
+            if (!el || el.paused !== false || el.ended || el.muted) continue;
+            if (String(el.tagName || '').toUpperCase() === 'VIDEO' && el.muted) continue;
+            if (/silent\.mp3/i.test(String(el.currentSrc || el.src || ''))) continue;
+            const current = Number(el.currentTime || 0);
+            if (current > position) position = current;
+        }
+        const advancing = position >= 0 && lastAudibleTime >= 0 && position > lastAudibleTime + 0.05;
+        lastAudibleTime = position;
+        return advancing;
     }
 
     // Single source of truth for "is the player running right now?". The DOM
@@ -82,18 +113,181 @@
     }
     window.__sfGetPlaybackSnapshot = getPlaybackSnapshot;
 
+    // ---- Playback trace (preview diagnostics) ------------------------------
+    // A tiny ring buffer of playback events. It never stores URLs, tokens or
+    // page content: only event names, timestamps, the player's own state and
+    // the current track title. The preview runtime diagnostic reads it, so a
+    // field report can be matched with what the player actually did.
+    const PLAYBACK_TRACE_KEY = 'melodix_playback_trace_v1';
+    const PLAYBACK_TRACE_LIMIT = 80;
+
+    function readPlaybackTrace() {
+        try {
+            const raw = window.localStorage && window.localStorage.getItem(PLAYBACK_TRACE_KEY);
+            const parsed = raw ? JSON.parse(raw) : null;
+            return Array.isArray(parsed) ? parsed : [];
+        } catch (_) {
+            return [];
+        }
+    }
+
+    function tracePlayback(event, detail) {
+        let entry = null;
+        try {
+            const pb = getPlayPauseButton();
+            entry = {
+                at: Date.now(),
+                event: String(event || '').slice(0, 32),
+                playing: getPlaybackSnapshot().playing,
+                label: pb && typeof pb.getAttribute === 'function'
+                    ? String(pb.getAttribute('aria-label') || '').slice(0, 24)
+                    : '',
+                hidden: Boolean(document && document.visibilityState === 'hidden'),
+                track: String(window.track || '').slice(0, 48)
+            };
+            if (detail) entry.detail = String(detail).slice(0, 96);
+            let trace = readPlaybackTrace();
+            trace.push(entry);
+            if (trace.length > PLAYBACK_TRACE_LIMIT) {
+                trace = trace.slice(trace.length - PLAYBACK_TRACE_LIMIT);
+            }
+            window.__sfPlaybackTrace = trace;
+            if (window.localStorage) {
+                window.localStorage.setItem(PLAYBACK_TRACE_KEY, JSON.stringify(trace));
+            }
+        } catch (_) {}
+        return entry;
+    }
+
+    function clearPlaybackTrace() {
+        try {
+            window.__sfPlaybackTrace = [];
+            if (window.localStorage) window.localStorage.removeItem(PLAYBACK_TRACE_KEY);
+        } catch (_) {}
+    }
+
+    window.__sfTracePlayback = tracePlayback;
+    window.__sfClearPlaybackTrace = clearPlaybackTrace;
+    window.__sfGetPlaybackTrace = function(limit) {
+        const trace = (window.__sfPlaybackTrace || readPlaybackTrace()).slice();
+        const max = Number(limit) > 0 ? Math.min(Number(limit), PLAYBACK_TRACE_LIMIT) : PLAYBACK_TRACE_LIMIT;
+        return trace.slice(Math.max(0, trace.length - max));
+    };
+
+    // Record DOM activations that can change the track, so a field report shows
+    // whether the change came from the app or from Spotify's own player.
+    try {
+        document.addEventListener('click', function(event) {
+            const target = event && event.target;
+            if (!target || typeof target.closest !== 'function') return;
+            try {
+                const skip = target.closest('[data-testid="control-button-skip-forward"], [data-testid="control-button-skip-back"]');
+                if (skip) {
+                    tracePlayback('dom-skip', String(skip.getAttribute('data-testid') || ''));
+                    return;
+                }
+                if (!window.__sfUserRequestedPause) return;
+                const row = target.closest('[data-testid="tracklist-row"]');
+                if (row) tracePlayback('dom-track-row-while-paused', String(row.innerText || '').slice(0, 24));
+            } catch (_) {}
+        }, true);
+    } catch (_) {}
+
+    // ---- Sticky pause hold -------------------------------------------------
+    // After an explicit pause the player is watched for a short while. If
+    // playback restarts without a user play request (native timer, media
+    // session echo, Spotify autoplay/queue logic), the pause is re-applied at
+    // once instead of letting the next track play. Any explicit play or skip
+    // request ends the hold immediately.
+    const PAUSE_HOLD_MS = 20000;
+    const PAUSE_HOLD_SETTLE_MS = 1200;
+    const PAUSE_HOLD_TICK_MS = 300;
+    const PAUSE_HOLD_MAX_REAPPLIES = 2;
+    const PAUSE_HOLD_REAPPLY_GAP_MS = 2000;
+    let pauseHoldTimer = null;
+    let pauseHoldSince = 0;
+    let pauseHoldUntil = 0;
+    let pauseHoldReapplies = 0;
+    let pauseHoldLastReapplyAt = 0;
+
+    function endPauseHold() {
+        if (pauseHoldTimer) {
+            try {
+                window.clearInterval(pauseHoldTimer);
+            } catch (_) {}
+            pauseHoldTimer = null;
+        }
+        pauseHoldUntil = 0;
+    }
+
+    function pauseHoldTick() {
+        if (!window.__sfUserRequestedPause) {
+            endPauseHold();
+            return;
+        }
+        const now = Date.now();
+        if (now > pauseHoldUntil || pauseHoldReapplies >= PAUSE_HOLD_MAX_REAPPLIES) {
+            endPauseHold();
+            return;
+        }
+        if (now - pauseHoldSince < PAUSE_HOLD_SETTLE_MS) return;
+        if (now - pauseHoldLastReapplyAt < PAUSE_HOLD_REAPPLY_GAP_MS) return;
+        if (window.__sfLastPlayRequestAt && now - window.__sfLastPlayRequestAt < PAUSE_HOLD_SETTLE_MS) return;
+
+        // Two independent signals are required before touching the player: the
+        // playhead must really be moving AND the player must label itself as
+        // playing. A pause that is still settling (fading out while the label
+        // already says "Play") is therefore never toggled back on.
+        const pb = getPlayPauseButton();
+        if (!pb || typeof pb.click !== 'function') return;
+        if (isPlayPauseLabelPlaying(pb) !== true) return;
+        if (!isAudiblePlaybackAdvancing()) return;
+
+        try {
+            pb.click();
+        } catch (_) {
+            return;
+        }
+        pauseHoldReapplies += 1;
+        pauseHoldLastReapplyAt = now;
+        lastAudibleTime = -1;
+        window.__sfPauseHoldReapplies = (window.__sfPauseHoldReapplies || 0) + 1;
+        tracePlayback('pause-hold-reapply', 'unexpected-resume');
+    }
+
+    function startPauseHold(source) {
+        pauseHoldSince = Date.now();
+        pauseHoldUntil = pauseHoldSince + PAUSE_HOLD_MS;
+        pauseHoldReapplies = 0;
+        pauseHoldLastReapplyAt = 0;
+        lastAudibleTime = -1;
+        tracePlayback('pause-hold-start', source);
+        if (pauseHoldTimer) {
+            try {
+                window.clearInterval(pauseHoldTimer);
+            } catch (_) {}
+        }
+        pauseHoldTimer = window.setInterval(pauseHoldTick, PAUSE_HOLD_TICK_MS);
+    }
+
     function markUserPlaybackIntent(playing) {
-        window.__sfUserRequestedPause = !playing;
-        reqPause = !playing;
-        if (playing) {
+        const paused = !playing;
+        window.__sfUserRequestedPause = paused;
+        reqPause = paused;
+        if (paused) {
+            window.__sfUserPausedAt = Date.now();
+            startPauseHold('mark');
+        } else {
             ulFlag = false;
             window.__sfLastPlayRequestAt = Date.now();
+            endPauseHold();
         }
     }
     window.__sfMarkUserPlaybackIntent = markUserPlaybackIntent;
     window.__sfIsUserPaused = function() {
         return Boolean(window.__sfUserRequestedPause);
     };
+    window.__sfEndPauseHold = endPauseHold;
     // <<< sf-pause-intent
     let pfint = null;
     let afint = null;
@@ -1222,6 +1416,7 @@
     window.playFromUri = function(uri, contextUri) {
         if (!uri) return;
         // An explicit play request always wins over a previous pause.
+        tracePlayback('play-from-uri', /^spotify:track:/i.test(String(uri)) ? 'track' : 'context');
         markUserPlaybackIntent(true);
 
         if (uri && (uri.startsWith('http://') || uri.startsWith('https://'))) {
@@ -1602,6 +1797,7 @@
                 pb.classList.add('fuckd');
                 window.pBtn = pb;
                 window.pBtn.addEventListener('click', () => {
+                    tracePlayback('dom-playpause-click', /paus/i.test(window.pBtn.getAttribute('aria-label') || '') ? 'pause' : 'play');
                     if (/paus/i.test(window.pBtn.getAttribute('aria-label') || '')) {
                         markUserPlaybackIntent(false);
                         reqPause = true;
@@ -1652,6 +1848,7 @@
 
     window.manageAll = function(play) {
         window.playing = play;
+        tracePlayback(play ? 'manage-all-play' : 'manage-all-pause');
         if (play) markUserPlaybackIntent(true);
         AndBridge.manageTShut(!play);
         AndBridge.manageTSleep(play);
@@ -1717,6 +1914,7 @@
         target = Boolean(target);
 
         // Record the intent before clicking so no helper can undo the pause.
+        tracePlayback(target ? 'act-play' : 'act-pause', currentlyPlaying ? 'was-playing' : 'was-paused');
         markUserPlaybackIntent(target);
 
         // Only click when the player is not already in the requested state; a
@@ -1731,6 +1929,9 @@
             e.preventDefault();
             e.stopPropagation();
         }
+        // A skip is an explicit user request: stop watching for unwanted resumes.
+        endPauseHold();
+        tracePlayback('act-skip-back');
         if (window.Melodix && window.Melodix.Platform && window.Melodix.Platform.PlayerAPI) {
             manageWake(true);
             window.Melodix.Platform.PlayerAPI.previous();
@@ -1748,6 +1949,9 @@
             e.preventDefault();
             e.stopPropagation();
         }
+        // A skip is an explicit user request: stop watching for unwanted resumes.
+        endPauseHold();
+        tracePlayback('act-skip-forward');
         if (window.Melodix && window.Melodix.Platform && window.Melodix.Platform.PlayerAPI) {
             manageWake(true);
             window.Melodix.Platform.PlayerAPI.next();
@@ -2122,6 +2326,13 @@
                 window.track = (ta.textContent || ta.innerText || '').trim();
             } else {
                 window.track = null;
+            }
+
+            if (window.track !== window.__sfLastTrackTitle) {
+                if (window.__sfLastTrackTitle !== undefined) {
+                    tracePlayback('track-change', window.__sfUserRequestedPause ? 'while-user-paused' : 'while-playing');
+                }
+                window.__sfLastTrackTitle = window.track;
             }
 
             let aa = document.querySelector('a[data-testid=context-item-info-artist]') || document.querySelector('a[data-testid=context-item-info-show]');

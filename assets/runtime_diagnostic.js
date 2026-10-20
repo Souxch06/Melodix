@@ -150,6 +150,17 @@
           : null
       },
       selectors: presence,
+      playback: {
+        userPaused: typeof window.__sfIsUserPaused === 'function'
+          ? Boolean(window.__sfIsUserPaused())
+          : null,
+        pauseHoldReapplies: Number.isInteger(window.__sfPauseHoldReapplies)
+          ? window.__sfPauseHoldReapplies
+          : 0,
+        trace: typeof window.__sfGetPlaybackTrace === 'function'
+          ? window.__sfGetPlaybackTrace(40)
+          : null
+      },
       guiMode: window.SF_CONFIG ? window.SF_CONFIG.guiMode : null,
       touchInput: window.SF_CONFIG && typeof window.SF_CONFIG.touchInput === 'boolean'
         ? window.SF_CONFIG.touchInput

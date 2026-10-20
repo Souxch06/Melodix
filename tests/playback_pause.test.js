@@ -42,6 +42,7 @@ function sliceFunction(source, signature) {
 
 function buildPlayPauseHarness(options = {}) {
     const clicks = [];
+    const timers = [];
     const button = {
         label: options.label || 'Pause',
         getAttribute(name) {
@@ -54,26 +55,69 @@ function buildPlayPauseHarness(options = {}) {
     };
 
     const document = {
+        visibilityState: options.visibilityState || 'visible',
         querySelector(selector) {
             return String(selector).includes('control-button-playpause') ? button : null;
         },
         querySelectorAll() {
             return options.media || [];
+        },
+        addEventListener() {}
+    };
+
+    const storage = new Map();
+    const window = {
+        playing: options.playing === undefined ? true : options.playing,
+        track: options.track || 'Track A',
+        localStorage: {
+            getItem(key) {
+                return storage.has(key) ? storage.get(key) : null;
+            },
+            setItem(key, value) {
+                storage.set(key, String(value));
+            },
+            removeItem(key) {
+                storage.delete(key);
+            }
+        },
+        setInterval(fn, ms) {
+            timers.push({ fn, ms });
+            return timers.length;
+        },
+        clearInterval() {},
+        setTimeout(fn) {
+            timers.push({ fn, ms: 0, once: true });
+            return timers.length;
         }
     };
 
-    const window = {
-        playing: options.playing === undefined ? true : options.playing
+    const media = options.media || [];
+    const clock = { now: 1000000 };
+    const dateStub = { now: () => clock.now };
+    const sandbox = {
+        window, document, console, Date: dateStub, Number, String, Boolean, Array, Math, JSON
     };
-
-    const sandbox = { window, document, console, Date };
     vm.createContext(sandbox);
 
     const helpers = sliceBetween(bridge, '// >>> sf-pause-intent', '// <<< sf-pause-intent');
     const actPlayPause = sliceFunction(bridge, 'window.actPlayPause = function');
-    vm.runInContext(`let reqPause = false;\nlet ulFlag = false;\n${helpers}\n${actPlayPause}`, sandbox);
+    const skipForward = sliceFunction(bridge, 'window.actSkipForward = function');
+    const skipBack = sliceFunction(bridge, 'window.actSkipBack = function');
+    vm.runInContext(
+        `let reqPause = false;\nlet ulFlag = false;\n${helpers}\n${actPlayPause}\n${skipForward}\n${skipBack}`,
+        sandbox
+    );
 
-    return { window, button, clicks, sandbox };
+    const runPauseHold = (rounds = 2) => {
+        const hold = timers.filter((timer) => timer.ms === 300).pop();
+        assert.ok(hold, 'the pause hold should be armed');
+        for (let i = 0; i < rounds; i += 1) {
+            clock.now += 500;
+            hold.fn();
+        }
+    };
+
+    return { window, button, clicks, sandbox, media, timers, storage, clock, runPauseHold };
 }
 
 test('pausing from the native shell records an explicit pause intent and clicks once', () => {
@@ -163,4 +207,91 @@ test('the native play/pause button asks for an explicit state instead of togglin
     assert.match(method, /__sfMarkUserPlaybackIntent/);
     assert.match(method, /actPlayPause\(!s\)/);
     assert.doesNotMatch(method, /window\.actPlayPause\(\);return;/);
+});
+
+test('the pause hold re-applies the pause when playback restarts on its own', () => {
+    const media = { tagName: 'AUDIO', paused: true, ended: false, currentTime: 42, muted: false, src: 'https://p.scdn.co/track.ogg' };
+    const harness = buildPlayPauseHarness({ label: 'Pause', playing: true, media: [media] });
+
+    harness.window.actPlayPause(false);
+    assert.equal(harness.clicks.length, 1);
+    assert.equal(harness.button.label, 'Play');
+
+    // Something (Spotify autoplay, a stale native timer...) starts the player
+    // again without any user play request.
+    harness.button.label = 'Pause';
+    media.paused = false;
+    harness.runPauseHold(3);
+    media.currentTime += 1;
+    harness.runPauseHold(1);
+
+    assert.equal(harness.clicks.length, 2, 'the unwanted resume must be paused again');
+    assert.equal(harness.button.label, 'Play');
+    assert.equal(harness.window.__sfPauseHoldReapplies, 1);
+    assert.equal(harness.window.__sfUserRequestedPause, true, 'the pause intent stays latched');
+});
+
+test('the pause hold never fights a user play request', () => {
+    const media = { tagName: 'AUDIO', paused: true, ended: false, currentTime: 10, muted: false, src: 'https://p.scdn.co/track.ogg' };
+    const harness = buildPlayPauseHarness({ label: 'Pause', playing: true, media: [media] });
+
+    harness.window.actPlayPause(false);
+    harness.window.actPlayPause(true);
+    assert.equal(harness.clicks.length, 2, 'pause then play');
+
+    media.paused = false;
+    media.currentTime += 5;
+    harness.runPauseHold(2);
+
+    assert.equal(harness.clicks.length, 2, 'the user resumed on purpose: no extra click');
+    assert.equal(harness.window.__sfPauseHoldReapplies || 0, 0);
+    assert.equal(harness.window.__sfUserRequestedPause, false);
+});
+
+test('a silent keep-alive media element cannot count as resumed playback', () => {
+    const silent = { tagName: 'AUDIO', paused: false, ended: false, currentTime: 1, muted: false, src: 'https://open.spotify.com/silent.mp3' };
+    const harness = buildPlayPauseHarness({ label: 'Pause', playing: true, media: [silent] });
+
+    harness.window.actPlayPause(false);
+    silent.currentTime += 3;
+    harness.runPauseHold(2);
+
+    assert.equal(harness.clicks.length, 1, 'the silent keep-alive must be ignored');
+});
+
+test('skipping while paused ends the pause hold instead of fighting it', () => {
+    const harness = buildPlayPauseHarness({ label: 'Pause', playing: true });
+
+    harness.window.actPlayPause(false);
+    assert.equal(harness.window.__sfUserRequestedPause, true);
+    assert.equal(typeof harness.window.__sfEndPauseHold, 'function');
+
+    assert.match(bridge, /window\.actSkipForward = function\(e\) \{[\s\S]{0,300}?endPauseHold\(\);/);
+    assert.match(bridge, /window\.actSkipBack = function\(e\) \{[\s\S]{0,300}?endPauseHold\(\);/);
+});
+
+test('playback events are traced for the preview diagnostic', () => {
+    const harness = buildPlayPauseHarness({ label: 'Pause', playing: true });
+
+    harness.window.actPlayPause(false);
+
+    const trace = harness.window.__sfGetPlaybackTrace();
+    assert.ok(Array.isArray(trace) && trace.length >= 2, 'the pause intent and the pause action are traced');
+    const events = trace.map((entry) => entry.event);
+    assert.ok(events.includes('act-pause'), 'the explicit pause is traced');
+    assert.ok(events.includes('pause-hold-start'), 'the pause hold start is traced');
+    assert.equal(typeof trace[trace.length - 1].at, 'number');
+    assert.equal(harness.storage.get('melodix_playback_trace_v1'), JSON.stringify(trace));
+});
+
+test('the transport controls expose thumb-sized touch targets', () => {
+    const layout = read('res/layout/activity_main.xml');
+
+    const miniPause = layout.match(/nativePlayPauseButton[\s\S]{0,700}?android:layout_width="(\d+)\.0dip"/);
+    assert.ok(miniPause, 'the mini player pause button must declare a width');
+    assert.ok(Number(miniPause[1]) >= 48, `mini pause target is ${miniPause[1]}dp, expected >= 48dp`);
+
+    const largePause = layout.match(/nativePlayerLargePlayPauseButton[\s\S]{0,700}?android:layout_width="(\d+)\.0dip"/);
+    assert.ok(largePause, 'the full player pause button must declare a width');
+    assert.ok(Number(largePause[1]) >= 56, `full pause target is ${largePause[1]}dp, expected >= 56dp`);
 });
