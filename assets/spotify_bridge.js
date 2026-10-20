@@ -3717,8 +3717,74 @@
         return button;
     }
 
+    function nativeSpotifyUri(value) {
+        const raw = String(value || '').trim();
+        if (!raw) return '';
+        if (/^spotify:/i.test(raw)) {
+            const parts = raw.slice(raw.indexOf(':') + 1).split(':').filter(Boolean);
+            const supportedTypes = ['playlist', 'album', 'artist', 'track', 'show', 'episode'];
+            const typeIndex = parts.findIndex((part) => supportedTypes.includes(part.toLowerCase()));
+            if (typeIndex >= 0 && parts[typeIndex + 1]) {
+                return `spotify:${parts[typeIndex].toLowerCase()}:${parts[typeIndex + 1]}`;
+            }
+            return raw;
+        }
+        try {
+            const url = new URL(raw, window.location.href);
+            if (url.hostname !== 'open.spotify.com') return raw;
+            const parts = url.pathname.split('/').filter(Boolean);
+            const supportedTypes = ['playlist', 'album', 'artist', 'track', 'show', 'episode'];
+            const typeIndex = parts.findIndex((part) => supportedTypes.includes(part.toLowerCase()));
+            if (typeIndex >= 0 && parts[typeIndex + 1]) {
+                return `spotify:${parts[typeIndex].toLowerCase()}:${parts[typeIndex + 1]}`;
+            }
+        } catch (_) {}
+        return raw;
+    }
+
+    function sendNativeUiRows(screen, items) {
+        const bridge = window.AndBridge;
+        if (!bridge || typeof bridge.onNativeUiData !== 'function') return false;
+        const rows = (Array.isArray(items) ? items : []).map((item) => {
+            const title = String(item?.title || item?.name || item?.label || '').trim();
+            const subtitle = String(item?.subtitle || item?.artist || item?.description || '').trim();
+            const rawUri = item?.uri || item?.id || item?.href || '';
+            return { title, subtitle, uri: nativeSpotifyUri(rawUri) };
+        }).filter((item) => item.title || item.uri);
+        try {
+            window.AndBridge.onNativeUiData(screen, JSON.stringify(rows));
+            return true;
+        } catch (_) {
+            return false;
+        }
+    }
+
+    function notifyNativeUiReady(mainView) {
+        const bridge = window.AndBridge;
+        const userWidget = document.querySelector('button[data-testid="user-widget-link"], a[data-testid="user-widget-link"]');
+        if (!mainView || window.location.hostname !== 'open.spotify.com' || window.__sfNativeUiReadyNotified) return;
+        if (!userWidget) {
+            if (!window._sfNativeUiReadyRetryTimer && (window._sfNativeUiReadyRetries || 0) < 60) {
+                window._sfNativeUiReadyRetries = (window._sfNativeUiReadyRetries || 0) + 1;
+                window._sfNativeUiReadyRetryTimer = window.setTimeout(() => {
+                    window._sfNativeUiReadyRetryTimer = null;
+                    updateMelodixHome();
+                }, 500);
+            }
+            return;
+        }
+        if (!bridge || typeof bridge.onNativeUiReady !== 'function') return;
+        try {
+            window.AndBridge.onNativeUiReady();
+            window.__sfNativeUiReadyNotified = true;
+            window._sfNativeUiReadyRetries = 0;
+        } catch (_) {}
+    }
+
     function updateMelodixHome() {
         if (!document.body) return;
+        const mainView = document.querySelector('#main-view');
+        if (mainView) notifyNativeUiReady(mainView);
         const homePath = window.location.pathname.replace(/\/+$/, '') || '/';
         const isSpotifyHome = window.location.hostname === 'open.spotify.com' &&
             (homePath === '/' || homePath === '/home');
@@ -3736,7 +3802,6 @@
             return;
         }
 
-        const mainView = document.querySelector('#main-view');
         if (!mainView) {
             deactivateMelodixHome(true);
             observeMelodixHomeDocument();
@@ -3745,6 +3810,15 @@
         observeMelodixHomeView(mainView);
 
         const sections = collectMelodixHomeSections(mainView);
+        const nativeHomeRows = sections.flatMap((section) => section.cards.map((card) => ({
+            title: card.title,
+            subtitle: [section.title, card.subtitle].filter(Boolean).join(' · '),
+            uri: card.href
+        })));
+        const nativeHomeSignature = JSON.stringify(nativeHomeRows);
+        if (window._sfNativeHomeSignature !== nativeHomeSignature && sendNativeUiRows('home', nativeHomeRows)) {
+            window._sfNativeHomeSignature = nativeHomeSignature;
+        }
         const itemCount = sections.reduce((count, section) => count + section.cards.length, 0);
         if (itemCount < 2) {
             deactivateMelodixHome(false);
@@ -3819,6 +3893,40 @@
         observeMelodixHomeDocument();
         scheduleMelodixHomeUpdate();
     }
+
+    window.__sfNativeRequestHome = function() {
+        if (window.location.hostname !== 'open.spotify.com') return false;
+        const homePath = window.location.pathname.replace(/\/+$/, '') || '/';
+        if (homePath !== '/' && homePath !== '/home') {
+            window.location.assign('https://open.spotify.com/');
+            return false;
+        }
+        window._sfNativeHomeSignature = null;
+        scheduleMelodixHomeUpdate();
+        return true;
+    };
+
+    window.__sfNativeOpenUri = function(value) {
+        const raw = String(value || '').trim();
+        if (!raw) return false;
+        const normalized = nativeSpotifyUri(raw);
+        let target = normalized;
+        if (/^spotify:/i.test(normalized)) {
+            const parts = normalized.slice(normalized.indexOf(':') + 1).split(':');
+            if (parts.length < 2) return false;
+            target = `https://open.spotify.com/${parts[0]}/${parts[1]}`;
+        } else {
+            try {
+                const url = new URL(normalized, window.location.href);
+                if (url.hostname !== 'open.spotify.com') return false;
+                target = url.href;
+            } catch (_) {
+                return false;
+            }
+        }
+        window.location.assign(target);
+        return true;
+    };
 
     function initializeMobileShell() {
         window.__sfMelodixMobileShellInitAttempted = true;

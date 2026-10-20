@@ -2027,6 +2027,27 @@
     <public type="id" name="withinBounds" id="0x7f09022c" />
     <public type="id" name="wrap" id="0x7f09022d" />
     <public type="id" name="wrap_content" id="0x7f09022e" />
+    <public type="id" name="nativeRoot" id="0x7f09022f" />
+    <public type="id" name="nativeScreenTitle" id="0x7f090230" />
+    <public type="id" name="nativeBackButton" id="0x7f090231" />
+    <public type="id" name="nativeSearchPanel" id="0x7f090232" />
+    <public type="id" name="nativeSearchInput" id="0x7f090233" />
+    <public type="id" name="nativeLibraryCategories" id="0x7f090234" />
+    <public type="id" name="nativeContent" id="0x7f090235" />
+    <public type="id" name="nativePlayerTitle" id="0x7f090236" />
+    <public type="id" name="nativePlayerArtist" id="0x7f090237" />
+    <public type="id" name="nativePlayPauseButton" id="0x7f090238" />
+    <public type="id" name="nativeRowsScroll" id="0x7f090239" />
+    <public type="id" name="nativePlayerPanel" id="0x7f09023a" />
+    <public type="id" name="nativePlayerLargeTitle" id="0x7f09023b" />
+    <public type="id" name="nativePlayerLargeArtist" id="0x7f09023c" />
+    <public type="id" name="nativePlayerProgress" id="0x7f09023d" />
+    <public type="id" name="nativePlayerLargePlayPauseButton" id="0x7f09023e" />
+    <public type="id" name="nativePlayerPreviousButton" id="0x7f09023f" />
+    <public type="id" name="nativePlayerNextButton" id="0x7f090240" />
+    <public type="id" name="nativePlayerShuffleButton" id="0x7f090241" />
+    <public type="id" name="nativePlayerRepeatButton" id="0x7f090242" />
+    <public type="id" name="nativeMiniPlayer" id="0x7f090243" />
     <public type="integer" name="abc_config_activityDefaultDur" id="0x7f0a0000" />
     <public type="integer" name="abc_config_activityShortDur" id="0x7f0a0001" />
     <public type="integer" name="app_bar_elevation_anim_duration" id="0x7f0a0002" />

@@ -31,6 +31,47 @@
 
 
 # virtual methods
+.method private final dispatchNativeUi(Ljava/lang/String;Ljava/lang/String;)V
+    .locals 3
+
+    sget-object v0, Lcom/melodix/music/AppSingleton;->t:Ljava/lang/ref/WeakReference;
+    if-eqz v0, :native_dispatch_done
+    invoke-virtual {v0}, Ljava/lang/ref/Reference;->get()Ljava/lang/Object;
+    move-result-object v1
+    check-cast v1, Lcom/melodix/music/MainActivity;
+    if-eqz v1, :native_dispatch_done
+    invoke-virtual {v1, p1, p2}, Lcom/melodix/music/MainActivity;->postNativeUiData(Ljava/lang/String;Ljava/lang/String;)V
+
+    :native_dispatch_done
+    return-void
+.end method
+
+.method public final onNativeUiReady()V
+    .locals 2
+    .annotation runtime Landroid/webkit/JavascriptInterface;
+    .end annotation
+
+    sget-object v0, Lcom/melodix/music/AppSingleton;->t:Ljava/lang/ref/WeakReference;
+    if-eqz v0, :native_ready_done
+    invoke-virtual {v0}, Ljava/lang/ref/Reference;->get()Ljava/lang/Object;
+    move-result-object v1
+    check-cast v1, Lcom/melodix/music/MainActivity;
+    if-eqz v1, :native_ready_done
+    invoke-virtual {v1}, Lcom/melodix/music/MainActivity;->postNativeUiReady()V
+
+    :native_ready_done
+    return-void
+.end method
+
+.method public final onNativeUiData(Ljava/lang/String;Ljava/lang/String;)V
+    .locals 0
+    .annotation runtime Landroid/webkit/JavascriptInterface;
+    .end annotation
+
+    invoke-direct {p0, p1, p2}, Lcom/melodix/music/AndBridge;->dispatchNativeUi(Ljava/lang/String;Ljava/lang/String;)V
+    return-void
+.end method
+
 .method public final cssInjected()V
     .locals 0
     .annotation runtime Landroid/webkit/JavascriptInterface;
@@ -2011,6 +2052,15 @@
     .line 6
     invoke-virtual {v0}, Ljava/lang/Object;->getClass()Ljava/lang/Class;
 
+    const-string v1, "media:"
+    move-object/from16 v2, p1
+    invoke-virtual {v1, v2}, Ljava/lang/String;->concat(Ljava/lang/String;)Ljava/lang/String;
+    move-result-object v1
+    move-object/from16 v3, p0
+    move-object/from16 v4, p2
+    invoke-direct {v3, v1, v4}, Lcom/melodix/music/AndBridge;->dispatchNativeUi(Ljava/lang/String;Ljava/lang/String;)V
+    move-object/from16 v0, p2
+
     .line 7
     .line 8
     .line 9
@@ -2537,6 +2587,15 @@
     .line 5
     .line 6
     invoke-virtual {v0}, Ljava/lang/Object;->getClass()Ljava/lang/Class;
+
+    const-string v1, "search:"
+    move-object/from16 v2, p1
+    invoke-virtual {v1, v2}, Ljava/lang/String;->concat(Ljava/lang/String;)Ljava/lang/String;
+    move-result-object v1
+    move-object/from16 v4, p0
+    move-object/from16 v5, p2
+    invoke-direct {v4, v1, v5}, Lcom/melodix/music/AndBridge;->dispatchNativeUi(Ljava/lang/String;Ljava/lang/String;)V
+    move-object/from16 v0, p2
 
     .line 7
     .line 8
@@ -3971,6 +4030,9 @@
 
     .line 1
     invoke-virtual {p1}, Ljava/lang/Object;->getClass()Ljava/lang/Class;
+
+    const-string v0, "player"
+    invoke-direct {p0, v0, p1}, Lcom/melodix/music/AndBridge;->dispatchNativeUi(Ljava/lang/String;Ljava/lang/String;)V
 
     .line 2
     .line 3

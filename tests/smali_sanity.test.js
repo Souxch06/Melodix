@@ -10,6 +10,8 @@ const smaliFiles = [
     'smali/com/melodix/music/AndBridge.smali',
     'smali/com/melodix/music/AppSingleton.smali',
     'smali/com/melodix/music/MainActivity.smali',
+    'smali/com/melodix/music/NativeUiUpdateRunnable.smali',
+    'smali/com/melodix/music/NativeRowClickListener.smali',
     'smali/com/melodix/music/StartupLoadWatchdog.smali',
     'smali/com/melodix/music/RuntimeDiagnostic.smali',
     'smali/com/melodix/music/RuntimeDiagnostic$Callback.smali',
@@ -100,6 +102,10 @@ test('modified Smali files have balanced methods and resolvable direct branch la
 
 const diagnosticSmaliFiles = [
     'smali/c91.smali',
+    'smali/com/melodix/music/AndBridge.smali',
+    'smali/com/melodix/music/MainActivity.smali',
+    'smali/com/melodix/music/NativeUiUpdateRunnable.smali',
+    'smali/com/melodix/music/NativeRowClickListener.smali',
     'smali/com/melodix/music/StartupLoadWatchdog.smali',
     'smali/com/melodix/music/RuntimeDiagnostic.smali',
     'smali/com/melodix/music/RuntimeDiagnostic$Callback.smali',
