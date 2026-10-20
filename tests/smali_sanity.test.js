@@ -21,6 +21,7 @@ const smaliFiles = [
     'smali/com/melodix/music/NativeLogoutRunnable.smali',
     'smali/com/melodix/music/StartupLoadWatchdog.smali',
     'smali/com/melodix/music/NativeAssetRunner.smali',
+    'smali/com/melodix/music/NativeCrashGuard.smali',
     'smali/com/melodix/music/NativeHomeShelfRenderer.smali',
     'smali/com/melodix/music/RuntimeDiagnostic.smali',
     'smali/com/melodix/music/RuntimeDiagnostic$Callback.smali',
@@ -380,4 +381,35 @@ test('returning from background rearms recovery and restores a completed WebView
     assert.match(watchdog, /\.method public static armAfterResume\(Landroid\/webkit\/WebView;\)V[\s\S]*?const-wide\/16 v2, 0x1f40/);
     assert.match(watchdog, /WebView;->getProgress\(\)I[\s\S]*?Lzk0;-><init>\(Lcom\/melodix\/music\/MainActivity;ZI\)V[\s\S]*?MainActivity;->D\(Z\)V/);
     assert.match(onResume[1], /window\.__sfEnsureMobileShell\) window\.__sfEnsureMobileShell\(\)/);
+});
+
+test('the crash guard is installed before the layout is inflated', () => {
+    const guard = fs.readFileSync(path.join(repo, 'smali/com/melodix/music/NativeCrashGuard.smali'), 'utf8');
+    const activity = fs.readFileSync(path.join(repo, 'smali/com/melodix/music/MainActivity.smali'), 'utf8');
+    const app = fs.readFileSync(path.join(repo, 'smali/com/melodix/music/AppSingleton.smali'), 'utf8');
+    const onCreate = activity.match(/\.method public final onCreate\(Landroid\/os\/Bundle;\)V([\s\S]*?)\.end method/);
+
+    assert.ok(onCreate, 'Activity create callback should exist');
+    assert.match(
+        onCreate[1],
+        /NativeCrashGuard;->install\(Landroid\/content\/Context;\)V[\s\S]*?NativeCrashGuard;->showLastReport\(Landroid\/app\/Activity;\)Z[\s\S]*?Le6;->setContentView\(I\)V/,
+        'the previous crash report must be shown before the shell layout is inflated'
+    );
+    assert.match(app, /invoke-super \{p0\}, Landroid\/app\/Application;->onCreate\(\)V[\s\S]*?NativeCrashGuard;->install\(Landroid\/content\/Context;\)V/);
+    assert.match(guard, /\.implements Ljava\/lang\/Thread\$UncaughtExceptionHandler;/);
+    assert.match(guard, /putString\(Ljava\/lang\/String;Ljava\/lang\/String;\)Landroid\/content\/SharedPreferences\$Editor;/);
+    assert.doesNotMatch(
+        guard,
+        /\.field[^\n]*:[ZBSCIJFD];/,
+        'a primitive field descriptor must not end with a semicolon: smali refuses to assemble it'
+    );
+});
+
+test('a failing native render is recorded instead of killing the process', () => {
+    const runnable = fs.readFileSync(path.join(repo, 'smali/com/melodix/music/NativeUiUpdateRunnable.smali'), 'utf8');
+    const run = runnable.match(/\.method public final run\(\)V([\s\S]*?)\.end method/);
+
+    assert.ok(run, 'runnable entry point should exist');
+    assert.match(run[1], /\.catch Ljava\/lang\/Throwable; \{:try_start_0 \.\. :try_end_0\} :catch_0/);
+    assert.match(run[1], /:catch_0\s+move-exception v0[\s\S]*?NativeCrashGuard;->record\(Ljava\/lang\/Throwable;\)V/);
 });
