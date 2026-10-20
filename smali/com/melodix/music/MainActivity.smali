@@ -77,6 +77,10 @@
 # True once Spotify reports a track: the mini player card stays hidden until
 # then instead of showing an empty "Aucune lecture en cours" bar everywhere.
 .field private nativeHasTrack:Z
+
+# Set by setNativeScreen: only a real screen change gets the fade, so the 1 s
+# player feed cannot retrigger the animation.
+.field private nativeFadeNextScreen:Z
 .field private nativeCurrentTitle:Ljava/lang/String;
 .field private nativeCurrentJson:Ljava/lang/String;
 .field private nativeExpectedId:Ljava/lang/String;
@@ -6786,6 +6790,25 @@
 .method public final setNativeScreen(Ljava/lang/String;)V
     .locals 7
 
+    # Compare with the previous destination before overwriting it: a nav tap
+    # fades the shell in, a repeated feed update does not.
+    const/4 v0, 0x1
+
+    iget-object v1, p0, Lcom/melodix/music/MainActivity;->nativeCurrentScreen:Ljava/lang/String;
+
+    if-nez v1, :native_fade_flag
+
+    invoke-virtual {v1, p1}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+
+    move-result v1
+
+    if-nez v1, :native_fade_flag
+
+    const/4 v0, 0x0
+
+    :native_fade_flag
+    iput-boolean v0, p0, Lcom/melodix/music/MainActivity;->nativeFadeNextScreen:Z
+
     iput-object p1, p0, Lcom/melodix/music/MainActivity;->nativeCurrentScreen:Ljava/lang/String;
 
     const-string v0, "search"
@@ -6974,6 +6997,18 @@
     const-string v3, "library"
     const v2, 0x7f090248
     invoke-virtual {p0, p1, v3, v2}, Lcom/melodix/music/MainActivity;->styleNativeTab(Ljava/lang/String;Ljava/lang/String;I)V
+
+    iget-boolean v0, p0, Lcom/melodix/music/MainActivity;->nativeFadeNextScreen:Z
+
+    if-eqz v0, :native_fade_done
+
+    const/4 v0, 0x0
+
+    iput-boolean v0, p0, Lcom/melodix/music/MainActivity;->nativeFadeNextScreen:Z
+
+    invoke-static {p0}, Lcom/melodix/music/MainActivity;->fadeNativeScreen(Lcom/melodix/music/MainActivity;)V
+
+    :native_fade_done
     return-void
 .end method
 
@@ -6986,7 +7021,6 @@
     move-result-object v1
     if-eqz v1, :native_tab_style_done
     check-cast v1, Landroid/widget/TextView;
-    const/4 v3, 0x0
     if-eqz v0, :native_tab_inactive
     const v2, -0x1
     const v4, 0xff1ed760
@@ -6998,20 +7032,53 @@
     goto :native_tab_apply
 
     :native_tab_highlight
-    # No heavy pill behind the active tab: Spotify only brightens the icon and
-    # keeps the label white.
-    const/4 v3, 0x0
 
     :native_tab_apply
     invoke-virtual {v1, v2}, Landroid/widget/TextView;->setTextColor(I)V
-    invoke-static {v3}, Landroid/content/res/ColorStateList;->valueOf(I)Landroid/content/res/ColorStateList;
-    move-result-object v3
-    invoke-virtual {v1, v3}, Landroid/view/View;->setBackgroundTintList(Landroid/content/res/ColorStateList;)V
+    # The tab background is a ripple drawable; tinting it transparent (as the
+    # old code did) also removed every press feedback.
     invoke-static {v4}, Landroid/content/res/ColorStateList;->valueOf(I)Landroid/content/res/ColorStateList;
     move-result-object v4
     invoke-virtual {v1, v4}, Landroid/widget/TextView;->setCompoundDrawableTintList(Landroid/content/res/ColorStateList;)V
 
     :native_tab_style_done
+    return-void
+.end method
+
+.method private static fadeNativeScreen(Lcom/melodix/music/MainActivity;)V
+    .locals 4
+
+    const v0, 0x7f09022f
+
+    invoke-virtual {p0, v0}, Landroid/app/Activity;->findViewById(I)Landroid/view/View;
+
+    move-result-object v0
+
+    if-nez v0, :fade_done
+
+    # Start half transparent: even if a newer animation cancels this one the
+    # content can never be left invisible, unlike an alpha-0 start.
+    const/high16 v1, 0x3f000000
+
+    invoke-virtual {v0, v1}, Landroid/view/View;->setAlpha(F)V
+
+    invoke-virtual {v0}, Landroid/view/View;->animate()Landroid/view/ViewPropertyAnimator;
+
+    move-result-object v1
+
+    const/high16 v2, 0x3f800000
+
+    invoke-virtual {v1, v2}, Landroid/view/ViewPropertyAnimator;->alpha(F)Landroid/view/ViewPropertyAnimator;
+
+    const-wide/16 v2, 0xb4
+
+    invoke-virtual {v1, v2, v3}, Landroid/view/ViewPropertyAnimator;->setDuration(J)Landroid/view/ViewPropertyAnimator;
+
+    move-result-object v1
+
+    invoke-virtual {v1}, Landroid/view/ViewPropertyAnimator;->start()V
+
+    :fade_done
     return-void
 .end method
 

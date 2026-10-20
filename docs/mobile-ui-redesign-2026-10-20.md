@@ -165,3 +165,41 @@ libère le verrou ; une reprise automatique de Spotify est immédiatement re-mis
 - Onglets : pastille verte supprimée, icône verte + libellé blanc sur l'onglet actif.
 - Écrans vides : « Chargement de votre accueil… », « Chargement de la playlist… »,
   « Chargement de votre bibliothèque… » et le message de recherche.
+
+## Passe du 2026-10-20 (retours au toucher, grille d'accueil, transitions)
+
+Cette passe ne touche ni au pont de lecture ni aux conditions `if-eqz` / `if-nez`
+réparées juste avant : elle ne fait qu'ajouter du rendu.
+
+- **Grille « Récents » sur l'accueil.** `NativeHomeShelfRenderer.renderQuickGrid`
+  affiche jusqu'à six tuiles (pochette 56 dp + titre deux lignes, fond `#ff2a2a2a`,
+  rayon 6 dp) sur deux colonnes, avec les mêmes gouttières de 16 dp que les
+  étagères, avant le premier titre de section. Une grille demande au moins deux
+  éléments et n'apparaît pas quand le payload est vide. Chaque tuile est
+  cliquable via `NativeRowClickListener` (pochette, titre et URI).
+- **Retours au toucher.** Trois drawables *ripple* (`native_row_ripple` 8 dp,
+  `native_card_ripple` 12 dp, `native_tab_ripple` 16 dp, `native_quick_tile`
+  6 dp, `native_mini_row_ripple` 12 dp) sont posés sur les lignes de liste
+  (`NativeUiRowFactory.create`), les cartes d'étagère, la mini-carte, les
+  tuiles de la grille et les onglets. Le fond des onglets n'est plus teinté en
+  transparent : l'ancien `setBackgroundTintList(0)` supprimait aussi le ripple.
+- **Transition d'écran.** `setNativeScreen` compare la destination à
+  `nativeCurrentScreen` avant de l'écraser et pose `nativeFadeNextScreen` ;
+  `fadeNativeScreen` relance alors une alpha 0,5 → 1 en 180 ms sur la racine
+  `0x7f09022f`. Le flux « lecteur » qui republie son état chaque seconde ne
+  déclenche donc aucune animation. Départ à 0,5 et non à 0 : une animation
+  annulée ne peut jamais laisser l'écran invisible.
+- **En-tête.** Le caractère « ⚙ » est remplacé par un vecteur `native_nav_settings`
+  (20 dp), aligné dans le bouton rond de 40 dp.
+- **Vérifié, déjà correct :** `updateNativePlayer` affecte bien `v2` (titre) à
+  `0x7f090236`/`0x7f09023b` et `v3` (artiste) à `0x7f090237`/`0x7f09023c` ;
+  la barre d'état et la barre de navigation restent `@color/spotify_black` avec
+  icônes claires.
+
+### Limite de validation
+
+Aucun de ces changements n'a été vu sur un appareil : l'APK n'est pas
+téléchargeable dans l'atelier, la compilation et la vérification syntaxique
+Smali passent uniquement par la CI. Les contrôles statiques
+(`tests/smali_sanity.test.js`, `tests/native_ui.test.js`) couvrent les bornes de
+registres, les identifiants et la présence des appels.

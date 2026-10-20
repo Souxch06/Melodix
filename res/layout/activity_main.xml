@@ -134,13 +134,11 @@
                 android:layout_height="wrap_content"
                 android:layout_weight="1.0" />
             <TextView
-                android:text="⚙"
-                android:textSize="17.0sp"
-                android:textColor="#ffffffff"
                 android:gravity="center"
                 android:clickable="true"
                 android:focusable="true"
-                android:contentDescription="Settings"
+                android:contentDescription="Paramètres"
+                android:drawableTop="@drawable/native_nav_settings"
                 android:background="@drawable/native_button_dark"
                 android:onClick="onNativeSettingsClick"
                 android:layout_width="40.0dip"
@@ -367,6 +365,7 @@
             android:clickable="true"
             android:focusable="true"
             android:contentDescription="Ouvrir le lecteur"
+            android:background="@drawable/native_mini_row_ripple"
             android:onClick="onNativePlayerExpandClick"
             android:paddingLeft="10.0dip"
             android:paddingTop="8.0dip"
@@ -460,9 +459,9 @@
             android:paddingTop="6.0dip"
             android:layout_width="fill_parent"
             android:layout_height="68.0dip">
-            <TextView android:id="@id/nativeHomeTab" android:text="Accueil" android:textSize="11.5sp" android:textStyle="bold" android:textColor="#ffffffff" android:gravity="center" android:clickable="true" android:focusable="true" android:drawableTop="@drawable/native_nav_home" android:drawablePadding="3.0dip" android:background="@drawable/native_nav_item" android:paddingTop="6.0dip" android:paddingBottom="4.0dip" android:contentDescription="Home" android:onClick="onNativeHomeClick" android:layout_width="0.0dip" android:layout_height="62.0dip" android:layout_weight="1.0" />
-            <TextView android:id="@id/nativeSearchTab" android:text="Rechercher" android:textSize="11.5sp" android:textStyle="bold" android:textColor="#ff888888" android:gravity="center" android:clickable="true" android:focusable="true" android:drawableTop="@drawable/native_nav_search" android:drawablePadding="3.0dip" android:background="@drawable/native_nav_item" android:paddingTop="6.0dip" android:paddingBottom="4.0dip" android:contentDescription="Search" android:onClick="onNativeSearchClick" android:layout_width="0.0dip" android:layout_height="62.0dip" android:layout_weight="1.0" />
-            <TextView android:id="@id/nativeLibraryTab" android:text="Bibliothèque" android:textSize="11.5sp" android:textStyle="bold" android:textColor="#ff888888" android:gravity="center" android:clickable="true" android:focusable="true" android:drawableTop="@drawable/native_nav_library" android:drawablePadding="3.0dip" android:background="@drawable/native_nav_item" android:paddingTop="6.0dip" android:paddingBottom="4.0dip" android:contentDescription="Your Library" android:onClick="onNativeLibraryClick" android:layout_width="0.0dip" android:layout_height="62.0dip" android:layout_weight="1.0" />
+            <TextView android:id="@id/nativeHomeTab" android:text="Accueil" android:textSize="11.5sp" android:textStyle="bold" android:textColor="#ffffffff" android:gravity="center" android:clickable="true" android:focusable="true" android:drawableTop="@drawable/native_nav_home" android:drawablePadding="3.0dip" android:background="@drawable/native_tab_ripple" android:paddingTop="6.0dip" android:paddingBottom="4.0dip" android:contentDescription="Home" android:onClick="onNativeHomeClick" android:layout_width="0.0dip" android:layout_height="62.0dip" android:layout_weight="1.0" />
+            <TextView android:id="@id/nativeSearchTab" android:text="Rechercher" android:textSize="11.5sp" android:textStyle="bold" android:textColor="#ff888888" android:gravity="center" android:clickable="true" android:focusable="true" android:drawableTop="@drawable/native_nav_search" android:drawablePadding="3.0dip" android:background="@drawable/native_tab_ripple" android:paddingTop="6.0dip" android:paddingBottom="4.0dip" android:contentDescription="Search" android:onClick="onNativeSearchClick" android:layout_width="0.0dip" android:layout_height="62.0dip" android:layout_weight="1.0" />
+            <TextView android:id="@id/nativeLibraryTab" android:text="Bibliothèque" android:textSize="11.5sp" android:textStyle="bold" android:textColor="#ff888888" android:gravity="center" android:clickable="true" android:focusable="true" android:drawableTop="@drawable/native_nav_library" android:drawablePadding="3.0dip" android:background="@drawable/native_tab_ripple" android:paddingTop="6.0dip" android:paddingBottom="4.0dip" android:contentDescription="Your Library" android:onClick="onNativeLibraryClick" android:layout_width="0.0dip" android:layout_height="62.0dip" android:layout_weight="1.0" />
         </LinearLayout>
     </LinearLayout>
 

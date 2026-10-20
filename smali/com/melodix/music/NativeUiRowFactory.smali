@@ -270,6 +270,9 @@
     const/4 v10, 0x1
     invoke-virtual {v0, v10}, Landroid/view/View;->setClickable(Z)V
     invoke-virtual {v0, v10}, Landroid/view/View;->setFocusable(Z)V
+    # Press feedback: the row itself stays transparent, only the ripple shows.
+    const v10, 0x7f08013d
+    invoke-virtual {v0, v10}, Landroid/view/View;->setBackgroundResource(I)V
     new-instance v11, Ljava/lang/StringBuilder;
     invoke-direct {v11}, Ljava/lang/StringBuilder;-><init>()V
     invoke-virtual {v11, v6}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;

@@ -1430,6 +1430,10 @@
     <public type="drawable" name="widget_play_bg" id="0x7f080137" />
     <public type="drawable" name="native_button_white" id="0x7f08013b" />
     <public type="drawable" name="native_player_background" id="0x7f08013c" />
+    <public type="drawable" name="native_row_ripple" id="0x7f08013d" />
+    <public type="drawable" name="native_card_ripple" id="0x7f08013e" />
+    <public type="drawable" name="native_tab_ripple" id="0x7f08013f" />
+    <public type="drawable" name="native_quick_tile" id="0x7f080140" />
     <public type="drawable" name="widget_progress_drawable" id="0x7f080138" />
     <public type="drawable" name="widget_slim_background" id="0x7f080139" />
     <public type="drawable" name="wpreview" id="0x7f08013a" />
