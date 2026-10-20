@@ -797,7 +797,7 @@ test('mobile rows lead with the cover and drop the legacy play badge', () => {
         create.indexOf('Landroid/widget/ImageView;-><init>') < create.indexOf(':native_row_text_column'),
         'the cover is added before the text column so it reads as a mobile list row'
     );
-    assert.match(create, /const\/high16 v11, 0x41000000/, 'the cover keeps rounded corners');
+    assert.match(create, /int-to-float v11, v11[\s\S]{0,80}?setCornerRadius\(F\)V/, 'the cover keeps rounded corners');
     assert.match(create, /MarginLayoutParams;->topMargin:I/, 'the subtitle sits just under the title');
     assert.doesNotMatch(create, /▶/, 'the decorative grey play badge must not come back');
 });
@@ -875,4 +875,72 @@ test('merged Spotify card labels are split into a title and a subtitle', () => {
     });
     assert.deepEqual(fn('Titres likés'), { title: 'Titres likés', subtitle: '' });
     assert.match(shell, /heading\.subtitle \|\|/, 'the split subtitle must feed the row subtitle');
+});
+
+test('Home is rendered as Spotify-style cover shelves, not a flat settings list', () => {
+    const activity = read('smali/com/melodix/music/MainActivity.smali');
+    const renderer = read('smali/com/melodix/music/NativeHomeShelfRenderer.smali');
+    const layout = read('res/layout/activity_main.xml');
+
+    assert.match(activity, /nativeCurrentScreen:Ljava\/lang\/String;[\s\S]{0,400}?const-string v1, "home"[\s\S]{0,300}?NativeHomeShelfRenderer;->render\(Lcom\/melodix\/music\/MainActivity;Ljava\/lang\/String;\)V/);
+    assert.match(renderer, /Landroid\/widget\/HorizontalScrollView;-><init>/, 'each section scrolls horizontally');
+    assert.match(renderer, /Landroid\/widget\/HorizontalScrollView;->setHorizontalScrollBarEnabled/);
+    assert.match(renderer, /NativeRowClickListener;-><init>/, 'shelf cards stay clickable');
+    assert.match(renderer, /NativeImageLoader;->load/, 'shelf covers load Spotify CDN artwork');
+    assert.match(renderer, /const\/16 v9, 0x94/, 'cards are 148 dp wide');
+    assert.match(renderer, /createSectionHeader/, 'every shelf keeps its section title');
+    assert.match(layout, /android:id="@id\/nativeMiniPlayer"[\s\S]{0,600}?android:layout_marginLeft="8\.0dip"/);
+});
+
+test('opening a playlist no longer depends on the playback bridge', () => {
+    const shell = read('assets/native_ui_shell.js');
+    const activity = read('smali/com/melodix/music/MainActivity.smali');
+
+    assert.match(shell, /window\.__sfOpenCollection = function\(value\)/);
+    assert.match(shell, /__sfMelodixBridgeStarted === true && typeof window\.fetchMediaItems === 'function'/);
+    assert.match(shell, /return window\.__sfNativeOpenUri\(uri\);/, 'navigation is the fallback when the bridge is absent');
+    assert.match(shell, /openCollectionTimer = window\.setTimeout\(navigate, 6000\)/, 'a silent bridge cannot leave an empty screen');
+    assert.match(shell, /cancelPendingCollectionNavigation/);
+
+    const openRow = activity.slice(activity.indexOf('.method public final openNativeRow'));
+    assert.match(openRow, /const-string v1, "window\.__sfOpenCollection"/);
+    assert.doesNotMatch(openRow, /const-string v1, "window\.fetchMediaItems"/);
+});
+
+test('detail rows are collected for any playlist route, not only the first page load', () => {
+    const shell = read('assets/native_ui_shell.js');
+
+    assert.match(shell, /function updateDetailRows\(mainView\)/);
+    assert.match(shell, /nativeScreenForPath\(\) !== 'detail'/);
+    assert.match(shell, /path !== lastDetailPath/);
+    assert.match(shell, /lastDetailPath = path;/);
+    assert.match(shell, /updateDetailRows\(mainView\);/);
+});
+
+test('library and search still work when the bridge never starts', () => {
+    const shell = read('assets/native_ui_shell.js');
+    const activity = read('smali/com/melodix/music/MainActivity.smali');
+
+    // Library tab: bridge first, real collection page otherwise.
+    assert.match(shell, /window\.__sfOpenLibrary = function\(\)/);
+    assert.match(shell, /__sfMelodixBridgeStarted === true && typeof window\.fetchMediaItems === 'function'/);
+    assert.match(shell, /window\.location\.assign\('https:\/\/open\.spotify\.com\/collection\/playlists'\)/);
+    const libraryClick = activity.slice(activity.indexOf('.method public final onNativeLibraryClick'));
+    assert.match(libraryClick, /const-string v0, "window\.__sfOpenLibrary && window\.__sfOpenLibrary\(\)"/);
+    assert.doesNotMatch(libraryClick, /const-string v0, "window\.fetchMediaItems"/);
+
+    // Rows are still harvested from the real library and search pages.
+    assert.match(shell, /function updateLibraryRows\(mainView\)/);
+    assert.match(shell, /sendNativeUiData\('media:playlists', rows\)/);
+    assert.match(shell, /function updateSearchRows\(mainView\)/);
+    assert.match(shell, /sendNativeUiData\('search:' \+ query, rows\)/);
+
+    // Typing in the native search panel falls back to the real search page.
+    assert.match(shell, /function installSearchFallback\(\)/);
+    assert.match(shell, /window\.searchMediaItems = fallback;/);
+    assert.match(shell, /https:\/\/open\.spotify\.com\/search\//);
+    assert.match(shell, /window\.setTimeout\(function\(\) \{\n\s+searchNavigateTimer = 0;/, 'live typing is debounced');
+    // Submitting jumps immediately instead of waiting for the debounce.
+    const submit = activity.slice(activity.indexOf('.method public final onNativeSearchSubmit'));
+    assert.match(submit, /const-string v2, "\(window\.__sfSubmitSearch\|\|window\.searchMediaItems\)"/);
 });

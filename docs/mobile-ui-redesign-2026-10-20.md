@@ -72,3 +72,42 @@ Deuxième correctif : Spotify fusionne parfois titre et description dans `aria-l
 (« Radio ecstasyAvec SUICIDAL-IDOL, Rebzyyx… »). `native_ui_shell.js` découpe maintenant sur
 `Avec`/`With` : titre propre + sous-titre réel. Le titre accepte deux lignes (15 sp) pour rester
 lisible sur 384 px.
+
+## Passe du 2026-10-20 (accueil façon Spotify mobile + playlists)
+
+### Accueil en étagères horizontales
+
+`renderNativeRows` délègue maintenant l'accueil à `NativeHomeShelfRenderer` : chaque
+`section` du JSON devient un en-tête suivi d'un `HorizontalScrollView` de cartes carrées
+(148 dp, rayon 12 dp), titre gras 13,5 sp sur deux lignes, sous-titre 11 sp sur deux lignes.
+Les rangées sans intitulé de section partagent la première étagère au lieu d'en créer une
+par carte. Les autres écrans (recherche, bibliothèque, détail, réglages) gardent la liste
+verticale plate : pochette 44 dp, titre 15 sp, sous-titre 13 sp, sans carte ni bordure.
+
+L'en-tête et le mini-lecteur ont été retaille pour 360-384 dp : shell sans marge latérale,
+titre 26 sp, avatar 40 dp, marges de 8 dp autour du mini-lecteur, bouton de recherche
+retiré de l'en-tête (il reste dans la barre d'onglets).
+
+### Playlist, recherche et bibliothèque sans bridge
+
+Ces trois écrans appelaient directement `window.fetchMediaItems` / `window.searchMediaItems`,
+qui n'existent que dans le bridge de lecture. Comme celui-ci ne démarrait pas sur l'appareil,
+le détail s'ouvrait vide. Désormais :
+
+- `__sfOpenCollection(uri)` utilise le bridge seulement si `__sfMelodixBridgeStarted === true`,
+  sinon `__sfNativeOpenUri` navigue vers la vraie page Spotify et `updateDetailRows` récolte
+  les rangées à chaque changement de route (repli de 6 s si le bridge reste muet).
+- `__sfOpenLibrary()` fait la même chose pour la bibliothèque (`/collection/playlists`), et
+  `updateLibraryRows` envoie les rangées via `media:playlists`.
+- `__sfSubmitSearch(query)` navigue immédiatement vers `/search/<query>` ; la recherche en
+  direct reste temporisée à 900 ms pour éviter un rechargement à chaque caractère.
+  `updateSearchRows` renvoie ensuite les résultats via `search:<query>`.
+
+## À vérifier sur l'appareil
+
+1. Accueil : étagères horizontales qui défilent, en-têtes de section lisibles, cartes carrées.
+2. Ouvrir une playlist depuis l'accueil : la page de détail s'affiche (jamais d'écran vide),
+   même si le bridge n'a pas démarré.
+3. Onglet Bibliothèque : les playlists apparaissent (bridge ou page de collection réelle).
+4. Recherche : la saisie puis validation affiche des résultats.
+5. Diagnostic : `bridgeExecMode` / `bridgeBytes` / `bridgeLastError` dans le rapport runtime.

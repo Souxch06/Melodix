@@ -21,6 +21,11 @@
     var initialScreen = 'home';
     var lastInitialDetailSignature = null;
     var lastInitialDetailTitle = null;
+    var lastDetailPath = '';
+    var lastSearchPath = '';
+    var lastSearchSignature = null;
+    var lastLibraryPath = '';
+    var lastLibrarySignature = null;
     var mediaLibWarmupRequested = false;
     var lastMediaActiveAt = 0;
 
@@ -487,13 +492,90 @@
         else scheduleHomeRetry();
     }
 
-    function updateInitialDetailRows(mainView) {
+    function currentSearchQuery() {
+        var parts = spotifyRoutePath().split('/').filter(Boolean);
+        var url;
+        if (parts.length > 1 && parts[0] === 'search') {
+            try {
+                return decodeURIComponent(parts.slice(1).join('/')).trim().slice(0, 100);
+            } catch (_) {
+                return parts.slice(1).join('/').trim().slice(0, 100);
+            }
+        }
+        try {
+            url = new URL(window.location.href);
+            return String(url.searchParams.get('query') || url.searchParams.get('q') || '').trim().slice(0, 100);
+        } catch (_) {
+            return '';
+        }
+    }
+
+    // Search results also come from the bridge normally. When it is absent the
+    // shell reads the real Spotify search page, so tapping the search tab and
+    // typing still returns something instead of an empty list.
+    function updateSearchRows(mainView) {
+        var query = currentSearchQuery();
+        var path = spotifyRoutePath();
+        var rows;
+        var signature;
+        if (nativeScreenForPath() !== 'search' || !mainView || !query) {
+            lastSearchPath = '';
+            lastSearchSignature = null;
+            return;
+        }
+        if (path !== lastSearchPath) {
+            lastSearchPath = path;
+            lastSearchSignature = null;
+        }
+        rows = collectHomeRows(mainView);
+        signature = JSON.stringify(rows);
+        window.__sfNativeUiSearchRowsCount = rows.length;
+        if (rows.length > 0 && signature !== lastSearchSignature && sendNativeUiData('search:' + query, rows)) {
+            lastSearchSignature = signature;
+        }
+    }
+
+    function updateLibraryRows(mainView) {
+        var path = spotifyRoutePath();
+        var rows;
+        var signature;
+        if (nativeScreenForPath() !== 'library' || !mainView) {
+            lastLibraryPath = '';
+            lastLibrarySignature = null;
+            return;
+        }
+        if (path.indexOf('/collection') !== 0 && path.indexOf('/your-library') !== 0) return;
+        if (path !== lastLibraryPath) {
+            lastLibraryPath = path;
+            lastLibrarySignature = null;
+        }
+        rows = collectHomeRows(mainView);
+        signature = JSON.stringify(rows);
+        window.__sfNativeUiLibraryRowsCount = rows.length;
+        // "media:playlists" is the payload the native library screen already
+        // renders; using it keeps one code path for bridge and shell data.
+        if (rows.length > 0 && signature !== lastLibrarySignature && sendNativeUiData('media:playlists', rows)) {
+            lastLibrarySignature = signature;
+        }
+    }
+
+    function updateDetailRows(mainView) {
         var titleNode;
         var title;
         var rows;
         var signature;
         var bridge;
-        if (initialScreen !== 'detail' || spotifyRoutePath() !== initialPath || !mainView) return;
+        var path = spotifyRoutePath();
+        if (nativeScreenForPath() !== 'detail' || !mainView) {
+            lastDetailPath = '';
+            lastInitialDetailSignature = null;
+            return;
+        }
+        if (path !== lastDetailPath) {
+            lastDetailPath = path;
+            lastInitialDetailSignature = null;
+            lastInitialDetailTitle = null;
+        }
 
         titleNode = mainView.querySelector
             ? mainView.querySelector('h1, [data-testid="entityTitle"], [data-testid="entity-title"]')
@@ -513,6 +595,7 @@
         window.__sfNativeUiDetailRowsCount = rows.length;
         if (rows.length > 0 && signature !== lastInitialDetailSignature && sendNativeUiData('detail', rows)) {
             lastInitialDetailSignature = signature;
+            if (typeof cancelPendingCollectionNavigation === 'function') cancelPendingCollectionNavigation();
         }
     }
 
@@ -672,12 +755,15 @@
         if (window.location.hostname !== 'open.spotify.com') return;
         try {
             installPlaybackStateGuard();
+            installSearchFallback();
             mainView = document.querySelector('#main-view');
             if (mainView) {
                 notifyNativeUiReady(mainView);
                 detectSpotifyProfile();
                 updateHomeRows(mainView);
-                updateInitialDetailRows(mainView);
+                updateDetailRows(mainView);
+                updateSearchRows(mainView);
+                updateLibraryRows(mainView);
             }
         } catch (_) {
             window.__sfNativeUiShellErrors += 1;
@@ -1102,6 +1188,98 @@
         }
 
         window.location.assign(target);
+        return true;
+    };
+
+    // Opening a playlist, album, artist or show must not depend on the playback
+    // bridge: fetchMediaItems only exists there, and when the bridge is absent a
+    // tap produced an empty "detail" screen and nothing else. Prefer the bridge
+    // (it avoids a page reload), then fall back to real navigation so the shell
+    // can stream the detail rows from the page it just loaded.
+    var openCollectionTimer = null;
+
+    function cancelPendingCollectionNavigation() {
+        if (openCollectionTimer) {
+            window.clearTimeout(openCollectionTimer);
+            openCollectionTimer = null;
+        }
+    }
+
+    window.__sfOpenCollection = function(value) {
+        var uri = nativeSpotifyUri(value);
+        var navigated = false;
+        if (!uri) return false;
+        cancelPendingCollectionNavigation();
+
+        function navigate() {
+            if (navigated) return false;
+            navigated = true;
+            openCollectionTimer = null;
+            return window.__sfNativeOpenUri(uri);
+        }
+
+        if (window.__sfMelodixBridgeStarted === true && typeof window.fetchMediaItems === 'function') {
+            try {
+                window.fetchMediaItems(uri);
+                // If the bridge never answers, load the real page instead of
+                // leaving the user on an empty screen.
+                openCollectionTimer = window.setTimeout(navigate, 6000);
+                return true;
+            } catch (_) {
+                cancelPendingCollectionNavigation();
+            }
+        }
+        return navigate();
+    };
+
+    // Search normally goes through the bridge. Without it the only source of
+    // results is Spotify's own search page, so the shell navigates there and
+    // harvests the rows afterwards. Live typing is debounced so a burst of
+    // keystrokes cannot reload the page on every character.
+    var searchNavigateTimer = 0;
+
+    function navigateToSearch(query) {
+        var q = String(query || '').trim().slice(0, 100);
+        if (!q) return false;
+        if (searchNavigateTimer) {
+            window.clearTimeout(searchNavigateTimer);
+            searchNavigateTimer = 0;
+        }
+        window.location.assign('https://open.spotify.com/search/' + encodeURIComponent(q));
+        return true;
+    }
+
+    function installSearchFallback() {
+        var current = window.searchMediaItems;
+        var fallback;
+        if (current && current._sfFallback === true) return;
+        if (typeof current === 'function') return;
+        fallback = function(query) {
+            var q = String(query || '').trim();
+            if (!q) return;
+            if (searchNavigateTimer) window.clearTimeout(searchNavigateTimer);
+            searchNavigateTimer = window.setTimeout(function() {
+                searchNavigateTimer = 0;
+                navigateToSearch(q);
+            }, 900);
+        };
+        fallback._sfFallback = true;
+        window.searchMediaItems = fallback;
+        window.__sfSubmitSearch = function(query) {
+            return navigateToSearch(query);
+        };
+    }
+
+    // The library tab used to call the bridge's fetchMediaItems directly. Open
+    // the real collection page when the bridge is unavailable.
+    window.__sfOpenLibrary = function() {
+        if (window.__sfMelodixBridgeStarted === true && typeof window.fetchMediaItems === 'function') {
+            try {
+                window.fetchMediaItems('playlists');
+                return true;
+            } catch (_) {}
+        }
+        window.location.assign('https://open.spotify.com/collection/playlists');
         return true;
     };
 

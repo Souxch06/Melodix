@@ -7401,6 +7401,17 @@
     check-cast v2, Landroid/widget/LinearLayout;
     invoke-virtual {v2}, Landroid/widget/LinearLayout;->removeAllViews()V
 
+    # Home is a set of horizontal cover shelves (like the Spotify phone app),
+    # every other screen keeps the vertical row list.
+    iget-object v0, p0, Lcom/melodix/music/MainActivity;->nativeCurrentScreen:Ljava/lang/String;
+    const-string v1, "home"
+    invoke-virtual {v1, v0}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    move-result v0
+    if-nez v0, :native_rows_list
+    invoke-static {p0, p2}, Lcom/melodix/music/NativeHomeShelfRenderer;->render(Lcom/melodix/music/MainActivity;Ljava/lang/String;)V
+    return-void
+
+    :native_rows_list
     :try_start_native_rows
     new-instance v3, Lorg/json/JSONArray;
     invoke-direct {v3, p2}, Lorg/json/JSONArray;-><init>(Ljava/lang/String;)V
@@ -7679,7 +7690,9 @@
     const-string v2, "Résultats de recherche"
     const-string v3, "[]"
     invoke-virtual {p0, v2, v3}, Lcom/melodix/music/MainActivity;->renderNativeRows(Ljava/lang/String;Ljava/lang/String;)V
-    const-string v2, "window.searchMediaItems"
+    # A submitted query navigates at once; the shell exposes this even when
+    # the playback bridge never started.
+    const-string v2, "(window.__sfSubmitSearch||window.searchMediaItems)"
     invoke-virtual {p0, v2, v1}, Lcom/melodix/music/MainActivity;->runNativeFunction(Ljava/lang/String;Ljava/lang/String;)V
 
     :native_search_submit_done
@@ -7696,8 +7709,10 @@
     const-string v2, "Votre bibliothèque"
     const-string v0, "[]"
     invoke-virtual {p0, v2, v0}, Lcom/melodix/music/MainActivity;->renderNativeRows(Ljava/lang/String;Ljava/lang/String;)V
-    const-string v0, "window.fetchMediaItems"
-    invoke-virtual {p0, v0, v1}, Lcom/melodix/music/MainActivity;->runNativeFunction(Ljava/lang/String;Ljava/lang/String;)V
+    # __sfOpenLibrary uses the bridge when it runs and the real collection page
+    # otherwise, so the library is never an empty screen.
+    const-string v0, "window.__sfOpenLibrary && window.__sfOpenLibrary()"
+    invoke-virtual {p0, v0}, Lcom/melodix/music/MainActivity;->runNativeJavascript(Ljava/lang/String;)V
     return-void
 .end method
 
@@ -7850,7 +7865,9 @@
     const-string v3, "Détails"
     :native_collection_title_ready
     invoke-virtual {p0, v3, v2}, Lcom/melodix/music/MainActivity;->renderNativeRows(Ljava/lang/String;Ljava/lang/String;)V
-    const-string v1, "window.fetchMediaItems"
+    # fetchMediaItems only exists in the playback bridge; __sfOpenCollection falls
+    # back to a real navigation so a playlist still opens without it.
+    const-string v1, "window.__sfOpenCollection"
     invoke-virtual {p0, v1, p1}, Lcom/melodix/music/MainActivity;->runNativeFunction(Ljava/lang/String;Ljava/lang/String;)V
     goto :native_row_click_done
 
