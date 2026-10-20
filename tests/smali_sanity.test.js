@@ -218,6 +218,26 @@ test('modified Smali non-range invoke instructions use only v0-v15', () => {
     }
 });
 
+test('const/high16 literals have the required zeroed low 16 bits', () => {
+    const files = [
+        'smali/com/melodix/music/MainActivity.smali',
+        'smali/com/melodix/music/AndBridge.smali',
+        'smali/com/melodix/music/NativeUiUpdateRunnable.smali',
+        'smali/com/melodix/music/NativeRowClickListener.smali'
+    ];
+
+    for (const file of files) {
+        const lines = fs.readFileSync(path.join(repo, file), 'utf8').split(/\r?\n/);
+        for (const [index, line] of lines.entries()) {
+            const match = line.match(/^\s*const\/high16\s+v\d+,\s*(-?)0x([0-9a-f]+)\b/i);
+            if (!match) continue;
+            const magnitude = BigInt(`0x${match[2]}`);
+            const value = match[1] ? -magnitude : magnitude;
+            assert.equal(Number(value & 0xffffn), 0, `${file}:${index + 1} has invalid const/high16 literal`);
+        }
+    }
+});
+
 test('successful authenticated Spotify home load dismisses the native splash', () => {
     const webViewClient = fs.readFileSync(path.join(repo, 'smali/c91.smali'), 'utf8');
     const pageFinished = webViewClient.match(

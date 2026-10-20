@@ -7201,7 +7201,7 @@
     new-instance v11, Landroid/widget/TextView;
     invoke-direct {v11, p0}, Landroid/widget/TextView;-><init>(Landroid/content/Context;)V
     invoke-virtual {v11, v8}, Landroid/widget/TextView;->setText(Ljava/lang/CharSequence;)V
-    const/high16 v10, 0x4170
+    const/high16 v10, 0x41700000
     invoke-virtual {v11, v10}, Landroid/widget/TextView;->setTextSize(F)V
     const v10, -0x1
     invoke-virtual {v11, v10}, Landroid/widget/TextView;->setTextColor(I)V
@@ -7238,7 +7238,7 @@
     invoke-direct {v11, p0}, Landroid/widget/TextView;-><init>(Landroid/content/Context;)V
     const-string v10, "No items to show yet"
     invoke-virtual {v11, v10}, Landroid/widget/TextView;->setText(Ljava/lang/CharSequence;)V
-    const/high16 v10, 0x4180
+    const/high16 v10, 0x41800000
     invoke-virtual {v11, v10}, Landroid/widget/TextView;->setTextSize(F)V
     const v10, -0x4a3f47
     invoke-virtual {v11, v10}, Landroid/widget/TextView;->setTextColor(I)V
