@@ -84,82 +84,71 @@
         <LinearLayout
             android:orientation="horizontal"
             android:gravity="center_vertical"
-            android:paddingTop="4.0dip"
-            android:paddingBottom="16.0dip"
-            android:layout_width="fill_parent"
-            android:layout_height="wrap_content">
-            <ImageView
-                android:src="@drawable/logo_melodix"
-                android:contentDescription="Melodix"
-                android:scaleType="fitCenter"
-                android:layout_width="36.0dip"
-                android:layout_height="36.0dip"
-                android:layout_marginRight="10.0dip" />
-            <LinearLayout
-                android:orientation="vertical"
-                android:gravity="center_vertical"
-                android:layout_width="0.0dip"
-                android:layout_height="wrap_content"
-                android:layout_weight="1.0">
-                <TextView
-                    android:text="MELODIX"
-                    android:textSize="18.0sp"
-                    android:textStyle="bold"
-                    android:textColor="#ffffffff"
-                    android:letterSpacing="0.08"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content" />
-                <TextView
-                    android:text="MUSIC IN YOUR RHYTHM"
-                    android:textSize="9.0sp"
-                    android:textColor="#ff85938a"
-                    android:letterSpacing="0.10"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content" />
-            </LinearLayout>
-            <Button
-                android:text="⚙"
-                android:textSize="20.0sp"
-                android:textColor="#ffffffff"
-                android:contentDescription="Settings"
-                android:background="@drawable/native_button_dark"
-                android:onClick="onNativeSettingsClick"
-                android:minWidth="48.0dip"
-                android:minHeight="48.0dip"
-                android:layout_width="48.0dip"
-                android:layout_height="48.0dip" />
-        </LinearLayout>
-
-        <LinearLayout
-            android:orientation="horizontal"
-            android:gravity="center_vertical"
+            android:paddingTop="8.0dip"
             android:paddingBottom="16.0dip"
             android:layout_width="fill_parent"
             android:layout_height="wrap_content">
             <Button
                 android:id="@id/nativeBackButton"
                 android:text="‹"
-                android:textSize="28.0sp"
+                android:textSize="24.0sp"
                 android:textColor="#ffffffff"
                 android:contentDescription="Back"
                 android:background="@drawable/native_button_dark"
+                android:backgroundTint="#ff242424"
                 android:onClick="onNativeBackClick"
                 android:visibility="gone"
-                android:minWidth="48.0dip"
-                android:minHeight="48.0dip"
-                android:layout_width="48.0dip"
-                android:layout_height="48.0dip" />
+                android:minWidth="40.0dip"
+                android:minHeight="40.0dip"
+                android:layout_width="40.0dip"
+                android:layout_height="40.0dip"
+                android:layout_marginRight="8.0dip" />
+            <TextView
+                android:text="M"
+                android:textSize="16.0sp"
+                android:textStyle="bold"
+                android:textColor="#ff121212"
+                android:gravity="center"
+                android:background="@drawable/native_button_green"
+                android:layout_width="35.0dip"
+                android:layout_height="35.0dip" />
             <TextView
                 android:id="@id/nativeScreenTitle"
                 android:text="Home"
-                android:textSize="27.0sp"
+                android:textSize="22.0sp"
                 android:textStyle="bold"
                 android:textColor="#ffffffff"
-                android:letterSpacing="-0.02"
-                android:paddingLeft="10.0dip"
+                android:paddingLeft="8.0dip"
+                android:maxLines="1"
+                android:ellipsize="end"
                 android:layout_width="0.0dip"
                 android:layout_height="wrap_content"
                 android:layout_weight="1.0" />
+            <Button
+                android:text="⌕"
+                android:textSize="19.0sp"
+                android:textColor="#ffffffff"
+                android:contentDescription="Search"
+                android:background="@drawable/native_button_dark"
+                android:backgroundTint="#ff242424"
+                android:onClick="onNativeSearchClick"
+                android:minWidth="40.0dip"
+                android:minHeight="40.0dip"
+                android:layout_width="40.0dip"
+                android:layout_height="40.0dip" />
+            <Button
+                android:text="⚙"
+                android:textSize="19.0sp"
+                android:textColor="#ffffffff"
+                android:contentDescription="Settings"
+                android:background="@drawable/native_button_dark"
+                android:backgroundTint="#ff242424"
+                android:onClick="onNativeSettingsClick"
+                android:minWidth="40.0dip"
+                android:minHeight="40.0dip"
+                android:layout_width="40.0dip"
+                android:layout_height="40.0dip"
+                android:layout_marginLeft="10.0dip" />
         </LinearLayout>
 
         <LinearLayout
@@ -172,29 +161,32 @@
             android:layout_height="wrap_content">
             <EditText
                 android:id="@id/nativeSearchInput"
-                android:hint="Songs, artists, albums"
-                android:textColor="#ffffffff"
-                android:textColorHint="#ff9ba79f"
+                android:hint="Artists, songs, albums, playlists"
+                android:textSize="15.0sp"
+                android:textStyle="bold"
+                android:textColor="#ff121212"
+                android:textColorHint="#ff777777"
                 android:singleLine="true"
                 android:imeOptions="actionSearch"
                 android:inputType="text"
                 android:background="@drawable/native_search_field"
-                android:paddingLeft="16.0dip"
+                android:paddingLeft="12.0dip"
                 android:paddingRight="12.0dip"
                 android:layout_width="0.0dip"
-                android:layout_height="52.0dip"
+                android:layout_height="46.0dip"
                 android:layout_marginRight="10.0dip"
                 android:layout_weight="1.0" />
             <Button
                 android:text="Search"
                 android:textAllCaps="false"
                 android:textStyle="bold"
-                android:textColor="#ff061008"
+                android:textColor="#ff121212"
                 android:background="@drawable/native_button_green"
+                android:backgroundTint="#ff1ed760"
                 android:onClick="onNativeSearchSubmit"
-                android:minWidth="88.0dip"
+                android:minWidth="82.0dip"
                 android:layout_width="wrap_content"
-                android:layout_height="52.0dip" />
+                android:layout_height="46.0dip" />
         </LinearLayout>
 
         <HorizontalScrollView
@@ -209,10 +201,10 @@
                 android:orientation="horizontal"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content">
-                <Button android:text="Playlists" android:tag="playlists" android:textAllCaps="false" android:textColor="#ffe0e7e2" android:background="@drawable/native_category_chip" android:onClick="onNativeLibraryCategoryClick" android:layout_width="wrap_content" android:layout_height="44.0dip" android:layout_marginRight="8.0dip" />
-                <Button android:text="Albums" android:tag="albums" android:textAllCaps="false" android:textColor="#ffe0e7e2" android:background="@drawable/native_category_chip" android:onClick="onNativeLibraryCategoryClick" android:layout_width="wrap_content" android:layout_height="44.0dip" android:layout_marginRight="8.0dip" />
-                <Button android:text="Artists" android:tag="artists" android:textAllCaps="false" android:textColor="#ffe0e7e2" android:background="@drawable/native_category_chip" android:onClick="onNativeLibraryCategoryClick" android:layout_width="wrap_content" android:layout_height="44.0dip" android:layout_marginRight="8.0dip" />
-                <Button android:text="Podcasts" android:tag="podcasts" android:textAllCaps="false" android:textColor="#ffe0e7e2" android:background="@drawable/native_category_chip" android:onClick="onNativeLibraryCategoryClick" android:layout_width="wrap_content" android:layout_height="44.0dip" />
+                <Button android:text="Playlists" android:tag="playlists" android:textAllCaps="false" android:textColor="#ffffffff" android:background="@drawable/native_category_chip" android:backgroundTint="#ff282828" android:onClick="onNativeLibraryCategoryClick" android:layout_width="wrap_content" android:layout_height="38.0dip" android:layout_marginRight="8.0dip" />
+                <Button android:text="Albums" android:tag="albums" android:textAllCaps="false" android:textColor="#ffffffff" android:background="@drawable/native_category_chip" android:backgroundTint="#ff282828" android:onClick="onNativeLibraryCategoryClick" android:layout_width="wrap_content" android:layout_height="38.0dip" android:layout_marginRight="8.0dip" />
+                <Button android:text="Artists" android:tag="artists" android:textAllCaps="false" android:textColor="#ffffffff" android:background="@drawable/native_category_chip" android:backgroundTint="#ff282828" android:onClick="onNativeLibraryCategoryClick" android:layout_width="wrap_content" android:layout_height="38.0dip" android:layout_marginRight="8.0dip" />
+                <Button android:text="Podcasts" android:tag="podcasts" android:textAllCaps="false" android:textColor="#ffffffff" android:background="@drawable/native_category_chip" android:backgroundTint="#ff282828" android:onClick="onNativeLibraryCategoryClick" android:layout_width="wrap_content" android:layout_height="38.0dip" />
             </LinearLayout>
         </HorizontalScrollView>
 
@@ -232,8 +224,8 @@
                 android:layout_height="wrap_content">
                 <TextView
                     android:text="Loading your music…"
-                    android:textSize="16.0sp"
-                    android:textColor="#ffb5c0b8"
+                    android:textSize="15.0sp"
+                    android:textColor="#ffb3b3b3"
                     android:gravity="center"
                     android:paddingTop="28.0dip"
                     android:paddingBottom="28.0dip"
@@ -245,52 +237,49 @@
         <LinearLayout
             android:id="@id/nativePlayerPanel"
             android:orientation="vertical"
-            android:gravity="center"
-            android:paddingLeft="16.0dip"
-            android:paddingRight="16.0dip"
-            android:paddingTop="20.0dip"
-            android:paddingBottom="20.0dip"
+            android:gravity="center_horizontal"
+            android:paddingLeft="20.0dip"
+            android:paddingRight="20.0dip"
+            android:paddingTop="12.0dip"
+            android:paddingBottom="16.0dip"
             android:visibility="gone"
             android:layout_width="fill_parent"
             android:layout_height="0.0dip"
             android:layout_weight="1.0">
-            <TextView
-                android:text="NOW PLAYING"
-                android:textSize="12.0sp"
-                android:textStyle="bold"
-                android:textColor="#ff1ed760"
-                android:letterSpacing="0.12"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content" />
             <ImageView
                 android:id="@id/nativePlayerLargeArtwork"
                 android:contentDescription="Current track artwork"
                 android:scaleType="centerCrop"
-                android:background="#ff202722"
-                android:layout_width="220.0dip"
-                android:layout_height="220.0dip"
-                android:layout_marginTop="20.0dip"
-                android:layout_marginBottom="8.0dip" />
+                android:background="#ff282828"
+                android:layout_width="260.0dip"
+                android:layout_height="260.0dip"
+                android:layout_marginTop="12.0dip"
+                android:layout_marginBottom="16.0dip" />
             <TextView
                 android:id="@id/nativePlayerLargeTitle"
                 android:text="Nothing playing"
-                android:textSize="25.0sp"
+                android:textSize="20.0sp"
                 android:textStyle="bold"
                 android:textColor="#ffffffff"
-                android:gravity="center"
                 android:maxLines="2"
                 android:ellipsize="end"
-                android:paddingTop="16.0dip"
                 android:layout_width="fill_parent"
                 android:layout_height="wrap_content" />
             <TextView
                 android:id="@id/nativePlayerLargeArtist"
                 android:text="Open Spotify to start listening"
-                android:textSize="16.0sp"
-                android:textColor="#ffb5c0b8"
-                android:gravity="center"
+                android:textSize="14.0sp"
+                android:textColor="#ffb3b3b3"
                 android:maxLines="1"
                 android:ellipsize="end"
+                android:paddingTop="4.0dip"
+                android:layout_width="fill_parent"
+                android:layout_height="wrap_content" />
+            <TextView
+                android:text="Lu via Spotify"
+                android:textSize="11.5sp"
+                android:textStyle="bold"
+                android:textColor="#ff1ed760"
                 android:paddingTop="6.0dip"
                 android:layout_width="fill_parent"
                 android:layout_height="wrap_content" />
@@ -300,28 +289,22 @@
                 android:indeterminate="false"
                 android:max="1000"
                 android:progress="0"
-                android:progressTint="#ff1ed760"
+                android:progressTint="#ffffffff"
+                android:progressBackgroundTint="#ff2a2a2a"
                 android:layout_width="fill_parent"
-                android:layout_height="4.0dip"
-                android:layout_marginTop="28.0dip"
-                android:layout_marginBottom="20.0dip" />
+                android:layout_height="3.0dip"
+                android:layout_marginTop="20.0dip"
+                android:layout_marginBottom="16.0dip" />
             <LinearLayout
                 android:orientation="horizontal"
-                android:gravity="center"
+                android:gravity="center_vertical"
                 android:layout_width="fill_parent"
                 android:layout_height="wrap_content">
-                <Button android:id="@id/nativePlayerPreviousButton" android:text="⏮" android:textSize="20.0sp" android:textColor="#ffffffff" android:contentDescription="Previous track" android:background="@drawable/native_button_dark" android:onClick="onNativePlayerPreviousClick" android:layout_width="56.0dip" android:layout_height="56.0dip" android:layout_marginRight="20.0dip" />
-                <Button android:id="@id/nativePlayerLargePlayPauseButton" android:text="▶" android:textSize="22.0sp" android:textColor="#ff061008" android:contentDescription="Play or pause" android:background="@drawable/native_button_green" android:onClick="onNativePlayPauseClick" android:layout_width="64.0dip" android:layout_height="64.0dip" />
-                <Button android:id="@id/nativePlayerNextButton" android:text="⏭" android:textSize="20.0sp" android:textColor="#ffffffff" android:contentDescription="Next track" android:background="@drawable/native_button_dark" android:onClick="onNativePlayerNextClick" android:layout_width="56.0dip" android:layout_height="56.0dip" android:layout_marginLeft="20.0dip" />
-            </LinearLayout>
-            <LinearLayout
-                android:orientation="horizontal"
-                android:gravity="center"
-                android:paddingTop="12.0dip"
-                android:layout_width="fill_parent"
-                android:layout_height="wrap_content">
-                <Button android:id="@id/nativePlayerShuffleButton" android:text="Shuffle" android:textAllCaps="false" android:textColor="#ffe0e7e2" android:background="@drawable/native_category_chip" android:onClick="onNativePlayerShuffleClick" android:minWidth="112.0dip" android:layout_width="wrap_content" android:layout_height="48.0dip" android:layout_marginRight="8.0dip" />
-                <Button android:id="@id/nativePlayerRepeatButton" android:text="Repeat" android:textAllCaps="false" android:textColor="#ffe0e7e2" android:background="@drawable/native_category_chip" android:onClick="onNativePlayerRepeatClick" android:minWidth="112.0dip" android:layout_width="wrap_content" android:layout_height="48.0dip" android:layout_marginLeft="8.0dip" />
+                <Button android:id="@id/nativePlayerShuffleButton" android:text="⇄" android:textSize="20.0sp" android:textColor="#ff777777" android:contentDescription="Shuffle" android:background="@drawable/native_nav_item" android:backgroundTint="#00000000" android:onClick="onNativePlayerShuffleClick" android:layout_width="0.0dip" android:layout_height="48.0dip" android:layout_weight="1.0" />
+                <Button android:id="@id/nativePlayerPreviousButton" android:text="⏮" android:textSize="24.0sp" android:textColor="#ffffffff" android:contentDescription="Previous track" android:background="@drawable/native_nav_item" android:backgroundTint="#00000000" android:onClick="onNativePlayerPreviousClick" android:layout_width="0.0dip" android:layout_height="56.0dip" android:layout_weight="1.0" />
+                <Button android:id="@id/nativePlayerLargePlayPauseButton" android:text="▶" android:textSize="22.0sp" android:textColor="#ff121212" android:contentDescription="Play or pause" android:background="@drawable/native_button_green" android:backgroundTint="#ffffffff" android:onClick="onNativePlayPauseClick" android:layout_width="62.0dip" android:layout_height="62.0dip" />
+                <Button android:id="@id/nativePlayerNextButton" android:text="⏭" android:textSize="24.0sp" android:textColor="#ffffffff" android:contentDescription="Next track" android:background="@drawable/native_nav_item" android:backgroundTint="#00000000" android:onClick="onNativePlayerNextClick" android:layout_width="0.0dip" android:layout_height="56.0dip" android:layout_weight="1.0" />
+                <Button android:id="@id/nativePlayerRepeatButton" android:text="↻" android:textSize="20.0sp" android:textColor="#ff777777" android:contentDescription="Repeat" android:background="@drawable/native_nav_item" android:backgroundTint="#00000000" android:onClick="onNativePlayerRepeatClick" android:layout_width="0.0dip" android:layout_height="48.0dip" android:layout_weight="1.0" />
             </LinearLayout>
         </LinearLayout>
 
@@ -333,22 +316,22 @@
             android:clickable="true"
             android:contentDescription="Open full player"
             android:onClick="onNativePlayerExpandClick"
-            android:paddingLeft="12.0dip"
-            android:paddingTop="8.0dip"
-            android:paddingRight="8.0dip"
-            android:paddingBottom="8.0dip"
+            android:paddingLeft="10.0dip"
+            android:paddingTop="6.0dip"
+            android:paddingRight="6.0dip"
+            android:paddingBottom="6.0dip"
             android:layout_width="fill_parent"
-            android:layout_height="72.0dip"
-            android:layout_marginTop="8.0dip"
-            android:layout_marginBottom="4.0dip">
+            android:layout_height="60.0dip"
+            android:layout_marginTop="6.0dip"
+            android:layout_marginBottom="6.0dip">
             <ImageView
                 android:id="@id/nativePlayerArtwork"
                 android:contentDescription="Current track artwork"
                 android:scaleType="centerCrop"
-                android:background="#ff202722"
-                android:layout_width="52.0dip"
-                android:layout_height="52.0dip"
-                android:layout_marginRight="12.0dip" />
+                android:background="#ff121212"
+                android:layout_width="44.0dip"
+                android:layout_height="44.0dip"
+                android:layout_marginRight="10.0dip" />
             <LinearLayout
                 android:orientation="vertical"
                 android:gravity="center_vertical"
@@ -369,40 +352,64 @@
                     android:id="@id/nativePlayerArtist"
                     android:text="Open Spotify to start listening"
                     android:textSize="12.0sp"
-                    android:textColor="#ffb5c0b8"
+                    android:textColor="#ffb3b3b3"
                     android:maxLines="1"
                     android:ellipsize="end"
                     android:layout_width="fill_parent"
                     android:layout_height="wrap_content" />
             </LinearLayout>
             <Button
+                android:text="⏮"
+                android:textSize="16.0sp"
+                android:textColor="#ffffffff"
+                android:contentDescription="Previous track"
+                android:background="@drawable/native_nav_item"
+                android:backgroundTint="#00000000"
+                android:onClick="onNativePlayerPreviousClick"
+                android:minWidth="40.0dip"
+                android:minHeight="40.0dip"
+                android:layout_width="40.0dip"
+                android:layout_height="40.0dip" />
+            <Button
                 android:id="@id/nativePlayPauseButton"
                 android:text="▶"
-                android:textSize="18.0sp"
-                android:textColor="#ff061008"
+                android:textSize="20.0sp"
+                android:textColor="#ffffffff"
                 android:contentDescription="Play or pause"
-                android:background="@drawable/native_button_green"
+                android:background="@drawable/native_nav_item"
+                android:backgroundTint="#00000000"
                 android:onClick="onNativePlayPauseClick"
-                android:minWidth="48.0dip"
-                android:minHeight="48.0dip"
-                android:layout_width="48.0dip"
-                android:layout_height="48.0dip" />
+                android:minWidth="42.0dip"
+                android:minHeight="42.0dip"
+                android:layout_width="42.0dip"
+                android:layout_height="42.0dip" />
+            <Button
+                android:text="⏭"
+                android:textSize="16.0sp"
+                android:textColor="#ffffffff"
+                android:contentDescription="Next track"
+                android:background="@drawable/native_nav_item"
+                android:backgroundTint="#00000000"
+                android:onClick="onNativePlayerNextClick"
+                android:minWidth="40.0dip"
+                android:minHeight="40.0dip"
+                android:layout_width="40.0dip"
+                android:layout_height="40.0dip" />
         </LinearLayout>
 
         <View
-            android:background="#ff1c2620"
+            android:background="#1fffffff"
             android:layout_width="fill_parent"
-            android:layout_height="1.0dip"
-            android:layout_marginTop="8.0dip" />
+            android:layout_height="1.0dip" />
         <LinearLayout
             android:orientation="horizontal"
             android:gravity="center"
-            android:paddingTop="8.0dip"
+            android:paddingTop="6.0dip"
             android:layout_width="fill_parent"
-            android:layout_height="68.0dip">
-            <Button android:id="@id/nativeHomeTab" android:text="Home" android:textAllCaps="false" android:textSize="12.0sp" android:textColor="#ff9ba79f" android:drawableTop="@drawable/native_nav_home" android:drawablePadding="1.0dip" android:background="@drawable/native_nav_item" android:contentDescription="Home" android:onClick="onNativeHomeClick" android:minHeight="56.0dip" android:paddingTop="4.0dip" android:paddingBottom="4.0dip" android:layout_width="90.0dip" android:layout_height="56.0dip" android:layout_marginLeft="1.0dip" android:layout_marginRight="1.0dip" />
-            <Button android:id="@id/nativeSearchTab" android:text="Search" android:textAllCaps="false" android:textSize="12.0sp" android:textColor="#ff9ba79f" android:drawableTop="@drawable/native_nav_search" android:drawablePadding="1.0dip" android:background="@drawable/native_nav_item" android:contentDescription="Search" android:onClick="onNativeSearchClick" android:minHeight="56.0dip" android:paddingTop="4.0dip" android:paddingBottom="4.0dip" android:layout_width="90.0dip" android:layout_height="56.0dip" android:layout_marginLeft="1.0dip" android:layout_marginRight="1.0dip" />
-            <Button android:id="@id/nativeLibraryTab" android:text="Library" android:textAllCaps="false" android:textSize="12.0sp" android:textColor="#ff9ba79f" android:drawableTop="@drawable/native_nav_library" android:drawablePadding="1.0dip" android:background="@drawable/native_nav_item" android:contentDescription="Library" android:onClick="onNativeLibraryClick" android:minHeight="56.0dip" android:paddingTop="4.0dip" android:paddingBottom="4.0dip" android:layout_width="90.0dip" android:layout_height="56.0dip" android:layout_marginLeft="1.0dip" android:layout_marginRight="1.0dip" />
+            android:layout_height="64.0dip">
+            <Button android:id="@id/nativeHomeTab" android:text="Home" android:textAllCaps="false" android:textSize="13.0sp" android:textColor="#ffffffff" android:drawableTop="@drawable/native_nav_home" android:drawablePadding="4.0dip" android:background="@drawable/native_nav_item" android:backgroundTint="#00000000" android:contentDescription="Home" android:onClick="onNativeHomeClick" android:minHeight="54.0dip" android:paddingTop="4.0dip" android:paddingBottom="4.0dip" android:layout_width="0.0dip" android:layout_height="54.0dip" android:layout_weight="1.0" />
+            <Button android:id="@id/nativeSearchTab" android:text="Search" android:textAllCaps="false" android:textSize="13.0sp" android:textColor="#ff777777" android:drawableTop="@drawable/native_nav_search" android:drawablePadding="4.0dip" android:background="@drawable/native_nav_item" android:backgroundTint="#00000000" android:contentDescription="Search" android:onClick="onNativeSearchClick" android:minHeight="54.0dip" android:paddingTop="4.0dip" android:paddingBottom="4.0dip" android:layout_width="0.0dip" android:layout_height="54.0dip" android:layout_weight="1.0" />
+            <Button android:id="@id/nativeLibraryTab" android:text="Your Library" android:textAllCaps="false" android:textSize="13.0sp" android:textColor="#ff777777" android:drawableTop="@drawable/native_nav_library" android:drawablePadding="4.0dip" android:background="@drawable/native_nav_item" android:backgroundTint="#00000000" android:contentDescription="Your Library" android:onClick="onNativeLibraryClick" android:minHeight="54.0dip" android:paddingTop="4.0dip" android:paddingBottom="4.0dip" android:layout_width="0.0dip" android:layout_height="54.0dip" android:layout_weight="1.0" />
         </LinearLayout>
     </LinearLayout>
 

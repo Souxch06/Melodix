@@ -6877,7 +6877,7 @@
 .end method
 
 .method public final styleNativeTab(Ljava/lang/String;Ljava/lang/String;I)V
-    .locals 4
+    .locals 5
 
     invoke-virtual {p1, p2}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
     move-result v0
@@ -6885,20 +6885,24 @@
     move-result-object v1
     if-eqz v1, :native_tab_style_done
     check-cast v1, Landroid/widget/Button;
+    const/4 v3, 0x0
     if-eqz v0, :native_tab_inactive
-    const v2, 0xff1ed760
-    const v3, 0xff163520
+    const v2, -0x1
+    const v4, 0xff1ed760
     goto :native_tab_apply
 
     :native_tab_inactive
-    const v2, -0x5e514f
-    const/4 v3, 0x0
+    const v2, -0x888889
+    const v4, -0x888889
 
     :native_tab_apply
     invoke-virtual {v1, v2}, Landroid/widget/TextView;->setTextColor(I)V
     invoke-static {v3}, Landroid/content/res/ColorStateList;->valueOf(I)Landroid/content/res/ColorStateList;
     move-result-object v3
     invoke-virtual {v1, v3}, Landroid/view/View;->setBackgroundTintList(Landroid/content/res/ColorStateList;)V
+    invoke-static {v4}, Landroid/content/res/ColorStateList;->valueOf(I)Landroid/content/res/ColorStateList;
+    move-result-object v4
+    invoke-virtual {v1, v4}, Landroid/widget/TextView;->setCompoundDrawableTintList(Landroid/content/res/ColorStateList;)V
 
     :native_tab_style_done
     return-void

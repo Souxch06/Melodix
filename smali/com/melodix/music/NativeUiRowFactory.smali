@@ -126,18 +126,12 @@
 
     new-instance v10, Landroid/graphics/drawable/GradientDrawable;
     invoke-direct {v10}, Landroid/graphics/drawable/GradientDrawable;-><init>()V
-    const v11, -0xeae2e8
+    const v11, -0xe1e1e2
     invoke-virtual {v10, v11}, Landroid/graphics/drawable/GradientDrawable;->setColor(I)V
-    const/high16 v11, 0x41400000
-    const/high16 v11, 0x41800000
+    const/high16 v11, 0x41000000
     invoke-virtual {v10, v11}, Landroid/graphics/drawable/GradientDrawable;->setCornerRadius(F)V
-    const/4 v11, 0x1
-    invoke-static {p0, v11}, Lcom/melodix/music/NativeUiRowFactory;->dp(Landroid/content/Context;I)I
-    move-result v11
-    const v5, 0xff2a372f
-    invoke-virtual {v10, v11, v5}, Landroid/graphics/drawable/GradientDrawable;->setStroke(II)V
     invoke-virtual {v0, v10}, Landroid/view/View;->setBackground(Landroid/graphics/drawable/Drawable;)V
-    const/16 v10, 0x50
+    const/16 v10, 0x42
     invoke-static {p0, v10}, Lcom/melodix/music/NativeUiRowFactory;->dp(Landroid/content/Context;I)I
     move-result v10
     invoke-virtual {v0, v10}, Landroid/view/View;->setMinimumHeight(I)V
@@ -146,15 +140,15 @@
     invoke-direct {v1, p0}, Landroid/widget/ImageView;-><init>(Landroid/content/Context;)V
     sget-object v10, Landroid/widget/ImageView$ScaleType;->CENTER_CROP:Landroid/widget/ImageView$ScaleType;
     invoke-virtual {v1, v10}, Landroid/widget/ImageView;->setScaleType(Landroid/widget/ImageView$ScaleType;)V
-    const v10, -0xdfd8de
+    const v10, -0xd7d7d8
     invoke-virtual {v1, v10}, Landroid/view/View;->setBackgroundColor(I)V
     invoke-virtual {v1, v6}, Landroid/view/View;->setContentDescription(Ljava/lang/CharSequence;)V
     new-instance v5, Landroid/widget/LinearLayout$LayoutParams;
-    const/16 v10, 0x40
+    const/16 v10, 0x34
     invoke-static {p0, v10}, Lcom/melodix/music/NativeUiRowFactory;->dp(Landroid/content/Context;I)I
     move-result v10
     invoke-direct {v5, v10, v10}, Landroid/widget/LinearLayout$LayoutParams;-><init>(II)V
-    const/16 v10, 0xa
+    const/16 v10, 0xc
     invoke-static {p0, v10}, Lcom/melodix/music/NativeUiRowFactory;->dp(Landroid/content/Context;I)I
     move-result v10
     iput v10, v5, Landroid/view/ViewGroup$MarginLayoutParams;->rightMargin:I
@@ -198,7 +192,7 @@
     invoke-virtual {v4, v7}, Landroid/widget/TextView;->setText(Ljava/lang/CharSequence;)V
     const/high16 v10, 0x41500000
     invoke-virtual {v4, v10}, Landroid/widget/TextView;->setTextSize(F)V
-    const v10, -0x4a3f48
+    const v10, -0x4c4c4d
     invoke-virtual {v4, v10}, Landroid/widget/TextView;->setTextColor(I)V
     const/4 v10, 0x1
     invoke-virtual {v4, v10}, Landroid/widget/TextView;->setMaxLines(I)V
