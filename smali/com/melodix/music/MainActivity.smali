@@ -6162,6 +6162,10 @@
 
     if-eqz v1, :gate_browser
 
+    const-string v2, "signature-refused"
+
+    invoke-static {v2}, Lcom/melodix/music/NativeCrashGuard;->stage(Ljava/lang/String;)V
+
     const/4 p0, 0x0
 
     return p0

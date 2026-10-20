@@ -453,7 +453,24 @@
 
     .line 2
     .line 3
-    const v0, 0x7f110052
+    # Resolve by name: a rebuild that renumbers the string table would leave a
+    # hard-coded id pointing at another string, and the gate would then refuse
+    # every build for the wrong reason.
+    invoke-virtual {p0}, Landroid/content/Context;->getResources()Landroid/content/res/Resources;
+
+    move-result-object v0
+
+    const-string v2, "expected_signature_sha256"
+
+    const-string v3, "string"
+
+    invoke-virtual {p0}, Landroid/content/Context;->getPackageName()Ljava/lang/String;
+
+    move-result-object v4
+
+    invoke-virtual {v0, v2, v3, v4}, Landroid/content/res/Resources;->getIdentifier(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)I
+
+    move-result v0
 
     .line 4
     .line 5
