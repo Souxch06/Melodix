@@ -582,3 +582,96 @@ test('Home cards with sibling artwork outside the title anchor still resolve the
     }]);
 });
 
+test('Home separates user playlists from Spotify official recommendations and prevents false playing state', () => {
+    const script = read('assets/native_ui_shell.js');
+    const activity = read('smali/com/melodix/music/MainActivity.smali');
+    const rowFactory = read('smali/com/melodix/music/NativeUiRowFactory.smali');
+    const layout = read('res/layout/activity_main.xml');
+    const calls = [];
+    const statusUpdates = [];
+
+    const spotifyCards = Array.from({ length: 9 }, (_, i) => {
+        const anchor = {
+            href: `https://open.spotify.com/playlist/sp${i}`,
+            innerText: `Spotify Mix ${i}`,
+            textContent: `Spotify Mix ${i}`,
+            getAttribute: () => null,
+            matches: () => true,
+            closest: () => null,
+            querySelector: () => null
+        };
+        return anchor;
+    });
+    const mainView = {
+        querySelectorAll: (selector) => selector === 'a[href]' ? spotifyCards : []
+    };
+    const playPauseButton = {
+        getAttribute: (name) => name === 'aria-label' ? 'Lecture' : null
+    };
+    const document = {
+        readyState: 'complete',
+        documentElement: {},
+        querySelector: (selector) => {
+            if (selector === '#main-view') return mainView;
+            if (selector.indexOf('user-widget-link') >= 0) return {};
+            if (selector.indexOf('control-button-playpause') >= 0) return playPauseButton;
+            return null;
+        },
+        querySelectorAll: () => [],
+        addEventListener: () => {}
+    };
+    class TestMutationObserver {
+        observe() {}
+    }
+    const window = {
+        location: {
+            hostname: 'open.spotify.com',
+            pathname: '/intl-fr/',
+            href: 'https://open.spotify.com/intl-fr/'
+        },
+        playing: true,
+        mediaLib: {
+            playlists: [
+                { name: 'Liked Songs', type: 'Playlist', uri: 'spotify:collection:tracks' },
+                { name: 'Ma Playlist Perso', type: 'Playlist', image: 'https://i.scdn.co/image/mypl', uri: 'spotify:playlist:my1' }
+            ]
+        },
+        updMedia: function() {
+            statusUpdates.push(window.playing);
+        },
+        manageAll: function(play) {
+            window.playing = play;
+        },
+        AndBridge: {
+            onNativeUiReady: () => {},
+            onNativeUiData: (screen, data) => calls.push({ screen, data })
+        },
+        MutationObserver: TestMutationObserver,
+        addEventListener: () => {},
+        setTimeout: () => 1,
+        clearTimeout: () => {}
+    };
+
+    vm.runInNewContext(script, { window, document, URL, MutationObserver: TestMutationObserver });
+
+    assert.equal(window.playing, false);
+    window.manageAll(true);
+    assert.equal(window.playing, false);
+
+    const rows = JSON.parse(calls[0].data);
+    assert.equal(rows[0].title, 'Liked Songs');
+    assert.equal(rows[0].section, 'Your playlists');
+    assert.equal(rows[1].title, 'Ma Playlist Perso');
+    assert.equal(rows[1].section, 'Your playlists');
+    assert.equal(rows[2].title, 'Spotify Mix 0');
+    assert.equal(rows[2].section, 'Sélections Spotify');
+
+    assert.match(activity, /createSectionHeader\(Lcom\/melodix\/music\/MainActivity;Ljava\/lang\/String;\)Landroid\/widget\/TextView;/);
+    assert.match(activity, /createPlaylistBanner\(Lcom\/melodix\/music\/MainActivity;Ljava\/lang\/String;ILjava\/lang\/String;Ljava\/lang\/String;\)Landroid\/widget\/LinearLayout;/);
+    assert.match(activity, /\.method public final onNativeSearchClick\(Landroid\/view\/View;\)V[\s\S]*?renderNativeRows\(Ljava\/lang\/String;Ljava\/lang\/String;\)V/);
+    assert.match(rowFactory, /optJSONArray\(Ljava\/lang\/String;\)Lorg\/json\/JSONArray;/);
+    assert.ok(layout.includes('@drawable/previous'));
+    assert.ok(layout.includes('@drawable/next'));
+});
+
+

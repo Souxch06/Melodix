@@ -1086,7 +1086,11 @@
             if (bodyStr.includes('"paused":true')) {
                 manageAll(false);
             } else if (bodyStr.includes('"paused":false')) {
-                manageAll(true);
+                const pb = document.querySelector('button[data-testid="control-button-playpause"]') || window.pBtn;
+                const label = pb ? String(pb.getAttribute('aria-label') || '') : '';
+                if (/paus/i.test(label)) {
+                    manageAll(true);
+                }
             }
         }
 
@@ -1507,7 +1511,7 @@
                 pb.classList.add('fuckd');
                 window.pBtn = pb;
                 window.pBtn.addEventListener('click', () => {
-                    if (window.pBtn.getAttribute('aria-label') !== 'Play') {
+                    if (/paus/i.test(window.pBtn.getAttribute('aria-label') || '')) {
                         reqPause = true;
                         ulFlag = false;
                         manageWake(false);
@@ -1517,7 +1521,7 @@
                         ulFlag = true;
                         setTimeout(() => {
                             if (ulFlag) {
-                                if (window.pBtn && window.pBtn.getAttribute('aria-label') === 'Play') {
+                                if (window.pBtn && !/paus/i.test(window.pBtn.getAttribute('aria-label') || '')) {
                                     console.warn('[Melodix] Playback did not start; automatic skip cancelled.');
                                 }
                                 // Release the retry guard, but never advance past the selected track.
@@ -2090,6 +2094,14 @@
                 window.cover = im.src;
             } else {
                 window.cover = null;
+            }
+
+            let pbDom = document.querySelector('button[data-testid="control-button-playpause"]') || window.pBtn;
+            if (pbDom && typeof pbDom.getAttribute === 'function') {
+                let pbLabel = String(pbDom.getAttribute('aria-label') || '').trim();
+                if (pbLabel) {
+                    window.playing = /paus/i.test(pbLabel);
+                }
             }
 
             if (document.body.classList.contains('sf-expanded')) {

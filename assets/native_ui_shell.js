@@ -333,8 +333,9 @@
             ['artists', 'Followed artists'],
             ['podcasts', 'Podcasts']
         ];
-        var seen = new Set(rows.map(function(row) { return row.uri; }).filter(Boolean));
-        var result = rows.slice();
+        var seen = new Set();
+        var userRows = [];
+        var spotifyRows = [];
         var sidebar;
 
         if (!library && !mediaLibWarmupRequested && typeof window.checkMediaLib === 'function') {
@@ -344,7 +345,7 @@
             } catch (_) {}
         }
 
-        if (library && result.length < 8) {
+        if (library) {
             groups.forEach(function(group) {
                 var items = Array.isArray(library[group[0]]) ? library[group[0]] : [];
                 items.forEach(function(item) {
@@ -354,36 +355,57 @@
                         ? item.artists.filter(Boolean).join(', ')
                         : '';
                     var subtitle = String(artistList || item && (item.owner || item.description || item.type) || '').trim();
-                    if (!uri || !title || seen.has(uri) || result.length >= 8) return;
+                    var img = safeSpotifyImage(item && (item.image || item.cover || item.artwork) || '');
+                    if (!img && (title === 'Liked Songs' || /collection/i.test(uri))) {
+                        img = 'https://misc.scdn.co/liked-songs/liked-songs-640.png';
+                    }
+                    if (!uri || !title || seen.has(uri) || userRows.length >= 12) return;
                     seen.add(uri);
-                    result.push({
+                    userRows.push({
                         title: title,
                         subtitle: subtitle,
                         section: group[1],
-                        image: safeSpotifyImage(item.image || item.cover || item.artwork || ''),
+                        image: img,
                         uri: uri
                     });
                 });
             });
         }
 
-        if (result.length < 8 && document && typeof document.querySelector === 'function') {
+        if (userRows.length < 12 && document && typeof document.querySelector === 'function') {
             sidebar = document.querySelector('#Desktop_LeftSidebar_Id');
             if (sidebar && typeof sidebar.querySelectorAll === 'function') {
                 collectHomeRows(sidebar).forEach(function(row) {
-                    if (!row.uri || !row.title || seen.has(row.uri) || result.length >= 8) return;
+                    var img = row.image;
+                    if (!row.uri || !row.title || seen.has(row.uri) || userRows.length >= 12) return;
+                    if (!img && /collection/i.test(row.uri)) {
+                        img = 'https://misc.scdn.co/liked-songs/liked-songs-640.png';
+                    }
                     seen.add(row.uri);
-                    result.push({
+                    userRows.push({
                         title: row.title,
                         subtitle: row.subtitle,
-                        section: row.section || 'Your library',
-                        image: row.image,
+                        section: 'Your playlists',
+                        image: img,
                         uri: row.uri
                     });
                 });
             }
         }
-        return result;
+
+        rows.forEach(function(row) {
+            if (!row || !row.uri || !row.title || seen.has(row.uri)) return;
+            seen.add(row.uri);
+            spotifyRows.push({
+                title: row.title,
+                subtitle: row.subtitle,
+                section: row.section || (userRows.length > 0 ? 'Sélections Spotify' : ''),
+                image: row.image,
+                uri: row.uri
+            });
+        });
+
+        return userRows.concat(spotifyRows);
     }
 
     function clearHomeRetry() {
@@ -500,10 +522,87 @@
         return true;
     }
 
+    function hasPlayingMediaElement() {
+        var list = [];
+        var domMedia;
+        var i;
+        var el;
+        if (Array.isArray(window.activeMediaElements)) {
+            list = list.concat(window.activeMediaElements);
+        }
+        if (document && typeof document.querySelectorAll === 'function') {
+            domMedia = document.querySelectorAll('audio, video');
+            for (i = 0; i < domMedia.length; i += 1) {
+                list.push(domMedia[i]);
+            }
+        }
+        for (i = 0; i < list.length; i += 1) {
+            el = list[i];
+            if (!el || el.paused !== false || el.ended) continue;
+            if (String(el.tagName || '').toUpperCase() === 'VIDEO' && el.muted) continue;
+            if (typeof el.readyState === 'number' && el.readyState < 2) continue;
+            return true;
+        }
+        return false;
+    }
+
+    function getPlayPauseDomState() {
+        var pb;
+        var label;
+        if (!document || typeof document.querySelector !== 'function') return null;
+        pb = document.querySelector('button[data-testid="control-button-playpause"]') || window.pBtn;
+        if (!pb || typeof pb.getAttribute !== 'function') return null;
+        label = String(pb.getAttribute('aria-label') || '').trim().toLowerCase();
+        if (!label) return null;
+        if (label.indexOf('paus') !== -1 || label.indexOf('stop') !== -1) {
+            return true;
+        }
+        return false;
+    }
+
+    function isSpotifyActuallyPlaying() {
+        var domState = getPlayPauseDomState();
+        if (domState === false) return false;
+        if (hasPlayingMediaElement()) return true;
+        if (domState === true) return true;
+        return false;
+    }
+
+    function installPlaybackStateGuard() {
+        if (typeof window.updMedia === 'function' && !window.updMedia._sfGuarded) {
+            var origUpdMedia = window.updMedia;
+            var guardedUpdMedia = function(force) {
+                window.playing = isSpotifyActuallyPlaying();
+                return origUpdMedia.call(this, force);
+            };
+            guardedUpdMedia._sfGuarded = true;
+            window.updMedia = guardedUpdMedia;
+        }
+        if (typeof window.manageAll === 'function' && !window.manageAll._sfGuarded) {
+            var origManageAll = window.manageAll;
+            var guardedManageAll = function(play) {
+                var actual = play ? isSpotifyActuallyPlaying() : false;
+                return origManageAll.call(this, actual);
+            };
+            guardedManageAll._sfGuarded = true;
+            window.manageAll = guardedManageAll;
+        }
+        var actualPlaying = isSpotifyActuallyPlaying();
+        if (Boolean(window.playing) !== actualPlaying) {
+            window.playing = actualPlaying;
+            if (typeof window.updMedia === 'function') {
+                try {
+                    window.updMedia(true);
+                } catch (_) {}
+            }
+        }
+    }
+
     function runUpdate() {
         var mainView;
         if (window.location.hostname !== 'open.spotify.com') return;
         try {
+            installPlaybackStateGuard();
             mainView = document.querySelector('#main-view');
             if (mainView) {
                 notifyNativeUiReady(mainView);
@@ -550,6 +649,13 @@
         normalized = nativeSpotifyUri(raw);
         target = normalized;
 
+        if (/^spotify:track:/i.test(normalized) && typeof window.playFromUri === 'function') {
+            try {
+                window.playFromUri(normalized);
+                return true;
+            } catch (_) {}
+        }
+
         if (/^spotify:/i.test(normalized)) {
             var parts = normalized.slice(normalized.indexOf(':') + 1).split(':');
             if (parts.length < 2) return false;
@@ -572,6 +678,8 @@
         if (window._sfNativeUiShellListenersAttached) return;
         window._sfNativeUiShellListenersAttached = true;
         window.__sfNativeUiShellReady = true;
+        window.playing = false;
+        installPlaybackStateGuard();
         initialPath = spotifyRoutePath();
         initialScreen = nativeScreenForPath();
         window.__sfNativeUiRoute = initialScreen;

@@ -6717,7 +6717,7 @@
     invoke-virtual {p0, v0}, Landroid/app/Activity;->findViewById(I)Landroid/view/View;
     move-result-object v1
     if-eqz v1, :style_mini_play_button
-    check-cast v1, Landroid/widget/Button;
+    check-cast v1, Landroid/widget/TextView;
     invoke-virtual {v1, v2, v2, v2, v2}, Landroid/view/View;->setPadding(IIII)V
     const v3, -0x1
     invoke-static {v3}, Landroid/content/res/ColorStateList;->valueOf(I)Landroid/content/res/ColorStateList;
@@ -6730,8 +6730,8 @@
     const v0, 0x7f090238
     invoke-virtual {p0, v0}, Landroid/app/Activity;->findViewById(I)Landroid/view/View;
     move-result-object v1
-    if-eqz v1, :style_back_button
-    check-cast v1, Landroid/widget/Button;
+    if-eqz v1, :set_default_screen
+    check-cast v1, Landroid/widget/TextView;
     invoke-virtual {v1, v2, v2, v2, v2}, Landroid/view/View;->setPadding(IIII)V
     const v3, 0xff1ed760
     invoke-static {v3}, Landroid/content/res/ColorStateList;->valueOf(I)Landroid/content/res/ColorStateList;
@@ -6739,17 +6739,6 @@
     invoke-virtual {v1, v3}, Landroid/view/View;->setBackgroundTintList(Landroid/content/res/ColorStateList;)V
     const v3, -0xededee
     invoke-virtual {v1, v3}, Landroid/widget/TextView;->setTextColor(I)V
-
-    :style_back_button
-    const v0, 0x7f090231
-    invoke-virtual {p0, v0}, Landroid/app/Activity;->findViewById(I)Landroid/view/View;
-    move-result-object v1
-    if-eqz v1, :set_default_screen
-    invoke-virtual {v1, v2, v2, v2, v2}, Landroid/view/View;->setPadding(IIII)V
-    const v3, -0xdbdbdc
-    invoke-static {v3}, Landroid/content/res/ColorStateList;->valueOf(I)Landroid/content/res/ColorStateList;
-    move-result-object v3
-    invoke-virtual {v1, v3}, Landroid/view/View;->setBackgroundTintList(Landroid/content/res/ColorStateList;)V
 
     :set_default_screen
     iget-object v0, p0, Lcom/melodix/music/MainActivity;->nativeCurrentScreen:Ljava/lang/String;
@@ -6924,7 +6913,7 @@
     invoke-virtual {p0, p3}, Landroid/app/Activity;->findViewById(I)Landroid/view/View;
     move-result-object v1
     if-eqz v1, :native_tab_style_done
-    check-cast v1, Landroid/widget/Button;
+    check-cast v1, Landroid/widget/TextView;
     const/4 v3, 0x0
     if-eqz v0, :native_tab_inactive
     const v2, -0x1
@@ -6936,7 +6925,6 @@
     const v4, -0x888889
 
     :native_tab_apply
-    invoke-virtual {v1, v3, v3, v3, v3}, Landroid/view/View;->setPadding(IIII)V
     invoke-virtual {v1, v2}, Landroid/widget/TextView;->setTextColor(I)V
     invoke-static {v3}, Landroid/content/res/ColorStateList;->valueOf(I)Landroid/content/res/ColorStateList;
     move-result-object v3
@@ -7212,14 +7200,14 @@
     invoke-virtual {p0, v8}, Landroid/app/Activity;->findViewById(I)Landroid/view/View;
     move-result-object v9
     if-eqz v9, :native_player_large_button
-    check-cast v9, Landroid/widget/Button;
+    check-cast v9, Landroid/widget/TextView;
     if-eqz v6, :native_player_mini_play
     const-string v7, "Ⅱ"
     goto :native_player_mini_set
     :native_player_mini_play
     const-string v7, "▶"
     :native_player_mini_set
-    invoke-virtual {v9, v7}, Landroid/widget/Button;->setText(Ljava/lang/CharSequence;)V
+    invoke-virtual {v9, v7}, Landroid/widget/TextView;->setText(Ljava/lang/CharSequence;)V
     const/4 v8, 0x0
     invoke-virtual {v9, v8, v8, v8, v8}, Landroid/view/View;->setPadding(IIII)V
     const v8, 0xff1ed760
@@ -7234,14 +7222,14 @@
     invoke-virtual {p0, v8}, Landroid/app/Activity;->findViewById(I)Landroid/view/View;
     move-result-object v9
     if-eqz v9, :native_player_try_done
-    check-cast v9, Landroid/widget/Button;
+    check-cast v9, Landroid/widget/TextView;
     if-eqz v6, :native_player_large_play
     const-string v7, "Ⅱ"
     goto :native_player_large_set
     :native_player_large_play
     const-string v7, "▶"
     :native_player_large_set
-    invoke-virtual {v9, v7}, Landroid/widget/Button;->setText(Ljava/lang/CharSequence;)V
+    invoke-virtual {v9, v7}, Landroid/widget/TextView;->setText(Ljava/lang/CharSequence;)V
     const/4 v8, 0x0
     invoke-virtual {v9, v8, v8, v8, v8}, Landroid/view/View;->setPadding(IIII)V
     const v8, -0x1
@@ -7261,7 +7249,7 @@
 .end method
 
 .method public final renderNativeRows(Ljava/lang/String;Ljava/lang/String;)V
-    .locals 8
+    .locals 10
 
     iput-object p1, p0, Lcom/melodix/music/MainActivity;->nativeCurrentTitle:Ljava/lang/String;
     iput-object p2, p0, Lcom/melodix/music/MainActivity;->nativeCurrentJson:Ljava/lang/String;
@@ -7288,12 +7276,69 @@
     move-result v4
     if-lez v4, :native_rows_empty
 
+    iget-object v0, p0, Lcom/melodix/music/MainActivity;->nativeCurrentScreen:Ljava/lang/String;
+    const-string v1, "detail"
+    invoke-virtual {v1, v0}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    move-result v0
+    if-eqz v0, :native_rows_start_loop
+    const/4 v0, 0x0
+    invoke-virtual {v3, v0}, Lorg/json/JSONArray;->optJSONObject(I)Lorg/json/JSONObject;
+    move-result-object v6
+    const-string v8, ""
+    const-string v9, ""
+    if-eqz v6, :native_rows_create_banner
+    const-string v0, "image"
+    invoke-virtual {v6, v0, v8}, Lorg/json/JSONObject;->optString(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;
+    move-result-object v8
+    invoke-virtual {v8}, Ljava/lang/String;->isEmpty()Z
+    move-result v0
+    if-eqz v0, :native_rows_banner_uri
+    const-string v0, "cover"
+    const-string v1, ""
+    invoke-virtual {v6, v0, v1}, Lorg/json/JSONObject;->optString(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;
+    move-result-object v8
+    :native_rows_banner_uri
+    const-string v0, "id"
+    invoke-virtual {v6, v0, v9}, Lorg/json/JSONObject;->optString(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;
+    move-result-object v9
+    invoke-virtual {v9}, Ljava/lang/String;->isEmpty()Z
+    move-result v0
+    if-eqz v0, :native_rows_create_banner
+    const-string v0, "uri"
+    const-string v1, ""
+    invoke-virtual {v6, v0, v1}, Lorg/json/JSONObject;->optString(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;
+    move-result-object v9
+    :native_rows_create_banner
+    invoke-static {p0, p1, v4, v8, v9}, Lcom/melodix/music/NativeUiRowFactory;->createPlaylistBanner(Lcom/melodix/music/MainActivity;Ljava/lang/String;ILjava/lang/String;Ljava/lang/String;)Landroid/widget/LinearLayout;
+    move-result-object v0
+    if-eqz v0, :native_rows_start_loop
+    invoke-virtual {v2, v0}, Landroid/widget/LinearLayout;->addView(Landroid/view/View;)V
+
+    :native_rows_start_loop
+    const-string v8, ""
     const/4 v5, 0x0
     :native_rows_loop
     if-ge v5, v4, :native_rows_try_done
     invoke-virtual {v3, v5}, Lorg/json/JSONArray;->optJSONObject(I)Lorg/json/JSONObject;
     move-result-object v6
     if-eqz v6, :native_row_scalar
+    const-string v0, "section"
+    const-string v1, ""
+    invoke-virtual {v6, v0, v1}, Lorg/json/JSONObject;->optString(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;
+    move-result-object v9
+    invoke-virtual {v9}, Ljava/lang/String;->isEmpty()Z
+    move-result v0
+    if-nez v0, :native_row_build_card
+    invoke-virtual {v9, v8}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    move-result v0
+    if-nez v0, :native_row_build_card
+    move-object v8, v9
+    invoke-static {p0, v9}, Lcom/melodix/music/NativeUiRowFactory;->createSectionHeader(Lcom/melodix/music/MainActivity;Ljava/lang/String;)Landroid/widget/TextView;
+    move-result-object v0
+    if-eqz v0, :native_row_build_card
+    invoke-virtual {v2, v0}, Landroid/widget/LinearLayout;->addView(Landroid/view/View;)V
+
+    :native_row_build_card
     invoke-static {p0, v6}, Lcom/melodix/music/NativeUiRowFactory;->create(Lcom/melodix/music/MainActivity;Lorg/json/JSONObject;)Landroid/widget/LinearLayout;
     move-result-object v0
     if-eqz v0, :native_row_increment
@@ -7325,7 +7370,16 @@
     :native_rows_empty
     new-instance v6, Landroid/widget/TextView;
     invoke-direct {v6, p0}, Landroid/widget/TextView;-><init>(Landroid/content/Context;)V
+    iget-object v0, p0, Lcom/melodix/music/MainActivity;->nativeCurrentScreen:Ljava/lang/String;
+    const-string v1, "search"
+    invoke-virtual {v1, v0}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    move-result v0
+    if-eqz v0, :native_rows_default_empty
+    const-string v0, "Recherchez un artiste, un titre, un album ou une playlist ci-dessus"
+    goto :native_rows_set_empty
+    :native_rows_default_empty
     const-string v0, "No items to show yet"
+    :native_rows_set_empty
     invoke-virtual {v6, v0}, Landroid/widget/TextView;->setText(Ljava/lang/CharSequence;)V
     const/high16 v0, 0x41800000
     invoke-virtual {v6, v0}, Landroid/widget/TextView;->setTextSize(F)V
@@ -7399,10 +7453,15 @@
 .end method
 
 .method public final onNativeSearchClick(Landroid/view/View;)V
-    .locals 2
+    .locals 3
 
     const-string v0, "search"
     invoke-virtual {p0, v0}, Lcom/melodix/music/MainActivity;->setNativeScreen(Ljava/lang/String;)V
+    const/4 v0, 0x0
+    iput-object v0, p0, Lcom/melodix/music/MainActivity;->nativeExpectedSearch:Ljava/lang/String;
+    const-string v0, "Search"
+    const-string v1, "[]"
+    invoke-virtual {p0, v0, v1}, Lcom/melodix/music/MainActivity;->renderNativeRows(Ljava/lang/String;Ljava/lang/String;)V
     const v0, 0x7f090233
     invoke-virtual {p0, v0}, Landroid/app/Activity;->findViewById(I)Landroid/view/View;
     move-result-object v1
@@ -7619,7 +7678,7 @@
 .method public final onNativePlayPauseClick(Landroid/view/View;)V
     .locals 1
 
-    const-string v0, "(function(){var b=document.querySelector('[data-testid=\"control-button-playpause\"]')||document.querySelector('button[aria-label=\"Play\"],button[aria-label=\"Pause\"]');if(b){b.click();}})();"
+    const-string v0, "(function(){if(typeof window.actPlayPause===\'function\'){window.actPlayPause();return;}var b=document.querySelector(\'[data-testid=\"control-button-playpause\"]\')||document.querySelector(\'button[aria-label=\"Play\"],button[aria-label=\"Pause\"],button[aria-label=\"Lecture\"]\');if(b){b.click();}})();"
     invoke-virtual {p0, v0}, Lcom/melodix/music/MainActivity;->runNativeJavascript(Ljava/lang/String;)V
     return-void
 .end method
@@ -7655,7 +7714,7 @@
 .method public final onNativePlayerPreviousClick(Landroid/view/View;)V
     .locals 1
 
-    const-string v0, "(function(){var b=document.querySelector('[data-testid=\"control-button-skip-back\"]');if(b){b.click();}})();"
+    const-string v0, "(function(){if(typeof window.actSkipBack===\'function\'){window.actSkipBack();return;}var b=document.querySelector(\'[data-testid=\"control-button-skip-back\"]\');if(b){b.click();}})();"
     invoke-virtual {p0, v0}, Lcom/melodix/music/MainActivity;->runNativeJavascript(Ljava/lang/String;)V
     return-void
 .end method
@@ -7663,7 +7722,7 @@
 .method public final onNativePlayerNextClick(Landroid/view/View;)V
     .locals 1
 
-    const-string v0, "(function(){var b=document.querySelector('[data-testid=\"control-button-skip-forward\"]');if(b){b.click();}})();"
+    const-string v0, "(function(){if(typeof window.actSkipForward===\'function\'){window.actSkipForward();return;}var b=document.querySelector(\'[data-testid=\"control-button-skip-forward\"]\');if(b){b.click();}})();"
     invoke-virtual {p0, v0}, Lcom/melodix/music/MainActivity;->runNativeJavascript(Ljava/lang/String;)V
     return-void
 .end method
@@ -7671,7 +7730,7 @@
 .method public final onNativePlayerShuffleClick(Landroid/view/View;)V
     .locals 1
 
-    const-string v0, "(function(){var b=document.querySelector('[data-testid=\"control-button-shuffle\"]');if(b){b.click();}})();"
+    const-string v0, "(function(){if(typeof window.actShuffle===\'function\'){window.actShuffle();return;}var b=document.querySelector(\'[data-testid=\"control-button-shuffle\"]\');if(b){b.click();}})();"
     invoke-virtual {p0, v0}, Lcom/melodix/music/MainActivity;->runNativeJavascript(Ljava/lang/String;)V
     return-void
 .end method
@@ -7679,7 +7738,7 @@
 .method public final onNativePlayerRepeatClick(Landroid/view/View;)V
     .locals 1
 
-    const-string v0, "(function(){var b=document.querySelector('[data-testid=\"control-button-repeat\"]');if(b){b.click();}})();"
+    const-string v0, "(function(){if(typeof window.actRepeat===\'function\'){window.actRepeat();return;}var b=document.querySelector(\'[data-testid=\"control-button-repeat\"]\');if(b){b.click();}})();"
     invoke-virtual {p0, v0}, Lcom/melodix/music/MainActivity;->runNativeJavascript(Ljava/lang/String;)V
     return-void
 .end method
