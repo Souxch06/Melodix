@@ -86,6 +86,11 @@ function executeDiagnostic() {
         __sfMelodixBridgeBootstrapErrors: 0,
         __sfMelodixMobileShellInitAttempted: true,
         __sfMelodixHomeInitAttempted: true,
+        __sfNativeUiShellStarted: true,
+        __sfNativeUiShellReady: true,
+        __sfNativeUiShellCompleted: true,
+        __sfNativeUiShellErrors: 0,
+        __sfNativeUiReadyNotified: true,
         getComputedStyle: (element) => ({ display: element.display }),
         setTimeout: (callback, delay) => {
             timers.push({ callback, delay });
@@ -178,6 +183,11 @@ test('Preview diagnostic returns four timed samples with the existing report fie
         mobileShellClass: true,
         homeActiveClass: false,
         homeRootPresent: false,
+        nativeUiShellStarted: true,
+        nativeUiShellReady: true,
+        nativeUiShellCompleted: true,
+        nativeUiShellErrors: 0,
+        nativeUiReadyNotified: true,
         customStylesheetInjected: true
     });
     assert.equal(samples[3].mutations.observerStopped, true);

@@ -67,10 +67,16 @@ test('native bridge exposes UI callbacks and routes media, search and player dat
     assert.match(bridge, /const-string v1, "media:"[\s\S]*?dispatchNativeUi/);
     assert.match(bridge, /const-string v1, "search:"[\s\S]*?dispatchNativeUi/);
     assert.match(bridge, /const-string v0, "player"[\s\S]*?dispatchNativeUi/);
-    const readiness = read('assets/spotify_bridge.js').match(/function notifyNativeUiReady\(mainView\) \{[\s\S]*?\n    \}/);
+    const shell = read('assets/native_ui_shell.js');
+    const readiness = shell.match(/function notifyNativeUiReady\(mainView\) \{[\s\S]*?\n    \}/);
+    const client = read('smali/c91.smali');
+    const hotfixList = read('smali/c40.smali').split('.method public static a')[0];
     assert.ok(readiness, 'native shell readiness guard should exist');
     assert.match(readiness[0], /user-widget-link/);
     assert.match(readiness[0], /open\.spotify\.com/);
+    assert.match(client, /const-string v5, "native_ui_shell\.js"[\s\S]*?evaluateJavascript/);
+    assert.doesNotMatch(hotfixList, /native_ui_shell\.js/);
+    assert.doesNotMatch(read('assets/spotify_bridge.js'), /notifyNativeUiReady\(/);
     assert.match(activity, /\.method public final showNativeUi\(\)V/);
     assert.match(activity, /\.method public final applyNativeUiData\(Ljava\/lang\/String;Ljava\/lang\/String;\)V/);
     assert.match(activity, /\.method public final runNativeJavascript\(Ljava\/lang\/String;\)V/);
@@ -81,17 +87,95 @@ test('native bridge exposes UI callbacks and routes media, search and player dat
 });
 
 test('Spotify links are normalized to safe native row URIs', () => {
-    const bridge = read('assets/spotify_bridge.js');
-    const helper = bridge.match(/function nativeSpotifyUri\(value\) \{[\s\S]*?\n    \}/);
+    const shell = read('assets/native_ui_shell.js');
+    const helper = shell.match(/function nativeSpotifyUri\(value\) \{[\s\S]*?\n    \}/);
     assert.ok(helper, 'native Spotify URI helper should exist');
 
     const context = {
         URL,
         window: { location: { href: 'https://open.spotify.com/', hostname: 'open.spotify.com' } }
     };
-    vm.runInNewContext(`${helper[0]}; globalThis.nativeSpotifyUri = nativeSpotifyUri;`, context);
+    vm.runInNewContext(`const SUPPORTED_TYPES = ['playlist', 'album', 'artist', 'track', 'show', 'episode', 'audiobook']; ${helper[0]}; globalThis.nativeSpotifyUri = nativeSpotifyUri;`, context);
 
     assert.equal(context.nativeSpotifyUri('https://open.spotify.com/album/abc123?si=xyz'), 'spotify:album:abc123');
     assert.equal(context.nativeSpotifyUri('spotify:user:person:playlist:abc123'), 'spotify:playlist:abc123');
     assert.equal(context.nativeSpotifyUri('https://example.org/playlist/abc123'), 'https://example.org/playlist/abc123');
+});
+
+test('bundled native bootstrap activates the shell, sends Home rows, and only opens Spotify links', () => {
+    const script = read('assets/native_ui_shell.js');
+    const calls = [];
+    const assigned = [];
+    const timers = [];
+    let readyCount = 0;
+
+    const anchor = {
+        href: 'https://open.spotify.com/playlist/abc123?si=xyz',
+        innerText: 'Focus Mix',
+        textContent: 'Focus Mix',
+        getAttribute: () => null,
+        querySelector: () => null
+    };
+    const card = {
+        innerText: 'Focus Mix\nPicked for you',
+        textContent: 'Focus Mix\nPicked for you',
+        matches: () => false,
+        querySelector: (selector) => selector === 'a[href]' ? anchor : null,
+        getAttribute: () => null,
+        closest: () => null
+    };
+    const mainView = {
+        querySelectorAll: (selector) => selector === '[data-testid="card"]' ? [card] : []
+    };
+    const document = {
+        readyState: 'complete',
+        documentElement: {},
+        querySelector: (selector) => selector === '#main-view'
+            ? mainView
+            : selector.indexOf('user-widget-link') >= 0 ? {} : null,
+        addEventListener: () => {}
+    };
+    class TestMutationObserver {
+        observe() {}
+    }
+    const window = {
+        location: {
+            hostname: 'open.spotify.com',
+            pathname: '/',
+            href: 'https://open.spotify.com/',
+            assign: (value) => assigned.push(value)
+        },
+        AndBridge: {
+            onNativeUiReady: () => { readyCount += 1; },
+            onNativeUiData: (screen, data) => calls.push({ screen, data })
+        },
+        MutationObserver: TestMutationObserver,
+        addEventListener: () => {},
+        setTimeout: (callback, delay) => {
+            timers.push({ callback, delay });
+            return timers.length;
+        },
+        clearTimeout: () => {}
+    };
+
+    vm.runInNewContext(script, { window, document, URL, MutationObserver: TestMutationObserver });
+
+    assert.equal(window.__sfNativeUiShellStarted, true);
+    assert.equal(window.__sfNativeUiShellReady, true);
+    assert.equal(window.__sfNativeUiShellCompleted, true);
+    assert.equal(readyCount, 1);
+    assert.equal(calls.length, 1);
+    assert.equal(calls[0].screen, 'home');
+    assert.deepEqual(JSON.parse(calls[0].data), [{
+        title: 'Focus Mix',
+        subtitle: 'Picked for you',
+        uri: 'spotify:playlist:abc123'
+    }]);
+
+    assert.equal(window.__sfNativeOpenUri('spotify:track:track123'), true);
+    assert.equal(assigned.pop(), 'https://open.spotify.com/track/track123');
+    assert.equal(window.__sfNativeOpenUri('https://example.org/track/track123'), false);
+    assert.equal(window.__sfNativeRequestHome(), true);
+    assert.equal(calls.length, 2, 'requesting Home should resend current rows');
+    assert.equal(timers.length, 0, 'a signed-in page with a ready bridge should not keep retry timers');
 });

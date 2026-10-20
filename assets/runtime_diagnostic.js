@@ -195,6 +195,13 @@
           ? body.classList.contains('sf-melodix-home-active')
           : null,
         homeRootPresent: document.querySelector('#sf-melodix-home') !== null,
+        nativeUiShellStarted: window.__sfNativeUiShellStarted === true,
+        nativeUiShellReady: window.__sfNativeUiShellReady === true,
+        nativeUiShellCompleted: window.__sfNativeUiShellCompleted === true,
+        nativeUiShellErrors: Number.isInteger(window.__sfNativeUiShellErrors)
+          ? window.__sfNativeUiShellErrors
+          : null,
+        nativeUiReadyNotified: window.__sfNativeUiReadyNotified === true,
         customStylesheetInjected: document.querySelector('#sf-custom-style') !== null
       },
       mutations: {
