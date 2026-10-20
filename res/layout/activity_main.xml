@@ -173,19 +173,17 @@
                 android:layout_height="46.0dip"
                 android:layout_marginRight="10.0dip"
                 android:layout_weight="1.0" />
-            <TextView
-                android:text="Chercher"
-                android:textSize="14.5sp"
-                android:textStyle="bold"
-                android:textColor="#ff121212"
-                android:gravity="center"
+            <ImageView
+                android:src="@drawable/native_nav_search"
+                android:tint="#ff121212"
+                android:scaleType="centerInside"
+                android:padding="13.0dip"
                 android:clickable="true"
                 android:focusable="true"
+                android:contentDescription="Chercher"
                 android:background="@drawable/native_button_green"
-                android:paddingLeft="18.0dip"
-                android:paddingRight="18.0dip"
                 android:onClick="onNativeSearchSubmit"
-                android:layout_width="wrap_content"
+                android:layout_width="46.0dip"
                 android:layout_height="46.0dip" />
         </LinearLayout>
 

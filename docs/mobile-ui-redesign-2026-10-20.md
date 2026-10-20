@@ -224,6 +224,9 @@ registres, les identifiants et la présence des appels.
 - **Pochettes des lignes : 48 dp, rayon 4 dp** et un pictogramme de note neutre
   (`native_cover_placeholder`, `0x7f080141`) au lieu du logo de l'application,
   qui apparaissait sur chaque ligne sans pochette.
+- **Bouton de recherche** : le libellé « Chercher » de 90 dp est remplacé par
+  une pastille verte de 46 dp avec le pictogramme loupe, qui libère de la place
+  pour le champ sans retirer le bouton (même `onNativeSearchSubmit`).
 - **Barre de défilement masquée** sur la liste native (`scrollbars="none"`),
   comme dans l'application Spotify.
 - Nouveau test `tests/native_ui.test.js` : la grille est entre le champ et les
