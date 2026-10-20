@@ -70,6 +70,7 @@ jobs:
           arch: x86_64
           profile: pixel_2
           disable-animations: true
+          emulator-boot-timeout: 1200
           emulator-options: -no-window -no-audio -no-boot-anim -no-snapshot -gpu swiftshader_indirect
           script: bash scripts/preview-launch-trace.sh
 
