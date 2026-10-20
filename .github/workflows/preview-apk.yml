@@ -207,14 +207,23 @@ jobs:
           # The app refuses to start when the fingerprint in strings.xml is not
           # the one of the certificate that signed this very APK. Check it here
           # instead of shipping an APK that can only close itself.
-          signed_fingerprint="$("$build_tools/apksigner" verify --print-certs "$output" \
-            | sed -n 's/^Signer #1 certificate SHA-256 digest: //p' \
-            | head -n 1 | tr -d '\r' | tr 'a-f' 'A-F')"
+          # No pipes here on purpose: under `set -o pipefail`, grep -q exiting on
+          # the first match sends SIGPIPE upstream and makes the whole pipeline
+          # report a failure even when the match was found.
+          "$build_tools/apksigner" verify --print-certs "$output" > "$RUNNER_TEMP/apk-certs.txt"
+          signed_line="$(grep '^Signer #1 certificate SHA-256 digest: ' "$RUNNER_TEMP/apk-certs.txt" || true)"
+          signed_fingerprint="${signed_line##*: }"
+          signed_fingerprint="${signed_fingerprint%$'\r'}"
+          signed_fingerprint="${signed_fingerprint^^}"
           if [[ "$signed_fingerprint" != "$fingerprint_hex" ]]; then
             echo "::error::Embedded fingerprint does not match the signing certificate."
             exit 1
           fi
-          if ! unzip -p "$output" resources.arsc | tr -d '\000' | grep -Fq "$preview_fingerprint"; then
+
+          # Read the compiled resource table, not the source XML: this is what
+          # getString(0x7f110052) returns at runtime.
+          "$build_tools/aapt" dump --values resources "$output" > "$RUNNER_TEMP/apk-resources.txt"
+          if ! grep -Fq "$preview_fingerprint" "$RUNNER_TEMP/apk-resources.txt"; then
             echo "::error::expected_signature_sha256 was not compiled into resources.arsc."
             exit 1
           fi
