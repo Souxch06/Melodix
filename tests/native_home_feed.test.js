@@ -79,6 +79,16 @@ test('empty and invalid home payloads are not treated as success for native pain
     assert.match(list, /\"section\"/);
     assert.match(list, /NativeUiRowFactory;->create/);
     assert.doesNotMatch(list, /Chargement de votre accueil/);
+    const paintAt = list.indexOf('.method public static paint');
+    const paint = list.slice(paintAt);
+    const jsonInit = paint.indexOf('JSONArray;-><init>');
+    const wipe = paint.indexOf('removeAllViews()V');
+    const commit = paint.indexOf(':commit');
+    assert.ok(wipe > commit, 'visible container is not wiped before a successful commit');
+    assert.ok(wipe > jsonInit, 'JSON parse happens before any wipe');
+    assert.match(paint, /if-lez v5, :done/);
+    assert.match(paint, /NativeCrashGuard;->record/);
+    assert.match(paint, /home-feed:/);
     const parser = read('smali/com/melodix/music/NativeRowList.smali');
     assert.match(parser, /JSONArray;-><init>/);
     assert.match(parser, /optString\(Ljava\/lang\/String;Ljava\/lang\/String;\)/);
@@ -114,6 +124,47 @@ test('bridge loader distinguishes inject, load, error and asset body', () => {
     assert.match(diag, /bridgeLoadStage/);
     assert.match(diag, /bridgeAssetServed/);
     assert.match(diag, /bridgeEntered/);
+    assert.match(diag, /nativeHomePlaylistCount/);
+    assert.match(diag, /nativeHomeRowCount/);
+});
+
+test('section headers are created only when the section is non-empty and different from the previous one', () => {
+    const feed = read('smali/com/melodix/music/NativeHomeFeed.smali');
+    const paint = feed.slice(feed.indexOf('.method public static paint'));
+    const header = paint.indexOf('createSectionHeader');
+    assert.ok(header > 0);
+    const before = paint.slice(0, header);
+    assert.match(before, /isEmpty\(\)Z/);
+    assert.match(before, /if-nez v11, :card/);
+    assert.match(before, /equals\(Ljava\/lang\/Object;\)Z/);
+    const equalsAt = before.lastIndexOf('equals(Ljava/lang/Object;)Z');
+    const afterEquals = before.slice(equalsAt);
+    assert.match(afterEquals, /if-nez v11, :card/);
+    assert.doesNotMatch(afterEquals, /if-eqz v11, :card/);
+});
+
+test('two playlist cards in the same section share one header; distinct sections each get a header', () => {
+    const feed = read('smali/com/melodix/music/NativeHomeFeed.smali');
+    assert.match(feed, /move-object v3, v10/);
+    assert.match(feed, /:playlist:/);
+    assert.match(feed, /lastPlaylists:I/);
+    const { window, calls } = runShell({
+        mediaLib: {
+            playlists: [
+                { name: 'A', uri: 'spotify:playlist:a', type: 'Playlist' },
+                { name: 'B', uri: 'spotify:playlist:b', type: 'Playlist' }
+            ]
+        }
+    });
+    const home = calls.filter((c) => c.screen === 'home').pop();
+    const rows = JSON.parse(home.data);
+    const playlists = rows.filter((row) => /:playlist:/.test(row.uri));
+    assert.equal(playlists.length, 2);
+    assert.equal(playlists[0].section, playlists[1].section);
+    assert.equal(window.__sfNativeHomePlaylistCount, 2);
+    assert.equal(window.__sfNativeHomeRowCount, rows.length);
+    const sections = [...new Set(rows.map((row) => row.section).filter(Boolean))];
+    assert.ok(sections.length >= 1);
 });
 
 test('search payloads do not clear stored home JSON in applyNativeUiData', () => {

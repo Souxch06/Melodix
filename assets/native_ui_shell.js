@@ -158,16 +158,25 @@
             var payload = JSON.stringify(rows);
             var lastSection = '';
             var lines = [];
+            var playlistCount = 0;
             rows.forEach(function(row) {
                 if (row.section && row.section !== lastSection) {
                     lastSection = row.section;
                     if (lines.length) lines.push('');
                     lines.push(row.section);
                 }
+                if (row.uri && row.uri.indexOf(':playlist:') >= 0) {
+                    playlistCount += 1;
+                }
                 if (row.title) {
                     lines.push(row.subtitle ? (row.title + ' — ' + row.subtitle) : row.title);
                 }
             });
+            if (screen === 'home') {
+                window.__sfNativeHomeRowCount = rows.length;
+                window.__sfNativeHomePlaylistCount = playlistCount;
+                window.__sfNativeHomeRejectedCount = (Array.isArray(items) ? items.length : 0) - rows.length;
+            }
             bridge.onNativeUiData(screen, payload);
             if (lines.length) {
                 var listText = lines.join('\n');

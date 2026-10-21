@@ -225,6 +225,15 @@
         nativeUiShellStarted: window.__sfNativeUiShellStarted === true,
         nativeUiShellReady: window.__sfNativeUiShellReady === true,
         nativeUiShellCompleted: window.__sfNativeUiShellCompleted === true,
+        nativeHomeRowCount: Number.isInteger(window.__sfNativeHomeRowCount)
+          ? window.__sfNativeHomeRowCount
+          : null,
+        nativeHomePlaylistCount: Number.isInteger(window.__sfNativeHomePlaylistCount)
+          ? window.__sfNativeHomePlaylistCount
+          : null,
+        nativeHomeRejectedCount: Number.isInteger(window.__sfNativeHomeRejectedCount)
+          ? window.__sfNativeHomeRejectedCount
+          : null,
         nativeUiShellErrors: Number.isInteger(window.__sfNativeUiShellErrors)
           ? window.__sfNativeUiShellErrors
           : null,
