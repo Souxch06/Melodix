@@ -7830,7 +7830,13 @@
     check-cast v2, Landroid/view/ViewGroup;
 
     :native_rows_list
+    :try_start_fill
     invoke-static {p0, v2, p2}, Lcom/melodix/music/NativeRowList;->fill(Landroid/content/Context;Landroid/view/ViewGroup;Ljava/lang/String;)V
+    :try_end_fill
+    .catch Ljava/lang/Throwable; {:try_start_fill .. :try_end_fill} :catch_fill
+    return-void
+
+    :catch_fill
     return-void
 
     :render_native_done
