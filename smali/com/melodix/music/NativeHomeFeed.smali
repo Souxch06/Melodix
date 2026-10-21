@@ -29,7 +29,7 @@
     invoke-direct {v1, p2}, Lorg/json/JSONArray;-><init>(Ljava/lang/String;)V
     invoke-virtual {v1}, Lorg/json/JSONArray;->length()I
     move-result v2
-    if-lez v2, :done
+    if-lez v2, :try_empty
 
     new-instance v12, Landroid/widget/LinearLayout;
     invoke-direct {v12, p0}, Landroid/widget/LinearLayout;-><init>(Landroid/content/Context;)V
@@ -114,7 +114,7 @@
     goto :loop
 
     :commit
-    if-lez v5, :done
+    if-lez v5, :try_empty
     invoke-virtual {p1}, Landroid/view/ViewGroup;->removeAllViews()V
 
     :xfer
@@ -131,6 +131,12 @@
     :finish
     sput v5, Lcom/melodix/music/NativeHomeFeed;->lastPainted:I
     move v0, v5
+    goto :try_ok
+
+    :try_empty
+    const/4 v0, 0x0
+
+    :try_ok
     :try_end_0
     .catch Lorg/json/JSONException; {:try_start_0 .. :try_end_0} :catch_json
     .catch Ljava/lang/Throwable; {:try_start_0 .. :try_end_0} :catch_all

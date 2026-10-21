@@ -86,7 +86,7 @@ test('empty and invalid home payloads are not treated as success for native pain
     const commit = paint.indexOf(':commit');
     assert.ok(wipe > commit, 'visible container is not wiped before a successful commit');
     assert.ok(wipe > jsonInit, 'JSON parse happens before any wipe');
-    assert.match(paint, /if-lez v5, :done/);
+    assert.match(paint, /if-lez v5, :try_empty/);
     assert.match(paint, /NativeCrashGuard;->record/);
     assert.match(paint, /home-feed:/);
     const parser = read('smali/com/melodix/music/NativeRowList.smali');
