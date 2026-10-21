@@ -50,7 +50,8 @@ test('native shell overlays, but does not replace or detach, the existing WebVie
 
     assert.ok(webViewPosition >= 0, 'the existing WebView container must remain in the layout');
     assert.ok(nativeRootPosition > webViewPosition, 'native shell should draw over the WebView');
-    assert.match(layout.slice(nativeRootPosition, nativeRootPosition + 900), /android:visibility="gone"/);
+    assert.match(layout.slice(nativeRootPosition, nativeRootPosition + 900), /android:visibility="visible"/);
+    assert.match(layout.slice(nativeRootPosition, nativeRootPosition + 900), /android:fitsSystemWindows="false"/);
     assert.match(layout.slice(nativeRootPosition, nativeRootPosition + 900), /android:clickable="true"/);
     assert.match(layout, /android:id="@id\/nativeContent"/);
     assert.doesNotMatch(layout, /Titres likés/, 'XML placeholders were mistaken for playlists');
@@ -102,6 +103,8 @@ test('native bridge exposes UI callbacks and routes media, search and player dat
     assert.match(client, /const-string v5, "native_ui_shell\.js"[\s\S]*?evaluateJavascript/);
     assert.doesNotMatch(hotfixList, /native_ui_shell\.js/);
     assert.doesNotMatch(read('assets/spotify_bridge.js'), /notifyNativeUiReady\(/);
+    assert.match(read('smali/com/melodix/music/MainActivity.smali'), /:native_root_cover/);
+    assert.doesNotMatch(read('smali/com/melodix/music/MainActivity.smali'), /const\/high16 v1, 0x3f600000/);
     assert.match(activity, /\.method public final showNativeUi\(\)V/);
     assert.match(activity, /styleNativeTab[\s\S]*?setBackgroundTintList/);
     assert.match(activity, /\.method public final postNativeUiRoute\(Ljava\/lang\/String;\)V/);

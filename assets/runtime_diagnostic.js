@@ -207,6 +207,12 @@
         bridgeEntered: window.__sfBridgeEntered === true,
         bridgeExecMode: typeof window.__sfBridgeExecMode === 'string' ? window.__sfBridgeExecMode : null,
         bridgeBytes: Number.isInteger(window.__sfBridgeBytes) ? window.__sfBridgeBytes : null,
+        bridgeSourceChars: Number.isInteger(window.__sfBridgeSourceChars)
+          ? window.__sfBridgeSourceChars
+          : (Number.isInteger(window.__sfBridgeBytes) ? window.__sfBridgeBytes : null),
+        bridgeServedBytes: Number.isInteger(window.__sfBridgeServedBytes)
+          ? window.__sfBridgeServedBytes
+          : null,
         bridgeLastError: typeof window.__sfBridgeLastError === 'string'
           ? window.__sfBridgeLastError.slice(0, 160)
           : null,

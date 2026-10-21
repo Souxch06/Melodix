@@ -27,6 +27,18 @@
     invoke-virtual {v2, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
     invoke-virtual {v2}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
     move-result-object v1
+    invoke-virtual {v1}, Ljava/lang/String;->length()I
+    move-result v2
+    new-instance v3, Ljava/lang/StringBuilder;
+    invoke-direct {v3}, Ljava/lang/StringBuilder;-><init>()V
+    const-string v4, "window.__sfBridgeServedBytes="
+    invoke-virtual {v3, v4}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    invoke-virtual {v3, v2}, Ljava/lang/StringBuilder;->append(I)Ljava/lang/StringBuilder;
+    const-string v4, ";"
+    invoke-virtual {v3, v4}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    invoke-virtual {v3, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    invoke-virtual {v3}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
+    move-result-object v1
 
     const-string v2, "UTF-8"
     invoke-virtual {v1, v2}, Ljava/lang/String;->getBytes(Ljava/lang/String;)[B
@@ -80,7 +92,7 @@
 .method public static loaderJavascript()Ljava/lang/String;
     .locals 1
 
-    const-string v0, "(function(){if(window.__sfMelodixBridgeStarted===true)return;if(document.querySelector('script[data-sf-melodix-bridge=\"1\"]')){if(!window.__sfBridgeLoadStage)window.__sfBridgeLoadStage='src-pending';return;}window.__sfBridgeExecMode='same-origin-src';window.__sfBridgeLoadStage='inject-src';var s=document.createElement('script');s.src=(window.location&&window.location.origin?window.location.origin:'https://open.spotify.com')+'/__melodix__/spotify_bridge.js';s.async=false;s.type='application/javascript';s.charset='utf-8';s.setAttribute('data-sf-melodix-bridge','1');s.onload=function(){window.__sfBridgeLoadStage='script-load';};s.onerror=function(){window.__sfBridgeLastError='script-error: load-failed';window.__sfBridgeLoadStage='script-error';};(document.head||document.documentElement).appendChild(s);})();"
+    const-string v0, "(function(){if(window.__sfMelodixBridgeStarted===true)return;if(document.querySelector('script[data-sf-melodix-bridge=\"1\"]')){if(!window.__sfBridgeLoadStage)window.__sfBridgeLoadStage='src-pending';return;}window.__sfBridgeExecMode='same-origin-src';window.__sfBridgeLoadStage='inject-src';var s=document.createElement('script');s.src=(window.location&&window.location.origin?window.location.origin:'https://open.spotify.com')+'/__melodix__/spotify_bridge.js';s.async=false;s.type='application/javascript';s.charset='utf-8';s.setAttribute('data-sf-melodix-bridge','1');s.onload=function(){var c=window.__sfBridgeLoadStage;if(c!=='bridge-entered'&&c!=='bridge-initialized'&&c!=='home-initialized')window.__sfBridgeLoadStage='script-load';};s.onerror=function(){window.__sfBridgeLastError='script-error: load-failed';if(!window.__sfBridgeEntered)window.__sfBridgeLoadStage='script-error';};(document.head||document.documentElement).appendChild(s);})();"
 
     return-object v0
 .end method

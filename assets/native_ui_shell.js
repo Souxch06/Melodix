@@ -1868,13 +1868,37 @@
         return origin + '/__melodix__/spotify_bridge.js';
     }
 
+    var BRIDGE_STAGE_RANK = {
+        start: 0,
+        'inject-src': 1,
+        'src-pending': 2,
+        'asset-response-created': 3,
+        'script-load': 4,
+        'script-error': 4,
+        'bridge-entered': 5,
+        'bridge-initialized': 6,
+        'home-initialized': 7,
+        'native-src': 3
+    };
+
+    function setBridgeLoadStage(stage) {
+        var next = String(stage || '');
+        var current = typeof window.__sfBridgeLoadStage === 'string' ? window.__sfBridgeLoadStage : '';
+        var currentRank = BRIDGE_STAGE_RANK[current];
+        var nextRank = BRIDGE_STAGE_RANK[next];
+        if (typeof currentRank === 'number' && typeof nextRank === 'number' && nextRank < currentRank) {
+            return;
+        }
+        window.__sfBridgeLoadStage = next;
+    }
+
     function attachBridgeScriptEvents(node, src) {
         node.onload = function() {
-            window.__sfBridgeLoadStage = 'script-load';
+            setBridgeLoadStage('script-load');
         };
         node.onerror = function() {
             recordBridgeFailure('script-error', 'load-failed');
-            window.__sfBridgeLoadStage = 'script-error';
+            setBridgeLoadStage('script-error');
         };
         if (!window.__sfBridgeErrorHooked) {
             window.__sfBridgeErrorHooked = true;
@@ -1884,7 +1908,7 @@
                     if (file.indexOf('spotify_bridge.js') < 0 && file.indexOf('__melodix__') < 0) return;
                     var name = String(event && event.message || 'error').slice(0, 120);
                     window.__sfBridgeLastError = ('script-error: ' + name).slice(0, 160);
-                    window.__sfBridgeLoadStage = 'script-error';
+                    setBridgeLoadStage('script-error');
                 }, true);
             } catch (_) {}
         }
@@ -1898,11 +1922,11 @@
         if (node) {
             if (!node.onload) attachBridgeScriptEvents(node, src);
             if (!window.__sfBridgeLoadStage || window.__sfBridgeLoadStage === 'inject-src') {
-                window.__sfBridgeLoadStage = 'src-pending';
+                setBridgeLoadStage('src-pending');
             }
             return true;
         }
-        window.__sfBridgeLoadStage = 'inject-src';
+        setBridgeLoadStage('inject-src');
         node = document.createElement('script');
         node.src = src;
         node.async = false;
@@ -1916,11 +1940,12 @@
 
     function loadBundledBridge(name) {
         if (bridgeHasStarted()) return true;
-        if (!window.__sfBridgeLoadStage) window.__sfBridgeLoadStage = 'start';
+        if (!window.__sfBridgeLoadStage) setBridgeLoadStage('start');
         try {
             if (window.AndBridge && typeof window.AndBridge.readBundledAsset === 'function' &&
-                !Number.isInteger(window.__sfBridgeBytes)) {
-                window.__sfBridgeBytes = String(window.AndBridge.readBundledAsset(name) || '').length;
+                !Number.isInteger(window.__sfBridgeSourceChars)) {
+                window.__sfBridgeSourceChars = String(window.AndBridge.readBundledAsset(name) || '').length;
+                window.__sfBridgeBytes = window.__sfBridgeSourceChars;
             }
         } catch (error) {
             recordBridgeFailure('read-asset', error);
@@ -1938,7 +1963,7 @@
             if (window.AndBridge && typeof window.AndBridge.injectBundledAsset === 'function') {
                 window.AndBridge.injectBundledAsset(name);
                 window.__sfBridgeExecMode = window.__sfBridgeExecMode || 'native-src';
-                window.__sfBridgeLoadStage = 'native-src';
+                setBridgeLoadStage('native-src');
             }
         } catch (error) {
             recordBridgeFailure('native-src', error);

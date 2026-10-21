@@ -1570,6 +1570,19 @@
     :goto_5
     invoke-virtual {v5, v7}, Landroid/view/View;->setVisibility(I)V
 
+    const v5, 0x7f09022f
+    invoke-virtual {p0, v5}, Landroid/app/Activity;->findViewById(I)Landroid/view/View;
+    move-result-object v5
+    if-eqz v5, :native_root_login_done
+    if-eqz v2, :native_root_cover
+    const/16 v7, 0x8
+    goto :native_root_apply
+    :native_root_cover
+    const/4 v7, 0x0
+    :native_root_apply
+    invoke-virtual {v5, v7}, Landroid/view/View;->setVisibility(I)V
+    :native_root_login_done
+
     .line 159
     .line 160
     .line 161
@@ -7298,28 +7311,9 @@
 
     if-eqz v0, :fade_done
 
-    # Start slightly transparent instead of fully invisible: the shell gradient
-    # is opaque, so a lower alpha would flash the WebView underneath, and a
-    # cancelled animation can never leave the screen blank.
-    const/high16 v1, 0x3f600000
+    const/high16 v1, 0x3f800000
 
     invoke-virtual {v0, v1}, Landroid/view/View;->setAlpha(F)V
-
-    invoke-virtual {v0}, Landroid/view/View;->animate()Landroid/view/ViewPropertyAnimator;
-
-    move-result-object v1
-
-    const/high16 v2, 0x3f800000
-
-    invoke-virtual {v1, v2}, Landroid/view/ViewPropertyAnimator;->alpha(F)Landroid/view/ViewPropertyAnimator;
-
-    const-wide/16 v2, 0xb4
-
-    invoke-virtual {v1, v2, v3}, Landroid/view/ViewPropertyAnimator;->setDuration(J)Landroid/view/ViewPropertyAnimator;
-
-    move-result-object v1
-
-    invoke-virtual {v1}, Landroid/view/ViewPropertyAnimator;->start()V
 
     :fade_done
     return-void
