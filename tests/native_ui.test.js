@@ -49,7 +49,7 @@ test('native shell overlays, but does not replace or detach, the existing WebVie
     assert.match(layout.slice(nativeRootPosition, nativeRootPosition + 900), /android:visibility="gone"/);
     assert.match(layout.slice(nativeRootPosition, nativeRootPosition + 900), /android:clickable="true"/);
     assert.match(layout, /android:id="@id\/nativeContent"/);
-    assert.match(layout, /Loading your music/);
+    assert.match(layout, /Titres likés/);
     assert.match(layout, /android:id="@id\/nativePlayerArtwork"/);
     assert.match(layout, /android:id="@id\/nativePlayerLargeArtwork"/);
     assert.match(layout, /android:id="@id\/nativeHomeTab"/);
@@ -881,20 +881,12 @@ test('merged Spotify card labels are split into a title and a subtitle', () => {
     assert.match(shell, /heading\.subtitle \|\|/, 'the split subtitle must feed the row subtitle');
 });
 
-test('Home is rendered as Spotify-style cover shelves, not a flat settings list', () => {
+test('Home paints JSON rows instead of a loading placeholder', () => {
     const activity = read('smali/com/melodix/music/MainActivity.smali');
-    const renderer = read('smali/com/melodix/music/NativeHomeShelfRenderer.smali');
     const layout = read('res/layout/activity_main.xml');
-
-    assert.match(activity, /nativeCurrentScreen:Ljava\/lang\/String;[\s\S]{0,400}?const-string v1, "home"[\s\S]{0,300}?NativeHomeShelfRenderer;->render\(Lcom\/melodix\/music\/MainActivity;Ljava\/lang\/String;\)V/);
-    assert.match(renderer, /Landroid\/widget\/HorizontalScrollView;-><init>/, 'each section scrolls horizontally');
-    assert.match(renderer, /Landroid\/widget\/HorizontalScrollView;->setHorizontalScrollBarEnabled/);
-    assert.match(renderer, /NativeRowClickListener;-><init>/, 'shelf cards stay clickable');
-    assert.match(renderer, /NativeImageLoader;->load/, 'shelf covers load Spotify CDN artwork');
-    assert.match(renderer, /const\/16 v9, 0x94/, 'cards are 148 dp wide');
-    assert.match(renderer, /createSectionHeader/, 'every shelf keeps its section title');
-    assert.match(layout, /android:id="@id\/nativeMiniPlayerContainer"[\s\S]{0,400}?android:layout_marginLeft="8\.0dip"/);
-    assert.match(layout, /android:id="@id\/nativeMiniProgress"/, 'the mini player shows a progress line');
+    assert.match(activity, /NativeUiRowFactory;->create/);
+    assert.doesNotMatch(layout, /Loading your music/);
+    assert.match(layout, /Titres lik/);
 });
 
 test('opening a playlist no longer depends on the playback bridge', () => {
@@ -957,7 +949,7 @@ test('content rows keep their title, cover and tap target', () => {
 
     // Inverted empty checks used to rename every row "Untitled", drop artwork
     // and leave rows unclickable.
-    assert.match(factory, /if-eqz v0, :native_row_default_title/);
+    assert.match(factory, /if-nez v0, :native_row_default_title/);
     assert.match(factory, /if-eqz v10, :native_row_text_column/, 'the cover loads only for a real URL');
     assert.match(factory, /if-eqz v10, :native_row_return/);
     assert.ok(

@@ -24,7 +24,7 @@
     :native_row_title_ready
     invoke-virtual {v6}, Ljava/lang/String;->isEmpty()Z
     move-result v0
-    if-eqz v0, :native_row_default_title
+    if-nez v0, :native_row_default_title
     goto :native_row_read_subtitle
     :native_row_default_title
     const-string v6, "Untitled"

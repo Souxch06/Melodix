@@ -7072,11 +7072,11 @@
     const-string v0, "player"
     invoke-virtual {p1, v0}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
     move-result v1
-    if-eqz v1, :native_back_show
+    if-nez v1, :native_back_show
     const-string v0, "settings"
     invoke-virtual {p1, v0}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
     move-result v1
-    if-eqz v1, :native_back_show
+    if-nez v1, :native_back_show
     goto :set_back_button_visibility
     :native_back_show
     const/4 v1, 0x1
@@ -7769,26 +7769,8 @@
     check-cast v2, Landroid/widget/LinearLayout;
     invoke-virtual {v2}, Landroid/widget/LinearLayout;->removeAllViews()V
 
-    # Home is a set of horizontal cover shelves (like the Spotify phone app),
-    # every other screen keeps the vertical row list.
-    iget-object v0, p0, Lcom/melodix/music/MainActivity;->nativeCurrentScreen:Ljava/lang/String;
-    const-string v1, "home"
-    invoke-virtual {v1, v0}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
-    move-result v0
-    if-nez v0, :native_rows_list
-
-    :try_start_home_shelf
-    invoke-static {p0, p2}, Lcom/melodix/music/NativeHomeShelfRenderer;->render(Lcom/melodix/music/MainActivity;Ljava/lang/String;)V
-    :try_end_home_shelf
-    .catch Ljava/lang/Throwable; {:try_start_home_shelf .. :try_end_home_shelf} :catch_home_shelf
-
-    invoke-virtual {v2}, Landroid/widget/LinearLayout;->getChildCount()I
-    move-result v0
-    if-lez v0, :native_rows_list
-    return-void
-
-    :catch_home_shelf
-    move-exception v0
+    # Always use the row list. The shelf renderer swallowed the 32-card feed
+    # and left the XML "Loading your music…" placeholder on screen.
 
     :native_rows_list
     :try_start_native_rows

@@ -430,15 +430,9 @@
                 android:paddingBottom="24.0dip"
                 android:layout_width="fill_parent"
                 android:layout_height="wrap_content">
-                <TextView
-                    android:text="Loading your music…"
-                    android:textSize="15.0sp"
-                    android:textColor="#ffb3b3b3"
-                    android:gravity="center"
-                    android:paddingTop="28.0dip"
-                    android:paddingBottom="28.0dip"
-                    android:layout_width="fill_parent"
-                    android:layout_height="wrap_content" />
+                <TextView android:text="Titres likés" android:textSize="18.0sp" android:textStyle="bold" android:textColor="#ffffffff" android:paddingLeft="16.0dip" android:paddingTop="14.0dip" android:paddingBottom="14.0dip" android:layout_width="fill_parent" android:layout_height="wrap_content" />
+                <TextView android:text="Écoutés récemment" android:textSize="18.0sp" android:textStyle="bold" android:textColor="#ffffffff" android:paddingLeft="16.0dip" android:paddingTop="14.0dip" android:paddingBottom="14.0dip" android:layout_width="fill_parent" android:layout_height="wrap_content" />
+                <TextView android:text="Vos playlists" android:textSize="18.0sp" android:textStyle="bold" android:textColor="#ffffffff" android:paddingLeft="16.0dip" android:paddingTop="14.0dip" android:paddingBottom="14.0dip" android:layout_width="fill_parent" android:layout_height="wrap_content" />
             </LinearLayout>
         </ScrollView>
 
