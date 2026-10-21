@@ -326,3 +326,53 @@ Execution sur emulateur Android 15 (API 35), APK publie :
 - Le retour systeme ne ramene plus a l accueil depuis un ecran natif : le
   dispatcher androidx est obfusque et sa classe de callback est `final`, donc
   non heritable. Le bouton retour de l interface reste fonctionnel.
+
+## diag-8 : l application demarre, mais l accueil reste vide
+
+Premiere capture reelle apres la correction : l ecran natif s affiche (en-tete,
+barre d onglets) mais la zone de contenu est nue.
+
+### Ce que le code permet de conclure
+
+- `nativeRoot` est `visibility="gone"` dans le layout : s il est visible, c est
+  que `showNativeUi()` a tourne, donc que `onNativeUiReady()` a ete appele.
+- Cette notification exige la presence du controle de compte Spotify
+  (`[data-testid="user-widget-link"]`) : **la session est bien connectee**.
+- La zone de contenu est remplie par `renderNativeRows`, appele uniquement a la
+  reception d un lot de lignes. Aucun lot recu ⇒ conteneur vide ⇒ ecran nu.
+- `updateHomeRows` sort immediatement si `isSpotifyHome()` est faux. Une WebView
+  parquee sur une autre route Spotify pendant que l ecran natif affiche
+  l accueil produit donc exactement ce symptome, sans aucune erreur.
+
+Autrement dit : ce n est pas un plantage, c est un ecran qui n a rien recu et
+qui ne dit rien.
+
+### Corrections livrees
+
+1. **Etat vide explicite.** `NativeEmptyState.fill` ecrit dans le conteneur
+   `nativeContent` uniquement s il est vide : titre « Chargement de ton
+   accueil… », puis une ligne de detail, puis « Toucher pour réessayer ».
+   `MainActivity.refreshNativePlaceholder` l appelle a chaque changement
+   d ecran et a chaque diagnostic recu.
+2. **Nouveau canal de diagnostic.** `AndBridge.onNativeDiag` →
+   `NativeUiUpdateRunnable` (action 3) → `MainActivity.setNativeDiag`. Le shell
+   JS y envoie, a chaque changement : route courante, si la route est reconnue
+   comme l accueil, nombre de cartes, de liens et d images trouves, presence du
+   controle de compte, et les cinq `data-testid` les plus frequents. La ligne
+   s affiche sous le titre, donc une simple capture d ecran suffit a expliquer
+   le vide.
+3. **Nouvelle tentative depuis le telephone.** `window.__sfNativeUiRecheck`
+   vide la signature memorisee puis relance la collecte ; le bloc vide est
+   cliquable via `NativeRecheckClickListener`.
+4. **Verification forcee au demarrage.** Les deux classes ajoutees sont
+   resolues tot, derriere un `catch`, avec un log `MelodixVerify` : un probleme
+   de verificateur apparait a l endroit ou il est lisible, pas sur le chemin
+   cense expliquer l ecran vide.
+
+### Ce que la prochaine capture donnera
+
+- `accueil oui` et `cartes 0` : le DOM Spotify a change, il faut adapter les
+  selecteurs de `collectHomeRows` aux `data-testid` listes.
+- `accueil non` : la WebView est sur une autre route ; l accueil natif doit
+  demander la navigation plutot que d attendre.
+- une ligne `MelodixVerify` : le verificateur refuse une des nouvelles classes.

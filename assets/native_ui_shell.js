@@ -492,6 +492,49 @@
         else scheduleHomeRetry();
     }
 
+    // The native home can only be understood from the phone, so the page reports
+    // what it actually sees: route, how many card/link nodes exist, and which
+    // data-testid values dominate. A blank screen then explains itself.
+    function nativeDiagPayload(mainView) {
+        var scope = mainView || document;
+        var ids = {};
+        var top;
+        try {
+            Array.prototype.slice.call(scope.querySelectorAll('[data-testid]')).forEach(function(node) {
+                var id = node.getAttribute && node.getAttribute('data-testid');
+                if (id) ids[id] = (ids[id] || 0) + 1;
+            });
+            top = Object.keys(ids).sort(function(a, b) {
+                return ids[b] - ids[a];
+            }).slice(0, 5).map(function(key) {
+                return key + '=' + ids[key];
+            }).join(' ');
+        } catch (_) {
+            top = '';
+        }
+        return [
+            'route ' + String(spotifyRoutePath() || '/').slice(0, 40),
+            'accueil ' + (isSpotifyHome() ? 'oui' : 'non'),
+            'cartes ' + scope.querySelectorAll('[data-testid="card"]').length,
+            'liens ' + scope.querySelectorAll('a[href]').length,
+            'images ' + scope.querySelectorAll('img').length,
+            'compte ' + (document.querySelector('button[data-testid="user-widget-link"], a[data-testid="user-widget-link"]') ? 'oui' : 'non'),
+            top
+        ].join(' | ');
+    }
+
+    function sendNativeDiag(mainView) {
+        var bridge = window.AndBridge;
+        var payload;
+        if (!bridge || typeof bridge.onNativeDiag !== 'function') return;
+        try {
+            payload = nativeDiagPayload(mainView);
+            if (payload === window.__sfLastNativeDiag) return;
+            bridge.onNativeDiag(payload);
+            window.__sfLastNativeDiag = payload;
+        } catch (_) {}
+    }
+
     function currentSearchQuery() {
         var parts = spotifyRoutePath().split('/').filter(Boolean);
         var url;
@@ -857,6 +900,15 @@
         if (!playing && isMediaPlaying()) playing = true;
         return { playing: playing, hasButton: Boolean(playPauseButton()) };
     }
+
+    // Native "try again" on an empty Home: forget the cached signature so the
+    // next run re-collects and re-sends, even if the DOM looks unchanged.
+    window.__sfNativeUiRecheck = function() {
+        lastHomeSignature = null;
+        window.__sfLastNativeDiag = '';
+        runUpdate();
+        return true;
+    };
 
     window.__sfGetPlaybackSnapshot = playbackSnapshot;
 
@@ -1240,6 +1292,7 @@
                 notifyNativeUiReady(mainView);
                 detectSpotifyProfile();
                 updateHomeRows(mainView);
+                sendNativeDiag(mainView);
                 updateDetailRows(mainView);
                 updateSearchRows(mainView);
                 updateLibraryRows(mainView);

@@ -43,6 +43,7 @@ note "stage: $(tr -d '\n' < "$state/prefs.xml" 2>/dev/null | cut -c1-300)"
 adb logcat -d -b crash > "$state/crash.txt" 2>&1
 adb logcat -d > "$state/logcat.txt" 2>&1
 grep -n -A 60 'FATAL EXCEPTION' "$state/logcat.txt" > "$state/fatal.txt" 2>/dev/null
+grep -n -E 'MelodixVerify' "$state/logcat.txt" >> "$state/fatal.txt" 2>/dev/null
 
 {
   echo "installed: $(tr '\n' ' ' < "$state/installed.txt" 2>/dev/null)"

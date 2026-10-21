@@ -89,6 +89,32 @@
     return-void
 .end method
 
+.method private final dispatchNativeDiag(Ljava/lang/String;)V
+    .locals 2
+
+    sget-object v0, Lcom/melodix/music/AppSingleton;->t:Ljava/lang/ref/WeakReference;
+    if-eqz v0, :native_diag_done
+    invoke-virtual {v0}, Ljava/lang/ref/Reference;->get()Ljava/lang/Object;
+    move-result-object v1
+    check-cast v1, Lcom/melodix/music/MainActivity;
+    if-eqz v1, :native_diag_done
+    invoke-virtual {v1, p1}, Lcom/melodix/music/MainActivity;->postNativeDiag(Ljava/lang/String;)V
+
+    :native_diag_done
+    return-void
+.end method
+
+
+.method public final onNativeDiag(Ljava/lang/String;)V
+    .locals 0
+    .annotation runtime Landroid/webkit/JavascriptInterface;
+    .end annotation
+
+    invoke-direct {p0, p1}, Lcom/melodix/music/AndBridge;->dispatchNativeDiag(Ljava/lang/String;)V
+    return-void
+.end method
+
+
 .method public final nativeLogout()V
     .locals 2
     .annotation runtime Landroid/webkit/JavascriptInterface;

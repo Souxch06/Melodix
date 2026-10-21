@@ -74,6 +74,8 @@
 
 .field private nativeCurrentScreen:Ljava/lang/String;
 
+.field private nativeDiagText:Ljava/lang/String;
+
 # True once Spotify reports a track: the mini player card stays hidden until
 # then instead of showing an empty "Aucune lecture en cours" bar everywhere.
 .field private nativeHasTrack:Z
@@ -2421,6 +2423,25 @@
     move-exception v1
 
     :marker_done
+    # Resolve the classes used only by the empty state up front, behind a guard:
+    # a verifier problem there must surface here (and be logged) instead of
+    # later, on the exact path that is supposed to explain a blank screen.
+    :try_start_preload
+    const-class v1, Lcom/melodix/music/NativeEmptyState;
+    const-class v1, Lcom/melodix/music/NativeRecheckClickListener;
+    :try_end_preload
+    .catch Ljava/lang/Throwable; {:try_start_preload .. :try_end_preload} :catch_preload
+
+    goto :preload_done
+
+    :catch_preload
+    move-exception v1
+    const-string v2, "MelodixVerify"
+    invoke-static {v1}, Landroid/util/Log;->getStackTraceString(Ljava/lang/Throwable;)Ljava/lang/String;
+    move-result-object v3
+    invoke-static {v2, v3}, Landroid/util/Log;->e(Ljava/lang/String;Ljava/lang/String;)I
+
+    :preload_done
     :try_start_stage
     const-string v1, "activity-create"
 
@@ -6918,6 +6939,91 @@
     return-void
 .end method
 
+.method public final postNativeDiag(Ljava/lang/String;)V
+    .locals 3
+
+    new-instance v0, Lcom/melodix/music/NativeUiUpdateRunnable;
+    const-string v1, ""
+    const/4 v2, 0x3
+    invoke-direct {v0, p0, v1, p1, v2}, Lcom/melodix/music/NativeUiUpdateRunnable;-><init>(Lcom/melodix/music/MainActivity;Ljava/lang/String;Ljava/lang/String;I)V
+    invoke-virtual {p0, v0}, Landroid/app/Activity;->runOnUiThread(Ljava/lang/Runnable;)V
+    return-void
+.end method
+
+
+.method public final setNativeDiag(Ljava/lang/String;)V
+    .locals 0
+
+    iput-object p1, p0, Lcom/melodix/music/MainActivity;->nativeDiagText:Ljava/lang/String;
+
+    invoke-virtual {p0}, Lcom/melodix/music/MainActivity;->refreshNativePlaceholder()V
+
+    return-void
+.end method
+
+
+# Shows a readable placeholder when the home screen has received nothing yet.
+# The detail line carries the state reported by the page, which is the only
+# way to understand a blank screen on a phone without logcat.
+.method public final refreshNativePlaceholder()V
+    .locals 5
+
+    iget-object v0, p0, Lcom/melodix/music/MainActivity;->nativeCurrentScreen:Ljava/lang/String;
+
+    if-eqz v0, :done
+
+    const-string v1, "home"
+
+    invoke-virtual {v1, v0}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+
+    move-result v0
+
+    if-nez v0, :done
+
+    const v0, 0x7f090235
+
+    invoke-virtual {p0, v0}, Landroid/app/Activity;->findViewById(I)Landroid/view/View;
+
+    move-result-object v2
+
+    if-nez v2, :done
+
+    check-cast v2, Landroid/widget/LinearLayout;
+
+    invoke-virtual {v2}, Landroid/widget/LinearLayout;->getChildCount()I
+
+    move-result v3
+
+    if-nez v3, :empty
+
+    return-void
+
+    :empty
+    const-string v4, "Chargement de ton accueil…"
+
+    iget-object v3, p0, Lcom/melodix/music/MainActivity;->nativeDiagText:Ljava/lang/String;
+
+    if-nez v3, :default_detail
+
+    invoke-virtual {v3}, Ljava/lang/String;->length()I
+
+    move-result v0
+
+    if-nez v0, :default_detail
+
+    goto :have_detail
+
+    :default_detail
+    const-string v3, "En attente des données Spotify."
+
+    :have_detail
+    invoke-static {p0, v4, v3}, Lcom/melodix/music/NativeEmptyState;->fill(Lcom/melodix/music/MainActivity;Ljava/lang/String;Ljava/lang/String;)V
+
+    :done
+    return-void
+.end method
+
+
 .method public final showNativeUi()V
     .locals 5
 
@@ -7223,6 +7329,9 @@
     invoke-static {p0}, Lcom/melodix/music/MainActivity;->fadeNativeScreen(Lcom/melodix/music/MainActivity;)V
 
     :native_fade_done
+    # Guarantee that an empty screen explains itself instead of staying blank.
+    invoke-virtual {p0}, Lcom/melodix/music/MainActivity;->refreshNativePlaceholder()V
+
     return-void
 .end method
 
