@@ -7329,6 +7329,19 @@
     if-eqz p1, :apply_done
     if-eqz p2, :apply_done
 
+    const-string v0, "list-text"
+    invoke-virtual {p1, v0}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    move-result v1
+    if-eqz v1, :check_home_greeting
+    const v2, 0x7f090250
+    invoke-virtual {p0, v2}, Landroid/app/Activity;->findViewById(I)Landroid/view/View;
+    move-result-object v2
+    if-eqz v2, :apply_done
+    check-cast v2, Landroid/widget/TextView;
+    invoke-virtual {v2, p2}, Landroid/widget/TextView;->setText(Ljava/lang/CharSequence;)V
+    return-void
+
+    :check_home_greeting
     const-string v0, "home-greeting"
     invoke-virtual {p1, v0}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
     move-result v1

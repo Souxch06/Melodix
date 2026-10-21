@@ -89,6 +89,16 @@
     return-void
 .end method
 
+.method public final onNativeListText(Ljava/lang/String;)V
+    .locals 1
+    .annotation runtime Landroid/webkit/JavascriptInterface;
+    .end annotation
+
+    const-string v0, "list-text"
+    invoke-direct {p0, v0, p1}, Lcom/melodix/music/AndBridge;->dispatchNativeUi(Ljava/lang/String;Ljava/lang/String;)V
+    return-void
+.end method
+
 .method public final onNativeHomeRows(Ljava/lang/String;)V
     .locals 3
     .annotation runtime Landroid/webkit/JavascriptInterface;

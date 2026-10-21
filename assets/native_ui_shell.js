@@ -152,8 +152,20 @@
 
         try {
             var payload = JSON.stringify(rows);
-            if (screen === 'home' && typeof bridge.onNativeHomeRows === 'function') {
-                bridge.onNativeHomeRows(payload);
+            var lastSection = '';
+            var lines = [];
+            rows.forEach(function(row) {
+                if (row.section && row.section !== lastSection) {
+                    lastSection = row.section;
+                    if (lines.length) lines.push('');
+                    lines.push(row.section);
+                }
+                if (row.title) {
+                    lines.push(row.subtitle ? (row.title + ' — ' + row.subtitle) : row.title);
+                }
+            });
+            if (typeof bridge.onNativeListText === 'function' && lines.length) {
+                bridge.onNativeListText(lines.join('\n'));
             }
             bridge.onNativeUiData(screen, payload);
             return true;

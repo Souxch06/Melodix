@@ -36,7 +36,8 @@ const nativeIds = [
     'nativeLibraryTab',
     'nativeHeaderAvatar',
     'nativePlayerPositionText',
-    'nativePlayerDurationText'
+    'nativePlayerDurationText',
+    'nativeListText'
 ];
 
 test('native shell overlays, but does not replace or detach, the existing WebView', () => {
@@ -82,6 +83,8 @@ test('native bridge exposes UI callbacks and routes media, search and player dat
     assert.match(bridge, /\.method public final onNativeUiReady\(\)V[\s\S]*?JavascriptInterface/);
     assert.match(bridge, /\.method public final onNativeUiRoute\(Ljava\/lang\/String;\)V[\s\S]*?JavascriptInterface/);
     assert.match(bridge, /\.method public final onNativeUiData\(Ljava\/lang\/String;Ljava\/lang\/String;\)V[\s\S]*?JavascriptInterface/);
+    assert.match(bridge, /\.method public final onNativeListText\(Ljava\/lang\/String;\)V[\s\S]*?JavascriptInterface/);
+    assert.match(activity, /const-string v0, \"list-text\"[\s\S]*?0x7f090250/);
     assert.match(bridge, /const-string v1, "media:"[\s\S]*?dispatchNativeUi/);
     assert.match(bridge, /const-string v1, "search:"[\s\S]*?dispatchNativeUi/);
     assert.match(bridge, /const-string v0, "player"[\s\S]*?dispatchNativeUi/);
