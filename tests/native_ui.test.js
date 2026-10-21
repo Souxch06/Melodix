@@ -1205,7 +1205,6 @@ test('browse tiles drive the live search and the grid yields to real results', (
     assert.match(rows, /0x7f090239/);
     assert.match(rows, /0x7f09024f/);
     assert.match(search, /0x7f09024f/);
-    assert.match(search, /0x7f090239/);
     assert.match(screen, /0x7f09024f/);
 });
 

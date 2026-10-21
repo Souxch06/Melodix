@@ -8189,19 +8189,9 @@
     invoke-virtual {v0, v1}, Landroid/view/View;->setVisibility(I)V
 
     :native_search_genre_shown
-    const v0, 0x7f090239
-
-    invoke-virtual {p0, v0}, Landroid/app/Activity;->findViewById(I)Landroid/view/View;
-
-    move-result-object v0
-
-    if-eqz v0, :native_search_rows_hidden
-
-    const/16 v1, 0x8
-
-    invoke-virtual {v0, v1}, Landroid/view/View;->setVisibility(I)V
-
-    :native_search_rows_hidden
+    const-string v0, "Parcourir les genres ci-dessus, ou tape une recherche"
+    const-string v1, ""
+    invoke-static {p0, v0, v1}, Lcom/melodix/music/NativeHomePaint;->row(Lcom/melodix/music/MainActivity;Ljava/lang/String;Ljava/lang/String;)V
     return-void
 .end method
 

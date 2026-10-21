@@ -24,6 +24,7 @@ const smaliFiles = [
     'smali/com/melodix/music/NativeCrashGuard.smali',
     'smali/com/melodix/music/NativeHomeShelfRenderer.smali',
     'smali/com/melodix/music/NativeHomeCache.smali',
+    'smali/com/melodix/music/NativeHomePaint.smali',
     'smali/com/melodix/music/NativeEmptyState.smali',
     'smali/com/melodix/music/NativeRecheckClickListener.smali',
     'smali/com/melodix/music/RuntimeDiagnostic.smali',

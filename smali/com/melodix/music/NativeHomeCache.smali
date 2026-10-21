@@ -54,42 +54,8 @@
     if-eqz v0, :done
     check-cast v0, Landroid/widget/LinearLayout;
 
-    :load
-    const/4 v0, 0x0
-
-    :try_start_0
-    const-string v1, "melodix_native"
-    const/4 v2, 0x0
-    invoke-virtual {p0, v1, v2}, Landroid/content/Context;->getSharedPreferences(Ljava/lang/String;I)Landroid/content/SharedPreferences;
-    move-result-object v1
-
-    const-string v2, "home_feed"
-    const/4 v3, 0x0
-    invoke-interface {v1, v2, v3}, Landroid/content/SharedPreferences;->getString(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;
-    move-result-object v0
-    :try_end_0
-    .catch Ljava/lang/Throwable; {:try_start_0 .. :try_end_0} :catch_0
-
-    goto :have
-
-    :catch_0
-    move-exception v1
-
-    :have
-    if-eqz v0, :seed
-    invoke-virtual {v0}, Ljava/lang/String;->length()I
-    move-result v1
-    const/4 v2, 0x2
-    if-le v1, v2, :seed
-    goto :paint
-
-    :seed
-    const-string v0, "[{\"title\":\"Titres likés\",\"subtitle\":\"Playlist\",\"section\":\"Vos playlists\",\"image\":\"https://misc.scdn.co/liked-songs/liked-songs-640.png\",\"uri\":\"spotify:collection:tracks\"}]"
-
-    :paint
     :try_start_1
-    const-string v3, "Accueil"
-    invoke-virtual {p0, v3, v0}, Lcom/melodix/music/MainActivity;->renderNativeRows(Ljava/lang/String;Ljava/lang/String;)V
+    invoke-static {p0}, Lcom/melodix/music/NativeHomePaint;->seed(Lcom/melodix/music/MainActivity;)V
     :try_end_1
     .catch Ljava/lang/Throwable; {:try_start_1 .. :try_end_1} :catch_1
 
