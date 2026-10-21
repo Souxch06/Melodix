@@ -376,3 +376,15 @@ qui ne dit rien.
 - `accueil non` : la WebView est sur une autre route ; l accueil natif doit
   demander la navigation plutot que d attendre.
 - une ligne `MelodixVerify` : le verificateur refuse une des nouvelles classes.
+
+### diag-9 : VerifyError du preload (d2a7410)
+
+Le bloc insere dans `onCreate` pour resoudre tot `NativeEmptyState` ecrivait
+une String dans `v3` (`Log.getStackTraceString`). Plus loin, `v3` est un
+entier. Trace 39555535179 :
+
+    VerifyError: [0xED] register v3 has type Precise Reference: java.lang.String
+    but expected Integer
+
+Le preload est retire. Les classes d etat vide restent, chargees seulement
+quand l ecran est vraiment vide.

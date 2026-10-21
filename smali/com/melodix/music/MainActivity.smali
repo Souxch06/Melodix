@@ -2423,25 +2423,6 @@
     move-exception v1
 
     :marker_done
-    # Resolve the classes used only by the empty state up front, behind a guard:
-    # a verifier problem there must surface here (and be logged) instead of
-    # later, on the exact path that is supposed to explain a blank screen.
-    :try_start_preload
-    const-class v1, Lcom/melodix/music/NativeEmptyState;
-    const-class v1, Lcom/melodix/music/NativeRecheckClickListener;
-    :try_end_preload
-    .catch Ljava/lang/Throwable; {:try_start_preload .. :try_end_preload} :catch_preload
-
-    goto :preload_done
-
-    :catch_preload
-    move-exception v1
-    const-string v2, "MelodixVerify"
-    invoke-static {v1}, Landroid/util/Log;->getStackTraceString(Ljava/lang/Throwable;)Ljava/lang/String;
-    move-result-object v3
-    invoke-static {v2, v3}, Landroid/util/Log;->e(Ljava/lang/String;Ljava/lang/String;)I
-
-    :preload_done
     :try_start_stage
     const-string v1, "activity-create"
 
