@@ -7005,6 +7005,45 @@
 .end method
 
 
+
+.method public static maybeRevealNativeUi(Ljava/lang/String;)V
+    .locals 3
+
+    if-nez p0, :done
+
+    const-string v0, "login"
+    invoke-virtual {p0, v0}, Ljava/lang/String;->contains(Ljava/lang/CharSequence;)Z
+    move-result v1
+    if-eqz v1, :done
+
+    const-string v0, "signup"
+    invoke-virtual {p0, v0}, Ljava/lang/String;->contains(Ljava/lang/CharSequence;)Z
+    move-result v1
+    if-eqz v1, :done
+
+    const-string v0, "accounts.spotify"
+    invoke-virtual {p0, v0}, Ljava/lang/String;->contains(Ljava/lang/CharSequence;)Z
+    move-result v1
+    if-eqz v1, :done
+
+    const-string v0, "open.spotify.com"
+    invoke-virtual {p0, v0}, Ljava/lang/String;->contains(Ljava/lang/CharSequence;)Z
+    move-result v1
+    if-nez v1, :done
+
+    sget-object v0, Lcom/melodix/music/AppSingleton;->t:Ljava/lang/ref/WeakReference;
+    if-eqz v0, :done
+    invoke-virtual {v0}, Ljava/lang/ref/Reference;->get()Ljava/lang/Object;
+    move-result-object v1
+    check-cast v1, Lcom/melodix/music/MainActivity;
+    if-eqz v1, :done
+    invoke-virtual {v1}, Lcom/melodix/music/MainActivity;->postNativeUiReady()V
+
+    :done
+    return-void
+.end method
+
+
 .method public final showNativeUi()V
     .locals 5
 

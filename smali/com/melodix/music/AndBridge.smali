@@ -921,9 +921,9 @@
     .line 16
     invoke-interface {p0}, Landroid/content/SharedPreferences$Editor;->commit()Z
 
-    .line 17
-    .line 18
-    .line 19
+    const-string v0, "https://open.spotify.com/"
+    invoke-static {v0}, Lcom/melodix/music/MainActivity;->maybeRevealNativeUi(Ljava/lang/String;)V
+
     return-void
 .end method
 
