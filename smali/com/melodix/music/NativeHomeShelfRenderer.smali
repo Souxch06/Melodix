@@ -66,7 +66,9 @@
 
     move-result v7
 
-    if-nez v7, :shelf_have_container
+    if-eqz v7, :shelf_new_section
+
+    goto :shelf_have_container
 
     :shelf_new_section
     # New section: its own header and its own horizontal shelf.

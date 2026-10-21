@@ -982,7 +982,7 @@ test('detail and player screens expose the back arrow and hide the tab bar', () 
     );
 
     assert.match(screen, /:native_back_check_player/);
-    assert.match(screen, /if-nez v1, :native_back_check_player/, 'detail shows the arrow');
+    assert.match(screen, /if-eqz v3, :native_back_check_player/, 'detail shows the arrow');
     assert.match(screen, /const\/4 v1, 0x1\s+goto :set_back_button_visibility/);
     assert.match(screen, /const v2, 0x7f09024c/, 'the whole mini player card is hidden on the full player');
     assert.match(screen, /const v2, 0x7f09024e/, 'the tab bar is hidden on the full player');
@@ -1218,4 +1218,47 @@ test('home shelf renderer skips missing views, not existing ones', () => {
     assert.doesNotMatch(shelf, /if-nez v13, :shelf_done/);
     assert.match(shelf, /if-eqz v5, :shelf_next/);
     assert.doesNotMatch(shelf, /if-nez v5, :shelf_next/);
+    assert.match(shelf, /if-eqz v7, :shelf_new_section/);
+    assert.match(shelf, /goto :shelf_have_container/);
+});
+
+test('navigation clicks keep home JSON and do not force the home screen', () => {
+    const activity = read('smali/com/melodix/music/MainActivity.smali');
+    assert.match(activity, /\.field private nativeHomeJson:Ljava\/lang\/String;/);
+    assert.match(activity, /\.field private nativeLibraryJson:Ljava\/lang\/String;/);
+
+    const searchAt = activity.indexOf('.method public final onNativeSearchClick(Landroid/view/View;)V');
+    const search = activity.slice(searchAt, activity.indexOf('.method public final performNativeLiveSearch', searchAt));
+    assert.match(search, /:try_start_search/);
+    assert.match(search, /NativeCrashGuard;->record/);
+
+    const homeAt = activity.indexOf('.method public final onNativeHomeClick(Landroid/view/View;)V');
+    const home = activity.slice(homeAt, activity.indexOf('.method public final onNativeSearchClick', homeAt));
+    assert.match(home, /nativeHomeJson/);
+
+    const applyAt = activity.indexOf('.method public final applyNativeUiData(Ljava/lang/String;Ljava/lang/String;)V');
+    const apply = activity.slice(applyAt, activity.indexOf('.method public final updateNativePlayer', applyAt));
+    assert.match(apply, /if-eqz p1, :apply_done/);
+    assert.match(apply, /if-eqz p2, :apply_done/);
+    assert.match(apply, /iput-object p2, p0, Lcom\/melodix\/music\/MainActivity;->nativeHomeJson/);
+    assert.doesNotMatch(apply, /:check_home[\s\S]*iput-object v2, p0, Lcom\/melodix\/music\/MainActivity;->nativeCurrentScreen/);
+
+    const rowsAt = activity.indexOf('.method public final renderNativeRows(Ljava/lang/String;Ljava/lang/String;)V');
+    const rows = activity.slice(rowsAt, activity.indexOf('.method public final runNativeJavascript', rowsAt));
+    assert.match(rows, /NativeHomeShelfRenderer;->render/);
+    assert.match(rows, /if-le v0, v1, :native_skip_json_persist/);
+
+    const backAt = activity.indexOf(':back_button');
+    const back = activity.slice(backAt, backAt + 900);
+    assert.match(back, /const\/4 v1, 0x0/);
+    assert.match(back, /if-eqz v3, :native_back_check_player/);
+});
+
+test('runNativeFunction ignores a null name and quotes an empty argument', () => {
+    const activity = read('smali/com/melodix/music/MainActivity.smali');
+    const at = activity.indexOf('.method public final runNativeFunction(Ljava/lang/String;Ljava/lang/String;)V');
+    const method = activity.slice(at, activity.indexOf('.method public final onNativeHomeClick', at));
+    assert.match(method, /if-eqz p1, :native_fn_done/);
+    assert.match(method, /if-eqz p2, :native_fn_empty/);
+    assert.match(method, /:native_fn_done/);
 });
