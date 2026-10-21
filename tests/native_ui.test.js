@@ -6,6 +6,10 @@ const test = require('node:test');
 
 const root = path.resolve(__dirname, '..');
 const read = (file) => fs.readFileSync(path.join(root, file), 'utf8');
+const dataFor = (calls, screen) => {
+    const hit = calls.filter((call) => call.screen === screen);
+    return hit[hit.length - 1];
+};
 
 const nativeIds = [
     'nativeRoot',
@@ -84,7 +88,7 @@ test('native bridge exposes UI callbacks and routes media, search and player dat
     assert.match(bridge, /\.method public final onNativeUiRoute\(Ljava\/lang\/String;\)V[\s\S]*?JavascriptInterface/);
     assert.match(bridge, /\.method public final onNativeUiData\(Ljava\/lang\/String;Ljava\/lang\/String;\)V[\s\S]*?JavascriptInterface/);
     assert.match(bridge, /\.method public final onNativeListText\(Ljava\/lang\/String;\)V[\s\S]*?JavascriptInterface/);
-    assert.match(activity, /const-string v0, \"list-text\"[\s\S]*?0x7f090250/);
+    assert.match(activity, /const-string v0, \"list-text\"[\s\S]*?0x7f090235/);
     assert.match(bridge, /const-string v1, "media:"[\s\S]*?dispatchNativeUi/);
     assert.match(bridge, /const-string v1, "search:"[\s\S]*?dispatchNativeUi/);
     assert.match(bridge, /const-string v0, "player"[\s\S]*?dispatchNativeUi/);
@@ -182,9 +186,9 @@ test('native Home collector keeps image-less Spotify links and filters non-Spoti
 
     vm.runInNewContext(read('assets/native_ui_shell.js'), { window, document, URL });
 
-    assert.equal(calls.length, 1);
-    assert.equal(calls[0].screen, 'home');
-    assert.deepEqual(JSON.parse(calls[0].data), [{
+    assert.ok(dataFor(calls, 'list-text'));
+    assert.equal(dataFor(calls, 'home').screen, 'home');
+    assert.deepEqual(JSON.parse(dataFor(calls, 'home').data), [{
         title: 'Fallback track',
         subtitle: 'Artist name',
         section: '',
@@ -233,8 +237,8 @@ test('Home uses saved library items as a fallback when Spotify has no visible Ho
 
     vm.runInNewContext(read('assets/native_ui_shell.js'), { window, document, URL });
 
-    assert.equal(calls.length, 1);
-    assert.deepEqual(JSON.parse(calls[0].data), [{
+    assert.ok(dataFor(calls, 'list-text'));
+    assert.deepEqual(JSON.parse(dataFor(calls, 'home').data), [{
         title: 'Saved mix',
         subtitle: 'Playlist',
         section: 'Vos playlists',
@@ -286,9 +290,9 @@ test('localized Spotify Home routes still collect and send Home rows', () => {
     vm.runInNewContext(read('assets/native_ui_shell.js'), { window, document, URL });
 
     assert.deepEqual(routes, ['home']);
-    assert.equal(calls.length, 1);
-    assert.equal(calls[0].screen, 'home');
-    assert.deepEqual(JSON.parse(calls[0].data), [{
+    assert.ok(dataFor(calls, 'list-text'));
+    assert.equal(dataFor(calls, 'home').screen, 'home');
+    assert.deepEqual(JSON.parse(dataFor(calls, 'home').data), [{
         title: 'Sélection du jour',
         subtitle: 'Playlist',
         section: 'Vos playlists',
@@ -485,9 +489,9 @@ test('bundled native bootstrap activates the shell, sends Home rows, and only op
     assert.equal(window.__sfNativeUiShellReady, true);
     assert.equal(window.__sfNativeUiShellCompleted, true);
     assert.equal(readyCount, 1);
-    assert.equal(calls.length, 1);
-    assert.equal(calls[0].screen, 'home');
-    assert.deepEqual(JSON.parse(calls[0].data), [{
+    assert.ok(dataFor(calls, 'list-text'));
+    assert.equal(dataFor(calls, 'home').screen, 'home');
+    assert.deepEqual(JSON.parse(dataFor(calls, 'home').data), [{
         title: 'Focus Mix',
         subtitle: 'Picked for you',
         section: '',
@@ -507,7 +511,7 @@ test('bundled native bootstrap activates the shell, sends Home rows, and only op
     assert.equal(assigned.pop(), 'https://open.spotify.com/track/track123');
     assert.equal(window.__sfNativeOpenUri('https://example.org/track/track123'), false);
     assert.equal(window.__sfNativeRequestHome(), true);
-    assert.equal(calls.length, 2, 'requesting Home should resend current rows');
+    assert.ok(calls.filter((call) => call.screen === 'home').length >= 2, 'requesting Home should resend current rows');
     assert.equal(timers.length, 0, 'a signed-in page with a ready bridge should not keep retry timers');
 });
 
@@ -577,8 +581,8 @@ test('Home cards with sibling artwork outside the title anchor still resolve the
 
     vm.runInNewContext(script, { window, document, URL, MutationObserver: TestMutationObserver });
 
-    assert.equal(calls.length, 1);
-    assert.deepEqual(JSON.parse(calls[0].data), [{
+    assert.ok(dataFor(calls, 'list-text'));
+    assert.deepEqual(JSON.parse(dataFor(calls, 'home').data), [{
         title: 'UHQ FREESTYLE #1',
         subtitle: 'Creator Name',
         section: '',
@@ -662,7 +666,7 @@ test('Home separates user playlists from Spotify official recommendations and pr
     window.manageAll(true);
     assert.equal(window.playing, false);
 
-    const rows = JSON.parse(calls[0].data);
+    const rows = JSON.parse(dataFor(calls, 'home').data);
     assert.equal(rows[0].title, 'Liked Songs');
     assert.equal(rows[0].section, 'Vos playlists');
     assert.equal(rows[1].title, 'Ma Playlist Perso');
@@ -764,10 +768,9 @@ test('native settings rows expose real Spotify options and toggles persist local
     assert.equal(typeof window.__sfRequestSpotifySettings, 'function');
     calls.length = 0;
     window.__sfRequestSpotifySettings();
-    assert.equal(calls.length, 1);
-    assert.equal(calls[0].screen, 'settings');
+    assert.equal(dataFor(calls, 'settings').screen, 'settings');
 
-    const rows = JSON.parse(calls[0].data);
+    const rows = JSON.parse(dataFor(calls, 'settings').data);
     assert.ok(rows.length >= 14, 'the native settings screen lists the real Spotify options');
     const canvasRow = rows.find((row) => row.uri === 'spotify:settings:canvas');
     assert.equal(canvasRow.settingValue, 'ON');
@@ -775,14 +778,13 @@ test('native settings rows expose real Spotify options and toggles persist local
 
     calls.length = 0;
     window.__sfToggleSpotifySetting('spotify:settings:canvas');
-    assert.equal(calls.length, 1);
-    const toggled = JSON.parse(calls[0].data).find((row) => row.uri === 'spotify:settings:canvas');
+    const toggled = JSON.parse(dataFor(calls, 'settings').data).find((row) => row.uri === 'spotify:settings:canvas');
     assert.equal(toggled.settingValue, 'OFF');
     assert.ok(store.get('melodix_spotify_settings_v1').includes('"canvas":false'));
 
     calls.length = 0;
     window.__sfToggleSpotifySetting('spotify:settings:audio_quality');
-    const quality = JSON.parse(calls[0].data).find((row) => row.uri === 'spotify:settings:audio_quality');
+    const quality = JSON.parse(dataFor(calls, 'settings').data).find((row) => row.uri === 'spotify:settings:audio_quality');
     assert.equal(quality.settingValue, 'Élevée (160 kbit/s)');
 });
 

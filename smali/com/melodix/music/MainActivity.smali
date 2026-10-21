@@ -7328,10 +7328,20 @@
     invoke-virtual {p1, v0}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
     move-result v1
     if-eqz v1, :check_home_greeting
-    const v2, 0x7f090250
+    const v2, 0x7f090235
     invoke-virtual {p0, v2}, Landroid/app/Activity;->findViewById(I)Landroid/view/View;
     move-result-object v2
     if-eqz v2, :apply_done
+    instance-of v3, v2, Landroid/view/ViewGroup;
+    if-eqz v3, :list_text_as_view
+    check-cast v2, Landroid/view/ViewGroup;
+    const/4 v3, 0x0
+    invoke-virtual {v2, v3}, Landroid/view/ViewGroup;->getChildAt(I)Landroid/view/View;
+    move-result-object v2
+    if-eqz v2, :apply_done
+    :list_text_as_view
+    instance-of v3, v2, Landroid/widget/TextView;
+    if-eqz v3, :apply_done
     check-cast v2, Landroid/widget/TextView;
     invoke-virtual {v2, p2}, Landroid/widget/TextView;->setText(Ljava/lang/CharSequence;)V
     return-void
