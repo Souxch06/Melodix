@@ -6990,9 +6990,11 @@
 .method public final setNativeScreen(Ljava/lang/String;)V
     .locals 7
 
+    if-eqz p1, :native_screen_abort
+
     # Compare with the previous destination before overwriting it: a nav tap
     # fades the shell in, a repeated feed update does not.
-    const/4 v0, 0x1
+    const/4 v0, 0x0
 
     iget-object v1, p0, Lcom/melodix/music/MainActivity;->nativeCurrentScreen:Ljava/lang/String;
 
@@ -7223,6 +7225,7 @@
     invoke-static {p0}, Lcom/melodix/music/MainActivity;->fadeNativeScreen(Lcom/melodix/music/MainActivity;)V
 
     :native_fade_done
+    :native_screen_abort
     return-void
 .end method
 
@@ -7403,12 +7406,8 @@
     invoke-virtual {p1, v0}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
     move-result v1
     if-eqz v1, :check_media
-    iget-object v2, p0, Lcom/melodix/music/MainActivity;->nativeCurrentScreen:Ljava/lang/String;
-    if-eqz v2, :apply_home
-    const-string v3, "home"
-    invoke-virtual {v2, v3}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
-    move-result v4
-    if-eqz v4, :apply_done
+    const-string v2, "home"
+    iput-object v2, p0, Lcom/melodix/music/MainActivity;->nativeCurrentScreen:Ljava/lang/String;
     :apply_home
     const-string v2, "Accueil"
     invoke-virtual {p0, v2, p2}, Lcom/melodix/music/MainActivity;->renderNativeRows(Ljava/lang/String;Ljava/lang/String;)V
@@ -7777,8 +7776,19 @@
     invoke-virtual {v1, v0}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
     move-result v0
     if-nez v0, :native_rows_list
+
+    :try_start_home_shelf
     invoke-static {p0, p2}, Lcom/melodix/music/NativeHomeShelfRenderer;->render(Lcom/melodix/music/MainActivity;Ljava/lang/String;)V
+    :try_end_home_shelf
+    .catch Ljava/lang/Throwable; {:try_start_home_shelf .. :try_end_home_shelf} :catch_home_shelf
+
+    invoke-virtual {v2}, Landroid/widget/LinearLayout;->getChildCount()I
+    move-result v0
+    if-lez v0, :native_rows_list
     return-void
+
+    :catch_home_shelf
+    move-exception v0
 
     :native_rows_list
     :try_start_native_rows
