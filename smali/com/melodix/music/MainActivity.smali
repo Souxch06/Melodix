@@ -7795,9 +7795,16 @@
     invoke-virtual {v1, p1}, Landroid/widget/TextView;->setText(Ljava/lang/CharSequence;)V
 
     :find_native_content
+    const-string v0, "nativeContent"
+    invoke-virtual {p0, v0}, Lcom/melodix/music/MainActivity;->findNativeByTag(Ljava/lang/String;)Landroid/view/View;
+    move-result-object v2
+    if-eqz v2, :native_content_by_id
+    goto :native_content_ready
+    :native_content_by_id
     const v0, 0x7f090235
     invoke-virtual {p0, v0}, Landroid/app/Activity;->findViewById(I)Landroid/view/View;
     move-result-object v2
+    :native_content_ready
     if-eqz v2, :render_native_done
     check-cast v2, Landroid/widget/LinearLayout;
     invoke-virtual {v2}, Landroid/widget/LinearLayout;->removeAllViews()V
@@ -7992,6 +7999,25 @@
 
     :render_native_done
     return-void
+.end method
+
+.method public final findNativeByTag(Ljava/lang/String;)Landroid/view/View;
+    .locals 2
+
+    if-eqz p1, :tag_miss
+    invoke-virtual {p0}, Landroid/app/Activity;->getWindow()Landroid/view/Window;
+    move-result-object v0
+    if-eqz v0, :tag_miss
+    invoke-virtual {v0}, Landroid/view/Window;->getDecorView()Landroid/view/View;
+    move-result-object v0
+    if-eqz v0, :tag_miss
+    invoke-virtual {v0, p1}, Landroid/view/View;->findViewWithTag(Ljava/lang/Object;)Landroid/view/View;
+    move-result-object v1
+    return-object v1
+
+    :tag_miss
+    const/4 v1, 0x0
+    return-object v1
 .end method
 
 .method public final applyNativeListText(Ljava/lang/String;)V

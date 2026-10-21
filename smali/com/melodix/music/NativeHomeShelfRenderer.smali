@@ -10,11 +10,19 @@
 .method public static render(Lcom/melodix/music/MainActivity;Ljava/lang/String;)V
     .locals 14
 
-    const v13, 0x7f090235
+    const-string v13, "nativeContent"
 
-    invoke-virtual {p0, v13}, Landroid/app/Activity;->findViewById(I)Landroid/view/View;
+    invoke-virtual {p0, v13}, Lcom/melodix/music/MainActivity;->findNativeByTag(Ljava/lang/String;)Landroid/view/View;
 
     move-result-object v13
+
+    if-eqz v13, :shelf_have_content
+    goto :shelf_cast
+    :shelf_have_content
+    const v13, 0x7f090235
+    invoke-virtual {p0, v13}, Landroid/app/Activity;->findViewById(I)Landroid/view/View;
+    move-result-object v13
+    :shelf_cast
 
     # The container is a LinearLayout inside a ScrollView; explicit cast keeps
     # the verifier happy before the addView calls below.

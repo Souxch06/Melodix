@@ -427,20 +427,12 @@
             android:layout_weight="1.0">
             <LinearLayout
                 android:id="@id/nativeContent"
+                android:tag="nativeContent"
                 android:orientation="vertical"
                 android:paddingTop="8.0dip"
                 android:paddingBottom="24.0dip"
                 android:layout_width="fill_parent"
                 android:layout_height="wrap_content">
-                <TextView
-                    android:text="Loading your music…"
-                    android:textSize="15.0sp"
-                    android:textColor="#ffb3b3b3"
-                    android:gravity="center"
-                    android:paddingTop="28.0dip"
-                    android:paddingBottom="28.0dip"
-                    android:layout_width="fill_parent"
-                    android:layout_height="wrap_content" />
             </LinearLayout>
         </ScrollView>
 
