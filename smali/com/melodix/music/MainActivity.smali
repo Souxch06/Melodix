@@ -7230,33 +7230,54 @@
 .end method
 
 .method public final styleNativeTab(Ljava/lang/String;Ljava/lang/String;I)V
-    .locals 5
+    .locals 8
 
     invoke-virtual {p1, p2}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
     move-result v0
     invoke-virtual {p0, p3}, Landroid/app/Activity;->findViewById(I)Landroid/view/View;
     move-result-object v1
     if-eqz v1, :native_tab_style_done
-    check-cast v1, Landroid/widget/TextView;
     if-eqz v0, :native_tab_inactive
     const v2, -0x1
-    const v4, 0xff1ed760
-    goto :native_tab_highlight
-
-    :native_tab_inactive
-    const v2, -0x888889
-    const v4, -0x888889
+    const v4, -0xe128a0
     goto :native_tab_apply
 
-    :native_tab_highlight
+    :native_tab_inactive
+    const v2, -0x4c4c4d
+    const v4, -0x4c4c4d
 
     :native_tab_apply
+    instance-of v3, v1, Landroid/widget/TextView;
+    if-nez v3, :native_tab_as_group
+    check-cast v1, Landroid/widget/TextView;
     invoke-virtual {v1, v2}, Landroid/widget/TextView;->setTextColor(I)V
-    # The tab background is a ripple drawable; tinting it transparent (as the
-    # old code did) also removed every press feedback.
     invoke-static {v4}, Landroid/content/res/ColorStateList;->valueOf(I)Landroid/content/res/ColorStateList;
-    move-result-object v4
-    invoke-virtual {v1, v4}, Landroid/widget/TextView;->setCompoundDrawableTintList(Landroid/content/res/ColorStateList;)V
+    move-result-object v3
+    invoke-virtual {v1, v3}, Landroid/widget/TextView;->setCompoundDrawableTintList(Landroid/content/res/ColorStateList;)V
+    goto :native_tab_style_done
+
+    :native_tab_as_group
+    instance-of v3, v1, Landroid/view/ViewGroup;
+    if-eqz v3, :native_tab_style_done
+    check-cast v1, Landroid/view/ViewGroup;
+    const/4 v3, 0x0
+    invoke-virtual {v1, v3}, Landroid/view/ViewGroup;->getChildAt(I)Landroid/view/View;
+    move-result-object v5
+    if-eqz v5, :native_tab_text_child
+    instance-of v6, v5, Landroid/widget/ImageView;
+    if-eqz v6, :native_tab_text_child
+    check-cast v5, Landroid/widget/ImageView;
+    invoke-virtual {v5, v4}, Landroid/widget/ImageView;->setColorFilter(I)V
+
+    :native_tab_text_child
+    const/4 v3, 0x1
+    invoke-virtual {v1, v3}, Landroid/view/ViewGroup;->getChildAt(I)Landroid/view/View;
+    move-result-object v5
+    if-eqz v5, :native_tab_style_done
+    instance-of v6, v5, Landroid/widget/TextView;
+    if-eqz v6, :native_tab_style_done
+    check-cast v5, Landroid/widget/TextView;
+    invoke-virtual {v5, v2}, Landroid/widget/TextView;->setTextColor(I)V
 
     :native_tab_style_done
     return-void
