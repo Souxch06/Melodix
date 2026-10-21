@@ -71,7 +71,7 @@
     move-result-object v10
     invoke-virtual {v10}, Ljava/lang/String;->isEmpty()Z
     move-result v11
-    if-eqz v11, :content_row
+    if-nez v11, :content_row
     invoke-static {p0, v6}, Lcom/melodix/music/NativeSettingsRowFactory;->create(Lcom/melodix/music/MainActivity;Lorg/json/JSONObject;)Landroid/widget/LinearLayout;
     move-result-object v11
     goto :add_row
@@ -91,18 +91,16 @@
 
     :commit
     if-lez v5, :try_empty
-    invoke-virtual {p1}, Landroid/view/ViewGroup;->removeAllViews()V
+    invoke-virtual {p1, v12}, Landroid/view/ViewGroup;->addView(Landroid/view/View;)V
 
-    :xfer
-    invoke-virtual {v12}, Landroid/view/ViewGroup;->getChildCount()I
+    :strip
+    invoke-virtual {p1}, Landroid/view/ViewGroup;->getChildCount()I
     move-result v2
-    if-lez v2, :finish
+    const/4 v4, 0x1
+    if-le v2, v4, :finish
     const/4 v4, 0x0
-    invoke-virtual {v12, v4}, Landroid/view/ViewGroup;->getChildAt(I)Landroid/view/View;
-    move-result-object v6
-    invoke-virtual {v12, v6}, Landroid/view/ViewGroup;->removeView(Landroid/view/View;)V
-    invoke-virtual {p1, v6}, Landroid/view/ViewGroup;->addView(Landroid/view/View;)V
-    goto :xfer
+    invoke-virtual {p1, v4}, Landroid/view/ViewGroup;->removeViewAt(I)V
+    goto :strip
 
     :finish
     move v0, v5

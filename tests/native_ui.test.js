@@ -857,9 +857,18 @@ test('the native shell can ask Android to evaluate the playback bridge again', (
 
 test('content rows reach the cover factory instead of the settings factory', () => {
     const feed = read('smali/com/melodix/music/NativeHomeFeed.smali');
-    assert.match(feed, /settingValue/);
-    assert.match(feed, /NativeSettingsRowFactory;->create/);
-    assert.match(feed, /NativeUiRowFactory;->create/);
+    const cardDef = feed.search(/^[ \t]*:card[ \t]*$/m);
+    const addDef = feed.search(/^[ \t]*:add_row[ \t]*$/m);
+    const contentDef = feed.search(/^[ \t]*:content_row[ \t]*$/m);
+    const card = feed.slice(cardDef, addDef);
+    const branch = card.match(/isEmpty\(\)Z\s+move-result v(\d+)\s+if-(eqz|nez) v\1, :(content_row|settings_row|\w+)/);
+    assert.ok(branch, 'settingValue emptiness must select a factory');
+    assert.equal(branch[2], 'nez', 'empty settingValue must jump to the content factory');
+    assert.equal(branch[3], 'content_row');
+    const content = feed.slice(contentDef, addDef);
+    assert.match(content, /NativeUiRowFactory;->create/);
+    assert.doesNotMatch(content, /NativeSettingsRowFactory;->create/);
+    assert.match(card, /NativeSettingsRowFactory;->create/);
 });
 
 test('merged Spotify card labels are split into a title and a subtitle', () => {

@@ -7,6 +7,71 @@ const vm = require('node:vm');
 const root = path.resolve(__dirname, '..');
 const read = (file) => fs.readFileSync(path.join(root, file), 'utf8');
 
+function paintMethod() {
+    const src = read('smali/com/melodix/music/NativeHomeFeed.smali');
+    const start = src.indexOf('.method public static paint');
+    return src.slice(start, src.indexOf('.end method', start));
+}
+
+function labelIndex(src, label) {
+    const name = label.replace(/^:/, '');
+    const match = src.match(new RegExp('^[ \\t]*:' + name + '[ \\t]*$', 'm'));
+    return match ? src.indexOf(match[0]) : -1;
+}
+
+function sliceLabel(src, label, until) {
+    const start = labelIndex(src, label);
+    assert.ok(start >= 0, `missing label ${label}`);
+    const end = until ? labelIndex(src.slice(start + 1), until) : -1;
+    const absEnd = end < 0 ? src.length : start + 1 + end;
+    return src.slice(start, absEnd);
+}
+
+function settingValueBranch(paint) {
+    const card = sliceLabel(paint, ':card', ':add_row');
+    const match = card.match(
+        /"settingValue"[\s\S]*?isEmpty\(\)Z\s+move-result v(\d+)\s+if-(eqz|nez) v\1, :(\w+)/
+    );
+    assert.ok(match, 'settingValue isEmpty must be followed by if-eqz or if-nez');
+    return { register: match[1], op: match[2], target: match[3], block: card };
+}
+
+function factoryAfterLabel(paint, label) {
+    const body = sliceLabel(paint, label, ':add_row');
+    if (body.includes('NativeSettingsRowFactory;->create')) return 'settings';
+    if (body.includes('NativeUiRowFactory;->create(')) return 'content';
+    return 'unknown';
+}
+
+function routeSettingValue(isEmpty) {
+    const paint = paintMethod();
+    const branch = settingValueBranch(paint);
+    const flag = isEmpty ? 1 : 0;
+    const jumps = branch.op === 'eqz' ? flag === 0 : flag !== 0;
+    if (jumps) {
+        return factoryAfterLabel(paint, ':' + branch.target);
+    }
+    const fall = branch.block;
+    if (fall.includes('NativeSettingsRowFactory;->create')) return 'settings';
+    if (fall.includes('NativeUiRowFactory;->create(')) return 'content';
+    return 'unknown';
+}
+
+function sectionHeaderCreated(section, previous) {
+    const paint = paintMethod();
+    const before = paint.slice(0, paint.indexOf('createSectionHeader'));
+    const lastEmpty = [...before.matchAll(/isEmpty\(\)Z\s+move-result v(\d+)\s+if-(eqz|nez) v\1, :card/g)].pop();
+    const equals = [...before.matchAll(/equals\(Ljava\/lang\/Object;\)Z\s+move-result v(\d+)\s+if-(eqz|nez) v\1, :card/g)].pop();
+    assert.ok(lastEmpty && equals, 'section empty and equals must both jump to :card');
+    const emptyFlag = !section ? 1 : 0;
+    const emptyJump = lastEmpty[2] === 'eqz' ? emptyFlag === 0 : emptyFlag !== 0;
+    if (emptyJump) return false;
+    const equalFlag = section === previous ? 1 : 0;
+    const equalJump = equals[2] === 'eqz' ? equalFlag === 0 : equalFlag !== 0;
+    if (equalJump) return false;
+    return true;
+}
+
 function runShell(extraWindow) {
     const calls = [];
     const mainView = { querySelectorAll: () => [] };
@@ -79,13 +144,15 @@ test('empty and invalid home payloads are not treated as success for native pain
     assert.match(list, /\"section\"/);
     assert.match(list, /NativeUiRowFactory;->create/);
     assert.doesNotMatch(list, /Chargement de votre accueil/);
-    const paintAt = list.indexOf('.method public static paint');
-    const paint = list.slice(paintAt);
+    const paint = paintMethod();
     const jsonInit = paint.indexOf('JSONArray;-><init>');
-    const wipe = paint.indexOf('removeAllViews()V');
     const commit = paint.indexOf(':commit');
-    assert.ok(wipe > commit, 'visible container is not wiped before a successful commit');
-    assert.ok(wipe > jsonInit, 'JSON parse happens before any wipe');
+    const attach = paint.indexOf('addView(Landroid/view/View;)V', commit);
+    const strip = paint.indexOf('removeViewAt(I)V');
+    assert.ok(commit > jsonInit);
+    assert.ok(attach > commit, 'visible container is not mutated before a successful commit');
+    assert.ok(strip > attach, 'old children are stripped only after the scratch tree is attached');
+    assert.doesNotMatch(paint, /removeAllViews\(\)V/);
     assert.match(paint, /if-lez v5, :try_empty/);
     assert.match(paint, /NativeCrashGuard;->record/);
     assert.match(paint, /home-feed:/);
@@ -165,6 +232,66 @@ test('two playlist cards in the same section share one header; distinct sections
     assert.equal(window.__sfNativeHomeRowCount, rows.length);
     const sections = [...new Set(rows.map((row) => row.section).filter(Boolean))];
     assert.ok(sections.length >= 1);
+});
+
+test('playlist without settingValue uses NativeUiRowFactory; settings row uses NativeSettingsRowFactory', () => {
+    assert.equal(routeSettingValue(true), 'content', 'empty settingValue is a Spotify content card');
+    assert.equal(routeSettingValue(false), 'settings', 'non-empty settingValue is a settings row');
+});
+
+test('a playlist payload keeps title, uri and cover through sendNativeUiData', () => {
+    const { window, calls } = runShell({
+        mediaLib: {
+            playlists: [{
+                name: 'Mix Nuit',
+                uri: 'spotify:playlist:abc123',
+                image: 'https://i.scdn.co/image/cover1',
+                type: 'Playlist'
+            }]
+        }
+    });
+    const home = calls.filter((c) => c.screen === 'home').pop();
+    const rows = JSON.parse(home.data);
+    const mix = rows.find((row) => row.uri === 'spotify:playlist:abc123');
+    assert.equal(mix.title, 'Mix Nuit');
+    assert.equal(mix.image, 'https://i.scdn.co/image/cover1');
+    assert.equal(mix.section, 'Vos playlists');
+    assert.equal(mix.settingValue, undefined);
+    assert.equal(window.__sfNativeHomePlaylistCount, 1);
+    assert.ok(window.__sfNativeHomeRowCount >= 1);
+    assert.ok(window.__sfNativeHomeRowCount !== window.__sfNativeHomePlaylistCount || rows.length === 1);
+    assert.equal(routeSettingValue(!mix.settingValue), 'content');
+});
+
+test('empty or invalid paint payload never attaches or strips the visible container', () => {
+    const paint = paintMethod();
+    const tryStart = paint.indexOf(':try_start_0');
+    const commit = paint.indexOf(':commit');
+    const beforeCommit = paint.slice(tryStart, commit);
+    assert.match(beforeCommit, /if-lez v2, :try_empty/);
+    assert.doesNotMatch(beforeCommit, /invoke-virtual \{p1/);
+    assert.match(paint, /if-lez v5, :try_empty/);
+    const attach = paint.indexOf('invoke-virtual {p1, v12}', commit);
+    assert.ok(attach > 0);
+    assert.ok(paint.indexOf('if-lez v5, :try_empty') < attach);
+});
+
+test('transfer attaches the scratch tree before removing previous children', () => {
+    const paint = paintMethod();
+    const commit = sliceLabel(paint, ':commit', ':try_empty');
+    const addScratch = commit.indexOf('invoke-virtual {p1, v12}');
+    const strip = commit.indexOf('removeViewAt(I)V');
+    assert.ok(addScratch >= 0, 'scratch LinearLayout is added as one child');
+    assert.ok(strip > addScratch, 'previous children are removed only after scratch is attached');
+    assert.match(paint, /catch Ljava\/lang\/Throwable/);
+    assert.match(paint, /home-feed:/);
+});
+
+test('section headers follow non-empty and different-from-previous', () => {
+    assert.equal(sectionHeaderCreated('', ''), false);
+    assert.equal(sectionHeaderCreated('Vos playlists', ''), true);
+    assert.equal(sectionHeaderCreated('Vos playlists', 'Vos playlists'), false);
+    assert.equal(sectionHeaderCreated('Albums', 'Vos playlists'), true);
 });
 
 test('search payloads do not clear stored home JSON in applyNativeUiData', () => {
