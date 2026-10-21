@@ -109,9 +109,27 @@ test('home always has a Java paint path that does not depend on JSON shelves', (
     assert.match(paint, /\.method public static seed/);
     assert.match(paint, /Titres lik/);
     const cache = read('smali/com/melodix/music/NativeHomeCache.smali');
-    assert.match(cache, /NativeHomePaint;->seed/);
+    assert.match(cache, /renderNativeRows/);
+    assert.doesNotMatch(cache, /NativeHomePaint;->seed/);
     const search = read('smali/com/melodix/music/MainActivity.smali');
     const click = search.match(/\.method public final onNativeSearchClick\(Landroid\/view\/View;\)V([\s\S]*?)\.end method/);
     assert.ok(click);
     assert.doesNotMatch(click[1], /const\/16 v1, 0x8[\s\S]*nativeRows/);
+});
+
+test('resume hides splash without wiping Home over Search', () => {
+    const activity = read('smali/com/melodix/music/MainActivity.smali');
+    const reveal = activity.match(/\.method public final revealNativeIfReady\(\)V([\s\S]*?)\.end method/);
+    assert.ok(reveal);
+    assert.doesNotMatch(reveal[1], /showNativeUi/);
+    assert.doesNotMatch(reveal[1], /NativeHomeCache;->restore/);
+    assert.match(reveal[1], /AppSingleton;->l:Z/);
+});
+
+test('tab icons get an explicit compound drawable size', () => {
+    const activity = read('smali/com/melodix/music/MainActivity.smali');
+    const style = activity.match(/\.method public final styleNativeTab[\s\S]*?\.end method/);
+    assert.ok(style);
+    assert.match(style[0], /setCompoundDrawables/);
+    assert.match(style[0], /setBounds/);
 });

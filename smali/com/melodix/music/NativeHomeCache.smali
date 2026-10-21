@@ -86,7 +86,6 @@
 
     :catch_paint
     move-exception v0
-    invoke-static {p0}, Lcom/melodix/music/NativeHomePaint;->seed(Lcom/melodix/music/MainActivity;)V
 
     :done
     return-void
