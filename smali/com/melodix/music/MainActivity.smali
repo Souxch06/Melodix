@@ -7444,11 +7444,12 @@
     move-result v1
     if-eqz v1, :check_media
     iput-object p2, p0, Lcom/melodix/music/MainActivity;->nativeHomeJson:Ljava/lang/String;
+    const-string v2, "home"
+    iput-object v2, p0, Lcom/melodix/music/MainActivity;->nativeCurrentScreen:Ljava/lang/String;
     const-string v2, "Accueil"
     invoke-virtual {p0, v2, p2}, Lcom/melodix/music/MainActivity;->renderNativeRows(Ljava/lang/String;Ljava/lang/String;)V
     const-string v2, "home"
     invoke-virtual {p0, v2}, Lcom/melodix/music/MainActivity;->setNativeScreen(Ljava/lang/String;)V
-    invoke-virtual {p0}, Lcom/melodix/music/MainActivity;->pullNativeHomeList()V
     return-void
 
     :check_media
@@ -7784,26 +7785,7 @@
 
     :native_genre_gone
     iput-object p1, p0, Lcom/melodix/music/MainActivity;->nativeCurrentTitle:Ljava/lang/String;
-    if-eqz p2, :native_skip_json_persist
-    invoke-virtual {p2}, Ljava/lang/String;->length()I
-    move-result v0
-    const/16 v1, 0x8
-    if-le v0, v1, :native_skip_json_persist
     iput-object p2, p0, Lcom/melodix/music/MainActivity;->nativeCurrentJson:Ljava/lang/String;
-    iget-object v0, p0, Lcom/melodix/music/MainActivity;->nativeCurrentScreen:Ljava/lang/String;
-    const-string v1, "home"
-    invoke-virtual {v1, v0}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
-    move-result v1
-    if-eqz v1, :native_persist_library
-    iput-object p2, p0, Lcom/melodix/music/MainActivity;->nativeHomeJson:Ljava/lang/String;
-    goto :native_skip_json_persist
-    :native_persist_library
-    const-string v1, "library"
-    invoke-virtual {v1, v0}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
-    move-result v1
-    if-eqz v1, :native_skip_json_persist
-    iput-object p2, p0, Lcom/melodix/music/MainActivity;->nativeLibraryJson:Ljava/lang/String;
-    :native_skip_json_persist
 
     const v0, 0x7f090230
     invoke-virtual {p0, v0}, Landroid/app/Activity;->findViewById(I)Landroid/view/View;
@@ -7813,10 +7795,201 @@
     invoke-virtual {v1, p1}, Landroid/widget/TextView;->setText(Ljava/lang/CharSequence;)V
 
     :find_native_content
-    # Do not parse JSON or add views here. Paint cached list-text instead.
-    iget-object v0, p0, Lcom/melodix/music/MainActivity;->nativeListBlob:Ljava/lang/String;
-    if-eqz v0, :render_native_done
-    invoke-virtual {p0, v0}, Lcom/melodix/music/MainActivity;->applyNativeListText(Ljava/lang/String;)V
+    const v0, 0x7f090235
+    invoke-virtual {p0, v0}, Landroid/app/Activity;->findViewById(I)Landroid/view/View;
+    move-result-object v2
+    if-eqz v2, :render_native_done
+    check-cast v2, Landroid/widget/LinearLayout;
+    invoke-virtual {v2}, Landroid/widget/LinearLayout;->removeAllViews()V
+
+    # Home is a set of horizontal cover shelves (like the Spotify phone app),
+    # every other screen keeps the vertical row list.
+    iget-object v0, p0, Lcom/melodix/music/MainActivity;->nativeCurrentScreen:Ljava/lang/String;
+    const-string v1, "home"
+    invoke-virtual {v1, v0}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    move-result v0
+    if-nez v0, :native_rows_list
+    invoke-static {p0, p2}, Lcom/melodix/music/NativeHomeShelfRenderer;->render(Lcom/melodix/music/MainActivity;Ljava/lang/String;)V
+    return-void
+
+    :native_rows_list
+    :try_start_native_rows
+    new-instance v3, Lorg/json/JSONArray;
+    invoke-direct {v3, p2}, Lorg/json/JSONArray;-><init>(Ljava/lang/String;)V
+    invoke-virtual {v3}, Lorg/json/JSONArray;->length()I
+    move-result v4
+    if-lez v4, :native_rows_empty
+
+    iget-object v0, p0, Lcom/melodix/music/MainActivity;->nativeCurrentScreen:Ljava/lang/String;
+    const-string v1, "detail"
+    invoke-virtual {v1, v0}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    move-result v0
+    if-eqz v0, :native_rows_start_loop
+    const/4 v0, 0x0
+    invoke-virtual {v3, v0}, Lorg/json/JSONArray;->optJSONObject(I)Lorg/json/JSONObject;
+    move-result-object v6
+    const-string v8, ""
+    const-string v9, ""
+    if-eqz v6, :native_rows_create_banner
+    const-string v0, "image"
+    invoke-virtual {v6, v0, v8}, Lorg/json/JSONObject;->optString(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;
+    move-result-object v8
+    invoke-virtual {v8}, Ljava/lang/String;->isEmpty()Z
+    move-result v0
+    if-eqz v0, :native_rows_banner_uri
+    const-string v0, "cover"
+    const-string v1, ""
+    invoke-virtual {v6, v0, v1}, Lorg/json/JSONObject;->optString(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;
+    move-result-object v8
+    :native_rows_banner_uri
+    const-string v0, "id"
+    invoke-virtual {v6, v0, v9}, Lorg/json/JSONObject;->optString(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;
+    move-result-object v9
+    invoke-virtual {v9}, Ljava/lang/String;->isEmpty()Z
+    move-result v0
+    if-eqz v0, :native_rows_create_banner
+    const-string v0, "uri"
+    const-string v1, ""
+    invoke-virtual {v6, v0, v1}, Lorg/json/JSONObject;->optString(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;
+    move-result-object v9
+    :native_rows_create_banner
+    invoke-static {p0, p1, v4, v8, v9}, Lcom/melodix/music/NativeUiRowFactory;->createPlaylistBanner(Lcom/melodix/music/MainActivity;Ljava/lang/String;ILjava/lang/String;Ljava/lang/String;)Landroid/widget/LinearLayout;
+    move-result-object v0
+    if-eqz v0, :native_rows_start_loop
+    invoke-virtual {v2, v0}, Landroid/widget/LinearLayout;->addView(Landroid/view/View;)V
+
+    :native_rows_start_loop
+    const-string v8, ""
+    const/4 v5, 0x0
+    :native_rows_loop
+    if-ge v5, v4, :native_rows_try_done
+    invoke-virtual {v3, v5}, Lorg/json/JSONArray;->optJSONObject(I)Lorg/json/JSONObject;
+    move-result-object v6
+    if-eqz v6, :native_row_scalar
+    const-string v0, "section"
+    const-string v1, ""
+    invoke-virtual {v6, v0, v1}, Lorg/json/JSONObject;->optString(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;
+    move-result-object v9
+    invoke-virtual {v9}, Ljava/lang/String;->isEmpty()Z
+    move-result v0
+    if-eqz v0, :native_row_build_card
+    invoke-virtual {v9, v8}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    move-result v0
+    if-eqz v0, :native_row_build_card
+    move-object v8, v9
+    invoke-static {p0, v9}, Lcom/melodix/music/NativeUiRowFactory;->createSectionHeader(Lcom/melodix/music/MainActivity;Ljava/lang/String;)Landroid/widget/TextView;
+    move-result-object v0
+    if-eqz v0, :native_row_build_card
+    invoke-virtual {v2, v0}, Landroid/widget/LinearLayout;->addView(Landroid/view/View;)V
+
+    :native_row_build_card
+    const-string v0, "settingValue"
+    invoke-virtual {v6, v0}, Lorg/json/JSONObject;->optString(Ljava/lang/String;)Ljava/lang/String;
+    move-result-object v0
+    invoke-virtual {v0}, Ljava/lang/String;->isEmpty()Z
+    move-result v1
+    # Empty settingValue = content row (cover + title + subtitle): it must reach the content factory.
+    if-eqz v1, :native_row_create_standard
+    invoke-static {p0, v6}, Lcom/melodix/music/NativeSettingsRowFactory;->create(Lcom/melodix/music/MainActivity;Lorg/json/JSONObject;)Landroid/widget/LinearLayout;
+    move-result-object v0
+    goto :native_row_created
+
+    :native_row_create_standard
+    invoke-static {p0, v6}, Lcom/melodix/music/NativeUiRowFactory;->create(Lcom/melodix/music/MainActivity;Lorg/json/JSONObject;)Landroid/widget/LinearLayout;
+    move-result-object v0
+
+    :native_row_created
+    if-eqz v0, :native_row_increment
+    invoke-virtual {v2, v0}, Landroid/widget/LinearLayout;->addView(Landroid/view/View;)V
+    goto :native_row_increment
+
+    :native_row_scalar
+    invoke-virtual {v3, v5}, Lorg/json/JSONArray;->optString(I)Ljava/lang/String;
+    move-result-object v0
+    new-instance v6, Landroid/widget/TextView;
+    invoke-direct {v6, p0}, Landroid/widget/TextView;-><init>(Landroid/content/Context;)V
+    invoke-virtual {v6, v0}, Landroid/widget/TextView;->setText(Ljava/lang/CharSequence;)V
+    const/high16 v0, 0x41700000
+    invoke-virtual {v6, v0}, Landroid/widget/TextView;->setTextSize(F)V
+    const v0, -0x1
+    invoke-virtual {v6, v0}, Landroid/widget/TextView;->setTextColor(I)V
+    const/16 v0, 0x10
+    invoke-virtual {v6, v0, v0, v0, v0}, Landroid/view/View;->setPadding(IIII)V
+    new-instance v1, Landroid/widget/LinearLayout$LayoutParams;
+    const/4 v0, -0x1
+    const/4 v7, -0x2
+    invoke-direct {v1, v0, v7}, Landroid/widget/LinearLayout$LayoutParams;-><init>(II)V
+    invoke-virtual {v2, v6, v1}, Landroid/widget/LinearLayout;->addView(Landroid/view/View;Landroid/view/ViewGroup$LayoutParams;)V
+
+    :native_row_increment
+    add-int/lit8 v5, v5, 0x1
+    goto :native_rows_loop
+
+    :native_rows_empty
+    new-instance v6, Landroid/widget/TextView;
+    invoke-direct {v6, p0}, Landroid/widget/TextView;-><init>(Landroid/content/Context;)V
+    iget-object v0, p0, Lcom/melodix/music/MainActivity;->nativeCurrentScreen:Ljava/lang/String;
+    const-string v1, "search"
+    invoke-virtual {v1, v0}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    move-result v0
+    if-nez v0, :native_rows_default_empty
+    const-string v0, "Recherchez un artiste, un titre, un album ou une playlist ci-dessus"
+    goto :native_rows_set_empty
+
+    :native_rows_default_empty
+    iget-object v0, p0, Lcom/melodix/music/MainActivity;->nativeCurrentScreen:Ljava/lang/String;
+    const-string v1, "detail"
+    invoke-virtual {v1, v0}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    move-result v0
+    if-nez v0, :native_rows_check_home
+    const-string v0, "Chargement de la playlist…"
+    goto :native_rows_set_empty
+
+    :native_rows_check_home
+    iget-object v0, p0, Lcom/melodix/music/MainActivity;->nativeCurrentScreen:Ljava/lang/String;
+    const-string v1, "home"
+    invoke-virtual {v1, v0}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    move-result v0
+    if-nez v0, :native_rows_check_library
+    const-string v0, "Chargement de votre accueil…"
+    goto :native_rows_set_empty
+
+    :native_rows_check_library
+    iget-object v0, p0, Lcom/melodix/music/MainActivity;->nativeCurrentScreen:Ljava/lang/String;
+    const-string v1, "library"
+    invoke-virtual {v1, v0}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    move-result v0
+    if-nez v0, :native_rows_default_text
+    const-string v0, "Chargement de votre bibliothèque…"
+    goto :native_rows_set_empty
+
+    :native_rows_default_text
+    const-string v0, "Rien à afficher pour le moment"
+    :native_rows_set_empty
+    invoke-virtual {v6, v0}, Landroid/widget/TextView;->setText(Ljava/lang/CharSequence;)V
+    const/high16 v0, 0x41800000
+    invoke-virtual {v6, v0}, Landroid/widget/TextView;->setTextSize(F)V
+    const v0, -0x4a3f48
+    invoke-virtual {v6, v0}, Landroid/widget/TextView;->setTextColor(I)V
+    const/16 v0, 0x11
+    invoke-virtual {v6, v0}, Landroid/widget/TextView;->setGravity(I)V
+    const/16 v0, 0x18
+    invoke-virtual {v6, v0, v0, v0, v0}, Landroid/view/View;->setPadding(IIII)V
+    new-instance v1, Landroid/widget/LinearLayout$LayoutParams;
+    const/4 v0, -0x1
+    const/4 v7, -0x2
+    invoke-direct {v1, v0, v7}, Landroid/widget/LinearLayout$LayoutParams;-><init>(II)V
+    invoke-virtual {v2, v6, v1}, Landroid/widget/LinearLayout;->addView(Landroid/view/View;Landroid/view/ViewGroup$LayoutParams;)V
+
+    :native_rows_try_done
+    :try_end_native_rows
+    .catch Lorg/json/JSONException; {:try_start_native_rows .. :try_end_native_rows} :catch_native_rows
+    return-void
+
+    :catch_native_rows
+    move-exception v0
+    return-void
+
     :render_native_done
     return-void
 .end method

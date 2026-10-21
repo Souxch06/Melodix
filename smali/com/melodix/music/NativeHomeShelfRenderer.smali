@@ -20,7 +20,7 @@
     # the verifier happy before the addView calls below.
     check-cast v13, Landroid/widget/LinearLayout;
 
-    if-eqz v13, :shelf_done
+    if-nez v13, :shelf_done
 
     :try_start_0
     new-instance v0, Lorg/json/JSONArray;
@@ -50,7 +50,7 @@
 
     move-result-object v5
 
-    if-eqz v5, :shelf_next
+    if-nez v5, :shelf_next
 
     const-string v6, "section"
 
@@ -60,15 +60,13 @@
 
     # A brand-new shelf is needed when there is no container yet, or when the
     # section label changed. Rows without a heading share the first shelf.
-    if-eqz v3, :shelf_new_section
+    if-nez v3, :shelf_new_section
 
     invoke-virtual {v6, v2}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
 
     move-result v7
 
-    if-eqz v7, :shelf_new_section
-
-    goto :shelf_have_container
+    if-nez v7, :shelf_have_container
 
     :shelf_new_section
     # New section: its own header and its own horizontal shelf.
@@ -78,7 +76,7 @@
 
     move-result v7
 
-    if-nez v7, :shelf_header_done
+    if-eqz v7, :shelf_header_done
 
     invoke-static {p0, v6}, Lcom/melodix/music/NativeUiRowFactory;->createSectionHeader(Lcom/melodix/music/MainActivity;Ljava/lang/String;)Landroid/widget/TextView;
 
@@ -125,24 +123,12 @@
 
     invoke-virtual {v8, v7, v9}, Landroid/widget/HorizontalScrollView;->addView(Landroid/view/View;Landroid/view/ViewGroup$LayoutParams;)V
 
-    new-instance v9, Landroid/widget/LinearLayout$LayoutParams;
-
-    const/4 v10, -0x1
-
-    const/16 v11, 0xd0
-
-    invoke-static {p0, v11}, Lcom/melodix/music/NativeHomeShelfRenderer;->dp(Landroid/content/Context;I)I
-
-    move-result v11
-
-    invoke-direct {v9, v10, v11}, Landroid/widget/LinearLayout$LayoutParams;-><init>(II)V
-
-    invoke-virtual {v13, v8, v9}, Landroid/widget/LinearLayout;->addView(Landroid/view/View;Landroid/view/ViewGroup$LayoutParams;)V
+    invoke-virtual {v13, v8}, Landroid/widget/LinearLayout;->addView(Landroid/view/View;)V
 
     move-object v3, v7
 
     :shelf_have_container
-    if-eqz v3, :shelf_next
+    if-nez v3, :shelf_next
 
     # Card container: square cover, title, subtitle.
     new-instance v7, Landroid/widget/LinearLayout;
@@ -674,7 +660,7 @@
 
     move-result-object v4
 
-    if-eqz v4, :quick_grid_inc
+    if-nez v4, :quick_grid_inc
 
     invoke-static {p0, v4}, Lcom/melodix/music/NativeHomeShelfRenderer;->createQuickTile(Lcom/melodix/music/MainActivity;Lorg/json/JSONObject;)Landroid/widget/LinearLayout;
 

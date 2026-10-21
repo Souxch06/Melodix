@@ -88,12 +88,8 @@ test('native bridge exposes UI callbacks and routes media, search and player dat
     assert.match(bridge, /\.method public final onNativeUiRoute\(Ljava\/lang\/String;\)V[\s\S]*?JavascriptInterface/);
     assert.match(bridge, /\.method public final onNativeUiData\(Ljava\/lang\/String;Ljava\/lang\/String;\)V[\s\S]*?JavascriptInterface/);
     assert.match(bridge, /\.method public final onNativeListText\(Ljava\/lang\/String;\)V[\s\S]*?JavascriptInterface/);
-    assert.match(bridge, /const-string v0, \"list-text\"/);
-    assert.match(read('smali/com/melodix/music/NativeUiUpdateRunnable.smali'), /titlesFromJson/);
-    assert.match(activity, /applyNativeListText/);
-    assert.match(activity, /NativeTextWalker;->apply/);
-    assert.match(read('res/layout/activity_main.xml'), /android:tag=\"nativeListText\"/);
-    assert.match(read('assets/native_ui_shell.js'), /__sfNativeHomeListText/);
+    assert.match(activity, /NativeHomeShelfRenderer;->render/);
+    assert.match(activity, /NativeUiRowFactory;->create/);
     assert.match(bridge, /const-string v1, "media:"[\s\S]*?dispatchNativeUi/);
     assert.match(bridge, /const-string v1, "search:"[\s\S]*?dispatchNativeUi/);
     assert.match(bridge, /const-string v0, "player"[\s\S]*?dispatchNativeUi/);
