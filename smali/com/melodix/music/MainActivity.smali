@@ -6988,11 +6988,11 @@
     move-result v1
     if-eqz v1, :show_done
     iget-object v1, p0, Lcom/melodix/music/MainActivity;->nativeHomeJson:Ljava/lang/String;
-    if-eqz v1, :show_done
-    invoke-virtual {v1}, Ljava/lang/String;->length()I
-    move-result v2
-    const/16 v3, 0x8
-    if-le v2, v3, :show_done
+    if-eqz v1, :show_home_empty_json
+    goto :show_home_render
+    :show_home_empty_json
+    const-string v1, "[]"
+    :show_home_render
     const-string v2, "Accueil"
     invoke-virtual {p0, v2, v1}, Lcom/melodix/music/MainActivity;->renderNativeRows(Ljava/lang/String;Ljava/lang/String;)V
 
@@ -7447,11 +7447,10 @@
     move-result v1
     if-eqz v1, :check_media
     iput-object p2, p0, Lcom/melodix/music/MainActivity;->nativeHomeJson:Ljava/lang/String;
-    const-string v2, "home"
-    invoke-virtual {p0, v2}, Lcom/melodix/music/MainActivity;->setNativeScreen(Ljava/lang/String;)V
-    :apply_home
     const-string v2, "Accueil"
     invoke-virtual {p0, v2, p2}, Lcom/melodix/music/MainActivity;->renderNativeRows(Ljava/lang/String;Ljava/lang/String;)V
+    const-string v2, "home"
+    invoke-virtual {p0, v2}, Lcom/melodix/music/MainActivity;->setNativeScreen(Ljava/lang/String;)V
     return-void
 
     :check_media
@@ -7826,30 +7825,57 @@
     invoke-virtual {p0, v0}, Landroid/app/Activity;->findViewById(I)Landroid/view/View;
     move-result-object v2
     if-eqz v2, :render_native_done
-    check-cast v2, Landroid/widget/LinearLayout;
-    invoke-virtual {v2}, Landroid/widget/LinearLayout;->removeAllViews()V
-
-    # Home must use the vertical cover list. NativeHomeShelfRenderer added
-    # section titles plus HorizontalScrollViews that measured 0 px high, so
-    # the user only saw "Titres likés" / "Vos playlists" with no cards.
-    # getChildCount then saw those headers and skipped this list.
+    instance-of v0, v2, Landroid/view/ViewGroup;
+    if-eqz v0, :render_native_done
+    check-cast v2, Landroid/view/ViewGroup;
 
     :native_rows_list
-    if-eqz p2, :native_rows_empty
     :try_start_native_rows
+    if-eqz p2, :native_rows_empty
+    invoke-virtual {p2}, Ljava/lang/String;->length()I
+    move-result v4
+    const/4 v5, 0x2
+    if-ge v4, v5, :native_rows_empty
+
+    const/4 v5, 0x0
+    invoke-virtual {p2, v5}, Ljava/lang/String;->charAt(I)C
+    move-result v5
+    const/16 v4, 0x5b
+    if-eq v5, v4, :native_rows_as_object
     new-instance v3, Lorg/json/JSONArray;
     invoke-direct {v3, p2}, Lorg/json/JSONArray;-><init>(Ljava/lang/String;)V
+    goto :native_rows_have_array
+
+    :native_rows_as_object
+    const/16 v4, 0x7b
+    if-eq v5, v4, :native_rows_empty
+    new-instance v6, Lorg/json/JSONObject;
+    invoke-direct {v6, p2}, Lorg/json/JSONObject;-><init>(Ljava/lang/String;)V
+    const-string v0, "items"
+    invoke-virtual {v6, v0}, Lorg/json/JSONObject;->optJSONArray(Ljava/lang/String;)Lorg/json/JSONArray;
+    move-result-object v3
+    if-eqz v3, :native_rows_obj_rows
+    goto :native_rows_have_array
+    :native_rows_obj_rows
+    const-string v0, "rows"
+    invoke-virtual {v6, v0}, Lorg/json/JSONObject;->optJSONArray(Ljava/lang/String;)Lorg/json/JSONArray;
+    move-result-object v3
+    if-eqz v3, :native_rows_empty
+
+    :native_rows_have_array
     invoke-virtual {v3}, Lorg/json/JSONArray;->length()I
     move-result v4
     if-lez v4, :native_rows_empty
 
+    invoke-virtual {v2}, Landroid/view/ViewGroup;->removeAllViews()V
+
     const-string v8, ""
     const/4 v5, 0x0
     :native_rows_loop
-    if-ge v5, v4, :native_rows_try_done
+    if-ge v5, v4, :native_rows_after_loop
     invoke-virtual {v3, v5}, Lorg/json/JSONArray;->optJSONObject(I)Lorg/json/JSONObject;
     move-result-object v6
-    if-eqz v6, :native_row_increment
+    if-eqz v6, :native_row_as_string
     const-string v0, "section"
     const-string v7, ""
     invoke-virtual {v6, v0, v7}, Lorg/json/JSONObject;->optString(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;
@@ -7868,12 +7894,9 @@
     invoke-virtual {v0, v1}, Landroid/widget/TextView;->setTextSize(F)V
     const v1, -0x1
     invoke-virtual {v0, v1}, Landroid/widget/TextView;->setTextColor(I)V
-    const/4 v1, 0x0
-    const/4 v7, 0x1
-    invoke-virtual {v0, v1, v7}, Landroid/widget/TextView;->setTypeface(Landroid/graphics/Typeface;I)V
     const/16 v1, 0x10
     invoke-virtual {v0, v1, v1, v1, v1}, Landroid/view/View;->setPadding(IIII)V
-    invoke-virtual {v2, v0}, Landroid/widget/LinearLayout;->addView(Landroid/view/View;)V
+    invoke-virtual {v2, v0}, Landroid/view/ViewGroup;->addView(Landroid/view/View;)V
 
     :native_row_plain
     const-string v0, "title"
@@ -7895,6 +7918,16 @@
     invoke-virtual {v0}, Ljava/lang/String;->isEmpty()Z
     move-result v1
     if-nez v1, :native_row_increment
+    goto :native_row_add_title
+
+    :native_row_as_string
+    invoke-virtual {v3, v5}, Lorg/json/JSONArray;->optString(I)Ljava/lang/String;
+    move-result-object v0
+    invoke-virtual {v0}, Ljava/lang/String;->isEmpty()Z
+    move-result v1
+    if-nez v1, :native_row_increment
+
+    :native_row_add_title
     new-instance v1, Landroid/widget/TextView;
     invoke-direct {v1, p0}, Landroid/widget/TextView;-><init>(Landroid/content/Context;)V
     invoke-virtual {v1, v0}, Landroid/widget/TextView;->setText(Ljava/lang/CharSequence;)V
@@ -7904,13 +7937,19 @@
     invoke-virtual {v1, v0}, Landroid/widget/TextView;->setTextColor(I)V
     const/16 v0, 0x12
     invoke-virtual {v1, v0, v0, v0, v0}, Landroid/view/View;->setPadding(IIII)V
-    invoke-virtual {v2, v1}, Landroid/widget/LinearLayout;->addView(Landroid/view/View;)V
+    invoke-virtual {v2, v1}, Landroid/view/ViewGroup;->addView(Landroid/view/View;)V
 
     :native_row_increment
     add-int/lit8 v5, v5, 0x1
     goto :native_rows_loop
 
+    :native_rows_after_loop
+    invoke-virtual {v2}, Landroid/view/ViewGroup;->getChildCount()I
+    move-result v0
+    if-lez v0, :native_rows_try_done
+
     :native_rows_empty
+    invoke-virtual {v2}, Landroid/view/ViewGroup;->removeAllViews()V
     new-instance v6, Landroid/widget/TextView;
     invoke-direct {v6, p0}, Landroid/widget/TextView;-><init>(Landroid/content/Context;)V
     iget-object v0, p0, Lcom/melodix/music/MainActivity;->nativeCurrentScreen:Ljava/lang/String;
@@ -7964,7 +8003,7 @@
     const/4 v0, -0x1
     const/4 v7, -0x2
     invoke-direct {v1, v0, v7}, Landroid/widget/LinearLayout$LayoutParams;-><init>(II)V
-    invoke-virtual {v2, v6, v1}, Landroid/widget/LinearLayout;->addView(Landroid/view/View;Landroid/view/ViewGroup$LayoutParams;)V
+    invoke-virtual {v2, v6, v1}, Landroid/view/ViewGroup;->addView(Landroid/view/View;Landroid/view/ViewGroup$LayoutParams;)V
 
     :native_rows_try_done
     :try_end_native_rows
