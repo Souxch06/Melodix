@@ -1249,6 +1249,7 @@ test('navigation clicks keep home JSON and do not force the home screen', () => 
     const painter = read('smali/com/melodix/music/NativeRowList.smali');
     assert.match(painter, /indexOf\(Ljava\/lang\/String;I\)I/);
     assert.doesNotMatch(painter, /:try_start/);
+    assert.match(painter, /\.method private static addLine[\s\S]*?\.locals 4/);
     assert.match(rows, /instance-of v0, v2, Landroid\/view\/ViewGroup;/);
     assert.match(rows, /if-le v0, v1, :native_skip_json_persist/);
 
