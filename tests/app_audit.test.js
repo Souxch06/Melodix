@@ -60,6 +60,7 @@ test('null object checks in new helpers skip when the reference is missing', () 
     const cache = read('smali/com/melodix/music/NativeHomeCache.smali');
     assert.match(cache, /if-eqz p0, :done/);
     assert.doesNotMatch(cache, /if-nez p0, :done/);
+    assert.match(cache, /spotify:collection:tracks/);
     assert.match(read('smali/com/melodix/music/NativeHomePaint.smali'), /spotify:collection:tracks/);
 
     const empty = read('smali/com/melodix/music/NativeEmptyState.smali');

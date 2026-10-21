@@ -2,10 +2,6 @@
 .super Ljava/lang/Object;
 
 
-# Last successful Home payload, plus a Liked Songs seed so Accueil is never
-# stuck on an English loading placeholder while the page is still rendering.
-
-
 .method public static save(Landroid/content/Context;Ljava/lang/String;)V
     .locals 3
 
@@ -14,7 +10,7 @@
 
     invoke-virtual {p1}, Ljava/lang/String;->length()I
     move-result v0
-    const/4 v1, 0x2
+    const/16 v1, 0x8
     if-le v0, v1, :done
 
     :try_start_0
@@ -48,21 +44,49 @@
 
     if-eqz p0, :done
 
-    const v0, 0x7f090235
-    invoke-virtual {p0, v0}, Landroid/app/Activity;->findViewById(I)Landroid/view/View;
-    move-result-object v0
-    if-eqz v0, :done
-    check-cast v0, Landroid/widget/LinearLayout;
+    const/4 v0, 0x0
 
-    :try_start_1
-    invoke-static {p0}, Lcom/melodix/music/NativeHomePaint;->seed(Lcom/melodix/music/MainActivity;)V
-    :try_end_1
-    .catch Ljava/lang/Throwable; {:try_start_1 .. :try_end_1} :catch_1
+    :try_start_load
+    const-string v1, "melodix_native"
+    const/4 v2, 0x0
+    invoke-virtual {p0, v1, v2}, Landroid/content/Context;->getSharedPreferences(Ljava/lang/String;I)Landroid/content/SharedPreferences;
+    move-result-object v1
+
+    const-string v2, "home_feed"
+    const/4 v3, 0x0
+    invoke-interface {v1, v2, v3}, Landroid/content/SharedPreferences;->getString(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;
+    move-result-object v0
+    :try_end_load
+    .catch Ljava/lang/Throwable; {:try_start_load .. :try_end_load} :catch_load
+
+    goto :have
+
+    :catch_load
+    move-exception v1
+
+    :have
+    if-eqz v0, :seed
+    invoke-virtual {v0}, Ljava/lang/String;->length()I
+    move-result v1
+    const/16 v2, 0x8
+    if-le v1, v2, :seed
+    goto :paint
+
+    :seed
+    const-string v0, "[{\"title\":\"Titres likes\",\"subtitle\":\"Playlist\",\"section\":\"Vos playlists\",\"image\":\"https://misc.scdn.co/liked-songs/liked-songs-640.png\",\"uri\":\"spotify:collection:tracks\"},{\"title\":\"Ecoutes recentes\",\"subtitle\":\"Activite\",\"section\":\"Vos playlists\",\"image\":\"\",\"uri\":\"spotify:collection:tracks\"},{\"title\":\"Radios\",\"subtitle\":\"Pour toi\",\"section\":\"Radios\",\"image\":\"\",\"uri\":\"spotify:collection:tracks\"}]"
+
+    :paint
+    :try_start_paint
+    const-string v1, "Accueil"
+    invoke-virtual {p0, v1, v0}, Lcom/melodix/music/MainActivity;->renderNativeRows(Ljava/lang/String;Ljava/lang/String;)V
+    :try_end_paint
+    .catch Ljava/lang/Throwable; {:try_start_paint .. :try_end_paint} :catch_paint
 
     goto :done
 
-    :catch_1
+    :catch_paint
     move-exception v0
+    invoke-static {p0}, Lcom/melodix/music/NativeHomePaint;->seed(Lcom/melodix/music/MainActivity;)V
 
     :done
     return-void

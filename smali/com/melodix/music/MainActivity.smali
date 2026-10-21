@@ -4804,6 +4804,8 @@
     .line 1
     invoke-super {p0}, Landroidx/activity/a;->onResume()V
 
+    invoke-virtual {p0}, Lcom/melodix/music/MainActivity;->revealNativeIfReady()V
+
     .line 2
     .line 3
     .line 4
@@ -7055,6 +7057,19 @@
 
     :hide
     invoke-virtual {v1}, Lcom/melodix/music/MainActivity;->hideNativeUi()V
+
+    :done
+    return-void
+.end method
+
+
+
+.method public final revealNativeIfReady()V
+    .locals 2
+
+    sget-boolean v0, Lcom/melodix/music/AppSingleton;->l:Z
+    if-eqz v0, :done
+    invoke-virtual {p0}, Lcom/melodix/music/MainActivity;->showNativeUi()V
 
     :done
     return-void
