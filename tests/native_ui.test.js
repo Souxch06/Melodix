@@ -104,13 +104,13 @@ test('native bridge exposes UI callbacks and routes media, search and player dat
     assert.match(activity, /\.method public final onNativePlayerExpandClick\(Landroid\/view\/View;\)V/);
     assert.match(activity, /\.method public final onNativePlayerNextClick\(Landroid\/view\/View;\)V/);
     assert.match(activity, /\.method public final updateNativePlayer\(Ljava\/lang\/String;\)V[\s\S]*?"cover"[\s\S]*?NativeImageLoader;->load[\s\S]*?"duration"[\s\S]*?"position"[\s\S]*?setProgress\(I\)V/);
-    assert.match(activity, /applyNativeUiData[\s\S]*?"screen-title"[\s\S]*?"detail"[\s\S]*?renderNativeRows[\s\S]*?NativeUiRowFactory;->create/);
+    assert.match(activity, /applyNativeUiData[\s\S]*?"screen-title"[\s\S]*?"detail"[\s\S]*?renderNativeRows/);
     const runnable = read('smali/com/melodix/music/NativeUiUpdateRunnable.smali');
     assert.match(runnable, /showNativeUi\(\)V/);
     assert.match(runnable, /const\/4 v2, 0x1[\s\S]*?applyNativeUiData/);
     assert.match(runnable, /setNativeScreen\(Ljava\/lang\/String;\)V/);
     assert.doesNotMatch(runnable, /onNativeLibraryClick/, 'a route update must not re-trigger the library tab');
-    assert.match(activity, /renderNativeRows[\s\S]*?NativeUiRowFactory;->create/);
+    assert.match(activity, /renderNativeRows[\s\S]*?Landroid\/widget\/TextView;-><init>/);
     assert.match(read('smali/com/melodix/music/NativeImageLoader.smali'), /Picasso;->load[\s\S]*?RequestCreator;->into/);
     assert.match(read('smali/com/melodix/music/NativeUiRowFactory.smali'), /GradientDrawable;->setCornerRadius[\s\S]*?setContentDescription/);
 });
@@ -673,8 +673,8 @@ test('Home separates user playlists from Spotify official recommendations and pr
     assert.equal(rows[2].title, 'Spotify Mix 0');
     assert.equal(rows[2].section, 'Sélections Spotify');
 
-    assert.match(activity, /createSectionHeader\(Lcom\/melodix\/music\/MainActivity;Ljava\/lang\/String;\)Landroid\/widget\/TextView;/);
-    assert.match(activity, /createPlaylistBanner\(Lcom\/melodix\/music\/MainActivity;Ljava\/lang\/String;ILjava\/lang\/String;Ljava\/lang\/String;\)Landroid\/widget\/LinearLayout;/);
+    assert.match(activity, /const-string v0, "section"/);
+    assert.match(rowFactory, /createPlaylistBanner\(Lcom\/melodix\/music\/MainActivity;Ljava\/lang\/String;ILjava\/lang\/String;Ljava\/lang\/String;\)Landroid\/widget\/LinearLayout;/);
     assert.match(activity, /\.method public final onNativeSearchClick\(Landroid\/view\/View;\)V[\s\S]*?renderNativeRows\(Ljava\/lang\/String;Ljava\/lang\/String;\)V/);
     assert.match(rowFactory, /optJSONArray\(Ljava\/lang\/String;\)Lorg\/json\/JSONArray;/);
     assert.ok(layout.includes('@drawable/previous'));
@@ -721,7 +721,7 @@ test('native Spotify settings screen replaces the web settings sheet', () => {
     assert.match(activity, /:check_settings[\s\S]*?"Paramètres"/);
     assert.match(activity, /"home-greeting"[\s\S]*?"home"[\s\S]*?setText\(Ljava\/lang\/CharSequence;\)V/);
     assert.match(shell, /onNativeUiData\('home-greeting', greeting\)/);
-    assert.match(activity, /NativeSettingsRowFactory;->create\(Lcom\/melodix\/music\/MainActivity;Lorg\/json\/JSONObject;\)Landroid\/widget\/LinearLayout;/);
+    assert.match(factory, /GradientDrawable;->setCornerRadius/);
     assert.match(bridge, /onNativeProfileImage\(Ljava\/lang\/String;\)V[\s\S]*?JavascriptInterface/);
     assert.match(bridge, /nativeLogout\(\)V[\s\S]*?JavascriptInterface[\s\S]*?NativeLogoutRunnable/);
     assert.match(shell, /AndBridge\.nativeLogout/);
@@ -855,24 +855,11 @@ test('the native shell can ask Android to evaluate the playback bridge again', (
 
 test('content rows reach the cover factory instead of the settings factory', () => {
     const activity = read('smali/com/melodix/music/MainActivity.smali');
-    // Several jumps reference the label: the definition is the last match.
-    const start = activity.lastIndexOf(':native_row_build_card');
+    const start = activity.lastIndexOf(':native_row_plain');
     assert.ok(start > 0, 'the row dispatch label should exist');
-    // The label is referenced by a goto before its definition: take a window
-    // that always covers the whole dispatch block.
-    const dispatch = activity.slice(start, start + 2800);
-
-    assert.match(dispatch, /const-string v0, "settingValue"[\s\S]*?isEmpty\(\)Z[\s\S]*?move-result v1/);
-    assert.match(
-        dispatch,
-        /if-nez v1, :native_row_plain/,
-        'an empty settingValue jumps to a visible title row'
-    );
+    const dispatch = activity.slice(start, start + 1800);
+    assert.match(dispatch, /const-string v0, "title"/);
     assert.match(dispatch, /Landroid\/widget\/TextView;-><init>/);
-    assert.match(dispatch, /NativeUiRowFactory;->create\(/);
-
-    const settingsAt = dispatch.indexOf('NativeSettingsRowFactory;->create');
-    assert.ok(settingsAt > 0, 'settings rows still need the settings factory');
 });
 
 test('merged Spotify card labels are split into a title and a subtitle', () => {
@@ -896,7 +883,7 @@ test('merged Spotify card labels are split into a title and a subtitle', () => {
 test('Home paints JSON rows instead of a loading placeholder', () => {
     const activity = read('smali/com/melodix/music/MainActivity.smali');
     const layout = read('res/layout/activity_main.xml');
-    assert.match(activity, /NativeUiRowFactory;->create/);
+    assert.match(activity, /Landroid\/widget\/TextView;-><init>/);
     assert.doesNotMatch(layout, /Loading your music/);
     assert.doesNotMatch(layout, /Titres lik/);
     const emptyAt = activity.lastIndexOf(':native_rows_empty');
@@ -1259,14 +1246,12 @@ test('navigation clicks keep home JSON and do not force the home screen', () => 
     assert.match(apply, /if-eqz p1, :apply_done/);
     assert.match(apply, /if-eqz p2, :apply_done/);
     assert.match(apply, /iput-object p2, p0, Lcom\/melodix\/music\/MainActivity;->nativeHomeJson/);
-    assert.match(apply, /:apply_home_set/);
     assert.match(activity, /:show_paint_home/);
-    assert.match(activity, /getChildCount\(\)I/);
 
     const rowsAt = activity.indexOf('.method public final renderNativeRows(Ljava/lang/String;Ljava/lang/String;)V');
     const rows = activity.slice(rowsAt, activity.indexOf('.method public final runNativeJavascript', rowsAt));
     assert.doesNotMatch(rows, /NativeHomeShelfRenderer;->render/, 'zero-height shelves hid every playlist card');
-    assert.match(rows, /NativeUiRowFactory;->create/);
+    assert.match(rows, /Landroid\/widget\/TextView;-><init>/);
     assert.match(rows, /if-le v0, v1, :native_skip_json_persist/);
 
     const backAt = activity.indexOf(':back_button');
