@@ -7837,21 +7837,10 @@
     check-cast v2, Landroid/widget/LinearLayout;
     invoke-virtual {v2}, Landroid/widget/LinearLayout;->removeAllViews()V
 
-    iget-object v0, p0, Lcom/melodix/music/MainActivity;->nativeCurrentScreen:Ljava/lang/String;
-    const-string v1, "home"
-    invoke-virtual {v1, v0}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
-    move-result v0
-    if-eqz v0, :native_rows_list
-    :try_start_home_shelves
-    invoke-static {p0, p2}, Lcom/melodix/music/NativeHomeShelfRenderer;->render(Lcom/melodix/music/MainActivity;Ljava/lang/String;)V
-    :try_end_home_shelves
-    .catch Ljava/lang/Throwable; {:try_start_home_shelves .. :try_end_home_shelves} :catch_home_shelves
-    invoke-virtual {v2}, Landroid/widget/LinearLayout;->getChildCount()I
-    move-result v0
-    if-lez v0, :native_rows_list
-    return-void
-    :catch_home_shelves
-    move-exception v0
+    # Home must use the vertical cover list. NativeHomeShelfRenderer added
+    # section titles plus HorizontalScrollViews that measured 0 px high, so
+    # the user only saw "Titres likés" / "Vos playlists" with no cards.
+    # getChildCount then saw those headers and skipped this list.
 
     :native_rows_list
     :try_start_native_rows

@@ -1266,7 +1266,8 @@ test('navigation clicks keep home JSON and do not force the home screen', () => 
 
     const rowsAt = activity.indexOf('.method public final renderNativeRows(Ljava/lang/String;Ljava/lang/String;)V');
     const rows = activity.slice(rowsAt, activity.indexOf('.method public final runNativeJavascript', rowsAt));
-    assert.match(rows, /NativeHomeShelfRenderer;->render/);
+    assert.doesNotMatch(rows, /NativeHomeShelfRenderer;->render/, 'zero-height shelves hid every playlist card');
+    assert.match(rows, /NativeUiRowFactory;->create/);
     assert.match(rows, /if-le v0, v1, :native_skip_json_persist/);
 
     const backAt = activity.indexOf(':back_button');
