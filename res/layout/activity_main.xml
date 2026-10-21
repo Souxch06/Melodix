@@ -434,6 +434,7 @@
                 android:layout_height="wrap_content">
                 <TextView
                     android:id="@id/nativeListText"
+                    android:tag="nativeListText"
                     android:textSize="16.0sp"
                     android:textColor="#ffffffff"
                     android:lineSpacingExtra="8.0dip"

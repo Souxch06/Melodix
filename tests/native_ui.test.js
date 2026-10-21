@@ -90,8 +90,9 @@ test('native bridge exposes UI callbacks and routes media, search and player dat
     assert.match(bridge, /\.method public final onNativeListText\(Ljava\/lang\/String;\)V[\s\S]*?JavascriptInterface/);
     assert.match(bridge, /NativeListPaintRunnable/);
     assert.match(activity, /applyNativeListText/);
-    assert.match(read('smali/com/melodix/music/NativeListPaintRunnable.smali'), /NativeRowList;->fillPlain/);
-    assert.match(read('smali/com/melodix/music/NativeRowList.smali'), /fillPlain/);
+    assert.match(activity, /findViewWithTag/);
+    assert.match(read('res/layout/activity_main.xml'), /android:tag=\"nativeListText\"/);
+    assert.match(read('assets/native_ui_shell.js'), /__sfNativeHomeListText/);
     assert.match(bridge, /const-string v1, "media:"[\s\S]*?dispatchNativeUi/);
     assert.match(bridge, /const-string v1, "search:"[\s\S]*?dispatchNativeUi/);
     assert.match(bridge, /const-string v0, "player"[\s\S]*?dispatchNativeUi/);
@@ -920,7 +921,7 @@ test('Home simulation: 33 playlists replace the loading placeholder', () => {
 
     vm.runInNewContext(read('assets/native_ui_shell.js'), { window, document, URL });
 
-    const listText = listTexts[listTexts.length - 1] || (dataFor(calls, 'list-text') || {}).data || '';
+    const listText = window.__sfNativeHomeListText || listTexts[listTexts.length - 1] || (dataFor(calls, 'list-text') || {}).data || '';
     assert.ok(listText.includes('Playlist 1'), 'the first playlist title is sent to native');
     assert.ok(listText.includes('Playlist 12'), 'library playlists are included in the native list');
     assert.doesNotMatch(listText, /Chargement de votre accueil/);

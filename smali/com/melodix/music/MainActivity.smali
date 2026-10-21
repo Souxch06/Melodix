@@ -6983,6 +6983,8 @@
     invoke-virtual {p0, v0}, Lcom/melodix/music/MainActivity;->setNativeScreen(Ljava/lang/String;)V
 
     :show_paint_home
+    invoke-virtual {p0}, Lcom/melodix/music/MainActivity;->pullNativeHomeList()V
+
     :show_done
     const-string v0, "ready"
 
@@ -7442,6 +7444,7 @@
     invoke-virtual {p0, v2, p2}, Lcom/melodix/music/MainActivity;->renderNativeRows(Ljava/lang/String;Ljava/lang/String;)V
     const-string v2, "home"
     invoke-virtual {p0, v2}, Lcom/melodix/music/MainActivity;->setNativeScreen(Ljava/lang/String;)V
+    invoke-virtual {p0}, Lcom/melodix/music/MainActivity;->pullNativeHomeList()V
     return-void
 
     :check_media
@@ -7815,19 +7818,47 @@
 .end method
 
 .method public final applyNativeListText(Ljava/lang/String;)V
-    .locals 4
+    .locals 3
 
     if-eqz p1, :list_text_done
+    invoke-virtual {p1}, Ljava/lang/String;->isEmpty()Z
+    move-result v0
+    if-eqz v0, :list_text_done
     iput-object p1, p0, Lcom/melodix/music/MainActivity;->nativeListBlob:Ljava/lang/String;
 
-    const v2, 0x7f090250
-    invoke-virtual {p0, v2}, Landroid/app/Activity;->findViewById(I)Landroid/view/View;
-    move-result-object v4
-    if-eqz v4, :list_text_done
-    check-cast v4, Landroid/widget/TextView;
-    invoke-virtual {v4, p1}, Landroid/widget/TextView;->setText(Ljava/lang/CharSequence;)V
+    invoke-virtual {p0}, Landroid/app/Activity;->getWindow()Landroid/view/Window;
+    move-result-object v0
+    if-eqz v0, :list_text_done
+    invoke-virtual {v0}, Landroid/view/Window;->getDecorView()Landroid/view/View;
+    move-result-object v0
+    if-eqz v0, :list_text_done
+    const-string v1, "nativeListText"
+    invoke-virtual {v0, v1}, Landroid/view/View;->findViewWithTag(Ljava/lang/Object;)Landroid/view/View;
+    move-result-object v2
+    if-eqz v2, :list_text_done
+    check-cast v2, Landroid/widget/TextView;
+    invoke-virtual {v2, p1}, Landroid/widget/TextView;->setText(Ljava/lang/CharSequence;)V
 
     :list_text_done
+    return-void
+.end method
+
+.method public final pullNativeHomeList()V
+    .locals 3
+
+    iget-object v0, p0, Lcom/melodix/music/MainActivity;->nativeListBlob:Ljava/lang/String;
+    if-eqz v0, :pull_js
+    invoke-virtual {p0, v0}, Lcom/melodix/music/MainActivity;->applyNativeListText(Ljava/lang/String;)V
+
+    :pull_js
+    iget-object v0, p0, Lcom/melodix/music/MainActivity;->G:Landroid/webkit/WebView;
+    if-eqz v0, :pull_done
+    new-instance v1, Lcom/melodix/music/NativeListJsCallback;
+    invoke-direct {v1, p0}, Lcom/melodix/music/NativeListJsCallback;-><init>(Lcom/melodix/music/MainActivity;)V
+    const-string v2, "(function(){try{return window.__sfNativeHomeListText||'';}catch(e){return '';}})()"
+    invoke-virtual {v0, v2, v1}, Landroid/webkit/WebView;->evaluateJavascript(Ljava/lang/String;Landroid/webkit/ValueCallback;)V
+
+    :pull_done
     return-void
 .end method
 

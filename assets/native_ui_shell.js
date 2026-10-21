@@ -167,6 +167,7 @@
             bridge.onNativeUiData(screen, payload);
             if (lines.length) {
                 var listText = lines.join('\n');
+                window.__sfNativeHomeListText = listText;
                 bridge.onNativeUiData('list-text', listText);
                 if (typeof bridge.onNativeListText === 'function') {
                     bridge.onNativeListText(listText);
