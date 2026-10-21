@@ -7169,9 +7169,9 @@
 .method public final setNativeScreen(Ljava/lang/String;)V
     .locals 7
 
-    # Compare with the previous destination before overwriting it: a nav tap
-    # fades the shell in, a repeated feed update does not.
-    const/4 v0, 0x1
+    # Keep a null-safe compare (settings / first paint) but never fade:
+    # lowering alpha shows the WebView behind the tabs.
+    const/4 v0, 0x0
 
     iget-object v1, p0, Lcom/melodix/music/MainActivity;->nativeCurrentScreen:Ljava/lang/String;
 
@@ -7182,8 +7182,6 @@
     move-result v1
 
     if-nez v1, :native_fade_flag
-
-    const/4 v0, 0x0
 
     :native_fade_flag
     iput-boolean v0, p0, Lcom/melodix/music/MainActivity;->nativeFadeNextScreen:Z
@@ -7391,10 +7389,6 @@
     const v2, 0x7f090248
     invoke-virtual {p0, p1, v3, v2}, Lcom/melodix/music/MainActivity;->styleNativeTab(Ljava/lang/String;Ljava/lang/String;I)V
 
-    iget-boolean v0, p0, Lcom/melodix/music/MainActivity;->nativeFadeNextScreen:Z
-
-    if-eqz v0, :native_fade_done
-
     const/4 v0, 0x0
 
     iput-boolean v0, p0, Lcom/melodix/music/MainActivity;->nativeFadeNextScreen:Z
@@ -7461,7 +7455,7 @@
 .end method
 
 .method private static fadeNativeScreen(Lcom/melodix/music/MainActivity;)V
-    .locals 4
+    .locals 3
 
     const v0, 0x7f09022f
 
@@ -7471,28 +7465,19 @@
 
     if-eqz v0, :fade_done
 
-    # Start slightly transparent instead of fully invisible: the shell gradient
-    # is opaque, so a lower alpha would flash the WebView underneath, and a
-    # cancelled animation can never leave the screen blank.
-    const/high16 v1, 0x3f600000
-
-    invoke-virtual {v0, v1}, Landroid/view/View;->setAlpha(F)V
-
     invoke-virtual {v0}, Landroid/view/View;->animate()Landroid/view/ViewPropertyAnimator;
 
     move-result-object v1
 
-    const/high16 v2, 0x3f800000
+    invoke-virtual {v1}, Landroid/view/ViewPropertyAnimator;->cancel()V
 
-    invoke-virtual {v1, v2}, Landroid/view/ViewPropertyAnimator;->alpha(F)Landroid/view/ViewPropertyAnimator;
+    const/high16 v1, 0x3f800000
 
-    const-wide/16 v2, 0xb4
+    invoke-virtual {v0, v1}, Landroid/view/View;->setAlpha(F)V
 
-    invoke-virtual {v1, v2, v3}, Landroid/view/ViewPropertyAnimator;->setDuration(J)Landroid/view/ViewPropertyAnimator;
+    const/4 v2, 0x0
 
-    move-result-object v1
-
-    invoke-virtual {v1}, Landroid/view/ViewPropertyAnimator;->start()V
+    invoke-virtual {v0, v2}, Landroid/view/View;->setVisibility(I)V
 
     :fade_done
     return-void

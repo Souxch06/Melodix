@@ -133,3 +133,12 @@ test('tab icons get an explicit compound drawable size', () => {
     assert.match(style[0], /setCompoundDrawables/);
     assert.match(style[0], /setBounds/);
 });
+
+test('shell stays opaque so a tab tap cannot flash the WebView', () => {
+    const activity = read('smali/com/melodix/music/MainActivity.smali');
+    const fade = activity.match(/\.method private static fadeNativeScreen[\s\S]*?\.end method/);
+    assert.ok(fade);
+    assert.doesNotMatch(fade[0], /0x3f600000/);
+    assert.match(fade[0], /0x3f800000/);
+    assert.match(fade[0], /cancel\(\)V/);
+});
