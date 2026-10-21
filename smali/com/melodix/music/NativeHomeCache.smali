@@ -2,8 +2,8 @@
 .super Ljava/lang/Object;
 
 
-# Last successful Home payload. Restored as soon as the shell is shown so the
-# user is not stuck on an empty Accueil while the WebView finishes rendering.
+# Last successful Home payload, plus a Liked Songs seed so Accueil is never
+# stuck on an English loading placeholder while the page is still rendering.
 
 
 .method public static save(Landroid/content/Context;Ljava/lang/String;)V
@@ -60,31 +60,47 @@
     return-void
 
     :load
+    const/4 v0, 0x0
+
     :try_start_0
-    const-string v0, "melodix_native"
-    const/4 v1, 0x0
-    invoke-virtual {p0, v0, v1}, Landroid/content/Context;->getSharedPreferences(Ljava/lang/String;I)Landroid/content/SharedPreferences;
-    move-result-object v0
-
-    const-string v1, "home_feed"
+    const-string v1, "melodix_native"
     const/4 v2, 0x0
-    invoke-interface {v0, v1, v2}, Landroid/content/SharedPreferences;->getString(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;
+    invoke-virtual {p0, v1, v2}, Landroid/content/Context;->getSharedPreferences(Ljava/lang/String;I)Landroid/content/SharedPreferences;
+    move-result-object v1
+
+    const-string v2, "home_feed"
+    const/4 v3, 0x0
+    invoke-interface {v1, v2, v3}, Landroid/content/SharedPreferences;->getString(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;
     move-result-object v0
-
-    if-nez v0, :done
-    invoke-virtual {v0}, Ljava/lang/String;->length()I
-    move-result v1
-    const/4 v2, 0x2
-    if-le v1, v2, :done
-
-    const-string v3, "Accueil"
-    invoke-virtual {p0, v3, v0}, Lcom/melodix/music/MainActivity;->renderNativeRows(Ljava/lang/String;Ljava/lang/String;)V
     :try_end_0
     .catch Ljava/lang/Throwable; {:try_start_0 .. :try_end_0} :catch_0
 
-    goto :done
+    goto :have
 
     :catch_0
+    move-exception v1
+
+    :have
+    if-nez v0, :seed
+    invoke-virtual {v0}, Ljava/lang/String;->length()I
+    move-result v1
+    const/4 v2, 0x2
+    if-le v1, v2, :seed
+    goto :paint
+
+    :seed
+    const-string v0, "[{\"title\":\"Titres likés\",\"subtitle\":\"Playlist\",\"section\":\"Vos playlists\",\"image\":\"https://misc.scdn.co/liked-songs/liked-songs-640.png\",\"uri\":\"spotify:collection:tracks\"}]"
+
+    :paint
+    :try_start_1
+    const-string v3, "Accueil"
+    invoke-virtual {p0, v3, v0}, Lcom/melodix/music/MainActivity;->renderNativeRows(Ljava/lang/String;Ljava/lang/String;)V
+    :try_end_1
+    .catch Ljava/lang/Throwable; {:try_start_1 .. :try_end_1} :catch_1
+
+    goto :done
+
+    :catch_1
     move-exception v0
 
     :done

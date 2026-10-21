@@ -49,7 +49,7 @@ test('native shell overlays, but does not replace or detach, the existing WebVie
     assert.match(layout.slice(nativeRootPosition, nativeRootPosition + 900), /android:visibility="visible"/);
     assert.match(layout.slice(nativeRootPosition, nativeRootPosition + 900), /android:clickable="true"/);
     assert.match(layout, /android:id="@id\/nativeContent"/);
-    assert.match(layout, /Loading your music/);
+    assert.match(layout, /onNativeSettingsClick/);
     assert.match(layout, /android:id="@id\/nativePlayerArtwork"/);
     assert.match(layout, /android:id="@id\/nativePlayerLargeArtwork"/);
     assert.match(layout, /android:id="@id\/nativeHomeTab"/);

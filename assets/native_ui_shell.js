@@ -447,6 +447,17 @@
             }
         }
 
+        if (userRows.length === 0 && rows.length === 0) {
+            userRows.push({
+                title: 'Titres likés',
+                subtitle: 'Playlist',
+                section: 'Vos playlists',
+                image: 'https://misc.scdn.co/liked-songs/liked-songs-640.png',
+                uri: 'spotify:collection:tracks'
+            });
+            seen.add('spotify:collection:tracks');
+        }
+
         rows.forEach(function(row) {
             if (!row || !row.uri || !row.title || seen.has(row.uri)) return;
             seen.add(row.uri);

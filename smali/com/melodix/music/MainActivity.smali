@@ -7141,7 +7141,7 @@
 
     iget-object v1, p0, Lcom/melodix/music/MainActivity;->nativeCurrentScreen:Ljava/lang/String;
 
-    if-nez v1, :native_fade_flag
+    if-eqz v1, :native_fade_flag
 
     invoke-virtual {v1, p1}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
 
@@ -8572,6 +8572,7 @@
 .method public final openNativeSettings()V
     .locals 4
 
+    :try_start_settings
     iget-object v0, p0, Lcom/melodix/music/MainActivity;->nativeCurrentScreen:Ljava/lang/String;
     if-eqz v0, :native_settings_default_screen
     const-string v1, "settings"
@@ -8606,8 +8607,15 @@
     invoke-virtual {p0, v1, v2}, Lcom/melodix/music/MainActivity;->renderNativeRows(Ljava/lang/String;Ljava/lang/String;)V
     const-string v1, "window.__sfRequestSpotifySettings && window.__sfRequestSpotifySettings();"
     invoke-virtual {p0, v1}, Lcom/melodix/music/MainActivity;->runNativeJavascript(Ljava/lang/String;)V
+    :try_end_settings
+    .catch Ljava/lang/Throwable; {:try_start_settings .. :try_end_settings} :catch_settings
 
     :native_settings_done
+    return-void
+
+    :catch_settings
+    move-exception v0
+    invoke-static {v0}, Lcom/melodix/music/NativeCrashGuard;->record(Ljava/lang/Throwable;)V
     return-void
 .end method
 
