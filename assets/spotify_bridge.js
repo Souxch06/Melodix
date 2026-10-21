@@ -1,4 +1,5 @@
 (function() {
+    window.__sfBridgeEntered = true;
     if (window.__sfMelodixBridgeCompleted) {
         if (typeof window.__sfEnsureMobileShell === 'function') {
             try { window.__sfEnsureMobileShell(); } catch (_) {}

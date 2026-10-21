@@ -36,6 +36,14 @@
 
     if-nez v2, :none
 
+    new-instance v2, Ljava/lang/StringBuilder;
+    invoke-direct {v2}, Ljava/lang/StringBuilder;-><init>()V
+    const-string v7, "window.__sfBridgeAssetServed=true;window.__sfBridgeIntercepted=true;"
+    invoke-virtual {v2, v7}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    invoke-virtual {v2, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    invoke-virtual {v2}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
+    move-result-object v1
+
     const-string v2, "UTF-8"
 
     invoke-virtual {v1, v2}, Ljava/lang/String;->getBytes(Ljava/lang/String;)[B
@@ -68,7 +76,7 @@
 .method public static loaderJavascript()Ljava/lang/String;
     .locals 1
 
-    const-string v0, "(function(){if(window.__sfMelodixBridgeStarted===true)return;window.__sfBridgeExecMode='same-origin-src';window.__sfBridgeLoadStage='inject-src';var s=document.createElement('script');s.src=(window.location&&window.location.origin?window.location.origin:'https://open.spotify.com')+'/__melodix__/spotify_bridge.js';s.async=false;s.onload=function(){window.__sfBridgeLoadStage='src-loaded';};s.onerror=function(){window.__sfBridgeLastError='src-script: load-failed';window.__sfBridgeLoadStage='src-error';};(document.head||document.documentElement).appendChild(s);})();"
+    const-string v0, "(function(){if(window.__sfMelodixBridgeStarted===true)return;window.__sfBridgeExecMode='same-origin-src';window.__sfBridgeLoadStage='inject-src';window.__sfBridgeInterceptPending=true;var s=document.createElement('script');s.src=(window.location&&window.location.origin?window.location.origin:'https://open.spotify.com')+'/__melodix__/spotify_bridge.js';s.async=false;s.onload=function(){window.__sfBridgeLoadStage='src-loaded';};s.onerror=function(){window.__sfBridgeLastError='src-script: load-failed';window.__sfBridgeLoadStage='src-error';};(document.head||document.documentElement).appendChild(s);})();"
 
     return-object v0
 .end method

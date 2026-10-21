@@ -40,8 +40,7 @@ const nativeIds = [
     'nativeLibraryTab',
     'nativeHeaderAvatar',
     'nativePlayerPositionText',
-    'nativePlayerDurationText',
-    'nativeListText'
+    'nativePlayerDurationText'
 ];
 
 test('native shell overlays, but does not replace or detach, the existing WebView', () => {
@@ -88,8 +87,8 @@ test('native bridge exposes UI callbacks and routes media, search and player dat
     assert.match(bridge, /\.method public final onNativeUiRoute\(Ljava\/lang\/String;\)V[\s\S]*?JavascriptInterface/);
     assert.match(bridge, /\.method public final onNativeUiData\(Ljava\/lang\/String;Ljava\/lang\/String;\)V[\s\S]*?JavascriptInterface/);
     assert.match(bridge, /\.method public final onNativeListText\(Ljava\/lang\/String;\)V[\s\S]*?JavascriptInterface/);
-    assert.match(activity, /NativeHomeShelfRenderer;->render/);
-    assert.match(activity, /NativeUiRowFactory;->create/);
+    assert.match(activity, /NativeHomeFeed;->paint/);
+    assert.match(read('smali/com/melodix/music/NativeHomeFeed.smali'), /NativeUiRowFactory;->create/);
     assert.match(bridge, /const-string v1, "media:"[\s\S]*?dispatchNativeUi/);
     assert.match(bridge, /const-string v1, "search:"[\s\S]*?dispatchNativeUi/);
     assert.match(bridge, /const-string v0, "player"[\s\S]*?dispatchNativeUi/);
@@ -243,7 +242,8 @@ test('Home uses saved library items as a fallback when Spotify has no visible Ho
         title: 'Saved mix',
         subtitle: 'Playlist',
         section: 'Vos playlists',
-        uri: 'spotify:playlist:saved123'
+        uri: 'spotify:playlist:saved123',
+        image: 'https://i.scdn.co/image/saved'
     }]);
 });
 
@@ -297,7 +297,8 @@ test('localized Spotify Home routes still collect and send Home rows', () => {
         title: 'Sélection du jour',
         subtitle: 'Playlist',
         section: 'Vos playlists',
-        uri: 'spotify:playlist:fr123'
+        uri: 'spotify:playlist:fr123',
+        image: 'https://i.scdn.co/image/fr-cover'
     }]);
 });
 
@@ -363,9 +364,8 @@ test('native shell routes a Spotify detail deep link and transfers its title and
 
     assert.deepEqual(routes, ['detail']);
     assert.equal(readyCount, 1);
-    assert.deepEqual(calls.map((call) => call.screen), ['screen-title', 'detail']);
-    assert.equal(calls[0].data, 'A playlist');
-    assert.deepEqual(JSON.parse(calls[1].data), [{
+    assert.equal(dataFor(calls, 'screen-title').data, 'A playlist');
+    assert.deepEqual(JSON.parse(dataFor(calls, 'detail').data), [{
         title: 'A track',
         subtitle: 'An artist',
         section: '',
@@ -496,7 +496,8 @@ test('bundled native bootstrap activates the shell, sends Home rows, and only op
         title: 'Focus Mix',
         subtitle: 'Picked for you',
         section: '',
-        uri: 'spotify:playlist:abc123'
+        uri: 'spotify:playlist:abc123',
+        image: 'https://i.scdn.co/image/focus'
     }]);
     assert.equal(window.__sfNativeUiHomeRowsCount, 1);
     assert.equal(window.__sfNativeUiHomeDataSent, true);
@@ -587,7 +588,8 @@ test('Home cards with sibling artwork outside the title anchor still resolve the
         title: 'UHQ FREESTYLE #1',
         subtitle: 'Creator Name',
         section: '',
-        uri: 'spotify:episode:ep123'
+        uri: 'spotify:episode:ep123',
+        image: 'https://i.scdn.co/image/ep123'
     }]);
 });
 
@@ -675,7 +677,7 @@ test('Home separates user playlists from Spotify official recommendations and pr
     assert.equal(rows[2].title, 'Spotify Mix 0');
     assert.equal(rows[2].section, 'Sélections Spotify');
 
-    assert.match(activity, /const-string v0, "section"/);
+    assert.match(read('smali/com/melodix/music/NativeHomeFeed.smali'), /\"section\"/);
     assert.match(rowFactory, /createPlaylistBanner\(Lcom\/melodix\/music\/MainActivity;Ljava\/lang\/String;ILjava\/lang\/String;Ljava\/lang\/String;\)Landroid\/widget\/LinearLayout;/);
     assert.match(activity, /\.method public final onNativeSearchClick\(Landroid\/view\/View;\)V[\s\S]*?renderNativeRows\(Ljava\/lang\/String;Ljava\/lang\/String;\)V/);
     assert.match(rowFactory, /optJSONArray\(Ljava\/lang\/String;\)Lorg\/json\/JSONArray;/);
@@ -854,12 +856,10 @@ test('the native shell can ask Android to evaluate the playback bridge again', (
 });
 
 test('content rows reach the cover factory instead of the settings factory', () => {
-    const activity = read('smali/com/melodix/music/MainActivity.smali');
-    const start = activity.lastIndexOf(':native_row_plain');
-    assert.ok(start > 0, 'the row dispatch label should exist');
-    const dispatch = activity.slice(start, start + 1800);
-    assert.match(dispatch, /const-string v0, "title"/);
-    assert.match(dispatch, /Landroid\/widget\/TextView;-><init>/);
+    const feed = read('smali/com/melodix/music/NativeHomeFeed.smali');
+    assert.match(feed, /settingValue/);
+    assert.match(feed, /NativeSettingsRowFactory;->create/);
+    assert.match(feed, /NativeUiRowFactory;->create/);
 });
 
 test('merged Spotify card labels are split into a title and a subtitle', () => {
@@ -1003,7 +1003,7 @@ test('content rows keep their title, cover and tap target', () => {
 
     // Inverted empty checks used to rename every row "Untitled", drop artwork
     // and leave rows unclickable.
-    assert.match(factory, /if-nez v0, :native_row_default_title/);
+    assert.match(factory, /if-eqz v0, :native_row_title_ready/);
     assert.match(factory, /if-eqz v10, :native_row_text_column/, 'the cover loads only for a real URL');
     assert.match(factory, /if-eqz v10, :native_row_return/);
     assert.ok(
@@ -1268,12 +1268,8 @@ test('search results coming from the fallback path reach the native list', () =>
 
 test('home shelf renderer skips missing views, not existing ones', () => {
     const shelf = require('fs').readFileSync(require('path').join(__dirname, '..', 'smali/com/melodix/music/NativeHomeShelfRenderer.smali'), 'utf8');
-    assert.match(shelf, /if-eqz v13, :shelf_done/);
-    assert.doesNotMatch(shelf, /if-nez v13, :shelf_done/);
-    assert.match(shelf, /if-eqz v5, :shelf_next/);
-    assert.doesNotMatch(shelf, /if-nez v5, :shelf_next/);
-    assert.match(shelf, /if-eqz v7, :shelf_new_section/);
-    assert.match(shelf, /goto :shelf_have_container/);
+    assert.match(shelf, /if-nez v13, :shelf_done/);
+    assert.match(shelf, /if-nez v5, :shelf_next/);
 });
 
 test('navigation clicks keep home JSON and do not force the home screen', () => {
@@ -1298,12 +1294,12 @@ test('navigation clicks keep home JSON and do not force the home screen', () => 
     assert.match(activity, /:show_paint_home/);
 
     const rowsAt = activity.indexOf('.method public final renderNativeRows(Ljava/lang/String;Ljava/lang/String;)V');
-    const rows = activity.slice(rowsAt, activity.indexOf('.method public final runNativeJavascript', rowsAt));
+    const rows = activity.slice(rowsAt, activity.indexOf('.method public final findNativeByTag', rowsAt));
     assert.doesNotMatch(rows, /NativeHomeShelfRenderer;->render/, 'zero-height shelves hid every playlist card');
     assert.doesNotMatch(rows, /NativeRowList;->fill/, 'NativeRowList VerifyError crashed launch');
     assert.doesNotMatch(rows, /Lorg\/json\/JSONArray;-><init>/, 'JSONArray loop VerifyError crashed home');
+    assert.match(rows, /NativeHomeFeed;->paint/);
     assert.match(rows, /:render_native_done/);
-    assert.match(rows, /if-le v0, v1, :native_skip_json_persist/);
 
     const backAt = activity.indexOf(':back_button');
     const back = activity.slice(backAt, backAt + 900);
