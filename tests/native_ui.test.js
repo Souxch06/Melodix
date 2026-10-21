@@ -106,7 +106,8 @@ test('native bridge exposes UI callbacks and routes media, search and player dat
     assert.match(activity, /\.method public final updateNativePlayer\(Ljava\/lang\/String;\)V[\s\S]*?"cover"[\s\S]*?NativeImageLoader;->load[\s\S]*?"duration"[\s\S]*?"position"[\s\S]*?setProgress\(I\)V/);
     assert.match(activity, /applyNativeUiData[\s\S]*?"screen-title"[\s\S]*?"detail"[\s\S]*?renderNativeRows[\s\S]*?NativeUiRowFactory;->create/);
     const runnable = read('smali/com/melodix/music/NativeUiUpdateRunnable.smali');
-    assert.match(runnable, /const\/4 v2, 0x2[\s\S]*?applyNativeUiData/);
+    assert.match(runnable, /showNativeUi\(\)V/);
+    assert.match(runnable, /const\/4 v2, 0x1[\s\S]*?applyNativeUiData/);
     assert.match(runnable, /setNativeScreen\(Ljava\/lang\/String;\)V/);
     assert.doesNotMatch(runnable, /onNativeLibraryClick/, 'a route update must not re-trigger the library tab');
     assert.match(activity, /renderNativeRows[\s\S]*?NativeUiRowFactory;->create/);

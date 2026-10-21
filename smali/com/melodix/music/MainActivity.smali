@@ -6996,7 +6996,7 @@
 
     iget-object v1, p0, Lcom/melodix/music/MainActivity;->nativeCurrentScreen:Ljava/lang/String;
 
-    if-nez v1, :native_fade_flag
+    if-eqz v1, :native_fade_flag
 
     invoke-virtual {v1, p1}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
 
@@ -7268,7 +7268,7 @@
 
     move-result-object v0
 
-    if-nez v0, :fade_done
+    if-eqz v0, :fade_done
 
     # Start slightly transparent instead of fully invisible: the shell gradient
     # is opaque, so a lower alpha would flash the WebView underneath, and a
@@ -7994,13 +7994,19 @@
 .end method
 
 .method public final onNativeHomeClick(Landroid/view/View;)V
-    .locals 3
+    .locals 4
 
     const-string v0, "home"
     invoke-virtual {p0, v0}, Lcom/melodix/music/MainActivity;->setNativeScreen(Ljava/lang/String;)V
-    const-string v1, "Accueil"
-    const-string v2, "[]"
-    invoke-virtual {p0, v1, v2}, Lcom/melodix/music/MainActivity;->renderNativeRows(Ljava/lang/String;Ljava/lang/String;)V
+    iget-object v1, p0, Lcom/melodix/music/MainActivity;->nativeCurrentJson:Ljava/lang/String;
+    if-eqz v1, :home_request
+    invoke-virtual {v1}, Ljava/lang/String;->length()I
+    move-result v2
+    const/16 v3, 0x8
+    if-le v2, v3, :home_request
+    const-string v2, "Accueil"
+    invoke-virtual {p0, v2, v1}, Lcom/melodix/music/MainActivity;->renderNativeRows(Ljava/lang/String;Ljava/lang/String;)V
+    :home_request
     const-string v0, "window.__sfNativeRequestHome && window.__sfNativeRequestHome();"
     invoke-virtual {p0, v0}, Lcom/melodix/music/MainActivity;->runNativeJavascript(Ljava/lang/String;)V
     return-void
