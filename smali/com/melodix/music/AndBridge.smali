@@ -4767,7 +4767,7 @@
 
     move-result v0
 
-    if-nez v0, :asset_inject_done
+    if-eqz v0, :asset_inject_done
 
     invoke-static {p1}, Lm9;->d(Ljava/lang/String;)Ljava/lang/String;
 
@@ -4819,7 +4819,7 @@
 
     move-result v0
 
-    if-nez v0, :read_bundled_asset_done
+    if-eqz v0, :read_bundled_asset_done
 
     invoke-static {p1}, Lm9;->d(Ljava/lang/String;)Ljava/lang/String;
 

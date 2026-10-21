@@ -1897,7 +1897,7 @@
             recordBridgeFailure('read-asset', error);
         }
         if (source) return executeBridgeSource(source);
-        recordBridgeFailure('read-asset', 'empty');
+        recordBridgeFailure('read-asset', name + ' empty bytes=' + source.length);
         // Last resort: let Android evaluate the asset, even though that call is
         // the one that fails on device.
         try {
