@@ -93,6 +93,7 @@
 .field private nativeSearchWatcherAttached:Z
 .field private nativeHomeJson:Ljava/lang/String;
 .field private nativeLibraryJson:Ljava/lang/String;
+.field private nativeListBlob:Ljava/lang/String;
 
 
 # direct methods
@@ -7328,22 +7329,8 @@
     invoke-virtual {p1, v0}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
     move-result v1
     if-eqz v1, :check_home_greeting
-    const v2, 0x7f090235
-    invoke-virtual {p0, v2}, Landroid/app/Activity;->findViewById(I)Landroid/view/View;
-    move-result-object v2
-    if-eqz v2, :apply_done
-    instance-of v3, v2, Landroid/view/ViewGroup;
-    if-eqz v3, :list_text_as_view
-    check-cast v2, Landroid/view/ViewGroup;
-    const/4 v3, 0x0
-    invoke-virtual {v2, v3}, Landroid/view/ViewGroup;->getChildAt(I)Landroid/view/View;
-    move-result-object v2
-    if-eqz v2, :apply_done
-    :list_text_as_view
-    instance-of v3, v2, Landroid/widget/TextView;
-    if-eqz v3, :apply_done
-    check-cast v2, Landroid/widget/TextView;
-    invoke-virtual {v2, p2}, Landroid/widget/TextView;->setText(Ljava/lang/CharSequence;)V
+    iput-object p2, p0, Lcom/melodix/music/MainActivity;->nativeListBlob:Ljava/lang/String;
+    invoke-virtual {p0, p2}, Lcom/melodix/music/MainActivity;->applyNativeListText(Ljava/lang/String;)V
     return-void
 
     :check_home_greeting
@@ -7819,10 +7806,59 @@
     invoke-virtual {v1, p1}, Landroid/widget/TextView;->setText(Ljava/lang/CharSequence;)V
 
     :find_native_content
-    # Do not parse JSON or add views here. Every previous list painter
-    # (factory, shelves, NativeRowList, JSONArray loop) VerifyError'd ART
-    # on the home screen. The XML placeholder stays visible.
+    # Do not parse JSON or add views here. Paint cached list-text instead.
+    iget-object v0, p0, Lcom/melodix/music/MainActivity;->nativeListBlob:Ljava/lang/String;
+    if-eqz v0, :render_native_done
+    invoke-virtual {p0, v0}, Lcom/melodix/music/MainActivity;->applyNativeListText(Ljava/lang/String;)V
     :render_native_done
+    return-void
+.end method
+
+.method public final applyNativeListText(Ljava/lang/String;)V
+    .locals 5
+
+    if-eqz p1, :list_text_done
+
+    invoke-virtual {p0}, Landroid/content/Context;->getResources()Landroid/content/res/Resources;
+    move-result-object v0
+    if-eqz v0, :list_text_hardcoded
+    invoke-virtual {p0}, Landroid/content/Context;->getPackageName()Ljava/lang/String;
+    move-result-object v1
+    const-string v2, "nativeListText"
+    const-string v3, "id"
+    invoke-virtual {v0, v2, v3, v1}, Landroid/content/res/Resources;->getIdentifier(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)I
+    move-result v2
+    if-eqz v2, :list_text_hardcoded
+    invoke-virtual {p0, v2}, Landroid/app/Activity;->findViewById(I)Landroid/view/View;
+    move-result-object v4
+    if-eqz v4, :list_text_hardcoded
+    check-cast v4, Landroid/widget/TextView;
+    invoke-virtual {v4, p1}, Landroid/widget/TextView;->setText(Ljava/lang/CharSequence;)V
+    return-void
+
+    :list_text_hardcoded
+    const v2, 0x7f090250
+    invoke-virtual {p0, v2}, Landroid/app/Activity;->findViewById(I)Landroid/view/View;
+    move-result-object v4
+    if-eqz v4, :list_text_content
+    check-cast v4, Landroid/widget/TextView;
+    invoke-virtual {v4, p1}, Landroid/widget/TextView;->setText(Ljava/lang/CharSequence;)V
+    return-void
+
+    :list_text_content
+    const v2, 0x7f090235
+    invoke-virtual {p0, v2}, Landroid/app/Activity;->findViewById(I)Landroid/view/View;
+    move-result-object v4
+    if-eqz v4, :list_text_done
+    check-cast v4, Landroid/view/ViewGroup;
+    const/4 v2, 0x0
+    invoke-virtual {v4, v2}, Landroid/view/ViewGroup;->getChildAt(I)Landroid/view/View;
+    move-result-object v4
+    if-eqz v4, :list_text_done
+    check-cast v4, Landroid/widget/TextView;
+    invoke-virtual {v4, p1}, Landroid/widget/TextView;->setText(Ljava/lang/CharSequence;)V
+
+    :list_text_done
     return-void
 .end method
 

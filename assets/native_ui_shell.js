@@ -164,13 +164,14 @@
                     lines.push(row.subtitle ? (row.title + ' — ' + row.subtitle) : row.title);
                 }
             });
+            bridge.onNativeUiData(screen, payload);
             if (lines.length) {
-                bridge.onNativeUiData('list-text', lines.join('\n'));
+                var listText = lines.join('\n');
+                bridge.onNativeUiData('list-text', listText);
                 if (typeof bridge.onNativeListText === 'function') {
-                    bridge.onNativeListText(lines.join('\n'));
+                    bridge.onNativeListText(listText);
                 }
             }
-            bridge.onNativeUiData(screen, payload);
             return true;
         } catch (_) {
             return false;
