@@ -6988,11 +6988,15 @@
     move-result v1
     if-eqz v1, :show_done
     iget-object v1, p0, Lcom/melodix/music/MainActivity;->nativeHomeJson:Ljava/lang/String;
-    if-eqz v1, :show_done
+    if-eqz v1, :show_home_empty_json
     invoke-virtual {v1}, Ljava/lang/String;->length()I
     move-result v2
     const/16 v3, 0x8
-    if-le v2, v3, :show_done
+    if-le v2, v3, :show_home_empty_json
+    goto :show_home_render
+    :show_home_empty_json
+    const-string v1, "[]"
+    :show_home_render
     const-string v2, "Accueil"
     invoke-virtual {p0, v2, v1}, Lcom/melodix/music/MainActivity;->renderNativeRows(Ljava/lang/String;Ljava/lang/String;)V
 
@@ -7843,6 +7847,7 @@
     # getChildCount then saw those headers and skipped this list.
 
     :native_rows_list
+    if-eqz p2, :native_rows_empty
     :try_start_native_rows
     new-instance v3, Lorg/json/JSONArray;
     invoke-direct {v3, p2}, Lorg/json/JSONArray;-><init>(Ljava/lang/String;)V
@@ -8048,7 +8053,7 @@
 
     :native_rows_try_done
     :try_end_native_rows
-    .catch Lorg/json/JSONException; {:try_start_native_rows .. :try_end_native_rows} :catch_native_rows
+    .catch Ljava/lang/Throwable; {:try_start_native_rows .. :try_end_native_rows} :catch_native_rows
     return-void
 
     :catch_native_rows

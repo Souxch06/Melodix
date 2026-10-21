@@ -49,7 +49,7 @@ test('native shell overlays, but does not replace or detach, the existing WebVie
     assert.match(layout.slice(nativeRootPosition, nativeRootPosition + 900), /android:visibility="gone"/);
     assert.match(layout.slice(nativeRootPosition, nativeRootPosition + 900), /android:clickable="true"/);
     assert.match(layout, /android:id="@id\/nativeContent"/);
-    assert.match(layout, /Titres likés/);
+    assert.doesNotMatch(layout, /Titres likés/, 'XML placeholders were mistaken for playlists');
     assert.match(layout, /android:id="@id\/nativePlayerArtwork"/);
     assert.match(layout, /android:id="@id\/nativePlayerLargeArtwork"/);
     assert.match(layout, /android:id="@id\/nativeHomeTab"/);
@@ -898,7 +898,7 @@ test('Home paints JSON rows instead of a loading placeholder', () => {
     const layout = read('res/layout/activity_main.xml');
     assert.match(activity, /NativeUiRowFactory;->create/);
     assert.doesNotMatch(layout, /Loading your music/);
-    assert.match(layout, /Titres lik/);
+    assert.doesNotMatch(layout, /Titres lik/);
 });
 
 test('opening a playlist no longer depends on the playback bridge', () => {
