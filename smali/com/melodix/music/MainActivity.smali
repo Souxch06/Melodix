@@ -7830,13 +7830,52 @@
     check-cast v2, Landroid/view/ViewGroup;
 
     :native_rows_list
-    :try_start_fill
-    invoke-static {p0, v2, p2}, Lcom/melodix/music/NativeRowList;->fill(Landroid/content/Context;Landroid/view/ViewGroup;Ljava/lang/String;)V
-    :try_end_fill
-    .catch Ljava/lang/Throwable; {:try_start_fill .. :try_end_fill} :catch_fill
+    if-eqz p2, :render_native_done
+    const-string v0, "title"
+    const-string v1, ""
+    const/4 v4, 0x0
+    const/4 v5, 0x0
+    const/4 v9, 0x0
+    const-string v6, ""
+    const-string v7, ""
+    const-string v8, ""
+
+    :try_start_rows
+    new-instance v3, Lorg/json/JSONArray;
+    invoke-direct {v3, p2}, Lorg/json/JSONArray;-><init>(Ljava/lang/String;)V
+    invoke-virtual {v3}, Lorg/json/JSONArray;->length()I
+    move-result v4
+    if-lez v4, :try_end_rows
+    invoke-virtual {v2}, Landroid/view/ViewGroup;->removeAllViews()V
+
+    :row_loop
+    if-ge v5, v4, :try_end_rows
+    invoke-virtual {v3, v5}, Lorg/json/JSONArray;->optJSONObject(I)Lorg/json/JSONObject;
+    move-result-object v6
+    if-eqz v6, :row_next
+    invoke-virtual {v6, v0, v1}, Lorg/json/JSONObject;->optString(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;
+    move-result-object v7
+    invoke-virtual {v7}, Ljava/lang/String;->length()I
+    move-result v9
+    if-lez v9, :row_next
+    new-instance v8, Landroid/widget/TextView;
+    invoke-direct {v8, p0}, Landroid/widget/TextView;-><init>(Landroid/content/Context;)V
+    invoke-virtual {v8, v7}, Landroid/widget/TextView;->setText(Ljava/lang/CharSequence;)V
+    const v9, -0x1
+    invoke-virtual {v8, v9}, Landroid/widget/TextView;->setTextColor(I)V
+    const/16 v9, 0x14
+    invoke-virtual {v8, v9, v9, v9, v9}, Landroid/view/View;->setPadding(IIII)V
+    invoke-virtual {v2, v8}, Landroid/view/ViewGroup;->addView(Landroid/view/View;)V
+
+    :row_next
+    add-int/lit8 v5, v5, 0x1
+    goto :row_loop
+
+    :try_end_rows
+    .catch Lorg/json/JSONException; {:try_start_rows .. :try_end_rows} :catch_rows
     return-void
 
-    :catch_fill
+    :catch_rows
     return-void
 
     :render_native_done
