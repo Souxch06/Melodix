@@ -186,7 +186,8 @@ test('bridge loader distinguishes inject, load, error and asset body', () => {
     assert.match(asset, /__sfBridgeLoadStage='asset-response-created'/);
     assert.match(asset, /__sfBridgeAssetServed=true/);
     assert.match(asset, /__sfBridgeIntercepted=true/);
-    assert.match(asset, /text\/javascript/);
+    assert.match(asset, /application\/javascript/);
+    assert.match(asset, /Content-Length/);
     assert.match(asset, /const\/16 v5, 0xc8/);
     assert.match(asset, /WebResourceResponse;-><init>\(Ljava\/lang\/String;Ljava\/lang\/String;ILjava\/lang\/String;Ljava\/util\/Map;Ljava\/io\/InputStream;\)/);
     assert.doesNotMatch(asset, /WebResourceResponse;-><init>\(Ljava\/lang\/String;Ljava\/lang\/String;Ljava\/io\/InputStream;\)/);
@@ -200,6 +201,19 @@ test('bridge loader distinguishes inject, load, error and asset body', () => {
     assert.match(diag, /bridgeEntered/);
     assert.match(diag, /nativeHomePlaylistCount/);
     assert.match(diag, /nativeHomeRowCount/);
+    assert.match(diag, /bridgeWatchStage/);
+});
+
+test('bridge recovery does not clobber load stage or re-inject the script tag', () => {
+    const shell = read('assets/native_ui_shell.js');
+    assert.match(shell, /if \(!window.__sfBridgeLoadStage\) window.__sfBridgeLoadStage = 'start'/);
+    assert.doesNotMatch(shell, /^[ \t]*window.__sfBridgeLoadStage = 'start';/m);
+    assert.match(shell, /if \(!document.querySelector\('script\[data-sf-melodix-bridge="1"\]'\)\)/);
+    assert.match(shell, /__sfBridgeWatch/);
+    const head = read('assets/spotify_bridge.js').slice(0, 250);
+    assert.match(head, /__sfBridgeEntered = true/);
+    assert.match(read('assets/spotify_bridge.js'), /bridge-initialized/);
+    assert.match(read('assets/spotify_bridge.js'), /id = 'sf-melodix-home'/);
 });
 
 test('section headers are created only when the section is non-empty and different from the previous one', () => {

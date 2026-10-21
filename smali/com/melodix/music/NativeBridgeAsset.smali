@@ -31,23 +31,28 @@
     const-string v2, "UTF-8"
     invoke-virtual {v1, v2}, Ljava/lang/String;->getBytes(Ljava/lang/String;)[B
     move-result-object v1
+    array-length v2, v1
     new-instance v8, Ljava/io/ByteArrayInputStream;
     invoke-direct {v8, v1}, Ljava/io/ByteArrayInputStream;-><init>([B)V
 
     new-instance v7, Ljava/util/HashMap;
     invoke-direct {v7}, Ljava/util/HashMap;-><init>()V
     const-string v1, "Access-Control-Allow-Origin"
-    const-string v2, "*"
-    invoke-virtual {v7, v1, v2}, Ljava/util/HashMap;->put(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;
+    const-string v3, "*"
+    invoke-virtual {v7, v1, v3}, Ljava/util/HashMap;->put(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;
     const-string v1, "Cache-Control"
-    const-string v2, "no-store, max-age=0"
-    invoke-virtual {v7, v1, v2}, Ljava/util/HashMap;->put(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;
+    const-string v3, "no-store, max-age=0"
+    invoke-virtual {v7, v1, v3}, Ljava/util/HashMap;->put(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;
     const-string v1, "Content-Type"
-    const-string v2, "text/javascript; charset=UTF-8"
-    invoke-virtual {v7, v1, v2}, Ljava/util/HashMap;->put(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;
+    const-string v3, "application/javascript; charset=UTF-8"
+    invoke-virtual {v7, v1, v3}, Ljava/util/HashMap;->put(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;
+    const-string v1, "Content-Length"
+    invoke-static {v2}, Ljava/lang/Integer;->toString(I)Ljava/lang/String;
+    move-result-object v3
+    invoke-virtual {v7, v1, v3}, Ljava/util/HashMap;->put(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;
 
     new-instance v2, Landroid/webkit/WebResourceResponse;
-    const-string v3, "text/javascript"
+    const-string v3, "application/javascript"
     const-string v4, "UTF-8"
     const/16 v5, 0xc8
     const-string v6, "OK"
@@ -75,7 +80,7 @@
 .method public static loaderJavascript()Ljava/lang/String;
     .locals 1
 
-    const-string v0, "(function(){if(window.__sfMelodixBridgeStarted===true)return;if(document.querySelector('script[data-sf-melodix-bridge=\"1\"]')){window.__sfBridgeLoadStage=window.__sfBridgeLoadStage||'src-pending';return;}window.__sfBridgeExecMode='same-origin-src';window.__sfBridgeLoadStage='inject-src';var s=document.createElement('script');s.src=(window.location&&window.location.origin?window.location.origin:'https://open.spotify.com')+'/__melodix__/spotify_bridge.js';s.async=false;s.setAttribute('data-sf-melodix-bridge','1');s.onload=function(){window.__sfBridgeLoadStage='script-load';};s.onerror=function(){window.__sfBridgeLastError='script-error: load-failed';window.__sfBridgeLoadStage='script-error';};(document.head||document.documentElement).appendChild(s);})();"
+    const-string v0, "(function(){if(window.__sfMelodixBridgeStarted===true)return;if(document.querySelector('script[data-sf-melodix-bridge=\"1\"]')){if(!window.__sfBridgeLoadStage)window.__sfBridgeLoadStage='src-pending';return;}window.__sfBridgeExecMode='same-origin-src';window.__sfBridgeLoadStage='inject-src';var s=document.createElement('script');s.src=(window.location&&window.location.origin?window.location.origin:'https://open.spotify.com')+'/__melodix__/spotify_bridge.js';s.async=false;s.type='application/javascript';s.charset='utf-8';s.setAttribute('data-sf-melodix-bridge','1');s.onload=function(){window.__sfBridgeLoadStage='script-load';};s.onerror=function(){window.__sfBridgeLastError='script-error: load-failed';window.__sfBridgeLoadStage='script-error';};(document.head||document.documentElement).appendChild(s);})();"
 
     return-object v0
 .end method

@@ -213,6 +213,13 @@
         bridgeCspViolation: typeof window.__sfBridgeCspViolation === 'string'
           ? window.__sfBridgeCspViolation.slice(0, 120)
           : null,
+        bridgeWatchStage: window.__sfBridgeWatch && typeof window.__sfBridgeWatch.stage === 'string'
+          ? window.__sfBridgeWatch.stage
+          : null,
+        bridgeWatchTagPresent: !!(window.__sfBridgeWatch && window.__sfBridgeWatch.tagPresent),
+        bridgeWatchError: window.__sfBridgeWatch && typeof window.__sfBridgeWatch.error === 'string'
+          ? window.__sfBridgeWatch.error.slice(0, 160)
+          : null,
         mobileShellInitAttempted: window.__sfMelodixMobileShellInitAttempted === true,
         homeInitAttempted: window.__sfMelodixHomeInitAttempted === true,
         mobileShellClass: body

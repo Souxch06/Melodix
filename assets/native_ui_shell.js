@@ -1906,6 +1906,8 @@
         node = document.createElement('script');
         node.src = src;
         node.async = false;
+        node.type = 'application/javascript';
+        node.charset = 'utf-8';
         node.setAttribute('data-sf-melodix-bridge', '1');
         attachBridgeScriptEvents(node, src);
         (document.head || document.documentElement).appendChild(node);
@@ -1914,9 +1916,10 @@
 
     function loadBundledBridge(name) {
         if (bridgeHasStarted()) return true;
-        window.__sfBridgeLoadStage = 'start';
+        if (!window.__sfBridgeLoadStage) window.__sfBridgeLoadStage = 'start';
         try {
-            if (window.AndBridge && typeof window.AndBridge.readBundledAsset === 'function') {
+            if (window.AndBridge && typeof window.AndBridge.readBundledAsset === 'function' &&
+                !Number.isInteger(window.__sfBridgeBytes)) {
                 window.__sfBridgeBytes = String(window.AndBridge.readBundledAsset(name) || '').length;
             }
         } catch (error) {
@@ -1961,15 +1964,34 @@
             } catch (_) {}
         }
 
+        function snapshotWatchdog() {
+            var node = document.querySelector('script[data-sf-melodix-bridge="1"]');
+            window.__sfBridgeWatch = {
+                stage: typeof window.__sfBridgeLoadStage === 'string' ? window.__sfBridgeLoadStage : null,
+                entered: window.__sfBridgeEntered === true,
+                started: window.__sfMelodixBridgeStarted === true,
+                tagPresent: !!node,
+                srcHost: node && node.src ? String(node.src).slice(0, 80) : null,
+                bytes: Number.isInteger(window.__sfBridgeBytes) ? window.__sfBridgeBytes : null,
+                error: typeof window.__sfBridgeLastError === 'string'
+                    ? window.__sfBridgeLastError.slice(0, 160)
+                    : null
+            };
+        }
+
         function attempt() {
             bridgeRetryTimer = null;
             if (bridgeHasStarted()) {
                 window.__sfNativeUiBridgeRecovered = bridgeLoadAttempts > 0;
+                snapshotWatchdog();
                 return;
             }
             bridgeLoadAttempts += 1;
             window.__sfNativeUiBridgeRecoveryAttempts = bridgeLoadAttempts;
-            loadBundledBridge('spotify_bridge.js');
+            if (!document.querySelector('script[data-sf-melodix-bridge="1"]')) {
+                loadBundledBridge('spotify_bridge.js');
+            }
+            snapshotWatchdog();
             if (bridgeHasStarted()) {
                 window.__sfNativeUiBridgeRecovered = true;
                 return;
@@ -1979,6 +2001,7 @@
 
         if (bridgeHasStarted()) return;
         window.setTimeout(attempt, 1200);
+        window.setTimeout(snapshotWatchdog, 8000);
     }
 
     function install() {
