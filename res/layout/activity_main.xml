@@ -73,7 +73,7 @@
         android:focusable="true"
         android:clickable="true"
         android:elevation="15.0dip"
-        android:visibility="visible"
+        android:visibility="gone"
         android:layout_width="0.0dip"
         android:layout_height="0.0dip"
         app:layout_constraintTop_toTopOf="parent"
