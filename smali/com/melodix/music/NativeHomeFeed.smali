@@ -5,9 +5,11 @@
 # only after a successful build with at least one card. Empty JSON, invalid
 # JSON or a render exception leave the current home intact.
 
-.field public static lastPainted:I
-.field public static lastPlaylists:I
-.field public static lastRejected:I
+.field public static lastPainted:I = 0x0
+
+.field public static lastPlaylists:I = 0x0
+
+.field public static lastRejected:I = 0x0
 
 .method public static paint(Lcom/melodix/music/MainActivity;Landroid/view/ViewGroup;Ljava/lang/String;)I
     .locals 14
@@ -137,6 +139,7 @@
     const/4 v0, 0x0
 
     :try_ok
+    nop
     :try_end_0
     .catch Lorg/json/JSONException; {:try_start_0 .. :try_end_0} :catch_json
     .catch Ljava/lang/Throwable; {:try_start_0 .. :try_end_0} :catch_all
