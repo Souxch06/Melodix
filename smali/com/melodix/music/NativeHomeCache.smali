@@ -54,11 +54,6 @@
     if-eqz v0, :done
     check-cast v0, Landroid/widget/LinearLayout;
 
-    invoke-virtual {v0}, Landroid/widget/LinearLayout;->getChildCount()I
-    move-result v1
-    if-eqz v1, :load
-    return-void
-
     :load
     const/4 v0, 0x0
 

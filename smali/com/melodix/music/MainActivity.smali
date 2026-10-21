@@ -7416,7 +7416,7 @@
 
     move-result-object v0
 
-    if-nez v0, :fade_done
+    if-eqz v0, :fade_done
 
     # Start slightly transparent instead of fully invisible: the shell gradient
     # is opaque, so a lower alpha would flash the WebView underneath, and a

@@ -95,3 +95,10 @@ test('home JS never replaces a painted feed with an empty list', () => {
     assert.match(shell, /spotify:collection:tracks/);
     assert.match(shell, /nativeScreenForPath\(\) === 'home'/);
 });
+
+test('Home shelves render when the content container exists', () => {
+    const shelf = read('smali/com/melodix/music/NativeHomeShelfRenderer.smali');
+    assert.match(shelf, /if-eqz v13, :shelf_done/);
+    assert.doesNotMatch(shelf, /if-nez v13, :shelf_done/);
+    assert.match(shelf, /if-eqz v5, :shelf_next/);
+});
