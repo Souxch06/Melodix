@@ -7809,14 +7809,10 @@
     check-cast v2, Landroid/widget/LinearLayout;
     invoke-virtual {v2}, Landroid/widget/LinearLayout;->removeAllViews()V
 
-    # Home is a set of horizontal cover shelves (like the Spotify phone app),
-    # every other screen keeps the vertical row list.
-    iget-object v0, p0, Lcom/melodix/music/MainActivity;->nativeCurrentScreen:Ljava/lang/String;
-    const-string v1, "home"
-    invoke-virtual {v1, v0}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
-    move-result v0
-    if-nez v0, :native_rows_list
-    invoke-static {p0, p2}, Lcom/melodix/music/NativeHomeShelfRenderer;->render(Lcom/melodix/music/MainActivity;Ljava/lang/String;)V
+    invoke-static {p2}, Lcom/melodix/music/NativeRowList;->titlesFromJson(Ljava/lang/String;)Ljava/lang/String;
+    move-result-object v3
+    if-eqz v3, :native_rows_list
+    invoke-static {p0, v2, v3}, Lcom/melodix/music/NativeRowList;->fillPlain(Landroid/content/Context;Landroid/view/ViewGroup;Ljava/lang/String;)V
     return-void
 
     :native_rows_list
