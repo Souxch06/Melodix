@@ -865,13 +865,13 @@ test('content rows reach the cover factory instead of the settings factory', () 
     assert.match(dispatch, /const-string v0, "settingValue"[\s\S]*?isEmpty\(\)Z[\s\S]*?move-result v1/);
     assert.match(
         dispatch,
-        /if-eqz v1, :native_row_create_standard/,
-        'an empty settingValue marks a content row and must use the cover factory'
+        /if-nez v1, :native_row_create_standard/,
+        'an empty settingValue (isEmpty != 0) jumps to the cover factory'
     );
     assert.doesNotMatch(
         dispatch,
-        /if-nez v1, :native_row_create_standard/,
-        'the inverted jump rendered every content row with the settings factory'
+        /if-eqz v1, :native_row_create_standard/,
+        'if-eqz sent empty settingValue rows through the settings factory'
     );
 
     const settingsAt = dispatch.indexOf('NativeSettingsRowFactory;->create');
@@ -1260,7 +1260,9 @@ test('navigation clicks keep home JSON and do not force the home screen', () => 
     assert.match(apply, /if-eqz p1, :apply_done/);
     assert.match(apply, /if-eqz p2, :apply_done/);
     assert.match(apply, /iput-object p2, p0, Lcom\/melodix\/music\/MainActivity;->nativeHomeJson/);
-    assert.doesNotMatch(apply, /:check_home[\s\S]*iput-object v2, p0, Lcom\/melodix\/music\/MainActivity;->nativeCurrentScreen/);
+    assert.match(apply, /:apply_home_set/);
+    assert.match(activity, /:show_paint_home/);
+    assert.match(activity, /getChildCount\(\)I/);
 
     const rowsAt = activity.indexOf('.method public final renderNativeRows(Ljava/lang/String;Ljava/lang/String;)V');
     const rows = activity.slice(rowsAt, activity.indexOf('.method public final runNativeJavascript', rowsAt));

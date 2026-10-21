@@ -6977,9 +6977,24 @@
 
     :check_default_screen
     iget-object v0, p0, Lcom/melodix/music/MainActivity;->nativeCurrentScreen:Ljava/lang/String;
-    if-nez v0, :show_done
+    if-nez v0, :show_paint_home
     const-string v0, "home"
     invoke-virtual {p0, v0}, Lcom/melodix/music/MainActivity;->setNativeScreen(Ljava/lang/String;)V
+
+    :show_paint_home
+    iget-object v0, p0, Lcom/melodix/music/MainActivity;->nativeCurrentScreen:Ljava/lang/String;
+    const-string v1, "home"
+    invoke-virtual {v1, v0}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    move-result v1
+    if-eqz v1, :show_done
+    iget-object v1, p0, Lcom/melodix/music/MainActivity;->nativeHomeJson:Ljava/lang/String;
+    if-eqz v1, :show_done
+    invoke-virtual {v1}, Ljava/lang/String;->length()I
+    move-result v2
+    const/16 v3, 0x8
+    if-le v2, v3, :show_done
+    const-string v2, "Accueil"
+    invoke-virtual {p0, v2, v1}, Lcom/melodix/music/MainActivity;->renderNativeRows(Ljava/lang/String;Ljava/lang/String;)V
 
     :show_done
     const-string v0, "ready"
@@ -7433,11 +7448,15 @@
     if-eqz v1, :check_media
     iput-object p2, p0, Lcom/melodix/music/MainActivity;->nativeHomeJson:Ljava/lang/String;
     iget-object v2, p0, Lcom/melodix/music/MainActivity;->nativeCurrentScreen:Ljava/lang/String;
-    if-eqz v2, :apply_home
+    if-eqz v2, :apply_home_set
     const-string v3, "home"
     invoke-virtual {v2, v3}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
     move-result v4
     if-eqz v4, :apply_done
+    goto :apply_home
+    :apply_home_set
+    const-string v2, "home"
+    invoke-virtual {p0, v2}, Lcom/melodix/music/MainActivity;->setNativeScreen(Ljava/lang/String;)V
     :apply_home
     const-string v2, "Accueil"
     invoke-virtual {p0, v2, p2}, Lcom/melodix/music/MainActivity;->renderNativeRows(Ljava/lang/String;Ljava/lang/String;)V
@@ -7827,6 +7846,9 @@
     invoke-static {p0, p2}, Lcom/melodix/music/NativeHomeShelfRenderer;->render(Lcom/melodix/music/MainActivity;Ljava/lang/String;)V
     :try_end_home_shelves
     .catch Ljava/lang/Throwable; {:try_start_home_shelves .. :try_end_home_shelves} :catch_home_shelves
+    invoke-virtual {v2}, Landroid/widget/LinearLayout;->getChildCount()I
+    move-result v0
+    if-lez v0, :native_rows_list
     return-void
     :catch_home_shelves
     move-exception v0
@@ -7908,7 +7930,8 @@
     invoke-virtual {v0}, Ljava/lang/String;->isEmpty()Z
     move-result v1
     # Empty settingValue = content row (cover + title + subtitle): it must reach the content factory.
-    if-eqz v1, :native_row_create_standard
+    # if-nez: jump when isEmpty != 0 (true).
+    if-nez v1, :native_row_create_standard
     invoke-static {p0, v6}, Lcom/melodix/music/NativeSettingsRowFactory;->create(Lcom/melodix/music/MainActivity;Lorg/json/JSONObject;)Landroid/widget/LinearLayout;
     move-result-object v0
     goto :native_row_created
