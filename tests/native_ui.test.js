@@ -829,7 +829,12 @@ test('the native shell can ask Android to evaluate the playback bridge again', (
     assert.match(injectMethod, /equals\(Ljava\/lang\/Object;\)Z[\s\S]{0,80}if-eqz v0, :asset_inject_done/);
     assert.doesNotMatch(injectMethod, /equals\(Ljava\/lang\/Object;\)Z[\s\S]{0,80}if-nez v0, :asset_inject_done/);
     assert.ok(fs.statSync(path.join(root, 'assets/spotify_bridge.js')).size > 1000, 'the bridge asset must be present and non-empty');
-    assert.match(shell, /read-asset.*empty bytes=/);
+    assert.match(shell, /same-origin-src/);
+    assert.match(shell, /__melodix__\/spotify_bridge\.js/);
+    assert.match(shell, /script-src-elem/);
+    assert.match(shell, /bridgeLoadAttempts < 4/);
+    assert.doesNotMatch(shell, /createObjectURL\(new Blob/);
+    assert.doesNotMatch(shell, /node\.textContent = source/);
     assert.match(read('assets/spotify_bridge.js'), /sf-melodix-home/);
     assert.match(read('assets/spotify_bridge.js'), /__sfMelodixHomeInitAttempted = true/);
     assert.match(read('assets/spotify_bridge.js'), /__sfMelodixBridgeBootstrapReady = true/);
@@ -1275,4 +1280,24 @@ test('runNativeFunction ignores a null name and quotes an empty argument', () =>
     assert.match(method, /if-eqz p1, :native_fn_done/);
     assert.match(method, /if-eqz p2, :native_fn_empty/);
     assert.match(method, /:native_fn_done/);
+});
+
+test('the playback bridge is served same-origin so CSP script-src-elem inline is not required', () => {
+    const asset = read('smali/com/melodix/music/NativeBridgeAsset.smali');
+    const client = read('smali/c91.smali');
+    const inject = read('smali/com/melodix/music/AndBridge.smali');
+    const interceptAt = client.indexOf('.method public final shouldInterceptRequest');
+    const intercept = client.slice(interceptAt, interceptAt + 2500);
+
+    assert.match(asset, /const-string v1, "\/__melodix__\/spotify_bridge\.js"/);
+    assert.match(asset, /Lm9;->d\(Ljava\/lang\/String;\)Ljava\/lang\/String;/);
+    assert.match(asset, /application\/javascript/);
+    assert.match(asset, /loaderJavascript/);
+    assert.match(intercept, /NativeBridgeAsset;->responseForUrl/);
+    assert.match(inject, /NativeBridgeAsset;->loaderJavascript/);
+    assert.doesNotMatch(
+        inject.slice(inject.indexOf('injectBundledAsset'), inject.indexOf('readBundledAsset')),
+        /Lm9;->d/,
+        'native recovery must not evaluateJavascript the 200 KB file'
+    );
 });

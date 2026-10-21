@@ -3283,6 +3283,15 @@
     .line 31
     .line 32
     :cond_0
+    invoke-static {v3}, Lcom/melodix/music/NativeBridgeAsset;->responseForUrl(Ljava/lang/String;)Landroid/webkit/WebResourceResponse;
+
+    move-result-object v32
+
+    if-eqz v32, :melodix_bridge_asset_continue
+
+    return-object v32
+
+    :melodix_bridge_asset_continue
     invoke-static {v3}, Ldl1;->l(Ljava/lang/String;)Z
 
     .line 33

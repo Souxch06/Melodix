@@ -4769,7 +4769,7 @@
 
     if-eqz v0, :asset_inject_done
 
-    invoke-static {p1}, Lm9;->d(Ljava/lang/String;)Ljava/lang/String;
+    invoke-static {}, Lcom/melodix/music/NativeBridgeAsset;->loaderJavascript()Ljava/lang/String;
 
     move-result-object v1
 

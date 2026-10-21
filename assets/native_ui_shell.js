@@ -1831,82 +1831,62 @@
         window.__sfBridgeLastError = stage + (message ? ': ' + message : '');
     }
 
-    function executeBridgeSource(source) {
+    function sameOriginBridgeSrc() {
+        var origin = (window.location && window.location.origin) || 'https://open.spotify.com';
+        return origin + '/__melodix__/spotify_bridge.js';
+    }
+
+    function injectSameOriginBridge() {
         var node;
-        window.__sfBridgeBytes = source.length;
-
-        // 1. Inline script: the way the asset used to be executed.
-        try {
-            node = document.createElement('script');
-            node.textContent = source;
-            (document.head || document.documentElement).appendChild(node);
-            if (node.parentNode) node.parentNode.removeChild(node);
-        } catch (error) {
-            recordBridgeFailure('inline-script', error);
-        }
-        if (bridgeHasStarted()) {
-            window.__sfBridgeExecMode = 'inline-script';
+        var src = sameOriginBridgeSrc();
+        window.__sfBridgeExecMode = 'same-origin-src';
+        window.__sfBridgeLoadStage = 'inject-src';
+        if (document.querySelector('script[data-sf-melodix-bridge="1"]')) {
+            window.__sfBridgeLoadStage = 'src-pending';
             return true;
         }
-
-        // 2. Direct eval (rejected when the page forbids unsafe-eval).
-        try {
-            (0, eval)(source);
-        } catch (error) {
-            recordBridgeFailure('eval', error);
-        }
-        if (bridgeHasStarted()) {
-            window.__sfBridgeExecMode = 'eval';
-            return true;
-        }
-
-        // 3. Function constructor.
-        try {
-            (new Function(source))();
-        } catch (error) {
-            recordBridgeFailure('function', error);
-        }
-        if (bridgeHasStarted()) {
-            window.__sfBridgeExecMode = 'function';
-            return true;
-        }
-
-        // 4. Blob URL: asynchronous, so the next diagnostic sample confirms it.
-        try {
-            if (bridgeBlobUrl && typeof URL.revokeObjectURL === 'function') URL.revokeObjectURL(bridgeBlobUrl);
-            bridgeBlobUrl = URL.createObjectURL(new Blob([source], { type: 'text/javascript' }));
-            node = document.createElement('script');
-            node.src = bridgeBlobUrl;
-            (document.head || document.documentElement).appendChild(node);
-            window.__sfBridgeExecMode = 'blob';
-            return true;
-        } catch (error) {
-            recordBridgeFailure('blob', error);
-        }
-        return false;
+        node = document.createElement('script');
+        node.src = src;
+        node.async = false;
+        node.setAttribute('data-sf-melodix-bridge', '1');
+        node.onload = function() {
+            window.__sfBridgeLoadStage = 'src-loaded';
+        };
+        node.onerror = function() {
+            recordBridgeFailure('src-script', src + ' load-failed');
+            window.__sfBridgeLoadStage = 'src-error';
+        };
+        (document.head || document.documentElement).appendChild(node);
+        return true;
     }
 
     function loadBundledBridge(name) {
-        var source = '';
         if (bridgeHasStarted()) return true;
+        window.__sfBridgeLoadStage = 'start';
         try {
             if (window.AndBridge && typeof window.AndBridge.readBundledAsset === 'function') {
-                source = String(window.AndBridge.readBundledAsset(name) || '');
+                window.__sfBridgeBytes = String(window.AndBridge.readBundledAsset(name) || '').length;
             }
         } catch (error) {
             recordBridgeFailure('read-asset', error);
         }
-        if (source) return executeBridgeSource(source);
-        recordBridgeFailure('read-asset', name + ' empty bytes=' + source.length);
-        // Last resort: let Android evaluate the asset, even though that call is
-        // the one that fails on device.
+        // Spotify's CSP is script-src-elem without unsafe-inline. Inline
+        // textContent, eval, Function and blob: URLs are rejected
+        // (bridgeCspViolation "script-src-elem inline"). A same-origin
+        // <script src> is served by WebViewClient.shouldInterceptRequest.
+        try {
+            return injectSameOriginBridge();
+        } catch (error) {
+            recordBridgeFailure('src-script', error);
+        }
         try {
             if (window.AndBridge && typeof window.AndBridge.injectBundledAsset === 'function') {
                 window.AndBridge.injectBundledAsset(name);
-                window.__sfBridgeExecMode = window.__sfBridgeExecMode || 'native';
+                window.__sfBridgeExecMode = window.__sfBridgeExecMode || 'native-src';
+                window.__sfBridgeLoadStage = 'native-src';
             }
         } catch (error) {
-            recordBridgeFailure('native-eval', error);
+            recordBridgeFailure('native-src', error);
         }
         return false;
     }
@@ -1942,7 +1922,7 @@
                 window.__sfNativeUiBridgeRecovered = true;
                 return;
             }
-            if (bridgeLoadAttempts < 8) bridgeRetryTimer = window.setTimeout(attempt, 2500);
+            if (bridgeLoadAttempts < 4) bridgeRetryTimer = window.setTimeout(attempt, 2500);
         }
 
         if (bridgeHasStarted()) return;
