@@ -562,7 +562,7 @@
         <LinearLayout
             android:id="@id/nativeMiniPlayerContainer"
             android:orientation="vertical"
-            android:visibility="gone"
+            android:visibility="visible"
             android:background="@drawable/native_mini_player_bg"
             android:layout_width="fill_parent"
             android:layout_height="wrap_content"
@@ -610,7 +610,7 @@
                 android:layout_weight="1.0">
                 <TextView
                     android:id="@id/nativePlayerTitle"
-                    android:text="Nothing playing"
+                    android:text="Aucune lecture en cours"
                     android:textSize="14.5sp"
                     android:textStyle="bold"
                     android:textColor="#ffffffff"
@@ -620,7 +620,7 @@
                     android:layout_height="wrap_content" />
                 <TextView
                     android:id="@id/nativePlayerArtist"
-                    android:text="Open Spotify to start listening"
+                    android:text="Touchez pour ouvrir le lecteur"
                     android:textSize="12.5sp"
                     android:textColor="#ffb3b3b3"
                     android:maxLines="1"

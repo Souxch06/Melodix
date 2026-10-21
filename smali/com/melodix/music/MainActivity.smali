@@ -7125,20 +7125,15 @@
     invoke-virtual {v2, v3}, Landroid/view/View;->setVisibility(I)V
 
     :native_mini_player
-    # Hide the whole card (row + progress line), not just the row, and keep it
-    # hidden until Spotify reports a track.
     const v2, 0x7f09024c
     invoke-virtual {p0, v2}, Landroid/app/Activity;->findViewById(I)Landroid/view/View;
     move-result-object v2
     if-eqz v2, :native_tab_bar
     if-eqz v1, :hide_native_mini_player
-    iget-boolean v3, p0, Lcom/melodix/music/MainActivity;->nativeHasTrack:Z
-    if-eqz v3, :show_native_mini_player
+    const/4 v3, 0x0
+    goto :set_native_mini_player
     :hide_native_mini_player
     const/16 v3, 0x8
-    goto :set_native_mini_player
-    :show_native_mini_player
-    const/4 v3, 0x0
     :set_native_mini_player
     invoke-virtual {v2, v3}, Landroid/view/View;->setVisibility(I)V
 
@@ -7701,26 +7696,20 @@
     invoke-virtual {v9, v7}, Landroid/widget/ImageView;->setImageResource(I)V
 
     :native_player_try_done
-    # Show the mini player card only when a track exists, and never while the
-    # full player is open.
     iget-object v1, p0, Lcom/melodix/music/MainActivity;->nativeCurrentScreen:Ljava/lang/String;
-    if-eqz v1, :native_player_mini_visibility
+    const/4 v3, 0x0
+    if-eqz v1, :native_player_mini_apply
     const-string v2, "player"
     invoke-virtual {v1, v2}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
     move-result v1
-    if-eqz v1, :native_player_mini_visibility
-    iget-boolean v1, p0, Lcom/melodix/music/MainActivity;->nativeHasTrack:Z
-    if-eqz v1, :native_player_mini_visible
-    const/16 v1, 0x8
-    goto :native_player_mini_apply
-    :native_player_mini_visible
-    const/4 v1, 0x0
+    if-eqz v1, :native_player_mini_apply
+    const/16 v3, 0x8
     :native_player_mini_apply
     const v2, 0x7f09024c
     invoke-virtual {p0, v2}, Landroid/app/Activity;->findViewById(I)Landroid/view/View;
     move-result-object v2
     if-eqz v2, :native_player_mini_visibility
-    invoke-virtual {v2, v1}, Landroid/view/View;->setVisibility(I)V
+    invoke-virtual {v2, v3}, Landroid/view/View;->setVisibility(I)V
 
     :native_player_mini_visibility
     :try_end_native_player
