@@ -1219,3 +1219,11 @@ test('search results coming from the fallback path reach the native list', () =>
     assert.match(apply, /nativeExpectedSearch/);
     assert.match(apply, /const-string v8, "Résultats de recherche"/);
 });
+
+test('home shelf renderer skips missing views, not existing ones', () => {
+    const shelf = require('fs').readFileSync(require('path').join(__dirname, '..', 'smali/com/melodix/music/NativeHomeShelfRenderer.smali'), 'utf8');
+    assert.match(shelf, /if-eqz v13, :shelf_done/);
+    assert.doesNotMatch(shelf, /if-nez v13, :shelf_done/);
+    assert.match(shelf, /if-eqz v5, :shelf_next/);
+    assert.doesNotMatch(shelf, /if-nez v5, :shelf_next/);
+});
