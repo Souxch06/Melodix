@@ -7086,9 +7086,18 @@
     const v0, 0x7f09022f
     invoke-virtual {p0, v0}, Landroid/app/Activity;->findViewById(I)Landroid/view/View;
     move-result-object v1
-    if-eqz v1, :done
+    if-eqz v1, :hide_web
     const/4 v2, 0x0
     invoke-virtual {v1, v2}, Landroid/view/View;->setVisibility(I)V
+    const/high16 v2, 0x3f800000
+    invoke-virtual {v1, v2}, Landroid/view/View;->setAlpha(F)V
+
+    :hide_web
+    iget-object v1, p0, Lcom/melodix/music/MainActivity;->G:Landroid/webkit/WebView;
+    if-eqz v1, :done
+    const/4 v2, 0x0
+    int-to-float v2, v2
+    invoke-virtual {v1, v2}, Landroid/view/View;->setAlpha(F)V
 
     :done
     return-void
@@ -7116,9 +7125,18 @@
     const v0, 0x7f09022f
     invoke-virtual {p0, v0}, Landroid/app/Activity;->findViewById(I)Landroid/view/View;
     move-result-object v1
-    if-eqz v1, :hide_legacy_settings
+    if-eqz v1, :hide_web_visually
     const/4 v2, 0x0
     invoke-virtual {v1, v2}, Landroid/view/View;->setVisibility(I)V
+    const/high16 v2, 0x3f800000
+    invoke-virtual {v1, v2}, Landroid/view/View;->setAlpha(F)V
+
+    :hide_web_visually
+    iget-object v1, p0, Lcom/melodix/music/MainActivity;->G:Landroid/webkit/WebView;
+    if-eqz v1, :hide_legacy_settings
+    const/4 v2, 0x0
+    int-to-float v2, v2
+    invoke-virtual {v1, v2}, Landroid/view/View;->setAlpha(F)V
 
     :hide_legacy_settings
     const v0, 0x7f090060
@@ -7410,45 +7428,47 @@
     invoke-virtual {p0, p3}, Landroid/app/Activity;->findViewById(I)Landroid/view/View;
     move-result-object v1
     if-eqz v1, :native_tab_style_done
-    check-cast v1, Landroid/widget/TextView;
     if-eqz v0, :native_tab_inactive
     const v2, -0x1
     const v4, -0xe128a0
-    goto :native_tab_highlight
+    goto :native_tab_apply
 
     :native_tab_inactive
     const v2, -0x4c4c4d
     const v4, -0x4c4c4d
-    goto :native_tab_apply
-
-    :native_tab_highlight
 
     :native_tab_apply
+    instance-of v3, v1, Landroid/widget/TextView;
+    if-nez v3, :native_tab_as_group
+    check-cast v1, Landroid/widget/TextView;
     invoke-virtual {v1, v2}, Landroid/widget/TextView;->setTextColor(I)V
     invoke-static {v4}, Landroid/content/res/ColorStateList;->valueOf(I)Landroid/content/res/ColorStateList;
-    move-result-object v4
-    invoke-virtual {v1, v4}, Landroid/widget/TextView;->setCompoundDrawableTintList(Landroid/content/res/ColorStateList;)V
-
-    invoke-virtual {v1}, Landroid/widget/TextView;->getCompoundDrawables()[Landroid/graphics/drawable/Drawable;
     move-result-object v3
+    invoke-virtual {v1, v3}, Landroid/widget/TextView;->setCompoundDrawableTintList(Landroid/content/res/ColorStateList;)V
+    goto :native_tab_style_done
+
+    :native_tab_as_group
+    instance-of v3, v1, Landroid/view/ViewGroup;
     if-eqz v3, :native_tab_style_done
-    const/4 v5, 0x1
-    aget-object v3, v3, v5
-    if-eqz v3, :native_tab_style_done
-    invoke-virtual {p0}, Landroid/content/Context;->getResources()Landroid/content/res/Resources;
+    check-cast v1, Landroid/view/ViewGroup;
+    const/4 v3, 0x0
+    invoke-virtual {v1, v3}, Landroid/view/ViewGroup;->getChildAt(I)Landroid/view/View;
     move-result-object v5
-    invoke-virtual {v5}, Landroid/content/res/Resources;->getDisplayMetrics()Landroid/util/DisplayMetrics;
+    if-eqz v5, :native_tab_text_child
+    instance-of v6, v5, Landroid/widget/ImageView;
+    if-eqz v6, :native_tab_text_child
+    check-cast v5, Landroid/widget/ImageView;
+    invoke-virtual {v5, v4}, Landroid/widget/ImageView;->setColorFilter(I)V
+
+    :native_tab_text_child
+    const/4 v3, 0x1
+    invoke-virtual {v1, v3}, Landroid/view/ViewGroup;->getChildAt(I)Landroid/view/View;
     move-result-object v5
-    iget v5, v5, Landroid/util/DisplayMetrics;->density:F
-    const/high16 v6, 0x41c00000
-    mul-float/2addr v5, v6
-    const/high16 v6, 0x3f000000
-    add-float/2addr v5, v6
-    float-to-int v5, v5
-    const/4 v6, 0x0
-    invoke-virtual {v3, v6, v6, v5, v5}, Landroid/graphics/drawable/Drawable;->setBounds(IIII)V
-    const/4 v7, 0x0
-    invoke-virtual {v1, v7, v3, v7, v7}, Landroid/widget/TextView;->setCompoundDrawables(Landroid/graphics/drawable/Drawable;Landroid/graphics/drawable/Drawable;Landroid/graphics/drawable/Drawable;Landroid/graphics/drawable/Drawable;)V
+    if-eqz v5, :native_tab_style_done
+    instance-of v6, v5, Landroid/widget/TextView;
+    if-eqz v6, :native_tab_style_done
+    check-cast v5, Landroid/widget/TextView;
+    invoke-virtual {v5, v2}, Landroid/widget/TextView;->setTextColor(I)V
 
     :native_tab_style_done
     return-void
@@ -7478,6 +7498,16 @@
     const/4 v2, 0x0
 
     invoke-virtual {v0, v2}, Landroid/view/View;->setVisibility(I)V
+
+    iget-object v0, p0, Lcom/melodix/music/MainActivity;->G:Landroid/webkit/WebView;
+
+    if-eqz v0, :fade_done
+
+    const/4 v2, 0x0
+
+    int-to-float v2, v2
+
+    invoke-virtual {v0, v2}, Landroid/view/View;->setAlpha(F)V
 
     :fade_done
     return-void

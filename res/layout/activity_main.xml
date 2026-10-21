@@ -72,7 +72,7 @@
         android:fitsSystemWindows="true"
         android:focusable="true"
         android:clickable="true"
-        android:elevation="15.0dip"
+        android:elevation="24.0dip"
         android:visibility="visible"
         android:layout_width="0.0dip"
         android:layout_height="0.0dip"
@@ -662,11 +662,22 @@
             android:orientation="horizontal"
             android:gravity="center"
             android:paddingTop="4.0dip"
+            android:background="#ff121212"
+            android:clickable="true"
             android:layout_width="fill_parent"
             android:layout_height="64.0dip">
-            <TextView android:id="@id/nativeHomeTab" android:text="Accueil" android:textSize="11.0sp" android:textStyle="bold" android:textColor="#ffffffff" android:gravity="center" android:clickable="true" android:focusable="true" android:drawableTop="@drawable/native_nav_home" android:drawableTint="#ffffffff" android:drawablePadding="4.0dip" android:background="@drawable/native_tab_ripple" android:paddingTop="8.0dip" android:paddingBottom="6.0dip" android:contentDescription="Home" android:onClick="onNativeHomeClick" android:layout_width="0.0dip" android:layout_height="fill_parent" android:layout_weight="1.0" />
-            <TextView android:id="@id/nativeSearchTab" android:text="Rechercher" android:textSize="11.0sp" android:textStyle="bold" android:textColor="#ffb3b3b3" android:gravity="center" android:clickable="true" android:focusable="true" android:drawableTop="@drawable/native_nav_search" android:drawableTint="#ffb3b3b3" android:drawablePadding="4.0dip" android:background="@drawable/native_tab_ripple" android:paddingTop="8.0dip" android:paddingBottom="6.0dip" android:contentDescription="Search" android:onClick="onNativeSearchClick" android:layout_width="0.0dip" android:layout_height="fill_parent" android:layout_weight="1.0" />
-            <TextView android:id="@id/nativeLibraryTab" android:text="Bibliothèque" android:textSize="11.0sp" android:textStyle="bold" android:textColor="#ffb3b3b3" android:gravity="center" android:clickable="true" android:focusable="true" android:drawableTop="@drawable/native_nav_library" android:drawableTint="#ffb3b3b3" android:drawablePadding="4.0dip" android:background="@drawable/native_tab_ripple" android:paddingTop="8.0dip" android:paddingBottom="6.0dip" android:contentDescription="Your Library" android:onClick="onNativeLibraryClick" android:layout_width="0.0dip" android:layout_height="fill_parent" android:layout_weight="1.0" />
+            <LinearLayout android:id="@id/nativeHomeTab" android:orientation="vertical" android:gravity="center" android:clickable="true" android:focusable="true" android:background="@drawable/native_tab_ripple" android:contentDescription="Home" android:onClick="onNativeHomeClick" android:layout_width="0.0dip" android:layout_height="fill_parent" android:layout_weight="1.0">
+                <ImageView android:src="@drawable/native_nav_home" android:tint="#ffffffff" android:duplicateParentState="true" android:clickable="false" android:focusable="false" android:layout_width="24.0dip" android:layout_height="24.0dip" android:layout_marginTop="6.0dip" />
+                <TextView android:text="Accueil" android:textSize="11.0sp" android:textStyle="bold" android:textColor="#ffffffff" android:duplicateParentState="true" android:clickable="false" android:focusable="false" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="4.0dip" />
+            </LinearLayout>
+            <LinearLayout android:id="@id/nativeSearchTab" android:orientation="vertical" android:gravity="center" android:clickable="true" android:focusable="true" android:background="@drawable/native_tab_ripple" android:contentDescription="Search" android:onClick="onNativeSearchClick" android:layout_width="0.0dip" android:layout_height="fill_parent" android:layout_weight="1.0">
+                <ImageView android:src="@drawable/native_nav_search" android:tint="#ffb3b3b3" android:duplicateParentState="true" android:clickable="false" android:focusable="false" android:layout_width="24.0dip" android:layout_height="24.0dip" android:layout_marginTop="6.0dip" />
+                <TextView android:text="Rechercher" android:textSize="11.0sp" android:textStyle="bold" android:textColor="#ffb3b3b3" android:duplicateParentState="true" android:clickable="false" android:focusable="false" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="4.0dip" />
+            </LinearLayout>
+            <LinearLayout android:id="@id/nativeLibraryTab" android:orientation="vertical" android:gravity="center" android:clickable="true" android:focusable="true" android:background="@drawable/native_tab_ripple" android:contentDescription="Your Library" android:onClick="onNativeLibraryClick" android:layout_width="0.0dip" android:layout_height="fill_parent" android:layout_weight="1.0">
+                <ImageView android:src="@drawable/native_nav_library" android:tint="#ffb3b3b3" android:duplicateParentState="true" android:clickable="false" android:focusable="false" android:layout_width="24.0dip" android:layout_height="24.0dip" android:layout_marginTop="6.0dip" />
+                <TextView android:text="Bibliothèque" android:textSize="11.0sp" android:textStyle="bold" android:textColor="#ffb3b3b3" android:duplicateParentState="true" android:clickable="false" android:focusable="false" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="4.0dip" />
+            </LinearLayout>
         </LinearLayout>
     </LinearLayout>
 
@@ -679,8 +690,10 @@
         android:layout_marginTop="5.0dip"
         android:src="@drawable/waves_white_bg"
         android:scaleType="fitCenter"
+        android:visibility="gone"
+        android:onClick="onNativeSettingsClick"
         android:alpha="0.9"
-        android:elevation="10.0dip"
+        android:elevation="0.0dip"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent" />

@@ -130,8 +130,13 @@ test('tab icons get an explicit compound drawable size', () => {
     const activity = read('smali/com/melodix/music/MainActivity.smali');
     const style = activity.match(/\.method public final styleNativeTab[\s\S]*?\.end method/);
     assert.ok(style);
-    assert.match(style[0], /setCompoundDrawables/);
-    assert.match(style[0], /setBounds/);
+    assert.match(style[0], /ViewGroup/);
+    assert.match(style[0], /setColorFilter/);
+    const layout = read('res/layout/activity_main.xml');
+    assert.match(layout, /onClick="onNativeHomeClick"/);
+    assert.match(layout, /onClick="onNativeSearchClick"/);
+    assert.match(layout, /onClick="onNativeLibraryClick"/);
+    assert.match(layout, /android:src="@drawable\/native_nav_home"/);
 });
 
 test('shell stays opaque so a tab tap cannot flash the WebView', () => {
