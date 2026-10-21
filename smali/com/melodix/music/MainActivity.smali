@@ -6969,7 +6969,7 @@
 
     move-result-object v2
 
-    if-nez v2, :done
+    if-eqz v2, :done
 
     check-cast v2, Landroid/widget/LinearLayout;
 
@@ -6977,7 +6977,7 @@
 
     move-result v3
 
-    if-nez v3, :empty
+    if-eqz v3, :empty
 
     return-void
 
@@ -8147,9 +8147,7 @@
 
     const-string v0, "home"
     invoke-virtual {p0, v0}, Lcom/melodix/music/MainActivity;->setNativeScreen(Ljava/lang/String;)V
-    const-string v1, "Accueil"
-    const-string v2, "[]"
-    invoke-virtual {p0, v1, v2}, Lcom/melodix/music/MainActivity;->renderNativeRows(Ljava/lang/String;Ljava/lang/String;)V
+    invoke-static {p0}, Lcom/melodix/music/NativeHomeCache;->restore(Lcom/melodix/music/MainActivity;)V
     const-string v0, "window.__sfNativeRequestHome && window.__sfNativeRequestHome();"
     invoke-virtual {p0, v0}, Lcom/melodix/music/MainActivity;->runNativeJavascript(Ljava/lang/String;)V
     return-void

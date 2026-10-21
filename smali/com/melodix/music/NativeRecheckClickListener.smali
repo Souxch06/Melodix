@@ -24,7 +24,7 @@
 
     iget-object v0, p0, Lcom/melodix/music/NativeRecheckClickListener;->activity:Lcom/melodix/music/MainActivity;
 
-    if-nez v0, :done
+    if-eqz v0, :done
 
     const-string v1, "window.__sfNativeUiRecheck&&window.__sfNativeUiRecheck()"
 

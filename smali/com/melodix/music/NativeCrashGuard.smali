@@ -28,7 +28,7 @@
 
     sget-object v0, Lcom/melodix/music/NativeCrashGuard;->context:Landroid/content/Context;
 
-    if-nez v0, :done
+    if-eqz v0, :done
 
     :try_start_0
     const-string v1, "melodix_native"
@@ -98,7 +98,7 @@
 
     const-string v0, ""
 
-    if-nez p0, :done
+    if-eqz p0, :done
 
     :try_start_0
     invoke-static {p0}, Landroid/util/Log;->getStackTraceString(Ljava/lang/Throwable;)Ljava/lang/String;
@@ -138,7 +138,7 @@
 .method public static install(Landroid/content/Context;)V
     .locals 6
 
-    if-nez p0, :done
+    if-eqz p0, :done
 
     sget-boolean v0, Lcom/melodix/music/NativeCrashGuard;->installed:Z
 
@@ -263,7 +263,7 @@
 
     sget-object v1, Lcom/melodix/music/NativeCrashGuard;->context:Landroid/content/Context;
 
-    if-nez v1, :done
+    if-eqz v1, :done
 
     :try_start_0
     const-string v2, "melodix_native"
@@ -302,7 +302,7 @@
 
     sget-object v1, Lcom/melodix/music/NativeCrashGuard;->context:Landroid/content/Context;
 
-    if-nez v1, :done
+    if-eqz v1, :done
 
     :try_start_0
     const-string v2, "melodix_native"
@@ -337,7 +337,7 @@
 .method public static record(Ljava/lang/Throwable;)V
     .locals 1
 
-    if-nez p0, :done
+    if-eqz p0, :done
 
     :try_start_0
     invoke-static {p0}, Landroid/util/Log;->getStackTraceString(Ljava/lang/Throwable;)Ljava/lang/String;
@@ -362,7 +362,7 @@
 
     const/4 v0, 0x0
 
-    if-nez p0, :done
+    if-eqz p0, :done
 
     invoke-static {}, Lcom/melodix/music/NativeCrashGuard;->lastReport()Ljava/lang/String;
 
@@ -455,7 +455,7 @@
 .method private static shorten(Ljava/lang/String;)Ljava/lang/String;
     .locals 3
 
-    if-nez p0, :done
+    if-eqz p0, :done
 
     invoke-virtual {p0}, Ljava/lang/String;->length()I
 
@@ -480,11 +480,11 @@
 .method public static stage(Ljava/lang/String;)V
     .locals 3
 
-    if-nez p0, :done
+    if-eqz p0, :done
 
     sget-object v0, Lcom/melodix/music/NativeCrashGuard;->context:Landroid/content/Context;
 
-    if-nez v0, :done
+    if-eqz v0, :done
 
     :try_start_0
     const-string v1, "melodix_native"
@@ -526,7 +526,7 @@
 .method public static showLaunchMarker(Landroid/app/Activity;)V
     .locals 3
 
-    if-nez p0, :done
+    if-eqz p0, :done
 
     :try_start_0
     new-instance v0, Landroid/widget/TextView;
@@ -595,11 +595,11 @@
 .method public static write(Ljava/lang/String;)V
     .locals 3
 
-    if-nez p0, :done
+    if-eqz p0, :done
 
     sget-object v0, Lcom/melodix/music/NativeCrashGuard;->context:Landroid/content/Context;
 
-    if-nez v0, :done
+    if-eqz v0, :done
 
     :try_start_0
     const-string v1, "melodix_native"

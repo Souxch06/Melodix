@@ -9,7 +9,7 @@
 .method public static fill(Lcom/melodix/music/MainActivity;Ljava/lang/String;Ljava/lang/String;)V
     .locals 10
 
-    if-nez p0, :done
+    if-eqz p0, :done
 
     const v0, 0x7f090235
 
@@ -17,7 +17,7 @@
 
     move-result-object v1
 
-    if-nez v1, :done
+    if-eqz v1, :done
 
     check-cast v1, Landroid/widget/LinearLayout;
 
@@ -25,7 +25,7 @@
 
     move-result v2
 
-    if-nez v2, :fill
+    if-eqz v2, :fill
 
     return-void
 
@@ -73,13 +73,13 @@
 
     invoke-virtual {v1, v7}, Landroid/widget/LinearLayout;->addView(Landroid/view/View;)V
 
-    if-nez p2, :hint
+    if-eqz p2, :hint
 
     invoke-virtual {p2}, Ljava/lang/String;->length()I
 
     move-result v3
 
-    if-nez v3, :hint
+    if-eqz v3, :hint
 
     new-instance v9, Landroid/widget/TextView;
 

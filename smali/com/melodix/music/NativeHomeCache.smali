@@ -9,8 +9,8 @@
 .method public static save(Landroid/content/Context;Ljava/lang/String;)V
     .locals 3
 
-    if-nez p0, :done
-    if-nez p1, :done
+    if-eqz p0, :done
+    if-eqz p1, :done
 
     invoke-virtual {p1}, Ljava/lang/String;->length()I
     move-result v0
@@ -46,17 +46,17 @@
 .method public static restore(Lcom/melodix/music/MainActivity;)V
     .locals 4
 
-    if-nez p0, :done
+    if-eqz p0, :done
 
     const v0, 0x7f090235
     invoke-virtual {p0, v0}, Landroid/app/Activity;->findViewById(I)Landroid/view/View;
     move-result-object v0
-    if-nez v0, :done
+    if-eqz v0, :done
     check-cast v0, Landroid/widget/LinearLayout;
 
     invoke-virtual {v0}, Landroid/widget/LinearLayout;->getChildCount()I
     move-result v1
-    if-nez v1, :load
+    if-eqz v1, :load
     return-void
 
     :load
@@ -81,7 +81,7 @@
     move-exception v1
 
     :have
-    if-nez v0, :seed
+    if-eqz v0, :seed
     invoke-virtual {v0}, Ljava/lang/String;->length()I
     move-result v1
     const/4 v2, 0x2
