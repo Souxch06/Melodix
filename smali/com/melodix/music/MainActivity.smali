@@ -6984,6 +6984,10 @@
 
     :show_paint_home
     invoke-virtual {p0}, Lcom/melodix/music/MainActivity;->pullNativeHomeList()V
+    new-instance v0, Lcom/melodix/music/NativeHomeRetryRunnable;
+    const/16 v1, 0xc
+    invoke-direct {v0, p0, v1}, Lcom/melodix/music/NativeHomeRetryRunnable;-><init>(Lcom/melodix/music/MainActivity;I)V
+    invoke-virtual {p0, v0}, Landroid/app/Activity;->runOnUiThread(Ljava/lang/Runnable;)V
 
     :show_done
     const-string v0, "ready"
@@ -7832,12 +7836,7 @@
     invoke-virtual {v0}, Landroid/view/Window;->getDecorView()Landroid/view/View;
     move-result-object v0
     if-eqz v0, :list_text_done
-    const-string v1, "nativeListText"
-    invoke-virtual {v0, v1}, Landroid/view/View;->findViewWithTag(Ljava/lang/Object;)Landroid/view/View;
-    move-result-object v2
-    if-eqz v2, :list_text_done
-    check-cast v2, Landroid/widget/TextView;
-    invoke-virtual {v2, p1}, Landroid/widget/TextView;->setText(Ljava/lang/CharSequence;)V
+    invoke-static {v0, p1}, Lcom/melodix/music/NativeTextWalker;->apply(Landroid/view/View;Ljava/lang/String;)V
 
     :list_text_done
     return-void
