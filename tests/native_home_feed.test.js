@@ -146,8 +146,8 @@ test('section headers are created only when the section is non-empty and differe
 test('two playlist cards in the same section share one header; distinct sections each get a header', () => {
     const feed = read('smali/com/melodix/music/NativeHomeFeed.smali');
     assert.match(feed, /move-object v3, v10/);
-    assert.match(feed, /:playlist:/);
-    assert.match(feed, /lastPlaylists:I/);
+    assert.match(feed, /:try_empty/);
+    assert.match(feed, /NativeCrashGuard;->record/);
     const { window, calls } = runShell({
         mediaLib: {
             playlists: [

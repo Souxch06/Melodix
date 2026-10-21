@@ -1,23 +1,10 @@
 .class public final Lcom/melodix/music/NativeHomeFeed;
 .super Ljava/lang/Object;
 
-# Builds cards on a scratch LinearLayout. The visible container is replaced
-# only after a successful build with at least one card. Empty JSON, invalid
-# JSON or a render exception leave the current home intact.
-
-.field public static lastPainted:I = 0x0
-
-.field public static lastPlaylists:I = 0x0
-
-.field public static lastRejected:I = 0x0
-
 .method public static paint(Lcom/melodix/music/MainActivity;Landroid/view/ViewGroup;Ljava/lang/String;)I
-    .locals 14
+    .locals 13
 
     const/4 v0, 0x0
-    sput v0, Lcom/melodix/music/NativeHomeFeed;->lastPainted:I
-    sput v0, Lcom/melodix/music/NativeHomeFeed;->lastPlaylists:I
-    sput v0, Lcom/melodix/music/NativeHomeFeed;->lastRejected:I
     if-eqz p0, :done
     if-eqz p1, :done
     if-eqz p2, :done
@@ -35,8 +22,8 @@
 
     new-instance v12, Landroid/widget/LinearLayout;
     invoke-direct {v12, p0}, Landroid/widget/LinearLayout;-><init>(Landroid/content/Context;)V
-    const/4 v13, 0x1
-    invoke-virtual {v12, v13}, Landroid/widget/LinearLayout;->setOrientation(I)V
+    const/4 v11, 0x1
+    invoke-virtual {v12, v11}, Landroid/widget/LinearLayout;->setOrientation(I)V
 
     const-string v3, ""
     const/4 v4, 0x0
@@ -46,7 +33,7 @@
     if-ge v4, v2, :commit
     invoke-virtual {v1, v4}, Lorg/json/JSONArray;->optJSONObject(I)Lorg/json/JSONObject;
     move-result-object v6
-    if-eqz v6, :reject
+    if-eqz v6, :next
 
     const-string v7, "title"
     const-string v8, ""
@@ -60,7 +47,7 @@
     if-eqz v10, :has_row
     invoke-virtual {v9}, Ljava/lang/String;->isEmpty()Z
     move-result v10
-    if-eqz v10, :reject
+    if-eqz v10, :next
 
     :has_row
     const-string v10, "section"
@@ -94,22 +81,9 @@
     move-result-object v11
 
     :add_row
-    if-eqz v11, :reject
+    if-eqz v11, :next
     invoke-virtual {v12, v11}, Landroid/view/ViewGroup;->addView(Landroid/view/View;)V
     add-int/lit8 v5, v5, 0x1
-    const-string v10, ":playlist:"
-    invoke-virtual {v9, v10}, Ljava/lang/String;->contains(Ljava/lang/CharSequence;)Z
-    move-result v10
-    if-eqz v10, :next
-    sget v10, Lcom/melodix/music/NativeHomeFeed;->lastPlaylists:I
-    add-int/lit8 v10, v10, 0x1
-    sput v10, Lcom/melodix/music/NativeHomeFeed;->lastPlaylists:I
-    goto :next
-
-    :reject
-    sget v10, Lcom/melodix/music/NativeHomeFeed;->lastRejected:I
-    add-int/lit8 v10, v10, 0x1
-    sput v10, Lcom/melodix/music/NativeHomeFeed;->lastRejected:I
 
     :next
     add-int/lit8 v4, v4, 0x1
@@ -131,7 +105,6 @@
     goto :xfer
 
     :finish
-    sput v5, Lcom/melodix/music/NativeHomeFeed;->lastPainted:I
     move v0, v5
     goto :try_ok
 
