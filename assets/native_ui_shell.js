@@ -7,7 +7,7 @@
     window.__sfNativeUiShellErrors = 0;
 
     var HOME_PATHS = ['/', '/home'];
-    var SUPPORTED_TYPES = ['playlist', 'album', 'artist', 'track', 'show', 'episode', 'audiobook'];
+    var SUPPORTED_TYPES = ['playlist', 'album', 'artist', 'track', 'show', 'episode', 'audiobook', 'collection', 'mix', 'radio', 'station', 'genre', 'user'];
     var MAX_READY_RETRIES = 60;
     var MAX_HOME_RETRIES = 40;
     var readyRetries = 0;
@@ -297,7 +297,9 @@
     }
 
     function collectHomeRows(mainView) {
-        var cardNodes = Array.prototype.slice.call(mainView.querySelectorAll('[data-testid="card"]'));
+        var cardNodes = Array.prototype.slice.call(mainView.querySelectorAll(
+            '[data-testid="card"], [data-encore-id="card"], [data-testid="herocard-click-handler"], [data-testid="top-grid-item"]'
+        ));
         var anchors = Array.prototype.slice.call(mainView.querySelectorAll('a[href]'));
         // Keep anchors as a fallback even when Spotify renders non-link cards or
         // card anchors without an <img>. A card and its nested anchor are de-duped
@@ -313,6 +315,14 @@
             var href = sourceAnchor && (sourceAnchor.href || sourceAnchor.getAttribute('href'));
             var uri = spotifyResourceUri(href);
             var card = findCardContainer(sourceAnchor, candidate, mainView);
+            if (!uri && href) {
+                try {
+                    var parsed = new URL(href, window.location.href);
+                    if (parsed.hostname === 'open.spotify.com' && parsed.pathname && parsed.pathname !== '/') {
+                        uri = parsed.origin + parsed.pathname;
+                    }
+                } catch (_) {}
+            }
             var lines;
             var heading;
             var title;
@@ -477,7 +487,11 @@
             return;
         }
 
-        rows = supplementHomeRowsWithLibrary(collectHomeRows(mainView));
+        // Read the whole signed-in page: the current mobile web home puts
+        // liked-songs / mix tiles in a left rail outside #main-view.
+        rows = supplementHomeRowsWithLibrary(collectHomeRows(
+            (document.body && document.body.querySelectorAll) ? document.body : mainView
+        ));
         signature = JSON.stringify(rows);
         window.__sfNativeUiHomeRowsCount = rows.length;
         if (lastHomeSignature !== signature && sendNativeUiData('home', rows)) {
@@ -663,11 +677,23 @@
         var bridge = window.AndBridge;
         var userWidget;
         var searchQuery;
-        if (!mainView || window.location.hostname !== 'open.spotify.com' || window.__sfNativeUiReadyNotified) return false;
+        var loggedIn;
+        var path;
+        if (window.location.hostname !== 'open.spotify.com' || window.__sfNativeUiReadyNotified) return false;
 
-        // Do not cover Spotify's page until its signed-in account control is present.
+        path = spotifyRoutePath();
+        if (path.indexOf('/login') === 0 || path.indexOf('/signup') === 0 || path.indexOf('/password') === 0) return false;
+
+        // Do not cover Spotify's page until a signed-in control is present.
+        // The account chip used to be user-widget-link; current mobile web often
+        // only exposes the now-playing bar or a generic user-widget avatar.
         userWidget = document.querySelector('button[data-testid="user-widget-link"], a[data-testid="user-widget-link"]');
-        if (!userWidget || !bridge || typeof bridge.onNativeUiReady !== 'function') return false;
+        loggedIn = userWidget || document.querySelector(
+            '[data-testid="user-widget"], [data-testid="user-widget-avatar"], ' +
+            '[data-testid="now-playing-widget"], [data-testid="now-playing-bar"], ' +
+            '[data-testid="player-controls"], footer[data-testid="now-playing-bar"]'
+        );
+        if (!loggedIn || !bridge || typeof bridge.onNativeUiReady !== 'function') return false;
 
         if (typeof bridge.onNativeUiRoute === 'function') {
             try {
@@ -1287,7 +1313,10 @@
         try {
             installPlaybackStateGuard();
             installSearchFallback();
-            mainView = document.querySelector('#main-view');
+            mainView = document.querySelector('#main-view') ||
+                document.querySelector('[role="main"]') ||
+                document.querySelector('#main') ||
+                document.body;
             if (mainView) {
                 notifyNativeUiReady(mainView);
                 detectSpotifyProfile();
