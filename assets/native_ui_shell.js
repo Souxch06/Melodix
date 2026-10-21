@@ -7,9 +7,9 @@
     window.__sfNativeUiShellErrors = 0;
 
     var HOME_PATHS = ['/', '/home'];
-    var SUPPORTED_TYPES = ['playlist', 'album', 'artist', 'track', 'show', 'episode', 'audiobook', 'collection', 'mix', 'radio', 'station', 'genre', 'user'];
+    var SUPPORTED_TYPES = ['playlist', 'album', 'artist', 'track', 'show', 'episode', 'audiobook'];
     var MAX_READY_RETRIES = 60;
-    var MAX_HOME_RETRIES = 60;
+    var MAX_HOME_RETRIES = 40;
     var readyRetries = 0;
     var homeRetries = 0;
     var readyRetryTimer = null;
@@ -297,9 +297,7 @@
     }
 
     function collectHomeRows(mainView) {
-        var cardNodes = Array.prototype.slice.call(mainView.querySelectorAll(
-            '[data-testid="card"], [data-encore-id="card"], [data-testid="herocard-click-handler"], [data-testid="top-grid-item"]'
-        ));
+        var cardNodes = Array.prototype.slice.call(mainView.querySelectorAll('[data-testid="card"]'));
         var anchors = Array.prototype.slice.call(mainView.querySelectorAll('a[href]'));
         // Keep anchors as a fallback even when Spotify renders non-link cards or
         // card anchors without an <img>. A card and its nested anchor are de-duped
@@ -315,14 +313,6 @@
             var href = sourceAnchor && (sourceAnchor.href || sourceAnchor.getAttribute('href'));
             var uri = spotifyResourceUri(href);
             var card = findCardContainer(sourceAnchor, candidate, mainView);
-            if (!uri && href) {
-                try {
-                    var parsed = new URL(href, window.location.href);
-                    if (parsed.hostname === 'open.spotify.com' && parsed.pathname && parsed.pathname !== '/') {
-                        uri = parsed.origin + parsed.pathname;
-                    }
-                } catch (_) {}
-            }
             var lines;
             var heading;
             var title;
@@ -447,17 +437,6 @@
             }
         }
 
-        if (userRows.length === 0 && rows.length === 0) {
-            userRows.push({
-                title: 'Titres likés',
-                subtitle: 'Playlist',
-                section: 'Vos playlists',
-                image: 'https://misc.scdn.co/liked-songs/liked-songs-640.png',
-                uri: 'spotify:collection:tracks'
-            });
-            seen.add('spotify:collection:tracks');
-        }
-
         rows.forEach(function(row) {
             if (!row || !row.uri || !row.title || seen.has(row.uri)) return;
             seen.add(row.uri);
@@ -484,80 +463,33 @@
         homeRetries += 1;
         homeRetryTimer = window.setTimeout(function() {
             homeRetryTimer = null;
-            runUpdate();
-        }, 160);
+            if (isSpotifyHome()) runUpdate();
+        }, 500);
     }
 
     function updateHomeRows(mainView) {
         var rows;
         var signature;
-        var homeRoute = window.location.hostname === 'open.spotify.com' && nativeScreenForPath() === 'home';
+        var homeRoute = window.location.hostname === 'open.spotify.com' && isSpotifyHome();
         window.__sfNativeUiHomeRouteRecognized = homeRoute;
         if (!homeRoute || !mainView) {
             clearHomeRetry();
             return;
         }
 
-        // Read the whole signed-in page: the current mobile web home puts
-        // liked-songs / mix tiles in a left rail outside #main-view.
-        rows = supplementHomeRowsWithLibrary(collectHomeRows(
-            (document.body && document.body.querySelectorAll) ? document.body : mainView
-        ));
+        rows = supplementHomeRowsWithLibrary(collectHomeRows(mainView));
         signature = JSON.stringify(rows);
         window.__sfNativeUiHomeRowsCount = rows.length;
-        if (rows.length === 0) {
-            scheduleHomeRetry();
-            return;
-        }
         if (lastHomeSignature !== signature && sendNativeUiData('home', rows)) {
+            // This state is intentionally closure-local. Older hotfixable bridge
+            // code used the same window property and could suppress the first
+            // native Home update with a stale/empty signature.
             lastHomeSignature = signature;
             window.__sfNativeUiHomeDataSent = true;
         }
-        if (rows.length > 0 && (rows.length >= 4 || rows.some(function(row) { return Boolean(row && row.image); }))) clearHomeRetry();
+
+        if (rows.length > 0 && rows.some(function(row) { return Boolean(row && row.image); })) clearHomeRetry();
         else scheduleHomeRetry();
-    }
-
-    // The native home can only be understood from the phone, so the page reports
-    // what it actually sees: route, how many card/link nodes exist, and which
-    // data-testid values dominate. A blank screen then explains itself.
-    function nativeDiagPayload(mainView) {
-        var scope = mainView || document;
-        var ids = {};
-        var top;
-        try {
-            Array.prototype.slice.call(scope.querySelectorAll('[data-testid]')).forEach(function(node) {
-                var id = node.getAttribute && node.getAttribute('data-testid');
-                if (id) ids[id] = (ids[id] || 0) + 1;
-            });
-            top = Object.keys(ids).sort(function(a, b) {
-                return ids[b] - ids[a];
-            }).slice(0, 5).map(function(key) {
-                return key + '=' + ids[key];
-            }).join(' ');
-        } catch (_) {
-            top = '';
-        }
-        return [
-            'route ' + String(spotifyRoutePath() || '/').slice(0, 40),
-            'accueil ' + (isSpotifyHome() ? 'oui' : 'non'),
-            'cartes ' + scope.querySelectorAll('[data-testid="card"]').length,
-            'liens ' + scope.querySelectorAll('a[href]').length,
-            'images ' + scope.querySelectorAll('img').length,
-            'compte ' + (document.querySelector('button[data-testid="user-widget-link"], a[data-testid="user-widget-link"]') ? 'oui' : 'non'),
-            top
-        ].join(' | ');
-    }
-
-    function sendNativeDiag(mainView) {
-        var bridge = window.AndBridge;
-        var payload;
-        if (!bridge || typeof bridge.onNativeDiag !== 'function') return;
-        try {
-            payload = nativeDiagPayload(mainView);
-            if (payload === window.__sfLastNativeDiag) return;
-            bridge.onNativeDiag(payload);
-            window.__sfLastNativeDiag = payload;
-        } catch (_) {}
     }
 
     function currentSearchQuery() {
@@ -688,23 +620,11 @@
         var bridge = window.AndBridge;
         var userWidget;
         var searchQuery;
-        var loggedIn;
-        var path;
-        if (window.location.hostname !== 'open.spotify.com' || window.__sfNativeUiReadyNotified) return false;
+        if (!mainView || window.location.hostname !== 'open.spotify.com' || window.__sfNativeUiReadyNotified) return false;
 
-        path = spotifyRoutePath();
-        if (path.indexOf('/login') === 0 || path.indexOf('/signup') === 0 || path.indexOf('/password') === 0) return false;
-
-        // Do not cover Spotify's page until a signed-in control is present.
-        // The account chip used to be user-widget-link; current mobile web often
-        // only exposes the now-playing bar or a generic user-widget avatar.
+        // Do not cover Spotify's page until its signed-in account control is present.
         userWidget = document.querySelector('button[data-testid="user-widget-link"], a[data-testid="user-widget-link"]');
-        loggedIn = userWidget || document.querySelector(
-            '[data-testid="user-widget"], [data-testid="user-widget-avatar"], ' +
-            '[data-testid="now-playing-widget"], [data-testid="now-playing-bar"], ' +
-            '[data-testid="player-controls"], footer[data-testid="now-playing-bar"]'
-        );
-        if (!loggedIn || !bridge || typeof bridge.onNativeUiReady !== 'function') return false;
+        if (!userWidget || !bridge || typeof bridge.onNativeUiReady !== 'function') return false;
 
         if (typeof bridge.onNativeUiRoute === 'function') {
             try {
@@ -937,15 +857,6 @@
         if (!playing && isMediaPlaying()) playing = true;
         return { playing: playing, hasButton: Boolean(playPauseButton()) };
     }
-
-    // Native "try again" on an empty Home: forget the cached signature so the
-    // next run re-collects and re-sends, even if the DOM looks unchanged.
-    window.__sfNativeUiRecheck = function() {
-        lastHomeSignature = null;
-        window.__sfLastNativeDiag = '';
-        runUpdate();
-        return true;
-    };
 
     window.__sfGetPlaybackSnapshot = playbackSnapshot;
 
@@ -1324,15 +1235,11 @@
         try {
             installPlaybackStateGuard();
             installSearchFallback();
-            mainView = document.querySelector('#main-view') ||
-                document.querySelector('[role="main"]') ||
-                document.querySelector('#main') ||
-                document.body;
+            mainView = document.querySelector('#main-view');
             if (mainView) {
                 notifyNativeUiReady(mainView);
                 detectSpotifyProfile();
                 updateHomeRows(mainView);
-                sendNativeDiag(mainView);
                 updateDetailRows(mainView);
                 updateSearchRows(mainView);
                 updateLibraryRows(mainView);
@@ -1348,7 +1255,7 @@
         updateTimer = window.setTimeout(function() {
             updateTimer = null;
             runUpdate();
-        }, 40);
+        }, 120);
     }
 
     var SETTINGS_STORAGE_KEY = 'melodix_spotify_settings_v1';

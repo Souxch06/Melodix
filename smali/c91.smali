@@ -2208,10 +2208,6 @@
     move-result-object v5
     invoke-virtual {v0, v5, v8}, Landroid/webkit/WebView;->evaluateJavascript(Ljava/lang/String;Landroid/webkit/ValueCallback;)V
 
-    invoke-virtual {v0}, Landroid/webkit/WebView;->getUrl()Ljava/lang/String;
-    move-result-object v5
-    invoke-static {v5}, Lcom/melodix/music/MainActivity;->maybeRevealNativeUi(Ljava/lang/String;)V
-
     # spotify_bridge.js is ~200 KB. A single evaluateJavascript call of that size
     # is dropped without any error on device (the bridge never started, so every
     # pause guard stayed inactive). The shell therefore reads the asset through

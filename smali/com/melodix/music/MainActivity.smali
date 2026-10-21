@@ -74,8 +74,6 @@
 
 .field private nativeCurrentScreen:Ljava/lang/String;
 
-.field private nativeDiagText:Ljava/lang/String;
-
 # True once Spotify reports a track: the mini player card stays hidden until
 # then instead of showing an empty "Aucune lecture en cours" bar everywhere.
 .field private nativeHasTrack:Z
@@ -2685,8 +2683,6 @@
 
     invoke-static/range {v1 .. v1}, Lcom/melodix/music/NativeCrashGuard;->stage(Ljava/lang/String;)V
 
-    invoke-virtual {v0}, Lcom/melodix/music/MainActivity;->postNativeUiReady()V
-
     .line 154
     .line 155
     .line 156
@@ -4803,8 +4799,6 @@
 
     .line 1
     invoke-super {p0}, Landroidx/activity/a;->onResume()V
-
-    invoke-virtual {p0}, Lcom/melodix/music/MainActivity;->revealNativeIfReady()V
 
     .line 2
     .line 3
@@ -6924,186 +6918,6 @@
     return-void
 .end method
 
-.method public final postNativeDiag(Ljava/lang/String;)V
-    .locals 3
-
-    new-instance v0, Lcom/melodix/music/NativeUiUpdateRunnable;
-    const-string v1, ""
-    const/4 v2, 0x3
-    invoke-direct {v0, p0, v1, p1, v2}, Lcom/melodix/music/NativeUiUpdateRunnable;-><init>(Lcom/melodix/music/MainActivity;Ljava/lang/String;Ljava/lang/String;I)V
-    invoke-virtual {p0, v0}, Landroid/app/Activity;->runOnUiThread(Ljava/lang/Runnable;)V
-    return-void
-.end method
-
-
-.method public final setNativeDiag(Ljava/lang/String;)V
-    .locals 0
-
-    iput-object p1, p0, Lcom/melodix/music/MainActivity;->nativeDiagText:Ljava/lang/String;
-
-    invoke-virtual {p0}, Lcom/melodix/music/MainActivity;->refreshNativePlaceholder()V
-
-    return-void
-.end method
-
-
-# Shows a readable placeholder when the home screen has received nothing yet.
-# The detail line carries the state reported by the page, which is the only
-# way to understand a blank screen on a phone without logcat.
-.method public final refreshNativePlaceholder()V
-    .locals 5
-
-    iget-object v0, p0, Lcom/melodix/music/MainActivity;->nativeCurrentScreen:Ljava/lang/String;
-
-    if-eqz v0, :done
-
-    const-string v1, "home"
-
-    invoke-virtual {v1, v0}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
-
-    move-result v0
-
-    if-nez v0, :done
-
-    const v0, 0x7f090235
-
-    invoke-virtual {p0, v0}, Landroid/app/Activity;->findViewById(I)Landroid/view/View;
-
-    move-result-object v2
-
-    if-eqz v2, :done
-
-    check-cast v2, Landroid/widget/LinearLayout;
-
-    invoke-virtual {v2}, Landroid/widget/LinearLayout;->getChildCount()I
-
-    move-result v3
-
-    if-eqz v3, :empty
-
-    return-void
-
-    :empty
-    const-string v4, "Chargement de ton accueil…"
-
-    iget-object v3, p0, Lcom/melodix/music/MainActivity;->nativeDiagText:Ljava/lang/String;
-
-    if-nez v3, :default_detail
-
-    invoke-virtual {v3}, Ljava/lang/String;->length()I
-
-    move-result v0
-
-    if-nez v0, :default_detail
-
-    goto :have_detail
-
-    :default_detail
-    const-string v3, "En attente des données Spotify."
-
-    :have_detail
-    invoke-static {p0, v4, v3}, Lcom/melodix/music/NativeEmptyState;->fill(Lcom/melodix/music/MainActivity;Ljava/lang/String;Ljava/lang/String;)V
-
-    :done
-    return-void
-.end method
-
-
-
-.method public final hideNativeUi()V
-    .locals 2
-
-    const v0, 0x7f09022f
-    invoke-virtual {p0, v0}, Landroid/app/Activity;->findViewById(I)Landroid/view/View;
-    move-result-object v0
-    if-eqz v0, :hide_done
-    const/16 v1, 0x8
-    invoke-virtual {v0, v1}, Landroid/view/View;->setVisibility(I)V
-    :hide_done
-    return-void
-.end method
-
-
-.method public static maybeRevealNativeUi(Ljava/lang/String;)V
-    .locals 3
-
-    sget-object v0, Lcom/melodix/music/AppSingleton;->t:Ljava/lang/ref/WeakReference;
-    if-eqz v0, :done
-    invoke-virtual {v0}, Ljava/lang/ref/Reference;->get()Ljava/lang/Object;
-    move-result-object v1
-    check-cast v1, Lcom/melodix/music/MainActivity;
-    if-eqz v1, :done
-
-    if-nez p0, :show
-
-    const-string v0, "/login"
-    invoke-virtual {p0, v0}, Ljava/lang/String;->contains(Ljava/lang/CharSequence;)Z
-    move-result v2
-    if-eqz v2, :hide
-
-    const-string v0, "/signup"
-    invoke-virtual {p0, v0}, Ljava/lang/String;->contains(Ljava/lang/CharSequence;)Z
-    move-result v2
-    if-eqz v2, :hide
-
-    const-string v0, "accounts.spotify"
-    invoke-virtual {p0, v0}, Ljava/lang/String;->contains(Ljava/lang/CharSequence;)Z
-    move-result v2
-    if-eqz v2, :hide
-
-    :show
-    invoke-virtual {v1}, Lcom/melodix/music/MainActivity;->postNativeUiReady()V
-    return-void
-
-    :hide
-    invoke-virtual {v1}, Lcom/melodix/music/MainActivity;->hideNativeUi()V
-
-    :done
-    return-void
-.end method
-
-
-
-.method public final revealNativeIfReady()V
-    .locals 3
-
-    # Session already live: hide splash only. Do not restore Home over Search.
-    sget-boolean v0, Lcom/melodix/music/AppSingleton;->l:Z
-    if-eqz v0, :done
-
-    iget-object v1, p0, Lcom/melodix/music/MainActivity;->H:Landroidx/constraintlayout/widget/ConstraintLayout;
-    if-eqz v1, :hide_bar
-    const/16 v2, 0x8
-    invoke-virtual {v1, v2}, Landroid/view/View;->setVisibility(I)V
-
-    :hide_bar
-    iget-object v1, p0, Lcom/melodix/music/MainActivity;->R:Landroid/widget/ProgressBar;
-    if-eqz v1, :show_root
-    const/16 v2, 0x8
-    invoke-virtual {v1, v2}, Landroid/view/View;->setVisibility(I)V
-
-    :show_root
-    const v0, 0x7f09022f
-    invoke-virtual {p0, v0}, Landroid/app/Activity;->findViewById(I)Landroid/view/View;
-    move-result-object v1
-    if-eqz v1, :hide_web
-    const/4 v2, 0x0
-    invoke-virtual {v1, v2}, Landroid/view/View;->setVisibility(I)V
-    const/high16 v2, 0x3f800000
-    invoke-virtual {v1, v2}, Landroid/view/View;->setAlpha(F)V
-
-    :hide_web
-    iget-object v1, p0, Lcom/melodix/music/MainActivity;->G:Landroid/webkit/WebView;
-    if-eqz v1, :done
-    const/4 v2, 0x0
-    int-to-float v2, v2
-    invoke-virtual {v1, v2}, Landroid/view/View;->setAlpha(F)V
-
-    :done
-    return-void
-.end method
-
-
 .method public final showNativeUi()V
     .locals 5
 
@@ -7125,18 +6939,9 @@
     const v0, 0x7f09022f
     invoke-virtual {p0, v0}, Landroid/app/Activity;->findViewById(I)Landroid/view/View;
     move-result-object v1
-    if-eqz v1, :hide_web_visually
-    const/4 v2, 0x0
-    invoke-virtual {v1, v2}, Landroid/view/View;->setVisibility(I)V
-    const/high16 v2, 0x3f800000
-    invoke-virtual {v1, v2}, Landroid/view/View;->setAlpha(F)V
-
-    :hide_web_visually
-    iget-object v1, p0, Lcom/melodix/music/MainActivity;->G:Landroid/webkit/WebView;
     if-eqz v1, :hide_legacy_settings
     const/4 v2, 0x0
-    int-to-float v2, v2
-    invoke-virtual {v1, v2}, Landroid/view/View;->setAlpha(F)V
+    invoke-virtual {v1, v2}, Landroid/view/View;->setVisibility(I)V
 
     :hide_legacy_settings
     const v0, 0x7f090060
@@ -7175,8 +6980,6 @@
     invoke-virtual {p0, v0}, Lcom/melodix/music/MainActivity;->setNativeScreen(Ljava/lang/String;)V
 
     :show_done
-    invoke-static {p0}, Lcom/melodix/music/NativeHomeCache;->restore(Lcom/melodix/music/MainActivity;)V
-
     const-string v0, "ready"
 
     invoke-static {v0}, Lcom/melodix/music/NativeCrashGuard;->stage(Ljava/lang/String;)V
@@ -7187,19 +6990,21 @@
 .method public final setNativeScreen(Ljava/lang/String;)V
     .locals 7
 
-    # Keep a null-safe compare (settings / first paint) but never fade:
-    # lowering alpha shows the WebView behind the tabs.
-    const/4 v0, 0x0
+    # Compare with the previous destination before overwriting it: a nav tap
+    # fades the shell in, a repeated feed update does not.
+    const/4 v0, 0x1
 
     iget-object v1, p0, Lcom/melodix/music/MainActivity;->nativeCurrentScreen:Ljava/lang/String;
 
-    if-eqz v1, :native_fade_flag
+    if-nez v1, :native_fade_flag
 
     invoke-virtual {v1, p1}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
 
     move-result v1
 
     if-nez v1, :native_fade_flag
+
+    const/4 v0, 0x0
 
     :native_fade_flag
     iput-boolean v0, p0, Lcom/melodix/music/MainActivity;->nativeFadeNextScreen:Z
@@ -7407,6 +7212,10 @@
     const v2, 0x7f090248
     invoke-virtual {p0, p1, v3, v2}, Lcom/melodix/music/MainActivity;->styleNativeTab(Ljava/lang/String;Ljava/lang/String;I)V
 
+    iget-boolean v0, p0, Lcom/melodix/music/MainActivity;->nativeFadeNextScreen:Z
+
+    if-eqz v0, :native_fade_done
+
     const/4 v0, 0x0
 
     iput-boolean v0, p0, Lcom/melodix/music/MainActivity;->nativeFadeNextScreen:Z
@@ -7414,68 +7223,44 @@
     invoke-static {p0}, Lcom/melodix/music/MainActivity;->fadeNativeScreen(Lcom/melodix/music/MainActivity;)V
 
     :native_fade_done
-    # Guarantee that an empty screen explains itself instead of staying blank.
-    invoke-virtual {p0}, Lcom/melodix/music/MainActivity;->refreshNativePlaceholder()V
-
     return-void
 .end method
 
 .method public final styleNativeTab(Ljava/lang/String;Ljava/lang/String;I)V
-    .locals 8
+    .locals 5
 
     invoke-virtual {p1, p2}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
     move-result v0
     invoke-virtual {p0, p3}, Landroid/app/Activity;->findViewById(I)Landroid/view/View;
     move-result-object v1
     if-eqz v1, :native_tab_style_done
+    check-cast v1, Landroid/widget/TextView;
     if-eqz v0, :native_tab_inactive
     const v2, -0x1
-    const v4, -0xe128a0
-    goto :native_tab_apply
+    const v4, 0xff1ed760
+    goto :native_tab_highlight
 
     :native_tab_inactive
-    const v2, -0x4c4c4d
-    const v4, -0x4c4c4d
+    const v2, -0x888889
+    const v4, -0x888889
+    goto :native_tab_apply
+
+    :native_tab_highlight
 
     :native_tab_apply
-    instance-of v3, v1, Landroid/widget/TextView;
-    if-nez v3, :native_tab_as_group
-    check-cast v1, Landroid/widget/TextView;
     invoke-virtual {v1, v2}, Landroid/widget/TextView;->setTextColor(I)V
+    # The tab background is a ripple drawable; tinting it transparent (as the
+    # old code did) also removed every press feedback.
     invoke-static {v4}, Landroid/content/res/ColorStateList;->valueOf(I)Landroid/content/res/ColorStateList;
-    move-result-object v3
-    invoke-virtual {v1, v3}, Landroid/widget/TextView;->setCompoundDrawableTintList(Landroid/content/res/ColorStateList;)V
-    goto :native_tab_style_done
-
-    :native_tab_as_group
-    instance-of v3, v1, Landroid/view/ViewGroup;
-    if-eqz v3, :native_tab_style_done
-    check-cast v1, Landroid/view/ViewGroup;
-    const/4 v3, 0x0
-    invoke-virtual {v1, v3}, Landroid/view/ViewGroup;->getChildAt(I)Landroid/view/View;
-    move-result-object v5
-    if-eqz v5, :native_tab_text_child
-    instance-of v6, v5, Landroid/widget/ImageView;
-    if-eqz v6, :native_tab_text_child
-    check-cast v5, Landroid/widget/ImageView;
-    invoke-virtual {v5, v4}, Landroid/widget/ImageView;->setColorFilter(I)V
-
-    :native_tab_text_child
-    const/4 v3, 0x1
-    invoke-virtual {v1, v3}, Landroid/view/ViewGroup;->getChildAt(I)Landroid/view/View;
-    move-result-object v5
-    if-eqz v5, :native_tab_style_done
-    instance-of v6, v5, Landroid/widget/TextView;
-    if-eqz v6, :native_tab_style_done
-    check-cast v5, Landroid/widget/TextView;
-    invoke-virtual {v5, v2}, Landroid/widget/TextView;->setTextColor(I)V
+    move-result-object v4
+    invoke-virtual {v1, v4}, Landroid/widget/TextView;->setCompoundDrawableTintList(Landroid/content/res/ColorStateList;)V
 
     :native_tab_style_done
     return-void
 .end method
 
 .method private static fadeNativeScreen(Lcom/melodix/music/MainActivity;)V
-    .locals 3
+    .locals 4
 
     const v0, 0x7f09022f
 
@@ -7483,31 +7268,30 @@
 
     move-result-object v0
 
-    if-eqz v0, :fade_done
+    if-nez v0, :fade_done
+
+    # Start slightly transparent instead of fully invisible: the shell gradient
+    # is opaque, so a lower alpha would flash the WebView underneath, and a
+    # cancelled animation can never leave the screen blank.
+    const/high16 v1, 0x3f600000
+
+    invoke-virtual {v0, v1}, Landroid/view/View;->setAlpha(F)V
 
     invoke-virtual {v0}, Landroid/view/View;->animate()Landroid/view/ViewPropertyAnimator;
 
     move-result-object v1
 
-    invoke-virtual {v1}, Landroid/view/ViewPropertyAnimator;->cancel()V
+    const/high16 v2, 0x3f800000
 
-    const/high16 v1, 0x3f800000
+    invoke-virtual {v1, v2}, Landroid/view/ViewPropertyAnimator;->alpha(F)Landroid/view/ViewPropertyAnimator;
 
-    invoke-virtual {v0, v1}, Landroid/view/View;->setAlpha(F)V
+    const-wide/16 v2, 0xb4
 
-    const/4 v2, 0x0
+    invoke-virtual {v1, v2, v3}, Landroid/view/ViewPropertyAnimator;->setDuration(J)Landroid/view/ViewPropertyAnimator;
 
-    invoke-virtual {v0, v2}, Landroid/view/View;->setVisibility(I)V
+    move-result-object v1
 
-    iget-object v0, p0, Lcom/melodix/music/MainActivity;->G:Landroid/webkit/WebView;
-
-    if-eqz v0, :fade_done
-
-    const/4 v2, 0x0
-
-    int-to-float v2, v2
-
-    invoke-virtual {v0, v2}, Landroid/view/View;->setAlpha(F)V
+    invoke-virtual {v1}, Landroid/view/ViewPropertyAnimator;->start()V
 
     :fade_done
     return-void
@@ -7628,7 +7412,6 @@
     :apply_home
     const-string v2, "Accueil"
     invoke-virtual {p0, v2, p2}, Lcom/melodix/music/MainActivity;->renderNativeRows(Ljava/lang/String;Ljava/lang/String;)V
-    invoke-static {p0, p2}, Lcom/melodix/music/NativeHomeCache;->save(Landroid/content/Context;Ljava/lang/String;)V
     return-void
 
     :check_media
@@ -7994,20 +7777,8 @@
     invoke-virtual {v1, v0}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
     move-result v0
     if-nez v0, :native_rows_list
-
-    :try_start_home_shelf
     invoke-static {p0, p2}, Lcom/melodix/music/NativeHomeShelfRenderer;->render(Lcom/melodix/music/MainActivity;Ljava/lang/String;)V
-    :try_end_home_shelf
-    .catch Ljava/lang/Throwable; {:try_start_home_shelf .. :try_end_home_shelf} :catch_home_shelf
-
-    invoke-virtual {v2}, Landroid/widget/LinearLayout;->getChildCount()I
-    move-result v0
-    if-lez v0, :native_rows_list
     return-void
-
-    :catch_home_shelf
-    move-exception v0
-    goto :native_rows_list
 
     :native_rows_list
     :try_start_native_rows
@@ -8148,8 +7919,8 @@
     invoke-virtual {v1, v0}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
     move-result v0
     if-nez v0, :native_rows_check_library
-    invoke-static {p0}, Lcom/melodix/music/NativeHomePaint;->seed(Lcom/melodix/music/MainActivity;)V
-    return-void
+    const-string v0, "Chargement de votre accueil…"
+    goto :native_rows_set_empty
 
     :native_rows_check_library
     iget-object v0, p0, Lcom/melodix/music/MainActivity;->nativeCurrentScreen:Ljava/lang/String;
@@ -8227,7 +7998,9 @@
 
     const-string v0, "home"
     invoke-virtual {p0, v0}, Lcom/melodix/music/MainActivity;->setNativeScreen(Ljava/lang/String;)V
-    invoke-static {p0}, Lcom/melodix/music/NativeHomeCache;->restore(Lcom/melodix/music/MainActivity;)V
+    const-string v1, "Accueil"
+    const-string v2, "[]"
+    invoke-virtual {p0, v1, v2}, Lcom/melodix/music/MainActivity;->renderNativeRows(Ljava/lang/String;Ljava/lang/String;)V
     const-string v0, "window.__sfNativeRequestHome && window.__sfNativeRequestHome();"
     invoke-virtual {p0, v0}, Lcom/melodix/music/MainActivity;->runNativeJavascript(Ljava/lang/String;)V
     return-void
@@ -8269,9 +8042,19 @@
     invoke-virtual {v0, v1}, Landroid/view/View;->setVisibility(I)V
 
     :native_search_genre_shown
-    const-string v0, "Parcourir les genres ci-dessus, ou tape une recherche"
-    const-string v1, ""
-    invoke-static {p0, v0, v1}, Lcom/melodix/music/NativeHomePaint;->row(Lcom/melodix/music/MainActivity;Ljava/lang/String;Ljava/lang/String;)V
+    const v0, 0x7f090239
+
+    invoke-virtual {p0, v0}, Landroid/app/Activity;->findViewById(I)Landroid/view/View;
+
+    move-result-object v0
+
+    if-eqz v0, :native_search_rows_hidden
+
+    const/16 v1, 0x8
+
+    invoke-virtual {v0, v1}, Landroid/view/View;->setVisibility(I)V
+
+    :native_search_rows_hidden
     return-void
 .end method
 
@@ -8640,7 +8423,6 @@
 .method public final openNativeSettings()V
     .locals 4
 
-    :try_start_settings
     iget-object v0, p0, Lcom/melodix/music/MainActivity;->nativeCurrentScreen:Ljava/lang/String;
     if-eqz v0, :native_settings_default_screen
     const-string v1, "settings"
@@ -8675,15 +8457,8 @@
     invoke-virtual {p0, v1, v2}, Lcom/melodix/music/MainActivity;->renderNativeRows(Ljava/lang/String;Ljava/lang/String;)V
     const-string v1, "window.__sfRequestSpotifySettings && window.__sfRequestSpotifySettings();"
     invoke-virtual {p0, v1}, Lcom/melodix/music/MainActivity;->runNativeJavascript(Ljava/lang/String;)V
-    :try_end_settings
-    .catch Ljava/lang/Throwable; {:try_start_settings .. :try_end_settings} :catch_settings
 
     :native_settings_done
-    return-void
-
-    :catch_settings
-    move-exception v0
-    invoke-static {v0}, Lcom/melodix/music/NativeCrashGuard;->record(Ljava/lang/Throwable;)V
     return-void
 .end method
 

@@ -24,10 +24,6 @@
     :try_start_0
     iget-object v0, p0, Lcom/melodix/music/NativeUiUpdateRunnable;->activity:Lcom/melodix/music/MainActivity;
     iget v1, p0, Lcom/melodix/music/NativeUiUpdateRunnable;->action:I
-
-    const/4 v2, 0x3
-
-    if-ne v1, v2, :apply_diag
     if-eqz v1, :show_native_shell
     const/4 v2, 0x2
     if-ne v1, v2, :apply_data
@@ -47,12 +43,6 @@
     iget-object v1, p0, Lcom/melodix/music/NativeUiUpdateRunnable;->screen:Ljava/lang/String;
     iget-object v2, p0, Lcom/melodix/music/NativeUiUpdateRunnable;->data:Ljava/lang/String;
     invoke-virtual {v0, v1, v2}, Lcom/melodix/music/MainActivity;->applyNativeUiData(Ljava/lang/String;Ljava/lang/String;)V
-
-    return-void
-
-    :apply_diag
-    iget-object v1, p0, Lcom/melodix/music/NativeUiUpdateRunnable;->data:Ljava/lang/String;
-    invoke-virtual {v0, v1}, Lcom/melodix/music/MainActivity;->setNativeDiag(Ljava/lang/String;)V
     return-void
     :try_end_0
     .catch Ljava/lang/Throwable; {:try_start_0 .. :try_end_0} :catch_0

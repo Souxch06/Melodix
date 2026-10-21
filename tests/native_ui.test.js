@@ -46,10 +46,10 @@ test('native shell overlays, but does not replace or detach, the existing WebVie
 
     assert.ok(webViewPosition >= 0, 'the existing WebView container must remain in the layout');
     assert.ok(nativeRootPosition > webViewPosition, 'native shell should draw over the WebView');
-    assert.match(layout.slice(nativeRootPosition, nativeRootPosition + 900), /android:visibility="visible"/);
+    assert.match(layout.slice(nativeRootPosition, nativeRootPosition + 900), /android:visibility="gone"/);
     assert.match(layout.slice(nativeRootPosition, nativeRootPosition + 900), /android:clickable="true"/);
     assert.match(layout, /android:id="@id\/nativeContent"/);
-    assert.match(layout, /onNativeSettingsClick/);
+    assert.match(layout, /Loading your music/);
     assert.match(layout, /android:id="@id\/nativePlayerArtwork"/);
     assert.match(layout, /android:id="@id\/nativePlayerLargeArtwork"/);
     assert.match(layout, /android:id="@id\/nativeHomeTab"/);
@@ -1205,6 +1205,7 @@ test('browse tiles drive the live search and the grid yields to real results', (
     assert.match(rows, /0x7f090239/);
     assert.match(rows, /0x7f09024f/);
     assert.match(search, /0x7f09024f/);
+    assert.match(search, /0x7f090239/);
     assert.match(screen, /0x7f09024f/);
 });
 
