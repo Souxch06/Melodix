@@ -899,6 +899,12 @@ test('Home paints JSON rows instead of a loading placeholder', () => {
     assert.match(activity, /NativeUiRowFactory;->create/);
     assert.doesNotMatch(layout, /Loading your music/);
     assert.doesNotMatch(layout, /Titres lik/);
+    const emptyAt = activity.lastIndexOf(':native_rows_empty');
+    const empty = activity.slice(emptyAt, emptyAt + 2200);
+    assert.match(empty, /if-eqz v0, :native_rows_default_empty/);
+    assert.doesNotMatch(empty, /if-nez v0, :native_rows_default_empty/);
+    assert.match(empty, /if-eqz v0, :native_rows_check_home/);
+    assert.match(empty, /Chargement de votre accueil/);
 });
 
 test('opening a playlist no longer depends on the playback bridge', () => {

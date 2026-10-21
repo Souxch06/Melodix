@@ -6988,15 +6988,11 @@
     move-result v1
     if-eqz v1, :show_done
     iget-object v1, p0, Lcom/melodix/music/MainActivity;->nativeHomeJson:Ljava/lang/String;
-    if-eqz v1, :show_home_empty_json
+    if-eqz v1, :show_done
     invoke-virtual {v1}, Ljava/lang/String;->length()I
     move-result v2
     const/16 v3, 0x8
-    if-le v2, v3, :show_home_empty_json
-    goto :show_home_render
-    :show_home_empty_json
-    const-string v1, "[]"
-    :show_home_render
+    if-le v2, v3, :show_done
     const-string v2, "Accueil"
     invoke-virtual {p0, v2, v1}, Lcom/melodix/music/MainActivity;->renderNativeRows(Ljava/lang/String;Ljava/lang/String;)V
 
@@ -8002,7 +7998,7 @@
     const-string v1, "search"
     invoke-virtual {v1, v0}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
     move-result v0
-    if-nez v0, :native_rows_default_empty
+    if-eqz v0, :native_rows_default_empty
     const-string v0, "Recherchez un artiste, un titre, un album ou une playlist ci-dessus"
     goto :native_rows_set_empty
 
@@ -8011,7 +8007,7 @@
     const-string v1, "detail"
     invoke-virtual {v1, v0}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
     move-result v0
-    if-nez v0, :native_rows_check_home
+    if-eqz v0, :native_rows_check_home
     const-string v0, "Chargement de la playlist…"
     goto :native_rows_set_empty
 
@@ -8020,7 +8016,7 @@
     const-string v1, "home"
     invoke-virtual {v1, v0}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
     move-result v0
-    if-nez v0, :native_rows_check_library
+    if-eqz v0, :native_rows_check_library
     const-string v0, "Chargement de votre accueil…"
     goto :native_rows_set_empty
 
@@ -8029,7 +8025,7 @@
     const-string v1, "library"
     invoke-virtual {v1, v0}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
     move-result v0
-    if-nez v0, :native_rows_default_text
+    if-eqz v0, :native_rows_default_text
     const-string v0, "Chargement de votre bibliothèque…"
     goto :native_rows_set_empty
 
