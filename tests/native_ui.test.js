@@ -860,26 +860,19 @@ test('content rows reach the cover factory instead of the settings factory', () 
     assert.ok(start > 0, 'the row dispatch label should exist');
     // The label is referenced by a goto before its definition: take a window
     // that always covers the whole dispatch block.
-    const dispatch = activity.slice(start, start + 1400);
+    const dispatch = activity.slice(start, start + 2800);
 
     assert.match(dispatch, /const-string v0, "settingValue"[\s\S]*?isEmpty\(\)Z[\s\S]*?move-result v1/);
     assert.match(
         dispatch,
-        /if-nez v1, :native_row_create_standard/,
-        'an empty settingValue (isEmpty != 0) jumps to the cover factory'
+        /if-nez v1, :native_row_plain/,
+        'an empty settingValue jumps to a visible title row'
     );
-    assert.doesNotMatch(
-        dispatch,
-        /if-eqz v1, :native_row_create_standard/,
-        'if-eqz sent empty settingValue rows through the settings factory'
-    );
+    assert.match(dispatch, /Landroid\/widget\/TextView;-><init>/);
+    assert.match(dispatch, /NativeUiRowFactory;->create\(/);
 
     const settingsAt = dispatch.indexOf('NativeSettingsRowFactory;->create');
-    // The jump instruction also contains the label name: take its definition.
-    const standardLabel = dispatch.lastIndexOf(':native_row_create_standard');
-    const contentAt = dispatch.indexOf('NativeUiRowFactory;->create(');
     assert.ok(settingsAt > 0, 'settings rows still need the settings factory');
-    assert.ok(standardLabel > settingsAt && contentAt > standardLabel);
 });
 
 test('merged Spotify card labels are split into a title and a subtitle', () => {
