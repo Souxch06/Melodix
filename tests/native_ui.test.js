@@ -88,8 +88,10 @@ test('native bridge exposes UI callbacks and routes media, search and player dat
     assert.match(bridge, /\.method public final onNativeUiRoute\(Ljava\/lang\/String;\)V[\s\S]*?JavascriptInterface/);
     assert.match(bridge, /\.method public final onNativeUiData\(Ljava\/lang\/String;Ljava\/lang\/String;\)V[\s\S]*?JavascriptInterface/);
     assert.match(bridge, /\.method public final onNativeListText\(Ljava\/lang\/String;\)V[\s\S]*?JavascriptInterface/);
+    assert.match(bridge, /NativeListPaintRunnable/);
     assert.match(activity, /applyNativeListText/);
-    assert.match(activity, /const-string v2, \"nativeListText\"/);
+    assert.match(read('smali/com/melodix/music/NativeListPaintRunnable.smali'), /NativeRowList;->fillPlain/);
+    assert.match(read('smali/com/melodix/music/NativeRowList.smali'), /fillPlain/);
     assert.match(bridge, /const-string v1, "media:"[\s\S]*?dispatchNativeUi/);
     assert.match(bridge, /const-string v1, "search:"[\s\S]*?dispatchNativeUi/);
     assert.match(bridge, /const-string v0, "player"[\s\S]*?dispatchNativeUi/);
@@ -880,18 +882,67 @@ test('merged Spotify card labels are split into a title and a subtitle', () => {
     assert.match(shell, /heading\.subtitle \|\|/, 'the split subtitle must feed the row subtitle');
 });
 
-test('Home paints JSON rows instead of a loading placeholder', () => {
-    const activity = read('smali/com/melodix/music/MainActivity.smali');
-    const layout = read('res/layout/activity_main.xml');
-    assert.match(activity, /Landroid\/widget\/TextView;-><init>/);
-    assert.doesNotMatch(layout, /Loading your music/);
-    assert.doesNotMatch(layout, /Titres lik/);
-    const emptyAt = activity.lastIndexOf(':native_rows_empty');
-    const empty = activity.slice(emptyAt, emptyAt + 2200);
-    assert.match(empty, /if-eqz v0, :native_rows_default_empty/);
-    assert.doesNotMatch(empty, /if-nez v0, :native_rows_default_empty/);
-    assert.match(empty, /if-eqz v0, :native_rows_check_home/);
-    assert.match(empty, /Chargement de votre accueil/);
+test('Home simulation: 33 playlists replace the loading placeholder', () => {
+    const calls = [];
+    const listTexts = [];
+    const playlists = Array.from({ length: 33 }, (_, i) => ({
+        name: `Playlist ${i + 1}`,
+        uri: `spotify:playlist:sim${i + 1}`
+    }));
+    const mainView = { querySelectorAll: () => [] };
+    const document = {
+        readyState: 'complete',
+        documentElement: {},
+        querySelector: (selector) => selector === '#main-view'
+            ? mainView
+            : selector.indexOf('user-widget-link') >= 0 ? {} : null,
+        addEventListener: () => {}
+    };
+    class TestMutationObserver { observe() {} }
+    const window = {
+        location: {
+            hostname: 'open.spotify.com',
+            pathname: '/',
+            href: 'https://open.spotify.com/',
+            assign: () => {}
+        },
+        mediaLib: { playlists },
+        AndBridge: {
+            onNativeUiReady: () => {},
+            onNativeUiData: (screen, data) => calls.push({ screen, data }),
+            onNativeListText: (text) => listTexts.push(text)
+        },
+        MutationObserver: TestMutationObserver,
+        addEventListener: () => {},
+        setTimeout: () => 1,
+        clearTimeout: () => {}
+    };
+
+    vm.runInNewContext(read('assets/native_ui_shell.js'), { window, document, URL });
+
+    const listText = listTexts[listTexts.length - 1] || (dataFor(calls, 'list-text') || {}).data || '';
+    assert.ok(listText.includes('Playlist 1'), 'the first playlist title is sent to native');
+    assert.ok(listText.includes('Playlist 12'), 'library playlists are included in the native list');
+    assert.doesNotMatch(listText, /Chargement de votre accueil/);
+
+    const children = [];
+    const nativeContent = {
+        removeAllViews() { children.length = 0; },
+        getChildCount() { return children.length; },
+        addView(view) { children.push(view); }
+    };
+    listText.split('\n').forEach((line) => {
+        const title = line.trim();
+        if (title) nativeContent.addView({ text: title });
+    });
+    nativeContent.removeAllViews();
+    listText.split('\n').forEach((line) => {
+        const title = line.trim();
+        if (title) nativeContent.addView({ text: title });
+    });
+    assert.ok(children.some((child) => child.text === 'Playlist 1'));
+    assert.equal(children.some((child) => /Chargement/.test(child.text)), false);
+    assert.ok(children.length >= 12, `home list painted ${children.length} rows`);
 });
 
 test('opening a playlist no longer depends on the playback bridge', () => {

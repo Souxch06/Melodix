@@ -7815,44 +7815,13 @@
 .end method
 
 .method public final applyNativeListText(Ljava/lang/String;)V
-    .locals 5
+    .locals 4
 
     if-eqz p1, :list_text_done
+    iput-object p1, p0, Lcom/melodix/music/MainActivity;->nativeListBlob:Ljava/lang/String;
 
-    invoke-virtual {p0}, Landroid/content/Context;->getResources()Landroid/content/res/Resources;
-    move-result-object v0
-    if-eqz v0, :list_text_hardcoded
-    invoke-virtual {p0}, Landroid/content/Context;->getPackageName()Ljava/lang/String;
-    move-result-object v1
-    const-string v2, "nativeListText"
-    const-string v3, "id"
-    invoke-virtual {v0, v2, v3, v1}, Landroid/content/res/Resources;->getIdentifier(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)I
-    move-result v2
-    if-eqz v2, :list_text_hardcoded
-    invoke-virtual {p0, v2}, Landroid/app/Activity;->findViewById(I)Landroid/view/View;
-    move-result-object v4
-    if-eqz v4, :list_text_hardcoded
-    check-cast v4, Landroid/widget/TextView;
-    invoke-virtual {v4, p1}, Landroid/widget/TextView;->setText(Ljava/lang/CharSequence;)V
-    return-void
-
-    :list_text_hardcoded
     const v2, 0x7f090250
     invoke-virtual {p0, v2}, Landroid/app/Activity;->findViewById(I)Landroid/view/View;
-    move-result-object v4
-    if-eqz v4, :list_text_content
-    check-cast v4, Landroid/widget/TextView;
-    invoke-virtual {v4, p1}, Landroid/widget/TextView;->setText(Ljava/lang/CharSequence;)V
-    return-void
-
-    :list_text_content
-    const v2, 0x7f090235
-    invoke-virtual {p0, v2}, Landroid/app/Activity;->findViewById(I)Landroid/view/View;
-    move-result-object v4
-    if-eqz v4, :list_text_done
-    check-cast v4, Landroid/view/ViewGroup;
-    const/4 v2, 0x0
-    invoke-virtual {v4, v2}, Landroid/view/ViewGroup;->getChildAt(I)Landroid/view/View;
     move-result-object v4
     if-eqz v4, :list_text_done
     check-cast v4, Landroid/widget/TextView;

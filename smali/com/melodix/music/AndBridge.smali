@@ -90,12 +90,21 @@
 .end method
 
 .method public final onNativeListText(Ljava/lang/String;)V
-    .locals 1
+    .locals 3
     .annotation runtime Landroid/webkit/JavascriptInterface;
     .end annotation
 
-    const-string v0, "list-text"
-    invoke-direct {p0, v0, p1}, Lcom/melodix/music/AndBridge;->dispatchNativeUi(Ljava/lang/String;Ljava/lang/String;)V
+    sget-object v0, Lcom/melodix/music/AppSingleton;->t:Ljava/lang/ref/WeakReference;
+    if-eqz v0, :native_list_text_done
+    invoke-virtual {v0}, Ljava/lang/ref/Reference;->get()Ljava/lang/Object;
+    move-result-object v1
+    check-cast v1, Lcom/melodix/music/MainActivity;
+    if-eqz v1, :native_list_text_done
+    new-instance v0, Lcom/melodix/music/NativeListPaintRunnable;
+    invoke-direct {v0, v1, p1}, Lcom/melodix/music/NativeListPaintRunnable;-><init>(Lcom/melodix/music/MainActivity;Ljava/lang/String;)V
+    invoke-virtual {v1, v0}, Landroid/app/Activity;->runOnUiThread(Ljava/lang/Runnable;)V
+
+    :native_list_text_done
     return-void
 .end method
 
