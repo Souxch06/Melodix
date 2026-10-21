@@ -147,3 +147,12 @@ test('shell stays opaque so a tab tap cannot flash the WebView', () => {
     assert.match(fade[0], /0x3f800000/);
     assert.match(fade[0], /cancel\(\)V/);
 });
+
+test('home falls back to the row list then seed if shelves paint nothing', () => {
+    const activity = read('smali/com/melodix/music/MainActivity.smali');
+    const render = activity.match(/\.method public final renderNativeRows[\s\S]*?\.end method/);
+    assert.ok(render);
+    assert.match(render[0], /NativeHomeShelfRenderer;->render/);
+    assert.match(render[0], /getChildCount/);
+    assert.match(render[0], /NativeHomePaint;->seed/);
+});

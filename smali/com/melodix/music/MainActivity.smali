@@ -7994,8 +7994,20 @@
     invoke-virtual {v1, v0}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
     move-result v0
     if-nez v0, :native_rows_list
+
+    :try_start_home_shelf
     invoke-static {p0, p2}, Lcom/melodix/music/NativeHomeShelfRenderer;->render(Lcom/melodix/music/MainActivity;Ljava/lang/String;)V
+    :try_end_home_shelf
+    .catch Ljava/lang/Throwable; {:try_start_home_shelf .. :try_end_home_shelf} :catch_home_shelf
+
+    invoke-virtual {v2}, Landroid/widget/LinearLayout;->getChildCount()I
+    move-result v0
+    if-lez v0, :native_rows_list
     return-void
+
+    :catch_home_shelf
+    move-exception v0
+    goto :native_rows_list
 
     :native_rows_list
     :try_start_native_rows
@@ -8136,8 +8148,8 @@
     invoke-virtual {v1, v0}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
     move-result v0
     if-nez v0, :native_rows_check_library
-    const-string v0, "Chargement de votre accueil…"
-    goto :native_rows_set_empty
+    invoke-static {p0}, Lcom/melodix/music/NativeHomePaint;->seed(Lcom/melodix/music/MainActivity;)V
+    return-void
 
     :native_rows_check_library
     iget-object v0, p0, Lcom/melodix/music/MainActivity;->nativeCurrentScreen:Ljava/lang/String;
