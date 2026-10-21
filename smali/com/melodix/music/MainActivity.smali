@@ -6982,20 +6982,6 @@
     invoke-virtual {p0, v0}, Lcom/melodix/music/MainActivity;->setNativeScreen(Ljava/lang/String;)V
 
     :show_paint_home
-    iget-object v0, p0, Lcom/melodix/music/MainActivity;->nativeCurrentScreen:Ljava/lang/String;
-    const-string v1, "home"
-    invoke-virtual {v1, v0}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
-    move-result v1
-    if-eqz v1, :show_done
-    iget-object v1, p0, Lcom/melodix/music/MainActivity;->nativeHomeJson:Ljava/lang/String;
-    if-eqz v1, :show_home_empty_json
-    goto :show_home_render
-    :show_home_empty_json
-    const-string v1, "[]"
-    :show_home_render
-    const-string v2, "Accueil"
-    invoke-virtual {p0, v2, v1}, Lcom/melodix/music/MainActivity;->renderNativeRows(Ljava/lang/String;Ljava/lang/String;)V
-
     :show_done
     const-string v0, "ready"
 
@@ -7821,63 +7807,9 @@
     invoke-virtual {v1, p1}, Landroid/widget/TextView;->setText(Ljava/lang/CharSequence;)V
 
     :find_native_content
-    const v0, 0x7f090235
-    invoke-virtual {p0, v0}, Landroid/app/Activity;->findViewById(I)Landroid/view/View;
-    move-result-object v2
-    if-eqz v2, :render_native_done
-    instance-of v0, v2, Landroid/view/ViewGroup;
-    if-eqz v0, :render_native_done
-    check-cast v2, Landroid/view/ViewGroup;
-
-    :native_rows_list
-    if-eqz p2, :render_native_done
-    const-string v0, "title"
-    const-string v1, ""
-    const/4 v4, 0x0
-    const/4 v5, 0x0
-    const/4 v9, 0x0
-    const-string v6, ""
-    const-string v7, ""
-    const-string v8, ""
-
-    :try_start_rows
-    new-instance v3, Lorg/json/JSONArray;
-    invoke-direct {v3, p2}, Lorg/json/JSONArray;-><init>(Ljava/lang/String;)V
-    invoke-virtual {v3}, Lorg/json/JSONArray;->length()I
-    move-result v4
-    if-lez v4, :try_end_rows
-    invoke-virtual {v2}, Landroid/view/ViewGroup;->removeAllViews()V
-
-    :row_loop
-    if-ge v5, v4, :try_end_rows
-    invoke-virtual {v3, v5}, Lorg/json/JSONArray;->optJSONObject(I)Lorg/json/JSONObject;
-    move-result-object v6
-    if-eqz v6, :row_next
-    invoke-virtual {v6, v0, v1}, Lorg/json/JSONObject;->optString(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;
-    move-result-object v7
-    invoke-virtual {v7}, Ljava/lang/String;->length()I
-    move-result v9
-    if-lez v9, :row_next
-    new-instance v8, Landroid/widget/TextView;
-    invoke-direct {v8, p0}, Landroid/widget/TextView;-><init>(Landroid/content/Context;)V
-    invoke-virtual {v8, v7}, Landroid/widget/TextView;->setText(Ljava/lang/CharSequence;)V
-    const v9, -0x1
-    invoke-virtual {v8, v9}, Landroid/widget/TextView;->setTextColor(I)V
-    const/16 v9, 0x14
-    invoke-virtual {v8, v9, v9, v9, v9}, Landroid/view/View;->setPadding(IIII)V
-    invoke-virtual {v2, v8}, Landroid/view/ViewGroup;->addView(Landroid/view/View;)V
-
-    :row_next
-    add-int/lit8 v5, v5, 0x1
-    goto :row_loop
-
-    :try_end_rows
-    .catch Lorg/json/JSONException; {:try_start_rows .. :try_end_rows} :catch_rows
-    return-void
-
-    :catch_rows
-    return-void
-
+    # Do not parse JSON or add views here. Every previous list painter
+    # (factory, shelves, NativeRowList, JSONArray loop) VerifyError'd ART
+    # on the home screen. The XML placeholder stays visible.
     :render_native_done
     return-void
 .end method

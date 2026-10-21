@@ -110,7 +110,7 @@ test('native bridge exposes UI callbacks and routes media, search and player dat
     assert.match(runnable, /const\/4 v2, 0x1[\s\S]*?applyNativeUiData/);
     assert.match(runnable, /setNativeScreen\(Ljava\/lang\/String;\)V/);
     assert.doesNotMatch(runnable, /onNativeLibraryClick/, 'a route update must not re-trigger the library tab');
-    assert.match(activity, /renderNativeRows[\s\S]*?Landroid\/widget\/TextView;-><init>/);
+    assert.match(activity, /renderNativeRows[\s\S]*?Landroid\/widget\/TextView;->setText/);
     assert.match(read('smali/com/melodix/music/NativeImageLoader.smali'), /Picasso;->load[\s\S]*?RequestCreator;->into/);
     assert.match(read('smali/com/melodix/music/NativeUiRowFactory.smali'), /GradientDrawable;->setCornerRadius[\s\S]*?setContentDescription/);
 });
@@ -1246,9 +1246,8 @@ test('navigation clicks keep home JSON and do not force the home screen', () => 
     const rows = activity.slice(rowsAt, activity.indexOf('.method public final runNativeJavascript', rowsAt));
     assert.doesNotMatch(rows, /NativeHomeShelfRenderer;->render/, 'zero-height shelves hid every playlist card');
     assert.doesNotMatch(rows, /NativeRowList;->fill/, 'NativeRowList VerifyError crashed launch');
-    assert.match(rows, /Lorg\/json\/JSONArray;-><init>/);
-    assert.match(rows, /Landroid\/widget\/TextView;-><init>/);
-    assert.match(rows, /instance-of v0, v2, Landroid\/view\/ViewGroup;/);
+    assert.doesNotMatch(rows, /Lorg\/json\/JSONArray;-><init>/, 'JSONArray loop VerifyError crashed home');
+    assert.match(rows, /:render_native_done/);
     assert.match(rows, /if-le v0, v1, :native_skip_json_persist/);
 
     const backAt = activity.indexOf(':back_button');
