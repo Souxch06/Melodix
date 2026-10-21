@@ -2685,6 +2685,8 @@
 
     invoke-static/range {v1 .. v1}, Lcom/melodix/music/NativeCrashGuard;->stage(Ljava/lang/String;)V
 
+    invoke-virtual {v0}, Lcom/melodix/music/MainActivity;->postNativeUiReady()V
+
     .line 154
     .line 155
     .line 156
@@ -7006,30 +7008,22 @@
 
 
 
+.method public final hideNativeUi()V
+    .locals 2
+
+    const v0, 0x7f09022f
+    invoke-virtual {p0, v0}, Landroid/app/Activity;->findViewById(I)Landroid/view/View;
+    move-result-object v0
+    if-eqz v0, :hide_done
+    const/16 v1, 0x8
+    invoke-virtual {v0, v1}, Landroid/view/View;->setVisibility(I)V
+    :hide_done
+    return-void
+.end method
+
+
 .method public static maybeRevealNativeUi(Ljava/lang/String;)V
     .locals 3
-
-    if-nez p0, :done
-
-    const-string v0, "login"
-    invoke-virtual {p0, v0}, Ljava/lang/String;->contains(Ljava/lang/CharSequence;)Z
-    move-result v1
-    if-eqz v1, :done
-
-    const-string v0, "signup"
-    invoke-virtual {p0, v0}, Ljava/lang/String;->contains(Ljava/lang/CharSequence;)Z
-    move-result v1
-    if-eqz v1, :done
-
-    const-string v0, "accounts.spotify"
-    invoke-virtual {p0, v0}, Ljava/lang/String;->contains(Ljava/lang/CharSequence;)Z
-    move-result v1
-    if-eqz v1, :done
-
-    const-string v0, "open.spotify.com"
-    invoke-virtual {p0, v0}, Ljava/lang/String;->contains(Ljava/lang/CharSequence;)Z
-    move-result v1
-    if-nez v1, :done
 
     sget-object v0, Lcom/melodix/music/AppSingleton;->t:Ljava/lang/ref/WeakReference;
     if-eqz v0, :done
@@ -7037,7 +7031,30 @@
     move-result-object v1
     check-cast v1, Lcom/melodix/music/MainActivity;
     if-eqz v1, :done
+
+    if-nez p0, :show
+
+    const-string v0, "/login"
+    invoke-virtual {p0, v0}, Ljava/lang/String;->contains(Ljava/lang/CharSequence;)Z
+    move-result v2
+    if-eqz v2, :hide
+
+    const-string v0, "/signup"
+    invoke-virtual {p0, v0}, Ljava/lang/String;->contains(Ljava/lang/CharSequence;)Z
+    move-result v2
+    if-eqz v2, :hide
+
+    const-string v0, "accounts.spotify"
+    invoke-virtual {p0, v0}, Ljava/lang/String;->contains(Ljava/lang/CharSequence;)Z
+    move-result v2
+    if-eqz v2, :hide
+
+    :show
     invoke-virtual {v1}, Lcom/melodix/music/MainActivity;->postNativeUiReady()V
+    return-void
+
+    :hide
+    invoke-virtual {v1}, Lcom/melodix/music/MainActivity;->hideNativeUi()V
 
     :done
     return-void
