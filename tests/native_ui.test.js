@@ -1252,6 +1252,8 @@ test('navigation clicks keep home JSON and do not force the home screen', () => 
     const rows = activity.slice(rowsAt, activity.indexOf('.method public final runNativeJavascript', rowsAt));
     assert.doesNotMatch(rows, /NativeHomeShelfRenderer;->render/, 'zero-height shelves hid every playlist card');
     assert.match(rows, /Landroid\/widget\/TextView;-><init>/);
+    assert.match(rows, /const\/4 v1, 0x0\s+const\/4 v7, 0x1\s+invoke-virtual \{v0, v1, v7\}, Landroid\/widget\/TextView;->setTypeface/);
+    assert.doesNotMatch(rows, /const\/4 v1, 0x1\s+const\/4 v7, 0x1\s+invoke-virtual \{v0, v1, v7\}, Landroid\/widget\/TextView;->setTypeface/);
     assert.match(rows, /if-le v0, v1, :native_skip_json_persist/);
 
     const backAt = activity.indexOf(':back_button');

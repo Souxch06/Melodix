@@ -7868,7 +7868,7 @@
     invoke-virtual {v0, v1}, Landroid/widget/TextView;->setTextSize(F)V
     const v1, -0x1
     invoke-virtual {v0, v1}, Landroid/widget/TextView;->setTextColor(I)V
-    const/4 v1, 0x1
+    const/4 v1, 0x0
     const/4 v7, 0x1
     invoke-virtual {v0, v1, v7}, Landroid/widget/TextView;->setTypeface(Landroid/graphics/Typeface;I)V
     const/16 v1, 0x10
