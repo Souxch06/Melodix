@@ -2,7 +2,7 @@
 .super Ljava/lang/Object;
 
 .method public static responseForUrl(Ljava/lang/String;)Landroid/webkit/WebResourceResponse;
-    .locals 9
+    .locals 12
 
     const/4 v0, 0x0
     if-eqz p0, :done
@@ -26,24 +26,46 @@
     invoke-virtual {v2, v3}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
     invoke-virtual {v2, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
     invoke-virtual {v2}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
+    move-result-object v9
+
+    const-string v1, "UTF-8"
+    invoke-virtual {v9, v1}, Ljava/lang/String;->getBytes(Ljava/lang/String;)[B
+    move-result-object v1
+    array-length v10, v1
+
+    invoke-static {v10}, Ljava/lang/Integer;->toString(I)Ljava/lang/String;
     move-result-object v1
     invoke-virtual {v1}, Ljava/lang/String;->length()I
-    move-result v2
-    new-instance v3, Ljava/lang/StringBuilder;
-    invoke-direct {v3}, Ljava/lang/StringBuilder;-><init>()V
-    const-string v4, "window.__sfBridgeServedBytes="
-    invoke-virtual {v3, v4}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
-    invoke-virtual {v3, v2}, Ljava/lang/StringBuilder;->append(I)Ljava/lang/StringBuilder;
-    const-string v4, ";"
-    invoke-virtual {v3, v4}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
-    invoke-virtual {v3, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
-    invoke-virtual {v3}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
-    move-result-object v1
+    move-result v1
+    add-int/lit8 v11, v10, 0x1d
+    add-int v11, v11, v1
+    invoke-static {v11}, Ljava/lang/Integer;->toString(I)Ljava/lang/String;
+    move-result-object v2
+    invoke-virtual {v2}, Ljava/lang/String;->length()I
+    move-result v3
+    if-eq v3, v1, :count_ready
+    add-int/lit8 v11, v11, 0x1
+    invoke-static {v11}, Ljava/lang/Integer;->toString(I)Ljava/lang/String;
+    move-result-object v2
 
-    const-string v2, "UTF-8"
-    invoke-virtual {v1, v2}, Ljava/lang/String;->getBytes(Ljava/lang/String;)[B
+    :count_ready
+    invoke-static {v9, v2}, Lcom/melodix/music/NativeBridgeAsset;->withServedBytes(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;
     move-result-object v1
-    array-length v2, v1
+    const-string v3, "UTF-8"
+    invoke-virtual {v1, v3}, Ljava/lang/String;->getBytes(Ljava/lang/String;)[B
+    move-result-object v1
+    array-length v4, v1
+    if-eq v4, v11, :bytes_ready
+    invoke-static {v4}, Ljava/lang/Integer;->toString(I)Ljava/lang/String;
+    move-result-object v2
+    invoke-static {v9, v2}, Lcom/melodix/music/NativeBridgeAsset;->withServedBytes(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;
+    move-result-object v1
+    const-string v3, "UTF-8"
+    invoke-virtual {v1, v3}, Ljava/lang/String;->getBytes(Ljava/lang/String;)[B
+    move-result-object v1
+    array-length v4, v1
+
+    :bytes_ready
     new-instance v8, Ljava/io/ByteArrayInputStream;
     invoke-direct {v8, v1}, Ljava/io/ByteArrayInputStream;-><init>([B)V
 
@@ -59,7 +81,7 @@
     const-string v3, "application/javascript; charset=UTF-8"
     invoke-virtual {v7, v1, v3}, Ljava/util/HashMap;->put(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;
     const-string v1, "Content-Length"
-    invoke-static {v2}, Ljava/lang/Integer;->toString(I)Ljava/lang/String;
+    invoke-static {v4}, Ljava/lang/Integer;->toString(I)Ljava/lang/String;
     move-result-object v3
     invoke-virtual {v7, v1, v3}, Ljava/util/HashMap;->put(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;
 
@@ -86,6 +108,22 @@
     const/4 v0, 0x0
 
     :done
+    return-object v0
+.end method
+
+.method private static withServedBytes(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;
+    .locals 2
+
+    new-instance v0, Ljava/lang/StringBuilder;
+    invoke-direct {v0}, Ljava/lang/StringBuilder;-><init>()V
+    const-string v1, "window.__sfBridgeServedBytes="
+    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    invoke-virtual {v0, p1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    const-string v1, ";"
+    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    invoke-virtual {v0, p0}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    invoke-virtual {v0}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
+    move-result-object v0
     return-object v0
 .end method
 

@@ -205,6 +205,31 @@ test('bridge loader distinguishes inject, load, error and asset body', () => {
     assert.match(diag, /bridgeWatchStage/);
 });
 
+test('bridgeServedBytes is the UTF-8 size of the exact body and matches Content-Length', () => {
+    const flags = "window.__sfBridgeIntercepted=true;window.__sfBridgeAssetServed=true;window.__sfBridgeLoadStage='asset-response-created';";
+    const core = flags + read('assets/spotify_bridge.js');
+    const len0 = Buffer.from(core, 'utf8').length;
+    const header = (n) => `window.__sfBridgeServedBytes=${n};`;
+    let digits = String(len0).length;
+    let total = len0 + 29 + digits;
+    if (String(total).length !== digits) total += 1;
+    let body = header(total) + core;
+    let bytes = Buffer.from(body, 'utf8');
+    if (bytes.length !== total) {
+        total = bytes.length;
+        body = header(total) + core;
+        bytes = Buffer.from(body, 'utf8');
+    }
+    assert.equal(bytes.length, Buffer.from(body, 'utf8').length);
+    assert.equal(String(body.match(/__sfBridgeServedBytes=(\d+)/)[1]), String(bytes.length));
+    const asset = read('smali/com/melodix/music/NativeBridgeAsset.smali');
+    const method = asset.slice(asset.indexOf('responseForUrl'), asset.indexOf('withServedBytes'));
+    assert.match(method, /getBytes\(Ljava\/lang\/String;\)\[B/);
+    assert.match(method, /array-length v10/);
+    assert.doesNotMatch(method, /invoke-virtual \{v9\}, Ljava\/lang\/String;->length\(\)I/);
+    assert.match(asset, /Content-Length/);
+});
+
 test('bridge recovery does not clobber load stage or re-inject the script tag', () => {
     const shell = read('assets/native_ui_shell.js');
     assert.match(shell, /function setBridgeLoadStage/);
