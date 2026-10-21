@@ -1868,26 +1868,46 @@
         return origin + '/__melodix__/spotify_bridge.js';
     }
 
+    function attachBridgeScriptEvents(node, src) {
+        node.onload = function() {
+            window.__sfBridgeLoadStage = 'script-load';
+        };
+        node.onerror = function() {
+            recordBridgeFailure('script-error', 'load-failed');
+            window.__sfBridgeLoadStage = 'script-error';
+        };
+        if (!window.__sfBridgeErrorHooked) {
+            window.__sfBridgeErrorHooked = true;
+            try {
+                window.addEventListener('error', function(event) {
+                    var file = String(event && event.filename || '');
+                    if (file.indexOf('spotify_bridge.js') < 0 && file.indexOf('__melodix__') < 0) return;
+                    var name = String(event && event.message || 'error').slice(0, 120);
+                    window.__sfBridgeLastError = ('script-error: ' + name).slice(0, 160);
+                    window.__sfBridgeLoadStage = 'script-error';
+                }, true);
+            } catch (_) {}
+        }
+    }
+
     function injectSameOriginBridge() {
         var node;
         var src = sameOriginBridgeSrc();
         window.__sfBridgeExecMode = 'same-origin-src';
-        window.__sfBridgeLoadStage = 'inject-src';
-        if (document.querySelector('script[data-sf-melodix-bridge="1"]')) {
-            window.__sfBridgeLoadStage = 'src-pending';
+        node = document.querySelector('script[data-sf-melodix-bridge="1"]');
+        if (node) {
+            if (!node.onload) attachBridgeScriptEvents(node, src);
+            if (!window.__sfBridgeLoadStage || window.__sfBridgeLoadStage === 'inject-src') {
+                window.__sfBridgeLoadStage = 'src-pending';
+            }
             return true;
         }
+        window.__sfBridgeLoadStage = 'inject-src';
         node = document.createElement('script');
         node.src = src;
         node.async = false;
         node.setAttribute('data-sf-melodix-bridge', '1');
-        node.onload = function() {
-            window.__sfBridgeLoadStage = 'src-loaded';
-        };
-        node.onerror = function() {
-            recordBridgeFailure('src-script', src + ' load-failed');
-            window.__sfBridgeLoadStage = 'src-error';
-        };
+        attachBridgeScriptEvents(node, src);
         (document.head || document.documentElement).appendChild(node);
         return true;
     }

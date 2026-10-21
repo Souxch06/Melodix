@@ -1,5 +1,6 @@
 (function() {
     window.__sfBridgeEntered = true;
+    window.__sfBridgeLoadStage = 'bridge-entered';
     if (window.__sfMelodixBridgeCompleted) {
         if (typeof window.__sfEnsureMobileShell === 'function') {
             try { window.__sfEnsureMobileShell(); } catch (_) {}
@@ -341,6 +342,7 @@
     // Function declarations are hoisted; their scheduled work runs after this
     // script yields, and the initializers are idempotent.
     window.__sfMelodixBridgeStarted = true;
+    window.__sfBridgeLoadStage = 'bridge-initialized';
     window.__sfMelodixBridgeBootstrapErrors = 0;
     window.__sfMelodixHomeInitAttempted = true;
     try {
@@ -4193,6 +4195,7 @@
             home.className = 'sf-melodix-home';
             home.setAttribute('aria-label', 'Melodix');
             document.body.appendChild(home);
+            window.__sfBridgeLoadStage = 'home-initialized';
         }
 
         const globalNav = document.querySelector('#global-nav-bar');

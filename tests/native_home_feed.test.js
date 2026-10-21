@@ -181,12 +181,19 @@ test('renderNativeRows paints via NativeHomeFeed and never wipes Accueil on empt
 test('bridge loader distinguishes inject, load, error and asset body', () => {
     const asset = read('smali/com/melodix/music/NativeBridgeAsset.smali');
     assert.match(asset, /__sfBridgeLoadStage='inject-src'/);
-    assert.match(asset, /__sfBridgeLoadStage='src-loaded'/);
-    assert.match(asset, /__sfBridgeLoadStage='src-error'/);
+    assert.match(asset, /__sfBridgeLoadStage='script-load'/);
+    assert.match(asset, /__sfBridgeLoadStage='script-error'/);
+    assert.match(asset, /__sfBridgeLoadStage='asset-response-created'/);
     assert.match(asset, /__sfBridgeAssetServed=true/);
     assert.match(asset, /__sfBridgeIntercepted=true/);
-    assert.match(asset, /application\/javascript/);
+    assert.match(asset, /text\/javascript/);
+    assert.match(asset, /const\/16 v5, 0xc8/);
+    assert.match(asset, /WebResourceResponse;-><init>\(Ljava\/lang\/String;Ljava\/lang\/String;ILjava\/lang\/String;Ljava\/util\/Map;Ljava\/io\/InputStream;\)/);
+    assert.doesNotMatch(asset, /WebResourceResponse;-><init>\(Ljava\/lang\/String;Ljava\/lang\/String;Ljava\/io\/InputStream;\)/);
     assert.match(read('assets/spotify_bridge.js'), /__sfBridgeEntered = true/);
+    assert.match(read('assets/spotify_bridge.js'), /bridge-entered/);
+    assert.match(read('assets/native_ui_shell.js'), /script-load/);
+    assert.doesNotMatch(read('assets/native_ui_shell.js'), /__sfMelodixBridgeStarted === true\)\s*\{[^}]*__sfMelodixBridgeStarted = true/);
     const diag = read('assets/runtime_diagnostic.js');
     assert.match(diag, /bridgeLoadStage/);
     assert.match(diag, /bridgeAssetServed/);
