@@ -8009,6 +8009,7 @@
 .method public final onNativeHomeClick(Landroid/view/View;)V
     .locals 4
 
+    :try_start_home
     const-string v0, "home"
     invoke-virtual {p0, v0}, Lcom/melodix/music/MainActivity;->setNativeScreen(Ljava/lang/String;)V
     iget-object v1, p0, Lcom/melodix/music/MainActivity;->nativeCurrentJson:Ljava/lang/String;
@@ -8022,6 +8023,14 @@
     :home_request
     const-string v0, "window.__sfNativeRequestHome && window.__sfNativeRequestHome();"
     invoke-virtual {p0, v0}, Lcom/melodix/music/MainActivity;->runNativeJavascript(Ljava/lang/String;)V
+    :try_end_home
+    .catch Ljava/lang/Throwable; {:try_start_home .. :try_end_home} :catch_home
+
+    return-void
+
+    :catch_home
+    move-exception v0
+    invoke-static {v0}, Lcom/melodix/music/NativeCrashGuard;->record(Ljava/lang/Throwable;)V
     return-void
 .end method
 
@@ -8177,11 +8186,6 @@
     invoke-virtual {p0, v0}, Lcom/melodix/music/MainActivity;->styleNativeLibraryChips(Ljava/lang/String;)V
     const-string v1, "library"
     invoke-virtual {p0, v1}, Lcom/melodix/music/MainActivity;->setNativeScreen(Ljava/lang/String;)V
-    const-string v1, "Votre bibliothèque"
-    const-string v2, "[]"
-    invoke-virtual {p0, v1, v2}, Lcom/melodix/music/MainActivity;->renderNativeRows(Ljava/lang/String;Ljava/lang/String;)V
-    # The chips called the bridge-only fetchMediaItems, which made them dead
-    # buttons whenever the bridge had not started.
     const-string v1, "window.__sfOpenLibraryCategory"
     invoke-virtual {p0, v1, v0}, Lcom/melodix/music/MainActivity;->runNativeFunction(Ljava/lang/String;Ljava/lang/String;)V
 
