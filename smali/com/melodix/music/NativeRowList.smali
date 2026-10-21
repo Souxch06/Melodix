@@ -1,6 +1,69 @@
 .class public final Lcom/melodix/music/NativeRowList;
 .super Ljava/lang/Object;
 
+.method public static titlesFromJson(Ljava/lang/String;)Ljava/lang/String;
+    .locals 9
+
+    if-eqz p0, :empty
+    new-instance v0, Ljava/lang/StringBuilder;
+    invoke-direct {v0}, Ljava/lang/StringBuilder;-><init>()V
+    const-string v1, "\"title\""
+    const-string v4, "\""
+    const/4 v2, 0x0
+    const/4 v8, -0x1
+
+    :scan_loop
+    invoke-virtual {p0, v1, v2}, Ljava/lang/String;->indexOf(Ljava/lang/String;I)I
+    move-result v3
+    if-eq v3, v8, :scan_done
+
+    const-string v5, ":"
+    invoke-virtual {p0, v5, v3}, Ljava/lang/String;->indexOf(Ljava/lang/String;I)I
+    move-result v3
+    if-eq v3, v8, :scan_done
+
+    add-int/lit8 v3, v3, 0x1
+    invoke-virtual {p0, v4, v3}, Ljava/lang/String;->indexOf(Ljava/lang/String;I)I
+    move-result v5
+    if-eq v5, v8, :scan_done
+
+    add-int/lit8 v5, v5, 0x1
+    invoke-virtual {p0, v4, v5}, Ljava/lang/String;->indexOf(Ljava/lang/String;I)I
+    move-result v3
+    if-eq v3, v8, :scan_done
+
+    invoke-virtual {p0, v5, v3}, Ljava/lang/String;->substring(II)Ljava/lang/String;
+    move-result-object v6
+    invoke-virtual {v6}, Ljava/lang/String;->isEmpty()Z
+    move-result v7
+    if-eqz v7, :scan_advance
+
+    invoke-virtual {v0}, Ljava/lang/StringBuilder;->length()I
+    move-result v7
+    if-eqz v7, :append
+    const/16 v7, 0xa
+    invoke-virtual {v0, v7}, Ljava/lang/StringBuilder;->append(C)Ljava/lang/StringBuilder;
+
+    :append
+    invoke-virtual {v0, v6}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    :scan_advance
+    add-int/lit8 v2, v3, 0x1
+    goto :scan_loop
+
+    :scan_done
+    invoke-virtual {v0}, Ljava/lang/StringBuilder;->length()I
+    move-result v7
+    if-eqz v7, :empty
+    invoke-virtual {v0}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
+    move-result-object v0
+    return-object v0
+
+    :empty
+    const/4 v0, 0x0
+    return-object v0
+.end method
+
 .method public static fillPlain(Landroid/content/Context;Landroid/view/ViewGroup;Ljava/lang/String;)V
     .locals 8
 

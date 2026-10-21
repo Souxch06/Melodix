@@ -19,13 +19,12 @@
 .end method
 
 .method public final run()V
-    .locals 3
+    .locals 5
 
     :try_start_0
     iget-object v0, p0, Lcom/melodix/music/NativeUiUpdateRunnable;->activity:Lcom/melodix/music/MainActivity;
     iget v1, p0, Lcom/melodix/music/NativeUiUpdateRunnable;->action:I
 
-    # 0 = reveal shell, 1 = paint JSON, 2 = switch tab/route
     if-eqz v1, :not_ready
     invoke-virtual {v0}, Lcom/melodix/music/MainActivity;->showNativeUi()V
     return-void
@@ -35,6 +34,28 @@
     if-ne v1, v2, :not_data
     iget-object v1, p0, Lcom/melodix/music/NativeUiUpdateRunnable;->screen:Ljava/lang/String;
     iget-object v2, p0, Lcom/melodix/music/NativeUiUpdateRunnable;->data:Ljava/lang/String;
+
+    if-eqz v1, :apply
+    if-eqz v2, :apply
+
+    const-string v3, "list-text"
+    invoke-virtual {v3, v1}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    move-result v4
+    if-eqz v4, :try_home
+    invoke-virtual {v0, v2}, Lcom/melodix/music/MainActivity;->applyNativeListText(Ljava/lang/String;)V
+    goto :apply
+
+    :try_home
+    const-string v3, "home"
+    invoke-virtual {v3, v1}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    move-result v4
+    if-eqz v4, :apply
+    invoke-static {v2}, Lcom/melodix/music/NativeRowList;->titlesFromJson(Ljava/lang/String;)Ljava/lang/String;
+    move-result-object v3
+    if-eqz v3, :apply
+    invoke-virtual {v0, v3}, Lcom/melodix/music/MainActivity;->applyNativeListText(Ljava/lang/String;)V
+
+    :apply
     invoke-virtual {v0, v1, v2}, Lcom/melodix/music/MainActivity;->applyNativeUiData(Ljava/lang/String;Ljava/lang/String;)V
     return-void
 
