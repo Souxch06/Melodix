@@ -151,7 +151,11 @@
         });
 
         try {
-            bridge.onNativeUiData(screen, JSON.stringify(rows));
+            var payload = JSON.stringify(rows);
+            if (screen === 'home' && typeof bridge.onNativeHomeRows === 'function') {
+                bridge.onNativeHomeRows(payload);
+            }
+            bridge.onNativeUiData(screen, payload);
             return true;
         } catch (_) {
             return false;

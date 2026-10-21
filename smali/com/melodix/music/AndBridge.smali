@@ -89,6 +89,25 @@
     return-void
 .end method
 
+.method public final onNativeHomeRows(Ljava/lang/String;)V
+    .locals 3
+    .annotation runtime Landroid/webkit/JavascriptInterface;
+    .end annotation
+
+    sget-object v0, Lcom/melodix/music/AppSingleton;->t:Ljava/lang/ref/WeakReference;
+    if-eqz v0, :native_home_rows_done
+    invoke-virtual {v0}, Ljava/lang/ref/Reference;->get()Ljava/lang/Object;
+    move-result-object v1
+    check-cast v1, Lcom/melodix/music/MainActivity;
+    if-eqz v1, :native_home_rows_done
+    new-instance v0, Lcom/melodix/music/NativeHomePaintRunnable;
+    invoke-direct {v0, v1, p1}, Lcom/melodix/music/NativeHomePaintRunnable;-><init>(Lcom/melodix/music/MainActivity;Ljava/lang/String;)V
+    invoke-virtual {v1, v0}, Landroid/app/Activity;->runOnUiThread(Ljava/lang/Runnable;)V
+
+    :native_home_rows_done
+    return-void
+.end method
+
 .method public final nativeLogout()V
     .locals 2
     .annotation runtime Landroid/webkit/JavascriptInterface;
