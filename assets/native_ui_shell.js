@@ -136,12 +136,10 @@
             var subtitle = String(item && (item.subtitle || item.artist || item.description) || '').trim();
             var section = String(item && (item.section || item.sectionTitle) || '').trim();
             var rawUri = item && (item.uri || item.id || item.href) || '';
-            var rawImage = item && (item.image || item.cover || item.artwork) || '';
             var row = {
                 title: title,
                 subtitle: subtitle,
                 section: section,
-                image: safeSpotifyImage(rawImage),
                 uri: nativeSpotifyUri(rawUri)
             };
             if (item && typeof item.settingValue === 'string' && item.settingValue) {

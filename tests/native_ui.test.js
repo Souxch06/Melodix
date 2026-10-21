@@ -185,7 +185,6 @@ test('native Home collector keeps image-less Spotify links and filters non-Spoti
         title: 'Fallback track',
         subtitle: 'Artist name',
         section: '',
-        image: '',
         uri: 'spotify:track:track99'
     }]);
 });
@@ -236,7 +235,6 @@ test('Home uses saved library items as a fallback when Spotify has no visible Ho
         title: 'Saved mix',
         subtitle: 'Playlist',
         section: 'Vos playlists',
-        image: 'https://i.scdn.co/image/saved',
         uri: 'spotify:playlist:saved123'
     }]);
 });
@@ -291,7 +289,6 @@ test('localized Spotify Home routes still collect and send Home rows', () => {
         title: 'Sélection du jour',
         subtitle: 'Playlist',
         section: 'Vos playlists',
-        image: 'https://i.scdn.co/image/fr-cover',
         uri: 'spotify:playlist:fr123'
     }]);
 });
@@ -364,7 +361,6 @@ test('native shell routes a Spotify detail deep link and transfers its title and
         title: 'A track',
         subtitle: 'An artist',
         section: '',
-        image: '',
         uri: 'spotify:track:track123'
     }]);
 });
@@ -492,7 +488,6 @@ test('bundled native bootstrap activates the shell, sends Home rows, and only op
         title: 'Focus Mix',
         subtitle: 'Picked for you',
         section: '',
-        image: 'https://i.scdn.co/image/focus',
         uri: 'spotify:playlist:abc123'
     }]);
     assert.equal(window.__sfNativeUiHomeRowsCount, 1);
@@ -584,7 +579,6 @@ test('Home cards with sibling artwork outside the title anchor still resolve the
         title: 'UHQ FREESTYLE #1',
         subtitle: 'Creator Name',
         section: '',
-        image: 'https://i.scdn.co/image/ep123',
         uri: 'spotify:episode:ep123'
     }]);
 });
@@ -1251,9 +1245,8 @@ test('navigation clicks keep home JSON and do not force the home screen', () => 
     const rowsAt = activity.indexOf('.method public final renderNativeRows(Ljava/lang/String;Ljava/lang/String;)V');
     const rows = activity.slice(rowsAt, activity.indexOf('.method public final runNativeJavascript', rowsAt));
     assert.doesNotMatch(rows, /NativeHomeShelfRenderer;->render/, 'zero-height shelves hid every playlist card');
-    assert.match(rows, /Landroid\/widget\/TextView;-><init>/);
+    assert.match(rows, /NativeRowList;->fill/);
     assert.match(rows, /instance-of v0, v2, Landroid\/view\/ViewGroup;/);
-    assert.match(rows, /Lorg\/json\/JSONObject;-><init>/);
     assert.match(rows, /if-le v0, v1, :native_skip_json_persist/);
 
     const backAt = activity.indexOf(':back_button');
