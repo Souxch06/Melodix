@@ -7123,6 +7123,8 @@
     invoke-virtual {p0, v0}, Lcom/melodix/music/MainActivity;->setNativeScreen(Ljava/lang/String;)V
 
     :show_done
+    invoke-static {p0}, Lcom/melodix/music/NativeHomeCache;->restore(Lcom/melodix/music/MainActivity;)V
+
     const-string v0, "ready"
 
     invoke-static {v0}, Lcom/melodix/music/NativeCrashGuard;->stage(Ljava/lang/String;)V
@@ -7558,6 +7560,7 @@
     :apply_home
     const-string v2, "Accueil"
     invoke-virtual {p0, v2, p2}, Lcom/melodix/music/MainActivity;->renderNativeRows(Ljava/lang/String;Ljava/lang/String;)V
+    invoke-static {p0, p2}, Lcom/melodix/music/NativeHomeCache;->save(Landroid/content/Context;Ljava/lang/String;)V
     return-void
 
     :check_media

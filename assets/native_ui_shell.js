@@ -9,7 +9,7 @@
     var HOME_PATHS = ['/', '/home'];
     var SUPPORTED_TYPES = ['playlist', 'album', 'artist', 'track', 'show', 'episode', 'audiobook', 'collection', 'mix', 'radio', 'station', 'genre', 'user'];
     var MAX_READY_RETRIES = 60;
-    var MAX_HOME_RETRIES = 40;
+    var MAX_HOME_RETRIES = 60;
     var readyRetries = 0;
     var homeRetries = 0;
     var readyRetryTimer = null;
@@ -473,14 +473,14 @@
         homeRetries += 1;
         homeRetryTimer = window.setTimeout(function() {
             homeRetryTimer = null;
-            if (isSpotifyHome()) runUpdate();
-        }, 500);
+            runUpdate();
+        }, 160);
     }
 
     function updateHomeRows(mainView) {
         var rows;
         var signature;
-        var homeRoute = window.location.hostname === 'open.spotify.com' && isSpotifyHome();
+        var homeRoute = window.location.hostname === 'open.spotify.com' && nativeScreenForPath() === 'home';
         window.__sfNativeUiHomeRouteRecognized = homeRoute;
         if (!homeRoute || !mainView) {
             clearHomeRetry();
@@ -494,15 +494,15 @@
         ));
         signature = JSON.stringify(rows);
         window.__sfNativeUiHomeRowsCount = rows.length;
+        if (rows.length === 0) {
+            scheduleHomeRetry();
+            return;
+        }
         if (lastHomeSignature !== signature && sendNativeUiData('home', rows)) {
-            // This state is intentionally closure-local. Older hotfixable bridge
-            // code used the same window property and could suppress the first
-            // native Home update with a stale/empty signature.
             lastHomeSignature = signature;
             window.__sfNativeUiHomeDataSent = true;
         }
-
-        if (rows.length > 0 && rows.some(function(row) { return Boolean(row && row.image); })) clearHomeRetry();
+        if (rows.length > 0 && (rows.length >= 4 || rows.some(function(row) { return Boolean(row && row.image); }))) clearHomeRetry();
         else scheduleHomeRetry();
     }
 
@@ -1337,7 +1337,7 @@
         updateTimer = window.setTimeout(function() {
             updateTimer = null;
             runUpdate();
-        }, 120);
+        }, 40);
     }
 
     var SETTINGS_STORAGE_KEY = 'melodix_spotify_settings_v1';
