@@ -8137,18 +8137,31 @@
 .method public final onNativeLibraryClick(Landroid/view/View;)V
     .locals 3
 
+    :try_start_lib
     const-string v0, "library"
     invoke-virtual {p0, v0}, Lcom/melodix/music/MainActivity;->setNativeScreen(Ljava/lang/String;)V
     const-string v1, "playlists"
     iput-object v1, p0, Lcom/melodix/music/MainActivity;->nativeExpectedId:Ljava/lang/String;
     invoke-virtual {p0, v1}, Lcom/melodix/music/MainActivity;->styleNativeLibraryChips(Ljava/lang/String;)V
-    const-string v2, "Votre bibliothèque"
-    const-string v0, "[]"
-    invoke-virtual {p0, v2, v0}, Lcom/melodix/music/MainActivity;->renderNativeRows(Ljava/lang/String;Ljava/lang/String;)V
-    # __sfOpenLibrary uses the bridge when it runs and the real collection page
-    # otherwise, so the library is never an empty screen.
+    iget-object v2, p0, Lcom/melodix/music/MainActivity;->nativeCurrentJson:Ljava/lang/String;
+    if-eqz v2, :lib_fetch
+    invoke-virtual {v2}, Ljava/lang/String;->length()I
+    move-result v0
+    const/16 v1, 0x8
+    if-le v0, v1, :lib_fetch
+    const-string v0, "Votre bibliothèque"
+    invoke-virtual {p0, v0, v2}, Lcom/melodix/music/MainActivity;->renderNativeRows(Ljava/lang/String;Ljava/lang/String;)V
+    :lib_fetch
     const-string v0, "window.__sfOpenLibrary && window.__sfOpenLibrary()"
     invoke-virtual {p0, v0}, Lcom/melodix/music/MainActivity;->runNativeJavascript(Ljava/lang/String;)V
+    :try_end_lib
+    .catch Ljava/lang/Throwable; {:try_start_lib .. :try_end_lib} :catch_lib
+
+    return-void
+
+    :catch_lib
+    move-exception v0
+    invoke-static {v0}, Lcom/melodix/music/NativeCrashGuard;->record(Ljava/lang/Throwable;)V
     return-void
 .end method
 
