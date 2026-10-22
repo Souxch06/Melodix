@@ -158,7 +158,7 @@
     move-result v5
     const/4 v10, 0x0
     invoke-virtual {v0, v1, v5, v1, v10}, Landroid/view/View;->setPadding(IIII)V
-    const/16 v1, 0x50
+    const/16 v1, 0x64
     invoke-static {p0, v1}, Lcom/melodix/music/NativeUiRowFactory;->dp(Landroid/content/Context;I)I
     move-result v1
     invoke-virtual {v0, v1}, Landroid/view/View;->setMinimumHeight(I)V
@@ -187,7 +187,7 @@
     invoke-static {p0, v1, v10}, Lcom/melodix/music/NativeUiRowFactory;->applyDrawableImage(Landroid/content/Context;Landroid/widget/ImageView;Ljava/lang/String;)V
     invoke-virtual {v1, v6}, Landroid/view/View;->setContentDescription(Ljava/lang/CharSequence;)V
     new-instance v5, Landroid/widget/LinearLayout$LayoutParams;
-    const/16 v10, 0x40
+    const/16 v10, 0x58
     invoke-static {p0, v10}, Lcom/melodix/music/NativeUiRowFactory;->dp(Landroid/content/Context;I)I
     move-result v10
     invoke-direct {v5, v10, v10}, Landroid/widget/LinearLayout$LayoutParams;-><init>(II)V
@@ -214,7 +214,7 @@
     new-instance v3, Landroid/widget/TextView;
     invoke-direct {v3, p0}, Landroid/widget/TextView;-><init>(Landroid/content/Context;)V
     invoke-virtual {v3, v6}, Landroid/widget/TextView;->setText(Ljava/lang/CharSequence;)V
-    const/high16 v10, 0x41800000
+    const/high16 v10, 0x41900000
     invoke-virtual {v3, v10}, Landroid/widget/TextView;->setTextSize(F)V
     const v10, -0x1
     invoke-virtual {v3, v10}, Landroid/widget/TextView;->setTextColor(I)V
