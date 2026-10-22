@@ -2,7 +2,7 @@
 .super Ljava/lang/Object;
 
 .method public static paint(Lcom/melodix/music/MainActivity;Landroid/view/ViewGroup;Ljava/lang/String;)I
-    .locals 14
+    .locals 13
 
     const/4 v0, 0x0
     if-eqz p0, :done
@@ -61,9 +61,9 @@
     if-nez v11, :card
     move-object v3, v10
     invoke-static {p0, v10}, Lcom/melodix/music/NativeUiRowFactory;->createSectionHeader(Lcom/melodix/music/MainActivity;Ljava/lang/String;)Landroid/widget/TextView;
-    move-result-object v13
-    if-eqz v13, :card
-    invoke-virtual {v12, v13}, Landroid/view/ViewGroup;->addView(Landroid/view/View;)V
+    move-result-object v11
+    if-eqz v11, :card
+    invoke-virtual {v12, v11}, Landroid/view/ViewGroup;->addView(Landroid/view/View;)V
 
     :card
     const-string v10, "settingValue"
@@ -73,16 +73,16 @@
     move-result v11
     if-nez v11, :content_row
     invoke-static {p0, v6}, Lcom/melodix/music/NativeSettingsRowFactory;->create(Lcom/melodix/music/MainActivity;Lorg/json/JSONObject;)Landroid/widget/LinearLayout;
-    move-result-object v13
+    move-result-object v11
     goto :add_row
 
     :content_row
     invoke-static {p0, v6}, Lcom/melodix/music/NativeUiRowFactory;->create(Lcom/melodix/music/MainActivity;Lorg/json/JSONObject;)Landroid/widget/LinearLayout;
-    move-result-object v13
+    move-result-object v11
 
     :add_row
-    if-eqz v13, :next
-    invoke-virtual {v12, v13}, Landroid/view/ViewGroup;->addView(Landroid/view/View;)V
+    if-eqz v11, :next
+    invoke-virtual {v12, v11}, Landroid/view/ViewGroup;->addView(Landroid/view/View;)V
     add-int/lit8 v5, v5, 0x1
 
     :next

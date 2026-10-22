@@ -7818,13 +7818,6 @@
     if-eqz v2, :render_native_done
     const/4 v1, 0x0
     invoke-virtual {v2, v1}, Landroid/view/View;->setVisibility(I)V
-    invoke-virtual {v2}, Landroid/view/View;->getParent()Landroid/view/ViewParent;
-    move-result-object v3
-    instance-of v4, v3, Landroid/view/View;
-    if-eqz v4, :native_paint_now
-    check-cast v3, Landroid/view/View;
-    invoke-virtual {v3, v1}, Landroid/view/View;->setVisibility(I)V
-    :native_paint_now
     check-cast v2, Landroid/widget/LinearLayout;
     invoke-static {p0, v2, p2}, Lcom/melodix/music/NativeHomeFeed;->paint(Lcom/melodix/music/MainActivity;Landroid/view/ViewGroup;Ljava/lang/String;)I
     move-result v3
