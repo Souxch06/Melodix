@@ -427,7 +427,7 @@
             });
         });
 
-        return rows.slice(0, 80);
+        return rows.slice(0, 120);
     }
 
     function supplementHomeRowsWithLibrary(rows) {
@@ -508,7 +508,7 @@
             if (!row || !row.uri || !row.title || seen.has(row.uri)) return;
             seen.add(row.uri);
             var section;
-            if (/collection/i.test(row.uri) || (mineUris[row.uri] && !looksPublicPlaylist(row))) {
+            if (/collection/i.test(row.uri)) {
                 section = 'Vos playlists';
             } else if (/:playlist:/i.test(row.uri) || looksPublicPlaylist(row)) {
                 section = 'Playlists Spotify';
@@ -539,7 +539,7 @@
         homeRetryTimer = window.setTimeout(function() {
             homeRetryTimer = null;
             if (isSpotifyHome()) runUpdate();
-        }, 120);
+        }, 100);
     }
 
     function updateHomeRows(mainView) {
@@ -569,26 +569,30 @@
             if (rows[i] && rows[i].section === 'Playlists Spotify') hasPublic = true;
         }
         if (clockLooksNative) {
-            if (rows.length > pendingHomeCount) {
-                pendingHomeCount = rows.length;
+            var growing = rows.length > pendingHomeCount;
+            if (growing) pendingHomeCount = rows.length;
+            if (growing) {
                 homeRetries = 0;
-                scheduleHomeRetry();
-                return;
-            }
-            if (!hasPublic && homeRetries < 10) {
-                scheduleHomeRetry();
-                return;
-            }
-            if (homeRetries < 2) {
-                scheduleHomeRetry();
-                return;
+                if (lastHomeSignature || !hasPublic || rows.length < 8) {
+                    scheduleHomeRetry();
+                    return;
+                }
+            } else {
+                if (!hasPublic && !lastHomeSignature && homeRetries < 6) {
+                    scheduleHomeRetry();
+                    return;
+                }
+                if (homeRetries < 2) {
+                    scheduleHomeRetry();
+                    return;
+                }
             }
         }
         if (!rows.length) {
             scheduleHomeRetry();
             return;
         }
-        if (lastHomeSignature && (window.__sfNativeUiHomeHadPublic || !hasPublic)) {
+        if (lastHomeSignature && rows.length <= (window.__sfNativeUiHomeRowsSent || 0)) {
             return;
         }
         if (sendNativeUiData('home', rows)) {

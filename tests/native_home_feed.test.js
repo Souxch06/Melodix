@@ -376,8 +376,8 @@ test('Accueil retries paint cached home JSON without posting a partial native sc
     const shell = read('assets/native_ui_shell.js');
     assert.match(shell, /pendingHomeCount/);
     assert.match(shell, /homeRetries < 2/);
-    assert.match(shell, /!hasPublic && homeRetries < 10/);
-    assert.match(shell, /__sfNativeUiHomeHadPublic/);
+    assert.match(shell, /rows.slice\(0, 120\)/);
+    assert.match(shell, /rows.length < 8/);
     assert.match(shell, /rows.length > pendingHomeCount/);
     assert.doesNotMatch(shell.slice(shell.indexOf('function updateHomeRows'), shell.indexOf('function currentSearchQuery')), /signature !== pendingHomeSignature/);
     assert.match(shell, /feedUris/);
