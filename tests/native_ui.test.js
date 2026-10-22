@@ -1384,6 +1384,8 @@ test('home shelf renderer skips missing views, not existing ones', () => {
     const shelf = require('fs').readFileSync(require('path').join(__dirname, '..', 'smali/com/melodix/music/NativeHomeShelfRenderer.smali'), 'utf8');
     assert.match(shelf, /if-eqz v13, :shelf_done/);
     assert.match(shelf, /if-eqz v5, :shelf_next/);
+    assert.match(shelf, /setMinimumHeight/);
+    assert.match(shelf, /const\/16 v9, 0x98/);
 });
 
 test('navigation clicks keep home JSON and do not force the home screen', () => {
@@ -1409,7 +1411,7 @@ test('navigation clicks keep home JSON and do not force the home screen', () => 
 
     const rowsAt = activity.indexOf('.method public final renderNativeRows(Ljava/lang/String;Ljava/lang/String;)V');
     const rows = activity.slice(rowsAt, activity.indexOf('.method public final findNativeByTag', rowsAt));
-    assert.doesNotMatch(rows, /NativeHomeShelfRenderer;->render/, 'zero-height shelves hid every playlist card');
+    assert.match(rows, /NativeHomeShelfRenderer;->render/);
     assert.doesNotMatch(rows, /NativeRowList;->fill/, 'NativeRowList VerifyError crashed launch');
     assert.doesNotMatch(rows, /Lorg\/json\/JSONArray;-><init>/, 'JSONArray loop VerifyError crashed home');
     assert.match(rows, /NativeHomeFeed;->paint/);

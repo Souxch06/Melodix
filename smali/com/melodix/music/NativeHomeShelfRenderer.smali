@@ -113,6 +113,18 @@
 
     invoke-virtual {v8, v9}, Landroid/view/View;->setClipToPadding(Z)V
 
+    const/4 v9, 0x1
+
+    invoke-virtual {v8, v9}, Landroid/widget/HorizontalScrollView;->setFillViewport(Z)V
+
+    const/16 v9, 0xc8
+
+    invoke-static {p0, v9}, Lcom/melodix/music/NativeHomeShelfRenderer;->dp(Landroid/content/Context;I)I
+
+    move-result v9
+
+    invoke-virtual {v8, v9}, Landroid/view/View;->setMinimumHeight(I)V
+
     const/16 v9, 0x10
 
     invoke-static {p0, v9}, Lcom/melodix/music/NativeHomeShelfRenderer;->dp(Landroid/content/Context;I)I
@@ -149,7 +161,7 @@
 
     new-instance v8, Landroid/widget/LinearLayout$LayoutParams;
 
-    const/16 v9, 0x94
+    const/16 v9, 0x98
 
     invoke-static {p0, v9}, Lcom/melodix/music/NativeHomeShelfRenderer;->dp(Landroid/content/Context;I)I
 
@@ -181,7 +193,7 @@
 
     move-result v8
 
-    if-nez v8, :shelf_cover_drawable
+    if-eqz v8, :shelf_cover_drawable
 
     const-string v8, "Spotify"
 
@@ -228,7 +240,7 @@
 
     new-instance v10, Landroid/widget/LinearLayout$LayoutParams;
 
-    const/16 v11, 0x94
+    const/16 v11, 0x98
 
     invoke-static {p0, v11}, Lcom/melodix/music/NativeHomeShelfRenderer;->dp(Landroid/content/Context;I)I
 
