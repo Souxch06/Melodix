@@ -196,7 +196,7 @@
 
     invoke-virtual {v9}, Ljava/lang/String;->isEmpty()Z
     move-result v10
-    if-eqz v10, :native_row_text_column
+    if-nez v10, :native_row_text_column
     const/16 v10, 0xb0
     invoke-static {v1, v9, v10}, Lcom/melodix/music/NativeImageLoader;->load(Landroid/widget/ImageView;Ljava/lang/String;I)V
 

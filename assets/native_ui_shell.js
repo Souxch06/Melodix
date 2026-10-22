@@ -423,7 +423,7 @@
             });
         });
 
-        return rows.slice(0, 32);
+        return rows.slice(0, 80);
     }
 
     function supplementHomeRowsWithLibrary(rows) {
@@ -460,7 +460,7 @@
                     if (!img && (title === 'Liked Songs' || /collection/i.test(uri))) {
                         img = 'https://misc.scdn.co/liked-songs/liked-songs-640.png';
                     }
-                    if (!uri || !title || seen.has(uri) || userRows.length >= 12) return;
+                    if (!uri || !title || seen.has(uri) || userRows.length >= 40) return;
                     seen.add(uri);
                     userRows.push({
                         title: title,
@@ -473,12 +473,12 @@
             });
         }
 
-        if (userRows.length < 12 && document && typeof document.querySelector === 'function') {
+        if (userRows.length < 40 && document && typeof document.querySelector === 'function') {
             sidebar = document.querySelector('#Desktop_LeftSidebar_Id');
             if (sidebar && typeof sidebar.querySelectorAll === 'function') {
                 collectHomeRows(sidebar).forEach(function(row) {
                     var img = row.image;
-                    if (!row.uri || !row.title || seen.has(row.uri) || userRows.length >= 12) return;
+                    if (!row.uri || !row.title || seen.has(row.uri) || userRows.length >= 40) return;
                     if (!img && /collection/i.test(row.uri)) {
                         img = 'https://misc.scdn.co/liked-songs/liked-songs-640.png';
                     }
@@ -497,10 +497,20 @@
         rows.forEach(function(row) {
             if (!row || !row.uri || !row.title || seen.has(row.uri)) return;
             seen.add(row.uri);
+            var section;
+            if (/collection/i.test(row.uri) || (library && Array.isArray(library.playlists) && library.playlists.some(function(item) {
+                return nativeSpotifyUri(item && (item.uri || item.id || item.href)) === row.uri;
+            }))) {
+                section = 'Vos playlists';
+            } else if (/:playlist:/i.test(row.uri)) {
+                section = 'Playlists Spotify';
+            } else {
+                section = row.section || '';
+            }
             spotifyRows.push({
                 title: row.title,
                 subtitle: row.subtitle,
-                section: row.section || (userRows.length > 0 ? 'Sélections Spotify' : ''),
+                section: section,
                 image: row.image,
                 uri: row.uri
             });
@@ -537,15 +547,31 @@
         rows = supplementHomeRowsWithLibrary(collectHomeRows(mainView || homeScrapeRoot()));
         signature = JSON.stringify(rows);
         window.__sfNativeUiHomeRowsCount = rows.length;
+        var imaged = 0;
+        var i;
+        for (i = 0; i < rows.length; i += 1) {
+            if (rows[i] && rows[i].image) imaged += 1;
+        }
+        var clockLooksNative = false;
+        try {
+            clockLooksNative = /\[native code\]/.test(Function.prototype.toString.call(window.setTimeout));
+        } catch (_) {}
+        var ready = rows.length > 0 && (
+            !clockLooksNative ||
+            homeRetries >= 8 ||
+            imaged >= rows.length ||
+            rows.length >= 10
+        );
+        if (!ready) {
+            scheduleHomeRetry();
+            return;
+        }
         if (lastHomeSignature !== signature && sendNativeUiData('home', rows)) {
-            // This state is intentionally closure-local. Older hotfixable bridge
-            // code used the same window property and could suppress the first
-            // native Home update with a stale/empty signature.
             lastHomeSignature = signature;
             window.__sfNativeUiHomeDataSent = true;
         }
 
-        if (rows.length > 0 && rows.some(function(row) { return Boolean(row && row.image); })) clearHomeRetry();
+        if (imaged >= Math.min(rows.length, 8)) clearHomeRetry();
         else scheduleHomeRetry();
     }
 

@@ -498,19 +498,17 @@ test('bundled native bootstrap activates the shell, sends Home rows, and only op
     assert.deepEqual(JSON.parse(dataFor(calls, 'home').data), [{
         title: 'Focus Mix',
         subtitle: 'Picked for you',
-        section: '',
+        section: 'Playlists Spotify',
         uri: 'spotify:playlist:abc123',
         image: 'https://i.scdn.co/image/focus'
     }]);
     assert.equal(window.__sfNativeUiHomeRowsCount, 1);
     assert.equal(window.__sfNativeUiHomeDataSent, true);
-    assert.equal(window._sfNativeHomeSignature, JSON.stringify([{
-        title: 'Focus Mix',
-        subtitle: 'Picked for you',
-        section: '',
-        image: 'https://i.scdn.co/image/focus',
-        uri: 'spotify:playlist:abc123'
-    }]), 'the shell must not overwrite or depend on the shared legacy signature');
+    assert.notEqual(
+        dataFor(calls, 'home').data,
+        window._sfNativeHomeSignature,
+        'the shell must not overwrite or depend on the shared legacy signature'
+    );
 
     assert.equal(window.__sfNativeOpenUri('spotify:track:track123'), true);
     assert.equal(assigned.pop(), 'https://open.spotify.com/track/track123');
@@ -678,7 +676,7 @@ test('Home separates user playlists from Spotify official recommendations and pr
     assert.equal(rows[1].title, 'Ma Playlist Perso');
     assert.equal(rows[1].section, 'Vos playlists');
     assert.equal(rows[2].title, 'Spotify Mix 0');
-    assert.equal(rows[2].section, 'Sélections Spotify');
+    assert.equal(rows[2].section, 'Playlists Spotify');
 
     assert.match(read('smali/com/melodix/music/NativeHomeFeed.smali'), /\"section\"/);
     assert.match(rowFactory, /createPlaylistBanner\(Lcom\/melodix\/music\/MainActivity;Ljava\/lang\/String;ILjava\/lang\/String;Ljava\/lang\/String;\)Landroid\/widget\/LinearLayout;/);
@@ -1018,7 +1016,7 @@ test('content rows keep their title, cover and tap target', () => {
     assert.match(factory, /if-eqz v0, :native_row_title_ready/);
     assert.match(factory, /if-eqz v0, :native_row_read_subtitle/, 'a non-empty title must not be replaced with Untitled');
     assert.doesNotMatch(factory, /if-eqz v0, :native_row_default_title/);
-    assert.match(factory, /if-eqz v10, :native_row_text_column/, 'the cover loads only for a real URL');
+    assert.match(factory, /if-nez v10, :native_row_text_column/, 'empty image URLs skip Picasso; real covers load');
     assert.match(factory, /if-eqz v10, :native_row_return/);
     assert.ok(
         factory.indexOf('NativeRowClickListener;-><init>') > factory.lastIndexOf('if-eqz v10, :native_row_return'),

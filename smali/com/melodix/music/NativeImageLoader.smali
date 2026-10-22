@@ -18,7 +18,7 @@
     if-eqz v1, :clear_native_image
     invoke-virtual {p1}, Ljava/lang/String;->isEmpty()Z
     move-result v1
-    if-eqz v1, :clear_native_image
+    if-nez v1, :clear_native_image
 
     invoke-virtual {v0, p1}, Lcom/squareup/picasso/Picasso;->load(Ljava/lang/String;)Lcom/squareup/picasso/RequestCreator;
     move-result-object v1
