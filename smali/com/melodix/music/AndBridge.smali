@@ -34,6 +34,13 @@
 .method private final dispatchNativeUi(Ljava/lang/String;Ljava/lang/String;)V
     .locals 3
 
+    if-eqz p2, :payload_ok
+    invoke-virtual {p2}, Ljava/lang/String;->length()I
+    move-result v0
+    const/high16 v2, 0x40000
+    if-le v0, v2, :native_dispatch_done
+
+    :payload_ok
     const/4 v1, 0x0
     sget-object v0, Lcom/melodix/music/AppSingleton;->t:Ljava/lang/ref/WeakReference;
     if-eqz v0, :try_ctx
@@ -114,6 +121,12 @@
     .locals 3
     .annotation runtime Landroid/webkit/JavascriptInterface;
     .end annotation
+
+    if-eqz p1, :native_home_rows_done
+    invoke-virtual {p1}, Ljava/lang/String;->length()I
+    move-result v0
+    const/high16 v1, 0x40000
+    if-le v0, v1, :native_home_rows_done
 
     sget-object v0, Lcom/melodix/music/AppSingleton;->t:Ljava/lang/ref/WeakReference;
     if-eqz v0, :native_home_rows_done

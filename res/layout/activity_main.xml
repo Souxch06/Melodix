@@ -69,7 +69,7 @@
         android:paddingTop="0.0dip"
         android:paddingRight="0.0dip"
         android:paddingBottom="0.0dip"
-        android:fitsSystemWindows="false"
+        android:fitsSystemWindows="true"
         android:focusable="true"
         android:clickable="true"
         android:elevation="15.0dip"
@@ -86,7 +86,7 @@
             android:gravity="center_vertical"
             android:background="#00000000"
             android:paddingLeft="16.0dip"
-            android:paddingTop="28.0dip"
+            android:paddingTop="8.0dip"
             android:paddingRight="12.0dip"
             android:paddingBottom="10.0dip"
             android:layout_width="fill_parent"
@@ -98,12 +98,12 @@
                 android:padding="9.0dip"
                 android:clickable="true"
                 android:focusable="true"
-                android:contentDescription="Back"
+                android:contentDescription="Retour"
                 android:background="@drawable/native_button_dark"
                 android:onClick="onNativeBackClick"
                 android:visibility="gone"
-                android:layout_width="40.0dip"
-                android:layout_height="40.0dip"
+                android:layout_width="48.0dip"
+                android:layout_height="48.0dip"
                 android:layout_marginRight="8.0dip" />
             <androidx.cardview.widget.CardView
                 android:layout_width="36.0dip"
@@ -684,15 +684,15 @@
             android:background="#ff000000"
             android:layout_width="fill_parent"
             android:layout_height="68.0dip">
-            <LinearLayout android:id="@id/nativeHomeTab" android:orientation="vertical" android:gravity="center" android:clickable="true" android:focusable="true" android:background="@drawable/native_tab_ripple" android:contentDescription="Home" android:onClick="onNativeHomeClick" android:layout_width="0.0dip" android:layout_height="fill_parent" android:layout_weight="1.0">
+            <LinearLayout android:id="@id/nativeHomeTab" android:orientation="vertical" android:gravity="center" android:clickable="true" android:focusable="true" android:background="@drawable/native_tab_ripple" android:contentDescription="Accueil" android:onClick="onNativeHomeClick" android:layout_width="0.0dip" android:layout_height="fill_parent" android:layout_weight="1.0">
                 <ImageView android:src="@drawable/native_nav_home" android:tint="#ffffffff" android:duplicateParentState="true" android:clickable="false" android:focusable="false" android:layout_width="26.0dip" android:layout_height="26.0dip" android:layout_marginTop="4.0dip" />
                 <TextView android:text="Accueil" android:textSize="11.0sp" android:textStyle="bold" android:textColor="#ffffffff" android:duplicateParentState="true" android:clickable="false" android:focusable="false" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="5.0dip" />
             </LinearLayout>
-            <LinearLayout android:id="@id/nativeSearchTab" android:orientation="vertical" android:gravity="center" android:clickable="true" android:focusable="true" android:background="@drawable/native_tab_ripple" android:contentDescription="Search" android:onClick="onNativeSearchClick" android:layout_width="0.0dip" android:layout_height="fill_parent" android:layout_weight="1.0">
+            <LinearLayout android:id="@id/nativeSearchTab" android:orientation="vertical" android:gravity="center" android:clickable="true" android:focusable="true" android:background="@drawable/native_tab_ripple" android:contentDescription="Recherche" android:onClick="onNativeSearchClick" android:layout_width="0.0dip" android:layout_height="fill_parent" android:layout_weight="1.0">
                 <ImageView android:src="@drawable/native_nav_search" android:tint="#ffb3b3b3" android:duplicateParentState="true" android:clickable="false" android:focusable="false" android:layout_width="26.0dip" android:layout_height="26.0dip" android:layout_marginTop="4.0dip" />
                 <TextView android:text="Rechercher" android:textSize="11.0sp" android:textStyle="bold" android:textColor="#ffb3b3b3" android:duplicateParentState="true" android:clickable="false" android:focusable="false" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="5.0dip" />
             </LinearLayout>
-            <LinearLayout android:id="@id/nativeLibraryTab" android:orientation="vertical" android:gravity="center" android:clickable="true" android:focusable="true" android:background="@drawable/native_tab_ripple" android:contentDescription="Your Library" android:onClick="onNativeLibraryClick" android:layout_width="0.0dip" android:layout_height="fill_parent" android:layout_weight="1.0">
+            <LinearLayout android:id="@id/nativeLibraryTab" android:orientation="vertical" android:gravity="center" android:clickable="true" android:focusable="true" android:background="@drawable/native_tab_ripple" android:contentDescription="Bibliothèque" android:onClick="onNativeLibraryClick" android:layout_width="0.0dip" android:layout_height="fill_parent" android:layout_weight="1.0">
                 <ImageView android:src="@drawable/native_nav_library" android:tint="#ffb3b3b3" android:duplicateParentState="true" android:clickable="false" android:focusable="false" android:layout_width="26.0dip" android:layout_height="26.0dip" android:layout_marginTop="4.0dip" />
                 <TextView android:text="Bibliothèque" android:textSize="11.0sp" android:textStyle="bold" android:textColor="#ffb3b3b3" android:duplicateParentState="true" android:clickable="false" android:focusable="false" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="5.0dip" />
             </LinearLayout>

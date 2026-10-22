@@ -7401,6 +7401,23 @@
 
     .line 17
     :cond_0
+    const-string v2, "javascript:"
+    invoke-virtual {v1, v2}, Ljava/lang/String;->startsWith(Ljava/lang/String;)Z
+    move-result v2
+    if-nez v2, :block_nav_scheme
+    const-string v2, "file:"
+    invoke-virtual {v1, v2}, Ljava/lang/String;->startsWith(Ljava/lang/String;)Z
+    move-result v2
+    if-nez v2, :block_nav_scheme
+    const-string v2, "data:"
+    invoke-virtual {v1, v2}, Ljava/lang/String;->startsWith(Ljava/lang/String;)Z
+    move-result v2
+    if-nez v2, :block_nav_scheme
+    const-string v2, "intent:"
+    invoke-virtual {v1, v2}, Ljava/lang/String;->startsWith(Ljava/lang/String;)Z
+    move-result v2
+    if-nez v2, :block_nav_scheme
+
     invoke-static {v1}, Ldl1;->l(Ljava/lang/String;)Z
 
     .line 18
@@ -7559,4 +7576,8 @@
     :cond_4
     :goto_0
     return v0
+
+    :block_nav_scheme
+    const/4 p0, 0x1
+    return p0
 .end method

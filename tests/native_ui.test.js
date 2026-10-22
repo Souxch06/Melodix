@@ -51,7 +51,7 @@ test('native shell overlays, but does not replace or detach, the existing WebVie
     assert.ok(webViewPosition >= 0, 'the existing WebView container must remain in the layout');
     assert.ok(nativeRootPosition > webViewPosition, 'native shell should draw over the WebView');
     assert.match(layout.slice(nativeRootPosition, nativeRootPosition + 900), /android:visibility="visible"/);
-    assert.match(layout.slice(nativeRootPosition, nativeRootPosition + 900), /android:fitsSystemWindows="false"/);
+    assert.match(layout.slice(nativeRootPosition, nativeRootPosition + 900), /android:fitsSystemWindows="true"/);
     assert.match(layout.slice(nativeRootPosition, nativeRootPosition + 900), /android:clickable="true"/);
     assert.match(layout, /android:id="@id\/nativeContent"/);
     assert.doesNotMatch(layout, /Titres likés/, 'XML placeholders were mistaken for playlists');

@@ -131,3 +131,15 @@ test('smoke: Accueil uses grid, search stays a list, settings open from other sc
     assert.match(settings, /if-eqz v1, :native_settings_save_return/);
     assert.doesNotMatch(settings, /NativeHomeShelfRenderer;->render/);
 });
+
+test('smoke: shell respects system windows and rejects oversized JS payloads', () => {
+    const layout = read('res/layout/activity_main.xml');
+    assert.match(layout, /android:fitsSystemWindows="true"/);
+    assert.match(layout, /contentDescription="Accueil"/);
+    assert.match(read('res/drawable/native_shell_background.xml'), /solid android:color="#ff121212"/);
+    const bridge = read('smali/com/melodix/music/AndBridge.smali');
+    assert.match(bridge, /const\/high16 v2, 0x40000/);
+    assert.match(read('smali/c91.smali'), /const-string v2, "javascript:"/);
+    assert.match(read('smali/c91.smali'), /:block_nav_scheme/);
+    assert.match(read('smali/com/melodix/music/WebService.smali'), /startForeground failed/);
+});
