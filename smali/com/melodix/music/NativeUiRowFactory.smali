@@ -1,6 +1,8 @@
 .class public final Lcom/melodix/music/NativeUiRowFactory;
 .super Ljava/lang/Object;
 
+.field private static coverPair:Landroid/widget/LinearLayout;
+
 .method public static create(Lcom/melodix/music/MainActivity;Lorg/json/JSONObject;)Landroid/widget/LinearLayout;
     .locals 12
 
@@ -560,6 +562,155 @@
 
     :image_done
     return-void
+.end method
+
+.method public static resetCoverPair()V
+    .locals 1
+
+    const/4 v0, 0x0
+    sput-object v0, Lcom/melodix/music/NativeUiRowFactory;->coverPair:Landroid/widget/LinearLayout;
+    return-void
+.end method
+
+.method public static addCoverTile(Lcom/melodix/music/MainActivity;Landroid/view/ViewGroup;Lorg/json/JSONObject;)Landroid/widget/LinearLayout;
+    .locals 12
+
+    invoke-static {p0, p2}, Lcom/melodix/music/NativeUiRowFactory;->createCoverTile(Lcom/melodix/music/MainActivity;Lorg/json/JSONObject;)Landroid/widget/LinearLayout;
+    move-result-object v0
+    if-eqz v0, :cover_add_done
+
+    sget-object v1, Lcom/melodix/music/NativeUiRowFactory;->coverPair:Landroid/widget/LinearLayout;
+    if-eqz v1, :cover_make_row
+    invoke-virtual {v1}, Landroid/view/ViewGroup;->getChildCount()I
+    move-result v2
+    const/4 v3, 0x2
+    if-ge v2, v3, :cover_use_row
+
+    :cover_make_row
+    new-instance v1, Landroid/widget/LinearLayout;
+    invoke-direct {v1, p0}, Landroid/widget/LinearLayout;-><init>(Landroid/content/Context;)V
+    const/4 v2, 0x0
+    invoke-virtual {v1, v2}, Landroid/widget/LinearLayout;->setOrientation(I)V
+    const/16 v2, 0xa
+    invoke-static {p0, v2}, Lcom/melodix/music/NativeUiRowFactory;->dp(Landroid/content/Context;I)I
+    move-result v2
+    const/4 v3, 0x4
+    invoke-static {p0, v3}, Lcom/melodix/music/NativeUiRowFactory;->dp(Landroid/content/Context;I)I
+    move-result v3
+    invoke-virtual {v1, v2, v3, v2, v3}, Landroid/view/View;->setPadding(IIII)V
+    new-instance v2, Landroid/widget/LinearLayout$LayoutParams;
+    const/4 v3, -0x1
+    const/4 v4, -0x2
+    invoke-direct {v2, v3, v4}, Landroid/widget/LinearLayout$LayoutParams;-><init>(II)V
+    if-eqz p1, :cover_store
+    invoke-virtual {p1, v1, v2}, Landroid/view/ViewGroup;->addView(Landroid/view/View;Landroid/view/ViewGroup$LayoutParams;)V
+    :cover_store
+    sput-object v1, Lcom/melodix/music/NativeUiRowFactory;->coverPair:Landroid/widget/LinearLayout;
+
+    :cover_use_row
+    new-instance v2, Landroid/widget/LinearLayout$LayoutParams;
+    const/4 v3, 0x0
+    const/4 v4, -0x2
+    const/high16 v5, 0x3f800000
+    invoke-direct {v2, v3, v4, v5}, Landroid/widget/LinearLayout$LayoutParams;-><init>(IIF)V
+    const/4 v3, 0x6
+    invoke-static {p0, v3}, Lcom/melodix/music/NativeUiRowFactory;->dp(Landroid/content/Context;I)I
+    move-result v3
+    iput v3, v2, Landroid/view/ViewGroup$MarginLayoutParams;->leftMargin:I
+    iput v3, v2, Landroid/view/ViewGroup$MarginLayoutParams;->rightMargin:I
+    invoke-virtual {v1, v0, v2}, Landroid/widget/LinearLayout;->addView(Landroid/view/View;Landroid/view/ViewGroup$LayoutParams;)V
+
+    :cover_add_done
+    return-object v0
+.end method
+
+.method public static createCoverTile(Lcom/melodix/music/MainActivity;Lorg/json/JSONObject;)Landroid/widget/LinearLayout;
+    .locals 10
+
+    const-string v0, "title"
+    const-string v1, ""
+    invoke-virtual {p1, v0, v1}, Lorg/json/JSONObject;->optString(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;
+    move-result-object v2
+    const-string v0, "uri"
+    invoke-virtual {p1, v0, v1}, Lorg/json/JSONObject;->optString(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;
+    move-result-object v3
+    const-string v0, "image"
+    invoke-virtual {p1, v0, v1}, Lorg/json/JSONObject;->optString(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;
+    move-result-object v4
+
+    new-instance v5, Landroid/widget/LinearLayout;
+    invoke-direct {v5, p0}, Landroid/widget/LinearLayout;-><init>(Landroid/content/Context;)V
+    const/4 v0, 0x1
+    invoke-virtual {v5, v0}, Landroid/widget/LinearLayout;->setOrientation(I)V
+    invoke-virtual {v5, v0}, Landroid/view/View;->setClickable(Z)V
+    invoke-virtual {v5, v0}, Landroid/view/View;->setFocusable(Z)V
+    const-string v0, "native_card_ripple"
+    invoke-static {p0, v5, v0}, Lcom/melodix/music/NativeUiRowFactory;->applyDrawableBackground(Landroid/content/Context;Landroid/view/View;Ljava/lang/String;)V
+
+    new-instance v6, Landroid/widget/ImageView;
+    invoke-direct {v6, p0}, Landroid/widget/ImageView;-><init>(Landroid/content/Context;)V
+    sget-object v0, Landroid/widget/ImageView$ScaleType;->CENTER_CROP:Landroid/widget/ImageView$ScaleType;
+    invoke-virtual {v6, v0}, Landroid/widget/ImageView;->setScaleType(Landroid/widget/ImageView$ScaleType;)V
+    new-instance v0, Landroid/graphics/drawable/GradientDrawable;
+    invoke-direct {v0}, Landroid/graphics/drawable/GradientDrawable;-><init>()V
+    const v7, -0xe0e0e1
+    invoke-virtual {v0, v7}, Landroid/graphics/drawable/GradientDrawable;->setColor(I)V
+    const/16 v7, 0x8
+    invoke-static {p0, v7}, Lcom/melodix/music/NativeUiRowFactory;->dp(Landroid/content/Context;I)I
+    move-result v7
+    int-to-float v7, v7
+    invoke-virtual {v0, v7}, Landroid/graphics/drawable/GradientDrawable;->setCornerRadius(F)V
+    invoke-virtual {v6, v0}, Landroid/view/View;->setBackground(Landroid/graphics/drawable/Drawable;)V
+    invoke-virtual {v6, v2}, Landroid/view/View;->setContentDescription(Ljava/lang/CharSequence;)V
+    const-string v0, "native_cover_placeholder"
+    invoke-static {p0, v6, v0}, Lcom/melodix/music/NativeUiRowFactory;->applyDrawableImage(Landroid/content/Context;Landroid/widget/ImageView;Ljava/lang/String;)V
+    new-instance v0, Landroid/widget/LinearLayout$LayoutParams;
+    const/4 v7, -0x1
+    const/16 v8, 0x9c
+    invoke-static {p0, v8}, Lcom/melodix/music/NativeUiRowFactory;->dp(Landroid/content/Context;I)I
+    move-result v8
+    invoke-direct {v0, v7, v8}, Landroid/widget/LinearLayout$LayoutParams;-><init>(II)V
+    invoke-virtual {v5, v6, v0}, Landroid/widget/LinearLayout;->addView(Landroid/view/View;Landroid/view/ViewGroup$LayoutParams;)V
+    invoke-virtual {v4}, Ljava/lang/String;->isEmpty()Z
+    move-result v0
+    if-nez v0, :cover_title
+    const/16 v0, 0x9c
+    invoke-static {v6, v4, v0}, Lcom/melodix/music/NativeImageLoader;->load(Landroid/widget/ImageView;Ljava/lang/String;I)V
+
+    :cover_title
+    new-instance v6, Landroid/widget/TextView;
+    invoke-direct {v6, p0}, Landroid/widget/TextView;-><init>(Landroid/content/Context;)V
+    invoke-virtual {v6, v2}, Landroid/widget/TextView;->setText(Ljava/lang/CharSequence;)V
+    const/high16 v0, 0x41500000
+    invoke-virtual {v6, v0}, Landroid/widget/TextView;->setTextSize(F)V
+    const/4 v0, -0x1
+    invoke-virtual {v6, v0}, Landroid/widget/TextView;->setTextColor(I)V
+    const/4 v0, 0x0
+    const/4 v7, 0x1
+    invoke-virtual {v6, v0, v7}, Landroid/widget/TextView;->setTypeface(Landroid/graphics/Typeface;I)V
+    const/4 v0, 0x2
+    invoke-virtual {v6, v0}, Landroid/widget/TextView;->setMaxLines(I)V
+    sget-object v0, Landroid/text/TextUtils$TruncateAt;->END:Landroid/text/TextUtils$TruncateAt;
+    invoke-virtual {v6, v0}, Landroid/widget/TextView;->setEllipsize(Landroid/text/TextUtils$TruncateAt;)V
+    new-instance v0, Landroid/widget/LinearLayout$LayoutParams;
+    const/4 v7, -0x1
+    const/4 v8, -0x2
+    invoke-direct {v0, v7, v8}, Landroid/widget/LinearLayout$LayoutParams;-><init>(II)V
+    const/4 v7, 0x8
+    invoke-static {p0, v7}, Lcom/melodix/music/NativeUiRowFactory;->dp(Landroid/content/Context;I)I
+    move-result v7
+    iput v7, v0, Landroid/view/ViewGroup$MarginLayoutParams;->topMargin:I
+    invoke-virtual {v5, v6, v0}, Landroid/widget/LinearLayout;->addView(Landroid/view/View;Landroid/view/ViewGroup$LayoutParams;)V
+
+    invoke-virtual {v3}, Ljava/lang/String;->isEmpty()Z
+    move-result v0
+    if-nez v0, :cover_return
+    new-instance v0, Lcom/melodix/music/NativeRowClickListener;
+    invoke-direct {v0, p0, v3, v2}, Lcom/melodix/music/NativeRowClickListener;-><init>(Lcom/melodix/music/MainActivity;Ljava/lang/String;Ljava/lang/String;)V
+    invoke-virtual {v5, v0}, Landroid/view/View;->setOnClickListener(Landroid/view/View$OnClickListener;)V
+
+    :cover_return
+    return-object v5
 .end method
 
 .method private static dp(Landroid/content/Context;I)I

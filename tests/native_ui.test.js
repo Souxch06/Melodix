@@ -61,7 +61,7 @@ test('native shell overlays, but does not replace or detach, the existing WebVie
     assert.match(layout, /@drawable\/native_shell_background/);
     assert.match(layout, /@drawable\/native_mini_player_bg/);
     assert.match(layout, /android:textSize=\"22.0sp\"/);
-    assert.match(layout, /android:layout_height=\"64.0dip\"/);
+    assert.match(layout, /android:layout_height=\"68.0dip\"/);
     assert.match(read('res/drawable/native_mini_player_bg.xml'), /16.0dip/);
     assert.match(layout, /@drawable\/native_nav_home/);
     assert.match(layout, /@drawable\/native_nav_search/);
@@ -92,7 +92,7 @@ test('native bridge exposes UI callbacks and routes media, search and player dat
     assert.match(bridge, /\.method public final onNativeUiData\(Ljava\/lang\/String;Ljava\/lang\/String;\)V[\s\S]*?JavascriptInterface/);
     assert.match(bridge, /\.method public final onNativeListText\(Ljava\/lang\/String;\)V[\s\S]*?JavascriptInterface/);
     assert.match(activity, /NativeHomeFeed;->paint/);
-    assert.match(read('smali/com/melodix/music/NativeHomeFeed.smali'), /NativeUiRowFactory;->create/);
+    assert.match(read('smali/com/melodix/music/NativeHomeFeed.smali'), /NativeUiRowFactory;->addCoverTile/);
     assert.match(bridge, /const-string v1, "media:"[\s\S]*?dispatchNativeUi/);
     assert.match(bridge, /const-string v1, "search:"[\s\S]*?dispatchNativeUi/);
     assert.match(bridge, /const-string v0, "player"[\s\S]*?dispatchNativeUi/);
@@ -962,7 +962,7 @@ test('content rows reach the cover factory instead of the settings factory', () 
     assert.equal(branch[2], 'nez', 'empty settingValue must jump to the content factory');
     assert.equal(branch[3], 'content_row');
     const content = feed.slice(contentDef, addDef);
-    assert.match(content, /NativeUiRowFactory;->create/);
+    assert.match(content, /NativeUiRowFactory;->addCoverTile/);
     assert.doesNotMatch(content, /NativeSettingsRowFactory;->create/);
     assert.match(card, /NativeSettingsRowFactory;->create/);
 });
@@ -1411,7 +1411,7 @@ test('navigation clicks keep home JSON and do not force the home screen', () => 
 
     const rowsAt = activity.indexOf('.method public final renderNativeRows(Ljava/lang/String;Ljava/lang/String;)V');
     const rows = activity.slice(rowsAt, activity.indexOf('.method public final findNativeByTag', rowsAt));
-    assert.match(rows, /NativeHomeShelfRenderer;->render/);
+    assert.doesNotMatch(rows, /NativeHomeShelfRenderer;->render/, 'zero-height shelves hid every playlist card');
     assert.doesNotMatch(rows, /NativeRowList;->fill/, 'NativeRowList VerifyError crashed launch');
     assert.doesNotMatch(rows, /Lorg\/json\/JSONArray;-><init>/, 'JSONArray loop VerifyError crashed home');
     assert.match(rows, /NativeHomeFeed;->paint/);

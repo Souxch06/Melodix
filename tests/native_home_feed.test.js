@@ -39,7 +39,7 @@ function settingValueBranch(paint) {
 function factoryAfterLabel(paint, label) {
     const body = sliceLabel(paint, label, ':add_row');
     if (body.includes('NativeSettingsRowFactory;->create')) return 'settings';
-    if (body.includes('NativeUiRowFactory;->create(')) return 'content';
+    if (body.includes('NativeUiRowFactory;->addCoverTile') || body.includes('NativeUiRowFactory;->create(')) return 'content';
     return 'unknown';
 }
 
@@ -53,7 +53,7 @@ function routeSettingValue(isEmpty) {
     }
     const fall = branch.block;
     if (fall.includes('NativeSettingsRowFactory;->create')) return 'settings';
-    if (fall.includes('NativeUiRowFactory;->create(')) return 'content';
+    if (fall.includes('NativeUiRowFactory;->addCoverTile') || fall.includes('NativeUiRowFactory;->create(')) return 'content';
     return 'unknown';
 }
 
@@ -170,7 +170,7 @@ test('renderNativeRows paints via NativeHomeFeed and never wipes Accueil on empt
     assert.match(rows, /NativeHomeFeed;->paint/);
     assert.doesNotMatch(rows, /Lorg\/json\/JSONArray;-><init>/);
     assert.doesNotMatch(rows, /NativeRowList;->fill/);
-    assert.match(rows, /NativeHomeShelfRenderer;->render/);
+    assert.doesNotMatch(rows, /NativeHomeShelfRenderer;->render/);
     assert.match(rows, /const-string v0, \"Accueil\"/);
 
     const applyAt = activity.indexOf('.method public final applyNativeUiData(Ljava/lang/String;Ljava/lang/String;)V');
