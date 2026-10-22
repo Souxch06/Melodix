@@ -344,6 +344,16 @@ test('section headers follow non-empty and different-from-previous', () => {
     assert.equal(sectionHeaderCreated('Albums', 'Vos playlists'), true);
 });
 
+test('home JSON does not steal an open playlist detail screen', () => {
+    const activity = read('smali/com/melodix/music/MainActivity.smali');
+    const applyAt = activity.indexOf('.method public final applyNativeUiData(Ljava/lang/String;Ljava/lang/String;)V');
+    const apply = activity.slice(applyAt, activity.indexOf('.method public final updateNativePlayer', applyAt));
+    const home = apply.slice(apply.indexOf('\n    :check_home\n'), apply.indexOf('\n    :check_media\n'));
+    assert.match(home, /:home_do_paint/);
+    assert.match(home, /if-eqz v5, :apply_done/);
+    assert.match(home, /nativeCurrentScreen/);
+});
+
 test('search payloads do not clear stored home JSON in applyNativeUiData', () => {
     const activity = read('smali/com/melodix/music/MainActivity.smali');
     const applyAt = activity.indexOf('.method public final applyNativeUiData(Ljava/lang/String;Ljava/lang/String;)V');

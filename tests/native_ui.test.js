@@ -376,6 +376,84 @@ test('native shell routes a Spotify detail deep link and transfers its title and
     }]);
 });
 
+test('playlist pages scrape tracklist rows, not home cards', () => {
+    const calls = [];
+    const trackAnchor = {
+        href: 'https://open.spotify.com/track/trk1',
+        textContent: 'Song One',
+        innerText: 'Song One',
+        matches: (sel) => sel === 'a[href]',
+        getAttribute: () => 'https://open.spotify.com/track/trk1',
+        querySelector: () => null,
+        closest: (sel) => sel === '[data-testid="tracklist-row"]' ? trackRow : null
+    };
+    const artistAnchor = {
+        href: 'https://open.spotify.com/artist/art1',
+        textContent: 'An Artist',
+        innerText: 'An Artist',
+        matches: () => false,
+        getAttribute: () => null,
+        querySelector: () => null,
+        closest: () => null
+    };
+    const trackRow = {
+        innerText: 'Song One\nAn Artist',
+        textContent: 'Song One\nAn Artist',
+        matches: (sel) => sel === '[data-testid="tracklist-row"]',
+        getAttribute: () => null,
+        querySelector: (selector) => {
+            if (selector.indexOf('/track/') >= 0) return trackAnchor;
+            if (selector.indexOf('/artist/') >= 0) return artistAnchor;
+            if (selector === 'a[href]') return trackAnchor;
+            return null;
+        },
+        querySelectorAll: () => [],
+        closest: () => null
+    };
+    const heading = { innerText: 'Ma Playlist', textContent: 'Ma Playlist' };
+    const mainView = {
+        querySelector: () => heading,
+        querySelectorAll: (selector) => {
+            if (selector === '[data-testid="tracklist-row"]') return [trackRow];
+            if (selector === '[data-testid="card"]') return [];
+            if (selector === 'a[href]') return [trackAnchor, artistAnchor];
+            return [];
+        }
+    };
+    const document = {
+        readyState: 'complete',
+        documentElement: {},
+        querySelector: (selector) => selector === '#main-view'
+            ? mainView
+            : selector.indexOf('user-widget-link') >= 0 ? {} : null,
+        addEventListener: () => {}
+    };
+    class TestMutationObserver { observe() {} }
+    const window = {
+        location: {
+            hostname: 'open.spotify.com',
+            pathname: '/playlist/pl123',
+            href: 'https://open.spotify.com/playlist/pl123',
+            assign: () => {}
+        },
+        AndBridge: {
+            onNativeUiRoute: () => {},
+            onNativeUiReady: () => {},
+            onNativeUiData: (screen, data) => calls.push({ screen, data })
+        },
+        MutationObserver: TestMutationObserver,
+        addEventListener: () => {},
+        setTimeout: () => 1,
+        clearTimeout: () => {}
+    };
+    vm.runInNewContext(read('assets/native_ui_shell.js'), { window, document, URL });
+    const detail = JSON.parse(dataFor(calls, 'detail').data);
+    assert.equal(detail.length, 1);
+    assert.equal(detail[0].title, 'Song One');
+    assert.equal(detail[0].subtitle, 'An Artist');
+    assert.equal(detail[0].uri, 'spotify:track:trk1');
+});
+
 test('native search deep links preserve their query in the native search field', () => {
     const routes = [];
     const calls = [];
@@ -959,9 +1037,10 @@ test('opening a playlist no longer depends on the playback bridge', () => {
 
     assert.match(shell, /window\.__sfOpenCollection = function\(value\)/);
     assert.match(shell, /__sfMelodixBridgeStarted === true && typeof window\.fetchMediaItems === 'function'/);
-    assert.match(shell, /return window\.__sfNativeOpenUri\(uri\);/, 'navigation is the fallback when the bridge is absent');
-    assert.match(shell, /openCollectionTimer = window\.setTimeout\(navigate, 6000\)/, 'a silent bridge cannot leave an empty screen');
-    assert.match(shell, /cancelPendingCollectionNavigation/);
+    assert.match(shell, /return window\.__sfNativeOpenUri\(uri\);/, 'a playlist always loads the real Spotify page');
+    assert.match(shell, /function collectDetailRows/);
+    assert.match(shell, /data-testid="tracklist-row"/);
+    assert.doesNotMatch(shell, /setTimeout\(navigate, 6000\)/);
 
     const openRow = activity.slice(activity.indexOf('.method public final openNativeRow'));
     assert.match(openRow, /const-string v1, "window\.__sfOpenCollection"/);
@@ -972,6 +1051,7 @@ test('detail rows are collected for any playlist route, not only the first page 
     const shell = read('assets/native_ui_shell.js');
 
     assert.match(shell, /function updateDetailRows\(mainView\)/);
+    assert.match(shell, /collectDetailRows\(mainView\)/);
     assert.match(shell, /nativeScreenForPath\(\) !== 'detail'/);
     assert.match(shell, /path !== lastDetailPath/);
     assert.match(shell, /lastDetailPath = path;/);

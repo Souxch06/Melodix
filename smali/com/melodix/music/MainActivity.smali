@@ -7452,6 +7452,14 @@
     if-eqz v2, :apply_done
     move-object p2, v2
     :home_paint
+    iget-object v4, p0, Lcom/melodix/music/MainActivity;->nativeCurrentScreen:Ljava/lang/String;
+    if-eqz v4, :home_do_paint
+    const-string v5, "home"
+    invoke-virtual {v4, v5}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    move-result v5
+    if-eqz v5, :apply_done
+
+    :home_do_paint
     const-string v2, "home"
     iput-object v2, p0, Lcom/melodix/music/MainActivity;->nativeCurrentScreen:Ljava/lang/String;
     const-string v2, "Accueil"

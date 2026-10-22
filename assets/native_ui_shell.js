@@ -659,6 +659,62 @@
         }
     }
 
+    function collectDetailRows(mainView) {
+        var root = mainView && mainView.querySelectorAll ? mainView : homeScrapeRoot();
+        var seen = new Set();
+        var rows = [];
+        var pageUri = nativeSpotifyUri(window.location && window.location.href);
+        var nodes;
+        if (!root || typeof root.querySelectorAll !== 'function') return [];
+        nodes = Array.prototype.slice.call(root.querySelectorAll('[data-testid="tracklist-row"]'));
+        nodes.forEach(function(row) {
+            var trackAnchor = row && typeof row.querySelector === 'function'
+                ? row.querySelector('a[href*="/track/"], a[href*="/episode/"]')
+                : null;
+            var href = trackAnchor && (trackAnchor.href || (trackAnchor.getAttribute && trackAnchor.getAttribute('href')));
+            var uri = spotifyResourceUri(href);
+            var lines;
+            var title;
+            var subtitle;
+            var artistNode;
+            if (!uri || seen.has(uri)) return;
+            lines = textLines(row);
+            title = String(
+                (trackAnchor && (trackAnchor.textContent || trackAnchor.innerText)) ||
+                lines[0] ||
+                ''
+            ).replace(/\s+/g, ' ').trim().slice(0, 100);
+            if (!title) return;
+            subtitle = '';
+            if (row && typeof row.querySelector === 'function') {
+                artistNode = row.querySelector('a[href*="/artist/"]');
+                if (artistNode) {
+                    subtitle = String(artistNode.textContent || artistNode.innerText || '')
+                        .replace(/\s+/g, ' ').trim();
+                }
+            }
+            if (!subtitle) {
+                subtitle = lines.find(function(line) { return line && line !== title; }) || '';
+            }
+            seen.add(uri);
+            rows.push({
+                title: title,
+                subtitle: subtitle.slice(0, 120),
+                section: '',
+                image: findImageUrl(row, trackAnchor, root),
+                uri: uri
+            });
+        });
+        if (rows.length) return rows.slice(0, 80);
+        collectHomeRows(root).forEach(function(row) {
+            if (!row || !row.uri || seen.has(row.uri)) return;
+            if (pageUri && row.uri === pageUri) return;
+            seen.add(row.uri);
+            rows.push(row);
+        });
+        return rows.slice(0, 80);
+    }
+
     function updateDetailRows(mainView) {
         var titleNode;
         var title;
@@ -690,7 +746,7 @@
             } catch (_) {}
         }
 
-        rows = collectHomeRows(mainView);
+        rows = collectDetailRows(mainView);
         signature = JSON.stringify(rows);
         window.__sfNativeUiDetailRowsCount = rows.length;
         if (rows.length > 0 && signature !== lastInitialDetailSignature && sendNativeUiData('detail', rows)) {
@@ -1778,29 +1834,16 @@
 
     window.__sfOpenCollection = function(value) {
         var uri = nativeSpotifyUri(value);
-        var navigated = false;
         if (!uri) return false;
         cancelPendingCollectionNavigation();
-
-        function navigate() {
-            if (navigated) return false;
-            navigated = true;
-            openCollectionTimer = null;
-            return window.__sfNativeOpenUri(uri);
-        }
-
+        // Always load the real playlist/album page so the shell can scrape
+        // tracklist rows. The playback bridge is optional and often absent.
         if (window.__sfMelodixBridgeStarted === true && typeof window.fetchMediaItems === 'function') {
             try {
                 window.fetchMediaItems(uri);
-                // If the bridge never answers, load the real page instead of
-                // leaving the user on an empty screen.
-                openCollectionTimer = window.setTimeout(navigate, 6000);
-                return true;
-            } catch (_) {
-                cancelPendingCollectionNavigation();
-            }
+            } catch (_) {}
         }
-        return navigate();
+        return window.__sfNativeOpenUri(uri);
     };
 
     // Search normally goes through the bridge. Without it the only source of
