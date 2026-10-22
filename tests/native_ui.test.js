@@ -1411,7 +1411,7 @@ test('navigation clicks keep home JSON and do not force the home screen', () => 
 
     const rowsAt = activity.indexOf('.method public final renderNativeRows(Ljava/lang/String;Ljava/lang/String;)V');
     const rows = activity.slice(rowsAt, activity.indexOf('.method public final findNativeByTag', rowsAt));
-    assert.match(rows, /NativeHomeShelfRenderer;->render/);
+    assert.doesNotMatch(rows, /NativeHomeShelfRenderer;->render/, 'zero-height shelves hid every playlist card');
     assert.doesNotMatch(rows, /NativeRowList;->fill/, 'NativeRowList VerifyError crashed launch');
     assert.doesNotMatch(rows, /Lorg\/json\/JSONArray;-><init>/, 'JSONArray loop VerifyError crashed home');
     assert.match(rows, /NativeHomeFeed;->paint/);
