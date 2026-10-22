@@ -789,6 +789,7 @@ test('playback stability and fast live search optimizations are active across Sm
 
     assert.match(activity, /\.method public final showNativeUi\(\)V[\s\S]*?sput-boolean v0, Lcom\/melodix\/music\/AppSingleton;->l:Z[\s\S]*?MainActivity;->H:Landroidx\/constraintlayout\/widget\/ConstraintLayout;/);
     assert.match(shell, /window\.__sfSearchCache/);
+    assert.match(shell, /collectDetailRows\(mainView\)/);
     assert.doesNotMatch(shell, /function clearHomeRetry\(\) \{[^}]*observer\.disconnect\(\)/);
     assert.match(bridge, /if \(window\.__sfMelodixBridgeCompleted\)/);
     assert.doesNotMatch(bridge, /AndBridge\.deferMessage\('reload'\);\s*location\.reload\(\)/);

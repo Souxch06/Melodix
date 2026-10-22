@@ -168,7 +168,9 @@ test('renderNativeRows paints via NativeHomeFeed and never wipes Accueil on empt
     const rowsAt = activity.indexOf('.method public final renderNativeRows(Ljava/lang/String;Ljava/lang/String;)V');
     const rows = activity.slice(rowsAt, activity.indexOf('.method public final findNativeByTag', rowsAt));
     assert.match(rows, /NativeHomeFeed;->paint/);
+    assert.match(rows, /NativeHomeFeed;->useGrid:Z/);
     assert.match(read('smali/com/melodix/music/NativeHomeFeed.smali'), /:make_pair/);
+    assert.match(read('smali/com/melodix/music/NativeHomeFeed.smali'), /:add_list/);
     assert.doesNotMatch(rows, /Lorg\/json\/JSONArray;-><init>/);
     assert.doesNotMatch(rows, /NativeRowList;->fill/);
     assert.doesNotMatch(rows, /NativeHomeShelfRenderer;->render/);

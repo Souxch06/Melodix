@@ -7865,6 +7865,23 @@
     const/4 v1, 0x0
     invoke-virtual {v2, v1}, Landroid/view/View;->setVisibility(I)V
     check-cast v2, Landroid/widget/LinearLayout;
+    const/4 v4, 0x0
+    sput-boolean v4, Lcom/melodix/music/NativeHomeFeed;->useGrid:Z
+    const-string v0, "Accueil"
+    invoke-virtual {v0, p1}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    move-result v0
+    if-nez v0, :check_lib_grid
+    const/4 v4, 0x1
+    sput-boolean v4, Lcom/melodix/music/NativeHomeFeed;->useGrid:Z
+    goto :do_paint
+    :check_lib_grid
+    const-string v0, "Votre bibliothèque"
+    invoke-virtual {v0, p1}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    move-result v0
+    if-eqz v0, :do_paint
+    const/4 v4, 0x1
+    sput-boolean v4, Lcom/melodix/music/NativeHomeFeed;->useGrid:Z
+    :do_paint
     invoke-static {p0, v2, p2}, Lcom/melodix/music/NativeHomeFeed;->paint(Lcom/melodix/music/MainActivity;Landroid/view/ViewGroup;Ljava/lang/String;)I
     move-result v3
     if-lez v3, :native_rows_keep

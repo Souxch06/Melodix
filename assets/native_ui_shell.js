@@ -646,6 +646,9 @@
             lastSearchSignature = null;
         }
         rows = collectHomeRows(mainView);
+        if (!rows.length) {
+            rows = collectDetailRows(mainView);
+        }
         signature = JSON.stringify(rows);
         window.__sfNativeUiSearchRowsCount = rows.length;
         if (rows.length > 0 && signature !== lastSearchSignature && sendNativeUiData('search:' + query, rows)) {

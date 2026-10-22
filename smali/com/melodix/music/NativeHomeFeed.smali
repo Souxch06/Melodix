@@ -1,6 +1,8 @@
 .class public final Lcom/melodix/music/NativeHomeFeed;
 .super Ljava/lang/Object;
 
+.field public static useGrid:Z
+
 .method public static paint(Lcom/melodix/music/MainActivity;Landroid/view/ViewGroup;Ljava/lang/String;)I
     .locals 13
 
@@ -91,6 +93,8 @@
 
     :add_content
     if-eqz v11, :next
+    sget-boolean v8, Lcom/melodix/music/NativeHomeFeed;->useGrid:Z
+    if-nez v8, :add_list
     if-eqz v0, :make_pair
     invoke-virtual {v0}, Landroid/view/ViewGroup;->getChildCount()I
     move-result v10
@@ -114,6 +118,13 @@
     const/high16 v10, 0x3f800000
     iput v10, v8, Landroid/widget/LinearLayout$LayoutParams;->weight:F
     invoke-virtual {v0, v11, v8}, Landroid/view/ViewGroup;->addView(Landroid/view/View;Landroid/view/ViewGroup$LayoutParams;)V
+    goto :counted
+
+    :add_list
+    const/4 v0, 0x0
+    invoke-virtual {v12, v11}, Landroid/view/ViewGroup;->addView(Landroid/view/View;)V
+
+    :counted
     add-int/lit8 v5, v5, 0x1
 
     :next
