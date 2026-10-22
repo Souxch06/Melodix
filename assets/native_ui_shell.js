@@ -575,7 +575,7 @@
                 scheduleHomeRetry();
                 return;
             }
-            if (rows.length < 8 && homeRetries < 8) {
+            if (!hasPublic && homeRetries < 10) {
                 scheduleHomeRetry();
                 return;
             }
@@ -588,12 +588,13 @@
             scheduleHomeRetry();
             return;
         }
-        if (lastHomeSignature) {
+        if (lastHomeSignature && (window.__sfNativeUiHomeHadPublic || !hasPublic)) {
             return;
         }
         if (sendNativeUiData('home', rows)) {
             lastHomeSignature = signature;
             window.__sfNativeUiHomeRowsSent = rows.length;
+            window.__sfNativeUiHomeHadPublic = hasPublic;
             window.__sfNativeUiHomeDataSent = true;
             if (homeRetryTimer) {
                 window.clearTimeout(homeRetryTimer);
