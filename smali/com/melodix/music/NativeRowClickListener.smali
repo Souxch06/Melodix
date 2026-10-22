@@ -19,9 +19,17 @@
 .method public final onClick(Landroid/view/View;)V
     .locals 2
 
+    :try_start_0
     iget-object v0, p0, Lcom/melodix/music/NativeRowClickListener;->activity:Lcom/melodix/music/MainActivity;
     iget-object v1, p0, Lcom/melodix/music/NativeRowClickListener;->uri:Ljava/lang/String;
     iget-object p0, p0, Lcom/melodix/music/NativeRowClickListener;->title:Ljava/lang/String;
     invoke-virtual {v0, v1, p0}, Lcom/melodix/music/MainActivity;->openNativeRow(Ljava/lang/String;Ljava/lang/String;)V
+    :try_end_0
+    .catch Ljava/lang/Throwable; {:try_start_0 .. :try_end_0} :catch_0
+    return-void
+
+    :catch_0
+    move-exception v0
+    invoke-static {v0}, Lcom/melodix/music/NativeCrashGuard;->record(Ljava/lang/Throwable;)V
     return-void
 .end method

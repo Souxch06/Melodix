@@ -558,6 +558,9 @@
         try {
             clockLooksNative = /\[native code\]/.test(Function.prototype.toString.call(window.setTimeout));
         } catch (_) {}
+        if (lastHomeSignature) {
+            return;
+        }
         if (clockLooksNative) {
             if (rows.length > pendingHomeCount || signature !== pendingHomeSignature) {
                 pendingHomeCount = Math.max(pendingHomeCount, rows.length);
@@ -570,19 +573,18 @@
                 return;
             }
         }
-        var ready = rows.length > 0;
-        if (!ready) {
+        if (!rows.length) {
             scheduleHomeRetry();
             return;
         }
-        if (lastHomeSignature !== signature && sendNativeUiData('home', rows)) {
+        if (sendNativeUiData('home', rows)) {
             lastHomeSignature = signature;
             window.__sfNativeUiHomeDataSent = true;
             if (homeRetryTimer) {
                 window.clearTimeout(homeRetryTimer);
                 homeRetryTimer = null;
             }
-        } else if (clockLooksNative) {
+        } else {
             scheduleHomeRetry();
         }
     }
