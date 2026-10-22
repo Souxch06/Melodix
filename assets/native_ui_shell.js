@@ -35,9 +35,13 @@
 
     function sanitizeDiagnostic(value) {
         var text = String(value && value.message || value || '');
-        text = text.replace(/Bearer\s+[A-Za-z0-9._\-+=\/]+/gi, 'Bearer [redacted]');
-        text = text.replace(/access_token=[^&\s]+/gi, 'access_token=[redacted]');
-        text = text.replace(/refresh_token=[^&\s]+/gi, 'refresh_token=[redacted]');
+        text = text.replace(/Set-Cookie:\s*[^;\r\n]+/gi, 'Set-Cookie:[redacted]');
+        text = text.replace(/Cookie:\s*[^\r\n]+/gi, 'Cookie:[redacted]');
+        text = text.replace(/Authorization:\s*\S+/gi, 'Authorization:[redacted]');
+        text = text.replace(/Bearer\s+\S+/gi, 'Bearer [redacted]');
+        text = text.replace(/\b(?:access_token|refresh_token|id_token|client_secret|code|sp_dc|sp_key|sessionid)=[^&\s;]+/gi, function(match) {
+            return match.slice(0, match.indexOf('=') + 1) + '[redacted]';
+        });
         text = text.replace(/spotify:user:[^\s,;]+/gi, 'spotify:user:[redacted]');
         text = text.replace(/[A-Za-z0-9_-]{8,}\.[A-Za-z0-9._-]{8,}\.[A-Za-z0-9._-]{8,}/g, '[redacted-jwt]');
         return text.slice(0, 160);
@@ -1579,6 +1583,10 @@
         return typeof document !== 'undefined' && document.hidden === true;
     }
 
+    // Playlist titles are scraped from card/anchor textContent after childList
+    // changes (Spotify replaces the card). characterData is not observed: a
+    // document-wide listener would fire on player clocks, and there is no local
+    // proof that Accueil rewrites titles in place without replacing the node.
     function mutationLooksRelevant(mutations) {
         var i;
         var j;
@@ -2313,8 +2321,8 @@
     }
 
     function recordBridgeFailure(stage, error) {
-        var message = error && error.message ? error.message : String(error || '');
-        window.__sfBridgeLastError = stage + (message ? ': ' + message : '');
+        var message = sanitizeDiagnostic(error);
+        window.__sfBridgeLastError = sanitizeDiagnostic(stage + (message ? ': ' + message : ''));
     }
 
     function sameOriginBridgeSrc() {
@@ -2374,7 +2382,7 @@
                     var name = String(event && event.message || 'error').slice(0, 120);
                     var line = event && event.lineno ? String(event.lineno) : '0';
                     if (!window.__sfBridgeLastError) {
-                        window.__sfBridgeLastError = ('exec-error: ' + name + ':L' + line).slice(0, 160);
+                        window.__sfBridgeLastError = sanitizeDiagnostic('exec-error: ' + name + ':L' + line);
                     }
                     if (window.__sfBridgeEntered !== true) setBridgeLoadStage('script-exec-error');
                 }, true);

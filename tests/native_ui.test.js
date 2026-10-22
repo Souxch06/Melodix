@@ -1528,6 +1528,7 @@ test('DOM observer ignores script/style noise and skips work while the tab is hi
 
     const timers = [];
     let observerCb = null;
+    let observeOptions = null;
     const document = {
         hidden: false,
         readyState: 'complete',
@@ -1538,7 +1539,7 @@ test('DOM observer ignores script/style noise and skips work while the tab is hi
     };
     class TestMutationObserver {
         constructor(cb) { observerCb = cb; }
-        observe() {}
+        observe(_root, options) { observeOptions = options; }
     }
     const window = {
         location: { hostname: 'open.spotify.com', pathname: '/', href: 'https://open.spotify.com/' },
@@ -1555,6 +1556,9 @@ test('DOM observer ignores script/style noise and skips work while the tab is hi
     };
     vm.runInNewContext(script, { window, document, URL, MutationObserver: TestMutationObserver });
     assert.equal(typeof observerCb, 'function');
+    assert.equal(observeOptions && observeOptions.childList, true);
+    assert.equal(observeOptions && observeOptions.subtree, true);
+    assert.notEqual(observeOptions && observeOptions.characterData, true);
     const afterInstall = timers.length;
     observerCb([{
         addedNodes: [{ nodeType: 1, tagName: 'SCRIPT' }],
@@ -1578,6 +1582,13 @@ test('DOM observer ignores script/style noise and skips work while the tab is hi
         removedNodes: []
     }]);
     assert.equal(timers.length, afterText, 'hidden tab must not queue another scrape');
+    observerCb([{
+        type: 'characterData',
+        addedNodes: [],
+        removedNodes: [],
+        target: { nodeType: 3, data: 'Nouveau titre' }
+    }]);
+    assert.equal(timers.length, afterText, 'in-place characterData is not observed (no local proof Accueil mutates titles that way)');
 });
 
 test('shell diagnostics redact tokens and clear the matching operation', () => {
@@ -1594,7 +1605,13 @@ test('shell diagnostics redact tokens and clear the matching operation', () => {
         readyState: 'complete',
         documentElement: {},
         querySelector: () => {
-            if (boom) throw new Error('Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.payload.signature access_token=secretvalue123');
+            if (boom) {
+                throw new Error(
+                    'Cookie: sp_dc=rawcookie Authorization: Basic abc123 ' +
+                    'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.payload.signature ' +
+                    'access_token=secretvalue123 refresh_token=refreshsecret id_token=idsecret'
+                );
+            }
             return null;
         },
         querySelectorAll: () => [],
@@ -1614,8 +1631,13 @@ test('shell diagnostics redact tokens and clear the matching operation', () => {
     vm.runInNewContext(script, { window, document, URL, MutationObserver: TestMutationObserver });
     assert.ok(window.__sfNativeUiShellErrors >= 1);
     assert.match(String(window.__sfNativeUiShellLastError), /^(install|update):/);
-    assert.doesNotMatch(String(window.__sfNativeUiShellLastError), /eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9/);
-    assert.doesNotMatch(String(window.__sfNativeUiShellLastError), /secretvalue123/);
-    assert.match(String(window.__sfNativeUiShellLastError), /\[redacted\]/);
+    const last = String(window.__sfNativeUiShellLastError);
+    assert.doesNotMatch(last, /eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9/);
+    assert.doesNotMatch(last, /secretvalue123/);
+    assert.doesNotMatch(last, /rawcookie/);
+    assert.doesNotMatch(last, /refreshsecret/);
+    assert.doesNotMatch(last, /idsecret/);
+    assert.doesNotMatch(last, /Basic abc123/);
+    assert.match(last, /\[redacted\]/);
     assert.ok(window.__sfNativeUiShellLastErrorOp === 'install' || window.__sfNativeUiShellLastErrorOp === 'update');
 });
