@@ -7010,9 +7010,9 @@
 
     move-result v1
 
-    if-nez v1, :native_fade_flag
+    if-eqz v1, :native_fade_flag
 
-    const/4 v0, 0x0
+    const/4 v0, 0x1
 
     :native_fade_flag
     iput-boolean v0, p0, Lcom/melodix/music/MainActivity;->nativeFadeNextScreen:Z
@@ -7296,7 +7296,7 @@
 
     :native_tab_as_group
     instance-of v3, v1, Landroid/view/ViewGroup;
-    if-eqz v3, :native_tab_style_done
+    if-nez v3, :native_tab_style_done
     check-cast v1, Landroid/view/ViewGroup;
     const/4 v3, 0x0
     invoke-virtual {v1, v3}, Landroid/view/ViewGroup;->getChildAt(I)Landroid/view/View;
@@ -7322,8 +7322,55 @@
 .end method
 
 .method private static fadeNativeScreen(Lcom/melodix/music/MainActivity;)V
-    .locals 4
+    .locals 5
 
+    const v0, 0x7f09023a
+
+    invoke-virtual {p0, v0}, Landroid/app/Activity;->findViewById(I)Landroid/view/View;
+
+    move-result-object v0
+
+    if-eqz v0, :fade_root
+
+    invoke-virtual {v0}, Landroid/view/View;->getVisibility()I
+
+    move-result v1
+
+    if-eqz v1, :fade_root
+
+    const/high16 v1, 0x42700000
+
+    invoke-virtual {v0, v1}, Landroid/view/View;->setTranslationY(F)V
+
+    const v1, 0x3f4ccccd
+
+    invoke-virtual {v0, v1}, Landroid/view/View;->setAlpha(F)V
+
+    invoke-virtual {v0}, Landroid/view/View;->animate()Landroid/view/ViewPropertyAnimator;
+
+    move-result-object v1
+
+    const/4 v2, 0x0
+
+    invoke-virtual {v1, v2}, Landroid/view/ViewPropertyAnimator;->translationY(F)Landroid/view/ViewPropertyAnimator;
+
+    move-result-object v1
+
+    const/high16 v2, 0x3f800000
+
+    invoke-virtual {v1, v2}, Landroid/view/ViewPropertyAnimator;->alpha(F)Landroid/view/ViewPropertyAnimator;
+
+    move-result-object v1
+
+    const-wide/16 v3, 0xdc
+
+    invoke-virtual {v1, v3, v4}, Landroid/view/ViewPropertyAnimator;->setDuration(J)Landroid/view/ViewPropertyAnimator;
+
+    move-result-object v1
+
+    invoke-virtual {v1}, Landroid/view/ViewPropertyAnimator;->start()V
+
+    :fade_root
     const v0, 0x7f09022f
 
     invoke-virtual {p0, v0}, Landroid/app/Activity;->findViewById(I)Landroid/view/View;
@@ -7646,7 +7693,7 @@
     move-result-object v9
     if-eqz v9, :native_player_progress
     check-cast v9, Landroid/widget/ImageView;
-    const/16 v8, 0x2d0
+    const/16 v8, 0x140
     invoke-static {v9, v2, v8}, Lcom/melodix/music/NativeImageLoader;->load(Landroid/widget/ImageView;Ljava/lang/String;I)V
 
     :native_player_progress
@@ -7757,10 +7804,11 @@
 
     :native_player_mini_visibility
     :try_end_native_player
-    .catch Lorg/json/JSONException; {:try_start_native_player .. :try_end_native_player} :catch_native_player
+    .catch Ljava/lang/Exception; {:try_start_native_player .. :try_end_native_player} :catch_native_player
     return-void
     :catch_native_player
     move-exception v0
+    invoke-static {v0}, Lcom/melodix/music/NativeCrashGuard;->record(Ljava/lang/Throwable;)V
     return-void
 .end method
 
@@ -8590,6 +8638,7 @@
 .method public final onNativePlayerExpandClick(Landroid/view/View;)V
     .locals 3
 
+    :try_start_expand
     iget-object v0, p0, Lcom/melodix/music/MainActivity;->nativeCurrentScreen:Ljava/lang/String;
     if-eqz v0, :save_player_return_state
     const-string v1, "player"
@@ -8610,8 +8659,15 @@
     iput-object v0, p0, Lcom/melodix/music/MainActivity;->nativeReturnSearch:Ljava/lang/String;
     const-string v2, "player"
     invoke-virtual {p0, v2}, Lcom/melodix/music/MainActivity;->setNativeScreen(Ljava/lang/String;)V
+    :try_end_expand
+    .catch Ljava/lang/Exception; {:try_start_expand .. :try_end_expand} :catch_expand
 
     :native_player_expand_done
+    return-void
+
+    :catch_expand
+    move-exception v0
+    invoke-static {v0}, Lcom/melodix/music/NativeCrashGuard;->record(Ljava/lang/Throwable;)V
     return-void
 .end method
 

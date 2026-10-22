@@ -73,6 +73,7 @@
         android:focusable="true"
         android:clickable="true"
         android:elevation="15.0dip"
+        android:animateLayoutChanges="true"
         android:visibility="visible"
         android:layout_width="0.0dip"
         android:layout_height="0.0dip"
@@ -442,24 +443,29 @@
         <LinearLayout
             android:id="@id/nativePlayerPanel"
             android:orientation="vertical"
-            android:gravity="center"
+            android:gravity="center_horizontal"
             android:background="@drawable/native_player_background"
-            android:paddingLeft="16.0dip"
-            android:paddingRight="16.0dip"
-            android:paddingTop="10.0dip"
-            android:paddingBottom="18.0dip"
+            android:paddingLeft="20.0dip"
+            android:paddingRight="20.0dip"
+            android:paddingTop="8.0dip"
+            android:paddingBottom="16.0dip"
             android:visibility="gone"
+            android:clickable="true"
+            android:focusable="true"
             android:layout_width="fill_parent"
             android:layout_height="0.0dip"
             android:layout_weight="1.0">
             <androidx.cardview.widget.CardView
-                android:layout_width="280.0dip"
-                android:layout_height="280.0dip"
-                android:layout_marginTop="8.0dip"
-                android:layout_marginBottom="22.0dip"
+                android:layout_width="fill_parent"
+                android:layout_height="0.0dip"
+                android:layout_weight="1.0"
+                android:layout_marginLeft="12.0dip"
+                android:layout_marginRight="12.0dip"
+                android:layout_marginTop="4.0dip"
+                android:layout_marginBottom="16.0dip"
                 app:cardBackgroundColor="#ff282828"
-                app:cardCornerRadius="12.0dip"
-                app:cardElevation="12.0dip">
+                app:cardCornerRadius="16.0dip"
+                app:cardElevation="8.0dip">
                 <ImageView
                     android:id="@id/nativePlayerLargeArtwork"
                     android:src="@drawable/logo_melodix"
@@ -482,7 +488,7 @@
                 android:layout_height="wrap_content" />
             <TextView
                 android:id="@id/nativePlayerLargeArtist"
-                android:text="Open Spotify to start listening"
+                android:text="Aucune piste"
                 android:textSize="15.0sp"
                 android:textColor="#ffb3b3b3"
                 android:gravity="center"
@@ -542,11 +548,11 @@
                 android:gravity="center"
                 android:layout_width="fill_parent"
                 android:layout_height="wrap_content">
-                <ImageView android:id="@id/nativePlayerShuffleButton" android:src="@drawable/shuffle" android:tint="#ffb3b3b3" android:scaleType="centerInside" android:padding="11.0dip" android:clickable="true" android:focusable="true" android:contentDescription="Shuffle" android:background="@drawable/native_button_dark" android:onClick="onNativePlayerShuffleClick" android:layout_width="44.0dip" android:layout_height="44.0dip" />
+                <ImageView android:id="@id/nativePlayerShuffleButton" android:src="@drawable/shuffle" android:tint="#ffb3b3b3" android:scaleType="centerInside" android:padding="12.0dip" android:clickable="true" android:focusable="true" android:contentDescription="Shuffle" android:background="@drawable/native_button_dark" android:onClick="onNativePlayerShuffleClick" android:layout_width="48.0dip" android:layout_height="48.0dip" />
                 <ImageView android:id="@id/nativePlayerPreviousButton" android:src="@drawable/previous" android:scaleType="centerInside" android:padding="14.0dip" android:clickable="true" android:focusable="true" android:contentDescription="Previous track" android:background="@drawable/native_button_dark" android:onClick="onNativePlayerPreviousClick" android:layout_width="54.0dip" android:layout_height="54.0dip" android:layout_marginLeft="12.0dip" />
                 <ImageView android:id="@id/nativePlayerLargePlayPauseButton" android:src="@drawable/play" android:tint="#ff121212" android:scaleType="centerInside" android:padding="24.0dip" android:clickable="true" android:focusable="true" android:contentDescription="Lecture ou pause" android:background="@drawable/native_button_white" android:onClick="onNativePlayPauseClick" android:layout_width="72.0dip" android:layout_height="72.0dip" android:layout_marginLeft="14.0dip" android:layout_marginRight="14.0dip" />
                 <ImageView android:id="@id/nativePlayerNextButton" android:src="@drawable/next" android:scaleType="centerInside" android:padding="15.0dip" android:clickable="true" android:focusable="true" android:contentDescription="Next track" android:background="@drawable/native_button_dark" android:onClick="onNativePlayerNextClick" android:layout_width="54.0dip" android:layout_height="54.0dip" android:layout_marginRight="12.0dip" />
-                <ImageView android:id="@id/nativePlayerRepeatButton" android:src="@drawable/repoff" android:tint="#ffb3b3b3" android:scaleType="centerInside" android:padding="11.0dip" android:clickable="true" android:focusable="true" android:contentDescription="Repeat" android:background="@drawable/native_button_dark" android:onClick="onNativePlayerRepeatClick" android:layout_width="44.0dip" android:layout_height="44.0dip" />
+                <ImageView android:id="@id/nativePlayerRepeatButton" android:src="@drawable/repoff" android:tint="#ffb3b3b3" android:scaleType="centerInside" android:padding="12.0dip" android:clickable="true" android:focusable="true" android:contentDescription="Repeat" android:background="@drawable/native_button_dark" android:onClick="onNativePlayerRepeatClick" android:layout_width="48.0dip" android:layout_height="48.0dip" />
             </LinearLayout>
         </LinearLayout>
 
