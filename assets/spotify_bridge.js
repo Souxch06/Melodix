@@ -4322,7 +4322,17 @@ try {
     window.__sfMelodixBridgeCompleted = true;
 })();
 } catch (e) {
-    window.__sfBridgeLastError = ('iife-throw:' + String(e && e.message || e)).slice(0, 160);
+    var diagnostic = String(e && e.message || e || '');
+    diagnostic = diagnostic.replace(/Set-Cookie:\s*[^;\r\n]+/gi, 'Set-Cookie:[redacted]');
+    diagnostic = diagnostic.replace(/Cookie:\s*[^\r\n]+/gi, 'Cookie:[redacted]');
+    diagnostic = diagnostic.replace(/Authorization:\s+\S+(?:\s+\S+)?/gi, 'Authorization:[redacted]');
+    diagnostic = diagnostic.replace(/Bearer\s+\S+/gi, 'Bearer [redacted]');
+    diagnostic = diagnostic.replace(/\b(?:access_token|refresh_token|id_token|client_secret|code|sp_dc|sp_key|sessionid)=[^&\s;]+/gi, function(match) {
+        return match.slice(0, match.indexOf('=') + 1) + '[redacted]';
+    });
+    diagnostic = diagnostic.replace(/spotify:user:[^\s,;]+/gi, 'spotify:user:[redacted]');
+    diagnostic = diagnostic.replace(/[A-Za-z0-9_-]{8,}\.[A-Za-z0-9._-]{8,}\.[A-Za-z0-9._-]{8,}/g, '[redacted-jwt]');
+    window.__sfBridgeLastError = ('iife-throw:' + diagnostic).slice(0, 160);
     if (window.__sfBridgeEntered !== true) {
         window.__sfBridgeLoadStage = 'iife-throw';
     }

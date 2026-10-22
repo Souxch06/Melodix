@@ -37,7 +37,7 @@
         var text = String(value && value.message || value || '');
         text = text.replace(/Set-Cookie:\s*[^;\r\n]+/gi, 'Set-Cookie:[redacted]');
         text = text.replace(/Cookie:\s*[^\r\n]+/gi, 'Cookie:[redacted]');
-        text = text.replace(/Authorization:\s*\S+/gi, 'Authorization:[redacted]');
+        text = text.replace(/Authorization:\s+\S+(?:\s+\S+)?/gi, 'Authorization:[redacted]');
         text = text.replace(/Bearer\s+\S+/gi, 'Bearer [redacted]');
         text = text.replace(/\b(?:access_token|refresh_token|id_token|client_secret|code|sp_dc|sp_key|sessionid)=[^&\s;]+/gi, function(match) {
             return match.slice(0, match.indexOf('=') + 1) + '[redacted]';

@@ -1607,9 +1607,9 @@ test('shell diagnostics redact tokens and clear the matching operation', () => {
         querySelector: () => {
             if (boom) {
                 throw new Error(
-                    'Cookie: sp_dc=rawcookie Authorization: Basic abc123 ' +
-                    'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.payload.signature ' +
-                    'access_token=secretvalue123 refresh_token=refreshsecret id_token=idsecret'
+                    'Cookie: sp_dc=fictif-dc Authorization: Basic fictif-basic ' +
+                    'Bearer headerfake.payloadfake.signfake ' +
+                    'access_token=fictif-access refresh_token=fictif-refresh id_token=fictif-id'
                 );
             }
             return null;
@@ -1632,12 +1632,12 @@ test('shell diagnostics redact tokens and clear the matching operation', () => {
     assert.ok(window.__sfNativeUiShellErrors >= 1);
     assert.match(String(window.__sfNativeUiShellLastError), /^(install|update):/);
     const last = String(window.__sfNativeUiShellLastError);
-    assert.doesNotMatch(last, /eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9/);
-    assert.doesNotMatch(last, /secretvalue123/);
-    assert.doesNotMatch(last, /rawcookie/);
-    assert.doesNotMatch(last, /refreshsecret/);
-    assert.doesNotMatch(last, /idsecret/);
-    assert.doesNotMatch(last, /Basic abc123/);
+    assert.doesNotMatch(last, /headerfake/);
+    assert.doesNotMatch(last, /fictif-access/);
+    assert.doesNotMatch(last, /fictif-dc/);
+    assert.doesNotMatch(last, /fictif-refresh/);
+    assert.doesNotMatch(last, /fictif-id/);
+    assert.doesNotMatch(last, /fictif-basic/);
     assert.match(last, /\[redacted\]/);
     assert.ok(window.__sfNativeUiShellLastErrorOp === 'install' || window.__sfNativeUiShellLastErrorOp === 'update');
 });
