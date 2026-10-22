@@ -38,7 +38,7 @@
     invoke-virtual {p2}, Ljava/lang/String;->length()I
     move-result v0
     const/high16 v2, 0x40000
-    if-le v0, v2, :native_dispatch_done
+    if-gt v0, v2, :native_dispatch_done
 
     :payload_ok
     const/4 v1, 0x0
@@ -122,12 +122,13 @@
     .annotation runtime Landroid/webkit/JavascriptInterface;
     .end annotation
 
-    if-eqz p1, :native_home_rows_done
+    if-eqz p1, :home_rows_size_ok
     invoke-virtual {p1}, Ljava/lang/String;->length()I
     move-result v0
     const/high16 v1, 0x40000
-    if-le v0, v1, :native_home_rows_done
+    if-gt v0, v1, :native_home_rows_done
 
+    :home_rows_size_ok
     sget-object v0, Lcom/melodix/music/AppSingleton;->t:Ljava/lang/ref/WeakReference;
     if-eqz v0, :native_home_rows_done
     invoke-virtual {v0}, Ljava/lang/ref/Reference;->get()Ljava/lang/Object;

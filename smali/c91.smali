@@ -7401,23 +7401,26 @@
 
     .line 17
     :cond_0
-    const-string v2, "javascript:"
-    invoke-virtual {v1, v2}, Ljava/lang/String;->startsWith(Ljava/lang/String;)Z
-    move-result v2
-    if-nez v2, :block_nav_scheme
-    const-string v2, "file:"
-    invoke-virtual {v1, v2}, Ljava/lang/String;->startsWith(Ljava/lang/String;)Z
-    move-result v2
-    if-nez v2, :block_nav_scheme
-    const-string v2, "data:"
-    invoke-virtual {v1, v2}, Ljava/lang/String;->startsWith(Ljava/lang/String;)Z
-    move-result v2
-    if-nez v2, :block_nav_scheme
-    const-string v2, "intent:"
-    invoke-virtual {v1, v2}, Ljava/lang/String;->startsWith(Ljava/lang/String;)Z
-    move-result v2
-    if-nez v2, :block_nav_scheme
+    invoke-virtual {v1}, Ljava/lang/String;->toLowerCase()Ljava/lang/String;
+    move-result-object v2
+    const-string v0, "javascript:"
+    invoke-virtual {v2, v0}, Ljava/lang/String;->startsWith(Ljava/lang/String;)Z
+    move-result v0
+    if-nez v0, :block_nav_scheme
+    const-string v0, "file:"
+    invoke-virtual {v2, v0}, Ljava/lang/String;->startsWith(Ljava/lang/String;)Z
+    move-result v0
+    if-nez v0, :block_nav_scheme
+    const-string v0, "data:"
+    invoke-virtual {v2, v0}, Ljava/lang/String;->startsWith(Ljava/lang/String;)Z
+    move-result v0
+    if-nez v0, :block_nav_scheme
+    const-string v0, "intent:"
+    invoke-virtual {v2, v0}, Ljava/lang/String;->startsWith(Ljava/lang/String;)Z
+    move-result v0
+    if-nez v0, :block_nav_scheme
 
+    const/4 v0, 0x0
     invoke-static {v1}, Ldl1;->l(Ljava/lang/String;)Z
 
     .line 18

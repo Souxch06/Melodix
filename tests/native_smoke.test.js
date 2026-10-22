@@ -138,8 +138,23 @@ test('smoke: shell respects system windows and rejects oversized JS payloads', (
     assert.match(layout, /contentDescription="Accueil"/);
     assert.match(read('res/drawable/native_shell_background.xml'), /solid android:color="#ff121212"/);
     const bridge = read('smali/com/melodix/music/AndBridge.smali');
-    assert.match(bridge, /const\/high16 v2, 0x40000/);
-    assert.match(read('smali/c91.smali'), /const-string v2, "javascript:"/);
-    assert.match(read('smali/c91.smali'), /:block_nav_scheme/);
+    const dispatchAt = bridge.indexOf('.method private final dispatchNativeUi(Ljava/lang/String;Ljava/lang/String;)V');
+    const dispatch = bridge.slice(dispatchAt, bridge.indexOf('.end method', dispatchAt));
+    // if-eqz null → skip the cap (existing null path). if-gt length, 256KiB → drop.
+    assert.match(dispatch, /if-eqz p2, :payload_ok/);
+    assert.match(dispatch, /const\/high16 v2, 0x40000/);
+    assert.match(dispatch, /if-gt v0, v2, :native_dispatch_done/);
+    assert.doesNotMatch(dispatch, /if-le v0, v2, :native_dispatch_done/);
+    const homeAt = bridge.indexOf('.method public final onNativeHomeRows(Ljava/lang/String;)V');
+    const home = bridge.slice(homeAt, bridge.indexOf('.end method', homeAt));
+    assert.match(home, /if-eqz p1, :home_rows_size_ok/);
+    assert.match(home, /if-gt v0, v1, :native_home_rows_done/);
+    assert.doesNotMatch(home, /if-le v0, v1, :native_home_rows_done/);
+    const navAt = read('smali/c91.smali').indexOf('.method public final shouldOverrideUrlLoading(Landroid/webkit/WebView;Landroid/webkit/WebResourceRequest;)Z');
+    const nav = read('smali/c91.smali').slice(navAt, read('smali/c91.smali').indexOf('.end method', navAt));
+    assert.match(nav, /toLowerCase\(\)Ljava\/lang\/String;/);
+    assert.match(nav, /startsWith\(Ljava\/lang\/String;\)Z[\s\S]*if-nez v0, :block_nav_scheme/);
+    assert.match(nav, /const-string v0, "javascript:"/);
+    assert.match(nav, /invoke-static \{v1\}, Ldl1;->l/);
     assert.match(read('smali/com/melodix/music/WebService.smali'), /startForeground failed/);
 });
