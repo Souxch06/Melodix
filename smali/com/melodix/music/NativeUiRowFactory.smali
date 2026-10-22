@@ -602,8 +602,9 @@
     const/4 v3, -0x1
     const/4 v4, -0x2
     invoke-direct {v2, v3, v4}, Landroid/widget/LinearLayout$LayoutParams;-><init>(II)V
-    if-eqz p1, :cover_store
-    invoke-virtual {p1, v1, v2}, Landroid/view/ViewGroup;->addView(Landroid/view/View;Landroid/view/ViewGroup$LayoutParams;)V
+    move-object v6, p1
+    if-eqz v6, :cover_store
+    invoke-virtual {v6, v1, v2}, Landroid/view/ViewGroup;->addView(Landroid/view/View;Landroid/view/ViewGroup$LayoutParams;)V
     :cover_store
     sput-object v1, Lcom/melodix/music/NativeUiRowFactory;->coverPair:Landroid/widget/LinearLayout;
 
@@ -611,8 +612,9 @@
     new-instance v2, Landroid/widget/LinearLayout$LayoutParams;
     const/4 v3, 0x0
     const/4 v4, -0x2
+    invoke-direct {v2, v3, v4}, Landroid/widget/LinearLayout$LayoutParams;-><init>(II)V
     const/high16 v5, 0x3f800000
-    invoke-direct {v2, v3, v4, v5}, Landroid/widget/LinearLayout$LayoutParams;-><init>(IIF)V
+    iput v5, v2, Landroid/widget/LinearLayout$LayoutParams;->weight:F
     const/4 v3, 0x6
     invoke-static {p0, v3}, Lcom/melodix/music/NativeUiRowFactory;->dp(Landroid/content/Context;I)I
     move-result v3
