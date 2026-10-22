@@ -1097,11 +1097,12 @@ test('content rows keep their title, cover and tap target', () => {
     assert.match(factory, /if-eqz v0, :native_row_read_subtitle/, 'a non-empty title must not be replaced with Untitled');
     assert.doesNotMatch(factory, /if-eqz v0, :native_row_default_title/);
     assert.match(factory, /if-nez v10, :native_row_text_column/, 'empty image URLs skip Picasso; real covers load');
-    assert.match(factory, /if-nez v10, :native_row_return/, 'a non-empty URI must attach the click listener');
+    assert.match(factory, /NativeRowClickListener;-><init>/, 'every row gets a click listener');
     assert.match(factory, /setDescendantFocusability/);
-    assert.ok(
-        factory.indexOf('NativeRowClickListener;-><init>') > factory.lastIndexOf('if-nez v10, :native_row_return'),
-        'the click listener is attached to rows with a URI'
+    assert.doesNotMatch(
+        factory.slice(factory.lastIndexOf('setContentDescription'), factory.indexOf(':native_row_return')),
+        /if-e[qz]z v10, :native_row_return/,
+        'URI emptiness must not skip the click listener'
     );
     assert.match(loader, /if-eqz v1, :clear_native_image/, 'a non-empty https URL is loaded, not cleared');
 });
@@ -1121,7 +1122,7 @@ test('row taps open playlists, albums and tracks', () => {
     assert.match(openRow, /loadNativeSpotifyUri/);
     assert.match(openRow, /window\.__sfNativeOpenUri/);
     assert.match(activity, /Landroid\/webkit\/WebView;->loadUrl\(Ljava\/lang\/String;\)V/);
-    assert.match(activity, /setNativePlaylistHole\(Z\)V/);
+    assert.match(openRow, /Chargement des titres/);
 });
 
 test('detail and player screens expose the back arrow and hide the tab bar', () => {

@@ -7235,11 +7235,6 @@
     const v2, 0x7f090248
     invoke-virtual {p0, p1, v3, v2}, Lcom/melodix/music/MainActivity;->styleNativeTab(Ljava/lang/String;Ljava/lang/String;I)V
 
-    const-string v0, "detail"
-    invoke-virtual {p1, v0}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
-    move-result v0
-    invoke-virtual {p0, v0}, Lcom/melodix/music/MainActivity;->setNativePlaylistHole(Z)V
-
     iget-boolean v0, p0, Lcom/melodix/music/MainActivity;->nativeFadeNextScreen:Z
 
     if-eqz v0, :native_fade_done
@@ -7872,20 +7867,6 @@
     check-cast v2, Landroid/widget/LinearLayout;
     invoke-static {p0, v2, p2}, Lcom/melodix/music/NativeHomeFeed;->paint(Lcom/melodix/music/MainActivity;Landroid/view/ViewGroup;Ljava/lang/String;)I
     move-result v3
-    iget-object v4, p0, Lcom/melodix/music/MainActivity;->nativeCurrentScreen:Ljava/lang/String;
-    if-eqz v4, :native_rows_after_hole
-    const-string v5, "detail"
-    invoke-virtual {v4, v5}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
-    move-result v5
-    if-eqz v5, :native_rows_after_hole
-    if-lez v3, :native_detail_keep_hole
-    const/4 v5, 0x0
-    invoke-virtual {p0, v5}, Lcom/melodix/music/MainActivity;->setNativePlaylistHole(Z)V
-    goto :native_rows_after_hole
-    :native_detail_keep_hole
-    const/4 v5, 0x1
-    invoke-virtual {p0, v5}, Lcom/melodix/music/MainActivity;->setNativePlaylistHole(Z)V
-    :native_rows_after_hole
     if-lez v3, :native_rows_keep
     return-void
 
@@ -8461,13 +8442,26 @@
     iput-object p1, p0, Lcom/melodix/music/MainActivity;->nativeExpectedId:Ljava/lang/String;
     const-string v1, "detail"
     invoke-virtual {p0, v1}, Lcom/melodix/music/MainActivity;->setNativeScreen(Ljava/lang/String;)V
-    const-string v2, "[]"
     if-eqz p2, :native_collection_default_title
     move-object v3, p2
     goto :native_collection_title_ready
     :native_collection_default_title
     const-string v3, "Détails"
     :native_collection_title_ready
+    new-instance v6, Lorg/json/JSONObject;
+    invoke-direct {v6}, Lorg/json/JSONObject;-><init>()V
+    const-string v7, "title"
+    invoke-virtual {v6, v7, v3}, Lorg/json/JSONObject;->put(Ljava/lang/String;Ljava/lang/Object;)Lorg/json/JSONObject;
+    const-string v7, "subtitle"
+    const-string v8, "Chargement des titres…"
+    invoke-virtual {v6, v7, v8}, Lorg/json/JSONObject;->put(Ljava/lang/String;Ljava/lang/Object;)Lorg/json/JSONObject;
+    const-string v7, "uri"
+    invoke-virtual {v6, v7, p1}, Lorg/json/JSONObject;->put(Ljava/lang/String;Ljava/lang/Object;)Lorg/json/JSONObject;
+    new-instance v2, Lorg/json/JSONArray;
+    invoke-direct {v2}, Lorg/json/JSONArray;-><init>()V
+    invoke-virtual {v2, v6}, Lorg/json/JSONArray;->put(Ljava/lang/Object;)Lorg/json/JSONArray;
+    invoke-virtual {v2}, Lorg/json/JSONArray;->toString()Ljava/lang/String;
+    move-result-object v2
     invoke-virtual {p0, v3, v2}, Lcom/melodix/music/MainActivity;->renderNativeRows(Ljava/lang/String;Ljava/lang/String;)V
     # fetchMediaItems only exists in the playback bridge; __sfOpenCollection
     # falls back to a real navigation so a playlist still opens without it.

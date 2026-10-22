@@ -290,9 +290,6 @@
     invoke-virtual {v11}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
     move-result-object v11
     invoke-virtual {v0, v11}, Landroid/view/View;->setContentDescription(Ljava/lang/CharSequence;)V
-    invoke-virtual {v8}, Ljava/lang/String;->isEmpty()Z
-    move-result v10
-    if-nez v10, :native_row_return
     new-instance v10, Lcom/melodix/music/NativeRowClickListener;
     invoke-direct {v10, p0, v8, v6}, Lcom/melodix/music/NativeRowClickListener;-><init>(Lcom/melodix/music/MainActivity;Ljava/lang/String;Ljava/lang/String;)V
     invoke-virtual {v0, v10}, Landroid/view/View;->setOnClickListener(Landroid/view/View$OnClickListener;)V
