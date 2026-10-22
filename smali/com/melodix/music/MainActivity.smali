@@ -7601,7 +7601,7 @@
     move-result-object v2
     invoke-virtual {v2}, Ljava/lang/String;->isEmpty()Z
     move-result v1
-    if-eqz v1, :native_player_no_track
+    if-nez v1, :native_player_no_track
     const/4 v1, 0x1
     goto :native_player_track_flag
     :native_player_no_track
@@ -7888,12 +7888,6 @@
     return-void
 
     :native_rows_keep
-    const-string v0, "Accueil"
-    invoke-virtual {v0, p1}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
-    move-result v0
-    if-eqz v0, :native_rows_list
-    return-void
-
     :native_rows_list
     new-instance v6, Landroid/widget/TextView;
     invoke-direct {v6, p0}, Landroid/widget/TextView;-><init>(Landroid/content/Context;)V

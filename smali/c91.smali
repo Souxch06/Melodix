@@ -7363,7 +7363,7 @@
 .end method
 
 .method public final shouldOverrideUrlLoading(Landroid/webkit/WebView;Landroid/webkit/WebResourceRequest;)Z
-    .locals 3
+    .locals 4
 
     .line 1
     const/4 v0, 0x0
@@ -7383,43 +7383,36 @@
     .line 8
     if-eqz v1, :cond_4
 
-    .line 9
-    .line 10
+    invoke-virtual {v1}, Landroid/net/Uri;->getScheme()Ljava/lang/String;
+    move-result-object v2
+    if-eqz v2, :scheme_ok
+    const-string v3, "javascript"
+    invoke-virtual {v2, v3}, Ljava/lang/String;->equalsIgnoreCase(Ljava/lang/String;)Z
+    move-result v3
+    if-nez v3, :block_nav_scheme
+    const-string v3, "file"
+    invoke-virtual {v2, v3}, Ljava/lang/String;->equalsIgnoreCase(Ljava/lang/String;)Z
+    move-result v3
+    if-nez v3, :block_nav_scheme
+    const-string v3, "data"
+    invoke-virtual {v2, v3}, Ljava/lang/String;->equalsIgnoreCase(Ljava/lang/String;)Z
+    move-result v3
+    if-nez v3, :block_nav_scheme
+    const-string v3, "intent"
+    invoke-virtual {v2, v3}, Ljava/lang/String;->equalsIgnoreCase(Ljava/lang/String;)Z
+    move-result v3
+    if-nez v3, :block_nav_scheme
+
+    :scheme_ok
     invoke-virtual {v1}, Landroid/net/Uri;->toString()Ljava/lang/String;
 
-    .line 11
-    .line 12
-    .line 13
     move-result-object v1
 
-    .line 14
     if-nez v1, :cond_0
 
-    .line 15
-    .line 16
     goto :goto_0
 
-    .line 17
     :cond_0
-    invoke-virtual {v1}, Ljava/lang/String;->toLowerCase()Ljava/lang/String;
-    move-result-object v2
-    const-string v0, "javascript:"
-    invoke-virtual {v2, v0}, Ljava/lang/String;->startsWith(Ljava/lang/String;)Z
-    move-result v0
-    if-nez v0, :block_nav_scheme
-    const-string v0, "file:"
-    invoke-virtual {v2, v0}, Ljava/lang/String;->startsWith(Ljava/lang/String;)Z
-    move-result v0
-    if-nez v0, :block_nav_scheme
-    const-string v0, "data:"
-    invoke-virtual {v2, v0}, Ljava/lang/String;->startsWith(Ljava/lang/String;)Z
-    move-result v0
-    if-nez v0, :block_nav_scheme
-    const-string v0, "intent:"
-    invoke-virtual {v2, v0}, Ljava/lang/String;->startsWith(Ljava/lang/String;)Z
-    move-result v0
-    if-nez v0, :block_nav_scheme
-
     const/4 v0, 0x0
     invoke-static {v1}, Ldl1;->l(Ljava/lang/String;)Z
 
