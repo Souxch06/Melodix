@@ -692,6 +692,15 @@ test('Home separates user playlists from Spotify official recommendations and pr
         };
         return anchor;
     });
+    spotifyCards.push({
+        href: 'https://open.spotify.com/playlist/my1',
+        innerText: 'Ma Playlist Perso',
+        textContent: 'Ma Playlist Perso',
+        getAttribute: () => null,
+        matches: () => true,
+        closest: () => null,
+        querySelector: () => null
+    });
     const mainView = {
         querySelectorAll: (selector) => selector === 'a[href]' ? spotifyCards : []
     };
@@ -753,12 +762,15 @@ test('Home separates user playlists from Spotify official recommendations and pr
     assert.equal(rows[0].section, 'Vos playlists');
     assert.equal(rows[1].title, 'Ma Playlist Perso');
     assert.equal(rows[1].section, 'Vos playlists');
+    assert.equal(rows.filter((row) => row.uri === 'spotify:playlist:my1').length, 1);
+    assert.equal(rows.filter((row) => row.uri === 'spotify:playlist:my1')[0].section, 'Vos playlists');
     assert.equal(rows[2].title, 'Spotify Mix 0');
     assert.equal(rows[2].section, 'Playlists Spotify');
 
     assert.match(read('smali/com/melodix/music/NativeHomeFeed.smali'), /\"section\"/);
     assert.match(rowFactory, /createPlaylistBanner\(Lcom\/melodix\/music\/MainActivity;Ljava\/lang\/String;ILjava\/lang\/String;Ljava\/lang\/String;\)Landroid\/widget\/LinearLayout;/);
     assert.match(activity, /\.method public final onNativeSearchClick\(Landroid\/view\/View;\)V[\s\S]*?renderNativeRows\(Ljava\/lang\/String;Ljava\/lang\/String;\)V/);
+    assert.match(rowFactory, /const\/16 v10, 0x38/);
     assert.match(rowFactory, /optJSONArray\(Ljava\/lang\/String;\)Lorg\/json\/JSONArray;/);
     assert.ok(layout.includes('@drawable/previous'));
     assert.ok(layout.includes('@drawable/next'));

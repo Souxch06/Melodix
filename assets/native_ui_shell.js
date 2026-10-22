@@ -481,7 +481,8 @@
                         img = 'https://misc.scdn.co/liked-songs/liked-songs-640.png';
                     }
                     if (!uri || !title || seen.has(uri) || userRows.length >= 40) return;
-                    if (group[0] === 'playlists' && feedUris[uri] && !/collection/i.test(uri)) return;
+                    // Official mixes that also sit on Home are shown once under Playlists Spotify.
+                    if (publicItem && feedUris[uri]) return;
                     seen.add(uri);
                     bucket = publicItem ? spotifyRows : userRows;
                     bucket.push({
@@ -508,7 +509,7 @@
             if (!row || !row.uri || !row.title || seen.has(row.uri)) return;
             seen.add(row.uri);
             var section;
-            if (/collection/i.test(row.uri)) {
+            if (/collection/i.test(row.uri) || (mineUris[row.uri] && !looksPublicPlaylist(row))) {
                 section = 'Vos playlists';
             } else if (/:playlist:/i.test(row.uri) || looksPublicPlaylist(row)) {
                 section = 'Playlists Spotify';
