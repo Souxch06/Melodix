@@ -366,3 +366,17 @@ test('Accueil retries paint cached home JSON and asks the shell to resend playli
     assert.match(read('assets/native_ui_shell.js'), /homeScrapeRoot/);
     assert.match(read('assets/native_ui_shell.js'), /data-testid="card"/);
 });
+
+test('Accueil scrape runs in the WebView even if the shell never sent home JSON', () => {
+    const pullAt = read('smali/com/melodix/music/MainActivity.smali').indexOf('.method public final pullNativeHomeList()V');
+    const pull = read('smali/com/melodix/music/MainActivity.smali').slice(pullAt, read('smali/com/melodix/music/MainActivity.smali').indexOf('.end method', pullAt));
+    assert.match(pull, /native_home_scrape\.js/);
+    assert.match(pull, /NativeHomeJsonCallback/);
+    const scrape = read('assets/native_home_scrape.js');
+    assert.match(scrape, /\/playlist\//);
+    assert.match(scrape, /mediaLib/);
+    assert.doesNotMatch(scrape, /Mix Nuit|fake playlist/i);
+    const cb = read('smali/com/melodix/music/NativeHomeJsonCallback.smali');
+    assert.match(cb, /postNativeUiData/);
+    assert.match(cb, /JSONArray/);
+});
