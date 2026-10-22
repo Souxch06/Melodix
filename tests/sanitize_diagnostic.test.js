@@ -76,3 +76,25 @@ test('sanitizeDiagnostic redacts mixed secrets and keeps a secret-free message',
     const plain = sanitize('script-error: load-failed');
     assert.equal(plain, 'script-error: load-failed');
 });
+
+test('bridge console errors log a sanitized string, never the raw exception object', () => {
+    const bridge = read('assets/spotify_bridge.js');
+    assert.match(bridge, /function logBridgeError\(/);
+    assert.doesNotMatch(bridge, /console\.error\([^)]*,\s*e\s*\)/);
+    assert.doesNotMatch(bridge, /console\.error\([^)]*,\s*err\s*\)/);
+    const start = bridge.indexOf('    function sanitizeDiagnostic');
+    const end = bridge.indexOf('    // >>> sf-pause-intent');
+    assert.ok(start >= 0 && end > start);
+    const logs = [];
+    const logBridgeError = vm.runInNewContext(
+        bridge.slice(start, end) + '\nlogBridgeError;',
+        { console: { error: (...args) => logs.push(args) } }
+    );
+    logBridgeError('nativeFetch', new Error('Authorization: Bearer fictif-token access_token=fictif-access'));
+    assert.equal(logs.length, 1);
+    assert.equal(logs[0].length, 1, 'must not pass the exception object as a console argument');
+    const line = String(logs[0][0]);
+    assert.match(line, /^\[Melodix\] nativeFetch: Error:/);
+    assert.doesNotMatch(line, /fictif-/);
+    assert.match(line, /\[redacted\]/);
+});

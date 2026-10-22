@@ -28,6 +28,26 @@ try {
     let lastPos = null;
     window.playing = false;
 
+    function sanitizeDiagnostic(value) {
+        var text = String(value && value.message || value || '');
+        text = text.replace(/Set-Cookie:\s*[^;\r\n]+/gi, 'Set-Cookie:[redacted]');
+        text = text.replace(/Cookie:\s*[^\r\n]+/gi, 'Cookie:[redacted]');
+        text = text.replace(/Authorization:\s+\S+(?:\s+\S+)?/gi, 'Authorization:[redacted]');
+        text = text.replace(/Bearer\s+\S+/gi, 'Bearer [redacted]');
+        text = text.replace(/\b(?:access_token|refresh_token|id_token|client_secret|code|sp_dc|sp_key|sessionid)=[^&\s;]+/gi, function(match) {
+            return match.slice(0, match.indexOf('=') + 1) + '[redacted]';
+        });
+        text = text.replace(/spotify:user:[^\s,;]+/gi, 'spotify:user:[redacted]');
+        text = text.replace(/[A-Za-z0-9_-]{8,}\.[A-Za-z0-9._-]{8,}\.[A-Za-z0-9._-]{8,}/g, '[redacted-jwt]');
+        return text.slice(0, 160);
+    }
+
+    function logBridgeError(context, error) {
+        var name = error && error.name ? String(error.name) : 'Error';
+        var msg = sanitizeDiagnostic(error);
+        console.error('[Melodix] ' + String(context || 'bridge') + ': ' + name + (msg ? ': ' + msg : ''));
+    }
+
     // >>> sf-pause-intent
     // A pause the user explicitly asked for must stay a pause. Every automatic
     // playback helper (resume, retry, "take control", autoplay) checks this
@@ -1439,7 +1459,7 @@ try {
                     };
                 }
             } catch (e) {
-                console.error('[Spotifuck] Proxy nativeFetch error:', e);
+                logBridgeError('nativeFetch', e);
             }
         }
 
@@ -1675,7 +1695,7 @@ try {
                 window.playFromUri(targetUri);
             }
         } catch (e) {
-            console.error('[Spotifuck] searchAndPlay failed for ' + query, e);
+            logBridgeError('searchAndPlay', e);
         }
     }
     window.searchAndPlay = searchAndPlay;
@@ -3283,7 +3303,7 @@ try {
                 window.pendingMediaRequests.clear();
             }
         } catch (e) {
-            console.error("Error fetching/parsing media library: ", e);
+            logBridgeError('checkMediaLib', e);
         } finally {
             isFetchingLib = false;
         }
@@ -3340,7 +3360,7 @@ try {
             });
 
             if (!resp.ok) {
-                console.error("Pathfinder query failed: ", resp.statusText);
+                logBridgeError('pathfinder', { name: 'HttpError', message: String(resp.status || '') });
                 break;
             }
 
@@ -3530,7 +3550,7 @@ try {
                     }
                 }
             } catch (e) {
-                console.error("[Spotifuck] fetchLibraryTracks fetch failed:", e);
+                logBridgeError('fetchLibraryTracks', e);
             }
 
             return window.likedSongsCache || [];
@@ -3743,7 +3763,7 @@ try {
             // Fallback for unknown categories
             AndBridge.onMediaItemsLoaded(parentId, "[]");
         } catch (e) {
-            console.error("Error loading media items for " + parentId, e);
+            logBridgeError('fetchMediaItems', e);
             AndBridge.onMediaItemsLoaded(parentId, "[]");
         }
     }
@@ -3977,7 +3997,7 @@ try {
             AndBridge.onSearchCompleted(query, JSON.stringify(results));
         } catch (e) {
             if (e && e.name === 'AbortError') return;
-            console.error("Error searching for " + query, e);
+            logBridgeError('searchMediaItems', e);
             AndBridge.onSearchCompleted(query, "[]");
         }
     }
