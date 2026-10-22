@@ -48,6 +48,62 @@ try {
         console.error('[Melodix] ' + String(context || 'bridge') + ': ' + name + (msg ? ': ' + msg : ''));
     }
 
+    // Defense in depth for the JS fetch wrapper only. AndBridge.nativeFetch in
+    // smali still opens the URL first; this does not replace a native allowlist.
+    function isAllowedNativeFetchUrl(raw) {
+        var parsed;
+        var host;
+        var port;
+        if (typeof raw !== 'string' || !raw) return false;
+        try {
+            parsed = new URL(raw);
+        } catch (_) {
+            return false;
+        }
+        if (parsed.protocol !== 'https:') return false;
+        if (parsed.username || parsed.password) return false;
+        host = String(parsed.hostname || '').toLowerCase();
+        if (!host) return false;
+        if (host.indexOf(':') >= 0) return false;
+        if (/^[0-9]{1,3}(?:\.[0-9]{1,3}){3}$/.test(host)) return false;
+        port = parsed.port;
+        if (port && port !== '443') return false;
+        if (host === 'spotify.com' || (host.length > 12 && host.slice(host.length - 12) === '.spotify.com')) {
+            return true;
+        }
+        if (host === 'scdn.co' || (host.length > 8 && host.slice(host.length - 8) === '.scdn.co')) {
+            return true;
+        }
+        return false;
+    }
+
+    function wrapNativeFetchBridge() {
+        var bridge;
+        var original;
+        var guarded;
+        try {
+            bridge = typeof window !== 'undefined' ? window.AndBridge : null;
+        } catch (_) {
+            return;
+        }
+        if (!bridge || typeof bridge.nativeFetch !== 'function' || bridge.nativeFetch._sfAllowlisted) return;
+        original = bridge.nativeFetch.bind(bridge);
+        guarded = function(url, method, headers, body) {
+            if (!isAllowedNativeFetchUrl(String(url || ''))) {
+                logBridgeError('nativeFetch', { name: 'SecurityError', message: 'host-not-allowed' });
+                return JSON.stringify({ status: 403, body: '' });
+            }
+            return original(url, method, headers, body);
+        };
+        guarded._sfAllowlisted = true;
+        try {
+            bridge.nativeFetch = guarded;
+        } catch (err) {
+            logBridgeError('nativeFetch-wrap', err);
+        }
+    }
+    wrapNativeFetchBridge();
+
     // >>> sf-pause-intent
     // A pause the user explicitly asked for must stay a pause. Every automatic
     // playback helper (resume, retry, "take control", autoplay) checks this
@@ -203,25 +259,6 @@ try {
         const max = Number(limit) > 0 ? Math.min(Number(limit), PLAYBACK_TRACE_LIMIT) : PLAYBACK_TRACE_LIMIT;
         return trace.slice(Math.max(0, trace.length - max));
     };
-
-    // Record DOM activations that can change the track, so a field report shows
-    // whether the change came from the app or from Spotify's own player.
-    try {
-        document.addEventListener('click', function(event) {
-            const target = event && event.target;
-            if (!target || typeof target.closest !== 'function') return;
-            try {
-                const skip = target.closest('[data-testid="control-button-skip-forward"], [data-testid="control-button-skip-back"]');
-                if (skip) {
-                    tracePlayback('dom-skip', String(skip.getAttribute('data-testid') || ''));
-                    return;
-                }
-                if (!window.__sfUserRequestedPause) return;
-                const row = target.closest('[data-testid="tracklist-row"]');
-                if (row) tracePlayback('dom-track-row-while-paused', String(row.innerText || '').slice(0, 24));
-            } catch (_) {}
-        }, true);
-    } catch (_) {}
 
     // Record DOM activations that can change the track, so a field report shows
     // whether the change came from the app or from Spotify's own player.
@@ -1370,17 +1407,26 @@ try {
         window.syncUserInfo();
     };
 
+    function resolveFetchUrl(input) {
+        if (typeof input === 'string') return input;
+        try {
+            if (input && typeof input.url === 'string') return input.url;
+        } catch (_) {}
+        return '';
+    }
+
     const oriFetch = window.fetch;
     window.fetch = async function(...args) {
         const [url, opts] = args;
-        const method = opts?.method?.toUpperCase?.() || 'GET';
+        const strUrl = resolveFetchUrl(url);
+        const method = (opts?.method || (url && url.method) || 'GET').toString().toUpperCase() || 'GET';
 
-        if (window.SF_CONFIG.isCanvasDisabled && (url.includes('canvas-storage') || url.includes('/v1/canvas'))) {
+        if (window.SF_CONFIG.isCanvasDisabled && (strUrl.includes('canvas-storage') || strUrl.includes('/v1/canvas'))) {
             return new Response(JSON.stringify({canvases:[]}), {status: 200});
         }
 
         const headers = opts?.headers || {};
-        if (method === 'POST' && url.includes('/track-playback/v1/devices') && opts?.body) {
+        if (method === 'POST' && strUrl.includes('/track-playback/v1/devices') && opts?.body) {
             const body = JSON.parse(opts.body);
             const deviceId = body?.device?.device_id;
             if (deviceId && deviceId !== window.spotDevId) {
@@ -1404,7 +1450,7 @@ try {
             typeof checkMediaLib === 'function' && checkMediaLib();
         }
 
-        if (method === 'POST' && url.includes('pathfinder/v2/query') && opts?.body) {
+        if (method === 'POST' && strUrl.includes('pathfinder/v2/query') && opts?.body) {
             try {
                 const bodyObj = typeof opts.body === 'string' ? JSON.parse(opts.body) : null;
                 const opName = bodyObj?.operationName;
@@ -1423,7 +1469,7 @@ try {
             } catch(e) {}
         }
 
-        if (ffDone && url.includes('/track-playback/') && method === 'PUT') {
+        if (ffDone && strUrl.includes('/track-playback/') && method === 'PUT') {
             const bodyStr = opts?.body ? (typeof opts.body === 'string' ? opts.body : '') : '';
             if (bodyStr.includes('"paused":true')) {
                 manageAll(false);
@@ -1436,27 +1482,31 @@ try {
             }
         }
 
-        const strUrl = typeof url === 'string' ? url : (url && url.url ? url.url : '');
         if (strUrl && (strUrl.includes('connect-state') || strUrl.includes('melody/v1/msg'))) {
             try {
-                const reqHeaders = opts?.headers || {};
-                const reqBody = opts?.body ? (typeof opts.body === 'string' ? opts.body : JSON.stringify(opts.body)) : null;
-                const rawRes = AndBridge.nativeFetch(strUrl, method, JSON.stringify(reqHeaders), reqBody);
-                if (rawRes) {
-                    const parsed = JSON.parse(rawRes);
-                    const status = parsed.status || 200;
-                    const resBody = parsed.body || '';
-                    return {
-                        ok: status >= 200 && status < 300,
-                        status: status,
-                        statusText: status === 200 ? 'OK' : '',
-                        headers: new Headers(parsed.headers || {}),
-                        url: strUrl,
-                        json: async () => JSON.parse(resBody || '{}'),
-                        text: async () => resBody,
-                        arrayBuffer: async () => new TextEncoder().encode(resBody).buffer,
-                        clone: function() { return this; }
-                    };
+                wrapNativeFetchBridge();
+                if (!isAllowedNativeFetchUrl(strUrl)) {
+                    logBridgeError('nativeFetch', { name: 'SecurityError', message: 'host-not-allowed' });
+                } else {
+                    const reqHeaders = opts?.headers || {};
+                    const reqBody = opts?.body ? (typeof opts.body === 'string' ? opts.body : JSON.stringify(opts.body)) : null;
+                    const rawRes = AndBridge.nativeFetch(strUrl, method, JSON.stringify(reqHeaders), reqBody);
+                    if (rawRes) {
+                        const parsed = JSON.parse(rawRes);
+                        const status = parsed.status || 200;
+                        const resBody = parsed.body || '';
+                        return {
+                            ok: status >= 200 && status < 300,
+                            status: status,
+                            statusText: status === 200 ? 'OK' : '',
+                            headers: new Headers(parsed.headers || {}),
+                            url: strUrl,
+                            json: async () => JSON.parse(resBody || '{}'),
+                            text: async () => resBody,
+                            arrayBuffer: async () => new TextEncoder().encode(resBody).buffer,
+                            clone: function() { return this; }
+                        };
+                    }
                 }
             } catch (e) {
                 logBridgeError('nativeFetch', e);
@@ -1465,7 +1515,7 @@ try {
 
         try {
             const resp = await oriFetch(url, opts);
-            if (resp.status === 404 && url.includes('connect-state') && url.includes('/command/from/')) {
+            if (resp.status === 404 && strUrl.includes('connect-state') && strUrl.includes('/command/from/')) {
                 console.warn('[Spotifuck] Ignored 404 on connect-state command to avoid interrupting playback');
             }
             return resp;
@@ -1602,7 +1652,7 @@ try {
             return;
         }
 
-        console.log(`[Spotifuck] playFromUri sending command for uri=${uri}, contextUri=${contextUri}, devId=${devId}`);
+        console.log('[Spotifuck] playFromUri sending command');
 
         fetch(`https://gew4-spclient.spotify.com/connect-state/v1/player/command/from/${devId}/to/${devId}`, {
             method: 'POST',
