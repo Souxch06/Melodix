@@ -136,7 +136,7 @@ test('smoke: shell respects system windows and rejects oversized JS payloads', (
     const layout = read('res/layout/activity_main.xml');
     assert.match(layout, /android:fitsSystemWindows="true"/);
     assert.match(layout, /contentDescription="Accueil"/);
-    assert.match(read('res/drawable/native_shell_background.xml'), /solid android:color="#ff121212"/);
+    assert.match(read('res/drawable/native_shell_background.xml'), /android:endColor="#ff0a0a0a"/);
     const bridge = read('smali/com/melodix/music/AndBridge.smali');
     const dispatchAt = bridge.indexOf('.method private final dispatchNativeUi(Ljava/lang/String;Ljava/lang/String;)V');
     const dispatch = bridge.slice(dispatchAt, bridge.indexOf('.end method', dispatchAt));

@@ -60,9 +60,9 @@ test('native shell overlays, but does not replace or detach, the existing WebVie
     assert.match(layout, /android:id="@id\/nativeHomeTab"/);
     assert.match(layout, /@drawable\/native_shell_background/);
     assert.match(layout, /@drawable\/native_mini_player_bg/);
-    assert.match(layout, /android:textSize=\"22.0sp\"/);
-    assert.match(layout, /android:layout_height=\"68.0dip\"/);
-    assert.match(read('res/drawable/native_mini_player_bg.xml'), /16.0dip/);
+    assert.match(layout, /android:textSize=\"24.0sp\"/);
+    assert.match(layout, /android:layout_height=\"72.0dip\"/);
+    assert.match(read('res/drawable/native_mini_player_bg.xml'), /18.0dip/);
     assert.match(layout, /@drawable\/native_nav_home/);
     assert.match(layout, /@drawable\/native_nav_search/);
     assert.match(layout, /@drawable\/native_nav_library/);

@@ -7336,7 +7336,8 @@
 
     move-result v1
 
-    if-eqz v1, :fade_root
+    # VISIBLE is 0: skip the slide only when the panel is not shown.
+    if-nez v1, :fade_root
 
     const/high16 v1, 0x42700000
 

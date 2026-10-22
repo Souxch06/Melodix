@@ -30,6 +30,18 @@ test('setNativeScreen shows the full player panel only on the player destination
     assert.match(screen, /fadeNativeScreen/);
 });
 
+test('full-player fade runs only while the panel is VISIBLE', () => {
+    const activity = read('smali/com/melodix/music/MainActivity.smali');
+    const fadeAt = activity.indexOf('.method private static fadeNativeScreen');
+    const fade = activity.slice(fadeAt, activity.indexOf('.end method', fadeAt));
+    assert.match(fade, /if-nez v1, :fade_root/);
+    assert.doesNotMatch(fade, /if-eqz v1, :fade_root/);
+    assert.match(fade, /translationY\(F\)/);
+    const loader = read('smali/com/melodix/music/NativeImageLoader.smali');
+    assert.match(loader, /0x7f080141/);
+    assert.match(loader, /NativeCrashGuard;->record/);
+});
+
 test('full player artwork flexes instead of a fixed 280dp square', () => {
     const layout = read('res/layout/activity_main.xml');
     const at = layout.indexOf('android:id="@id/nativePlayerPanel"');

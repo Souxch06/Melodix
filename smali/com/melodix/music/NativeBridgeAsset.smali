@@ -121,7 +121,9 @@
     :try_start_0
     invoke-static {}, Lm9;->c()Landroid/content/Context;
     move-result-object v1
-    if-nez v1, :done
+    # Jump away only when the context is missing. if-nez would skip the
+    # read whenever Android actually handed us a Context.
+    if-eqz v1, :read_fail
     invoke-virtual {v1}, Landroid/content/Context;->getAssets()Landroid/content/res/AssetManager;
     move-result-object v1
     invoke-virtual {v1, p0}, Landroid/content/res/AssetManager;->open(Ljava/lang/String;)Ljava/io/InputStream;
@@ -134,7 +136,8 @@
     :read_loop
     invoke-virtual {v1, v3}, Ljava/io/InputStream;->read([B)I
     move-result v4
-    if-gez v4, :read_done
+    # EOF is -1. if-gez stopped after the first successful (n >= 0) chunk.
+    if-ltz v4, :read_done
     const/4 v5, 0x0
     invoke-virtual {v2, v3, v5, v4}, Ljava/io/ByteArrayOutputStream;->write([BII)V
     goto :read_loop
@@ -144,11 +147,17 @@
     const-string v1, "UTF-8"
     invoke-virtual {v2, v1}, Ljava/io/ByteArrayOutputStream;->toString(Ljava/lang/String;)Ljava/lang/String;
     move-result-object v0
+    goto :read_ok
     :try_end_0
     .catch Ljava/lang/Exception; {:try_start_0 .. :try_end_0} :catch_0
 
     :catch_0
-    :done
+    move-exception v6
+    invoke-static {v6}, Lcom/melodix/music/NativeCrashGuard;->record(Ljava/lang/Throwable;)V
+    const/4 v0, 0x0
+
+    :read_fail
+    :read_ok
     return-object v0
 .end method
 

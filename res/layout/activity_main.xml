@@ -126,9 +126,10 @@
             <TextView
                 android:id="@id/nativeScreenTitle"
                 android:text="Accueil"
-                android:textSize="22.0sp"
+                android:textSize="24.0sp"
                 android:textStyle="bold"
                 android:textColor="#ffffffff"
+                android:letterSpacing="0.01"
                 android:paddingLeft="12.0dip"
                 android:maxLines="1"
                 android:ellipsize="end"
@@ -145,8 +146,8 @@
                 android:contentDescription="Paramètres"
                 android:background="@drawable/native_button_icon"
                 android:onClick="onNativeSettingsClick"
-                android:layout_width="42.0dip"
-                android:layout_height="42.0dip"
+                android:layout_width="48.0dip"
+                android:layout_height="48.0dip"
                 android:layout_marginLeft="8.0dip" />
         </LinearLayout>
 
@@ -163,32 +164,32 @@
             <EditText
                 android:id="@id/nativeSearchInput"
                 android:hint="Que souhaitez-vous écouter ?"
-                android:textSize="15.0sp"
+                android:textSize="16.0sp"
                 android:textStyle="bold"
-                android:textColor="#ff121212"
-                android:textColorHint="#ff777777"
+                android:textColor="#ffffffff"
+                android:textColorHint="#ff8a8a8a"
                 android:singleLine="true"
                 android:imeOptions="actionSearch"
                 android:inputType="text"
                 android:background="@drawable/native_search_field"
-                android:paddingLeft="16.0dip"
-                android:paddingRight="16.0dip"
+                android:paddingLeft="18.0dip"
+                android:paddingRight="18.0dip"
                 android:layout_width="0.0dip"
-                android:layout_height="48.0dip"
+                android:layout_height="52.0dip"
                 android:layout_marginRight="10.0dip"
                 android:layout_weight="1.0" />
             <ImageView
                 android:src="@drawable/native_nav_search"
                 android:tint="#ff121212"
                 android:scaleType="centerInside"
-                android:padding="13.0dip"
+                android:padding="14.0dip"
                 android:clickable="true"
                 android:focusable="true"
                 android:contentDescription="Chercher"
                 android:background="@drawable/native_button_green"
                 android:onClick="onNativeSearchSubmit"
-                android:layout_width="46.0dip"
-                android:layout_height="46.0dip" />
+                android:layout_width="52.0dip"
+                android:layout_height="52.0dip" />
         </LinearLayout>
 
         <ScrollView
@@ -685,11 +686,11 @@
             android:id="@id/nativeTabBar"
             android:orientation="horizontal"
             android:gravity="center"
-            android:paddingTop="6.0dip"
-            android:paddingBottom="12.0dip"
-            android:background="#ff000000"
+            android:paddingTop="8.0dip"
+            android:paddingBottom="14.0dip"
+            android:background="#ff0a0a0a"
             android:layout_width="fill_parent"
-            android:layout_height="68.0dip">
+            android:layout_height="72.0dip">
             <LinearLayout android:id="@id/nativeHomeTab" android:orientation="vertical" android:gravity="center" android:clickable="true" android:focusable="true" android:background="@drawable/native_tab_ripple" android:contentDescription="Accueil" android:onClick="onNativeHomeClick" android:layout_width="0.0dip" android:layout_height="fill_parent" android:layout_weight="1.0">
                 <ImageView android:src="@drawable/native_nav_home" android:tint="#ffffffff" android:duplicateParentState="true" android:clickable="false" android:focusable="false" android:layout_width="26.0dip" android:layout_height="26.0dip" android:layout_marginTop="4.0dip" />
                 <TextView android:text="Accueil" android:textSize="11.0sp" android:textStyle="bold" android:textColor="#ffffffff" android:duplicateParentState="true" android:clickable="false" android:focusable="false" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="5.0dip" />

@@ -33,8 +33,8 @@
     goto :image_load_end
 
     :clear_native_image
-    const/4 v1, 0x0
-    invoke-virtual {p0, v1}, Landroid/widget/ImageView;->setImageDrawable(Landroid/graphics/drawable/Drawable;)V
+    const v1, 0x7f080141
+    invoke-virtual {p0, v1}, Landroid/widget/ImageView;->setImageResource(I)V
 
     :image_load_end
     :try_end_image_load
@@ -43,8 +43,9 @@
 
     :image_load_error
     move-exception v0
-    const/4 v1, 0x0
-    invoke-virtual {p0, v1}, Landroid/widget/ImageView;->setImageDrawable(Landroid/graphics/drawable/Drawable;)V
+    invoke-static {v0}, Lcom/melodix/music/NativeCrashGuard;->record(Ljava/lang/Throwable;)V
+    const v1, 0x7f080141
+    invoke-virtual {p0, v1}, Landroid/widget/ImageView;->setImageResource(I)V
 
     :image_load_done
     return-void
