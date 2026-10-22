@@ -539,7 +539,7 @@
         homeRetryTimer = window.setTimeout(function() {
             homeRetryTimer = null;
             if (isSpotifyHome()) runUpdate();
-        }, 180);
+        }, 120);
     }
 
     function updateHomeRows(mainView) {
@@ -569,18 +569,17 @@
             if (rows[i] && rows[i].section === 'Playlists Spotify') hasPublic = true;
         }
         if (clockLooksNative) {
-            if (rows.length > pendingHomeCount || signature !== pendingHomeSignature) {
-                pendingHomeCount = Math.max(pendingHomeCount, rows.length);
-                pendingHomeSignature = signature;
+            if (rows.length > pendingHomeCount) {
+                pendingHomeCount = rows.length;
                 homeRetries = 0;
                 scheduleHomeRetry();
                 return;
             }
-            if (!hasPublic && homeRetries < 16) {
+            if (rows.length < 8 && homeRetries < 8) {
                 scheduleHomeRetry();
                 return;
             }
-            if (homeRetries < 8) {
+            if (homeRetries < 2) {
                 scheduleHomeRetry();
                 return;
             }
