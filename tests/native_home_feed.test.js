@@ -352,3 +352,14 @@ test('search payloads do not clear stored home JSON in applyNativeUiData', () =>
     const searchBlock = apply.slice(apply.indexOf(':check_search'));
     assert.doesNotMatch(searchBlock, /iput-object p2, p0, Lcom\/melodix\/music\/MainActivity;->nativeHomeJson/);
 });
+
+test('Accueil retries paint cached home JSON and asks the shell to resend playlists', () => {
+    const activity = read('smali/com/melodix/music/MainActivity.smali');
+    const at = activity.indexOf('.method public final pullNativeHomeList()V');
+    const pull = activity.slice(at, activity.indexOf('.end method', at));
+    assert.match(pull, /nativeHomeJson/);
+    assert.match(pull, /renderNativeRows/);
+    assert.match(pull, /__sfNativeRequestHome/);
+    assert.match(read('assets/native_ui_shell.js'), /__sfNativeHomeRowsJson/);
+    assert.match(read('assets/native_ui_shell.js'), /onNativeHomeRows/);
+});

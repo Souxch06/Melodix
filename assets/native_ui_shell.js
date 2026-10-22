@@ -176,8 +176,12 @@
                 window.__sfNativeHomeRowCount = rows.length;
                 window.__sfNativeHomePlaylistCount = playlistCount;
                 window.__sfNativeHomeRejectedCount = (Array.isArray(items) ? items.length : 0) - rows.length;
+                window.__sfNativeHomeRowsJson = payload;
             }
             bridge.onNativeUiData(screen, payload);
+            if (screen === 'home' && typeof bridge.onNativeHomeRows === 'function') {
+                bridge.onNativeHomeRows(payload);
+            }
             if (lines.length) {
                 var listText = lines.join('\n');
                 window.__sfNativeHomeListText = listText;

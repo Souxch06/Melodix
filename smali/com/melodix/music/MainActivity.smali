@@ -7890,11 +7890,30 @@
 .method public final pullNativeHomeList()V
     .locals 3
 
+    iget-object v0, p0, Lcom/melodix/music/MainActivity;->nativeHomeJson:Ljava/lang/String;
+    if-eqz v0, :pull_blob
+    invoke-virtual {v0}, Ljava/lang/String;->length()I
+    move-result v1
+    const/4 v2, 0x2
+    if-le v1, v2, :pull_blob
+    const-string v1, "Accueil"
+    invoke-virtual {p0, v1, v0}, Lcom/melodix/music/MainActivity;->renderNativeRows(Ljava/lang/String;Ljava/lang/String;)V
+
+    :pull_blob
     iget-object v0, p0, Lcom/melodix/music/MainActivity;->nativeListBlob:Ljava/lang/String;
     if-eqz v0, :pull_js
     invoke-virtual {p0, v0}, Lcom/melodix/music/MainActivity;->applyNativeListText(Ljava/lang/String;)V
 
     :pull_js
+    iget-object v0, p0, Lcom/melodix/music/MainActivity;->nativeCurrentScreen:Ljava/lang/String;
+    if-eqz v0, :pull_eval
+    const-string v1, "home"
+    invoke-virtual {v0, v1}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    move-result v1
+    if-eqz v1, :pull_eval
+    const-string v0, "window.__sfNativeRequestHome && window.__sfNativeRequestHome();"
+    invoke-virtual {p0, v0}, Lcom/melodix/music/MainActivity;->runNativeJavascript(Ljava/lang/String;)V
+    :pull_eval
     iget-object v0, p0, Lcom/melodix/music/MainActivity;->G:Landroid/webkit/WebView;
     if-eqz v0, :pull_done
     new-instance v1, Lcom/melodix/music/NativeListJsCallback;
