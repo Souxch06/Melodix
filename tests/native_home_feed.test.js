@@ -367,6 +367,7 @@ test('Accueil retries paint cached home JSON without posting a partial native sc
     assert.match(shell, /pendingHomeCount/);
     assert.match(shell, /looksPublicPlaylist/);
     assert.match(shell, /Playlists Spotify/);
+    assert.doesNotMatch(shell, /Desktop_LeftSidebar_Id/);
     assert.match(read('assets/native_ui_shell.js'), /__sfNativeHomeRowsJson/);
     assert.match(read('assets/native_ui_shell.js'), /onNativeHomeRows/);
     assert.match(read('assets/native_ui_shell.js'), /homeScrapeRoot/);

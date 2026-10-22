@@ -439,7 +439,16 @@
         var seen = new Set();
         var userRows = [];
         var spotifyRows = [];
-        var sidebar;
+
+        function looksPublicPlaylist(row) {
+            var title = String(row && row.title || '');
+            var subtitle = String(row && row.subtitle || '');
+            var uri = String(row && row.uri || '');
+            if (/collection/i.test(uri)) return false;
+            if (/daily mix|discover weekly|release radar|\bradio\b|mix \d|on repeat|repeat rewind|time capsule|blend/i.test(title)) return true;
+            if (/et bien d['’]autres artistes|and more artists/i.test(subtitle)) return true;
+            return false;
+        }
 
         if (!library && !mediaLibWarmupRequested && typeof window.checkMediaLib === 'function') {
             mediaLibWarmupRequested = true;
@@ -459,15 +468,18 @@
                         : '';
                     var subtitle = String(artistList || item && (item.owner || item.description || item.type) || '').trim();
                     var img = safeSpotifyImage(item && (item.image || item.cover || item.artwork) || '');
+                    var publicItem = looksPublicPlaylist({ title: title, subtitle: subtitle, uri: uri });
+                    var bucket;
                     if (!img && (title === 'Liked Songs' || /collection/i.test(uri))) {
                         img = 'https://misc.scdn.co/liked-songs/liked-songs-640.png';
                     }
                     if (!uri || !title || seen.has(uri) || userRows.length >= 40) return;
                     seen.add(uri);
-                    userRows.push({
+                    bucket = publicItem ? spotifyRows : userRows;
+                    bucket.push({
                         title: title,
                         subtitle: subtitle,
-                        section: group[1],
+                        section: publicItem ? 'Playlists Spotify' : group[1],
                         image: img,
                         uri: uri
                     });
@@ -475,51 +487,20 @@
             });
         }
 
-        function looksPublicPlaylist(row) {
-            var title = String(row && row.title || '');
-            var subtitle = String(row && row.subtitle || '');
-            if (/collection/i.test(row && row.uri || '')) return false;
-            if (/daily mix|discover weekly|release radar|\bradio\b|mix \d/i.test(title)) return true;
-            if (/et bien d['’]autres artistes|and more artists/i.test(subtitle)) return true;
-            return false;
-        }
-
         var mineUris = {};
         if (library && Array.isArray(library.playlists)) {
             library.playlists.forEach(function(item) {
                 var uri = nativeSpotifyUri(item && (item.uri || item.id || item.href));
-                if (uri) mineUris[uri] = true;
+                var title = String(item && (item.name || item.title) || '').trim();
+                if (uri && !looksPublicPlaylist({ title: title, uri: uri })) mineUris[uri] = true;
             });
-        }
-
-        if (userRows.length < 40 && document && typeof document.querySelector === 'function') {
-            sidebar = document.querySelector('#Desktop_LeftSidebar_Id');
-            if (sidebar && typeof sidebar.querySelectorAll === 'function') {
-                collectHomeRows(sidebar).forEach(function(row) {
-                    var img = row.image;
-                    if (!row.uri || !row.title || seen.has(row.uri) || userRows.length >= 40) return;
-                    if (looksPublicPlaylist(row)) return;
-                    if (!img && /collection/i.test(row.uri)) {
-                        img = 'https://misc.scdn.co/liked-songs/liked-songs-640.png';
-                    }
-                    seen.add(row.uri);
-                    mineUris[row.uri] = true;
-                    userRows.push({
-                        title: row.title,
-                        subtitle: row.subtitle,
-                        section: 'Vos playlists',
-                        image: img,
-                        uri: row.uri
-                    });
-                });
-            }
         }
 
         rows.forEach(function(row) {
             if (!row || !row.uri || !row.title || seen.has(row.uri)) return;
             seen.add(row.uri);
             var section;
-            if (mineUris[row.uri] && !looksPublicPlaylist(row)) {
+            if (/collection/i.test(row.uri) || (mineUris[row.uri] && !looksPublicPlaylist(row))) {
                 section = 'Vos playlists';
             } else if (/:playlist:/i.test(row.uri) || looksPublicPlaylist(row)) {
                 section = 'Playlists Spotify';
