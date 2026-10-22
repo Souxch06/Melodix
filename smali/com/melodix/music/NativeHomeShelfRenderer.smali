@@ -41,7 +41,7 @@
 
     move-result v1
 
-    if-lez v1, :shelf_empty
+    if-eqz v1, :shelf_empty
 
     invoke-static {p0, v13, v0}, Lcom/melodix/music/NativeHomeShelfRenderer;->renderQuickGrid(Lcom/melodix/music/MainActivity;Landroid/widget/LinearLayout;Lorg/json/JSONArray;)V
 
@@ -113,18 +113,6 @@
 
     invoke-virtual {v8, v9}, Landroid/view/View;->setClipToPadding(Z)V
 
-    const/4 v9, 0x1
-
-    invoke-virtual {v8, v9}, Landroid/widget/HorizontalScrollView;->setFillViewport(Z)V
-
-    const/16 v9, 0xc8
-
-    invoke-static {p0, v9}, Lcom/melodix/music/NativeHomeShelfRenderer;->dp(Landroid/content/Context;I)I
-
-    move-result v9
-
-    invoke-virtual {v8, v9}, Landroid/view/View;->setMinimumHeight(I)V
-
     const/16 v9, 0x10
 
     invoke-static {p0, v9}, Lcom/melodix/music/NativeHomeShelfRenderer;->dp(Landroid/content/Context;I)I
@@ -135,15 +123,27 @@
 
     invoke-virtual {v8, v9, v10, v9, v10}, Landroid/view/View;->setPadding(IIII)V
 
-    new-instance v9, Landroid/widget/FrameLayout$LayoutParams;
+    new-instance v9, Landroid/view/ViewGroup$LayoutParams;
 
     const/4 v10, -0x2
 
-    invoke-direct {v9, v10, v10}, Landroid/widget/FrameLayout$LayoutParams;-><init>(II)V
+    invoke-direct {v9, v10, v10}, Landroid/view/ViewGroup$LayoutParams;-><init>(II)V
 
     invoke-virtual {v8, v7, v9}, Landroid/widget/HorizontalScrollView;->addView(Landroid/view/View;Landroid/view/ViewGroup$LayoutParams;)V
 
-    invoke-virtual {v13, v8}, Landroid/widget/LinearLayout;->addView(Landroid/view/View;)V
+    new-instance v9, Landroid/widget/LinearLayout$LayoutParams;
+
+    const/4 v10, -0x1
+
+    const/16 v11, 0xd8
+
+    invoke-static {p0, v11}, Lcom/melodix/music/NativeHomeShelfRenderer;->dp(Landroid/content/Context;I)I
+
+    move-result v11
+
+    invoke-direct {v9, v10, v11}, Landroid/widget/LinearLayout$LayoutParams;-><init>(II)V
+
+    invoke-virtual {v13, v8, v9}, Landroid/widget/LinearLayout;->addView(Landroid/view/View;Landroid/view/ViewGroup$LayoutParams;)V
 
     move-object v3, v7
 
@@ -227,10 +227,6 @@
     invoke-virtual {v10, v11}, Landroid/graphics/drawable/GradientDrawable;->setCornerRadius(F)V
 
     invoke-virtual {v8, v10}, Landroid/view/View;->setBackground(Landroid/graphics/drawable/Drawable;)V
-
-    const/4 v10, 0x1
-
-    invoke-virtual {v8, v10}, Landroid/view/View;->setClipToOutline(Z)V
 
     const v10, 0x7f0800d6
 
@@ -432,20 +428,7 @@
     goto :shelf_done
 
     :shelf_empty
-    # Empty payload: keep a friendly loading line instead of a blank screen.
-    new-instance v0, Landroid/widget/TextView;
-    invoke-direct {v0, p0}, Landroid/widget/TextView;-><init>(Landroid/content/Context;)V
-    const-string v1, "Chargement de votre accueil…"
-    invoke-virtual {v0, v1}, Landroid/widget/TextView;->setText(Ljava/lang/CharSequence;)V
-    const/high16 v1, 0x41800000
-    invoke-virtual {v0, v1}, Landroid/widget/TextView;->setTextSize(F)V
-    const v1, -0x4c4c4d
-    invoke-virtual {v0, v1}, Landroid/widget/TextView;->setTextColor(I)V
-    const/16 v1, 0x11
-    invoke-virtual {v0, v1}, Landroid/widget/TextView;->setGravity(I)V
-    const/16 v1, 0x18
-    invoke-virtual {v0, v1, v1, v1, v1}, Landroid/view/View;->setPadding(IIII)V
-    invoke-virtual {v13, v0}, Landroid/widget/LinearLayout;->addView(Landroid/view/View;)V
+    goto :shelf_done
 
     :shelf_done
     return-void
