@@ -7581,6 +7581,10 @@
     invoke-virtual {v2}, Ljava/lang/String;->isEmpty()Z
     move-result v1
     if-nez v1, :native_player_no_track
+    const-string v1, "Aucune lecture en cours"
+    invoke-virtual {v2, v1}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    move-result v1
+    if-nez v1, :native_player_no_track
     const/4 v1, 0x1
     goto :native_player_track_flag
     :native_player_no_track
@@ -8636,7 +8640,7 @@
 .method public final onNativePlayerShuffleClick(Landroid/view/View;)V
     .locals 1
 
-    const-string v0, "(function(){if(typeof window.actShuffle===\'function\'){window.actShuffle();return;}var b=document.querySelector(\'[data-testid=\"control-button-shuffle\"]\');if(b){b.click();}})();"
+    const-string v0, "(function(){if(typeof window.__sfToggleShuffle===\'function\'){window.__sfToggleShuffle();return;}if(typeof window.actShuffle===\'function\'){window.actShuffle();return;}var b=document.querySelector(\'[data-testid=\"control-button-shuffle\"]\');if(b){b.click();}})();"
     invoke-virtual {p0, v0}, Lcom/melodix/music/MainActivity;->runNativeJavascript(Ljava/lang/String;)V
     return-void
 .end method
@@ -8644,7 +8648,7 @@
 .method public final onNativePlayerRepeatClick(Landroid/view/View;)V
     .locals 1
 
-    const-string v0, "(function(){if(typeof window.actRepeat===\'function\'){window.actRepeat();return;}var b=document.querySelector(\'[data-testid=\"control-button-repeat\"]\');if(b){b.click();}})();"
+    const-string v0, "(function(){if(typeof window.__sfToggleRepeat===\'function\'){window.__sfToggleRepeat();return;}if(typeof window.actRepeat===\'function\'){window.actRepeat();return;}var b=document.querySelector(\'[data-testid=\"control-button-repeat\"]\');if(b){b.click();}})();"
     invoke-virtual {p0, v0}, Lcom/melodix/music/MainActivity;->runNativeJavascript(Ljava/lang/String;)V
     return-void
 .end method

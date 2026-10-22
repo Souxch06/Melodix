@@ -1253,8 +1253,10 @@
             title: String(title || '').slice(0, 120),
             artist: String(artist || '').slice(0, 120),
             cover: cover || '',
-            position: position > 0 ? Math.round(position) : 0,
-            duration: duration > 0 ? Math.round(duration) : 0
+            // HTMLMediaElement and the on-screen clocks are seconds.
+            // Native formatNativeTime / recMediaStatus expect milliseconds.
+            position: position > 0 ? Math.round(position * 1000) : 0,
+            duration: duration > 0 ? Math.round(duration * 1000) : 0
         };
     }
 
@@ -1289,6 +1291,18 @@
         return '';
     }
 
+    function readControlPressed(testId) {
+        var btn;
+        try {
+            btn = document.querySelector('button[data-testid="' + testId + '"]');
+        } catch (_) {
+            return false;
+        }
+        if (!btn || typeof btn.getAttribute !== 'function') return false;
+        var checked = btn.getAttribute('aria-checked');
+        return checked === 'true' || checked === 'mixed';
+    }
+
     function playerPayload() {
         var info = readNowPlaying();
         return {
@@ -1297,7 +1311,9 @@
             cover: info.cover || '',
             playing: playbackSnapshot().playing,
             position: info.position,
-            duration: info.duration
+            duration: info.duration,
+            shuffle: readControlPressed('control-button-shuffle'),
+            repeat: readControlPressed('control-button-repeat')
         };
     }
 
@@ -1317,7 +1333,9 @@
             payload.artist,
             payload.playing ? '1' : '0',
             payload.duration,
-            Math.floor(payload.position / 5)
+            payload.shuffle ? '1' : '0',
+            payload.repeat ? '1' : '0',
+            Math.floor(payload.position / 5000)
         ].join('|');
         if (!force && signature === lastPlayerSignature && now - lastPlayerSentAt < 4000) return false;
         lastPlayerSignature = signature;
@@ -1390,6 +1408,62 @@
         }
         refreshPlayerSoon(700);
         return false;
+    };
+
+    window.__sfToggleShuffle = function() {
+        if (typeof window.actShuffle === 'function') {
+            try { window.actShuffle(); } catch (_) {}
+        } else {
+            var b = document.querySelector('[data-testid="control-button-shuffle"]');
+            if (b && typeof b.click === 'function') {
+                try { b.click(); } catch (_) {}
+            }
+        }
+        refreshPlayerSoon(350);
+        return true;
+    };
+
+    window.__sfToggleRepeat = function() {
+        if (typeof window.actRepeat === 'function') {
+            try { window.actRepeat(); } catch (_) {}
+        } else {
+            var b = document.querySelector('[data-testid="control-button-repeat"]');
+            if (b && typeof b.click === 'function') {
+                try { b.click(); } catch (_) {}
+            }
+        }
+        refreshPlayerSoon(350);
+        return true;
+    };
+
+    // Fraction 0..1 against the on-page progress control. Unknown duration is a no-op.
+    window.__sfSeekFraction = function(fraction) {
+        var n = Number(fraction);
+        var bar;
+        if (!(n >= 0) || n > 1) return false;
+        try {
+            bar = document.querySelector('[data-testid="progress-bar"]') ||
+                document.querySelector('input[data-testid="playback-progressbar"]') ||
+                document.querySelector('[data-testid="playback-progressbar"]');
+        } catch (_) {
+            bar = null;
+        }
+        if (!bar) return false;
+        try {
+            if (typeof bar.value !== 'undefined' && bar.max) {
+                bar.value = String(Math.round(Number(bar.max) * n));
+                if (typeof bar.dispatchEvent === 'function') {
+                    bar.dispatchEvent(new Event('input', { bubbles: true }));
+                    bar.dispatchEvent(new Event('change', { bubbles: true }));
+                }
+            } else if (typeof bar.click === 'function') {
+                bar.click();
+            }
+        } catch (_) {
+            return false;
+        }
+        refreshPlayerSoon(300);
+        return true;
     };
 
     function installPlayerFeed() {

@@ -1288,8 +1288,8 @@ test('the shell sends the real now-playing state to the native player', () => {
     assert.equal(payload.artist, 'Artiste test');
     assert.equal(payload.cover, 'https://i.scdn.co/image/abc123');
     assert.equal(payload.playing, true);
-    assert.equal(payload.duration, 200);
-    assert.equal(payload.position, 42);
+    assert.equal(payload.duration, 200000);
+    assert.equal(payload.position, 42000);
 });
 
 test('the shell pause button latches the pause and a skip releases it', () => {
