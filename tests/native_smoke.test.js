@@ -145,5 +145,5 @@ test('smoke: demo-home extra paints labelled playlists without login', () => {
     assert.match(read('scripts/preview-launch-trace.sh'), /MelodixDemo/);
     assert.doesNotMatch(read('scripts/preview-launch-trace.sh'), /uiautomator dump/);
     assert.match(read('.github/workflows/preview-launch-trace.yml'), /\[launch-trace\]/);
-    assert.match(read('.github/workflows/preview-launch-trace.yml'), /timeout-minutes: 25/);
+    assert.match(read('.github/workflows/preview-launch-trace.yml'), /timeout-minutes: 40/);
 });

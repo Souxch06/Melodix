@@ -108,8 +108,8 @@ if ! grep -q "$activity_id" "$state/resumed.txt" 2>/dev/null; then
   fail "top activity is not MainActivity: $(tr '\n' ' ' < "$state/resumed.txt")"
 fi
 
-adb logcat -d -b crash > "$state/crash.txt" 2>&1
-adb logcat -d > "$state/logcat.txt" 2>&1
+adb logcat -d -b crash -t 400 > "$state/crash.txt" 2>&1
+adb logcat -d -t 2500 *:E MelodixDemo:I AndroidRuntime:E ActivityManager:I > "$state/logcat.txt" 2>&1
 grep -n -A 40 'FATAL EXCEPTION' "$state/logcat.txt" > "$state/fatal.txt" 2>/dev/null || true
 grep -n -A 20 'ForegroundServiceDidNotStartInTimeException' "$state/logcat.txt" \
   > "$state/fgs.txt" 2>/dev/null || true
@@ -134,7 +134,7 @@ if ! wait_for_activity "$activity_id" 30; then
 fi
 sleep 5
 capture "demo-8s"
-adb logcat -d > "$state/demo-logcat.txt" 2>&1
+adb logcat -d -t 800 MelodixDemo:I AndroidRuntime:E *:S > "$state/demo-logcat.txt" 2>&1
 grep -c 'MelodixDemo' "$state/demo-logcat.txt" > "$state/demo-hits.txt" 2>/dev/null || echo 0 > "$state/demo-hits.txt"
 if ! grep -q 'MelodixDemo' "$state/demo-logcat.txt" 2>/dev/null; then
   fail "demo extra did not log MelodixDemo painted (isolated demo, not Spotify playlists)"
