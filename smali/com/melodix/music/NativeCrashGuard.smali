@@ -475,6 +475,36 @@
     return-object p0
 .end method
 
+# True only when the WebView URL host is the Spotify accounts login host.
+.method public static accountsHostHides(Ljava/lang/String;)Z
+    .locals 2
+
+    const/4 v0, 0x0
+
+    if-eqz p0, :done
+
+    invoke-static {p0}, Landroid/net/Uri;->parse(Ljava/lang/String;)Landroid/net/Uri;
+
+    move-result-object v1
+
+    if-eqz v1, :done
+
+    invoke-virtual {v1}, Landroid/net/Uri;->getHost()Ljava/lang/String;
+
+    move-result-object v1
+
+    if-eqz v1, :done
+
+    const-string v0, "accounts.spotify.com"
+
+    invoke-virtual {v1, v0}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+
+    move-result v0
+
+    :done
+    return v0
+.end method
+
 # Records how far the current launch got. A crash before "ready" leaves this
 # value behind, which is the only clue available on a phone without logcat.
 .method public static stage(Ljava/lang/String;)V

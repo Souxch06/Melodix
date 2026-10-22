@@ -103,7 +103,7 @@ test('native bridge exposes UI callbacks and routes media, search and player dat
     assert.match(client, /const-string v5, "native_ui_shell\.js"[\s\S]*?evaluateJavascript/);
     assert.doesNotMatch(hotfixList, /native_ui_shell\.js/);
     assert.doesNotMatch(read('assets/spotify_bridge.js'), /notifyNativeUiReady\(/);
-    assert.match(read('smali/com/melodix/music/MainActivity.smali'), /:native_root_cover/);
+    assert.match(read('smali/com/melodix/music/MainActivity.smali'), /accountsHostHides/);
     assert.doesNotMatch(read('smali/com/melodix/music/MainActivity.smali'), /const\/high16 v1, 0x3f600000/);
     assert.match(activity, /\.method public final showNativeUi\(\)V/);
     assert.match(activity, /styleNativeTab[\s\S]*?setBackgroundTintList/);
@@ -1386,11 +1386,13 @@ test('nativeRoot is hidden only on the accounts.spotify.com host, not on /auth s
     const activity = read('smali/com/melodix/music/MainActivity.smali');
     const start = activity.indexOf('const v5, 0x7f09022f');
     const block = activity.slice(start, start + 1200);
-    assert.match(block, /Landroid\/net\/Uri;->parse/);
-    assert.match(block, /getHost\(\)Ljava\/lang\/String;/);
-    assert.match(block, /accounts.spotify.com/);
+    assert.match(block, /accountsHostHides/);
     assert.match(block, /native-root-gone:accounts-host/);
     assert.ok(!block.includes('"/login"'));
+    const guard = read('smali/com/melodix/music/NativeCrashGuard.smali');
+    assert.match(guard, /Landroid\/net\/Uri;->parse/);
+    assert.match(guard, /getHost\(\)Ljava\/lang\/String;/);
+    assert.match(guard, /accounts.spotify.com/);
     assert.equal(accountsHostHidesShell('https://open.spotify.com/'), false);
     assert.equal(accountsHostHidesShell('https://open.spotify.com/playlist/abc'), false);
     assert.equal(accountsHostHidesShell('https://open.spotify.com/search/auth-hits'), false);

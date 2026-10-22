@@ -1223,7 +1223,7 @@
 .end method
 
 .method public final G()V
-    .locals 8
+    .locals 9
 
     .line 1
     sget-boolean v0, Lcom/melodix/music/AppSingleton;->E:Z
@@ -1575,24 +1575,16 @@
     move-result-object v5
     if-eqz v5, :native_root_login_done
     const/4 v7, 0x0
-    invoke-static {v0}, Landroid/net/Uri;->parse(Ljava/lang/String;)Landroid/net/Uri;
-    move-result-object v2
-    if-eqz v2, :native_root_cover
-    invoke-virtual {v2}, Landroid/net/Uri;->getHost()Ljava/lang/String;
-    move-result-object v2
-    if-eqz v2, :native_root_cover
-    const-string v3, "accounts.spotify.com"
-    invoke-virtual {v2, v3}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
-    move-result v2
-    if-eqz v2, :native_root_cover
+    invoke-static {v0}, Lcom/melodix/music/NativeCrashGuard;->accountsHostHides(Ljava/lang/String;)Z
+    move-result v8
+    if-eqz v8, :native_root_apply
     const/16 v7, 0x8
-    const-string v2, "native-root-gone:accounts-host"
-    invoke-static {v2}, Lcom/melodix/music/NativeCrashGuard;->stage(Ljava/lang/String;)V
-    goto :native_root_apply
-    :native_root_cover
-    const/4 v7, 0x0
     :native_root_apply
     invoke-virtual {v5, v7}, Landroid/view/View;->setVisibility(I)V
+    if-nez v8, :native_root_login_done
+    const-string v7, "native-root-gone:accounts-host"
+    invoke-static {v7}, Lcom/melodix/music/NativeCrashGuard;->stage(Ljava/lang/String;)V
+    const/4 v7, 0x0
     :native_root_login_done
 
     .line 159
