@@ -7158,8 +7158,6 @@
     goto :set_native_mini_player
     :hide_native_mini_player
     const/16 v3, 0x8
-    const-string v4, "mini-gone:full-player"
-    invoke-static {v4}, Lcom/melodix/music/NativeCrashGuard;->stage(Ljava/lang/String;)V
     :set_native_mini_player
     invoke-virtual {v2, v3}, Landroid/view/View;->setVisibility(I)V
 
@@ -7635,44 +7633,46 @@
     move-result-object v11
     invoke-static {v2, v3}, Lcom/melodix/music/MainActivity;->formatNativeTime(J)Ljava/lang/String;
     move-result-object v10
-    const v8, 0x7f09023d
-    invoke-virtual {p0, v8}, Landroid/app/Activity;->findViewById(I)Landroid/view/View;
-    move-result-object v9
-    if-eqz v9, :native_player_play_state
-    check-cast v9, Landroid/widget/ProgressBar;
-    const/16 v8, 0x3e8
-    invoke-virtual {v9, v8}, Landroid/widget/ProgressBar;->setMax(I)V
+    const/4 v8, 0x0
     const-wide/16 v6, 0x0
-    cmp-long v8, v2, v6
-    if-lez v8, :native_player_zero_progress
+    cmp-long v1, v2, v6
+    if-lez v1, :native_player_zero_progress
     const-wide/16 v6, 0x3e8
     mul-long v4, v4, v6
     div-long v4, v4, v2
-    long-to-int v4, v4
-    goto :native_player_set_progress
+    long-to-int v8, v4
     :native_player_zero_progress
+    const/4 v2, 0x0
+    const/4 v3, 0x0
     const/4 v4, 0x0
-    :native_player_set_progress
-    invoke-virtual {v9, v4}, Landroid/widget/ProgressBar;->setProgress(I)V
-
-    const v8, 0x7f09024d
-    invoke-virtual {p0, v8}, Landroid/app/Activity;->findViewById(I)Landroid/view/View;
+    const v1, 0x7f09023d
+    invoke-virtual {p0, v1}, Landroid/app/Activity;->findViewById(I)Landroid/view/View;
     move-result-object v9
-    if-eqz v9, :native_player_mini_progress
+    if-eqz v9, :native_player_mini_bar
     check-cast v9, Landroid/widget/ProgressBar;
-    invoke-virtual {v9, v4}, Landroid/widget/ProgressBar;->setProgress(I)V
+    const/16 v1, 0x3e8
+    invoke-virtual {v9, v1}, Landroid/widget/ProgressBar;->setMax(I)V
+    invoke-virtual {v9, v8}, Landroid/widget/ProgressBar;->setProgress(I)V
 
-    :native_player_mini_progress
-    const v8, 0x7f09024a
-    invoke-virtual {p0, v8}, Landroid/app/Activity;->findViewById(I)Landroid/view/View;
+    :native_player_mini_bar
+    const v1, 0x7f09024d
+    invoke-virtual {p0, v1}, Landroid/app/Activity;->findViewById(I)Landroid/view/View;
+    move-result-object v9
+    if-eqz v9, :native_player_label_pos
+    check-cast v9, Landroid/widget/ProgressBar;
+    invoke-virtual {v9, v8}, Landroid/widget/ProgressBar;->setProgress(I)V
+
+    :native_player_label_pos
+    const v1, 0x7f09024a
+    invoke-virtual {p0, v1}, Landroid/app/Activity;->findViewById(I)Landroid/view/View;
     move-result-object v9
     if-eqz v9, :native_player_label_duration
     check-cast v9, Landroid/widget/TextView;
     invoke-virtual {v9, v11}, Landroid/widget/TextView;->setText(Ljava/lang/CharSequence;)V
 
     :native_player_label_duration
-    const v8, 0x7f09024b
-    invoke-virtual {p0, v8}, Landroid/app/Activity;->findViewById(I)Landroid/view/View;
+    const v1, 0x7f09024b
+    invoke-virtual {p0, v1}, Landroid/app/Activity;->findViewById(I)Landroid/view/View;
     move-result-object v9
     if-eqz v9, :native_player_play_state
     check-cast v9, Landroid/widget/TextView;
@@ -7892,6 +7892,13 @@
 .method public final pullNativeHomeList()V
     .locals 3
 
+    iget-object v1, p0, Lcom/melodix/music/MainActivity;->nativeCurrentScreen:Ljava/lang/String;
+    if-eqz v1, :pull_done
+    const-string v2, "home"
+    invoke-virtual {v1, v2}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    move-result v2
+    if-eqz v2, :pull_done
+
     iget-object v0, p0, Lcom/melodix/music/MainActivity;->nativeHomeJson:Ljava/lang/String;
     if-eqz v0, :pull_blob
     invoke-virtual {v0}, Ljava/lang/String;->length()I
@@ -7908,14 +7915,13 @@
 
     :pull_js
     iget-object v0, p0, Lcom/melodix/music/MainActivity;->nativeCurrentScreen:Ljava/lang/String;
-    if-eqz v0, :pull_eval
+    if-eqz v0, :pull_done
     const-string v1, "home"
     invoke-virtual {v0, v1}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
     move-result v1
-    if-eqz v1, :pull_eval
+    if-eqz v1, :pull_done
     const-string v0, "window.__sfNativeRequestHome && window.__sfNativeRequestHome();"
     invoke-virtual {p0, v0}, Lcom/melodix/music/MainActivity;->runNativeJavascript(Ljava/lang/String;)V
-    :pull_eval
     iget-object v0, p0, Lcom/melodix/music/MainActivity;->G:Landroid/webkit/WebView;
     if-eqz v0, :pull_done
     const-string v1, "native_home_scrape.js"
