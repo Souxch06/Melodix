@@ -1121,6 +1121,7 @@ test('row taps open playlists, albums and tracks', () => {
     assert.match(openRow, /loadNativeSpotifyUri/);
     assert.match(openRow, /window\.__sfNativeOpenUri/);
     assert.match(activity, /Landroid\/webkit\/WebView;->loadUrl\(Ljava\/lang\/String;\)V/);
+    assert.match(activity, /setNativePlaylistHole\(Z\)V/);
 });
 
 test('detail and player screens expose the back arrow and hide the tab bar', () => {

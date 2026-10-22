@@ -558,12 +558,6 @@
         try {
             clockLooksNative = /\[native code\]/.test(Function.prototype.toString.call(window.setTimeout));
         } catch (_) {}
-        if (clockLooksNative && rows.length > 0 && homeRetries < 1) {
-            pendingHomeCount = Math.max(pendingHomeCount, rows.length);
-            pendingHomeSignature = signature;
-            scheduleHomeRetry();
-            return;
-        }
         var ready = rows.length > 0;
         if (!ready) {
             scheduleHomeRetry();

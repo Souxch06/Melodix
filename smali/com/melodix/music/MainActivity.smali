@@ -7235,6 +7235,11 @@
     const v2, 0x7f090248
     invoke-virtual {p0, p1, v3, v2}, Lcom/melodix/music/MainActivity;->styleNativeTab(Ljava/lang/String;Ljava/lang/String;I)V
 
+    const-string v0, "detail"
+    invoke-virtual {p1, v0}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    move-result v0
+    invoke-virtual {p0, v0}, Lcom/melodix/music/MainActivity;->setNativePlaylistHole(Z)V
+
     iget-boolean v0, p0, Lcom/melodix/music/MainActivity;->nativeFadeNextScreen:Z
 
     if-eqz v0, :native_fade_done
@@ -7247,6 +7252,44 @@
 
     :native_fade_done
     :native_screen_abort
+    return-void
+.end method
+
+.method public final setNativePlaylistHole(Z)V
+    .locals 4
+
+    const v0, 0x7f09022f
+    invoke-virtual {p0, v0}, Landroid/app/Activity;->findViewById(I)Landroid/view/View;
+    move-result-object v1
+    if-eqz v1, :native_hole_scroll
+    if-eqz p1, :native_hole_opaque
+    const/4 v2, 0x0
+    invoke-virtual {v1, v2}, Landroid/view/View;->setBackgroundColor(I)V
+    invoke-virtual {v1, v2}, Landroid/view/View;->setClickable(Z)V
+    invoke-virtual {v1, v2}, Landroid/view/View;->setFocusable(Z)V
+    goto :native_hole_scroll
+
+    :native_hole_opaque
+    const v2, -0xededee
+    invoke-virtual {v1, v2}, Landroid/view/View;->setBackgroundColor(I)V
+    const/4 v2, 0x1
+    invoke-virtual {v1, v2}, Landroid/view/View;->setClickable(Z)V
+    invoke-virtual {v1, v2}, Landroid/view/View;->setFocusable(Z)V
+
+    :native_hole_scroll
+    const v0, 0x7f090239
+    invoke-virtual {p0, v0}, Landroid/app/Activity;->findViewById(I)Landroid/view/View;
+    move-result-object v1
+    if-eqz v1, :native_hole_done
+    if-eqz p1, :native_hole_show_rows
+    const/16 v2, 0x8
+    goto :native_hole_rows_vis
+    :native_hole_show_rows
+    const/4 v2, 0x0
+    :native_hole_rows_vis
+    invoke-virtual {v1, v2}, Landroid/view/View;->setVisibility(I)V
+
+    :native_hole_done
     return-void
 .end method
 
@@ -7829,6 +7872,20 @@
     check-cast v2, Landroid/widget/LinearLayout;
     invoke-static {p0, v2, p2}, Lcom/melodix/music/NativeHomeFeed;->paint(Lcom/melodix/music/MainActivity;Landroid/view/ViewGroup;Ljava/lang/String;)I
     move-result v3
+    iget-object v4, p0, Lcom/melodix/music/MainActivity;->nativeCurrentScreen:Ljava/lang/String;
+    if-eqz v4, :native_rows_after_hole
+    const-string v5, "detail"
+    invoke-virtual {v4, v5}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    move-result v5
+    if-eqz v5, :native_rows_after_hole
+    if-lez v3, :native_detail_keep_hole
+    const/4 v5, 0x0
+    invoke-virtual {p0, v5}, Lcom/melodix/music/MainActivity;->setNativePlaylistHole(Z)V
+    goto :native_rows_after_hole
+    :native_detail_keep_hole
+    const/4 v5, 0x1
+    invoke-virtual {p0, v5}, Lcom/melodix/music/MainActivity;->setNativePlaylistHole(Z)V
+    :native_rows_after_hole
     if-lez v3, :native_rows_keep
     return-void
 
