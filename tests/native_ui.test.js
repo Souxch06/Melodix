@@ -1098,6 +1098,7 @@ test('content rows keep their title, cover and tap target', () => {
     assert.doesNotMatch(factory, /if-eqz v0, :native_row_default_title/);
     assert.match(factory, /if-nez v10, :native_row_text_column/, 'empty image URLs skip Picasso; real covers load');
     assert.match(factory, /if-eqz v10, :native_row_return/);
+    assert.match(factory, /setDescendantFocusability/);
     assert.ok(
         factory.indexOf('NativeRowClickListener;-><init>') > factory.lastIndexOf('if-eqz v10, :native_row_return'),
         'the click listener is attached to rows with a URI'
@@ -1117,7 +1118,9 @@ test('row taps open playlists, albums and tracks', () => {
     assert.match(openRow, /const-string v2, "\/collection"/);
     assert.match(openRow, /if-eqz v1, :native_open_single/, 'tracks are played by the WebView');
     assert.match(openRow, /window\.__sfOpenCollection/);
+    assert.match(openRow, /loadNativeSpotifyUri/);
     assert.match(openRow, /window\.__sfNativeOpenUri/);
+    assert.match(activity, /Landroid\/webkit\/WebView;->loadUrl\(Ljava\/lang\/String;\)V/);
 });
 
 test('detail and player screens expose the back arrow and hide the tab bar', () => {

@@ -375,6 +375,7 @@ test('Accueil retries paint cached home JSON without posting a partial native sc
     assert.doesNotMatch(pull, /NativeHomeJsonCallback/);
     const shell = read('assets/native_ui_shell.js');
     assert.match(shell, /pendingHomeCount/);
+    assert.match(shell, /homeRetries < 1/);
     assert.match(shell, /looksPublicPlaylist/);
     assert.match(shell, /Playlists Spotify/);
     assert.doesNotMatch(shell, /Desktop_LeftSidebar_Id/);

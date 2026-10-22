@@ -14,6 +14,8 @@
     var homeRetries = 0;
     var readyRetryTimer = null;
     var homeRetryTimer = null;
+    var detailRetryTimer = null;
+    var detailRetries = 0;
     var updateTimer = null;
     var observer = null;
     var lastHomeSignature = null;
@@ -531,7 +533,7 @@
         homeRetryTimer = window.setTimeout(function() {
             homeRetryTimer = null;
             if (isSpotifyHome()) runUpdate();
-        }, 500);
+        }, 180);
     }
 
     function updateHomeRows(mainView) {
@@ -556,17 +558,11 @@
         try {
             clockLooksNative = /\[native code\]/.test(Function.prototype.toString.call(window.setTimeout));
         } catch (_) {}
-        if (clockLooksNative) {
-            if (rows.length > pendingHomeCount || signature !== pendingHomeSignature) {
-                pendingHomeCount = Math.max(pendingHomeCount, rows.length);
-                pendingHomeSignature = signature;
-                scheduleHomeRetry();
-                return;
-            }
-            if (homeRetries < 6) {
-                scheduleHomeRetry();
-                return;
-            }
+        if (clockLooksNative && rows.length > 0 && homeRetries < 1) {
+            pendingHomeCount = Math.max(pendingHomeCount, rows.length);
+            pendingHomeSignature = signature;
+            scheduleHomeRetry();
+            return;
         }
         var ready = rows.length > 0;
         if (!ready) {
@@ -667,10 +663,16 @@
         var nodes;
         if (!root || typeof root.querySelectorAll !== 'function') return [];
         nodes = Array.prototype.slice.call(root.querySelectorAll('[data-testid="tracklist-row"]'));
+        if (!nodes.length) {
+            nodes = Array.prototype.slice.call(root.querySelectorAll('[role="row"]'));
+        }
         nodes.forEach(function(row) {
-            var trackAnchor = row && typeof row.querySelector === 'function'
-                ? row.querySelector('a[href*="/track/"], a[href*="/episode/"]')
-                : null;
+            var trackAnchor = null;
+            if (row && typeof row.querySelector === 'function') {
+                trackAnchor = row.querySelector('a[href*="/track/"]')
+                    || row.querySelector('a[href*="/episode/"]')
+                    || row.querySelector('[data-testid="internal-track-link"]');
+            }
             var href = trackAnchor && (trackAnchor.href || (trackAnchor.getAttribute && trackAnchor.getAttribute('href')));
             var uri = spotifyResourceUri(href);
             var lines;
@@ -702,6 +704,23 @@
                 subtitle: subtitle.slice(0, 120),
                 section: '',
                 image: findImageUrl(row, trackAnchor, root),
+                uri: uri
+            });
+        });
+        if (rows.length) return rows.slice(0, 80);
+        Array.prototype.slice.call(root.querySelectorAll('a[href*="/track/"], a[href*="/episode/"]')).forEach(function(anchor) {
+            var href = anchor && (anchor.href || (anchor.getAttribute && anchor.getAttribute('href')));
+            var uri = spotifyResourceUri(href);
+            var title;
+            if (!uri || seen.has(uri)) return;
+            title = String(anchor.textContent || anchor.innerText || '').replace(/\s+/g, ' ').trim().slice(0, 100);
+            if (!title) return;
+            seen.add(uri);
+            rows.push({
+                title: title,
+                subtitle: '',
+                section: '',
+                image: '',
                 uri: uri
             });
         });
@@ -751,7 +770,18 @@
         window.__sfNativeUiDetailRowsCount = rows.length;
         if (rows.length > 0 && signature !== lastInitialDetailSignature && sendNativeUiData('detail', rows)) {
             lastInitialDetailSignature = signature;
+            detailRetries = 0;
+            if (detailRetryTimer) {
+                window.clearTimeout(detailRetryTimer);
+                detailRetryTimer = null;
+            }
             if (typeof cancelPendingCollectionNavigation === 'function') cancelPendingCollectionNavigation();
+        } else if (rows.length === 0 && detailRetries < 20 && !detailRetryTimer) {
+            detailRetries += 1;
+            detailRetryTimer = window.setTimeout(function() {
+                detailRetryTimer = null;
+                runUpdate();
+            }, 160);
         }
     }
 

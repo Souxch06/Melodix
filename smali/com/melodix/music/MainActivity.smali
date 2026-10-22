@@ -8416,6 +8416,7 @@
     # falls back to a real navigation so a playlist still opens without it.
     const-string v1, "window.__sfOpenCollection"
     invoke-virtual {p0, v1, p1}, Lcom/melodix/music/MainActivity;->runNativeFunction(Ljava/lang/String;Ljava/lang/String;)V
+    invoke-virtual {p0, p1}, Lcom/melodix/music/MainActivity;->loadNativeSpotifyUri(Ljava/lang/String;)V
     goto :native_row_click_done
 
     :native_open_single
@@ -8423,6 +8424,42 @@
     invoke-virtual {p0, v1, p1}, Lcom/melodix/music/MainActivity;->runNativeFunction(Ljava/lang/String;Ljava/lang/String;)V
 
     :native_row_click_done
+    return-void
+.end method
+
+.method public final loadNativeSpotifyUri(Ljava/lang/String;)V
+    .locals 8
+
+    if-eqz p1, :native_load_uri_done
+    invoke-virtual {p1}, Ljava/lang/String;->isEmpty()Z
+    move-result v0
+    if-eqz v0, :native_load_uri_done
+    iget-object v0, p0, Lcom/melodix/music/MainActivity;->G:Landroid/webkit/WebView;
+    if-eqz v0, :native_load_uri_done
+    move-object v1, p1
+    const-string v2, "spotify:"
+    invoke-virtual {p1, v2}, Ljava/lang/String;->startsWith(Ljava/lang/String;)Z
+    move-result v3
+    if-eqz v3, :native_load_uri_go
+    const/16 v3, 0x8
+    invoke-virtual {p1, v3}, Ljava/lang/String;->substring(I)Ljava/lang/String;
+    move-result-object v4
+    const/16 v5, 0x3a
+    const/16 v6, 0x2f
+    invoke-virtual {v4, v5, v6}, Ljava/lang/String;->replace(CC)Ljava/lang/String;
+    move-result-object v4
+    new-instance v7, Ljava/lang/StringBuilder;
+    invoke-direct {v7}, Ljava/lang/StringBuilder;-><init>()V
+    const-string v2, "https://open.spotify.com/"
+    invoke-virtual {v7, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    invoke-virtual {v7, v4}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    invoke-virtual {v7}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
+    move-result-object v1
+
+    :native_load_uri_go
+    invoke-virtual {v0, v1}, Landroid/webkit/WebView;->loadUrl(Ljava/lang/String;)V
+
+    :native_load_uri_done
     return-void
 .end method
 

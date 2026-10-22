@@ -179,6 +179,9 @@
     invoke-virtual {v1, v10}, Landroid/view/View;->setBackground(Landroid/graphics/drawable/Drawable;)V
     const/4 v10, 0x1
     invoke-virtual {v1, v10}, Landroid/view/View;->setClipToOutline(Z)V
+    const/4 v10, 0x0
+    invoke-virtual {v1, v10}, Landroid/view/View;->setClickable(Z)V
+    invoke-virtual {v1, v10}, Landroid/view/View;->setFocusable(Z)V
     # Neutral note instead of the app logo while a cover loads.
     const-string v10, "native_cover_placeholder"
     invoke-static {p0, v1, v10}, Lcom/melodix/music/NativeUiRowFactory;->applyDrawableImage(Landroid/content/Context;Landroid/widget/ImageView;Ljava/lang/String;)V
@@ -266,6 +269,8 @@
     iput v10, v11, Landroid/view/ViewGroup$MarginLayoutParams;->bottomMargin:I
     invoke-virtual {v0, v11}, Landroid/view/View;->setLayoutParams(Landroid/view/ViewGroup$LayoutParams;)V
 
+    const/high16 v10, 0x60000
+    invoke-virtual {v0, v10}, Landroid/view/ViewGroup;->setDescendantFocusability(I)V
     const/4 v10, 0x1
     invoke-virtual {v0, v10}, Landroid/view/View;->setClickable(Z)V
     invoke-virtual {v0, v10}, Landroid/view/View;->setFocusable(Z)V
