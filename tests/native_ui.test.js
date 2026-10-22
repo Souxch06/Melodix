@@ -1521,6 +1521,8 @@ test('DOM observer ignores script/style noise and skips work while the tab is hi
     const script = read('assets/native_ui_shell.js');
     assert.match(script, /function mutationLooksRelevant\(/);
     assert.match(script, /visibilitychange/);
+    assert.ok(script.includes("addEventListener('visibilitychange', function() {\n            if (!shellIsHidden()) scheduleUpdate();"));
+    assert.ok(!script.includes('if (!shellIsHidden()) runUpdate();'));
     assert.match(script, /shellIsHidden\(\)/);
     assert.match(script, /__sfNativeUiShellLastError/);
 

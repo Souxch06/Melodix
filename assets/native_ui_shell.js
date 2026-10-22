@@ -2515,14 +2515,7 @@
         window.addEventListener('load', scheduleUpdate, { once: true });
         document.addEventListener('DOMContentLoaded', scheduleUpdate, { once: true });
         document.addEventListener('visibilitychange', function() {
-            if (!shellIsHidden()) {
-                scheduleUpdate();
-                if (typeof window.setTimeout === 'function') {
-                    window.setTimeout(function() {
-                        if (!shellIsHidden()) runUpdate();
-                    }, 0);
-                }
-            }
+            if (!shellIsHidden()) scheduleUpdate();
         });
 
         if (window.MutationObserver && document.documentElement) {
