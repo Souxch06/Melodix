@@ -534,18 +534,57 @@
         homeRetries = 0;
     }
 
-    function scheduleHomeRetry() {
+    function userPlaylistLibraryState() {
+        var lib = window.mediaLib;
+        if (!lib || !Array.isArray(lib.playlists)) return 'pending';
+        return lib.playlists.length ? 'ready' : 'empty';
+    }
+
+    function homeHasUserPlaylists(rows) {
+        var i;
+        for (i = 0; i < (rows || []).length; i += 1) {
+            if (rows[i] && rows[i].section === 'Vos playlists' && rows[i].uri) return true;
+        }
+        return false;
+    }
+
+    function homeStatusRows(kind) {
+        if (kind === 'loading') {
+            return [{ title: 'Chargement des playlists…', section: 'Accueil' }];
+        }
+        if (kind === 'empty') {
+            return [{
+                title: 'Aucune playlist dans ce compte',
+                subtitle: 'Revenez à Accueil après en avoir créé une sur Spotify',
+                section: 'Accueil'
+            }];
+        }
+        if (kind === 'error') {
+            return [{
+                title: 'Impossible de charger les playlists',
+                subtitle: 'Réessayez depuis Accueil',
+                section: 'Accueil'
+            }];
+        }
+        return [];
+    }
+
+    function scheduleHomeRetry(delay) {
         if (homeRetryTimer || homeRetries >= MAX_HOME_RETRIES) return;
         homeRetries += 1;
         homeRetryTimer = window.setTimeout(function() {
             homeRetryTimer = null;
             if (isSpotifyHome()) runUpdate();
-        }, 100);
+        }, delay || 100);
     }
 
     function updateHomeRows(mainView) {
         var rows;
         var signature;
+        var libraryState;
+        var hasUser;
+        var hasPublic = false;
+        var i;
         var homeRoute = window.location.hostname === 'open.spotify.com' && isSpotifyHome();
         window.__sfNativeUiHomeRouteRecognized = homeRoute;
         if (!homeRoute) {
@@ -553,22 +592,39 @@
             return;
         }
 
-        rows = supplementHomeRowsWithLibrary(collectHomeRows(mainView || homeScrapeRoot()));
+        try {
+            rows = supplementHomeRowsWithLibrary(collectHomeRows(mainView || homeScrapeRoot()));
+        } catch (error) {
+            window.__sfNativeUiHomeError = true;
+            window.__sfNativeUiHomeErrorMessage = String(error && error.message || error).slice(0, 160);
+            if (!lastHomeSignature) sendNativeUiData('home', homeStatusRows('error'));
+            scheduleHomeRetry(400);
+            return;
+        }
+
+        libraryState = userPlaylistLibraryState();
+        hasUser = homeHasUserPlaylists(rows);
         signature = JSON.stringify(rows);
         window.__sfNativeUiHomeRowsCount = rows.length;
-        var hasPublic = false;
-        var i;
+        window.__sfNativeUiHomeLibraryState = libraryState;
         for (i = 0; i < rows.length; i += 1) {
             if (rows[i] && rows[i].section === 'Playlists Spotify') hasPublic = true;
         }
-        // Send the first non-empty scrape immediately. Waiting for growth or
-        // public mixes on Android reset homeRetries forever while the DOM
-        // filled in, so Accueil never received real playlists.
+
         if (!rows.length) {
-            scheduleHomeRetry();
+            if (libraryState === 'empty') {
+                sendNativeUiData('home', homeStatusRows('empty'));
+                lastHomeSignature = 'empty';
+                clearHomeRetry();
+                return;
+            }
+            if (!lastHomeSignature) sendNativeUiData('home', homeStatusRows('loading'));
+            scheduleHomeRetry(libraryState === 'pending' ? 400 : 100);
             return;
         }
+
         if (lastHomeSignature === signature) {
+            if (!hasUser && libraryState === 'pending') scheduleHomeRetry(400);
             return;
         }
         if (sendNativeUiData('home', rows)) {
@@ -576,9 +632,12 @@
             window.__sfNativeUiHomeRowsSent = rows.length;
             window.__sfNativeUiHomeHadPublic = hasPublic;
             window.__sfNativeUiHomeDataSent = true;
-            if (homeRetryTimer) {
-                window.clearTimeout(homeRetryTimer);
-                homeRetryTimer = null;
+            window.__sfNativeUiHomeError = false;
+            window.__sfNativeUiHomeErrorMessage = null;
+            if (!hasUser && libraryState === 'pending') {
+                scheduleHomeRetry(400);
+            } else {
+                clearHomeRetry();
             }
         } else {
             scheduleHomeRetry();
@@ -1472,6 +1531,7 @@
         publishPlayerState(true);
         if (typeof window.setInterval === 'function') {
             playerFeedTimer = window.setInterval(function() {
+                if (shellIsHidden()) return;
                 publishPlayerState(false);
             }, PLAYER_SEND_INTERVAL_MS);
         }
@@ -1489,9 +1549,42 @@
         } catch (_) {}
     }
 
+    function shellIsHidden() {
+        return typeof document !== 'undefined' && document.hidden === true;
+    }
+
+    function mutationLooksRelevant(mutations) {
+        var i;
+        var j;
+        var node;
+        var nodes;
+        var tag;
+        if (!mutations || !mutations.length) return false;
+        for (i = 0; i < mutations.length; i += 1) {
+            nodes = mutations[i].addedNodes;
+            for (j = 0; j < (nodes && nodes.length || 0); j += 1) {
+                node = nodes[j];
+                if (!node || node.nodeType !== 1) continue;
+                tag = String(node.tagName || '').toUpperCase();
+                if (tag === 'SCRIPT' || tag === 'STYLE' || tag === 'LINK' || tag === 'META' || tag === 'NOSCRIPT') continue;
+                return true;
+            }
+            nodes = mutations[i].removedNodes;
+            for (j = 0; j < (nodes && nodes.length || 0); j += 1) {
+                node = nodes[j];
+                if (!node || node.nodeType !== 1) continue;
+                tag = String(node.tagName || '').toUpperCase();
+                if (tag === 'SCRIPT' || tag === 'STYLE' || tag === 'LINK' || tag === 'META' || tag === 'NOSCRIPT') continue;
+                return true;
+            }
+        }
+        return false;
+    }
+
     function runUpdate() {
         var mainView;
         if (window.location.hostname !== 'open.spotify.com') return;
+        if (shellIsHidden()) return;
         try {
             installPlaybackStateGuard();
             installSearchFallback();
@@ -1504,14 +1597,15 @@
                 updateSearchRows(mainView);
                 updateLibraryRows(mainView);
             }
-        } catch (_) {
+        } catch (error) {
             window.__sfNativeUiShellErrors += 1;
+            window.__sfNativeUiShellLastError = String(error && error.message || error).slice(0, 160);
         }
         if (!window.__sfNativeUiReadyNotified) scheduleReadinessRetry();
     }
 
     function scheduleUpdate() {
-        if (updateTimer) return;
+        if (updateTimer || shellIsHidden()) return;
         updateTimer = window.setTimeout(function() {
             updateTimer = null;
             runUpdate();
@@ -2384,9 +2478,14 @@
         window.addEventListener('hashchange', scheduleUpdate);
         window.addEventListener('load', scheduleUpdate, { once: true });
         document.addEventListener('DOMContentLoaded', scheduleUpdate, { once: true });
+        document.addEventListener('visibilitychange', function() {
+            if (!shellIsHidden()) scheduleUpdate();
+        });
 
         if (window.MutationObserver && document.documentElement) {
-            observer = new window.MutationObserver(scheduleUpdate);
+            observer = new window.MutationObserver(function(mutations) {
+                if (mutationLooksRelevant(mutations)) scheduleUpdate();
+            });
             observer.observe(document.documentElement, {
                 childList: true,
                 subtree: true
@@ -2400,8 +2499,9 @@
     try {
         install();
         window.__sfNativeUiShellCompleted = true;
-    } catch (_) {
+    } catch (error) {
         window.__sfNativeUiShellErrors += 1;
+        window.__sfNativeUiShellLastError = String(error && error.message || error).slice(0, 160);
         window.__sfNativeUiShellCompleted = false;
     }
 })();

@@ -596,7 +596,8 @@ test('bundled native bootstrap activates the shell, sends Home rows, and only op
     assert.equal(window.__sfNativeOpenUri('https://example.org/track/track123'), false);
     assert.equal(window.__sfNativeRequestHome(), true);
     assert.ok(calls.filter((call) => call.screen === 'home').length >= 2, 'requesting Home should resend current rows');
-    assert.equal(timers.length, 0, 'a signed-in page with a ready bridge should not keep retry timers');
+    assert.equal(timers.length, 1, 'pending mediaLib still schedules one library warmup');
+    assert.equal(timers[0].delay, 400);
 });
 
 test('Home cards with sibling artwork outside the title anchor still resolve their cover image', () => {
@@ -1514,4 +1515,60 @@ test('nativeRoot is hidden only on the accounts.spotify.com host, not on /auth s
     assert.equal(accountsHostHidesShell('https://open.spotify.com/playlist/abc'), false);
     assert.equal(accountsHostHidesShell('https://open.spotify.com/search/auth-hits'), false);
     assert.equal(accountsHostHidesShell('https://accounts.spotify.com/login'), true);
+});
+
+test('DOM observer ignores script/style noise and skips work while the tab is hidden', () => {
+    const script = read('assets/native_ui_shell.js');
+    assert.match(script, /function mutationLooksRelevant\(/);
+    assert.match(script, /visibilitychange/);
+    assert.match(script, /shellIsHidden\(\)/);
+    assert.match(script, /__sfNativeUiShellLastError/);
+
+    const timers = [];
+    let observerCb = null;
+    const document = {
+        hidden: false,
+        readyState: 'complete',
+        documentElement: {},
+        querySelector: () => null,
+        querySelectorAll: () => [],
+        addEventListener: () => {}
+    };
+    class TestMutationObserver {
+        constructor(cb) { observerCb = cb; }
+        observe() {}
+    }
+    const window = {
+        location: { hostname: 'open.spotify.com', pathname: '/', href: 'https://open.spotify.com/' },
+        AndBridge: {},
+        MutationObserver: TestMutationObserver,
+        addEventListener: () => {},
+        setTimeout: (callback, delay) => {
+            timers.push({ callback, delay });
+            return timers.length;
+        },
+        clearTimeout: () => {},
+        setInterval: () => 1,
+        clearInterval: () => {}
+    };
+    vm.runInNewContext(script, { window, document, URL, MutationObserver: TestMutationObserver });
+    assert.equal(typeof observerCb, 'function');
+    const afterInstall = timers.length;
+    observerCb([{
+        addedNodes: [{ nodeType: 1, tagName: 'SCRIPT' }],
+        removedNodes: []
+    }]);
+    assert.equal(timers.length, afterInstall, 'script tags must not schedule a home scrape');
+    observerCb([{
+        addedNodes: [{ nodeType: 1, tagName: 'DIV' }],
+        removedNodes: []
+    }]);
+    assert.ok(timers.length > afterInstall, 'real DOM nodes must still schedule a scrape');
+    const afterDiv = timers.length;
+    document.hidden = true;
+    observerCb([{
+        addedNodes: [{ nodeType: 1, tagName: 'SECTION' }],
+        removedNodes: []
+    }]);
+    assert.equal(timers.length, afterDiv, 'hidden tab must not queue another scrape');
 });

@@ -410,26 +410,92 @@ test('native scrape helper still exists but is not polled from Accueil retries',
 
 test('updateHomeRows sends the first non-empty scrape and later signature changes', () => {
     const { window, calls } = runShell();
-    const homeSends = () => calls.filter((c) => c.screen === 'home').length;
-    assert.equal(homeSends(), 0, 'empty scrape must not send home data');
+    const homePayloads = () => calls.filter((c) => c.screen === 'home');
+    const loading = homePayloads()[0] && JSON.parse(homePayloads()[0].data);
+    if (loading) {
+        assert.equal(loading.every((row) => !row.uri), true, 'loading must not invent playlist URIs');
+        assert.match(loading[0].title, /Chargement/);
+    }
 
     window.mediaLib = {
         playlists: [{ name: 'Mix Un', uri: 'spotify:playlist:sig1', type: 'Playlist' }]
     };
     assert.equal(window.__sfNativeUiRefresh(), true);
-    assert.equal(homeSends(), 1, 'first non-empty scrape is sent');
-    const first = JSON.parse(calls.filter((c) => c.screen === 'home').pop().data);
+    const first = JSON.parse(homePayloads().pop().data);
     assert.equal(first.some((row) => row.title === 'Mix Un'), true);
+    const afterFirst = homePayloads().length;
 
     assert.equal(window.__sfNativeUiRefresh(), true);
-    assert.equal(homeSends(), 1, 'identical scrape is not resent');
+    assert.equal(homePayloads().length, afterFirst, 'identical scrape is not resent');
 
     window.mediaLib.playlists[0].name = 'Mix Deux';
     assert.equal(window.__sfNativeUiRefresh(), true);
-    assert.equal(homeSends(), 2, 'same row count with a new title is resent');
-    const second = JSON.parse(calls.filter((c) => c.screen === 'home').pop().data);
+    assert.equal(homePayloads().length, afterFirst + 1, 'same row count with a new title is resent');
+    const second = JSON.parse(homePayloads().pop().data);
     assert.equal(second.some((row) => row.title === 'Mix Deux'), true);
     assert.equal(second.length, first.length);
+});
+
+test('an empty Spotify library shows a recoverable empty state without fake URIs', () => {
+    const { window, calls } = runShell({
+        mediaLib: { playlists: [] }
+    });
+    window.__sfNativeUiRefresh();
+    const home = calls.filter((c) => c.screen === 'home').pop();
+    assert.ok(home);
+    const rows = JSON.parse(home.data);
+    assert.equal(rows.some((row) => /Aucune playlist/.test(row.title)), true);
+    assert.equal(rows.every((row) => !row.uri), true);
+});
+
+test('home does not duplicate playlists across repeated initialisations', () => {
+    const { window, calls } = runShell({
+        mediaLib: {
+            playlists: [
+                { name: 'A', uri: 'spotify:playlist:aaa', image: 'https://i.scdn.co/image/a' },
+                { name: 'A', uri: 'spotify:playlist:aaa', image: 'https://i.scdn.co/image/a' }
+            ]
+        }
+    });
+    window.__sfNativeUiRefresh();
+    window.__sfNativeUiRefresh();
+    const homes = calls.filter((c) => c.screen === 'home');
+    const last = JSON.parse(homes.pop().data);
+    const uris = last.filter((row) => row.uri).map((row) => row.uri);
+    assert.equal(uris.length, new Set(uris).size);
+    assert.equal(uris.filter((uri) => uri === 'spotify:playlist:aaa').length, 1);
+});
+
+test('opening a home playlist navigates to the real Spotify collection URL', () => {
+    const navigations = [];
+    const { window } = runShell({
+        location: {
+            hostname: 'open.spotify.com',
+            pathname: '/',
+            href: 'https://open.spotify.com/',
+            assign: (url) => navigations.push(url)
+        }
+    });
+    assert.equal(window.__sfOpenCollection('spotify:playlist:abc123'), true);
+    assert.match(navigations.join(' '), /open\.spotify\.com\/playlist\/abc123/);
+});
+
+test('user playlists cancel the 400ms library warmup retry', () => {
+    const delays = [];
+    const { window } = runShell({
+        mediaLib: {
+            playlists: [{ name: 'Mine', uri: 'spotify:playlist:mine', type: 'Playlist' }]
+        },
+        setTimeout: (callback, delay) => {
+            delays.push(delay);
+            return delays.length;
+        },
+        clearTimeout: () => {}
+    });
+    window.__sfNativeUiRefresh();
+    assert.equal(delays.filter((delay) => delay === 400).length, 0);
+    assert.match(read('assets/native_ui_shell.js'), /clearHomeRetry\(\);/);
+    assert.match(read('assets/native_ui_shell.js'), /__sfNativeUiHomeErrorMessage/);
 });
 
 test('native UI runnable: action 0 shows the shell, action 1 paints home JSON', () => {
