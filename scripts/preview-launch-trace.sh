@@ -1,18 +1,32 @@
 #!/usr/bin/env bash
 # Runs with an Android emulator already booted and adb connected.
-# Installs the published preview APK, launches it, and writes everything that
-# explains the launch (resumed activity, on-screen text, stored stage, crash
-# buffer) into the step summary, the annotations and a commit comment.
+# Installs the published preview APK, launches it, and writes screenshots,
+# UI dumps, logcat, prefs and a report into $RUNNER_TEMP/state.
 set -uo pipefail
 
 package_id="com.melodix.music.preview"
+activity_id="com.melodix.music.MainActivity"
 apk_path="${APK_PATH:-$RUNNER_TEMP/apk/Melodix-Preview-v1.2.2-test1.apk}"
 state="${RUNNER_TEMP:-/tmp}/state"
 mkdir -p "$state"
 
 note() {
-  # Annotations are readable from the API even when run logs are not.
   printf '::notice title=preview-launch::%s\n' "$1"
+}
+
+stamp() {
+  date -u +%Y%m%dT%H%M%SZ
+}
+
+capture() {
+  local label="$1"
+  local ts
+  ts="$(stamp)"
+  adb exec-out screencap -p > "$state/${label}-${ts}.png" 2>/dev/null || true
+  adb shell uiautomator dump --compressed /sdcard/window.xml >/dev/null 2>&1 || true
+  adb exec-out cat /sdcard/window.xml > "$state/${label}-${ts}.xml" 2>/dev/null || true
+  grep -o 'text="[^"]*"' "$state/${label}-${ts}.xml" 2>/dev/null | head -n 80 > "$state/${label}-${ts}-text.txt" || true
+  note "${label}: $(tr '\n' ' ' < "$state/${label}-${ts}-text.txt" 2>/dev/null | cut -c1-240)"
 }
 
 adb install -r "$apk_path" > "$state/install.txt" 2>&1
@@ -20,36 +34,46 @@ cat "$state/install.txt"
 adb shell dumpsys package "$package_id" 2>/dev/null \
   | grep -E 'versionName|versionCode' | head -n 2 > "$state/installed.txt"
 note "installed: $(tr '\n' ' ' < "$state/installed.txt" | cut -c1-300)"
+note "release_ref: ${RELEASE_REF:-unknown}"
 
 adb logcat -c >/dev/null 2>&1
 adb shell am force-stop "$package_id" >/dev/null 2>&1
 adb shell monkey -p "$package_id" -c android.intent.category.LAUNCHER 1 > "$state/monkey.txt" 2>&1
-sleep 30
+
+capture "boot-2s"
+sleep 8
+capture "boot-10s"
+sleep 20
+capture "boot-30s"
 
 adb shell dumpsys activity activities 2>/dev/null \
   | grep -E 'mResumedActivity|topResumedActivity|ResumedActivity' | head -n 3 > "$state/resumed.txt"
 note "resumed: $(tr '\n' ' ' < "$state/resumed.txt" | cut -c1-300)"
 
-adb shell uiautomator dump --compressed /sdcard/window.xml >/dev/null 2>&1
-adb exec-out cat /sdcard/window.xml > "$state/window.xml" 2>/dev/null
-grep -o 'text="[^"]*"' "$state/window.xml" 2>/dev/null | head -n 30 > "$state/window-text.txt"
-note "visible: $(tr '\n' ' ' < "$state/window-text.txt" | cut -c1-300)"
-
 adb root >/dev/null 2>&1
 sleep 3
-adb shell cat "/data/data/$package_id/shared_prefs/melodix_native.xml" > "$state/prefs.xml" 2>/dev/null
+adb shell cat "/data/data/$package_id/shared_prefs/melodix_native.xml" > "$state/prefs.xml" 2>/dev/null || true
 note "stage: $(tr -d '\n' < "$state/prefs.xml" 2>/dev/null | cut -c1-300)"
 
 adb logcat -d -b crash > "$state/crash.txt" 2>&1
 adb logcat -d > "$state/logcat.txt" 2>&1
-grep -n -A 60 'FATAL EXCEPTION' "$state/logcat.txt" > "$state/fatal.txt" 2>/dev/null
+grep -n -A 60 'FATAL EXCEPTION' "$state/logcat.txt" > "$state/fatal.txt" 2>/dev/null || true
+
+# Demo-home extra paints labelled playlists without Spotify login.
+adb shell am force-stop "$package_id" >/dev/null 2>&1
+adb shell am start -n "${package_id}/${activity_id}" --ez melodix_demo_home true > "$state/demo-start.txt" 2>&1
+sleep 8
+capture "demo-8s"
+grep -c 'DEMO' "$state"/demo-8s-*-text.txt > "$state/demo-hits.txt" 2>/dev/null || echo 0 > "$state/demo-hits.txt"
 
 {
   echo "installed: $(tr '\n' ' ' < "$state/installed.txt" 2>/dev/null)"
   echo "release advertises: ${RELEASE_REF:-unknown}"
   echo "resumed: $(tr '\n' ' ' < "$state/resumed.txt" 2>/dev/null)"
   echo "stage prefs: $(tr -d '\n' < "$state/prefs.xml" 2>/dev/null | cut -c1-600)"
-  echo "visible text: $(tr '\n' ' ' < "$state/window-text.txt" 2>/dev/null | cut -c1-600)"
+  echo "demo hits: $(cat "$state/demo-hits.txt" 2>/dev/null)"
+  echo "visible boot-30s: $(tr '\n' ' ' < "$state"/boot-30s-*-text.txt 2>/dev/null | cut -c1-600)"
+  echo "visible demo-8s: $(tr '\n' ' ' < "$state"/demo-8s-*-text.txt 2>/dev/null | cut -c1-600)"
   echo "--- fatal ---"
   head -c 3000 "$state/fatal.txt" 2>/dev/null
   echo "--- crash buffer ---"
@@ -83,5 +107,4 @@ PY
     || note "commit comment could not be posted"
 fi
 
-# The run is informative, not a gate: exit 0 so the report stays readable.
 exit 0

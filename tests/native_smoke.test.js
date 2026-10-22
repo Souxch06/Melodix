@@ -131,3 +131,13 @@ test('smoke: Accueil uses grid, search stays a list, settings open from other sc
     assert.match(settings, /if-eqz v1, :native_settings_save_return/);
     assert.doesNotMatch(settings, /NativeHomeShelfRenderer;->render/);
 });
+
+test('smoke: demo-home extra paints labelled playlists without login', () => {
+    const activity = read('smali/com/melodix/music/MainActivity.smali');
+    assert.match(activity, /paintDemoHomeIfRequested\(\)V/);
+    assert.match(activity, /melodix_demo_home/);
+    assert.match(activity, /DEMO Liked Songs/);
+    assert.match(activity, /DEMO Mix Spotify/);
+    assert.match(read('scripts/preview-launch-trace.sh'), /melodix_demo_home true/);
+    assert.match(read('.github/workflows/preview-launch-trace.yml'), /\[launch-trace\]/);
+});

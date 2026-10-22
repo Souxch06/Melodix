@@ -7007,10 +7007,33 @@
     invoke-virtual {p0, v0}, Landroid/app/Activity;->runOnUiThread(Ljava/lang/Runnable;)V
 
     :show_done
+    invoke-virtual {p0}, Lcom/melodix/music/MainActivity;->paintDemoHomeIfRequested()V
     const-string v0, "ready"
 
     invoke-static {v0}, Lcom/melodix/music/NativeCrashGuard;->stage(Ljava/lang/String;)V
 
+    return-void
+.end method
+
+.method public final paintDemoHomeIfRequested()V
+    .locals 4
+
+    invoke-virtual {p0}, Landroid/app/Activity;->getIntent()Landroid/content/Intent;
+    move-result-object v0
+    if-eqz v0, :demo_done
+    const-string v1, "melodix_demo_home"
+    const/4 v2, 0x0
+    invoke-virtual {v0, v1, v2}, Landroid/content/Intent;->getBooleanExtra(Ljava/lang/String;Z)Z
+    move-result v1
+    if-eqz v1, :demo_done
+
+    const/4 v1, 0x1
+    sput-boolean v1, Lcom/melodix/music/NativeHomeFeed;->useGrid:Z
+    const-string v1, "Accueil"
+    const-string v2, "[{\"title\":\"DEMO Liked Songs\",\"section\":\"Vos playlists\",\"subtitle\":\"Données de démonstration\",\"uri\":\"spotify:playlist:demo1\"},{\"title\":\"DEMO Mix Spotify\",\"section\":\"Playlists Spotify\",\"subtitle\":\"Données de démonstration\",\"uri\":\"spotify:playlist:demo2\"}]"
+    invoke-virtual {p0, v1, v2}, Lcom/melodix/music/MainActivity;->renderNativeRows(Ljava/lang/String;Ljava/lang/String;)V
+
+    :demo_done
     return-void
 .end method
 
