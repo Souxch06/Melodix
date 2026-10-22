@@ -1560,15 +1560,60 @@ test('DOM observer ignores script/style noise and skips work while the tab is hi
     }]);
     assert.equal(timers.length, afterInstall, 'script tags must not schedule a home scrape');
     observerCb([{
+        addedNodes: [{ nodeType: 3, data: 'Mix du soir' }],
+        removedNodes: []
+    }]);
+    assert.ok(timers.length > afterInstall, 'playlist text node updates must still schedule a scrape');
+    const afterText = timers.length;
+    observerCb([{
         addedNodes: [{ nodeType: 1, tagName: 'DIV' }],
         removedNodes: []
     }]);
-    assert.ok(timers.length > afterInstall, 'real DOM nodes must still schedule a scrape');
-    const afterDiv = timers.length;
+    assert.equal(timers.length, afterText, 'debounce coalesces a second mutation while a scrape is queued');
     document.hidden = true;
     observerCb([{
         addedNodes: [{ nodeType: 1, tagName: 'SECTION' }],
         removedNodes: []
     }]);
-    assert.equal(timers.length, afterDiv, 'hidden tab must not queue another scrape');
+    assert.equal(timers.length, afterText, 'hidden tab must not queue another scrape');
+});
+
+test('shell diagnostics redact tokens and clear the matching operation', () => {
+    const script = read('assets/native_ui_shell.js');
+    assert.match(script, /function sanitizeDiagnostic\(/);
+    assert.match(script, /function recordShellError\(/);
+    assert.match(script, /function clearShellError\(/);
+    assert.match(script, /Bearer \[redacted\]/);
+    assert.match(script, /MAX_HOME_RETRIES = 40/);
+
+    let boom = true;
+    const document = {
+        hidden: false,
+        readyState: 'complete',
+        documentElement: {},
+        querySelector: () => {
+            if (boom) throw new Error('Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.payload.signature access_token=secretvalue123');
+            return null;
+        },
+        querySelectorAll: () => [],
+        addEventListener: () => {}
+    };
+    class TestMutationObserver { observe() {} }
+    const window = {
+        location: { hostname: 'open.spotify.com', pathname: '/', href: 'https://open.spotify.com/' },
+        AndBridge: {},
+        MutationObserver: TestMutationObserver,
+        addEventListener: () => {},
+        setTimeout: () => 1,
+        clearTimeout: () => {},
+        setInterval: () => 1,
+        clearInterval: () => {}
+    };
+    vm.runInNewContext(script, { window, document, URL, MutationObserver: TestMutationObserver });
+    assert.ok(window.__sfNativeUiShellErrors >= 1);
+    assert.match(String(window.__sfNativeUiShellLastError), /^(install|update):/);
+    assert.doesNotMatch(String(window.__sfNativeUiShellLastError), /eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9/);
+    assert.doesNotMatch(String(window.__sfNativeUiShellLastError), /secretvalue123/);
+    assert.match(String(window.__sfNativeUiShellLastError), /\[redacted\]/);
+    assert.ok(window.__sfNativeUiShellLastErrorOp === 'install' || window.__sfNativeUiShellLastErrorOp === 'update');
 });

@@ -33,6 +33,30 @@
     var mediaLibWarmupRequested = false;
     var lastMediaActiveAt = 0;
 
+    function sanitizeDiagnostic(value) {
+        var text = String(value && value.message || value || '');
+        text = text.replace(/Bearer\s+[A-Za-z0-9._\-+=\/]+/gi, 'Bearer [redacted]');
+        text = text.replace(/access_token=[^&\s]+/gi, 'access_token=[redacted]');
+        text = text.replace(/refresh_token=[^&\s]+/gi, 'refresh_token=[redacted]');
+        text = text.replace(/spotify:user:[^\s,;]+/gi, 'spotify:user:[redacted]');
+        text = text.replace(/[A-Za-z0-9_-]{8,}\.[A-Za-z0-9._-]{8,}\.[A-Za-z0-9._-]{8,}/g, '[redacted-jwt]');
+        return text.slice(0, 160);
+    }
+
+    function recordShellError(error, op) {
+        window.__sfNativeUiShellErrors += 1;
+        window.__sfNativeUiShellLastErrorOp = String(op || '');
+        window.__sfNativeUiShellLastError = (window.__sfNativeUiShellLastErrorOp
+            ? window.__sfNativeUiShellLastErrorOp + ': '
+            : '') + sanitizeDiagnostic(error);
+    }
+
+    function clearShellError(op) {
+        if (op && window.__sfNativeUiShellLastErrorOp && window.__sfNativeUiShellLastErrorOp !== op) return;
+        window.__sfNativeUiShellLastError = null;
+        window.__sfNativeUiShellLastErrorOp = '';
+    }
+
     function normalizedPath() {
         var path = window.location.pathname || '/';
         if (path.length > 1) path = path.replace(/\/+$/, '');
@@ -596,7 +620,8 @@
             rows = supplementHomeRowsWithLibrary(collectHomeRows(mainView || homeScrapeRoot()));
         } catch (error) {
             window.__sfNativeUiHomeError = true;
-            window.__sfNativeUiHomeErrorMessage = String(error && error.message || error).slice(0, 160);
+            window.__sfNativeUiHomeErrorMessage = sanitizeDiagnostic(error);
+            recordShellError(error, 'home');
             if (!lastHomeSignature) sendNativeUiData('home', homeStatusRows('error'));
             scheduleHomeRetry(400);
             return;
@@ -634,6 +659,7 @@
             window.__sfNativeUiHomeDataSent = true;
             window.__sfNativeUiHomeError = false;
             window.__sfNativeUiHomeErrorMessage = null;
+            clearShellError('home');
             if (!hasUser && libraryState === 'pending') {
                 scheduleHomeRetry(400);
             } else {
@@ -1564,7 +1590,12 @@
             nodes = mutations[i].addedNodes;
             for (j = 0; j < (nodes && nodes.length || 0); j += 1) {
                 node = nodes[j];
-                if (!node || node.nodeType !== 1) continue;
+                if (!node) continue;
+                if (node.nodeType === 3) {
+                    if (String(node.data || '').trim()) return true;
+                    continue;
+                }
+                if (node.nodeType !== 1) continue;
                 tag = String(node.tagName || '').toUpperCase();
                 if (tag === 'SCRIPT' || tag === 'STYLE' || tag === 'LINK' || tag === 'META' || tag === 'NOSCRIPT') continue;
                 return true;
@@ -1572,7 +1603,12 @@
             nodes = mutations[i].removedNodes;
             for (j = 0; j < (nodes && nodes.length || 0); j += 1) {
                 node = nodes[j];
-                if (!node || node.nodeType !== 1) continue;
+                if (!node) continue;
+                if (node.nodeType === 3) {
+                    if (String(node.data || '').trim()) return true;
+                    continue;
+                }
+                if (node.nodeType !== 1) continue;
                 tag = String(node.tagName || '').toUpperCase();
                 if (tag === 'SCRIPT' || tag === 'STYLE' || tag === 'LINK' || tag === 'META' || tag === 'NOSCRIPT') continue;
                 return true;
@@ -1597,9 +1633,9 @@
                 updateSearchRows(mainView);
                 updateLibraryRows(mainView);
             }
+            clearShellError('update');
         } catch (error) {
-            window.__sfNativeUiShellErrors += 1;
-            window.__sfNativeUiShellLastError = String(error && error.message || error).slice(0, 160);
+            recordShellError(error, 'update');
         }
         if (!window.__sfNativeUiReadyNotified) scheduleReadinessRetry();
     }
@@ -2479,7 +2515,14 @@
         window.addEventListener('load', scheduleUpdate, { once: true });
         document.addEventListener('DOMContentLoaded', scheduleUpdate, { once: true });
         document.addEventListener('visibilitychange', function() {
-            if (!shellIsHidden()) scheduleUpdate();
+            if (!shellIsHidden()) {
+                scheduleUpdate();
+                if (typeof window.setTimeout === 'function') {
+                    window.setTimeout(function() {
+                        if (!shellIsHidden()) runUpdate();
+                    }, 0);
+                }
+            }
         });
 
         if (window.MutationObserver && document.documentElement) {
@@ -2500,8 +2543,7 @@
         install();
         window.__sfNativeUiShellCompleted = true;
     } catch (error) {
-        window.__sfNativeUiShellErrors += 1;
-        window.__sfNativeUiShellLastError = String(error && error.message || error).slice(0, 160);
+        recordShellError(error, 'install');
         window.__sfNativeUiShellCompleted = false;
     }
 })();
