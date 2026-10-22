@@ -292,7 +292,7 @@
     invoke-virtual {v0, v11}, Landroid/view/View;->setContentDescription(Ljava/lang/CharSequence;)V
     invoke-virtual {v8}, Ljava/lang/String;->isEmpty()Z
     move-result v10
-    if-eqz v10, :native_row_return
+    if-nez v10, :native_row_return
     new-instance v10, Lcom/melodix/music/NativeRowClickListener;
     invoke-direct {v10, p0, v8, v6}, Lcom/melodix/music/NativeRowClickListener;-><init>(Lcom/melodix/music/MainActivity;Ljava/lang/String;Ljava/lang/String;)V
     invoke-virtual {v0, v10}, Landroid/view/View;->setOnClickListener(Landroid/view/View$OnClickListener;)V
@@ -473,7 +473,7 @@
     if-eqz p4, :banner_done
     invoke-virtual {p4}, Ljava/lang/String;->isEmpty()Z
     move-result v1
-    if-eqz v1, :banner_done
+    if-nez v1, :banner_done
     const/4 v1, 0x1
     invoke-virtual {v0, v1}, Landroid/view/View;->setClickable(Z)V
     invoke-virtual {v0, v1}, Landroid/view/View;->setFocusable(Z)V

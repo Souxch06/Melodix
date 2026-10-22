@@ -220,7 +220,7 @@
     invoke-virtual {v2, v0}, Landroid/view/View;->setFocusable(Z)V
     invoke-virtual {v7}, Ljava/lang/String;->isEmpty()Z
     move-result v0
-    if-eqz v0, :native_settings_return
+    if-nez v0, :native_settings_return
     new-instance v0, Lcom/melodix/music/NativeRowClickListener;
     invoke-direct {v0, p0, v7, v4}, Lcom/melodix/music/NativeRowClickListener;-><init>(Lcom/melodix/music/MainActivity;Ljava/lang/String;Ljava/lang/String;)V
     invoke-virtual {v2, v0}, Landroid/view/View;->setOnClickListener(Landroid/view/View$OnClickListener;)V

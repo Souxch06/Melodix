@@ -1097,10 +1097,10 @@ test('content rows keep their title, cover and tap target', () => {
     assert.match(factory, /if-eqz v0, :native_row_read_subtitle/, 'a non-empty title must not be replaced with Untitled');
     assert.doesNotMatch(factory, /if-eqz v0, :native_row_default_title/);
     assert.match(factory, /if-nez v10, :native_row_text_column/, 'empty image URLs skip Picasso; real covers load');
-    assert.match(factory, /if-eqz v10, :native_row_return/);
+    assert.match(factory, /if-nez v10, :native_row_return/, 'a non-empty URI must attach the click listener');
     assert.match(factory, /setDescendantFocusability/);
     assert.ok(
-        factory.indexOf('NativeRowClickListener;-><init>') > factory.lastIndexOf('if-eqz v10, :native_row_return'),
+        factory.indexOf('NativeRowClickListener;-><init>') > factory.lastIndexOf('if-nez v10, :native_row_return'),
         'the click listener is attached to rows with a URI'
     );
     assert.match(loader, /if-eqz v1, :clear_native_image/, 'a non-empty https URL is loaded, not cleared');

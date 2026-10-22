@@ -372,7 +372,7 @@
 
     move-result v11
 
-    if-eqz v11, :shelf_add
+    if-nez v11, :shelf_add
 
     # Rounded ripple so a cover card reacts to the touch like the Spotify app.
     const-string v11, "native_card_ripple"
@@ -579,7 +579,7 @@
 
     move-result v6
 
-    if-eqz v6, :quick_tile_return
+    if-nez v6, :quick_tile_return
 
     new-instance v6, Lcom/melodix/music/NativeRowClickListener;
 
