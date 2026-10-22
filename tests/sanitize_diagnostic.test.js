@@ -80,6 +80,7 @@ test('sanitizeDiagnostic redacts mixed secrets and keeps a secret-free message',
 test('bridge console errors log a sanitized string, never the raw exception object', () => {
     const bridge = read('assets/spotify_bridge.js');
     assert.match(bridge, /function logBridgeError\(/);
+    assert.doesNotMatch(bridge, /console\.log\([^)]*mod\.Platform/);
     assert.doesNotMatch(bridge, /console\.error\([^)]*,\s*e\s*\)/);
     assert.doesNotMatch(bridge, /console\.error\([^)]*,\s*err\s*\)/);
     const start = bridge.indexOf('    function sanitizeDiagnostic');

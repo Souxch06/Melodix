@@ -399,7 +399,7 @@ try {
                             if (mod && mod.Platform) {
                                 window.Melodix = window.Melodix || {};
                                 window.Melodix.Platform = mod.Platform;
-                                console.log("[Melodix] Captured Native Spotify Platform API!", mod.Platform);
+                                console.log("[Melodix] Captured Native Spotify Platform API");
                             }
                             if (mod && mod.CosmosAsync) {
                                 window.Melodix = window.Melodix || {};
