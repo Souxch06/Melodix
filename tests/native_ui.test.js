@@ -1016,6 +1016,8 @@ test('content rows keep their title, cover and tap target', () => {
     // Inverted empty checks used to rename every row "Untitled", drop artwork
     // and leave rows unclickable.
     assert.match(factory, /if-eqz v0, :native_row_title_ready/);
+    assert.match(factory, /if-eqz v0, :native_row_read_subtitle/, 'a non-empty title must not be replaced with Untitled');
+    assert.doesNotMatch(factory, /if-eqz v0, :native_row_default_title/);
     assert.match(factory, /if-eqz v10, :native_row_text_column/, 'the cover loads only for a real URL');
     assert.match(factory, /if-eqz v10, :native_row_return/);
     assert.ok(
