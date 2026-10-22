@@ -817,6 +817,10 @@ test('native Spotify settings screen replaces the web settings sheet', () => {
     }
 
     assert.match(activity, /\.method public final openNativeSettings\(\)V/);
+    const settingsAt = activity.indexOf('.method public final openNativeSettings()V');
+    const settings = activity.slice(settingsAt, activity.indexOf('.method public final setNativeProfileImage', settingsAt));
+    assert.match(settings, /if-eqz v1, :native_settings_save_return/);
+    assert.doesNotMatch(settings, /if-nez v1, :native_settings_save_return/);
     assert.match(activity, /onNativeSettingsClick[\s\S]*?openNativeSettings\(\)V/);
     assert.match(activity, /"spotify:settings:"[\s\S]*?__sfToggleSpotifySetting/);
     assert.match(activity, /:check_settings[\s\S]*?"Paramètres"/);

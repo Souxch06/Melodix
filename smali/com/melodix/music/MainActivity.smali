@@ -8545,7 +8545,7 @@
     const-string v1, "settings"
     invoke-virtual {v0, v1}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
     move-result v1
-    if-nez v1, :native_settings_save_return
+    if-eqz v1, :native_settings_save_return
     return-void
 
     :native_settings_save_return
