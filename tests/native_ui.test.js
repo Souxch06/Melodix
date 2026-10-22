@@ -811,6 +811,8 @@ test('native Spotify settings screen replaces the web settings sheet', () => {
     for (const key of [
         'account_info', 'logout', 'audio_quality', 'normalize_volume', 'data_saver',
         'gapless', 'autoplay', 'shuffle', 'repeat', 'explicit', 'canvas', 'bg_audio',
+        'private_session', 'crossfade', 'automix', 'mono', 'hardware_volume',
+        'podcast_boost', 'lyrics', 'show_unplayable', 'notifications',
         'clear_cache', 'resync', 'about'
     ]) {
         assert.ok(shell.includes(`spotify:settings:${key}`), `${key} should be a settings row`);
@@ -875,7 +877,7 @@ test('native settings rows expose real Spotify options and toggles persist local
     assert.equal(dataFor(calls, 'settings').screen, 'settings');
 
     const rows = JSON.parse(dataFor(calls, 'settings').data);
-    assert.ok(rows.length >= 14, 'the native settings screen lists the real Spotify options');
+    assert.ok(rows.length >= 22, 'the native settings screen lists the real Spotify options');
     const canvasRow = rows.find((row) => row.uri === 'spotify:settings:canvas');
     assert.equal(canvasRow.settingValue, 'ON');
     assert.equal(canvasRow.section, 'Vidéos et Arrière-plan');
@@ -890,6 +892,13 @@ test('native settings rows expose real Spotify options and toggles persist local
     window.__sfToggleSpotifySetting('spotify:settings:audio_quality');
     const quality = JSON.parse(dataFor(calls, 'settings').data).find((row) => row.uri === 'spotify:settings:audio_quality');
     assert.equal(quality.settingValue, 'Élevée (160 kbit/s)');
+
+    calls.length = 0;
+    window.__sfToggleSpotifySetting('spotify:settings:crossfade');
+    const fade = JSON.parse(dataFor(calls, 'settings').data).find((row) => row.uri === 'spotify:settings:crossfade');
+    assert.equal(fade.settingValue, '2 s');
+    const privateRow = JSON.parse(dataFor(calls, 'settings').data).find((row) => row.uri === 'spotify:settings:private_session');
+    assert.equal(privateRow.settingValue, 'OFF');
 });
 
 test('mobile rows lead with the cover and drop the legacy play badge', () => {

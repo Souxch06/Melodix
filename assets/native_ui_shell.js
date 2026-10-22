@@ -1476,6 +1476,7 @@
         'Normale (96 kbit/s)',
         'Automatique'
     ];
+    var CROSSFADE_VALUES = ['Off', '2 s', '6 s', '12 s'];
     var profileAvatarSent = '';
     var profileNameSent = '';
     var greetingSent = '';
@@ -1539,6 +1540,15 @@
             canvas: !(window.SF_CONFIG && window.SF_CONFIG.isCanvasDisabled),
             data_saver: false,
             bg_audio: true,
+            private_session: false,
+            crossfade: 'Off',
+            automix: true,
+            mono: false,
+            lyrics: true,
+            show_unplayable: false,
+            notifications: true,
+            hardware_volume: true,
+            podcast_boost: false,
             cache_status: 'Effacer le cache des recherches, playlists et pochettes',
             sync_status: 'Actualiser vos playlists, albums et titres likés'
         };
@@ -1593,6 +1603,14 @@
                 image: profile.avatar || '',
                 uri: 'spotify:settings:account_info',
                 settingValue: 'Connecté'
+            },
+            {
+                section: 'Compte Spotify',
+                title: 'Session privée',
+                subtitle: 'Écouter sans apparaître dans l’activité des amis ni dans les écoutes récemment',
+                image: '',
+                uri: 'spotify:settings:private_session',
+                settingValue: state.private_session ? 'ON' : 'OFF'
             },
             {
                 section: 'Compte Spotify',
@@ -1667,6 +1685,46 @@
                 settingValue: state.explicit ? 'ON' : 'OFF'
             },
             {
+                section: 'Lecture',
+                title: 'Fondu enchaîné (Crossfade)',
+                subtitle: 'Chevaucher la fin d’un titre et le début du suivant',
+                image: '',
+                uri: 'spotify:settings:crossfade',
+                settingValue: state.crossfade
+            },
+            {
+                section: 'Lecture',
+                title: 'Automix',
+                subtitle: 'Transitions plus fluides entre les titres d’une playlist',
+                image: '',
+                uri: 'spotify:settings:automix',
+                settingValue: state.automix ? 'ON' : 'OFF'
+            },
+            {
+                section: 'Lecture',
+                title: 'Audio mono',
+                subtitle: 'Lire le même signal dans les deux écouteurs',
+                image: '',
+                uri: 'spotify:settings:mono',
+                settingValue: state.mono ? 'ON' : 'OFF'
+            },
+            {
+                section: 'Lecture',
+                title: 'Volume matériel',
+                subtitle: 'Utiliser les boutons de volume du téléphone pour Spotify',
+                image: '',
+                uri: 'spotify:settings:hardware_volume',
+                settingValue: state.hardware_volume ? 'ON' : 'OFF'
+            },
+            {
+                section: 'Lecture',
+                title: 'Podcasts plus forts',
+                subtitle: 'Augmenter le niveau des émissions par rapport à la musique',
+                image: '',
+                uri: 'spotify:settings:podcast_boost',
+                settingValue: state.podcast_boost ? 'ON' : 'OFF'
+            },
+            {
                 section: 'Vidéos et Arrière-plan',
                 title: 'Canvas (visuels en boucle)',
                 subtitle: 'Afficher les courtes vidéos animées sur les morceaux compatibles',
@@ -1681,6 +1739,30 @@
                 image: '',
                 uri: 'spotify:settings:bg_audio',
                 settingValue: state.bg_audio ? 'ON' : 'OFF'
+            },
+            {
+                section: 'Affichage',
+                title: 'Paroles',
+                subtitle: 'Afficher les paroles synchronisées quand Spotify les propose',
+                image: '',
+                uri: 'spotify:settings:lyrics',
+                settingValue: state.lyrics ? 'ON' : 'OFF'
+            },
+            {
+                section: 'Affichage',
+                title: 'Titres indisponibles',
+                subtitle: 'Garder visibles les morceaux grisés dans les playlists',
+                image: '',
+                uri: 'spotify:settings:show_unplayable',
+                settingValue: state.show_unplayable ? 'ON' : 'OFF'
+            },
+            {
+                section: 'Notifications',
+                title: 'Notifications Spotify',
+                subtitle: 'Nouveaux titres, sorties et mix recommandés',
+                image: '',
+                uri: 'spotify:settings:notifications',
+                settingValue: state.notifications ? 'ON' : 'OFF'
             },
             {
                 section: 'Stockage et Bibliothèque',
@@ -1768,6 +1850,34 @@
             } catch (_) {}
         } else if (key === 'explicit') {
             state.explicit = !state.explicit;
+            saveSpotifySettingsState(state);
+        } else if (key === 'private_session') {
+            state.private_session = !state.private_session;
+            saveSpotifySettingsState(state);
+        } else if (key === 'crossfade') {
+            var fadeIdx = CROSSFADE_VALUES.indexOf(state.crossfade);
+            state.crossfade = CROSSFADE_VALUES[(fadeIdx + 1) % CROSSFADE_VALUES.length];
+            saveSpotifySettingsState(state);
+        } else if (key === 'automix') {
+            state.automix = !state.automix;
+            saveSpotifySettingsState(state);
+        } else if (key === 'mono') {
+            state.mono = !state.mono;
+            saveSpotifySettingsState(state);
+        } else if (key === 'hardware_volume') {
+            state.hardware_volume = !state.hardware_volume;
+            saveSpotifySettingsState(state);
+        } else if (key === 'podcast_boost') {
+            state.podcast_boost = !state.podcast_boost;
+            saveSpotifySettingsState(state);
+        } else if (key === 'lyrics') {
+            state.lyrics = !state.lyrics;
+            saveSpotifySettingsState(state);
+        } else if (key === 'show_unplayable') {
+            state.show_unplayable = !state.show_unplayable;
+            saveSpotifySettingsState(state);
+        } else if (key === 'notifications') {
+            state.notifications = !state.notifications;
             saveSpotifySettingsState(state);
         } else if (key === 'canvas') {
             state.canvas = !state.canvas;
