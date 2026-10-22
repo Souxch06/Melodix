@@ -556,39 +556,14 @@
         rows = supplementHomeRowsWithLibrary(collectHomeRows(mainView || homeScrapeRoot()));
         signature = JSON.stringify(rows);
         window.__sfNativeUiHomeRowsCount = rows.length;
-        var imaged = 0;
-        var i;
-        for (i = 0; i < rows.length; i += 1) {
-            if (rows[i] && rows[i].image) imaged += 1;
-        }
-        var waitForHomeFeed = false;
-        try {
-            waitForHomeFeed = typeof navigator !== 'undefined' && /Android/i.test(String(navigator.userAgent || ''));
-        } catch (_) {}
         var hasPublic = false;
+        var i;
         for (i = 0; i < rows.length; i += 1) {
             if (rows[i] && rows[i].section === 'Playlists Spotify') hasPublic = true;
         }
-        if (waitForHomeFeed) {
-            var growing = rows.length > pendingHomeCount;
-            if (growing) pendingHomeCount = rows.length;
-            if (growing) {
-                homeRetries = 0;
-                if (lastHomeSignature || !hasPublic || rows.length < 8) {
-                    scheduleHomeRetry();
-                    return;
-                }
-            } else {
-                if (!hasPublic && !lastHomeSignature && homeRetries < 6) {
-                    scheduleHomeRetry();
-                    return;
-                }
-                if (homeRetries < 2) {
-                    scheduleHomeRetry();
-                    return;
-                }
-            }
-        }
+        // Send the first non-empty scrape immediately. Waiting for growth or
+        // public mixes on Android reset homeRetries forever while the DOM
+        // filled in, so Accueil never received real playlists.
         if (!rows.length) {
             scheduleHomeRetry();
             return;

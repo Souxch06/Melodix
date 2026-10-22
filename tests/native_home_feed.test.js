@@ -377,12 +377,13 @@ test('Accueil retries paint cached home JSON without posting a partial native sc
     assert.doesNotMatch(pull, /native_home_scrape\.js/);
     assert.doesNotMatch(pull, /NativeHomeJsonCallback/);
     const shell = read('assets/native_ui_shell.js');
-    assert.match(shell, /pendingHomeCount/);
-    assert.match(shell, /homeRetries < 2/);
+    const updateHome = shell.slice(shell.indexOf('function updateHomeRows'), shell.indexOf('function currentSearchQuery'));
     assert.match(shell, /rows.slice\(0, 120\)/);
-    assert.match(shell, /rows.length < 8/);
-    assert.match(shell, /rows.length > pendingHomeCount/);
-    assert.doesNotMatch(shell.slice(shell.indexOf('function updateHomeRows'), shell.indexOf('function currentSearchQuery')), /signature !== pendingHomeSignature/);
+    assert.doesNotMatch(updateHome, /waitForHomeFeed/);
+    assert.doesNotMatch(updateHome, /rows.length < 8/);
+    assert.match(updateHome, /if \(!rows\.length\)/);
+    assert.match(updateHome, /sendNativeUiData\('home', rows\)/);
+    assert.doesNotMatch(updateHome, /signature !== pendingHomeSignature/);
     assert.match(shell, /feedUris/);
     assert.match(shell, /Playlists Spotify/);
     assert.match(shell, /__sfNativeUiHomeRowsSent/);

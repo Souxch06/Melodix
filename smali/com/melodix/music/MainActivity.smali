@@ -5137,51 +5137,30 @@
 
     .line 153
     :cond_6
+    invoke-virtual {p0}, Lcom/melodix/music/MainActivity;->C()V
+
     new-instance v0, Landroid/content/Intent;
 
-    .line 154
-    .line 155
     const-class v4, Lcom/melodix/music/WebService;
 
-    .line 156
-    .line 157
     invoke-direct {v0, p0, v4}, Landroid/content/Intent;-><init>(Landroid/content/Context;Ljava/lang/Class;)V
 
-    .line 158
-    .line 159
-    .line 160
     :try_start_0
     sget v4, Landroid/os/Build$VERSION;->SDK_INT:I
 
-    .line 161
-    .line 162
     if-lt v4, v1, :cond_7
 
-    .line 163
-    .line 164
     invoke-static {p0, v0}, Li1;->u(Lcom/melodix/music/MainActivity;Landroid/content/Intent;)V
 
-    .line 165
-    .line 166
-    .line 167
     goto :goto_1
 
-    .line 168
     :cond_7
     invoke-virtual {p0, v0}, Landroid/content/Context;->startService(Landroid/content/Intent;)Landroid/content/ComponentName;
     :try_end_0
     .catch Ljava/lang/Exception; {:try_start_0 .. :try_end_0} :catch_0
 
-    .line 169
-    .line 170
-    .line 171
     :catch_0
     :goto_1
-    invoke-virtual {p0}, Lcom/melodix/music/MainActivity;->C()V
-
-    .line 172
-    .line 173
-    .line 174
     goto :goto_3
 
     .line 175

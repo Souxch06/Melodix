@@ -164,4 +164,9 @@ test('smoke: shell respects system windows and rejects oversized JS payloads', (
     assert.match(player, /isEmpty\(\)Z[\s\S]*if-nez v1, :native_player_no_track/);
     assert.doesNotMatch(player, /if-eqz v1, :native_player_no_track/);
     assert.match(read('smali/com/melodix/music/WebService.smali'), /startForeground failed/);
+    const resume = read('smali/com/melodix/music/MainActivity.smali');
+    const startAt = resume.indexOf('Li1;->u(Lcom/melodix/music/MainActivity;Landroid/content/Intent;)V');
+    const cAt = resume.lastIndexOf('MainActivity;->C()V', startAt);
+    assert.ok(cAt > 0 && cAt < startAt, 'C() must finish before startForegroundService');
+    assert.doesNotMatch(read('assets/native_ui_shell.js'), /waitForHomeFeed/);
 });
