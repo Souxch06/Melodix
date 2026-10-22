@@ -1119,10 +1119,10 @@ test('row taps open playlists, albums and tracks', () => {
     assert.match(openRow, /const-string v2, "\/collection"/);
     assert.match(openRow, /if-eqz v1, :native_open_single/, 'tracks are played by the WebView');
     assert.match(openRow, /window\.__sfOpenCollection/);
-    assert.match(openRow, /loadNativeSpotifyUri/);
+    assert.doesNotMatch(openRow, /loadNativeSpotifyUri/);
     assert.match(openRow, /window\.__sfNativeOpenUri/);
-    assert.match(activity, /Landroid\/webkit\/WebView;->loadUrl\(Ljava\/lang\/String;\)V/);
     assert.match(openRow, /Chargement des titres/);
+    assert.match(openRow, /JSONObject;->quote/);
 });
 
 test('detail and player screens expose the back arrow and hide the tab bar', () => {

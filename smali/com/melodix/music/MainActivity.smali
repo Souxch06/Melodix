@@ -8448,40 +8448,26 @@
     :native_collection_default_title
     const-string v3, "Détails"
     :native_collection_title_ready
-    :try_start_open
-    new-instance v6, Lorg/json/JSONObject;
-    invoke-direct {v6}, Lorg/json/JSONObject;-><init>()V
-    const-string v7, "title"
-    invoke-virtual {v6, v7, v3}, Lorg/json/JSONObject;->put(Ljava/lang/String;Ljava/lang/Object;)Lorg/json/JSONObject;
-    move-result-object v6
-    const-string v7, "subtitle"
-    const-string v8, "Chargement des titres…"
-    invoke-virtual {v6, v7, v8}, Lorg/json/JSONObject;->put(Ljava/lang/String;Ljava/lang/Object;)Lorg/json/JSONObject;
-    move-result-object v6
-    const-string v7, "uri"
-    invoke-virtual {v6, v7, p1}, Lorg/json/JSONObject;->put(Ljava/lang/String;Ljava/lang/Object;)Lorg/json/JSONObject;
-    move-result-object v6
-    new-instance v2, Lorg/json/JSONArray;
-    invoke-direct {v2}, Lorg/json/JSONArray;-><init>()V
-    invoke-virtual {v2, v6}, Lorg/json/JSONArray;->put(Ljava/lang/Object;)Lorg/json/JSONArray;
-    move-result-object v2
-    invoke-virtual {v2}, Lorg/json/JSONArray;->toString()Ljava/lang/String;
+    new-instance v6, Ljava/lang/StringBuilder;
+    invoke-direct {v6}, Ljava/lang/StringBuilder;-><init>()V
+    const-string v7, "[{\"title\":"
+    invoke-virtual {v6, v7}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    invoke-static {v3}, Lorg/json/JSONObject;->quote(Ljava/lang/String;)Ljava/lang/String;
+    move-result-object v7
+    invoke-virtual {v6, v7}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    const-string v7, ",\"subtitle\":\"Chargement des titres…\",\"uri\":"
+    invoke-virtual {v6, v7}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    invoke-static {p1}, Lorg/json/JSONObject;->quote(Ljava/lang/String;)Ljava/lang/String;
+    move-result-object v7
+    invoke-virtual {v6, v7}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    const-string v7, "}]"
+    invoke-virtual {v6, v7}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    invoke-virtual {v6}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
     move-result-object v2
     invoke-virtual {p0, v3, v2}, Lcom/melodix/music/MainActivity;->renderNativeRows(Ljava/lang/String;Ljava/lang/String;)V
-    :try_end_open
-    .catch Lorg/json/JSONException; {:try_start_open .. :try_end_open} :catch_open
-    .catch Ljava/lang/Throwable; {:try_start_open .. :try_end_open} :catch_open
-
-    :native_open_navigate
     const-string v1, "window.__sfOpenCollection"
     invoke-virtual {p0, v1, p1}, Lcom/melodix/music/MainActivity;->runNativeFunction(Ljava/lang/String;Ljava/lang/String;)V
-    invoke-virtual {p0, p1}, Lcom/melodix/music/MainActivity;->loadNativeSpotifyUri(Ljava/lang/String;)V
     goto :native_row_click_done
-
-    :catch_open
-    const-string v2, "[]"
-    invoke-virtual {p0, v3, v2}, Lcom/melodix/music/MainActivity;->renderNativeRows(Ljava/lang/String;Ljava/lang/String;)V
-    goto :native_open_navigate
 
     :native_open_single
     const-string v1, "window.__sfNativeOpenUri"

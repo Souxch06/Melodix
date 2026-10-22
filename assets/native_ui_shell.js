@@ -558,13 +558,18 @@
         try {
             clockLooksNative = /\[native code\]/.test(Function.prototype.toString.call(window.setTimeout));
         } catch (_) {}
-        if (lastHomeSignature) {
-            return;
+        var hasPublic = false;
+        for (i = 0; i < rows.length; i += 1) {
+            if (rows[i] && rows[i].section === 'Playlists Spotify') hasPublic = true;
         }
         if (clockLooksNative) {
             if (rows.length > pendingHomeCount || signature !== pendingHomeSignature) {
                 pendingHomeCount = Math.max(pendingHomeCount, rows.length);
                 pendingHomeSignature = signature;
+                scheduleHomeRetry();
+                return;
+            }
+            if (!hasPublic && homeRetries < 12) {
                 scheduleHomeRetry();
                 return;
             }
@@ -577,8 +582,12 @@
             scheduleHomeRetry();
             return;
         }
+        if (lastHomeSignature && (!hasPublic || rows.length <= window.__sfNativeUiHomeRowsSent)) {
+            return;
+        }
         if (sendNativeUiData('home', rows)) {
             lastHomeSignature = signature;
+            window.__sfNativeUiHomeRowsSent = rows.length;
             window.__sfNativeUiHomeDataSent = true;
             if (homeRetryTimer) {
                 window.clearTimeout(homeRetryTimer);
