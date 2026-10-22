@@ -1,3 +1,7 @@
+window.__sfBridgeFileHeadExec = true;
+window.__sfBridgeEntered = true;
+window.__sfBridgeLoadStage = 'bridge-entered';
+try {
 (function() {
     window.__sfBridgeEntered = true;
     window.__sfBridgeLoadStage = 'bridge-entered';
@@ -4317,3 +4321,9 @@
     firstFuck();
     window.__sfMelodixBridgeCompleted = true;
 })();
+} catch (e) {
+    window.__sfBridgeLastError = ('iife-throw:' + String(e && e.message || e)).slice(0, 160);
+    if (window.__sfBridgeEntered !== true) {
+        window.__sfBridgeLoadStage = 'iife-throw';
+    }
+}

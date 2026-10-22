@@ -190,7 +190,7 @@ test('bridge loader distinguishes inject, load, error and asset body', () => {
     assert.match(asset, /__sfBridgeLoadStage='asset-response-created'/);
     assert.match(asset, /__sfBridgeAssetServed=true/);
     assert.match(asset, /__sfBridgeIntercepted=true/);
-    assert.match(asset, /application\/javascript/);
+    assert.match(asset, /text\/javascript/);
     assert.match(asset, /Content-Length/);
     assert.match(asset, /__sfBridgeServedBytes=/);
     assert.match(asset, /const\/16 v5, 0xc8/);
@@ -210,7 +210,7 @@ test('bridge loader distinguishes inject, load, error and asset body', () => {
 });
 
 test('bridgeServedBytes is the UTF-8 size of the exact body and matches Content-Length', () => {
-    const flags = "window.__sfBridgeIntercepted=true;window.__sfBridgeAssetServed=true;window.__sfBridgeLoadStage='asset-response-created';";
+    const flags = "window.__sfBridgeIntercepted=true;window.__sfBridgeAssetServed=true;window.__sfBridgePrefixExec=true;window.__sfBridgeLoadStage='asset-response-created';";
     const core = flags + read('assets/spotify_bridge.js');
     const len0 = Buffer.from(core, 'utf8').length;
     const header = (n) => `window.__sfBridgeServedBytes=${n};`;

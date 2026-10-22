@@ -803,7 +803,9 @@
 
     .line 91
     .line 92
-    invoke-direct {v2, v0}, Ljava/io/InputStreamReader;-><init>(Ljava/io/InputStream;)V
+    const-string v4, "UTF-8"
+
+    invoke-direct {v2, v0, v4}, Ljava/io/InputStreamReader;-><init>(Ljava/io/InputStream;Ljava/lang/String;)V
 
     .line 93
     .line 94

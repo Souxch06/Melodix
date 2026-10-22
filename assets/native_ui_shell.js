@@ -2199,6 +2199,9 @@
         'asset-response-created': 3,
         'script-load': 4,
         'script-error': 4,
+        'prefix-only': 4,
+        'script-exec-error': 4,
+        'iife-throw': 4,
         'bridge-entered': 5,
         'bridge-initialized': 6,
         'home-initialized': 7,
@@ -2218,6 +2221,14 @@
 
     function attachBridgeScriptEvents(node, src) {
         node.onload = function() {
+            if (window.__sfBridgeEntered === true) return;
+            if (window.__sfBridgePrefixExec === true) {
+                if (!window.__sfBridgeLastError) {
+                    window.__sfBridgeLastError = 'prefix-only: iife-not-entered';
+                }
+                setBridgeLoadStage('prefix-only');
+                return;
+            }
             setBridgeLoadStage('script-load');
         };
         node.onerror = function() {
@@ -2231,8 +2242,11 @@
                     var file = String(event && event.filename || '');
                     if (file.indexOf('spotify_bridge.js') < 0 && file.indexOf('__melodix__') < 0) return;
                     var name = String(event && event.message || 'error').slice(0, 120);
-                    window.__sfBridgeLastError = ('script-error: ' + name).slice(0, 160);
-                    setBridgeLoadStage('script-error');
+                    var line = event && event.lineno ? String(event.lineno) : '0';
+                    if (!window.__sfBridgeLastError) {
+                        window.__sfBridgeLastError = ('exec-error: ' + name + ':L' + line).slice(0, 160);
+                    }
+                    if (window.__sfBridgeEntered !== true) setBridgeLoadStage('script-exec-error');
                 }, true);
             } catch (_) {}
         }
@@ -2252,12 +2266,13 @@
         }
         setBridgeLoadStage('inject-src');
         node = document.createElement('script');
-        node.src = src;
         node.async = false;
-        node.type = 'application/javascript';
+        node.defer = false;
+        node.type = 'text/javascript';
         node.charset = 'utf-8';
         node.setAttribute('data-sf-melodix-bridge', '1');
         attachBridgeScriptEvents(node, src);
+        node.src = src;
         (document.head || document.documentElement).appendChild(node);
         return true;
     }

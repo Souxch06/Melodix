@@ -1453,8 +1453,8 @@ test('the playback bridge is served same-origin so CSP script-src-elem inline is
     const intercept = client.slice(interceptAt, interceptAt + 2500);
 
     assert.match(asset, /const-string v1, "\/__melodix__\/spotify_bridge\.js"/);
-    assert.match(asset, /Lm9;->d\(Ljava\/lang\/String;\)Ljava\/lang\/String;/);
-    assert.match(asset, /application\/javascript/);
+    assert.match(asset, /readAssetUtf8/);
+    assert.match(asset, /text\/javascript/);
     assert.match(asset, /Content-Length/);
     assert.match(asset, /const\/16 v5, 0xc8/);
     assert.match(asset, /loaderJavascript/);

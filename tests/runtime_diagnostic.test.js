@@ -185,6 +185,8 @@ test('Preview diagnostic returns four timed samples with the existing report fie
         bridgeLoadStage: null,
         bridgeAssetServed: false,
         bridgeIntercepted: false,
+        bridgePrefixExec: false,
+        bridgeFileHeadExec: false,
         bridgeEntered: false,
         bridgeExecMode: null,
         bridgeBytes: null,

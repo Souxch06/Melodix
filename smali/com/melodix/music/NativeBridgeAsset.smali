@@ -13,7 +13,7 @@
 
     :try_start_0
     const-string v1, "spotify_bridge.js"
-    invoke-static {v1}, Lm9;->d(Ljava/lang/String;)Ljava/lang/String;
+    invoke-static {v1}, Lcom/melodix/music/NativeBridgeAsset;->readAssetUtf8(Ljava/lang/String;)Ljava/lang/String;
     move-result-object v1
     if-eqz v1, :try_fail
     invoke-virtual {v1}, Ljava/lang/String;->isEmpty()Z
@@ -22,7 +22,7 @@
 
     new-instance v2, Ljava/lang/StringBuilder;
     invoke-direct {v2}, Ljava/lang/StringBuilder;-><init>()V
-    const-string v3, "window.__sfBridgeIntercepted=true;window.__sfBridgeAssetServed=true;window.__sfBridgeLoadStage='asset-response-created';"
+    const-string v3, "window.__sfBridgeIntercepted=true;window.__sfBridgeAssetServed=true;window.__sfBridgePrefixExec=true;window.__sfBridgeLoadStage='asset-response-created';"
     invoke-virtual {v2, v3}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
     invoke-virtual {v2, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
     invoke-virtual {v2}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
@@ -78,15 +78,18 @@
     const-string v3, "no-store, max-age=0"
     invoke-virtual {v7, v1, v3}, Ljava/util/HashMap;->put(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;
     const-string v1, "Content-Type"
-    const-string v3, "application/javascript; charset=UTF-8"
+    const-string v3, "text/javascript; charset=UTF-8"
     invoke-virtual {v7, v1, v3}, Ljava/util/HashMap;->put(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;
     const-string v1, "Content-Length"
     invoke-static {v4}, Ljava/lang/Integer;->toString(I)Ljava/lang/String;
     move-result-object v3
     invoke-virtual {v7, v1, v3}, Ljava/util/HashMap;->put(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;
+    const-string v1, "X-Content-Type-Options"
+    const-string v3, "nosniff"
+    invoke-virtual {v7, v1, v3}, Ljava/util/HashMap;->put(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;
 
     new-instance v2, Landroid/webkit/WebResourceResponse;
-    const-string v3, "application/javascript"
+    const-string v3, "text/javascript"
     const-string v4, "UTF-8"
     const/16 v5, 0xc8
     const-string v6, "OK"
@@ -111,6 +114,44 @@
     return-object v0
 .end method
 
+.method private static readAssetUtf8(Ljava/lang/String;)Ljava/lang/String;
+    .locals 7
+
+    const/4 v0, 0x0
+    :try_start_0
+    invoke-static {}, Lm9;->c()Landroid/content/Context;
+    move-result-object v1
+    if-nez v1, :done
+    invoke-virtual {v1}, Landroid/content/Context;->getAssets()Landroid/content/res/AssetManager;
+    move-result-object v1
+    invoke-virtual {v1, p0}, Landroid/content/res/AssetManager;->open(Ljava/lang/String;)Ljava/io/InputStream;
+    move-result-object v1
+    new-instance v2, Ljava/io/ByteArrayOutputStream;
+    invoke-direct {v2}, Ljava/io/ByteArrayOutputStream;-><init>()V
+    const/16 v3, 0x1000
+    new-array v3, v3, [B
+
+    :read_loop
+    invoke-virtual {v1, v3}, Ljava/io/InputStream;->read([B)I
+    move-result v4
+    if-gez v4, :read_done
+    const/4 v5, 0x0
+    invoke-virtual {v2, v3, v5, v4}, Ljava/io/ByteArrayOutputStream;->write([BII)V
+    goto :read_loop
+
+    :read_done
+    invoke-virtual {v1}, Ljava/io/InputStream;->close()V
+    const-string v1, "UTF-8"
+    invoke-virtual {v2, v1}, Ljava/io/ByteArrayOutputStream;->toString(Ljava/lang/String;)Ljava/lang/String;
+    move-result-object v0
+    :try_end_0
+    .catch Ljava/lang/Exception; {:try_start_0 .. :try_end_0} :catch_0
+
+    :catch_0
+    :done
+    return-object v0
+.end method
+
 .method private static withServedBytes(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;
     .locals 2
 
@@ -130,7 +171,7 @@
 .method public static loaderJavascript()Ljava/lang/String;
     .locals 1
 
-    const-string v0, "(function(){if(window.__sfMelodixBridgeStarted===true)return;if(document.querySelector('script[data-sf-melodix-bridge=\"1\"]')){if(!window.__sfBridgeLoadStage)window.__sfBridgeLoadStage='src-pending';return;}window.__sfBridgeExecMode='same-origin-src';window.__sfBridgeLoadStage='inject-src';var s=document.createElement('script');s.src=(window.location&&window.location.origin?window.location.origin:'https://open.spotify.com')+'/__melodix__/spotify_bridge.js';s.async=false;s.type='application/javascript';s.charset='utf-8';s.setAttribute('data-sf-melodix-bridge','1');s.onload=function(){var c=window.__sfBridgeLoadStage;if(c!=='bridge-entered'&&c!=='bridge-initialized'&&c!=='home-initialized')window.__sfBridgeLoadStage='script-load';};s.onerror=function(){window.__sfBridgeLastError='script-error: load-failed';if(!window.__sfBridgeEntered)window.__sfBridgeLoadStage='script-error';};(document.head||document.documentElement).appendChild(s);})();"
+    const-string v0, "(function(){try{if(!window.__sfBridgeErrorHooked){window.__sfBridgeErrorHooked=true;window.addEventListener('error',function(ev){var f=String(ev&&ev.filename||'');if(f.indexOf('spotify_bridge')<0&&f.indexOf('__melodix__')<0)return;window.__sfBridgeLastError=('exec-error:'+String(ev.message||'error')+':L'+String(ev.lineno||0)).slice(0,160);if(!window.__sfBridgeEntered)window.__sfBridgeLoadStage='script-exec-error';},true);}}catch(e){}if(window.__sfMelodixBridgeStarted===true)return;if(document.querySelector('script[data-sf-melodix-bridge=\\\"1\\\"]')){if(!window.__sfBridgeLoadStage)window.__sfBridgeLoadStage='src-pending';return;}window.__sfBridgeExecMode='same-origin-src';window.__sfBridgeLoadStage='inject-src';var s=document.createElement('script');s.async=false;s.defer=false;s.type='text/javascript';s.charset='utf-8';s.setAttribute('data-sf-melodix-bridge','1');s.onload=function(){if(window.__sfBridgeEntered===true)return;if(window.__sfBridgePrefixExec===true){window.__sfBridgeLoadStage='prefix-only';window.__sfBridgeLastError=window.__sfBridgeLastError||'prefix-only: iife-not-entered';return;}window.__sfBridgeLoadStage='script-load';};s.onerror=function(){window.__sfBridgeLastError=window.__sfBridgeLastError||'script-error: load-failed';if(!window.__sfBridgeEntered)window.__sfBridgeLoadStage='script-error';};s.src=(window.location&&window.location.origin?window.location.origin:'https://open.spotify.com')+'/__melodix__/spotify_bridge.js';(document.head||document.documentElement).appendChild(s);})();"
 
     return-object v0
 .end method

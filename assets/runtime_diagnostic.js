@@ -204,6 +204,8 @@
         bridgeLoadStage: typeof window.__sfBridgeLoadStage === 'string' ? window.__sfBridgeLoadStage : null,
         bridgeAssetServed: window.__sfBridgeAssetServed === true,
         bridgeIntercepted: window.__sfBridgeIntercepted === true,
+        bridgePrefixExec: window.__sfBridgePrefixExec === true,
+        bridgeFileHeadExec: window.__sfBridgeFileHeadExec === true,
         bridgeEntered: window.__sfBridgeEntered === true,
         bridgeExecMode: typeof window.__sfBridgeExecMode === 'string' ? window.__sfBridgeExecMode : null,
         bridgeBytes: Number.isInteger(window.__sfBridgeBytes) ? window.__sfBridgeBytes : null,
