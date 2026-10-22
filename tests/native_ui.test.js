@@ -770,6 +770,8 @@ test('Home separates user playlists from Spotify official recommendations and pr
     assert.equal(rows[2].title, 'Spotify Mix 0');
     assert.equal(rows[2].section, 'Playlists Spotify');
 
+    assert.match(read('assets/native_ui_shell.js'), /waitForHomeFeed/);
+    assert.match(read('assets/native_ui_shell.js'), /Android/);
     assert.match(read('smali/com/melodix/music/NativeHomeFeed.smali'), /\"section\"/);
     assert.match(rowFactory, /createPlaylistBanner\(Lcom\/melodix\/music\/MainActivity;Ljava\/lang\/String;ILjava\/lang\/String;Ljava\/lang\/String;\)Landroid\/widget\/LinearLayout;/);
     assert.match(activity, /\.method public final onNativeSearchClick\(Landroid\/view\/View;\)V[\s\S]*?renderNativeRows\(Ljava\/lang\/String;Ljava\/lang\/String;\)V/);

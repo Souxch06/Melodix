@@ -561,15 +561,15 @@
         for (i = 0; i < rows.length; i += 1) {
             if (rows[i] && rows[i].image) imaged += 1;
         }
-        var clockLooksNative = false;
+        var waitForHomeFeed = false;
         try {
-            clockLooksNative = /\[native code\]/.test(Function.prototype.toString.call(window.setTimeout));
+            waitForHomeFeed = typeof navigator !== 'undefined' && /Android/i.test(String(navigator.userAgent || ''));
         } catch (_) {}
         var hasPublic = false;
         for (i = 0; i < rows.length; i += 1) {
             if (rows[i] && rows[i].section === 'Playlists Spotify') hasPublic = true;
         }
-        if (clockLooksNative) {
+        if (waitForHomeFeed) {
             var growing = rows.length > pendingHomeCount;
             if (growing) pendingHomeCount = rows.length;
             if (growing) {
