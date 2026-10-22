@@ -44,7 +44,20 @@
     }
 
     function isSpotifyHome() {
-        return window.location.hostname === 'open.spotify.com' && HOME_PATHS.indexOf(spotifyRoutePath()) >= 0;
+        var path = spotifyRoutePath();
+        return window.location.hostname === 'open.spotify.com' && (
+            HOME_PATHS.indexOf(path) >= 0 || path === '' || path === '/intl'
+        );
+    }
+
+    function homeScrapeRoot() {
+        if (!document || typeof document.querySelector !== 'function') return null;
+        return document.querySelector('#main-view') ||
+            document.querySelector('.main-view-container') ||
+            document.querySelector('[data-testid="home-page"]') ||
+            document.querySelector('#sf-melodix-home') ||
+            document.querySelector('main') ||
+            document.body;
     }
 
     function nativeScreenForPath() {
@@ -333,8 +346,16 @@
     }
 
     function collectHomeRows(mainView) {
-        var cardNodes = Array.prototype.slice.call(mainView.querySelectorAll('[data-testid="card"]'));
-        var anchors = Array.prototype.slice.call(mainView.querySelectorAll('a[href]'));
+        var root = mainView && mainView.querySelectorAll ? mainView : homeScrapeRoot();
+        if (!root || typeof root.querySelectorAll !== 'function') return [];
+        var cardNodes = Array.prototype.slice.call(root.querySelectorAll('[data-testid="card"]'));
+        if (!cardNodes.length && document && typeof document.querySelectorAll === 'function') {
+            cardNodes = Array.prototype.slice.call(document.querySelectorAll('[data-testid="card"]'));
+        }
+        var anchors = Array.prototype.slice.call(root.querySelectorAll('a[href]'));
+        if (!anchors.length && document && typeof document.querySelectorAll === 'function') {
+            anchors = Array.prototype.slice.call(document.querySelectorAll('a[href*="/playlist/"], a[href*="/album/"], a[href*="/collection"]'));
+        }
         // Keep anchors as a fallback even when Spotify renders non-link cards or
         // card anchors without an <img>. A card and its nested anchor are de-duped
         // by their Spotify URI below.
@@ -508,12 +529,12 @@
         var signature;
         var homeRoute = window.location.hostname === 'open.spotify.com' && isSpotifyHome();
         window.__sfNativeUiHomeRouteRecognized = homeRoute;
-        if (!homeRoute || !mainView) {
+        if (!homeRoute) {
             clearHomeRetry();
             return;
         }
 
-        rows = supplementHomeRowsWithLibrary(collectHomeRows(mainView));
+        rows = supplementHomeRowsWithLibrary(collectHomeRows(mainView || homeScrapeRoot()));
         signature = JSON.stringify(rows);
         window.__sfNativeUiHomeRowsCount = rows.length;
         if (lastHomeSignature !== signature && sendNativeUiData('home', rows)) {
@@ -1271,7 +1292,7 @@
         try {
             installPlaybackStateGuard();
             installSearchFallback();
-            mainView = document.querySelector('#main-view');
+            mainView = homeScrapeRoot();
             if (mainView) {
                 notifyNativeUiReady(mainView);
                 detectSpotifyProfile();

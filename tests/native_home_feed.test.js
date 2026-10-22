@@ -79,6 +79,7 @@ function runShell(extraWindow) {
         readyState: 'complete',
         documentElement: {},
         querySelector: (selector) => selector === '#main-view' ? mainView : null,
+        querySelectorAll: () => [],
         addEventListener: () => {}
     };
     class TestMutationObserver { observe() {} }
@@ -362,4 +363,6 @@ test('Accueil retries paint cached home JSON and asks the shell to resend playli
     assert.match(pull, /__sfNativeRequestHome/);
     assert.match(read('assets/native_ui_shell.js'), /__sfNativeHomeRowsJson/);
     assert.match(read('assets/native_ui_shell.js'), /onNativeHomeRows/);
+    assert.match(read('assets/native_ui_shell.js'), /homeScrapeRoot/);
+    assert.match(read('assets/native_ui_shell.js'), /data-testid="card"/);
 });
