@@ -64,6 +64,7 @@
     move-result-object v11
     if-eqz v11, :card
     invoke-virtual {v12, v11}, Landroid/view/ViewGroup;->addView(Landroid/view/View;)V
+    const/4 v0, 0x0
 
     :card
     const-string v10, "settingValue"
@@ -74,15 +75,45 @@
     if-nez v11, :content_row
     invoke-static {p0, v6}, Lcom/melodix/music/NativeSettingsRowFactory;->create(Lcom/melodix/music/MainActivity;Lorg/json/JSONObject;)Landroid/widget/LinearLayout;
     move-result-object v11
-    goto :add_row
+    goto :add_settings
 
     :content_row
     invoke-static {p0, v6}, Lcom/melodix/music/NativeUiRowFactory;->create(Lcom/melodix/music/MainActivity;Lorg/json/JSONObject;)Landroid/widget/LinearLayout;
     move-result-object v11
+    goto :add_content
 
-    :add_row
+    :add_settings
     if-eqz v11, :next
+    const/4 v0, 0x0
     invoke-virtual {v12, v11}, Landroid/view/ViewGroup;->addView(Landroid/view/View;)V
+    add-int/lit8 v5, v5, 0x1
+    goto :next
+
+    :add_content
+    if-eqz v11, :next
+    if-eqz v0, :make_pair
+    invoke-virtual {v0}, Landroid/view/ViewGroup;->getChildCount()I
+    move-result v10
+    const/4 v8, 0x2
+    if-ge v10, v8, :put_tile
+    :make_pair
+    new-instance v0, Landroid/widget/LinearLayout;
+    invoke-direct {v0, p0}, Landroid/widget/LinearLayout;-><init>(Landroid/content/Context;)V
+    const/4 v8, 0x0
+    invoke-virtual {v0, v8}, Landroid/widget/LinearLayout;->setOrientation(I)V
+    new-instance v8, Landroid/widget/LinearLayout$LayoutParams;
+    const/4 v10, -0x1
+    const/4 v9, -0x2
+    invoke-direct {v8, v10, v9}, Landroid/widget/LinearLayout$LayoutParams;-><init>(II)V
+    invoke-virtual {v12, v0, v8}, Landroid/view/ViewGroup;->addView(Landroid/view/View;Landroid/view/ViewGroup$LayoutParams;)V
+    :put_tile
+    new-instance v8, Landroid/widget/LinearLayout$LayoutParams;
+    const/4 v10, 0x0
+    const/4 v9, -0x2
+    invoke-direct {v8, v10, v9}, Landroid/widget/LinearLayout$LayoutParams;-><init>(II)V
+    const/high16 v10, 0x3f800000
+    iput v10, v8, Landroid/widget/LinearLayout$LayoutParams;->weight:F
+    invoke-virtual {v0, v11, v8}, Landroid/view/ViewGroup;->addView(Landroid/view/View;Landroid/view/ViewGroup$LayoutParams;)V
     add-int/lit8 v5, v5, 0x1
 
     :next

@@ -28,7 +28,7 @@ function sliceLabel(src, label, until) {
 }
 
 function settingValueBranch(paint) {
-    const card = sliceLabel(paint, ':card', ':add_row');
+    const card = sliceLabel(paint, ':card', ':add_settings');
     const match = card.match(
         /"settingValue"[\s\S]*?isEmpty\(\)Z\s+move-result v(\d+)\s+if-(eqz|nez) v\1, :(\w+)/
     );
@@ -37,7 +37,7 @@ function settingValueBranch(paint) {
 }
 
 function factoryAfterLabel(paint, label) {
-    const body = sliceLabel(paint, label, ':add_row');
+    const body = sliceLabel(paint, label, label === ':content_row' ? ':add_settings' : ':add_content');
     if (body.includes('NativeSettingsRowFactory;->create')) return 'settings';
     if (body.includes('NativeUiRowFactory;->create(')) return 'content';
     return 'unknown';
@@ -168,6 +168,7 @@ test('renderNativeRows paints via NativeHomeFeed and never wipes Accueil on empt
     const rowsAt = activity.indexOf('.method public final renderNativeRows(Ljava/lang/String;Ljava/lang/String;)V');
     const rows = activity.slice(rowsAt, activity.indexOf('.method public final findNativeByTag', rowsAt));
     assert.match(rows, /NativeHomeFeed;->paint/);
+    assert.match(read('smali/com/melodix/music/NativeHomeFeed.smali'), /:make_pair/);
     assert.doesNotMatch(rows, /Lorg\/json\/JSONArray;-><init>/);
     assert.doesNotMatch(rows, /NativeRowList;->fill/);
     assert.doesNotMatch(rows, /NativeHomeShelfRenderer;->render/);

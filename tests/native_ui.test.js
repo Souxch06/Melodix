@@ -954,7 +954,7 @@ test('the native shell can ask Android to evaluate the playback bridge again', (
 test('content rows reach the cover factory instead of the settings factory', () => {
     const feed = read('smali/com/melodix/music/NativeHomeFeed.smali');
     const cardDef = feed.search(/^[ \t]*:card[ \t]*$/m);
-    const addDef = feed.search(/^[ \t]*:add_row[ \t]*$/m);
+    const addDef = feed.search(/^[ \t]*:add_settings[ \t]*$/m);
     const contentDef = feed.search(/^[ \t]*:content_row[ \t]*$/m);
     const card = feed.slice(cardDef, addDef);
     const branch = card.match(/isEmpty\(\)Z\s+move-result v(\d+)\s+if-(eqz|nez) v\1, :(content_row|settings_row|\w+)/);
