@@ -1,19 +1,27 @@
 name: Build Melodix Preview APK
 
 on:
+  push:
+    branches:
+      - arena/dbf2d44f-melodix
   workflow_dispatch:
     inputs:
       release_tag:
-        description: Preview tag (for example v1.2.2-test.8-preview)
+        description: Preview tag (for example v1.2.2-test.1-preview)
         required: true
         type: string
-        default: v1.2.2-test.8-preview
+        default: v1.2.2-test.1-preview
+      source_ref:
+        description: Full source commit SHA to build
+        required: true
+        type: string
 
 permissions:
   contents: write
 
 jobs:
   build-and-release-preview:
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
     name: Build and publish separate preview app
     runs-on: ubuntu-latest
     steps:
@@ -21,12 +29,24 @@ jobs:
         id: release
         shell: bash
         env:
-          INPUT_TAG: ${{ inputs.release_tag }}
+          INPUT_TAG: ${{ inputs.release_tag || '' }}
+          EVENT_COMMIT_MESSAGE: ${{ github.event.head_commit.message || '' }}
+          INPUT_SOURCE_REF: ${{ inputs.source_ref || github.sha }}
         run: |
           set -euo pipefail
-          tag="$INPUT_TAG"
+          if [[ "$GITHUB_EVENT_NAME" == "workflow_dispatch" && ! "$INPUT_SOURCE_REF" =~ ^[0-9a-fA-F]{40}$ ]]; then
+            echo "::error::source_ref must be a full 40-character commit SHA."
+            exit 1
+          fi
+          if [[ -n "$INPUT_TAG" ]]; then
+            tag="$INPUT_TAG"
+          elif [[ "$GITHUB_EVENT_NAME" == "push" && "$EVENT_COMMIT_MESSAGE" =~ ^\[preview-release\][[:space:]]+(v[0-9]+\.[0-9]+\.[0-9]+-test\.[0-9]+-preview)([[:space:]]|$) ]]; then
+            tag="${BASH_REMATCH[1]}"
+          else
+            tag='v1.2.2-test.1-preview'
+          fi
           if [[ ! "$tag" =~ ^v([0-9]+\.[0-9]+\.[0-9]+)-test\.([0-9]+)-preview$ ]]; then
-            echo "::error::Expected a preview tag such as v1.2.2-test.8-preview"
+            echo "::error::Expected a preview tag such as v1.2.2-test.1-preview"
             exit 1
           fi
 
@@ -34,11 +54,17 @@ jobs:
           test_number="${BASH_REMATCH[2]}"
           apk_name="Melodix-Preview-v${version}-test${test_number}.apk"
           IFS=. read -r major minor patch <<< "$version"
-          # Increment the first preview APK's code so this corrected build updates it in place.
-          version_code=$((major * 1000000 + minor * 10000 + patch * 100 + test_number + 1))
+          # Restart the release labels at test.1 while keeping Android versionCode
+          # above the previously published test.27 so installed Preview apps update in place.
+          # The run number is added so every published build has a strictly higher
+          # versionCode: a phone that silently ignores a same-version "update" would
+          # otherwise keep launching the previous APK, and every diagnostic would be
+          # written against code that is no longer being tested.
+          version_code=$((major * 1000000 + minor * 10000 + patch * 100 + test_number + 28 + GITHUB_RUN_NUMBER))
           release_name="Melodix Preview v${version} test.${test_number}"
 
           echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "source_ref=$INPUT_SOURCE_REF" >> "$GITHUB_OUTPUT"
           echo "apk_name=$apk_name" >> "$GITHUB_OUTPUT"
           echo "version_code=$version_code" >> "$GITHUB_OUTPUT"
           echo "release_name=$release_name" >> "$GITHUB_OUTPUT"
@@ -55,10 +81,10 @@ jobs:
             exit 1
           fi
 
-      - name: Check out main source
+      - name: Check out selected source commit
         uses: actions/checkout@v7.0.1
         with:
-          ref: main
+          ref: ${{ steps.release.outputs.source_ref }}
 
       - name: Set up Java
         uses: actions/setup-java@v6.1.0
@@ -78,6 +104,7 @@ jobs:
         env:
           APK_NAME: ${{ steps.release.outputs.apk_name }}
           VERSION_CODE: ${{ steps.release.outputs.version_code }}
+          SOURCE_REF: ${{ steps.release.outputs.source_ref }}
           MELODIX_PREVIEW_KEYSTORE_B64: ${{ secrets.MELODIX_PREVIEW_KEYSTORE_B64 }}
           MELODIX_PREVIEW_KEYSTORE_PASSWORD: ${{ secrets.MELODIX_PREVIEW_KEYSTORE_PASSWORD }}
           MELODIX_PREVIEW_KEY_PASSWORD: ${{ secrets.MELODIX_PREVIEW_KEY_PASSWORD || secrets.MELODIX_PREVIEW_KEYSTORE_PASSWORD }}
@@ -113,9 +140,11 @@ jobs:
             exit 1
           fi
 
-          python3 - "$work_dir/AndroidManifest.xml" <<'PY'
+          python3 - "$work_dir/AndroidManifest.xml" "$SOURCE_REF" <<'PY'
           import sys
           import xml.etree.ElementTree as ET
+
+          BUILD_ID = sys.argv[2][:7]
 
           manifest_path = sys.argv[1]
           android_ns = "http://schemas.android.com/apk/res/android"
@@ -137,12 +166,12 @@ jobs:
               if authorities and authorities.startswith(original_id + "."):
                   element.set(android + "authorities", preview_id + authorities[len(original_id):])
               if element.get(android + "label") == "Melodix":
-                  element.set(android + "label", "Melodix Preview")
+                  element.set(android + "label", "Melodix Preview " + BUILD_ID)
 
           tree.write(manifest_path, encoding="utf-8", xml_declaration=True, short_empty_elements=True)
           PY
 
-          sed -i -E 's#(<string name="app_name">)[^<]*(</string>)#\1Melodix Preview\2#' \
+          sed -i -E "s#(<string name=\"app_name\">)[^<]*(</string>)#\1Melodix Preview ${SOURCE_REF:0:7}\2#" \
             "$work_dir/res/values/strings.xml"
           sed -i -E "s#<string name=\"expected_signature_sha256\">[^<]*</string>#<string name=\"expected_signature_sha256\">$preview_fingerprint</string>#" \
             "$work_dir/res/values/strings.xml"
@@ -158,6 +187,7 @@ jobs:
 
           sed -i -E "s/^apkFileName:.*/apkFileName: $APK_NAME/" "$work_dir/apktool.yml"
           sed -i -E "s/^  versionCode: .*/  versionCode: $VERSION_CODE/" "$work_dir/apktool.yml"
+          sed -i -E "s/^  versionName: .*/  versionName: 1.2.2-${SOURCE_REF:0:7}/" "$work_dir/apktool.yml"
 
           curl --fail --silent --show-error --location \
             "https://github.com/iBotPeaches/Apktool/releases/download/v2.9.3/apktool_2.9.3.jar" \
@@ -180,11 +210,46 @@ jobs:
             --out "$output" "$RUNNER_TEMP/aligned.apk"
           "$build_tools/apksigner" verify --verbose --min-sdk-version 24 "$output"
 
+          # The app refuses to start when the fingerprint in strings.xml is not
+          # the one of the certificate that signed this very APK. Check it here
+          # instead of shipping an APK that can only close itself.
+          # No pipes here on purpose: under `set -o pipefail`, grep -q exiting on
+          # the first match sends SIGPIPE upstream and makes the whole pipeline
+          # report a failure even when the match was found.
+          "$build_tools/apksigner" verify --print-certs "$output" > "$RUNNER_TEMP/apk-certs.txt"
+          signed_line="$(grep '^Signer #1 certificate SHA-256 digest: ' "$RUNNER_TEMP/apk-certs.txt" || true)"
+          signed_fingerprint="${signed_line##*: }"
+          signed_fingerprint="${signed_fingerprint%$'\r'}"
+          signed_fingerprint="${signed_fingerprint^^}"
+          if [[ "$signed_fingerprint" != "$fingerprint_hex" ]]; then
+            echo "::error::Embedded fingerprint does not match the signing certificate."
+            exit 1
+          fi
+
+          # Read the compiled resource table, not the source XML: this is what
+          # getString(0x7f110052) returns at runtime.
+          "$build_tools/aapt" dump --values resources "$output" > "$RUNNER_TEMP/apk-resources.txt"
+          if ! grep -Fq "$preview_fingerprint" "$RUNNER_TEMP/apk-resources.txt"; then
+            echo "::error::expected_signature_sha256 was not compiled into resources.arsc."
+            exit 1
+          fi
+
           package_id="$("$build_tools/aapt" dump badging "$output" | sed -n "s/^package: name='\([^']*\)'.*/\1/p")"
           if [[ "$package_id" != "com.melodix.music.preview" ]]; then
             echo "::error::Preview APK has unexpected package id: $package_id"
             exit 1
           fi
+
+          # The JS bridge and the native shell are read from assets at runtime. A
+          # build where one of them is missing or truncated makes the app start
+          # without its playback guards, so fail the build instead of shipping it.
+          for asset in spotify_bridge.js native_ui_shell.js runtime_diagnostic.js css_hacks.css; do
+            extracted_size="$(unzip -p "$output" "assets/$asset" 2>/dev/null | wc -c | tr -d ' ')"
+            if [[ "${extracted_size:-0}" -lt 1000 ]]; then
+              echo "::error::assets/$asset is missing or truncated (${extracted_size:-0} bytes) in the preview APK."
+              exit 1
+            fi
+          done
 
           mkdir -p "$GITHUB_WORKSPACE/preview-output"
           cp "$output" "$GITHUB_WORKSPACE/preview-output/$APK_NAME"
@@ -196,12 +261,14 @@ jobs:
         uses: softprops/action-gh-release@v3.0.3
         with:
           tag_name: ${{ steps.release.outputs.tag }}
-          target_commitish: main
+          target_commitish: ${{ steps.release.outputs.source_ref }}
           name: ${{ steps.release.outputs.release_name }}
           body: |
             Separate Melodix preview build with package id `com.melodix.music.preview`.
 
-            It installs alongside the regular app and is not an update to the existing `com.melodix.music` installation. Preview data is separate.
+            Built from source commit `${{ steps.release.outputs.source_ref }}`; consult that commit for the changes included in this test build.
+
+            It installs alongside the regular app and is not an update to the existing `com.melodix.music` installation. Preview data is separate. The Android versionCode remains above the former test.27 so it can update an already-installed Preview.
           files: |
             ${{ steps.package.outputs.apk_path }}
             ${{ steps.package.outputs.sha_path }}

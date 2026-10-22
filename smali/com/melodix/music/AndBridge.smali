@@ -31,6 +31,147 @@
 
 
 # virtual methods
+.method private final dispatchNativeUi(Ljava/lang/String;Ljava/lang/String;)V
+    .locals 3
+
+    if-eqz p2, :payload_ok
+    invoke-virtual {p2}, Ljava/lang/String;->length()I
+    move-result v0
+    const/high16 v2, 0x40000
+    if-gt v0, v2, :native_dispatch_done
+
+    :payload_ok
+    const/4 v1, 0x0
+    sget-object v0, Lcom/melodix/music/AppSingleton;->t:Ljava/lang/ref/WeakReference;
+    if-eqz v0, :try_ctx
+    invoke-virtual {v0}, Ljava/lang/ref/Reference;->get()Ljava/lang/Object;
+    move-result-object v1
+    check-cast v1, Lcom/melodix/music/MainActivity;
+
+    :try_ctx
+    if-eqz v1, :got_activity
+    iget-object v0, p0, Lcom/melodix/music/AndBridge;->a:Landroid/content/Context;
+    instance-of v2, v0, Lcom/melodix/music/MainActivity;
+    if-eqz v2, :native_dispatch_done
+    move-object v1, v0
+    check-cast v1, Lcom/melodix/music/MainActivity;
+
+    :got_activity
+    if-eqz v1, :native_dispatch_done
+    invoke-virtual {v1, p1, p2}, Lcom/melodix/music/MainActivity;->postNativeUiData(Ljava/lang/String;Ljava/lang/String;)V
+
+    :native_dispatch_done
+    return-void
+.end method
+
+.method public final onNativeUiReady()V
+    .locals 2
+    .annotation runtime Landroid/webkit/JavascriptInterface;
+    .end annotation
+
+    sget-object v0, Lcom/melodix/music/AppSingleton;->t:Ljava/lang/ref/WeakReference;
+    if-eqz v0, :native_ready_done
+    invoke-virtual {v0}, Ljava/lang/ref/Reference;->get()Ljava/lang/Object;
+    move-result-object v1
+    check-cast v1, Lcom/melodix/music/MainActivity;
+    if-eqz v1, :native_ready_done
+    invoke-virtual {v1}, Lcom/melodix/music/MainActivity;->postNativeUiReady()V
+
+    :native_ready_done
+    return-void
+.end method
+
+.method public final onNativeUiRoute(Ljava/lang/String;)V
+    .locals 2
+    .annotation runtime Landroid/webkit/JavascriptInterface;
+    .end annotation
+
+    sget-object v0, Lcom/melodix/music/AppSingleton;->t:Ljava/lang/ref/WeakReference;
+    if-eqz v0, :native_route_done
+    invoke-virtual {v0}, Ljava/lang/ref/Reference;->get()Ljava/lang/Object;
+    move-result-object v1
+    check-cast v1, Lcom/melodix/music/MainActivity;
+    if-eqz v1, :native_route_done
+    invoke-virtual {v1, p1}, Lcom/melodix/music/MainActivity;->postNativeUiRoute(Ljava/lang/String;)V
+
+    :native_route_done
+    return-void
+.end method
+
+.method public final onNativeUiData(Ljava/lang/String;Ljava/lang/String;)V
+    .locals 0
+    .annotation runtime Landroid/webkit/JavascriptInterface;
+    .end annotation
+
+    invoke-direct {p0, p1, p2}, Lcom/melodix/music/AndBridge;->dispatchNativeUi(Ljava/lang/String;Ljava/lang/String;)V
+    return-void
+.end method
+
+.method public final onNativeListText(Ljava/lang/String;)V
+    .locals 1
+    .annotation runtime Landroid/webkit/JavascriptInterface;
+    .end annotation
+
+    const-string v0, "list-text"
+    invoke-direct {p0, v0, p1}, Lcom/melodix/music/AndBridge;->dispatchNativeUi(Ljava/lang/String;Ljava/lang/String;)V
+    return-void
+.end method
+
+.method public final onNativeHomeRows(Ljava/lang/String;)V
+    .locals 3
+    .annotation runtime Landroid/webkit/JavascriptInterface;
+    .end annotation
+
+    if-eqz p1, :home_rows_size_ok
+    invoke-virtual {p1}, Ljava/lang/String;->length()I
+    move-result v0
+    const/high16 v1, 0x40000
+    if-gt v0, v1, :native_home_rows_done
+
+    :home_rows_size_ok
+    sget-object v0, Lcom/melodix/music/AppSingleton;->t:Ljava/lang/ref/WeakReference;
+    if-eqz v0, :native_home_rows_done
+    invoke-virtual {v0}, Ljava/lang/ref/Reference;->get()Ljava/lang/Object;
+    move-result-object v1
+    check-cast v1, Lcom/melodix/music/MainActivity;
+    if-eqz v1, :native_home_rows_done
+    new-instance v0, Lcom/melodix/music/NativeHomePaintRunnable;
+    invoke-direct {v0, v1, p1}, Lcom/melodix/music/NativeHomePaintRunnable;-><init>(Lcom/melodix/music/MainActivity;Ljava/lang/String;)V
+    invoke-virtual {v1, v0}, Landroid/app/Activity;->runOnUiThread(Ljava/lang/Runnable;)V
+
+    :native_home_rows_done
+    return-void
+.end method
+
+.method public final nativeLogout()V
+    .locals 2
+    .annotation runtime Landroid/webkit/JavascriptInterface;
+    .end annotation
+
+    sget-object v0, Lcom/melodix/music/AppSingleton;->t:Ljava/lang/ref/WeakReference;
+    if-eqz v0, :native_logout_done
+    invoke-virtual {v0}, Ljava/lang/ref/Reference;->get()Ljava/lang/Object;
+    move-result-object v1
+    check-cast v1, Lcom/melodix/music/MainActivity;
+    if-eqz v1, :native_logout_done
+    new-instance v0, Lcom/melodix/music/NativeLogoutRunnable;
+    invoke-direct {v0, v1}, Lcom/melodix/music/NativeLogoutRunnable;-><init>(Lcom/melodix/music/MainActivity;)V
+    invoke-virtual {v1, v0}, Landroid/app/Activity;->runOnUiThread(Ljava/lang/Runnable;)V
+
+    :native_logout_done
+    return-void
+.end method
+
+.method public final onNativeProfileImage(Ljava/lang/String;)V
+    .locals 1
+    .annotation runtime Landroid/webkit/JavascriptInterface;
+    .end annotation
+
+    const-string v0, "profile-image"
+    invoke-direct {p0, v0, p1}, Lcom/melodix/music/AndBridge;->dispatchNativeUi(Ljava/lang/String;Ljava/lang/String;)V
+    return-void
+.end method
+
 .method public final cssInjected()V
     .locals 0
     .annotation runtime Landroid/webkit/JavascriptInterface;
@@ -366,7 +507,24 @@
 
     .line 2
     .line 3
-    const v0, 0x7f110052
+    # Resolve by name: a rebuild that renumbers the string table would leave a
+    # hard-coded id pointing at another string, and the gate would then refuse
+    # every build for the wrong reason.
+    invoke-virtual {p0}, Landroid/content/Context;->getResources()Landroid/content/res/Resources;
+
+    move-result-object v0
+
+    const-string v2, "expected_signature_sha256"
+
+    const-string v3, "string"
+
+    invoke-virtual {p0}, Landroid/content/Context;->getPackageName()Ljava/lang/String;
+
+    move-result-object v4
+
+    invoke-virtual {v0, v2, v3, v4}, Landroid/content/res/Resources;->getIdentifier(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)I
+
+    move-result v0
 
     .line 4
     .line 5
@@ -2011,6 +2169,15 @@
     .line 6
     invoke-virtual {v0}, Ljava/lang/Object;->getClass()Ljava/lang/Class;
 
+    const-string v1, "media:"
+    move-object/from16 v2, p1
+    invoke-virtual {v1, v2}, Ljava/lang/String;->concat(Ljava/lang/String;)Ljava/lang/String;
+    move-result-object v1
+    move-object/from16 v3, p0
+    move-object/from16 v4, p2
+    invoke-direct {v3, v1, v4}, Lcom/melodix/music/AndBridge;->dispatchNativeUi(Ljava/lang/String;Ljava/lang/String;)V
+    move-object/from16 v0, p2
+
     .line 7
     .line 8
     .line 9
@@ -2537,6 +2704,15 @@
     .line 5
     .line 6
     invoke-virtual {v0}, Ljava/lang/Object;->getClass()Ljava/lang/Class;
+
+    const-string v1, "search:"
+    move-object/from16 v2, p1
+    invoke-virtual {v1, v2}, Ljava/lang/String;->concat(Ljava/lang/String;)Ljava/lang/String;
+    move-result-object v1
+    move-object/from16 v4, p0
+    move-object/from16 v5, p2
+    invoke-direct {v4, v1, v5}, Lcom/melodix/music/AndBridge;->dispatchNativeUi(Ljava/lang/String;Ljava/lang/String;)V
+    move-object/from16 v0, p2
 
     .line 7
     .line 8
@@ -3972,6 +4148,9 @@
     .line 1
     invoke-virtual {p1}, Ljava/lang/Object;->getClass()Ljava/lang/Class;
 
+    const-string v0, "player"
+    invoke-direct {p0, v0, p1}, Lcom/melodix/music/AndBridge;->dispatchNativeUi(Ljava/lang/String;Ljava/lang/String;)V
+
     .line 2
     .line 3
     .line 4
@@ -4624,4 +4803,82 @@
     .line 28
     :cond_0
     return-void
+.end method
+
+.method public final injectBundledAsset(Ljava/lang/String;)V
+    .locals 4
+    .annotation runtime Landroid/webkit/JavascriptInterface;
+    .end annotation
+
+    # Recovery hook: pages can ask for a bundled script to be evaluated again
+    # when its first injection never started (for example a stale WebView or a
+    # dropped evaluateJavascript call). Only whitelisted assets are accepted.
+    if-eqz p1, :asset_inject_done
+
+    const-string v0, "spotify_bridge.js"
+
+    invoke-virtual {v0, p1}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+
+    move-result v0
+
+    if-eqz v0, :asset_inject_done
+
+    invoke-static {}, Lcom/melodix/music/NativeBridgeAsset;->loaderJavascript()Ljava/lang/String;
+
+    move-result-object v1
+
+    invoke-virtual {v1}, Ljava/lang/String;->isEmpty()Z
+
+    move-result v0
+
+    if-nez v0, :asset_inject_done
+
+    sget-object v0, Lcom/melodix/music/AppSingleton;->t:Ljava/lang/ref/WeakReference;
+
+    if-eqz v0, :asset_inject_done
+
+    invoke-virtual {v0}, Ljava/lang/ref/Reference;->get()Ljava/lang/Object;
+
+    move-result-object v2
+
+    check-cast v2, Lcom/melodix/music/MainActivity;
+
+    if-eqz v2, :asset_inject_done
+
+    new-instance v3, Lcom/melodix/music/NativeAssetRunner;
+
+    invoke-direct {v3, v2, v1}, Lcom/melodix/music/NativeAssetRunner;-><init>(Lcom/melodix/music/MainActivity;Ljava/lang/String;)V
+
+    invoke-virtual {v2, v3}, Landroid/app/Activity;->runOnUiThread(Ljava/lang/Runnable;)V
+
+    :asset_inject_done
+    return-void
+.end method
+
+.method public final readBundledAsset(Ljava/lang/String;)Ljava/lang/String;
+    .locals 2
+    .annotation runtime Landroid/webkit/JavascriptInterface;
+    .end annotation
+
+    # The playback bridge is a 200 KB asset. Sending it through a single
+    # evaluateJavascript call silently fails on some WebViews, so JavaScript
+    # fetches the text through this whitelisted getter and executes it itself.
+    const-string v1, ""
+
+    if-eqz p1, :read_bundled_asset_done
+
+    const-string v0, "spotify_bridge.js"
+
+    invoke-virtual {v0, p1}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+
+    move-result v0
+
+    if-eqz v0, :read_bundled_asset_done
+
+    invoke-static {p1}, Lm9;->d(Ljava/lang/String;)Ljava/lang/String;
+
+    move-result-object v1
+
+    :read_bundled_asset_done
+    return-object v1
 .end method

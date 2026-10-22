@@ -1350,7 +1350,7 @@
 
 # virtual methods
 .method public final onPageFinished(Landroid/webkit/WebView;Ljava/lang/String;)V
-    .locals 23
+    .locals 24
 
     .line 1
     move-object/from16 v0, p1
@@ -1597,8 +1597,20 @@
 
     .line 121
     .line 122
-    if-nez v2, :cond_7
+    # A persisted session can land directly on Spotify home; use the existing splash-dismiss path after load.
+    if-eqz v2, :cond_15
 
+    const-string v2, "open.spotify.com"
+
+    invoke-static {v1, v2, v3}, Lda1;->y(Ljava/lang/CharSequence;Ljava/lang/String;Z)Z
+
+    move-result v2
+
+    if-eqz v2, :cond_7
+
+    goto :cond_5
+
+    :cond_15
     .line 123
     .line 124
     invoke-static {v1, v5, v3}, Lda1;->y(Ljava/lang/CharSequence;Ljava/lang/String;Z)Z
@@ -1646,6 +1658,15 @@
     .line 145
     .line 146
     :cond_5
+    # A completed Spotify login/home document supersedes any stale splash error from startup or a failed redirect.
+    const/4 v8, 0x0
+
+    sput-boolean v8, Lcom/melodix/music/AppSingleton;->m:Z
+
+    const/4 v8, -0x1
+
+    sput v8, Lcom/melodix/music/AppSingleton;->n:I
+
     sget-object v2, Lcom/melodix/music/AppSingleton;->t:Ljava/lang/ref/WeakReference;
 
     .line 147
@@ -1668,8 +1689,16 @@
     .line 156
     if-eqz v2, :cond_7
 
-    .line 157
-    .line 158
+    # A successful page load must also clear the loading indicator before dismissing the native splash.
+    iget-object v9, v2, Lcom/melodix/music/MainActivity;->R:Landroid/widget/ProgressBar;
+
+    if-eqz v9, :cond_16
+
+    const/16 v10, 0x8
+
+    invoke-virtual {v9, v10}, Landroid/view/View;->setVisibility(I)V
+
+    :cond_16
     sget-boolean v8, Lcom/melodix/music/AppSingleton;->m:Z
 
     .line 159
@@ -1995,6 +2024,21 @@
     .line 315
     move-result-object v17
 
+    # Report native touchscreen capability so desktop UA spoofing cannot hide tablet touch input.
+    invoke-virtual {v5}, Landroid/content/Context;->getPackageManager()Landroid/content/pm/PackageManager;
+    move-result-object v5
+    const-string v6, "android.hardware.touchscreen"
+    invoke-virtual {v5, v6}, Landroid/content/pm/PackageManager;->hasSystemFeature(Ljava/lang/String;)Z
+    move-result v6
+    const-string v3, "android.software.leanback"
+    invoke-virtual {v5, v3}, Landroid/content/pm/PackageManager;->hasSystemFeature(Ljava/lang/String;)Z
+    move-result v3
+    if-eqz v3, :sf_touch_configured
+    const/4 v6, 0x0
+    :sf_touch_configured
+    invoke-static {v6}, Ljava/lang/Boolean;->valueOf(Z)Ljava/lang/Boolean;
+    move-result-object v23
+
     .line 316
     sget-boolean v5, Lcom/melodix/music/AppSingleton;->T:Z
 
@@ -2077,7 +2121,7 @@
     move-result-object v22
 
     .line 355
-    filled-new-array/range {v9 .. v22}, [Ljava/lang/Object;
+    filled-new-array/range {v9 .. v23}, [Ljava/lang/Object;
 
     .line 356
     .line 357
@@ -2085,7 +2129,7 @@
     move-result-object v1
 
     .line 359
-    const/16 v2, 0xe
+    const/16 v2, 0xf
 
     .line 360
     .line 361
@@ -2097,7 +2141,7 @@
     move-result-object v1
 
     .line 365
-    const-string v2, "window.SF_CONFIG = { isAndAutoEnabled: %b, guiMode: \'%s\', isCanvasDisabled: %b, isFullScreenEnabled: %b, isAmoled: %b, autoPlayMode: \'%s\', closeNowPlay: %b, takeControl: %b, closeLibText: \'%s\', hideStatusBar: %b, statusBarHeight: %d, screenWidth: %d, screenHeight: %d, dockLeftSidebar: %b };"
+    const-string v2, "window.SF_CONFIG = { isAndAutoEnabled: %b, guiMode: \'%s\', isCanvasDisabled: %b, isFullScreenEnabled: %b, isAmoled: %b, autoPlayMode: \'%s\', closeNowPlay: %b, takeControl: %b, closeLibText: \'%s\', hideStatusBar: %b, statusBarHeight: %d, screenWidth: %d, screenHeight: %d, dockLeftSidebar: %b, touchInput: %b };"
 
     .line 366
     .line 367
@@ -2147,20 +2191,30 @@
     .line 389
     .line 390
     .line 391
-    invoke-virtual {v5, v3}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    invoke-virtual {v5}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
 
     .line 392
     .line 393
     .line 394
-    invoke-virtual {v5}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
-
-    .line 395
-    .line 396
-    .line 397
     move-result-object v1
 
-    .line 398
+    .line 395
     invoke-virtual {v0, v1, v8}, Landroid/webkit/WebView;->evaluateJavascript(Ljava/lang/String;Landroid/webkit/ValueCallback;)V
+
+    # Keep the native shell entry point separate from remotely hotfixed Spotify behavior.
+    # The shell is injected first: it owns the loader that executes the bridge.
+    const-string v5, "native_ui_shell.js"
+    invoke-static {v5}, Lm9;->d(Ljava/lang/String;)Ljava/lang/String;
+    move-result-object v5
+    invoke-virtual {v0, v5, v8}, Landroid/webkit/WebView;->evaluateJavascript(Ljava/lang/String;Landroid/webkit/ValueCallback;)V
+
+    # spotify_bridge.js is ~200 KB. A single evaluateJavascript call of that size
+    # is dropped without any error on device (the bridge never started, so every
+    # pause guard stayed inactive). The shell therefore reads the asset through
+    # AndBridge.readBundledAsset and executes it in small steps instead.
+    # v3 still holds the bridge text: reading it here keeps the asset cache warm.
+    const-string v5, "(window.__sfLoadBundledBridge||function(){})(\'spotify_bridge.js\');"
+    invoke-virtual {v0, v5, v8}, Landroid/webkit/WebView;->evaluateJavascript(Ljava/lang/String;Landroid/webkit/ValueCallback;)V
 
     .line 399
     .line 400
@@ -2202,8 +2256,15 @@
 
     .line 419
     .line 420
+    if-nez v1, :inject_full_css
+
+    sget-object v1, Lcom/melodix/music/AppSingleton;->z:Ljava/lang/String;
+    const-string v3, "bigwindow"
+    invoke-static {v1, v3}, Ldl1;->a(Ljava/lang/Object;Ljava/lang/Object;)Z
+    move-result v1
     if-eqz v1, :cond_12
 
+    :inject_full_css
     .line 421
     .line 422
     invoke-static {v2}, Lm9;->d(Ljava/lang/String;)Ljava/lang/String;
@@ -2377,10 +2438,12 @@
     .line 505
     invoke-virtual {v0, v1, v8}, Landroid/webkit/WebView;->evaluateJavascript(Ljava/lang/String;Landroid/webkit/ValueCallback;)V
 
+    const-string v2, "css_hacks.css"
+
     .line 506
     .line 507
     .line 508
-    goto :goto_4
+    goto :cond_12
 
     .line 509
     :cond_12
@@ -2482,6 +2545,9 @@
     .line 559
     :cond_13
     :goto_4
+    # Preview-only DOM diagnostic; the helper rejects all packages/origins except the test Preview and open.spotify.com.
+    invoke-static/range {p1 .. p2}, Lcom/melodix/music/RuntimeDiagnostic;->runIfPreview(Landroid/webkit/WebView;Ljava/lang/String;)V
+
     sget-object v0, Lcom/melodix/music/AppSingleton;->b0:Ljava/lang/String;
 
     .line 560
@@ -2501,6 +2567,10 @@
 
     .line 1
     invoke-super {p0, p1, p2, p3}, Landroid/webkit/WebViewClient;->onPageStarted(Landroid/webkit/WebView;Ljava/lang/String;Landroid/graphics/Bitmap;)V
+
+    if-eqz p1, :watchdog_skipped
+    invoke-static {p1}, Lcom/melodix/music/StartupLoadWatchdog;->arm(Landroid/webkit/WebView;)V
+    :watchdog_skipped
 
     .line 2
     .line 3
@@ -2858,6 +2928,12 @@
     .line 52
     if-eqz p1, :cond_4
 
+    iget-object p2, p1, Lcom/melodix/music/MainActivity;->R:Landroid/widget/ProgressBar;
+    if-eqz p2, :skip_progressbar_hide
+    const/16 p3, 0x8
+    invoke-virtual {p2, p3}, Landroid/view/View;->setVisibility(I)V
+    :skip_progressbar_hide
+
     .line 53
     .line 54
     invoke-virtual {p1, p0}, Lcom/melodix/music/MainActivity;->D(Z)V
@@ -3207,6 +3283,15 @@
     .line 31
     .line 32
     :cond_0
+    invoke-static {v3}, Lcom/melodix/music/NativeBridgeAsset;->responseForUrl(Ljava/lang/String;)Landroid/webkit/WebResourceResponse;
+
+    move-result-object v32
+
+    if-eqz v32, :melodix_bridge_asset_continue
+
+    return-object v32
+
+    :melodix_bridge_asset_continue
     invoke-static {v3}, Ldl1;->l(Ljava/lang/String;)Z
 
     .line 33
@@ -7278,7 +7363,7 @@
 .end method
 
 .method public final shouldOverrideUrlLoading(Landroid/webkit/WebView;Landroid/webkit/WebResourceRequest;)Z
-    .locals 3
+    .locals 4
 
     .line 1
     const/4 v0, 0x0
@@ -7298,24 +7383,37 @@
     .line 8
     if-eqz v1, :cond_4
 
-    .line 9
-    .line 10
+    invoke-virtual {v1}, Landroid/net/Uri;->getScheme()Ljava/lang/String;
+    move-result-object v2
+    if-eqz v2, :scheme_ok
+    const-string v3, "javascript"
+    invoke-virtual {v2, v3}, Ljava/lang/String;->equalsIgnoreCase(Ljava/lang/String;)Z
+    move-result v3
+    if-nez v3, :block_nav_scheme
+    const-string v3, "file"
+    invoke-virtual {v2, v3}, Ljava/lang/String;->equalsIgnoreCase(Ljava/lang/String;)Z
+    move-result v3
+    if-nez v3, :block_nav_scheme
+    const-string v3, "data"
+    invoke-virtual {v2, v3}, Ljava/lang/String;->equalsIgnoreCase(Ljava/lang/String;)Z
+    move-result v3
+    if-nez v3, :block_nav_scheme
+    const-string v3, "intent"
+    invoke-virtual {v2, v3}, Ljava/lang/String;->equalsIgnoreCase(Ljava/lang/String;)Z
+    move-result v3
+    if-nez v3, :block_nav_scheme
+
+    :scheme_ok
     invoke-virtual {v1}, Landroid/net/Uri;->toString()Ljava/lang/String;
 
-    .line 11
-    .line 12
-    .line 13
     move-result-object v1
 
-    .line 14
     if-nez v1, :cond_0
 
-    .line 15
-    .line 16
     goto :goto_0
 
-    .line 17
     :cond_0
+    const/4 v0, 0x0
     invoke-static {v1}, Ldl1;->l(Ljava/lang/String;)Z
 
     .line 18
@@ -7474,4 +7572,8 @@
     :cond_4
     :goto_0
     return v0
+
+    :block_nav_scheme
+    const/4 p0, 0x1
+    return p0
 .end method

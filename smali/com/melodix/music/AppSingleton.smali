@@ -249,6 +249,25 @@
     .line 1
     invoke-super {p0}, Landroid/app/Application;->onCreate()V
 
+    # Install the crash recorder as early as possible: a failure while the
+    # application itself starts up must be readable on the next launch too.
+    # Wrapped so a broken diagnostic class can never be the reason the app dies.
+    :try_start_guard
+    invoke-static/range {p0 .. p0}, Lcom/melodix/music/NativeCrashGuard;->install(Landroid/content/Context;)V
+
+    const-string v1, "application"
+
+    invoke-static/range {v1 .. v1}, Lcom/melodix/music/NativeCrashGuard;->stage(Ljava/lang/String;)V
+    :try_end_guard
+    .catch Ljava/lang/Throwable; {:try_start_guard .. :try_end_guard} :catch_guard
+
+    goto :guard_done
+
+    :catch_guard
+    move-exception v0
+
+    :guard_done
+
     .line 2
     .line 3
     .line 4

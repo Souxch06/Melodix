@@ -2620,7 +2620,14 @@
     .line 80
     .line 81
     .line 82
+    goto :goto_0
+
     :catchall_0
+    move-exception v1
+    const-string v3, "WebService"
+    const-string v4, "startForeground failed"
+    invoke-static {v3, v4, v1}, Landroid/util/Log;->e(Ljava/lang/String;Ljava/lang/String;Ljava/lang/Throwable;)I
+
     :goto_0
     invoke-virtual {p0}, Lcom/melodix/music/WebService;->k()V
 

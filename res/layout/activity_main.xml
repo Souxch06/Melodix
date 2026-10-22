@@ -1,20 +1,762 @@
 <?xml version="1.0" encoding="utf-8"?>
-<androidx.constraintlayout.widget.ConstraintLayout android:id="@id/main" android:background="@color/spotify_black" android:visibility="visible" android:layout_width="fill_parent" android:layout_height="fill_parent"
-  xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto">
-    <com.melodix.music.LockableHScrollView android:id="@id/hScrollView" android:layout_width="fill_parent" android:layout_height="fill_parent" android:fillViewport="true" android:overScrollMode="never" app:layout_constraintBottom_toBottomOf="parent" app:layout_constraintTop_toTopOf="parent">
-        <FrameLayout android:id="@id/webViewContainer" android:background="@color/spotify_black" android:layout_width="fill_parent" android:layout_height="fill_parent">
-            <TextView android:textSize="24.0sp" android:textStyle="bold" android:textColor="#ff888888" android:gravity="center" android:id="@id/frameBgText" android:visibility="visible" android:layout_width="fill_parent" android:layout_height="fill_parent" android:text="" />
-            <TextView android:textSize="14.0sp" android:textColor="#ffaaaaaa" android:gravity="center" android:layout_gravity="bottom" android:id="@id/frameStatusText" android:paddingBottom="5.0dip" android:visibility="gone" android:layout_width="fill_parent" android:layout_height="wrap_content" android:text="WebView v. N/A" />
-            <TextView android:textSize="15.0sp" android:textColor="#ff000000" android:layout_gravity="bottom|center|right" android:id="@id/txtMessage" android:background="@color/teal_200" android:paddingLeft="15.0dip" android:paddingTop="5.0dip" android:paddingRight="15.0dip" android:paddingBottom="5.0dip" android:visibility="gone" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginBottom="174.0dip" android:text="@string/txt_loadprevious" />
+<androidx.constraintlayout.widget.ConstraintLayout
+    android:id="@id/main"
+    android:background="@color/spotify_black"
+    android:visibility="visible"
+    android:layout_width="fill_parent"
+    android:layout_height="fill_parent"
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto">
+
+    <com.melodix.music.LockableHScrollView
+        android:id="@id/hScrollView"
+        android:layout_width="fill_parent"
+        android:layout_height="fill_parent"
+        android:fillViewport="true"
+        android:overScrollMode="never"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintTop_toTopOf="parent">
+        <FrameLayout
+            android:id="@id/webViewContainer"
+            android:background="@color/spotify_black"
+            android:layout_width="fill_parent"
+            android:layout_height="fill_parent">
+            <TextView
+                android:textSize="24.0sp"
+                android:textStyle="bold"
+                android:textColor="#ff888888"
+                android:gravity="center"
+                android:id="@id/frameBgText"
+                android:visibility="visible"
+                android:layout_width="fill_parent"
+                android:layout_height="fill_parent"
+                android:text="" />
+            <TextView
+                android:textSize="14.0sp"
+                android:textColor="#ffaaaaaa"
+                android:gravity="center"
+                android:layout_gravity="bottom"
+                android:id="@id/frameStatusText"
+                android:paddingBottom="5.0dip"
+                android:visibility="gone"
+                android:layout_width="fill_parent"
+                android:layout_height="wrap_content"
+                android:text="WebView v. N/A" />
+            <TextView
+                android:textSize="15.0sp"
+                android:textColor="#ff000000"
+                android:layout_gravity="bottom|center|right"
+                android:id="@id/txtMessage"
+                android:background="@color/teal_200"
+                android:paddingLeft="15.0dip"
+                android:paddingTop="5.0dip"
+                android:paddingRight="15.0dip"
+                android:paddingBottom="5.0dip"
+                android:visibility="gone"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="174.0dip"
+                android:text="@string/txt_loadprevious" />
         </FrameLayout>
     </com.melodix.music.LockableHScrollView>
-    <ImageButton android:id="@id/btnSettings" android:background="@android:color/transparent" android:padding="0.0dip" android:layout_width="40.0dip" android:layout_height="40.0dip" android:layout_marginTop="5.0dip" android:src="@drawable/waves_white_bg" android:scaleType="fitCenter" android:alpha="0.9" android:elevation="10.0dip" app:layout_constraintEnd_toEndOf="parent" app:layout_constraintStart_toStartOf="parent" app:layout_constraintTop_toTopOf="parent" />
-    <androidx.constraintlayout.widget.ConstraintLayout android:id="@id/splashOverlay" android:background="@color/spotify_black" android:focusable="true" android:visibility="visible" android:clickable="true" android:layout_width="fill_parent" android:layout_height="fill_parent" android:elevation="20.0dip">
-        <androidx.cardview.widget.CardView android:id="@id/cardSplashLogo" android:layout_width="140.0dip" android:layout_height="140.0dip" app:cardBackgroundColor="@android:color/transparent" app:cardCornerRadius="70.0dip" app:cardElevation="0.0dip" app:layout_constraintBottom_toBottomOf="parent" app:layout_constraintEnd_toEndOf="parent" app:layout_constraintStart_toStartOf="parent" app:layout_constraintTop_toTopOf="parent">
+
+    <!-- Native shell: the WebView stays mounted underneath to preserve its session and player. -->
+    <LinearLayout
+        android:id="@id/nativeRoot"
+        android:orientation="vertical"
+        android:background="@drawable/native_shell_background"
+        android:paddingLeft="0.0dip"
+        android:paddingTop="0.0dip"
+        android:paddingRight="0.0dip"
+        android:paddingBottom="0.0dip"
+        android:fitsSystemWindows="true"
+        android:focusable="true"
+        android:clickable="true"
+        android:elevation="15.0dip"
+        android:animateLayoutChanges="true"
+        android:visibility="visible"
+        android:layout_width="0.0dip"
+        android:layout_height="0.0dip"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent">
+
+        <LinearLayout
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:background="#00000000"
+            android:paddingLeft="16.0dip"
+            android:paddingTop="8.0dip"
+            android:paddingRight="12.0dip"
+            android:paddingBottom="10.0dip"
+            android:layout_width="fill_parent"
+            android:layout_height="wrap_content">
+            <ImageView
+                android:id="@id/nativeBackButton"
+                android:src="@drawable/arrow_back"
+                android:scaleType="centerInside"
+                android:padding="9.0dip"
+                android:clickable="true"
+                android:focusable="true"
+                android:contentDescription="Retour"
+                android:background="@drawable/native_button_dark"
+                android:onClick="onNativeBackClick"
+                android:visibility="gone"
+                android:layout_width="48.0dip"
+                android:layout_height="48.0dip"
+                android:layout_marginRight="8.0dip" />
+            <androidx.cardview.widget.CardView
+                android:layout_width="36.0dip"
+                android:layout_height="36.0dip"
+                app:cardBackgroundColor="#ff1ed760"
+                app:cardCornerRadius="18.0dip"
+                app:cardElevation="0.0dip">
+                <ImageView
+                    android:id="@id/nativeHeaderAvatar"
+                    android:src="@drawable/logo_melodix"
+                    android:scaleType="centerCrop"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:contentDescription="Profil et paramètres Spotify"
+                    android:onClick="onNativeSettingsClick"
+                    android:layout_width="fill_parent"
+                    android:layout_height="fill_parent" />
+            </androidx.cardview.widget.CardView>
+            <TextView
+                android:id="@id/nativeScreenTitle"
+                android:text="Accueil"
+                android:textSize="24.0sp"
+                android:textStyle="bold"
+                android:textColor="#ffffffff"
+                android:letterSpacing="0.01"
+                android:paddingLeft="12.0dip"
+                android:maxLines="1"
+                android:ellipsize="end"
+                android:layout_width="0.0dip"
+                android:layout_height="wrap_content"
+                android:layout_weight="1.0" />
+            <ImageView
+                android:src="@drawable/native_nav_settings"
+                android:tint="#ffffffff"
+                android:scaleType="centerInside"
+                android:padding="10.0dip"
+                android:clickable="true"
+                android:focusable="true"
+                android:contentDescription="Paramètres"
+                android:background="@drawable/native_button_icon"
+                android:onClick="onNativeSettingsClick"
+                android:layout_width="48.0dip"
+                android:layout_height="48.0dip"
+                android:layout_marginLeft="8.0dip" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@id/nativeSearchPanel"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:visibility="gone"
+            android:paddingLeft="16.0dip"
+            android:paddingRight="16.0dip"
+            android:paddingBottom="12.0dip"
+            android:layout_width="fill_parent"
+            android:layout_height="wrap_content">
+            <EditText
+                android:id="@id/nativeSearchInput"
+                android:hint="Que souhaitez-vous écouter ?"
+                android:textSize="16.0sp"
+                android:textStyle="bold"
+                android:textColor="#ffffffff"
+                android:textColorHint="#ff8a8a8a"
+                android:singleLine="true"
+                android:imeOptions="actionSearch"
+                android:inputType="text"
+                android:background="@drawable/native_search_field"
+                android:paddingLeft="18.0dip"
+                android:paddingRight="18.0dip"
+                android:layout_width="0.0dip"
+                android:layout_height="52.0dip"
+                android:layout_marginRight="10.0dip"
+                android:layout_weight="1.0" />
+            <ImageView
+                android:src="@drawable/native_nav_search"
+                android:tint="#ff121212"
+                android:scaleType="centerInside"
+                android:padding="14.0dip"
+                android:clickable="true"
+                android:focusable="true"
+                android:contentDescription="Chercher"
+                android:background="@drawable/native_button_green"
+                android:onClick="onNativeSearchSubmit"
+                android:layout_width="52.0dip"
+                android:layout_height="52.0dip" />
+        </LinearLayout>
+
+        <ScrollView
+            android:id="@id/nativeGenreScroll"
+            android:visibility="gone"
+            android:overScrollMode="never"
+            android:scrollbars="none"
+            android:layout_width="fill_parent"
+            android:layout_height="0.0dip"
+            android:layout_weight="1.0">
+            <LinearLayout
+                android:orientation="vertical"
+                android:paddingLeft="16.0dip"
+                android:paddingRight="16.0dip"
+                android:paddingTop="4.0dip"
+                android:paddingBottom="24.0dip"
+                android:layout_width="fill_parent"
+                android:layout_height="wrap_content">
+                <TextView
+                    android:text="Parcourir tout"
+                    android:textSize="21.0sp"
+                    android:textStyle="bold"
+                    android:textColor="#ffffffff"
+                    android:paddingBottom="14.0dip"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content" />
+            <LinearLayout
+                android:orientation="horizontal"
+                android:layout_width="fill_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="8.0dip">
+                <TextView
+                    android:text="Pop"
+                    android:tag="Pop"
+                    android:textSize="15.0sp"
+                    android:textStyle="bold"
+                    android:textColor="#ffffffff"
+                    android:gravity="top|start"
+                    android:paddingLeft="12.0dip"
+                    android:paddingTop="10.0dip"
+                    android:paddingRight="12.0dip"
+                    android:paddingBottom="10.0dip"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:background="@drawable/native_genre_tile"
+                    android:backgroundTint="#ff8d67ab"
+                    android:onClick="onNativeGenreClick"
+                    android:layout_width="0.0dip"
+                    android:layout_height="86.0dip"
+                    android:layout_weight="1.0"
+                android:layout_marginRight="8.0dip" />
+                <TextView
+                    android:text="Hip-hop"
+                    android:tag="Hip-hop"
+                    android:textSize="15.0sp"
+                    android:textStyle="bold"
+                    android:textColor="#ffffffff"
+                    android:gravity="top|start"
+                    android:paddingLeft="12.0dip"
+                    android:paddingTop="10.0dip"
+                    android:paddingRight="12.0dip"
+                    android:paddingBottom="10.0dip"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:background="@drawable/native_genre_tile"
+                    android:backgroundTint="#ffba5d07"
+                    android:onClick="onNativeGenreClick"
+                    android:layout_width="0.0dip"
+                    android:layout_height="86.0dip"
+                    android:layout_weight="1.0" />
+            </LinearLayout>
+            <LinearLayout
+                android:orientation="horizontal"
+                android:layout_width="fill_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="8.0dip">
+                <TextView
+                    android:text="Rock"
+                    android:tag="Rock"
+                    android:textSize="15.0sp"
+                    android:textStyle="bold"
+                    android:textColor="#ffffffff"
+                    android:gravity="top|start"
+                    android:paddingLeft="12.0dip"
+                    android:paddingTop="10.0dip"
+                    android:paddingRight="12.0dip"
+                    android:paddingBottom="10.0dip"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:background="@drawable/native_genre_tile"
+                    android:backgroundTint="#ffe91429"
+                    android:onClick="onNativeGenreClick"
+                    android:layout_width="0.0dip"
+                    android:layout_height="86.0dip"
+                    android:layout_weight="1.0"
+                android:layout_marginRight="8.0dip" />
+                <TextView
+                    android:text="Latino"
+                    android:tag="Latino"
+                    android:textSize="15.0sp"
+                    android:textStyle="bold"
+                    android:textColor="#ffffffff"
+                    android:gravity="top|start"
+                    android:paddingLeft="12.0dip"
+                    android:paddingTop="10.0dip"
+                    android:paddingRight="12.0dip"
+                    android:paddingBottom="10.0dip"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:background="@drawable/native_genre_tile"
+                    android:backgroundTint="#ffe13300"
+                    android:onClick="onNativeGenreClick"
+                    android:layout_width="0.0dip"
+                    android:layout_height="86.0dip"
+                    android:layout_weight="1.0" />
+            </LinearLayout>
+            <LinearLayout
+                android:orientation="horizontal"
+                android:layout_width="fill_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="8.0dip">
+                <TextView
+                    android:text="Détente"
+                    android:tag="Détente"
+                    android:textSize="15.0sp"
+                    android:textStyle="bold"
+                    android:textColor="#ffffffff"
+                    android:gravity="top|start"
+                    android:paddingLeft="12.0dip"
+                    android:paddingTop="10.0dip"
+                    android:paddingRight="12.0dip"
+                    android:paddingBottom="10.0dip"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:background="@drawable/native_genre_tile"
+                    android:backgroundTint="#ff477d95"
+                    android:onClick="onNativeGenreClick"
+                    android:layout_width="0.0dip"
+                    android:layout_height="86.0dip"
+                    android:layout_weight="1.0"
+                android:layout_marginRight="8.0dip" />
+                <TextView
+                    android:text="Sport"
+                    android:tag="Sport"
+                    android:textSize="15.0sp"
+                    android:textStyle="bold"
+                    android:textColor="#ffffffff"
+                    android:gravity="top|start"
+                    android:paddingLeft="12.0dip"
+                    android:paddingTop="10.0dip"
+                    android:paddingRight="12.0dip"
+                    android:paddingBottom="10.0dip"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:background="@drawable/native_genre_tile"
+                    android:backgroundTint="#ff777777"
+                    android:onClick="onNativeGenreClick"
+                    android:layout_width="0.0dip"
+                    android:layout_height="86.0dip"
+                    android:layout_weight="1.0" />
+            </LinearLayout>
+            <LinearLayout
+                android:orientation="horizontal"
+                android:layout_width="fill_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="8.0dip">
+                <TextView
+                    android:text="Podcasts"
+                    android:tag="Podcasts"
+                    android:textSize="15.0sp"
+                    android:textStyle="bold"
+                    android:textColor="#ffffffff"
+                    android:gravity="top|start"
+                    android:paddingLeft="12.0dip"
+                    android:paddingTop="10.0dip"
+                    android:paddingRight="12.0dip"
+                    android:paddingBottom="10.0dip"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:background="@drawable/native_genre_tile"
+                    android:backgroundTint="#ff006450"
+                    android:onClick="onNativeGenreClick"
+                    android:layout_width="0.0dip"
+                    android:layout_height="86.0dip"
+                    android:layout_weight="1.0"
+                android:layout_marginRight="8.0dip" />
+                <TextView
+                    android:text="Nouveautés"
+                    android:tag="Nouveautés"
+                    android:textSize="15.0sp"
+                    android:textStyle="bold"
+                    android:textColor="#ffffffff"
+                    android:gravity="top|start"
+                    android:paddingLeft="12.0dip"
+                    android:paddingTop="10.0dip"
+                    android:paddingRight="12.0dip"
+                    android:paddingBottom="10.0dip"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:background="@drawable/native_genre_tile"
+                    android:backgroundTint="#ff1e3264"
+                    android:onClick="onNativeGenreClick"
+                    android:layout_width="0.0dip"
+                    android:layout_height="86.0dip"
+                    android:layout_weight="1.0" />
+            </LinearLayout>
+            </LinearLayout>
+        </ScrollView>
+
+        <HorizontalScrollView
+            android:id="@id/nativeLibraryCategories"
+            android:visibility="gone"
+            android:overScrollMode="never"
+            android:scrollbars="none"
+            android:paddingLeft="16.0dip"
+            android:paddingRight="16.0dip"
+            android:paddingBottom="12.0dip"
+            android:layout_width="fill_parent"
+            android:layout_height="wrap_content">
+            <LinearLayout
+                android:orientation="horizontal"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content">
+                <TextView android:text="Playlists" android:tag="playlists" android:textSize="13.5sp" android:textStyle="bold" android:textColor="#ffffffff" android:gravity="center" android:clickable="true" android:focusable="true" android:background="@drawable/native_category_chip" android:paddingLeft="16.0dip" android:paddingRight="16.0dip" android:onClick="onNativeLibraryCategoryClick" android:layout_width="wrap_content" android:layout_height="38.0dip" android:layout_marginRight="8.0dip" />
+                <TextView android:text="Albums" android:tag="albums" android:textSize="13.5sp" android:textStyle="bold" android:textColor="#ffffffff" android:gravity="center" android:clickable="true" android:focusable="true" android:background="@drawable/native_category_chip" android:paddingLeft="16.0dip" android:paddingRight="16.0dip" android:onClick="onNativeLibraryCategoryClick" android:layout_width="wrap_content" android:layout_height="38.0dip" android:layout_marginRight="8.0dip" />
+                <TextView android:text="Artistes" android:tag="artists" android:textSize="13.5sp" android:textStyle="bold" android:textColor="#ffffffff" android:gravity="center" android:clickable="true" android:focusable="true" android:background="@drawable/native_category_chip" android:paddingLeft="16.0dip" android:paddingRight="16.0dip" android:onClick="onNativeLibraryCategoryClick" android:layout_width="wrap_content" android:layout_height="38.0dip" android:layout_marginRight="8.0dip" />
+                <TextView android:text="Podcasts" android:tag="podcasts" android:textSize="13.5sp" android:textStyle="bold" android:textColor="#ffffffff" android:gravity="center" android:clickable="true" android:focusable="true" android:background="@drawable/native_category_chip" android:paddingLeft="16.0dip" android:paddingRight="16.0dip" android:onClick="onNativeLibraryCategoryClick" android:layout_width="wrap_content" android:layout_height="38.0dip" />
+            </LinearLayout>
+        </HorizontalScrollView>
+
+        <ScrollView
+            android:id="@id/nativeRowsScroll"
+            android:fillViewport="true"
+            android:overScrollMode="never"
+            android:scrollbars="none"
+            android:layout_width="fill_parent"
+            android:layout_height="0.0dip"
+            android:layout_weight="1.0">
+            <LinearLayout
+                android:id="@id/nativeContent"
+                android:tag="nativeContent"
+                android:orientation="vertical"
+                android:paddingLeft="4.0dip"
+                android:paddingTop="4.0dip"
+                android:paddingRight="4.0dip"
+                android:paddingBottom="12.0dip"
+                android:layout_width="fill_parent"
+                android:layout_height="wrap_content">
+            </LinearLayout>
+        </ScrollView>
+
+        <LinearLayout
+            android:id="@id/nativePlayerPanel"
+            android:orientation="vertical"
+            android:gravity="center_horizontal"
+            android:background="@drawable/native_player_background"
+            android:paddingLeft="20.0dip"
+            android:paddingRight="20.0dip"
+            android:paddingTop="8.0dip"
+            android:paddingBottom="16.0dip"
+            android:visibility="gone"
+            android:clickable="true"
+            android:focusable="true"
+            android:layout_width="fill_parent"
+            android:layout_height="0.0dip"
+            android:layout_weight="1.0">
+            <androidx.cardview.widget.CardView
+                android:layout_width="fill_parent"
+                android:layout_height="0.0dip"
+                android:layout_weight="1.0"
+                android:layout_marginLeft="12.0dip"
+                android:layout_marginRight="12.0dip"
+                android:layout_marginTop="4.0dip"
+                android:layout_marginBottom="16.0dip"
+                app:cardBackgroundColor="#ff282828"
+                app:cardCornerRadius="16.0dip"
+                app:cardElevation="8.0dip">
+                <ImageView
+                    android:id="@id/nativePlayerLargeArtwork"
+                    android:src="@drawable/logo_melodix"
+                    android:contentDescription="Current track artwork"
+                    android:scaleType="centerCrop"
+                    android:background="#ff282828"
+                    android:layout_width="fill_parent"
+                    android:layout_height="fill_parent" />
+            </androidx.cardview.widget.CardView>
+            <TextView
+                android:id="@id/nativePlayerLargeTitle"
+                android:text="Aucune lecture en cours"
+                android:textSize="24.0sp"
+                android:textStyle="bold"
+                android:textColor="#ffffffff"
+                android:gravity="center"
+                android:maxLines="2"
+                android:ellipsize="end"
+                android:layout_width="fill_parent"
+                android:layout_height="wrap_content" />
+            <TextView
+                android:id="@id/nativePlayerLargeArtist"
+                android:text="Aucune piste"
+                android:textSize="15.0sp"
+                android:textColor="#ffb3b3b3"
+                android:gravity="center"
+                android:maxLines="1"
+                android:ellipsize="end"
+                android:paddingTop="4.0dip"
+                android:layout_width="fill_parent"
+                android:layout_height="wrap_content" />
+            <TextView
+                android:text="● Lu via Spotify"
+                android:textSize="12.0sp"
+                android:textStyle="bold"
+                android:textColor="#ff1ed760"
+                android:gravity="center"
+                android:paddingTop="6.0dip"
+                android:layout_width="fill_parent"
+                android:layout_height="wrap_content" />
+            <ProgressBar
+                android:id="@id/nativePlayerProgress"
+                style="?android:progressBarStyleHorizontal"
+                android:indeterminate="false"
+                android:max="1000"
+                android:progress="0"
+                android:progressDrawable="@drawable/widget_progress_drawable"
+                android:progressTint="#ff1ed760"
+                android:progressBackgroundTint="#ff2a2a2a"
+                android:layout_width="fill_parent"
+                android:layout_height="6.0dip"
+                android:layout_marginTop="16.0dip"
+                android:layout_marginBottom="6.0dip" />
+            <LinearLayout
+                android:orientation="horizontal"
+                android:paddingBottom="12.0dip"
+                android:layout_width="fill_parent"
+                android:layout_height="wrap_content">
+                <TextView
+                    android:id="@id/nativePlayerPositionText"
+                    android:text="0:00"
+                    android:textSize="12.0sp"
+                    android:textStyle="bold"
+                    android:textColor="#ffb3b3b3"
+                    android:layout_width="0.0dip"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1.0" />
+                <TextView
+                    android:id="@id/nativePlayerDurationText"
+                    android:text="0:00"
+                    android:textSize="12.0sp"
+                    android:textStyle="bold"
+                    android:textColor="#ffb3b3b3"
+                    android:gravity="right"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content" />
+            </LinearLayout>
+            <LinearLayout
+                android:orientation="horizontal"
+                android:gravity="center"
+                android:layout_width="fill_parent"
+                android:layout_height="wrap_content">
+                <ImageView android:id="@id/nativePlayerShuffleButton" android:src="@drawable/shuffle" android:tint="#ffb3b3b3" android:scaleType="centerInside" android:padding="12.0dip" android:clickable="true" android:focusable="true" android:contentDescription="Shuffle" android:background="@drawable/native_button_dark" android:onClick="onNativePlayerShuffleClick" android:layout_width="48.0dip" android:layout_height="48.0dip" />
+                <ImageView android:id="@id/nativePlayerPreviousButton" android:src="@drawable/previous" android:scaleType="centerInside" android:padding="14.0dip" android:clickable="true" android:focusable="true" android:contentDescription="Previous track" android:background="@drawable/native_button_dark" android:onClick="onNativePlayerPreviousClick" android:layout_width="54.0dip" android:layout_height="54.0dip" android:layout_marginLeft="12.0dip" />
+                <ImageView android:id="@id/nativePlayerLargePlayPauseButton" android:src="@drawable/play" android:tint="#ff121212" android:scaleType="centerInside" android:padding="24.0dip" android:clickable="true" android:focusable="true" android:contentDescription="Lecture ou pause" android:background="@drawable/native_button_white" android:onClick="onNativePlayPauseClick" android:layout_width="72.0dip" android:layout_height="72.0dip" android:layout_marginLeft="14.0dip" android:layout_marginRight="14.0dip" />
+                <ImageView android:id="@id/nativePlayerNextButton" android:src="@drawable/next" android:scaleType="centerInside" android:padding="15.0dip" android:clickable="true" android:focusable="true" android:contentDescription="Next track" android:background="@drawable/native_button_dark" android:onClick="onNativePlayerNextClick" android:layout_width="54.0dip" android:layout_height="54.0dip" android:layout_marginRight="12.0dip" />
+                <ImageView android:id="@id/nativePlayerRepeatButton" android:src="@drawable/repoff" android:tint="#ffb3b3b3" android:scaleType="centerInside" android:padding="12.0dip" android:clickable="true" android:focusable="true" android:contentDescription="Repeat" android:background="@drawable/native_button_dark" android:onClick="onNativePlayerRepeatClick" android:layout_width="48.0dip" android:layout_height="48.0dip" />
+            </LinearLayout>
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@id/nativeMiniPlayerContainer"
+            android:orientation="vertical"
+            android:visibility="visible"
+            android:background="@drawable/native_mini_player_bg"
+            android:layout_width="fill_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginLeft="10.0dip"
+            android:layout_marginTop="4.0dip"
+            android:layout_marginRight="10.0dip"
+            android:layout_marginBottom="6.0dip">
+        <LinearLayout
+            android:id="@id/nativeMiniPlayer"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:clickable="true"
+            android:focusable="true"
+            android:contentDescription="Ouvrir le lecteur"
+            android:background="@drawable/native_mini_row_ripple"
+            android:onClick="onNativePlayerExpandClick"
+            android:paddingLeft="10.0dip"
+            android:paddingTop="8.0dip"
+            android:paddingRight="10.0dip"
+            android:paddingBottom="8.0dip"
+            android:layout_width="fill_parent"
+            android:layout_height="72.0dip">
+            <androidx.cardview.widget.CardView
+                android:layout_width="48.0dip"
+                android:layout_height="48.0dip"
+                android:layout_marginRight="12.0dip"
+                app:cardBackgroundColor="#ff121212"
+                app:cardCornerRadius="6.0dip"
+                app:cardElevation="0.0dip">
+                <ImageView
+                    android:id="@id/nativePlayerArtwork"
+                    android:src="@drawable/logo_melodix"
+                    android:contentDescription="Current track artwork"
+                    android:scaleType="centerCrop"
+                    android:background="#ff121212"
+                    android:layout_width="fill_parent"
+                    android:layout_height="fill_parent" />
+            </androidx.cardview.widget.CardView>
+            <LinearLayout
+                android:orientation="vertical"
+                android:gravity="center_vertical"
+                android:paddingRight="6.0dip"
+                android:layout_width="0.0dip"
+                android:layout_height="fill_parent"
+                android:layout_weight="1.0">
+                <TextView
+                    android:id="@id/nativePlayerTitle"
+                    android:text="Aucune lecture en cours"
+                    android:textSize="14.5sp"
+                    android:textStyle="bold"
+                    android:textColor="#ffffffff"
+                    android:maxLines="1"
+                    android:ellipsize="end"
+                    android:layout_width="fill_parent"
+                    android:layout_height="wrap_content" />
+                <TextView
+                    android:id="@id/nativePlayerArtist"
+                    android:text="Touchez pour ouvrir le lecteur"
+                    android:textSize="12.5sp"
+                    android:textColor="#ffb3b3b3"
+                    android:maxLines="1"
+                    android:ellipsize="end"
+                    android:layout_width="fill_parent"
+                    android:layout_height="wrap_content" />
+            </LinearLayout>
+            <ImageView
+                android:src="@drawable/previous"
+                android:scaleType="centerInside"
+                android:padding="10.0dip"
+                android:clickable="true"
+                android:focusable="true"
+                android:contentDescription="Previous track"
+                android:background="@drawable/native_button_dark"
+                android:onClick="onNativePlayerPreviousClick"
+                android:layout_width="40.0dip"
+                android:layout_height="40.0dip"
+                android:layout_marginLeft="4.0dip" />
+            <ImageView
+                android:id="@id/nativePlayPauseButton"
+                android:src="@drawable/play"
+                android:tint="#ff121212"
+                android:scaleType="centerInside"
+                android:padding="15.0dip"
+                android:clickable="true"
+                android:focusable="true"
+                android:contentDescription="Lecture ou pause"
+                android:background="@drawable/native_button_white"
+                android:onClick="onNativePlayPauseClick"
+                android:layout_width="48.0dip"
+                android:layout_height="48.0dip"
+                android:layout_marginLeft="8.0dip"
+                android:layout_marginRight="4.0dip" />
+            <ImageView
+                android:src="@drawable/next"
+                android:scaleType="centerInside"
+                android:padding="10.0dip"
+                android:clickable="true"
+                android:focusable="true"
+                android:contentDescription="Next track"
+                android:background="@drawable/native_button_dark"
+                android:onClick="onNativePlayerNextClick"
+                android:layout_width="40.0dip"
+                android:layout_height="40.0dip"
+                android:layout_marginRight="2.0dip" />
+        </LinearLayout>
+            <ProgressBar
+                android:id="@id/nativeMiniProgress"
+                style="?android:progressBarStyleHorizontal"
+                android:indeterminate="false"
+                android:max="1000"
+                android:progress="0"
+                android:progressDrawable="@drawable/widget_progress_drawable"
+                android:progressTint="#ff1ed760"
+                android:progressBackgroundTint="#ff2a2a2a"
+                android:layout_width="fill_parent"
+                android:layout_height="3.0dip"
+                android:layout_marginLeft="6.0dip"
+                android:layout_marginRight="6.0dip"
+                android:layout_marginBottom="6.0dip" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@id/nativeTabBar"
+            android:orientation="horizontal"
+            android:gravity="center"
+            android:paddingTop="8.0dip"
+            android:paddingBottom="14.0dip"
+            android:background="#ff0a0a0a"
+            android:layout_width="fill_parent"
+            android:layout_height="72.0dip">
+            <LinearLayout android:id="@id/nativeHomeTab" android:orientation="vertical" android:gravity="center" android:clickable="true" android:focusable="true" android:background="@drawable/native_tab_ripple" android:contentDescription="Accueil" android:onClick="onNativeHomeClick" android:layout_width="0.0dip" android:layout_height="fill_parent" android:layout_weight="1.0">
+                <ImageView android:src="@drawable/native_nav_home" android:tint="#ffffffff" android:duplicateParentState="true" android:clickable="false" android:focusable="false" android:layout_width="26.0dip" android:layout_height="26.0dip" android:layout_marginTop="4.0dip" />
+                <TextView android:text="Accueil" android:textSize="11.0sp" android:textStyle="bold" android:textColor="#ffffffff" android:duplicateParentState="true" android:clickable="false" android:focusable="false" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="5.0dip" />
+            </LinearLayout>
+            <LinearLayout android:id="@id/nativeSearchTab" android:orientation="vertical" android:gravity="center" android:clickable="true" android:focusable="true" android:background="@drawable/native_tab_ripple" android:contentDescription="Recherche" android:onClick="onNativeSearchClick" android:layout_width="0.0dip" android:layout_height="fill_parent" android:layout_weight="1.0">
+                <ImageView android:src="@drawable/native_nav_search" android:tint="#ffb3b3b3" android:duplicateParentState="true" android:clickable="false" android:focusable="false" android:layout_width="26.0dip" android:layout_height="26.0dip" android:layout_marginTop="4.0dip" />
+                <TextView android:text="Rechercher" android:textSize="11.0sp" android:textStyle="bold" android:textColor="#ffb3b3b3" android:duplicateParentState="true" android:clickable="false" android:focusable="false" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="5.0dip" />
+            </LinearLayout>
+            <LinearLayout android:id="@id/nativeLibraryTab" android:orientation="vertical" android:gravity="center" android:clickable="true" android:focusable="true" android:background="@drawable/native_tab_ripple" android:contentDescription="Bibliothèque" android:onClick="onNativeLibraryClick" android:layout_width="0.0dip" android:layout_height="fill_parent" android:layout_weight="1.0">
+                <ImageView android:src="@drawable/native_nav_library" android:tint="#ffb3b3b3" android:duplicateParentState="true" android:clickable="false" android:focusable="false" android:layout_width="26.0dip" android:layout_height="26.0dip" android:layout_marginTop="4.0dip" />
+                <TextView android:text="Bibliothèque" android:textSize="11.0sp" android:textStyle="bold" android:textColor="#ffb3b3b3" android:duplicateParentState="true" android:clickable="false" android:focusable="false" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="5.0dip" />
+            </LinearLayout>
+        </LinearLayout>
+    </LinearLayout>
+
+    <ImageButton
+        android:id="@id/btnSettings"
+        android:background="@android:color/transparent"
+        android:padding="0.0dip"
+        android:layout_width="40.0dip"
+        android:layout_height="40.0dip"
+        android:layout_marginTop="5.0dip"
+        android:src="@drawable/waves_white_bg"
+        android:scaleType="fitCenter"
+        android:visibility="gone"
+        android:onClick="onNativeSettingsClick"
+        android:alpha="0.9"
+        android:elevation="0.0dip"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
+
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:id="@id/splashOverlay"
+        android:background="@color/spotify_black"
+        android:focusable="true"
+        android:visibility="visible"
+        android:clickable="true"
+        android:layout_width="fill_parent"
+        android:layout_height="fill_parent"
+        android:elevation="20.0dip">
+        <androidx.cardview.widget.CardView
+            android:id="@id/cardSplashLogo"
+            android:layout_width="140.0dip"
+            android:layout_height="140.0dip"
+            app:cardBackgroundColor="@android:color/transparent"
+            app:cardCornerRadius="70.0dip"
+            app:cardElevation="0.0dip"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent">
             <ImageView android:id="@id/imgSplashLogo" android:layout_width="fill_parent" android:layout_height="fill_parent" android:src="@drawable/logo_melodix" />
         </androidx.cardview.widget.CardView>
         <ImageView android:id="@id/imgSplashError" android:visibility="gone" android:layout_width="100.0dip" android:layout_height="100.0dip" android:src="@drawable/waves_white" android:alpha="0.0" app:layout_constraintBottom_toBottomOf="parent" app:layout_constraintEnd_toEndOf="parent" app:layout_constraintStart_toStartOf="parent" app:layout_constraintTop_toTopOf="parent" />
         <TextView android:textSize="18.0sp" android:textStyle="bold" android:textColor="#ffffffff" android:gravity="center" android:id="@id/txtSplashError" android:visibility="gone" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="24.0dip" android:text="Network Error\nTap to retry" android:alpha="0.0" app:layout_constraintEnd_toEndOf="parent" app:layout_constraintStart_toStartOf="parent" app:layout_constraintTop_toBottomOf="@id/imgSplashError" />
     </androidx.constraintlayout.widget.ConstraintLayout>
-    <ProgressBar android:id="@id/progressBar" android:visibility="invisible" android:layout_width="fill_parent" android:layout_height="4.0dip" android:indeterminate="true" android:elevation="25.0dip" android:indeterminateTint="@color/teal_200" app:layout_constraintTop_toTopOf="parent" style="?android:progressBarStyleHorizontal" />
+
+    <ProgressBar
+        android:id="@id/progressBar"
+        android:visibility="invisible"
+        android:layout_width="fill_parent"
+        android:layout_height="4.0dip"
+        android:indeterminate="true"
+        android:elevation="25.0dip"
+        android:indeterminateTint="@color/teal_200"
+        app:layout_constraintTop_toTopOf="parent"
+        style="?android:progressBarStyleHorizontal" />
 </androidx.constraintlayout.widget.ConstraintLayout>

@@ -1,8 +1,8 @@
 # Créer et publier l'APK Melodix Preview
 
-Cette procédure crée une application d'essai séparée, package `com.melodix.music.preview`, nommée **Melodix Preview**. Elle peut être installée à côté de l'application normale `com.melodix.music` sans la désinstaller. Ce n'est pas une mise à jour de test.7 : l'application et ses données sont séparées.
+La Preview est une application d'essai séparée, identifiant `com.melodix.music.preview`, nommée **Melodix Preview**. Elle s'installe à côté de l'application normale `com.melodix.music` sans la désinstaller et garde ses propres données. La release actuelle est la **test.3** (`v1.2.2-test.3-preview`), construite depuis le commit `576d9fade2d71c75b795a6bdb67300388a26fe2e`. Elle garde le dock mobile et le mini-lecteur visibles même lorsque le lecteur Spotify est déplié, et couvre les écrans portrait jusqu'à 820 px CSS. La test.2 (`v1.2.2-test.2-preview`) et la Preview V1 (`v1.2.2-test.1-preview`), build exact du commit V18 `81ef774fcb2208d4c4e999943411040aa1bfa33f`, restent disponibles.
 
-La clé de test.7 n'étant pas disponible, cette prévisualisation doit avoir sa propre clé. Il faut conserver cette nouvelle clé pour que les prochaines versions Preview puissent mettre à jour cette même application.
+La Preview doit être signée avec sa propre clé. Conserve cette clé pour les prochaines versions afin qu'elles puissent mettre à jour la même application.
 
 ## 1. Créer la clé Preview sur Windows
 
@@ -40,22 +40,22 @@ Pour préparer la valeur de `MELODIX_PREVIEW_KEYSTORE_B64`, exécute dans PowerS
 
 Cette commande copie le texte encodé dans le presse-papiers sans l'afficher. Colle-le directement dans le champ **Value** du secret `MELODIX_PREVIEW_KEYSTORE_B64`. Pour le secret du mot de passe, saisis le mot de passe du keystore. N'envoie aucune de ces valeurs dans le chat.
 
-## 3. Lancer la pré-release
+## 3. Publier une version Preview
+
+Pour reproduire la release mobile test.3 :
 
 1. Sur GitHub, ouvre le dépôt puis l'onglet **Actions**.
-2. Sélectionne **Build Melodix Preview APK**.
-3. Clique **Run workflow** et sélectionne la branche `main`.
-4. Laisse le tag par défaut `v1.2.2-test.8-preview`, puis clique **Run workflow**.
-5. Attends que le run soit terminé avec l'état vert **Success**.
+2. Sélectionne **Build Melodix Preview APK** et clique **Run workflow** sur la branche de travail.
+3. Saisis le tag `v1.2.2-test.3-preview` et le commit source `576d9fade2d71c75b795a6bdb67300388a26fe2e`, puis lance le workflow.
+4. Attends que le run soit terminé avec l'état vert **Success**.
 
-Le workflow crée la pré-release `Melodix Preview v1.2.2 test.8` et y attache :
+Le workflow publie `Melodix Preview v1.2.2 test.3` et y attache `Melodix-Preview-v1.2.2-test3.apk` ainsi que son fichier `.sha256`. Son `versionCode` est `1020231`, supérieur à celui de la Preview test.2 : avec la même clé Preview, elle met à jour l'application Preview déjà installée. Elle ne remplace pas l'application normale et ne nécessite pas sa désinstallation.
 
-- `Melodix-Preview-v1.2.2-test8.apk`
-- son fichier `.sha256`
+Après installation, vérifie que tu as lancé **Melodix Preview** et que **Paramètres → GUI Mode** est réglé sur **CSS+JS Mobile**. C'est ce mode qui active les styles et la navigation mobile.
 
-La pré-release apparaîtra sur GitHub dans **Releases**. Télécharge l'APK depuis cette page et installe-la sur Android. Elle apparaîtra sous le nom **Melodix Preview** et ne remplacera pas l'application normale.
+Pour reconstruire l'ancienne base V18, choisis le tag `v1.2.2-test.1-preview` et le commit source `81ef774fcb2208d4c4e999943411040aa1bfa33f`.
 
-Le workflow adapte dans sa copie temporaire l'empreinte de signature intégrée à l'application pour qu'elle corresponde à la clé Preview, puis augmente le `versionCode` afin que la correction puisse mettre à jour la première APK Preview déjà installée. Le projet source et la signature de l'application normale restent inchangés.
+Pour une version suivante, choisis un nouveau tag test et le commit source voulu; garde la même clé Preview. Le workflow augmente le `versionCode` au-dessus de l'ancienne Preview test.27. Il adapte uniquement sa copie temporaire du projet à la signature Preview et au `versionCode`; le projet source et la signature de l'application normale restent inchangés.
 
 ## Si le workflow échoue
 
