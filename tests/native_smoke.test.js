@@ -139,5 +139,11 @@ test('smoke: demo-home extra paints labelled playlists without login', () => {
     assert.match(activity, /DEMO Liked Songs/);
     assert.match(activity, /DEMO Mix Spotify/);
     assert.match(read('scripts/preview-launch-trace.sh'), /melodix_demo_home true/);
+    assert.match(read('scripts/preview-launch-trace.sh'), /pm grant/);
+    assert.match(read('scripts/preview-launch-trace.sh'), /wait_for_activity/);
+    assert.match(read('scripts/preview-launch-trace.sh'), /APP_LAUNCH_FAILED/);
+    assert.match(read('scripts/preview-launch-trace.sh'), /MelodixDemo/);
+    assert.doesNotMatch(read('scripts/preview-launch-trace.sh'), /uiautomator dump/);
     assert.match(read('.github/workflows/preview-launch-trace.yml'), /\[launch-trace\]/);
+    assert.match(read('.github/workflows/preview-launch-trace.yml'), /timeout-minutes: 25/);
 });

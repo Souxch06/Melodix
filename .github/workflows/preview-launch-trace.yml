@@ -16,7 +16,7 @@ jobs:
     # ubuntu-latest migrates to Ubuntu 26, where the emulator/adb pair failed
     # twice with exit code 224. Pin the image the emulator is known to work on.
     runs-on: ubuntu-24.04
-    timeout-minutes: 45
+    timeout-minutes: 25
     steps:
       - name: Check out repository
         uses: actions/checkout@v7.0.1

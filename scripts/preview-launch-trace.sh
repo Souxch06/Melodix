@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 # Runs with an Android emulator already booted and adb connected.
 # Installs the published preview APK, launches it, and writes screenshots,
-# UI dumps, logcat, prefs and a report into $RUNNER_TEMP/state.
+# dumps, logcat and a report into $RUNNER_TEMP/state.
+# Infrastructure success (emulator up, APK installed) is logged separately
+# from app success (MainActivity resumed, no Melodix crash).
 set -uo pipefail
 
 package_id="com.melodix.music.preview"
@@ -14,8 +16,19 @@ note() {
   printf '::notice title=preview-launch::%s\n' "$1"
 }
 
+fail() {
+  printf '::error title=preview-launch::%s\n' "$1"
+  echo "$1" >> "$state/failures.txt"
+}
+
 stamp() {
   date -u +%Y%m%dT%H%M%SZ
+}
+
+dismiss_system_dialogs() {
+  adb shell am broadcast -a android.intent.action.CLOSE_SYSTEM_DIALOGS >/dev/null 2>&1 || true
+  # ANR "Wait" / permission overlays: KEYCODE_BACK then KEYCODE_ESCAPE.
+  adb shell input keyevent 4 >/dev/null 2>&1 || true
 }
 
 capture() {
@@ -23,64 +36,127 @@ capture() {
   local ts
   ts="$(stamp)"
   adb exec-out screencap -p > "$state/${label}-${ts}.png" 2>/dev/null || true
-  adb shell uiautomator dump --compressed /sdcard/window.xml >/dev/null 2>&1 || true
-  adb exec-out cat /sdcard/window.xml > "$state/${label}-${ts}.xml" 2>/dev/null || true
-  grep -o 'text="[^"]*"' "$state/${label}-${ts}.xml" 2>/dev/null | head -n 80 > "$state/${label}-${ts}-text.txt" || true
-  note "${label}: $(tr '\n' ' ' < "$state/${label}-${ts}-text.txt" 2>/dev/null | cut -c1-240)"
+  adb shell dumpsys activity activities > "$state/${label}-${ts}-activities.txt" 2>/dev/null || true
+  grep -E 'mResumedActivity|topResumedActivity|ResumedActivity' \
+    "$state/${label}-${ts}-activities.txt" 2>/dev/null | head -n 6 \
+    > "$state/${label}-${ts}-resumed.txt" || true
+  note "${label}: $(tr '\n' ' ' < "$state/${label}-${ts}-resumed.txt" 2>/dev/null | cut -c1-240)"
 }
 
-adb install -r "$apk_path" > "$state/install.txt" 2>&1
+wait_for_activity() {
+  local want="$1"
+  local seconds="${2:-60}"
+  local i
+  for i in $(seq 1 "$seconds"); do
+    dismiss_system_dialogs
+    if adb shell dumpsys activity activities 2>/dev/null | grep -q "$want"; then
+      echo "$i" > "$state/wait-${want//\//_}.txt"
+      return 0
+    fi
+    sleep 1
+  done
+  return 1
+}
+
+app_fatal() {
+  grep -E "FATAL EXCEPTION|ForegroundServiceDidNotStartInTimeException" "$state/logcat.txt" 2>/dev/null \
+    | grep -F "$package_id" || true
+}
+
+: > "$state/failures.txt"
+echo "release_ref=${RELEASE_REF:-unknown}" > "$state/infra.txt"
+
+if ! adb install -r "$apk_path" > "$state/install.txt" 2>&1; then
+  cat "$state/install.txt"
+  fail "APK install failed"
+  cat "$state/install.txt" >> "$state/report.txt"
+  exit 1
+fi
 cat "$state/install.txt"
 adb shell dumpsys package "$package_id" 2>/dev/null \
   | grep -E 'versionName|versionCode' | head -n 2 > "$state/installed.txt"
 note "installed: $(tr '\n' ' ' < "$state/installed.txt" | cut -c1-300)"
 note "release_ref: ${RELEASE_REF:-unknown}"
+echo "install_ok=1" >> "$state/infra.txt"
+
+# Runtime permissions that otherwise open GrantPermissionsActivity on API 35.
+adb shell pm grant "$package_id" android.permission.POST_NOTIFICATIONS >/dev/null 2>&1 || true
+adb shell pm grant "$package_id" android.permission.BLUETOOTH_CONNECT >/dev/null 2>&1 || true
+adb shell appops set "$package_id" POST_NOTIFICATION allow >/dev/null 2>&1 || true
 
 adb logcat -c >/dev/null 2>&1
 adb shell am force-stop "$package_id" >/dev/null 2>&1
-adb shell monkey -p "$package_id" -c android.intent.category.LAUNCHER 1 > "$state/monkey.txt" 2>&1
+adb shell am start -W -n "${package_id}/${activity_id}" > "$state/start.txt" 2>&1
+cat "$state/start.txt"
 
 capture "boot-2s"
+if ! wait_for_activity "$activity_id" 45; then
+  fail "MainActivity did not resume within 45s after am start"
+fi
+capture "boot-ready"
 sleep 8
 capture "boot-10s"
-sleep 20
+sleep 12
 capture "boot-30s"
 
 adb shell dumpsys activity activities 2>/dev/null \
-  | grep -E 'mResumedActivity|topResumedActivity|ResumedActivity' | head -n 3 > "$state/resumed.txt"
+  | grep -E 'mResumedActivity|topResumedActivity|ResumedActivity' | head -n 5 \
+  > "$state/resumed.txt"
 note "resumed: $(tr '\n' ' ' < "$state/resumed.txt" | cut -c1-300)"
 
-adb root >/dev/null 2>&1
-sleep 3
-adb shell cat "/data/data/$package_id/shared_prefs/melodix_native.xml" > "$state/prefs.xml" 2>/dev/null || true
-note "stage: $(tr -d '\n' < "$state/prefs.xml" 2>/dev/null | cut -c1-300)"
+if ! grep -q "$activity_id" "$state/resumed.txt" 2>/dev/null; then
+  fail "top activity is not MainActivity: $(tr '\n' ' ' < "$state/resumed.txt")"
+fi
 
 adb logcat -d -b crash > "$state/crash.txt" 2>&1
 adb logcat -d > "$state/logcat.txt" 2>&1
-grep -n -A 60 'FATAL EXCEPTION' "$state/logcat.txt" > "$state/fatal.txt" 2>/dev/null || true
+grep -n -A 40 'FATAL EXCEPTION' "$state/logcat.txt" > "$state/fatal.txt" 2>/dev/null || true
+grep -n -A 20 'ForegroundServiceDidNotStartInTimeException' "$state/logcat.txt" \
+  > "$state/fgs.txt" 2>/dev/null || true
 
-# Demo-home extra paints labelled playlists without Spotify login.
+if grep -q "ForegroundServiceDidNotStartInTimeException" "$state/logcat.txt" 2>/dev/null; then
+  fail "ForegroundServiceDidNotStartInTimeException present in logcat"
+fi
+if grep -E "FATAL EXCEPTION" "$state/logcat.txt" 2>/dev/null | grep -q "$package_id"; then
+  fail "FATAL EXCEPTION for $package_id"
+fi
+if grep -q "Process system isn't responding" "$state"/boot-*-resumed.txt 2>/dev/null; then
+  fail "system ANR dialog visible"
+fi
+
+# Isolated demo-home extra: labelled tiles, not Spotify data.
 adb shell am force-stop "$package_id" >/dev/null 2>&1
-adb shell am start -n "${package_id}/${activity_id}" --ez melodix_demo_home true > "$state/demo-start.txt" 2>&1
-sleep 8
+adb logcat -c >/dev/null 2>&1
+adb shell am start -W -n "${package_id}/${activity_id}" --ez melodix_demo_home true \
+  > "$state/demo-start.txt" 2>&1
+if ! wait_for_activity "$activity_id" 30; then
+  fail "demo launch: MainActivity did not resume"
+fi
+sleep 5
 capture "demo-8s"
-grep -c 'DEMO' "$state"/demo-8s-*-text.txt > "$state/demo-hits.txt" 2>/dev/null || echo 0 > "$state/demo-hits.txt"
+adb logcat -d > "$state/demo-logcat.txt" 2>&1
+grep -c 'MelodixDemo' "$state/demo-logcat.txt" > "$state/demo-hits.txt" 2>/dev/null || echo 0 > "$state/demo-hits.txt"
+if ! grep -q 'MelodixDemo' "$state/demo-logcat.txt" 2>/dev/null; then
+  fail "demo extra did not log MelodixDemo painted (isolated demo, not Spotify playlists)"
+fi
 
 {
   echo "installed: $(tr '\n' ' ' < "$state/installed.txt" 2>/dev/null)"
   echo "release advertises: ${RELEASE_REF:-unknown}"
+  echo "infra: $(tr '\n' ' ' < "$state/infra.txt" 2>/dev/null)"
   echo "resumed: $(tr '\n' ' ' < "$state/resumed.txt" 2>/dev/null)"
-  echo "stage prefs: $(tr -d '\n' < "$state/prefs.xml" 2>/dev/null | cut -c1-600)"
   echo "demo hits: $(cat "$state/demo-hits.txt" 2>/dev/null)"
-  echo "visible boot-30s: $(tr '\n' ' ' < "$state"/boot-30s-*-text.txt 2>/dev/null | cut -c1-600)"
-  echo "visible demo-8s: $(tr '\n' ' ' < "$state"/demo-8s-*-text.txt 2>/dev/null | cut -c1-600)"
+  echo "failures: $(tr '\n' ' | ' < "$state/failures.txt" 2>/dev/null)"
+  echo "visible boot-30s: $(tr '\n' ' ' < "$state"/boot-30s-*-resumed.txt 2>/dev/null | cut -c1-400)"
+  echo "visible demo-8s: $(tr '\n' ' ' < "$state"/demo-8s-*-resumed.txt 2>/dev/null | cut -c1-400)"
+  echo "--- fgs ---"
+  head -c 2000 "$state/fgs.txt" 2>/dev/null
   echo "--- fatal ---"
   head -c 3000 "$state/fatal.txt" 2>/dev/null
   echo "--- crash buffer ---"
   head -c 2000 "$state/crash.txt" 2>/dev/null
 } > "$state/report.txt"
 
-note "fatal: $(grep -c . "$state/fatal.txt" 2>/dev/null) line(s) captured"
 {
   echo "## Preview launch trace"
   echo
@@ -107,4 +183,10 @@ PY
     || note "commit comment could not be posted"
 fi
 
+if [[ -s "$state/failures.txt" ]]; then
+  echo "APP_LAUNCH_FAILED"
+  cat "$state/failures.txt"
+  exit 1
+fi
+echo "APP_LAUNCH_OK"
 exit 0

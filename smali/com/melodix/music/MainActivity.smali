@@ -7032,6 +7032,9 @@
     const-string v1, "Accueil"
     const-string v2, "[{\"title\":\"DEMO Liked Songs\",\"section\":\"Vos playlists\",\"subtitle\":\"Données de démonstration\",\"uri\":\"spotify:playlist:demo1\"},{\"title\":\"DEMO Mix Spotify\",\"section\":\"Playlists Spotify\",\"subtitle\":\"Données de démonstration\",\"uri\":\"spotify:playlist:demo2\"}]"
     invoke-virtual {p0, v1, v2}, Lcom/melodix/music/MainActivity;->renderNativeRows(Ljava/lang/String;Ljava/lang/String;)V
+    const-string v1, "MelodixDemo"
+    const-string v2, "painted"
+    invoke-static {v1, v2}, Landroid/util/Log;->i(Ljava/lang/String;Ljava/lang/String;)I
 
     :demo_done
     return-void
