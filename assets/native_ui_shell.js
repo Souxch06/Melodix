@@ -17,6 +17,8 @@
     var updateTimer = null;
     var observer = null;
     var lastHomeSignature = null;
+    var pendingHomeCount = 0;
+    var pendingHomeSignature = null;
     var initialPath = '';
     var initialScreen = 'home';
     var lastInitialDetailSignature = null;
@@ -473,16 +475,35 @@
             });
         }
 
+        function looksPublicPlaylist(row) {
+            var title = String(row && row.title || '');
+            var subtitle = String(row && row.subtitle || '');
+            if (/collection/i.test(row && row.uri || '')) return false;
+            if (/daily mix|discover weekly|release radar|\bradio\b|mix \d/i.test(title)) return true;
+            if (/et bien d['’]autres artistes|and more artists/i.test(subtitle)) return true;
+            return false;
+        }
+
+        var mineUris = {};
+        if (library && Array.isArray(library.playlists)) {
+            library.playlists.forEach(function(item) {
+                var uri = nativeSpotifyUri(item && (item.uri || item.id || item.href));
+                if (uri) mineUris[uri] = true;
+            });
+        }
+
         if (userRows.length < 40 && document && typeof document.querySelector === 'function') {
             sidebar = document.querySelector('#Desktop_LeftSidebar_Id');
             if (sidebar && typeof sidebar.querySelectorAll === 'function') {
                 collectHomeRows(sidebar).forEach(function(row) {
                     var img = row.image;
                     if (!row.uri || !row.title || seen.has(row.uri) || userRows.length >= 40) return;
+                    if (looksPublicPlaylist(row)) return;
                     if (!img && /collection/i.test(row.uri)) {
                         img = 'https://misc.scdn.co/liked-songs/liked-songs-640.png';
                     }
                     seen.add(row.uri);
+                    mineUris[row.uri] = true;
                     userRows.push({
                         title: row.title,
                         subtitle: row.subtitle,
@@ -498,11 +519,9 @@
             if (!row || !row.uri || !row.title || seen.has(row.uri)) return;
             seen.add(row.uri);
             var section;
-            if (/collection/i.test(row.uri) || (library && Array.isArray(library.playlists) && library.playlists.some(function(item) {
-                return nativeSpotifyUri(item && (item.uri || item.id || item.href)) === row.uri;
-            }))) {
+            if (mineUris[row.uri] && !looksPublicPlaylist(row)) {
                 section = 'Vos playlists';
-            } else if (/:playlist:/i.test(row.uri)) {
+            } else if (/:playlist:/i.test(row.uri) || looksPublicPlaylist(row)) {
                 section = 'Playlists Spotify';
             } else {
                 section = row.section || '';
@@ -556,12 +575,19 @@
         try {
             clockLooksNative = /\[native code\]/.test(Function.prototype.toString.call(window.setTimeout));
         } catch (_) {}
-        var ready = rows.length > 0 && (
-            !clockLooksNative ||
-            homeRetries >= 8 ||
-            imaged >= rows.length ||
-            rows.length >= 10
-        );
+        if (clockLooksNative) {
+            if (rows.length > pendingHomeCount || signature !== pendingHomeSignature) {
+                pendingHomeCount = Math.max(pendingHomeCount, rows.length);
+                pendingHomeSignature = signature;
+                scheduleHomeRetry();
+                return;
+            }
+            if (homeRetries < 6) {
+                scheduleHomeRetry();
+                return;
+            }
+        }
+        var ready = rows.length > 0;
         if (!ready) {
             scheduleHomeRetry();
             return;
@@ -569,10 +595,13 @@
         if (lastHomeSignature !== signature && sendNativeUiData('home', rows)) {
             lastHomeSignature = signature;
             window.__sfNativeUiHomeDataSent = true;
+            if (homeRetryTimer) {
+                window.clearTimeout(homeRetryTimer);
+                homeRetryTimer = null;
+            }
+        } else if (clockLooksNative) {
+            scheduleHomeRetry();
         }
-
-        if (imaged >= Math.min(rows.length, 8)) clearHomeRetry();
-        else scheduleHomeRetry();
     }
 
     function currentSearchQuery() {
@@ -1714,7 +1743,6 @@
             return false;
         }
         lastHomeSignature = null;
-        homeRetries = 0;
         runUpdate();
         return true;
     };

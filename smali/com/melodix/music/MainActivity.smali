@@ -7920,21 +7920,8 @@
     invoke-virtual {v0, v1}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
     move-result v1
     if-eqz v1, :pull_done
-    const-string v0, "window.__sfNativeRequestHome && window.__sfNativeRequestHome();"
-    invoke-virtual {p0, v0}, Lcom/melodix/music/MainActivity;->runNativeJavascript(Ljava/lang/String;)V
     iget-object v0, p0, Lcom/melodix/music/MainActivity;->G:Landroid/webkit/WebView;
     if-eqz v0, :pull_done
-    const-string v1, "native_home_scrape.js"
-    invoke-static {v1}, Lm9;->d(Ljava/lang/String;)Ljava/lang/String;
-    move-result-object v2
-    if-eqz v2, :pull_list_text
-    invoke-virtual {v2}, Ljava/lang/String;->isEmpty()Z
-    move-result v1
-    if-nez v1, :pull_list_text
-    new-instance v1, Lcom/melodix/music/NativeHomeJsonCallback;
-    invoke-direct {v1, p0}, Lcom/melodix/music/NativeHomeJsonCallback;-><init>(Lcom/melodix/music/MainActivity;)V
-    invoke-virtual {v0, v2, v1}, Landroid/webkit/WebView;->evaluateJavascript(Ljava/lang/String;Landroid/webkit/ValueCallback;)V
-
     :pull_list_text
     new-instance v1, Lcom/melodix/music/NativeListJsCallback;
     invoke-direct {v1, p0}, Lcom/melodix/music/NativeListJsCallback;-><init>(Lcom/melodix/music/MainActivity;)V

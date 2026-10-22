@@ -354,24 +354,26 @@ test('search payloads do not clear stored home JSON in applyNativeUiData', () =>
     assert.doesNotMatch(searchBlock, /iput-object p2, p0, Lcom\/melodix\/music\/MainActivity;->nativeHomeJson/);
 });
 
-test('Accueil retries paint cached home JSON and asks the shell to resend playlists', () => {
+test('Accueil retries paint cached home JSON without posting a partial native scrape', () => {
     const activity = read('smali/com/melodix/music/MainActivity.smali');
     const at = activity.indexOf('.method public final pullNativeHomeList()V');
     const pull = activity.slice(at, activity.indexOf('.end method', at));
     assert.match(pull, /nativeHomeJson/);
     assert.match(pull, /renderNativeRows/);
-    assert.match(pull, /__sfNativeRequestHome/);
+    assert.doesNotMatch(pull, /__sfNativeRequestHome/);
+    assert.doesNotMatch(pull, /native_home_scrape\.js/);
+    assert.doesNotMatch(pull, /NativeHomeJsonCallback/);
+    const shell = read('assets/native_ui_shell.js');
+    assert.match(shell, /pendingHomeCount/);
+    assert.match(shell, /looksPublicPlaylist/);
+    assert.match(shell, /Playlists Spotify/);
     assert.match(read('assets/native_ui_shell.js'), /__sfNativeHomeRowsJson/);
     assert.match(read('assets/native_ui_shell.js'), /onNativeHomeRows/);
     assert.match(read('assets/native_ui_shell.js'), /homeScrapeRoot/);
     assert.match(read('assets/native_ui_shell.js'), /data-testid="card"/);
 });
 
-test('Accueil scrape runs in the WebView even if the shell never sent home JSON', () => {
-    const pullAt = read('smali/com/melodix/music/MainActivity.smali').indexOf('.method public final pullNativeHomeList()V');
-    const pull = read('smali/com/melodix/music/MainActivity.smali').slice(pullAt, read('smali/com/melodix/music/MainActivity.smali').indexOf('.end method', pullAt));
-    assert.match(pull, /native_home_scrape\.js/);
-    assert.match(pull, /NativeHomeJsonCallback/);
+test('native scrape helper still exists but is not polled from Accueil retries', () => {
     const scrape = read('assets/native_home_scrape.js');
     assert.match(scrape, /\/playlist\//);
     assert.match(scrape, /mediaLib/);
