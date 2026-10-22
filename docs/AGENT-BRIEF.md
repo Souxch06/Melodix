@@ -35,7 +35,6 @@ Inspiré de `Souxch06/Melodix-version1` + app mobile Spotify. Toutes les pages, 
 | `NativeHomeCache` | `SharedPreferences` `melodix_native` / `home_feed` + seed Titres likés |
 | `NativeCrashGuard` | toasts/jalons `last_stage`, `showLaunchMarker` |
 | `.github/workflows/preview-apk.yml` | build preview |
-| `.github/workflows/preview-launch-trace.yml` | émulateur si message `[launch-trace]` ; `runs-on: ubuntu-24.04` |
 
 IDs : `nativeRoot` `0x7f09022f`, titre `0230`, back `0231`, search `0233`, chips `0234`, content `0235`, rows scroll `0239`, player `023a`, mini `0243`, tabs `0246–0248`, avatar `0249`.
 
@@ -62,7 +61,7 @@ Gold standard null-check : `AndBridge` / `showNativeUi` → `if-eqz v, :skip`.
 2. **diag-7** `VerifyError` marqueur inliné dans `onCreate` (`v2` = `SDK_INT`). Fix : `NativeCrashGuard.showLaunchMarker`.
 3. Preload `onCreate` → encore VerifyError (`v3` String). **Ne plus rien ajouter dans `onCreate`.**
 4. Trace OK type : `GrantPermissionsActivity`, **aucune** `FATAL EXCEPTION` Melodix. SIGABRT `droid.bluetooth` = émulateur, ignorer.
-5. Workflow : `ubuntu-24.04`, `emulator-boot-timeout: 1200`, `force-avd-creation: true`. `workflow_dispatch` = 404. `gh run rerun` casse si le YAML a changé → nouveau commit `[launch-trace]`.
+5. Historique émulateur : `GrantPermissionsActivity` au premier plan n’est pas un crash Melodix. SIGABRT `droid.bluetooth` = hôte émulateur.
 
 Porte signature **exonérée** (empreinte = certificat, présente dans `resources.arsc`).
 
@@ -84,7 +83,7 @@ Tests auto : `tests/app_audit.test.js` + `smali_sanity` + `native_ui`. Attendu ~
 
 1. Accueil vide → `NativeHomeShelfRenderer` / cache / JS `sendNativeUiData('home')`, pas un nouveau crash gate.
 2. Lecteur web plein écran → `nativeRoot` gone ou `showNativeUi` pas appelé.
-3. Crash lancement → commentaire de commit de la trace `[launch-trace]`, **pas** une hypothèse.
+3. Crash lancement → traces logcat / annotations CI, **pas** une hypothèse.
 4. Pas de nouvelles features tant qu’un écran métier (accueil) est vide.
 
 CI locale : pas de apktool. Preuve = GitHub Actions. Outils `/tmp` non persistants.
