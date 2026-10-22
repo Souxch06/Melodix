@@ -382,6 +382,8 @@ test('Accueil retries paint cached home JSON without posting a partial native sc
     assert.doesNotMatch(updateHome, /waitForHomeFeed/);
     assert.doesNotMatch(updateHome, /rows.length < 8/);
     assert.match(updateHome, /if \(!rows\.length\)/);
+    assert.match(updateHome, /lastHomeSignature === signature/);
+    assert.doesNotMatch(updateHome, /rows\.length <= \(window\.__sfNativeUiHomeRowsSent/);
     assert.match(updateHome, /sendNativeUiData\('home', rows\)/);
     assert.doesNotMatch(updateHome, /signature !== pendingHomeSignature/);
     assert.match(shell, /feedUris/);
@@ -404,6 +406,30 @@ test('native scrape helper still exists but is not polled from Accueil retries',
     const cb = read('smali/com/melodix/music/NativeHomeJsonCallback.smali');
     assert.match(cb, /postNativeUiData/);
     assert.match(cb, /JSONArray/);
+});
+
+test('updateHomeRows sends the first non-empty scrape and later signature changes', () => {
+    const { window, calls } = runShell();
+    const homeSends = () => calls.filter((c) => c.screen === 'home').length;
+    assert.equal(homeSends(), 0, 'empty scrape must not send home data');
+
+    window.mediaLib = {
+        playlists: [{ name: 'Mix Un', uri: 'spotify:playlist:sig1', type: 'Playlist' }]
+    };
+    assert.equal(window.__sfNativeUiRefresh(), true);
+    assert.equal(homeSends(), 1, 'first non-empty scrape is sent');
+    const first = JSON.parse(calls.filter((c) => c.screen === 'home').pop().data);
+    assert.equal(first.some((row) => row.title === 'Mix Un'), true);
+
+    assert.equal(window.__sfNativeUiRefresh(), true);
+    assert.equal(homeSends(), 1, 'identical scrape is not resent');
+
+    window.mediaLib.playlists[0].name = 'Mix Deux';
+    assert.equal(window.__sfNativeUiRefresh(), true);
+    assert.equal(homeSends(), 2, 'same row count with a new title is resent');
+    const second = JSON.parse(calls.filter((c) => c.screen === 'home').pop().data);
+    assert.equal(second.some((row) => row.title === 'Mix Deux'), true);
+    assert.equal(second.length, first.length);
 });
 
 test('native UI runnable: action 0 shows the shell, action 1 paints home JSON', () => {

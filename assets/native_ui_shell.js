@@ -568,7 +568,7 @@
             scheduleHomeRetry();
             return;
         }
-        if (lastHomeSignature && rows.length <= (window.__sfNativeUiHomeRowsSent || 0)) {
+        if (lastHomeSignature === signature) {
             return;
         }
         if (sendNativeUiData('home', rows)) {

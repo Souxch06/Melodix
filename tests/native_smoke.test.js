@@ -168,5 +168,6 @@ test('smoke: shell respects system windows and rejects oversized JS payloads', (
     const startAt = resume.indexOf('Li1;->u(Lcom/melodix/music/MainActivity;Landroid/content/Intent;)V');
     const cAt = resume.lastIndexOf('MainActivity;->C()V', startAt);
     assert.ok(cAt > 0 && cAt < startAt, 'C() must finish before startForegroundService');
+    assert.equal(resume.split('Li1;->u(Lcom/melodix/music/MainActivity;Landroid/content/Intent;)V').length - 1, 1);
     assert.doesNotMatch(read('assets/native_ui_shell.js'), /waitForHomeFeed/);
 });
