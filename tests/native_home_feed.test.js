@@ -380,3 +380,14 @@ test('Accueil scrape runs in the WebView even if the shell never sent home JSON'
     assert.match(cb, /postNativeUiData/);
     assert.match(cb, /JSONArray/);
 });
+
+test('native UI runnable: action 0 shows the shell, action 1 paints home JSON', () => {
+    const src = read('smali/com/melodix/music/NativeUiUpdateRunnable.smali');
+    const run = src.slice(src.indexOf('.method public final run()V'));
+    const first = run.match(/if-(eqz|nez) v1, :not_ready/);
+    assert.ok(first, 'action 0 must be gated before showNativeUi');
+    assert.equal(first[1], 'nez', 'action 0 (ready) must fall through to showNativeUi');
+    const after = run.slice(run.indexOf(':not_ready'));
+    assert.match(after, /if-ne v1, v2, :not_data/);
+    assert.match(after, /applyNativeUiData/);
+});

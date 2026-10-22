@@ -25,7 +25,7 @@
     iget-object v0, p0, Lcom/melodix/music/NativeUiUpdateRunnable;->activity:Lcom/melodix/music/MainActivity;
     iget v1, p0, Lcom/melodix/music/NativeUiUpdateRunnable;->action:I
 
-    if-eqz v1, :not_ready
+    if-nez v1, :not_ready
     invoke-virtual {v0}, Lcom/melodix/music/MainActivity;->showNativeUi()V
     return-void
 
