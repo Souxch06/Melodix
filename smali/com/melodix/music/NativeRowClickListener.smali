@@ -17,13 +17,15 @@
 .end method
 
 .method public final onClick(Landroid/view/View;)V
-    .locals 2
+    .locals 3
 
     :try_start_0
     iget-object v0, p0, Lcom/melodix/music/NativeRowClickListener;->activity:Lcom/melodix/music/MainActivity;
     iget-object v1, p0, Lcom/melodix/music/NativeRowClickListener;->uri:Ljava/lang/String;
-    iget-object p0, p0, Lcom/melodix/music/NativeRowClickListener;->title:Ljava/lang/String;
-    invoke-virtual {v0, v1, p0}, Lcom/melodix/music/MainActivity;->openNativeRow(Ljava/lang/String;Ljava/lang/String;)V
+    iget-object v2, p0, Lcom/melodix/music/NativeRowClickListener;->title:Ljava/lang/String;
+    new-instance p0, Lcom/melodix/music/NativeOpenRowRunnable;
+    invoke-direct {p0, v0, v1, v2}, Lcom/melodix/music/NativeOpenRowRunnable;-><init>(Lcom/melodix/music/MainActivity;Ljava/lang/String;Ljava/lang/String;)V
+    invoke-virtual {v0, p0}, Landroid/app/Activity;->runOnUiThread(Ljava/lang/Runnable;)V
     :try_end_0
     .catch Ljava/lang/Throwable; {:try_start_0 .. :try_end_0} :catch_0
     return-void

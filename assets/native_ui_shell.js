@@ -459,6 +459,11 @@
             } catch (_) {}
         }
 
+        var feedUris = {};
+        (rows || []).forEach(function(row) {
+            if (row && row.uri) feedUris[row.uri] = true;
+        });
+
         if (library) {
             groups.forEach(function(group) {
                 var items = Array.isArray(library[group[0]]) ? library[group[0]] : [];
@@ -476,6 +481,7 @@
                         img = 'https://misc.scdn.co/liked-songs/liked-songs-640.png';
                     }
                     if (!uri || !title || seen.has(uri) || userRows.length >= 40) return;
+                    if (group[0] === 'playlists' && feedUris[uri] && !/collection/i.test(uri)) return;
                     seen.add(uri);
                     bucket = publicItem ? spotifyRows : userRows;
                     bucket.push({
@@ -566,14 +572,15 @@
             if (rows.length > pendingHomeCount || signature !== pendingHomeSignature) {
                 pendingHomeCount = Math.max(pendingHomeCount, rows.length);
                 pendingHomeSignature = signature;
+                homeRetries = 0;
                 scheduleHomeRetry();
                 return;
             }
-            if (!hasPublic && homeRetries < 12) {
+            if (!hasPublic && homeRetries < 16) {
                 scheduleHomeRetry();
                 return;
             }
-            if (homeRetries < 2) {
+            if (homeRetries < 8) {
                 scheduleHomeRetry();
                 return;
             }
@@ -582,7 +589,7 @@
             scheduleHomeRetry();
             return;
         }
-        if (lastHomeSignature && (!hasPublic || rows.length <= window.__sfNativeUiHomeRowsSent)) {
+        if (lastHomeSignature) {
             return;
         }
         if (sendNativeUiData('home', rows)) {

@@ -27,6 +27,9 @@
     invoke-virtual {v1}, Lcom/squareup/picasso/RequestCreator;->centerCrop()Lcom/squareup/picasso/RequestCreator;
     move-result-object v1
     invoke-virtual {v1, p0}, Lcom/squareup/picasso/RequestCreator;->into(Landroid/widget/ImageView;)V
+    const/4 v1, 0x0
+    invoke-virtual {p0, v1}, Landroid/view/View;->setClickable(Z)V
+    invoke-virtual {p0, v1}, Landroid/view/View;->setFocusable(Z)V
     goto :image_load_end
 
     :clear_native_image
