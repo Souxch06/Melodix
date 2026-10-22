@@ -92,7 +92,7 @@ test('native bridge exposes UI callbacks and routes media, search and player dat
     assert.match(bridge, /\.method public final onNativeUiData\(Ljava\/lang\/String;Ljava\/lang\/String;\)V[\s\S]*?JavascriptInterface/);
     assert.match(bridge, /\.method public final onNativeListText\(Ljava\/lang\/String;\)V[\s\S]*?JavascriptInterface/);
     assert.match(activity, /NativeHomeFeed;->paint/);
-    assert.match(read('smali/com/melodix/music/NativeHomeFeed.smali'), /NativeUiRowFactory;->addCoverTile/);
+    assert.match(read('smali/com/melodix/music/NativeHomeFeed.smali'), /NativeUiRowFactory;->create/);
     assert.match(bridge, /const-string v1, "media:"[\s\S]*?dispatchNativeUi/);
     assert.match(bridge, /const-string v1, "search:"[\s\S]*?dispatchNativeUi/);
     assert.match(bridge, /const-string v0, "player"[\s\S]*?dispatchNativeUi/);
@@ -962,7 +962,7 @@ test('content rows reach the cover factory instead of the settings factory', () 
     assert.equal(branch[2], 'nez', 'empty settingValue must jump to the content factory');
     assert.equal(branch[3], 'content_row');
     const content = feed.slice(contentDef, addDef);
-    assert.match(content, /NativeUiRowFactory;->addCoverTile/);
+    assert.match(content, /NativeUiRowFactory;->create/);
     assert.doesNotMatch(content, /NativeSettingsRowFactory;->create/);
     assert.match(card, /NativeSettingsRowFactory;->create/);
 });

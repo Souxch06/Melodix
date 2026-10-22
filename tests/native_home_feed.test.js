@@ -39,7 +39,7 @@ function settingValueBranch(paint) {
 function factoryAfterLabel(paint, label) {
     const body = sliceLabel(paint, label, ':add_row');
     if (body.includes('NativeSettingsRowFactory;->create')) return 'settings';
-    if (body.includes('NativeUiRowFactory;->addCoverTile') || body.includes('NativeUiRowFactory;->create(')) return 'content';
+    if (body.includes('NativeUiRowFactory;->create(')) return 'content';
     return 'unknown';
 }
 
@@ -53,7 +53,7 @@ function routeSettingValue(isEmpty) {
     }
     const fall = branch.block;
     if (fall.includes('NativeSettingsRowFactory;->create')) return 'settings';
-    if (fall.includes('NativeUiRowFactory;->addCoverTile') || fall.includes('NativeUiRowFactory;->create(')) return 'content';
+    if (fall.includes('NativeUiRowFactory;->create(')) return 'content';
     return 'unknown';
 }
 

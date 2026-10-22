@@ -20,7 +20,6 @@
     move-result v2
     if-lez v2, :try_empty
 
-    invoke-static {}, Lcom/melodix/music/NativeUiRowFactory;->resetCoverPair()V
     new-instance v12, Landroid/widget/LinearLayout;
     invoke-direct {v12, p0}, Landroid/widget/LinearLayout;-><init>(Landroid/content/Context;)V
     const/4 v11, 0x1
@@ -65,7 +64,6 @@
     move-result-object v11
     if-eqz v11, :card
     invoke-virtual {v12, v11}, Landroid/view/ViewGroup;->addView(Landroid/view/View;)V
-    invoke-static {}, Lcom/melodix/music/NativeUiRowFactory;->resetCoverPair()V
 
     :card
     const-string v10, "settingValue"
@@ -79,16 +77,12 @@
     goto :add_row
 
     :content_row
-    invoke-static {p0, v12, v6}, Lcom/melodix/music/NativeUiRowFactory;->addCoverTile(Lcom/melodix/music/MainActivity;Landroid/view/ViewGroup;Lorg/json/JSONObject;)Landroid/widget/LinearLayout;
+    invoke-static {p0, v6}, Lcom/melodix/music/NativeUiRowFactory;->create(Lcom/melodix/music/MainActivity;Lorg/json/JSONObject;)Landroid/widget/LinearLayout;
     move-result-object v11
 
     :add_row
     if-eqz v11, :next
-    invoke-virtual {v11}, Landroid/view/View;->getParent()Landroid/view/ViewParent;
-    move-result-object v10
-    if-nez v10, :skip_attach
     invoke-virtual {v12, v11}, Landroid/view/ViewGroup;->addView(Landroid/view/View;)V
-    :skip_attach
     add-int/lit8 v5, v5, 0x1
 
     :next
