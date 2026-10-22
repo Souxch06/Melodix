@@ -84,11 +84,11 @@
         <LinearLayout
             android:orientation="horizontal"
             android:gravity="center_vertical"
-            android:background="#ff121212"
+            android:background="#00000000"
             android:paddingLeft="16.0dip"
-            android:paddingTop="6.0dip"
+            android:paddingTop="10.0dip"
             android:paddingRight="12.0dip"
-            android:paddingBottom="12.0dip"
+            android:paddingBottom="10.0dip"
             android:layout_width="fill_parent"
             android:layout_height="wrap_content">
             <ImageView
@@ -106,10 +106,10 @@
                 android:layout_height="40.0dip"
                 android:layout_marginRight="8.0dip" />
             <androidx.cardview.widget.CardView
-                android:layout_width="40.0dip"
-                android:layout_height="40.0dip"
+                android:layout_width="36.0dip"
+                android:layout_height="36.0dip"
                 app:cardBackgroundColor="#ff1ed760"
-                app:cardCornerRadius="20.0dip"
+                app:cardCornerRadius="18.0dip"
                 app:cardElevation="0.0dip">
                 <ImageView
                     android:id="@id/nativeHeaderAvatar"
@@ -125,7 +125,7 @@
             <TextView
                 android:id="@id/nativeScreenTitle"
                 android:text="Accueil"
-                android:textSize="24.0sp"
+                android:textSize="22.0sp"
                 android:textStyle="bold"
                 android:textColor="#ffffffff"
                 android:paddingLeft="12.0dip"
@@ -430,8 +430,8 @@
                 android:id="@id/nativeContent"
                 android:tag="nativeContent"
                 android:orientation="vertical"
-                android:paddingTop="8.0dip"
-                android:paddingBottom="24.0dip"
+                android:paddingTop="4.0dip"
+                android:paddingBottom="12.0dip"
                 android:layout_width="fill_parent"
                 android:layout_height="wrap_content">
             </LinearLayout>
@@ -451,13 +451,13 @@
             android:layout_height="0.0dip"
             android:layout_weight="1.0">
             <androidx.cardview.widget.CardView
-                android:layout_width="272.0dip"
-                android:layout_height="272.0dip"
+                android:layout_width="280.0dip"
+                android:layout_height="280.0dip"
                 android:layout_marginTop="8.0dip"
                 android:layout_marginBottom="22.0dip"
                 app:cardBackgroundColor="#ff282828"
-                app:cardCornerRadius="8.0dip"
-                app:cardElevation="18.0dip">
+                app:cardCornerRadius="12.0dip"
+                app:cardElevation="12.0dip">
                 <ImageView
                     android:id="@id/nativePlayerLargeArtwork"
                     android:src="@drawable/logo_melodix"
@@ -555,10 +555,10 @@
             android:background="@drawable/native_mini_player_bg"
             android:layout_width="fill_parent"
             android:layout_height="wrap_content"
-            android:layout_marginLeft="8.0dip"
-            android:layout_marginTop="8.0dip"
-            android:layout_marginRight="8.0dip"
-            android:layout_marginBottom="4.0dip">
+            android:layout_marginLeft="10.0dip"
+            android:layout_marginTop="4.0dip"
+            android:layout_marginRight="10.0dip"
+            android:layout_marginBottom="6.0dip">
         <LinearLayout
             android:id="@id/nativeMiniPlayer"
             android:orientation="horizontal"
@@ -575,11 +575,11 @@
             android:layout_width="fill_parent"
             android:layout_height="72.0dip">
             <androidx.cardview.widget.CardView
-                android:layout_width="52.0dip"
-                android:layout_height="52.0dip"
+                android:layout_width="48.0dip"
+                android:layout_height="48.0dip"
                 android:layout_marginRight="12.0dip"
                 app:cardBackgroundColor="#ff121212"
-                app:cardCornerRadius="10.0dip"
+                app:cardCornerRadius="6.0dip"
                 app:cardElevation="0.0dip">
                 <ImageView
                     android:id="@id/nativePlayerArtwork"
@@ -673,19 +673,15 @@
                 android:layout_marginBottom="6.0dip" />
         </LinearLayout>
 
-        <View
-            android:background="#1fffffff"
-            android:layout_width="fill_parent"
-            android:layout_height="1.0dip" />
         <LinearLayout
             android:id="@id/nativeTabBar"
             android:orientation="horizontal"
             android:gravity="center"
-            android:paddingTop="6.0dip"
-            android:paddingBottom="4.0dip"
-            android:background="#ff181818"
+            android:paddingTop="8.0dip"
+            android:paddingBottom="10.0dip"
+            android:background="#ff000000"
             android:layout_width="fill_parent"
-            android:layout_height="70.0dip">
+            android:layout_height="64.0dip">
             <LinearLayout android:id="@id/nativeHomeTab" android:orientation="vertical" android:gravity="center" android:clickable="true" android:focusable="true" android:background="@drawable/native_tab_ripple" android:contentDescription="Home" android:onClick="onNativeHomeClick" android:layout_width="0.0dip" android:layout_height="fill_parent" android:layout_weight="1.0">
                 <ImageView android:src="@drawable/native_nav_home" android:tint="#ffffffff" android:duplicateParentState="true" android:clickable="false" android:focusable="false" android:layout_width="26.0dip" android:layout_height="26.0dip" android:layout_marginTop="4.0dip" />
                 <TextView android:text="Accueil" android:textSize="11.0sp" android:textStyle="bold" android:textColor="#ffffffff" android:duplicateParentState="true" android:clickable="false" android:focusable="false" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="5.0dip" />
