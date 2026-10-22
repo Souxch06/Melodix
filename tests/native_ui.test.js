@@ -1349,3 +1349,50 @@ test('the playback bridge is served same-origin so CSP script-src-elem inline is
         'native recovery must not evaluateJavascript the 200 KB file'
     );
 });
+
+
+function dalvikIf(reg, op, jumpIf) {
+    if (op === 'eqz') return reg === 0 ? jumpIf : 'fall';
+    if (op === 'nez') return reg !== 0 ? jumpIf : 'fall';
+    throw new Error(op);
+}
+
+function miniPlayerVisibleOnScreen(isPlayerScreen, hideOpcode) {
+    const branch = dalvikIf(isPlayerScreen ? 1 : 0, hideOpcode, 'hide');
+    return branch !== 'hide';
+}
+
+function accountsHostHidesShell(url) {
+    try {
+        return new URL(url).hostname === 'accounts.spotify.com';
+    } catch (_) {
+        return false;
+    }
+}
+
+test('mini player stays visible on Accueil and hides only on the full player screen', () => {
+    const activity = read('smali/com/melodix/music/MainActivity.smali');
+    const miniAt = activity.indexOf('    :native_mini_player\n');
+    const mini = activity.slice(Math.max(0, miniAt - 120), miniAt + 400);
+    const hideOp = mini.match(/if-(eqz|nez) v1, :hide_native_mini_player/);
+    assert.ok(hideOp, 'setNativeScreen must gate the mini player on the player flag');
+    assert.equal(hideOp[1], 'nez', 'home (flag=0) must not jump to GONE');
+    assert.equal(miniPlayerVisibleOnScreen(false, hideOp[1]), true);
+    assert.equal(miniPlayerVisibleOnScreen(true, hideOp[1]), false);
+    assert.equal(miniPlayerVisibleOnScreen(false, 'eqz'), false, 'the previous if-eqz hid the mini player on Accueil');
+});
+
+test('nativeRoot is hidden only on the accounts.spotify.com host, not on /auth substrings', () => {
+    const activity = read('smali/com/melodix/music/MainActivity.smali');
+    const start = activity.indexOf('const v5, 0x7f09022f');
+    const block = activity.slice(start, start + 1200);
+    assert.match(block, /Landroid\/net\/Uri;->parse/);
+    assert.match(block, /getHost\(\)Ljava\/lang\/String;/);
+    assert.match(block, /accounts.spotify.com/);
+    assert.match(block, /native-root-gone:accounts-host/);
+    assert.ok(!block.includes('"/login"'));
+    assert.equal(accountsHostHidesShell('https://open.spotify.com/'), false);
+    assert.equal(accountsHostHidesShell('https://open.spotify.com/playlist/abc'), false);
+    assert.equal(accountsHostHidesShell('https://open.spotify.com/search/auth-hits'), false);
+    assert.equal(accountsHostHidesShell('https://accounts.spotify.com/login'), true);
+});

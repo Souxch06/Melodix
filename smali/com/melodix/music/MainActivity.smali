@@ -1574,8 +1574,20 @@
     invoke-virtual {p0, v5}, Landroid/app/Activity;->findViewById(I)Landroid/view/View;
     move-result-object v5
     if-eqz v5, :native_root_login_done
+    const/4 v7, 0x0
+    invoke-static {v0}, Landroid/net/Uri;->parse(Ljava/lang/String;)Landroid/net/Uri;
+    move-result-object v2
+    if-eqz v2, :native_root_cover
+    invoke-virtual {v2}, Landroid/net/Uri;->getHost()Ljava/lang/String;
+    move-result-object v2
+    if-eqz v2, :native_root_cover
+    const-string v3, "accounts.spotify.com"
+    invoke-virtual {v2, v3}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    move-result v2
     if-eqz v2, :native_root_cover
     const/16 v7, 0x8
+    const-string v2, "native-root-gone:accounts-host"
+    invoke-static {v2}, Lcom/melodix/music/NativeCrashGuard;->stage(Ljava/lang/String;)V
     goto :native_root_apply
     :native_root_cover
     const/4 v7, 0x0
@@ -7149,11 +7161,13 @@
     invoke-virtual {p0, v2}, Landroid/app/Activity;->findViewById(I)Landroid/view/View;
     move-result-object v2
     if-eqz v2, :native_tab_bar
-    if-eqz v1, :hide_native_mini_player
+    if-nez v1, :hide_native_mini_player
     const/4 v3, 0x0
     goto :set_native_mini_player
     :hide_native_mini_player
     const/16 v3, 0x8
+    const-string v4, "mini-gone:full-player"
+    invoke-static {v4}, Lcom/melodix/music/NativeCrashGuard;->stage(Ljava/lang/String;)V
     :set_native_mini_player
     invoke-virtual {v2, v3}, Landroid/view/View;->setVisibility(I)V
 
