@@ -263,12 +263,21 @@ test('WS4: logout hides nativeRoot & resets state, and Android Back button works
     assert.match(activityBase, /\.method public final onBackPressed\(\)V/);
     assert.doesNotMatch(mainActivity, /\.method public[^\n]*onBackPressed\(\)V/);
 
-    // 2. Verify both Android 13-16 predictive back callback (Lr70.a) and hardware KEYCODE_BACK route through MainActivity.handleNativeBack()Z
+    // 2. Verify single canonical OnBackPressedDispatcher routing (androidx/activity/b.b + Lr70.a -> MainActivity.handleNativeBack()Z)
+    //    with NO duplicate onKeyDown(KEYCODE_BACK) handler that would double-fire on ACTION_DOWN + ACTION_UP / OnBackInvokedDispatcher.
+    const dispatcher = read('smali/androidx/activity/b.smali');
+    const dispatchMethod = extractMethod(dispatcher, '.method public final b()V');
+    assert.match(dispatchMethod, /Lcom\/melodix\/music\/MainActivity;->handleNativeBack\(\)Z\s*\n\s*move-result p0\s*\n\s*if-eqz p0, :native_back_dispatch_legacy\s*\n\s*return-void/);
+
     const r70Handle = extractMethod(backCallback, '.method public a()V');
     assert.match(r70Handle, /Lcom\/melodix\/music\/MainActivity;->handleNativeBack\(\)Z\s*\n\s*move-result v1\s*\n\s*if-eqz v1, :native_back_not_handled\s*\n\s*return-void/);
 
     const onKeyDown = extractMethod(mainActivity, '.method public final onKeyDown(ILandroid/view/KeyEvent;)Z');
-    assert.match(onKeyDown, /const\/4 v0, 0x4\s*\n\s*if-ne p1, v0, :not_back_key[\s\S]*?handleNativeBack\(\)Z\s*\n\s*move-result v0\s*\n\s*if-eqz v0, :not_back_key\s*\n\s*const\/4 p0, 0x1\s*\n\s*return p0/);
+    assert.doesNotMatch(onKeyDown, /const\/4 v0, 0x4/);
+
+    // 2b. Verify Android 15/16 Edge-to-Edge WindowInsets padding applies status/navigation bar insets to nativeRoot (0x7f09022f)
+    const windowInsets = read('smali/fj.smali');
+    assert.match(windowInsets, /const p1, 0x7f09022f[\s\S]*?invoke-virtual \{p1, v2, v1, v0, v4\}, Landroid\/view\/View;->setPadding\(IIII\)V/);
 
     // 3. Verify handleNativeBack covers expanded player, settings, detail, search, library, and delegates home cleanly
     const handleBack = extractMethod(mainActivity, '.method public final handleNativeBack()Z');

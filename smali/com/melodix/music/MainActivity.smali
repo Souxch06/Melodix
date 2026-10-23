@@ -4573,15 +4573,6 @@
 .method public final onKeyDown(ILandroid/view/KeyEvent;)Z
     .locals 1
 
-    const/4 v0, 0x4
-    if-ne p1, v0, :not_back_key
-    invoke-virtual {p0}, Lcom/melodix/music/MainActivity;->handleNativeBack()Z
-    move-result v0
-    if-eqz v0, :not_back_key
-    const/4 p0, 0x1
-    return p0
-
-    :not_back_key
     .line 1
     const/16 v0, 0x52
 

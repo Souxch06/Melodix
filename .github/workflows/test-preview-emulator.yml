@@ -274,7 +274,7 @@ jobs:
           sleep 12
 
           LAST_XML=""
-          trap 'echo "::error title=Phase 2 failure at line $LINENO::last_xml=$LAST_XML"' ERR
+          trap 'rc=$?; crash_tail="$(adb logcat -d -b crash -v brief 2>/dev/null | tail -n 12 | tr "\n\r" "  " || true)"; echo "::error title=Phase 2 failure at line $LINENO (rc=$rc)::last_xml=$LAST_XML crash=$crash_tail"' ERR
 
           dump_ui() {
             local name="$1"
@@ -297,8 +297,9 @@ jobs:
                   m = re.match(r"\[(\d+),(\d+)\]\[(\d+),(\d+)\]", node.get("bounds") or "")
                   if m:
                       x1, y1, x2, y2 = map(int, m.groups())
-                      print((x1 + x2) // 2, (y1 + y2) // 2)
-                      sys.exit(0)
+                      if x2 > x1 and y2 > y1:
+                          print((x1 + x2) // 2, (y1 + y2) // 2)
+                          sys.exit(0)
           raise SystemExit(f"Could not find UI element matching {needle!r}")
           PY
             )
@@ -358,6 +359,8 @@ jobs:
           assert_ui_has "$state/03_miniplayer.xml" "Piste Active"
           tap_text "$state/03_miniplayer.xml" "Piste Active"
           dump_ui "04_fullplayer"
+          assert_ui_has "$state/04_fullplayer.xml" "Lecture en cours"
+          assert_ui_has "$state/04_fullplayer.xml" "Lu via Spotify"
           # Back #1: collapses expanded player back to detail
           adb shell input keyevent 4
           dump_ui "05_back_to_detail"

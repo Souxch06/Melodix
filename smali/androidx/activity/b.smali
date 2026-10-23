@@ -340,6 +340,16 @@
     .line 37
     packed-switch p0, :pswitch_data_0
 
+    iget-object p0, v1, Lr70;->e:Ljava/lang/Object;
+    instance-of v0, p0, Lcom/melodix/music/MainActivity;
+    if-eqz v0, :native_back_dispatch_legacy
+    check-cast p0, Lcom/melodix/music/MainActivity;
+    invoke-virtual {p0}, Lcom/melodix/music/MainActivity;->handleNativeBack()Z
+    move-result p0
+    if-eqz p0, :native_back_dispatch_legacy
+    return-void
+
+    :native_back_dispatch_legacy
     .line 38
     .line 39
     .line 40
