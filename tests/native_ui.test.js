@@ -62,7 +62,8 @@ test('native shell overlays, but does not replace or detach, the existing WebVie
     assert.match(layout, /@drawable\/native_mini_player_bg/);
     assert.match(layout, /android:textSize=\"24.0sp\"/);
     assert.match(layout, /android:layout_height=\"72.0dip\"/);
-    assert.match(read('res/drawable/native_mini_player_bg.xml'), /18.0dip/);
+    assert.match(read('res/drawable/native_mini_player_bg.xml'), /14.0dip/);
+    assert.match(read('res/drawable/native_mini_player_bg.xml'), /#ff282828/);
     assert.match(layout, /@drawable\/native_nav_home/);
     assert.match(layout, /@drawable\/native_nav_search/);
     assert.match(layout, /@drawable\/native_nav_library/);
@@ -596,8 +597,12 @@ test('bundled native bootstrap activates the shell, sends Home rows, and only op
     assert.equal(window.__sfNativeOpenUri('https://example.org/track/track123'), false);
     assert.equal(window.__sfNativeRequestHome(), true);
     assert.ok(calls.filter((call) => call.screen === 'home').length >= 2, 'requesting Home should resend current rows');
-    assert.equal(timers.length, 1, 'pending mediaLib still schedules one library warmup');
+    // The manual Accueil refresh cancels the stale home retry and schedules a
+    // fresh one (the harness' clearTimeout is a no-op, so both remain listed),
+    // and no library warmup timer is armed without a checkMediaLib function.
+    assert.equal(timers.length, 2, 'refreshing Home reschedules exactly one library retry');
     assert.equal(timers[0].delay, 400);
+    assert.equal(timers[1].delay, 400);
 });
 
 test('Home cards with sibling artwork outside the title anchor still resolve their cover image', () => {
@@ -888,17 +893,25 @@ test('native settings rows expose real Spotify options and toggles persist local
     assert.equal(toggled.settingValue, 'OFF');
     assert.ok(store.get('melodix_spotify_settings_v1').includes('"canvas":false'));
 
+    // Account-owned options (audio quality, crossfade, private session…) are
+    // honest information rows: tapping them must never fake a state change.
     calls.length = 0;
     window.__sfToggleSpotifySetting('spotify:settings:audio_quality');
     const quality = JSON.parse(dataFor(calls, 'settings').data).find((row) => row.uri === 'spotify:settings:audio_quality');
-    assert.equal(quality.settingValue, 'Élevée (160 kbit/s)');
+    assert.equal(quality.settingValue, 'Géré par Spotify');
 
     calls.length = 0;
     window.__sfToggleSpotifySetting('spotify:settings:crossfade');
     const fade = JSON.parse(dataFor(calls, 'settings').data).find((row) => row.uri === 'spotify:settings:crossfade');
-    assert.equal(fade.settingValue, '2 s');
+    assert.equal(fade.settingValue, 'Géré par Spotify');
     const privateRow = JSON.parse(dataFor(calls, 'settings').data).find((row) => row.uri === 'spotify:settings:private_session');
-    assert.equal(privateRow.settingValue, 'OFF');
+    assert.equal(privateRow.settingValue, 'Géré par Spotify');
+
+    // The live diagnostic rows reflect the real library state.
+    const libRow = JSON.parse(dataFor(calls, 'settings').data).find((row) => row.uri === 'spotify:settings:lib_status');
+    assert.ok(libRow && libRow.settingValue, 'library state row shows a real value');
+    const diagRow = JSON.parse(dataFor(calls, 'settings').data).find((row) => row.uri === 'spotify:settings:diag_errors');
+    assert.ok(diagRow && diagRow.settingValue, 'diagnostics row shows a real value');
 });
 
 test('mobile rows lead with the cover and drop the legacy play badge', () => {

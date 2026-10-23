@@ -6,6 +6,28 @@ Toutes les modifications fonctionnelles, de sécurité et d'infrastructure valid
 
 ## [Unreleased — Branche `arena/7142700d-melodix` / PR #7]
 
+### Correction critique : playlists absentes sur l'accueil, chargement persistant, paramètres honnêtes et refonte visuelle (2026-10-23)
+- **Cause exacte des playlists absentes (`assets/native_ui_shell.js`, `assets/spotify_bridge.js`)** :
+  - Le shell ne demandait `checkMediaLib()` **qu'une seule fois** (`mediaLibWarmupRequested` verrouillé avant la fin de la requête) ; si le token Bearer de la session Spotify n'était pas encore intercepté (cas normal au démarrage), `window.mediaLib` restait `undefined` pour toujours, l'état restait `pending` et l'accueil affichait indéfiniment « Chargement des playlists… » sans jamais recevoir « Vos playlists ».
+  - `fetchAllLibrary` transformait silencieusement toute erreur HTTP (`!resp.ok` → `break` → `[]`) en bibliothèque vide : un échec de fetch était présenté comme « Aucune playlist dans ce compte ».
+  - Aucun rappel ne repeignait l'accueil quand la bibliothèque arrivait enfin.
+- **Corrections** :
+  - Machine d'états honnête de la bibliothèque (`pending` / `ready` / `empty` / `error`) publiée par le bridge (`__sfMediaLibState`, `__sfMediaLibError`), notification immédiate du shell (`__sfNotifyMediaLibReady`), rappels bornés (5 tentatives) côté bridge + re-demande bornée (8 × 3 s) côté shell.
+  - `fetchAllLibrary` lève une erreur `HttpError` distincte (et tente le hash `libraryV3` de secours avant d'échouer) : un échec affiche « Impossible de charger les playlists » (avec action de réessai), jamais un faux état vide.
+  - Les lignes d'accueil viennent uniquement de la vraie bibliothèque (`mediaLib`) et du DOM Spotify réel — aucune playlist fictive.
+- **Isolation stricte des onglets (`NativeHomeFeed.smali`, `MainActivity.smali`)** :
+  - Tout payload valide vide (`[]`) vide désormais le conteneur partagé (`:clear_stale` + `removeViewAt`) : le message « Chargement des playlists… » ne survit plus au changement d'onglet ; un payload non analysable garde l'ancien contenu (protection conservée) et n'ajoute pas de faux « Rien à afficher ».
+  - `onNativeHomeClick` / `onNativeLibraryClick` ne retombent plus jamais sur `nativeCurrentJson` (cache d'un autre écran) — chaque onglet ne peint que son propre cache.
+  - L'état de chargement n'est envoyé qu'une fois (verrou `lastHomeSignature`), remplacé par le contenu, l'état vide ou l'erreur ; les mises à jour obsolètes arrivant sur un autre écran restent en cache sans être peintes (garde `nativeCurrentScreen`).
+- **Paramètres réellement fonctionnels et honnêtes (`native_ui_shell.js`, `MainActivity.smali`)** :
+  - Vrais réglages actifs : shuffle, répétition (boutons lecteur réels), autoplay (`SF_CONFIG.autoPlayMode`), Canvas / économiseur de données (`AndBridge.setCanvasDisabled` + classe `sf-hide-canvas`), audio arrière-plan (`manageTSleep`), vider le cache, synchroniser (statut basé sur le vrai résultat du fetch), déconnexion (purge complète session, bibliothèque, caches, stockage local).
+  - Les réglages réellement détenus par le compte Spotify (qualité audio, gapless, session privée, crossfade, automix, mono, volume matériel, podcasts, paroles, titres indisponibles, notifications) sont désormais des lignes d'information « Géré par Spotify » — plus aucun faux interrupteur sans effet.
+  - Nouvelles lignes de diagnostic réelles : état de la bibliothèque, dernier problème de chargement (diagnostic assaini), écran « Paramètres » avec état de chargement propre et erreur explicite en cas de module absent (requêtes répétées à 1,5 s / 4 s + repli honnête à 6 s).
+- **Refonte visuelle ciblée (`res/drawable/*`)** : fond plat `#121212` (suppression des dégradés décoratifs), surfaces `#282828` cohérentes (mini-lecteur, tuiles, chips, champ de recherche, boutons), rayons subtils (12–14 dp), accent vert `#1ED760` réservé aux actions/états actifs (onglet actif, bouton de lecture).
+- **Tests de non-régression** : `tests/library_home_states.test.js` (17 tests : playlists réelles avec accents/pochettes, réponse vide, erreur HTTP/session, échec de bridge, disparition du chargement après succès/échec, changement d'onglet pendant une requête, absence de chargement sur les autres pages, navigation complète, persistance des préférences réelles, déconnexion sans réutilisation de données, absence de playlists fictives). Suite totale : `206/206` (vérificateur CFG Dalvik `[D7]` sur `3 804` fichiers `.smali` inclus).
+- **Limites non démontrées** : non vérifié avec un vrai compte Spotify connecté (authentification `accounts.spotify.com`) ni sur smartphone physique ; les captures d'écran ne sont pas générées dans le bac à sable — la validation UI passe par les dumps XML et logs de l'émulateur Android 15 dans les artefacts GitHub Actions.
+
+
 ### Automatisation continue GitHub Actions & Séparation stricte Dev / Releases (2026-10-23)
 - **Déclenchement automatique multi-branches sans doublon** (`.github/workflows/preview-apk.yml`, `.github/workflows/test-preview-emulator.yml`) :
   - Passage de `branches: [arena/7142700d-melodix]` à `branches-ignore: [main]` pour couvrir automatiquement toutes les branches de développement et sessions Arena futures sans déclenchement parasite sur `main` ni boucle infinie.

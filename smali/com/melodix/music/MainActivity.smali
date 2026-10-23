@@ -8038,6 +8038,11 @@
 
     :native_rows_keep
     :native_rows_list
+    # A failed (unparseable) paint keeps the previous content: do not append a
+    # false "Rien à afficher" message on top of rows that are still valid.
+    invoke-virtual {v2}, Landroid/widget/LinearLayout;->getChildCount()I
+    move-result v3
+    if-gtz v3, :render_native_done
     new-instance v6, Landroid/widget/TextView;
     invoke-direct {v6, p0}, Landroid/widget/TextView;-><init>(Landroid/content/Context;)V
     const-string v0, "Rien à afficher pour le moment"
@@ -8186,7 +8191,9 @@
     if-eqz v1, :home_fallback_json
     goto :home_have_json
     :home_fallback_json
-    iget-object v1, p0, Lcom/melodix/music/MainActivity;->nativeCurrentJson:Ljava/lang/String;
+    # Never fall back to nativeCurrentJson: it belongs to whichever screen was
+    # painted last and would repaint another tab's rows here.
+    const/4 v1, 0x0
     :home_have_json
     if-eqz v1, :home_request
     invoke-virtual {v1}, Ljava/lang/String;->length()I
@@ -8350,7 +8357,9 @@
     if-eqz v2, :lib_fallback_json
     goto :lib_have_json
     :lib_fallback_json
-    iget-object v2, p0, Lcom/melodix/music/MainActivity;->nativeCurrentJson:Ljava/lang/String;
+    # Never fall back to nativeCurrentJson: it belongs to whichever screen was
+    # painted last and would leak e.g. the home loading row into the library.
+    const/4 v2, 0x0
     :lib_have_json
     if-eqz v2, :lib_fetch
     invoke-virtual {v2}, Ljava/lang/String;->length()I
@@ -8757,9 +8766,11 @@
     const-string v0, "settings"
     invoke-virtual {p0, v0}, Lcom/melodix/music/MainActivity;->setNativeScreen(Ljava/lang/String;)V
     const-string v1, "Paramètres"
-    const-string v2, "[]"
+    # Show a real loading state for this screen only; the shell answers with
+    # the settings rows and every retry below is idempotent.
+    const-string v2, "[{\"title\":\"Chargement des paramètres…\",\"section\":\"Paramètres\"}]"
     invoke-virtual {p0, v1, v2}, Lcom/melodix/music/MainActivity;->renderNativeRows(Ljava/lang/String;Ljava/lang/String;)V
-    const-string v1, "window.__sfRequestSpotifySettings && window.__sfRequestSpotifySettings();"
+    const-string v1, "(function(){var done=false;function r(){try{if(window.__sfRequestSpotifySettings){done=(window.__sfRequestSpotifySettings()===true)||done;}}catch(e){}}r();window.setTimeout(r,1500);window.setTimeout(r,4000);window.setTimeout(function(){if(done)return;try{if(window.AndBridge&&window.AndBridge.onNativeUiData){window.AndBridge.onNativeUiData(\'settings\',JSON.stringify([{title:\'Paramètres indisponibles\',subtitle:\'Le module de réglages n’a pas répondu. Réessayez.\',section:\'Paramètres\'}]));}}catch(e){}},6000);})();"
     invoke-virtual {p0, v1}, Lcom/melodix/music/MainActivity;->runNativeJavascript(Ljava/lang/String;)V
 
     :native_settings_done

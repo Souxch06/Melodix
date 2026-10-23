@@ -9,10 +9,15 @@
     const/4 v0, 0x0
     if-eqz p0, :done
     if-eqz p1, :done
+
+    # Valid empty payloads (a JSON array such as "[]") still clear stale rows
+    # (for example "Chargement des playlists…") so each tab shows only its own
+    # state — see :try_empty. Unparseable payloads reach the catch handlers and
+    # keep the previous content untouched instead of flashing a false empty.
     if-eqz p2, :done
     invoke-virtual {p2}, Ljava/lang/String;->length()I
     move-result v1
-    const/4 v2, 0x2
+    const/4 v2, 0x1
     if-le v1, v2, :done
 
     :try_start_0
@@ -149,6 +154,16 @@
     goto :try_ok
 
     :try_empty
+    # Valid, empty payload: drop every stale child (removeViewAt loop keeps the
+    # same "attach then strip" contract) so the caller's empty state is alone.
+    :clear_stale
+    invoke-virtual {p1}, Landroid/view/ViewGroup;->getChildCount()I
+    move-result v1
+    if-gtz v1, :stale_cleared
+    const/4 v2, 0x0
+    invoke-virtual {p1, v2}, Landroid/view/ViewGroup;->removeViewAt(I)V
+    goto :clear_stale
+    :stale_cleared
     const/4 v0, 0x0
 
     :try_ok

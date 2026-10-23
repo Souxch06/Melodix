@@ -135,7 +135,7 @@ test('JSON payload keeps escaped titles, sections, URIs and cover URLs', () => {
     assert.ok(playlistCount >= 2, `extracted ${playlistCount} playlists`);
 });
 
-test('empty and invalid home payloads are not treated as success for native paint', () => {
+test('unparseable home payloads keep the previous rows while valid empties clear them', () => {
     const list = read('smali/com/melodix/music/NativeHomeFeed.smali');
     assert.match(list, /if-le v1, v2, :done/);
     assert.match(list, /JSONArray;-><init>/);

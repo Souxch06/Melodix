@@ -30,7 +30,8 @@
     var lastSearchSignature = null;
     var lastLibraryPath = '';
     var lastLibrarySignature = null;
-    var mediaLibWarmupRequested = false;
+    var mediaLibWarmupRequested = 0;
+    var mediaLibWarmupCount = 0;
     var lastMediaActiveAt = 0;
     var sessionLoggedOut = false;
     var loggedOutProfileName = '';
@@ -514,11 +515,15 @@
             return false;
         }
 
-        if (!library && !mediaLibWarmupRequested && typeof window.checkMediaLib === 'function') {
-            mediaLibWarmupRequested = true;
-            try {
-                window.checkMediaLib();
-            } catch (_) {}
+        if (!library && typeof window.checkMediaLib === 'function') {
+            var warmupNow = Date.now();
+            if (mediaLibWarmupCount < 8 && (!mediaLibWarmupRequested || (warmupNow - mediaLibWarmupRequested) > 3000)) {
+                mediaLibWarmupRequested = warmupNow;
+                mediaLibWarmupCount += 1;
+                try {
+                    window.checkMediaLib();
+                } catch (_) {}
+            }
         }
 
         var feedUris = {};
@@ -598,8 +603,14 @@
 
     function userPlaylistLibraryState() {
         var lib = window.mediaLib;
-        if (!lib || !Array.isArray(lib.playlists)) return 'pending';
-        return lib.playlists.length ? 'ready' : 'empty';
+        if (lib && Array.isArray(lib.playlists)) {
+            return lib.playlists.length ? 'ready' : 'empty';
+        }
+        // The bridge publishes the real fetch outcome: pending, empty and error
+        // must never be confused — only "pending" may show a loading state.
+        var state = window.__sfMediaLibState;
+        if (state === 'ready' || state === 'empty' || state === 'error') return state;
+        return 'pending';
     }
 
     function homeHasUserPlaylists(rows) {
@@ -624,7 +635,7 @@
         if (kind === 'error') {
             return [{
                 title: 'Impossible de charger les playlists',
-                subtitle: 'Réessayez depuis Accueil',
+                subtitle: 'Appuyez sur Accueil pour réessayer',
                 section: 'Accueil'
             }];
         }
@@ -676,12 +687,28 @@
 
         if (!rows.length) {
             if (libraryState === 'empty') {
-                sendNativeUiData('home', homeStatusRows('empty'));
-                lastHomeSignature = 'empty';
+                if (lastHomeSignature !== 'empty') {
+                    sendNativeUiData('home', homeStatusRows('empty'));
+                    lastHomeSignature = 'empty';
+                }
                 clearHomeRetry();
                 return;
             }
-            if (!lastHomeSignature) sendNativeUiData('home', homeStatusRows('loading'));
+            if (libraryState === 'error') {
+                // Replace the loading state with an explicit error and stop:
+                // the bridge retries the fetch itself and notifies us if it
+                // later succeeds. "Accueil" is the manual retry action.
+                if (lastHomeSignature !== 'error') {
+                    sendNativeUiData('home', homeStatusRows('error'));
+                    lastHomeSignature = 'error';
+                }
+                clearHomeRetry();
+                return;
+            }
+            if (lastHomeSignature !== 'loading') {
+                sendNativeUiData('home', homeStatusRows('loading'));
+                lastHomeSignature = 'loading';
+            }
             scheduleHomeRetry(libraryState === 'pending' ? 400 : 100);
             return;
         }
@@ -1819,6 +1846,21 @@
         if (overrideStatus && overrideStatus.cache_status) state.cache_status = overrideStatus.cache_status;
         if (overrideStatus && overrideStatus.sync_status) state.sync_status = overrideStatus.sync_status;
 
+        // Honest live diagnostics: the settings screen must show what the app
+        // really knows, never a fabricated success state.
+        var libState = userPlaylistLibraryState();
+        var libCount = window.mediaLib && Array.isArray(window.mediaLib.playlists)
+            ? window.mediaLib.playlists.length
+            : null;
+        var libLabel = libState === 'ready'
+            ? (libCount + ' playlist' + (libCount > 1 ? 's' : '') + ' chargée' + (libCount > 1 ? 's' : ''))
+            : libState === 'empty'
+                ? 'Aucune playlist'
+                : libState === 'error'
+                    ? 'Erreur de chargement'
+                    : 'Chargement en cours…';
+        var lastError = window.__sfNativeUiShellLastError || null;
+
         return [
             {
                 section: 'Compte Spotify',
@@ -1831,58 +1873,18 @@
             {
                 section: 'Compte Spotify',
                 title: 'Session privée',
-                subtitle: 'Écouter sans apparaître dans l’activité des amis ni dans les écoutes récemment',
+                subtitle: 'Réglage de votre compte Spotify : ouvrez les paramètres Spotify pour l’activer',
                 image: '',
                 uri: 'spotify:settings:private_session',
-                settingValue: state.private_session ? 'ON' : 'OFF'
+                settingValue: 'Géré par Spotify'
             },
             {
                 section: 'Compte Spotify',
                 title: 'Se déconnecter de Spotify',
-                subtitle: 'Fermer la session actuelle ou changer de compte Spotify',
+                subtitle: 'Fermer la session actuelle, vider les données locales et changer de compte',
                 image: '',
                 uri: 'spotify:settings:logout',
                 settingValue: 'Déconnexion'
-            },
-            {
-                section: 'Qualité sonore',
-                title: 'Qualité du streaming audio',
-                subtitle: 'Débit de lecture en Wi-Fi et données mobiles (appuyez pour changer)',
-                image: '',
-                uri: 'spotify:settings:audio_quality',
-                settingValue: state.audio_quality
-            },
-            {
-                section: 'Qualité sonore',
-                title: 'Normaliser le volume',
-                subtitle: 'Appliquer le même niveau sonore à tous les titres',
-                image: '',
-                uri: 'spotify:settings:normalize_volume',
-                settingValue: state.normalize_volume ? 'ON' : 'OFF'
-            },
-            {
-                section: 'Qualité sonore',
-                title: 'Économiseur de données',
-                subtitle: 'Réduire la consommation réseau et optimiser les pochettes',
-                image: '',
-                uri: 'spotify:settings:data_saver',
-                settingValue: state.data_saver ? 'ON' : 'OFF'
-            },
-            {
-                section: 'Lecture',
-                title: 'Lecture sans blanc (Gapless)',
-                subtitle: 'Enchaîner les morceaux de manière fluide sans coupure',
-                image: '',
-                uri: 'spotify:settings:gapless',
-                settingValue: state.gapless ? 'ON' : 'OFF'
-            },
-            {
-                section: 'Lecture',
-                title: 'Lecture automatique (Autoplay)',
-                subtitle: 'Continuer à écouter des titres similaires à la fin d’une playlist',
-                image: '',
-                uri: 'spotify:settings:autoplay',
-                settingValue: state.autoplay ? 'ON' : 'OFF'
             },
             {
                 section: 'Lecture',
@@ -1902,94 +1904,54 @@
             },
             {
                 section: 'Lecture',
-                title: 'Contenu explicite',
-                subtitle: 'Autoriser la lecture des titres marqués du badge Explicit',
+                title: 'Lecture automatique (Autoplay)',
+                subtitle: 'Continuer à écouter des titres similaires à la fin d’une playlist',
                 image: '',
-                uri: 'spotify:settings:explicit',
-                settingValue: state.explicit ? 'ON' : 'OFF'
+                uri: 'spotify:settings:autoplay',
+                settingValue: state.autoplay ? 'ON' : 'OFF'
             },
             {
                 section: 'Lecture',
-                title: 'Fondu enchaîné (Crossfade)',
-                subtitle: 'Chevaucher la fin d’un titre et le début du suivant',
+                title: 'Audio en arrière-plan',
+                subtitle: 'Continuer la lecture quand Melodix passe au second plan',
                 image: '',
-                uri: 'spotify:settings:crossfade',
-                settingValue: state.crossfade
-            },
-            {
-                section: 'Lecture',
-                title: 'Automix',
-                subtitle: 'Transitions plus fluides entre les titres d’une playlist',
-                image: '',
-                uri: 'spotify:settings:automix',
-                settingValue: state.automix ? 'ON' : 'OFF'
-            },
-            {
-                section: 'Lecture',
-                title: 'Audio mono',
-                subtitle: 'Lire le même signal dans les deux écouteurs',
-                image: '',
-                uri: 'spotify:settings:mono',
-                settingValue: state.mono ? 'ON' : 'OFF'
-            },
-            {
-                section: 'Lecture',
-                title: 'Volume matériel',
-                subtitle: 'Utiliser les boutons de volume du téléphone pour Spotify',
-                image: '',
-                uri: 'spotify:settings:hardware_volume',
-                settingValue: state.hardware_volume ? 'ON' : 'OFF'
-            },
-            {
-                section: 'Lecture',
-                title: 'Podcasts plus forts',
-                subtitle: 'Augmenter le niveau des émissions par rapport à la musique',
-                image: '',
-                uri: 'spotify:settings:podcast_boost',
-                settingValue: state.podcast_boost ? 'ON' : 'OFF'
+                uri: 'spotify:settings:bg_audio',
+                settingValue: state.bg_audio ? 'ON' : 'OFF'
             },
             {
                 section: 'Vidéos et Arrière-plan',
-                title: 'Canvas (visuels en boucle)',
-                subtitle: 'Afficher les courtes vidéos animées sur les morceaux compatibles',
+                title: 'Vidéos Canvas',
+                subtitle: 'Laisser lire les animations visuelles des titres compatibles',
                 image: '',
                 uri: 'spotify:settings:canvas',
                 settingValue: state.canvas ? 'ON' : 'OFF'
             },
             {
                 section: 'Vidéos et Arrière-plan',
-                title: 'Lecture en arrière-plan',
-                subtitle: 'Maintenir le moteur audio actif lorsque l’écran est verrouillé',
+                title: 'Économiseur de données',
+                subtitle: 'Désactive les vidéos Canvas pour réduire la consommation réseau',
                 image: '',
-                uri: 'spotify:settings:bg_audio',
-                settingValue: state.bg_audio ? 'ON' : 'OFF'
+                uri: 'spotify:settings:data_saver',
+                settingValue: state.data_saver ? 'ON' : 'OFF'
             },
             {
-                section: 'Affichage',
-                title: 'Paroles',
-                subtitle: 'Afficher les paroles synchronisées quand Spotify les propose',
+                section: 'Bibliothèque et données',
+                title: 'État de la bibliothèque Spotify',
+                subtitle: 'Données réellement récupérées pour le compte connecté',
                 image: '',
-                uri: 'spotify:settings:lyrics',
-                settingValue: state.lyrics ? 'ON' : 'OFF'
+                uri: 'spotify:settings:lib_status',
+                settingValue: libLabel
             },
             {
-                section: 'Affichage',
-                title: 'Titres indisponibles',
-                subtitle: 'Garder visibles les morceaux grisés dans les playlists',
+                section: 'Bibliothèque et données',
+                title: 'Dernier problème de chargement',
+                subtitle: lastError || 'Aucun problème enregistré',
                 image: '',
-                uri: 'spotify:settings:show_unplayable',
-                settingValue: state.show_unplayable ? 'ON' : 'OFF'
+                uri: 'spotify:settings:diag_errors',
+                settingValue: lastError ? 'Diagnostic' : 'Aucun'
             },
             {
-                section: 'Notifications',
-                title: 'Notifications Spotify',
-                subtitle: 'Nouveaux titres, sorties et mix recommandés',
-                image: '',
-                uri: 'spotify:settings:notifications',
-                settingValue: state.notifications ? 'ON' : 'OFF'
-            },
-            {
-                section: 'Stockage et Bibliothèque',
+                section: 'Bibliothèque et données',
                 title: 'Vider le cache de l’application',
                 subtitle: state.cache_status,
                 image: '',
@@ -1997,12 +1959,108 @@
                 settingValue: 'Vider'
             },
             {
-                section: 'Stockage et Bibliothèque',
+                section: 'Bibliothèque et données',
                 title: 'Synchroniser la bibliothèque Spotify',
                 subtitle: state.sync_status,
                 image: '',
                 uri: 'spotify:settings:resync',
                 settingValue: 'Actualiser'
+            },
+            {
+                section: 'Réglages gérés par Spotify',
+                title: 'Qualité du streaming audio',
+                subtitle: 'Définie par votre abonnement et vos paramètres Spotify',
+                image: '',
+                uri: 'spotify:settings:audio_quality',
+                settingValue: 'Géré par Spotify'
+            },
+            {
+                section: 'Réglages gérés par Spotify',
+                title: 'Normaliser le volume',
+                subtitle: 'Réglage du compte Spotify, non modifiable depuis Melodix',
+                image: '',
+                uri: 'spotify:settings:normalize_volume',
+                settingValue: 'Géré par Spotify'
+            },
+            {
+                section: 'Réglages gérés par Spotify',
+                title: 'Lecture sans blanc (Gapless)',
+                subtitle: 'Réglage du compte Spotify, non modifiable depuis Melodix',
+                image: '',
+                uri: 'spotify:settings:gapless',
+                settingValue: 'Géré par Spotify'
+            },
+            {
+                section: 'Réglages gérés par Spotify',
+                title: 'Contenu explicite',
+                subtitle: 'Réglage du compte Spotify, non modifiable depuis Melodix',
+                image: '',
+                uri: 'spotify:settings:explicit',
+                settingValue: 'Géré par Spotify'
+            },
+            {
+                section: 'Réglages gérés par Spotify',
+                title: 'Fondu enchaîné (Crossfade)',
+                subtitle: 'Réglage du compte Spotify, non modifiable depuis Melodix',
+                image: '',
+                uri: 'spotify:settings:crossfade',
+                settingValue: 'Géré par Spotify'
+            },
+            {
+                section: 'Réglages gérés par Spotify',
+                title: 'Automix',
+                subtitle: 'Réglage du compte Spotify, non modifiable depuis Melodix',
+                image: '',
+                uri: 'spotify:settings:automix',
+                settingValue: 'Géré par Spotify'
+            },
+            {
+                section: 'Réglages gérés par Spotify',
+                title: 'Audio mono',
+                subtitle: 'Réglage du compte Spotify, non modifiable depuis Melodix',
+                image: '',
+                uri: 'spotify:settings:mono',
+                settingValue: 'Géré par Spotify'
+            },
+            {
+                section: 'Réglages gérés par Spotify',
+                title: 'Volume matériel',
+                subtitle: 'Géré par Android et Spotify, non modifiable depuis Melodix',
+                image: '',
+                uri: 'spotify:settings:hardware_volume',
+                settingValue: 'Géré par Spotify'
+            },
+            {
+                section: 'Réglages gérés par Spotify',
+                title: 'Podcasts plus forts',
+                subtitle: 'Réglage du compte Spotify, non modifiable depuis Melodix',
+                image: '',
+                uri: 'spotify:settings:podcast_boost',
+                settingValue: 'Géré par Spotify'
+            },
+            {
+                section: 'Réglages gérés par Spotify',
+                title: 'Paroles (Lyrics)',
+                subtitle: 'Affichées automatiquement quand Spotify les fournit',
+                image: '',
+                uri: 'spotify:settings:lyrics',
+                settingValue: 'Géré par Spotify'
+            },
+            {
+                section: 'Réglages gérés par Spotify',
+                title: 'Titres indisponibles',
+                subtitle: 'Réglage du compte Spotify, non modifiable depuis Melodix',
+                image: '',
+                uri: 'spotify:settings:show_unplayable',
+                settingValue: 'Géré par Spotify'
+            },
+            {
+                section: 'Réglages gérés par Spotify',
+                title: 'Notifications Spotify',
+                subtitle: 'Gérées par Spotify et les réglages Android de notification',
+                image: '',
+                uri: 'spotify:settings:notifications',
+                settingValue: 'Géré par Spotify'
             },
             {
                 section: 'À propos',
@@ -2025,32 +2083,7 @@
         var state = getSpotifySettingsState();
         var overrideStatus = {};
 
-        if (key === 'audio_quality') {
-            var idx = AUDIO_QUALITIES.indexOf(state.audio_quality);
-            state.audio_quality = AUDIO_QUALITIES[(idx + 1) % AUDIO_QUALITIES.length];
-            saveSpotifySettingsState(state);
-        } else if (key === 'normalize_volume') {
-            state.normalize_volume = !state.normalize_volume;
-            saveSpotifySettingsState(state);
-        } else if (key === 'data_saver') {
-            state.data_saver = !state.data_saver;
-            if (state.data_saver) state.canvas = false;
-            saveSpotifySettingsState(state);
-            try {
-                if (window.AndBridge && typeof window.AndBridge.setCanvasDisabled === 'function') {
-                    window.AndBridge.setCanvasDisabled(!state.canvas);
-                }
-            } catch (_) {}
-        } else if (key === 'gapless') {
-            state.gapless = !state.gapless;
-            saveSpotifySettingsState(state);
-        } else if (key === 'autoplay') {
-            state.autoplay = !state.autoplay;
-            if (window.SF_CONFIG) {
-                window.SF_CONFIG.autoPlayMode = state.autoplay ? 'permanent' : 'disabled';
-            }
-            saveSpotifySettingsState(state);
-        } else if (key === 'shuffle') {
+        if (key === 'shuffle') {
             state.shuffle = !state.shuffle;
             saveSpotifySettingsState(state);
             try {
@@ -2072,39 +2105,27 @@
                     if (rb && typeof rb.click === 'function') rb.click();
                 }
             } catch (_) {}
-        } else if (key === 'explicit') {
-            state.explicit = !state.explicit;
+        } else if (key === 'autoplay') {
+            state.autoplay = !state.autoplay;
+            if (window.SF_CONFIG) {
+                window.SF_CONFIG.autoPlayMode = state.autoplay ? 'permanent' : 'disabled';
+            }
             saveSpotifySettingsState(state);
-        } else if (key === 'private_session') {
-            state.private_session = !state.private_session;
+        } else if (key === 'data_saver') {
+            state.data_saver = !state.data_saver;
+            if (state.data_saver) state.canvas = false;
             saveSpotifySettingsState(state);
-        } else if (key === 'crossfade') {
-            var fadeIdx = CROSSFADE_VALUES.indexOf(state.crossfade);
-            state.crossfade = CROSSFADE_VALUES[(fadeIdx + 1) % CROSSFADE_VALUES.length];
-            saveSpotifySettingsState(state);
-        } else if (key === 'automix') {
-            state.automix = !state.automix;
-            saveSpotifySettingsState(state);
-        } else if (key === 'mono') {
-            state.mono = !state.mono;
-            saveSpotifySettingsState(state);
-        } else if (key === 'hardware_volume') {
-            state.hardware_volume = !state.hardware_volume;
-            saveSpotifySettingsState(state);
-        } else if (key === 'podcast_boost') {
-            state.podcast_boost = !state.podcast_boost;
-            saveSpotifySettingsState(state);
-        } else if (key === 'lyrics') {
-            state.lyrics = !state.lyrics;
-            saveSpotifySettingsState(state);
-        } else if (key === 'show_unplayable') {
-            state.show_unplayable = !state.show_unplayable;
-            saveSpotifySettingsState(state);
-        } else if (key === 'notifications') {
-            state.notifications = !state.notifications;
-            saveSpotifySettingsState(state);
+            try {
+                if (window.AndBridge && typeof window.AndBridge.setCanvasDisabled === 'function') {
+                    window.AndBridge.setCanvasDisabled(!state.canvas);
+                }
+                if (document.body && document.body.classList) {
+                    document.body.classList.toggle('sf-hide-canvas', !state.canvas);
+                }
+            } catch (_) {}
         } else if (key === 'canvas') {
             state.canvas = !state.canvas;
+            if (state.canvas) state.data_saver = false;
             if (window.SF_CONFIG) {
                 window.SF_CONFIG.isCanvasDisabled = !state.canvas;
             }
@@ -2144,10 +2165,30 @@
                 window.__sfMediaItemsCache = new Map();
             }
             lastHomeSignature = null;
+            clearHomeRetry();
+            overrideStatus.sync_status = 'Synchronisation en cours…';
             try {
-                if (typeof window.checkMediaLib === 'function') window.checkMediaLib();
-            } catch (_) {}
-            overrideStatus.sync_status = 'Bibliothèque Spotify synchronisée ✓';
+                if (typeof window.checkMediaLib === 'function') {
+                    window.checkMediaLib(true);
+                    // Report the real outcome of the fetch instead of a
+                    // fabricated success message.
+                    window.setTimeout(function() {
+                        var st = userPlaylistLibraryState();
+                        var msg = st === 'ready'
+                            ? 'Synchronisation réussie ✓'
+                            : st === 'empty'
+                                ? 'Synchronisée — aucune playlist dans ce compte'
+                                : st === 'error'
+                                    ? 'Échec de la synchronisation — réessayez'
+                                    : 'Synchronisation toujours en cours…';
+                        window.__sfRequestSpotifySettings({ sync_status: msg });
+                    }, 2500);
+                } else {
+                    overrideStatus.sync_status = 'Synchronisation indisponible (module bibliothèque absent)';
+                }
+            } catch (_) {
+                overrideStatus.sync_status = 'Échec de la synchronisation — réessayez';
+            }
         } else if (key === 'logout') {
             var logoutWidget = document && document.querySelector
                 ? document.querySelector('button[data-testid="user-widget-link"], a[data-testid="user-widget-link"]')
@@ -2200,6 +2241,11 @@
             if (window.__sfMediaItemsCache && typeof window.__sfMediaItemsCache.clear === 'function') {
                 window.__sfMediaItemsCache.clear();
             }
+            window.mediaLib = undefined;
+            window.__sfMediaLibState = undefined;
+            window.__sfMediaLibError = null;
+            mediaLibWarmupRequested = 0;
+            mediaLibWarmupCount = 0;
             try {
                 if (window.localStorage) window.localStorage.clear();
                 if (window.sessionStorage) window.sessionStorage.clear();
@@ -2211,6 +2257,9 @@
             window.location.assign('https://accounts.spotify.com/logout');
             return true;
         }
+        // Every other row (quality, gapless, private session, crossfade, mono,
+        // notifications...) is managed by the Spotify account itself: tapping
+        // it must not pretend to change anything, only redraw the honest state.
 
         return window.__sfRequestSpotifySettings(overrideStatus);
     };
@@ -2221,12 +2270,25 @@
         return true;
     };
 
+    // Called by spotify_bridge.js when the real library fetch reaches a
+    // terminal state (ready / empty / error): repaint Accueil immediately
+    // instead of waiting for the next DOM mutation, and restart the bounded
+    // home retry budget that a previous loading phase may have exhausted.
+    window.__sfNotifyMediaLibReady = function() {
+        if (isSessionBlockedByLogout()) return false;
+        clearHomeRetry();
+        lastHomeSignature = null;
+        runUpdate();
+        return true;
+    };
+
     window.__sfNativeRequestHome = function() {
         if (isSessionBlockedByLogout() || window.location.hostname !== 'open.spotify.com') return false;
         if (!isSpotifyHome()) {
             window.location.assign('https://open.spotify.com/');
             return false;
         }
+        clearHomeRetry();
         lastHomeSignature = null;
         runUpdate();
         return true;

@@ -71,10 +71,19 @@ test('smoke: settings request lists every Spotify row and toggles persist', () =
         assert.ok(rows.find((row) => row.uri === `spotify:settings:${key}`).settingValue);
     }
     calls.length = 0;
+    // Rows owned by the Spotify account (private session, quality, gapless…)
+    // are honest information rows: tapping them must never fake a toggle.
     window.__sfToggleSpotifySetting('spotify:settings:private_session');
     const priv = JSON.parse(dataFor(calls, 'settings').data).find((row) => row.uri === 'spotify:settings:private_session');
-    assert.equal(priv.settingValue, 'ON');
-    assert.match(store.get('melodix_spotify_settings_v1'), /"private_session":true/);
+    assert.equal(priv.settingValue, 'Géré par Spotify');
+    assert.ok(!store.has('melodix_spotify_settings_v1') || !/private_session"?\s*:\s*true/.test(store.get('melodix_spotify_settings_v1') || ''));
+
+    // Real toggles keep persisting and reporting their true state.
+    calls.length = 0;
+    window.__sfToggleSpotifySetting('spotify:settings:canvas');
+    const canvas = JSON.parse(dataFor(calls, 'settings').data).find((row) => row.uri === 'spotify:settings:canvas');
+    assert.equal(canvas.settingValue, 'OFF');
+    assert.match(store.get('melodix_spotify_settings_v1'), /canvas"?\s*:\s*false/);
 });
 
 test('smoke: home keeps owned playlists in Vos playlists', () => {
@@ -136,7 +145,7 @@ test('smoke: shell respects system windows and rejects oversized JS payloads', (
     const layout = read('res/layout/activity_main.xml');
     assert.match(layout, /android:fitsSystemWindows="true"/);
     assert.match(layout, /contentDescription="Accueil"/);
-    assert.match(read('res/drawable/native_shell_background.xml'), /android:endColor="#ff0a0a0a"/);
+    assert.match(read('res/drawable/native_shell_background.xml'), /android:color="#ff121212"/);
     const bridge = read('smali/com/melodix/music/AndBridge.smali');
     const dispatchAt = bridge.indexOf('.method private final dispatchNativeUi(Ljava/lang/String;Ljava/lang/String;)V');
     const dispatch = bridge.slice(dispatchAt, bridge.indexOf('.end method', dispatchAt));

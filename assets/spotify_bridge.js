@@ -3622,17 +3622,47 @@ try {
 
     window.pendingMediaRequests = window.pendingMediaRequests || new Set();
     let isFetchingLib = false;
+    let mediaLibRetryTimer = null;
+    let mediaLibRetryAttempts = 0;
+    const MEDIA_LIB_MAX_RETRIES = 5;
+
+    // The native shell must be able to tell "still loading" from "the account
+    // has no playlist" from "the fetch failed": only the first one may show a
+    // loading state, the other two need an honest empty/error state.
+    function publishMediaLibState(state, errorMessage) {
+        window.__sfMediaLibState = state;
+        window.__sfMediaLibError = errorMessage || null;
+        if (typeof window.__sfNotifyMediaLibReady === 'function') {
+            try { window.__sfNotifyMediaLibReady(); } catch (_) {}
+        }
+    }
+
+    function scheduleMediaLibRetry() {
+        if (mediaLibRetryTimer || mediaLibRetryAttempts >= MEDIA_LIB_MAX_RETRIES) return;
+        mediaLibRetryAttempts += 1;
+        const delay = Math.min(3000 * mediaLibRetryAttempts, 15000);
+        mediaLibRetryTimer = setTimeout(() => {
+            mediaLibRetryTimer = null;
+            checkMediaLib(true);
+        }, delay);
+    }
+
     async function checkMediaLib(force = false) {
         if (isFetchingLib && !force) return;
         await ensureAuthToken();
         if (!window.spotAuthToken) {
             console.warn("[Spotifuck] checkMediaLib: Auth token unavailable.");
+            // Stay in "pending" (never claim an empty account) and retry once
+            // the Spotify session had a chance to expose its Bearer token.
+            if (!window.mediaLib) window.__sfMediaLibState = 'pending';
+            scheduleMediaLibRetry();
             return;
         }
         isFetchingLib = true;
         try {
             const allItems = await fetchAllLibrary();
             window.mediaLib = parseLibrary(allItems);
+            mediaLibRetryAttempts = 0;
             console.log("[Spotifuck] checkMediaLib: Successfully loaded mediaLib! Draining pending requests:", Array.from(window.pendingMediaRequests));
             if (window.pendingMediaRequests && window.pendingMediaRequests.size > 0) {
                 for (const reqId of window.pendingMediaRequests) {
@@ -3641,8 +3671,11 @@ try {
                 }
                 window.pendingMediaRequests.clear();
             }
+            publishMediaLibState(window.mediaLib.playlists.length ? 'ready' : 'empty', null);
         } catch (e) {
             logBridgeError('checkMediaLib', e);
+            publishMediaLibState('error', sanitizeDiagnostic(e));
+            scheduleMediaLibRetry();
         } finally {
             isFetchingLib = false;
         }
@@ -3669,41 +3702,57 @@ try {
             if (window.spotCliToken) {
                 headers['Client-Token'] = window.spotCliToken;
             }
-            const activeHash = getGqlHash('libraryV3', '0082bf82412db50128add72dbdb73e2961d59100b9cbf41fb25c568bd8bc358b');
-            const resp = await oriFetch('https://api-partner.spotify.com/pathfinder/v2/query', {
-                method: 'POST',
-                mode: 'cors',
-                credentials: 'include',
-                headers: headers,
-                body: JSON.stringify({
-                    variables: {
-                        filters: [],
-                        order: null,
-                        textFilter: '',
-                        features: ['LIKED_SONGS', 'YOUR_EPISODES_V2', 'PRERELEASES', 'EVENTS'],
-                        limit: limit,
-                        offset: offset,
-                        flatten: false,
-                        expandedFolders: [],
-                        folderUri: null,
-                        includeFoldersWhenFlattening: true
-                    },
-                    operationName: 'libraryV3',
-                    extensions: {
-                        persistedQuery: {
-                            version: 1,
-                            sha256Hash: activeHash
+            const fallbackHash = '0082bf82412db50128add72dbdb73e2961d59100b9cbf41fb25c568bd8bc358b';
+            const activeHash = getGqlHash('libraryV3', fallbackHash);
+            const hashCandidates = activeHash === fallbackHash
+                ? [fallbackHash]
+                : [activeHash, fallbackHash];
+            let resp = null;
+            let data = null;
+            for (const candidate of hashCandidates) {
+                resp = await oriFetch('https://api-partner.spotify.com/pathfinder/v2/query', {
+                    method: 'POST',
+                    mode: 'cors',
+                    credentials: 'include',
+                    headers: headers,
+                    body: JSON.stringify({
+                        variables: {
+                            filters: [],
+                            order: null,
+                            textFilter: '',
+                            features: ['LIKED_SONGS', 'YOUR_EPISODES_V2', 'PRERELEASES', 'EVENTS'],
+                            limit: limit,
+                            offset: offset,
+                            flatten: false,
+                            expandedFolders: [],
+                            folderUri: null,
+                            includeFoldersWhenFlattening: true
+                        },
+                        operationName: 'libraryV3',
+                        extensions: {
+                            persistedQuery: {
+                                version: 1,
+                                sha256Hash: candidate
+                            }
                         }
-                    }
-                })
-            });
-
-            if (!resp.ok) {
-                logBridgeError('pathfinder', { name: 'HttpError', message: String(resp.status || '') });
-                break;
+                    })
+                });
+                if (resp.ok) {
+                    data = await resp.json();
+                    if (!data?.errors?.length) break;
+                    data = null;
+                }
             }
 
-            const data = await resp.json();
+            // A failed request must surface as an error, never as an empty
+            // library: "no playlist" and "could not load" need different UI.
+            if (!resp || !resp.ok || !data) {
+                logBridgeError('pathfinder', { name: 'HttpError', message: String((resp && resp.status) || '') });
+                const httpError = new Error('HTTP ' + String((resp && resp.status) || '0'));
+                httpError.name = 'HttpError';
+                throw httpError;
+            }
+
             const items = data?.data?.me?.libraryV3?.items || [];
             allItems = allItems.concat(items);
 
