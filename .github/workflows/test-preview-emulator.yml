@@ -155,7 +155,28 @@ jobs:
               :e2e_done
               return-void"""
           patched = method.replace(old_tail, e2e_hook, 1)
-          open(p, "w", encoding="utf-8").write(src[:start] + patched + src[end:])
+          src = src[:start] + patched + src[end:]
+          src = src.replace(
+              "    invoke-super {p0}, Le6;->onStop()V",
+              '    new-instance v0, Ljava/lang/Throwable;\n    const-string v1, "MDX_ONSTOP"\n    invoke-direct {v0, v1}, Ljava/lang/Throwable;-><init>(Ljava/lang/String;)V\n    invoke-static {v0}, Landroid/util/Log;->getStackTraceString(Ljava/lang/Throwable;)Ljava/lang/String;\n    move-result-object v0\n    const-string v1, "MDXTRACE"\n    invoke-static {v1, v0}, Landroid/util/Log;->i(Ljava/lang/String;Ljava/lang/String;)I\n    invoke-super {p0}, Le6;->onStop()V',
+              1,
+          )
+          src = src.replace(
+              ".method public final handleNativeBack()Z\n    .locals 4",
+              '.method public final handleNativeBack()Z\n    .locals 4\n    const-string v0, "MDXTRACE"\n    const-string v1, "ENTER_HANDLE_NATIVE_BACK"\n    invoke-static {v0, v1}, Landroid/util/Log;->i(Ljava/lang/String;Ljava/lang/String;)I',
+              1,
+          )
+          open(p, "w", encoding="utf-8").write(src)
+          PY
+              python3 - "$work_dir/smali/androidx/activity/b.smali" <<'PY'
+          import sys
+          p = sys.argv[1]
+          s = open(p, encoding="utf-8").read().replace(
+              ".method public final b()V\n    .locals 4",
+              '.method public final b()V\n    .locals 4\n    const-string v0, "MDXTRACE"\n    const-string v1, "ENTER_DISPATCHER_B"\n    invoke-static {v0, v1}, Landroid/util/Log;->i(Ljava/lang/String;Ljava/lang/String;)I',
+              1,
+          )
+          open(p, "w", encoding="utf-8").write(s)
           PY
             fi
 
@@ -320,8 +341,10 @@ jobs:
             then
               cur_pid="$(adb shell pidof "$pkg" 2>/dev/null | tr -d '\r' || true)"
               cur_res="$(adb shell dumpsys activity activities 2>/dev/null | grep -E 'ResumedActivity' | tr '\n\r' ' ' || true)"
-              prefs="$(adb shell su 0 cat "/data/data/$pkg/shared_prefs/melodix_native.xml" 2>/dev/null | tr '\n\r' ' ' || true)"
-              echo "::error title=Emulator state at failure::pid=${cur_pid} resumed=${cur_res:0:180} prefs=${prefs:0:350}"
+              mdx="$(adb logcat -d -s MDXTRACE:I 2>/dev/null | tail -n 35 | tr '\n\r' ' | ' || true)"
+              win="$(adb shell dumpsys window 2>/dev/null | grep -E 'mCurrentFocus|mFocusedApp|OnBackInvoked' | head -n 15 | tr '\n\r' ' | ' || true)"
+              echo "::error title=Emulator state at failure::pid=${cur_pid} win=${win:0:350}"
+              echo "::error title=MDXTRACE logcat::${mdx:0:900}"
               exit 1
             fi
           }
@@ -368,6 +391,8 @@ jobs:
           dump_ui "04_fullplayer"
           assert_ui_has "$state/04_fullplayer.xml" "Lecture en cours"
           assert_ui_has "$state/04_fullplayer.xml" "Lu via Spotify"
+          win_before="$(adb shell dumpsys window 2>/dev/null | grep -E 'mCurrentFocus|mFocusedApp|OnBackInvoked' | head -n 15 | tr '\n\r' ' ' || true)"
+          echo "::notice title=Before keyevent 4::${win_before:0:500}"
           # Back #1: collapses expanded player back to detail
           adb shell input keyevent 4
           dump_ui "05_back_to_detail"
