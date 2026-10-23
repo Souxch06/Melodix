@@ -103,8 +103,17 @@ test('WS2: JS <-> Android bridge, callbacks, search focus, and row factories han
         /const-string v0, "screen-title"\s*\n\s*invoke-virtual \{p1, v0\}, Ljava\/lang\/String;->equals\(Ljava\/lang\/Object;\)Z\s*\n\s*move-result v1\s*\n\s*if-eqz v1, :check_detail_data/);
     assert.match(extractMethod(mainActivity, '.method public final renderNativeRows('),
         /const-string v0, "Accueil"\s*\n\s*invoke-virtual \{v0, p1\}, Ljava\/lang\/String;->equals\(Ljava\/lang\/Object;\)Z\s*\n\s*move-result v0\s*\n\s*if-eqz v0, :check_lib_grid/);
-    assert.match(extractMethod(mainActivity, '.method public final styleNativeLibraryChips('),
-        /move-result v5\s*\n\s*check-cast v3, Landroid\/widget\/TextView;\s*\n\s*if-eqz v5, :chip_inactive/);
+    const tabMethod = extractMethod(mainActivity, '.method public final styleNativeTab(');
+    assert.ok(tabMethod.includes('instance-of v3, v1, Landroid/widget/TextView;\n    if-eqz v3, :native_tab_as_group'));
+    assert.ok(tabMethod.includes('instance-of v3, v1, Landroid/view/ViewGroup;\n    if-eqz v3, :native_tab_style_done'));
+    const chipsMethod = extractMethod(mainActivity, '.method public final styleNativeLibraryChips(');
+    assert.ok(chipsMethod.includes('getChildAt(I)Landroid/view/View;\n    move-result-object v3\n    if-eqz v3, :chip_next'));
+    assert.ok(chipsMethod.includes('move-result v5\n    check-cast v3, Landroid/widget/TextView;\n    if-eqz v5, :chip_inactive'));
+    assert.ok(read('smali/com/melodix/music/NativeHomeFeed.smali').includes(
+        'invoke-virtual {v9}, Ljava/lang/String;->isEmpty()Z\n    move-result v10\n    if-nez v10, :next'
+    ));
+    assert.ok(extractMethod(uiRow, '.method public static applyDrawableBackground(').includes('if-eqz p0, :background_done'));
+    assert.ok(extractMethod(uiRow, '.method public static applyDrawableImage(').includes('if-eqz p0, :image_done'));
 });
 
 test('WS3: native_ui_shell.js defines cleanText, dispatches profile greeting + HTTPS avatar, handles malformed data, and resets session caches on logout', () => {

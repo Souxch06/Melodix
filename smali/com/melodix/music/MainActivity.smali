@@ -7203,6 +7203,8 @@
     move-result-object v2
     if-eqz v2, :native_tab_bar
     if-nez v1, :hide_native_mini_player
+    iget-boolean v3, p0, Lcom/melodix/music/MainActivity;->nativeHasTrack:Z
+    if-eqz v3, :hide_native_mini_player
     const/4 v3, 0x0
     goto :set_native_mini_player
     :hide_native_mini_player
@@ -7356,7 +7358,7 @@
 
     :native_tab_apply
     instance-of v3, v1, Landroid/widget/TextView;
-    if-nez v3, :native_tab_as_group
+    if-eqz v3, :native_tab_as_group
     check-cast v1, Landroid/widget/TextView;
     invoke-virtual {v1, v2}, Landroid/widget/TextView;->setTextColor(I)V
     invoke-static {v4}, Landroid/content/res/ColorStateList;->valueOf(I)Landroid/content/res/ColorStateList;
@@ -7366,7 +7368,7 @@
 
     :native_tab_as_group
     instance-of v3, v1, Landroid/view/ViewGroup;
-    if-nez v3, :native_tab_style_done
+    if-eqz v3, :native_tab_style_done
     check-cast v1, Landroid/view/ViewGroup;
     const/4 v3, 0x0
     invoke-virtual {v1, v3}, Landroid/view/ViewGroup;->getChildAt(I)Landroid/view/View;
@@ -7986,6 +7988,16 @@
     sput-boolean v4, Lcom/melodix/music/NativeHomeFeed;->useGrid:Z
     goto :do_paint
     :check_lib_grid
+    iget-object v0, p0, Lcom/melodix/music/MainActivity;->nativeCurrentScreen:Ljava/lang/String;
+    if-eqz v0, :check_lib_title
+    const-string v4, "home"
+    invoke-virtual {v4, v0}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    move-result v4
+    if-eqz v4, :check_lib_title
+    const/4 v4, 0x1
+    sput-boolean v4, Lcom/melodix/music/NativeHomeFeed;->useGrid:Z
+    goto :do_paint
+    :check_lib_title
     const-string v0, "Votre bibliothèque"
     invoke-virtual {v0, p1}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
     move-result v0
@@ -8398,7 +8410,7 @@
     if-ge v2, v1, :chips_done
     invoke-virtual {v0, v2}, Landroid/widget/LinearLayout;->getChildAt(I)Landroid/view/View;
     move-result-object v3
-    if-nez v3, :chip_next
+    if-eqz v3, :chip_next
     invoke-virtual {v3}, Landroid/view/View;->getTag()Ljava/lang/Object;
     move-result-object v4
     if-eqz v4, :chip_next

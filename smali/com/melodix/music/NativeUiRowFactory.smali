@@ -503,11 +503,11 @@
 
     # Resolve by name: a hard-coded id would crash with
     # Resources$NotFoundException if the rebuild ever renumbered a drawable.
-    if-nez p0, :background_done
+    if-eqz p0, :background_done
 
-    if-nez p1, :background_done
+    if-eqz p1, :background_done
 
-    if-nez p2, :background_done
+    if-eqz p2, :background_done
 
     invoke-virtual {p0}, Landroid/content/Context;->getResources()Landroid/content/res/Resources;
 
@@ -523,7 +523,7 @@
 
     move-result v0
 
-    if-nez v0, :background_done
+    if-eqz v0, :background_done
 
     invoke-virtual {p1, v0}, Landroid/view/View;->setBackgroundResource(I)V
 
@@ -534,11 +534,11 @@
 .method public static applyDrawableImage(Landroid/content/Context;Landroid/widget/ImageView;Ljava/lang/String;)V
     .locals 3
 
-    if-nez p0, :image_done
+    if-eqz p0, :image_done
 
-    if-nez p1, :image_done
+    if-eqz p1, :image_done
 
-    if-nez p2, :image_done
+    if-eqz p2, :image_done
 
     invoke-virtual {p0}, Landroid/content/Context;->getResources()Landroid/content/res/Resources;
 
@@ -554,7 +554,7 @@
 
     move-result v0
 
-    if-nez v0, :image_done
+    if-eqz v0, :image_done
 
     invoke-virtual {p1, v0}, Landroid/widget/ImageView;->setImageResource(I)V
 

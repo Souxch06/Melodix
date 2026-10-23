@@ -49,7 +49,7 @@
     if-eqz v10, :has_row
     invoke-virtual {v9}, Ljava/lang/String;->isEmpty()Z
     move-result v10
-    if-eqz v10, :next
+    if-nez v10, :next
 
     :has_row
     const-string v10, "section"
