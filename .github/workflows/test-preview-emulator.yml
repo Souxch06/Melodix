@@ -340,11 +340,10 @@ jobs:
           PY
             then
               cur_pid="$(adb shell pidof "$pkg" 2>/dev/null | tr -d '\r' || true)"
-              cur_res="$(adb shell dumpsys activity activities 2>/dev/null | grep -E 'ResumedActivity' | tr '\n\r' ' ' || true)"
-              mdx="$(adb logcat -d -s MDXTRACE:I 2>/dev/null | tail -n 35 | tr '\n\r' ' | ' || true)"
-              win="$(adb shell dumpsys window 2>/dev/null | grep -E 'mCurrentFocus|mFocusedApp|OnBackInvoked' | head -n 15 | tr '\n\r' ' | ' || true)"
+              mdx="$(adb logcat -d -s MDXTRACE:I NativeCrashGuard:E AndroidRuntime:E 2>/dev/null | tail -n 55 | tr '\n\r' ' | ' || true)"
+              win="$(adb shell dumpsys window 2>/dev/null | grep -E 'mCurrentFocus|mFocusedApp|OnBackInvoked' | head -n 10 | tr '\n\r' ' | ' || true)"
               echo "::error title=Emulator state at failure::pid=${cur_pid} win=${win:0:350}"
-              echo "::error title=MDXTRACE logcat::${mdx:0:900}"
+              echo "::error title=Crash and MDXTRACE logcat::${mdx:0:2200}"
               exit 1
             fi
           }
