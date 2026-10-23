@@ -259,6 +259,23 @@
                 window.__sfNativeHomeRowsJson = payload;
             }
             bridge.onNativeUiData(screen, payload);
+            if (typeof window.__sfLibDiagRecord === 'function'
+                && (screen === 'home' || String(screen).indexOf('media:') === 0)) {
+                // Temporary pipeline diagnostic: record how many rows (and how
+                // many real playlists) actually reached the native shell.
+                window.__sfLibDiagRecord('deliver', true, screen + ' rows=' + rows.length + ' playlists=' + playlistCount);
+                if (typeof window.__sfLibDiagUpdate === 'function') {
+                    var deliveryPatch = { seen: true, afterReady: window.__sfMediaLibState === 'ready' };
+                    if (screen === 'home') {
+                        deliveryPatch.homeRows = rows.length;
+                        deliveryPatch.homePlaylistRows = playlistCount;
+                    } else {
+                        deliveryPatch.mediaRows = rows.length;
+                        deliveryPatch.mediaPlaylistRows = playlistCount;
+                    }
+                    window.__sfLibDiagUpdate({ delivered: deliveryPatch });
+                }
+            }
             if (screen === 'home' && typeof bridge.onNativeHomeRows === 'function') {
                 window.AndBridge.onNativeHomeRows(payload);
             }
@@ -633,9 +650,34 @@
             }];
         }
         if (kind === 'error') {
+            // Honest classification: distinguish an access denial, a network
+            // failure, an unexpected response and a rendering gap instead of a
+            // generic message. Falls back to the retry hint when the temporary
+            // diagnostic is unavailable.
+            var detail = 'Appuyez sur Accueil pour réessayer';
+            try {
+                if (typeof window.__sfGetLibDiagReport === 'function') {
+                    var report = window.__sfGetLibDiagReport();
+                    var kindMap = {
+                        'token-missing': 'Jeton d’accès indisponible',
+                        'network': 'Erreur réseau pendant la récupération',
+                        'access-denied': 'Accès refusé par Spotify (compte ou droits)',
+                        'no-session': 'Session Spotify non reconnue',
+                        'graphql-error': 'Requête bibliothèque rejetée par Spotify',
+                        'http-error': 'Réponse en erreur du serveur Spotify',
+                        'shape-mismatch': 'Réponse Spotify inattendue',
+                        'fetch-error': 'Récupération impossible',
+                        'parse-gap': 'Réponse reçue mais inexploitable',
+                        'render-gap': 'Playlists chargées mais non affichées'
+                    };
+                    if (report && kindMap[report.failureKind]) {
+                        detail = kindMap[report.failureKind] + ' — appuyez sur Accueil pour réessayer';
+                    }
+                }
+            } catch (_) {}
             return [{
                 title: 'Impossible de charger les playlists',
-                subtitle: 'Appuyez sur Accueil pour réessayer',
+                subtitle: detail,
                 section: 'Accueil'
             }];
         }
@@ -1839,6 +1881,119 @@
         } catch (_) {}
     }
 
+    // Temporary pipeline diagnostic rows (Paramètres). They only surface what
+    // window.__sfGetLibDiagReport() really recorded — booleans, counts and
+    // short labels — never tokens, cookies or account data. To be removed once
+    // the real-account validation is done.
+    function libDiagReport() {
+        try {
+            if (typeof window.__sfGetLibDiagReport === 'function') {
+                return window.__sfGetLibDiagReport();
+            }
+        } catch (_) {}
+        return null;
+    }
+
+    function libDiagSummaryLine() {
+        var report = libDiagReport();
+        if (!report) return 'Module diagnostic indisponible (pont bibliothèque absent)';
+        return String(report.conclusion || 'En attente du premier chargement de la bibliothèque.').slice(0, 120);
+    }
+
+    function libDiagShortValue() {
+        var report = libDiagReport();
+        if (!report) return 'Indisponible';
+        if (report.failureKind) return 'Échec étape';
+        if (report.lastRun && report.lastRun.status === 'ready') return 'OK';
+        if (report.lastRun && report.lastRun.status === 'empty') return 'Vide';
+        return 'En cours';
+    }
+
+    function libDiagHttpSummary(run) {
+        var attempts = run.attempts || [];
+        var i;
+        for (i = attempts.length - 1; i >= 0; i -= 1) {
+            if (attempts[i].networkError) return 'Erreur réseau';
+            if (attempts[i].httpStatus) return 'HTTP ' + attempts[i].httpStatus;
+        }
+        return 'Non évalué';
+    }
+
+    function libDiagShapeSummary(run) {
+        var attempts = run.attempts || [];
+        var i;
+        for (i = attempts.length - 1; i >= 0; i -= 1) {
+            if (attempts[i].shape === 'ok') return 'Attendue (' + (attempts[i].items === null ? '?' : attempts[i].items) + ' items)';
+            if (attempts[i].shape === 'me-null') return 'me=null (session)';
+            if (attempts[i].shape === 'mismatch') return 'Inattendue';
+        }
+        return 'Non évaluée';
+    }
+
+    function libDiagSettingsRows() {
+        var report = libDiagReport();
+        var rows = [{
+            section: 'Bibliothèque et données',
+            title: 'Diagnostic de récupération (temporaire)',
+            subtitle: libDiagSummaryLine(),
+            image: '',
+            uri: 'spotify:settings:lib_diag',
+            settingValue: libDiagShortValue()
+        }];
+        if (!window.__sfLibDiagExpanded || !report) return rows;
+        var run = report.lastRun || {};
+        var steps = [
+            {
+                title: '1. Session Spotify détectée',
+                value: run.session === 'detected' ? 'Oui' : run.session === 'not-detected' ? 'Non (déconnectée)' : 'Indéterminée'
+            },
+            {
+                title: '2. Jeton d’accès disponible',
+                value: run.token === 'bearer' ? 'Oui (format Bearer)' : run.token === 'malformed' ? 'Format inattendu' : run.token === 'missing' ? 'Non' : 'Non évalué'
+            },
+            {
+                title: '3. Appel bibliothèque (libraryV3, requête interne)',
+                value: (run.attempts || []).length
+                    ? ((run.attempts.length) + ' tentative(s), hash ' + (run.hashSource === 'dynamic' ? 'capté + intégré' : 'intégré'))
+                    : 'Aucune tentative'
+            },
+            {
+                title: '4. Statut HTTP de la réponse',
+                value: libDiagHttpSummary(run)
+            },
+            {
+                title: '5. Structure de la réponse',
+                value: libDiagShapeSummary(run)
+            },
+            {
+                title: '6. Éléments analysés',
+                value: (run.itemsTotal || 0) + ' reçu(s) → ' + (run.parsed ? run.parsed.playlists : 0) + ' playlist(s), '
+                    + (run.parsed ? run.parsed.skipped : 0) + ' ignoré(s)'
+            },
+            {
+                title: '7. Playlists transmises au shell natif',
+                value: run.delivered
+                    ? ((run.delivered.homePlaylistRows + run.delivered.mediaPlaylistRows) + ' transmise(s)')
+                    : '0 transmise(s)'
+            },
+            {
+                title: 'Conclusion du parcours',
+                value: String(report.conclusion || '').slice(0, 90)
+            }
+        ];
+        steps.forEach(function(step, index) {
+            rows.push({
+                section: 'Diagnostic bibliothèque (temporaire)',
+                title: step.title,
+                subtitle: 'Étape réelle du parcours — aucune donnée sensible enregistrée',
+                image: '',
+                uri: 'spotify:settings:lib_diag_step' + (index + 1),
+                settingValue: String(step.value).slice(0, 60)
+            });
+        });
+        return rows;
+    }
+
     function buildSpotifySettingsRows(overrideStatus) {
         var state = getSpotifySettingsState();
         var profile = detectSpotifyProfile();
@@ -1861,7 +2016,7 @@
                     : 'Chargement en cours…';
         var lastError = window.__sfNativeUiShellLastError || null;
 
-        return [
+        var rows = [
             {
                 section: 'Compte Spotify',
                 title: accountName,
@@ -2071,6 +2226,21 @@
                 settingValue: 'v1.2.2'
             }
         ];
+        // Temporary diagnostic rows are inserted right before the cache
+        // actions, driven by the real pipeline state only.
+        var diagRows = libDiagSettingsRows();
+        if (diagRows.length) {
+            var insertAt = rows.length;
+            var rowIndex;
+            for (rowIndex = 0; rowIndex < rows.length; rowIndex += 1) {
+                if (rows[rowIndex] && rows[rowIndex].uri === 'spotify:settings:clear_cache') {
+                    insertAt = rowIndex;
+                    break;
+                }
+            }
+            rows = rows.slice(0, insertAt).concat(diagRows, rows.slice(insertAt));
+        }
+        return rows;
     }
 
     window.__sfRequestSpotifySettings = function(overrideStatus) {
@@ -2189,6 +2359,11 @@
             } catch (_) {
                 overrideStatus.sync_status = 'Échec de la synchronisation — réessayez';
             }
+        } else if (key === 'lib_diag') {
+            // Temporary diagnostic panel: shows/hides the real step rows. It
+            // must never fabricate a state — it only re-renders what the
+            // pipeline recorded.
+            window.__sfLibDiagExpanded = !window.__sfLibDiagExpanded;
         } else if (key === 'logout') {
             var logoutWidget = document && document.querySelector
                 ? document.querySelector('button[data-testid="user-widget-link"], a[data-testid="user-widget-link"]')
@@ -2244,6 +2419,16 @@
             window.mediaLib = undefined;
             window.__sfMediaLibState = undefined;
             window.__sfMediaLibError = null;
+            window.__sfLibDiagExpanded = false;
+            if (window.__sfLibDiag && window.__sfLibDiag.lastRun) {
+                try {
+                    window.__sfLibDiag.steps.length = 0;
+                    window.__sfLibDiag.lastRun.status = null;
+                    window.__sfLibDiag.lastRun.attempts.length = 0;
+                    window.__sfLibDiag.lastRun.token = null;
+                    window.__sfLibDiag.lastRun.session = null;
+                } catch (_) {}
+            }
             mediaLibWarmupRequested = 0;
             mediaLibWarmupCount = 0;
             try {

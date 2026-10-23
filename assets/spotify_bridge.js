@@ -3575,6 +3575,270 @@ try {
     // SECTION 4: LIBRARY & FOLDER RESOLUTION
     // =========================================================================
 
+    // =========================================================================
+    // SECTION 4a: TEMPORARY LIBRARY-FETCH DIAGNOSTIC (no secrets, ever)
+    // =========================================================================
+    // Temporary instrumentation for the real-account investigation: it records,
+    // step by step, where the real playlist retrieval pipeline is
+    // (session -> token -> libraryV3 call -> HTTP status -> response shape ->
+    // parsing -> native shell delivery) so the exact failing stage can be read
+    // in Paramètres > Diagnostic de récupération. Every recorded value is a
+    // boolean, a small number, or a short label built from a controlled
+    // vocabulary passed through sanitizeDiagnostic — never tokens, cookies,
+    // account identifiers, playlist names or raw payloads.
+    // NOTE: libraryV3 is an undocumented internal persisted-query operation of
+    // the Spotify Web Player (api-partner.spotify.com/pathfinder), NOT a
+    // public/official Spotify API: its shape and hash can change at any time.
+    const LIB_DIAG_MAX_STEPS = 40;
+
+    function libDiagSafeLabel(value, fallback) {
+        var text = sanitizeDiagnostic(value);
+        text = String(text || '').replace(/\s+/g, ' ').trim().slice(0, 72);
+        if (!text) return fallback || '';
+        // Second line of defense: anything outside a conservative charset is
+        // dropped entirely instead of being stored (no markup, no URLs).
+        if (!/^[A-Za-zÀ-ÖØ-öø-ÿ0-9 .:,=+()/'!?_-]{1,72}$/.test(text)) return '[non affiché]';
+        return text;
+    }
+
+    function libDiagZeroParsed() {
+        return { playlists: 0, albums: 0, artists: 0, podcasts: 0, skipped: 0 };
+    }
+
+    function libDiagZeroDelivered() {
+        return { homeRows: 0, homePlaylistRows: 0, mediaRows: 0, mediaPlaylistRows: 0, seen: false, afterReady: false };
+    }
+
+    function libDiagRunBegin() {
+        var diag = window.__sfLibDiag;
+        if (!diag) return;
+        var session = window.__sfAuthBridgeState === 'signed-in'
+            ? 'detected'
+            : window.__sfAuthBridgeState === 'signed-out'
+                ? 'not-detected'
+                : 'unknown';
+        diag.lastRun = {
+            session: session,
+            token: null,
+            hashSource: null,
+            attempts: [],
+            itemsTotal: 0,
+            parsed: libDiagZeroParsed(),
+            delivered: libDiagZeroDelivered(),
+            status: null
+        };
+        libDiagRecord('session', session !== 'not-detected', session === 'detected'
+            ? 'connectée'
+            : session === 'not-detected' ? 'déconnectée' : 'indéterminée');
+    }
+
+    function libDiagRecord(step, ok, detail) {
+        try {
+            var diag = window.__sfLibDiag;
+            if (!diag) return;
+            diag.steps.push({
+                step: libDiagSafeLabel(step, '?'),
+                ok: Boolean(ok),
+                detail: libDiagSafeLabel(detail, ''),
+                at: Date.now()
+            });
+            if (diag.steps.length > LIB_DIAG_MAX_STEPS) {
+                diag.steps.splice(0, diag.steps.length - LIB_DIAG_MAX_STEPS);
+            }
+        } catch (_) {}
+    }
+
+    function libDiagUpdate(fields) {
+        // Whitelisted keys with strict value shapes only: an unknown key is
+        // ignored, so a secret can never be persisted here by mistake.
+        try {
+            var run = window.__sfLibDiag && window.__sfLibDiag.lastRun;
+            if (!run || !fields) return;
+            if (typeof fields.session === 'string'
+                && ['detected', 'not-detected', 'unknown'].indexOf(fields.session) >= 0) {
+                run.session = fields.session;
+            }
+            if (typeof fields.token === 'string'
+                && ['bearer', 'missing', 'malformed'].indexOf(fields.token) >= 0) {
+                run.token = fields.token;
+            }
+            if (typeof fields.hashSource === 'string'
+                && ['dynamic', 'fallback'].indexOf(fields.hashSource) >= 0) {
+                run.hashSource = fields.hashSource;
+            }
+            if (typeof fields.status === 'string'
+                && ['pending', 'ready', 'empty', 'error'].indexOf(fields.status) >= 0) {
+                run.status = fields.status;
+            }
+            if (typeof fields.itemsTotal === 'number' && isFinite(fields.itemsTotal) && fields.itemsTotal >= 0) {
+                run.itemsTotal = fields.itemsTotal;
+            }
+            if (fields.parsed && typeof fields.parsed === 'object') {
+                ['playlists', 'albums', 'artists', 'podcasts', 'skipped'].forEach(function(key) {
+                    if (typeof fields.parsed[key] === 'number' && isFinite(fields.parsed[key]) && fields.parsed[key] >= 0) {
+                        run.parsed[key] = fields.parsed[key];
+                    }
+                });
+            }
+            if (fields.delivered && typeof fields.delivered === 'object') {
+                ['homeRows', 'homePlaylistRows', 'mediaRows', 'mediaPlaylistRows'].forEach(function(key) {
+                    if (typeof fields.delivered[key] === 'number' && isFinite(fields.delivered[key]) && fields.delivered[key] >= 0) {
+                        run.delivered[key] = fields.delivered[key];
+                    }
+                });
+                if (fields.delivered.seen) run.delivered.seen = true;
+                if (fields.delivered.afterReady) run.delivered.afterReady = true;
+            }
+        } catch (_) {}
+    }
+
+    function libDiagAttempt(info) {
+        try {
+            var run = window.__sfLibDiag && window.__sfLibDiag.lastRun;
+            if (!run || !info) return;
+            run.attempts.push({
+                candidate: (info.candidate === 'dynamic' || info.candidate === 'fallback') ? info.candidate : '?',
+                httpStatus: typeof info.httpStatus === 'number' && isFinite(info.httpStatus) ? info.httpStatus : null,
+                networkError: Boolean(info.networkError),
+                gqlErrorCodes: Array.isArray(info.gqlErrorCodes)
+                    ? info.gqlErrorCodes.filter(function(code) {
+                        return /^[A-Z0-9_]{1,48}$/.test(String(code));
+                    }).slice(0, 4)
+                    : [],
+                shape: info.shape === 'ok' || info.shape === 'mismatch' || info.shape === 'me-null' ? info.shape : null,
+                items: typeof info.items === 'number' && isFinite(info.items) && info.items >= 0 ? info.items : null
+            });
+            if (run.attempts.length > 12) run.attempts.splice(0, run.attempts.length - 12);
+        } catch (_) {}
+    }
+
+    function libDiagPatchLastAttempt(patch) {
+        try {
+            var run = window.__sfLibDiag && window.__sfLibDiag.lastRun;
+            if (!run || !run.attempts.length || !patch) return;
+            var last = run.attempts[run.attempts.length - 1];
+            if (patch.shape === 'ok' || patch.shape === 'mismatch' || patch.shape === 'me-null') last.shape = patch.shape;
+            if (typeof patch.items === 'number' && isFinite(patch.items) && patch.items >= 0) last.items = patch.items;
+        } catch (_) {}
+    }
+
+    function libDiagGqlCodes(errors) {
+        var codes = [];
+        try {
+            (Array.isArray(errors) ? errors : []).forEach(function(entry) {
+                var code = entry && entry.extensions && entry.extensions.code;
+                if (code) {
+                    code = String(code).toUpperCase();
+                    if (/^[A-Z0-9_]{1,48}$/.test(code)) codes.push(code);
+                }
+            });
+        } catch (_) {}
+        return codes.slice(0, 4);
+    }
+
+    function libDiagFailureKind(run) {
+        if (!run) return null;
+        var attempts = run.attempts || [];
+        var i;
+        if (run.token === 'missing' || run.token === 'malformed') return 'token-missing';
+        for (i = 0; i < attempts.length; i += 1) {
+            if (attempts[i].networkError) return 'network';
+        }
+        for (i = 0; i < attempts.length; i += 1) {
+            if (attempts[i].httpStatus === 401 || attempts[i].httpStatus === 403) return 'access-denied';
+        }
+        for (i = 0; i < attempts.length; i += 1) {
+            if (attempts[i].shape === 'me-null') return 'no-session';
+        }
+        for (i = 0; i < attempts.length; i += 1) {
+            if ((attempts[i].gqlErrorCodes || []).length) return 'graphql-error';
+        }
+        for (i = 0; i < attempts.length; i += 1) {
+            if (attempts[i].httpStatus && attempts[i].httpStatus >= 400) return 'http-error';
+        }
+        for (i = 0; i < attempts.length; i += 1) {
+            if (attempts[i].shape === 'mismatch') return 'shape-mismatch';
+        }
+        if (run.status === 'error') return 'fetch-error';
+        if (run.itemsTotal > 0 && (run.parsed.playlists + run.parsed.albums + run.parsed.artists + run.parsed.podcasts) === 0) {
+            return 'parse-gap';
+        }
+        if (run.status === 'ready' && run.parsed.playlists > 0 && run.delivered.afterReady
+            && (run.delivered.homePlaylistRows + run.delivered.mediaPlaylistRows) === 0) {
+            return 'render-gap';
+        }
+        return null;
+    }
+
+    function libDiagConclude() {
+        var run = window.__sfLibDiag && window.__sfLibDiag.lastRun;
+        if (!run) return 'Diagnostic non initialisé';
+        var kind = libDiagFailureKind(run);
+        if (!kind) {
+            if (run.status === 'ready') {
+                return 'Parcours complet : ' + run.parsed.playlists + ' playlist(s) analysée(s), '
+                    + (run.delivered.homePlaylistRows + run.delivered.mediaPlaylistRows) + ' transmise(s) au shell natif.';
+            }
+            if (run.status === 'empty') {
+                return 'Réponse valide et vide : ce compte ne contient aucune playlist.';
+            }
+            return 'En attente du premier chargement de la bibliothèque.';
+        }
+        var byKind = {
+            'token-missing': 'Échec à l\'étape « Jeton d\'accès » : absent ou format inattendu.',
+            'network': 'Échec à l\'étape « Statut HTTP » : erreur réseau (requête interrompue).',
+            'access-denied': 'Échec à l\'étape « Statut HTTP » : accès refusé (HTTP 401/403).',
+            'no-session': 'Échec à l\'étape « Structure de la réponse » : session non reconnue (me=null).',
+            'graphql-error': 'Échec à l\'étape « Appel bibliothèque » : requête GraphQL rejetée.',
+            'http-error': 'Échec à l\'étape « Statut HTTP » : erreur serveur Spotify.',
+            'shape-mismatch': 'Échec à l\'étape « Structure de la réponse » : structure inattendue.',
+            'fetch-error': 'Échec de la récupération de la bibliothèque.',
+            'parse-gap': 'Échec à l\'étape « Analyse » : éléments reçus mais inexploitables.',
+            'render-gap': 'Échec à l\'étape « Rendu » : playlists chargées mais non transmises au shell.'
+        };
+        return byKind[kind] || 'Échec de la récupération.';
+    }
+
+    window.__sfLibDiag = {
+        version: 1,
+        temporary: true,
+        steps: [],
+        lastRun: {
+            session: null,
+            token: null,
+            hashSource: null,
+            attempts: [],
+            itemsTotal: 0,
+            parsed: libDiagZeroParsed(),
+            delivered: libDiagZeroDelivered(),
+            status: null
+        }
+    };
+    window.__sfLibDiagRecord = libDiagRecord;
+    window.__sfLibDiagUpdate = libDiagUpdate;
+    window.__sfGetLibDiagReport = function() {
+        var diag = window.__sfLibDiag;
+        if (!diag) return null;
+        return {
+            temporary: true,
+            steps: diag.steps.map(function(entry) {
+                return { step: entry.step, ok: entry.ok, detail: entry.detail, at: entry.at };
+            }),
+            lastRun: {
+                session: diag.lastRun.session,
+                token: diag.lastRun.token,
+                hashSource: diag.lastRun.hashSource,
+                attempts: diag.lastRun.attempts.slice(),
+                itemsTotal: diag.lastRun.itemsTotal,
+                parsed: Object.assign({}, diag.lastRun.parsed),
+                delivered: Object.assign({}, diag.lastRun.delivered),
+                status: diag.lastRun.status
+            },
+            failureKind: libDiagFailureKind(diag.lastRun),
+            conclusion: libDiagConclude()
+        };
+    };
+
     async function ensureAuthToken() {
         if (!window.spotAuthToken) {
             try {
@@ -3611,10 +3875,14 @@ try {
     }
 
     function getGqlHash(opName, fallbackHash) {
-        if (window.spHashes && window.spHashes[opName]) return window.spHashes[opName];
+        // Robustness for the internal persisted-query hash: only a well-formed
+        // 64-hex sha256 may be used; a corrupted capture/storage falls back to
+        // the bundled hash instead of sending garbage to pathfinder.
+        const isSha256 = (value) => /^[a-f0-9]{64}$/i.test(String(value || ''));
+        if (window.spHashes && isSha256(window.spHashes[opName])) return window.spHashes[opName];
         try {
             const stored = localStorage.getItem('sp_hash_' + opName);
-            if (stored) return stored;
+            if (isSha256(stored)) return stored;
         } catch(_) {}
         return fallbackHash;
     }
@@ -3649,15 +3917,21 @@ try {
 
     async function checkMediaLib(force = false) {
         if (isFetchingLib && !force) return;
+        libDiagRunBegin();
         await ensureAuthToken();
         if (!window.spotAuthToken) {
             console.warn("[Spotifuck] checkMediaLib: Auth token unavailable.");
             // Stay in "pending" (never claim an empty account) and retry once
             // the Spotify session had a chance to expose its Bearer token.
+            libDiagUpdate({ token: 'missing', status: 'pending' });
+            libDiagRecord('token', false, 'absent');
             if (!window.mediaLib) window.__sfMediaLibState = 'pending';
             scheduleMediaLibRetry();
             return;
         }
+        const tokenLooksBearer = window.spotAuthToken.startsWith('Bearer ');
+        libDiagUpdate({ token: tokenLooksBearer ? 'bearer' : 'malformed' });
+        libDiagRecord('token', tokenLooksBearer, tokenLooksBearer ? 'format Bearer' : 'format inattendu');
         isFetchingLib = true;
         try {
             const allItems = await fetchAllLibrary();
@@ -3671,9 +3945,16 @@ try {
                 }
                 window.pendingMediaRequests.clear();
             }
+            libDiagUpdate({ status: window.mediaLib.playlists.length ? 'ready' : 'empty' });
+            libDiagRecord('parse', true, 'playlists=' + window.mediaLib.playlists.length
+                + ' albums=' + window.mediaLib.albums.length
+                + ' artistes=' + window.mediaLib.artists.length
+                + ' podcasts=' + window.mediaLib.podcasts.length);
             publishMediaLibState(window.mediaLib.playlists.length ? 'ready' : 'empty', null);
         } catch (e) {
             logBridgeError('checkMediaLib', e);
+            libDiagUpdate({ status: 'error' });
+            libDiagRecord('fetch', false, String((e && e.name) || 'Error'));
             publishMediaLibState('error', sanitizeDiagnostic(e));
             scheduleMediaLibRetry();
         } finally {
@@ -3685,11 +3966,16 @@ try {
     async function fetchAllLibrary() {
         if (!window.spotAuthToken || !window.spotAuthToken.startsWith('Bearer ')) {
             console.warn("[Spotifuck] fetchAllLibrary: Authorization token not ready.");
-            return [];
+            // A missing or malformed credential must surface as an explicit
+            // error, never as an empty library: the account may hold playlists.
+            const tokenError = new Error('token-not-ready');
+            tokenError.name = 'TokenError';
+            throw tokenError;
         }
         const limit = 50;
         let offset = 0;
         let allItems = [];
+        let rawItemCount = 0;
         let hasMore = true;
 
         while (hasMore && offset < 1000) {
@@ -3707,40 +3993,59 @@ try {
             const hashCandidates = activeHash === fallbackHash
                 ? [fallbackHash]
                 : [activeHash, fallbackHash];
+            libDiagUpdate({ hashSource: activeHash === fallbackHash ? 'fallback' : 'dynamic' });
+            libDiagRecord('hash', true, activeHash === fallbackHash ? 'hash intégré' : 'hash capté + intégré');
             let resp = null;
             let data = null;
+            let gqlCodes = [];
             for (const candidate of hashCandidates) {
-                resp = await oriFetch('https://api-partner.spotify.com/pathfinder/v2/query', {
-                    method: 'POST',
-                    mode: 'cors',
-                    credentials: 'include',
-                    headers: headers,
-                    body: JSON.stringify({
-                        variables: {
-                            filters: [],
-                            order: null,
-                            textFilter: '',
-                            features: ['LIKED_SONGS', 'YOUR_EPISODES_V2', 'PRERELEASES', 'EVENTS'],
-                            limit: limit,
-                            offset: offset,
-                            flatten: false,
-                            expandedFolders: [],
-                            folderUri: null,
-                            includeFoldersWhenFlattening: true
-                        },
-                        operationName: 'libraryV3',
-                        extensions: {
-                            persistedQuery: {
-                                version: 1,
-                                sha256Hash: candidate
+                const candidateLabel = candidate === fallbackHash ? 'fallback' : 'dynamic';
+                try {
+                    resp = await oriFetch('https://api-partner.spotify.com/pathfinder/v2/query', {
+                        method: 'POST',
+                        mode: 'cors',
+                        credentials: 'include',
+                        headers: headers,
+                        body: JSON.stringify({
+                            variables: {
+                                filters: [],
+                                order: null,
+                                textFilter: '',
+                                features: ['LIKED_SONGS', 'YOUR_EPISODES_V2', 'PRERELEASES', 'EVENTS'],
+                                limit: limit,
+                                offset: offset,
+                                flatten: false,
+                                expandedFolders: [],
+                                folderUri: null,
+                                includeFoldersWhenFlattening: true
+                            },
+                            operationName: 'libraryV3',
+                            extensions: {
+                                persistedQuery: {
+                                    version: 1,
+                                    sha256Hash: candidate
+                                }
                             }
-                        }
-                    })
-                });
+                        })
+                    });
+                } catch (networkErr) {
+                    // A network failure is its own category: record it and let
+                    // the caller classify it (never an empty library).
+                    libDiagAttempt({ candidate: candidateLabel, networkError: true });
+                    libDiagRecord('http', false, 'erreur réseau');
+                    throw networkErr;
+                }
                 if (resp.ok) {
                     data = await resp.json();
-                    if (!data?.errors?.length) break;
+                    if (!data?.errors?.length) {
+                        libDiagAttempt({ candidate: candidateLabel, httpStatus: resp.status, gqlErrorCodes: [] });
+                        break;
+                    }
+                    gqlCodes = libDiagGqlCodes(data.errors);
+                    libDiagAttempt({ candidate: candidateLabel, httpStatus: resp.status, gqlErrorCodes: gqlCodes });
                     data = null;
+                } else {
+                    libDiagAttempt({ candidate: candidateLabel, httpStatus: resp.status, gqlErrorCodes: [] });
                 }
             }
 
@@ -3748,12 +4053,39 @@ try {
             // library: "no playlist" and "could not load" need different UI.
             if (!resp || !resp.ok || !data) {
                 logBridgeError('pathfinder', { name: 'HttpError', message: String((resp && resp.status) || '') });
-                const httpError = new Error('HTTP ' + String((resp && resp.status) || '0'));
+                const httpError = new Error('HTTP ' + String((resp && resp.status) || '0') + (gqlCodes.length ? ' ' + gqlCodes.join(',') : ''));
                 httpError.name = 'HttpError';
+                if (gqlCodes.length) httpError.name = 'GraphQLError';
                 throw httpError;
             }
 
-            const items = data?.data?.me?.libraryV3?.items || [];
+            // Validate the real response shape before trusting it. libraryV3
+            // is an undocumented internal operation: an unrecognized structure
+            // is a distinct failure ("shape-mismatch"), never a silently empty
+            // library. `me: null` means the session was not recognized.
+            const dataRoot = data && data.data;
+            const meNode = dataRoot ? dataRoot.me : undefined;
+            if (dataRoot && meNode === null) {
+                libDiagPatchLastAttempt({ shape: 'me-null' });
+                libDiagRecord('shape', false, 'me=null');
+                const sessionError = new Error('libraryV3-me-null');
+                sessionError.name = 'ShapeError';
+                throw sessionError;
+            }
+            const libNode = meNode && meNode.libraryV3;
+            if (!libNode || !Array.isArray(libNode.items)) {
+                libDiagPatchLastAttempt({ shape: 'mismatch' });
+                libDiagRecord('shape', false, 'structure inattendue');
+                const shapeError = new Error('libraryV3-shape-unexpected');
+                shapeError.name = 'ShapeError';
+                throw shapeError;
+            }
+
+            const items = libNode.items;
+            libDiagPatchLastAttempt({ shape: 'ok', items: items.length });
+            libDiagRecord('shape', true, 'items=' + items.length);
+            rawItemCount += items.length;
+            libDiagUpdate({ itemsTotal: rawItemCount });
             allItems = allItems.concat(items);
 
             if (items.length < limit) {
@@ -3768,17 +4100,24 @@ try {
 
     function parseLibrary(items) {
         const res = { playlists: [], albums: [], artists: [], podcasts: [] };
+        let skippedItems = 0;
         if (!Array.isArray(items)) return res;
 
         items.forEach((elem) => {
             const data = elem?.item?.data || elem?.data || elem?.item || elem;
-            if (!data) return;
+            if (!data) {
+                skippedItems += 1;
+                return;
+            }
             const typename = data.__typename || data.type || '';
             const uri = data.uri || data._uri || (data.id ? 'spotify:' + typename.toLowerCase() + ':' + data.id : '') || '';
             const name = data.name || data.title || data.profile?.name || 'Unknown';
             const image = data.images?.items?.[0]?.sources?.[0]?.url || data.images?.[0]?.url || data.coverArt?.sources?.[0]?.url || data.visuals?.avatarImage?.sources?.[0]?.url || null;
 
-            if (!uri) return;
+            if (!uri) {
+                skippedItems += 1;
+                return;
+            }
 
             if (typename.includes('Playlist') || uri.includes(':playlist:')) {
                 const isLiked = name === 'Liked Songs' || uri.includes('collection');
@@ -3819,6 +4158,15 @@ try {
             }
         });
         console.log(`[Spotifuck] parseLibrary parsed ${res.playlists.length} playlists, ${res.albums.length} albums, ${res.artists.length} artists, ${res.podcasts.length} podcasts`);
+        libDiagUpdate({
+            parsed: {
+                playlists: res.playlists.length,
+                albums: res.albums.length,
+                artists: res.artists.length,
+                podcasts: res.podcasts.length,
+                skipped: skippedItems
+            }
+        });
         return res;
     }
     window.parseLibrary = parseLibrary;
