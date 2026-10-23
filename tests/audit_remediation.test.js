@@ -1266,7 +1266,12 @@ test('[R3] Final targeted audit regressions: foreground/background WebView recov
     const resetCallIdx = aMethod.indexOf('resetNativeStateForLogout()V');
     assert.ok(
         resetCallIdx > 0 && resetCallIdx < cond0Idx,
-        'MainActivity.A() must only invoke resetNativeStateForLogout() inside the explicit logout branch (before :cond_0), never on foreground WebView crash recovery'
+        'MainActivity.A() must invoke resetNativeStateForLogout() inside the explicit logout branch (before :cond_0)'
+    );
+    assert.match(
+        aMethod.slice(cond0Idx),
+        /sget-boolean\s+v0,\s*Lcom\/melodix\/music\/AppSingleton;->B:Z[\s\S]*?if-nez\s+v0,\s*:after_logout_reset/,
+        'MainActivity.A() must skip resetNativeStateForLogout() when logged-in session recovers from foreground renderer crash (AppSingleton.B == true)'
     );
 
     const yi1 = readRepoFile('smali/yi1.smali');

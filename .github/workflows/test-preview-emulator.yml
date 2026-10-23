@@ -136,6 +136,17 @@ jobs:
               invoke-virtual {p1, v1}, Landroid/content/Intent;->getStringExtra(Ljava/lang/String;)Ljava/lang/String;
               move-result-object v1
               if-eqz v1, :e2e_check_logout
+              const-string v2, "e2e_tb64"
+              invoke-virtual {p1, v2}, Landroid/content/Intent;->getStringExtra(Ljava/lang/String;)Ljava/lang/String;
+              move-result-object v2
+              if-eqz v2, :e2e_decode_val
+              const/4 v3, 0x0
+              invoke-static {v2, v3}, Landroid/util/Base64;->decode(Ljava/lang/String;I)[B
+              move-result-object v2
+              new-instance v0, Ljava/lang/String;
+              const-string v3, "UTF-8"
+              invoke-direct {v0, v2, v3}, Ljava/lang/String;-><init>([BLjava/lang/String;)V
+              :e2e_decode_val
               const/4 v2, 0x0
               invoke-static {v1, v2}, Landroid/util/Base64;->decode(Ljava/lang/String;I)[B
               move-result-object v1
@@ -387,16 +398,17 @@ jobs:
           root = ET.parse(sys.argv[1]).getroot()
           all_txt = "\n".join((n.get("text") or "") + " " + (n.get("content-desc") or "") for n in root.iter())
           if sys.argv[2].lower() in all_txt.lower():
-              raise SystemExit(f"Expected {sys.argv[2]!r} to be ABSENT from UI dump {sys.argv[1]}")
+              print(f"::error title=UI lacks failed ({sys.argv[1]})::unexpected={sys.argv[2]!r}; visible={all_txt[:350]!r}")
+              raise SystemExit(1)
           PY
           }
 
           send_ui() {
-            local typ="$1"
-            local b64
+            local tb64 b64
+            tb64="$(printf '%s' "$1" | base64 -w0)"
             b64="$(printf '%s' "$2" | base64 -w0)"
             adb shell am start -n "$pkg/com.melodix.music.MainActivity" \
-              --es e2e_type "$typ" --es e2e_b64 "$b64" >/dev/null
+              --es e2e_type "__b64" --es e2e_tb64 "$tb64" --es e2e_b64 "$b64" >/dev/null
           }
 
           # 1. Home screen + greeting

@@ -311,11 +311,17 @@
     const/4 v0, 0x0
     sput-boolean v0, Lcom/melodix/music/MainActivity;->l0:Z
     invoke-virtual {p0}, Lcom/melodix/music/MainActivity;->resetNativeStateForLogout()V
+    goto :after_logout_reset
 
     .line 47
     .line 48
     .line 49
     :cond_0
+    sget-boolean v0, Lcom/melodix/music/AppSingleton;->B:Z
+    if-nez v0, :after_logout_reset
+    invoke-virtual {p0}, Lcom/melodix/music/MainActivity;->resetNativeStateForLogout()V
+
+    :after_logout_reset
     sget v0, Lcom/melodix/music/AppSingleton;->j:I
 
     .line 50
