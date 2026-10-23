@@ -106,6 +106,9 @@ test('WS2: JS <-> Android bridge, callbacks, search focus, and row factories han
     const tabMethod = extractMethod(mainActivity, '.method public final styleNativeTab(');
     assert.ok(tabMethod.includes('instance-of v3, v1, Landroid/widget/TextView;\n    if-eqz v3, :native_tab_as_group'));
     assert.ok(tabMethod.includes('instance-of v3, v1, Landroid/view/ViewGroup;\n    if-eqz v3, :native_tab_style_done'));
+    const searchClickMethod = extractMethod(mainActivity, '.method public final onNativeSearchClick(');
+    assert.ok(searchClickMethod.includes('addTextChangedListener(Landroid/text/TextWatcher;)V'));
+    assert.ok(searchClickMethod.includes('setOnEditorActionListener(Landroid/widget/TextView$OnEditorActionListener;)V'));
     const chipsMethod = extractMethod(mainActivity, '.method public final styleNativeLibraryChips(');
     assert.ok(chipsMethod.includes('getChildAt(I)Landroid/view/View;\n    move-result-object v3\n    if-eqz v3, :chip_next'));
     assert.ok(chipsMethod.includes('move-result v5\n    check-cast v3, Landroid/widget/TextView;\n    if-eqz v5, :chip_inactive'));

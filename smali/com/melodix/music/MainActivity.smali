@@ -8200,6 +8200,17 @@
     invoke-virtual {p0, v0}, Landroid/app/Activity;->findViewById(I)Landroid/view/View;
     move-result-object v1
     if-eqz v1, :native_search_click_done
+    iget-boolean v0, p0, Lcom/melodix/music/MainActivity;->nativeSearchWatcherAttached:Z
+    if-nez v0, :native_search_focus_now
+    move-object v0, v1
+    check-cast v0, Landroid/widget/EditText;
+    new-instance v2, Lcom/melodix/music/NativeSearchWatcher;
+    invoke-direct {v2, p0, v0}, Lcom/melodix/music/NativeSearchWatcher;-><init>(Lcom/melodix/music/MainActivity;Landroid/widget/EditText;)V
+    invoke-virtual {v0, v2}, Landroid/widget/TextView;->addTextChangedListener(Landroid/text/TextWatcher;)V
+    invoke-virtual {v0, v2}, Landroid/widget/TextView;->setOnEditorActionListener(Landroid/widget/TextView$OnEditorActionListener;)V
+    const/4 v0, 0x1
+    iput-boolean v0, p0, Lcom/melodix/music/MainActivity;->nativeSearchWatcherAttached:Z
+    :native_search_focus_now
     invoke-virtual {v1}, Landroid/view/View;->requestFocus()Z
     new-instance v2, Lcom/melodix/music/NativeSearchFocusRunnable;
     invoke-direct {v2, p0, v1}, Lcom/melodix/music/NativeSearchFocusRunnable;-><init>(Lcom/melodix/music/MainActivity;Landroid/view/View;)V
