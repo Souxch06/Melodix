@@ -508,6 +508,16 @@ jobs:
           adb shell "am start -n '$pkg/com.melodix.music.MainActivity' --es spotify_uri \"spotify:search:Don't Start Now\"" >/dev/null
           sleep 1
           assert_pid_same "7c3_shazam_search_apostrophe"
+          adb shell 'am start -n "'"$pkg"'/com.melodix.music.MainActivity" --es spotify_uri "spotify:search:100% Pure Love"' >/dev/null
+          sleep 1
+          assert_pid_same "7c4_shazam_search_percent"
+          send_ui "open-search" "Daft Punk: Don't Stop 100% Santé"
+          sleep 1
+          send_ui "search:Daft Punk: Don't Stop 100% Santé" '[{"title":"Resultat Sante","subtitle":"Daft Punk","uri":"spotify:track:999"}]'
+          sleep 1
+          dump_ui "12b_deep_search_special"
+          assert_ui_has "$state/12b_deep_search_special.xml" "100%"
+          assert_ui_has "$state/12b_deep_search_special.xml" "Resultat Sante"
           send_ui "home" "{malformed-json-payload"
           sleep 1
           assert_pid_same "7d_malformed_json"

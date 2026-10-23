@@ -1742,21 +1742,52 @@ try {
                         } catch (_) {}
                     }
                 }
-                const makeResponseObj = () => ({
-                    ok: status >= 200 && status < 300,
-                    status: status,
-                    statusText: status === 200 ? 'OK' : '',
-                    headers: safeHeaders,
-                    url: strUrl,
-                    redirected: false,
-                    type: 'basic',
-                    bodyUsed: false,
-                    json: async () => JSON.parse(resBody || '{}'),
-                    text: async () => resBody,
-                    arrayBuffer: async () => new TextEncoder().encode(resBody).buffer,
-                    blob: async () => (typeof Blob === 'function' ? new Blob([resBody]) : new TextEncoder().encode(resBody)),
-                    clone: function() { return makeResponseObj(); }
-                });
+                const statusNames = {
+                    200: 'OK',
+                    201: 'Created',
+                    202: 'Accepted',
+                    204: 'No Content',
+                    304: 'Not Modified',
+                    400: 'Bad Request',
+                    401: 'Unauthorized',
+                    403: 'Forbidden',
+                    404: 'Not Found',
+                    429: 'Too Many Requests',
+                    500: 'Internal Server Error',
+                    502: 'Bad Gateway',
+                    503: 'Service Unavailable',
+                    504: 'Gateway Timeout'
+                };
+                const makeResponseObj = () => {
+                    let used = false;
+                    const consumeBody = () => {
+                        if (used) throw new TypeError('Body has already been consumed.');
+                        used = true;
+                        return resBody;
+                    };
+                    const obj = {
+                        ok: status >= 200 && status < 300,
+                        status: status,
+                        statusText: statusNames[status] || '',
+                        headers: safeHeaders,
+                        url: strUrl,
+                        redirected: false,
+                        type: 'basic',
+                        get bodyUsed() { return used; },
+                        json: async () => JSON.parse(consumeBody()),
+                        text: async () => consumeBody(),
+                        arrayBuffer: async () => new TextEncoder().encode(consumeBody()).buffer,
+                        blob: async () => {
+                            const raw = consumeBody();
+                            return typeof Blob === 'function' ? new Blob([raw]) : new TextEncoder().encode(raw);
+                        },
+                        clone: function() {
+                            if (used) throw new TypeError('Cannot clone a consumed Response.');
+                            return makeResponseObj();
+                        }
+                    };
+                    return obj;
+                };
                 return makeResponseObj();
             }
         }
@@ -1803,6 +1834,12 @@ try {
             try {
                 query = decodeURIComponent(rawQuery);
             } catch (_) {}
+            if (typeof AndBridge !== 'undefined' && AndBridge && typeof AndBridge.onNativeUiData === 'function') {
+                try { AndBridge.onNativeUiData('open-search', query); } catch (_) {}
+            }
+            if (typeof window.searchMediaItems === 'function') {
+                try { window.searchMediaItems(query); } catch (_) {}
+            }
             if (typeof window.openSearch === 'function') {
                 window.openSearch(query);
             }

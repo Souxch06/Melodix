@@ -413,6 +413,13 @@
     invoke-virtual {v0, v1, v8}, Landroid/webkit/WebView;->evaluateJavascript(Ljava/lang/String;Landroid/webkit/ValueCallback;)V
 
     :cond_13
+    sget-boolean v1, Lcom/melodix/music/WebService;->resumePlaybackOnRecovery:Z
+    if-eqz v1, :goto_4
+    const/4 v1, 0x0
+    sput-boolean v1, Lcom/melodix/music/WebService;->resumePlaybackOnRecovery:Z
+    const-string v1, "(function(){var n=0,t=setInterval(function(){n++;if(window.__sfUserRequestedPause||n>30){clearInterval(t);return;}var b=document.querySelector(\'button[data-testid=\"control-button-playpause\"]\')||window.pBtn;if(b){var l=String(b.getAttribute(\'aria-label\')||\'\');if(/play|lecture|lire/i.test(l)){b.click();clearInterval(t);}else if(/paus/i.test(l)){clearInterval(t);}}},500);})();"
+    invoke-virtual {v0, v1, v8}, Landroid/webkit/WebView;->evaluateJavascript(Ljava/lang/String;Landroid/webkit/ValueCallback;)V
+
     :goto_4
     invoke-static/range {p1 .. p2}, Lcom/melodix/music/RuntimeDiagnostic;->runIfPreview(Landroid/webkit/WebView;Ljava/lang/String;)V
     sget-object v0, Lcom/melodix/music/AppSingleton;->b0:Ljava/lang/String;
@@ -604,6 +611,10 @@
     if-eqz p1, :cond_2
     sget-object v0, Lcom/melodix/music/AppSingleton;->w:Ll9;
     if-ne p1, v0, :cond_2
+    sget-boolean v0, Lcom/melodix/music/WebService;->r:Z
+    sput-boolean v0, Lcom/melodix/music/WebService;->resumePlaybackOnRecovery:Z
+    const/4 v0, 0x0
+    sput-boolean v0, Lcom/melodix/music/WebService;->r:Z
     sget v0, Lcom/melodix/music/AppSingleton;->j:I
     invoke-static {}, Lm9;->b()V
     sget-object v0, Lcom/melodix/music/AppSingleton;->t:Ljava/lang/ref/WeakReference;

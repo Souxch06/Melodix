@@ -2248,6 +2248,14 @@
             } catch (_) {}
         }
 
+        if (/^spotify:search:/i.test(normalized)) {
+            var rawSearch = normalized.slice('spotify:search:'.length);
+            try {
+                rawSearch = decodeURIComponent(rawSearch);
+            } catch (_) {}
+            return navigateToSearch(rawSearch);
+        }
+
         if (/^spotify:/i.test(normalized)) {
             var parts = normalized.slice(normalized.indexOf(':') + 1).split(':');
             if (parts.length < 2) return false;

@@ -310,12 +310,12 @@
 
     const/4 v0, 0x0
     sput-boolean v0, Lcom/melodix/music/MainActivity;->l0:Z
+    invoke-virtual {p0}, Lcom/melodix/music/MainActivity;->resetNativeStateForLogout()V
 
     .line 47
     .line 48
     .line 49
     :cond_0
-    invoke-virtual {p0}, Lcom/melodix/music/MainActivity;->resetNativeStateForLogout()V
     sget v0, Lcom/melodix/music/AppSingleton;->j:I
 
     .line 50
@@ -7672,6 +7672,26 @@
     return-void
 
     :check_search
+    const-string v0, "open-search"
+    invoke-virtual {p1, v0}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    move-result v1
+    if-eqz v1, :check_search_results
+    iput-object p2, p0, Lcom/melodix/music/MainActivity;->nativeExpectedSearch:Ljava/lang/String;
+    const-string v2, "search"
+    invoke-virtual {p0, v2}, Lcom/melodix/music/MainActivity;->setNativeScreen(Ljava/lang/String;)V
+    const v2, 0x7f090233
+    invoke-virtual {p0, v2}, Landroid/app/Activity;->findViewById(I)Landroid/view/View;
+    move-result-object v2
+    if-eqz v2, :open_search_rows
+    check-cast v2, Landroid/widget/EditText;
+    invoke-virtual {v2, p2}, Landroid/widget/TextView;->setText(Ljava/lang/CharSequence;)V
+    :open_search_rows
+    const-string v2, "Résultats de recherche"
+    const-string v3, "[]"
+    invoke-virtual {p0, v2, v3}, Lcom/melodix/music/MainActivity;->renderNativeRows(Ljava/lang/String;Ljava/lang/String;)V
+    return-void
+
+    :check_search_results
     const-string v0, "search:"
     invoke-virtual {p1, v0}, Ljava/lang/String;->startsWith(Ljava/lang/String;)Z
     move-result v1
@@ -8677,6 +8697,14 @@
     move-result-object v1
 
     :native_load_uri_go
+    invoke-static {v1}, Lcom/melodix/music/NativeFetchGuard;->parseAllowedUrl(Ljava/lang/String;)Ljava/net/URL;
+    move-result-object v2
+    if-eqz v2, :native_load_uri_done
+    invoke-virtual {v2}, Ljava/net/URL;->getHost()Ljava/lang/String;
+    move-result-object v2
+    invoke-static {v2}, Lcom/melodix/music/NativeFetchGuard;->isSpotifyAuthHost(Ljava/lang/String;)Z
+    move-result v2
+    if-eqz v2, :native_load_uri_done
     invoke-virtual {v0, v1}, Landroid/webkit/WebView;->loadUrl(Ljava/lang/String;)V
 
     :native_load_uri_done
@@ -8912,10 +8940,9 @@
     add-int/lit8 v1, v1, 0x1
     sput v1, Lcom/melodix/music/MainActivity;->nativeSessionEpoch:I
 
-    sget-object v2, Lcom/melodix/music/WebService;->E:Ljava/util/concurrent/ConcurrentHashMap;
-    invoke-virtual {v2}, Ljava/util/concurrent/ConcurrentHashMap;->clear()V
-    sget-object v2, Lcom/melodix/music/WebService;->F:Ljava/util/concurrent/ConcurrentHashMap;
-    invoke-virtual {v2}, Ljava/util/concurrent/ConcurrentHashMap;->clear()V
+    const/4 v0, 0x0
+    sput-boolean v0, Lcom/melodix/music/WebService;->resumePlaybackOnRecovery:Z
+    invoke-static {}, Lcom/melodix/music/WebService;->completeAndClearPendingResults()V
 
     const/4 v0, 0x0
     iput-object v0, p0, Lcom/melodix/music/MainActivity;->nativeCurrentScreen:Ljava/lang/String;

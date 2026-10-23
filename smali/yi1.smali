@@ -70,6 +70,18 @@
     .line 16
     invoke-static {p0}, Lm9;->g(Landroid/content/Context;)Landroid/webkit/WebView;
 
+    move-result-object v0
+
+    if-eqz v0, :cond_0
+
+    invoke-virtual {v0}, Landroid/webkit/WebView;->resumeTimers()V
+
+    invoke-virtual {v0}, Landroid/webkit/WebView;->onResume()V
+
+    const/4 v1, 0x0
+
+    invoke-virtual {v0, v1}, Landroid/view/View;->dispatchWindowVisibilityChanged(I)V
+
     .line 17
     .line 18
     .line 19
