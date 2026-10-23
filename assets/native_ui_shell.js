@@ -32,6 +32,7 @@
     var lastLibrarySignature = null;
     var mediaLibWarmupRequested = false;
     var lastMediaActiveAt = 0;
+    var sessionLoggedOut = false;
 
     function sanitizeDiagnostic(value) {
         var text = String(value && value.message || value || '');
@@ -179,6 +180,7 @@
     function sendNativeUiData(screen, items) {
         var bridge = window.AndBridge;
         var rows;
+        if (sessionLoggedOut && screen !== 'settings') return false;
         if (!bridge || typeof bridge.onNativeUiData !== 'function') return false;
 
         rows = (Array.isArray(items) ? items : []).map(function(item) {
@@ -2117,11 +2119,39 @@
             } catch (_) {}
             overrideStatus.sync_status = 'Bibliothèque Spotify synchronisée ✓';
         } else if (key === 'logout') {
+            sessionLoggedOut = true;
             profileAvatarSent = '';
             profileNameSent = '';
             greetingSent = '';
             lastGreetingAt = 0;
             lastHomeSignature = null;
+            lastPlayerSignature = '';
+            window.__sfNativeHomeRowsJson = '';
+            window.__sfNativeHomeListText = '';
+            if (updateTimer) {
+                try { window.clearTimeout(updateTimer); } catch (_) {}
+                updateTimer = null;
+            }
+            if (readyRetryTimer) {
+                try { window.clearTimeout(readyRetryTimer); } catch (_) {}
+                readyRetryTimer = null;
+            }
+            if (homeRetryTimer) {
+                try { window.clearTimeout(homeRetryTimer); } catch (_) {}
+                homeRetryTimer = null;
+            }
+            if (detailRetryTimer) {
+                try { window.clearTimeout(detailRetryTimer); } catch (_) {}
+                detailRetryTimer = null;
+            }
+            if (playerFeedTimer) {
+                try { window.clearInterval(playerFeedTimer); } catch (_) {}
+                playerFeedTimer = null;
+            }
+            endPauseHold();
+            if (observer && typeof observer.disconnect === 'function') {
+                try { observer.disconnect(); } catch (_) {}
+            }
             if (window.__sfSearchCache && typeof window.__sfSearchCache.clear === 'function') {
                 window.__sfSearchCache.clear();
             }

@@ -11,6 +11,9 @@ try {
         }
         return;
     }
+    if (window.__sfMelodixBridgeStarted) return;
+    window.__sfMelodixBridgeStarted = true;
+    window.SF_CONFIG = window.SF_CONFIG || {};
 
     // Global flags injected by Android:
     // window.SF_CONFIG = { ... };
@@ -1576,35 +1579,96 @@ try {
         return '';
     }
 
+    function collectHeaderEntries(source, out) {
+        if (!source) return out;
+        try {
+            if (typeof source.forEach === 'function' && !Array.isArray(source)) {
+                source.forEach(function(val, key) {
+                    const k = String(key || '').trim();
+                    if (!k || k.toLowerCase() === 'cookie' || k.toLowerCase() === 'set-cookie') return;
+                    out[k] = String(val == null ? '' : val);
+                });
+                return out;
+            }
+            if (Array.isArray(source)) {
+                for (let i = 0; i < source.length; i += 1) {
+                    const pair = source[i];
+                    if (!pair || pair.length < 2) continue;
+                    const k = String(pair[0] || '').trim();
+                    if (!k || k.toLowerCase() === 'cookie' || k.toLowerCase() === 'set-cookie') continue;
+                    out[k] = String(pair[1] == null ? '' : pair[1]);
+                }
+                return out;
+            }
+            if (typeof source === 'object') {
+                const keys = Object.keys(source);
+                for (let i = 0; i < keys.length; i += 1) {
+                    const k = String(keys[i] || '').trim();
+                    if (!k || k.toLowerCase() === 'cookie' || k.toLowerCase() === 'set-cookie') continue;
+                    if (source[keys[i]] !== undefined) {
+                        out[k] = String(source[keys[i]] == null ? '' : source[keys[i]]);
+                    }
+                }
+            }
+        } catch (_) {}
+        return out;
+    }
+
+    function serializeFetchHeaders(primary, secondary) {
+        const merged = {};
+        collectHeaderEntries(secondary, merged);
+        collectHeaderEntries(primary, merged);
+        return merged;
+    }
+
+    function readHeaderValue(source, targetName) {
+        if (!source || !targetName) return '';
+        const wanted = String(targetName).toLowerCase();
+        try {
+            if (typeof source.get === 'function') {
+                const v = source.get(targetName) || source.get(wanted);
+                return v ? String(v) : '';
+            }
+            const map = collectHeaderEntries(source, {});
+            const keys = Object.keys(map);
+            for (let i = 0; i < keys.length; i += 1) {
+                if (keys[i].toLowerCase() === wanted) return map[keys[i]];
+            }
+        } catch (_) {}
+        return '';
+    }
+
     const oriFetch = window.fetch;
     window.fetch = async function(...args) {
         const [url, opts] = args;
         const strUrl = resolveFetchUrl(url);
         const method = (opts?.method || (url && url.method) || 'GET').toString().toUpperCase() || 'GET';
 
-        if (window.SF_CONFIG.isCanvasDisabled && (strUrl.includes('canvas-storage') || strUrl.includes('/v1/canvas'))) {
+        if (window.SF_CONFIG?.isCanvasDisabled && (strUrl.includes('canvas-storage') || strUrl.includes('/v1/canvas'))) {
             return new Response(JSON.stringify({canvases:[]}), {status: 200});
         }
 
         const headers = opts?.headers || {};
-        if (method === 'POST' && strUrl.includes('/track-playback/v1/devices') && opts?.body) {
-            const body = JSON.parse(opts.body);
-            const deviceId = body?.device?.device_id;
-            if (deviceId && deviceId !== window.spotDevId) {
-                window.spotDevId = deviceId;
-                try { localStorage.setItem('spot_dev_id', deviceId); } catch(_) {}
-                typeof checkMediaLib === 'function' && checkMediaLib();
-            }
+        if (method === 'POST' && strUrl.includes('/track-playback/v1/devices') && typeof opts?.body === 'string') {
+            try {
+                const body = JSON.parse(opts.body);
+                const deviceId = body?.device?.device_id;
+                if (deviceId && deviceId !== window.spotDevId) {
+                    window.spotDevId = deviceId;
+                    try { localStorage.setItem('spot_dev_id', deviceId); } catch(_) {}
+                    typeof checkMediaLib === 'function' && checkMediaLib();
+                }
+            } catch (_) {}
         }
 
-        const cliToken = headers['Client-Token'] || headers['client-token'];
+        const cliToken = readHeaderValue(headers, 'Client-Token') || readHeaderValue(url?.headers, 'Client-Token');
         if (cliToken && cliToken !== window.spotCliToken) {
             window.spotCliToken = cliToken;
             try { localStorage.setItem('spot_cli_token', cliToken); } catch(_) {}
             typeof checkMediaLib === 'function' && checkMediaLib();
         }
 
-        const authHead = headers.Authorization || headers.authorization;
+        const authHead = readHeaderValue(headers, 'Authorization') || readHeaderValue(url?.headers, 'Authorization');
         if (authHead?.startsWith('Bearer ') && authHead !== window.spotAuthToken) {
             window.spotAuthToken = authHead;
             try { localStorage.setItem('spot_auth_token', authHead); } catch(_) {}
@@ -1644,33 +1708,41 @@ try {
         }
 
         if (strUrl && (strUrl.includes('connect-state') || strUrl.includes('melody/v1/msg'))) {
-            try {
-                wrapNativeFetchBridge();
-                if (!isAllowedNativeFetchUrl(strUrl)) {
-                    logBridgeError('nativeFetch', { name: 'SecurityError', message: 'host-not-allowed' });
-                } else {
-                    const reqHeaders = opts?.headers || {};
-                    const reqBody = opts?.body ? (typeof opts.body === 'string' ? opts.body : JSON.stringify(opts.body)) : null;
+            wrapNativeFetchBridge();
+            if (!isAllowedNativeFetchUrl(strUrl)) {
+                const blockedErr = new TypeError('Blocked disallowed fetch URL');
+                logBridgeError('nativeFetch', { name: 'SecurityError', message: 'host-not-allowed' });
+                throw blockedErr;
+            }
+            if (typeof AndBridge !== 'undefined' && AndBridge && typeof AndBridge.nativeFetch === 'function') {
+                const reqHeaders = serializeFetchHeaders(opts?.headers, url?.headers);
+                const reqBody = opts?.body ? (typeof opts.body === 'string' ? opts.body : JSON.stringify(opts.body)) : null;
+                let parsed = null;
+                try {
                     const rawRes = AndBridge.nativeFetch(strUrl, method, JSON.stringify(reqHeaders), reqBody);
-                    if (rawRes) {
-                        const parsed = JSON.parse(rawRes);
-                        const status = parsed.status || 200;
-                        const resBody = parsed.body || '';
-                        return {
-                            ok: status >= 200 && status < 300,
-                            status: status,
-                            statusText: status === 200 ? 'OK' : '',
-                            headers: new Headers(parsed.headers || {}),
-                            url: strUrl,
-                            json: async () => JSON.parse(resBody || '{}'),
-                            text: async () => resBody,
-                            arrayBuffer: async () => new TextEncoder().encode(resBody).buffer,
-                            clone: function() { return this; }
-                        };
-                    }
+                    parsed = rawRes ? JSON.parse(rawRes) : null;
+                } catch (e) {
+                    logBridgeError('nativeFetch', e);
+                    throw e;
                 }
-            } catch (e) {
-                logBridgeError('nativeFetch', e);
+                const status = parsed && typeof parsed.status === 'number' ? parsed.status : 0;
+                if (status <= 0) {
+                    const netErr = new Error((parsed && parsed.error) || 'Native fetch failed');
+                    logBridgeError('nativeFetch', netErr);
+                    throw netErr;
+                }
+                const resBody = parsed.body == null ? '' : String(parsed.body);
+                return {
+                    ok: status >= 200 && status < 300,
+                    status: status,
+                    statusText: status === 200 ? 'OK' : '',
+                    headers: new Headers(parsed.headers || {}),
+                    url: strUrl,
+                    json: async () => JSON.parse(resBody || '{}'),
+                    text: async () => resBody,
+                    arrayBuffer: async () => new TextEncoder().encode(resBody).buffer,
+                    clone: function() { return this; }
+                };
             }
         }
 
@@ -4555,6 +4627,7 @@ try {
     window.__sfMelodixBridgeCompleted = true;
 })();
 } catch (e) {
+    window.__sfMelodixBridgeStarted = false;
     var diagnostic = String(e && e.message || e || '');
     diagnostic = diagnostic.replace(/Set-Cookie:\s*[^;\r\n]+/gi, 'Set-Cookie:[redacted]');
     diagnostic = diagnostic.replace(/Cookie:\s*[^\r\n]+/gi, 'Cookie:[redacted]');

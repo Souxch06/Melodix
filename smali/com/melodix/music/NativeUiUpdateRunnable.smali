@@ -6,15 +6,21 @@
 .field private final screen:Ljava/lang/String;
 .field private final data:Ljava/lang/String;
 .field private final action:I
+.field private final epoch:I
 
 .method public constructor <init>(Lcom/melodix/music/MainActivity;Ljava/lang/String;Ljava/lang/String;I)V
-    .locals 0
+    .locals 1
 
     invoke-direct {p0}, Ljava/lang/Object;-><init>()V
     iput-object p1, p0, Lcom/melodix/music/NativeUiUpdateRunnable;->activity:Lcom/melodix/music/MainActivity;
     iput-object p2, p0, Lcom/melodix/music/NativeUiUpdateRunnable;->screen:Ljava/lang/String;
     iput-object p3, p0, Lcom/melodix/music/NativeUiUpdateRunnable;->data:Ljava/lang/String;
     iput p4, p0, Lcom/melodix/music/NativeUiUpdateRunnable;->action:I
+    const/4 v0, 0x0
+    if-eqz p1, :save_epoch
+    iget v0, p1, Lcom/melodix/music/MainActivity;->nativeSessionEpoch:I
+    :save_epoch
+    iput v0, p0, Lcom/melodix/music/NativeUiUpdateRunnable;->epoch:I
     return-void
 .end method
 
@@ -23,6 +29,17 @@
 
     :try_start_0
     iget-object v0, p0, Lcom/melodix/music/NativeUiUpdateRunnable;->activity:Lcom/melodix/music/MainActivity;
+    if-eqz v0, :stale_done
+    invoke-virtual {v0}, Landroid/app/Activity;->isFinishing()Z
+    move-result v1
+    if-nez v1, :stale_done
+    invoke-virtual {v0}, Landroid/app/Activity;->isDestroyed()Z
+    move-result v1
+    if-nez v1, :stale_done
+    iget v1, p0, Lcom/melodix/music/NativeUiUpdateRunnable;->epoch:I
+    iget v2, v0, Lcom/melodix/music/MainActivity;->nativeSessionEpoch:I
+    if-ne v1, v2, :stale_done
+
     iget v1, p0, Lcom/melodix/music/NativeUiUpdateRunnable;->action:I
 
     if-nez v1, :not_ready
@@ -40,6 +57,7 @@
     :not_data
     iget-object v1, p0, Lcom/melodix/music/NativeUiUpdateRunnable;->screen:Ljava/lang/String;
     invoke-virtual {v0, v1}, Lcom/melodix/music/MainActivity;->setNativeScreen(Ljava/lang/String;)V
+    :stale_done
     return-void
     :try_end_0
     .catch Ljava/lang/Throwable; {:try_start_0 .. :try_end_0} :catch_0

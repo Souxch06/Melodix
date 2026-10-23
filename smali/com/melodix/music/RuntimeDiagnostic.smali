@@ -60,6 +60,9 @@
     invoke-virtual {v0}, Landroid/app/Activity;->isFinishing()Z
     move-result v1
     if-nez v1, :return
+    invoke-virtual {v0}, Landroid/app/Activity;->isDestroyed()Z
+    move-result v1
+    if-nez v1, :return
 
     const-string v1, "runtime_diagnostic.js"
     invoke-static {v1}, Lm9;->d(Ljava/lang/String;)Ljava/lang/String;
@@ -95,6 +98,9 @@
 
     if-eqz p0, :return
     invoke-virtual {p0}, Landroid/app/Activity;->isFinishing()Z
+    move-result v0
+    if-nez v0, :return
+    invoke-virtual {p0}, Landroid/app/Activity;->isDestroyed()Z
     move-result v0
     if-nez v0, :return
 
@@ -139,7 +145,14 @@
     const/4 v4, 0x0
     invoke-virtual {v1, v3, v4}, Landroid/app/AlertDialog$Builder;->setNegativeButton(Ljava/lang/CharSequence;Landroid/content/DialogInterface$OnClickListener;)Landroid/app/AlertDialog$Builder;
     move-result-object v1
+    :try_start_dialog
     invoke-virtual {v1}, Landroid/app/AlertDialog$Builder;->show()Landroid/app/AlertDialog;
+    :try_end_dialog
+    .catch Ljava/lang/Throwable; {:try_start_dialog .. :try_end_dialog} :catch_dialog
+    goto :return
+
+    :catch_dialog
+    move-exception v0
 
     :return
     return-void

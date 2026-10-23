@@ -99,6 +99,7 @@
 .field private nativeHomeJson:Ljava/lang/String;
 .field private nativeLibraryJson:Ljava/lang/String;
 .field private nativeListBlob:Ljava/lang/String;
+.field public nativeSessionEpoch:I
 
 
 # direct methods
@@ -4473,18 +4474,11 @@
     .line 1
     invoke-super {p0}, Le6;->onDestroy()V
 
-    .line 2
-    .line 3
-    .line 4
     iget-object v0, p0, Lcom/melodix/music/MainActivity;->f0:Landroid/os/Handler;
 
-    .line 5
-    .line 6
-    iget-object v1, p0, Lcom/melodix/music/MainActivity;->g0:Ls4;
+    const/4 v1, 0x0
 
-    .line 7
-    .line 8
-    invoke-virtual {v0, v1}, Landroid/os/Handler;->removeCallbacks(Ljava/lang/Runnable;)V
+    invoke-virtual {v0, v1}, Landroid/os/Handler;->removeCallbacksAndMessages(Ljava/lang/Object;)V
 
     .line 9
     .line 10
@@ -8906,7 +8900,11 @@
 .end method
 
 .method public final resetNativeStateForLogout()V
-    .locals 3
+    .locals 4
+
+    iget v1, p0, Lcom/melodix/music/MainActivity;->nativeSessionEpoch:I
+    add-int/lit8 v1, v1, 0x1
+    iput v1, p0, Lcom/melodix/music/MainActivity;->nativeSessionEpoch:I
 
     const/4 v0, 0x0
     iput-object v0, p0, Lcom/melodix/music/MainActivity;->nativeCurrentScreen:Ljava/lang/String;
@@ -8927,12 +8925,83 @@
     iput-object v0, p0, Lcom/melodix/music/MainActivity;->nativeHomeJson:Ljava/lang/String;
     iput-object v0, p0, Lcom/melodix/music/MainActivity;->nativeLibraryJson:Ljava/lang/String;
     iput-object v0, p0, Lcom/melodix/music/MainActivity;->nativeListBlob:Ljava/lang/String;
+    sput-object v0, Lcom/melodix/music/WebService;->B:Landroid/graphics/Bitmap;
 
+    iget-object v2, p0, Lcom/melodix/music/MainActivity;->f0:Landroid/os/Handler;
+    if-eqz v2, :logout_clear_flags
+    invoke-virtual {v2, v0}, Landroid/os/Handler;->removeCallbacksAndMessages(Ljava/lang/Object;)V
+
+    :logout_clear_flags
     const/4 v1, 0x0
     iput-boolean v1, p0, Lcom/melodix/music/MainActivity;->nativeHasTrack:Z
     sput-boolean v1, Lcom/melodix/music/AppSingleton;->l:Z
     sput-boolean v1, Lcom/melodix/music/AppSingleton;->B:Z
 
+    const v3, 0x7f090249
+    invoke-virtual {p0, v3}, Landroid/app/Activity;->findViewById(I)Landroid/view/View;
+    move-result-object v2
+    instance-of v3, v2, Landroid/widget/ImageView;
+    if-eqz v3, :logout_clear_cover_mini
+    check-cast v2, Landroid/widget/ImageView;
+    invoke-static {v2, v0, v1}, Lcom/melodix/music/NativeImageLoader;->load(Landroid/widget/ImageView;Ljava/lang/String;I)V
+
+    :logout_clear_cover_mini
+    const v3, 0x7f090244
+    invoke-virtual {p0, v3}, Landroid/app/Activity;->findViewById(I)Landroid/view/View;
+    move-result-object v2
+    instance-of v3, v2, Landroid/widget/ImageView;
+    if-eqz v3, :logout_clear_cover_large
+    check-cast v2, Landroid/widget/ImageView;
+    invoke-static {v2, v0, v1}, Lcom/melodix/music/NativeImageLoader;->load(Landroid/widget/ImageView;Ljava/lang/String;I)V
+
+    :logout_clear_cover_large
+    const v3, 0x7f090245
+    invoke-virtual {p0, v3}, Landroid/app/Activity;->findViewById(I)Landroid/view/View;
+    move-result-object v2
+    instance-of v3, v2, Landroid/widget/ImageView;
+    if-eqz v3, :logout_clear_title_mini
+    check-cast v2, Landroid/widget/ImageView;
+    invoke-static {v2, v0, v1}, Lcom/melodix/music/NativeImageLoader;->load(Landroid/widget/ImageView;Ljava/lang/String;I)V
+
+    :logout_clear_title_mini
+    const-string v3, "Aucune lecture en cours"
+    const v0, 0x7f090236
+    invoke-virtual {p0, v0}, Landroid/app/Activity;->findViewById(I)Landroid/view/View;
+    move-result-object v2
+    instance-of v1, v2, Landroid/widget/TextView;
+    if-eqz v1, :logout_clear_title_large
+    check-cast v2, Landroid/widget/TextView;
+    invoke-virtual {v2, v3}, Landroid/widget/TextView;->setText(Ljava/lang/CharSequence;)V
+
+    :logout_clear_title_large
+    const v0, 0x7f09023b
+    invoke-virtual {p0, v0}, Landroid/app/Activity;->findViewById(I)Landroid/view/View;
+    move-result-object v2
+    instance-of v1, v2, Landroid/widget/TextView;
+    if-eqz v1, :logout_clear_artist_mini
+    check-cast v2, Landroid/widget/TextView;
+    invoke-virtual {v2, v3}, Landroid/widget/TextView;->setText(Ljava/lang/CharSequence;)V
+
+    :logout_clear_artist_mini
+    const-string v3, ""
+    const v0, 0x7f090237
+    invoke-virtual {p0, v0}, Landroid/app/Activity;->findViewById(I)Landroid/view/View;
+    move-result-object v2
+    instance-of v1, v2, Landroid/widget/TextView;
+    if-eqz v1, :logout_clear_artist_large
+    check-cast v2, Landroid/widget/TextView;
+    invoke-virtual {v2, v3}, Landroid/widget/TextView;->setText(Ljava/lang/CharSequence;)V
+
+    :logout_clear_artist_large
+    const v0, 0x7f09023c
+    invoke-virtual {p0, v0}, Landroid/app/Activity;->findViewById(I)Landroid/view/View;
+    move-result-object v2
+    instance-of v1, v2, Landroid/widget/TextView;
+    if-eqz v1, :logout_clear_rows
+    check-cast v2, Landroid/widget/TextView;
+    invoke-virtual {v2, v3}, Landroid/widget/TextView;->setText(Ljava/lang/CharSequence;)V
+
+    :logout_clear_rows
     const v0, 0x7f090235
     invoke-virtual {p0, v0}, Landroid/app/Activity;->findViewById(I)Landroid/view/View;
     move-result-object v2

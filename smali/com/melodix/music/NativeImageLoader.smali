@@ -12,13 +12,9 @@
     invoke-virtual {v0, p0}, Lcom/squareup/picasso/Picasso;->cancelRequest(Landroid/widget/ImageView;)V
 
     if-eqz p1, :clear_native_image
-    const-string v1, "https://"
-    invoke-virtual {p1, v1}, Ljava/lang/String;->startsWith(Ljava/lang/String;)Z
-    move-result v1
+    invoke-static {p1}, Lcom/melodix/music/NativeFetchGuard;->parseAllowedUrl(Ljava/lang/String;)Ljava/net/URL;
+    move-result-object v1
     if-eqz v1, :clear_native_image
-    invoke-virtual {p1}, Ljava/lang/String;->isEmpty()Z
-    move-result v1
-    if-nez v1, :clear_native_image
 
     invoke-virtual {v0, p1}, Lcom/squareup/picasso/Picasso;->load(Ljava/lang/String;)Lcom/squareup/picasso/RequestCreator;
     move-result-object v1

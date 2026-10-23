@@ -24,6 +24,9 @@
     invoke-virtual {v0}, Landroid/app/Activity;->isFinishing()Z
     move-result v1
     if-nez v1, :return
+    invoke-virtual {v0}, Landroid/app/Activity;->isDestroyed()Z
+    move-result v1
+    if-nez v1, :return
     iget-object v1, p0, Lcom/melodix/music/RuntimeDiagnostic$ShowRunnable;->json:Ljava/lang/String;
     invoke-static {v0, v1}, Lcom/melodix/music/RuntimeDiagnostic;->showDialog(Landroid/app/Activity;Ljava/lang/String;)V
 

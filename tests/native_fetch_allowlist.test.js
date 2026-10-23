@@ -207,6 +207,7 @@ function createGuardVm(mockNetwork = {}) {
         }
         switch (target) {
             case 'Ljava/lang/String;->isEmpty()Z': return args[0].length === 0 ? 1 : 0;
+            case 'Ljava/lang/String;->trim()Ljava/lang/String;': return args[0].trim();
             case 'Ljava/lang/String;->length()I': return args[0].length;
             case 'Ljava/lang/String;->charAt(I)C': return args[0].charCodeAt(args[1]);
             case 'Ljava/lang/String;->indexOf(I)I': return args[0].indexOf(String.fromCharCode(args[1]));
@@ -266,6 +267,7 @@ function createGuardVm(mockNetwork = {}) {
             case 'Ljava/io/InputStream;->read([B)I': return args[0].read(args[1]);
             case 'Ljava/io/InputStream;->close()V': args[0].close(); return;
             case 'Lorg/json/JSONObject;-><init>()V': args[0]._obj = {}; return;
+            case 'Lorg/json/JSONObject;->quote(Ljava/lang/String;)Ljava/lang/String;': return JSON.stringify(String(args[0]));
             case 'Lorg/json/JSONObject;-><init>(Ljava/lang/String;)V': args[0]._obj = JSON.parse(args[1]); return;
             case 'Lorg/json/JSONObject;->put(Ljava/lang/String;I)Lorg/json/JSONObject;':
             case 'Lorg/json/JSONObject;->put(Ljava/lang/String;Ljava/lang/Object;)Lorg/json/JSONObject;':
@@ -354,6 +356,11 @@ function createGuardVm(mockNetwork = {}) {
                 } else if ((match = insn.match(/^new-array\s+(\w+),\s*(\w+),\s*\[B$/))) {
                     regs.set(match[1], Buffer.alloc(regs.get(match[2])));
                     pc++;
+                } else if ((match = insn.match(/^instance-of\s+(\w+),\s*(\w+),\s*(\S+)$/))) {
+                    const val = regs.get(match[2]);
+                    const simple = val && val._javaSimpleName ? val._javaSimpleName : '';
+                    regs.set(match[1], simple && match[3].endsWith('/' + simple + ';') ? 1 : 0);
+                    pc++;
                 } else if ((match = insn.match(/^check-cast\s+(\w+),\s*(\S+)$/))) {
                     const val = regs.get(match[1]);
                     if (match[2] === 'Ljavax/net/ssl/HttpsURLConnection;' && val && val._notHttps) {
@@ -413,7 +420,14 @@ function createGuardVm(mockNetwork = {}) {
                     throw new Error('Unhandled Dalvik instruction: ' + insn);
                 }
             } catch (err) {
-                const handler = m.catches.find(c => pc >= m.labels.get(c.start) && pc < m.labels.get(c.end));
+                const simple = err && err._javaSimpleName ? err._javaSimpleName : '';
+                const handler = m.catches.find(c => {
+                    if (!(pc >= m.labels.get(c.start) && pc < m.labels.get(c.end))) return false;
+                    if (!c.exType || c.exType === 'all' || c.exType === 'Ljava/lang/Throwable;' || c.exType === 'Ljava/lang/Exception;') {
+                        return true;
+                    }
+                    return Boolean(simple && c.exType.endsWith('/' + simple + ';'));
+                });
                 if (!handler) throw err;
                 pendingEx = err;
                 pc = m.labels.get(handler.target);
@@ -427,6 +441,7 @@ function createGuardVm(mockNetwork = {}) {
         isAllowedHost: (s) => runMethod('isAllowedHost(Ljava/lang/String;)Z', [s]),
         isAllowedUrl: (s) => runMethod('isAllowedUrl(Ljava/lang/String;)Z', [s]),
         sanitizeError: (e) => runMethod('sanitizeError(Ljava/lang/Throwable;)Ljava/lang/String;', [e]),
+        buildSafePlayFromUriJs: (s) => runMethod('buildSafePlayFromUriJs(Ljava/lang/String;)Ljava/lang/String;', [s]),
         execute: (url, method, headers, body) =>
             JSON.parse(runMethod('execute(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;', [url, method, headers, body])),
     };
@@ -660,3 +675,47 @@ test('playback skip trace is registered once and playFromUri does not log device
     assert.doesNotMatch(src, /playFromUri sending command for uri=/);
     assert.doesNotMatch(src, /devId=\$\{devId\}/);
 });
+
+test('NativeFetchGuard bytecode executes buildSafePlayFromUriJs, custom-scheme redirect 403, and timeout 504', () => {
+    const guard = createGuardVm();
+    assert.equal(
+        guard.buildSafePlayFromUriJs('spotify:track:4cOdK2wGLETKBW3PvgPWqT'),
+        'playFromUri("spotify:track:4cOdK2wGLETKBW3PvgPWqT");'
+    );
+    assert.equal(
+        guard.buildSafePlayFromUriJs('https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M'),
+        'playFromUri("https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M");'
+    );
+    for (const malicious of [
+        null,
+        '',
+        "spotify:track:1');window.__pwned=1;//",
+        'https://open.spotify.com/track/1");alert(1);//',
+        'javascript:alert(1)',
+        'spotify://evil.attacker.example/track/1',
+        'https://evil.attacker.example/track/1',
+        'http://open.spotify.com/track/1',
+        'spotify:track:1\nwindow.__pwned=1',
+    ]) {
+        assert.equal(guard.buildSafePlayFromUriJs(malicious), null, `Must reject ${malicious}`);
+    }
+
+    const redirectGuard = createGuardVm({
+        respond: () => ({ status: 302, headers: { Location: 'javascript:alert(1)' }, body: '' }),
+    });
+    const redirRes = redirectGuard.execute('https://gew4-spclient.spotify.com/connect-state/v1/test', 'GET', '{}', null);
+    assert.equal(redirRes.status, 403);
+    assert.equal(redirRes.body, 'Blocked disallowed redirect target');
+
+    const timeoutGuard = createGuardVm({
+        respond: () => {
+            const err = new Error('Read timed out');
+            err._javaSimpleName = 'SocketTimeoutException';
+            throw err;
+        },
+    });
+    const timeoutRes = timeoutGuard.execute('https://gew4-spclient.spotify.com/connect-state/v1/test', 'GET', '{}', null);
+    assert.equal(timeoutRes.status, 504);
+    assert.equal(timeoutRes.body, 'Request timed out');
+});
+

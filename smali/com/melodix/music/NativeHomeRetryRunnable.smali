@@ -4,21 +4,37 @@
 
 .field private final activity:Lcom/melodix/music/MainActivity;
 .field private remaining:I
+.field private final epoch:I
 
 .method public constructor <init>(Lcom/melodix/music/MainActivity;I)V
-    .locals 0
+    .locals 1
 
     invoke-direct {p0}, Ljava/lang/Object;-><init>()V
     iput-object p1, p0, Lcom/melodix/music/NativeHomeRetryRunnable;->activity:Lcom/melodix/music/MainActivity;
     iput p2, p0, Lcom/melodix/music/NativeHomeRetryRunnable;->remaining:I
+    const/4 v0, 0x0
+    if-eqz p1, :save_epoch
+    iget v0, p1, Lcom/melodix/music/MainActivity;->nativeSessionEpoch:I
+    :save_epoch
+    iput v0, p0, Lcom/melodix/music/NativeHomeRetryRunnable;->epoch:I
     return-void
 .end method
 
 .method public final run()V
-    .locals 4
+    .locals 5
 
     iget-object v0, p0, Lcom/melodix/music/NativeHomeRetryRunnable;->activity:Lcom/melodix/music/MainActivity;
     if-eqz v0, :done
+    invoke-virtual {v0}, Landroid/app/Activity;->isFinishing()Z
+    move-result v1
+    if-nez v1, :done
+    invoke-virtual {v0}, Landroid/app/Activity;->isDestroyed()Z
+    move-result v1
+    if-nez v1, :done
+    iget v1, p0, Lcom/melodix/music/NativeHomeRetryRunnable;->epoch:I
+    iget v2, v0, Lcom/melodix/music/MainActivity;->nativeSessionEpoch:I
+    if-ne v1, v2, :done
+
     invoke-virtual {v0}, Lcom/melodix/music/MainActivity;->pullNativeHomeList()V
 
     iget v1, p0, Lcom/melodix/music/NativeHomeRetryRunnable;->remaining:I
@@ -26,10 +42,8 @@
     iput v1, p0, Lcom/melodix/music/NativeHomeRetryRunnable;->remaining:I
     if-gtz v1, :done
 
-    new-instance v2, Landroid/os/Handler;
-    invoke-static {}, Landroid/os/Looper;->getMainLooper()Landroid/os/Looper;
-    move-result-object v3
-    invoke-direct {v2, v3}, Landroid/os/Handler;-><init>(Landroid/os/Looper;)V
+    iget-object v2, v0, Lcom/melodix/music/MainActivity;->f0:Landroid/os/Handler;
+    if-eqz v2, :done
     const-wide/16 v3, 0x190
     invoke-virtual {v2, p0, v3, v4}, Landroid/os/Handler;->postDelayed(Ljava/lang/Runnable;J)Z
 

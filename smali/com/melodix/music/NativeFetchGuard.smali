@@ -682,8 +682,14 @@
     invoke-virtual {v5}, Ljava/net/HttpURLConnection;->disconnect()V
     const/4 v5, 0x0
     if-eqz v8, :reject_redirect
+    :try_start_redirect
     new-instance v9, Ljava/net/URL;
     invoke-direct {v9, v6, v8}, Ljava/net/URL;-><init>(Ljava/net/URL;Ljava/lang/String;)V
+    :try_end_redirect
+    .catch Ljava/net/MalformedURLException; {:try_start_redirect .. :try_end_redirect} :catch_bad_redirect
+    .catch Ljava/lang/Exception; {:try_start_redirect .. :try_end_redirect} :catch_0
+    .catchall {:try_start_redirect .. :try_end_redirect} :catchall_0
+    :try_resume_redirect
     invoke-virtual {v9}, Ljava/net/URL;->toExternalForm()Ljava/lang/String;
     move-result-object v1
     invoke-static {v1}, Lcom/melodix/music/NativeFetchGuard;->parseAllowedUrl(Ljava/lang/String;)Ljava/net/URL;
@@ -742,11 +748,17 @@
     invoke-virtual {v6}, Lorg/json/JSONObject;->toString()Ljava/lang/String;
     move-result-object v6
     :try_end_0
-    .catch Ljava/lang/Exception; {:try_start_0 .. :try_end_0} :catch_0
-    .catchall {:try_start_0 .. :try_end_0} :catchall_0
+    .catch Ljava/lang/Exception; {:try_start_0 .. :try_start_redirect} :catch_0
+    .catchall {:try_start_0 .. :try_start_redirect} :catchall_0
+    .catch Ljava/lang/Exception; {:try_resume_redirect .. :try_end_0} :catch_0
+    .catchall {:try_resume_redirect .. :try_end_0} :catchall_0
 
     invoke-virtual {v5}, Ljava/net/HttpURLConnection;->disconnect()V
     return-object v6
+
+    :catch_bad_redirect
+    move-exception v9
+    goto :reject_redirect
 
     :catchall_0
     move-exception v0
@@ -760,6 +772,15 @@
     if-eqz v5, :err_disconnected
     invoke-virtual {v5}, Ljava/net/HttpURLConnection;->disconnect()V
     :err_disconnected
+    instance-of v1, v0, Ljava/net/SocketTimeoutException;
+    if-eqz v1, :err_not_timeout
+    const/16 v1, 0x1f8
+    const-string v0, "Request timed out"
+    invoke-static {v1, v0}, Lcom/melodix/music/NativeFetchGuard;->jsonError(ILjava/lang/String;)Ljava/lang/String;
+    move-result-object v0
+    return-object v0
+
+    :err_not_timeout
     invoke-static {v0}, Lcom/melodix/music/NativeFetchGuard;->sanitizeError(Ljava/lang/Throwable;)Ljava/lang/String;
     move-result-object v0
     const/16 v1, 0x1f4
@@ -768,6 +789,7 @@
     return-object v0
 
     :reject_redirect
+    const/16 v0, 0x193
     const-string v1, "Blocked disallowed redirect target"
     invoke-static {v0, v1}, Lcom/melodix/music/NativeFetchGuard;->jsonError(ILjava/lang/String;)Ljava/lang/String;
     move-result-object v0
@@ -783,5 +805,84 @@
     const-string v1, "Blocked disallowed fetch URL"
     invoke-static {v0, v1}, Lcom/melodix/music/NativeFetchGuard;->jsonError(ILjava/lang/String;)Ljava/lang/String;
     move-result-object v0
+    return-object v0
+.end method
+
+.method public static buildSafePlayFromUriJs(Ljava/lang/String;)Ljava/lang/String;
+    .locals 5
+
+    const/4 v0, 0x0
+    if-eqz p0, :safe_uri_invalid
+    invoke-virtual {p0}, Ljava/lang/String;->trim()Ljava/lang/String;
+    move-result-object p0
+    invoke-virtual {p0}, Ljava/lang/String;->length()I
+    move-result v1
+    if-lez v1, :safe_uri_invalid
+    const/16 v2, 0x200
+    if-gt v1, v2, :safe_uri_invalid
+
+    const/4 v2, 0x0
+    :char_scan_loop
+    if-ge v2, v1, :char_scan_done
+    invoke-virtual {p0, v2}, Ljava/lang/String;->charAt(I)C
+    move-result v3
+    const/16 v4, 0x20
+    if-le v3, v4, :safe_uri_invalid
+    const/16 v4, 0x7f
+    if-eq v3, v4, :safe_uri_invalid
+    const/16 v4, 0x22
+    if-eq v3, v4, :safe_uri_invalid
+    const/16 v4, 0x27
+    if-eq v3, v4, :safe_uri_invalid
+    const/16 v4, 0x5c
+    if-eq v3, v4, :safe_uri_invalid
+    const/16 v4, 0x60
+    if-eq v3, v4, :safe_uri_invalid
+    const/16 v4, 0x3b
+    if-eq v3, v4, :safe_uri_invalid
+    const/16 v4, 0x3c
+    if-eq v3, v4, :safe_uri_invalid
+    const/16 v4, 0x3e
+    if-eq v3, v4, :safe_uri_invalid
+    const/16 v4, 0x2028
+    if-eq v3, v4, :safe_uri_invalid
+    const/16 v4, 0x2029
+    if-eq v3, v4, :safe_uri_invalid
+    add-int/lit8 v2, v2, 0x1
+    goto :char_scan_loop
+
+    :char_scan_done
+    const-string v2, "spotify:"
+    invoke-virtual {p0, v2}, Ljava/lang/String;->startsWith(Ljava/lang/String;)Z
+    move-result v2
+    if-eqz v2, :check_https_uri
+    const-string v2, "spotify://"
+    invoke-virtual {p0, v2}, Ljava/lang/String;->startsWith(Ljava/lang/String;)Z
+    move-result v2
+    if-nez v2, :safe_uri_invalid
+    const/16 v2, 0x9
+    if-lt v1, v2, :safe_uri_invalid
+    goto :quote_safe_uri
+
+    :check_https_uri
+    invoke-static {p0}, Lcom/melodix/music/NativeFetchGuard;->parseAllowedUrl(Ljava/lang/String;)Ljava/net/URL;
+    move-result-object v1
+    if-eqz v1, :safe_uri_invalid
+
+    :quote_safe_uri
+    invoke-static {p0}, Lorg/json/JSONObject;->quote(Ljava/lang/String;)Ljava/lang/String;
+    move-result-object v1
+    new-instance v2, Ljava/lang/StringBuilder;
+    invoke-direct {v2}, Ljava/lang/StringBuilder;-><init>()V
+    const-string v3, "playFromUri("
+    invoke-virtual {v2, v3}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    invoke-virtual {v2, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    const-string v3, ");"
+    invoke-virtual {v2, v3}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    invoke-virtual {v2}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
+    move-result-object v0
+    return-object v0
+
+    :safe_uri_invalid
     return-object v0
 .end method

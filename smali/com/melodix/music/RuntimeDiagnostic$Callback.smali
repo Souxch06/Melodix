@@ -33,6 +33,9 @@
     invoke-virtual {v0}, Landroid/app/Activity;->isFinishing()Z
     move-result v1
     if-nez v1, :return
+    invoke-virtual {v0}, Landroid/app/Activity;->isDestroyed()Z
+    move-result v1
+    if-nez v1, :return
 
     check-cast p1, Ljava/lang/String;
     if-eqz p1, :return
