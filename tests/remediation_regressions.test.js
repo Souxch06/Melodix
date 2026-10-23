@@ -294,4 +294,8 @@ test('WS4: logout hides nativeRoot & resets state, and Android Back button works
     assert.match(methodA, /resetNativeStateForLogout\(\)V/);
     const methodG = extractMethod(mainActivity, '.method public final G()V');
     assert.match(methodG, /const v5, 0x7f09022f[\s\S]*?accountsHostHides[\s\S]*?const\/16 v7, 0x8[\s\S]*?setVisibility\(I\)V/);
+
+    // 6. Verify re-login after logout/accounts.spotify.com restores nativeRoot (0x7f09022f -> VISIBLE 0x0) when home data arrives
+    const applyData = extractMethod(mainActivity, '.method public final applyNativeUiData(');
+    assert.match(applyData, /:home_do_paint\s*\n\s*const v2, 0x7f09022f[\s\S]*?const\/4 v3, 0x0\s*\n\s*invoke-virtual \{v2, v3\}, Landroid\/view\/View;->setVisibility\(I\)V/);
 });

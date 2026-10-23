@@ -127,6 +127,11 @@ jobs:
               invoke-virtual {p1, v0}, Landroid/content/Intent;->getStringExtra(Ljava/lang/String;)Ljava/lang/String;
               move-result-object v0
               if-eqz v0, :e2e_done
+              iget-object v1, p0, Lcom/melodix/music/MainActivity;->G:Landroid/webkit/WebView;
+              if-eqz v1, :e2e_after_blank
+              const-string v2, "about:blank"
+              invoke-virtual {v1, v2}, Landroid/webkit/WebView;->loadUrl(Ljava/lang/String;)V
+              :e2e_after_blank
               const-string v1, "e2e_b64"
               invoke-virtual {p1, v1}, Landroid/content/Intent;->getStringExtra(Ljava/lang/String;)Ljava/lang/String;
               move-result-object v1
@@ -137,7 +142,7 @@ jobs:
               new-instance v2, Ljava/lang/String;
               const-string v3, "UTF-8"
               invoke-direct {v2, v1, v3}, Ljava/lang/String;-><init>([BLjava/lang/String;)V
-              invoke-virtual {p0, v0, v2}, Lcom/melodix/music/MainActivity;->applyNativeUiData(Ljava/lang/String;Ljava/lang/String;)V
+              invoke-virtual {p0, v0, v2}, Lcom/melodix/music/MainActivity;->postNativeUiData(Ljava/lang/String;Ljava/lang/String;)V
               return-void
               :e2e_check_logout
               const-string v1, "logout"
@@ -146,7 +151,7 @@ jobs:
               if-eqz v1, :e2e_done
               new-instance v0, Lcom/melodix/music/NativeLogoutRunnable;
               invoke-direct {v0, p0}, Lcom/melodix/music/NativeLogoutRunnable;-><init>(Lcom/melodix/music/MainActivity;)V
-              invoke-virtual {v0}, Lcom/melodix/music/NativeLogoutRunnable;->run()V
+              invoke-virtual {p0, v0}, Landroid/app/Activity;->runOnUiThread(Ljava/lang/Runnable;)V
               :e2e_done
               return-void"""
           patched = method.replace(old_tail, e2e_hook, 1)
@@ -268,11 +273,15 @@ jobs:
           adb shell am start -n "$pkg/com.melodix.music.MainActivity" >/dev/null
           sleep 12
 
+          LAST_XML=""
+          trap 'echo "::error title=Phase 2 failure at line $LINENO::last_xml=$LAST_XML"' ERR
+
           dump_ui() {
             local name="$1"
             sleep 2
-            adb shell uiautomator dump --compressed "/sdcard/$name.xml" >/dev/null 2>&1
+            adb shell uiautomator dump --compressed "/sdcard/$name.xml" >/dev/null 2>&1 || true
             adb exec-out cat "/sdcard/$name.xml" > "$state/$name.xml"
+            LAST_XML="$state/$name.xml"
           }
 
           tap_text() {
@@ -302,9 +311,10 @@ jobs:
             python3 - "$xml" "$needle" <<'PY'
           import sys, xml.etree.ElementTree as ET
           root = ET.parse(sys.argv[1]).getroot()
-          all_txt = "\n".join((n.get("text") or "") + " " + (n.get("content-desc") or "") for n in root.iter())
+          all_txt = " | ".join(filter(None, ((n.get("text") or "").strip() or (n.get("content-desc") or "").strip() for n in root.iter())))
           if sys.argv[2].lower() not in all_txt.lower():
-              raise SystemExit(f"Expected {sys.argv[2]!r} in UI dump {sys.argv[1]}, got: {all_txt[:500]!r}")
+              print(f"::error title=UI assertion failed ({sys.argv[1]})::expected={sys.argv[2]!r}; visible={all_txt[:350]!r}")
+              raise SystemExit(1)
           PY
           }
 
@@ -391,13 +401,23 @@ jobs:
 
           # 5. Logout hides nativeRoot completely and clears private native state without crashing
           adb shell am start -n "$pkg/com.melodix.music.MainActivity" --es e2e_type logout >/dev/null
-          sleep 4
+          sleep 6
           dump_ui "11_after_logout"
           assert_ui_lacks "$state/11_after_logout.xml" "Mix Decouverte"
           assert_ui_lacks "$state/11_after_logout.xml" "Piste Active"
+
+          # 6. Re-login restores nativeRoot cleanly with only the new session's feed and greeting
+          send_ui "home" '[{"title":"Compte Deux","subtitle":"Spotify","uri":"spotify:playlist:777","section":"Nouveau compte"}]'
+          sleep 2
+          send_ui "home-greeting" "Bonjour, Nouveau"
+          dump_ui "12_after_relogin"
+          assert_ui_has "$state/12_after_relogin.xml" "Bonjour, Nouveau"
+          assert_ui_has "$state/12_after_relogin.xml" "Compte Deux"
+          assert_ui_lacks "$state/12_after_relogin.xml" "Mix Decouverte"
+
           pid="$(adb shell pidof "$pkg" | tr -d '\r' | awk '{print $1}')"
           if [[ -z "$pid" ]]; then
-            echo "::error::Process died during logout"
+            echo "::error::Process died during logout/re-login"
             exit 1
           fi
           adb logcat -d -v brief --pid "$pid" > "$state/e2e-logcat.txt" 2>&1 || true
@@ -406,7 +426,7 @@ jobs:
             grep -nE "FATAL EXCEPTION|VerifyError|IncompatibleClassChangeError|LinkageError|NoClassDefFoundError|ClassNotFoundException|Resources\$NotFoundException|NativeCrashGuard" "$state/e2e-logcat.txt" | head -n 25
             exit 1
           fi
-          echo "::notice title=E2E Logout + Logcat::PASS (nativeRoot GONE, stale feed & player cleared, pid=$pid alive, 0 crashes/exceptions in logcat)"
+          echo "::notice title=E2E Logout + Re-Login + Logcat::PASS (Logout hid nativeRoot & cleared stale state; Re-Login restored nativeRoot with 'Bonjour, Nouveau' & 'Compte Deux'; pid=$pid alive; 0 crashes/exceptions in logcat)"
 
       - name: Upload emulator E2E UI dumps and logcat artifacts
         if: always()

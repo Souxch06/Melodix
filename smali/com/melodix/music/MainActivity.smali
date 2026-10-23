@@ -7580,6 +7580,15 @@
     if-eqz v5, :apply_done
 
     :home_do_paint
+    const v2, 0x7f09022f
+    invoke-virtual {p0, v2}, Landroid/app/Activity;->findViewById(I)Landroid/view/View;
+    move-result-object v2
+    if-eqz v2, :home_root_visible
+    const/4 v3, 0x0
+    invoke-virtual {v2, v3}, Landroid/view/View;->setVisibility(I)V
+    const/high16 v3, 0x3f800000
+    invoke-virtual {v2, v3}, Landroid/view/View;->setAlpha(F)V
+    :home_root_visible
     const-string v2, "home"
     iput-object v2, p0, Lcom/melodix/music/MainActivity;->nativeCurrentScreen:Ljava/lang/String;
     const-string v2, "Accueil"
