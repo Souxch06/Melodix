@@ -446,14 +446,11 @@ jobs:
 
           # 7. Deep-link & exported Intent JS injection defense + malformed JSON resilience + epoch race guard + screen rotation
           pid_before_sec="$(adb shell pidof "$pkg" | tr -d '\r' | awk '{print $1}')"
-          adb shell am start -n "$pkg/com.melodix.music.MainActivity" \
-            --es spotify_uri "spotify:track:1');window.__pwned=1;//" >/dev/null
+          adb shell "am start -n '$pkg/com.melodix.music.MainActivity' --es spotify_uri \"spotify:track:1');window.__pwned=1;//\"" >/dev/null
           sleep 1
-          adb shell am start -a android.intent.action.VIEW \
-            -d "spotify:track:1');window.__pwned=1;//" "$pkg/com.melodix.music.LinkHandler" >/dev/null || true
+          adb shell "am start -a android.intent.action.VIEW -d \"spotify:track:1');window.__pwned=1;//\" '$pkg/com.melodix.music.LinkHandler'" >/dev/null || true
           sleep 1
-          adb shell am start -a android.intent.action.VIEW \
-            -d "spotify:track:4cOdK2wGLETKBW3PvgPWqT" "$pkg/com.melodix.music.LinkHandler" >/dev/null || true
+          adb shell "am start -a android.intent.action.VIEW -d 'spotify:track:4cOdK2wGLETKBW3PvgPWqT' '$pkg/com.melodix.music.LinkHandler'" >/dev/null || true
           sleep 1
           send_ui "home" "{malformed-json-payload"
           sleep 1
