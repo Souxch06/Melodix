@@ -84,9 +84,15 @@
     .line 22
     sget-object v0, Lcom/melodix/music/HomeWidget;->a:Landroid/os/Handler;
 
+    invoke-virtual {p0}, Landroid/content/Context;->getApplicationContext()Landroid/content/Context;
+    move-result-object v0
+    if-nez v0, :use_app_ctx
+    move-object v0, p0
+    :use_app_ctx
+
     .line 23
     .line 24
-    invoke-static {p0}, Lcom/melodix/music/a;->c(Landroid/content/Context;)V
+    invoke-static {v0}, Lcom/melodix/music/a;->c(Landroid/content/Context;)V
 
     .line 25
     .line 26

@@ -99,7 +99,7 @@
 .field private nativeHomeJson:Ljava/lang/String;
 .field private nativeLibraryJson:Ljava/lang/String;
 .field private nativeListBlob:Ljava/lang/String;
-.field public nativeSessionEpoch:I
+.field public static nativeSessionEpoch:I
 
 
 # direct methods
@@ -362,7 +362,7 @@
 
     .line 73
     .line 74
-    iget-object p0, p0, Lcom/melodix/music/MainActivity;->f0:Landroid/os/Handler;
+    sget-object p0, Lcom/melodix/music/AppSingleton;->o:Landroid/os/Handler;
 
     .line 75
     .line 76
@@ -4553,25 +4553,30 @@
 
     .line 43
     .line 44
-    iget-object p0, p0, Lcom/melodix/music/MainActivity;->N:Landroid/widget/FrameLayout;
+    iget-object v1, p0, Lcom/melodix/music/MainActivity;->N:Landroid/widget/FrameLayout;
 
     .line 45
     .line 46
-    if-eqz p0, :cond_1
+    if-eqz v1, :cond_1
 
     .line 47
     .line 48
-    invoke-virtual {p0, v0}, Landroid/view/ViewGroup;->removeView(Landroid/view/View;)V
+    invoke-virtual {v1, v0}, Landroid/view/ViewGroup;->removeView(Landroid/view/View;)V
 
     .line 49
     .line 50
     .line 51
     :cond_1
+    const/4 v1, 0x0
     :goto_0
+    sget-object v0, Lcom/melodix/music/AppSingleton;->t:Ljava/lang/ref/WeakReference;
+    if-eqz v0, :destroy_ref_done
+    invoke-virtual {v0}, Ljava/lang/ref/Reference;->get()Ljava/lang/Object;
+    move-result-object v0
+    if-ne v0, p0, :destroy_ref_done
     sput-object v1, Lcom/melodix/music/AppSingleton;->t:Ljava/lang/ref/WeakReference;
 
-    .line 52
-    .line 53
+    :destroy_ref_done
     return-void
 .end method
 
@@ -8902,9 +8907,14 @@
 .method public final resetNativeStateForLogout()V
     .locals 5
 
-    iget v1, p0, Lcom/melodix/music/MainActivity;->nativeSessionEpoch:I
+    sget v1, Lcom/melodix/music/MainActivity;->nativeSessionEpoch:I
     add-int/lit8 v1, v1, 0x1
-    iput v1, p0, Lcom/melodix/music/MainActivity;->nativeSessionEpoch:I
+    sput v1, Lcom/melodix/music/MainActivity;->nativeSessionEpoch:I
+
+    sget-object v2, Lcom/melodix/music/WebService;->E:Ljava/util/concurrent/ConcurrentHashMap;
+    invoke-virtual {v2}, Ljava/util/concurrent/ConcurrentHashMap;->clear()V
+    sget-object v2, Lcom/melodix/music/WebService;->F:Ljava/util/concurrent/ConcurrentHashMap;
+    invoke-virtual {v2}, Ljava/util/concurrent/ConcurrentHashMap;->clear()V
 
     const/4 v0, 0x0
     iput-object v0, p0, Lcom/melodix/music/MainActivity;->nativeCurrentScreen:Ljava/lang/String;

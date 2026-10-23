@@ -3,17 +3,24 @@
 .implements Landroid/webkit/ValueCallback;
 
 .field private final activity:Lcom/melodix/music/MainActivity;
+.field private final epoch:I
 
 .method public constructor <init>(Lcom/melodix/music/MainActivity;)V
-    .locals 0
+    .locals 1
 
     invoke-direct {p0}, Ljava/lang/Object;-><init>()V
     iput-object p1, p0, Lcom/melodix/music/NativeHomeJsonCallback;->activity:Lcom/melodix/music/MainActivity;
+    sget v0, Lcom/melodix/music/MainActivity;->nativeSessionEpoch:I
+    iput v0, p0, Lcom/melodix/music/NativeHomeJsonCallback;->epoch:I
     return-void
 .end method
 
 .method public final onReceiveValue(Ljava/lang/Object;)V
     .locals 4
+
+    iget v0, p0, Lcom/melodix/music/NativeHomeJsonCallback;->epoch:I
+    sget v1, Lcom/melodix/music/MainActivity;->nativeSessionEpoch:I
+    if-ne v0, v1, :done
 
     move-object v0, p1
     check-cast v0, Ljava/lang/String;
@@ -44,6 +51,12 @@
 
     iget-object v2, p0, Lcom/melodix/music/NativeHomeJsonCallback;->activity:Lcom/melodix/music/MainActivity;
     if-eqz v2, :done
+    invoke-virtual {v2}, Landroid/app/Activity;->isFinishing()Z
+    move-result v3
+    if-nez v3, :done
+    invoke-virtual {v2}, Landroid/app/Activity;->isDestroyed()Z
+    move-result v3
+    if-nez v3, :done
     const-string v3, "home"
     invoke-virtual {v2, v3, v0}, Lcom/melodix/music/MainActivity;->postNativeUiData(Ljava/lang/String;Ljava/lang/String;)V
     :try_end_0

@@ -12,10 +12,7 @@
     invoke-direct {p0}, Ljava/lang/Object;-><init>()V
     iput-object p1, p0, Lcom/melodix/music/NativeListPaintRunnable;->activity:Lcom/melodix/music/MainActivity;
     iput-object p2, p0, Lcom/melodix/music/NativeListPaintRunnable;->text:Ljava/lang/String;
-    const/4 v0, 0x0
-    if-eqz p1, :save_epoch
-    iget v0, p1, Lcom/melodix/music/MainActivity;->nativeSessionEpoch:I
-    :save_epoch
+    sget v0, Lcom/melodix/music/MainActivity;->nativeSessionEpoch:I
     iput v0, p0, Lcom/melodix/music/NativeListPaintRunnable;->epoch:I
     return-void
 .end method
@@ -33,7 +30,7 @@
     move-result v1
     if-nez v1, :done
     iget v1, p0, Lcom/melodix/music/NativeListPaintRunnable;->epoch:I
-    iget v2, v0, Lcom/melodix/music/MainActivity;->nativeSessionEpoch:I
+    sget v2, Lcom/melodix/music/MainActivity;->nativeSessionEpoch:I
     if-ne v1, v2, :done
 
     iget-object v1, p0, Lcom/melodix/music/NativeListPaintRunnable;->text:Ljava/lang/String;

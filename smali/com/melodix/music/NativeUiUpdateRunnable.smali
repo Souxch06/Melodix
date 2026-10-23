@@ -16,10 +16,7 @@
     iput-object p2, p0, Lcom/melodix/music/NativeUiUpdateRunnable;->screen:Ljava/lang/String;
     iput-object p3, p0, Lcom/melodix/music/NativeUiUpdateRunnable;->data:Ljava/lang/String;
     iput p4, p0, Lcom/melodix/music/NativeUiUpdateRunnable;->action:I
-    const/4 v0, 0x0
-    if-eqz p1, :save_epoch
-    iget v0, p1, Lcom/melodix/music/MainActivity;->nativeSessionEpoch:I
-    :save_epoch
+    sget v0, Lcom/melodix/music/MainActivity;->nativeSessionEpoch:I
     iput v0, p0, Lcom/melodix/music/NativeUiUpdateRunnable;->epoch:I
     return-void
 .end method
@@ -37,7 +34,7 @@
     move-result v1
     if-nez v1, :stale_done
     iget v1, p0, Lcom/melodix/music/NativeUiUpdateRunnable;->epoch:I
-    iget v2, v0, Lcom/melodix/music/MainActivity;->nativeSessionEpoch:I
+    sget v2, Lcom/melodix/music/MainActivity;->nativeSessionEpoch:I
     if-ne v1, v2, :stale_done
 
     iget v1, p0, Lcom/melodix/music/NativeUiUpdateRunnable;->action:I

@@ -5,11 +5,12 @@
 
 # instance fields
 .field public final a:Landroid/content/Context;
+.field private final bridgeEpoch:I
 
 
 # direct methods
 .method public constructor <init>(Landroid/content/Context;)V
-    .locals 0
+    .locals 1
 
     .line 1
     invoke-virtual {p1}, Ljava/lang/Object;->getClass()Ljava/lang/Class;
@@ -24,6 +25,9 @@
     .line 7
     iput-object p1, p0, Lcom/melodix/music/AndBridge;->a:Landroid/content/Context;
 
+    sget v0, Lcom/melodix/music/MainActivity;->nativeSessionEpoch:I
+    iput v0, p0, Lcom/melodix/music/AndBridge;->bridgeEpoch:I
+
     .line 8
     .line 9
     return-void
@@ -33,6 +37,10 @@
 # virtual methods
 .method private final dispatchNativeUi(Ljava/lang/String;Ljava/lang/String;)V
     .locals 3
+
+    iget v0, p0, Lcom/melodix/music/AndBridge;->bridgeEpoch:I
+    sget v2, Lcom/melodix/music/MainActivity;->nativeSessionEpoch:I
+    if-ne v0, v2, :native_dispatch_done
 
     if-eqz p2, :payload_ok
     invoke-virtual {p2}, Ljava/lang/String;->length()I
@@ -69,6 +77,10 @@
     .annotation runtime Landroid/webkit/JavascriptInterface;
     .end annotation
 
+    iget v0, p0, Lcom/melodix/music/AndBridge;->bridgeEpoch:I
+    sget v1, Lcom/melodix/music/MainActivity;->nativeSessionEpoch:I
+    if-ne v0, v1, :native_ready_done
+
     sget-object v0, Lcom/melodix/music/AppSingleton;->t:Ljava/lang/ref/WeakReference;
     if-eqz v0, :native_ready_done
     invoke-virtual {v0}, Ljava/lang/ref/Reference;->get()Ljava/lang/Object;
@@ -85,6 +97,10 @@
     .locals 2
     .annotation runtime Landroid/webkit/JavascriptInterface;
     .end annotation
+
+    iget v0, p0, Lcom/melodix/music/AndBridge;->bridgeEpoch:I
+    sget v1, Lcom/melodix/music/MainActivity;->nativeSessionEpoch:I
+    if-ne v0, v1, :native_route_done
 
     sget-object v0, Lcom/melodix/music/AppSingleton;->t:Ljava/lang/ref/WeakReference;
     if-eqz v0, :native_route_done
@@ -121,6 +137,10 @@
     .locals 3
     .annotation runtime Landroid/webkit/JavascriptInterface;
     .end annotation
+
+    iget v0, p0, Lcom/melodix/music/AndBridge;->bridgeEpoch:I
+    sget v1, Lcom/melodix/music/MainActivity;->nativeSessionEpoch:I
+    if-ne v0, v1, :native_home_rows_done
 
     if-eqz p1, :home_rows_size_ok
     invoke-virtual {p1}, Ljava/lang/String;->length()I
@@ -999,9 +1019,18 @@
     invoke-virtual {v1, v2}, Ljava/lang/String;->concat(Ljava/lang/String;)Ljava/lang/String;
     move-result-object v1
     move-object/from16 v3, p0
+    iget v2, v3, Lcom/melodix/music/AndBridge;->bridgeEpoch:I
+    sget v4, Lcom/melodix/music/MainActivity;->nativeSessionEpoch:I
+    if-ne v2, v4, :media_epoch_stale
     move-object/from16 v4, p2
     invoke-direct {v3, v1, v4}, Lcom/melodix/music/AndBridge;->dispatchNativeUi(Ljava/lang/String;Ljava/lang/String;)V
     move-object/from16 v0, p2
+    goto :media_epoch_ok
+
+    :media_epoch_stale
+    return-void
+
+    :media_epoch_ok
 
     .line 7
     .line 8
@@ -1535,9 +1564,18 @@
     invoke-virtual {v1, v2}, Ljava/lang/String;->concat(Ljava/lang/String;)Ljava/lang/String;
     move-result-object v1
     move-object/from16 v4, p0
+    iget v2, v4, Lcom/melodix/music/AndBridge;->bridgeEpoch:I
+    sget v5, Lcom/melodix/music/MainActivity;->nativeSessionEpoch:I
+    if-ne v2, v5, :search_epoch_stale
     move-object/from16 v5, p2
     invoke-direct {v4, v1, v5}, Lcom/melodix/music/AndBridge;->dispatchNativeUi(Ljava/lang/String;Ljava/lang/String;)V
     move-object/from16 v0, p2
+    goto :search_epoch_ok
+
+    :search_epoch_stale
+    return-void
+
+    :search_epoch_ok
 
     .line 7
     .line 8

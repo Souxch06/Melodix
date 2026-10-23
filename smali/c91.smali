@@ -590,7 +590,7 @@
 .end method
 
 .method public onRenderProcessGone(Landroid/webkit/WebView;Landroid/webkit/RenderProcessGoneDetail;)Z
-    .locals 2
+    .locals 3
 
     if-eqz p2, :cond_0
     invoke-static {p2}, Li1;->r(Landroid/webkit/RenderProcessGoneDetail;)V
@@ -607,15 +607,35 @@
     sget v0, Lcom/melodix/music/AppSingleton;->j:I
     invoke-static {}, Lm9;->b()V
     sget-object v0, Lcom/melodix/music/AppSingleton;->t:Ljava/lang/ref/WeakReference;
-    if-eqz v0, :cond_2
+    if-eqz v0, :recover_bg_service
     invoke-virtual {v0}, Ljava/lang/ref/Reference;->get()Ljava/lang/Object;
     move-result-object v0
     check-cast v0, Lcom/melodix/music/MainActivity;
-    if-eqz v0, :cond_2
+    if-eqz v0, :recover_bg_service
+    invoke-virtual {v0}, Landroid/app/Activity;->isFinishing()Z
+    move-result v1
+    if-nez v1, :recover_bg_service
+    invoke-virtual {v0}, Landroid/app/Activity;->isDestroyed()Z
+    move-result v1
+    if-nez v1, :recover_bg_service
     new-instance v1, Ls4;
     const/16 p2, 0xb
     invoke-direct {v1, v0, p2}, Ls4;-><init>(Lcom/melodix/music/MainActivity;I)V
     invoke-virtual {v0, v1}, Landroid/app/Activity;->runOnUiThread(Ljava/lang/Runnable;)V
+    goto :cond_2
+
+    :recover_bg_service
+    sget-object v0, Lcom/melodix/music/WebService;->G:Lcom/melodix/music/WebService;
+    if-eqz v0, :cond_2
+    new-instance v1, Landroid/os/Handler;
+    invoke-static {}, Landroid/os/Looper;->getMainLooper()Landroid/os/Looper;
+    move-result-object v2
+    invoke-direct {v1, v2}, Landroid/os/Handler;-><init>(Landroid/os/Looper;)V
+    new-instance v2, Lyi1;
+    const/4 p2, 0x1
+    invoke-direct {v2, v0, p2}, Lyi1;-><init>(Lcom/melodix/music/WebService;I)V
+    invoke-virtual {v1, v2}, Landroid/os/Handler;->post(Ljava/lang/Runnable;)Z
+
     :cond_2
     const/4 v0, 0x1
     return v0

@@ -12,10 +12,7 @@
     invoke-direct {p0}, Ljava/lang/Object;-><init>()V
     iput-object p1, p0, Lcom/melodix/music/NativeHomeRetryRunnable;->activity:Lcom/melodix/music/MainActivity;
     iput p2, p0, Lcom/melodix/music/NativeHomeRetryRunnable;->remaining:I
-    const/4 v0, 0x0
-    if-eqz p1, :save_epoch
-    iget v0, p1, Lcom/melodix/music/MainActivity;->nativeSessionEpoch:I
-    :save_epoch
+    sget v0, Lcom/melodix/music/MainActivity;->nativeSessionEpoch:I
     iput v0, p0, Lcom/melodix/music/NativeHomeRetryRunnable;->epoch:I
     return-void
 .end method
@@ -32,7 +29,7 @@
     move-result v1
     if-nez v1, :done
     iget v1, p0, Lcom/melodix/music/NativeHomeRetryRunnable;->epoch:I
-    iget v2, v0, Lcom/melodix/music/MainActivity;->nativeSessionEpoch:I
+    sget v2, Lcom/melodix/music/MainActivity;->nativeSessionEpoch:I
     if-ne v1, v2, :done
 
     invoke-virtual {v0}, Lcom/melodix/music/MainActivity;->pullNativeHomeList()V

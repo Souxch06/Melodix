@@ -118,7 +118,7 @@ jobs:
           anchor = ".method public final onNewIntent(Landroid/content/Intent;)V"
           start = src.index(anchor)
           end = src.index(".end method", start)
-          method = src[start:end].replace("    .locals 2", "    .locals 4", 1)
+          method = src[start:end].replace("    .locals 2", "    .locals 5", 1)
           old_tail = "    :cond_1\n    return-void"
           assert old_tail in method, "Expected :cond_1 tail in MainActivity.onNewIntent"
           e2e_hook = """    :cond_1
@@ -148,18 +148,50 @@ jobs:
               const-string v1, "logout_race"
               invoke-virtual {v0, v1}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
               move-result v1
-              if-eqz v1, :e2e_only_logout
+              if-eqz v1, :e2e_check_recreate
+              new-instance v3, Lcom/melodix/music/AndBridge;
+              invoke-virtual {p0}, Landroid/content/Context;->getApplicationContext()Landroid/content/Context;
+              move-result-object v4
+              invoke-direct {v3, v4}, Lcom/melodix/music/AndBridge;-><init>(Landroid/content/Context;)V
+              new-instance v4, Lcom/melodix/music/NativeHomeJsonCallback;
+              invoke-direct {v4, p0}, Lcom/melodix/music/NativeHomeJsonCallback;-><init>(Lcom/melodix/music/MainActivity;)V
               new-instance v1, Lcom/melodix/music/NativeUiUpdateRunnable;
               const-string v2, "home-greeting"
-              const-string v3, "Fuite Tardive Compte A"
-              const/4 v0, 0x1
-              invoke-direct {v1, p0, v2, v3, v0}, Lcom/melodix/music/NativeUiUpdateRunnable;-><init>(Lcom/melodix/music/MainActivity;Ljava/lang/String;Ljava/lang/String;I)V
+              const-string v0, "Fuite Tardive Compte A"
+              const/4 p1, 0x1
+              invoke-direct {v1, p0, v2, v0, p1}, Lcom/melodix/music/NativeUiUpdateRunnable;-><init>(Lcom/melodix/music/MainActivity;Ljava/lang/String;Ljava/lang/String;I)V
               new-instance v2, Lcom/melodix/music/NativeHomeRetryRunnable;
-              const/4 v0, 0x2
-              invoke-direct {v2, p0, v0}, Lcom/melodix/music/NativeHomeRetryRunnable;-><init>(Lcom/melodix/music/MainActivity;I)V
+              const/4 p1, 0x2
+              invoke-direct {v2, p0, p1}, Lcom/melodix/music/NativeHomeRetryRunnable;-><init>(Lcom/melodix/music/MainActivity;I)V
               invoke-virtual {v2}, Lcom/melodix/music/NativeHomeRetryRunnable;->run()V
               invoke-virtual {p0}, Lcom/melodix/music/MainActivity;->resetNativeStateForLogout()V
               invoke-virtual {v1}, Lcom/melodix/music/NativeUiUpdateRunnable;->run()V
+              const-string v2, "home-greeting"
+              const-string v0, "Fuite Tardive Compte A"
+              invoke-virtual {v3, v2, v0}, Lcom/melodix/music/AndBridge;->onNativeUiData(Ljava/lang/String;Ljava/lang/String;)V
+              const-string v0, "[{\\"title\\":\\"Fuite Tardive Compte A\\",\\"uri\\":\\"spotify:playlist:99\\"}]"
+              invoke-virtual {v4, v0}, Lcom/melodix/music/NativeHomeJsonCallback;->onReceiveValue(Ljava/lang/Object;)V
+              return-void
+              :e2e_check_recreate
+              const-string v1, "recreate"
+              invoke-virtual {v0, v1}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+              move-result v1
+              if-eqz v1, :e2e_check_singleton_bridge
+              invoke-virtual {p0}, Landroid/app/Activity;->recreate()V
+              return-void
+              :e2e_check_singleton_bridge
+              const-string v1, "singleton_bridge"
+              invoke-virtual {v0, v1}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+              move-result v1
+              if-eqz v1, :e2e_only_logout
+              new-instance v3, Lcom/melodix/music/AndBridge;
+              invoke-virtual {p0}, Landroid/content/Context;->getApplicationContext()Landroid/content/Context;
+              move-result-object v4
+              invoke-direct {v3, v4}, Lcom/melodix/music/AndBridge;-><init>(Landroid/content/Context;)V
+              invoke-virtual {v3}, Lcom/melodix/music/AndBridge;->onNativeUiReady()V
+              const-string v1, "home-greeting"
+              const-string v2, "Session Recreee OK"
+              invoke-virtual {v3, v1, v2}, Lcom/melodix/music/AndBridge;->onNativeUiData(Ljava/lang/String;Ljava/lang/String;)V
               return-void
               :e2e_only_logout
               const-string v1, "logout"
@@ -469,6 +501,12 @@ jobs:
           adb shell "am start -a android.intent.action.VIEW -d 'spotify:track:4cOdK2wGLETKBW3PvgPWqT' '$pkg/com.melodix.music.LinkHandler'" >/dev/null || true
           sleep 1
           assert_pid_same "7c_linkhandler_valid"
+          adb shell "am start -n '$pkg/com.melodix.music.MainActivity' --es spotify_uri \"spotify:search:Daft Punk - Veridis Quo\"" >/dev/null
+          sleep 1
+          assert_pid_same "7c2_shazam_search_spaces"
+          adb shell "am start -n '$pkg/com.melodix.music.MainActivity' --es spotify_uri \"spotify:search:Don't Start Now\"" >/dev/null
+          sleep 1
+          assert_pid_same "7c3_shazam_search_apostrophe"
           send_ui "home" "{malformed-json-payload"
           sleep 1
           assert_pid_same "7d_malformed_json"
@@ -480,7 +518,17 @@ jobs:
           assert_ui_lacks "$state/13_after_epoch_race.xml" "Fuite Tardive Compte A"
           assert_ui_lacks "$state/13_after_epoch_race.xml" "Compte Deux"
 
-          # Screen rotation & activity destroy/recreation stress check
+          # Real Activity.recreate() + AppSingleton.t preservation + rotation stress check
+          adb shell am start -n "$pkg/com.melodix.music.MainActivity" --es e2e_type recreate >/dev/null
+          sleep 3
+          assert_pid_same "7f0_activity_recreate"
+          adb shell am start -n "$pkg/com.melodix.music.MainActivity" --es e2e_type singleton_bridge >/dev/null
+          sleep 2
+          assert_pid_same "7f1_singleton_bridge_after_recreate"
+          dump_ui "14_after_recreate"
+          assert_ui_has "$state/14_after_recreate.xml" "Session Recreee OK"
+          assert_ui_lacks "$state/14_after_recreate.xml" "Fuite Tardive Compte A"
+
           adb shell wm user-rotation lock 1 || true
           sleep 2
           assert_pid_same "7f_rotate_landscape"

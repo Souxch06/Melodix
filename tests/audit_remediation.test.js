@@ -397,7 +397,7 @@ test('[D4] Logout purges cached JS home globals, stops timers from re-emitting A
 
     // Verify native MainActivity logout purge & epoch guards
     const mainSmali = readRepoFile('smali/com/melodix/music/MainActivity.smali');
-    assert.match(mainSmali, /\.field public nativeSessionEpoch:I/);
+    assert.match(mainSmali, /\.field public (?:static )?nativeSessionEpoch:I/);
     const resetMethod = extractSmaliMethod(mainSmali, '.method public final resetNativeStateForLogout()V');
     assert.ok(resetMethod);
     assert.match(resetMethod, /nativeSessionEpoch:I/, 'resetNativeStateForLogout must bump nativeSessionEpoch');
@@ -558,5 +558,165 @@ test('[D8] Post-logout WebView teardown avoids shared renderer SIGKILL loop, Web
     const lBody = ws.slice(lStart, ws.indexOf('.end method', lStart));
     assert.match(lBody, /sput-object\s+\w+,\s*Lcom\/melodix\/music\/WebService;->v:Ljava\/lang\/String;/, 'WebService.l() must scrub static track title');
     assert.match(lBody, /sput-object\s+\w+,\s*Lcom\/melodix\/music\/WebService;->u:Ljava\/lang\/String;/, 'WebService.l() must scrub static artist name');
+});
+
+test('[R2] Second-pass review regressions: background WebView crash recovery, idempotent WebService cleanup, HTTP/2 response Headers safety, unencoded % search URIs, and cross-recreation logout fencing', async () => {
+    // 1. Point #2: onRenderProcessGone recovers WebService background WebView when MainActivity is destroyed/absent
+    const c91 = readRepoFile('smali/c91.smali');
+    const rpgBody = extractSmaliMethod(
+        c91,
+        '.method public onRenderProcessGone(Landroid/webkit/WebView;Landroid/webkit/RenderProcessGoneDetail;)Z'
+    );
+    assert.match(
+        rpgBody,
+        /Lcom\/melodix\/music\/WebService;->G:Lcom\/melodix\/music\/WebService;[\s\S]*?Lyi1;-><init>\(Lcom\/melodix\/music\/WebService;I\)V/,
+        'onRenderProcessGone must fall back to recreating WebService WebView via Lyi1(WebService.G, 1) when MainActivity is absent/destroyed'
+    );
+
+    // 2. Point #3: WebService.l() is strictly idempotent across STOP_SERVICE -> stopSelf() -> onDestroy() -> l(),
+    //    clears field m (AudioDeviceCallback), clears pending MediaBrowser Result maps E & F, and Lyi1 avoids destroyed Service context
+    const ws = readRepoFile('smali/com/melodix/music/WebService.smali');
+    assert.match(ws, /\.field private cleanedUp:Z/, 'WebService must guard l() against double-execution between STOP_SERVICE and onDestroy()');
+    const lBody = extractSmaliMethod(ws, '.method public final l()V');
+    assert.match(lBody, /iput-object\s+\w+,\s*p0,\s*Lcom\/melodix\/music\/WebService;->m:Lbj1;/, 'WebService.l() must null out AudioDeviceCallback field m');
+    assert.match(lBody, /Lcom\/melodix\/music\/WebService;->E:Ljava\/util\/concurrent\/ConcurrentHashMap;/, 'WebService.l() must purge pending MediaBrowser browse results E');
+    assert.match(lBody, /Lcom\/melodix\/music\/WebService;->F:Ljava\/util\/concurrent\/ConcurrentHashMap;/, 'WebService.l() must purge pending MediaBrowser search results F');
+    const yi1 = readRepoFile('smali/yi1.smali');
+    assert.match(yi1, /getApplicationContext\(\)Landroid\/content\/Context;/, 'Lyi1 delayed cleanup must use ApplicationContext rather than a destroyed Service instance');
+
+    // 3. Point #4 & #5: spotify_bridge.js safely handles unencoded '%' in spotify:search: URIs AND invalid HTTP/2 pseudo-headers in Headers
+    let searchedQuery = null;
+    const StrictHeaders = class extends MockHeaders {
+        set(k, v) {
+            if (!/^[!#$%&'*+.^_`|~0-9A-Za-z-]+$/.test(String(k))) {
+                throw new TypeError(`Invalid header name: ${k}`);
+            }
+            super.set(k, v);
+        }
+        append(k, v) {
+            this.set(k, v);
+        }
+    };
+    const { sandbox } = createBridgeVm({
+        nativeFetchImpl() {
+            return JSON.stringify({
+                status: 200,
+                headers: { ':status': '200', 'content-type': 'application/json' },
+                body: '{"ok":true}',
+            });
+        },
+    });
+    sandbox.Headers = StrictHeaders;
+    sandbox.openSearch = (q) => { searchedQuery = q; };
+    assert.doesNotThrow(() => sandbox.playFromUri('spotify:search:100% Pure Love'));
+    assert.equal(searchedQuery, '100% Pure Love');
+
+    const res = await sandbox.fetch('https://gew4-spclient.spotify.com/connect-state/v1/devices/hobs_1', { method: 'GET' });
+    assert.equal(res.ok, true);
+    assert.equal(res.headers.get('content-type'), 'application/json');
+    assert.equal(typeof res.blob, 'function');
+
+    // 4. Point #6: Delayed setTimeout player sync, profile avatar/greeting sync, ValueCallbacks, AndBridge instance epoch,
+    //    static process-wide nativeSessionEpoch, and MainActivity recreation lifecycle preserve strict Account A isolation
+    const mainSmali = readRepoFile('smali/com/melodix/music/MainActivity.smali');
+    assert.match(
+        mainSmali,
+        /\.field public static nativeSessionEpoch:I/,
+        'nativeSessionEpoch must be static monotonic so Activity recreation never resets epoch to 0'
+    );
+    const onDestroy = extractSmaliMethod(mainSmali, '.method public final onDestroy()V');
+    assert.match(
+        onDestroy,
+        /if-ne\s+\w+,\s*p0,\s*:/,
+        'MainActivity.onDestroy must only clear AppSingleton.t when AppSingleton.t still points to the destroyed instance'
+    );
+    const bridgeSmali = readRepoFile('smali/com/melodix/music/AndBridge.smali');
+    assert.match(bridgeSmali, /\.field private final bridgeEpoch:I/, 'AndBridge must capture bridgeEpoch on creation to reject stale background JS threads across logout/recreation');
+    for (const cbRel of [
+        'smali/com/melodix/music/NativeHomeJsonCallback.smali',
+        'smali/com/melodix/music/NativeListJsCallback.smali',
+    ]) {
+        assert.match(readRepoFile(cbRel), /nativeSessionEpoch:I/, `${cbRel} must reject pre-logout evaluateJavascript callbacks`);
+    }
+
+    // Prove untracked setTimeout inside refreshPlayerSoon cannot leak Account A track/greeting/avatar after logout
+    const pendingTimeouts = [];
+    const emittedAfterLogout = [];
+    const uiDoc = {
+        hidden: false,
+        title: 'Secret Song Account A - Spotify',
+        body: { innerText: '' },
+        documentElement: {
+            dataset: {},
+            classList: { add() {}, remove() {}, contains: () => false },
+            style: { setProperty() {} },
+        },
+        querySelector(sel) {
+            if (sel === '[data-testid="context-item-info-title"]') return { textContent: 'Secret Song Account A' };
+            if (sel === '[data-testid="context-item-info-subtitles"]') return { textContent: 'Private Artist A' };
+            if (sel.includes('user-widget-link')) {
+                return {
+                    getAttribute: (n) => (n === 'aria-label' ? 'Alice Secret' : ''),
+                    querySelector: (q) => (q === 'img' ? { src: 'https://i.scdn.co/image/alice_avatar' } : null),
+                };
+            }
+            return null;
+        },
+        querySelectorAll: () => [],
+        getElementById: () => null,
+        createElement: () => ({ style: {}, setAttribute() {}, appendChild() {}, remove() {} }),
+        head: { appendChild() {} },
+        addEventListener() {},
+        removeEventListener() {},
+    };
+    const uiBox = {
+        console: { log() {}, warn() {}, error() {}, info() {} },
+        URL,
+        MutationObserver: function MutationObserver() { this.observe = () => {}; this.disconnect = () => {}; },
+        navigator: { userAgent: 'Mozilla/5.0' },
+        location: {
+            href: 'https://open.spotify.com/',
+            origin: 'https://open.spotify.com',
+            hostname: 'open.spotify.com',
+            pathname: '/',
+            search: '',
+            assign() {},
+        },
+        history: { back() {}, pushState() {}, replaceState() {} },
+        localStorage: { clear() {}, getItem: () => null, setItem() {}, removeItem() {} },
+        sessionStorage: { clear() {}, getItem: () => null, setItem() {}, removeItem() {} },
+        document: uiDoc,
+        Node: { ELEMENT_NODE: 1 },
+        setTimeout: (fn) => {
+            const h = { fn, cleared: false };
+            pendingTimeouts.push(h);
+            return h;
+        },
+        clearTimeout: (h) => { if (h) h.cleared = true; },
+        setInterval: (fn) => ({ fn, cleared: false }),
+        clearInterval: () => {},
+        AndBridge: {
+            onNativeUiData(type, payload) { emittedAfterLogout.push({ kind: 'data', type, payload }); },
+            onNativeProfileImage(url) { emittedAfterLogout.push({ kind: 'avatar', url }); },
+            onNativeUiReady() { emittedAfterLogout.push({ kind: 'ready' }); },
+            onNativeUiRoute(r) { emittedAfterLogout.push({ kind: 'route', r }); },
+            nativeLogout() {},
+            logBridgeError() {},
+        },
+    };
+    uiBox.window = uiBox;
+    uiBox.self = uiBox;
+    uiBox.globalThis = uiBox;
+    vm.runInNewContext(readRepoFile('assets/native_ui_shell.js'), uiBox, { filename: 'assets/native_ui_shell.js' });
+
+    // Queue an untracked 400ms player refresh BEFORE logout, then logout, then fire ALL un-cancelled timeouts + __sfNativeUiRefresh
+    uiBox.__sfNativeTogglePlayPause && uiBox.__sfNativeTogglePlayPause();
+    uiBox.__sfToggleSpotifySetting('spotify:settings:logout');
+    emittedAfterLogout.length = 0;
+    for (const t of pendingTimeouts) {
+        if (!t.cleared) t.fn();
+    }
+    if (typeof uiBox.__sfNativeUiRefresh === 'function') uiBox.__sfNativeUiRefresh();
+    assert.deepEqual(emittedAfterLogout, [], 'Zero player/avatar/greeting/ready payloads may cross AndBridge after logout');
 });
 

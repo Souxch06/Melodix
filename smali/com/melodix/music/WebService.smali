@@ -62,6 +62,8 @@
 
 .field public q:Ljava/lang/String;
 
+.field private cleanedUp:Z
+
 
 # direct methods
 .method static constructor <clinit>()V
@@ -2136,6 +2138,11 @@
 .method public final l()V
     .locals 5
 
+    iget-boolean v0, p0, Lcom/melodix/music/WebService;->cleanedUp:Z
+    if-nez v0, :already_cleaned
+    const/4 v0, 0x1
+    iput-boolean v0, p0, Lcom/melodix/music/WebService;->cleanedUp:Z
+
     .line 1
     const/4 v0, 0x0
 
@@ -2202,6 +2209,7 @@
     .line 31
     :cond_1
     :goto_0
+    iput-object v2, p0, Lcom/melodix/music/WebService;->k:Landroid/os/PowerManager$WakeLock;
     iget-object v1, p0, Lcom/melodix/music/WebService;->j:Landroid/support/v4/media/session/MediaSessionCompat;
 
     .line 32
@@ -2264,6 +2272,7 @@
     .line 62
     .line 63
     :cond_3
+    iput-object v2, p0, Lcom/melodix/music/WebService;->m:Lbj1;
     iget-object v1, p0, Lcom/melodix/music/WebService;->n:Landroid/os/HandlerThread;
 
     .line 64
@@ -2406,6 +2415,11 @@
     .line 130
     .line 131
     :cond_8
+    sget-object v1, Lcom/melodix/music/WebService;->E:Ljava/util/concurrent/ConcurrentHashMap;
+    invoke-virtual {v1}, Ljava/util/concurrent/ConcurrentHashMap;->clear()V
+    sget-object v1, Lcom/melodix/music/WebService;->F:Ljava/util/concurrent/ConcurrentHashMap;
+    invoke-virtual {v1}, Ljava/util/concurrent/ConcurrentHashMap;->clear()V
+
     sput-object v2, Lcom/melodix/music/WebService;->G:Lcom/melodix/music/WebService;
 
     sput-object v2, Lcom/melodix/music/WebService;->B:Landroid/graphics/Bitmap;
@@ -2422,6 +2436,7 @@
     sput-wide v3, Lcom/melodix/music/WebService;->z:J
     sput-wide v3, Lcom/melodix/music/WebService;->A:J
 
+    :already_cleaned
     return-void
 .end method
 
@@ -2578,6 +2593,9 @@
     .line 56
     .line 57
     invoke-virtual {p0}, Lcom/melodix/music/WebService;->e()V
+
+    const/4 v1, 0x0
+    iput-boolean v1, p0, Lcom/melodix/music/WebService;->cleanedUp:Z
 
     .line 58
     .line 59

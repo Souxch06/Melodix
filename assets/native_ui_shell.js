@@ -33,6 +33,33 @@
     var mediaLibWarmupRequested = false;
     var lastMediaActiveAt = 0;
     var sessionLoggedOut = false;
+    var loggedOutProfileName = '';
+    var loggedOutProfileAvatar = '';
+    var sawSignedOutDom = false;
+
+    function isSessionBlockedByLogout() {
+        if (!sessionLoggedOut) return false;
+        try {
+            var w = document && document.querySelector
+                ? document.querySelector('button[data-testid="user-widget-link"], a[data-testid="user-widget-link"]')
+                : null;
+            if (!w) {
+                sawSignedOutDom = true;
+                return true;
+            }
+            var curName = cleanText(w.getAttribute && (w.getAttribute('aria-label') || w.getAttribute('title')) || '');
+            var curImg = typeof w.querySelector === 'function' ? w.querySelector('img') : null;
+            var curAvatar = curImg ? extractImgUrl(curImg) : '';
+            if (sawSignedOutDom || (curName && curName !== loggedOutProfileName) || (curAvatar && curAvatar !== loggedOutProfileAvatar)) {
+                sessionLoggedOut = false;
+                loggedOutProfileName = '';
+                loggedOutProfileAvatar = '';
+                sawSignedOutDom = false;
+                return false;
+            }
+        } catch (_) {}
+        return true;
+    }
 
     function sanitizeDiagnostic(value) {
         var text = String(value && value.message || value || '');
@@ -180,7 +207,7 @@
     function sendNativeUiData(screen, items) {
         var bridge = window.AndBridge;
         var rows;
-        if (sessionLoggedOut && screen !== 'settings') return false;
+        if (isSessionBlockedByLogout() && screen !== 'settings') return false;
         if (!bridge || typeof bridge.onNativeUiData !== 'function') return false;
 
         rows = (Array.isArray(items) ? items : []).map(function(item) {
@@ -844,6 +871,7 @@
         var signature;
         var bridge;
         var path = spotifyRoutePath();
+        if (isSessionBlockedByLogout()) return;
         if (nativeScreenForPath() !== 'detail' || !mainView) {
             lastDetailPath = '';
             lastInitialDetailSignature = null;
@@ -902,7 +930,7 @@
         var bridge = window.AndBridge;
         var userWidget;
         var searchQuery;
-        if (!mainView || window.location.hostname !== 'open.spotify.com' || window.__sfNativeUiReadyNotified) return false;
+        if (isSessionBlockedByLogout() || !mainView || window.location.hostname !== 'open.spotify.com' || window.__sfNativeUiReadyNotified) return false;
 
         // Do not cover Spotify's page until its signed-in account control is present.
         userWidget = document.querySelector('button[data-testid="user-widget-link"], a[data-testid="user-widget-link"]');
@@ -998,6 +1026,7 @@
             var origSearch = window.searchMediaItems;
             window.__sfSearchCache = window.__sfSearchCache || new Map();
             var cachedSearch = function(query) {
+                if (isSessionBlockedByLogout()) return;
                 var norm = String(query || '').trim().toLowerCase();
                 if (norm && window.__sfSearchCache && window.__sfSearchCache.has(norm) && window.AndBridge && typeof window.AndBridge.onSearchCompleted === 'function') {
                     try {
@@ -1418,7 +1447,7 @@
         var payload;
         var signature;
         var now;
-        if (!bridge || typeof bridge.onNativeUiData !== 'function') return false;
+        if (isSessionBlockedByLogout() || !bridge || typeof bridge.onNativeUiData !== 'function') return false;
         payload = playerPayload();
         // Nothing is playing yet: leave the native defaults alone instead of
         // pushing an empty "Aucune lecture en cours" player to the UI.
@@ -1704,11 +1733,12 @@
                     if (img) avatar = extractImgUrl(img);
                 }
             }
-            if (avatar && /^https:\/\//i.test(avatar) && avatar !== profileAvatarSent && window.AndBridge && typeof window.AndBridge.onNativeProfileImage === 'function') {
+            var blockedByLogout = isSessionBlockedByLogout();
+            if (!blockedByLogout && avatar && /^https:\/\//i.test(avatar) && avatar !== profileAvatarSent && window.AndBridge && typeof window.AndBridge.onNativeProfileImage === 'function') {
                 profileAvatarSent = avatar;
                 window.AndBridge.onNativeProfileImage(avatar);
             }
-            if (name && window.AndBridge && typeof window.AndBridge.onNativeUiData === 'function' && isSpotifyHome()) {
+            if (!blockedByLogout && name && window.AndBridge && typeof window.AndBridge.onNativeUiData === 'function' && isSpotifyHome()) {
                 var first = name.split(/\s+/)[0] || name;
                 var greeting = greetingPrefix() + ', ' + first;
                 if (greeting !== greetingSent || (Date.now() - lastGreetingAt) > 8000) {
@@ -2119,6 +2149,17 @@
             } catch (_) {}
             overrideStatus.sync_status = 'Bibliothèque Spotify synchronisée ✓';
         } else if (key === 'logout') {
+            var logoutWidget = document && document.querySelector
+                ? document.querySelector('button[data-testid="user-widget-link"], a[data-testid="user-widget-link"]')
+                : null;
+            var domName = logoutWidget
+                ? cleanText(logoutWidget.getAttribute && (logoutWidget.getAttribute('aria-label') || logoutWidget.getAttribute('title')) || '')
+                : '';
+            var domImg = logoutWidget && typeof logoutWidget.querySelector === 'function' ? logoutWidget.querySelector('img') : null;
+            var domAvatar = domImg ? extractImgUrl(domImg) : '';
+            loggedOutProfileName = domName || profileNameSent || '';
+            loggedOutProfileAvatar = domAvatar || profileAvatarSent || '';
+            sawSignedOutDom = false;
             sessionLoggedOut = true;
             profileAvatarSent = '';
             profileNameSent = '';
@@ -2128,6 +2169,7 @@
             lastPlayerSignature = '';
             window.__sfNativeHomeRowsJson = '';
             window.__sfNativeHomeListText = '';
+            window.__sfPlayerPayload = null;
             if (updateTimer) {
                 try { window.clearTimeout(updateTimer); } catch (_) {}
                 updateTimer = null;
@@ -2174,12 +2216,13 @@
     };
 
     window.__sfNativeUiRefresh = function() {
+        if (isSessionBlockedByLogout()) return false;
         runUpdate();
         return true;
     };
 
     window.__sfNativeRequestHome = function() {
-        if (window.location.hostname !== 'open.spotify.com') return false;
+        if (isSessionBlockedByLogout() || window.location.hostname !== 'open.spotify.com') return false;
         if (!isSpotifyHome()) {
             window.location.assign('https://open.spotify.com/');
             return false;

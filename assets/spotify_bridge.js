@@ -1732,17 +1732,32 @@ try {
                     throw netErr;
                 }
                 const resBody = parsed.body == null ? '' : String(parsed.body);
-                return {
+                const HeaderCtor = window.Headers || Headers;
+                const safeHeaders = new HeaderCtor();
+                if (parsed && parsed.headers && typeof parsed.headers === 'object') {
+                    for (const [hk, hv] of Object.entries(parsed.headers)) {
+                        if (!hk || hk.charAt(0) === ':' || /^set-cookie/i.test(hk)) continue;
+                        try {
+                            safeHeaders.append(hk, hv == null ? '' : String(hv));
+                        } catch (_) {}
+                    }
+                }
+                const makeResponseObj = () => ({
                     ok: status >= 200 && status < 300,
                     status: status,
                     statusText: status === 200 ? 'OK' : '',
-                    headers: new Headers(parsed.headers || {}),
+                    headers: safeHeaders,
                     url: strUrl,
+                    redirected: false,
+                    type: 'basic',
+                    bodyUsed: false,
                     json: async () => JSON.parse(resBody || '{}'),
                     text: async () => resBody,
                     arrayBuffer: async () => new TextEncoder().encode(resBody).buffer,
-                    clone: function() { return this; }
-                };
+                    blob: async () => (typeof Blob === 'function' ? new Blob([resBody]) : new TextEncoder().encode(resBody)),
+                    clone: function() { return makeResponseObj(); }
+                });
+                return makeResponseObj();
             }
         }
 
@@ -1783,7 +1798,11 @@ try {
         }
 
         if (uri && uri.startsWith('spotify:search:')) {
-            const query = decodeURIComponent(uri.substring('spotify:search:'.length));
+            const rawQuery = uri.substring('spotify:search:'.length);
+            let query = rawQuery;
+            try {
+                query = decodeURIComponent(rawQuery);
+            } catch (_) {}
             if (typeof window.openSearch === 'function') {
                 window.openSearch(query);
             }

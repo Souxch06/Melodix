@@ -3,17 +3,24 @@
 .implements Landroid/webkit/ValueCallback;
 
 .field private final activity:Lcom/melodix/music/MainActivity;
+.field private final epoch:I
 
 .method public constructor <init>(Lcom/melodix/music/MainActivity;)V
-    .locals 0
+    .locals 1
 
     invoke-direct {p0}, Ljava/lang/Object;-><init>()V
     iput-object p1, p0, Lcom/melodix/music/NativeListJsCallback;->activity:Lcom/melodix/music/MainActivity;
+    sget v0, Lcom/melodix/music/MainActivity;->nativeSessionEpoch:I
+    iput v0, p0, Lcom/melodix/music/NativeListJsCallback;->epoch:I
     return-void
 .end method
 
 .method public final onReceiveValue(Ljava/lang/Object;)V
-    .locals 2
+    .locals 3
+
+    iget v0, p0, Lcom/melodix/music/NativeListJsCallback;->epoch:I
+    sget v1, Lcom/melodix/music/MainActivity;->nativeSessionEpoch:I
+    if-ne v0, v1, :done
 
     check-cast p1, Ljava/lang/String;
     if-eqz p1, :done
@@ -41,6 +48,12 @@
 
     iget-object v1, p0, Lcom/melodix/music/NativeListJsCallback;->activity:Lcom/melodix/music/MainActivity;
     if-eqz v1, :done
+    invoke-virtual {v1}, Landroid/app/Activity;->isFinishing()Z
+    move-result v2
+    if-nez v2, :done
+    invoke-virtual {v1}, Landroid/app/Activity;->isDestroyed()Z
+    move-result v2
+    if-nez v2, :done
     invoke-virtual {v1, v0}, Lcom/melodix/music/MainActivity;->applyNativeListText(Ljava/lang/String;)V
     :try_end_0
     .catch Lorg/json/JSONException; {:try_start_0 .. :try_end_0} :catch_0

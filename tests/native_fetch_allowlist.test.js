@@ -683,22 +683,70 @@ test('NativeFetchGuard bytecode executes buildSafePlayFromUriJs, custom-scheme r
         'playFromUri("spotify:track:4cOdK2wGLETKBW3PvgPWqT");'
     );
     assert.equal(
+        guard.buildSafePlayFromUriJs('spotify:search:Daft Punk - Veridis Quo'),
+        'playFromUri("spotify:search:Daft Punk - Veridis Quo");'
+    );
+    assert.equal(
+        guard.buildSafePlayFromUriJs("spotify:search:Don't Start Now"),
+        'playFromUri("spotify:search:Don\'t Start Now");'
+    );
+    assert.equal(
         guard.buildSafePlayFromUriJs('https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M'),
         'playFromUri("https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M");'
     );
     for (const malicious of [
         null,
         '',
+        'spotify:',
+        'spotify:search:',
         "spotify:track:1');window.__pwned=1;//",
+        "spotify:search:test');window.__pwned=1;//",
+        'spotify:search:test"alert(1)',
+        'spotify:search:<script>alert(1)</script>',
         'https://open.spotify.com/track/1");alert(1);//',
+        'https://i.scdn.co/image/ab67616d0000b273',
         'javascript:alert(1)',
         'spotify://evil.attacker.example/track/1',
         'https://evil.attacker.example/track/1',
         'http://open.spotify.com/track/1',
         'spotify:track:1\nwindow.__pwned=1',
+        'spotify:search:foo\u2028bar',
     ]) {
         assert.equal(guard.buildSafePlayFromUriJs(malicious), null, `Must reject ${malicious}`);
     }
+
+    // End-to-end redirect method downgrade + HTTP/2 pseudo-header stripping (:status)
+    const hopLog = [];
+    const e2eGuard = createGuardVm({
+        connections: hopLog,
+        respond: (req) => {
+            if (req.url === 'https://gew4-spclient.spotify.com/post-redirect') {
+                return { status: 302, headers: { Location: 'https://open.spotify.com/final-target' }, body: '' };
+            }
+            return {
+                status: 200,
+                headers: {
+                    ':status': ['200'],
+                    'content-type': ['application/json'],
+                    'Set-Cookie': ['sp_dc=secret'],
+                },
+                body: '{"ok":1}',
+            };
+        },
+    });
+    const postRedirRes = e2eGuard.execute(
+        'https://gew4-spclient.spotify.com/post-redirect',
+        'POST',
+        '{"Authorization":"Bearer tok","Content-Type":"application/json"}',
+        '{"hello":1}'
+    );
+    assert.equal(postRedirRes.status, 200);
+    assert.equal(hopLog.length, 2);
+    assert.equal(hopLog[1].method, 'GET');
+    assert.equal(hopLog[1].doOutput, false);
+    assert.equal(hopLog[1].reqHeaders.has('Content-Type'), false, 'POST->GET redirect must drop stale Content-Type header');
+    assert.equal(postRedirRes.headers[':status'], undefined, 'HTTP/2 :status pseudo-header must be stripped before reaching JS Headers');
+    assert.equal(postRedirRes.headers['Set-Cookie'], undefined);
 
     const redirectGuard = createGuardVm({
         respond: () => ({ status: 302, headers: { Location: 'javascript:alert(1)' }, body: '' }),

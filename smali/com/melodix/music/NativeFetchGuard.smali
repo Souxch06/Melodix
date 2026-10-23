@@ -417,7 +417,7 @@
     return-object v0
 .end method
 
-.method private static applyRequestHeaders(Ljava/net/HttpURLConnection;Ljava/lang/String;Ljava/lang/String;)V
+.method private static applyRequestHeaders(Ljava/net/HttpURLConnection;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)V
     .locals 7
 
     invoke-static {p1}, Lcom/melodix/music/NativeFetchGuard;->isSpotifyAuthHost(Ljava/lang/String;)Z
@@ -460,6 +460,26 @@
     invoke-virtual {v5, v6}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
     move-result v6
     if-nez v6, :hdr_loop
+
+    const-string v6, "content-length"
+    invoke-virtual {v5, v6}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    move-result v6
+    if-nez v6, :hdr_loop
+
+    const-string v6, "content-type"
+    invoke-virtual {v5, v6}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    move-result v6
+    if-eqz v6, :check_not_content_type
+    const-string v6, "GET"
+    invoke-virtual {v6, p3}, Ljava/lang/String;->equalsIgnoreCase(Ljava/lang/String;)Z
+    move-result v6
+    if-nez v6, :hdr_loop
+    const-string v6, "HEAD"
+    invoke-virtual {v6, p3}, Ljava/lang/String;->equalsIgnoreCase(Ljava/lang/String;)Z
+    move-result v6
+    if-nez v6, :hdr_loop
+
+    :check_not_content_type
 
     const-string v6, "x-requested-with"
     invoke-virtual {v5, v6}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
@@ -567,6 +587,13 @@
     move-result-object v3
     check-cast v3, Ljava/lang/String;
     if-eqz v3, :entry_loop
+    invoke-virtual {v3}, Ljava/lang/String;->isEmpty()Z
+    move-result v4
+    if-nez v4, :entry_loop
+    const-string v4, ":"
+    invoke-virtual {v3, v4}, Ljava/lang/String;->startsWith(Ljava/lang/String;)Z
+    move-result v4
+    if-nez v4, :entry_loop
     sget-object v4, Ljava/util/Locale;->ROOT:Ljava/util/Locale;
     invoke-virtual {v3, v4}, Ljava/lang/String;->toLowerCase(Ljava/util/Locale;)Ljava/lang/String;
     move-result-object v4
@@ -634,7 +661,7 @@
 
     invoke-virtual {v6}, Ljava/net/URL;->getHost()Ljava/lang/String;
     move-result-object v8
-    invoke-static {v5, v8, p2}, Lcom/melodix/music/NativeFetchGuard;->applyRequestHeaders(Ljava/net/HttpURLConnection;Ljava/lang/String;Ljava/lang/String;)V
+    invoke-static {v5, v8, p2, v2}, Lcom/melodix/music/NativeFetchGuard;->applyRequestHeaders(Ljava/net/HttpURLConnection;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)V
 
     if-eqz v3, :send_done
     invoke-virtual {v3}, Ljava/lang/String;->isEmpty()Z
@@ -827,12 +854,10 @@
     invoke-virtual {p0, v2}, Ljava/lang/String;->charAt(I)C
     move-result v3
     const/16 v4, 0x20
-    if-le v3, v4, :safe_uri_invalid
+    if-lt v3, v4, :safe_uri_invalid
     const/16 v4, 0x7f
     if-eq v3, v4, :safe_uri_invalid
     const/16 v4, 0x22
-    if-eq v3, v4, :safe_uri_invalid
-    const/16 v4, 0x27
     if-eq v3, v4, :safe_uri_invalid
     const/16 v4, 0x5c
     if-eq v3, v4, :safe_uri_invalid
@@ -852,6 +877,15 @@
     goto :char_scan_loop
 
     :char_scan_done
+    const-string v2, "spotify:search:"
+    invoke-virtual {p0, v2}, Ljava/lang/String;->startsWith(Ljava/lang/String;)Z
+    move-result v2
+    if-eqz v2, :check_non_search_spotify
+    const/16 v2, 0xf
+    if-le v1, v2, :safe_uri_invalid
+    goto :quote_safe_uri
+
+    :check_non_search_spotify
     const-string v2, "spotify:"
     invoke-virtual {p0, v2}, Ljava/lang/String;->startsWith(Ljava/lang/String;)Z
     move-result v2
@@ -862,11 +896,57 @@
     if-nez v2, :safe_uri_invalid
     const/16 v2, 0x9
     if-lt v1, v2, :safe_uri_invalid
-    goto :quote_safe_uri
+    const/16 v2, 0x8
+    :spotify_id_loop
+    if-ge v2, v1, :quote_safe_uri
+    invoke-virtual {p0, v2}, Ljava/lang/String;->charAt(I)C
+    move-result v3
+    const/16 v4, 0x30
+    if-lt v3, v4, :check_spotify_punct
+    const/16 v4, 0x39
+    if-le v3, v4, :spotify_char_ok
+    const/16 v4, 0x41
+    if-lt v3, v4, :check_spotify_punct
+    const/16 v4, 0x5a
+    if-le v3, v4, :spotify_char_ok
+    const/16 v4, 0x61
+    if-lt v3, v4, :check_spotify_punct
+    const/16 v4, 0x7a
+    if-le v3, v4, :spotify_char_ok
+
+    :check_spotify_punct
+    const/16 v4, 0x3a
+    if-eq v3, v4, :spotify_char_ok
+    const/16 v4, 0x5f
+    if-eq v3, v4, :spotify_char_ok
+    const/16 v4, 0x2d
+    if-ne v3, v4, :safe_uri_invalid
+
+    :spotify_char_ok
+    add-int/lit8 v2, v2, 0x1
+    goto :spotify_id_loop
 
     :check_https_uri
+    const/4 v2, 0x0
+    :url_strict_loop
+    if-ge v2, v1, :url_strict_done
+    invoke-virtual {p0, v2}, Ljava/lang/String;->charAt(I)C
+    move-result v3
+    const/16 v4, 0x20
+    if-eq v3, v4, :safe_uri_invalid
+    const/16 v4, 0x27
+    if-eq v3, v4, :safe_uri_invalid
+    add-int/lit8 v2, v2, 0x1
+    goto :url_strict_loop
+
+    :url_strict_done
     invoke-static {p0}, Lcom/melodix/music/NativeFetchGuard;->parseAllowedUrl(Ljava/lang/String;)Ljava/net/URL;
     move-result-object v1
+    if-eqz v1, :safe_uri_invalid
+    invoke-virtual {v1}, Ljava/net/URL;->getHost()Ljava/lang/String;
+    move-result-object v1
+    invoke-static {v1}, Lcom/melodix/music/NativeFetchGuard;->isSpotifyAuthHost(Ljava/lang/String;)Z
+    move-result v1
     if-eqz v1, :safe_uri_invalid
 
     :quote_safe_uri
