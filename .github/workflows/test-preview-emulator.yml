@@ -299,7 +299,8 @@ jobs:
             adb logcat -d -v brief > "$state/$label-logcat.txt" 2>&1 || true
             adb logcat -d -b crash -v brief >> "$state/$label-logcat.txt" 2>&1 || true
             if grep -qE "MelodixCrash|NativeCrashGuard|VerifyError|IncompatibleClassChangeError|LinkageError|WindowManager\\\$BadTokenException|ReferenceError: cleanText" "$state/$label-logcat.txt" || grep -qF "Process: $pkg" "$state/$label-logcat.txt"; then
-              grep -nE "Process: $pkg|MelodixCrash|NativeCrashGuard|VerifyError|IncompatibleClassChangeError|LinkageError|WindowManager\\\$BadTokenException|ReferenceError: cleanText" "$state/$label-logcat.txt" | head -n 25
+              p1_diag="$(grep -nE "Process: $pkg|MelodixCrash|NativeCrashGuard|VerifyError|IncompatibleClassChangeError|LinkageError|WindowManager\\\$BadTokenException|ReferenceError: cleanText" "$state/$label-logcat.txt" | head -n 15 | tr '\n\r' ' | ')"
+              echo "::error title=Phase 1 $label Logcat::$p1_diag"
               exit 1
             fi
             echo "::notice title=Phase 1 $label::PASS (stable pid=$pid, MainActivity foreground, 0 crashes/verifier/JS errors across all PIDs)"

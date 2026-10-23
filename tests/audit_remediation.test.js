@@ -460,18 +460,41 @@ test('[D7] Zero Dalvik wide-register clobbers, out-of-bounds locals, or unintend
         const rel = path.relative(ROOT, file);
         const lines = fs.readFileSync(file, 'utf8').split(/\r?\n/);
         let inMethod = false;
+        let fieldSection = null;
         let sig = '';
         let isStatic = false;
         let nLocals = null;
         let total = 0;
+        let methodLines = [];
         for (let idx = 0; idx < lines.length; idx++) {
             const s = lines[idx].trim();
+            if (!inMethod) {
+                if (s === '# static fields') fieldSection = 'static';
+                else if (s === '# instance fields') fieldSection = 'instance';
+                else if (s.startsWith('# ')) fieldSection = null;
+                else if (s.startsWith('.field ') && fieldSection) {
+                    const hasStatic = /\bstatic\b/.test(s);
+                    if (fieldSection === 'instance' && hasStatic) {
+                        bugs.push(`STATIC_FIELD_IN_INSTANCE_SECTION ${rel}:${idx + 1} -> ${s}`);
+                    } else if (fieldSection === 'static' && !hasStatic) {
+                        bugs.push(`INSTANCE_FIELD_IN_STATIC_SECTION ${rel}:${idx + 1} -> ${s}`);
+                    }
+                }
+            }
             if (s.startsWith('.method ')) {
                 inMethod = true;
                 sig = s;
                 isStatic = s.includes(' static ');
                 nLocals = null;
+                methodLines = [];
             } else if (s === '.end method') {
+                if (nLocals !== null && rel === 'smali/com/melodix/music/MainActivity.smali' && sig.includes(' onDestroy()V')) {
+                    const p0PrimWrite = methodLines.find(([, l]) => /^(?:sget(?:-boolean|-byte|-char|-short)?|const(?:\/4|\/16)?)\s+p0\b/.test(l));
+                    const p0RefRead = methodLines.filter(([, l]) => /\bp0\b/.test(l) && !/^(?:sget|const)/.test(l));
+                    if (p0PrimWrite && p0RefRead.length > 0 && methodLines.indexOf(p0PrimWrite) < methodLines.indexOf(p0RefRead[p0RefRead.length - 1])) {
+                        bugs.push(`PARAM_TYPE_CONFLICT ${rel}:${p0PrimWrite[0]} ${sig} -> ${p0PrimWrite[1]} clobbers this before downstream read`);
+                    }
+                }
                 inMethod = false;
             } else if (inMethod) {
                 const lm = s.match(/^\.locals\s+(\d+)$/);
@@ -480,13 +503,24 @@ test('[D7] Zero Dalvik wide-register clobbers, out-of-bounds locals, or unintend
                     total = nLocals + paramSlots(sig, isStatic).length;
                     continue;
                 }
-                if (nLocals === null || !s || s.startsWith('.') || s.startsWith('#') || s.startsWith(':')) continue;
+                if (nLocals === null || !s || s.startsWith('.') || s.startsWith('#')) continue;
+                methodLines.push([idx + 1, s]);
+                if (s.startsWith(':')) continue;
                 const noStr = s.replace(/"(?:\\.|[^"])*"/g, '""');
                 const head = noStr.split('->')[0].replace(/L[^;\s]+;/g, 'TYPE');
                 for (const vm of head.matchAll(/\bv(\d+)\b/g)) {
                     const k = Number(vm[1]);
                     if (k >= total) bugs.push(`OOB_VREG ${rel}:${idx + 1} ${sig} -> ${s}`);
                     else if (k >= nLocals) bugs.push(`VREG_ALIASES_PARAM ${rel}:${idx + 1} ${sig} -> ${s}`);
+                }
+                // Check 4-bit register encoding limits (0..15) on 12x/21c/22c/22t/35c opcodes
+                if (/^(?:const\/4|[iu]get|[iu]put|if-(?:eq|ne|lt|ge|gt|le)\b|invoke-(?:virtual|super|direct|static|interface)(?!\/range)\b)/.test(s)) {
+                    for (const rm of head.matchAll(/\b([vp])(\d+)\b/g)) {
+                        const abs = rm[1] === 'v' ? Number(rm[2]) : nLocals + Number(rm[2]);
+                        if (abs >= 16) {
+                            bugs.push(`FOUR_BIT_REG_OVERFLOW(v${abs}) ${rel}:${idx + 1} ${sig} -> ${s}`);
+                        }
+                    }
                 }
                 const wm = s.match(/^(?:const-wide(?:\/16|\/32|\/high16)?|move-wide(?:\/from16|\/16)?|move-result-wide|aget-wide|[is]get-wide|(?:add|sub|mul|div|rem|and|or|xor|shl|shr|ushr|neg|not)-(?:long|double)(?:\/2addr)?|[a-z]+-to-(?:long|double))\s+([vp])(\d+)\b/);
                 if (wm) {

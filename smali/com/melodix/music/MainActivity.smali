@@ -14,6 +14,8 @@
 
 .field public static l0:Z
 
+.field public static nativeSessionEpoch:I
+
 
 # instance fields
 .field public G:Landroid/webkit/WebView;
@@ -99,7 +101,6 @@
 .field private nativeHomeJson:Ljava/lang/String;
 .field private nativeLibraryJson:Ljava/lang/String;
 .field private nativeListBlob:Ljava/lang/String;
-.field public static nativeSessionEpoch:I
 
 
 # direct methods
@@ -4532,7 +4533,7 @@
 
     .line 33
     .line 34
-    sget p0, Lcom/melodix/music/AppSingleton;->j:I
+    sget v0, Lcom/melodix/music/AppSingleton;->j:I
 
     .line 35
     .line 36
@@ -4567,8 +4568,8 @@
     .line 50
     .line 51
     :cond_1
-    const/4 v1, 0x0
     :goto_0
+    const/4 v1, 0x0
     sget-object v0, Lcom/melodix/music/AppSingleton;->t:Ljava/lang/ref/WeakReference;
     if-eqz v0, :destroy_ref_done
     invoke-virtual {v0}, Ljava/lang/ref/Reference;->get()Ljava/lang/Object;
