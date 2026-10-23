@@ -1,11 +1,10 @@
 # Melodix — brief agent (ne pas reconstruire de zéro)
 
-Branche **uniquement** `arena/dbf2d44f-melodix`. Ne pas toucher `main`, ne pas merger, pas de force-push. PR ouverte : [#6](https://github.com/Souxch06/Melodix/pull/6).
-
-HEAD au moment de ce brief : `ef1666bb0a3691a782132829f90f6380ed4379d6`  
-`release_tag` **fixe** = `v1.2.2-test.1-preview` (jamais `test13`).  
-Chaque push republie l’APK. Indiquer toujours `release_tag` + SHA complet de `source_ref`.  
-Libellé app = `Melodix Preview <sha7>`. Image `docs/previews/melodix-phone-ui-concept.png` **non suivie — ne pas y toucher**.
+> **Protocole CI et synchronisation automatique à jour** : voir prioritairement [`AGENTS.md`](../AGENTS.md) à la racine du dépôt ainsi que `./scripts/verify-and-sync.sh`.
+>
+> - Branche de travail courante : branche active de la session (actuellement `arena/7142700d-melodix`, PR ouverte : [#7](https://github.com/Souxch06/Melodix/pull/7) ; PR historique [#6](https://github.com/Souxch06/Melodix/pull/6) non fusionnée). Ne jamais modifier `main`, ne pas merger sans demande explicite, jamais de force-push.
+> - **Séparation stricte Dev / Releases** : chaque `push` compile et teste automatiquement l'APK Preview (`Melodix-Preview-<SHA40>`) et l'émulateur Android 15 (`Melodix-Emulator-Verification-<SHA40>`) **uniquement dans les artefacts GitHub Actions**, **sans modifier ni publier aucune GitHub Release**.
+> - Indiquer toujours le SHA complet à 40 caractères (`source_ref`), le libellé `Melodix Preview <sha7>` et les liens GitHub vérifiés. Image `docs/previews/melodix-phone-ui-concept.png` **non suivie — ne pas y toucher** (ne jamais lancer `git add -A`).
 
 ## Ce que c’est
 

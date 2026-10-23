@@ -16,7 +16,7 @@ on:
         default: false
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   build-and-attach:
@@ -24,6 +24,8 @@ jobs:
     if: ${{ github.event_name != 'release' || !endsWith(github.event.release.tag_name, '-preview') }}
     name: Build and publish signed APK
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - name: Select release tag
         id: release

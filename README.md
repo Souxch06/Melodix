@@ -23,13 +23,15 @@ La compilation et la vérification de signature/package ont réussi pour la test
 
 Les APK archivés des anciennes versions ont été retirés du répertoire `releases/apk/`. Le projet Apktool est **décompilé** depuis un APK; ce n'est pas le projet Kotlin/Java/Gradle original, qui n'était pas fourni dans l'archive.
 
-## Releases depuis GitHub
+## Intégration continue, artefacts de développement et Releases GitHub
 
-Les workflows de publication sont disponibles dans l'onglet **Actions**.
+Les workflows d'automatisation sont disponibles dans l'onglet **Actions** (protocole complet dans [`AGENTS.md`](AGENTS.md) et [`CHANGELOG.md`](CHANGELOG.md)) :
 
-- `Build APK and attach to GitHub Release` sert aux versions normales du package `com.melodix.music`; elle nécessite la clé de signature de l'application normale.
-- `Build Melodix Preview APK` construit l'application d'essai séparée `com.melodix.music.preview`, signée avec la clé Preview.
+- **À chaque `push` sur une branche de développement** (toutes branches hors `main`) :
+  - `Build Melodix Preview APK` exécute la suite de tests Node/Dalvik, compile et signe `com.melodix.music.preview` en mode lecture seule (`contents: read`), puis publie uniquement l'artefact `Melodix-Preview-<SHA40>` (APK signé, `.sha256`, `build-manifest-<SHA40>.json`, rapport TAP) **sans créer ni modifier aucune GitHub Release**.
+  - `Smoke test Preview APK on Android emulator` démarre un émulateur Android 15 (`API 35` x86_64) pour valider le démarrage à froid et les parcours E2E, puis archive les dumps UI et journaux `logcat` dans `Melodix-Emulator-Verification-<SHA40>`.
+- **Publication explicite uniquement sur demande manuelle** :
+  - `Build Melodix Preview APK` en `workflow_dispatch` avec `publish_release: true` attache explicitement une pré-release Preview (`com.melodix.music.preview`).
+  - `Build APK and attach to GitHub Release` sert uniquement aux releases de l'application normale `com.melodix.music` lors de la publication explicite d'une release ou d'un `workflow_dispatch` dédié.
 
-Pour reconstruire la V1, ajoute les secrets Actions `MELODIX_PREVIEW_KEYSTORE_B64` et `MELODIX_PREVIEW_KEYSTORE_PASSWORD` (et `MELODIX_PREVIEW_KEY_PASSWORD` uniquement si le mot de passe de la clé est différent), puis lance **Actions → Build Melodix Preview APK → Run workflow** sur la branche de travail. Le tag par défaut est `v1.2.2-test.1-preview`; le commit source par défaut est le commit V18 `81ef774fcb2208d4c4e999943411040aa1bfa33f`. Le workflow ajuste le `versionCode` Android pour permettre la mise à jour de la Preview précédente.
-
-Le guide détaillé est dans [`docs/preview-apk.md`](docs/preview-apk.md). **Ne mets jamais un fichier de signature ni ses mots de passe dans le dépôt.**
+Pour configurer la signature Preview, ajoute les secrets Actions `MELODIX_PREVIEW_KEYSTORE_B64` et `MELODIX_PREVIEW_KEYSTORE_PASSWORD` (et `MELODIX_PREVIEW_KEY_PASSWORD` uniquement si le mot de passe de la clé est différent). Le guide détaillé est dans [`docs/preview-apk.md`](docs/preview-apk.md). **Ne mets jamais un fichier de signature ni ses mots de passe dans le dépôt.**

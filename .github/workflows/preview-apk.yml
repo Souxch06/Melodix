@@ -2,8 +2,8 @@ name: Build Melodix Preview APK
 
 on:
   push:
-    branches:
-      - arena/7142700d-melodix
+    branches-ignore:
+      - main
   workflow_dispatch:
     inputs:
       release_tag:
@@ -11,19 +11,36 @@ on:
         required: true
         type: string
         default: v1.2.2-test.1-preview
+      publish_release:
+        description: Explicitly attach build to GitHub Pre-release (leave false for artifact-only build)
+        required: false
+        type: boolean
+        default: false
       source_ref:
         description: Full source commit SHA to build
         required: true
         type: string
 
 permissions:
-  contents: write
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'push' }}
 
 jobs:
   build-and-release-preview:
     if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
     name: Build and publish separate preview app
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      tag: ${{ steps.release.outputs.tag }}
+      source_ref: ${{ steps.release.outputs.source_ref }}
+      apk_name: ${{ steps.release.outputs.apk_name }}
+      version_code: ${{ steps.release.outputs.version_code }}
+      release_name: ${{ steps.release.outputs.release_name }}
     steps:
       - name: Select preview release tag
         id: release
@@ -86,6 +103,27 @@ jobs:
         with:
           ref: ${{ steps.release.outputs.source_ref }}
 
+      - name: Run Node and static Dalvik test suite
+        id: tests
+        shell: bash
+        env:
+          SOURCE_REF: ${{ steps.release.outputs.source_ref }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$GITHUB_WORKSPACE/preview-output"
+          tap_file="$GITHUB_WORKSPACE/preview-output/node-tests-${SOURCE_REF}.tap"
+          if ! node --test tests/*.test.js | tee "$tap_file"; then
+            fail_line="$(grep -E '^# (tests|pass|fail) ' "$tap_file" | tr '\n' ' ' || true)"
+            echo "::error title=Node Test Suite Failed::commit=${SOURCE_REF}; ${fail_line:-test failure}"
+            exit 1
+          fi
+          total="$(awk '/^# tests / {print $3}' "$tap_file" | tail -n 1)"
+          passed="$(awk '/^# pass / {print $3}' "$tap_file" | tail -n 1)"
+          failed="$(awk '/^# fail / {print $3}' "$tap_file" | tail -n 1)"
+          echo "tests_total=${total:-0}" >> "$GITHUB_OUTPUT"
+          echo "tests_passed=${passed:-0}" >> "$GITHUB_OUTPUT"
+          echo "::notice title=Node Test Suite::PASS (${passed:-0}/${total:-0} passed, ${failed:-0} failed; commit=${SOURCE_REF})"
+
       - name: Set up Java
         uses: actions/setup-java@v6.1.0
         with:
@@ -105,6 +143,8 @@ jobs:
           APK_NAME: ${{ steps.release.outputs.apk_name }}
           VERSION_CODE: ${{ steps.release.outputs.version_code }}
           SOURCE_REF: ${{ steps.release.outputs.source_ref }}
+          TESTS_TOTAL: ${{ steps.tests.outputs.tests_total }}
+          TESTS_PASSED: ${{ steps.tests.outputs.tests_passed }}
           MELODIX_PREVIEW_KEYSTORE_B64: ${{ secrets.MELODIX_PREVIEW_KEYSTORE_B64 }}
           MELODIX_PREVIEW_KEYSTORE_PASSWORD: ${{ secrets.MELODIX_PREVIEW_KEYSTORE_PASSWORD }}
           MELODIX_PREVIEW_KEY_PASSWORD: ${{ secrets.MELODIX_PREVIEW_KEY_PASSWORD || secrets.MELODIX_PREVIEW_KEYSTORE_PASSWORD }}
@@ -114,7 +154,7 @@ jobs:
           work_dir="$RUNNER_TEMP/melodix-preview-apktool-project"
           framework_dir="$RUNNER_TEMP/melodix-preview-apktool-framework"
           output="$RUNNER_TEMP/$APK_NAME"
-          mkdir -p "$framework_dir" "$work_dir"
+          mkdir -p "$framework_dir" "$work_dir" "$GITHUB_WORKSPACE/preview-output"
           project_items=(AndroidManifest.xml META-INF apktool.yml assets kotlin lib original res smali unknown)
           for item in "${project_items[@]}"; do
             if [[ ! -e "$source_dir/$item" ]]; then
@@ -197,7 +237,7 @@ jobs:
           java -jar "$RUNNER_TEMP/apktool.jar" b "$work_dir" \
             --frame-path "$framework_dir" \
             --output "$RUNNER_TEMP/unsigned.apk" \
-            --force-all
+            --force-all > "$GITHUB_WORKSPACE/preview-output/apktool-build-${SOURCE_REF}.log" 2>&1
 
           build_tools="$ANDROID_HOME/build-tools/35.0.0"
           "$build_tools/zipalign" -f 4 \
@@ -211,11 +251,7 @@ jobs:
           "$build_tools/apksigner" verify --verbose --min-sdk-version 24 "$output"
 
           # The app refuses to start when the fingerprint in strings.xml is not
-          # the one of the certificate that signed this very APK. Check it here
-          # instead of shipping an APK that can only close itself.
-          # No pipes here on purpose: under `set -o pipefail`, grep -q exiting on
-          # the first match sends SIGPIPE upstream and makes the whole pipeline
-          # report a failure even when the match was found.
+          # the one of the certificate that signed this very APK.
           "$build_tools/apksigner" verify --print-certs "$output" > "$RUNNER_TEMP/apk-certs.txt"
           signed_line="$(grep '^Signer #1 certificate SHA-256 digest: ' "$RUNNER_TEMP/apk-certs.txt" || true)"
           signed_fingerprint="${signed_line##*: }"
@@ -240,9 +276,6 @@ jobs:
             exit 1
           fi
 
-          # The JS bridge and the native shell are read from assets at runtime. A
-          # build where one of them is missing or truncated makes the app start
-          # without its playback guards, so fail the build instead of shipping it.
           for asset in spotify_bridge.js native_ui_shell.js runtime_diagnostic.js css_hacks.css; do
             extracted_size="$(unzip -p "$output" "assets/$asset" 2>/dev/null | wc -c | tr -d ' ')"
             if [[ "${extracted_size:-0}" -lt 1000 ]]; then
@@ -251,40 +284,100 @@ jobs:
             fi
           done
 
-          mkdir -p "$GITHUB_WORKSPACE/preview-output"
           cp "$output" "$GITHUB_WORKSPACE/preview-output/$APK_NAME"
           (cd "$GITHUB_WORKSPACE/preview-output" && sha256sum "$APK_NAME" > "$APK_NAME.sha256")
           apk_sha256="$(awk '{print $1}' "$GITHUB_WORKSPACE/preview-output/$APK_NAME.sha256")"
-          echo "::notice title=Preview APK built::source_ref=$SOURCE_REF; apk=$APK_NAME; versionCode=$VERSION_CODE; versionName=1.2.2-${SOURCE_REF:0:7}; sha256=$apk_sha256"
-          echo "apk_path=preview-output/$APK_NAME" >> "$GITHUB_OUTPUT"
-          echo "sha_path=preview-output/$APK_NAME.sha256" >> "$GITHUB_OUTPUT"
 
-      - name: Upload signed preview APK artifact
-        uses: actions/upload-artifact@v4.6.2
+          python3 - "$GITHUB_WORKSPACE/preview-output/build-manifest-${SOURCE_REF}.json" <<PY
+          import datetime, json, sys
+          manifest = {
+              "commit_sha": "${SOURCE_REF}",
+              "branch_ref": "${GITHUB_REF_NAME}",
+              "event_name": "${GITHUB_EVENT_NAME}",
+              "workflow_run_id": "${GITHUB_RUN_ID}",
+              "workflow_run_url": "${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}",
+              "package_id": "com.melodix.music.preview",
+              "apk_name": "${APK_NAME}",
+              "apk_sha256": "${apk_sha256}",
+              "version_code": int("${VERSION_CODE}"),
+              "version_name": "1.2.2-${SOURCE_REF:0:7}",
+              "node_tests_total": int("${TESTS_TOTAL:-0}"),
+              "node_tests_passed": int("${TESTS_PASSED:-0}"),
+              "built_at_utc": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+          }
+          with open(sys.argv[1], "w", encoding="utf-8") as fh:
+              json.dump(manifest, fh, indent=2)
+          PY
+
+          {
+            echo "## Melodix Preview Build Summary"
+            echo ""
+            echo "| Field | Value |"
+            echo "| --- | --- |"
+            echo "| Source commit | \`${SOURCE_REF}\` |"
+            echo "| Branch | \`${GITHUB_REF_NAME}\` |"
+            echo "| Package ID | \`com.melodix.music.preview\` |"
+            echo "| Version | \`1.2.2-${SOURCE_REF:0:7}\` (\`versionCode=${VERSION_CODE}\`) |"
+            echo "| Signed APK | \`${APK_NAME}\` |"
+            echo "| APK SHA-256 | \`${apk_sha256}\` |"
+            echo "| Node / Smali tests | \`${TESTS_PASSED}/${TESTS_TOTAL}\` passed |"
+            echo "| Artifact name | \`Melodix-Preview-${SOURCE_REF}\` |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          echo "::notice title=Preview APK built::source_ref=$SOURCE_REF; apk=$APK_NAME; versionCode=$VERSION_CODE; versionName=1.2.2-${SOURCE_REF:0:7}; sha256=$apk_sha256"
+
+      - name: Upload signed preview APK and build reports artifact
+        uses: actions/upload-artifact@v7.0.2
         with:
           name: Melodix-Preview-${{ steps.release.outputs.source_ref }}
           path: |
-            ${{ steps.package.outputs.apk_path }}
-            ${{ steps.package.outputs.sha_path }}
+            preview-output/${{ steps.release.outputs.apk_name }}
+            preview-output/${{ steps.release.outputs.apk_name }}.sha256
+            preview-output/build-manifest-${{ steps.release.outputs.source_ref }}.json
+            preview-output/node-tests-${{ steps.release.outputs.source_ref }}.tap
+            preview-output/apktool-build-${{ steps.release.outputs.source_ref }}.log
           if-no-files-found: error
           retention-days: 90
 
+      - name: Upload failure diagnostics artifact
+        if: failure()
+        uses: actions/upload-artifact@v7.0.2
+        with:
+          name: Melodix-Preview-Diagnostics-${{ steps.release.outputs.source_ref }}
+          path: preview-output
+          if-no-files-found: warn
+          retention-days: 30
+
+  publish-preview-release:
+    needs: build-and-release-preview
+    if: github.event_name == 'workflow_dispatch' && inputs.publish_release == true
+    name: Explicitly attach preview APK to GitHub Pre-release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download verified preview build artifact
+        uses: actions/download-artifact@v8.0.2
+        with:
+          name: Melodix-Preview-${{ needs.build-and-release-preview.outputs.source_ref }}
+          path: release-bundle
+
       - name: Create preview release and attach APK
-        if: github.event_name == 'workflow_dispatch'
+        if: github.event_name == 'workflow_dispatch' && inputs.publish_release == true
         uses: softprops/action-gh-release@v3.0.3
         with:
-          tag_name: ${{ steps.release.outputs.tag }}
-          target_commitish: ${{ steps.release.outputs.source_ref }}
-          name: ${{ steps.release.outputs.release_name }}
+          tag_name: ${{ needs.build-and-release-preview.outputs.tag }}
+          target_commitish: ${{ needs.build-and-release-preview.outputs.source_ref }}
+          name: ${{ needs.build-and-release-preview.outputs.release_name }}
           body: |
             Separate Melodix preview build with package id `com.melodix.music.preview`.
 
-            Built from source commit `${{ steps.release.outputs.source_ref }}`; consult that commit for the changes included in this test build.
+            Built from source commit `${{ needs.build-and-release-preview.outputs.source_ref }}`; consult that commit for the changes included in this test build.
 
-            It installs alongside the regular app and is not an update to the existing `com.melodix.music` installation. Preview data is separate. The Android versionCode remains above the former test.27 so it can update an already-installed Preview.
+            It installs alongside the regular app and is not an update to the existing `com.melodix.music` installation. Preview data is separate. The Android versionCode (`${{ needs.build-and-release-preview.outputs.version_code }}`) remains above the former test.27 so it can update an already-installed Preview.
           files: |
-            ${{ steps.package.outputs.apk_path }}
-            ${{ steps.package.outputs.sha_path }}
+            release-bundle/${{ needs.build-and-release-preview.outputs.apk_name }}
+            release-bundle/${{ needs.build-and-release-preview.outputs.apk_name }}.sha256
           prerelease: true
           overwrite_files: true
           fail_on_unmatched_files: true
