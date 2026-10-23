@@ -3,7 +3,7 @@ name: Build Melodix Preview APK
 on:
   push:
     branches:
-      - arena/dbf2d44f-melodix
+      - arena/7142700d-melodix
   workflow_dispatch:
     inputs:
       release_tag:
@@ -17,7 +17,7 @@ on:
         type: string
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   build-and-release-preview:
@@ -254,25 +254,17 @@ jobs:
           mkdir -p "$GITHUB_WORKSPACE/preview-output"
           cp "$output" "$GITHUB_WORKSPACE/preview-output/$APK_NAME"
           (cd "$GITHUB_WORKSPACE/preview-output" && sha256sum "$APK_NAME" > "$APK_NAME.sha256")
+          apk_sha256="$(awk '{print $1}' "$GITHUB_WORKSPACE/preview-output/$APK_NAME.sha256")"
+          echo "::notice title=Preview APK built::source_ref=$SOURCE_REF; apk=$APK_NAME; versionCode=$VERSION_CODE; versionName=1.2.2-${SOURCE_REF:0:7}; sha256=$apk_sha256"
           echo "apk_path=preview-output/$APK_NAME" >> "$GITHUB_OUTPUT"
           echo "sha_path=preview-output/$APK_NAME.sha256" >> "$GITHUB_OUTPUT"
 
-      - name: Create preview release and attach APK
-        uses: softprops/action-gh-release@v3.0.3
+      - name: Upload signed preview APK artifact (without modifying GitHub Releases)
+        uses: actions/upload-artifact@v4.6.2
         with:
-          tag_name: ${{ steps.release.outputs.tag }}
-          target_commitish: ${{ steps.release.outputs.source_ref }}
-          name: ${{ steps.release.outputs.release_name }}
-          body: |
-            Separate Melodix preview build with package id `com.melodix.music.preview`.
-
-            Built from source commit `${{ steps.release.outputs.source_ref }}`; consult that commit for the changes included in this test build.
-
-            It installs alongside the regular app and is not an update to the existing `com.melodix.music` installation. Preview data is separate. The Android versionCode remains above the former test.27 so it can update an already-installed Preview.
-          files: |
+          name: Melodix-Preview-${{ steps.release.outputs.source_ref }}
+          path: |
             ${{ steps.package.outputs.apk_path }}
             ${{ steps.package.outputs.sha_path }}
-          prerelease: true
-          overwrite_files: true
-          fail_on_unmatched_files: true
-          token: ${{ secrets.GITHUB_TOKEN }}
+          if-no-files-found: error
+          retention-days: 90

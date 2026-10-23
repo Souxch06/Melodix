@@ -1366,6 +1366,8 @@
 
     .line 619
     .line 620
+    const-string p0, "Source: Android ConnectivityManager check returned false"
+    sput-object p0, Lcom/melodix/music/AppSingleton;->g0:Ljava/lang/String;
     invoke-virtual {v6, v2}, Lcom/melodix/music/MainActivity;->D(Z)V
 
     .line 621

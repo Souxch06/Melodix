@@ -261,6 +261,18 @@
     .line 106
     .line 107
     const-string v4, "Network Error\nTap to retry"
+    sget-object v8, Lcom/melodix/music/AppSingleton;->g0:Ljava/lang/String;
+    if-eqz v8, :cond_network_detail_done
+    new-instance v7, Ljava/lang/StringBuilder;
+    invoke-direct {v7, v4}, Ljava/lang/StringBuilder;-><init>(Ljava/lang/String;)V
+    const-string v4, "\n"
+    invoke-virtual {v7, v4}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    move-result-object v7
+    invoke-virtual {v7, v8}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    move-result-object v7
+    invoke-virtual {v7}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
+    move-result-object v4
+    :cond_network_detail_done
 
     .line 108
     .line 109

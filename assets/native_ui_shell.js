@@ -67,6 +67,11 @@
         return path || '/';
     }
 
+    function cleanText(value) {
+        if (value === null || value === undefined) return '';
+        return String(value).replace(/\s+/g, ' ').trim();
+    }
+
     function spotifyRoutePath() {
         var parts = normalizedPath().split('/').filter(Boolean);
         // Spotify may prefix app routes with a locale, for example /intl-fr/.
@@ -225,14 +230,14 @@
             }
             bridge.onNativeUiData(screen, payload);
             if (screen === 'home' && typeof bridge.onNativeHomeRows === 'function') {
-                bridge.onNativeHomeRows(payload);
+                window.AndBridge.onNativeHomeRows(payload);
             }
             if (lines.length) {
                 var listText = lines.join('\n');
                 window.__sfNativeHomeListText = listText;
                 bridge.onNativeUiData('list-text', listText);
                 if (typeof bridge.onNativeListText === 'function') {
-                    bridge.onNativeListText(listText);
+                    window.AndBridge.onNativeListText(listText);
                 }
             }
             return true;
@@ -903,12 +908,12 @@
 
         if (typeof bridge.onNativeUiRoute === 'function') {
             try {
-                bridge.onNativeUiRoute(initialScreen);
+                window.AndBridge.onNativeUiRoute(initialScreen);
             } catch (_) {}
         }
 
         try {
-            bridge.onNativeUiReady();
+            window.AndBridge.onNativeUiReady();
             window.__sfNativeUiReadyNotified = true;
             window.__sfNativeUiReadyRetries = 0;
             if (readyRetryTimer) window.clearTimeout(readyRetryTimer);
@@ -1697,7 +1702,7 @@
                     if (img) avatar = extractImgUrl(img);
                 }
             }
-            if (avatar && avatar !== profileAvatarSent && window.AndBridge && typeof window.AndBridge.onNativeProfileImage === 'function') {
+            if (avatar && /^https:\/\//i.test(avatar) && avatar !== profileAvatarSent && window.AndBridge && typeof window.AndBridge.onNativeProfileImage === 'function') {
                 profileAvatarSent = avatar;
                 window.AndBridge.onNativeProfileImage(avatar);
             }
@@ -2112,6 +2117,17 @@
             } catch (_) {}
             overrideStatus.sync_status = 'Bibliothèque Spotify synchronisée ✓';
         } else if (key === 'logout') {
+            profileAvatarSent = '';
+            profileNameSent = '';
+            greetingSent = '';
+            lastGreetingAt = 0;
+            lastHomeSignature = null;
+            if (window.__sfSearchCache && typeof window.__sfSearchCache.clear === 'function') {
+                window.__sfSearchCache.clear();
+            }
+            if (window.__sfMediaItemsCache && typeof window.__sfMediaItemsCache.clear === 'function') {
+                window.__sfMediaItemsCache.clear();
+            }
             try {
                 if (window.localStorage) window.localStorage.clear();
                 if (window.sessionStorage) window.sessionStorage.clear();

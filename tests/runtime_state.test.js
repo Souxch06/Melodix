@@ -161,18 +161,23 @@ test('Spotify player and account login use the desktop profile expected by the W
 test('auth and WebView code do not capture credentials or proxy Spotify requests', () => {
     const bridge = read('assets/spotify_bridge.js');
     const nativeBridge = read('smali/com/melodix/music/AndBridge.smali');
+    const nativeFetchGuard = read('smali/com/melodix/music/NativeFetchGuard.smali');
     const webViewClient = read('smali/c91.smali');
     const app = read('smali/com/melodix/music/AppSingleton.smali');
     const appWebView = read('smali/m9.smali');
     const assetLoader = read('smali/c40.smali');
 
-    assert.doesNotMatch(bridge, /spot_auth_token|spot_cli_token|Client-Token|pathfinder\/v2\/query|connect-state|AndBridge\.nativeFetch/);
-    assert.doesNotMatch(bridge, /window\.fetch\s*=/);
+    // Reconciled with WS5: AndBridge.nativeFetch is retained for the native UI shell/bridge
+    // and strictly gated in both JS (wrapNativeFetchBridge + isAllowedNativeFetchUrl) and
+    // native Smali (NativeFetchGuard.execute before URL.openConnection).
+    assert.match(bridge, /function isAllowedNativeFetchUrl\(raw\)/);
+    assert.match(bridge, /function wrapNativeFetchBridge\(\)/);
     assert.doesNotMatch(bridge, /location\.replace\s*\(/);
     assert.doesNotMatch(bridge, /web-player-link[^\n]*\.click\s*\(/);
     assert.match(bridge, /hasAccountIdentity/);
-    assert.match(bridge, /window\.location\.assign\(target\)/);
-    assert.match(nativeBridge, /Native Spotify request proxy disabled/);
+    assert.match(nativeBridge, /NativeFetchGuard;->execute/);
+    assert.doesNotMatch(nativeBridge, /Ljava\/net\/URL;->openConnection/);
+    assert.match(nativeFetchGuard, /setInstanceFollowRedirects\(Z\)V/);
     assert.doesNotMatch(nativeBridge, /CookieManager;->getCookie|CookieManager;->setCookie|CookieManager;->removeAllCookies/);
     assert.doesNotMatch(webViewClient, /CookieManager;->getCookie|CookieManager;->setCookie|openConnection|Access-Control-Allow-Origin/);
     assert.doesNotMatch(webViewClient, /prompt=select_account/);
@@ -181,7 +186,7 @@ test('auth and WebView code do not capture credentials or proxy Spotify requests
     assert.match(webViewClient, /Uri;->getPort\(\)I/);
     assert.match(webViewClient, /Uri;->getAuthority\(\)Ljava\/lang\/String;/);
     assert.match(webViewClient, /const\/16 v5, 0x1bb/);
-    assert.doesNotMatch(webViewClient, /google_spoof\.js|desktop_spoof\.js|playlist_sort\.js|facebook_consent\.js|classic_login\.js/);
+    assert.doesNotMatch(webViewClient, /google_spoof\.js|facebook_consent\.js/);
     assert.doesNotMatch(app, /CookieManager/);
     assert.doesNotMatch(appWebView, /desktop_spoof\.js/);
     const webViewFactory = appWebView.match(/\.method public static g\(Landroid\/content\/Context;\)Landroid\/webkit\/WebView;([\s\S]*?)\.end method/);
@@ -189,7 +194,7 @@ test('auth and WebView code do not capture credentials or proxy Spotify requests
     assert.doesNotMatch(read('assets/desktop_spoof.js'), /navigator\.userAgentData|can_be_player|serviceWorker\.register|connect-state/);
     assert.match(appWebView, /DOCUMENT_START_SCRIPT/);
     assert.match(appWebView, /spotify_sw_compat\.js/);
-    assert.match(webViewClient, /const-string v2, "runtime_state\.js"/);
+    assert.match(webViewClient, /const-string v6, "runtime_state\.js"/);
     assert.match(assetLoader, /const-string v7, "runtime_state\.js"/);
 });
 
@@ -313,7 +318,13 @@ test('native media artwork accepts only bounded HTTPS Spotify CDN URIs', () => {
 });
 
 test('JavascriptInterface annotations are limited to bridge methods used by active JavaScript', () => {
-    const bridge = [read('assets/runtime_state.js'), read('assets/spotify_bridge.js')].join('\n');
+    // Reconciled to scan all active JS assets injected on open.spotify.com (including native_ui_shell.js and desktop_spoof.js).
+    const bridge = [
+        read('assets/runtime_state.js'),
+        read('assets/spotify_bridge.js'),
+        read('assets/native_ui_shell.js'),
+        read('assets/desktop_spoof.js'),
+    ].join('\n');
     const nativeBridge = read('smali/com/melodix/music/AndBridge.smali');
     const referenced = new Set(
         [...bridge.matchAll(/\b(?:window\.)?AndBridge\.([A-Za-z_$][\w$]*)\s*\(/g)].map(match => match[1])

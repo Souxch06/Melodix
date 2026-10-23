@@ -94,7 +94,7 @@
     :add_content
     if-eqz v11, :next
     sget-boolean v8, Lcom/melodix/music/NativeHomeFeed;->useGrid:Z
-    if-nez v8, :add_list
+    if-eqz v8, :add_list
     if-eqz v0, :make_pair
     invoke-virtual {v0}, Landroid/view/ViewGroup;->getChildCount()I
     move-result v10

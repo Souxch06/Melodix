@@ -1,18 +1,10 @@
-.class public final Lcom/melodix/music/NativeSearchFocusRunnable;
+.class final Lcom/melodix/music/NativeSearchFocusRunnable;
 .super Ljava/lang/Object;
-.source "NativeSearchFocusRunnable.java"
-
-# interfaces
 .implements Ljava/lang/Runnable;
 
-
-# instance fields
 .field private final activity:Lcom/melodix/music/MainActivity;
-
 .field private final target:Landroid/view/View;
 
-
-# direct methods
 .method public constructor <init>(Lcom/melodix/music/MainActivity;Landroid/view/View;)V
     .locals 0
 
@@ -22,27 +14,33 @@
     return-void
 .end method
 
-
-# virtual methods
 .method public final run()V
     .locals 3
 
+    :try_start_0
     iget-object v0, p0, Lcom/melodix/music/NativeSearchFocusRunnable;->target:Landroid/view/View;
     if-eqz v0, :focus_done
     invoke-virtual {v0}, Landroid/view/View;->isShown()Z
     move-result v1
-    if-nez v1, :focus_done
-
+    if-eqz v1, :focus_done
+    invoke-virtual {v0}, Landroid/view/View;->requestFocus()Z
     iget-object v1, p0, Lcom/melodix/music/NativeSearchFocusRunnable;->activity:Lcom/melodix/music/MainActivity;
     if-eqz v1, :focus_done
     const-string v2, "input_method"
     invoke-virtual {v1, v2}, Landroid/content/Context;->getSystemService(Ljava/lang/String;)Ljava/lang/Object;
-    move-result-object v2
-    if-eqz v2, :focus_done
-    check-cast v2, Landroid/view/inputmethod/InputMethodManager;
-    const/4 v1, 0x0
-    invoke-virtual {v2, v0, v1}, Landroid/view/inputmethod/InputMethodManager;->showSoftInput(Landroid/view/View;I)Z
+    move-result-object v1
+    check-cast v1, Landroid/view/inputmethod/InputMethodManager;
+    if-eqz v1, :focus_done
+    const/4 v2, 0x1
+    invoke-virtual {v1, v0, v2}, Landroid/view/inputmethod/InputMethodManager;->showSoftInput(Landroid/view/View;I)Z
+    :try_end_0
+    .catch Ljava/lang/Throwable; {:try_start_0 .. :try_end_0} :catch_0
 
     :focus_done
+    return-void
+
+    :catch_0
+    move-exception v0
+    invoke-static {v0}, Lcom/melodix/music/NativeCrashGuard;->record(Ljava/lang/Throwable;)V
     return-void
 .end method

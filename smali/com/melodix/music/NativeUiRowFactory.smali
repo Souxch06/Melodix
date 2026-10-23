@@ -69,10 +69,10 @@
     move-result-object v10
     invoke-virtual {v10}, Ljava/lang/String;->isEmpty()Z
     move-result v11
-    if-eqz v11, :native_artists_next
+    if-nez v11, :native_artists_next
     invoke-virtual {v4}, Ljava/lang/StringBuilder;->length()I
     move-result v11
-    if-lez v11, :native_artists_append
+    if-eqz v11, :native_artists_append
     const-string v11, ", "
     invoke-virtual {v4, v11}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
     :native_artists_append
@@ -90,10 +90,10 @@
     move-result-object v10
     invoke-virtual {v10}, Ljava/lang/String;->isEmpty()Z
     move-result v0
-    if-eqz v0, :native_row_section_done
+    if-nez v0, :native_row_section_done
     invoke-virtual {v7}, Ljava/lang/String;->isEmpty()Z
     move-result v0
-    if-nez v0, :native_row_section_done
+    if-eqz v0, :native_row_section_done
     move-object v7, v10
 
     :native_row_section_done
@@ -116,7 +116,7 @@
     :native_row_uri_done
     invoke-virtual {v7}, Ljava/lang/String;->isEmpty()Z
     move-result v0
-    if-nez v0, :native_row_read_image
+    if-eqz v0, :native_row_read_image
     const-string v0, ":track:"
     invoke-virtual {v8, v0}, Ljava/lang/String;->contains(Ljava/lang/CharSequence;)Z
     move-result v0
@@ -282,7 +282,7 @@
     invoke-virtual {v11, v6}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
     invoke-virtual {v7}, Ljava/lang/String;->isEmpty()Z
     move-result v10
-    if-eqz v10, :native_row_accessibility_ready
+    if-nez v10, :native_row_accessibility_ready
     const-string v10, ", "
     invoke-virtual {v11, v10}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
     invoke-virtual {v11, v7}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
@@ -377,7 +377,7 @@
     if-eqz p3, :banner_title
     invoke-virtual {p3}, Ljava/lang/String;->isEmpty()Z
     move-result v1
-    if-eqz v1, :banner_title
+    if-nez v1, :banner_title
     const/16 v1, 0x140
     invoke-static {v2, p3, v1}, Lcom/melodix/music/NativeImageLoader;->load(Landroid/widget/ImageView;Ljava/lang/String;I)V
 

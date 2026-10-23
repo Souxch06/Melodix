@@ -29,5 +29,6 @@
     return-void
 
     :catch_0
+    move-exception v0
     return-void
 .end method

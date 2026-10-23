@@ -1145,7 +1145,8 @@ test('row taps open playlists, albums and tracks', () => {
         activity.indexOf('.end method', activity.indexOf('.method public final openNativeRow'))
     );
 
-    assert.match(openRow, /if-eqz v0, :native_row_click_done/, 'only empty URIs are ignored');
+    // String.isEmpty()Z returns 1 when empty and 0 when non-empty; Dalvik if-nez jumps iff != 0.
+    assert.match(openRow, /if-nez v0, :native_row_click_done/, 'only empty URIs are ignored');
     assert.match(openRow, /const-string v2, ":playlist:"/);
     assert.match(openRow, /const-string v2, "\/collection"/);
     assert.match(openRow, /if-eqz v1, :native_open_single/, 'tracks are played by the WebView');

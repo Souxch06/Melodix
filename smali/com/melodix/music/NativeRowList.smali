@@ -31,7 +31,7 @@
     move-result-object v5
     invoke-virtual {v5}, Ljava/lang/String;->isEmpty()Z
     move-result v6
-    if-eqz v6, :next
+    if-nez v6, :next
     invoke-virtual {v2}, Ljava/lang/StringBuilder;->length()I
     move-result v6
     if-eqz v6, :append
@@ -51,9 +51,12 @@
     invoke-virtual {v2}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
     move-result-object v0
     :try_end_0
-    .catch Lorg/json/JSONException; {:try_start_0 .. :try_end_0} :empty
+    .catch Lorg/json/JSONException; {:try_start_0 .. :try_end_0} :catch_0
 
     return-object v0
+
+    :catch_0
+    move-exception v0
 
     :empty
     const/4 v0, 0x0
@@ -83,8 +86,12 @@
     add-int/lit8 v3, v3, 0x1
     goto :loop
     :try_end_0
-    .catch Lorg/json/JSONException; {:try_start_0 .. :try_end_0} :done
+    .catch Lorg/json/JSONException; {:try_start_0 .. :try_end_0} :catch_0
 
     :done
+    return v0
+
+    :catch_0
+    move-exception v1
     return v0
 .end method

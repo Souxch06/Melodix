@@ -28,6 +28,167 @@ try {
     let lastPos = null;
     window.playing = false;
 
+    window.__sfMarkLoggedOut = function() {
+        window.__sfAuthBridgeState = 'signed-out';
+        if (!window.__sfLogoutBridgeNotified) {
+            window.__sfLogoutBridgeNotified = true;
+            try {
+                if (window.AndBridge && typeof window.AndBridge.logoutDetected === 'function') {
+                    window.AndBridge.logoutDetected();
+                }
+            } catch (_) {}
+        }
+        if (document.body) {
+            document.body.classList.add('sf-guest');
+            document.body.classList.remove('sf-library-open');
+        }
+        window.__sfLibraryExpanded = false;
+        if (window.__sfDrawerState) window.__sfDrawerState.setOpen(false);
+    };
+
+    window.__sfMarkLoggedIn = function() {
+        window.__sfAuthBridgeState = 'signed-in';
+        window.__sfLogoutBridgeNotified = false;
+        if (document.body) document.body.classList.remove('sf-guest');
+        try {
+            if (window.AndBridge && typeof window.AndBridge.loginDetected === 'function') {
+                window.AndBridge.loginDetected();
+            }
+        } catch (_) {}
+    };
+
+    (function observeSpotifyAuthUi() {
+        const hideAuthNotice = () => {
+            const notice = document.getElementById('sf-auth-status');
+            if (notice) notice.remove();
+        };
+
+        const showAuthNotice = () => {
+            if (!document.body || document.getElementById('sf-auth-status')) return;
+            const notice = document.createElement('div');
+            notice.id = 'sf-auth-status';
+            notice.setAttribute('role', 'status');
+            notice.setAttribute('aria-live', 'polite');
+            const message = document.createElement('span');
+            message.textContent = 'Session Spotify non confirmée par Melodix. Vérifiez votre session sur le lecteur officiel, puis rechargez si nécessaire.';
+            const retry = document.createElement('button');
+            retry.type = 'button';
+            retry.textContent = 'Recharger';
+            retry.setAttribute('aria-label', 'Recharger le lecteur Spotify');
+            retry.addEventListener('click', () => window.location.reload());
+            notice.append(message, retry);
+            const mainView = document.querySelector('#main-view');
+            if (mainView) mainView.insertBefore(notice, mainView.firstChild);
+            else {
+                notice.classList.add('sf-auth-status-body-root');
+                document.body.insertBefore(notice, document.body.firstChild);
+            }
+        };
+
+        const runtime = window.MelodixRuntime;
+        if (!runtime || !document.documentElement) {
+            console.warn('[Melodix] Session state helper unavailable; authentication remains unconfirmed.');
+            window.setTimeout(showAuthNotice, 15000);
+            return;
+        }
+
+        const machine = runtime.createAuthStateMachine((state) => {
+            if (state === runtime.AUTH_STATE.SIGNED_IN) window.__sfMarkLoggedIn();
+            else if (state === runtime.AUTH_STATE.SIGNED_OUT) window.__sfMarkLoggedOut();
+        });
+        window.__sfAuthStateMachine = machine;
+
+        let unknownNoticeTimer = null;
+        let scheduled = false;
+        let observer = null;
+
+        const isVisible = (element) => {
+            if (!element || element.hidden || element.getAttribute('aria-hidden') === 'true') return false;
+            try {
+                const style = window.getComputedStyle ? window.getComputedStyle(element) : null;
+                if (style && (style.display === 'none' || style.visibility === 'hidden' || style.opacity === '0')) return false;
+            } catch (_) {}
+            return typeof element.getClientRects !== 'function' || element.getClientRects().length > 0;
+        };
+
+        const getAuthSignals = () => {
+            const host = (window.location.hostname || '').toLowerCase();
+            const pathname = (window.location.pathname || '/').toLowerCase();
+            const accountsPage = host === 'accounts.spotify.com' || host.endsWith('.accounts.spotify.com');
+            const loginRoute = /(?:^|\/)(?:login|auth)(?:\/|$)/i.test(pathname);
+            const signInText = /\b(log\s*in|sign\s*in|sign\s*up|log\s*out|connexion|se\s+connecter|s'inscrire|déconnexion)\b/i;
+            const guestActions = Array.from(document.querySelectorAll(
+                'button[data-testid="web-player-link"], button[data-testid="login-button"], a[href*="/login"], button[aria-label*="sign in" i], button[aria-label*="log in" i]'
+            ));
+            const loginAction = guestActions.some((element) => {
+                if (!isVisible(element)) return false;
+                // The public Web Player CTA is a guest signal only; it is never an auth success signal.
+                if (element.matches && element.matches('button[data-testid="web-player-link"]')) return true;
+                const label = `${element.innerText || ''} ${element.getAttribute('aria-label') || ''}`;
+                return signInText.test(label);
+            });
+            const profiles = Array.from(document.querySelectorAll(
+                'button[data-testid="user-widget-link"], a[data-testid="user-widget-link"], [data-testid="user-widget-avatar"], button[aria-label*="profile" i]'
+            ));
+            const profileControl = profiles.some((element) => {
+                if (!isVisible(element)) return false;
+                const label = `${element.innerText || ''} ${element.getAttribute('aria-label') || ''}`;
+                const href = element.getAttribute('href') || '';
+                const hasAccountIdentity = /\/user\//i.test(href) || !!element.querySelector('img[src]');
+                return hasAccountIdentity && !signInText.test(label);
+            });
+            const playerBar = document.querySelector('aside[data-testid="now-playing-bar"]');
+            const playControl = document.querySelector('button[data-testid="control-button-playpause"]');
+            const playerControls = isVisible(playerBar) && isVisible(playControl) && !playControl.disabled;
+
+            return { accountsPage, loginRoute, loginAction, profileControl, playerControls };
+        };
+
+        const inspectAuthUi = () => {
+            const state = machine.observe(getAuthSignals());
+            window.__sfObservedAuthState = state;
+            if (state !== runtime.AUTH_STATE.UNKNOWN) {
+                if (unknownNoticeTimer) {
+                    window.clearTimeout(unknownNoticeTimer);
+                    unknownNoticeTimer = null;
+                }
+                hideAuthNotice();
+                return;
+            }
+            // Do not gate this on the last confirmed state: after the official
+            // sign-in page, signed-out can transition to unknown while the player hydrates.
+            if (!unknownNoticeTimer) {
+                unknownNoticeTimer = window.setTimeout(() => {
+                    unknownNoticeTimer = null;
+                    if (runtime.shouldShowUnconfirmedNotice(machine.getState())) showAuthNotice();
+                }, 15000);
+            }
+        };
+
+        const scheduleInspection = () => {
+            if (scheduled) return;
+            scheduled = true;
+            window.setTimeout(() => {
+                scheduled = false;
+                inspectAuthUi();
+            }, 100);
+        };
+
+        window.__sfRefreshAuthState = scheduleInspection;
+        observer = new MutationObserver(scheduleInspection);
+        observer.observe(document.documentElement, {
+            childList: true,
+            subtree: true,
+            attributes: true,
+            attributeFilter: ['aria-label', 'aria-hidden', 'class', 'style', 'href', 'data-testid']
+        });
+        window.addEventListener('popstate', scheduleInspection);
+        window.addEventListener('pageshow', scheduleInspection);
+        document.addEventListener('DOMContentLoaded', scheduleInspection, { once: true });
+        scheduleInspection();
+    })();
+
+
     function sanitizeDiagnostic(value) {
         var text = String(value && value.message || value || '');
         text = text.replace(/Set-Cookie:\s*[^;\r\n]+/gi, 'Set-Cookie:[redacted]');
@@ -4378,7 +4539,9 @@ try {
 
         window.__sfEnsureMobileShell = ensure;
         if (document.readyState === 'loading') {
-            document.addEventListener('DOMContentLoaded', ensure, { once: true });
+            const start = ensure;
+        document.addEventListener('DOMContentLoaded', ensure, { once: true });
+        document.addEventListener('DOMContentLoaded', start, { once: true });
         } else {
             window.setTimeout(ensure, 0);
         }

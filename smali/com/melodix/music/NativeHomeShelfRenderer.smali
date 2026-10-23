@@ -84,7 +84,7 @@
 
     move-result v7
 
-    if-eqz v7, :shelf_header_done
+    if-nez v7, :shelf_header_done
 
     invoke-static {p0, v6}, Lcom/melodix/music/NativeUiRowFactory;->createSectionHeader(Lcom/melodix/music/MainActivity;Ljava/lang/String;)Landroid/widget/TextView;
 
@@ -258,7 +258,7 @@
 
     move-result v11
 
-    if-eqz v11, :shelf_title
+    if-nez v11, :shelf_title
 
     const/16 v11, 0xb0
 
@@ -323,7 +323,7 @@
 
     move-result v11
 
-    if-eqz v11, :shelf_click
+    if-nez v11, :shelf_click
 
     new-instance v11, Landroid/widget/TextView;
 
@@ -511,7 +511,7 @@
 
     move-result v5
 
-    if-eqz v5, :quick_tile_title
+    if-nez v5, :quick_tile_title
 
     const/16 v5, 0x38
 
@@ -663,7 +663,7 @@
 
     move-result-object v4
 
-    if-nez v4, :quick_grid_inc
+    if-eqz v4, :quick_grid_inc
 
     invoke-static {p0, v4}, Lcom/melodix/music/NativeHomeShelfRenderer;->createQuickTile(Lcom/melodix/music/MainActivity;Lorg/json/JSONObject;)Landroid/widget/LinearLayout;
 
