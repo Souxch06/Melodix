@@ -154,7 +154,10 @@ jobs:
               const-string v3, "Fuite Tardive Compte A"
               const/4 v0, 0x1
               invoke-direct {v1, p0, v2, v3, v0}, Lcom/melodix/music/NativeUiUpdateRunnable;-><init>(Lcom/melodix/music/MainActivity;Ljava/lang/String;Ljava/lang/String;I)V
-              invoke-virtual {p0}, Lcom/melodix/music/MainActivity;->scheduleNativeHomeRetries()V
+              new-instance v2, Lcom/melodix/music/NativeHomeRetryRunnable;
+              const/4 v0, 0x2
+              invoke-direct {v2, p0, v0}, Lcom/melodix/music/NativeHomeRetryRunnable;-><init>(Lcom/melodix/music/MainActivity;I)V
+              invoke-virtual {v2}, Lcom/melodix/music/NativeHomeRetryRunnable;->run()V
               invoke-virtual {p0}, Lcom/melodix/music/MainActivity;->resetNativeStateForLogout()V
               invoke-virtual {v1}, Lcom/melodix/music/NativeUiUpdateRunnable;->run()V
               return-void
@@ -454,6 +457,7 @@ jobs:
           sleep 1
           send_ui "home" "{malformed-json-payload"
           sleep 1
+          adb logcat -c || true
           adb shell am start -n "$pkg/com.melodix.music.MainActivity" --es e2e_type logout_race >/dev/null
           sleep 2
           dump_ui "13_after_epoch_race"
