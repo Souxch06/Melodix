@@ -2134,7 +2134,7 @@
 .end method
 
 .method public final l()V
-    .locals 4
+    .locals 5
 
     .line 1
     const/4 v0, 0x0
@@ -2408,12 +2408,20 @@
     :cond_8
     sput-object v2, Lcom/melodix/music/WebService;->G:Lcom/melodix/music/WebService;
 
-    .line 132
-    .line 133
     sput-object v2, Lcom/melodix/music/WebService;->B:Landroid/graphics/Bitmap;
 
-    .line 134
-    .line 135
+    const-string v1, "No Track"
+    sput-object v1, Lcom/melodix/music/WebService;->v:Ljava/lang/String;
+    const-string v1, "No Artist"
+    sput-object v1, Lcom/melodix/music/WebService;->u:Ljava/lang/String;
+    const-string v1, "false"
+    sput-object v1, Lcom/melodix/music/WebService;->w:Ljava/lang/String;
+    sput-object v1, Lcom/melodix/music/WebService;->x:Ljava/lang/String;
+    const-wide/16 v3, 0x0
+    sput-wide v3, Lcom/melodix/music/WebService;->y:J
+    sput-wide v3, Lcom/melodix/music/WebService;->z:J
+    sput-wide v3, Lcom/melodix/music/WebService;->A:J
+
     return-void
 .end method
 
@@ -2884,84 +2892,10 @@
 .end method
 
 .method public final onDestroy()V
-    .locals 2
+    .locals 0
 
-    .line 1
     invoke-super {p0}, Landroid/app/Service;->onDestroy()V
-
-    .line 2
-    .line 3
-    .line 4
-    sget-object v0, Lcom/melodix/music/AppSingleton;->t:Ljava/lang/ref/WeakReference;
-
-    .line 5
-    .line 6
-    if-eqz v0, :cond_0
-
-    .line 7
-    .line 8
-    invoke-virtual {v0}, Ljava/lang/ref/Reference;->get()Ljava/lang/Object;
-
-    .line 9
-    .line 10
-    .line 11
-    move-result-object v0
-
-    .line 12
-    check-cast v0, Lcom/melodix/music/MainActivity;
-
-    .line 13
-    .line 14
-    goto :goto_0
-
-    .line 15
-    :cond_0
-    const/4 v0, 0x0
-
-    .line 16
-    :goto_0
-    if-eqz v0, :cond_2
-
-    .line 17
-    .line 18
-    invoke-virtual {v0}, Landroid/app/Activity;->isFinishing()Z
-
-    .line 19
-    .line 20
-    .line 21
-    move-result v1
-
-    .line 22
-    if-nez v1, :cond_2
-
-    .line 23
-    .line 24
-    invoke-virtual {v0}, Landroid/app/Activity;->isDestroyed()Z
-
-    .line 25
-    .line 26
-    .line 27
-    move-result v0
-
-    .line 28
-    if-eqz v0, :cond_1
-
-    .line 29
-    .line 30
-    goto :goto_1
-
-    .line 31
-    :cond_1
-    return-void
-
-    .line 32
-    :cond_2
-    :goto_1
     invoke-virtual {p0}, Lcom/melodix/music/WebService;->l()V
-
-    .line 33
-    .line 34
-    .line 35
     return-void
 .end method
 

@@ -8900,7 +8900,7 @@
 .end method
 
 .method public final resetNativeStateForLogout()V
-    .locals 4
+    .locals 5
 
     iget v1, p0, Lcom/melodix/music/MainActivity;->nativeSessionEpoch:I
     add-int/lit8 v1, v1, 0x1
@@ -8926,6 +8926,18 @@
     iput-object v0, p0, Lcom/melodix/music/MainActivity;->nativeLibraryJson:Ljava/lang/String;
     iput-object v0, p0, Lcom/melodix/music/MainActivity;->nativeListBlob:Ljava/lang/String;
     sput-object v0, Lcom/melodix/music/WebService;->B:Landroid/graphics/Bitmap;
+
+    const-string v1, "No Track"
+    sput-object v1, Lcom/melodix/music/WebService;->v:Ljava/lang/String;
+    const-string v1, "No Artist"
+    sput-object v1, Lcom/melodix/music/WebService;->u:Ljava/lang/String;
+    const-string v1, "false"
+    sput-object v1, Lcom/melodix/music/WebService;->w:Ljava/lang/String;
+    sput-object v1, Lcom/melodix/music/WebService;->x:Ljava/lang/String;
+    const-wide/16 v3, 0x0
+    sput-wide v3, Lcom/melodix/music/WebService;->y:J
+    sput-wide v3, Lcom/melodix/music/WebService;->z:J
+    sput-wide v3, Lcom/melodix/music/WebService;->A:J
 
     iget-object v2, p0, Lcom/melodix/music/MainActivity;->f0:Landroid/os/Handler;
     if-eqz v2, :logout_clear_flags

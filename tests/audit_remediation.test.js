@@ -519,3 +519,44 @@ test('[D6] preview-apk.yml builds & verifies artifacts on push without overwriti
         'GitHub Release asset replacement must only run on explicit manual workflow_dispatch'
     );
 });
+
+test('[D8] Post-logout WebView teardown avoids shared renderer SIGKILL loop, WebService.onDestroy always cleans receivers/threads, and notification metadata is scrubbed on logout', () => {
+    const m9 = readRepoFile('smali/m9.smali');
+    const m9bStart = m9.indexOf('.method public static b()V');
+    const m9bBody = m9.slice(m9bStart, m9.indexOf('.end method', m9bStart));
+    assert.doesNotMatch(
+        m9bBody,
+        /WEB_VIEW_RENDERER_TERMINATE|Le1;->s\(Landroid\/webkit\/WebViewRenderProcess;\)Z|WebViewRendererBoundaryInterface;->terminate\(\)Z/,
+        'Lm9.b() must tear down WebView cleanly without killing the shared WebView renderer process'
+    );
+    assert.match(m9bBody, /Landroid\/webkit\/WebView;->destroy\(\)V/, 'Lm9.b() must still destroy the WebView instance');
+
+    const c91 = readRepoFile('smali/c91.smali');
+    const rpgStart = c91.indexOf('.method public onRenderProcessGone(Landroid/webkit/WebView;Landroid/webkit/RenderProcessGoneDetail;)Z');
+    const rpgBody = c91.slice(rpgStart, c91.indexOf('.end method', rpgStart));
+    assert.match(
+        rpgBody,
+        /sget-object\s+v0,\s*Lcom\/melodix\/music\/AppSingleton;->w:Ll9;[\s\S]*?if-ne\s+p1,\s*v0,\s*:/,
+        'c91.onRenderProcessGone must ignore stale/detached WebViews while returning true so AwBrowserTerminator never aborts the process'
+    );
+
+    const ws = readRepoFile('smali/com/melodix/music/WebService.smali');
+    const onDestroyStart = ws.indexOf('.method public final onDestroy()V');
+    const onDestroyBody = ws.slice(onDestroyStart, ws.indexOf('.end method', onDestroyStart));
+    assert.doesNotMatch(
+        onDestroyBody,
+        /Landroid\/app\/Activity;->isFinishing\(\)Z/,
+        'WebService.onDestroy() must not return early before WebService.l() when MainActivity is open'
+    );
+    assert.match(
+        onDestroyBody,
+        /Lcom\/melodix\/music\/WebService;->l\(\)V/,
+        'WebService.onDestroy() must always call WebService.l() to unregister receivers and quit AudioDeviceCallbackThread'
+    );
+
+    const lStart = ws.indexOf('.method public final l()V');
+    const lBody = ws.slice(lStart, ws.indexOf('.end method', lStart));
+    assert.match(lBody, /sput-object\s+\w+,\s*Lcom\/melodix\/music\/WebService;->v:Ljava\/lang\/String;/, 'WebService.l() must scrub static track title');
+    assert.match(lBody, /sput-object\s+\w+,\s*Lcom\/melodix\/music\/WebService;->u:Ljava\/lang\/String;/, 'WebService.l() must scrub static artist name');
+});
+

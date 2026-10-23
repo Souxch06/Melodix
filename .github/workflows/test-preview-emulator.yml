@@ -448,18 +448,34 @@ jobs:
           assert_ui_lacks "$state/12_after_relogin.xml" "Mix Decouverte"
 
           # 7. Deep-link & exported Intent JS injection defense + malformed JSON resilience + epoch race guard + screen rotation
+          assert_pid_same() {
+            local step_label="$1"
+            local cur_pid
+            cur_pid="$(adb shell pidof "$pkg" | tr -d '\r' | awk '{print $1}')"
+            if [[ -z "$cur_pid" || "$cur_pid" != "$pid_before_sec" ]]; then
+              local diag
+              diag="$( { adb logcat -d -b crash -v brief 2>/dev/null; adb logcat -d -v brief 2>/dev/null; } | grep -iE 'FATAL|Exception|Error|Crash|chromium|aw_browser|WebService|LinkHandler|Melodix' | tail -n 18 | tr '\n\r' ' | ' )"
+              echo "::error title=PID death at $step_label::before=$pid_before_sec after=$cur_pid trace=$diag"
+              exit 1
+            fi
+          }
           pid_before_sec="$(adb shell pidof "$pkg" | tr -d '\r' | awk '{print $1}')"
           adb shell "am start -n '$pkg/com.melodix.music.MainActivity' --es spotify_uri \"spotify:track:1');window.__pwned=1;//\"" >/dev/null
           sleep 1
+          assert_pid_same "7a_spotify_uri_inject"
           adb shell "am start -a android.intent.action.VIEW -d \"spotify:track:1');window.__pwned=1;//\" '$pkg/com.melodix.music.LinkHandler'" >/dev/null || true
           sleep 1
+          assert_pid_same "7b_linkhandler_inject"
           adb shell "am start -a android.intent.action.VIEW -d 'spotify:track:4cOdK2wGLETKBW3PvgPWqT' '$pkg/com.melodix.music.LinkHandler'" >/dev/null || true
           sleep 1
+          assert_pid_same "7c_linkhandler_valid"
           send_ui "home" "{malformed-json-payload"
           sleep 1
+          assert_pid_same "7d_malformed_json"
           adb logcat -c || true
           adb shell am start -n "$pkg/com.melodix.music.MainActivity" --es e2e_type logout_race >/dev/null
           sleep 2
+          assert_pid_same "7e_logout_race"
           dump_ui "13_after_epoch_race"
           assert_ui_lacks "$state/13_after_epoch_race.xml" "Fuite Tardive Compte A"
           assert_ui_lacks "$state/13_after_epoch_race.xml" "Compte Deux"
@@ -467,20 +483,19 @@ jobs:
           # Screen rotation & activity destroy/recreation stress check
           adb shell wm user-rotation lock 1 || true
           sleep 2
+          assert_pid_same "7f_rotate_landscape"
           adb shell wm user-rotation lock 0 || true
           sleep 2
+          assert_pid_same "7g_rotate_portrait"
           adb shell wm user-rotation free || true
           sleep 1
-
-          pid="$(adb shell pidof "$pkg" | tr -d '\r' | awk '{print $1}')"
-          if [[ -z "$pid" || "$pid" != "$pid_before_sec" ]]; then
-            echo "::error::Process died or respawned during security/lifecycle checks (before=$pid_before_sec after=$pid)"
-            exit 1
-          fi
+          assert_pid_same "7h_rotate_free"
+          pid="$pid_before_sec"
           adb logcat -d -v brief > "$state/e2e-logcat.txt" 2>&1 || true
           adb logcat -d -b crash -v brief >> "$state/e2e-logcat.txt" 2>&1 || true
-          if grep -qE "MelodixCrash|NativeCrashGuard|VerifyError|IncompatibleClassChangeError|LinkageError|WindowManager\\\$BadTokenException" "$state/e2e-logcat.txt" || grep -qF "Process: $pkg" "$state/e2e-logcat.txt"; then
-            grep -nE "Process: $pkg|MelodixCrash|NativeCrashGuard|VerifyError|IncompatibleClassChangeError|LinkageError|WindowManager\\\$BadTokenException" "$state/e2e-logcat.txt" | head -n 25
+          if grep -qE "MelodixCrash|NativeCrashGuard|VerifyError|IncompatibleClassChangeError|LinkageError|IntentReceiverLeaked|WindowManager\\\$BadTokenException" "$state/e2e-logcat.txt" || grep -qF "Process: $pkg" "$state/e2e-logcat.txt"; then
+            diag="$(grep -nE "Process: $pkg|MelodixCrash|NativeCrashGuard|VerifyError|IncompatibleClassChangeError|LinkageError|IntentReceiverLeaked|WindowManager\\\$BadTokenException" "$state/e2e-logcat.txt" | head -n 15 | tr '\n\r' ' | ')"
+            echo "::error title=Logcat Error Found::$diag"
             exit 1
           fi
           echo "::notice title=E2E Logout + Security + Rotation + Logcat::PASS (Logout/Epoch guard blocked stale Account A callbacks; deep-link injection & malformed JSON handled cleanly; rotation survived; stable pid=$pid across all PIDs)"

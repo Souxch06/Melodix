@@ -351,225 +351,43 @@
 .method public static b()V
     .locals 5
 
-    .line 1
     sget-object v0, Lcom/melodix/music/AppSingleton;->w:Ll9;
-
-    .line 2
-    .line 3
     const/4 v1, 0x0
-
-    .line 4
     if-eqz v0, :cond_5
 
-    .line 5
-    .line 6
     :try_start_0
     invoke-virtual {v0}, Landroid/webkit/WebView;->stopLoading()V
-
-    .line 7
-    .line 8
-    .line 9
     const-string v2, "AndBridge"
-
-    .line 10
-    .line 11
     invoke-virtual {v0, v2}, Landroid/webkit/WebView;->removeJavascriptInterface(Ljava/lang/String;)V
-
-    .line 12
-    .line 13
-    .line 14
-    const-string v2, "WEB_VIEW_RENDERER_TERMINATE"
-
-    .line 15
-    .line 16
-    invoke-static {v2}, Ljj1;->b(Ljava/lang/String;)Z
-
-    .line 17
-    .line 18
-    .line 19
-    move-result v2
+    const-string v2, "about:blank"
+    invoke-virtual {v0, v2}, Landroid/webkit/WebView;->loadUrl(Ljava/lang/String;)V
+    invoke-virtual {v0}, Landroid/view/View;->getParent()Landroid/view/ViewParent;
+    move-result-object v2
+    instance-of v3, v2, Landroid/view/ViewGroup;
+    if-eqz v3, :cond_3
+    check-cast v2, Landroid/view/ViewGroup;
+    goto :goto_1
+    :cond_3
+    move-object v2, v1
+    :goto_1
+    if-eqz v2, :cond_4
+    invoke-virtual {v2, v0}, Landroid/view/ViewGroup;->removeView(Landroid/view/View;)V
+    :cond_4
+    invoke-virtual {v0}, Landroid/view/ViewGroup;->removeAllViews()V
+    invoke-virtual {v0}, Landroid/webkit/WebView;->destroy()V
     :try_end_0
     .catch Ljava/lang/Exception; {:try_start_0 .. :try_end_0} :catch_1
 
-    .line 20
-    if-eqz v2, :cond_2
+    goto :cond_5
 
-    .line 21
-    .line 22
-    :try_start_1
-    invoke-static {v0}, Lgj1;->c(Landroid/webkit/WebView;)Lnj1;
-
-    .line 23
-    .line 24
-    .line 25
-    move-result-object v2
-
-    .line 26
-    if-eqz v2, :cond_2
-
-    .line 27
-    .line 28
-    sget-object v3, Ljj1;->b:Lz5;
-
-    .line 29
-    .line 30
-    invoke-virtual {v3}, Lz5;->a()Z
-
-    .line 31
-    .line 32
-    .line 33
-    move-result v4
-
-    .line 34
-    if-eqz v4, :cond_0
-
-    .line 35
-    .line 36
-    iget-object v2, v2, Lnj1;->b:Ljava/lang/ref/WeakReference;
-
-    .line 37
-    .line 38
-    invoke-virtual {v2}, Ljava/lang/ref/Reference;->get()Ljava/lang/Object;
-
-    .line 39
-    .line 40
-    .line 41
-    move-result-object v2
-
-    .line 42
-    invoke-static {v2}, Le1;->g(Ljava/lang/Object;)Landroid/webkit/WebViewRenderProcess;
-
-    .line 43
-    .line 44
-    .line 45
-    move-result-object v2
-
-    .line 46
-    if-eqz v2, :cond_2
-
-    .line 47
-    .line 48
-    invoke-static {v2}, Le1;->s(Landroid/webkit/WebViewRenderProcess;)Z
-
-    .line 49
-    .line 50
-    .line 51
-    move-result v2
-
-    .line 52
-    goto :goto_0
-
-    .line 53
-    :cond_0
-    invoke-virtual {v3}, La6;->b()Z
-
-    .line 54
-    .line 55
-    .line 56
-    move-result v3
-
-    .line 57
-    if-eqz v3, :cond_1
-
-    .line 58
-    .line 59
-    iget-object v2, v2, Lnj1;->a:Lorg/chromium/support_lib_boundary/WebViewRendererBoundaryInterface;
-
-    .line 60
-    .line 61
-    invoke-interface {v2}, Lorg/chromium/support_lib_boundary/WebViewRendererBoundaryInterface;->terminate()Z
-
-    .line 62
-    .line 63
-    .line 64
-    goto :goto_0
-
-    .line 65
-    :cond_1
-    invoke-static {}, Ljj1;->a()Ljava/lang/UnsupportedOperationException;
-
-    .line 66
-    .line 67
-    .line 68
-    move-result-object v2
-
-    .line 69
-    throw v2
-    :try_end_1
-    .catch Ljava/lang/Exception; {:try_start_1 .. :try_end_1} :catch_0
-
-    .line 70
-    :catch_0
-    :cond_2
-    :goto_0
-    :try_start_2
-    invoke-virtual {v0}, Landroid/view/View;->getParent()Landroid/view/ViewParent;
-
-    .line 71
-    .line 72
-    .line 73
-    move-result-object v2
-
-    .line 74
-    instance-of v3, v2, Landroid/view/ViewGroup;
-
-    .line 75
-    .line 76
-    if-eqz v3, :cond_3
-
-    .line 77
-    .line 78
-    check-cast v2, Landroid/view/ViewGroup;
-
-    .line 79
-    .line 80
-    goto :goto_1
-
-    .line 81
-    :cond_3
-    move-object v2, v1
-
-    .line 82
-    :goto_1
-    if-eqz v2, :cond_4
-
-    .line 83
-    .line 84
-    invoke-virtual {v2, v0}, Landroid/view/ViewGroup;->removeView(Landroid/view/View;)V
-
-    .line 85
-    .line 86
-    .line 87
-    :cond_4
-    invoke-virtual {v0}, Landroid/view/ViewGroup;->removeAllViews()V
-
-    .line 88
-    .line 89
-    .line 90
-    invoke-virtual {v0}, Landroid/webkit/WebView;->destroy()V
-    :try_end_2
-    .catch Ljava/lang/Exception; {:try_start_2 .. :try_end_2} :catch_1
-
-    .line 91
-    .line 92
-    .line 93
     :catch_1
+    move-exception v2
+
     :cond_5
     sput-object v1, Lcom/melodix/music/AppSingleton;->w:Ll9;
-
-    .line 94
-    .line 95
     sput-object v1, Lcom/melodix/music/AppSingleton;->x:Landroid/content/MutableContextWrapper;
-
-    .line 96
-    .line 97
     const/4 v0, 0x0
-
-    .line 98
     sput-boolean v0, Lcom/melodix/music/AppSingleton;->l:Z
-
-    .line 99
-    .line 100
     return-void
 .end method
 

@@ -590,32 +590,35 @@
 .end method
 
 .method public onRenderProcessGone(Landroid/webkit/WebView;Landroid/webkit/RenderProcessGoneDetail;)Z
-    .locals 0
+    .locals 2
 
     if-eqz p2, :cond_0
     invoke-static {p2}, Li1;->r(Landroid/webkit/RenderProcessGoneDetail;)V
     :cond_0
-    sget p0, Landroid/os/Build$VERSION;->SDK_INT:I
-    const/16 p1, 0x1d
-    if-lt p0, p1, :cond_1
+    sget v0, Landroid/os/Build$VERSION;->SDK_INT:I
+    const/16 v1, 0x1d
+    if-lt v0, v1, :cond_1
     if-eqz p2, :cond_1
     invoke-static {p2}, Li1;->B(Landroid/webkit/RenderProcessGoneDetail;)V
     :cond_1
-    sget p0, Lcom/melodix/music/AppSingleton;->j:I
+    if-eqz p1, :cond_2
+    sget-object v0, Lcom/melodix/music/AppSingleton;->w:Ll9;
+    if-ne p1, v0, :cond_2
+    sget v0, Lcom/melodix/music/AppSingleton;->j:I
     invoke-static {}, Lm9;->b()V
-    sget-object p0, Lcom/melodix/music/AppSingleton;->t:Ljava/lang/ref/WeakReference;
-    if-eqz p0, :cond_2
-    invoke-virtual {p0}, Ljava/lang/ref/Reference;->get()Ljava/lang/Object;
-    move-result-object p0
-    check-cast p0, Lcom/melodix/music/MainActivity;
-    if-eqz p0, :cond_2
-    new-instance p1, Ls4;
+    sget-object v0, Lcom/melodix/music/AppSingleton;->t:Ljava/lang/ref/WeakReference;
+    if-eqz v0, :cond_2
+    invoke-virtual {v0}, Ljava/lang/ref/Reference;->get()Ljava/lang/Object;
+    move-result-object v0
+    check-cast v0, Lcom/melodix/music/MainActivity;
+    if-eqz v0, :cond_2
+    new-instance v1, Ls4;
     const/16 p2, 0xb
-    invoke-direct {p1, p0, p2}, Ls4;-><init>(Lcom/melodix/music/MainActivity;I)V
-    invoke-virtual {p0, p1}, Landroid/app/Activity;->runOnUiThread(Ljava/lang/Runnable;)V
+    invoke-direct {v1, v0, p2}, Ls4;-><init>(Lcom/melodix/music/MainActivity;I)V
+    invoke-virtual {v0, v1}, Landroid/app/Activity;->runOnUiThread(Ljava/lang/Runnable;)V
     :cond_2
-    const/4 p0, 0x1
-    return p0
+    const/4 v0, 0x1
+    return v0
 .end method
 
 .method public final shouldInterceptRequest(Landroid/webkit/WebView;Landroid/webkit/WebResourceRequest;)Landroid/webkit/WebResourceResponse;
