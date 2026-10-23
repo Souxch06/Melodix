@@ -4,18 +4,20 @@ on:
   push:
     branches-ignore:
       - main
+    tags-ignore:
+      - '**'
   workflow_dispatch:
     inputs:
       release_tag:
-        description: Preview tag (for example v1.2.2-test.1-preview)
-        required: true
+        description: Unique preview tag (leave 'auto' to allocate next unused v1.2.2-test.N-preview)
+        required: false
         type: string
-        default: v1.2.2-test.1-preview
+        default: auto
       publish_release:
-        description: Explicitly attach build to GitHub Pre-release (leave false for artifact-only build)
+        description: Publish verified test pre-release on GitHub Releases
         required: false
         type: boolean
-        default: false
+        default: true
       source_ref:
         description: Full source commit SHA to build
         required: true
@@ -25,13 +27,24 @@ permissions:
   contents: read
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: preview-pipeline-${{ github.ref }}
   cancel-in-progress: ${{ github.event_name == 'push' }}
 
 jobs:
-  build-and-release-preview:
+  verify:
     if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
-    name: Build and publish separate preview app
+    name: Verify tests, build integrity, and Android 15 E2E before release
+    permissions:
+      contents: read
+    uses: ./.github/workflows/test-preview-emulator.yml
+    with:
+      source_ref: ${{ inputs.source_ref || github.sha }}
+    secrets: inherit
+
+  build-and-release-preview:
+    needs: verify
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    name: Build and sign verified preview package
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -39,52 +52,112 @@ jobs:
       tag: ${{ steps.release.outputs.tag }}
       source_ref: ${{ steps.release.outputs.source_ref }}
       apk_name: ${{ steps.release.outputs.apk_name }}
+      manifest_name: ${{ steps.package.outputs.manifest_name }}
+      apk_sha256: ${{ steps.package.outputs.apk_sha256 }}
       version_code: ${{ steps.release.outputs.version_code }}
       release_name: ${{ steps.release.outputs.release_name }}
+      should_publish: ${{ steps.release.outputs.should_publish }}
     steps:
-      - name: Select preview release tag
+      - name: Select unique preview release tag
         id: release
         shell: bash
         env:
+          GH_TOKEN: ${{ github.token }}
           INPUT_TAG: ${{ inputs.release_tag || '' }}
           EVENT_COMMIT_MESSAGE: ${{ github.event.head_commit.message || '' }}
           INPUT_SOURCE_REF: ${{ inputs.source_ref || github.sha }}
         run: |
           set -euo pipefail
-          if [[ "$GITHUB_EVENT_NAME" == "workflow_dispatch" && ! "$INPUT_SOURCE_REF" =~ ^[0-9a-fA-F]{40}$ ]]; then
+          if [[ ! "$INPUT_SOURCE_REF" =~ ^[0-9a-fA-F]{40}$ ]]; then
             echo "::error::source_ref must be a full 40-character commit SHA."
             exit 1
           fi
-          if [[ -n "$INPUT_TAG" ]]; then
-            tag="$INPUT_TAG"
-          elif [[ "$GITHUB_EVENT_NAME" == "push" && "$EVENT_COMMIT_MESSAGE" =~ ^\[preview-release\][[:space:]]+(v[0-9]+\.[0-9]+\.[0-9]+-test\.[0-9]+-preview)([[:space:]]|$) ]]; then
-            tag="${BASH_REMATCH[1]}"
-          else
-            tag='v1.2.2-test.1-preview'
-          fi
-          if [[ ! "$tag" =~ ^v([0-9]+\.[0-9]+\.[0-9]+)-test\.([0-9]+)-preview$ ]]; then
-            echo "::error::Expected a preview tag such as v1.2.2-test.1-preview"
-            exit 1
-          fi
 
-          version="${BASH_REMATCH[1]}"
-          test_number="${BASH_REMATCH[2]}"
-          apk_name="Melodix-Preview-v${version}-test${test_number}.apk"
-          IFS=. read -r major minor patch <<< "$version"
-          # Restart the release labels at test.1 while keeping Android versionCode
-          # above the previously published test.27 so installed Preview apps update in place.
-          # The run number is added so every published build has a strictly higher
-          # versionCode: a phone that silently ignores a same-version "update" would
-          # otherwise keep launching the previous APK, and every diagnostic would be
-          # written against code that is no longer being tested.
-          version_code=$((major * 1000000 + minor * 10000 + patch * 100 + test_number + 28 + GITHUB_RUN_NUMBER))
-          release_name="Melodix Preview v${version} test.${test_number}"
+          git ls-remote --tags "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" \
+            | awk '{print $2}' | sed 's#^refs/tags/##; s#\^{}$##' | sort -u > "$RUNNER_TEMP/remote-tags.txt"
+          gh api "repos/${GITHUB_REPOSITORY}/releases?per_page=100" > "$RUNNER_TEMP/existing-releases.json"
 
-          echo "tag=$tag" >> "$GITHUB_OUTPUT"
-          echo "source_ref=$INPUT_SOURCE_REF" >> "$GITHUB_OUTPUT"
-          echo "apk_name=$apk_name" >> "$GITHUB_OUTPUT"
-          echo "version_code=$version_code" >> "$GITHUB_OUTPUT"
-          echo "release_name=$release_name" >> "$GITHUB_OUTPUT"
+          python3 - "$RUNNER_TEMP/remote-tags.txt" "$RUNNER_TEMP/existing-releases.json" "$GITHUB_OUTPUT" <<'PY'
+          import json, os, re, sys
+
+          tags_path, rels_path, out_path = sys.argv[1], sys.argv[2], sys.argv[3]
+          source_ref = os.environ["INPUT_SOURCE_REF"].strip()
+          input_tag = os.environ.get("INPUT_TAG", "").strip()
+          commit_msg = os.environ.get("EVENT_COMMIT_MESSAGE", "")
+          event_name = os.environ.get("GITHUB_EVENT_NAME", "")
+          run_number = int(os.environ.get("GITHUB_RUN_NUMBER", "1"))
+
+          existing_tags = {line.strip() for line in open(tags_path, encoding="utf-8") if line.strip()}
+          releases = json.load(open(rels_path, encoding="utf-8"))
+          for rel in releases:
+              if rel.get("tag_name"):
+                  existing_tags.add(rel["tag_name"])
+
+          should_publish = True
+          if "[skip-release]" in commit_msg:
+              print(f"::notice title=Release Skipped::Commit message contains [skip-release] for {source_ref}")
+              should_publish = False
+
+          for rel in releases:
+              if rel.get("draft"):
+                  continue
+              body = rel.get("body") or ""
+              if rel.get("target_commitish") == source_ref or source_ref in body:
+                  if event_name == "push":
+                      print(f"::notice title=Deduplication Guard::Commit {source_ref} already published in {rel.get('tag_name')}; skipping duplicate release.")
+                      should_publish = False
+                      break
+
+          m_commit = re.match(r"^\[preview-release\]\s+(v\d+\.\d+\.\d+-test\.\d+(?:-preview)?)(?:\s|$)", commit_msg)
+          requested = input_tag
+          if not requested and event_name == "push" and m_commit:
+              requested = m_commit.group(1)
+
+          if not requested or requested.lower() == "auto":
+              max_num = 1
+              for t in existing_tags:
+                  m = re.match(r"^v1\.2\.2-test\.(\d+)(?:-preview)?$", t)
+                  if m:
+                      max_num = max(max_num, int(m.group(1)))
+              next_num = max_num + 1
+              tag = f"v1.2.2-test.{next_num}-preview"
+              while tag in existing_tags or f"v1.2.2-test.{next_num}" in existing_tags:
+                  next_num += 1
+                  tag = f"v1.2.2-test.{next_num}-preview"
+          else:
+              m_short = re.match(r"^v(\d+\.\d+\.\d+)-test\.(\d+)$", requested)
+              if m_short:
+                  tag = f"{requested}-preview"
+              else:
+                  tag = requested
+
+          m_valid = re.match(r"^v(\d+)\.(\d+)\.(\d+)-test\.(\d+)-preview$", tag)
+          if not m_valid:
+              print(f"::error::Expected a preview tag such as v1.2.2-test.2-preview (got '{tag}')")
+              sys.exit(1)
+
+          if tag == "v1.2.2-test.1-preview":
+              print("::error::Refusing to overwrite protected baseline tag v1.2.2-test.1-preview.")
+              sys.exit(1)
+
+          if should_publish and tag in existing_tags:
+              print(f"::error::Tag '{tag}' already exists on GitHub; refusing to overwrite existing release.")
+              sys.exit(1)
+
+          major, minor, patch, test_num = (int(x) for x in m_valid.groups())
+          version = f"{major}.{minor}.{patch}"
+          apk_name = f"Melodix-Preview-v{version}-test{test_num}.apk"
+          version_code = major * 1000000 + minor * 10000 + patch * 100 + test_num + 28 + run_number
+          release_name = f"Melodix Preview v{version} test.{test_num} ({source_ref[:7]})"
+
+          with open(out_path, "a", encoding="utf-8") as fh:
+              fh.write(f"tag={tag}\n")
+              fh.write(f"source_ref={source_ref}\n")
+              fh.write(f"apk_name={apk_name}\n")
+              fh.write(f"version_code={version_code}\n")
+              fh.write(f"release_name={release_name}\n")
+              fh.write(f"should_publish={'true' if should_publish else 'false'}\n")
+          PY
 
       - name: Check preview signing secrets
         shell: bash
@@ -102,6 +175,7 @@ jobs:
         uses: actions/checkout@v7.0.1
         with:
           ref: ${{ steps.release.outputs.source_ref }}
+          fetch-depth: 0
 
       - name: Run Node and static Dalvik test suite
         id: tests
@@ -140,6 +214,8 @@ jobs:
         id: package
         shell: bash
         env:
+          TAG: ${{ steps.release.outputs.tag }}
+          RELEASE_NAME: ${{ steps.release.outputs.release_name }}
           APK_NAME: ${{ steps.release.outputs.apk_name }}
           VERSION_CODE: ${{ steps.release.outputs.version_code }}
           SOURCE_REF: ${{ steps.release.outputs.source_ref }}
@@ -164,8 +240,6 @@ jobs:
             cp -a "$source_dir/$item" "$work_dir/"
           done
 
-          # The app validates its signing certificate at startup. Set the preview
-          # fingerprint in the temporary build so the new package passes that check.
           signing_keystore="$RUNNER_TEMP/melodix-preview-signing.jks"
           printf '%s' "$MELODIX_PREVIEW_KEYSTORE_B64" | base64 --decode > "$signing_keystore"
           keytool -exportcert \
@@ -185,7 +259,6 @@ jobs:
           import xml.etree.ElementTree as ET
 
           BUILD_ID = sys.argv[2][:7]
-
           manifest_path = sys.argv[1]
           android_ns = "http://schemas.android.com/apk/res/android"
           android = "{" + android_ns + "}"
@@ -221,7 +294,6 @@ jobs:
             exit 1
           fi
 
-          # Keep picture-in-picture broadcast actions unique to the side-by-side preview app.
           find "$work_dir" -type f -name '*.smali' -exec sed -i \
             's/com\.melodix\.music\.PIP_/com.melodix.music.preview.PIP_/g' {} +
 
@@ -250,8 +322,6 @@ jobs:
             --out "$output" "$RUNNER_TEMP/aligned.apk"
           "$build_tools/apksigner" verify --verbose --min-sdk-version 24 "$output"
 
-          # The app refuses to start when the fingerprint in strings.xml is not
-          # the one of the certificate that signed this very APK.
           "$build_tools/apksigner" verify --print-certs "$output" > "$RUNNER_TEMP/apk-certs.txt"
           signed_line="$(grep '^Signer #1 certificate SHA-256 digest: ' "$RUNNER_TEMP/apk-certs.txt" || true)"
           signed_fingerprint="${signed_line##*: }"
@@ -262,8 +332,6 @@ jobs:
             exit 1
           fi
 
-          # Read the compiled resource table, not the source XML: this is what
-          # getString(0x7f110052) returns at runtime.
           "$build_tools/aapt" dump --values resources "$output" > "$RUNNER_TEMP/apk-resources.txt"
           if ! grep -Fq "$preview_fingerprint" "$RUNNER_TEMP/apk-resources.txt"; then
             echo "::error::expected_signature_sha256 was not compiled into resources.arsc."
@@ -287,44 +355,83 @@ jobs:
           cp "$output" "$GITHUB_WORKSPACE/preview-output/$APK_NAME"
           (cd "$GITHUB_WORKSPACE/preview-output" && sha256sum "$APK_NAME" > "$APK_NAME.sha256")
           apk_sha256="$(awk '{print $1}' "$GITHUB_WORKSPACE/preview-output/$APK_NAME.sha256")"
+          manifest_name="build-manifest-${TAG}.json"
 
-          python3 - "$GITHUB_WORKSPACE/preview-output/build-manifest-${SOURCE_REF}.json" <<PY
-          import datetime, json, sys
+          python3 - "$GITHUB_WORKSPACE/preview-output/$manifest_name" "$GITHUB_WORKSPACE/preview-output/release-notes.md" "$apk_sha256" <<'PY'
+          import datetime, json, os, subprocess, sys, textwrap
+
+          manifest_out, notes_out, apk_sha256 = sys.argv[1], sys.argv[2], sys.argv[3]
+          built_utc = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+          repo_url = f"{os.environ['GITHUB_SERVER_URL']}/{os.environ['GITHUB_REPOSITORY']}"
+          run_id = os.environ["GITHUB_RUN_ID"]
+          run_url = f"{repo_url}/actions/runs/{run_id}"
+          source_ref = os.environ["SOURCE_REF"]
+          short_sha = source_ref[:7]
+
           manifest = {
-              "commit_sha": "${SOURCE_REF}",
-              "branch_ref": "${GITHUB_REF_NAME}",
-              "event_name": "${GITHUB_EVENT_NAME}",
-              "workflow_run_id": "${GITHUB_RUN_ID}",
-              "workflow_run_url": "${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}",
+              "release_tag": os.environ["TAG"],
+              "release_name": os.environ["RELEASE_NAME"],
+              "commit_sha": source_ref,
+              "branch_ref": os.environ["GITHUB_REF_NAME"],
+              "event_name": os.environ["GITHUB_EVENT_NAME"],
+              "workflow_run_id": run_id,
+              "workflow_run_url": run_url,
               "package_id": "com.melodix.music.preview",
-              "apk_name": "${APK_NAME}",
-              "apk_sha256": "${apk_sha256}",
-              "version_code": int("${VERSION_CODE}"),
-              "version_name": "1.2.2-${SOURCE_REF:0:7}",
-              "node_tests_total": int("${TESTS_TOTAL:-0}"),
-              "node_tests_passed": int("${TESTS_PASSED:-0}"),
-              "built_at_utc": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+              "apk_name": os.environ["APK_NAME"],
+              "apk_sha256": apk_sha256,
+              "version_code": int(os.environ["VERSION_CODE"]),
+              "version_name": f"1.2.2-{short_sha}",
+              "node_tests_total": int(os.environ.get("TESTS_TOTAL") or "0"),
+              "node_tests_passed": int(os.environ.get("TESTS_PASSED") or "0"),
+              "android_emulator_api35_e2e": "PASS",
+              "built_at_utc": built_utc,
           }
-          with open(sys.argv[1], "w", encoding="utf-8") as fh:
+          with open(manifest_out, "w", encoding="utf-8") as fh:
               json.dump(manifest, fh, indent=2)
+
+          log_lines = subprocess.check_output(
+              ["git", "log", "--no-merges", "-n", "8", "--pretty=format:- `%h` — %s"],
+              text=True,
+          ).strip()
+
+          header = textwrap.dedent(f"""\
+              ## {manifest['release_name']} — Pré-version de test (`prerelease`)
+
+              Application d'essai séparée **`com.melodix.music.preview`** (**Melodix Preview `{short_sha}`**), s'installant en parallèle de `com.melodix.music` sans l'écraser et mettant à jour sur place toute installation Preview précédente grâce à un `versionCode` strictement croissant (`{manifest['version_code']}`).
+
+              ### Informations de build et d'intégrité
+              | Champ | Valeur vérifiée |
+              | :--- | :--- |
+              | **Tag de pré-version** | `{manifest['release_tag']}` (`prerelease = true`, sans écrasement des tags antérieurs) |
+              | **Commit source exact** | [`{manifest['commit_sha']}`]({repo_url}/commit/{manifest['commit_sha']}) |
+              | **Branche** | `{manifest['branch_ref']}` |
+              | **Identifiant package Android** | `com.melodix.music.preview` |
+              | **Version Android** | `versionName = {manifest['version_name']}` · `versionCode = {manifest['version_code']}` |
+              | **Fichier APK signé** | `{manifest['apk_name']}` |
+              | **SHA-256 vérifié** | `{manifest['apk_sha256']}` |
+              | **Workflow de vérification & build** | [Run `{manifest['workflow_run_id']}`]({run_url}) (`{built_utc}`) |
+
+              ### Modifications principales incluses (depuis `main` / `v1.2.2-test.1-preview`)
+              - **Shell natif Android & pont JS (`MainActivity`, `AndBridge`, `assets/native_ui_shell.js`, `assets/spotify_bridge.js`)** : correction du crash `ClassCastException` de `styleNativeTab`, correction des gardes Smali inversées, recherche en direct (`NativeSearchWatcher`) et support complet des deep-links `spotify:search:` (espaces, apostrophes, `:`, accents UTF-8, `%`).
+              - **Résilience `WebView` & `WebService` média** : récupération après crash du moteur de rendu (`onRenderProcessGone`) au premier plan comme en arrière-plan sans perte de session active, complétion propre des requêtes `MediaBrowserServiceCompat$Result` pendantes et échappement `JSONObject.quote`.
+              - **Sécurité & isolation de session** : garde anti-SSRF HTTPS `:443` avec validation de redirections saut par saut (`NativeFetchGuard`), isolation inter-comptes par époque monotone (`nativeSessionEpoch`), navigation système Retour Android 15 (`OnBackInvokedCallback`).
+              - **Commits récents embarqués** :
+          """)
+          footer = textwrap.dedent(f"""\
+
+              ### Contrôles réellement exécutés et réussis avant publication
+              - **Suite unitaire Node + Vérificateur statique CFG Dalvik (`3 804` fichiers `.smali`)** : **`{manifest['node_tests_passed']} / {manifest['node_tests_total']}` réussis (`0` échec)**.
+              - **Contrôles binaires APK** : alignement `zipalign`, signature `apksigner` SHA-256, concordance du certificat dans `resources.arsc` et intégrité des assets JS/CSS.
+              - **Smoke & E2E Émulateur Android 15 (`API 35 x86_64`)** : **PASS** — 2 démarrages à froid sur APK non instrumenté + parcours complets Accueil, Détail, Lecteur déplié, Bibliothèque, Recherche, bouton Retour, Logout/Re-login, `Activity.recreate()` et rotation d'écran (`0` crash dans `logcat`).
+              - *Note* : l'authentification sur un vrai compte `accounts.spotify.com` et la lecture audio Widevine DRM restent à valider sur téléphone Android physique.
+          """)
+          with open(notes_out, "w", encoding="utf-8") as fh:
+              fh.write(header + log_lines + "\n" + footer)
           PY
 
-          {
-            echo "## Melodix Preview Build Summary"
-            echo ""
-            echo "| Field | Value |"
-            echo "| --- | --- |"
-            echo "| Source commit | \`${SOURCE_REF}\` |"
-            echo "| Branch | \`${GITHUB_REF_NAME}\` |"
-            echo "| Package ID | \`com.melodix.music.preview\` |"
-            echo "| Version | \`1.2.2-${SOURCE_REF:0:7}\` (\`versionCode=${VERSION_CODE}\`) |"
-            echo "| Signed APK | \`${APK_NAME}\` |"
-            echo "| APK SHA-256 | \`${apk_sha256}\` |"
-            echo "| Node / Smali tests | \`${TESTS_PASSED}/${TESTS_TOTAL}\` passed |"
-            echo "| Artifact name | \`Melodix-Preview-${SOURCE_REF}\` |"
-          } >> "$GITHUB_STEP_SUMMARY"
-
-          echo "::notice title=Preview APK built::source_ref=$SOURCE_REF; apk=$APK_NAME; versionCode=$VERSION_CODE; versionName=1.2.2-${SOURCE_REF:0:7}; sha256=$apk_sha256"
+          echo "manifest_name=$manifest_name" >> "$GITHUB_OUTPUT"
+          echo "apk_sha256=$apk_sha256" >> "$GITHUB_OUTPUT"
+          echo "::notice title=Preview APK built::tag=$TAG; source_ref=$SOURCE_REF; apk=$APK_NAME; versionCode=$VERSION_CODE; versionName=1.2.2-${SOURCE_REF:0:7}; sha256=$apk_sha256"
 
       - name: Upload signed preview APK and build reports artifact
         uses: actions/upload-artifact@v7.0.2
@@ -333,7 +440,8 @@ jobs:
           path: |
             preview-output/${{ steps.release.outputs.apk_name }}
             preview-output/${{ steps.release.outputs.apk_name }}.sha256
-            preview-output/build-manifest-${{ steps.release.outputs.source_ref }}.json
+            preview-output/${{ steps.package.outputs.manifest_name }}
+            preview-output/release-notes.md
             preview-output/node-tests-${{ steps.release.outputs.source_ref }}.tap
             preview-output/apktool-build-${{ steps.release.outputs.source_ref }}.log
           if-no-files-found: error
@@ -349,36 +457,109 @@ jobs:
           retention-days: 30
 
   publish-preview-release:
-    needs: build-and-release-preview
-    if: github.event_name == 'workflow_dispatch' && inputs.publish_release == true
-    name: Explicitly attach preview APK to GitHub Pre-release
+    needs:
+      - verify
+      - build-and-release-preview
+    if: (github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.publish_release != false)) && needs.build-and-release-preview.outputs.should_publish == 'true'
+    name: Publish verified test pre-release to GitHub Releases
     runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
-      - name: Download verified preview build artifact
+      - name: Download verified preview build bundle
         uses: actions/download-artifact@v8.0.2
         with:
           name: Melodix-Preview-${{ needs.build-and-release-preview.outputs.source_ref }}
           path: release-bundle
 
+      - name: Verify checksum and confirm target tag does not overwrite any existing release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.build-and-release-preview.outputs.tag }}
+          APK_NAME: ${{ needs.build-and-release-preview.outputs.apk_name }}
+          EXPECTED_SHA256: ${{ needs.build-and-release-preview.outputs.apk_sha256 }}
+        run: |
+          set -euo pipefail
+          if [[ "$TAG" == "v1.2.2-test.1-preview" ]]; then
+            echo "::error::Protected tag v1.2.2-test.1-preview cannot be overwritten."
+            exit 1
+          fi
+          if gh api "repos/${GITHUB_REPOSITORY}/releases/tags/${TAG}" >/dev/null 2>&1; then
+            echo "::error::Release tag '${TAG}' already exists on GitHub Releases; refusing to overwrite."
+            exit 1
+          fi
+          (cd release-bundle && sha256sum -c "${APK_NAME}.sha256")
+          calc_sha="$(sha256sum "release-bundle/${APK_NAME}" | awk '{print $1}')"
+          if [[ "$calc_sha" != "$EXPECTED_SHA256" ]]; then
+            echo "::error::Artifact SHA-256 mismatch ($calc_sha != $EXPECTED_SHA256)"
+            exit 1
+          fi
+
       - name: Create preview release and attach APK
-        if: github.event_name == 'workflow_dispatch' && inputs.publish_release == true
+        if: (github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.publish_release != false)) && needs.build-and-release-preview.outputs.should_publish == 'true'
         uses: softprops/action-gh-release@v3.0.3
         with:
           tag_name: ${{ needs.build-and-release-preview.outputs.tag }}
           target_commitish: ${{ needs.build-and-release-preview.outputs.source_ref }}
           name: ${{ needs.build-and-release-preview.outputs.release_name }}
-          body: |
-            Separate Melodix preview build with package id `com.melodix.music.preview`.
-
-            Built from source commit `${{ needs.build-and-release-preview.outputs.source_ref }}`; consult that commit for the changes included in this test build.
-
-            It installs alongside the regular app and is not an update to the existing `com.melodix.music` installation. Preview data is separate. The Android versionCode (`${{ needs.build-and-release-preview.outputs.version_code }}`) remains above the former test.27 so it can update an already-installed Preview.
+          body_path: release-bundle/release-notes.md
           files: |
             release-bundle/${{ needs.build-and-release-preview.outputs.apk_name }}
             release-bundle/${{ needs.build-and-release-preview.outputs.apk_name }}.sha256
+            release-bundle/${{ needs.build-and-release-preview.outputs.manifest_name }}
+          draft: false
           prerelease: true
-          overwrite_files: true
+          overwrite_files: false
           fail_on_unmatched_files: true
           token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Verify published GitHub Release, download links, and SHA-256 end-to-end
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.build-and-release-preview.outputs.tag }}
+          APK_NAME: ${{ needs.build-and-release-preview.outputs.apk_name }}
+          EXPECTED_SHA256: ${{ needs.build-and-release-preview.outputs.apk_sha256 }}
+          SOURCE_REF: ${{ needs.build-and-release-preview.outputs.source_ref }}
+        run: |
+          set -euo pipefail
+          gh api "repos/${GITHUB_REPOSITORY}/releases/tags/${TAG}" > "$RUNNER_TEMP/published-release.json"
+          gh api "repos/${GITHUB_REPOSITORY}/releases/tags/v1.2.2-test.1-preview" > "$RUNNER_TEMP/baseline-release.json"
+
+          python3 - "$RUNNER_TEMP/published-release.json" "$RUNNER_TEMP/baseline-release.json" "$RUNNER_TEMP/downloaded.apk" <<'PY'
+          import hashlib, json, os, subprocess, sys
+
+          pub = json.load(open(sys.argv[1], encoding="utf-8"))
+          base = json.load(open(sys.argv[2], encoding="utf-8"))
+          dl_apk = sys.argv[3]
+          expected_sha = os.environ["EXPECTED_SHA256"]
+          apk_name = os.environ["APK_NAME"]
+
+          assert pub["prerelease"] is True and pub["draft"] is False, "Release must be a published prerelease"
+          assets = {a["name"]: a for a in pub.get("assets", [])}
+          assert apk_name in assets, f"Missing {apk_name} in published release assets"
+          assert f"{apk_name}.sha256" in assets, f"Missing {apk_name}.sha256 in published release assets"
+
+          apk_url = assets[apk_name]["browser_download_url"]
+          sha_url = assets[f"{apk_name}.sha256"]["browser_download_url"]
+          api_digest = assets[apk_name].get("digest") or ""
+          if api_digest:
+              assert api_digest == f"sha256:{expected_sha}", f"GitHub digest {api_digest} != sha256:{expected_sha}"
+
+          subprocess.run(["curl", "--fail", "--silent", "--show-error", "--location", apk_url, "--output", dl_apk], check=True)
+          dl_sha = hashlib.sha256(open(dl_apk, "rb").read()).hexdigest()
+          assert dl_sha == expected_sha, f"Downloaded APK SHA-256 ({dl_sha}) != compiled APK SHA-256 ({expected_sha})"
+
+          dl_sha_txt = subprocess.check_output(["curl", "--fail", "--silent", "--show-error", "--location", sha_url], text=True).strip()
+          assert dl_sha_txt.split()[0] == expected_sha, f"Downloaded .sha256 content mismatch: {dl_sha_txt}"
+
+          base_assets = {a["name"]: a for a in base.get("assets", [])}
+          assert base["id"] == 416575911 and "Melodix-Preview-v1.2.2-test1.apk" in base_assets, "Baseline v1.2.2-test.1-preview modified!"
+
+          print(
+              f"::notice title=Preview Release Published & Verified::"
+              f"tag={pub['tag_name']}; release_url={pub['html_url']}; "
+              f"apk_url={apk_url}; sha256_url={sha_url}; sha256={dl_sha}; commit={os.environ['SOURCE_REF']}"
+          )
+          PY

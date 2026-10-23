@@ -1046,15 +1046,14 @@ test('[D5] RuntimeDiagnostic and StartupLoadWatchdog guard AlertDialog.show agai
     assert.match(watchdog, /Landroid\/app\/Activity;->isDestroyed\(\)Z/, 'StartupLoadWatchdog must check Activity.isDestroyed()');
 });
 
-test('[D6] preview-apk.yml builds & verifies artifacts on push without overwriting GitHub Release unless explicitly dispatched', () => {
+test('[D6] preview-apk.yml verifies before publishing unique test pre-releases without ever overwriting existing tags or releases', () => {
     const workflow = readRepoFile('.github/workflows/preview-apk.yml');
     const publishBlock = workflow.slice(workflow.indexOf('- name: Create preview release and attach APK'));
     assert.ok(publishBlock.length > 0, 'Publish side-by-side preview release step must exist');
-    assert.match(
-        publishBlock,
-        /if:\s*github\.event_name\s*==\s*'workflow_dispatch'/,
-        'GitHub Release asset replacement must only run on explicit manual workflow_dispatch'
-    );
+    assert.match(workflow, /uses: \.\/\.github\/workflows\/test-preview-emulator\.yml/);
+    assert.match(publishBlock, /prerelease:\s*true/, 'Must publish strictly as test pre-release');
+    assert.match(publishBlock, /overwrite_files:\s*false/, 'Must never overwrite existing release files');
+    assert.match(workflow, /Protected tag v1\.2\.2-test\.1-preview cannot be overwritten/);
 });
 
 test('[D8] Post-logout WebView teardown avoids shared renderer SIGKILL loop, WebService.onDestroy always cleans receivers/threads, and notification metadata is scrubbed on logout', () => {

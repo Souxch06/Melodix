@@ -1,9 +1,13 @@
 name: Smoke test Preview APK on Android emulator
 
 on:
-  push:
-    branches-ignore:
-      - main
+  workflow_call:
+    inputs:
+      source_ref:
+        description: Full commit SHA to build and verify on Android emulator
+        required: false
+        type: string
+        default: ''
   workflow_dispatch:
     inputs:
       source_ref:
@@ -16,7 +20,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: emulator-verify-${{ github.ref }}
   cancel-in-progress: ${{ github.event_name == 'push' }}
 
 jobs:

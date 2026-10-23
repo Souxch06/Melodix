@@ -156,7 +156,7 @@ if [[ "$WAIT_CI" -eq 1 ]]; then
     echo "$OUT"
     COUNT="$(printf '%s\n' "$OUT" | grep -c . || true)"
     DONE="$(printf '%s\n' "$OUT" | awk -F'\t' '$2=="completed"{c++} END{print c+0}')"
-    if [[ "$COUNT" -ge 2 && "$DONE" -eq "$COUNT" ]]; then
+    if [[ "$COUNT" -ge 1 && "$DONE" -eq "$COUNT" ]]; then
       FAILED="$(printf '%s\n' "$OUT" | awk -F'\t' '$3!="success"{c++} END{print c+0}')"
       if [[ "$FAILED" -gt 0 ]]; then
         echo "ERROR: $FAILED workflow run(s) failed for commit $HEAD_SHA." >&2

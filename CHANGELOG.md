@@ -10,9 +10,10 @@ Toutes les modifications fonctionnelles, de sécurité et d'infrastructure valid
 - **Déclenchement automatique multi-branches sans doublon** (`.github/workflows/preview-apk.yml`, `.github/workflows/test-preview-emulator.yml`) :
   - Passage de `branches: [arena/7142700d-melodix]` à `branches-ignore: [main]` pour couvrir automatiquement toutes les branches de développement et sessions Arena futures sans déclenchement parasite sur `main` ni boucle infinie.
   - Ajout de `concurrency` par workflow et branche (`cancel-in-progress: ${{ github.event_name == 'push' }}`) pour annuler proprement les builds obsolètes lors de pushes rapprochés sans jamais interrompre un `workflow_dispatch` manuel.
-- **Moindre privilège et isolation stricte des Releases** (`.github/workflows/preview-apk.yml`, `.github/workflows/release-apk.yml`) :
-  - Permissions globales abaissées à `contents: read` sur l'ensemble des workflows.
-  - Isolation de la publication de pré-release dans un job distinct `publish-preview-release` verrouillé par `github.event_name == 'workflow_dispatch' && inputs.publish_release == true` (`default: false`) : aucun `push` ni `workflow_dispatch` par défaut ne peut créer ou écraser une GitHub Release.
+- **Séparation Vérification → Pré-Release automatique par tag unique** (`.github/workflows/preview-apk.yml`, `.github/workflows/test-preview-emulator.yml`) :
+  - `test-preview-emulator.yml` (`contents: read` uniquement, réutilisable via `workflow_call` et `workflow_dispatch`) exécute d'abord les `189` tests Node/Dalvik et le test E2E complet sur émulateur Android 15 (`API 35 x86_64`).
+  - Uniquement après le succès complet de `verify`, `build-and-release-preview` (`contents: read`) alloue automatiquement le prochain tag de test unique (`v1.2.2-test.2-preview`, `v1.2.2-test.3-preview`, …) sans jamais toucher `v1.2.2-test.1-preview`, déduplique par SHA 40 caractères, signe l'APK et génère `release-notes.md` + `build-manifest-<TAG>.json`.
+  - Le job dédié `publish-preview-release` (`contents: write`, `prerelease: true`, `overwrite_files: false`) publie la pré-version sur GitHub Releases et vérifie le SHA-256 par téléchargement réel post-publication.
 - **Traçabilité par SHA complet (40 caractères) et rapports téléchargeables** :
   - Génération et archivage dans `Melodix-Preview-<SHA40>` : APK signé, `.sha256`, `build-manifest-<SHA40>.json`, journal `apktool-build-<SHA40>.log` et rapport `node-tests-<SHA40>.tap`.
   - Génération et archivage dans `Melodix-Emulator-Verification-<SHA40>` : dumps UI XML (`01_home.xml`..`14_after_recreate.xml`), `logcat` Phase 1 & Phase 2, `node-tests-<SHA40>.tap` et `verification-summary-<SHA40>.json`.

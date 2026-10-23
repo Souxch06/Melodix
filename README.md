@@ -27,11 +27,10 @@ Les APK archivés des anciennes versions ont été retirés du répertoire `rele
 
 Les workflows d'automatisation sont disponibles dans l'onglet **Actions** (protocole complet dans [`AGENTS.md`](AGENTS.md) et [`CHANGELOG.md`](CHANGELOG.md)) :
 
-- **À chaque `push` sur une branche de développement** (toutes branches hors `main`) :
-  - `Build Melodix Preview APK` exécute la suite de tests Node/Dalvik, compile et signe `com.melodix.music.preview` en mode lecture seule (`contents: read`), puis publie uniquement l'artefact `Melodix-Preview-<SHA40>` (APK signé, `.sha256`, `build-manifest-<SHA40>.json`, rapport TAP) **sans créer ni modifier aucune GitHub Release**.
-  - `Smoke test Preview APK on Android emulator` démarre un émulateur Android 15 (`API 35` x86_64) pour valider le démarrage à froid et les parcours E2E, puis archive les dumps UI et journaux `logcat` dans `Melodix-Emulator-Verification-<SHA40>`.
-- **Publication explicite uniquement sur demande manuelle** :
-  - `Build Melodix Preview APK` en `workflow_dispatch` avec `publish_release: true` attache explicitement une pré-release Preview (`com.melodix.music.preview`).
-  - `Build APK and attach to GitHub Release` sert uniquement aux releases de l'application normale `com.melodix.music` lors de la publication explicite d'une release ou d'un `workflow_dispatch` dédié.
+- **À chaque `push` sur une branche de développement** (toutes branches hors `main`, tags ignorés pour éviter toute boucle) :
+  1. `verify` (`.github/workflows/test-preview-emulator.yml`, `contents: read`) valide d'abord les `189` tests Node/Dalvik, la signature APK et l'émulateur Android 15 (`API 35 x86_64`).
+  2. Si et seulement si tous les contrôles réussissent, `Build Melodix Preview APK` alloue un tag de pré-version unique (`v1.2.2-test.2-preview`, `v1.2.2-test.3-preview`, …) et publie automatiquement sur [GitHub Releases](https://github.com/Souxch06/Melodix/releases) l'APK signé (`com.melodix.music.preview`), son `.sha256` et son `build-manifest.json` (`prerelease: true`, `overwrite_files: false`), sans jamais écraser les versions précédentes ni publier de version stable officielle.
+- **Versions stables/officielles** :
+  - `Build APK and attach to GitHub Release` reste strictement manuel / déclenché uniquement sur publication explicite d'une release de l'application principale `com.melodix.music`.
 
 Pour configurer la signature Preview, ajoute les secrets Actions `MELODIX_PREVIEW_KEYSTORE_B64` et `MELODIX_PREVIEW_KEYSTORE_PASSWORD` (et `MELODIX_PREVIEW_KEY_PASSWORD` uniquement si le mot de passe de la clé est différent). Le guide détaillé est dans [`docs/preview-apk.md`](docs/preview-apk.md). **Ne mets jamais un fichier de signature ni ses mots de passe dans le dépôt.**
