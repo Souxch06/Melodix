@@ -258,6 +258,20 @@
 .method public final b()V
     .locals 4
 
+    iget-object v0, p0, Landroidx/activity/b;->a:Ljava/lang/Runnable;
+    instance-of v1, v0, Lbm;
+    if-eqz v1, :native_back_scan_list
+    check-cast v0, Lbm;
+    iget-object v0, v0, Lbm;->j:Landroidx/activity/a;
+    instance-of v1, v0, Lcom/melodix/music/MainActivity;
+    if-eqz v1, :native_back_scan_list
+    check-cast v0, Lcom/melodix/music/MainActivity;
+    invoke-virtual {v0}, Lcom/melodix/music/MainActivity;->handleNativeBack()Z
+    move-result v0
+    if-eqz v0, :native_back_scan_list
+    return-void
+
+    :native_back_scan_list
     .line 1
     iget-object v0, p0, Landroidx/activity/b;->b:Laa;
 

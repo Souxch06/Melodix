@@ -309,7 +309,7 @@ jobs:
           assert_ui_has() {
             local xml="$1"
             local needle="$2"
-            python3 - "$xml" "$needle" <<'PY'
+            if ! python3 - "$xml" "$needle" <<'PY'
           import sys, xml.etree.ElementTree as ET
           root = ET.parse(sys.argv[1]).getroot()
           all_txt = " | ".join(filter(None, ((n.get("text") or "").strip() or (n.get("content-desc") or "").strip() for n in root.iter())))
@@ -317,6 +317,13 @@ jobs:
               print(f"::error title=UI assertion failed ({sys.argv[1]})::expected={sys.argv[2]!r}; visible={all_txt[:350]!r}")
               raise SystemExit(1)
           PY
+            then
+              cur_pid="$(adb shell pidof "$pkg" 2>/dev/null | tr -d '\r' || true)"
+              cur_res="$(adb shell dumpsys activity activities 2>/dev/null | grep -E 'ResumedActivity' | tr '\n\r' ' ' || true)"
+              prefs="$(adb shell su 0 cat "/data/data/$pkg/shared_prefs/melodix_native.xml" 2>/dev/null | tr '\n\r' ' ' || true)"
+              echo "::error title=Emulator state at failure::pid=${cur_pid} resumed=${cur_res:0:180} prefs=${prefs:0:350}"
+              exit 1
+            fi
           }
 
           assert_ui_lacks() {

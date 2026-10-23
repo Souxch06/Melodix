@@ -4450,6 +4450,17 @@
     .line 1003
     invoke-virtual {v1, v0, v2}, Landroidx/activity/b;->a(Lci0;Lr70;)V
 
+    sget v3, Landroid/os/Build$VERSION;->SDK_INT:I
+    const/16 v4, 0x21
+    if-lt v3, v4, :native_back_reg_create_done
+    invoke-static {v0}, Lcm;->a(Landroid/app/Activity;)Landroid/window/OnBackInvokedDispatcher;
+    move-result-object v3
+    iput-object v3, v1, Landroidx/activity/b;->e:Landroid/window/OnBackInvokedDispatcher;
+    const/4 v3, 0x1
+    iput-boolean v3, v1, Landroidx/activity/b;->g:Z
+    invoke-virtual {v1, v3}, Landroidx/activity/b;->c(Z)V
+    :native_back_reg_create_done
+
     .line 1004
     .line 1005
     .line 1006
@@ -5522,6 +5533,19 @@
     .line 327
     :cond_15
     invoke-virtual {p0}, Lcom/melodix/music/MainActivity;->G()V
+
+    sget v0, Landroid/os/Build$VERSION;->SDK_INT:I
+    const/16 v1, 0x21
+    if-lt v0, v1, :native_back_reg_resume_done
+    invoke-virtual {p0}, Landroidx/activity/a;->i()Landroidx/activity/b;
+    move-result-object v0
+    invoke-static {p0}, Lcm;->a(Landroid/app/Activity;)Landroid/window/OnBackInvokedDispatcher;
+    move-result-object v1
+    iput-object v1, v0, Landroidx/activity/b;->e:Landroid/window/OnBackInvokedDispatcher;
+    const/4 v1, 0x1
+    iput-boolean v1, v0, Landroidx/activity/b;->g:Z
+    invoke-virtual {v0, v1}, Landroidx/activity/b;->c(Z)V
+    :native_back_reg_resume_done
 
     .line 328
     .line 329

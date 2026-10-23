@@ -264,10 +264,13 @@ test('WS4: logout hides nativeRoot & resets state, and Android Back button works
     assert.doesNotMatch(mainActivity, /\.method public[^\n]*onBackPressed\(\)V/);
 
     // 2. Verify single canonical OnBackPressedDispatcher routing (androidx/activity/b.b + Lr70.a -> MainActivity.handleNativeBack()Z)
-    //    with NO duplicate onKeyDown(KEYCODE_BACK) handler that would double-fire on ACTION_DOWN + ACTION_UP / OnBackInvokedDispatcher.
+    //    with predictive back enabled in AndroidManifest.xml and OnBackInvokedDispatcher bound on create/resume (no double-fire in onKeyDown).
+    const manifest = read('AndroidManifest.xml');
+    assert.match(manifest, /android:enableOnBackInvokedCallback="true"/);
+
     const dispatcher = read('smali/androidx/activity/b.smali');
     const dispatchMethod = extractMethod(dispatcher, '.method public final b()V');
-    assert.match(dispatchMethod, /Lcom\/melodix\/music\/MainActivity;->handleNativeBack\(\)Z\s*\n\s*move-result p0\s*\n\s*if-eqz p0, :native_back_dispatch_legacy\s*\n\s*return-void/);
+    assert.match(dispatchMethod, /Lcom\/melodix\/music\/MainActivity;->handleNativeBack\(\)Z\s*\n\s*move-result v0\s*\n\s*if-eqz v0, :native_back_scan_list\s*\n\s*return-void/);
 
     const r70Handle = extractMethod(backCallback, '.method public a()V');
     assert.match(r70Handle, /Lcom\/melodix\/music\/MainActivity;->handleNativeBack\(\)Z\s*\n\s*move-result v1\s*\n\s*if-eqz v1, :native_back_not_handled\s*\n\s*return-void/);
