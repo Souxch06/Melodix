@@ -353,7 +353,7 @@ jobs:
           send_ui "media:spotify:playlist:37i9dQZF1DXcBWIGoYBM5M" '[{"title":"Piste Un","subtitle":"Daft Punk","uri":"spotify:track:111"},{"title":"Piste Deux","subtitle":"Justice","uri":"spotify:track:222"}]'
           dump_ui "02_detail"
           assert_ui_has "$state/02_detail.xml" "Piste Un"
-          send_ui "player" '{"title":"Piste Active","artist":"Daft Punk","playing":true,"progress":42000,"duration":180000}'
+          send_ui "player" '{"track":"Piste Active","artist":"Daft Punk","playing":true,"position":42000,"duration":180000}'
           dump_ui "03_miniplayer"
           assert_ui_has "$state/03_miniplayer.xml" "Piste Active"
           tap_text "$state/03_miniplayer.xml" "Piste Active"
@@ -371,7 +371,7 @@ jobs:
           # 3. Library screen + Filter Chips + Android Back
           tap_text "$state/06_back_to_home.xml" "Biblioth"
           sleep 1
-          send_ui "media:library:playlists" '[{"title":"Ma Playlist Test","subtitle":"12 titres","uri":"spotify:playlist:999"}]'
+          send_ui "media:playlists" '[{"title":"Ma Playlist Test","subtitle":"12 titres","uri":"spotify:playlist:999"}]'
           dump_ui "07_library"
           assert_ui_has "$state/07_library.xml" "Ma Playlist Test"
           assert_ui_has "$state/07_library.xml" "Albums"
@@ -380,10 +380,12 @@ jobs:
           assert_ui_has "$state/08_library_back_home.xml" "Mix Decouverte"
           echo "::notice title=E2E Library + Back::PASS (Library rows + filter chips rendered, Back returned to Home)"
 
-          # 4. Search screen + NativeSearchFocusRunnable + text entry + Android Back
+          # 4. Search screen + NativeSearchFocusRunnable + text entry + IME Submit + Android Back
           tap_text "$state/08_library_back_home.xml" "Rechercher"
           sleep 1
           adb shell input text "daft"
+          sleep 1
+          adb shell input keyevent 66
           sleep 1
           send_ui "search:daft" '[{"title":"One More Time","subtitle":"Daft Punk","uri":"spotify:track:333"}]'
           dump_ui "09_search"
