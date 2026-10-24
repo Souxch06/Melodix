@@ -62,6 +62,10 @@ test('2. dismissKeyboard existe en statique, masque l\'IME et rend compte de sa 
     const body = watcher.slice(methodIndex, watcher.indexOf('.end method', methodIndex));
     assert.match(body, /clearFocus\(\)V/, 'le champ doit perdre le focus');
     assert.match(body, /hideSoftInputFromWindow\(Landroid\/os\/IBinder;I\)Z/, 'l\'IME doit être masquée');
+    assert.match(body, /Landroid\/view\/Window;->getInsetsController\(\)Landroid\/view\/WindowInsetsController;/,
+        'API 30+: le contrôleur d\'insets masque l\'IME même pendant une transition de focus');
+    assert.match(body, /Landroid\/view\/WindowInsetsController;->hide\(I\)V/);
+    assert.match(body, /Landroid\/view\/WindowInsets\$Type;->ime\(\)I/);
     assert.match(body, /getSystemService\(Ljava\/lang\/String;\)Ljava\/lang\/Object;/);
     // returns 1 when the keyboard/field was engaged, 0 otherwise
     assert.match(body, /return v1/, 'retourne le booléen de consommation');

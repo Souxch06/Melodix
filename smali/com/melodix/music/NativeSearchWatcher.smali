@@ -15,7 +15,10 @@
 .method public static dismissKeyboard(Lcom/melodix/music/MainActivity;)Z
     .locals 4
 
+    const/4 v0, 0x0
     const/4 v1, 0x0
+    const/4 v2, 0x0
+    const/4 v3, 0x0
     if-nez p0, :dismiss_return
 
     const v0, 0x7f090233
@@ -24,28 +27,47 @@
     if-eqz v0, :dismiss_hide
     invoke-virtual {v0}, Landroid/view/View;->isFocused()Z
     move-result v2
-    if-eqz v2, :dismiss_hide
+    if-eqz v2, :dismiss_clear
     const/4 v1, 0x1
+    :dismiss_clear
     invoke-virtual {v0}, Landroid/view/View;->clearFocus()V
 
     :dismiss_hide
+    # Legacy hide (below API 30 and older IMEs).
     const-string v2, "input_method"
     invoke-virtual {p0, v2}, Landroid/content/Context;->getSystemService(Ljava/lang/String;)Ljava/lang/Object;
     move-result-object v2
-    if-eqz v2, :dismiss_return
+    if-eqz v2, :dismiss_modern
     check-cast v2, Landroid/view/inputmethod/InputMethodManager;
     invoke-virtual {p0}, Landroid/app/Activity;->getWindow()Landroid/view/Window;
     move-result-object v3
-    if-eqz v3, :dismiss_return
+    if-eqz v3, :dismiss_modern
     invoke-virtual {v3}, Landroid/view/Window;->getDecorView()Landroid/view/View;
     move-result-object v3
-    if-eqz v3, :dismiss_return
+    if-eqz v3, :dismiss_modern
     invoke-virtual {v3}, Landroid/view/View;->getWindowToken()Landroid/os/IBinder;
     move-result-object v3
     const/4 v0, 0x0
     invoke-virtual {v2, v3, v0}, Landroid/view/inputmethod/InputMethodManager;->hideSoftInputFromWindow(Landroid/os/IBinder;I)Z
     move-result v2
+    if-eqz v2, :dismiss_modern
+    const/4 v1, 0x1
+
+    :dismiss_modern
+    # API 30+: the window insets controller hides the IME reliably even
+    # during a focus transition, where hideSoftInputFromWindow can miss.
+    sget v0, Landroid/os/Build$VERSION;->SDK_INT:I
+    const/16 v2, 0x1e
+    if-ge v0, v2, :dismiss_return
+    invoke-virtual {p0}, Landroid/app/Activity;->getWindow()Landroid/view/Window;
+    move-result-object v2
     if-eqz v2, :dismiss_return
+    invoke-virtual {v2}, Landroid/view/Window;->getInsetsController()Landroid/view/WindowInsetsController;
+    move-result-object v2
+    if-eqz v2, :dismiss_return
+    invoke-static {}, Landroid/view/WindowInsets$Type;->ime()I
+    move-result v0
+    invoke-virtual {v2, v0}, Landroid/view/WindowInsetsController;->hide(I)V
     const/4 v1, 0x1
 
     :dismiss_return
