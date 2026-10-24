@@ -144,3 +144,25 @@ Composants morts identifiés (ne pas y fixer) : `__sfMergeLibraryIntoHomeRows`/`
 - Suite complète : **307/307** (296 non-régression + 11 P0) ; `./scripts/verify-and-sync.sh` **EXIT=0** (tests + vérificateur CFG Dalvik).
 - Contrats préservés (jamais supprimés) : `keyboard_input.test.js` (Back IME-first, leave-close, debounce, submit), `NativeSearchFocusRunnable.smali` conservé pour demandes de focus explicites.
 - **Reste à produire** : validation E2E sur APK compilé (émulateur API 35) et release unique `v1.2.2-test.6-preview` — cf. sections suivantes (à venir).
+
+## 19. Validation E2E sur APK compilé (émulateur API 35, x86_64)
+
+Run **`40122897488` = SUCCESS** sur le commit **`b66fef5ccce36e94ef17ebb68d2d398478a1c90b`** (build/sign/verify pipeline, tests 307/307 puis boot émulateur API 35, pid stable, 0 crash/erreur vérificateur/JS) :
+
+| Vérification | Résultat |
+|---|---|
+| Accueil : greeting « Bonsoir, Camille » + sections et cartes | **PASS** |
+| Accueil → Détail → Player étendu → Retour → Retour | **PASS** |
+| **Bibliothèque : lignes + chips de filtre rendues, Retour → Accueil** | **PASS** (BUG 1 prouvé corrigé sur l'APK compilé) |
+| Isolation onglets : chargement tardif succès/vide/erreur jamais fuité sur Paramètres | **PASS** |
+| Recherche : champ actif, « daft » saisi, résultats rendus, Retour → Accueil | **PASS** |
+| **Clavier : entrée fermée, ouverture au tap explicite sur le champ, texte conservé, Back ferme IME d'abord puis navigue, aucun IME résiduel sur les autres écrans** | **PASS** (BUG 3 prouvé corrigé sur l'APK compilé) |
+| Logout / garde Epoch (callbacks périmés bloqués), deep-link injection, JSON malformé, rotation | **PASS** |
+| Cibles cliquables : aucune étiquetée sous 40×40 px | **PASS** |
+| Crashes / Dalvik verifier / erreurs JS (tous PIDs) | **0** |
+
+Captures de preuve (artifact `Melodix-Emulator-Verification-b66fef5…`, 6 fichiers) : `19_kb_entry_closed.png` (clavier fermé à l'entrée), `20_kb_open.png` (ouvert au tap sur le champ), `21_kb_closed_still_search.xml+png` (Back ferme IME, texte « daft » conservé), `24_kb_no_linger.png`, `30_home.png`, `31_library.png` (bibliothèque rendue).
+
+Échec intermédiaire documenté : run `40122324538` — les taps aux coordonnées fixes (540,400) de l'ancien contrat « clavier ouvert à l'entrée » ne touchaient plus le champ une fois le clavier fermé ; corrigé par des taps pilotés par dump (`b66fef5`).
+
+Bug 2 (terminaison des chargements) : validé par les contrats P0 (budget de retries → erreur terminale, cache des réponses en retard, canal `media:<cat>` jamais silencieux, réessai cliquable) + l'isolation E2E ci-dessus ; la capture `31_library.png` montre la bibliothèque rendue hors état de chargement.
