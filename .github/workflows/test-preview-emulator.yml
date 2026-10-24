@@ -578,7 +578,10 @@ jobs:
             exit 1
           fi
           assert_ui_has "$state/19_kb_entry_closed.xml" "Rechercher"
-          adb shell input tap 540 400 || true
+          # The field sits where the CLOSED-keyboard layout puts it: tap it
+          # through the dump (its kept text, else its hint) — fixed coordinates
+          # belonged to the old open-on-entry layout.
+          tap_text "$state/19_kb_entry_closed.xml" "daft" 2>/dev/null || tap_text "$state/19_kb_entry_closed.xml" "Que souhaitez-vous"
           sleep 1
           adb shell input text "daft%sfun" || true
           sleep 1
@@ -614,7 +617,8 @@ jobs:
           # reachable above the keyboard).
           tap_text "$state/22_kb_back_home.xml" "Rechercher"
           sleep 1
-          adb shell input tap 540 400 || true
+          dump_ui "22b_kb_entry_closed2"
+          tap_text "$state/22b_kb_entry_closed2.xml" "daft" 2>/dev/null || tap_text "$state/22b_kb_entry_closed2.xml" "Que souhaitez-vous"
           sleep 1
           im_open2="$(adb shell dumpsys input_method 2>/dev/null | grep -o 'mInputShown=[a-z]*' | head -n 1 | tr -d '\r' || true)"
           dump_ui "23_kb_open_nav"
