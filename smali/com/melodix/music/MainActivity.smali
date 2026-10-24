@@ -8013,12 +8013,12 @@
     const-string v0, "Rechercher"
     invoke-virtual {v0, p1}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
     move-result v0
-    if-eqz v0, :rows_ime_keep
+    if-nez v0, :rows_ime_keep
     iget-object v0, p0, Lcom/melodix/music/MainActivity;->nativeExpectedSearch:Ljava/lang/String;
     if-eqz v0, :rows_ime_dismiss
     invoke-virtual {v0, p1}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
     move-result v0
-    if-eqz v0, :rows_ime_keep
+    if-nez v0, :rows_ime_keep
     :rows_ime_dismiss
     invoke-static {p0}, Lcom/melodix/music/NativeSearchWatcher;->dismissKeyboard(Lcom/melodix/music/MainActivity;)Z
     const-wide/16 v0, 0x12c
