@@ -2761,6 +2761,10 @@
 
     invoke-static/range {v1 .. v1}, Lcom/melodix/music/NativeCrashGuard;->stage(Ljava/lang/String;)V
 
+    # Keep the mini-player and the bottom navigation reachable while the soft
+    # keyboard is open (keyboard overlap becomes bottom padding).
+    invoke-static {v0}, Lcom/melodix/music/NativeImeInsetsListener;->install(Landroid/app/Activity;)V
+
     .line 154
     .line 155
     .line 156

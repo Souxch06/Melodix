@@ -41,11 +41,19 @@ test('1. MainActivity déclare windowSoftInputMode="adjustResize"', () => {
     const tag = manifest.slice(tagIndex, openEnd);
     assert.match(tag, /android:windowSoftInputMode="adjustResize"/,
         'le manifeste doit redimensionner (adjustResize) au lieu de déplacer l\'écran');
-    // API 35 enforces edge-to-edge, which silently disables adjustResize:
-    // the theme must opt out so the window really resizes around the IME.
-    const styles = read('res/values/styles.xml');
-    assert.match(styles, /<style name="Theme\.Spotifuck"[^>]*>[\s\S]*?windowOptOutEdgeToEdgeEnforcement">true/,
-        'Theme.Spotifuck doit sortir de l\'edge-to-edge imposé (API 35) pour que adjustResize fonctionne');
+    // API 35 enforces edge-to-edge and ignores adjustResize: the listener
+    // turns the keyboard overlap into bottom padding so the mini-player and
+    // the navigation stay reachable while typing.
+    const listener = read('smali/com/melodix/music/NativeImeInsetsListener.smali');
+    assert.match(listener, /\.implements Landroid\/view\/View\$OnApplyWindowInsetsListener;/);
+    assert.match(listener, /Landroid\/view\/WindowInsets\$Type;->ime\(\)I/,
+        'la hauteur du clavier est lue via WindowInsets.Type.ime()');
+    assert.match(listener, /Landroid\/view\/View;->setPadding\(IIII\)V/,
+        'le contenu est décalé au-dessus du clavier');
+    assert.match(listener, /sget v0, Landroid\/os\/Build\$VERSION;->SDK_INT:I/,
+        'mécanisme moderne gardé pour API 30+, adjustResize suffit en dessous');
+    assert.match(main, /NativeImeInsetsListener;->install/,
+        'le listener doit être installé au démarrage de l\'activité');
 });
 
 test('2. dismissKeyboard existe en statique, masque l\'IME et rend compte de sa consommation', () => {
