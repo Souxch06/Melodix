@@ -1,0 +1,781 @@
+name: Smoke test Preview APK on Android emulator
+
+on:
+  workflow_call:
+    inputs:
+      source_ref:
+        description: Full commit SHA to build and verify on Android emulator
+        required: false
+        type: string
+        default: ''
+  workflow_dispatch:
+    inputs:
+      source_ref:
+        description: Full commit SHA to build and verify on Android emulator
+        required: false
+        type: string
+        default: ''
+
+permissions:
+  contents: read
+
+concurrency:
+  group: emulator-verify-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'push' }}
+
+jobs:
+  emulator-e2e:
+    name: Build Preview APK and verify startup, home, navigation, search, library, back, and logout on Android emulator
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    timeout-minutes: 40
+    steps:
+      - name: Resolve target commit SHA
+        id: meta
+        env:
+          INPUT_SOURCE_REF: ${{ inputs.source_ref || '' }}
+        run: |
+          set -euo pipefail
+          target="${INPUT_SOURCE_REF:-$GITHUB_SHA}"
+          if [[ ! "$target" =~ ^[0-9a-fA-F]{40}$ ]]; then
+            echo "::error::Target commit must be a full 40-character SHA (got '$target')."
+            exit 1
+          fi
+          echo "target_sha=$target" >> "$GITHUB_OUTPUT"
+
+      - name: Check out target source commit
+        uses: actions/checkout@v7.0.1
+        with:
+          ref: ${{ steps.meta.outputs.target_sha }}
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v6.1.0
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v4.0.4
+
+      - name: Install Android build tools and Node tests check
+        id: tests
+        env:
+          TARGET_SHA: ${{ steps.meta.outputs.target_sha }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$GITHUB_WORKSPACE/emulator-output"
+          tap_file="$GITHUB_WORKSPACE/emulator-output/node-tests-${TARGET_SHA}.tap"
+          if ! node --test tests/*.test.js | tee "$tap_file"; then
+            fail_line="$(grep -E '^# (tests|pass|fail) ' "$tap_file" | tr '\n' ' ' || true)"
+            echo "::error title=Node Test Suite Failed::commit=${TARGET_SHA}; ${fail_line:-test failure}"
+            exit 1
+          fi
+          total="$(awk '/^# tests / {print $3}' "$tap_file" | tail -n 1)"
+          passed="$(awk '/^# pass / {print $3}' "$tap_file" | tail -n 1)"
+          echo "tests_total=${total:-0}" >> "$GITHUB_OUTPUT"
+          echo "tests_passed=${passed:-0}" >> "$GITHUB_OUTPUT"
+          echo "::notice title=Node Test Suite::PASS (${passed:-0}/${total:-0} passed; commit=${TARGET_SHA})"
+          sdkmanager --install "build-tools;35.0.0"
+
+      - name: Build production Preview APK and E2E instrumentation APK for exact commit SHA
+        id: build
+        env:
+          TARGET_SHA: ${{ steps.meta.outputs.target_sha }}
+          MELODIX_PREVIEW_KEYSTORE_B64: ${{ secrets.MELODIX_PREVIEW_KEYSTORE_B64 }}
+          MELODIX_PREVIEW_KEYSTORE_PASSWORD: ${{ secrets.MELODIX_PREVIEW_KEYSTORE_PASSWORD }}
+          MELODIX_PREVIEW_KEY_PASSWORD: ${{ secrets.MELODIX_PREVIEW_KEY_PASSWORD || secrets.MELODIX_PREVIEW_KEYSTORE_PASSWORD }}
+        run: |
+          set -euo pipefail
+          source_dir="$GITHUB_WORKSPACE"
+          framework_dir="$RUNNER_TEMP/melodix-framework"
+          out_dir="$GITHUB_WORKSPACE/emulator-output"
+          mkdir -p "$framework_dir" "$out_dir"
+
+          curl --fail --silent --show-error --location \
+            "https://github.com/iBotPeaches/Apktool/releases/download/v2.9.3/apktool_2.9.3.jar" \
+            --output "$RUNNER_TEMP/apktool.jar"
+          java -jar "$RUNNER_TEMP/apktool.jar" if --frame-path "$framework_dir" \
+            "$source_dir/android/apktool-framework/1.apk"
+
+          signing_keystore="$RUNNER_TEMP/preview-signing.jks"
+          if [[ -n "$MELODIX_PREVIEW_KEYSTORE_B64" && -n "$MELODIX_PREVIEW_KEYSTORE_PASSWORD" ]]; then
+            printf '%s' "$MELODIX_PREVIEW_KEYSTORE_B64" | base64 --decode > "$signing_keystore"
+            alias_name="MELODIX_PREVIEW"
+            export KS_PASS="$MELODIX_PREVIEW_KEYSTORE_PASSWORD"
+            export KEY_PASS="$MELODIX_PREVIEW_KEY_PASSWORD"
+          else
+            alias_name="LAUNCH_TEST"
+            export KS_PASS="melodix-preview-test"
+            export KEY_PASS="melodix-preview-test"
+            keytool -genkeypair -keystore "$signing_keystore" -alias "$alias_name" -keyalg RSA \
+              -keysize 2048 -validity 10000 -storepass:env KS_PASS -keypass:env KEY_PASS \
+              -dname "CN=Melodix Preview Test, O=Melodix, C=FR" >/dev/null
+          fi
+          keytool -exportcert -alias "$alias_name" -keystore "$signing_keystore" \
+            -storepass:env KS_PASS -file "$RUNNER_TEMP/cert.der" >/dev/null
+          fingerprint_hex="$(sha256sum "$RUNNER_TEMP/cert.der" | awk '{print toupper($1)}')"
+          preview_fingerprint="$(printf '%s' "$fingerprint_hex" | fold -w 2 | paste -sd ':' -)"
+
+          build_variant() {
+            local mode="$1"
+            local out_name="$2"
+            local vcode="$3"
+            local work_dir="$RUNNER_TEMP/work-$mode"
+            mkdir -p "$work_dir"
+            for item in AndroidManifest.xml META-INF apktool.yml assets kotlin lib original res smali unknown; do
+              cp -a "$source_dir/$item" "$work_dir/"
+            done
+
+            python3 - "$work_dir/AndroidManifest.xml" "$TARGET_SHA" <<'PY'
+          import sys, xml.etree.ElementTree as ET
+          manifest_path, sha = sys.argv[1], sys.argv[2][:7]
+          ns = "http://schemas.android.com/apk/res/android"
+          a = "{" + ns + "}"
+          ET.register_namespace("android", ns)
+          tree = ET.parse(manifest_path)
+          root = tree.getroot()
+          orig, prev = "com.melodix.music", "com.melodix.music.preview"
+          root.set("package", prev)
+          for el in root.iter():
+              if el.get(a + "name") == orig + ".DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION":
+                  el.set(a + "name", prev + ".DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION")
+              auth = el.get(a + "authorities")
+              if auth and auth.startswith(orig + "."):
+                  el.set(a + "authorities", prev + auth[len(orig):])
+              if el.get(a + "label") == "Melodix":
+                  el.set(a + "label", "Melodix Preview " + sha)
+          tree.write(manifest_path, encoding="utf-8", xml_declaration=True, short_empty_elements=True)
+          PY
+
+            if [[ "$mode" == "e2e" ]]; then
+              python3 - "$work_dir/smali/com/melodix/music/MainActivity.smali" <<'PY'
+          import sys
+          p = sys.argv[1]
+          src = open(p, encoding="utf-8").read()
+          anchor = ".method public final onNewIntent(Landroid/content/Intent;)V"
+          start = src.index(anchor)
+          end = src.index(".end method", start)
+          method = src[start:end].replace("    .locals 2", "    .locals 5", 1)
+          old_tail = "    :cond_1\n    return-void"
+          assert old_tail in method, "Expected :cond_1 tail in MainActivity.onNewIntent"
+          e2e_hook = """    :cond_1
+              if-eqz p1, :e2e_done
+              const-string v0, "e2e_type"
+              invoke-virtual {p1, v0}, Landroid/content/Intent;->getStringExtra(Ljava/lang/String;)Ljava/lang/String;
+              move-result-object v0
+              if-eqz v0, :e2e_done
+              iget-object v1, p0, Lcom/melodix/music/MainActivity;->G:Landroid/webkit/WebView;
+              if-eqz v1, :e2e_after_blank
+              const-string v2, "about:blank"
+              invoke-virtual {v1, v2}, Landroid/webkit/WebView;->loadUrl(Ljava/lang/String;)V
+              :e2e_after_blank
+              sget v1, Lcom/melodix/music/MainActivity;->nativeSessionEpoch:I
+              add-int/lit8 v1, v1, 0x1
+              sput v1, Lcom/melodix/music/MainActivity;->nativeSessionEpoch:I
+              const-string v1, "e2e_b64"
+              invoke-virtual {p1, v1}, Landroid/content/Intent;->getStringExtra(Ljava/lang/String;)Ljava/lang/String;
+              move-result-object v1
+              if-eqz v1, :e2e_check_logout
+              const-string v2, "e2e_tb64"
+              invoke-virtual {p1, v2}, Landroid/content/Intent;->getStringExtra(Ljava/lang/String;)Ljava/lang/String;
+              move-result-object v2
+              if-eqz v2, :e2e_decode_val
+              const/4 v3, 0x0
+              invoke-static {v2, v3}, Landroid/util/Base64;->decode(Ljava/lang/String;I)[B
+              move-result-object v2
+              new-instance v0, Ljava/lang/String;
+              const-string v3, "UTF-8"
+              invoke-direct {v0, v2, v3}, Ljava/lang/String;-><init>([BLjava/lang/String;)V
+              :e2e_decode_val
+              const/4 v2, 0x0
+              invoke-static {v1, v2}, Landroid/util/Base64;->decode(Ljava/lang/String;I)[B
+              move-result-object v1
+              new-instance v2, Ljava/lang/String;
+              const-string v3, "UTF-8"
+              invoke-direct {v2, v1, v3}, Ljava/lang/String;-><init>([BLjava/lang/String;)V
+              invoke-virtual {p0, v0, v2}, Lcom/melodix/music/MainActivity;->postNativeUiData(Ljava/lang/String;Ljava/lang/String;)V
+              return-void
+              :e2e_check_logout
+              const-string v1, "logout_race"
+              invoke-virtual {v0, v1}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+              move-result v1
+              if-eqz v1, :e2e_check_recreate
+              new-instance v3, Lcom/melodix/music/AndBridge;
+              invoke-virtual {p0}, Landroid/content/Context;->getApplicationContext()Landroid/content/Context;
+              move-result-object v4
+              invoke-direct {v3, v4}, Lcom/melodix/music/AndBridge;-><init>(Landroid/content/Context;)V
+              new-instance v4, Lcom/melodix/music/NativeHomeJsonCallback;
+              invoke-direct {v4, p0}, Lcom/melodix/music/NativeHomeJsonCallback;-><init>(Lcom/melodix/music/MainActivity;)V
+              new-instance v1, Lcom/melodix/music/NativeUiUpdateRunnable;
+              const-string v2, "home-greeting"
+              const-string v0, "Fuite Tardive Compte A"
+              const/4 p1, 0x1
+              invoke-direct {v1, p0, v2, v0, p1}, Lcom/melodix/music/NativeUiUpdateRunnable;-><init>(Lcom/melodix/music/MainActivity;Ljava/lang/String;Ljava/lang/String;I)V
+              new-instance v2, Lcom/melodix/music/NativeHomeRetryRunnable;
+              const/4 p1, 0x2
+              invoke-direct {v2, p0, p1}, Lcom/melodix/music/NativeHomeRetryRunnable;-><init>(Lcom/melodix/music/MainActivity;I)V
+              invoke-virtual {v2}, Lcom/melodix/music/NativeHomeRetryRunnable;->run()V
+              invoke-virtual {p0}, Lcom/melodix/music/MainActivity;->resetNativeStateForLogout()V
+              invoke-virtual {v1}, Lcom/melodix/music/NativeUiUpdateRunnable;->run()V
+              const-string v2, "home-greeting"
+              const-string v0, "Fuite Tardive Compte A"
+              invoke-virtual {v3, v2, v0}, Lcom/melodix/music/AndBridge;->onNativeUiData(Ljava/lang/String;Ljava/lang/String;)V
+              const-string v0, "[{\\"title\\":\\"Fuite Tardive Compte A\\",\\"uri\\":\\"spotify:playlist:99\\"}]"
+              invoke-virtual {v4, v0}, Lcom/melodix/music/NativeHomeJsonCallback;->onReceiveValue(Ljava/lang/Object;)V
+              return-void
+              :e2e_check_recreate
+              const-string v1, "recreate"
+              invoke-virtual {v0, v1}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+              move-result v1
+              if-eqz v1, :e2e_check_singleton_bridge
+              invoke-virtual {p0}, Landroid/app/Activity;->recreate()V
+              return-void
+              :e2e_check_singleton_bridge
+              const-string v1, "singleton_bridge"
+              invoke-virtual {v0, v1}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+              move-result v1
+              if-eqz v1, :e2e_only_logout
+              new-instance v3, Lcom/melodix/music/AndBridge;
+              invoke-virtual {p0}, Landroid/content/Context;->getApplicationContext()Landroid/content/Context;
+              move-result-object v4
+              invoke-direct {v3, v4}, Lcom/melodix/music/AndBridge;-><init>(Landroid/content/Context;)V
+              invoke-virtual {v3}, Lcom/melodix/music/AndBridge;->onNativeUiReady()V
+              const-string v1, "home-greeting"
+              const-string v2, "Session Recreee OK"
+              invoke-virtual {v3, v1, v2}, Lcom/melodix/music/AndBridge;->onNativeUiData(Ljava/lang/String;Ljava/lang/String;)V
+              return-void
+              :e2e_only_logout
+              const-string v1, "logout"
+              invoke-virtual {v0, v1}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+              move-result v1
+              if-eqz v1, :e2e_done
+              new-instance v0, Lcom/melodix/music/NativeLogoutRunnable;
+              invoke-direct {v0, p0}, Lcom/melodix/music/NativeLogoutRunnable;-><init>(Lcom/melodix/music/MainActivity;)V
+              invoke-virtual {p0, v0}, Landroid/app/Activity;->runOnUiThread(Ljava/lang/Runnable;)V
+              :e2e_done
+              return-void"""
+          patched = method.replace(old_tail, e2e_hook, 1)
+          open(p, "w", encoding="utf-8").write(src[:start] + patched + src[end:])
+          PY
+            fi
+
+            find "$work_dir" -type f -name '*.smali' -exec sed -i \
+              's/com\.melodix\.music\.PIP_/com.melodix.music.preview.PIP_/g' {} +
+            sed -i -E "s#(<string name=\"app_name\">)[^<]*(</string>)#\1Melodix Preview ${TARGET_SHA:0:7}\2#" \
+              "$work_dir/res/values/strings.xml"
+            sed -i -E "s#<string name=\"expected_signature_sha256\">[^<]*</string>#<string name=\"expected_signature_sha256\">$preview_fingerprint</string>#" \
+              "$work_dir/res/values/strings.xml"
+            sed -i -E "s/^apkFileName:.*/apkFileName: $out_name/" "$work_dir/apktool.yml"
+            sed -i -E "s/^  versionCode: .*/  versionCode: $vcode/" "$work_dir/apktool.yml"
+            sed -i -E "s/^  versionName: .*/  versionName: 1.2.2-${TARGET_SHA:0:7}/" "$work_dir/apktool.yml"
+
+            java -jar "$RUNNER_TEMP/apktool.jar" b "$work_dir" --frame-path "$framework_dir" \
+              --output "$RUNNER_TEMP/$mode-unsigned.apk" --force-all > "$out_dir/apktool-$mode.log" 2>&1
+            "$ANDROID_HOME/build-tools/35.0.0/zipalign" -f 4 \
+              "$RUNNER_TEMP/$mode-unsigned.apk" "$RUNNER_TEMP/$mode-aligned.apk"
+            "$ANDROID_HOME/build-tools/35.0.0/apksigner" sign \
+              --ks "$signing_keystore" --ks-key-alias "$alias_name" \
+              --ks-pass env:KS_PASS --key-pass env:KEY_PASS \
+              --out "$out_dir/$out_name" "$RUNNER_TEMP/$mode-aligned.apk"
+            "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --min-sdk-version 24 "$out_dir/$out_name" >/dev/null
+          }
+
+          build_variant "prod" "Melodix-Preview-${TARGET_SHA:0:7}.apk" "$((1020229 + GITHUB_RUN_NUMBER))"
+          build_variant "e2e" "Melodix-Preview-E2E-${TARGET_SHA:0:7}.apk" "$((1020230 + GITHUB_RUN_NUMBER))"
+          echo "prod_apk=emulator-output/Melodix-Preview-${TARGET_SHA:0:7}.apk" >> "$GITHUB_OUTPUT"
+          echo "e2e_apk=emulator-output/Melodix-Preview-E2E-${TARGET_SHA:0:7}.apk" >> "$GITHUB_OUTPUT"
+
+      - name: Boot KVM-accelerated Android 15 emulator
+        run: |
+          set -euo pipefail
+          sdkmanager --install "platform-tools" "emulator" "system-images;android-35;google_apis;x86_64" >/dev/null
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' \
+            | sudo tee /etc/udev/rules.d/99-kvm4all.rules >/dev/null
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+          echo 'no' | avdmanager create avd --force --name MelodixE2E \
+            --package "system-images;android-35;google_apis;x86_64" --device pixel_2 >/dev/null
+          "$ANDROID_HOME/emulator/emulator" -avd MelodixE2E \
+            -no-window -no-audio -no-boot-anim -no-snapshot -gpu swiftshader_indirect \
+            > "$RUNNER_TEMP/emulator.log" 2>&1 &
+          adb start-server >/dev/null
+          for _ in $(seq 1 100); do
+            if [[ "$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" == "1" ]]; then
+              adb shell settings put global window_animation_scale 0
+              adb shell settings put global transition_animation_scale 0
+              adb shell settings put global animator_duration_scale 0
+              echo "::notice title=Android Emulator::Booted API $(adb shell getprop ro.build.version.sdk | tr -d '\r') on $(uname -m)"
+              exit 0
+            fi
+            sleep 5
+          done
+          grep -Ei 'error|fatal|panic' "$RUNNER_TEMP/emulator.log" | tail -n 10 || true
+          exit 1
+
+      - name: Phase 1 — Verify unmodified signed Preview APK cold startup & WebView session state
+        env:
+          PROD_APK: ${{ steps.build.outputs.prod_apk }}
+          TARGET_SHA: ${{ steps.meta.outputs.target_sha }}
+        run: |
+          set -euo pipefail
+          pkg="com.melodix.music.preview"
+          state="$GITHUB_WORKSPACE/emulator-output/phase1"
+          mkdir -p "$state"
+          adb install -r -t "$GITHUB_WORKSPACE/$PROD_APK"
+          ver="$(adb shell dumpsys package "$pkg" | grep -m1 'versionName=' | tr -d ' \r')"
+          echo "::notice title=Phase 1 Installed APK::$ver (commit=$TARGET_SHA)"
+          if [[ "$ver" != "versionName=1.2.2-${TARGET_SHA:0:7}" ]]; then
+            echo "::error::Installed APK versionName ($ver) does not match 1.2.2-${TARGET_SHA:0:7}"
+            exit 1
+          fi
+          for perm in android.permission.POST_NOTIFICATIONS android.permission.BLUETOOTH_CONNECT; do
+            adb shell pm grant "$pkg" "$perm" >/dev/null 2>&1 || true
+          done
+
+          for label in cold_launch_1 cold_launch_2; do
+            adb logcat -c || true
+            adb logcat -c -b crash || true
+            adb shell am force-stop "$pkg" || true
+            adb shell am start -n "$pkg/com.melodix.music.MainActivity" >/dev/null
+            sleep 3
+            init_pid="$(adb shell pidof "$pkg" | tr -d '\r' | awk '{print $1}')"
+            sleep 27
+            pid="$(adb shell pidof "$pkg" | tr -d '\r' | awk '{print $1}')"
+            resumed="$(adb shell dumpsys activity activities | grep -E 'mResumedActivity|topResumedActivity' | tr '\n\r' '  ')"
+            adb shell uiautomator dump --compressed /sdcard/p1.xml >/dev/null 2>&1 || true
+            adb exec-out cat /sdcard/p1.xml > "$state/$label.xml" 2>/dev/null || true
+            if [[ -z "$pid" ]] || [[ "$pid" != "$init_pid" ]] || ! grep -Fq "$pkg/com.melodix.music.MainActivity" <<< "$resumed"; then
+              echo "::error title=Phase 1 $label::Process died/respawned (init=$init_pid cur=$pid) or MainActivity not resumed ($resumed)"
+              exit 1
+            fi
+            adb logcat -d -v brief > "$state/$label-logcat.txt" 2>&1 || true
+            adb logcat -d -b crash -v brief >> "$state/$label-logcat.txt" 2>&1 || true
+            if grep -qE "MelodixCrash|NativeCrashGuard|VerifyError|IncompatibleClassChangeError|LinkageError|WindowManager\\\$BadTokenException|ReferenceError: cleanText" "$state/$label-logcat.txt" || grep -qF "Process: $pkg" "$state/$label-logcat.txt"; then
+              p1_diag="$(grep -nE "Process: $pkg|MelodixCrash|NativeCrashGuard|VerifyError|IncompatibleClassChangeError|LinkageError|WindowManager\\\$BadTokenException|ReferenceError: cleanText" "$state/$label-logcat.txt" | head -n 15 | tr '\n\r' ' | ')"
+              echo "::error title=Phase 1 $label Logcat::$p1_diag"
+              exit 1
+            fi
+            echo "::notice title=Phase 1 $label::PASS (stable pid=$pid, MainActivity foreground, 0 crashes/verifier/JS errors across all PIDs)"
+          done
+
+      - name: Phase 2 — Verify Home, Detail, Player, Library, Search, Android Back button, and Logout end-to-end
+        env:
+          E2E_APK: ${{ steps.build.outputs.e2e_apk }}
+          TARGET_SHA: ${{ steps.meta.outputs.target_sha }}
+          TESTS_TOTAL: ${{ steps.tests.outputs.tests_total }}
+          TESTS_PASSED: ${{ steps.tests.outputs.tests_passed }}
+        run: |
+          set -euo pipefail
+          pkg="com.melodix.music.preview"
+          state="$GITHUB_WORKSPACE/emulator-output/phase2"
+          mkdir -p "$state"
+          adb install -r -t "$GITHUB_WORKSPACE/$E2E_APK"
+          for perm in android.permission.POST_NOTIFICATIONS android.permission.BLUETOOTH_CONNECT; do
+            adb shell pm grant "$pkg" "$perm" >/dev/null 2>&1 || true
+          done
+
+          adb logcat -c || true
+          adb logcat -c -b crash || true
+          adb shell am force-stop "$pkg" || true
+          adb shell am start -n "$pkg/com.melodix.music.MainActivity" >/dev/null
+          sleep 12
+
+          LAST_XML=""
+          trap 'rc=$?; crash_tail="$(adb logcat -d -b crash -v brief 2>/dev/null | tail -n 12 | tr "\n\r" "  " || true)"; echo "::error title=Phase 2 failure at line $LINENO (rc=$rc)::last_xml=$LAST_XML crash=$crash_tail"' ERR
+
+          dump_ui() {
+            local name="$1"
+            sleep 2
+            adb shell uiautomator dump --compressed "/sdcard/$name.xml" >/dev/null 2>&1 || true
+            adb exec-out cat "/sdcard/$name.xml" > "$state/$name.xml"
+            LAST_XML="$state/$name.xml"
+          }
+
+          tap_text() {
+            local xml="$1"
+            local needle="$2"
+            read -r cx cy < <(python3 - "$xml" "$needle" <<'PY'
+          import re, sys, xml.etree.ElementTree as ET
+          root = ET.parse(sys.argv[1]).getroot()
+          needle = sys.argv[2].lower()
+          for node in root.iter():
+              txt = (node.get("text") or "") + " " + (node.get("content-desc") or "")
+              if needle in txt.lower():
+                  m = re.match(r"\[(\d+),(\d+)\]\[(\d+),(\d+)\]", node.get("bounds") or "")
+                  if m:
+                      x1, y1, x2, y2 = map(int, m.groups())
+                      if x2 > x1 and y2 > y1:
+                          print((x1 + x2) // 2, (y1 + y2) // 2)
+                          sys.exit(0)
+          raise SystemExit(f"Could not find UI element matching {needle!r}")
+          PY
+            )
+            adb shell input tap "$cx" "$cy"
+          }
+
+          assert_ui_has() {
+            local xml="$1"
+            local needle="$2"
+            if ! python3 - "$xml" "$needle" <<'PY'
+          import sys, xml.etree.ElementTree as ET
+          root = ET.parse(sys.argv[1]).getroot()
+          all_txt = " | ".join(filter(None, ((n.get("text") or "").strip() or (n.get("content-desc") or "").strip() for n in root.iter())))
+          if sys.argv[2].lower() not in all_txt.lower():
+              print(f"::error title=UI assertion failed ({sys.argv[1]})::expected={sys.argv[2]!r}; visible={all_txt[:350]!r}")
+              raise SystemExit(1)
+          PY
+            then
+              cur_pid="$(adb shell pidof "$pkg" 2>/dev/null | tr -d '\r' || true)"
+              mdx="$(adb logcat -d -s MDXTRACE:I NativeCrashGuard:E AndroidRuntime:E 2>/dev/null | tail -n 55 | tr '\n\r' ' | ' || true)"
+              win="$(adb shell dumpsys window 2>/dev/null | grep -E 'mCurrentFocus|mFocusedApp|OnBackInvoked' | head -n 10 | tr '\n\r' ' | ' || true)"
+              echo "::error title=Emulator state at failure::pid=${cur_pid} win=${win:0:350}"
+              echo "::error title=Crash and MDXTRACE logcat::${mdx:0:2200}"
+              exit 1
+            fi
+          }
+
+          assert_ui_lacks() {
+            local xml="$1"
+            local needle="$2"
+            python3 - "$xml" "$needle" <<'PY'
+          import sys, xml.etree.ElementTree as ET
+          root = ET.parse(sys.argv[1]).getroot()
+          all_txt = "\n".join((n.get("text") or "") + " " + (n.get("content-desc") or "") for n in root.iter())
+          if sys.argv[2].lower() in all_txt.lower():
+              print(f"::error title=UI lacks failed ({sys.argv[1]})::unexpected={sys.argv[2]!r}; visible={all_txt[:350]!r}")
+              raise SystemExit(1)
+          PY
+          }
+
+          send_ui() {
+            local tb64 b64
+            tb64="$(printf '%s' "$1" | base64 -w0)"
+            b64="$(printf '%s' "$2" | base64 -w0)"
+            adb shell am start -n "$pkg/com.melodix.music.MainActivity" \
+              --es e2e_type "__b64" --es e2e_tb64 "$tb64" --es e2e_b64 "$b64" >/dev/null
+          }
+
+          # 1. Home screen + greeting
+          send_ui "home" '[{"title":"Mix Decouverte","subtitle":"Spotify","uri":"spotify:playlist:37i9dQZF1DXcBWIGoYBM5M","section":"Pour vous"},{"title":"Morceau Test","subtitle":"Artiste","uri":"spotify:track:4cOdK2wGLETKBW3PvgPWqT","section":"Recents"}]'
+          sleep 1
+          send_ui "home-greeting" "Bonsoir, Camille"
+          dump_ui "01_home"
+          assert_ui_has "$state/01_home.xml" "Bonsoir, Camille"
+          assert_ui_has "$state/01_home.xml" "Mix Decouverte"
+          echo "::notice title=E2E Home::PASS (greeting 'Bonsoir, Camille' + feed section & cards rendered)"
+
+          # 2. Detail screen + Player + Android Back button (player -> detail -> home)
+          tap_text "$state/01_home.xml" "Mix Decouverte"
+          sleep 1
+          send_ui "media:spotify:playlist:37i9dQZF1DXcBWIGoYBM5M" '[{"title":"Piste Un","subtitle":"Daft Punk","uri":"spotify:track:111"},{"title":"Piste Deux","subtitle":"Justice","uri":"spotify:track:222"}]'
+          dump_ui "02_detail"
+          assert_ui_has "$state/02_detail.xml" "Piste Un"
+          send_ui "player" '{"track":"Piste Active","artist":"Daft Punk","playing":true,"position":42000,"duration":180000}'
+          dump_ui "03_miniplayer"
+          assert_ui_has "$state/03_miniplayer.xml" "Piste Active"
+          tap_text "$state/03_miniplayer.xml" "Piste Active"
+          dump_ui "04_fullplayer"
+          assert_ui_has "$state/04_fullplayer.xml" "Lecture en cours"
+          assert_ui_has "$state/04_fullplayer.xml" "Lu via Spotify"
+          # Back #1: collapses expanded player back to detail
+          adb shell input keyevent 4
+          dump_ui "05_back_to_detail"
+          assert_ui_has "$state/05_back_to_detail.xml" "Piste Un"
+          # Back #2: restores Home screen from Detail
+          adb shell input keyevent 4
+          dump_ui "06_back_to_home"
+          assert_ui_has "$state/06_back_to_home.xml" "Mix Decouverte"
+          echo "::notice title=E2E Detail + Player + Back::PASS (Home -> Detail -> Expanded Player -> Back to Detail -> Back to Home)"
+
+          # 3. Library screen + Filter Chips + Android Back
+          tap_text "$state/06_back_to_home.xml" "Biblioth"
+          sleep 1
+          send_ui "media:playlists" '[{"title":"Ma Playlist Test","subtitle":"12 titres","uri":"spotify:playlist:999"}]'
+          dump_ui "07_library"
+          assert_ui_has "$state/07_library.xml" "Ma Playlist Test"
+          assert_ui_has "$state/07_library.xml" "Albums"
+          adb shell input keyevent 4
+          dump_ui "08_library_back_home"
+          assert_ui_has "$state/08_library_back_home.xml" "Mix Decouverte"
+          echo "::notice title=E2E Library + Back::PASS (Library rows + filter chips rendered, Back returned to Home)"
+
+          # 3b. Tab isolation regression: a playlist loading state must never
+          #     bleed onto Paramètres, even when late answers (success, empty
+          #     and error) arrive after the tab switch.
+          send_ui "home" '[{"title":"Chargement des playlists…","section":"Accueil"}]'
+          sleep 1
+          tap_text "$state/08_library_back_home.xml" "Paramètres"
+          sleep 1
+          dump_ui "08b_settings_isolation"
+          assert_ui_has "$state/08b_settings_isolation.xml" "Paramètres"
+          assert_ui_lacks "$state/08b_settings_isolation.xml" "Chargement des playlists"
+          send_ui "home" '[{"title":"Ma Playlist Tardive","subtitle":"Succes tardif","uri":"spotify:playlist:late1","section":"Vos playlists"}]'
+          send_ui "home" '[{"title":"Aucune playlist dans ce compte","subtitle":"Revenez plus tard","section":"Accueil"}]'
+          send_ui "home" '[{"title":"Impossible de charger les playlists","subtitle":"Reessayez","section":"Accueil"}]'
+          sleep 1
+          dump_ui "08c_settings_after_late"
+          assert_ui_has "$state/08c_settings_after_late.xml" "Paramètres"
+          assert_ui_lacks "$state/08c_settings_after_late.xml" "Chargement des playlists"
+          assert_ui_lacks "$state/08c_settings_after_late.xml" "Ma Playlist Tardive"
+          assert_ui_lacks "$state/08c_settings_after_late.xml" "Impossible de charger les playlists"
+          adb shell input keyevent 4
+          # The late injections above are legitimate same-screen home updates and
+          # now own the home cache: restore the canonical feed so the search
+          # step's Back-to-Home assertions see the expected cards again.
+          send_ui "home" '[{"title":"Mix Decouverte","subtitle":"Spotify","uri":"spotify:playlist:37i9dQZF1DXcBWIGoYBM5M","section":"Pour vous"},{"title":"Morceau Test","subtitle":"Artiste","uri":"spotify:track:4cOdK2wGLETKBW3PvgPWqT","section":"Recents"}]'
+          sleep 1
+          echo "::notice title=E2E Tab isolation::PASS (playlist loading + late success/empty/error never leaked onto Paramètres)"
+
+          # 4. Search screen + NativeSearchFocusRunnable + text entry + IME Submit + Android Back
+          tap_text "$state/08_library_back_home.xml" "Rechercher"
+          sleep 1
+          adb shell input text "daft"
+          sleep 1
+          adb shell input keyevent 66
+          sleep 1
+          send_ui "search:daft" '[{"title":"One More Time","subtitle":"Daft Punk","uri":"spotify:track:333"}]'
+          dump_ui "09_search"
+          assert_ui_has "$state/09_search.xml" "One More Time"
+          # Note: if IME soft keyboard is open, first Back closes IME and second Back exits Search -> check if Search still open
+          adb shell input keyevent 4
+          sleep 1
+          dump_ui "10_search_back_1"
+          if ! python3 -c 'import sys,xml.etree.ElementTree as ET; r=ET.parse(sys.argv[1]).getroot(); sys.exit(0 if "mix decouverte" in "\n".join((n.get("text") or "") for n in r.iter()).lower() else 1)' "$state/10_search_back_1.xml"; then
+            adb shell input keyevent 4
+            dump_ui "10_search_back_2"
+            assert_ui_has "$state/10_search_back_2.xml" "Mix Decouverte"
+          fi
+          echo "::notice title=E2E Search + Back::PASS (Search focused, 'daft' entered, results rendered, Back returned to Home)"
+
+          # 4b. Keyboard lifecycle: open -> typed input kept -> Back closes IME
+          #     FIRST (screen unchanged) -> Back navigates -> leaving a screen
+          #     hides the IME. Screenshots of the main rendered screens are
+          #     captured for the verification artifact.
+          tap_text "$state/10_search_back_1.xml" "Rechercher" 2>/dev/null || tap_text "$state/10_search_back_2.xml" "Rechercher"
+          sleep 1
+          tap_text "$state/09_search.xml" "Rechercher" 2>/dev/null || true
+          sleep 1
+          adb shell input tap 540 400 || true
+          sleep 1
+          adb shell input text "daft%sfun" || true
+          sleep 1
+          im_open="$(adb shell dumpsys input_method 2>/dev/null | grep -o 'mInputShown=[a-z]*' | head -n 1 | tr -d '\r' || true)"
+          dump_ui "20_kb_open"
+          adb exec-out screencap -p > "$state/20_kb_open.png" 2>/dev/null || true
+          if [[ "$im_open" != "mInputShown=true" ]]; then
+            echo "::error title=Keyboard open::expected mInputShown=true after tapping the search field (got: $im_open)"
+            exit 1
+          fi
+          assert_ui_has "$state/20_kb_open.xml" "daft"
+          # Back #1 must close the IME only: the search screen stays open and
+          # the typed query is kept.
+          adb shell input keyevent 4
+          sleep 1
+          im_closed="$(adb shell dumpsys input_method 2>/dev/null | grep -o 'mInputShown=[a-z]*' | head -n 1 | tr -d '\r' || true)"
+          dump_ui "21_kb_closed_still_search"
+          adb exec-out screencap -p > "$state/21_kb_closed_still_search.png" 2>/dev/null || true
+          if [[ "$im_closed" != "mInputShown=false" ]]; then
+            echo "::error title=Keyboard close::Back must hide the IME first (got: $im_closed)"
+            exit 1
+          fi
+          assert_ui_has "$state/21_kb_closed_still_search.xml" "daft"
+          # Back #2 navigates back to Home.
+          adb shell input keyevent 4
+          sleep 1
+          dump_ui "22_kb_back_home"
+          assert_ui_has "$state/22_kb_back_home.xml" "Mix Decouverte"
+          # Leaving a screen with the keyboard open must never let the IME
+          # linger over the next screen. NB: with adjustResize the bottom nav
+          # moves up when the IME opens, so the tap coordinates must come from
+          # a dump taken WITH the keyboard open (this also proves the nav stays
+          # reachable above the keyboard).
+          tap_text "$state/22_kb_back_home.xml" "Rechercher"
+          sleep 1
+          adb shell input tap 540 400 || true
+          sleep 1
+          im_open2="$(adb shell dumpsys input_method 2>/dev/null | grep -o 'mInputShown=[a-z]*' | head -n 1 | tr -d '\r' || true)"
+          dump_ui "23_kb_open_nav"
+          assert_ui_has "$state/23_kb_open_nav.xml" "Biblioth"
+          tap_text "$state/23_kb_open_nav.xml" "Biblioth"
+          sleep 1
+          im_over="$(adb shell dumpsys input_method 2>/dev/null | grep -o 'mInputShown=[a-z]*' | head -n 1 | tr -d '\r' || true)"
+          dump_ui "24_kb_no_linger"
+          adb exec-out screencap -p > "$state/24_kb_no_linger.png" 2>/dev/null || true
+          if [[ "$im_open2" == "mInputShown=true" && "$im_over" != "mInputShown=false" ]]; then
+            echo "::error title=Keyboard linger::IME still open after leaving search ($im_open2 -> $im_over)"
+            exit 1
+          fi
+          echo "::notice title=E2E Keyboard lifecycle::PASS (open on tap, typed input kept, Back closes IME first then navigates, no IME over other screens)"
+
+          # 4c. Rendered-screen captures + geometry report (touch targets and
+          #     layout bounds) surfaced as annotations for visual review.
+          adb exec-out screencap -p > "$state/30_home.png" 2>/dev/null || true
+          tap_text "$state/24_kb_no_linger.xml" "Biblioth" 2>/dev/null || true
+          sleep 1
+          dump_ui "31_library_geometry"
+          adb exec-out screencap -p > "$state/31_library.png" 2>/dev/null || true
+          python3 - "$state" <<'PY'
+          import glob, os, re, sys, xml.etree.ElementTree as ET
+          state = sys.argv[1]
+          pngs = sorted(glob.glob(os.path.join(state, "*.png")))
+          print(f"::notice title=Rendered screenshots::{len(pngs)} captures: " + ", ".join(os.path.basename(p) for p in pngs))
+          issues = []
+          for xml_path in sorted(glob.glob(os.path.join(state, "2*.xml"))) + sorted(glob.glob(os.path.join(state, "3*.xml"))):
+              try:
+                  root = ET.parse(xml_path).getroot()
+              except Exception:
+                  continue
+              for node in root.iter():
+                  txt = ((node.get("text") or "") + " " + (node.get("content-desc") or "")).strip()
+                  m = re.match(r"\[(\d+),(\d+)\]\[(\d+),(\d+)\]", node.get("bounds") or "")
+                  if not m:
+                      continue
+                  x1, y1, x2, y2 = map(int, m.groups())
+                  w, h = x2 - x1, y2 - y1
+                  if w == 0 or h == 0:
+                      continue
+                  clickable = node.get("clickable") == "true"
+                  if clickable and txt and (w < 40 or h < 40):
+                      issues.append(f"{os.path.basename(xml_path)}: '{txt[:24]}' touch target {w}x{h}")
+          if issues:
+              print("::notice title=Touch-target audit::" + " | ".join(issues[:12]))
+          else:
+              print("::notice title=Touch-target audit::no clickable labelled target under 40x40px in captured dumps")
+          PY
+
+          # 5. Logout hides nativeRoot completely and clears private native state without crashing
+          adb shell am start -n "$pkg/com.melodix.music.MainActivity" --es e2e_type logout >/dev/null
+          sleep 6
+          dump_ui "11_after_logout"
+          assert_ui_lacks "$state/11_after_logout.xml" "Mix Decouverte"
+          assert_ui_lacks "$state/11_after_logout.xml" "Piste Active"
+
+          # 6. Re-login restores nativeRoot cleanly with only the new session's feed and greeting
+          send_ui "home" '[{"title":"Compte Deux","subtitle":"Spotify","uri":"spotify:playlist:777","section":"Nouveau compte","image":"https://evil.tracker.example/pixel.png"}]'
+          sleep 2
+          send_ui "home-greeting" "Bonjour, Nouveau"
+          dump_ui "12_after_relogin"
+          assert_ui_has "$state/12_after_relogin.xml" "Bonjour, Nouveau"
+          assert_ui_has "$state/12_after_relogin.xml" "Compte Deux"
+          assert_ui_lacks "$state/12_after_relogin.xml" "Mix Decouverte"
+
+          # 7. Deep-link & exported Intent JS injection defense + malformed JSON resilience + epoch race guard + screen rotation
+          assert_pid_same() {
+            local step_label="$1"
+            local cur_pid
+            cur_pid="$(adb shell pidof "$pkg" | tr -d '\r' | awk '{print $1}')"
+            if [[ -z "$cur_pid" || "$cur_pid" != "$pid_before_sec" ]]; then
+              local diag
+              diag="$( { adb logcat -d -b crash -v brief 2>/dev/null; adb logcat -d -v brief 2>/dev/null; } | grep -iE 'FATAL|Exception|Error|Crash|chromium|aw_browser|WebService|LinkHandler|Melodix' | tail -n 18 | tr '\n\r' ' | ' )"
+              echo "::error title=PID death at $step_label::before=$pid_before_sec after=$cur_pid trace=$diag"
+              exit 1
+            fi
+          }
+          pid_before_sec="$(adb shell pidof "$pkg" | tr -d '\r' | awk '{print $1}')"
+          adb shell "am start -n '$pkg/com.melodix.music.MainActivity' --es spotify_uri \"spotify:track:1');window.__pwned=1;//\"" >/dev/null
+          sleep 1
+          assert_pid_same "7a_spotify_uri_inject"
+          adb shell "am start -a android.intent.action.VIEW -d \"spotify:track:1');window.__pwned=1;//\" '$pkg/com.melodix.music.LinkHandler'" >/dev/null || true
+          sleep 1
+          assert_pid_same "7b_linkhandler_inject"
+          adb shell "am start -a android.intent.action.VIEW -d 'spotify:track:4cOdK2wGLETKBW3PvgPWqT' '$pkg/com.melodix.music.LinkHandler'" >/dev/null || true
+          sleep 1
+          assert_pid_same "7c_linkhandler_valid"
+          adb shell "am start -n '$pkg/com.melodix.music.MainActivity' --es spotify_uri \"spotify:search:Daft Punk - Veridis Quo\"" >/dev/null
+          sleep 1
+          assert_pid_same "7c2_shazam_search_spaces"
+          adb shell "am start -n '$pkg/com.melodix.music.MainActivity' --es spotify_uri \"spotify:search:Don't Start Now\"" >/dev/null
+          sleep 1
+          assert_pid_same "7c3_shazam_search_apostrophe"
+          adb shell 'am start -n "'"$pkg"'/com.melodix.music.MainActivity" --es spotify_uri "spotify:search:100% Pure Love"' >/dev/null
+          sleep 1
+          assert_pid_same "7c4_shazam_search_percent"
+          send_ui "open-search" "Daft Punk: Don't Stop 100% Santé"
+          sleep 1
+          send_ui "search:Daft Punk: Don't Stop 100% Santé" '[{"title":"Resultat Sante","subtitle":"Daft Punk","uri":"spotify:track:999"}]'
+          sleep 1
+          dump_ui "12b_deep_search_special"
+          assert_ui_has "$state/12b_deep_search_special.xml" "100%"
+          assert_ui_has "$state/12b_deep_search_special.xml" "Resultat Sante"
+          send_ui "home" "{malformed-json-payload"
+          sleep 1
+          assert_pid_same "7d_malformed_json"
+          adb logcat -c || true
+          adb shell am start -n "$pkg/com.melodix.music.MainActivity" --es e2e_type logout_race >/dev/null
+          sleep 2
+          assert_pid_same "7e_logout_race"
+          dump_ui "13_after_epoch_race"
+          assert_ui_lacks "$state/13_after_epoch_race.xml" "Fuite Tardive Compte A"
+          assert_ui_lacks "$state/13_after_epoch_race.xml" "Compte Deux"
+
+          # Real Activity.recreate() + AppSingleton.t preservation + rotation stress check
+          adb shell am start -n "$pkg/com.melodix.music.MainActivity" --es e2e_type recreate >/dev/null
+          sleep 3
+          assert_pid_same "7f0_activity_recreate"
+          adb shell am start -n "$pkg/com.melodix.music.MainActivity" --es e2e_type singleton_bridge >/dev/null
+          sleep 2
+          assert_pid_same "7f1_singleton_bridge_after_recreate"
+          dump_ui "14_after_recreate"
+          assert_ui_has "$state/14_after_recreate.xml" "Session Recreee OK"
+          assert_ui_lacks "$state/14_after_recreate.xml" "Fuite Tardive Compte A"
+
+          adb shell wm user-rotation lock 1 || true
+          sleep 2
+          assert_pid_same "7f_rotate_landscape"
+          adb shell wm user-rotation lock 0 || true
+          sleep 2
+          assert_pid_same "7g_rotate_portrait"
+          adb shell wm user-rotation free || true
+          sleep 1
+          assert_pid_same "7h_rotate_free"
+          pid="$pid_before_sec"
+          adb logcat -d -v brief > "$state/e2e-logcat.txt" 2>&1 || true
+          adb logcat -d -b crash -v brief >> "$state/e2e-logcat.txt" 2>&1 || true
+          if grep -qE "MelodixCrash|NativeCrashGuard|VerifyError|IncompatibleClassChangeError|LinkageError|IntentReceiverLeaked|WindowManager\\\$BadTokenException" "$state/e2e-logcat.txt" || grep -qF "Process: $pkg" "$state/e2e-logcat.txt"; then
+            diag="$(grep -nE "Process: $pkg|MelodixCrash|NativeCrashGuard|VerifyError|IncompatibleClassChangeError|LinkageError|IntentReceiverLeaked|WindowManager\\\$BadTokenException" "$state/e2e-logcat.txt" | head -n 15 | tr '\n\r' ' | ')"
+            echo "::error title=Logcat Error Found::$diag"
+            exit 1
+          fi
+          echo "::notice title=E2E Logout + Security + Rotation + Logcat::PASS (Logout/Epoch guard blocked stale Account A callbacks; deep-link injection & malformed JSON handled cleanly; rotation survived; stable pid=$pid across all PIDs)"
+
+          python3 - "$GITHUB_WORKSPACE/emulator-output/verification-summary-${TARGET_SHA}.json" <<PY
+          import datetime, json, sys
+          report = {
+              "commit_sha": "${TARGET_SHA}",
+              "branch_ref": "${GITHUB_REF_NAME}",
+              "event_name": "${GITHUB_EVENT_NAME}",
+              "workflow_run_id": "${GITHUB_RUN_ID}",
+              "workflow_run_url": "${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}",
+              "emulator_api_level": 35,
+              "node_tests_total": int("${TESTS_TOTAL:-0}"),
+              "node_tests_passed": int("${TESTS_PASSED:-0}"),
+              "phase1_cold_startup": "PASS",
+              "phase2_e2e_flows": "PASS",
+              "final_pid": int("${pid}"),
+              "verified_at_utc": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+          }
+          with open(sys.argv[1], "w", encoding="utf-8") as fh:
+              json.dump(report, fh, indent=2)
+          PY
+
+          {
+            echo "## Melodix Android Emulator Verification Summary"
+            echo ""
+            echo "| Check | Status |"
+            echo "| --- | --- |"
+            echo "| Target commit SHA | \`${TARGET_SHA}\` |"
+            echo "| Node & static Dalvik suite | \`${TESTS_PASSED}/${TESTS_TOTAL}\` passed |"
+            echo "| Phase 1 unmodified Preview APK cold launches | PASS |"
+            echo "| Phase 2 Home / Detail / Player / Library / Search / Back / Logout / Rotation | PASS (\`pid=${pid}\`) |"
+            echo "| Diagnostics & UI XML bundle | \`Melodix-Emulator-Verification-${TARGET_SHA}\` |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload emulator E2E UI dumps and logcat artifacts
+        if: always()
+        uses: actions/upload-artifact@v7.0.2
+        with:
+          name: Melodix-Emulator-Verification-${{ steps.meta.outputs.target_sha }}
+          path: emulator-output
+          if-no-files-found: warn
+          retention-days: 30

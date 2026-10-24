@@ -89,182 +89,22 @@
     .line 13
     packed-switch p1, :pswitch_data_0
 
-    .line 14
-    .line 15
-    .line 16
+    # Retain legacy encrypted files; this profile deletion action is disabled.
     check-cast p0, Landroid/content/Context;
-
-    .line 17
-    .line 18
-    check-cast v2, Le2;
-
-    .line 19
-    .line 20
-    check-cast v1, Lhz0;
-
-    .line 21
-    .line 22
-    iget-object p1, v2, Le2;->a:Ljava/lang/String;
-
-    .line 23
-    .line 24
-    const-string v2, ".json"
-
-    .line 25
-    .line 26
-    :try_start_0
-    new-instance v3, Ljava/io/File;
-
-    .line 27
-    .line 28
-    invoke-virtual {p0}, Landroid/content/Context;->getFilesDir()Ljava/io/File;
-
-    .line 29
-    .line 30
-    .line 31
-    move-result-object v4
-
-    .line 32
-    const-string v5, "account_profiles"
-
-    .line 33
-    .line 34
-    invoke-direct {v3, v4, v5}, Ljava/io/File;-><init>(Ljava/io/File;Ljava/lang/String;)V
-
-    .line 35
-    .line 36
-    .line 37
-    invoke-virtual {v3}, Ljava/io/File;->exists()Z
-
-    .line 38
-    .line 39
-    .line 40
-    move-result v4
-
-    .line 41
-    if-nez v4, :cond_0
-
-    .line 42
-    .line 43
-    invoke-virtual {v3}, Ljava/io/File;->mkdirs()Z
-
-    .line 44
-    .line 45
-    .line 46
-    :cond_0
-    new-instance v4, Ljava/io/File;
-
-    .line 47
-    .line 48
-    invoke-virtual {p1, v2}, Ljava/lang/String;->concat(Ljava/lang/String;)Ljava/lang/String;
-
-    .line 49
-    .line 50
-    .line 51
-    move-result-object v2
-
-    .line 52
-    invoke-direct {v4, v3, v2}, Ljava/io/File;-><init>(Ljava/io/File;Ljava/lang/String;)V
-
-    .line 53
-    .line 54
-    .line 55
-    invoke-virtual {v4}, Ljava/io/File;->exists()Z
-
-    .line 56
-    .line 57
-    .line 58
-    move-result v2
-
-    .line 59
-    if-eqz v2, :cond_1
-
-    .line 60
-    .line 61
-    invoke-virtual {v4}, Ljava/io/File;->delete()Z
-
-    .line 62
-    .line 63
-    .line 64
-    :cond_1
-    invoke-static {p0}, Lbh;->o(Landroid/content/Context;)Ljava/lang/String;
-
-    .line 65
-    .line 66
-    .line 67
-    move-result-object v2
-
-    .line 68
-    invoke-static {v2, p1}, Ldl1;->a(Ljava/lang/Object;Ljava/lang/Object;)Z
-
-    .line 69
-    .line 70
-    .line 71
-    move-result p1
-
-    .line 72
-    if-eqz p1, :cond_2
-
-    .line 73
-    .line 74
-    const/4 p1, 0x0
-
-    .line 75
-    invoke-static {p0, p1}, Lbh;->C(Landroid/content/Context;Ljava/lang/String;)V
-    :try_end_0
-    .catch Ljava/lang/Exception; {:try_start_0 .. :try_end_0} :catch_0
-
-    .line 76
-    .line 77
-    .line 78
-    :catch_0
-    :cond_2
     invoke-static {v0, p2}, Lcom/melodix/music/SettingsActivity$a;->R(Lcom/melodix/music/SettingsActivity$a;Landroidx/preference/Preference;)V
-
-    .line 79
-    .line 80
-    .line 81
-    const-string p1, "Profile deleted"
-
-    .line 82
-    .line 83
+    const-string p1, "Saved session profile deletion is disabled. No files were changed."
     const/4 p2, 0x0
-
-    .line 84
     invoke-static {p0, p1, p2}, Landroid/widget/Toast;->makeText(Landroid/content/Context;Ljava/lang/CharSequence;I)Landroid/widget/Toast;
-
-    .line 85
-    .line 86
-    .line 87
     move-result-object p0
-
-    .line 88
     invoke-virtual {p0}, Landroid/widget/Toast;->show()V
-
-    .line 89
-    .line 90
-    .line 91
+    check-cast v1, Lhz0;
     iget-object p0, v1, Lhz0;->j:Ljava/lang/Object;
-
-    .line 92
-    .line 93
     check-cast p0, Lg4;
-
-    .line 94
-    .line 95
-    if-eqz p0, :cond_3
-
-    .line 96
-    .line 97
+    if-eqz p0, :cond_profile_delete_done
     invoke-virtual {p0}, Lg4;->dismiss()V
-
-    .line 98
-    .line 99
-    .line 100
-    :cond_3
+    :cond_profile_delete_done
     return-void
 
-    .line 101
     :pswitch_0
     check-cast p0, Landroid/widget/Spinner;
 

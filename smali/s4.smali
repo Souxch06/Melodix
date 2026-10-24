@@ -1346,6 +1346,30 @@
 
     .line 610
     :pswitch_c
+    if-eqz v6, :pswitch_c_try_singleton
+    invoke-virtual {v6}, Landroid/app/Activity;->isFinishing()Z
+    move-result v7
+    if-nez v7, :pswitch_c_try_singleton
+    invoke-virtual {v6}, Landroid/app/Activity;->isDestroyed()Z
+    move-result v7
+    if-nez v7, :pswitch_c_try_singleton
+    goto :pswitch_c_live_ok
+
+    :pswitch_c_try_singleton
+    sget-object v7, Lcom/melodix/music/AppSingleton;->t:Ljava/lang/ref/WeakReference;
+    if-eqz v7, :goto_d
+    invoke-virtual {v7}, Ljava/lang/ref/Reference;->get()Ljava/lang/Object;
+    move-result-object v6
+    check-cast v6, Lcom/melodix/music/MainActivity;
+    if-eqz v6, :goto_d
+    invoke-virtual {v6}, Landroid/app/Activity;->isFinishing()Z
+    move-result v7
+    if-nez v7, :goto_d
+    invoke-virtual {v6}, Landroid/app/Activity;->isDestroyed()Z
+    move-result v7
+    if-nez v7, :goto_d
+
+    :pswitch_c_live_ok
     sget p0, Lcom/melodix/music/MainActivity;->h0:I
 
     .line 611
@@ -1366,6 +1390,8 @@
 
     .line 619
     .line 620
+    const-string p0, "Source: Android ConnectivityManager check returned false"
+    sput-object p0, Lcom/melodix/music/AppSingleton;->g0:Ljava/lang/String;
     invoke-virtual {v6, v2}, Lcom/melodix/music/MainActivity;->D(Z)V
 
     .line 621

@@ -351,225 +351,43 @@
 .method public static b()V
     .locals 5
 
-    .line 1
     sget-object v0, Lcom/melodix/music/AppSingleton;->w:Ll9;
-
-    .line 2
-    .line 3
     const/4 v1, 0x0
-
-    .line 4
     if-eqz v0, :cond_5
 
-    .line 5
-    .line 6
     :try_start_0
     invoke-virtual {v0}, Landroid/webkit/WebView;->stopLoading()V
-
-    .line 7
-    .line 8
-    .line 9
     const-string v2, "AndBridge"
-
-    .line 10
-    .line 11
     invoke-virtual {v0, v2}, Landroid/webkit/WebView;->removeJavascriptInterface(Ljava/lang/String;)V
-
-    .line 12
-    .line 13
-    .line 14
-    const-string v2, "WEB_VIEW_RENDERER_TERMINATE"
-
-    .line 15
-    .line 16
-    invoke-static {v2}, Ljj1;->b(Ljava/lang/String;)Z
-
-    .line 17
-    .line 18
-    .line 19
-    move-result v2
+    const-string v2, "about:blank"
+    invoke-virtual {v0, v2}, Landroid/webkit/WebView;->loadUrl(Ljava/lang/String;)V
+    invoke-virtual {v0}, Landroid/view/View;->getParent()Landroid/view/ViewParent;
+    move-result-object v2
+    instance-of v3, v2, Landroid/view/ViewGroup;
+    if-eqz v3, :cond_3
+    check-cast v2, Landroid/view/ViewGroup;
+    goto :goto_1
+    :cond_3
+    move-object v2, v1
+    :goto_1
+    if-eqz v2, :cond_4
+    invoke-virtual {v2, v0}, Landroid/view/ViewGroup;->removeView(Landroid/view/View;)V
+    :cond_4
+    invoke-virtual {v0}, Landroid/view/ViewGroup;->removeAllViews()V
+    invoke-virtual {v0}, Landroid/webkit/WebView;->destroy()V
     :try_end_0
     .catch Ljava/lang/Exception; {:try_start_0 .. :try_end_0} :catch_1
 
-    .line 20
-    if-eqz v2, :cond_2
+    goto :cond_5
 
-    .line 21
-    .line 22
-    :try_start_1
-    invoke-static {v0}, Lgj1;->c(Landroid/webkit/WebView;)Lnj1;
-
-    .line 23
-    .line 24
-    .line 25
-    move-result-object v2
-
-    .line 26
-    if-eqz v2, :cond_2
-
-    .line 27
-    .line 28
-    sget-object v3, Ljj1;->b:Lz5;
-
-    .line 29
-    .line 30
-    invoke-virtual {v3}, Lz5;->a()Z
-
-    .line 31
-    .line 32
-    .line 33
-    move-result v4
-
-    .line 34
-    if-eqz v4, :cond_0
-
-    .line 35
-    .line 36
-    iget-object v2, v2, Lnj1;->b:Ljava/lang/ref/WeakReference;
-
-    .line 37
-    .line 38
-    invoke-virtual {v2}, Ljava/lang/ref/Reference;->get()Ljava/lang/Object;
-
-    .line 39
-    .line 40
-    .line 41
-    move-result-object v2
-
-    .line 42
-    invoke-static {v2}, Le1;->g(Ljava/lang/Object;)Landroid/webkit/WebViewRenderProcess;
-
-    .line 43
-    .line 44
-    .line 45
-    move-result-object v2
-
-    .line 46
-    if-eqz v2, :cond_2
-
-    .line 47
-    .line 48
-    invoke-static {v2}, Le1;->s(Landroid/webkit/WebViewRenderProcess;)Z
-
-    .line 49
-    .line 50
-    .line 51
-    move-result v2
-
-    .line 52
-    goto :goto_0
-
-    .line 53
-    :cond_0
-    invoke-virtual {v3}, La6;->b()Z
-
-    .line 54
-    .line 55
-    .line 56
-    move-result v3
-
-    .line 57
-    if-eqz v3, :cond_1
-
-    .line 58
-    .line 59
-    iget-object v2, v2, Lnj1;->a:Lorg/chromium/support_lib_boundary/WebViewRendererBoundaryInterface;
-
-    .line 60
-    .line 61
-    invoke-interface {v2}, Lorg/chromium/support_lib_boundary/WebViewRendererBoundaryInterface;->terminate()Z
-
-    .line 62
-    .line 63
-    .line 64
-    goto :goto_0
-
-    .line 65
-    :cond_1
-    invoke-static {}, Ljj1;->a()Ljava/lang/UnsupportedOperationException;
-
-    .line 66
-    .line 67
-    .line 68
-    move-result-object v2
-
-    .line 69
-    throw v2
-    :try_end_1
-    .catch Ljava/lang/Exception; {:try_start_1 .. :try_end_1} :catch_0
-
-    .line 70
-    :catch_0
-    :cond_2
-    :goto_0
-    :try_start_2
-    invoke-virtual {v0}, Landroid/view/View;->getParent()Landroid/view/ViewParent;
-
-    .line 71
-    .line 72
-    .line 73
-    move-result-object v2
-
-    .line 74
-    instance-of v3, v2, Landroid/view/ViewGroup;
-
-    .line 75
-    .line 76
-    if-eqz v3, :cond_3
-
-    .line 77
-    .line 78
-    check-cast v2, Landroid/view/ViewGroup;
-
-    .line 79
-    .line 80
-    goto :goto_1
-
-    .line 81
-    :cond_3
-    move-object v2, v1
-
-    .line 82
-    :goto_1
-    if-eqz v2, :cond_4
-
-    .line 83
-    .line 84
-    invoke-virtual {v2, v0}, Landroid/view/ViewGroup;->removeView(Landroid/view/View;)V
-
-    .line 85
-    .line 86
-    .line 87
-    :cond_4
-    invoke-virtual {v0}, Landroid/view/ViewGroup;->removeAllViews()V
-
-    .line 88
-    .line 89
-    .line 90
-    invoke-virtual {v0}, Landroid/webkit/WebView;->destroy()V
-    :try_end_2
-    .catch Ljava/lang/Exception; {:try_start_2 .. :try_end_2} :catch_1
-
-    .line 91
-    .line 92
-    .line 93
     :catch_1
+    move-exception v2
+
     :cond_5
     sput-object v1, Lcom/melodix/music/AppSingleton;->w:Ll9;
-
-    .line 94
-    .line 95
     sput-object v1, Lcom/melodix/music/AppSingleton;->x:Landroid/content/MutableContextWrapper;
-
-    .line 96
-    .line 97
     const/4 v0, 0x0
-
-    .line 98
     sput-boolean v0, Lcom/melodix/music/AppSingleton;->l:Z
-
-    .line 99
-    .line 100
     return-void
 .end method
 
@@ -803,7 +621,8 @@
 
     .line 91
     .line 92
-    invoke-direct {v2, v0}, Ljava/io/InputStreamReader;-><init>(Ljava/io/InputStream;)V
+    const-string v4, "UTF-8"
+    invoke-direct {v2, v0, v4}, Ljava/io/InputStreamReader;-><init>(Ljava/io/InputStream;Ljava/lang/String;)V
 
     .line 93
     .line 94
@@ -1012,7 +831,7 @@
 .end method
 
 .method public static g(Landroid/content/Context;)Landroid/webkit/WebView;
-    .locals 4
+    .locals 5
 
     .line 1
     invoke-virtual {p0}, Ljava/lang/Object;->getClass()Ljava/lang/Class;
@@ -1021,10 +840,12 @@
     .line 3
     .line 4
     const/4 v0, 0x1
+    const/4 v1, 0x0
 
     .line 5
     :try_start_0
-    invoke-static {v0}, Landroid/webkit/WebView;->setWebContentsDebuggingEnabled(Z)V
+    # Remote WebView debugging can expose Spotify's authenticated page; keep it off.
+    invoke-static {v1}, Landroid/webkit/WebView;->setWebContentsDebuggingEnabled(Z)V
     :try_end_0
     .catchall {:try_start_0 .. :try_end_0} :catchall_0
 
@@ -1037,6 +858,10 @@
     .line 9
     .line 10
     if-nez v1, :cond_a
+
+    # Reset the previous network/factory diagnostic only when creating a new view.
+    const/4 v1, 0x0
+    sput-object v1, Lcom/melodix/music/AppSingleton;->g0:Ljava/lang/String;
 
     .line 11
     .line 12
@@ -1092,68 +917,32 @@
     .line 35
     .line 36
     :catch_0
-    :try_start_3
+    # Keep the stale Spotify player service worker from poisoning WebView loads,
+    # but do not spoof browser identity or player capability data.
+    :try_sw_feature_start
     const-string v1, "DOCUMENT_START_SCRIPT"
-
-    .line 37
-    .line 38
     invoke-static {v1}, Ljj1;->b(Ljava/lang/String;)Z
-
-    .line 39
-    .line 40
-    .line 41
     move-result v1
-    :try_end_3
-    .catchall {:try_start_3 .. :try_end_3} :catchall_1
+    :try_sw_feature_end
+    # These are optional AndroidX WebKit features. A provider-specific LinkageError
+    # must not abort creation of the whole WebView.
+    .catchall {:try_sw_feature_start .. :try_sw_feature_end} :cond_0
 
-    .line 42
     if-eqz v1, :cond_0
 
-    .line 43
-    .line 44
-    :try_start_4
-    sget v1, Lcom/melodix/music/AppSingleton;->j:I
-
-    .line 45
-    .line 46
-    const-string v1, "desktop_spoof.js"
-
-    .line 47
-    .line 48
+    :try_sw_script_start
+    const-string v1, "spotify_sw_compat.js"
     invoke-static {v1}, Lm9;->d(Ljava/lang/String;)Ljava/lang/String;
-
-    .line 49
-    .line 50
-    .line 51
     move-result-object v1
-
-    .line 52
-    const-string v2, "*"
-
-    .line 53
-    .line 54
+    const-string v2, "https://open.spotify.com"
     invoke-static {v2}, Ljava/util/Collections;->singleton(Ljava/lang/Object;)Ljava/util/Set;
-
-    .line 55
-    .line 56
-    .line 57
     move-result-object v2
-
-    .line 58
-    invoke-virtual {v2}, Ljava/lang/Object;->getClass()Ljava/lang/Class;
-
-    .line 59
-    .line 60
-    .line 61
     invoke-static {p0, v1, v2}, Lgj1;->a(Ll9;Ljava/lang/String;Ljava/util/Set;)V
-    :try_end_4
-    .catch Ljava/lang/Exception; {:try_start_4 .. :try_end_4} :catch_1
-    .catchall {:try_start_4 .. :try_end_4} :catchall_1
+    :try_sw_script_end
+    .catchall {:try_sw_script_start .. :try_sw_script_end} :sw_script_failure
+    goto :cond_0
 
-    .line 62
-    .line 63
-    .line 64
-    :catch_1
+    :sw_script_failure
     :cond_0
     const/4 v1, 0x2
 
@@ -1254,10 +1043,12 @@
     move-result-object v2
 
     .line 116
-    const-string v3, "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36"
-
-    .line 117
-    .line 118
+    # Restore only V19's last-known-working HTTP User-Agent; do not restore its
+    # global JavaScript fingerprint spoofing, request proxy, or capability rewrite.
+    invoke-virtual {p0}, Landroid/view/View;->getContext()Landroid/content/Context;
+    move-result-object v3
+    invoke-static {v3}, Landroid/webkit/WebSettings;->getDefaultUserAgent(Landroid/content/Context;)Ljava/lang/String;
+    move-result-object v3
     invoke-virtual {v2, v3}, Landroid/webkit/WebSettings;->setUserAgentString(Ljava/lang/String;)V
 
     .line 119
@@ -1283,13 +1074,11 @@
     .line 131
     .line 132
     .line 133
-    invoke-virtual {v2, v0}, Landroid/webkit/WebSettings;->setUseWideViewPort(Z)V
-
-    .line 134
-    .line 135
-    .line 136
-    invoke-virtual {v2, v0}, Landroid/webkit/WebSettings;->setLoadWithOverviewMode(Z)V
-
+    # Use the phone's layout viewport in every UI mode. With the desktop UA,
+    # WebView's 980px wide viewport plus overview scaling shrinks Spotify login.
+    const/4 v3, 0x0
+    invoke-virtual {v2, v3}, Landroid/webkit/WebSettings;->setUseWideViewPort(Z)V
+    invoke-virtual {v2, v3}, Landroid/webkit/WebSettings;->setLoadWithOverviewMode(Z)V
     .line 137
     .line 138
     .line 139
@@ -1298,17 +1087,20 @@
     .line 140
     .line 141
     .line 142
-    invoke-virtual {v2, v1}, Landroid/webkit/WebSettings;->setMixedContentMode(I)V
+    # Use WebSettings.MIXED_CONTENT_NEVER_ALLOW for the HTTPS Spotify sign-in flow.
+    const/4 v3, 0x1
+    invoke-virtual {v2, v3}, Landroid/webkit/WebSettings;->setMixedContentMode(I)V
 
     .line 143
     .line 144
     .line 145
-    invoke-virtual {v2, v0}, Landroid/webkit/WebSettings;->setAllowFileAccess(Z)V
+    const/4 v1, 0x0
+    invoke-virtual {v2, v1}, Landroid/webkit/WebSettings;->setAllowFileAccess(Z)V
 
     .line 146
     .line 147
     .line 148
-    invoke-virtual {v2, v0}, Landroid/webkit/WebSettings;->setAllowContentAccess(Z)V
+    invoke-virtual {v2, v1}, Landroid/webkit/WebSettings;->setAllowContentAccess(Z)V
 
     .line 149
     .line 150
@@ -1601,6 +1393,11 @@
 
     .line 286
     .line 287
+    const-string v0, "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36"
+    invoke-virtual {p0}, Landroid/webkit/WebView;->getSettings()Landroid/webkit/WebSettings;
+    move-result-object v1
+    invoke-virtual {v1, v0}, Landroid/webkit/WebSettings;->setUserAgentString(Ljava/lang/String;)V
+
     const-string v0, "https://open.spotify.com/"
 
     .line 288
@@ -1614,7 +1411,12 @@
 
     .line 293
     :cond_8
-    const-string v0, "https://accounts.spotify.com/en/login?continue=https%3A%2F%2Fopen.spotify.com%2F&method=password&allow_password=1&allow_signup=1"
+    invoke-virtual {p0}, Landroid/webkit/WebView;->getSettings()Landroid/webkit/WebSettings;
+    move-result-object v1
+    const-string v0, "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36"
+    invoke-virtual {v1, v0}, Landroid/webkit/WebSettings;->setUserAgentString(Ljava/lang/String;)V
+
+    const-string v0, "https://accounts.spotify.com/en/login?continue=https%3A%2F%2Fopen.spotify.com%2F&allow_signup=1"
 
     .line 294
     .line 295
@@ -1644,6 +1446,21 @@
 
     .line 306
     :catchall_1
+    # Keep only the exception class name for diagnosis. Exception messages and
+    # stack traces can contain URLs or account data, so they are never displayed.
+    move-exception v2
+    invoke-virtual {v2}, Ljava/lang/Object;->getClass()Ljava/lang/Class;
+    move-result-object v2
+    invoke-virtual {v2}, Ljava/lang/Class;->getSimpleName()Ljava/lang/String;
+    move-result-object v2
+    new-instance v3, Ljava/lang/StringBuilder;
+    const-string v4, "Source: WebView init exception: "
+    invoke-direct {v3, v4}, Ljava/lang/StringBuilder;-><init>(Ljava/lang/String;)V
+    invoke-virtual {v3, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    move-result-object v3
+    invoke-virtual {v3}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
+    move-result-object v3
+    sput-object v3, Lcom/melodix/music/AppSingleton;->g0:Ljava/lang/String;
     const/4 p0, 0x0
 
     .line 307

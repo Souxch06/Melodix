@@ -70,6 +70,18 @@
     .line 16
     invoke-static {p0}, Lm9;->g(Landroid/content/Context;)Landroid/webkit/WebView;
 
+    move-result-object v0
+
+    if-eqz v0, :cond_0
+
+    invoke-virtual {v0}, Landroid/webkit/WebView;->resumeTimers()V
+
+    invoke-virtual {v0}, Landroid/webkit/WebView;->onResume()V
+
+    const/4 v1, 0x0
+
+    invoke-virtual {v0, v1}, Landroid/view/View;->dispatchWindowVisibilityChanged(I)V
+
     .line 17
     .line 18
     .line 19
@@ -84,9 +96,15 @@
     .line 22
     sget-object v0, Lcom/melodix/music/HomeWidget;->a:Landroid/os/Handler;
 
+    invoke-virtual {p0}, Landroid/content/Context;->getApplicationContext()Landroid/content/Context;
+    move-result-object v0
+    if-nez v0, :use_app_ctx
+    move-object v0, p0
+    :use_app_ctx
+
     .line 23
     .line 24
-    invoke-static {p0}, Lcom/melodix/music/a;->c(Landroid/content/Context;)V
+    invoke-static {v0}, Lcom/melodix/music/a;->c(Landroid/content/Context;)V
 
     .line 25
     .line 26
