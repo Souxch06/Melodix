@@ -134,9 +134,12 @@ jobs:
           if run.get("name") != "Build Melodix Preview APK":
               problems.append(f"workflow is {run.get('name')!r}; only the verification pipeline may be published")
 
-          by_name = {j.get("name"): j for j in jobs}
-          verify = by_name.get("Verify tests, build integrity, and Android 15 E2E before release")
-          build = by_name.get("Build and sign verified preview package")
+          # verify is a reusable-workflow call: the API shows its display name as
+          # "<caller job name> / <called workflow name>", truncated, so match by prefix.
+          verify_prefix = "Verify tests, build integrity, and Android 15 E2E before release"
+          build_prefix = "Build and sign verified preview package"
+          verify = next((j for j in jobs if (j.get("name") or "").startswith(verify_prefix)), None)
+          build = next((j for j in jobs if (j.get("name") or "").startswith(build_prefix)), None)
           if not verify or verify.get("conclusion") != "success":
               problems.append("the verify job (tests + Android 15 E2E) is missing or not successful")
           if not build or build.get("conclusion") != "success":

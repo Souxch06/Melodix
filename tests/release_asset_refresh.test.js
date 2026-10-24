@@ -45,6 +45,9 @@ test('release-asset-refresh.yml only publishes a fully verified run of the exact
     assert.match(wf, /head_sha is \{run\.get\('head_sha'\)\}, not \{expected\}/);
     assert.match(wf, /run conclusion is \{run\.get\('conclusion'\)\!r}, not 'success'/);
     assert.match(wf, /Verify tests, build integrity, and Android 15 E2E before release/);
+    // reusable-workflow job names come back "<caller> / <called>" and truncated:
+    // the guard must prefix-match, never exact-match
+    assert.match(wf, /startswith\(verify_prefix\)/);
     assert.match(wf, /Build and sign verified preview package/);
     assert.match(wf, /Melodix-Preview-\{expected\}/);
     assert.match(wf, /manifest\.get\("commit_sha"\) != expected/);
