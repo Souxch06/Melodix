@@ -109,49 +109,285 @@
 
 
 # direct methods
-.method public final openNativeDiag()V
-    .locals 4
+.method public final buildDiagReport()Ljava/lang/String;
+    .locals 6
 
-    # Open the real Diagnostic Melodix screen: native rows only, engine from
-    # the bundled diag_engine.js asset. The engine paints live rows through
-    # AndBridge.onNativeUiData('diag:report', ...).
+    new-instance v0, Ljava/lang/StringBuilder;
+    invoke-direct {v0}, Ljava/lang/StringBuilder;-><init>()V
+
+    const-string v1, "Melodix — Diagnostic Melodix\n"
+    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    const-string v1, "Horodatage: "
+    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    invoke-static {}, Ljava/lang/System;->currentTimeMillis()J
+    move-result-wide v2
+    invoke-virtual {v0, v2, v3}, Ljava/lang/StringBuilder;->append(J)Ljava/lang/StringBuilder;
+    const-string v1, "\n"
+    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    const-string v1, "Écran courant: "
+    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    iget-object v2, p0, Lcom/melodix/music/MainActivity;->nativeCurrentScreen:Ljava/lang/String;
+    if-eqz v2, :report_scr_none
+    invoke-virtual {v0, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    goto :report_scr_done
+    :report_scr_none
+    const-string v2, "aucun"
+    invoke-virtual {v0, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    :report_scr_done
+    const-string v1, "\n"
+    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    const-string v1, "Id attendu: "
+    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    iget-object v2, p0, Lcom/melodix/music/MainActivity;->nativeExpectedId:Ljava/lang/String;
+    if-eqz v2, :report_id_none
+    invoke-virtual {v0, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    goto :report_id_done
+    :report_id_none
+    const-string v2, "aucun"
+    invoke-virtual {v0, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    :report_id_done
+    const-string v1, "\n"
+    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    const-string v1, "Cache bibliothèque: "
+    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    iget-object v2, p0, Lcom/melodix/music/MainActivity;->nativeLibraryJson:Ljava/lang/String;
+    if-eqz v2, :report_cache_len0
+    invoke-virtual {v2}, Ljava/lang/String;->length()I
+    move-result v3
+    goto :report_cache_len_done
+    :report_cache_len0
+    const/4 v3, 0x0
+    :report_cache_len_done
+    invoke-virtual {v0, v3}, Ljava/lang/StringBuilder;->append(I)Ljava/lang/StringBuilder;
+    const-string v1, " caractères, catégorie "
+    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    iget-object v2, p0, Lcom/melodix/music/MainActivity;->nativeLibraryJsonId:Ljava/lang/String;
+    if-eqz v2, :report_cat_none
+    invoke-virtual {v0, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    goto :report_cat_done
+    :report_cat_none
+    const-string v2, "aucune"
+    invoke-virtual {v0, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    :report_cat_done
+    const-string v1, "\n\n"
+    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    invoke-static {}, Lcom/melodix/music/DiagCounters;->readReport()Ljava/lang/String;
+    move-result-object v2
+    invoke-virtual {v0, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    invoke-virtual {v0}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
+    move-result-object v1
+    return-object v1
+.end method
+
+.method public final paintDiagNative(Ljava/lang/String;)V
+    .locals 6
+
+    # Native-first diagnostic screen: a real message painted immediately (no
+    # JavaScript involved) plus a native copy action. Every state is terminal.
     const-string v0, "diagnostic"
     invoke-virtual {p0, v0}, Lcom/melodix/music/MainActivity;->setNativeScreen(Ljava/lang/String;)V
-    const-string v0, "Diagnostic Melodix"
-    const-string v1, "[{\"title\":\"D\u00e9marrage du moteur de diagnostic\u2026\",\"section\":\"Diagnostic Melodix\"}]"
-    invoke-virtual {p0, v0, v1}, Lcom/melodix/music/MainActivity;->renderNativeRows(Ljava/lang/String;Ljava/lang/String;)V
 
-    const-string v0, "diag_engine.js"
-    invoke-static {v0}, Lcom/melodix/music/NativeBridgeAsset;->readAssetUtf8(Ljava/lang/String;)Ljava/lang/String;
+    invoke-virtual {p0}, Lcom/melodix/music/MainActivity;->buildDiagReport()Ljava/lang/String;
+    move-result-object v0
+
+    new-instance v1, Ljava/lang/StringBuilder;
+    invoke-direct {v1}, Ljava/lang/StringBuilder;-><init>()V
+    const-string v2, "["
+
+    invoke-virtual {v1, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    if-eqz p1, :diag_rows_no_reason
+    const-string v2, "{\"section\":\"Diagnostic Melodix\",\"title\":"
+    invoke-virtual {v1, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    new-instance v2, Ljava/lang/StringBuilder;
+    invoke-direct {v2}, Ljava/lang/StringBuilder;-><init>()V
+    const-string v3, "\u2718 "
+    invoke-virtual {v2, v3}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    invoke-virtual {v2, p1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    invoke-virtual {v2}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
+    move-result-object v2
+    invoke-static {v2}, Lorg/json/JSONObject;->quote(Ljava/lang/String;)Ljava/lang/String;
+    move-result-object v2
+    invoke-virtual {v1, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    const-string v2, ",\"subtitle\":\"Le rapport natif reste disponible ci-dessous \u2014 utilisez « Copier le message ».\"},"
+    invoke-virtual {v1, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    :diag_rows_no_reason
+    const-string v2, "{\"section\":\"Diagnostic Melodix\",\"title\":\"Message du diagnostic\",\"subtitle\":"
+    invoke-virtual {v1, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    invoke-static {v0}, Lorg/json/JSONObject;->quote(Ljava/lang/String;)Ljava/lang/String;
+    move-result-object v2
+    invoke-virtual {v1, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    const-string v2, "},"
+
+    invoke-virtual {v1, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    const-string v2, "{\"section\":\"Actions\",\"title\":\"Copier le message\",\"subtitle\":\"Copie le rapport complet dans le presse-papiers\",\"actionUri\":\"spotify:diag:copy\"},"
+    invoke-virtual {v1, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    const-string v2, "{\"section\":\"Actions\",\"title\":\"Copier le rapport JSON\",\"subtitle\":\"Données brutes: compteurs et journal bornés, sans données personnelles\",\"actionUri\":\"spotify:diag:export\"},"
+    invoke-virtual {v1, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    const-string v2, "{\"section\":\"Actions\",\"title\":\"Lancer les tests du moteur\",\"subtitle\":\"Vérifie la chaîne réelle. Réponse garantie sous 35 s, sinon message terminal.\",\"actionUri\":\"spotify:diag:run\"},"
+    invoke-virtual {v1, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    const-string v2, "{\"section\":\"Actions\",\"title\":\"Tester les playlists\",\"subtitle\":\"Récupération réelle puis rendu\",\"actionUri\":\"spotify:diag:playlists\"},"
+    invoke-virtual {v1, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    const-string v2, "{\"section\":\"Actions\",\"title\":\"Tester les titres likés\",\"subtitle\":\"Comptage et rendu de votre collection\",\"actionUri\":\"spotify:diag:cat:liked\"},"
+    invoke-virtual {v1, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    const-string v2, "{\"section\":\"Actions\",\"title\":\"Tester les albums\",\"subtitle\":\"Catégorie albums enregistrés\",\"actionUri\":\"spotify:diag:cat:albums\"},"
+    invoke-virtual {v1, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    const-string v2, "{\"section\":\"Actions\",\"title\":\"Tester les artistes\",\"subtitle\":\"Catégorie artistes suivis\",\"actionUri\":\"spotify:diag:cat:artists\"},"
+    invoke-virtual {v1, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    const-string v2, "{\"section\":\"Actions\",\"title\":\"Tester les podcasts\",\"subtitle\":\"Catégorie podcasts\",\"actionUri\":\"spotify:diag:cat:podcasts\"},"
+    invoke-virtual {v1, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    const-string v2, "{\"section\":\"Actions\",\"title\":\"Réessai sûr\",\"subtitle\":\"Rejoue la dernière récupération sans danger\",\"actionUri\":\"spotify:diag:retry\"}]"
+    invoke-virtual {v1, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    invoke-virtual {v1}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
+    move-result-object v2
+
+    const-string v3, "Diagnostic Melodix"
+    invoke-virtual {p0, v3, v2}, Lcom/melodix/music/MainActivity;->renderNativeRows(Ljava/lang/String;Ljava/lang/String;)V
+    return-void
+.end method
+
+.method public final openNativeDiag()V
+    .locals 2
+
+    # Directly a real message with a native copy action — no engine required.
+    const/4 v1, 0x0
+    invoke-virtual {p0, v1}, Lcom/melodix/music/MainActivity;->paintDiagNative(Ljava/lang/String;)V
+    return-void
+.end method
+
+.method public final copyDiagAndPaint()V
+    .locals 3
+
+    invoke-virtual {p0}, Lcom/melodix/music/MainActivity;->buildDiagReport()Ljava/lang/String;
     move-result-object v1
-    if-eqz v1, :diag_engine_injected
-    invoke-virtual {v1}, Ljava/lang/String;->isEmpty()Z
+    invoke-static {p0, v1}, Lcom/melodix/music/AndBridge;->copyToClipboardStatic(Landroid/content/Context;Ljava/lang/String;)Z
     move-result v2
-    if-eqz v2, :diag_engine_injected
-    invoke-virtual {p0, v1}, Lcom/melodix/music/MainActivity;->runNativeJavascript(Ljava/lang/String;)V
+    if-eqz v2, :diag_copy_fail
+    const-string v0, "Message copié dans le presse-papiers"
+    goto :diag_copy_paint
+    :diag_copy_fail
+    const-string v0, "Copie impossible — presse-papiers indisponible"
+    :diag_copy_paint
+    invoke-virtual {p0, v0}, Lcom/melodix/music/MainActivity;->paintDiagNative(Ljava/lang/String;)V
+    return-void
+.end method
 
-    :diag_engine_injected
-    const-string v0, "window.__sfDiagAction && window.__sfDiagAction('open');"
-    invoke-virtual {p0, v0}, Lcom/melodix/music/MainActivity;->runNativeJavascript(Ljava/lang/String;)V
+.method public final copyDiagExportAndPaint()V
+    .locals 5
+
+    new-instance v0, Lorg/json/JSONObject;
+    invoke-direct {v0}, Lorg/json/JSONObject;-><init>()V
+    :try_start_0
+    const-string v1, "report"
+    invoke-virtual {p0}, Lcom/melodix/music/MainActivity;->buildDiagReport()Ljava/lang/String;
+    move-result-object v2
+    invoke-virtual {v0, v1, v2}, Lorg/json/JSONObject;->put(Ljava/lang/String;Ljava/lang/Object;)Lorg/json/JSONObject;
+    const-string v1, "countersJson"
+    invoke-static {}, Lcom/melodix/music/DiagCounters;->readJson()Ljava/lang/String;
+    move-result-object v2
+    invoke-virtual {v0, v1, v2}, Lorg/json/JSONObject;->put(Ljava/lang/String;Ljava/lang/Object;)Lorg/json/JSONObject;
+    :try_end_0
+    .catch Ljava/lang/Exception; {:try_start_0 .. :try_end_0} :catch_0
+    goto :diag_export_ready
+
+    :catch_0
+    move-exception v1
+    invoke-static {v1}, Lcom/melodix/music/NativeCrashGuard;->record(Ljava/lang/Throwable;)V
+
+    :diag_export_ready
+    invoke-virtual {v0}, Lorg/json/JSONObject;->toString()Ljava/lang/String;
+    move-result-object v1
+    invoke-static {p0, v1}, Lcom/melodix/music/AndBridge;->copyToClipboardStatic(Landroid/content/Context;Ljava/lang/String;)Z
+    move-result v2
+    if-eqz v2, :diag_export_fail
+    const-string v0, "Rapport JSON copié dans le presse-papiers"
+    goto :diag_export_paint
+    :diag_export_fail
+    const-string v0, "Copie impossible — presse-papiers indisponible"
+    :diag_export_paint
+    invoke-virtual {p0, v0}, Lcom/melodix/music/MainActivity;->paintDiagNative(Ljava/lang/String;)V
     return-void
 .end method
 
 .method public final openNativeDiagAction(Ljava/lang/String;)V
-    .locals 3
+    .locals 4
 
-    # Re-inject the engine (idempotent) then run the requested action.
+    if-eqz p1, :diag_act_done
+
+    const-string v0, "copy"
+    invoke-virtual {v0, p1}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    move-result v2
+    if-eqz v2, :diag_chk_summary
+    invoke-virtual {p0}, Lcom/melodix/music/MainActivity;->copyDiagAndPaint()V
+    return-void
+
+    :diag_chk_summary
+    const-string v0, "summary"
+    invoke-virtual {v0, p1}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    move-result v2
+    if-eqz v2, :diag_chk_export
+    invoke-virtual {p0}, Lcom/melodix/music/MainActivity;->copyDiagAndPaint()V
+    return-void
+
+    :diag_chk_export
+    const-string v0, "export"
+    invoke-virtual {v0, p1}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    move-result v2
+    if-eqz v2, :diag_chk_open
+    invoke-virtual {p0}, Lcom/melodix/music/MainActivity;->copyDiagExportAndPaint()V
+    return-void
+
+    :diag_chk_open
+    const-string v0, "open"
+    invoke-virtual {v0, p1}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    move-result v2
+    if-eqz v2, :diag_engine_run
+    const/4 v1, 0x0
+    invoke-virtual {p0, v1}, Lcom/melodix/music/MainActivity;->paintDiagNative(Ljava/lang/String;)V
+    return-void
+
+    :diag_engine_run
+    # Engine actions (run / playlists / cat:* / retry): bounded by the native
+    # watchdog — the screen always ends on a terminal state.
+    new-instance v0, Ljava/lang/StringBuilder;
+    invoke-direct {v0}, Ljava/lang/StringBuilder;-><init>()V
+    const-string v2, "Tests en cours ("
+    invoke-virtual {v0, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    invoke-virtual {v0, p1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    const-string v2, ") — réponse garantie sous 35 s"
+    invoke-virtual {v0, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    invoke-virtual {v0}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
+    move-result-object v2
+    invoke-virtual {p0, v2}, Lcom/melodix/music/MainActivity;->paintDiagNative(Ljava/lang/String;)V
+
     const-string v0, "diag_engine.js"
-    invoke-static {v0}, Lcom/melodix/music/NativeBridgeAsset;->readAssetUtf8(Ljava/lang/String;)Ljava/lang/String;
+    invoke-static {p0, v0}, Lcom/melodix/music/NativeBridgeAsset;->readAssetUtf8(Landroid/content/Context;Ljava/lang/String;)Ljava/lang/String;
     move-result-object v1
-    if-eqz v1, :diag_action_run
+    if-eqz v1, :diag_engine_missing
     invoke-virtual {v1}, Ljava/lang/String;->isEmpty()Z
     move-result v2
-    if-eqz v2, :diag_action_run
-    invoke-virtual {p0, v1}, Lcom/melodix/music/MainActivity;->runNativeJavascript(Ljava/lang/String;)V
+    if-eqz v2, :diag_engine_missing
 
-    :diag_action_run
+    invoke-virtual {p0, v1}, Lcom/melodix/music/MainActivity;->runNativeJavascript(Ljava/lang/String;)V
+    invoke-static {p0}, Lcom/melodix/music/DiagWatchdog;->arm(Lcom/melodix/music/MainActivity;)V
     const-string v0, "window.__sfDiagAction"
     invoke-virtual {p0, v0, p1}, Lcom/melodix/music/MainActivity;->runNativeFunction(Ljava/lang/String;Ljava/lang/String;)V
+    return-void
+
+    :diag_engine_missing
+    const-string v2, "Moteur de tests indisponible (asset diag_engine.js illisible)"
+    invoke-virtual {p0, v2}, Lcom/melodix/music/MainActivity;->paintDiagNative(Ljava/lang/String;)V
+
+    :diag_act_done
     return-void
 .end method
 
@@ -7874,6 +8110,7 @@
     invoke-virtual {p1, v0}, Ljava/lang/String;->startsWith(Ljava/lang/String;)Z
     move-result v1
     if-eqz v1, :apply_done
+    invoke-static {}, Lcom/melodix/music/DiagWatchdog;->disarm()V
     iget-object v2, p0, Lcom/melodix/music/MainActivity;->nativeCurrentScreen:Ljava/lang/String;
     if-eqz v2, :apply_done
     const-string v3, "diagnostic"

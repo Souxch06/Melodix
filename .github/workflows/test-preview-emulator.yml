@@ -527,6 +527,30 @@ jobs:
           sleep 1
           echo "::notice title=E2E Tab isolation::PASS (playlist loading + late success/empty/error never leaked onto Paramètres)"
 
+          # 3c. Diagnostic Melodix screen (P0-DIAG): opening it must show a
+          #     real native message with a native copy action immediately —
+          #     never a stuck "loading the engine" state, even if the JS engine
+          #     never answers. Copy must work through the native clipboard.
+          tap_text "$state/08_library_back_home.xml" "Paramètres"
+          sleep 1
+          dump_ui "08d_settings_for_diag"
+          tap_text "$state/08d_settings_for_diag.xml" "Diagnostic Melodix"
+          sleep 1
+          dump_ui "08e_diag_message"
+          assert_ui_has "$state/08e_diag_message.xml" "Message du diagnostic"
+          assert_ui_has "$state/08e_diag_message.xml" "Copier le message"
+          assert_ui_lacks "$state/08e_diag_message.xml" "moteur de diagnostic"
+          tap_text "$state/08e_diag_message.xml" "Copier le message"
+          sleep 1
+          dump_ui "08f_diag_copied"
+          assert_ui_has "$state/08f_diag_copied.xml" "Message copi"
+          assert_ui_has "$state/08f_diag_copied.xml" "Copier le message"
+          adb shell input keyevent 4
+          sleep 1
+          adb shell input keyevent 4
+          sleep 1
+          echo "::notice title=E2E Diagnostic screen::PASS (native message + native copy feedback, no engine dependency)"
+
           # 4. Search screen + closed keyboard on entry + deliberate field tap
           #    + text entry + IME Submit + Android Back
           tap_text "$state/08_library_back_home.xml" "Rechercher"

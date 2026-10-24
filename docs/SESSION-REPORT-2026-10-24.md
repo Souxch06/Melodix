@@ -234,3 +234,34 @@ capturera d'abord le comportement réel de l'appareil/compte. La Phase B
 depuis le téléphone. Le diagnostic n'active rien de dangereux : pas de
 contournement d'authentification, pas de requêtes supplémentaires hors son
 propre cycle, pas de contenu factice.
+
+## 23. Correctif P0-DIAG — écran diagnostic natif d'entrée (retour utilisateur)
+
+**Symptôme réel (appareil utilisateur)** : l'écran restait bloqué sur
+« Démarrage du moteur de diagnostic… » et rien n'était copiable — le moteur JS
+ne se chargeait pas et l'interface ne le signalait jamais.
+
+**Correctif (conforme à la demande « directement un message avec la possibilité
+de le copier »)** :
+
+- **Message natif immédiat** : `openNativeDiag()` ne dépend PLUS d'aucun
+  JavaScript. `paintDiagNative()` peint directement un vrai rapport
+  (`buildDiagReport()` : écran courant, id attendu, cache bibliothèque réel,
+  compteurs `DiagCounters`, journal borné) avec une action **« Copier le
+  message »**. Tout est terminal dès l'ouverture.
+- **Copie 100 % native** : `spotify:diag:copy` / `spotify:diag:summary` /
+  `spotify:diag:export` passent par `AndBridge.copyToClipboardStatic`
+  (ClipboardManager) — aucun moteur, aucun WebView. Retour honnête
+  « Message copié » ou « Copie impossible ».
+- **Moteur devenu optionnel et borné** : les tests (`run`/`playlists`/`cat:*`/
+  `retry`) peignent d'abord l'écran natif avec « réponse garantie sous 35 s »,
+  puis injectent le moteur. Deux garde-fous : lecture d'asset par contexte
+  explicite (`readAssetUtf8(Context,String)`, sans le risque de NPE de
+  `m9.c()`) → erreur terminal si illisible ; et `DiagWatchdog` (35 s,
+  Handler/Runnable natif) qui repeint un message terminal si le moteur ne
+  renvoie aucun rapport (le canal `diag:` le désarme dès qu'un rapport arrive).
+- **E2E réelle** : le workflow émulateur ouvre maintenant Paramètres →
+  Diagnostic Melodix, vérifie « Message du diagnostic » + « Copier le message »
+  + absence du loader, tape Copier et vérifie le retour « Message copi… ».
+- **Intégrité build** : `diag_engine.js` ajouté à la liste des assets vérifiés
+  dans les APK (preview + refresh).

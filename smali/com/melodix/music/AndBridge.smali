@@ -3350,3 +3350,39 @@
     :copy_done
     return-void
 .end method
+
+.method public static copyToClipboardStatic(Landroid/content/Context;Ljava/lang/String;)Z
+    .locals 3
+
+    if-eqz p1, :copy_static_fail
+
+    :try_start_0
+    if-eqz p0, :copy_static_fail
+
+    const-string v0, "clipboard"
+    invoke-virtual {p0, v0}, Landroid/content/Context;->getSystemService(Ljava/lang/String;)Ljava/lang/Object;
+    move-result-object v0
+    check-cast v0, Landroid/content/ClipboardManager;
+    if-eqz v0, :copy_static_fail
+
+    const-string v1, "Melodix diagnostic"
+    invoke-static {v1, p1}, Landroid/content/ClipData;->newPlainText(Ljava/lang/CharSequence;Ljava/lang/CharSequence;)Landroid/content/ClipData;
+    move-result-object v1
+    invoke-virtual {v0, v1}, Landroid/content/ClipboardManager;->setPrimaryClip(Landroid/content/ClipData;)V
+
+    const-string v0, "diag-copy ok"
+    invoke-static {v0}, Lcom/melodix/music/DiagCounters;->event(Ljava/lang/String;)V
+    :try_end_0
+    .catch Ljava/lang/Throwable; {:try_start_0 .. :try_end_0} :catch_0
+
+    const/4 v0, 0x1
+    return v0
+
+    :catch_0
+    move-exception v0
+    invoke-static {v0}, Lcom/melodix/music/NativeCrashGuard;->record(Ljava/lang/Throwable;)V
+
+    :copy_static_fail
+    const/4 v0, 0x0
+    return v0
+.end method

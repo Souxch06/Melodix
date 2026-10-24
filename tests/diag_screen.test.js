@@ -248,6 +248,80 @@ t('Diagnostic screen is reachable from settings and runs real engine actions', (
     assert.ok(main.includes('spotify:diag:open'), 'settings row opens the screen');
 });
 
+t('native-first: opening the screen paints a real message without any JS', () => {
+    // The screen must never depend on the JS engine to show content: the
+    // message + copy action are painted natively, terminal, immediately.
+    const openAt = main.indexOf('.method public final openNativeDiag()V');
+    const open = main.slice(openAt, main.indexOf('.end method', openAt));
+    assert.ok(open.includes('paintDiagNative'), 'open delegates to the native painter');
+    assert.ok(!open.includes('runNativeJavascript'), 'open must not depend on JS');
+    assert.ok(!open.includes('diag_engine.js'), 'open must not inject the engine');
+
+    const paintAt = main.indexOf('.method public final paintDiagNative');
+    const paint = main.slice(paintAt, main.indexOf('.end method', paintAt));
+    assert.ok(paint.includes('Message du diagnostic'), 'the message is painted');
+    assert.ok(paint.includes('Copier le message'), 'copy action is painted');
+    assert.ok(paint.includes('spotify:diag:copy'), 'copy action uri');
+    assert.ok(paint.includes('buildDiagReport'), 'message built from real state');
+    assert.ok(paint.includes('renderNativeRows'), 'painted through the native list');
+});
+
+t('copy is pure native (ClipboardManager) and never requires the engine', () => {
+    const copyAt = main.indexOf('.method public final copyDiagAndPaint');
+    const copy = main.slice(copyAt, main.indexOf('.end method', copyAt));
+    assert.ok(copy.includes('copyToClipboardStatic'), 'uses the native clipboard helper');
+    assert.ok(!copy.includes('runNativeJavascript'), 'no JS in the copy path');
+    assert.ok(!copy.includes('__sfDiagAction'), 'no engine in the copy path');
+    assert.ok(copy.includes('Message copié'), 'terminal success feedback');
+    assert.ok(copy.includes('Copie impossible'), 'terminal failure feedback');
+
+    const bridge = read('smali/com/melodix/music/AndBridge.smali');
+    const stAt = bridge.indexOf('.method public static copyToClipboardStatic');
+    const st = bridge.slice(stAt, bridge.indexOf('.end method', stAt));
+    assert.ok(st.includes('setPrimaryClip'), 'really writes the clipboard');
+    assert.ok(st.includes('ClipData;->newPlainText'), 'plain-text clip');
+
+    const exportAt = main.indexOf('.method public final copyDiagExportAndPaint');
+    const exp = main.slice(exportAt, main.indexOf('.end method', exportAt));
+    assert.ok(exp.includes('countersJson'), 'JSON export carries the counters');
+    assert.ok(!exp.includes('runNativeJavascript'), 'no JS in the export path');
+});
+
+t('engine runs are bounded: asset-robust read + watchdog terminal fallback', () => {
+    // readAssetUtf8(Context, String) variant — no m9.c() throw risk.
+    const asset = read('smali/com/melodix/music/NativeBridgeAsset.smali');
+    assert.ok(asset.includes('.method public static readAssetUtf8(Landroid/content/Context;Ljava/lang/String;)'),
+        'context-first asset reader exists');
+    const actAt = main.indexOf('.method public final openNativeDiagAction');
+    const act = main.slice(actAt, main.indexOf('.end method', actAt));
+    assert.ok(act.includes('readAssetUtf8(Landroid/content/Context;Ljava/lang/String;)'),
+        'actions use the context-first reader');
+    assert.ok(act.includes('DiagWatchdog;->arm'), 'watchdog armed before the engine runs');
+    assert.ok(act.includes('Moteur de tests indisponible'), 'missing asset -> terminal error');
+
+    const wd = read('smali/com/melodix/music/DiagWatchdog.smali');
+    assert.ok(wd.includes('postDelayed'), 'bounded timeout');
+    assert.ok(wd.includes('paintDiagNative'), 'timeout repaints a terminal native state');
+    assert.ok(wd.includes('.method public static disarm()V'), 'engine reports disarm it');
+    const applyAt = main.indexOf('.method public final applyNativeUiData');
+    const applyEnd = main.indexOf('.end method', applyAt);
+    const checkDiag = main.slice(main.indexOf(':check_diag', applyAt), applyEnd);
+    assert.ok(checkDiag.includes('DiagWatchdog;->disarm()V'), 'report arrival disarms the watchdog');
+});
+
+t('native message carries real state and stays free of personal data', () => {
+    const repAt = main.indexOf('.method public final buildDiagReport');
+    const rep = main.slice(repAt, main.indexOf('.end method', repAt));
+    assert.ok(rep.includes('nativeCurrentScreen'), 'real screen state');
+    assert.ok(rep.includes('nativeLibraryJson'), 'real cache state');
+    assert.ok(rep.includes('DiagCounters;->readReport()'), 'real pipeline counters');
+    assert.ok(!rep.includes('spotifyProfileName'), 'no account name in the report');
+    assert.ok(!rep.includes('Bearer'), 'no auth material');
+    const counters = read('smali/com/melodix/music/DiagCounters.smali');
+    assert.ok(counters.includes('.method public static declared-synchronized readReport()'),
+        'readReport exists');
+});
+
 t('back navigation from the diagnostic returns to settings', () => {
     const method = main.slice(main.indexOf('.method public final handleNativeBack'));
     const i = method.indexOf(':native_back_check_diag');
@@ -264,6 +338,9 @@ t('settings shell rows carry the diagnostic entry', () => {
 });
 
 t('engine action list covers run/retry/export/copy and closes every run', () => {
+    assert.ok(main.includes("const-string v0, \"copy\""), 'copy routed natively');
+    assert.ok(main.includes("const-string v0, \"summary\""), 'summary routed natively');
+    assert.ok(main.includes("const-string v0, \"export\""), 'export routed natively');
     assert.ok(engineSrc.includes("a === 'run'"), 'full run action');
     assert.ok(engineSrc.includes("a.indexOf('cat:') === 0"), 'per-category actions');
     assert.ok(engineSrc.includes("a === 'retry'"), 'safe retry action');

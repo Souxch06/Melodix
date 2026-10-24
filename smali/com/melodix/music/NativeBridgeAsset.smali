@@ -184,3 +184,49 @@
 
     return-object v0
 .end method
+
+# Context-first variant: never goes through m9.c() (which throws when the app
+# context singleton is not ready) — the caller passes its own Context.
+.method public static readAssetUtf8(Landroid/content/Context;Ljava/lang/String;)Ljava/lang/String;
+    .locals 7
+
+    const/4 v0, 0x0
+    if-eqz p0, :ctx_read_fail
+    if-eqz p1, :ctx_read_fail
+
+    :try_start_0
+    invoke-virtual {p0}, Landroid/content/Context;->getAssets()Landroid/content/res/AssetManager;
+    move-result-object v1
+    invoke-virtual {v1, p1}, Landroid/content/res/AssetManager;->open(Ljava/lang/String;)Ljava/io/InputStream;
+    move-result-object v1
+    new-instance v2, Ljava/io/ByteArrayOutputStream;
+    invoke-direct {v2}, Ljava/io/ByteArrayOutputStream;-><init>()V
+    const/16 v3, 0x1000
+    new-array v3, v3, [B
+
+    :ctx_read_loop
+    invoke-virtual {v1, v3}, Ljava/io/InputStream;->read([B)I
+    move-result v4
+    if-ltz v4, :ctx_read_done
+    const/4 v5, 0x0
+    invoke-virtual {v2, v3, v5, v4}, Ljava/io/ByteArrayOutputStream;->write([BII)V
+    goto :ctx_read_loop
+
+    :ctx_read_done
+    invoke-virtual {v1}, Ljava/io/InputStream;->close()V
+    const-string v1, "UTF-8"
+    invoke-virtual {v2, v1}, Ljava/io/ByteArrayOutputStream;->toString(Ljava/lang/String;)Ljava/lang/String;
+    move-result-object v0
+    goto :ctx_read_ok
+    :try_end_0
+    .catch Ljava/lang/Exception; {:try_start_0 .. :try_end_0} :catch_0
+
+    :catch_0
+    move-exception v6
+    invoke-static {v6}, Lcom/melodix/music/NativeCrashGuard;->record(Ljava/lang/Throwable;)V
+    const/4 v0, 0x0
+
+    :ctx_read_fail
+    :ctx_read_ok
+    return-object v0
+.end method
