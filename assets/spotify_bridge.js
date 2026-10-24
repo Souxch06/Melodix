@@ -47,6 +47,21 @@ try {
         }
         window.__sfLibraryExpanded = false;
         if (window.__sfDrawerState) window.__sfDrawerState.setOpen(false);
+        // Session data dies with the session: no playlists, titles or covers
+        // from the previous account may remain visible after a logout, and any
+        // in-flight library result is dropped by the run epoch.
+        try {
+            libRunEpoch += 1;
+            isFetchingLib = false;
+            mediaLibRetryAttempts = 0;
+            window.__sfMediaLibRetryExhausted = false;
+            if (mediaLibRetryTimer) { clearTimeout(mediaLibRetryTimer); mediaLibRetryTimer = null; }
+            window.mediaLib = null;
+            window.__sfMediaLibState = null;
+            window.__sfMediaLibError = null;
+            window.likedSongsCache = null;
+            if (window.pendingMediaRequests && window.pendingMediaRequests.clear) window.pendingMediaRequests.clear();
+        } catch (_) {}
     };
 
     window.__sfMarkLoggedIn = function() {
@@ -1639,6 +1654,51 @@ try {
     }
 
     const oriFetch = window.fetch;
+
+    // The library layer must never hang: a stalled connection becomes a
+    // classified NetworkError after __sfLibFetchTimeoutMs so the UI reaches a
+    // terminal state instead of a loading indicator stuck forever.
+    window.__sfLibFetchTimeoutMs = 12000;
+    function libFetch(url, options) {
+        const timeoutMs = Number(window.__sfLibFetchTimeoutMs) > 0 ? Number(window.__sfLibFetchTimeoutMs) : 12000;
+        const opts = Object.assign({}, options || {});
+        const Controller = (typeof AbortController === 'function') ? AbortController : null;
+        const controller = Controller ? new Controller() : null;
+        if (controller && !opts.signal) opts.signal = controller.signal;
+        return new Promise((resolve, reject) => {
+            let settled = false;
+            const fail = (err) => {
+                if (settled) return;
+                settled = true;
+                reject(err);
+            };
+            const timer = setTimeout(() => {
+                const err = new Error('fetch-timeout-' + timeoutMs + 'ms');
+                // Distinct name so the diagnostic report can tell "the
+                // request stalled" from "the network was down".
+                err.name = 'NetworkTimeoutError';
+                try { if (controller) controller.abort(); } catch (_) {}
+                fail(err);
+            }, timeoutMs);
+            Promise.resolve().then(() => oriFetch(url, opts)).then((resp) => {
+                if (settled) return;
+                settled = true;
+                clearTimeout(timer);
+                resolve(resp);
+            }, (err) => {
+                clearTimeout(timer);
+                if (settled) return;
+                if (err && err.name === 'AbortError') {
+                    const timeout = new Error('fetch-timeout-' + timeoutMs + 'ms');
+                    timeout.name = 'NetworkTimeoutError';
+                    fail(timeout);
+                    return;
+                }
+                fail(err);
+            });
+        });
+    }
+    window.libFetch = libFetch;
     window.fetch = async function(...args) {
         const [url, opts] = args;
         const strUrl = resolveFetchUrl(url);
@@ -1984,7 +2044,7 @@ try {
             if (cliTok) {
                 headers['Client-Token'] = cliTok;
             }
-            const resp = await oriFetch('https://api-partner.spotify.com/pathfinder/v2/query', {
+            const resp = await libFetch('https://api-partner.spotify.com/pathfinder/v2/query', {
                 method: 'POST',
                 mode: 'cors',
                 credentials: 'include',
@@ -3890,6 +3950,8 @@ try {
 
     window.pendingMediaRequests = window.pendingMediaRequests || new Set();
     let isFetchingLib = false;
+    // Monotonic run id: results from older runs are dropped, never merged.
+    let libRunEpoch = 0;
     let mediaLibRetryTimer = null;
     let mediaLibRetryAttempts = 0;
     const MEDIA_LIB_MAX_RETRIES = 5;
@@ -3906,7 +3968,18 @@ try {
     }
 
     function scheduleMediaLibRetry() {
-        if (mediaLibRetryTimer || mediaLibRetryAttempts >= MEDIA_LIB_MAX_RETRIES) return;
+        if (mediaLibRetryTimer) return;
+        if (mediaLibRetryAttempts >= MEDIA_LIB_MAX_RETRIES) {
+            // Bounded waiting: once the retry budget is spent the state must
+            // become terminal. Staying 'pending' forever is the bug this
+            // replaces: the loading indicator can never resolve after this.
+            window.__sfMediaLibRetryExhausted = true;
+            if (window.__sfMediaLibState !== 'ready' && window.__sfMediaLibState !== 'empty') {
+                libDiagUpdate({ status: 'error' });
+                publishMediaLibState('error', 'retry-exhausted');
+            }
+            return;
+        }
         mediaLibRetryAttempts += 1;
         const delay = Math.min(3000 * mediaLibRetryAttempts, 15000);
         mediaLibRetryTimer = setTimeout(() => {
@@ -3917,6 +3990,12 @@ try {
 
     async function checkMediaLib(force = false) {
         if (isFetchingLib && !force) return;
+        if (!force && window.__sfMediaLibRetryExhausted) {
+            // A new user-driven call (warmup / Accueil retry) re-opens the
+            // bounded retry budget; timer-driven forced calls never do.
+            window.__sfMediaLibRetryExhausted = false;
+            mediaLibRetryAttempts = 0;
+        }
         libDiagRunBegin();
         await ensureAuthToken();
         if (!window.spotAuthToken) {
@@ -3932,16 +4011,33 @@ try {
         const tokenLooksBearer = window.spotAuthToken.startsWith('Bearer ');
         libDiagUpdate({ token: tokenLooksBearer ? 'bearer' : 'malformed' });
         libDiagRecord('token', tokenLooksBearer, tokenLooksBearer ? 'format Bearer' : 'format inattendu');
+        // Serialize the fetch phase: re-check the lock after the awaited token
+        // wait so two concurrent calls never fetch twice in parallel.
+        if (isFetchingLib && !force) return;
         isFetchingLib = true;
+        const capturedEpoch = ++libRunEpoch;
         try {
             const allItems = await fetchAllLibrary();
+            if (capturedEpoch !== libRunEpoch) {
+                // A newer run or a logout owns the state now: this slower
+                // response must never overwrite the fresher one.
+                console.warn("[Spotifuck] checkMediaLib: late library response dropped (stale run).");
+                return;
+            }
             window.mediaLib = parseLibrary(allItems);
             mediaLibRetryAttempts = 0;
             console.log("[Spotifuck] checkMediaLib: Successfully loaded mediaLib! Draining pending requests:", Array.from(window.pendingMediaRequests));
             if (window.pendingMediaRequests && window.pendingMediaRequests.size > 0) {
                 for (const reqId of window.pendingMediaRequests) {
-                    const items = window.mediaLib?.[reqId] || [];
-                    AndBridge.onMediaItemsLoaded(reqId, JSON.stringify(items));
+                    const items = window.mediaLib?.[reqId];
+                    if (Array.isArray(items)) {
+                        AndBridge.onMediaItemsLoaded(reqId, JSON.stringify(items));
+                    } else {
+                        // Not a library category (a collection or a track
+                        // list): answer through the real loader instead of
+                        // pretending the request held zero items.
+                        try { fetchMediaItems(reqId); } catch (_) {}
+                    }
                 }
                 window.pendingMediaRequests.clear();
             }
@@ -3952,6 +4048,11 @@ try {
                 + ' podcasts=' + window.mediaLib.podcasts.length);
             publishMediaLibState(window.mediaLib.playlists.length ? 'ready' : 'empty', null);
         } catch (e) {
+            if (capturedEpoch !== libRunEpoch) {
+                // A stale run's failure must not clobber a newer state either.
+                console.warn("[Spotifuck] checkMediaLib: stale failure dropped (stale run).");
+                return;
+            }
             logBridgeError('checkMediaLib', e);
             libDiagUpdate({ status: 'error' });
             libDiagRecord('fetch', false, String((e && e.name) || 'Error'));
@@ -4001,7 +4102,7 @@ try {
             for (const candidate of hashCandidates) {
                 const candidateLabel = candidate === fallbackHash ? 'fallback' : 'dynamic';
                 try {
-                    resp = await oriFetch('https://api-partner.spotify.com/pathfinder/v2/query', {
+                    resp = await libFetch('https://api-partner.spotify.com/pathfinder/v2/query', {
                         method: 'POST',
                         mode: 'cors',
                         credentials: 'include',
@@ -4103,16 +4204,54 @@ try {
         let skippedItems = 0;
         if (!Array.isArray(items)) return res;
 
+        // The real libraryV3 payload wraps items at varying depths
+        // (item.data, item.data.data, data, data.data...). Resolve the first
+        // node that actually looks like a media object: it must carry a
+        // spotify: URI or a name. Nothing is invented: only fields that
+        // really exist are read.
+        function unwrapItemData(elem) {
+            const chain = [
+                elem?.item?.data?.data,
+                elem?.item?.data,
+                elem?.item,
+                elem?.data?.data,
+                elem?.data,
+                elem
+            ];
+            for (const node of chain) {
+                if (!node || typeof node !== 'object') continue;
+                const nodeUri = node.uri || node._uri;
+                if (typeof nodeUri === 'string' && nodeUri.indexOf('spotify:') === 0) return node;
+                if (node.name || node.title || node.profile?.name) return node;
+            }
+            return chain.find(n => n && typeof n === 'object') || null;
+        }
+
+        function walkImage(node) {
+            if (!node || typeof node !== 'object') return null;
+            const direct =
+                node.images?.items?.[0]?.sources?.[0]?.url ||
+                node.images?.items?.[0]?.url ||
+                node.images?.[0]?.url ||
+                node.coverArt?.sources?.[0]?.url ||
+                node.visuals?.avatarImage?.sources?.[0]?.url ||
+                node.visuals?.squareImage?.sources?.[0]?.url ||
+                node.visuals?.mainImage?.sources?.[0]?.url ||
+                node.visuals?.headerImage?.sources?.[0]?.url ||
+                null;
+            return direct;
+        }
+
         items.forEach((elem) => {
-            const data = elem?.item?.data || elem?.data || elem?.item || elem;
+            const data = unwrapItemData(elem);
             if (!data) {
                 skippedItems += 1;
                 return;
             }
-            const typename = data.__typename || data.type || '';
+            const typename = data.__typename || data.type || elem?.item?.__typename || '';
             const uri = data.uri || data._uri || (data.id ? 'spotify:' + typename.toLowerCase() + ':' + data.id : '') || '';
             const name = data.name || data.title || data.profile?.name || 'Unknown';
-            const image = data.images?.items?.[0]?.sources?.[0]?.url || data.images?.[0]?.url || data.coverArt?.sources?.[0]?.url || data.visuals?.avatarImage?.sources?.[0]?.url || null;
+            const image = walkImage(data) || walkImage(elem?.item?.data) || walkImage(elem?.item);
 
             if (!uri) {
                 skippedItems += 1;
@@ -4254,7 +4393,7 @@ try {
                 if (window.spotCliToken) {
                     headers['Client-Token'] = window.spotCliToken;
                 }
-                const resp = await oriFetch('https://api-partner.spotify.com/pathfinder/v2/query', {
+                const resp = await libFetch('https://api-partner.spotify.com/pathfinder/v2/query', {
                     method: 'POST',
                     mode: 'cors',
                     credentials: 'include',
@@ -4331,7 +4470,7 @@ try {
                 let playlistError = null;
                 for (let i = 0; i < playlistHashCandidates.length; i++) {
                     try {
-                        const resp = await oriFetch('https://api-partner.spotify.com/pathfinder/v2/query', {
+                        const resp = await libFetch('https://api-partner.spotify.com/pathfinder/v2/query', {
                             method: 'POST',
                             mode: 'cors',
                             credentials: 'include',
@@ -4423,7 +4562,7 @@ try {
             // 3. Specific Album tracks (using GQL getAlbum)
             if (parentId.startsWith('spotify:album:')) {
                 const albumId = parentId.split(':')[2];
-                const resp = await oriFetch('https://api-partner.spotify.com/pathfinder/v2/query', {
+                const resp = await libFetch('https://api-partner.spotify.com/pathfinder/v2/query', {
                     method: 'POST',
                     mode: 'cors',
                     credentials: 'include',
@@ -4479,7 +4618,7 @@ try {
             // 4. Specific Artist (fetch their top tracks using GQL queryArtistOverview)
             if (parentId.startsWith('spotify:artist:')) {
                 const artistId = parentId.split(':')[2];
-                const resp = await oriFetch('https://api-partner.spotify.com/pathfinder/v2/query', {
+                const resp = await libFetch('https://api-partner.spotify.com/pathfinder/v2/query', {
                     method: 'POST',
                     mode: 'cors',
                     credentials: 'include',
@@ -4683,7 +4822,7 @@ try {
                 })
             };
             if (abortController) fetchOpts.signal = abortController.signal;
-            const resp = await oriFetch('https://api-partner.spotify.com/pathfinder/v2/query', fetchOpts);
+            const resp = await libFetch('https://api-partner.spotify.com/pathfinder/v2/query', fetchOpts);
             if (!resp.ok) throw new Error("Failed to search GQL: " + resp.statusText);
             const data = await resp.json();
             const searchData = data?.data?.searchV2 || data?.data?.search;

@@ -8,6 +8,51 @@
 .implements Ljava/lang/Runnable;
 
 
+# static methods
+# Hides the soft keyboard when it is open (returns true then, or when the
+# search field held focus). Used by Back (close keyboard first) and by screen
+# changes (the keyboard must never linger over another screen).
+.method public static dismissKeyboard(Lcom/melodix/music/MainActivity;)Z
+    .locals 4
+
+    const/4 v1, 0x0
+    if-nez p0, :dismiss_return
+
+    const v0, 0x7f090233
+    invoke-virtual {p0, v0}, Landroid/app/Activity;->findViewById(I)Landroid/view/View;
+    move-result-object v0
+    if-eqz v0, :dismiss_hide
+    invoke-virtual {v0}, Landroid/view/View;->isFocused()Z
+    move-result v2
+    if-eqz v2, :dismiss_hide
+    const/4 v1, 0x1
+    invoke-virtual {v0}, Landroid/view/View;->clearFocus()V
+
+    :dismiss_hide
+    const-string v2, "input_method"
+    invoke-virtual {p0, v2}, Landroid/content/Context;->getSystemService(Ljava/lang/String;)Ljava/lang/Object;
+    move-result-object v2
+    if-eqz v2, :dismiss_return
+    check-cast v2, Landroid/view/inputmethod/InputMethodManager;
+    invoke-virtual {p0}, Landroid/app/Activity;->getWindow()Landroid/view/Window;
+    move-result-object v3
+    if-eqz v3, :dismiss_return
+    invoke-virtual {v3}, Landroid/view/Window;->getDecorView()Landroid/view/View;
+    move-result-object v3
+    if-eqz v3, :dismiss_return
+    invoke-virtual {v3}, Landroid/view/View;->getWindowToken()Landroid/os/IBinder;
+    move-result-object v3
+    const/4 v0, 0x0
+    invoke-virtual {v2, v3, v0}, Landroid/view/inputmethod/InputMethodManager;->hideSoftInputFromWindow(Landroid/os/IBinder;I)Z
+    move-result v2
+    if-eqz v2, :dismiss_return
+    const/4 v1, 0x1
+
+    :dismiss_return
+    return v1
+.end method
+
+
 # instance fields
 .field private final activity:Lcom/melodix/music/MainActivity;
 

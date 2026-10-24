@@ -548,6 +548,97 @@ jobs:
           fi
           echo "::notice title=E2E Search + Back::PASS (Search focused, 'daft' entered, results rendered, Back returned to Home)"
 
+          # 4b. Keyboard lifecycle: open -> typed input kept -> Back closes IME
+          #     FIRST (screen unchanged) -> Back navigates -> leaving a screen
+          #     hides the IME. Screenshots of the main rendered screens are
+          #     captured for the verification artifact.
+          tap_text "$state/10_search_back_1.xml" "Rechercher" 2>/dev/null || tap_text "$state/10_search_back_2.xml" "Rechercher"
+          sleep 1
+          tap_text "$state/09_search.xml" "Rechercher" 2>/dev/null || true
+          sleep 1
+          adb shell input tap 540 400 || true
+          sleep 1
+          adb shell input text "daft%sfun" || true
+          sleep 1
+          im_open="$(adb shell dumpsys input_method 2>/dev/null | grep -o 'mInputShown=[a-z]*' | head -n 1 | tr -d '\r' || true)"
+          dump_ui "20_kb_open"
+          adb exec-out screencap -p > "$state/20_kb_open.png" 2>/dev/null || true
+          if [[ "$im_open" != "mInputShown=true" ]]; then
+            echo "::error title=Keyboard open::expected mInputShown=true after tapping the search field (got: $im_open)"
+            exit 1
+          fi
+          assert_ui_has "$state/20_kb_open.xml" "daft"
+          # Back #1 must close the IME only: the search screen stays open and
+          # the typed query is kept.
+          adb shell input keyevent 4
+          sleep 1
+          im_closed="$(adb shell dumpsys input_method 2>/dev/null | grep -o 'mInputShown=[a-z]*' | head -n 1 | tr -d '\r' || true)"
+          dump_ui "21_kb_closed_still_search"
+          adb exec-out screencap -p > "$state/21_kb_closed_still_search.png" 2>/dev/null || true
+          if [[ "$im_closed" != "mInputShown=false" ]]; then
+            echo "::error title=Keyboard close::Back must hide the IME first (got: $im_closed)"
+            exit 1
+          fi
+          assert_ui_has "$state/21_kb_closed_still_search.xml" "daft"
+          # Back #2 navigates back to Home.
+          adb shell input keyevent 4
+          sleep 1
+          dump_ui "22_kb_back_home"
+          assert_ui_has "$state/22_kb_back_home.xml" "Mix Decouverte"
+          # Leaving a screen with the keyboard open must never let the IME
+          # linger over the next screen.
+          tap_text "$state/22_kb_back_home.xml" "Rechercher"
+          sleep 1
+          adb shell input tap 540 400 || true
+          sleep 1
+          im_open2="$(adb shell dumpsys input_method 2>/dev/null | grep -o 'mInputShown=[a-z]*' | head -n 1 | tr -d '\r' || true)"
+          tap_text "$state/22_kb_back_home.xml" "Biblioth" || true
+          sleep 1
+          im_over="$(adb shell dumpsys input_method 2>/dev/null | grep -o 'mInputShown=[a-z]*' | head -n 1 | tr -d '\r' || true)"
+          dump_ui "23_kb_no_linger"
+          adb exec-out screencap -p > "$state/23_kb_no_linger.png" 2>/dev/null || true
+          if [[ "$im_open2" == "mInputShown=true" && "$im_over" != "mInputShown=false" ]]; then
+            echo "::error title=Keyboard linger::IME still open after leaving search ($im_open2 -> $im_over)"
+            exit 1
+          fi
+          echo "::notice title=E2E Keyboard lifecycle::PASS (open on tap, typed input kept, Back closes IME first then navigates, no IME over other screens)"
+
+          # 4c. Rendered-screen captures + geometry report (touch targets and
+          #     layout bounds) surfaced as annotations for visual review.
+          adb exec-out screencap -p > "$state/30_home.png" 2>/dev/null || true
+          tap_text "$state/23_kb_no_linger.xml" "Biblioth" 2>/dev/null || true
+          sleep 1
+          dump_ui "31_library_geometry"
+          adb exec-out screencap -p > "$state/31_library.png" 2>/dev/null || true
+          python3 - "$state" <<'PY'
+          import glob, os, re, sys, xml.etree.ElementTree as ET
+          state = sys.argv[1]
+          pngs = sorted(glob.glob(os.path.join(state, "*.png")))
+          print(f"::notice title=Rendered screenshots::{len(pngs)} captures: " + ", ".join(os.path.basename(p) for p in pngs))
+          issues = []
+          for xml_path in sorted(glob.glob(os.path.join(state, "2*.xml"))) + sorted(glob.glob(os.path.join(state, "3*.xml"))):
+              try:
+                  root = ET.parse(xml_path).getroot()
+              except Exception:
+                  continue
+              for node in root.iter():
+                  txt = ((node.get("text") or "") + " " + (node.get("content-desc") or "")).strip()
+                  m = re.match(r"\[(\d+),(\d+)\]\[(\d+),(\d+)\]", node.get("bounds") or "")
+                  if not m:
+                      continue
+                  x1, y1, x2, y2 = map(int, m.groups())
+                  w, h = x2 - x1, y2 - y1
+                  if w == 0 or h == 0:
+                      continue
+                  clickable = node.get("clickable") == "true"
+                  if clickable and txt and (w < 40 or h < 40):
+                      issues.append(f"{os.path.basename(xml_path)}: '{txt[:24]}' touch target {w}x{h}")
+          if issues:
+              print("::notice title=Touch-target audit::" + " | ".join(issues[:12]))
+          else:
+              print("::notice title=Touch-target audit::no clickable labelled target under 40x40px in captured dumps")
+          PY
+
           # 5. Logout hides nativeRoot completely and clears private native state without crashing
           adb shell am start -n "$pkg/com.melodix.music.MainActivity" --es e2e_type logout >/dev/null
           sleep 6

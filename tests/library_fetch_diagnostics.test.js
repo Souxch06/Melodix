@@ -391,19 +391,25 @@ test('diagnostic labels outside a conservative charset are dropped entirely', ()
 // 2. An error is never transformed into an empty library
 // ---------------------------------------------------------------------------
 
-test('a missing token keeps the library pending: never empty, never ready', async () => {
+test('a missing token keeps the library pending first, then a bounded terminal error: never empty, never ready', async () => {
     const harness = createBridgeVm();
     const { sandbox, timers } = harness;
     sandbox.__sfAuthBridgeState = 'signed-in';
 
-    const pending = sandbox.checkMediaLib();
+    // Bounded-wait contract (mission): the first pass waits (pending), and the
+    // bounded retry budget (MEDIA_LIB_MAX_RETRIES = 5) must end in a terminal
+    // error instead of a loading indicator that never resolves.
+    let firstState = null;
+    const pending = sandbox.checkMediaLib().then(() => { firstState = sandbox.__sfMediaLibState; });
     await flushTimers(timers);
     await pending;
 
-    assert.equal(sandbox.__sfMediaLibState, 'pending', 'no token -> pending');
+    assert.equal(firstState, 'pending', 'no token -> the first pass waits');
+    assert.equal(sandbox.__sfMediaLibState, 'error', 'bounded retries end in a terminal error');
     assert.notEqual(sandbox.__sfMediaLibState, 'empty');
+    assert.notEqual(sandbox.__sfMediaLibState, 'ready');
+    assert.equal(sandbox.__sfMediaLibRetryExhausted, true);
     const report = sandbox.__sfGetLibDiagReport();
-    assert.equal(report.lastRun.status, 'pending');
     assert.equal(report.failureKind, 'token-missing');
     // The retry loop is bounded (MEDIA_LIB_MAX_RETRIES = 5).
     const runs = report.steps.filter((entry) => entry.step === 'session').length;

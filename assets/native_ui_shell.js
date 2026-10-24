@@ -550,7 +550,11 @@
 
         if (!library && typeof window.checkMediaLib === 'function') {
             var warmupNow = Date.now();
-            if (mediaLibWarmupCount < 8 && (!mediaLibWarmupRequested || (warmupNow - mediaLibWarmupRequested) > 3000)) {
+            // First wave: 8 quick attempts. Then one slow recovery attempt
+            // every 15 s so a transient failure can still heal, while every
+            // individual fetch stays bounded (libFetch timeout) and the
+            // visible state always reaches a terminal row.
+            if ((mediaLibWarmupCount < 8 || (warmupNow - mediaLibWarmupRequested) > 15000) && (!mediaLibWarmupRequested || (warmupNow - mediaLibWarmupRequested) > 3000)) {
                 mediaLibWarmupRequested = warmupNow;
                 mediaLibWarmupCount += 1;
                 try {

@@ -7099,6 +7099,15 @@
 
     iput-object p1, p0, Lcom/melodix/music/MainActivity;->nativeCurrentScreen:Ljava/lang/String;
 
+    # Leaving the search screen closes the soft keyboard so it never lingers
+    # over another screen; entering search keeps it available.
+    const-string v0, "search"
+    invoke-virtual {p1, v0}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    move-result v0
+    if-nez v0, :native_ime_kept
+    invoke-static {p0}, Lcom/melodix/music/NativeSearchWatcher;->dismissKeyboard(Lcom/melodix/music/MainActivity;)Z
+
+    :native_ime_kept
     # The browse grid belongs to the empty search screen only.
     const v0, 0x7f09024f
 
@@ -9030,6 +9039,17 @@
     .locals 4
 
     const/4 v0, 0x0
+
+    # Back closes the soft keyboard first when it is open; only the next Back
+    # navigates away. dismissKeyboard reports whether an input surface was
+    # actually showing the keyboard.
+    invoke-static {p0}, Lcom/melodix/music/NativeSearchWatcher;->dismissKeyboard(Lcom/melodix/music/MainActivity;)Z
+    move-result v1
+    if-eqz v1, :native_back_root
+    const/4 v0, 0x1
+    return v0
+
+    :native_back_root
     const v1, 0x7f09022f
     invoke-virtual {p0, v1}, Landroid/app/Activity;->findViewById(I)Landroid/view/View;
     move-result-object v1
