@@ -1476,11 +1476,29 @@
             title: String(title || '').slice(0, 120),
             artist: String(artist || '').slice(0, 120),
             cover: cover || '',
+            uri: readNowPlayingUri(bar),
             // HTMLMediaElement and the on-screen clocks are seconds.
             // Native formatNativeTime / recMediaStatus expect milliseconds.
             position: position > 0 ? Math.round(position * 1000) : 0,
             duration: duration > 0 ? Math.round(duration * 1000) : 0
         };
+    }
+
+    // Real track URI of the now-playing item, read from the on-page track link.
+    // Returns '' when the link is absent; callers must treat that as unknown.
+    function readNowPlayingUri(bar) {
+        var link = null;
+        var href = '';
+        var m;
+        try {
+            link = (bar && bar.querySelector && bar.querySelector('a[href*="/track/"]')) ||
+                document.querySelector('[data-testid="now-playing-widget"] a[href*="/track/"], [data-testid="now-playing-bar"] a[href*="/track/"]');
+            href = link && link.getAttribute ? String(link.getAttribute('href') || '') : '';
+        } catch (_) {
+            href = '';
+        }
+        m = href.match(/\/track\/([A-Za-z0-9]+)/);
+        return m ? ('spotify:track:' + m[1]) : '';
     }
 
     function textIn(root, selectors) {
@@ -2271,6 +2289,94 @@
         }
         return rows;
     }
+
+    // ---- Queue / prochains titres -----------------------------------------
+    // Builds the native "File d'attente" rows from the REAL playback context
+    // tracked by the bridge (ordered URIs of the current context plus the
+    // metadata cached when the list was loaded). Nothing is invented: without
+    // live context data the screen shows an honest unavailable state, and the
+    // true runtime queue stays the one managed by the Spotify engine.
+    window.__sfRequestQueue = function() {
+        var bridge = window.AndBridge;
+        var rows = [];
+        var uris;
+        var ctx;
+        var meta;
+        var byUri = {};
+        var i;
+        var now;
+        var nowUri;
+        var start = 0;
+        if (!bridge || typeof bridge.onNativeUiData !== 'function') return false;
+        if (isSessionBlockedByLogout()) return false;
+        uris = Array.isArray(window.__sfCurrentTrackUris) ? window.__sfCurrentTrackUris : [];
+        ctx = window.__sfCurrentContextUri || null;
+        meta = (window.__sfMediaItemsCache && ctx && typeof window.__sfMediaItemsCache.get === 'function' && window.__sfMediaItemsCache.has(ctx))
+            ? (window.__sfMediaItemsCache.get(ctx) || []) : [];
+        for (i = 0; i < meta.length; i += 1) {
+            var item = meta[i];
+            var itemUri = item && (item.id || item.uri);
+            if (itemUri) byUri[String(itemUri)] = item;
+        }
+        now = readNowPlaying();
+        nowUri = now && now.uri ? String(now.uri) : '';
+        if (now && now.title) {
+            rows.push({
+                title: now.title,
+                subtitle: (now.artist ? now.artist + ' — ' : '') + 'En cours',
+                image: now.cover || '',
+                uri: nowUri || '',
+                section: 'En lecture'
+            });
+        }
+        if (uris.length > 0) {
+            if (nowUri && uris.indexOf(nowUri) >= 0) {
+                start = uris.indexOf(nowUri) + 1;
+            } else if (now && now.title) {
+                // No track link on the page: fall back to matching the real
+                // now-playing title against the loaded context metadata.
+                for (i = 0; i < uris.length; i += 1) {
+                    var named = byUri[String(uris[i])];
+                    if (named && (named.name || named.title) === now.title) {
+                        start = i + 1;
+                        break;
+                    }
+                }
+            }
+            for (i = start; i < uris.length && rows.length < 40; i += 1) {
+                var trackUri = String(uris[i]);
+                var known = byUri[trackUri];
+                var artists = known && Array.isArray(known.artists) ? known.artists.filter(Boolean).join(', ') : '';
+                rows.push({
+                    title: (known && (known.name || known.title)) || 'Piste non nommée',
+                    subtitle: artists || trackUri,
+                    image: (known && known.image) || '',
+                    uri: trackUri,
+                    section: 'À suivre'
+                });
+            }
+            if (rows.length === 1) {
+                rows.push({
+                    title: 'Fin de la liste',
+                    subtitle: 'Aucun autre titre dans la liste en cours.',
+                    section: 'À suivre'
+                });
+            }
+        }
+        if (rows.length === 0) {
+            rows.push({
+                title: 'File indisponible',
+                subtitle: 'Lancez une lecture depuis une playlist ou un album pour afficher les prochains titres.',
+                section: 'File d\'attente'
+            });
+        }
+        try {
+            bridge.onNativeUiData('queue', JSON.stringify(rows));
+            return true;
+        } catch (_) {
+            return false;
+        }
+    };
 
     window.__sfRequestSpotifySettings = function(overrideStatus) {
         var rows = buildSpotifySettingsRows(overrideStatus);

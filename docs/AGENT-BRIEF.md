@@ -33,6 +33,8 @@ Inspiré de `Souxch06/Melodix-version1` + app mobile Spotify. Toutes les pages, 
 | `NativeHomeShelfRenderer` | Accueil = étagères horizontales |
 | `NativeHomeCache` | `SharedPreferences` `melodix_native` / `home_feed` + seed Titres likés |
 | `NativeCrashGuard` | toasts/jalons `last_stage`, `showLaunchMarker` |
+| `NativeSeekHandler` | appui sur les barres de progression → `__sfSeekFraction` (vrai moteur) |
+| écran `queue` (`onNativeQueueClick`) | « File d'attente » = prochains titres réels du contexte (`__sfRequestQueue`) |
 | `.github/workflows/preview-apk.yml` | build preview |
 
 IDs : `nativeRoot` `0x7f09022f`, titre `0230`, back `0231`, search `0233`, chips `0234`, content `0235`, rows scroll `0239`, player `023a`, mini `0243`, tabs `0246–0248`, avatar `0249`.

@@ -7163,6 +7163,13 @@
     const-string v0, "settings"
     invoke-virtual {p1, v0}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
     move-result v3
+    if-eqz v3, :native_back_check_queue
+    const/4 v1, 0x1
+    goto :set_back_button_visibility
+    :native_back_check_queue
+    const-string v0, "queue"
+    invoke-virtual {p1, v0}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    move-result v3
     if-eqz v3, :set_back_button_visibility
     const/4 v1, 0x1
     :set_back_button_visibility
@@ -7679,7 +7686,7 @@
     const-string v0, "settings"
     invoke-virtual {p1, v0}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
     move-result v1
-    if-eqz v1, :check_search
+    if-eqz v1, :check_queue
     iget-object v2, p0, Lcom/melodix/music/MainActivity;->nativeCurrentScreen:Ljava/lang/String;
     if-eqz v2, :apply_done
     const-string v3, "settings"
@@ -7687,6 +7694,21 @@
     move-result v4
     if-eqz v4, :apply_done
     const-string v2, "Paramètres"
+    invoke-virtual {p0, v2, p2}, Lcom/melodix/music/MainActivity;->renderNativeRows(Ljava/lang/String;Ljava/lang/String;)V
+    return-void
+
+    :check_queue
+    const-string v0, "queue"
+    invoke-virtual {p1, v0}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    move-result v1
+    if-eqz v1, :check_search
+    iget-object v2, p0, Lcom/melodix/music/MainActivity;->nativeCurrentScreen:Ljava/lang/String;
+    if-eqz v2, :apply_done
+    const-string v3, "queue"
+    invoke-virtual {v2, v3}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    move-result v4
+    if-eqz v4, :apply_done
+    const-string v2, "File d'attente"
     invoke-virtual {p0, v2, p2}, Lcom/melodix/music/MainActivity;->renderNativeRows(Ljava/lang/String;Ljava/lang/String;)V
     return-void
 
@@ -7740,6 +7762,9 @@
     .locals 12
 
     :try_start_native_player
+    # Idempotent: keeps the mini and full progress bars seekable. Tapping a bar
+    # relays the touched fraction to window.__sfSeekFraction (real engine).
+    invoke-static {p0}, Lcom/melodix/music/NativeSeekHandler;->attach(Lcom/melodix/music/MainActivity;)V
     new-instance v0, Lorg/json/JSONObject;
     invoke-direct {v0, p1}, Lorg/json/JSONObject;-><init>(Ljava/lang/String;)V
     const-string v1, "track"
@@ -8842,6 +8867,60 @@
     return-void
 .end method
 
+.method public final onNativeQueueClick(Landroid/view/View;)V
+    .locals 4
+
+    # Shows the real upcoming tracks ("prochains titres") of the current context
+    # as native rows. The shell answers on the "queue" channel with data it read
+    # from the live player state; without a real context it answers with an
+    # honest unavailable state instead of inventing a queue.
+    :try_start_queue
+    iget-object v0, p0, Lcom/melodix/music/MainActivity;->nativeCurrentScreen:Ljava/lang/String;
+    if-eqz v0, :queue_default_screen
+    const-string v1, "queue"
+    invoke-virtual {v0, v1}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    move-result v1
+    if-eqz v1, :queue_save_return
+    return-void
+
+    :queue_save_return
+    iput-object v0, p0, Lcom/melodix/music/MainActivity;->nativeReturnScreen:Ljava/lang/String;
+    iget-object v0, p0, Lcom/melodix/music/MainActivity;->nativeCurrentTitle:Ljava/lang/String;
+    iput-object v0, p0, Lcom/melodix/music/MainActivity;->nativeReturnTitle:Ljava/lang/String;
+    iget-object v0, p0, Lcom/melodix/music/MainActivity;->nativeCurrentJson:Ljava/lang/String;
+    iput-object v0, p0, Lcom/melodix/music/MainActivity;->nativeReturnJson:Ljava/lang/String;
+    iget-object v0, p0, Lcom/melodix/music/MainActivity;->nativeExpectedId:Ljava/lang/String;
+    iput-object v0, p0, Lcom/melodix/music/MainActivity;->nativeReturnExpectedId:Ljava/lang/String;
+    iget-object v0, p0, Lcom/melodix/music/MainActivity;->nativeExpectedSearch:Ljava/lang/String;
+    iput-object v0, p0, Lcom/melodix/music/MainActivity;->nativeReturnSearch:Ljava/lang/String;
+    goto :queue_show
+
+    :queue_default_screen
+    const-string v0, "home"
+    iput-object v0, p0, Lcom/melodix/music/MainActivity;->nativeReturnScreen:Ljava/lang/String;
+    const-string v0, "Accueil"
+    iput-object v0, p0, Lcom/melodix/music/MainActivity;->nativeReturnTitle:Ljava/lang/String;
+
+    :queue_show
+    const-string v0, "queue"
+    invoke-virtual {p0, v0}, Lcom/melodix/music/MainActivity;->setNativeScreen(Ljava/lang/String;)V
+    const-string v1, "File d'attente"
+    const-string v2, "[{\"title\":\"Chargement de la file…\",\"section\":\"File d'attente\"}]"
+    invoke-virtual {p0, v1, v2}, Lcom/melodix/music/MainActivity;->renderNativeRows(Ljava/lang/String;Ljava/lang/String;)V
+    const-string v1, "(function(){try{if(window.__sfRequestQueue){window.__sfRequestQueue();}}catch(e){}})();"
+    invoke-virtual {p0, v1}, Lcom/melodix/music/MainActivity;->runNativeJavascript(Ljava/lang/String;)V
+    :try_end_queue
+    .catch Ljava/lang/Throwable; {:try_start_queue .. :try_end_queue} :catch_queue
+
+    :queue_done
+    return-void
+
+    :catch_queue
+    move-exception v0
+    invoke-static {v0}, Lcom/melodix/music/NativeCrashGuard;->record(Ljava/lang/Throwable;)V
+    return-void
+.end method
+
 .method public final setNativeProfileImage(Ljava/lang/String;)V
     .locals 3
 
@@ -8973,6 +9052,16 @@
 
     :native_back_check_settings
     const-string v2, "settings"
+    invoke-virtual {v1, v2}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    move-result v2
+    if-eqz v2, :native_back_check_queue
+    const/4 v3, 0x0
+    invoke-virtual {p0, v3}, Lcom/melodix/music/MainActivity;->onNativeBackClick(Landroid/view/View;)V
+    const/4 v0, 0x1
+    return v0
+
+    :native_back_check_queue
+    const-string v2, "queue"
     invoke-virtual {v1, v2}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
     move-result v2
     if-eqz v2, :native_back_check_detail
