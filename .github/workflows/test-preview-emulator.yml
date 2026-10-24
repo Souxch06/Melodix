@@ -497,6 +497,28 @@ jobs:
           assert_ui_has "$state/08_library_back_home.xml" "Mix Decouverte"
           echo "::notice title=E2E Library + Back::PASS (Library rows + filter chips rendered, Back returned to Home)"
 
+          # 3b. Tab isolation regression: a playlist loading state must never
+          #     bleed onto Paramètres, even when late answers (success, empty
+          #     and error) arrive after the tab switch.
+          send_ui "home" '[{"title":"Chargement des playlists…","section":"Accueil"}]'
+          sleep 1
+          tap_text "$state/08_library_back_home.xml" "Paramètres"
+          sleep 1
+          dump_ui "08b_settings_isolation"
+          assert_ui_has "$state/08b_settings_isolation.xml" "Paramètres"
+          assert_ui_lacks "$state/08b_settings_isolation.xml" "Chargement des playlists"
+          send_ui "home" '[{"title":"Ma Playlist Tardive","subtitle":"Succes tardif","uri":"spotify:playlist:late1","section":"Vos playlists"}]'
+          send_ui "home" '[{"title":"Aucune playlist dans ce compte","subtitle":"Revenez plus tard","section":"Accueil"}]'
+          send_ui "home" '[{"title":"Impossible de charger les playlists","subtitle":"Reessayez","section":"Accueil"}]'
+          sleep 1
+          dump_ui "08c_settings_after_late"
+          assert_ui_has "$state/08c_settings_after_late.xml" "Paramètres"
+          assert_ui_lacks "$state/08c_settings_after_late.xml" "Chargement des playlists"
+          assert_ui_lacks "$state/08c_settings_after_late.xml" "Ma Playlist Tardive"
+          assert_ui_lacks "$state/08c_settings_after_late.xml" "Impossible de charger les playlists"
+          adb shell input keyevent 4
+          echo "::notice title=E2E Tab isolation::PASS (playlist loading + late success/empty/error never leaked onto Paramètres)"
+
           # 4. Search screen + NativeSearchFocusRunnable + text entry + IME Submit + Android Back
           tap_text "$state/08_library_back_home.xml" "Rechercher"
           sleep 1

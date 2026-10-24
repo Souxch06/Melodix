@@ -4,6 +4,15 @@
 .method public static create(Lcom/melodix/music/MainActivity;Lorg/json/JSONObject;)Landroid/widget/LinearLayout;
     .locals 12
 
+    # Home and the library browse grids get real cards; track lists and search
+    # results keep the flat Spotify row style.
+    sget-boolean v0, Lcom/melodix/music/NativeHomeFeed;->useGrid:Z
+    if-eqz v0, :native_row_list_mode
+    invoke-static {p0, p1}, Lcom/melodix/music/NativeUiRowFactory;->createTile(Lcom/melodix/music/MainActivity;Lorg/json/JSONObject;)Landroid/widget/LinearLayout;
+    move-result-object v0
+    return-object v0
+
+    :native_row_list_mode
     const-string v0, "title"
     const-string v1, ""
     invoke-virtual {p1, v0, v1}, Lorg/json/JSONObject;->optString(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;
@@ -298,13 +307,196 @@
     return-object v0
 .end method
 
+.method public static createTile(Lcom/melodix/music/MainActivity;Lorg/json/JSONObject;)Landroid/widget/LinearLayout;
+    .locals 10
+
+    # Compact playlist/album card: rounded surface, large cover, 2-line title,
+    # 1-line subtitle — the home and library grid language.
+    const-string v0, "title"
+    const-string v1, ""
+    invoke-virtual {p1, v0, v1}, Lorg/json/JSONObject;->optString(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;
+    move-result-object v2
+    invoke-virtual {v2}, Ljava/lang/String;->isEmpty()Z
+    move-result v0
+    if-eqz v0, :tile_title_ready
+    const-string v0, "name"
+    invoke-virtual {p1, v0, v1}, Lorg/json/JSONObject;->optString(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;
+    move-result-object v2
+
+    :tile_title_ready
+    const-string v0, "subtitle"
+    invoke-virtual {p1, v0, v1}, Lorg/json/JSONObject;->optString(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;
+    move-result-object v3
+    invoke-virtual {v3}, Ljava/lang/String;->isEmpty()Z
+    move-result v0
+    if-eqz v0, :tile_sub_ready
+    const-string v0, "artist"
+    invoke-virtual {p1, v0, v1}, Lorg/json/JSONObject;->optString(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;
+    move-result-object v3
+
+    :tile_sub_ready
+    const-string v0, "image"
+    invoke-virtual {p1, v0, v1}, Lorg/json/JSONObject;->optString(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;
+    move-result-object v4
+    invoke-virtual {v4}, Ljava/lang/String;->isEmpty()Z
+    move-result v0
+    if-eqz v0, :tile_image_ready
+    const-string v0, "cover"
+    invoke-virtual {p1, v0, v1}, Lorg/json/JSONObject;->optString(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;
+    move-result-object v4
+
+    :tile_image_ready
+    const-string v0, "uri"
+    invoke-virtual {p1, v0, v1}, Lorg/json/JSONObject;->optString(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;
+    move-result-object v5
+    invoke-virtual {v5}, Ljava/lang/String;->isEmpty()Z
+    move-result v0
+    if-eqz v0, :tile_uri_ready
+    const-string v0, "id"
+    invoke-virtual {p1, v0, v1}, Lorg/json/JSONObject;->optString(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;
+    move-result-object v5
+
+    :tile_uri_ready
+    new-instance v0, Landroid/widget/LinearLayout;
+    invoke-direct {v0, p0}, Landroid/widget/LinearLayout;-><init>(Landroid/content/Context;)V
+    const/4 v1, 0x1
+    invoke-virtual {v0, v1}, Landroid/widget/LinearLayout;->setOrientation(I)V
+
+    # Rounded card surface.
+    new-instance v6, Landroid/graphics/drawable/GradientDrawable;
+    invoke-direct {v6}, Landroid/graphics/drawable/GradientDrawable;-><init>()V
+    const v7, -0xe7e7e8
+    invoke-virtual {v6, v7}, Landroid/graphics/drawable/GradientDrawable;->setColor(I)V
+    const/16 v7, 0xe
+    invoke-static {p0, v7}, Lcom/melodix/music/NativeUiRowFactory;->dp(Landroid/content/Context;I)I
+    move-result v7
+    int-to-float v7, v7
+    invoke-virtual {v6, v7}, Landroid/graphics/drawable/GradientDrawable;->setCornerRadius(F)V
+    invoke-virtual {v0, v6}, Landroid/view/View;->setBackground(Landroid/graphics/drawable/Drawable;)V
+
+    const/16 v6, 0x8
+    invoke-static {p0, v6}, Lcom/melodix/music/NativeUiRowFactory;->dp(Landroid/content/Context;I)I
+    move-result v6
+    const/4 v7, 0x0
+    invoke-virtual {v0, v6, v6, v6, v7}, Landroid/view/View;->setPadding(IIII)V
+
+    # Cover — large visual, rounded like Spotify cards.
+    new-instance v7, Landroid/widget/ImageView;
+    invoke-direct {v7, p0}, Landroid/widget/ImageView;-><init>(Landroid/content/Context;)V
+    sget-object v8, Landroid/widget/ImageView$ScaleType;->CENTER_CROP:Landroid/widget/ImageView$ScaleType;
+    invoke-virtual {v7, v8}, Landroid/widget/ImageView;->setScaleType(Landroid/widget/ImageView$ScaleType;)V
+    new-instance v8, Landroid/graphics/drawable/GradientDrawable;
+    invoke-direct {v8}, Landroid/graphics/drawable/GradientDrawable;-><init>()V
+    const v9, -0xd8d8d9
+    invoke-virtual {v8, v9}, Landroid/graphics/drawable/GradientDrawable;->setColor(I)V
+    const/16 v9, 0xa
+    invoke-static {p0, v9}, Lcom/melodix/music/NativeUiRowFactory;->dp(Landroid/content/Context;I)I
+    move-result v9
+    int-to-float v9, v9
+    invoke-virtual {v8, v9}, Landroid/graphics/drawable/GradientDrawable;->setCornerRadius(F)V
+    invoke-virtual {v7, v8}, Landroid/view/View;->setBackground(Landroid/graphics/drawable/Drawable;)V
+    invoke-virtual {v7, v1}, Landroid/widget/ImageView;->setClipToOutline(Z)V
+    const/4 v8, 0x0
+    invoke-virtual {v7, v8}, Landroid/view/View;->setClickable(Z)V
+    invoke-virtual {v7, v8}, Landroid/view/View;->setFocusable(Z)V
+    const-string v8, "native_cover_placeholder"
+    invoke-static {p0, v7, v8}, Lcom/melodix/music/NativeUiRowFactory;->applyDrawableImage(Landroid/content/Context;Landroid/widget/ImageView;Ljava/lang/String;)V
+    invoke-virtual {v4}, Ljava/lang/String;->isEmpty()Z
+    move-result v8
+    if-nez v8, :tile_cover_attached
+    const/16 v8, 0x140
+    invoke-static {v7, v4, v8}, Lcom/melodix/music/NativeImageLoader;->load(Landroid/widget/ImageView;Ljava/lang/String;I)V
+
+    :tile_cover_attached
+    new-instance v8, Landroid/widget/LinearLayout$LayoutParams;
+    const/4 v9, -0x1
+    invoke-direct {v8, v9, v9}, Landroid/widget/LinearLayout$LayoutParams;-><init>(II)V
+    # Square-ish cover inside the card cell.
+    const/16 v9, 0x78
+    invoke-static {p0, v9}, Lcom/melodix/music/NativeUiRowFactory;->dp(Landroid/content/Context;I)I
+    move-result v9
+    iput v9, v8, Landroid/widget/LinearLayout$LayoutParams;->height:I
+    invoke-virtual {v0, v7, v8}, Landroid/widget/LinearLayout;->addView(Landroid/view/View;Landroid/view/ViewGroup$LayoutParams;)V
+
+    # Title — 2 lines max, bold.
+    new-instance v7, Landroid/widget/TextView;
+    invoke-direct {v7, p0}, Landroid/widget/TextView;-><init>(Landroid/content/Context;)V
+    invoke-virtual {v7, v2}, Landroid/widget/TextView;->setText(Ljava/lang/CharSequence;)V
+    const/high16 v8, 0x41700000
+    invoke-virtual {v7, v8}, Landroid/widget/TextView;->setTextSize(F)V
+    const v8, -0x1
+    invoke-virtual {v7, v8}, Landroid/widget/TextView;->setTextColor(I)V
+    const/4 v8, 0x2
+    invoke-virtual {v7, v8}, Landroid/widget/TextView;->setMaxLines(I)V
+    sget-object v8, Landroid/text/TextUtils$TruncateAt;->END:Landroid/text/TextUtils$TruncateAt;
+    invoke-virtual {v7, v8}, Landroid/widget/TextView;->setEllipsize(Landroid/text/TextUtils$TruncateAt;)V
+    const/4 v8, 0x0
+    invoke-virtual {v7, v8, v1}, Landroid/widget/TextView;->setTypeface(Landroid/graphics/Typeface;I)V
+    new-instance v8, Landroid/widget/LinearLayout$LayoutParams;
+    const/4 v9, -0x1
+    invoke-direct {v8, v9, v9}, Landroid/widget/LinearLayout$LayoutParams;-><init>(II)V
+    const/4 v9, -0x2
+    iput v9, v8, Landroid/widget/LinearLayout$LayoutParams;->height:I
+    const/16 v9, 0x8
+    invoke-static {p0, v9}, Lcom/melodix/music/NativeUiRowFactory;->dp(Landroid/content/Context;I)I
+    move-result v9
+    iput v9, v8, Landroid/widget/ViewGroup$MarginLayoutParams;->topMargin:I
+    invoke-virtual {v0, v7, v8}, Landroid/widget/LinearLayout;->addView(Landroid/view/View;Landroid/view/ViewGroup$LayoutParams;)V
+
+    # Subtitle — one quiet line.
+    invoke-virtual {v3}, Ljava/lang/String;->isEmpty()Z
+    move-result v7
+    if-nez v7, :tile_clickable
+    new-instance v7, Landroid/widget/TextView;
+    invoke-direct {v7, p0}, Landroid/widget/TextView;-><init>(Landroid/content/Context;)V
+    invoke-virtual {v7, v3}, Landroid/widget/TextView;->setText(Ljava/lang/CharSequence;)V
+    const/high16 v8, 0x41400000
+    invoke-virtual {v7, v8}, Landroid/widget/TextView;->setTextSize(F)V
+    const v8, -0x4c4c4d
+    invoke-virtual {v7, v8}, Landroid/widget/TextView;->setTextColor(I)V
+    invoke-virtual {v7, v1}, Landroid/widget/TextView;->setMaxLines(I)V
+    sget-object v8, Landroid/text/TextUtils$TruncateAt;->END:Landroid/text/TextUtils$TruncateAt;
+    invoke-virtual {v7, v8}, Landroid/widget/TextView;->setEllipsize(Landroid/text/TextUtils$TruncateAt;)V
+    new-instance v8, Landroid/widget/LinearLayout$LayoutParams;
+    const/4 v9, -0x1
+    invoke-direct {v8, v9, v9}, Landroid/widget/LinearLayout$LayoutParams;-><init>(II)V
+    const/4 v9, -0x2
+    iput v9, v8, Landroid/widget/LinearLayout$LayoutParams;->height:I
+    const/4 v9, 0x2
+    invoke-static {p0, v9}, Lcom/melodix/music/NativeUiRowFactory;->dp(Landroid/content/Context;I)I
+    move-result v9
+    iput v9, v8, Landroid/widget/ViewGroup$MarginLayoutParams;->topMargin:I
+    invoke-virtual {v0, v7, v8}, Landroid/widget/LinearLayout;->addView(Landroid/view/View;Landroid/view/ViewGroup$LayoutParams;)V
+
+    :tile_clickable
+    const/high16 v7, 0x60000
+    invoke-virtual {v0, v7}, Landroid/view/ViewGroup;->setDescendantFocusability(I)V
+    invoke-virtual {v0, v1}, Landroid/view/View;->setClickable(Z)V
+    invoke-virtual {v0, v1}, Landroid/view/View;->setFocusable(Z)V
+    invoke-virtual {v0, v2}, Landroid/view/View;->setContentDescription(Ljava/lang/CharSequence;)V
+    new-instance v7, Lcom/melodix/music/NativeRowClickListener;
+    invoke-direct {v7, p0, v5, v2}, Lcom/melodix/music/NativeRowClickListener;-><init>(Lcom/melodix/music/MainActivity;Ljava/lang/String;Ljava/lang/String;)V
+    invoke-virtual {v0, v7}, Landroid/view/View;->setOnClickListener(Landroid/view/View$OnClickListener;)V
+
+    new-instance v7, Landroid/widget/LinearLayout$LayoutParams;
+    const/4 v8, -0x1
+    const/4 v9, -0x2
+    invoke-direct {v7, v8, v9}, Landroid/widget/LinearLayout$LayoutParams;-><init>(II)V
+    const/4 v8, 0x4
+    invoke-static {p0, v8}, Lcom/melodix/music/NativeUiRowFactory;->dp(Landroid/content/Context;I)I
+    move-result v8
+    iput v8, v7, Landroid/widget/ViewGroup$MarginLayoutParams;->bottomMargin:I
+    invoke-virtual {v0, v7}, Landroid/view/View;->setLayoutParams(Landroid/view/ViewGroup$LayoutParams;)V
+    return-object v0
+.end method
+
 .method public static createSectionHeader(Lcom/melodix/music/MainActivity;Ljava/lang/String;)Landroid/widget/TextView;
     .locals 5
 
     new-instance v0, Landroid/widget/TextView;
     invoke-direct {v0, p0}, Landroid/widget/TextView;-><init>(Landroid/content/Context;)V
     invoke-virtual {v0, p1}, Landroid/widget/TextView;->setText(Ljava/lang/CharSequence;)V
-    const/high16 v1, 0x41c00000
+    const/high16 v1, 0x41a00000
     invoke-virtual {v0, v1}, Landroid/widget/TextView;->setTextSize(F)V
     const v1, -0x1
     invoke-virtual {v0, v1}, Landroid/widget/TextView;->setTextColor(I)V
@@ -562,7 +754,7 @@
     return-void
 .end method
 
-.method private static dp(Landroid/content/Context;I)I
+.method public static dp(Landroid/content/Context;I)I
     .locals 3
 
     invoke-virtual {p0}, Landroid/content/Context;->getResources()Landroid/content/res/Resources;

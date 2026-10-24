@@ -4201,9 +4201,11 @@ try {
                     window.pendingMediaRequests.add(parentId);
                     await checkMediaLib();
                 }
-                if (window.mediaLib && window.mediaLib[parentId]) {
-                    window.pendingMediaRequests.delete(parentId);
-                    const items = window.mediaLib[parentId].map(item => {
+                window.pendingMediaRequests.delete(parentId);
+                const libState = (window.mediaLib && window.mediaLib.state) || window.__sfMediaLibState || 'pending';
+                const categoryItems = (window.mediaLib && Array.isArray(window.mediaLib[parentId])) ? window.mediaLib[parentId] : null;
+                if (categoryItems && categoryItems.length > 0) {
+                    const items = categoryItems.map(item => {
                         let img = item.image;
                         if (item.name === 'Liked Songs' || (item.id && (item.id.includes('collection') || item.id === 'spotify:playlist:liked'))) {
                             img = 'https://misc.scdn.co/liked-songs/liked-songs-640.png';
@@ -4213,7 +4215,21 @@ try {
                     AndBridge.onMediaItemsLoaded(parentId, JSON.stringify(items));
                     return;
                 }
+                if (categoryItems && categoryItems.length === 0 && (libState === 'ready' || libState === 'empty')) {
+                    // Truly empty account: honest empty state, never an error.
+                    AndBridge.onMediaItemsLoaded(parentId, "[]");
+                    mediaItemsStatusRow('empty', parentId);
+                    return;
+                }
+                if (libState === 'error') {
+                    // A failed fetch is never an empty library.
+                    AndBridge.onMediaItemsLoaded(parentId, "[]");
+                    mediaItemsStatusRow('error', parentId, window.__sfMediaLibError || window.__sfLibError);
+                    return;
+                }
                 console.log("[Spotifuck] fetchMediaItems: mediaLib not ready yet for " + parentId + ". Queued in pendingMediaRequests.");
+                window.pendingMediaRequests.add(parentId);
+                mediaItemsStatusRow('loading', parentId);
                 return;
             }
 
@@ -4304,38 +4320,82 @@ try {
 
             // 3. Specific Playlist tracks (using GQL fetchPlaylist)
             if (parentId.startsWith('spotify:playlist:') || (parentId.includes(':user:') && parentId.includes(':playlist:'))) {
-                const resp = await oriFetch('https://api-partner.spotify.com/pathfinder/v2/query', {
-                    method: 'POST',
-                    mode: 'cors',
-                    credentials: 'include',
-                    headers: {
-                        'Authorization': window.spotAuthToken,
-                        'Client-Token': window.spotCliToken,
-                        'Content-Type': 'application/json;charset=UTF-8',
-                        'app-platform': 'WebPlayer',
-                        'spotify-app-version': '1.2.40.0'
-                    },
-                    body: JSON.stringify({
-                        variables: {
-                            uri: parentId,
-                            offset: 0,
-                            limit: 80,
-                            enableWatchFeedEntrypoint: false
-                        },
-                        operationName: 'fetchPlaylist',
-                        extensions: {
-                            persistedQuery: {
-                                version: 1,
-                                sha256Hash: getGqlHash('fetchPlaylist', '346811f856fb0b7e4f6c59f8ebea78dd081c6e2fb01b77c954b26259d5fc6763')
-                            }
+                const fallbackPlaylistHash = '346811f856fb0b7e4f6c59f8ebea78dd081c6e2fb01b77c954b26259d5fc6763';
+                const playlistHashCandidates = [];
+                const capturedPlaylistHash = getGqlHash('fetchPlaylist', fallbackPlaylistHash);
+                if (/^[a-f0-9]{64}$/i.test(capturedPlaylistHash) && playlistHashCandidates.indexOf(capturedPlaylistHash) < 0) {
+                    playlistHashCandidates.push(capturedPlaylistHash);
+                }
+                if (playlistHashCandidates.indexOf(fallbackPlaylistHash) < 0) playlistHashCandidates.push(fallbackPlaylistHash);
+                let playlistData = null;
+                let playlistError = null;
+                for (let i = 0; i < playlistHashCandidates.length; i++) {
+                    try {
+                        const resp = await oriFetch('https://api-partner.spotify.com/pathfinder/v2/query', {
+                            method: 'POST',
+                            mode: 'cors',
+                            credentials: 'include',
+                            headers: {
+                                'Authorization': window.spotAuthToken,
+                                'Client-Token': window.spotCliToken || '',
+                                'Content-Type': 'application/json;charset=UTF-8',
+                                'app-platform': 'WebPlayer',
+                                'spotify-app-version': '1.2.40.0'
+                            },
+                            body: JSON.stringify({
+                                variables: {
+                                    uri: parentId,
+                                    offset: 0,
+                                    limit: 80,
+                                    enableWatchFeedEntrypoint: false
+                                },
+                                operationName: 'fetchPlaylist',
+                                extensions: {
+                                    persistedQuery: {
+                                        version: 1,
+                                        sha256Hash: playlistHashCandidates[i]
+                                    }
+                                }
+                            })
+                        });
+                        if (!resp || !resp.ok) {
+                            const httpError = new Error("Failed to fetch playlist tracks GQL: " + (resp ? resp.statusText : 'no response'));
+                            httpError.name = 'HttpError';
+                            httpError.status = resp ? resp.status : 0;
+                            throw httpError;
                         }
-                    })
-                });
-                if (!resp.ok) throw new Error("Failed to fetch playlist tracks GQL: " + resp.statusText);
-                const data = await resp.json();
-                const playlistObj = data?.data?.playlistV2 || data?.data?.playlist || data?.data?.playlistUnion || data?.data?.me?.library || data?.data?.me;
-                const content = playlistObj?.content || playlistObj?.tracks || playlistObj;
-                const items = content?.items || playlistObj?.items || [];
+                        const payload = await resp.json();
+                        if (payload && payload.errors && payload.errors.length) {
+                            const gqlError = new Error('fetchPlaylist GraphQL rejected');
+                            gqlError.name = 'GraphQLError';
+                            gqlError.codes = payload.errors.map(e => String((e && e.message) || '')).join('|').slice(0, 120);
+                            throw gqlError;
+                        }
+                        if (!payload || !payload.data) {
+                            const shapeError = new Error('fetchPlaylist shape-unexpected: no data');
+                            shapeError.name = 'ShapeError';
+                            throw shapeError;
+                        }
+                        playlistData = payload.data;
+                        break;
+                    } catch (e) {
+                        playlistError = e;
+                    }
+                }
+                if (!playlistData) throw playlistError || new Error('fetchPlaylist failed');
+                const playlistObj = playlistData.playlistV2 || playlistData.playlist || playlistData.playlistUnion;
+                if (!playlistObj || typeof playlistObj !== 'object') {
+                    const shapeError = new Error('fetchPlaylist shape-unexpected: no playlist');
+                    shapeError.name = 'ShapeError';
+                    throw shapeError;
+                }
+                const content = playlistObj.content || playlistObj.tracks || playlistObj;
+                const items = content?.items || playlistObj.items || [];
+                if (!Array.isArray(items)) {
+                    const shapeError = new Error('fetchPlaylist shape-mismatch: items');
+                    shapeError.name = 'ShapeError';
+                    throw shapeError;
+                }
                 const tracks = items.map(elem => {
                     const itemV2 = elem?.itemV2 || elem?.item;
                     const trackData = itemV2?.data || elem?.track || itemV2 || elem;
@@ -4496,13 +4556,64 @@ try {
                 return;
             }
 
-            // Fallback for unknown categories
+            // Fallback for unknown categories: distinct, honest state.
             AndBridge.onMediaItemsLoaded(parentId, "[]");
+            mediaItemsStatusRow('unsupported', parentId);
         } catch (e) {
             logBridgeError('fetchMediaItems', e);
+            window.__sfLibError = e;
             AndBridge.onMediaItemsLoaded(parentId, "[]");
+            mediaItemsStatusRow('error', parentId, e);
         }
     }
+
+        // Honest per-screen status rows for the media/detail pipeline. They are
+        // pushed on the same 'media:<parentId>' channel the screen already
+        // renders, so the state lands on the concerned page only. Failures and
+        // empty libraries are distinct rows; errors carry a real retry sentinel
+        // handled by openNativeRow ("spotify:retry:media:" + parentId).
+        function mediaItemsStatusRow(kind, parentId, e) {
+            var row;
+            if (kind === 'loading') {
+                row = { title: 'Chargement des playlists…', section: 'Votre bibliothèque' };
+            } else if (kind === 'empty') {
+                row = {
+                    title: parentId === 'playlists' ? 'Aucune playlist dans ce compte' : 'Aucun élément dans ce compte',
+                    subtitle: 'Créez-en un sur Spotify, puis réessayez',
+                    section: 'Votre bibliothèque'
+                };
+            } else if (kind === 'unsupported') {
+                row = {
+                    title: 'Catégorie non prise en charge',
+                    subtitle: 'Ce type de contenu ne peut pas être affiché ici',
+                    section: 'Détails'
+                };
+            } else {
+                var subtitle = 'Réponse inattendue — touchez pour réessayer';
+                var errName = String((e && (e.name || e.message)) || e || '');
+                if ((e && e.name === 'HttpError' && (e.status === 401 || e.status === 403)) || /401|403/.test(errName) && errName.indexOf('HttpError') >= 0) {
+                    subtitle = 'Accès refusé par Spotify — touchez pour réessayer';
+                } else if (errName === 'TypeError' || errName === 'NetworkError' || /network|fetch/i.test(errName)) {
+                    subtitle = 'Erreur réseau — touchez pour réessayer';
+                }
+                row = {
+                    title: 'Impossible de charger les titres',
+                    subtitle: subtitle,
+                    section: 'Détails',
+                    uri: 'spotify:retry:media:' + parentId
+                };
+            }
+            if (kind === 'error' && (parentId === 'playlists' || parentId === 'albums' || parentId === 'artists' || parentId === 'podcasts')) {
+                row.title = 'Impossible de charger les playlists';
+                row.section = 'Votre bibliothèque';
+            }
+            if (kind === 'empty' || kind === 'error' || kind === 'loading') {
+                row.uri = row.uri || ('spotify:retry:media:' + parentId);
+            }
+            try {
+                AndBridge.onNativeUiData('media:' + parentId, JSON.stringify([row]));
+            } catch (_) {}
+        }
     window.fetchMediaItems = fetchMediaItems;
 
     window.__sfSearchCache = window.__sfSearchCache || new Map();

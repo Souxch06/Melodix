@@ -122,6 +122,16 @@
     invoke-direct {v8, v10, v9}, Landroid/widget/LinearLayout$LayoutParams;-><init>(II)V
     const/high16 v10, 0x3f800000
     iput v10, v8, Landroid/widget/LinearLayout$LayoutParams;->weight:F
+    # Even gutters around each grid card so tiles never touch.
+    const/4 v10, 0x4
+    invoke-static {p0, v10}, Lcom/melodix/music/NativeUiRowFactory;->dp(Landroid/content/Context;I)I
+    move-result v10
+    iput v10, v8, Landroid/widget/LinearLayout$LayoutParams;->leftMargin:I
+    iput v10, v8, Landroid/widget/LinearLayout$LayoutParams;->rightMargin:I
+    const/4 v9, 0x6
+    invoke-static {p0, v9}, Lcom/melodix/music/NativeUiRowFactory;->dp(Landroid/content/Context;I)I
+    move-result v9
+    iput v9, v8, Landroid/widget/LinearLayout$LayoutParams;->bottomMargin:I
     invoke-virtual {v0, v11, v8}, Landroid/view/ViewGroup;->addView(Landroid/view/View;Landroid/view/ViewGroup$LayoutParams;)V
     goto :counted
 

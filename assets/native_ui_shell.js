@@ -234,6 +234,21 @@
             return item.title || item.uri;
         });
 
+        // Bridge payloads above 256 KB are dropped silently by dispatchNativeUi:
+        // cap the rows here and say so instead of losing the whole screen.
+        var cappedRows = 0;
+        while (rows.length > 1 && JSON.stringify(rows).length > 230000) {
+            rows.pop();
+            cappedRows += 1;
+        }
+        if (cappedRows > 0) {
+            rows.push({
+                title: '… ' + cappedRows + ' éléments supplémentaires non affichés',
+                subtitle: 'Limite d’affichage atteinte',
+                section: rows.length ? rows[rows.length - 1].section : ''
+            });
+        }
+
         try {
             var payload = JSON.stringify(rows);
             var lastSection = '';
@@ -521,6 +536,7 @@
         var seen = new Set();
         var userRows = [];
         var spotifyRows = [];
+        var userOverflow = 0;
 
         function looksPublicPlaylist(row) {
             var title = String(row && row.title || '');
@@ -564,7 +580,11 @@
                     if (!img && (title === 'Liked Songs' || /collection/i.test(uri))) {
                         img = 'https://misc.scdn.co/liked-songs/liked-songs-640.png';
                     }
-                    if (!uri || !title || seen.has(uri) || userRows.length >= 40) return;
+                    if (!uri || !title || seen.has(uri)) return;
+                    if (userRows.length >= 40) {
+                        userOverflow += 1;
+                        return;
+                    }
                     // Official mixes that also sit on Home are shown once under Playlists Spotify.
                     if (publicItem && feedUris[uri]) return;
                     seen.add(uri);
@@ -609,6 +629,15 @@
             });
         });
 
+        if (userOverflow > 0) {
+            // Never pretend the feed holds the whole account: say how many
+            // playlists did not fit and where to find them, without a URI.
+            userRows.push({
+                title: '… et ' + userOverflow + ' playlists de plus',
+                subtitle: 'Ouvrez Votre bibliothèque pour tout voir',
+                section: 'Vos playlists'
+            });
+        }
         return userRows.concat(spotifyRows);
     }
 

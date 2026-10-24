@@ -76,6 +76,10 @@
 
 .field private nativeCurrentScreen:Ljava/lang/String;
 
+# Screen whose rows are currently attached to the shared nativeContent container.
+# Used by renderNativeRows to strip stale rows of another tab before painting.
+.field private nativePaintedScreen:Ljava/lang/String;
+
 # True once Spotify reports a track: the mini player card stays hidden until
 # then instead of showing an empty "Aucune lecture en cours" bar everywhere.
 .field private nativeHasTrack:Z
@@ -7370,6 +7374,9 @@
     invoke-static {v4}, Landroid/content/res/ColorStateList;->valueOf(I)Landroid/content/res/ColorStateList;
     move-result-object v3
     invoke-virtual {v1, v3}, Landroid/widget/TextView;->setCompoundDrawableTintList(Landroid/content/res/ColorStateList;)V
+    # Active tab is bold — a clear, subtle selected state.
+    const/4 v3, 0x0
+    invoke-virtual {v1, v3, v0}, Landroid/widget/TextView;->setTypeface(Landroid/graphics/Typeface;I)V
     goto :native_tab_style_done
 
     :native_tab_as_group
@@ -7539,6 +7546,12 @@
     invoke-virtual {p1, v0}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
     move-result v1
     if-eqz v1, :check_detail_data
+    iget-object v2, p0, Lcom/melodix/music/MainActivity;->nativeCurrentScreen:Ljava/lang/String;
+    if-eqz v2, :apply_done
+    const-string v3, "detail"
+    invoke-virtual {v2, v3}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    move-result v2
+    if-nez v2, :apply_done
     invoke-virtual {p2}, Ljava/lang/String;->isEmpty()Z
     move-result v1
     if-nez v1, :apply_done
@@ -7586,7 +7599,7 @@
     if-eqz v1, :check_media
     invoke-virtual {p2}, Ljava/lang/String;->length()I
     move-result v2
-    const/4 v3, 0x2
+    const/4 v3, 0x1
     if-le v2, v3, :home_keep_cache
     iput-object p2, p0, Lcom/melodix/music/MainActivity;->nativeHomeJson:Ljava/lang/String;
     goto :home_paint
@@ -8030,6 +8043,28 @@
     if-eqz v0, :do_paint
     const/4 v4, 0x1
     sput-boolean v4, Lcom/melodix/music/NativeHomeFeed;->useGrid:Z
+    # Tab isolation: if this container still shows rows painted for ANOTHER
+    # screen (e.g. Accueil "Chargement des playlists…"), strip them BEFORE the
+    # new paint. A failed or empty paint then shows this screen's empty state
+    # instead of leaking the previous tab's content.
+    iget-object v0, p0, Lcom/melodix/music/MainActivity;->nativePaintedScreen:Ljava/lang/String;
+    if-eqz v0, :native_screen_painted_track
+    iget-object v1, p0, Lcom/melodix/music/MainActivity;->nativeCurrentScreen:Ljava/lang/String;
+    if-eqz v1, :native_screen_painted_track
+    invoke-virtual {v0, v1}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    move-result v5
+    if-nez v5, :native_screen_painted_track
+    :native_screen_strip
+    invoke-virtual {v2}, Landroid/widget/LinearLayout;->getChildCount()I
+    move-result v5
+    if-gtz v5, :native_screen_painted_track
+    const/4 v6, 0x0
+    invoke-virtual {v2, v6}, Landroid/widget/LinearLayout;->removeViewAt(I)V
+    goto :native_screen_strip
+    :native_screen_painted_track
+    iget-object v0, p0, Lcom/melodix/music/MainActivity;->nativeCurrentScreen:Ljava/lang/String;
+    iput-object v0, p0, Lcom/melodix/music/MainActivity;->nativePaintedScreen:Ljava/lang/String;
+
     :do_paint
     invoke-static {p0, v2, p2}, Lcom/melodix/music/NativeHomeFeed;->paint(Lcom/melodix/music/MainActivity;Landroid/view/ViewGroup;Ljava/lang/String;)I
     move-result v3
@@ -8361,13 +8396,20 @@
     # painted last and would leak e.g. the home loading row into the library.
     const/4 v2, 0x0
     :lib_have_json
-    if-eqz v2, :lib_fetch
+    if-eqz v2, :lib_render_loading
     invoke-virtual {v2}, Ljava/lang/String;->length()I
     move-result v0
     const/16 v1, 0x8
-    if-le v0, v1, :lib_fetch
+    if-le v0, v1, :lib_render_loading
     const-string v0, "Votre bibliothèque"
     invoke-virtual {p0, v0, v2}, Lcom/melodix/music/MainActivity;->renderNativeRows(Ljava/lang/String;Ljava/lang/String;)V
+    goto :lib_fetch
+    :lib_render_loading
+    # Always paint this tab's own state: without a cache the previous screen's
+    # rows (e.g. Accueil "Chargement des playlists…") would stay on screen.
+    const-string v0, "Votre bibliothèque"
+    const-string v1, "[{\"title\":\"Chargement des playlists\u2026\",\"section\":\"Votre bibliothèque\"}]"
+    invoke-virtual {p0, v0, v1}, Lcom/melodix/music/MainActivity;->renderNativeRows(Ljava/lang/String;Ljava/lang/String;)V
     :lib_fetch
     const-string v0, "window.__sfOpenLibrary && window.__sfOpenLibrary()"
     invoke-virtual {p0, v0}, Lcom/melodix/music/MainActivity;->runNativeJavascript(Ljava/lang/String;)V
@@ -8563,6 +8605,29 @@
     move-result v0
     if-nez v0, :native_row_click_done
 
+    # Retry sentinel rows (detail fetch failures) re-run fetchMediaItems for the
+    # stored parent id and repaint the loading state — no navigation, no fake rows.
+    const-string v2, "spotify:retry:media:"
+    invoke-virtual {p1, v2}, Ljava/lang/String;->startsWith(Ljava/lang/String;)Z
+    move-result v3
+    if-eqz v3, :native_row_not_retry
+    invoke-virtual {v2}, Ljava/lang/String;->length()I
+    move-result v3
+    invoke-virtual {p1, v3}, Ljava/lang/String;->substring(I)Ljava/lang/String;
+    move-result-object v3
+    iget-object v2, p0, Lcom/melodix/music/MainActivity;->nativeCurrentTitle:Ljava/lang/String;
+    if-eqz v2, :native_retry_title_default
+    goto :native_retry_title_ready
+    :native_retry_title_default
+    const-string v2, "Détails"
+    :native_retry_title_ready
+    const-string v4, "[{\"title\":\"Chargement des titres\u2026\",\"section\":\"Détails\"}]"
+    invoke-virtual {p0, v2, v4}, Lcom/melodix/music/MainActivity;->renderNativeRows(Ljava/lang/String;Ljava/lang/String;)V
+    const-string v2, "window.fetchMediaItems"
+    invoke-virtual {p0, v2, v3}, Lcom/melodix/music/MainActivity;->runNativeFunction(Ljava/lang/String;Ljava/lang/String;)V
+    return-void
+
+    :native_row_not_retry
     # Settings rows toggle their value through the shell; they never navigate.
     const-string v2, "spotify:settings:"
     invoke-virtual {p1, v2}, Ljava/lang/String;->startsWith(Ljava/lang/String;)Z
