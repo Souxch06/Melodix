@@ -170,6 +170,9 @@ jobs:
               const-string v2, "about:blank"
               invoke-virtual {v1, v2}, Landroid/webkit/WebView;->loadUrl(Ljava/lang/String;)V
               :e2e_after_blank
+              sget v1, Lcom/melodix/music/MainActivity;->nativeSessionEpoch:I
+              add-int/lit8 v1, v1, 0x1
+              sput v1, Lcom/melodix/music/MainActivity;->nativeSessionEpoch:I
               const-string v1, "e2e_b64"
               invoke-virtual {p1, v1}, Landroid/content/Intent;->getStringExtra(Ljava/lang/String;)Ljava/lang/String;
               move-result-object v1

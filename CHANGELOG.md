@@ -6,6 +6,14 @@ Toutes les modifications fonctionnelles, de sécurité et d'infrastructure valid
 
 ## [Unreleased — Branche `arena/7142700d-melodix` / PR #7]
 
+### Correctif de régression E2E : les cartes ne peignaient plus rien, isolation strip atteignable, réponses tardives neutralisées (2026-10-24)
+- **Échec CI du run `40081834201` (Phase 2, assert `Mix Decouverte`)** : l'injection de test ne laissait que « Rien à afficher pour le moment » à l'écran — deux causes distinctes couvertes :
+  - `NativeUiRowFactory.createTile` (cartes, nouveau) pouvait faire échouer toute la peinture : le dispatch `create → createTile` est désormais protégé (`try/catch Throwable`) avec **repli sur la ligne plate prouvée** (`:native_row_list_mode`) et diagnostic `Log.e("NativeCrashGuard", "createTile fallback: <classe>")` capté par la CI ; une carte qui échoue ne peut plus effacer une ligne de contenu.
+  - Course de réponses asynchrones : une réponse JS `'home'` encore en vol au moment de l'injection E2E pouvait repeindre l'état vide par-dessus les lignes injectées — le hook E2E (`test-preview-emulator.yml`, patch `onNewIntent`) incrémente désormais `nativeSessionEpoch` après `about:blank`, ce qui invalide tout runnable/callback en attente (les tests `logout_race`/`singleton_bridge` restent cohérents : les runnables sont construits après le bump).
+- **Isolation strip réellement universelle (`renderNativeRows`)** : les routes `useGrid` sautaient le bloc `:native_screen_strip` via `goto :do_paint` (et les écrans non-bibliothèque via `:check_lib_title`) ; toutes les routes convergent maintenant vers `:native_screen_painted_track`, conformément au contrat « toute nouvelle peinture purge les lignes de l'autre écran ».
+- **Tests** : `tests/tab_isolation_regressions.test.js` +3 scénarios (aucun chemin ne saute le strip ; repli `createTile` + diagnostic ; bump d'epoch dans le hook E2E).
+- **Limite inchangée** : non vérifié avec un vrai compte Spotify (`accounts.spotify.com`) — l'APK CI reste fourni pour ce test sur téléphone physique ; `libraryV3` reste une opération interne non officielle.
+
 ### Livraison des correctifs, APK en artefact CI et publication manuelle uniquement (2026-10-24)
 - **Publication automatique supprimée (`.github/workflows/preview-apk.yml`)** : `publish-preview-release` (seul job `contents: write`) ne s'exécute plus que sur `workflow_dispatch` avec l'entrée explicite `publish_release: true` — **plus aucun push ordinaire ne crée de tag ni de release**, même après une pipeline verte. Les pushes exécutent toujours les tests, l'émulateur et la compilation, et l'APK de validation reste téléchargeable en **artefact CI** `Melodix-Preview-<SHA40>` (rétention 30 jours).
 - **Tags de test retirés protégés contre la recréation** : `v1.2.2-test.1/2/3-preview` sont listés comme « retired » dans l'allocateur et le contrôle de publication ; la garde générique refuse tout écrasement de tag/release existant (`overwrite_files: false` conservé).

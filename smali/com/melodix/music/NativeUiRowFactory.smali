@@ -5,12 +5,37 @@
     .locals 12
 
     # Home and the library browse grids get real cards; track lists and search
-    # results keep the flat Spotify row style.
+    # results keep the flat Spotify row style. A failing card build must never
+    # lose the row: it falls back to the proven flat Spotify row instead.
     sget-boolean v0, Lcom/melodix/music/NativeHomeFeed;->useGrid:Z
     if-eqz v0, :native_row_list_mode
+
+    :try_start_tile
     invoke-static {p0, p1}, Lcom/melodix/music/NativeUiRowFactory;->createTile(Lcom/melodix/music/MainActivity;Lorg/json/JSONObject;)Landroid/widget/LinearLayout;
     move-result-object v0
+    :try_end_tile
+    .catch Ljava/lang/Throwable; {:try_start_tile .. :try_end_tile} :catch_tile
     return-object v0
+
+    :catch_tile
+    move-exception v0
+    # Name the failure in logcat (NativeCrashGuard:E is captured by the
+    # emulator run) instead of losing the whole screen silently.
+    new-instance v1, Ljava/lang/StringBuilder;
+    invoke-direct {v1}, Ljava/lang/StringBuilder;-><init>()V
+    const-string v2, "createTile fallback: "
+    invoke-virtual {v1, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    invoke-virtual {v0}, Ljava/lang/Object;->getClass()Ljava/lang/Class;
+    move-result-object v2
+    invoke-virtual {v2}, Ljava/lang/Class;->getName()Ljava/lang/String;
+    move-result-object v2
+    invoke-virtual {v1, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    invoke-virtual {v1}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
+    move-result-object v1
+    const-string v2, "NativeCrashGuard"
+    invoke-static {v2, v1}, Landroid/util/Log;->e(Ljava/lang/String;Ljava/lang/String;)I
+    invoke-static {v0}, Lcom/melodix/music/NativeCrashGuard;->record(Ljava/lang/Throwable;)V
+    goto :native_row_list_mode
 
     :native_row_list_mode
     const-string v0, "title"

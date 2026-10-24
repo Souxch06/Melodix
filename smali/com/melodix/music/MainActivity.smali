@@ -8025,7 +8025,7 @@
     if-eqz v0, :check_lib_grid
     const/4 v4, 0x1
     sput-boolean v4, Lcom/melodix/music/NativeHomeFeed;->useGrid:Z
-    goto :do_paint
+    goto :native_screen_painted_track
     :check_lib_grid
     iget-object v0, p0, Lcom/melodix/music/MainActivity;->nativeCurrentScreen:Ljava/lang/String;
     if-eqz v0, :check_lib_title
@@ -8035,12 +8035,12 @@
     if-eqz v4, :check_lib_title
     const/4 v4, 0x1
     sput-boolean v4, Lcom/melodix/music/NativeHomeFeed;->useGrid:Z
-    goto :do_paint
+    goto :native_screen_painted_track
     :check_lib_title
     const-string v0, "Votre bibliothèque"
     invoke-virtual {v0, p1}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
     move-result v0
-    if-eqz v0, :do_paint
+    if-eqz v0, :native_screen_painted_track
     const/4 v4, 0x1
     sput-boolean v4, Lcom/melodix/music/NativeHomeFeed;->useGrid:Z
     # Tab isolation: if this container still shows rows painted for ANOTHER

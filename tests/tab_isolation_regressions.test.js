@@ -374,6 +374,43 @@ test('renderNativeRows strips the previous screen rows before painting a new scr
     assert.match(render, /:native_screen_painted_track\n    iget-object v0, p0, Lcom\/melodix\/music\/MainActivity;->nativeCurrentScreen:Ljava\/lang\/String;\n    iput-object v0, p0, Lcom\/melodix\/music\/MainActivity;->nativePaintedScreen:Ljava\/lang\/String;/);
 });
 
+test('every renderNativeRows paint path strips the previous screen rows first', () => {
+    const render = renderNativeRowsBody();
+    // Grid and list paints alike must pass the isolation strip: no path may
+    // jump straight to :do_paint and skip it (that leaked Accueil rows onto
+    // Paramètres and the other tabs).
+    const bypass = render.match(/goto :do_paint/g) || [];
+    assert.strictEqual(bypass.length, 0, 'no paint path skips the isolation strip');
+    assert.ok((render.match(/goto :native_screen_painted_track/g) || []).length >= 2,
+        'the grid routes reach the strip');
+    assert.match(render, /if-eqz v0, :native_screen_painted_track/,
+        'non-grid screens reach the strip too');
+});
+
+test('a failing card build never loses the row: createTile falls back to the flat row', () => {
+    const factory = read('smali/com/melodix/music/NativeUiRowFactory.smali');
+    const create = factory.slice(factory.indexOf('.method public static create('), factory.indexOf('.method public static createTile('));
+    assert.match(create, /:try_start_tile/);
+    assert.match(create, /\.catch Ljava\/lang\/Throwable; \{:try_start_tile \.\. :try_end_tile\} :catch_tile/);
+    assert.match(create, /:catch_tile\n    move-exception v0/);
+    assert.match(create, /goto :native_row_list_mode/);
+    assert.match(create, /NativeCrashGuard;->record/);
+    // The failure is named in logcat (NativeCrashGuard:E is captured by CI).
+    assert.match(create, /const-string v2, "NativeCrashGuard"/);
+    assert.match(create, /Landroid\/util\/Log;->e/);
+});
+
+test('the emulator E2E injection invalidates in-flight JS replies', () => {
+    const wf = read('.github/workflows/test-preview-emulator.yml');
+    const hookAt = wf.indexOf('e2e_hook =');
+    assert.ok(hookAt > 0, 'the E2E hook is patched into onNewIntent');
+    const hook = wf.slice(hookAt, wf.indexOf('patched =', hookAt));
+    // A late 'home' reply queued before the intent must never repaint over the
+    // injected rows: the hook bumps nativeSessionEpoch after blanking the webview.
+    assert.match(hook, /:e2e_after_blank\n\s+sget v1, Lcom\/melodix\/music\/MainActivity;->nativeSessionEpoch:I/);
+    assert.match(hook, /sput v1, Lcom\/melodix\/music\/MainActivity;->nativeSessionEpoch:I/);
+});
+
 test('the activity keeps a dedicated nativePaintedScreen field', () => {
     const src = read('smali/com/melodix/music/MainActivity.smali');
     assert.match(src, /\.field private nativePaintedScreen:Ljava\/lang\/String;/);
