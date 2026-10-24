@@ -664,6 +664,11 @@ test('home and library grids render real cards with covers, gutters and clear hi
     assert.match(tile, /NativeImageLoader;->load/);
     assert.match(tile, /NativeRowClickListener/);
     assert.match(tile, /setClipToOutline/);
+    // Margin fields live in android.view.ViewGroup$MarginLayoutParams: the
+    // android.widget typo made createTile throw NoClassDefFoundError on device.
+    assert.ok(!tile.includes('Landroid/widget/ViewGroup$MarginLayoutParams;'),
+        'createTile never references the non-existent android.widget.ViewGroup$MarginLayoutParams');
+    assert.match(tile, /Landroid\/view\/ViewGroup\$MarginLayoutParams;->topMargin:I/);
     // Grid cells get real gutters so cards never touch.
     const feed = read('smali/com/melodix/music/NativeHomeFeed.smali');
     const putTile = feed.slice(feed.indexOf(':put_tile\n    new-instance'));

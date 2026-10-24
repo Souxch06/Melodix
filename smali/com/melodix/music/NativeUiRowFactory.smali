@@ -465,7 +465,7 @@
     const/16 v9, 0x8
     invoke-static {p0, v9}, Lcom/melodix/music/NativeUiRowFactory;->dp(Landroid/content/Context;I)I
     move-result v9
-    iput v9, v8, Landroid/widget/ViewGroup$MarginLayoutParams;->topMargin:I
+    iput v9, v8, Landroid/view/ViewGroup$MarginLayoutParams;->topMargin:I
     invoke-virtual {v0, v7, v8}, Landroid/widget/LinearLayout;->addView(Landroid/view/View;Landroid/view/ViewGroup$LayoutParams;)V
 
     # Subtitle — one quiet line.
@@ -490,7 +490,7 @@
     const/4 v9, 0x2
     invoke-static {p0, v9}, Lcom/melodix/music/NativeUiRowFactory;->dp(Landroid/content/Context;I)I
     move-result v9
-    iput v9, v8, Landroid/widget/ViewGroup$MarginLayoutParams;->topMargin:I
+    iput v9, v8, Landroid/view/ViewGroup$MarginLayoutParams;->topMargin:I
     invoke-virtual {v0, v7, v8}, Landroid/widget/LinearLayout;->addView(Landroid/view/View;Landroid/view/ViewGroup$LayoutParams;)V
 
     :tile_clickable
@@ -510,7 +510,7 @@
     const/4 v8, 0x4
     invoke-static {p0, v8}, Lcom/melodix/music/NativeUiRowFactory;->dp(Landroid/content/Context;I)I
     move-result v8
-    iput v8, v7, Landroid/widget/ViewGroup$MarginLayoutParams;->bottomMargin:I
+    iput v8, v7, Landroid/view/ViewGroup$MarginLayoutParams;->bottomMargin:I
     invoke-virtual {v0, v7}, Landroid/view/View;->setLayoutParams(Landroid/view/ViewGroup$LayoutParams;)V
     return-object v0
 .end method
