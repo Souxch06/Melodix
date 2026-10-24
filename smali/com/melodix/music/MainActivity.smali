@@ -104,6 +104,7 @@
 .field private nativeSearchWatcherAttached:Z
 .field private nativeHomeJson:Ljava/lang/String;
 .field private nativeLibraryJson:Ljava/lang/String;
+.field private nativeLibraryJsonId:Ljava/lang/String;
 .field private nativeListBlob:Ljava/lang/String;
 
 
@@ -7674,6 +7675,33 @@
     invoke-virtual {v3, v2}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
     move-result v4
     if-eqz v4, :apply_done
+
+    # A payload matching the expected id is always cached when it carries a
+    # library category: a late response must never be lost (the screen may have
+    # been left meanwhile) and re-entering the tab must paint immediately
+    # instead of waiting for a new fetch. Non-category ids (playlist/album/...)
+    # never touch this cache.
+    const-string v0, "playlists"
+    invoke-virtual {v2, v0}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    move-result v1
+    if-nez v1, :media_cache_store
+    const-string v0, "albums"
+    invoke-virtual {v2, v0}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    move-result v1
+    if-nez v1, :media_cache_store
+    const-string v0, "artists"
+    invoke-virtual {v2, v0}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    move-result v1
+    if-nez v1, :media_cache_store
+    const-string v0, "podcasts"
+    invoke-virtual {v2, v0}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    move-result v1
+    if-eqz v1, :media_render_gate
+    :media_cache_store
+    iput-object v2, p0, Lcom/melodix/music/MainActivity;->nativeLibraryJsonId:Ljava/lang/String;
+    iput-object p2, p0, Lcom/melodix/music/MainActivity;->nativeLibraryJson:Ljava/lang/String;
+
+    :media_render_gate
     iget-object v5, p0, Lcom/melodix/music/MainActivity;->nativeCurrentScreen:Ljava/lang/String;
     if-eqz v5, :apply_done
     const-string v6, "library"
@@ -8433,6 +8461,17 @@
     .locals 5
 
     :try_start_search
+    # Contract: entering Rechercher keeps the Android keyboard CLOSED. The
+    # field stays visible and only a deliberate tap on it may raise the IME
+    # (standard EditText focus behaviour). Re-tapping the tab while already
+    # typing must not yank the keyboard away mid-saisie.
+    iget-object v1, p0, Lcom/melodix/music/MainActivity;->nativeCurrentScreen:Ljava/lang/String;
+    const-string v0, "search"
+    invoke-virtual {v0, v1}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    move-result v1
+    if-nez v1, :native_search_ime_ready
+    invoke-virtual {p0}, Lcom/melodix/music/MainActivity;->hideImeNow()V
+    :native_search_ime_ready
     const-string v0, "search"
     invoke-virtual {p0, v0}, Lcom/melodix/music/MainActivity;->setNativeScreen(Ljava/lang/String;)V
     const/4 v0, 0x0
@@ -8440,14 +8479,15 @@
     const-string v0, "Rechercher"
     const-string v1, "[]"
     invoke-virtual {p0, v0, v1}, Lcom/melodix/music/MainActivity;->renderNativeRows(Ljava/lang/String;Ljava/lang/String;)V
-    # Focus the field and raise the keyboard once the panel is laid out. The
-    # search page itself opens when a query is typed or submitted.
+    # Wire the field: watcher + submit listener. Nothing here may requestFocus
+    # or post a showSoftInput runnable — the keyboard belongs to a deliberate
+    # tap on the field, never to merely entering this screen.
     const v0, 0x7f090233
     invoke-virtual {p0, v0}, Landroid/app/Activity;->findViewById(I)Landroid/view/View;
     move-result-object v1
     if-eqz v1, :native_search_click_done
     iget-boolean v0, p0, Lcom/melodix/music/MainActivity;->nativeSearchWatcherAttached:Z
-    if-nez v0, :native_search_focus_now
+    if-nez v0, :native_search_watcher_ready
     move-object v0, v1
     check-cast v0, Landroid/widget/EditText;
     new-instance v2, Lcom/melodix/music/NativeSearchWatcher;
@@ -8456,12 +8496,7 @@
     invoke-virtual {v0, v2}, Landroid/widget/TextView;->setOnEditorActionListener(Landroid/widget/TextView$OnEditorActionListener;)V
     const/4 v0, 0x1
     iput-boolean v0, p0, Lcom/melodix/music/MainActivity;->nativeSearchWatcherAttached:Z
-    :native_search_focus_now
-    invoke-virtual {v1}, Landroid/view/View;->requestFocus()Z
-    new-instance v2, Lcom/melodix/music/NativeSearchFocusRunnable;
-    invoke-direct {v2, p0, v1}, Lcom/melodix/music/NativeSearchFocusRunnable;-><init>(Lcom/melodix/music/MainActivity;Landroid/view/View;)V
-    const-wide/16 v3, 0xfa
-    invoke-virtual {v1, v2, v3, v4}, Landroid/view/View;->postDelayed(Ljava/lang/Runnable;J)Z
+    :native_search_watcher_ready
 
     :native_search_click_done
     const v0, 0x7f09024f
@@ -8568,6 +8603,11 @@
     invoke-virtual {p0, v1}, Lcom/melodix/music/MainActivity;->styleNativeLibraryChips(Ljava/lang/String;)V
     iget-object v2, p0, Lcom/melodix/music/MainActivity;->nativeLibraryJson:Ljava/lang/String;
     if-eqz v2, :lib_fallback_json
+    iget-object v0, p0, Lcom/melodix/music/MainActivity;->nativeLibraryJsonId:Ljava/lang/String;
+    if-eqz v0, :lib_fallback_json
+    invoke-virtual {v0, v1}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    move-result v0
+    if-eqz v0, :lib_fallback_json
     goto :lib_have_json
     :lib_fallback_json
     # Never fall back to nativeCurrentJson: it belongs to whichever screen was
@@ -8614,6 +8654,22 @@
     invoke-virtual {p0, v0}, Lcom/melodix/music/MainActivity;->styleNativeLibraryChips(Ljava/lang/String;)V
     const-string v1, "library"
     invoke-virtual {p0, v1}, Lcom/melodix/music/MainActivity;->setNativeScreen(Ljava/lang/String;)V
+    # Paint the cached rows of this very category immediately; a miss keeps the
+    # previous content until the fetch pipeline delivers its own state rows.
+    iget-object v2, p0, Lcom/melodix/music/MainActivity;->nativeLibraryJson:Ljava/lang/String;
+    if-eqz v2, :native_library_category_fetch
+    iget-object v3, p0, Lcom/melodix/music/MainActivity;->nativeLibraryJsonId:Ljava/lang/String;
+    if-eqz v3, :native_library_category_fetch
+    invoke-virtual {v3, v0}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    move-result v3
+    if-eqz v3, :native_library_category_fetch
+    invoke-virtual {v2}, Ljava/lang/String;->length()I
+    move-result v3
+    const/16 v1, 0x8
+    if-le v3, v1, :native_library_category_fetch
+    const-string v1, "Votre bibliothèque"
+    invoke-virtual {p0, v1, v2}, Lcom/melodix/music/MainActivity;->renderNativeRows(Ljava/lang/String;Ljava/lang/String;)V
+    :native_library_category_fetch
     const-string v1, "window.__sfOpenLibraryCategory"
     invoke-virtual {p0, v1, v0}, Lcom/melodix/music/MainActivity;->runNativeFunction(Ljava/lang/String;Ljava/lang/String;)V
 
@@ -9297,6 +9353,7 @@
     iput-object v0, p0, Lcom/melodix/music/MainActivity;->nativeDetailParentSearch:Ljava/lang/String;
     iput-object v0, p0, Lcom/melodix/music/MainActivity;->nativeHomeJson:Ljava/lang/String;
     iput-object v0, p0, Lcom/melodix/music/MainActivity;->nativeLibraryJson:Ljava/lang/String;
+    iput-object v0, p0, Lcom/melodix/music/MainActivity;->nativeLibraryJsonId:Ljava/lang/String;
     iput-object v0, p0, Lcom/melodix/music/MainActivity;->nativeListBlob:Ljava/lang/String;
     sput-object v0, Lcom/melodix/music/WebService;->B:Landroid/graphics/Bitmap;
 

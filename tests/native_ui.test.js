@@ -1197,7 +1197,13 @@ test('library chips and the search tab never call a bridge-only function', () =>
     assert.match(shell, /window\.__sfOpenLibraryCategory = function\(tag\)/);
     assert.match(shell, /LIBRARY_CATEGORY_PATHS/);
     assert.match(read('smali/com/melodix/music/NativeSearchFocusRunnable.smali'), /showSoftInput/);
-    assert.match(activity, /new-instance v2, Lcom\/melodix\/music\/NativeSearchFocusRunnable;/, 'the search tab raises the keyboard');
+    // Contract updated 2026-10-24 (P0 keyboard regression): entering the
+    // search tab must keep the Android keyboard CLOSED — only a deliberate
+    // tap on the field may raise it. The entry point therefore never posts
+    // the showSoftInput runnable anymore (the helper class stays available
+    // for explicit focus requests and is covered by keyboard_input.test.js).
+    assert.doesNotMatch(activity, /NativeSearchFocusRunnable;/,
+        'the search tab must NOT raise the keyboard on entry (closed keyboard contract)');
 });
 
 test('the shell publishes the real player state without the bridge', () => {
@@ -1376,7 +1382,7 @@ test('browse tiles drive the live search and the grid yields to real results', (
     const rowsAt = activity.indexOf('.method public final renderNativeRows(Ljava/lang/String;Ljava/lang/String;)V');
     const rows = activity.slice(rowsAt, rowsAt + 2600);
     const searchAt = activity.indexOf('.method public final onNativeSearchClick(Landroid/view/View;)V');
-    const search = activity.slice(searchAt, searchAt + 2200);
+    const search = activity.slice(searchAt, searchAt + 3600);
     const screenAt = activity.indexOf('.method public final setNativeScreen(Ljava/lang/String;)V');
     const screen = activity.slice(screenAt, screenAt + 2200);
 

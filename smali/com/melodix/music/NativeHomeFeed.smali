@@ -49,6 +49,40 @@
     const-string v9, "uri"
     invoke-virtual {v6, v9, v8}, Lorg/json/JSONObject;->optString(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;
     move-result-object v9
+
+    # Bridge rows arrive as {id,name,image} (see parseLibrary/toIdNameImage and
+    # AndBridge.onMediaItemsLoaded): apply the SAME fallbacks as
+    # NativeUiRowFactory.create BEFORE the emptiness test so real playlists and
+    # tracks are never dropped by the admission check.
+    invoke-virtual {v7}, Ljava/lang/String;->isEmpty()Z
+    move-result v10
+    if-eqz v10, :home_feed_title_ready
+    const-string v10, "name"
+    invoke-virtual {v6, v10, v8}, Lorg/json/JSONObject;->optString(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;
+    move-result-object v7
+    :home_feed_title_ready
+    invoke-virtual {v7}, Ljava/lang/String;->isEmpty()Z
+    move-result v10
+    if-eqz v10, :home_feed_title_done
+    const-string v10, "label"
+    invoke-virtual {v6, v10, v8}, Lorg/json/JSONObject;->optString(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;
+    move-result-object v7
+    :home_feed_title_done
+    invoke-virtual {v9}, Ljava/lang/String;->isEmpty()Z
+    move-result v10
+    if-eqz v10, :home_feed_uri_ready
+    const-string v10, "id"
+    invoke-virtual {v6, v10, v8}, Lorg/json/JSONObject;->optString(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;
+    move-result-object v9
+    :home_feed_uri_ready
+    invoke-virtual {v9}, Ljava/lang/String;->isEmpty()Z
+    move-result v10
+    if-eqz v10, :home_feed_uri_done
+    const-string v10, "href"
+    invoke-virtual {v6, v10, v8}, Lorg/json/JSONObject;->optString(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;
+    move-result-object v9
+    :home_feed_uri_done
+
     invoke-virtual {v7}, Ljava/lang/String;->isEmpty()Z
     move-result v10
     if-eqz v10, :has_row

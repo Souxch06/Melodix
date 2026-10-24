@@ -146,6 +146,15 @@
     const-string v0, "href"
     invoke-virtual {p1, v0, v1}, Lorg/json/JSONObject;->optString(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;
     move-result-object v8
+    invoke-virtual {v8}, Ljava/lang/String;->isEmpty()Z
+    move-result v0
+    if-eqz v0, :native_row_uri_done
+    # Status rows (loading/empty/error) carry their retry target in actionUri
+    # (e.g. spotify:retry:media:playlists): keep it clickable so the retry
+    # handler in MainActivity.openNativeRow can run.
+    const-string v0, "actionUri"
+    invoke-virtual {p1, v0, v1}, Lorg/json/JSONObject;->optString(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;
+    move-result-object v8
 
     :native_row_uri_done
     invoke-virtual {v7}, Ljava/lang/String;->isEmpty()Z
@@ -378,6 +387,13 @@
     move-result v0
     if-eqz v0, :tile_uri_ready
     const-string v0, "id"
+    invoke-virtual {p1, v0, v1}, Lorg/json/JSONObject;->optString(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;
+    move-result-object v5
+    invoke-virtual {v5}, Ljava/lang/String;->isEmpty()Z
+    move-result v0
+    if-eqz v0, :tile_uri_ready
+    # Status rows keep their retry target in actionUri (see create()).
+    const-string v0, "actionUri"
     invoke-virtual {p1, v0, v1}, Lorg/json/JSONObject;->optString(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;
     move-result-object v5
 

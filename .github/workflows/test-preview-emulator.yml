@@ -527,8 +527,20 @@ jobs:
           sleep 1
           echo "::notice title=E2E Tab isolation::PASS (playlist loading + late success/empty/error never leaked onto Paramètres)"
 
-          # 4. Search screen + NativeSearchFocusRunnable + text entry + IME Submit + Android Back
+          # 4. Search screen + closed keyboard on entry + deliberate field tap
+          #    + text entry + IME Submit + Android Back
           tap_text "$state/08_library_back_home.xml" "Rechercher"
+          sleep 1
+          # P0 contract (2026-10-24): entering Rechercher keeps the Android
+          # keyboard CLOSED; the deliberate field tap below is what raises it.
+          im_entry4="$(adb shell dumpsys input_method 2>/dev/null | grep -o 'mInputShown=[a-z]*' | head -n 1 | tr -d '\r' || true)"
+          dump_ui "08b_search_entry_closed"
+          if [[ "$im_entry4" != "mInputShown=false" ]]; then
+            echo "::error title=Keyboard entry::entering Rechercher must keep the IME closed (got: $im_entry4)"
+            exit 1
+          fi
+          assert_ui_has "$state/08b_search_entry_closed.xml" "Rechercher"
+          tap_text "$state/08b_search_entry_closed.xml" "Que souhaitez-vous"
           sleep 1
           adb shell input text "daft"
           sleep 1
@@ -548,14 +560,24 @@ jobs:
           fi
           echo "::notice title=E2E Search + Back::PASS (Search focused, 'daft' entered, results rendered, Back returned to Home)"
 
-          # 4b. Keyboard lifecycle: open -> typed input kept -> Back closes IME
-          #     FIRST (screen unchanged) -> Back navigates -> leaving a screen
-          #     hides the IME. Screenshots of the main rendered screens are
-          #     captured for the verification artifact.
+          # 4b. Keyboard lifecycle: entry CLOSED -> deliberate field tap opens
+          #     -> typed input kept -> Back closes IME FIRST (screen unchanged)
+          #     -> Back navigates -> leaving a screen hides the IME.
+          #     Screenshots of the main rendered screens are captured for the
+          #     verification artifact.
           tap_text "$state/10_search_back_1.xml" "Rechercher" 2>/dev/null || tap_text "$state/10_search_back_2.xml" "Rechercher"
           sleep 1
           tap_text "$state/09_search.xml" "Rechercher" 2>/dev/null || true
           sleep 1
+          # P0 contract: entering Rechercher must leave the keyboard CLOSED.
+          im_entry="$(adb shell dumpsys input_method 2>/dev/null | grep -o 'mInputShown=[a-z]*' | head -n 1 | tr -d '\r' || true)"
+          dump_ui "19_kb_entry_closed"
+          adb exec-out screencap -p > "$state/19_kb_entry_closed.png" 2>/dev/null || true
+          if [[ "$im_entry" != "mInputShown=false" ]]; then
+            echo "::error title=Keyboard entry::entering Rechercher must keep the IME closed (got: $im_entry)"
+            exit 1
+          fi
+          assert_ui_has "$state/19_kb_entry_closed.xml" "Rechercher"
           adb shell input tap 540 400 || true
           sleep 1
           adb shell input text "daft%sfun" || true
@@ -620,7 +642,7 @@ jobs:
             echo "::error title=Keyboard linger::IME still open after leaving search ($im_open2 -> $im_over); screen after tap: $screen_hint ; ime=$ime_state win=$win_focus stages=$stages"
             exit 1
           fi
-          echo "::notice title=E2E Keyboard lifecycle::PASS (open on tap, typed input kept, Back closes IME first then navigates, no IME over other screens)"
+          echo "::notice title=E2E Keyboard lifecycle::PASS (entry closed, open on deliberate field tap, typed input kept, Back closes IME first then navigates, no IME over other screens)"
 
           # 4c. Rendered-screen captures + geometry report (touch targets and
           #     layout bounds) surfaced as annotations for visual review.

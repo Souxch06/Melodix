@@ -229,6 +229,14 @@
             if (item && typeof item.settingValue === 'string' && item.settingValue) {
                 row.settingValue = item.settingValue;
             }
+            // Status rows keep their retry target and kind: the native row
+            // factory turns actionUri into a real tap (spotify:retry:media:…).
+            if (item && item.actionUri) {
+                row.actionUri = String(item.actionUri);
+            }
+            if (item && typeof item.kind === 'string' && item.kind) {
+                row.kind = item.kind;
+            }
             return row;
         }).filter(function(item) {
             return item.title || item.uri;
@@ -780,6 +788,17 @@
                 clearHomeRetry();
                 return;
             }
+            if (homeRetries >= MAX_HOME_RETRIES) {
+                // The bounded retry budget is spent: never freeze a loading
+                // row forever. The terminal state is an honest error row
+                // (Accueil is the manual retry action) and a late mediaLib
+                // success repaints through __sfNativeUiMediaLibUpdated.
+                if (lastHomeSignature !== 'error') {
+                    sendNativeUiData('home', homeStatusRows('error'));
+                    lastHomeSignature = 'error';
+                }
+                return;
+            }
             if (lastHomeSignature !== 'loading') {
                 sendNativeUiData('home', homeStatusRows('loading'));
                 lastHomeSignature = 'loading';
@@ -863,6 +882,7 @@
         return 'playlists';
     }
 
+    var libraryEmptyScrapes = 0;
     function updateLibraryRows(mainView) {
         var path = spotifyRoutePath();
         var rows;
@@ -870,12 +890,14 @@
         if (nativeScreenForPath() !== 'library' || !mainView) {
             lastLibraryPath = '';
             lastLibrarySignature = null;
+            libraryEmptyScrapes = 0;
             return;
         }
         if (path.indexOf('/collection') !== 0 && path.indexOf('/your-library') !== 0) return;
         if (path !== lastLibraryPath) {
             lastLibraryPath = path;
             lastLibrarySignature = null;
+            libraryEmptyScrapes = 0;
         }
         rows = collectHomeRows(mainView);
         signature = JSON.stringify(rows);
@@ -884,7 +906,27 @@
         // renders; using it keeps one code path for bridge and shell data.
         if (rows.length > 0 && signature !== lastLibrarySignature && sendNativeUiData('media:' + libraryCategoryForPath(path), rows)) {
             lastLibrarySignature = signature;
+            libraryEmptyScrapes = 0;
+            return;
         }
+        if (rows.length > 0) return;
+        // Zero rows on a fully-loaded collection page is a valid empty source
+        // response. After a few consecutive empty scrapes the native screen
+        // receives the terminal empty state instead of waiting forever on a
+        // channel nothing else will answer.
+        if (typeof document === 'undefined' || document.readyState !== 'complete') return;
+        libraryEmptyScrapes += 1;
+        if (libraryEmptyScrapes < 3) return;
+        libraryEmptyScrapes = 0;
+        lastLibrarySignature = 'empty';
+        sendNativeUiData('media:' + libraryCategoryForPath(path), [{
+            title: 'Aucun élément à afficher ici',
+            subtitle: 'Spotify ne montre aucun élément dans cette catégorie',
+            section: 'Votre bibliothèque',
+            actionUri: 'spotify:retry:media:' + libraryCategoryForPath(path),
+            playable: false,
+            kind: 'empty'
+        }]);
     }
 
     function collectDetailRows(mainView) {
