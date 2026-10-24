@@ -166,3 +166,18 @@ Captures de preuve (artifact `Melodix-Emulator-Verification-b66fef5…`, 6 fichi
 Échec intermédiaire documenté : run `40122324538` — les taps aux coordonnées fixes (540,400) de l'ancien contrat « clavier ouvert à l'entrée » ne touchaient plus le champ une fois le clavier fermé ; corrigé par des taps pilotés par dump (`b66fef5`).
 
 Bug 2 (terminaison des chargements) : validé par les contrats P0 (budget de retries → erreur terminale, cache des réponses en retard, canal `media:<cat>` jamais silencieux, réessai cliquable) + l'isolation E2E ci-dessus ; la capture `31_library.png` montre la bibliothèque rendue hors état de chargement.
+
+## 20. APK et Release GitHub (mandat permanent) — Mission P0
+
+- **Release publiée (prerelease) et vérifiée par `gh release view`** : <https://github.com/Souxch06/Melodix/releases/tag/v1.2.2-test.6-preview> — « Melodix Preview v1.2.2 test.6 (461ccf0) », créée 2026-10-24T19:03:32Z.
+- **Tag** : `v1.2.2-test.6-preview` (unique ; `v1.2.2-test.4-preview` et `v1.2.2-test.5-preview` inchangés ; tags retirés `v1.2.2-test.1..3-preview` jamais recréés).
+- **Commit source exact** : **`461ccf007050bbc699015b0626ea0d70778a934f`** (contient les correctifs `dee091b`, le fix E2E `b66fef5`, les rapports `c6c8c0e` + cette mise à jour).
+- **APK signé** : **`Melodix-Preview-v1.2.2-test6.apk`** (3 371 855 octets) + `Melodix-Preview-v1.2.2-test6.apk.sha256` (99 o) + `build-manifest-v1.2.2-test.6-preview.json` (731 o) ; **SHA-256 `37cd67380d87ce25621c3db0da1d05649eb7f2b31d69777f2ffeb7ad232bed9b`** ; `versionName = 1.2.2-461ccf0`, `versionCode = 1020556`, package `com.melodix.music.preview`.
+- **Workflow** : run **`40123559910` SUCCESS** (suite 307/307 + vérificateur CFG Dalvik 3 804 fichiers + E2E API 35 + zipalign/apksigner + publication + vérification bout-en-bout des assets), déclenché par le marqueur push `[preview-release] v1.2.2-test.6-preview` (la voie `workflow_dispatch` reste bloquée en HTTP 403 depuis le bac). Notes enrichies avec les causes racines et les preuves E2E.
+
+## 21. Confirmation de périmètre — Mission P0
+
+- **Seule la branche autorisée `arena/7142700d-melodix` a été poussée** (`dee091b`, `c6c8c0e`, `b66fef5`, `461ccf0`). `main` n'a été ni modifié ni poussé.
+- **Aucune PR fusionnée ni fermée** (PR #6 et #7 inchangées). Aucun fichier supprimé ; les anciens contrats ont été adaptés, jamais supprimés (`keyboard_input.test.js`, `NativeSearchFocusRunnable.smali`, contrats `native_ui.test.js`, sous-tests E2E).
+- **Une seule release/tag créée**, sous autorisation explicite : `v1.2.2-test.6-preview` (prerelease). Aucune release existante écrasée, aucun tag réutilisé, aucun build échoué publié (le run `40122324538` en échec E2E n'a rien publié).
+- Aucun secret/jeton/cookie dans les journaux ; aucune fonctionnalité réelle remplacée par une simulation ; diagnostics temporaires inchangés.
