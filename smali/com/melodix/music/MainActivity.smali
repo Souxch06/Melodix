@@ -7109,7 +7109,7 @@
     invoke-virtual {p1, v0}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
     move-result v0
     if-nez v0, :native_ime_kept
-    invoke-static {p0}, Lcom/melodix/music/NativeSearchWatcher;->dismissKeyboard(Lcom/melodix/music/MainActivity;)Z
+    invoke-virtual {p0}, Lcom/melodix/music/MainActivity;->hideImeNow()V
     # Any late re-show (focus restore, web input, layout pass) is closed again.
     const-wide/16 v1, 0x12c
     invoke-static {p0, v1, v2}, Lcom/melodix/music/NativeSearchWatcher;->postDismiss(Lcom/melodix/music/MainActivity;J)V
@@ -8007,6 +8007,71 @@
     return-object v0
 .end method
 
+.method public final hideImeNow()V
+    .locals 4
+
+    const/4 v0, 0x0
+    const/4 v1, 0x0
+    const/4 v2, 0x0
+    const/4 v3, 0x0
+
+    const-string v0, "MDXTRACE"
+    const-string v1, "ime-hide-start"
+    invoke-static {v0, v1}, Landroid/util/Log;->i(Ljava/lang/String;Ljava/lang/String;)I
+
+    const v0, 0x7f090233
+    invoke-virtual {p0, v0}, Landroid/app/Activity;->findViewById(I)Landroid/view/View;
+    move-result-object v0
+    if-eqz v0, :hide_imm
+    invoke-virtual {v0}, Landroid/view/View;->clearFocus()V
+
+    :hide_imm
+    const-string v0, "input_method"
+    invoke-virtual {p0, v0}, Landroid/content/Context;->getSystemService(Ljava/lang/String;)Ljava/lang/Object;
+    move-result-object v0
+    if-eqz v0, :hide_modern
+    check-cast v0, Landroid/view/inputmethod/InputMethodManager;
+    invoke-virtual {p0}, Landroid/app/Activity;->getWindow()Landroid/view/Window;
+    move-result-object v1
+    if-eqz v1, :hide_modern
+    invoke-virtual {v1}, Landroid/view/Window;->getDecorView()Landroid/view/View;
+    move-result-object v1
+    if-eqz v1, :hide_modern
+    invoke-virtual {v1}, Landroid/view/View;->getWindowToken()Landroid/os/IBinder;
+    move-result-object v1
+    const/4 v2, 0x0
+    invoke-virtual {v0, v1, v2}, Landroid/view/inputmethod/InputMethodManager;->hideSoftInputFromWindow(Landroid/os/IBinder;I)Z
+    move-result v0
+    const-string v1, "MDXTRACE"
+    if-eqz v0, :hide_ret_false
+    const-string v2, "ime-hide-legacy-true"
+    goto :hide_log
+    :hide_ret_false
+    const-string v2, "ime-hide-legacy-false"
+    :hide_log
+    invoke-static {v1, v2}, Landroid/util/Log;->i(Ljava/lang/String;Ljava/lang/String;)I
+
+    :hide_modern
+    sget v0, Landroid/os/Build$VERSION;->SDK_INT:I
+    const/16 v1, 0x1e
+    if-ge v0, v1, :hide_done
+    invoke-virtual {p0}, Landroid/app/Activity;->getWindow()Landroid/view/Window;
+    move-result-object v0
+    if-eqz v0, :hide_done
+    invoke-virtual {v0}, Landroid/view/Window;->getInsetsController()Landroid/view/WindowInsetsController;
+    move-result-object v0
+    if-eqz v0, :hide_done
+    invoke-static {}, Landroid/view/WindowInsets$Type;->ime()I
+    move-result v1
+    invoke-interface {v0, v1}, Landroid/view/WindowInsetsController;->hide(I)V
+    const-string v0, "MDXTRACE"
+    const-string v1, "ime-hide-modern"
+    invoke-static {v0, v1}, Landroid/util/Log;->i(Ljava/lang/String;Ljava/lang/String;)I
+
+    :hide_done
+    return-void
+.end method
+
 .method public final maybeDismissImeFor(Ljava/lang/String;Ljava/lang/String;)V
     .locals 4
 
@@ -8046,7 +8111,7 @@
     invoke-static {v0, v1}, Landroid/util/Log;->i(Ljava/lang/String;Ljava/lang/String;)I
 
     :try_start_hide
-    invoke-static {p0}, Lcom/melodix/music/NativeSearchWatcher;->dismissKeyboard(Lcom/melodix/music/MainActivity;)Z
+    invoke-virtual {p0}, Lcom/melodix/music/MainActivity;->hideImeNow()V
     :try_end_hide
     goto :ime_for_post
 

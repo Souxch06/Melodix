@@ -93,10 +93,18 @@ test('4. setNativeScreen ferme le clavier en quittant la recherche, jamais en y 
     assert.ok(guard > -1, 'comparaison avec l\'écran "search" absente');
     const equals = body.indexOf('invoke-virtual {p1, v0}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z');
     assert.ok(equals > guard, 'comparaison sur la destination p1 attendue');
-    const dismissAt = body.indexOf('NativeSearchWatcher;->dismissKeyboard');
-    assert.ok(dismissAt > equals, 'dismissKeyboard doit être appelé après le test de destination');
+    // le masquage est garanti par hideImeNow (clearFocus + hideSoftInputFromWindow
+    // + WindowInsetsController.hide), appelé après le test de destination
+    const dismissAt = body.indexOf('MainActivity;->hideImeNow');
+    assert.ok(dismissAt > equals, 'hideImeNow doit être appelé après le test de destination');
     const keep = body.indexOf('\n    :native_ime_kept\n');
     assert.ok(keep > dismissAt, 'le clavier est conservé quand on entre dans la recherche');
+    const hideIdx = main.indexOf('.method public final hideImeNow()V');
+    assert.ok(hideIdx > -1);
+    const hideBody = main.slice(hideIdx, main.indexOf('.end method', hideIdx));
+    assert.match(hideBody, /clearFocus\(\)V/);
+    assert.match(hideBody, /hideSoftInputFromWindow\(Landroid\/os\/IBinder;I\)Z/);
+    assert.match(hideBody, /Landroid\/view\/WindowInsetsController;->hide\(I\)V/);
 });
 
 test('5. le champ de recherche garde le focus, la saisie multilingue et un vrai debounce', () => {

@@ -24,7 +24,9 @@
     .locals 1
 
     iget-object v0, p0, Lcom/melodix/music/NativeHideImeRunnable;->activity:Lcom/melodix/music/MainActivity;
-    invoke-static {v0}, Lcom/melodix/music/NativeSearchWatcher;->dismissKeyboard(Lcom/melodix/music/MainActivity;)Z
+    if-eqz v0, :hide_done
+    invoke-virtual {v0}, Lcom/melodix/music/MainActivity;->hideImeNow()V
 
+    :hide_done
     return-void
 .end method
