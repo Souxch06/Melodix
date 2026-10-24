@@ -19,15 +19,68 @@ on:
         default: "v1.2.2-test.4-preview"
         type: string
 
+  # Machine path (the sandbox token cannot create workflow_dispatch events):
+  # a push to an arena branch may carry the request as an exact commit-message
+  # marker: [asset-refresh run=<id> sha=<40hex> release=<tag>]. Without that
+  # marker (or dispatch inputs) the gate below exits without doing anything.
+  push:
+    branches:
+      - 'arena/**'
+
 # This workflow can NEVER create a tag or a release: it only replaces the
 # assets of a release that already exists (gh release upload --clobber) after
 # machine-checking that the bytes come from a fully verified pipeline run of
-# the exact requested commit. Ordinary pushes and PRs do not run it.
+# the exact requested commit. Only an explicit request (dispatch inputs or
+# the exact commit-message marker) does anything; other pushes are a no-op.
 permissions: {}
 
 jobs:
+  gate:
+    name: Resolve request
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      proceed: ${{ steps.resolve.outputs.proceed }}
+      run_id: ${{ steps.resolve.outputs.run_id }}
+      expected_commit: ${{ steps.resolve.outputs.expected_commit }}
+      release_tag: ${{ steps.resolve.outputs.release_tag }}
+    steps:
+      - name: Resolve dispatch inputs or exact commit-message marker
+        id: resolve
+        env:
+          INPUT_RUN_ID: ${{ inputs.run_id }}
+          INPUT_COMMIT: ${{ inputs.expected_commit }}
+          INPUT_TAG: ${{ inputs.release_tag }}
+          HEAD_MESSAGE: ${{ github.event.head_commit.message }}
+        run: |
+          set -euo pipefail
+          if [ -n "${INPUT_RUN_ID:-}" ]; then
+            echo "proceed=true" >> "$GITHUB_OUTPUT"
+            echo "run_id=${INPUT_RUN_ID}" >> "$GITHUB_OUTPUT"
+            echo "expected_commit=${INPUT_COMMIT}" >> "$GITHUB_OUTPUT"
+            echo "release_tag=${INPUT_TAG}" >> "$GITHUB_OUTPUT"
+            echo "Request source: workflow_dispatch inputs."
+            exit 0
+          fi
+          marker=$(printf '%s' "${HEAD_MESSAGE:-}" | grep -oE '\[asset-refresh run=[0-9]+ sha=[0-9a-f]{40} release=[^]]+\]' | head -n 1 || true)
+          if [ -z "$marker" ]; then
+            echo "proceed=false" >> "$GITHUB_OUTPUT"
+            echo "No asset-refresh request in this event (no dispatch inputs, no commit marker). Nothing to do."
+            exit 0
+          fi
+          run_id=$(printf '%s' "$marker" | sed -E 's/.*run=([0-9]+).*/\1/')
+          sha=$(printf '%s' "$marker" | sed -E 's/.*sha=([0-9a-f]{40}).*/\1/')
+          tag=$(printf '%s' "$marker" | sed -E 's/.*release=([^]]+)\].*/\1/')
+          echo "proceed=true" >> "$GITHUB_OUTPUT"
+          echo "run_id=${run_id}" >> "$GITHUB_OUTPUT"
+          echo "expected_commit=${sha}" >> "$GITHUB_OUTPUT"
+          echo "release_tag=${tag}" >> "$GITHUB_OUTPUT"
+          echo "Request source: commit-message marker ${marker}"
   refresh-assets:
     name: Replace APK assets of an existing release
+    needs: gate
+    if: needs.gate.outputs.proceed == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -42,9 +95,9 @@ jobs:
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
-          RUN_ID: ${{ inputs.run_id }}
-          EXPECTED_COMMIT: ${{ inputs.expected_commit }}
-          RELEASE_TAG: ${{ inputs.release_tag }}
+          RUN_ID: ${{ needs.gate.outputs.run_id }}
+          EXPECTED_COMMIT: ${{ needs.gate.outputs.expected_commit }}
+          RELEASE_TAG: ${{ needs.gate.outputs.release_tag }}
         run: |
           set -euo pipefail
           if [[ ! "$EXPECTED_COMMIT" =~ ^[0-9a-f]{40}$ ]]; then
@@ -126,9 +179,9 @@ jobs:
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
-          RUN_ID: ${{ inputs.run_id }}
-          EXPECTED_COMMIT: ${{ inputs.expected_commit }}
-          RELEASE_TAG: ${{ inputs.release_tag }}
+          RUN_ID: ${{ needs.gate.outputs.run_id }}
+          EXPECTED_COMMIT: ${{ needs.gate.outputs.expected_commit }}
+          RELEASE_TAG: ${{ needs.gate.outputs.release_tag }}
         run: |
           set -euo pipefail
           rm -rf bundle release-assets
@@ -270,8 +323,8 @@ jobs:
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
-          RELEASE_TAG: ${{ inputs.release_tag }}
-          EXPECTED_COMMIT: ${{ inputs.expected_commit }}
+          RELEASE_TAG: ${{ needs.gate.outputs.release_tag }}
+          EXPECTED_COMMIT: ${{ needs.gate.outputs.expected_commit }}
           CALC_SHA: ${{ steps.refresh.outputs.calc_sha }}
           APK_ASSET: ${{ steps.refresh.outputs.apk_asset }}
           MANIFEST_ASSET: ${{ steps.refresh.outputs.manifest_asset }}

@@ -15,11 +15,23 @@ const read = (p) => fs.readFileSync(path.join(root, p), 'utf8');
 
 const wf = read('.github/workflows/release-asset-refresh.yml');
 
-test('release-asset-refresh.yml is manual-only and can never create a tag or a release', () => {
+test('release-asset-refresh.yml only ever runs from an explicit request and can never create a tag or a release', () => {
     const triggers = wf.slice(wf.indexOf('\non:'), wf.indexOf('\npermissions:'));
+    // Human path: workflow_dispatch with explicit inputs.
     assert.match(triggers, /workflow_dispatch:/);
-    assert.ok(!/\bpush:|\bpull_request:|\bschedule:|\bworkflow_call:/.test(triggers),
-        'the asset refresh must never run automatically');
+    // Machine path: a push may carry the request only as an exact commit-message
+    // marker, and only on arena branches — never on main, never on PRs or timers.
+    assert.match(triggers, /push:\s*\n\s*branches:\s*\n\s*- 'arena\/\*\*'/);
+    assert.ok(!/\bpull_request:|\bschedule:|\bworkflow_call:|\bworkflow_run:/.test(triggers),
+        'no other trigger may ever run the asset refresh');
+    assert.ok(!/branches:\s*\n\s*- '?(main|master)'?/.test(triggers),
+        'the refresh must never run for the default branch');
+    // The gate is inert without dispatch inputs or the exact marker.
+    assert.ok(wf.includes('[asset-refresh run='), 'the gate parses the exact request marker');
+    assert.match(wf, /proceed=true/);
+    assert.match(wf, /no commit marker\)\. Nothing to do\./);
+    assert.match(wf, /needs: gate/);
+    assert.match(wf, /if: needs\.gate\.outputs\.proceed == 'true'/);
     for (const forbidden of ['gh release create', 'action-gh-release', 'softprops', 'git tag', 'git push', 'gh release delete']) {
         assert.ok(!wf.includes(forbidden), `must never contain ${forbidden}`);
     }
