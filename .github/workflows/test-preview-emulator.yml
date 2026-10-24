@@ -603,7 +603,18 @@ jobs:
           dump_ui "24_kb_no_linger"
           adb exec-out screencap -p > "$state/24_kb_no_linger.png" 2>/dev/null || true
           if [[ "$im_open2" == "mInputShown=true" && "$im_over" != "mInputShown=false" ]]; then
-            echo "::error title=Keyboard linger::IME still open after leaving search ($im_open2 -> $im_over)"
+            screen_hint="$(python3 - "$state/24_kb_no_linger.xml" <<'PY'
+          import sys, xml.etree.ElementTree as ET
+          try:
+              root = ET.parse(sys.argv[1]).getroot()
+          except Exception:
+              print("dump illisible")
+              raise SystemExit
+          txt = " | ".join(filter(None, ((n.get("text") or "").strip() for n in root.iter())))
+          print(txt[:300])
+          PY
+            )"
+            echo "::error title=Keyboard linger::IME still open after leaving search ($im_open2 -> $im_over); screen after tap: $screen_hint"
             exit 1
           fi
           echo "::notice title=E2E Keyboard lifecycle::PASS (open on tap, typed input kept, Back closes IME first then navigates, no IME over other screens)"

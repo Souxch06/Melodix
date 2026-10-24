@@ -41,6 +41,11 @@ test('1. MainActivity déclare windowSoftInputMode="adjustResize"', () => {
     const tag = manifest.slice(tagIndex, openEnd);
     assert.match(tag, /android:windowSoftInputMode="adjustResize"/,
         'le manifeste doit redimensionner (adjustResize) au lieu de déplacer l\'écran');
+    // API 35 enforces edge-to-edge, which silently disables adjustResize:
+    // the theme must opt out so the window really resizes around the IME.
+    const styles = read('res/values/styles.xml');
+    assert.match(styles, /<style name="Theme\.Spotifuck"[^>]*>[\s\S]*?windowOptOutEdgeToEdgeEnforcement">true/,
+        'Theme.Spotifuck doit sortir de l\'edge-to-edge imposé (API 35) pour que adjustResize fonctionne');
 });
 
 test('2. dismissKeyboard existe en statique, masque l\'IME et rend compte de sa consommation', () => {
