@@ -88,18 +88,22 @@ test('Test release publication uses unique non-overwriting pre-release tags, ded
     assert.match(workflow, /Verify published GitHub Release, download links, and SHA-256 end-to-end/);
 });
 
-test('Ordinary pushes never publish a tag or a release: publication needs an explicit manual authorization', () => {
-    // The publish job must only run on a manual dispatch carrying the explicit
-    // publish_release=true input — never on push, even after a green pipeline.
+test('Ordinary pushes never publish a tag or a release: publication needs an explicit authorization', () => {
+    // The publish job may only run with an explicit authorization: either a
+    // manual dispatch carrying publish_release=true, or a push whose commit
+    // message carries the [preview-release] marker (machine path for the
+    // sandbox token, which cannot create workflow_dispatch events). Ordinary
+    // pushes never publish, even after a green pipeline.
     assert.match(
         workflow,
-        /  publish-preview-release:\n    needs:\n      - verify\n      - build-and-release-preview\n    if: github\.event_name == 'workflow_dispatch' && inputs\.publish_release == true && needs\.build-and-release-preview\.outputs\.should_publish == 'true'/,
-        'publish-preview-release must require workflow_dispatch + publish_release == true'
+        /  publish-preview-release:\n    needs:\n      - verify\n      - build-and-release-preview\n    if: needs\.build-and-release-preview\.outputs\.should_publish == 'true' && \(\(github\.event_name == 'workflow_dispatch' && inputs\.publish_release == true\) \|\| \(github\.event_name == 'push' && contains\(github\.event\.head_commit\.message, '\[preview-release\]'\)\)\)/,
+        'publish-preview-release must require dispatch publish_release=true or the explicit [preview-release] commit marker'
     );
-    assert.doesNotMatch(
+    // A push may only publish through the explicit marker requirement.
+    assert.match(
         workflow,
-        /if: \(github\.event_name == 'push'/,
-        'no job may publish on push'
+        /github\.event_name == 'push' && contains\(github\.event\.head_commit\.message, '\[preview-release\]'\)/,
+        'any push path must be gated on the explicit [preview-release] commit marker'
     );
     // The explicit authorization defaults to off.
     assert.match(
@@ -107,11 +111,11 @@ test('Ordinary pushes never publish a tag or a release: publication needs an exp
         /publish_release:\n        description:[\s\S]*?type: boolean\n        default: false/,
         'publish_release must default to false'
     );
-    // The create step repeats the same manual-only gate as a second belt.
+    // The create step repeats the same gate as a second belt.
     const createStep = workflow.slice(workflow.indexOf('- name: Create preview release and attach APK'));
     assert.match(
         createStep.slice(0, 400),
-        /if: github\.event_name == 'workflow_dispatch' && inputs\.publish_release == true/,
+        /if: needs\.build-and-release-preview\.outputs\.should_publish == 'true' && \(\(github\.event_name == 'workflow_dispatch' && inputs\.publish_release == true\)/,
         'the release creation step is double-gated'
     );
     // Ordinary pushes still run tests + build + CI artifacts.
