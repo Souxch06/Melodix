@@ -1378,7 +1378,7 @@ test('browse tiles drive the live search and the grid yields to real results', (
     const searchAt = activity.indexOf('.method public final onNativeSearchClick(Landroid/view/View;)V');
     const search = activity.slice(searchAt, searchAt + 2200);
     const screenAt = activity.indexOf('.method public final setNativeScreen(Ljava/lang/String;)V');
-    const screen = activity.slice(screenAt, screenAt + 1600);
+    const screen = activity.slice(screenAt, screenAt + 2200);
 
     assert.ok(gridAt > layout.indexOf('@+id/nativeSearchPanel'), 'the grid sits under the search field');
     assert.ok(gridAt < chipsAt, 'the grid sits above the library chips');

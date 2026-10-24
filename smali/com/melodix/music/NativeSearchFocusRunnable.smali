@@ -17,13 +17,24 @@
 .method public final run()V
     .locals 3
 
-    const-string v1, "ime-focus-runnable"
-    invoke-static {v1}, Lcom/melodix/music/NativeCrashGuard;->stage(Ljava/lang/String;)V
+    const-string v1, "MDXTRACE"
+    const-string v2, "ime-focus-runnable"
+    invoke-static {v1, v2}, Landroid/util/Log;->i(Ljava/lang/String;Ljava/lang/String;)I
 
     :try_start_0
     iget-object v0, p0, Lcom/melodix/music/NativeSearchFocusRunnable;->target:Landroid/view/View;
     if-eqz v0, :focus_done
     invoke-virtual {v0}, Landroid/view/View;->isShown()Z
+    move-result v1
+    if-eqz v1, :focus_done
+    # The keyboard only belongs to the search screen: a runnable that lands
+    # after a screen change must never raise it over another screen.
+    iget-object v1, p0, Lcom/melodix/music/NativeSearchFocusRunnable;->activity:Lcom/melodix/music/MainActivity;
+    if-eqz v1, :focus_done
+    iget-object v1, v1, Lcom/melodix/music/MainActivity;->nativeCurrentScreen:Ljava/lang/String;
+    if-eqz v1, :focus_done
+    const-string v2, "search"
+    invoke-virtual {v1, v2}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
     move-result v1
     if-eqz v1, :focus_done
     invoke-virtual {v0}, Landroid/view/View;->requestFocus()Z

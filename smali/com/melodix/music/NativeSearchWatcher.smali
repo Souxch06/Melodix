@@ -9,6 +9,26 @@
 
 
 # static methods
+# Arms a delayed second hide so a late re-show never lingers on screen.
+.method public static postDismiss(Lcom/melodix/music/MainActivity;J)V
+    .locals 3
+
+    if-eqz p0, :post_done
+
+    new-instance v0, Lcom/melodix/music/NativeHideImeRunnable;
+    invoke-direct {v0, p0}, Lcom/melodix/music/NativeHideImeRunnable;-><init>(Lcom/melodix/music/MainActivity;)V
+    invoke-virtual {p0}, Landroid/app/Activity;->getWindow()Landroid/view/Window;
+    move-result-object v1
+    if-eqz v1, :post_done
+    invoke-virtual {v1}, Landroid/view/Window;->getDecorView()Landroid/view/View;
+    move-result-object v1
+    if-eqz v1, :post_done
+    invoke-virtual {v1, v0, p1, p2}, Landroid/view/View;->postDelayed(Ljava/lang/Runnable;J)Z
+
+    :post_done
+    return-void
+.end method
+
 # Hides the soft keyboard when it is open (returns true then, or when the
 # search field held focus). Used by Back (close keyboard first) and by screen
 # changes (the keyboard must never linger over another screen).
@@ -21,13 +41,9 @@
     const/4 v3, 0x0
     if-nez p0, :dismiss_return
 
-    const-string v2, "ime-dismiss"
-    invoke-static {v2}, Lcom/melodix/music/NativeCrashGuard;->stage(Ljava/lang/String;)V
-
-    # A web input holding DOM focus would keep the keyboard alive after the
-    # native field is cleared: blur whatever the WebView is focusing.
-    const-string v2, "try{(document.activeElement&&document.activeElement.blur&&document.activeElement.blur())}catch(e){}"
-    invoke-virtual {p0, v2}, Lcom/melodix/music/MainActivity;->runNativeJavascript(Ljava/lang/String;)V
+    const-string v2, "MDXTRACE"
+    const-string v3, "ime-dismiss"
+    invoke-static {v2, v3}, Landroid/util/Log;->i(Ljava/lang/String;Ljava/lang/String;)I
 
     const v0, 0x7f090233
     invoke-virtual {p0, v0}, Landroid/app/Activity;->findViewById(I)Landroid/view/View;

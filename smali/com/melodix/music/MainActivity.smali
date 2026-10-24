@@ -74,7 +74,7 @@
 
 .field public final g0:Ls4;
 
-.field private nativeCurrentScreen:Ljava/lang/String;
+.field nativeCurrentScreen:Ljava/lang/String;
 
 # Screen whose rows are currently attached to the shared nativeContent container.
 # Used by renderNativeRows to strip stale rows of another tab before painting.
@@ -7110,6 +7110,11 @@
     move-result v0
     if-nez v0, :native_ime_kept
     invoke-static {p0}, Lcom/melodix/music/NativeSearchWatcher;->dismissKeyboard(Lcom/melodix/music/MainActivity;)Z
+    # Any late re-show (focus restore, web input, layout pass) is closed again.
+    const-wide/16 v1, 0x12c
+    invoke-static {p0, v1, v2}, Lcom/melodix/music/NativeSearchWatcher;->postDismiss(Lcom/melodix/music/MainActivity;J)V
+    const-wide/16 v1, 0x384
+    invoke-static {p0, v1, v2}, Lcom/melodix/music/NativeSearchWatcher;->postDismiss(Lcom/melodix/music/MainActivity;J)V
 
     :native_ime_kept
     # The browse grid belongs to the empty search screen only.

@@ -119,6 +119,12 @@ test('6. le runnable de focus est gardé: pas d\'ouverture parasite du clavier',
     assert.match(body, /showSoftInput\(Landroid\/view\/View;I\)Z/);
     // the runnable only ever targets the single view injected at construction
     assert.match(body, /\.method public constructor <init>\(Lcom\/melodix\/music\/MainActivity;Landroid\/view\/View;\)V/);
+    // and it only raises the keyboard while the search screen is the active one
+    assert.match(body, /nativeCurrentScreen:Ljava\/lang\/String;/,
+        'le runnable ne doit ouvrir le clavier que sur l\'écran recherche');
+    // leaving a screen arms delayed second hides so nothing re-opens the IME
+    assert.match(watcher, /\.method public static postDismiss\(Lcom\/melodix\/music\/MainActivity;J\)V/);
+    assert.match(main, /NativeSearchWatcher;->postDismiss/);
     // and MainActivity hands it exactly the nativeSearchInput field (0x7f090233)
     const clickIndex = main.indexOf('.method public final onNativeSearchClick');
     assert.ok(clickIndex > -1);
