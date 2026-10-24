@@ -38,15 +38,17 @@
 .method private final dispatchNativeUi(Ljava/lang/String;Ljava/lang/String;)V
     .locals 3
 
+    invoke-static {}, Lcom/melodix/music/DiagCounters;->dispatchIn()V
+
     iget v0, p0, Lcom/melodix/music/AndBridge;->bridgeEpoch:I
     sget v2, Lcom/melodix/music/MainActivity;->nativeSessionEpoch:I
-    if-ne v0, v2, :native_dispatch_done
+    if-ne v0, v2, :dispatch_drop
 
     if-eqz p2, :payload_ok
     invoke-virtual {p2}, Ljava/lang/String;->length()I
     move-result v0
     const/high16 v2, 0x40000
-    if-gt v0, v2, :native_dispatch_done
+    if-gt v0, v2, :dispatch_drop
 
     :payload_ok
     const/4 v1, 0x0
@@ -60,13 +62,17 @@
     if-nez v1, :got_activity
     iget-object v0, p0, Lcom/melodix/music/AndBridge;->a:Landroid/content/Context;
     instance-of v2, v0, Lcom/melodix/music/MainActivity;
-    if-eqz v2, :native_dispatch_done
+    if-eqz v2, :dispatch_drop
     move-object v1, v0
     check-cast v1, Lcom/melodix/music/MainActivity;
 
     :got_activity
-    if-eqz v1, :native_dispatch_done
+    if-eqz v1, :dispatch_drop
     invoke-virtual {v1, p1, p2}, Lcom/melodix/music/MainActivity;->postNativeUiData(Ljava/lang/String;Ljava/lang/String;)V
+    return-void
+
+    :dispatch_drop
+    invoke-static {}, Lcom/melodix/music/DiagCounters;->dispatchDropped()V
 
     :native_dispatch_done
     return-void
@@ -3256,4 +3262,91 @@
 
     :read_bundled_asset_done
     return-object v1
+.end method
+
+.method public final readDiagCounters()Ljava/lang/String;
+    .locals 1
+    .annotation runtime Landroid/webkit/JavascriptInterface;
+    .end annotation
+
+    invoke-static {}, Lcom/melodix/music/DiagCounters;->readJson()Ljava/lang/String;
+
+    move-result-object v0
+
+    return-object v0
+.end method
+
+.method public final readDiagLog()Ljava/lang/String;
+    .locals 1
+    .annotation runtime Landroid/webkit/JavascriptInterface;
+    .end annotation
+
+    invoke-static {}, Lcom/melodix/music/DiagCounters;->readLog()Ljava/lang/String;
+
+    move-result-object v0
+
+    return-object v0
+.end method
+
+.method public final copyToClipboard(Ljava/lang/String;)V
+    .locals 4
+    .annotation runtime Landroid/webkit/JavascriptInterface;
+    .end annotation
+
+    if-eqz p1, :copy_done
+
+    :try_start_0
+    iget-object v0, p0, Lcom/melodix/music/AndBridge;->a:Landroid/content/Context;
+
+    if-eqz v0, :copy_activity
+
+    goto :copy_ctx_ready
+
+    :copy_activity
+    sget-object v1, Lcom/melodix/music/AppSingleton;->t:Ljava/lang/ref/WeakReference;
+
+    if-eqz v1, :copy_done
+
+    invoke-virtual {v1}, Ljava/lang/ref/Reference;->get()Ljava/lang/Object;
+
+    move-result-object v1
+
+    check-cast v1, Landroid/content/Context;
+
+    move-object v0, v1
+
+    :copy_ctx_ready
+    if-eqz v0, :copy_done
+
+    const-string v1, "clipboard"
+
+    invoke-virtual {v0, v1}, Landroid/content/Context;->getSystemService(Ljava/lang/String;)Ljava/lang/Object;
+
+    move-result-object v1
+
+    check-cast v1, Landroid/content/ClipboardManager;
+
+    if-eqz v1, :copy_done
+
+    const-string v2, "Melodix diagnostic"
+
+    invoke-static {v2, p1}, Landroid/content/ClipData;->newPlainText(Ljava/lang/CharSequence;Ljava/lang/CharSequence;)Landroid/content/ClipData;
+
+    move-result-object v2
+
+    invoke-virtual {v1, v2}, Landroid/content/ClipboardManager;->setPrimaryClip(Landroid/content/ClipData;)V
+
+    const-string v1, "diag-copy ok"
+
+    invoke-static {v1}, Lcom/melodix/music/DiagCounters;->event(Ljava/lang/String;)V
+    :try_end_0
+    .catch Ljava/lang/Throwable; {:try_start_0 .. :try_end_0} :catch_0
+
+    goto :copy_done
+
+    :catch_0
+    move-exception v0
+
+    :copy_done
+    return-void
 .end method

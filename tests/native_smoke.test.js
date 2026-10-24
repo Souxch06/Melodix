@@ -152,8 +152,11 @@ test('smoke: shell respects system windows and rejects oversized JS payloads', (
     // if-eqz null → skip the cap (existing null path). if-gt length, 256KiB → drop.
     assert.match(dispatch, /if-eqz p2, :payload_ok/);
     assert.match(dispatch, /const\/high16 v2, 0x40000/);
-    assert.match(dispatch, /if-gt v0, v2, :native_dispatch_done/);
-    assert.doesNotMatch(dispatch, /if-le v0, v2, :native_dispatch_done/);
+    assert.match(dispatch, /if-gt v0, v2, :dispatch_drop/);
+    assert.doesNotMatch(dispatch, /if-le v0, v2, :dispatch_drop/);
+    // every drop path is counted for the diagnostic screen before it ends
+    assert.match(dispatch, /DiagCounters;->dispatchDropped\(\)V/);
+    assert.match(dispatch, /DiagCounters;->dispatchIn\(\)V/);
     const homeAt = bridge.indexOf('.method public final onNativeHomeRows(Ljava/lang/String;)V');
     const home = bridge.slice(homeAt, bridge.indexOf('.end method', homeAt));
     assert.match(home, /if-eqz p1, :home_rows_size_ok/);

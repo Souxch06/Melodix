@@ -2111,6 +2111,14 @@
 
         var rows = [
             {
+                section: 'Diagnostic',
+                title: 'Diagnostic Melodix',
+                subtitle: 'Vérifier pourquoi vos listes ne s’affichent pas',
+                image: '',
+                uri: 'spotify:diag:open',
+                settingValue: 'Ouvrir'
+            },
+            {
                 section: 'Compte Spotify',
                 title: accountName,
                 subtitle: 'Session Spotify active • Streaming Web Player',

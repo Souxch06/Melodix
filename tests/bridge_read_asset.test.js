@@ -9,7 +9,7 @@ function read(rel) {
 
 function readAssetMethod() {
     const smali = read('smali/com/melodix/music/NativeBridgeAsset.smali');
-    const at = smali.indexOf('.method private static readAssetUtf8');
+    const at = Math.max(smali.indexOf('.method private static readAssetUtf8'), smali.indexOf('.method public static readAssetUtf8'));
     return smali.slice(at, smali.indexOf('.end method', at));
 }
 

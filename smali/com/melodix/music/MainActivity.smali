@@ -109,6 +109,52 @@
 
 
 # direct methods
+.method public final openNativeDiag()V
+    .locals 4
+
+    # Open the real Diagnostic Melodix screen: native rows only, engine from
+    # the bundled diag_engine.js asset. The engine paints live rows through
+    # AndBridge.onNativeUiData('diag:report', ...).
+    const-string v0, "diagnostic"
+    invoke-virtual {p0, v0}, Lcom/melodix/music/MainActivity;->setNativeScreen(Ljava/lang/String;)V
+    const-string v0, "Diagnostic Melodix"
+    const-string v1, "[{\"title\":\"D\u00e9marrage du moteur de diagnostic\u2026\",\"section\":\"Diagnostic Melodix\"}]"
+    invoke-virtual {p0, v0, v1}, Lcom/melodix/music/MainActivity;->renderNativeRows(Ljava/lang/String;Ljava/lang/String;)V
+
+    const-string v0, "diag_engine.js"
+    invoke-static {v0}, Lcom/melodix/music/NativeBridgeAsset;->readAssetUtf8(Ljava/lang/String;)Ljava/lang/String;
+    move-result-object v1
+    if-eqz v1, :diag_engine_injected
+    invoke-virtual {v1}, Ljava/lang/String;->isEmpty()Z
+    move-result v2
+    if-eqz v2, :diag_engine_injected
+    invoke-virtual {p0, v1}, Lcom/melodix/music/MainActivity;->runNativeJavascript(Ljava/lang/String;)V
+
+    :diag_engine_injected
+    const-string v0, "window.__sfDiagAction && window.__sfDiagAction('open');"
+    invoke-virtual {p0, v0}, Lcom/melodix/music/MainActivity;->runNativeJavascript(Ljava/lang/String;)V
+    return-void
+.end method
+
+.method public final openNativeDiagAction(Ljava/lang/String;)V
+    .locals 3
+
+    # Re-inject the engine (idempotent) then run the requested action.
+    const-string v0, "diag_engine.js"
+    invoke-static {v0}, Lcom/melodix/music/NativeBridgeAsset;->readAssetUtf8(Ljava/lang/String;)Ljava/lang/String;
+    move-result-object v1
+    if-eqz v1, :diag_action_run
+    invoke-virtual {v1}, Ljava/lang/String;->isEmpty()Z
+    move-result v2
+    if-eqz v2, :diag_action_run
+    invoke-virtual {p0, v1}, Lcom/melodix/music/MainActivity;->runNativeJavascript(Ljava/lang/String;)V
+
+    :diag_action_run
+    const-string v0, "window.__sfDiagAction"
+    invoke-virtual {p0, v0, p1}, Lcom/melodix/music/MainActivity;->runNativeFunction(Ljava/lang/String;Ljava/lang/String;)V
+    return-void
+.end method
+
 .method static constructor <clinit>()V
     .locals 1
 
@@ -7189,6 +7235,13 @@
     const-string v0, "queue"
     invoke-virtual {p1, v0}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
     move-result v3
+    if-eqz v3, :native_back_check_diag
+    const/4 v1, 0x1
+    goto :set_back_button_visibility
+    :native_back_check_diag
+    const-string v0, "diagnostic"
+    invoke-virtual {p1, v0}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    move-result v3
     if-eqz v3, :set_back_button_visibility
     const/4 v1, 0x1
     :set_back_button_visibility
@@ -7300,8 +7353,15 @@
     const-string v0, "detail"
     invoke-virtual {p1, v0}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
     move-result v1
-    if-eqz v1, :screen_done
+    if-eqz v1, :title_diag
     const-string v4, "Détails"
+    goto :write_screen_title
+    :title_diag
+    const-string v0, "diagnostic"
+    invoke-virtual {p1, v0}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    move-result v1
+    if-eqz v1, :screen_done
+    const-string v4, "Diagnostic Melodix"
     :write_screen_title
     iput-object v4, p0, Lcom/melodix/music/MainActivity;->nativeCurrentTitle:Ljava/lang/String;
     const v5, 0x7f090230
@@ -7671,10 +7731,10 @@
     invoke-virtual {p1, v0}, Ljava/lang/String;->substring(I)Ljava/lang/String;
     move-result-object v2
     iget-object v3, p0, Lcom/melodix/music/MainActivity;->nativeExpectedId:Ljava/lang/String;
-    if-eqz v3, :apply_done
+    if-eqz v3, :media_gate_drop
     invoke-virtual {v3, v2}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
     move-result v4
-    if-eqz v4, :apply_done
+    if-eqz v4, :media_gate_drop
 
     # A payload matching the expected id is always cached when it carries a
     # library category: a late response must never be lost (the screen may have
@@ -7703,11 +7763,12 @@
 
     :media_render_gate
     iget-object v5, p0, Lcom/melodix/music/MainActivity;->nativeCurrentScreen:Ljava/lang/String;
-    if-eqz v5, :apply_done
+    if-eqz v5, :media_gate_drop
     const-string v6, "library"
     invoke-virtual {v5, v6}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
     move-result v7
     if-eqz v7, :media_detail
+    invoke-static {}, Lcom/melodix/music/DiagCounters;->mediaRendered()V
     iget-object v8, p0, Lcom/melodix/music/MainActivity;->nativeCurrentTitle:Ljava/lang/String;
     if-eqz v8, :library_default_title
     invoke-virtual {p0, v8, p2}, Lcom/melodix/music/MainActivity;->renderNativeRows(Ljava/lang/String;Ljava/lang/String;)V
@@ -7721,7 +7782,8 @@
     const-string v6, "detail"
     invoke-virtual {v5, v6}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
     move-result v7
-    if-eqz v7, :apply_done
+    if-eqz v7, :media_gate_drop
+    invoke-static {}, Lcom/melodix/music/DiagCounters;->mediaRendered()V
     iget-object v8, p0, Lcom/melodix/music/MainActivity;->nativeCurrentTitle:Ljava/lang/String;
     if-eqz v8, :detail_default_title
     invoke-virtual {p0, v8, p2}, Lcom/melodix/music/MainActivity;->renderNativeRows(Ljava/lang/String;Ljava/lang/String;)V
@@ -7730,6 +7792,10 @@
     const-string v8, "Playlist"
     invoke-virtual {p0, v8, p2}, Lcom/melodix/music/MainActivity;->renderNativeRows(Ljava/lang/String;Ljava/lang/String;)V
     return-void
+
+    :media_gate_drop
+    invoke-static {}, Lcom/melodix/music/DiagCounters;->mediaDropped()V
+    goto :apply_done
 
     :check_settings
     const-string v0, "settings"
@@ -7802,6 +7868,20 @@
     if-eqz v7, :apply_done
     const-string v8, "Résultats de recherche"
     invoke-virtual {p0, v8, p2}, Lcom/melodix/music/MainActivity;->renderNativeRows(Ljava/lang/String;Ljava/lang/String;)V
+
+    :check_diag
+    const-string v0, "diag:"
+    invoke-virtual {p1, v0}, Ljava/lang/String;->startsWith(Ljava/lang/String;)Z
+    move-result v1
+    if-eqz v1, :apply_done
+    iget-object v2, p0, Lcom/melodix/music/MainActivity;->nativeCurrentScreen:Ljava/lang/String;
+    if-eqz v2, :apply_done
+    const-string v3, "diagnostic"
+    invoke-virtual {v2, v3}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    move-result v2
+    if-eqz v2, :apply_done
+    const-string v2, "Diagnostic Melodix"
+    invoke-virtual {p0, v2, p2}, Lcom/melodix/music/MainActivity;->renderNativeRows(Ljava/lang/String;Ljava/lang/String;)V
 
     :apply_done
     return-void
@@ -8866,9 +8946,30 @@
     const-string v2, "spotify:settings:"
     invoke-virtual {p1, v2}, Ljava/lang/String;->startsWith(Ljava/lang/String;)Z
     move-result v3
-    if-eqz v3, :native_row_check_collection
+    if-eqz v3, :native_row_check_diag
     const-string v2, "window.__sfToggleSpotifySetting"
     invoke-virtual {p0, v2, p1}, Lcom/melodix/music/MainActivity;->runNativeFunction(Ljava/lang/String;Ljava/lang/String;)V
+    return-void
+
+    :native_row_check_diag
+    # Diagnostic actions: spotify:diag:open opens the screen, every other
+    # spotify:diag:<action> runs that action of the bundled diagnostic engine.
+    const-string v2, "spotify:diag:"
+    invoke-virtual {p1, v2}, Ljava/lang/String;->startsWith(Ljava/lang/String;)Z
+    move-result v3
+    if-eqz v3, :native_row_check_collection
+    const/16 v2, 0xd
+    invoke-virtual {p1, v2}, Ljava/lang/String;->substring(I)Ljava/lang/String;
+    move-result-object v3
+    const-string v2, "open"
+    invoke-virtual {v2, v3}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    move-result v2
+    if-eqz v2, :diag_row_action
+    invoke-virtual {p0}, Lcom/melodix/music/MainActivity;->openNativeDiag()V
+    return-void
+
+    :diag_row_action
+    invoke-virtual {p0, v3}, Lcom/melodix/music/MainActivity;->openNativeDiagAction(Ljava/lang/String;)V
     return-void
 
     :native_row_check_collection
@@ -9067,9 +9168,9 @@
     const-string v1, "Paramètres"
     # Show a real loading state for this screen only; the shell answers with
     # the settings rows and every retry below is idempotent.
-    const-string v2, "[{\"title\":\"Chargement des paramètres…\",\"section\":\"Paramètres\"}]"
+    const-string v2, "[{\"title\":\"Diagnostic Melodix\",\"subtitle\":\"Vérifier pourquoi vos listes ne s’affichent pas\",\"settingValue\":\"Ouvrir\",\"uri\":\"spotify:diag:open\"},{\"title\":\"Chargement des paramètres…\",\"section\":\"Paramètres\"}]"
     invoke-virtual {p0, v1, v2}, Lcom/melodix/music/MainActivity;->renderNativeRows(Ljava/lang/String;Ljava/lang/String;)V
-    const-string v1, "(function(){var done=false;function r(){try{if(window.__sfRequestSpotifySettings){done=(window.__sfRequestSpotifySettings()===true)||done;}}catch(e){}}r();window.setTimeout(r,1500);window.setTimeout(r,4000);window.setTimeout(function(){if(done)return;try{if(window.AndBridge&&window.AndBridge.onNativeUiData){window.AndBridge.onNativeUiData(\'settings\',JSON.stringify([{title:\'Paramètres indisponibles\',subtitle:\'Le module de réglages n’a pas répondu. Réessayez.\',section:\'Paramètres\'}]));}}catch(e){}},6000);})();"
+    const-string v1, "(function(){var done=false;function r(){try{if(window.__sfRequestSpotifySettings){done=(window.__sfRequestSpotifySettings()===true)||done;}}catch(e){}}r();window.setTimeout(r,1500);window.setTimeout(r,4000);window.setTimeout(function(){if(done)return;try{if(window.AndBridge&&window.AndBridge.onNativeUiData){window.AndBridge.onNativeUiData(\'settings\',JSON.stringify([{title:\'Diagnostic Melodix\',subtitle:\'Vérifier pourquoi vos listes ne s’affichent pas\',settingValue:\'Ouvrir\',uri:\'spotify:diag:open\'},{title:\'Paramètres indisponibles\',subtitle:\'Le module de réglages n’a pas répondu. Réessayez.\',section:\'Paramètres\'}]));}}catch(e){}},6000);})();"
     invoke-virtual {p0, v1}, Lcom/melodix/music/MainActivity;->runNativeJavascript(Ljava/lang/String;)V
 
     :native_settings_done
@@ -9284,9 +9385,18 @@
     const-string v2, "queue"
     invoke-virtual {v1, v2}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
     move-result v2
-    if-eqz v2, :native_back_check_detail
+    if-eqz v2, :native_back_check_diag
     const/4 v3, 0x0
     invoke-virtual {p0, v3}, Lcom/melodix/music/MainActivity;->onNativeBackClick(Landroid/view/View;)V
+    const/4 v0, 0x1
+    return v0
+
+    :native_back_check_diag
+    const-string v2, "diagnostic"
+    invoke-virtual {v1, v2}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    move-result v2
+    if-eqz v2, :native_back_check_detail
+    invoke-virtual {p0}, Lcom/melodix/music/MainActivity;->openNativeSettings()V
     const/4 v0, 0x1
     return v0
 

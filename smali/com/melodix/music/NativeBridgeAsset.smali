@@ -114,7 +114,7 @@
     return-object v0
 .end method
 
-.method private static readAssetUtf8(Ljava/lang/String;)Ljava/lang/String;
+.method public static readAssetUtf8(Ljava/lang/String;)Ljava/lang/String;
     .locals 7
 
     const/4 v0, 0x0

@@ -25,6 +25,7 @@
     invoke-direct {v1, p2}, Lorg/json/JSONArray;-><init>(Ljava/lang/String;)V
     invoke-virtual {v1}, Lorg/json/JSONArray;->length()I
     move-result v2
+    invoke-static {v2}, Lcom/melodix/music/DiagCounters;->paintIn(I)V
     if-lez v2, :try_empty
 
     new-instance v12, Landroid/widget/LinearLayout;
@@ -243,5 +244,6 @@
     const/4 v0, 0x0
 
     :done
+    invoke-static {v0}, Lcom/melodix/music/DiagCounters;->paintAccepted(I)V
     return v0
 .end method

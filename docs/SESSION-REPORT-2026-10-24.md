@@ -181,3 +181,56 @@ Bug 2 (terminaison des chargements) : validé par les contrats P0 (budget de ret
 - **Aucune PR fusionnée ni fermée** (PR #6 et #7 inchangées). Aucun fichier supprimé ; les anciens contrats ont été adaptés, jamais supprimés (`keyboard_input.test.js`, `NativeSearchFocusRunnable.smali`, contrats `native_ui.test.js`, sous-tests E2E).
 - **Une seule release/tag créée**, sous autorisation explicite : `v1.2.2-test.6-preview` (prerelease). Aucune release existante écrasée, aucun tag réutilisé, aucun build échoué publié (le run `40122324538` en échec E2E n'a rien publié).
 - Aucun secret/jeton/cookie dans les journaux ; aucune fonctionnalité réelle remplacée par une simulation ; diagnostics temporaires inchangés.
+
+## 22. Mission P0-DIAG — écran « Diagnostic Melodix » embarqué (Phase A)
+
+Le diagnostic demandé est maintenant un VRAI écran de l'APK, atteignable sans
+ADB, sans Android Studio ni Termux : **Paramètres → Diagnostic Melodix →
+Ouvrir**. Toute l'instrumentation mesure la chaîne réelle de cette version.
+
+### Ce que l'écran fait (données réelles uniquement)
+
+- **Progression par étapes réelles** : statut terminal (ok / indisponible /
+  erreur / reçu-trop-tard), heure de début, durée réelle de l'étape, compteurs
+  récupérés/rendus/rejetés, cause de l'échec en français. Aucune étape ne reste
+  en « Chargement… » : chaque test conclut sur un état final.
+- **12 points de traçage minimum** couverts : déclenchement de la récupération,
+  états session/auth, sources réellement disponibles (bridge / fetchMediaItems /
+  shell / DOM), HTTP + durée + nombre d'éléments, état avant/après normalisation,
+  éléments rejetés avec motif, forme des objets (champs présents + empreinte
+  irréversible), identifiants de corrélation (fingerprints fnv1a-8), canal
+  `media:<cat>`, admission NativeHomeFeed, rendu final, comptage des réponses
+  tardives/annulées/epoch/chemin de cache.
+- **Compteurs natifs par étape** (`DiagCounters`) : `paintIn/paintAccepted/
+  paintEmpty` (NativeHomeFeed.paint), `dispatchIn/dispatchDropped`
+  (AndBridge.dispatchNativeUi — epoch/payload/expired), `mediaRendered/
+  mediaDropped` (gate `media:<cat>` de MainActivity). Exportés en JSON borné +
+  journal d'événements borné (200 lignes / 6000 caractères).
+- **Actions réelles** : Diagnostic complet, tests par catégorie (playlists,
+  likés, albums, artistes, podcasts), réessai sûr, export JSON, copie du
+  résumé. L'export porte `includeNames:false` : aucun nom de playlist, aucun
+  token, cookie, en-tête ou identifiant personnel — empreintes irréversibles
+  uniquement.
+- **Jamais de contenu simulé** : si une catégorie ne peut pas être récupérée,
+  l'écran dit exactement pourquoi (accès refusé / erreur réseau / réponse tardive
+  / jamais transmise au rendu / rejetée par le filtre d'affichage / réellement
+  vide) et ne l'affiche jamais comme « liste vide ».
+
+### Détection des 11 classes de panne (tests `tests/diag_screen.test.js`)
+
+`window.__sfDiagClassify(category, scenario)` classe chaque résultat en :
+`ok | empty | fetch | different | normalize | render | paint | late | account |
+unavailable | lost`. Les 11 scénarios de détection (liste non vide, réellement
+vide, réponse refusée, erreur réseau, format inattendu, erreur de normalisation,
+rejet au rendu, réponse tardive, changement de compte, catégorie indisponible,
+section sans callback) sont testés avec comptage « avant → après » qui localise
+OÙ les éléments disparaissent (fetch-0 vs display-0 distincts).
+
+### Engagements Phase A
+
+Aucun correctif de fond n'est appliqué sur des hypothèses : l'instrumentation
+capturera d'abord le comportement réel de l'appareil/compte. La Phase B
+(correctif démontré + test de non-régression) attend le rapport réel exporté
+depuis le téléphone. Le diagnostic n'active rien de dangereux : pas de
+contournement d'authentification, pas de requêtes supplémentaires hors son
+propre cycle, pas de contenu factice.

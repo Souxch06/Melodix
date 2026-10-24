@@ -324,6 +324,7 @@ test('JavascriptInterface annotations are limited to bridge methods used by acti
         read('assets/spotify_bridge.js'),
         read('assets/native_ui_shell.js'),
         read('assets/desktop_spoof.js'),
+        read('assets/diag_engine.js'),
     ].join('\n');
     const nativeBridge = read('smali/com/melodix/music/AndBridge.smali');
     const referenced = new Set(
