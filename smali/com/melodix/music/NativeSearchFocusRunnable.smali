@@ -17,6 +17,9 @@
 .method public final run()V
     .locals 3
 
+    const-string v1, "ime-focus-runnable"
+    invoke-static {v1}, Lcom/melodix/music/NativeCrashGuard;->stage(Ljava/lang/String;)V
+
     :try_start_0
     iget-object v0, p0, Lcom/melodix/music/NativeSearchFocusRunnable;->target:Landroid/view/View;
     if-eqz v0, :focus_done

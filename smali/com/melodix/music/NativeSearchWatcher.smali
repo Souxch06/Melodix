@@ -21,6 +21,14 @@
     const/4 v3, 0x0
     if-nez p0, :dismiss_return
 
+    const-string v2, "ime-dismiss"
+    invoke-static {v2}, Lcom/melodix/music/NativeCrashGuard;->stage(Ljava/lang/String;)V
+
+    # A web input holding DOM focus would keep the keyboard alive after the
+    # native field is cleared: blur whatever the WebView is focusing.
+    const-string v2, "try{(document.activeElement&&document.activeElement.blur&&document.activeElement.blur())}catch(e){}"
+    invoke-virtual {p0, v2}, Lcom/melodix/music/MainActivity;->runNativeJavascript(Ljava/lang/String;)V
+
     const v0, 0x7f090233
     invoke-virtual {p0, v0}, Landroid/app/Activity;->findViewById(I)Landroid/view/View;
     move-result-object v0
