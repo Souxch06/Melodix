@@ -32,7 +32,7 @@ l'artefact `Melodix-Emulator-Verification-<sha>` :
   **au-dessus** du clavier, pas masqué, pas de décalage) ;
 - `21_kb_closed_still_search.png` — après Retour : clavier fermé, écran
   recherche intact, texte conservé ;
-- `23_kb_no_linger.png` — clavier jamais ouvert au-dessus d'un autre écran ;
+- `24_kb_no_linger.png` — clavier jamais ouvert au-dessus d'un autre écran ;
 - `30_home.png`, `31_library.png` — accueil et bibliothèque.
 
 Points visuels à juger sur ces images (hiérarchie, espacements, contraste,

@@ -586,17 +586,22 @@ jobs:
           dump_ui "22_kb_back_home"
           assert_ui_has "$state/22_kb_back_home.xml" "Mix Decouverte"
           # Leaving a screen with the keyboard open must never let the IME
-          # linger over the next screen.
+          # linger over the next screen. NB: with adjustResize the bottom nav
+          # moves up when the IME opens, so the tap coordinates must come from
+          # a dump taken WITH the keyboard open (this also proves the nav stays
+          # reachable above the keyboard).
           tap_text "$state/22_kb_back_home.xml" "Rechercher"
           sleep 1
           adb shell input tap 540 400 || true
           sleep 1
           im_open2="$(adb shell dumpsys input_method 2>/dev/null | grep -o 'mInputShown=[a-z]*' | head -n 1 | tr -d '\r' || true)"
-          tap_text "$state/22_kb_back_home.xml" "Biblioth" || true
+          dump_ui "23_kb_open_nav"
+          assert_ui_has "$state/23_kb_open_nav.xml" "Biblioth"
+          tap_text "$state/23_kb_open_nav.xml" "Biblioth"
           sleep 1
           im_over="$(adb shell dumpsys input_method 2>/dev/null | grep -o 'mInputShown=[a-z]*' | head -n 1 | tr -d '\r' || true)"
-          dump_ui "23_kb_no_linger"
-          adb exec-out screencap -p > "$state/23_kb_no_linger.png" 2>/dev/null || true
+          dump_ui "24_kb_no_linger"
+          adb exec-out screencap -p > "$state/24_kb_no_linger.png" 2>/dev/null || true
           if [[ "$im_open2" == "mInputShown=true" && "$im_over" != "mInputShown=false" ]]; then
             echo "::error title=Keyboard linger::IME still open after leaving search ($im_open2 -> $im_over)"
             exit 1
@@ -606,7 +611,7 @@ jobs:
           # 4c. Rendered-screen captures + geometry report (touch targets and
           #     layout bounds) surfaced as annotations for visual review.
           adb exec-out screencap -p > "$state/30_home.png" 2>/dev/null || true
-          tap_text "$state/23_kb_no_linger.xml" "Biblioth" 2>/dev/null || true
+          tap_text "$state/24_kb_no_linger.xml" "Biblioth" 2>/dev/null || true
           sleep 1
           dump_ui "31_library_geometry"
           adb exec-out screencap -p > "$state/31_library.png" 2>/dev/null || true
