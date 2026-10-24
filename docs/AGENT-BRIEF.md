@@ -3,7 +3,7 @@
 > **Protocole CI et synchronisation automatique à jour** : voir prioritairement [`AGENTS.md`](../AGENTS.md) à la racine du dépôt ainsi que `./scripts/verify-and-sync.sh`.
 >
 > - Branche de travail courante : branche active de la session (actuellement `arena/7142700d-melodix`, PR ouverte : [#7](https://github.com/Souxch06/Melodix/pull/7) ; PR historique [#6](https://github.com/Souxch06/Melodix/pull/6) non fusionnée). Ne jamais modifier `main`, ne pas merger sans demande explicite, jamais de force-push.
-> - **Pipeline automatique Vérification → Build → Pré-Release de test** : chaque `push` hors `main` lance d'abord `verify` (tests Node/Dalvik + émulateur Android 15 `API 35` en lecture seule), puis publie automatiquement une **nouvelle pré-version unique** (`v1.2.2-test.2-preview`, `test.3`, … — `prerelease: true`, `overwrite_files: false`) sur GitHub Releases **sans jamais remplacer `v1.2.2-test.1-preview`** ni publier de release stable officielle.
+> - **Pipeline automatique Vérification → Build → Artefact CI ; publication manuelle uniquement** : chaque `push` hors `main` lance `verify` (tests Node/Dalvik + émulateur Android 15 `API 35` en lecture seule) puis construit l'**APK en artefact CI** (`Melodix-Preview-<SHA40>`). Une GitHub Release n'est **jamais** créée automatiquement : seule une action manuelle (`workflow_dispatch` + `publish_release: true`) explicitement autorisée publie une pré-version, sans jamais écraser un tag ou une release existante.
 > - Indiquer toujours le SHA complet à 40 caractères (`source_ref`), le libellé `Melodix Preview <sha7>` et les liens GitHub vérifiés. Image `docs/previews/melodix-phone-ui-concept.png` **non suivie — ne pas y toucher** (ne jamais lancer `git add -A`).
 
 ## Ce que c’est

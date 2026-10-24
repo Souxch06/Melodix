@@ -81,10 +81,50 @@ test('Verification workflow is cleanly separated from publication and gates test
 
 test('Test release publication uses unique non-overwriting pre-release tags, deduplicates commits, and verifies SHA-256 after upload', () => {
     assert.match(workflow, /Deduplication Guard::Commit/);
-    assert.match(workflow, /Refusing to overwrite protected baseline tag v1\.2\.2-test\.1-preview/);
+    assert.match(workflow, /is retired and must never be recreated or overwritten/);
+    assert.match(workflow, /already exists on GitHub Releases; refusing to overwrite/);
     assert.match(workflow, /prerelease: true/);
     assert.match(workflow, /overwrite_files: false/);
     assert.match(workflow, /Verify published GitHub Release, download links, and SHA-256 end-to-end/);
+});
+
+test('Ordinary pushes never publish a tag or a release: publication needs an explicit manual authorization', () => {
+    // The publish job must only run on a manual dispatch carrying the explicit
+    // publish_release=true input — never on push, even after a green pipeline.
+    assert.match(
+        workflow,
+        /  publish-preview-release:\n    needs:\n      - verify\n      - build-and-release-preview\n    if: github\.event_name == 'workflow_dispatch' && inputs\.publish_release == true && needs\.build-and-release-preview\.outputs\.should_publish == 'true'/,
+        'publish-preview-release must require workflow_dispatch + publish_release == true'
+    );
+    assert.doesNotMatch(
+        workflow,
+        /if: \(github\.event_name == 'push'/,
+        'no job may publish on push'
+    );
+    // The explicit authorization defaults to off.
+    assert.match(
+        workflow,
+        /publish_release:\n        description:[\s\S]*?type: boolean\n        default: false/,
+        'publish_release must default to false'
+    );
+    // The create step repeats the same manual-only gate as a second belt.
+    const createStep = workflow.slice(workflow.indexOf('- name: Create preview release and attach APK'));
+    assert.match(
+        createStep.slice(0, 400),
+        /if: github\.event_name == 'workflow_dispatch' && inputs\.publish_release == true/,
+        'the release creation step is double-gated'
+    );
+    // Ordinary pushes still run tests + build + CI artifacts.
+    assert.match(
+        workflow,
+        /  verify:\n    if: github\.event_name == 'push' \|\| github\.event_name == 'workflow_dispatch'/,
+        'tests still run on every push'
+    );
+    assert.match(workflow, /retention-days: 30/, 'the APK stays downloadable as a CI artifact');
+    // Retired tags are listed and refused.
+    for (const tag of ['v1.2.2-test.1-preview', 'v1.2.2-test.2-preview', 'v1.2.2-test.3-preview']) {
+        assert.ok(workflow.includes(tag), `retired tag ${tag} must be listed as never recreatable`);
+    }
 });
 
 test('CI workflows bind artifacts, TAP reports, and manifests to exact 40-char commit SHA', () => {

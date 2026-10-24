@@ -1053,7 +1053,16 @@ test('[D6] preview-apk.yml verifies before publishing unique test pre-releases w
     assert.match(workflow, /uses: \.\/\.github\/workflows\/test-preview-emulator\.yml/);
     assert.match(publishBlock, /prerelease:\s*true/, 'Must publish strictly as test pre-release');
     assert.match(publishBlock, /overwrite_files:\s*false/, 'Must never overwrite existing release files');
-    assert.match(workflow, /Protected tag v1\.2\.2-test\.1-preview cannot be overwritten/);
+    // 2026-10-24 contract (user-authorized): retired test tags are never
+    // recreated, and publication only happens on an explicit manual dispatch.
+    assert.match(workflow, /is retired and must never be recreated or overwritten/);
+    assert.match(workflow, /already exists on GitHub Releases; refusing to overwrite/);
+    assert.match(
+        workflow,
+        /if: github\.event_name == 'workflow_dispatch' && inputs\.publish_release == true && needs\.build-and-release-preview\.outputs\.should_publish == 'true'/,
+        'Publication must never run on an ordinary push'
+    );
+    assert.match(workflow, /default: false/, 'publish_release must default to false');
 });
 
 test('[D8] Post-logout WebView teardown avoids shared renderer SIGKILL loop, WebService.onDestroy always cleans receivers/threads, and notification metadata is scrubbed on logout', () => {

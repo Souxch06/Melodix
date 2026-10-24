@@ -14,10 +14,10 @@ on:
         type: string
         default: auto
       publish_release:
-        description: Publish verified test pre-release on GitHub Releases
+        description: 'EXPLICIT manual authorization to publish a test pre-release (ordinary pushes NEVER publish; APK stays a CI artifact)'
         required: false
         type: boolean
-        default: true
+        default: false
       source_ref:
         description: Full source commit SHA to build
         required: true
@@ -136,8 +136,9 @@ jobs:
               print(f"::error::Expected a preview tag such as v1.2.2-test.2-preview (got '{tag}')")
               sys.exit(1)
 
-          if tag == "v1.2.2-test.1-preview":
-              print("::error::Refusing to overwrite protected baseline tag v1.2.2-test.1-preview.")
+          RETIRED_TAGS = {"v1.2.2-test.1-preview", "v1.2.2-test.2-preview", "v1.2.2-test.3-preview"}
+          if tag in RETIRED_TAGS:
+              print(f"::error::Tag '{tag}' is retired and must never be recreated or overwritten.")
               sys.exit(1)
 
           if should_publish and tag in existing_tags:
@@ -411,7 +412,7 @@ jobs:
               | **SHA-256 vérifié** | `{manifest['apk_sha256']}` |
               | **Workflow de vérification & build** | [Run `{manifest['workflow_run_id']}`]({run_url}) (`{built_utc}`) |
 
-              ### Modifications principales incluses (depuis `main` / `v1.2.2-test.1-preview`)
+              ### Modifications principales incluses (depuis `main`)
               - **Shell natif Android & pont JS (`MainActivity`, `AndBridge`, `assets/native_ui_shell.js`, `assets/spotify_bridge.js`)** : correction du crash `ClassCastException` de `styleNativeTab`, correction des gardes Smali inversées, recherche en direct (`NativeSearchWatcher`) et support complet des deep-links `spotify:search:` (espaces, apostrophes, `:`, accents UTF-8, `%`).
               - **Résilience `WebView` & `WebService` média** : récupération après crash du moteur de rendu (`onRenderProcessGone`) au premier plan comme en arrière-plan sans perte de session active, complétion propre des requêtes `MediaBrowserServiceCompat$Result` pendantes et échappement `JSONObject.quote`.
               - **Sécurité & isolation de session** : garde anti-SSRF HTTPS `:443` avec validation de redirections saut par saut (`NativeFetchGuard`), isolation inter-comptes par époque monotone (`nativeSessionEpoch`), navigation système Retour Android 15 (`OnBackInvokedCallback`).
@@ -460,7 +461,7 @@ jobs:
     needs:
       - verify
       - build-and-release-preview
-    if: (github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.publish_release != false)) && needs.build-and-release-preview.outputs.should_publish == 'true'
+    if: github.event_name == 'workflow_dispatch' && inputs.publish_release == true && needs.build-and-release-preview.outputs.should_publish == 'true'
     name: Publish verified test pre-release to GitHub Releases
     runs-on: ubuntu-latest
     permissions:
@@ -481,10 +482,12 @@ jobs:
           EXPECTED_SHA256: ${{ needs.build-and-release-preview.outputs.apk_sha256 }}
         run: |
           set -euo pipefail
-          if [[ "$TAG" == "v1.2.2-test.1-preview" ]]; then
-            echo "::error::Protected tag v1.2.2-test.1-preview cannot be overwritten."
-            exit 1
-          fi
+          case "$TAG" in
+            v1.2.2-test.1-preview|v1.2.2-test.2-preview|v1.2.2-test.3-preview)
+              echo "::error::Tag '$TAG' is retired and must never be recreated or overwritten."
+              exit 1
+              ;;
+          esac
           if gh api "repos/${GITHUB_REPOSITORY}/releases/tags/${TAG}" >/dev/null 2>&1; then
             echo "::error::Release tag '${TAG}' already exists on GitHub Releases; refusing to overwrite."
             exit 1
@@ -497,7 +500,7 @@ jobs:
           fi
 
       - name: Create preview release and attach APK
-        if: (github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.publish_release != false)) && needs.build-and-release-preview.outputs.should_publish == 'true'
+        if: github.event_name == 'workflow_dispatch' && inputs.publish_release == true && needs.build-and-release-preview.outputs.should_publish == 'true'
         uses: softprops/action-gh-release@v3.0.3
         with:
           tag_name: ${{ needs.build-and-release-preview.outputs.tag }}
@@ -525,14 +528,12 @@ jobs:
         run: |
           set -euo pipefail
           gh api "repos/${GITHUB_REPOSITORY}/releases/tags/${TAG}" > "$RUNNER_TEMP/published-release.json"
-          gh api "repos/${GITHUB_REPOSITORY}/releases/tags/v1.2.2-test.1-preview" > "$RUNNER_TEMP/baseline-release.json"
 
-          python3 - "$RUNNER_TEMP/published-release.json" "$RUNNER_TEMP/baseline-release.json" "$RUNNER_TEMP/downloaded.apk" <<'PY'
+          python3 - "$RUNNER_TEMP/published-release.json" "$RUNNER_TEMP/downloaded.apk" <<'PY'
           import hashlib, json, os, subprocess, sys
 
           pub = json.load(open(sys.argv[1], encoding="utf-8"))
-          base = json.load(open(sys.argv[2], encoding="utf-8"))
-          dl_apk = sys.argv[3]
+          dl_apk = sys.argv[2]
           expected_sha = os.environ["EXPECTED_SHA256"]
           apk_name = os.environ["APK_NAME"]
 
@@ -554,8 +555,6 @@ jobs:
           dl_sha_txt = subprocess.check_output(["curl", "--fail", "--silent", "--show-error", "--location", sha_url], text=True).strip()
           assert dl_sha_txt.split()[0] == expected_sha, f"Downloaded .sha256 content mismatch: {dl_sha_txt}"
 
-          base_assets = {a["name"]: a for a in base.get("assets", [])}
-          assert base["id"] == 416575911 and "Melodix-Preview-v1.2.2-test1.apk" in base_assets, "Baseline v1.2.2-test.1-preview modified!"
 
           print(
               f"::notice title=Preview Release Published & Verified::"

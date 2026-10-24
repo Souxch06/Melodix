@@ -31,17 +31,19 @@ L'utilisateur ne doit **jamais** avoir à demander manuellement « commit, push,
 
 ---
 
-## 2. Séparation stricte Vérification → Build → Pré-Release de test (sans écrasement ni version officielle)
+## 2. Séparation stricte Vérification → Build → Publication manuelle uniquement (2026-10-24)
 
-- **Pipeline automatique en 3 étapes séquentielles à chaque `push` hors `main`** (`.github/workflows/preview-apk.yml`, `tags-ignore: ['**']`) :
-  1. **`verify` (`contents: read` uniquement)** : invoque `.github/workflows/test-preview-emulator.yml` (`workflow_call`) pour exécuter les `189+` tests Node/Dalvik, compiler/signer l'APK et valider sur émulateur Android 15 (`API 35 x86_64`) les démarrages à froid (Phase 1) et les parcours E2E complets (Phase 2). Si un seul contrôle échoue, la publication est bloquée.
-  2. **`build-and-release-preview` (`needs: verify`, `contents: read` uniquement)** : alloue automatiquement le prochain tag de test strictement inédit (`v1.2.2-test.2-preview`, `v1.2.2-test.3-preview`, …), déduplique par SHA 40 caractères, signe `Melodix-Preview-v1.2.2-test<N>.apk`, calcule `.sha256`, génère `build-manifest-<TAG>.json` et `release-notes.md`. *(Pour pousser un commit mineur sans publier de pré-release, inclure `[skip-release]` dans le message de commit.)*
-  3. **`publish-preview-release` (`needs: [verify, build-and-release-preview]`, seul job en `contents: write`)** : publie uniquement en **pré-version (`prerelease: true`)** sans jamais écraser aucun fichier ou tag existant (`overwrite_files: false`), puis re-télécharge l'APK depuis GitHub Releases pour contrôler le SHA-256 bit à bit et l'intégrité de `v1.2.2-test.1-preview`.
+- **Pipeline automatique en 2 étapes à chaque `push` hors `main`** (`.github/workflows/preview-apk.yml`, `tags-ignore: ['**']`) :
+  1. **`verify` (`contents: read` uniquement)** : invoque `.github/workflows/test-preview-emulator.yml` (`workflow_call`) pour exécuter les tests Node/Dalvik, compiler/signer l'APK et valider sur émulateur Android 15 (`API 35 x86_64`) les démarrages à froid (Phase 1) et les parcours E2E complets (Phase 2, y compris l'isolation des onglets).
+  2. **`build-and-release-preview` (`needs: verify`, `contents: read` uniquement)** : déduplique par SHA 40 caractères, signe `Melodix-Preview-v1.2.2-test<N>.apk`, calcule `.sha256`, génère `build-manifest-<TAG>.json` et publie l'**artefact CI** `Melodix-Preview-<SHA40>` (APK téléchargeable sans release, rétention 30 jours) + `Melodix-Emulator-Verification-<SHA40>`.
+- **Publication GitHub Releases : action manuelle explicitement autorisée uniquement.** `publish-preview-release` (seul job en `contents: write`) ne s'exécute que sur `workflow_dispatch` avec l'entrée `publish_release: true` — **jamais sur un push ordinaire**, même après une pipeline verte. Le marqueur `[skip-release]` reste un second verrou.
+- **Tags de test retirés (nettoyage du 2026-10-24, autorisé par l'utilisateur)** : `v1.2.2-test.1-preview`, `v1.2.2-test.2-preview`, `v1.2.2-test.3-preview` ont été supprimés avec leurs releases ; le workflow refuse de les recréer. **`v1.2.2-test.4-preview` (`id=422316210`, commit `719f9ec`) est la seule release de test conservée** (version de test actuelle validée).
 - **Interdictions absolues sans instruction explicite de l'utilisateur** :
   - **Interdit** de modifier ou pousser directement sur `main`.
   - **Interdit** de réécrire l'historique Git (`git rebase`, `git commit --amend` sur commit poussé, `git push --force`).
   - **Interdit** de fusionner (`gh pr merge`) ou de fermer (`gh pr close`) une PR existante.
-  - **Interdit** de supprimer, modifier ou écraser une GitHub Release existante (en particulier `v1.2.2-test.1-preview`, `id=416575911`) ou de publier une version stable non-`prerelease`.
+  - **Interdit** de supprimer, modifier ou écraser la release conservée `v1.2.2-test.4-preview` (`id=422316210`) ou tout tag/existant restant, de recréer un tag retiré, ou de publier une version stable non-`prerelease`.
+  - **Interdit** de publier une release sans action manuelle explicite (`workflow_dispatch` + `publish_release: true`).
   - **Interdit** d'ajouter dans le code ou Git tout secret, token, keystore (`*.jks`, `*.keystore`, `*.p12`), cookie de session ou l'image non suivie `docs/previews/melodix-phone-ui-concept.png` (ne jamais utiliser `git add -A`).
 
 ---

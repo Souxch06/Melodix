@@ -6,6 +6,15 @@ Toutes les modifications fonctionnelles, de sécurité et d'infrastructure valid
 
 ## [Unreleased — Branche `arena/7142700d-melodix` / PR #7]
 
+### Livraison des correctifs, APK en artefact CI et publication manuelle uniquement (2026-10-24)
+- **Publication automatique supprimée (`.github/workflows/preview-apk.yml`)** : `publish-preview-release` (seul job `contents: write`) ne s'exécute plus que sur `workflow_dispatch` avec l'entrée explicite `publish_release: true` — **plus aucun push ordinaire ne crée de tag ni de release**, même après une pipeline verte. Les pushes exécutent toujours les tests, l'émulateur et la compilation, et l'APK de validation reste téléchargeable en **artefact CI** `Melodix-Preview-<SHA40>` (rétention 30 jours).
+- **Tags de test retirés protégés contre la recréation** : `v1.2.2-test.1/2/3-preview` sont listés comme « retired » dans l'allocateur et le contrôle de publication ; la garde générique refuse tout écrasement de tag/release existant (`overwrite_files: false` conservé).
+- **Nettoyage Releases autorisé (2026-10-24)** : releases `test.1` (`416575911`), `test.2` (`422215832`), `test.3` (`422273696`) supprimées avec leurs tags ; **seule `v1.2.2-test.4-preview` (`422316210`, commit `719f9ec`) est conservée** — vérifiée comme version de test la plus récente validée par ancestralité `test.1 < test.2 < test.3 < test.4`.
+- **Contrat CI (`tests/preview_workflow.test.js`)** : nouveau test « Ordinary pushes never publish a tag or a release » (double verrou `workflow_dispatch` + `publish_release == true`, défaut `false`, artefacts présents, tags retirés listés) et ancienne ancre « baseline test.1 » remplacée par la règle générique de non-écrasement.
+- **Docs** : `AGENTS.md` (politique publication manuelle + releases conservées/retirées), `docs/preview-apk.md` (release actuelle = test.4, plus de test.1–3), `docs/AGENT-BRIEF.md` (plus de « pré-release automatique »).
+- **Limite** : non vérifié avec un vrai compte Spotify (`accounts.spotify.com`) — l'APK CI est fourni pour ce test sur téléphone physique.
+
+
 ### Correction : playlists invisibles (états terminaux perdus + échecs en playlist vide), isolation stricte des onglets et cartes UI (2026-10-24)
 - **Cause exacte des playlists « qui ne s'affichent pas » (parcours réel reconstitué)** :
   - L'onglet Bibliothèque ne recevait **jamais** ses états terminaux : les réponses vides et les erreurs de `fetchAllLibrary` étaient routées uniquement sur le canal `'home'` (bloqué hors Accueil) et `fetchMediaItems('playlists')` envoyait `[]` même sur erreur (`mediaLib[catégorie]` initial à `[]`, truthy JS) — l'écran restait donc figé sur « Chargement des playlists… » ou affichait un vide mensonger.
