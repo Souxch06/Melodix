@@ -7500,6 +7500,9 @@
 
 .method public final applyNativeUiData(Ljava/lang/String;Ljava/lang/String;)V
     .locals 10
+    # Any web update for a non-search surface closes the keyboard.
+    invoke-virtual {p0, p2, p1}, Lcom/melodix/music/MainActivity;->maybeDismissImeFor(Ljava/lang/String;Ljava/lang/String;)V
+
 
     if-eqz p1, :apply_done
     if-eqz p2, :apply_done
@@ -8004,28 +8007,60 @@
     return-object v0
 .end method
 
-.method public final renderNativeRows(Ljava/lang/String;Ljava/lang/String;)V
-    .locals 10
+.method public final maybeDismissImeFor(Ljava/lang/String;Ljava/lang/String;)V
+    .locals 4
 
-    # The keyboard never belongs above another screen: whenever rows for a
-    # non-search destination are painted (nav tap, web route sync, back), the
-    # IME is closed and any late re-show is closed again.
+    const/4 v0, 0x0
+    const/4 v1, 0x0
+    const/4 v2, 0x0
+    const/4 v3, 0x0
+
+    # Search channels always keep the keyboard (typing must keep the IME).
+    const-string v0, "search"
+    invoke-virtual {v0, p2}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    move-result v0
+    if-nez v0, :ime_for_keep
+    const-string v0, "search-results"
+    invoke-virtual {v0, p2}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    move-result v0
+    if-nez v0, :ime_for_keep
+    const-string v0, "initial-search"
+    invoke-virtual {v0, p2}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    move-result v0
+    if-nez v0, :ime_for_keep
+
+    # Title-driven surfaces keep it only for the search screen and its live query.
     const-string v0, "Rechercher"
     invoke-virtual {v0, p1}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
     move-result v0
-    if-nez v0, :rows_ime_keep
+    if-nez v0, :ime_for_keep
     iget-object v0, p0, Lcom/melodix/music/MainActivity;->nativeExpectedSearch:Ljava/lang/String;
-    if-eqz v0, :rows_ime_dismiss
+    if-eqz v0, :ime_for_dismiss
     invoke-virtual {v0, p1}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
     move-result v0
-    if-nez v0, :rows_ime_keep
-    :rows_ime_dismiss
+    if-nez v0, :ime_for_keep
+
+    :ime_for_dismiss
+    const-string v0, "MDXTRACE"
+    const-string v1, "ime-close-paint"
+    invoke-static {v0, v1}, Landroid/util/Log;->i(Ljava/lang/String;Ljava/lang/String;)I
     invoke-static {p0}, Lcom/melodix/music/NativeSearchWatcher;->dismissKeyboard(Lcom/melodix/music/MainActivity;)Z
     const-wide/16 v0, 0x12c
     invoke-static {p0, v0, v1}, Lcom/melodix/music/NativeSearchWatcher;->postDismiss(Lcom/melodix/music/MainActivity;J)V
     const-wide/16 v0, 0x384
     invoke-static {p0, v0, v1}, Lcom/melodix/music/NativeSearchWatcher;->postDismiss(Lcom/melodix/music/MainActivity;J)V
-    :rows_ime_keep
+
+    :ime_for_keep
+    return-void
+.end method
+
+.method public final renderNativeRows(Ljava/lang/String;Ljava/lang/String;)V
+    .locals 10
+
+    # The keyboard never belongs above another screen: painting rows for a
+    # non-search destination closes it (nav tap, web route sync, back).
+    const-string v0, "render"
+    invoke-virtual {p0, p1, v0}, Lcom/melodix/music/MainActivity;->maybeDismissImeFor(Ljava/lang/String;Ljava/lang/String;)V
 
     # Rendering rows always means the list is the visible content, so leave the
     # browse grid and restore the scrolling list.
