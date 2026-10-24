@@ -400,6 +400,15 @@ test('a failing card build never loses the row: createTile falls back to the fla
     assert.match(create, /Landroid\/util\/Log;->e/);
 });
 
+test('the E2E isolation scenario restores the canonical home feed afterwards', () => {
+    const wf = read('.github/workflows/test-preview-emulator.yml');
+    const block = wf.slice(wf.indexOf('# 3b. Tab isolation'), wf.indexOf('title=E2E Tab isolation'));
+    assert.ok(block.includes('# 3b. Tab isolation'), 'the isolation scenario exists');
+    // The late same-screen injections replace the home cache by design: the
+    // scenario re-injects the canonical feed before later steps assert it.
+    assert.match(block, /send_ui "home" '\[\{"title":"Mix Decouverte"/);
+});
+
 test('the emulator E2E injection invalidates in-flight JS replies', () => {
     const wf = read('.github/workflows/test-preview-emulator.yml');
     const hookAt = wf.indexOf('e2e_hook =');

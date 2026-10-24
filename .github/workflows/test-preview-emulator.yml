@@ -520,6 +520,11 @@ jobs:
           assert_ui_lacks "$state/08c_settings_after_late.xml" "Ma Playlist Tardive"
           assert_ui_lacks "$state/08c_settings_after_late.xml" "Impossible de charger les playlists"
           adb shell input keyevent 4
+          # The late injections above are legitimate same-screen home updates and
+          # now own the home cache: restore the canonical feed so the search
+          # step's Back-to-Home assertions see the expected cards again.
+          send_ui "home" '[{"title":"Mix Decouverte","subtitle":"Spotify","uri":"spotify:playlist:37i9dQZF1DXcBWIGoYBM5M","section":"Pour vous"},{"title":"Morceau Test","subtitle":"Artiste","uri":"spotify:track:4cOdK2wGLETKBW3PvgPWqT","section":"Recents"}]'
+          sleep 1
           echo "::notice title=E2E Tab isolation::PASS (playlist loading + late success/empty/error never leaked onto Paramètres)"
 
           # 4. Search screen + NativeSearchFocusRunnable + text entry + IME Submit + Android Back
