@@ -125,6 +125,11 @@ test('6. le runnable de focus est gardé: pas d\'ouverture parasite du clavier',
     // leaving a screen arms delayed second hides so nothing re-opens the IME
     assert.match(watcher, /\.method public static postDismiss\(Lcom\/melodix\/music\/MainActivity;J\)V/);
     assert.match(main, /NativeSearchWatcher;->postDismiss/);
+    // every non-search screen paint closes the keyboard, whatever the entry point
+    const rowsAt = main.indexOf('.method public final renderNativeRows');
+    const rowsBody = main.slice(rowsAt, main.indexOf('.end method', rowsAt));
+    assert.match(rowsBody, /rows_ime_dismiss/,
+        'peindre un autre écran ferme le clavier (nav tap, sync web, retour)');
     // and MainActivity hands it exactly the nativeSearchInput field (0x7f090233)
     const clickIndex = main.indexOf('.method public final onNativeSearchClick');
     assert.ok(clickIndex > -1);

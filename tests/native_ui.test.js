@@ -1374,7 +1374,7 @@ test('browse tiles drive the live search and the grid yields to real results', (
     const handlerAt = activity.indexOf('.method public final onNativeGenreClick(Landroid/view/View;)V');
     const handler = activity.slice(handlerAt, handlerAt + 1400);
     const rowsAt = activity.indexOf('.method public final renderNativeRows(Ljava/lang/String;Ljava/lang/String;)V');
-    const rows = activity.slice(rowsAt, rowsAt + 1600);
+    const rows = activity.slice(rowsAt, rowsAt + 2600);
     const searchAt = activity.indexOf('.method public final onNativeSearchClick(Landroid/view/View;)V');
     const search = activity.slice(searchAt, searchAt + 2200);
     const screenAt = activity.indexOf('.method public final setNativeScreen(Ljava/lang/String;)V');
