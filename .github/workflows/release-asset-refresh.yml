@@ -1,0 +1,302 @@
+name: Refresh existing release assets from a verified CI build
+
+run-name: Refresh ${{ inputs.release_tag }} assets from verified run ${{ inputs.run_id }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: "Run id of 'Build Melodix Preview APK' that verified and built the APK"
+        required: true
+        type: string
+      expected_commit:
+        description: "Exact 40-character commit SHA the APK must come from"
+        required: true
+        type: string
+      release_tag:
+        description: "EXISTING release tag whose assets are replaced (nothing is ever created)"
+        required: true
+        default: "v1.2.2-test.4-preview"
+        type: string
+
+# This workflow can NEVER create a tag or a release: it only replaces the
+# assets of a release that already exists (gh release upload --clobber) after
+# machine-checking that the bytes come from a fully verified pipeline run of
+# the exact requested commit. Ordinary pushes and PRs do not run it.
+permissions: {}
+
+jobs:
+  refresh-assets:
+    name: Replace APK assets of an existing release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      actions: read
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7.0.1
+        with:
+          fetch-depth: 8
+
+      - name: Guard — only the exact commit of a verified Build Melodix Preview APK run may be published
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_ID: ${{ inputs.run_id }}
+          EXPECTED_COMMIT: ${{ inputs.expected_commit }}
+          RELEASE_TAG: ${{ inputs.release_tag }}
+        run: |
+          set -euo pipefail
+          if [[ ! "$EXPECTED_COMMIT" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "::error::expected_commit must be a full 40-character lowercase commit SHA."
+            exit 1
+          fi
+          if [[ ! "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+-test\.[0-9]+-preview$ ]]; then
+            echo "::error::release_tag must look like v1.2.2-test.4-preview."
+            exit 1
+          fi
+          case "$RELEASE_TAG" in
+            v1.2.2-test.1-preview|v1.2.2-test.2-preview|v1.2.2-test.3-preview)
+              echo "::error::Tag '$RELEASE_TAG' is retired and must never be recreated or overwritten."
+              exit 1
+              ;;
+          esac
+
+          gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${RUN_ID}" > "$RUNNER_TEMP/run.json"
+          gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${RUN_ID}/jobs?per_page=100" > "$RUNNER_TEMP/jobs.json"
+          gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${RUN_ID}/artifacts" > "$RUNNER_TEMP/artifacts.json"
+          python3 - "$RUNNER_TEMP/run.json" "$RUNNER_TEMP/jobs.json" "$RUNNER_TEMP/artifacts.json" "$EXPECTED_COMMIT" <<'PY'
+          import json, sys
+
+          run = json.load(open(sys.argv[1], encoding="utf-8"))
+          jobs = json.load(open(sys.argv[2], encoding="utf-8"))["jobs"]
+          artifacts = json.load(open(sys.argv[3], encoding="utf-8"))["artifacts"]
+          expected = sys.argv[4]
+
+          problems = []
+          if run.get("head_sha") != expected:
+              problems.append(f"head_sha is {run.get('head_sha')}, not {expected}")
+          if run.get("conclusion") != "success":
+              problems.append(f"run conclusion is {run.get('conclusion')!r}, not 'success'")
+          if run.get("name") != "Build Melodix Preview APK":
+              problems.append(f"workflow is {run.get('name')!r}; only the verification pipeline may be published")
+
+          by_name = {j.get("name"): j for j in jobs}
+          verify = by_name.get("Verify tests, build integrity, and Android 15 E2E before release")
+          build = by_name.get("Build and sign verified preview package")
+          if not verify or verify.get("conclusion") != "success":
+              problems.append("the verify job (tests + Android 15 E2E) is missing or not successful")
+          if not build or build.get("conclusion") != "success":
+              problems.append("the build/sign job is missing or not successful")
+
+          bundle_name = f"Melodix-Preview-{expected}"
+          bundle = [a for a in artifacts if a.get("name") == bundle_name and not a.get("expired")]
+          if len(bundle) != 1:
+              problems.append(f"artifact {bundle_name!r} missing or expired on this run")
+
+          if problems:
+              print("::error::Refusing to publish: " + "; ".join(problems))
+              raise SystemExit(1)
+          print(f"Verified run {run['id']}: workflow OK, verify+build successful, artifact {bundle_name} available.")
+          PY
+
+          gh api "repos/${GITHUB_REPOSITORY}/releases/tags/${RELEASE_TAG}" > "$RUNNER_TEMP/release.json"
+          python3 - "$RUNNER_TEMP/release.json" "$RELEASE_TAG" <<'PY'
+          import json, re, sys
+
+          rel = json.load(open(sys.argv[1], encoding="utf-8"))
+          tag = sys.argv[2]
+          if rel.get("tag_name") != tag or rel.get("draft"):
+              print(f"::error::Release {tag} is missing or draft; this tool only updates existing releases.")
+              raise SystemExit(1)
+          names = [a["name"] for a in rel.get("assets", [])]
+          apks = [n for n in names if n.endswith(".apk")]
+          manifests = [n for n in names if re.fullmatch(r"build-manifest-.*\.json", n)]
+          if len(apks) != 1 or (apks[0] + ".sha256") not in names:
+              print(f"::error::Release {tag} does not carry exactly one APK asset with its .sha256 (found {names}).")
+              raise SystemExit(1)
+          if len(manifests) != 1:
+              print(f"::error::Release {tag} does not carry exactly one build-manifest asset (found {names}).")
+              raise SystemExit(1)
+          print(f"Existing release {tag}: assets {names} keep their names.")
+          PY
+
+      - name: Download verified bundle, check integrity, and replace the release assets
+        id: refresh
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_ID: ${{ inputs.run_id }}
+          EXPECTED_COMMIT: ${{ inputs.expected_commit }}
+          RELEASE_TAG: ${{ inputs.release_tag }}
+        run: |
+          set -euo pipefail
+          rm -rf bundle release-assets
+          mkdir -p release-assets
+          gh run download "$RUN_ID" -n "Melodix-Preview-${EXPECTED_COMMIT}" -D bundle
+
+          mapfile -t apks < <(find bundle -type f -name '*.apk')
+          if [[ "${#apks[@]}" -ne 1 ]]; then
+            echo "::error::Expected exactly one APK in the verified bundle, found ${#apks[@]}"
+            exit 1
+          fi
+          apk="${apks[0]}"
+          unzip -t "$apk" >/dev/null
+          for asset in spotify_bridge.js native_ui_shell.js runtime_diagnostic.js css_hacks.css; do
+            size="$(unzip -p "$apk" "assets/$asset" 2>/dev/null | wc -c | tr -d ' ')"
+            if [[ "${size:-0}" -lt 1000 ]]; then
+              echo "::error::assets/$asset is missing or truncated (${size:-0} bytes) in the bundle APK."
+              exit 1
+            fi
+          done
+
+          calc_sha="$(sha256sum "$apk" | awk '{print $1}')"
+          mapfile -t sha_files < <(find bundle -type f -name '*.sha256')
+          if [[ "${#sha_files[@]}" -ne 1 ]]; then
+            echo "::error::Verified bundle must carry exactly one .sha256 checksum file."
+            exit 1
+          fi
+          bundled_sha="$(awk '{print $1}' "${sha_files[0]}")"
+          mapfile -t manifest_files < <(find bundle -type f -name 'build-manifest-*.json')
+          if [[ "${#manifest_files[@]}" -ne 1 ]]; then
+            echo "::error::Verified bundle must carry exactly one build-manifest json."
+            exit 1
+          fi
+          manifest_file="${manifest_files[0]}"
+
+          python3 - "$manifest_file" "$calc_sha" "$bundled_sha" "$EXPECTED_COMMIT" <<'PY'
+          import json, sys
+
+          manifest = json.load(open(sys.argv[1], encoding="utf-8"))
+          calc, bundled, expected = sys.argv[2], sys.argv[3], sys.argv[4]
+          problems = []
+          if calc != bundled:
+              problems.append(f"independent sha256 {calc} != bundled .sha256 {bundled}")
+          if manifest.get("apk_sha256") != calc:
+              problems.append(f"manifest apk_sha256 {manifest.get('apk_sha256')} != computed {calc}")
+          if manifest.get("commit_sha") != expected:
+              problems.append(f"manifest commit_sha {manifest.get('commit_sha')} != expected {expected}")
+          if manifest.get("version_name") != f"1.2.2-{expected[:7]}":
+              problems.append(f"manifest version_name {manifest.get('version_name')} is inconsistent with {expected[:7]}")
+          if manifest.get("package_id") != "com.melodix.music.preview":
+              problems.append(f"unexpected package_id {manifest.get('package_id')!r}")
+          if problems:
+              print("::error::Bundle failed verification: " + "; ".join(problems))
+              raise SystemExit(1)
+          print(f"Bundle verified: sha256={calc} commit={expected} version={manifest.get('version_name')}")
+          PY
+
+          # Keep the release's existing asset names: the verified bytes are
+          # copied under the current APK name; .sha256 and build-manifest are
+          # regenerated for those names.
+          apk_asset="$(python3 -c 'import json,sys; rel=json.load(open(sys.argv[1],encoding="utf-8")); print([a["name"] for a in rel["assets"] if a["name"].endswith(".apk")][0])' "$RUNNER_TEMP/release.json")"
+          manifest_asset="$(python3 -c 'import json,re,sys; rel=json.load(open(sys.argv[1],encoding="utf-8")); print([a["name"] for a in rel["assets"] if re.fullmatch(r"build-manifest-.*\.json", a["name"])][0])' "$RUNNER_TEMP/release.json")"
+
+          cp "$apk" "release-assets/$apk_asset"
+          (cd release-assets && sha256sum "$apk_asset" > "$apk_asset.sha256")
+
+          python3 - "$manifest_file" "release-assets/$manifest_asset" "$RUNNER_TEMP/release.json" "$apk_asset" "$calc_sha" "$EXPECTED_COMMIT" "$RELEASE_TAG" <<'PY'
+          import json, re, sys
+
+          src, out, rel_path, apk_name, calc, expected, tag = sys.argv[1:8]
+          manifest = json.load(open(src, encoding="utf-8"))
+          rel = json.load(open(rel_path, encoding="utf-8"))
+          m = re.fullmatch(r"v(\d+)\.(\d+)\.(\d+)-test\.(\d+)-preview", tag)
+          major, minor, patch, test_num = (int(x) for x in m.groups())
+          manifest["release_tag"] = tag
+          manifest["release_name"] = f"Melodix Preview v{major}.{minor}.{patch} test.{test_num} ({expected[:7]})"
+          manifest["apk_name"] = apk_name
+          manifest["apk_sha256"] = calc
+          with open(out, "w", encoding="utf-8") as fh:
+              json.dump(manifest, fh, indent=2)
+          print(f"Manifest written to {out} for {tag} / {apk_name}")
+          PY
+
+          python3 - "$RUNNER_TEMP/release.json" "$RUNNER_TEMP/body.md" "release-assets/$manifest_asset" "$EXPECTED_COMMIT" "$RUN_ID" "$apk_asset" <<'PY'
+          import datetime, json, re, sys
+
+          rel_path, out, manifest_path, expected, run_id, apk_name = sys.argv[1:7]
+          rel = json.load(open(rel_path, encoding="utf-8"))
+          manifest = json.load(open(manifest_path, encoding="utf-8"))
+          now = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%d")
+          sha7 = expected[:7]
+          repo_url = rel["html_url"].split("/releases/")[0]
+          run_url = f"{repo_url}/actions/runs/{run_id}"
+          m = re.fullmatch(r"v(\d+\.\d+\.\d+)-test\.(\d+)-preview", manifest["release_tag"])
+          title = f"Melodix Preview v{m.group(1)} test.{m.group(2)} ({sha7})"
+          tests = f"{manifest['node_tests_passed']} / {manifest['node_tests_total']}"
+          body = f"""## {title} — Pré-version de test (`prerelease`)
+
+          > **APK mis à jour le {now}** : les fichiers de cette release proviennent désormais du commit validé [`{expected}`]({repo_url}/commit/{expected}), produit et vérifié par le [run `{run_id}`]({run_url}) (suite complète + émulateur Android 15). Le tag `{manifest['release_tag']}` et son historique sont inchangés.
+
+          Application d'essai séparée **`com.melodix.music.preview`** (**Melodix Preview `{sha7}`**), s'installant en parallèle de `com.melodix.music` sans l'écraser.
+
+          ### Informations de build et d'intégrité
+          | Champ | Valeur vérifiée |
+          | :--- | :--- |
+          | **Tag de pré-version** | `{manifest['release_tag']}` (`prerelease = true`) |
+          | **Commit source exact** | [`{expected}`]({repo_url}/commit/{expected}) |
+          | **Identifiant package Android** | `com.melodix.music.preview` |
+          | **Version Android** | `versionName = {manifest['version_name']}` · `versionCode = {manifest['version_code']}` |
+          | **Fichier APK signé** | `{apk_name}` |
+          | **SHA-256 vérifié** | `{manifest['apk_sha256']}` |
+          | **Workflow de vérification & build** | [Run `{run_id}`]({run_url}) |
+
+          ### Contrôles réellement exécutés et réussis avant cette mise à jour
+          - **Suite Node + vérificateur CFG Dalvik** : **{tests} réussis (`0` échec)**.
+          - **E2E Émulateur Android 15 (`API 35`)** : **{manifest['android_emulator_api35_e2e']}** — démarrages à froid, Accueil, Détail, Lecteur, Bibliothèque, Recherche, Retour, isolation des onglets (réponses tardives), Logout / re-login.
+          - **Contrôles binaires APK** : `zipalign`, signature `apksigner` SHA-256, concordance du certificat dans `resources.arsc`, intégrité des assets JS/CSS.
+          - *Note* : l'authentification sur un vrai compte `accounts.spotify.com` et la lecture Widevine DRM restent à valider sur téléphone Android physique.
+          """
+          open(out, "w", encoding="utf-8").write(body)
+          print("Release body written.")
+          PY
+
+          gh release upload "$RELEASE_TAG" \
+            "release-assets/$apk_asset" \
+            "release-assets/$apk_asset.sha256" \
+            "release-assets/$manifest_asset" \
+            --clobber
+
+          new_name="$(python3 -c 'import json,re,sys; rel=json.load(open(sys.argv[1],encoding="utf-8")); m=re.fullmatch(r"v(\d+\.\d+\.\d+)-test\.(\d+)-preview", rel["tag_name"]); print(f"Melodix Preview v{m.group(1)} test.{m.group(2)} ({sys.argv[2][:7]})")' "$RUNNER_TEMP/release.json" "$EXPECTED_COMMIT")"
+          gh api -X PATCH "repos/${GITHUB_REPOSITORY}/releases/$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1],encoding="utf-8"))["id"])' "$RUNNER_TEMP/release.json")" \
+            -f name="$new_name" -F body=@"$RUNNER_TEMP/body.md" > /dev/null
+
+          echo "calc_sha=$calc_sha" >> "$GITHUB_OUTPUT"
+          echo "apk_asset=$apk_asset" >> "$GITHUB_OUTPUT"
+          echo "manifest_asset=$manifest_asset" >> "$GITHUB_OUTPUT"
+
+      - name: Verify the published release assets end-to-end
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.release_tag }}
+          EXPECTED_COMMIT: ${{ inputs.expected_commit }}
+          CALC_SHA: ${{ steps.refresh.outputs.calc_sha }}
+          APK_ASSET: ${{ steps.refresh.outputs.apk_asset }}
+          MANIFEST_ASSET: ${{ steps.refresh.outputs.manifest_asset }}
+        run: |
+          set -euo pipefail
+          gh api "repos/${GITHUB_REPOSITORY}/releases/tags/${RELEASE_TAG}" > "$RUNNER_TEMP/published.json"
+          python3 - "$RUNNER_TEMP/published.json" "$CALC_SHA" "$APK_ASSET" "$MANIFEST_ASSET" "$EXPECTED_COMMIT" <<'PY'
+          import json, sys
+
+          rel = json.load(open(sys.argv[1], encoding="utf-8"))
+          calc, apk_name, manifest_name, expected = sys.argv[2:6]
+          names = sorted(a["name"] for a in rel["assets"])
+          want = sorted([apk_name, apk_name + ".sha256", manifest_name])
+          assert names == want, f"asset list mismatch: {names} != {want}"
+          for a in rel["assets"]:
+              if a["name"] == apk_name:
+                  assert a["digest"] == f"sha256:{calc}", f"asset digest {a['digest']} != sha256:{calc}"
+                  assert a["size"] > 1_000_000, f"APK asset suspiciously small ({a['size']})"
+              else:
+                  assert a["digest"].startswith("sha256:"), a["digest"]
+          assert expected in (rel.get("body") or ""), "release body does not mention the published commit"
+          assert calc in (rel.get("body") or ""), "release body does not mention the published sha256"
+          print(f"OK — release {rel['tag_name']} now serves {apk_name} with sha256={calc} (from {expected}).")
+          for a in rel["assets"]:
+              print(f"asset: {a['name']} size={a['size']} digest={a['digest']}")
+          print("Download URL:", next(a["browser_download_url"] for a in rel["assets"] if a["name"] == apk_name))
+          print("Release URL:", rel["html_url"])
+          PY

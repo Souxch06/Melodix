@@ -64,3 +64,7 @@ Pour une version suivante, choisis un nouveau tag test et le commit source voulu
 - Si `keytool` est introuvable, installe un JDK 17 et relance PowerShell.
 
 Conserve le keystore Preview et son mot de passe : les versions Preview suivantes devront être signées avec cette même clé pour pouvoir mettre à jour l'application Preview déjà installée.
+
+## Remplacer les assets d'une release existante (outil manuel)
+
+Le workflow `.github/workflows/release-asset-refresh.yml` (`workflow_dispatch` uniquement) remplace l'APK, le `.sha256` et le `build-manifest` **d'une release déjà existante** à partir du bundle d'un run `Build Melodix Preview APK` vérifié (id de run + commit exact en entrée). Il ne crée jamais de tag ni de release : les noms d'assets sont conservés, les tags retirés `test.1/2/3` sont refusés, et le contrôle final relit les `digest` GitHub pour les comparer au SHA-256 calculé. À n'utiliser que pour servir dans une release le binaire d'un build déjà validé par la suite complète.
