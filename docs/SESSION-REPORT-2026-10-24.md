@@ -102,3 +102,45 @@ Run **`40114052235`** sur **`bdec23f0e058a350d556a4556d58317f26506e0d`** — **S
 - **Aucune PR fusionnée ni fermée** : PR #7 et PR #6 restent ouvertes.
 - **Une seule release/tag créés**, sous autorisation explicite du mandat permanent : `v1.2.2-test.5-preview` (prerelease, APK signé présenté comme pré-version de test, jamais comme production). Aucune release existante écrasée, aucun tag réutilisé.
 - Aucun secret/jeton/cookie dans les journaux ; aucune fonctionnalité réelle remplacée par une simulation.
+
+---
+
+# Mission P0 (2026-10-24, session 2) — 3 régressions : causes racines réelles
+
+Contexte : malgré `v1.2.2-test.5-preview`, l'application compilée présentait (1) des playlists jamais affichées, (2) des sections bloquées en chargement lié aux playlists, (3) le clavier Android qui s'ouvrait à l'entrée dans « Rechercher ». Consigne : reproduire, établir les causes racines sur les chemins réellement exécutés, corriger l'état réel, prouver sur l'application compilée.
+
+## 15. Traçage des chemins réellement exécutés (avant tout correctif)
+
+Chemin bibliothèque réel (pont présent) : onglet `onNativeLibraryClick` → peint « Chargement des playlists… » → `window.__sfOpenLibrary()` → `window.fetchMediaItems('playlists')` → `checkMediaLib`/`fetchAllLibrary`/`parseLibrary` → `AndBridge.onMediaItemsLoaded('playlists', json)` → `dispatchNativeUi('media:playlists', json)` → `applyNativeUiData` (gate `nativeExpectedId`/`nativeCurrentScreen`) → `renderNativeRows` → `NativeHomeFeed.paint` (admission) → `NativeUiRowFactory.create` (cartes).
+
+Composants morts identifiés (ne pas y fixer) : `__sfMergeLibraryIntoHomeRows`/`__sfHomeRowsWithState` (jamais appelés), `assets/native_home_scrape.js` (jamais injecté), `nativeLibraryJson` (jamais écrit, seulement effacé au logout). Le chemin Accueil vivant est `updateHomeRows` → `supplementHomeRowsWithLibrary` (tolérant aux formes) ; le hook de repeint médiaLib existant est `__sfNotifyMediaLibReady`.
+
+## 16. Causes racines démontrées
+
+**BUG 1 — playlists jamais affichées (détails + bibliothèque).** Le pont livre `{id,name,image}` (sortie de `parseLibrary`/`toIdNameImage`, exigée par le constructeur MediaItem de `AndBridge.onMediaItemsLoaded` qui lit `name/id/image/artists`). Or l'admission de `NativeHomeFeed.paint` ne lisait que `title`/`uri` : chaque ligne du pont était **jetée** avant la fabrique, `:commit` tombait dans `:clear_stale`, et l'écran affichait « Rien à afficher pour le moment ». L'écran Accueil, lui, fonctionnait (`supplementHomeRowsWithLibrary` normalise en `{title,uri,…}`) — ce qui expliquait l'asymétrie des symptômes.
+
+**BUG 2 — chargements éternels.** Trois mécanismes réels :
+- (a) `applyNativeUiData :check_media` **jetait silencieusement** toute charge utile `media:<id>` arrivée hors écran ou avec un `nativeExpectedId` différent, et le cache `nativeLibraryJson` n'était **jamais écrit** → chaque ré-entrée affichait « Chargement… » et repartait dans un aller-retour async ; une réponse en retard était perdue ;
+- (b) `updateHomeRows` : une fois le budget borné `MAX_HOME_RETRIES` (40) consommé, la ligne « Chargement des playlists… » **gelait pour toujours** (plus aucun retry, aucun état terminal) ;
+- (c) `updateLibraryRows` : `if (rows.length > 0)` — zéro ligne sur une collection chargée = **silence** (ni vide ni erreur jamais émis).
+- (d) sous-découverte contractuelle : `actionUri` (cible de réessai `spotify:retry:media:<id>`, déjà gérée par `openNativeRow`) n'était **lu nulle part** côté rendu, et `sendNativeUiData` le stripait → l'« action de réessai » ne pouvait pas fonctionner.
+
+**BUG 3 — clavier auto-ouvert.** `onNativeSearchClick` faisait `requestFocus()` + `postDelayed(NativeSearchFocusRunnable, 250 ms)` → `showSoftInput` : entrer dans « Rechercher » levait systématiquement l'IME (au-delà de `windowSoftInputMode=adjustResize`, qui est correct).
+
+## 17. Correctifs (commit `dee091b`)
+
+| Fichier | Correction |
+|---|---|
+| `smali/…/NativeHomeFeed.smali` | Admission : fallbacks `title←name←label` et `uri←id←href` AVANT le test de vide (même contrat que `NativeUiRowFactory`) — playlists et titres du pont rendus. |
+| `smali/…/MainActivity.smali` | `:check_media` : cache systématique des charges utiles catégorie (`nativeLibraryJson` + nouveau champ `nativeLibraryJsonId`) même hors écran ; onglet/chips ne peignent le cache que si l'identifiant correspond ; logout efface les deux. `onNativeSearchClick` : plus de `requestFocus`/runnable ; fermeture IME à l'entrée (garde « déjà sur recherche » pour ne pas casser la saisie). |
+| `smali/…/NativeUiRowFactory.smali` | `actionUri` ajouté en dernier recours de la chaîne d'URI (create + createTile) → lignes de statut cliquables, réessai réel. |
+| `assets/native_ui_shell.js` | Budget Accueil épuisé → ligne d'erreur terminale (jamais de chargement figé) ; `updateLibraryRows` : après 3 scrapes vides sur collection chargée, état vide terminal avec `actionUri` de réessai ; `sendNativeUiData` conserve `actionUri`/`kind`. |
+| `tests/p0_root_causes.test.js` | 11 tests échec-d'abord (rouges sur le code d'origine, verts après) + non-régressions. |
+| `tests/native_ui.test.js` | Contrat onglet recherche adapté (l'entrée ne lève plus le clavier). |
+| `.github/workflows/test-preview-emulator.yml` | Sous-tests 4/4b : assertion **entrée = IME fermé**, tap explicite sur le champ avant saisie, notice à jour. |
+
+## 18. Tests et vérifications (à ce stade)
+
+- Suite complète : **307/307** (296 non-régression + 11 P0) ; `./scripts/verify-and-sync.sh` **EXIT=0** (tests + vérificateur CFG Dalvik).
+- Contrats préservés (jamais supprimés) : `keyboard_input.test.js` (Back IME-first, leave-close, debounce, submit), `NativeSearchFocusRunnable.smali` conservé pour demandes de focus explicites.
+- **Reste à produire** : validation E2E sur APK compilé (émulateur API 35) et release unique `v1.2.2-test.6-preview` — cf. sections suivantes (à venir).
