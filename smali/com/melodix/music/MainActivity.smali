@@ -8044,7 +8044,20 @@
     const-string v0, "MDXTRACE"
     const-string v1, "ime-close-paint"
     invoke-static {v0, v1}, Landroid/util/Log;->i(Ljava/lang/String;Ljava/lang/String;)I
+
+    :try_start_hide
     invoke-static {p0}, Lcom/melodix/music/NativeSearchWatcher;->dismissKeyboard(Lcom/melodix/music/MainActivity;)Z
+    :try_end_hide
+    goto :ime_for_post
+
+    :catch_hide
+    move-exception v0
+    const-string v1, "MDXTRACE"
+    invoke-virtual {v0}, Ljava/lang/Throwable;->toString()Ljava/lang/String;
+    move-result-object v2
+    invoke-static {v1, v2}, Landroid/util/Log;->i(Ljava/lang/String;Ljava/lang/String;)I
+
+    :ime_for_post
     const-wide/16 v0, 0x12c
     invoke-static {p0, v0, v1}, Lcom/melodix/music/NativeSearchWatcher;->postDismiss(Lcom/melodix/music/MainActivity;J)V
     const-wide/16 v0, 0x384
@@ -8052,6 +8065,8 @@
 
     :ime_for_keep
     return-void
+
+    .catchall {:try_start_hide .. :try_end_hide} :catch_hide
 .end method
 
 .method public final renderNativeRows(Ljava/lang/String;Ljava/lang/String;)V

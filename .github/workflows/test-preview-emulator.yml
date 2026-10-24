@@ -616,7 +616,7 @@ jobs:
             )"
             ime_state="$(adb shell dumpsys input_method 2>/dev/null | grep -oE 'mInputShown=[a-z]*|mImeWindowVis=[0-9]+' | head -n 4 | tr '\n\r' ' ' || true)"
             win_focus="$(adb shell dumpsys window 2>/dev/null | grep -E 'mCurrentFocus' | head -n 2 | tr '\n\r' ' ' || true)"
-            stages="$(adb logcat -d -s MDXTRACE:I 2>/dev/null | tail -n 12 | tr '\n\r' ' | ' || true)"
+            stages="$(adb logcat -d -s MDXTRACE:I 2>/dev/null | tail -n 30 | tr '\n\r' ' | ' || true)"
             echo "::error title=Keyboard linger::IME still open after leaving search ($im_open2 -> $im_over); screen after tap: $screen_hint ; ime=$ime_state win=$win_focus stages=$stages"
             exit 1
           fi
