@@ -986,3 +986,81 @@ test('the token is also captured from XMLHttpRequest calls (fetch-only hook was 
 });
 
 
+// ---------------------------------------------------------------------------
+// 6. Response-shape tolerance: the undocumented libraryV3 payload has moved
+//    between "items" and "edges[].node" and between wrapper depths. A real
+//    library must still be read; a response with rows but no recognizable
+//    media is a retryable parse-gap error, NEVER "Aucune playlist".
+// ---------------------------------------------------------------------------
+
+test('a library payload using edges[].node is read like items[]', async () => {
+    const edgePage = {
+        status: 200,
+        body: {
+            data: {
+                me: {
+                    libraryV3: {
+                        edges: [
+                            { node: playlistItem('Électro été', 'spotify:playlist:edge1').item },
+                            { node: playlistItem('Rock classique', 'spotify:playlist:edge2').item }
+                        ]
+                    }
+                }
+            }
+        }
+    };
+    const { sandbox } = createBridgeVm([edgePage]);
+    sandbox.spotAuthToken = 'Bearer secret.value.here';
+
+    await sandbox.checkMediaLib();
+    assert.equal(sandbox.__sfMediaLibState, 'ready');
+    assert.equal(sandbox.mediaLib.playlists.length, 2);
+    assert.equal(sandbox.mediaLib.playlists[0].name, 'Électro été');
+});
+
+test('items wrapped at the itemV2 depth are unwrapped and counted', async () => {
+    const { sandbox } = createBridgeVm([libraryPage([
+        {
+            itemV2: {
+                data: {
+                    __typename: 'Playlist',
+                    uri: 'spotify:playlist:v2wrap',
+                    name: 'Playlist profonde',
+                    images: { items: [{ sources: [{ url: 'https://i.scdn.co/image/v2w' }] }] }
+                }
+            }
+        }
+    ])]);
+    sandbox.spotAuthToken = 'Bearer secret.value.here';
+
+    await sandbox.checkMediaLib();
+    assert.equal(sandbox.__sfMediaLibState, 'ready');
+    assert.equal(sandbox.mediaLib.playlists.length, 1);
+    assert.equal(sandbox.mediaLib.playlists[0].id, 'spotify:playlist:v2wrap');
+});
+
+test('rows that hold no recognizable media are a parse-gap error, never an empty library', async () => {
+    const { sandbox } = createBridgeVm([libraryPage([
+        { addedAt: '2024-01-01' },
+        { somethingElse: true }
+    ])]);
+    sandbox.spotAuthToken = 'Bearer secret.value.here';
+
+    await sandbox.checkMediaLib();
+    assert.equal(sandbox.__sfMediaLibState, 'error');
+    assert.notEqual(sandbox.__sfMediaLibState, 'empty');
+    assert.equal(sandbox.mediaLib, undefined, 'no fake empty library is published');
+});
+
+test('a truly empty edges list is a confirmed empty account, not an error', async () => {
+    const emptyEdges = {
+        status: 200,
+        body: { data: { me: { libraryV3: { edges: [] } } } }
+    };
+    const { sandbox } = createBridgeVm([emptyEdges]);
+    sandbox.spotAuthToken = 'Bearer secret.value.here';
+
+    await sandbox.checkMediaLib();
+    assert.equal(sandbox.__sfMediaLibState, 'empty');
+    assert.equal(sandbox.mediaLib.playlists.length, 0);
+});

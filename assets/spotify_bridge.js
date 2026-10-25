@@ -4083,7 +4083,20 @@ try {
                 console.warn("[Spotifuck] checkMediaLib: late library response dropped (stale run).");
                 return;
             }
-            window.mediaLib = parseLibrary(allItems);
+            const parsedLib = parseLibrary(allItems);
+            const parsedTotal = (parsedLib.playlists?.length || 0) + (parsedLib.albums?.length || 0)
+                + (parsedLib.artists?.length || 0) + (parsedLib.podcasts?.length || 0);
+            if (allItems.length > 0 && parsedTotal === 0) {
+                // The response held rows but none were recognizable: that is a
+                // parse gap, NOT a confirmed empty account. It must surface as
+                // a retryable error so a real library is never shown as "Aucune
+                // playlist".
+                libDiagRecord('parse', false, 'items=' + allItems.length + ' mais 0 exploitable');
+                const parseError = new Error('libraryV3-parse-gap');
+                parseError.name = 'ParseError';
+                throw parseError;
+            }
+            window.mediaLib = parsedLib;
             mediaLibRetryAttempts = 0;
             pushMediaLibToNative();
             console.log("[Spotifuck] checkMediaLib: Successfully loaded mediaLib! Draining pending requests:", Array.from(window.pendingMediaRequests));
@@ -4361,15 +4374,23 @@ try {
                 throw sessionError;
             }
             const libNode = meNode && meNode.libraryV3;
-            if (!libNode || !Array.isArray(libNode.items)) {
+            // The undocumented payload has moved between "items" and
+            // "edges[].node" over time. Accept both without inventing data:
+            // an unrecognized structure is still a distinct "shape-mismatch"
+            // failure, never a silently empty library.
+            let items = null;
+            if (libNode && Array.isArray(libNode.items)) {
+                items = libNode.items;
+            } else if (libNode && Array.isArray(libNode.edges)) {
+                items = libNode.edges.map((edge) => (edge && edge.node) || null);
+            }
+            if (!items) {
                 libDiagPatchLastAttempt({ shape: 'mismatch' });
                 libDiagRecord('shape', false, 'structure inattendue');
                 const shapeError = new Error('libraryV3-shape-unexpected');
                 shapeError.name = 'ShapeError';
                 throw shapeError;
             }
-
-            const items = libNode.items;
             libDiagPatchLastAttempt({ shape: 'ok', items: items.length });
             libDiagRecord('shape', true, 'items=' + items.length);
             rawItemCount += items.length;
@@ -4398,9 +4419,15 @@ try {
         // really exist are read.
         function unwrapItemData(elem) {
             const chain = [
+                elem?.itemV2?.data?.data,
+                elem?.itemV2?.data,
+                elem?.itemV2,
                 elem?.item?.data?.data,
                 elem?.item?.data,
                 elem?.item,
+                elem?.node?.data?.data,
+                elem?.node?.data,
+                elem?.node,
                 elem?.data?.data,
                 elem?.data,
                 elem
