@@ -315,3 +315,21 @@ deux chemins de lecture tracés (`asset-via-activity`, `asset-via-appctx`).
 Le prochain rapport distinguera : asset illisible (motif), WebView muette
 (`js-probe asked` sans réponse), bridge absent (`started=0 fetch=undefined`),
 ou fetch en échec (`started=1 fetch=function`).
+
+## 26. Rapport n° 4 (test.10) : le canal JS→natif meurt APRÈS le démarrage — correctif test.11 (ré-attachement du pont)
+
+Le rapport n° 4 (test.10) est décisif :
+
+- l'asset `diag_engine.js` se lit maintenant correctement (`asset-via-activity`) et le moteur est injecté ;
+- mais zéro événement moteur n'est jamais remonté, la copie directe ne répond jamais (`js-probe asked` sans `js-probe bridge=…`), et le watchdog conclut « Aucune réponse du moteur de tests après 35 s » ;
+- le journal ne contient QUE les 3 dispatches du démarrage (`transmission: entré=3` identique aux rapports précédents).
+
+**Le canal JS→natif fonctionnait au démarrage puis meurt silencieusement.** Mécanisme identifié dans le code (`c91.onPageStarted`) : à chaque navigation vers une URL qui n'est PAS exactement `https://open.spotify.com` (rafraîchissement de token OAuth vers `accounts.spotify.com`, page d'erreur, URL en http…), le pont `AndBridge` est retiré et **plus rien ne le ré-attachait** → tous les JS suivants (moteur, `media:`, js-probe) ne peuvent plus joindre le natif, exactement comme observé.
+
+**Correctif test.11 (`6b64952`, release `v1.2.2-test.11-preview`, marker `9155576`, APK SHA-256 `c10bd32dc39a2a77ce74a30c19f30555709234176d600bfe438dd27ce3529ef8`)** :
+
+- `onPageFinished` ré-attache le pont de façon idempotente sur `https://open.spotify.com` (`bridge-reattached`) ;
+- traces de navigation sans données sensibles : `page-start <hôte><chemin>` (jamais la requête ni le fragment), `page-done`, `bridge-attached`/`bridge-removed`, `renderer-gone` (onRenderProcessGone existant instrumenté — pas de méthode dupliquée) ;
+- le prochain rapport de diagnostic prouvera le mécanisme (traces `page-start accounts.spotify.com…` + `bridge-removed` sans `bridge-reattached` avant le correctif) et dira si les playlists reviennent avec le pont ré-attaché.
+
+Tests : 33 contrats (dont navigation-trace/bridge-reattach/renderer-gone-event), smali_sanity 13/13, audit_remediation 10/10, suite complète = 0 échec.
