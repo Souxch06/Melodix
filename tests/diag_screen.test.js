@@ -530,8 +530,12 @@ t('callback probe proves evaluateJavascript delivery independent of the bridge',
 
     const cb = read('smali/com/melodix/music/DiagJsProbeCallback.smali');
     assert.ok(cb.includes('Landroid/webkit/ValueCallback;'), 'implements ValueCallback');
+    // The erased interface method is (Ljava/lang/Object;)V — implementing only
+    // the String overload raises AbstractMethodError inside the WebView.
+    assert.ok(cb.includes('onReceiveValue(Ljava/lang/Object;)V'), 'erased ValueCallback signature');
     assert.ok(cb.includes('js-cb '), 'answers journaled');
     assert.ok(cb.includes('DiagCounters;->answerProbe()V'), 'pending flag cleared');
+    assert.ok(cb.includes('Ljava/lang/Throwable;'), 'probe can never crash the app');
 
     const to = read('smali/com/melodix/music/DiagJsProbeTimeout.smali');
     assert.ok(to.includes('js-probe miss cb=absent'), 'timeout journaled');

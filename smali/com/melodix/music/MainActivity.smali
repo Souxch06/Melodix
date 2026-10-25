@@ -343,6 +343,7 @@
     if-eqz v0, :probe_no_wv
 
     :probe_have_wv
+    :try_start_probe
     invoke-static {}, Lcom/melodix/music/DiagCounters;->nextProbeId()I
     move-result v1
 
@@ -362,7 +363,16 @@
 
     const-wide/16 v4, 0x9c4
     invoke-virtual {v3, v2, v4, v5}, Landroid/os/Handler;->postDelayed(Ljava/lang/Runnable;J)Z
+    :try_end_probe
+    .catch Ljava/lang/Throwable; {:try_start_probe .. :try_end_probe} :catch_probe
 
+    return-void
+
+    :catch_probe
+    move-exception v0
+    invoke-static {v0}, Lcom/melodix/music/NativeCrashGuard;->record(Ljava/lang/Throwable;)V
+    const-string v0, "js-probe exception"
+    invoke-static {v0}, Lcom/melodix/music/DiagCounters;->event(Ljava/lang/String;)V
     return-void
 
     :probe_no_wv
