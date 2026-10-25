@@ -64,6 +64,8 @@
     invoke-virtual {v5}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
     move-result-object v6
     invoke-static {v6}, Lcom/melodix/music/DiagCounters;->event(Ljava/lang/String;)V
+    invoke-static {}, Lcom/melodix/music/DiagCounters;->markWebviewReady()V
+    invoke-static {}, Lcom/melodix/music/DiagCounters;->markWebviewReady()V
 
     if-eqz v3, :pf_diag_done
     const-string v6, "https"
@@ -686,6 +688,7 @@
 
     const-string v0, "renderer-gone"
     invoke-static {v0}, Lcom/melodix/music/DiagCounters;->event(Ljava/lang/String;)V
+    invoke-static {}, Lcom/melodix/music/DiagCounters;->markRendererGone()V
 
     if-eqz p2, :cond_0
     invoke-static {p2}, Li1;->r(Landroid/webkit/RenderProcessGoneDetail;)V

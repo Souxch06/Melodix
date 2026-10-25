@@ -333,3 +333,22 @@ Le rapport n° 4 (test.10) est décisif :
 - le prochain rapport de diagnostic prouvera le mécanisme (traces `page-start accounts.spotify.com…` + `bridge-removed` sans `bridge-reattached` avant le correctif) et dira si les playlists reviennent avec le pont ré-attaché.
 
 Tests : 33 contrats (dont navigation-trace/bridge-reattach/renderer-gone-event), smali_sanity 13/13, audit_remediation 10/10, suite complète = 0 échec.
+
+## 27. Rapport n° 5 (test.11) : `renderer-gone` prouvé, mais la mort du canal est PLUS PROFONDE — test.12 (sonde probante + diagnostic simplifié)
+
+Le rapport n° 5 (test.11) apporte deux évidences :
+
+1. **`renderer-gone` est réel** : le processus de rendu du WebView a crashé, puis la récupération a rechargé la page (2e `page-start`/`bridge-attached`/`bridge-reattached`) — `transmission: entré=6` (3 dispatches de démarrage × 2 chargements) prouve que le canal **JS→natif** fonctionne sur le WebView reconstruit ;
+2. **mais `evaluateJavascript` (natif→JS) ne délivre JAMAIS rien**, même après reconstruction, et même sans crash visible dans le rapport n° 4 : `js-probe asked` ×2 sans réponse, moteur injecté (`asset-via-activity`) sans le moindre événement, alors que la sonde est un fragment JS trivial.
+
+Conclusion : la perte des playlists vient de la direction **natif→JS** (demandes `media:`, moteur, sondes) qui n'atteint jamais la page ; la direction JS→natif (démarrage) fonctionne.
+
+**Correctifs test.12 (proof-oriented)** :
+
+- `runNativeJavascript` : repli sur `AppSingleton.w` si `MainActivity.G` est périmé/nul + journal `js-out webview=none` au lieu d'un silence ;
+- **sonde `js-cb` à `ValueCallback`** (`DiagJsProbeCallback`/`DiagJsProbeTimeout`) : le callback vient de la couche renderer elle-même, indépendant d'AndBridge. Issues terminales : `js-cb <id> bridge-ok` (JS exécuté + pont présent), `no-bridge`, `err`, `js-probe miss cb=absent` (livraison natif→JS morte), `js-out webview=none` ;
+- flag `rendererGone` : posé par `onRenderProcessGone`, effacé au chargement de page ; affiché par la sonde (`renderer-flag=1`) ;
+- récupération chemin « service » (`yi1`) : rebind de `MainActivity.G` sur le WebView reconstruit ;
+- **diagnostic simplifié à UNE tape** : bouton « Diagnostic complet » (`spotify:diag:full`) = sonde + test playlists + **copie automatique du rapport** à l'état terminal (`auto-copy ok`/`impossible`) ; rapport affiché **ligne par ligne** à l'écran (section « Rapport ») sans copie ni JS.
+
+Le prochain rapport lira : `js-cb` présent → `evaluateJavascript` fonctionne et le problème restant est côté pont/moteur ; `js-probe miss cb=absent` → livraison native→JS morte (dernier maillon à investiguer : instance WebView réellement ciblée) ; `renderer-flag=1` → crash non récupéré.

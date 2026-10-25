@@ -501,4 +501,94 @@ t('summary excludes raw json by default (no private bodies on screen)', () => {
     assert.ok(Array.isArray(report.steps) && report.events, 'bounded structures');
 });
 
+t('native->JS delivery: singleton fallback and observable dead-end', () => {
+    // The device reports proved evaluateJavascript never executes. The send
+    // path must (1) fall back to the app-wide WebView singleton when the
+    // activity reference is stale and (2) journal a marker when there is
+    // nothing to send to instead of silently doing nothing.
+    const rnAt = main.indexOf('.method public final runNativeJavascript');
+    const rn = main.slice(rnAt, main.indexOf('.end method', rnAt));
+    assert.ok(rn.includes('Lcom/melodix/music/MainActivity;->G:Landroid/webkit/WebView;'), 'primary: activity WebView');
+    assert.ok(rn.includes('Lcom/melodix/music/AppSingleton;->w:Ll9;'), 'fallback: app singleton WebView');
+    assert.ok(rn.includes('js-out webview=none'), 'dead-end is journaled');
+    assert.ok(rn.includes('evaluateJavascript'), 'really sends');
+});
+
+t('callback probe proves evaluateJavascript delivery independent of the bridge', () => {
+    // ValueCallback fires from the renderer layer itself: js-cb <id> means JS
+    // executed; js-probe miss cb=absent means native->JS delivery is dead.
+    const prAt = main.indexOf('.method public final probeJsChannel()V');
+    assert.ok(prAt !== -1, 'probeJsChannel exists');
+    const pr = main.slice(prAt, main.indexOf('.end method', prAt));
+    assert.ok(pr.includes('js-cb ask'), 'ask journaled');
+    assert.ok(pr.includes('Lcom/melodix/music/DiagJsProbeCallback;'), 'ValueCallback probe class used');
+    assert.ok(pr.includes('Lcom/melodix/music/DiagJsProbeTimeout;'), 'bounded miss marker');
+    assert.ok(pr.includes('evaluateJavascript(Ljava/lang/String;Landroid/webkit/ValueCallback;)V'),
+        'probe passes a ValueCallback');
+    assert.ok(pr.includes('bridge-ok') && pr.includes('no-bridge'), 'callback value distinguishes bridge state');
+    assert.ok(pr.includes('js-out webview=none'), 'no-webview case terminal');
+
+    const cb = read('smali/com/melodix/music/DiagJsProbeCallback.smali');
+    assert.ok(cb.includes('Landroid/webkit/ValueCallback;'), 'implements ValueCallback');
+    assert.ok(cb.includes('js-cb '), 'answers journaled');
+    assert.ok(cb.includes('DiagCounters;->answerProbe()V'), 'pending flag cleared');
+
+    const to = read('smali/com/melodix/music/DiagJsProbeTimeout.smali');
+    assert.ok(to.includes('js-probe miss cb=absent'), 'timeout journaled');
+    assert.ok(to.includes('DiagCounters;->probePending()Z'), 'only when unanswered');
+});
+
+t('renderer crash flag: set on onRenderProcessGone, cleared when a page runs', () => {
+    const counters = read('smali/com/melodix/music/DiagCounters.smali');
+    assert.ok(counters.includes('.field public static volatile rendererGone:Z'), 'flag exists');
+    assert.ok(/\.method public static markRendererGone\(\)V/.test(counters), 'setter');
+    assert.ok(/\.method public static markWebviewReady\(\)V/.test(counters), 'clearer');
+
+    const c91 = read('smali/c91.smali');
+    const rgAt = c91.indexOf('onRenderProcessGone');
+    const rg = c91.slice(c91.lastIndexOf('.method', rgAt), c91.indexOf('.end method', rgAt));
+    assert.ok(rg.includes('markRendererGone'), 'crash sets the flag');
+    const pfAt = c91.indexOf('.method public final onPageFinished');
+    const pf = c91.slice(pfAt, c91.indexOf('.end method', pfAt));
+    assert.ok(pf.includes('markWebviewReady'), 'page completion clears the flag');
+});
+
+t('one-tap diagnostic: full action probes, tests playlists and auto-copies', () => {
+    const actAt = main.indexOf('.method public final openNativeDiagAction');
+    const act = main.slice(actAt, main.indexOf('.end method', actAt));
+    assert.ok(act.includes('"full"'), 'full action routed');
+    assert.ok(act.includes('probeJsChannel'), 'delivery probed');
+    assert.ok(act.includes('diagAutoCopy'), 'auto-copy armed');
+    assert.ok(act.includes('"diag-full"'), 'run journaled');
+    assert.ok(act.includes('DiagWatchdog;->arm'), 'watchdog still bounded');
+
+    const wd = read('smali/com/melodix/music/DiagWatchdog.smali');
+    assert.ok(wd.includes('autoCopyDiagIfArmed'), 'timeout terminal auto-copies');
+
+    const applyAt = main.indexOf('.method public final applyNativeUiData');
+    const applyEnd = main.indexOf('.end method', applyAt);
+    const checkDiag = main.slice(main.indexOf(':check_diag', applyAt), applyEnd);
+    assert.ok(checkDiag.includes('autoCopyDiagIfArmed'), 'engine report auto-copies too');
+
+    const paintAt = main.indexOf('.method public final paintDiagNative');
+    const paint = main.slice(paintAt, main.indexOf('.end method', paintAt));
+    assert.ok(paint.includes('spotify:diag:full'), 'one-tap row painted first');
+});
+
+t('report appears line by line on the screen without copying', () => {
+    const paintAt = main.indexOf('.method public final paintDiagNative');
+    const paint = main.slice(paintAt, main.indexOf('.end method', paintAt));
+    assert.ok(paint.includes('split('), 'report split into lines');
+    assert.ok(/section\\":\\"Rapport/.test(paint), 'lines painted as their own rows');
+    assert.ok(paint.includes(':report_line_loop'), 'bounded line loop');
+});
+
+t('service-path recovery rebinds the activity WebView', () => {
+    const yi1 = read('smali/yi1.smali');
+    assert.ok(yi1.includes('Lcom/melodix/music/MainActivity;->G:Landroid/webkit/WebView;'),
+        'rebuilt WebView is rebound to MainActivity.G');
+    assert.ok(yi1.includes('Lcom/melodix/music/AppSingleton;->t:Ljava/lang/ref/WeakReference;'),
+        'rebind goes through the live activity reference');
+});
+
 console.log('OK diag_screen');

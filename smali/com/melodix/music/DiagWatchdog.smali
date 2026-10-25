@@ -66,6 +66,8 @@
     const-string v1, "Aucune réponse du moteur de tests après 35 s"
     invoke-virtual {v0, v1}, Lcom/melodix/music/MainActivity;->paintDiagNative(Ljava/lang/String;)V
 
+    invoke-static {v0}, Lcom/melodix/music/MainActivity;->autoCopyDiagIfArmed(Lcom/melodix/music/MainActivity;)V
+
     :wd_done
     return-void
 .end method

@@ -20,6 +20,11 @@
 # copied report so the export always matches what was displayed.
 .field public static diagLastReason:Ljava/lang/String;
 
+# Armed by the one-tap "Diagnostic complet" action: when the engine run reaches
+# a terminal state (report arrival or watchdog timeout) the report is copied to
+# the clipboard automatically so the user only has to paste it.
+.field public static diagAutoCopy:Z
+
 
 # instance fields
 .field public G:Landroid/webkit/WebView;
@@ -250,6 +255,36 @@
 
     invoke-virtual {v1, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
 
+    # Rapport ligne par ligne: le diagnostic s'affiche sans copie ni JS.
+    const-string v2, "\\n"
+    invoke-virtual {v0, v2}, Ljava/lang/String;->split(Ljava/lang/String;)[Ljava/lang/String;
+    move-result-object v0
+    if-eqz v0, :report_lines_done
+    array-length v2, v0
+    const/4 v3, 0x0
+    :report_line_loop
+    if-ge v3, v2, :report_lines_done
+    const/16 v4, 0x3c
+    if-lt v3, v4, :report_lines_done
+    aget-object v4, v0, v3
+    if-eqz v4, :report_line_next
+    invoke-virtual {v4}, Ljava/lang/String;->length()I
+    move-result v5
+    if-eqz v5, :report_line_next
+    const-string v5, "{\"section\":\"Rapport\",\"title\":"
+    invoke-virtual {v1, v5}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    invoke-static {v4}, Lorg/json/JSONObject;->quote(Ljava/lang/String;)Ljava/lang/String;
+    move-result-object v5
+    invoke-virtual {v1, v5}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    const-string v5, "},"
+    invoke-virtual {v1, v5}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    :report_line_next
+    add-int/lit8 v3, v3, 0x1
+    goto :report_line_loop
+    :report_lines_done
+
+    const-string v2, "{\"section\":\"Actions\",\"title\":\"Diagnostic complet\",\"subtitle\":\"Sonde + test playlists — le rapport est copié automatiquement à la fin\",\"actionUri\":\"spotify:diag:full\"},"
+    invoke-virtual {v1, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
     const-string v2, "{\"section\":\"Actions\",\"title\":\"Copier le message\",\"subtitle\":\"Copie le rapport complet dans le presse-papiers\",\"actionUri\":\"spotify:diag:copy\"},"
     invoke-virtual {v1, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
     const-string v2, "{\"section\":\"Actions\",\"title\":\"Copier le rapport JSON\",\"subtitle\":\"Données brutes: compteurs et journal bornés, sans données personnelles\",\"actionUri\":\"spotify:diag:export\"},"
@@ -277,6 +312,95 @@
     return-void
 .end method
 
+.method public final probeJsChannel()V
+    .locals 6
+
+    # Decisive native->JS delivery probe. Unlike the logDiagEvent probe above,
+    # this one uses evaluateJavascript's ValueCallback: the callback fires from
+    # the renderer layer itself and never depends on the AndBridge interface.
+    # Journal outcomes (all terminal):
+    #   js-cb ask                 -> probe sent
+    #   js-cb <id> bridge-ok      -> JS executes AND the bridge exists
+    #   js-cb <id> no-bridge      -> JS executes but AndBridge is missing
+    #   js-cb <id> null/err       -> JS executes, value abnormal
+    #   js-probe miss cb=absent   -> evaluateJavascript never delivered
+    #   js-out webview=none       -> no WebView instance at all
+    const-string v0, "js-cb ask"
+    invoke-static {v0}, Lcom/melodix/music/DiagCounters;->event(Ljava/lang/String;)V
+
+    sget-boolean v0, Lcom/melodix/music/DiagCounters;->rendererGone:Z
+    if-eqz v0, :probe_flag_ok
+    const-string v0, "renderer-flag=1"
+    invoke-static {v0}, Lcom/melodix/music/DiagCounters;->event(Ljava/lang/String;)V
+    :probe_flag_ok
+
+    iget-object v0, p0, Lcom/melodix/music/MainActivity;->G:Landroid/webkit/WebView;
+    if-eqz v0, :probe_try_w
+    goto :probe_have_wv
+
+    :probe_try_w
+    sget-object v0, Lcom/melodix/music/AppSingleton;->w:Ll9;
+    if-eqz v0, :probe_no_wv
+
+    :probe_have_wv
+    invoke-static {}, Lcom/melodix/music/DiagCounters;->nextProbeId()I
+    move-result v1
+
+    new-instance v2, Lcom/melodix/music/DiagJsProbeCallback;
+    invoke-direct {v2, v1}, Lcom/melodix/music/DiagJsProbeCallback;-><init>(I)V
+
+    const-string v3, "(function(){try{return (window.AndBridge&&window.AndBridge.logDiagEvent)?'bridge-ok':'no-bridge';}catch(e){return 'err';}})();"
+    invoke-virtual {v0, v3, v2}, Landroid/webkit/WebView;->evaluateJavascript(Ljava/lang/String;Landroid/webkit/ValueCallback;)V
+
+    new-instance v2, Lcom/melodix/music/DiagJsProbeTimeout;
+    invoke-direct {v2, v1}, Lcom/melodix/music/DiagJsProbeTimeout;-><init>(I)V
+
+    new-instance v3, Landroid/os/Handler;
+    invoke-static {}, Landroid/os/Looper;->getMainLooper()Landroid/os/Looper;
+    move-result-object v4
+    invoke-direct {v3, v4}, Landroid/os/Handler;-><init>(Landroid/os/Looper;)V
+
+    const-wide/16 v4, 0x9c4
+    invoke-virtual {v3, v2, v4, v5}, Landroid/os/Handler;->postDelayed(Ljava/lang/Runnable;J)Z
+
+    return-void
+
+    :probe_no_wv
+    const-string v0, "js-out webview=none"
+    invoke-static {v0}, Lcom/melodix/music/DiagCounters;->event(Ljava/lang/String;)V
+    const-string v0, "js-probe miss webview=none"
+    invoke-static {v0}, Lcom/melodix/music/DiagCounters;->event(Ljava/lang/String;)V
+    return-void
+.end method
+
+.method public static autoCopyDiagIfArmed(Lcom/melodix/music/MainActivity;)V
+    .locals 2
+
+    if-eqz p0, :ac_done
+    sget-boolean v0, Lcom/melodix/music/MainActivity;->diagAutoCopy:Z
+    if-eqz v0, :ac_done
+
+    const/4 v0, 0x0
+    sput-boolean v0, Lcom/melodix/music/MainActivity;->diagAutoCopy:Z
+
+    invoke-virtual {p0}, Lcom/melodix/music/MainActivity;->buildDiagReport()Ljava/lang/String;
+    move-result-object v1
+    invoke-static {p0, v1}, Lcom/melodix/music/AndBridge;->copyToClipboardStatic(Landroid/content/Context;Ljava/lang/String;)Z
+    move-result v0
+    if-eqz v0, :ac_fail
+    const-string v0, "auto-copy ok"
+    goto :ac_journal
+
+    :ac_fail
+    const-string v0, "auto-copy impossible"
+
+    :ac_journal
+    invoke-static {v0}, Lcom/melodix/music/DiagCounters;->event(Ljava/lang/String;)V
+
+    :ac_done
+    return-void
+.end method
+
 .method public final openNativeDiag()V
     .locals 3
 
@@ -292,6 +416,8 @@
     invoke-static {v2}, Lcom/melodix/music/DiagCounters;->event(Ljava/lang/String;)V
     const-string v1, "(function(){try{if(window.AndBridge&&window.AndBridge.logDiagEvent){window.AndBridge.logDiagEvent('js-probe bridge=1 started='+(window.__sfMelodixBridgeStarted===true?'1':'0')+' fetch='+(typeof window.fetchMediaItems)+' shell='+(typeof window.__sfOpenLibrary)+' path='+String((location&&location.pathname)||''));}}catch(e){}})();"
     invoke-virtual {p0, v1}, Lcom/melodix/music/MainActivity;->runNativeJavascript(Ljava/lang/String;)V
+
+    invoke-virtual {p0}, Lcom/melodix/music/MainActivity;->probeJsChannel()V
     return-void
 .end method
 
@@ -304,6 +430,8 @@
     invoke-static {v2}, Lcom/melodix/music/DiagCounters;->event(Ljava/lang/String;)V
     const-string v2, "(function(){try{if(window.AndBridge&&window.AndBridge.logDiagEvent){window.AndBridge.logDiagEvent('js-probe bridge=1 started='+(window.__sfMelodixBridgeStarted===true?'1':'0')+' fetch='+(typeof window.fetchMediaItems)+' shell='+(typeof window.__sfOpenLibrary)+' path='+String((location&&location.pathname)||''));}}catch(e){}})();"
     invoke-virtual {p0, v2}, Lcom/melodix/music/MainActivity;->runNativeJavascript(Ljava/lang/String;)V
+
+    invoke-virtual {p0}, Lcom/melodix/music/MainActivity;->probeJsChannel()V
 
     invoke-virtual {p0}, Lcom/melodix/music/MainActivity;->buildDiagReport()Ljava/lang/String;
     move-result-object v1
@@ -388,10 +516,25 @@
     const-string v0, "open"
     invoke-virtual {v0, p1}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
     move-result v2
-    if-eqz v2, :diag_engine_run
+    if-eqz v2, :diag_chk_full
     const/4 v1, 0x0
     invoke-virtual {p0, v1}, Lcom/melodix/music/MainActivity;->paintDiagNative(Ljava/lang/String;)V
     return-void
+
+    :diag_chk_full
+    # One-tap diagnostic: delivery probe + playlists engine test + automatic
+    # report copy when the run reaches its terminal state.
+    const-string v0, "full"
+    invoke-virtual {v0, p1}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    move-result v2
+    if-eqz v2, :diag_engine_run
+    invoke-virtual {p0}, Lcom/melodix/music/MainActivity;->probeJsChannel()V
+    const/4 v0, 0x1
+    sput-boolean v0, Lcom/melodix/music/MainActivity;->diagAutoCopy:Z
+    const-string v0, "diag-full"
+    invoke-static {v0}, Lcom/melodix/music/DiagCounters;->event(Ljava/lang/String;)V
+    const-string p1, "playlists"
+    goto :diag_engine_run
 
     :diag_engine_run
     # Engine actions (run / playlists / cat:* / retry): bounded by the native
@@ -8162,6 +8305,7 @@
     move-result v1
     if-eqz v1, :apply_done
     invoke-static {}, Lcom/melodix/music/DiagWatchdog;->disarm()V
+    invoke-static {p0}, Lcom/melodix/music/MainActivity;->autoCopyDiagIfArmed(Lcom/melodix/music/MainActivity;)V
     iget-object v2, p0, Lcom/melodix/music/MainActivity;->nativeCurrentScreen:Ljava/lang/String;
     if-eqz v2, :apply_done
     const-string v3, "diagnostic"
@@ -8755,10 +8899,27 @@
 .method public final runNativeJavascript(Ljava/lang/String;)V
     .locals 2
 
+    # Native->JS entry point used by every scripted action. Resolve the live
+    # WebView: MainActivity.G first (the activity instance), then the app-wide
+    # singleton (survives renderer crashes and service-path recovery). If
+    # nothing is available the send is journalized ("js-out webview=none")
+    # instead of silently doing nothing.
     iget-object v0, p0, Lcom/melodix/music/MainActivity;->G:Landroid/webkit/WebView;
-    if-eqz v0, :native_js_done
+    if-eqz v0, :native_js_try_singleton
+    goto :native_js_send
+
+    :native_js_try_singleton
+    sget-object v0, Lcom/melodix/music/AppSingleton;->w:Ll9;
+    if-eqz v0, :native_js_no_target
+
+    :native_js_send
     const/4 v1, 0x0
     invoke-virtual {v0, p1, v1}, Landroid/webkit/WebView;->evaluateJavascript(Ljava/lang/String;Landroid/webkit/ValueCallback;)V
+    return-void
+
+    :native_js_no_target
+    const-string v1, "js-out webview=none"
+    invoke-static {v1}, Lcom/melodix/music/DiagCounters;->event(Ljava/lang/String;)V
 
     :native_js_done
     return-void

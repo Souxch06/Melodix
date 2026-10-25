@@ -82,9 +82,17 @@
 
     invoke-virtual {v0, v1}, Landroid/view/View;->dispatchWindowVisibilityChanged(I)V
 
-    .line 17
-    .line 18
-    .line 19
+    # Service-path recovery: rebind the activity's WebView reference so every
+    # evaluateJavascript (probes, engine, media requests) targets the rebuilt
+    # WebView instead of a stale instance.
+    sget-object v1, Lcom/melodix/music/AppSingleton;->t:Ljava/lang/ref/WeakReference;
+    if-eqz v1, :cond_0
+    invoke-virtual {v1}, Ljava/lang/ref/Reference;->get()Ljava/lang/Object;
+    move-result-object v1
+    check-cast v1, Lcom/melodix/music/MainActivity;
+    if-eqz v1, :cond_0
+    iput-object v0, v1, Lcom/melodix/music/MainActivity;->G:Landroid/webkit/WebView;
+
     :cond_0
     return-void
 

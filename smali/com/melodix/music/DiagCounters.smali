@@ -14,6 +14,13 @@
 .field public static mediaRendered:I
 .field public static mediaDropped:I
 
+# Renderer/JS-channel diagnosis: rendererGone is set when onRenderProcessGone
+# fires and cleared when a page finishes loading; probeAnswered tracks whether
+# the last evaluateJavascript ValueCallback probe answered.
+.field public static volatile rendererGone:Z
+.field public static volatile probeAnswered:Z
+.field public static probeSeq:I
+
 .field private static logText:Ljava/lang/String;
 .field private static logLines:I
 
@@ -423,4 +430,52 @@
     move-result-object v0
 
     return-object v0
+.end method
+
+.method public static markRendererGone()V
+    .locals 1
+
+    const/4 v0, 0x1
+    sput-boolean v0, Lcom/melodix/music/DiagCounters;->rendererGone:Z
+    return-void
+.end method
+
+.method public static markWebviewReady()V
+    .locals 1
+
+    const/4 v0, 0x0
+    sput-boolean v0, Lcom/melodix/music/DiagCounters;->rendererGone:Z
+    return-void
+.end method
+
+.method public static nextProbeId()I
+    .locals 2
+
+    sget v0, Lcom/melodix/music/DiagCounters;->probeSeq:I
+    add-int/lit8 v0, v0, 0x1
+    sput v0, Lcom/melodix/music/DiagCounters;->probeSeq:I
+    const/4 v1, 0x0
+    sput-boolean v1, Lcom/melodix/music/DiagCounters;->probeAnswered:Z
+    return v0
+.end method
+
+.method public static answerProbe()V
+    .locals 1
+
+    const/4 v0, 0x1
+    sput-boolean v0, Lcom/melodix/music/DiagCounters;->probeAnswered:Z
+    return-void
+.end method
+
+.method public static probePending()Z
+    .locals 1
+
+    sget-boolean v0, Lcom/melodix/music/DiagCounters;->probeAnswered:Z
+    if-eqz v0, :pending_no
+    const/4 v0, 0x0
+    return v0
+
+    :pending_no
+    const/4 v0, 0x1
+    return v0
 .end method
