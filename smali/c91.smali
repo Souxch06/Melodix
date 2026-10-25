@@ -65,6 +65,7 @@
     move-result-object v6
     invoke-static {v6}, Lcom/melodix/music/DiagCounters;->event(Ljava/lang/String;)V
     invoke-static {}, Lcom/melodix/music/DiagCounters;->markWebviewReady()V
+    invoke-static {v0}, Lcom/melodix/music/DiagCounters;->setPageView(Landroid/webkit/WebView;)V
     invoke-static {}, Lcom/melodix/music/DiagCounters;->markWebviewReady()V
 
     if-eqz v3, :pf_diag_done
@@ -488,6 +489,10 @@
 
     invoke-super/range {p0 .. p3}, Landroid/webkit/WebViewClient;->onPageStarted(Landroid/webkit/WebView;Ljava/lang/String;Landroid/graphics/Bitmap;)V
 
+    # Native->JS traffic must target the WebView that is actually loading this
+    # page: activity.G / AppSingleton.w can lag behind after recoveries.
+    invoke-static {p1}, Lcom/melodix/music/DiagCounters;->setPageView(Landroid/webkit/WebView;)V
+
     if-eqz p1, :watchdog_skipped
     invoke-static {p1}, Lcom/melodix/music/StartupLoadWatchdog;->arm(Landroid/webkit/WebView;)V
     :watchdog_skipped
@@ -515,6 +520,11 @@
     if-eqz v5, :ps_path_done
     invoke-virtual {v6, v5}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
     :ps_path_done
+    const-string v7, " #"
+    invoke-virtual {v6, v7}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    invoke-static {p1}, Ljava/lang/System;->identityHashCode(Ljava/lang/Object;)I
+    move-result v7
+    invoke-virtual {v6, v7}, Ljava/lang/StringBuilder;->append(I)Ljava/lang/StringBuilder;
     invoke-virtual {v6}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
     move-result-object v7
     invoke-static {v7}, Lcom/melodix/music/DiagCounters;->event(Ljava/lang/String;)V

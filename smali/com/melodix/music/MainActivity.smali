@@ -334,6 +334,12 @@
     invoke-static {v0}, Lcom/melodix/music/DiagCounters;->event(Ljava/lang/String;)V
     :probe_flag_ok
 
+    invoke-static {}, Lcom/melodix/music/DiagCounters;->getPageView()Landroid/webkit/WebView;
+    move-result-object v0
+    if-eqz v0, :probe_try_act
+    goto :probe_have_wv
+
+    :probe_try_act
     iget-object v0, p0, Lcom/melodix/music/MainActivity;->G:Landroid/webkit/WebView;
     if-eqz v0, :probe_try_w
     goto :probe_have_wv
@@ -343,6 +349,19 @@
     if-eqz v0, :probe_no_wv
 
     :probe_have_wv
+    # Identity of the targeted WebView so a report can prove whether the probe
+    # reached the same instance the page runs in (compare with "page-start #").
+    new-instance v1, Ljava/lang/StringBuilder;
+    invoke-direct {v1}, Ljava/lang/StringBuilder;-><init>()V
+    const-string v2, "js-cb tgt "
+    invoke-virtual {v1, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    invoke-static {v0}, Ljava/lang/System;->identityHashCode(Ljava/lang/Object;)I
+    move-result v2
+    invoke-virtual {v1, v2}, Ljava/lang/StringBuilder;->append(I)Ljava/lang/StringBuilder;
+    invoke-virtual {v1}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
+    move-result-object v2
+    invoke-static {v2}, Lcom/melodix/music/DiagCounters;->event(Ljava/lang/String;)V
+
     :try_start_probe
     invoke-static {}, Lcom/melodix/music/DiagCounters;->nextProbeId()I
     move-result v1
@@ -8909,11 +8928,17 @@
 .method public final runNativeJavascript(Ljava/lang/String;)V
     .locals 2
 
-    # Native->JS entry point used by every scripted action. Resolve the live
-    # WebView: MainActivity.G first (the activity instance), then the app-wide
-    # singleton (survives renderer crashes and service-path recovery). If
-    # nothing is available the send is journalized ("js-out webview=none")
-    # instead of silently doing nothing.
+    # Native->JS entry point used by every scripted action. Resolve the LIVE
+    # WebView: first the instance c91 registered while loading the current page
+    # (the one whose JS really runs), then MainActivity.G, then the app-wide
+    # singleton. If nothing is available the send is journalized
+    # ("js-out webview=none") instead of silently doing nothing.
+    invoke-static {}, Lcom/melodix/music/DiagCounters;->getPageView()Landroid/webkit/WebView;
+    move-result-object v0
+    if-eqz v0, :native_js_try_activity
+    goto :native_js_send
+
+    :native_js_try_activity
     iget-object v0, p0, Lcom/melodix/music/MainActivity;->G:Landroid/webkit/WebView;
     if-eqz v0, :native_js_try_singleton
     goto :native_js_send

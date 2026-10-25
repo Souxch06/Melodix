@@ -3,16 +3,14 @@
 .implements Landroid/webkit/ValueCallback;
 
 # ValueCallback for the evaluateJavascript delivery probe. The callback fires
-# from the WebView renderer layer regardless of the AndBridge JS interface: if
-# "js-cb <id> <value>" reaches the journal, evaluateJavascript really executes
-# JS on the device; if only "js-cb ask" appears, the native->JS delivery itself
-# is dead (renderer gone, stale WebView, or dropped evaluation). Never logs
-# more than 120 chars of the returned value.
-#
-# NOTE: ValueCallback is generic; its erased interface method is
-# onReceiveValue(Ljava/lang/Object;)V — implementing only the String overload
-# causes AbstractMethodError when the WebView invokes the callback. The probe
-# is diagnostic-only and must never crash the app: every path is guarded.
+# from the WebView renderer layer regardless of the AndBridge JS interface:
+#   js-cb <id> <class> <value>  -> evaluateJavascript really executed JS
+#   js-cb <id> null             -> JS ran and returned nothing
+#   js-cb err                   -> the callback itself failed (still visible)
+# The returned value is stringified with Object.toString() and the class name
+# is kept: some WebView flavours hand the result over as a non-String object,
+# and a check-cast would swallow the evidence. Everything is guarded: the
+# probe is diagnostic-only and must never crash the app.
 
 .field private final id:I
 
@@ -45,27 +43,36 @@
     invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
 
     if-eqz p1, :cb_null
-    move-object v1, p1
-    check-cast v1, Ljava/lang/String;
+
+    invoke-virtual {p1}, Ljava/lang/Object;->getClass()Ljava/lang/Class;
+    move-result-object v1
+    invoke-virtual {v1}, Ljava/lang/Class;->getSimpleName()Ljava/lang/String;
+    move-result-object v1
+    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    const-string v1, " "
+    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    invoke-virtual {p1}, Ljava/lang/Object;->toString()Ljava/lang/String;
+    move-result-object v1
+    if-eqz v1, :cb_val_done
     invoke-virtual {v1}, Ljava/lang/String;->length()I
     move-result v2
-    const/16 v3, 0x78
-    if-gt v2, v3, :cb_trunc
-    goto :cb_val
-
-    :cb_trunc
+    const/16 v3, 0x50
+    if-gt v2, v3, :cb_append
     const/4 v3, 0x0
-    const/16 v2, 0x78
+    const/16 v2, 0x50
     invoke-virtual {v1, v3, v2}, Ljava/lang/String;->substring(II)Ljava/lang/String;
     move-result-object v1
-    goto :cb_val
+    :cb_append
+    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    goto :cb_val_done
 
     :cb_null
     const-string v1, "null"
-
-    :cb_val
     invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
 
+    :cb_val_done
     invoke-virtual {v0}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
     move-result-object v1
     invoke-static {v1}, Lcom/melodix/music/DiagCounters;->event(Ljava/lang/String;)V
@@ -77,5 +84,7 @@
     :catch_cb
     move-exception v0
     invoke-static {v0}, Lcom/melodix/music/NativeCrashGuard;->record(Ljava/lang/Throwable;)V
+    const-string v0, "js-cb err"
+    invoke-static {v0}, Lcom/melodix/music/DiagCounters;->event(Ljava/lang/String;)V
     return-void
 .end method

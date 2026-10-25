@@ -21,6 +21,11 @@
 .field public static volatile probeAnswered:Z
 .field public static probeSeq:I
 
+# The WebView that is actually loading pages (registered by c91 on every
+# onPageStarted/onPageFinished). Native->JS traffic must target THIS instance:
+# activity.G / AppSingleton.w can lag behind after recoveries.
+.field public static volatile pageView:Ljava/lang/ref/WeakReference;
+
 .field private static logText:Ljava/lang/String;
 .field private static logLines:I
 
@@ -478,4 +483,34 @@
     :pending_no
     const/4 v0, 0x1
     return v0
+.end method
+
+.method public static setPageView(Landroid/webkit/WebView;)V
+    .locals 1
+
+    if-eqz p0, :spv_clear
+    new-instance v0, Ljava/lang/ref/WeakReference;
+    invoke-direct {v0, p0}, Ljava/lang/ref/WeakReference;-><init>(Ljava/lang/Object;)V
+    sput-object v0, Lcom/melodix/music/DiagCounters;->pageView:Ljava/lang/ref/WeakReference;
+    return-void
+
+    :spv_clear
+    const/4 v0, 0x0
+    sput-object v0, Lcom/melodix/music/DiagCounters;->pageView:Ljava/lang/ref/WeakReference;
+    return-void
+.end method
+
+.method public static getPageView()Landroid/webkit/WebView;
+    .locals 1
+
+    sget-object v0, Lcom/melodix/music/DiagCounters;->pageView:Ljava/lang/ref/WeakReference;
+    if-eqz v0, :gpv_none
+    invoke-virtual {v0}, Ljava/lang/ref/Reference;->get()Ljava/lang/Object;
+    move-result-object v0
+    check-cast v0, Landroid/webkit/WebView;
+    return-object v0
+
+    :gpv_none
+    const/4 v0, 0x0
+    return-object v0
 .end method

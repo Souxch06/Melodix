@@ -536,10 +536,44 @@ t('callback probe proves evaluateJavascript delivery independent of the bridge',
     assert.ok(cb.includes('js-cb '), 'answers journaled');
     assert.ok(cb.includes('DiagCounters;->answerProbe()V'), 'pending flag cleared');
     assert.ok(cb.includes('Ljava/lang/Throwable;'), 'probe can never crash the app');
+    // Never check-cast the value: some WebViews hand over non-String objects
+    // and a cast would swallow the evidence silently.
+    assert.ok(!/check-cast v\d+, /.test(cb), 'value stringified, not cast');
+    assert.ok(cb.includes('Ljava/lang/Object;->toString()Ljava/lang/String;'), 'stringified value');
+    assert.ok(cb.includes('js-cb err'), 'callback failures are journaled too');
 
     const to = read('smali/com/melodix/music/DiagJsProbeTimeout.smali');
-    assert.ok(to.includes('js-probe miss cb=absent'), 'timeout journaled');
-    assert.ok(to.includes('DiagCounters;->probePending()Z'), 'only when unanswered');
+    assert.ok(to.includes('js-cb tmo '), 'timeout always journaled');
+    assert.ok(!to.includes('probePending'), 'no shared-state gate that could silence it');
+    assert.ok(to.includes('probeAnswered'), 'reports whether the callback answered');
+});
+
+t('native->JS targets the WebView that is actually loading the page', () => {
+    // c91 registers every WebView it serves (the instance whose JS really
+    // runs); sends resolve pageView -> G -> singleton so traffic can never
+    // land on a stale instance after a recovery.
+    const counters = read('smali/com/melodix/music/DiagCounters.smali');
+    assert.ok(counters.includes('pageView:Ljava/lang/ref/WeakReference;'), 'tracked page WebView');
+    assert.ok(/\.method public static setPageView\(/.test(counters), 'registered from the client');
+    assert.ok(/\.method public static getPageView\(/.test(counters), 'resolved by senders');
+
+    const c91 = read('smali/c91.smali');
+    const psAt = c91.indexOf('.method public onPageStarted');
+    const ps = c91.slice(psAt, c91.indexOf('.end method', psAt));
+    assert.ok(ps.includes('setPageView'), 'page-start registers the live WebView');
+    assert.ok(ps.includes('identityHashCode'), 'page-start carries the instance hash');
+    const pfAt = c91.indexOf('.method public final onPageFinished');
+    const pf = c91.slice(pfAt, c91.indexOf('.end method', pfAt));
+    assert.ok(pf.includes('setPageView'), 'page-done registers it too');
+
+    const rnAt = main.indexOf('.method public final runNativeJavascript');
+    const rn = main.slice(rnAt, main.indexOf('.end method', rnAt));
+    assert.ok(rn.includes('DiagCounters;->getPageView()Landroid/webkit/WebView;'), 'page WebView first');
+    assert.ok(rn.indexOf('getPageView') < rn.indexOf('MainActivity;->G:'), 'before the activity field');
+
+    const prAt = main.indexOf('.method public final probeJsChannel()V');
+    const pr = main.slice(prAt, main.indexOf('.end method', prAt));
+    assert.ok(pr.includes('js-cb tgt '), 'probe journals the target identity');
 });
 
 t('renderer crash flag: set on onRenderProcessGone, cleared when a page runs', () => {
