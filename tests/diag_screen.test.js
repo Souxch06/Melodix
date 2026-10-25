@@ -341,6 +341,35 @@ t('asset read failures are journaled and have a second read path', () => {
         'fallback runs before the terminal error');
 });
 
+t('navigation traces + bridge re-attach explain a dead JS channel', () => {
+    // onPageStarted REMOVES AndBridge on any non-open.spotify.com URL (token
+    // refresh, error page...). Without traces the channel can die silently;
+    // without re-attach it stays dead. Both are now covered.
+    const c91 = read('smali/c91.smali');
+    const psAt = c91.indexOf('.method public onPageStarted');
+    const ps = c91.slice(psAt, c91.indexOf('.end method', psAt));
+    assert.ok(ps.includes('page-start'), 'navigation traced');
+    assert.ok(ps.includes('bridge-attached'), 'attach traced');
+    assert.ok(ps.includes('bridge-removed'), 'remove traced');
+
+    const pfAt = c91.indexOf('.method public final onPageFinished');
+    const pf = c91.slice(pfAt, c91.indexOf('.end method', pfAt));
+    assert.ok(pf.includes('page-done'), 'page completion traced');
+    assert.ok(pf.includes('bridge-reattached'), 'bridge re-attached');
+    assert.ok(pf.includes('addJavascriptInterface'), 'really re-attaches');
+    assert.ok(pf.includes('"open.spotify.com"'), 're-attach gated to trusted host');
+
+    const rgAt = c91.indexOf('onRenderProcessGone');
+    assert.ok(rgAt !== -1, 'renderer crash detected');
+    const rg = c91.slice(c91.lastIndexOf('.method', rgAt), c91.indexOf('.end method', rgAt));
+    assert.ok(rg.includes('renderer-gone'), 'crash journaled');
+
+    // Security: traces carry host+path only — never query/fragment (tokens).
+    assert.ok(ps.includes('getPath()'), 'path only');
+    assert.ok(!ps.includes('getQuery()'), 'no query in traces');
+    assert.ok(!pf.includes('getQuery()'), 'no query in page-done either');
+});
+
 t('copied report matches the screen: last displayed status + native journal', () => {
     // The copy must carry what was DISPLAYED (terminal status rows) and the
     // bounded native journal — otherwise the export cannot explain the screen.

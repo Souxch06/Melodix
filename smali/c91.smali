@@ -35,6 +35,57 @@
 
     invoke-super/range {p0 .. p2}, Landroid/webkit/WebViewClient;->onPageFinished(Landroid/webkit/WebView;Ljava/lang/String;)V
 
+    # Diagnostic trace + bridge re-attach: onPageStarted removes AndBridge on
+    # any non-open.spotify.com navigation (token refresh, error pages); without
+    # a re-attach on trusted pages every JS->native channel dies silently.
+    # Low registers only (v0=WebView, v1=url already copied above).
+    if-eqz v1, :pf_diag_done
+    invoke-static {v1}, Landroid/net/Uri;->parse(Ljava/lang/String;)Landroid/net/Uri;
+    move-result-object v2
+    if-eqz v2, :pf_diag_done
+    invoke-virtual {v2}, Landroid/net/Uri;->getHost()Ljava/lang/String;
+    move-result-object v3
+    invoke-virtual {v2}, Landroid/net/Uri;->getPath()Ljava/lang/String;
+    move-result-object v4
+    new-instance v5, Ljava/lang/StringBuilder;
+    invoke-direct {v5}, Ljava/lang/StringBuilder;-><init>()V
+    const-string v6, "page-done "
+    invoke-virtual {v5, v6}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    if-eqz v3, :pf_host_none
+    invoke-virtual {v5, v3}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    goto :pf_host_done
+    :pf_host_none
+    const-string v6, "?"
+    invoke-virtual {v5, v6}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    :pf_host_done
+    if-eqz v4, :pf_path_done
+    invoke-virtual {v5, v4}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    :pf_path_done
+    invoke-virtual {v5}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
+    move-result-object v6
+    invoke-static {v6}, Lcom/melodix/music/DiagCounters;->event(Ljava/lang/String;)V
+
+    if-eqz v3, :pf_diag_done
+    const-string v6, "https"
+    invoke-virtual {v2}, Landroid/net/Uri;->getScheme()Ljava/lang/String;
+    move-result-object v7
+    invoke-virtual {v6, v7}, Ljava/lang/String;->equalsIgnoreCase(Ljava/lang/String;)Z
+    move-result v6
+    if-eqz v6, :pf_diag_done
+    const-string v6, "open.spotify.com"
+    invoke-virtual {v6, v3}, Ljava/lang/String;->equalsIgnoreCase(Ljava/lang/String;)Z
+    move-result v6
+    if-eqz v6, :pf_diag_done
+    new-instance v6, Lcom/melodix/music/AndBridge;
+    invoke-virtual {v0}, Landroid/view/View;->getContext()Landroid/content/Context;
+    move-result-object v7
+    invoke-direct {v6, v7}, Lcom/melodix/music/AndBridge;-><init>(Landroid/content/Context;)V
+    const-string v7, "AndBridge"
+    invoke-virtual {v0, v6, v7}, Landroid/webkit/WebView;->addJavascriptInterface(Ljava/lang/Object;Ljava/lang/String;)V
+    const-string v6, "bridge-reattached"
+    invoke-static {v6}, Lcom/melodix/music/DiagCounters;->event(Ljava/lang/String;)V
+    :pf_diag_done
+
     const-string v2, "about:blank"
     invoke-virtual {v1, v2}, Ljava/lang/Object;->equals(Ljava/lang/Object;)Z
     move-result v2
@@ -431,13 +482,41 @@
 .end method
 
 .method public onPageStarted(Landroid/webkit/WebView;Ljava/lang/String;Landroid/graphics/Bitmap;)V
-    .locals 6
+    .locals 10
 
     invoke-super/range {p0 .. p3}, Landroid/webkit/WebViewClient;->onPageStarted(Landroid/webkit/WebView;Ljava/lang/String;Landroid/graphics/Bitmap;)V
 
     if-eqz p1, :watchdog_skipped
     invoke-static {p1}, Lcom/melodix/music/StartupLoadWatchdog;->arm(Landroid/webkit/WebView;)V
     :watchdog_skipped
+
+    # Diagnostic trace: host + path only (never query/fragment — no tokens).
+    if-eqz p2, :ps_diag_done
+    invoke-static {p2}, Landroid/net/Uri;->parse(Ljava/lang/String;)Landroid/net/Uri;
+    move-result-object v3
+    if-eqz v3, :ps_diag_done
+    invoke-virtual {v3}, Landroid/net/Uri;->getHost()Ljava/lang/String;
+    move-result-object v4
+    invoke-virtual {v3}, Landroid/net/Uri;->getPath()Ljava/lang/String;
+    move-result-object v5
+    new-instance v6, Ljava/lang/StringBuilder;
+    invoke-direct {v6}, Ljava/lang/StringBuilder;-><init>()V
+    const-string v7, "page-start "
+    invoke-virtual {v6, v7}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    if-eqz v4, :ps_host_none
+    invoke-virtual {v6, v4}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    goto :ps_host_done
+    :ps_host_none
+    const-string v7, "?"
+    invoke-virtual {v6, v7}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    :ps_host_done
+    if-eqz v5, :ps_path_done
+    invoke-virtual {v6, v5}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    :ps_path_done
+    invoke-virtual {v6}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
+    move-result-object v7
+    invoke-static {v7}, Lcom/melodix/music/DiagCounters;->event(Ljava/lang/String;)V
+    :ps_diag_done
 
     # JavascriptInterface is exposed to every frame: this top-level URL check is
     # NOT frame isolation. m9.g also installs the legacy bridge before first load.
@@ -478,6 +557,8 @@
 
     :cond_bridge_add
     # Reset diagnostics only after confirming a new top-level Spotify Web Player navigation.
+    const-string v3, "bridge-attached"
+    invoke-static {v3}, Lcom/melodix/music/DiagCounters;->event(Ljava/lang/String;)V
     const/4 v0, 0x0
     sput-object v0, Lcom/melodix/music/AppSingleton;->g0:Ljava/lang/String;
     new-instance v0, Lcom/melodix/music/AndBridge;
@@ -489,10 +570,14 @@
     return-void
 
     :cond_bridge_remove
+    const-string v3, "bridge-removed"
+    invoke-static {v3}, Lcom/melodix/music/DiagCounters;->event(Ljava/lang/String;)V
     const-string v0, "AndBridge"
     invoke-virtual {p1, v0}, Landroid/webkit/WebView;->removeJavascriptInterface(Ljava/lang/String;)V
     return-void
 .end method
+
+
 
 .method public final onReceivedError(Landroid/webkit/WebView;ILjava/lang/String;Ljava/lang/String;)V
     .locals 0
@@ -598,6 +683,9 @@
 
 .method public onRenderProcessGone(Landroid/webkit/WebView;Landroid/webkit/RenderProcessGoneDetail;)Z
     .locals 3
+
+    const-string v0, "renderer-gone"
+    invoke-static {v0}, Lcom/melodix/music/DiagCounters;->event(Ljava/lang/String;)V
 
     if-eqz p2, :cond_0
     invoke-static {p2}, Li1;->r(Landroid/webkit/RenderProcessGoneDetail;)V
