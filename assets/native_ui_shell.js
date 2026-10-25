@@ -2607,6 +2607,12 @@
                 try { window.clearInterval(playerFeedTimer); } catch (_) {}
                 playerFeedTimer = null;
             }
+            if (window.__sfBridgeDiagTimer) {
+                // Contract: logout clears every active interval. The bridge
+                // load observer re-arms on the next shell injection.
+                try { window.clearInterval(window.__sfBridgeDiagTimer); } catch (_) {}
+                window.__sfBridgeDiagTimer = 0;
+            }
             endPauseHold();
             if (observer && typeof observer.disconnect === 'function') {
                 try { observer.disconnect(); } catch (_) {}
@@ -2993,6 +2999,125 @@
         return false;
     }
     window.__sfLoadBundledBridge = loadBundledBridge;
+
+    // ------------------------------------------------------------------
+    // Observabilite temporaire : etat de chargement du bridge pour l'ecran
+    // Diagnostic ("Bridge (temporaire)"). LECTURE SEULE des variables
+    // ci-dessous : aucune ecriture, aucun effet de bord sur le chargement du
+    // bridge, la CSP, la file de commandes, la bibliotheque ou la navigation.
+    // Envoi par le canal existant AndBridge.onLibDiagState (DiagCounters.libState).
+    // ------------------------------------------------------------------
+    function bridgeDiagWatchCopy() {
+        try {
+            var source = window.__sfBridgeWatch;
+            if (!source || typeof source !== 'object') return null;
+            var out = {};
+            var keys = Object.keys(source).slice(0, 8);
+            for (var i = 0; i < keys.length; i += 1) {
+                var value = source[keys[i]];
+                if (typeof value === 'string') {
+                    out[keys[i]] = value.replace(/["\\]/g, ' ').slice(0, 24);
+                } else if (typeof value === 'number' || typeof value === 'boolean' || value === null) {
+                    out[keys[i]] = value;
+                } else {
+                    out[keys[i]] = null;
+                }
+            }
+            return out;
+        } catch (_) {
+            return null;
+        }
+    }
+
+    function bridgeDiagStateJson() {
+        var asText = function (value, max) {
+            if (typeof value !== 'string' || !value) return null;
+            return sanitizeDiagnostic(value).replace(/["\\]/g, ' ').slice(0, max);
+        };
+        var asBool = function (value) {
+            return value === true ? true : (value === false ? false : null);
+        };
+        var asInt = function (value) {
+            return Number.isInteger(value) ? value : null;
+        };
+        var obj = {
+            stage: typeof window.__sfBridgeLoadStage === 'string' ? window.__sfBridgeLoadStage : null,
+            started: asBool(window.__sfMelodixBridgeStarted),
+            entered: asBool(window.__sfBridgeEntered),
+            intercepted: asBool(window.__sfBridgeIntercepted),
+            assetServed: asBool(window.__sfBridgeAssetServed),
+            prefixExec: asBool(window.__sfBridgePrefixExec),
+            bytes: asInt(window.__sfBridgeBytes),
+            lastError: asText(window.__sfBridgeLastError, 160),
+            cspViolation: asText(window.__sfBridgeCspViolation, 120),
+            execMode: asText(window.__sfBridgeExecMode, 24),
+            recoveryAttempts: asInt(window.__sfNativeUiBridgeRecoveryAttempts),
+            watch: bridgeDiagWatchCopy(),
+            tagPresent: null
+        };
+        try {
+            obj.tagPresent = !!document.querySelector('script[data-sf-melodix-bridge="1"]');
+        } catch (_) {
+            obj.tagPresent = null;
+        }
+        var json = JSON.stringify(obj);
+        // Mission bound: 2 Ko. The native channel (DiagCounters.libState) also
+        // clips snapshots at 400 chars and keeps only its first part: shrink
+        // the values until the whole JSON fits so every field survives the
+        // channel and none is cut mid-JSON (absent stays "non recu", never
+        // invented).
+        if (json.length > 2048) {
+            obj.watch = null;
+            json = JSON.stringify(obj);
+        }
+        if (json.length > 400) {
+            obj.watch = null;
+            obj.lastError = asText(window.__sfBridgeLastError, 80);
+            obj.cspViolation = asText(window.__sfBridgeCspViolation, 32);
+            json = JSON.stringify(obj);
+        }
+        if (json.length > 400) {
+            obj.lastError = asText(window.__sfBridgeLastError, 24);
+            obj.cspViolation = asText(window.__sfBridgeCspViolation, 16);
+            obj.stage = typeof window.__sfBridgeLoadStage === 'string' ? window.__sfBridgeLoadStage.slice(0, 24) : null;
+            json = JSON.stringify(obj);
+        }
+        return json;
+    }
+
+    var bridgeDiagLastStage;
+    var bridgeDiagLastAt = 0;
+
+    function pushBridgeDiagState() {
+        try {
+            var bridge = window.AndBridge;
+            if (!bridge || typeof bridge.onLibDiagState !== 'function') return;
+            bridgeDiagLastAt = Date.now();
+            bridgeDiagLastStage = typeof window.__sfBridgeLoadStage === 'string' ? window.__sfBridgeLoadStage : null;
+            bridge.onLibDiagState(bridgeDiagStateJson());
+        } catch (_) {}
+    }
+
+    function startBridgeDiagWatch() {
+        if (window.__sfBridgeDiagTimer) return;
+        try {
+            window.__sfBridgeDiagTimer = window.setInterval(function () {
+                try {
+                    var stage = typeof window.__sfBridgeLoadStage === 'string' ? window.__sfBridgeLoadStage : null;
+                    if (stage !== bridgeDiagLastStage) {
+                        // A stage change is always reported.
+                        pushBridgeDiagState();
+                    } else if (Date.now() - bridgeDiagLastAt >= 2000) {
+                        // Regular cadence: at least every 2 s.
+                        pushBridgeDiagState();
+                    }
+                } catch (_) {}
+            }, 500);
+        } catch (_) {}
+    }
+    startBridgeDiagWatch();
+    window.__sfBridgeDiagStateJson = bridgeDiagStateJson;
+    window.__sfBridgeDiagPush = pushBridgeDiagState;
 
     function installBridgeRecovery() {
         var bridge = window.AndBridge;

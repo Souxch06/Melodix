@@ -349,6 +349,17 @@
     new-instance v0, Ljava/lang/StringBuilder;
     invoke-direct {v0}, Ljava/lang/StringBuilder;-><init>()V
 
+    # Section temporaire : état de chargement du bridge, valeurs brutes,
+    # "non reçu" quand la donnée est absente. Aucune conclusion calculée :
+    # l'écran ne montre que les valeurs.
+    const-string v1, "Bridge (temporaire):\n"
+    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    invoke-static {}, Lcom/melodix/music/DiagCounters;->buildBridgeSection()Ljava/lang/String;
+    move-result-object v2
+    invoke-virtual {v0, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    const-string v1, "\n"
+    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
     const-string v1, "Compteurs pipeline (depuis ce démarrage):\n"
     invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
 
@@ -700,4 +711,146 @@
     :rll_empty
     const-string v0, ""
     return-object v0
+.end method
+
+# --- Bridge load observability (temporary "Bridge (temporaire)" section) ----
+# The shell pushes a JSON snapshot of the bridge load state through the
+# existing onLibDiagState -> libState channel. readLibStateBridge finds the
+# last such snapshot in the journal (it starts with the {"stage" key) and
+# buildBridgeSection renders each field raw, or "non reçu" when absent.
+# No interpretation: the section only shows values.
+
+.method public static readLibStateBridge()Ljava/lang/String;
+    .locals 4
+
+    sget-object v0, Lcom/melodix/music/DiagCounters;->libStateText:Ljava/lang/String;
+    if-eqz v0, :rlb_none
+
+    const-string v1, "{\"stage\""
+    invoke-virtual {v0, v1}, Ljava/lang/String;->lastIndexOf(Ljava/lang/String;)I
+    move-result v2
+    if-gez v2, :rlb_none
+
+    const/16 v1, 0xa
+    invoke-virtual {v0, v1, v2}, Ljava/lang/String;->indexOf(II)I
+    move-result v3
+    if-gez v3, :rlb_tail
+    invoke-virtual {v0, v2, v3}, Ljava/lang/String;->substring(II)Ljava/lang/String;
+    move-result-object v0
+    return-object v0
+
+    :rlb_tail
+    invoke-virtual {v0, v2}, Ljava/lang/String;->substring(I)Ljava/lang/String;
+    move-result-object v0
+    return-object v0
+
+    :rlb_none
+    const/4 v0, 0x0
+    return-object v0
+.end method
+
+.method public static buildBridgeSection()Ljava/lang/String;
+    .locals 8
+
+    # Field order is fixed: the display lists exactly these keys, raw values.
+    const/16 v0, 0xd
+    new-array v0, v0, [Ljava/lang/String;
+
+    const/4 v1, 0x0
+    const-string v2, "stage"
+    aput-object v2, v0, v1
+    const/4 v1, 0x1
+    const-string v2, "started"
+    aput-object v2, v0, v1
+    const/4 v1, 0x2
+    const-string v2, "entered"
+    aput-object v2, v0, v1
+    const/4 v1, 0x3
+    const-string v2, "intercepted"
+    aput-object v2, v0, v1
+    const/4 v1, 0x4
+    const-string v2, "assetServed"
+    aput-object v2, v0, v1
+    const/4 v1, 0x5
+    const-string v2, "prefixExec"
+    aput-object v2, v0, v1
+    const/4 v1, 0x6
+    const-string v2, "bytes"
+    aput-object v2, v0, v1
+    const/4 v1, 0x7
+    const-string v2, "lastError"
+    aput-object v2, v0, v1
+    const/16 v1, 0x8
+    const-string v2, "cspViolation"
+    aput-object v2, v0, v1
+    const/16 v1, 0x9
+    const-string v2, "execMode"
+    aput-object v2, v0, v1
+    const/16 v1, 0xa
+    const-string v2, "recoveryAttempts"
+    aput-object v2, v0, v1
+    const/16 v1, 0xb
+    const-string v2, "watch"
+    aput-object v2, v0, v1
+    const/16 v1, 0xc
+    const-string v2, "tagPresent"
+    aput-object v2, v0, v1
+
+    new-instance v4, Ljava/lang/StringBuilder;
+    invoke-direct {v4}, Ljava/lang/StringBuilder;-><init>()V
+
+    invoke-static {}, Lcom/melodix/music/DiagCounters;->readLibStateBridge()Ljava/lang/String;
+    move-result-object v2
+
+    const/4 v3, 0x0
+    if-eqz v2, :bb_loop
+
+    :try_start_bb
+    new-instance v3, Lorg/json/JSONObject;
+    invoke-direct {v3, v2}, Lorg/json/JSONObject;-><init>(Ljava/lang/String;)V
+    :try_end_bb
+    .catch Lorg/json/JSONException; {:try_start_bb .. :try_end_bb} :catch_bb
+    goto :bb_loop
+
+    :catch_bb
+    move-exception v6
+    const/4 v3, 0x0
+
+    :bb_loop
+    const/4 v1, 0x0
+    :bb_next
+    const/16 v7, 0xd
+    if-ge v1, v7, :bb_done
+
+    aget-object v2, v0, v1
+
+    # Absent or JSON null -> "non reçu"; anything else is shown raw.
+    const-string v5, "non reçu"
+    if-eqz v3, :bb_emit
+    invoke-virtual {v3, v2}, Lorg/json/JSONObject;->opt(Ljava/lang/String;)Ljava/lang/Object;
+    move-result-object v6
+    if-eqz v6, :bb_emit
+    sget-object v7, Lorg/json/JSONObject;->NULL:Ljava/lang/Object;
+    if-ne v6, v7, :bb_value
+    goto :bb_emit
+
+    :bb_value
+    invoke-virtual {v6}, Ljava/lang/Object;->toString()Ljava/lang/String;
+    move-result-object v5
+
+    :bb_emit
+    invoke-virtual {v4, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    const-string v6, ": "
+    invoke-virtual {v4, v6}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    invoke-virtual {v4, v5}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    const-string v6, "\n"
+    invoke-virtual {v4, v6}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    add-int/lit8 v1, v1, 0x1
+    goto :bb_next
+
+    :bb_done
+    invoke-virtual {v4}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
+    move-result-object v5
+    return-object v5
 .end method
