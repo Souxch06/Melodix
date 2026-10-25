@@ -16,6 +16,10 @@
 
 .field public static nativeSessionEpoch:I
 
+# Last terminal status row painted on the Diagnostic screen; included in the
+# copied report so the export always matches what was displayed.
+.field public static diagLastReason:Ljava/lang/String;
+
 
 # instance fields
 .field public G:Landroid/webkit/WebView;
@@ -126,6 +130,19 @@
     const-string v1, "\n"
     invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
 
+    const-string v1, "Dernier état affiché: "
+    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    sget-object v2, Lcom/melodix/music/MainActivity;->diagLastReason:Ljava/lang/String;
+    if-eqz v2, :report_reason_none
+    invoke-virtual {v0, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    goto :report_reason_done
+    :report_reason_none
+    const-string v2, "message initial"
+    invoke-virtual {v0, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    :report_reason_done
+    const-string v1, "\n"
+    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
     const-string v1, "Écran courant: "
     invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
     iget-object v2, p0, Lcom/melodix/music/MainActivity;->nativeCurrentScreen:Ljava/lang/String;
@@ -193,6 +210,11 @@
     const-string v0, "diagnostic"
     invoke-virtual {p0, v0}, Lcom/melodix/music/MainActivity;->setNativeScreen(Ljava/lang/String;)V
 
+    sput-object p1, Lcom/melodix/music/MainActivity;->diagLastReason:Ljava/lang/String;
+    if-eqz p1, :diag_paint_logged
+    invoke-static {p1}, Lcom/melodix/music/DiagCounters;->event(Ljava/lang/String;)V
+    :diag_paint_logged
+
     invoke-virtual {p0}, Lcom/melodix/music/MainActivity;->buildDiagReport()Ljava/lang/String;
     move-result-object v0
 
@@ -256,16 +278,32 @@
 .end method
 
 .method public final openNativeDiag()V
-    .locals 2
+    .locals 3
 
     # Directly a real message with a native copy action — no engine required.
     const/4 v1, 0x0
     invoke-virtual {p0, v1}, Lcom/melodix/music/MainActivity;->paintDiagNative(Ljava/lang/String;)V
+
+    # Ask the WebView layer to identify itself into the native journal. If the
+    # journal later shows "js-probe bridge=..." the JS ran; if it only shows
+    # "js-probe asked", the WebView side never answered (renderer dead or JS
+    # dropped) — that alone locates the failure.
+    const-string v2, "js-probe asked"
+    invoke-static {v2}, Lcom/melodix/music/DiagCounters;->event(Ljava/lang/String;)V
+    const-string v1, "(function(){try{if(window.AndBridge&&window.AndBridge.logDiagEvent){window.AndBridge.logDiagEvent('js-probe bridge=1 started='+(window.__sfMelodixBridgeStarted===true?'1':'0')+' fetch='+(typeof window.fetchMediaItems)+' shell='+(typeof window.__sfOpenLibrary)+' path='+String((location&&location.pathname)||''));}}catch(e){}})();"
+    invoke-virtual {p0, v1}, Lcom/melodix/music/MainActivity;->runNativeJavascript(Ljava/lang/String;)V
     return-void
 .end method
 
 .method public final copyDiagAndPaint()V
     .locals 3
+
+    const-string v2, "diag-copy req"
+    invoke-static {v2}, Lcom/melodix/music/DiagCounters;->event(Ljava/lang/String;)V
+    const-string v2, "js-probe asked"
+    invoke-static {v2}, Lcom/melodix/music/DiagCounters;->event(Ljava/lang/String;)V
+    const-string v2, "(function(){try{if(window.AndBridge&&window.AndBridge.logDiagEvent){window.AndBridge.logDiagEvent('js-probe bridge=1 started='+(window.__sfMelodixBridgeStarted===true?'1':'0')+' fetch='+(typeof window.fetchMediaItems)+' shell='+(typeof window.__sfOpenLibrary)+' path='+String((location&&location.pathname)||''));}}catch(e){}})();"
+    invoke-virtual {p0, v2}, Lcom/melodix/music/MainActivity;->runNativeJavascript(Ljava/lang/String;)V
 
     invoke-virtual {p0}, Lcom/melodix/music/MainActivity;->buildDiagReport()Ljava/lang/String;
     move-result-object v1

@@ -49,12 +49,20 @@
     }
 
     function pushEvent(events, kind, detail) {
+        var safeDetail = sanitizeDetail(detail);
         events.push({
             at: isoAt(),
             kind: String(kind || '?').slice(0, 40),
-            detail: sanitizeDetail(detail)
+            detail: safeDetail
         });
         if (events.length > MAX_EVENTS) events.splice(0, events.length - MAX_EVENTS);
+        // Mirror into the bounded native journal so the copied report contains
+        // the real engine steps even when the JS screen is gone.
+        try {
+            if (window.AndBridge && typeof window.AndBridge.logDiagEvent === 'function') {
+                window.AndBridge.logDiagEvent('moteur: ' + String(kind || '?').slice(0, 40) + ' ' + safeDetail);
+            }
+        } catch (e) {}
     }
 
     // ---------------------------------------------------------------------------

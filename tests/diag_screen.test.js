@@ -254,8 +254,11 @@ t('native-first: opening the screen paints a real message without any JS', () =>
     const openAt = main.indexOf('.method public final openNativeDiag()V');
     const open = main.slice(openAt, main.indexOf('.end method', openAt));
     assert.ok(open.includes('paintDiagNative'), 'open delegates to the native painter');
-    assert.ok(!open.includes('runNativeJavascript'), 'open must not depend on JS');
+    // The only JS on open is the self-identification probe (journal enricher);
+    // painting and copying never need it.
     assert.ok(!open.includes('diag_engine.js'), 'open must not inject the engine');
+    assert.ok(open.indexOf('paintDiagNative') < open.indexOf('runNativeJavascript'),
+        'native paint happens before any JS');
 
     const paintAt = main.indexOf('.method public final paintDiagNative');
     const paint = main.slice(paintAt, main.indexOf('.end method', paintAt));
@@ -270,8 +273,11 @@ t('copy is pure native (ClipboardManager) and never requires the engine', () => 
     const copyAt = main.indexOf('.method public final copyDiagAndPaint');
     const copy = main.slice(copyAt, main.indexOf('.end method', copyAt));
     assert.ok(copy.includes('copyToClipboardStatic'), 'uses the native clipboard helper');
-    assert.ok(!copy.includes('runNativeJavascript'), 'no JS in the copy path');
+    assert.ok(copy.includes('buildDiagReport'), 'report built natively');
+    // The copy may refresh the JS self-probe (journal enricher) but must never
+    // depend on the engine to build or deliver the report.
     assert.ok(!copy.includes('__sfDiagAction'), 'no engine in the copy path');
+    assert.ok(!copy.includes('diag_engine.js'), 'no engine asset in the copy path');
     assert.ok(copy.includes('Message copié'), 'terminal success feedback');
     assert.ok(copy.includes('Copie impossible'), 'terminal failure feedback');
 
@@ -284,7 +290,7 @@ t('copy is pure native (ClipboardManager) and never requires the engine', () => 
     const exportAt = main.indexOf('.method public final copyDiagExportAndPaint');
     const exp = main.slice(exportAt, main.indexOf('.end method', exportAt));
     assert.ok(exp.includes('countersJson'), 'JSON export carries the counters');
-    assert.ok(!exp.includes('runNativeJavascript'), 'no JS in the export path');
+    assert.ok(!exp.includes('__sfDiagAction'), 'no engine in the export path');
 });
 
 t('engine runs are bounded: asset-robust read + watchdog terminal fallback', () => {
@@ -307,6 +313,53 @@ t('engine runs are bounded: asset-robust read + watchdog terminal fallback', () 
     const applyEnd = main.indexOf('.end method', applyAt);
     const checkDiag = main.slice(main.indexOf(':check_diag', applyAt), applyEnd);
     assert.ok(checkDiag.includes('DiagWatchdog;->disarm()V'), 'report arrival disarms the watchdog');
+});
+
+t('copied report matches the screen: last displayed status + native journal', () => {
+    // The copy must carry what was DISPLAYED (terminal status rows) and the
+    // bounded native journal — otherwise the export cannot explain the screen.
+    assert.ok(main.includes('diagLastReason'), 'last status stored');
+    const repAt = main.indexOf('.method public final buildDiagReport');
+    const rep = main.slice(repAt, main.indexOf('.end method', repAt));
+    assert.ok(rep.includes('Dernier état affiché'), 'report includes the displayed status');
+    assert.ok(rep.includes('diagLastReason'), 'reads the stored status');
+    const paintAt = main.indexOf('.method public final paintDiagNative');
+    const paint = main.slice(paintAt, main.indexOf('.end method', paintAt));
+    assert.ok(paint.includes('sput-object p1, Lcom/melodix/music/MainActivity;->diagLastReason'),
+        'paint stores the status it displays');
+});
+
+t('JS self-identification probe: journal distinguishes dead WebView from missing bridge', () => {
+    // "js-probe asked" is logged natively before the probe runs; the WebView
+    // answers with "js-probe bridge=1 started=... fetch=... shell=... path=...".
+    // asked-without-answer = the WebView layer never executes JS.
+    const bridge = read('smali/com/melodix/music/AndBridge.smali');
+    assert.ok(/\.method public final logDiagEvent\(Ljava\/lang\/String;\)V/.test(bridge), 'logDiagEvent JS API');
+    const logAt = bridge.indexOf('logDiagEvent(Ljava/lang/String;)V');
+    const log = bridge.slice(bridge.lastIndexOf('.method', logAt), bridge.indexOf('.end method', logAt));
+    assert.ok(log.includes('JavascriptInterface'), 'reachable from JS');
+    assert.ok(log.includes('DiagCounters;->event'), 'feeds the native journal');
+
+    const openAt = main.indexOf('.method public final openNativeDiag()V');
+    const open = main.slice(openAt, main.indexOf('.end method', openAt));
+    assert.ok(open.includes('js-probe asked'), 'probe ask is journaled natively');
+    assert.ok(open.includes('js-probe bridge=1 started='), 'probe reports bridge state');
+    assert.ok(open.includes('__sfMelodixBridgeStarted'), 'probe reports the playback bridge');
+    assert.ok(open.includes('typeof window.fetchMediaItems'), 'probe reports fetchMediaItems');
+    assert.ok(open.includes('runNativeJavascript'), 'probe actually runs');
+
+    const copyAt = main.indexOf('.method public final copyDiagAndPaint');
+    const copy = main.slice(copyAt, main.indexOf('.end method', copyAt));
+    assert.ok(copy.includes('js-probe asked'), 'copy refreshes the probe');
+    assert.ok(copy.includes('diag-copy req'), 'copy asks are journaled');
+});
+
+t('engine steps mirror into the native journal (report keeps engine results)', () => {
+    assert.ok(engineSrc.includes('window.AndBridge.logDiagEvent'), 'engine mirrors events natively');
+    assert.ok(engineSrc.includes("'moteur: '"), 'mirrored entries are tagged');
+    const i = engineSrc.indexOf('function pushEvent');
+    const fn = engineSrc.slice(i, engineSrc.indexOf('\n    }', i));
+    assert.ok(fn.includes('logDiagEvent'), 'pushEvent is the single mirror point');
 });
 
 t('native message carries real state and stays free of personal data', () => {

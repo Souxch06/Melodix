@@ -3386,3 +3386,16 @@
     const/4 v0, 0x0
     return v0
 .end method
+
+.method public final logDiagEvent(Ljava/lang/String;)V
+    .locals 1
+    .annotation runtime Landroid/webkit/JavascriptInterface;
+    .end annotation
+
+    if-eqz p1, :log_event_done
+
+    invoke-static {p1}, Lcom/melodix/music/DiagCounters;->event(Ljava/lang/String;)V
+
+    :log_event_done
+    return-void
+.end method
