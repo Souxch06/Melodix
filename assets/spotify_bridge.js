@@ -4164,6 +4164,65 @@ try {
         setInterval(libSelfStartTick, 1500);
     } catch (_) {}
 
+    // =========================================================================
+    // COMMAND QUEUE: the page polls AndBridge.pollCommands() and executes what
+    // comes back. This REPLACES native->JS (evaluateJavascript) for commands,
+    // which can be dead on a real device. Only whitelisted functions are ever
+    // called; the interval is short while commands are pending or the native
+    // UI is visible, longer otherwise.
+    // =========================================================================
+    var CMD_POLL_FAST = 400;
+    var CMD_POLL_BASE = 1200;
+    var CMD_POLL_SLOW = 4000;
+    var CMD_FNS = [
+        '__sfOpenCollection', '__sfOpenLibrary', '__sfOpenLibraryCategory',
+        'checkMediaLib', 'fetchMediaItems', 'searchMediaItems',
+        '__sfToggleSpotifySetting', '__sfRequestSpotifySettings',
+        '__sfRequestQueue', '__sfNativeRequestHome', '__sfNativeOpenUri',
+        '__sfSkip', '__sfToggleShuffle', '__sfToggleRepeat', '__sfTogglePlayback',
+        '__sfMarkUserPlaybackIntent', '__sfSeekFraction'
+    ];
+    var cmdPollBusy = 0;
+
+    function execCommand(cmd) {
+        try {
+            if (!cmd || typeof cmd !== 'object') return;
+            var fn = String(cmd.fn || '');
+            var arg = cmd.arg == null ? '' : String(cmd.arg);
+            if (CMD_FNS.indexOf(fn) < 0) return;
+            var target = window[fn];
+            if (typeof target === 'function') target(arg);
+        } catch (_) {}
+    }
+    window.__sfExecCommand = execCommand;
+
+    function pollCommandsTick() {
+        var delay = CMD_POLL_BASE;
+        try {
+            if (window.AndBridge && typeof window.AndBridge.pollCommands === 'function') {
+                var raw = window.AndBridge.pollCommands();
+                var res = (typeof raw === 'string' && raw) ? JSON.parse(raw) : null;
+                var cmds = res && Array.isArray(res.cmds) ? res.cmds : [];
+                var ui = res && res.ui ? String(res.ui) : '';
+                cmds.slice(0, 8).forEach(execCommand);
+                if (cmds.length) cmdPollBusy = 5;
+                if (cmdPollBusy > 0) {
+                    cmdPollBusy -= 1;
+                    delay = CMD_POLL_FAST;
+                } else if (ui || (typeof document === 'undefined' || document.visibilityState === 'visible')) {
+                    delay = CMD_POLL_BASE;
+                } else {
+                    delay = CMD_POLL_SLOW;
+                }
+            }
+        } catch (_) {}
+        try { setTimeout(pollCommandsTick, delay); } catch (_) {}
+    }
+    window.__sfPollCommandsTick = pollCommandsTick;
+    try {
+        setTimeout(pollCommandsTick, 600);
+    } catch (_) {}
+
     async function fetchAllLibrary() {
         if (!window.spotAuthToken || !window.spotAuthToken.startsWith('Bearer ')) {
             console.warn("[Spotifuck] fetchAllLibrary: Authorization token not ready.");

@@ -904,3 +904,38 @@ test('the page starts checkMediaLib by itself once the token is ready', async ()
     sandbox.__sfLibSelfStartTick();
     assert.equal(calls.length, 1, 'bounded retry rate');
 });
+
+test('the page polls the native command queue and executes only whitelisted commands', () => {
+    const harness = createBridgeVm();
+    const { sandbox } = harness;
+    assert.equal(typeof sandbox.__sfPollCommandsTick, 'function', 'poll tick exists');
+    assert.equal(typeof sandbox.__sfExecCommand, 'function', 'executor exists');
+
+    let evilCalled = 0;
+    sandbox.evilFunction = () => { evilCalled += 1; };
+    let opened = null;
+    sandbox.__sfOpenCollection = (arg) => { opened = String(arg); };
+    const libCalls = [];
+    sandbox.checkMediaLib = (arg) => { libCalls.push(String(arg)); };
+
+    sandbox.window.AndBridge.pollCommands = () => JSON.stringify({
+        ui: 'library',
+        cmds: [
+            { fn: 'checkMediaLib', arg: '1' },
+            { fn: 'evilFunction', arg: 'x' },
+            { fn: '__sfOpenCollection', arg: 'spotify:playlist:abc' },
+            { fn: 'eval', arg: 'alert(1)' }
+        ]
+    });
+
+    sandbox.__sfPollCommandsTick();
+
+    assert.equal(libCalls.length, 1, 'whitelisted command executed');
+    assert.equal(opened, 'spotify:playlist:abc', 'collection opened through the queue');
+    assert.equal(evilCalled, 0, 'non-whitelisted command NEVER executes');
+
+    // Malformed payloads never throw nor execute anything.
+    sandbox.window.AndBridge.pollCommands = () => '{"cmds":[{"fn":"__proto__","arg":"x"}]}';
+    sandbox.__sfPollCommandsTick();
+    assert.equal(evilCalled, 0, 'prototype tricks refused');
+});

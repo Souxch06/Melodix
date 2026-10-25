@@ -7,6 +7,12 @@
 .field public final a:Landroid/content/Context;
 .field private final bridgeEpoch:I
 
+# Command queue polled by the page (AndBridge.pollCommands): replaces the
+# dead native->JS channel for user commands. Bounded, JSON-safe, never
+# carries secrets — only whitelisted function names and their arguments.
+.field private static cmdFns:Ljava/util/ArrayList;
+.field private static cmdArgs:Ljava/util/ArrayList;
+
 
 # direct methods
 .method public constructor <init>(Landroid/content/Context;)V
@@ -3432,4 +3438,187 @@
 
     :libdiag_done
     return-void
+.end method
+
+.method static constructor <clinit>()V
+    .locals 1
+
+    new-instance v0, Ljava/util/ArrayList;
+    invoke-direct {v0}, Ljava/util/ArrayList;-><init>()V
+    sput-object v0, Lcom/melodix/music/AndBridge;->cmdFns:Ljava/util/ArrayList;
+
+    new-instance v0, Ljava/util/ArrayList;
+    invoke-direct {v0}, Ljava/util/ArrayList;-><init>()V
+    sput-object v0, Lcom/melodix/music/AndBridge;->cmdArgs:Ljava/util/ArrayList;
+
+    return-void
+.end method
+
+.method public static isSafeFn(Ljava/lang/String;)Z
+    .locals 2
+
+    if-eqz p0, :no
+
+    const-string v0, "[A-Za-z_][A-Za-z0-9_]{0,48}"
+    invoke-virtual {p0, v0}, Ljava/lang/String;->matches(Ljava/lang/String;)Z
+    move-result v1
+    if-eqz v1, :no
+
+    :yes
+    const/4 v0, 0x1
+    return v0
+
+    :no
+    const/4 v0, 0x0
+    return v0
+.end method
+
+.method public static declared-synchronized queueCommand(Ljava/lang/String;Ljava/lang/String;)V
+    .locals 3
+
+    if-eqz p0, :done
+
+    invoke-static {p0}, Lcom/melodix/music/AndBridge;->isSafeFn(Ljava/lang/String;)Z
+    move-result v0
+    if-eqz v0, :done
+
+    sget-object v0, Lcom/melodix/music/AndBridge;->cmdFns:Ljava/util/ArrayList;
+    if-eqz v0, :done
+
+    # Bounded queue: 32 pending commands max (oldest dropped first).
+    invoke-virtual {v0}, Ljava/util/ArrayList;->size()I
+    move-result v1
+    const/16 v2, 0x20
+    if-ge v1, v2, :drop_oldest
+    goto :enqueue
+
+    :drop_oldest
+    const/4 v1, 0x0
+    invoke-virtual {v0, v1}, Ljava/util/ArrayList;->remove(I)Ljava/lang/Object;
+    sget-object v0, Lcom/melodix/music/AndBridge;->cmdArgs:Ljava/util/ArrayList;
+    invoke-virtual {v0, v1}, Ljava/util/ArrayList;->remove(I)Ljava/lang/Object;
+
+    :enqueue
+    sget-object v0, Lcom/melodix/music/AndBridge;->cmdFns:Ljava/util/ArrayList;
+    invoke-virtual {v0, p0}, Ljava/util/ArrayList;->add(Ljava/lang/Object;)Z
+
+    sget-object v0, Lcom/melodix/music/AndBridge;->cmdArgs:Ljava/util/ArrayList;
+    if-eqz p1, :arg_empty
+    invoke-virtual {v0, p1}, Ljava/util/ArrayList;->add(Ljava/lang/Object;)Z
+    goto :done
+
+    :arg_empty
+    const-string v1, ""
+    invoke-virtual {v0, v1}, Ljava/util/ArrayList;->add(Ljava/lang/Object;)Z
+
+    :done
+    return-void
+.end method
+
+.method public final declared-synchronized pollCommands()Ljava/lang/String;
+    .locals 8
+    .annotation runtime Landroid/webkit/JavascriptInterface;
+    .end annotation
+
+    # Synchronous: the page polls this and executes what comes back. The
+    # response also tells the page which native screen is showing ("ui") so it
+    # can shorten its polling interval while the native UI is visible.
+
+    :try_start_p
+    new-instance v0, Ljava/lang/StringBuilder;
+    invoke-direct {v0}, Ljava/lang/StringBuilder;-><init>()V
+    const-string v1, "{\"ui\":"
+    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    const/4 v1, 0x0
+    sget-object v2, Lcom/melodix/music/AppSingleton;->t:Ljava/lang/ref/WeakReference;
+    if-eqz v2, :ui_null
+    invoke-virtual {v2}, Ljava/lang/ref/Reference;->get()Ljava/lang/Object;
+    move-result-object v2
+    check-cast v2, Lcom/melodix/music/MainActivity;
+    if-eqz v2, :ui_null
+    iget-object v2, v2, Lcom/melodix/music/MainActivity;->nativeCurrentScreen:Ljava/lang/String;
+    move-object v1, v2
+
+    :ui_null
+    if-eqz v1, :ui_empty
+    invoke-static {v1}, Lorg/json/JSONObject;->quote(Ljava/lang/String;)Ljava/lang/String;
+    move-result-object v2
+    invoke-virtual {v0, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    goto :ui_done
+
+    :ui_empty
+    const-string v2, "\"\""
+    invoke-virtual {v0, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    :ui_done
+    const-string v2, ",\"cmds\":["
+    invoke-virtual {v0, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    sget-object v2, Lcom/melodix/music/AndBridge;->cmdFns:Ljava/util/ArrayList;
+    if-eqz v2, :cmds_done
+    sget-object v3, Lcom/melodix/music/AndBridge;->cmdArgs:Ljava/util/ArrayList;
+    if-eqz v3, :cmds_done
+
+    const/4 v4, 0x0
+
+    :drain
+    invoke-virtual {v2}, Ljava/util/ArrayList;->size()I
+    move-result v5
+    if-eqz v5, :cmds_done
+    const/4 v5, 0x4
+    if-lt v4, v5, :cmds_done
+
+    const/4 v5, 0x0
+    invoke-virtual {v2, v5}, Ljava/util/ArrayList;->remove(I)Ljava/lang/Object;
+    move-result-object v5
+    check-cast v5, Ljava/lang/String;
+    const/4 v6, 0x0
+    invoke-virtual {v3, v6}, Ljava/util/ArrayList;->remove(I)Ljava/lang/Object;
+    move-result-object v6
+    check-cast v6, Ljava/lang/String;
+
+    if-eqz v4, :no_comma
+    const-string v7, ","
+    invoke-virtual {v0, v7}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    :no_comma
+    const-string v7, "{\"fn\":"
+    invoke-virtual {v0, v7}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    invoke-static {v5}, Lorg/json/JSONObject;->quote(Ljava/lang/String;)Ljava/lang/String;
+    move-result-object v7
+    invoke-virtual {v0, v7}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    const-string v7, ",\"arg\":"
+    invoke-virtual {v0, v7}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    if-eqz v6, :arg_q
+    invoke-static {v6}, Lorg/json/JSONObject;->quote(Ljava/lang/String;)Ljava/lang/String;
+    move-result-object v7
+    goto :arg_q_done
+
+    :arg_q
+    const-string v7, "\"\""
+
+    :arg_q_done
+    invoke-virtual {v0, v7}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    const-string v7, "}"
+    invoke-virtual {v0, v7}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    add-int/lit8 v4, v4, 0x1
+    goto :drain
+
+    :cmds_done
+    const-string v7, "]}"
+    invoke-virtual {v0, v7}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    invoke-virtual {v0}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
+    move-result-object v7
+    :try_end_p
+    .catch Ljava/lang/Throwable; {:try_start_p .. :try_end_p} :catch_p
+
+    return-object v7
+
+    :catch_p
+    move-exception v7
+    const-string v0, "{\"ui\":\"\",\"cmds\":[]}"
+    return-object v0
 .end method

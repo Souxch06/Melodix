@@ -81,3 +81,40 @@ test('the Library screen paints the cached list first, then the loading state', 
     const app = read('smali/com/melodix/music/AppSingleton.smali');
     assert.ok(app.includes('NativeLibCache;->install'), 'context installed at startup');
 });
+
+// ---------------------------------------------------------------------------
+// Change 2 — the native command queue polled by the page replaces native->JS
+// for user commands (evaluateJavascript kept as the secondary path).
+// ---------------------------------------------------------------------------
+
+test('AndBridge exposes a bounded command queue polled by the page', () => {
+    const bridge = read('smali/com/melodix/music/AndBridge.smali');
+    const poll = bridge.indexOf('.method public final declared-synchronized pollCommands');
+    assert.ok(poll !== -1, 'pollCommands entry point');
+    const pm = bridge.slice(poll, bridge.indexOf('.end method', poll));
+    assert.ok(pm.includes('JavascriptInterface'), 'synchronous JS-callable poll');
+    assert.ok(pm.includes('\\"cmds\\"'), 'returns pending commands');
+    assert.ok(pm.includes('\\"ui\\"'), 'tells the page when the native UI is visible');
+
+    const q = bridge.indexOf('.method public static declared-synchronized queueCommand');
+    const qm = bridge.slice(q, bridge.indexOf('.end method', q));
+    assert.ok(qm.includes('0x20'), 'bounded queue (32 pending max)');
+    assert.ok(bridge.includes('isSafeFn'), 'function names validated natively too');
+    assert.ok(bridge.includes('[A-Za-z_][A-Za-z0-9_]{0,48}'), 'strict name charset');
+});
+
+test('existing native commands go through the queue (evaluateJavascript stays secondary)', () => {
+    const main = read('smali/com/melodix/music/MainActivity.smali');
+    const queued = (fn) => main.split('AndBridge;->queueCommand').length - 1;
+    assert.ok(queued() >= 5, 'several command paths are queued');
+
+    const retry = main.indexOf('"spotify:retry:media:"');
+    const retryBlock = main.slice(retry, main.indexOf(':native_row_not_lib_retry', retry));
+    assert.ok(retryBlock.includes('queueCommand'), 'spotify:retry:media: queued');
+    assert.ok(retryBlock.includes('runNativeFunction'), 'evaluateJavascript kept as secondary');
+
+    assert.ok(/"__sfOpenCollection"\s*\n\s*invoke-static/.test(main), 'collection opens queued');
+    assert.ok(main.includes('"__sfOpenLibrary"\n'), 'library open queued');
+    assert.ok(main.includes('"__sfToggleSpotifySetting"'), 'settings toggles queued');
+    assert.ok(main.includes('"__sfOpenLibraryCategory"'), 'category clicks queued');
+});

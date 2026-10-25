@@ -9345,6 +9345,9 @@
     :lib_fetch
     const-string v0, "window.__sfOpenLibrary && window.__sfOpenLibrary()"
     invoke-virtual {p0, v0}, Lcom/melodix/music/MainActivity;->runNativeJavascript(Ljava/lang/String;)V
+    const-string v0, "__sfOpenLibrary"
+    const-string v1, ""
+    invoke-static {v0, v1}, Lcom/melodix/music/AndBridge;->queueCommand(Ljava/lang/String;Ljava/lang/String;)V
     :try_end_lib
     .catch Ljava/lang/Throwable; {:try_start_lib .. :try_end_lib} :catch_lib
 
@@ -9386,6 +9389,8 @@
     :native_library_category_fetch
     const-string v1, "window.__sfOpenLibraryCategory"
     invoke-virtual {p0, v1, v0}, Lcom/melodix/music/MainActivity;->runNativeFunction(Ljava/lang/String;Ljava/lang/String;)V
+    const-string v1, "__sfOpenLibraryCategory"
+    invoke-static {v1, v0}, Lcom/melodix/music/AndBridge;->queueCommand(Ljava/lang/String;Ljava/lang/String;)V
 
     :native_library_category_done
     return-void
@@ -9582,6 +9587,8 @@
     invoke-virtual {p0, v2, v4}, Lcom/melodix/music/MainActivity;->renderNativeRows(Ljava/lang/String;Ljava/lang/String;)V
     const-string v2, "window.fetchMediaItems"
     invoke-virtual {p0, v2, v3}, Lcom/melodix/music/MainActivity;->runNativeFunction(Ljava/lang/String;Ljava/lang/String;)V
+    const-string v2, "fetchMediaItems"
+    invoke-static {v2, v3}, Lcom/melodix/music/AndBridge;->queueCommand(Ljava/lang/String;Ljava/lang/String;)V
     return-void
 
     :native_row_not_retry
@@ -9592,6 +9599,8 @@
     if-eqz v3, :native_row_check_diag
     const-string v2, "window.__sfToggleSpotifySetting"
     invoke-virtual {p0, v2, p1}, Lcom/melodix/music/MainActivity;->runNativeFunction(Ljava/lang/String;Ljava/lang/String;)V
+    const-string v2, "__sfToggleSpotifySetting"
+    invoke-static {v2, p1}, Lcom/melodix/music/AndBridge;->queueCommand(Ljava/lang/String;Ljava/lang/String;)V
     return-void
 
     :native_row_check_diag
@@ -9715,11 +9724,16 @@
     invoke-virtual {p0, v3, v2}, Lcom/melodix/music/MainActivity;->renderNativeRows(Ljava/lang/String;Ljava/lang/String;)V
     const-string v1, "window.__sfOpenCollection"
     invoke-virtual {p0, v1, p1}, Lcom/melodix/music/MainActivity;->runNativeFunction(Ljava/lang/String;Ljava/lang/String;)V
+    const-string v1, "__sfOpenCollection"
+    invoke-static {v1, p1}, Lcom/melodix/music/AndBridge;->queueCommand(Ljava/lang/String;Ljava/lang/String;)V
     goto :native_row_click_done
 
     :native_open_single
     const-string v1, "window.__sfNativeOpenUri"
     invoke-virtual {p0, v1, p1}, Lcom/melodix/music/MainActivity;->runNativeFunction(Ljava/lang/String;Ljava/lang/String;)V
+    const-string v1, "__sfNativeOpenUri"
+    invoke-static {v1, p1}, Lcom/melodix/music/AndBridge;->queueCommand(Ljava/lang/String;Ljava/lang/String;)V
+    goto :native_row_click_done
 
     :native_row_click_done
     return-void
