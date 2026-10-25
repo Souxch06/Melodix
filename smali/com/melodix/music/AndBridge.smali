@@ -3567,7 +3567,7 @@
     move-result v5
     if-eqz v5, :cmds_done
     const/4 v5, 0x4
-    if-lt v4, v5, :cmds_done
+    if-ge v4, v5, :cmds_done
 
     const/4 v5, 0x0
     invoke-virtual {v2, v5}, Ljava/util/ArrayList;->remove(I)Ljava/lang/Object;
