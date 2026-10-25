@@ -380,3 +380,14 @@ Le rapport n° 7 établit : `js-cb tgt 20436320 == page-start #20436320` (la cib
 3. **UI honnête** : Bibliothèque sans cache = « Chargement… » borné à 10 s, puis « Bibliothèque indisponible » + bouton **« Réessayer »** (`spotify:lib:retry`) — jamais « aucune playlist » sans compte vide confirmé.
 
 Lecture du prochain rapport : `js-cb <id> post-page String "1"` = la livraison fonctionne au chargement ; absent + `js-cb tmo … ans 0` = livraison morte ; `wv-state` hors norme (att=0, vis=8, alpha=0, size=0x0) = WebView invisible/occultée ; `page-alive` présent mais `js-cb` absent = la page vit pendant que le sens natif→JS reste muet ; `device wv=…` croisé avec l'hypothèse version.
+
+## 30. Mission « faire apparaître les playlists » (changements réels) — le modèle « la page pousse »
+
+Stop aux diagnostics : le canal natif→JS étant mort sur l'appareil, la solution **n'en dépend plus**. Quatre changements, un commit chacun :
+
+1. `285c43e` — **la page pousse la bibliothèque** : `checkMediaLib` auto-déclenché (jeton prêt + reprises bornées) ; lots de 25 ({title, subtitle, uri, image}) via `AndBridge.onMediaLibBatch` ; `NativeLibCache` valide (URI 22 alphanum, image https) et persiste `lib_cache_<cat>`/`lib_cache_at_<cat>` (prefs `melodix_native`) ; l'écran Bibliothèque peint **le cache « à jour il y a X »** puis la version fraîche ; une erreur ne vide jamais le cache ; vide confirmé = « Aucune playlist ».
+2. `40f0298` — **file de commandes** `AndBridge.pollCommands()` (synchrone, bornée 32, liste blanche double) sondée par la page (intervalle court si commande en attente ou UI native visible) ; toutes les actions natives passent par la file, `evaluateJavascript` reste secondaire.
+3. `4643955` — **ouverture de playlist sans natif→JS** : `loadUrl("javascript:…")` (sans rechargement) puis repli 6 s `loadUrl("https://open.spotify.com/playlist/<id>")` strictement validé (URI 22 alphanum uniquement, garde d'hôte).
+4. `3f15709` — **états honnêtes** : « Connecte-toi à Spotify » + « Se connecter » (URL fixe) quand le jeton manque ; « Aucune playlist » seulement si vide confirmé ; erreur + « Réessayer » sinon ; échec GraphQL = « La requête Spotify refusée ou modifiée (libraryV3) ».
+
+Tests : +15 contrats (chacun échoue sans son changement) ; suite verte ; CFG Dalvik verte (VerifyError de registre attrapé par `audit_remediation` et corrigé avant tout commit) ; CI verte sur `3f15709e9c56d6b14b04adba77f2c6a49e4063d0`. Non vérifié : téléphone réel, compte Spotify réel — les playlists ne sont pas déclarées corrigées sans essai réel.
