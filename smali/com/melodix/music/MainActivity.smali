@@ -9589,6 +9589,7 @@
     invoke-virtual {p0, v2, v3}, Lcom/melodix/music/MainActivity;->runNativeFunction(Ljava/lang/String;Ljava/lang/String;)V
     const-string v2, "fetchMediaItems"
     invoke-static {v2, v3}, Lcom/melodix/music/AndBridge;->queueCommand(Ljava/lang/String;Ljava/lang/String;)V
+    invoke-virtual {p0, v2, v3}, Lcom/melodix/music/MainActivity;->runNativeFunctionSecondary(Ljava/lang/String;Ljava/lang/String;)V
     return-void
 
     :native_row_not_retry
@@ -9726,6 +9727,15 @@
     invoke-virtual {p0, v1, p1}, Lcom/melodix/music/MainActivity;->runNativeFunction(Ljava/lang/String;Ljava/lang/String;)V
     const-string v1, "__sfOpenCollection"
     invoke-static {v1, p1}, Lcom/melodix/music/AndBridge;->queueCommand(Ljava/lang/String;Ljava/lang/String;)V
+    const-string v1, "__sfOpenCollection"
+    invoke-virtual {p0, v1, p1}, Lcom/melodix/music/MainActivity;->runNativeFunctionSecondary(Ljava/lang/String;Ljava/lang/String;)V
+    if-eqz p1, :collection_no_fallback
+    const-string v1, "spotify:playlist:[A-Za-z0-9]{22}"
+    invoke-virtual {p1, v1}, Ljava/lang/String;->matches(Ljava/lang/String;)Z
+    move-result v1
+    if-eqz v1, :collection_no_fallback
+    invoke-static {p0, p1}, Lcom/melodix/music/LibOpenFallback;->arm(Lcom/melodix/music/MainActivity;Ljava/lang/String;)V
+    :collection_no_fallback
     goto :native_row_click_done
 
     :native_open_single
@@ -9736,6 +9746,140 @@
     goto :native_row_click_done
 
     :native_row_click_done
+    return-void
+.end method
+
+.method public final runNativeFunctionSecondary(Ljava/lang/String;Ljava/lang/String;)V
+    .locals 5
+
+    # Alternative command channel: loadUrl("javascript:...") executes in the
+    # live page WITHOUT reloading it, and can work on devices where
+    # evaluateJavascript delivery is dead. Function names are validated; the
+    # argument is JSON-quoted (never interpolated raw).
+    if-eqz p1, :sec_done
+
+    invoke-static {p1}, Lcom/melodix/music/AndBridge;->isSafeFn(Ljava/lang/String;)Z
+    move-result v0
+    if-eqz v0, :sec_done
+
+    invoke-static {}, Lcom/melodix/music/DiagCounters;->getPageView()Landroid/webkit/WebView;
+    move-result-object v0
+    if-eqz v0, :sec_try_activity
+    goto :sec_have_wv
+
+    :sec_try_activity
+    iget-object v0, p0, Lcom/melodix/music/MainActivity;->G:Landroid/webkit/WebView;
+    if-eqz v0, :sec_try_singleton
+    goto :sec_have_wv
+
+    :sec_try_singleton
+    sget-object v0, Lcom/melodix/music/AppSingleton;->w:Ll9;
+    if-eqz v0, :sec_done
+
+    :sec_have_wv
+    :try_start_sec
+    new-instance v1, Ljava/lang/StringBuilder;
+    invoke-direct {v1}, Ljava/lang/StringBuilder;-><init>()V
+    const-string v2, "(function(){try{window."
+    invoke-virtual {v1, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    invoke-virtual {v1, p1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    const-string v2, "&&window."
+    invoke-virtual {v1, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    invoke-virtual {v1, p1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    const-string v2, "("
+    invoke-virtual {v1, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    invoke-static {p2}, Lorg/json/JSONObject;->quote(Ljava/lang/String;)Ljava/lang/String;
+    move-result-object v2
+    invoke-virtual {v1, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    const-string v2, ");}catch(e){}})();"
+    invoke-virtual {v1, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    invoke-virtual {v1}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
+    move-result-object v1
+
+    new-instance v2, Ljava/lang/StringBuilder;
+    invoke-direct {v2}, Ljava/lang/StringBuilder;-><init>()V
+    const-string v3, "javascript:"
+    invoke-virtual {v2, v3}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    invoke-virtual {v2, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    invoke-virtual {v2}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
+    move-result-object v1
+
+    invoke-virtual {v0, v1}, Landroid/webkit/WebView;->loadUrl(Ljava/lang/String;)V
+    :try_end_sec
+    .catch Ljava/lang/Throwable; {:try_start_sec .. :try_end_sec} :catch_sec
+
+    :sec_done
+    return-void
+
+    :catch_sec
+    move-exception v0
+    invoke-static {v0}, Lcom/melodix/music/NativeCrashGuard;->record(Ljava/lang/Throwable;)V
+    return-void
+.end method
+
+.method public final openPlaylistFallback(Ljava/lang/String;)V
+    .locals 5
+
+    # Last-resort playlist opening WITHOUT native->JS: navigate the WebView to
+    # the playlist page. ONLY spotify:playlist:<22 alnum> URIs are accepted and
+    # the URL is rebuilt from the validated id alone — no other URL is ever
+    # constructed or loaded here.
+    if-eqz p1, :fb_done
+
+    const-string v0, "spotify:playlist:[A-Za-z0-9]{22}"
+    invoke-virtual {p1, v0}, Ljava/lang/String;->matches(Ljava/lang/String;)Z
+    move-result v0
+    if-eqz v0, :fb_done
+
+    const/16 v0, 0x11
+    invoke-virtual {p1, v0}, Ljava/lang/String;->substring(I)Ljava/lang/String;
+    move-result-object v0
+
+    new-instance v1, Ljava/lang/StringBuilder;
+    invoke-direct {v1}, Ljava/lang/StringBuilder;-><init>()V
+    const-string v2, "https://open.spotify.com/playlist/"
+    invoke-virtual {v1, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    invoke-virtual {v1, v0}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    invoke-virtual {v1}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
+    move-result-object v0
+
+    # Belt and braces: the rebuilt URL must pass the existing Spotify-host
+    # allowlist before any load happens.
+    invoke-static {v0}, Lcom/melodix/music/NativeFetchGuard;->parseAllowedUrl(Ljava/lang/String;)Ljava/net/URL;
+    move-result-object v1
+    if-eqz v1, :fb_done
+    invoke-virtual {v1}, Ljava/net/URL;->getHost()Ljava/lang/String;
+    move-result-object v1
+    invoke-static {v1}, Lcom/melodix/music/NativeFetchGuard;->isSpotifyAuthHost(Ljava/lang/String;)Z
+    move-result v1
+    if-eqz v1, :fb_done
+
+    invoke-static {}, Lcom/melodix/music/DiagCounters;->getPageView()Landroid/webkit/WebView;
+    move-result-object v1
+    if-eqz v1, :fb_try_activity
+    goto :fb_have_wv
+
+    :fb_try_activity
+    iget-object v1, p0, Lcom/melodix/music/MainActivity;->G:Landroid/webkit/WebView;
+    if-eqz v1, :fb_try_singleton
+    goto :fb_have_wv
+
+    :fb_try_singleton
+    sget-object v1, Lcom/melodix/music/AppSingleton;->w:Ll9;
+    if-eqz v1, :fb_done
+
+    :fb_have_wv
+    :try_start_fb
+    invoke-virtual {v1, v0}, Landroid/webkit/WebView;->loadUrl(Ljava/lang/String;)V
+    :try_end_fb
+    .catch Ljava/lang/Throwable; {:try_start_fb .. :try_end_fb} :catch_fb
+
+    :fb_done
+    return-void
+
+    :catch_fb
+    move-exception v0
+    invoke-static {v0}, Lcom/melodix/music/NativeCrashGuard;->record(Ljava/lang/Throwable;)V
     return-void
 .end method
 

@@ -118,3 +118,49 @@ test('existing native commands go through the queue (evaluateJavascript stays se
     assert.ok(main.includes('"__sfToggleSpotifySetting"'), 'settings toggles queued');
     assert.ok(main.includes('"__sfOpenLibraryCategory"'), 'category clicks queued');
 });
+
+// ---------------------------------------------------------------------------
+// Change 3 — a playlist opens without native->JS: command queue, then the
+// loadUrl("javascript:...") channel (no reload), then a strictly validated
+// loadUrl("https://open.spotify.com/playlist/<22id>") fallback.
+// ---------------------------------------------------------------------------
+
+test('a secondary loadUrl("javascript:...") channel exists and never interpolates raw args', () => {
+    const main = read('smali/com/melodix/music/MainActivity.smali');
+    const at = main.indexOf('.method public final runNativeFunctionSecondary');
+    assert.ok(at !== -1, 'secondary channel exists');
+    const m = main.slice(at, main.indexOf('.end method', at));
+    assert.ok(m.includes('"javascript:"'), 'loadUrl javascript: channel (no page reload)');
+    assert.ok(m.includes('loadUrl'), 'sent through the WebView');
+    assert.ok(m.includes('AndBridge;->isSafeFn'), 'function names validated');
+    assert.ok(m.includes('JSONObject;->quote'), 'arguments JSON-quoted, never interpolated raw');
+    // No raw string concatenation of the argument into the JS source.
+    assert.ok(m.indexOf('JSONObject;->quote') < m.indexOf('const-string v3, "javascript:"'), 'quote before send');
+});
+
+test('the https fallback accepts only validated spotify:playlist:<22> uris', () => {
+    const main = read('smali/com/melodix/music/MainActivity.smali');
+    const at = main.indexOf('.method public final openPlaylistFallback');
+    assert.ok(at !== -1, 'fallback exists');
+    const m = main.slice(at, main.indexOf('.end method', at));
+    assert.ok(m.includes('spotify:playlist:[A-Za-z0-9]{22}'), 'strict uri validation');
+    assert.ok(m.includes('Ljava/lang/String;->matches'), 'full-match regex');
+    assert.ok(m.includes('"https://open.spotify.com/playlist/"'), 'the only URL ever built');
+    assert.ok(!m.includes('https://open.spotify.com/album'), 'no other collection URL');
+    assert.ok(m.includes('NativeFetchGuard;->parseAllowedUrl'), 'host allowlist belt');
+    assert.ok(m.includes('isSpotifyAuthHost'), 'Spotify host required');
+    assert.ok(m.includes('loadUrl'), 'navigates the WebView');
+
+    const fb = read('smali/com/melodix/music/LibOpenFallback.smali');
+    assert.ok(fb.includes('0x1770'), 'bounded 6 s wait');
+    assert.ok(fb.includes('nativeSessionEpoch'), 'session epoch gate');
+    assert.ok(fb.includes('"detail"'), 'no navigation once the detail screen opened');
+    assert.ok(fb.includes('openPlaylistFallback'), 'falls back to the validated navigation');
+    assert.ok(fb.includes('nativeExpectedId'), 'only for the row still expected');
+
+    const start = main.indexOf('"__sfOpenCollection"');
+    const block = main.slice(start, main.indexOf(':native_row_click_done', start));
+    assert.ok(block.includes('LibOpenFallback;->arm'), 'armed when a playlist row opens');
+    assert.ok(block.includes('runNativeFunctionSecondary'), 'javascript: channel sent first');
+    assert.ok(block.includes('queueCommand'), 'queue first');
+});
