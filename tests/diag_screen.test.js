@@ -315,6 +315,32 @@ t('engine runs are bounded: asset-robust read + watchdog terminal fallback', () 
     assert.ok(checkDiag.includes('DiagWatchdog;->disarm()V'), 'report arrival disarms the watchdog');
 });
 
+t('journal is never masked: non-empty log is always shown in the report', () => {
+    // Regression: the isEmpty branch was inverted so the report ALWAYS showed
+    // "aucun événement" even with a full journal.
+    const counters = read('smali/com/melodix/music/DiagCounters.smali');
+    const repAt = counters.indexOf('readReport()Ljava/lang/String;');
+    const rep = counters.slice(repAt, counters.indexOf('.end method', repAt));
+    assert.ok(rep.includes('if-nez v3, :report_no_log'), 'empty -> "aucun événement" only when empty');
+    assert.ok(!/if-eqz v3, :report_no_log/.test(rep), 'the inverted branch is gone');
+});
+
+t('asset read failures are journaled and have a second read path', () => {
+    const asset = read('smali/com/melodix/music/NativeBridgeAsset.smali');
+    const ctxAt = asset.indexOf('readAssetUtf8(Landroid/content/Context;Ljava/lang/String;)');
+    const ctx = asset.slice(asset.lastIndexOf('.method', ctxAt), asset.indexOf('.end method', ctxAt));
+    assert.ok(ctx.includes('asset-err'), 'failure reason journaled');
+    assert.ok(ctx.includes('NativeCrashGuard;->excerpt'), 'real exception text captured');
+
+    const actAt = main.indexOf('.method public final openNativeDiagAction');
+    const act = main.slice(actAt, main.indexOf('.end method', actAt));
+    assert.ok(act.includes('asset-via-activity'), 'first read path journaled');
+    assert.ok(act.includes('asset-via-appctx'), 'second read path journaled');
+    assert.ok(act.includes('readAssetUtf8(Ljava/lang/String;)'), 'fallback to the app-context reader');
+    assert.ok(act.indexOf('asset-via-appctx') < act.indexOf('Moteur de tests indisponible'),
+        'fallback runs before the terminal error');
+});
+
 t('copied report matches the screen: last displayed status + native journal', () => {
     // The copy must carry what was DISPLAYED (terminal status rows) and the
     // bounded native journal — otherwise the export cannot explain the screen.

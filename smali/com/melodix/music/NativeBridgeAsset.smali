@@ -224,9 +224,25 @@
     :catch_0
     move-exception v6
     invoke-static {v6}, Lcom/melodix/music/NativeCrashGuard;->record(Ljava/lang/Throwable;)V
+    new-instance v1, Ljava/lang/StringBuilder;
+    invoke-direct {v1}, Ljava/lang/StringBuilder;-><init>()V
+    const-string v2, "asset-err "
+    invoke-virtual {v1, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    invoke-virtual {v1, p1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    const-string v2, " "
+    invoke-virtual {v1, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    invoke-static {v6}, Lcom/melodix/music/NativeCrashGuard;->excerpt(Ljava/lang/Throwable;)Ljava/lang/String;
+    move-result-object v2
+    invoke-virtual {v1, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    invoke-virtual {v1}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
+    move-result-object v1
+    invoke-static {v1}, Lcom/melodix/music/DiagCounters;->event(Ljava/lang/String;)V
     const/4 v0, 0x0
 
     :ctx_read_fail
+    invoke-static {p1}, Lcom/melodix/music/DiagCounters;->event(Ljava/lang/String;)V
+    const-string v1, "asset-null"
+    invoke-static {v1}, Lcom/melodix/music/DiagCounters;->event(Ljava/lang/String;)V
     :ctx_read_ok
     return-object v0
 .end method

@@ -408,13 +408,26 @@
     invoke-virtual {p0, v2}, Lcom/melodix/music/MainActivity;->paintDiagNative(Ljava/lang/String;)V
 
     const-string v0, "diag_engine.js"
+    const-string v2, "asset-via-activity"
+    invoke-static {v2}, Lcom/melodix/music/DiagCounters;->event(Ljava/lang/String;)V
     invoke-static {p0, v0}, Lcom/melodix/music/NativeBridgeAsset;->readAssetUtf8(Landroid/content/Context;Ljava/lang/String;)Ljava/lang/String;
+    move-result-object v1
+    if-eqz v1, :diag_try_appctx
+    invoke-virtual {v1}, Ljava/lang/String;->isEmpty()Z
+    move-result v2
+    if-eqz v2, :diag_engine_ready
+
+    :diag_try_appctx
+    const-string v2, "asset-via-appctx"
+    invoke-static {v2}, Lcom/melodix/music/DiagCounters;->event(Ljava/lang/String;)V
+    invoke-static {v0}, Lcom/melodix/music/NativeBridgeAsset;->readAssetUtf8(Ljava/lang/String;)Ljava/lang/String;
     move-result-object v1
     if-eqz v1, :diag_engine_missing
     invoke-virtual {v1}, Ljava/lang/String;->isEmpty()Z
     move-result v2
     if-eqz v2, :diag_engine_missing
 
+    :diag_engine_ready
     invoke-virtual {p0, v1}, Lcom/melodix/music/MainActivity;->runNativeJavascript(Ljava/lang/String;)V
     invoke-static {p0}, Lcom/melodix/music/DiagWatchdog;->arm(Lcom/melodix/music/MainActivity;)V
     const-string v0, "window.__sfDiagAction"

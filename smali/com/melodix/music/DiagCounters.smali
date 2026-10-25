@@ -376,7 +376,7 @@
     if-eqz v2, :report_no_log
     invoke-virtual {v2}, Ljava/lang/String;->isEmpty()Z
     move-result v3
-    if-eqz v3, :report_no_log
+    if-nez v3, :report_no_log
     invoke-virtual {v0, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
     goto :report_done
 
