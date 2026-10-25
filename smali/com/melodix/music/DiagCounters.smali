@@ -26,6 +26,15 @@
 # activity.G / AppSingleton.w can lag behind after recoveries.
 .field public static volatile pageView:Ljava/lang/ref/WeakReference;
 
+# Bounded library-state snapshots pushed by the page (AndBridge.onLibDiagState)
+# and the page-alive / touch-probe throttles for the dead native->JS channel
+# investigation.
+.field private static libStateText:Ljava/lang/String;
+.field private static libStateLast:Ljava/lang/String;
+.field private static volatile pageProbeSentAt:J
+.field private static volatile lastTouchProbeMs:J
+.field private static volatile deviceLogged:Z
+
 .field private static logText:Ljava/lang/String;
 .field private static logLines:I
 
@@ -513,4 +522,158 @@
     :gpv_none
     const/4 v0, 0x0
     return-object v0
+.end method
+
+.method public static libState(Ljava/lang/String;)V
+    .locals 4
+
+    # The page is alive when it pushes: keep the probe honest.
+    invoke-static {}, Lcom/melodix/music/DiagCounters;->notePageEvent()V
+
+    if-eqz p0, :ls_done
+
+    const-string v0, "\\s+"
+    const-string v1, " "
+    invoke-virtual {p0, v0, v1}, Ljava/lang/String;->replaceAll(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;
+    move-result-object v0
+
+    const-string v1, "[^A-Za-z0-9 {}\\[\\]\",.:=+()/_-]"
+    const-string v2, ""
+    invoke-virtual {v0, v1, v2}, Ljava/lang/String;->replaceAll(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;
+    move-result-object v0
+
+    const/16 v1, 0x190
+    invoke-static {v0, v1}, Lcom/melodix/music/DiagCounters;->clip(Ljava/lang/String;I)Ljava/lang/String;
+    move-result-object v0
+
+    # Identical consecutive snapshots are skipped entirely so a long session
+    # cannot fill the bounded journal/store with repeats.
+    sget-object v1, Lcom/melodix/music/DiagCounters;->libStateLast:Ljava/lang/String;
+    if-eqz v1, :ls_keep
+    invoke-virtual {v1, v0}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    move-result v1
+    if-nez v1, :ls_done
+    :ls_keep
+    sput-object v0, Lcom/melodix/music/DiagCounters;->libStateLast:Ljava/lang/String;
+
+    sget-object v1, Lcom/melodix/music/DiagCounters;->libStateText:Ljava/lang/String;
+    new-instance v2, Ljava/lang/StringBuilder;
+    invoke-direct {v2}, Ljava/lang/StringBuilder;-><init>()V
+    if-eqz v1, :ls_tail
+    invoke-virtual {v2, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    const-string v3, "\n"
+    invoke-virtual {v2, v3}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    :ls_tail
+    invoke-virtual {v2, v0}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    invoke-virtual {v2}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
+    move-result-object v1
+
+    # Bounded store: keep the tail once the cap is reached (journal of states).
+    invoke-virtual {v1}, Ljava/lang/String;->length()I
+    move-result v2
+    const/16 v3, 0x7d0
+    if-gt v2, v3, :ls_store
+    const/16 v3, 0x640
+    sub-int v3, v2, v3
+    invoke-virtual {v1, v3, v2}, Ljava/lang/String;->substring(II)Ljava/lang/String;
+    move-result-object v1
+    :ls_store
+    sput-object v1, Lcom/melodix/music/DiagCounters;->libStateText:Ljava/lang/String;
+
+    new-instance v1, Ljava/lang/StringBuilder;
+    invoke-direct {v1}, Ljava/lang/StringBuilder;-><init>()V
+    const-string v2, "lib-state "
+    invoke-virtual {v1, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    invoke-virtual {v1, v0}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    invoke-virtual {v1}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
+    move-result-object v0
+    invoke-static {v0}, Lcom/melodix/music/DiagCounters;->event(Ljava/lang/String;)V
+
+    :ls_done
+    return-void
+.end method
+
+.method public static readLibState()Ljava/lang/String;
+    .locals 1
+
+    sget-object v0, Lcom/melodix/music/DiagCounters;->libStateText:Ljava/lang/String;
+    if-eqz v0, :rls_none
+    return-object v0
+
+    :rls_none
+    const-string v0, ""
+    return-object v0
+.end method
+
+.method public static armPageAlive()V
+    .locals 4
+
+    invoke-static {}, Ljava/lang/System;->currentTimeMillis()J
+    move-result-wide v0
+    sput-wide v0, Lcom/melodix/music/DiagCounters;->pageProbeSentAt:J
+    return-void
+.end method
+
+.method public static notePageEvent()V
+    .locals 5
+
+    sget-wide v0, Lcom/melodix/music/DiagCounters;->pageProbeSentAt:J
+    const-wide/16 v2, 0x0
+    cmp-long v4, v0, v2
+    if-eqz v4, :np_done
+
+    invoke-static {}, Ljava/lang/System;->currentTimeMillis()J
+    move-result-wide v2
+    sub-long/2addr v2, v0
+    const-wide/16 v0, 0x0
+    sput-wide v0, Lcom/melodix/music/DiagCounters;->pageProbeSentAt:J
+
+    new-instance v0, Ljava/lang/StringBuilder;
+    invoke-direct {v0}, Ljava/lang/StringBuilder;-><init>()V
+    const-string v1, "page-alive +"
+    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    invoke-virtual {v0, v2, v3}, Ljava/lang/StringBuilder;->append(J)Ljava/lang/StringBuilder;
+    const-string v1, "ms"
+    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    invoke-virtual {v0}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
+    move-result-object v0
+    invoke-static {v0}, Lcom/melodix/music/DiagCounters;->event(Ljava/lang/String;)V
+
+    :np_done
+    return-void
+.end method
+
+.method public static allowTouchProbe()Z
+    .locals 8
+
+    invoke-static {}, Ljava/lang/System;->currentTimeMillis()J
+    move-result-wide v0
+    sget-wide v2, Lcom/melodix/music/DiagCounters;->lastTouchProbeMs:J
+    sub-long v4, v0, v2
+    const-wide/16 v6, 0x2710
+    cmp-long v2, v4, v6
+    if-gez v2, :atp_no
+
+    sput-wide v0, Lcom/melodix/music/DiagCounters;->lastTouchProbeMs:J
+    const/4 v2, 0x1
+    return v2
+
+    :atp_no
+    const/4 v2, 0x0
+    return v2
+.end method
+
+.method public static deviceLogged()Z
+    .locals 1
+
+    sget-boolean v0, Lcom/melodix/music/DiagCounters;->deviceLogged:Z
+    return v0
+.end method
+
+.method public static markDeviceLogged()V
+    .locals 1
+
+    const/4 v0, 0x1
+    sput-boolean v0, Lcom/melodix/music/DiagCounters;->deviceLogged:Z
+    return-void
 .end method

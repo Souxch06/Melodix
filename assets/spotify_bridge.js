@@ -3690,6 +3690,7 @@ try {
         libDiagRecord('session', session !== 'not-detected', session === 'detected'
             ? 'connectée'
             : session === 'not-detected' ? 'déconnectée' : 'indéterminée');
+        libDiagPush('start');
     }
 
     function libDiagRecord(step, ok, detail) {
@@ -3705,6 +3706,7 @@ try {
             if (diag.steps.length > LIB_DIAG_MAX_STEPS) {
                 diag.steps.splice(0, diag.steps.length - LIB_DIAG_MAX_STEPS);
             }
+            libDiagPush('record');
         } catch (_) {}
     }
 
@@ -3749,6 +3751,7 @@ try {
                 if (fields.delivered.seen) run.delivered.seen = true;
                 if (fields.delivered.afterReady) run.delivered.afterReady = true;
             }
+            libDiagPush('update');
         } catch (_) {}
     }
 
@@ -3794,6 +3797,34 @@ try {
             });
         } catch (_) {}
         return codes.slice(0, 4);
+    }
+
+    // JS -> native push of the bounded library snapshot: the diagnostic screen
+    // must read the pipeline state even when native->JS evaluateJavascript is
+    // dead on a device (the JS->native AndBridge direction keeps working).
+    // Whitelisted fields only — token readiness as oui/non, never a value.
+    function libDiagPush(reason) {
+        try {
+            var diag = window.__sfLibDiag;
+            if (!diag || !window.AndBridge || typeof window.AndBridge.onLibDiagState !== 'function') return;
+            var run = diag.lastRun || {};
+            var attempts = (run.attempts || []).slice(-3).map(function (a) {
+                return {
+                    httpStatus: (a && typeof a.httpStatus === 'number') ? a.httpStatus : null,
+                    gqlErrorCodes: (a && Array.isArray(a.gqlErrorCodes)) ? a.gqlErrorCodes.slice(0, 3) : [],
+                    shape: (a && a.shape) || null
+                };
+            });
+            var snapshot = {
+                status: run.status || null,
+                hashSource: run.hashSource || null,
+                itemsTotal: typeof run.itemsTotal === 'number' ? run.itemsTotal : 0,
+                shape: attempts.length ? attempts[attempts.length - 1].shape : null,
+                token: run.token === 'bearer' ? 'oui' : (run.token ? 'non' : '?'),
+                attempts: attempts
+            };
+            window.AndBridge.onLibDiagState(libDiagSafeLabel(reason, '?') + ' ' + JSON.stringify(snapshot));
+        } catch (_) {}
     }
 
     function libDiagFailureKind(run) {
@@ -3876,6 +3907,7 @@ try {
     };
     window.__sfLibDiagRecord = libDiagRecord;
     window.__sfLibDiagUpdate = libDiagUpdate;
+    window.__sfLibDiagPush = libDiagPush;
     window.__sfGetLibDiagReport = function() {
         var diag = window.__sfLibDiag;
         if (!diag) return null;
@@ -3962,6 +3994,7 @@ try {
     function publishMediaLibState(state, errorMessage) {
         window.__sfMediaLibState = state;
         window.__sfMediaLibError = errorMessage || null;
+        libDiagPush('publish');
         if (typeof window.__sfNotifyMediaLibReady === 'function') {
             try { window.__sfNotifyMediaLibReady(); } catch (_) {}
         }

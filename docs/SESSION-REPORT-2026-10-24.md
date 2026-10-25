@@ -370,3 +370,13 @@ Or le timeout ne se tait que si `answerProbe()` a été appelé, c'est-à-dire s
 - sonde **imparable** : valeur stringifiée par `Object.toString()` + nom de classe (plus aucun `check-cast`), catch qui journalise `js-cb err`, timeout **toujours** journalisé `js-cb tmo <id> ans <0|1>` (plus de garde sur état partagé) — un rapport sans ces lignes prouverait que le Runnable lui-même n'a pas tourné.
 
 Lecture du prochain rapport : `js-cb tgt` == `page-start #` ET `js-cb <id> String "bridge-ok"` → chaîne saine (restera à expliquer les playlists) ; `no-bridge` → pont absent de la page ciblée ; `js-cb tmo … ans 0` → livraison native→JS morte malgré tout ; `engine` sans `diag:report` → problème côté moteur.
+
+## 29. Mission « playlists absentes » (rapport n° 7) : diagnostic indépendant d'evaluateJavascript + enquête du canal natif→JS mort
+
+Le rapport n° 7 établit : `js-cb tgt 20436320 == page-start #20436320` (la cible EST la bonne instance), `js-cb tmo 1 ans 0` (le ValueCallback ne rappelle jamais), JS→natif vivant au démarrage (`transmission entré=3`), défaut propre à l'appareil (CI verte). Cause exacte non établie — instrumenté sans conclusion prématurée :
+
+1. **État bibliothèque poussé par la page** (sens JS→natif, fonctionnel) : `libDiagPush` → `AndBridge.onLibDiagState` → section dédiée de l'écran diagnostic + rapport copié. Le prochain rapport dira si `libraryV3` est lancée, ce qu'elle renvoie (httpStatus, gqlErrorCodes, shape, itemsTotal) et si le jeton est prêt (oui/non, sans valeur).
+2. **Traces d'enquête** : version Android + modèle + version System WebView ; état du WebView à chaque sonde (attaché, visibilité, shown, alpha, thread, taille) ; `page-alive +<ms>` (la page vit-elle après l'envoi ?) ; sondes minimales `evaluateJavascript("1")` `post-page` (après chaque `onPageFinished`) et `post-touch` (après un vrai toucher, limité à 1/10 s).
+3. **UI honnête** : Bibliothèque sans cache = « Chargement… » borné à 10 s, puis « Bibliothèque indisponible » + bouton **« Réessayer »** (`spotify:lib:retry`) — jamais « aucune playlist » sans compte vide confirmé.
+
+Lecture du prochain rapport : `js-cb <id> post-page String "1"` = la livraison fonctionne au chargement ; absent + `js-cb tmo … ans 0` = livraison morte ; `wv-state` hors norme (att=0, vis=8, alpha=0, size=0x0) = WebView invisible/occultée ; `page-alive` présent mais `js-cb` absent = la page vit pendant que le sens natif→JS reste muet ; `device wv=…` croisé avec l'hypothèse version.

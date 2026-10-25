@@ -629,4 +629,118 @@ t('service-path recovery rebinds the activity WebView', () => {
         'rebind goes through the live activity reference');
 });
 
+t('library state is pushed by the page and shown in a dedicated section', () => {
+    // Objective 1: the PAGE pushes bounded snapshots through AndBridge
+    // (JS->native works even when native->JS evaluateJavascript is dead).
+    const bridge = read('smali/com/melodix/music/AndBridge.smali');
+    const lbAt = bridge.indexOf('.method public final onLibDiagState');
+    assert.ok(lbAt !== -1, 'JS push entry point exists');
+    const lb = bridge.slice(lbAt, bridge.indexOf('.end method', lbAt));
+    assert.ok(lb.includes('JavascriptInterface'), 'reachable from the page');
+    assert.ok(lb.includes('DiagCounters;->libState'), 'stored natively');
+
+    const counters = read('smali/com/melodix/music/DiagCounters.smali');
+    assert.ok(counters.includes('libStateText:Ljava/lang/String;'), 'bounded store');
+    const lsAt = counters.indexOf('.method public static libState(');
+    const ls = counters.slice(lsAt, counters.indexOf('.end method', lsAt));
+    assert.ok(ls.includes('lib-state '), 'journaled');
+    assert.ok(ls.includes('[^A-Za-z0-9'), 'charset scrub before storage');
+    assert.ok(ls.includes('libStateLast'), 'identical snapshots deduped');
+    assert.ok(/\.method public static readLibState\(\)Ljava\/lang\/String;/.test(counters), 'reader');
+
+    const repAt = main.indexOf('.method public final buildDiagReport');
+    const rep = main.slice(repAt, main.indexOf('.end method', repAt));
+    assert.ok(rep.includes('readLibState'), 'report carries the pushed state');
+    assert.ok(rep.includes('État bibliothèque'), 'report section title');
+
+    const paintAt = main.indexOf('.method public final paintDiagNative');
+    const paint = main.slice(paintAt, main.indexOf('.end method', paintAt));
+    assert.ok(paint.includes('readLibState'), 'screen section reads the pushed state');
+    assert.ok(paint.includes('état page'), 'dedicated screen section');
+});
+
+t('page-alive watcher: JS->native traffic after a probe is journaled', () => {
+    const counters = read('smali/com/melodix/music/DiagCounters.smali');
+    assert.ok(/\.method public static armPageAlive\(\)V/.test(counters), 'armed when a probe is sent');
+    assert.ok(/\.method public static notePageEvent\(\)V/.test(counters), 'page-alive marker');
+    assert.ok(counters.includes('page-alive +'), 'journaled with the delay');
+
+    const bridge = read('smali/com/melodix/music/AndBridge.smali');
+    const dnAt = bridge.indexOf('.method private final dispatchNativeUi');
+    const dn = bridge.slice(dnAt, bridge.indexOf('.end method', dnAt));
+    assert.ok(dn.includes('notePageEvent'), 'media/ui funnel reports page life');
+    const logAt = bridge.indexOf('logDiagEvent(Ljava/lang/String;)V');
+    const log = bridge.slice(bridge.lastIndexOf('.method', logAt), bridge.indexOf('.end method', logAt));
+    assert.ok(log.includes('notePageEvent'), 'journal funnel reports page life');
+});
+
+t('minimal evaluateJavascript("1") probes: after page load and after real touch', () => {
+    const probe = read('smali/com/melodix/music/DiagJsProbe.smali');
+    assert.ok(/\.method public static min\(/.test(probe), 'minimal probe');
+    assert.ok(/\.method public static send\(/.test(probe), 'send helper');
+    assert.ok(probe.includes('"1"'), 'the probe script is exactly 1');
+    assert.ok(probe.includes('js-min ask '), 'ask journaled');
+    assert.ok(probe.includes('evaluateJavascript'), 'really sends');
+    assert.ok(probe.includes('armPageAlive'), 'arms the page-alive watcher');
+    assert.ok(probe.includes('js-min err'), 'failures visible');
+
+    const c91 = read('smali/c91.smali');
+    const pfAt = c91.indexOf('.method public final onPageFinished');
+    const pf = c91.slice(pfAt, c91.indexOf('.end method', pfAt));
+    assert.ok(pf.includes('post-page'), 'post-page tag');
+    assert.ok(pf.includes('DiagJsProbe;->min'), 'probes right after every page load');
+
+    const ouiAt = main.indexOf('.method public onUserInteraction()V');
+    assert.ok(ouiAt !== -1, 'real-interaction hook exists');
+    const oui = main.slice(ouiAt, main.indexOf('.end method', ouiAt));
+    assert.ok(oui.includes('post-touch'), 'post-touch tag');
+    assert.ok(oui.includes('DiagCounters;->allowTouchProbe()Z'), 'throttled');
+    assert.ok(oui.includes('DiagJsProbe;->min'), 'sends the minimal probe');
+});
+
+t('device and WebView state are journaled at probe time', () => {
+    const wvs = read('smali/com/melodix/music/DiagWebViewState.smali');
+    assert.ok(wvs.includes('getCurrentWebViewPackage'), 'System WebView version');
+    assert.ok(wvs.includes('Landroid/os/Build$VERSION;->RELEASE:Ljava/lang/String;'), 'Android version');
+    assert.ok(wvs.includes('Landroid/os/Build;->MODEL:Ljava/lang/String;'), 'device model');
+    assert.ok(wvs.includes('isAttachedToWindow'), 'attachment state');
+    assert.ok(wvs.includes('getVisibility'), 'visibility');
+    assert.ok(wvs.includes('isShown'), 'shown state');
+    assert.ok(wvs.includes('getAlpha'), 'alpha');
+    assert.ok(wvs.includes('getWidth') && wvs.includes('getHeight'), 'size');
+    assert.ok(wvs.includes('Ljava/lang/Thread;->currentThread()'), 'calling thread identified');
+    assert.ok(wvs.includes('thr='), 'thread name journaled');
+    assert.ok(wvs.includes('wv-state ') && wvs.includes('device rel='), 'journaled');
+
+    const probe = read('smali/com/melodix/music/DiagJsProbe.smali');
+    assert.ok(probe.includes('DiagWebViewState;->journal'), 'logged at probe time');
+});
+
+t('library tab loading is bounded: explicit error + Réessayer, never a false empty', () => {
+    const wd = read('smali/com/melodix/music/NativeLibWatchdog.smali');
+    assert.ok(wd.includes('postDelayed'), 'bounded timeout');
+    assert.ok(/\.method public static arm\(/.test(wd) && /\.method public static disarm\(\)V/.test(wd),
+        'arm/disarm lifecycle');
+    assert.ok(wd.includes('lib-load timeout'), 'timeout journaled');
+    assert.ok(wd.includes('paintLibLoadError'), 'terminal repaint');
+
+    const libAt = main.indexOf('\n    :lib_render_loading\n');
+    assert.ok(libAt !== -1, 'loading branch exists');
+    assert.ok(main.slice(libAt, main.indexOf('\n    :lib_fetch\n', libAt)).includes('NativeLibWatchdog;->arm'),
+        'watchdog armed with the loading state');
+
+    const media1 = main.indexOf('DiagCounters;->mediaRendered()V');
+    assert.ok(main.slice(media1 - 220, media1).includes('NativeLibWatchdog;->disarm'),
+        'media rows disarm the watchdog');
+
+    const paintAt = main.indexOf('.method public final paintLibLoadError');
+    const paint = main.slice(paintAt, main.indexOf('.end method', paintAt));
+    assert.ok(paint.includes('Bibliothèque indisponible'), 'explicit error state');
+    assert.ok(paint.includes('Réessayer'), 'real retry action');
+    assert.ok(paint.includes('spotify:lib:retry'), 'retry action uri');
+    assert.ok(!paint.includes('Aucune playlist'), 'never claims an empty library');
+
+    assert.ok(main.includes('"spotify:lib:retry"'), 'retry routed');
+});
+
 console.log('OK diag_screen');

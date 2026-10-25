@@ -769,3 +769,65 @@ test('the shell exposes the temporary diagnostic without leaking secrets into ro
     assert.match(shell, /To be removed once/);
     assert.doesNotMatch(shell, /spotify:settings:lib_diag[\s\S]{0,400}spot_auth_token/);
 });
+
+// ---------------------------------------------------------------------------
+// 5. The page pushes bounded snapshots through AndBridge (JS->native): the
+//    diagnostic screen must read the pipeline state even when the device's
+//    native->JS evaluateJavascript delivery is dead.
+// ---------------------------------------------------------------------------
+
+test('the page pushes bounded library snapshots via AndBridge.onLibDiagState', async () => {
+    const harness = createBridgeVm([
+        libraryPage([playlistItem('Privée', 'spotify:playlist:p1')])
+    ]);
+    const { sandbox } = harness;
+    const pushes = [];
+    sandbox.window.AndBridge.onLibDiagState = (text) => pushes.push(String(text));
+
+    sandbox.__sfAuthBridgeState = 'signed-in';
+    sandbox.spotAuthToken = 'Bearer secret.value.here';
+    await sandbox.checkMediaLib();
+
+    assert.ok(pushes.length >= 3, 'pushed at start, on updates and at publish');
+    assert.ok(pushes.some((p) => p.indexOf('start ') === 0), 'startup snapshot');
+    assert.ok(pushes.some((p) => p.indexOf('publish ') === 0), 'publish snapshot');
+
+    const last = pushes[pushes.length - 1];
+    const snapshot = JSON.parse(last.slice(last.indexOf('{')));
+    assert.equal(snapshot.status, 'ready');
+    assert.equal(snapshot.token, 'oui', 'readiness only — never a credential');
+    assert.equal(snapshot.itemsTotal, 1);
+    assert.ok('hashSource' in snapshot, 'hash source reported');
+    assert.ok(Array.isArray(snapshot.attempts), 'attempts reported');
+    assert.ok(snapshot.attempts.every((a) => 'httpStatus' in a && Array.isArray(a.gqlErrorCodes)),
+        'attempts carry httpStatus and gqlErrorCodes');
+    assert.ok(!last.includes('secret.value.here'), 'no credential value in the push');
+    assert.ok(!last.includes('Bearer'), 'no auth material in the push');
+});
+
+test('pushed snapshots report token readiness as oui/non without any value', () => {
+    const harness = createBridgeVm();
+    const { sandbox } = harness;
+    const pushes = [];
+    sandbox.window.AndBridge.onLibDiagState = (text) => pushes.push(String(text));
+
+    sandbox.window.__sfLibDiag.lastRun.token = 'missing';
+    sandbox.window.__sfLibDiag.lastRun.status = 'pending';
+    sandbox.__sfLibDiagPush('unit');
+
+    assert.equal(pushes.length, 1, 'the pending state is pushed too');
+    const last = pushes[pushes.length - 1];
+    const snapshot = JSON.parse(last.slice(last.indexOf('{')));
+    assert.equal(snapshot.token, 'non', 'missing token reported as non');
+    assert.equal(snapshot.status, 'pending', 'never claims empty while loading');
+
+    sandbox.window.__sfLibDiag.lastRun.token = 'bearer';
+    sandbox.window.__sfLibDiag.lastRun.status = 'ready';
+    sandbox.__sfLibDiagPush('unit');
+    const ready = JSON.parse(pushes[pushes.length - 1].slice(pushes[pushes.length - 1].indexOf('{')));
+    assert.equal(ready.token, 'oui', 'ready token reported as oui');
+
+    pushes.forEach((line) => {
+        assert.ok(!/[A-Za-z0-9_+/-]{24,}/.test(line), 'no token-like opaque run');
+    });
+});

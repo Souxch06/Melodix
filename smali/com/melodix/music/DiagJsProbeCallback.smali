@@ -2,25 +2,48 @@
 .super Ljava/lang/Object;
 .implements Landroid/webkit/ValueCallback;
 
-# ValueCallback for the evaluateJavascript delivery probe. The callback fires
+# ValueCallback for the evaluateJavascript delivery probes. The callback fires
 # from the WebView renderer layer regardless of the AndBridge JS interface:
-#   js-cb <id> <class> <value>  -> evaluateJavascript really executed JS
-#   js-cb <id> null             -> JS ran and returned nothing
-#   js-cb err                   -> the callback itself failed (still visible)
+#   js-cb <id> <tag> <class> <value>  -> evaluateJavascript really executed JS
+#   js-cb <id> <tag> null             -> JS ran and returned nothing
+#   js-cb err                         -> the callback itself failed (visible)
 # The returned value is stringified with Object.toString() and the class name
 # is kept: some WebView flavours hand the result over as a non-String object,
 # and a check-cast would swallow the evidence. Everything is guarded: the
 # probe is diagnostic-only and must never crash the app.
 
 .field private final id:I
+.field private final tag:Ljava/lang/String;
 
 .method public constructor <init>(I)V
-    .locals 0
+    .locals 1
 
     invoke-direct {p0}, Ljava/lang/Object;-><init>()V
 
     iput p1, p0, Lcom/melodix/music/DiagJsProbeCallback;->id:I
 
+    const-string v0, "-"
+    iput-object v0, p0, Lcom/melodix/music/DiagJsProbeCallback;->tag:Ljava/lang/String;
+
+    return-void
+.end method
+
+.method public constructor <init>(ILjava/lang/String;)V
+    .locals 1
+
+    invoke-direct {p0}, Ljava/lang/Object;-><init>()V
+
+    iput p1, p0, Lcom/melodix/music/DiagJsProbeCallback;->id:I
+
+    if-eqz p2, :tag_default
+    iput-object p2, p0, Lcom/melodix/music/DiagJsProbeCallback;->tag:Ljava/lang/String;
+    goto :tag_ready
+
+    :tag_default
+    const-string v0, "-"
+    iput-object v0, p0, Lcom/melodix/music/DiagJsProbeCallback;->tag:Ljava/lang/String;
+
+    :tag_ready
     return-void
 .end method
 
@@ -38,6 +61,12 @@
 
     iget v2, p0, Lcom/melodix/music/DiagJsProbeCallback;->id:I
     invoke-virtual {v0, v2}, Ljava/lang/StringBuilder;->append(I)Ljava/lang/StringBuilder;
+
+    const-string v1, " "
+    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    iget-object v1, p0, Lcom/melodix/music/DiagJsProbeCallback;->tag:Ljava/lang/String;
+    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
 
     const-string v1, " "
     invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;

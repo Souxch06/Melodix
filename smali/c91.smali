@@ -66,6 +66,11 @@
     invoke-static {v6}, Lcom/melodix/music/DiagCounters;->event(Ljava/lang/String;)V
     invoke-static {}, Lcom/melodix/music/DiagCounters;->markWebviewReady()V
     invoke-static {v0}, Lcom/melodix/music/DiagCounters;->setPageView(Landroid/webkit/WebView;)V
+
+    # Dead-native->JS investigation: minimal evaluateJavascript("1") probe
+    # right after every page load, on the exact WebView that loaded the page.
+    const-string v6, "post-page"
+    invoke-static {v0, v6}, Lcom/melodix/music/DiagJsProbe;->min(Landroid/webkit/WebView;Ljava/lang/String;)V
     invoke-static {}, Lcom/melodix/music/DiagCounters;->markWebviewReady()V
 
     if-eqz v3, :pf_diag_done

@@ -198,6 +198,21 @@
     const-string v1, "\n\n"
     invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
 
+    const-string v1, "État bibliothèque (poussé par la page):\n"
+    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    invoke-static {}, Lcom/melodix/music/DiagCounters;->readLibState()Ljava/lang/String;
+    move-result-object v2
+    if-eqz v2, :report_lib_state_empty
+    invoke-virtual {v2}, Ljava/lang/String;->isEmpty()Z
+    move-result v3
+    if-eqz v3, :report_lib_state_have
+    :report_lib_state_empty
+    const-string v2, "aucun instantané reçu pour l'instant"
+    :report_lib_state_have
+    invoke-virtual {v0, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    const-string v1, "\n\n"
+    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
     invoke-static {}, Lcom/melodix/music/DiagCounters;->readReport()Ljava/lang/String;
     move-result-object v2
     invoke-virtual {v0, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
@@ -208,7 +223,7 @@
 .end method
 
 .method public final paintDiagNative(Ljava/lang/String;)V
-    .locals 6
+    .locals 7
 
     # Native-first diagnostic screen: a real message painted immediately (no
     # JavaScript involved) plus a native copy action. Every state is terminal.
@@ -254,6 +269,41 @@
     const-string v2, "},"
 
     invoke-virtual {v1, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    # Section dédiée : état bibliothèque poussé par la page (sens JS->natif,
+    # lisible même quand evaluateJavascript ne délivre plus rien).
+    invoke-static {}, Lcom/melodix/music/DiagCounters;->readLibState()Ljava/lang/String;
+    move-result-object v2
+    if-eqz v2, :lib_state_rows_done
+    invoke-virtual {v2}, Ljava/lang/String;->isEmpty()Z
+    move-result v3
+    if-eqz v3, :lib_state_rows_done
+    const-string v3, "\\n"
+    invoke-virtual {v2, v3}, Ljava/lang/String;->split(Ljava/lang/String;)[Ljava/lang/String;
+    move-result-object v2
+    if-eqz v2, :lib_state_rows_done
+    array-length v3, v2
+    const/4 v4, 0x0
+    :lib_state_row_loop
+    if-ge v4, v3, :lib_state_rows_done
+    const/16 v5, 0x8
+    if-lt v4, v5, :lib_state_rows_done
+    aget-object v5, v2, v4
+    if-eqz v5, :lib_state_row_next
+    invoke-virtual {v5}, Ljava/lang/String;->length()I
+    move-result v6
+    if-eqz v6, :lib_state_row_next
+    const-string v6, "{\"section\":\"Bibliothèque (état page)\",\"title\":"
+    invoke-virtual {v1, v6}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    invoke-static {v5}, Lorg/json/JSONObject;->quote(Ljava/lang/String;)Ljava/lang/String;
+    move-result-object v6
+    invoke-virtual {v1, v6}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    const-string v6, "},"
+    invoke-virtual {v1, v6}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    :lib_state_row_next
+    add-int/lit8 v4, v4, 0x1
+    goto :lib_state_row_loop
+    :lib_state_rows_done
 
     # Rapport ligne par ligne: le diagnostic s'affiche sans copie ni JS.
     const-string v2, "\\n"
@@ -427,6 +477,89 @@
     invoke-static {v0}, Lcom/melodix/music/DiagCounters;->event(Ljava/lang/String;)V
 
     :ac_done
+    return-void
+.end method
+
+.method public final paintLibLoadError()V
+    .locals 6
+
+    # Honest terminal state for a Library that is NOT loaded: an explicit error
+    # and a real "Réessayer" action — never "aucune playlist" (only a confirmed
+    # empty account may show that) and never an eternal loading row.
+    :try_start_lib_err
+    iget-object v0, p0, Lcom/melodix/music/MainActivity;->nativeCurrentScreen:Ljava/lang/String;
+    if-eqz v0, :lib_err_done
+    const-string v1, "library"
+    invoke-virtual {v0, v1}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    move-result v0
+    if-eqz v0, :lib_err_done
+
+    new-instance v0, Ljava/lang/StringBuilder;
+    invoke-direct {v0}, Ljava/lang/StringBuilder;-><init>()V
+
+    const-string v1, "[{\"title\":\"Bibliothèque indisponible\",\"subtitle\":\"La récupération des playlists n'a pas abouti — rien n'a été perdu\",\"section\":\"Votre bibliothèque\",\"kind\":\"error\"},"
+    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    invoke-static {}, Lcom/melodix/music/DiagCounters;->readLibState()Ljava/lang/String;
+    move-result-object v1
+    if-eqz v1, :lib_err_rows
+    invoke-virtual {v1}, Ljava/lang/String;->isEmpty()Z
+    move-result v2
+    if-eqz v2, :lib_err_state
+    goto :lib_err_rows
+
+    :lib_err_state
+    const-string v2, "{\"title\":\"Dernier état côté page\",\"subtitle\":"
+    invoke-virtual {v0, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    invoke-static {v1}, Lorg/json/JSONObject;->quote(Ljava/lang/String;)Ljava/lang/String;
+    move-result-object v2
+    invoke-virtual {v0, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    const-string v2, "},"
+    invoke-virtual {v0, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    :lib_err_rows
+    const-string v1, "{\"title\":\"Réessayer\",\"subtitle\":\"Relancer la récupération des playlists\",\"section\":\"Votre bibliothèque\",\"actionUri\":\"spotify:lib:retry\",\"kind\":\"retry\"}]"
+    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    invoke-virtual {v0}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
+    move-result-object v0
+
+    const-string v1, "Votre bibliothèque"
+    invoke-virtual {p0, v1, v0}, Lcom/melodix/music/MainActivity;->renderNativeRows(Ljava/lang/String;Ljava/lang/String;)V
+    :try_end_lib_err
+    .catch Ljava/lang/Throwable; {:try_start_lib_err .. :try_end_lib_err} :catch_lib_err
+
+    :lib_err_done
+    return-void
+
+    :catch_lib_err
+    move-exception v0
+    invoke-static {v0}, Lcom/melodix/music/NativeCrashGuard;->record(Ljava/lang/Throwable;)V
+    return-void
+.end method
+
+.method public onUserInteraction()V
+    .locals 2
+
+    # Real user interaction (Activity.dispatchTouchEvent -> ACTION_DOWN): after
+    # a genuine touch, send the minimal evaluateJavascript("1") probe. This is
+    # the "user touched the app" half of the dead-native->JS investigation;
+    # the other half is the automatic post-page probe. Throttled to one probe
+    # per 10 s. Never blocks or consumes the interaction.
+    invoke-super {p0}, Landroid/app/Activity;->onUserInteraction()V
+
+    invoke-static {}, Lcom/melodix/music/DiagCounters;->allowTouchProbe()Z
+    move-result v0
+    if-eqz v0, :oui_done
+
+    invoke-static {}, Lcom/melodix/music/DiagCounters;->getPageView()Landroid/webkit/WebView;
+    move-result-object v0
+    if-eqz v0, :oui_done
+
+    const-string v1, "post-touch"
+    invoke-static {v0, v1}, Lcom/melodix/music/DiagJsProbe;->min(Landroid/webkit/WebView;Ljava/lang/String;)V
+
+    :oui_done
     return-void
 .end method
 
@@ -8227,6 +8360,7 @@
     invoke-virtual {v5, v6}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
     move-result v7
     if-eqz v7, :media_detail
+    invoke-static {}, Lcom/melodix/music/NativeLibWatchdog;->disarm()V
     invoke-static {}, Lcom/melodix/music/DiagCounters;->mediaRendered()V
     iget-object v8, p0, Lcom/melodix/music/MainActivity;->nativeCurrentTitle:Ljava/lang/String;
     if-eqz v8, :library_default_title
@@ -8242,6 +8376,7 @@
     invoke-virtual {v5, v6}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
     move-result v7
     if-eqz v7, :media_gate_drop
+    invoke-static {}, Lcom/melodix/music/NativeLibWatchdog;->disarm()V
     invoke-static {}, Lcom/melodix/music/DiagCounters;->mediaRendered()V
     iget-object v8, p0, Lcom/melodix/music/MainActivity;->nativeCurrentTitle:Ljava/lang/String;
     if-eqz v8, :detail_default_title
@@ -9192,6 +9327,10 @@
     const-string v0, "Votre bibliothèque"
     const-string v1, "[{\"title\":\"Chargement des playlists\u2026\",\"section\":\"Votre bibliothèque\"}]"
     invoke-virtual {p0, v0, v1}, Lcom/melodix/music/MainActivity;->renderNativeRows(Ljava/lang/String;Ljava/lang/String;)V
+    # Bounded loading: if no media rows arrive within 10 s the tab must
+    # resolve to an explicit error state with a "Réessayer" row — never an
+    # eternal loading state and never a false "aucune playlist" claim.
+    invoke-static {p0}, Lcom/melodix/music/NativeLibWatchdog;->arm(Lcom/melodix/music/MainActivity;)V
     :lib_fetch
     const-string v0, "window.__sfOpenLibrary && window.__sfOpenLibrary()"
     invoke-virtual {p0, v0}, Lcom/melodix/music/MainActivity;->runNativeJavascript(Ljava/lang/String;)V
@@ -9405,6 +9544,15 @@
 
     # Retry sentinel rows (detail fetch failures) re-run fetchMediaItems for the
     # stored parent id and repaint the loading state — no navigation, no fake rows.
+    const-string v2, "spotify:lib:retry"
+    invoke-virtual {p1, v2}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    move-result v3
+    if-eqz v3, :native_row_not_lib_retry
+    const/4 v3, 0x0
+    invoke-virtual {p0, v3}, Lcom/melodix/music/MainActivity;->onNativeLibraryClick(Landroid/view/View;)V
+    return-void
+
+    :native_row_not_lib_retry
     const-string v2, "spotify:retry:media:"
     invoke-virtual {p1, v2}, Ljava/lang/String;->startsWith(Ljava/lang/String;)Z
     move-result v3

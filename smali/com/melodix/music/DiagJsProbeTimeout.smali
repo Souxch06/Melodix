@@ -2,20 +2,44 @@
 .super Ljava/lang/Object;
 .implements Ljava/lang/Runnable;
 
-# Always-journaling terminal marker for the evaluateJavascript delivery probe:
-# "js-cb tmo <id> ans <0|1>" is written NO MATTER WHAT (ans=1 when the probe
-# callback already answered). Silence is impossible: if this line is missing
-# from a report, the runnable itself never ran. Never gates on shared state.
+# Always-journaling terminal marker for the evaluateJavascript delivery probes:
+# "js-cb tmo <id> <tag> ans <0|1>" is written NO MATTER WHAT (ans=1 when a
+# probe callback already answered). Silence is impossible: if this line is
+# missing from a report, the runnable itself never ran. Never gates on shared
+# state.
 
 .field private final id:I
+.field private final tag:Ljava/lang/String;
 
 .method public constructor <init>(I)V
-    .locals 0
+    .locals 1
 
     invoke-direct {p0}, Ljava/lang/Object;-><init>()V
 
     iput p1, p0, Lcom/melodix/music/DiagJsProbeTimeout;->id:I
 
+    const-string v0, "-"
+    iput-object v0, p0, Lcom/melodix/music/DiagJsProbeTimeout;->tag:Ljava/lang/String;
+
+    return-void
+.end method
+
+.method public constructor <init>(ILjava/lang/String;)V
+    .locals 1
+
+    invoke-direct {p0}, Ljava/lang/Object;-><init>()V
+
+    iput p1, p0, Lcom/melodix/music/DiagJsProbeTimeout;->id:I
+
+    if-eqz p2, :tag_default
+    iput-object p2, p0, Lcom/melodix/music/DiagJsProbeTimeout;->tag:Ljava/lang/String;
+    goto :tag_ready
+
+    :tag_default
+    const-string v0, "-"
+    iput-object v0, p0, Lcom/melodix/music/DiagJsProbeTimeout;->tag:Ljava/lang/String;
+
+    :tag_ready
     return-void
 .end method
 
@@ -31,6 +55,12 @@
 
     iget v2, p0, Lcom/melodix/music/DiagJsProbeTimeout;->id:I
     invoke-virtual {v0, v2}, Ljava/lang/StringBuilder;->append(I)Ljava/lang/StringBuilder;
+
+    const-string v1, " "
+    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    iget-object v1, p0, Lcom/melodix/music/DiagJsProbeTimeout;->tag:Ljava/lang/String;
+    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
 
     const-string v1, " ans "
     invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;

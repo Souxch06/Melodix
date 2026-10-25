@@ -39,6 +39,7 @@
     .locals 3
 
     invoke-static {}, Lcom/melodix/music/DiagCounters;->dispatchIn()V
+    invoke-static {}, Lcom/melodix/music/DiagCounters;->notePageEvent()V
 
     iget v0, p0, Lcom/melodix/music/AndBridge;->bridgeEpoch:I
     sget v2, Lcom/melodix/music/MainActivity;->nativeSessionEpoch:I
@@ -3392,10 +3393,27 @@
     .annotation runtime Landroid/webkit/JavascriptInterface;
     .end annotation
 
+    invoke-static {}, Lcom/melodix/music/DiagCounters;->notePageEvent()V
     if-eqz p1, :log_event_done
 
     invoke-static {p1}, Lcom/melodix/music/DiagCounters;->event(Ljava/lang/String;)V
 
     :log_event_done
+    return-void
+.end method
+
+.method public final onLibDiagState(Ljava/lang/String;)V
+    .locals 1
+    .annotation runtime Landroid/webkit/JavascriptInterface;
+    .end annotation
+
+    # Bounded library-state snapshot pushed BY THE PAGE (JS->native works even
+    # when native->JS evaluateJavascript is dead on a device). Sanitized and
+    # stored natively by DiagCounters.libState for the diagnostic screen.
+    if-eqz p1, :libdiag_done
+
+    invoke-static {p1}, Lcom/melodix/music/DiagCounters;->libState(Ljava/lang/String;)V
+
+    :libdiag_done
     return-void
 .end method
