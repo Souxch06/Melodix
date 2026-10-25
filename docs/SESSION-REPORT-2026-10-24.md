@@ -295,3 +295,23 @@ bridge never does ». Repli = `location.assign('/collection/...')` + scrape DOM.
 Le rapport décisif doit montrer : présence du bridge (`__sfMelodixBridgeStarted`,
 `fetchMediaItems`), et si le moteur lui-même injecte (sinon la WebView drop tout
 et la cause racine est établie).
+
+## 25. Rapport appareil n°3 (test.9) — deux constats, deux correctifs
+
+Rapport : `Dernier état affiché: Moteur de tests indisponible (asset
+diag_engine.js illisible)` + `Journal: aucun événement` (toujours).
+
+**Constat 1 (appareil)** : la lecture de `diag_engine.js` via
+`readAssetUtf8(Context,String)` échoue sur l'appareil de l'utilisateur — le
+moteur ne peut s'injecter. Cause exacte inconnue mais désormais traçable.
+
+**Constat 2 (notre bug)** : `readReport()` masquait TOUJOURS le journal —
+branchement inversé (`if-eqz v3, :report_no_log` sur `isEmpty()Z`). Tous les
+rapports montraient « aucun événement » à tort.
+
+**Correctifs (test.10)** : branche corrigée ; échecs d'asset journalisés avec
+le motif réel (`asset-err <nom> <exception via NativeCrashGuard.excerpt>`) ;
+deux chemins de lecture tracés (`asset-via-activity`, `asset-via-appctx`).
+Le prochain rapport distinguera : asset illisible (motif), WebView muette
+(`js-probe asked` sans réponse), bridge absent (`started=0 fetch=undefined`),
+ou fetch en échec (`started=1 fetch=function`).
