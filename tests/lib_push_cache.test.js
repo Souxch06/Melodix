@@ -164,3 +164,41 @@ test('the https fallback accepts only validated spotify:playlist:<22> uris', () 
     assert.ok(block.includes('runNativeFunctionSecondary'), 'javascript: channel sent first');
     assert.ok(block.includes('queueCommand'), 'queue first');
 });
+
+// ---------------------------------------------------------------------------
+// Change 4 — honest display states: not connected -> "Connecte-toi à Spotify"
+// with a login button; confirmed empty -> "Aucune playlist" (push path);
+// query failure -> error + "Réessayer"; GraphQL refusal is stated clearly.
+// An empty list is NEVER shown instead of an error.
+// ---------------------------------------------------------------------------
+
+test('the library failure states are honest and state-aware', () => {
+    const main = read('smali/com/melodix/music/MainActivity.smali');
+    const at = main.indexOf('.method public final paintLibLoadError');
+    const m = main.slice(at, main.indexOf('.end method', at));
+
+    assert.ok(m.includes('Connecte-toi à Spotify'), 'not connected -> login prompt');
+    assert.ok(m.includes('Se connecter'), 'login action row');
+    assert.ok(m.includes('spotify:lib:login'), 'login action uri');
+    assert.ok(m.includes('requête Spotify refusée ou modifiée'), 'GraphQL refusal stated clearly');
+    assert.ok(m.includes('Réessayer'), 'retry kept for fetch failures');
+    assert.ok(m.includes('Bibliothèque indisponible'), 'generic failure kept');
+    assert.ok(!m.includes('Aucune playlist'), 'never claims an empty library from an error');
+    assert.ok(m.includes('readLibStateLast'), 'state comes from the page-pushed snapshot');
+    assert.ok(m.includes('gqlErrorCodes'), 'GraphQL codes drive the wording');
+});
+
+test('the login button opens only the fixed Spotify login URL', () => {
+    const main = read('smali/com/melodix/music/MainActivity.smali');
+    assert.ok(main.includes('"spotify:lib:login"'), 'login action routed');
+    assert.ok(main.includes('.method public final openSpotifyLogin'), 'login loader exists');
+
+    const at = main.indexOf('.method public final openSpotifyLogin');
+    const m = main.slice(at, main.indexOf('.end method', at));
+    assert.ok(m.includes('"https://accounts.spotify.com/login"'), 'fixed constant URL');
+    assert.ok(!m.includes('p1'), 'never built from user input');
+    assert.ok(m.includes('isSpotifyAuthHost'), 'host allowlist belt');
+
+    const counters = read('smali/com/melodix/music/DiagCounters.smali');
+    assert.ok(counters.includes('readLibStateLast'), 'last pushed snapshot reader');
+});

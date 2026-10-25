@@ -677,3 +677,27 @@
     sput-boolean v0, Lcom/melodix/music/DiagCounters;->deviceLogged:Z
     return-void
 .end method
+
+.method public static readLibStateLast()Ljava/lang/String;
+    .locals 3
+
+    sget-object v0, Lcom/melodix/music/DiagCounters;->libStateText:Ljava/lang/String;
+    if-eqz v0, :rll_empty
+
+    const/16 v1, 0xa
+    invoke-virtual {v0, v1}, Ljava/lang/String;->lastIndexOf(I)I
+    move-result v1
+    if-gez v1, :rll_whole
+    const/4 v2, 0x1
+    add-int/2addr v1, v2
+    invoke-virtual {v0, v1}, Ljava/lang/String;->substring(I)Ljava/lang/String;
+    move-result-object v0
+    return-object v0
+
+    :rll_whole
+    return-object v0
+
+    :rll_empty
+    const-string v0, ""
+    return-object v0
+.end method

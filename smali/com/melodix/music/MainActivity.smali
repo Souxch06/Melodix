@@ -483,9 +483,10 @@
 .method public final paintLibLoadError()V
     .locals 6
 
-    # Honest terminal state for a Library that is NOT loaded: an explicit error
-    # and a real "Réessayer" action — never "aucune playlist" (only a confirmed
-    # empty account may show that) and never an eternal loading row.
+    # Honest terminal states for a Library that is NOT loaded. The state comes
+    # from the last snapshot PUSHED BY THE PAGE (token readiness, GraphQL
+    # errors). Never an empty list instead of an error, never a false
+    # "aucune playlist", never an eternal loading row.
     :try_start_lib_err
     iget-object v0, p0, Lcom/melodix/music/MainActivity;->nativeCurrentScreen:Ljava/lang/String;
     if-eqz v0, :lib_err_done
@@ -494,10 +495,43 @@
     move-result v0
     if-eqz v0, :lib_err_done
 
+    invoke-static {}, Lcom/melodix/music/DiagCounters;->readLibStateLast()Ljava/lang/String;
+    move-result-object v0
+
+    if-eqz v0, :state_fail
+    invoke-virtual {v0}, Ljava/lang/String;->isEmpty()Z
+    move-result v1
+    if-eqz v1, :state_known
+    goto :state_fail
+
+    :state_known
+    # No ready token -> ask for a login instead of a generic failure.
+    const-string v1, "\"token\":\"oui\""
+    invoke-virtual {v0, v1}, Ljava/lang/String;->contains(Ljava/lang/CharSequence;)Z
+    move-result v1
+    if-eqz v1, :state_login
+
+    # Both libraryV3 hashes rejected -> say so clearly.
+    const-string v1, "\"gqlErrorCodes\":["
+    invoke-virtual {v0, v1}, Ljava/lang/String;->contains(Ljava/lang/CharSequence;)Z
+    move-result v1
+    if-eqz v1, :state_fail
+    const-string v1, "\"gqlErrorCodes\":[]"
+    invoke-virtual {v0, v1}, Ljava/lang/String;->contains(Ljava/lang/CharSequence;)Z
+    move-result v1
+    if-nez v1, :state_fail
+
+    const-string v0, "[{\"title\":\"Bibliothèque indisponible\",\"subtitle\":\"La requête Spotify refusée ou modifiée (libraryV3) — rien n\'a été perdu\",\"section\":\"Votre bibliothèque\",\"kind\":\"error\"},{\"title\":\"Réessayer\",\"subtitle\":\"Relancer la récupération des playlists\",\"section\":\"Votre bibliothèque\",\"actionUri\":\"spotify:lib:retry\",\"kind\":\"retry\"}]"
+    goto :lib_err_paint
+
+    :state_login
+    const-string v0, "[{\"title\":\"Connecte-toi à Spotify\",\"subtitle\":\"Aucune session détectée — connectez-vous pour voir tes playlists\",\"section\":\"Votre bibliothèque\",\"kind\":\"login\"},{\"title\":\"Se connecter\",\"subtitle\":\"Ouvrir la connexion Spotify\",\"section\":\"Votre bibliothèque\",\"actionUri\":\"spotify:lib:login\",\"kind\":\"login\"}]"
+    goto :lib_err_paint
+
+    :state_fail
     new-instance v0, Ljava/lang/StringBuilder;
     invoke-direct {v0}, Ljava/lang/StringBuilder;-><init>()V
-
-    const-string v1, "[{\"title\":\"Bibliothèque indisponible\",\"subtitle\":\"La récupération des playlists n'a pas abouti — rien n'a été perdu\",\"section\":\"Votre bibliothèque\",\"kind\":\"error\"},"
+    const-string v1, "[{\"title\":\"Bibliothèque indisponible\",\"subtitle\":\"La récupération des playlists n\'a pas abouti \\u2014 rien n\'a été perdu\",\"section\":\"Votre bibliothèque\",\"kind\":\"error\"},"
     invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
 
     invoke-static {}, Lcom/melodix/music/DiagCounters;->readLibState()Ljava/lang/String;
@@ -520,10 +554,10 @@
     :lib_err_rows
     const-string v1, "{\"title\":\"Réessayer\",\"subtitle\":\"Relancer la récupération des playlists\",\"section\":\"Votre bibliothèque\",\"actionUri\":\"spotify:lib:retry\",\"kind\":\"retry\"}]"
     invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
-
     invoke-virtual {v0}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
     move-result-object v0
 
+    :lib_err_paint
     const-string v1, "Votre bibliothèque"
     invoke-virtual {p0, v1, v0}, Lcom/melodix/music/MainActivity;->renderNativeRows(Ljava/lang/String;Ljava/lang/String;)V
     :try_end_lib_err
@@ -9569,6 +9603,16 @@
     return-void
 
     :native_row_not_lib_retry
+    # Login action from the honest "Connecte-toi à Spotify" state: a fixed
+    # accounts URL, never user input.
+    const-string v2, "spotify:lib:login"
+    invoke-virtual {p1, v2}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    move-result v3
+    if-eqz v3, :native_row_not_lib_login
+    invoke-virtual {p0}, Lcom/melodix/music/MainActivity;->openSpotifyLogin()V
+    return-void
+
+    :native_row_not_lib_login
     const-string v2, "spotify:retry:media:"
     invoke-virtual {p1, v2}, Ljava/lang/String;->startsWith(Ljava/lang/String;)Z
     move-result v3
@@ -9746,6 +9790,53 @@
     goto :native_row_click_done
 
     :native_row_click_done
+    return-void
+.end method
+
+.method public final openSpotifyLogin()V
+    .locals 3
+
+    # Opens the Spotify login page on the live WebView. The URL is a fixed
+    # constant (never built from user input) and re-checked against the
+    # existing Spotify-host allowlist. This does not touch authentication
+    # itself — it only navigates to the login page.
+    invoke-static {}, Lcom/melodix/music/DiagCounters;->getPageView()Landroid/webkit/WebView;
+    move-result-object v0
+    if-eqz v0, :login_try_activity
+    goto :login_have_wv
+
+    :login_try_activity
+    iget-object v0, p0, Lcom/melodix/music/MainActivity;->G:Landroid/webkit/WebView;
+    if-eqz v0, :login_try_singleton
+    goto :login_have_wv
+
+    :login_try_singleton
+    sget-object v0, Lcom/melodix/music/AppSingleton;->w:Ll9;
+    if-eqz v0, :login_done
+
+    :login_have_wv
+    const-string v1, "https://accounts.spotify.com/login"
+
+    invoke-static {v1}, Lcom/melodix/music/NativeFetchGuard;->parseAllowedUrl(Ljava/lang/String;)Ljava/net/URL;
+    move-result-object v2
+    if-eqz v2, :login_done
+    invoke-virtual {v2}, Ljava/net/URL;->getHost()Ljava/lang/String;
+    move-result-object v2
+    invoke-static {v2}, Lcom/melodix/music/NativeFetchGuard;->isSpotifyAuthHost(Ljava/lang/String;)Z
+    move-result v2
+    if-eqz v2, :login_done
+
+    :try_start_login
+    invoke-virtual {v0, v1}, Landroid/webkit/WebView;->loadUrl(Ljava/lang/String;)V
+    :try_end_login
+    .catch Ljava/lang/Throwable; {:try_start_login .. :try_end_login} :catch_login
+
+    :login_done
+    return-void
+
+    :catch_login
+    move-exception v0
+    invoke-static {v0}, Lcom/melodix/music/NativeCrashGuard;->record(Ljava/lang/Throwable;)V
     return-void
 .end method
 
