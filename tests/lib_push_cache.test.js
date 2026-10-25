@@ -202,3 +202,39 @@ test('the login button opens only the fixed Spotify login URL', () => {
     const counters = read('smali/com/melodix/music/DiagCounters.smali');
     assert.ok(counters.includes('readLibStateLast'), 'last pushed snapshot reader');
 });
+
+// ---------------------------------------------------------------------------
+// Real-device fixes (screenshots 2026-10-25): the token is now also captured
+// from XMLHttpRequest (checkMediaLib really starts), an unconnected state is
+// "Connecte-toi à Spotify" (never an eternal loading row), and Home rows never
+// leak onto another tab.
+// ---------------------------------------------------------------------------
+
+test('home rows never leak onto another tab and the library chip styling cannot block its paint', () => {
+    const main = read('smali/com/melodix/music/MainActivity.smali');
+    const at = main.indexOf(':check_lib_title\n');
+    assert.ok(at !== -1, 'renderNativeRows title gate');
+    const block = main.slice(at, main.indexOf('\n    :check_lib_title_bis\n', at) + 24);
+    assert.ok(block.includes('"Accueil"'), 'home title gated');
+    assert.ok(block.includes(':render_native_done'), 'home rows skipped on another screen');
+    assert.ok(block.includes('nativeCurrentScreen'), 'screen-aware');
+
+    const libAt = main.indexOf(':try_start_chips');
+    assert.ok(libAt !== -1, 'chip styling is guarded');
+    const lib = main.slice(libAt, main.indexOf(':chips_ok', libAt) + 20);
+    assert.ok(lib.includes('styleNativeLibraryChips'), 'chips still styled');
+    assert.ok(lib.includes('.catch Ljava/lang/Throwable;'), 'a chips failure can never abort the tab paint');
+});
+
+test('an unconnected state says "Connecte-toi à Spotify" instead of loading forever', () => {
+    const shell = read('assets/native_ui_shell.js');
+    assert.ok(shell.includes("'login'"), 'login state exists');
+    assert.ok(shell.includes('Connecte-toi à Spotify'), 'explicit login prompt');
+    assert.ok(shell.includes('spotify:lib:login'), 'login action uri');
+    assert.ok(shell.includes('__sfAuthMissing'), 'driven by the bridge token check');
+
+    const bridge = read('assets/spotify_bridge.js');
+    assert.ok(bridge.includes('__sfAuthMissing = true'), 'flag set when no token after a real wait');
+    assert.ok(bridge.includes('__sfAuthMissing = false'), 'flag cleared once a token is ready');
+    assert.ok(bridge.includes('XMLHttpRequest.prototype.setRequestHeader'), 'XHR token capture');
+});

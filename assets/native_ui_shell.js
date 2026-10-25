@@ -664,6 +664,9 @@
         if (lib && Array.isArray(lib.playlists)) {
             return lib.playlists.length ? 'ready' : 'empty';
         }
+        // No session at all after a real token check: say so instead of
+        // pretending the library is still loading.
+        if (window.__sfAuthMissing) return 'login';
         // The bridge publishes the real fetch outcome: pending, empty and error
         // must never be confused — only "pending" may show a loading state.
         var state = window.__sfMediaLibState;
@@ -682,6 +685,15 @@
     function homeStatusRows(kind) {
         if (kind === 'loading') {
             return [{ title: 'Chargement des playlists…', section: 'Accueil' }];
+        }
+        if (kind === 'login') {
+            return [{
+                title: 'Connecte-toi à Spotify',
+                subtitle: 'Aucune session détectée — touche pour ouvrir la connexion',
+                section: 'Accueil',
+                actionUri: 'spotify:lib:login',
+                kind: 'login'
+            }];
         }
         if (kind === 'empty') {
             return [{

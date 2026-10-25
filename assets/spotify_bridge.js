@@ -1699,6 +1699,30 @@ try {
         });
     }
     window.libFetch = libFetch;
+
+    // Token capture parity: the Spotify web player does not always use fetch —
+    // on some devices/clients its authorized calls go through XMLHttpRequest,
+    // and the fetch-only hook then never sees a Bearer header. Mirror the same
+    // capture here (the token never leaves the page; same storage as the fetch
+    // hook). Nothing about authentication itself is modified.
+    try {
+        if (typeof XMLHttpRequest !== 'undefined' && !window.__sfXhrAuthHooked) {
+            window.__sfXhrAuthHooked = true;
+            var origSetRequestHeader = XMLHttpRequest.prototype.setRequestHeader;
+            XMLHttpRequest.prototype.setRequestHeader = function (name, value) {
+                try {
+                    if (String(name).toLowerCase() === 'authorization'
+                        && String(value).indexOf('Bearer ') === 0
+                        && String(value) !== window.spotAuthToken) {
+                        window.spotAuthToken = String(value);
+                        try { localStorage.setItem('spot_auth_token', window.spotAuthToken); } catch (_) {}
+                        typeof window.checkMediaLib === 'function' && window.checkMediaLib();
+                    }
+                } catch (_) {}
+                return origSetRequestHeader.apply(this, arguments);
+            };
+        }
+    } catch (_) {}
     window.fetch = async function(...args) {
         const [url, opts] = args;
         const strUrl = resolveFetchUrl(url);
@@ -4037,11 +4061,13 @@ try {
             // the Spotify session had a chance to expose its Bearer token.
             libDiagUpdate({ token: 'missing', status: 'pending' });
             libDiagRecord('token', false, 'absent');
+            window.__sfAuthMissing = true;
             if (!window.mediaLib) window.__sfMediaLibState = 'pending';
             scheduleMediaLibRetry();
             return;
         }
         const tokenLooksBearer = window.spotAuthToken.startsWith('Bearer ');
+        window.__sfAuthMissing = false;
         libDiagUpdate({ token: tokenLooksBearer ? 'bearer' : 'malformed' });
         libDiagRecord('token', tokenLooksBearer, tokenLooksBearer ? 'format Bearer' : 'format inattendu');
         // Serialize the fetch phase: re-check the lock after the awaited token
@@ -4145,14 +4171,16 @@ try {
     }
     window.__sfPushMediaLibToNative = pushMediaLibToNative;
 
-    // Self-start: the page loads its library BY ITSELF as soon as the Spotify
-    // token is ready, with timed retries — never waiting for a native request
-    // (that channel can be unreachable while JS->native keeps working).
+    // Self-start: the page loads its library BY ITSELF, with timed retries —
+    // never waiting for a native request (that channel can be unreachable
+    // while JS->native keeps working). It runs even WITHOUT a token yet:
+    // checkMediaLib handles the wait and the pushes report the real state, so
+    // a device that never captures a Bearer header still resolves to an
+    // honest "Connecte-toi à Spotify" instead of an eternal loading row.
     var libSelfLastAttempt = 0;
     function libSelfStartTick() {
         try {
             if (window.__sfMediaLibState === 'ready' || window.__sfMediaLibState === 'empty') return;
-            if (!window.spotAuthToken) return;
             var now = Date.now();
             if (now - libSelfLastAttempt < 15000) return;
             libSelfLastAttempt = now;

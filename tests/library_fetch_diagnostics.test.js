@@ -890,19 +890,24 @@ test('the page starts checkMediaLib by itself once the token is ready', async ()
         return orig(...args);
     };
 
-    // No token yet: the tick must do nothing.
+    // The tick runs EVEN WITHOUT a token: checkMediaLib handles the wait and
+    // the pushes report the honest state — a device that never captures a
+    // Bearer header must resolve, not hang on an eternal loading row.
     sandbox.__sfAuthBridgeState = 'signed-in';
     sandbox.__sfLibSelfStartTick();
-    assert.equal(calls.length, 0, 'no fetch without a token');
+    assert.equal(calls.length, 1, 'self-start runs even without a token');
+    assert.equal(calls[0][0], true, 'forced self-start');
 
     sandbox.spotAuthToken = 'Bearer tok.value';
     sandbox.__sfLibSelfStartTick();
-    assert.equal(calls.length, 1, 'checkMediaLib runs BY ITSELF once the token is ready');
-    assert.equal(calls[0][0], true, 'forced self-start');
+    assert.equal(calls.length, 1, 'bounded retry rate (throttled)');
 
-    // Timed retry: an immediate second tick is throttled.
+    // Timed retry: the throttle lets another attempt through later.
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    sandbox.__sfLibSelfStartTick = sandbox.__sfLibSelfStartTick;
+    sandbox.__sfMediaLibState = 'error';
     sandbox.__sfLibSelfStartTick();
-    assert.equal(calls.length, 1, 'bounded retry rate');
+    assert.equal(calls.length, 1, 'still throttled within the window');
 });
 
 test('the page polls the native command queue and executes only whitelisted commands', () => {
@@ -939,3 +944,45 @@ test('the page polls the native command queue and executes only whitelisted comm
     sandbox.__sfPollCommandsTick();
     assert.equal(evilCalled, 0, 'prototype tricks refused');
 });
+
+test('the token is also captured from XMLHttpRequest calls (fetch-only hook was not enough)', () => {
+    const vm = require('node:vm');
+    const src = read('assets/spotify_bridge.js');
+
+    // Extract the capture snippet between its comment and the fetch override.
+    const snipStart = src.indexOf('// Token capture parity');
+    assert.ok(snipStart !== -1, 'capture snippet present');
+    const snipEnd = src.indexOf('window.fetch = async function', snipStart);
+    assert.ok(snipEnd > snipStart, 'snippet bounded by the fetch override');
+    const snippet = src.slice(snipStart, snipEnd);
+
+    class FakeXhr {
+        constructor() { this.headers = {}; }
+        open() {}
+        setRequestHeader(name, value) { this.headers[String(name).toLowerCase()] = String(value); }
+        send() {}
+    }
+    const calls = [];
+    const win = {
+        XMLHttpRequest: FakeXhr,
+        localStorage: { getItem: () => null, setItem: () => {} },
+        checkMediaLib: () => calls.push(true)
+    };
+    vm.runInNewContext(snippet, { window: win, XMLHttpRequest: FakeXhr, localStorage: win.localStorage });
+
+    assert.equal(win.__sfXhrAuthHooked, true, 'capture installed');
+
+    const xhr = new FakeXhr();
+    xhr.setRequestHeader('Authorization', 'Bearer secret.token.value');
+    assert.equal(win.spotAuthToken, 'Bearer secret.token.value', 'token captured from XHR');
+    assert.equal(calls.length, 1, 'library fetch triggered');
+
+    xhr.setRequestHeader('X-Other', 'nope');
+    assert.equal(calls.length, 1, 'other headers ignored');
+    assert.equal(win.spotAuthToken, 'Bearer secret.token.value', 'token unchanged by other headers');
+
+    // The real bridge wires the same hook at boot.
+    assert.ok(src.includes('__sfXhrAuthHooked'), 'installed once at boot');
+});
+
+

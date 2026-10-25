@@ -8953,6 +8953,22 @@
     sput-boolean v4, Lcom/melodix/music/NativeHomeFeed;->useGrid:Z
     goto :native_screen_painted_track
     :check_lib_title
+    # Home rows ("Accueil") never paint onto another screen: a home update
+    # arriving while another tab is open must not leak "Chargement des
+    # playlists…" over it. Null screen still paints (startup reveal).
+    const-string v0, "Accueil"
+    invoke-virtual {v0, p1}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    move-result v0
+    if-eqz v0, :check_lib_title_bis
+    iget-object v0, p0, Lcom/melodix/music/MainActivity;->nativeCurrentScreen:Ljava/lang/String;
+    if-eqz v0, :native_screen_painted_track
+    const-string v4, "home"
+    invoke-virtual {v0, v4}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    move-result v5
+    if-nez v5, :native_screen_painted_track
+    goto :render_native_done
+
+    :check_lib_title_bis
     const-string v0, "Votre bibliothèque"
     invoke-virtual {v0, p1}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
     move-result v0
@@ -9333,7 +9349,16 @@
     invoke-virtual {p0, v0}, Lcom/melodix/music/MainActivity;->setNativeScreen(Ljava/lang/String;)V
     const-string v1, "playlists"
     iput-object v1, p0, Lcom/melodix/music/MainActivity;->nativeExpectedId:Ljava/lang/String;
+    :try_start_chips
     invoke-virtual {p0, v1}, Lcom/melodix/music/MainActivity;->styleNativeLibraryChips(Ljava/lang/String;)V
+    :try_end_chips
+    .catch Ljava/lang/Throwable; {:try_start_chips .. :try_end_chips} :chips_err
+    goto :chips_ok
+
+    :chips_err
+    move-exception v2
+
+    :chips_ok
     iget-object v2, p0, Lcom/melodix/music/MainActivity;->nativeLibraryJson:Ljava/lang/String;
     if-eqz v2, :lib_fallback_json
     iget-object v0, p0, Lcom/melodix/music/MainActivity;->nativeLibraryJsonId:Ljava/lang/String;
