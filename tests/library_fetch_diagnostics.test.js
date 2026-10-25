@@ -831,3 +831,76 @@ test('pushed snapshots report token readiness as oui/non without any value', () 
         assert.ok(!/[A-Za-z0-9_+/-]{24,}/.test(line), 'no token-like opaque run');
     });
 });
+
+// ---------------------------------------------------------------------------
+// 6. Change 1 — the page pushes the normalized library to native (JS->native)
+//    in bounded batches and starts checkMediaLib BY ITSELF once the token is
+//    ready: the result must not depend on a native->JS request.
+// ---------------------------------------------------------------------------
+
+test('the page pushes the normalized library to native in bounded batches', async () => {
+    const harness = createBridgeVm([
+        libraryPage([
+            playlistItem('Électro été', 'spotify:playlist:elec1'),
+            playlistItem('Rock classique', 'spotify:playlist:rock2')
+        ])
+    ]);
+    const { sandbox } = harness;
+    const pushes = [];
+    sandbox.window.AndBridge.onMediaLibBatch = (text) => pushes.push(JSON.parse(String(text)));
+
+    sandbox.__sfAuthBridgeState = 'signed-in';
+    sandbox.spotAuthToken = 'Bearer secret.value.here';
+    await sandbox.checkMediaLib();
+
+    assert.ok(pushes.length >= 4, 'every category gets batches (terminal one included)');
+    pushes.forEach((p) => {
+        assert.ok(p.items.length <= 25, 'bounded batch size');
+        assert.equal(typeof p.last, 'boolean', 'terminal flag present');
+        assert.ok(!JSON.stringify(p).includes('secret.value.here'), 'never a credential');
+    });
+
+    const playlists = pushes.filter((p) => p.cat === 'playlists');
+    assert.equal(playlists[0].items.length, 2);
+    const item = playlists[0].items[0];
+    assert.deepEqual(Object.keys(item).sort(), ['image', 'subtitle', 'title', 'uri']);
+    assert.equal(item.title, 'Électro été');
+    assert.equal(item.uri, 'spotify:playlist:elec1');
+
+    ['playlists', 'albums', 'artists', 'podcasts'].forEach((cat) => {
+        const list = pushes.filter((p) => p.cat === cat);
+        assert.ok(list.length >= 1, cat + ' gets at least one terminal batch');
+        assert.equal(list[list.length - 1].last, true, cat + ' ends terminal');
+    });
+    const albums = pushes.filter((p) => p.cat === 'albums');
+    assert.equal(albums[0].items.length, 0, 'confirmed-empty category still pushes a terminal batch');
+});
+
+test('the page starts checkMediaLib by itself once the token is ready', async () => {
+    const harness = createBridgeVm([
+        libraryPage([playlistItem('Solo', 'spotify:playlist:solo1')])
+    ]);
+    const { sandbox } = harness;
+    assert.equal(typeof sandbox.__sfLibSelfStartTick, 'function', 'self-start tick exists');
+
+    const calls = [];
+    const orig = sandbox.checkMediaLib;
+    sandbox.checkMediaLib = (...args) => {
+        calls.push(args.slice());
+        return orig(...args);
+    };
+
+    // No token yet: the tick must do nothing.
+    sandbox.__sfAuthBridgeState = 'signed-in';
+    sandbox.__sfLibSelfStartTick();
+    assert.equal(calls.length, 0, 'no fetch without a token');
+
+    sandbox.spotAuthToken = 'Bearer tok.value';
+    sandbox.__sfLibSelfStartTick();
+    assert.equal(calls.length, 1, 'checkMediaLib runs BY ITSELF once the token is ready');
+    assert.equal(calls[0][0], true, 'forced self-start');
+
+    // Timed retry: an immediate second tick is throttled.
+    sandbox.__sfLibSelfStartTick();
+    assert.equal(calls.length, 1, 'bounded retry rate');
+});

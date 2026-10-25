@@ -9292,7 +9292,7 @@
 .end method
 
 .method public final onNativeLibraryClick(Landroid/view/View;)V
-    .locals 3
+    .locals 4
 
     :try_start_lib
     const-string v0, "library"
@@ -9322,6 +9322,17 @@
     invoke-virtual {p0, v0, v2}, Lcom/melodix/music/MainActivity;->renderNativeRows(Ljava/lang/String;Ljava/lang/String;)V
     goto :lib_fetch
     :lib_render_loading
+    # Cached library first (marked "à jour il y a X"): a fresh push from the
+    # page replaces it. An error never empties this cache.
+    const-string v0, "playlists"
+    invoke-static {v0}, Lcom/melodix/music/NativeLibCache;->composeStamped(Ljava/lang/String;)Ljava/lang/String;
+    move-result-object v3
+    if-eqz v3, :lib_paint_loading
+    const-string v0, "Votre bibliothèque"
+    invoke-virtual {p0, v0, v3}, Lcom/melodix/music/MainActivity;->renderNativeRows(Ljava/lang/String;Ljava/lang/String;)V
+    goto :lib_fetch
+
+    :lib_paint_loading
     # Always paint this tab's own state: without a cache the previous screen's
     # rows (e.g. Accueil "Chargement des playlists…") would stay on screen.
     const-string v0, "Votre bibliothèque"

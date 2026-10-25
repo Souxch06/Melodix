@@ -3402,6 +3402,22 @@
     return-void
 .end method
 
+.method public final onMediaLibBatch(Ljava/lang/String;)V
+    .locals 1
+    .annotation runtime Landroid/webkit/JavascriptInterface;
+    .end annotation
+
+    # Bounded batch of the normalized library pushed BY THE PAGE (JS->native).
+    # NativeLibCache validates every field, assembles the batches and persists
+    # the category only when complete: an error never empties the cache.
+    if-eqz p1, :libbatch_done
+
+    invoke-static {p1}, Lcom/melodix/music/NativeLibCache;->accept(Ljava/lang/String;)V
+
+    :libbatch_done
+    return-void
+.end method
+
 .method public final onLibDiagState(Ljava/lang/String;)V
     .locals 1
     .annotation runtime Landroid/webkit/JavascriptInterface;

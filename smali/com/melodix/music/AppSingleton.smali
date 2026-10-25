@@ -254,6 +254,7 @@
 
     :try_start_guard
     invoke-static/range {p0 .. p0}, Lcom/melodix/music/NativeCrashGuard;->install(Landroid/content/Context;)V
+    invoke-static/range {p0 .. p0}, Lcom/melodix/music/NativeLibCache;->install(Landroid/content/Context;)V
     const-string v1, "application"
     invoke-static/range {v1 .. v1}, Lcom/melodix/music/NativeCrashGuard;->stage(Ljava/lang/String;)V
     :try_end_guard

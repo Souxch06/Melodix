@@ -4059,6 +4059,7 @@ try {
             }
             window.mediaLib = parseLibrary(allItems);
             mediaLibRetryAttempts = 0;
+            pushMediaLibToNative();
             console.log("[Spotifuck] checkMediaLib: Successfully loaded mediaLib! Draining pending requests:", Array.from(window.pendingMediaRequests));
             if (window.pendingMediaRequests && window.pendingMediaRequests.size > 0) {
                 for (const reqId of window.pendingMediaRequests) {
@@ -4096,6 +4097,72 @@ try {
         }
     }
     window.checkMediaLib = checkMediaLib;
+
+    // =========================================================================
+    // PUSH MODEL: the page sends the normalized library to native over the
+    // JS->native AndBridge channel (bounded batches of 25). This never depends
+    // on native->JS evaluateJavascript, which can be dead on a real device.
+    // =========================================================================
+    var LIB_PUSH_BATCH = 25;
+    var LIB_PUSH_CATS = ['playlists', 'albums', 'artists', 'podcasts'];
+
+    function pushMediaLibBatch(cat, items, index, total, epoch) {
+        try {
+            if (!window.AndBridge || typeof window.AndBridge.onMediaLibBatch !== 'function') return;
+            var norm = (items || []).slice(0, 40).map(function (it) {
+                return {
+                    title: String((it && it.name) || '').slice(0, 120),
+                    subtitle: (Array.isArray(it && it.artists) ? it.artists.join(', ') : '').slice(0, 120),
+                    uri: String((it && it.id) || ''),
+                    image: String((it && it.image) || '').slice(0, 400)
+                };
+            });
+            window.AndBridge.onMediaLibBatch(JSON.stringify({
+                cat: String(cat),
+                items: norm,
+                i: index,
+                n: total,
+                epoch: epoch,
+                last: index + 1 >= total
+            }));
+        } catch (_) {}
+    }
+
+    function pushMediaLibToNative() {
+        try {
+            var lib = window.mediaLib;
+            if (!lib) return;
+            window.__sfLibPushEpoch = (window.__sfLibPushEpoch || 0) + 1;
+            var epoch = window.__sfLibPushEpoch;
+            LIB_PUSH_CATS.forEach(function (cat) {
+                var items = Array.isArray(lib[cat]) ? lib[cat] : [];
+                var total = Math.max(1, Math.ceil(items.length / LIB_PUSH_BATCH));
+                for (var i = 0; i < total; i += 1) {
+                    pushMediaLibBatch(cat, items.slice(i * LIB_PUSH_BATCH, (i + 1) * LIB_PUSH_BATCH), i, total, epoch);
+                }
+            });
+        } catch (_) {}
+    }
+    window.__sfPushMediaLibToNative = pushMediaLibToNative;
+
+    // Self-start: the page loads its library BY ITSELF as soon as the Spotify
+    // token is ready, with timed retries — never waiting for a native request
+    // (that channel can be unreachable while JS->native keeps working).
+    var libSelfLastAttempt = 0;
+    function libSelfStartTick() {
+        try {
+            if (window.__sfMediaLibState === 'ready' || window.__sfMediaLibState === 'empty') return;
+            if (!window.spotAuthToken) return;
+            var now = Date.now();
+            if (now - libSelfLastAttempt < 15000) return;
+            libSelfLastAttempt = now;
+            if (typeof window.checkMediaLib === 'function') window.checkMediaLib(true);
+        } catch (_) {}
+    }
+    window.__sfLibSelfStartTick = libSelfStartTick;
+    try {
+        setInterval(libSelfStartTick, 1500);
+    } catch (_) {}
 
     async function fetchAllLibrary() {
         if (!window.spotAuthToken || !window.spotAuthToken.startsWith('Bearer ')) {
