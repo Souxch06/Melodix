@@ -265,3 +265,33 @@ de le copier »)** :
   + absence du loader, tape Copier et vérifie le retour « Message copi… ».
 - **Intégrité build** : `diag_engine.js` ajouté à la liste des assets vérifiés
   dans les APK (preview + refresh).
+
+## 24. Analyse du premier rapport appareil (test.8, 2026-10-25 08:19)
+
+Rapport collé par l'utilisateur (extrait) :
+`affichage: entré=14 accepté=14 vide=0` / `transmission: entré=3 rejeté=0` /
+`canal media: affiché=0 rejeté=0` / `Cache bibliothèque: 0 caractères,
+catégorie aucune` / `Id attendu: aucun`.
+
+**Ce qui est prouvé** :
+1. Le correctif test.8 fonctionne sur SON appareil : message natif immédiat +
+   copie native OK (le rapport est arrivé).
+2. Le pipeline natif est sain : admission 14/14, transmission 3/3, aucun rejet
+   epoch/taille — rien n'est perdu côté natif.
+3. Aucun payload `media:<cat>` n'est jamais arrivé depuis ce démarrage
+   (canal 0/0, cache 0) — le point de disparition est CÔTÉ JS, AVANT l'envoi.
+
+**Nuance honnête** : « Id attendu: aucun » alors que `onNativeLibraryClick`
+pose `nativeExpectedId="playlists"` (effacé seulement au logout) = l'onglet
+Bibliothèque n'a pas été ouvert pendant CE démarrage. Le rapport montre l'état
+« avant reproduction » ; il faut un capture PENDANT la reproduction + le test
+moteur pour classer fetch-0 vs display-0.
+
+**Suspect principal (code)** : `fetchMediaItems` (seule source API bibliothèque)
+n'existe QUE dans `spotify_bridge.js` ; le shell admet noir sur blanc
+(native_ui_shell.js ~2834) qu'un `evaluateJavascript` de ~200 Ko est
+« silently dropped by the WebView on device: the native shell starts, the
+bridge never does ». Repli = `location.assign('/collection/...')` + scrape DOM.
+Le rapport décisif doit montrer : présence du bridge (`__sfMelodixBridgeStarted`,
+`fetchMediaItems`), et si le moteur lui-même injecte (sinon la WebView drop tout
+et la cause racine est établie).
