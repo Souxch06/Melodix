@@ -352,3 +352,21 @@ Conclusion : la perte des playlists vient de la direction **natif→JS** (demand
 - **diagnostic simplifié à UNE tape** : bouton « Diagnostic complet » (`spotify:diag:full`) = sonde + test playlists + **copie automatique du rapport** à l'état terminal (`auto-copy ok`/`impossible`) ; rapport affiché **ligne par ligne** à l'écran (section « Rapport ») sans copie ni JS.
 
 Le prochain rapport lira : `js-cb` présent → `evaluateJavascript` fonctionne et le problème restant est côté pont/moteur ; `js-probe miss cb=absent` → livraison native→JS morte (dernier maillon à investiguer : instance WebView réellement ciblée) ; `renderer-flag=1` → crash non récupéré.
+
+## 28. Rapport n° 6 (test.12) : la sonde se tait dans les DEUX sens — preuve par l'absurdité + test.13 (cible WebView vivante, sonde imparable)
+
+Le rapport n° 6 (test.12, aucun crash de rendu cette fois) présente un paradoxe décisif :
+
+- `js-cb ask` ×2 (sondes envoyées), `diag-full`, `asset-via-activity` (moteur injecté) ;
+- **aucune** réponse `js-cb <id> …` ;
+- **aucun** marqueur de timeout `js-probe miss cb=absent` non plus — alors que le timeout journalise **toujours** après 2,5 s et que le message des 35 s (postérieur) est bien présent.
+
+Or le timeout ne se tait que si `answerProbe()` a été appelé, c'est-à-dire si le **callback a tourné**. Donc : `evaluateJavascript` livre ET rappelle, mais le callback perdait ensuite sa propre trace (seul jeton possible : `check-cast` sur une valeur non-String → exception avalée). Et l'ancienne sonde `logDiagEvent` reste muette → `window.AndBridge` absent du WebView ciblé. Conclusion combinée : **les envois natif→JS visent une instance WebView qui n'est PAS celle où la page tourne** (les dispatches de démarrage prouvent que la page, elle, fonctionne) — exactement la cause des playlists absentes et du moteur muet.
+
+**Correctifs test.13 (`e352da9`, marker `11a4e3d`)** :
+
+- `c91` enregistre le WebView qu'il sert (`DiagCounters.setPageView`) à chaque `onPageStarted`/`onPageFinished` ; `runNativeJavascript` et la sonde résolvent **pageView → G → w** — les envois ne peuvent plus atterrir sur une instance périmée après une récupération ;
+- traces d'identité : `page-start … #<hash>` et `js-cb tgt <hash>` — le prochain rapport prouvera l'égalité des instances ;
+- sonde **imparable** : valeur stringifiée par `Object.toString()` + nom de classe (plus aucun `check-cast`), catch qui journalise `js-cb err`, timeout **toujours** journalisé `js-cb tmo <id> ans <0|1>` (plus de garde sur état partagé) — un rapport sans ces lignes prouverait que le Runnable lui-même n'a pas tourné.
+
+Lecture du prochain rapport : `js-cb tgt` == `page-start #` ET `js-cb <id> String "bridge-ok"` → chaîne saine (restera à expliquer les playlists) ; `no-bridge` → pont absent de la page ciblée ; `js-cb tmo … ans 0` → livraison native→JS morte malgré tout ; `engine` sans `diag:report` → problème côté moteur.
