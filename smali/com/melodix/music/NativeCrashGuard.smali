@@ -334,6 +334,56 @@
     return-object v0
 .end method
 
+# Diagnostic screen probe: first line of the last recorded crash report
+# (exception class + message), truncated to 160 chars. Never returns the full
+# stack: stack frames can contain private storage paths.
+.method public static lastCrashLine()Ljava/lang/String;
+    .locals 3
+
+    invoke-static {}, Lcom/melodix/music/NativeCrashGuard;->lastReport()Ljava/lang/String;
+
+    move-result-object v0
+
+    if-nez v0, :none
+
+    const/16 v1, 0xa
+
+    invoke-virtual {v0, v1}, Ljava/lang/String;->indexOf(I)I
+
+    move-result v2
+
+    if-gez v2, :clip
+
+    const/4 v1, 0x0
+
+    invoke-virtual {v0, v1, v2}, Ljava/lang/String;->substring(II)Ljava/lang/String;
+
+    move-result-object v0
+
+    :clip
+    invoke-virtual {v0}, Ljava/lang/String;->length()I
+
+    move-result v1
+
+    const/16 v2, 0xa0
+
+    if-gt v1, v2, :ok
+
+    const/4 v1, 0x0
+
+    invoke-virtual {v0, v1, v2}, Ljava/lang/String;->substring(II)Ljava/lang/String;
+
+    move-result-object v0
+
+    :ok
+    return-object v0
+
+    :none
+    const/4 v0, 0x0
+
+    return-object v0
+.end method
+
 .method public static record(Ljava/lang/Throwable;)V
     .locals 1
 

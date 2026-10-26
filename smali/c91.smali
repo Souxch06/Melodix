@@ -368,6 +368,11 @@
     const-string v5, "native_ui_shell.js"
     invoke-static {v5}, Lm9;->d(Ljava/lang/String;)Ljava/lang/String;
     move-result-object v5
+
+    # Shell injection probe: journalize the content length handed to the
+    # WebView ("js-shell inject len=<n>" / "null"), read-only.
+    invoke-static {v5}, Lcom/melodix/music/DiagCounters;->logShellInject(Ljava/lang/String;)V
+
     invoke-virtual {v0, v5, v8}, Landroid/webkit/WebView;->evaluateJavascript(Ljava/lang/String;Landroid/webkit/ValueCallback;)V
 
     # Warm the bridge asset cache and execute via the shell's chunked/same-origin loader.

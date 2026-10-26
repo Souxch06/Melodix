@@ -360,6 +360,12 @@
     const-string v1, "\n"
     invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
 
+    # Crash probe : first line of the last NativeCrashGuard record (or
+    # "non reçu"). Read-only display, no conclusion.
+    invoke-static {}, Lcom/melodix/music/DiagCounters;->buildCrashSection()Ljava/lang/String;
+    move-result-object v2
+    invoke-virtual {v0, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
     const-string v1, "Compteurs pipeline (depuis ce démarrage):\n"
     invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
 
@@ -711,6 +717,89 @@
     :rll_empty
     const-string v0, ""
     return-object v0
+.end method
+
+# --- Crash probe (temporary) : last NativeCrashGuard crash, first line only ---
+# Shows class + message (truncated to 160 by NativeCrashGuard.lastCrashLine),
+# never the full stack trace. Absent -> "non reçu". No interpretation.
+
+.method public static buildCrashSection()Ljava/lang/String;
+    .locals 3
+
+    new-instance v0, Ljava/lang/StringBuilder;
+
+    invoke-direct {v0}, Ljava/lang/StringBuilder;-><init>()V
+
+    const-string v1, "Dernier crash (NativeCrashGuard): "
+
+    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    invoke-static {}, Lcom/melodix/music/NativeCrashGuard;->lastCrashLine()Ljava/lang/String;
+
+    move-result-object v2
+
+    if-eqz v2, :absent
+
+    invoke-virtual {v0, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    goto :nl
+
+    :absent
+    const-string v1, "non reçu"
+
+    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    :nl
+    const-string v1, "\n"
+
+    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    invoke-virtual {v0}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
+
+    move-result-object v1
+
+    return-object v1
+.end method
+
+# --- Shell injection probe : length of the injected shell source -------------
+# Written by c91 right before evaluateJavascript so the journal proves what
+# content length was handed to the WebView ("js-shell inject len=<n>", or
+# "null" when the asset read failed).
+
+.method public static logShellInject(Ljava/lang/String;)V
+    .locals 3
+
+    new-instance v0, Ljava/lang/StringBuilder;
+
+    invoke-direct {v0}, Ljava/lang/StringBuilder;-><init>()V
+
+    const-string v1, "js-shell inject len="
+
+    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    if-eqz p0, :nil
+
+    invoke-virtual {p0}, Ljava/lang/String;->length()I
+
+    move-result v2
+
+    invoke-virtual {v0, v2}, Ljava/lang/StringBuilder;->append(I)Ljava/lang/StringBuilder;
+
+    goto :emit
+
+    :nil
+    const-string v1, "null"
+
+    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    :emit
+    invoke-virtual {v0}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
+
+    move-result-object v1
+
+    invoke-static {v1}, Lcom/melodix/music/DiagCounters;->event(Ljava/lang/String;)V
+
+    return-void
 .end method
 
 # --- Bridge load observability (temporary "Bridge (temporaire)" section) ----

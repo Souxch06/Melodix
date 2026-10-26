@@ -6,6 +6,15 @@
     window.__sfNativeUiShellStarted = true;
     window.__sfNativeUiShellErrors = 0;
 
+    // Shell execution probe (read-only): journalize begin/end through the
+    // existing AndBridge.logDiagEvent channel so the native journal proves
+    // whether this file executed and reached the end of its initialization.
+    try {
+        if (window.AndBridge && typeof window.AndBridge.logDiagEvent === 'function') {
+            window.AndBridge.logDiagEvent('js-shell begin');
+        }
+    } catch (_) {}
+
     var HOME_PATHS = ['/', '/home'];
     var SUPPORTED_TYPES = ['playlist', 'album', 'artist', 'track', 'show', 'episode', 'audiobook'];
     var MAX_READY_RETRIES = 60;
@@ -3217,4 +3226,9 @@
         recordShellError(error, 'install');
         window.__sfNativeUiShellCompleted = false;
     }
+    try {
+        if (window.AndBridge && typeof window.AndBridge.logDiagEvent === 'function') {
+            window.AndBridge.logDiagEvent('js-shell end');
+        }
+    } catch (_) {}
 })();
