@@ -14,10 +14,39 @@
 .end method
 
 .method public static min(Landroid/webkit/WebView;Ljava/lang/String;)V
-    .locals 2
+    .locals 4
 
+    # "js-cb exec <tag>" is journaled by the snippet itself before it returns:
+    #   js-cb ok + ans 1      -> executed AND the result was delivered
+    #   js-cb exec + tmo ans 0 -> executed but the result was never delivered
+    #   neither               -> the snippet never ran (or the channel was dead)
+    # The probe value itself stays exactly "1" (contract) and JSONObject.quote
+    # keeps a caller tag injection-safe inside the JS string.
     const-string v0, "1"
-    invoke-static {p0, p1, v0}, Lcom/melodix/music/DiagJsProbe;->send(Landroid/webkit/WebView;Ljava/lang/String;Ljava/lang/String;)V
+    new-instance v1, Ljava/lang/StringBuilder;
+    invoke-direct {v1}, Ljava/lang/StringBuilder;-><init>()V
+    const-string v2, "(function(){try{window.AndBridge&&window.AndBridge.logDiagEvent("
+    invoke-virtual {v1, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    new-instance v2, Ljava/lang/StringBuilder;
+    invoke-direct {v2}, Ljava/lang/StringBuilder;-><init>()V
+    const-string v3, "js-cb exec "
+    invoke-virtual {v2, v3}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    if-eqz p1, :jsp_min_tag_ready
+    invoke-virtual {v2, p1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    :jsp_min_tag_ready
+    invoke-virtual {v2}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
+    move-result-object v2
+    invoke-static {v2}, Lorg/json/JSONObject;->quote(Ljava/lang/String;)Ljava/lang/String;
+    move-result-object v2
+    invoke-virtual {v1, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    const-string v2, ")}catch(e){}return "
+    invoke-virtual {v1, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    invoke-virtual {v1, v0}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    const-string v2, "})()"
+    invoke-virtual {v1, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    invoke-virtual {v1}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
+    move-result-object v2
+    invoke-static {p0, p1, v2}, Lcom/melodix/music/DiagJsProbe;->send(Landroid/webkit/WebView;Ljava/lang/String;Ljava/lang/String;)V
     return-void
 .end method
 

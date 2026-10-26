@@ -47,8 +47,11 @@ test('[structurel] sonde 1c : c91 journalise la longueur du shell injecté, le s
     assert.ok(counters.includes('js-shell inject len='), 'probe message format present');
     // The shell itself journals begin and end on the existing channel.
     assert.ok(shell.includes("window.AndBridge.logDiagEvent('js-shell begin')"), 'begin marker present');
-    assert.ok(shell.includes("window.AndBridge.logDiagEvent('js-shell end')"), 'end marker present');
-    assert.ok(shell.includes("'js-shell begin'") && shell.includes("'js-shell end'"), 'markers use the existing logDiagEvent channel');
+    // Contract rewritten (P0 bridge-startup): 'js-shell end' alone no longer
+    // proves a successful start -- the suffix carries install()'s outcome while
+    // keeping the native startsWith("js-shell end") counter working.
+    assert.ok(/window\.AndBridge\.logDiagEvent\('js-shell end '\s*\+\s*\(window\.__sfNativeUiShellCompleted\s*\?\s*'ok'\s*:\s*'install-threw'\)\)/.test(shell), 'end marker carries ok/install-threw outcome');
+    assert.ok(shell.includes("'js-shell begin'") && shell.includes('js-shell end '), 'markers use the existing logDiagEvent channel');
 });
 
 test('[structurel] sonde 1d : DiagJsProbeCallback reste sans cast et avec toString null-guarded (aucun correctif)', () => {

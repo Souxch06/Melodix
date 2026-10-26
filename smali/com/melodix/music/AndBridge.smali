@@ -3425,13 +3425,19 @@
 .end method
 
 .method public final onLibDiagState(Ljava/lang/String;)V
-    .locals 1
+    .locals 2
     .annotation runtime Landroid/webkit/JavascriptInterface;
     .end annotation
 
     # Bounded library-state snapshot pushed BY THE PAGE (JS->native works even
     # when native->JS evaluateJavascript is dead on a device). Sanitized and
     # stored natively by DiagCounters.libState for the diagnostic screen.
+    # Monotonic-epoch guard, same as onNativeHomeRows/dispatchNativeUi: a late
+    # snapshot from a previous session must never overwrite newer state.
+    iget v0, p0, Lcom/melodix/music/AndBridge;->bridgeEpoch:I
+    sget v1, Lcom/melodix/music/MainActivity;->nativeSessionEpoch:I
+    if-ne v0, v1, :libdiag_done
+
     if-eqz p1, :libdiag_done
 
     invoke-static {p1}, Lcom/melodix/music/DiagCounters;->libState(Ljava/lang/String;)V

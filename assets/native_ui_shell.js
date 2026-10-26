@@ -2883,6 +2883,15 @@
     function recordBridgeFailure(stage, error) {
         var message = sanitizeDiagnostic(error);
         window.__sfBridgeLastError = sanitizeDiagnostic(stage + (message ? ': ' + message : ''));
+        // Startup must announce its failures on the native journal: the
+        // state fields above are only readable through the very channel that
+        // just failed. Stage only (never the error text) keeps secrets out.
+        try {
+            var announce = window.AndBridge;
+            if (announce && typeof announce.logDiagEvent === 'function') {
+                announce.logDiagEvent('js-bridge err ' + String(stage || 'unknown'));
+            }
+        } catch (_) {}
     }
 
     function sameOriginBridgeSrc() {
@@ -3119,11 +3128,32 @@
     var bridgeDiagLastAt = 0;
     var bridgeDiagOkLogged = false;
 
+    var libPushBlockedLogged = null;
+    function markLibPushBlocked(reason) {
+        var next = String(reason || '');
+        window.__sfLibPushBlocked = next;
+        if (next === libPushBlockedLogged) return;
+        libPushBlockedLogged = next;
+        if (!next) return;
+        // A dead channel must not be a silent one: journal the blocking reason
+        // through logDiagEvent when that channel still exists, and always keep
+        // it on a window field so recovery can clear it visibly.
+        try {
+            var announce = window.AndBridge;
+            if (announce && typeof announce.logDiagEvent === 'function') {
+                announce.logDiagEvent('lib-push blocked ' + next);
+            }
+        } catch (_) {}
+    }
     function pushBridgeDiagState() {
         window.__sfDiagPushes = (window.__sfDiagPushes || 0) + 1;
         try {
             var bridge = window.AndBridge;
-            if (!bridge || typeof bridge.onLibDiagState !== 'function') return;
+            if (!bridge || typeof bridge.onLibDiagState !== 'function') {
+                markLibPushBlocked(!bridge ? 'no-bridge' : 'no-method');
+                return;
+            }
+            markLibPushBlocked('');
             bridgeDiagLastAt = Date.now();
             bridgeDiagLastStage = typeof window.__sfBridgeLoadStage === 'string' ? window.__sfBridgeLoadStage : null;
             bridge.onLibDiagState(bridgeDiagStateJson());
@@ -3215,7 +3245,18 @@
                 window.__sfNativeUiBridgeRecovered = true;
                 return;
             }
-            if (bridgeLoadAttempts < 4) bridgeRetryTimer = window.setTimeout(attempt, 2500);
+            if (bridgeLoadAttempts < 4) {
+                bridgeRetryTimer = window.setTimeout(attempt, 2500);
+            } else {
+                // Terminal startup failure: announce it once on the journal so
+                // "no bridge" is never a silent state. Stage only, no payload.
+                try {
+                    var giveUp = window.AndBridge;
+                    if (giveUp && typeof giveUp.logDiagEvent === 'function') {
+                        giveUp.logDiagEvent('js-bridge gave-up ' + String(window.__sfBridgeLoadStage || 'unknown'));
+                    }
+                } catch (_) {}
+            }
         }
 
         if (bridgeHasStarted()) return;
@@ -3266,7 +3307,10 @@
     }
     try {
         if (window.AndBridge && typeof window.AndBridge.logDiagEvent === 'function') {
-            window.AndBridge.logDiagEvent('js-shell end');
+            // The end marker alone must never prove a successful start: the
+            // suffix carries the install() outcome (both still count as
+            // "js-shell end" for the native prefix counter).
+            window.AndBridge.logDiagEvent('js-shell end ' + (window.__sfNativeUiShellCompleted ? 'ok' : 'install-threw'));
         }
     } catch (_) {}
 })();
