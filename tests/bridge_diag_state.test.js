@@ -70,16 +70,16 @@ const WATCHED = [
 // [simulation] construction du JSON — comportement de la fonction JS
 // ---------------------------------------------------------------------------
 
-test('[simulation] le snapshot contient exactement les 13 champs demandés, absents = null (jamais inventés)', () => {
+test('[simulation] le snapshot contient exactement les 14 champs demandés (13 + chain), absents = null (jamais inventés)', () => {
     const win = {};
     const json = extractBuilder(win, { querySelector: () => null })();
     const obj = JSON.parse(json);
     assert.deepEqual(Object.keys(obj), [
-        'stage', 'started', 'entered', 'intercepted', 'assetServed', 'prefixExec',
+        'stage', 'chain', 'started', 'entered', 'intercepted', 'assetServed', 'prefixExec',
         'bytes', 'lastError', 'cspViolation', 'execMode', 'recoveryAttempts',
         'watch', 'tagPresent'
     ]);
-    for (const key of ['stage', 'started', 'entered', 'intercepted', 'assetServed',
+    for (const key of ['stage', 'chain', 'started', 'entered', 'intercepted', 'assetServed',
         'prefixExec', 'bytes', 'lastError', 'cspViolation', 'execMode', 'recoveryAttempts', 'watch']) {
         assert.equal(obj[key], null, `${key} absent -> null`);
     }
@@ -292,7 +292,7 @@ test('[structurel] l\'écran Diagnostic affiche la section « Bridge (temporaire
     assert.ok(countersSrc.includes('buildBridgeSection'), 'section builder');
     assert.ok(countersSrc.includes('readLibStateBridge'), 'snapshot extractor');
     assert.ok(countersSrc.includes('Lorg/json/JSONObject;'), 'raw values read via JSONObject');
-    for (const key of ['stage', 'started', 'entered', 'intercepted', 'assetServed',
+    for (const key of ['stage', 'chain', 'started', 'entered', 'intercepted', 'assetServed',
         'prefixExec', 'bytes', 'lastError', 'cspViolation', 'execMode',
         'recoveryAttempts', 'watch', 'tagPresent']) {
         assert.ok(countersSrc.includes(`"${key}"`), `field ${key} displayed`);

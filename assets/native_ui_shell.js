@@ -2972,10 +2972,12 @@
         attachBridgeScriptEvents(node, src);
         node.src = src;
         (document.head || document.documentElement).appendChild(node);
+        window.__sfBridgeInjected = (window.__sfBridgeInjected || 0) + 1;
         return true;
     }
 
     function loadBundledBridge(name) {
+        window.__sfLoaderCalls = (window.__sfLoaderCalls || 0) + 1;
         if (bridgeHasStarted()) return true;
         if (!window.__sfBridgeLoadStage) setBridgeLoadStage('start');
         try {
@@ -3049,8 +3051,27 @@
         var asInt = function (value) {
             return Number.isInteger(value) ? value : null;
         };
+        var chainSlots = [
+            asInt(window.__sfDiagTicks),
+            asInt(window.__sfDiagPushes),
+            asInt(window.__sfDiagSent),
+            asInt(window.__sfDiagSendErr),
+            asInt(window.__sfLoaderCalls),
+            asInt(window.__sfBridgeInjected),
+            asInt(window.__sfBridgeStartedSets)
+        ];
+        var chainStr = chainSlots.every(function (v) { return v === null; })
+            ? null
+            : chainSlots.map(function (v) {
+                return v === null ? '' : String(v);
+            }).join('/');
         var obj = {
             stage: typeof window.__sfBridgeLoadStage === 'string' ? window.__sfBridgeLoadStage : null,
+            // Compteurs de la chaine de chargement (c->h) en champ compact
+            // "ticks/pushes/sent/sendErr/loaderCalls/bridgeInjected/bridgeStarted" :
+            // le canal natif ne garde que 400 caracteres, les compteurs restent
+            // alors que les champs elagables soient sacrifices.
+            chain: chainStr,
             started: asBool(window.__sfMelodixBridgeStarted),
             entered: asBool(window.__sfBridgeEntered),
             intercepted: asBool(window.__sfBridgeIntercepted),
@@ -3099,17 +3120,20 @@
     var bridgeDiagOkLogged = false;
 
     function pushBridgeDiagState() {
+        window.__sfDiagPushes = (window.__sfDiagPushes || 0) + 1;
         try {
             var bridge = window.AndBridge;
             if (!bridge || typeof bridge.onLibDiagState !== 'function') return;
             bridgeDiagLastAt = Date.now();
             bridgeDiagLastStage = typeof window.__sfBridgeLoadStage === 'string' ? window.__sfBridgeLoadStage : null;
             bridge.onLibDiagState(bridgeDiagStateJson());
+            window.__sfDiagSent = (window.__sfDiagSent || 0) + 1;
             if (!bridgeDiagOkLogged) {
                 bridgeDiagOkLogged = true;
                 if (typeof bridge.logDiagEvent === 'function') bridge.logDiagEvent('lib-push ok');
             }
         } catch (err) {
+            window.__sfDiagSendErr = (window.__sfDiagSendErr || 0) + 1;
             try {
                 var w = window.AndBridge;
                 if (w && typeof w.logDiagEvent === 'function') {
@@ -3124,6 +3148,7 @@
         if (window.__sfBridgeDiagTimer) return;
         try {
             window.__sfBridgeDiagTimer = window.setInterval(function () {
+                window.__sfDiagTicks = (window.__sfDiagTicks || 0) + 1;
                 try {
                     var stage = typeof window.__sfBridgeLoadStage === 'string' ? window.__sfBridgeLoadStage : null;
                     if (stage !== bridgeDiagLastStage) {

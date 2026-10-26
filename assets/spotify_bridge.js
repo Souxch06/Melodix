@@ -13,6 +13,7 @@ try {
     }
     if (window.__sfMelodixBridgeStarted) return;
     window.__sfMelodixBridgeStarted = true;
+    window.__sfBridgeStartedSets = (window.__sfBridgeStartedSets || 0) + 1;
     window.SF_CONFIG = window.SF_CONFIG || {};
 
     // Global flags injected by Android:
@@ -582,6 +583,7 @@ try {
     // Function declarations are hoisted; their scheduled work runs after this
     // script yields, and the initializers are idempotent.
     window.__sfMelodixBridgeStarted = true;
+    window.__sfBridgeStartedSets = (window.__sfBridgeStartedSets || 0) + 1;
     window.__sfBridgeLoadStage = 'bridge-initialized';
     window.__sfMelodixBridgeBootstrapErrors = 0;
     window.__sfMelodixHomeInitAttempted = true;

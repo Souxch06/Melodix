@@ -44,6 +44,13 @@
 .field private static logText:Ljava/lang/String;
 .field private static logLines:I
 
+# Chaine de chargement : compteurs bruts a/b (le shell injecte et ses marqueurs
+# js-shell begin/end). Nombres uniquement, jamais de contenu.
+.field public static shellInjects:I
+.field public static shellInjectLen:I
+.field public static shellBegin:I
+.field public static shellEnd:I
+
 .method static constructor <clinit>()V
     .locals 1
 
@@ -74,6 +81,43 @@
 
 .method public static declared-synchronized event(Ljava/lang/String;)V
     .locals 4
+
+    # Compteurs bruts b : marqueurs "js-shell begin" / "js-shell end" (nombres).
+    if-eqz p0, :sh_count_done
+
+    const-string v1, "js-shell begin"
+
+    invoke-virtual {p0, v1}, Ljava/lang/String;->startsWith(Ljava/lang/String;)Z
+
+    move-result v2
+
+    if-eqz v2, :sh_check_end
+
+    sget v2, Lcom/melodix/music/DiagCounters;->shellBegin:I
+
+    add-int/lit8 v2, v2, 0x1
+
+    sput v2, Lcom/melodix/music/DiagCounters;->shellBegin:I
+
+    goto :sh_count_done
+
+    :sh_check_end
+
+    const-string v1, "js-shell end"
+
+    invoke-virtual {p0, v1}, Ljava/lang/String;->startsWith(Ljava/lang/String;)Z
+
+    move-result v2
+
+    if-eqz v2, :sh_count_done
+
+    sget v2, Lcom/melodix/music/DiagCounters;->shellEnd:I
+
+    add-int/lit8 v2, v2, 0x1
+
+    sput v2, Lcom/melodix/music/DiagCounters;->shellEnd:I
+
+    :sh_count_done
 
     sget v0, Lcom/melodix/music/DiagCounters;->logLines:I
 
@@ -354,6 +398,18 @@
 
     new-instance v0, Ljava/lang/StringBuilder;
     invoke-direct {v0}, Ljava/lang/StringBuilder;-><init>()V
+
+    # Resume de la chaine de chargement EN TETE : etapes a->h, valeurs brutes,
+    # aucune conclusion. Ensuite seulement la section Bridge (temporaire).
+    invoke-static {}, Lcom/melodix/music/DiagCounters;->buildChainSummary()Ljava/lang/String;
+
+    move-result-object v2
+
+    invoke-virtual {v0, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    const-string v1, "\n"
+
+    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
 
     # Section temporaire : état de chargement du bridge, valeurs brutes,
     # "non reçu" quand la donnée est absente. Aucune conclusion calculée :
@@ -799,6 +855,10 @@
 .method public static logShellInject(Ljava/lang/String;)V
     .locals 3
 
+    sget v0, Lcom/melodix/music/DiagCounters;->shellInjects:I
+    add-int/lit8 v0, v0, 0x1
+    sput v0, Lcom/melodix/music/DiagCounters;->shellInjects:I
+
     new-instance v0, Ljava/lang/StringBuilder;
 
     invoke-direct {v0}, Ljava/lang/StringBuilder;-><init>()V
@@ -813,11 +873,16 @@
 
     move-result v2
 
+    sput v2, Lcom/melodix/music/DiagCounters;->shellInjectLen:I
+
     invoke-virtual {v0, v2}, Ljava/lang/StringBuilder;->append(I)Ljava/lang/StringBuilder;
 
     goto :emit
 
     :nil
+    const/4 v2, -0x1
+    sput v2, Lcom/melodix/music/DiagCounters;->shellInjectLen:I
+
     const-string v1, "null"
 
     invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
@@ -868,53 +933,346 @@
     return-object v0
 .end method
 
+# --- Resume de la chaine de chargement (etapes a->h, valeurs brutes) --------
+# Aucune conclusion calculee : chaque etape affiche sa valeur numerique brute
+# ou "non recu" si le canal ne l'a pas transmise. Lecture seule.
+
+.method private static optRaw(Lorg/json/JSONObject;Ljava/lang/String;)Ljava/lang/String;
+    .locals 1
+
+    const-string v0, "non reçu"
+
+    if-eqz p0, :or_out
+
+    :try_start_or
+    invoke-virtual {p0, p1}, Lorg/json/JSONObject;->opt(Ljava/lang/String;)Ljava/lang/Object;
+    move-result-object p0
+    :try_end_or
+    .catch Ljava/lang/Throwable; {:try_start_or .. :try_end_or} :catch_or
+
+    if-eqz p0, :or_out
+
+    sget-object p1, Lorg/json/JSONObject;->NULL:Ljava/lang/Object;
+
+    if-ne p0, p1, :or_value
+
+    goto :or_out
+
+    :or_value
+    invoke-virtual {p0}, Ljava/lang/Object;->toString()Ljava/lang/String;
+    move-result-object p0
+    return-object p0
+
+    :catch_or
+    move-exception p0
+
+    :or_out
+    return-object v0
+.end method
+
+# i-eme slot du champ compact chain ("a/b/c/d/e/f/g") ou "non recu".
+.method private static chainSlot(Ljava/lang/String;I)Ljava/lang/String;
+    .locals 2
+
+    const-string v0, "non reçu"
+
+    if-eqz p0, :cs_out
+
+    :try_start_s
+    const-string v1, "/"
+
+    invoke-virtual {p0, v1}, Ljava/lang/String;->split(Ljava/lang/String;)[Ljava/lang/String;
+
+    move-result-object p0
+    :try_end_s
+    .catch Ljava/lang/Throwable; {:try_start_s .. :try_end_s} :catch_s
+
+    array-length v1, p0
+
+    if-gt v1, p1, :cs_out
+
+    aget-object p0, p0, p1
+
+    if-eqz p0, :cs_out
+
+    invoke-virtual {p0}, Ljava/lang/String;->isEmpty()Z
+
+    move-result v1
+
+    if-eqz v1, :cs_valued
+
+    goto :cs_out
+
+    :cs_valued
+    return-object p0
+
+    :catch_s
+    move-exception p0
+
+    :cs_out
+    return-object v0
+.end method
+
+.method public static buildChainSummary()Ljava/lang/String;
+    .locals 7
+
+    new-instance v0, Ljava/lang/StringBuilder;
+
+    invoke-direct {v0}, Ljava/lang/StringBuilder;-><init>()V
+
+    # a. Shell injecte : longueur brute de la source remise a la WebView et
+    # nombre d'injections (memoire de logShellInject).
+    const-string v1, "a shellInject len="
+
+    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    sget v2, Lcom/melodix/music/DiagCounters;->shellInjectLen:I
+
+    invoke-virtual {v0, v2}, Ljava/lang/StringBuilder;->append(I)Ljava/lang/StringBuilder;
+
+    const-string v1, " n="
+
+    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    sget v2, Lcom/melodix/music/DiagCounters;->shellInjects:I
+
+    invoke-virtual {v0, v2}, Ljava/lang/StringBuilder;->append(I)Ljava/lang/StringBuilder;
+
+    const-string v1, "\n"
+
+    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    # b. Shell begin/end : compteurs des marqueurs js-shell.
+    const-string v1, "b shell begin="
+
+    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    sget v2, Lcom/melodix/music/DiagCounters;->shellBegin:I
+
+    invoke-virtual {v0, v2}, Ljava/lang/StringBuilder;->append(I)Ljava/lang/StringBuilder;
+
+    const-string v1, " end="
+
+    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    sget v2, Lcom/melodix/music/DiagCounters;->shellEnd:I
+
+    invoke-virtual {v0, v2}, Ljava/lang/StringBuilder;->append(I)Ljava/lang/StringBuilder;
+
+    const-string v1, "\n"
+
+    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    # c..h : instantane compact du pousseur "ticks/pushes/sent/sendErr/
+    # loaderCalls/bridgeInjected/bridgeStarted" (canal onLibDiagState).
+    const/4 v3, 0x0
+
+    invoke-static {}, Lcom/melodix/music/DiagCounters;->readLibStateBridge()Ljava/lang/String;
+
+    move-result-object v2
+
+    if-eqz v2, :cs_slots
+
+    :try_start_cs
+    new-instance v3, Lorg/json/JSONObject;
+
+    invoke-direct {v3, v2}, Lorg/json/JSONObject;-><init>(Ljava/lang/String;)V
+    :try_end_cs
+    .catch Lorg/json/JSONException; {:try_start_cs .. :try_end_cs} :catch_cs
+
+    goto :cs_slots
+
+    :catch_cs
+    move-exception v2
+
+    const/4 v3, 0x0
+
+    :cs_slots
+    const-string v1, "chain"
+
+    invoke-static {v3, v1}, Lcom/melodix/music/DiagCounters;->optRaw(Lorg/json/JSONObject;Ljava/lang/String;)Ljava/lang/String;
+
+    move-result-object v4
+
+    const-string v1, "c ticks="
+
+    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    const/4 v2, 0x0
+
+    invoke-static {v4, v2}, Lcom/melodix/music/DiagCounters;->chainSlot(Ljava/lang/String;I)Ljava/lang/String;
+
+    move-result-object v2
+
+    invoke-virtual {v0, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    const-string v1, "\n"
+
+    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    const-string v1, "d pushes="
+
+    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    const/4 v2, 0x1
+
+    invoke-static {v4, v2}, Lcom/melodix/music/DiagCounters;->chainSlot(Ljava/lang/String;I)Ljava/lang/String;
+
+    move-result-object v2
+
+    invoke-virtual {v0, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    const-string v1, "\n"
+
+    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    const-string v1, "e sent="
+
+    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    const/4 v2, 0x2
+
+    invoke-static {v4, v2}, Lcom/melodix/music/DiagCounters;->chainSlot(Ljava/lang/String;I)Ljava/lang/String;
+
+    move-result-object v2
+
+    invoke-virtual {v0, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    const-string v1, " sendErr="
+
+    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    const/4 v2, 0x3
+
+    invoke-static {v4, v2}, Lcom/melodix/music/DiagCounters;->chainSlot(Ljava/lang/String;I)Ljava/lang/String;
+
+    move-result-object v2
+
+    invoke-virtual {v0, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    const-string v1, "\n"
+
+    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    const-string v1, "f loaderCalls="
+
+    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    const/4 v2, 0x4
+
+    invoke-static {v4, v2}, Lcom/melodix/music/DiagCounters;->chainSlot(Ljava/lang/String;I)Ljava/lang/String;
+
+    move-result-object v2
+
+    invoke-virtual {v0, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    const-string v1, "\n"
+
+    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    const-string v1, "g bridgeInjected="
+
+    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    const/4 v2, 0x5
+
+    invoke-static {v4, v2}, Lcom/melodix/music/DiagCounters;->chainSlot(Ljava/lang/String;I)Ljava/lang/String;
+
+    move-result-object v2
+
+    invoke-virtual {v0, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    const-string v1, "\n"
+
+    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    const-string v1, "h bridgeStarted="
+
+    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    const/4 v2, 0x6
+
+    invoke-static {v4, v2}, Lcom/melodix/music/DiagCounters;->chainSlot(Ljava/lang/String;I)Ljava/lang/String;
+
+    move-result-object v2
+
+    invoke-virtual {v0, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    const-string v1, "\n"
+
+    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    invoke-virtual {v0}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
+
+    move-result-object v1
+
+    return-object v1
+.end method
+
 .method public static buildBridgeSection()Ljava/lang/String;
     .locals 8
 
     # Field order is fixed: the display lists exactly these keys, raw values.
-    const/16 v0, 0xd
+    # chain = compteurs compacts de la chaine (c->h), juste apres stage :
+    # il precede les champs elagables et survit au clip 400 du canal.
+    const/16 v0, 0xe
     new-array v0, v0, [Ljava/lang/String;
 
     const/4 v1, 0x0
     const-string v2, "stage"
     aput-object v2, v0, v1
+
     const/4 v1, 0x1
-    const-string v2, "started"
-    aput-object v2, v0, v1
-    const/4 v1, 0x2
-    const-string v2, "entered"
-    aput-object v2, v0, v1
-    const/4 v1, 0x3
-    const-string v2, "intercepted"
-    aput-object v2, v0, v1
-    const/4 v1, 0x4
-    const-string v2, "assetServed"
-    aput-object v2, v0, v1
-    const/4 v1, 0x5
-    const-string v2, "prefixExec"
-    aput-object v2, v0, v1
-    const/4 v1, 0x6
-    const-string v2, "bytes"
-    aput-object v2, v0, v1
-    const/4 v1, 0x7
-    const-string v2, "lastError"
-    aput-object v2, v0, v1
-    const/16 v1, 0x8
-    const-string v2, "cspViolation"
-    aput-object v2, v0, v1
-    const/16 v1, 0x9
-    const-string v2, "execMode"
-    aput-object v2, v0, v1
-    const/16 v1, 0xa
-    const-string v2, "recoveryAttempts"
-    aput-object v2, v0, v1
-    const/16 v1, 0xb
-    const-string v2, "watch"
-    aput-object v2, v0, v1
-    const/16 v1, 0xc
-    const-string v2, "tagPresent"
+    const-string v2, "chain"
     aput-object v2, v0, v1
 
+    const/4 v1, 0x2
+    const-string v2, "started"
+    aput-object v2, v0, v1
+
+    const/4 v1, 0x3
+    const-string v2, "entered"
+    aput-object v2, v0, v1
+
+    const/4 v1, 0x4
+    const-string v2, "intercepted"
+    aput-object v2, v0, v1
+
+    const/4 v1, 0x5
+    const-string v2, "assetServed"
+    aput-object v2, v0, v1
+
+    const/4 v1, 0x6
+    const-string v2, "prefixExec"
+    aput-object v2, v0, v1
+
+    const/4 v1, 0x7
+    const-string v2, "bytes"
+    aput-object v2, v0, v1
+
+    const/4 v1, 0x8
+    const-string v2, "lastError"
+    aput-object v2, v0, v1
+
+    const/4 v1, 0x9
+    const-string v2, "cspViolation"
+    aput-object v2, v0, v1
+
+    const/4 v1, 0xa
+    const-string v2, "execMode"
+    aput-object v2, v0, v1
+
+    const/4 v1, 0xb
+    const-string v2, "recoveryAttempts"
+    aput-object v2, v0, v1
+
+    const/4 v1, 0xc
+    const-string v2, "watch"
+    aput-object v2, v0, v1
+
+    const/4 v1, 0xd
+    const-string v2, "tagPresent"
+    aput-object v2, v0, v1
     new-instance v4, Ljava/lang/StringBuilder;
     invoke-direct {v4}, Ljava/lang/StringBuilder;-><init>()V
 
@@ -938,7 +1296,7 @@
     :bb_loop
     const/4 v1, 0x0
     :bb_next
-    const/16 v7, 0xd
+    const/16 v7, 0xe
     if-ge v1, v7, :bb_done
 
     aget-object v2, v0, v1

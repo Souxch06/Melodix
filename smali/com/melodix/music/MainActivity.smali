@@ -8478,7 +8478,10 @@
     const-string v0, "search:"
     invoke-virtual {p1, v0}, Ljava/lang/String;->startsWith(Ljava/lang/String;)Z
     move-result v1
-    if-eqz v1, :apply_done
+    # Un message qui n'est pas "search:" doit CONTINUER vers :check_diag :
+    # viser :apply_done ici jetait diag:report et le watchdog peignait
+    # "Aucune reponse du moteur de tests" alors que le moteur avait repondu.
+    if-eqz v1, :check_diag
     const/4 v0, 0x7
     invoke-virtual {p1, v0}, Ljava/lang/String;->substring(I)Ljava/lang/String;
     move-result-object v2
