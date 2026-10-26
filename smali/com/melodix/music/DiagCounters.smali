@@ -989,7 +989,7 @@
 
     array-length v1, p0
 
-    if-gt v1, p1, :cs_out
+    if-le v1, p1, :cs_out
 
     aget-object p0, p0, p1
 
@@ -1250,27 +1250,27 @@
     const-string v2, "bytes"
     aput-object v2, v0, v1
 
-    const/4 v1, 0x8
+    const/16 v1, 0x8
     const-string v2, "lastError"
     aput-object v2, v0, v1
 
-    const/4 v1, 0x9
+    const/16 v1, 0x9
     const-string v2, "cspViolation"
     aput-object v2, v0, v1
 
-    const/4 v1, 0xa
+    const/16 v1, 0xa
     const-string v2, "execMode"
     aput-object v2, v0, v1
 
-    const/4 v1, 0xb
+    const/16 v1, 0xb
     const-string v2, "recoveryAttempts"
     aput-object v2, v0, v1
 
-    const/4 v1, 0xc
+    const/16 v1, 0xc
     const-string v2, "watch"
     aput-object v2, v0, v1
 
-    const/4 v1, 0xd
+    const/16 v1, 0xd
     const-string v2, "tagPresent"
     aput-object v2, v0, v1
     new-instance v4, Ljava/lang/StringBuilder;

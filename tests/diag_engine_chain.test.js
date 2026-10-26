@@ -138,3 +138,21 @@ test('[structurel] readReport : résumé de chaîne en tête, étapes a→h dans
     const head = rr.slice(rr.indexOf('new-instance v0'), rr.indexOf('const-string v1, "Bridge (temporaire)'));
     assert.ok(head.includes('buildChainSummary'), 'readReport insère le résumé AVANT la section Bridge');
 });
+
+test('[structurel] buildBridgeSection : les index de clé ≥ 8 utilisent const/16 (jamais const/4, plafond 7) — sinon l’assemblage CFG Dalvik est rejeté', () => {
+    const c = counters();
+    const bbs = c.split('.method public static buildBridgeSection')[1].split('.end method')[0];
+    const block = bbs.slice(bbs.indexOf('new-array'), bbs.indexOf('new-instance v4'));
+    const pairs = block.match(/const\/4 v1, 0x([89a-f])\n/g) || [];
+    assert.equal(pairs.length, 0, 'aucun const/4 pour les index >= 8');
+    assert.ok(block.includes('const/16 v1, 0x8'), 'index 8 en const/16');
+    assert.ok(block.includes('const/16 v1, 0xd'), 'index 13 en const/16');
+});
+
+test('[structurel] chainSlot : si-garde length<=index -> non reçu (jamais if-gt inversé) — sinon aget hors bornes hors try = crash', () => {
+    const c = counters();
+    const body = c.split('.method private static chainSlot')[1].split('.end method')[0];
+    assert.ok(body.includes('if-le v1, p1, :cs_out'),
+        'if-le v1, p1, :cs_out (index >= longueur -> non reçu)');
+    assert.ok(!body.includes('if-gt v1, p1, :cs_out'), 'garde inversée absente');
+});
