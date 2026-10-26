@@ -544,6 +544,21 @@
     # NOT frame isolation. m9.g also installs the legacy bridge before first load.
     invoke-static {p2}, Landroid/net/Uri;->parse(Ljava/lang/String;)Landroid/net/Uri;
     move-result-object v0
+
+    # Lifecycle fix: only a URL WITH an authority can commit a foreign-origin
+    # document. Provisional loads without one (spotify:, about:blank, mailto:,
+    # tel:, blob:...) always fail or stay same-origin, and stripping AndBridge
+    # for them killed the JS->native channels of the STILL-LIVE Spotify
+    # document: such navigations never reach onPageFinished's re-attach.
+    # (javascript:/file:/data:/intent: are already blocked from navigating.)
+    invoke-virtual {v0}, Landroid/net/Uri;->getAuthority()Ljava/lang/String;
+    move-result-object v1
+    if-nez v1, :cond_bridge_web
+    const-string v3, "bridge-kept opaque"
+    invoke-static {v3}, Lcom/melodix/music/DiagCounters;->event(Ljava/lang/String;)V
+    return-void
+
+    :cond_bridge_web
     invoke-virtual {v0}, Landroid/net/Uri;->getScheme()Ljava/lang/String;
     move-result-object v1
     const-string v2, "https"
@@ -614,6 +629,51 @@
     .locals 3
 
     invoke-super {p0, p1, p2, p3}, Landroid/webkit/WebViewClient;->onReceivedError(Landroid/webkit/WebView;Landroid/webkit/WebResourceRequest;Landroid/webkit/WebResourceError;)V
+
+    # Lifecycle fix: a failed main-frame provisional navigation leaves the
+    # previous document running. If that COMMITTED document is still the
+    # Spotify Web Player, restore the JS interface that onPageStarted removed
+    # for the provisional load ("bridge-restored"). ERR_ABORTED (-3) is
+    # excluded: a superseded provisional means a new onPageStarted already
+    # governs, and restoring here would re-expose the interface to whatever
+    # document commits next.
+    if-eqz p2, :skip_bridge_restore
+    if-eqz p3, :skip_bridge_restore
+    invoke-interface {p2}, Landroid/webkit/WebResourceRequest;->isForMainFrame()Z
+    move-result v0
+    if-eqz v0, :skip_bridge_restore
+    invoke-virtual {p3}, Landroid/webkit/WebResourceError;->getErrorCode()I
+    move-result v0
+    const/4 v1, -0x3
+    if-eq v0, v1, :skip_bridge_restore
+    if-eqz p1, :skip_bridge_restore
+    invoke-virtual {p1}, Landroid/webkit/WebView;->getUrl()Ljava/lang/String;
+    move-result-object v0
+    if-eqz v0, :skip_bridge_restore
+    invoke-static {v0}, Landroid/net/Uri;->parse(Ljava/lang/String;)Landroid/net/Uri;
+    move-result-object v0
+    if-eqz v0, :skip_bridge_restore
+    invoke-virtual {v0}, Landroid/net/Uri;->getScheme()Ljava/lang/String;
+    move-result-object v1
+    const-string v2, "https"
+    invoke-virtual {v2, v1}, Ljava/lang/String;->equalsIgnoreCase(Ljava/lang/String;)Z
+    move-result v1
+    if-eqz v1, :skip_bridge_restore
+    invoke-virtual {v0}, Landroid/net/Uri;->getHost()Ljava/lang/String;
+    move-result-object v0
+    const-string v1, "open.spotify.com"
+    invoke-virtual {v1, v0}, Ljava/lang/String;->equalsIgnoreCase(Ljava/lang/String;)Z
+    move-result v0
+    if-eqz v0, :skip_bridge_restore
+    new-instance v0, Lcom/melodix/music/AndBridge;
+    invoke-virtual {p1}, Landroid/view/View;->getContext()Landroid/content/Context;
+    move-result-object v1
+    invoke-direct {v0, v1}, Lcom/melodix/music/AndBridge;-><init>(Landroid/content/Context;)V
+    const-string v1, "AndBridge"
+    invoke-virtual {p1, v0, v1}, Landroid/webkit/WebView;->addJavascriptInterface(Ljava/lang/Object;Ljava/lang/String;)V
+    const-string v0, "bridge-restored"
+    invoke-static {v0}, Lcom/melodix/music/DiagCounters;->event(Ljava/lang/String;)V
+    :skip_bridge_restore
 
     const/4 p0, 0x0
     if-eqz p2, :cond_webview_no_request
