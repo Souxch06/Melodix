@@ -344,7 +344,8 @@
 
     move-result-object v0
 
-    if-nez v0, :none
+    # Guard: null report -> return null (never call indexOf on null).
+    if-eqz v0, :none
 
     const/16 v1, 0xa
 
@@ -352,7 +353,8 @@
 
     move-result v2
 
-    if-gez v2, :clip
+    # Guard: no newline (-1) -> keep the whole line; newline -> cut at it.
+    if-ltz v2, :clip
 
     const/4 v1, 0x0
 
