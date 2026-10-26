@@ -106,3 +106,105 @@ test('[structurel] install() : if-eqz p0, :done (contexte nul) + if-nez v0, :don
     assert.ok(instIdx > sgetIdx && instIdx - sgetIdx < 80, 'installed guard follows the sget-boolean read');
     assert.ok(!body.includes('if-eqz v0, :done'), 'inverted installed guard if-eqz v0, :done is gone');
 });
+
+// ---------------------------------------------------------------------------
+// Audit complet : NativeCrashGuard contenait 20 gardes INVERSÉES sur les
+// chemins d'enregistrement et d'affichage du crash (record, write, stage,
+// excerpt, toast de install(), showLastReport, shorten, lastStage, clip 160
+// de lastCrashLine, clearReport, showLaunchMarker). Sans elles : le crash ne
+// s'enregistre JAMAIS (record/write), ne s'affiche jamais (toast/dialogue),
+// ou jette (substring sur chaîne courte). La convention du fichier est prouvée
+// par les gardes correctes : dispatch if-eqz v0 :kill, install if-nez v0 :store,
+// accountsHostHides if-eqz p0/v1 :done.
+// NATURE : [structurel] uniquement — ne prouve pas l'exécution Android.
+// ---------------------------------------------------------------------------
+const methodBody = (sig) => {
+    const guard = read('smali/com/melodix/music/NativeCrashGuard.smali');
+    const method = guard.split(sig)[1];
+    assert.ok(method, `method exists: ${sig}`);
+    return method.split('.end method')[0];
+};
+
+test('[structurel] record() : if-eqz p0, :done AVANT tout (jamais if-nez) — sinon le crash réel n\'est jamais écrit', () => {
+    const body = methodBody('.method public static record(Ljava/lang/Throwable;)V');
+    assert.ok(body.includes('if-eqz p0, :done'), 'null guard if-eqz p0, :done is present');
+    assert.ok(!body.includes('if-nez p0, :done'), 'inverted guard if-nez p0, :done is gone');
+});
+
+test('[structurel] write() : if-eqz p0, :done + if-eqz v0, :done (jamais if-nez) — sinon last_crash jamais persisté', () => {
+    const body = methodBody('.method public static write(Ljava/lang/String;)V');
+    assert.ok(body.includes('if-eqz p0, :done'), 'null-text guard if-eqz p0, :done is present');
+    assert.ok(body.includes('if-eqz v0, :done'), 'null-context guard if-eqz v0, :done is present');
+    assert.ok(!body.includes('if-nez p0, :done'), 'inverted text guard is gone');
+    assert.ok(!body.includes('if-nez v0, :done'), 'inverted context guard is gone');
+});
+
+test('[structurel] stage() : if-eqz p0, :done + if-eqz v0, :done (jamais if-nez) — sinon last_stage jamais persisté', () => {
+    const body = methodBody('.method public static stage(Ljava/lang/String;)V');
+    assert.ok(body.includes('if-eqz p0, :done'), 'null-stage guard if-eqz p0, :done is present');
+    assert.ok(body.includes('if-eqz v0, :done'), 'null-context guard if-eqz v0, :done is present');
+    assert.ok(!body.includes('if-nez p0, :done'), 'inverted stage guard is gone');
+    assert.ok(!body.includes('if-nez v0, :done'), 'inverted context guard is gone');
+});
+
+test('[structurel] clearReport() : if-eqz v0, :done (jamais if-nez) — sinon le rapport n\'est jamais purgé', () => {
+    const body = methodBody('.method private static clearReport()V');
+    assert.ok(body.includes('if-eqz v0, :done'), 'null-context guard if-eqz v0, :done is present');
+    assert.ok(!body.includes('if-nez v0, :done'), 'inverted guard is gone');
+});
+
+test('[structurel] excerpt() : if-eqz p0, :done + if-le v1, v2, :done AVANT substring (jamais substring(0,1200) sur chaîne courte)', () => {
+    const body = methodBody('.method public static excerpt(Ljava/lang/Throwable;)Ljava/lang/String;');
+    assert.ok(body.includes('if-eqz p0, :done'), 'null guard if-eqz p0, :done is present');
+    assert.ok(body.includes('if-le v1, v2, :done'), 'cap guard if-le v1, v2, :done is present');
+    assert.ok(!body.includes('if-nez p0, :done'), 'inverted null guard is gone');
+    assert.ok(!body.includes('if-gt v1, v2, :done'), 'inverted cap guard is gone');
+});
+
+test('[structurel] lastStage() : if-eqz v1, :done (jamais if-nez) — sinon toujours null', () => {
+    const body = methodBody('.method private static lastStage()Ljava/lang/String;');
+    assert.ok(body.includes('if-eqz v1, :done'), 'null-context guard if-eqz v1, :done is present');
+    assert.ok(!body.includes('if-nez v1, :done'), 'inverted guard is gone');
+});
+
+test('[structurel] lastCrashLine() clip 160 : if-le v1, v2, :ok AVANT substring(0, v2) (jamais if-gt)', () => {
+    const body = lastCrashLineBody();
+    assert.ok(body.includes('if-le v1, v2, :ok'), 'cap guard if-le v1, v2, :ok is present');
+    assert.ok(!body.includes('if-gt v1, v2, :ok'), 'inverted cap guard is gone');
+});
+
+test('[structurel] toast install() : if-eqz v1, :toast_stage (rapport -> "a plante") + if-nez v1, :toast_alive ("ready" -> actif)', () => {
+    const body = methodBody('.method public static install(Landroid/content/Context;)V');
+    assert.ok(body.includes('if-eqz v1, :toast_stage'), 'report guard if-eqz v1, :toast_stage is present');
+    assert.ok(!body.includes('if-nez v1, :toast_stage'), 'inverted report guard is gone');
+    assert.ok(body.includes('if-nez v1, :toast_alive'), 'ready guard if-nez v1, :toast_alive is present');
+    assert.ok(!body.includes('if-eqz v1, :toast_alive'), 'inverted ready guard is gone');
+});
+
+test('[structurel] showLastReport() : 5 gardes droites — if-eqz p0/v1/v2, if-le v2,v3, if-eqz v2,:no_stage', () => {
+    const body = methodBody('.method public static showLastReport(Landroid/app/Activity;)Z');
+    assert.ok(body.includes('if-eqz p0, :done'), 'activity guard is present');
+    assert.ok(body.includes('if-eqz v1, :done'), 'report guard is present');
+    assert.ok(body.includes('if-eqz v2, :done'), 'empty guard is present');
+    assert.ok(body.includes('if-le v2, v3, :short_enough'), 'cap guard is present');
+    assert.ok(body.includes('if-eqz v2, :no_stage'), 'stage guard is present');
+    assert.ok(!body.includes('if-nez p0, :done'), 'inverted activity guard is gone');
+    assert.ok(!body.includes('if-nez v1, :done'), 'inverted report guard is gone');
+    assert.ok(!body.includes('if-nez v2, :done'), 'inverted empty guard is gone');
+    assert.ok(!body.includes('if-gt v2, v3, :short_enough'), 'inverted cap guard is gone');
+    assert.ok(!body.includes('if-nez v2, :no_stage'), 'inverted stage guard is gone');
+});
+
+test('[structurel] shorten() : if-eqz p0, :done + if-le v0, v1, :done AVANT substring(0, v1) (jamais if-gt)', () => {
+    const body = methodBody('.method private static shorten(Ljava/lang/String;)Ljava/lang/String;');
+    assert.ok(body.includes('if-eqz p0, :done'), 'null guard if-eqz p0, :done is present');
+    assert.ok(body.includes('if-le v0, v1, :done'), 'cap guard if-le v0, v1, :done is present');
+    assert.ok(!body.includes('if-nez p0, :done'), 'inverted null guard is gone');
+    assert.ok(!body.includes('if-gt v0, v1, :done'), 'inverted cap guard is gone');
+});
+
+test('[structurel] showLaunchMarker() : if-eqz p0, :done (jamais if-nez) — sinon le marqueur ne s\'affiche jamais', () => {
+    const body = methodBody('.method public static showLaunchMarker(Landroid/app/Activity;)V');
+    assert.ok(body.includes('if-eqz p0, :done'), 'activity guard if-eqz p0, :done is present');
+    assert.ok(!body.includes('if-nez p0, :done'), 'inverted guard is gone');
+});
