@@ -208,3 +208,19 @@ test('[structurel] showLaunchMarker() : if-eqz p0, :done (jamais if-nez) — sin
     assert.ok(body.includes('if-eqz p0, :done'), 'activity guard if-eqz p0, :done is present');
     assert.ok(!body.includes('if-nez p0, :done'), 'inverted guard is gone');
 });
+
+test('[structurel] onCreate continue apres showLastReport : pas de return-void entre le dialogue et la suite (MainActivity)', () => {
+    // Quand record()/write() ont persiste last_crash, showLastReport() affiche le
+    // dialogue ; onCreate ne doit PAS s\'arreter la (l\'app restait a moitie
+    // initialisee -> processus mort/respawn vu en CI sur cold_launch_2).
+    // Avant la correction : `if-eqz v1, :native_no_crash_report` + `return-void`
+    // entre showLastReport et showLaunchMarker.
+    const main = read('smali/com/melodix/music/MainActivity.smali');
+    const from = main.indexOf('showLastReport');
+    assert.ok(from > 0, 'onCreate appelle showLastReport');
+    const to = main.indexOf('showLaunchMarker', from);
+    assert.ok(to > from, 'showLaunchMarker suit showLastReport');
+    const slice = main.slice(from, to);
+    assert.ok(!slice.includes('return-void'),
+        'onCreate ne doit plus retourner entre le dialogue et la suite du demarrage');
+});

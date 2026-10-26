@@ -3150,10 +3150,9 @@
     const/4 v1, 0x0
 
     :native_guard_done
-    if-eqz v1, :native_no_crash_report
-
-    return-void
-
+    # The dialog is shown first, but the launch MUST continue: an early return
+    # here left the activity half-initialized (no UI) whenever record()/write()
+    # had persisted last_crash, and the process then died/respawned (E2E cold_launch_2).
     :native_no_crash_report
     # Paint a small marker before anything else can fail. If this text is never
     # seen, the process dies before the activity exists; if it flashes, the
