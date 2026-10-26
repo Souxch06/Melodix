@@ -161,7 +161,7 @@
     :ok
     invoke-virtual {p0}, Ljava/lang/String;->length()I
     move-result v0
-    if-gt v0, p1, :keep
+    if-le v0, p1, :keep
     const/4 v0, 0x0
     invoke-virtual {p0, v0, p1}, Ljava/lang/String;->substring(II)Ljava/lang/String;
     move-result-object v0
@@ -691,6 +691,11 @@
 
     :catch_g
     move-exception v1
+
+    # v0 est tantot String tantot StringBuilder dans le try : le handler doit le
+    # reinitialiser a une String, sinon la fusion a :done rend le return invalide
+    # (VerifyError "returning register with conflict").
+    const-string v0, "\u00e0 l'instant"
 
     :done
     return-object v0

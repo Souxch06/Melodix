@@ -258,3 +258,23 @@ test('[structurel] DiagCounters.readLibStateBridge() : if-ltz v2, :rlb_none (jam
     assert.ok(body.includes('if-ltz v2, :rlb_none'), 'if-ltz v2, :rlb_none is present');
     assert.ok(!body.includes('if-gez v2, :rlb_none'), 'inverted guard is gone');
 });
+
+test('[structurel] NativeLibCache.clip() : if-le v0, p1, :keep (jamais if-gt) — sinon substring(0, cap) explose sur chaine plus courte que la cap', () => {
+    // Meme classe que le clip de DiagJsProbeCallback : <= cap -> garder entier,
+    // > cap -> couper. Le if-gt inversait et coupait les chaines COURTES.
+    const body = methodBody('.method private static clip(Ljava/lang/String;I)Ljava/lang/String;', 'smali/com/melodix/music/NativeLibCache.smali');
+    assert.ok(body.includes('if-le v0, p1, :keep'), 'if-le v0, p1, :keep is present');
+    assert.ok(!body.includes('if-gt v0, p1, :keep'), 'inverted guard is gone');
+});
+
+test('[structurel] NativeLibCache.ageLabel() : le handler :catch_g reinitialise v0 a une String avant :done — sinon VerifyError « returning register with conflict » (prouve CI)', () => {
+    // v0 porte String (const-string) puis StringBuilder (new-instance) dans le try ;
+    // sans reinit dans le catch, la fusion a :done rend return-object v0 invalide
+    // (java.lang.VerifyError: ageLabel ... returning register with conflict).
+    const body = methodBody('.method public static ageLabel(Ljava/lang/String;)Ljava/lang/String;', 'smali/com/melodix/music/NativeLibCache.smali');
+    // Derniere occurrence = le corps du handler (la 1re est la directive .catch).
+    const catchBlock = body.split(':catch_g').slice(-1)[0];
+    assert.ok(catchBlock.includes('move-exception'), 'le corps du handler est pris');
+    assert.ok(catchBlock.includes('const-string v0'),
+        'le catch reinitialise v0 (String) avant :done');
+});
