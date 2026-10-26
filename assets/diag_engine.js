@@ -498,26 +498,49 @@
         return lines.join('\n');
     }
 
+    function cacheState() {
+        return {
+            mediaLibPresent: !!window.mediaLib,
+            mediaLibState: window.__sfMediaLibState || null,
+            mediaItemsCacheEntries: (window.__sfMediaItemsCache && window.__sfMediaItemsCache.size) || 0,
+            likedSongsCached: !!(window.likedSongsCache && window.likedSongsCache.length),
+            pendingMediaRequests: (window.pendingMediaRequests && window.pendingMediaRequests.size) || 0,
+            bridgeLoadStage: window.__sfBridgeLoadStage || null,
+            libPushBlocked: window.__sfLibPushBlocked || ''
+        };
+    }
+
     function reportJson() {
+        var libReport = null;
+        try {
+            libReport = window.__sfGetLibDiagReport ? window.__sfGetLibDiagReport() : null;
+        } catch (_) {}
         return JSON.stringify({
             generatedAt: new Date().toISOString(),
+            diagnosticVersion: 2,
             includeNames: false,
             session: sessionInfo(),
             steps: state.steps,
             events: state.events.slice(-60),
-            classification: {
-                fetch: classifyFetch,
-                delivery: classifyDelivery,
-                section: classifySection
-            } ? {
-                note: 'classify* pure functions available on window.__sfDiagClassify'
-            } : null
+            library: libReport,
+            cache: cacheState(),
+            limits: [
+                'Noms de playlists et contenus personnels exclus (includeNames=false).',
+                'Échantillon de structure limité à 5 objets (formes, empreintes courtes).',
+                'Journal borné : étapes et événements tronqués aux dernières entrées.',
+                'Aucun secret collecté (jeton, cookie, en-tête d’autorisation).',
+                'La lecture réelle sur appareil n’est jamais confirmée par ce rapport.'
+            ],
+            conclusion: libReport ? libReport.conclusion : null
         }, null, 1);
     }
 
     function conclude(steps) {
         var fails = steps.filter(function (s) { return s.status !== 'ok' && s.status !== 'empty'; });
         var empties = steps.filter(function (s) { return s.status === 'empty'; });
+        if (!steps.length) {
+            return { title: 'Diagnostic incomplet — cause non déterminée', subtitle: 'Aucune sonde n’a encore été exécutée : lancez un diagnostic complet.', value: 'incomplete' };
+        }
         if (!fails.length && !empties.length) {
             return { title: 'Tout fonctionne sur cet appareil', subtitle: 'Récupération, transmission et rendu cohérents. Si des playlists manquent toujours, transmettez le rapport pour analyse.', value: 'ok' };
         }

@@ -3688,11 +3688,20 @@ try {
     }
 
     function libDiagZeroParsed() {
-        return { playlists: 0, albums: 0, artists: 0, podcasts: 0, skipped: 0 };
+        return {
+            playlists: 0, albums: 0, artists: 0, podcasts: 0, skipped: 0,
+            incomplete: 0, duplicates: 0,
+            rejectedNoData: 0, rejectedNoUri: 0, rejectedUnknownType: 0,
+            sample: []
+        };
     }
 
     function libDiagZeroDelivered() {
-        return { homeRows: 0, homePlaylistRows: 0, mediaRows: 0, mediaPlaylistRows: 0, seen: false, afterReady: false };
+        return {
+            homeRows: 0, homePlaylistRows: 0, mediaRows: 0, mediaPlaylistRows: 0,
+            seen: false, afterReady: false,
+            pushOk: 0, pushErr: 0, pushBlocked: 0, ignored: 0
+        };
     }
 
     function libDiagRunBegin() {
@@ -3711,6 +3720,7 @@ try {
             itemsTotal: 0,
             parsed: libDiagZeroParsed(),
             delivered: libDiagZeroDelivered(),
+            openings: [],
             status: null
         };
         libDiagRecord('session', session !== 'not-detected', session === 'detected'
@@ -3762,14 +3772,33 @@ try {
                 run.itemsTotal = fields.itemsTotal;
             }
             if (fields.parsed && typeof fields.parsed === 'object') {
-                ['playlists', 'albums', 'artists', 'podcasts', 'skipped'].forEach(function(key) {
+                ['playlists', 'albums', 'artists', 'podcasts', 'skipped',
+                    'incomplete', 'duplicates',
+                    'rejectedNoData', 'rejectedNoUri', 'rejectedUnknownType'].forEach(function(key) {
                     if (typeof fields.parsed[key] === 'number' && isFinite(fields.parsed[key]) && fields.parsed[key] >= 0) {
                         run.parsed[key] = fields.parsed[key];
                     }
                 });
+                if (Array.isArray(fields.parsed.sample)) {
+                    // Structure-only sample: closed key set, no names, no URLs,
+                    // no free text — a secret can never leak through it.
+                    run.parsed.sample = fields.parsed.sample.slice(0, 5).map(function(entry) {
+                        entry = entry && typeof entry === 'object' ? entry : {};
+                        return {
+                            idFp: libDiagSafeLabel(entry.idFp, '').slice(0, 24),
+                            category: libDiagSafeLabel(entry.category, '').slice(0, 16),
+                            type: libDiagSafeLabel(entry.type, '').slice(0, 24),
+                            browsable: entry.browsable === true,
+                            hasUri: entry.hasUri === true,
+                            hasName: entry.hasName === true,
+                            hasImage: entry.hasImage === true
+                        };
+                    });
+                }
             }
             if (fields.delivered && typeof fields.delivered === 'object') {
-                ['homeRows', 'homePlaylistRows', 'mediaRows', 'mediaPlaylistRows'].forEach(function(key) {
+                ['homeRows', 'homePlaylistRows', 'mediaRows', 'mediaPlaylistRows',
+                    'pushOk', 'pushErr', 'pushBlocked', 'ignored'].forEach(function(key) {
                     if (typeof fields.delivered[key] === 'number' && isFinite(fields.delivered[key]) && fields.delivered[key] >= 0) {
                         run.delivered[key] = fields.delivered[key];
                     }
@@ -3808,6 +3837,35 @@ try {
             var last = run.attempts[run.attempts.length - 1];
             if (patch.shape === 'ok' || patch.shape === 'mismatch' || patch.shape === 'me-null') last.shape = patch.shape;
             if (typeof patch.items === 'number' && isFinite(patch.items) && patch.items >= 0) last.items = patch.items;
+        } catch (_) {}
+    }
+
+    var LIB_DIAG_MAX_OPENINGS = 24;
+    // Per-open trace (§10): which parent was requested, through which channel,
+    // with what outcome. Whitelisted, bounded, no names — the parent id is kept
+    // because the mission requires an identifier to correlate click -> open.
+    function libDiagOpening(info) {
+        try {
+            var run = window.__sfLibDiag && window.__sfLibDiag.lastRun;
+            if (!run || !info) return;
+            run.openings = run.openings || [];
+            var entry = {
+                parent: libDiagSafeLabel(info.parent, '?').slice(0, 64),
+                channel: ['root', 'liked', 'playlist', 'tracks', 'search', 'other'].indexOf(info.channel) >= 0
+                    ? info.channel : 'other',
+                status: ['cached', 'loaded', 'empty', 'login', 'error', 'pending', 'queue', 'blocked', 'not-opened'].indexOf(info.status) >= 0
+                    ? info.status : 'error',
+                source: ['cache', 'network', 'state', 'none'].indexOf(info.source) >= 0 ? info.source : 'none',
+                items: typeof info.items === 'number' && isFinite(info.items) && info.items >= 0 ? info.items : 0,
+                emitBytes: typeof info.emitBytes === 'number' && isFinite(info.emitBytes) && info.emitBytes >= 0 ? info.emitBytes : 0,
+                at: Date.now()
+            };
+            run.openings.push(entry);
+            if (run.openings.length > LIB_DIAG_MAX_OPENINGS) {
+                run.openings.splice(0, run.openings.length - LIB_DIAG_MAX_OPENINGS);
+            }
+            libDiagRecord('open', entry.status === 'loaded' || entry.status === 'cached' || entry.status === 'empty',
+                entry.parent + ' ' + entry.status + ' items=' + entry.items + ' bytes=' + entry.emitBytes);
         } catch (_) {}
     }
 
@@ -3884,6 +3942,21 @@ try {
             && (run.delivered.homePlaylistRows + run.delivered.mediaPlaylistRows) === 0) {
             return 'render-gap';
         }
+        // Click -> open -> tracks chain (§10): only checked when an opening was
+        // actually observed; absence of observation is not a failure proof.
+        if (run.openings && run.openings.length) {
+            var lastOpen = run.openings[run.openings.length - 1];
+            if (lastOpen.channel === 'playlist' && (lastOpen.status === 'loaded' || lastOpen.status === 'cached') && lastOpen.items === 0) {
+                return 'tracks-gap';
+            }
+            if (lastOpen.status === 'error' || lastOpen.status === 'blocked') {
+                return 'open-gap';
+            }
+        }
+        if (run.delivered && (run.delivered.pushErr > 0 || run.delivered.pushBlocked > 0)
+            && (run.delivered.pushOk === 0)) {
+            return 'deliver-gap';
+        }
         return null;
     }
 
@@ -3893,6 +3966,12 @@ try {
         var kind = libDiagFailureKind(run);
         if (!kind) {
             if (run.status === 'ready') {
+                if (!run.delivered.seen) {
+                    // Data was produced but nothing downstream was ever
+                    // observed: honest incomplete report, not a success claim.
+                    return 'Diagnostic incomplet \u2014 cause non d\u00e9termin\u00e9e : '
+                        + run.parsed.playlists + ' playlist(s) analys\u00e9e(s), mais aucune observation de transmission ou de rendu n\'est disponible.';
+                }
                 return 'Parcours complet : ' + run.parsed.playlists + ' playlist(s) analysée(s), '
                     + (run.delivered.homePlaylistRows + run.delivered.mediaPlaylistRows) + ' transmise(s) au shell natif.';
             }
@@ -3911,7 +3990,10 @@ try {
             'shape-mismatch': 'Échec à l\'étape « Structure de la réponse » : structure inattendue.',
             'fetch-error': 'Échec de la récupération de la bibliothèque.',
             'parse-gap': 'Échec à l\'étape « Analyse » : éléments reçus mais inexploitables.',
-            'render-gap': 'Échec à l\'étape « Rendu » : playlists chargées mais non transmises au shell.'
+            'render-gap': 'Échec à l\'étape « Rendu » : playlists chargées mais non transmises au shell.',
+            'tracks-gap': '\u00c9chec \u00e0 l\'\u00e9tape \u00ab Pistes \u00bb : playlist ouverte mais aucune piste r\u00e9cup\u00e9r\u00e9e.',
+            'open-gap': '\u00c9chec \u00e0 l\'\u00e9tape \u00ab Ouverture \u00bb : la derni\u00e8re demande d\'ouverture est en \u00e9chec ou refus\u00e9e.',
+            'deliver-gap': '\u00c9chec \u00e0 l\'\u00e9tape \u00ab Transmission \u00bb : transmission native en \u00e9chec sans aucune r\u00e9ussite observ\u00e9e.'
         };
         return byKind[kind] || 'Échec de la récupération.';
     }
@@ -3934,6 +4016,7 @@ try {
     window.__sfLibDiagRecord = libDiagRecord;
     window.__sfLibDiagUpdate = libDiagUpdate;
     window.__sfLibDiagPush = libDiagPush;
+    window.__sfLibDiagOpening = libDiagOpening;
     window.__sfGetLibDiagReport = function() {
         var diag = window.__sfLibDiag;
         if (!diag) return null;
@@ -3950,6 +4033,7 @@ try {
                 itemsTotal: diag.lastRun.itemsTotal,
                 parsed: Object.assign({}, diag.lastRun.parsed),
                 delivered: Object.assign({}, diag.lastRun.delivered),
+                openings: (diag.lastRun.openings || []).slice(),
                 status: diag.lastRun.status
             },
             failureKind: libDiagFailureKind(diag.lastRun),
@@ -4017,6 +4101,23 @@ try {
     // The native shell must be able to tell "still loading" from "the account
     // has no playlist" from "the fetch failed": only the first one may show a
     // loading state, the other two need an honest empty/error state.
+    // Every queued media request must be answered on EVERY terminal path
+    // (ready, empty, login, error): a request left in pendingMediaRequests on a
+    // failure used to leave its screen loading forever.
+    function drainPendingMediaRequests(kind, e) {
+        try {
+            if (!window.pendingMediaRequests || !window.pendingMediaRequests.size) return;
+            const ids = Array.from(window.pendingMediaRequests);
+            window.pendingMediaRequests.clear();
+            ids.forEach(function (reqId) {
+                try { AndBridge.onMediaItemsLoaded(reqId, "[]"); } catch (_) {}
+                const rootIds = ['playlists', 'albums', 'artists', 'podcasts'];
+                const isRoot = rootIds.indexOf(String(reqId)) >= 0;
+                mediaItemsStatusRow(isRoot ? kind : 'error', reqId, e);
+            });
+        } catch (_) {}
+    }
+
     function publishMediaLibState(state, errorMessage) {
         window.__sfMediaLibState = state;
         window.__sfMediaLibError = errorMessage || null;
@@ -4066,6 +4167,7 @@ try {
             window.__sfAuthMissing = true;
             if (!window.mediaLib) window.__sfMediaLibState = 'pending';
             scheduleMediaLibRetry();
+            drainPendingMediaRequests('login');
             return;
         }
         const tokenLooksBearer = window.spotAuthToken.startsWith('Bearer ');
@@ -4106,7 +4208,7 @@ try {
                 for (const reqId of window.pendingMediaRequests) {
                     const items = window.mediaLib?.[reqId];
                     if (Array.isArray(items)) {
-                        AndBridge.onMediaItemsLoaded(reqId, JSON.stringify(items));
+                        libDiagEmitMediaItems(reqId, JSON.stringify(items), items.length > 0 ? 'loaded' : 'empty', 'state');
                     } else {
                         // Not a library category (a collection or a track
                         // list): answer through the real loader instead of
@@ -4133,6 +4235,7 @@ try {
             libDiagRecord('fetch', false, String((e && e.name) || 'Error'));
             publishMediaLibState('error', sanitizeDiagnostic(e));
             scheduleMediaLibRetry();
+            drainPendingMediaRequests('error', e);
         } finally {
             isFetchingLib = false;
         }
@@ -4409,9 +4512,27 @@ try {
     }
     window.fetchAllLibrary = fetchAllLibrary;
 
+    // Short stable fingerprint of a media id/URI so two reports can be
+    // compared without ever exporting the identifier itself (§6 sample).
+    function libDiagIdFingerprint(value) {
+        var text = String(value || '');
+        var hash = 0x811c9dc5;
+        for (var i = 0; i < text.length; i += 1) {
+            hash ^= text.charCodeAt(i);
+            hash = (hash + ((hash << 1) + (hash << 4) + (hash << 7) + (hash << 8) + (hash << 24))) >>> 0;
+        }
+        return ('0000000' + hash.toString(16)).slice(-8);
+    }
+
     function parseLibrary(items) {
         const res = { playlists: [], albums: [], artists: [], podcasts: [] };
         let skippedItems = 0;
+        let incompleteItems = 0;
+        let duplicates = 0;
+        let rejectedNoData = 0;
+        let rejectedNoUri = 0;
+        let rejectedUnknownType = 0;
+        const sample = [];
         if (!Array.isArray(items)) return res;
 
         // The real libraryV3 payload wraps items at varying depths
@@ -4462,6 +4583,7 @@ try {
             const data = unwrapItemData(elem);
             if (!data) {
                 skippedItems += 1;
+                rejectedNoData += 1;
                 return;
             }
             const typename = data.__typename || data.type || elem?.item?.__typename || '';
@@ -4471,23 +4593,43 @@ try {
 
             if (!uri) {
                 skippedItems += 1;
+                rejectedNoUri += 1;
                 return;
             }
+
+            const hasName = name !== 'Unknown';
+            const idFp = libDiagIdFingerprint(uri);
+            const structureSample = {
+                idFp: idFp,
+                type: String(typename).slice(0, 24),
+                browsable: true,
+                hasUri: true,
+                hasName: hasName,
+                hasImage: !!image
+            };
+            const incomplete = !hasName || !image;
 
             if (typename.includes('Playlist') || uri.includes(':playlist:')) {
                 const isLiked = name === 'Liked Songs' || uri.includes('collection');
                 if (isLiked) {
-                    if (res.playlists.some(p => p.name === 'Liked Songs' || p.id.includes('collection'))) return;
+                    if (res.playlists.some(p => p.name === 'Liked Songs' || p.id.includes('collection'))) {
+                        duplicates += 1;
+                        return;
+                    }
                 } else if (res.playlists.some(p => p.id === uri)) {
+                    duplicates += 1;
                     return;
                 }
+                if (incomplete) incompleteItems += 1;
                 res.playlists.push({
                     id: isLiked ? 'spotify:collection:tracks' : uri,
                     name: name,
                     image: isLiked ? 'https://misc.scdn.co/liked-songs/liked-songs-640.png' : image,
                     browsable: true
                 });
+                if (sample.length < 5) sample.push(Object.assign({ category: 'playlist' }, structureSample));
             } else if (typename.includes('Album') || uri.includes(':album:')) {
+                if (incomplete) incompleteItems += 1;
                 res.albums.push({
                     id: uri,
                     name: name,
@@ -4495,14 +4637,18 @@ try {
                     artists: data.artists?.items?.map(a => a.profile?.name).filter(Boolean) || [],
                     browsable: true
                 });
+                if (sample.length < 5) sample.push(Object.assign({ category: 'album' }, structureSample));
             } else if (typename.includes('Artist') || uri.includes(':artist:')) {
+                if (incomplete) incompleteItems += 1;
                 res.artists.push({
                     id: uri,
                     name: name,
                     image: image,
                     browsable: true
                 });
+                if (sample.length < 5) sample.push(Object.assign({ category: 'artist' }, structureSample));
             } else if (typename.includes('Podcast') || typename.includes('Show') || uri.includes(':show:')) {
+                if (incomplete) incompleteItems += 1;
                 res.podcasts.push({
                     id: uri,
                     name: name,
@@ -4510,6 +4656,12 @@ try {
                     artists: data.publisher?.name ? [data.publisher.name] : [],
                     browsable: true
                 });
+                if (sample.length < 5) sample.push(Object.assign({ category: 'podcast' }, structureSample));
+            } else {
+                // A valid URI that matches no known category is a distinct
+                // rejection reason ("unknown type"), never a silent drop.
+                skippedItems += 1;
+                rejectedUnknownType += 1;
             }
         });
         console.log(`[Spotifuck] parseLibrary parsed ${res.playlists.length} playlists, ${res.albums.length} albums, ${res.artists.length} artists, ${res.podcasts.length} podcasts`);
@@ -4519,7 +4671,13 @@ try {
                 albums: res.albums.length,
                 artists: res.artists.length,
                 podcasts: res.podcasts.length,
-                skipped: skippedItems
+                skipped: skippedItems,
+                incomplete: incompleteItems,
+                duplicates: duplicates,
+                rejectedNoData: rejectedNoData,
+                rejectedNoUri: rejectedNoUri,
+                rejectedUnknownType: rejectedUnknownType,
+                sample: sample
             }
         });
         return res;
@@ -4541,22 +4699,51 @@ try {
         }
     }
 
+    // Emit + trace in one place (§7/§10): every onMediaItemsLoaded call carries
+    // an observed outcome (status, source, item count, payload bytes).
+    function libDiagEmitMediaItems(parentId, payload, status, source) {
+        try {
+            var channel = typeof parentId === 'string' && (parentId === 'playlists' || parentId === 'albums' || parentId === 'artists' || parentId === 'podcasts')
+                ? 'root'
+                : typeof parentId === 'string' && parentId.indexOf('collection') >= 0
+                    ? 'liked'
+                    : typeof parentId === 'string' && parentId.indexOf(':playlist:') >= 0
+                        ? 'playlist'
+                        : 'other';
+            var n = 0;
+            try { n = JSON.parse(payload).length; } catch (_) {}
+            libDiagOpening({ parent: parentId, channel: channel, status: status, source: source, items: n, emitBytes: String(payload).length });
+        } catch (_) {}
+        AndBridge.onMediaItemsLoaded(parentId, payload);
+    }
+
     async function fetchMediaItems(parentId) {
         try {
+            const openChannel = typeof parentId === 'string' && (parentId === 'playlists' || parentId === 'albums' || parentId === 'artists' || parentId === 'podcasts')
+                ? 'root'
+                : typeof parentId === 'string' && parentId.indexOf('collection') >= 0
+                    ? 'liked'
+                    : typeof parentId === 'string' && parentId.indexOf(':playlist:') >= 0
+                        ? 'playlist'
+                        : 'other';
             if (window.__sfMediaItemsCache && window.__sfMediaItemsCache.has(parentId)) {
                 const cachedTracks = window.__sfMediaItemsCache.get(parentId);
                 rememberCurrentTracks(parentId, cachedTracks);
-                AndBridge.onMediaItemsLoaded(parentId, JSON.stringify(cachedTracks));
+                const cachedPayload = JSON.stringify(cachedTracks);
+                libDiagOpening({ parent: parentId, channel: openChannel, status: 'cached', source: 'cache', items: cachedTracks.length, emitBytes: cachedPayload.length });
+                AndBridge.onMediaItemsLoaded(parentId, cachedPayload);
                 return;
             }
             await ensureAuthToken();
             // 1. Root categories (playlists, albums, artists, podcasts)
             if (parentId === 'playlists' || parentId === 'albums' || parentId === 'artists' || parentId === 'podcasts') {
                 if (!window.mediaLib || !window.mediaLib[parentId]?.length) {
-                    window.pendingMediaRequests.add(parentId);
+                    // This caller answers its own request through the state
+                    // checks below (exactly one honest status row). The shared
+                    // queue is only for callers that cannot answer themselves.
+                    window.pendingMediaRequests.delete(parentId);
                     await checkMediaLib();
                 }
-                window.pendingMediaRequests.delete(parentId);
                 const libState = (window.mediaLib && window.mediaLib.state) || window.__sfMediaLibState || 'pending';
                 const categoryItems = (window.mediaLib && Array.isArray(window.mediaLib[parentId])) ? window.mediaLib[parentId] : null;
                 if (categoryItems && categoryItems.length > 0) {
@@ -4567,24 +4754,41 @@ try {
                         }
                         return { ...item, image: img, isGrid: true };
                     });
-                    AndBridge.onMediaItemsLoaded(parentId, JSON.stringify(items));
+                    const loadedPayload = JSON.stringify(items);
+                    libDiagOpening({ parent: parentId, channel: openChannel, status: 'loaded', source: 'state', items: items.length, emitBytes: loadedPayload.length });
+                    AndBridge.onMediaItemsLoaded(parentId, loadedPayload);
                     return;
                 }
                 if (categoryItems && categoryItems.length === 0 && (libState === 'ready' || libState === 'empty')) {
                     // Truly empty account: honest empty state, never an error.
+                    libDiagOpening({ parent: parentId, channel: openChannel, status: 'empty', source: 'state', items: 0, emitBytes: 2 });
                     AndBridge.onMediaItemsLoaded(parentId, "[]");
                     mediaItemsStatusRow('empty', parentId);
                     return;
                 }
+                if (window.__sfAuthMissing === true) {
+                    // No session after a real token check: say so. Never an
+                    // eternal loading row and never a fake empty library.
+                    libDiagOpening({ parent: parentId, channel: openChannel, status: 'login', source: 'none', items: 0, emitBytes: 2 });
+                    AndBridge.onMediaItemsLoaded(parentId, "[]");
+                    mediaItemsStatusRow('login', parentId);
+                    return;
+                }
                 if (libState === 'error') {
                     // A failed fetch is never an empty library.
+                    libDiagOpening({ parent: parentId, channel: openChannel, status: 'error', source: 'none', items: 0, emitBytes: 2 });
                     AndBridge.onMediaItemsLoaded(parentId, "[]");
                     mediaItemsStatusRow('error', parentId, window.__sfMediaLibError || window.__sfLibError);
                     return;
                 }
+                // Still genuinely pending (a run is in flight): queue the
+                // request and let THAT run answer it. Sending a loading status
+                // row here used to disarm the native watchdog and overwrite
+                // the cached library rows with a transient row, which made the
+                // loading state eternal on the Library tab.
                 console.log("[Spotifuck] fetchMediaItems: mediaLib not ready yet for " + parentId + ". Queued in pendingMediaRequests.");
+                libDiagOpening({ parent: parentId, channel: openChannel, status: 'queue', source: 'none', items: 0, emitBytes: 0 });
                 window.pendingMediaRequests.add(parentId);
-                mediaItemsStatusRow('loading', parentId);
                 return;
             }
 
@@ -4669,7 +4873,7 @@ try {
             const tracks = await getLikedSongsTracks();
             rememberCurrentTracks(parentId, tracks);
             console.log(`[Spotifuck] Returning ${tracks.length} Liked Songs tracks to Android Auto for ${parentId}`);
-            AndBridge.onMediaItemsLoaded(parentId, JSON.stringify(tracks));
+            libDiagEmitMediaItems(parentId, JSON.stringify(tracks), tracks.length > 0 ? 'loaded' : 'empty', 'network');
             return;
         }
 
@@ -4771,6 +4975,10 @@ try {
                 if (tracks.length > 0) window.__sfMediaItemsCache.set(parentId, tracks);
                 rememberCurrentTracks(parentId, tracks);
                 console.log(`[Spotifuck] fetchPlaylist parsed ${tracks.length} tracks for ${parentId}`);
+                // Historical contract (tab_isolation_regressions): success still
+                // delivers tracks through the literal native call; the opening
+                // trace is recorded just before it.
+                libDiagOpening({ parent: parentId, channel: 'playlist', status: tracks.length > 0 ? 'loaded' : 'empty', source: 'network', items: tracks.length, emitBytes: JSON.stringify(tracks).length });
                 AndBridge.onMediaItemsLoaded(parentId, JSON.stringify(tracks));
                 return;
             }
@@ -4827,7 +5035,7 @@ try {
                 if (tracks.length > 0) window.__sfMediaItemsCache.set(parentId, tracks);
                 rememberCurrentTracks(parentId, tracks);
                 console.log(`[Spotifuck] getAlbum parsed ${tracks.length} tracks for ${parentId}`);
-                AndBridge.onMediaItemsLoaded(parentId, JSON.stringify(tracks));
+                libDiagEmitMediaItems(parentId, JSON.stringify(tracks), tracks.length > 0 ? 'loaded' : 'empty', 'network');
                 return;
             }
 
@@ -4882,7 +5090,7 @@ try {
                 if (tracks.length > 0) window.__sfMediaItemsCache.set(parentId, tracks);
                 rememberCurrentTracks(parentId, tracks);
                 console.log(`[Spotifuck] queryArtistOverview parsed ${tracks.length} tracks for ${parentId}`);
-                AndBridge.onMediaItemsLoaded(parentId, JSON.stringify(tracks));
+                libDiagEmitMediaItems(parentId, JSON.stringify(tracks), tracks.length > 0 ? 'loaded' : 'empty', 'network');
                 return;
             }
 
@@ -4907,17 +5115,17 @@ try {
                         browsable: false
                     };
                 });
-                AndBridge.onMediaItemsLoaded(parentId, JSON.stringify(episodes));
+                libDiagEmitMediaItems(parentId, JSON.stringify(episodes), episodes.length > 0 ? 'loaded' : 'empty', 'network');
                 return;
             }
 
             // Fallback for unknown categories: distinct, honest state.
-            AndBridge.onMediaItemsLoaded(parentId, "[]");
+            libDiagEmitMediaItems(parentId, "[]", 'blocked', 'none');
             mediaItemsStatusRow('unsupported', parentId);
         } catch (e) {
             logBridgeError('fetchMediaItems', e);
             window.__sfLibError = e;
-            AndBridge.onMediaItemsLoaded(parentId, "[]");
+            libDiagEmitMediaItems(parentId, "[]", 'error', 'none');
             mediaItemsStatusRow('error', parentId, e);
         }
     }
@@ -4930,12 +5138,23 @@ try {
         function mediaItemsStatusRow(kind, parentId, e) {
             var row;
             if (kind === 'loading') {
-                row = { title: 'Chargement des playlists…', section: 'Votre bibliothèque' };
+                row = { title: 'Chargement des playlists…', section: 'Votre bibliothèque', kind: 'loading' };
+            } else if (kind === 'login') {
+                // No session after a real token check: ask for a login instead
+                // of loading forever or faking an empty library.
+                row = {
+                    title: 'Connecte-toi à Spotify',
+                    subtitle: 'Aucune session détectée — connectez-vous pour voir tes playlists',
+                    section: 'Votre bibliothèque',
+                    kind: 'login',
+                    actionUri: 'spotify:lib:login'
+                };
             } else if (kind === 'empty') {
                 row = {
                     title: parentId === 'playlists' ? 'Aucune playlist dans ce compte' : 'Aucun élément dans ce compte',
                     subtitle: 'Créez-en un sur Spotify, puis réessayez',
-                    section: 'Votre bibliothèque'
+                    section: 'Votre bibliothèque',
+                    kind: 'empty'
                 };
             } else if (kind === 'unsupported') {
                 row = {
@@ -4955,6 +5174,7 @@ try {
                     title: 'Impossible de charger les titres',
                     subtitle: subtitle,
                     section: 'Détails',
+                    kind: 'error',
                     uri: 'spotify:retry:media:' + parentId
                 };
             }

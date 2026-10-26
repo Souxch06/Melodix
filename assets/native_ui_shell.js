@@ -554,6 +554,7 @@
         var userRows = [];
         var spotifyRows = [];
         var userOverflow = 0;
+        var diagIgnored = 0;
 
         function looksPublicPlaylist(row) {
             var title = String(row && row.title || '');
@@ -601,13 +602,13 @@
                     if (!img && (title === 'Liked Songs' || /collection/i.test(uri))) {
                         img = 'https://misc.scdn.co/liked-songs/liked-songs-640.png';
                     }
-                    if (!uri || !title || seen.has(uri)) return;
+                    if (!uri || !title || seen.has(uri)) { diagIgnored += 1; return; }
                     if (userRows.length >= 40) {
                         userOverflow += 1;
                         return;
                     }
                     // Official mixes that also sit on Home are shown once under Playlists Spotify.
-                    if (publicItem && feedUris[uri]) return;
+                    if (publicItem && feedUris[uri]) { diagIgnored += 1; return; }
                     seen.add(uri);
                     bucket = publicItem ? spotifyRows : userRows;
                     bucket.push({
@@ -631,7 +632,7 @@
         }
 
         rows.forEach(function(row) {
-            if (!row || !row.uri || !row.title || seen.has(row.uri)) return;
+            if (!row || !row.uri || !row.title || seen.has(row.uri)) { diagIgnored += 1; return; }
             seen.add(row.uri);
             var section;
             if (/collection/i.test(row.uri) || (mineUris[row.uri] && !looksPublicPlaylist(row))) {
@@ -659,6 +660,11 @@
                 section: 'Vos playlists'
             });
         }
+        try {
+            if (typeof window.__sfLibDiagUpdate === 'function') {
+                window.__sfLibDiagUpdate({ delivered: { ignored: userOverflow + diagIgnored } });
+            }
+        } catch (_) {}
         return userRows.concat(spotifyRows);
     }
 
@@ -3135,6 +3141,12 @@
         if (next === libPushBlockedLogged) return;
         libPushBlockedLogged = next;
         if (!next) return;
+        window.__sfLibPushBlockedCount = (window.__sfLibPushBlockedCount || 0) + 1;
+        if (typeof window.__sfLibDiagUpdate === 'function') {
+            try {
+                window.__sfLibDiagUpdate({ delivered: { pushBlocked: window.__sfLibPushBlockedCount } });
+            } catch (_) {}
+        }
         // A dead channel must not be a silent one: journal the blocking reason
         // through logDiagEvent when that channel still exists, and always keep
         // it on a window field so recovery can clear it visibly.
@@ -3162,8 +3174,16 @@
                 bridgeDiagOkLogged = true;
                 if (typeof bridge.logDiagEvent === 'function') bridge.logDiagEvent('lib-push ok');
             }
+            if (typeof window.__sfLibDiagUpdate === 'function') {
+                window.__sfLibDiagUpdate({ delivered: { pushOk: window.__sfDiagSent || 1 } });
+            }
         } catch (err) {
             window.__sfDiagSendErr = (window.__sfDiagSendErr || 0) + 1;
+            if (typeof window.__sfLibDiagUpdate === 'function') {
+                try {
+                    window.__sfLibDiagUpdate({ delivered: { pushErr: window.__sfDiagSendErr } });
+                } catch (_) {}
+            }
             try {
                 var w = window.AndBridge;
                 if (w && typeof w.logDiagEvent === 'function') {
