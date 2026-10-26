@@ -88,7 +88,7 @@
     invoke-virtual {v1}, Ljava/lang/String;->length()I
     move-result v2
     const/16 v3, 0x50
-    if-gt v2, v3, :cb_append
+    if-le v2, v3, :cb_append
     const/4 v3, 0x0
     const/16 v2, 0x50
     invoke-virtual {v1, v3, v2}, Ljava/lang/String;->substring(II)Ljava/lang/String;

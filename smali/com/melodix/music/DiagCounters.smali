@@ -619,7 +619,7 @@
     invoke-virtual {v1}, Ljava/lang/String;->length()I
     move-result v2
     const/16 v3, 0x7d0
-    if-gt v2, v3, :ls_store
+    if-le v2, v3, :ls_store
     const/16 v3, 0x640
     sub-int v3, v2, v3
     invoke-virtual {v1, v3, v2}, Ljava/lang/String;->substring(II)Ljava/lang/String;
@@ -734,7 +734,7 @@
     const/16 v1, 0xa
     invoke-virtual {v0, v1}, Ljava/lang/String;->lastIndexOf(I)I
     move-result v1
-    if-gez v1, :rll_whole
+    if-ltz v1, :rll_whole
     const/4 v2, 0x1
     add-int/2addr v1, v2
     invoke-virtual {v0, v1}, Ljava/lang/String;->substring(I)Ljava/lang/String;
@@ -848,7 +848,7 @@
     const-string v1, "{\"stage\""
     invoke-virtual {v0, v1}, Ljava/lang/String;->lastIndexOf(Ljava/lang/String;)I
     move-result v2
-    if-gez v2, :rlb_none
+    if-ltz v2, :rlb_none
 
     const/16 v1, 0xa
     invoke-virtual {v0, v1, v2}, Ljava/lang/String;->indexOf(II)I

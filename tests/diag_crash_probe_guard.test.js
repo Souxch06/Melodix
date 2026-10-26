@@ -118,8 +118,8 @@ test('[structurel] install() : if-eqz p0, :done (contexte nul) + if-nez v0, :don
 // accountsHostHides if-eqz p0/v1 :done.
 // NATURE : [structurel] uniquement — ne prouve pas l'exécution Android.
 // ---------------------------------------------------------------------------
-const methodBody = (sig) => {
-    const guard = read('smali/com/melodix/music/NativeCrashGuard.smali');
+const methodBody = (sig, file = 'smali/com/melodix/music/NativeCrashGuard.smali') => {
+    const guard = read(file);
     const method = guard.split(sig)[1];
     assert.ok(method, `method exists: ${sig}`);
     return method.split('.end method')[0];
@@ -223,4 +223,38 @@ test('[structurel] onCreate continue apres showLastReport : pas de return-void e
     const slice = main.slice(from, to);
     assert.ok(!slice.includes('return-void'),
         'onCreate ne doit plus retourner entre le dialogue et la suite du demarrage');
+});
+
+test('[structurel] DiagJsProbeCallback.onReceiveValue() : clip 0x50 seulement si longueur > 80 (if-le pour sauter le clip) — sinon substring(0,80) explose sur la valeur courte de la sonde', () => {
+    // Crash prouvé par la CI (dialogue « Dernier plantage ») :
+    // StringIndexOutOfBoundsException: begin 0, end 80, length 1
+    //   at java.lang.String.substring → DiagJsProbeCallback.onReceiveValue.
+    // La garde `if-gt v2, v3, :cb_append` (v2=longueur, v3=80) sautait AU-DESSUS du
+    // clip quand la valeur depassait 80 et clipait les valeurs COURTES (<= 80).
+    const body = methodBody('.method public final onReceiveValue(Ljava/lang/Object;)V', 'smali/com/melodix/music/DiagJsProbeCallback.smali');
+    assert.ok(body.includes('if-le v2, v3, :cb_append'),
+        'if-le v2, v3, :cb_append is present (court -> append direct, long -> clip)');
+    assert.ok(!body.includes('if-gt v2, v3, :cb_append'), 'inverted guard is gone');
+});
+
+test('[structurel] DiagCounters libState store : if-le v2, v3, :ls_store (jamais if-gt) — sinon substring(negatif) sur texte < 1600', () => {
+    // Garde bornee 0x7d0 : <= 2000 -> stocker entier (:ls_store), > 2000 -> queue 0x640.
+    const body = methodBody('.method public static libState(Ljava/lang/String;)V', 'smali/com/melodix/music/DiagCounters.smali');
+    assert.ok(body.includes('if-le v2, v3, :ls_store'),
+        'if-le v2, v3, :ls_store is present (cap -> queue seulement au-dela)');
+    assert.ok(!body.includes('if-gt v2, v3, :ls_store'), 'inverted guard is gone');
+});
+
+test('[structurel] DiagCounters.readLibStateLast() : if-ltz v1, :rll_whole (jamais if-gez) — sinon le dernier etat n\'est jamais lu', () => {
+    // lastIndexOf(\'\\n\') >= 0 -> prendre ce qui suit ; absent (< 0) -> entier.
+    const body = methodBody('.method public static readLibStateLast()Ljava/lang/String;', 'smali/com/melodix/music/DiagCounters.smali');
+    assert.ok(body.includes('if-ltz v1, :rll_whole'), 'if-ltz v1, :rll_whole is present');
+    assert.ok(!body.includes('if-gez v1, :rll_whole'), 'inverted guard is gone');
+});
+
+test('[structurel] DiagCounters.readLibStateBridge() : if-ltz v2, :rlb_none (jamais if-gez) — sinon null meme quand la ligne existe', () => {
+    // lastIndexOf("{\\"stage\\"") < 0 -> null ; trouve (>= 0) -> extraire la ligne.
+    const body = methodBody('.method public static readLibStateBridge()Ljava/lang/String;', 'smali/com/melodix/music/DiagCounters.smali');
+    assert.ok(body.includes('if-ltz v2, :rlb_none'), 'if-ltz v2, :rlb_none is present');
+    assert.ok(!body.includes('if-gez v2, :rlb_none'), 'inverted guard is gone');
 });
