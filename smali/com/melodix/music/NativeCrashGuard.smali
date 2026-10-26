@@ -138,11 +138,11 @@
 .method public static install(Landroid/content/Context;)V
     .locals 6
 
-    if-nez p0, :done
+    if-eqz p0, :done
 
     sget-boolean v0, Lcom/melodix/music/NativeCrashGuard;->installed:Z
 
-    if-eqz v0, :done
+    if-nez v0, :done
 
     invoke-virtual {p0}, Landroid/content/Context;->getApplicationContext()Landroid/content/Context;
 
