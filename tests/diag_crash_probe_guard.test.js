@@ -49,3 +49,29 @@ test('[structurel] coupe à la 1ʳᵉ ligne : if-ltz v2, :clip AVANT substring(0
     // The inverted form threw StringIndexOutOfBoundsException on single lines.
     assert.ok(!body.includes('if-gez v2, :clip'), 'inverted guard if-gez v2, :clip is gone');
 });
+
+// ---------------------------------------------------------------------------
+// lastReport() (source de lastCrashLine()/showLastReport()/install()) portait
+// la même garde INVERSÉE sur le contexte :
+//   if-nez v1, :done → sautait au return null quand le contexte EXISTAIT
+//       (lecture de « last_crash » jamais atteinte), et tombait dans le try
+//       avec v1=null sinon → NPE → :catch_0 → null. Toujours null.
+//   Correctif attendu : if-eqz v1, :done (contexte nul -> null ; sinon lire).
+// NATURE : [structurel] uniquement — ne prouve pas l'exécution Android.
+// ---------------------------------------------------------------------------
+test('[structurel] lastReport() : garde contexte AVANT getSharedPreferences — if-eqz v1, :done (jamais if-nez)', () => {
+    const guard = read('smali/com/melodix/music/NativeCrashGuard.smali');
+    const method = guard.split('.method private static lastReport()Ljava/lang/String;')[1];
+    assert.ok(method, 'NativeCrashGuard.lastReport() exists');
+    const body = method.split('.end method')[0];
+    // The null-context guard must point towards :done when the context IS null…
+    const guardIdx = body.indexOf('if-eqz v1, :done');
+    assert.ok(guardIdx >= 0, 'null-context guard if-eqz v1, :done is present');
+    // …and it must run BEFORE the first use of the context (the prefs read).
+    const useIdx = body.indexOf('getSharedPreferences');
+    assert.ok(useIdx >= 0, 'getSharedPreferences is present');
+    assert.ok(guardIdx < useIdx, 'null-context guard runs before the prefs read');
+    // The inverted form skipped the read exactly when the context existed,
+    // making lastReport() return null on every path.
+    assert.ok(!body.includes('if-nez v1, :done'), 'inverted guard if-nez v1, :done is gone');
+});

@@ -263,7 +263,7 @@
 
     sget-object v1, Lcom/melodix/music/NativeCrashGuard;->context:Landroid/content/Context;
 
-    if-nez v1, :done
+    if-eqz v1, :done
 
     :try_start_0
     const-string v2, "melodix_native"
