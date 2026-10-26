@@ -14,6 +14,12 @@
 .field public static mediaRendered:I
 .field public static mediaDropped:I
 
+# Bridge diagnostic channel probe: how many times AndBridge.onLibDiagState
+# reached DiagCounters.libState, and the received length (chars) of the last
+# payload. Counts only, never content.
+.field public static libStateCalls:I
+.field public static libStateLastLen:I
+
 # Renderer/JS-channel diagnosis: rendererGone is set when onRenderProcessGone
 # fires and cleared when a page finishes loading; probeAnswered tracks whether
 # the last evaluateJavascript ValueCallback probe answered.
@@ -354,6 +360,20 @@
     # l'écran ne montre que les valeurs.
     const-string v1, "Bridge (temporaire):\n"
     invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    # Bridge channel probe line (head of the section): entry count + last
+    # received length. Numbers only.
+    const-string v1, "lib-state calls="
+    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    sget v2, Lcom/melodix/music/DiagCounters;->libStateCalls:I
+    invoke-virtual {v0, v2}, Ljava/lang/StringBuilder;->append(I)Ljava/lang/StringBuilder;
+    const-string v1, " lastLen="
+    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    sget v2, Lcom/melodix/music/DiagCounters;->libStateLastLen:I
+    invoke-virtual {v0, v2}, Ljava/lang/StringBuilder;->append(I)Ljava/lang/StringBuilder;
+    const-string v1, "\n"
+    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
     invoke-static {}, Lcom/melodix/music/DiagCounters;->buildBridgeSection()Ljava/lang/String;
     move-result-object v2
     invoke-virtual {v0, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
@@ -547,7 +567,17 @@
     # The page is alive when it pushes: keep the probe honest.
     invoke-static {}, Lcom/melodix/music/DiagCounters;->notePageEvent()V
 
+    # Probe: count every call entry; record the received length (chars) when a
+    # payload actually arrived. Clip and storage below are untouched.
+    sget v0, Lcom/melodix/music/DiagCounters;->libStateCalls:I
+    add-int/lit8 v0, v0, 0x1
+    sput v0, Lcom/melodix/music/DiagCounters;->libStateCalls:I
+
     if-eqz p0, :ls_done
+
+    invoke-virtual {p0}, Ljava/lang/String;->length()I
+    move-result v0
+    sput v0, Lcom/melodix/music/DiagCounters;->libStateLastLen:I
 
     const-string v0, "\\s+"
     const-string v1, " "

@@ -3096,6 +3096,7 @@
 
     var bridgeDiagLastStage;
     var bridgeDiagLastAt = 0;
+    var bridgeDiagOkLogged = false;
 
     function pushBridgeDiagState() {
         try {
@@ -3104,7 +3105,19 @@
             bridgeDiagLastAt = Date.now();
             bridgeDiagLastStage = typeof window.__sfBridgeLoadStage === 'string' ? window.__sfBridgeLoadStage : null;
             bridge.onLibDiagState(bridgeDiagStateJson());
-        } catch (_) {}
+            if (!bridgeDiagOkLogged) {
+                bridgeDiagOkLogged = true;
+                if (typeof bridge.logDiagEvent === 'function') bridge.logDiagEvent('lib-push ok');
+            }
+        } catch (err) {
+            try {
+                var w = window.AndBridge;
+                if (w && typeof w.logDiagEvent === 'function') {
+                    var n = (err && err.name) ? String(err.name) : 'unknown';
+                    w.logDiagEvent('lib-push err ' + n.slice(0, 40));
+                }
+            } catch (_) {}
+        }
     }
 
     function startBridgeDiagWatch() {
