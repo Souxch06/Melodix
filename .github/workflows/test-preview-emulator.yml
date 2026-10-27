@@ -403,15 +403,21 @@ jobs:
           needle = sys.argv[2].lower()
           # The restored home shows the real Spotify web player inside the
           # WebView; its accessible nodes also appear in the uiautomator dump
-          # and can shadow native chrome (tab bar, header). Skip every node
-          # under a WebView and prefer the LAST native match - native chrome
-          # is laid out after the WebView.
+          # and can shadow native chrome (tab bar, header, search field).
+          # Mark whole WebView subtrees (DFS) and skip them. Native EditText
+          # matches win (the search field), otherwise the LAST native match
+          # (tab bar / header sit after the WebView).
           web = set()
-          for node in root.iter():
-              if (node.get("class") or "") == "android.webkit.WebView":
-                  for sub in node.iter():
-                      web.add(id(sub))
+          stack = [(root, False)]
+          while stack:
+              node, in_web = stack.pop()
+              now = in_web or (node.get("class") or "") == "android.webkit.WebView"
+              if now:
+                  web.add(id(node))
+              for ch in list(node):
+                  stack.append((ch, now))
           found = None
+          found_edit = None
           for node in root.iter():
               if id(node) in web:
                   continue
@@ -421,10 +427,16 @@ jobs:
                   if m:
                       x1, y1, x2, y2 = map(int, m.groups())
                       if x2 > x1 and y2 > y1:
-                          found = ((x1 + x2) // 2, (y1 + y2) // 2)
-          if found is None:
+                          pt = ((x1 + x2) // 2, (y1 + y2) // 2)
+                          found = pt
+                          if found_edit is None and (node.get("class") or "") == "android.widget.EditText":
+                              found_edit = pt
+          if found_edit is not None:
+              print(found_edit[0], found_edit[1])
+          elif found is not None:
+              print(found[0], found[1])
+          else:
               raise SystemExit(f"Could not find UI element matching {needle!r}")
-          print(found[0], found[1])
           PY
             )" || { echo "::error title=tap_text failed::needle=$2 xml=$1 visible=$(python3 -c 'import sys,xml.etree.ElementTree as ET;r=ET.parse(sys.argv[1]).getroot();print(" | ".join(filter(None,((n.get("text") or "").strip() or (n.get("content-desc") or "").strip() for n in r.iter())))[:350])' "$1" 2>/dev/null || echo '?')"; return 1; }
             local cx="${coords% *}"
