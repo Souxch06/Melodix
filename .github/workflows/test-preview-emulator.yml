@@ -426,7 +426,7 @@ jobs:
               raise SystemExit(f"Could not find UI element matching {needle!r}")
           print(found[0], found[1])
           PY
-            )" || { echo "::error title=tap_text failed::needle=$2 xml=$1"; return 1; }
+            )" || { echo "::error title=tap_text failed::needle=$2 xml=$1 visible=$(python3 -c 'import sys,xml.etree.ElementTree as ET;r=ET.parse(sys.argv[1]).getroot();print(" | ".join(filter(None,((n.get("text") or "").strip() or (n.get("content-desc") or "").strip() for n in r.iter())))[:350])' "$1" 2>/dev/null || echo '?')"; return 1; }
             local cx="${coords% *}"
             local cy="${coords##* }"
             if ! [[ "$cx" =~ ^[0-9]+$ && "$cy" =~ ^[0-9]+$ ]]; then
