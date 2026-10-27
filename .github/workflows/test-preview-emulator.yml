@@ -775,8 +775,20 @@ jobs:
           send_ui "home-greeting" "Bonjour, Nouveau"
           dump_ui "12_after_relogin"
           assert_ui_has "$state/12_after_relogin.xml" "Bonjour, Nouveau"
-          assert_ui_has "$state/12_after_relogin.xml" "Compte Deux"
-          assert_ui_lacks "$state/12_after_relogin.xml" "Mix Decouverte"
+          # Home display restoration: the new account's feed card is cached
+          # but native feed rows are not the home surface anymore - the feed
+          # contract is verified through the library, which still renders
+          # native feed rows.
+          tap_text "$state/12_after_relogin.xml" "Biblioth"
+          sleep 1
+          send_ui "media:playlists" '[{"title":"Compte Deux","subtitle":"Spotify","uri":"spotify:playlist:777"}]'
+          dump_ui "12b_relogin_library"
+          assert_ui_has "$state/12b_relogin_library.xml" "Compte Deux"
+          adb shell input keyevent 4
+          sleep 1
+          dump_ui "12_after_relogin_home"
+          assert_ui_has "$state/12_after_relogin_home.xml" "Bonjour, Nouveau"
+          assert_ui_lacks "$state/12_after_relogin_home.xml" "Mix Decouverte"
 
           # 7. Deep-link & exported Intent JS injection defense + malformed JSON resilience + epoch race guard + screen rotation
           assert_pid_same() {
