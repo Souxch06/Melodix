@@ -726,8 +726,13 @@ t('library tab loading is bounded: explicit error + Réessayer, never a false em
 
     const libAt = main.indexOf('\n    :lib_render_loading\n');
     assert.ok(libAt !== -1, 'loading branch exists');
-    assert.ok(main.slice(libAt, main.indexOf('\n    :lib_fetch\n', libAt)).includes('NativeLibWatchdog;->arm'),
-        'watchdog armed with the loading state');
+    // Regression contract (fixed defect): the watchdog is armed on EVERY tab
+    // entry — the old "only when painting the loading row" placement left a
+    // poisoned cache row in a loading state forever.
+    const fetchAt = main.indexOf('\n    :lib_fetch\n', libAt);
+    assert.ok(fetchAt !== -1, 'lib_fetch branch exists');
+    assert.ok(main.slice(fetchAt, main.indexOf('\n    :try_end_lib\n', fetchAt)).includes('NativeLibWatchdog;->arm'),
+        'watchdog armed on every tab entry (lib_fetch)');
 
     const media1 = main.indexOf('DiagCounters;->mediaRendered()V');
     assert.ok(main.slice(media1 - 220, media1).includes('NativeLibWatchdog;->disarm'),

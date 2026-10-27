@@ -6,6 +6,88 @@
 
     const/4 v0, 0x0
     if-eqz p0, :done
+
+    # ---- Shell asset: same-origin <script src> is the project's documented
+    # reliable channel (a single large evaluateJavascript silently fails on
+    # some WebViews - see AndBridge.readBundledAsset). The startup fallback in
+    # c91 re-injects the shell through this endpoint when the evaluated copy
+    # never executed.
+    const-string v1, "/__melodix__/native_ui_shell.js"
+    invoke-virtual {p0, v1}, Ljava/lang/String;->contains(Ljava/lang/CharSequence;)Z
+    move-result v1
+    if-eqz v1, :bridge_branch
+
+    :try_start_shell
+    const-string v2, "native_ui_shell.js"
+    invoke-static {v2}, Lcom/melodix/music/NativeBridgeAsset;->readAssetUtf8(Ljava/lang/String;)Ljava/lang/String;
+    move-result-object v2
+    if-eqz v2, :shell_try_fail
+    invoke-virtual {v2}, Ljava/lang/String;->isEmpty()Z
+    move-result v3
+    if-nez v3, :shell_try_fail
+
+    const-string v1, "window.__sfShellAssetServed=true;"
+    new-instance v3, Ljava/lang/StringBuilder;
+    invoke-direct {v3, v1}, Ljava/lang/StringBuilder;-><init>(Ljava/lang/String;)V
+    invoke-virtual {v3, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    invoke-virtual {v3}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
+    move-result-object v1
+
+    const-string v3, "UTF-8"
+    invoke-virtual {v1, v3}, Ljava/lang/String;->getBytes(Ljava/lang/String;)[B
+    move-result-object v1
+    array-length v9, v1
+
+    new-instance v8, Ljava/io/ByteArrayInputStream;
+    invoke-direct {v8, v1}, Ljava/io/ByteArrayInputStream;-><init>([B)V
+
+    new-instance v7, Ljava/util/HashMap;
+    invoke-direct {v7}, Ljava/util/HashMap;-><init>()V
+    const-string v1, "Access-Control-Allow-Origin"
+    const-string v3, "*"
+    invoke-virtual {v7, v1, v3}, Ljava/util/HashMap;->put(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;
+    const-string v1, "Cache-Control"
+    const-string v3, "no-store, max-age=0"
+    invoke-virtual {v7, v1, v3}, Ljava/util/HashMap;->put(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;
+    const-string v1, "Content-Type"
+    const-string v3, "text/javascript; charset=UTF-8"
+    invoke-virtual {v7, v1, v3}, Ljava/util/HashMap;->put(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;
+    const-string v1, "Content-Length"
+    invoke-static {v9}, Ljava/lang/Integer;->toString(I)Ljava/lang/String;
+    move-result-object v3
+    invoke-virtual {v7, v1, v3}, Ljava/util/HashMap;->put(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;
+
+    new-instance v2, Landroid/webkit/WebResourceResponse;
+    const-string v3, "text/javascript"
+    const-string v4, "UTF-8"
+    const/16 v5, 0xc8
+    const-string v6, "OK"
+    invoke-direct/range {v2 .. v8}, Landroid/webkit/WebResourceResponse;-><init>(Ljava/lang/String;Ljava/lang/String;ILjava/lang/String;Ljava/util/Map;Ljava/io/InputStream;)V
+    move-object v0, v2
+    :try_end_shell
+    .catch Ljava/lang/Exception; {:try_start_shell .. :try_end_shell} :catch_shell
+    goto :shell_check
+
+    :catch_shell
+    move-exception v1
+    const/4 v0, 0x0
+
+    :shell_try_fail
+    const/4 v0, 0x0
+
+    :shell_check
+    if-eqz v0, :shell_miss
+
+    const-string v1, "shell-asset served"
+    invoke-static {v1}, Lcom/melodix/music/DiagCounters;->event(Ljava/lang/String;)V
+    goto :done
+
+    :shell_miss
+    const-string v1, "shell-asset-miss"
+    invoke-static {v1}, Lcom/melodix/music/DiagCounters;->event(Ljava/lang/String;)V
+    goto :done
+
+    :bridge_branch
     const-string v1, "/__melodix__/spotify_bridge.js"
     invoke-virtual {p0, v1}, Ljava/lang/String;->contains(Ljava/lang/CharSequence;)Z
     move-result v1
@@ -100,15 +182,29 @@
     :try_fail
     const/4 v0, 0x0
 
+    const-string v1, "bridge-asset-miss"
+
+    invoke-static {v1}, Lcom/melodix/music/DiagCounters;->event(Ljava/lang/String;)V
+
     :try_ok
     nop
     :try_end_0
     .catch Ljava/lang/Exception; {:try_start_0 .. :try_end_0} :catch_0
+    if-eqz v0, :done
+
+    const-string v1, "bridge-asset served"
+
+    invoke-static {v1}, Lcom/melodix/music/DiagCounters;->event(Ljava/lang/String;)V
+
     goto :done
 
     :catch_0
     move-exception v1
     const/4 v0, 0x0
+
+    const-string v1, "bridge-asset-miss exc"
+
+    invoke-static {v1}, Lcom/melodix/music/DiagCounters;->event(Ljava/lang/String;)V
 
     :done
     return-object v0
@@ -187,6 +283,19 @@
 
 # Context-first variant: never goes through m9.c() (which throws when the app
 # context singleton is not ready) — the caller passes its own Context.
+.method public static shellRecoveryJavascript()Ljava/lang/String;
+    .locals 1
+
+    # Tiny (always deliverable) startup probe+fallback, evaluated right after
+    # the large shell payload: if the shell IIFE really completed, journal
+    # "js-shell delivered ok"; otherwise journal "js-shell delivered missing"
+    # and re-inject the shell through the reliable same-origin <script src>
+    # channel (data-sf-melodix-shell marks it, the IIFE idempotency guard makes
+    # a double run harmless). Stage labels only, no error text, no secrets.
+    const-string v0, "(function(){try{if(window.__sfNativeUiShellCompleted===true){if(window.AndBridge&&window.AndBridge.logDiagEvent){window.AndBridge.logDiagEvent('js-shell delivered ok');}return;}if(window.AndBridge&&window.AndBridge.logDiagEvent){window.AndBridge.logDiagEvent('js-shell delivered missing');}if(document.querySelector('script[data-sf-melodix-shell]')){return;}var s=document.createElement('script');s.async=false;s.defer=false;s.type='text/javascript';s.charset='utf-8';s.setAttribute('data-sf-melodix-shell','1');s.src=(window.location&&window.location.origin?window.location.origin:'https://open.spotify.com')+'/__melodix__/native_ui_shell.js';(document.head||document.documentElement).appendChild(s);}catch(e){}})();"
+    return-object v0
+.end method
+
 .method public static readAssetUtf8(Landroid/content/Context;Ljava/lang/String;)Ljava/lang/String;
     .locals 7
 

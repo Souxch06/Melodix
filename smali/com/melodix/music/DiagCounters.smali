@@ -119,6 +119,33 @@
 
     :sh_count_done
 
+    # The emulator test engine reads logcat MDXTRACE:I. Mirror every bounded
+    # event line there (whitespace-normalized + 128-char clipped, same as the
+    # in-app buffer below) so the bridge startup chain is observable outside
+    # the diagnostic screen. Callers pass fixed labels and exception class
+    # names only - never tokens or page content.
+    if-eqz p0, :event_log_skip
+
+    const-string v1, "\\s+"
+
+    const-string v2, " "
+
+    invoke-virtual {p0, v1, v2}, Ljava/lang/String;->replaceAll(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;
+
+    move-result-object v1
+
+    const/16 v2, 0x80
+
+    invoke-static {v1, v2}, Lcom/melodix/music/DiagCounters;->clip(Ljava/lang/String;I)Ljava/lang/String;
+
+    move-result-object v1
+
+    const-string v2, "MDXTRACE"
+
+    invoke-static {v2, v1}, Landroid/util/Log;->i(Ljava/lang/String;Ljava/lang/String;)I
+
+    :event_log_skip
+
     sget v0, Lcom/melodix/music/DiagCounters;->logLines:I
 
     const/16 v1, 0xc8
@@ -628,6 +655,44 @@
     sget v0, Lcom/melodix/music/DiagCounters;->libStateCalls:I
     add-int/lit8 v0, v0, 0x1
     sput v0, Lcom/melodix/music/DiagCounters;->libStateCalls:I
+
+    # Count-only summary to logcat MDXTRACE:I: "lib-state n=<calls> len=<chars>".
+    # Never the payload itself (it is sanitized but page-shaped).
+    new-instance v1, Ljava/lang/StringBuilder;
+
+    invoke-direct {v1}, Ljava/lang/StringBuilder;-><init>()V
+
+    const-string v2, "lib-state n="
+
+    invoke-virtual {v1, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    invoke-virtual {v1, v0}, Ljava/lang/StringBuilder;->append(I)Ljava/lang/StringBuilder;
+
+    const-string v2, " len="
+
+    invoke-virtual {v1, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    if-eqz p0, :ls_log_len0
+
+    invoke-virtual {p0}, Ljava/lang/String;->length()I
+
+    move-result v2
+
+    goto :ls_log_len
+
+    :ls_log_len0
+    const/4 v2, 0x0
+
+    :ls_log_len
+    invoke-virtual {v1, v2}, Ljava/lang/StringBuilder;->append(I)Ljava/lang/StringBuilder;
+
+    invoke-virtual {v1}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
+
+    move-result-object v1
+
+    const-string v2, "MDXTRACE"
+
+    invoke-static {v2, v1}, Landroid/util/Log;->i(Ljava/lang/String;Ljava/lang/String;)I
 
     if-eqz p0, :ls_done
 

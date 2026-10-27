@@ -204,7 +204,9 @@
     :clear_stale
     invoke-virtual {p1}, Landroid/view/ViewGroup;->getChildCount()I
     move-result v1
-    if-gtz v1, :stale_cleared
+    # Drop every stale child: stop when the container is empty (a
+    # removeViewAt(0) on an empty container throws and aborts the clear).
+    if-lez v1, :stale_cleared
     const/4 v2, 0x0
     invoke-virtual {p1, v2}, Landroid/view/ViewGroup;->removeViewAt(I)V
     goto :clear_stale

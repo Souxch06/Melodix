@@ -375,6 +375,15 @@
 
     invoke-virtual {v0, v5, v8}, Landroid/webkit/WebView;->evaluateJavascript(Ljava/lang/String;Landroid/webkit/ValueCallback;)V
 
+    # Shell delivery probe + fallback: the shell above is a 140 KB single
+    # evaluateJavascript (a channel documented to silently fail for large
+    # payloads). This tiny follow-up script proves delivery ("js-shell delivered
+    # ok|missing") and re-injects the shell as a same-origin <script src> when
+    # the evaluated copy never executed.
+    invoke-static {}, Lcom/melodix/music/NativeBridgeAsset;->shellRecoveryJavascript()Ljava/lang/String;
+    move-result-object v5
+    invoke-virtual {v0, v5, v8}, Landroid/webkit/WebView;->evaluateJavascript(Ljava/lang/String;Landroid/webkit/ValueCallback;)V
+
     # Warm the bridge asset cache and execute via the shell's chunked/same-origin loader.
     const-string v3, "spotify_bridge.js"
     invoke-static {v3}, Lm9;->d(Ljava/lang/String;)Ljava/lang/String;

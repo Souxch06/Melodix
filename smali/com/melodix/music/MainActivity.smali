@@ -505,6 +505,38 @@
     goto :state_fail
 
     :state_known
+    # Loaded data wins: ready/empty means the cache holds the real rows for
+    # this screen — repaint them instead of painting an error over data.
+    const-string v1, "\"status\":\"ready\""
+    invoke-virtual {v0, v1}, Ljava/lang/String;->contains(Ljava/lang/CharSequence;)Z
+    move-result v1
+    if-eqz v1, :check_empty_st
+    goto :paint_cached_rows
+    :check_empty_st
+    const-string v1, "\"status\":\"empty\""
+    invoke-virtual {v0, v1}, Ljava/lang/String;->contains(Ljava/lang/CharSequence;)Z
+    move-result v1
+    if-eqz v1, :no_cached_state
+    :paint_cached_rows
+    iget-object v1, p0, Lcom/melodix/music/MainActivity;->nativeExpectedId:Ljava/lang/String;
+    if-eqz v1, :cached_cat_default
+    goto :cached_cat_ready
+    :cached_cat_default
+    const-string v1, "playlists"
+    :cached_cat_ready
+    invoke-static {v1}, Lcom/melodix/music/NativeLibCache;->load(Ljava/lang/String;)Ljava/lang/String;
+    move-result-object v1
+    if-eqz v1, :no_cached_state
+    invoke-virtual {v1}, Ljava/lang/String;->isEmpty()Z
+    move-result v2
+    if-eqz v2, :cached_paint
+    goto :no_cached_state
+    :cached_paint
+    invoke-static {}, Lcom/melodix/music/NativeLibWatchdog;->disarm()V
+    const-string v2, "Votre bibliothèque"
+    invoke-virtual {p0, v2, v1}, Lcom/melodix/music/MainActivity;->renderNativeRows(Ljava/lang/String;Ljava/lang/String;)V
+    goto :lib_err_done
+    :no_cached_state
     # No ready token -> ask for a login instead of a generic failure.
     const-string v1, "\"token\":\"oui\""
     invoke-virtual {v0, v1}, Ljava/lang/String;->contains(Ljava/lang/CharSequence;)Z
@@ -8383,6 +8415,27 @@
     move-result v1
     if-eqz v1, :media_render_gate
     :media_cache_store
+    # Transient status rows never fill the library cache: only real content
+    # rows (and the confirmed-empty row) are kept. An error must not overwrite
+    # a good cache, a loading row must not poison the next tab entry.
+    const-string v0, "\"kind\":\"loading\""
+    invoke-virtual {p2, v0}, Ljava/lang/String;->contains(Ljava/lang/CharSequence;)Z
+    move-result v1
+    if-eqz v1, :store_gate_1
+    goto :media_render_gate
+    :store_gate_1
+    const-string v0, "\"kind\":\"error\""
+    invoke-virtual {p2, v0}, Ljava/lang/String;->contains(Ljava/lang/CharSequence;)Z
+    move-result v1
+    if-eqz v1, :store_gate_2
+    goto :media_render_gate
+    :store_gate_2
+    const-string v0, "\"kind\":\"login\""
+    invoke-virtual {p2, v0}, Ljava/lang/String;->contains(Ljava/lang/CharSequence;)Z
+    move-result v1
+    if-eqz v1, :store_do
+    goto :media_render_gate
+    :store_do
     iput-object v2, p0, Lcom/melodix/music/MainActivity;->nativeLibraryJsonId:Ljava/lang/String;
     iput-object p2, p0, Lcom/melodix/music/MainActivity;->nativeLibraryJson:Ljava/lang/String;
 
@@ -8393,7 +8446,12 @@
     invoke-virtual {v5, v6}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
     move-result v7
     if-eqz v7, :media_detail
+    const-string v6, "\"kind\":\"loading\""
+    invoke-virtual {p2, v6}, Ljava/lang/String;->contains(Ljava/lang/CharSequence;)Z
+    move-result v7
+    if-eqz v7, :lib_disarm_skip
     invoke-static {}, Lcom/melodix/music/NativeLibWatchdog;->disarm()V
+    :lib_disarm_skip
     invoke-static {}, Lcom/melodix/music/DiagCounters;->mediaRendered()V
     iget-object v8, p0, Lcom/melodix/music/MainActivity;->nativeCurrentTitle:Ljava/lang/String;
     if-eqz v8, :library_default_title
@@ -8409,7 +8467,12 @@
     invoke-virtual {v5, v6}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
     move-result v7
     if-eqz v7, :media_gate_drop
+    const-string v6, "\"kind\":\"loading\""
+    invoke-virtual {p2, v6}, Ljava/lang/String;->contains(Ljava/lang/CharSequence;)Z
+    move-result v7
+    if-eqz v7, :detail_disarm_skip
     invoke-static {}, Lcom/melodix/music/NativeLibWatchdog;->disarm()V
+    :detail_disarm_skip
     invoke-static {}, Lcom/melodix/music/DiagCounters;->mediaRendered()V
     iget-object v8, p0, Lcom/melodix/music/MainActivity;->nativeCurrentTitle:Ljava/lang/String;
     if-eqz v8, :detail_default_title
@@ -8988,10 +9051,12 @@
     invoke-virtual {v0, v1}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
     move-result v5
     if-nez v5, :native_screen_painted_track
+    # Strip while children remain, stop when the container is empty (a
+    # removeViewAt(0) on an empty container throws and would abort the paint).
     :native_screen_strip
     invoke-virtual {v2}, Landroid/widget/LinearLayout;->getChildCount()I
     move-result v5
-    if-gtz v5, :native_screen_painted_track
+    if-lez v5, :native_screen_painted_track
     const/4 v6, 0x0
     invoke-virtual {v2, v6}, Landroid/widget/LinearLayout;->removeViewAt(I)V
     goto :native_screen_strip
@@ -9399,11 +9464,11 @@
     const-string v0, "Votre bibliothèque"
     const-string v1, "[{\"title\":\"Chargement des playlists\u2026\",\"section\":\"Votre bibliothèque\"}]"
     invoke-virtual {p0, v0, v1}, Lcom/melodix/music/MainActivity;->renderNativeRows(Ljava/lang/String;Ljava/lang/String;)V
-    # Bounded loading: if no media rows arrive within 10 s the tab must
-    # resolve to an explicit error state with a "Réessayer" row — never an
-    # eternal loading state and never a false "aucune playlist" claim.
-    invoke-static {p0}, Lcom/melodix/music/NativeLibWatchdog;->arm(Lcom/melodix/music/MainActivity;)V
     :lib_fetch
+    # Bounded resolution on EVERY entry (cache, rows or loading): if nothing
+    # renders within 10 s the watchdog resolves the tab to data, login or
+    # error — never an eternal loading state. Media rows disarm it.
+    invoke-static {p0}, Lcom/melodix/music/NativeLibWatchdog;->arm(Lcom/melodix/music/MainActivity;)V
     const-string v0, "window.__sfOpenLibrary && window.__sfOpenLibrary()"
     invoke-virtual {p0, v0}, Lcom/melodix/music/MainActivity;->runNativeJavascript(Ljava/lang/String;)V
     const-string v0, "__sfOpenLibrary"

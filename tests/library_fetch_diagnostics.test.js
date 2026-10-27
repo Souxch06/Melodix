@@ -161,6 +161,7 @@ function createBridgeVm(behaviors = []) {
         removeEventListener() {}
     };
 
+    const batches = [];
     const sandbox = {
         console: { log() {}, warn() {}, error() {}, info() {} },
         Headers: MockHeaders,
@@ -211,6 +212,8 @@ function createBridgeVm(behaviors = []) {
             onNativeUiData: (screen, data) => uiCalls.push({ screen, data }),
             onNativeListText: (text) => uiCalls.push({ screen: 'list-text-direct', data: text }),
             onMediaItemsLoaded() {},
+            onMediaLibBatch: (raw) => batches.push(raw),
+            onLibDiagState() {},
             onNativeUiReady() {},
             setCanvasDisabled() {},
             manageTSleep() {},
@@ -226,7 +229,7 @@ function createBridgeVm(behaviors = []) {
     sandbox.globalThis = sandbox;
 
     vm.runInNewContext(read('assets/spotify_bridge.js'), sandbox, { filename: 'assets/spotify_bridge.js' });
-    return { sandbox, timers, calls: scripted.calls, uiCalls, store };
+    return { sandbox, timers, calls: scripted.calls, uiCalls, store, batches };
 }
 
 // ---------------------------------------------------------------------------
@@ -1063,4 +1066,109 @@ test('a truly empty edges list is a confirmed empty account, not an error', asyn
     await sandbox.checkMediaLib();
     assert.equal(sandbox.__sfMediaLibState, 'empty');
     assert.equal(sandbox.mediaLib.playlists.length, 0);
+});
+
+// ---------------------------------------------------------------------------
+// 7. The eternal-loading defects: every queued request is answered on EVERY
+//    terminal path, exactly once, with an honest row (login/error/empty/data).
+//    Reproduces the device defect "Chargement des playlists…" forever.
+// ---------------------------------------------------------------------------
+
+test('a library request without a session answers with a login row: never eternal loading, never fake empty', async () => {
+    const harness = createBridgeVm();
+    const { sandbox, timers, uiCalls } = harness;
+
+    const pending = sandbox.fetchMediaItems('playlists');
+    await flushTimers(timers);
+    await pending;
+
+    const rows = uiCalls
+        .filter((call) => call.screen === 'media:playlists')
+        .map((call) => JSON.parse(call.data));
+    assert.ok(rows.length >= 1, 'a status row is delivered');
+    const last = rows[rows.length - 1][0];
+    assert.equal(last.title, 'Connecte-toi à Spotify');
+    assert.equal(last.actionUri, 'spotify:lib:login');
+    assert.equal(last.kind, 'login');
+    // The defective behavior sent a "Chargement des playlists…" row here and
+    // nothing else ever followed it on the device.
+    for (const group of rows) {
+        for (const row of group) {
+            assert.notEqual(row.title, 'Chargement des playlists…', 'no eternal loading row');
+            assert.notEqual(row.title, 'Aucune playlist dans ce compte', 'no fake empty row');
+        }
+    }
+});
+
+test('a failure answers requests queued by other callers (never orphaned in pendingMediaRequests)', async () => {
+    const harness = createBridgeVm([{ networkError: true }]);
+    const { sandbox, timers, uiCalls } = harness;
+    sandbox.spotAuthToken = 'Bearer test-token';
+    // A request queued by a caller that cannot answer itself (MediaBrowser).
+    sandbox.pendingMediaRequests.add('albums');
+
+    const pending = sandbox.checkMediaLib();
+    await flushTimers(timers);
+    await pending;
+
+    assert.equal(sandbox.pendingMediaRequests.size, 0, 'the queue is drained');
+    const rows = uiCalls
+        .filter((call) => call.screen === 'media:albums')
+        .map((call) => JSON.parse(call.data)[0]);
+    assert.equal(rows.length, 1, 'exactly one honest status row');
+    assert.equal(rows[0].title, 'Impossible de charger les playlists');
+    assert.equal(rows[0].kind, 'error');
+    assert.equal(rows[0].uri, 'spotify:retry:media:albums', 'a real retry sentinel');
+});
+
+test('the login state answers queued requests too (retry-exhausted is not the only terminal)', async () => {
+    const harness = createBridgeVm();
+    const { sandbox, timers, uiCalls } = harness;
+    sandbox.pendingMediaRequests.add('playlists');
+
+    const pending = sandbox.checkMediaLib();
+    await flushTimers(timers);
+    await pending;
+
+    assert.equal(sandbox.pendingMediaRequests.size, 0, 'the queue is drained');
+    const rows = uiCalls
+        .filter((call) => call.screen === 'media:playlists')
+        .map((call) => JSON.parse(call.data)[0]);
+    assert.ok(rows.some((row) => row.title === 'Connecte-toi à Spotify'), 'login row delivered');
+    assert.ok(rows.every((row) => row.title !== 'Chargement des playlists…'), 'never left loading');
+});
+
+test('the library push producer emits exactly what NativeLibCache.accept parses (integration contract)', async () => {
+    const harness = createBridgeVm([
+        libraryPage([
+            playlistItem('Électro été', 'spotify:playlist:cont1'),
+            playlistItem('Rock classique', 'spotify:playlist:cont2')
+        ])
+    ]);
+    const { sandbox, batches } = harness;
+    sandbox.spotAuthToken = 'Bearer test-token';
+
+    await sandbox.checkMediaLib();
+    const pushed = batches.map((raw) => JSON.parse(raw));
+    assert.ok(pushed.length >= 4, 'one terminal batch per category');
+    for (const batch of pushed) {
+        assert.ok(['playlists', 'albums', 'artists', 'podcasts'].includes(batch.cat), 'cat is a known category');
+        assert.ok(Array.isArray(batch.items), 'items is an array');
+        assert.ok(Number.isInteger(batch.i) && Number.isInteger(batch.n) && batch.n >= 1, 'pagination envelope');
+        assert.ok(Number.isInteger(batch.epoch), 'epoch present');
+        assert.ok(batch.last === (batch.i + 1 >= batch.n), 'last flag matches the envelope');
+        for (const item of batch.items) {
+            assert.ok('title' in item && 'subtitle' in item && 'uri' in item && 'image' in item,
+                'every item carries the fields NativeLibCache.appendItem reads');
+        }
+    }
+    // The smali consumer really parses those keys (producer/consumer stay in
+    // sync even though they live on opposite sides of the bridge).
+    const cache = read('smali/com/melodix/music/NativeLibCache.smali');
+    for (const key of ['"cat"', '"items"', '"i"', '"n"', '"epoch"', '"last"']) {
+        assert.ok(cache.includes(key), `NativeLibCache.accept reads ${key}`);
+    }
+    for (const field of ['"title"', '"subtitle"', '"uri"', '"image"']) {
+        assert.ok(cache.includes(field), `NativeLibCache.appendItem reads ${field}`);
+    }
 });

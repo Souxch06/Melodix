@@ -365,7 +365,11 @@ test('renderNativeRows strips the previous screen rows before painting a new scr
     const render = renderNativeRowsBody();
     assert.match(render, /nativePaintedScreen/);
     assert.match(render, /:native_screen_strip/);
-    assert.match(render, /invoke-virtual \{v2\}, Landroid\/widget\/LinearLayout;->getChildCount\(\)I\n    move-result v5\n    if-gtz v5, :native_screen_painted_track\n    const\/4 v6, 0x0\n    invoke-virtual \{v2, v6\}, Landroid\/widget\/LinearLayout;->removeViewAt\(I\)V\n    goto :native_screen_strip/);
+    // The strip loop must remove children while any remain and stop on an
+    // empty container (if-lez): the historical if-gtz guard was inverted and
+    // threw IndexOutOfBounds on an empty container, aborting the whole paint
+    // (the screen then froze on the previous "Chargement des playlists" state).
+    assert.match(render, /invoke-virtual \{v2\}, Landroid\/widget\/LinearLayout;->getChildCount\(\)I\n    move-result v5\n    if-lez v5, :native_screen_painted_track\n    const\/4 v6, 0x0\n    invoke-virtual \{v2, v6\}, Landroid\/widget\/LinearLayout;->removeViewAt\(I\)V\n    goto :native_screen_strip/);
     // The strip must run BEFORE the new paint is attempted.
     const stripAt = render.indexOf('\n    :native_screen_strip\n');
     const paintAt = render.indexOf('\n    :do_paint\n');

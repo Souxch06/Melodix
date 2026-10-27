@@ -3436,14 +3436,30 @@
     # snapshot from a previous session must never overwrite newer state.
     iget v0, p0, Lcom/melodix/music/AndBridge;->bridgeEpoch:I
     sget v1, Lcom/melodix/music/MainActivity;->nativeSessionEpoch:I
-    if-ne v0, v1, :libdiag_done
+    if-ne v0, v1, :libdiag_drop_epoch
 
-    if-eqz p1, :libdiag_done
+    if-eqz p1, :libdiag_drop_empty
 
     invoke-static {p1}, Lcom/melodix/music/DiagCounters;->libState(Ljava/lang/String;)V
 
     :libdiag_done
     return-void
+
+    # A dropped call must not look like "never called": journal the reason so
+    # lib-state calls=0 can be told apart from a blocked JS callback.
+    :libdiag_drop_epoch
+    const-string v0, "libdiag drop epoch"
+
+    invoke-static {v0}, Lcom/melodix/music/DiagCounters;->event(Ljava/lang/String;)V
+
+    goto :libdiag_done
+
+    :libdiag_drop_empty
+    const-string v0, "libdiag drop empty"
+
+    invoke-static {v0}, Lcom/melodix/music/DiagCounters;->event(Ljava/lang/String;)V
+
+    goto :libdiag_done
 .end method
 
 .method static constructor <clinit>()V
