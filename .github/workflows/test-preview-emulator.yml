@@ -586,12 +586,11 @@ jobs:
           assert_ui_has "$state/08f_diag_copied.xml" "Copier le message"
           # Native header return is the reliable exit from the diagnostic
           # screens (system Back can be swallowed by the focused message).
+          # One return lands on Home (the diagnostic's parent is Home).
           tap_text "$state/08f_diag_copied.xml" "Retour"
           sleep 1
-          dump_ui "08f_back_settings"
-          assert_ui_has "$state/08f_back_settings.xml" "Paramètres"
-          tap_text "$state/08f_back_settings.xml" "Retour"
-          sleep 1
+          dump_ui "08f_back_home"
+          assert_ui_has "$state/08f_back_home.xml" "Bonsoir, Camille"
           echo "::notice title=E2E Diagnostic screen::PASS (native message + native copy feedback, no engine dependency)"
 
           # 4. Search screen + closed keyboard on entry + deliberate field tap
