@@ -5447,7 +5447,16 @@ try {
         try {
             const url = new URL(href, window.location.href);
             if (url.origin !== window.location.origin) return false;
-            return /^\/(playlist|album|artist|track|show|episode|audiobook)\/[^/]+/.test(url.pathname);
+            // Spotify may prefix app routes with a locale (/intl-fr/...): the
+            // resource type then lives ANYWHERE in the path, exactly like the
+            // shell's spotifyResourceUri (which collects those hrefs fine). The
+            // old ^/(type)/ anchor rejected every locale-prefixed href and left
+            // the home grid empty (homeRootPresent:false).
+            const parts = url.pathname.split('/').filter(Boolean);
+            if (parts.length && /^intl-[a-z]{2}(?:-[a-z]{2})?$/i.test(parts[0])) parts.shift();
+            const typeIndex = parts.findIndex((part) =>
+                ['playlist', 'album', 'artist', 'track', 'show', 'episode', 'audiobook'].indexOf(part) >= 0);
+            return typeIndex >= 0 && !!parts[typeIndex + 1];
         } catch (_) {
             return false;
         }
@@ -5458,7 +5467,7 @@ try {
         const cardNodes = Array.from(mainView.querySelectorAll('[data-testid="card"]'));
         const candidates = cardNodes.length
             ? cardNodes
-            : Array.from(mainView.querySelectorAll('a[href]')).filter((anchor) => anchor.querySelector('img'));
+            : Array.from(mainView.querySelectorAll('a[href]'));
         const grouped = new Map();
         const seen = new Set();
 
@@ -5681,6 +5690,18 @@ try {
 
         window._sfMelodixHomeSignature = signature;
         document.body.classList.add('sf-melodix-home-active');
+
+        // Rendered state (vs requested / executed / data-received): how many
+        // cards this DOM update actually painted. The journal line is emitted
+        // only on the signature-change path (early return above), so it can
+        // never spam; stage labels and counts only, never card content.
+        const renderedCards = sections.reduce((count, section) => count + section.cards.length, 0);
+        window.__sfMelodixHomeRenderedCards = renderedCards;
+        try {
+            if (window.AndBridge && typeof window.AndBridge.logDiagEvent === 'function') {
+                window.AndBridge.logDiagEvent('home-render cards=' + renderedCards + ' sections=' + sections.length);
+            }
+        } catch (_) {}
     }
 
     function initializeMelodixHome() {
