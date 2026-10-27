@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - arena/dbf2d44f-melodix
+      - arena/7142700d-melodix
   workflow_dispatch:
     inputs:
       release_tag:
@@ -38,12 +39,19 @@ jobs:
             echo "::error::source_ref must be a full 40-character commit SHA."
             exit 1
           fi
+          should_publish='true'
           if [[ -n "$INPUT_TAG" ]]; then
             tag="$INPUT_TAG"
           elif [[ "$GITHUB_EVENT_NAME" == "push" && "$EVENT_COMMIT_MESSAGE" =~ ^\[preview-release\][[:space:]]+(v[0-9]+\.[0-9]+\.[0-9]+-test\.[0-9]+-preview)([[:space:]]|$) ]]; then
             tag="${BASH_REMATCH[1]}"
+          elif [[ "$EVENT_COMMIT_MESSAGE" == *'[skip-release]'* ]]; then
+            # Build verification only: never publish, and never fall onto the
+            # retired default tag v1.2.2-test.1-preview.
+            should_publish='false'
+            tag='v0.0.0-test.0-preview'
           else
-            tag='v1.2.2-test.1-preview'
+            echo "::error::Push commits must start with '[preview-release] v1.2.2-test.N-preview ...' (publish) or contain '[skip-release]' (build only)."
+            exit 1
           fi
           if [[ ! "$tag" =~ ^v([0-9]+\.[0-9]+\.[0-9]+)-test\.([0-9]+)-preview$ ]]; then
             echo "::error::Expected a preview tag such as v1.2.2-test.1-preview"
@@ -68,6 +76,7 @@ jobs:
           echo "apk_name=$apk_name" >> "$GITHUB_OUTPUT"
           echo "version_code=$version_code" >> "$GITHUB_OUTPUT"
           echo "release_name=$release_name" >> "$GITHUB_OUTPUT"
+          echo "should_publish=$should_publish" >> "$GITHUB_OUTPUT"
 
       - name: Check preview signing secrets
         shell: bash
@@ -258,6 +267,7 @@ jobs:
           echo "sha_path=preview-output/$APK_NAME.sha256" >> "$GITHUB_OUTPUT"
 
       - name: Create preview release and attach APK
+        if: steps.release.outputs.should_publish == 'true'
         uses: softprops/action-gh-release@v3.0.3
         with:
           tag_name: ${{ steps.release.outputs.tag }}
