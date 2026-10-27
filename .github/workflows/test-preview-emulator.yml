@@ -481,7 +481,7 @@ jobs:
           assert_ui_has "$state/02_library.xml" "Ma Playlist Test"
           tap_text "$state/02_library.xml" "Ma Playlist Test"
           sleep 1
-          send_ui "media:spotify:playlist:37i9dQZF1DXcBWIGoYBM5M" '[{"title":"Piste Un","subtitle":"Daft Punk","uri":"spotify:track:111"},{"title":"Piste Deux","subtitle":"Justice","uri":"spotify:track:222"}]'
+          send_ui "media:spotify:playlist:999" '[{"title":"Piste Un","subtitle":"Daft Punk","uri":"spotify:track:111"},{"title":"Piste Deux","subtitle":"Justice","uri":"spotify:track:222"}]'
           dump_ui "02_detail"
           assert_ui_has "$state/02_detail.xml" "Piste Un"
           send_ui "player" '{"track":"Piste Active","artist":"Daft Punk","playing":true,"position":42000,"duration":180000}'
