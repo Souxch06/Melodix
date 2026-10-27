@@ -396,7 +396,8 @@ jobs:
           tap_text() {
             local xml="$1"
             local needle="$2"
-            read -r cx cy < <(python3 - "$xml" "$needle" <<'PY'
+            local coords
+            coords="$(python3 - "$xml" "$needle" <<'PY'
           import re, sys, xml.etree.ElementTree as ET
           root = ET.parse(sys.argv[1]).getroot()
           needle = sys.argv[2].lower()
@@ -425,7 +426,13 @@ jobs:
               raise SystemExit(f"Could not find UI element matching {needle!r}")
           print(found[0], found[1])
           PY
-            ) || { echo "::error title=tap_text failed::needle=$2 xml=$1"; return 1; }
+            )" || { echo "::error title=tap_text failed::needle=$2 xml=$1"; return 1; }
+            local cx="${coords% *}"
+            local cy="${coords##* }"
+            if ! [[ "$cx" =~ ^[0-9]+$ && "$cy" =~ ^[0-9]+$ ]]; then
+              echo "::error title=tap_text bad coords::needle=$2 coords='$coords'"
+              return 1
+            fi
             adb shell input tap "$cx" "$cy"
           }
 
