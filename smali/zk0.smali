@@ -72,11 +72,12 @@
 
     # P0 splash-flash guard (fade path): the splash overlay is opaque and sits
     # above the WebView. Fading it as soon as the page loads exposes the web
-    # player for a moment before the native shell covers it again (the startup
-    # flash). If the native shell has not been shown yet (AppSingleton.l is
-    # false) reschedule this fade once by 2 s so a ready shell can take over
-    # without a flash; after that one report the fade runs and the live Spotify
-    # page becomes the fallback home (never a permanent blank splash).
+    # player before the native shell covers it (the startup flash). While the
+    # native shell has not been shown yet (AppSingleton.l is false) and no
+    # explicit fallback tag is set on the splash, hold the splash opaque and
+    # do nothing: showNativeUi() dismisses it when the shell can draw, and
+    # StartupLoadWatchdog sets the fallback tag before revealing the loaded
+    # web page as a deliberate, traced fallback. No arbitrary delay, no flash.
     sget-boolean v6, Lcom/melodix/music/AppSingleton;->l:Z
     if-nez v6, :fade_go
 
@@ -88,15 +89,25 @@
 
     if-nez v7, :fade_go
 
-    invoke-virtual {v6, v5}, Landroid/view/View;->setTag(Ljava/lang/Object;)V
+    const-string v6, "MDXSTART"
 
-    const-wide/16 v1, 0x7d0
+    const-string v7, "splash-hold waiting for native shell (no flash)"
 
-    invoke-virtual {v6, v5, v1, v2}, Landroid/view/View;->postDelayed(Ljava/lang/Runnable;J)Z
+    invoke-static {v6, v7}, Landroid/util/Log;->i(Ljava/lang/String;Ljava/lang/String;)I
 
     return-void
 
     :fade_go
+
+    # MDXSTART visibility trace: the splash fade runs now (either the shell is
+    # already shown and the fade is a no-op, or an explicit fallback tag was
+    # set by the login path / StartupLoadWatchdog).
+    const-string v6, "MDXSTART"
+
+    const-string v7, "splash-fade alpha 1->0 (shell shown or explicit fallback)"
+
+    invoke-static {v6, v7}, Landroid/util/Log;->i(Ljava/lang/String;Ljava/lang/String;)I
+
 
     .line 11
     .line 12
@@ -202,6 +213,21 @@
 
     .line 63
     :pswitch_0
+    # P0 late-callback guard: a late error runnable must not restore the
+    # splash on top of a native shell that has already taken over.
+    sget-boolean v6, Lcom/melodix/music/AppSingleton;->l:Z
+
+    if-nez v6, :pswitch0_allowed
+
+    const-string v6, "MDXSTART"
+
+    const-string v7, "splash-restore skipped (native shell already shown)"
+
+    invoke-static {v6, v7}, Landroid/util/Log;->i(Ljava/lang/String;Ljava/lang/String;)I
+
+    return-void
+
+    :pswitch0_allowed
     iget-object v0, p0, Lcom/melodix/music/MainActivity;->H:Landroidx/constraintlayout/widget/ConstraintLayout;
 
     .line 64

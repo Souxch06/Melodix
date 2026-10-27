@@ -1703,11 +1703,50 @@
 
     .line 159
     .line 160
-    if-eqz v8, :cond_6
+    if-eqz v8, :flash_route
 
     .line 161
     .line 162
     goto :goto_0
+
+    :flash_route
+    # P0 flash guard: a loaded open.spotify.com player page must not dismiss
+    # the splash - the native shell is about to cover it (showNativeUi).
+    # Only login/auth documents (no shell coming) reveal the web view, as a
+    # deliberate, traced fallback.
+    const/4 v3, 0x0
+
+    const-string v8, "open.spotify.com"
+
+    invoke-static {v1, v8, v3}, Lda1;->y(Ljava/lang/CharSequence;Ljava/lang/String;Z)Z
+
+    move-result v8
+
+    if-eqz v8, :reveal_for_login
+
+    const-string v8, "MDXSTART"
+
+    const-string v9, "splash-hold player page loaded, waiting for native shell"
+
+    invoke-static {v8, v9}, Landroid/util/Log;->i(Ljava/lang/String;Ljava/lang/String;)I
+
+    goto :cond_7
+
+    :reveal_for_login
+    iget-object v8, v2, Lcom/melodix/music/MainActivity;->H:Landroidx/constraintlayout/widget/ConstraintLayout;
+
+    if-eqz v8, :login_fallback_traced
+
+    const-string v9, "web-login-fallback"
+
+    invoke-virtual {v8, v9}, Landroid/view/View;->setTag(Ljava/lang/Object;)V
+
+    :login_fallback_traced
+    const-string v8, "MDXSTART"
+
+    const-string v9, "splash-fallback login page loaded, revealing web view"
+
+    invoke-static {v8, v9}, Landroid/util/Log;->i(Ljava/lang/String;Ljava/lang/String;)I
 
     .line 163
     :cond_6

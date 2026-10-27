@@ -126,6 +126,18 @@
     sput-boolean v2, Lcom/melodix/music/AppSingleton;->m:Z
     const/4 v2, -0x1
     sput v2, Lcom/melodix/music/AppSingleton;->n:I
+    # Fallback assumed: the web page is loaded but the native shell never
+    # showed. Tag the splash so the fade is allowed (the splash-hold guard in
+    # zk0 checks this tag), then reveal the real web page as the fallback
+    # home. Traced so the step is visible in MDXSTART logs.
+    iget-object v2, v0, Lcom/melodix/music/MainActivity;->H:Landroidx/constraintlayout/widget/ConstraintLayout;
+    if-eqz v2, :watchdog_fade
+    const-string v4, "web-fallback"
+    invoke-virtual {v2, v4}, Landroid/view/View;->setTag(Ljava/lang/Object;)V
+    :watchdog_fade
+    const-string v2, "MDXSTART"
+    const-string v4, "splash-fallback watchdog timeout, revealing web page"
+    invoke-static {v2, v4}, Landroid/util/Log;->i(Ljava/lang/String;Ljava/lang/String;)I
     new-instance v2, Lzk0;
     const/4 v3, 0x1
     invoke-direct {v2, v0, v3, v3}, Lzk0;-><init>(Lcom/melodix/music/MainActivity;ZI)V

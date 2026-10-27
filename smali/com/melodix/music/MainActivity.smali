@@ -762,6 +762,22 @@
 .method public final D(Z)V
     .locals 3
 
+    # P0 late-callback guard: once the native shell has taken over
+    # (AppSingleton.l), a late web error must not restore the splash on top
+    # of it. The shell is the visible home from then on.
+    sget-boolean v0, Lcom/melodix/music/AppSingleton;->l:Z
+
+    if-nez v0, :D_splash_allowed
+
+    const-string v0, "MDXSTART"
+
+    const-string v1, "splash-restore skipped (native shell already shown)"
+
+    invoke-static {v0, v1}, Landroid/util/Log;->i(Ljava/lang/String;Ljava/lang/String;)I
+
+    return-void
+
+    :D_splash_allowed
     .line 1
     sget-boolean v0, Lcom/melodix/music/AppSingleton;->m:Z
 
@@ -6927,6 +6943,12 @@
     # P0 diagnostic: the native shell takes over the screen here.
     const-string v0, "MDXTRACE"
     const-string v2, "native-shell shown (splash hidden, nativeRoot visible)"
+    invoke-static {v0, v2}, Landroid/util/Log;->i(Ljava/lang/String;Ljava/lang/String;)I
+
+    # MDXSTART visibility trace: the takeover itself (Z-order: splash elevation
+    # 20 -> gone, nativeRoot elevation 15 -> visible above the WebView).
+    const-string v0, "MDXSTART"
+    const-string v2, "takeover splash->gone nativeRoot->visible z=15 webview=under"
     invoke-static {v0, v2}, Landroid/util/Log;->i(Ljava/lang/String;Ljava/lang/String;)I
 
     iget-object v1, p0, Lcom/melodix/music/MainActivity;->H:Landroidx/constraintlayout/widget/ConstraintLayout;
