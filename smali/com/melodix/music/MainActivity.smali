@@ -9072,6 +9072,20 @@
     move-result-object v1
     if-eqz v1, :find_native_content
     check-cast v1, Landroid/widget/TextView;
+    # Home display restoration: keep the injected greeting as the home title
+    # even when late feed renders redraw the screen.
+    iget-object v2, p0, Lcom/melodix/music/MainActivity;->nativeGreeting:Ljava/lang/String;
+    if-eqz v2, :rows_title_plain
+    iget-object v2, p0, Lcom/melodix/music/MainActivity;->nativeCurrentScreen:Ljava/lang/String;
+    if-eqz v2, :rows_title_plain
+    const-string v0, "home"
+    invoke-virtual {v0, v2}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    move-result v2
+    if-eqz v2, :rows_title_plain
+    iget-object v2, p0, Lcom/melodix/music/MainActivity;->nativeGreeting:Ljava/lang/String;
+    invoke-virtual {v1, v2}, Landroid/widget/TextView;->setText(Ljava/lang/CharSequence;)V
+    goto :find_native_content
+    :rows_title_plain
     invoke-virtual {v1, p1}, Landroid/widget/TextView;->setText(Ljava/lang/CharSequence;)V
 
     :find_native_content
