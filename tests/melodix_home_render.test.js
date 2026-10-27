@@ -270,21 +270,25 @@ test('updateMelodixHome creates no component when fewer than 2 valid cards exist
     assert.equal(sandbox.window.__sfMelodixHomeRenderedCards, undefined);
 });
 
-test('updateMelodixHome renders the grid when several valid cards exist', () => {
+test('updateMelodixHome leaves the real Spotify home (#main-view) in place', () => {
+    // Home display restoration (historical proven implementation, Preview
+    // test.19 / commit 552da05): the home screen shows the real Spotify web
+    // player. The custom replacement grid must never take over the home
+    // surface - that replacement is the layout change after which the user
+    // reports missing playlists. The collector helpers stay as the proven
+    // fallback source but updateMelodixHome is disarmed on purpose.
     const a = anchor('/playlist/one', 'Liste une', true);
     const b = anchor('/intl-fr/playlist/deux', 'Liste deux', false);
     const dup = anchor('/playlist/one', 'Liste une (copie)', true);
-    const { updateMelodixHome, sandbox, journal } = buildSandbox();
+    const { updateMelodixHome, sandbox } = buildSandbox();
     sandbox.document.body.querySelector('#main-view').replaceChildren(card(a), card(b), card(dup));
     updateMelodixHome();
-    const home = sandbox.document.getElementById('sf-melodix-home');
-    assert.ok(home, 'the grid component is created');
-    const cards = home.querySelectorAll('.sf-melodix-home__card');
-    assert.equal(cards.length, 2, 'two rendered cards (the duplicate is dropped)');
-    assert.equal(sandbox.window.__sfMelodixHomeRenderedCards, 2);
-    assert.ok(journal.some((line) => /^home-render cards=2 sections=\d+$/.test(line)),
-        'the rendered state reaches the native journal');
-    assert.ok(sandbox.document.body.classList.contains('sf-melodix-home-active'));
+    assert.equal(sandbox.document.getElementById('sf-melodix-home'), null,
+        'the replacement grid is never created over the real home');
+    assert.ok(!sandbox.document.body.classList.contains('sf-melodix-home-active'),
+        '#main-view is never hidden by the replacement grid');
+    assert.equal(sandbox.window.__sfMelodixHomeRenderedCards, undefined,
+        'no synthetic render state is claimed');
 });
 
 test('updateMelodixHome stays inactive outside the Spotify home route', () => {

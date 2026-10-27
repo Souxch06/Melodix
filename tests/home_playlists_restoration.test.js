@@ -328,3 +328,47 @@ test('home payloads never carry tokens, cookies or auth headers', () => {
     assert.ok(!/Bearer\s+[A-Za-z0-9]/.test(raw), 'no bearer token');
     assert.ok(!/SECRET-TOKEN-VALUE/.test(raw), 'the real token value never leaks');
 });
+
+// ---------------------------------------------------------------------------
+// 2. Home display restoration — historical proven implementation (Preview
+//    test.19 / commit 552da05 "last-known-working"): the home screen shows
+//    the real Spotify web player mounted in the WebView, with the account's
+//    own playlists rendered by Spotify itself. The later native row/tile
+//    shell (the layout change after which the user reports missing
+//    playlists) and the web replacement grid (#sf-melodix-home) must never
+//    take over the home surface again.
+// ---------------------------------------------------------------------------
+
+test('the native shell releases the home screen to the real Spotify web player', () => {
+    const main = read('smali/com/melodix/music/MainActivity.smali');
+    const setNativeScreen = main.match(/method public final setNativeScreen\(Ljava\/lang\/String;\)V[\s\S]*?\.end method/);
+    assert.ok(setNativeScreen, 'setNativeScreen should exist');
+    const body = setNativeScreen[0];
+
+    // home branch: the native row scroll and the screen title are hidden and
+    // the shell root becomes transparent so the mounted WebView shows through.
+    assert.match(body, /const-string v3, "home"[\s\S]*?home_web_restore/);
+    assert.match(body, /:home_hide_title[\s\S]*?0x7f090230/);
+    assert.match(body, /:home_clear_root[\s\S]*?setBackgroundColor\(I\)V/);
+    assert.match(body, /const v2, 0x7f090239/); // nativeRowsScroll
+    assert.match(body, /const v2, 0x7f09022f/); // nativeRoot
+
+    // other screens: the proven opaque native shell comes back untouched.
+    assert.match(body, /:restore_native_shell/);
+    assert.match(body, /:restore_native_root[\s\S]*?GradientDrawable/);
+    assert.match(body, /const v6, -0xededee/); // #ff121212 shell background
+
+    // navigation and mini-player are never touched by the restoration.
+    assert.match(body, /styleNativeTab\(Ljava\/lang\/String;Ljava\/lang\/String;I\)V/);
+    const mainLayout = read('res/layout/activity_main.xml');
+    assert.match(mainLayout, /android:id="@id\/nativeTabBar"/);
+    assert.match(mainLayout, /android:id="@id\/nativeMiniPlayerContainer"/);
+});
+
+test('the web replacement grid never hides the real Spotify home feed', () => {
+    const bridge = read('assets/spotify_bridge.js');
+    const update = bridge.match(/function updateMelodixHome\(\) \{[\s\S]*?deactivateMelodixHome\(true\);\s*return;/);
+    assert.ok(update,
+        'updateMelodixHome must disarm the replacement grid up front ' +
+        '(home display restoration: #main-view stays visible)');
+});

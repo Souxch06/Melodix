@@ -8039,6 +8039,72 @@
     const v2, 0x7f090248
     invoke-virtual {p0, p1, v3, v2}, Lcom/melodix/music/MainActivity;->styleNativeTab(Ljava/lang/String;Ljava/lang/String;I)V
 
+    # ---------------------------------------------------------------
+    # Home display restoration - historical proven implementation
+    # (Preview test.19 / commit 552da05, last-known-working): the home
+    # screen shows the real Spotify web player mounted in the WebView, with
+    # the account's own playlists rendered by Spotify itself. The later
+    # native row/tile shell (the layout change after which the user reports
+    # missing playlists) is hidden on home only; every other native screen,
+    # the tab bar and the mini-player keep their own backgrounds and stay
+    # fully usable.
+    :home_web_restore
+    const-string v3, "home"
+    invoke-virtual {p1, v3}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    move-result v3
+    if-eqz v3, :restore_native_shell
+
+    const v2, 0x7f090239
+    invoke-virtual {p0, v2}, Landroid/app/Activity;->findViewById(I)Landroid/view/View;
+    move-result-object v4
+    if-eqz v4, :home_hide_title
+    const/16 v5, 0x8
+    invoke-virtual {v4, v5}, Landroid/view/View;->setVisibility(I)V
+
+    :home_hide_title
+    const v2, 0x7f090230
+    invoke-virtual {p0, v2}, Landroid/app/Activity;->findViewById(I)Landroid/view/View;
+    move-result-object v4
+    if-eqz v4, :home_clear_root
+    const/16 v5, 0x8
+    invoke-virtual {v4, v5}, Landroid/view/View;->setVisibility(I)V
+
+    :home_clear_root
+    const v2, 0x7f09022f
+    invoke-virtual {p0, v2}, Landroid/app/Activity;->findViewById(I)Landroid/view/View;
+    move-result-object v4
+    if-eqz v4, :native_fade_done
+    const/4 v5, 0x0
+    invoke-virtual {v4, v5}, Landroid/view/View;->setBackgroundColor(I)V
+    goto :native_fade_done
+
+    :restore_native_shell
+    const v2, 0x7f090239
+    invoke-virtual {p0, v2}, Landroid/app/Activity;->findViewById(I)Landroid/view/View;
+    move-result-object v4
+    if-eqz v4, :restore_native_title
+    const/4 v5, 0x0
+    invoke-virtual {v4, v5}, Landroid/view/View;->setVisibility(I)V
+
+    :restore_native_title
+    const v2, 0x7f090230
+    invoke-virtual {p0, v2}, Landroid/app/Activity;->findViewById(I)Landroid/view/View;
+    move-result-object v4
+    if-eqz v4, :restore_native_root
+    const/4 v5, 0x0
+    invoke-virtual {v4, v5}, Landroid/view/View;->setVisibility(I)V
+
+    :restore_native_root
+    const v2, 0x7f09022f
+    invoke-virtual {p0, v2}, Landroid/app/Activity;->findViewById(I)Landroid/view/View;
+    move-result-object v4
+    if-eqz v4, :native_fade_done
+    new-instance v5, Landroid/graphics/drawable/GradientDrawable;
+    invoke-direct {v5}, Landroid/graphics/drawable/GradientDrawable;-><init>()V
+    const v6, -0xededee
+    invoke-virtual {v5, v6}, Landroid/graphics/drawable/GradientDrawable;->setColor(I)V
+    invoke-virtual {v4, v5}, Landroid/view/View;->setBackground(Landroid/graphics/drawable/Drawable;)V
+
     iget-boolean v0, p0, Lcom/melodix/music/MainActivity;->nativeFadeNextScreen:Z
 
     if-eqz v0, :native_fade_done

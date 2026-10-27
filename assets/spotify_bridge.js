@@ -5609,6 +5609,17 @@ try {
 
     function updateMelodixHome() {
         if (!document.body) return;
+        // Home display restoration — historical proven implementation (Preview
+        // test.19 / commit 552da05 "last-known-working"): the home screen shows
+        // the real Spotify web player (#main-view) with the account's own
+        // playlists rendered by Spotify itself. The custom replacement grid
+        // (#sf-melodix-home, which hides #main-view behind
+        // sf-melodix-home-active) is disarmed: replacing the real home feed is
+        // the layout change after which the user reports missing playlists.
+        // The collector and card helpers below remain as the proven fallback
+        // source but are no longer allowed to take over the home surface.
+        deactivateMelodixHome(true);
+        return;
         const mainView = document.querySelector('#main-view');
         const homePath = window.location.pathname.replace(/\/+$/, '') || '/';
         const isSpotifyHome = window.location.hostname === 'open.spotify.com' &&
