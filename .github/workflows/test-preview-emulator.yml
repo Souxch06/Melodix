@@ -584,9 +584,13 @@ jobs:
           dump_ui "08f_diag_copied"
           assert_ui_has "$state/08f_diag_copied.xml" "Message copi"
           assert_ui_has "$state/08f_diag_copied.xml" "Copier le message"
-          adb shell input keyevent 4
+          # Native header return is the reliable exit from the diagnostic
+          # screens (system Back can be swallowed by the focused message).
+          tap_text "$state/08f_diag_copied.xml" "Retour"
           sleep 1
-          adb shell input keyevent 4
+          dump_ui "08f_back_settings"
+          assert_ui_has "$state/08f_back_settings.xml" "Paramètres"
+          tap_text "$state/08f_back_settings.xml" "Retour"
           sleep 1
           echo "::notice title=E2E Diagnostic screen::PASS (native message + native copy feedback, no engine dependency)"
 
