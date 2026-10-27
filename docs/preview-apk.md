@@ -1,6 +1,6 @@
 # Créer et publier l'APK Melodix Preview
 
-La Preview est une application d'essai séparée, identifiant `com.melodix.music.preview`, nommée **Melodix Preview**. Elle s'installe à côté de l'application normale `com.melodix.music` sans la désinstaller et garde ses propres données. La release actuelle est la **test.4** (`v1.2.2-test.4-preview`, release `id=422316210`), construite depuis le commit `719f9ec5775182d8e3abf58e93b375f513fe6ebf` — c'est la seule release de test conservée depuis le nettoyage du 2026-10-24. Elle garde le dock mobile et le mini-lecteur visibles même lorsque le lecteur Spotify est déplié, et couvre les écrans portrait jusqu'à 820 px CSS. Les anciennes releases de test (`test.1`, `test.2`, `test.3`) ont été supprimées le 2026-10-24 avec leurs tags ; leurs APK restaient téléchargeables depuis leurs pages de release historiques avant suppression.
+La Preview est une application d'essai séparée, identifiant `com.melodix.music.preview`, nommée **Melodix Preview**. Elle s'installe à côté de l'application normale `com.melodix.music` sans la désinstaller et garde ses propres données. La release actuelle est la **test.3** (`v1.2.2-test.3-preview`), construite depuis le commit `576d9fade2d71c75b795a6bdb67300388a26fe2e`. Elle garde le dock mobile et le mini-lecteur visibles même lorsque le lecteur Spotify est déplié, et couvre les écrans portrait jusqu'à 820 px CSS. La test.2 (`v1.2.2-test.2-preview`) et la Preview V1 (`v1.2.2-test.1-preview`), build exact du commit V18 `81ef774fcb2208d4c4e999943411040aa1bfa33f`, restent disponibles.
 
 La Preview doit être signée avec sa propre clé. Conserve cette clé pour les prochaines versions afin qu'elles puissent mettre à jour la même application.
 
@@ -46,10 +46,10 @@ Pour reproduire la release mobile test.3 :
 
 1. Sur GitHub, ouvre le dépôt puis l'onglet **Actions**.
 2. Sélectionne **Build Melodix Preview APK** et clique **Run workflow** sur la branche de travail.
-3. Saisis le tag `v1.2.2-test.4-preview` et le commit source `719f9ec5775182d8e3abf58e93b375f513fe6ebf`, puis lance le workflow avec `publish_release: true` si — et seulement si — tu autorises explicitement une publication.
+3. Saisis le tag `v1.2.2-test.3-preview` et le commit source `576d9fade2d71c75b795a6bdb67300388a26fe2e`, puis lance le workflow.
 4. Attends que le run soit terminé avec l'état vert **Success**.
 
-Le workflow publie `Melodix Preview v1.2.2 test.4` et y attache `Melodix-Preview-v1.2.2-test4.apk` ainsi que son fichier `.sha256`. Avec la même clé Preview, elle met à jour l'application Preview déjà installée. Elle ne remplace pas l'application normale et ne nécessite pas sa désinstallation.
+Le workflow publie `Melodix Preview v1.2.2 test.3` et y attache `Melodix-Preview-v1.2.2-test3.apk` ainsi que son fichier `.sha256`. Son `versionCode` est `1020231`, supérieur à celui de la Preview test.2 : avec la même clé Preview, elle met à jour l'application Preview déjà installée. Elle ne remplace pas l'application normale et ne nécessite pas sa désinstallation.
 
 Après installation, vérifie que tu as lancé **Melodix Preview** et que **Paramètres → GUI Mode** est réglé sur **CSS+JS Mobile**. C'est ce mode qui active les styles et la navigation mobile.
 
@@ -64,7 +64,3 @@ Pour une version suivante, choisis un nouveau tag test et le commit source voulu
 - Si `keytool` est introuvable, installe un JDK 17 et relance PowerShell.
 
 Conserve le keystore Preview et son mot de passe : les versions Preview suivantes devront être signées avec cette même clé pour pouvoir mettre à jour l'application Preview déjà installée.
-
-## Remplacer les assets d'une release existante (outil manuel)
-
-Le workflow `.github/workflows/release-asset-refresh.yml` (`workflow_dispatch` uniquement) remplace l'APK, le `.sha256` et le `build-manifest` **d'une release déjà existante** à partir du bundle d'un run `Build Melodix Preview APK` vérifié (id de run + commit exact en entrée). Il ne crée jamais de tag ni de release : les noms d'assets sont conservés, les tags retirés `test.1/2/3` sont refusés, et le contrôle final relit les `digest` GitHub pour les comparer au SHA-256 calculé. À n'utiliser que pour servir dans une release le binaire d'un build déjà validé par la suite complète.

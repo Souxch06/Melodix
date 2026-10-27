@@ -80,16 +80,6 @@
 .method public a()V
     .locals 3
 
-    iget-object v0, p0, Lr70;->e:Ljava/lang/Object;
-    instance-of v1, v0, Lcom/melodix/music/MainActivity;
-    if-eqz v1, :native_back_not_handled
-    check-cast v0, Lcom/melodix/music/MainActivity;
-    invoke-virtual {v0}, Lcom/melodix/music/MainActivity;->handleNativeBack()Z
-    move-result v1
-    if-eqz v1, :native_back_not_handled
-    return-void
-
-    :native_back_not_handled
     .line 1
     sget-boolean v0, Lcom/melodix/music/WebService;->r:Z
 

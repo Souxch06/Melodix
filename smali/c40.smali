@@ -11,7 +11,7 @@
 
 # direct methods
 .method static constructor <clinit>()V
-    .locals 8
+    .locals 7
 
     .line 1
     const-string v5, "google_spoof.js"
@@ -40,11 +40,9 @@
     .line 13
     const-string v4, "facebook_consent.js"
 
-    const-string v7, "runtime_state.js"
-
     .line 14
     .line 15
-    filled-new-array/range {v0 .. v7}, [Ljava/lang/String;
+    filled-new-array/range {v0 .. v6}, [Ljava/lang/String;
 
     .line 16
     .line 17

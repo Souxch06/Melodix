@@ -6,15 +6,6 @@
     window.__sfNativeUiShellStarted = true;
     window.__sfNativeUiShellErrors = 0;
 
-    // Shell execution probe (read-only): journalize begin/end through the
-    // existing AndBridge.logDiagEvent channel so the native journal proves
-    // whether this file executed and reached the end of its initialization.
-    try {
-        if (window.AndBridge && typeof window.AndBridge.logDiagEvent === 'function') {
-            window.AndBridge.logDiagEvent('js-shell begin');
-        }
-    } catch (_) {}
-
     var HOME_PATHS = ['/', '/home'];
     var SUPPORTED_TYPES = ['playlist', 'album', 'artist', 'track', 'show', 'episode', 'audiobook'];
     var MAX_READY_RETRIES = 60;
@@ -23,13 +14,9 @@
     var homeRetries = 0;
     var readyRetryTimer = null;
     var homeRetryTimer = null;
-    var detailRetryTimer = null;
-    var detailRetries = 0;
     var updateTimer = null;
     var observer = null;
     var lastHomeSignature = null;
-    var pendingHomeCount = 0;
-    var pendingHomeSignature = null;
     var initialPath = '';
     var initialScreen = 'home';
     var lastInitialDetailSignature = null;
@@ -39,75 +26,13 @@
     var lastSearchSignature = null;
     var lastLibraryPath = '';
     var lastLibrarySignature = null;
-    var mediaLibWarmupRequested = 0;
-    var mediaLibWarmupCount = 0;
+    var mediaLibWarmupRequested = false;
     var lastMediaActiveAt = 0;
-    var sessionLoggedOut = false;
-    var loggedOutProfileName = '';
-    var loggedOutProfileAvatar = '';
-    var sawSignedOutDom = false;
-
-    function isSessionBlockedByLogout() {
-        if (!sessionLoggedOut) return false;
-        try {
-            var w = document && document.querySelector
-                ? document.querySelector('button[data-testid="user-widget-link"], a[data-testid="user-widget-link"]')
-                : null;
-            if (!w) {
-                sawSignedOutDom = true;
-                return true;
-            }
-            var curName = cleanText(w.getAttribute && (w.getAttribute('aria-label') || w.getAttribute('title')) || '');
-            var curImg = typeof w.querySelector === 'function' ? w.querySelector('img') : null;
-            var curAvatar = curImg ? extractImgUrl(curImg) : '';
-            if (sawSignedOutDom || (curName && curName !== loggedOutProfileName) || (curAvatar && curAvatar !== loggedOutProfileAvatar)) {
-                sessionLoggedOut = false;
-                loggedOutProfileName = '';
-                loggedOutProfileAvatar = '';
-                sawSignedOutDom = false;
-                return false;
-            }
-        } catch (_) {}
-        return true;
-    }
-
-    function sanitizeDiagnostic(value) {
-        var text = String(value && value.message || value || '');
-        text = text.replace(/Set-Cookie:\s*[^;\r\n]+/gi, 'Set-Cookie:[redacted]');
-        text = text.replace(/Cookie:\s*[^\r\n]+/gi, 'Cookie:[redacted]');
-        text = text.replace(/Authorization:\s+\S+(?:\s+\S+)?/gi, 'Authorization:[redacted]');
-        text = text.replace(/Bearer\s+\S+/gi, 'Bearer [redacted]');
-        text = text.replace(/\b(?:access_token|refresh_token|id_token|client_secret|code|sp_dc|sp_key|sessionid)=[^&\s;]+/gi, function(match) {
-            return match.slice(0, match.indexOf('=') + 1) + '[redacted]';
-        });
-        text = text.replace(/spotify:user:[^\s,;]+/gi, 'spotify:user:[redacted]');
-        text = text.replace(/[A-Za-z0-9_-]{8,}\.[A-Za-z0-9._-]{8,}\.[A-Za-z0-9._-]{8,}/g, '[redacted-jwt]');
-        return text.slice(0, 160);
-    }
-
-    function recordShellError(error, op) {
-        window.__sfNativeUiShellErrors += 1;
-        window.__sfNativeUiShellLastErrorOp = String(op || '');
-        window.__sfNativeUiShellLastError = (window.__sfNativeUiShellLastErrorOp
-            ? window.__sfNativeUiShellLastErrorOp + ': '
-            : '') + sanitizeDiagnostic(error);
-    }
-
-    function clearShellError(op) {
-        if (op && window.__sfNativeUiShellLastErrorOp && window.__sfNativeUiShellLastErrorOp !== op) return;
-        window.__sfNativeUiShellLastError = null;
-        window.__sfNativeUiShellLastErrorOp = '';
-    }
 
     function normalizedPath() {
         var path = window.location.pathname || '/';
         if (path.length > 1) path = path.replace(/\/+$/, '');
         return path || '/';
-    }
-
-    function cleanText(value) {
-        if (value === null || value === undefined) return '';
-        return String(value).replace(/\s+/g, ' ').trim();
     }
 
     function spotifyRoutePath() {
@@ -119,20 +44,7 @@
     }
 
     function isSpotifyHome() {
-        var path = spotifyRoutePath();
-        return window.location.hostname === 'open.spotify.com' && (
-            HOME_PATHS.indexOf(path) >= 0 || path === '' || path === '/intl'
-        );
-    }
-
-    function homeScrapeRoot() {
-        if (!document || typeof document.querySelector !== 'function') return null;
-        return document.querySelector('#main-view') ||
-            document.querySelector('.main-view-container') ||
-            document.querySelector('[data-testid="home-page"]') ||
-            document.querySelector('#sf-melodix-home') ||
-            document.querySelector('main') ||
-            document.body;
+        return window.location.hostname === 'open.spotify.com' && HOME_PATHS.indexOf(spotifyRoutePath()) >= 0;
     }
 
     function nativeScreenForPath() {
@@ -217,7 +129,6 @@
     function sendNativeUiData(screen, items) {
         var bridge = window.AndBridge;
         var rows;
-        if (isSessionBlockedByLogout() && screen !== 'settings') return false;
         if (!bridge || typeof bridge.onNativeUiData !== 'function') return false;
 
         rows = (Array.isArray(items) ? items : []).map(function(item) {
@@ -225,100 +136,24 @@
             var subtitle = String(item && (item.subtitle || item.artist || item.description) || '').trim();
             var section = String(item && (item.section || item.sectionTitle) || '').trim();
             var rawUri = item && (item.uri || item.id || item.href) || '';
-            var image = String(item && (item.image || item.cover || item.artwork) || '').trim();
+            var rawImage = item && (item.image || item.cover || item.artwork) || '';
             var row = {
                 title: title,
                 subtitle: subtitle,
                 section: section,
+                image: safeSpotifyImage(rawImage),
                 uri: nativeSpotifyUri(rawUri)
             };
-            if (image) {
-                row.image = image;
-            }
             if (item && typeof item.settingValue === 'string' && item.settingValue) {
                 row.settingValue = item.settingValue;
-            }
-            // Status rows keep their retry target and kind: the native row
-            // factory turns actionUri into a real tap (spotify:retry:media:…).
-            if (item && item.actionUri) {
-                row.actionUri = String(item.actionUri);
-            }
-            if (item && typeof item.kind === 'string' && item.kind) {
-                row.kind = item.kind;
             }
             return row;
         }).filter(function(item) {
             return item.title || item.uri;
         });
 
-        // Bridge payloads above 256 KB are dropped silently by dispatchNativeUi:
-        // cap the rows here and say so instead of losing the whole screen.
-        var cappedRows = 0;
-        while (rows.length > 1 && JSON.stringify(rows).length > 230000) {
-            rows.pop();
-            cappedRows += 1;
-        }
-        if (cappedRows > 0) {
-            rows.push({
-                title: '… ' + cappedRows + ' éléments supplémentaires non affichés',
-                subtitle: 'Limite d’affichage atteinte',
-                section: rows.length ? rows[rows.length - 1].section : ''
-            });
-        }
-
         try {
-            var payload = JSON.stringify(rows);
-            var lastSection = '';
-            var lines = [];
-            var playlistCount = 0;
-            rows.forEach(function(row) {
-                if (row.section && row.section !== lastSection) {
-                    lastSection = row.section;
-                    if (lines.length) lines.push('');
-                    lines.push(row.section);
-                }
-                if (row.uri && row.uri.indexOf(':playlist:') >= 0) {
-                    playlistCount += 1;
-                }
-                if (row.title) {
-                    lines.push(row.subtitle ? (row.title + ' — ' + row.subtitle) : row.title);
-                }
-            });
-            if (screen === 'home') {
-                window.__sfNativeHomeRowCount = rows.length;
-                window.__sfNativeHomePlaylistCount = playlistCount;
-                window.__sfNativeHomeRejectedCount = (Array.isArray(items) ? items.length : 0) - rows.length;
-                window.__sfNativeHomeRowsJson = payload;
-            }
-            bridge.onNativeUiData(screen, payload);
-            if (typeof window.__sfLibDiagRecord === 'function'
-                && (screen === 'home' || String(screen).indexOf('media:') === 0)) {
-                // Temporary pipeline diagnostic: record how many rows (and how
-                // many real playlists) actually reached the native shell.
-                window.__sfLibDiagRecord('deliver', true, screen + ' rows=' + rows.length + ' playlists=' + playlistCount);
-                if (typeof window.__sfLibDiagUpdate === 'function') {
-                    var deliveryPatch = { seen: true, afterReady: window.__sfMediaLibState === 'ready' };
-                    if (screen === 'home') {
-                        deliveryPatch.homeRows = rows.length;
-                        deliveryPatch.homePlaylistRows = playlistCount;
-                    } else {
-                        deliveryPatch.mediaRows = rows.length;
-                        deliveryPatch.mediaPlaylistRows = playlistCount;
-                    }
-                    window.__sfLibDiagUpdate({ delivered: deliveryPatch });
-                }
-            }
-            if (screen === 'home' && typeof bridge.onNativeHomeRows === 'function') {
-                window.AndBridge.onNativeHomeRows(payload);
-            }
-            if (lines.length) {
-                var listText = lines.join('\n');
-                window.__sfNativeHomeListText = listText;
-                bridge.onNativeUiData('list-text', listText);
-                if (typeof bridge.onNativeListText === 'function') {
-                    window.AndBridge.onNativeListText(listText);
-                }
-            }
+            bridge.onNativeUiData(screen, JSON.stringify(rows));
             return true;
         } catch (_) {
             return false;
@@ -462,16 +297,8 @@
     }
 
     function collectHomeRows(mainView) {
-        var root = mainView && mainView.querySelectorAll ? mainView : homeScrapeRoot();
-        if (!root || typeof root.querySelectorAll !== 'function') return [];
-        var cardNodes = Array.prototype.slice.call(root.querySelectorAll('[data-testid="card"]'));
-        if (!cardNodes.length && document && typeof document.querySelectorAll === 'function') {
-            cardNodes = Array.prototype.slice.call(document.querySelectorAll('[data-testid="card"]'));
-        }
-        var anchors = Array.prototype.slice.call(root.querySelectorAll('a[href]'));
-        if (!anchors.length && document && typeof document.querySelectorAll === 'function') {
-            anchors = Array.prototype.slice.call(document.querySelectorAll('a[href*="/playlist/"], a[href*="/album/"], a[href*="/collection"]'));
-        }
+        var cardNodes = Array.prototype.slice.call(mainView.querySelectorAll('[data-testid="card"]'));
+        var anchors = Array.prototype.slice.call(mainView.querySelectorAll('a[href]'));
         // Keep anchors as a fallback even when Spotify renders non-link cards or
         // card anchors without an <img>. A card and its nested anchor are de-duped
         // by their Spotify URI below.
@@ -539,82 +366,7 @@
             });
         });
 
-        return rows.slice(0, 120);
-    }
-
-    // The left "Your Library" drawer of the desktop web player lists the
-    // account's own playlists as plain links. The 2026-10-20 home (last version
-    // with playlists visibly on screen) could read them; the chain must keep
-    // working even when the libraryV3 GraphQL call fails (the recurring device
-    // report: no media: payload ever arrives). Real DOM links only — never
-    // invented rows.
-    function collectLibraryDrawerRows() {
-        if (!document || typeof document.querySelectorAll !== 'function') return [];
-        var drawerSelectors = [
-            '[data-testid="rootlist"]',
-            '.Root__nav-bar',
-            '[aria-label="Your Library"]',
-            '[aria-label="Votre bibliothèque"]',
-            '[aria-label="Library"]',
-            '[aria-label="Bibliothèque"]',
-            'nav[aria-label]'
-        ];
-        var drawer = null;
-        var i;
-        for (i = 0; i < drawerSelectors.length; i += 1) {
-            try {
-                drawer = document.querySelector(drawerSelectors[i]);
-            } catch (_) {
-                drawer = null;
-            }
-            if (drawer) break;
-        }
-        if (!drawer || typeof drawer.querySelectorAll !== 'function') return [];
-        var main = null;
-        try {
-            main = document.querySelector('#main-view');
-        } catch (_) {}
-        var anchors = Array.prototype.slice.call(drawer.querySelectorAll('a[href]'));
-        var rows = [];
-        var seenDrawer = new Set();
-        anchors.forEach(function(anchor) {
-            var href = anchor.href || anchor.getAttribute('href') || '';
-            var uri = nativeSpotifyUri(href);
-            var text = String(anchor.innerText || anchor.textContent || '').replace(/\s+/g, ' ').trim();
-            var title = '';
-            var img = null;
-            var image = null;
-            if (!uri || seenDrawer.has(uri)) return;
-            // Real library entries only: the account's playlists and the
-            // liked-songs entry. Library *sections* (/collection/playlists,
-            // /collection/albums…) are navigation, not playlists.
-            if (uri.indexOf('spotify:playlist:') !== 0 && !/\/collection\/tracks/.test(href)) return;
-            if (/\/collection\/(playlists|albums|artists|shows|podcasts)/.test(href)) return;
-            if (main && typeof anchor.closest === 'function') {
-                try {
-                    if (anchor.closest('#main-view')) return;
-                } catch (_) {}
-            }
-            title = text.split('\n')[0].slice(0, 100);
-            if (!title && anchor.querySelector) {
-                img = anchor.querySelector('img');
-                title = String(img && img.getAttribute('alt') || '').replace(/\s+/g, ' ').trim().slice(0, 100);
-            }
-            if (!title) return;
-            if (anchor.querySelector) {
-                img = anchor.querySelector('img');
-                image = img && (img.src || img.getAttribute('src')) || null;
-            }
-            seenDrawer.add(uri);
-            rows.push({
-                title: title,
-                subtitle: '',
-                section: 'Vos playlists',
-                image: image,
-                uri: uri
-            });
-        });
-        return rows;
+        return rows.slice(0, 32);
     }
 
     function supplementHomeRowsWithLibrary(rows) {
@@ -628,38 +380,14 @@
         var seen = new Set();
         var userRows = [];
         var spotifyRows = [];
-        var userOverflow = 0;
-        var diagIgnored = 0;
+        var sidebar;
 
-        function looksPublicPlaylist(row) {
-            var title = String(row && row.title || '');
-            var subtitle = String(row && row.subtitle || '');
-            var uri = String(row && row.uri || '');
-            if (/collection/i.test(uri)) return false;
-            if (/daily mix|discover weekly|release radar|\bradio\b|mix \d|on repeat|repeat rewind|time capsule|blend/i.test(title)) return true;
-            if (/et bien d['’]autres artistes|and more artists/i.test(subtitle)) return true;
-            return false;
+        if (!library && !mediaLibWarmupRequested && typeof window.checkMediaLib === 'function') {
+            mediaLibWarmupRequested = true;
+            try {
+                window.checkMediaLib();
+            } catch (_) {}
         }
-
-        if (!library && typeof window.checkMediaLib === 'function') {
-            var warmupNow = Date.now();
-            // First wave: 8 quick attempts. Then one slow recovery attempt
-            // every 15 s so a transient failure can still heal, while every
-            // individual fetch stays bounded (libFetch timeout) and the
-            // visible state always reaches a terminal row.
-            if ((mediaLibWarmupCount < 8 || (warmupNow - mediaLibWarmupRequested) > 15000) && (!mediaLibWarmupRequested || (warmupNow - mediaLibWarmupRequested) > 3000)) {
-                mediaLibWarmupRequested = warmupNow;
-                mediaLibWarmupCount += 1;
-                try {
-                    window.checkMediaLib();
-                } catch (_) {}
-            }
-        }
-
-        var feedUris = {};
-        (rows || []).forEach(function(row) {
-            if (row && row.uri) feedUris[row.uri] = true;
-        });
 
         if (library) {
             groups.forEach(function(group) {
@@ -672,24 +400,15 @@
                         : '';
                     var subtitle = String(artistList || item && (item.owner || item.description || item.type) || '').trim();
                     var img = safeSpotifyImage(item && (item.image || item.cover || item.artwork) || '');
-                    var publicItem = looksPublicPlaylist({ title: title, subtitle: subtitle, uri: uri });
-                    var bucket;
                     if (!img && (title === 'Liked Songs' || /collection/i.test(uri))) {
                         img = 'https://misc.scdn.co/liked-songs/liked-songs-640.png';
                     }
-                    if (!uri || !title || seen.has(uri)) { diagIgnored += 1; return; }
-                    if (userRows.length >= 40) {
-                        userOverflow += 1;
-                        return;
-                    }
-                    // Official mixes that also sit on Home are shown once under Playlists Spotify.
-                    if (publicItem && feedUris[uri]) { diagIgnored += 1; return; }
+                    if (!uri || !title || seen.has(uri) || userRows.length >= 12) return;
                     seen.add(uri);
-                    bucket = publicItem ? spotifyRows : userRows;
-                    bucket.push({
+                    userRows.push({
                         title: title,
                         subtitle: subtitle,
-                        section: publicItem ? 'Playlists Spotify' : group[1],
+                        section: group[1],
                         image: img,
                         uri: uri
                     });
@@ -697,71 +416,39 @@
             });
         }
 
-        // The drawer is the always-available real source for the account's own
-        // playlists: it supplements (never replaces) whatever libraryV3
-        // delivered, so a libraryV3 failure can no longer leave home without
-        // "Vos playlists".
-        collectLibraryDrawerRows().forEach(function(item) {
-            var uri = String(item && item.uri || '');
-            var title = String(item && item.title || '').trim();
-            if (!uri || !title || seen.has(uri)) return;
-            if (userRows.length >= 40) {
-                userOverflow += 1;
-                return;
+        if (userRows.length < 12 && document && typeof document.querySelector === 'function') {
+            sidebar = document.querySelector('#Desktop_LeftSidebar_Id');
+            if (sidebar && typeof sidebar.querySelectorAll === 'function') {
+                collectHomeRows(sidebar).forEach(function(row) {
+                    var img = row.image;
+                    if (!row.uri || !row.title || seen.has(row.uri) || userRows.length >= 12) return;
+                    if (!img && /collection/i.test(row.uri)) {
+                        img = 'https://misc.scdn.co/liked-songs/liked-songs-640.png';
+                    }
+                    seen.add(row.uri);
+                    userRows.push({
+                        title: row.title,
+                        subtitle: row.subtitle,
+                        section: 'Vos playlists',
+                        image: img,
+                        uri: row.uri
+                    });
+                });
             }
-            seen.add(uri);
-            userRows.push({
-                title: title,
-                subtitle: item.subtitle || '',
-                section: 'Vos playlists',
-                image: item.image,
-                uri: uri
-            });
-        });
-
-        var mineUris = {};
-        if (library && Array.isArray(library.playlists)) {
-            library.playlists.forEach(function(item) {
-                var uri = nativeSpotifyUri(item && (item.uri || item.id || item.href));
-                var title = String(item && (item.name || item.title) || '').trim();
-                if (uri && !looksPublicPlaylist({ title: title, uri: uri })) mineUris[uri] = true;
-            });
         }
 
         rows.forEach(function(row) {
-            if (!row || !row.uri || !row.title || seen.has(row.uri)) { diagIgnored += 1; return; }
+            if (!row || !row.uri || !row.title || seen.has(row.uri)) return;
             seen.add(row.uri);
-            var section;
-            if (/collection/i.test(row.uri) || (mineUris[row.uri] && !looksPublicPlaylist(row))) {
-                section = 'Vos playlists';
-            } else if (/:playlist:/i.test(row.uri) || looksPublicPlaylist(row)) {
-                section = 'Playlists Spotify';
-            } else {
-                section = row.section || '';
-            }
             spotifyRows.push({
                 title: row.title,
                 subtitle: row.subtitle,
-                section: section,
+                section: row.section || (userRows.length > 0 ? 'Sélections Spotify' : ''),
                 image: row.image,
                 uri: row.uri
             });
         });
 
-        if (userOverflow > 0) {
-            // Never pretend the feed holds the whole account: say how many
-            // playlists did not fit and where to find them, without a URI.
-            userRows.push({
-                title: '… et ' + userOverflow + ' playlists de plus',
-                subtitle: 'Ouvrez Votre bibliothèque pour tout voir',
-                section: 'Vos playlists'
-            });
-        }
-        try {
-            if (typeof window.__sfLibDiagUpdate === 'function') {
-                window.__sfLibDiagUpdate({ delivered: { ignored: userOverflow + diagIgnored } });
-            }
-        } catch (_) {}
         return userRows.concat(spotifyRows);
     }
 
@@ -771,186 +458,38 @@
         homeRetries = 0;
     }
 
-    function userPlaylistLibraryState() {
-        var lib = window.mediaLib;
-        if (lib && Array.isArray(lib.playlists)) {
-            return lib.playlists.length ? 'ready' : 'empty';
-        }
-        // No session at all after a real token check: say so instead of
-        // pretending the library is still loading.
-        if (window.__sfAuthMissing) return 'login';
-        // The bridge publishes the real fetch outcome: pending, empty and error
-        // must never be confused — only "pending" may show a loading state.
-        var state = window.__sfMediaLibState;
-        if (state === 'ready' || state === 'empty' || state === 'error') return state;
-        return 'pending';
-    }
-
-    function homeHasUserPlaylists(rows) {
-        var i;
-        for (i = 0; i < (rows || []).length; i += 1) {
-            if (rows[i] && rows[i].section === 'Vos playlists' && rows[i].uri) return true;
-        }
-        return false;
-    }
-
-    function homeStatusRows(kind) {
-        if (kind === 'loading') {
-            return [{ title: 'Chargement des playlists…', section: 'Accueil' }];
-        }
-        if (kind === 'login') {
-            return [{
-                title: 'Connecte-toi à Spotify',
-                subtitle: 'Aucune session détectée — touche pour ouvrir la connexion',
-                section: 'Accueil',
-                actionUri: 'spotify:lib:login',
-                kind: 'login'
-            }];
-        }
-        if (kind === 'empty') {
-            return [{
-                title: 'Aucune playlist dans ce compte',
-                subtitle: 'Revenez à Accueil après en avoir créé une sur Spotify',
-                section: 'Accueil'
-            }];
-        }
-        if (kind === 'error') {
-            // Honest classification: distinguish an access denial, a network
-            // failure, an unexpected response and a rendering gap instead of a
-            // generic message. Falls back to the retry hint when the temporary
-            // diagnostic is unavailable.
-            var detail = 'Appuyez sur Accueil pour réessayer';
-            try {
-                if (typeof window.__sfGetLibDiagReport === 'function') {
-                    var report = window.__sfGetLibDiagReport();
-                    var kindMap = {
-                        'token-missing': 'Jeton d’accès indisponible',
-                        'network': 'Erreur réseau pendant la récupération',
-                        'access-denied': 'Accès refusé par Spotify (compte ou droits)',
-                        'no-session': 'Session Spotify non reconnue',
-                        'graphql-error': 'Requête bibliothèque rejetée par Spotify',
-                        'http-error': 'Réponse en erreur du serveur Spotify',
-                        'shape-mismatch': 'Réponse Spotify inattendue',
-                        'fetch-error': 'Récupération impossible',
-                        'parse-gap': 'Réponse reçue mais inexploitable',
-                        'render-gap': 'Playlists chargées mais non affichées'
-                    };
-                    if (report && kindMap[report.failureKind]) {
-                        detail = kindMap[report.failureKind] + ' — appuyez sur Accueil pour réessayer';
-                    }
-                }
-            } catch (_) {}
-            return [{
-                title: 'Impossible de charger les playlists',
-                subtitle: detail,
-                section: 'Accueil'
-            }];
-        }
-        return [];
-    }
-
-    function scheduleHomeRetry(delay) {
+    function scheduleHomeRetry() {
         if (homeRetryTimer || homeRetries >= MAX_HOME_RETRIES) return;
         homeRetries += 1;
         homeRetryTimer = window.setTimeout(function() {
             homeRetryTimer = null;
             if (isSpotifyHome()) runUpdate();
-        }, delay || 100);
+        }, 500);
     }
 
     function updateHomeRows(mainView) {
         var rows;
         var signature;
-        var libraryState;
-        var hasUser;
-        var hasPublic = false;
-        var i;
         var homeRoute = window.location.hostname === 'open.spotify.com' && isSpotifyHome();
         window.__sfNativeUiHomeRouteRecognized = homeRoute;
-        if (!homeRoute) {
+        if (!homeRoute || !mainView) {
             clearHomeRetry();
             return;
         }
 
-        try {
-            rows = supplementHomeRowsWithLibrary(collectHomeRows(mainView || homeScrapeRoot()));
-        } catch (error) {
-            window.__sfNativeUiHomeError = true;
-            window.__sfNativeUiHomeErrorMessage = sanitizeDiagnostic(error);
-            recordShellError(error, 'home');
-            if (!lastHomeSignature) sendNativeUiData('home', homeStatusRows('error'));
-            scheduleHomeRetry(400);
-            return;
-        }
-
-        libraryState = userPlaylistLibraryState();
-        hasUser = homeHasUserPlaylists(rows);
+        rows = supplementHomeRowsWithLibrary(collectHomeRows(mainView));
         signature = JSON.stringify(rows);
         window.__sfNativeUiHomeRowsCount = rows.length;
-        window.__sfNativeUiHomeLibraryState = libraryState;
-        for (i = 0; i < rows.length; i += 1) {
-            if (rows[i] && rows[i].section === 'Playlists Spotify') hasPublic = true;
-        }
-
-        if (!rows.length) {
-            if (libraryState === 'empty') {
-                if (lastHomeSignature !== 'empty') {
-                    sendNativeUiData('home', homeStatusRows('empty'));
-                    lastHomeSignature = 'empty';
-                }
-                clearHomeRetry();
-                return;
-            }
-            if (libraryState === 'error') {
-                // Replace the loading state with an explicit error and stop:
-                // the bridge retries the fetch itself and notifies us if it
-                // later succeeds. "Accueil" is the manual retry action.
-                if (lastHomeSignature !== 'error') {
-                    sendNativeUiData('home', homeStatusRows('error'));
-                    lastHomeSignature = 'error';
-                }
-                clearHomeRetry();
-                return;
-            }
-            if (homeRetries >= MAX_HOME_RETRIES) {
-                // The bounded retry budget is spent: never freeze a loading
-                // row forever. The terminal state is an honest error row
-                // (Accueil is the manual retry action) and a late mediaLib
-                // success repaints through __sfNativeUiMediaLibUpdated.
-                if (lastHomeSignature !== 'error') {
-                    sendNativeUiData('home', homeStatusRows('error'));
-                    lastHomeSignature = 'error';
-                }
-                return;
-            }
-            if (lastHomeSignature !== 'loading') {
-                sendNativeUiData('home', homeStatusRows('loading'));
-                lastHomeSignature = 'loading';
-            }
-            scheduleHomeRetry(libraryState === 'pending' ? 400 : 100);
-            return;
-        }
-
-        if (lastHomeSignature === signature) {
-            if (!hasUser && libraryState === 'pending') scheduleHomeRetry(400);
-            return;
-        }
-        if (sendNativeUiData('home', rows)) {
+        if (lastHomeSignature !== signature && sendNativeUiData('home', rows)) {
+            // This state is intentionally closure-local. Older hotfixable bridge
+            // code used the same window property and could suppress the first
+            // native Home update with a stale/empty signature.
             lastHomeSignature = signature;
-            window.__sfNativeUiHomeRowsSent = rows.length;
-            window.__sfNativeUiHomeHadPublic = hasPublic;
             window.__sfNativeUiHomeDataSent = true;
-            window.__sfNativeUiHomeError = false;
-            window.__sfNativeUiHomeErrorMessage = null;
-            clearShellError('home');
-            if (!hasUser && libraryState === 'pending') {
-                scheduleHomeRetry(400);
-            } else {
-                clearHomeRetry();
-            }
-        } else {
-            scheduleHomeRetry();
         }
+
+        if (rows.length > 0 && rows.some(function(row) { return Boolean(row && row.image); })) clearHomeRetry();
+        else scheduleHomeRetry();
     }
 
     function currentSearchQuery() {
@@ -989,9 +528,6 @@
             lastSearchSignature = null;
         }
         rows = collectHomeRows(mainView);
-        if (!rows.length) {
-            rows = collectDetailRows(mainView);
-        }
         signature = JSON.stringify(rows);
         window.__sfNativeUiSearchRowsCount = rows.length;
         if (rows.length > 0 && signature !== lastSearchSignature && sendNativeUiData('search:' + query, rows)) {
@@ -1006,7 +542,6 @@
         return 'playlists';
     }
 
-    var libraryEmptyScrapes = 0;
     function updateLibraryRows(mainView) {
         var path = spotifyRoutePath();
         var rows;
@@ -1014,14 +549,12 @@
         if (nativeScreenForPath() !== 'library' || !mainView) {
             lastLibraryPath = '';
             lastLibrarySignature = null;
-            libraryEmptyScrapes = 0;
             return;
         }
         if (path.indexOf('/collection') !== 0 && path.indexOf('/your-library') !== 0) return;
         if (path !== lastLibraryPath) {
             lastLibraryPath = path;
             lastLibrarySignature = null;
-            libraryEmptyScrapes = 0;
         }
         rows = collectHomeRows(mainView);
         signature = JSON.stringify(rows);
@@ -1030,106 +563,7 @@
         // renders; using it keeps one code path for bridge and shell data.
         if (rows.length > 0 && signature !== lastLibrarySignature && sendNativeUiData('media:' + libraryCategoryForPath(path), rows)) {
             lastLibrarySignature = signature;
-            libraryEmptyScrapes = 0;
-            return;
         }
-        if (rows.length > 0) return;
-        // Zero rows on a fully-loaded collection page is a valid empty source
-        // response. After a few consecutive empty scrapes the native screen
-        // receives the terminal empty state instead of waiting forever on a
-        // channel nothing else will answer.
-        if (typeof document === 'undefined' || document.readyState !== 'complete') return;
-        libraryEmptyScrapes += 1;
-        if (libraryEmptyScrapes < 3) return;
-        libraryEmptyScrapes = 0;
-        lastLibrarySignature = 'empty';
-        sendNativeUiData('media:' + libraryCategoryForPath(path), [{
-            title: 'Aucun élément à afficher ici',
-            subtitle: 'Spotify ne montre aucun élément dans cette catégorie',
-            section: 'Votre bibliothèque',
-            actionUri: 'spotify:retry:media:' + libraryCategoryForPath(path),
-            playable: false,
-            kind: 'empty'
-        }]);
-    }
-
-    function collectDetailRows(mainView) {
-        var root = mainView && mainView.querySelectorAll ? mainView : homeScrapeRoot();
-        var seen = new Set();
-        var rows = [];
-        var pageUri = nativeSpotifyUri(window.location && window.location.href);
-        var nodes;
-        if (!root || typeof root.querySelectorAll !== 'function') return [];
-        nodes = Array.prototype.slice.call(root.querySelectorAll('[data-testid="tracklist-row"]'));
-        if (!nodes.length) {
-            nodes = Array.prototype.slice.call(root.querySelectorAll('[role="row"]'));
-        }
-        nodes.forEach(function(row) {
-            var trackAnchor = null;
-            if (row && typeof row.querySelector === 'function') {
-                trackAnchor = row.querySelector('a[href*="/track/"]')
-                    || row.querySelector('a[href*="/episode/"]')
-                    || row.querySelector('[data-testid="internal-track-link"]');
-            }
-            var href = trackAnchor && (trackAnchor.href || (trackAnchor.getAttribute && trackAnchor.getAttribute('href')));
-            var uri = spotifyResourceUri(href);
-            var lines;
-            var title;
-            var subtitle;
-            var artistNode;
-            if (!uri || seen.has(uri)) return;
-            lines = textLines(row);
-            title = String(
-                (trackAnchor && (trackAnchor.textContent || trackAnchor.innerText)) ||
-                lines[0] ||
-                ''
-            ).replace(/\s+/g, ' ').trim().slice(0, 100);
-            if (!title) return;
-            subtitle = '';
-            if (row && typeof row.querySelector === 'function') {
-                artistNode = row.querySelector('a[href*="/artist/"]');
-                if (artistNode) {
-                    subtitle = String(artistNode.textContent || artistNode.innerText || '')
-                        .replace(/\s+/g, ' ').trim();
-                }
-            }
-            if (!subtitle) {
-                subtitle = lines.find(function(line) { return line && line !== title; }) || '';
-            }
-            seen.add(uri);
-            rows.push({
-                title: title,
-                subtitle: subtitle.slice(0, 120),
-                section: '',
-                image: findImageUrl(row, trackAnchor, root),
-                uri: uri
-            });
-        });
-        if (rows.length) return rows.slice(0, 80);
-        Array.prototype.slice.call(root.querySelectorAll('a[href*="/track/"], a[href*="/episode/"]')).forEach(function(anchor) {
-            var href = anchor && (anchor.href || (anchor.getAttribute && anchor.getAttribute('href')));
-            var uri = spotifyResourceUri(href);
-            var title;
-            if (!uri || seen.has(uri)) return;
-            title = String(anchor.textContent || anchor.innerText || '').replace(/\s+/g, ' ').trim().slice(0, 100);
-            if (!title) return;
-            seen.add(uri);
-            rows.push({
-                title: title,
-                subtitle: '',
-                section: '',
-                image: '',
-                uri: uri
-            });
-        });
-        if (rows.length) return rows.slice(0, 80);
-        collectHomeRows(root).forEach(function(row) {
-            if (!row || !row.uri || seen.has(row.uri)) return;
-            if (pageUri && row.uri === pageUri) return;
-            seen.add(row.uri);
-            rows.push(row);
-        });
-        return rows.slice(0, 80);
     }
 
     function updateDetailRows(mainView) {
@@ -1139,7 +573,6 @@
         var signature;
         var bridge;
         var path = spotifyRoutePath();
-        if (isSessionBlockedByLogout()) return;
         if (nativeScreenForPath() !== 'detail' || !mainView) {
             lastDetailPath = '';
             lastInitialDetailSignature = null;
@@ -1164,23 +597,12 @@
             } catch (_) {}
         }
 
-        rows = collectDetailRows(mainView);
+        rows = collectHomeRows(mainView);
         signature = JSON.stringify(rows);
         window.__sfNativeUiDetailRowsCount = rows.length;
         if (rows.length > 0 && signature !== lastInitialDetailSignature && sendNativeUiData('detail', rows)) {
             lastInitialDetailSignature = signature;
-            detailRetries = 0;
-            if (detailRetryTimer) {
-                window.clearTimeout(detailRetryTimer);
-                detailRetryTimer = null;
-            }
             if (typeof cancelPendingCollectionNavigation === 'function') cancelPendingCollectionNavigation();
-        } else if (rows.length === 0 && detailRetries < 20 && !detailRetryTimer) {
-            detailRetries += 1;
-            detailRetryTimer = window.setTimeout(function() {
-                detailRetryTimer = null;
-                runUpdate();
-            }, 160);
         }
     }
 
@@ -1198,7 +620,7 @@
         var bridge = window.AndBridge;
         var userWidget;
         var searchQuery;
-        if (isSessionBlockedByLogout() || !mainView || window.location.hostname !== 'open.spotify.com' || window.__sfNativeUiReadyNotified) return false;
+        if (!mainView || window.location.hostname !== 'open.spotify.com' || window.__sfNativeUiReadyNotified) return false;
 
         // Do not cover Spotify's page until its signed-in account control is present.
         userWidget = document.querySelector('button[data-testid="user-widget-link"], a[data-testid="user-widget-link"]');
@@ -1206,12 +628,12 @@
 
         if (typeof bridge.onNativeUiRoute === 'function') {
             try {
-                window.AndBridge.onNativeUiRoute(initialScreen);
+                bridge.onNativeUiRoute(initialScreen);
             } catch (_) {}
         }
 
         try {
-            window.AndBridge.onNativeUiReady();
+            bridge.onNativeUiReady();
             window.__sfNativeUiReadyNotified = true;
             window.__sfNativeUiReadyRetries = 0;
             if (readyRetryTimer) window.clearTimeout(readyRetryTimer);
@@ -1294,7 +716,6 @@
             var origSearch = window.searchMediaItems;
             window.__sfSearchCache = window.__sfSearchCache || new Map();
             var cachedSearch = function(query) {
-                if (isSessionBlockedByLogout()) return;
                 var norm = String(query || '').trim().toLowerCase();
                 if (norm && window.__sfSearchCache && window.__sfSearchCache.has(norm) && window.AndBridge && typeof window.AndBridge.onSearchCompleted === 'function') {
                     try {
@@ -1646,29 +1067,9 @@
             title: String(title || '').slice(0, 120),
             artist: String(artist || '').slice(0, 120),
             cover: cover || '',
-            uri: readNowPlayingUri(bar),
-            // HTMLMediaElement and the on-screen clocks are seconds.
-            // Native formatNativeTime / recMediaStatus expect milliseconds.
-            position: position > 0 ? Math.round(position * 1000) : 0,
-            duration: duration > 0 ? Math.round(duration * 1000) : 0
+            position: position > 0 ? Math.round(position) : 0,
+            duration: duration > 0 ? Math.round(duration) : 0
         };
-    }
-
-    // Real track URI of the now-playing item, read from the on-page track link.
-    // Returns '' when the link is absent; callers must treat that as unknown.
-    function readNowPlayingUri(bar) {
-        var link = null;
-        var href = '';
-        var m;
-        try {
-            link = (bar && bar.querySelector && bar.querySelector('a[href*="/track/"]')) ||
-                document.querySelector('[data-testid="now-playing-widget"] a[href*="/track/"], [data-testid="now-playing-bar"] a[href*="/track/"]');
-            href = link && link.getAttribute ? String(link.getAttribute('href') || '') : '';
-        } catch (_) {
-            href = '';
-        }
-        m = href.match(/\/track\/([A-Za-z0-9]+)/);
-        return m ? ('spotify:track:' + m[1]) : '';
     }
 
     function textIn(root, selectors) {
@@ -1702,18 +1103,6 @@
         return '';
     }
 
-    function readControlPressed(testId) {
-        var btn;
-        try {
-            btn = document.querySelector('button[data-testid="' + testId + '"]');
-        } catch (_) {
-            return false;
-        }
-        if (!btn || typeof btn.getAttribute !== 'function') return false;
-        var checked = btn.getAttribute('aria-checked');
-        return checked === 'true' || checked === 'mixed';
-    }
-
     function playerPayload() {
         var info = readNowPlaying();
         return {
@@ -1722,9 +1111,7 @@
             cover: info.cover || '',
             playing: playbackSnapshot().playing,
             position: info.position,
-            duration: info.duration,
-            shuffle: readControlPressed('control-button-shuffle'),
-            repeat: readControlPressed('control-button-repeat')
+            duration: info.duration
         };
     }
 
@@ -1733,7 +1120,7 @@
         var payload;
         var signature;
         var now;
-        if (isSessionBlockedByLogout() || !bridge || typeof bridge.onNativeUiData !== 'function') return false;
+        if (!bridge || typeof bridge.onNativeUiData !== 'function') return false;
         payload = playerPayload();
         // Nothing is playing yet: leave the native defaults alone instead of
         // pushing an empty "Aucune lecture en cours" player to the UI.
@@ -1744,9 +1131,7 @@
             payload.artist,
             payload.playing ? '1' : '0',
             payload.duration,
-            payload.shuffle ? '1' : '0',
-            payload.repeat ? '1' : '0',
-            Math.floor(payload.position / 5000)
+            Math.floor(payload.position / 5)
         ].join('|');
         if (!force && signature === lastPlayerSignature && now - lastPlayerSentAt < 4000) return false;
         lastPlayerSignature = signature;
@@ -1821,69 +1206,12 @@
         return false;
     };
 
-    window.__sfToggleShuffle = function() {
-        if (typeof window.actShuffle === 'function') {
-            try { window.actShuffle(); } catch (_) {}
-        } else {
-            var b = document.querySelector('[data-testid="control-button-shuffle"]');
-            if (b && typeof b.click === 'function') {
-                try { b.click(); } catch (_) {}
-            }
-        }
-        refreshPlayerSoon(350);
-        return true;
-    };
-
-    window.__sfToggleRepeat = function() {
-        if (typeof window.actRepeat === 'function') {
-            try { window.actRepeat(); } catch (_) {}
-        } else {
-            var b = document.querySelector('[data-testid="control-button-repeat"]');
-            if (b && typeof b.click === 'function') {
-                try { b.click(); } catch (_) {}
-            }
-        }
-        refreshPlayerSoon(350);
-        return true;
-    };
-
-    // Fraction 0..1 against the on-page progress control. Unknown duration is a no-op.
-    window.__sfSeekFraction = function(fraction) {
-        var n = Number(fraction);
-        var bar;
-        if (!(n >= 0) || n > 1) return false;
-        try {
-            bar = document.querySelector('[data-testid="progress-bar"]') ||
-                document.querySelector('input[data-testid="playback-progressbar"]') ||
-                document.querySelector('[data-testid="playback-progressbar"]');
-        } catch (_) {
-            bar = null;
-        }
-        if (!bar) return false;
-        try {
-            if (typeof bar.value !== 'undefined' && bar.max) {
-                bar.value = String(Math.round(Number(bar.max) * n));
-                if (typeof bar.dispatchEvent === 'function') {
-                    bar.dispatchEvent(new Event('input', { bubbles: true }));
-                    bar.dispatchEvent(new Event('change', { bubbles: true }));
-                }
-            } else if (typeof bar.click === 'function') {
-                bar.click();
-            }
-        } catch (_) {
-            return false;
-        }
-        refreshPlayerSoon(300);
-        return true;
-    };
-
     function installPlayerFeed() {
         if (window.__sfPlayerFeedInstalled) return;
         window.__sfPlayerFeedInstalled = true;
         publishPlayerState(true);
         if (typeof window.setInterval === 'function') {
             playerFeedTimer = window.setInterval(function() {
-                if (shellIsHidden()) return;
                 publishPlayerState(false);
             }, PLAYER_SEND_INTERVAL_MS);
         }
@@ -1901,60 +1229,13 @@
         } catch (_) {}
     }
 
-    function shellIsHidden() {
-        return typeof document !== 'undefined' && document.hidden === true;
-    }
-
-    // Playlist titles are scraped from card/anchor textContent after childList
-    // changes (Spotify replaces the card). characterData is not observed: a
-    // document-wide listener would fire on player clocks, and there is no local
-    // proof that Accueil rewrites titles in place without replacing the node.
-    function mutationLooksRelevant(mutations) {
-        var i;
-        var j;
-        var node;
-        var nodes;
-        var tag;
-        if (!mutations || !mutations.length) return false;
-        for (i = 0; i < mutations.length; i += 1) {
-            nodes = mutations[i].addedNodes;
-            for (j = 0; j < (nodes && nodes.length || 0); j += 1) {
-                node = nodes[j];
-                if (!node) continue;
-                if (node.nodeType === 3) {
-                    if (String(node.data || '').trim()) return true;
-                    continue;
-                }
-                if (node.nodeType !== 1) continue;
-                tag = String(node.tagName || '').toUpperCase();
-                if (tag === 'SCRIPT' || tag === 'STYLE' || tag === 'LINK' || tag === 'META' || tag === 'NOSCRIPT') continue;
-                return true;
-            }
-            nodes = mutations[i].removedNodes;
-            for (j = 0; j < (nodes && nodes.length || 0); j += 1) {
-                node = nodes[j];
-                if (!node) continue;
-                if (node.nodeType === 3) {
-                    if (String(node.data || '').trim()) return true;
-                    continue;
-                }
-                if (node.nodeType !== 1) continue;
-                tag = String(node.tagName || '').toUpperCase();
-                if (tag === 'SCRIPT' || tag === 'STYLE' || tag === 'LINK' || tag === 'META' || tag === 'NOSCRIPT') continue;
-                return true;
-            }
-        }
-        return false;
-    }
-
     function runUpdate() {
         var mainView;
         if (window.location.hostname !== 'open.spotify.com') return;
-        if (shellIsHidden()) return;
         try {
             installPlaybackStateGuard();
             installSearchFallback();
-            mainView = homeScrapeRoot();
+            mainView = document.querySelector('#main-view');
             if (mainView) {
                 notifyNativeUiReady(mainView);
                 detectSpotifyProfile();
@@ -1963,15 +1244,14 @@
                 updateSearchRows(mainView);
                 updateLibraryRows(mainView);
             }
-            clearShellError('update');
-        } catch (error) {
-            recordShellError(error, 'update');
+        } catch (_) {
+            window.__sfNativeUiShellErrors += 1;
         }
         if (!window.__sfNativeUiReadyNotified) scheduleReadinessRetry();
     }
 
     function scheduleUpdate() {
-        if (updateTimer || shellIsHidden()) return;
+        if (updateTimer) return;
         updateTimer = window.setTimeout(function() {
             updateTimer = null;
             runUpdate();
@@ -1985,7 +1265,6 @@
         'Normale (96 kbit/s)',
         'Automatique'
     ];
-    var CROSSFADE_VALUES = ['Off', '2 s', '6 s', '12 s'];
     var profileAvatarSent = '';
     var profileNameSent = '';
     var greetingSent = '';
@@ -2019,12 +1298,11 @@
                     if (img) avatar = extractImgUrl(img);
                 }
             }
-            var blockedByLogout = isSessionBlockedByLogout();
-            if (!blockedByLogout && avatar && /^https:\/\//i.test(avatar) && avatar !== profileAvatarSent && window.AndBridge && typeof window.AndBridge.onNativeProfileImage === 'function') {
+            if (avatar && avatar !== profileAvatarSent && window.AndBridge && typeof window.AndBridge.onNativeProfileImage === 'function') {
                 profileAvatarSent = avatar;
                 window.AndBridge.onNativeProfileImage(avatar);
             }
-            if (!blockedByLogout && name && window.AndBridge && typeof window.AndBridge.onNativeUiData === 'function' && isSpotifyHome()) {
+            if (name && window.AndBridge && typeof window.AndBridge.onNativeUiData === 'function' && isSpotifyHome()) {
                 var first = name.split(/\s+/)[0] || name;
                 var greeting = greetingPrefix() + ', ' + first;
                 if (greeting !== greetingSent || (Date.now() - lastGreetingAt) > 8000) {
@@ -2050,15 +1328,6 @@
             canvas: !(window.SF_CONFIG && window.SF_CONFIG.isCanvasDisabled),
             data_saver: false,
             bg_audio: true,
-            private_session: false,
-            crossfade: 'Off',
-            automix: true,
-            mono: false,
-            lyrics: true,
-            show_unplayable: false,
-            notifications: true,
-            hardware_volume: true,
-            podcast_boost: false,
             cache_status: 'Effacer le cache des recherches, playlists et pochettes',
             sync_status: 'Actualiser vos playlists, albums et titres likés'
         };
@@ -2098,119 +1367,6 @@
         } catch (_) {}
     }
 
-    // Temporary pipeline diagnostic rows (Paramètres). They only surface what
-    // window.__sfGetLibDiagReport() really recorded — booleans, counts and
-    // short labels — never tokens, cookies or account data. To be removed once
-    // the real-account validation is done.
-    function libDiagReport() {
-        try {
-            if (typeof window.__sfGetLibDiagReport === 'function') {
-                return window.__sfGetLibDiagReport();
-            }
-        } catch (_) {}
-        return null;
-    }
-
-    function libDiagSummaryLine() {
-        var report = libDiagReport();
-        if (!report) return 'Module diagnostic indisponible (pont bibliothèque absent)';
-        return String(report.conclusion || 'En attente du premier chargement de la bibliothèque.').slice(0, 120);
-    }
-
-    function libDiagShortValue() {
-        var report = libDiagReport();
-        if (!report) return 'Indisponible';
-        if (report.failureKind) return 'Échec étape';
-        if (report.lastRun && report.lastRun.status === 'ready') return 'OK';
-        if (report.lastRun && report.lastRun.status === 'empty') return 'Vide';
-        return 'En cours';
-    }
-
-    function libDiagHttpSummary(run) {
-        var attempts = run.attempts || [];
-        var i;
-        for (i = attempts.length - 1; i >= 0; i -= 1) {
-            if (attempts[i].networkError) return 'Erreur réseau';
-            if (attempts[i].httpStatus) return 'HTTP ' + attempts[i].httpStatus;
-        }
-        return 'Non évalué';
-    }
-
-    function libDiagShapeSummary(run) {
-        var attempts = run.attempts || [];
-        var i;
-        for (i = attempts.length - 1; i >= 0; i -= 1) {
-            if (attempts[i].shape === 'ok') return 'Attendue (' + (attempts[i].items === null ? '?' : attempts[i].items) + ' items)';
-            if (attempts[i].shape === 'me-null') return 'me=null (session)';
-            if (attempts[i].shape === 'mismatch') return 'Inattendue';
-        }
-        return 'Non évaluée';
-    }
-
-    function libDiagSettingsRows() {
-        var report = libDiagReport();
-        var rows = [{
-            section: 'Bibliothèque et données',
-            title: 'Diagnostic de récupération (temporaire)',
-            subtitle: libDiagSummaryLine(),
-            image: '',
-            uri: 'spotify:settings:lib_diag',
-            settingValue: libDiagShortValue()
-        }];
-        if (!window.__sfLibDiagExpanded || !report) return rows;
-        var run = report.lastRun || {};
-        var steps = [
-            {
-                title: '1. Session Spotify détectée',
-                value: run.session === 'detected' ? 'Oui' : run.session === 'not-detected' ? 'Non (déconnectée)' : 'Indéterminée'
-            },
-            {
-                title: '2. Jeton d’accès disponible',
-                value: run.token === 'bearer' ? 'Oui (format Bearer)' : run.token === 'malformed' ? 'Format inattendu' : run.token === 'missing' ? 'Non' : 'Non évalué'
-            },
-            {
-                title: '3. Appel bibliothèque (libraryV3, requête interne)',
-                value: (run.attempts || []).length
-                    ? ((run.attempts.length) + ' tentative(s), hash ' + (run.hashSource === 'dynamic' ? 'capté + intégré' : 'intégré'))
-                    : 'Aucune tentative'
-            },
-            {
-                title: '4. Statut HTTP de la réponse',
-                value: libDiagHttpSummary(run)
-            },
-            {
-                title: '5. Structure de la réponse',
-                value: libDiagShapeSummary(run)
-            },
-            {
-                title: '6. Éléments analysés',
-                value: (run.itemsTotal || 0) + ' reçu(s) → ' + (run.parsed ? run.parsed.playlists : 0) + ' playlist(s), '
-                    + (run.parsed ? run.parsed.skipped : 0) + ' ignoré(s)'
-            },
-            {
-                title: '7. Playlists transmises au shell natif',
-                value: run.delivered
-                    ? ((run.delivered.homePlaylistRows + run.delivered.mediaPlaylistRows) + ' transmise(s)')
-                    : '0 transmise(s)'
-            },
-            {
-                title: 'Conclusion du parcours',
-                value: String(report.conclusion || '').slice(0, 90)
-            }
-        ];
-        steps.forEach(function(step, index) {
-            rows.push({
-                section: 'Diagnostic bibliothèque (temporaire)',
-                title: step.title,
-                subtitle: 'Étape réelle du parcours — aucune donnée sensible enregistrée',
-                image: '',
-                uri: 'spotify:settings:lib_diag_step' + (index + 1),
-                settingValue: String(step.value).slice(0, 60)
-            });
-        });
-        return rows;
-    }
-
     function buildSpotifySettingsRows(overrideStatus) {
         var state = getSpotifySettingsState();
         var profile = detectSpotifyProfile();
@@ -2218,30 +1374,7 @@
         if (overrideStatus && overrideStatus.cache_status) state.cache_status = overrideStatus.cache_status;
         if (overrideStatus && overrideStatus.sync_status) state.sync_status = overrideStatus.sync_status;
 
-        // Honest live diagnostics: the settings screen must show what the app
-        // really knows, never a fabricated success state.
-        var libState = userPlaylistLibraryState();
-        var libCount = window.mediaLib && Array.isArray(window.mediaLib.playlists)
-            ? window.mediaLib.playlists.length
-            : null;
-        var libLabel = libState === 'ready'
-            ? (libCount + ' playlist' + (libCount > 1 ? 's' : '') + ' chargée' + (libCount > 1 ? 's' : ''))
-            : libState === 'empty'
-                ? 'Aucune playlist'
-                : libState === 'error'
-                    ? 'Erreur de chargement'
-                    : 'Chargement en cours…';
-        var lastError = window.__sfNativeUiShellLastError || null;
-
-        var rows = [
-            {
-                section: 'Diagnostic',
-                title: 'Diagnostic Melodix',
-                subtitle: 'Vérifier pourquoi vos listes ne s’affichent pas',
-                image: '',
-                uri: 'spotify:diag:open',
-                settingValue: 'Ouvrir'
-            },
+        return [
             {
                 section: 'Compte Spotify',
                 title: accountName,
@@ -2252,19 +1385,51 @@
             },
             {
                 section: 'Compte Spotify',
-                title: 'Session privée',
-                subtitle: 'Réglage de votre compte Spotify : ouvrez les paramètres Spotify pour l’activer',
-                image: '',
-                uri: 'spotify:settings:private_session',
-                settingValue: 'Géré par Spotify'
-            },
-            {
-                section: 'Compte Spotify',
                 title: 'Se déconnecter de Spotify',
-                subtitle: 'Fermer la session actuelle, vider les données locales et changer de compte',
+                subtitle: 'Fermer la session actuelle ou changer de compte Spotify',
                 image: '',
                 uri: 'spotify:settings:logout',
                 settingValue: 'Déconnexion'
+            },
+            {
+                section: 'Qualité sonore',
+                title: 'Qualité du streaming audio',
+                subtitle: 'Débit de lecture en Wi-Fi et données mobiles (appuyez pour changer)',
+                image: '',
+                uri: 'spotify:settings:audio_quality',
+                settingValue: state.audio_quality
+            },
+            {
+                section: 'Qualité sonore',
+                title: 'Normaliser le volume',
+                subtitle: 'Appliquer le même niveau sonore à tous les titres',
+                image: '',
+                uri: 'spotify:settings:normalize_volume',
+                settingValue: state.normalize_volume ? 'ON' : 'OFF'
+            },
+            {
+                section: 'Qualité sonore',
+                title: 'Économiseur de données',
+                subtitle: 'Réduire la consommation réseau et optimiser les pochettes',
+                image: '',
+                uri: 'spotify:settings:data_saver',
+                settingValue: state.data_saver ? 'ON' : 'OFF'
+            },
+            {
+                section: 'Lecture',
+                title: 'Lecture sans blanc (Gapless)',
+                subtitle: 'Enchaîner les morceaux de manière fluide sans coupure',
+                image: '',
+                uri: 'spotify:settings:gapless',
+                settingValue: state.gapless ? 'ON' : 'OFF'
+            },
+            {
+                section: 'Lecture',
+                title: 'Lecture automatique (Autoplay)',
+                subtitle: 'Continuer à écouter des titres similaires à la fin d’une playlist',
+                image: '',
+                uri: 'spotify:settings:autoplay',
+                settingValue: state.autoplay ? 'ON' : 'OFF'
             },
             {
                 section: 'Lecture',
@@ -2284,54 +1449,30 @@
             },
             {
                 section: 'Lecture',
-                title: 'Lecture automatique (Autoplay)',
-                subtitle: 'Continuer à écouter des titres similaires à la fin d’une playlist',
+                title: 'Contenu explicite',
+                subtitle: 'Autoriser la lecture des titres marqués du badge Explicit',
                 image: '',
-                uri: 'spotify:settings:autoplay',
-                settingValue: state.autoplay ? 'ON' : 'OFF'
-            },
-            {
-                section: 'Lecture',
-                title: 'Audio en arrière-plan',
-                subtitle: 'Continuer la lecture quand Melodix passe au second plan',
-                image: '',
-                uri: 'spotify:settings:bg_audio',
-                settingValue: state.bg_audio ? 'ON' : 'OFF'
+                uri: 'spotify:settings:explicit',
+                settingValue: state.explicit ? 'ON' : 'OFF'
             },
             {
                 section: 'Vidéos et Arrière-plan',
-                title: 'Vidéos Canvas',
-                subtitle: 'Laisser lire les animations visuelles des titres compatibles',
+                title: 'Canvas (visuels en boucle)',
+                subtitle: 'Afficher les courtes vidéos animées sur les morceaux compatibles',
                 image: '',
                 uri: 'spotify:settings:canvas',
                 settingValue: state.canvas ? 'ON' : 'OFF'
             },
             {
                 section: 'Vidéos et Arrière-plan',
-                title: 'Économiseur de données',
-                subtitle: 'Désactive les vidéos Canvas pour réduire la consommation réseau',
+                title: 'Lecture en arrière-plan',
+                subtitle: 'Maintenir le moteur audio actif lorsque l’écran est verrouillé',
                 image: '',
-                uri: 'spotify:settings:data_saver',
-                settingValue: state.data_saver ? 'ON' : 'OFF'
+                uri: 'spotify:settings:bg_audio',
+                settingValue: state.bg_audio ? 'ON' : 'OFF'
             },
             {
-                section: 'Bibliothèque et données',
-                title: 'État de la bibliothèque Spotify',
-                subtitle: 'Données réellement récupérées pour le compte connecté',
-                image: '',
-                uri: 'spotify:settings:lib_status',
-                settingValue: libLabel
-            },
-            {
-                section: 'Bibliothèque et données',
-                title: 'Dernier problème de chargement',
-                subtitle: lastError || 'Aucun problème enregistré',
-                image: '',
-                uri: 'spotify:settings:diag_errors',
-                settingValue: lastError ? 'Diagnostic' : 'Aucun'
-            },
-            {
-                section: 'Bibliothèque et données',
+                section: 'Stockage et Bibliothèque',
                 title: 'Vider le cache de l’application',
                 subtitle: state.cache_status,
                 image: '',
@@ -2339,108 +1480,12 @@
                 settingValue: 'Vider'
             },
             {
-                section: 'Bibliothèque et données',
+                section: 'Stockage et Bibliothèque',
                 title: 'Synchroniser la bibliothèque Spotify',
                 subtitle: state.sync_status,
                 image: '',
                 uri: 'spotify:settings:resync',
                 settingValue: 'Actualiser'
-            },
-            {
-                section: 'Réglages gérés par Spotify',
-                title: 'Qualité du streaming audio',
-                subtitle: 'Définie par votre abonnement et vos paramètres Spotify',
-                image: '',
-                uri: 'spotify:settings:audio_quality',
-                settingValue: 'Géré par Spotify'
-            },
-            {
-                section: 'Réglages gérés par Spotify',
-                title: 'Normaliser le volume',
-                subtitle: 'Réglage du compte Spotify, non modifiable depuis Melodix',
-                image: '',
-                uri: 'spotify:settings:normalize_volume',
-                settingValue: 'Géré par Spotify'
-            },
-            {
-                section: 'Réglages gérés par Spotify',
-                title: 'Lecture sans blanc (Gapless)',
-                subtitle: 'Réglage du compte Spotify, non modifiable depuis Melodix',
-                image: '',
-                uri: 'spotify:settings:gapless',
-                settingValue: 'Géré par Spotify'
-            },
-            {
-                section: 'Réglages gérés par Spotify',
-                title: 'Contenu explicite',
-                subtitle: 'Réglage du compte Spotify, non modifiable depuis Melodix',
-                image: '',
-                uri: 'spotify:settings:explicit',
-                settingValue: 'Géré par Spotify'
-            },
-            {
-                section: 'Réglages gérés par Spotify',
-                title: 'Fondu enchaîné (Crossfade)',
-                subtitle: 'Réglage du compte Spotify, non modifiable depuis Melodix',
-                image: '',
-                uri: 'spotify:settings:crossfade',
-                settingValue: 'Géré par Spotify'
-            },
-            {
-                section: 'Réglages gérés par Spotify',
-                title: 'Automix',
-                subtitle: 'Réglage du compte Spotify, non modifiable depuis Melodix',
-                image: '',
-                uri: 'spotify:settings:automix',
-                settingValue: 'Géré par Spotify'
-            },
-            {
-                section: 'Réglages gérés par Spotify',
-                title: 'Audio mono',
-                subtitle: 'Réglage du compte Spotify, non modifiable depuis Melodix',
-                image: '',
-                uri: 'spotify:settings:mono',
-                settingValue: 'Géré par Spotify'
-            },
-            {
-                section: 'Réglages gérés par Spotify',
-                title: 'Volume matériel',
-                subtitle: 'Géré par Android et Spotify, non modifiable depuis Melodix',
-                image: '',
-                uri: 'spotify:settings:hardware_volume',
-                settingValue: 'Géré par Spotify'
-            },
-            {
-                section: 'Réglages gérés par Spotify',
-                title: 'Podcasts plus forts',
-                subtitle: 'Réglage du compte Spotify, non modifiable depuis Melodix',
-                image: '',
-                uri: 'spotify:settings:podcast_boost',
-                settingValue: 'Géré par Spotify'
-            },
-            {
-                section: 'Réglages gérés par Spotify',
-                title: 'Paroles (Lyrics)',
-                subtitle: 'Affichées automatiquement quand Spotify les fournit',
-                image: '',
-                uri: 'spotify:settings:lyrics',
-                settingValue: 'Géré par Spotify'
-            },
-            {
-                section: 'Réglages gérés par Spotify',
-                title: 'Titres indisponibles',
-                subtitle: 'Réglage du compte Spotify, non modifiable depuis Melodix',
-                image: '',
-                uri: 'spotify:settings:show_unplayable',
-                settingValue: 'Géré par Spotify'
-            },
-            {
-                section: 'Réglages gérés par Spotify',
-                title: 'Notifications Spotify',
-                subtitle: 'Gérées par Spotify et les réglages Android de notification',
-                image: '',
-                uri: 'spotify:settings:notifications',
-                settingValue: 'Géré par Spotify'
             },
             {
                 section: 'À propos',
@@ -2451,110 +1496,7 @@
                 settingValue: 'v1.2.2'
             }
         ];
-        // Temporary diagnostic rows are inserted right before the cache
-        // actions, driven by the real pipeline state only.
-        var diagRows = libDiagSettingsRows();
-        if (diagRows.length) {
-            var insertAt = rows.length;
-            var rowIndex;
-            for (rowIndex = 0; rowIndex < rows.length; rowIndex += 1) {
-                if (rows[rowIndex] && rows[rowIndex].uri === 'spotify:settings:clear_cache') {
-                    insertAt = rowIndex;
-                    break;
-                }
-            }
-            rows = rows.slice(0, insertAt).concat(diagRows, rows.slice(insertAt));
-        }
-        return rows;
     }
-
-    // ---- Queue / prochains titres -----------------------------------------
-    // Builds the native "File d'attente" rows from the REAL playback context
-    // tracked by the bridge (ordered URIs of the current context plus the
-    // metadata cached when the list was loaded). Nothing is invented: without
-    // live context data the screen shows an honest unavailable state, and the
-    // true runtime queue stays the one managed by the Spotify engine.
-    window.__sfRequestQueue = function() {
-        var bridge = window.AndBridge;
-        var rows = [];
-        var uris;
-        var ctx;
-        var meta;
-        var byUri = {};
-        var i;
-        var now;
-        var nowUri;
-        var start = 0;
-        if (!bridge || typeof bridge.onNativeUiData !== 'function') return false;
-        if (isSessionBlockedByLogout()) return false;
-        uris = Array.isArray(window.__sfCurrentTrackUris) ? window.__sfCurrentTrackUris : [];
-        ctx = window.__sfCurrentContextUri || null;
-        meta = (window.__sfMediaItemsCache && ctx && typeof window.__sfMediaItemsCache.get === 'function' && window.__sfMediaItemsCache.has(ctx))
-            ? (window.__sfMediaItemsCache.get(ctx) || []) : [];
-        for (i = 0; i < meta.length; i += 1) {
-            var item = meta[i];
-            var itemUri = item && (item.id || item.uri);
-            if (itemUri) byUri[String(itemUri)] = item;
-        }
-        now = readNowPlaying();
-        nowUri = now && now.uri ? String(now.uri) : '';
-        if (now && now.title) {
-            rows.push({
-                title: now.title,
-                subtitle: (now.artist ? now.artist + ' — ' : '') + 'En cours',
-                image: now.cover || '',
-                uri: nowUri || '',
-                section: 'En lecture'
-            });
-        }
-        if (uris.length > 0) {
-            if (nowUri && uris.indexOf(nowUri) >= 0) {
-                start = uris.indexOf(nowUri) + 1;
-            } else if (now && now.title) {
-                // No track link on the page: fall back to matching the real
-                // now-playing title against the loaded context metadata.
-                for (i = 0; i < uris.length; i += 1) {
-                    var named = byUri[String(uris[i])];
-                    if (named && (named.name || named.title) === now.title) {
-                        start = i + 1;
-                        break;
-                    }
-                }
-            }
-            for (i = start; i < uris.length && rows.length < 40; i += 1) {
-                var trackUri = String(uris[i]);
-                var known = byUri[trackUri];
-                var artists = known && Array.isArray(known.artists) ? known.artists.filter(Boolean).join(', ') : '';
-                rows.push({
-                    title: (known && (known.name || known.title)) || 'Piste non nommée',
-                    subtitle: artists || trackUri,
-                    image: (known && known.image) || '',
-                    uri: trackUri,
-                    section: 'À suivre'
-                });
-            }
-            if (rows.length === 1) {
-                rows.push({
-                    title: 'Fin de la liste',
-                    subtitle: 'Aucun autre titre dans la liste en cours.',
-                    section: 'À suivre'
-                });
-            }
-        }
-        if (rows.length === 0) {
-            rows.push({
-                title: 'File indisponible',
-                subtitle: 'Lancez une lecture depuis une playlist ou un album pour afficher les prochains titres.',
-                section: 'File d\'attente'
-            });
-        }
-        try {
-            bridge.onNativeUiData('queue', JSON.stringify(rows));
-            return true;
-        } catch (_) {
-            return false;
-        }
-    };
 
     window.__sfRequestSpotifySettings = function(overrideStatus) {
         var rows = buildSpotifySettingsRows(overrideStatus);
@@ -2566,7 +1508,32 @@
         var state = getSpotifySettingsState();
         var overrideStatus = {};
 
-        if (key === 'shuffle') {
+        if (key === 'audio_quality') {
+            var idx = AUDIO_QUALITIES.indexOf(state.audio_quality);
+            state.audio_quality = AUDIO_QUALITIES[(idx + 1) % AUDIO_QUALITIES.length];
+            saveSpotifySettingsState(state);
+        } else if (key === 'normalize_volume') {
+            state.normalize_volume = !state.normalize_volume;
+            saveSpotifySettingsState(state);
+        } else if (key === 'data_saver') {
+            state.data_saver = !state.data_saver;
+            if (state.data_saver) state.canvas = false;
+            saveSpotifySettingsState(state);
+            try {
+                if (window.AndBridge && typeof window.AndBridge.setCanvasDisabled === 'function') {
+                    window.AndBridge.setCanvasDisabled(!state.canvas);
+                }
+            } catch (_) {}
+        } else if (key === 'gapless') {
+            state.gapless = !state.gapless;
+            saveSpotifySettingsState(state);
+        } else if (key === 'autoplay') {
+            state.autoplay = !state.autoplay;
+            if (window.SF_CONFIG) {
+                window.SF_CONFIG.autoPlayMode = state.autoplay ? 'permanent' : 'disabled';
+            }
+            saveSpotifySettingsState(state);
+        } else if (key === 'shuffle') {
             state.shuffle = !state.shuffle;
             saveSpotifySettingsState(state);
             try {
@@ -2588,27 +1555,11 @@
                     if (rb && typeof rb.click === 'function') rb.click();
                 }
             } catch (_) {}
-        } else if (key === 'autoplay') {
-            state.autoplay = !state.autoplay;
-            if (window.SF_CONFIG) {
-                window.SF_CONFIG.autoPlayMode = state.autoplay ? 'permanent' : 'disabled';
-            }
+        } else if (key === 'explicit') {
+            state.explicit = !state.explicit;
             saveSpotifySettingsState(state);
-        } else if (key === 'data_saver') {
-            state.data_saver = !state.data_saver;
-            if (state.data_saver) state.canvas = false;
-            saveSpotifySettingsState(state);
-            try {
-                if (window.AndBridge && typeof window.AndBridge.setCanvasDisabled === 'function') {
-                    window.AndBridge.setCanvasDisabled(!state.canvas);
-                }
-                if (document.body && document.body.classList) {
-                    document.body.classList.toggle('sf-hide-canvas', !state.canvas);
-                }
-            } catch (_) {}
         } else if (key === 'canvas') {
             state.canvas = !state.canvas;
-            if (state.canvas) state.data_saver = false;
             if (window.SF_CONFIG) {
                 window.SF_CONFIG.isCanvasDisabled = !state.canvas;
             }
@@ -2648,108 +1599,11 @@
                 window.__sfMediaItemsCache = new Map();
             }
             lastHomeSignature = null;
-            clearHomeRetry();
-            overrideStatus.sync_status = 'Synchronisation en cours…';
             try {
-                if (typeof window.checkMediaLib === 'function') {
-                    window.checkMediaLib(true);
-                    // Report the real outcome of the fetch instead of a
-                    // fabricated success message.
-                    window.setTimeout(function() {
-                        var st = userPlaylistLibraryState();
-                        var msg = st === 'ready'
-                            ? 'Synchronisation réussie ✓'
-                            : st === 'empty'
-                                ? 'Synchronisée — aucune playlist dans ce compte'
-                                : st === 'error'
-                                    ? 'Échec de la synchronisation — réessayez'
-                                    : 'Synchronisation toujours en cours…';
-                        window.__sfRequestSpotifySettings({ sync_status: msg });
-                    }, 2500);
-                } else {
-                    overrideStatus.sync_status = 'Synchronisation indisponible (module bibliothèque absent)';
-                }
-            } catch (_) {
-                overrideStatus.sync_status = 'Échec de la synchronisation — réessayez';
-            }
-        } else if (key === 'lib_diag') {
-            // Temporary diagnostic panel: shows/hides the real step rows. It
-            // must never fabricate a state — it only re-renders what the
-            // pipeline recorded.
-            window.__sfLibDiagExpanded = !window.__sfLibDiagExpanded;
+                if (typeof window.checkMediaLib === 'function') window.checkMediaLib();
+            } catch (_) {}
+            overrideStatus.sync_status = 'Bibliothèque Spotify synchronisée ✓';
         } else if (key === 'logout') {
-            var logoutWidget = document && document.querySelector
-                ? document.querySelector('button[data-testid="user-widget-link"], a[data-testid="user-widget-link"]')
-                : null;
-            var domName = logoutWidget
-                ? cleanText(logoutWidget.getAttribute && (logoutWidget.getAttribute('aria-label') || logoutWidget.getAttribute('title')) || '')
-                : '';
-            var domImg = logoutWidget && typeof logoutWidget.querySelector === 'function' ? logoutWidget.querySelector('img') : null;
-            var domAvatar = domImg ? extractImgUrl(domImg) : '';
-            loggedOutProfileName = domName || profileNameSent || '';
-            loggedOutProfileAvatar = domAvatar || profileAvatarSent || '';
-            sawSignedOutDom = false;
-            sessionLoggedOut = true;
-            profileAvatarSent = '';
-            profileNameSent = '';
-            greetingSent = '';
-            lastGreetingAt = 0;
-            lastHomeSignature = null;
-            lastPlayerSignature = '';
-            window.__sfNativeHomeRowsJson = '';
-            window.__sfNativeHomeListText = '';
-            window.__sfPlayerPayload = null;
-            if (updateTimer) {
-                try { window.clearTimeout(updateTimer); } catch (_) {}
-                updateTimer = null;
-            }
-            if (readyRetryTimer) {
-                try { window.clearTimeout(readyRetryTimer); } catch (_) {}
-                readyRetryTimer = null;
-            }
-            if (homeRetryTimer) {
-                try { window.clearTimeout(homeRetryTimer); } catch (_) {}
-                homeRetryTimer = null;
-            }
-            if (detailRetryTimer) {
-                try { window.clearTimeout(detailRetryTimer); } catch (_) {}
-                detailRetryTimer = null;
-            }
-            if (playerFeedTimer) {
-                try { window.clearInterval(playerFeedTimer); } catch (_) {}
-                playerFeedTimer = null;
-            }
-            if (window.__sfBridgeDiagTimer) {
-                // Contract: logout clears every active interval. The bridge
-                // load observer re-arms on the next shell injection.
-                try { window.clearInterval(window.__sfBridgeDiagTimer); } catch (_) {}
-                window.__sfBridgeDiagTimer = 0;
-            }
-            endPauseHold();
-            if (observer && typeof observer.disconnect === 'function') {
-                try { observer.disconnect(); } catch (_) {}
-            }
-            if (window.__sfSearchCache && typeof window.__sfSearchCache.clear === 'function') {
-                window.__sfSearchCache.clear();
-            }
-            if (window.__sfMediaItemsCache && typeof window.__sfMediaItemsCache.clear === 'function') {
-                window.__sfMediaItemsCache.clear();
-            }
-            window.mediaLib = undefined;
-            window.__sfMediaLibState = undefined;
-            window.__sfMediaLibError = null;
-            window.__sfLibDiagExpanded = false;
-            if (window.__sfLibDiag && window.__sfLibDiag.lastRun) {
-                try {
-                    window.__sfLibDiag.steps.length = 0;
-                    window.__sfLibDiag.lastRun.status = null;
-                    window.__sfLibDiag.lastRun.attempts.length = 0;
-                    window.__sfLibDiag.lastRun.token = null;
-                    window.__sfLibDiag.lastRun.session = null;
-                } catch (_) {}
-            }
-            mediaLibWarmupRequested = 0;
-            mediaLibWarmupCount = 0;
             try {
                 if (window.localStorage) window.localStorage.clear();
                 if (window.sessionStorage) window.sessionStorage.clear();
@@ -2761,39 +1615,23 @@
             window.location.assign('https://accounts.spotify.com/logout');
             return true;
         }
-        // Every other row (quality, gapless, private session, crossfade, mono,
-        // notifications...) is managed by the Spotify account itself: tapping
-        // it must not pretend to change anything, only redraw the honest state.
 
         return window.__sfRequestSpotifySettings(overrideStatus);
     };
 
     window.__sfNativeUiRefresh = function() {
-        if (isSessionBlockedByLogout()) return false;
-        runUpdate();
-        return true;
-    };
-
-    // Called by spotify_bridge.js when the real library fetch reaches a
-    // terminal state (ready / empty / error): repaint Accueil immediately
-    // instead of waiting for the next DOM mutation, and restart the bounded
-    // home retry budget that a previous loading phase may have exhausted.
-    window.__sfNotifyMediaLibReady = function() {
-        if (isSessionBlockedByLogout()) return false;
-        clearHomeRetry();
-        lastHomeSignature = null;
         runUpdate();
         return true;
     };
 
     window.__sfNativeRequestHome = function() {
-        if (isSessionBlockedByLogout() || window.location.hostname !== 'open.spotify.com') return false;
+        if (window.location.hostname !== 'open.spotify.com') return false;
         if (!isSpotifyHome()) {
             window.location.assign('https://open.spotify.com/');
             return false;
         }
-        clearHomeRetry();
         lastHomeSignature = null;
+        homeRetries = 0;
         runUpdate();
         return true;
     };
@@ -2812,14 +1650,6 @@
                 window.playFromUri(normalized);
                 return true;
             } catch (_) {}
-        }
-
-        if (/^spotify:search:/i.test(normalized)) {
-            var rawSearch = normalized.slice('spotify:search:'.length);
-            try {
-                rawSearch = decodeURIComponent(rawSearch);
-            } catch (_) {}
-            return navigateToSearch(rawSearch);
         }
 
         if (/^spotify:/i.test(normalized)) {
@@ -2856,16 +1686,29 @@
 
     window.__sfOpenCollection = function(value) {
         var uri = nativeSpotifyUri(value);
+        var navigated = false;
         if (!uri) return false;
         cancelPendingCollectionNavigation();
-        // Always load the real playlist/album page so the shell can scrape
-        // tracklist rows. The playback bridge is optional and often absent.
+
+        function navigate() {
+            if (navigated) return false;
+            navigated = true;
+            openCollectionTimer = null;
+            return window.__sfNativeOpenUri(uri);
+        }
+
         if (window.__sfMelodixBridgeStarted === true && typeof window.fetchMediaItems === 'function') {
             try {
                 window.fetchMediaItems(uri);
-            } catch (_) {}
+                // If the bridge never answers, load the real page instead of
+                // leaving the user on an empty screen.
+                openCollectionTimer = window.setTimeout(navigate, 6000);
+                return true;
+            } catch (_) {
+                cancelPendingCollectionNavigation();
+            }
         }
-        return window.__sfNativeOpenUri(uri);
+        return navigate();
     };
 
     // Search normally goes through the bridge. Without it the only source of
@@ -2984,334 +1827,90 @@
     }
 
     function recordBridgeFailure(stage, error) {
-        var message = sanitizeDiagnostic(error);
-        window.__sfBridgeLastError = sanitizeDiagnostic(stage + (message ? ': ' + message : ''));
-        // Startup must announce its failures on the native journal: the
-        // state fields above are only readable through the very channel that
-        // just failed. Stage only (never the error text) keeps secrets out.
-        try {
-            var announce = window.AndBridge;
-            if (announce && typeof announce.logDiagEvent === 'function') {
-                announce.logDiagEvent('js-bridge err ' + String(stage || 'unknown'));
-            }
-        } catch (_) {}
+        var message = error && error.message ? error.message : String(error || '');
+        window.__sfBridgeLastError = stage + (message ? ': ' + message : '');
     }
 
-    function sameOriginBridgeSrc() {
-        var origin = (window.location && window.location.origin) || 'https://open.spotify.com';
-        return origin + '/__melodix__/spotify_bridge.js';
-    }
-
-    var BRIDGE_STAGE_RANK = {
-        start: 0,
-        'inject-src': 1,
-        'src-pending': 2,
-        'asset-response-created': 3,
-        'script-load': 4,
-        'script-error': 4,
-        'prefix-only': 4,
-        'script-exec-error': 4,
-        'iife-throw': 4,
-        'bridge-entered': 5,
-        'bridge-initialized': 6,
-        'home-initialized': 7,
-        'native-src': 3
-    };
-
-    function setBridgeLoadStage(stage) {
-        var next = String(stage || '');
-        var current = typeof window.__sfBridgeLoadStage === 'string' ? window.__sfBridgeLoadStage : '';
-        var currentRank = BRIDGE_STAGE_RANK[current];
-        var nextRank = BRIDGE_STAGE_RANK[next];
-        if (typeof currentRank === 'number' && typeof nextRank === 'number' && nextRank < currentRank) {
-            return;
-        }
-        window.__sfBridgeLoadStage = next;
-    }
-
-    function attachBridgeScriptEvents(node, src) {
-        node.onload = function() {
-            if (window.__sfBridgeEntered === true) return;
-            if (window.__sfBridgePrefixExec === true) {
-                if (!window.__sfBridgeLastError) {
-                    window.__sfBridgeLastError = 'prefix-only: iife-not-entered';
-                }
-                setBridgeLoadStage('prefix-only');
-                return;
-            }
-            setBridgeLoadStage('script-load');
-        };
-        node.onerror = function() {
-            recordBridgeFailure('script-error', 'load-failed');
-            setBridgeLoadStage('script-error');
-        };
-        if (!window.__sfBridgeErrorHooked) {
-            window.__sfBridgeErrorHooked = true;
-            try {
-                window.addEventListener('error', function(event) {
-                    var file = String(event && event.filename || '');
-                    if (file.indexOf('spotify_bridge.js') < 0 && file.indexOf('__melodix__') < 0) return;
-                    var name = String(event && event.message || 'error').slice(0, 120);
-                    var line = event && event.lineno ? String(event.lineno) : '0';
-                    if (!window.__sfBridgeLastError) {
-                        window.__sfBridgeLastError = sanitizeDiagnostic('exec-error: ' + name + ':L' + line);
-                    }
-                    if (window.__sfBridgeEntered !== true) setBridgeLoadStage('script-exec-error');
-                }, true);
-            } catch (_) {}
-        }
-    }
-
-    function injectSameOriginBridge() {
+    function executeBridgeSource(source) {
         var node;
-        var src = sameOriginBridgeSrc();
-        window.__sfBridgeExecMode = 'same-origin-src';
-        node = document.querySelector('script[data-sf-melodix-bridge="1"]');
-        if (node) {
-            if (!node.onload) attachBridgeScriptEvents(node, src);
-            if (!window.__sfBridgeLoadStage || window.__sfBridgeLoadStage === 'inject-src') {
-                setBridgeLoadStage('src-pending');
-            }
+        window.__sfBridgeBytes = source.length;
+
+        // 1. Inline script: the way the asset used to be executed.
+        try {
+            node = document.createElement('script');
+            node.textContent = source;
+            (document.head || document.documentElement).appendChild(node);
+            if (node.parentNode) node.parentNode.removeChild(node);
+        } catch (error) {
+            recordBridgeFailure('inline-script', error);
+        }
+        if (bridgeHasStarted()) {
+            window.__sfBridgeExecMode = 'inline-script';
             return true;
         }
-        setBridgeLoadStage('inject-src');
-        node = document.createElement('script');
-        node.async = false;
-        node.defer = false;
-        node.type = 'text/javascript';
-        node.charset = 'utf-8';
-        node.setAttribute('data-sf-melodix-bridge', '1');
-        attachBridgeScriptEvents(node, src);
-        node.src = src;
-        (document.head || document.documentElement).appendChild(node);
-        window.__sfBridgeInjected = (window.__sfBridgeInjected || 0) + 1;
-        return true;
+
+        // 2. Direct eval (rejected when the page forbids unsafe-eval).
+        try {
+            (0, eval)(source);
+        } catch (error) {
+            recordBridgeFailure('eval', error);
+        }
+        if (bridgeHasStarted()) {
+            window.__sfBridgeExecMode = 'eval';
+            return true;
+        }
+
+        // 3. Function constructor.
+        try {
+            (new Function(source))();
+        } catch (error) {
+            recordBridgeFailure('function', error);
+        }
+        if (bridgeHasStarted()) {
+            window.__sfBridgeExecMode = 'function';
+            return true;
+        }
+
+        // 4. Blob URL: asynchronous, so the next diagnostic sample confirms it.
+        try {
+            if (bridgeBlobUrl && typeof URL.revokeObjectURL === 'function') URL.revokeObjectURL(bridgeBlobUrl);
+            bridgeBlobUrl = URL.createObjectURL(new Blob([source], { type: 'text/javascript' }));
+            node = document.createElement('script');
+            node.src = bridgeBlobUrl;
+            (document.head || document.documentElement).appendChild(node);
+            window.__sfBridgeExecMode = 'blob';
+            return true;
+        } catch (error) {
+            recordBridgeFailure('blob', error);
+        }
+        return false;
     }
 
     function loadBundledBridge(name) {
-        window.__sfLoaderCalls = (window.__sfLoaderCalls || 0) + 1;
+        var source = '';
         if (bridgeHasStarted()) return true;
-        if (!window.__sfBridgeLoadStage) setBridgeLoadStage('start');
         try {
-            if (window.AndBridge && typeof window.AndBridge.readBundledAsset === 'function' &&
-                !Number.isInteger(window.__sfBridgeSourceChars)) {
-                window.__sfBridgeSourceChars = String(window.AndBridge.readBundledAsset(name) || '').length;
-                window.__sfBridgeBytes = window.__sfBridgeSourceChars;
+            if (window.AndBridge && typeof window.AndBridge.readBundledAsset === 'function') {
+                source = String(window.AndBridge.readBundledAsset(name) || '');
             }
         } catch (error) {
             recordBridgeFailure('read-asset', error);
         }
-        // Spotify's CSP is script-src-elem without unsafe-inline. Inline
-        // textContent, eval, Function and blob: URLs are rejected
-        // (bridgeCspViolation "script-src-elem inline"). A same-origin
-        // <script src> is served by WebViewClient.shouldInterceptRequest.
-        try {
-            return injectSameOriginBridge();
-        } catch (error) {
-            recordBridgeFailure('src-script', error);
-        }
+        if (source) return executeBridgeSource(source);
+        recordBridgeFailure('read-asset', 'empty');
+        // Last resort: let Android evaluate the asset, even though that call is
+        // the one that fails on device.
         try {
             if (window.AndBridge && typeof window.AndBridge.injectBundledAsset === 'function') {
                 window.AndBridge.injectBundledAsset(name);
-                window.__sfBridgeExecMode = window.__sfBridgeExecMode || 'native-src';
-                setBridgeLoadStage('native-src');
+                window.__sfBridgeExecMode = window.__sfBridgeExecMode || 'native';
             }
         } catch (error) {
-            recordBridgeFailure('native-src', error);
+            recordBridgeFailure('native-eval', error);
         }
         return false;
     }
     window.__sfLoadBundledBridge = loadBundledBridge;
-
-    // ------------------------------------------------------------------
-    // Observabilite temporaire : etat de chargement du bridge pour l'ecran
-    // Diagnostic ("Bridge (temporaire)"). LECTURE SEULE des variables
-    // ci-dessous : aucune ecriture, aucun effet de bord sur le chargement du
-    // bridge, la CSP, la file de commandes, la bibliotheque ou la navigation.
-    // Envoi par le canal existant AndBridge.onLibDiagState (DiagCounters.libState).
-    // ------------------------------------------------------------------
-    function bridgeDiagWatchCopy() {
-        try {
-            var source = window.__sfBridgeWatch;
-            if (!source || typeof source !== 'object') return null;
-            var out = {};
-            var keys = Object.keys(source).slice(0, 8);
-            for (var i = 0; i < keys.length; i += 1) {
-                var value = source[keys[i]];
-                if (typeof value === 'string') {
-                    out[keys[i]] = value.replace(/["\\]/g, ' ').slice(0, 24);
-                } else if (typeof value === 'number' || typeof value === 'boolean' || value === null) {
-                    out[keys[i]] = value;
-                } else {
-                    out[keys[i]] = null;
-                }
-            }
-            return out;
-        } catch (_) {
-            return null;
-        }
-    }
-
-    function bridgeDiagStateJson() {
-        var asText = function (value, max) {
-            if (typeof value !== 'string' || !value) return null;
-            return sanitizeDiagnostic(value).replace(/["\\]/g, ' ').slice(0, max);
-        };
-        var asBool = function (value) {
-            return value === true ? true : (value === false ? false : null);
-        };
-        var asInt = function (value) {
-            return Number.isInteger(value) ? value : null;
-        };
-        var chainSlots = [
-            asInt(window.__sfDiagTicks),
-            asInt(window.__sfDiagPushes),
-            asInt(window.__sfDiagSent),
-            asInt(window.__sfDiagSendErr),
-            asInt(window.__sfLoaderCalls),
-            asInt(window.__sfBridgeInjected),
-            asInt(window.__sfBridgeStartedSets)
-        ];
-        var chainStr = chainSlots.every(function (v) { return v === null; })
-            ? null
-            : chainSlots.map(function (v) {
-                return v === null ? '' : String(v);
-            }).join('/');
-        var obj = {
-            stage: typeof window.__sfBridgeLoadStage === 'string' ? window.__sfBridgeLoadStage : null,
-            // Compteurs de la chaine de chargement (c->h) en champ compact
-            // "ticks/pushes/sent/sendErr/loaderCalls/bridgeInjected/bridgeStarted" :
-            // le canal natif ne garde que 400 caracteres, les compteurs restent
-            // alors que les champs elagables soient sacrifices.
-            chain: chainStr,
-            started: asBool(window.__sfMelodixBridgeStarted),
-            entered: asBool(window.__sfBridgeEntered),
-            intercepted: asBool(window.__sfBridgeIntercepted),
-            assetServed: asBool(window.__sfBridgeAssetServed),
-            prefixExec: asBool(window.__sfBridgePrefixExec),
-            bytes: asInt(window.__sfBridgeBytes),
-            lastError: asText(window.__sfBridgeLastError, 160),
-            cspViolation: asText(window.__sfBridgeCspViolation, 120),
-            execMode: asText(window.__sfBridgeExecMode, 24),
-            recoveryAttempts: asInt(window.__sfNativeUiBridgeRecoveryAttempts),
-            watch: bridgeDiagWatchCopy(),
-            tagPresent: null
-        };
-        try {
-            obj.tagPresent = !!document.querySelector('script[data-sf-melodix-bridge="1"]');
-        } catch (_) {
-            obj.tagPresent = null;
-        }
-        var json = JSON.stringify(obj);
-        // Mission bound: 2 Ko. The native channel (DiagCounters.libState) also
-        // clips snapshots at 400 chars and keeps only its first part: shrink
-        // the values until the whole JSON fits so every field survives the
-        // channel and none is cut mid-JSON (absent stays "non recu", never
-        // invented).
-        if (json.length > 2048) {
-            obj.watch = null;
-            json = JSON.stringify(obj);
-        }
-        if (json.length > 400) {
-            obj.watch = null;
-            obj.lastError = asText(window.__sfBridgeLastError, 80);
-            obj.cspViolation = asText(window.__sfBridgeCspViolation, 32);
-            json = JSON.stringify(obj);
-        }
-        if (json.length > 400) {
-            obj.lastError = asText(window.__sfBridgeLastError, 24);
-            obj.cspViolation = asText(window.__sfBridgeCspViolation, 16);
-            obj.stage = typeof window.__sfBridgeLoadStage === 'string' ? window.__sfBridgeLoadStage.slice(0, 24) : null;
-            json = JSON.stringify(obj);
-        }
-        return json;
-    }
-
-    var bridgeDiagLastStage;
-    var bridgeDiagLastAt = 0;
-    var bridgeDiagOkLogged = false;
-
-    var libPushBlockedLogged = null;
-    function markLibPushBlocked(reason) {
-        var next = String(reason || '');
-        window.__sfLibPushBlocked = next;
-        if (next === libPushBlockedLogged) return;
-        libPushBlockedLogged = next;
-        if (!next) return;
-        window.__sfLibPushBlockedCount = (window.__sfLibPushBlockedCount || 0) + 1;
-        if (typeof window.__sfLibDiagUpdate === 'function') {
-            try {
-                window.__sfLibDiagUpdate({ delivered: { pushBlocked: window.__sfLibPushBlockedCount } });
-            } catch (_) {}
-        }
-        // A dead channel must not be a silent one: journal the blocking reason
-        // through logDiagEvent when that channel still exists, and always keep
-        // it on a window field so recovery can clear it visibly.
-        try {
-            var announce = window.AndBridge;
-            if (announce && typeof announce.logDiagEvent === 'function') {
-                announce.logDiagEvent('lib-push blocked ' + next);
-            }
-        } catch (_) {}
-    }
-    function pushBridgeDiagState() {
-        window.__sfDiagPushes = (window.__sfDiagPushes || 0) + 1;
-        try {
-            var bridge = window.AndBridge;
-            if (!bridge || typeof bridge.onLibDiagState !== 'function') {
-                markLibPushBlocked(!bridge ? 'no-bridge' : 'no-method');
-                return;
-            }
-            markLibPushBlocked('');
-            bridgeDiagLastAt = Date.now();
-            bridgeDiagLastStage = typeof window.__sfBridgeLoadStage === 'string' ? window.__sfBridgeLoadStage : null;
-            bridge.onLibDiagState(bridgeDiagStateJson());
-            window.__sfDiagSent = (window.__sfDiagSent || 0) + 1;
-            if (!bridgeDiagOkLogged) {
-                bridgeDiagOkLogged = true;
-                if (typeof bridge.logDiagEvent === 'function') bridge.logDiagEvent('lib-push ok');
-            }
-            if (typeof window.__sfLibDiagUpdate === 'function') {
-                window.__sfLibDiagUpdate({ delivered: { pushOk: window.__sfDiagSent || 1 } });
-            }
-        } catch (err) {
-            window.__sfDiagSendErr = (window.__sfDiagSendErr || 0) + 1;
-            if (typeof window.__sfLibDiagUpdate === 'function') {
-                try {
-                    window.__sfLibDiagUpdate({ delivered: { pushErr: window.__sfDiagSendErr } });
-                } catch (_) {}
-            }
-            try {
-                var w = window.AndBridge;
-                if (w && typeof w.logDiagEvent === 'function') {
-                    var n = (err && err.name) ? String(err.name) : 'unknown';
-                    w.logDiagEvent('lib-push err ' + n.slice(0, 40));
-                }
-            } catch (_) {}
-        }
-    }
-
-    function startBridgeDiagWatch() {
-        if (window.__sfBridgeDiagTimer) return;
-        try {
-            window.__sfBridgeDiagTimer = window.setInterval(function () {
-                window.__sfDiagTicks = (window.__sfDiagTicks || 0) + 1;
-                try {
-                    var stage = typeof window.__sfBridgeLoadStage === 'string' ? window.__sfBridgeLoadStage : null;
-                    if (stage !== bridgeDiagLastStage) {
-                        // A stage change is always reported.
-                        pushBridgeDiagState();
-                    } else if (Date.now() - bridgeDiagLastAt >= 2000) {
-                        // Regular cadence: at least every 2 s.
-                        pushBridgeDiagState();
-                    }
-                } catch (_) {}
-            }, 500);
-        } catch (_) {}
-    }
-    startBridgeDiagWatch();
-    window.__sfBridgeDiagStateJson = bridgeDiagStateJson;
-    window.__sfBridgeDiagPush = pushBridgeDiagState;
 
     function installBridgeRecovery() {
         var bridge = window.AndBridge;
@@ -3330,55 +1929,24 @@
             } catch (_) {}
         }
 
-        function snapshotWatchdog() {
-            var node = document.querySelector('script[data-sf-melodix-bridge="1"]');
-            window.__sfBridgeWatch = {
-                stage: typeof window.__sfBridgeLoadStage === 'string' ? window.__sfBridgeLoadStage : null,
-                entered: window.__sfBridgeEntered === true,
-                started: window.__sfMelodixBridgeStarted === true,
-                tagPresent: !!node,
-                srcHost: node && node.src ? String(node.src).slice(0, 80) : null,
-                bytes: Number.isInteger(window.__sfBridgeBytes) ? window.__sfBridgeBytes : null,
-                error: typeof window.__sfBridgeLastError === 'string'
-                    ? window.__sfBridgeLastError.slice(0, 160)
-                    : null
-            };
-        }
-
         function attempt() {
             bridgeRetryTimer = null;
             if (bridgeHasStarted()) {
                 window.__sfNativeUiBridgeRecovered = bridgeLoadAttempts > 0;
-                snapshotWatchdog();
                 return;
             }
             bridgeLoadAttempts += 1;
             window.__sfNativeUiBridgeRecoveryAttempts = bridgeLoadAttempts;
-            if (!document.querySelector('script[data-sf-melodix-bridge="1"]')) {
-                loadBundledBridge('spotify_bridge.js');
-            }
-            snapshotWatchdog();
+            loadBundledBridge('spotify_bridge.js');
             if (bridgeHasStarted()) {
                 window.__sfNativeUiBridgeRecovered = true;
                 return;
             }
-            if (bridgeLoadAttempts < 4) {
-                bridgeRetryTimer = window.setTimeout(attempt, 2500);
-            } else {
-                // Terminal startup failure: announce it once on the journal so
-                // "no bridge" is never a silent state. Stage only, no payload.
-                try {
-                    var giveUp = window.AndBridge;
-                    if (giveUp && typeof giveUp.logDiagEvent === 'function') {
-                        giveUp.logDiagEvent('js-bridge gave-up ' + String(window.__sfBridgeLoadStage || 'unknown'));
-                    }
-                } catch (_) {}
-            }
+            if (bridgeLoadAttempts < 8) bridgeRetryTimer = window.setTimeout(attempt, 2500);
         }
 
         if (bridgeHasStarted()) return;
         window.setTimeout(attempt, 1200);
-        window.setTimeout(snapshotWatchdog, 8000);
     }
 
     function install() {
@@ -3397,14 +1965,9 @@
         window.addEventListener('hashchange', scheduleUpdate);
         window.addEventListener('load', scheduleUpdate, { once: true });
         document.addEventListener('DOMContentLoaded', scheduleUpdate, { once: true });
-        document.addEventListener('visibilitychange', function() {
-            if (!shellIsHidden()) scheduleUpdate();
-        });
 
         if (window.MutationObserver && document.documentElement) {
-            observer = new window.MutationObserver(function(mutations) {
-                if (mutationLooksRelevant(mutations)) scheduleUpdate();
-            });
+            observer = new window.MutationObserver(scheduleUpdate);
             observer.observe(document.documentElement, {
                 childList: true,
                 subtree: true
@@ -3418,16 +1981,8 @@
     try {
         install();
         window.__sfNativeUiShellCompleted = true;
-    } catch (error) {
-        recordShellError(error, 'install');
+    } catch (_) {
+        window.__sfNativeUiShellErrors += 1;
         window.__sfNativeUiShellCompleted = false;
     }
-    try {
-        if (window.AndBridge && typeof window.AndBridge.logDiagEvent === 'function') {
-            // The end marker alone must never prove a successful start: the
-            // suffix carries the install() outcome (both still count as
-            // "js-shell end" for the native prefix counter).
-            window.AndBridge.logDiagEvent('js-shell end ' + (window.__sfNativeUiShellCompleted ? 'ok' : 'install-threw'));
-        }
-    } catch (_) {}
 })();

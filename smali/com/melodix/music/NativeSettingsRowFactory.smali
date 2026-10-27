@@ -62,7 +62,7 @@
     move-result-object v9
     invoke-virtual {v9}, Ljava/lang/String;->isEmpty()Z
     move-result v0
-    if-nez v0, :native_settings_no_avatar
+    if-eqz v0, :native_settings_no_avatar
     new-instance v0, Landroid/widget/ImageView;
     invoke-direct {v0, p0}, Landroid/widget/ImageView;-><init>(Landroid/content/Context;)V
     sget-object v1, Landroid/widget/ImageView$ScaleType;->CENTER_CROP:Landroid/widget/ImageView$ScaleType;
@@ -113,7 +113,7 @@
 
     invoke-virtual {v5}, Ljava/lang/String;->isEmpty()Z
     move-result v0
-    if-nez v0, :native_settings_pill
+    if-eqz v0, :native_settings_pill
 
     new-instance v10, Landroid/widget/TextView;
     invoke-direct {v10, p0}, Landroid/widget/TextView;-><init>(Landroid/content/Context;)V
@@ -220,7 +220,7 @@
     invoke-virtual {v2, v0}, Landroid/view/View;->setFocusable(Z)V
     invoke-virtual {v7}, Ljava/lang/String;->isEmpty()Z
     move-result v0
-    if-nez v0, :native_settings_return
+    if-eqz v0, :native_settings_return
     new-instance v0, Lcom/melodix/music/NativeRowClickListener;
     invoke-direct {v0, p0, v7, v4}, Lcom/melodix/music/NativeRowClickListener;-><init>(Lcom/melodix/music/MainActivity;Ljava/lang/String;Ljava/lang/String;)V
     invoke-virtual {v2, v0}, Landroid/view/View;->setOnClickListener(Landroid/view/View$OnClickListener;)V

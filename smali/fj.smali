@@ -479,8 +479,6 @@
     .line 22
     iget v2, v0, Lne0;->a:I
 
-    iget v4, v0, Lne0;->d:I
-
     .line 23
     .line 24
     iget v0, v0, Lne0;->c:I
@@ -491,13 +489,6 @@
 
     .line 27
     invoke-virtual {p1, v2, v3, v0, v3}, Landroid/view/View;->setPadding(IIII)V
-
-    const p1, 0x7f09022f
-    invoke-virtual {p0, p1}, Le6;->findViewById(I)Landroid/view/View;
-    move-result-object p1
-    if-eqz p1, :native_insets_done
-    invoke-virtual {p1, v2, v1, v0, v4}, Landroid/view/View;->setPadding(IIII)V
-    :native_insets_done
 
     .line 28
     .line 29

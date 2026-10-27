@@ -90,9 +90,6 @@
     invoke-virtual {v0}, Landroid/app/Activity;->isFinishing()Z
     move-result v1
     if-nez v1, :return
-    invoke-virtual {v0}, Landroid/app/Activity;->isDestroyed()Z
-    move-result v1
-    if-nez v1, :return
 
     iget-object v1, p0, Lcom/melodix/music/StartupLoadWatchdog;->webView:Ljava/lang/ref/WeakReference;
     invoke-virtual {v1}, Ljava/lang/ref/Reference;->get()Ljava/lang/Object;

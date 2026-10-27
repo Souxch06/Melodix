@@ -201,32 +201,13 @@
           ? window.__sfNativeUiBridgeRecoveryAttempts
           : 0,
         bridgeRecovered: window.__sfNativeUiBridgeRecovered === true,
-        bridgeLoadStage: typeof window.__sfBridgeLoadStage === 'string' ? window.__sfBridgeLoadStage : null,
-        bridgeAssetServed: window.__sfBridgeAssetServed === true,
-        bridgeIntercepted: window.__sfBridgeIntercepted === true,
-        bridgePrefixExec: window.__sfBridgePrefixExec === true,
-        bridgeFileHeadExec: window.__sfBridgeFileHeadExec === true,
-        bridgeEntered: window.__sfBridgeEntered === true,
         bridgeExecMode: typeof window.__sfBridgeExecMode === 'string' ? window.__sfBridgeExecMode : null,
         bridgeBytes: Number.isInteger(window.__sfBridgeBytes) ? window.__sfBridgeBytes : null,
-        bridgeSourceChars: Number.isInteger(window.__sfBridgeSourceChars)
-          ? window.__sfBridgeSourceChars
-          : (Number.isInteger(window.__sfBridgeBytes) ? window.__sfBridgeBytes : null),
-        bridgeServedBytes: Number.isInteger(window.__sfBridgeServedBytes)
-          ? window.__sfBridgeServedBytes
-          : null,
         bridgeLastError: typeof window.__sfBridgeLastError === 'string'
           ? window.__sfBridgeLastError.slice(0, 160)
           : null,
         bridgeCspViolation: typeof window.__sfBridgeCspViolation === 'string'
           ? window.__sfBridgeCspViolation.slice(0, 120)
-          : null,
-        bridgeWatchStage: window.__sfBridgeWatch && typeof window.__sfBridgeWatch.stage === 'string'
-          ? window.__sfBridgeWatch.stage
-          : null,
-        bridgeWatchTagPresent: !!(window.__sfBridgeWatch && window.__sfBridgeWatch.tagPresent),
-        bridgeWatchError: window.__sfBridgeWatch && typeof window.__sfBridgeWatch.error === 'string'
-          ? window.__sfBridgeWatch.error.slice(0, 160)
           : null,
         mobileShellInitAttempted: window.__sfMelodixMobileShellInitAttempted === true,
         homeInitAttempted: window.__sfMelodixHomeInitAttempted === true,
@@ -240,15 +221,6 @@
         nativeUiShellStarted: window.__sfNativeUiShellStarted === true,
         nativeUiShellReady: window.__sfNativeUiShellReady === true,
         nativeUiShellCompleted: window.__sfNativeUiShellCompleted === true,
-        nativeHomeRowCount: Number.isInteger(window.__sfNativeHomeRowCount)
-          ? window.__sfNativeHomeRowCount
-          : null,
-        nativeHomePlaylistCount: Number.isInteger(window.__sfNativeHomePlaylistCount)
-          ? window.__sfNativeHomePlaylistCount
-          : null,
-        nativeHomeRejectedCount: Number.isInteger(window.__sfNativeHomeRejectedCount)
-          ? window.__sfNativeHomeRejectedCount
-          : null,
         nativeUiShellErrors: Number.isInteger(window.__sfNativeUiShellErrors)
           ? window.__sfNativeUiShellErrors
           : null,

@@ -12,8 +12,12 @@
     invoke-virtual {v0, p0}, Lcom/squareup/picasso/Picasso;->cancelRequest(Landroid/widget/ImageView;)V
 
     if-eqz p1, :clear_native_image
-    invoke-static {p1}, Lcom/melodix/music/NativeFetchGuard;->parseAllowedUrl(Ljava/lang/String;)Ljava/net/URL;
-    move-result-object v1
+    const-string v1, "https://"
+    invoke-virtual {p1, v1}, Ljava/lang/String;->startsWith(Ljava/lang/String;)Z
+    move-result v1
+    if-eqz v1, :clear_native_image
+    invoke-virtual {p1}, Ljava/lang/String;->isEmpty()Z
+    move-result v1
     if-eqz v1, :clear_native_image
 
     invoke-virtual {v0, p1}, Lcom/squareup/picasso/Picasso;->load(Ljava/lang/String;)Lcom/squareup/picasso/RequestCreator;
@@ -23,14 +27,11 @@
     invoke-virtual {v1}, Lcom/squareup/picasso/RequestCreator;->centerCrop()Lcom/squareup/picasso/RequestCreator;
     move-result-object v1
     invoke-virtual {v1, p0}, Lcom/squareup/picasso/RequestCreator;->into(Landroid/widget/ImageView;)V
-    const/4 v1, 0x0
-    invoke-virtual {p0, v1}, Landroid/view/View;->setClickable(Z)V
-    invoke-virtual {p0, v1}, Landroid/view/View;->setFocusable(Z)V
     goto :image_load_end
 
     :clear_native_image
-    const v1, 0x7f080141
-    invoke-virtual {p0, v1}, Landroid/widget/ImageView;->setImageResource(I)V
+    const/4 v1, 0x0
+    invoke-virtual {p0, v1}, Landroid/widget/ImageView;->setImageDrawable(Landroid/graphics/drawable/Drawable;)V
 
     :image_load_end
     :try_end_image_load
@@ -39,9 +40,8 @@
 
     :image_load_error
     move-exception v0
-    invoke-static {v0}, Lcom/melodix/music/NativeCrashGuard;->record(Ljava/lang/Throwable;)V
-    const v1, 0x7f080141
-    invoke-virtual {p0, v1}, Landroid/widget/ImageView;->setImageResource(I)V
+    const/4 v1, 0x0
+    invoke-virtual {p0, v1}, Landroid/widget/ImageView;->setImageDrawable(Landroid/graphics/drawable/Drawable;)V
 
     :image_load_done
     return-void

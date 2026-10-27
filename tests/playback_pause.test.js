@@ -302,27 +302,6 @@ test('the transport controls expose thumb-sized touch targets', () => {
     assert.ok(Number(largePause[1]) >= 56, `full pause target is ${largePause[1]}dp, expected >= 56dp`);
 });
 
-test('native player clocks consume millisecond payloads from the shell scrape', () => {
-    const shell = read('assets/native_ui_shell.js');
-    const activity = read('smali/com/melodix/music/MainActivity.smali');
-    assert.match(shell, /Math\.round\(position \* 1000\)/);
-    assert.match(shell, /Math\.round\(duration \* 1000\)/);
-    assert.match(shell, /Math\.floor\(payload\.position \/ 5000\)/);
-    assert.match(shell, /window\.__sfToggleShuffle = function/);
-    assert.match(shell, /window\.__sfToggleRepeat = function/);
-    assert.match(shell, /window\.__sfSeekFraction = function/);
-    const formatAt = activity.indexOf('.method private static formatNativeTime(J)Ljava/lang/String;');
-    const format = activity.slice(formatAt, activity.indexOf('.end method', formatAt));
-    assert.match(format, /const-wide\/16 v0, 0x3e8/);
-    assert.match(format, /div-long v0, p0, v0/);
-    assert.match(activity, /__sfToggleShuffle/);
-    assert.match(activity, /__sfToggleRepeat/);
-    const playerAt = activity.indexOf('.method public final updateNativePlayer(Ljava/lang/String;)V');
-    const player = activity.slice(playerAt, playerAt + 1200);
-    assert.match(player, /Aucune lecture en cours/);
-    assert.match(player, /if-nez v1, :native_player_no_track/);
-});
-
 test('a silent keep-alive element never makes the snapshot report playback', () => {
     const silent = { tagName: 'AUDIO', paused: false, ended: false, currentTime: 1, muted: false, src: 'https://open.spotify.com/silent.mp3' };
     const harness = buildPlayPauseHarness({ label: 'Play', playing: false, media: [silent] });

@@ -1,20 +1,10 @@
-window.__sfBridgeFileHeadExec = true;
-window.__sfBridgeEntered = true;
-window.__sfBridgeLoadStage = 'bridge-entered';
-try {
 (function() {
-    window.__sfBridgeEntered = true;
-    window.__sfBridgeLoadStage = 'bridge-entered';
     if (window.__sfMelodixBridgeCompleted) {
         if (typeof window.__sfEnsureMobileShell === 'function') {
             try { window.__sfEnsureMobileShell(); } catch (_) {}
         }
         return;
     }
-    if (window.__sfMelodixBridgeStarted) return;
-    window.__sfMelodixBridgeStarted = true;
-    window.__sfBridgeStartedSets = (window.__sfBridgeStartedSets || 0) + 1;
-    window.SF_CONFIG = window.SF_CONFIG || {};
 
     // Global flags injected by Android:
     // window.SF_CONFIG = { ... };
@@ -31,258 +21,6 @@ try {
     let lastState = null;
     let lastPos = null;
     window.playing = false;
-
-    window.__sfMarkLoggedOut = function() {
-        window.__sfAuthBridgeState = 'signed-out';
-        if (!window.__sfLogoutBridgeNotified) {
-            window.__sfLogoutBridgeNotified = true;
-            try {
-                if (window.AndBridge && typeof window.AndBridge.logoutDetected === 'function') {
-                    window.AndBridge.logoutDetected();
-                }
-            } catch (_) {}
-        }
-        if (document.body) {
-            document.body.classList.add('sf-guest');
-            document.body.classList.remove('sf-library-open');
-        }
-        window.__sfLibraryExpanded = false;
-        if (window.__sfDrawerState) window.__sfDrawerState.setOpen(false);
-        // Session data dies with the session: no playlists, titles or covers
-        // from the previous account may remain visible after a logout, and any
-        // in-flight library result is dropped by the run epoch.
-        try {
-            libRunEpoch += 1;
-            isFetchingLib = false;
-            mediaLibRetryAttempts = 0;
-            window.__sfMediaLibRetryExhausted = false;
-            if (mediaLibRetryTimer) { clearTimeout(mediaLibRetryTimer); mediaLibRetryTimer = null; }
-            window.mediaLib = null;
-            window.__sfMediaLibState = null;
-            window.__sfMediaLibError = null;
-            window.likedSongsCache = null;
-            if (window.pendingMediaRequests && window.pendingMediaRequests.clear) window.pendingMediaRequests.clear();
-        } catch (_) {}
-    };
-
-    window.__sfMarkLoggedIn = function() {
-        window.__sfAuthBridgeState = 'signed-in';
-        window.__sfLogoutBridgeNotified = false;
-        if (document.body) document.body.classList.remove('sf-guest');
-        try {
-            if (window.AndBridge && typeof window.AndBridge.loginDetected === 'function') {
-                window.AndBridge.loginDetected();
-            }
-        } catch (_) {}
-    };
-
-    (function observeSpotifyAuthUi() {
-        const hideAuthNotice = () => {
-            const notice = document.getElementById('sf-auth-status');
-            if (notice) notice.remove();
-        };
-
-        const showAuthNotice = () => {
-            if (!document.body || document.getElementById('sf-auth-status')) return;
-            const notice = document.createElement('div');
-            notice.id = 'sf-auth-status';
-            notice.setAttribute('role', 'status');
-            notice.setAttribute('aria-live', 'polite');
-            const message = document.createElement('span');
-            message.textContent = 'Session Spotify non confirmée par Melodix. Vérifiez votre session sur le lecteur officiel, puis rechargez si nécessaire.';
-            const retry = document.createElement('button');
-            retry.type = 'button';
-            retry.textContent = 'Recharger';
-            retry.setAttribute('aria-label', 'Recharger le lecteur Spotify');
-            retry.addEventListener('click', () => window.location.reload());
-            notice.append(message, retry);
-            const mainView = document.querySelector('#main-view');
-            if (mainView) mainView.insertBefore(notice, mainView.firstChild);
-            else {
-                notice.classList.add('sf-auth-status-body-root');
-                document.body.insertBefore(notice, document.body.firstChild);
-            }
-        };
-
-        const runtime = window.MelodixRuntime;
-        if (!runtime || !document.documentElement) {
-            console.warn('[Melodix] Session state helper unavailable; authentication remains unconfirmed.');
-            window.setTimeout(showAuthNotice, 15000);
-            return;
-        }
-
-        const machine = runtime.createAuthStateMachine((state) => {
-            if (state === runtime.AUTH_STATE.SIGNED_IN) window.__sfMarkLoggedIn();
-            else if (state === runtime.AUTH_STATE.SIGNED_OUT) window.__sfMarkLoggedOut();
-        });
-        window.__sfAuthStateMachine = machine;
-
-        let unknownNoticeTimer = null;
-        let scheduled = false;
-        let observer = null;
-
-        const isVisible = (element) => {
-            if (!element || element.hidden || element.getAttribute('aria-hidden') === 'true') return false;
-            try {
-                const style = window.getComputedStyle ? window.getComputedStyle(element) : null;
-                if (style && (style.display === 'none' || style.visibility === 'hidden' || style.opacity === '0')) return false;
-            } catch (_) {}
-            return typeof element.getClientRects !== 'function' || element.getClientRects().length > 0;
-        };
-
-        const getAuthSignals = () => {
-            const host = (window.location.hostname || '').toLowerCase();
-            const pathname = (window.location.pathname || '/').toLowerCase();
-            const accountsPage = host === 'accounts.spotify.com' || host.endsWith('.accounts.spotify.com');
-            const loginRoute = /(?:^|\/)(?:login|auth)(?:\/|$)/i.test(pathname);
-            const signInText = /\b(log\s*in|sign\s*in|sign\s*up|log\s*out|connexion|se\s+connecter|s'inscrire|déconnexion)\b/i;
-            const guestActions = Array.from(document.querySelectorAll(
-                'button[data-testid="web-player-link"], button[data-testid="login-button"], a[href*="/login"], button[aria-label*="sign in" i], button[aria-label*="log in" i]'
-            ));
-            const loginAction = guestActions.some((element) => {
-                if (!isVisible(element)) return false;
-                // The public Web Player CTA is a guest signal only; it is never an auth success signal.
-                if (element.matches && element.matches('button[data-testid="web-player-link"]')) return true;
-                const label = `${element.innerText || ''} ${element.getAttribute('aria-label') || ''}`;
-                return signInText.test(label);
-            });
-            const profiles = Array.from(document.querySelectorAll(
-                'button[data-testid="user-widget-link"], a[data-testid="user-widget-link"], [data-testid="user-widget-avatar"], button[aria-label*="profile" i]'
-            ));
-            const profileControl = profiles.some((element) => {
-                if (!isVisible(element)) return false;
-                const label = `${element.innerText || ''} ${element.getAttribute('aria-label') || ''}`;
-                const href = element.getAttribute('href') || '';
-                const hasAccountIdentity = /\/user\//i.test(href) || !!element.querySelector('img[src]');
-                return hasAccountIdentity && !signInText.test(label);
-            });
-            const playerBar = document.querySelector('aside[data-testid="now-playing-bar"]');
-            const playControl = document.querySelector('button[data-testid="control-button-playpause"]');
-            const playerControls = isVisible(playerBar) && isVisible(playControl) && !playControl.disabled;
-
-            return { accountsPage, loginRoute, loginAction, profileControl, playerControls };
-        };
-
-        const inspectAuthUi = () => {
-            const state = machine.observe(getAuthSignals());
-            window.__sfObservedAuthState = state;
-            if (state !== runtime.AUTH_STATE.UNKNOWN) {
-                if (unknownNoticeTimer) {
-                    window.clearTimeout(unknownNoticeTimer);
-                    unknownNoticeTimer = null;
-                }
-                hideAuthNotice();
-                return;
-            }
-            // Do not gate this on the last confirmed state: after the official
-            // sign-in page, signed-out can transition to unknown while the player hydrates.
-            if (!unknownNoticeTimer) {
-                unknownNoticeTimer = window.setTimeout(() => {
-                    unknownNoticeTimer = null;
-                    if (runtime.shouldShowUnconfirmedNotice(machine.getState())) showAuthNotice();
-                }, 15000);
-            }
-        };
-
-        const scheduleInspection = () => {
-            if (scheduled) return;
-            scheduled = true;
-            window.setTimeout(() => {
-                scheduled = false;
-                inspectAuthUi();
-            }, 100);
-        };
-
-        window.__sfRefreshAuthState = scheduleInspection;
-        observer = new MutationObserver(scheduleInspection);
-        observer.observe(document.documentElement, {
-            childList: true,
-            subtree: true,
-            attributes: true,
-            attributeFilter: ['aria-label', 'aria-hidden', 'class', 'style', 'href', 'data-testid']
-        });
-        window.addEventListener('popstate', scheduleInspection);
-        window.addEventListener('pageshow', scheduleInspection);
-        document.addEventListener('DOMContentLoaded', scheduleInspection, { once: true });
-        scheduleInspection();
-    })();
-
-
-    function sanitizeDiagnostic(value) {
-        var text = String(value && value.message || value || '');
-        text = text.replace(/Set-Cookie:\s*[^;\r\n]+/gi, 'Set-Cookie:[redacted]');
-        text = text.replace(/Cookie:\s*[^\r\n]+/gi, 'Cookie:[redacted]');
-        text = text.replace(/Authorization:\s+\S+(?:\s+\S+)?/gi, 'Authorization:[redacted]');
-        text = text.replace(/Bearer\s+\S+/gi, 'Bearer [redacted]');
-        text = text.replace(/\b(?:access_token|refresh_token|id_token|client_secret|code|sp_dc|sp_key|sessionid)=[^&\s;]+/gi, function(match) {
-            return match.slice(0, match.indexOf('=') + 1) + '[redacted]';
-        });
-        text = text.replace(/spotify:user:[^\s,;]+/gi, 'spotify:user:[redacted]');
-        text = text.replace(/[A-Za-z0-9_-]{8,}\.[A-Za-z0-9._-]{8,}\.[A-Za-z0-9._-]{8,}/g, '[redacted-jwt]');
-        return text.slice(0, 160);
-    }
-
-    function logBridgeError(context, error) {
-        var name = error && error.name ? String(error.name) : 'Error';
-        var msg = sanitizeDiagnostic(error);
-        console.error('[Melodix] ' + String(context || 'bridge') + ': ' + name + (msg ? ': ' + msg : ''));
-    }
-
-    // Defense in depth for the JS fetch wrapper only. AndBridge.nativeFetch in
-    // smali still opens the URL first; this does not replace a native allowlist.
-    function isAllowedNativeFetchUrl(raw) {
-        var parsed;
-        var host;
-        var port;
-        if (typeof raw !== 'string' || !raw) return false;
-        try {
-            parsed = new URL(raw);
-        } catch (_) {
-            return false;
-        }
-        if (parsed.protocol !== 'https:') return false;
-        if (parsed.username || parsed.password) return false;
-        host = String(parsed.hostname || '').toLowerCase();
-        if (!host) return false;
-        if (host.indexOf(':') >= 0) return false;
-        if (/^[0-9]{1,3}(?:\.[0-9]{1,3}){3}$/.test(host)) return false;
-        port = parsed.port;
-        if (port && port !== '443') return false;
-        if (host === 'spotify.com' || (host.length > 12 && host.slice(host.length - 12) === '.spotify.com')) {
-            return true;
-        }
-        if (host === 'scdn.co' || (host.length > 8 && host.slice(host.length - 8) === '.scdn.co')) {
-            return true;
-        }
-        return false;
-    }
-
-    function wrapNativeFetchBridge() {
-        var bridge;
-        var original;
-        var guarded;
-        try {
-            bridge = typeof window !== 'undefined' ? window.AndBridge : null;
-        } catch (_) {
-            return;
-        }
-        if (!bridge || typeof bridge.nativeFetch !== 'function' || bridge.nativeFetch._sfAllowlisted) return;
-        original = bridge.nativeFetch.bind(bridge);
-        guarded = function(url, method, headers, body) {
-            if (!isAllowedNativeFetchUrl(String(url || ''))) {
-                logBridgeError('nativeFetch', { name: 'SecurityError', message: 'host-not-allowed' });
-                return JSON.stringify({ status: 403, body: '' });
-            }
-            return original(url, method, headers, body);
-        };
-        guarded._sfAllowlisted = true;
-        try {
-            bridge.nativeFetch = guarded;
-        } catch (err) {
-            logBridgeError('nativeFetch-wrap', err);
-        }
-    }
-    wrapNativeFetchBridge();
 
     // >>> sf-pause-intent
     // A pause the user explicitly asked for must stay a pause. Every automatic
@@ -459,6 +197,25 @@ try {
         }, true);
     } catch (_) {}
 
+    // Record DOM activations that can change the track, so a field report shows
+    // whether the change came from the app or from Spotify's own player.
+    try {
+        document.addEventListener('click', function(event) {
+            const target = event && event.target;
+            if (!target || typeof target.closest !== 'function') return;
+            try {
+                const skip = target.closest('[data-testid="control-button-skip-forward"], [data-testid="control-button-skip-back"]');
+                if (skip) {
+                    tracePlayback('dom-skip', String(skip.getAttribute('data-testid') || ''));
+                    return;
+                }
+                if (!window.__sfUserRequestedPause) return;
+                const row = target.closest('[data-testid="tracklist-row"]');
+                if (row) tracePlayback('dom-track-row-while-paused', String(row.innerText || '').slice(0, 24));
+            } catch (_) {}
+        }, true);
+    } catch (_) {}
+
     // ---- Sticky pause hold -------------------------------------------------
     // After an explicit pause the player is watched for a short while. If
     // playback restarts without a user play request (native timer, media
@@ -583,8 +340,6 @@ try {
     // Function declarations are hoisted; their scheduled work runs after this
     // script yields, and the initializers are idempotent.
     window.__sfMelodixBridgeStarted = true;
-    window.__sfBridgeStartedSets = (window.__sfBridgeStartedSets || 0) + 1;
-    window.__sfBridgeLoadStage = 'bridge-initialized';
     window.__sfMelodixBridgeBootstrapErrors = 0;
     window.__sfMelodixHomeInitAttempted = true;
     try {
@@ -617,7 +372,7 @@ try {
                             if (mod && mod.Platform) {
                                 window.Melodix = window.Melodix || {};
                                 window.Melodix.Platform = mod.Platform;
-                                console.log("[Melodix] Captured Native Spotify Platform API");
+                                console.log("[Melodix] Captured Native Spotify Platform API!", mod.Platform);
                             }
                             if (mod && mod.CosmosAsync) {
                                 window.Melodix = window.Melodix || {};
@@ -1588,180 +1343,41 @@ try {
         window.syncUserInfo();
     };
 
-    function resolveFetchUrl(input) {
-        if (typeof input === 'string') return input;
-        try {
-            if (input && typeof input.url === 'string') return input.url;
-        } catch (_) {}
-        return '';
-    }
-
-    function collectHeaderEntries(source, out) {
-        if (!source) return out;
-        try {
-            if (typeof source.forEach === 'function' && !Array.isArray(source)) {
-                source.forEach(function(val, key) {
-                    const k = String(key || '').trim();
-                    if (!k || k.toLowerCase() === 'cookie' || k.toLowerCase() === 'set-cookie') return;
-                    out[k] = String(val == null ? '' : val);
-                });
-                return out;
-            }
-            if (Array.isArray(source)) {
-                for (let i = 0; i < source.length; i += 1) {
-                    const pair = source[i];
-                    if (!pair || pair.length < 2) continue;
-                    const k = String(pair[0] || '').trim();
-                    if (!k || k.toLowerCase() === 'cookie' || k.toLowerCase() === 'set-cookie') continue;
-                    out[k] = String(pair[1] == null ? '' : pair[1]);
-                }
-                return out;
-            }
-            if (typeof source === 'object') {
-                const keys = Object.keys(source);
-                for (let i = 0; i < keys.length; i += 1) {
-                    const k = String(keys[i] || '').trim();
-                    if (!k || k.toLowerCase() === 'cookie' || k.toLowerCase() === 'set-cookie') continue;
-                    if (source[keys[i]] !== undefined) {
-                        out[k] = String(source[keys[i]] == null ? '' : source[keys[i]]);
-                    }
-                }
-            }
-        } catch (_) {}
-        return out;
-    }
-
-    function serializeFetchHeaders(primary, secondary) {
-        const merged = {};
-        collectHeaderEntries(secondary, merged);
-        collectHeaderEntries(primary, merged);
-        return merged;
-    }
-
-    function readHeaderValue(source, targetName) {
-        if (!source || !targetName) return '';
-        const wanted = String(targetName).toLowerCase();
-        try {
-            if (typeof source.get === 'function') {
-                const v = source.get(targetName) || source.get(wanted);
-                return v ? String(v) : '';
-            }
-            const map = collectHeaderEntries(source, {});
-            const keys = Object.keys(map);
-            for (let i = 0; i < keys.length; i += 1) {
-                if (keys[i].toLowerCase() === wanted) return map[keys[i]];
-            }
-        } catch (_) {}
-        return '';
-    }
-
     const oriFetch = window.fetch;
-
-    // The library layer must never hang: a stalled connection becomes a
-    // classified NetworkError after __sfLibFetchTimeoutMs so the UI reaches a
-    // terminal state instead of a loading indicator stuck forever.
-    window.__sfLibFetchTimeoutMs = 12000;
-    function libFetch(url, options) {
-        const timeoutMs = Number(window.__sfLibFetchTimeoutMs) > 0 ? Number(window.__sfLibFetchTimeoutMs) : 12000;
-        const opts = Object.assign({}, options || {});
-        const Controller = (typeof AbortController === 'function') ? AbortController : null;
-        const controller = Controller ? new Controller() : null;
-        if (controller && !opts.signal) opts.signal = controller.signal;
-        return new Promise((resolve, reject) => {
-            let settled = false;
-            const fail = (err) => {
-                if (settled) return;
-                settled = true;
-                reject(err);
-            };
-            const timer = setTimeout(() => {
-                const err = new Error('fetch-timeout-' + timeoutMs + 'ms');
-                // Distinct name so the diagnostic report can tell "the
-                // request stalled" from "the network was down".
-                err.name = 'NetworkTimeoutError';
-                try { if (controller) controller.abort(); } catch (_) {}
-                fail(err);
-            }, timeoutMs);
-            Promise.resolve().then(() => oriFetch(url, opts)).then((resp) => {
-                if (settled) return;
-                settled = true;
-                clearTimeout(timer);
-                resolve(resp);
-            }, (err) => {
-                clearTimeout(timer);
-                if (settled) return;
-                if (err && err.name === 'AbortError') {
-                    const timeout = new Error('fetch-timeout-' + timeoutMs + 'ms');
-                    timeout.name = 'NetworkTimeoutError';
-                    fail(timeout);
-                    return;
-                }
-                fail(err);
-            });
-        });
-    }
-    window.libFetch = libFetch;
-
-    // Token capture parity: the Spotify web player does not always use fetch —
-    // on some devices/clients its authorized calls go through XMLHttpRequest,
-    // and the fetch-only hook then never sees a Bearer header. Mirror the same
-    // capture here (the token never leaves the page; same storage as the fetch
-    // hook). Nothing about authentication itself is modified.
-    try {
-        if (typeof XMLHttpRequest !== 'undefined' && !window.__sfXhrAuthHooked) {
-            window.__sfXhrAuthHooked = true;
-            var origSetRequestHeader = XMLHttpRequest.prototype.setRequestHeader;
-            XMLHttpRequest.prototype.setRequestHeader = function (name, value) {
-                try {
-                    if (String(name).toLowerCase() === 'authorization'
-                        && String(value).indexOf('Bearer ') === 0
-                        && String(value) !== window.spotAuthToken) {
-                        window.spotAuthToken = String(value);
-                        try { localStorage.setItem('spot_auth_token', window.spotAuthToken); } catch (_) {}
-                        typeof window.checkMediaLib === 'function' && window.checkMediaLib();
-                    }
-                } catch (_) {}
-                return origSetRequestHeader.apply(this, arguments);
-            };
-        }
-    } catch (_) {}
     window.fetch = async function(...args) {
         const [url, opts] = args;
-        const strUrl = resolveFetchUrl(url);
-        const method = (opts?.method || (url && url.method) || 'GET').toString().toUpperCase() || 'GET';
+        const method = opts?.method?.toUpperCase?.() || 'GET';
 
-        if (window.SF_CONFIG?.isCanvasDisabled && (strUrl.includes('canvas-storage') || strUrl.includes('/v1/canvas'))) {
+        if (window.SF_CONFIG.isCanvasDisabled && (url.includes('canvas-storage') || url.includes('/v1/canvas'))) {
             return new Response(JSON.stringify({canvases:[]}), {status: 200});
         }
 
         const headers = opts?.headers || {};
-        if (method === 'POST' && strUrl.includes('/track-playback/v1/devices') && typeof opts?.body === 'string') {
-            try {
-                const body = JSON.parse(opts.body);
-                const deviceId = body?.device?.device_id;
-                if (deviceId && deviceId !== window.spotDevId) {
-                    window.spotDevId = deviceId;
-                    try { localStorage.setItem('spot_dev_id', deviceId); } catch(_) {}
-                    typeof checkMediaLib === 'function' && checkMediaLib();
-                }
-            } catch (_) {}
+        if (method === 'POST' && url.includes('/track-playback/v1/devices') && opts?.body) {
+            const body = JSON.parse(opts.body);
+            const deviceId = body?.device?.device_id;
+            if (deviceId && deviceId !== window.spotDevId) {
+                window.spotDevId = deviceId;
+                try { localStorage.setItem('spot_dev_id', deviceId); } catch(_) {}
+                typeof checkMediaLib === 'function' && checkMediaLib();
+            }
         }
 
-        const cliToken = readHeaderValue(headers, 'Client-Token') || readHeaderValue(url?.headers, 'Client-Token');
+        const cliToken = headers['Client-Token'] || headers['client-token'];
         if (cliToken && cliToken !== window.spotCliToken) {
             window.spotCliToken = cliToken;
             try { localStorage.setItem('spot_cli_token', cliToken); } catch(_) {}
             typeof checkMediaLib === 'function' && checkMediaLib();
         }
 
-        const authHead = readHeaderValue(headers, 'Authorization') || readHeaderValue(url?.headers, 'Authorization');
+        const authHead = headers.Authorization || headers.authorization;
         if (authHead?.startsWith('Bearer ') && authHead !== window.spotAuthToken) {
             window.spotAuthToken = authHead;
             try { localStorage.setItem('spot_auth_token', authHead); } catch(_) {}
             typeof checkMediaLib === 'function' && checkMediaLib();
         }
 
-        if (method === 'POST' && strUrl.includes('pathfinder/v2/query') && opts?.body) {
+        if (method === 'POST' && url.includes('pathfinder/v2/query') && opts?.body) {
             try {
                 const bodyObj = typeof opts.body === 'string' ? JSON.parse(opts.body) : null;
                 const opName = bodyObj?.operationName;
@@ -1780,7 +1396,7 @@ try {
             } catch(e) {}
         }
 
-        if (ffDone && strUrl.includes('/track-playback/') && method === 'PUT') {
+        if (ffDone && url.includes('/track-playback/') && method === 'PUT') {
             const bodyStr = opts?.body ? (typeof opts.body === 'string' ? opts.body : '') : '';
             if (bodyStr.includes('"paused":true')) {
                 manageAll(false);
@@ -1793,94 +1409,36 @@ try {
             }
         }
 
+        const strUrl = typeof url === 'string' ? url : (url && url.url ? url.url : '');
         if (strUrl && (strUrl.includes('connect-state') || strUrl.includes('melody/v1/msg'))) {
-            wrapNativeFetchBridge();
-            if (!isAllowedNativeFetchUrl(strUrl)) {
-                const blockedErr = new TypeError('Blocked disallowed fetch URL');
-                logBridgeError('nativeFetch', { name: 'SecurityError', message: 'host-not-allowed' });
-                throw blockedErr;
-            }
-            if (typeof AndBridge !== 'undefined' && AndBridge && typeof AndBridge.nativeFetch === 'function') {
-                const reqHeaders = serializeFetchHeaders(opts?.headers, url?.headers);
+            try {
+                const reqHeaders = opts?.headers || {};
                 const reqBody = opts?.body ? (typeof opts.body === 'string' ? opts.body : JSON.stringify(opts.body)) : null;
-                let parsed = null;
-                try {
-                    const rawRes = AndBridge.nativeFetch(strUrl, method, JSON.stringify(reqHeaders), reqBody);
-                    parsed = rawRes ? JSON.parse(rawRes) : null;
-                } catch (e) {
-                    logBridgeError('nativeFetch', e);
-                    throw e;
-                }
-                const status = parsed && typeof parsed.status === 'number' ? parsed.status : 0;
-                if (status <= 0) {
-                    const netErr = new Error((parsed && parsed.error) || 'Native fetch failed');
-                    logBridgeError('nativeFetch', netErr);
-                    throw netErr;
-                }
-                const resBody = parsed.body == null ? '' : String(parsed.body);
-                const HeaderCtor = window.Headers || Headers;
-                const safeHeaders = new HeaderCtor();
-                if (parsed && parsed.headers && typeof parsed.headers === 'object') {
-                    for (const [hk, hv] of Object.entries(parsed.headers)) {
-                        if (!hk || hk.charAt(0) === ':' || /^set-cookie/i.test(hk)) continue;
-                        try {
-                            safeHeaders.append(hk, hv == null ? '' : String(hv));
-                        } catch (_) {}
-                    }
-                }
-                const statusNames = {
-                    200: 'OK',
-                    201: 'Created',
-                    202: 'Accepted',
-                    204: 'No Content',
-                    304: 'Not Modified',
-                    400: 'Bad Request',
-                    401: 'Unauthorized',
-                    403: 'Forbidden',
-                    404: 'Not Found',
-                    429: 'Too Many Requests',
-                    500: 'Internal Server Error',
-                    502: 'Bad Gateway',
-                    503: 'Service Unavailable',
-                    504: 'Gateway Timeout'
-                };
-                const makeResponseObj = () => {
-                    let used = false;
-                    const consumeBody = () => {
-                        if (used) throw new TypeError('Body has already been consumed.');
-                        used = true;
-                        return resBody;
-                    };
-                    const obj = {
+                const rawRes = AndBridge.nativeFetch(strUrl, method, JSON.stringify(reqHeaders), reqBody);
+                if (rawRes) {
+                    const parsed = JSON.parse(rawRes);
+                    const status = parsed.status || 200;
+                    const resBody = parsed.body || '';
+                    return {
                         ok: status >= 200 && status < 300,
                         status: status,
-                        statusText: statusNames[status] || '',
-                        headers: safeHeaders,
+                        statusText: status === 200 ? 'OK' : '',
+                        headers: new Headers(parsed.headers || {}),
                         url: strUrl,
-                        redirected: false,
-                        type: 'basic',
-                        get bodyUsed() { return used; },
-                        json: async () => JSON.parse(consumeBody()),
-                        text: async () => consumeBody(),
-                        arrayBuffer: async () => new TextEncoder().encode(consumeBody()).buffer,
-                        blob: async () => {
-                            const raw = consumeBody();
-                            return typeof Blob === 'function' ? new Blob([raw]) : new TextEncoder().encode(raw);
-                        },
-                        clone: function() {
-                            if (used) throw new TypeError('Cannot clone a consumed Response.');
-                            return makeResponseObj();
-                        }
+                        json: async () => JSON.parse(resBody || '{}'),
+                        text: async () => resBody,
+                        arrayBuffer: async () => new TextEncoder().encode(resBody).buffer,
+                        clone: function() { return this; }
                     };
-                    return obj;
-                };
-                return makeResponseObj();
+                }
+            } catch (e) {
+                console.error('[Spotifuck] Proxy nativeFetch error:', e);
             }
         }
 
         try {
             const resp = await oriFetch(url, opts);
-            if (resp.status === 404 && strUrl.includes('connect-state') && strUrl.includes('/command/from/')) {
+            if (resp.status === 404 && url.includes('connect-state') && url.includes('/command/from/')) {
                 console.warn('[Spotifuck] Ignored 404 on connect-state command to avoid interrupting playback');
             }
             return resp;
@@ -1915,17 +1473,7 @@ try {
         }
 
         if (uri && uri.startsWith('spotify:search:')) {
-            const rawQuery = uri.substring('spotify:search:'.length);
-            let query = rawQuery;
-            try {
-                query = decodeURIComponent(rawQuery);
-            } catch (_) {}
-            if (typeof AndBridge !== 'undefined' && AndBridge && typeof AndBridge.onNativeUiData === 'function') {
-                try { AndBridge.onNativeUiData('open-search', query); } catch (_) {}
-            }
-            if (typeof window.searchMediaItems === 'function') {
-                try { window.searchMediaItems(query); } catch (_) {}
-            }
+            const query = decodeURIComponent(uri.substring('spotify:search:'.length));
             if (typeof window.openSearch === 'function') {
                 window.openSearch(query);
             }
@@ -2027,7 +1575,7 @@ try {
             return;
         }
 
-        console.log('[Spotifuck] playFromUri sending command');
+        console.log(`[Spotifuck] playFromUri sending command for uri=${uri}, contextUri=${contextUri}, devId=${devId}`);
 
         fetch(`https://gew4-spclient.spotify.com/connect-state/v1/player/command/from/${devId}/to/${devId}`, {
             method: 'POST',
@@ -2070,7 +1618,7 @@ try {
             if (cliTok) {
                 headers['Client-Token'] = cliTok;
             }
-            const resp = await libFetch('https://api-partner.spotify.com/pathfinder/v2/query', {
+            const resp = await oriFetch('https://api-partner.spotify.com/pathfinder/v2/query', {
                 method: 'POST',
                 mode: 'cors',
                 credentials: 'include',
@@ -2120,7 +1668,7 @@ try {
                 window.playFromUri(targetUri);
             }
         } catch (e) {
-            logBridgeError('searchAndPlay', e);
+            console.error('[Spotifuck] searchAndPlay failed for ' + query, e);
         }
     }
     window.searchAndPlay = searchAndPlay;
@@ -3661,386 +3209,6 @@ try {
     // SECTION 4: LIBRARY & FOLDER RESOLUTION
     // =========================================================================
 
-    // =========================================================================
-    // SECTION 4a: TEMPORARY LIBRARY-FETCH DIAGNOSTIC (no secrets, ever)
-    // =========================================================================
-    // Temporary instrumentation for the real-account investigation: it records,
-    // step by step, where the real playlist retrieval pipeline is
-    // (session -> token -> libraryV3 call -> HTTP status -> response shape ->
-    // parsing -> native shell delivery) so the exact failing stage can be read
-    // in Paramètres > Diagnostic de récupération. Every recorded value is a
-    // boolean, a small number, or a short label built from a controlled
-    // vocabulary passed through sanitizeDiagnostic — never tokens, cookies,
-    // account identifiers, playlist names or raw payloads.
-    // NOTE: libraryV3 is an undocumented internal persisted-query operation of
-    // the Spotify Web Player (api-partner.spotify.com/pathfinder), NOT a
-    // public/official Spotify API: its shape and hash can change at any time.
-    const LIB_DIAG_MAX_STEPS = 40;
-
-    function libDiagSafeLabel(value, fallback) {
-        var text = sanitizeDiagnostic(value);
-        text = String(text || '').replace(/\s+/g, ' ').trim().slice(0, 72);
-        if (!text) return fallback || '';
-        // Second line of defense: anything outside a conservative charset is
-        // dropped entirely instead of being stored (no markup, no URLs).
-        if (!/^[A-Za-zÀ-ÖØ-öø-ÿ0-9 .:,=+()/'!?_-]{1,72}$/.test(text)) return '[non affiché]';
-        return text;
-    }
-
-    function libDiagZeroParsed() {
-        return {
-            playlists: 0, albums: 0, artists: 0, podcasts: 0, skipped: 0,
-            incomplete: 0, duplicates: 0,
-            rejectedNoData: 0, rejectedNoUri: 0, rejectedUnknownType: 0,
-            sample: []
-        };
-    }
-
-    function libDiagZeroDelivered() {
-        return {
-            homeRows: 0, homePlaylistRows: 0, mediaRows: 0, mediaPlaylistRows: 0,
-            seen: false, afterReady: false,
-            pushOk: 0, pushErr: 0, pushBlocked: 0, ignored: 0
-        };
-    }
-
-    function libDiagRunBegin() {
-        var diag = window.__sfLibDiag;
-        if (!diag) return;
-        var session = window.__sfAuthBridgeState === 'signed-in'
-            ? 'detected'
-            : window.__sfAuthBridgeState === 'signed-out'
-                ? 'not-detected'
-                : 'unknown';
-        diag.lastRun = {
-            session: session,
-            token: null,
-            hashSource: null,
-            attempts: [],
-            itemsTotal: 0,
-            parsed: libDiagZeroParsed(),
-            delivered: libDiagZeroDelivered(),
-            openings: [],
-            status: null
-        };
-        libDiagRecord('session', session !== 'not-detected', session === 'detected'
-            ? 'connectée'
-            : session === 'not-detected' ? 'déconnectée' : 'indéterminée');
-        libDiagPush('start');
-    }
-
-    function libDiagRecord(step, ok, detail) {
-        try {
-            var diag = window.__sfLibDiag;
-            if (!diag) return;
-            diag.steps.push({
-                step: libDiagSafeLabel(step, '?'),
-                ok: Boolean(ok),
-                detail: libDiagSafeLabel(detail, ''),
-                at: Date.now()
-            });
-            if (diag.steps.length > LIB_DIAG_MAX_STEPS) {
-                diag.steps.splice(0, diag.steps.length - LIB_DIAG_MAX_STEPS);
-            }
-            libDiagPush('record');
-        } catch (_) {}
-    }
-
-    function libDiagUpdate(fields) {
-        // Whitelisted keys with strict value shapes only: an unknown key is
-        // ignored, so a secret can never be persisted here by mistake.
-        try {
-            var run = window.__sfLibDiag && window.__sfLibDiag.lastRun;
-            if (!run || !fields) return;
-            if (typeof fields.session === 'string'
-                && ['detected', 'not-detected', 'unknown'].indexOf(fields.session) >= 0) {
-                run.session = fields.session;
-            }
-            if (typeof fields.token === 'string'
-                && ['bearer', 'missing', 'malformed'].indexOf(fields.token) >= 0) {
-                run.token = fields.token;
-            }
-            if (typeof fields.hashSource === 'string'
-                && ['dynamic', 'fallback'].indexOf(fields.hashSource) >= 0) {
-                run.hashSource = fields.hashSource;
-            }
-            if (typeof fields.status === 'string'
-                && ['pending', 'ready', 'empty', 'error'].indexOf(fields.status) >= 0) {
-                run.status = fields.status;
-            }
-            if (typeof fields.itemsTotal === 'number' && isFinite(fields.itemsTotal) && fields.itemsTotal >= 0) {
-                run.itemsTotal = fields.itemsTotal;
-            }
-            if (fields.parsed && typeof fields.parsed === 'object') {
-                ['playlists', 'albums', 'artists', 'podcasts', 'skipped',
-                    'incomplete', 'duplicates',
-                    'rejectedNoData', 'rejectedNoUri', 'rejectedUnknownType'].forEach(function(key) {
-                    if (typeof fields.parsed[key] === 'number' && isFinite(fields.parsed[key]) && fields.parsed[key] >= 0) {
-                        run.parsed[key] = fields.parsed[key];
-                    }
-                });
-                if (Array.isArray(fields.parsed.sample)) {
-                    // Structure-only sample: closed key set, no names, no URLs,
-                    // no free text — a secret can never leak through it.
-                    run.parsed.sample = fields.parsed.sample.slice(0, 5).map(function(entry) {
-                        entry = entry && typeof entry === 'object' ? entry : {};
-                        return {
-                            idFp: libDiagSafeLabel(entry.idFp, '').slice(0, 24),
-                            category: libDiagSafeLabel(entry.category, '').slice(0, 16),
-                            type: libDiagSafeLabel(entry.type, '').slice(0, 24),
-                            browsable: entry.browsable === true,
-                            hasUri: entry.hasUri === true,
-                            hasName: entry.hasName === true,
-                            hasImage: entry.hasImage === true
-                        };
-                    });
-                }
-            }
-            if (fields.delivered && typeof fields.delivered === 'object') {
-                ['homeRows', 'homePlaylistRows', 'mediaRows', 'mediaPlaylistRows',
-                    'pushOk', 'pushErr', 'pushBlocked', 'ignored'].forEach(function(key) {
-                    if (typeof fields.delivered[key] === 'number' && isFinite(fields.delivered[key]) && fields.delivered[key] >= 0) {
-                        run.delivered[key] = fields.delivered[key];
-                    }
-                });
-                if (fields.delivered.seen) run.delivered.seen = true;
-                if (fields.delivered.afterReady) run.delivered.afterReady = true;
-            }
-            libDiagPush('update');
-        } catch (_) {}
-    }
-
-    function libDiagAttempt(info) {
-        try {
-            var run = window.__sfLibDiag && window.__sfLibDiag.lastRun;
-            if (!run || !info) return;
-            run.attempts.push({
-                candidate: (info.candidate === 'dynamic' || info.candidate === 'fallback') ? info.candidate : '?',
-                httpStatus: typeof info.httpStatus === 'number' && isFinite(info.httpStatus) ? info.httpStatus : null,
-                networkError: Boolean(info.networkError),
-                gqlErrorCodes: Array.isArray(info.gqlErrorCodes)
-                    ? info.gqlErrorCodes.filter(function(code) {
-                        return /^[A-Z0-9_]{1,48}$/.test(String(code));
-                    }).slice(0, 4)
-                    : [],
-                shape: info.shape === 'ok' || info.shape === 'mismatch' || info.shape === 'me-null' ? info.shape : null,
-                items: typeof info.items === 'number' && isFinite(info.items) && info.items >= 0 ? info.items : null
-            });
-            if (run.attempts.length > 12) run.attempts.splice(0, run.attempts.length - 12);
-        } catch (_) {}
-    }
-
-    function libDiagPatchLastAttempt(patch) {
-        try {
-            var run = window.__sfLibDiag && window.__sfLibDiag.lastRun;
-            if (!run || !run.attempts.length || !patch) return;
-            var last = run.attempts[run.attempts.length - 1];
-            if (patch.shape === 'ok' || patch.shape === 'mismatch' || patch.shape === 'me-null') last.shape = patch.shape;
-            if (typeof patch.items === 'number' && isFinite(patch.items) && patch.items >= 0) last.items = patch.items;
-        } catch (_) {}
-    }
-
-    var LIB_DIAG_MAX_OPENINGS = 24;
-    // Per-open trace (§10): which parent was requested, through which channel,
-    // with what outcome. Whitelisted, bounded, no names — the parent id is kept
-    // because the mission requires an identifier to correlate click -> open.
-    function libDiagOpening(info) {
-        try {
-            var run = window.__sfLibDiag && window.__sfLibDiag.lastRun;
-            if (!run || !info) return;
-            run.openings = run.openings || [];
-            var entry = {
-                parent: libDiagSafeLabel(info.parent, '?').slice(0, 64),
-                channel: ['root', 'liked', 'playlist', 'tracks', 'search', 'other'].indexOf(info.channel) >= 0
-                    ? info.channel : 'other',
-                status: ['cached', 'loaded', 'empty', 'login', 'error', 'pending', 'queue', 'blocked', 'not-opened'].indexOf(info.status) >= 0
-                    ? info.status : 'error',
-                source: ['cache', 'network', 'state', 'none'].indexOf(info.source) >= 0 ? info.source : 'none',
-                items: typeof info.items === 'number' && isFinite(info.items) && info.items >= 0 ? info.items : 0,
-                emitBytes: typeof info.emitBytes === 'number' && isFinite(info.emitBytes) && info.emitBytes >= 0 ? info.emitBytes : 0,
-                at: Date.now()
-            };
-            run.openings.push(entry);
-            if (run.openings.length > LIB_DIAG_MAX_OPENINGS) {
-                run.openings.splice(0, run.openings.length - LIB_DIAG_MAX_OPENINGS);
-            }
-            libDiagRecord('open', entry.status === 'loaded' || entry.status === 'cached' || entry.status === 'empty',
-                entry.parent + ' ' + entry.status + ' items=' + entry.items + ' bytes=' + entry.emitBytes);
-        } catch (_) {}
-    }
-
-    function libDiagGqlCodes(errors) {
-        var codes = [];
-        try {
-            (Array.isArray(errors) ? errors : []).forEach(function(entry) {
-                var code = entry && entry.extensions && entry.extensions.code;
-                if (code) {
-                    code = String(code).toUpperCase();
-                    if (/^[A-Z0-9_]{1,48}$/.test(code)) codes.push(code);
-                }
-            });
-        } catch (_) {}
-        return codes.slice(0, 4);
-    }
-
-    // JS -> native push of the bounded library snapshot: the diagnostic screen
-    // must read the pipeline state even when native->JS evaluateJavascript is
-    // dead on a device (the JS->native AndBridge direction keeps working).
-    // Whitelisted fields only — token readiness as oui/non, never a value.
-    function libDiagPush(reason) {
-        try {
-            var diag = window.__sfLibDiag;
-            if (!diag || !window.AndBridge || typeof window.AndBridge.onLibDiagState !== 'function') return;
-            var run = diag.lastRun || {};
-            var attempts = (run.attempts || []).slice(-3).map(function (a) {
-                return {
-                    httpStatus: (a && typeof a.httpStatus === 'number') ? a.httpStatus : null,
-                    gqlErrorCodes: (a && Array.isArray(a.gqlErrorCodes)) ? a.gqlErrorCodes.slice(0, 3) : [],
-                    shape: (a && a.shape) || null
-                };
-            });
-            var snapshot = {
-                status: run.status || null,
-                hashSource: run.hashSource || null,
-                itemsTotal: typeof run.itemsTotal === 'number' ? run.itemsTotal : 0,
-                shape: attempts.length ? attempts[attempts.length - 1].shape : null,
-                token: run.token === 'bearer' ? 'oui' : (run.token ? 'non' : '?'),
-                attempts: attempts
-            };
-            window.AndBridge.onLibDiagState(libDiagSafeLabel(reason, '?') + ' ' + JSON.stringify(snapshot));
-        } catch (_) {}
-    }
-
-    function libDiagFailureKind(run) {
-        if (!run) return null;
-        var attempts = run.attempts || [];
-        var i;
-        if (run.token === 'missing' || run.token === 'malformed') return 'token-missing';
-        for (i = 0; i < attempts.length; i += 1) {
-            if (attempts[i].networkError) return 'network';
-        }
-        for (i = 0; i < attempts.length; i += 1) {
-            if (attempts[i].httpStatus === 401 || attempts[i].httpStatus === 403) return 'access-denied';
-        }
-        for (i = 0; i < attempts.length; i += 1) {
-            if (attempts[i].shape === 'me-null') return 'no-session';
-        }
-        for (i = 0; i < attempts.length; i += 1) {
-            if ((attempts[i].gqlErrorCodes || []).length) return 'graphql-error';
-        }
-        for (i = 0; i < attempts.length; i += 1) {
-            if (attempts[i].httpStatus && attempts[i].httpStatus >= 400) return 'http-error';
-        }
-        for (i = 0; i < attempts.length; i += 1) {
-            if (attempts[i].shape === 'mismatch') return 'shape-mismatch';
-        }
-        if (run.status === 'error') return 'fetch-error';
-        if (run.itemsTotal > 0 && (run.parsed.playlists + run.parsed.albums + run.parsed.artists + run.parsed.podcasts) === 0) {
-            return 'parse-gap';
-        }
-        if (run.status === 'ready' && run.parsed.playlists > 0 && run.delivered.afterReady
-            && (run.delivered.homePlaylistRows + run.delivered.mediaPlaylistRows) === 0) {
-            return 'render-gap';
-        }
-        // Click -> open -> tracks chain (§10): only checked when an opening was
-        // actually observed; absence of observation is not a failure proof.
-        if (run.openings && run.openings.length) {
-            var lastOpen = run.openings[run.openings.length - 1];
-            if (lastOpen.channel === 'playlist' && (lastOpen.status === 'loaded' || lastOpen.status === 'cached') && lastOpen.items === 0) {
-                return 'tracks-gap';
-            }
-            if (lastOpen.status === 'error' || lastOpen.status === 'blocked') {
-                return 'open-gap';
-            }
-        }
-        if (run.delivered && (run.delivered.pushErr > 0 || run.delivered.pushBlocked > 0)
-            && (run.delivered.pushOk === 0)) {
-            return 'deliver-gap';
-        }
-        return null;
-    }
-
-    function libDiagConclude() {
-        var run = window.__sfLibDiag && window.__sfLibDiag.lastRun;
-        if (!run) return 'Diagnostic non initialisé';
-        var kind = libDiagFailureKind(run);
-        if (!kind) {
-            if (run.status === 'ready') {
-                if (!run.delivered.seen) {
-                    // Data was produced but nothing downstream was ever
-                    // observed: honest incomplete report, not a success claim.
-                    return 'Diagnostic incomplet \u2014 cause non d\u00e9termin\u00e9e : '
-                        + run.parsed.playlists + ' playlist(s) analys\u00e9e(s), mais aucune observation de transmission ou de rendu n\'est disponible.';
-                }
-                return 'Parcours complet : ' + run.parsed.playlists + ' playlist(s) analysée(s), '
-                    + (run.delivered.homePlaylistRows + run.delivered.mediaPlaylistRows) + ' transmise(s) au shell natif.';
-            }
-            if (run.status === 'empty') {
-                return 'Réponse valide et vide : ce compte ne contient aucune playlist.';
-            }
-            return 'En attente du premier chargement de la bibliothèque.';
-        }
-        var byKind = {
-            'token-missing': 'Échec à l\'étape « Jeton d\'accès » : absent ou format inattendu.',
-            'network': 'Échec à l\'étape « Statut HTTP » : erreur réseau (requête interrompue).',
-            'access-denied': 'Échec à l\'étape « Statut HTTP » : accès refusé (HTTP 401/403).',
-            'no-session': 'Échec à l\'étape « Structure de la réponse » : session non reconnue (me=null).',
-            'graphql-error': 'Échec à l\'étape « Appel bibliothèque » : requête GraphQL rejetée.',
-            'http-error': 'Échec à l\'étape « Statut HTTP » : erreur serveur Spotify.',
-            'shape-mismatch': 'Échec à l\'étape « Structure de la réponse » : structure inattendue.',
-            'fetch-error': 'Échec de la récupération de la bibliothèque.',
-            'parse-gap': 'Échec à l\'étape « Analyse » : éléments reçus mais inexploitables.',
-            'render-gap': 'Échec à l\'étape « Rendu » : playlists chargées mais non transmises au shell.',
-            'tracks-gap': '\u00c9chec \u00e0 l\'\u00e9tape \u00ab Pistes \u00bb : playlist ouverte mais aucune piste r\u00e9cup\u00e9r\u00e9e.',
-            'open-gap': '\u00c9chec \u00e0 l\'\u00e9tape \u00ab Ouverture \u00bb : la derni\u00e8re demande d\'ouverture est en \u00e9chec ou refus\u00e9e.',
-            'deliver-gap': '\u00c9chec \u00e0 l\'\u00e9tape \u00ab Transmission \u00bb : transmission native en \u00e9chec sans aucune r\u00e9ussite observ\u00e9e.'
-        };
-        return byKind[kind] || 'Échec de la récupération.';
-    }
-
-    window.__sfLibDiag = {
-        version: 1,
-        temporary: true,
-        steps: [],
-        lastRun: {
-            session: null,
-            token: null,
-            hashSource: null,
-            attempts: [],
-            itemsTotal: 0,
-            parsed: libDiagZeroParsed(),
-            delivered: libDiagZeroDelivered(),
-            status: null
-        }
-    };
-    window.__sfLibDiagRecord = libDiagRecord;
-    window.__sfLibDiagUpdate = libDiagUpdate;
-    window.__sfLibDiagPush = libDiagPush;
-    window.__sfLibDiagOpening = libDiagOpening;
-    window.__sfGetLibDiagReport = function() {
-        var diag = window.__sfLibDiag;
-        if (!diag) return null;
-        return {
-            temporary: true,
-            steps: diag.steps.map(function(entry) {
-                return { step: entry.step, ok: entry.ok, detail: entry.detail, at: entry.at };
-            }),
-            lastRun: {
-                session: diag.lastRun.session,
-                token: diag.lastRun.token,
-                hashSource: diag.lastRun.hashSource,
-                attempts: diag.lastRun.attempts.slice(),
-                itemsTotal: diag.lastRun.itemsTotal,
-                parsed: Object.assign({}, diag.lastRun.parsed),
-                delivered: Object.assign({}, diag.lastRun.delivered),
-                openings: (diag.lastRun.openings || []).slice(),
-                status: diag.lastRun.status
-            },
-            failureKind: libDiagFailureKind(diag.lastRun),
-            conclusion: libDiagConclude()
-        };
-    };
-
     async function ensureAuthToken() {
         if (!window.spotAuthToken) {
             try {
@@ -4077,14 +3245,10 @@ try {
     }
 
     function getGqlHash(opName, fallbackHash) {
-        // Robustness for the internal persisted-query hash: only a well-formed
-        // 64-hex sha256 may be used; a corrupted capture/storage falls back to
-        // the bundled hash instead of sending garbage to pathfinder.
-        const isSha256 = (value) => /^[a-f0-9]{64}$/i.test(String(value || ''));
-        if (window.spHashes && isSha256(window.spHashes[opName])) return window.spHashes[opName];
+        if (window.spHashes && window.spHashes[opName]) return window.spHashes[opName];
         try {
             const stored = localStorage.getItem('sp_hash_' + opName);
-            if (isSha256(stored)) return stored;
+            if (stored) return stored;
         } catch(_) {}
         return fallbackHash;
     }
@@ -4092,296 +3256,41 @@ try {
 
     window.pendingMediaRequests = window.pendingMediaRequests || new Set();
     let isFetchingLib = false;
-    // Monotonic run id: results from older runs are dropped, never merged.
-    let libRunEpoch = 0;
-    let mediaLibRetryTimer = null;
-    let mediaLibRetryAttempts = 0;
-    const MEDIA_LIB_MAX_RETRIES = 5;
-
-    // The native shell must be able to tell "still loading" from "the account
-    // has no playlist" from "the fetch failed": only the first one may show a
-    // loading state, the other two need an honest empty/error state.
-    // Every queued media request must be answered on EVERY terminal path
-    // (ready, empty, login, error): a request left in pendingMediaRequests on a
-    // failure used to leave its screen loading forever.
-    function drainPendingMediaRequests(kind, e) {
-        try {
-            if (!window.pendingMediaRequests || !window.pendingMediaRequests.size) return;
-            const ids = Array.from(window.pendingMediaRequests);
-            window.pendingMediaRequests.clear();
-            ids.forEach(function (reqId) {
-                try { AndBridge.onMediaItemsLoaded(reqId, "[]"); } catch (_) {}
-                const rootIds = ['playlists', 'albums', 'artists', 'podcasts'];
-                const isRoot = rootIds.indexOf(String(reqId)) >= 0;
-                mediaItemsStatusRow(isRoot ? kind : 'error', reqId, e);
-            });
-        } catch (_) {}
-    }
-
-    function publishMediaLibState(state, errorMessage) {
-        window.__sfMediaLibState = state;
-        window.__sfMediaLibError = errorMessage || null;
-        libDiagPush('publish');
-        if (typeof window.__sfNotifyMediaLibReady === 'function') {
-            try { window.__sfNotifyMediaLibReady(); } catch (_) {}
-        }
-    }
-
-    function scheduleMediaLibRetry() {
-        if (mediaLibRetryTimer) return;
-        if (mediaLibRetryAttempts >= MEDIA_LIB_MAX_RETRIES) {
-            // Bounded waiting: once the retry budget is spent the state must
-            // become terminal. Staying 'pending' forever is the bug this
-            // replaces: the loading indicator can never resolve after this.
-            window.__sfMediaLibRetryExhausted = true;
-            if (window.__sfMediaLibState !== 'ready' && window.__sfMediaLibState !== 'empty') {
-                libDiagUpdate({ status: 'error' });
-                publishMediaLibState('error', 'retry-exhausted');
-            }
-            return;
-        }
-        mediaLibRetryAttempts += 1;
-        const delay = Math.min(3000 * mediaLibRetryAttempts, 15000);
-        mediaLibRetryTimer = setTimeout(() => {
-            mediaLibRetryTimer = null;
-            checkMediaLib(true);
-        }, delay);
-    }
-
     async function checkMediaLib(force = false) {
         if (isFetchingLib && !force) return;
-        if (!force && window.__sfMediaLibRetryExhausted) {
-            // A new user-driven call (warmup / Accueil retry) re-opens the
-            // bounded retry budget; timer-driven forced calls never do.
-            window.__sfMediaLibRetryExhausted = false;
-            mediaLibRetryAttempts = 0;
-        }
-        libDiagRunBegin();
         await ensureAuthToken();
         if (!window.spotAuthToken) {
             console.warn("[Spotifuck] checkMediaLib: Auth token unavailable.");
-            // Stay in "pending" (never claim an empty account) and retry once
-            // the Spotify session had a chance to expose its Bearer token.
-            libDiagUpdate({ token: 'missing', status: 'pending' });
-            libDiagRecord('token', false, 'absent');
-            window.__sfAuthMissing = true;
-            if (!window.mediaLib) window.__sfMediaLibState = 'pending';
-            scheduleMediaLibRetry();
-            drainPendingMediaRequests('login');
             return;
         }
-        const tokenLooksBearer = window.spotAuthToken.startsWith('Bearer ');
-        window.__sfAuthMissing = false;
-        libDiagUpdate({ token: tokenLooksBearer ? 'bearer' : 'malformed' });
-        libDiagRecord('token', tokenLooksBearer, tokenLooksBearer ? 'format Bearer' : 'format inattendu');
-        // Serialize the fetch phase: re-check the lock after the awaited token
-        // wait so two concurrent calls never fetch twice in parallel.
-        if (isFetchingLib && !force) return;
         isFetchingLib = true;
-        const capturedEpoch = ++libRunEpoch;
         try {
             const allItems = await fetchAllLibrary();
-            if (capturedEpoch !== libRunEpoch) {
-                // A newer run or a logout owns the state now: this slower
-                // response must never overwrite the fresher one.
-                console.warn("[Spotifuck] checkMediaLib: late library response dropped (stale run).");
-                return;
-            }
-            const parsedLib = parseLibrary(allItems);
-            const parsedTotal = (parsedLib.playlists?.length || 0) + (parsedLib.albums?.length || 0)
-                + (parsedLib.artists?.length || 0) + (parsedLib.podcasts?.length || 0);
-            if (allItems.length > 0 && parsedTotal === 0) {
-                // The response held rows but none were recognizable: that is a
-                // parse gap, NOT a confirmed empty account. It must surface as
-                // a retryable error so a real library is never shown as "Aucune
-                // playlist".
-                libDiagRecord('parse', false, 'items=' + allItems.length + ' mais 0 exploitable');
-                const parseError = new Error('libraryV3-parse-gap');
-                parseError.name = 'ParseError';
-                throw parseError;
-            }
-            window.mediaLib = parsedLib;
-            mediaLibRetryAttempts = 0;
-            pushMediaLibToNative();
+            window.mediaLib = parseLibrary(allItems);
             console.log("[Spotifuck] checkMediaLib: Successfully loaded mediaLib! Draining pending requests:", Array.from(window.pendingMediaRequests));
             if (window.pendingMediaRequests && window.pendingMediaRequests.size > 0) {
                 for (const reqId of window.pendingMediaRequests) {
-                    const items = window.mediaLib?.[reqId];
-                    if (Array.isArray(items)) {
-                        libDiagEmitMediaItems(reqId, JSON.stringify(items), items.length > 0 ? 'loaded' : 'empty', 'state');
-                    } else {
-                        // Not a library category (a collection or a track
-                        // list): answer through the real loader instead of
-                        // pretending the request held zero items.
-                        try { fetchMediaItems(reqId); } catch (_) {}
-                    }
+                    const items = window.mediaLib?.[reqId] || [];
+                    AndBridge.onMediaItemsLoaded(reqId, JSON.stringify(items));
                 }
                 window.pendingMediaRequests.clear();
             }
-            libDiagUpdate({ status: window.mediaLib.playlists.length ? 'ready' : 'empty' });
-            libDiagRecord('parse', true, 'playlists=' + window.mediaLib.playlists.length
-                + ' albums=' + window.mediaLib.albums.length
-                + ' artistes=' + window.mediaLib.artists.length
-                + ' podcasts=' + window.mediaLib.podcasts.length);
-            publishMediaLibState(window.mediaLib.playlists.length ? 'ready' : 'empty', null);
         } catch (e) {
-            if (capturedEpoch !== libRunEpoch) {
-                // A stale run's failure must not clobber a newer state either.
-                console.warn("[Spotifuck] checkMediaLib: stale failure dropped (stale run).");
-                return;
-            }
-            logBridgeError('checkMediaLib', e);
-            libDiagUpdate({ status: 'error' });
-            libDiagRecord('fetch', false, String((e && e.name) || 'Error'));
-            publishMediaLibState('error', sanitizeDiagnostic(e));
-            scheduleMediaLibRetry();
-            drainPendingMediaRequests('error', e);
+            console.error("Error fetching/parsing media library: ", e);
         } finally {
             isFetchingLib = false;
         }
     }
     window.checkMediaLib = checkMediaLib;
 
-    // =========================================================================
-    // PUSH MODEL: the page sends the normalized library to native over the
-    // JS->native AndBridge channel (bounded batches of 25). This never depends
-    // on native->JS evaluateJavascript, which can be dead on a real device.
-    // =========================================================================
-    var LIB_PUSH_BATCH = 25;
-    var LIB_PUSH_CATS = ['playlists', 'albums', 'artists', 'podcasts'];
-
-    function pushMediaLibBatch(cat, items, index, total, epoch) {
-        try {
-            if (!window.AndBridge || typeof window.AndBridge.onMediaLibBatch !== 'function') return;
-            var norm = (items || []).slice(0, 40).map(function (it) {
-                return {
-                    title: String((it && it.name) || '').slice(0, 120),
-                    subtitle: (Array.isArray(it && it.artists) ? it.artists.join(', ') : '').slice(0, 120),
-                    uri: String((it && it.id) || ''),
-                    image: String((it && it.image) || '').slice(0, 400)
-                };
-            });
-            window.AndBridge.onMediaLibBatch(JSON.stringify({
-                cat: String(cat),
-                items: norm,
-                i: index,
-                n: total,
-                epoch: epoch,
-                last: index + 1 >= total
-            }));
-        } catch (_) {}
-    }
-
-    function pushMediaLibToNative() {
-        try {
-            var lib = window.mediaLib;
-            if (!lib) return;
-            window.__sfLibPushEpoch = (window.__sfLibPushEpoch || 0) + 1;
-            var epoch = window.__sfLibPushEpoch;
-            LIB_PUSH_CATS.forEach(function (cat) {
-                var items = Array.isArray(lib[cat]) ? lib[cat] : [];
-                var total = Math.max(1, Math.ceil(items.length / LIB_PUSH_BATCH));
-                for (var i = 0; i < total; i += 1) {
-                    pushMediaLibBatch(cat, items.slice(i * LIB_PUSH_BATCH, (i + 1) * LIB_PUSH_BATCH), i, total, epoch);
-                }
-            });
-        } catch (_) {}
-    }
-    window.__sfPushMediaLibToNative = pushMediaLibToNative;
-
-    // Self-start: the page loads its library BY ITSELF, with timed retries —
-    // never waiting for a native request (that channel can be unreachable
-    // while JS->native keeps working). It runs even WITHOUT a token yet:
-    // checkMediaLib handles the wait and the pushes report the real state, so
-    // a device that never captures a Bearer header still resolves to an
-    // honest "Connecte-toi à Spotify" instead of an eternal loading row.
-    var libSelfLastAttempt = 0;
-    function libSelfStartTick() {
-        try {
-            if (window.__sfMediaLibState === 'ready' || window.__sfMediaLibState === 'empty') return;
-            var now = Date.now();
-            if (now - libSelfLastAttempt < 15000) return;
-            libSelfLastAttempt = now;
-            if (typeof window.checkMediaLib === 'function') window.checkMediaLib(true);
-        } catch (_) {}
-    }
-    window.__sfLibSelfStartTick = libSelfStartTick;
-    try {
-        setInterval(libSelfStartTick, 1500);
-    } catch (_) {}
-
-    // =========================================================================
-    // COMMAND QUEUE: the page polls AndBridge.pollCommands() and executes what
-    // comes back. This REPLACES native->JS (evaluateJavascript) for commands,
-    // which can be dead on a real device. Only whitelisted functions are ever
-    // called; the interval is short while commands are pending or the native
-    // UI is visible, longer otherwise.
-    // =========================================================================
-    var CMD_POLL_FAST = 400;
-    var CMD_POLL_BASE = 1200;
-    var CMD_POLL_SLOW = 4000;
-    var CMD_FNS = [
-        '__sfOpenCollection', '__sfOpenLibrary', '__sfOpenLibraryCategory',
-        'checkMediaLib', 'fetchMediaItems', 'searchMediaItems',
-        '__sfToggleSpotifySetting', '__sfRequestSpotifySettings',
-        '__sfRequestQueue', '__sfNativeRequestHome', '__sfNativeOpenUri',
-        '__sfSkip', '__sfToggleShuffle', '__sfToggleRepeat', '__sfTogglePlayback',
-        '__sfMarkUserPlaybackIntent', '__sfSeekFraction'
-    ];
-    var cmdPollBusy = 0;
-
-    function execCommand(cmd) {
-        try {
-            if (!cmd || typeof cmd !== 'object') return;
-            var fn = String(cmd.fn || '');
-            var arg = cmd.arg == null ? '' : String(cmd.arg);
-            if (CMD_FNS.indexOf(fn) < 0) return;
-            var target = window[fn];
-            if (typeof target === 'function') target(arg);
-        } catch (_) {}
-    }
-    window.__sfExecCommand = execCommand;
-
-    function pollCommandsTick() {
-        var delay = CMD_POLL_BASE;
-        try {
-            if (window.AndBridge && typeof window.AndBridge.pollCommands === 'function') {
-                var raw = window.AndBridge.pollCommands();
-                var res = (typeof raw === 'string' && raw) ? JSON.parse(raw) : null;
-                var cmds = res && Array.isArray(res.cmds) ? res.cmds : [];
-                var ui = res && res.ui ? String(res.ui) : '';
-                cmds.slice(0, 8).forEach(execCommand);
-                if (cmds.length) cmdPollBusy = 5;
-                if (cmdPollBusy > 0) {
-                    cmdPollBusy -= 1;
-                    delay = CMD_POLL_FAST;
-                } else if (ui || (typeof document === 'undefined' || document.visibilityState === 'visible')) {
-                    delay = CMD_POLL_BASE;
-                } else {
-                    delay = CMD_POLL_SLOW;
-                }
-            }
-        } catch (_) {}
-        try { setTimeout(pollCommandsTick, delay); } catch (_) {}
-    }
-    window.__sfPollCommandsTick = pollCommandsTick;
-    try {
-        setTimeout(pollCommandsTick, 600);
-    } catch (_) {}
-
     async function fetchAllLibrary() {
         if (!window.spotAuthToken || !window.spotAuthToken.startsWith('Bearer ')) {
             console.warn("[Spotifuck] fetchAllLibrary: Authorization token not ready.");
-            // A missing or malformed credential must surface as an explicit
-            // error, never as an empty library: the account may hold playlists.
-            const tokenError = new Error('token-not-ready');
-            tokenError.name = 'TokenError';
-            throw tokenError;
+            return [];
         }
         const limit = 50;
         let offset = 0;
         let allItems = [];
-        let rawItemCount = 0;
         let hasMore = true;
 
         while (hasMore && offset < 1000) {
@@ -4394,112 +3303,42 @@ try {
             if (window.spotCliToken) {
                 headers['Client-Token'] = window.spotCliToken;
             }
-            const fallbackHash = '0082bf82412db50128add72dbdb73e2961d59100b9cbf41fb25c568bd8bc358b';
-            const activeHash = getGqlHash('libraryV3', fallbackHash);
-            const hashCandidates = activeHash === fallbackHash
-                ? [fallbackHash]
-                : [activeHash, fallbackHash];
-            libDiagUpdate({ hashSource: activeHash === fallbackHash ? 'fallback' : 'dynamic' });
-            libDiagRecord('hash', true, activeHash === fallbackHash ? 'hash intégré' : 'hash capté + intégré');
-            let resp = null;
-            let data = null;
-            let gqlCodes = [];
-            for (const candidate of hashCandidates) {
-                const candidateLabel = candidate === fallbackHash ? 'fallback' : 'dynamic';
-                try {
-                    resp = await libFetch('https://api-partner.spotify.com/pathfinder/v2/query', {
-                        method: 'POST',
-                        mode: 'cors',
-                        credentials: 'include',
-                        headers: headers,
-                        body: JSON.stringify({
-                            variables: {
-                                filters: [],
-                                order: null,
-                                textFilter: '',
-                                features: ['LIKED_SONGS', 'YOUR_EPISODES_V2', 'PRERELEASES', 'EVENTS'],
-                                limit: limit,
-                                offset: offset,
-                                flatten: false,
-                                expandedFolders: [],
-                                folderUri: null,
-                                includeFoldersWhenFlattening: true
-                            },
-                            operationName: 'libraryV3',
-                            extensions: {
-                                persistedQuery: {
-                                    version: 1,
-                                    sha256Hash: candidate
-                                }
-                            }
-                        })
-                    });
-                } catch (networkErr) {
-                    // A network failure is its own category: record it and let
-                    // the caller classify it (never an empty library).
-                    libDiagAttempt({ candidate: candidateLabel, networkError: true });
-                    libDiagRecord('http', false, 'erreur réseau');
-                    throw networkErr;
-                }
-                if (resp.ok) {
-                    data = await resp.json();
-                    if (!data?.errors?.length) {
-                        libDiagAttempt({ candidate: candidateLabel, httpStatus: resp.status, gqlErrorCodes: [] });
-                        break;
+            const activeHash = getGqlHash('libraryV3', '0082bf82412db50128add72dbdb73e2961d59100b9cbf41fb25c568bd8bc358b');
+            const resp = await oriFetch('https://api-partner.spotify.com/pathfinder/v2/query', {
+                method: 'POST',
+                mode: 'cors',
+                credentials: 'include',
+                headers: headers,
+                body: JSON.stringify({
+                    variables: {
+                        filters: [],
+                        order: null,
+                        textFilter: '',
+                        features: ['LIKED_SONGS', 'YOUR_EPISODES_V2', 'PRERELEASES', 'EVENTS'],
+                        limit: limit,
+                        offset: offset,
+                        flatten: false,
+                        expandedFolders: [],
+                        folderUri: null,
+                        includeFoldersWhenFlattening: true
+                    },
+                    operationName: 'libraryV3',
+                    extensions: {
+                        persistedQuery: {
+                            version: 1,
+                            sha256Hash: activeHash
+                        }
                     }
-                    gqlCodes = libDiagGqlCodes(data.errors);
-                    libDiagAttempt({ candidate: candidateLabel, httpStatus: resp.status, gqlErrorCodes: gqlCodes });
-                    data = null;
-                } else {
-                    libDiagAttempt({ candidate: candidateLabel, httpStatus: resp.status, gqlErrorCodes: [] });
-                }
+                })
+            });
+
+            if (!resp.ok) {
+                console.error("Pathfinder query failed: ", resp.statusText);
+                break;
             }
 
-            // A failed request must surface as an error, never as an empty
-            // library: "no playlist" and "could not load" need different UI.
-            if (!resp || !resp.ok || !data) {
-                logBridgeError('pathfinder', { name: 'HttpError', message: String((resp && resp.status) || '') });
-                const httpError = new Error('HTTP ' + String((resp && resp.status) || '0') + (gqlCodes.length ? ' ' + gqlCodes.join(',') : ''));
-                httpError.name = 'HttpError';
-                if (gqlCodes.length) httpError.name = 'GraphQLError';
-                throw httpError;
-            }
-
-            // Validate the real response shape before trusting it. libraryV3
-            // is an undocumented internal operation: an unrecognized structure
-            // is a distinct failure ("shape-mismatch"), never a silently empty
-            // library. `me: null` means the session was not recognized.
-            const dataRoot = data && data.data;
-            const meNode = dataRoot ? dataRoot.me : undefined;
-            if (dataRoot && meNode === null) {
-                libDiagPatchLastAttempt({ shape: 'me-null' });
-                libDiagRecord('shape', false, 'me=null');
-                const sessionError = new Error('libraryV3-me-null');
-                sessionError.name = 'ShapeError';
-                throw sessionError;
-            }
-            const libNode = meNode && meNode.libraryV3;
-            // The undocumented payload has moved between "items" and
-            // "edges[].node" over time. Accept both without inventing data:
-            // an unrecognized structure is still a distinct "shape-mismatch"
-            // failure, never a silently empty library.
-            let items = null;
-            if (libNode && Array.isArray(libNode.items)) {
-                items = libNode.items;
-            } else if (libNode && Array.isArray(libNode.edges)) {
-                items = libNode.edges.map((edge) => (edge && edge.node) || null);
-            }
-            if (!items) {
-                libDiagPatchLastAttempt({ shape: 'mismatch' });
-                libDiagRecord('shape', false, 'structure inattendue');
-                const shapeError = new Error('libraryV3-shape-unexpected');
-                shapeError.name = 'ShapeError';
-                throw shapeError;
-            }
-            libDiagPatchLastAttempt({ shape: 'ok', items: items.length });
-            libDiagRecord('shape', true, 'items=' + items.length);
-            rawItemCount += items.length;
-            libDiagUpdate({ itemsTotal: rawItemCount });
+            const data = await resp.json();
+            const items = data?.data?.me?.libraryV3?.items || [];
             allItems = allItems.concat(items);
 
             if (items.length < limit) {
@@ -4512,124 +3351,34 @@ try {
     }
     window.fetchAllLibrary = fetchAllLibrary;
 
-    // Short stable fingerprint of a media id/URI so two reports can be
-    // compared without ever exporting the identifier itself (§6 sample).
-    function libDiagIdFingerprint(value) {
-        var text = String(value || '');
-        var hash = 0x811c9dc5;
-        for (var i = 0; i < text.length; i += 1) {
-            hash ^= text.charCodeAt(i);
-            hash = (hash + ((hash << 1) + (hash << 4) + (hash << 7) + (hash << 8) + (hash << 24))) >>> 0;
-        }
-        return ('0000000' + hash.toString(16)).slice(-8);
-    }
-
     function parseLibrary(items) {
         const res = { playlists: [], albums: [], artists: [], podcasts: [] };
-        let skippedItems = 0;
-        let incompleteItems = 0;
-        let duplicates = 0;
-        let rejectedNoData = 0;
-        let rejectedNoUri = 0;
-        let rejectedUnknownType = 0;
-        const sample = [];
         if (!Array.isArray(items)) return res;
 
-        // The real libraryV3 payload wraps items at varying depths
-        // (item.data, item.data.data, data, data.data...). Resolve the first
-        // node that actually looks like a media object: it must carry a
-        // spotify: URI or a name. Nothing is invented: only fields that
-        // really exist are read.
-        function unwrapItemData(elem) {
-            const chain = [
-                elem?.itemV2?.data?.data,
-                elem?.itemV2?.data,
-                elem?.itemV2,
-                elem?.item?.data?.data,
-                elem?.item?.data,
-                elem?.item,
-                elem?.node?.data?.data,
-                elem?.node?.data,
-                elem?.node,
-                elem?.data?.data,
-                elem?.data,
-                elem
-            ];
-            for (const node of chain) {
-                if (!node || typeof node !== 'object') continue;
-                const nodeUri = node.uri || node._uri;
-                if (typeof nodeUri === 'string' && nodeUri.indexOf('spotify:') === 0) return node;
-                if (node.name || node.title || node.profile?.name) return node;
-            }
-            return chain.find(n => n && typeof n === 'object') || null;
-        }
-
-        function walkImage(node) {
-            if (!node || typeof node !== 'object') return null;
-            const direct =
-                node.images?.items?.[0]?.sources?.[0]?.url ||
-                node.images?.items?.[0]?.url ||
-                node.images?.[0]?.url ||
-                node.coverArt?.sources?.[0]?.url ||
-                node.visuals?.avatarImage?.sources?.[0]?.url ||
-                node.visuals?.squareImage?.sources?.[0]?.url ||
-                node.visuals?.mainImage?.sources?.[0]?.url ||
-                node.visuals?.headerImage?.sources?.[0]?.url ||
-                null;
-            return direct;
-        }
-
         items.forEach((elem) => {
-            const data = unwrapItemData(elem);
-            if (!data) {
-                skippedItems += 1;
-                rejectedNoData += 1;
-                return;
-            }
-            const typename = data.__typename || data.type || elem?.item?.__typename || '';
+            const data = elem?.item?.data || elem?.data || elem?.item || elem;
+            if (!data) return;
+            const typename = data.__typename || data.type || '';
             const uri = data.uri || data._uri || (data.id ? 'spotify:' + typename.toLowerCase() + ':' + data.id : '') || '';
             const name = data.name || data.title || data.profile?.name || 'Unknown';
-            const image = walkImage(data) || walkImage(elem?.item?.data) || walkImage(elem?.item);
+            const image = data.images?.items?.[0]?.sources?.[0]?.url || data.images?.[0]?.url || data.coverArt?.sources?.[0]?.url || data.visuals?.avatarImage?.sources?.[0]?.url || null;
 
-            if (!uri) {
-                skippedItems += 1;
-                rejectedNoUri += 1;
-                return;
-            }
-
-            const hasName = name !== 'Unknown';
-            const idFp = libDiagIdFingerprint(uri);
-            const structureSample = {
-                idFp: idFp,
-                type: String(typename).slice(0, 24),
-                browsable: true,
-                hasUri: true,
-                hasName: hasName,
-                hasImage: !!image
-            };
-            const incomplete = !hasName || !image;
+            if (!uri) return;
 
             if (typename.includes('Playlist') || uri.includes(':playlist:')) {
                 const isLiked = name === 'Liked Songs' || uri.includes('collection');
                 if (isLiked) {
-                    if (res.playlists.some(p => p.name === 'Liked Songs' || p.id.includes('collection'))) {
-                        duplicates += 1;
-                        return;
-                    }
+                    if (res.playlists.some(p => p.name === 'Liked Songs' || p.id.includes('collection'))) return;
                 } else if (res.playlists.some(p => p.id === uri)) {
-                    duplicates += 1;
                     return;
                 }
-                if (incomplete) incompleteItems += 1;
                 res.playlists.push({
                     id: isLiked ? 'spotify:collection:tracks' : uri,
                     name: name,
                     image: isLiked ? 'https://misc.scdn.co/liked-songs/liked-songs-640.png' : image,
                     browsable: true
                 });
-                if (sample.length < 5) sample.push(Object.assign({ category: 'playlist' }, structureSample));
             } else if (typename.includes('Album') || uri.includes(':album:')) {
-                if (incomplete) incompleteItems += 1;
                 res.albums.push({
                     id: uri,
                     name: name,
@@ -4637,18 +3386,14 @@ try {
                     artists: data.artists?.items?.map(a => a.profile?.name).filter(Boolean) || [],
                     browsable: true
                 });
-                if (sample.length < 5) sample.push(Object.assign({ category: 'album' }, structureSample));
             } else if (typename.includes('Artist') || uri.includes(':artist:')) {
-                if (incomplete) incompleteItems += 1;
                 res.artists.push({
                     id: uri,
                     name: name,
                     image: image,
                     browsable: true
                 });
-                if (sample.length < 5) sample.push(Object.assign({ category: 'artist' }, structureSample));
             } else if (typename.includes('Podcast') || typename.includes('Show') || uri.includes(':show:')) {
-                if (incomplete) incompleteItems += 1;
                 res.podcasts.push({
                     id: uri,
                     name: name,
@@ -4656,30 +3401,9 @@ try {
                     artists: data.publisher?.name ? [data.publisher.name] : [],
                     browsable: true
                 });
-                if (sample.length < 5) sample.push(Object.assign({ category: 'podcast' }, structureSample));
-            } else {
-                // A valid URI that matches no known category is a distinct
-                // rejection reason ("unknown type"), never a silent drop.
-                skippedItems += 1;
-                rejectedUnknownType += 1;
             }
         });
         console.log(`[Spotifuck] parseLibrary parsed ${res.playlists.length} playlists, ${res.albums.length} albums, ${res.artists.length} artists, ${res.podcasts.length} podcasts`);
-        libDiagUpdate({
-            parsed: {
-                playlists: res.playlists.length,
-                albums: res.albums.length,
-                artists: res.artists.length,
-                podcasts: res.podcasts.length,
-                skipped: skippedItems,
-                incomplete: incompleteItems,
-                duplicates: duplicates,
-                rejectedNoData: rejectedNoData,
-                rejectedNoUri: rejectedNoUri,
-                rejectedUnknownType: rejectedUnknownType,
-                sample: sample
-            }
-        });
         return res;
     }
     window.parseLibrary = parseLibrary;
@@ -4699,96 +3423,34 @@ try {
         }
     }
 
-    // Emit + trace in one place (§7/§10): every onMediaItemsLoaded call carries
-    // an observed outcome (status, source, item count, payload bytes).
-    function libDiagEmitMediaItems(parentId, payload, status, source) {
-        try {
-            var channel = typeof parentId === 'string' && (parentId === 'playlists' || parentId === 'albums' || parentId === 'artists' || parentId === 'podcasts')
-                ? 'root'
-                : typeof parentId === 'string' && parentId.indexOf('collection') >= 0
-                    ? 'liked'
-                    : typeof parentId === 'string' && parentId.indexOf(':playlist:') >= 0
-                        ? 'playlist'
-                        : 'other';
-            var n = 0;
-            try { n = JSON.parse(payload).length; } catch (_) {}
-            libDiagOpening({ parent: parentId, channel: channel, status: status, source: source, items: n, emitBytes: String(payload).length });
-        } catch (_) {}
-        AndBridge.onMediaItemsLoaded(parentId, payload);
-    }
-
     async function fetchMediaItems(parentId) {
         try {
-            const openChannel = typeof parentId === 'string' && (parentId === 'playlists' || parentId === 'albums' || parentId === 'artists' || parentId === 'podcasts')
-                ? 'root'
-                : typeof parentId === 'string' && parentId.indexOf('collection') >= 0
-                    ? 'liked'
-                    : typeof parentId === 'string' && parentId.indexOf(':playlist:') >= 0
-                        ? 'playlist'
-                        : 'other';
             if (window.__sfMediaItemsCache && window.__sfMediaItemsCache.has(parentId)) {
                 const cachedTracks = window.__sfMediaItemsCache.get(parentId);
                 rememberCurrentTracks(parentId, cachedTracks);
-                const cachedPayload = JSON.stringify(cachedTracks);
-                libDiagOpening({ parent: parentId, channel: openChannel, status: 'cached', source: 'cache', items: cachedTracks.length, emitBytes: cachedPayload.length });
-                AndBridge.onMediaItemsLoaded(parentId, cachedPayload);
+                AndBridge.onMediaItemsLoaded(parentId, JSON.stringify(cachedTracks));
                 return;
             }
             await ensureAuthToken();
             // 1. Root categories (playlists, albums, artists, podcasts)
             if (parentId === 'playlists' || parentId === 'albums' || parentId === 'artists' || parentId === 'podcasts') {
                 if (!window.mediaLib || !window.mediaLib[parentId]?.length) {
-                    // This caller answers its own request through the state
-                    // checks below (exactly one honest status row). The shared
-                    // queue is only for callers that cannot answer themselves.
-                    window.pendingMediaRequests.delete(parentId);
+                    window.pendingMediaRequests.add(parentId);
                     await checkMediaLib();
                 }
-                const libState = (window.mediaLib && window.mediaLib.state) || window.__sfMediaLibState || 'pending';
-                const categoryItems = (window.mediaLib && Array.isArray(window.mediaLib[parentId])) ? window.mediaLib[parentId] : null;
-                if (categoryItems && categoryItems.length > 0) {
-                    const items = categoryItems.map(item => {
+                if (window.mediaLib && window.mediaLib[parentId]) {
+                    window.pendingMediaRequests.delete(parentId);
+                    const items = window.mediaLib[parentId].map(item => {
                         let img = item.image;
                         if (item.name === 'Liked Songs' || (item.id && (item.id.includes('collection') || item.id === 'spotify:playlist:liked'))) {
                             img = 'https://misc.scdn.co/liked-songs/liked-songs-640.png';
                         }
                         return { ...item, image: img, isGrid: true };
                     });
-                    const loadedPayload = JSON.stringify(items);
-                    libDiagOpening({ parent: parentId, channel: openChannel, status: 'loaded', source: 'state', items: items.length, emitBytes: loadedPayload.length });
-                    AndBridge.onMediaItemsLoaded(parentId, loadedPayload);
+                    AndBridge.onMediaItemsLoaded(parentId, JSON.stringify(items));
                     return;
                 }
-                if (categoryItems && categoryItems.length === 0 && (libState === 'ready' || libState === 'empty')) {
-                    // Truly empty account: honest empty state, never an error.
-                    libDiagOpening({ parent: parentId, channel: openChannel, status: 'empty', source: 'state', items: 0, emitBytes: 2 });
-                    AndBridge.onMediaItemsLoaded(parentId, "[]");
-                    mediaItemsStatusRow('empty', parentId);
-                    return;
-                }
-                if (window.__sfAuthMissing === true) {
-                    // No session after a real token check: say so. Never an
-                    // eternal loading row and never a fake empty library.
-                    libDiagOpening({ parent: parentId, channel: openChannel, status: 'login', source: 'none', items: 0, emitBytes: 2 });
-                    AndBridge.onMediaItemsLoaded(parentId, "[]");
-                    mediaItemsStatusRow('login', parentId);
-                    return;
-                }
-                if (libState === 'error') {
-                    // A failed fetch is never an empty library.
-                    libDiagOpening({ parent: parentId, channel: openChannel, status: 'error', source: 'none', items: 0, emitBytes: 2 });
-                    AndBridge.onMediaItemsLoaded(parentId, "[]");
-                    mediaItemsStatusRow('error', parentId, window.__sfMediaLibError || window.__sfLibError);
-                    return;
-                }
-                // Still genuinely pending (a run is in flight): queue the
-                // request and let THAT run answer it. Sending a loading status
-                // row here used to disarm the native watchdog and overwrite
-                // the cached library rows with a transient row, which made the
-                // loading state eternal on the Library tab.
                 console.log("[Spotifuck] fetchMediaItems: mediaLib not ready yet for " + parentId + ". Queued in pendingMediaRequests.");
-                libDiagOpening({ parent: parentId, channel: openChannel, status: 'queue', source: 'none', items: 0, emitBytes: 0 });
-                window.pendingMediaRequests.add(parentId);
                 return;
             }
 
@@ -4813,7 +3475,7 @@ try {
                 if (window.spotCliToken) {
                     headers['Client-Token'] = window.spotCliToken;
                 }
-                const resp = await libFetch('https://api-partner.spotify.com/pathfinder/v2/query', {
+                const resp = await oriFetch('https://api-partner.spotify.com/pathfinder/v2/query', {
                     method: 'POST',
                     mode: 'cors',
                     credentials: 'include',
@@ -4861,7 +3523,7 @@ try {
                     }
                 }
             } catch (e) {
-                logBridgeError('fetchLibraryTracks', e);
+                console.error("[Spotifuck] fetchLibraryTracks fetch failed:", e);
             }
 
             return window.likedSongsCache || [];
@@ -4873,88 +3535,44 @@ try {
             const tracks = await getLikedSongsTracks();
             rememberCurrentTracks(parentId, tracks);
             console.log(`[Spotifuck] Returning ${tracks.length} Liked Songs tracks to Android Auto for ${parentId}`);
-            libDiagEmitMediaItems(parentId, JSON.stringify(tracks), tracks.length > 0 ? 'loaded' : 'empty', 'network');
+            AndBridge.onMediaItemsLoaded(parentId, JSON.stringify(tracks));
             return;
         }
 
             // 3. Specific Playlist tracks (using GQL fetchPlaylist)
             if (parentId.startsWith('spotify:playlist:') || (parentId.includes(':user:') && parentId.includes(':playlist:'))) {
-                const fallbackPlaylistHash = '346811f856fb0b7e4f6c59f8ebea78dd081c6e2fb01b77c954b26259d5fc6763';
-                const playlistHashCandidates = [];
-                const capturedPlaylistHash = getGqlHash('fetchPlaylist', fallbackPlaylistHash);
-                if (/^[a-f0-9]{64}$/i.test(capturedPlaylistHash) && playlistHashCandidates.indexOf(capturedPlaylistHash) < 0) {
-                    playlistHashCandidates.push(capturedPlaylistHash);
-                }
-                if (playlistHashCandidates.indexOf(fallbackPlaylistHash) < 0) playlistHashCandidates.push(fallbackPlaylistHash);
-                let playlistData = null;
-                let playlistError = null;
-                for (let i = 0; i < playlistHashCandidates.length; i++) {
-                    try {
-                        const resp = await libFetch('https://api-partner.spotify.com/pathfinder/v2/query', {
-                            method: 'POST',
-                            mode: 'cors',
-                            credentials: 'include',
-                            headers: {
-                                'Authorization': window.spotAuthToken,
-                                'Client-Token': window.spotCliToken || '',
-                                'Content-Type': 'application/json;charset=UTF-8',
-                                'app-platform': 'WebPlayer',
-                                'spotify-app-version': '1.2.40.0'
-                            },
-                            body: JSON.stringify({
-                                variables: {
-                                    uri: parentId,
-                                    offset: 0,
-                                    limit: 80,
-                                    enableWatchFeedEntrypoint: false
-                                },
-                                operationName: 'fetchPlaylist',
-                                extensions: {
-                                    persistedQuery: {
-                                        version: 1,
-                                        sha256Hash: playlistHashCandidates[i]
-                                    }
-                                }
-                            })
-                        });
-                        if (!resp || !resp.ok) {
-                            const httpError = new Error("Failed to fetch playlist tracks GQL: " + (resp ? resp.statusText : 'no response'));
-                            httpError.name = 'HttpError';
-                            httpError.status = resp ? resp.status : 0;
-                            throw httpError;
+                const resp = await oriFetch('https://api-partner.spotify.com/pathfinder/v2/query', {
+                    method: 'POST',
+                    mode: 'cors',
+                    credentials: 'include',
+                    headers: {
+                        'Authorization': window.spotAuthToken,
+                        'Client-Token': window.spotCliToken,
+                        'Content-Type': 'application/json;charset=UTF-8',
+                        'app-platform': 'WebPlayer',
+                        'spotify-app-version': '1.2.40.0'
+                    },
+                    body: JSON.stringify({
+                        variables: {
+                            uri: parentId,
+                            offset: 0,
+                            limit: 80,
+                            enableWatchFeedEntrypoint: false
+                        },
+                        operationName: 'fetchPlaylist',
+                        extensions: {
+                            persistedQuery: {
+                                version: 1,
+                                sha256Hash: getGqlHash('fetchPlaylist', '346811f856fb0b7e4f6c59f8ebea78dd081c6e2fb01b77c954b26259d5fc6763')
+                            }
                         }
-                        const payload = await resp.json();
-                        if (payload && payload.errors && payload.errors.length) {
-                            const gqlError = new Error('fetchPlaylist GraphQL rejected');
-                            gqlError.name = 'GraphQLError';
-                            gqlError.codes = payload.errors.map(e => String((e && e.message) || '')).join('|').slice(0, 120);
-                            throw gqlError;
-                        }
-                        if (!payload || !payload.data) {
-                            const shapeError = new Error('fetchPlaylist shape-unexpected: no data');
-                            shapeError.name = 'ShapeError';
-                            throw shapeError;
-                        }
-                        playlistData = payload.data;
-                        break;
-                    } catch (e) {
-                        playlistError = e;
-                    }
-                }
-                if (!playlistData) throw playlistError || new Error('fetchPlaylist failed');
-                const playlistObj = playlistData.playlistV2 || playlistData.playlist || playlistData.playlistUnion;
-                if (!playlistObj || typeof playlistObj !== 'object') {
-                    const shapeError = new Error('fetchPlaylist shape-unexpected: no playlist');
-                    shapeError.name = 'ShapeError';
-                    throw shapeError;
-                }
-                const content = playlistObj.content || playlistObj.tracks || playlistObj;
-                const items = content?.items || playlistObj.items || [];
-                if (!Array.isArray(items)) {
-                    const shapeError = new Error('fetchPlaylist shape-mismatch: items');
-                    shapeError.name = 'ShapeError';
-                    throw shapeError;
-                }
+                    })
+                });
+                if (!resp.ok) throw new Error("Failed to fetch playlist tracks GQL: " + resp.statusText);
+                const data = await resp.json();
+                const playlistObj = data?.data?.playlistV2 || data?.data?.playlist || data?.data?.playlistUnion || data?.data?.me?.library || data?.data?.me;
+                const content = playlistObj?.content || playlistObj?.tracks || playlistObj;
+                const items = content?.items || playlistObj?.items || [];
                 const tracks = items.map(elem => {
                     const itemV2 = elem?.itemV2 || elem?.item;
                     const trackData = itemV2?.data || elem?.track || itemV2 || elem;
@@ -4975,10 +3593,6 @@ try {
                 if (tracks.length > 0) window.__sfMediaItemsCache.set(parentId, tracks);
                 rememberCurrentTracks(parentId, tracks);
                 console.log(`[Spotifuck] fetchPlaylist parsed ${tracks.length} tracks for ${parentId}`);
-                // Historical contract (tab_isolation_regressions): success still
-                // delivers tracks through the literal native call; the opening
-                // trace is recorded just before it.
-                libDiagOpening({ parent: parentId, channel: 'playlist', status: tracks.length > 0 ? 'loaded' : 'empty', source: 'network', items: tracks.length, emitBytes: JSON.stringify(tracks).length });
                 AndBridge.onMediaItemsLoaded(parentId, JSON.stringify(tracks));
                 return;
             }
@@ -4986,7 +3600,7 @@ try {
             // 3. Specific Album tracks (using GQL getAlbum)
             if (parentId.startsWith('spotify:album:')) {
                 const albumId = parentId.split(':')[2];
-                const resp = await libFetch('https://api-partner.spotify.com/pathfinder/v2/query', {
+                const resp = await oriFetch('https://api-partner.spotify.com/pathfinder/v2/query', {
                     method: 'POST',
                     mode: 'cors',
                     credentials: 'include',
@@ -5035,14 +3649,14 @@ try {
                 if (tracks.length > 0) window.__sfMediaItemsCache.set(parentId, tracks);
                 rememberCurrentTracks(parentId, tracks);
                 console.log(`[Spotifuck] getAlbum parsed ${tracks.length} tracks for ${parentId}`);
-                libDiagEmitMediaItems(parentId, JSON.stringify(tracks), tracks.length > 0 ? 'loaded' : 'empty', 'network');
+                AndBridge.onMediaItemsLoaded(parentId, JSON.stringify(tracks));
                 return;
             }
 
             // 4. Specific Artist (fetch their top tracks using GQL queryArtistOverview)
             if (parentId.startsWith('spotify:artist:')) {
                 const artistId = parentId.split(':')[2];
-                const resp = await libFetch('https://api-partner.spotify.com/pathfinder/v2/query', {
+                const resp = await oriFetch('https://api-partner.spotify.com/pathfinder/v2/query', {
                     method: 'POST',
                     mode: 'cors',
                     credentials: 'include',
@@ -5090,7 +3704,7 @@ try {
                 if (tracks.length > 0) window.__sfMediaItemsCache.set(parentId, tracks);
                 rememberCurrentTracks(parentId, tracks);
                 console.log(`[Spotifuck] queryArtistOverview parsed ${tracks.length} tracks for ${parentId}`);
-                libDiagEmitMediaItems(parentId, JSON.stringify(tracks), tracks.length > 0 ? 'loaded' : 'empty', 'network');
+                AndBridge.onMediaItemsLoaded(parentId, JSON.stringify(tracks));
                 return;
             }
 
@@ -5115,80 +3729,17 @@ try {
                         browsable: false
                     };
                 });
-                libDiagEmitMediaItems(parentId, JSON.stringify(episodes), episodes.length > 0 ? 'loaded' : 'empty', 'network');
+                AndBridge.onMediaItemsLoaded(parentId, JSON.stringify(episodes));
                 return;
             }
 
-            // Fallback for unknown categories: distinct, honest state.
-            libDiagEmitMediaItems(parentId, "[]", 'blocked', 'none');
-            mediaItemsStatusRow('unsupported', parentId);
+            // Fallback for unknown categories
+            AndBridge.onMediaItemsLoaded(parentId, "[]");
         } catch (e) {
-            logBridgeError('fetchMediaItems', e);
-            window.__sfLibError = e;
-            libDiagEmitMediaItems(parentId, "[]", 'error', 'none');
-            mediaItemsStatusRow('error', parentId, e);
+            console.error("Error loading media items for " + parentId, e);
+            AndBridge.onMediaItemsLoaded(parentId, "[]");
         }
     }
-
-        // Honest per-screen status rows for the media/detail pipeline. They are
-        // pushed on the same 'media:<parentId>' channel the screen already
-        // renders, so the state lands on the concerned page only. Failures and
-        // empty libraries are distinct rows; errors carry a real retry sentinel
-        // handled by openNativeRow ("spotify:retry:media:" + parentId).
-        function mediaItemsStatusRow(kind, parentId, e) {
-            var row;
-            if (kind === 'loading') {
-                row = { title: 'Chargement des playlists…', section: 'Votre bibliothèque', kind: 'loading' };
-            } else if (kind === 'login') {
-                // No session after a real token check: ask for a login instead
-                // of loading forever or faking an empty library.
-                row = {
-                    title: 'Connecte-toi à Spotify',
-                    subtitle: 'Aucune session détectée — connectez-vous pour voir tes playlists',
-                    section: 'Votre bibliothèque',
-                    kind: 'login',
-                    actionUri: 'spotify:lib:login'
-                };
-            } else if (kind === 'empty') {
-                row = {
-                    title: parentId === 'playlists' ? 'Aucune playlist dans ce compte' : 'Aucun élément dans ce compte',
-                    subtitle: 'Créez-en un sur Spotify, puis réessayez',
-                    section: 'Votre bibliothèque',
-                    kind: 'empty'
-                };
-            } else if (kind === 'unsupported') {
-                row = {
-                    title: 'Catégorie non prise en charge',
-                    subtitle: 'Ce type de contenu ne peut pas être affiché ici',
-                    section: 'Détails'
-                };
-            } else {
-                var subtitle = 'Réponse inattendue — touchez pour réessayer';
-                var errName = String((e && (e.name || e.message)) || e || '');
-                if ((e && e.name === 'HttpError' && (e.status === 401 || e.status === 403)) || /401|403/.test(errName) && errName.indexOf('HttpError') >= 0) {
-                    subtitle = 'Accès refusé par Spotify — touchez pour réessayer';
-                } else if (errName === 'TypeError' || errName === 'NetworkError' || /network|fetch/i.test(errName)) {
-                    subtitle = 'Erreur réseau — touchez pour réessayer';
-                }
-                row = {
-                    title: 'Impossible de charger les titres',
-                    subtitle: subtitle,
-                    section: 'Détails',
-                    kind: 'error',
-                    uri: 'spotify:retry:media:' + parentId
-                };
-            }
-            if (kind === 'error' && (parentId === 'playlists' || parentId === 'albums' || parentId === 'artists' || parentId === 'podcasts')) {
-                row.title = 'Impossible de charger les playlists';
-                row.section = 'Votre bibliothèque';
-            }
-            if (kind === 'empty' || kind === 'error' || kind === 'loading') {
-                row.uri = row.uri || ('spotify:retry:media:' + parentId);
-            }
-            try {
-                AndBridge.onNativeUiData('media:' + parentId, JSON.stringify([row]));
-            } catch (_) {}
-        }
     window.fetchMediaItems = fetchMediaItems;
 
     window.__sfSearchCache = window.__sfSearchCache || new Map();
@@ -5258,7 +3809,7 @@ try {
                 })
             };
             if (abortController) fetchOpts.signal = abortController.signal;
-            const resp = await libFetch('https://api-partner.spotify.com/pathfinder/v2/query', fetchOpts);
+            const resp = await oriFetch('https://api-partner.spotify.com/pathfinder/v2/query', fetchOpts);
             if (!resp.ok) throw new Error("Failed to search GQL: " + resp.statusText);
             const data = await resp.json();
             const searchData = data?.data?.searchV2 || data?.data?.search;
@@ -5419,7 +3970,7 @@ try {
             AndBridge.onSearchCompleted(query, JSON.stringify(results));
         } catch (e) {
             if (e && e.name === 'AbortError') return;
-            logBridgeError('searchMediaItems', e);
+            console.error("Error searching for " + query, e);
             AndBridge.onSearchCompleted(query, "[]");
         }
     }
@@ -5447,16 +3998,7 @@ try {
         try {
             const url = new URL(href, window.location.href);
             if (url.origin !== window.location.origin) return false;
-            // Spotify may prefix app routes with a locale (/intl-fr/...): the
-            // resource type then lives ANYWHERE in the path, exactly like the
-            // shell's spotifyResourceUri (which collects those hrefs fine). The
-            // old ^/(type)/ anchor rejected every locale-prefixed href and left
-            // the home grid empty (homeRootPresent:false).
-            const parts = url.pathname.split('/').filter(Boolean);
-            if (parts.length && /^intl-[a-z]{2}(?:-[a-z]{2})?$/i.test(parts[0])) parts.shift();
-            const typeIndex = parts.findIndex((part) =>
-                ['playlist', 'album', 'artist', 'track', 'show', 'episode', 'audiobook'].indexOf(part) >= 0);
-            return typeIndex >= 0 && !!parts[typeIndex + 1];
+            return /^\/(playlist|album|artist|track|show|episode|audiobook)\/[^/]+/.test(url.pathname);
         } catch (_) {
             return false;
         }
@@ -5467,7 +4009,7 @@ try {
         const cardNodes = Array.from(mainView.querySelectorAll('[data-testid="card"]'));
         const candidates = cardNodes.length
             ? cardNodes
-            : Array.from(mainView.querySelectorAll('a[href]'));
+            : Array.from(mainView.querySelectorAll('a[href]')).filter((anchor) => anchor.querySelector('img'));
         const grouped = new Map();
         const seen = new Set();
 
@@ -5609,17 +4151,6 @@ try {
 
     function updateMelodixHome() {
         if (!document.body) return;
-        // Home display restoration — historical proven implementation (Preview
-        // test.19 / commit 552da05 "last-known-working"): the home screen shows
-        // the real Spotify web player (#main-view) with the account's own
-        // playlists rendered by Spotify itself. The custom replacement grid
-        // (#sf-melodix-home, which hides #main-view behind
-        // sf-melodix-home-active) is disarmed: replacing the real home feed is
-        // the layout change after which the user reports missing playlists.
-        // The collector and card helpers below remain as the proven fallback
-        // source but are no longer allowed to take over the home surface.
-        deactivateMelodixHome(true);
-        return;
         const mainView = document.querySelector('#main-view');
         const homePath = window.location.pathname.replace(/\/+$/, '') || '/';
         const isSpotifyHome = window.location.hostname === 'open.spotify.com' &&
@@ -5661,7 +4192,6 @@ try {
             home.className = 'sf-melodix-home';
             home.setAttribute('aria-label', 'Melodix');
             document.body.appendChild(home);
-            window.__sfBridgeLoadStage = 'home-initialized';
         }
 
         const globalNav = document.querySelector('#global-nav-bar');
@@ -5701,18 +4231,6 @@ try {
 
         window._sfMelodixHomeSignature = signature;
         document.body.classList.add('sf-melodix-home-active');
-
-        // Rendered state (vs requested / executed / data-received): how many
-        // cards this DOM update actually painted. The journal line is emitted
-        // only on the signature-change path (early return above), so it can
-        // never spam; stage labels and counts only, never card content.
-        const renderedCards = sections.reduce((count, section) => count + section.cards.length, 0);
-        window.__sfMelodixHomeRenderedCards = renderedCards;
-        try {
-            if (window.AndBridge && typeof window.AndBridge.logDiagEvent === 'function') {
-                window.AndBridge.logDiagEvent('home-render cards=' + renderedCards + ' sections=' + sections.length);
-            }
-        } catch (_) {}
     }
 
     function initializeMelodixHome() {
@@ -5782,9 +4300,7 @@ try {
 
         window.__sfEnsureMobileShell = ensure;
         if (document.readyState === 'loading') {
-            const start = ensure;
-        document.addEventListener('DOMContentLoaded', ensure, { once: true });
-        document.addEventListener('DOMContentLoaded', start, { once: true });
+            document.addEventListener('DOMContentLoaded', ensure, { once: true });
         } else {
             window.setTimeout(ensure, 0);
         }
@@ -5797,20 +4313,3 @@ try {
     firstFuck();
     window.__sfMelodixBridgeCompleted = true;
 })();
-} catch (e) {
-    window.__sfMelodixBridgeStarted = false;
-    var diagnostic = String(e && e.message || e || '');
-    diagnostic = diagnostic.replace(/Set-Cookie:\s*[^;\r\n]+/gi, 'Set-Cookie:[redacted]');
-    diagnostic = diagnostic.replace(/Cookie:\s*[^\r\n]+/gi, 'Cookie:[redacted]');
-    diagnostic = diagnostic.replace(/Authorization:\s+\S+(?:\s+\S+)?/gi, 'Authorization:[redacted]');
-    diagnostic = diagnostic.replace(/Bearer\s+\S+/gi, 'Bearer [redacted]');
-    diagnostic = diagnostic.replace(/\b(?:access_token|refresh_token|id_token|client_secret|code|sp_dc|sp_key|sessionid)=[^&\s;]+/gi, function(match) {
-        return match.slice(0, match.indexOf('=') + 1) + '[redacted]';
-    });
-    diagnostic = diagnostic.replace(/spotify:user:[^\s,;]+/gi, 'spotify:user:[redacted]');
-    diagnostic = diagnostic.replace(/[A-Za-z0-9_-]{8,}\.[A-Za-z0-9._-]{8,}\.[A-Za-z0-9._-]{8,}/g, '[redacted-jwt]');
-    window.__sfBridgeLastError = ('iife-throw:' + diagnostic).slice(0, 160);
-    if (window.__sfBridgeEntered !== true) {
-        window.__sfBridgeLoadStage = 'iife-throw';
-    }
-}

@@ -4,40 +4,6 @@
 .method public static create(Lcom/melodix/music/MainActivity;Lorg/json/JSONObject;)Landroid/widget/LinearLayout;
     .locals 12
 
-    # Home and the library browse grids get real cards; track lists and search
-    # results keep the flat Spotify row style. A failing card build must never
-    # lose the row: it falls back to the proven flat Spotify row instead.
-    sget-boolean v0, Lcom/melodix/music/NativeHomeFeed;->useGrid:Z
-    if-eqz v0, :native_row_list_mode
-
-    :try_start_tile
-    invoke-static {p0, p1}, Lcom/melodix/music/NativeUiRowFactory;->createTile(Lcom/melodix/music/MainActivity;Lorg/json/JSONObject;)Landroid/widget/LinearLayout;
-    move-result-object v0
-    :try_end_tile
-    .catch Ljava/lang/Throwable; {:try_start_tile .. :try_end_tile} :catch_tile
-    return-object v0
-
-    :catch_tile
-    move-exception v0
-    # Name the failure in logcat (NativeCrashGuard:E is captured by the
-    # emulator run) instead of losing the whole screen silently.
-    new-instance v1, Ljava/lang/StringBuilder;
-    invoke-direct {v1}, Ljava/lang/StringBuilder;-><init>()V
-    const-string v2, "createTile fallback: "
-    invoke-virtual {v1, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
-    invoke-virtual {v0}, Ljava/lang/Object;->getClass()Ljava/lang/Class;
-    move-result-object v2
-    invoke-virtual {v2}, Ljava/lang/Class;->getName()Ljava/lang/String;
-    move-result-object v2
-    invoke-virtual {v1, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
-    invoke-virtual {v1}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
-    move-result-object v1
-    const-string v2, "NativeCrashGuard"
-    invoke-static {v2, v1}, Landroid/util/Log;->e(Ljava/lang/String;Ljava/lang/String;)I
-    invoke-static {v0}, Lcom/melodix/music/NativeCrashGuard;->record(Ljava/lang/Throwable;)V
-    goto :native_row_list_mode
-
-    :native_row_list_mode
     const-string v0, "title"
     const-string v1, ""
     invoke-virtual {p1, v0, v1}, Lorg/json/JSONObject;->optString(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;
@@ -58,7 +24,9 @@
     :native_row_title_ready
     invoke-virtual {v6}, Ljava/lang/String;->isEmpty()Z
     move-result v0
-    if-eqz v0, :native_row_read_subtitle
+    if-eqz v0, :native_row_default_title
+    goto :native_row_read_subtitle
+    :native_row_default_title
     const-string v6, "Untitled"
 
     :native_row_read_subtitle
@@ -103,10 +71,10 @@
     move-result-object v10
     invoke-virtual {v10}, Ljava/lang/String;->isEmpty()Z
     move-result v11
-    if-nez v11, :native_artists_next
+    if-eqz v11, :native_artists_next
     invoke-virtual {v4}, Ljava/lang/StringBuilder;->length()I
     move-result v11
-    if-eqz v11, :native_artists_append
+    if-lez v11, :native_artists_append
     const-string v11, ", "
     invoke-virtual {v4, v11}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
     :native_artists_append
@@ -124,10 +92,10 @@
     move-result-object v10
     invoke-virtual {v10}, Ljava/lang/String;->isEmpty()Z
     move-result v0
-    if-nez v0, :native_row_section_done
+    if-eqz v0, :native_row_section_done
     invoke-virtual {v7}, Ljava/lang/String;->isEmpty()Z
     move-result v0
-    if-eqz v0, :native_row_section_done
+    if-nez v0, :native_row_section_done
     move-object v7, v10
 
     :native_row_section_done
@@ -146,20 +114,11 @@
     const-string v0, "href"
     invoke-virtual {p1, v0, v1}, Lorg/json/JSONObject;->optString(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;
     move-result-object v8
-    invoke-virtual {v8}, Ljava/lang/String;->isEmpty()Z
-    move-result v0
-    if-eqz v0, :native_row_uri_done
-    # Status rows (loading/empty/error) carry their retry target in actionUri
-    # (e.g. spotify:retry:media:playlists): keep it clickable so the retry
-    # handler in MainActivity.openNativeRow can run.
-    const-string v0, "actionUri"
-    invoke-virtual {p1, v0, v1}, Lorg/json/JSONObject;->optString(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;
-    move-result-object v8
 
     :native_row_uri_done
     invoke-virtual {v7}, Ljava/lang/String;->isEmpty()Z
     move-result v0
-    if-eqz v0, :native_row_read_image
+    if-nez v0, :native_row_read_image
     const-string v0, ":track:"
     invoke-virtual {v8, v0}, Ljava/lang/String;->contains(Ljava/lang/CharSequence;)Z
     move-result v0
@@ -193,15 +152,15 @@
     const/16 v1, 0x10
     invoke-virtual {v0, v1}, Landroid/widget/LinearLayout;->setGravity(I)V
 
-    const/16 v1, 0x10
+    const/16 v1, 0xc
     invoke-static {p0, v1}, Lcom/melodix/music/NativeUiRowFactory;->dp(Landroid/content/Context;I)I
     move-result v1
-    const/16 v5, 0xa
+    const/4 v5, 0x6
     invoke-static {p0, v5}, Lcom/melodix/music/NativeUiRowFactory;->dp(Landroid/content/Context;I)I
     move-result v5
     const/4 v10, 0x0
     invoke-virtual {v0, v1, v5, v1, v10}, Landroid/view/View;->setPadding(IIII)V
-    const/16 v1, 0x64
+    const/16 v1, 0x3c
     invoke-static {p0, v1}, Lcom/melodix/music/NativeUiRowFactory;->dp(Landroid/content/Context;I)I
     move-result v1
     invoke-virtual {v0, v1}, Landroid/view/View;->setMinimumHeight(I)V
@@ -214,7 +173,7 @@
     invoke-direct {v10}, Landroid/graphics/drawable/GradientDrawable;-><init>()V
     const v11, -0xe0e0e1
     invoke-virtual {v10, v11}, Landroid/graphics/drawable/GradientDrawable;->setColor(I)V
-    const/16 v11, 0x8
+    const/4 v11, 0x4
     invoke-static {p0, v11}, Lcom/melodix/music/NativeUiRowFactory;->dp(Landroid/content/Context;I)I
     move-result v11
     int-to-float v11, v11
@@ -222,15 +181,12 @@
     invoke-virtual {v1, v10}, Landroid/view/View;->setBackground(Landroid/graphics/drawable/Drawable;)V
     const/4 v10, 0x1
     invoke-virtual {v1, v10}, Landroid/view/View;->setClipToOutline(Z)V
-    const/4 v10, 0x0
-    invoke-virtual {v1, v10}, Landroid/view/View;->setClickable(Z)V
-    invoke-virtual {v1, v10}, Landroid/view/View;->setFocusable(Z)V
     # Neutral note instead of the app logo while a cover loads.
     const-string v10, "native_cover_placeholder"
     invoke-static {p0, v1, v10}, Lcom/melodix/music/NativeUiRowFactory;->applyDrawableImage(Landroid/content/Context;Landroid/widget/ImageView;Ljava/lang/String;)V
     invoke-virtual {v1, v6}, Landroid/view/View;->setContentDescription(Ljava/lang/CharSequence;)V
     new-instance v5, Landroid/widget/LinearLayout$LayoutParams;
-    const/16 v10, 0x58
+    const/16 v10, 0x30
     invoke-static {p0, v10}, Lcom/melodix/music/NativeUiRowFactory;->dp(Landroid/content/Context;I)I
     move-result v10
     invoke-direct {v5, v10, v10}, Landroid/widget/LinearLayout$LayoutParams;-><init>(II)V
@@ -242,7 +198,7 @@
 
     invoke-virtual {v9}, Ljava/lang/String;->isEmpty()Z
     move-result v10
-    if-nez v10, :native_row_text_column
+    if-eqz v10, :native_row_text_column
     const/16 v10, 0xb0
     invoke-static {v1, v9, v10}, Lcom/melodix/music/NativeImageLoader;->load(Landroid/widget/ImageView;Ljava/lang/String;I)V
 
@@ -257,7 +213,7 @@
     new-instance v3, Landroid/widget/TextView;
     invoke-direct {v3, p0}, Landroid/widget/TextView;-><init>(Landroid/content/Context;)V
     invoke-virtual {v3, v6}, Landroid/widget/TextView;->setText(Ljava/lang/CharSequence;)V
-    const/high16 v10, 0x41900000
+    const/high16 v10, 0x41700000
     invoke-virtual {v3, v10}, Landroid/widget/TextView;->setTextSize(F)V
     const v10, -0x1
     invoke-virtual {v3, v10}, Landroid/widget/TextView;->setTextColor(I)V
@@ -312,8 +268,6 @@
     iput v10, v11, Landroid/view/ViewGroup$MarginLayoutParams;->bottomMargin:I
     invoke-virtual {v0, v11}, Landroid/view/View;->setLayoutParams(Landroid/view/ViewGroup$LayoutParams;)V
 
-    const/high16 v10, 0x60000
-    invoke-virtual {v0, v10}, Landroid/view/ViewGroup;->setDescendantFocusability(I)V
     const/4 v10, 0x1
     invoke-virtual {v0, v10}, Landroid/view/View;->setClickable(Z)V
     invoke-virtual {v0, v10}, Landroid/view/View;->setFocusable(Z)V
@@ -325,7 +279,7 @@
     invoke-virtual {v11, v6}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
     invoke-virtual {v7}, Ljava/lang/String;->isEmpty()Z
     move-result v10
-    if-nez v10, :native_row_accessibility_ready
+    if-eqz v10, :native_row_accessibility_ready
     const-string v10, ", "
     invoke-virtual {v11, v10}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
     invoke-virtual {v11, v7}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
@@ -333,201 +287,14 @@
     invoke-virtual {v11}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
     move-result-object v11
     invoke-virtual {v0, v11}, Landroid/view/View;->setContentDescription(Ljava/lang/CharSequence;)V
+    invoke-virtual {v8}, Ljava/lang/String;->isEmpty()Z
+    move-result v10
+    if-eqz v10, :native_row_return
     new-instance v10, Lcom/melodix/music/NativeRowClickListener;
     invoke-direct {v10, p0, v8, v6}, Lcom/melodix/music/NativeRowClickListener;-><init>(Lcom/melodix/music/MainActivity;Ljava/lang/String;Ljava/lang/String;)V
     invoke-virtual {v0, v10}, Landroid/view/View;->setOnClickListener(Landroid/view/View$OnClickListener;)V
 
     :native_row_return
-    return-object v0
-.end method
-
-.method public static createTile(Lcom/melodix/music/MainActivity;Lorg/json/JSONObject;)Landroid/widget/LinearLayout;
-    .locals 10
-
-    # Compact playlist/album card: rounded surface, large cover, 2-line title,
-    # 1-line subtitle — the home and library grid language.
-    const-string v0, "title"
-    const-string v1, ""
-    invoke-virtual {p1, v0, v1}, Lorg/json/JSONObject;->optString(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;
-    move-result-object v2
-    invoke-virtual {v2}, Ljava/lang/String;->isEmpty()Z
-    move-result v0
-    if-eqz v0, :tile_title_ready
-    const-string v0, "name"
-    invoke-virtual {p1, v0, v1}, Lorg/json/JSONObject;->optString(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;
-    move-result-object v2
-
-    :tile_title_ready
-    const-string v0, "subtitle"
-    invoke-virtual {p1, v0, v1}, Lorg/json/JSONObject;->optString(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;
-    move-result-object v3
-    invoke-virtual {v3}, Ljava/lang/String;->isEmpty()Z
-    move-result v0
-    if-eqz v0, :tile_sub_ready
-    const-string v0, "artist"
-    invoke-virtual {p1, v0, v1}, Lorg/json/JSONObject;->optString(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;
-    move-result-object v3
-
-    :tile_sub_ready
-    const-string v0, "image"
-    invoke-virtual {p1, v0, v1}, Lorg/json/JSONObject;->optString(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;
-    move-result-object v4
-    invoke-virtual {v4}, Ljava/lang/String;->isEmpty()Z
-    move-result v0
-    if-eqz v0, :tile_image_ready
-    const-string v0, "cover"
-    invoke-virtual {p1, v0, v1}, Lorg/json/JSONObject;->optString(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;
-    move-result-object v4
-
-    :tile_image_ready
-    const-string v0, "uri"
-    invoke-virtual {p1, v0, v1}, Lorg/json/JSONObject;->optString(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;
-    move-result-object v5
-    invoke-virtual {v5}, Ljava/lang/String;->isEmpty()Z
-    move-result v0
-    if-eqz v0, :tile_uri_ready
-    const-string v0, "id"
-    invoke-virtual {p1, v0, v1}, Lorg/json/JSONObject;->optString(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;
-    move-result-object v5
-    invoke-virtual {v5}, Ljava/lang/String;->isEmpty()Z
-    move-result v0
-    if-eqz v0, :tile_uri_ready
-    # Status rows keep their retry target in actionUri (see create()).
-    const-string v0, "actionUri"
-    invoke-virtual {p1, v0, v1}, Lorg/json/JSONObject;->optString(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;
-    move-result-object v5
-
-    :tile_uri_ready
-    new-instance v0, Landroid/widget/LinearLayout;
-    invoke-direct {v0, p0}, Landroid/widget/LinearLayout;-><init>(Landroid/content/Context;)V
-    const/4 v1, 0x1
-    invoke-virtual {v0, v1}, Landroid/widget/LinearLayout;->setOrientation(I)V
-
-    # Rounded card surface.
-    new-instance v6, Landroid/graphics/drawable/GradientDrawable;
-    invoke-direct {v6}, Landroid/graphics/drawable/GradientDrawable;-><init>()V
-    const v7, -0xe7e7e8
-    invoke-virtual {v6, v7}, Landroid/graphics/drawable/GradientDrawable;->setColor(I)V
-    const/16 v7, 0xe
-    invoke-static {p0, v7}, Lcom/melodix/music/NativeUiRowFactory;->dp(Landroid/content/Context;I)I
-    move-result v7
-    int-to-float v7, v7
-    invoke-virtual {v6, v7}, Landroid/graphics/drawable/GradientDrawable;->setCornerRadius(F)V
-    invoke-virtual {v0, v6}, Landroid/view/View;->setBackground(Landroid/graphics/drawable/Drawable;)V
-
-    const/16 v6, 0x8
-    invoke-static {p0, v6}, Lcom/melodix/music/NativeUiRowFactory;->dp(Landroid/content/Context;I)I
-    move-result v6
-    const/4 v7, 0x0
-    invoke-virtual {v0, v6, v6, v6, v7}, Landroid/view/View;->setPadding(IIII)V
-
-    # Cover — large visual, rounded like Spotify cards.
-    new-instance v7, Landroid/widget/ImageView;
-    invoke-direct {v7, p0}, Landroid/widget/ImageView;-><init>(Landroid/content/Context;)V
-    sget-object v8, Landroid/widget/ImageView$ScaleType;->CENTER_CROP:Landroid/widget/ImageView$ScaleType;
-    invoke-virtual {v7, v8}, Landroid/widget/ImageView;->setScaleType(Landroid/widget/ImageView$ScaleType;)V
-    new-instance v8, Landroid/graphics/drawable/GradientDrawable;
-    invoke-direct {v8}, Landroid/graphics/drawable/GradientDrawable;-><init>()V
-    const v9, -0xd8d8d9
-    invoke-virtual {v8, v9}, Landroid/graphics/drawable/GradientDrawable;->setColor(I)V
-    const/16 v9, 0xa
-    invoke-static {p0, v9}, Lcom/melodix/music/NativeUiRowFactory;->dp(Landroid/content/Context;I)I
-    move-result v9
-    int-to-float v9, v9
-    invoke-virtual {v8, v9}, Landroid/graphics/drawable/GradientDrawable;->setCornerRadius(F)V
-    invoke-virtual {v7, v8}, Landroid/view/View;->setBackground(Landroid/graphics/drawable/Drawable;)V
-    invoke-virtual {v7, v1}, Landroid/widget/ImageView;->setClipToOutline(Z)V
-    const/4 v8, 0x0
-    invoke-virtual {v7, v8}, Landroid/view/View;->setClickable(Z)V
-    invoke-virtual {v7, v8}, Landroid/view/View;->setFocusable(Z)V
-    const-string v8, "native_cover_placeholder"
-    invoke-static {p0, v7, v8}, Lcom/melodix/music/NativeUiRowFactory;->applyDrawableImage(Landroid/content/Context;Landroid/widget/ImageView;Ljava/lang/String;)V
-    invoke-virtual {v4}, Ljava/lang/String;->isEmpty()Z
-    move-result v8
-    if-nez v8, :tile_cover_attached
-    const/16 v8, 0x140
-    invoke-static {v7, v4, v8}, Lcom/melodix/music/NativeImageLoader;->load(Landroid/widget/ImageView;Ljava/lang/String;I)V
-
-    :tile_cover_attached
-    new-instance v8, Landroid/widget/LinearLayout$LayoutParams;
-    const/4 v9, -0x1
-    invoke-direct {v8, v9, v9}, Landroid/widget/LinearLayout$LayoutParams;-><init>(II)V
-    # Square-ish cover inside the card cell.
-    const/16 v9, 0x78
-    invoke-static {p0, v9}, Lcom/melodix/music/NativeUiRowFactory;->dp(Landroid/content/Context;I)I
-    move-result v9
-    iput v9, v8, Landroid/widget/LinearLayout$LayoutParams;->height:I
-    invoke-virtual {v0, v7, v8}, Landroid/widget/LinearLayout;->addView(Landroid/view/View;Landroid/view/ViewGroup$LayoutParams;)V
-
-    # Title — 2 lines max, bold.
-    new-instance v7, Landroid/widget/TextView;
-    invoke-direct {v7, p0}, Landroid/widget/TextView;-><init>(Landroid/content/Context;)V
-    invoke-virtual {v7, v2}, Landroid/widget/TextView;->setText(Ljava/lang/CharSequence;)V
-    const/high16 v8, 0x41700000
-    invoke-virtual {v7, v8}, Landroid/widget/TextView;->setTextSize(F)V
-    const v8, -0x1
-    invoke-virtual {v7, v8}, Landroid/widget/TextView;->setTextColor(I)V
-    const/4 v8, 0x2
-    invoke-virtual {v7, v8}, Landroid/widget/TextView;->setMaxLines(I)V
-    sget-object v8, Landroid/text/TextUtils$TruncateAt;->END:Landroid/text/TextUtils$TruncateAt;
-    invoke-virtual {v7, v8}, Landroid/widget/TextView;->setEllipsize(Landroid/text/TextUtils$TruncateAt;)V
-    const/4 v8, 0x0
-    invoke-virtual {v7, v8, v1}, Landroid/widget/TextView;->setTypeface(Landroid/graphics/Typeface;I)V
-    new-instance v8, Landroid/widget/LinearLayout$LayoutParams;
-    const/4 v9, -0x1
-    invoke-direct {v8, v9, v9}, Landroid/widget/LinearLayout$LayoutParams;-><init>(II)V
-    const/4 v9, -0x2
-    iput v9, v8, Landroid/widget/LinearLayout$LayoutParams;->height:I
-    const/16 v9, 0x8
-    invoke-static {p0, v9}, Lcom/melodix/music/NativeUiRowFactory;->dp(Landroid/content/Context;I)I
-    move-result v9
-    iput v9, v8, Landroid/view/ViewGroup$MarginLayoutParams;->topMargin:I
-    invoke-virtual {v0, v7, v8}, Landroid/widget/LinearLayout;->addView(Landroid/view/View;Landroid/view/ViewGroup$LayoutParams;)V
-
-    # Subtitle — one quiet line.
-    invoke-virtual {v3}, Ljava/lang/String;->isEmpty()Z
-    move-result v7
-    if-nez v7, :tile_clickable
-    new-instance v7, Landroid/widget/TextView;
-    invoke-direct {v7, p0}, Landroid/widget/TextView;-><init>(Landroid/content/Context;)V
-    invoke-virtual {v7, v3}, Landroid/widget/TextView;->setText(Ljava/lang/CharSequence;)V
-    const/high16 v8, 0x41400000
-    invoke-virtual {v7, v8}, Landroid/widget/TextView;->setTextSize(F)V
-    const v8, -0x4c4c4d
-    invoke-virtual {v7, v8}, Landroid/widget/TextView;->setTextColor(I)V
-    invoke-virtual {v7, v1}, Landroid/widget/TextView;->setMaxLines(I)V
-    sget-object v8, Landroid/text/TextUtils$TruncateAt;->END:Landroid/text/TextUtils$TruncateAt;
-    invoke-virtual {v7, v8}, Landroid/widget/TextView;->setEllipsize(Landroid/text/TextUtils$TruncateAt;)V
-    new-instance v8, Landroid/widget/LinearLayout$LayoutParams;
-    const/4 v9, -0x1
-    invoke-direct {v8, v9, v9}, Landroid/widget/LinearLayout$LayoutParams;-><init>(II)V
-    const/4 v9, -0x2
-    iput v9, v8, Landroid/widget/LinearLayout$LayoutParams;->height:I
-    const/4 v9, 0x2
-    invoke-static {p0, v9}, Lcom/melodix/music/NativeUiRowFactory;->dp(Landroid/content/Context;I)I
-    move-result v9
-    iput v9, v8, Landroid/view/ViewGroup$MarginLayoutParams;->topMargin:I
-    invoke-virtual {v0, v7, v8}, Landroid/widget/LinearLayout;->addView(Landroid/view/View;Landroid/view/ViewGroup$LayoutParams;)V
-
-    :tile_clickable
-    const/high16 v7, 0x60000
-    invoke-virtual {v0, v7}, Landroid/view/ViewGroup;->setDescendantFocusability(I)V
-    invoke-virtual {v0, v1}, Landroid/view/View;->setClickable(Z)V
-    invoke-virtual {v0, v1}, Landroid/view/View;->setFocusable(Z)V
-    invoke-virtual {v0, v2}, Landroid/view/View;->setContentDescription(Ljava/lang/CharSequence;)V
-    new-instance v7, Lcom/melodix/music/NativeRowClickListener;
-    invoke-direct {v7, p0, v5, v2}, Lcom/melodix/music/NativeRowClickListener;-><init>(Lcom/melodix/music/MainActivity;Ljava/lang/String;Ljava/lang/String;)V
-    invoke-virtual {v0, v7}, Landroid/view/View;->setOnClickListener(Landroid/view/View$OnClickListener;)V
-
-    new-instance v7, Landroid/widget/LinearLayout$LayoutParams;
-    const/4 v8, -0x1
-    const/4 v9, -0x2
-    invoke-direct {v7, v8, v9}, Landroid/widget/LinearLayout$LayoutParams;-><init>(II)V
-    const/4 v8, 0x4
-    invoke-static {p0, v8}, Lcom/melodix/music/NativeUiRowFactory;->dp(Landroid/content/Context;I)I
-    move-result v8
-    iput v8, v7, Landroid/view/ViewGroup$MarginLayoutParams;->bottomMargin:I
-    invoke-virtual {v0, v7}, Landroid/view/View;->setLayoutParams(Landroid/view/ViewGroup$LayoutParams;)V
     return-object v0
 .end method
 
@@ -610,7 +377,7 @@
     if-eqz p3, :banner_title
     invoke-virtual {p3}, Ljava/lang/String;->isEmpty()Z
     move-result v1
-    if-nez v1, :banner_title
+    if-eqz v1, :banner_title
     const/16 v1, 0x140
     invoke-static {v2, p3, v1}, Lcom/melodix/music/NativeImageLoader;->load(Landroid/widget/ImageView;Ljava/lang/String;I)V
 
@@ -703,7 +470,7 @@
     if-eqz p4, :banner_done
     invoke-virtual {p4}, Ljava/lang/String;->isEmpty()Z
     move-result v1
-    if-nez v1, :banner_done
+    if-eqz v1, :banner_done
     const/4 v1, 0x1
     invoke-virtual {v0, v1}, Landroid/view/View;->setClickable(Z)V
     invoke-virtual {v0, v1}, Landroid/view/View;->setFocusable(Z)V
@@ -736,11 +503,11 @@
 
     # Resolve by name: a hard-coded id would crash with
     # Resources$NotFoundException if the rebuild ever renumbered a drawable.
-    if-eqz p0, :background_done
+    if-nez p0, :background_done
 
-    if-eqz p1, :background_done
+    if-nez p1, :background_done
 
-    if-eqz p2, :background_done
+    if-nez p2, :background_done
 
     invoke-virtual {p0}, Landroid/content/Context;->getResources()Landroid/content/res/Resources;
 
@@ -756,7 +523,7 @@
 
     move-result v0
 
-    if-eqz v0, :background_done
+    if-nez v0, :background_done
 
     invoke-virtual {p1, v0}, Landroid/view/View;->setBackgroundResource(I)V
 
@@ -767,11 +534,11 @@
 .method public static applyDrawableImage(Landroid/content/Context;Landroid/widget/ImageView;Ljava/lang/String;)V
     .locals 3
 
-    if-eqz p0, :image_done
+    if-nez p0, :image_done
 
-    if-eqz p1, :image_done
+    if-nez p1, :image_done
 
-    if-eqz p2, :image_done
+    if-nez p2, :image_done
 
     invoke-virtual {p0}, Landroid/content/Context;->getResources()Landroid/content/res/Resources;
 
@@ -787,7 +554,7 @@
 
     move-result v0
 
-    if-eqz v0, :image_done
+    if-nez v0, :image_done
 
     invoke-virtual {p1, v0}, Landroid/widget/ImageView;->setImageResource(I)V
 
@@ -795,7 +562,7 @@
     return-void
 .end method
 
-.method public static dp(Landroid/content/Context;I)I
+.method private static dp(Landroid/content/Context;I)I
     .locals 3
 
     invoke-virtual {p0}, Landroid/content/Context;->getResources()Landroid/content/res/Resources;

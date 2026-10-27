@@ -28,8 +28,6 @@
 
 .field public static r:Z = false
 
-.field public static resumePlaybackOnRecovery:Z = false
-
 .field public static s:Z = false
 
 .field public static t:Z = true
@@ -63,8 +61,6 @@
 .field public p:Z
 
 .field public q:Ljava/lang/String;
-
-.field private cleanedUp:Z
 
 
 # direct methods
@@ -2137,72 +2133,8 @@
     return-void
 .end method
 
-.method public static completeAndClearPendingResults()V
-    .locals 4
-
-    sget-object v0, Lu00;->j:Lu00;
-    sget-object v1, Lcom/melodix/music/WebService;->E:Ljava/util/concurrent/ConcurrentHashMap;
-    if-eqz v1, :drain_search_map
-    invoke-virtual {v1}, Ljava/util/concurrent/ConcurrentHashMap;->values()Ljava/util/Collection;
-    move-result-object v2
-    invoke-interface {v2}, Ljava/util/Collection;->iterator()Ljava/util/Iterator;
-    move-result-object v2
-    :loop_browse
-    invoke-interface {v2}, Ljava/util/Iterator;->hasNext()Z
-    move-result v3
-    if-eqz v3, :done_browse
-    invoke-interface {v2}, Ljava/util/Iterator;->next()Ljava/lang/Object;
-    move-result-object v3
-    check-cast v3, Landroidx/media/MediaBrowserServiceCompat$Result;
-    if-eqz v3, :loop_browse
-    :try_start_b
-    invoke-virtual {v3, v0}, Landroidx/media/MediaBrowserServiceCompat$Result;->sendResult(Ljava/lang/Object;)V
-    :try_end_b
-    .catch Ljava/lang/Exception; {:try_start_b .. :try_end_b} :catch_b
-    goto :loop_browse
-    :catch_b
-    move-exception v3
-    goto :loop_browse
-    :done_browse
-    invoke-virtual {v1}, Ljava/util/concurrent/ConcurrentHashMap;->clear()V
-
-    :drain_search_map
-    sget-object v1, Lcom/melodix/music/WebService;->F:Ljava/util/concurrent/ConcurrentHashMap;
-    if-eqz v1, :drain_done
-    invoke-virtual {v1}, Ljava/util/concurrent/ConcurrentHashMap;->values()Ljava/util/Collection;
-    move-result-object v2
-    invoke-interface {v2}, Ljava/util/Collection;->iterator()Ljava/util/Iterator;
-    move-result-object v2
-    :loop_search
-    invoke-interface {v2}, Ljava/util/Iterator;->hasNext()Z
-    move-result v3
-    if-eqz v3, :done_search
-    invoke-interface {v2}, Ljava/util/Iterator;->next()Ljava/lang/Object;
-    move-result-object v3
-    check-cast v3, Landroidx/media/MediaBrowserServiceCompat$Result;
-    if-eqz v3, :loop_search
-    :try_start_s
-    invoke-virtual {v3, v0}, Landroidx/media/MediaBrowserServiceCompat$Result;->sendResult(Ljava/lang/Object;)V
-    :try_end_s
-    .catch Ljava/lang/Exception; {:try_start_s .. :try_end_s} :catch_s
-    goto :loop_search
-    :catch_s
-    move-exception v3
-    goto :loop_search
-    :done_search
-    invoke-virtual {v1}, Ljava/util/concurrent/ConcurrentHashMap;->clear()V
-
-    :drain_done
-    return-void
-.end method
-
 .method public final l()V
-    .locals 5
-
-    iget-boolean v0, p0, Lcom/melodix/music/WebService;->cleanedUp:Z
-    if-nez v0, :already_cleaned
-    const/4 v0, 0x1
-    iput-boolean v0, p0, Lcom/melodix/music/WebService;->cleanedUp:Z
+    .locals 4
 
     .line 1
     const/4 v0, 0x0
@@ -2270,7 +2202,6 @@
     .line 31
     :cond_1
     :goto_0
-    iput-object v2, p0, Lcom/melodix/music/WebService;->k:Landroid/os/PowerManager$WakeLock;
     iget-object v1, p0, Lcom/melodix/music/WebService;->j:Landroid/support/v4/media/session/MediaSessionCompat;
 
     .line 32
@@ -2333,7 +2264,6 @@
     .line 62
     .line 63
     :cond_3
-    iput-object v2, p0, Lcom/melodix/music/WebService;->m:Lbj1;
     iget-object v1, p0, Lcom/melodix/music/WebService;->n:Landroid/os/HandlerThread;
 
     .line 64
@@ -2476,27 +2406,14 @@
     .line 130
     .line 131
     :cond_8
-    const/4 v0, 0x0
-    sput-boolean v0, Lcom/melodix/music/WebService;->resumePlaybackOnRecovery:Z
-    invoke-static {}, Lcom/melodix/music/WebService;->completeAndClearPendingResults()V
-
     sput-object v2, Lcom/melodix/music/WebService;->G:Lcom/melodix/music/WebService;
 
+    .line 132
+    .line 133
     sput-object v2, Lcom/melodix/music/WebService;->B:Landroid/graphics/Bitmap;
 
-    const-string v1, "No Track"
-    sput-object v1, Lcom/melodix/music/WebService;->v:Ljava/lang/String;
-    const-string v1, "No Artist"
-    sput-object v1, Lcom/melodix/music/WebService;->u:Ljava/lang/String;
-    const-string v1, "false"
-    sput-object v1, Lcom/melodix/music/WebService;->w:Ljava/lang/String;
-    sput-object v1, Lcom/melodix/music/WebService;->x:Ljava/lang/String;
-    const-wide/16 v3, 0x0
-    sput-wide v3, Lcom/melodix/music/WebService;->y:J
-    sput-wide v3, Lcom/melodix/music/WebService;->z:J
-    sput-wide v3, Lcom/melodix/music/WebService;->A:J
-
-    :already_cleaned
+    .line 134
+    .line 135
     return-void
 .end method
 
@@ -2654,9 +2571,6 @@
     .line 57
     invoke-virtual {p0}, Lcom/melodix/music/WebService;->e()V
 
-    const/4 v1, 0x0
-    iput-boolean v1, p0, Lcom/melodix/music/WebService;->cleanedUp:Z
-
     .line 58
     .line 59
     .line 60
@@ -2706,14 +2620,7 @@
     .line 80
     .line 81
     .line 82
-    goto :goto_0
-
     :catchall_0
-    move-exception v1
-    const-string v3, "WebService"
-    const-string v4, "startForeground failed"
-    invoke-static {v3, v4, v1}, Landroid/util/Log;->e(Ljava/lang/String;Ljava/lang/String;Ljava/lang/Throwable;)I
-
     :goto_0
     invoke-virtual {p0}, Lcom/melodix/music/WebService;->k()V
 
@@ -2970,10 +2877,84 @@
 .end method
 
 .method public final onDestroy()V
-    .locals 0
+    .locals 2
 
+    .line 1
     invoke-super {p0}, Landroid/app/Service;->onDestroy()V
+
+    .line 2
+    .line 3
+    .line 4
+    sget-object v0, Lcom/melodix/music/AppSingleton;->t:Ljava/lang/ref/WeakReference;
+
+    .line 5
+    .line 6
+    if-eqz v0, :cond_0
+
+    .line 7
+    .line 8
+    invoke-virtual {v0}, Ljava/lang/ref/Reference;->get()Ljava/lang/Object;
+
+    .line 9
+    .line 10
+    .line 11
+    move-result-object v0
+
+    .line 12
+    check-cast v0, Lcom/melodix/music/MainActivity;
+
+    .line 13
+    .line 14
+    goto :goto_0
+
+    .line 15
+    :cond_0
+    const/4 v0, 0x0
+
+    .line 16
+    :goto_0
+    if-eqz v0, :cond_2
+
+    .line 17
+    .line 18
+    invoke-virtual {v0}, Landroid/app/Activity;->isFinishing()Z
+
+    .line 19
+    .line 20
+    .line 21
+    move-result v1
+
+    .line 22
+    if-nez v1, :cond_2
+
+    .line 23
+    .line 24
+    invoke-virtual {v0}, Landroid/app/Activity;->isDestroyed()Z
+
+    .line 25
+    .line 26
+    .line 27
+    move-result v0
+
+    .line 28
+    if-eqz v0, :cond_1
+
+    .line 29
+    .line 30
+    goto :goto_1
+
+    .line 31
+    :cond_1
+    return-void
+
+    .line 32
+    :cond_2
+    :goto_1
     invoke-virtual {p0}, Lcom/melodix/music/WebService;->l()V
+
+    .line 33
+    .line 34
+    .line 35
     return-void
 .end method
 
@@ -3423,14 +3404,37 @@
     .line 183
     .line 184
     new-instance p2, Ljava/lang/StringBuilder;
-    const-string v0, "if (typeof window.fetchMediaItems === \'function\') window.fetchMediaItems("
+
+    .line 185
+    .line 186
+    const-string v0, "if (typeof window.fetchMediaItems === \'function\') window.fetchMediaItems(\'"
+
+    .line 187
+    .line 188
     invoke-direct {p2, v0}, Ljava/lang/StringBuilder;-><init>(Ljava/lang/String;)V
-    invoke-static {p1}, Lorg/json/JSONObject;->quote(Ljava/lang/String;)Ljava/lang/String;
-    move-result-object v0
+
+    .line 189
+    .line 190
+    .line 191
+    invoke-virtual {p2, p1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    .line 192
+    .line 193
+    .line 194
+    const-string v0, "\');"
+
+    .line 195
+    .line 196
     invoke-virtual {p2, v0}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
-    const-string v0, ");"
-    invoke-virtual {p2, v0}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    .line 197
+    .line 198
+    .line 199
     invoke-virtual {p2}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
+
+    .line 200
+    .line 201
+    .line 202
     move-result-object p2
 
     .line 203
@@ -3541,14 +3545,37 @@
     .line 29
     .line 30
     new-instance p2, Ljava/lang/StringBuilder;
-    const-string p3, "if (typeof window.searchMediaItems === \'function\') window.searchMediaItems("
+
+    .line 31
+    .line 32
+    const-string p3, "if (typeof window.searchMediaItems === \'function\') window.searchMediaItems(\'"
+
+    .line 33
+    .line 34
     invoke-direct {p2, p3}, Ljava/lang/StringBuilder;-><init>(Ljava/lang/String;)V
-    invoke-static {p1}, Lorg/json/JSONObject;->quote(Ljava/lang/String;)Ljava/lang/String;
-    move-result-object p3
+
+    .line 35
+    .line 36
+    .line 37
+    invoke-virtual {p2, p1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    .line 38
+    .line 39
+    .line 40
+    const-string p3, "\');"
+
+    .line 41
+    .line 42
     invoke-virtual {p2, p3}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
-    const-string p3, ");"
-    invoke-virtual {p2, p3}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    .line 43
+    .line 44
+    .line 45
     invoke-virtual {p2}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
+
+    .line 46
+    .line 47
+    .line 48
     move-result-object p2
 
     .line 49

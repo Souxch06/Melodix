@@ -38,14 +38,30 @@
 .method public final run()V
     .locals 5
 
+    .line 1
     iget v0, p0, Lr4;->j:I
 
+    .line 2
+    .line 3
+    const-string v1, "\');"
+
+    .line 4
+    .line 5
+    const-string v2, "playFromUri(\'"
+
+    .line 6
+    .line 7
     sget-object v3, Lu00;->j:Lu00;
 
+    .line 8
+    .line 9
     const/4 v4, 0x0
 
+    .line 10
     iget-object p0, p0, Lr4;->k:Ljava/lang/String;
 
+    .line 11
+    .line 12
     packed-switch v0, :pswitch_data_0
 
     .line 13
@@ -109,39 +125,101 @@
     :cond_1
     return-void
 
+    .line 43
     :pswitch_1
     sget v0, Lcom/melodix/music/MainActivity;->h0:I
 
+    .line 44
+    .line 45
     sget-object v0, Lcom/melodix/music/AppSingleton;->w:Ll9;
 
+    .line 46
+    .line 47
     if-eqz v0, :cond_2
 
-    invoke-static {p0}, Lcom/melodix/music/NativeFetchGuard;->buildSafePlayFromUriJs(Ljava/lang/String;)Ljava/lang/String;
+    .line 48
+    .line 49
+    new-instance v3, Ljava/lang/StringBuilder;
 
+    .line 50
+    .line 51
+    invoke-direct {v3, v2}, Ljava/lang/StringBuilder;-><init>(Ljava/lang/String;)V
+
+    .line 52
+    .line 53
+    .line 54
+    invoke-virtual {v3, p0}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    .line 55
+    .line 56
+    .line 57
+    invoke-virtual {v3, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    .line 58
+    .line 59
+    .line 60
+    invoke-virtual {v3}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
+
+    .line 61
+    .line 62
+    .line 63
     move-result-object p0
 
-    if-eqz p0, :cond_2
-
+    .line 64
     invoke-virtual {v0, p0, v4}, Landroid/webkit/WebView;->evaluateJavascript(Ljava/lang/String;Landroid/webkit/ValueCallback;)V
 
+    .line 65
+    .line 66
+    .line 67
     :cond_2
     return-void
 
+    .line 68
     :pswitch_2
     sget v0, Lcom/melodix/music/LinkHandler;->H:I
 
+    .line 69
+    .line 70
     sget-object v0, Lcom/melodix/music/AppSingleton;->w:Ll9;
 
+    .line 71
+    .line 72
     if-eqz v0, :cond_3
 
-    invoke-static {p0}, Lcom/melodix/music/NativeFetchGuard;->buildSafePlayFromUriJs(Ljava/lang/String;)Ljava/lang/String;
+    .line 73
+    .line 74
+    new-instance v3, Ljava/lang/StringBuilder;
 
+    .line 75
+    .line 76
+    invoke-direct {v3, v2}, Ljava/lang/StringBuilder;-><init>(Ljava/lang/String;)V
+
+    .line 77
+    .line 78
+    .line 79
+    invoke-virtual {v3, p0}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    .line 80
+    .line 81
+    .line 82
+    invoke-virtual {v3, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    .line 83
+    .line 84
+    .line 85
+    invoke-virtual {v3}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
+
+    .line 86
+    .line 87
+    .line 88
     move-result-object p0
 
-    if-eqz p0, :cond_3
-
+    .line 89
     invoke-virtual {v0, p0, v4}, Landroid/webkit/WebView;->evaluateJavascript(Ljava/lang/String;Landroid/webkit/ValueCallback;)V
 
+    .line 90
+    .line 91
+    .line 92
     :cond_3
     return-void
 
@@ -229,14 +307,9 @@
     .line 133
     return-void
 
+    .line 134
     :pswitch_6
     :try_start_0
-    invoke-static {p0}, Lcom/melodix/music/NativeFetchGuard;->parseAllowedUrl(Ljava/lang/String;)Ljava/net/URL;
-
-    move-result-object v0
-
-    if-eqz v0, :cond_6
-
     invoke-static {}, Lcom/squareup/picasso/Picasso;->get()Lcom/squareup/picasso/Picasso;
 
     .line 135

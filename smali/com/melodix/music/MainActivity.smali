@@ -14,17 +14,6 @@
 
 .field public static l0:Z
 
-.field public static nativeSessionEpoch:I
-
-# Last terminal status row painted on the Diagnostic screen; included in the
-# copied report so the export always matches what was displayed.
-.field public static diagLastReason:Ljava/lang/String;
-
-# Armed by the one-tap "Diagnostic complet" action: when the engine run reaches
-# a terminal state (report arrival or watchdog timeout) the report is copied to
-# the clipboard automatically so the user only has to paste it.
-.field public static diagAutoCopy:Z
-
 
 # instance fields
 .field public G:Landroid/webkit/WebView;
@@ -83,11 +72,7 @@
 
 .field public final g0:Ls4;
 
-.field nativeCurrentScreen:Ljava/lang/String;
-
-# Screen whose rows are currently attached to the shared nativeContent container.
-# Used by renderNativeRows to strip stale rows of another tab before painting.
-.field private nativePaintedScreen:Ljava/lang/String;
+.field private nativeCurrentScreen:Ljava/lang/String;
 
 # True once Spotify reports a track: the mini player card stays hidden until
 # then instead of showing an empty "Aucune lecture en cours" bar everywhere.
@@ -97,7 +82,6 @@
 # player feed cannot retrigger the animation.
 .field private nativeFadeNextScreen:Z
 .field private nativeCurrentTitle:Ljava/lang/String;
-.field private nativeGreeting:Ljava/lang/String;
 .field private nativeCurrentJson:Ljava/lang/String;
 .field private nativeExpectedId:Ljava/lang/String;
 .field private nativeExpectedSearch:Ljava/lang/String;
@@ -106,714 +90,10 @@
 .field private nativeReturnJson:Ljava/lang/String;
 .field private nativeReturnExpectedId:Ljava/lang/String;
 .field private nativeReturnSearch:Ljava/lang/String;
-.field private nativeDetailParentScreen:Ljava/lang/String;
-.field private nativeDetailParentTitle:Ljava/lang/String;
-.field private nativeDetailParentJson:Ljava/lang/String;
-.field private nativeDetailParentExpectedId:Ljava/lang/String;
-.field private nativeDetailParentSearch:Ljava/lang/String;
 .field private nativeSearchWatcherAttached:Z
-.field private nativeHomeJson:Ljava/lang/String;
-.field private nativeLibraryJson:Ljava/lang/String;
-.field private nativeLibraryJsonId:Ljava/lang/String;
-.field private nativeListBlob:Ljava/lang/String;
 
 
 # direct methods
-.method public final buildDiagReport()Ljava/lang/String;
-    .locals 6
-
-    new-instance v0, Ljava/lang/StringBuilder;
-    invoke-direct {v0}, Ljava/lang/StringBuilder;-><init>()V
-
-    const-string v1, "Melodix — Diagnostic Melodix\n"
-    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
-
-    const-string v1, "Horodatage: "
-    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
-    invoke-static {}, Ljava/lang/System;->currentTimeMillis()J
-    move-result-wide v2
-    invoke-virtual {v0, v2, v3}, Ljava/lang/StringBuilder;->append(J)Ljava/lang/StringBuilder;
-    const-string v1, "\n"
-    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
-
-    const-string v1, "Dernier état affiché: "
-    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
-    sget-object v2, Lcom/melodix/music/MainActivity;->diagLastReason:Ljava/lang/String;
-    if-eqz v2, :report_reason_none
-    invoke-virtual {v0, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
-    goto :report_reason_done
-    :report_reason_none
-    const-string v2, "message initial"
-    invoke-virtual {v0, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
-    :report_reason_done
-    const-string v1, "\n"
-    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
-
-    const-string v1, "Écran courant: "
-    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
-    iget-object v2, p0, Lcom/melodix/music/MainActivity;->nativeCurrentScreen:Ljava/lang/String;
-    if-eqz v2, :report_scr_none
-    invoke-virtual {v0, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
-    goto :report_scr_done
-    :report_scr_none
-    const-string v2, "aucun"
-    invoke-virtual {v0, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
-    :report_scr_done
-    const-string v1, "\n"
-    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
-
-    const-string v1, "Id attendu: "
-    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
-    iget-object v2, p0, Lcom/melodix/music/MainActivity;->nativeExpectedId:Ljava/lang/String;
-    if-eqz v2, :report_id_none
-    invoke-virtual {v0, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
-    goto :report_id_done
-    :report_id_none
-    const-string v2, "aucun"
-    invoke-virtual {v0, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
-    :report_id_done
-    const-string v1, "\n"
-    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
-
-    const-string v1, "Cache bibliothèque: "
-    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
-    iget-object v2, p0, Lcom/melodix/music/MainActivity;->nativeLibraryJson:Ljava/lang/String;
-    if-eqz v2, :report_cache_len0
-    invoke-virtual {v2}, Ljava/lang/String;->length()I
-    move-result v3
-    goto :report_cache_len_done
-    :report_cache_len0
-    const/4 v3, 0x0
-    :report_cache_len_done
-    invoke-virtual {v0, v3}, Ljava/lang/StringBuilder;->append(I)Ljava/lang/StringBuilder;
-    const-string v1, " caractères, catégorie "
-    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
-    iget-object v2, p0, Lcom/melodix/music/MainActivity;->nativeLibraryJsonId:Ljava/lang/String;
-    if-eqz v2, :report_cat_none
-    invoke-virtual {v0, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
-    goto :report_cat_done
-    :report_cat_none
-    const-string v2, "aucune"
-    invoke-virtual {v0, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
-    :report_cat_done
-    const-string v1, "\n\n"
-    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
-
-    const-string v1, "État bibliothèque (poussé par la page):\n"
-    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
-    invoke-static {}, Lcom/melodix/music/DiagCounters;->readLibState()Ljava/lang/String;
-    move-result-object v2
-    if-eqz v2, :report_lib_state_empty
-    invoke-virtual {v2}, Ljava/lang/String;->isEmpty()Z
-    move-result v3
-    if-eqz v3, :report_lib_state_have
-    :report_lib_state_empty
-    const-string v2, "aucun instantané reçu pour l'instant"
-    :report_lib_state_have
-    invoke-virtual {v0, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
-    const-string v1, "\n\n"
-    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
-
-    invoke-static {}, Lcom/melodix/music/DiagCounters;->readReport()Ljava/lang/String;
-    move-result-object v2
-    invoke-virtual {v0, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
-
-    invoke-virtual {v0}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
-    move-result-object v1
-    return-object v1
-.end method
-
-.method public final paintDiagNative(Ljava/lang/String;)V
-    .locals 7
-
-    # Native-first diagnostic screen: a real message painted immediately (no
-    # JavaScript involved) plus a native copy action. Every state is terminal.
-    const-string v0, "diagnostic"
-    invoke-virtual {p0, v0}, Lcom/melodix/music/MainActivity;->setNativeScreen(Ljava/lang/String;)V
-
-    sput-object p1, Lcom/melodix/music/MainActivity;->diagLastReason:Ljava/lang/String;
-    if-eqz p1, :diag_paint_logged
-    invoke-static {p1}, Lcom/melodix/music/DiagCounters;->event(Ljava/lang/String;)V
-    :diag_paint_logged
-
-    invoke-virtual {p0}, Lcom/melodix/music/MainActivity;->buildDiagReport()Ljava/lang/String;
-    move-result-object v0
-
-    new-instance v1, Ljava/lang/StringBuilder;
-    invoke-direct {v1}, Ljava/lang/StringBuilder;-><init>()V
-    const-string v2, "["
-
-    invoke-virtual {v1, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
-
-    if-eqz p1, :diag_rows_no_reason
-    const-string v2, "{\"section\":\"Diagnostic Melodix\",\"title\":"
-    invoke-virtual {v1, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
-    new-instance v2, Ljava/lang/StringBuilder;
-    invoke-direct {v2}, Ljava/lang/StringBuilder;-><init>()V
-    const-string v3, "\u2718 "
-    invoke-virtual {v2, v3}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
-    invoke-virtual {v2, p1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
-    invoke-virtual {v2}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
-    move-result-object v2
-    invoke-static {v2}, Lorg/json/JSONObject;->quote(Ljava/lang/String;)Ljava/lang/String;
-    move-result-object v2
-    invoke-virtual {v1, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
-    const-string v2, ",\"subtitle\":\"Le rapport natif reste disponible ci-dessous \u2014 utilisez « Copier le message ».\"},"
-    invoke-virtual {v1, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
-
-    :diag_rows_no_reason
-    const-string v2, "{\"section\":\"Diagnostic Melodix\",\"title\":\"Message du diagnostic\",\"subtitle\":"
-    invoke-virtual {v1, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
-    invoke-static {v0}, Lorg/json/JSONObject;->quote(Ljava/lang/String;)Ljava/lang/String;
-    move-result-object v2
-    invoke-virtual {v1, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
-    const-string v2, "},"
-
-    invoke-virtual {v1, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
-
-    # Section dédiée : état bibliothèque poussé par la page (sens JS->natif,
-    # lisible même quand evaluateJavascript ne délivre plus rien).
-    invoke-static {}, Lcom/melodix/music/DiagCounters;->readLibState()Ljava/lang/String;
-    move-result-object v2
-    if-eqz v2, :lib_state_rows_done
-    invoke-virtual {v2}, Ljava/lang/String;->isEmpty()Z
-    move-result v3
-    if-eqz v3, :lib_state_rows_done
-    const-string v3, "\\n"
-    invoke-virtual {v2, v3}, Ljava/lang/String;->split(Ljava/lang/String;)[Ljava/lang/String;
-    move-result-object v2
-    if-eqz v2, :lib_state_rows_done
-    array-length v3, v2
-    const/4 v4, 0x0
-    :lib_state_row_loop
-    if-ge v4, v3, :lib_state_rows_done
-    const/16 v5, 0x8
-    if-lt v4, v5, :lib_state_rows_done
-    aget-object v5, v2, v4
-    if-eqz v5, :lib_state_row_next
-    invoke-virtual {v5}, Ljava/lang/String;->length()I
-    move-result v6
-    if-eqz v6, :lib_state_row_next
-    const-string v6, "{\"section\":\"Bibliothèque (état page)\",\"title\":"
-    invoke-virtual {v1, v6}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
-    invoke-static {v5}, Lorg/json/JSONObject;->quote(Ljava/lang/String;)Ljava/lang/String;
-    move-result-object v6
-    invoke-virtual {v1, v6}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
-    const-string v6, "},"
-    invoke-virtual {v1, v6}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
-    :lib_state_row_next
-    add-int/lit8 v4, v4, 0x1
-    goto :lib_state_row_loop
-    :lib_state_rows_done
-
-    # Rapport ligne par ligne: le diagnostic s'affiche sans copie ni JS.
-    const-string v2, "\\n"
-    invoke-virtual {v0, v2}, Ljava/lang/String;->split(Ljava/lang/String;)[Ljava/lang/String;
-    move-result-object v0
-    if-eqz v0, :report_lines_done
-    array-length v2, v0
-    const/4 v3, 0x0
-    :report_line_loop
-    if-ge v3, v2, :report_lines_done
-    const/16 v4, 0x3c
-    if-lt v3, v4, :report_lines_done
-    aget-object v4, v0, v3
-    if-eqz v4, :report_line_next
-    invoke-virtual {v4}, Ljava/lang/String;->length()I
-    move-result v5
-    if-eqz v5, :report_line_next
-    const-string v5, "{\"section\":\"Rapport\",\"title\":"
-    invoke-virtual {v1, v5}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
-    invoke-static {v4}, Lorg/json/JSONObject;->quote(Ljava/lang/String;)Ljava/lang/String;
-    move-result-object v5
-    invoke-virtual {v1, v5}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
-    const-string v5, "},"
-    invoke-virtual {v1, v5}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
-    :report_line_next
-    add-int/lit8 v3, v3, 0x1
-    goto :report_line_loop
-    :report_lines_done
-
-    const-string v2, "{\"section\":\"Actions\",\"title\":\"Diagnostic complet\",\"subtitle\":\"Sonde + test playlists — le rapport est copié automatiquement à la fin\",\"actionUri\":\"spotify:diag:full\"},"
-    invoke-virtual {v1, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
-    const-string v2, "{\"section\":\"Actions\",\"title\":\"Copier le message\",\"subtitle\":\"Copie le rapport complet dans le presse-papiers\",\"actionUri\":\"spotify:diag:copy\"},"
-    invoke-virtual {v1, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
-    const-string v2, "{\"section\":\"Actions\",\"title\":\"Copier le rapport JSON\",\"subtitle\":\"Données brutes: compteurs et journal bornés, sans données personnelles\",\"actionUri\":\"spotify:diag:export\"},"
-    invoke-virtual {v1, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
-    const-string v2, "{\"section\":\"Actions\",\"title\":\"Lancer les tests du moteur\",\"subtitle\":\"Vérifie la chaîne réelle. Réponse garantie sous 35 s, sinon message terminal.\",\"actionUri\":\"spotify:diag:run\"},"
-    invoke-virtual {v1, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
-    const-string v2, "{\"section\":\"Actions\",\"title\":\"Tester les playlists\",\"subtitle\":\"Récupération réelle puis rendu\",\"actionUri\":\"spotify:diag:playlists\"},"
-    invoke-virtual {v1, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
-    const-string v2, "{\"section\":\"Actions\",\"title\":\"Tester les titres likés\",\"subtitle\":\"Comptage et rendu de votre collection\",\"actionUri\":\"spotify:diag:cat:liked\"},"
-    invoke-virtual {v1, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
-    const-string v2, "{\"section\":\"Actions\",\"title\":\"Tester les albums\",\"subtitle\":\"Catégorie albums enregistrés\",\"actionUri\":\"spotify:diag:cat:albums\"},"
-    invoke-virtual {v1, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
-    const-string v2, "{\"section\":\"Actions\",\"title\":\"Tester les artistes\",\"subtitle\":\"Catégorie artistes suivis\",\"actionUri\":\"spotify:diag:cat:artists\"},"
-    invoke-virtual {v1, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
-    const-string v2, "{\"section\":\"Actions\",\"title\":\"Tester les podcasts\",\"subtitle\":\"Catégorie podcasts\",\"actionUri\":\"spotify:diag:cat:podcasts\"},"
-    invoke-virtual {v1, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
-    const-string v2, "{\"section\":\"Actions\",\"title\":\"Réessai sûr\",\"subtitle\":\"Rejoue la dernière récupération sans danger\",\"actionUri\":\"spotify:diag:retry\"}]"
-    invoke-virtual {v1, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
-
-    invoke-virtual {v1}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
-    move-result-object v2
-
-    const-string v3, "Diagnostic Melodix"
-    invoke-virtual {p0, v3, v2}, Lcom/melodix/music/MainActivity;->renderNativeRows(Ljava/lang/String;Ljava/lang/String;)V
-    return-void
-.end method
-
-.method public final probeJsChannel()V
-    .locals 6
-
-    # Decisive native->JS delivery probe. Unlike the logDiagEvent probe above,
-    # this one uses evaluateJavascript's ValueCallback: the callback fires from
-    # the renderer layer itself and never depends on the AndBridge interface.
-    # Journal outcomes (all terminal):
-    #   js-cb ask                 -> probe sent
-    #   js-cb <id> bridge-ok      -> JS executes AND the bridge exists
-    #   js-cb <id> no-bridge      -> JS executes but AndBridge is missing
-    #   js-cb <id> null/err       -> JS executes, value abnormal
-    #   js-probe miss cb=absent   -> evaluateJavascript never delivered
-    #   js-out webview=none       -> no WebView instance at all
-    const-string v0, "js-cb ask"
-    invoke-static {v0}, Lcom/melodix/music/DiagCounters;->event(Ljava/lang/String;)V
-
-    sget-boolean v0, Lcom/melodix/music/DiagCounters;->rendererGone:Z
-    if-eqz v0, :probe_flag_ok
-    const-string v0, "renderer-flag=1"
-    invoke-static {v0}, Lcom/melodix/music/DiagCounters;->event(Ljava/lang/String;)V
-    :probe_flag_ok
-
-    invoke-static {}, Lcom/melodix/music/DiagCounters;->getPageView()Landroid/webkit/WebView;
-    move-result-object v0
-    if-eqz v0, :probe_try_act
-    goto :probe_have_wv
-
-    :probe_try_act
-    iget-object v0, p0, Lcom/melodix/music/MainActivity;->G:Landroid/webkit/WebView;
-    if-eqz v0, :probe_try_w
-    goto :probe_have_wv
-
-    :probe_try_w
-    sget-object v0, Lcom/melodix/music/AppSingleton;->w:Ll9;
-    if-eqz v0, :probe_no_wv
-
-    :probe_have_wv
-    # Identity of the targeted WebView so a report can prove whether the probe
-    # reached the same instance the page runs in (compare with "page-start #").
-    new-instance v1, Ljava/lang/StringBuilder;
-    invoke-direct {v1}, Ljava/lang/StringBuilder;-><init>()V
-    const-string v2, "js-cb tgt "
-    invoke-virtual {v1, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
-    invoke-static {v0}, Ljava/lang/System;->identityHashCode(Ljava/lang/Object;)I
-    move-result v2
-    invoke-virtual {v1, v2}, Ljava/lang/StringBuilder;->append(I)Ljava/lang/StringBuilder;
-    invoke-virtual {v1}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
-    move-result-object v2
-    invoke-static {v2}, Lcom/melodix/music/DiagCounters;->event(Ljava/lang/String;)V
-
-    :try_start_probe
-    invoke-static {}, Lcom/melodix/music/DiagCounters;->nextProbeId()I
-    move-result v1
-
-    new-instance v2, Lcom/melodix/music/DiagJsProbeCallback;
-    invoke-direct {v2, v1}, Lcom/melodix/music/DiagJsProbeCallback;-><init>(I)V
-
-    const-string v3, "(function(){try{return (window.AndBridge&&window.AndBridge.logDiagEvent)?'bridge-ok':'no-bridge';}catch(e){return 'err';}})();"
-    invoke-virtual {v0, v3, v2}, Landroid/webkit/WebView;->evaluateJavascript(Ljava/lang/String;Landroid/webkit/ValueCallback;)V
-
-    new-instance v2, Lcom/melodix/music/DiagJsProbeTimeout;
-    invoke-direct {v2, v1}, Lcom/melodix/music/DiagJsProbeTimeout;-><init>(I)V
-
-    new-instance v3, Landroid/os/Handler;
-    invoke-static {}, Landroid/os/Looper;->getMainLooper()Landroid/os/Looper;
-    move-result-object v4
-    invoke-direct {v3, v4}, Landroid/os/Handler;-><init>(Landroid/os/Looper;)V
-
-    const-wide/16 v4, 0x9c4
-    invoke-virtual {v3, v2, v4, v5}, Landroid/os/Handler;->postDelayed(Ljava/lang/Runnable;J)Z
-    :try_end_probe
-    .catch Ljava/lang/Throwable; {:try_start_probe .. :try_end_probe} :catch_probe
-
-    return-void
-
-    :catch_probe
-    move-exception v0
-    invoke-static {v0}, Lcom/melodix/music/NativeCrashGuard;->record(Ljava/lang/Throwable;)V
-    const-string v0, "js-probe exception"
-    invoke-static {v0}, Lcom/melodix/music/DiagCounters;->event(Ljava/lang/String;)V
-    return-void
-
-    :probe_no_wv
-    const-string v0, "js-out webview=none"
-    invoke-static {v0}, Lcom/melodix/music/DiagCounters;->event(Ljava/lang/String;)V
-    const-string v0, "js-probe miss webview=none"
-    invoke-static {v0}, Lcom/melodix/music/DiagCounters;->event(Ljava/lang/String;)V
-    return-void
-.end method
-
-.method public static autoCopyDiagIfArmed(Lcom/melodix/music/MainActivity;)V
-    .locals 2
-
-    if-eqz p0, :ac_done
-    sget-boolean v0, Lcom/melodix/music/MainActivity;->diagAutoCopy:Z
-    if-eqz v0, :ac_done
-
-    const/4 v0, 0x0
-    sput-boolean v0, Lcom/melodix/music/MainActivity;->diagAutoCopy:Z
-
-    invoke-virtual {p0}, Lcom/melodix/music/MainActivity;->buildDiagReport()Ljava/lang/String;
-    move-result-object v1
-    invoke-static {p0, v1}, Lcom/melodix/music/AndBridge;->copyToClipboardStatic(Landroid/content/Context;Ljava/lang/String;)Z
-    move-result v0
-    if-eqz v0, :ac_fail
-    const-string v0, "auto-copy ok"
-    goto :ac_journal
-
-    :ac_fail
-    const-string v0, "auto-copy impossible"
-
-    :ac_journal
-    invoke-static {v0}, Lcom/melodix/music/DiagCounters;->event(Ljava/lang/String;)V
-
-    :ac_done
-    return-void
-.end method
-
-.method public final paintLibLoadError()V
-    .locals 6
-
-    # Honest terminal states for a Library that is NOT loaded. The state comes
-    # from the last snapshot PUSHED BY THE PAGE (token readiness, GraphQL
-    # errors). Never an empty list instead of an error, never a false
-    # "aucune playlist", never an eternal loading row.
-    :try_start_lib_err
-    iget-object v0, p0, Lcom/melodix/music/MainActivity;->nativeCurrentScreen:Ljava/lang/String;
-    if-eqz v0, :lib_err_done
-    const-string v1, "library"
-    invoke-virtual {v0, v1}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
-    move-result v0
-    if-eqz v0, :lib_err_done
-
-    invoke-static {}, Lcom/melodix/music/DiagCounters;->readLibStateLast()Ljava/lang/String;
-    move-result-object v0
-
-    if-eqz v0, :state_fail
-    invoke-virtual {v0}, Ljava/lang/String;->isEmpty()Z
-    move-result v1
-    if-eqz v1, :state_known
-    goto :state_fail
-
-    :state_known
-    # Loaded data wins: ready/empty means the cache holds the real rows for
-    # this screen — repaint them instead of painting an error over data.
-    const-string v1, "\"status\":\"ready\""
-    invoke-virtual {v0, v1}, Ljava/lang/String;->contains(Ljava/lang/CharSequence;)Z
-    move-result v1
-    if-eqz v1, :check_empty_st
-    goto :paint_cached_rows
-    :check_empty_st
-    const-string v1, "\"status\":\"empty\""
-    invoke-virtual {v0, v1}, Ljava/lang/String;->contains(Ljava/lang/CharSequence;)Z
-    move-result v1
-    if-eqz v1, :no_cached_state
-    :paint_cached_rows
-    iget-object v1, p0, Lcom/melodix/music/MainActivity;->nativeExpectedId:Ljava/lang/String;
-    if-eqz v1, :cached_cat_default
-    goto :cached_cat_ready
-    :cached_cat_default
-    const-string v1, "playlists"
-    :cached_cat_ready
-    invoke-static {v1}, Lcom/melodix/music/NativeLibCache;->load(Ljava/lang/String;)Ljava/lang/String;
-    move-result-object v1
-    if-eqz v1, :no_cached_state
-    invoke-virtual {v1}, Ljava/lang/String;->isEmpty()Z
-    move-result v2
-    if-eqz v2, :cached_paint
-    goto :no_cached_state
-    :cached_paint
-    invoke-static {}, Lcom/melodix/music/NativeLibWatchdog;->disarm()V
-    const-string v2, "Votre bibliothèque"
-    invoke-virtual {p0, v2, v1}, Lcom/melodix/music/MainActivity;->renderNativeRows(Ljava/lang/String;Ljava/lang/String;)V
-    goto :lib_err_done
-    :no_cached_state
-    # No ready token -> ask for a login instead of a generic failure.
-    const-string v1, "\"token\":\"oui\""
-    invoke-virtual {v0, v1}, Ljava/lang/String;->contains(Ljava/lang/CharSequence;)Z
-    move-result v1
-    if-eqz v1, :state_login
-
-    # Both libraryV3 hashes rejected -> say so clearly.
-    const-string v1, "\"gqlErrorCodes\":["
-    invoke-virtual {v0, v1}, Ljava/lang/String;->contains(Ljava/lang/CharSequence;)Z
-    move-result v1
-    if-eqz v1, :state_fail
-    const-string v1, "\"gqlErrorCodes\":[]"
-    invoke-virtual {v0, v1}, Ljava/lang/String;->contains(Ljava/lang/CharSequence;)Z
-    move-result v1
-    if-nez v1, :state_fail
-
-    const-string v0, "[{\"title\":\"Bibliothèque indisponible\",\"subtitle\":\"La requête Spotify refusée ou modifiée (libraryV3) — rien n\'a été perdu\",\"section\":\"Votre bibliothèque\",\"kind\":\"error\"},{\"title\":\"Réessayer\",\"subtitle\":\"Relancer la récupération des playlists\",\"section\":\"Votre bibliothèque\",\"actionUri\":\"spotify:lib:retry\",\"kind\":\"retry\"}]"
-    goto :lib_err_paint
-
-    :state_login
-    const-string v0, "[{\"title\":\"Connecte-toi à Spotify\",\"subtitle\":\"Aucune session détectée — connectez-vous pour voir tes playlists\",\"section\":\"Votre bibliothèque\",\"kind\":\"login\"},{\"title\":\"Se connecter\",\"subtitle\":\"Ouvrir la connexion Spotify\",\"section\":\"Votre bibliothèque\",\"actionUri\":\"spotify:lib:login\",\"kind\":\"login\"}]"
-    goto :lib_err_paint
-
-    :state_fail
-    new-instance v0, Ljava/lang/StringBuilder;
-    invoke-direct {v0}, Ljava/lang/StringBuilder;-><init>()V
-    const-string v1, "[{\"title\":\"Bibliothèque indisponible\",\"subtitle\":\"La récupération des playlists n\'a pas abouti \\u2014 rien n\'a été perdu\",\"section\":\"Votre bibliothèque\",\"kind\":\"error\"},"
-    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
-
-    invoke-static {}, Lcom/melodix/music/DiagCounters;->readLibState()Ljava/lang/String;
-    move-result-object v1
-    if-eqz v1, :lib_err_rows
-    invoke-virtual {v1}, Ljava/lang/String;->isEmpty()Z
-    move-result v2
-    if-eqz v2, :lib_err_state
-    goto :lib_err_rows
-
-    :lib_err_state
-    const-string v2, "{\"title\":\"Dernier état côté page\",\"subtitle\":"
-    invoke-virtual {v0, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
-    invoke-static {v1}, Lorg/json/JSONObject;->quote(Ljava/lang/String;)Ljava/lang/String;
-    move-result-object v2
-    invoke-virtual {v0, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
-    const-string v2, "},"
-    invoke-virtual {v0, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
-
-    :lib_err_rows
-    const-string v1, "{\"title\":\"Réessayer\",\"subtitle\":\"Relancer la récupération des playlists\",\"section\":\"Votre bibliothèque\",\"actionUri\":\"spotify:lib:retry\",\"kind\":\"retry\"}]"
-    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
-    invoke-virtual {v0}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
-    move-result-object v0
-
-    :lib_err_paint
-    const-string v1, "Votre bibliothèque"
-    invoke-virtual {p0, v1, v0}, Lcom/melodix/music/MainActivity;->renderNativeRows(Ljava/lang/String;Ljava/lang/String;)V
-    :try_end_lib_err
-    .catch Ljava/lang/Throwable; {:try_start_lib_err .. :try_end_lib_err} :catch_lib_err
-
-    :lib_err_done
-    return-void
-
-    :catch_lib_err
-    move-exception v0
-    invoke-static {v0}, Lcom/melodix/music/NativeCrashGuard;->record(Ljava/lang/Throwable;)V
-    return-void
-.end method
-
-.method public onUserInteraction()V
-    .locals 2
-
-    # Real user interaction (Activity.dispatchTouchEvent -> ACTION_DOWN): after
-    # a genuine touch, send the minimal evaluateJavascript("1") probe. This is
-    # the "user touched the app" half of the dead-native->JS investigation;
-    # the other half is the automatic post-page probe. Throttled to one probe
-    # per 10 s. Never blocks or consumes the interaction.
-    invoke-super {p0}, Landroid/app/Activity;->onUserInteraction()V
-
-    invoke-static {}, Lcom/melodix/music/DiagCounters;->allowTouchProbe()Z
-    move-result v0
-    if-eqz v0, :oui_done
-
-    invoke-static {}, Lcom/melodix/music/DiagCounters;->getPageView()Landroid/webkit/WebView;
-    move-result-object v0
-    if-eqz v0, :oui_done
-
-    const-string v1, "post-touch"
-    invoke-static {v0, v1}, Lcom/melodix/music/DiagJsProbe;->min(Landroid/webkit/WebView;Ljava/lang/String;)V
-
-    :oui_done
-    return-void
-.end method
-
-.method public final openNativeDiag()V
-    .locals 3
-
-    # Directly a real message with a native copy action — no engine required.
-    const/4 v1, 0x0
-    invoke-virtual {p0, v1}, Lcom/melodix/music/MainActivity;->paintDiagNative(Ljava/lang/String;)V
-
-    # Ask the WebView layer to identify itself into the native journal. If the
-    # journal later shows "js-probe bridge=..." the JS ran; if it only shows
-    # "js-probe asked", the WebView side never answered (renderer dead or JS
-    # dropped) — that alone locates the failure.
-    const-string v2, "js-probe asked"
-    invoke-static {v2}, Lcom/melodix/music/DiagCounters;->event(Ljava/lang/String;)V
-    const-string v1, "(function(){try{if(window.AndBridge&&window.AndBridge.logDiagEvent){window.AndBridge.logDiagEvent('js-probe bridge=1 started='+(window.__sfMelodixBridgeStarted===true?'1':'0')+' fetch='+(typeof window.fetchMediaItems)+' shell='+(typeof window.__sfOpenLibrary)+' path='+String((location&&location.pathname)||''));}}catch(e){}})();"
-    invoke-virtual {p0, v1}, Lcom/melodix/music/MainActivity;->runNativeJavascript(Ljava/lang/String;)V
-
-    invoke-virtual {p0}, Lcom/melodix/music/MainActivity;->probeJsChannel()V
-    return-void
-.end method
-
-.method public final copyDiagAndPaint()V
-    .locals 3
-
-    const-string v2, "diag-copy req"
-    invoke-static {v2}, Lcom/melodix/music/DiagCounters;->event(Ljava/lang/String;)V
-    const-string v2, "js-probe asked"
-    invoke-static {v2}, Lcom/melodix/music/DiagCounters;->event(Ljava/lang/String;)V
-    const-string v2, "(function(){try{if(window.AndBridge&&window.AndBridge.logDiagEvent){window.AndBridge.logDiagEvent('js-probe bridge=1 started='+(window.__sfMelodixBridgeStarted===true?'1':'0')+' fetch='+(typeof window.fetchMediaItems)+' shell='+(typeof window.__sfOpenLibrary)+' path='+String((location&&location.pathname)||''));}}catch(e){}})();"
-    invoke-virtual {p0, v2}, Lcom/melodix/music/MainActivity;->runNativeJavascript(Ljava/lang/String;)V
-
-    invoke-virtual {p0}, Lcom/melodix/music/MainActivity;->probeJsChannel()V
-
-    invoke-virtual {p0}, Lcom/melodix/music/MainActivity;->buildDiagReport()Ljava/lang/String;
-    move-result-object v1
-    invoke-static {p0, v1}, Lcom/melodix/music/AndBridge;->copyToClipboardStatic(Landroid/content/Context;Ljava/lang/String;)Z
-    move-result v2
-    if-eqz v2, :diag_copy_fail
-    const-string v0, "Message copié dans le presse-papiers"
-    goto :diag_copy_paint
-    :diag_copy_fail
-    const-string v0, "Copie impossible — presse-papiers indisponible"
-    :diag_copy_paint
-    invoke-virtual {p0, v0}, Lcom/melodix/music/MainActivity;->paintDiagNative(Ljava/lang/String;)V
-    return-void
-.end method
-
-.method public final copyDiagExportAndPaint()V
-    .locals 5
-
-    new-instance v0, Lorg/json/JSONObject;
-    invoke-direct {v0}, Lorg/json/JSONObject;-><init>()V
-    :try_start_0
-    const-string v1, "report"
-    invoke-virtual {p0}, Lcom/melodix/music/MainActivity;->buildDiagReport()Ljava/lang/String;
-    move-result-object v2
-    invoke-virtual {v0, v1, v2}, Lorg/json/JSONObject;->put(Ljava/lang/String;Ljava/lang/Object;)Lorg/json/JSONObject;
-    const-string v1, "countersJson"
-    invoke-static {}, Lcom/melodix/music/DiagCounters;->readJson()Ljava/lang/String;
-    move-result-object v2
-    invoke-virtual {v0, v1, v2}, Lorg/json/JSONObject;->put(Ljava/lang/String;Ljava/lang/Object;)Lorg/json/JSONObject;
-    :try_end_0
-    .catch Ljava/lang/Exception; {:try_start_0 .. :try_end_0} :catch_0
-    goto :diag_export_ready
-
-    :catch_0
-    move-exception v1
-    invoke-static {v1}, Lcom/melodix/music/NativeCrashGuard;->record(Ljava/lang/Throwable;)V
-
-    :diag_export_ready
-    invoke-virtual {v0}, Lorg/json/JSONObject;->toString()Ljava/lang/String;
-    move-result-object v1
-    invoke-static {p0, v1}, Lcom/melodix/music/AndBridge;->copyToClipboardStatic(Landroid/content/Context;Ljava/lang/String;)Z
-    move-result v2
-    if-eqz v2, :diag_export_fail
-    const-string v0, "Rapport JSON copié dans le presse-papiers"
-    goto :diag_export_paint
-    :diag_export_fail
-    const-string v0, "Copie impossible — presse-papiers indisponible"
-    :diag_export_paint
-    invoke-virtual {p0, v0}, Lcom/melodix/music/MainActivity;->paintDiagNative(Ljava/lang/String;)V
-    return-void
-.end method
-
-.method public final openNativeDiagAction(Ljava/lang/String;)V
-    .locals 4
-
-    if-eqz p1, :diag_act_done
-
-    const-string v0, "copy"
-    invoke-virtual {v0, p1}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
-    move-result v2
-    if-eqz v2, :diag_chk_summary
-    invoke-virtual {p0}, Lcom/melodix/music/MainActivity;->copyDiagAndPaint()V
-    return-void
-
-    :diag_chk_summary
-    const-string v0, "summary"
-    invoke-virtual {v0, p1}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
-    move-result v2
-    if-eqz v2, :diag_chk_export
-    invoke-virtual {p0}, Lcom/melodix/music/MainActivity;->copyDiagAndPaint()V
-    return-void
-
-    :diag_chk_export
-    const-string v0, "export"
-    invoke-virtual {v0, p1}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
-    move-result v2
-    if-eqz v2, :diag_chk_open
-    invoke-virtual {p0}, Lcom/melodix/music/MainActivity;->copyDiagExportAndPaint()V
-    return-void
-
-    :diag_chk_open
-    const-string v0, "open"
-    invoke-virtual {v0, p1}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
-    move-result v2
-    if-eqz v2, :diag_chk_full
-    const/4 v1, 0x0
-    invoke-virtual {p0, v1}, Lcom/melodix/music/MainActivity;->paintDiagNative(Ljava/lang/String;)V
-    return-void
-
-    :diag_chk_full
-    # One-tap diagnostic: delivery probe + playlists engine test + automatic
-    # report copy when the run reaches its terminal state.
-    const-string v0, "full"
-    invoke-virtual {v0, p1}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
-    move-result v2
-    if-eqz v2, :diag_engine_run
-    invoke-virtual {p0}, Lcom/melodix/music/MainActivity;->probeJsChannel()V
-    const/4 v0, 0x1
-    sput-boolean v0, Lcom/melodix/music/MainActivity;->diagAutoCopy:Z
-    const-string v0, "diag-full"
-    invoke-static {v0}, Lcom/melodix/music/DiagCounters;->event(Ljava/lang/String;)V
-    const-string p1, "playlists"
-    goto :diag_engine_run
-
-    :diag_engine_run
-    # Engine actions (run / playlists / cat:* / retry): bounded by the native
-    # watchdog — the screen always ends on a terminal state.
-    new-instance v0, Ljava/lang/StringBuilder;
-    invoke-direct {v0}, Ljava/lang/StringBuilder;-><init>()V
-    const-string v2, "Tests en cours ("
-    invoke-virtual {v0, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
-    invoke-virtual {v0, p1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
-    const-string v2, ") — réponse garantie sous 35 s"
-    invoke-virtual {v0, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
-    invoke-virtual {v0}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
-    move-result-object v2
-    invoke-virtual {p0, v2}, Lcom/melodix/music/MainActivity;->paintDiagNative(Ljava/lang/String;)V
-
-    const-string v0, "diag_engine.js"
-    const-string v2, "asset-via-activity"
-    invoke-static {v2}, Lcom/melodix/music/DiagCounters;->event(Ljava/lang/String;)V
-    invoke-static {p0, v0}, Lcom/melodix/music/NativeBridgeAsset;->readAssetUtf8(Landroid/content/Context;Ljava/lang/String;)Ljava/lang/String;
-    move-result-object v1
-    if-eqz v1, :diag_try_appctx
-    invoke-virtual {v1}, Ljava/lang/String;->isEmpty()Z
-    move-result v2
-    if-eqz v2, :diag_engine_ready
-
-    :diag_try_appctx
-    const-string v2, "asset-via-appctx"
-    invoke-static {v2}, Lcom/melodix/music/DiagCounters;->event(Ljava/lang/String;)V
-    invoke-static {v0}, Lcom/melodix/music/NativeBridgeAsset;->readAssetUtf8(Ljava/lang/String;)Ljava/lang/String;
-    move-result-object v1
-    if-eqz v1, :diag_engine_missing
-    invoke-virtual {v1}, Ljava/lang/String;->isEmpty()Z
-    move-result v2
-    if-eqz v2, :diag_engine_missing
-
-    :diag_engine_ready
-    invoke-virtual {p0, v1}, Lcom/melodix/music/MainActivity;->runNativeJavascript(Ljava/lang/String;)V
-    invoke-static {p0}, Lcom/melodix/music/DiagWatchdog;->arm(Lcom/melodix/music/MainActivity;)V
-    const-string v0, "window.__sfDiagAction"
-    invoke-virtual {p0, v0, p1}, Lcom/melodix/music/MainActivity;->runNativeFunction(Ljava/lang/String;Ljava/lang/String;)V
-    return-void
-
-    :diag_engine_missing
-    const-string v2, "Moteur de tests indisponible (asset diag_engine.js illisible)"
-    invoke-virtual {p0, v2}, Lcom/melodix/music/MainActivity;->paintDiagNative(Ljava/lang/String;)V
-
-    :diag_act_done
-    return-void
-.end method
-
 .method static constructor <clinit>()V
     .locals 1
 
@@ -1018,20 +298,10 @@
     .line 46
     invoke-virtual {v0}, Landroid/webkit/WebViewDatabase;->clearHttpAuthUsernamePassword()V
 
-    const/4 v0, 0x0
-    sput-boolean v0, Lcom/melodix/music/MainActivity;->l0:Z
-    invoke-virtual {p0}, Lcom/melodix/music/MainActivity;->resetNativeStateForLogout()V
-    goto :after_logout_reset
-
     .line 47
     .line 48
     .line 49
     :cond_0
-    sget-boolean v0, Lcom/melodix/music/AppSingleton;->B:Z
-    if-nez v0, :after_logout_reset
-    invoke-virtual {p0}, Lcom/melodix/music/MainActivity;->resetNativeStateForLogout()V
-
-    :after_logout_reset
     sget v0, Lcom/melodix/music/AppSingleton;->j:I
 
     .line 50
@@ -1079,7 +349,7 @@
 
     .line 73
     .line 74
-    sget-object p0, Lcom/melodix/music/AppSingleton;->o:Landroid/os/Handler;
+    iget-object p0, p0, Lcom/melodix/music/MainActivity;->f0:Landroid/os/Handler;
 
     .line 75
     .line 76
@@ -1175,13 +445,6 @@
     .line 20
     .line 21
     :cond_0
-    sget-object v2, Lcom/melodix/music/AppSingleton;->g0:Ljava/lang/String;
-    if-eqz v2, :cond_webview_factory_generic
-    goto :cond_webview_factory_diagnostic_ready
-    :cond_webview_factory_generic
-    const-string v2, "Source: WebView factory returned null"
-    sput-object v2, Lcom/melodix/music/AppSingleton;->g0:Ljava/lang/String;
-    :cond_webview_factory_diagnostic_ready
     invoke-virtual {p0, v1}, Lcom/melodix/music/MainActivity;->D(Z)V
 
     .line 22
@@ -1499,17 +762,6 @@
 .method public final D(Z)V
     .locals 3
 
-    # Refresh the diagnostic even when the offline overlay is already active.
-    # A null detail is explicitly marked so V24 can distinguish a missing
-    # WebView callback from the generic error text; no URL or account data is read.
-    if-eqz p1, :cond_network_diagnostic_done
-    sget-object v0, Lcom/melodix/music/AppSingleton;->g0:Ljava/lang/String;
-    if-nez v0, :cond_network_diagnostic_ready
-    const-string v0, "Source: no WebView error detail captured"
-    :cond_network_diagnostic_ready
-    invoke-virtual {p0, v0}, Lcom/melodix/music/MainActivity;->setNetworkErrorDiagnostic(Ljava/lang/String;)V
-    :cond_network_diagnostic_done
-
     .line 1
     sget-boolean v0, Lcom/melodix/music/AppSingleton;->m:Z
 
@@ -1760,27 +1012,6 @@
     return-void
 .end method
 
-.method public final setNetworkErrorDiagnostic(Ljava/lang/String;)V
-    .locals 3
-
-    if-eqz p1, :cond_network_diagnostic_helper_done
-    sput-object p1, Lcom/melodix/music/AppSingleton;->g0:Ljava/lang/String;
-    iget-object v0, p0, Lcom/melodix/music/MainActivity;->K:Landroid/widget/TextView;
-    if-eqz v0, :cond_network_diagnostic_helper_done
-
-    new-instance v1, Ljava/lang/StringBuilder;
-    const-string v2, "Network Error\nTap to retry\n"
-    invoke-direct {v1, v2}, Ljava/lang/StringBuilder;-><init>(Ljava/lang/String;)V
-    invoke-virtual {v1, p1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
-    move-result-object v1
-    invoke-virtual {v1}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
-    move-result-object v1
-    invoke-virtual {v0, v1}, Landroid/widget/TextView;->setText(Ljava/lang/CharSequence;)V
-
-    :cond_network_diagnostic_helper_done
-    return-void
-.end method
-
 .method public final E(Ljava/lang/String;)V
     .locals 2
 
@@ -1989,7 +1220,7 @@
 .end method
 
 .method public final G()V
-    .locals 9
+    .locals 8
 
     .line 1
     sget-boolean v0, Lcom/melodix/music/AppSingleton;->E:Z
@@ -2335,21 +1566,6 @@
     .line 158
     :goto_5
     invoke-virtual {v5, v7}, Landroid/view/View;->setVisibility(I)V
-
-    const v5, 0x7f09022f
-    invoke-virtual {p0, v5}, Landroid/app/Activity;->findViewById(I)Landroid/view/View;
-    move-result-object v5
-    if-eqz v5, :native_root_login_done
-    invoke-static {v0}, Lcom/melodix/music/NativeCrashGuard;->accountsHostHides(Ljava/lang/String;)Z
-    move-result v8
-    if-eqz v8, :native_root_login_done
-    const/16 v7, 0x8
-    invoke-virtual {v5, v7}, Landroid/view/View;->setVisibility(I)V
-    const/4 v7, 0x0
-    sput-boolean v7, Lcom/melodix/music/AppSingleton;->l:Z
-    const-string v7, "native-root-gone:accounts-host"
-    invoke-static {v7}, Lcom/melodix/music/NativeCrashGuard;->stage(Ljava/lang/String;)V
-    :native_root_login_done
 
     .line 159
     .line 160
@@ -3183,9 +2399,10 @@
     const/4 v1, 0x0
 
     :native_guard_done
-    # The dialog is shown first, but the launch MUST continue: an early return
-    # here left the activity half-initialized (no UI) whenever record()/write()
-    # had persisted last_crash, and the process then died/respawned (E2E cold_launch_2).
+    if-eqz v1, :native_no_crash_report
+
+    return-void
+
     :native_no_crash_report
     # Paint a small marker before anything else can fail. If this text is never
     # seen, the process dies before the activity exists; if it flashes, the
@@ -3465,10 +2682,6 @@
     const-string v1, "content-view"
 
     invoke-static/range {v1 .. v1}, Lcom/melodix/music/NativeCrashGuard;->stage(Ljava/lang/String;)V
-
-    # Keep the mini-player and the bottom navigation reachable while the soft
-    # keyboard is open (keyboard overlap becomes bottom padding).
-    invoke-static {v0}, Lcom/melodix/music/NativeImeInsetsListener;->install(Landroid/app/Activity;)V
 
     .line 154
     .line 155
@@ -5171,17 +4384,6 @@
     .line 1003
     invoke-virtual {v1, v0, v2}, Landroidx/activity/b;->a(Lci0;Lr70;)V
 
-    sget v3, Landroid/os/Build$VERSION;->SDK_INT:I
-    const/16 v4, 0x21
-    if-lt v3, v4, :native_back_reg_create_done
-    invoke-static {v0}, Lcm;->a(Landroid/app/Activity;)Landroid/window/OnBackInvokedDispatcher;
-    move-result-object v3
-    iput-object v3, v1, Landroidx/activity/b;->e:Landroid/window/OnBackInvokedDispatcher;
-    const/4 v3, 0x1
-    iput-boolean v3, v1, Landroidx/activity/b;->g:Z
-    invoke-virtual {v1, v3}, Landroidx/activity/b;->c(Z)V
-    :native_back_reg_create_done
-
     .line 1004
     .line 1005
     .line 1006
@@ -5194,11 +4396,18 @@
     .line 1
     invoke-super {p0}, Le6;->onDestroy()V
 
+    .line 2
+    .line 3
+    .line 4
     iget-object v0, p0, Lcom/melodix/music/MainActivity;->f0:Landroid/os/Handler;
 
-    const/4 v1, 0x0
+    .line 5
+    .line 6
+    iget-object v1, p0, Lcom/melodix/music/MainActivity;->g0:Ls4;
 
-    invoke-virtual {v0, v1}, Landroid/os/Handler;->removeCallbacksAndMessages(Ljava/lang/Object;)V
+    .line 7
+    .line 8
+    invoke-virtual {v0, v1}, Landroid/os/Handler;->removeCallbacks(Ljava/lang/Runnable;)V
 
     .line 9
     .line 10
@@ -5252,7 +4461,7 @@
 
     .line 33
     .line 34
-    sget v0, Lcom/melodix/music/AppSingleton;->j:I
+    sget p0, Lcom/melodix/music/AppSingleton;->j:I
 
     .line 35
     .line 36
@@ -5273,30 +4482,25 @@
 
     .line 43
     .line 44
-    iget-object v1, p0, Lcom/melodix/music/MainActivity;->N:Landroid/widget/FrameLayout;
+    iget-object p0, p0, Lcom/melodix/music/MainActivity;->N:Landroid/widget/FrameLayout;
 
     .line 45
     .line 46
-    if-eqz v1, :cond_1
+    if-eqz p0, :cond_1
 
     .line 47
     .line 48
-    invoke-virtual {v1, v0}, Landroid/view/ViewGroup;->removeView(Landroid/view/View;)V
+    invoke-virtual {p0, v0}, Landroid/view/ViewGroup;->removeView(Landroid/view/View;)V
 
     .line 49
     .line 50
     .line 51
     :cond_1
     :goto_0
-    const/4 v1, 0x0
-    sget-object v0, Lcom/melodix/music/AppSingleton;->t:Ljava/lang/ref/WeakReference;
-    if-eqz v0, :destroy_ref_done
-    invoke-virtual {v0}, Ljava/lang/ref/Reference;->get()Ljava/lang/Object;
-    move-result-object v0
-    if-ne v0, p0, :destroy_ref_done
     sput-object v1, Lcom/melodix/music/AppSingleton;->t:Ljava/lang/ref/WeakReference;
 
-    :destroy_ref_done
+    .line 52
+    .line 53
     return-void
 .end method
 
@@ -5913,30 +5117,51 @@
 
     .line 153
     :cond_6
-    invoke-virtual {p0}, Lcom/melodix/music/MainActivity;->C()V
-
     new-instance v0, Landroid/content/Intent;
 
+    .line 154
+    .line 155
     const-class v4, Lcom/melodix/music/WebService;
 
+    .line 156
+    .line 157
     invoke-direct {v0, p0, v4}, Landroid/content/Intent;-><init>(Landroid/content/Context;Ljava/lang/Class;)V
 
+    .line 158
+    .line 159
+    .line 160
     :try_start_0
     sget v4, Landroid/os/Build$VERSION;->SDK_INT:I
 
+    .line 161
+    .line 162
     if-lt v4, v1, :cond_7
 
+    .line 163
+    .line 164
     invoke-static {p0, v0}, Li1;->u(Lcom/melodix/music/MainActivity;Landroid/content/Intent;)V
 
+    .line 165
+    .line 166
+    .line 167
     goto :goto_1
 
+    .line 168
     :cond_7
     invoke-virtual {p0, v0}, Landroid/content/Context;->startService(Landroid/content/Intent;)Landroid/content/ComponentName;
     :try_end_0
     .catch Ljava/lang/Exception; {:try_start_0 .. :try_end_0} :catch_0
 
+    .line 169
+    .line 170
+    .line 171
     :catch_0
     :goto_1
+    invoke-virtual {p0}, Lcom/melodix/music/MainActivity;->C()V
+
+    .line 172
+    .line 173
+    .line 174
     goto :goto_3
 
     .line 175
@@ -6252,19 +5477,6 @@
     .line 327
     :cond_15
     invoke-virtual {p0}, Lcom/melodix/music/MainActivity;->G()V
-
-    sget v0, Landroid/os/Build$VERSION;->SDK_INT:I
-    const/16 v1, 0x21
-    if-lt v0, v1, :native_back_reg_resume_done
-    invoke-virtual {p0}, Landroidx/activity/a;->i()Landroidx/activity/b;
-    move-result-object v0
-    invoke-static {p0}, Lcm;->a(Landroid/app/Activity;)Landroid/window/OnBackInvokedDispatcher;
-    move-result-object v1
-    iput-object v1, v0, Landroidx/activity/b;->e:Landroid/window/OnBackInvokedDispatcher;
-    const/4 v1, 0x1
-    iput-boolean v1, v0, Landroidx/activity/b;->g:Z
-    invoke-virtual {v0, v1}, Landroidx/activity/b;->c(Z)V
-    :native_back_reg_resume_done
 
     .line 328
     .line 329
@@ -7763,16 +6975,9 @@
 
     :check_default_screen
     iget-object v0, p0, Lcom/melodix/music/MainActivity;->nativeCurrentScreen:Ljava/lang/String;
-    if-nez v0, :show_paint_home
+    if-nez v0, :show_done
     const-string v0, "home"
     invoke-virtual {p0, v0}, Lcom/melodix/music/MainActivity;->setNativeScreen(Ljava/lang/String;)V
-
-    :show_paint_home
-    invoke-virtual {p0}, Lcom/melodix/music/MainActivity;->pullNativeHomeList()V
-    new-instance v0, Lcom/melodix/music/NativeHomeRetryRunnable;
-    const/16 v1, 0xc
-    invoke-direct {v0, p0, v1}, Lcom/melodix/music/NativeHomeRetryRunnable;-><init>(Lcom/melodix/music/MainActivity;I)V
-    invoke-virtual {p0, v0}, Landroid/app/Activity;->runOnUiThread(Ljava/lang/Runnable;)V
 
     :show_done
     const-string v0, "ready"
@@ -7785,43 +6990,27 @@
 .method public final setNativeScreen(Ljava/lang/String;)V
     .locals 7
 
-    if-eqz p1, :native_screen_abort
-
     # Compare with the previous destination before overwriting it: a nav tap
     # fades the shell in, a repeated feed update does not.
-    const/4 v0, 0x0
+    const/4 v0, 0x1
 
     iget-object v1, p0, Lcom/melodix/music/MainActivity;->nativeCurrentScreen:Ljava/lang/String;
 
-    if-eqz v1, :native_fade_flag
+    if-nez v1, :native_fade_flag
 
     invoke-virtual {v1, p1}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
 
     move-result v1
 
-    if-eqz v1, :native_fade_flag
+    if-nez v1, :native_fade_flag
 
-    const/4 v0, 0x1
+    const/4 v0, 0x0
 
     :native_fade_flag
     iput-boolean v0, p0, Lcom/melodix/music/MainActivity;->nativeFadeNextScreen:Z
 
     iput-object p1, p0, Lcom/melodix/music/MainActivity;->nativeCurrentScreen:Ljava/lang/String;
 
-    # Leaving the search screen closes the soft keyboard so it never lingers
-    # over another screen; entering search keeps it available.
-    const-string v0, "search"
-    invoke-virtual {p1, v0}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
-    move-result v0
-    if-nez v0, :native_ime_kept
-    invoke-virtual {p0}, Lcom/melodix/music/MainActivity;->hideImeNow()V
-    # Any late re-show (focus restore, web input, layout pass) is closed again.
-    const-wide/16 v1, 0x12c
-    invoke-static {p0, v1, v2}, Lcom/melodix/music/NativeSearchWatcher;->postDismiss(Lcom/melodix/music/MainActivity;J)V
-    const-wide/16 v1, 0x384
-    invoke-static {p0, v1, v2}, Lcom/melodix/music/NativeSearchWatcher;->postDismiss(Lcom/melodix/music/MainActivity;J)V
-
-    :native_ime_kept
     # The browse grid belongs to the empty search screen only.
     const v0, 0x7f09024f
 
@@ -7868,39 +7057,26 @@
     invoke-virtual {v2, v3}, Landroid/view/View;->setVisibility(I)V
 
     :back_button
-    const/4 v1, 0x0
+    # The back arrow must exist on both screens the user can enter from a row
+    # or the mini player. The old test overwrote the detail flag with the
+    # player flag, so the button was hidden everywhere.
     const-string v0, "detail"
     invoke-virtual {p1, v0}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
-    move-result v3
-    if-eqz v3, :native_back_check_player
+    move-result v1
+    if-nez v1, :native_back_check_player
     const/4 v1, 0x1
     goto :set_back_button_visibility
     :native_back_check_player
     const-string v0, "player"
     invoke-virtual {p1, v0}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
-    move-result v3
-    if-eqz v3, :native_back_check_settings
-    const/4 v1, 0x1
-    goto :set_back_button_visibility
-    :native_back_check_settings
+    move-result v1
+    if-eqz v1, :native_back_show
     const-string v0, "settings"
     invoke-virtual {p1, v0}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
-    move-result v3
-    if-eqz v3, :native_back_check_queue
-    const/4 v1, 0x1
+    move-result v1
+    if-eqz v1, :native_back_show
     goto :set_back_button_visibility
-    :native_back_check_queue
-    const-string v0, "queue"
-    invoke-virtual {p1, v0}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
-    move-result v3
-    if-eqz v3, :native_back_check_diag
-    const/4 v1, 0x1
-    goto :set_back_button_visibility
-    :native_back_check_diag
-    const-string v0, "diagnostic"
-    invoke-virtual {p1, v0}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
-    move-result v3
-    if-eqz v3, :set_back_button_visibility
+    :native_back_show
     const/4 v1, 0x1
     :set_back_button_visibility
     const v2, 0x7f090231
@@ -7927,16 +7103,6 @@
     const/16 v3, 0x8
     goto :set_native_rows
     :show_native_rows
-    # Home display restoration: on the home screen the native list stays
-    # hidden (the real Spotify web player is the home surface).
-    iget-object v3, p0, Lcom/melodix/music/MainActivity;->nativeCurrentScreen:Ljava/lang/String;
-    const-string v0, "home"
-    invoke-virtual {v0, v3}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
-    move-result v3
-    if-eqz v3, :show_native_rows_visible
-    const/16 v3, 0x8
-    goto :set_native_rows
-    :show_native_rows_visible
     const/4 v3, 0x0
     :set_native_rows
     invoke-virtual {v2, v3}, Landroid/view/View;->setVisibility(I)V
@@ -7955,17 +7121,20 @@
     invoke-virtual {v2, v3}, Landroid/view/View;->setVisibility(I)V
 
     :native_mini_player
+    # Hide the whole card (row + progress line), not just the row, and keep it
+    # hidden until Spotify reports a track.
     const v2, 0x7f09024c
     invoke-virtual {p0, v2}, Landroid/app/Activity;->findViewById(I)Landroid/view/View;
     move-result-object v2
     if-eqz v2, :native_tab_bar
-    if-nez v1, :hide_native_mini_player
+    if-eqz v1, :hide_native_mini_player
     iget-boolean v3, p0, Lcom/melodix/music/MainActivity;->nativeHasTrack:Z
-    if-eqz v3, :hide_native_mini_player
-    const/4 v3, 0x0
-    goto :set_native_mini_player
+    if-eqz v3, :show_native_mini_player
     :hide_native_mini_player
     const/16 v3, 0x8
+    goto :set_native_mini_player
+    :show_native_mini_player
+    const/4 v3, 0x0
     :set_native_mini_player
     invoke-virtual {v2, v3}, Landroid/view/View;->setVisibility(I)V
 
@@ -7987,12 +7156,6 @@
     invoke-virtual {p1, v0}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
     move-result v1
     if-eqz v1, :title_search
-    # Keep the injected greeting (home-greeting) across screen switches so
-    # the home header shows the greeting again on every return to home.
-    iget-object v4, p0, Lcom/melodix/music/MainActivity;->nativeGreeting:Ljava/lang/String;
-    if-eqz v4, :title_home_default
-    goto :write_screen_title
-    :title_home_default
     const-string v4, "Accueil"
     goto :write_screen_title
     :title_search
@@ -8027,15 +7190,8 @@
     const-string v0, "detail"
     invoke-virtual {p1, v0}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
     move-result v1
-    if-eqz v1, :title_diag
-    const-string v4, "Détails"
-    goto :write_screen_title
-    :title_diag
-    const-string v0, "diagnostic"
-    invoke-virtual {p1, v0}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
-    move-result v1
     if-eqz v1, :screen_done
-    const-string v4, "Diagnostic Melodix"
+    const-string v4, "Détails"
     :write_screen_title
     iput-object v4, p0, Lcom/melodix/music/MainActivity;->nativeCurrentTitle:Ljava/lang/String;
     const v5, 0x7f090230
@@ -8056,56 +7212,6 @@
     const v2, 0x7f090248
     invoke-virtual {p0, p1, v3, v2}, Lcom/melodix/music/MainActivity;->styleNativeTab(Ljava/lang/String;Ljava/lang/String;I)V
 
-    # ---------------------------------------------------------------
-    # Home display restoration - historical proven implementation
-    # (Preview test.19 / commit 552da05, last-known-working): the home
-    # screen shows the real Spotify web player mounted in the WebView, with
-    # the account's own playlists rendered by Spotify itself. The later
-    # native row/tile shell (the layout change after which the user reports
-    # missing playlists) is hidden on home only; every other native screen,
-    # the tab bar and the mini-player keep their own backgrounds and stay
-    # fully usable.
-    :home_web_restore
-    const-string v3, "home"
-    invoke-virtual {p1, v3}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
-    move-result v3
-    if-eqz v3, :restore_native_shell
-
-    const v2, 0x7f090239
-    invoke-virtual {p0, v2}, Landroid/app/Activity;->findViewById(I)Landroid/view/View;
-    move-result-object v4
-    if-eqz v4, :home_clear_root
-    const/16 v5, 0x8
-    invoke-virtual {v4, v5}, Landroid/view/View;->setVisibility(I)V
-
-    :home_clear_root
-    const v2, 0x7f09022f
-    invoke-virtual {p0, v2}, Landroid/app/Activity;->findViewById(I)Landroid/view/View;
-    move-result-object v4
-    if-eqz v4, :native_fade_done
-    const/4 v5, 0x0
-    invoke-virtual {v4, v5}, Landroid/view/View;->setBackgroundColor(I)V
-    goto :native_fade_done
-
-    :restore_native_shell
-    const v2, 0x7f090239
-    invoke-virtual {p0, v2}, Landroid/app/Activity;->findViewById(I)Landroid/view/View;
-    move-result-object v4
-    if-eqz v4, :restore_native_root
-    const/4 v5, 0x0
-    invoke-virtual {v4, v5}, Landroid/view/View;->setVisibility(I)V
-
-    :restore_native_root
-    const v2, 0x7f09022f
-    invoke-virtual {p0, v2}, Landroid/app/Activity;->findViewById(I)Landroid/view/View;
-    move-result-object v4
-    if-eqz v4, :native_fade_done
-    new-instance v5, Landroid/graphics/drawable/GradientDrawable;
-    invoke-direct {v5}, Landroid/graphics/drawable/GradientDrawable;-><init>()V
-    const v6, -0xededee
-    invoke-virtual {v5, v6}, Landroid/graphics/drawable/GradientDrawable;->setColor(I)V
-    invoke-virtual {v4, v5}, Landroid/view/View;->setBackground(Landroid/graphics/drawable/Drawable;)V
-
     iget-boolean v0, p0, Lcom/melodix/music/MainActivity;->nativeFadeNextScreen:Z
 
     if-eqz v0, :native_fade_done
@@ -8117,138 +7223,57 @@
     invoke-static {p0}, Lcom/melodix/music/MainActivity;->fadeNativeScreen(Lcom/melodix/music/MainActivity;)V
 
     :native_fade_done
-    :native_screen_abort
-    return-void
-.end method
-
-.method public final setNativePlaylistHole(Z)V
-    .locals 4
-
-    const v0, 0x7f09022f
-    invoke-virtual {p0, v0}, Landroid/app/Activity;->findViewById(I)Landroid/view/View;
-    move-result-object v1
-    if-eqz v1, :native_hole_scroll
-    if-eqz p1, :native_hole_opaque
-    const/4 v2, 0x0
-    invoke-virtual {v1, v2}, Landroid/view/View;->setBackgroundColor(I)V
-    invoke-virtual {v1, v2}, Landroid/view/View;->setClickable(Z)V
-    invoke-virtual {v1, v2}, Landroid/view/View;->setFocusable(Z)V
-    goto :native_hole_scroll
-
-    :native_hole_opaque
-    const v2, -0xededee
-    invoke-virtual {v1, v2}, Landroid/view/View;->setBackgroundColor(I)V
-    const/4 v2, 0x1
-    invoke-virtual {v1, v2}, Landroid/view/View;->setClickable(Z)V
-    invoke-virtual {v1, v2}, Landroid/view/View;->setFocusable(Z)V
-
-    :native_hole_scroll
-    const v0, 0x7f090239
-    invoke-virtual {p0, v0}, Landroid/app/Activity;->findViewById(I)Landroid/view/View;
-    move-result-object v1
-    if-eqz v1, :native_hole_done
-    if-eqz p1, :native_hole_show_rows
-    const/16 v2, 0x8
-    goto :native_hole_rows_vis
-    :native_hole_show_rows
-    # Home display restoration: on the home screen the native list stays
-    # hidden (the real Spotify web player is the home surface).
-    iget-object v2, p0, Lcom/melodix/music/MainActivity;->nativeCurrentScreen:Ljava/lang/String;
-    const-string v0, "home"
-    invoke-virtual {v0, v2}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
-    move-result v2
-    if-eqz v2, :native_hole_rows_shown
-    const/16 v2, 0x8
-    goto :native_hole_rows_vis
-    :native_hole_rows_shown
-    const/4 v2, 0x0
-    :native_hole_rows_vis
-    invoke-virtual {v1, v2}, Landroid/view/View;->setVisibility(I)V
-
-    :native_hole_done
     return-void
 .end method
 
 .method public final styleNativeTab(Ljava/lang/String;Ljava/lang/String;I)V
-    .locals 8
+    .locals 5
 
     invoke-virtual {p1, p2}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
     move-result v0
     invoke-virtual {p0, p3}, Landroid/app/Activity;->findViewById(I)Landroid/view/View;
     move-result-object v1
     if-eqz v1, :native_tab_style_done
+    check-cast v1, Landroid/widget/TextView;
     if-eqz v0, :native_tab_inactive
     const v2, -0x1
-    const v4, -0xe128a0
-    goto :native_tab_apply
+    const v4, 0xff1ed760
+    goto :native_tab_highlight
 
     :native_tab_inactive
-    const v2, -0x4c4c4d
-    const v4, -0x4c4c4d
+    const v2, -0x888889
+    const v4, -0x888889
+    goto :native_tab_apply
+
+    :native_tab_highlight
 
     :native_tab_apply
-    instance-of v3, v1, Landroid/widget/TextView;
-    if-eqz v3, :native_tab_as_group
-    check-cast v1, Landroid/widget/TextView;
     invoke-virtual {v1, v2}, Landroid/widget/TextView;->setTextColor(I)V
+    # The tab background is a ripple drawable; tinting it transparent (as the
+    # old code did) also removed every press feedback.
     invoke-static {v4}, Landroid/content/res/ColorStateList;->valueOf(I)Landroid/content/res/ColorStateList;
-    move-result-object v3
-    invoke-virtual {v1, v3}, Landroid/widget/TextView;->setCompoundDrawableTintList(Landroid/content/res/ColorStateList;)V
-    # Active tab is bold — a clear, subtle selected state.
-    const/4 v3, 0x0
-    invoke-virtual {v1, v3, v0}, Landroid/widget/TextView;->setTypeface(Landroid/graphics/Typeface;I)V
-    goto :native_tab_style_done
-
-    :native_tab_as_group
-    instance-of v3, v1, Landroid/view/ViewGroup;
-    if-eqz v3, :native_tab_style_done
-    check-cast v1, Landroid/view/ViewGroup;
-    const/4 v3, 0x0
-    invoke-virtual {v1, v3}, Landroid/view/ViewGroup;->getChildAt(I)Landroid/view/View;
-    move-result-object v5
-    if-eqz v5, :native_tab_text_child
-    instance-of v6, v5, Landroid/widget/ImageView;
-    if-eqz v6, :native_tab_text_child
-    check-cast v5, Landroid/widget/ImageView;
-    invoke-virtual {v5, v4}, Landroid/widget/ImageView;->setColorFilter(I)V
-
-    :native_tab_text_child
-    const/4 v3, 0x1
-    invoke-virtual {v1, v3}, Landroid/view/ViewGroup;->getChildAt(I)Landroid/view/View;
-    move-result-object v5
-    if-eqz v5, :native_tab_style_done
-    instance-of v6, v5, Landroid/widget/TextView;
-    if-eqz v6, :native_tab_style_done
-    check-cast v5, Landroid/widget/TextView;
-    invoke-virtual {v5, v2}, Landroid/widget/TextView;->setTextColor(I)V
+    move-result-object v4
+    invoke-virtual {v1, v4}, Landroid/widget/TextView;->setCompoundDrawableTintList(Landroid/content/res/ColorStateList;)V
 
     :native_tab_style_done
     return-void
 .end method
 
 .method private static fadeNativeScreen(Lcom/melodix/music/MainActivity;)V
-    .locals 5
+    .locals 4
 
-    const v0, 0x7f09023a
+    const v0, 0x7f09022f
 
     invoke-virtual {p0, v0}, Landroid/app/Activity;->findViewById(I)Landroid/view/View;
 
     move-result-object v0
 
-    if-eqz v0, :fade_root
+    if-nez v0, :fade_done
 
-    invoke-virtual {v0}, Landroid/view/View;->getVisibility()I
-
-    move-result v1
-
-    # VISIBLE is 0: skip the slide only when the panel is not shown.
-    if-nez v1, :fade_root
-
-    const/high16 v1, 0x42700000
-
-    invoke-virtual {v0, v1}, Landroid/view/View;->setTranslationY(F)V
-
-    const v1, 0x3f4ccccd
+    # Start slightly transparent instead of fully invisible: the shell gradient
+    # is opaque, so a lower alpha would flash the WebView underneath, and a
+    # cancelled animation can never leave the screen blank.
+    const/high16 v1, 0x3f600000
 
     invoke-virtual {v0, v1}, Landroid/view/View;->setAlpha(F)V
 
@@ -8256,38 +7281,17 @@
 
     move-result-object v1
 
-    const/4 v2, 0x0
-
-    invoke-virtual {v1, v2}, Landroid/view/ViewPropertyAnimator;->translationY(F)Landroid/view/ViewPropertyAnimator;
-
-    move-result-object v1
-
     const/high16 v2, 0x3f800000
 
     invoke-virtual {v1, v2}, Landroid/view/ViewPropertyAnimator;->alpha(F)Landroid/view/ViewPropertyAnimator;
 
-    move-result-object v1
+    const-wide/16 v2, 0xb4
 
-    const-wide/16 v3, 0xdc
-
-    invoke-virtual {v1, v3, v4}, Landroid/view/ViewPropertyAnimator;->setDuration(J)Landroid/view/ViewPropertyAnimator;
+    invoke-virtual {v1, v2, v3}, Landroid/view/ViewPropertyAnimator;->setDuration(J)Landroid/view/ViewPropertyAnimator;
 
     move-result-object v1
 
     invoke-virtual {v1}, Landroid/view/ViewPropertyAnimator;->start()V
-
-    :fade_root
-    const v0, 0x7f09022f
-
-    invoke-virtual {p0, v0}, Landroid/app/Activity;->findViewById(I)Landroid/view/View;
-
-    move-result-object v0
-
-    if-eqz v0, :fade_done
-
-    const/high16 v1, 0x3f800000
-
-    invoke-virtual {v0, v1}, Landroid/view/View;->setAlpha(F)V
 
     :fade_done
     return-void
@@ -8295,29 +7299,11 @@
 
 .method public final applyNativeUiData(Ljava/lang/String;Ljava/lang/String;)V
     .locals 10
-    # Any web update for a non-search surface closes the keyboard.
-    invoke-virtual {p0, p2, p1}, Lcom/melodix/music/MainActivity;->maybeDismissImeFor(Ljava/lang/String;Ljava/lang/String;)V
 
-
-    if-eqz p1, :apply_done
-    if-eqz p2, :apply_done
-
-    const-string v0, "list-text"
-    invoke-virtual {p1, v0}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
-    move-result v1
-    if-eqz v1, :check_home_greeting
-    iput-object p2, p0, Lcom/melodix/music/MainActivity;->nativeListBlob:Ljava/lang/String;
-    invoke-virtual {p0, p2}, Lcom/melodix/music/MainActivity;->applyNativeListText(Ljava/lang/String;)V
-    return-void
-
-    :check_home_greeting
     const-string v0, "home-greeting"
     invoke-virtual {p1, v0}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
     move-result v1
     if-eqz v1, :check_profile_image
-    # Remember the greeting so returning to home (setNativeScreen) shows it
-    # again instead of the default screen title.
-    iput-object p2, p0, Lcom/melodix/music/MainActivity;->nativeGreeting:Ljava/lang/String;
     iget-object v2, p0, Lcom/melodix/music/MainActivity;->nativeCurrentScreen:Ljava/lang/String;
     if-eqz v2, :apply_done
     const-string v3, "home"
@@ -8372,15 +7358,9 @@
     invoke-virtual {p1, v0}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
     move-result v1
     if-eqz v1, :check_detail_data
-    iget-object v2, p0, Lcom/melodix/music/MainActivity;->nativeCurrentScreen:Ljava/lang/String;
-    if-eqz v2, :apply_done
-    const-string v3, "detail"
-    invoke-virtual {v2, v3}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
-    move-result v2
-    if-nez v2, :apply_done
     invoke-virtual {p2}, Ljava/lang/String;->isEmpty()Z
     move-result v1
-    if-nez v1, :apply_done
+    if-eqz v1, :apply_done
     iput-object p2, p0, Lcom/melodix/music/MainActivity;->nativeCurrentTitle:Ljava/lang/String;
     const v0, 0x7f090230
     invoke-virtual {p0, v0}, Landroid/app/Activity;->findViewById(I)Landroid/view/View;
@@ -8423,40 +7403,15 @@
     invoke-virtual {p1, v0}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
     move-result v1
     if-eqz v1, :check_media
-    invoke-virtual {p2}, Ljava/lang/String;->length()I
-    move-result v2
-    const/4 v3, 0x1
-    if-le v2, v3, :home_keep_cache
-    iput-object p2, p0, Lcom/melodix/music/MainActivity;->nativeHomeJson:Ljava/lang/String;
-    goto :home_paint
-    :home_keep_cache
-    iget-object v2, p0, Lcom/melodix/music/MainActivity;->nativeHomeJson:Ljava/lang/String;
-    if-eqz v2, :apply_done
-    move-object p2, v2
-    :home_paint
-    iget-object v4, p0, Lcom/melodix/music/MainActivity;->nativeCurrentScreen:Ljava/lang/String;
-    if-eqz v4, :home_do_paint
-    const-string v5, "home"
-    invoke-virtual {v4, v5}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
-    move-result v5
-    if-eqz v5, :apply_done
-
-    :home_do_paint
-    const v2, 0x7f09022f
-    invoke-virtual {p0, v2}, Landroid/app/Activity;->findViewById(I)Landroid/view/View;
-    move-result-object v2
-    if-eqz v2, :home_root_visible
-    const/4 v3, 0x0
-    invoke-virtual {v2, v3}, Landroid/view/View;->setVisibility(I)V
-    const/high16 v3, 0x3f800000
-    invoke-virtual {v2, v3}, Landroid/view/View;->setAlpha(F)V
-    :home_root_visible
-    const-string v2, "home"
-    iput-object v2, p0, Lcom/melodix/music/MainActivity;->nativeCurrentScreen:Ljava/lang/String;
+    iget-object v2, p0, Lcom/melodix/music/MainActivity;->nativeCurrentScreen:Ljava/lang/String;
+    if-eqz v2, :apply_home
+    const-string v3, "home"
+    invoke-virtual {v2, v3}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    move-result v4
+    if-eqz v4, :apply_done
+    :apply_home
     const-string v2, "Accueil"
     invoke-virtual {p0, v2, p2}, Lcom/melodix/music/MainActivity;->renderNativeRows(Ljava/lang/String;Ljava/lang/String;)V
-    const-string v2, "home"
-    invoke-virtual {p0, v2}, Lcom/melodix/music/MainActivity;->setNativeScreen(Ljava/lang/String;)V
     return-void
 
     :check_media
@@ -8468,71 +7423,16 @@
     invoke-virtual {p1, v0}, Ljava/lang/String;->substring(I)Ljava/lang/String;
     move-result-object v2
     iget-object v3, p0, Lcom/melodix/music/MainActivity;->nativeExpectedId:Ljava/lang/String;
-    if-eqz v3, :media_gate_drop
+    if-eqz v3, :apply_done
     invoke-virtual {v3, v2}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
     move-result v4
-    if-eqz v4, :media_gate_drop
-
-    # A payload matching the expected id is always cached when it carries a
-    # library category: a late response must never be lost (the screen may have
-    # been left meanwhile) and re-entering the tab must paint immediately
-    # instead of waiting for a new fetch. Non-category ids (playlist/album/...)
-    # never touch this cache.
-    const-string v0, "playlists"
-    invoke-virtual {v2, v0}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
-    move-result v1
-    if-nez v1, :media_cache_store
-    const-string v0, "albums"
-    invoke-virtual {v2, v0}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
-    move-result v1
-    if-nez v1, :media_cache_store
-    const-string v0, "artists"
-    invoke-virtual {v2, v0}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
-    move-result v1
-    if-nez v1, :media_cache_store
-    const-string v0, "podcasts"
-    invoke-virtual {v2, v0}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
-    move-result v1
-    if-eqz v1, :media_render_gate
-    :media_cache_store
-    # Transient status rows never fill the library cache: only real content
-    # rows (and the confirmed-empty row) are kept. An error must not overwrite
-    # a good cache, a loading row must not poison the next tab entry.
-    const-string v0, "\"kind\":\"loading\""
-    invoke-virtual {p2, v0}, Ljava/lang/String;->contains(Ljava/lang/CharSequence;)Z
-    move-result v1
-    if-eqz v1, :store_gate_1
-    goto :media_render_gate
-    :store_gate_1
-    const-string v0, "\"kind\":\"error\""
-    invoke-virtual {p2, v0}, Ljava/lang/String;->contains(Ljava/lang/CharSequence;)Z
-    move-result v1
-    if-eqz v1, :store_gate_2
-    goto :media_render_gate
-    :store_gate_2
-    const-string v0, "\"kind\":\"login\""
-    invoke-virtual {p2, v0}, Ljava/lang/String;->contains(Ljava/lang/CharSequence;)Z
-    move-result v1
-    if-eqz v1, :store_do
-    goto :media_render_gate
-    :store_do
-    iput-object v2, p0, Lcom/melodix/music/MainActivity;->nativeLibraryJsonId:Ljava/lang/String;
-    iput-object p2, p0, Lcom/melodix/music/MainActivity;->nativeLibraryJson:Ljava/lang/String;
-
-    :media_render_gate
+    if-eqz v4, :apply_done
     iget-object v5, p0, Lcom/melodix/music/MainActivity;->nativeCurrentScreen:Ljava/lang/String;
-    if-eqz v5, :media_gate_drop
+    if-eqz v5, :apply_done
     const-string v6, "library"
     invoke-virtual {v5, v6}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
     move-result v7
     if-eqz v7, :media_detail
-    const-string v6, "\"kind\":\"loading\""
-    invoke-virtual {p2, v6}, Ljava/lang/String;->contains(Ljava/lang/CharSequence;)Z
-    move-result v7
-    if-eqz v7, :lib_disarm_skip
-    invoke-static {}, Lcom/melodix/music/NativeLibWatchdog;->disarm()V
-    :lib_disarm_skip
-    invoke-static {}, Lcom/melodix/music/DiagCounters;->mediaRendered()V
     iget-object v8, p0, Lcom/melodix/music/MainActivity;->nativeCurrentTitle:Ljava/lang/String;
     if-eqz v8, :library_default_title
     invoke-virtual {p0, v8, p2}, Lcom/melodix/music/MainActivity;->renderNativeRows(Ljava/lang/String;Ljava/lang/String;)V
@@ -8546,14 +7446,7 @@
     const-string v6, "detail"
     invoke-virtual {v5, v6}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
     move-result v7
-    if-eqz v7, :media_gate_drop
-    const-string v6, "\"kind\":\"loading\""
-    invoke-virtual {p2, v6}, Ljava/lang/String;->contains(Ljava/lang/CharSequence;)Z
-    move-result v7
-    if-eqz v7, :detail_disarm_skip
-    invoke-static {}, Lcom/melodix/music/NativeLibWatchdog;->disarm()V
-    :detail_disarm_skip
-    invoke-static {}, Lcom/melodix/music/DiagCounters;->mediaRendered()V
+    if-eqz v7, :apply_done
     iget-object v8, p0, Lcom/melodix/music/MainActivity;->nativeCurrentTitle:Ljava/lang/String;
     if-eqz v8, :detail_default_title
     invoke-virtual {p0, v8, p2}, Lcom/melodix/music/MainActivity;->renderNativeRows(Ljava/lang/String;Ljava/lang/String;)V
@@ -8563,15 +7456,11 @@
     invoke-virtual {p0, v8, p2}, Lcom/melodix/music/MainActivity;->renderNativeRows(Ljava/lang/String;Ljava/lang/String;)V
     return-void
 
-    :media_gate_drop
-    invoke-static {}, Lcom/melodix/music/DiagCounters;->mediaDropped()V
-    goto :apply_done
-
     :check_settings
     const-string v0, "settings"
     invoke-virtual {p1, v0}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
     move-result v1
-    if-eqz v1, :check_queue
+    if-eqz v1, :check_search
     iget-object v2, p0, Lcom/melodix/music/MainActivity;->nativeCurrentScreen:Ljava/lang/String;
     if-eqz v2, :apply_done
     const-string v3, "settings"
@@ -8582,49 +7471,11 @@
     invoke-virtual {p0, v2, p2}, Lcom/melodix/music/MainActivity;->renderNativeRows(Ljava/lang/String;Ljava/lang/String;)V
     return-void
 
-    :check_queue
-    const-string v0, "queue"
-    invoke-virtual {p1, v0}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
-    move-result v1
-    if-eqz v1, :check_search
-    iget-object v2, p0, Lcom/melodix/music/MainActivity;->nativeCurrentScreen:Ljava/lang/String;
-    if-eqz v2, :apply_done
-    const-string v3, "queue"
-    invoke-virtual {v2, v3}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
-    move-result v4
-    if-eqz v4, :apply_done
-    const-string v2, "File d'attente"
-    invoke-virtual {p0, v2, p2}, Lcom/melodix/music/MainActivity;->renderNativeRows(Ljava/lang/String;Ljava/lang/String;)V
-    return-void
-
     :check_search
-    const-string v0, "open-search"
-    invoke-virtual {p1, v0}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
-    move-result v1
-    if-eqz v1, :check_search_results
-    iput-object p2, p0, Lcom/melodix/music/MainActivity;->nativeExpectedSearch:Ljava/lang/String;
-    const-string v2, "search"
-    invoke-virtual {p0, v2}, Lcom/melodix/music/MainActivity;->setNativeScreen(Ljava/lang/String;)V
-    const v2, 0x7f090233
-    invoke-virtual {p0, v2}, Landroid/app/Activity;->findViewById(I)Landroid/view/View;
-    move-result-object v2
-    if-eqz v2, :open_search_rows
-    check-cast v2, Landroid/widget/EditText;
-    invoke-virtual {v2, p2}, Landroid/widget/TextView;->setText(Ljava/lang/CharSequence;)V
-    :open_search_rows
-    const-string v2, "Résultats de recherche"
-    const-string v3, "[]"
-    invoke-virtual {p0, v2, v3}, Lcom/melodix/music/MainActivity;->renderNativeRows(Ljava/lang/String;Ljava/lang/String;)V
-    return-void
-
-    :check_search_results
     const-string v0, "search:"
     invoke-virtual {p1, v0}, Ljava/lang/String;->startsWith(Ljava/lang/String;)Z
     move-result v1
-    # Un message qui n'est pas "search:" doit CONTINUER vers :check_diag :
-    # viser :apply_done ici jetait diag:report et le watchdog peignait
-    # "Aucune reponse du moteur de tests" alors que le moteur avait repondu.
-    if-eqz v1, :check_diag
+    if-eqz v1, :apply_done
     const/4 v0, 0x7
     invoke-virtual {p1, v0}, Ljava/lang/String;->substring(I)Ljava/lang/String;
     move-result-object v2
@@ -8642,22 +7493,6 @@
     const-string v8, "Résultats de recherche"
     invoke-virtual {p0, v8, p2}, Lcom/melodix/music/MainActivity;->renderNativeRows(Ljava/lang/String;Ljava/lang/String;)V
 
-    :check_diag
-    const-string v0, "diag:"
-    invoke-virtual {p1, v0}, Ljava/lang/String;->startsWith(Ljava/lang/String;)Z
-    move-result v1
-    if-eqz v1, :apply_done
-    invoke-static {}, Lcom/melodix/music/DiagWatchdog;->disarm()V
-    invoke-static {p0}, Lcom/melodix/music/MainActivity;->autoCopyDiagIfArmed(Lcom/melodix/music/MainActivity;)V
-    iget-object v2, p0, Lcom/melodix/music/MainActivity;->nativeCurrentScreen:Ljava/lang/String;
-    if-eqz v2, :apply_done
-    const-string v3, "diagnostic"
-    invoke-virtual {v2, v3}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
-    move-result v2
-    if-eqz v2, :apply_done
-    const-string v2, "Diagnostic Melodix"
-    invoke-virtual {p0, v2, p2}, Lcom/melodix/music/MainActivity;->renderNativeRows(Ljava/lang/String;Ljava/lang/String;)V
-
     :apply_done
     return-void
 .end method
@@ -8666,9 +7501,6 @@
     .locals 12
 
     :try_start_native_player
-    # Idempotent: keeps the mini and full progress bars seekable. Tapping a bar
-    # relays the touched fraction to window.__sfSeekFraction (real engine).
-    invoke-static {p0}, Lcom/melodix/music/NativeSeekHandler;->attach(Lcom/melodix/music/MainActivity;)V
     new-instance v0, Lorg/json/JSONObject;
     invoke-direct {v0, p1}, Lorg/json/JSONObject;-><init>(Ljava/lang/String;)V
     const-string v1, "track"
@@ -8677,11 +7509,7 @@
     move-result-object v2
     invoke-virtual {v2}, Ljava/lang/String;->isEmpty()Z
     move-result v1
-    if-nez v1, :native_player_no_track
-    const-string v1, "Aucune lecture en cours"
-    invoke-virtual {v2, v1}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
-    move-result v1
-    if-nez v1, :native_player_no_track
+    if-eqz v1, :native_player_no_track
     const/4 v1, 0x1
     goto :native_player_track_flag
     :native_player_no_track
@@ -8743,7 +7571,7 @@
     move-result-object v9
     if-eqz v9, :native_player_progress
     check-cast v9, Landroid/widget/ImageView;
-    const/16 v8, 0x140
+    const/16 v8, 0x2d0
     invoke-static {v9, v2, v8}, Lcom/melodix/music/NativeImageLoader;->load(Landroid/widget/ImageView;Ljava/lang/String;I)V
 
     :native_player_progress
@@ -8759,46 +7587,44 @@
     move-result-object v11
     invoke-static {v2, v3}, Lcom/melodix/music/MainActivity;->formatNativeTime(J)Ljava/lang/String;
     move-result-object v10
-    const/4 v8, 0x0
+    const v8, 0x7f09023d
+    invoke-virtual {p0, v8}, Landroid/app/Activity;->findViewById(I)Landroid/view/View;
+    move-result-object v9
+    if-eqz v9, :native_player_play_state
+    check-cast v9, Landroid/widget/ProgressBar;
+    const/16 v8, 0x3e8
+    invoke-virtual {v9, v8}, Landroid/widget/ProgressBar;->setMax(I)V
     const-wide/16 v6, 0x0
-    cmp-long v1, v2, v6
-    if-lez v1, :native_player_zero_progress
+    cmp-long v8, v2, v6
+    if-lez v8, :native_player_zero_progress
     const-wide/16 v6, 0x3e8
     mul-long v4, v4, v6
     div-long v4, v4, v2
-    long-to-int v8, v4
+    long-to-int v4, v4
+    goto :native_player_set_progress
     :native_player_zero_progress
-    const/4 v2, 0x0
-    const/4 v3, 0x0
     const/4 v4, 0x0
-    const v1, 0x7f09023d
-    invoke-virtual {p0, v1}, Landroid/app/Activity;->findViewById(I)Landroid/view/View;
-    move-result-object v9
-    if-eqz v9, :native_player_mini_bar
-    check-cast v9, Landroid/widget/ProgressBar;
-    const/16 v1, 0x3e8
-    invoke-virtual {v9, v1}, Landroid/widget/ProgressBar;->setMax(I)V
-    invoke-virtual {v9, v8}, Landroid/widget/ProgressBar;->setProgress(I)V
+    :native_player_set_progress
+    invoke-virtual {v9, v4}, Landroid/widget/ProgressBar;->setProgress(I)V
 
-    :native_player_mini_bar
-    const v1, 0x7f09024d
-    invoke-virtual {p0, v1}, Landroid/app/Activity;->findViewById(I)Landroid/view/View;
+    const v8, 0x7f09024d
+    invoke-virtual {p0, v8}, Landroid/app/Activity;->findViewById(I)Landroid/view/View;
     move-result-object v9
-    if-eqz v9, :native_player_label_pos
+    if-eqz v9, :native_player_mini_progress
     check-cast v9, Landroid/widget/ProgressBar;
-    invoke-virtual {v9, v8}, Landroid/widget/ProgressBar;->setProgress(I)V
+    invoke-virtual {v9, v4}, Landroid/widget/ProgressBar;->setProgress(I)V
 
-    :native_player_label_pos
-    const v1, 0x7f09024a
-    invoke-virtual {p0, v1}, Landroid/app/Activity;->findViewById(I)Landroid/view/View;
+    :native_player_mini_progress
+    const v8, 0x7f09024a
+    invoke-virtual {p0, v8}, Landroid/app/Activity;->findViewById(I)Landroid/view/View;
     move-result-object v9
     if-eqz v9, :native_player_label_duration
     check-cast v9, Landroid/widget/TextView;
     invoke-virtual {v9, v11}, Landroid/widget/TextView;->setText(Ljava/lang/CharSequence;)V
 
     :native_player_label_duration
-    const v1, 0x7f09024b
-    invoke-virtual {p0, v1}, Landroid/app/Activity;->findViewById(I)Landroid/view/View;
+    const v8, 0x7f09024b
+    invoke-virtual {p0, v8}, Landroid/app/Activity;->findViewById(I)Landroid/view/View;
     move-result-object v9
     if-eqz v9, :native_player_play_state
     check-cast v9, Landroid/widget/TextView;
@@ -8837,28 +7663,33 @@
     invoke-virtual {v9, v7}, Landroid/widget/ImageView;->setImageResource(I)V
 
     :native_player_try_done
+    # Show the mini player card only when a track exists, and never while the
+    # full player is open.
     iget-object v1, p0, Lcom/melodix/music/MainActivity;->nativeCurrentScreen:Ljava/lang/String;
-    const/4 v3, 0x0
-    if-eqz v1, :native_player_mini_apply
+    if-eqz v1, :native_player_mini_visibility
     const-string v2, "player"
     invoke-virtual {v1, v2}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
     move-result v1
-    if-eqz v1, :native_player_mini_apply
-    const/16 v3, 0x8
+    if-eqz v1, :native_player_mini_visibility
+    iget-boolean v1, p0, Lcom/melodix/music/MainActivity;->nativeHasTrack:Z
+    if-eqz v1, :native_player_mini_visible
+    const/16 v1, 0x8
+    goto :native_player_mini_apply
+    :native_player_mini_visible
+    const/4 v1, 0x0
     :native_player_mini_apply
     const v2, 0x7f09024c
     invoke-virtual {p0, v2}, Landroid/app/Activity;->findViewById(I)Landroid/view/View;
     move-result-object v2
     if-eqz v2, :native_player_mini_visibility
-    invoke-virtual {v2, v3}, Landroid/view/View;->setVisibility(I)V
+    invoke-virtual {v2, v1}, Landroid/view/View;->setVisibility(I)V
 
     :native_player_mini_visibility
     :try_end_native_player
-    .catch Ljava/lang/Exception; {:try_start_native_player .. :try_end_native_player} :catch_native_player
+    .catch Lorg/json/JSONException; {:try_start_native_player .. :try_end_native_player} :catch_native_player
     return-void
     :catch_native_player
     move-exception v0
-    invoke-static {v0}, Lcom/melodix/music/NativeCrashGuard;->record(Ljava/lang/Throwable;)V
     return-void
 .end method
 
@@ -8890,146 +7721,11 @@
     return-object v0
 .end method
 
-.method public final hideImeNow()V
-    .locals 4
-
-    const/4 v0, 0x0
-    const/4 v1, 0x0
-    const/4 v2, 0x0
-    const/4 v3, 0x0
-
-    const-string v0, "MDXTRACE"
-    const-string v1, "ime-hide-start"
-    invoke-static {v0, v1}, Landroid/util/Log;->i(Ljava/lang/String;Ljava/lang/String;)I
-
-    const v0, 0x7f090233
-    invoke-virtual {p0, v0}, Landroid/app/Activity;->findViewById(I)Landroid/view/View;
-    move-result-object v0
-    if-eqz v0, :hide_imm
-    invoke-virtual {v0}, Landroid/view/View;->clearFocus()V
-
-    :hide_imm
-    const-string v0, "input_method"
-    invoke-virtual {p0, v0}, Landroid/content/Context;->getSystemService(Ljava/lang/String;)Ljava/lang/Object;
-    move-result-object v0
-    if-eqz v0, :hide_modern
-    check-cast v0, Landroid/view/inputmethod/InputMethodManager;
-    invoke-virtual {p0}, Landroid/app/Activity;->getWindow()Landroid/view/Window;
-    move-result-object v1
-    if-eqz v1, :hide_modern
-    invoke-virtual {v1}, Landroid/view/Window;->getDecorView()Landroid/view/View;
-    move-result-object v1
-    if-eqz v1, :hide_modern
-    invoke-virtual {v1}, Landroid/view/View;->getWindowToken()Landroid/os/IBinder;
-    move-result-object v1
-    const/4 v2, 0x0
-    invoke-virtual {v0, v1, v2}, Landroid/view/inputmethod/InputMethodManager;->hideSoftInputFromWindow(Landroid/os/IBinder;I)Z
-    move-result v0
-    const-string v1, "MDXTRACE"
-    if-eqz v0, :hide_ret_false
-    const-string v2, "ime-hide-legacy-true"
-    goto :hide_log
-    :hide_ret_false
-    const-string v2, "ime-hide-legacy-false"
-    :hide_log
-    invoke-static {v1, v2}, Landroid/util/Log;->i(Ljava/lang/String;Ljava/lang/String;)I
-
-    :hide_modern
-    sget v0, Landroid/os/Build$VERSION;->SDK_INT:I
-    const/16 v1, 0x1e
-    if-ge v0, v1, :hide_done
-    invoke-virtual {p0}, Landroid/app/Activity;->getWindow()Landroid/view/Window;
-    move-result-object v0
-    if-eqz v0, :hide_done
-    invoke-virtual {v0}, Landroid/view/Window;->getInsetsController()Landroid/view/WindowInsetsController;
-    move-result-object v0
-    if-eqz v0, :hide_done
-    invoke-static {}, Landroid/view/WindowInsets$Type;->ime()I
-    move-result v1
-    invoke-interface {v0, v1}, Landroid/view/WindowInsetsController;->hide(I)V
-    const-string v0, "MDXTRACE"
-    const-string v1, "ime-hide-modern"
-    invoke-static {v0, v1}, Landroid/util/Log;->i(Ljava/lang/String;Ljava/lang/String;)I
-
-    :hide_done
-    return-void
-.end method
-
-.method public final maybeDismissImeFor(Ljava/lang/String;Ljava/lang/String;)V
-    .locals 4
-
-    const/4 v0, 0x0
-    const/4 v1, 0x0
-    const/4 v2, 0x0
-    const/4 v3, 0x0
-
-    # Search channels always keep the keyboard (typing must keep the IME).
-    const-string v0, "search"
-    invoke-virtual {v0, p2}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
-    move-result v0
-    if-nez v0, :ime_for_keep
-    const-string v0, "search-results"
-    invoke-virtual {v0, p2}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
-    move-result v0
-    if-nez v0, :ime_for_keep
-    const-string v0, "initial-search"
-    invoke-virtual {v0, p2}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
-    move-result v0
-    if-nez v0, :ime_for_keep
-
-    # Title-driven surfaces keep it only for the search screen and its live query.
-    const-string v0, "Rechercher"
-    invoke-virtual {v0, p1}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
-    move-result v0
-    if-nez v0, :ime_for_keep
-    iget-object v0, p0, Lcom/melodix/music/MainActivity;->nativeExpectedSearch:Ljava/lang/String;
-    if-eqz v0, :ime_for_dismiss
-    invoke-virtual {v0, p1}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
-    move-result v0
-    if-nez v0, :ime_for_keep
-
-    :ime_for_dismiss
-    const-string v0, "MDXTRACE"
-    const-string v1, "ime-close-paint"
-    invoke-static {v0, v1}, Landroid/util/Log;->i(Ljava/lang/String;Ljava/lang/String;)I
-
-    :try_start_hide
-    invoke-virtual {p0}, Lcom/melodix/music/MainActivity;->hideImeNow()V
-    :try_end_hide
-    goto :ime_for_post
-
-    :catch_hide
-    move-exception v0
-    const-string v1, "MDXTRACE"
-    invoke-virtual {v0}, Ljava/lang/Throwable;->toString()Ljava/lang/String;
-    move-result-object v2
-    invoke-static {v1, v2}, Landroid/util/Log;->i(Ljava/lang/String;Ljava/lang/String;)I
-
-    :ime_for_post
-    const-wide/16 v0, 0x12c
-    invoke-static {p0, v0, v1}, Lcom/melodix/music/NativeSearchWatcher;->postDismiss(Lcom/melodix/music/MainActivity;J)V
-    const-wide/16 v0, 0x384
-    invoke-static {p0, v0, v1}, Lcom/melodix/music/NativeSearchWatcher;->postDismiss(Lcom/melodix/music/MainActivity;J)V
-
-    :ime_for_keep
-    return-void
-
-    .catchall {:try_start_hide .. :try_end_hide} :catch_hide
-.end method
-
 .method public final renderNativeRows(Ljava/lang/String;Ljava/lang/String;)V
     .locals 10
 
-    # The keyboard never belongs above another screen: painting rows for a
-    # non-search destination closes it (nav tap, web route sync, back).
-    const-string v0, "render"
-    invoke-virtual {p0, p1, v0}, Lcom/melodix/music/MainActivity;->maybeDismissImeFor(Ljava/lang/String;Ljava/lang/String;)V
-
     # Rendering rows always means the list is the visible content, so leave the
-    # browse grid and restore the scrolling list - except on the home screen,
-    # where the home display restoration keeps the real Spotify web player as
-    # the surface (Preview test.19 / commit 552da05) and the native list stays
-    # hidden no matter how late the feed rows arrive.
+    # browse grid and restore the scrolling list.
     const v0, 0x7f090239
 
     invoke-virtual {p0, v0}, Landroid/app/Activity;->findViewById(I)Landroid/view/View;
@@ -9038,16 +7734,8 @@
 
     if-eqz v0, :native_rows_visible
 
-    iget-object v1, p0, Lcom/melodix/music/MainActivity;->nativeCurrentScreen:Ljava/lang/String;
-    const-string v2, "home"
-    invoke-virtual {v2, v1}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
-    move-result v1
-    if-eqz v1, :native_rows_shown
-    const/16 v1, 0x8
-    goto :native_rows_set
-    :native_rows_shown
     const/4 v1, 0x0
-    :native_rows_set
+
     invoke-virtual {v0, v1}, Landroid/view/View;->setVisibility(I)V
 
     :native_rows_visible
@@ -9072,248 +7760,215 @@
     move-result-object v1
     if-eqz v1, :find_native_content
     check-cast v1, Landroid/widget/TextView;
-    # Home display restoration: keep the injected greeting as the home title
-    # even when late feed renders redraw the screen.
-    iget-object v2, p0, Lcom/melodix/music/MainActivity;->nativeGreeting:Ljava/lang/String;
-    if-eqz v2, :rows_title_plain
-    iget-object v2, p0, Lcom/melodix/music/MainActivity;->nativeCurrentScreen:Ljava/lang/String;
-    if-eqz v2, :rows_title_plain
-    const-string v0, "home"
-    invoke-virtual {v0, v2}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
-    move-result v2
-    if-eqz v2, :rows_title_plain
-    iget-object v2, p0, Lcom/melodix/music/MainActivity;->nativeGreeting:Ljava/lang/String;
-    invoke-virtual {v1, v2}, Landroid/widget/TextView;->setText(Ljava/lang/CharSequence;)V
-    goto :find_native_content
-    :rows_title_plain
     invoke-virtual {v1, p1}, Landroid/widget/TextView;->setText(Ljava/lang/CharSequence;)V
 
     :find_native_content
-    const-string v0, "nativeContent"
-    invoke-virtual {p0, v0}, Lcom/melodix/music/MainActivity;->findNativeByTag(Ljava/lang/String;)Landroid/view/View;
-    move-result-object v2
-    if-eqz v2, :native_content_by_id
-    goto :native_content_ready
-    :native_content_by_id
     const v0, 0x7f090235
     invoke-virtual {p0, v0}, Landroid/app/Activity;->findViewById(I)Landroid/view/View;
     move-result-object v2
-    :native_content_ready
     if-eqz v2, :render_native_done
-    const/4 v1, 0x0
-    invoke-virtual {v2, v1}, Landroid/view/View;->setVisibility(I)V
     check-cast v2, Landroid/widget/LinearLayout;
-    const/4 v4, 0x0
-    sput-boolean v4, Lcom/melodix/music/NativeHomeFeed;->useGrid:Z
-    # Home playlist display restoration: the 2026-10-20 home (last version with
-    # playlists visibly on screen, proven by the user's own capture) painted the
-    # home feed with the flat row factory (create). The 2026-10-24 "upgrade grid
-    # UI" switch (useGrid -> createTile two-column tiles) is the layout change
-    # after which the user reports playlists no longer appear. Home rows are
-    # restored to the proven row layout; the library browse grid keeps tiles.
-    const-string v0, "Accueil"
-    invoke-virtual {v0, p1}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
-    move-result v0
-    if-eqz v0, :check_lib_grid
-    goto :native_screen_painted_track
-    :check_lib_grid
-    iget-object v0, p0, Lcom/melodix/music/MainActivity;->nativeCurrentScreen:Ljava/lang/String;
-    if-eqz v0, :check_lib_title
-    const-string v4, "home"
-    invoke-virtual {v4, v0}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
-    move-result v4
-    if-eqz v4, :check_lib_title
-    goto :native_screen_painted_track
-    :check_lib_title
-    # Home rows ("Accueil") never paint onto another screen: a home update
-    # arriving while another tab is open must not leak "Chargement des
-    # playlists…" over it. Null screen still paints (startup reveal).
-    const-string v0, "Accueil"
-    invoke-virtual {v0, p1}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
-    move-result v0
-    if-eqz v0, :check_lib_title_bis
-    iget-object v0, p0, Lcom/melodix/music/MainActivity;->nativeCurrentScreen:Ljava/lang/String;
-    if-eqz v0, :native_screen_painted_track
-    const-string v4, "home"
-    invoke-virtual {v0, v4}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
-    move-result v5
-    if-nez v5, :native_screen_painted_track
-    goto :render_native_done
+    invoke-virtual {v2}, Landroid/widget/LinearLayout;->removeAllViews()V
 
-    :check_lib_title_bis
-    const-string v0, "Votre bibliothèque"
-    invoke-virtual {v0, p1}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
-    move-result v0
-    if-eqz v0, :native_screen_painted_track
-    const/4 v4, 0x1
-    sput-boolean v4, Lcom/melodix/music/NativeHomeFeed;->useGrid:Z
-    # Tab isolation: if this container still shows rows painted for ANOTHER
-    # screen (e.g. Accueil "Chargement des playlists…"), strip them BEFORE the
-    # new paint. A failed or empty paint then shows this screen's empty state
-    # instead of leaking the previous tab's content.
-    iget-object v0, p0, Lcom/melodix/music/MainActivity;->nativePaintedScreen:Ljava/lang/String;
-    if-eqz v0, :native_screen_painted_track
-    iget-object v1, p0, Lcom/melodix/music/MainActivity;->nativeCurrentScreen:Ljava/lang/String;
-    if-eqz v1, :native_screen_painted_track
-    invoke-virtual {v0, v1}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
-    move-result v5
-    if-nez v5, :native_screen_painted_track
-    # Strip while children remain, stop when the container is empty (a
-    # removeViewAt(0) on an empty container throws and would abort the paint).
-    :native_screen_strip
-    invoke-virtual {v2}, Landroid/widget/LinearLayout;->getChildCount()I
-    move-result v5
-    if-lez v5, :native_screen_painted_track
-    const/4 v6, 0x0
-    invoke-virtual {v2, v6}, Landroid/widget/LinearLayout;->removeViewAt(I)V
-    goto :native_screen_strip
-    :native_screen_painted_track
+    # Home is a set of horizontal cover shelves (like the Spotify phone app),
+    # every other screen keeps the vertical row list.
     iget-object v0, p0, Lcom/melodix/music/MainActivity;->nativeCurrentScreen:Ljava/lang/String;
-    iput-object v0, p0, Lcom/melodix/music/MainActivity;->nativePaintedScreen:Ljava/lang/String;
-
-    :do_paint
-    invoke-static {p0, v2, p2}, Lcom/melodix/music/NativeHomeFeed;->paint(Lcom/melodix/music/MainActivity;Landroid/view/ViewGroup;Ljava/lang/String;)I
-    move-result v3
-    if-lez v3, :native_rows_keep
+    const-string v1, "home"
+    invoke-virtual {v1, v0}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    move-result v0
+    if-nez v0, :native_rows_list
+    invoke-static {p0, p2}, Lcom/melodix/music/NativeHomeShelfRenderer;->render(Lcom/melodix/music/MainActivity;Ljava/lang/String;)V
     return-void
 
-    :native_rows_keep
     :native_rows_list
-    # A failed (unparseable) paint keeps the previous content: do not append a
-    # false "Rien à afficher" message on top of rows that are still valid.
-    invoke-virtual {v2}, Landroid/widget/LinearLayout;->getChildCount()I
-    move-result v3
-    if-gtz v3, :render_native_done
+    :try_start_native_rows
+    new-instance v3, Lorg/json/JSONArray;
+    invoke-direct {v3, p2}, Lorg/json/JSONArray;-><init>(Ljava/lang/String;)V
+    invoke-virtual {v3}, Lorg/json/JSONArray;->length()I
+    move-result v4
+    if-lez v4, :native_rows_empty
+
+    iget-object v0, p0, Lcom/melodix/music/MainActivity;->nativeCurrentScreen:Ljava/lang/String;
+    const-string v1, "detail"
+    invoke-virtual {v1, v0}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    move-result v0
+    if-eqz v0, :native_rows_start_loop
+    const/4 v0, 0x0
+    invoke-virtual {v3, v0}, Lorg/json/JSONArray;->optJSONObject(I)Lorg/json/JSONObject;
+    move-result-object v6
+    const-string v8, ""
+    const-string v9, ""
+    if-eqz v6, :native_rows_create_banner
+    const-string v0, "image"
+    invoke-virtual {v6, v0, v8}, Lorg/json/JSONObject;->optString(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;
+    move-result-object v8
+    invoke-virtual {v8}, Ljava/lang/String;->isEmpty()Z
+    move-result v0
+    if-eqz v0, :native_rows_banner_uri
+    const-string v0, "cover"
+    const-string v1, ""
+    invoke-virtual {v6, v0, v1}, Lorg/json/JSONObject;->optString(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;
+    move-result-object v8
+    :native_rows_banner_uri
+    const-string v0, "id"
+    invoke-virtual {v6, v0, v9}, Lorg/json/JSONObject;->optString(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;
+    move-result-object v9
+    invoke-virtual {v9}, Ljava/lang/String;->isEmpty()Z
+    move-result v0
+    if-eqz v0, :native_rows_create_banner
+    const-string v0, "uri"
+    const-string v1, ""
+    invoke-virtual {v6, v0, v1}, Lorg/json/JSONObject;->optString(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;
+    move-result-object v9
+    :native_rows_create_banner
+    invoke-static {p0, p1, v4, v8, v9}, Lcom/melodix/music/NativeUiRowFactory;->createPlaylistBanner(Lcom/melodix/music/MainActivity;Ljava/lang/String;ILjava/lang/String;Ljava/lang/String;)Landroid/widget/LinearLayout;
+    move-result-object v0
+    if-eqz v0, :native_rows_start_loop
+    invoke-virtual {v2, v0}, Landroid/widget/LinearLayout;->addView(Landroid/view/View;)V
+
+    :native_rows_start_loop
+    const-string v8, ""
+    const/4 v5, 0x0
+    :native_rows_loop
+    if-ge v5, v4, :native_rows_try_done
+    invoke-virtual {v3, v5}, Lorg/json/JSONArray;->optJSONObject(I)Lorg/json/JSONObject;
+    move-result-object v6
+    if-eqz v6, :native_row_scalar
+    const-string v0, "section"
+    const-string v1, ""
+    invoke-virtual {v6, v0, v1}, Lorg/json/JSONObject;->optString(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;
+    move-result-object v9
+    invoke-virtual {v9}, Ljava/lang/String;->isEmpty()Z
+    move-result v0
+    if-eqz v0, :native_row_build_card
+    invoke-virtual {v9, v8}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    move-result v0
+    if-eqz v0, :native_row_build_card
+    move-object v8, v9
+    invoke-static {p0, v9}, Lcom/melodix/music/NativeUiRowFactory;->createSectionHeader(Lcom/melodix/music/MainActivity;Ljava/lang/String;)Landroid/widget/TextView;
+    move-result-object v0
+    if-eqz v0, :native_row_build_card
+    invoke-virtual {v2, v0}, Landroid/widget/LinearLayout;->addView(Landroid/view/View;)V
+
+    :native_row_build_card
+    const-string v0, "settingValue"
+    invoke-virtual {v6, v0}, Lorg/json/JSONObject;->optString(Ljava/lang/String;)Ljava/lang/String;
+    move-result-object v0
+    invoke-virtual {v0}, Ljava/lang/String;->isEmpty()Z
+    move-result v1
+    # Empty settingValue = content row (cover + title + subtitle): it must reach the content factory.
+    if-eqz v1, :native_row_create_standard
+    invoke-static {p0, v6}, Lcom/melodix/music/NativeSettingsRowFactory;->create(Lcom/melodix/music/MainActivity;Lorg/json/JSONObject;)Landroid/widget/LinearLayout;
+    move-result-object v0
+    goto :native_row_created
+
+    :native_row_create_standard
+    invoke-static {p0, v6}, Lcom/melodix/music/NativeUiRowFactory;->create(Lcom/melodix/music/MainActivity;Lorg/json/JSONObject;)Landroid/widget/LinearLayout;
+    move-result-object v0
+
+    :native_row_created
+    if-eqz v0, :native_row_increment
+    invoke-virtual {v2, v0}, Landroid/widget/LinearLayout;->addView(Landroid/view/View;)V
+    goto :native_row_increment
+
+    :native_row_scalar
+    invoke-virtual {v3, v5}, Lorg/json/JSONArray;->optString(I)Ljava/lang/String;
+    move-result-object v0
     new-instance v6, Landroid/widget/TextView;
     invoke-direct {v6, p0}, Landroid/widget/TextView;-><init>(Landroid/content/Context;)V
+    invoke-virtual {v6, v0}, Landroid/widget/TextView;->setText(Ljava/lang/CharSequence;)V
+    const/high16 v0, 0x41700000
+    invoke-virtual {v6, v0}, Landroid/widget/TextView;->setTextSize(F)V
+    const v0, -0x1
+    invoke-virtual {v6, v0}, Landroid/widget/TextView;->setTextColor(I)V
+    const/16 v0, 0x10
+    invoke-virtual {v6, v0, v0, v0, v0}, Landroid/view/View;->setPadding(IIII)V
+    new-instance v1, Landroid/widget/LinearLayout$LayoutParams;
+    const/4 v0, -0x1
+    const/4 v7, -0x2
+    invoke-direct {v1, v0, v7}, Landroid/widget/LinearLayout$LayoutParams;-><init>(II)V
+    invoke-virtual {v2, v6, v1}, Landroid/widget/LinearLayout;->addView(Landroid/view/View;Landroid/view/ViewGroup$LayoutParams;)V
+
+    :native_row_increment
+    add-int/lit8 v5, v5, 0x1
+    goto :native_rows_loop
+
+    :native_rows_empty
+    new-instance v6, Landroid/widget/TextView;
+    invoke-direct {v6, p0}, Landroid/widget/TextView;-><init>(Landroid/content/Context;)V
+    iget-object v0, p0, Lcom/melodix/music/MainActivity;->nativeCurrentScreen:Ljava/lang/String;
+    const-string v1, "search"
+    invoke-virtual {v1, v0}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    move-result v0
+    if-nez v0, :native_rows_default_empty
+    const-string v0, "Recherchez un artiste, un titre, un album ou une playlist ci-dessus"
+    goto :native_rows_set_empty
+
+    :native_rows_default_empty
+    iget-object v0, p0, Lcom/melodix/music/MainActivity;->nativeCurrentScreen:Ljava/lang/String;
+    const-string v1, "detail"
+    invoke-virtual {v1, v0}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    move-result v0
+    if-nez v0, :native_rows_check_home
+    const-string v0, "Chargement de la playlist…"
+    goto :native_rows_set_empty
+
+    :native_rows_check_home
+    iget-object v0, p0, Lcom/melodix/music/MainActivity;->nativeCurrentScreen:Ljava/lang/String;
+    const-string v1, "home"
+    invoke-virtual {v1, v0}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    move-result v0
+    if-nez v0, :native_rows_check_library
+    const-string v0, "Chargement de votre accueil…"
+    goto :native_rows_set_empty
+
+    :native_rows_check_library
+    iget-object v0, p0, Lcom/melodix/music/MainActivity;->nativeCurrentScreen:Ljava/lang/String;
+    const-string v1, "library"
+    invoke-virtual {v1, v0}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    move-result v0
+    if-nez v0, :native_rows_default_text
+    const-string v0, "Chargement de votre bibliothèque…"
+    goto :native_rows_set_empty
+
+    :native_rows_default_text
     const-string v0, "Rien à afficher pour le moment"
+    :native_rows_set_empty
     invoke-virtual {v6, v0}, Landroid/widget/TextView;->setText(Ljava/lang/CharSequence;)V
     const/high16 v0, 0x41800000
     invoke-virtual {v6, v0}, Landroid/widget/TextView;->setTextSize(F)V
-    const v0, -0x4c4c4d
+    const v0, -0x4a3f48
     invoke-virtual {v6, v0}, Landroid/widget/TextView;->setTextColor(I)V
+    const/16 v0, 0x11
+    invoke-virtual {v6, v0}, Landroid/widget/TextView;->setGravity(I)V
     const/16 v0, 0x18
     invoke-virtual {v6, v0, v0, v0, v0}, Landroid/view/View;->setPadding(IIII)V
-    invoke-virtual {v2, v6}, Landroid/widget/LinearLayout;->addView(Landroid/view/View;)V
+    new-instance v1, Landroid/widget/LinearLayout$LayoutParams;
+    const/4 v0, -0x1
+    const/4 v7, -0x2
+    invoke-direct {v1, v0, v7}, Landroid/widget/LinearLayout$LayoutParams;-><init>(II)V
+    invoke-virtual {v2, v6, v1}, Landroid/widget/LinearLayout;->addView(Landroid/view/View;Landroid/view/ViewGroup$LayoutParams;)V
+
+    :native_rows_try_done
+    :try_end_native_rows
+    .catch Lorg/json/JSONException; {:try_start_native_rows .. :try_end_native_rows} :catch_native_rows
+    return-void
+
+    :catch_native_rows
+    move-exception v0
     return-void
 
     :render_native_done
     return-void
 .end method
 
-.method public final findNativeByTag(Ljava/lang/String;)Landroid/view/View;
-    .locals 2
-
-    if-eqz p1, :tag_miss
-    invoke-virtual {p0}, Landroid/app/Activity;->getWindow()Landroid/view/Window;
-    move-result-object v0
-    if-eqz v0, :tag_miss
-    invoke-virtual {v0}, Landroid/view/Window;->getDecorView()Landroid/view/View;
-    move-result-object v0
-    if-eqz v0, :tag_miss
-    invoke-virtual {v0, p1}, Landroid/view/View;->findViewWithTag(Ljava/lang/Object;)Landroid/view/View;
-    move-result-object v1
-    return-object v1
-
-    :tag_miss
-    const/4 v1, 0x0
-    return-object v1
-.end method
-
-.method public final applyNativeListText(Ljava/lang/String;)V
-    .locals 3
-
-    if-eqz p1, :list_text_done
-    invoke-virtual {p1}, Ljava/lang/String;->isEmpty()Z
-    move-result v0
-    if-nez v0, :list_text_done
-    iput-object p1, p0, Lcom/melodix/music/MainActivity;->nativeListBlob:Ljava/lang/String;
-
-    invoke-virtual {p0}, Landroid/app/Activity;->getWindow()Landroid/view/Window;
-    move-result-object v0
-    if-eqz v0, :list_text_done
-    invoke-virtual {v0}, Landroid/view/Window;->getDecorView()Landroid/view/View;
-    move-result-object v0
-    if-eqz v0, :list_text_done
-    invoke-static {v0, p1}, Lcom/melodix/music/NativeTextWalker;->apply(Landroid/view/View;Ljava/lang/String;)V
-
-    :list_text_done
-    return-void
-.end method
-
-.method public final pullNativeHomeList()V
-    .locals 3
-
-    iget-object v1, p0, Lcom/melodix/music/MainActivity;->nativeCurrentScreen:Ljava/lang/String;
-    if-eqz v1, :pull_done
-    const-string v2, "home"
-    invoke-virtual {v1, v2}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
-    move-result v2
-    if-eqz v2, :pull_done
-
-    iget-object v0, p0, Lcom/melodix/music/MainActivity;->nativeHomeJson:Ljava/lang/String;
-    if-eqz v0, :pull_blob
-    invoke-virtual {v0}, Ljava/lang/String;->length()I
-    move-result v1
-    const/4 v2, 0x2
-    if-le v1, v2, :pull_blob
-    const-string v1, "Accueil"
-    invoke-virtual {p0, v1, v0}, Lcom/melodix/music/MainActivity;->renderNativeRows(Ljava/lang/String;Ljava/lang/String;)V
-
-    :pull_blob
-    iget-object v0, p0, Lcom/melodix/music/MainActivity;->nativeListBlob:Ljava/lang/String;
-    if-eqz v0, :pull_js
-    invoke-virtual {p0, v0}, Lcom/melodix/music/MainActivity;->applyNativeListText(Ljava/lang/String;)V
-
-    :pull_js
-    iget-object v0, p0, Lcom/melodix/music/MainActivity;->nativeCurrentScreen:Ljava/lang/String;
-    if-eqz v0, :pull_done
-    const-string v1, "home"
-    invoke-virtual {v0, v1}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
-    move-result v1
-    if-eqz v1, :pull_done
-    iget-object v0, p0, Lcom/melodix/music/MainActivity;->G:Landroid/webkit/WebView;
-    if-eqz v0, :pull_done
-    :pull_list_text
-    new-instance v1, Lcom/melodix/music/NativeListJsCallback;
-    invoke-direct {v1, p0}, Lcom/melodix/music/NativeListJsCallback;-><init>(Lcom/melodix/music/MainActivity;)V
-    const-string v2, "(function(){try{return window.__sfNativeHomeListText||'';}catch(e){return '';}})()"
-    invoke-virtual {v0, v2, v1}, Landroid/webkit/WebView;->evaluateJavascript(Ljava/lang/String;Landroid/webkit/ValueCallback;)V
-
-    :pull_done
-    return-void
-.end method
-
 .method public final runNativeJavascript(Ljava/lang/String;)V
     .locals 2
 
-    # Native->JS entry point used by every scripted action. Resolve the LIVE
-    # WebView: first the instance c91 registered while loading the current page
-    # (the one whose JS really runs), then MainActivity.G, then the app-wide
-    # singleton. If nothing is available the send is journalized
-    # ("js-out webview=none") instead of silently doing nothing.
-    invoke-static {}, Lcom/melodix/music/DiagCounters;->getPageView()Landroid/webkit/WebView;
-    move-result-object v0
-    if-eqz v0, :native_js_try_activity
-    goto :native_js_send
-
-    :native_js_try_activity
     iget-object v0, p0, Lcom/melodix/music/MainActivity;->G:Landroid/webkit/WebView;
-    if-eqz v0, :native_js_try_singleton
-    goto :native_js_send
-
-    :native_js_try_singleton
-    sget-object v0, Lcom/melodix/music/AppSingleton;->w:Ll9;
-    if-eqz v0, :native_js_no_target
-
-    :native_js_send
+    if-eqz v0, :native_js_done
     const/4 v1, 0x0
     invoke-virtual {v0, p1, v1}, Landroid/webkit/WebView;->evaluateJavascript(Ljava/lang/String;Landroid/webkit/ValueCallback;)V
-    return-void
-
-    :native_js_no_target
-    const-string v1, "js-out webview=none"
-    invoke-static {v1}, Lcom/melodix/music/DiagCounters;->event(Ljava/lang/String;)V
 
     :native_js_done
     return-void
@@ -9322,12 +7977,6 @@
 .method public final runNativeFunction(Ljava/lang/String;Ljava/lang/String;)V
     .locals 4
 
-    if-eqz p1, :native_fn_done
-    if-eqz p2, :native_fn_empty
-    goto :native_fn_quote
-    :native_fn_empty
-    const-string p2, ""
-    :native_fn_quote
     invoke-static {p2}, Lorg/json/JSONObject;->quote(Ljava/lang/String;)Ljava/lang/String;
     move-result-object v0
     new-instance v1, Ljava/lang/StringBuilder;
@@ -9341,60 +7990,25 @@
     invoke-virtual {v1}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
     move-result-object v3
     invoke-virtual {p0, v3}, Lcom/melodix/music/MainActivity;->runNativeJavascript(Ljava/lang/String;)V
-    :native_fn_done
     return-void
 .end method
 
 .method public final onNativeHomeClick(Landroid/view/View;)V
-    .locals 4
+    .locals 3
 
-    :try_start_home
     const-string v0, "home"
     invoke-virtual {p0, v0}, Lcom/melodix/music/MainActivity;->setNativeScreen(Ljava/lang/String;)V
-    iget-object v1, p0, Lcom/melodix/music/MainActivity;->nativeHomeJson:Ljava/lang/String;
-    if-eqz v1, :home_fallback_json
-    goto :home_have_json
-    :home_fallback_json
-    # Never fall back to nativeCurrentJson: it belongs to whichever screen was
-    # painted last and would repaint another tab's rows here.
-    const/4 v1, 0x0
-    :home_have_json
-    if-eqz v1, :home_request
-    invoke-virtual {v1}, Ljava/lang/String;->length()I
-    move-result v2
-    const/16 v3, 0x8
-    if-le v2, v3, :home_request
-    const-string v2, "Accueil"
-    invoke-virtual {p0, v2, v1}, Lcom/melodix/music/MainActivity;->renderNativeRows(Ljava/lang/String;Ljava/lang/String;)V
-    :home_request
+    const-string v1, "Accueil"
+    const-string v2, "[]"
+    invoke-virtual {p0, v1, v2}, Lcom/melodix/music/MainActivity;->renderNativeRows(Ljava/lang/String;Ljava/lang/String;)V
     const-string v0, "window.__sfNativeRequestHome && window.__sfNativeRequestHome();"
     invoke-virtual {p0, v0}, Lcom/melodix/music/MainActivity;->runNativeJavascript(Ljava/lang/String;)V
-    :try_end_home
-    .catch Ljava/lang/Throwable; {:try_start_home .. :try_end_home} :catch_home
-
-    return-void
-
-    :catch_home
-    move-exception v0
-    invoke-static {v0}, Lcom/melodix/music/NativeCrashGuard;->record(Ljava/lang/Throwable;)V
     return-void
 .end method
 
 .method public final onNativeSearchClick(Landroid/view/View;)V
     .locals 5
 
-    :try_start_search
-    # Contract: entering Rechercher keeps the Android keyboard CLOSED. The
-    # field stays visible and only a deliberate tap on it may raise the IME
-    # (standard EditText focus behaviour). Re-tapping the tab while already
-    # typing must not yank the keyboard away mid-saisie.
-    iget-object v1, p0, Lcom/melodix/music/MainActivity;->nativeCurrentScreen:Ljava/lang/String;
-    const-string v0, "search"
-    invoke-virtual {v0, v1}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
-    move-result v1
-    if-nez v1, :native_search_ime_ready
-    invoke-virtual {p0}, Lcom/melodix/music/MainActivity;->hideImeNow()V
-    :native_search_ime_ready
     const-string v0, "search"
     invoke-virtual {p0, v0}, Lcom/melodix/music/MainActivity;->setNativeScreen(Ljava/lang/String;)V
     const/4 v0, 0x0
@@ -9402,24 +8016,17 @@
     const-string v0, "Rechercher"
     const-string v1, "[]"
     invoke-virtual {p0, v0, v1}, Lcom/melodix/music/MainActivity;->renderNativeRows(Ljava/lang/String;Ljava/lang/String;)V
-    # Wire the field: watcher + submit listener. Nothing here may requestFocus
-    # or post a showSoftInput runnable — the keyboard belongs to a deliberate
-    # tap on the field, never to merely entering this screen.
+    # Focus the field and raise the keyboard once the panel is laid out. The
+    # search page itself opens when a query is typed or submitted.
     const v0, 0x7f090233
     invoke-virtual {p0, v0}, Landroid/app/Activity;->findViewById(I)Landroid/view/View;
     move-result-object v1
     if-eqz v1, :native_search_click_done
-    iget-boolean v0, p0, Lcom/melodix/music/MainActivity;->nativeSearchWatcherAttached:Z
-    if-nez v0, :native_search_watcher_ready
-    move-object v0, v1
-    check-cast v0, Landroid/widget/EditText;
-    new-instance v2, Lcom/melodix/music/NativeSearchWatcher;
-    invoke-direct {v2, p0, v0}, Lcom/melodix/music/NativeSearchWatcher;-><init>(Lcom/melodix/music/MainActivity;Landroid/widget/EditText;)V
-    invoke-virtual {v0, v2}, Landroid/widget/TextView;->addTextChangedListener(Landroid/text/TextWatcher;)V
-    invoke-virtual {v0, v2}, Landroid/widget/TextView;->setOnEditorActionListener(Landroid/widget/TextView$OnEditorActionListener;)V
-    const/4 v0, 0x1
-    iput-boolean v0, p0, Lcom/melodix/music/MainActivity;->nativeSearchWatcherAttached:Z
-    :native_search_watcher_ready
+    invoke-virtual {v1}, Landroid/view/View;->requestFocus()Z
+    new-instance v2, Lcom/melodix/music/NativeSearchFocusRunnable;
+    invoke-direct {v2, p0, v1}, Lcom/melodix/music/NativeSearchFocusRunnable;-><init>(Lcom/melodix/music/MainActivity;Landroid/view/View;)V
+    const-wide/16 v3, 0xfa
+    invoke-virtual {v1, v2, v3, v4}, Landroid/view/View;->postDelayed(Ljava/lang/Runnable;J)Z
 
     :native_search_click_done
     const v0, 0x7f09024f
@@ -9435,13 +8042,19 @@
     invoke-virtual {v0, v1}, Landroid/view/View;->setVisibility(I)V
 
     :native_search_genre_shown
-    :try_end_search
-    .catch Ljava/lang/Throwable; {:try_start_search .. :try_end_search} :catch_search
-    return-void
+    const v0, 0x7f090239
 
-    :catch_search
-    move-exception v0
-    invoke-static {v0}, Lcom/melodix/music/NativeCrashGuard;->record(Ljava/lang/Throwable;)V
+    invoke-virtual {p0, v0}, Landroid/app/Activity;->findViewById(I)Landroid/view/View;
+
+    move-result-object v0
+
+    if-eqz v0, :native_search_rows_hidden
+
+    const/16 v1, 0x8
+
+    invoke-virtual {v0, v1}, Landroid/view/View;->setVisibility(I)V
+
+    :native_search_rows_hidden
     return-void
 .end method
 
@@ -9453,7 +8066,7 @@
     move-result-object v0
     invoke-virtual {v0}, Ljava/lang/String;->isEmpty()Z
     move-result v1
-    if-nez v1, :live_search_done
+    if-eqz v1, :live_search_done
 
     iget-object v1, p0, Lcom/melodix/music/MainActivity;->nativeCurrentScreen:Ljava/lang/String;
     if-eqz v1, :live_search_done
@@ -9498,7 +8111,7 @@
     move-result-object v1
     invoke-virtual {v1}, Ljava/lang/String;->isEmpty()Z
     move-result v2
-    if-nez v2, :native_search_submit_done
+    if-eqz v2, :native_search_submit_done
 
     iput-object v1, p0, Lcom/melodix/music/MainActivity;->nativeExpectedSearch:Ljava/lang/String;
     const-string v2, "search"
@@ -9516,79 +8129,20 @@
 .end method
 
 .method public final onNativeLibraryClick(Landroid/view/View;)V
-    .locals 4
+    .locals 3
 
-    :try_start_lib
     const-string v0, "library"
     invoke-virtual {p0, v0}, Lcom/melodix/music/MainActivity;->setNativeScreen(Ljava/lang/String;)V
     const-string v1, "playlists"
     iput-object v1, p0, Lcom/melodix/music/MainActivity;->nativeExpectedId:Ljava/lang/String;
-    :try_start_chips
     invoke-virtual {p0, v1}, Lcom/melodix/music/MainActivity;->styleNativeLibraryChips(Ljava/lang/String;)V
-    :try_end_chips
-    .catch Ljava/lang/Throwable; {:try_start_chips .. :try_end_chips} :chips_err
-    goto :chips_ok
-
-    :chips_err
-    move-exception v2
-
-    :chips_ok
-    iget-object v2, p0, Lcom/melodix/music/MainActivity;->nativeLibraryJson:Ljava/lang/String;
-    if-eqz v2, :lib_fallback_json
-    iget-object v0, p0, Lcom/melodix/music/MainActivity;->nativeLibraryJsonId:Ljava/lang/String;
-    if-eqz v0, :lib_fallback_json
-    invoke-virtual {v0, v1}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
-    move-result v0
-    if-eqz v0, :lib_fallback_json
-    goto :lib_have_json
-    :lib_fallback_json
-    # Never fall back to nativeCurrentJson: it belongs to whichever screen was
-    # painted last and would leak e.g. the home loading row into the library.
-    const/4 v2, 0x0
-    :lib_have_json
-    if-eqz v2, :lib_render_loading
-    invoke-virtual {v2}, Ljava/lang/String;->length()I
-    move-result v0
-    const/16 v1, 0x8
-    if-le v0, v1, :lib_render_loading
-    const-string v0, "Votre bibliothèque"
-    invoke-virtual {p0, v0, v2}, Lcom/melodix/music/MainActivity;->renderNativeRows(Ljava/lang/String;Ljava/lang/String;)V
-    goto :lib_fetch
-    :lib_render_loading
-    # Cached library first (marked "à jour il y a X"): a fresh push from the
-    # page replaces it. An error never empties this cache.
-    const-string v0, "playlists"
-    invoke-static {v0}, Lcom/melodix/music/NativeLibCache;->composeStamped(Ljava/lang/String;)Ljava/lang/String;
-    move-result-object v3
-    if-eqz v3, :lib_paint_loading
-    const-string v0, "Votre bibliothèque"
-    invoke-virtual {p0, v0, v3}, Lcom/melodix/music/MainActivity;->renderNativeRows(Ljava/lang/String;Ljava/lang/String;)V
-    goto :lib_fetch
-
-    :lib_paint_loading
-    # Always paint this tab's own state: without a cache the previous screen's
-    # rows (e.g. Accueil "Chargement des playlists…") would stay on screen.
-    const-string v0, "Votre bibliothèque"
-    const-string v1, "[{\"title\":\"Chargement des playlists\u2026\",\"section\":\"Votre bibliothèque\"}]"
-    invoke-virtual {p0, v0, v1}, Lcom/melodix/music/MainActivity;->renderNativeRows(Ljava/lang/String;Ljava/lang/String;)V
-    :lib_fetch
-    # Bounded resolution on EVERY entry (cache, rows or loading): if nothing
-    # renders within 10 s the watchdog resolves the tab to data, login or
-    # error — never an eternal loading state. Media rows disarm it.
-    invoke-static {p0}, Lcom/melodix/music/NativeLibWatchdog;->arm(Lcom/melodix/music/MainActivity;)V
+    const-string v2, "Votre bibliothèque"
+    const-string v0, "[]"
+    invoke-virtual {p0, v2, v0}, Lcom/melodix/music/MainActivity;->renderNativeRows(Ljava/lang/String;Ljava/lang/String;)V
+    # __sfOpenLibrary uses the bridge when it runs and the real collection page
+    # otherwise, so the library is never an empty screen.
     const-string v0, "window.__sfOpenLibrary && window.__sfOpenLibrary()"
     invoke-virtual {p0, v0}, Lcom/melodix/music/MainActivity;->runNativeJavascript(Ljava/lang/String;)V
-    const-string v0, "__sfOpenLibrary"
-    const-string v1, ""
-    invoke-static {v0, v1}, Lcom/melodix/music/AndBridge;->queueCommand(Ljava/lang/String;Ljava/lang/String;)V
-    :try_end_lib
-    .catch Ljava/lang/Throwable; {:try_start_lib .. :try_end_lib} :catch_lib
-
-    return-void
-
-    :catch_lib
-    move-exception v0
-    invoke-static {v0}, Lcom/melodix/music/NativeCrashGuard;->record(Ljava/lang/Throwable;)V
     return-void
 .end method
 
@@ -9604,26 +8158,13 @@
     invoke-virtual {p0, v0}, Lcom/melodix/music/MainActivity;->styleNativeLibraryChips(Ljava/lang/String;)V
     const-string v1, "library"
     invoke-virtual {p0, v1}, Lcom/melodix/music/MainActivity;->setNativeScreen(Ljava/lang/String;)V
-    # Paint the cached rows of this very category immediately; a miss keeps the
-    # previous content until the fetch pipeline delivers its own state rows.
-    iget-object v2, p0, Lcom/melodix/music/MainActivity;->nativeLibraryJson:Ljava/lang/String;
-    if-eqz v2, :native_library_category_fetch
-    iget-object v3, p0, Lcom/melodix/music/MainActivity;->nativeLibraryJsonId:Ljava/lang/String;
-    if-eqz v3, :native_library_category_fetch
-    invoke-virtual {v3, v0}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
-    move-result v3
-    if-eqz v3, :native_library_category_fetch
-    invoke-virtual {v2}, Ljava/lang/String;->length()I
-    move-result v3
-    const/16 v1, 0x8
-    if-le v3, v1, :native_library_category_fetch
     const-string v1, "Votre bibliothèque"
+    const-string v2, "[]"
     invoke-virtual {p0, v1, v2}, Lcom/melodix/music/MainActivity;->renderNativeRows(Ljava/lang/String;Ljava/lang/String;)V
-    :native_library_category_fetch
+    # The chips called the bridge-only fetchMediaItems, which made them dead
+    # buttons whenever the bridge had not started.
     const-string v1, "window.__sfOpenLibraryCategory"
     invoke-virtual {p0, v1, v0}, Lcom/melodix/music/MainActivity;->runNativeFunction(Ljava/lang/String;Ljava/lang/String;)V
-    const-string v1, "__sfOpenLibraryCategory"
-    invoke-static {v1, v0}, Lcom/melodix/music/AndBridge;->queueCommand(Ljava/lang/String;Ljava/lang/String;)V
 
     :native_library_category_done
     return-void
@@ -9647,7 +8188,7 @@
 
     move-result v1
 
-    if-nez v1, :native_genre_done
+    if-eqz v1, :native_genre_done
 
     # Keep the browse grid until results land (a failed search must not leave a
     # blank screen); only the header echoes the choice.
@@ -9684,10 +8225,10 @@
     if-ge v2, v1, :chips_done
     invoke-virtual {v0, v2}, Landroid/widget/LinearLayout;->getChildAt(I)Landroid/view/View;
     move-result-object v3
-    if-eqz v3, :chip_next
+    if-nez v3, :chip_next
     invoke-virtual {v3}, Landroid/view/View;->getTag()Ljava/lang/Object;
     move-result-object v4
-    if-eqz v4, :chip_next
+    if-nez v4, :chip_next
     invoke-virtual {v4}, Ljava/lang/Object;->toString()Ljava/lang/String;
     move-result-object v4
     invoke-virtual {v4, p1}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
@@ -9720,8 +8261,6 @@
     .locals 6
 
     iget-object v0, p0, Lcom/melodix/music/MainActivity;->nativeReturnScreen:Ljava/lang/String;
-    const/4 v5, 0x0
-    iput-object v5, p0, Lcom/melodix/music/MainActivity;->nativeReturnScreen:Ljava/lang/String;
     if-eqz v0, :native_back_default
     goto :native_back_restore
     :native_back_default
@@ -9761,24 +8300,6 @@
 
     :native_back_render
     invoke-virtual {p0, v2, v4}, Lcom/melodix/music/MainActivity;->renderNativeRows(Ljava/lang/String;Ljava/lang/String;)V
-
-    const-string v3, "detail"
-    invoke-virtual {v0, v3}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
-    move-result v3
-    if-eqz v3, :native_back_done
-    iget-object v1, p0, Lcom/melodix/music/MainActivity;->nativeDetailParentScreen:Ljava/lang/String;
-    iput-object v1, p0, Lcom/melodix/music/MainActivity;->nativeReturnScreen:Ljava/lang/String;
-    iget-object v1, p0, Lcom/melodix/music/MainActivity;->nativeDetailParentTitle:Ljava/lang/String;
-    iput-object v1, p0, Lcom/melodix/music/MainActivity;->nativeReturnTitle:Ljava/lang/String;
-    iget-object v1, p0, Lcom/melodix/music/MainActivity;->nativeDetailParentJson:Ljava/lang/String;
-    iput-object v1, p0, Lcom/melodix/music/MainActivity;->nativeReturnJson:Ljava/lang/String;
-    iget-object v1, p0, Lcom/melodix/music/MainActivity;->nativeDetailParentExpectedId:Ljava/lang/String;
-    iput-object v1, p0, Lcom/melodix/music/MainActivity;->nativeReturnExpectedId:Ljava/lang/String;
-    iget-object v1, p0, Lcom/melodix/music/MainActivity;->nativeDetailParentSearch:Ljava/lang/String;
-    iput-object v1, p0, Lcom/melodix/music/MainActivity;->nativeReturnSearch:Ljava/lang/String;
-    iput-object v5, p0, Lcom/melodix/music/MainActivity;->nativeDetailParentScreen:Ljava/lang/String;
-
-    :native_back_done
     return-void
 .end method
 
@@ -9789,83 +8310,15 @@
 
     invoke-virtual {p1}, Ljava/lang/String;->isEmpty()Z
     move-result v0
-    if-nez v0, :native_row_click_done
+    if-eqz v0, :native_row_click_done
 
-    # Retry sentinel rows (detail fetch failures) re-run fetchMediaItems for the
-    # stored parent id and repaint the loading state — no navigation, no fake rows.
-    const-string v2, "spotify:lib:retry"
-    invoke-virtual {p1, v2}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
-    move-result v3
-    if-eqz v3, :native_row_not_lib_retry
-    const/4 v3, 0x0
-    invoke-virtual {p0, v3}, Lcom/melodix/music/MainActivity;->onNativeLibraryClick(Landroid/view/View;)V
-    return-void
-
-    :native_row_not_lib_retry
-    # Login action from the honest "Connecte-toi à Spotify" state: a fixed
-    # accounts URL, never user input.
-    const-string v2, "spotify:lib:login"
-    invoke-virtual {p1, v2}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
-    move-result v3
-    if-eqz v3, :native_row_not_lib_login
-    invoke-virtual {p0}, Lcom/melodix/music/MainActivity;->openSpotifyLogin()V
-    return-void
-
-    :native_row_not_lib_login
-    const-string v2, "spotify:retry:media:"
-    invoke-virtual {p1, v2}, Ljava/lang/String;->startsWith(Ljava/lang/String;)Z
-    move-result v3
-    if-eqz v3, :native_row_not_retry
-    invoke-virtual {v2}, Ljava/lang/String;->length()I
-    move-result v3
-    invoke-virtual {p1, v3}, Ljava/lang/String;->substring(I)Ljava/lang/String;
-    move-result-object v3
-    iget-object v2, p0, Lcom/melodix/music/MainActivity;->nativeCurrentTitle:Ljava/lang/String;
-    if-eqz v2, :native_retry_title_default
-    goto :native_retry_title_ready
-    :native_retry_title_default
-    const-string v2, "Détails"
-    :native_retry_title_ready
-    const-string v4, "[{\"title\":\"Chargement des titres\u2026\",\"section\":\"Détails\"}]"
-    invoke-virtual {p0, v2, v4}, Lcom/melodix/music/MainActivity;->renderNativeRows(Ljava/lang/String;Ljava/lang/String;)V
-    const-string v2, "window.fetchMediaItems"
-    invoke-virtual {p0, v2, v3}, Lcom/melodix/music/MainActivity;->runNativeFunction(Ljava/lang/String;Ljava/lang/String;)V
-    const-string v2, "fetchMediaItems"
-    invoke-static {v2, v3}, Lcom/melodix/music/AndBridge;->queueCommand(Ljava/lang/String;Ljava/lang/String;)V
-    invoke-virtual {p0, v2, v3}, Lcom/melodix/music/MainActivity;->runNativeFunctionSecondary(Ljava/lang/String;Ljava/lang/String;)V
-    return-void
-
-    :native_row_not_retry
     # Settings rows toggle their value through the shell; they never navigate.
     const-string v2, "spotify:settings:"
     invoke-virtual {p1, v2}, Ljava/lang/String;->startsWith(Ljava/lang/String;)Z
     move-result v3
-    if-eqz v3, :native_row_check_diag
+    if-eqz v3, :native_row_check_collection
     const-string v2, "window.__sfToggleSpotifySetting"
     invoke-virtual {p0, v2, p1}, Lcom/melodix/music/MainActivity;->runNativeFunction(Ljava/lang/String;Ljava/lang/String;)V
-    const-string v2, "__sfToggleSpotifySetting"
-    invoke-static {v2, p1}, Lcom/melodix/music/AndBridge;->queueCommand(Ljava/lang/String;Ljava/lang/String;)V
-    return-void
-
-    :native_row_check_diag
-    # Diagnostic actions: spotify:diag:open opens the screen, every other
-    # spotify:diag:<action> runs that action of the bundled diagnostic engine.
-    const-string v2, "spotify:diag:"
-    invoke-virtual {p1, v2}, Ljava/lang/String;->startsWith(Ljava/lang/String;)Z
-    move-result v3
-    if-eqz v3, :native_row_check_collection
-    const/16 v2, 0xd
-    invoke-virtual {p1, v2}, Ljava/lang/String;->substring(I)Ljava/lang/String;
-    move-result-object v3
-    const-string v2, "open"
-    invoke-virtual {v2, v3}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
-    move-result v2
-    if-eqz v2, :diag_row_action
-    invoke-virtual {p0}, Lcom/melodix/music/MainActivity;->openNativeDiag()V
-    return-void
-
-    :diag_row_action
-    invoke-virtual {p0, v3}, Lcom/melodix/music/MainActivity;->openNativeDiagAction(Ljava/lang/String;)V
     return-void
 
     :native_row_check_collection
@@ -9926,294 +8379,37 @@
 
     iget-object v0, p0, Lcom/melodix/music/MainActivity;->nativeCurrentScreen:Ljava/lang/String;
     iput-object v0, p0, Lcom/melodix/music/MainActivity;->nativeReturnScreen:Ljava/lang/String;
-    iput-object v0, p0, Lcom/melodix/music/MainActivity;->nativeDetailParentScreen:Ljava/lang/String;
     iget-object v0, p0, Lcom/melodix/music/MainActivity;->nativeCurrentTitle:Ljava/lang/String;
     iput-object v0, p0, Lcom/melodix/music/MainActivity;->nativeReturnTitle:Ljava/lang/String;
-    iput-object v0, p0, Lcom/melodix/music/MainActivity;->nativeDetailParentTitle:Ljava/lang/String;
     iget-object v0, p0, Lcom/melodix/music/MainActivity;->nativeCurrentJson:Ljava/lang/String;
     iput-object v0, p0, Lcom/melodix/music/MainActivity;->nativeReturnJson:Ljava/lang/String;
-    iput-object v0, p0, Lcom/melodix/music/MainActivity;->nativeDetailParentJson:Ljava/lang/String;
     iget-object v0, p0, Lcom/melodix/music/MainActivity;->nativeExpectedId:Ljava/lang/String;
     iput-object v0, p0, Lcom/melodix/music/MainActivity;->nativeReturnExpectedId:Ljava/lang/String;
-    iput-object v0, p0, Lcom/melodix/music/MainActivity;->nativeDetailParentExpectedId:Ljava/lang/String;
     iget-object v0, p0, Lcom/melodix/music/MainActivity;->nativeExpectedSearch:Ljava/lang/String;
     iput-object v0, p0, Lcom/melodix/music/MainActivity;->nativeReturnSearch:Ljava/lang/String;
-    iput-object v0, p0, Lcom/melodix/music/MainActivity;->nativeDetailParentSearch:Ljava/lang/String;
 
     iput-object p1, p0, Lcom/melodix/music/MainActivity;->nativeExpectedId:Ljava/lang/String;
     const-string v1, "detail"
     invoke-virtual {p0, v1}, Lcom/melodix/music/MainActivity;->setNativeScreen(Ljava/lang/String;)V
+    const-string v2, "[]"
     if-eqz p2, :native_collection_default_title
     move-object v3, p2
     goto :native_collection_title_ready
     :native_collection_default_title
     const-string v3, "Détails"
     :native_collection_title_ready
-    new-instance v6, Ljava/lang/StringBuilder;
-    invoke-direct {v6}, Ljava/lang/StringBuilder;-><init>()V
-    const-string v7, "[{\"title\":"
-    invoke-virtual {v6, v7}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
-    invoke-static {v3}, Lorg/json/JSONObject;->quote(Ljava/lang/String;)Ljava/lang/String;
-    move-result-object v7
-    invoke-virtual {v6, v7}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
-    const-string v7, ",\"subtitle\":\"Chargement des titres…\",\"uri\":"
-    invoke-virtual {v6, v7}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
-    invoke-static {p1}, Lorg/json/JSONObject;->quote(Ljava/lang/String;)Ljava/lang/String;
-    move-result-object v7
-    invoke-virtual {v6, v7}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
-    const-string v7, "}]"
-    invoke-virtual {v6, v7}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
-    invoke-virtual {v6}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
-    move-result-object v2
     invoke-virtual {p0, v3, v2}, Lcom/melodix/music/MainActivity;->renderNativeRows(Ljava/lang/String;Ljava/lang/String;)V
+    # fetchMediaItems only exists in the playback bridge; __sfOpenCollection
+    # falls back to a real navigation so a playlist still opens without it.
     const-string v1, "window.__sfOpenCollection"
     invoke-virtual {p0, v1, p1}, Lcom/melodix/music/MainActivity;->runNativeFunction(Ljava/lang/String;Ljava/lang/String;)V
-    const-string v1, "__sfOpenCollection"
-    invoke-static {v1, p1}, Lcom/melodix/music/AndBridge;->queueCommand(Ljava/lang/String;Ljava/lang/String;)V
-    const-string v1, "__sfOpenCollection"
-    invoke-virtual {p0, v1, p1}, Lcom/melodix/music/MainActivity;->runNativeFunctionSecondary(Ljava/lang/String;Ljava/lang/String;)V
-    if-eqz p1, :collection_no_fallback
-    const-string v1, "spotify:playlist:[A-Za-z0-9]{22}"
-    invoke-virtual {p1, v1}, Ljava/lang/String;->matches(Ljava/lang/String;)Z
-    move-result v1
-    if-eqz v1, :collection_no_fallback
-    invoke-static {p0, p1}, Lcom/melodix/music/LibOpenFallback;->arm(Lcom/melodix/music/MainActivity;Ljava/lang/String;)V
-    :collection_no_fallback
     goto :native_row_click_done
 
     :native_open_single
     const-string v1, "window.__sfNativeOpenUri"
     invoke-virtual {p0, v1, p1}, Lcom/melodix/music/MainActivity;->runNativeFunction(Ljava/lang/String;Ljava/lang/String;)V
-    const-string v1, "__sfNativeOpenUri"
-    invoke-static {v1, p1}, Lcom/melodix/music/AndBridge;->queueCommand(Ljava/lang/String;Ljava/lang/String;)V
-    goto :native_row_click_done
 
     :native_row_click_done
-    return-void
-.end method
-
-.method public final openSpotifyLogin()V
-    .locals 3
-
-    # Opens the Spotify login page on the live WebView. The URL is a fixed
-    # constant (never built from user input) and re-checked against the
-    # existing Spotify-host allowlist. This does not touch authentication
-    # itself — it only navigates to the login page.
-    invoke-static {}, Lcom/melodix/music/DiagCounters;->getPageView()Landroid/webkit/WebView;
-    move-result-object v0
-    if-eqz v0, :login_try_activity
-    goto :login_have_wv
-
-    :login_try_activity
-    iget-object v0, p0, Lcom/melodix/music/MainActivity;->G:Landroid/webkit/WebView;
-    if-eqz v0, :login_try_singleton
-    goto :login_have_wv
-
-    :login_try_singleton
-    sget-object v0, Lcom/melodix/music/AppSingleton;->w:Ll9;
-    if-eqz v0, :login_done
-
-    :login_have_wv
-    const-string v1, "https://accounts.spotify.com/login"
-
-    invoke-static {v1}, Lcom/melodix/music/NativeFetchGuard;->parseAllowedUrl(Ljava/lang/String;)Ljava/net/URL;
-    move-result-object v2
-    if-eqz v2, :login_done
-    invoke-virtual {v2}, Ljava/net/URL;->getHost()Ljava/lang/String;
-    move-result-object v2
-    invoke-static {v2}, Lcom/melodix/music/NativeFetchGuard;->isSpotifyAuthHost(Ljava/lang/String;)Z
-    move-result v2
-    if-eqz v2, :login_done
-
-    :try_start_login
-    invoke-virtual {v0, v1}, Landroid/webkit/WebView;->loadUrl(Ljava/lang/String;)V
-    :try_end_login
-    .catch Ljava/lang/Throwable; {:try_start_login .. :try_end_login} :catch_login
-
-    :login_done
-    return-void
-
-    :catch_login
-    move-exception v0
-    invoke-static {v0}, Lcom/melodix/music/NativeCrashGuard;->record(Ljava/lang/Throwable;)V
-    return-void
-.end method
-
-.method public final runNativeFunctionSecondary(Ljava/lang/String;Ljava/lang/String;)V
-    .locals 5
-
-    # Alternative command channel: loadUrl("javascript:...") executes in the
-    # live page WITHOUT reloading it, and can work on devices where
-    # evaluateJavascript delivery is dead. Function names are validated; the
-    # argument is JSON-quoted (never interpolated raw).
-    if-eqz p1, :sec_done
-
-    invoke-static {p1}, Lcom/melodix/music/AndBridge;->isSafeFn(Ljava/lang/String;)Z
-    move-result v0
-    if-eqz v0, :sec_done
-
-    invoke-static {}, Lcom/melodix/music/DiagCounters;->getPageView()Landroid/webkit/WebView;
-    move-result-object v0
-    if-eqz v0, :sec_try_activity
-    goto :sec_have_wv
-
-    :sec_try_activity
-    iget-object v0, p0, Lcom/melodix/music/MainActivity;->G:Landroid/webkit/WebView;
-    if-eqz v0, :sec_try_singleton
-    goto :sec_have_wv
-
-    :sec_try_singleton
-    sget-object v0, Lcom/melodix/music/AppSingleton;->w:Ll9;
-    if-eqz v0, :sec_done
-
-    :sec_have_wv
-    :try_start_sec
-    new-instance v1, Ljava/lang/StringBuilder;
-    invoke-direct {v1}, Ljava/lang/StringBuilder;-><init>()V
-    const-string v2, "(function(){try{window."
-    invoke-virtual {v1, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
-    invoke-virtual {v1, p1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
-    const-string v2, "&&window."
-    invoke-virtual {v1, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
-    invoke-virtual {v1, p1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
-    const-string v2, "("
-    invoke-virtual {v1, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
-    invoke-static {p2}, Lorg/json/JSONObject;->quote(Ljava/lang/String;)Ljava/lang/String;
-    move-result-object v2
-    invoke-virtual {v1, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
-    const-string v2, ");}catch(e){}})();"
-    invoke-virtual {v1, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
-    invoke-virtual {v1}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
-    move-result-object v1
-
-    new-instance v2, Ljava/lang/StringBuilder;
-    invoke-direct {v2}, Ljava/lang/StringBuilder;-><init>()V
-    const-string v3, "javascript:"
-    invoke-virtual {v2, v3}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
-    invoke-virtual {v2, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
-    invoke-virtual {v2}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
-    move-result-object v1
-
-    invoke-virtual {v0, v1}, Landroid/webkit/WebView;->loadUrl(Ljava/lang/String;)V
-    :try_end_sec
-    .catch Ljava/lang/Throwable; {:try_start_sec .. :try_end_sec} :catch_sec
-
-    :sec_done
-    return-void
-
-    :catch_sec
-    move-exception v0
-    invoke-static {v0}, Lcom/melodix/music/NativeCrashGuard;->record(Ljava/lang/Throwable;)V
-    return-void
-.end method
-
-.method public final openPlaylistFallback(Ljava/lang/String;)V
-    .locals 5
-
-    # Last-resort playlist opening WITHOUT native->JS: navigate the WebView to
-    # the playlist page. ONLY spotify:playlist:<22 alnum> URIs are accepted and
-    # the URL is rebuilt from the validated id alone — no other URL is ever
-    # constructed or loaded here.
-    if-eqz p1, :fb_done
-
-    const-string v0, "spotify:playlist:[A-Za-z0-9]{22}"
-    invoke-virtual {p1, v0}, Ljava/lang/String;->matches(Ljava/lang/String;)Z
-    move-result v0
-    if-eqz v0, :fb_done
-
-    const/16 v0, 0x11
-    invoke-virtual {p1, v0}, Ljava/lang/String;->substring(I)Ljava/lang/String;
-    move-result-object v0
-
-    new-instance v1, Ljava/lang/StringBuilder;
-    invoke-direct {v1}, Ljava/lang/StringBuilder;-><init>()V
-    const-string v2, "https://open.spotify.com/playlist/"
-    invoke-virtual {v1, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
-    invoke-virtual {v1, v0}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
-    invoke-virtual {v1}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
-    move-result-object v0
-
-    # Belt and braces: the rebuilt URL must pass the existing Spotify-host
-    # allowlist before any load happens.
-    invoke-static {v0}, Lcom/melodix/music/NativeFetchGuard;->parseAllowedUrl(Ljava/lang/String;)Ljava/net/URL;
-    move-result-object v1
-    if-eqz v1, :fb_done
-    invoke-virtual {v1}, Ljava/net/URL;->getHost()Ljava/lang/String;
-    move-result-object v1
-    invoke-static {v1}, Lcom/melodix/music/NativeFetchGuard;->isSpotifyAuthHost(Ljava/lang/String;)Z
-    move-result v1
-    if-eqz v1, :fb_done
-
-    invoke-static {}, Lcom/melodix/music/DiagCounters;->getPageView()Landroid/webkit/WebView;
-    move-result-object v1
-    if-eqz v1, :fb_try_activity
-    goto :fb_have_wv
-
-    :fb_try_activity
-    iget-object v1, p0, Lcom/melodix/music/MainActivity;->G:Landroid/webkit/WebView;
-    if-eqz v1, :fb_try_singleton
-    goto :fb_have_wv
-
-    :fb_try_singleton
-    sget-object v1, Lcom/melodix/music/AppSingleton;->w:Ll9;
-    if-eqz v1, :fb_done
-
-    :fb_have_wv
-    :try_start_fb
-    invoke-virtual {v1, v0}, Landroid/webkit/WebView;->loadUrl(Ljava/lang/String;)V
-    :try_end_fb
-    .catch Ljava/lang/Throwable; {:try_start_fb .. :try_end_fb} :catch_fb
-
-    :fb_done
-    return-void
-
-    :catch_fb
-    move-exception v0
-    invoke-static {v0}, Lcom/melodix/music/NativeCrashGuard;->record(Ljava/lang/Throwable;)V
-    return-void
-.end method
-
-.method public final loadNativeSpotifyUri(Ljava/lang/String;)V
-    .locals 8
-
-    if-eqz p1, :native_load_uri_done
-    invoke-virtual {p1}, Ljava/lang/String;->isEmpty()Z
-    move-result v0
-    if-nez v0, :native_load_uri_done
-    iget-object v0, p0, Lcom/melodix/music/MainActivity;->G:Landroid/webkit/WebView;
-    if-eqz v0, :native_load_uri_done
-    move-object v1, p1
-    const-string v2, "spotify:"
-    invoke-virtual {p1, v2}, Ljava/lang/String;->startsWith(Ljava/lang/String;)Z
-    move-result v3
-    if-eqz v3, :native_load_uri_go
-    const/16 v3, 0x8
-    invoke-virtual {p1, v3}, Ljava/lang/String;->substring(I)Ljava/lang/String;
-    move-result-object v4
-    const/16 v5, 0x3a
-    const/16 v6, 0x2f
-    invoke-virtual {v4, v5, v6}, Ljava/lang/String;->replace(CC)Ljava/lang/String;
-    move-result-object v4
-    new-instance v7, Ljava/lang/StringBuilder;
-    invoke-direct {v7}, Ljava/lang/StringBuilder;-><init>()V
-    const-string v2, "https://open.spotify.com/"
-    invoke-virtual {v7, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
-    invoke-virtual {v7, v4}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
-    invoke-virtual {v7}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
-    move-result-object v1
-
-    :native_load_uri_go
-    invoke-static {v1}, Lcom/melodix/music/NativeFetchGuard;->parseAllowedUrl(Ljava/lang/String;)Ljava/net/URL;
-    move-result-object v2
-    if-eqz v2, :native_load_uri_done
-    invoke-virtual {v2}, Ljava/net/URL;->getHost()Ljava/lang/String;
-    move-result-object v2
-    invoke-static {v2}, Lcom/melodix/music/NativeFetchGuard;->isSpotifyAuthHost(Ljava/lang/String;)Z
-    move-result v2
-    if-eqz v2, :native_load_uri_done
-    invoke-virtual {v0, v1}, Landroid/webkit/WebView;->loadUrl(Ljava/lang/String;)V
-
-    :native_load_uri_done
     return-void
 .end method
 
@@ -10232,7 +8428,7 @@
     const-string v1, "settings"
     invoke-virtual {v0, v1}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
     move-result v1
-    if-eqz v1, :native_settings_save_return
+    if-nez v1, :native_settings_save_return
     return-void
 
     :native_settings_save_return
@@ -10257,68 +8453,12 @@
     const-string v0, "settings"
     invoke-virtual {p0, v0}, Lcom/melodix/music/MainActivity;->setNativeScreen(Ljava/lang/String;)V
     const-string v1, "Paramètres"
-    # Show a real loading state for this screen only; the shell answers with
-    # the settings rows and every retry below is idempotent.
-    const-string v2, "[{\"title\":\"Diagnostic Melodix\",\"subtitle\":\"Vérifier pourquoi vos listes ne s’affichent pas\",\"settingValue\":\"Ouvrir\",\"uri\":\"spotify:diag:open\"},{\"title\":\"Chargement des paramètres…\",\"section\":\"Paramètres\"}]"
+    const-string v2, "[]"
     invoke-virtual {p0, v1, v2}, Lcom/melodix/music/MainActivity;->renderNativeRows(Ljava/lang/String;Ljava/lang/String;)V
-    const-string v1, "(function(){var done=false;function r(){try{if(window.__sfRequestSpotifySettings){done=(window.__sfRequestSpotifySettings()===true)||done;}}catch(e){}}r();window.setTimeout(r,1500);window.setTimeout(r,4000);window.setTimeout(function(){if(done)return;try{if(window.AndBridge&&window.AndBridge.onNativeUiData){window.AndBridge.onNativeUiData(\'settings\',JSON.stringify([{title:\'Diagnostic Melodix\',subtitle:\'Vérifier pourquoi vos listes ne s’affichent pas\',settingValue:\'Ouvrir\',uri:\'spotify:diag:open\'},{title:\'Paramètres indisponibles\',subtitle:\'Le module de réglages n’a pas répondu. Réessayez.\',section:\'Paramètres\'}]));}}catch(e){}},6000);})();"
+    const-string v1, "window.__sfRequestSpotifySettings && window.__sfRequestSpotifySettings();"
     invoke-virtual {p0, v1}, Lcom/melodix/music/MainActivity;->runNativeJavascript(Ljava/lang/String;)V
 
     :native_settings_done
-    return-void
-.end method
-
-.method public final onNativeQueueClick(Landroid/view/View;)V
-    .locals 4
-
-    # Shows the real upcoming tracks ("prochains titres") of the current context
-    # as native rows. The shell answers on the "queue" channel with data it read
-    # from the live player state; without a real context it answers with an
-    # honest unavailable state instead of inventing a queue.
-    :try_start_queue
-    iget-object v0, p0, Lcom/melodix/music/MainActivity;->nativeCurrentScreen:Ljava/lang/String;
-    if-eqz v0, :queue_default_screen
-    const-string v1, "queue"
-    invoke-virtual {v0, v1}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
-    move-result v1
-    if-eqz v1, :queue_save_return
-    return-void
-
-    :queue_save_return
-    iput-object v0, p0, Lcom/melodix/music/MainActivity;->nativeReturnScreen:Ljava/lang/String;
-    iget-object v0, p0, Lcom/melodix/music/MainActivity;->nativeCurrentTitle:Ljava/lang/String;
-    iput-object v0, p0, Lcom/melodix/music/MainActivity;->nativeReturnTitle:Ljava/lang/String;
-    iget-object v0, p0, Lcom/melodix/music/MainActivity;->nativeCurrentJson:Ljava/lang/String;
-    iput-object v0, p0, Lcom/melodix/music/MainActivity;->nativeReturnJson:Ljava/lang/String;
-    iget-object v0, p0, Lcom/melodix/music/MainActivity;->nativeExpectedId:Ljava/lang/String;
-    iput-object v0, p0, Lcom/melodix/music/MainActivity;->nativeReturnExpectedId:Ljava/lang/String;
-    iget-object v0, p0, Lcom/melodix/music/MainActivity;->nativeExpectedSearch:Ljava/lang/String;
-    iput-object v0, p0, Lcom/melodix/music/MainActivity;->nativeReturnSearch:Ljava/lang/String;
-    goto :queue_show
-
-    :queue_default_screen
-    const-string v0, "home"
-    iput-object v0, p0, Lcom/melodix/music/MainActivity;->nativeReturnScreen:Ljava/lang/String;
-    const-string v0, "Accueil"
-    iput-object v0, p0, Lcom/melodix/music/MainActivity;->nativeReturnTitle:Ljava/lang/String;
-
-    :queue_show
-    const-string v0, "queue"
-    invoke-virtual {p0, v0}, Lcom/melodix/music/MainActivity;->setNativeScreen(Ljava/lang/String;)V
-    const-string v1, "File d'attente"
-    const-string v2, "[{\"title\":\"Chargement de la file…\",\"section\":\"File d'attente\"}]"
-    invoke-virtual {p0, v1, v2}, Lcom/melodix/music/MainActivity;->renderNativeRows(Ljava/lang/String;Ljava/lang/String;)V
-    const-string v1, "(function(){try{if(window.__sfRequestQueue){window.__sfRequestQueue();}}catch(e){}})();"
-    invoke-virtual {p0, v1}, Lcom/melodix/music/MainActivity;->runNativeJavascript(Ljava/lang/String;)V
-    :try_end_queue
-    .catch Ljava/lang/Throwable; {:try_start_queue .. :try_end_queue} :catch_queue
-
-    :queue_done
-    return-void
-
-    :catch_queue
-    move-exception v0
-    invoke-static {v0}, Lcom/melodix/music/NativeCrashGuard;->record(Ljava/lang/Throwable;)V
     return-void
 .end method
 
@@ -10328,7 +8468,7 @@
     if-eqz p1, :native_profile_done
     invoke-virtual {p1}, Ljava/lang/String;->isEmpty()Z
     move-result v0
-    if-nez v0, :native_profile_done
+    if-eqz v0, :native_profile_done
     const v0, 0x7f090249
     invoke-virtual {p0, v0}, Landroid/app/Activity;->findViewById(I)Landroid/view/View;
     move-result-object v1
@@ -10356,7 +8496,6 @@
 .method public final onNativePlayerExpandClick(Landroid/view/View;)V
     .locals 3
 
-    :try_start_expand
     iget-object v0, p0, Lcom/melodix/music/MainActivity;->nativeCurrentScreen:Ljava/lang/String;
     if-eqz v0, :save_player_return_state
     const-string v1, "player"
@@ -10377,15 +8516,8 @@
     iput-object v0, p0, Lcom/melodix/music/MainActivity;->nativeReturnSearch:Ljava/lang/String;
     const-string v2, "player"
     invoke-virtual {p0, v2}, Lcom/melodix/music/MainActivity;->setNativeScreen(Ljava/lang/String;)V
-    :try_end_expand
-    .catch Ljava/lang/Exception; {:try_start_expand .. :try_end_expand} :catch_expand
 
     :native_player_expand_done
-    return-void
-
-    :catch_expand
-    move-exception v0
-    invoke-static {v0}, Lcom/melodix/music/NativeCrashGuard;->record(Ljava/lang/Throwable;)V
     return-void
 .end method
 
@@ -10414,7 +8546,7 @@
 .method public final onNativePlayerShuffleClick(Landroid/view/View;)V
     .locals 1
 
-    const-string v0, "(function(){if(typeof window.__sfToggleShuffle===\'function\'){window.__sfToggleShuffle();return;}if(typeof window.actShuffle===\'function\'){window.actShuffle();return;}var b=document.querySelector(\'[data-testid=\"control-button-shuffle\"]\');if(b){b.click();}})();"
+    const-string v0, "(function(){if(typeof window.actShuffle===\'function\'){window.actShuffle();return;}var b=document.querySelector(\'[data-testid=\"control-button-shuffle\"]\');if(b){b.click();}})();"
     invoke-virtual {p0, v0}, Lcom/melodix/music/MainActivity;->runNativeJavascript(Ljava/lang/String;)V
     return-void
 .end method
@@ -10422,273 +8554,7 @@
 .method public final onNativePlayerRepeatClick(Landroid/view/View;)V
     .locals 1
 
-    const-string v0, "(function(){if(typeof window.__sfToggleRepeat===\'function\'){window.__sfToggleRepeat();return;}if(typeof window.actRepeat===\'function\'){window.actRepeat();return;}var b=document.querySelector(\'[data-testid=\"control-button-repeat\"]\');if(b){b.click();}})();"
+    const-string v0, "(function(){if(typeof window.actRepeat===\'function\'){window.actRepeat();return;}var b=document.querySelector(\'[data-testid=\"control-button-repeat\"]\');if(b){b.click();}})();"
     invoke-virtual {p0, v0}, Lcom/melodix/music/MainActivity;->runNativeJavascript(Ljava/lang/String;)V
-    return-void
-.end method
-
-.method public final handleNativeBack()Z
-    .locals 4
-
-    const/4 v0, 0x0
-
-    # Back closes the soft keyboard first when it is open; only the next Back
-    # navigates away. dismissKeyboard reports whether an input surface was
-    # actually showing the keyboard.
-    invoke-static {p0}, Lcom/melodix/music/NativeSearchWatcher;->dismissKeyboard(Lcom/melodix/music/MainActivity;)Z
-    move-result v1
-    if-eqz v1, :native_back_root
-    const/4 v0, 0x1
-    return v0
-
-    :native_back_root
-    const v1, 0x7f09022f
-    invoke-virtual {p0, v1}, Landroid/app/Activity;->findViewById(I)Landroid/view/View;
-    move-result-object v1
-    if-eqz v1, :native_back_unhandled
-    invoke-virtual {v1}, Landroid/view/View;->getVisibility()I
-    move-result v1
-    if-nez v1, :native_back_unhandled
-
-    iget-object v1, p0, Lcom/melodix/music/MainActivity;->nativeCurrentScreen:Ljava/lang/String;
-    if-eqz v1, :native_back_unhandled
-
-    const-string v2, "player"
-    invoke-virtual {v1, v2}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
-    move-result v2
-    if-eqz v2, :native_back_check_settings
-    const/4 v3, 0x0
-    invoke-virtual {p0, v3}, Lcom/melodix/music/MainActivity;->onNativeBackClick(Landroid/view/View;)V
-    const/4 v0, 0x1
-    return v0
-
-    :native_back_check_settings
-    const-string v2, "settings"
-    invoke-virtual {v1, v2}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
-    move-result v2
-    if-eqz v2, :native_back_check_queue
-    const/4 v3, 0x0
-    invoke-virtual {p0, v3}, Lcom/melodix/music/MainActivity;->onNativeBackClick(Landroid/view/View;)V
-    const/4 v0, 0x1
-    return v0
-
-    :native_back_check_queue
-    const-string v2, "queue"
-    invoke-virtual {v1, v2}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
-    move-result v2
-    if-eqz v2, :native_back_check_diag
-    const/4 v3, 0x0
-    invoke-virtual {p0, v3}, Lcom/melodix/music/MainActivity;->onNativeBackClick(Landroid/view/View;)V
-    const/4 v0, 0x1
-    return v0
-
-    :native_back_check_diag
-    const-string v2, "diagnostic"
-    invoke-virtual {v1, v2}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
-    move-result v2
-    if-eqz v2, :native_back_check_detail
-    invoke-virtual {p0}, Lcom/melodix/music/MainActivity;->openNativeSettings()V
-    const/4 v0, 0x1
-    return v0
-
-    :native_back_check_detail
-    const-string v2, "detail"
-    invoke-virtual {v1, v2}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
-    move-result v2
-    if-eqz v2, :native_back_check_search
-    const/4 v3, 0x0
-    invoke-virtual {p0, v3}, Lcom/melodix/music/MainActivity;->onNativeBackClick(Landroid/view/View;)V
-    const/4 v0, 0x1
-    return v0
-
-    :native_back_check_search
-    const-string v2, "search"
-    invoke-virtual {v1, v2}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
-    move-result v2
-    if-eqz v2, :native_back_check_library
-    const/4 v3, 0x0
-    invoke-virtual {p0, v3}, Lcom/melodix/music/MainActivity;->onNativeHomeClick(Landroid/view/View;)V
-    const/4 v0, 0x1
-    return v0
-
-    :native_back_check_library
-    const-string v2, "library"
-    invoke-virtual {v1, v2}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
-    move-result v2
-    if-eqz v2, :native_back_unhandled
-    const/4 v3, 0x0
-    invoke-virtual {p0, v3}, Lcom/melodix/music/MainActivity;->onNativeHomeClick(Landroid/view/View;)V
-    const/4 v0, 0x1
-    return v0
-
-    :native_back_unhandled
-    return v0
-.end method
-
-.method public final resetNativeStateForLogout()V
-    .locals 5
-
-    sget v1, Lcom/melodix/music/MainActivity;->nativeSessionEpoch:I
-    add-int/lit8 v1, v1, 0x1
-    sput v1, Lcom/melodix/music/MainActivity;->nativeSessionEpoch:I
-
-    const/4 v0, 0x0
-    sput-boolean v0, Lcom/melodix/music/WebService;->resumePlaybackOnRecovery:Z
-    invoke-static {}, Lcom/melodix/music/WebService;->completeAndClearPendingResults()V
-
-    const/4 v0, 0x0
-    iput-object v0, p0, Lcom/melodix/music/MainActivity;->nativeCurrentScreen:Ljava/lang/String;
-    iput-object v0, p0, Lcom/melodix/music/MainActivity;->nativeCurrentTitle:Ljava/lang/String;
-    iput-object v0, p0, Lcom/melodix/music/MainActivity;->nativeCurrentJson:Ljava/lang/String;
-    iput-object v0, p0, Lcom/melodix/music/MainActivity;->nativeExpectedId:Ljava/lang/String;
-    iput-object v0, p0, Lcom/melodix/music/MainActivity;->nativeExpectedSearch:Ljava/lang/String;
-    iput-object v0, p0, Lcom/melodix/music/MainActivity;->nativeReturnScreen:Ljava/lang/String;
-    iput-object v0, p0, Lcom/melodix/music/MainActivity;->nativeReturnTitle:Ljava/lang/String;
-    iput-object v0, p0, Lcom/melodix/music/MainActivity;->nativeReturnJson:Ljava/lang/String;
-    iput-object v0, p0, Lcom/melodix/music/MainActivity;->nativeReturnExpectedId:Ljava/lang/String;
-    iput-object v0, p0, Lcom/melodix/music/MainActivity;->nativeReturnSearch:Ljava/lang/String;
-    iput-object v0, p0, Lcom/melodix/music/MainActivity;->nativeDetailParentScreen:Ljava/lang/String;
-    iput-object v0, p0, Lcom/melodix/music/MainActivity;->nativeDetailParentTitle:Ljava/lang/String;
-    iput-object v0, p0, Lcom/melodix/music/MainActivity;->nativeDetailParentJson:Ljava/lang/String;
-    iput-object v0, p0, Lcom/melodix/music/MainActivity;->nativeDetailParentExpectedId:Ljava/lang/String;
-    iput-object v0, p0, Lcom/melodix/music/MainActivity;->nativeDetailParentSearch:Ljava/lang/String;
-    iput-object v0, p0, Lcom/melodix/music/MainActivity;->nativeHomeJson:Ljava/lang/String;
-    iput-object v0, p0, Lcom/melodix/music/MainActivity;->nativeLibraryJson:Ljava/lang/String;
-    iput-object v0, p0, Lcom/melodix/music/MainActivity;->nativeLibraryJsonId:Ljava/lang/String;
-    iput-object v0, p0, Lcom/melodix/music/MainActivity;->nativeListBlob:Ljava/lang/String;
-    sput-object v0, Lcom/melodix/music/WebService;->B:Landroid/graphics/Bitmap;
-
-    const-string v1, "No Track"
-    sput-object v1, Lcom/melodix/music/WebService;->v:Ljava/lang/String;
-    const-string v1, "No Artist"
-    sput-object v1, Lcom/melodix/music/WebService;->u:Ljava/lang/String;
-    const-string v1, "false"
-    sput-object v1, Lcom/melodix/music/WebService;->w:Ljava/lang/String;
-    sput-object v1, Lcom/melodix/music/WebService;->x:Ljava/lang/String;
-    const-wide/16 v3, 0x0
-    sput-wide v3, Lcom/melodix/music/WebService;->y:J
-    sput-wide v3, Lcom/melodix/music/WebService;->z:J
-    sput-wide v3, Lcom/melodix/music/WebService;->A:J
-
-    iget-object v2, p0, Lcom/melodix/music/MainActivity;->f0:Landroid/os/Handler;
-    if-eqz v2, :logout_clear_flags
-    invoke-virtual {v2, v0}, Landroid/os/Handler;->removeCallbacksAndMessages(Ljava/lang/Object;)V
-
-    :logout_clear_flags
-    const/4 v1, 0x0
-    iput-boolean v1, p0, Lcom/melodix/music/MainActivity;->nativeHasTrack:Z
-    sput-boolean v1, Lcom/melodix/music/AppSingleton;->l:Z
-    sput-boolean v1, Lcom/melodix/music/AppSingleton;->B:Z
-
-    const v3, 0x7f090249
-    invoke-virtual {p0, v3}, Landroid/app/Activity;->findViewById(I)Landroid/view/View;
-    move-result-object v2
-    instance-of v3, v2, Landroid/widget/ImageView;
-    if-eqz v3, :logout_clear_cover_mini
-    check-cast v2, Landroid/widget/ImageView;
-    invoke-static {v2, v0, v1}, Lcom/melodix/music/NativeImageLoader;->load(Landroid/widget/ImageView;Ljava/lang/String;I)V
-
-    :logout_clear_cover_mini
-    const v3, 0x7f090244
-    invoke-virtual {p0, v3}, Landroid/app/Activity;->findViewById(I)Landroid/view/View;
-    move-result-object v2
-    instance-of v3, v2, Landroid/widget/ImageView;
-    if-eqz v3, :logout_clear_cover_large
-    check-cast v2, Landroid/widget/ImageView;
-    invoke-static {v2, v0, v1}, Lcom/melodix/music/NativeImageLoader;->load(Landroid/widget/ImageView;Ljava/lang/String;I)V
-
-    :logout_clear_cover_large
-    const v3, 0x7f090245
-    invoke-virtual {p0, v3}, Landroid/app/Activity;->findViewById(I)Landroid/view/View;
-    move-result-object v2
-    instance-of v3, v2, Landroid/widget/ImageView;
-    if-eqz v3, :logout_clear_title_mini
-    check-cast v2, Landroid/widget/ImageView;
-    invoke-static {v2, v0, v1}, Lcom/melodix/music/NativeImageLoader;->load(Landroid/widget/ImageView;Ljava/lang/String;I)V
-
-    :logout_clear_title_mini
-    const-string v3, "Aucune lecture en cours"
-    const v0, 0x7f090236
-    invoke-virtual {p0, v0}, Landroid/app/Activity;->findViewById(I)Landroid/view/View;
-    move-result-object v2
-    instance-of v1, v2, Landroid/widget/TextView;
-    if-eqz v1, :logout_clear_title_large
-    check-cast v2, Landroid/widget/TextView;
-    invoke-virtual {v2, v3}, Landroid/widget/TextView;->setText(Ljava/lang/CharSequence;)V
-
-    :logout_clear_title_large
-    const v0, 0x7f09023b
-    invoke-virtual {p0, v0}, Landroid/app/Activity;->findViewById(I)Landroid/view/View;
-    move-result-object v2
-    instance-of v1, v2, Landroid/widget/TextView;
-    if-eqz v1, :logout_clear_artist_mini
-    check-cast v2, Landroid/widget/TextView;
-    invoke-virtual {v2, v3}, Landroid/widget/TextView;->setText(Ljava/lang/CharSequence;)V
-
-    :logout_clear_artist_mini
-    const-string v3, ""
-    const v0, 0x7f090237
-    invoke-virtual {p0, v0}, Landroid/app/Activity;->findViewById(I)Landroid/view/View;
-    move-result-object v2
-    instance-of v1, v2, Landroid/widget/TextView;
-    if-eqz v1, :logout_clear_artist_large
-    check-cast v2, Landroid/widget/TextView;
-    invoke-virtual {v2, v3}, Landroid/widget/TextView;->setText(Ljava/lang/CharSequence;)V
-
-    :logout_clear_artist_large
-    const v0, 0x7f09023c
-    invoke-virtual {p0, v0}, Landroid/app/Activity;->findViewById(I)Landroid/view/View;
-    move-result-object v2
-    instance-of v1, v2, Landroid/widget/TextView;
-    if-eqz v1, :logout_clear_rows
-    check-cast v2, Landroid/widget/TextView;
-    invoke-virtual {v2, v3}, Landroid/widget/TextView;->setText(Ljava/lang/CharSequence;)V
-
-    :logout_clear_rows
-    const v0, 0x7f090235
-    invoke-virtual {p0, v0}, Landroid/app/Activity;->findViewById(I)Landroid/view/View;
-    move-result-object v2
-    instance-of v1, v2, Landroid/view/ViewGroup;
-    if-eqz v1, :logout_clear_search
-    check-cast v2, Landroid/view/ViewGroup;
-    invoke-virtual {v2}, Landroid/view/ViewGroup;->removeAllViews()V
-
-    :logout_clear_search
-    const v0, 0x7f090233
-    invoke-virtual {p0, v0}, Landroid/app/Activity;->findViewById(I)Landroid/view/View;
-    move-result-object v2
-    instance-of v1, v2, Landroid/widget/EditText;
-    if-eqz v1, :logout_hide_mini
-    check-cast v2, Landroid/widget/EditText;
-    const-string v1, ""
-    invoke-virtual {v2, v1}, Landroid/widget/TextView;->setText(Ljava/lang/CharSequence;)V
-
-    :logout_hide_mini
-    const v0, 0x7f09024c
-    invoke-virtual {p0, v0}, Landroid/app/Activity;->findViewById(I)Landroid/view/View;
-    move-result-object v2
-    if-eqz v2, :logout_hide_player
-    const/16 v1, 0x8
-    invoke-virtual {v2, v1}, Landroid/view/View;->setVisibility(I)V
-
-    :logout_hide_player
-    const v0, 0x7f09023a
-    invoke-virtual {p0, v0}, Landroid/app/Activity;->findViewById(I)Landroid/view/View;
-    move-result-object v2
-    if-eqz v2, :logout_hide_root
-    const/16 v1, 0x8
-    invoke-virtual {v2, v1}, Landroid/view/View;->setVisibility(I)V
-
-    :logout_hide_root
-    const v0, 0x7f09022f
-    invoke-virtual {p0, v0}, Landroid/app/Activity;->findViewById(I)Landroid/view/View;
-    move-result-object v2
-    if-eqz v2, :logout_reset_done
-    const/16 v1, 0x8
-    invoke-virtual {v2, v1}, Landroid/view/View;->setVisibility(I)V
-
-    :logout_reset_done
-    const-string v0, "native-logout-reset"
-    invoke-static {v0}, Lcom/melodix/music/NativeCrashGuard;->stage(Ljava/lang/String;)V
     return-void
 .end method

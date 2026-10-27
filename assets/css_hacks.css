@@ -1514,56 +1514,8 @@ body.sf-tv-nav input:focus-visible {
    drawer keep Spotify's existing routes and controls while using phone-sized
    touch targets and Android safe areas, including while the player is expanded.
    ========================================================================= */
-/* Keep the unconfirmed-session notice in normal flow so it cannot cover Spotify's
-   login form, player controls, navigation, or the Android system areas. */
-#sf-auth-status {
-    position: relative !important;
-    inset: auto !important;
-    z-index: 10 !important;
-    box-sizing: border-box !important;
-    display: flex !important;
-    align-items: center !important;
-    justify-content: space-between !important;
-    gap: 12px !important;
-    width: min(680px, calc(100% - 24px)) !important;
-    margin: 8px auto 12px !important;
-    padding: 11px 12px 11px 15px !important;
-    border: 1px solid rgba(255, 255, 255, 0.14) !important;
-    border-radius: 14px !important;
-    background: rgba(18, 25, 21, 0.94) !important;
-    color: #f5f8f5 !important;
-    box-shadow: 0 8px 28px rgba(0, 0, 0, 0.42) !important;
-    font: 500 13px/1.4 Inter, Roboto, Arial, sans-serif !important;
-}
-
-#sf-auth-status.sf-auth-status-body-root {
-    margin-top: calc(max(var(--sf-safe-area-top, 0px), env(safe-area-inset-top, 0px)) + 8px) !important;
-}
-
-#sf-auth-status span {
-    min-width: 0 !important;
-    overflow-wrap: anywhere !important;
-}
-
-#sf-auth-status button {
-    flex: 0 0 auto !important;
-    min-height: 38px !important;
-    padding: 0 14px !important;
-    border: 0 !important;
-    border-radius: 999px !important;
-    background: #1ed760 !important;
-    color: #07110a !important;
-    font: 700 12px/1 Inter, Roboto, Arial, sans-serif !important;
-}
-
 #sf-mobile-nav {
     display: none !important;
-}
-
-@media screen and (max-width: 640px) and (orientation: portrait) {
-    #sf-mobile-nav {
-        box-sizing: border-box !important;
-    }
 }
 
 @media screen and (max-width: 820px) and (orientation: portrait),

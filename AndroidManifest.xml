@@ -16,10 +16,10 @@
     <uses-permission android:name="com.google.android.gms.permission.AD_ID"/>
     <uses-permission android:name="android.permission.ACCESS_ADSERVICES_ATTRIBUTION"/>
     <uses-permission android:name="android.permission.ACCESS_ADSERVICES_AD_ID"/>
-    <application android:allowBackup="true" android:appCategory="audio" android:appComponentFactory="androidx.core.app.CoreComponentFactory" android:dataExtractionRules="@xml/data_extraction_rules" android:enableOnBackInvokedCallback="true" android:extractNativeLibs="true" android:fullBackupContent="@xml/backup_rules" android:hardwareAccelerated="true" android:icon="@mipmap/ic_launcher" android:label="Melodix" android:name="com.melodix.music.AppSingleton" android:persistent="true" android:roundIcon="@mipmap/ic_launcher_round" android:supportsRtl="true" android:theme="@style/Theme.Spotifuck" android:usesCleartextTraffic="true">
+    <application android:allowBackup="true" android:appCategory="audio" android:appComponentFactory="androidx.core.app.CoreComponentFactory" android:dataExtractionRules="@xml/data_extraction_rules" android:extractNativeLibs="true" android:fullBackupContent="@xml/backup_rules" android:hardwareAccelerated="true" android:icon="@mipmap/ic_launcher" android:label="Melodix" android:name="com.melodix.music.AppSingleton" android:persistent="true" android:roundIcon="@mipmap/ic_launcher_round" android:supportsRtl="true" android:theme="@style/Theme.Spotifuck" android:usesCleartextTraffic="true">
         <activity android:exported="false" android:name="com.melodix.music.SettingsActivity" android:theme="@style/Theme.Spotifuck.Settings"/>
         <meta-data android:name="com.google.android.gms.car.application" android:resource="@xml/automotive_app_desc"/>
-        <activity android:alwaysRetainTaskState="true" android:configChanges="keyboardHidden|orientation|screenLayout|screenSize|smallestScreenSize" android:exported="true" android:label="Melodix" android:launchMode="singleInstance" android:name="com.melodix.music.MainActivity" android:supportsPictureInPicture="true" android:windowSoftInputMode="adjustResize">
+        <activity android:alwaysRetainTaskState="true" android:configChanges="keyboardHidden|orientation|screenLayout|screenSize|smallestScreenSize" android:exported="true" android:label="Melodix" android:launchMode="singleInstance" android:name="com.melodix.music.MainActivity" android:supportsPictureInPicture="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
@@ -35,7 +35,7 @@
                 <action android:name="android.intent.action.MEDIA_BUTTON"/>
             </intent-filter>
         </receiver>
-        <receiver android:exported="false" android:name="com.melodix.music.WebService$MediaActionReceiver">
+        <receiver android:exported="true" android:name="com.melodix.music.WebService$MediaActionReceiver">
             <intent-filter>
                 <action android:name="REPEAT_ACTION"/>
                 <action android:name="ADDTOFAV_ACTION"/>
