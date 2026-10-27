@@ -461,12 +461,25 @@ jobs:
           sleep 1
           send_ui "home-greeting" "Bonsoir, Camille"
           dump_ui "01_home"
+          # Home display restoration (historical proven implementation, Preview
+          # test.19 / commit 552da05): home shows the real Spotify web player
+          # (WebView). The native header (greeting + settings), tab bar and
+          # mini-player stay visible and keep their contracts.
           assert_ui_has "$state/01_home.xml" "Bonsoir, Camille"
-          assert_ui_has "$state/01_home.xml" "Mix Decouverte"
-          echo "::notice title=E2E Home::PASS (greeting 'Bonsoir, Camille' + feed section & cards rendered)"
+          assert_ui_has "$state/01_home.xml" "Accueil"
+          assert_ui_has "$state/01_home.xml" "Bibliothèque"
+          echo "::notice title=E2E Home::PASS (restored home: WebView home surface + native greeting, tab bar, mini-player)"
 
-          # 2. Detail screen + Player + Android Back button (player -> detail -> home)
-          tap_text "$state/01_home.xml" "Mix Decouverte"
+          # 2. Detail screen + Player + Android Back button (player -> detail -> library)
+          #    The native feed cards no longer sit on home after the home
+          #    display restoration; the detail screen is reached through the
+          #    library (the normal native flow).
+          tap_text "$state/01_home.xml" "Biblioth"
+          sleep 1
+          send_ui "media:playlists" '[{"title":"Ma Playlist Test","subtitle":"12 titres","uri":"spotify:playlist:999"}]'
+          dump_ui "02_library"
+          assert_ui_has "$state/02_library.xml" "Ma Playlist Test"
+          tap_text "$state/02_library.xml" "Ma Playlist Test"
           sleep 1
           send_ui "media:spotify:playlist:37i9dQZF1DXcBWIGoYBM5M" '[{"title":"Piste Un","subtitle":"Daft Punk","uri":"spotify:track:111"},{"title":"Piste Deux","subtitle":"Justice","uri":"spotify:track:222"}]'
           dump_ui "02_detail"
@@ -482,14 +495,18 @@ jobs:
           adb shell input keyevent 4
           dump_ui "05_back_to_detail"
           assert_ui_has "$state/05_back_to_detail.xml" "Piste Un"
-          # Back #2: restores Home screen from Detail
+          # Back #2: restores Library screen from Detail
           adb shell input keyevent 4
-          dump_ui "06_back_to_home"
-          assert_ui_has "$state/06_back_to_home.xml" "Mix Decouverte"
-          echo "::notice title=E2E Detail + Player + Back::PASS (Home -> Detail -> Expanded Player -> Back to Detail -> Back to Home)"
+          dump_ui "06_back_to_library"
+          assert_ui_has "$state/06_back_to_library.xml" "Ma Playlist Test"
+          # Back #3: restores Home screen from Library
+          adb shell input keyevent 4
+          dump_ui "06b_back_to_home"
+          assert_ui_has "$state/06b_back_to_home.xml" "Bonsoir, Camille"
+          echo "::notice title=E2E Detail + Player + Back::PASS (Library -> Detail -> Expanded Player -> Back to Detail -> Back to Library -> Back to Home)"
 
           # 3. Library screen + Filter Chips + Android Back
-          tap_text "$state/06_back_to_home.xml" "Biblioth"
+          tap_text "$state/06b_back_to_home.xml" "Biblioth"
           sleep 1
           send_ui "media:playlists" '[{"title":"Ma Playlist Test","subtitle":"12 titres","uri":"spotify:playlist:999"}]'
           dump_ui "07_library"
@@ -497,7 +514,7 @@ jobs:
           assert_ui_has "$state/07_library.xml" "Albums"
           adb shell input keyevent 4
           dump_ui "08_library_back_home"
-          assert_ui_has "$state/08_library_back_home.xml" "Mix Decouverte"
+          assert_ui_has "$state/08_library_back_home.xml" "Bonsoir, Camille"
           echo "::notice title=E2E Library + Back::PASS (Library rows + filter chips rendered, Back returned to Home)"
 
           # 3b. Tab isolation regression: a playlist loading state must never
@@ -577,10 +594,10 @@ jobs:
           adb shell input keyevent 4
           sleep 1
           dump_ui "10_search_back_1"
-          if ! python3 -c 'import sys,xml.etree.ElementTree as ET; r=ET.parse(sys.argv[1]).getroot(); sys.exit(0 if "mix decouverte" in "\n".join((n.get("text") or "") for n in r.iter()).lower() else 1)' "$state/10_search_back_1.xml"; then
+          if ! python3 -c 'import sys,xml.etree.ElementTree as ET; r=ET.parse(sys.argv[1]).getroot(); sys.exit(0 if "bonsoir, camille" in "\n".join((n.get("text") or "") for n in r.iter()).lower() else 1)' "$state/10_search_back_1.xml"; then
             adb shell input keyevent 4
             dump_ui "10_search_back_2"
-            assert_ui_has "$state/10_search_back_2.xml" "Mix Decouverte"
+            assert_ui_has "$state/10_search_back_2.xml" "Bonsoir, Camille"
           fi
           echo "::notice title=E2E Search + Back::PASS (Search focused, 'daft' entered, results rendered, Back returned to Home)"
 
@@ -633,7 +650,7 @@ jobs:
           adb shell input keyevent 4
           sleep 1
           dump_ui "22_kb_back_home"
-          assert_ui_has "$state/22_kb_back_home.xml" "Mix Decouverte"
+          assert_ui_has "$state/22_kb_back_home.xml" "Bonsoir, Camille"
           # Leaving a screen with the keyboard open must never let the IME
           # linger over the next screen. NB: with adjustResize the bottom nav
           # moves up when the IME opens, so the tap coordinates must come from

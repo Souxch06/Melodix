@@ -8057,14 +8057,6 @@
     const v2, 0x7f090239
     invoke-virtual {p0, v2}, Landroid/app/Activity;->findViewById(I)Landroid/view/View;
     move-result-object v4
-    if-eqz v4, :home_hide_title
-    const/16 v5, 0x8
-    invoke-virtual {v4, v5}, Landroid/view/View;->setVisibility(I)V
-
-    :home_hide_title
-    const v2, 0x7f090230
-    invoke-virtual {p0, v2}, Landroid/app/Activity;->findViewById(I)Landroid/view/View;
-    move-result-object v4
     if-eqz v4, :home_clear_root
     const/16 v5, 0x8
     invoke-virtual {v4, v5}, Landroid/view/View;->setVisibility(I)V
@@ -8080,14 +8072,6 @@
 
     :restore_native_shell
     const v2, 0x7f090239
-    invoke-virtual {p0, v2}, Landroid/app/Activity;->findViewById(I)Landroid/view/View;
-    move-result-object v4
-    if-eqz v4, :restore_native_title
-    const/4 v5, 0x0
-    invoke-virtual {v4, v5}, Landroid/view/View;->setVisibility(I)V
-
-    :restore_native_title
-    const v2, 0x7f090230
     invoke-virtual {p0, v2}, Landroid/app/Activity;->findViewById(I)Landroid/view/View;
     move-result-object v4
     if-eqz v4, :restore_native_root

@@ -345,10 +345,10 @@ test('the native shell releases the home screen to the real Spotify web player',
     assert.ok(setNativeScreen, 'setNativeScreen should exist');
     const body = setNativeScreen[0];
 
-    // home branch: the native row scroll and the screen title are hidden and
-    // the shell root becomes transparent so the mounted WebView shows through.
+    // home branch: the native row scroll is hidden and the shell root becomes
+    // transparent so the mounted WebView shows through. The header (greeting
+    // and settings entry), the tab bar and the mini-player stay visible.
     assert.match(body, /const-string v3, "home"[\s\S]*?home_web_restore/);
-    assert.match(body, /:home_hide_title[\s\S]*?0x7f090230/);
     assert.match(body, /:home_clear_root[\s\S]*?setBackgroundColor\(I\)V/);
     assert.match(body, /const v2, 0x7f090239/); // nativeRowsScroll
     assert.match(body, /const v2, 0x7f09022f/); // nativeRoot
