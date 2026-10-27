@@ -44,17 +44,30 @@ adb logcat -d -b crash > "$state/crash.txt" 2>&1
 adb logcat -d > "$state/logcat.txt" 2>&1
 grep -n -A 60 'FATAL EXCEPTION' "$state/logcat.txt" > "$state/fatal.txt" 2>/dev/null
 
+# P0 V30 diagnostic: extract the startup-chain traces the fix added
+# (MDXTRACE: bridge start/done, js-shell, main-view, home-rows, ready /
+# ready-blocked, native-shell, js-error) plus JS/WebView console errors.
+# These answer: does the bridge run, does the shell run, how many playlist
+# rows arrive, was ready blocked, what is on screen when it goes blank.
+grep -E 'MDXTRACE|chromium.*[Cc]onsole|Web Console' "$state/logcat.txt" 2>/dev/null | tail -n 120 > "$state/trace.txt"
+grep -ciE 'ready-blocked' "$state/logcat.txt" > "$state/trace-blocked.txt" 2>/dev/null
+note "mdxtrace: $(grep -c . "$state/trace.txt" 2>/dev/null) line(s) captured"
+
 {
   echo "installed: $(tr '\n' ' ' < "$state/installed.txt" 2>/dev/null)"
   echo "release advertises: ${RELEASE_REF:-unknown}"
   echo "resumed: $(tr '\n' ' ' < "$state/resumed.txt" 2>/dev/null)"
   echo "stage prefs: $(tr -d '\n' < "$state/prefs.xml" 2>/dev/null | cut -c1-600)"
   echo "visible text: $(tr '\n' ' ' < "$state/window-text.txt" 2>/dev/null | cut -c1-600)"
+  echo "--- MDXTRACE startup chain ---"
+  head -c 8000 "$state/trace.txt" 2>/dev/null
   echo "--- fatal ---"
   head -c 3000 "$state/fatal.txt" 2>/dev/null
   echo "--- crash buffer ---"
   head -c 2000 "$state/crash.txt" 2>/dev/null
 } > "$state/report.txt"
+
+note "ready-blocked count: $(cat "$state/trace-blocked.txt" 2>/dev/null || echo 0)"
 
 note "fatal: $(grep -c . "$state/fatal.txt" 2>/dev/null) line(s) captured"
 {
