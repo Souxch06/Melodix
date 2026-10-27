@@ -97,6 +97,7 @@
 # player feed cannot retrigger the animation.
 .field private nativeFadeNextScreen:Z
 .field private nativeCurrentTitle:Ljava/lang/String;
+.field private nativeGreeting:Ljava/lang/String;
 .field private nativeCurrentJson:Ljava/lang/String;
 .field private nativeExpectedId:Ljava/lang/String;
 .field private nativeExpectedSearch:Ljava/lang/String;
@@ -7926,6 +7927,16 @@
     const/16 v3, 0x8
     goto :set_native_rows
     :show_native_rows
+    # Home display restoration: on the home screen the native list stays
+    # hidden (the real Spotify web player is the home surface).
+    iget-object v3, p0, Lcom/melodix/music/MainActivity;->nativeCurrentScreen:Ljava/lang/String;
+    const-string v0, "home"
+    invoke-virtual {v0, v3}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    move-result v3
+    if-eqz v3, :show_native_rows_visible
+    const/16 v3, 0x8
+    goto :set_native_rows
+    :show_native_rows_visible
     const/4 v3, 0x0
     :set_native_rows
     invoke-virtual {v2, v3}, Landroid/view/View;->setVisibility(I)V
@@ -7976,6 +7987,12 @@
     invoke-virtual {p1, v0}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
     move-result v1
     if-eqz v1, :title_search
+    # Keep the injected greeting (home-greeting) across screen switches so
+    # the home header shows the greeting again on every return to home.
+    iget-object v4, p0, Lcom/melodix/music/MainActivity;->nativeGreeting:Ljava/lang/String;
+    if-eqz v4, :title_home_default
+    goto :write_screen_title
+    :title_home_default
     const-string v4, "Accueil"
     goto :write_screen_title
     :title_search
@@ -8134,6 +8151,16 @@
     const/16 v2, 0x8
     goto :native_hole_rows_vis
     :native_hole_show_rows
+    # Home display restoration: on the home screen the native list stays
+    # hidden (the real Spotify web player is the home surface).
+    iget-object v2, p0, Lcom/melodix/music/MainActivity;->nativeCurrentScreen:Ljava/lang/String;
+    const-string v0, "home"
+    invoke-virtual {v0, v2}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    move-result v2
+    if-eqz v2, :native_hole_rows_shown
+    const/16 v2, 0x8
+    goto :native_hole_rows_vis
+    :native_hole_rows_shown
     const/4 v2, 0x0
     :native_hole_rows_vis
     invoke-virtual {v1, v2}, Landroid/view/View;->setVisibility(I)V
@@ -8288,6 +8315,9 @@
     invoke-virtual {p1, v0}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
     move-result v1
     if-eqz v1, :check_profile_image
+    # Remember the greeting so returning to home (setNativeScreen) shows it
+    # again instead of the default screen title.
+    iput-object p2, p0, Lcom/melodix/music/MainActivity;->nativeGreeting:Ljava/lang/String;
     iget-object v2, p0, Lcom/melodix/music/MainActivity;->nativeCurrentScreen:Ljava/lang/String;
     if-eqz v2, :apply_done
     const-string v3, "home"
@@ -8996,7 +9026,10 @@
     invoke-virtual {p0, p1, v0}, Lcom/melodix/music/MainActivity;->maybeDismissImeFor(Ljava/lang/String;Ljava/lang/String;)V
 
     # Rendering rows always means the list is the visible content, so leave the
-    # browse grid and restore the scrolling list.
+    # browse grid and restore the scrolling list - except on the home screen,
+    # where the home display restoration keeps the real Spotify web player as
+    # the surface (Preview test.19 / commit 552da05) and the native list stays
+    # hidden no matter how late the feed rows arrive.
     const v0, 0x7f090239
 
     invoke-virtual {p0, v0}, Landroid/app/Activity;->findViewById(I)Landroid/view/View;
@@ -9005,8 +9038,16 @@
 
     if-eqz v0, :native_rows_visible
 
+    iget-object v1, p0, Lcom/melodix/music/MainActivity;->nativeCurrentScreen:Ljava/lang/String;
+    const-string v2, "home"
+    invoke-virtual {v2, v1}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    move-result v1
+    if-eqz v1, :native_rows_shown
+    const/16 v1, 0x8
+    goto :native_rows_set
+    :native_rows_shown
     const/4 v1, 0x0
-
+    :native_rows_set
     invoke-virtual {v0, v1}, Landroid/view/View;->setVisibility(I)V
 
     :native_rows_visible
