@@ -367,6 +367,7 @@ jobs:
           TESTS_PASSED: ${{ steps.tests.outputs.tests_passed }}
         run: |
           set -euo pipefail
+          set -E
           pkg="com.melodix.music.preview"
           state="$GITHUB_WORKSPACE/emulator-output/phase2"
           mkdir -p "$state"
@@ -424,7 +425,7 @@ jobs:
               raise SystemExit(f"Could not find UI element matching {needle!r}")
           print(found[0], found[1])
           PY
-            )
+            ) || { echo "::error title=tap_text failed::needle=$2 xml=$1"; return 1; }
             adb shell input tap "$cx" "$cy"
           }
 
