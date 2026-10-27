@@ -6924,6 +6924,11 @@
     const/4 v0, 0x1
     sput-boolean v0, Lcom/melodix/music/AppSingleton;->l:Z
 
+    # P0 diagnostic: the native shell takes over the screen here.
+    const-string v0, "MDXTRACE"
+    const-string v2, "native-shell shown (splash hidden, nativeRoot visible)"
+    invoke-static {v0, v2}, Landroid/util/Log;->i(Ljava/lang/String;Ljava/lang/String;)I
+
     iget-object v1, p0, Lcom/melodix/music/MainActivity;->H:Landroidx/constraintlayout/widget/ConstraintLayout;
     if-eqz v1, :hide_splash_progress
     const/16 v2, 0x8

@@ -6,6 +6,20 @@
         return;
     }
 
+    // P0 diagnostic traces on logcat (MDXTRACE) through the native channel:
+    // bridge start / bridge done / load errors, status words only.
+    function __sfBridgeTrace(msg) {
+        try {
+            var b = window.AndBridge;
+            if (b && typeof b.logDiagEvent === 'function') b.logDiagEvent(String(msg || '').slice(0, 160));
+        } catch (_) {}
+    }
+    window.__sfBridgeTrace = __sfBridgeTrace;
+    __sfBridgeTrace('bridge start');
+    window.addEventListener('error', function(ev) {
+        __sfBridgeTrace('bridge js-error ' + String((ev && ev.error && ev.error.name) || (ev && ev.message) || 'unknown').slice(0, 60));
+    }, true);
+
     // Global flags injected by Android:
     // window.SF_CONFIG = { ... };
 
@@ -4312,4 +4326,5 @@
     installPremiumPromotionCleanup();
     firstFuck();
     window.__sfMelodixBridgeCompleted = true;
+    __sfBridgeTrace('bridge done');
 })();

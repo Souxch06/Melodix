@@ -89,6 +89,42 @@
     return-void
 .end method
 
+.method public final logDiagEvent(Ljava/lang/String;)V
+    .locals 3
+    .annotation runtime Landroid/webkit/JavascriptInterface;
+    .end annotation
+
+    # P0 diagnostic: one bounded line per startup event on logcat (MDXTRACE)
+    # so a phone-side log shows where the startup chain stops. The shell sends
+    # status words only (stage, route, counts) - never payload data.
+    if-eqz p1, :logdiag_done
+
+    invoke-virtual {p1}, Ljava/lang/String;->length()I
+    move-result v0
+
+    const/16 v1, 0xa0
+
+    if-gt v0, v1, :logdiag_clip
+
+    move-object v2, p1
+
+    goto :logdiag_log
+
+    :logdiag_clip
+    const/4 v2, 0x0
+
+    invoke-virtual {p1, v2, v1}, Ljava/lang/String;->substring(II)Ljava/lang/String;
+    move-result-object v2
+
+    :logdiag_log
+    const-string v0, "MDXTRACE"
+
+    invoke-static {v0, v2}, Landroid/util/Log;->i(Ljava/lang/String;Ljava/lang/String;)I
+
+    :logdiag_done
+    return-void
+.end method
+
 .method public final nativeLogout()V
     .locals 2
     .annotation runtime Landroid/webkit/JavascriptInterface;

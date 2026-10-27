@@ -60,11 +60,43 @@
 
     .line 7
     .line 8
+    # P0: keep 'this' (the runnable) before p0 is overwritten with the
+    # activity, so the fade can reschedule itself once.
+    move-object v5, p0
+
     iget-object p0, p0, Lzk0;->k:Lcom/melodix/music/MainActivity;
 
     .line 9
     .line 10
     packed-switch v0, :pswitch_data_0
+
+    # P0 splash-flash guard (fade path): the splash overlay is opaque and sits
+    # above the WebView. Fading it as soon as the page loads exposes the web
+    # player for a moment before the native shell covers it again (the startup
+    # flash). If the native shell has not been shown yet (AppSingleton.l is
+    # false) reschedule this fade once by 2 s so a ready shell can take over
+    # without a flash; after that one report the fade runs and the live Spotify
+    # page becomes the fallback home (never a permanent blank splash).
+    sget-boolean v6, Lcom/melodix/music/AppSingleton;->l:Z
+    if-nez v6, :fade_go
+
+    iget-object v6, p0, Lcom/melodix/music/MainActivity;->H:Landroidx/constraintlayout/widget/ConstraintLayout;
+    if-eqz v6, :fade_go
+
+    invoke-virtual {v6}, Landroid/view/View;->getTag()Ljava/lang/Object;
+    move-result-object v7
+
+    if-nez v7, :fade_go
+
+    invoke-virtual {v6, v5}, Landroid/view/View;->setTag(Ljava/lang/Object;)V
+
+    const-wide/16 v1, 0x7d0
+
+    invoke-virtual {v6, v5, v1, v2}, Landroid/view/View;->postDelayed(Ljava/lang/Runnable;J)Z
+
+    return-void
+
+    :fade_go
 
     .line 11
     .line 12

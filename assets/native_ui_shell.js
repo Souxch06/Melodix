@@ -6,6 +6,16 @@
     window.__sfNativeUiShellStarted = true;
     window.__sfNativeUiShellErrors = 0;
 
+    // P0 diagnostic: uncaught JS errors must never kill the startup chain
+    // silently - keep a bounded counter and one trace line per error name.
+    window.addEventListener('error', function(ev) {
+        window.__sfNativeUiShellErrors += 1;
+        try {
+            diagTrace('js-error ' + String((ev && ev.error && ev.error.name) || (ev && ev.message) || 'unknown').slice(0, 60));
+        } catch (_) {}
+    }, true);
+    diagTrace('js-shell begin path=' + String(window.location && window.location.pathname || '?').slice(0, 60));
+
     var HOME_PATHS = ['/', '/home'];
     var SUPPORTED_TYPES = ['playlist', 'album', 'artist', 'track', 'show', 'episode', 'audiobook'];
     var MAX_READY_RETRIES = 60;
@@ -124,6 +134,20 @@
         } catch (_) {
             return '';
         }
+    }
+
+    // P0 diagnostic traces: one bounded line per event on the native logcat
+    // (MDXTRACE) so a phone-side log can show where the startup chain stops:
+    // bridge start, shell done, active route, rows received, home element
+    // found, ready/blocked decisions and JS errors. Never sends payload data.
+    function diagTrace(event) {
+        var line = String(event || '').replace(/\s+/g, ' ').slice(0, 160);
+        window.__sfDiagTraceLast = line;
+        window.__sfDiagTraceCount = (window.__sfDiagTraceCount || 0) + 1;
+        try {
+            var bridge = window.AndBridge;
+            if (bridge && typeof bridge.logDiagEvent === 'function') bridge.logDiagEvent(line);
+        } catch (_) {}
     }
 
     function sendNativeUiData(screen, items) {
@@ -369,6 +393,84 @@
         return rows.slice(0, 32);
     }
 
+    // P0 real-playlists fix: the account's own playlists are also listed as
+    // plain links in Spotify's "Your Library" drawer (desktop sidebar AND the
+    // mobile library nav). The 2026-10-20 restoration history shows this is
+    // the source that keeps working when libraryV3 never delivers (the
+    // recurring device report: no media: payload ever arrives). Real DOM links
+    // only - never invented rows.
+    function collectLibraryDrawerRows() {
+        if (!document || typeof document.querySelectorAll !== 'function') return [];
+        var drawerSelectors = [
+            '[data-testid="rootlist"]',
+            '.Root__nav-bar',
+            '[aria-label="Your Library"]',
+            '[aria-label="Votre bibliothèque"]',
+            '[aria-label="Library"]',
+            '[aria-label="Bibliothèque"]',
+            '#Desktop_LeftSidebar_Id',
+            'nav[aria-label]'
+        ];
+        var drawer = null;
+        var i;
+        for (i = 0; i < drawerSelectors.length; i += 1) {
+            try {
+                drawer = document.querySelector(drawerSelectors[i]);
+            } catch (_) {
+                drawer = null;
+            }
+            if (drawer) break;
+        }
+        if (!drawer || typeof drawer.querySelectorAll !== 'function') return [];
+        var main = null;
+        try {
+            main = document.querySelector('#main-view');
+        } catch (_) {}
+        var anchors = Array.prototype.slice.call(drawer.querySelectorAll('a[href]'));
+        var rows = [];
+        var seenDrawer = new Set();
+        anchors.forEach(function(anchor) {
+            var href = anchor.href || anchor.getAttribute('href') || '';
+            var uri = nativeSpotifyUri(href);
+            var text = String(anchor.innerText || anchor.textContent || '').replace(/\s+/g, ' ').trim();
+            var title = '';
+            var img = null;
+            var image = null;
+            if (!uri || seenDrawer.has(uri)) return;
+            // Real library entries only: the account's playlists and the
+            // liked-songs entry. Library *sections* (/collection/playlists,
+            // /collection/albums...) are navigation, not playlists.
+            if (uri.indexOf('spotify:playlist:') !== 0 && !/\/collection\/tracks/.test(href)) return;
+            if (/\/collection\/(playlists|albums|artists|shows|podcasts)/.test(href)) return;
+            if (main && typeof anchor.closest === 'function') {
+                try {
+                    if (anchor.closest('#main-view')) return;
+                } catch (_) {}
+            }
+            title = text.split('\n')[0].slice(0, 100);
+            if (!title && anchor.querySelector) {
+                img = anchor.querySelector('img');
+                title = String(img && img.getAttribute('alt') || '').replace(/\s+/g, ' ').trim().slice(0, 100);
+            }
+            if (!title) return;
+            if (anchor.querySelector) {
+                img = anchor.querySelector('img');
+                image = img && (img.src || img.getAttribute('src')) || null;
+            }
+            seenDrawer.add(uri);
+            rows.push({
+                title: title,
+                subtitle: '',
+                section: 'Vos playlists',
+                image: safeSpotifyImage(image) || (/\/collection\/tracks/.test(href)
+                    ? 'https://misc.scdn.co/liked-songs/liked-songs-640.png'
+                    : ''),
+                uri: uri
+            });
+        });
+        return rows;
+    }
+
     function supplementHomeRowsWithLibrary(rows) {
         var library = window.mediaLib;
         var groups = [
@@ -416,25 +518,14 @@
             });
         }
 
-        if (userRows.length < 12 && document && typeof document.querySelector === 'function') {
-            sidebar = document.querySelector('#Desktop_LeftSidebar_Id');
-            if (sidebar && typeof sidebar.querySelectorAll === 'function') {
-                collectHomeRows(sidebar).forEach(function(row) {
-                    var img = row.image;
-                    if (!row.uri || !row.title || seen.has(row.uri) || userRows.length >= 12) return;
-                    if (!img && /collection/i.test(row.uri)) {
-                        img = 'https://misc.scdn.co/liked-songs/liked-songs-640.png';
-                    }
-                    seen.add(row.uri);
-                    userRows.push({
-                        title: row.title,
-                        subtitle: row.subtitle,
-                        section: 'Vos playlists',
-                        image: img,
-                        uri: row.uri
-                    });
-                });
-            }
+        if (userRows.length < 12 && document && typeof document.querySelectorAll === 'function') {
+            // Real playlist links from the library drawer (mobile + desktop);
+            // they survive empty/late mediaLib responses.
+            collectLibraryDrawerRows().forEach(function(row) {
+                if (!row.uri || !row.title || seen.has(row.uri) || userRows.length >= 12) return;
+                seen.add(row.uri);
+                userRows.push(row);
+            });
         }
 
         rows.forEach(function(row) {
@@ -486,6 +577,9 @@
             // native Home update with a stale/empty signature.
             lastHomeSignature = signature;
             window.__sfNativeUiHomeDataSent = true;
+            diagTrace('home-rows sent n=' + rows.length + ' images=' +
+                rows.filter(function(r) { return Boolean(r && r.image); }).length +
+                ' route=' + spotifyRoutePath());
         }
 
         if (rows.length > 0 && rows.some(function(row) { return Boolean(row && row.image); })) clearHomeRetry();
@@ -626,6 +720,18 @@
         userWidget = document.querySelector('button[data-testid="user-widget-link"], a[data-testid="user-widget-link"]');
         if (!userWidget || !bridge || typeof bridge.onNativeUiReady !== 'function') return false;
 
+        // P0 empty-home fix: never cover the live Spotify page (which already
+        // shows the account's real playlists) with a native shell that has no
+        // rows to paint. The native root is opaque (elevation 15) so an early
+        // ready signal leaves a permanent blank screen. On the home route the
+        // shell only takes over once at least one real row has been collected;
+        // other routes keep their original readiness.
+        if (isSpotifyHome() && (window.__sfNativeUiHomeRowsCount || 0) < 1) {
+            window.__sfNativeUiReadyBlockedEmpty = (window.__sfNativeUiReadyBlockedEmpty || 0) + 1;
+            diagTrace('ready-blocked home rows=0 route=' + spotifyRoutePath());
+            return false;
+        }
+
         if (typeof bridge.onNativeUiRoute === 'function') {
             try {
                 bridge.onNativeUiRoute(initialScreen);
@@ -638,6 +744,7 @@
             window.__sfNativeUiReadyRetries = 0;
             if (readyRetryTimer) window.clearTimeout(readyRetryTimer);
             readyRetryTimer = null;
+            diagTrace('native-ui-ready rows=' + (window.__sfNativeUiHomeRowsCount || 0) + ' route=' + spotifyRoutePath());
         } catch (_) {
             return false;
         }
@@ -1237,15 +1344,20 @@
             installSearchFallback();
             mainView = document.querySelector('#main-view');
             if (mainView) {
-                notifyNativeUiReady(mainView);
+                if (!window.__sfDiagHomeSeen) {
+                    window.__sfDiagHomeSeen = true;
+                    diagTrace('main-view found route=' + spotifyRoutePath());
+                }
                 detectSpotifyProfile();
                 updateHomeRows(mainView);
                 updateDetailRows(mainView);
                 updateSearchRows(mainView);
                 updateLibraryRows(mainView);
+                notifyNativeUiReady(mainView);
             }
-        } catch (_) {
+        } catch (err) {
             window.__sfNativeUiShellErrors += 1;
+            diagTrace('runUpdate error ' + (err && err.name ? String(err.name).slice(0, 40) : 'unknown'));
         }
         if (!window.__sfNativeUiReadyNotified) scheduleReadinessRetry();
     }
@@ -1981,8 +2093,10 @@
     try {
         install();
         window.__sfNativeUiShellCompleted = true;
-    } catch (_) {
+        diagTrace('js-shell end ok route=' + (typeof spotifyRoutePath === 'function' ? spotifyRoutePath() : '?'));
+    } catch (err) {
         window.__sfNativeUiShellErrors += 1;
         window.__sfNativeUiShellCompleted = false;
+        diagTrace('js-shell end threw ' + (err && err.name ? String(err.name).slice(0, 40) : 'unknown'));
     }
 })();
