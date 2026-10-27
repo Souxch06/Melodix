@@ -542,6 +542,81 @@
         return rows.slice(0, 120);
     }
 
+    // The left "Your Library" drawer of the desktop web player lists the
+    // account's own playlists as plain links. The 2026-10-20 home (last version
+    // with playlists visibly on screen) could read them; the chain must keep
+    // working even when the libraryV3 GraphQL call fails (the recurring device
+    // report: no media: payload ever arrives). Real DOM links only — never
+    // invented rows.
+    function collectLibraryDrawerRows() {
+        if (!document || typeof document.querySelectorAll !== 'function') return [];
+        var drawerSelectors = [
+            '[data-testid="rootlist"]',
+            '.Root__nav-bar',
+            '[aria-label="Your Library"]',
+            '[aria-label="Votre bibliothèque"]',
+            '[aria-label="Library"]',
+            '[aria-label="Bibliothèque"]',
+            'nav[aria-label]'
+        ];
+        var drawer = null;
+        var i;
+        for (i = 0; i < drawerSelectors.length; i += 1) {
+            try {
+                drawer = document.querySelector(drawerSelectors[i]);
+            } catch (_) {
+                drawer = null;
+            }
+            if (drawer) break;
+        }
+        if (!drawer || typeof drawer.querySelectorAll !== 'function') return [];
+        var main = null;
+        try {
+            main = document.querySelector('#main-view');
+        } catch (_) {}
+        var anchors = Array.prototype.slice.call(drawer.querySelectorAll('a[href]'));
+        var rows = [];
+        var seenDrawer = new Set();
+        anchors.forEach(function(anchor) {
+            var href = anchor.href || anchor.getAttribute('href') || '';
+            var uri = nativeSpotifyUri(href);
+            var text = String(anchor.innerText || anchor.textContent || '').replace(/\s+/g, ' ').trim();
+            var title = '';
+            var img = null;
+            var image = null;
+            if (!uri || seenDrawer.has(uri)) return;
+            // Real library entries only: the account's playlists and the
+            // liked-songs entry. Library *sections* (/collection/playlists,
+            // /collection/albums…) are navigation, not playlists.
+            if (uri.indexOf('spotify:playlist:') !== 0 && !/\/collection\/tracks/.test(href)) return;
+            if (/\/collection\/(playlists|albums|artists|shows|podcasts)/.test(href)) return;
+            if (main && typeof anchor.closest === 'function') {
+                try {
+                    if (anchor.closest('#main-view')) return;
+                } catch (_) {}
+            }
+            title = text.split('\n')[0].slice(0, 100);
+            if (!title && anchor.querySelector) {
+                img = anchor.querySelector('img');
+                title = String(img && img.getAttribute('alt') || '').replace(/\s+/g, ' ').trim().slice(0, 100);
+            }
+            if (!title) return;
+            if (anchor.querySelector) {
+                img = anchor.querySelector('img');
+                image = img && (img.src || img.getAttribute('src')) || null;
+            }
+            seenDrawer.add(uri);
+            rows.push({
+                title: title,
+                subtitle: '',
+                section: 'Vos playlists',
+                image: image,
+                uri: uri
+            });
+        });
+        return rows;
+    }
+
     function supplementHomeRowsWithLibrary(rows) {
         var library = window.mediaLib;
         var groups = [
@@ -621,6 +696,28 @@
                 });
             });
         }
+
+        // The drawer is the always-available real source for the account's own
+        // playlists: it supplements (never replaces) whatever libraryV3
+        // delivered, so a libraryV3 failure can no longer leave home without
+        // "Vos playlists".
+        collectLibraryDrawerRows().forEach(function(item) {
+            var uri = String(item && item.uri || '');
+            var title = String(item && item.title || '').trim();
+            if (!uri || !title || seen.has(uri)) return;
+            if (userRows.length >= 40) {
+                userOverflow += 1;
+                return;
+            }
+            seen.add(uri);
+            userRows.push({
+                title: title,
+                subtitle: item.subtitle || '',
+                section: 'Vos playlists',
+                image: item.image,
+                uri: uri
+            });
+        });
 
         var mineUris = {};
         if (library && Array.isArray(library.playlists)) {

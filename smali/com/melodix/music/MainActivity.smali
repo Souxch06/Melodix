@@ -9000,12 +9000,16 @@
     check-cast v2, Landroid/widget/LinearLayout;
     const/4 v4, 0x0
     sput-boolean v4, Lcom/melodix/music/NativeHomeFeed;->useGrid:Z
+    # Home playlist display restoration: the 2026-10-20 home (last version with
+    # playlists visibly on screen, proven by the user's own capture) painted the
+    # home feed with the flat row factory (create). The 2026-10-24 "upgrade grid
+    # UI" switch (useGrid -> createTile two-column tiles) is the layout change
+    # after which the user reports playlists no longer appear. Home rows are
+    # restored to the proven row layout; the library browse grid keeps tiles.
     const-string v0, "Accueil"
     invoke-virtual {v0, p1}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
     move-result v0
     if-eqz v0, :check_lib_grid
-    const/4 v4, 0x1
-    sput-boolean v4, Lcom/melodix/music/NativeHomeFeed;->useGrid:Z
     goto :native_screen_painted_track
     :check_lib_grid
     iget-object v0, p0, Lcom/melodix/music/MainActivity;->nativeCurrentScreen:Ljava/lang/String;
@@ -9014,8 +9018,6 @@
     invoke-virtual {v4, v0}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
     move-result v4
     if-eqz v4, :check_lib_title
-    const/4 v4, 0x1
-    sput-boolean v4, Lcom/melodix/music/NativeHomeFeed;->useGrid:Z
     goto :native_screen_painted_track
     :check_lib_title
     # Home rows ("Accueil") never paint onto another screen: a home update
