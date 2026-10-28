@@ -264,9 +264,20 @@ test('successful authenticated Spotify home load dismisses the native splash', (
     );
 
     assert.ok(pageFinished, 'WebView page-finished callback should exist');
+    // P0 root-cause fix: the player-document test is the isPlayerDoc origin
+    // check (startsWith/exact host), not a contains() on "open.spotify.com" -
+    // the login URL embeds that host in its continue= parameter and used to
+    // match, which held the splash "waiting for the native shell" forever.
+    // A player document (v2 == 1) continues to :cond_5; anything else falls
+    // through to the login/auth tests below :cond_15 (no unconditional goto).
     assert.match(
         pageFinished[1],
-        /sget-boolean v2, Lcom\/melodix\/music\/AppSingleton;->B:Z[\s\S]*?if-eqz v2, :cond_15[\s\S]*?const-string v2, "open\.spotify\.com"[\s\S]*?if-eqz v2, :cond_7\s+goto :cond_5/
+        /sget-boolean v2, Lcom\/melodix\/music\/AppSingleton;->B:Z[\s\S]*?if-eqz v2, :cond_15[\s\S]*?Lc91;->isPlayerDoc\(Ljava\/lang\/String;\)Z[\s\S]*?if-nez v2, :cond_5/
+    );
+    assert.doesNotMatch(
+        pageFinished[1],
+        /if-eqz v2, :cond_7\s+goto :cond_5/,
+        'the old contains()-based skip shape must be gone'
     );
 
     const splashDismiss = pageFinished[1].match(/^\s*:cond_5\s*$([\s\S]*?)^\s*:cond_7\s*$/m);

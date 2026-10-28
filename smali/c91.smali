@@ -8,6 +8,51 @@
 
 
 # direct methods
+
+# P0 root-cause fix (launch blocked on the logo): the page classification in
+# onPageFinished asked "does the URL contain open.spotify.com?" (da1.y is
+# String.contains). The Spotify LOGIN URL embeds that host in its continue=
+# parameter (https://accounts.spotify.com/en/login?continue=https%3A%2F%2Fopen.spotify.com%2F),
+# so the login document matched the "web player" test and the splash was held
+# "waiting for the native shell". A login page never calls
+# AndBridge.onNativeUiReady(), so showNativeUi() never ran and the launch
+# stayed on the logo. A document is the web player only when its ORIGIN is
+# open.spotify.com: the URL must start with "https://open.spotify.com/" or be
+# exactly "https://open.spotify.com". Query parameters and other hosts never
+# match. Every former da1.y(url, "open.spotify.com") classification test is
+# replaced by this helper; error attribution keeps the substring test.
+.method private static isPlayerDoc(Ljava/lang/String;)Z
+    .locals 2
+
+    if-eqz p0, :not_player
+
+    const-string v0, "https://open.spotify.com/"
+
+    invoke-virtual {p0, v0}, Ljava/lang/String;->startsWith(Ljava/lang/String;)Z
+
+    move-result v1
+
+    if-eqz v1, :check_exact
+
+    const/4 p0, 0x1
+
+    return p0
+
+    :check_exact
+    const-string v0, "https://open.spotify.com"
+
+    invoke-virtual {p0, v0}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+
+    move-result p0
+
+    return p0
+
+    :not_player
+    const/4 p0, 0x0
+
+    return p0
+.end method
+
 .method public static a(Landroid/webkit/WebView;Ljava/util/Map;)Landroid/webkit/WebResourceResponse;
     .locals 12
 
@@ -1515,7 +1560,9 @@
     .line 77
     .line 78
     :cond_2
-    invoke-static {v1, v6, v3}, Lda1;->y(Ljava/lang/CharSequence;Ljava/lang/String;Z)Z
+    # P0 fix: player test by origin - the login URL contains the host in its
+    # continue= parameter and must not suppress the redirect to the player.
+    invoke-static {v1}, Lc91;->isPlayerDoc(Ljava/lang/String;)Z
 
     .line 79
     .line 80
@@ -1542,7 +1589,9 @@
 
     .line 90
     :cond_3
-    invoke-static {v1, v6, v3}, Lda1;->y(Ljava/lang/CharSequence;Ljava/lang/String;Z)Z
+    # P0 fix: player test by origin - a stale session flag on the login URL
+    # (continue= parameter contains the host) must not trigger the logout sync.
+    invoke-static {v1}, Lc91;->isPlayerDoc(Ljava/lang/String;)Z
 
     .line 91
     .line 92
@@ -1608,16 +1657,17 @@
     # A persisted session can land directly on Spotify home; use the existing splash-dismiss path after load.
     if-eqz v2, :cond_15
 
-    const-string v2, "open.spotify.com"
-
-    invoke-static {v1, v2, v3}, Lda1;->y(Ljava/lang/CharSequence;Ljava/lang/String;Z)Z
+    invoke-static {v1}, Lc91;->isPlayerDoc(Ljava/lang/String;)Z
 
     move-result v2
 
-    if-eqz v2, :cond_7
+    if-nez v2, :cond_5
 
-    goto :cond_5
-
+    # P0 root-cause fix: the session flag B can be stale while the WebView has
+    # been driven back to the login document (expired cookie, forced logout).
+    # Fall through to the login/auth tests below so that document is revealed
+    # like any other login page instead of being held for a shell that never
+    # comes (the login page cannot call AndBridge.onNativeUiReady()).
     :cond_15
     .line 123
     .line 124
@@ -1724,9 +1774,13 @@
     # deliberate, traced fallback.
     const/4 v3, 0x0
 
-    const-string v8, "open.spotify.com"
-
-    invoke-static {v1, v8, v3}, Lda1;->y(Ljava/lang/CharSequence;Ljava/lang/String;Z)Z
+    # P0 root-cause fix: this is the decision that blocked the launch. The
+    # player test must match the document origin, not any URL containing the
+    # host: the login URL (accounts.spotify.com/...?continue=https%3A%2F%2Fopen.spotify.com%2F)
+    # passed the old substring test and was held "waiting for native shell"
+    # forever. With the origin test the login document falls to
+    # :reveal_for_login and the web login form is shown, as intended.
+    invoke-static {v1}, Lc91;->isPlayerDoc(Ljava/lang/String;)Z
 
     move-result v8
 
@@ -1904,7 +1958,13 @@
     .line 233
     .line 234
     .line 235
-    invoke-static {v1, v6, v3}, Lda1;->y(Ljava/lang/CharSequence;Ljava/lang/String;Z)Z
+    # P0 root-cause fix: the player script stack below (SF_CONFIG,
+    # desktop_spoof.js, spotify_bridge.js, native_ui_shell.js, playlist_sort.js,
+    # css hacks) belongs to the web-player document. The old substring test
+    # also matched the login URL (its continue= parameter embeds the host) and
+    # ran the whole player stack on the login page. Origin test: a login
+    # document keeps only classic_login.js (injected above).
+    invoke-static {v1}, Lc91;->isPlayerDoc(Ljava/lang/String;)Z
 
     .line 236
     .line 237
