@@ -36,7 +36,6 @@
     var lastSearchSignature = null;
     var lastLibraryPath = '';
     var lastLibrarySignature = null;
-    var mediaLibWarmupRequested = false;
     var lastMediaActiveAt = 0;
 
     function normalizedPath() {
@@ -484,11 +483,20 @@
         var spotifyRows = [];
         var sidebar;
 
-        if (!library && !mediaLibWarmupRequested && typeof window.checkMediaLib === 'function') {
-            mediaLibWarmupRequested = true;
-            try {
-                window.checkMediaLib();
-            } catch (_) {}
+        // The library can settle AFTER the first home scrape (token/GraphQL
+        // latency). The old one-shot warmup dropped it forever when the first
+        // call failed or the token was not ready yet. Retry with a backoff
+        // until the fetch is loading or done, so late playlists still reach
+        // Home through the settle notification in the bridge.
+        if (!library && typeof window.checkMediaLib === 'function' &&
+            window.__sfMediaLibStatus !== 'loading' && window.__sfMediaLibStatus !== 'ready') {
+            var libNow = (window.Date && Date.now) ? Date.now() : 0;
+            if (!window.__sfMediaLibRetryAt || libNow >= window.__sfMediaLibRetryAt) {
+                window.__sfMediaLibRetryAt = libNow + 5000;
+                try {
+                    window.checkMediaLib();
+                } catch (_) {}
+            }
         }
 
         if (library) {
@@ -540,6 +548,13 @@
             });
         });
 
+        // P0 trace: distinguish "no data yet" from "data merged late".
+        if (userRows.length > 0 || (library && library.playlists && library.playlists.length > 0)) {
+            diagTrace('home-merge lib=' + (window.__sfMediaLibStatus || 'absent') +
+                ' librows=' + userRows.length +
+                ' domrows=' + spotifyRows.length +
+                ' err=' + (window.__sfMediaLibError || ''));
+        }
         return userRows.concat(spotifyRows);
     }
 
