@@ -246,3 +246,28 @@ test('bundledAssetLength smali is whitelisted and returns the UTF-16 length', ()
   // A null name returns 0 without reading.
   assert.match(method, /if-eqz p1, :length_done/);
 });
+
+test('diagnostic surfaces the v37 fields needed to verify on device', () => {
+  // The JSON sample format (runtime_diagnostic.js) must expose the read log,
+  // the per-strategy exec journal and the CSP journal, otherwise a phone
+  // capture can never prove the fix ran.
+  const diag = fs.readFileSync(path.join(root, 'assets', 'runtime_diagnostic.js'), 'utf8');
+  for (const field of ['bridgeReadLog', 'bridgeExecSteps', 'bridgeCspViolations']) {
+    assert.ok(diag.includes(field + ':'), `runtime_diagnostic exposes ${field}`);
+  }
+  assert.match(diag, /__sfBridgeReadLog\.total/);
+  assert.match(diag, /__sfBridgeExecSteps/);
+  assert.match(diag, /__sfBridgeCspViolations/);
+  // The in-app report carries the same evidence.
+  for (const field of ['bridgeBytes', 'bridgeExecMode', 'bridgeLastError', 'bridgeReadLine', 'bridgeExecSteps', 'bridgeCspCount']) {
+    assert.ok(shellSrc.includes(field + ':'), `__sfDiagReport exposes ${field}`);
+  }
+  // The native panel formats them (NativeDiagCallback).
+  const callback = fs.readFileSync(
+    path.join(root, 'smali', 'com', 'melodix', 'music', 'NativeDiagCallback.smali'),
+    'utf8',
+  );
+  for (const key of ['bridgeExecMode', 'bridgeReadLine', 'bridgeExecSteps', 'bridgeLastError', 'bridgeCspCount']) {
+    assert.ok(callback.includes(`"${key}"`), `NativeDiagCallback formats ${key}`);
+  }
+});

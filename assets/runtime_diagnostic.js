@@ -209,6 +209,27 @@
         bridgeCspViolation: typeof window.__sfBridgeCspViolation === 'string'
           ? window.__sfBridgeCspViolation.slice(0, 120)
           : null,
+        bridgeReadLog: window.__sfBridgeReadLog
+          ? {
+              total: Number.isInteger(window.__sfBridgeReadLog.total) ? window.__sfBridgeReadLog.total : null,
+              got: Number.isInteger(window.__sfBridgeReadLog.got) ? window.__sfBridgeReadLog.got : null,
+              calls: Number.isInteger(window.__sfBridgeReadLog.calls) ? window.__sfBridgeReadLog.calls : null
+            }
+          : null,
+        bridgeExecSteps: Array.isArray(window.__sfBridgeExecSteps)
+          ? window.__sfBridgeExecSteps.slice(-10).map(function(s) {
+              return String(s && s.step || '') + '=' + String(s && s.status || '');
+            }).join(',')
+          : null,
+        bridgeCspViolations: Array.isArray(window.__sfBridgeCspViolations)
+          ? {
+              count: window.__sfBridgeCspViolations.length,
+              last: window.__sfBridgeCspViolations.length
+                ? String((window.__sfBridgeCspViolations[window.__sfBridgeCspViolations.length - 1] || {}).effectiveDirective || '')
+                  + ' ' + String((window.__sfBridgeCspViolations[window.__sfBridgeCspViolations.length - 1] || {}).blockedURI || '')
+                : ''
+            }
+          : null,
         mobileShellInitAttempted: window.__sfMelodixMobileShellInitAttempted === true,
         homeInitAttempted: window.__sfMelodixHomeInitAttempted === true,
         mobileShellClass: body

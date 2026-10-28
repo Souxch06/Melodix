@@ -1791,7 +1791,19 @@
             readyNotified: st.readyNotified === true,
             lastSendScreen: String(st.lastSendScreen || ''),
             lastSendCount: st.lastSendCount || 0,
-            lastSendAt: st.lastSendAt || ''
+            lastSendAt: st.lastSendAt || '',
+            bridgeBytes: Number.isInteger(window.__sfBridgeBytes) ? window.__sfBridgeBytes : 0,
+            bridgeExecMode: String(window.__sfBridgeExecMode || ''),
+            bridgeLastError: String(window.__sfBridgeLastError || ''),
+            bridgeReadLine: window.__sfBridgeReadLog
+              ? String(window.__sfBridgeReadLog.got || 0) + '/' + String(window.__sfBridgeReadLog.total || 0)
+              : '',
+            bridgeExecSteps: Array.isArray(window.__sfBridgeExecSteps)
+              ? window.__sfBridgeExecSteps.slice(-8).map(function(s) {
+                  return String(s && s.step || '') + '=' + String(s && s.status || '');
+                }).join(',')
+              : '',
+            bridgeCspCount: Array.isArray(window.__sfBridgeCspViolations) ? window.__sfBridgeCspViolations.length : 0
         };
     };
 
