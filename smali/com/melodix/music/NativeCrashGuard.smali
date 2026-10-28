@@ -28,7 +28,7 @@
 
     sget-object v0, Lcom/melodix/music/NativeCrashGuard;->context:Landroid/content/Context;
 
-    if-nez v0, :done
+    if-eqz v0, :done
 
     :try_start_0
     const-string v1, "melodix_native"
@@ -269,7 +269,7 @@
 
     sget-object v1, Lcom/melodix/music/NativeCrashGuard;->context:Landroid/content/Context;
 
-    if-nez v1, :done
+    if-eqz v1, :done
 
     :try_start_0
     const-string v2, "melodix_native"
@@ -308,7 +308,7 @@
 
     sget-object v1, Lcom/melodix/music/NativeCrashGuard;->context:Landroid/content/Context;
 
-    if-nez v1, :done
+    if-eqz v1, :done
 
     :try_start_0
     const-string v2, "melodix_native"
@@ -490,7 +490,7 @@
 
     sget-object v0, Lcom/melodix/music/NativeCrashGuard;->context:Landroid/content/Context;
 
-    if-nez v0, :done
+    if-eqz v0, :done
 
     :try_start_0
     const-string v1, "melodix_native"
@@ -605,7 +605,7 @@
 
     sget-object v0, Lcom/melodix/music/NativeCrashGuard;->context:Landroid/content/Context;
 
-    if-nez v0, :done
+    if-eqz v0, :done
 
     :try_start_0
     const-string v1, "melodix_native"
