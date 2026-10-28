@@ -2060,12 +2060,39 @@
     function loadBundledBridge(name) {
         var source = '';
         if (bridgeHasStarted()) return true;
-        try {
-            if (window.AndBridge && typeof window.AndBridge.readBundledAsset === 'function') {
-                source = String(window.AndBridge.readBundledAsset(name) || '');
+        // Preferred reader: reassemble the asset from fixed-size ranges. A
+        // single JavascriptInterface string return above roughly 200 KB is
+        // silently dropped on some WebViews, exactly like one oversized
+        // evaluateJavascript payload, so the 200 KB bridge must arrive in
+        // slices and be executed locally by executeBridgeSource().
+        if (window.AndBridge && typeof window.AndBridge.readBundledAssetRange === 'function') {
+            try {
+                var chunkSize = 48 * 1024;
+                var offset = 0;
+                var parts = [];
+                var part;
+                for (;;) {
+                    part = String(window.AndBridge.readBundledAssetRange(name, offset, offset + chunkSize) || '');
+                    if (!part) break;
+                    parts.push(part);
+                    offset += part.length;
+                    if (part.length < chunkSize) break;
+                }
+                source = parts.join('');
+            } catch (error) {
+                recordBridgeFailure('read-asset-range', error);
             }
-        } catch (error) {
-            recordBridgeFailure('read-asset', error);
+        }
+        // Legacy single-call reader, kept as the fallback for assets small
+        // enough to survive the bridge return.
+        if (!source) {
+            try {
+                if (window.AndBridge && typeof window.AndBridge.readBundledAsset === 'function') {
+                    source = String(window.AndBridge.readBundledAsset(name) || '');
+                }
+            } catch (error) {
+                recordBridgeFailure('read-asset', error);
+            }
         }
         if (source) return executeBridgeSource(source);
         recordBridgeFailure('read-asset', 'empty');
