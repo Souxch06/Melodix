@@ -33,10 +33,33 @@
 .end method
 
 .method public static arm(Landroid/webkit/WebView;)V
-    .locals 4
+    .locals 5
 
     if-eqz p0, :return
 
+    # P0 fix: resolve the activity from the WebView context first (unwrap
+    # ContextWrapper chain) instead of requiring AppSingleton.t to be set.
+    # The old dependency silently skipped arming the watchdog when the
+    # singleton weakref was null, leaving the splash blocked forever.
+    invoke-virtual {p0}, Landroid/view/View;->getContext()Landroid/content/Context;
+    move-result-object v0
+
+    :unwrap_loop
+    instance-of v1, v0, Lcom/melodix/music/MainActivity;
+    if-eqz v1, :unwrap_next
+    check-cast v0, Lcom/melodix/music/MainActivity;
+    goto :have_activity
+
+    :unwrap_next
+    instance-of v1, v0, Landroid/content/ContextWrapper;
+    if-eqz v1, :fallback_singleton
+    check-cast v0, Landroid/content/ContextWrapper;
+    invoke-virtual {v0}, Landroid/content/ContextWrapper;->getBaseContext()Landroid/content/Context;
+    move-result-object v0
+    if-eqz v0, :fallback_singleton
+    goto :unwrap_loop
+
+    :fallback_singleton
     sget-object v0, Lcom/melodix/music/AppSingleton;->t:Ljava/lang/ref/WeakReference;
     if-eqz v0, :return
     invoke-virtual {v0}, Ljava/lang/ref/Reference;->get()Ljava/lang/Object;
@@ -44,20 +67,46 @@
     check-cast v0, Lcom/melodix/music/MainActivity;
     if-eqz v0, :return
 
+    :have_activity
     new-instance v1, Lcom/melodix/music/StartupLoadWatchdog;
     invoke-direct {v1, v0, p0}, Lcom/melodix/music/StartupLoadWatchdog;-><init>(Lcom/melodix/music/MainActivity;Landroid/webkit/WebView;)V
     const-wide/16 v2, 0x7530
     invoke-virtual {p0, v1, v2, v3}, Landroid/view/View;->postDelayed(Ljava/lang/Runnable;J)Z
+
+    const-string v0, "MDXSTART"
+    const-string v1, "watchdog-armed (30s after page event)"
+    invoke-static {v0, v1}, Landroid/util/Log;->i(Ljava/lang/String;Ljava/lang/String;)I
 
     :return
     return-void
 .end method
 
 .method public static armAfterResume(Landroid/webkit/WebView;)V
-    .locals 4
+    .locals 5
 
     if-eqz p0, :return
 
+    # P0 fix: same context unwrap as arm() - the watchdog must always be
+    # armable, otherwise a blocked launch has no recovery path.
+    invoke-virtual {p0}, Landroid/view/View;->getContext()Landroid/content/Context;
+    move-result-object v0
+
+    :unwrap_loop
+    instance-of v1, v0, Lcom/melodix/music/MainActivity;
+    if-eqz v1, :unwrap_next
+    check-cast v0, Lcom/melodix/music/MainActivity;
+    goto :have_activity
+
+    :unwrap_next
+    instance-of v1, v0, Landroid/content/ContextWrapper;
+    if-eqz v1, :fallback_singleton
+    check-cast v0, Landroid/content/ContextWrapper;
+    invoke-virtual {v0}, Landroid/content/ContextWrapper;->getBaseContext()Landroid/content/Context;
+    move-result-object v0
+    if-eqz v0, :fallback_singleton
+    goto :unwrap_loop
+
+    :fallback_singleton
     sget-object v0, Lcom/melodix/music/AppSingleton;->t:Ljava/lang/ref/WeakReference;
     if-eqz v0, :return
     invoke-virtual {v0}, Ljava/lang/ref/Reference;->get()Ljava/lang/Object;
@@ -65,10 +114,15 @@
     check-cast v0, Lcom/melodix/music/MainActivity;
     if-eqz v0, :return
 
+    :have_activity
     new-instance v1, Lcom/melodix/music/StartupLoadWatchdog;
     invoke-direct {v1, v0, p0}, Lcom/melodix/music/StartupLoadWatchdog;-><init>(Lcom/melodix/music/MainActivity;Landroid/webkit/WebView;)V
     const-wide/16 v2, 0x1f40
     invoke-virtual {p0, v1, v2, v3}, Landroid/view/View;->postDelayed(Ljava/lang/Runnable;J)Z
+
+    const-string v0, "MDXSTART"
+    const-string v1, "watchdog-armed (8s after resume)"
+    invoke-static {v0, v1}, Landroid/util/Log;->i(Ljava/lang/String;Ljava/lang/String;)I
 
     :return
     return-void
@@ -96,6 +150,13 @@
     move-result-object v1
     check-cast v1, Landroid/webkit/WebView;
     if-eqz v1, :return
+
+    # P0 instrumentation: the watchdog is actually firing - record the step.
+    const-string v2, "MDXSTART"
+    const-string v3, "watchdog-fired: splash still visible after watchdog window"
+    invoke-static {v2, v3}, Landroid/util/Log;->w(Ljava/lang/String;Ljava/lang/String;)I
+    const-string v2, "watchdog-fired"
+    invoke-static {v2}, Lcom/melodix/music/NativeCrashGuard;->stage(Ljava/lang/String;)V
 
     iget-object v2, v0, Lcom/melodix/music/MainActivity;->H:Landroidx/constraintlayout/widget/ConstraintLayout;
     if-eqz v2, :return

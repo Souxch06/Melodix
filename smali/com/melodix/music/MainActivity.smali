@@ -986,6 +986,17 @@
     .line 97
     .line 98
     :cond_8
+    # P0 startup fix: the network error screen must be recoverable. Install
+    # the "Tap to retry" handler now (p0 is still the activity here) so the
+    # user is never left dead on the logo. Traced for the launch log.
+    invoke-static {p0}, Lcom/melodix/music/SplashRetryListener;->install(Lcom/melodix/music/MainActivity;)V
+
+    const-string v1, "MDXSTART"
+
+    const-string v2, "splash error state: tap-to-retry installed"
+
+    invoke-static {v1, v2}, Landroid/util/Log;->i(Ljava/lang/String;Ljava/lang/String;)I
+
     iget-object p0, p0, Lcom/melodix/music/MainActivity;->K:Landroid/widget/TextView;
 
     .line 99
@@ -4010,6 +4021,12 @@
     .line 803
     iput-object v1, v0, Lcom/melodix/music/MainActivity;->H:Landroidx/constraintlayout/widget/ConstraintLayout;
 
+    # P0 startup fix: arm the independent splash rescue timer as soon as the
+    # splash view exists. If the startup chain blocks (no shell takeover, no
+    # page watchdog), the rescue guarantees a traced, recoverable exit instead
+    # of staying stuck on the logo. Bounded rescue, not an arbitrary mask.
+    invoke-static {v0}, Lcom/melodix/music/StartupSplashFallback;->arm(Lcom/melodix/music/MainActivity;)V
+
     .line 804
     .line 805
     const v1, 0x7f0900fd
@@ -6949,6 +6966,10 @@
     const-string v0, "MDXTRACE"
     const-string v2, "native-shell shown (splash hidden, nativeRoot visible)"
     invoke-static {v0, v2}, Landroid/util/Log;->i(Ljava/lang/String;Ljava/lang/String;)I
+
+    # P0 instrumentation: persist the takeover step for the launch trace.
+    const-string v0, "native-shell-shown"
+    invoke-static {v0}, Lcom/melodix/music/NativeCrashGuard;->stage(Ljava/lang/String;)V
 
     # MDXSTART visibility trace: the takeover itself (Z-order: splash elevation
     # 20 -> gone, nativeRoot elevation 15 -> visible above the WebView).
