@@ -249,6 +249,12 @@
     .line 1
     invoke-super {p0}, Landroid/app/Application;->onCreate()V
 
+    const-string v1, "MDXSTART"
+
+    const-string v2, "app-create enter"
+
+    invoke-static {v1, v2}, Landroid/util/Log;->i(Ljava/lang/String;Ljava/lang/String;)I
+
     # Install the crash recorder as early as possible: a failure while the
     # application itself starts up must be readable on the next launch too.
     # Wrapped so a broken diagnostic class can never be the reason the app dies.

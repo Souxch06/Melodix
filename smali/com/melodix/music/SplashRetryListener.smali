@@ -151,6 +151,17 @@
     invoke-virtual {v1, v2}, Landroid/view/View;->setVisibility(I)V
 
     :r4
+    # P0 fix: the 20s rescue window is one-shot from onCreate - without
+    # re-arming it here, a second failed attempt had NO exit at all (the
+    # watchdog error path was dead behind the inverted D() guard). Re-arm the
+    # rescue on every tap: a stale pending rescue is superseded by the
+    # generation guard inside StartupSplashFallback.
+    invoke-static {v0}, Lcom/melodix/music/StartupSplashFallback;->arm(Lcom/melodix/music/MainActivity;)V
+
+    const-string v1, "retry-rearmed"
+
+    invoke-static {v0, v1}, Lcom/melodix/music/StartupSplashFallback;->traceState(Lcom/melodix/music/MainActivity;Ljava/lang/String;)V
+
     iget-object v1, v0, Lcom/melodix/music/MainActivity;->G:Landroid/webkit/WebView;
 
     if-eqz v1, :return

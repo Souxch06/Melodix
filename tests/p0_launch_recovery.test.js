@@ -229,6 +229,8 @@ function runFlow(method, env) {
       pendingResult = env.activityAlive ? 'activity' : null; pc++;
     } else if ((m = ins.match(/^invoke-virtual \{(\w+)\}, Landroid\/app\/Activity;->isFinishing\(\)Z/))) {
       pendingResult = env.finishing ? 1 : 0; pc++;
+    } else if ((m = ins.match(/^invoke-virtual \{(\w+)\}, Landroid\/app\/Activity;->isDestroyed\(\)Z/))) {
+      pendingResult = env.destroyed ? 1 : 0; pc++;
     } else if ((m = ins.match(/^invoke-virtual \{(\w+)\}, Landroid\/view\/View;->getVisibility\(\)I/))) {
       pendingResult = env.splashVisible ? 0 : 8; pc++;
     } else if ((m = ins.match(/^invoke-virtual \{(\w+), (\w+)\}, .*->setTag\(/))) {
@@ -250,6 +252,10 @@ function runFlow(method, env) {
       regs[m[1]] = pendingResult; pc++;
     } else if ((m = ins.match(/^sget-boolean (\w+), .*->(\w+):Z/))) {
       regs[m[1]] = m[2] === 'm' ? (env.networkError ? 1 : 0) : 0; pc++;
+    } else if ((m = ins.match(/^sget (\w+), .*->(\w+):/))) {
+      regs[m[1]] = m[2] === 'generation' ? (env.generation ?? 2) : 0; pc++;
+    } else if ((m = ins.match(/^iget (\w+), (\w+), .*->(\w+):/))) {
+      regs[m[1]] = m[3] === 'generationAtArm' ? (env.generationAtArm ?? 2) : 0; pc++;
     } else if ((m = ins.match(/^sput-boolean (\w+), .*->(\w+):Z/))) {
       reached.push(`sput:${m[2]}`); pc++;
     } else if ((m = ins.match(/^sput (\w+), .*->(\w+)/))) {
@@ -277,6 +283,10 @@ function runFlow(method, env) {
       pc = !regs[m[1]] ? method.labels[m[2]] : pc + 1;
     } else if ((m = ins.match(/^if-nez (\w+), :(\w+)/))) {
       pc = regs[m[1]] ? method.labels[m[2]] : pc + 1;
+    } else if ((m = ins.match(/^if-eq (\w+), (\w+), :(\w+)/))) {
+      pc = (regs[m[1]] === regs[m[2]]) ? method.labels[m[3]] : pc + 1;
+    } else if ((m = ins.match(/^if-ne (\w+), (\w+), :(\w+)/))) {
+      pc = (regs[m[1]] !== regs[m[2]]) ? method.labels[m[3]] : pc + 1;
     } else if ((m = ins.match(/^goto :(\w+)/))) {
       pc = method.labels[m[1]];
     } else if (/^return-void/.test(ins)) {
@@ -337,17 +347,17 @@ test('P0 flow: the two early-exit guards are if-nez on the right values', () => 
   assert.ok(idxFinishing > 0 && idxVisibility > idxFinishing);
   // after isFinishing: move-result v1 then the guard
   assert.match(method.instrs[idxFinishing + 1], /^move-result /);
-  assert.match(method.instrs[idxFinishing + 2], /^if-nez \w+, :return$/,
-    'finishing guard must be if-nez :return (leave only when finishing == true)');
+  assert.match(method.instrs[idxFinishing + 2], /^if-nez \w+, :\w+$/,
+    'finishing guard must be if-nez (leave only when finishing == true); the label routes through the traced early-exit note block');
   // after getVisibility: move-result v1 then the guard
   assert.match(method.instrs[idxVisibility + 1], /^move-result /);
-  assert.match(method.instrs[idxVisibility + 2], /^if-nez \w+, :return$/,
-    'visibility guard must be if-nez :return (leave only when visibility != VISIBLE)');
+  assert.match(method.instrs[idxVisibility + 2], /^if-nez \w+, :\w+$/,
+    'visibility guard must be if-nez (leave only when visibility != VISIBLE)');
   // between the two: the splash-view guard must stay if-eqz (leave when null)
   const idxH = method.instrs.findIndex((i) => i.includes('MainActivity;->H:'));
   assert.ok(idxH > idxFinishing && idxH < idxVisibility);
-  assert.match(method.instrs[idxH + 1], /^if-eqz \w+, :return$/,
-    'H-null guard must stay if-eqz :return (leave only when the splash view is null)');
+  assert.match(method.instrs[idxH + 1], /^if-eqz \w+, :\w+$/,
+    'H-null guard must stay if-eqz (leave only when the splash view is null)');
 });
 
 test('P0 flow: null activity and null splash view still exit early', () => {

@@ -108,6 +108,10 @@
 
     invoke-static {v6, v7}, Landroid/util/Log;->i(Ljava/lang/String;Ljava/lang/String;)I
 
+    const-string v7, "fade-go"
+
+    invoke-static {p0, v7}, Lcom/melodix/music/StartupSplashFallback;->traceState(Lcom/melodix/music/MainActivity;Ljava/lang/String;)V
+
 
     .line 11
     .line 12
@@ -215,9 +219,13 @@
     :pswitch_0
     # P0 late-callback guard: a late error runnable must not restore the
     # splash on top of a native shell that has already taken over.
+    # P0 fix: the branch polarity was inverted - the restore was allowed with
+    # the shell shown (l==true) and blocked without it (l==false), exactly the
+    # opposite of the comment and of the (now truthful) log line. if-eqz
+    # continues only while the shell is NOT shown.
     sget-boolean v6, Lcom/melodix/music/AppSingleton;->l:Z
 
-    if-nez v6, :pswitch0_allowed
+    if-eqz v6, :pswitch0_allowed
 
     const-string v6, "MDXSTART"
 
@@ -228,6 +236,10 @@
     return-void
 
     :pswitch0_allowed
+    const-string v6, "zk0-restore"
+
+    invoke-static {p0, v6}, Lcom/melodix/music/StartupSplashFallback;->traceState(Lcom/melodix/music/MainActivity;Ljava/lang/String;)V
+
     iget-object v0, p0, Lcom/melodix/music/MainActivity;->H:Landroidx/constraintlayout/widget/ConstraintLayout;
 
     .line 64
@@ -337,6 +349,11 @@
     .line 114
     .line 115
     :cond_7
+    # P0 fix: the restored error text promises "Tap to retry" - install the
+    # handler here too (not only in the D() error branch and showErrorScreen),
+    # so every path that shows the text leaves a working, recoverable exit.
+    invoke-static {p0}, Lcom/melodix/music/SplashRetryListener;->install(Lcom/melodix/music/MainActivity;)V
+
     iget-object v0, p0, Lcom/melodix/music/MainActivity;->I:Landroid/widget/ImageView;
 
     .line 116

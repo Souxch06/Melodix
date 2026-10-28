@@ -36,7 +36,7 @@
 .end method
 
 .method public static arm(Landroid/webkit/WebView;)V
-    .locals 5
+    .locals 6
 
     if-eqz p0, :return
 
@@ -74,7 +74,21 @@
     new-instance v1, Lcom/melodix/music/StartupLoadWatchdog;
     invoke-direct {v1, v0, p0}, Lcom/melodix/music/StartupLoadWatchdog;-><init>(Lcom/melodix/music/MainActivity;Landroid/webkit/WebView;)V
     const-wide/16 v2, 0x7530
-    invoke-virtual {p0, v1, v2, v3}, Landroid/view/View;->postDelayed(Ljava/lang/Runnable;J)Z
+
+    # P0 fix: schedule on the main-looper Handler, not on the WebView view -
+    # a view-attached postDelayed is uncertain when the view is not attached,
+    # and the launch trace must show the effective schedule result.
+    invoke-static {}, Landroid/os/Looper;->getMainLooper()Landroid/os/Looper;
+
+    move-result-object v4
+
+    new-instance v5, Landroid/os/Handler;
+
+    invoke-direct {v5, v4}, Landroid/os/Handler;-><init>(Landroid/os/Looper;)V
+
+    invoke-virtual {v5, v1, v2, v3}, Landroid/os/Handler;->postDelayed(Ljava/lang/Runnable;J)Z
+
+    move-result v4
 
     const-string v0, "MDXSTART"
     const/4 v2, 0x1
@@ -84,12 +98,18 @@
     const-string v1, "watchdog-armed (30s after page event)"
     invoke-static {v0, v1}, Landroid/util/Log;->i(Ljava/lang/String;Ljava/lang/String;)I
 
+    if-nez v4, :wd_scheduled
+
+    const-string v1, "watchdog SCHEDULE FAILED (handler refused)"
+    invoke-static {v0, v1}, Landroid/util/Log;->w(Ljava/lang/String;Ljava/lang/String;)I
+
+    :wd_scheduled
     :return
     return-void
 .end method
 
 .method public static armAfterResume(Landroid/webkit/WebView;)V
-    .locals 5
+    .locals 6
 
     if-eqz p0, :return
 
@@ -125,7 +145,19 @@
     new-instance v1, Lcom/melodix/music/StartupLoadWatchdog;
     invoke-direct {v1, v0, p0}, Lcom/melodix/music/StartupLoadWatchdog;-><init>(Lcom/melodix/music/MainActivity;Landroid/webkit/WebView;)V
     const-wide/16 v2, 0x1f40
-    invoke-virtual {p0, v1, v2, v3}, Landroid/view/View;->postDelayed(Ljava/lang/Runnable;J)Z
+
+    # P0 fix: same main-looper Handler as arm() - see the note there.
+    invoke-static {}, Landroid/os/Looper;->getMainLooper()Landroid/os/Looper;
+
+    move-result-object v4
+
+    new-instance v5, Landroid/os/Handler;
+
+    invoke-direct {v5, v4}, Landroid/os/Handler;-><init>(Landroid/os/Looper;)V
+
+    invoke-virtual {v5, v1, v2, v3}, Landroid/os/Handler;->postDelayed(Ljava/lang/Runnable;J)Z
+
+    move-result v4
 
     const-string v0, "MDXSTART"
     const/4 v2, 0x1
@@ -135,6 +167,12 @@
     const-string v1, "watchdog-armed (8s after resume)"
     invoke-static {v0, v1}, Landroid/util/Log;->i(Ljava/lang/String;Ljava/lang/String;)I
 
+    if-nez v4, :wd_scheduled2
+
+    const-string v1, "watchdog SCHEDULE FAILED (handler refused)"
+    invoke-static {v0, v1}, Landroid/util/Log;->w(Ljava/lang/String;Ljava/lang/String;)I
+
+    :wd_scheduled2
     :return
     return-void
 .end method
@@ -169,6 +207,10 @@
     const-string v2, "watchdog-fired"
     invoke-static {v2}, Lcom/melodix/music/NativeCrashGuard;->stage(Ljava/lang/String;)V
 
+    const-string v3, "watchdog-fired"
+
+    invoke-static {v0, v3}, Lcom/melodix/music/StartupSplashFallback;->traceState(Lcom/melodix/music/MainActivity;Ljava/lang/String;)V
+
     iget-object v2, v0, Lcom/melodix/music/MainActivity;->H:Landroidx/constraintlayout/widget/ConstraintLayout;
     if-eqz v2, :return
     invoke-virtual {v2}, Landroid/view/View;->getVisibility()I
@@ -194,6 +236,10 @@
     if-lt v2, v3, :show_network_error
 
     :show_loaded_page
+    const-string v3, "watchdog->show_loaded_page"
+
+    invoke-static {v0, v3}, Lcom/melodix/music/StartupSplashFallback;->traceState(Lcom/melodix/music/MainActivity;Ljava/lang/String;)V
+
     const/4 v2, 0x0
     sput-boolean v2, Lcom/melodix/music/AppSingleton;->m:Z
     const/4 v2, -0x1
@@ -217,6 +263,10 @@
     goto :return
 
     :show_network_error
+    const-string v3, "watchdog->show_network_error"
+
+    invoke-static {v0, v3}, Lcom/melodix/music/StartupSplashFallback;->traceState(Lcom/melodix/music/MainActivity;Ljava/lang/String;)V
+
     const/4 v2, 0x0
     sput-boolean v2, Lcom/melodix/music/AppSingleton;->m:Z
     const/4 v2, -0x1

@@ -1359,6 +1359,12 @@
     .line 3
     move-object/from16 v1, p2
 
+    const-string v2, "page-finish"
+
+    invoke-static {v2}, Lcom/melodix/music/StartupSplashFallback;->note(Ljava/lang/String;)V
+
+    invoke-static {v1}, Lcom/melodix/music/StartupSplashFallback;->traceLoadUrl(Ljava/lang/String;)V
+
     .line 4
     .line 5
     invoke-virtual {v0}, Ljava/lang/Object;->getClass()Ljava/lang/Class;
@@ -1525,6 +1531,8 @@
 
     .line 85
     .line 86
+    invoke-static {v1}, Lcom/melodix/music/StartupSplashFallback;->traceLoadUrl(Ljava/lang/String;)V
+
     invoke-virtual {v0, v1}, Landroid/webkit/WebView;->loadUrl(Ljava/lang/String;)V
 
     .line 87
@@ -2607,6 +2615,12 @@
     .line 1
     invoke-super {p0, p1, p2, p3}, Landroid/webkit/WebViewClient;->onPageStarted(Landroid/webkit/WebView;Ljava/lang/String;Landroid/graphics/Bitmap;)V
 
+    const-string p0, "page-start"
+
+    invoke-static {p0}, Lcom/melodix/music/StartupSplashFallback;->note(Ljava/lang/String;)V
+
+    invoke-static {p2}, Lcom/melodix/music/StartupSplashFallback;->traceLoadUrl(Ljava/lang/String;)V
+
     if-eqz p1, :watchdog_skipped
     invoke-static {p1}, Lcom/melodix/music/StartupLoadWatchdog;->arm(Landroid/webkit/WebView;)V
     :watchdog_skipped
@@ -2784,6 +2798,10 @@
     .line 58
     invoke-super {p0, p1, p2, p3, p4}, Landroid/webkit/WebViewClient;->onReceivedError(Landroid/webkit/WebView;ILjava/lang/String;Ljava/lang/String;)V
 
+    const-string p0, "web-error legacy"
+
+    invoke-static {p0}, Lcom/melodix/music/StartupSplashFallback;->note(Ljava/lang/String;)V
+
     const/4 p0, -0x3
 
     if-ne p2, p0, :cond_0
@@ -2854,6 +2872,10 @@
 
     .line 1
     invoke-super {p0, p1, p2, p3}, Landroid/webkit/WebViewClient;->onReceivedError(Landroid/webkit/WebView;Landroid/webkit/WebResourceRequest;Landroid/webkit/WebResourceError;)V
+
+    const-string p0, "web-error modern"
+
+    invoke-static {p0}, Lcom/melodix/music/StartupSplashFallback;->note(Ljava/lang/String;)V
 
     .line 2
     .line 3
@@ -2990,6 +3012,10 @@
 
     .line 1
     invoke-super {p0, p1, p2, p3}, Landroid/webkit/WebViewClient;->onReceivedHttpError(Landroid/webkit/WebView;Landroid/webkit/WebResourceRequest;Landroid/webkit/WebResourceResponse;)V
+
+    const-string p0, "web-error http"
+
+    invoke-static {p0}, Lcom/melodix/music/StartupSplashFallback;->note(Ljava/lang/String;)V
 
     .line 2
     .line 3
@@ -7562,6 +7588,8 @@
 
     .line 82
     .line 83
+    invoke-static {p0}, Lcom/melodix/music/StartupSplashFallback;->traceLoadUrl(Ljava/lang/String;)V
+
     invoke-virtual {p1, p0}, Landroid/webkit/WebView;->loadUrl(Ljava/lang/String;)V
 
     .line 84

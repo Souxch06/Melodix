@@ -768,11 +768,17 @@
     .locals 3
 
     # P0 late-callback guard: once the native shell has taken over
-    # (AppSingleton.l), a late web error must not restore the splash on top
-    # of it. The shell is the visible home from then on.
+    # (AppSingleton.l == true), a late web error must not restore the splash on
+    # top of it. The shell is the visible home from then on.
+    # P0 fix: the branch polarity was inverted - restoration was allowed with
+    # the shell shown and blocked without it, which made every caller of D()
+    # (web errors, the startup watchdog, the service-disabled screen) a silent
+    # no-op exactly during a blocked startup (l == false). if-eqz continues
+    # only while the shell is NOT shown; with the shell shown the fall-through
+    # logs the (now truthful) skip and returns.
     sget-boolean v0, Lcom/melodix/music/AppSingleton;->l:Z
 
-    if-nez v0, :D_splash_allowed
+    if-eqz v0, :D_splash_allowed
 
     const-string v0, "MDXSTART"
 
@@ -780,9 +786,17 @@
 
     invoke-static {v0, v1}, Landroid/util/Log;->i(Ljava/lang/String;Ljava/lang/String;)I
 
+    const-string v1, "D-skipped"
+
+    invoke-static {p0, v1}, Lcom/melodix/music/StartupSplashFallback;->traceState(Lcom/melodix/music/MainActivity;Ljava/lang/String;)V
+
     return-void
 
     :D_splash_allowed
+    const-string v0, "D-enter"
+
+    invoke-static {p0, v0}, Lcom/melodix/music/StartupSplashFallback;->traceState(Lcom/melodix/music/MainActivity;Ljava/lang/String;)V
+
     .line 1
     sget-boolean v0, Lcom/melodix/music/AppSingleton;->m:Z
 
@@ -803,29 +817,23 @@
 
     .line 9
     .line 10
+    # P0 fix: the error state must show even while the splash overlay is still
+    # visible (the blocked-startup case). The old "H already visible -> return"
+    # skip made every web error a silent no-op on the held splash, so the user
+    # never saw "Tap to retry". Instead of skipping, cancel any fade in flight
+    # so the restored alpha 1.0 sticks.
     iget-object p1, p0, Lcom/melodix/music/MainActivity;->H:Landroidx/constraintlayout/widget/ConstraintLayout;
 
-    .line 11
-    .line 12
     if-eqz p1, :cond_0
 
-    .line 13
-    .line 14
-    invoke-virtual {p1}, Landroid/view/View;->getVisibility()I
+    invoke-virtual {p1}, Landroid/view/View;->animate()Landroid/view/ViewPropertyAnimator;
 
-    .line 15
-    .line 16
-    .line 17
-    move-result p1
+    move-result-object p1
 
-    .line 18
-    if-nez p1, :cond_0
+    if-eqz p1, :cond_0
 
-    .line 19
-    .line 20
-    goto :goto_0
+    invoke-virtual {p1}, Landroid/view/ViewPropertyAnimator;->cancel()V
 
-    .line 21
     :cond_0
     iget-object p1, p0, Lcom/melodix/music/MainActivity;->H:Landroidx/constraintlayout/widget/ConstraintLayout;
 
@@ -982,6 +990,10 @@
     .line 95
     invoke-virtual {p1, v1}, Landroid/view/View;->setVisibility(I)V
 
+    const-string v2, "Network Error\nTap to retry"
+
+    invoke-virtual {p1, v2}, Landroid/widget/TextView;->setText(Ljava/lang/CharSequence;)V
+
     .line 96
     .line 97
     .line 98
@@ -996,6 +1008,10 @@
     const-string v2, "splash error state: tap-to-retry installed"
 
     invoke-static {v1, v2}, Landroid/util/Log;->i(Ljava/lang/String;Ljava/lang/String;)I
+
+    const-string v2, "D-error-shown"
+
+    invoke-static {p0, v2}, Lcom/melodix/music/StartupSplashFallback;->traceState(Lcom/melodix/music/MainActivity;Ljava/lang/String;)V
 
     iget-object p0, p0, Lcom/melodix/music/MainActivity;->K:Landroid/widget/TextView;
 
@@ -1024,6 +1040,10 @@
     .line 108
     .line 109
     sput p1, Lcom/melodix/music/AppSingleton;->n:I
+
+    const-string v2, "D-restore"
+
+    invoke-static {p0, v2}, Lcom/melodix/music/StartupSplashFallback;->traceState(Lcom/melodix/music/MainActivity;Ljava/lang/String;)V
 
     .line 110
     .line 111
@@ -2217,6 +2237,12 @@
 .method public final onCreate(Landroid/os/Bundle;)V
     .locals 17
 
+    const-string v1, "MDXSTART"
+
+    const-string v2, "activity-create enter"
+
+    invoke-static {v1, v2}, Landroid/util/Log;->i(Ljava/lang/String;Ljava/lang/String;)I
+
     .line 1
     move-object/from16 v0, p0
 
@@ -2433,6 +2459,10 @@
     :native_guard_done
     if-eqz v1, :native_no_crash_report
 
+    const-string v1, "activity-create exit: previous crash report shown (no splash)"
+
+    invoke-static {v1}, Lcom/melodix/music/StartupSplashFallback;->note(Ljava/lang/String;)V
+
     return-void
 
     :native_no_crash_report
@@ -2553,6 +2583,10 @@
     invoke-virtual {v0, v2}, Landroid/app/Activity;->setContentView(Landroid/view/View;)V
 
     :gate_refusal_return
+    const-string v1, "activity-create exit: signature gate refused (no splash)"
+
+    invoke-static {v1}, Lcom/melodix/music/StartupSplashFallback;->note(Ljava/lang/String;)V
+
     return-void
 
     .line 105
@@ -2708,12 +2742,20 @@
 
     invoke-virtual {v0, v3}, Landroid/app/Activity;->setContentView(Landroid/view/View;)V
 
+    const-string v1, "activity-create exit: content inflation failed (no splash)"
+
+    invoke-static {v1}, Lcom/melodix/music/StartupSplashFallback;->note(Ljava/lang/String;)V
+
     return-void
 
     :native_content_ok
     const-string v1, "content-view"
 
     invoke-static/range {v1 .. v1}, Lcom/melodix/music/NativeCrashGuard;->stage(Ljava/lang/String;)V
+
+    const-string v1, "content-view set"
+
+    invoke-static {v0, v1}, Lcom/melodix/music/StartupSplashFallback;->traceState(Lcom/melodix/music/MainActivity;Ljava/lang/String;)V
 
     .line 154
     .line 155
@@ -4026,6 +4068,10 @@
     # page watchdog), the rescue guarantees a traced, recoverable exit instead
     # of staying stuck on the logo. Bounded rescue, not an arbitrary mask.
     invoke-static {v0}, Lcom/melodix/music/StartupSplashFallback;->arm(Lcom/melodix/music/MainActivity;)V
+
+    const-string v1, "splash-armed"
+
+    invoke-static {v0, v1}, Lcom/melodix/music/StartupSplashFallback;->traceState(Lcom/melodix/music/MainActivity;Ljava/lang/String;)V
 
     .line 804
     .line 805

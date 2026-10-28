@@ -1625,6 +1625,8 @@
 
     const-string v0, "https://open.spotify.com/"
 
+    invoke-static {v0}, Lcom/melodix/music/StartupSplashFallback;->traceLoadUrl(Ljava/lang/String;)V
+
     .line 288
     .line 289
     invoke-virtual {p0, v0}, Landroid/webkit/WebView;->loadUrl(Ljava/lang/String;)V
@@ -1645,6 +1647,8 @@
     invoke-virtual {v1, v0}, Landroid/webkit/WebSettings;->setUserAgentString(Ljava/lang/String;)V
 
     const-string v0, "https://accounts.spotify.com/en/login?continue=https%3A%2F%2Fopen.spotify.com%2F&allow_signup=1"
+
+    invoke-static {v0}, Lcom/melodix/music/StartupSplashFallback;->traceLoadUrl(Ljava/lang/String;)V
 
     .line 294
     .line 295

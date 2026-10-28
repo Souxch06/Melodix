@@ -125,22 +125,29 @@
     .line 11
     invoke-virtual {p1}, Ljava/lang/Object;->getClass()Ljava/lang/Class;
 
-    .line 12
-    .line 13
-    .line 14
-    sget-boolean p1, Lcom/melodix/music/AppSingleton;->m:Z
+    const-string p1, "r20-fade-end"
+
+    invoke-static {v2, p1}, Lcom/melodix/music/StartupSplashFallback;->traceState(Lcom/melodix/music/MainActivity;Ljava/lang/String;)V
+
+    # P0 fix: GONE iff (shell shown) OR (no error pending AND fade armed with
+    # b). The old order (m first) left a visible-but-transparent splash overlay
+    # (touch blocking) whenever an error flag arrived during the fade, and kept
+    # a ghost overlay above the native shell. If an error state owns the splash
+    # (m==true, l==false) keep it: the D() error branch restored it as the
+    # visible, recoverable error screen.
+    sget-boolean p1, Lcom/melodix/music/AppSingleton;->l:Z
 
     .line 15
     .line 16
-    if-nez p1, :cond_2
+    if-nez p1, :cond_0
 
     .line 17
     .line 18
-    sget-boolean p1, Lcom/melodix/music/AppSingleton;->l:Z
+    sget-boolean p1, Lcom/melodix/music/AppSingleton;->m:Z
 
     .line 19
     .line 20
-    if-nez p1, :cond_0
+    if-nez p1, :cond_2
 
     .line 21
     .line 22
