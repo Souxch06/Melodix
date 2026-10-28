@@ -59,7 +59,11 @@ test('shell reassembles the bridge from ranges before the legacy reader', () => 
   );
   // Chunks are bounded and concatenated before execution.
   assert.match(fn, /parts\.join\(''\)/);
-  assert.match(fn, /var chunkSize = 48 \* 1024;/);
+  assert.match(fn, /var chunkSize = \d+ \* 1024;/);
+  // The loop runs until the known total length (short returns must not
+  // truncate the source; see p0_bridge_exec_recovery.test.js).
+  assert.match(fn, /totalLength > 0 \? offset >= totalLength : part\.length < chunkSize/);
+  assert.match(fn, /window\.AndBridge\.bundledAssetLength/);
   // The reassembled source is executed by the multi-strategy runner.
   assert.match(fn, /if \(source\) return executeBridgeSource\(source\);/);
   // Empty asset is still reported exactly as before.

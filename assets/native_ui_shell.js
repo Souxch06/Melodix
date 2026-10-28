@@ -1999,19 +1999,38 @@
 
     function recordBridgeFailure(stage, error) {
         var message = error && error.message ? error.message : String(error || '');
+        // Keep the step name attached to each failure: never overwrite the
+        // origin of an earlier error without leaving it in the journal.
         window.__sfBridgeLastError = stage + (message ? ': ' + message : '');
+        logExecStep(stage, 'failed', message);
+    }
+
+    function logExecStep(step, status, detail) {
+        if (!window.__sfBridgeExecSteps) window.__sfBridgeExecSteps = [];
+        window.__sfBridgeExecSteps.push({
+            step: String(step || '').slice(0, 24),
+            status: String(status || '').slice(0, 24),
+            detail: String(detail || '').slice(0, 80)
+        });
+        if (window.__sfBridgeExecSteps.length > 32) window.__sfBridgeExecSteps.shift();
     }
 
     function executeBridgeSource(source) {
         var node;
         window.__sfBridgeBytes = source.length;
 
-        // 1. Inline script: the way the asset used to be executed.
+        // Success is ONLY declared by bridgeHasStarted(): the bridge sets
+        // __sfMelodixBridgeStarted when its own bootstrap runs. Appending a
+        // node to the DOM is never treated as a start.
+
+        // 1. Inline script: the way the asset used to be executed. Blocked
+        //    when the page CSP has no script-src-elem 'unsafe-inline'.
         try {
             node = document.createElement('script');
             node.textContent = source;
             (document.head || document.documentElement).appendChild(node);
             if (node.parentNode) node.parentNode.removeChild(node);
+            logExecStep('inline-script', 'injected');
         } catch (error) {
             recordBridgeFailure('inline-script', error);
         }
@@ -2023,6 +2042,7 @@
         // 2. Direct eval (rejected when the page forbids unsafe-eval).
         try {
             (0, eval)(source);
+            logExecStep('eval', 'injected');
         } catch (error) {
             recordBridgeFailure('eval', error);
         }
@@ -2031,9 +2051,10 @@
             return true;
         }
 
-        // 3. Function constructor.
+        // 3. Function constructor (same unsafe-eval requirement).
         try {
             (new Function(source))();
+            logExecStep('function', 'injected');
         } catch (error) {
             recordBridgeFailure('function', error);
         }
@@ -2042,14 +2063,27 @@
             return true;
         }
 
-        // 4. Blob URL: asynchronous, so the next diagnostic sample confirms it.
+        // 4. Blob URL: asynchronous. A CSP without script-src-elem 'blob:'
+        //    blocks the load through the onerror handler or a
+        //    securitypolicyviolation event; either way it is journaled.
         try {
             if (bridgeBlobUrl && typeof URL.revokeObjectURL === 'function') URL.revokeObjectURL(bridgeBlobUrl);
             bridgeBlobUrl = URL.createObjectURL(new Blob([source], { type: 'text/javascript' }));
             node = document.createElement('script');
             node.src = bridgeBlobUrl;
+            node.onerror = function() {
+                recordBridgeFailure('blob', 'script-load-error');
+            };
+            node.onload = function() {
+                if (!bridgeHasStarted()) {
+                    logExecStep('blob', 'loaded-not-started');
+                }
+            };
             (document.head || document.documentElement).appendChild(node);
             window.__sfBridgeExecMode = 'blob';
+            // "injected-pending" only: the next attempt/sample checks the
+            // real start signal before anything is called successful.
+            logExecStep('blob', 'injected-pending');
             return true;
         } catch (error) {
             recordBridgeFailure('blob', error);
@@ -2060,26 +2094,44 @@
     function loadBundledBridge(name) {
         var source = '';
         if (bridgeHasStarted()) return true;
-        // Preferred reader: reassemble the asset from fixed-size ranges. The
-        // demonstrated v34 failure was an inverted whitelist in the readers
-        // (every name check returned "" -> "read-asset: empty"); keeping each
-        // JavascriptInterface return small is deliberate extra safety: a
-        // transfer-size ceiling that would drop one ~205 KB call is plausible
-        // but UNPROVEN for the failed initial evaluateJavascript injection.
+        // Preferred reader: reassemble the asset from fixed-size ranges.
+        // Device traces showed a ranged return of 48148 units for a 49152
+        // window, and the old "stop on first short read" loop silently threw
+        // away the remaining 58132 units (146452 of 204584 reached the page,
+        // so every execution strategy failed on an incomplete script). The
+        // loop now runs until the known total length is reached and keeps
+        // going across short returns.
         if (window.AndBridge && typeof window.AndBridge.readBundledAssetRange === 'function') {
             try {
-                var chunkSize = 48 * 1024;
+                var totalLength = 0;
+                if (typeof window.AndBridge.bundledAssetLength === 'function') {
+                    totalLength = Number(window.AndBridge.bundledAssetLength(name) || 0);
+                }
+                var chunkSize = 32 * 1024;
                 var offset = 0;
                 var parts = [];
                 var part;
+                var guard = 0;
                 for (;;) {
                     part = String(window.AndBridge.readBundledAssetRange(name, offset, offset + chunkSize) || '');
                     if (!part) break;
                     parts.push(part);
                     offset += part.length;
-                    if (part.length < chunkSize) break;
+                    if (totalLength > 0 ? offset >= totalLength : part.length < chunkSize) break;
+                    if (++guard > 512) {
+                        recordBridgeFailure('read-asset-range', 'loop-guard');
+                        break;
+                    }
                 }
                 source = parts.join('');
+                window.__sfBridgeReadLog = {
+                    total: totalLength,
+                    got: source.length,
+                    calls: parts.length
+                };
+                if (totalLength > 0 && source.length < totalLength) {
+                    recordBridgeFailure('read-asset-range', 'short-by-' + (totalLength - source.length));
+                }
             } catch (error) {
                 recordBridgeFailure('read-asset-range', error);
             }
@@ -2123,6 +2175,15 @@
                 document.addEventListener('securitypolicyviolation', function(event) {
                     var directive = String(event && (event.effectiveDirective || event.violatedDirective) || '');
                     var blocked = String(event && event.blockedURI || '');
+                    // Journal every violation separately: an earlier one is
+                    // never overwritten by a later one.
+                    if (!window.__sfBridgeCspViolations) window.__sfBridgeCspViolations = [];
+                    window.__sfBridgeCspViolations.push({
+                        effectiveDirective: String(event && event.effectiveDirective || '').slice(0, 60),
+                        violatedDirective: String(event && event.violatedDirective || '').slice(0, 60),
+                        blockedURI: blocked.slice(0, 80)
+                    });
+                    if (window.__sfBridgeCspViolations.length > 16) window.__sfBridgeCspViolations.shift();
                     window.__sfBridgeCspViolation = (directive + ' ' + blocked).trim().slice(0, 120);
                 }, true);
             } catch (_) {}
