@@ -5,6 +5,9 @@
 
 .field private static generation:I
 
+# P0 diagnostic: whether any watchdog has ever been armed (launch telemetry).
+.field public static armed:Z
+
 .field private final activity:Ljava/lang/ref/WeakReference;
 
 .field private final generationAtArm:I
@@ -74,6 +77,10 @@
     invoke-virtual {p0, v1, v2, v3}, Landroid/view/View;->postDelayed(Ljava/lang/Runnable;J)Z
 
     const-string v0, "MDXSTART"
+    const/4 v2, 0x1
+
+    sput-boolean v2, Lcom/melodix/music/StartupLoadWatchdog;->armed:Z
+
     const-string v1, "watchdog-armed (30s after page event)"
     invoke-static {v0, v1}, Landroid/util/Log;->i(Ljava/lang/String;Ljava/lang/String;)I
 
@@ -121,6 +128,10 @@
     invoke-virtual {p0, v1, v2, v3}, Landroid/view/View;->postDelayed(Ljava/lang/Runnable;J)Z
 
     const-string v0, "MDXSTART"
+    const/4 v2, 0x1
+
+    sput-boolean v2, Lcom/melodix/music/StartupLoadWatchdog;->armed:Z
+
     const-string v1, "watchdog-armed (8s after resume)"
     invoke-static {v0, v1}, Landroid/util/Log;->i(Ljava/lang/String;Ljava/lang/String;)I
 

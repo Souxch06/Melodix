@@ -55,11 +55,15 @@ test('P0: StartupSplashFallback.run exits recoverably and traces the step', () =
   // Explicit fallback tag so the zk0 splash-hold guard allows the fade
   assert.match(run, /setTag\(Ljava\/lang\/Object;\)V/);
   assert.match(run, /startup-fallback/);
-  // Recoverable exit branches: network error screen OR web page fallback
-  assert.match(run, /MainActivity;->D\(Z\)V/);
+  // Recoverable exit branches: direct error screen OR web page fallback
+  assert.match(run, /StartupSplashFallback;->showErrorScreen\(Lcom\/melodix\/music\/MainActivity;\)V/);
   assert.match(run, /Lzk0;-><init>\(Lcom\/melodix\/music\/MainActivity;ZI\)V/);
   // Never leaves the splash in place: both branches end the blocked state
   assert.ok(run.includes('fallback-error') && run.includes('fallback-web'));
+  // A rescue that throws must still dismiss the splash (last-resort catch)
+  assert.match(run, /\.catch Ljava\/lang\/Throwable;/);
+  assert.match(run, /fallback-forced/);
+  assert.match(run, /setVisibility\(I\)V/);
 });
 
 test('P0: StartupLoadWatchdog arm/armAfterResume no longer depend on AppSingleton.t alone', () => {
@@ -106,8 +110,12 @@ test('P0: SplashRetryListener.onClick relaunches the startup (recoverable)', () 
   assert.match(click, /Lcom\/melodix\/music\/AppSingleton;->n:I/);
   // Removes the explicit fallback tag so the hold guard is armed again
   assert.match(click, /setTag\(Ljava\/lang\/Object;\)V/);
-  // Clears the error visuals through the splash state machine
-  assert.match(click, /MainActivity;->D\(Z\)V/);
+  // Resets the visuals DIRECTLY (never through D(), whose restore path
+  // re-arms the error state machine)
+  assert.ok(!/MainActivity;->D\(Z\)V/.test(click), 'onClick must not call D()');
+  assert.match(click, /MainActivity;->K:Landroid\/widget\/TextView;/);
+  assert.match(click, /MainActivity;->J:Landroid\/widget\/ImageView;/);
+  assert.match(click, /MainActivity;->N:Landroid\/widget\/FrameLayout;/);
   // Reloads the page and re-arms the watchdog
   assert.match(click, /Landroid\/webkit\/WebView;->reload\(\)V/);
   assert.match(click, /StartupLoadWatchdog;->arm\(Landroid\/webkit\/WebView;\)V/);
@@ -170,14 +178,18 @@ function parseSmaliMethod(src, signature) {
   const body = src.slice(start, src.indexOf('.end method', start));
   const instrs = [];
   const labels = {};
+  const catches = [];
   for (const raw of body.split('\n')) {
     const line = raw.split('#')[0].trim();
-    if (!line || line.startsWith('.') && !line.startsWith('.line')) continue;
+    if (!line) continue;
+    const cm = line.match(/^\.catch \S+; \{:(\w+) \.\. :(\w+)\} :(\w+)/);
+    if (cm) { catches.push({ from: cm[1], to: cm[2], handler: cm[3] }); continue; }
+    if (line.startsWith('.') && !line.startsWith('.line')) continue;
     if (line.startsWith('.method') || line.startsWith('.locals')) continue;
     if (/^:[\w/.]+$/.test(line)) { labels[line.slice(1)] = instrs.length; continue; }
     instrs.push(line);
   }
-  return { instrs, labels };
+  return { instrs, labels, catches };
 }
 
 // Minimal Dalvik evaluator: only the instructions used by run() before and
@@ -187,8 +199,24 @@ function runFlow(method, env) {
   let pendingResult = undefined;
   const reached = [];
   let pc = 0;
+  const throwPc = env.throwAt ? method.instrs.findIndex((i) => i.includes(env.throwAt)) : -1;
+  // Map every pc to its catch handler (if any).
+  const handlerFor = (idx) => {
+    for (const c of method.catches) {
+      const a = method.labels[c.from], b = method.labels[c.to];
+      if (idx >= a && idx < b) return method.labels[c.handler];
+    }
+    return undefined;
+  };
   for (let steps = 0; steps < 300; steps++) {
     if (pc >= method.instrs.length) return { reached, ended: 'fallthrough' };
+    if (pc === throwPc) {
+      reached.push('throw');
+      const h = handlerFor(pc);
+      if (h === undefined) return { reached, ended: 'uncaught' };
+      pc = h;
+      continue;
+    }
     const ins = method.instrs[pc];
     let m;
     if ((m = ins.match(/^iget-object (\w+), (\w+), .*->(\w+):/))) {
@@ -213,8 +241,8 @@ function runFlow(method, env) {
       reached.push('runOnUiThread:zk0'); pc++;
     } else if ((m = ins.match(/^const-string (\w+), "(.*)"/))) {
       regs[m[1]] = m[2]; pc++;
-    } else if ((m = ins.match(/^const\/4 (\w+), (-?\w+)/))) {
-      regs[m[1]] = { '0x0': 0, '0x1': 1, '0x0': 0, '0': 0, '0x1': 1, '1': 1 }[m[2]] ?? parseInt(m[2]);
+    } else if ((m = ins.match(/^const(?:\/4|\/16|\/high16)? (\w+), (-?\w+)/))) {
+      regs[m[1]] = { '0x0': 0, '0x1': 1, '0x0': 0, '0': 0, '0x1': 1, '1': 1 }[m[2]] ?? parseInt(m[2], m[2].startsWith('0x') ? 16 : 10);
       pc++;
     } else if ((m = ins.match(/^move-result-object (\w+)/))) {
       regs[m[1]] = pendingResult; pc++;
@@ -222,8 +250,29 @@ function runFlow(method, env) {
       regs[m[1]] = pendingResult; pc++;
     } else if ((m = ins.match(/^sget-boolean (\w+), .*->(\w+):Z/))) {
       regs[m[1]] = m[2] === 'm' ? (env.networkError ? 1 : 0) : 0; pc++;
+    } else if ((m = ins.match(/^sput-boolean (\w+), .*->(\w+):Z/))) {
+      reached.push(`sput:${m[2]}`); pc++;
+    } else if ((m = ins.match(/^sput (\w+), .*->(\w+)/))) {
+      pc++;
+    } else if ((m = ins.match(/^invoke-virtual \{(\w+)\}, Landroid\/webkit\/WebView;->getProgress\(\)I/))) {
+      pendingResult = env.pageProgress !== undefined ? env.pageProgress : 100; pc++;
+    } else if ((m = ins.match(/^if-ge (\w+), (\w+), :(\w+)/))) {
+      pc = (regs[m[1]] >= regs[m[2]]) ? method.labels[m[3]] : pc + 1;
+    } else if ((m = ins.match(/^if-lt (\w+), (\w+), :(\w+)/))) {
+      pc = (regs[m[1]] < regs[m[2]]) ? method.labels[m[3]] : pc + 1;
+
     } else if ((m = ins.match(/^check-cast (\w+), /))) {
       pc++;
+    } else if ((m = ins.match(/^invoke-static \{(\w+)\}, Lcom\/melodix\/music\/StartupSplashFallback;->showErrorScreen/))) {
+      reached.push('showErrorScreen'); pc++;
+    } else if ((m = ins.match(/^invoke-static \{(\w+)\}, Lcom\/melodix\/music\/StartupSplashFallback;->showDiag/))) {
+      reached.push('showDiag'); pc++;
+    } else if ((m = ins.match(/^invoke-static \{(\w+)\}, Lcom\/melodix\/music\/SplashRetryListener;->install/))) {
+      reached.push('installRetry'); pc++;
+    } else if ((m = ins.match(/^invoke-virtual \{(\w+), (\w+)\}, .*->setVisibility\(I\)V/))) {
+      reached.push(`setVisibility:${regs[m[2]]}`); pc++;
+    } else if ((m = ins.match(/^move-exception (\w+)/))) {
+      regs[m[1]] = 'exception'; pc++;
     } else if ((m = ins.match(/^if-eqz (\w+), :(\w+)/))) {
       pc = !regs[m[1]] ? method.labels[m[2]] : pc + 1;
     } else if ((m = ins.match(/^if-nez (\w+), :(\w+)/))) {
@@ -232,8 +281,9 @@ function runFlow(method, env) {
       pc = method.labels[m[1]];
     } else if (/^return-void/.test(ins)) {
       reached.push('return'); return { reached, ended: 'return' };
-    } else if ((m = ins.match(/^new-instance (\w+), /)) || (m = ins.match(/^invoke-direct /)) ||
-               (m = ins.match(/^invoke-static .*Log;/)) || (m = ins.match(/^invoke-virtual .*getResources/))) {
+    } else if ((m = ins.match(/^new-instance (\w+), /))) {
+      pc++;
+    } else if (/^iput-|^sget |^invoke-(virtual|static|direct|interface) /.test(ins)) {
       pc++;
     } else {
       // Unknown instruction: stop interpreting but keep the trace so far.
@@ -270,7 +320,7 @@ test('P0 flow: active activity + visible splash reaches tag, stage and the rescu
   assert.ok(withError.reached.includes('stage:splash-fallback'), withError.reached.join(','));
   assert.ok(withError.reached.includes('setTag:startup-fallback'), withError.reached.join(','));
   assert.ok(withError.reached.includes('stage:fallback-error'), withError.reached.join(','));
-  assert.ok(withError.reached.includes('D:1'), withError.reached.join(','));
+  assert.ok(withError.reached.includes('showErrorScreen'), withError.reached.join(','));
   assert.ok(withError.reached.includes('return'), withError.reached.join(','));
   const noError = runFlow(method, { ...base, networkError: false });
   assert.ok(noError.reached.includes('stage:splash-fallback'), noError.reached.join(','));
@@ -310,4 +360,67 @@ test('P0 flow: null activity and null splash view still exit early', () => {
     activityAlive: true, finishing: false, splashVisible: true, HPresent: false, networkError: false,
   });
   assert.deepEqual(noView.reached, ['return']);
+});
+
+test('P0 flow: an exception inside the rescue still dismisses the splash (last resort)', () => {
+  const method = loadRunMethod();
+  // Throw at the error-screen call: the catch must force the splash away.
+  const r = runFlow(method, {
+    activityAlive: true, finishing: false, splashVisible: true, HPresent: true,
+    networkError: true, throwAt: 'StartupSplashFallback;->showErrorScreen',
+  });
+  assert.ok(r.reached.includes('throw'), r.reached.join(','));
+  assert.ok(r.reached.includes('stage:fallback-forced'), r.reached.join(','));
+  assert.ok(r.reached.includes('setVisibility:8'), `splash must be forced GONE: ${r.reached.join(',')}`);
+  assert.ok(r.reached.includes('return'), r.reached.join(','));
+  // Same guarantee if the web fallback path throws (zk0 construction)
+  const r2 = runFlow(method, {
+    activityAlive: true, finishing: false, splashVisible: true, HPresent: true,
+    networkError: false, throwAt: 'Lzk0;-><init>',
+  });
+  assert.ok(r2.reached.includes('stage:fallback-forced'), r2.reached.join(','));
+  assert.ok(r2.reached.includes('setVisibility:8'), `splash must be forced GONE: ${r2.reached.join(',')}`);
+});
+
+test('P0 flow: the error screen shows the visible tap-to-retry and the diag line', () => {
+  const src = read('smali/com/melodix/music/StartupSplashFallback.smali');
+  const show = parseSmaliMethod(src, 'public static showErrorScreen(Lcom/melodix/music/MainActivity;)V');
+  const r = runFlow(show, {
+    activityAlive: true, finishing: false, splashVisible: true, HPresent: true, networkError: true,
+  });
+  // Error text and icon are actually made VISIBLE (the layout ships them gone)
+  assert.ok(r.reached.includes('setVisibility:0'), r.reached.join(','));
+  // Tap-to-retry is installed and the diag line is shown
+  assert.ok(r.reached.includes('installRetry'), r.reached.join(','));
+  assert.ok(r.reached.includes('showDiag'), r.reached.join(','));
+  assert.ok(r.reached.includes('return'), r.reached.join(','));
+});
+
+test('P0: SplashRetryListener.onClick resets directly, never through D()', () => {
+  const src = read('smali/com/melodix/music/SplashRetryListener.smali');
+  const click = parseSmaliMethod(src, 'public final onClick(Landroid/view/View;)V');
+  const r = runFlow(click, {
+    activityAlive: true, finishing: false, splashVisible: true, HPresent: true, networkError: true,
+  });
+  // K and J are hidden again, the web container is shown again
+  assert.ok(r.reached.includes('setVisibility:8'), r.reached.join(','));
+  assert.ok(r.reached.includes('setVisibility:0'), r.reached.join(','));
+  // The error state machine is cleared and the page is reloaded
+  assert.ok(r.reached.includes('return'), r.reached.join(','));
+  const body = src.slice(src.indexOf('.method public final onClick'));
+  assert.match(body, /WebView;->reload\(\)V/);
+  assert.match(body, /StartupLoadWatchdog;->arm\(Landroid\/webkit\/WebView;\)V/);
+  assert.ok(!/MainActivity;->D\(Z\)V/.test(body));
+});
+
+test('P0: rescue diagnostics expose armed/fired/watchdog/network state without tokens', () => {
+  const src = read('smali/com/melodix/music/StartupSplashFallback.smali');
+  const diag = src.slice(src.indexOf('.method public static showDiag'));
+  assert.match(diag, /StartupSplashFallback;->armed:Z/);
+  assert.match(diag, /StartupSplashFallback;->fired:Z/);
+  assert.match(diag, /StartupLoadWatchdog;->armed:Z/);
+  assert.match(diag, /AppSingleton;->m:Z/);
+  assert.match(diag, /last_stage/);
+  // Never expose tokens or private data on screen
+  assert.ok(!/access_token|refresh_token|Bearer |cookie/i.test(diag));
 });

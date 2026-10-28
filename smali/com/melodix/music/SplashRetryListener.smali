@@ -29,7 +29,7 @@
     .locals 2
 
     # P0: the network error screen must be recoverable ("Tap to retry").
-    # Install the tap handler on the splash surface and on the error text so
+    # Install the tap handler on the splash surface and on the error texts so
     # any tap retries the startup instead of leaving the app dead on the logo.
     if-eqz p0, :return
 
@@ -80,7 +80,9 @@
 
     move-result v1
 
-    if-eqz v1, :return
+    # Guard: leave only when the activity IS finishing (isFinishing() == true).
+    # The active case must fall through and perform the retry.
+    if-nez v1, :return
 
     const-string v1, "MDXSTART"
 
@@ -92,7 +94,7 @@
 
     invoke-static {v1}, Lcom/melodix/music/NativeCrashGuard;->stage(Ljava/lang/String;)V
 
-    # Clear the network-error flags before retrying.
+    # Clear the network-error flags.
     const/4 v1, 0x0
 
     sput-boolean v1, Lcom/melodix/music/AppSingleton;->m:Z
@@ -101,25 +103,54 @@
 
     sput v1, Lcom/melodix/music/AppSingleton;->n:I
 
-    # Remove the explicit fallback tag so the splash-hold guard is armed again
-    # during the reload: the splash stays as the loading screen until the app
-    # is actually ready (no flash, no arbitrary mask).
+    # Reset the visuals DIRECTLY (do not go through D(): its restore path
+    # re-arms the error state machine and can put the error screen back).
+    iget-object v1, v0, Lcom/melodix/music/MainActivity;->K:Landroid/widget/TextView;
+
+    if-eqz v1, :r1
+
+    const/16 v2, 0x8
+
+    invoke-virtual {v1, v2}, Landroid/view/View;->setVisibility(I)V
+
+    :r1
+    iget-object v1, v0, Lcom/melodix/music/MainActivity;->J:Landroid/widget/ImageView;
+
+    if-eqz v1, :r2
+
+    const/16 v2, 0x8
+
+    invoke-virtual {v1, v2}, Landroid/view/View;->setVisibility(I)V
+
+    :r2
+    iget-object v1, v0, Lcom/melodix/music/MainActivity;->N:Landroid/widget/FrameLayout;
+
+    if-eqz v1, :r3
+
+    const/4 v2, 0x0
+
+    invoke-virtual {v1, v2}, Landroid/view/View;->setVisibility(I)V
+
+    :r3
+    # The splash stays visible as the loading screen during the reload, but its
+    # explicit fallback tag is removed so the hold guard is armed again.
     iget-object v1, v0, Lcom/melodix/music/MainActivity;->H:Landroidx/constraintlayout/widget/ConstraintLayout;
 
-    if-eqz v1, :clear_error
+    if-eqz v1, :r4
 
     const/4 v2, 0x0
 
     invoke-virtual {v1, v2}, Landroid/view/View;->setTag(Ljava/lang/Object;)V
 
-    :clear_error
-    # D(false) clears the error visuals and restores the splash opacity; the
-    # fade will be held (no fallback tag) until the app is ready.
-    const/4 v1, 0x0
+    const/high16 v2, 0x3f800000    # 1.0f
 
-    invoke-virtual {v0, v1}, Lcom/melodix/music/MainActivity;->D(Z)V
+    invoke-virtual {v1, v2}, Landroid/view/View;->setAlpha(F)V
 
-    # Reload the web view and re-arm the page watchdog.
+    const/4 v2, 0x0
+
+    invoke-virtual {v1, v2}, Landroid/view/View;->setVisibility(I)V
+
+    :r4
     iget-object v1, v0, Lcom/melodix/music/MainActivity;->G:Landroid/webkit/WebView;
 
     if-eqz v1, :return
