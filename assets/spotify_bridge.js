@@ -16,6 +16,12 @@
     }
     window.__sfBridgeTrace = __sfBridgeTrace;
     __sfBridgeTrace('bridge start');
+
+    // In-app diagnostic state (phone-side, no ADB). Status words and counts
+    // only: NEVER a token, cookie, authorization header or personal data.
+    window.__sfDiagState = window.__sfDiagState || {};
+    window.__sfDiagState.bridgeStartedAt = new Date().toISOString();
+    window.__sfDiagState.bridgeTrace = 'start';
     window.addEventListener('error', function(ev) {
         __sfBridgeTrace('bridge js-error ' + String((ev && ev.error && ev.error.name) || (ev && ev.message) || 'unknown').slice(0, 60));
     }, true);
@@ -3245,6 +3251,9 @@
                 } catch (_) {}
             }
         }
+        // Diag: presence only, never the token itself.
+        window.__sfDiagState = window.__sfDiagState || {};
+        window.__sfDiagState.tokenPresent = !!window.spotAuthToken;
         return !!window.spotAuthToken;
     }
     window.ensureAuthToken = ensureAuthToken;
@@ -3292,6 +3301,11 @@
             console.warn("[Spotifuck] checkMediaLib: Auth token unavailable.");
             window.__sfMediaLibStatus = 'error';
             window.__sfMediaLibError = 'token-missing';
+            window.__sfDiagState = window.__sfDiagState || {};
+            window.__sfDiagState.libStatus = 'error';
+            window.__sfDiagState.libError = 'token-missing';
+            window.__sfDiagState.playlistsReceived = 0;
+            window.__sfDiagState.libUpdatedAt = new Date().toISOString();
             notifyMediaLibSettled('token-missing');
             return;
         }
@@ -3309,6 +3323,11 @@
             } else {
                 window.__sfMediaLibStatus = 'ready';
             }
+            window.__sfDiagState = window.__sfDiagState || {};
+            window.__sfDiagState.libStatus = window.__sfMediaLibStatus;
+            window.__sfDiagState.libError = window.__sfMediaLibError || '';
+            window.__sfDiagState.playlistsReceived = (window.mediaLib && window.mediaLib.playlists && window.mediaLib.playlists.length) || 0;
+            window.__sfDiagState.libUpdatedAt = new Date().toISOString();
             console.log("[Spotifuck] checkMediaLib: Successfully loaded mediaLib! Draining pending requests:", Array.from(window.pendingMediaRequests));
             if (window.pendingMediaRequests && window.pendingMediaRequests.size > 0) {
                 for (const reqId of window.pendingMediaRequests) {
@@ -3322,6 +3341,10 @@
             console.error("Error fetching/parsing media library: ", e);
             window.__sfMediaLibStatus = 'error';
             window.__sfMediaLibError = 'fetch-parse-error';
+            window.__sfDiagState = window.__sfDiagState || {};
+            window.__sfDiagState.libStatus = 'error';
+            window.__sfDiagState.libError = 'fetch-parse-error';
+            window.__sfDiagState.libUpdatedAt = new Date().toISOString();
             notifyMediaLibSettled('fetch-parse-error');
         } finally {
             isFetchingLib = false;

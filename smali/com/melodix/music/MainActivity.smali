@@ -91,6 +91,11 @@
 .field private nativeReturnExpectedId:Ljava/lang/String;
 .field private nativeReturnSearch:Ljava/lang/String;
 .field private nativeSearchWatcherAttached:Z
+.field nativeDiagReceiveCount:I
+.field nativeDiagRenderCount:I
+.field nativeDiagLastRenderRows:I
+.field nativeDiagLastReceiveAt:Ljava/lang/String;
+.field nativeDiagLastRenderAt:Ljava/lang/String;
 
 
 # direct methods
@@ -6951,6 +6956,24 @@
     const-string v2, "takeover splash->gone nativeRoot->visible z=15 webview=under"
     invoke-static {v0, v2}, Landroid/util/Log;->i(Ljava/lang/String;Ljava/lang/String;)I
 
+    # Phone-side diagnostics: a long press on the Melodix logo opens the local
+    # diagnostic dialog (discreet, never replaces the home screen).
+    const v0, 0x7f090249
+
+    invoke-virtual {p0, v0}, Landroid/app/Activity;->findViewById(I)Landroid/view/View;
+
+    move-result-object v1
+
+    if-eqz v1, :diag_press_attached
+
+    new-instance v2, Lcom/melodix/music/NativeDiagLongClickListener;
+
+    invoke-direct {v2, p0}, Lcom/melodix/music/NativeDiagLongClickListener;-><init>(Lcom/melodix/music/MainActivity;)V
+
+    invoke-virtual {v1, v2}, Landroid/view/View;->setOnLongClickListener(Landroid/view/View$OnLongClickListener;)V
+
+    :diag_press_attached
+
     iget-object v1, p0, Lcom/melodix/music/MainActivity;->H:Landroidx/constraintlayout/widget/ConstraintLayout;
     if-eqz v1, :hide_splash_progress
     const/16 v2, 0x8
@@ -7326,6 +7349,23 @@
 
 .method public final applyNativeUiData(Ljava/lang/String;Ljava/lang/String;)V
     .locals 10
+
+    # Diag: count native receptions (timestamp string, no payload logged).
+    iget v0, p0, Lcom/melodix/music/MainActivity;->nativeDiagReceiveCount:I
+
+    add-int/lit8 v0, v0, 0x1
+
+    iput v0, p0, Lcom/melodix/music/MainActivity;->nativeDiagReceiveCount:I
+
+    invoke-static {}, Ljava/lang/System;->currentTimeMillis()J
+
+    move-result-wide v0
+
+    invoke-static {v0, v1}, Ljava/lang/Long;->toString(J)Ljava/lang/String;
+
+    move-result-object v0
+
+    iput-object v0, p0, Lcom/melodix/music/MainActivity;->nativeDiagLastReceiveAt:Ljava/lang/String;
 
     const-string v0, "home-greeting"
     invoke-virtual {p1, v0}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
@@ -7751,6 +7791,34 @@
 .method public final renderNativeRows(Ljava/lang/String;Ljava/lang/String;)V
     .locals 10
 
+    # Rendering rows always means the list is the visible content, so leave the
+    # browse grid and restore the scrolling list.
+    const v0, 0x7f090239
+
+    invoke-virtual {p0, v0}, Landroid/app/Activity;->findViewById(I)Landroid/view/View;
+
+    move-result-object v0
+
+    if-eqz v0, :native_rows_visible
+
+    const/4 v1, 0x0
+
+    invoke-virtual {v0, v1}, Landroid/view/View;->setVisibility(I)V
+
+    :native_rows_visible
+    const v0, 0x7f09024f
+
+    invoke-virtual {p0, v0}, Landroid/app/Activity;->findViewById(I)Landroid/view/View;
+
+    move-result-object v0
+
+    if-eqz v0, :native_genre_gone
+
+    const/16 v1, 0x8
+
+    invoke-virtual {v0, v1}, Landroid/view/View;->setVisibility(I)V
+
+    :native_genre_gone
     # MDXTRACE: native side received a rows payload (screen + payload length).
     new-instance v0, Ljava/lang/StringBuilder;
 
@@ -7780,34 +7848,29 @@
 
     invoke-static {v1, v0}, Landroid/util/Log;->i(Ljava/lang/String;Ljava/lang/String;)I
 
-    # Rendering rows always means the list is the visible content, so leave the
-    # browse grid and restore the scrolling list.
-    const v0, 0x7f090239
+    # Diag: count renders and remember the payload length.
+    iget v0, p0, Lcom/melodix/music/MainActivity;->nativeDiagRenderCount:I
 
-    invoke-virtual {p0, v0}, Landroid/app/Activity;->findViewById(I)Landroid/view/View;
+    add-int/lit8 v0, v0, 0x1
+
+    iput v0, p0, Lcom/melodix/music/MainActivity;->nativeDiagRenderCount:I
+
+    invoke-virtual {p2}, Ljava/lang/String;->length()I
+
+    move-result v0
+
+    iput v0, p0, Lcom/melodix/music/MainActivity;->nativeDiagLastRenderRows:I
+
+    invoke-static {}, Ljava/lang/System;->currentTimeMillis()J
+
+    move-result-wide v0
+
+    invoke-static {v0, v1}, Ljava/lang/Long;->toString(J)Ljava/lang/String;
 
     move-result-object v0
 
-    if-eqz v0, :native_rows_visible
+    iput-object v0, p0, Lcom/melodix/music/MainActivity;->nativeDiagLastRenderAt:Ljava/lang/String;
 
-    const/4 v1, 0x0
-
-    invoke-virtual {v0, v1}, Landroid/view/View;->setVisibility(I)V
-
-    :native_rows_visible
-    const v0, 0x7f09024f
-
-    invoke-virtual {p0, v0}, Landroid/app/Activity;->findViewById(I)Landroid/view/View;
-
-    move-result-object v0
-
-    if-eqz v0, :native_genre_gone
-
-    const/16 v1, 0x8
-
-    invoke-virtual {v0, v1}, Landroid/view/View;->setVisibility(I)V
-
-    :native_genre_gone
     iput-object p1, p0, Lcom/melodix/music/MainActivity;->nativeCurrentTitle:Ljava/lang/String;
     iput-object p2, p0, Lcom/melodix/music/MainActivity;->nativeCurrentJson:Ljava/lang/String;
 
@@ -8046,6 +8109,43 @@
     invoke-virtual {v1}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
     move-result-object v3
     invoke-virtual {p0, v3}, Lcom/melodix/music/MainActivity;->runNativeJavascript(Ljava/lang/String;)V
+    return-void
+.end method
+
+.method public final openNativeDiagnostics()V
+    .locals 4
+
+    # Phone-side diagnostics (no ADB): collect the JS report, then show the
+    # local dialog (RuntimeDiagnostic.showDialog) with Copier/Actualiser.
+    const-string v0, "MDXSTART"
+
+    const-string v1, "diag-panel open"
+
+    invoke-static {v0, v1}, Landroid/util/Log;->i(Ljava/lang/String;Ljava/lang/String;)I
+
+    iget-object v0, p0, Lcom/melodix/music/MainActivity;->G:Landroid/webkit/WebView;
+
+    if-eqz v0, :diag_native_only
+
+    const-string v1, "(function(){try{return window.__sfDiagReport?window.__sfDiagReport():null;}catch(e){return null;}})()"
+
+    new-instance v2, Lcom/melodix/music/NativeDiagCallback;
+
+    invoke-direct {v2, p0}, Lcom/melodix/music/NativeDiagCallback;-><init>(Lcom/melodix/music/MainActivity;)V
+
+    invoke-virtual {v0, v1, v2}, Landroid/webkit/WebView;->evaluateJavascript(Ljava/lang/String;Landroid/webkit/ValueCallback;)V
+
+    return-void
+
+    :diag_native_only
+    const/4 v0, 0x0
+
+    new-instance v1, Lcom/melodix/music/NativeDiagCallback;
+
+    invoke-direct {v1, p0}, Lcom/melodix/music/NativeDiagCallback;-><init>(Lcom/melodix/music/MainActivity;)V
+
+    invoke-virtual {v1, v0}, Lcom/melodix/music/NativeDiagCallback;->onReceive(Ljava/lang/String;)V
+
     return-void
 .end method
 

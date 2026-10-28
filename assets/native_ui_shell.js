@@ -6,6 +6,11 @@
     window.__sfNativeUiShellStarted = true;
     window.__sfNativeUiShellErrors = 0;
 
+    // In-app diagnostic state (phone-side). Counts and status words only.
+    window.__sfDiagState = window.__sfDiagState || {};
+    window.__sfDiagState.shellStarted = true;
+    window.__sfDiagState.shellStartedAt = new Date().toISOString();
+
     // P0 diagnostic: uncaught JS errors must never kill the startup chain
     // silently - keep a bounded counter and one trace line per error name.
     window.addEventListener('error', function(ev) {
@@ -153,6 +158,10 @@
         var bridge = window.AndBridge;
         var rows;
         if (!bridge || typeof bridge.onNativeUiData !== 'function') return false;
+        window.__sfDiagState = window.__sfDiagState || {};
+        window.__sfDiagState.lastSendScreen = String(screen || '');
+        window.__sfDiagState.lastSendCount = Array.isArray(rows) ? rows.length : 0;
+        window.__sfDiagState.lastSendAt = new Date().toISOString();
 
         rows = (Array.isArray(items) ? items : []).map(function(item) {
             var title = String(item && (item.title || item.name || item.label) || '').trim();
@@ -583,8 +592,14 @@
             return;
         }
 
-        rows = supplementHomeRowsWithLibrary(collectHomeRows(mainView));
+        var __sfDomRows = collectHomeRows(mainView);
+        window.__sfDiagState = window.__sfDiagState || {};
+        window.__sfDiagState.homeCollected = __sfDomRows.length;
+        rows = supplementHomeRowsWithLibrary(__sfDomRows);
         signature = JSON.stringify(rows);
+        window.__sfDiagState = window.__sfDiagState || {};
+        window.__sfDiagState.homeMerged = rows.length;
+        window.__sfDiagState.homeUpdatedAt = new Date().toISOString();
         window.__sfNativeUiHomeRowsCount = rows.length;
         if (lastHomeSignature !== signature && sendNativeUiData('home', rows)) {
             // This state is intentionally closure-local. Older hotfixable bridge
@@ -756,6 +771,9 @@
         try {
             bridge.onNativeUiReady();
             window.__sfNativeUiReadyNotified = true;
+            window.__sfDiagState = window.__sfDiagState || {};
+            window.__sfDiagState.readyNotified = true;
+            window.__sfDiagState.readyAt = new Date().toISOString();
             window.__sfNativeUiReadyRetries = 0;
             if (readyRetryTimer) window.clearTimeout(readyRetryTimer);
             readyRetryTimer = null;
@@ -1749,6 +1767,32 @@
     window.__sfNativeUiRefresh = function() {
         runUpdate();
         return true;
+    };
+
+    // In-app diagnostic report (shown by the native diag dialog). Status
+    // words, counts and timestamps only - NEVER a token, cookie, header,
+    // playlist name or any personal data.
+    window.__sfDiagReport = function() {
+        var st = window.__sfDiagState || {};
+        var lib = window.mediaLib;
+        return {
+            collectedAt: new Date().toISOString(),
+            bridgeStartedAt: st.bridgeStartedAt || 'inconnu',
+            shellStarted: st.shellStarted === true,
+            shellCompleted: window.__sfNativeUiShellCompleted === true,
+            shellErrors: window.__sfNativeUiShellErrors || 0,
+            tokenChecked: st.tokenPresent !== undefined,
+            tokenPresent: st.tokenPresent === true,
+            libStatus: window.__sfMediaLibStatus || 'pending',
+            libError: window.__sfMediaLibError || '',
+            playlistsReceived: (lib && lib.playlists && lib.playlists.length) || st.playlistsReceived || 0,
+            homeCollected: st.homeCollected || 0,
+            homeMerged: st.homeMerged || 0,
+            readyNotified: st.readyNotified === true,
+            lastSendScreen: String(st.lastSendScreen || ''),
+            lastSendCount: st.lastSendCount || 0,
+            lastSendAt: st.lastSendAt || ''
+        };
     };
 
     window.__sfNativeRequestHome = function() {
