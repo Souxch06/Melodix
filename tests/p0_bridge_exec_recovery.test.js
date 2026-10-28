@@ -273,58 +273,44 @@ test('diagnostic surfaces the v37 fields needed to verify on device', () => {
   }
 });
 
-test('the APK asset is the authoritative bridge source, served content is fallback', () => {
-  // A stale filesDir/hotfixes/spotify_bridge.js was served instead of the
-  // bundled asset (146452 vs 204584 units). The shell must read the APK
-  // asset first and record which source it used.
-  const apkContent = 'window.__sfMelodixBridgeStarted = true; // apk version';
-  const env = runShell({
-    AndBridge: {
-      apkAssetInfo: () => 'apk=' + TOTAL + ',served=146452,hotfix=1',
-      readApkAssetRange: (name, start, end) => apkContent.slice(start, Math.min(end, apkContent.length)),
-      bundledAssetLength: () => 146452,
-      readBundledAssetRange: () => { throw new Error('served reader must not be used'); },
-      readBundledAsset: () => '',
-    },
-  });
-  env.runAttempts();
-  assert.equal(env.window.__sfBridgeReadLog.source, 'apk', 'APK asset chosen');
-  assert.equal(env.window.__sfBridgeReadLog.total, TOTAL);
-  assert.equal(env.window.__sfBridgeAssetInfo, 'apk=' + TOTAL + ',served=146452,hotfix=1');
-  assert.equal(env.window.__sfMelodixBridgeStarted, true, 'the APK bridge version executed');
-  assert.equal(env.window.__sfBridgeBytes, apkContent.length);
-});
-
-test('served-content fallback still works when no APK reader exists', () => {
+test('the stale hotfix file is never served for the bridge (m9.d guard)', () => {
+  // The v39 diagnosis (bridgeReadLog total 146452 vs the 204584-unit APK
+  // asset) showed m9.d serving filesDir/hotfixes/spotify_bridge.js instead
+  // of the bundled asset. v40 restores the v38 AndBridge surface and guards
+  // m9.d itself: for the bridge name the hotfix branch is skipped entirely
+  // and the APK asset is read. The shell keeps its served-reader fallback,
+  // which now receives the fresh asset.
   const env = runShell();
   env.runAttempts();
-  assert.equal(env.window.__sfBridgeReadLog.source, 'served', 'fallback engaged');
+  assert.equal(env.window.__sfBridgeReadLog.source, 'served', 'fallback path engaged');
   assert.equal(env.window.__sfBridgeReadLog.got, TOTAL);
 });
 
-test('readApkAssetRange smali reads AssetManager directly, never the hotfix cache', () => {
-  const methodAt = bridgeSmali.indexOf('readApkAssetRange(Ljava/lang/String;II)');
-  assert.ok(methodAt > -1);
-  const method = bridgeSmali.slice(methodAt, bridgeSmali.indexOf('.end method', methodAt));
-  assert.match(method, /Landroid\/webkit\/JavascriptInterface;/);
-  assert.match(method, /const-string v0, "spotify_bridge\.js"/);
-  assert.match(method, /if-eqz v0, :apk_range_done/);
-  // Bounds enforced exactly like the served reader.
-  assert.match(method, /if-ltz p2, :apk_range_done/);
-  assert.match(method, /if-ge p2, v3, :apk_range_done/);
-  assert.match(method, /if-le p3, p2, :apk_range_done/);
-  assert.match(method, /Ljava\/lang\/String;->substring\(II\)Ljava\/lang\/String;/);
-  // The shared helper must use AssetManager and must NOT go through m9.d
-  // (the cache/hotfix layer that served the stale file).
-  const helperAt = bridgeSmali.indexOf('.method private static readApkAsset(');
-  assert.ok(helperAt > -1, 'private readApkAsset helper exists');
-  const helper = bridgeSmali.slice(helperAt, bridgeSmali.indexOf('.end method', helperAt));
-  assert.match(helper, /AssetManager;->open\(Ljava\/lang\/String;\)Ljava\/io\/InputStream;/);
-  assert.ok(!helper.includes('Lm9;->d('), 'helper never touches the hotfix/cache loader');
-  // apkAssetInfo documents both lengths and hotfix presence.
-  const infoAt = bridgeSmali.indexOf('apkAssetInfo(Ljava/lang/String;)');
-  const info = bridgeSmali.slice(infoAt, bridgeSmali.indexOf('.end method', infoAt));
-  assert.match(info, /"apk="/);
-  assert.match(info, /,served=/);
-  assert.match(info, /hotfixes\/spotify_bridge\.js/);
+test('m9.d skips the hotfix branch for the bridge name before any file read', () => {
+  const m9 = fs.readFileSync(path.join(root, 'smali', 'm9.smali'), 'utf8');
+  // The guard: compare the requested name with "spotify_bridge.js" and jump
+  // straight to :cond_2 (the AssetManager branch) when it matches.
+  const guardAt = m9.indexOf('const-string v1, "spotify_bridge.js"');
+  assert.ok(guardAt > -1, 'guard constant present in m9.d');
+  const guard = m9.slice(guardAt, guardAt + 400);
+  assert.match(guard, /invoke-virtual \{v1, p0\}, Ljava\/lang\/String;->equals\(Ljava\/lang\/Object;\)Z/);
+  assert.match(guard, /if-nez v1, :cond_2/);
+  // The guard sits BEFORE the hotfix file read (dl1.n) and after the debug
+  // check; the asset fallback label :cond_2 is the jump target.
+  const hotfixReadAt = m9.indexOf('Ldl1;->n(Ljava/io/File;Ljava/nio/charset/Charset;)Ljava/lang/String;');
+  assert.ok(guardAt < hotfixReadAt, 'guard runs before the hotfix file is read');
+  const assetReadAt = m9.indexOf('AssetManager;->open(Ljava/lang/String;)Ljava/io/InputStream;');
+  assert.ok(hotfixReadAt < assetReadAt, 'asset read remains the fallback after the hotfix branch');
+});
+
+test('AndBridge keeps only the proven readers (v38 contract, no APK methods)', () => {
+  // v39 added three methods to AndBridge; v40 removes them so the class
+  // surface is exactly what ran on the phone during the v38 capture.
+  for (const gone of ['apkAssetInfo', 'readApkAssetRange', 'readApkAsset(']) {
+    assert.ok(!bridgeSmali.includes(gone + '('), `${gone} must not exist in AndBridge`);
+  }
+  // The proven readers stay.
+  assert.match(bridgeSmali, /\.method public final readBundledAsset\(Ljava\/lang\/String;\)Ljava\/lang\/String;/);
+  assert.match(bridgeSmali, /\.method public final readBundledAssetRange\(Ljava\/lang\/String;II\)Ljava\/lang\/String;/);
+  assert.match(bridgeSmali, /\.method public final bundledAssetLength\(Ljava\/lang\/String;\)I/);
 });

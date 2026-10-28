@@ -728,6 +728,14 @@
     .line 58
     if-nez v1, :cond_2
 
+    const-string v1, "spotify_bridge.js"
+
+    invoke-virtual {v1, p0}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+
+    move-result v1
+
+    if-nez v1, :cond_2
+
     .line 59
     .line 60
     invoke-virtual {v2}, Ljava/io/File;->exists()Z
