@@ -266,6 +266,19 @@ jobs:
           echo "apk_path=preview-output/$APK_NAME" >> "$GITHUB_OUTPUT"
           echo "sha_path=preview-output/$APK_NAME.sha256" >> "$GITHUB_OUTPUT"
 
+      # Diagnostic builds ([skip-release]) never publish a release or tag, so
+      # the APK is uploaded as a workflow artifact instead: the run page gives
+      # a test APK that can be sideloaded on a phone without creating one.
+      - name: Upload APK as workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.release.outputs.apk_name }}
+          path: |
+            ${{ steps.package.outputs.apk_path }}
+            ${{ steps.package.outputs.sha_path }}
+          retention-days: 14
+          if-no-files-found: error
+
       - name: Create preview release and attach APK
         if: steps.release.outputs.should_publish == 'true'
         uses: softprops/action-gh-release@v3.0.3
