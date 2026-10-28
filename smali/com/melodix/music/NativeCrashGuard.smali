@@ -98,7 +98,7 @@
 
     const-string v0, ""
 
-    if-nez p0, :done
+    if-eqz p0, :done
 
     :try_start_0
     invoke-static {p0}, Landroid/util/Log;->getStackTraceString(Ljava/lang/Throwable;)Ljava/lang/String;
@@ -111,7 +111,7 @@
 
     const/16 v2, 0x4b0
 
-    if-gt v1, v2, :done
+    if-le v1, v2, :done
 
     const/4 v1, 0x0
 
@@ -343,7 +343,7 @@
 .method public static record(Ljava/lang/Throwable;)V
     .locals 1
 
-    if-nez p0, :done
+    if-eqz p0, :done
 
     :try_start_0
     invoke-static {p0}, Landroid/util/Log;->getStackTraceString(Ljava/lang/Throwable;)Ljava/lang/String;
@@ -368,23 +368,23 @@
 
     const/4 v0, 0x0
 
-    if-nez p0, :done
+    if-eqz p0, :done
 
     invoke-static {}, Lcom/melodix/music/NativeCrashGuard;->lastReport()Ljava/lang/String;
 
     move-result-object v1
 
-    if-nez v1, :done
+    if-eqz v1, :done
 
     invoke-virtual {v1}, Ljava/lang/String;->length()I
 
     move-result v2
 
-    if-nez v2, :done
+    if-eqz v2, :done
 
     const/16 v3, 0x4b0
 
-    if-gt v2, v3, :short_enough
+    if-le v2, v3, :short_enough
 
     const/4 v2, 0x0
 
@@ -397,7 +397,7 @@
 
     move-result-object v2
 
-    if-nez v2, :no_stage
+    if-eqz v2, :no_stage
 
     new-instance v3, Ljava/lang/StringBuilder;
 
@@ -461,7 +461,7 @@
 .method private static shorten(Ljava/lang/String;)Ljava/lang/String;
     .locals 3
 
-    if-nez p0, :done
+    if-eqz p0, :done
 
     invoke-virtual {p0}, Ljava/lang/String;->length()I
 
@@ -469,7 +469,7 @@
 
     const/16 v1, 0xf0
 
-    if-gt v0, v1, :done
+    if-le v0, v1, :done
 
     const/4 v2, 0x0
 
@@ -486,7 +486,7 @@
 .method public static stage(Ljava/lang/String;)V
     .locals 3
 
-    if-nez p0, :done
+    if-eqz p0, :done
 
     sget-object v0, Lcom/melodix/music/NativeCrashGuard;->context:Landroid/content/Context;
 
@@ -532,7 +532,7 @@
 .method public static showLaunchMarker(Landroid/app/Activity;)V
     .locals 3
 
-    if-nez p0, :done
+    if-eqz p0, :done
 
     :try_start_0
     new-instance v0, Landroid/widget/TextView;
@@ -601,7 +601,7 @@
 .method public static write(Ljava/lang/String;)V
     .locals 3
 
-    if-nez p0, :done
+    if-eqz p0, :done
 
     sget-object v0, Lcom/melodix/music/NativeCrashGuard;->context:Landroid/content/Context;
 
