@@ -138,11 +138,17 @@
 .method public static install(Landroid/content/Context;)V
     .locals 6
 
-    if-nez p0, :done
+    # P0 fix: both guards were inverted (a recurring polarity bug): with a
+    # valid context the method returned immediately and never installed
+    # anything - no crash handler, no toast, no context, and stage()/write()/
+    # lastReport() silently stayed dead (their context was never stored).
+    # if-eqz skips only on a NULL context; if-nez skips only when ALREADY
+    # installed.
+    if-eqz p0, :done
 
     sget-boolean v0, Lcom/melodix/music/NativeCrashGuard;->installed:Z
 
-    if-eqz v0, :done
+    if-nez v0, :done
 
     invoke-virtual {p0}, Landroid/content/Context;->getApplicationContext()Landroid/content/Context;
 
@@ -295,7 +301,7 @@
     return-object v0
 .end method
 
-.method private static lastStage()Ljava/lang/String;
+.method public static lastStage()Ljava/lang/String;
     .locals 3
 
     const/4 v0, 0x0

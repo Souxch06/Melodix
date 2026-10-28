@@ -102,6 +102,12 @@
 
 .field public static z:Ljava/lang/String;
 
+# P0 startup watchdog: set to true when the startup is VISUALLY resolved
+# (native shell takeover, or the splash fallback acted). The hang watchdog
+# thread reports the main-thread stack when this is still false after its
+# delay - a live main thread with this false means the rescue chain failed.
+.field public static volatile startupDone:Z = false
+
 
 # direct methods
 .method static constructor <clinit>()V
@@ -238,6 +244,31 @@
     .line 2
     .line 3
     .line 4
+    return-void
+.end method
+
+
+# P0 startup diagnostics: install the crash recorder and arm the hang
+# watchdog BEFORE any content provider or Application logic runs, so even a
+# failure or a main-thread block during provider init is recorded. The report
+# is shown as a dialog on the next launch (photo-ready, no adb needed).
+.method protected attachBaseContext(Landroid/content/Context;)V
+    .locals 1
+
+    invoke-super {p0, p1}, Landroid/app/Application;->attachBaseContext(Landroid/content/Context;)V
+
+    :try_start_0
+    invoke-static {p1}, Lcom/melodix/music/NativeCrashGuard;->install(Landroid/content/Context;)V
+
+    const-string v0, "attach"
+
+    invoke-static {v0}, Lcom/melodix/music/NativeCrashGuard;->stage(Ljava/lang/String;)V
+
+    invoke-static {}, Lcom/melodix/music/StartupHangWatchdog;->arm()V
+    :try_end_0
+    .catch Ljava/lang/Throwable; {:try_start_0 .. :try_end_0} :catch_0
+
+    :catch_0
     return-void
 .end method
 

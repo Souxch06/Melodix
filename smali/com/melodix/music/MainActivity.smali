@@ -7008,6 +7008,10 @@
     const/4 v0, 0x1
     sput-boolean v0, Lcom/melodix/music/AppSingleton;->l:Z
 
+    # P0 startup watchdog: the startup is visually resolved (native shell
+    # takeover) - the hang watchdog must not report.
+    sput-boolean v0, Lcom/melodix/music/AppSingleton;->startupDone:Z
+
     # P0 diagnostic: the native shell takes over the screen here.
     const-string v0, "MDXTRACE"
     const-string v2, "native-shell shown (splash hidden, nativeRoot visible)"

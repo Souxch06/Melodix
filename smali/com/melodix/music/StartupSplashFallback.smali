@@ -562,6 +562,12 @@
 
     invoke-static {v1, v2}, Landroid/util/Log;->w(Ljava/lang/String;Ljava/lang/String;)I
 
+    # P0 startup watchdog: the rescue acted - the startup is resolved (error
+    # screen or web reveal), the hang watchdog must not report.
+    const/4 v1, 0x1
+
+    sput-boolean v1, Lcom/melodix/music/AppSingleton;->startupDone:Z
+
     const-string v2, "fallback-fired"
 
     invoke-static {v0, v2}, Lcom/melodix/music/StartupSplashFallback;->traceState(Lcom/melodix/music/MainActivity;Ljava/lang/String;)V
