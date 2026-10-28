@@ -102,14 +102,36 @@
 
 .field public static z:Ljava/lang/String;
 
-# P0 startup watchdog: set to true when the startup is VISUALLY resolved
-# (native shell takeover, or the splash fallback acted). The hang watchdog
-# thread reports the main-thread stack when this is still false after its
-# delay - a live main thread with this false means the rescue chain failed.
+# P0 startup watchdog: true once the startup is visually resolved (native
+# shell takeover or the web reveal). The watchdog thread reports a startup
+# still unresolved after 25s with the main-thread stack.
 .field public static volatile startupDone:Z = false
 
 
 # direct methods
+.method protected attachBaseContext(Landroid/content/Context;)V
+    .locals 1
+
+    # P0 diagnostics: earliest app code point. Install the crash recorder
+    # before any provider or activity can run, then arm the startup-hang
+    # watchdog. A broken diagnostic must never abort the startup.
+    invoke-super {p0, p1}, Landroid/app/Application;->attachBaseContext(Landroid/content/Context;)V
+
+    :try_start_0
+    invoke-static {p1}, Lcom/melodix/music/NativeCrashGuard;->install(Landroid/content/Context;)V
+
+    const-string v0, "attach"
+
+    invoke-static {v0}, Lcom/melodix/music/NativeCrashGuard;->stage(Ljava/lang/String;)V
+
+    invoke-static {}, Lcom/melodix/music/StartupHangWatchdog;->arm()V
+    :try_end_0
+    .catch Ljava/lang/Throwable; {:try_start_0 .. :try_end_0} :catch_0
+
+    :catch_0
+    return-void
+.end method
+
 .method static constructor <clinit>()V
     .locals 2
 
@@ -248,43 +270,12 @@
 .end method
 
 
-# P0 startup diagnostics: install the crash recorder and arm the hang
-# watchdog BEFORE any content provider or Application logic runs, so even a
-# failure or a main-thread block during provider init is recorded. The report
-# is shown as a dialog on the next launch (photo-ready, no adb needed).
-.method protected attachBaseContext(Landroid/content/Context;)V
-    .locals 1
-
-    invoke-super {p0, p1}, Landroid/app/Application;->attachBaseContext(Landroid/content/Context;)V
-
-    :try_start_0
-    invoke-static {p1}, Lcom/melodix/music/NativeCrashGuard;->install(Landroid/content/Context;)V
-
-    const-string v0, "attach"
-
-    invoke-static {v0}, Lcom/melodix/music/NativeCrashGuard;->stage(Ljava/lang/String;)V
-
-    invoke-static {}, Lcom/melodix/music/StartupHangWatchdog;->arm()V
-    :try_end_0
-    .catch Ljava/lang/Throwable; {:try_start_0 .. :try_end_0} :catch_0
-
-    :catch_0
-    return-void
-.end method
-
-
 # virtual methods
 .method public final onCreate()V
     .locals 13
 
     .line 1
     invoke-super {p0}, Landroid/app/Application;->onCreate()V
-
-    const-string v1, "MDXSTART"
-
-    const-string v2, "app-create enter"
-
-    invoke-static {v1, v2}, Landroid/util/Log;->i(Ljava/lang/String;Ljava/lang/String;)I
 
     # Install the crash recorder as early as possible: a failure while the
     # application itself starts up must be readable on the next launch too.

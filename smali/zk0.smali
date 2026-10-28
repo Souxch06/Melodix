@@ -72,12 +72,11 @@
 
     # P0 splash-flash guard (fade path): the splash overlay is opaque and sits
     # above the WebView. Fading it as soon as the page loads exposes the web
-    # player before the native shell covers it (the startup flash). While the
-    # native shell has not been shown yet (AppSingleton.l is false) and no
-    # explicit fallback tag is set on the splash, hold the splash opaque and
-    # do nothing: showNativeUi() dismisses it when the shell can draw, and
-    # StartupLoadWatchdog sets the fallback tag before revealing the loaded
-    # web page as a deliberate, traced fallback. No arbitrary delay, no flash.
+    # player for a moment before the native shell covers it again (the startup
+    # flash). If the native shell has not been shown yet (AppSingleton.l is
+    # false) reschedule this fade once by 2 s so a ready shell can take over
+    # without a flash; after that one report the fade runs and the live Spotify
+    # page becomes the fallback home (never a permanent blank splash).
     sget-boolean v6, Lcom/melodix/music/AppSingleton;->l:Z
     if-nez v6, :fade_go
 
@@ -89,29 +88,21 @@
 
     if-nez v7, :fade_go
 
-    const-string v6, "MDXSTART"
+    invoke-virtual {v6, v5}, Landroid/view/View;->setTag(Ljava/lang/Object;)V
 
-    const-string v7, "splash-hold waiting for native shell (no flash)"
+    const-wide/16 v1, 0x7d0
 
-    invoke-static {v6, v7}, Landroid/util/Log;->i(Ljava/lang/String;Ljava/lang/String;)I
+    invoke-virtual {v6, v5, v1, v2}, Landroid/view/View;->postDelayed(Ljava/lang/Runnable;J)Z
 
     return-void
 
     :fade_go
 
-    # MDXSTART visibility trace: the splash fade runs now (either the shell is
-    # already shown and the fade is a no-op, or an explicit fallback tag was
-    # set by the login path / StartupLoadWatchdog).
-    const-string v6, "MDXSTART"
+    # P0 startup watchdog: the web reveal is starting - the startup is
+    # visually resolved, the hang watchdog must not report.
+    const/4 v0, 0x1
 
-    const-string v7, "splash-fade alpha 1->0 (shell shown or explicit fallback)"
-
-    invoke-static {v6, v7}, Landroid/util/Log;->i(Ljava/lang/String;Ljava/lang/String;)I
-
-    const-string v7, "fade-go"
-
-    invoke-static {p0, v7}, Lcom/melodix/music/StartupSplashFallback;->traceState(Lcom/melodix/music/MainActivity;Ljava/lang/String;)V
-
+    sput-boolean v0, Lcom/melodix/music/AppSingleton;->startupDone:Z
 
     .line 11
     .line 12
@@ -217,29 +208,6 @@
 
     .line 63
     :pswitch_0
-    # P0 late-callback guard: a late error runnable must not restore the
-    # splash on top of a native shell that has already taken over.
-    # P0 fix: the branch polarity was inverted - the restore was allowed with
-    # the shell shown (l==true) and blocked without it (l==false), exactly the
-    # opposite of the comment and of the (now truthful) log line. if-eqz
-    # continues only while the shell is NOT shown.
-    sget-boolean v6, Lcom/melodix/music/AppSingleton;->l:Z
-
-    if-eqz v6, :pswitch0_allowed
-
-    const-string v6, "MDXSTART"
-
-    const-string v7, "splash-restore skipped (native shell already shown)"
-
-    invoke-static {v6, v7}, Landroid/util/Log;->i(Ljava/lang/String;Ljava/lang/String;)I
-
-    return-void
-
-    :pswitch0_allowed
-    const-string v6, "zk0-restore"
-
-    invoke-static {p0, v6}, Lcom/melodix/music/StartupSplashFallback;->traceState(Lcom/melodix/music/MainActivity;Ljava/lang/String;)V
-
     iget-object v0, p0, Lcom/melodix/music/MainActivity;->H:Landroidx/constraintlayout/widget/ConstraintLayout;
 
     .line 64
@@ -349,11 +317,6 @@
     .line 114
     .line 115
     :cond_7
-    # P0 fix: the restored error text promises "Tap to retry" - install the
-    # handler here too (not only in the D() error branch and showErrorScreen),
-    # so every path that shows the text leaves a working, recoverable exit.
-    invoke-static {p0}, Lcom/melodix/music/SplashRetryListener;->install(Lcom/melodix/music/MainActivity;)V
-
     iget-object v0, p0, Lcom/melodix/music/MainActivity;->I:Landroid/widget/ImageView;
 
     .line 116

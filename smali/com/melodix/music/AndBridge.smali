@@ -4803,7 +4803,7 @@
 
     move-result v0
 
-    if-eqz v0, :asset_inject_done
+    if-nez v0, :asset_inject_done
 
     invoke-static {p1}, Lm9;->d(Ljava/lang/String;)Ljava/lang/String;
 
@@ -4855,7 +4855,7 @@
 
     move-result v0
 
-    if-eqz v0, :read_bundled_asset_done
+    if-nez v0, :read_bundled_asset_done
 
     invoke-static {p1}, Lm9;->d(Ljava/lang/String;)Ljava/lang/String;
 
@@ -4863,91 +4863,4 @@
 
     :read_bundled_asset_done
     return-object v1
-.end method
-
-.method public final readBundledAssetRange(Ljava/lang/String;II)Ljava/lang/String;
-    .locals 4
-    .annotation runtime Landroid/webkit/JavascriptInterface;
-    .end annotation
-
-    # Ranged reader for the bundled bridge. Device traces (bridgeStarted=false,
-    # "read-asset: empty" on every recovery) were caused by the inverted
-    # whitelist below, now fixed. Ranges keep each JavascriptInterface return
-    # small on purpose: a transfer-size ceiling that would drop one ~205 KB
-    # call is a plausible but UNPROVEN hypothesis for why the initial single
-    # evaluateJavascript injection also failed on that device.
-    const-string v1, ""
-
-    if-eqz p1, :range_done
-
-    const-string v0, "spotify_bridge.js"
-
-    invoke-virtual {v0, p1}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
-
-    move-result v0
-
-    if-eqz v0, :range_done
-
-    invoke-static {p1}, Lm9;->d(Ljava/lang/String;)Ljava/lang/String;
-
-    move-result-object v2
-
-    if-eqz v2, :range_done
-
-    invoke-virtual {v2}, Ljava/lang/String;->length()I
-
-    move-result v3
-
-    if-ltz p2, :range_done
-
-    if-ge p2, v3, :range_done
-
-    if-le p3, v3, :range_no_clamp
-
-    move p3, v3
-
-    :range_no_clamp
-    if-le p3, p2, :range_done
-
-    invoke-virtual {v2, p2, p3}, Ljava/lang/String;->substring(II)Ljava/lang/String;
-
-    move-result-object v1
-
-    :range_done
-    return-object v1
-.end method
-
-.method public final bundledAssetLength(Ljava/lang/String;)I
-    .locals 2
-    .annotation runtime Landroid/webkit/JavascriptInterface;
-    .end annotation
-
-    # Total length of the whitelisted bridge asset in UTF-16 units. The page
-    # loops ranged reads until this length is reached: a ranged return can
-    # come back shorter than requested (observed on device: 48148 of 49152
-    # units), and stopping on a short read silently truncated the source.
-    const/4 v1, 0x0
-
-    if-eqz p1, :length_done
-
-    const-string v0, "spotify_bridge.js"
-
-    invoke-virtual {v0, p1}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
-
-    move-result v0
-
-    if-eqz v0, :length_done
-
-    invoke-static {p1}, Lm9;->d(Ljava/lang/String;)Ljava/lang/String;
-
-    move-result-object v0
-
-    if-eqz v0, :length_done
-
-    invoke-virtual {v0}, Ljava/lang/String;->length()I
-
-    move-result v1
-
-    :length_done
-    return v1
 .end method

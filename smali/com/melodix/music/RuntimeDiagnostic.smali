@@ -135,17 +135,6 @@
     const-string v3, "Copier"
     invoke-virtual {v1, v3, v2}, Landroid/app/AlertDialog$Builder;->setPositiveButton(Ljava/lang/CharSequence;Landroid/content/DialogInterface$OnClickListener;)Landroid/app/AlertDialog$Builder;
     move-result-object v1
-
-    # Neutral "Actualiser": re-collect the live counters and reopen the panel.
-    new-instance v2, Lcom/melodix/music/NativeDiagRefreshListener;
-
-    invoke-direct {v2, p0}, Lcom/melodix/music/NativeDiagRefreshListener;-><init>(Landroid/app/Activity;)V
-
-    const-string v3, "Actualiser"
-
-    invoke-virtual {v1, v3, v2}, Landroid/app/AlertDialog$Builder;->setNeutralButton(Ljava/lang/CharSequence;Landroid/content/DialogInterface$OnClickListener;)Landroid/app/AlertDialog$Builder;
-
-    move-result-object v1
     const-string v3, "Fermer"
     const/4 v4, 0x0
     invoke-virtual {v1, v3, v4}, Landroid/app/AlertDialog$Builder;->setNegativeButton(Ljava/lang/CharSequence;Landroid/content/DialogInterface$OnClickListener;)Landroid/app/AlertDialog$Builder;

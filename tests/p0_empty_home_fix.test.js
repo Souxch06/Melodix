@@ -72,37 +72,11 @@ test('[P0] traces de diagnostic presentes (bridge, shell, rows, erreurs JS)', ()
   assert.ok(shell.includes("addEventListener('error'"), 'erreurs JS capturees');
 });
 
-test('[P0] le fade du splash attend le shell (anti-flash, hold sans delai)', () => {
+test('[P0] le fade du splash attend le shell (anti-flash, un seul report borne)', () => {
   const zk = read('smali/zk0.smali');
   assert.ok(zk.includes('AppSingleton;->l:Z'), 'verifie si le shell est montre');
+  assert.ok(zk.includes('postDelayed'), 'reporte le fade');
   assert.ok(zk.includes(':fade_go'), 'chemin de fade garde');
   const guard = zk.slice(zk.indexOf('packed-switch'), zk.indexOf(':pswitch_0'));
-  // Nouveau contrat (mega-mission) : pas de delai arbitraire. Tant que le
-  // shell n'est pas montre et qu'aucun tag de fallback explicite n'est pose,
-  // le splash reste opaque (hold) - showNativeUi le masquera.
-  assert.ok(guard.includes('MDXSTART'), 'le hold est trace');
-  assert.ok(guard.includes('splash-hold'), 'trace de hold identifiable');
-  assert.ok(!guard.includes('postDelayed'), 'plus aucun report temporel du fade');
-  assert.ok(!guard.includes('setTag'), 'le tag n\'est plus auto-pose par le fade');
-});
-
-test('[P0] le fallback web est explicite et trace (login + watchdog)', () => {
-  const c91 = read('smali/c91.smali');
-  const wd = read('smali/com/melodix/music/StartupLoadWatchdog.smali');
-  // La page du player web ne doit jamais dismiss le splash elle-meme.
-  assert.ok(c91.includes('splash-hold player page loaded'), 'player = hold du splash');
-  // Seules les pages login/auth revelent la WebView, avec tag de fallback.
-  assert.ok(c91.includes('web-login-fallback'), 'login pose le tag de fallback');
-  assert.ok(c91.includes('splash-fallback login page loaded'), 'fallback login trace');
-  // Le watchdog est le filet : tag de fallback + trace avant de reveler la page.
-  assert.ok(wd.includes('web-fallback'), 'watchdog pose le tag de fallback');
-  assert.ok(wd.includes('splash-fallback watchdog timeout'), 'fallback watchdog trace');
-});
-
-test('[P0] aucun callback tardif ne restaure le splash au-dessus du shell', () => {
-  const zk = read('smali/zk0.smali');
-  const act = read('smali/com/melodix/music/MainActivity.smali');
-  assert.ok(zk.includes('pswitch0_allowed'), 'garde anti-tardif sur la restauration zk0');
-  assert.ok(zk.includes('splash-restore skipped'), 'restauration tardive bloquee et tracee');
-  assert.ok(act.includes(':D_splash_allowed'), 'garde anti-tardif sur D(Z)');
+  assert.ok(guard.includes('setTag'), 'le report est borne (une seule fois)');
 });

@@ -94,8 +94,6 @@
 
     .line 15
     .line 16
-    invoke-static {p1}, Lcom/melodix/music/StartupSplashFallback;->traceLoadUrl(Ljava/lang/String;)V
-
     invoke-virtual {p0, p1}, Landroid/webkit/WebView;->loadUrl(Ljava/lang/String;)V
 
     .line 17
@@ -126,8 +124,6 @@
 
     .line 30
     .line 31
-    invoke-static {p1}, Lcom/melodix/music/StartupSplashFallback;->traceLoadUrl(Ljava/lang/String;)V
-
     invoke-virtual {p0, p1}, Landroid/webkit/WebView;->loadUrl(Ljava/lang/String;)V
 
     .line 32

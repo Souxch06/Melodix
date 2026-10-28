@@ -6,11 +6,6 @@
     window.__sfNativeUiShellStarted = true;
     window.__sfNativeUiShellErrors = 0;
 
-    // In-app diagnostic state (phone-side). Counts and status words only.
-    window.__sfDiagState = window.__sfDiagState || {};
-    window.__sfDiagState.shellStarted = true;
-    window.__sfDiagState.shellStartedAt = new Date().toISOString();
-
     // P0 diagnostic: uncaught JS errors must never kill the startup chain
     // silently - keep a bounded counter and one trace line per error name.
     window.addEventListener('error', function(ev) {
@@ -41,6 +36,7 @@
     var lastSearchSignature = null;
     var lastLibraryPath = '';
     var lastLibrarySignature = null;
+    var mediaLibWarmupRequested = false;
     var lastMediaActiveAt = 0;
 
     function normalizedPath() {
@@ -158,10 +154,6 @@
         var bridge = window.AndBridge;
         var rows;
         if (!bridge || typeof bridge.onNativeUiData !== 'function') return false;
-        window.__sfDiagState = window.__sfDiagState || {};
-        window.__sfDiagState.lastSendScreen = String(screen || '');
-        window.__sfDiagState.lastSendCount = Array.isArray(rows) ? rows.length : 0;
-        window.__sfDiagState.lastSendAt = new Date().toISOString();
 
         rows = (Array.isArray(items) ? items : []).map(function(item) {
             var title = String(item && (item.title || item.name || item.label) || '').trim();
@@ -492,20 +484,11 @@
         var spotifyRows = [];
         var sidebar;
 
-        // The library can settle AFTER the first home scrape (token/GraphQL
-        // latency). The old one-shot warmup dropped it forever when the first
-        // call failed or the token was not ready yet. Retry with a backoff
-        // until the fetch is loading or done, so late playlists still reach
-        // Home through the settle notification in the bridge.
-        if (!library && typeof window.checkMediaLib === 'function' &&
-            window.__sfMediaLibStatus !== 'loading' && window.__sfMediaLibStatus !== 'ready') {
-            var libNow = (window.Date && Date.now) ? Date.now() : 0;
-            if (!window.__sfMediaLibRetryAt || libNow >= window.__sfMediaLibRetryAt) {
-                window.__sfMediaLibRetryAt = libNow + 5000;
-                try {
-                    window.checkMediaLib();
-                } catch (_) {}
-            }
+        if (!library && !mediaLibWarmupRequested && typeof window.checkMediaLib === 'function') {
+            mediaLibWarmupRequested = true;
+            try {
+                window.checkMediaLib();
+            } catch (_) {}
         }
 
         if (library) {
@@ -557,13 +540,6 @@
             });
         });
 
-        // P0 trace: distinguish "no data yet" from "data merged late".
-        if (userRows.length > 0 || (library && library.playlists && library.playlists.length > 0)) {
-            diagTrace('home-merge lib=' + (window.__sfMediaLibStatus || 'absent') +
-                ' librows=' + userRows.length +
-                ' domrows=' + spotifyRows.length +
-                ' err=' + (window.__sfMediaLibError || ''));
-        }
         return userRows.concat(spotifyRows);
     }
 
@@ -592,14 +568,8 @@
             return;
         }
 
-        var __sfDomRows = collectHomeRows(mainView);
-        window.__sfDiagState = window.__sfDiagState || {};
-        window.__sfDiagState.homeCollected = __sfDomRows.length;
-        rows = supplementHomeRowsWithLibrary(__sfDomRows);
+        rows = supplementHomeRowsWithLibrary(collectHomeRows(mainView));
         signature = JSON.stringify(rows);
-        window.__sfDiagState = window.__sfDiagState || {};
-        window.__sfDiagState.homeMerged = rows.length;
-        window.__sfDiagState.homeUpdatedAt = new Date().toISOString();
         window.__sfNativeUiHomeRowsCount = rows.length;
         if (lastHomeSignature !== signature && sendNativeUiData('home', rows)) {
             // This state is intentionally closure-local. Older hotfixable bridge
@@ -771,9 +741,6 @@
         try {
             bridge.onNativeUiReady();
             window.__sfNativeUiReadyNotified = true;
-            window.__sfDiagState = window.__sfDiagState || {};
-            window.__sfDiagState.readyNotified = true;
-            window.__sfDiagState.readyAt = new Date().toISOString();
             window.__sfNativeUiReadyRetries = 0;
             if (readyRetryTimer) window.clearTimeout(readyRetryTimer);
             readyRetryTimer = null;
@@ -1769,44 +1736,6 @@
         return true;
     };
 
-    // In-app diagnostic report (shown by the native diag dialog). Status
-    // words, counts and timestamps only - NEVER a token, cookie, header,
-    // playlist name or any personal data.
-    window.__sfDiagReport = function() {
-        var st = window.__sfDiagState || {};
-        var lib = window.mediaLib;
-        return {
-            collectedAt: new Date().toISOString(),
-            bridgeStartedAt: st.bridgeStartedAt || 'inconnu',
-            shellStarted: st.shellStarted === true,
-            shellCompleted: window.__sfNativeUiShellCompleted === true,
-            shellErrors: window.__sfNativeUiShellErrors || 0,
-            tokenChecked: st.tokenPresent !== undefined,
-            tokenPresent: st.tokenPresent === true,
-            libStatus: window.__sfMediaLibStatus || 'pending',
-            libError: window.__sfMediaLibError || '',
-            playlistsReceived: (lib && lib.playlists && lib.playlists.length) || st.playlistsReceived || 0,
-            homeCollected: st.homeCollected || 0,
-            homeMerged: st.homeMerged || 0,
-            readyNotified: st.readyNotified === true,
-            lastSendScreen: String(st.lastSendScreen || ''),
-            lastSendCount: st.lastSendCount || 0,
-            lastSendAt: st.lastSendAt || '',
-            bridgeBytes: Number.isInteger(window.__sfBridgeBytes) ? window.__sfBridgeBytes : 0,
-            bridgeExecMode: String(window.__sfBridgeExecMode || ''),
-            bridgeLastError: String(window.__sfBridgeLastError || ''),
-            bridgeReadLine: window.__sfBridgeReadLog
-              ? String(window.__sfBridgeReadLog.got || 0) + '/' + String(window.__sfBridgeReadLog.total || 0)
-              : '',
-            bridgeExecSteps: Array.isArray(window.__sfBridgeExecSteps)
-              ? window.__sfBridgeExecSteps.slice(-8).map(function(s) {
-                  return String(s && s.step || '') + '=' + String(s && s.status || '');
-                }).join(',')
-              : '',
-            bridgeCspCount: Array.isArray(window.__sfBridgeCspViolations) ? window.__sfBridgeCspViolations.length : 0
-        };
-    };
-
     window.__sfNativeRequestHome = function() {
         if (window.location.hostname !== 'open.spotify.com') return false;
         if (!isSpotifyHome()) {
@@ -2011,38 +1940,19 @@
 
     function recordBridgeFailure(stage, error) {
         var message = error && error.message ? error.message : String(error || '');
-        // Keep the step name attached to each failure: never overwrite the
-        // origin of an earlier error without leaving it in the journal.
         window.__sfBridgeLastError = stage + (message ? ': ' + message : '');
-        logExecStep(stage, 'failed', message);
-    }
-
-    function logExecStep(step, status, detail) {
-        if (!window.__sfBridgeExecSteps) window.__sfBridgeExecSteps = [];
-        window.__sfBridgeExecSteps.push({
-            step: String(step || '').slice(0, 24),
-            status: String(status || '').slice(0, 24),
-            detail: String(detail || '').slice(0, 80)
-        });
-        if (window.__sfBridgeExecSteps.length > 32) window.__sfBridgeExecSteps.shift();
     }
 
     function executeBridgeSource(source) {
         var node;
         window.__sfBridgeBytes = source.length;
 
-        // Success is ONLY declared by bridgeHasStarted(): the bridge sets
-        // __sfMelodixBridgeStarted when its own bootstrap runs. Appending a
-        // node to the DOM is never treated as a start.
-
-        // 1. Inline script: the way the asset used to be executed. Blocked
-        //    when the page CSP has no script-src-elem 'unsafe-inline'.
+        // 1. Inline script: the way the asset used to be executed.
         try {
             node = document.createElement('script');
             node.textContent = source;
             (document.head || document.documentElement).appendChild(node);
             if (node.parentNode) node.parentNode.removeChild(node);
-            logExecStep('inline-script', 'injected');
         } catch (error) {
             recordBridgeFailure('inline-script', error);
         }
@@ -2054,7 +1964,6 @@
         // 2. Direct eval (rejected when the page forbids unsafe-eval).
         try {
             (0, eval)(source);
-            logExecStep('eval', 'injected');
         } catch (error) {
             recordBridgeFailure('eval', error);
         }
@@ -2063,10 +1972,9 @@
             return true;
         }
 
-        // 3. Function constructor (same unsafe-eval requirement).
+        // 3. Function constructor.
         try {
             (new Function(source))();
-            logExecStep('function', 'injected');
         } catch (error) {
             recordBridgeFailure('function', error);
         }
@@ -2075,27 +1983,14 @@
             return true;
         }
 
-        // 4. Blob URL: asynchronous. A CSP without script-src-elem 'blob:'
-        //    blocks the load through the onerror handler or a
-        //    securitypolicyviolation event; either way it is journaled.
+        // 4. Blob URL: asynchronous, so the next diagnostic sample confirms it.
         try {
             if (bridgeBlobUrl && typeof URL.revokeObjectURL === 'function') URL.revokeObjectURL(bridgeBlobUrl);
             bridgeBlobUrl = URL.createObjectURL(new Blob([source], { type: 'text/javascript' }));
             node = document.createElement('script');
             node.src = bridgeBlobUrl;
-            node.onerror = function() {
-                recordBridgeFailure('blob', 'script-load-error');
-            };
-            node.onload = function() {
-                if (!bridgeHasStarted()) {
-                    logExecStep('blob', 'loaded-not-started');
-                }
-            };
             (document.head || document.documentElement).appendChild(node);
             window.__sfBridgeExecMode = 'blob';
-            // "injected-pending" only: the next attempt/sample checks the
-            // real start signal before anything is called successful.
-            logExecStep('blob', 'injected-pending');
             return true;
         } catch (error) {
             recordBridgeFailure('blob', error);
@@ -2106,76 +2001,12 @@
     function loadBundledBridge(name) {
         var source = '';
         if (bridgeHasStarted()) return true;
-        // Preferred reader: reassemble the bridge from the APK asset itself
-        // (AssetManager, no hotfix file, no cache). Device traces proved that
-        // m9.d served a stale filesDir/hotfixes/spotify_bridge.js (146452
-        // units) instead of the bundled asset (204584): the hotfix ran
-        // without the modern bridge APIs and never signalled a start. The
-        // shell and the bridge ship as one versioned pair, so the APK asset
-        // is the authoritative source; the old served-content readers stay as
-        // fallback. apkAssetInfo documents which source the device used.
-        var readLog = { total: 0, got: 0, calls: 0, source: '' };
-        if (window.AndBridge && typeof window.AndBridge.apkAssetInfo === 'function') {
-            try {
-                window.__sfBridgeAssetInfo = String(window.AndBridge.apkAssetInfo(name) || '');
-                var apkMatch = window.__sfBridgeAssetInfo.match(/apk=(\d+)/);
-                if (apkMatch) readLog.total = Number(apkMatch[1]);
-            } catch (error) {
-                recordBridgeFailure('apk-asset-info', error);
+        try {
+            if (window.AndBridge && typeof window.AndBridge.readBundledAsset === 'function') {
+                source = String(window.AndBridge.readBundledAsset(name) || '');
             }
-        }
-        if (readLog.total > 0 && window.AndBridge && typeof window.AndBridge.readApkAssetRange === 'function') {
-            readLog.source = 'apk';
-        } else if (window.AndBridge && typeof window.AndBridge.readBundledAssetRange === 'function') {
-            readLog.source = 'served';
-            try {
-                if (typeof window.AndBridge.bundledAssetLength === 'function') {
-                    readLog.total = Number(window.AndBridge.bundledAssetLength(name) || 0);
-                }
-            } catch (error) {
-                recordBridgeFailure('read-asset-range', error);
-            }
-        }
-        if (readLog.source) {
-            try {
-                var readerName = readLog.source === 'apk' ? 'readApkAssetRange' : 'readBundledAssetRange';
-                var chunkSize = 32 * 1024;
-                var offset = 0;
-                var parts = [];
-                var part;
-                var guard = 0;
-                for (;;) {
-                    part = String(window.AndBridge[readerName](name, offset, offset + chunkSize) || '');
-                    if (!part) break;
-                    parts.push(part);
-                    offset += part.length;
-                    if (readLog.total > 0 ? offset >= readLog.total : part.length < chunkSize) break;
-                    if (++guard > 512) {
-                        recordBridgeFailure('read-asset-range', 'loop-guard');
-                        break;
-                    }
-                }
-                source = parts.join('');
-                readLog.got = source.length;
-                readLog.calls = parts.length;
-                if (readLog.total > 0 && source.length < readLog.total) {
-                    recordBridgeFailure('read-asset-range', 'short-by-' + (readLog.total - source.length));
-                }
-            } catch (error) {
-                recordBridgeFailure('read-asset-range', error);
-            }
-        }
-        window.__sfBridgeReadLog = readLog;
-        // Legacy single-call reader, kept as the fallback for assets small
-        // enough to survive the bridge return.
-        if (!source) {
-            try {
-                if (window.AndBridge && typeof window.AndBridge.readBundledAsset === 'function') {
-                    source = String(window.AndBridge.readBundledAsset(name) || '');
-                }
-            } catch (error) {
-                recordBridgeFailure('read-asset', error);
-            }
+        } catch (error) {
+            recordBridgeFailure('read-asset', error);
         }
         if (source) return executeBridgeSource(source);
         recordBridgeFailure('read-asset', 'empty');
@@ -2205,15 +2036,6 @@
                 document.addEventListener('securitypolicyviolation', function(event) {
                     var directive = String(event && (event.effectiveDirective || event.violatedDirective) || '');
                     var blocked = String(event && event.blockedURI || '');
-                    // Journal every violation separately: an earlier one is
-                    // never overwritten by a later one.
-                    if (!window.__sfBridgeCspViolations) window.__sfBridgeCspViolations = [];
-                    window.__sfBridgeCspViolations.push({
-                        effectiveDirective: String(event && event.effectiveDirective || '').slice(0, 60),
-                        violatedDirective: String(event && event.violatedDirective || '').slice(0, 60),
-                        blockedURI: blocked.slice(0, 80)
-                    });
-                    if (window.__sfBridgeCspViolations.length > 16) window.__sfBridgeCspViolations.shift();
                     window.__sfBridgeCspViolation = (directive + ' ' + blocked).trim().slice(0, 120);
                 }, true);
             } catch (_) {}

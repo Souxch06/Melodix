@@ -16,12 +16,6 @@
     }
     window.__sfBridgeTrace = __sfBridgeTrace;
     __sfBridgeTrace('bridge start');
-
-    // In-app diagnostic state (phone-side, no ADB). Status words and counts
-    // only: NEVER a token, cookie, authorization header or personal data.
-    window.__sfDiagState = window.__sfDiagState || {};
-    window.__sfDiagState.bridgeStartedAt = new Date().toISOString();
-    window.__sfDiagState.bridgeTrace = 'start';
     window.addEventListener('error', function(ev) {
         __sfBridgeTrace('bridge js-error ' + String((ev && ev.error && ev.error.name) || (ev && ev.message) || 'unknown').slice(0, 60));
     }, true);
@@ -3251,9 +3245,6 @@
                 } catch (_) {}
             }
         }
-        // Diag: presence only, never the token itself.
-        window.__sfDiagState = window.__sfDiagState || {};
-        window.__sfDiagState.tokenPresent = !!window.spotAuthToken;
         return !!window.spotAuthToken;
     }
     window.ensureAuthToken = ensureAuthToken;
@@ -3279,55 +3270,17 @@
 
     window.pendingMediaRequests = window.pendingMediaRequests || new Set();
     let isFetchingLib = false;
-
-    // P0 sync fix: the first home scrape can finish before mediaLib arrives.
-    // The shell must be told when the library settles so late playlists are
-    // merged into Home instead of being dropped. No token/secret is traced.
-    function notifyMediaLibSettled(reason) {
-        console.log("[Spotifuck] mediaLib settled: " + (window.__sfMediaLibStatus || '?') +
-            " playlists=" + ((window.mediaLib && window.mediaLib.playlists && window.mediaLib.playlists.length) || 0) +
-            " reason=" + (reason || ''));
-        try {
-            if (typeof window.__sfNativeUiRefresh === 'function') window.__sfNativeUiRefresh();
-        } catch (_) {}
-    }
-    window.__sfMediaLibStatus = window.__sfMediaLibStatus || 'pending';
-    window.__sfMediaLibError = window.__sfMediaLibError || '';
-
     async function checkMediaLib(force = false) {
         if (isFetchingLib && !force) return;
         await ensureAuthToken();
         if (!window.spotAuthToken) {
             console.warn("[Spotifuck] checkMediaLib: Auth token unavailable.");
-            window.__sfMediaLibStatus = 'error';
-            window.__sfMediaLibError = 'token-missing';
-            window.__sfDiagState = window.__sfDiagState || {};
-            window.__sfDiagState.libStatus = 'error';
-            window.__sfDiagState.libError = 'token-missing';
-            window.__sfDiagState.playlistsReceived = 0;
-            window.__sfDiagState.libUpdatedAt = new Date().toISOString();
-            notifyMediaLibSettled('token-missing');
             return;
         }
         isFetchingLib = true;
-        window.__sfMediaLibStatus = 'loading';
-        window.__sfMediaLibError = '';
         try {
             const allItems = await fetchAllLibrary();
             window.mediaLib = parseLibrary(allItems);
-            // Distinguish a real HTTP failure (empty result + recorded error)
-            // from a genuinely empty library: an error keeps the retry path
-            // open, an empty library is a final, honest state.
-            if (window.__sfMediaLibError && (!allItems || allItems.length === 0)) {
-                window.__sfMediaLibStatus = 'error';
-            } else {
-                window.__sfMediaLibStatus = 'ready';
-            }
-            window.__sfDiagState = window.__sfDiagState || {};
-            window.__sfDiagState.libStatus = window.__sfMediaLibStatus;
-            window.__sfDiagState.libError = window.__sfMediaLibError || '';
-            window.__sfDiagState.playlistsReceived = (window.mediaLib && window.mediaLib.playlists && window.mediaLib.playlists.length) || 0;
-            window.__sfDiagState.libUpdatedAt = new Date().toISOString();
             console.log("[Spotifuck] checkMediaLib: Successfully loaded mediaLib! Draining pending requests:", Array.from(window.pendingMediaRequests));
             if (window.pendingMediaRequests && window.pendingMediaRequests.size > 0) {
                 for (const reqId of window.pendingMediaRequests) {
@@ -3336,16 +3289,8 @@
                 }
                 window.pendingMediaRequests.clear();
             }
-            notifyMediaLibSettled('ready');
         } catch (e) {
             console.error("Error fetching/parsing media library: ", e);
-            window.__sfMediaLibStatus = 'error';
-            window.__sfMediaLibError = 'fetch-parse-error';
-            window.__sfDiagState = window.__sfDiagState || {};
-            window.__sfDiagState.libStatus = 'error';
-            window.__sfDiagState.libError = 'fetch-parse-error';
-            window.__sfDiagState.libUpdatedAt = new Date().toISOString();
-            notifyMediaLibSettled('fetch-parse-error');
         } finally {
             isFetchingLib = false;
         }
@@ -3402,11 +3347,7 @@
             });
 
             if (!resp.ok) {
-                // Distinguish a real HTTP failure from an empty library: the
-                // error is recorded so the shell can show a retry state, and a
-                // partial result is NOT treated as "the account has nothing".
-                console.error("Pathfinder query failed: HTTP " + resp.status + " " + resp.statusText);
-                window.__sfMediaLibError = 'http-' + resp.status;
+                console.error("Pathfinder query failed: ", resp.statusText);
                 break;
             }
 

@@ -728,14 +728,6 @@
     .line 58
     if-nez v1, :cond_2
 
-    const-string v1, "spotify_bridge.js"
-
-    invoke-virtual {v1, p0}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
-
-    move-result v1
-
-    if-nez v1, :cond_2
-
     .line 59
     .line 60
     invoke-virtual {v2}, Ljava/io/File;->exists()Z
@@ -1625,8 +1617,6 @@
 
     const-string v0, "https://open.spotify.com/"
 
-    invoke-static {v0}, Lcom/melodix/music/StartupSplashFallback;->traceLoadUrl(Ljava/lang/String;)V
-
     .line 288
     .line 289
     invoke-virtual {p0, v0}, Landroid/webkit/WebView;->loadUrl(Ljava/lang/String;)V
@@ -1647,8 +1637,6 @@
     invoke-virtual {v1, v0}, Landroid/webkit/WebSettings;->setUserAgentString(Ljava/lang/String;)V
 
     const-string v0, "https://accounts.spotify.com/en/login?continue=https%3A%2F%2Fopen.spotify.com%2F&allow_signup=1"
-
-    invoke-static {v0}, Lcom/melodix/music/StartupSplashFallback;->traceLoadUrl(Ljava/lang/String;)V
 
     .line 294
     .line 295

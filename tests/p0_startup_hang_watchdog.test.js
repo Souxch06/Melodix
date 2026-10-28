@@ -27,7 +27,7 @@ const GUARD = () => read('smali/com/melodix/music/NativeCrashGuard.smali');
 const APP = () => read('smali/com/melodix/music/AppSingleton.smali');
 const WD = () => read('smali/com/melodix/music/StartupHangWatchdog.smali');
 const MI = () => read('smali/com/melodix/music/MainActivity.smali');
-const FB = () => read('smali/com/melodix/music/StartupSplashFallback.smali');
+const ZK = () => read('smali/zk0.smali');
 
 function methodBody(src, sigStart) {
   const start = src.indexOf(sigStart);
@@ -130,11 +130,11 @@ test('startupDone is set on the native-shell takeover', () => {
   assert.match(body, /sput-boolean v0, Lcom\/melodix\/music\/AppSingleton;->startupDone:Z/);
 });
 
-test('startupDone is set when the splash fallback acts', () => {
-  const body = methodBody(FB(), '.method public final run()V');
-  const fired = body.indexOf('startup-splash-fallback FIRED');
-  assert.ok(fired > 0, 'the FIRED trace must exist');
-  assert.match(body.slice(fired, fired + 800), /sput-boolean v1, Lcom\/melodix\/music\/AppSingleton;->startupDone:Z/);
+test('startupDone is set at the web reveal (:fade_go in zk0)', () => {
+  const zk = ZK();
+  const fade = zk.indexOf('\n    :fade_go');
+  assert.ok(fade > 0, 'the :fade_go label definition must exist');
+  assert.match(zk.slice(fade, fade + 400), /sput-boolean v0, Lcom\/melodix\/music\/AppSingleton;->startupDone:Z/);
 });
 
 // ---------------------------------------------------------------------------

@@ -8,51 +8,6 @@
 
 
 # direct methods
-
-# P0 root-cause fix (launch blocked on the logo): the page classification in
-# onPageFinished asked "does the URL contain open.spotify.com?" (da1.y is
-# String.contains). The Spotify LOGIN URL embeds that host in its continue=
-# parameter (https://accounts.spotify.com/en/login?continue=https%3A%2F%2Fopen.spotify.com%2F),
-# so the login document matched the "web player" test and the splash was held
-# "waiting for the native shell". A login page never calls
-# AndBridge.onNativeUiReady(), so showNativeUi() never ran and the launch
-# stayed on the logo. A document is the web player only when its ORIGIN is
-# open.spotify.com: the URL must start with "https://open.spotify.com/" or be
-# exactly "https://open.spotify.com". Query parameters and other hosts never
-# match. Every former da1.y(url, "open.spotify.com") classification test is
-# replaced by this helper; error attribution keeps the substring test.
-.method private static isPlayerDoc(Ljava/lang/String;)Z
-    .locals 2
-
-    if-eqz p0, :not_player
-
-    const-string v0, "https://open.spotify.com/"
-
-    invoke-virtual {p0, v0}, Ljava/lang/String;->startsWith(Ljava/lang/String;)Z
-
-    move-result v1
-
-    if-eqz v1, :check_exact
-
-    const/4 p0, 0x1
-
-    return p0
-
-    :check_exact
-    const-string v0, "https://open.spotify.com"
-
-    invoke-virtual {p0, v0}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
-
-    move-result p0
-
-    return p0
-
-    :not_player
-    const/4 p0, 0x0
-
-    return p0
-.end method
-
 .method public static a(Landroid/webkit/WebView;Ljava/util/Map;)Landroid/webkit/WebResourceResponse;
     .locals 12
 
@@ -1404,12 +1359,6 @@
     .line 3
     move-object/from16 v1, p2
 
-    const-string v2, "page-finish"
-
-    invoke-static {v2}, Lcom/melodix/music/StartupSplashFallback;->note(Ljava/lang/String;)V
-
-    invoke-static {v1}, Lcom/melodix/music/StartupSplashFallback;->traceLoadUrl(Ljava/lang/String;)V
-
     .line 4
     .line 5
     invoke-virtual {v0}, Ljava/lang/Object;->getClass()Ljava/lang/Class;
@@ -1560,9 +1509,7 @@
     .line 77
     .line 78
     :cond_2
-    # P0 fix: player test by origin - the login URL contains the host in its
-    # continue= parameter and must not suppress the redirect to the player.
-    invoke-static {v1}, Lc91;->isPlayerDoc(Ljava/lang/String;)Z
+    invoke-static {v1, v6, v3}, Lda1;->y(Ljava/lang/CharSequence;Ljava/lang/String;Z)Z
 
     .line 79
     .line 80
@@ -1578,8 +1525,6 @@
 
     .line 85
     .line 86
-    invoke-static {v1}, Lcom/melodix/music/StartupSplashFallback;->traceLoadUrl(Ljava/lang/String;)V
-
     invoke-virtual {v0, v1}, Landroid/webkit/WebView;->loadUrl(Ljava/lang/String;)V
 
     .line 87
@@ -1589,9 +1534,7 @@
 
     .line 90
     :cond_3
-    # P0 fix: player test by origin - a stale session flag on the login URL
-    # (continue= parameter contains the host) must not trigger the logout sync.
-    invoke-static {v1}, Lc91;->isPlayerDoc(Ljava/lang/String;)Z
+    invoke-static {v1, v6, v3}, Lda1;->y(Ljava/lang/CharSequence;Ljava/lang/String;Z)Z
 
     .line 91
     .line 92
@@ -1657,17 +1600,16 @@
     # A persisted session can land directly on Spotify home; use the existing splash-dismiss path after load.
     if-eqz v2, :cond_15
 
-    invoke-static {v1}, Lc91;->isPlayerDoc(Ljava/lang/String;)Z
+    const-string v2, "open.spotify.com"
+
+    invoke-static {v1, v2, v3}, Lda1;->y(Ljava/lang/CharSequence;Ljava/lang/String;Z)Z
 
     move-result v2
 
-    if-nez v2, :cond_5
+    if-eqz v2, :cond_7
 
-    # P0 root-cause fix: the session flag B can be stale while the WebView has
-    # been driven back to the login document (expired cookie, forced logout).
-    # Fall through to the login/auth tests below so that document is revealed
-    # like any other login page instead of being held for a shell that never
-    # comes (the login page cannot call AndBridge.onNativeUiReady()).
+    goto :cond_5
+
     :cond_15
     .line 123
     .line 124
@@ -1761,54 +1703,11 @@
 
     .line 159
     .line 160
-    if-eqz v8, :flash_route
+    if-eqz v8, :cond_6
 
     .line 161
     .line 162
     goto :goto_0
-
-    :flash_route
-    # P0 flash guard: a loaded open.spotify.com player page must not dismiss
-    # the splash - the native shell is about to cover it (showNativeUi).
-    # Only login/auth documents (no shell coming) reveal the web view, as a
-    # deliberate, traced fallback.
-    const/4 v3, 0x0
-
-    # P0 root-cause fix: this is the decision that blocked the launch. The
-    # player test must match the document origin, not any URL containing the
-    # host: the login URL (accounts.spotify.com/...?continue=https%3A%2F%2Fopen.spotify.com%2F)
-    # passed the old substring test and was held "waiting for native shell"
-    # forever. With the origin test the login document falls to
-    # :reveal_for_login and the web login form is shown, as intended.
-    invoke-static {v1}, Lc91;->isPlayerDoc(Ljava/lang/String;)Z
-
-    move-result v8
-
-    if-eqz v8, :reveal_for_login
-
-    const-string v8, "MDXSTART"
-
-    const-string v9, "splash-hold player page loaded, waiting for native shell"
-
-    invoke-static {v8, v9}, Landroid/util/Log;->i(Ljava/lang/String;Ljava/lang/String;)I
-
-    goto :cond_7
-
-    :reveal_for_login
-    iget-object v8, v2, Lcom/melodix/music/MainActivity;->H:Landroidx/constraintlayout/widget/ConstraintLayout;
-
-    if-eqz v8, :login_fallback_traced
-
-    const-string v9, "web-login-fallback"
-
-    invoke-virtual {v8, v9}, Landroid/view/View;->setTag(Ljava/lang/Object;)V
-
-    :login_fallback_traced
-    const-string v8, "MDXSTART"
-
-    const-string v9, "splash-fallback login page loaded, revealing web view"
-
-    invoke-static {v8, v9}, Landroid/util/Log;->i(Ljava/lang/String;Ljava/lang/String;)I
 
     .line 163
     :cond_6
@@ -1958,13 +1857,7 @@
     .line 233
     .line 234
     .line 235
-    # P0 root-cause fix: the player script stack below (SF_CONFIG,
-    # desktop_spoof.js, spotify_bridge.js, native_ui_shell.js, playlist_sort.js,
-    # css hacks) belongs to the web-player document. The old substring test
-    # also matched the login URL (its continue= parameter embeds the host) and
-    # ran the whole player stack on the login page. Origin test: a login
-    # document keeps only classic_login.js (injected above).
-    invoke-static {v1}, Lc91;->isPlayerDoc(Ljava/lang/String;)Z
+    invoke-static {v1, v6, v3}, Lda1;->y(Ljava/lang/CharSequence;Ljava/lang/String;Z)Z
 
     .line 236
     .line 237
@@ -2675,12 +2568,6 @@
     .line 1
     invoke-super {p0, p1, p2, p3}, Landroid/webkit/WebViewClient;->onPageStarted(Landroid/webkit/WebView;Ljava/lang/String;Landroid/graphics/Bitmap;)V
 
-    const-string p0, "page-start"
-
-    invoke-static {p0}, Lcom/melodix/music/StartupSplashFallback;->note(Ljava/lang/String;)V
-
-    invoke-static {p2}, Lcom/melodix/music/StartupSplashFallback;->traceLoadUrl(Ljava/lang/String;)V
-
     if-eqz p1, :watchdog_skipped
     invoke-static {p1}, Lcom/melodix/music/StartupLoadWatchdog;->arm(Landroid/webkit/WebView;)V
     :watchdog_skipped
@@ -2858,10 +2745,6 @@
     .line 58
     invoke-super {p0, p1, p2, p3, p4}, Landroid/webkit/WebViewClient;->onReceivedError(Landroid/webkit/WebView;ILjava/lang/String;Ljava/lang/String;)V
 
-    const-string p0, "web-error legacy"
-
-    invoke-static {p0}, Lcom/melodix/music/StartupSplashFallback;->note(Ljava/lang/String;)V
-
     const/4 p0, -0x3
 
     if-ne p2, p0, :cond_0
@@ -2932,10 +2815,6 @@
 
     .line 1
     invoke-super {p0, p1, p2, p3}, Landroid/webkit/WebViewClient;->onReceivedError(Landroid/webkit/WebView;Landroid/webkit/WebResourceRequest;Landroid/webkit/WebResourceError;)V
-
-    const-string p0, "web-error modern"
-
-    invoke-static {p0}, Lcom/melodix/music/StartupSplashFallback;->note(Ljava/lang/String;)V
 
     .line 2
     .line 3
@@ -3072,10 +2951,6 @@
 
     .line 1
     invoke-super {p0, p1, p2, p3}, Landroid/webkit/WebViewClient;->onReceivedHttpError(Landroid/webkit/WebView;Landroid/webkit/WebResourceRequest;Landroid/webkit/WebResourceResponse;)V
-
-    const-string p0, "web-error http"
-
-    invoke-static {p0}, Lcom/melodix/music/StartupSplashFallback;->note(Ljava/lang/String;)V
 
     .line 2
     .line 3
@@ -7648,8 +7523,6 @@
 
     .line 82
     .line 83
-    invoke-static {p0}, Lcom/melodix/music/StartupSplashFallback;->traceLoadUrl(Ljava/lang/String;)V
-
     invoke-virtual {p1, p0}, Landroid/webkit/WebView;->loadUrl(Ljava/lang/String;)V
 
     .line 84

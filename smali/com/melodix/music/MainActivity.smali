@@ -91,11 +91,6 @@
 .field private nativeReturnExpectedId:Ljava/lang/String;
 .field private nativeReturnSearch:Ljava/lang/String;
 .field private nativeSearchWatcherAttached:Z
-.field nativeDiagReceiveCount:I
-.field nativeDiagRenderCount:I
-.field nativeDiagLastRenderRows:I
-.field nativeDiagLastReceiveAt:Ljava/lang/String;
-.field nativeDiagLastRenderAt:Ljava/lang/String;
 
 
 # direct methods
@@ -767,36 +762,6 @@
 .method public final D(Z)V
     .locals 3
 
-    # P0 late-callback guard: once the native shell has taken over
-    # (AppSingleton.l == true), a late web error must not restore the splash on
-    # top of it. The shell is the visible home from then on.
-    # P0 fix: the branch polarity was inverted - restoration was allowed with
-    # the shell shown and blocked without it, which made every caller of D()
-    # (web errors, the startup watchdog, the service-disabled screen) a silent
-    # no-op exactly during a blocked startup (l == false). if-eqz continues
-    # only while the shell is NOT shown; with the shell shown the fall-through
-    # logs the (now truthful) skip and returns.
-    sget-boolean v0, Lcom/melodix/music/AppSingleton;->l:Z
-
-    if-eqz v0, :D_splash_allowed
-
-    const-string v0, "MDXSTART"
-
-    const-string v1, "splash-restore skipped (native shell already shown)"
-
-    invoke-static {v0, v1}, Landroid/util/Log;->i(Ljava/lang/String;Ljava/lang/String;)I
-
-    const-string v1, "D-skipped"
-
-    invoke-static {p0, v1}, Lcom/melodix/music/StartupSplashFallback;->traceState(Lcom/melodix/music/MainActivity;Ljava/lang/String;)V
-
-    return-void
-
-    :D_splash_allowed
-    const-string v0, "D-enter"
-
-    invoke-static {p0, v0}, Lcom/melodix/music/StartupSplashFallback;->traceState(Lcom/melodix/music/MainActivity;Ljava/lang/String;)V
-
     .line 1
     sget-boolean v0, Lcom/melodix/music/AppSingleton;->m:Z
 
@@ -817,23 +782,29 @@
 
     .line 9
     .line 10
-    # P0 fix: the error state must show even while the splash overlay is still
-    # visible (the blocked-startup case). The old "H already visible -> return"
-    # skip made every web error a silent no-op on the held splash, so the user
-    # never saw "Tap to retry". Instead of skipping, cancel any fade in flight
-    # so the restored alpha 1.0 sticks.
     iget-object p1, p0, Lcom/melodix/music/MainActivity;->H:Landroidx/constraintlayout/widget/ConstraintLayout;
 
+    .line 11
+    .line 12
     if-eqz p1, :cond_0
 
-    invoke-virtual {p1}, Landroid/view/View;->animate()Landroid/view/ViewPropertyAnimator;
+    .line 13
+    .line 14
+    invoke-virtual {p1}, Landroid/view/View;->getVisibility()I
 
-    move-result-object p1
+    .line 15
+    .line 16
+    .line 17
+    move-result p1
 
-    if-eqz p1, :cond_0
+    .line 18
+    if-nez p1, :cond_0
 
-    invoke-virtual {p1}, Landroid/view/ViewPropertyAnimator;->cancel()V
+    .line 19
+    .line 20
+    goto :goto_0
 
+    .line 21
     :cond_0
     iget-object p1, p0, Lcom/melodix/music/MainActivity;->H:Landroidx/constraintlayout/widget/ConstraintLayout;
 
@@ -990,29 +961,10 @@
     .line 95
     invoke-virtual {p1, v1}, Landroid/view/View;->setVisibility(I)V
 
-    const-string v2, "Network Error\nTap to retry"
-
-    invoke-virtual {p1, v2}, Landroid/widget/TextView;->setText(Ljava/lang/CharSequence;)V
-
     .line 96
     .line 97
     .line 98
     :cond_8
-    # P0 startup fix: the network error screen must be recoverable. Install
-    # the "Tap to retry" handler now (p0 is still the activity here) so the
-    # user is never left dead on the logo. Traced for the launch log.
-    invoke-static {p0}, Lcom/melodix/music/SplashRetryListener;->install(Lcom/melodix/music/MainActivity;)V
-
-    const-string v1, "MDXSTART"
-
-    const-string v2, "splash error state: tap-to-retry installed"
-
-    invoke-static {v1, v2}, Landroid/util/Log;->i(Ljava/lang/String;Ljava/lang/String;)I
-
-    const-string v2, "D-error-shown"
-
-    invoke-static {p0, v2}, Lcom/melodix/music/StartupSplashFallback;->traceState(Lcom/melodix/music/MainActivity;Ljava/lang/String;)V
-
     iget-object p0, p0, Lcom/melodix/music/MainActivity;->K:Landroid/widget/TextView;
 
     .line 99
@@ -1040,10 +992,6 @@
     .line 108
     .line 109
     sput p1, Lcom/melodix/music/AppSingleton;->n:I
-
-    const-string v2, "D-restore"
-
-    invoke-static {p0, v2}, Lcom/melodix/music/StartupSplashFallback;->traceState(Lcom/melodix/music/MainActivity;Ljava/lang/String;)V
 
     .line 110
     .line 111
@@ -2237,12 +2185,6 @@
 .method public final onCreate(Landroid/os/Bundle;)V
     .locals 17
 
-    const-string v1, "MDXSTART"
-
-    const-string v2, "activity-create enter"
-
-    invoke-static {v1, v2}, Landroid/util/Log;->i(Ljava/lang/String;Ljava/lang/String;)I
-
     .line 1
     move-object/from16 v0, p0
 
@@ -2459,10 +2401,6 @@
     :native_guard_done
     if-eqz v1, :native_no_crash_report
 
-    const-string v1, "activity-create exit: previous crash report shown (no splash)"
-
-    invoke-static {v1}, Lcom/melodix/music/StartupSplashFallback;->note(Ljava/lang/String;)V
-
     return-void
 
     :native_no_crash_report
@@ -2583,10 +2521,6 @@
     invoke-virtual {v0, v2}, Landroid/app/Activity;->setContentView(Landroid/view/View;)V
 
     :gate_refusal_return
-    const-string v1, "activity-create exit: signature gate refused (no splash)"
-
-    invoke-static {v1}, Lcom/melodix/music/StartupSplashFallback;->note(Ljava/lang/String;)V
-
     return-void
 
     .line 105
@@ -2742,20 +2676,12 @@
 
     invoke-virtual {v0, v3}, Landroid/app/Activity;->setContentView(Landroid/view/View;)V
 
-    const-string v1, "activity-create exit: content inflation failed (no splash)"
-
-    invoke-static {v1}, Lcom/melodix/music/StartupSplashFallback;->note(Ljava/lang/String;)V
-
     return-void
 
     :native_content_ok
     const-string v1, "content-view"
 
     invoke-static/range {v1 .. v1}, Lcom/melodix/music/NativeCrashGuard;->stage(Ljava/lang/String;)V
-
-    const-string v1, "content-view set"
-
-    invoke-static {v0, v1}, Lcom/melodix/music/StartupSplashFallback;->traceState(Lcom/melodix/music/MainActivity;Ljava/lang/String;)V
 
     .line 154
     .line 155
@@ -4062,16 +3988,6 @@
     .line 802
     .line 803
     iput-object v1, v0, Lcom/melodix/music/MainActivity;->H:Landroidx/constraintlayout/widget/ConstraintLayout;
-
-    # P0 startup fix: arm the independent splash rescue timer as soon as the
-    # splash view exists. If the startup chain blocks (no shell takeover, no
-    # page watchdog), the rescue guarantees a traced, recoverable exit instead
-    # of staying stuck on the logo. Bounded rescue, not an arbitrary mask.
-    invoke-static {v0}, Lcom/melodix/music/StartupSplashFallback;->arm(Lcom/melodix/music/MainActivity;)V
-
-    const-string v1, "splash-armed"
-
-    invoke-static {v0, v1}, Lcom/melodix/music/StartupSplashFallback;->traceState(Lcom/melodix/music/MainActivity;Ljava/lang/String;)V
 
     .line 804
     .line 805
@@ -7017,34 +6933,6 @@
     const-string v2, "native-shell shown (splash hidden, nativeRoot visible)"
     invoke-static {v0, v2}, Landroid/util/Log;->i(Ljava/lang/String;Ljava/lang/String;)I
 
-    # P0 instrumentation: persist the takeover step for the launch trace.
-    const-string v0, "native-shell-shown"
-    invoke-static {v0}, Lcom/melodix/music/NativeCrashGuard;->stage(Ljava/lang/String;)V
-
-    # MDXSTART visibility trace: the takeover itself (Z-order: splash elevation
-    # 20 -> gone, nativeRoot elevation 15 -> visible above the WebView).
-    const-string v0, "MDXSTART"
-    const-string v2, "takeover splash->gone nativeRoot->visible z=15 webview=under"
-    invoke-static {v0, v2}, Landroid/util/Log;->i(Ljava/lang/String;Ljava/lang/String;)I
-
-    # Phone-side diagnostics: a long press on the Melodix logo opens the local
-    # diagnostic dialog (discreet, never replaces the home screen).
-    const v0, 0x7f090249
-
-    invoke-virtual {p0, v0}, Landroid/app/Activity;->findViewById(I)Landroid/view/View;
-
-    move-result-object v1
-
-    if-eqz v1, :diag_press_attached
-
-    new-instance v2, Lcom/melodix/music/NativeDiagLongClickListener;
-
-    invoke-direct {v2, p0}, Lcom/melodix/music/NativeDiagLongClickListener;-><init>(Lcom/melodix/music/MainActivity;)V
-
-    invoke-virtual {v1, v2}, Landroid/view/View;->setOnLongClickListener(Landroid/view/View$OnLongClickListener;)V
-
-    :diag_press_attached
-
     iget-object v1, p0, Lcom/melodix/music/MainActivity;->H:Landroidx/constraintlayout/widget/ConstraintLayout;
     if-eqz v1, :hide_splash_progress
     const/16 v2, 0x8
@@ -7420,23 +7308,6 @@
 
 .method public final applyNativeUiData(Ljava/lang/String;Ljava/lang/String;)V
     .locals 10
-
-    # Diag: count native receptions (timestamp string, no payload logged).
-    iget v0, p0, Lcom/melodix/music/MainActivity;->nativeDiagReceiveCount:I
-
-    add-int/lit8 v0, v0, 0x1
-
-    iput v0, p0, Lcom/melodix/music/MainActivity;->nativeDiagReceiveCount:I
-
-    invoke-static {}, Ljava/lang/System;->currentTimeMillis()J
-
-    move-result-wide v0
-
-    invoke-static {v0, v1}, Ljava/lang/Long;->toString(J)Ljava/lang/String;
-
-    move-result-object v0
-
-    iput-object v0, p0, Lcom/melodix/music/MainActivity;->nativeDiagLastReceiveAt:Ljava/lang/String;
 
     const-string v0, "home-greeting"
     invoke-virtual {p1, v0}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
@@ -7890,58 +7761,6 @@
     invoke-virtual {v0, v1}, Landroid/view/View;->setVisibility(I)V
 
     :native_genre_gone
-    # MDXTRACE: native side received a rows payload (screen + payload length).
-    new-instance v0, Ljava/lang/StringBuilder;
-
-    invoke-direct {v0}, Ljava/lang/StringBuilder;-><init>()V
-
-    const-string v1, "rows-received screen="
-
-    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
-
-    invoke-virtual {v0, p1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
-
-    const-string v1, " len="
-
-    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
-
-    invoke-virtual {p2}, Ljava/lang/String;->length()I
-
-    move-result v1
-
-    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(I)Ljava/lang/StringBuilder;
-
-    invoke-virtual {v0}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
-
-    move-result-object v0
-
-    const-string v1, "MDXTRACE"
-
-    invoke-static {v1, v0}, Landroid/util/Log;->i(Ljava/lang/String;Ljava/lang/String;)I
-
-    # Diag: count renders and remember the payload length.
-    iget v0, p0, Lcom/melodix/music/MainActivity;->nativeDiagRenderCount:I
-
-    add-int/lit8 v0, v0, 0x1
-
-    iput v0, p0, Lcom/melodix/music/MainActivity;->nativeDiagRenderCount:I
-
-    invoke-virtual {p2}, Ljava/lang/String;->length()I
-
-    move-result v0
-
-    iput v0, p0, Lcom/melodix/music/MainActivity;->nativeDiagLastRenderRows:I
-
-    invoke-static {}, Ljava/lang/System;->currentTimeMillis()J
-
-    move-result-wide v0
-
-    invoke-static {v0, v1}, Ljava/lang/Long;->toString(J)Ljava/lang/String;
-
-    move-result-object v0
-
-    iput-object v0, p0, Lcom/melodix/music/MainActivity;->nativeDiagLastRenderAt:Ljava/lang/String;
-
     iput-object p1, p0, Lcom/melodix/music/MainActivity;->nativeCurrentTitle:Ljava/lang/String;
     iput-object p2, p0, Lcom/melodix/music/MainActivity;->nativeCurrentJson:Ljava/lang/String;
 
@@ -8180,43 +7999,6 @@
     invoke-virtual {v1}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
     move-result-object v3
     invoke-virtual {p0, v3}, Lcom/melodix/music/MainActivity;->runNativeJavascript(Ljava/lang/String;)V
-    return-void
-.end method
-
-.method public final openNativeDiagnostics()V
-    .locals 4
-
-    # Phone-side diagnostics (no ADB): collect the JS report, then show the
-    # local dialog (RuntimeDiagnostic.showDialog) with Copier/Actualiser.
-    const-string v0, "MDXSTART"
-
-    const-string v1, "diag-panel open"
-
-    invoke-static {v0, v1}, Landroid/util/Log;->i(Ljava/lang/String;Ljava/lang/String;)I
-
-    iget-object v0, p0, Lcom/melodix/music/MainActivity;->G:Landroid/webkit/WebView;
-
-    if-eqz v0, :diag_native_only
-
-    const-string v1, "(function(){try{return window.__sfDiagReport?window.__sfDiagReport():null;}catch(e){return null;}})()"
-
-    new-instance v2, Lcom/melodix/music/NativeDiagCallback;
-
-    invoke-direct {v2, p0}, Lcom/melodix/music/NativeDiagCallback;-><init>(Lcom/melodix/music/MainActivity;)V
-
-    invoke-virtual {v0, v1, v2}, Landroid/webkit/WebView;->evaluateJavascript(Ljava/lang/String;Landroid/webkit/ValueCallback;)V
-
-    return-void
-
-    :diag_native_only
-    const/4 v0, 0x0
-
-    new-instance v1, Lcom/melodix/music/NativeDiagCallback;
-
-    invoke-direct {v1, p0}, Lcom/melodix/music/NativeDiagCallback;-><init>(Lcom/melodix/music/MainActivity;)V
-
-    invoke-virtual {v1, v0}, Lcom/melodix/music/NativeDiagCallback;->onReceive(Ljava/lang/String;)V
-
     return-void
 .end method
 
