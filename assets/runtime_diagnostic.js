@@ -213,8 +213,12 @@
           ? {
               total: Number.isInteger(window.__sfBridgeReadLog.total) ? window.__sfBridgeReadLog.total : null,
               got: Number.isInteger(window.__sfBridgeReadLog.got) ? window.__sfBridgeReadLog.got : null,
-              calls: Number.isInteger(window.__sfBridgeReadLog.calls) ? window.__sfBridgeReadLog.calls : null
+              calls: Number.isInteger(window.__sfBridgeReadLog.calls) ? window.__sfBridgeReadLog.calls : null,
+              source: String(window.__sfBridgeReadLog.source || '')
             }
+          : null,
+        bridgeAssetInfo: typeof window.__sfBridgeAssetInfo === 'string'
+          ? window.__sfBridgeAssetInfo.slice(0, 80)
           : null,
         bridgeExecSteps: Array.isArray(window.__sfBridgeExecSteps)
           ? window.__sfBridgeExecSteps.slice(-10).map(function(s) {

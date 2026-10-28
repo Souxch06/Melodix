@@ -252,10 +252,11 @@ test('diagnostic surfaces the v37 fields needed to verify on device', () => {
   // the per-strategy exec journal and the CSP journal, otherwise a phone
   // capture can never prove the fix ran.
   const diag = fs.readFileSync(path.join(root, 'assets', 'runtime_diagnostic.js'), 'utf8');
-  for (const field of ['bridgeReadLog', 'bridgeExecSteps', 'bridgeCspViolations']) {
+  for (const field of ['bridgeReadLog', 'bridgeExecSteps', 'bridgeCspViolations', 'bridgeAssetInfo']) {
     assert.ok(diag.includes(field + ':'), `runtime_diagnostic exposes ${field}`);
   }
   assert.match(diag, /__sfBridgeReadLog\.total/);
+  assert.match(diag, /__sfBridgeReadLog\.source/);
   assert.match(diag, /__sfBridgeExecSteps/);
   assert.match(diag, /__sfBridgeCspViolations/);
   // The in-app report carries the same evidence.
@@ -270,4 +271,60 @@ test('diagnostic surfaces the v37 fields needed to verify on device', () => {
   for (const key of ['bridgeExecMode', 'bridgeReadLine', 'bridgeExecSteps', 'bridgeLastError', 'bridgeCspCount']) {
     assert.ok(callback.includes(`"${key}"`), `NativeDiagCallback formats ${key}`);
   }
+});
+
+test('the APK asset is the authoritative bridge source, served content is fallback', () => {
+  // A stale filesDir/hotfixes/spotify_bridge.js was served instead of the
+  // bundled asset (146452 vs 204584 units). The shell must read the APK
+  // asset first and record which source it used.
+  const apkContent = 'window.__sfMelodixBridgeStarted = true; // apk version';
+  const env = runShell({
+    AndBridge: {
+      apkAssetInfo: () => 'apk=' + TOTAL + ',served=146452,hotfix=1',
+      readApkAssetRange: (name, start, end) => apkContent.slice(start, Math.min(end, apkContent.length)),
+      bundledAssetLength: () => 146452,
+      readBundledAssetRange: () => { throw new Error('served reader must not be used'); },
+      readBundledAsset: () => '',
+    },
+  });
+  env.runAttempts();
+  assert.equal(env.window.__sfBridgeReadLog.source, 'apk', 'APK asset chosen');
+  assert.equal(env.window.__sfBridgeReadLog.total, TOTAL);
+  assert.equal(env.window.__sfBridgeAssetInfo, 'apk=' + TOTAL + ',served=146452,hotfix=1');
+  assert.equal(env.window.__sfMelodixBridgeStarted, true, 'the APK bridge version executed');
+  assert.equal(env.window.__sfBridgeBytes, apkContent.length);
+});
+
+test('served-content fallback still works when no APK reader exists', () => {
+  const env = runShell();
+  env.runAttempts();
+  assert.equal(env.window.__sfBridgeReadLog.source, 'served', 'fallback engaged');
+  assert.equal(env.window.__sfBridgeReadLog.got, TOTAL);
+});
+
+test('readApkAssetRange smali reads AssetManager directly, never the hotfix cache', () => {
+  const methodAt = bridgeSmali.indexOf('readApkAssetRange(Ljava/lang/String;II)');
+  assert.ok(methodAt > -1);
+  const method = bridgeSmali.slice(methodAt, bridgeSmali.indexOf('.end method', methodAt));
+  assert.match(method, /Landroid\/webkit\/JavascriptInterface;/);
+  assert.match(method, /const-string v0, "spotify_bridge\.js"/);
+  assert.match(method, /if-eqz v0, :apk_range_done/);
+  // Bounds enforced exactly like the served reader.
+  assert.match(method, /if-ltz p2, :apk_range_done/);
+  assert.match(method, /if-ge p2, v3, :apk_range_done/);
+  assert.match(method, /if-le p3, p2, :apk_range_done/);
+  assert.match(method, /Ljava\/lang\/String;->substring\(II\)Ljava\/lang\/String;/);
+  // The shared helper must use AssetManager and must NOT go through m9.d
+  // (the cache/hotfix layer that served the stale file).
+  const helperAt = bridgeSmali.indexOf('.method private static readApkAsset(');
+  assert.ok(helperAt > -1, 'private readApkAsset helper exists');
+  const helper = bridgeSmali.slice(helperAt, bridgeSmali.indexOf('.end method', helperAt));
+  assert.match(helper, /AssetManager;->open\(Ljava\/lang\/String;\)Ljava\/io\/InputStream;/);
+  assert.ok(!helper.includes('Lm9;->d('), 'helper never touches the hotfix/cache loader');
+  // apkAssetInfo documents both lengths and hotfix presence.
+  const infoAt = bridgeSmali.indexOf('apkAssetInfo(Ljava/lang/String;)');
+  const info = bridgeSmali.slice(infoAt, bridgeSmali.indexOf('.end method', infoAt));
+  assert.match(info, /"apk="/);
+  assert.match(info, /,served=/);
+  assert.match(info, /hotfixes\/spotify_bridge\.js/);
 });

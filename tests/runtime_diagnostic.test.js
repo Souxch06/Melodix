@@ -189,6 +189,7 @@ test('Preview diagnostic returns four timed samples with the existing report fie
         bridgeReadLog: null,
         bridgeExecSteps: null,
         bridgeCspViolations: null,
+        bridgeAssetInfo: null,
         mobileShellInitAttempted: true,
         homeInitAttempted: true,
         mobileShellClass: true,

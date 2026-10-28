@@ -4951,3 +4951,190 @@
     :length_done
     return v1
 .end method
+
+.method public final apkAssetInfo(Ljava/lang/String;)Ljava/lang/String;
+    .locals 4
+    .annotation runtime Landroid/webkit/JavascriptInterface;
+    .end annotation
+
+    # Diagnostic for the served-vs-apk asset mismatch seen on device:
+    # m9.d prefers filesDir/hotfixes/<name> over the APK asset, and a stale
+    # hotfix was served (146452 units) instead of the bundled bridge (204584).
+    # Returns "apk=<len>,served=<len>,hotfix=<0|1>" so traces can prove the
+    # source of the content without exposing any data.
+    const-string v1, ""
+
+    if-eqz p1, :info_done
+
+    const-string v0, "spotify_bridge.js"
+
+    invoke-virtual {v0, p1}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+
+    move-result v0
+
+    if-eqz v0, :info_done
+
+    :try_start_0
+    invoke-static {p1}, Lcom/melodix/music/AndBridge;->readApkAsset(Ljava/lang/String;)Ljava/lang/String;
+
+    move-result-object v0
+
+    invoke-virtual {v0}, Ljava/lang/String;->length()I
+
+    move-result v0
+
+    invoke-static {p1}, Lm9;->d(Ljava/lang/String;)Ljava/lang/String;
+
+    move-result-object v2
+
+    invoke-virtual {v2}, Ljava/lang/String;->length()I
+
+    move-result v2
+
+    new-instance v3, Ljava/lang/StringBuilder;
+
+    invoke-direct {v3}, Ljava/lang/StringBuilder;-><init>()V
+
+    const-string p1, "apk="
+
+    invoke-virtual {v3, p1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    invoke-virtual {v3, v0}, Ljava/lang/StringBuilder;->append(I)Ljava/lang/StringBuilder;
+
+    const-string p1, ",served="
+
+    invoke-virtual {v3, p1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    invoke-virtual {v3, v2}, Ljava/lang/StringBuilder;->append(I)Ljava/lang/StringBuilder;
+
+    const-string p1, ",hotfix="
+
+    invoke-virtual {v3, p1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    invoke-static {}, Lm9;->c()Landroid/content/Context;
+
+    move-result-object p1
+
+    invoke-virtual {p1}, Landroid/content/Context;->getFilesDir()Ljava/io/File;
+
+    move-result-object p1
+
+    new-instance v0, Ljava/io/File;
+
+    const-string v2, "hotfixes/spotify_bridge.js"
+
+    invoke-direct {v0, p1, v2}, Ljava/io/File;-><init>(Ljava/io/File;Ljava/lang/String;)V
+
+    invoke-virtual {v0}, Ljava/io/File;->exists()Z
+
+    move-result p1
+
+    if-eqz p1, :info_no_hotfix
+
+    const-string p1, "1"
+
+    goto :info_hotfix_txt
+
+    :info_no_hotfix
+    const-string p1, "0"
+
+    :info_hotfix_txt
+    invoke-virtual {v3, p1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    invoke-virtual {v3}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
+
+    move-result-object v1
+    :try_end_0
+    .catch Ljava/lang/Exception; {:try_start_0 .. :try_end_0} :catch_0
+
+    goto :info_done
+
+    :catch_0
+    const-string v1, "apk=?,served=?,hotfix=?"
+
+    :info_done
+    return-object v1
+.end method
+
+.method public final readApkAssetRange(Ljava/lang/String;II)Ljava/lang/String;
+    .locals 4
+    .annotation runtime Landroid/webkit/JavascriptInterface;
+    .end annotation
+
+    # Ranged reader over the APK asset itself: AssetManager.open, no hotfix
+    # file and no cache. The runtime bridge and shell come as one versioned
+    # pair from the APK; a stale hotfix file must not be executed against a
+    # newer shell (device showed exactly that mismatch).
+    const-string v1, ""
+
+    if-eqz p1, :apk_range_done
+
+    const-string v0, "spotify_bridge.js"
+
+    invoke-virtual {v0, p1}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+
+    move-result v0
+
+    if-eqz v0, :apk_range_done
+
+    :try_start_0
+    invoke-static {p1}, Lcom/melodix/music/AndBridge;->readApkAsset(Ljava/lang/String;)Ljava/lang/String;
+
+    move-result-object v2
+
+    invoke-virtual {v2}, Ljava/lang/String;->length()I
+
+    move-result v3
+
+    if-ltz p2, :apk_range_done
+
+    if-ge p2, v3, :apk_range_done
+
+    if-le p3, v3, :apk_no_clamp
+
+    move p3, v3
+
+    :apk_no_clamp
+    if-le p3, p2, :apk_range_done
+
+    invoke-virtual {v2, p2, p3}, Ljava/lang/String;->substring(II)Ljava/lang/String;
+
+    move-result-object v1
+    :try_end_0
+    .catch Ljava/lang/Exception; {:try_start_0 .. :try_end_0} :catch_0
+
+    goto :apk_range_done
+
+    :catch_0
+    const-string v1, ""
+
+    :apk_range_done
+    return-object v1
+.end method
+
+.method private static readApkAsset(Ljava/lang/String;)Ljava/lang/String;
+    .locals 3
+
+    # Shared helper: full asset text straight from the APK, no cache.
+    invoke-static {}, Lm9;->c()Landroid/content/Context;
+
+    move-result-object v0
+
+    invoke-virtual {v0}, Landroid/content/Context;->getAssets()Landroid/content/res/AssetManager;
+
+    move-result-object v0
+
+    invoke-virtual {v0, p0}, Landroid/content/res/AssetManager;->open(Ljava/lang/String;)Ljava/io/InputStream;
+
+    move-result-object v0
+
+    new-instance v1, Ljava/io/InputStreamReader;
+
+    invoke-direct {v1, v0}, Ljava/io/InputStreamReader;-><init>(Ljava/io/InputStream;)V
+
+    invoke-static {v1}, Las;->r(Ljava/io/Reader;)Ljava/lang/String;
+
+    move-result-object v0
+
+    return-object v0
+.end method

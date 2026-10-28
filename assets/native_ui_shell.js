@@ -2106,48 +2106,66 @@
     function loadBundledBridge(name) {
         var source = '';
         if (bridgeHasStarted()) return true;
-        // Preferred reader: reassemble the asset from fixed-size ranges.
-        // Device traces showed a ranged return of 48148 units for a 49152
-        // window, and the old "stop on first short read" loop silently threw
-        // away the remaining 58132 units (146452 of 204584 reached the page,
-        // so every execution strategy failed on an incomplete script). The
-        // loop now runs until the known total length is reached and keeps
-        // going across short returns.
-        if (window.AndBridge && typeof window.AndBridge.readBundledAssetRange === 'function') {
+        // Preferred reader: reassemble the bridge from the APK asset itself
+        // (AssetManager, no hotfix file, no cache). Device traces proved that
+        // m9.d served a stale filesDir/hotfixes/spotify_bridge.js (146452
+        // units) instead of the bundled asset (204584): the hotfix ran
+        // without the modern bridge APIs and never signalled a start. The
+        // shell and the bridge ship as one versioned pair, so the APK asset
+        // is the authoritative source; the old served-content readers stay as
+        // fallback. apkAssetInfo documents which source the device used.
+        var readLog = { total: 0, got: 0, calls: 0, source: '' };
+        if (window.AndBridge && typeof window.AndBridge.apkAssetInfo === 'function') {
             try {
-                var totalLength = 0;
+                window.__sfBridgeAssetInfo = String(window.AndBridge.apkAssetInfo(name) || '');
+                var apkMatch = window.__sfBridgeAssetInfo.match(/apk=(\d+)/);
+                if (apkMatch) readLog.total = Number(apkMatch[1]);
+            } catch (error) {
+                recordBridgeFailure('apk-asset-info', error);
+            }
+        }
+        if (readLog.total > 0 && window.AndBridge && typeof window.AndBridge.readApkAssetRange === 'function') {
+            readLog.source = 'apk';
+        } else if (window.AndBridge && typeof window.AndBridge.readBundledAssetRange === 'function') {
+            readLog.source = 'served';
+            try {
                 if (typeof window.AndBridge.bundledAssetLength === 'function') {
-                    totalLength = Number(window.AndBridge.bundledAssetLength(name) || 0);
+                    readLog.total = Number(window.AndBridge.bundledAssetLength(name) || 0);
                 }
+            } catch (error) {
+                recordBridgeFailure('read-asset-range', error);
+            }
+        }
+        if (readLog.source) {
+            try {
+                var readerName = readLog.source === 'apk' ? 'readApkAssetRange' : 'readBundledAssetRange';
                 var chunkSize = 32 * 1024;
                 var offset = 0;
                 var parts = [];
                 var part;
                 var guard = 0;
                 for (;;) {
-                    part = String(window.AndBridge.readBundledAssetRange(name, offset, offset + chunkSize) || '');
+                    part = String(window.AndBridge[readerName](name, offset, offset + chunkSize) || '');
                     if (!part) break;
                     parts.push(part);
                     offset += part.length;
-                    if (totalLength > 0 ? offset >= totalLength : part.length < chunkSize) break;
+                    if (readLog.total > 0 ? offset >= readLog.total : part.length < chunkSize) break;
                     if (++guard > 512) {
                         recordBridgeFailure('read-asset-range', 'loop-guard');
                         break;
                     }
                 }
                 source = parts.join('');
-                window.__sfBridgeReadLog = {
-                    total: totalLength,
-                    got: source.length,
-                    calls: parts.length
-                };
-                if (totalLength > 0 && source.length < totalLength) {
-                    recordBridgeFailure('read-asset-range', 'short-by-' + (totalLength - source.length));
+                readLog.got = source.length;
+                readLog.calls = parts.length;
+                if (readLog.total > 0 && source.length < readLog.total) {
+                    recordBridgeFailure('read-asset-range', 'short-by-' + (readLog.total - source.length));
                 }
             } catch (error) {
                 recordBridgeFailure('read-asset-range', error);
             }
         }
+        window.__sfBridgeReadLog = readLog;
         // Legacy single-call reader, kept as the fallback for assets small
         // enough to survive the bridge return.
         if (!source) {

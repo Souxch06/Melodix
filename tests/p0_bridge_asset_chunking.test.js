@@ -51,18 +51,21 @@ test('shell reassembles the bridge from ranges before the legacy reader', () => 
   const fnAt = shell.indexOf('function loadBundledBridge(name)');
   assert.ok(fnAt > -1, 'loadBundledBridge present');
   const fn = shell.slice(fnAt, shell.indexOf('window.__sfLoadBundledBridge', fnAt));
-  // Ranged read is the preferred path.
-  assert.match(fn, /readBundledAssetRange\(name, offset, offset \+ chunkSize\)/);
+  // Ranged read is the preferred path (dispatched to the APK or served
+  // reader; both are fixed-size range readers).
+  assert.match(fn, /window\.AndBridge\[readerName\]\(name, offset, offset \+ chunkSize\)/);
+  assert.match(fn, /readApkAssetRange/);
+  assert.match(fn, /readBundledAssetRange/);
   assert.ok(
-    fn.indexOf('readBundledAssetRange') < fn.indexOf('readBundledAsset(name)'),
-    'range reader runs before the legacy single-call reader',
+    fn.indexOf('readApkAssetRange') < fn.indexOf('readBundledAssetRange'),
+    'APK reader is considered before the served reader',
   );
   // Chunks are bounded and concatenated before execution.
   assert.match(fn, /parts\.join\(''\)/);
   assert.match(fn, /var chunkSize = \d+ \* 1024;/);
   // The loop runs until the known total length (short returns must not
   // truncate the source; see p0_bridge_exec_recovery.test.js).
-  assert.match(fn, /totalLength > 0 \? offset >= totalLength : part\.length < chunkSize/);
+  assert.match(fn, /readLog\.total > 0 \? offset >= readLog\.total : part\.length < chunkSize/);
   assert.match(fn, /window\.AndBridge\.bundledAssetLength/);
   // The reassembled source is executed by the multi-strategy runner.
   assert.match(fn, /if \(source\) return executeBridgeSource\(source\);/);
