@@ -157,3 +157,157 @@ test('P0: launch instrumentation covers every critical step', () => {
     assert.ok(!/access_token|refresh_token|Bearer /.test(src), 'no token material in logs');
   }
 });
+
+// ---------------------------------------------------------------------------
+// Smali flow-control tests for StartupSplashFallback.run() (P0 logic fix).
+// A real instruction-level interpreter walks the guard chain under simulated
+// state instead of matching strings, so an inverted opcode cannot pass.
+// ---------------------------------------------------------------------------
+
+function parseSmaliMethod(src, signature) {
+  const start = src.indexOf(`.method ${signature}`);
+  assert.ok(start >= 0, `method not found: ${signature}`);
+  const body = src.slice(start, src.indexOf('.end method', start));
+  const instrs = [];
+  const labels = {};
+  for (const raw of body.split('\n')) {
+    const line = raw.split('#')[0].trim();
+    if (!line || line.startsWith('.') && !line.startsWith('.line')) continue;
+    if (line.startsWith('.method') || line.startsWith('.locals')) continue;
+    if (/^:[\w/.]+$/.test(line)) { labels[line.slice(1)] = instrs.length; continue; }
+    instrs.push(line);
+  }
+  return { instrs, labels };
+}
+
+// Minimal Dalvik evaluator: only the instructions used by run() before and
+// inside the rescue. Branches are followed for real.
+function runFlow(method, env) {
+  const regs = {};
+  let pendingResult = undefined;
+  const reached = [];
+  let pc = 0;
+  for (let steps = 0; steps < 300; steps++) {
+    if (pc >= method.instrs.length) return { reached, ended: 'fallthrough' };
+    const ins = method.instrs[pc];
+    let m;
+    if ((m = ins.match(/^iget-object (\w+), (\w+), .*->(\w+):/))) {
+      const field = m[3];
+      if (field === 'activity') regs[m[1]] = env.activityAlive ? 'activity' : null;
+      else if (field === 'H') regs[m[1]] = env.HPresent ? 'splash' : null;
+      else regs[m[1]] = `field:${field}`;
+      pc++;
+    } else if ((m = ins.match(/^invoke-virtual \{(\w+)\}, Ljava\/lang\/ref\/Reference;->get\(\)/))) {
+      pendingResult = env.activityAlive ? 'activity' : null; pc++;
+    } else if ((m = ins.match(/^invoke-virtual \{(\w+)\}, Landroid\/app\/Activity;->isFinishing\(\)Z/))) {
+      pendingResult = env.finishing ? 1 : 0; pc++;
+    } else if ((m = ins.match(/^invoke-virtual \{(\w+)\}, Landroid\/view\/View;->getVisibility\(\)I/))) {
+      pendingResult = env.splashVisible ? 0 : 8; pc++;
+    } else if ((m = ins.match(/^invoke-virtual \{(\w+), (\w+)\}, .*->setTag\(/))) {
+      reached.push(`setTag:${regs[m[2]]}`); pc++;
+    } else if ((m = ins.match(/^invoke-static \{(\w+)\}, Lcom\/melodix\/music\/NativeCrashGuard;->stage/))) {
+      reached.push(`stage:${regs[m[1]]}`); pc++;
+    } else if ((m = ins.match(/^invoke-virtual \{(\w+), (\w+)\}, Lcom\/melodix\/music\/MainActivity;->D\(Z\)V/))) {
+      reached.push(`D:${regs[m[2]]}`); pc++;
+    } else if (/^invoke-virtual .*runOnUiThread/.test(ins)) {
+      reached.push('runOnUiThread:zk0'); pc++;
+    } else if ((m = ins.match(/^const-string (\w+), "(.*)"/))) {
+      regs[m[1]] = m[2]; pc++;
+    } else if ((m = ins.match(/^const\/4 (\w+), (-?\w+)/))) {
+      regs[m[1]] = { '0x0': 0, '0x1': 1, '0x0': 0, '0': 0, '0x1': 1, '1': 1 }[m[2]] ?? parseInt(m[2]);
+      pc++;
+    } else if ((m = ins.match(/^move-result-object (\w+)/))) {
+      regs[m[1]] = pendingResult; pc++;
+    } else if ((m = ins.match(/^move-result (\w+)/))) {
+      regs[m[1]] = pendingResult; pc++;
+    } else if ((m = ins.match(/^sget-boolean (\w+), .*->(\w+):Z/))) {
+      regs[m[1]] = m[2] === 'm' ? (env.networkError ? 1 : 0) : 0; pc++;
+    } else if ((m = ins.match(/^check-cast (\w+), /))) {
+      pc++;
+    } else if ((m = ins.match(/^if-eqz (\w+), :(\w+)/))) {
+      pc = !regs[m[1]] ? method.labels[m[2]] : pc + 1;
+    } else if ((m = ins.match(/^if-nez (\w+), :(\w+)/))) {
+      pc = regs[m[1]] ? method.labels[m[2]] : pc + 1;
+    } else if ((m = ins.match(/^goto :(\w+)/))) {
+      pc = method.labels[m[1]];
+    } else if (/^return-void/.test(ins)) {
+      reached.push('return'); return { reached, ended: 'return' };
+    } else if ((m = ins.match(/^new-instance (\w+), /)) || (m = ins.match(/^invoke-direct /)) ||
+               (m = ins.match(/^invoke-static .*Log;/)) || (m = ins.match(/^invoke-virtual .*getResources/))) {
+      pc++;
+    } else {
+      // Unknown instruction: stop interpreting but keep the trace so far.
+      return { reached, ended: `unknown:${ins}` };
+    }
+  }
+  return { reached, ended: 'loop' };
+}
+
+function loadRunMethod() {
+  return parseSmaliMethod(
+    read('smali/com/melodix/music/StartupSplashFallback.smali'),
+    'public final run()V');
+}
+
+test('P0 flow: finishing activity exits early (no rescue)', () => {
+  const r = runFlow(loadRunMethod(), {
+    activityAlive: true, finishing: true, splashVisible: true, HPresent: true, networkError: false,
+  });
+  assert.deepEqual(r.reached, ['return'], `unexpected trace: ${r.reached}`);
+});
+
+test('P0 flow: non-visible splash exits early (no rescue)', () => {
+  const r = runFlow(loadRunMethod(), {
+    activityAlive: true, finishing: false, splashVisible: false, HPresent: true, networkError: false,
+  });
+  assert.deepEqual(r.reached, ['return'], `unexpected trace: ${r.reached}`);
+});
+
+test('P0 flow: active activity + visible splash reaches tag, stage and the rescue', () => {
+  const method = loadRunMethod();
+  const base = { activityAlive: true, finishing: false, splashVisible: true, HPresent: true };
+  const withError = runFlow(method, { ...base, networkError: true });
+  assert.ok(withError.reached.includes('stage:splash-fallback'), withError.reached.join(','));
+  assert.ok(withError.reached.includes('setTag:startup-fallback'), withError.reached.join(','));
+  assert.ok(withError.reached.includes('stage:fallback-error'), withError.reached.join(','));
+  assert.ok(withError.reached.includes('D:1'), withError.reached.join(','));
+  assert.ok(withError.reached.includes('return'), withError.reached.join(','));
+  const noError = runFlow(method, { ...base, networkError: false });
+  assert.ok(noError.reached.includes('stage:splash-fallback'), noError.reached.join(','));
+  assert.ok(noError.reached.includes('setTag:startup-fallback'), noError.reached.join(','));
+  assert.ok(noError.reached.includes('stage:fallback-web'), noError.reached.join(','));
+  assert.ok(noError.reached.includes('runOnUiThread:zk0'), noError.reached.join(','));
+  assert.ok(noError.reached.includes('return'), noError.reached.join(','));
+});
+
+test('P0 flow: the two early-exit guards are if-nez on the right values', () => {
+  const method = loadRunMethod();
+  const idxFinishing = method.instrs.findIndex((i) => i.includes('Activity;->isFinishing()Z'));
+  const idxVisibility = method.instrs.findIndex((i) => i.includes('View;->getVisibility()I'));
+  assert.ok(idxFinishing > 0 && idxVisibility > idxFinishing);
+  // after isFinishing: move-result v1 then the guard
+  assert.match(method.instrs[idxFinishing + 1], /^move-result /);
+  assert.match(method.instrs[idxFinishing + 2], /^if-nez \w+, :return$/,
+    'finishing guard must be if-nez :return (leave only when finishing == true)');
+  // after getVisibility: move-result v1 then the guard
+  assert.match(method.instrs[idxVisibility + 1], /^move-result /);
+  assert.match(method.instrs[idxVisibility + 2], /^if-nez \w+, :return$/,
+    'visibility guard must be if-nez :return (leave only when visibility != VISIBLE)');
+  // between the two: the splash-view guard must stay if-eqz (leave when null)
+  const idxH = method.instrs.findIndex((i) => i.includes('MainActivity;->H:'));
+  assert.ok(idxH > idxFinishing && idxH < idxVisibility);
+  assert.match(method.instrs[idxH + 1], /^if-eqz \w+, :return$/,
+    'H-null guard must stay if-eqz :return (leave only when the splash view is null)');
+});
+
+test('P0 flow: null activity and null splash view still exit early', () => {
+  const method = loadRunMethod();
+  const dead = runFlow(method, {
+    activityAlive: false, finishing: false, splashVisible: true, HPresent: true, networkError: false,
+  });
+  assert.deepEqual(dead.reached, ['return']);
+  const noView = runFlow(method, {
+    activityAlive: true, finishing: false, splashVisible: true, HPresent: false, networkError: false,
+  });
+  assert.deepEqual(noView.reached, ['return']);
+});

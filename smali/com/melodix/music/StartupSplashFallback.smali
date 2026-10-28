@@ -84,7 +84,10 @@
 
     move-result v1
 
-    if-eqz v1, :return
+    # Guard: if the activity IS finishing (isFinishing() == true, v1 != 0),
+    # leave without doing anything. The active case (v1 == 0) must fall
+    # through to the rescue - not return early.
+    if-nez v1, :return
 
     iget-object v1, v0, Lcom/melodix/music/MainActivity;->H:Landroidx/constraintlayout/widget/ConstraintLayout;
 
@@ -94,7 +97,10 @@
 
     move-result v1
 
-    if-eqz v1, :return
+    # Guard: if the splash is NOT visible (visibility != View.VISIBLE, v1 != 0),
+    # the normal path already dismissed it - leave without doing anything.
+    # Only the still-visible case (v1 == 0) falls through to the rescue.
+    if-nez v1, :return
 
     # Splash still visible after the rescue window: the startup chain is
     # blocked. Trace the exact step before taking the exit.
