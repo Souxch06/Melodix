@@ -2060,11 +2060,12 @@
     function loadBundledBridge(name) {
         var source = '';
         if (bridgeHasStarted()) return true;
-        // Preferred reader: reassemble the asset from fixed-size ranges. A
-        // single JavascriptInterface string return above roughly 200 KB is
-        // silently dropped on some WebViews, exactly like one oversized
-        // evaluateJavascript payload, so the 200 KB bridge must arrive in
-        // slices and be executed locally by executeBridgeSource().
+        // Preferred reader: reassemble the asset from fixed-size ranges. The
+        // demonstrated v34 failure was an inverted whitelist in the readers
+        // (every name check returned "" -> "read-asset: empty"); keeping each
+        // JavascriptInterface return small is deliberate extra safety: a
+        // transfer-size ceiling that would drop one ~205 KB call is plausible
+        // but UNPROVEN for the failed initial evaluateJavascript injection.
         if (window.AndBridge && typeof window.AndBridge.readBundledAssetRange === 'function') {
             try {
                 var chunkSize = 48 * 1024;

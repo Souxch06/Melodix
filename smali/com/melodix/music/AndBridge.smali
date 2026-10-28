@@ -4803,7 +4803,7 @@
 
     move-result v0
 
-    if-nez v0, :asset_inject_done
+    if-eqz v0, :asset_inject_done
 
     invoke-static {p1}, Lm9;->d(Ljava/lang/String;)Ljava/lang/String;
 
@@ -4855,7 +4855,7 @@
 
     move-result v0
 
-    if-nez v0, :read_bundled_asset_done
+    if-eqz v0, :read_bundled_asset_done
 
     invoke-static {p1}, Lm9;->d(Ljava/lang/String;)Ljava/lang/String;
 
@@ -4870,10 +4870,12 @@
     .annotation runtime Landroid/webkit/JavascriptInterface;
     .end annotation
 
-    # Ranged reader for the bundled bridge. JavascriptInterface string returns
-    # above roughly 200 KB are silently dropped on some WebViews (the same
-    # limit that kills a single evaluateJavascript of the full asset), so the
-    # page reassembles the script from fixed-size ranges and executes it.
+    # Ranged reader for the bundled bridge. Device traces (bridgeStarted=false,
+    # "read-asset: empty" on every recovery) were caused by the inverted
+    # whitelist below, now fixed. Ranges keep each JavascriptInterface return
+    # small on purpose: a transfer-size ceiling that would drop one ~205 KB
+    # call is a plausible but UNPROVEN hypothesis for why the initial single
+    # evaluateJavascript injection also failed on that device.
     const-string v1, ""
 
     if-eqz p1, :range_done
@@ -4884,13 +4886,13 @@
 
     move-result v0
 
-    if-nez v0, :range_done
+    if-eqz v0, :range_done
 
     invoke-static {p1}, Lm9;->d(Ljava/lang/String;)Ljava/lang/String;
 
     move-result-object v2
 
-    if-nez v2, :range_done
+    if-eqz v2, :range_done
 
     invoke-virtual {v2}, Ljava/lang/String;->length()I
 
