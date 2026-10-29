@@ -66,7 +66,7 @@ const CONTRACTS = [
   },
   {
     name: 'lastReport()',
-    sig: '.method private static lastReport()Ljava/lang/String;',
+    sig: '.method public static lastReport()Ljava/lang/String;',
     reg: 'v1',
   },
   {

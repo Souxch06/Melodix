@@ -64,7 +64,7 @@ test("[structurel] excerpt(Throwable) : garde d'argument if-eqz + garde de longu
 });
 
 test('[structurel] shorten(String) : garde d\'argument if-eqz + garde de longueur if-le (tronque au-delà de 240)', () => {
-  const body = methodBody('.method private static shorten(Ljava/lang/String;)Ljava/lang/String;');
+  const body = methodBody('.method public static shorten(Ljava/lang/String;)Ljava/lang/String;');
   assert.strictEqual(firstInstruction(body), 'if-eqz p0, :done');
   assert.match(body, /if-le v0, v1, :done/,
     'longueur <= 240 : retour tel quel ; longueur > 240 : substring(0, 240)');

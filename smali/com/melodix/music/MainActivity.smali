@@ -2387,12 +2387,6 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
     # next launch can show it instead of dying silently.
     :native_guard_try_start
     invoke-static/range {p0 .. p0}, Lcom/melodix/music/NativeCrashGuard;->install(Landroid/content/Context;)V
-
-    # Show the previous crash before anything else can fail: the signature gate
-    # and the layout inflation both run after this point.
-    invoke-static/range {p0 .. p0}, Lcom/melodix/music/NativeCrashGuard;->showLastReport(Landroid/app/Activity;)Z
-
-    move-result v1
     :native_guard_try_end
     .catch Ljava/lang/Throwable; {:native_guard_try_start .. :native_guard_try_end} :native_guard_failed
 
@@ -2401,20 +2395,13 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
     :native_guard_failed
     move-exception v1
 
-    const/4 v1, 0x0
-
     :native_guard_done
-    if-eqz v1, :native_no_crash_report
-
-    # A shown crash report IS the resolved startup state: park the watchdog so
-    # the dialog survives long enough to be photographed instead of being
-    # force-quit 25 s later ("no message at all").
-    const/4 v1, 0x1
-
-    sput-boolean v1, Lcom/melodix/music/AppSingleton;->startupDone:Z
-
-    return-void
-
+    # [demande utilisateur] Aucun dialogue de crash au lancement : le demarrage
+    # continue TOUJOURS. L'ancien chemin affichait le rapport puis retournait
+    # de onCreate : WebView jamais creee, logo fige, session jamais 'ready' ->
+    # rapport d'interruption suivant -> boucle infinie. Le rapport reste
+    # enregistre et reste consultable dans le visualiseur de diagnostic
+    # (corriger, pas masquer - mais ne jamais bloquer le lancement).
     :native_no_crash_report
     # Paint a small marker before anything else can fail. If this text is never
     # seen, the process dies before the activity exists; if it flashes, the

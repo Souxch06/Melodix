@@ -262,7 +262,7 @@
     return-void
 .end method
 
-.method private static lastReport()Ljava/lang/String;
+.method public static lastReport()Ljava/lang/String;
     .locals 3
 
     const/4 v0, 0x0
@@ -560,7 +560,7 @@
     return-object v0
 .end method
 
-.method private static shorten(Ljava/lang/String;)Ljava/lang/String;
+.method public static shorten(Ljava/lang/String;)Ljava/lang/String;
     .locals 3
 
     if-eqz p0, :done

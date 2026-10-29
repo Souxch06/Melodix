@@ -72,8 +72,30 @@
     .locals 10
 
     :try_start_0
-    # Laisser le demarrage (et l'eventuel rapport de crash) se terminer.
-    const-wide/16 v0, 0x2ee0
+    # Attendre la fin REELLE du demarrage (startupDone), puis 60 s : jamais de
+    # trafic reseau (API + telechargement APK) pendant le chargement de la page,
+    # c'est lui qui faisait trainer le lancement sur le logo.
+    const/4 v0, 0x0
+
+    :wait_startup
+    sget-boolean v1, Lcom/melodix/music/AppSingleton;->startupDone:Z
+
+    if-nez v1, :startup_ok
+
+    const/16 v1, 0x3c
+
+    if-ge v0, v1, :startup_ok
+
+    const-wide/16 v8, 0x7d0
+
+    invoke-static {v8, v9}, Ljava/lang/Thread;->sleep(J)V
+
+    add-int/lit8 v0, v0, 0x1
+
+    goto :wait_startup
+
+    :startup_ok
+    const-wide/16 v0, 0xea60
 
     invoke-static {v0, v1}, Ljava/lang/Thread;->sleep(J)V
 

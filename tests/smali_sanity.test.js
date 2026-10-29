@@ -392,8 +392,15 @@ test('the crash guard is installed before the layout is inflated', () => {
     assert.ok(onCreate, 'Activity create callback should exist');
     assert.match(
         onCreate[1],
-        /NativeCrashGuard;->install\(Landroid\/content\/Context;\)V[\s\S]*?NativeCrashGuard;->showLastReport\(Landroid\/app\/Activity;\)Z[\s\S]*?Le6;->setContentView\(I\)V/,
-        'the previous crash report must be shown before the shell layout is inflated'
+        /NativeCrashGuard;->install\(Landroid\/content\/Context;\)V[\s\S]*?Le6;->setContentView\(I\)V/,
+        'the crash recorder must be installed before the shell layout is inflated'
+    );
+    // [demande utilisateur] Plus aucun dialogue de crash au lancement : un
+    // affichage ici faisait retourner onCreate (WebView jamais creee, logo fige,
+    // session jamais 'ready' -> rapport suivant -> boucle).
+    assert.ok(
+        onCreate[1].indexOf('NativeCrashGuard;->showLastReport') < 0,
+        'no crash report dialog may be shown from onCreate'
     );
     assert.match(app, /invoke-super \{p0\}, Landroid\/app\/Application;->onCreate\(\)V[\s\S]*?NativeCrashGuard;->install\(Landroid\/content\/Context;\)V/);
     assert.match(guard, /\.implements Ljava\/lang\/Thread\$UncaughtExceptionHandler;/);
@@ -414,20 +421,21 @@ test('a failing native render is recorded instead of killing the process', () =>
     assert.match(run[1], /:catch_0\s+move-exception v0[\s\S]*?NativeCrashGuard;->record\(Ljava\/lang\/Throwable;\)V/);
 });
 
-test('the crash report is shown before the signature gate and the inflation', () => {
+test('the crash report never blocks the launch and stays in the diagnostic viewer', () => {
     const activity = fs.readFileSync(path.join(repo, 'smali/com/melodix/music/MainActivity.smali'), 'utf8');
+    const diag = fs.readFileSync(path.join(repo, 'smali/com/melodix/music/RuntimeDiagnostic.smali'), 'utf8');
     const onCreate = activity.match(/\.method public final onCreate\(Landroid\/os\/Bundle;\)V([\s\S]*?)\.end method/);
 
     assert.ok(onCreate, 'Activity create callback should exist');
-    const report = onCreate[1].indexOf('NativeCrashGuard;->showLastReport');
-    const gate = onCreate[1].indexOf('Lcom/melodix/music/MainActivity;->u()Z');
-
-    assert.ok(report >= 0, 'the report screen should be requested from onCreate');
-    assert.ok(gate >= 0, 'the signature gate should exist');
+    // [demande utilisateur] Aucun dialogue de crash au lancement : le chemin
+    // d'affichage retournait de onCreate et bloquait le lancement en boucle.
     assert.ok(
-        report < gate,
-        'the report must be shown before the signature gate, which can close the app without a trace'
+        onCreate[1].indexOf('NativeCrashGuard;->showLastReport') < 0,
+        'no crash report dialog may be requested from onCreate'
     );
+    assert.ok(onCreate[1].indexOf('Lcom/melodix/music/MainActivity;->u()Z') >= 0, 'the signature gate should exist');
+    // Corriger, pas masquer : le rapport reste rendu dans le visualiseur.
+    assert.match(diag, /NativeCrashGuard;->lastReport\(\)Ljava\/lang\/String;/);
 });
 
 test('an inflation failure shows the trace instead of killing the launch', () => {

@@ -111,6 +111,19 @@
     const-string v4, "(aucun evenement)"
     invoke-virtual {v3, v4}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
     :nd_done
+    # Le dernier rapport de crash reste visible ici (diagnostic conserve).
+    invoke-static {}, Lcom/melodix/music/NativeCrashGuard;->lastReport()Ljava/lang/String;
+    move-result-object v4
+    if-eqz v4, :nd_report_done
+    invoke-virtual {v4}, Ljava/lang/String;->length()I
+    move-result v5
+    if-eqz v5, :nd_report_done
+    const-string v5, "\nRAPPORT: "
+    invoke-virtual {v3, v5}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    invoke-static {v4}, Lcom/melodix/music/NativeCrashGuard;->shorten(Ljava/lang/String;)Ljava/lang/String;
+    move-result-object v4
+    invoke-virtual {v3, v4}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    :nd_report_done
     const-string v4, "\n\n---\n\n"
     invoke-virtual {v3, v4}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
     invoke-virtual {v3, p1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
