@@ -607,20 +607,6 @@
 .method public static d(Ljava/lang/String;)Ljava/lang/String;
     .locals 5
 
-    # The bundled bridge always comes from the APK. The original app's Firebase
-    # hotfix channel can leave a stale spotify_bridge.js in filesDir/hotfixes/;
-    # serving it ahead of the asset silently replaced the shipped bridge with an
-    # old build at every launch (bridge never started, 8 recovery rounds).
-    # Name check first so neither the cache nor the hotfix file can intercept.
-    const-string v0, "spotify_bridge.js"
-
-    invoke-virtual {v0, p0}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
-
-    move-result v0
-
-    if-nez v0, :cond_2
-
-
     .line 1
     sget-object v0, Lcom/melodix/music/AppSingleton;->f0:Ljava/util/concurrent/ConcurrentHashMap;
 
@@ -713,7 +699,11 @@
     move-result-object v3
 
     .line 43
-    const-string v4, "hotfixes/"
+    # Hotfix reads are disabled: filesDir/hotfixes/ can hold stale Firebase
+    # scripts that silently replace the shipped assets (the 146452-char bridge
+    # that never started). Renaming the suffix makes every read miss and fall
+    # through to the APK asset - no control flow changed, verifier-neutral.
+    const-string v4, "hotfixes_off/"
 
     .line 44
     .line 45
@@ -962,8 +952,6 @@
     :goto_2
     return-object v2
 .end method
-
-
 
 .method public static e()Landroid/content/SharedPreferences;
     .locals 1

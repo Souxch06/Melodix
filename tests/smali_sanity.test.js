@@ -520,20 +520,17 @@ test('ViewGroup-only methods are never invoked through the View owner', () => {
         'the shelf must clip through the ViewGroup owner');
 });
 
-test('the bridge asset bypasses the hotfix directory and the asset cache', () => {
-    // A stale Firebase hotfix script in filesDir/hotfixes/ silently replaced the
-    // shipped spotify_bridge.js at every launch. m9.d must route the bridge name
-    // straight to the APK asset branch (:cond_2) before cache and hotfix reads.
+test('the hotfix directory is disabled so stale Firebase scripts cannot replace shipped assets', () => {
+    // filesDir/hotfixes/ once held a stale spotify_bridge.js (146452 chars) that
+    // m9.d served ahead of the APK asset: the shipped bridge never ran. The read
+    // path now points at a suffix that never exists, so every read misses and
+    // falls through to the APK asset - a one-literal change, verifier-neutral.
     const m9 = fs.readFileSync(path.join(repo, 'smali/m9.smali'), 'utf8');
     const start = m9.indexOf('.method public static d(Ljava/lang/String;)Ljava/lang/String;');
     assert.ok(start >= 0, 'm9.d must exist');
     const body = m9.slice(start, m9.indexOf('.end method', start));
-    const bypassAt = body.indexOf('const-string v0, "spotify_bridge.js"');
-    const hotfixAt = body.indexOf('"hotfixes/"');
-    assert.ok(bypassAt >= 0, 'the bridge name is checked first');
-    assert.ok(hotfixAt > bypassAt, 'the hotfix path is only reached for other names');
-    assert.ok(/if-nez v0, :cond_2/.test(body), 'the bridge jumps to the APK asset branch');
-    assert.ok(!m9.includes('.method public static e(Ljava/lang/String;)'), 'no parallel reader to drift');
+    assert.ok(body.includes('const-string v4, "hotfixes_off/"'), 'the hotfix read path is dead');
+    assert.ok(!body.includes('"hotfixes/"'), 'the live hotfix path is gone');
     const bridge = fs.readFileSync(path.join(repo, 'smali/com/melodix/music/AndBridge.smali'), 'utf8');
     const section = (name) => {
         const at = bridge.indexOf('.method public final ' + name);
@@ -544,4 +541,5 @@ test('the bridge asset bypasses the hotfix directory and the asset cache', () =>
         assert.ok(section(name).includes('Lm9;->d(Ljava/lang/String;)Ljava/lang/String;'),
             name + ' reads through the shared reader');
     }
+    assert.ok(!m9.includes('.method public static e(Ljava/lang/String;)'), 'no parallel reader to drift');
 });
