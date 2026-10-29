@@ -49,6 +49,19 @@ note "resumed: $(tr '\n' ' ' < "$state/resumed.txt" | cut -c1-300)"
 
 adb shell timeout 30 uiautomator dump --compressed /sdcard/window.xml >/dev/null 2>&1 || true
 adb exec-out cat /sdcard/window.xml > "$state/window.xml" 2>/dev/null || true
+
+# Second launch: the startup-interruption / crash report of the FIRST launch
+# is displayed on this one - capture it photo-ready.
+adb shell am force-stop "$package_id" >/dev/null 2>&1
+sleep 2
+adb shell monkey -p "$package_id" -c android.intent.category.LAUNCHER 1 >> "$state/monkey.txt" 2>&1
+sleep 20
+adb shell dumpsys activity activities 2>/dev/null \
+  | grep -E 'mResumedActivity|topResumedActivity|ResumedActivity' | head -n 3 > "$state/resumed2.txt"
+adb shell timeout 30 uiautomator dump --compressed /sdcard/window2.xml >/dev/null 2>&1 || true
+adb exec-out cat /sdcard/window2.xml > "$state/window2.xml" 2>/dev/null || true
+grep -o 'text="[^"]*"' "$state/window2.xml" 2>/dev/null | head -n 30 > "$state/window-text2.txt"
+note "visible2: $(tr '\n' ' ' < "$state/window-text2.txt" | cut -c1-300)"
 grep -o 'text="[^"]*"' "$state/window.xml" 2>/dev/null | head -n 30 > "$state/window-text.txt"
 note "visible: $(tr '\n' ' ' < "$state/window-text.txt" | cut -c1-300)"
 
@@ -77,6 +90,7 @@ note "mdxtrace: $(grep -c . "$state/trace.txt" 2>/dev/null) line(s) captured"
   echo "resumed: $(tr '\n' ' ' < "$state/resumed.txt" 2>/dev/null)"
   echo "stage prefs: $(tr -d '\n' < "$state/prefs.xml" 2>/dev/null | cut -c1-600)"
   echo "visible text: $(tr '\n' ' ' < "$state/window-text.txt" 2>/dev/null | cut -c1-600)"
+  echo "visible text (2e lancement): $(tr '\n' ' ' < "$state/window-text2.txt" 2>/dev/null | cut -c1-600)"
   echo "--- MDXTRACE startup chain ---"
   head -c 8000 "$state/trace.txt" 2>/dev/null
   echo "--- fatal ---"

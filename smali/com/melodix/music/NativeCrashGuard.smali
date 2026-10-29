@@ -374,13 +374,13 @@
 
     move-result-object v1
 
-    if-eqz v1, :done
+    if-eqz v1, :try_stage
 
     invoke-virtual {v1}, Ljava/lang/String;->length()I
 
     move-result v2
 
-    if-eqz v2, :done
+    if-eqz v2, :try_stage
 
     const/16 v3, 0x4b0
 
@@ -456,6 +456,108 @@
 
     :done
     return v0
+
+    # No Java exception was recorded, yet the previous launch never reached
+    # "ready": the process died natively or was killed before the startup
+    # resolved. The stage trail survives any kind of death - surface it
+    # photo-ready instead of staying silent.
+    :try_stage
+    invoke-static {}, Lcom/melodix/music/NativeCrashGuard;->lastStage()Ljava/lang/String;
+
+    move-result-object v2
+
+    if-eqz v2, :done
+
+    const-string v3, "ready"
+
+    invoke-virtual {v3, v2}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+
+    move-result v3
+
+    if-nez v3, :done
+
+    new-instance v1, Ljava/lang/StringBuilder;
+
+    invoke-direct {v1}, Ljava/lang/StringBuilder;-><init>()V
+
+    const-string v3, "Demarrage interrompu : le processus est mort avant la fin du demarrage (crash natif ou kill systeme).\nEtape atteinte : "
+
+    invoke-virtual {v1, v3}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    invoke-virtual {v1, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    const-string v3, "\nBuild : "
+
+    invoke-virtual {v1, v3}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    invoke-static {p0}, Lcom/melodix/music/NativeCrashGuard;->buildLabel(Landroid/content/Context;)Ljava/lang/String;
+
+    move-result-object v3
+
+    invoke-virtual {v1, v3}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    invoke-virtual {v1}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
+
+    move-result-object v1
+
+    goto :no_stage
+.end method
+
+# Build label of the running APK (versionName, e.g. 1.2.2-<sha7>) so a photo
+# of any report identifies the exact binary. All control flow stays inside the
+# try range; never fails: "?".
+.method private static buildLabel(Landroid/content/Context;)Ljava/lang/String;
+    .locals 3
+
+    if-eqz p0, :label_fail
+
+    :try_start_label
+    invoke-virtual {p0}, Landroid/content/Context;->getPackageManager()Landroid/content/pm/PackageManager;
+
+    move-result-object v0
+
+    if-eqz v0, :label_fail_in
+
+    invoke-virtual {p0}, Landroid/content/Context;->getPackageName()Ljava/lang/String;
+
+    move-result-object v1
+
+    if-eqz v1, :label_fail_in
+
+    const/4 v2, 0x0
+
+    invoke-virtual {v0, v1, v2}, Landroid/content/pm/PackageManager;->getPackageInfo(Ljava/lang/String;I)Landroid/content/pm/PackageInfo;
+
+    move-result-object v0
+
+    if-eqz v0, :label_fail_in
+
+    iget-object v0, v0, Landroid/content/pm/PackageInfo;->versionName:Ljava/lang/String;
+
+    if-eqz v0, :label_fail_in
+
+    goto :label_done
+
+    :label_fail_in
+    const-string v0, "?"
+
+    :label_done
+    :try_end_label
+    .catch Ljava/lang/Throwable; {:try_start_label .. :try_end_label} :catch_label
+
+    return-object v0
+
+    :catch_label
+    move-exception v0
+
+    const-string v0, "?"
+
+    return-object v0
+
+    :label_fail
+    const-string v0, "?"
+
+    return-object v0
 .end method
 
 .method private static shorten(Ljava/lang/String;)Ljava/lang/String;

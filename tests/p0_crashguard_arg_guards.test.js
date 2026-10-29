@@ -74,8 +74,8 @@ test('[structurel] shorten(String) : garde d\'argument if-eqz + garde de longueu
 test('[structurel] showLastReport(Activity) : les 5 gardes internes sont droites (activité, rapport, longueur, stage)', () => {
   const body = methodBody('.method public static showLastReport(Landroid/app/Activity;)Z');
   assert.match(body, /if-eqz p0, :done/, 'activité nulle → sortir ; activité valide → afficher');
-  assert.match(body, /if-eqz v1, :done/, 'rapport absent → sortir');
-  assert.match(body, /if-eqz v2, :done/, 'rapport vide → sortir');
+  assert.match(body, /if-eqz v1, :try_stage/, 'rapport absent → rapport d\'interruption depuis le fil de stages');
+  assert.match(body, /if-eqz v2, :try_stage/, 'rapport vide → idem');
   assert.match(body, /if-le v2, v3, :short_enough/, 'longueur <= 1200 : tel quel ; sinon tronquer');
   assert.match(body, /if-eqz v2, :no_stage/, 'stage absent → pas de ligne stage');
   assert.ok(!/if-nez (p0|v1|v2), :done|if-nez v2, :no_stage|if-gt v2, v3/.test(body),

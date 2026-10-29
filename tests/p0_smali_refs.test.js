@@ -53,7 +53,18 @@ function extractRefs(body) {
 const FRAMEWORK_METHODS = new Set([
   'Landroid/content/Context;->getPackageManager()Landroid/content/pm/PackageManager;',
   'Landroid/content/Context;->getPackageName()Ljava/lang/String;',
-  'Landroid/content/pm/PackageManager;->getPackageInfo(Ljava/lang/String;I)Landroid/content/pm/PackageInfo;'
+  'Landroid/content/pm/PackageManager;->getPackageInfo(Ljava/lang/String;I)Landroid/content/pm/PackageInfo;',
+  'Ljava/lang/String;->length()I',
+  'Ljava/lang/String;->substring(II)Ljava/lang/String;',
+  'Ljava/lang/String;->equals(Ljava/lang/Object;)Z',
+  'Ljava/lang/StringBuilder;-><init>()V',
+  'Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;',
+  'Ljava/lang/StringBuilder;->toString()Ljava/lang/String;',
+  'Landroid/app/AlertDialog$Builder;-><init>(Landroid/content/Context;)V',
+  'Landroid/app/AlertDialog$Builder;->setTitle(Ljava/lang/CharSequence;)Landroid/app/AlertDialog$Builder;',
+  'Landroid/app/AlertDialog$Builder;->setMessage(Ljava/lang/CharSequence;)Landroid/app/AlertDialog$Builder;',
+  'Landroid/app/AlertDialog$Builder;->setPositiveButton(Ljava/lang/CharSequence;Landroid/content/DialogInterface$OnClickListener;)Landroid/app/AlertDialog$Builder;',
+  'Landroid/app/AlertDialog$Builder;->show()Landroid/app/AlertDialog;'
 ]);
 const FRAMEWORK_FIELDS = new Set([
   'Landroid/content/pm/PackageInfo;->versionName:Ljava/lang/String;'
@@ -133,4 +144,46 @@ test('[structurel] getBuildLabel lit le contexte via le champ AndBridge.a (idiom
   assert.match(body, /iget-object v0, p0, Lcom\/melodix\/music\/AndBridge;->a:Landroid\/content\/Context;/);
   assert.ok(!body.includes('getApplicationContext'), 'pas de méthode potentiellement inexistante');
   assert.match(body, /\.catch Ljava\/lang\/Throwable;/, 'tout échec retombe sur "?"');
+});
+
+test('[structurel] NativeCrashGuard.showLastReport + buildLabel : toutes les références résolvent', () => {
+  const guard = read('smali/com/melodix/music/NativeCrashGuard.smali');
+  const dangling = [];
+  for (const methodName of ['showLastReport', 'buildLabel']) {
+    const at = guard.indexOf(`.method`);
+    const mAt = guard.search(new RegExp(`\\.method[^\\n]* ${methodName}\\(`));
+    assert.ok(mAt > -1, `méthode ${methodName} présente`);
+    const body = guard.slice(mAt, guard.indexOf('.end method', mAt));
+    const name = methodName;
+    for (const { cls, member, kind } of extractRefs(body)) {
+      if (cls.startsWith('Lcom/melodix/music/')) {
+        const known = APP_CLASSES[cls];
+        if (!known) { dangling.push(`${name}: classe inconnue ${cls}`); continue; }
+        const ok = kind === 'field' ? known.fields.has(member) : known.methods.has(member);
+        if (!ok) dangling.push(`${name}: ${kind} ${cls}->${member}`);
+      } else {
+        const key = `${cls}->${member}`;
+        const ok = kind === 'field' ? FRAMEWORK_FIELDS.has(key) : FRAMEWORK_METHODS.has(key);
+        if (!ok) dangling.push(`${name}: framework ${key}`);
+      }
+    }
+  }
+  assert.deepEqual(dangling, [], `références fantômes:\n${dangling.join('\n')}`);
+});
+
+test('[structurel] showLastReport : sans rapport de crash, le fil de stages produit un rapport d\'interruption', () => {
+  const guard = read('smali/com/melodix/music/NativeCrashGuard.smali');
+  const at = guard.search(/\.method[^\n]* showLastReport\(/);
+  const body = guard.slice(at, guard.indexOf('.end method', at));
+  // gardes d'entrée : rapport absent/vidé -> chemin stage (pas le silence)
+  assert.match(body, /if-eqz v1, :try_stage/);
+  assert.match(body, /if-eqz v2, :try_stage/);
+  // le chemin stage n'affiche que si le stage existe et n'est PAS "ready"
+  const stage = body.slice(body.indexOf(':try_stage'));
+  assert.match(stage, /const-string v3, "ready"/);
+  assert.match(stage, /if-nez v3, :done/);
+  assert.match(stage, /Demarrage interrompu/);
+  assert.match(stage, /buildLabel/);
+  // le message rejoint le dialogue commun (:no_stage) et le retour 1
+  assert.match(stage, /goto :no_stage/);
 });
