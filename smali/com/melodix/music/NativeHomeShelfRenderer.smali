@@ -338,7 +338,7 @@
 
     invoke-virtual {v11, v12}, Landroid/widget/TextView;->setTextSize(F)V
 
-    const v12, -0x4c4c4d
+    const v12, 0xffbfc0cb
 
     invoke-virtual {v11, v12}, Landroid/widget/TextView;->setTextColor(I)V
 
@@ -445,7 +445,7 @@
     invoke-virtual {v0, v1}, Landroid/widget/TextView;->setText(Ljava/lang/CharSequence;)V
     const/high16 v1, 0x41800000
     invoke-virtual {v0, v1}, Landroid/widget/TextView;->setTextSize(F)V
-    const v1, -0x4c4c4d
+    const v1, 0xffbfc0cb
     invoke-virtual {v0, v1}, Landroid/widget/TextView;->setTextColor(I)V
     const/16 v1, 0x11
     invoke-virtual {v0, v1}, Landroid/widget/TextView;->setGravity(I)V

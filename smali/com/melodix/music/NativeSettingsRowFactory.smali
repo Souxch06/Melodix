@@ -120,7 +120,7 @@
     invoke-virtual {v10, v5}, Landroid/widget/TextView;->setText(Ljava/lang/CharSequence;)V
     const/high16 v0, 0x41400000
     invoke-virtual {v10, v0}, Landroid/widget/TextView;->setTextSize(F)V
-    const v0, -0x4c4c4d
+    const v0, 0xffbfc0cb
     invoke-virtual {v10, v0}, Landroid/widget/TextView;->setTextColor(I)V
     const/4 v0, 0x2
     invoke-virtual {v10, v0}, Landroid/widget/TextView;->setMaxLines(I)V
@@ -177,7 +177,7 @@
     move-result v3
     if-eqz v3, :native_settings_pill_not_off
     const v0, -0xd5d5d6
-    const v1, -0x4c4c4d
+    const v1, 0xffbfc0cb
     goto :native_settings_pill_build
 
     :native_settings_pill_not_off

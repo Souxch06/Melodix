@@ -81,11 +81,11 @@
     <color name="secondary_text_default_material_light">#8a000000</color>
     <color name="secondary_text_disabled_material_dark">#36ffffff</color>
     <color name="secondary_text_disabled_material_light">#24000000</color>
-    <color name="spotify_black">#ff121212</color>
+    <color name="spotify_black">#ff0a0c10</color>
     <color name="spotify_green">#ff1db954</color>
     <color name="switch_thumb_material_dark">#ffbdbdbd</color>
     <color name="switch_thumb_material_light">#fff1f1f1</color>
-    <color name="teal_200">#ff00c8f0</color>
+    <color name="teal_200">#ff1ed760</color>
     <color name="teal_700">#ff018786</color>
     <color name="tooltip_background_dark">#e6616161</color>
     <color name="tooltip_background_light">#e6ffffff</color>
