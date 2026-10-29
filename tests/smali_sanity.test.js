@@ -450,3 +450,53 @@ test('an inflation failure shows the trace instead of killing the launch', () =>
     assert.match(guarded[1], /NativeCrashGuard;->excerpt\(Ljava\/lang\/Throwable;\)Ljava\/lang\/String;/);
     assert.match(guarded[1], /TextView;->setText\(Ljava\/lang\/CharSequence;\)V[\s\S]*?Landroid\/app\/Activity;->setContentView\(Landroid\/view\/View;\)V[\s\S]*?return-void/);
 });
+
+test('every invoke passes exactly the register width of its target prototype', () => {
+    // VerifyError vu sur device/emulateur : invoke-static {p0}, noteStopped()V
+    // passe 1 registre a un prototype 0 parametre -> le verificateur dex REJETTE
+    // la classe entiere -> crash au lancement. smali n'a pas ce controle.
+    const walk = (dir, out) => {
+        for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+            const p = path.join(dir, e.name);
+            if (e.isDirectory()) walk(p, out);
+            else if (e.name.endsWith('.smali')) out.push(p);
+        }
+        return out;
+    };
+    const protoWidth = (desc) => {
+        const inner = desc.slice(1, desc.indexOf(')'));
+        let w = 0;
+        let i = 0;
+        while (i < inner.length) {
+            const c = inner[i];
+            if (c === 'L') { w += 1; i = inner.indexOf(';', i) + 1; }
+            else if (c === '[') {
+                while (inner[i] === '[') i += 1;
+                i = inner[i] === 'L' ? inner.indexOf(';', i) + 1 : i + 1;
+                w += 1;
+            } else if (c === 'J' || c === 'D') { w += 2; i += 1; }
+            else { w += 1; i += 1; }
+        }
+        return w;
+    };
+    const bad = [];
+    for (const f of walk(path.join(repo, 'smali'), [])) {
+        const lines = fs.readFileSync(f, 'utf8').split('\n');
+        lines.forEach((line, i) => {
+            const m = line.match(/^\s*(invoke-[\w/]+?)\s+\{([^}]*)\},\s*\S+->\S+(\(.*\))/);
+            if (!m) return;
+            const [, op, regs, desc] = m;
+            let count;
+            if (op.includes('/range')) {
+                const [a, b] = regs.split('..').map((x) => x.trim());
+                count = parseInt(b.slice(1), 10) - parseInt(a.slice(1), 10) + 1;
+            } else {
+                count = regs.split(',').filter((x) => x.trim()).length;
+            }
+            let width = protoWidth(desc);
+            if (!op.startsWith('invoke-static') && !op.startsWith('invoke-custom')) width += 1;
+            if (count !== width) bad.push(`${path.basename(f)}:${i + 1} ${op} ${count}!=${width}`);
+        });
+    }
+    assert.deepEqual(bad, [], `invocations incoherentes: ${bad.slice(0, 5).join(' | ')}`);
+});

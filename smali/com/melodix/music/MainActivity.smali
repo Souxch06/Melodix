@@ -4802,7 +4802,7 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
     # Mise a jour silencieuse : de retour en avant-plan, plus aucune
     # installation ne doit pouvoir tuer la session en cours.
     :try_start_selfres
-    invoke-static {p0}, Lcom/melodix/music/SelfUpdater;->noteResumed()V
+    invoke-static {}, Lcom/melodix/music/SelfUpdater;->noteResumed()V
     :try_end_selfres
     .catch Ljava/lang/Throwable; {:try_start_selfres .. :try_end_selfres} :catch_selfres
 
@@ -5509,7 +5509,7 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
     # Mise a jour silencieuse : l'APK telecharge et verifie s'installe quand
     # l'app part en arriere-plan - le lancement suivant est deja a jour.
     :try_start_selfupd
-    invoke-static {p0}, Lcom/melodix/music/SelfUpdater;->noteStopped()V
+    invoke-static {}, Lcom/melodix/music/SelfUpdater;->noteStopped()V
 
     invoke-static {p0}, Lcom/melodix/music/SelfUpdater;->installPending(Landroid/content/Context;)V
     :try_end_selfupd
