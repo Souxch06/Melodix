@@ -80,3 +80,29 @@ test('[diag natif] visualiseur : etat NATIF prefixe au JSON', () => {
   assert.ok(body.includes('"NATIF "'));
   assert.ok(body.indexOf('diagNative') < body.indexOf('setText'));
 });
+
+test('[self-update] assembleur dex : aucune invocation sans /range au-dessus de 5 registres', () => {
+  // La forme invoke-xxx {..} (format 35c) ne code que 5 registres ; au dela il
+  // faut invoke-xxx/range. Erreur d'assemblage = build casse, anti-recidive.
+  const walk = (dir, out) => {
+    for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+      const p = path.join(dir, e.name);
+      if (e.isDirectory()) walk(p, out);
+      else if (e.name.endsWith('.smali')) out.push(p);
+    }
+    return out;
+  };
+  const files = walk(path.join(root, 'smali'), []);
+  const bad = [];
+  for (const f of files) {
+    const lines = fs.readFileSync(f, 'utf8').split('\n');
+    lines.forEach((line, i) => {
+      const m = line.match(/^\s*invoke-[\w/]+?\s+\{([^}]*)\}/);
+      if (m && !line.includes('/range')) {
+        const regs = m[1].split(',').map((s) => s.trim()).filter(Boolean);
+        if (regs.length > 5) bad.push(`${path.basename(f)}:${i + 1}`);
+      }
+    });
+  }
+  assert.deepEqual(bad, [], `invocations > 5 registres sans /range: ${bad.join(', ')}`);
+});

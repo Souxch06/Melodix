@@ -995,15 +995,17 @@
 
     move-result-object v0
 
-    const-string v2, "melodix"
+    # openWrite(String,J,J) = 6 registres : forme /range obligatoire (registres
+    # consecutifs v0..v5 : session, nom, offset 0L, longueur).
+    const-string v1, "melodix"
 
-    const-wide/16 v3, 0x0
+    const-wide/16 v2, 0x0
 
     invoke-virtual {p1}, Ljava/io/File;->length()J
 
-    move-result-wide v5
+    move-result-wide v4
 
-    invoke-virtual {v0, v2, v3, v4, v5, v6}, Landroid/content/pm/PackageInstaller$Session;->openWrite(Ljava/lang/String;JJ)Ljava/io/OutputStream;
+    invoke-virtual/range {v0 .. v5}, Landroid/content/pm/PackageInstaller$Session;->openWrite(Ljava/lang/String;JJ)Ljava/io/OutputStream;
 
     move-result-object v2
 
