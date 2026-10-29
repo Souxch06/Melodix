@@ -573,6 +573,28 @@
         }, 500);
     }
 
+    // P0 diagnostic: when the home collects nothing, say WHY on the screen
+    // itself so a screenshot becomes a full diagnosis (build, page, bridge,
+    // mediaLib, counts). Never sent while real rows exist - no invented music.
+    function homeDiagRow(reason) {
+        var bridge = window.AndBridge;
+        var label = '?';
+        try {
+            if (bridge && typeof bridge.getBuildLabel === 'function') label = String(bridge.getBuildLabel() || '?');
+        } catch (_) {}
+        return {
+            title: 'Diagnostic Melodix',
+            subtitle: 'build ' + label + ' | page ' + spotifyRoutePath() +
+                ' | bridge ' + (bridgeHasStarted() ? 'oui' : 'non') +
+                ' | mediaLib ' + (window.__sfMediaLibStatus || '?') +
+                ' | rows ' + (window.__sfNativeUiHomeRowsCount || 0) +
+                ' | ' + (reason || ''),
+            section: 'État de l’accueil',
+            image: '',
+            uri: ''
+        };
+    }
+
     function updateHomeRows(mainView) {
         var rows;
         var signature;
@@ -598,7 +620,17 @@
         }
 
         if (rows.length > 0 && rows.some(function(row) { return Boolean(row && row.image); })) clearHomeRetry();
-        else scheduleHomeRetry();
+        else {
+            // Empty home: surface the diagnosis on the screen itself (a
+            // screenshot of the empty home becomes actionable), throttled to
+            // three snapshots per retry cycle.
+            if (rows.length === 0 && (homeRetries === 3 || homeRetries === 15 || homeRetries === MAX_HOME_RETRIES)) {
+                try {
+                    sendNativeUiData('home', [homeDiagRow('scrape vide apres ' + homeRetries + ' essais')]);
+                } catch (_) {}
+            }
+            scheduleHomeRetry();
+        }
     }
 
     function currentSearchQuery() {
@@ -762,6 +794,15 @@
             diagTrace('native-ui-ready rows=' + (window.__sfNativeUiHomeRowsCount || 0) + ' route=' + spotifyRoutePath());
         } catch (_) {
             return false;
+        }
+
+        // P0 diagnostic: a takeover with zero collected rows leaves a blank
+        // native home (the opaque shell covers the live page). Show the state
+        // on the screen itself instead of silence.
+        if ((window.__sfNativeUiHomeRowsCount || 0) < 1 && typeof bridge.onNativeUiData === 'function') {
+            try {
+                bridge.onNativeUiData('home', JSON.stringify([homeDiagRow('takeover sans rows, route ' + spotifyRoutePath())]));
+            } catch (_) {}
         }
 
         searchQuery = initialSearchQuery();
