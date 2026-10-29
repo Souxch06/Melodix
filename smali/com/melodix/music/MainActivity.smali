@@ -7032,6 +7032,23 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
 
     iput-object p1, p0, Lcom/melodix/music/MainActivity;->nativeCurrentScreen:Ljava/lang/String;
 
+    # Diag natif : la route posee (valeur du gate pour les prochains payloads).
+    :try_start_md3
+    const-string v0, "route"
+
+    const/4 v1, 0x0
+
+    invoke-static {v0, p1, v1}, Lcom/melodix/music/AppSingleton;->noteDiag(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)V
+    :try_end_md3
+    .catch Ljava/lang/Throwable; {:try_start_md3 .. :try_end_md3} :catch_md3
+
+    goto :md3_done
+
+    :catch_md3
+    move-exception v0
+
+    :md3_done
+
     # The browse grid belongs to the empty search screen only.
     const v0, 0x7f09024f
 
@@ -7320,6 +7337,29 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
 
 .method public final applyNativeUiData(Ljava/lang/String;Ljava/lang/String;)V
     .locals 10
+
+    # Diag natif : quel payload arrive avec quel ecran courant (gate drop).
+    :try_start_md1
+    const-string v8, "data"
+
+    invoke-virtual {p2}, Ljava/lang/String;->length()I
+
+    move-result v9
+
+    invoke-static {v9}, Ljava/lang/Integer;->toString(I)Ljava/lang/String;
+
+    move-result-object v9
+
+    invoke-static {v8, p1, v9}, Lcom/melodix/music/AppSingleton;->noteDiag(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)V
+    :try_end_md1
+    .catch Ljava/lang/Throwable; {:try_start_md1 .. :try_end_md1} :catch_md1
+
+    goto :md1_done
+
+    :catch_md1
+    move-exception v8
+
+    :md1_done
 
     const-string v0, "home-greeting"
     invoke-virtual {p1, v0}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
@@ -7744,6 +7784,29 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
 
 .method public final renderNativeRows(Ljava/lang/String;Ljava/lang/String;)V
     .locals 10
+
+    # Diag natif : le rendu a-t-il ete atteint et avec quelle charge.
+    :try_start_md2
+    const-string v8, "render"
+
+    invoke-virtual {p2}, Ljava/lang/String;->length()I
+
+    move-result v9
+
+    invoke-static {v9}, Ljava/lang/Integer;->toString(I)Ljava/lang/String;
+
+    move-result-object v9
+
+    invoke-static {v8, p1, v9}, Lcom/melodix/music/AppSingleton;->noteDiag(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)V
+    :try_end_md2
+    .catch Ljava/lang/Throwable; {:try_start_md2 .. :try_end_md2} :catch_md2
+
+    goto :md2_done
+
+    :catch_md2
+    move-exception v8
+
+    :md2_done
 
     # MDXTRACE: native side received a rows payload (screen + payload length).
     new-instance v0, Ljava/lang/StringBuilder;

@@ -107,6 +107,10 @@
 # still unresolved after 25s with the main-thread stack.
 .field public static volatile startupDone:Z = false
 
+# Derniers evenements du pipeline natif (ecrans/payloads), affiches dans le
+# visualiseur de diagnostic pour qu'un screenshot tranche tout.
+.field public static diagNative:Ljava/lang/String; = null
+
 
 # direct methods
 .method protected attachBaseContext(Landroid/content/Context;)V
@@ -295,6 +299,20 @@
     move-exception v0
 
     :guard_done
+
+    # Auto-mise a jour : verification silencieuse en arriere-plan, jamais
+    # sur le chemin critique du demarrage.
+    :try_start_updater
+    invoke-static {p0}, Lcom/melodix/music/SelfUpdater;->check(Landroid/content/Context;)V
+    :try_end_updater
+    .catch Ljava/lang/Throwable; {:try_start_updater .. :try_end_updater} :catch_updater
+
+    goto :updater_done
+
+    :catch_updater
+    move-exception v0
+
+    :updater_done
 
     .line 2
     .line 3
@@ -2306,6 +2324,81 @@
     .line 975
     .line 976
     .line 977
+    return-void
+.end method
+
+.method public static noteDiag(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)V
+    .locals 3
+
+    # Journal natif borne (600 chars) : data/render/route + ecran courant.
+    :try_start_0
+    new-instance v0, Ljava/lang/StringBuilder;
+
+    invoke-direct {v0}, Ljava/lang/StringBuilder;-><init>()V
+
+    sget-object v1, Lcom/melodix/music/AppSingleton;->diagNative:Ljava/lang/String;
+
+    if-eqz v1, :skip_old
+
+    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    const-string v1, " | "
+
+    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    :skip_old
+    if-eqz p0, :d1
+
+    invoke-virtual {v0, p0}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    :d1
+    const-string v1, " "
+
+    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    if-eqz p1, :d2
+
+    invoke-virtual {v0, p1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    :d2
+    const-string v1, " "
+
+    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    if-eqz p2, :d3
+
+    invoke-virtual {v0, p2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    :d3
+    invoke-virtual {v0}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
+
+    move-result-object v1
+
+    invoke-virtual {v1}, Ljava/lang/String;->length()I
+
+    move-result v2
+
+    const/16 v0, 0x258
+
+    if-le v2, v0, :keep
+
+    sub-int/2addr v2, v0
+
+    invoke-virtual {v1, v2}, Ljava/lang/String;->substring(I)Ljava/lang/String;
+
+    move-result-object v1
+
+    :keep
+    sput-object v1, Lcom/melodix/music/AppSingleton;->diagNative:Ljava/lang/String;
+    :try_end_0
+    .catch Ljava/lang/Throwable; {:try_start_0 .. :try_end_0} :catch_0
+
+    goto :done
+
+    :catch_0
+    move-exception v0
+
+    :done
     return-void
 .end method
 
