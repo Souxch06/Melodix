@@ -65,7 +65,7 @@ function runSmaliMethod(methodSource, registers, env) {
         throw new RangeError('StringIndexOutOfBoundsException');
       }
       lastResult = s.slice(startIdx, endIdx); // same semantics as Java substring
-    } else if (sig.includes('Lm9;->d(')) {
+    } else if (sig.includes('Lm9;->d(') || sig.includes('Lm9;->e(')) {
       env.assetReads.push(args[0]);
       lastResult = env.assetProvider(args[0]);
     } else if (sig.includes('Ljava/lang/ref/Reference;->get()')) {
@@ -246,7 +246,7 @@ test('whitelist: injectBundledAsset accepts only "spotify_bridge.js"', () => {
   env.appSingletonField = {}; // AppSingleton.t reference, non-null
   env.activity = {};          // Reference.get() returns the activity
   runSmaliMethod(injectMethod, { p0: 'AndBridge', p1: 'other.js' }, env);
-  assert.deepEqual(env.assetReads, [], 'foreign name never reaches m9.d');
+  assert.deepEqual(env.assetReads, [], 'foreign name never reaches the asset reader');
   assert.equal(env.runnerInvoked, false);
   runSmaliMethod(injectMethod, { p0: 'AndBridge', p1: 'spotify_bridge.js' }, env);
   assert.deepEqual(env.assetReads, ['spotify_bridge.js']);

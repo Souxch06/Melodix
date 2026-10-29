@@ -2152,7 +2152,7 @@
                 window.__sfNativeUiBridgeRecovered = true;
                 return;
             }
-            if (bridgeLoadAttempts < 8) bridgeRetryTimer = window.setTimeout(attempt, 2500);
+            if (bridgeLoadAttempts < 3) bridgeRetryTimer = window.setTimeout(attempt, 2500);
         }
 
         if (bridgeHasStarted()) return;

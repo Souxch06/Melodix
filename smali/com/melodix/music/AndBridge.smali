@@ -4863,7 +4863,7 @@
 
     if-eqz v0, :asset_inject_done
 
-    invoke-static {p1}, Lm9;->d(Ljava/lang/String;)Ljava/lang/String;
+    invoke-static {p1}, Lm9;->e(Ljava/lang/String;)Ljava/lang/String;
 
     move-result-object v1
 
@@ -4915,7 +4915,7 @@
 
     if-eqz v0, :read_bundled_asset_done
 
-    invoke-static {p1}, Lm9;->d(Ljava/lang/String;)Ljava/lang/String;
+    invoke-static {p1}, Lm9;->e(Ljava/lang/String;)Ljava/lang/String;
 
     move-result-object v1
 
@@ -4947,7 +4947,7 @@
 
     if-eqz v0, :range_done
 
-    invoke-static {p1}, Lm9;->d(Ljava/lang/String;)Ljava/lang/String;
+    invoke-static {p1}, Lm9;->e(Ljava/lang/String;)Ljava/lang/String;
 
     move-result-object v2
 

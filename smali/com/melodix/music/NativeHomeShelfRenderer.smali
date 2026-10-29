@@ -122,7 +122,7 @@
 
     invoke-virtual {v8, v9}, Landroid/widget/HorizontalScrollView;->setHorizontalScrollBarEnabled(Z)V
 
-    invoke-virtual {v8, v9}, Landroid/view/View;->setClipToPadding(Z)V
+    invoke-virtual {v8, v9}, Landroid/view/ViewGroup;->setClipToPadding(Z)V
 
     const/16 v9, 0x10
 

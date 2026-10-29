@@ -828,7 +828,7 @@ test('the native shell can ask Android to evaluate the playback bridge again', (
     assert.match(shell, /securitypolicyviolation/, 'CSP rejections must be recorded, not guessed');
     assert.match(shell, /__sfBridgeExecMode/, 'the execution strategy must be reported');
     assert.match(bridge, /\.method public final readBundledAsset\(Ljava\/lang\/String;\)Ljava\/lang\/String;[\s\S]*?JavascriptInterface/);
-    assert.match(bridge, /const-string v0, "spotify_bridge\.js"[\s\S]*?Lm9;->d/, 'only whitelisted assets are readable');
+    assert.match(bridge, /const-string v0, "spotify_bridge\.js"[\s\S]*?Lm9;->e/, 'only whitelisted assets are readable, from the APK only');
     assert.match(bridge, /\.method public final injectBundledAsset\(Ljava\/lang\/String;\)V[\s\S]*?JavascriptInterface/);
     assert.match(bridge, /NativeAssetRunner;-><init>[\s\S]*?runOnUiThread/, 'evaluation must be posted to the UI thread');
     assert.match(runner, /implements Ljava\/lang\/Runnable;/);
@@ -1228,4 +1228,12 @@ test('search results coming from the fallback path reach the native list', () =>
     assert.match(apply, /const-string v0, "search:"/);
     assert.match(apply, /nativeExpectedSearch/);
     assert.match(apply, /const-string v8, "Résultats de recherche"/);
+});
+
+test('the bridge recovery loop is capped so a dead bridge cannot churn the launch', () => {
+    // Eight full re-injection rounds of the 200 KB bridge kept the startup
+    // busy for twenty seconds on the device. Three attempts are enough.
+    const shell = read('assets/native_ui_shell.js');
+    assert.ok(/bridgeLoadAttempts < 3\b/.test(shell), 'retries capped at 3');
+    assert.ok(!/bridgeLoadAttempts < 8\b/.test(shell), 'the old eight-attempt loop is gone');
 });

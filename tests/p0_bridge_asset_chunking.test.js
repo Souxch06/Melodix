@@ -32,8 +32,8 @@ test('AndBridge exposes a whitelisted ranged reader for the bundled bridge', () 
   assert.match(method, /Landroid\/webkit\/JavascriptInterface;/);
   // Same strict whitelist as the full reader: only the bridge asset.
   assert.match(method, /const-string v0, "spotify_bridge\.js"/);
-  // Reads through the shared asset cache/loader.
-  assert.match(method, /Lm9;->d\(Ljava\/lang\/String;\)Ljava\/lang\/String;/);
+  // Reads through the APK-only asset reader (never the stale hotfix cache).
+  assert.match(method, /Lm9;->e\(Ljava\/lang\/String;\)Ljava\/lang\/String;/);
   // Bounds are enforced before substring: empty for out-of-range windows.
   assert.match(method, /if-ltz p2, :range_done/);
   assert.match(method, /if-ge p2, v3, :range_done/);
