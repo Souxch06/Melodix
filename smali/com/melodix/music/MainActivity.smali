@@ -5505,6 +5505,22 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
     .line 1
     invoke-super {p0}, Le6;->onStop()V
 
+    # Mise a jour silencieuse : l'APK telecharge et verifie s'installe quand
+    # l'app part en arriere-plan - le lancement suivant est deja a jour.
+    :try_start_selfupd
+    invoke-static {p0}, Lcom/melodix/music/SelfUpdater;->noteStopped()V
+
+    invoke-static {p0}, Lcom/melodix/music/SelfUpdater;->installPending(Landroid/content/Context;)V
+    :try_end_selfupd
+    .catch Ljava/lang/Throwable; {:try_start_selfupd .. :try_end_selfupd} :catch_selfupd
+
+    goto :selfupd_done
+
+    :catch_selfupd
+    move-exception v0
+
+    :selfupd_done
+
     .line 2
     .line 3
     .line 4

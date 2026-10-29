@@ -106,3 +106,33 @@ test('[self-update] assembleur dex : aucune invocation sans /range au-dessus de 
   }
   assert.deepEqual(bad, [], `invocations > 5 registres sans /range: ${bad.join(', ')}`);
 });
+
+test('[self-update] installation silencieuse : Android 12+ sans aucune confirmation', () => {
+  const s = read('smali/com/melodix/music/SelfUpdater.smali');
+  // setRequireUserAction(USER_ACTION_NOT_REQUIRED = 2) pose et gate sur SDK 31.
+  assert.match(s, /SessionParams;->setRequireUserAction\(I\)V/);
+  assert.match(s, /const\/16 v4, 0x1f\n\n    if-lt v3, v4, :ura_done\n\n    const\/4 v3, 0x2\n\n    invoke-virtual \{v1, v3\}, Landroid\/content\/pm\/PackageInstaller\$SessionParams;->setRequireUserAction\(I\)V/);
+});
+
+test('[self-update] filets de securite du dispatch automatique', () => {
+  const s = read('smali/com/melodix/music/SelfUpdater.smali');
+  // Autorisation manquante -> dialogue (jamais d'installation silencieuse).
+  assert.match(s, /canRequestPackageInstalls\(\)Z\n\n    move-result v4\n\n    if-nez v4, :auto_ready/);
+  // stoppedFlag vrai -> installation immediate.
+  assert.match(s, /sget-boolean v3, Lcom\/melodix\/music\/SelfUpdater;->stoppedFlag:Z\n\n    if-eqz v3, :wait_background/);
+  // La boucle d'attente s'arrete si un commit a deja demarre.
+  assert.match(s, /isCommitStarted\(\)Z\n\n    move-result v4\n\n    if-nez v4, :wait_done/);
+  // installPending : double commit impossible (synchronise + drapeau).
+  assert.match(s, /declared-synchronized installPending/);
+  assert.match(s, /commitStarted:Z\n\n    if-nez v1, :done/);
+});
+
+test('[self-update] onStop installe la mise a jour en arriere-plan', () => {
+  const s = read('smali/com/melodix/music/MainActivity.smali');
+  const at = s.indexOf('.method public final onStop()V');
+  const body = s.slice(at, s.indexOf('.end method', at));
+  assert.ok(body.includes('Lcom/melodix/music/SelfUpdater;->noteStopped()V'));
+  assert.ok(body.includes('Lcom/melodix/music/SelfUpdater;->installPending(Landroid/content/Context;)V'));
+  const inst = read('smali/com/melodix/music/SelfUpdater$Installer.smali');
+  assert.ok(inst.includes('Lcom/melodix/music/SelfUpdater;->install'));
+});

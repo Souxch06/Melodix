@@ -10,6 +10,14 @@
 
 .field private static final EP:Ljava/lang/String; = "https://api.github.com/repos/Souxch06/Melodix/releases?per_page=10"
 
+.field private static volatile commitStarted:Z
+
+# APK verifie en attente d'installation silencieuse.
+.field private static volatile pendingApk:Ljava/io/File;
+
+# Passe a vrai quand l'app part en arriere-plan (MainActivity.onStop).
+.field private static volatile stoppedFlag:Z
+
 .field private final ctx:Landroid/content/Context;
 
 
@@ -293,8 +301,88 @@
 
     if-le v3, v0, :bad_apk
 
+    # --- Mise a jour AUTOMATIQUE : aucun geste utilisateur attendu. ---
+    # L'APK verifie reste en attente ; il s'installe silencieusement des que
+    # l'app part en arriere-plan : le lancement suivant est deja a jour.
+    sput-object v6, Lcom/melodix/music/SelfUpdater;->pendingApk:Ljava/io/File;
+
+    # Autorisation "installer des apps" (une seule fois par appareil) : sans
+    # elle, seul le dialogue menant au reglage reste possible.
+    sget v3, Landroid/os/Build$VERSION;->SDK_INT:I
+
+    const/16 v4, 0x1a
+
+    if-lt v3, v4, :auto_ready
+
+    invoke-virtual {v2}, Landroid/content/Context;->getPackageManager()Landroid/content/pm/PackageManager;
+
+    move-result-object v4
+
+    invoke-virtual {v4}, Landroid/content/pm/PackageManager;->canRequestPackageInstalls()Z
+
+    move-result v4
+
+    if-nez v4, :auto_ready
+
     invoke-static {v2, v1, v6}, Lcom/melodix/music/SelfUpdater;->prompt(Landroid/content/Context;Ljava/lang/String;Ljava/io/File;)V
 
+    goto :done
+
+    :auto_ready
+    # L'installation sans AUCUNE confirmation systeme exige Android 12+ ;
+    # en dessous, le dialogue reste le meilleur possible.
+    sget v3, Landroid/os/Build$VERSION;->SDK_INT:I
+
+    const/16 v4, 0x1f
+
+    if-ge v3, v4, :silent_ready
+
+    invoke-static {v2, v1, v6}, Lcom/melodix/music/SelfUpdater;->prompt(Landroid/content/Context;Ljava/lang/String;Ljava/io/File;)V
+
+    goto :done
+
+    :silent_ready
+    # Deja en arriere-plan (fin de session ou parti pendant le telechargement) ?
+    sget-boolean v3, Lcom/melodix/music/SelfUpdater;->stoppedFlag:Z
+
+    if-eqz v3, :wait_background
+
+    invoke-static {v2}, Lcom/melodix/music/SelfUpdater;->installPending(Landroid/content/Context;)V
+
+    goto :done
+
+    :wait_background
+    # Sinon attendre le passage en arriere-plan (4 min max) ; sinon ce sera
+    # fait par le prochain onStop (pendingApk reste pose).
+    const/4 v3, 0x0
+
+    :wait_loop
+    const/16 v4, 0x30
+
+    if-ge v3, v4, :wait_giveup
+
+    invoke-static {}, Lcom/melodix/music/SelfUpdater;->isCommitStarted()Z
+
+    move-result v4
+
+    if-nez v4, :wait_done
+
+    const-wide/16 v7, 0x1388
+
+    invoke-static {v7, v8}, Ljava/lang/Thread;->sleep(J)V
+
+    add-int/lit8 v3, v3, 0x1
+
+    goto :wait_loop
+
+    :wait_giveup
+    sget-boolean v3, Lcom/melodix/music/SelfUpdater;->stoppedFlag:Z
+
+    if-eqz v3, :wait_done
+
+    invoke-static {v2}, Lcom/melodix/music/SelfUpdater;->installPending(Landroid/content/Context;)V
+
+    :wait_done
     goto :done
 
     :bad_apk
@@ -892,6 +980,61 @@
     return-void
 .end method
 
+.method public static noteStopped()V
+    .locals 1
+
+    const/4 v0, 0x1
+
+    sput-boolean v0, Lcom/melodix/music/SelfUpdater;->stoppedFlag:Z
+
+    return-void
+.end method
+
+.method public static isCommitStarted()Z
+    .locals 1
+
+    sget-boolean v0, Lcom/melodix/music/SelfUpdater;->commitStarted:Z
+
+    return v0
+.end method
+
+# Declenche l'installation silencieuse (sur un fil dedie) de l'APK en attente.
+# Synchronisee : onStop et le fil de verification ne peuvent pas commiter deux fois.
+.method public static declared-synchronized installPending(Landroid/content/Context;)V
+    .locals 3
+
+    :try_start_0
+    sget-object v0, Lcom/melodix/music/SelfUpdater;->pendingApk:Ljava/io/File;
+
+    if-eqz v0, :done
+
+    sget-boolean v1, Lcom/melodix/music/SelfUpdater;->commitStarted:Z
+
+    if-nez v1, :done
+
+    const/4 v1, 0x1
+
+    sput-boolean v1, Lcom/melodix/music/SelfUpdater;->commitStarted:Z
+
+    new-instance v1, Ljava/lang/Thread;
+
+    new-instance v2, Lcom/melodix/music/SelfUpdater$Installer;
+
+    invoke-direct {v2, p0, v0}, Lcom/melodix/music/SelfUpdater$Installer;-><init>(Landroid/content/Context;Ljava/io/File;)V
+
+    const-string v0, "melodix-install"
+
+    invoke-direct {v1, v2, v0}, Ljava/lang/Thread;-><init>(Ljava/lang/Runnable;Ljava/lang/String;)V
+
+    invoke-virtual {v1}, Ljava/lang/Thread;->start()V
+    :try_end_0
+    .catch Ljava/lang/Throwable; {:try_start_0 .. :try_end_0} :catch_0
+
+    :catch_0
+    :done
+    return-void
+.end method
+
 .method public static install(Landroid/content/Context;Ljava/io/File;)V
     .locals 9
 
@@ -987,6 +1130,19 @@
 
     invoke-virtual {v1, v2}, Landroid/content/pm/PackageInstaller$SessionParams;->setAppPackageName(Ljava/lang/String;)V
 
+    # Android 12+ : mise a jour de soi-meme, meme signature, versionCode
+    # superieur -> AUCUNE confirmation utilisateur (USER_ACTION_NOT_REQUIRED).
+    sget v3, Landroid/os/Build$VERSION;->SDK_INT:I
+
+    const/16 v4, 0x1f
+
+    if-lt v3, v4, :ura_done
+
+    const/4 v3, 0x2
+
+    invoke-virtual {v1, v3}, Landroid/content/pm/PackageInstaller$SessionParams;->setRequireUserAction(I)V
+
+    :ura_done
     invoke-virtual {v0, v1}, Landroid/content/pm/PackageInstaller;->createSession(Landroid/content/pm/PackageInstaller$SessionParams;)I
 
     move-result v1
