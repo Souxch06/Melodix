@@ -15,23 +15,40 @@ note() {
   printf '::notice title=preview-launch::%s\n' "$1"
 }
 
-adb install -r "$apk_path" > "$state/install.txt" 2>&1
+adb install -r "$apk_path" > "$state/install.txt" 2>&1 || true
 cat "$state/install.txt"
+note "install: $(tr '\n' ' ' < "$state/install.txt" | cut -c1-300)"
 adb shell dumpsys package "$package_id" 2>/dev/null \
   | grep -E 'versionName|versionCode' | head -n 2 > "$state/installed.txt"
 note "installed: $(tr '\n' ' ' < "$state/installed.txt" | cut -c1-300)"
 
+# Fresh CI images boot into the Google setup wizard, which hides every app
+# and destabilises uiautomator. Mark the device provisioned and go home
+# before launching anything.
+for _ in 1 2 3 4 5 6 7 8 9 10; do
+  [[ "$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" == "1" ]] && break
+  sleep 10
+done
+adb shell settings put global device_provisioned 1 >/dev/null 2>&1 || true
+adb shell settings put secure user_setup_complete 1 >/dev/null 2>&1 || true
+adb shell pm disable-user --user 0 com.google.android.setupwizard >/dev/null 2>&1 || true
+adb shell input keyevent KEYCODE_HOME >/dev/null 2>&1 || true
+sleep 3
+
 adb logcat -c >/dev/null 2>&1
 adb shell am force-stop "$package_id" >/dev/null 2>&1
 adb shell monkey -p "$package_id" -c android.intent.category.LAUNCHER 1 > "$state/monkey.txt" 2>&1
-sleep 30
-
-adb shell dumpsys activity activities 2>/dev/null \
-  | grep -E 'mResumedActivity|topResumedActivity|ResumedActivity' | head -n 3 > "$state/resumed.txt"
+# Wait until OUR activity is the resumed one (up to 120 s), not a fixed sleep.
+for _ in $(seq 1 24); do
+  sleep 5
+  adb shell dumpsys activity activities 2>/dev/null \
+    | grep -E 'mResumedActivity|topResumedActivity|ResumedActivity' | head -n 3 > "$state/resumed.txt"
+  grep -q "$package_id" "$state/resumed.txt" 2>/dev/null && break
+done
 note "resumed: $(tr '\n' ' ' < "$state/resumed.txt" | cut -c1-300)"
 
-adb shell uiautomator dump --compressed /sdcard/window.xml >/dev/null 2>&1
-adb exec-out cat /sdcard/window.xml > "$state/window.xml" 2>/dev/null
+adb shell timeout 30 uiautomator dump --compressed /sdcard/window.xml >/dev/null 2>&1 || true
+adb exec-out cat /sdcard/window.xml > "$state/window.xml" 2>/dev/null || true
 grep -o 'text="[^"]*"' "$state/window.xml" 2>/dev/null | head -n 30 > "$state/window-text.txt"
 note "visible: $(tr '\n' ' ' < "$state/window-text.txt" | cut -c1-300)"
 
@@ -54,6 +71,7 @@ grep -ciE 'ready-blocked' "$state/logcat.txt" > "$state/trace-blocked.txt" 2>/de
 note "mdxtrace: $(grep -c . "$state/trace.txt" 2>/dev/null) line(s) captured"
 
 {
+  echo "install: $(tr '\n' ' ' < "$state/install.txt" 2>/dev/null)"
   echo "installed: $(tr '\n' ' ' < "$state/installed.txt" 2>/dev/null)"
   echo "release advertises: ${RELEASE_REF:-unknown}"
   echo "resumed: $(tr '\n' ' ' < "$state/resumed.txt" 2>/dev/null)"
