@@ -688,7 +688,7 @@
 
     <androidx.constraintlayout.widget.ConstraintLayout
         android:id="@id/splashOverlay"
-        android:background="@color/spotify_black"
+        android:background="@drawable/native_shell_background"
         android:focusable="true"
         android:visibility="visible"
         android:clickable="true"
@@ -699,9 +699,9 @@
             android:id="@id/cardSplashLogo"
             android:layout_width="140.0dip"
             android:layout_height="140.0dip"
-            app:cardBackgroundColor="@android:color/transparent"
+            app:cardBackgroundColor="#ff12161d"
             app:cardCornerRadius="70.0dip"
-            app:cardElevation="0.0dip"
+            app:cardElevation="8.0dip"
             app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toStartOf="parent"
