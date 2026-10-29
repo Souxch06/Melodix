@@ -711,7 +711,7 @@
     # Swallow exactly that signature; the record above keeps it diagnostic.
     instance-of v0, p2, Ljava/lang/InternalError;
 
-    if-nez v0, :kill
+    if-eqz v0, :kill
 
     invoke-virtual {p2}, Ljava/lang/Throwable;->getMessage()Ljava/lang/String;
 
