@@ -167,3 +167,32 @@ test('model: a stuck shell is a content freeze, a stuck start is a startup freez
   assert.equal(classify({ shellShown: true, contentArrived: true }), null,
     'a healthy launch never shows the panel');
 });
+
+
+// ---------------------------------------------------------------------------
+// Part 4 - verifier safety: never copy a Z result into an object register
+// ---------------------------------------------------------------------------
+
+test('no 32-bit invoke result is copied with move-result-object (ART verifier)', () => {
+  // Regression pin: a commit()Z followed by move-result-object made the whole
+  // NativeCrashGuard class fail verification on the API 25 emulator
+  // (VerifyError -> NoClassDefFoundError at startup). move-result-object may
+  // only follow an invoke whose descriptor returns a reference type.
+  for (const f of ['smali/com/melodix/music/NativeCrashGuard.smali',
+                   'smali/com/melodix/music/StartupDiagnosticOverlay.smali',
+                   'smali/com/melodix/music/StartupHangWatchdog.smali',
+                   'smali/com/melodix/music/StartupUnstickRunnable.smali',
+                   'smali/com/melodix/music/DiagnosticDismissListener.smali']) {
+    const src = read(f);
+    const lines = src.split('\n');
+    for (let i = 0; i < lines.length; i += 1) {
+      if (/invoke-(virtual|interface|static|direct)[^\n]*\)Z$/.test(lines[i].trim())) {
+        // the next non-blank instruction must not be move-result-object
+        let j = i + 1;
+        while (j < lines.length && lines[j].trim() === '') j += 1;
+        assert.ok(j >= lines.length || !lines[j].includes('move-result-object'),
+          `${f}:${i + 1}: Z result must use move-result, not move-result-object`);
+      }
+    }
+  }
+});

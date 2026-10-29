@@ -618,7 +618,7 @@
 
     invoke-interface {v0}, Landroid/content/SharedPreferences$Editor;->commit()Z
 
-    move-result-object v0
+    move-result v0
 
     invoke-static {p0}, Lcom/melodix/music/NativeCrashGuard;->appendChain(Ljava/lang/String;)V
     :try_end_0
