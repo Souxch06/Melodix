@@ -1,19 +1,19 @@
 <?xml version="1.0" encoding="utf-8"?>
 <ripple xmlns:android="http://schemas.android.com/apk/res/android"
-    android:color="#331ed760">
+    android:color="@color/mel_accent_glow">
     <item>
         <shape android:shape="rectangle">
             <gradient
                 android:angle="270"
-                android:startColor="#ff242a34"
-                android:endColor="#ff1a1f27" />
+                android:startColor="@color/mel_surface_btn_top"
+                android:endColor="@color/mel_surface_btn" />
             <corners android:radius="10.0dip" />
-            <stroke android:width="1.0dip" android:color="#22ffffff" />
+            <stroke android:width="1.0dip" android:color="@color/mel_stroke" />
         </shape>
     </item>
     <item android:id="@android:id/mask">
         <shape android:shape="rectangle">
-            <solid android:color="#ffffffff" />
+            <solid android:color="@color/mel_mask" />
             <corners android:radius="10.0dip" />
         </shape>
     </item>

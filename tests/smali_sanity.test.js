@@ -561,3 +561,63 @@ test('a toast window race is recorded but never kills the process', () => {
     assert.ok(swallow > -1 && forward > swallow, 'the race returns without dispatching');
     assert.ok(body.includes('write('), 'the report is kept before any decision');
 });
+
+
+test('every interface color lives in the mel_* palette, mirrored by MelColors', () => {
+    // The future in-app theme settings reprogram colors from one place. XML
+    // layouts and drawables read res/values/colors.xml (mel_*), runtime
+    // rendering reads MelColors fields - both halves must stay in sync, and
+    // nothing may carry a raw hex value any more.
+    const colors = fs.readFileSync(path.join(repo, 'res/values/colors.xml'), 'utf8');
+    const mel = (name) => {
+        const m = colors.match(new RegExp('<color name="mel_' + name + '">#([0-9a-fA-F]{6,8})</color>'));
+        assert.ok(m, 'mel_' + name + ' must be defined in colors.xml');
+        return (m[1].length === 6 ? parseInt(m[1], 16) | 0xff000000 : parseInt(m[1], 16)) >>> 0;
+    };
+    const mc = fs.readFileSync(path.join(repo, 'smali/com/melodix/music/MelColors.smali'), 'utf8');
+    const clinit = mc.slice(mc.indexOf('.method static constructor <clinit>'));
+    const field = (javaName, xmlName) => {
+        assert.ok(mc.includes('.field public static ' + javaName + ':I'), javaName + ' field exists');
+        const m = clinit.match(new RegExp('const v0, (0x[0-9a-fA-F]+)\\s+sput v0, Lcom/melodix/music/MelColors;->' + javaName + ':I'));
+        assert.ok(m, javaName + ' is initialised in <clinit>');
+        assert.equal(parseInt(m[1], 16) >>> 0, mel(xmlName), javaName + ' must equal mel_' + xmlName);
+    };
+    field('accent', 'accent');
+    field('accentDeep', 'accent_deep');
+    field('background', 'background');
+    field('surface', 'surface');
+    field('surfaceHigh', 'surface_high');
+    field('surfaceBtn', 'surface_btn');
+    field('textPrimary', 'text_primary');
+    field('textSecondary', 'text_secondary');
+    field('textTertiary', 'text_tertiary');
+    field('stroke', 'stroke');
+    field('strokeAccent', 'stroke_accent');
+    field('glow', 'accent_glow');
+
+    // Renderers paint through MelColors, never through raw constants.
+    for (const f of ['smali/com/melodix/music/MainActivity.smali', 'smali/com/melodix/music/NativeUiRowFactory.smali', 'smali/com/melodix/music/NativeHomeShelfRenderer.smali', 'smali/com/melodix/music/NativeSettingsRowFactory.smali']) {
+        const text = fs.readFileSync(path.join(repo, f), 'utf8');
+        assert.ok(text.includes('Lcom/melodix/music/MelColors;->'), f + ' reads MelColors');
+        assert.ok(!/const(?:\/high16)? v\d+, 0x[fF][fF][0-9a-fA-F]{6}\s*$/m.test(text), f + ' has no raw color constant');
+    }
+
+    // Drawables and the main layout reference the palette, not hex literals.
+    const drawableDir = path.join(repo, 'res/drawable');
+    for (const name of fs.readdirSync(drawableDir)) {
+        if (!name.startsWith('native_')) continue;
+        const xml = fs.readFileSync(path.join(drawableDir, name), 'utf8');
+        assert.ok(!/#[0-9a-fA-F]{3,8}/.test(xml), name + ' must reference @color/mel_* only');
+        assert.ok(xml.includes('@color/mel_') || xml.includes('@android:color/transparent'), name + ' uses the palette');
+    }
+    const layout = fs.readFileSync(path.join(repo, 'res/layout/activity_main.xml'), 'utf8');
+    assert.ok(!/#[0-9a-fA-F]{6,8}/.test(layout), 'activity_main.xml carries no raw hex');
+
+    // The web stylesheet is tokenised the same way.
+    const css = fs.readFileSync(path.join(repo, 'assets/css_hacks.css'), 'utf8');
+    const rootEnd = css.indexOf('}', css.indexOf(':root {')) + 1;
+    assert.ok(css.slice(0, rootEnd).includes('--mel-accent: #1ed760;'), 'the css root defines the accent token');
+    const body = css.slice(rootEnd);
+    assert.ok(body.includes('var(--mel-'), 'rules use the tokens');
+    assert.ok(!/#[0-9a-fA-F]{3,8}\b|rgba?\(/.test(body), 'no raw color survives in the stylesheet body');
+});

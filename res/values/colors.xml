@@ -90,4 +90,58 @@
     <color name="tooltip_background_dark">#e6616161</color>
     <color name="tooltip_background_light">#e6ffffff</color>
     <color name="white">#ffffffff</color>
+
+    <!-- ============================================================
+         Melodix palette (mel_*). SINGLE SOURCE OF TRUTH for theming.
+         The future in-app theme settings reprogram these values (and the
+         runtime mirror MelColors). Never hardcode a color elsewhere.
+         ============================================================ -->
+    <!-- base surfaces -->
+    <color name="mel_background">#060809</color>
+    <color name="mel_surface">#10151a</color>
+    <color name="mel_surface_high">#1a222a</color>
+    <color name="mel_surface_btn">#232d36</color>
+    <color name="mel_surface_btn_top">#28323c</color>
+    <color name="mel_surface_alt">#2a2a2a</color>
+    <!-- accents -->
+    <color name="mel_accent">#1ed760</color>
+    <color name="mel_accent_deep">#0e8f47</color>
+    <color name="mel_accent_glow">#331ed760</color>
+    <!-- text and icons -->
+    <color name="mel_text_primary">#ffffffff</color>
+    <color name="mel_text_secondary">#bfc0cb</color>
+    <color name="mel_text_tertiary">#8e96a3</color>
+    <color name="mel_text_dim">#aaaaaa</color>
+    <color name="mel_icon_muted">#6e7684</color>
+    <!-- strokes and technical masks -->
+    <color name="mel_stroke">#2effffff</color>
+    <color name="mel_stroke_accent">#2e1ed760</color>
+    <color name="mel_mask">#ffffffff</color>
+    <!-- gradient roles -->
+    <color name="mel_shell_top">#0c2019</color>
+    <color name="mel_shell_mid">#0c1116</color>
+    <color name="mel_player_top">#17493a</color>
+    <color name="mel_player_mid">#101c26</color>
+    <color name="mel_mini_top">#212a32</color>
+    <color name="mel_mini_bottom">#1b232b</color>
+    <color name="mel_btn_light_top">#ffffffff</color>
+    <color name="mel_btn_light_bottom">#e8e8ee</color>
+    <!-- light fields -->
+    <color name="mel_search_bg">#f2f4f6</color>
+    <!-- splash and artwork placeholders -->
+    <color name="mel_splash_card">#12161d</color>
+    <color name="mel_art_bg">#282828</color>
+    <color name="mel_art_bg_dark">#121212</color>
+    <color name="mel_text_dark">#000000</color>
+    <color name="mel_surface_card">#242424</color>
+    <color name="mel_scrim">#1fffffff</color>
+    <!-- genre tile tints -->
+    <color name="mel_tile_forest">#2fa36b</color>
+    <color name="mel_tile_sea">#1e7f63</color>
+    <color name="mel_tile_purple">#7c5cff</color>
+    <color name="mel_tile_amber">#f2a23c</color>
+    <color name="mel_tile_pink">#e8467c</color>
+    <color name="mel_tile_orange">#ff6b4a</color>
+    <color name="mel_tile_teal">#2fb5c9</color>
+    <color name="mel_tile_blue">#3d63d5</color>
 </resources>

@@ -278,7 +278,7 @@
 
     invoke-virtual {v10, v11}, Landroid/widget/TextView;->setTextSize(F)V
 
-    const v11, 0xff1ed760
+    sget v11, Lcom/melodix/music/MelColors;->accent:I
 
     invoke-virtual {v10, v11}, Landroid/widget/TextView;->setTextColor(I)V
 
@@ -338,7 +338,7 @@
 
     invoke-virtual {v11, v12}, Landroid/widget/TextView;->setTextSize(F)V
 
-    const v12, 0xffbfc0cb
+    sget v12, Lcom/melodix/music/MelColors;->textSecondary:I
 
     invoke-virtual {v11, v12}, Landroid/widget/TextView;->setTextColor(I)V
 
@@ -445,7 +445,7 @@
     invoke-virtual {v0, v1}, Landroid/widget/TextView;->setText(Ljava/lang/CharSequence;)V
     const/high16 v1, 0x41800000
     invoke-virtual {v0, v1}, Landroid/widget/TextView;->setTextSize(F)V
-    const v1, 0xffbfc0cb
+    sget v1, Lcom/melodix/music/MelColors;->textSecondary:I
     invoke-virtual {v0, v1}, Landroid/widget/TextView;->setTextColor(I)V
     const/16 v1, 0x11
     invoke-virtual {v0, v1}, Landroid/widget/TextView;->setGravity(I)V

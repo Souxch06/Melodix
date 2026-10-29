@@ -235,7 +235,7 @@
     invoke-virtual {v4, v7}, Landroid/widget/TextView;->setText(Ljava/lang/CharSequence;)V
     const/high16 v10, 0x41500000
     invoke-virtual {v4, v10}, Landroid/widget/TextView;->setTextSize(F)V
-    const v10, 0xffbfc0cb
+    sget v10, Lcom/melodix/music/MelColors;->textSecondary:I
     invoke-virtual {v4, v10}, Landroid/widget/TextView;->setTextColor(I)V
     const/4 v10, 0x1
     invoke-virtual {v4, v10}, Landroid/widget/TextView;->setMaxLines(I)V
@@ -420,7 +420,7 @@
     invoke-virtual {v4, v5}, Landroid/widget/TextView;->setText(Ljava/lang/CharSequence;)V
     const/high16 v5, 0x41580000
     invoke-virtual {v4, v5}, Landroid/widget/TextView;->setTextSize(F)V
-    const v5, 0xffbfc0cb
+    sget v5, Lcom/melodix/music/MelColors;->textSecondary:I
     invoke-virtual {v4, v5}, Landroid/widget/TextView;->setTextColor(I)V
     const/16 v5, 0x11
     invoke-virtual {v4, v5}, Landroid/widget/TextView;->setGravity(I)V

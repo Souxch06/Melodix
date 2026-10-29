@@ -7292,7 +7292,7 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
     check-cast v1, Landroid/widget/TextView;
     if-eqz v0, :native_tab_inactive
     const v2, -0x1
-    const v4, 0xff1ed760
+    sget v4, Lcom/melodix/music/MelColors;->accent:I
     goto :native_tab_highlight
 
     :native_tab_inactive
@@ -8365,7 +8365,7 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
     move-result v5
     check-cast v3, Landroid/widget/TextView;
     if-eqz v5, :chip_inactive
-    const v4, 0xff1ed760
+    sget v4, Lcom/melodix/music/MelColors;->accent:I
     invoke-static {v4}, Landroid/content/res/ColorStateList;->valueOf(I)Landroid/content/res/ColorStateList;
     move-result-object v6
     invoke-virtual {v3, v6}, Landroid/view/View;->setBackgroundTintList(Landroid/content/res/ColorStateList;)V

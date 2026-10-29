@@ -2,6 +2,6 @@
 <shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="oval">
     <gradient
         android:angle="270"
-        android:startColor="#ffffffff"
-        android:endColor="#ffe8e8ee" />
+        android:startColor="@color/mel_btn_light_top"
+        android:endColor="@color/mel_btn_light_bottom" />
 </shape>
