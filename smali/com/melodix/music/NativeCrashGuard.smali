@@ -676,7 +676,7 @@
 
 
 .method public uncaughtException(Ljava/lang/Thread;Ljava/lang/Throwable;)V
-    .locals 1
+    .locals 2
 
     const/4 v0, 0x0
 
@@ -706,6 +706,30 @@
     return-void
 
     :forward
+    # Post-mortem shutdown races: an okhttp pool thread spawned after the VM
+    # began shutting down can only fire while the process is already dying.
+    # Swallow exactly that signature; the record above keeps it diagnostic.
+    instance-of v0, p2, Ljava/lang/InternalError;
+
+    if-nez v0, :kill
+
+    invoke-virtual {p2}, Ljava/lang/Throwable;->getMessage()Ljava/lang/String;
+
+    move-result-object v0
+
+    if-eqz v0, :kill
+
+    const-string v1, "Thread starting during runtime shutdown"
+
+    invoke-virtual {v1, v0}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+
+    move-result v0
+
+    if-nez v0, :kill
+
+    return-void
+
+    :kill
     invoke-direct {p0, p1, p2}, Lcom/melodix/music/NativeCrashGuard;->dispatch(Ljava/lang/Thread;Ljava/lang/Throwable;)V
 
     return-void

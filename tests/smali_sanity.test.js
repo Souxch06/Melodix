@@ -556,6 +556,10 @@ test('a toast window race is recorded but never kills the process', () => {
     const body = guard.slice(at, guard.indexOf('.end method', at));
     assert.ok(body.includes('instance-of v0, p2, Landroid/view/WindowManager$BadTokenException;'),
         'the token race is recognised');
+    assert.ok(body.includes('instance-of v0, p2, Ljava/lang/InternalError;'),
+        'the post-mortem shutdown race is recognised');
+    assert.ok(body.includes('const-string v1, "Thread starting during runtime shutdown"'),
+        'the shutdown-race swallow is narrowed to the exact known message');
     const swallow = body.indexOf('return-void', body.indexOf('instance-of'));
     const forward = body.indexOf('dispatch(Ljava/lang/Thread;Ljava/lang/Throwable;)V', body.indexOf('instance-of'));
     assert.ok(swallow > -1 && forward > swallow, 'the race returns without dispatching');
