@@ -127,6 +127,25 @@ test('[self-update] filets de securite du dispatch automatique', () => {
   assert.match(s, /commitStarted:Z\n\n    if-nez v1, :done/);
 });
 
+test('[self-update] jamais d\'installation pendant une session active', () => {
+  // Recidive corrigee : le drapeau d'arriere-plan restait pose au retour en
+  // avant-plan -> l'installation tuait l'app sous les doigts de l'utilisateur.
+  const s = read('smali/com/melodix/music/SelfUpdater.smali');
+  const noteResumed = s.slice(s.search(/\.method[^\n]* noteResumed\(\)V/), s.indexOf('.end method', s.search(/\.method[^\n]* noteResumed\(\)V/)));
+  assert.match(noteResumed, /sput-boolean \S+, Lcom\/melodix\/music\/SelfUpdater;->stoppedFlag:Z/, 'noteResumed efface le drapeau');
+  // La boucle relu le drapeau a CHAQUE iteration (il peut etre efface).
+  const run = s.slice(s.search(/\.method[^\n]* run\(\)V/), s.indexOf('.end method', s.search(/\.method[^\n]* run\(\)V/)));
+  const loop = run.slice(run.indexOf(':wait_loop'), run.indexOf(':wait_done'));
+  assert.match(loop, /sget-boolean v4, Lcom\/melodix\/music\/SelfUpdater;->stoppedFlag:Z/);
+  assert.match(loop, /if-nez v4, :install_now/);
+  // MainActivity.onResume efface le drapeau.
+  const main = read('smali/com/melodix/music/MainActivity.smali');
+  const at = main.search(/\.method[^\n]* onResume\(\)V/);
+  const body = main.slice(at, main.indexOf('.end method', at));
+  assert.ok(body.includes('Lcom/melodix/music/SelfUpdater;->noteResumed()V'));
+  assert.ok(body.includes('Lcom/melodix/music/SelfUpdater;->noteStopped()V') === false, 'onStop seul pose le drapeau');
+});
+
 test('[self-update] onStop installe la mise a jour en arriere-plan', () => {
   const s = read('smali/com/melodix/music/MainActivity.smali');
   const at = s.indexOf('.method public final onStop()V');

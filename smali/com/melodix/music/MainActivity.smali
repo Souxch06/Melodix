@@ -4799,6 +4799,20 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
     .line 1
     invoke-super {p0}, Landroidx/activity/a;->onResume()V
 
+    # Mise a jour silencieuse : de retour en avant-plan, plus aucune
+    # installation ne doit pouvoir tuer la session en cours.
+    :try_start_selfres
+    invoke-static {p0}, Lcom/melodix/music/SelfUpdater;->noteResumed()V
+    :try_end_selfres
+    .catch Ljava/lang/Throwable; {:try_start_selfres .. :try_end_selfres} :catch_selfres
+
+    goto :selfres_done
+
+    :catch_selfres
+    move-exception v0
+
+    :selfres_done
+
     .line 2
     .line 3
     .line 4

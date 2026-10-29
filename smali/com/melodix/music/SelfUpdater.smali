@@ -374,14 +374,19 @@
     goto :done
 
     :wait_background
-    # Sinon attendre le passage en arriere-plan (4 min max) ; sinon ce sera
-    # fait par le prochain onStop (pendingApk reste pose).
+    # Attendre le passage REEL en arriere-plan (4 min max). Le drapeau est relu
+    # a chaque iteration et remis a zero au retour en avant-plan (noteResumed) :
+    # l'installation ne peut JAMAIS tuer une session en cours d'utilisation.
     const/4 v3, 0x0
 
     :wait_loop
     const/16 v4, 0x30
 
     if-ge v3, v4, :wait_giveup
+
+    sget-boolean v4, Lcom/melodix/music/SelfUpdater;->stoppedFlag:Z
+
+    if-nez v4, :install_now
 
     invoke-static {}, Lcom/melodix/music/SelfUpdater;->isCommitStarted()Z
 
@@ -402,6 +407,7 @@
 
     if-eqz v3, :wait_done
 
+    :install_now
     invoke-static {v2}, Lcom/melodix/music/SelfUpdater;->installPending(Landroid/content/Context;)V
 
     :wait_done
@@ -999,6 +1005,18 @@
 
     :catch_0
     :done
+    return-void
+.end method
+
+.method public static noteResumed()V
+    .locals 1
+
+    # L'app revient en avant-plan : plus aucune installation ne doit tuer la
+    # session en cours (le systeme tue le processus quand il remplace l'APK).
+    const/4 v0, 0x0
+
+    sput-boolean v0, Lcom/melodix/music/SelfUpdater;->stoppedFlag:Z
+
     return-void
 .end method
 
