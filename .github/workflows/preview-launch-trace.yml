@@ -40,7 +40,7 @@ jobs:
           for i in $(seq 1 70); do
             run_id="$(gh run list --repo "$GITHUB_REPOSITORY" \
               --workflow 'Build Melodix Preview APK' --limit 15 \
-              --json databaseId,headSha \
+              --json databaseId,headSha,status \
               --jq '[.[] | select(.headSha=="'"$GITHUB_SHA"'" and .status=="completed")] | .[0].databaseId' 2>/dev/null || true)"
             if [[ -n "$run_id" && "$run_id" != "null" ]]; then
               conclusion="$(gh run view "$run_id" --repo "$GITHUB_REPOSITORY" --json conclusion --jq .conclusion 2>/dev/null || true)"
