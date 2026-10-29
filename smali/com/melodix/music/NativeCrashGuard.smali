@@ -695,6 +695,17 @@
     move-exception v0
 
     :dispatch
+    # Window-token races (a Toast or dialog whose activity died between show()
+    # and its window attach) are already recorded above: killing the process
+    # would only surface a crash dialog for a benign UI race. Swallow exactly
+    # this class; every other throwable keeps the default kill path.
+    instance-of v0, p2, Landroid/view/WindowManager$BadTokenException;
+
+    if-eqz v0, :forward
+
+    return-void
+
+    :forward
     invoke-direct {p0, p1, p2}, Lcom/melodix/music/NativeCrashGuard;->dispatch(Ljava/lang/Thread;Ljava/lang/Throwable;)V
 
     return-void

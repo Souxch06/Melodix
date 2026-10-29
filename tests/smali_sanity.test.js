@@ -543,3 +543,21 @@ test('the hotfix directory is disabled so stale Firebase scripts cannot replace 
     }
     assert.ok(!m9.includes('.method public static e(Ljava/lang/String;)'), 'no parallel reader to drift');
 });
+
+
+test('a toast window race is recorded but never kills the process', () => {
+    // Toast.show() throws asynchronously in Toast$TN.handleShow on the main
+    // looper when the activity died in between: no try/catch around show() can
+    // reach it. The uncaught handler must swallow exactly that class after
+    // recording it, and forward every other throwable to the default handler.
+    const guard = fs.readFileSync(path.join(repo, 'smali/com/melodix/music/NativeCrashGuard.smali'), 'utf8');
+    const at = guard.indexOf('.method public uncaughtException');
+    assert.ok(at > -1, 'the guard handles uncaught exceptions');
+    const body = guard.slice(at, guard.indexOf('.end method', at));
+    assert.ok(body.includes('instance-of v0, p2, Landroid/view/WindowManager$BadTokenException;'),
+        'the token race is recognised');
+    const swallow = body.indexOf('return-void', body.indexOf('instance-of'));
+    const forward = body.indexOf('dispatch(Ljava/lang/Thread;Ljava/lang/Throwable;)V', body.indexOf('instance-of'));
+    assert.ok(swallow > -1 && forward > swallow, 'the race returns without dispatching');
+    assert.ok(body.includes('write('), 'the report is kept before any decision');
+});
