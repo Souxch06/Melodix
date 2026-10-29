@@ -652,7 +652,7 @@
 
     cmp-long v5, v1, v3
 
-    if-eqz v5, :chain_have_start
+    if-nez v5, :chain_have_start
 
     invoke-static {}, Landroid/os/SystemClock;->elapsedRealtime()J
 

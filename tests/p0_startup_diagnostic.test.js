@@ -51,6 +51,10 @@ test('appendChain() timestamps each stage and caps the chain', () => {
   assert.match(body, /const-string v2, "\+"/, 'entries look like name+Xs');
   assert.match(body, /const\/16 v4, 0x17c\s*\n\s*if-le v3, v4, :chain_append/,
     'a runaway caller cannot flood the prefs (cap check)');
+  assert.ok(body.includes('cmp-long v5, v1, v3\n\n    if-nez v5, :chain_have_start'),
+    'chainStart == 0 must initialise (polarity: if-nez jumps over the init only when already set)');
+  assert.ok(!body.includes('if-eqz v5, :chain_have_start'),
+    'the chainStart polarity must not be inverted (this exact bug shipped absolute timestamps)');
 });
 
 test('stageChain() is public and fails safe to the empty string', () => {
