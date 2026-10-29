@@ -64,7 +64,10 @@
 .method public final run()V
     .locals 6
 
-    const-wide/16 v0, 0x61a8
+    # 60 s: a cold WebView provider init (chromium dexopt) legitimately blocks
+    # the main thread for tens of seconds on slow devices and CI emulators; at
+    # 25 s the watchdog was killing healthy startups ("crash at launch").
+    const-wide/32 v0, 0xea60
 
     :try_start_0
     invoke-static {v0, v1}, Ljava/lang/Thread;->sleep(J)V

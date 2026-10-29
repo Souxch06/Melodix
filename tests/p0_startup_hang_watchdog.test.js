@@ -11,7 +11,7 @@
 //   2. A startup blocked on the main thread can never be rescued by any
 //      main-looper callback (the 20s splash fallback cannot run either). A
 //      plain watchdog THREAD records the main-thread stack and the last stage
-//      after 25s; the report is shown as a dialog on the next launch.
+//      after 60s; the report is shown as a dialog on the next launch.
 //
 // WHAT IS ACTUALLY EXECUTED: static opcode checks on the real Smali (guard
 // polarities both ways, wiring order, watchdog instructions) plus a small
@@ -100,9 +100,9 @@ test('watchdog: arm() starts exactly one named thread', () => {
   assert.match(body, /Thread;->start\(\)V/);
 });
 
-test('watchdog: run() sleeps 25s then reports only if startupDone is still false', () => {
+test('watchdog: run() sleeps 60s then reports only if startupDone is still false', () => {
   const body = methodBody(WD(), '.method public final run()V');
-  assert.match(body, /const-wide\/16 v0, 0x61a8/, '25000 ms');
+  assert.match(body, /const-wide\/32 v0, 0xea60/, '60000 ms - init WebView froide toleree');
   assert.match(body, /Thread;->sleep\(J\)V/);
   assert.match(body, /sget-boolean v0, Lcom\/melodix\/music\/AppSingleton;->startupDone:Z\n\n    if-nez v0, :done/,
     'startupDone == true must skip the report (polarity: if-nez jumps to :done)');
@@ -142,7 +142,7 @@ test('startupDone is set at the web reveal (:fade_go in zk0)', () => {
 // ---------------------------------------------------------------------------
 
 test('model: the watchdog reports exactly the unresolved startups', () => {
-  // Transcribed from StartupHangWatchdog.run(): after 25s, report iff
+  // Transcribed from StartupHangWatchdog.run(): after 60s, report iff
   // startupDone is false. startupDone flips true only on showNativeUi() or a
   // fallback action.
   const decide = ({ takeover, fallbackActed, mainThreadStuck }) => ({
