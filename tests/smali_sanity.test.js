@@ -562,13 +562,20 @@ test('a toast window race is recorded but never kills the process', () => {
         'the shutdown-race swallow is narrowed to the exact known message');
     // Branch direction matters as much as the check itself (a P0 lesson):
     // instance-of == 1 (it IS the shutdown race) must fall through to the
-    // swallow, never jump to the kill path.
+    // swallow, never jump to the kill path; and message-equal == 1 must fall
+    // through to return-void, never jump to the kill path. Both branches were
+    // once inverted; pin the whole swallow block's shape.
     const raceCheck = body.indexOf('instance-of v0, p2, Ljava/lang/InternalError;');
-    const raceBranch = body.slice(raceCheck, raceCheck + 160);
-    assert.ok(raceBranch.includes('if-eqz v0, :kill'),
-        'a non-race throwable still jumps to the kill path');
-    assert.ok(!raceBranch.includes('if-nez v0, :kill'),
-        'the race branch must not be inverted');
+    const raceBlock = body.slice(raceCheck, body.indexOf('return-void', raceCheck) + 'return-void'.length);
+    assert.ok(raceBlock.includes('instance-of v0, p2, Ljava/lang/InternalError;\n\n    if-eqz v0, :kill'),
+        'a non-race throwable must jump to the kill path');
+    assert.ok(!raceBlock.includes('if-nez v0, :kill'),
+        'no branch in the race swallow may be inverted');
+    const equalsBranch = raceBlock.slice(raceBlock.indexOf('equals(Ljava/lang/Object;)Z'));
+    assert.ok(equalsBranch.includes('if-eqz v0, :kill'),
+        'a mismatched message must jump to the kill path');
+    assert.ok(equalsBranch.trimEnd().endsWith('return-void'),
+        'the matching race signature ends in the swallow');
     const swallow = body.indexOf('return-void', body.indexOf('instance-of'));
     const forward = body.indexOf('dispatch(Ljava/lang/Thread;Ljava/lang/Throwable;)V', body.indexOf('instance-of'));
     assert.ok(swallow > -1 && forward > swallow, 'the race returns without dispatching');

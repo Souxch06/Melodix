@@ -725,7 +725,7 @@
 
     move-result v0
 
-    if-nez v0, :kill
+    if-eqz v0, :kill
 
     return-void
 
