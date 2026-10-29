@@ -187,3 +187,20 @@ test('[structurel] showLastReport : sans rapport de crash, le fil de stages prod
   // le message rejoint le dialogue commun (:no_stage) et le retour 1
   assert.match(stage, /goto :no_stage/);
 });
+
+test('[structurel] MainActivity.C() : getLayoutParams().width est garde contre null (NPE du onResume)', () => {
+  const main = read('smali/com/melodix/music/MainActivity.smali');
+  const at = main.search(/\.method public final C\(\)V/);
+  assert.ok(at > -1, 'méthode C() présente');
+  const body = main.slice(at, main.indexOf('.end method', at));
+  const lp = body.indexOf('ViewGroup$LayoutParams;->width:I');
+  assert.ok(lp > -1, 'lecture width présente');
+  const before = body.slice(0, lp);
+  // Entre le getLayoutParams et la lecture width, un garde if-eqz sur v1 doit
+  // exister (polarité droite : null -> :cond_9), directives .line tolérées.
+  const lpCall = before.lastIndexOf('getLayoutParams()');
+  assert.ok(lpCall > -1);
+  const between = before.slice(lpCall);
+  assert.match(between, /move-result-object v1[\s\S]*if-eqz v1, :cond_9/,
+    'garde if-eqz entre getLayoutParams et la lecture width');
+});

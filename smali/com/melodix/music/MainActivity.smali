@@ -704,7 +704,12 @@
     move-result-object v1
 
     .line 137
-    iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
+        # P0 guard: a WebView from the factory (m9.g) can carry no LayoutParams
+    # yet (e.g. onResume after a crash report short-circuited onCreate). A null
+    # here used to NPE on .width and kill the report dialog with the app.
+    if-eqz v1, :cond_9
+
+iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
 
     .line 138
     .line 139
