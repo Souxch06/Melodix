@@ -96,27 +96,25 @@
 
     # Diagnostic: the installed build label (1.2.2-<sha7>) so a screenshot of
     # the diagnostic row identifies the exact source commit running on the
-    # device. Never touches tokens or account data.
+    # device. Context comes from the same field every other AndBridge method
+    # uses (a). All control flow stays inside the try range; the handler has
+    # its own tail. Never touches tokens or account data.
     :try_start_0
-    sget-object v0, Lcom/melodix/music/AppSingleton;->t:Ljava/lang/ref/WeakReference;
+    iget-object v0, p0, Lcom/melodix/music/AndBridge;->a:Landroid/content/Context;
 
-    if-eqz v0, :label_unknown
-
-    invoke-virtual {v0}, Ljava/lang/ref/Reference;->get()Ljava/lang/Object;
-
-    move-result-object v0
-
-    check-cast v0, Landroid/app/Activity;
-
-    if-eqz v0, :label_unknown
+    if-eqz v0, :label_fail
 
     invoke-virtual {v0}, Landroid/content/Context;->getPackageManager()Landroid/content/pm/PackageManager;
 
     move-result-object v1
 
+    if-eqz v1, :label_fail
+
     invoke-virtual {v0}, Landroid/content/Context;->getPackageName()Ljava/lang/String;
 
     move-result-object v2
+
+    if-eqz v2, :label_fail
 
     const/4 v0, 0x0
 
@@ -124,9 +122,18 @@
 
     move-result-object v0
 
+    if-eqz v0, :label_fail
+
     iget-object v0, v0, Landroid/content/pm/PackageInfo;->versionName:Ljava/lang/String;
 
-    if-eqz v0, :label_unknown
+    if-eqz v0, :label_fail
+
+    goto :label_done
+
+    :label_fail
+    const-string v0, "?"
+
+    :label_done
     :try_end_0
     .catch Ljava/lang/Throwable; {:try_start_0 .. :try_end_0} :catch_0
 
@@ -135,7 +142,6 @@
     :catch_0
     move-exception v0
 
-    :label_unknown
     const-string v0, "?"
 
     return-object v0
