@@ -607,6 +607,20 @@
 .method public static d(Ljava/lang/String;)Ljava/lang/String;
     .locals 5
 
+    # The bundled bridge always comes from the APK. The original app's Firebase
+    # hotfix channel can leave a stale spotify_bridge.js in filesDir/hotfixes/;
+    # serving it ahead of the asset silently replaced the shipped bridge with an
+    # old build at every launch (bridge never started, 8 recovery rounds).
+    # Name check first so neither the cache nor the hotfix file can intercept.
+    const-string v0, "spotify_bridge.js"
+
+    invoke-virtual {v0, p0}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+
+    move-result v0
+
+    if-nez v0, :cond_2
+
+
     .line 1
     sget-object v0, Lcom/melodix/music/AppSingleton;->f0:Ljava/util/concurrent/ConcurrentHashMap;
 
@@ -950,75 +964,6 @@
 .end method
 
 
-# Asset reader for the bundled bridge that IGNORES filesDir/hotfixes/ hotfix
-# scripts. The original app's Firebase hotfix channel can leave a stale
-# spotify_bridge.js on the device; m9.d serves it ahead of the APK asset, which
-# silently replaces the shipped bridge with an old build at every launch.
-# readBundledAsset/Range/injectBundledAsset must always deliver the APK version.
-.method public static e(Ljava/lang/String;)Ljava/lang/String;
-    .locals 5
-
-    const-string v1, ""
-
-    if-eqz p0, :asset_only_done
-
-    :try_start_0
-    invoke-static {}, Lm9;->c()Landroid/content/Context;
-
-    move-result-object v0
-
-    invoke-virtual {v0}, Landroid/content/Context;->getAssets()Landroid/content/res/AssetManager;
-
-    move-result-object v0
-
-    invoke-virtual {v0, p0}, Landroid/content/res/AssetManager;->open(Ljava/lang/String;)Ljava/io/InputStream;
-
-    move-result-object v0
-
-    new-instance v2, Ljava/io/BufferedReader;
-
-    new-instance v3, Ljava/io/InputStreamReader;
-
-    invoke-direct {v3, v0}, Ljava/io/InputStreamReader;-><init>(Ljava/io/InputStream;)V
-
-    invoke-direct {v2, v3}, Ljava/io/BufferedReader;-><init>(Ljava/io/Reader;)V
-
-    new-instance v3, Ljava/lang/StringBuilder;
-
-    invoke-direct {v3}, Ljava/lang/StringBuilder;-><init>()V
-
-    :asset_only_loop
-    invoke-virtual {v2}, Ljava/io/BufferedReader;->readLine()Ljava/lang/String;
-
-    move-result-object v4
-
-    if-eqz v4, :asset_only_collect_done
-
-    invoke-virtual {v3, v4}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
-
-    const-string v4, "\n"
-
-    invoke-virtual {v3, v4}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
-
-    goto :asset_only_loop
-
-    :asset_only_collect_done
-    invoke-virtual {v3}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
-
-    move-result-object v3
-
-    invoke-virtual {v2}, Ljava/io/BufferedReader;->close()V
-    :try_end_0
-    .catch Ljava/lang/Exception; {:try_start_0 .. :try_end_0} :catch_0
-
-    move-object v1, v3
-
-    goto :asset_only_done
-
-    :catch_0
-    :asset_only_done
-    return-object v1
-.end method
 
 .method public static e()Landroid/content/SharedPreferences;
     .locals 1

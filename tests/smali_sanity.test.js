@@ -22,6 +22,8 @@ const smaliFiles = [
     'smali/com/melodix/music/StartupLoadWatchdog.smali',
     'smali/com/melodix/music/NativeAssetRunner.smali',
     'smali/com/melodix/music/NativeCrashGuard.smali',
+    'smali/com/melodix/music/StartupUnstickRunnable.smali',
+    'smali/com/melodix/music/StartupHangWatchdog.smali',
     'smali/com/melodix/music/NativeHomeShelfRenderer.smali',
     'smali/com/melodix/music/RuntimeDiagnostic.smali',
     'smali/com/melodix/music/RuntimeDiagnostic$Callback.smali',
@@ -518,26 +520,28 @@ test('ViewGroup-only methods are never invoked through the View owner', () => {
         'the shelf must clip through the ViewGroup owner');
 });
 
-test('the bridge asset is read from the APK, never from the hotfix directory', () => {
-    // A stale Firebase hotfix script in filesDir/hotfixes/ was silently
-    // replacing the shipped spotify_bridge.js at every launch. The asset
-    // getters behind AndBridge must use the APK-only reader m9.e.
+test('the bridge asset bypasses the hotfix directory and the asset cache', () => {
+    // A stale Firebase hotfix script in filesDir/hotfixes/ silently replaced the
+    // shipped spotify_bridge.js at every launch. m9.d must route the bridge name
+    // straight to the APK asset branch (:cond_2) before cache and hotfix reads.
+    const m9 = fs.readFileSync(path.join(repo, 'smali/m9.smali'), 'utf8');
+    const start = m9.indexOf('.method public static d(Ljava/lang/String;)Ljava/lang/String;');
+    assert.ok(start >= 0, 'm9.d must exist');
+    const body = m9.slice(start, m9.indexOf('.end method', start));
+    const bypassAt = body.indexOf('const-string v0, "spotify_bridge.js"');
+    const hotfixAt = body.indexOf('"hotfixes/"');
+    assert.ok(bypassAt >= 0, 'the bridge name is checked first');
+    assert.ok(hotfixAt > bypassAt, 'the hotfix path is only reached for other names');
+    assert.ok(/if-nez v0, :cond_2/.test(body), 'the bridge jumps to the APK asset branch');
+    assert.ok(!m9.includes('.method public static e(Ljava/lang/String;)'), 'no parallel reader to drift');
     const bridge = fs.readFileSync(path.join(repo, 'smali/com/melodix/music/AndBridge.smali'), 'utf8');
     const section = (name) => {
-        const start = bridge.indexOf('.method public final ' + name);
-        assert.ok(start >= 0, name + ' must exist');
-        return bridge.slice(start, bridge.indexOf('.end method', start));
+        const at = bridge.indexOf('.method public final ' + name);
+        assert.ok(at >= 0, name + ' must exist');
+        return bridge.slice(at, bridge.indexOf('.end method', at));
     };
     for (const name of ['readBundledAsset(Ljava/lang/String;)Ljava/lang/String;', 'readBundledAssetRange(Ljava/lang/String;II)Ljava/lang/String;', 'injectBundledAsset(Ljava/lang/String;)V']) {
-        const body = section(name);
-        assert.ok(body.includes('Lm9;->e(Ljava/lang/String;)Ljava/lang/String;'),
-            name + ' must read through the APK-only reader');
-        assert.ok(!body.includes('Lm9;->d('), name + ' must not touch the hotfix reader');
+        assert.ok(section(name).includes('Lm9;->d(Ljava/lang/String;)Ljava/lang/String;'),
+            name + ' reads through the shared reader');
     }
-    const m9 = fs.readFileSync(path.join(repo, 'smali/m9.smali'), 'utf8');
-    const eStart = m9.indexOf('.method public static e(Ljava/lang/String;)Ljava/lang/String;');
-    assert.ok(eStart >= 0, 'm9.e must exist');
-    const eBody = m9.slice(eStart, m9.indexOf('.end method', eStart));
-    assert.ok(eBody.includes('Landroid/content/res/AssetManager;->open'), 'm9.e reads the APK asset');
-    assert.ok(!eBody.includes('hotfixes'), 'm9.e never consults the hotfix directory');
 });

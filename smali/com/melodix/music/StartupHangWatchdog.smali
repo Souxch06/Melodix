@@ -166,6 +166,34 @@
 
     invoke-static {v0, v1}, Landroid/util/Log;->e(Ljava/lang/String;Ljava/lang/String;)I
 
+    # Visual fail-safe: the report above is kept, but the app must not stay
+    # frozen on the splash logo - reveal the native UI on the main thread.
+    :try_start_2
+    sget-object v0, Lcom/melodix/music/AppSingleton;->t:Ljava/lang/ref/WeakReference;
+
+    if-eqz v0, :unstick_done
+
+    invoke-virtual {v0}, Ljava/lang/ref/Reference;->get()Ljava/lang/Object;
+
+    move-result-object v0
+
+    check-cast v0, Lcom/melodix/music/MainActivity;
+
+    if-eqz v0, :unstick_done
+
+    new-instance v1, Lcom/melodix/music/StartupUnstickRunnable;
+
+    invoke-direct {v1, v0}, Lcom/melodix/music/StartupUnstickRunnable;-><init>(Lcom/melodix/music/MainActivity;)V
+
+    invoke-virtual {v0, v1}, Landroid/app/Activity;->runOnUiThread(Ljava/lang/Runnable;)V
+    :try_end_2
+    .catch Ljava/lang/Throwable; {:try_start_2 .. :try_end_2} :catch_2
+
+    goto :unstick_done
+
+    :catch_2
+    :unstick_done
+
     :done
     return-void
 .end method

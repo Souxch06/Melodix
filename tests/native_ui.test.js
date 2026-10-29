@@ -828,7 +828,7 @@ test('the native shell can ask Android to evaluate the playback bridge again', (
     assert.match(shell, /securitypolicyviolation/, 'CSP rejections must be recorded, not guessed');
     assert.match(shell, /__sfBridgeExecMode/, 'the execution strategy must be reported');
     assert.match(bridge, /\.method public final readBundledAsset\(Ljava\/lang\/String;\)Ljava\/lang\/String;[\s\S]*?JavascriptInterface/);
-    assert.match(bridge, /const-string v0, "spotify_bridge\.js"[\s\S]*?Lm9;->e/, 'only whitelisted assets are readable, from the APK only');
+    assert.match(bridge, /const-string v0, "spotify_bridge\.js"[\s\S]*?Lm9;->d/, 'only whitelisted assets are readable');
     assert.match(bridge, /\.method public final injectBundledAsset\(Ljava\/lang\/String;\)V[\s\S]*?JavascriptInterface/);
     assert.match(bridge, /NativeAssetRunner;-><init>[\s\S]*?runOnUiThread/, 'evaluation must be posted to the UI thread');
     assert.match(runner, /implements Ljava\/lang\/Runnable;/);
