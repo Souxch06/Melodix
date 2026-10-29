@@ -6950,6 +6950,10 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
 .method public final showNativeUi()V
     .locals 5
 
+    # Replay the previous freeze report over the shell (P0 diagnostic):
+    # start-only hang reports, never a crash message.
+    invoke-static {p0}, Lcom/melodix/music/StartupDiagnosticOverlay;->maybeShowStored(Landroid/app/Activity;)V
+
     const/4 v0, 0x1
     sput-boolean v0, Lcom/melodix/music/AppSingleton;->l:Z
 

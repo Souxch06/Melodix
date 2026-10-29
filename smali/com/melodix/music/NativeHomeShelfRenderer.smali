@@ -10,6 +10,11 @@
 .method public static render(Lcom/melodix/music/MainActivity;Ljava/lang/String;)V
     .locals 14
 
+    # The bridge delivered home JSON: timestamped proof for the freeze report.
+    const-string v0, "home-json"
+
+    invoke-static {v0}, Lcom/melodix/music/NativeCrashGuard;->stage(Ljava/lang/String;)V
+
     const v13, 0x7f090235
 
     invoke-virtual {p0, v13}, Landroid/app/Activity;->findViewById(I)Landroid/view/View;
@@ -51,6 +56,12 @@
     const-string v3, "MDXTRACE"
 
     invoke-static {v3, v2}, Landroid/util/Log;->i(Ljava/lang/String;Ljava/lang/String;)I
+
+    # Parsed rows reached the renderer: content arrived. The content watchdog
+    # looks for exactly this mark before declaring the shell stuck.
+    const-string v2, "home-rendered"
+
+    invoke-static {v2}, Lcom/melodix/music/NativeCrashGuard;->stage(Ljava/lang/String;)V
 
     if-lez v1, :shelf_empty
 

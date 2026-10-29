@@ -62,7 +62,7 @@
 
 # virtual methods
 .method public final run()V
-    .locals 6
+    .locals 7
 
     # 60 s: a cold WebView provider init (chromium dexopt) legitimately blocks
     # the main thread for tens of seconds on slow devices and CI emulators; at
@@ -82,17 +82,30 @@
     :awake
     sget-boolean v0, Lcom/melodix/music/AppSingleton;->startupDone:Z
 
-    if-nez v0, :done
+    # Startup unresolved -> hang report. Startup shown -> still check that the
+    # home content ever arrived: a shell stuck on an empty screen is the same
+    # freeze for the user and must produce the same on-screen diagnostic.
+    if-nez v0, :content_gate
 
     new-instance v0, Ljava/lang/StringBuilder;
 
     invoke-direct {v0}, Ljava/lang/StringBuilder;-><init>()V
 
-    const-string v1, "STARTUP STUCK - startup never completed within 25s\nstage: "
+    const-string v1, "STARTUP STUCK - startup never completed within 60s\nstage: "
 
     invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
 
     invoke-static {}, Lcom/melodix/music/NativeCrashGuard;->lastStage()Ljava/lang/String;
+
+    move-result-object v1
+
+    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    const-string v1, "\nstages: "
+
+    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    invoke-static {}, Lcom/melodix/music/NativeCrashGuard;->stageChain()Ljava/lang/String;
 
     move-result-object v1
 
@@ -156,6 +169,8 @@
 
     invoke-static {v0}, Lcom/melodix/music/NativeCrashGuard;->write(Ljava/lang/String;)V
 
+    move-object v6, v0
+
     const-string v0, "startup-hang"
 
     invoke-static {v0}, Lcom/melodix/music/NativeCrashGuard;->stage(Ljava/lang/String;)V
@@ -166,8 +181,51 @@
 
     invoke-static {v0, v1}, Landroid/util/Log;->e(Ljava/lang/String;Ljava/lang/String;)I
 
-    # Visual fail-safe: the report above is kept, but the app must not stay
-    # frozen on the splash logo - reveal the native UI on the main thread.
+    const/4 v5, 0x1
+
+    goto :post_panel
+
+    :content_gate
+    invoke-static {}, Lcom/melodix/music/NativeCrashGuard;->stageChain()Ljava/lang/String;
+
+    move-result-object v0
+
+    if-eqz v0, :content_hang
+
+    const-string v1, "home-rendered"
+
+    invoke-virtual {v0, v1}, Ljava/lang/String;->contains(Ljava/lang/CharSequence;)Z
+
+    move-result v0
+
+    if-nez v0, :done
+
+    :content_hang
+    const-string v0, "CONTENT STUCK - interface affichee mais contenu jamais arrive"
+
+    invoke-static {v0}, Lcom/melodix/music/StartupDiagnosticOverlay;->buildReport(Ljava/lang/String;)Ljava/lang/String;
+
+    move-result-object v0
+
+    invoke-static {v0}, Lcom/melodix/music/NativeCrashGuard;->write(Ljava/lang/String;)V
+
+    move-object v6, v0
+
+    const-string v0, "content-hang"
+
+    invoke-static {v0}, Lcom/melodix/music/NativeCrashGuard;->stage(Ljava/lang/String;)V
+
+    const-string v0, "MDXSTART"
+
+    const-string v1, "content watchdog: shell shown but home content never arrived"
+
+    invoke-static {v0, v1}, Landroid/util/Log;->e(Ljava/lang/String;Ljava/lang/String;)I
+
+    const/4 v5, 0x0
+
+    # Visual fail-safe: the report above is kept, and the phone must show it
+    # on the frozen screen itself - one screenshot then names the blocker.
+    :post_panel
     :try_start_2
     sget-object v0, Lcom/melodix/music/AppSingleton;->t:Ljava/lang/ref/WeakReference;
 
@@ -183,7 +241,7 @@
 
     new-instance v1, Lcom/melodix/music/StartupUnstickRunnable;
 
-    invoke-direct {v1, v0}, Lcom/melodix/music/StartupUnstickRunnable;-><init>(Lcom/melodix/music/MainActivity;)V
+    invoke-direct {v1, v0, v6, v5}, Lcom/melodix/music/StartupUnstickRunnable;-><init>(Lcom/melodix/music/MainActivity;Ljava/lang/String;Z)V
 
     invoke-virtual {v0, v1}, Landroid/app/Activity;->runOnUiThread(Ljava/lang/Runnable;)V
     :try_end_2
