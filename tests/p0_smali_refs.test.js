@@ -204,3 +204,15 @@ test('[structurel] MainActivity.C() : getLayoutParams().width est garde contre n
   assert.match(between, /move-result-object v1[\s\S]*if-eqz v1, :cond_9/,
     'garde if-eqz entre getLayoutParams et la lecture width');
 });
+
+test('[structurel] executeBridgeSource : injection native evaluateJavascript AVANT le blob optimiste', () => {
+  const shell = read('assets/native_ui_shell.js');
+  const at = shell.indexOf('function executeBridgeSource');
+  assert.ok(at > -1);
+  const body = shell.slice(at, shell.indexOf('function ', at + 10));
+  const native = body.indexOf("injectBundledAsset('spotify_bridge.js')");
+  const blob = body.indexOf("createObjectURL(new Blob");
+  assert.ok(native > -1, 'stratégie native présente');
+  assert.ok(blob > -1 && native < blob, 'native AVANT blob (blob = retour optimiste bloqué par la CSP)');
+  assert.match(body, /__sfBridgeExecMode = 'native-inject'/);
+});

@@ -2039,7 +2039,22 @@
             return true;
         }
 
-        // 4. Blob URL: asynchronous, so the next diagnostic sample confirms it.
+        // 4. Native evaluateJavascript (CSP-immune: it is not a script element).
+        // Pages like Spotify's forbid script-src-elem inline/blob and unsafe-eval,
+        // which kills strategies 1-3 AND the blob below; the WebView's own
+        // evaluateJavascript is the only channel the CSP cannot touch - it is
+        // also the channel that runs this very shell.
+        try {
+            if (window.AndBridge && typeof window.AndBridge.injectBundledAsset === 'function') {
+                window.AndBridge.injectBundledAsset('spotify_bridge.js');
+                window.__sfBridgeExecMode = 'native-inject';
+                return true;
+            }
+        } catch (error) {
+            recordBridgeFailure('native-inject', error);
+        }
+
+        // 5. Blob URL: asynchronous, so the next diagnostic sample confirms it.
         try {
             if (bridgeBlobUrl && typeof URL.revokeObjectURL === 'function') URL.revokeObjectURL(bridgeBlobUrl);
             bridgeBlobUrl = URL.createObjectURL(new Blob([source], { type: 'text/javascript' }));
