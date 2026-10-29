@@ -58,7 +58,12 @@ jobs:
             gh run download "$run_id" --repo "$GITHUB_REPOSITORY" \
               --pattern 'Melodix-Preview-*' --dir "$RUNNER_TEMP/apk" || true
           fi
-          apk_file="$(find "$RUNNER_TEMP/apk" -name 'Melodix-Preview-*.apk' | head -n 1)"
+          # -type f: the artifact extracts into a DIRECTORY named like the APK.
+          apk_file="$(find "$RUNNER_TEMP/apk" -type f -name 'Melodix-Preview-*.apk' | head -n 1)"
+          if [[ -n "$apk_file" && ! -f "$apk_file" ]]; then
+            echo "::error::APK_PATH is not a regular file: $apk_file"
+            exit 1
+          fi
           if [[ -z "$apk_file" ]]; then
             # Fallback: 'tag=v1.2.2-test.N-preview' in the commit message,
             # otherwise the newest published pre-release.
