@@ -2401,6 +2401,13 @@
     :native_guard_done
     if-eqz v1, :native_no_crash_report
 
+    # A shown crash report IS the resolved startup state: park the watchdog so
+    # the dialog survives long enough to be photographed instead of being
+    # force-quit 25 s later ("no message at all").
+    const/4 v1, 0x1
+
+    sput-boolean v1, Lcom/melodix/music/AppSingleton;->startupDone:Z
+
     return-void
 
     :native_no_crash_report
