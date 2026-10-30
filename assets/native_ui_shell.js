@@ -1403,50 +1403,105 @@
 
     // P0 CONTENT STUCK fix: Spotify can serve the localized landing
     // (open.spotify.com/intl-xx/) instead of the web player even for a
-    // signed-in session. The landing's only door to the player is its
-    // "web player" CTA (data-testid=web-player-link), and a synthetic
-    // .click() alone can be ignored (untrusted event / new-window target).
-    // Try the click first (faithful to the button), then navigate
-    // deterministically to its href or the player entry URL. One attempt per
-    // window, fully traced for the diagnostic trail.
+    // signed-in session - and the landing's CTA testid varies or is absent.
+    // So do not depend on any button: if the player root is missing after a
+    // short grace period, navigate deterministically to the player entry
+    // URLs. Two attempts per minute-window (localStorage survives page
+    // navigations, so no loop; a fresh launch gets a fresh chance).
+    function playerNavCount() {
+        var n = 0;
+        try {
+            var raw = window.localStorage.getItem('mel_player_nav');
+            if (raw) {
+                var rec = JSON.parse(raw);
+                if (rec && rec.n && (Date.now() - rec.t) < 60000) n = rec.n | 0;
+            }
+        } catch (_) {}
+        return n;
+    }
+
+    function playerNavBump(n) {
+        try {
+            window.localStorage.setItem('mel_player_nav', JSON.stringify({ n: n, t: Date.now() }));
+        } catch (_) {}
+    }
+
+    function navToPlayer(n, href) {
+        var useHref = href && (href.indexOf('http') === 0 || href.charAt(0) === '/');
+        var target;
+        if (useHref) {
+            target = href;
+        } else {
+            target = (n <= 1) ? 'https://open.spotify.com/app' : 'https://open.spotify.com/search';
+        }
+        diagTrace('player-nav try ' + n + ' ' + (useHref ? 'href' : (n <= 1 ? 'app' : 'search')));
+        try {
+            window.location.assign(target);
+        } catch (_) {}
+    }
+
     function maybeNavigateToPlayer() {
-        if (window.__sfPlayerNavDone) return;
         if (document.querySelector('#main-view')) return;
+        if (window.__sfPlayerNavPending) return;
+        if (playerNavCount() >= 2) return;
+        window.__sfPlayerNavPending = 1;
+        var n = playerNavCount() + 1;
+        playerNavBump(n);
         var cta = document.querySelector('button[data-testid="web-player-link"], a[data-testid="web-player-link"]');
-        if (!cta) return;
-        window.__sfPlayerNavDone = 1;
-        diagTrace('player-cta found, opening web player');
         var href = '';
-        try {
-            var a = cta.closest ? cta.closest('a') : null;
-            href = (a && a.getAttribute('href')) || cta.getAttribute('href') || '';
-        } catch (_) {}
-        try {
-            cta.click();
-        } catch (_) {}
+        if (cta) {
+            diagTrace('player-cta found, opening web player');
+            try {
+                var a = cta.closest ? cta.closest('a') : null;
+                href = (a && a.getAttribute('href')) || cta.getAttribute('href') || '';
+            } catch (_) {}
+            try {
+                cta.click();
+            } catch (_) {}
+        }
         window.setTimeout(function() {
             if (document.querySelector('#main-view')) {
                 diagTrace('player-cta ok via click');
                 return;
             }
-            var useHref = href && (href.indexOf('http') === 0 || href.charAt(0) === '/');
-            var target = useHref ? href : 'https://open.spotify.com/app';
-            diagTrace('player-cta nav ' + (useHref ? 'href' : 'app'));
-            try {
-                window.location.assign(target);
-            } catch (_) {}
-        }, 2500);
+            navToPlayer(n, href);
+        }, 3000);
     }
 
     // One-line DOM census for the diagnostic trail: what the page really
-    // holds when the takeover gate cannot find anything to wait for.
+    // holds when the takeover gate cannot find anything to wait for. Title,
+    // first heading and a data-testid sample name the page at a glance.
     function domCensusOnce() {
         if (window.__sfDomCensus) return;
         window.__sfDomCensus = 1;
-        diagTrace('dom census main=' + (document.querySelector('#main-view') ? '1' : '0') +
-            ' cta=' + (document.querySelector('[data-testid="web-player-link"]') ? '1' : '0') +
-            ' user=' + (document.querySelector('[data-testid="user-widget-link"]') ? '1' : '0') +
-            ' body=' + (document.body ? document.body.childElementCount : -1));
+        var title = '';
+        var h1 = '';
+        var ids = '';
+        try {
+            title = String(document.title || '').replace(/\s+/g, ' ').slice(0, 30);
+        } catch (_) {}
+        try {
+            var h = document.querySelector('h1');
+            h1 = String((h && h.textContent) || '').replace(/\s+/g, ' ').slice(0, 24);
+        } catch (_) {}
+        try {
+            var seen = [];
+            var nodes = document.querySelectorAll('[data-testid]');
+            for (var i = 0; i < nodes.length && seen.length < 3; i++) {
+                var id = nodes[i].getAttribute('data-testid') || '';
+                if (id && seen.indexOf(id) < 0) seen.push(id.slice(0, 16));
+            }
+            ids = seen.join(',');
+        } catch (_) {}
+        var ifr = 0;
+        try {
+            ifr = document.querySelectorAll('iframe').length;
+        } catch (_) {}
+        diagTrace('dom census m=' + (document.querySelector('#main-view') ? '1' : '0') +
+            ' c=' + (document.querySelector('[data-testid="web-player-link"]') ? '1' : '0') +
+            ' u=' + (document.querySelector('[data-testid="user-widget-link"]') ? '1' : '0') +
+            ' b=' + (document.body ? document.body.childElementCount : -1) +
+            ' i=' + ifr + ' t=' + title + ' h=' + h1 + ' g=' + ids);
     }
 
     function runUpdate() {

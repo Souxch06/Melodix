@@ -260,18 +260,28 @@ test('the shell JS reports the silent hold (missing widget or bridge)', () => {
 // Part 6 - CONTENT STUCK fix: deterministic navigation to the web player
 // ---------------------------------------------------------------------------
 
-test('the shell opens the web player when Spotify serves the landing page', () => {
+test('the shell opens the web player even without the landing CTA', () => {
   const js = read('assets/native_ui_shell.js');
   assert.ok(js.includes('function maybeNavigateToPlayer()'),
-    'the landing CTA must not be the only door to the player');
-  assert.ok(js.includes("diagTrace('player-cta nav '"),
+    'the player must open regardless of the landing DOM');
+  assert.ok(js.includes('function navToPlayer(n, href)'),
+    'navigation is its own traced step');
+  assert.ok(js.includes("diagTrace('player-nav try '"),
     'each navigation attempt is traced for the photo');
   assert.ok(js.includes("location.assign(target)"),
-    'the fallback navigates deterministically (synthetic click alone can be ignored)');
-  assert.ok(js.includes("'https://open.spotify.com/app'"),
-    'the player entry URL is the last resort');
-  assert.ok(js.includes('window.__sfPlayerNavDone'),
-    'one navigation attempt per window (no loops)');
+    'navigation is deterministic (synthetic click alone can be ignored)');
+  assert.ok(js.includes("'https://open.spotify.com/app'") && js.includes("'https://open.spotify.com/search'"),
+    'two player entry URLs are tried in order');
+});
+
+test('navigation is bounded across page loads (no loops)', () => {
+  const js = read('assets/native_ui_shell.js');
+  assert.ok(js.includes("localStorage.getItem('mel_player_nav')"),
+    'the attempt counter survives page navigations');
+  assert.ok(js.includes('playerNavCount() >= 2'),
+    'at most two attempts per window');
+  assert.ok(js.includes('(Date.now() - rec.t) < 60000'),
+    'a fresh launch gets a fresh chance');
 });
 
 test('runUpdate tries the navigation before waiting for the player DOM', () => {
@@ -279,15 +289,17 @@ test('runUpdate tries the navigation before waiting for the player DOM', () => {
   const body = js.slice(js.indexOf('function runUpdate()'), js.indexOf('function runUpdate()') + 700);
   assert.ok(body.includes('domCensusOnce();') && body.includes('maybeNavigateToPlayer();'));
   assert.ok(body.indexOf('maybeNavigateToPlayer();') < body.indexOf("querySelector('#main-view')"),
-    'the CTA check runs even when the player root is absent');
+    'the navigation check runs even when the player root is absent');
 });
 
-test('the DOM census lands in the diagnostic trail', () => {
+test('the DOM census names the page for the next photo', () => {
   const js = read('assets/native_ui_shell.js');
-  assert.ok(js.includes("diagTrace('dom census main='"),
+  assert.ok(js.includes("diagTrace('dom census m='"),
     'the photo must show what the page really holds');
-  assert.ok(js.includes("' user=' + (document.querySelector('[data-testid=\"user-widget-link\"]') ? '1' : '0')"),
-    'the takeover gate marker is part of the census');
+  assert.ok(js.includes(" t=' + title + ' h=' + h1 + ' g=' + ids"),
+    'title, first heading and a data-testid sample identify the page');
+  assert.ok(js.includes("' i=' + ifr"),
+    'iframes are counted (the player may be framed)');
 });
 
 test('the login-page snippet keeps its side effects and gains the fallback', () => {
@@ -298,6 +310,6 @@ test('the login-page snippet keeps its side effects and gains the fallback', () 
     'the CTA click is still the first attempt');
   assert.ok(c91.includes('player-cta nav'),
     'the deterministic fallback is traced');
-  assert.ok(c91.includes("window.location.assign(t);"),
+  assert.ok(c91.includes('window.location.assign(t);'),
     'the fallback navigates when the click is ignored');
 });
