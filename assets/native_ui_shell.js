@@ -764,7 +764,7 @@
         if (!mainView || window.location.hostname !== 'open.spotify.com' || window.__sfNativeUiReadyNotified) return false;
 
         // Do not cover Spotify's page until its signed-in account control is present.
-        userWidget = document.querySelector('button[data-testid="user-widget-link"], a[data-testid="user-widget-link"]');
+        userWidget = sfDeepQuery('button[data-testid="user-widget-link"], a[data-testid="user-widget-link"]');
         if (!userWidget || !bridge || typeof bridge.onNativeUiReady !== 'function') {
             // P0 diagnostic: the silent hold is the most common freeze - say
             // which half is missing (account control or bridge), throttled.
@@ -1460,10 +1460,37 @@
         } catch (_) {}
     }
 
+    // Query the top document and any same-origin iframe: the player can be
+    // framed, and the collectors must still see it.
+    function sfDeepQuery(sel) {
+        var el = null;
+        try {
+            el = document.querySelector(sel);
+        } catch (_) {}
+        if (el) return el;
+        try {
+            var frames = document.querySelectorAll('iframe');
+            for (var i = 0; i < frames.length; i++) {
+                try {
+                    var d = frames[i].contentDocument;
+                    if (d) {
+                        el = d.querySelector(sel);
+                        if (el) return el;
+                    }
+                } catch (_) {}
+            }
+        } catch (_) {}
+        return null;
+    }
+
+    function findMainView() {
+        return sfDeepQuery('#main-view');
+    }
+
     function maybeNavigateToPlayer() {
-        if (document.querySelector('#main-view')) return;
-        if (document.querySelector('[data-testid="user-widget-link"]')) return;
-        if (document.querySelector('[data-testid="card"]')) return;
+        if (findMainView()) return;
+        if (sfDeepQuery('[data-testid="user-widget-link"]')) return;
+        if (sfDeepQuery('[data-testid="card"]')) return;
         if (playerNavCount() >= 2) return;
         if (!window.__sfShellStart) {
             window.__sfShellStart = Date.now();
@@ -1543,7 +1570,7 @@
             installSearchFallback();
             domCensusOnce();
             maybeNavigateToPlayer();
-            mainView = document.querySelector('#main-view');
+            mainView = findMainView();
             if (mainView) {
                 if (!window.__sfDiagHomeSeen) {
                     window.__sfDiagHomeSeen = true;

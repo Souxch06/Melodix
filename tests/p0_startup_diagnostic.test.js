@@ -288,7 +288,7 @@ test('runUpdate tries the navigation before waiting for the player DOM', () => {
   const js = read('assets/native_ui_shell.js');
   const body = js.slice(js.indexOf('function runUpdate()'), js.indexOf('function runUpdate()') + 700);
   assert.ok(body.includes('domCensusOnce();') && body.includes('maybeNavigateToPlayer();'));
-  assert.ok(body.indexOf('maybeNavigateToPlayer();') < body.indexOf("querySelector('#main-view')"),
+  assert.ok(body.indexOf('maybeNavigateToPlayer();') < body.indexOf('mainView = findMainView();'),
     'the navigation check runs even when the player root is absent');
 });
 
@@ -353,15 +353,16 @@ test('the census exposes the framed player sources', () => {
     'src attributes are readable even cross-origin');
 });
 
-test('the native safety net forces the player without any JS', () => {
+test('the native safety net probes the page without any page JS', () => {
   const body = methodBody(UNS(), '.method public final run()V');
   assert.ok(body.includes('const-string v3, "CONTENT STUCK"'),
     'only the no-content verdict triggers it');
   assert.ok(body.includes('Lcom/melodix/music/MainActivity;->G:Landroid/webkit/WebView;'),
-    'the live WebView is navigated');
-  assert.ok(body.includes('Landroid/webkit/WebView;->loadUrl(Ljava/lang/String;)V'));
-  assert.ok(body.includes('const-string v3, "native-nav app"'),
-    'the attempt lands in the diagnostic trail');
+    'the live WebView is probed');
+  assert.ok(body.includes('AndBridge;->runProbe(Landroid/webkit/WebView;)V'),
+    'the probe runs immediately');
+  assert.ok(body.includes('AndBridge;->scheduleProbe(Landroid/webkit/WebView;II)V'),
+    'Android timers follow up (paused JS timers do not matter)');
 });
 
 
@@ -382,4 +383,59 @@ test('the safety net never touches v0 (VerifyError guard)', () => {
   const tail = body.slice(body.indexOf(':no_panel'));
   assert.ok(tail.includes('invoke-virtual {v0}, Lcom/melodix/music/MainActivity;->showNativeUi()V'),
     ':no_panel still drives showNativeUi through v0');
+});
+
+
+// ---------------------------------------------------------------------------
+// Part 9 - the native probe: decides and acts without any page script
+// ---------------------------------------------------------------------------
+
+test('the probe script accepts consent walls and opens the framed player', () => {
+  const bridge = read('smali/com/melodix/music/AndBridge.smali');
+  const body = methodBody(bridge, '.method public static runProbe(Landroid/webkit/WebView;)V');
+  assert.ok(body.includes('probe t='), 'the photo shows title + visible text');
+  assert.ok(body.includes('probe f='), 'the photo shows iframe sources');
+  assert.ok(body.includes('consent click'), 'a cookie wall is accepted');
+  assert.ok(body.includes('probe nav frame'), 'the framed player is the preferred target');
+  assert.ok(body.includes('open.spotify.com/app') && body.includes('open.spotify.com/search'),
+    'player entry URLs are tried in order');
+  assert.ok(body.includes('mel_player_nav'), 'the same bounded counter prevents loops');
+  assert.ok(body.includes('evaluateJavascript'),
+    'evaluateJavascript runs synchronously - no JS timers involved');
+});
+
+test('follow-ups run on Android timers, immune to paused JS timers', () => {
+  const bridge = read('smali/com/melodix/music/AndBridge.smali');
+  const body = methodBody(bridge, '.method public static scheduleProbe(Landroid/webkit/WebView;II)V');
+  assert.ok(body.includes('Lcom/melodix/music/AndBridgeProbe;-><init>(Landroid/webkit/WebView;I)V'));
+  assert.ok(body.includes('Landroid/webkit/WebView;->postDelayed(Ljava/lang/Runnable;J)Z'),
+    'View.postDelayed is an Android timer');
+});
+
+test('every finished open.spotify.com page is probed', () => {
+  const c91 = read('smali/c91.smali');
+  assert.ok(c91.includes('AndBridge;->runProbe(Landroid/webkit/WebView;)V'),
+    'the probe runs right after the shell injection');
+  assert.ok(c91.includes('AndBridge;->scheduleProbe(Landroid/webkit/WebView;II)V'),
+    'and again after 3s');
+});
+
+test('the late native fallback only fires when the page is idle on the wrapper', () => {
+  const probe = read('smali/com/melodix/music/AndBridgeProbe.smali');
+  const body = methodBody(probe, '.method public final run()V');
+  assert.ok(body.includes('Landroid/webkit/WebView;->getProgress()I'),
+    'a running load is never interrupted');
+  assert.ok(body.includes('native-nav late'),
+    'the fallback is traced');
+});
+
+test('collectors see a player framed in a same-origin iframe', () => {
+  const js = read('assets/native_ui_shell.js');
+  assert.ok(js.includes('function sfDeepQuery(sel)'),
+    'queries walk into same-origin frames');
+  assert.ok(js.includes('function findMainView()'));
+  assert.ok(js.includes('mainView = findMainView();'),
+    'runUpdate collects from the frame too');
+  assert.ok(js.includes("userWidget = sfDeepQuery('button[data-testid=\"user-widget-link\"]"),
+    'the takeover gate also looks into frames');
 });

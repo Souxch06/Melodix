@@ -111,13 +111,21 @@
     if-eqz v2, :no_panel
 
     :try_start_0
-    const-string v3, "https://open.spotify.com/app"
+    # The probe decides (consent wall, framed player, player URLs); the late
+    # native fallback (mode 1) only fires if nothing moved - no race.
+    invoke-static {v2}, Lcom/melodix/music/AndBridge;->runProbe(Landroid/webkit/WebView;)V
 
-    invoke-virtual {v2, v3}, Landroid/webkit/WebView;->loadUrl(Ljava/lang/String;)V
+    const/4 v3, 0x0
 
-    const-string v3, "native-nav app"
+    const/16 v1, 0xfa0
 
-    invoke-static {v3}, Lcom/melodix/music/NativeCrashGuard;->diagLine(Ljava/lang/String;)V
+    invoke-static {v2, v3, v1}, Lcom/melodix/music/AndBridge;->scheduleProbe(Landroid/webkit/WebView;II)V
+
+    const/4 v3, 0x1
+
+    const/16 v1, 0x2328
+
+    invoke-static {v2, v3, v1}, Lcom/melodix/music/AndBridge;->scheduleProbe(Landroid/webkit/WebView;II)V
     :try_end_0
     .catch Ljava/lang/Throwable; {:try_start_0 .. :try_end_0} :catch_0
 

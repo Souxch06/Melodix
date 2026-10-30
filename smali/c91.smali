@@ -2216,6 +2216,16 @@
     const-string v5, "(window.__sfLoadBundledBridge||function(){})(\'spotify_bridge.js\');"
     invoke-virtual {v0, v5, v8}, Landroid/webkit/WebView;->evaluateJavascript(Ljava/lang/String;Landroid/webkit/ValueCallback;)V
 
+    # P0 CONTENT STUCK: probe the page from the Android side - works even
+    # when page scripts never start and WebView JS timers stay paused.
+    invoke-static {v0}, Lcom/melodix/music/AndBridge;->runProbe(Landroid/webkit/WebView;)V
+
+    const/4 v1, 0x0
+
+    const/16 v2, 0xbb8
+
+    invoke-static {v0, v1, v2}, Lcom/melodix/music/AndBridge;->scheduleProbe(Landroid/webkit/WebView;II)V
+
     .line 399
     .line 400
     .line 401

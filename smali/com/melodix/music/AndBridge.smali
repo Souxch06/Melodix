@@ -147,6 +147,107 @@
     return-object v0
 .end method
 
+# --- P0 CONTENT STUCK: probe run by Android itself. evaluateJavascript runs
+# synchronously in the page context, so this works even when the page scripts
+# never start and the WebView JS timers stay paused. The probe reports what
+# the page holds (title, iframe sources, visible text) and then acts: accepts
+# a cookie wall, opens the player out of its iframe, or navigates to the
+# player entry URLs (bounded, no loop).
+.method public static runProbe(Landroid/webkit/WebView;)V
+    .locals 2
+
+    if-eqz p0, :probe_done
+
+    :try_start_0
+    const-string v0, "(function(){
+  try {
+    var log = function(m){ try { AndBridge.logDiagEvent(String(m).slice(0,150)); } catch(e){} };
+    if (document.querySelector('#main-view')) { log('probe ok main'); return 'ok'; }
+    var frames = document.querySelectorAll('iframe');
+    var srcs = [];
+    var frameNav = '';
+    for (var i = 0; i < frames.length; i++) {
+      var s = String(frames[i].getAttribute('src') || '');
+      srcs.push(s.slice(0, 70));
+      try {
+        var d = frames[i].contentDocument;
+        if (d && d.querySelector('#main-view')) frameNav = s;
+      } catch (e) {}
+      if (!frameNav && s.indexOf('open.spotify.com') >= 0 && s.indexOf('/intl-') < 0 && s.indexOf('http') === 0) frameNav = s;
+    }
+    var t = String(document.title || '').replace(/\\s+/g, ' ').slice(0, 26);
+    var h = '';
+    try { h = String(document.body ? document.body.innerText : '').replace(/\\s+/g, ' ').slice(0, 60); } catch (e) {}
+    log('probe t=' + t + ' h=' + h);
+    log('probe f=' + srcs.join(' | ').slice(0, 100));
+    if (frameNav) { log('probe nav frame'); window.location.assign(frameNav); return 'nav-frame'; }
+    var btn = document.querySelector('#onetrust-accept-btn-handler, #gdpr-notice-accept, button[title*=\"ccept\"], button[aria-label*=\"ccept\"], [data-testid*=\"ccept\" i], .cc-btn.cc-allow');
+    if (btn) {
+      log('probe consent click');
+      try { btn.click(); } catch (e) {}
+      return 'consent';
+    }
+    var nav = 0;
+    try {
+      var raw = window.localStorage.getItem('mel_player_nav');
+      if (raw) { var rec = JSON.parse(raw); if (rec && rec.n && (Date.now() - rec.t) < 60000) nav = rec.n | 0; }
+    } catch (e) {}
+    if (nav >= 3) { log('probe nav exhausted'); return 'stop'; }
+    try { window.localStorage.setItem('mel_player_nav', JSON.stringify({ n: nav + 1, t: Date.now() })); } catch (e) {}
+    var target = 'https://open.spotify.com/app';
+    if (nav === 1) target = 'https://open.spotify.com/search';
+    if (nav >= 2) target = 'https://open.spotify.com/';
+    log('probe nav ' + (nav + 1));
+    window.location.assign(target);
+    return 'nav';
+  } catch (e) {
+    try { AndBridge.logDiagEvent('probe err ' + ((e && e.name) || '?')); } catch (e2) {}
+    return 'err';
+  }
+})()"
+
+    const/4 v1, 0x0
+
+    invoke-virtual {p0, v0, v1}, Landroid/webkit/WebView;->evaluateJavascript(Ljava/lang/String;Landroid/webkit/ValueCallback;)V
+    :try_end_0
+    .catch Ljava/lang/Throwable; {:try_start_0 .. :try_end_0} :catch_0
+
+    goto :probe_done
+
+    :catch_0
+    move-exception v0
+
+    :probe_done
+    return-void
+.end method
+
+# Post a probe (mode 0) or the native late fallback (mode 1) on the Android
+# main looper - a real Android timer, immune to paused WebView JS timers.
+.method public static scheduleProbe(Landroid/webkit/WebView;II)V
+    .locals 4
+
+    if-eqz p0, :sched_done
+
+    :try_start_0
+    new-instance v0, Lcom/melodix/music/AndBridgeProbe;
+
+    invoke-direct {v0, p0, p1}, Lcom/melodix/music/AndBridgeProbe;-><init>(Landroid/webkit/WebView;I)V
+
+    int-to-long v1, p2
+
+    invoke-virtual {p0, v0, v1, v2}, Landroid/webkit/WebView;->postDelayed(Ljava/lang/Runnable;J)Z
+    :try_end_0
+    .catch Ljava/lang/Throwable; {:try_start_0 .. :try_end_0} :catch_0
+
+    goto :sched_done
+
+    :catch_0
+    move-exception v0
+
+    :sched_done
+    return-void
+.end method
+
 .method public final logDiagEvent(Ljava/lang/String;)V
     .locals 3
     .annotation runtime Landroid/webkit/JavascriptInterface;
