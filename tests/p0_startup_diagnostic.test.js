@@ -492,3 +492,21 @@ test('the probe resumes the WebView timers before evaluating anything', () => {
   assert.ok(i > -1 && j > -1 && k > -1 && i < k && j < k,
     'frozen JS timers must wake before the collector runs');
 });
+
+
+// ---------------------------------------------------------------------------
+// Part 14 - a relaunch starts with a fresh navigation budget
+// ---------------------------------------------------------------------------
+
+test('the first probe of a process resets the page-side navigation budget', () => {
+  const ab = read('smali/com/melodix/music/AndBridge.smali');
+  assert.ok(ab.includes('.field private static probeStarted:Z'));
+  const body = methodBody(ab, '.method public static runProbe(Landroid/webkit/WebView;)V');
+  const i = body.indexOf("removeItem('mel_player_nav')");
+  const j = body.indexOf('if-nez v0, :probe_collect');
+  const k = body.indexOf('sput-boolean v0, Lcom/melodix/music/AndBridge;->probeStarted:Z');
+  assert.ok(i > -1 && j > -1 && k > -1 && j < k && k < i,
+    'flag first, then reset, only on the first call');
+  assert.ok(!/if-eqz v0, :probe_collect/.test(body),
+    'polarity: if-nez = already started -> collect without touching the budget');
+});
