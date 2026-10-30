@@ -7632,11 +7632,23 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
     const/4 v0, 0x7
     invoke-virtual {p1, v0}, Ljava/lang/String;->substring(I)Ljava/lang/String;
     move-result-object v2
-    iget-object v3, p0, Lcom/melodix/music/MainActivity;->nativeExpectedSearch:Ljava/lang/String;
-    if-eqz v3, :apply_done
-    invoke-virtual {v3, v2}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    # The shell reports the query read back from the page URL, so its case and
+    # surrounding spaces never match the raw typed text exactly. The old
+    # exact equals() here silently dropped real results; normalise both sides.
+    invoke-virtual {v2}, Ljava/lang/String;->trim()Ljava/lang/String;
+    move-result-object v2
+    invoke-virtual {v2}, Ljava/lang/String;->isEmpty()Z
     move-result v4
     if-eqz v4, :apply_done
+    iget-object v3, p0, Lcom/melodix/music/MainActivity;->nativeExpectedSearch:Ljava/lang/String;
+    if-eqz v3, :search_render
+    invoke-virtual {v3}, Ljava/lang/String;->trim()Ljava/lang/String;
+    move-result-object v3
+    invoke-virtual {v3, v2}, Ljava/lang/String;->equalsIgnoreCase(Ljava/lang/String;)Z
+    move-result v4
+    if-eqz v4, :apply_done
+
+    :search_render
     iget-object v5, p0, Lcom/melodix/music/MainActivity;->nativeCurrentScreen:Ljava/lang/String;
     if-eqz v5, :apply_done
     const-string v6, "search"
@@ -7645,7 +7657,6 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
     if-eqz v7, :apply_done
     const-string v8, "Résultats de recherche"
     invoke-virtual {p0, v8, p2}, Lcom/melodix/music/MainActivity;->renderNativeRows(Ljava/lang/String;Ljava/lang/String;)V
-
     :apply_done
     return-void
 .end method

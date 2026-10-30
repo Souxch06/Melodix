@@ -1234,6 +1234,14 @@ test('search results coming from the fallback path reach the native list', () =>
     assert.match(apply, /const-string v0, "search:"/);
     assert.match(apply, /nativeExpectedSearch/);
     assert.match(apply, /const-string v8, "Résultats de recherche"/);
+    // La requete relue dans l URL n a jamais la casse/espace du texte tape:
+    // une egalite exacte jetait silencieusement de vrais resultats.
+    const searchBranch = apply.slice(apply.indexOf('\n    :check_search\n'), apply.indexOf('\n    :search_render\n'));
+    assert.ok(searchBranch.includes('String;->trim()Ljava/lang/String;'), 'requete normalisee (trim)');
+    assert.match(searchBranch, /String;->equalsIgnoreCase\(Ljava\/lang\/String;\)Z/,
+        'la comparaison de la requete est insensible a la casse');
+    assert.ok(!searchBranch.includes('String;->equals(Ljava/lang/Object;)Z'),
+        'plus de comparaison exacte de la requete');
 });
 
 test('the bridge recovery loop is capped so a dead bridge cannot churn the launch', () => {
