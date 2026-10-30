@@ -162,3 +162,31 @@ test('mobile shell initializes before playback and library state can be forced o
     assert.match(bridge, /fr: 'Fermer la bibliothèque'/);
     assert.match(bridge, /closeButton\.setAttribute\('aria-label', closeLabels\[locale\] \|\| 'Close library'\)/);
 });
+
+
+// ---------------------------------------------------------------------------
+// Tablets and unfolded foldables: the tab bar docks at the TOP
+// ---------------------------------------------------------------------------
+
+test('the tab bar moves to the top with a status-bar inset on tablets and unfolded foldables', () => {
+    const css = read('assets/css_hacks.css');
+    assert.match(css, /@media screen and \(min-width: 640px\)/,
+        'wider than a phone (tablet, unfolded foldable): top dock');
+    assert.match(css, /@media screen and \(min-width: 640px\)[\s\S]*?#sf-mobile-nav\s*\{[\s\S]*?top: env\(safe-area-inset-top\) !important;[\s\S]*?bottom: auto !important;/,
+        'the dock sits under the status bar, never over the clock');
+});
+
+test('phones keep the bottom dock untouched', () => {
+    const css = read('assets/css_hacks.css');
+    const phone = css.slice(css.indexOf('@media screen and (max-width: 820px) and (orientation: portrait)'));
+    assert.match(phone, /#sf-mobile-nav\s*\{[\s\S]*?bottom: 0 !important;[\s\S]*?height: calc\(72px \+ env\(safe-area-inset-bottom\)\)/,
+        'the phone dock stays at the bottom with its safe-area padding');
+});
+
+test('on tablets the player drops to the bottom and the content clears the top dock', () => {
+    const css = read('assets/css_hacks.css');
+    assert.match(css, /@media screen and \(min-width: 640px\)[\s\S]*?now-playing-bar[\s\S]*?bottom: env\(safe-area-inset-bottom\) !important;/);
+    const tablet = css.slice(css.indexOf('@media screen and (min-width: 640px)'));
+    assert.match(tablet, /#main-view[\s\S]*?padding-bottom: calc\(96px \+ env\(safe-area-inset-bottom\)\)/,
+        'the bottom padding shrinks: only the player stays down there');
+});

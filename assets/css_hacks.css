@@ -1732,6 +1732,33 @@ body.sf-tv-nav input:focus-visible {
         padding-bottom: calc(160px + env(safe-area-inset-bottom)) !important;
     }
 
+/* Tablets and unfolded foldables: the tab bar belongs at the TOP, docked
+ * under the status bar (with its inset, so its shadow never falls under the
+ * clock). Phones in portrait - and folded foldables - keep the bottom dock
+ * exactly as it is. */
+@media screen and (min-width: 640px) {
+    #sf-mobile-nav {
+        top: env(safe-area-inset-top) !important;
+        bottom: auto !important;
+        height: 56px !important;
+        padding: 5px 16px !important;
+    }
+    body:not(.sf-library-open) #Desktop_LeftSidebar_Id,
+    body.sf-library-open #Desktop_LeftSidebar_Id {
+        top: calc(104px + env(safe-area-inset-top)) !important;
+        bottom: calc(84px + env(safe-area-inset-bottom)) !important;
+    }
+    aside[data-testid="now-playing-bar"] {
+        bottom: env(safe-area-inset-bottom) !important;
+    }
+    #main-view,
+    #main-view [data-overlayscrollbars-viewport] {
+        scroll-padding-bottom: calc(96px + env(safe-area-inset-bottom)) !important;
+        padding-bottom: calc(96px + env(safe-area-inset-bottom)) !important;
+    }
+}
+
+
     body:not(.sf-fs-open) aside[data-testid="now-playing-bar"] {
         position: fixed !important;
         left: 10px !important;
