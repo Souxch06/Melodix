@@ -8,6 +8,10 @@
 # static fields
 .field private static context:Landroid/content/Context;
 
+# Set when this process wrote a startup report: a recovery in the SAME
+# launch must not replay it as history at the next showNativeUi.
+.field public static written:Z
+
 .field private static installed:Z
 
 .field private static previous:Ljava/lang/Thread$UncaughtExceptionHandler;
@@ -1044,7 +1048,12 @@
 .method public static write(Ljava/lang/String;)V
     .locals 3
 
+
     if-eqz p0, :done
+
+    const/4 v0, 0x1
+
+    sput-boolean v0, Lcom/melodix/music/NativeCrashGuard;->written:Z
 
     sget-object v0, Lcom/melodix/music/NativeCrashGuard;->context:Landroid/content/Context;
 

@@ -440,3 +440,40 @@ test('collectors see a player framed in a same-origin iframe', () => {
   assert.ok(js.includes("userWidget = sfDeepQuery('button[data-testid=\"user-widget-link\"]"),
     'the takeover gate also looks into frames');
 });
+
+
+// ---------------------------------------------------------------------------
+// Part 10 - the panel leaves as soon as the content arrives
+// ---------------------------------------------------------------------------
+
+test('the diagnostic panel removes itself when the content arrives', () => {
+  const overlay = OVERLAY();
+  assert.ok(overlay.includes('.method public static dismissIfShowing()V'));
+  const dismiss = methodBody(overlay, '.method public static dismissIfShowing()V');
+  assert.ok(dismiss.includes('Landroid/view/ViewGroup;->removeView(Landroid/view/View;)V'),
+    'same removal as the tap listener');
+  assert.ok(dismiss.includes('sput-object v0, Lcom/melodix/music/StartupDiagnosticOverlay;->panel:Landroid/view/View;'),
+    'the panel reference is cleared');
+  const show = methodBody(overlay, '.method public static show(Landroid/app/Activity;Ljava/lang/String;)V');
+  assert.ok(show.includes('sput-object v0, Lcom/melodix/music/StartupDiagnosticOverlay;->panel:Landroid/view/View;'),
+    'the panel keeps its reference for later dismissal');
+});
+
+test('showNativeUi dismisses the panel before any replay', () => {
+  const main = read('smali/com/melodix/music/MainActivity.smali');
+  const i = main.indexOf('dismissIfShowing()V');
+  const j = main.indexOf('maybeShowStored');
+  assert.ok(i > -1 && j > -1 && i < j,
+    'a recovered launch shows the content, not a stale panel');
+});
+
+test('a report written by this launch is never replayed as history', () => {
+  const overlay = OVERLAY();
+  const body = methodBody(overlay, '.method public static maybeShowStored(Landroid/app/Activity;)V');
+  assert.ok(body.includes('Lcom/melodix/music/NativeCrashGuard;->written:Z'),
+    'the same-launch marker gates the replay');
+  const guard = GUARD();
+  assert.ok(guard.includes('.field public static written:Z'));
+  const write = methodBody(guard, '.method public static write(Ljava/lang/String;)V');
+  assert.ok(write.includes('sput-boolean v0, Lcom/melodix/music/NativeCrashGuard;->written:Z'));
+});

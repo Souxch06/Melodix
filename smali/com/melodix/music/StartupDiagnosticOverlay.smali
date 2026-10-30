@@ -15,6 +15,8 @@
 # static fields
 # One panel per process: the watchdog posts it and maybeShowStored may fire
 # right after (showNativeUi) - a second panel must never stack.
+.field private static panel:Landroid/view/View;
+
 .field private static shown:Z
 
 
@@ -251,6 +253,19 @@
 
     if-eqz p0, :done
 
+    # A report written by THIS launch is not history: if the content arrived
+    # anyway, drop it silently instead of replaying a failure that recovered.
+    sget-boolean v0, Lcom/melodix/music/NativeCrashGuard;->written:Z
+
+    if-eqz v0, :read_report
+
+    const-string v0, ""
+
+    invoke-static {v0}, Lcom/melodix/music/NativeCrashGuard;->write(Ljava/lang/String;)V
+
+    return-void
+
+    :read_report
     :try_start_0
     invoke-static {}, Lcom/melodix/music/NativeCrashGuard;->lastReport()Ljava/lang/String;
 
@@ -290,6 +305,42 @@
 
 # Displays the report as a full-screen scrolling panel over the current UI.
 # Plain views on the activity decor: no window token race, tap to dismiss.
+# Removes the diagnostic panel when the content finally arrives: the panel
+# is a failure snapshot, not a modal the user must fight. Same removal as the
+# tap listener (parent removeView), plus a null panel for later launches.
+.method public static dismissIfShowing()V
+    .locals 2
+
+    sget-object v0, Lcom/melodix/music/StartupDiagnosticOverlay;->panel:Landroid/view/View;
+
+    if-eqz v0, :clear
+
+    :try_start_0
+    invoke-virtual {v0}, Landroid/view/View;->getParent()Landroid/view/ViewParent;
+
+    move-result-object v1
+
+    if-eqz v1, :clear
+
+    check-cast v1, Landroid/view/ViewGroup;
+
+    invoke-virtual {v1, v0}, Landroid/view/ViewGroup;->removeView(Landroid/view/View;)V
+    :try_end_0
+    .catch Ljava/lang/Throwable; {:try_start_0 .. :try_end_0} :catch_0
+
+    goto :clear
+
+    :catch_0
+    move-exception v1
+
+    :clear
+    const/4 v0, 0x0
+
+    sput-object v0, Lcom/melodix/music/StartupDiagnosticOverlay;->panel:Landroid/view/View;
+
+    return-void
+.end method
+
 .method public static show(Landroid/app/Activity;Ljava/lang/String;)V
     .locals 5
 
@@ -352,6 +403,8 @@
     invoke-direct {v2, v3, v3}, Landroid/widget/FrameLayout$LayoutParams;-><init>(II)V
 
     invoke-virtual {p0, v0, v2}, Landroid/app/Activity;->addContentView(Landroid/view/View;Landroid/view/ViewGroup$LayoutParams;)V
+
+    sput-object v0, Lcom/melodix/music/StartupDiagnosticOverlay;->panel:Landroid/view/View;
 
     const-string v2, "MDXDIAG"
 
