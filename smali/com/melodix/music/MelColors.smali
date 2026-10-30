@@ -55,7 +55,7 @@
 
     sput v0, Lcom/melodix/music/MelColors;->textSecondary:I
 
-    const v0, 0xff8e96a3
+    const v0, 0xff949cab
 
     sput v0, Lcom/melodix/music/MelColors;->textTertiary:I
 
