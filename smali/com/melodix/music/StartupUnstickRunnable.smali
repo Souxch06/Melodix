@@ -40,7 +40,7 @@
 .end method
 
 .method public final run()V
-    .locals 2
+    .locals 4
 
     iget-object v0, p0, Lcom/melodix/music/StartupUnstickRunnable;->activity:Lcom/melodix/music/MainActivity;
 
@@ -91,37 +91,40 @@
     # Safety net, pure Java: the CONTENT STUCK verdict means the shell JS
     # never delivered anything at 45s (its timers may even be paused). Force
     # the WebView onto the web player entry - no JS involved.
-    iget-object v0, p0, Lcom/melodix/music/StartupUnstickRunnable;->report:Ljava/lang/String;
+    # Safety net, pure Java. v0 MUST stay the MainActivity here - the code
+    # at :no_panel calls showNativeUi() on v0, and a mixed register type at
+    # that join rejects the whole class (VerifyError: no panel at all).
+    iget-object v2, p0, Lcom/melodix/music/StartupUnstickRunnable;->report:Ljava/lang/String;
 
-    const-string v1, "CONTENT STUCK"
+    const-string v3, "CONTENT STUCK"
 
-    invoke-virtual {v0, v1}, Ljava/lang/String;->contains(Ljava/lang/CharSequence;)Z
+    invoke-virtual {v2, v3}, Ljava/lang/String;->contains(Ljava/lang/CharSequence;)Z
 
-    move-result v0
+    move-result v2
 
-    if-eqz v0, :no_panel
+    if-eqz v2, :no_panel
 
-    iget-object v0, p0, Lcom/melodix/music/StartupUnstickRunnable;->activity:Lcom/melodix/music/MainActivity;
+    iget-object v2, p0, Lcom/melodix/music/StartupUnstickRunnable;->activity:Lcom/melodix/music/MainActivity;
 
-    iget-object v0, v0, Lcom/melodix/music/MainActivity;->G:Landroid/webkit/WebView;
+    iget-object v2, v2, Lcom/melodix/music/MainActivity;->G:Landroid/webkit/WebView;
 
-    if-eqz v0, :no_panel
+    if-eqz v2, :no_panel
 
     :try_start_0
-    const-string v1, "https://open.spotify.com/app"
+    const-string v3, "https://open.spotify.com/app"
 
-    invoke-virtual {v0, v1}, Landroid/webkit/WebView;->loadUrl(Ljava/lang/String;)V
+    invoke-virtual {v2, v3}, Landroid/webkit/WebView;->loadUrl(Ljava/lang/String;)V
 
-    const-string v1, "native-nav app"
+    const-string v3, "native-nav app"
 
-    invoke-static {v1}, Lcom/melodix/music/NativeCrashGuard;->diagLine(Ljava/lang/String;)V
+    invoke-static {v3}, Lcom/melodix/music/NativeCrashGuard;->diagLine(Ljava/lang/String;)V
     :try_end_0
     .catch Ljava/lang/Throwable; {:try_start_0 .. :try_end_0} :catch_0
 
     goto :no_panel
 
     :catch_0
-    move-exception v0
+    move-exception v2
 
     :no_panel
     iget-boolean v1, p0, Lcom/melodix/music/StartupUnstickRunnable;->unstick:Z

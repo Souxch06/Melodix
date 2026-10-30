@@ -355,11 +355,31 @@ test('the census exposes the framed player sources', () => {
 
 test('the native safety net forces the player without any JS', () => {
   const body = methodBody(UNS(), '.method public final run()V');
-  assert.ok(body.includes('const-string v1, "CONTENT STUCK"'),
+  assert.ok(body.includes('const-string v3, "CONTENT STUCK"'),
     'only the no-content verdict triggers it');
   assert.ok(body.includes('Lcom/melodix/music/MainActivity;->G:Landroid/webkit/WebView;'),
     'the live WebView is navigated');
   assert.ok(body.includes('Landroid/webkit/WebView;->loadUrl(Ljava/lang/String;)V'));
-  assert.ok(body.includes('const-string v1, "native-nav app"'),
+  assert.ok(body.includes('const-string v3, "native-nav app"'),
     'the attempt lands in the diagnostic trail');
+});
+
+
+// ---------------------------------------------------------------------------
+// Part 8 - register hygiene: a mixed v0 at :no_panel rejects the whole class
+// ---------------------------------------------------------------------------
+
+test('the safety net never touches v0 (VerifyError guard)', () => {
+  const raw = read('smali/com/melodix/music/StartupUnstickRunnable.smali');
+  const body = methodBody(raw, '.method public final run()V');
+  assert.ok(body.includes('.locals 4'),
+    'the safety net gets its own registers');
+  const net = body.slice(body.indexOf('const-string v3, "CONTENT STUCK"'));
+  assert.ok(!net.includes('move-result v0') && !net.includes('iget-object v0'),
+    'v0 must stay MainActivity on every path joining :no_panel');
+  assert.ok(net.includes('move-exception v2'),
+    'the catch handler must not clobber v0 either');
+  const tail = body.slice(body.indexOf(':no_panel'));
+  assert.ok(tail.includes('invoke-virtual {v0}, Lcom/melodix/music/MainActivity;->showNativeUi()V'),
+    ':no_panel still drives showNativeUi through v0');
 });
