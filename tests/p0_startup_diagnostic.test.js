@@ -217,7 +217,7 @@ test('diagLine stores a tail-bounded trail and lastDiag reads it back', () => {
   const guard = GUARD();
   const body = methodBody(guard, '.method public static diagLine(Ljava/lang/String;)V');
   assert.ok(body.includes('const-string v1, "last_diag"'), 'the trail key');
-  assert.ok(body.includes('const/16 v3, 0x200\n\n    if-le v2, v3, :diag_store'),
+  assert.ok(body.includes('const/16 v3, 0x400') && body.includes('if-le v2, v3, :diag_store'),
     'a chatty caller cannot flood the prefs (tail cap)');
   assert.ok(body.includes('String;->substring(I)Ljava/lang/String;'),
     'the tail is kept, not the head');
@@ -395,11 +395,12 @@ test('the probe script accepts consent walls and opens the framed player', () =>
   const body = methodBody(bridge, '.method public static runProbe(Landroid/webkit/WebView;)V');
   assert.ok(body.includes('probe t='), 'the photo shows title + visible text');
   assert.ok(body.includes('probe f='), 'the photo shows iframe sources');
-  assert.ok(body.includes('consent click'), 'a cookie wall is accepted');
+  assert.ok(body.includes('probe consent '), 'a cookie wall is accepted');
   assert.ok(body.includes('probe nav frame'), 'the framed player is the preferred target');
   assert.ok(body.includes('open.spotify.com/app') && body.includes('open.spotify.com/search'),
     'player entry URLs are tried in order');
   assert.ok(body.includes('mel_player_nav'), 'the same bounded counter prevents loops');
+  assert.ok(body.includes('probe url='), 'the visited page is named (no query, no token)');
   assert.ok(body.includes('evaluateJavascript'),
     'evaluateJavascript runs synchronously - no JS timers involved');
 });

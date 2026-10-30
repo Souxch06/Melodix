@@ -6,6 +6,10 @@
 .implements Ljava/lang/Runnable;
 
 
+# static fields
+.field private static navCount:I
+
+
 # instance fields
 .field private final mode:I
 
@@ -45,8 +49,19 @@
     goto :all_done
 
     :mode_fallback
-    # mode 1: late native fallback. Never interrupt a running load (progress
-    # under 100) and never touch an already-open player route.
+    # mode 1: late native fallback. Bounded to 2 attempts per app launch.
+    sget v1, Lcom/melodix/music/AndBridgeProbe;->navCount:I
+
+    const/4 v2, 0x2
+
+    if-ge v1, v2, :all_done
+
+    add-int/lit8 v1, v1, 0x1
+
+    sput v1, Lcom/melodix/music/AndBridgeProbe;->navCount:I
+
+    # Never interrupt a running load (progress under 100) and never touch an
+    # already-open player route.
     invoke-virtual {v0}, Landroid/webkit/WebView;->getProgress()I
 
     move-result v1

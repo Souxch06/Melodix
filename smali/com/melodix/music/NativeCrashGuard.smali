@@ -821,11 +821,11 @@
 
     move-result v2
 
-    const/16 v3, 0x200
+    const/16 v3, 0x400
 
     if-le v2, v3, :diag_store
 
-    add-int/lit16 v2, v2, -0x200
+    add-int/lit16 v2, v2, -0x400
 
     invoke-virtual {v1, v2}, Ljava/lang/String;->substring(I)Ljava/lang/String;
 

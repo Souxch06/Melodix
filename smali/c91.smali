@@ -2226,6 +2226,14 @@
 
     invoke-static {v0, v1, v2}, Lcom/melodix/music/AndBridge;->scheduleProbe(Landroid/webkit/WebView;II)V
 
+    # Early native fallback: if 15s later the wrapper is still showing, force
+    # the player entry (bounded inside AndBridgeProbe, no loops possible).
+    const/4 v1, 0x1
+
+    const/16 v2, 0x3a98
+
+    invoke-static {v0, v1, v2}, Lcom/melodix/music/AndBridge;->scheduleProbe(Landroid/webkit/WebView;II)V
+
     .line 399
     .line 400
     .line 401
