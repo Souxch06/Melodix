@@ -200,3 +200,57 @@ test('no 32-bit invoke result is copied with move-result-object (ART verifier)',
     }
   }
 });
+
+
+// ---------------------------------------------------------------------------
+// Part 5 - the web-side trail: page state + JS status lines in the report
+// ---------------------------------------------------------------------------
+
+test('logDiagEvent keeps the JS status line in the prefs for the report', () => {
+  const bridge = read('smali/com/melodix/music/AndBridge.smali');
+  const body = methodBody(bridge, '.method public final logDiagEvent(Ljava/lang/String;)V');
+  assert.ok(body.includes('NativeCrashGuard;->diagLine(Ljava/lang/String;)V'),
+    'the web-side trail must survive without logcat');
+});
+
+test('diagLine stores a tail-bounded trail and lastDiag reads it back', () => {
+  const guard = GUARD();
+  const body = methodBody(guard, '.method public static diagLine(Ljava/lang/String;)V');
+  assert.ok(body.includes('const-string v1, "last_diag"'), 'the trail key');
+  assert.ok(body.includes('const/16 v3, 0x200\n\n    if-le v2, v3, :diag_store'),
+    'a chatty caller cannot flood the prefs (tail cap)');
+  assert.ok(body.includes('String;->substring(I)Ljava/lang/String;'),
+    'the tail is kept, not the head');
+  assert.ok(guard.includes('.method public static lastDiag()Ljava/lang/String;'),
+    'the report can read the trail back');
+});
+
+test('webState names the page, the login detection and the JS trail', () => {
+  const body = methodBody(OVERLAY(), '.method public static webState(Lcom/melodix/music/MainActivity;)Ljava/lang/String;');
+  assert.ok(body.includes('Lcom/melodix/music/MainActivity;->G:Landroid/webkit/WebView;'),
+    'the report reads the live WebView');
+  assert.ok(body.includes('Landroid/webkit/WebView;->getUrl()Ljava/lang/String;'));
+  assert.ok(body.includes('Landroid/webkit/WebView;->getProgress()I'));
+  assert.ok(body.includes('Lcom/melodix/music/AppSingleton;->B:Z'),
+    'loginDetected() state');
+  assert.ok(body.includes('NativeCrashGuard;->lastDiag()Ljava/lang/String;'));
+});
+
+test('the panel report is enriched with the web state on the UI thread', () => {
+  const body = methodBody(UNS(), '.method public final run()V');
+  assert.ok(body.includes('StartupDiagnosticOverlay;->webState(Lcom/melodix/music/MainActivity;)Ljava/lang/String;'));
+  const web = body.indexOf('webState');
+  const show = body.indexOf('StartupDiagnosticOverlay;->show');
+  assert.ok(web > -1 && show > -1 && web < show,
+    'the web state is appended before the panel shows');
+  assert.ok(body.includes('NativeCrashGuard;->write(Ljava/lang/String;)V'),
+    'the stored report is enriched too');
+});
+
+test('the shell JS reports the silent hold (missing widget or bridge)', () => {
+  const js = read('assets/native_ui_shell.js');
+  assert.ok(js.includes("diagTrace('ready-pending widget='"),
+    'the most common freeze must leave a status line');
+  assert.ok(js.includes('window.__sfNoWidgetCount % 20 === 0'),
+    'the hold trace is throttled');
+});

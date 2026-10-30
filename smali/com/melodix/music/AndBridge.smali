@@ -179,6 +179,10 @@
 
     invoke-static {v0, v2}, Landroid/util/Log;->i(Ljava/lang/String;Ljava/lang/String;)I
 
+    # P0 diagnostic: keep the line in the prefs too - the phone report shows
+    # the web-side trail without logcat.
+    invoke-static {v2}, Lcom/melodix/music/NativeCrashGuard;->diagLine(Ljava/lang/String;)V
+
     :logdiag_done
     return-void
 .end method

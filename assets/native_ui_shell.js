@@ -765,7 +765,16 @@
 
         // Do not cover Spotify's page until its signed-in account control is present.
         userWidget = document.querySelector('button[data-testid="user-widget-link"], a[data-testid="user-widget-link"]');
-        if (!userWidget || !bridge || typeof bridge.onNativeUiReady !== 'function') return false;
+        if (!userWidget || !bridge || typeof bridge.onNativeUiReady !== 'function') {
+            // P0 diagnostic: the silent hold is the most common freeze - say
+            // which half is missing (account control or bridge), throttled.
+            window.__sfNoWidgetCount = (window.__sfNoWidgetCount || 0) + 1;
+            if (window.__sfNoWidgetCount === 1 || window.__sfNoWidgetCount % 20 === 0) {
+                diagTrace('ready-pending widget=' + (userWidget ? '1' : '0') +
+                    ' bridge=' + (bridge ? '1' : '0') + ' n=' + window.__sfNoWidgetCount);
+            }
+            return false;
+        }
 
         // P0 empty-home fix: never cover the live Spotify page (which already
         // shows the account's real playlists) with a native shell that has no
