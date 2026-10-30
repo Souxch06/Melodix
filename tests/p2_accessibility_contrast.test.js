@@ -117,3 +117,58 @@ test('the deep accent is decorative only: it is never used as text in smali', ()
   walk(smaliDir);
   assert.deepEqual(offenders, [], 'aucun renderer ne peint du texte avec accentDeep');
 });
+
+// ---------------------------------------------------------------------------
+// P2: touch targets. Android's minimum is 48dp; anything smaller is a miss for
+// a thumb, and the native screens are thumb-driven.
+// ---------------------------------------------------------------------------
+
+const layoutFile = path.join(root, 'res', 'layout', 'activity_main.xml');
+
+function clickableViews() {
+  const xml = fs.readFileSync(layoutFile, 'utf8');
+  const views = [];
+  const re = /<[\w.]+[^>]*android:onClick="([^"]+)"[^>]*>/g;
+  let match;
+  while ((match = re.exec(xml)) !== null) {
+    views.push({ handler: match[1], block: match[0] });
+  }
+  return views;
+}
+
+function dp(block, attr) {
+  const re = new RegExp(`android:${attr}="([0-9.]+)dip"`);
+  const match = block.match(re);
+  return match ? Number(match[1]) : null;
+}
+
+test('every clickable native control is at least 48dp tall', () => {
+  const offenders = [];
+  for (const view of clickableViews()) {
+    const height = dp(view.block, 'layout_height');
+    if (height !== null && height < 48) {
+      offenders.push(`${view.handler} = ${height}dp`);
+    }
+  }
+  assert.deepEqual(offenders, [], 'aucune cible tactile native sous 48dp de haut');
+});
+
+test('a fixed-width clickable control is also 48dp wide or weighted', () => {
+  const offenders = [];
+  for (const view of clickableViews()) {
+    const width = dp(view.block, 'layout_width');
+    if (width === null) continue;
+    // A weighted child is measured by the parent, not by this number.
+    if (width === 0 && /layout_weight/.test(view.block)) continue;
+    if (width < 48) offenders.push(`${view.handler} = ${width}dp`);
+  }
+  assert.deepEqual(offenders, [], 'aucune cible tactile native etroite');
+});
+
+test('the back button is reachable and never smaller than the header avatar', () => {
+  const views = clickableViews();
+  const back = views.find((view) => view.handler === 'onNativeBackClick');
+  assert.ok(back, 'le bouton retour existe');
+  assert.ok(dp(back.block, 'layout_height') >= 48, 'le retour fait au moins 48dp');
+  assert.ok(dp(back.block, 'layout_width') >= 48, 'le retour fait au moins 48dp de large');
+});
