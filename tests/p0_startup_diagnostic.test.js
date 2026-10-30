@@ -477,3 +477,18 @@ test('a report written by this launch is never replayed as history', () => {
   const write = methodBody(guard, '.method public static write(Ljava/lang/String;)V');
   assert.ok(write.includes('sput-boolean v0, Lcom/melodix/music/NativeCrashGuard;->written:Z'));
 });
+
+
+// ---------------------------------------------------------------------------
+// Part 11 - the probe wakes the WebView before collecting
+// ---------------------------------------------------------------------------
+
+test('the probe resumes the WebView timers before evaluating anything', () => {
+  const ab = read('smali/com/melodix/music/AndBridge.smali');
+  const body = methodBody(ab, '.method public static runProbe(Landroid/webkit/WebView;)V');
+  const i = body.indexOf('Landroid/webkit/WebView;->resumeTimers()V');
+  const j = body.indexOf('Landroid/webkit/WebView;->onResume()V');
+  const k = body.indexOf('evaluateJavascript');
+  assert.ok(i > -1 && j > -1 && k > -1 && i < k && j < k,
+    'frozen JS timers must wake before the collector runs');
+});
