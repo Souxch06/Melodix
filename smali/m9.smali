@@ -1018,6 +1018,11 @@
 .method public static g(Landroid/content/Context;)Landroid/webkit/WebView;
     .locals 4
 
+    # Fresh factory attempts clear the stale diagnostic source first.
+    const/4 v1, 0x0
+
+    sput-object v1, Lcom/melodix/music/AppSingleton;->g0:Ljava/lang/String;
+
     .line 1
     invoke-virtual {p0}, Ljava/lang/Object;->getClass()Ljava/lang/Class;
 
@@ -1098,7 +1103,7 @@
     .line 35
     .line 36
     :catch_0
-    :try_start_3
+    :try_sw_feature_start
     const-string v1, "DOCUMENT_START_SCRIPT"
 
     .line 37
@@ -1109,14 +1114,32 @@
     .line 40
     .line 41
     move-result v1
-    :try_end_3
-    .catchall {:try_start_3 .. :try_end_3} :catchall_1
+    :try_sw_feature_end
+    .catchall {:try_sw_feature_start .. :try_sw_feature_end} :cond_0
 
     .line 42
     if-eqz v1, :cond_0
 
     .line 43
     .line 44
+    :try_sw_script_start
+    const-string v1, "spotify_sw_compat.js"
+
+    invoke-static {v1}, Lm9;->d(Ljava/lang/String;)Ljava/lang/String;
+
+    move-result-object v1
+
+    const-string v2, "https://open.spotify.com"
+
+    invoke-static {v2}, Ljava/util/Collections;->singleton(Ljava/lang/Object;)Ljava/util/Set;
+
+    move-result-object v2
+
+    invoke-static {p0, v1, v2}, Lgj1;->a(Ll9;Ljava/lang/String;Ljava/util/Set;)V
+
+    :try_sw_script_end
+    .catchall {:try_sw_script_start .. :try_sw_script_end} :sw_script_failure
+
     :try_start_4
     sget v1, Lcom/melodix/music/AppSingleton;->j:I
 
@@ -1159,6 +1182,23 @@
     .line 62
     .line 63
     .line 64
+    :sw_script_failure
+    move-exception v1
+
+    # Optional service-worker scripting failed: record the failure class
+    # name only, no exception text, and keep creating the WebView.
+    invoke-virtual {v1}, Ljava/lang/Throwable;->getClass()Ljava/lang/Class;
+
+    move-result-object v1
+
+    invoke-virtual {v1}, Ljava/lang/Class;->getSimpleName()Ljava/lang/String;
+
+    move-result-object v1
+
+    sput-object v1, Lcom/melodix/music/AppSingleton;->g0:Ljava/lang/String;
+
+    goto :cond_0
+
     :catch_1
     :cond_0
     const/4 v1, 0x2
@@ -1297,12 +1337,13 @@
     .line 131
     .line 132
     .line 133
-    invoke-virtual {v2, v0}, Landroid/webkit/WebSettings;->setUseWideViewPort(Z)V
+    const/4 v3, 0x0
+    invoke-virtual {v2, v3}, Landroid/webkit/WebSettings;->setUseWideViewPort(Z)V
 
     .line 134
     .line 135
     .line 136
-    invoke-virtual {v2, v0}, Landroid/webkit/WebSettings;->setLoadWithOverviewMode(Z)V
+    invoke-virtual {v2, v3}, Landroid/webkit/WebSettings;->setLoadWithOverviewMode(Z)V
 
     .line 137
     .line 138
