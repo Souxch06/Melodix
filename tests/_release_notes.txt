@@ -1,6 +1,6 @@
-# 🔧 Melodix __TAG__ — ✅ À INSTALLER (correctif crash au lancement)
+# 🔧 Melodix __TAG__ — ✅ À INSTALLER (diagnostic : erreur WebView visible + version)
 
-> Sur cette version : **l'app s'ouvre normalement** (le crash de test.78 est corrigé), le Web Player tourne, les playlists s'affichent, l'app ne capture aucun credential, et l'état de session est affiché honnêtement (jamais deviné).
+> Sur cette version : **l'app s'ouvre normalement** (crash de test.78 corrigé), et si la WebView ne peut pas être créée, **le diagnostic affiche enfin pourquoi** (classe + message de l'erreur) au lieu d'un simple compteur. La version de la build testée est affichée en tête du diagnostic. L'app ne capture aucun credential et l'état de session est affiché honnêtement (jamais deviné).
 
 ## ⚠️ AVANT D'INSTALLER : sauvegardez votre session
 
@@ -16,6 +16,14 @@
 - Pour la prise de vue : **NE RIEN TOUCHER 45 s**, photo panneau, capture de la zone playlists, tablette = barre en haut.
 
 ## Cette version
+
+### 🔎 Diagnostic : l'erreur de création de la WebView est visible
+- **Avant** : quand la création de la WebView échouait, l'exception était **jetée sans être enregistrée** ; l'écran n'affichait qu'un compteur `erreur=1`, sans le texte. Impossible de savoir *pourquoi* le moteur web manquait.
+- **Maintenant** : le nom de la classe et le message de l'exception sont enregistrés (message **tronqué à 160 caractères** — aucun contenu de page, cookie ou jeton n'est lu) et affichés en clair :
+  `erreur WebView : <classe> — <message>`, ou `erreur WebView : aucune erreur enregistrée`.
+- **Message d'action** quand la WebView est absente : « Le moteur web de l'appareil est indisponible. Vérifie que « WebView système » ou Google Chrome est activé et à jour dans le Play Store, puis relance l'application. » — il s'affiche à la place de l'attente silencieuse.
+- **Version affichée en tête du diagnostic** : `version: <versionName> (code <N>)`. Sans elle, impossible de savoir quelle build a produit la photo.
+- **Libellé trompeur retiré** : « thread principal (le blocage) » est remplacé par « thread principal ». Le diagnostic n'affiche plus que des **valeurs observées**, sans interprétation (la trace montrait `nativePollOnce` = une attente, pas un blocage).
 
 ### 🚑 Correctif : l'app ne crashe plus au lancement
 - **test.78 était inutilisable** : elle se fermait immédiatement au démarrage (`NoSuchFieldError` sur un champ interne de diagnostic de la WebView, levé dans `MainActivity.onCreate`).
@@ -70,6 +78,7 @@
 - test.56 → test.63 = archives (contournements de la télémétrie → effets indésirables).
 - test.64 → test.71 = archives (photo panneau), test.71 = dernière version tracée verte.
 - test.72 → test.77 = archives (fonds noirs, dates, noms Premium, viewport, sw, sécurité).
+- **test.79** = (archive - démarre, mais diagnostic muet sur l'erreur WebView).
 - **test.78** = (NE PAS INSTALLER - crash au lancement : NoSuchFieldError).
 - **test.70** = (NE PAS INSTALLER - VerifyError).
 
