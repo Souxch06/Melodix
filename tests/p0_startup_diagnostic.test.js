@@ -254,3 +254,50 @@ test('the shell JS reports the silent hold (missing widget or bridge)', () => {
   assert.ok(js.includes('window.__sfNoWidgetCount % 20 === 0'),
     'the hold trace is throttled');
 });
+
+
+// ---------------------------------------------------------------------------
+// Part 6 - CONTENT STUCK fix: deterministic navigation to the web player
+// ---------------------------------------------------------------------------
+
+test('the shell opens the web player when Spotify serves the landing page', () => {
+  const js = read('assets/native_ui_shell.js');
+  assert.ok(js.includes('function maybeNavigateToPlayer()'),
+    'the landing CTA must not be the only door to the player');
+  assert.ok(js.includes("diagTrace('player-cta nav '"),
+    'each navigation attempt is traced for the photo');
+  assert.ok(js.includes("location.assign(target)"),
+    'the fallback navigates deterministically (synthetic click alone can be ignored)');
+  assert.ok(js.includes("'https://open.spotify.com/app'"),
+    'the player entry URL is the last resort');
+  assert.ok(js.includes('window.__sfPlayerNavDone'),
+    'one navigation attempt per window (no loops)');
+});
+
+test('runUpdate tries the navigation before waiting for the player DOM', () => {
+  const js = read('assets/native_ui_shell.js');
+  const body = js.slice(js.indexOf('function runUpdate()'), js.indexOf('function runUpdate()') + 700);
+  assert.ok(body.includes('domCensusOnce();') && body.includes('maybeNavigateToPlayer();'));
+  assert.ok(body.indexOf('maybeNavigateToPlayer();') < body.indexOf("querySelector('#main-view')"),
+    'the CTA check runs even when the player root is absent');
+});
+
+test('the DOM census lands in the diagnostic trail', () => {
+  const js = read('assets/native_ui_shell.js');
+  assert.ok(js.includes("diagTrace('dom census main='"),
+    'the photo must show what the page really holds');
+  assert.ok(js.includes("' user=' + (document.querySelector('[data-testid=\"user-widget-link\"]') ? '1' : '0')"),
+    'the takeover gate marker is part of the census');
+});
+
+test('the login-page snippet keeps its side effects and gains the fallback', () => {
+  const c91 = read('smali/c91.smali');
+  assert.ok(c91.includes('AndBridge.loginDetected();'),
+    'loginDetected() must keep firing (existing behavior)');
+  assert.ok(c91.includes('l.click();'),
+    'the CTA click is still the first attempt');
+  assert.ok(c91.includes('player-cta nav'),
+    'the deterministic fallback is traced');
+  assert.ok(c91.includes("window.location.assign(t);"),
+    'the fallback navigates when the click is ignored');
+});

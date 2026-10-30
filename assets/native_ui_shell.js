@@ -1401,12 +1401,62 @@
         } catch (_) {}
     }
 
+    // P0 CONTENT STUCK fix: Spotify can serve the localized landing
+    // (open.spotify.com/intl-xx/) instead of the web player even for a
+    // signed-in session. The landing's only door to the player is its
+    // "web player" CTA (data-testid=web-player-link), and a synthetic
+    // .click() alone can be ignored (untrusted event / new-window target).
+    // Try the click first (faithful to the button), then navigate
+    // deterministically to its href or the player entry URL. One attempt per
+    // window, fully traced for the diagnostic trail.
+    function maybeNavigateToPlayer() {
+        if (window.__sfPlayerNavDone) return;
+        if (document.querySelector('#main-view')) return;
+        var cta = document.querySelector('button[data-testid="web-player-link"], a[data-testid="web-player-link"]');
+        if (!cta) return;
+        window.__sfPlayerNavDone = 1;
+        diagTrace('player-cta found, opening web player');
+        var href = '';
+        try {
+            var a = cta.closest ? cta.closest('a') : null;
+            href = (a && a.getAttribute('href')) || cta.getAttribute('href') || '';
+        } catch (_) {}
+        try {
+            cta.click();
+        } catch (_) {}
+        window.setTimeout(function() {
+            if (document.querySelector('#main-view')) {
+                diagTrace('player-cta ok via click');
+                return;
+            }
+            var useHref = href && (href.indexOf('http') === 0 || href.charAt(0) === '/');
+            var target = useHref ? href : 'https://open.spotify.com/app';
+            diagTrace('player-cta nav ' + (useHref ? 'href' : 'app'));
+            try {
+                window.location.assign(target);
+            } catch (_) {}
+        }, 2500);
+    }
+
+    // One-line DOM census for the diagnostic trail: what the page really
+    // holds when the takeover gate cannot find anything to wait for.
+    function domCensusOnce() {
+        if (window.__sfDomCensus) return;
+        window.__sfDomCensus = 1;
+        diagTrace('dom census main=' + (document.querySelector('#main-view') ? '1' : '0') +
+            ' cta=' + (document.querySelector('[data-testid="web-player-link"]') ? '1' : '0') +
+            ' user=' + (document.querySelector('[data-testid="user-widget-link"]') ? '1' : '0') +
+            ' body=' + (document.body ? document.body.childElementCount : -1));
+    }
+
     function runUpdate() {
         var mainView;
         if (window.location.hostname !== 'open.spotify.com') return;
         try {
             installPlaybackStateGuard();
             installSearchFallback();
+            domCensusOnce();
+            maybeNavigateToPlayer();
             mainView = document.querySelector('#main-view');
             if (mainView) {
                 if (!window.__sfDiagHomeSeen) {
