@@ -578,28 +578,53 @@
     // empty payload), so the shell never has to hide behind the page: it can
     // take over immediately and explain the wait or the failure in place.
     // No invented playlist is ever produced here.
+    // Errors that a retry can plausibly fix. The others need the user (session,
+    // permissions), so promising an automatic retry there would be a lie.
+    function libraryErrorIsTransient(err) {
+        if (!err) return false;
+        if (err === 'fetch-parse-error') return true;
+        if (err === 'http-429') return true;
+        return /^http-5/.test(String(err));
+    }
+
+    // True while the shell's own retry loop is still scheduled: only then can
+    // the screen honestly promise "another try happens by itself".
+    function homeRetryLoopAlive() {
+        return Boolean(homeRetryTimer) || homeRetries < MAX_HOME_RETRIES;
+    }
+
     function homeLibraryErrorText() {
         var err = String(window.__sfMediaLibError || '');
-        if (err === 'token-missing') return 'Session Spotify à rétablir — reconnectez-vous via Diagnostic.';
-        if (err === 'http-401') return 'Session Spotify expirée — reconnectez-vous.';
-        if (err === 'http-403') return 'Accès refusé par Spotify pour ce compte.';
-        if (err === 'http-429') return 'Spotify limite les requêtes — nouvel essai automatique.';
-        if (/^http-5/.test(err)) return 'Spotify est momentanément indisponible.';
-        if (err === 'fetch-parse-error') return 'Connexion instable — nouvel essai automatique.';
-        if (err) return 'Erreur ' + err + ' — nouvel essai automatique.';
+        if (libraryErrorIsTransient(err)) {
+            var base = err === 'http-429' ? 'Spotify limite les requêtes'
+                : (/^http-5/.test(err) ? 'Spotify est momentanément indisponible'
+                    : 'Connexion instable');
+            return base + (homeRetryLoopAlive()
+                ? ' — nouvel essai automatique en cours. Touchez pour réessayer maintenant.'
+                : ' — touchez pour réessayer.');
+        }
+        if (err === 'token-missing') return 'Session Spotify à rétablir — touchez pour ouvrir les paramètres et vous reconnecter.';
+        if (err === 'http-401') return 'Session Spotify expirée — touchez pour ouvrir les paramètres et vous reconnecter.';
+        if (err === 'http-403') return 'Accès refusé par Spotify pour ce compte — touchez pour ouvrir les paramètres.';
+        if (err) return 'Erreur ' + err + ' — touchez pour réessayer.';
         return '';
+    }
+
+    // Every state row carries a real native action, never a fake playlist:
+    // "open-settings" for errors the user must fix, "retry-library" otherwise.
+    function homeStateAction(err) {
+        return libraryErrorIsTransient(err) ? 'melodix:action:retry-library' : 'melodix:action:open-settings';
     }
 
     function homeStateRow() {
         var errorText = homeLibraryErrorText();
-        var status = window.__sfMediaLibStatus || 'pending';
         if (errorText) {
             return {
                 title: 'Vos playlists ne sont pas disponibles',
                 subtitle: errorText,
                 section: 'Vos playlists',
                 image: '',
-                uri: ''
+                uri: homeStateAction(String(window.__sfMediaLibError || ''))
             };
         }
         return {
@@ -610,6 +635,22 @@
             uri: ''
         };
     }
+
+    // Manual retry behind the state row: forces a library fetch and restarts the
+    // retry loop, so the screen never stays stuck once the loop has expired.
+    window.__sfNativeRetryLibrary = function __sfNativeRetryLibrary() {
+        try {
+            clearHomeRetry();
+            homeRetries = 0;
+            if (typeof window.checkMediaLib === 'function') window.checkMediaLib(true);
+        } catch (_) {}
+        try {
+            runUpdate();
+        } catch (_) {}
+        try {
+            scheduleHomeRetry();
+        } catch (_) {}
+    };
 
     // One payload for the empty Home: while the library is still loading the
     // native loading line is enough (no card), otherwise the state explains

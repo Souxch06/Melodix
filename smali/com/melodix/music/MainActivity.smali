@@ -8531,6 +8531,25 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
     move-result v0
     if-eqz v0, :native_row_click_done
 
+    # State rows on Home are real actions, dispatched natively: an error card
+    # either retries the library fetch or opens Settings so the user can
+    # reconnect. Neither needs a new JavaScript bridge method.
+    const-string v2, "melodix:action:open-settings"
+    invoke-virtual {p1, v2}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    move-result v3
+    if-eqz v3, :native_row_check_retry
+    invoke-virtual {p0}, Lcom/melodix/music/MainActivity;->openNativeSettings()V
+    return-void
+
+    :native_row_check_retry
+    const-string v2, "melodix:action:retry-library"
+    invoke-virtual {p1, v2}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    move-result v3
+    if-eqz v3, :native_row_check_collection
+    const-string v2, "window.__sfNativeRetryLibrary && window.__sfNativeRetryLibrary();"
+    invoke-virtual {p0, v2}, Lcom/melodix/music/MainActivity;->runNativeJavascript(Ljava/lang/String;)V
+    return-void
+
     # Settings rows toggle their value through the shell; they never navigate.
     const-string v2, "spotify:settings:"
     invoke-virtual {p1, v2}, Ljava/lang/String;->startsWith(Ljava/lang/String;)Z

@@ -222,7 +222,10 @@ test('the empty home explains a library failure instead of loading forever', () 
     assert.ok(explained, 'the failure is explained on the screen');
     const row = explained.rows[0];
     assert.match(row.subtitle, /limite les requêtes/, 'the real HTTP cause is named');
-    assert.equal(row.uri, '', 'the state row is not a fake playable playlist');
+    // The state row is never a fake playlist, but it is no longer a dead end:
+    // it carries a real native action so the user can retry by hand.
+    assert.equal(row.uri, 'melodix:action:retry-library', 'the state row offers a real retry');
+    assert.doesNotMatch(row.uri, /:(playlist|album|artist|show|episode):/, 'never a fake playable item');
 });
 
 test('real playlists scraped from the page reach the native side with their URI', () => {
@@ -368,4 +371,16 @@ test('without any bridge search function typing still reaches the search page', 
     win.searchMediaItems('daft punk');
     drainTimers(2);
     assert.deepEqual(navigations, ['https://open.spotify.com/search/daft%20punk']);
+});
+
+// P0-E: the retry behind the state row must really restart the fetch and the
+// loop, otherwise the card is decorative.
+test('the manual retry behind the state row restarts the library fetch', () => {
+    const { win, drainTimers } = loadShell({ withCards: false });
+    let calls = 0;
+    win.checkMediaLib = (force) => { calls += 1; if (force !== true) throw new Error('must force'); };
+    assert.equal(typeof win.__sfNativeRetryLibrary, 'function', 'the hook exists for the native row');
+    win.__sfNativeRetryLibrary();
+    assert.equal(calls, 1, 'the library fetch is forced exactly once');
+    drainTimers(4);
 });

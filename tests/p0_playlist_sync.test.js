@@ -286,3 +286,37 @@ test('[P0 playlists] le bridge notifie le shell quand mediaLib est settle (pas d
   assert.ok(shellSrc.includes('home-merge lib='), 'trace de fusion avant/apres');
   assert.ok(!shellSrc.includes('mediaLibWarmupRequested'), 'plus de warmup one-shot');
 });
+
+// ---------------------------------------------------------------------------
+// P0-E: a failed library must stay recoverable on the screen itself.
+// ---------------------------------------------------------------------------
+
+test('a session error points at Settings instead of promising a retry', () => {
+    const shell = fs.readFileSync(path.join(root, 'assets', 'native_ui_shell.js'), 'utf8');
+    // Definitive errors cannot be fixed by retrying: the row opens Settings.
+    assert.match(shell, /err === 'token-missing'\)[\s\S]{0,200}paramètres/);
+    assert.match(shell, /err === 'http-401'\)[\s\S]{0,200}paramètres/);
+    assert.match(shell, /err === 'http-403'\)[\s\S]{0,200}paramètres/);
+    assert.match(shell, /function homeStateAction\(err\) \{[\s\S]{0,200}melodix:action:retry-library[\s\S]{0,120}melodix:action:open-settings/);
+    assert.match(shell, /uri: homeStateAction\(/, 'the state row carries a real action');
+});
+
+test('a transient error only promises a retry while the retry loop is alive', () => {
+    const shell = fs.readFileSync(path.join(root, 'assets', 'native_ui_shell.js'), 'utf8');
+    assert.match(shell, /function homeRetryLoopAlive\(\)/);
+    assert.match(shell, /homeRetryLoopAlive\(\)[\s\S]{0,120}nouvel essai automatique en cours/);
+    assert.match(shell, /touchez pour réessayer/);
+    // The manual retry is exposed for the native row and restarts the loop.
+    assert.match(shell, /window\.__sfNativeRetryLibrary = function/);
+    assert.match(shell, /__sfNativeRetryLibrary[\s\S]{0,400}checkMediaLib\(true\)/);
+});
+
+test('the native side dispatches the state-row actions without a new bridge method', () => {
+    const activity = fs.readFileSync(path.join(root, 'smali', 'com', 'melodix', 'music', 'MainActivity.smali'), 'utf8');
+    const start = activity.indexOf('.method public final openNativeRow');
+    assert.ok(start > 0, 'openNativeRow existe');
+    const body = activity.slice(start, activity.indexOf('.end method', start));
+    assert.match(body, /const-string v2, "melodix:action:open-settings"[\s\S]{0,220}openNativeSettings\(\)V/);
+    assert.match(body, /const-string v2, "melodix:action:retry-library"[\s\S]{0,220}__sfNativeRetryLibrary/);
+    assert.doesNotMatch(body, /JavascriptInterface/, 'no new JavaScript bridge surface');
+});
