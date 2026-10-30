@@ -28,33 +28,41 @@
 
 # virtual methods
 .method public final run()V
-    .locals 4
+    .locals 3
 
-    iget v0, p0, Lcom/melodix/music/AndBridgeProbe;->mode:I
-
-    if-eqz v0, :probe_mode0
-
-    # mode 1: native late fallback. Only navigates when the page is idle on
-    # the wrapper route - a running load or an already-open player is left
-    # alone.
     :try_start_0
     iget-object v0, p0, Lcom/melodix/music/AndBridgeProbe;->webView:Landroid/webkit/WebView;
 
-    if-eqz v0, :late_done
+    if-nez v0, :all_done
 
+    iget v1, p0, Lcom/melodix/music/AndBridgeProbe;->mode:I
+
+    if-nez v1, :mode_fallback
+
+    # mode 0: run the probe again
+    invoke-static {v0}, Lcom/melodix/music/AndBridge;->runProbe(Landroid/webkit/WebView;)V
+
+    goto :all_done
+
+    :mode_fallback
+    # mode 1: late native fallback. Never interrupt a running load (progress
+    # under 100) and never touch an already-open player route.
     invoke-virtual {v0}, Landroid/webkit/WebView;->getProgress()I
 
     move-result v1
 
     const/16 v2, 0x64
 
-    if-ge v1, v2, :late_done
+    if-ge v1, v2, :check_url
 
+    goto :all_done
+
+    :check_url
     invoke-virtual {v0}, Landroid/webkit/WebView;->getUrl()Ljava/lang/String;
 
     move-result-object v1
 
-    if-eqz v1, :late_done
+    if-nez v1, :all_done
 
     const-string v2, "open.spotify.com"
 
@@ -62,7 +70,7 @@
 
     move-result v2
 
-    if-eqz v2, :late_done
+    if-nez v2, :all_done
 
     const-string v2, "/app"
 
@@ -70,7 +78,7 @@
 
     move-result v2
 
-    if-nez v2, :late_done
+    if-nez v2, :all_done
 
     const-string v2, "/search"
 
@@ -78,7 +86,7 @@
 
     move-result v1
 
-    if-nez v1, :late_done
+    if-nez v1, :all_done
 
     const-string v1, "https://open.spotify.com/app"
 
@@ -87,23 +95,14 @@
     const-string v1, "native-nav late"
 
     invoke-static {v1}, Lcom/melodix/music/NativeCrashGuard;->diagLine(Ljava/lang/String;)V
-
-    :late_done
     :try_end_0
-    .catch Ljava/lang/Throwable; {:try_start_0 .. :try_end_0} :catch_1
+    .catch Ljava/lang/Throwable; {:try_start_0 .. :try_end_0} :catch_0
 
-    goto :probe_run_done
+    :all_done
+    return-void
 
-    :catch_1
+    :catch_0
     move-exception v0
 
-    goto :probe_run_done
-
-    :probe_mode0
-    iget-object v0, p0, Lcom/melodix/music/AndBridgeProbe;->webView:Landroid/webkit/WebView;
-
-    invoke-static {v0}, Lcom/melodix/music/AndBridge;->runProbe(Landroid/webkit/WebView;)V
-
-    :probe_run_done
     return-void
 .end method
