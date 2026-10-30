@@ -2894,29 +2894,36 @@
 
     async function checkMediaLib(force = false) {
         if (isFetchingLib && !force) return;
+        // The library is read with the page's OWN session (credentials:
+        // 'include'), so no captured token is needed. The old gate demanded
+        // window.spotAuthToken - a value nothing in the app ever sets - which
+        // made this whole function unreachable and starved Home of the real
+        // playlists. A missing session now surfaces as the honest 401 path
+        // below instead of an invented 'token-missing' before any request.
         await ensureAuthToken();
-        if (!window.spotAuthToken) {
-            console.warn("[Spotifuck] checkMediaLib: Auth token unavailable.");
-            window.__sfMediaLibStatus = 'error';
-            window.__sfMediaLibError = 'token-missing';
-            notifyMediaLibSettled('token-missing');
-            return;
-        }
+        if (isFetchingLib && !force) return;
         isFetchingLib = true;
         window.__sfMediaLibStatus = 'loading';
         window.__sfMediaLibError = '';
         try {
             const allItems = await fetchAllLibrary();
-            window.mediaLib = parseLibrary(allItems);
-            // Distinguish a real HTTP failure (empty result + recorded error)
-            // from a genuinely empty library: an error keeps the retry path
-            // open, an empty library is a final, honest state.
-            if (window.__sfMediaLibError && (!allItems || allItems.length === 0)) {
-                window.__sfMediaLibStatus = 'error';
+            const failed = Boolean(window.__sfMediaLibError);
+            const usable = Array.isArray(allItems) && allItems.length > 0;
+            if (!failed || usable) {
+                // A partial result is real data: keep it, and only report the
+                // error state (the UI then offers a retry) without discarding
+                // what actually arrived.
+                window.mediaLib = parseLibrary(allItems);
+                window.__sfMediaLibStatus = failed ? 'error' : 'ready';
             } else {
-                window.__sfMediaLibStatus = 'ready';
+                // Nothing usable arrived. Leave window.mediaLib untouched: an
+                // empty object here used to look like "library loaded but
+                // empty", which closed the shell's retry path for good.
+                window.__sfMediaLibStatus = 'error';
             }
-            console.log("[Spotifuck] checkMediaLib: Successfully loaded mediaLib! Draining pending requests:", Array.from(window.pendingMediaRequests));
+            console.log("[Spotifuck] checkMediaLib: library settled status=" +
+                window.__sfMediaLibStatus + " error=" + (window.__sfMediaLibError || 'none') +
+                " items=" + (Array.isArray(allItems) ? allItems.length : 0));
             if (window.pendingMediaRequests && window.pendingMediaRequests.size > 0) {
                 for (const reqId of window.pendingMediaRequests) {
                     const items = window.mediaLib?.[reqId] || [];
@@ -2924,7 +2931,7 @@
                 }
                 window.pendingMediaRequests.clear();
             }
-            notifyMediaLibSettled('ready');
+            notifyMediaLibSettled(window.__sfMediaLibStatus);
         } catch (e) {
             console.error("Error fetching/parsing media library: ", e);
             window.__sfMediaLibStatus = 'error';

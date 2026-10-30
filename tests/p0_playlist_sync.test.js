@@ -268,12 +268,19 @@ test('[P0 playlists] 10. le payload recu correspond aux donnees JS emises', () =
 test('[P0 playlists] le bridge notifie le shell quand mediaLib est settle (pas de silence)', () => {
   assert.ok(bridgeSrc.includes('function notifyMediaLibSettled('), 'notification de fin de chargement');
   assert.ok(bridgeSrc.includes("window.__sfNativeUiRefresh === 'function'"), 'le hook du shell est appele');
-  assert.ok(bridgeSrc.includes("window.__sfMediaLibStatus = 'ready'"), 'statut ready');
+  // The settle path must still publish an honest final status. The stronger
+  // form below keeps the ready state AND refuses to publish an empty library
+  // when nothing usable arrived (see tests/p0_library_fetch.test.js for the
+  // behavioural proof of each error code).
+  assert.ok(bridgeSrc.includes("window.__sfMediaLibStatus = failed ? 'error' : 'ready'"),
+    'statut final ready, ou error quand rien d exploitable n est arrive');
+  assert.ok(bridgeSrc.includes('const failed = Boolean(window.__sfMediaLibError);'),
+    'echec enregistre par fetchAllLibrary pris en compte');
+  assert.ok(bridgeSrc.includes('const usable = Array.isArray(allItems) && allItems.length > 0;'),
+    'donnees partielles conservees, echec total non publie comme bibliotheque vide');
   assert.ok(bridgeSrc.includes("window.__sfMediaLibError = 'token-missing'"), 'erreur token explicite');
   assert.ok(bridgeSrc.includes("window.__sfMediaLibError = 'http-' + resp.status"), 'erreur HTTP explicite');
   assert.ok(bridgeSrc.includes('fetch-parse-error'), 'erreur de parsing explicite');
-  assert.ok(bridgeSrc.includes('window.__sfMediaLibError && (!allItems || allItems.length === 0)'),
-    'echec HTTP total distingue d une bibliotheque reellement vide');
   // The warmup is retryable and the merge is traced.
   assert.ok(shellSrc.includes('window.__sfMediaLibRetryAt'), 'backoff de retry du warmup');
   assert.ok(shellSrc.includes('home-merge lib='), 'trace de fusion avant/apres');
