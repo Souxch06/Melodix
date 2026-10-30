@@ -657,65 +657,66 @@
     .line 32
     .line 33
     :cond_0
-    # Session detection through cookies is disabled: the cookie jar is never
-    # read here.
-    goto :cond_3
+    # Official account host: reset any stale login state without touching the
+    # WebView session data. Cookies and storage are preserved so the official
+    # login flow can still use the existing session.
+    const-string v2, "accounts.spotify.com"
 
-    :cond_3
-    invoke-static {v1, v6, v3}, Lda1;->y(Ljava/lang/CharSequence;Ljava/lang/String;Z)Z
+    invoke-static {v1, v2, v3}, Lda1;->y(Ljava/lang/CharSequence;Ljava/lang/String;Z)Z
 
-    .line 91
-    .line 92
-    .line 93
     move-result v2
 
-    .line 94
-    if-eqz v2, :cond_4
+    if-eqz v2, :cond_3
 
-    .line 95
-    .line 96
-    sget-boolean v2, Lcom/melodix/music/AppSingleton;->B:Z
+    const/4 v2, 0x0
 
-    .line 97
-    .line 98
-    if-eqz v2, :cond_4
+    sput-boolean v2, Lcom/melodix/music/AppSingleton;->B:Z
 
-    .line 99
-    .line 100
-    sput-boolean v3, Lcom/melodix/music/AppSingleton;->B:Z
+    const-string v4, "LoggedIn"
 
-    .line 101
-    .line 102
-    sget v2, Lcom/melodix/music/AppSingleton;->j:I
-
-    .line 103
-    .line 104
     invoke-static {}, Lm9;->f()Landroid/content/SharedPreferences$Editor;
 
-    .line 105
-    .line 106
-    .line 107
     move-result-object v2
 
-    .line 108
-    invoke-interface {v2, v5, v3}, Landroid/content/SharedPreferences$Editor;->putBoolean(Ljava/lang/String;Z)Landroid/content/SharedPreferences$Editor;
+    invoke-interface {v2, v4}, Landroid/content/SharedPreferences$Editor;->remove(Ljava/lang/String;)Landroid/content/SharedPreferences$Editor;
 
-    .line 109
-    .line 110
-    .line 111
     move-result-object v2
 
-    .line 112
     invoke-interface {v2}, Landroid/content/SharedPreferences$Editor;->apply()V
 
-    .line 113
-    .line 114
-    .line 115
+    :cond_3
+    # Leaving the player host with a stale logged-in flag also resets it: the
+    # persisted marker is cleared and the in-memory flag starts unconfirmed.
+    const-string v5, "LoggedIn"
+
+    const-string v6, "open.spotify.com"
+
+    invoke-static {v1, v6, v3}, Lda1;->y(Ljava/lang/CharSequence;Ljava/lang/String;Z)Z
+
+    move-result v2
+
+    if-eqz v2, :cond_4
+
+    sget-boolean v2, Lcom/melodix/music/AppSingleton;->B:Z
+
+    if-eqz v2, :cond_4
+
+    sput-boolean v3, Lcom/melodix/music/AppSingleton;->B:Z
+
+    sget v2, Lcom/melodix/music/AppSingleton;->j:I
+
+    invoke-static {}, Lm9;->f()Landroid/content/SharedPreferences$Editor;
+
+    move-result-object v2
+
+    invoke-interface {v2, v5, v3}, Landroid/content/SharedPreferences$Editor;->putBoolean(Ljava/lang/String;Z)Landroid/content/SharedPreferences$Editor;
+
+    move-result-object v2
+
+    invoke-interface {v2}, Landroid/content/SharedPreferences$Editor;->apply()V
+
     invoke-static {}, Lm9;->k()V
 
-    .line 116
-    .line 117
-    .line 118
     :cond_4
     sget-boolean v2, Lcom/melodix/music/AppSingleton;->B:Z
 

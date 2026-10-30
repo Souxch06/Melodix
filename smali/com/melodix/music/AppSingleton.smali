@@ -655,26 +655,10 @@
 
     .line 246
     .line 247
-    invoke-static {}, Lm9;->e()Landroid/content/SharedPreferences;
+    # Startup never trusts a persisted login marker: auth always starts
+    # unconfirmed and is confirmed later by the account and player UI.
+    const/4 v0, 0x0
 
-    .line 248
-    .line 249
-    .line 250
-    move-result-object v0
-
-    .line 251
-    const-string v3, "LoggedIn"
-
-    .line 252
-    .line 253
-    invoke-interface {v0, v3, v2}, Landroid/content/SharedPreferences;->getBoolean(Ljava/lang/String;Z)Z
-
-    .line 254
-    .line 255
-    .line 256
-    move-result v0
-
-    .line 257
     sput-boolean v0, Lcom/melodix/music/AppSingleton;->B:Z
 
     .line 258

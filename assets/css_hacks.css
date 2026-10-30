@@ -2050,3 +2050,34 @@ body.sf-melodix-home-active #sf-melodix-home {
         transition: none !important;
     }
 }
+
+/* =====================================================================
+   SESSION STATE NOTICE - rendered in the document flow (relative), so an
+   unknown session can never cover the primary UI.
+   ===================================================================== */
+#sf-auth-status {
+    position: relative !important;
+    display: block !important;
+    margin: 8px 0 !important;
+    padding: 10px 12px !important;
+    border: 1px solid var(--mel-accent) !important;
+    border-radius: 8px !important;
+    background: var(--mel-accent-deep-wash-08) !important;
+    color: inherit !important;
+    z-index: 0 !important;
+}
+
+#sf-auth-status strong {
+    display: block !important;
+    margin-bottom: 4px !important;
+}
+
+@media screen and (max-width: 640px) and (orientation: portrait) {
+    #sf-mobile-nav {
+        padding-bottom: env(safe-area-inset-bottom, 0) !important;
+    }
+
+    #sf-auth-status {
+        margin: 6px 0 !important;
+    }
+}

@@ -3445,6 +3445,66 @@
         window.addEventListener('load', ensure, { once: true });
     }
 
+    // =========================================================================
+    // SECTION: SESSION STATE
+    // The auth machine turns observed DOM signals into a rendered state. An
+    // unknown state is always shown as an explicit unconfirmed notice inside
+    // the document flow, never over the primary UI.
+    // =========================================================================
+
+    function collectAuthSignals() {
+        const route = String(window.location.href || '');
+        return {
+            accountsPage: /accounts\.spotify\.com/.test(route),
+            loginRoute: /\/(login|auth)([/?#]|$)/.test(route),
+            loginAction: !!document.querySelector('a[href*="login"], [data-testid="login-button"]'),
+            profileControl: !!document.querySelector('[data-testid="user-widget-link"], .main-userWidget-box'),
+            playerControls: !!document.querySelector('[data-testid="control-button-playpause"], .main-playButton-entrancePoint')
+        };
+    }
+
+    function renderUnconfirmedNotice() {
+        const runtime = window.MelodixRuntime;
+        if (!runtime || typeof runtime.shouldShowUnconfirmedNotice !== 'function') return;
+        const machine = window._sfAuthMachine || (window._sfAuthMachine = runtime.createAuthStateMachine());
+        machine.observe(collectAuthSignals());
+        const mainView = document.querySelector('#main-view');
+        if (!mainView) return;
+        const show = runtime.shouldShowUnconfirmedNotice(machine.getState());
+        let notice = document.getElementById('sf-auth-status');
+        if (show) {
+            if (!notice) {
+                notice = document.createElement('div');
+                notice.id = 'sf-auth-status';
+                notice.className = 'sf-auth-status-body-root';
+                notice.setAttribute('role', 'status');
+                const title = document.createElement('strong');
+                title.textContent = 'Session non confirmée';
+                const body = document.createElement('div');
+                body.textContent = "L'état de la connexion Spotify n'est pas encore confirmé.";
+                notice.appendChild(title);
+                notice.appendChild(body);
+                mainView.insertBefore(notice, mainView.firstChild);
+            }
+        } else if (notice && notice.parentNode) {
+            notice.parentNode.removeChild(notice);
+        }
+    }
+
+    function start() {
+        renderUnconfirmedNotice();
+        if (typeof window.__sfEnsureMobileShell === 'function') {
+            try { window.__sfEnsureMobileShell(); } catch (_) {}
+        }
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', start);
+    } else {
+        start();
+    }
+    window.addEventListener('load', renderUnconfirmedNotice);
+
     initializeMobileShell();
     initializeMelodixHome();
     installPremiumPromotionCleanup();
