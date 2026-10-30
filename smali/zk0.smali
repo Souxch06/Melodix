@@ -104,6 +104,12 @@
 
     sput-boolean v0, Lcom/melodix/music/AppSingleton;->startupDone:Z
 
+    # Safe diagnostic source for the finished launch: the last top-level
+    # URL (AppSingleton.g0), never a failing subresource URL.
+    sget-object v0, Lcom/melodix/music/AppSingleton;->g0:Ljava/lang/String;
+
+    invoke-static {v0}, Lcom/melodix/music/NativeCrashGuard;->stage(Ljava/lang/String;)V
+
     .line 11
     .line 12
     .line 13
