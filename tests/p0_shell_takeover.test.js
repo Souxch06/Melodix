@@ -101,6 +101,7 @@ function cardPage({ withCards = true } = {}) {
 // Boots the real shell against a fake page and records every bridge call.
 function loadShell({ withCards = true, mediaLib = null, locationPath = '/' } = {}) {
     const timers = [];
+    const navigations = [];
     const { main, widget } = cardPage({ withCards });
     const calls = { ready: 0, data: [], routes: [], mediaLibChecks: 0 };
     const byId = new Map();
@@ -132,7 +133,10 @@ function loadShell({ withCards = true, mediaLib = null, locationPath = '/' } = {
         location: {
             hostname: 'open.spotify.com',
             href: 'https://open.spotify.com' + locationPath,
-            pathname: locationPath, origin: 'https://open.spotify.com', search: ''
+            pathname: locationPath, origin: 'https://open.spotify.com', search: '',
+            assign(target) { navigations.push(target); },
+            replace(target) { navigations.push(target); },
+            reload() {}
         },
         navigator: { userAgent: 'Mozilla/5.0', languages: ['fr'], language: 'fr' },
         localStorage: { getItem: () => null, setItem() {}, removeItem() {} },
@@ -177,12 +181,11 @@ function loadShell({ withCards = true, mediaLib = null, locationPath = '/' } = {
         let ran = 0;
         while (timers.length && ran < max) {
             const fn = timers.shift();
-            ran += 1;
-            if (fn) fn();
+            if (fn) { ran += 1; fn(); }
         }
         return ran;
     };
-    return { win, calls, drainTimers };
+    return { win, calls, drainTimers, navigations };
 }
 
 // P0: the native UI must appear even when the page has no row to scrape.
@@ -254,4 +257,34 @@ test('the account library is merged into Home with its real URIs', () => {
     const noArt = rows.find((r) => r.title === 'Focus');
     assert.ok(noArt, 'a playlist without artwork is still listed');
     assert.equal(noArt.image, '', 'no artwork is invented');
+});
+
+// P0: tapping a playlist must open THAT playlist. The media-items transport
+// currently answers "no items" at once, so waiting the six-second safety net
+// left the user on a loader for every tap.
+test('opening a playlist navigates to it at once instead of waiting six seconds', async () => {
+    const { win, navigations, drainTimers } = loadShell({ withCards: true });
+    win.__sfMelodixBridgeStarted = true;
+    win.fetchMediaItems = async () => [];   // current posture: no items via bridge
+
+    const opened = win.__sfOpenCollection('spotify:playlist:37i9dQZF1DXcBWIGoYBM5M');
+    assert.equal(opened, true, 'the shell accepts the open request');
+    // Let the transport's promise settle.
+    await new Promise((resolve) => setTimeout(resolve, 5));
+
+    assert.deepEqual(navigations, ['https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M'],
+        'the real playlist page is opened immediately, with the exact id');
+    assert.equal(drainTimers(2), 0, 'the six-second timer is cleared, not left running');
+});
+
+test('a silent media transport still falls back to the real page', () => {
+    const { win, navigations, drainTimers } = loadShell({ withCards: true });
+    win.__sfMelodixBridgeStarted = true;
+    win.fetchMediaItems = () => undefined;   // never answers
+
+    win.__sfOpenCollection('spotify:playlist:silent');
+    assert.deepEqual(navigations, [], 'nothing happens while the transport is silent');
+    drainTimers(2);
+    assert.deepEqual(navigations, ['https://open.spotify.com/playlist/silent'],
+        'the safety net still opens the page');
 });

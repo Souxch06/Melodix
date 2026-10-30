@@ -2097,15 +2097,28 @@
         function navigate() {
             if (navigated) return false;
             navigated = true;
+            // Drop the safety net as soon as the real navigation happens so no
+            // stale timer can fire on a page we already left.
+            cancelPendingCollectionNavigation();
             openCollectionTimer = null;
             return window.__sfNativeOpenUri(uri);
         }
 
         if (window.__sfMelodixBridgeStarted === true && typeof window.fetchMediaItems === 'function') {
             try {
-                window.fetchMediaItems(uri);
-                // If the bridge never answers, load the real page instead of
-                // leaving the user on an empty screen.
+                var pending = window.fetchMediaItems(uri);
+                // The detail rows are served from the page itself in the
+                // current posture, so the transport answers "no items" at
+                // once. Waiting the full six-second safety net for that made
+                // every playlist tap sit on a loader: navigate as soon as the
+                // empty answer arrives, and keep the timer for a silent bridge.
+                if (pending && typeof pending.then === 'function') {
+                    pending.then(function(items) {
+                        if (!navigated && (!Array.isArray(items) || items.length === 0)) navigate();
+                    }, function() {
+                        if (!navigated) navigate();
+                    });
+                }
                 openCollectionTimer = window.setTimeout(navigate, 6000);
                 return true;
             } catch (_) {
