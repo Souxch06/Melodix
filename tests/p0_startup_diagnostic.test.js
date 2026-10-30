@@ -503,10 +503,25 @@ test('the first probe of a process resets the page-side navigation budget', () =
   assert.ok(ab.includes('.field private static probeStarted:Z'));
   const body = methodBody(ab, '.method public static runProbe(Landroid/webkit/WebView;)V');
   const i = body.indexOf("removeItem('mel_player_nav')");
-  const j = body.indexOf('if-nez v0, :probe_collect');
-  const k = body.indexOf('sput-boolean v0, Lcom/melodix/music/AndBridge;->probeStarted:Z');
+  const j = body.indexOf('if-nez v2, :probe_collect');
+  const k = body.indexOf('sput-boolean v3, Lcom/melodix/music/AndBridge;->probeStarted:Z');
   assert.ok(i > -1 && j > -1 && k > -1 && j < k && k < i,
     'flag first, then reset, only on the first call');
-  assert.ok(!/if-eqz v0, :probe_collect/.test(body),
+  assert.ok(!/if-eqz v2, :probe_collect/.test(body),
     'polarity: if-nez = already started -> collect without touching the budget');
+});
+
+test('the probe reset never joins mixed register types at :probe_collect', () => {
+  const ab = read('smali/com/melodix/music/AndBridge.smali');
+  const body = methodBody(ab, '.method public static runProbe(Landroid/webkit/WebView;)V');
+  assert.ok(body.includes('.locals 4'),
+    'v2 (int flag) and v3 (reset script) are dedicated registers');
+  const label = body.indexOf('\n    :probe_collect\n');
+  assert.ok(label > -1, 'the join label exists on its own line');
+  const before = body.slice(0, label);
+  assert.ok(before.indexOf('const/4 v1, 0x0') < before.indexOf('if-nez v2, :probe_collect'),
+    'v1 holds the same null on both paths into the join');
+  const after = body.slice(label);
+  assert.ok(after.indexOf('const/4 v1, 0x0') > -1 && after.indexOf('const-string v0') > -1,
+    'v0/v1 are reassigned before use, so the join is never read');
 });

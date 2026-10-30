@@ -158,7 +158,7 @@
 # a cookie wall, opens the player out of its iframe, or navigates to the
 # player entry URLs (bounded, no loop).
 .method public static runProbe(Landroid/webkit/WebView;)V
-    .locals 2
+    .locals 4
 
     if-eqz p0, :probe_done
 
@@ -169,19 +169,22 @@
 
     invoke-virtual {p0}, Landroid/webkit/WebView;->onResume()V
 
-    sget-boolean v0, Lcom/melodix/music/AndBridge;->probeStarted:Z
-
-    if-nez v0, :probe_collect
-
-    const/4 v0, 0x1
-
-    sput-boolean v0, Lcom/melodix/music/AndBridge;->probeStarted:Z
-
-    const-string v0, "try{window.localStorage.removeItem('mel_player_nav')}catch(e){}"
-
+    # v1 holds the same null on both paths into :probe_collect; v2/v3 are
+    # dedicated (int flag, reset script) so no register ever joins mixed
+    # types - dexopt rejects the whole class on a conflicted register.
     const/4 v1, 0x0
 
-    invoke-virtual {p0, v0, v1}, Landroid/webkit/WebView;->evaluateJavascript(Ljava/lang/String;Landroid/webkit/ValueCallback;)V
+    sget-boolean v2, Lcom/melodix/music/AndBridge;->probeStarted:Z
+
+    if-nez v2, :probe_collect
+
+    const/4 v3, 0x1
+
+    sput-boolean v3, Lcom/melodix/music/AndBridge;->probeStarted:Z
+
+    const-string v3, "try{window.localStorage.removeItem('mel_player_nav')}catch(e){}"
+
+    invoke-virtual {p0, v3, v1}, Landroid/webkit/WebView;->evaluateJavascript(Ljava/lang/String;Landroid/webkit/ValueCallback;)V
 
     :probe_collect
     const-string v0, "(function(){\n  try {\n    var log = function(m){ try { AndBridge.logDiagEvent(String(m).slice(0,150)); } catch(e){} };\n    var q = function(d, sel){ try { return d.querySelector(sel); } catch(e){ return null; } };\n    var playerSel = '#main-view, #main, [data-testid=\"root\"], .main-view-container, [data-testid=\"now-playing-bar\"]';\n    if (q(document, playerSel)) { log('probe ok main'); return 'ok'; }\n    var here = String(location.href || '').split('?')[0].split('#')[0];\n    log('probe url=' + here.slice(0, 55));\n    var frames = document.querySelectorAll('iframe');\n    var srcs = []; var frameNav = ''; var consentDone = '';\n    for (var i = 0; i < frames.length; i++) {\n      var s = String(frames[i].getAttribute('src') || '');\n      srcs.push(s.slice(0, 55));\n      try {\n        var d = frames[i].contentDocument;\n        if (d) {\n          if (!frameNav && q(d, playerSel)) frameNav = s || here;\n          if (!consentDone) {\n            var b2 = q(d, '#onetrust-accept-btn-handler, #gdpr-notice-accept, button[title*=\"ccept\"], button[aria-label*=\"ccept\"], [data-testid*=\"ccept\" i], .cc-btn.cc-allow');\n            if (b2) { try { b2.click(); consentDone = 'frame'; } catch(e){} }\n          }\n        }\n      } catch (e) {}\n      if (!frameNav && s.indexOf('open.spotify.com') >= 0 && s.indexOf('/intl-') < 0 && s.indexOf('http') === 0) frameNav = s;\n    }\n    var t = String(document.title || '').replace(/\\s+/g, ' ').slice(0, 24);\n    var h = ''; try { h = String(document.body ? document.body.innerText : '').replace(/\\s+/g, ' ').slice(0, 50); } catch (e) {}\n    log('probe t=' + t + ' h=' + h);\n    log('probe f=' + srcs.join(' | ').slice(0, 90));\n    if (frameNav && String(frameNav).indexOf('http') === 0) {\n      var target = String(frameNav).split('?')[0];\n      if (target !== here) {\n        log('probe nav frame');\n        window.location.assign(frameNav);\n        return 'nav-frame';\n      }\n    }\n    var btn = q(document, '#onetrust-accept-btn-handler, #gdpr-notice-accept, button[title*=\"ccept\"], button[aria-label*=\"ccept\"], [data-testid*=\"ccept\" i], .cc-btn.cc-allow');\n    if (btn || consentDone) {\n      log('probe consent ' + (consentDone || 'click'));\n      if (btn) { try { btn.click(); } catch (e) {} }\n      return 'consent';\n    }\n    var nav = 0;\n    try {\n      var raw = window.localStorage.getItem('mel_player_nav');\n      if (raw) { var rec = JSON.parse(raw); if (rec && rec.n && (Date.now() - rec.t) < 60000) nav = rec.n | 0; }\n    } catch (e) {}\n    if (nav >= 3) { log('probe nav exhausted'); return 'stop'; }\n    try { window.localStorage.setItem('mel_player_nav', JSON.stringify({ n: nav + 1, t: Date.now() })); } catch (e) {}\n    var dest = 'https://open.spotify.com/app';\n    if (nav === 1) dest = 'https://open.spotify.com/search';\n    if (nav >= 2) dest = 'https://open.spotify.com/';\n    log('probe nav ' + (nav + 1));\n    window.location.assign(dest);\n    return 'nav';\n  } catch (e) {\n    try { AndBridge.logDiagEvent('probe err ' + ((e && e.name) || '?')); } catch (e2) {}\n    return 'err';\n  }\n})()"
