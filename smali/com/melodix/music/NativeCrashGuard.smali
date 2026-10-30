@@ -1092,3 +1092,86 @@
     :done
     return-void
 .end method
+
+# Records why the WebView engine could not be created: the throwable class name
+# plus its message, capped at 160 characters. Only that pair is kept (no page
+# content, cookie or token); the diagnostic screen prints it verbatim.
+.method public static recordWebViewFailure(Ljava/lang/Throwable;)V
+    .locals 5
+
+    :try_start_0
+    new-instance v0, Ljava/lang/StringBuilder;
+
+    invoke-direct {v0}, Ljava/lang/StringBuilder;-><init>()V
+
+    if-nez p0, :have_class
+
+    const-string v1, "Throwable null"
+
+    goto :class_done
+
+    :have_class
+    invoke-virtual {p0}, Ljava/lang/Object;->getClass()Ljava/lang/Class;
+
+    move-result-object v1
+
+    invoke-virtual {v1}, Ljava/lang/Class;->getSimpleName()Ljava/lang/String;
+
+    move-result-object v1
+
+    :class_done
+    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    const-string v1, " \u2014 "
+
+    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    if-nez p0, :have_text
+
+    const-string v1, "(sans message)"
+
+    goto :text_done
+
+    :have_text
+    invoke-virtual {p0}, Ljava/lang/Throwable;->getMessage()Ljava/lang/String;
+
+    move-result-object v1
+
+    if-nez v1, :text_done
+
+    const-string v1, "(sans message)"
+
+    :text_done
+    invoke-virtual {v1}, Ljava/lang/String;->length()I
+
+    move-result v2
+
+    const/16 v3, 0xa0
+
+    if-gt v2, v3, :append_text
+
+    const/4 v4, 0x0
+
+    invoke-virtual {v1, v4, v3}, Ljava/lang/String;->substring(II)Ljava/lang/String;
+
+    move-result-object v1
+
+    :append_text
+    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    invoke-virtual {v0}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
+
+    move-result-object v0
+
+    sput-object v0, Lcom/melodix/music/AppSingleton;->g0:Ljava/lang/String;
+    :try_end_0
+    .catch Ljava/lang/Throwable; {:try_start_0 .. :try_end_0} :catch_0
+
+    goto :done
+
+    :catch_0
+    move-exception v0
+
+    :done
+    return-void
+.end method

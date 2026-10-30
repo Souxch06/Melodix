@@ -46,6 +46,12 @@
 
     invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
 
+    invoke-static {}, Lcom/melodix/music/StartupDiagnosticOverlay;->versionLine()Ljava/lang/String;
+
+    move-result-object v1
+
+    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
     if-nez p0, :phase_ok
 
     const-string p0, "(sans phase)"
@@ -89,7 +95,7 @@
 
     invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
 
-    const-string v1, "\n\nthread principal (le blocage):\n"
+    const-string v1, "\n\nthread principal:\n"
 
     invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
 
@@ -148,6 +154,80 @@
     return-object v0
 .end method
 
+# Version of the build under test, so a photo of the panel always says which
+# APK produced it. Read from the package manager; a failure is stated, not hidden.
+.method public static versionLine()Ljava/lang/String;
+    .locals 5
+
+    :try_start_0
+    sget-object v0, Lcom/melodix/music/AppSingleton;->s:Landroid/content/Context;
+
+    if-nez v0, :have_context
+
+    const-string v0, "version: inconnue\n"
+
+    return-object v0
+
+    :have_context
+    invoke-virtual {v0}, Landroid/content/Context;->getPackageManager()Landroid/content/pm/PackageManager;
+
+    move-result-object v1
+
+    invoke-virtual {v0}, Landroid/content/Context;->getPackageName()Ljava/lang/String;
+
+    move-result-object v0
+
+    const/4 v2, 0x0
+
+    invoke-virtual {v1, v0, v2}, Landroid/content/pm/PackageManager;->getPackageInfo(Ljava/lang/String;I)Landroid/content/pm/PackageInfo;
+
+    move-result-object v0
+
+    iget-object v1, v0, Landroid/content/pm/PackageInfo;->versionName:Ljava/lang/String;
+
+    if-nez v1, :have_name
+
+    const-string v1, "?"
+
+    :have_name
+    iget v2, v0, Landroid/content/pm/PackageInfo;->versionCode:I
+
+    new-instance v0, Ljava/lang/StringBuilder;
+
+    invoke-direct {v0}, Ljava/lang/StringBuilder;-><init>()V
+
+    const-string v3, "version: "
+
+    invoke-virtual {v0, v3}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    const-string v3, " (code "
+
+    invoke-virtual {v0, v3}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    invoke-virtual {v0, v2}, Ljava/lang/StringBuilder;->append(I)Ljava/lang/StringBuilder;
+
+    const-string v3, ")\n"
+
+    invoke-virtual {v0, v3}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    invoke-virtual {v0}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
+
+    move-result-object v0
+    :try_end_0
+    .catch Ljava/lang/Exception; {:try_start_0 .. :try_end_0} :catch_0
+
+    return-object v0
+
+    :catch_0
+    move-exception v0
+
+    const-string v0, "version: inconnue\n"
+
+    return-object v0
+.end method
+
 # Web-side state for the report. MUST run on the UI thread (WebView getters
 # enforce their creation thread). One line answers "did the page load, which
 # page, did the JS run": url, progress, login detection and the kept JS trail.
@@ -194,6 +274,11 @@
 
     invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
 
+    # No engine at all: say what to do instead of leaving a silent wait.
+    const-string v1, "\nLe moteur web de l'appareil est indisponible. Vérifie que « WebView système » ou Google Chrome est activé et à jour dans le Play Store, puis relance l'application."
+
+    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
     :web_done
     :try_end_0
     .catch Ljava/lang/Throwable; {:try_start_0 .. :try_end_0} :catch_0
@@ -227,6 +312,27 @@
     sget v1, Lcom/melodix/music/AppSingleton;->n:I
 
     invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(I)Ljava/lang/StringBuilder;
+
+    # The factory records "<class> — <message>" (already capped at 160 chars)
+    # when the engine cannot be created: print it verbatim, never guess.
+    const-string v1, "\nerreur WebView : "
+
+    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    sget-object v1, Lcom/melodix/music/AppSingleton;->g0:Ljava/lang/String;
+
+    if-nez v1, :no_webview_error
+
+    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    goto :webview_error_done
+
+    :no_webview_error
+    const-string v1, "aucune erreur enregistrée"
+
+    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    :webview_error_done
 
     const-string v1, "\ndiag js: "
 

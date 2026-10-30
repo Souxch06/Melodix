@@ -1076,7 +1076,7 @@
     .line 24
     sput-object p0, Lcom/melodix/music/AppSingleton;->w:Ll9;
     :try_end_1
-    .catchall {:try_start_1 .. :try_end_1} :catchall_1
+    .catchall {:try_start_1 .. :try_end_1} :webview_create_failure
 
     .line 25
     .line 26
@@ -1684,6 +1684,21 @@
 
     .line 308
     .line 309
+    goto :goto_4
+
+    # A failed WebView creation must never stay silent: the class and the
+    # message of the throwable are recorded (message truncated to 160 chars,
+    # no page content, cookie or token) so the diagnostic screen can show
+    # why the engine is missing instead of only counting an error.
+    :webview_create_failure
+    move-exception v0
+
+    invoke-static {v0}, Lcom/melodix/music/NativeCrashGuard;->recordWebViewFailure(Ljava/lang/Throwable;)V
+
+    const/4 p0, 0x0
+
+    sput-object p0, Lcom/melodix/music/AppSingleton;->w:Ll9;
+
     goto :goto_4
 
     .line 310
