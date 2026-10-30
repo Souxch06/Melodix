@@ -318,210 +318,116 @@
     return-void
 .end method
 
+# Only the three mapped messages ever reach the display helper, each with a
+# fixed local string. Unknown inputs and hash collisions return without
+# display: the frame input itself is never shown on screen.
 .method public final deferMessage(Ljava/lang/String;)V
     .locals 2
+
     .annotation runtime Landroid/webkit/JavascriptInterface;
     .end annotation
 
-    .line 1
     invoke-virtual {p1}, Ljava/lang/Object;->getClass()Ljava/lang/Class;
 
-    .line 2
-    .line 3
-    .line 4
     sget-object p0, Lcom/melodix/music/AppSingleton;->t:Ljava/lang/ref/WeakReference;
 
-    .line 5
-    .line 6
     if-eqz p0, :cond_6
 
-    .line 7
-    .line 8
     invoke-virtual {p0}, Ljava/lang/ref/Reference;->get()Ljava/lang/Object;
 
-    .line 9
-    .line 10
-    .line 11
     move-result-object p0
 
-    .line 12
     check-cast p0, Lcom/melodix/music/MainActivity;
 
-    .line 13
-    .line 14
     if-eqz p0, :cond_6
 
-    .line 15
-    .line 16
     invoke-virtual {p1}, Ljava/lang/String;->hashCode()I
 
-    .line 17
-    .line 18
-    .line 19
     move-result v0
 
-    .line 20
-    const v1, -0x448729b6
-
-    .line 21
-    .line 22
-    .line 23
-    if-eq v0, v1, :cond_4
-
-    .line 24
-    .line 25
-    const v1, -0x37b57e67
-
-    .line 26
-    .line 27
-    .line 28
-    if-eq v0, v1, :cond_2
-
-    .line 29
-    .line 30
     const v1, -0x321820bc
 
-    .line 31
-    .line 32
-    .line 33
-    if-eq v0, v1, :cond_0
+    if-eq v0, v1, :check_reload
 
-    .line 34
-    .line 35
-    goto :goto_0
-
-    .line 36
-    :cond_0
     const-string v0, "unlock"
 
-    .line 37
-    .line 38
     invoke-virtual {p1, v0}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
 
-    .line 39
-    .line 40
-    .line 41
     move-result v0
 
-    .line 42
     if-nez v0, :cond_1
 
-    .line 43
-    .line 44
-    goto :goto_0
+    goto :cond_6
 
-    .line 45
     :cond_1
     const p1, 0x7f110120
 
-    .line 46
-    .line 47
-    .line 48
     invoke-virtual {p0, p1}, Landroid/content/Context;->getString(I)Ljava/lang/String;
 
-    .line 49
-    .line 50
-    .line 51
     move-result-object p1
 
-    .line 52
     goto :goto_0
 
-    .line 53
-    :cond_2
+    :check_reload
+    const v1, -0x37b57e67
+
+    if-eq v0, v1, :check_adblock
+
     const-string v0, "reload"
 
-    .line 54
-    .line 55
     invoke-virtual {p1, v0}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
 
-    .line 56
-    .line 57
-    .line 58
     move-result v0
 
-    .line 59
     if-nez v0, :cond_3
 
-    .line 60
-    .line 61
-    goto :goto_0
+    goto :cond_6
 
-    .line 62
     :cond_3
     const p1, 0x7f11011d
 
-    .line 63
-    .line 64
-    .line 65
     invoke-virtual {p0, p1}, Landroid/content/Context;->getString(I)Ljava/lang/String;
 
-    .line 66
-    .line 67
-    .line 68
     move-result-object p1
 
-    .line 69
     goto :goto_0
 
-    .line 70
-    :cond_4
+    :check_adblock
+    const v1, -0x448729b6
+
+    if-eq v0, v1, :adblock_try
+
+    goto :cond_6
+
+    :adblock_try
     const-string v0, "adblock"
 
-    .line 71
-    .line 72
     invoke-virtual {p1, v0}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
 
-    .line 73
-    .line 74
-    .line 75
     move-result v0
 
-    .line 76
     if-nez v0, :cond_5
 
-    .line 77
-    .line 78
-    goto :goto_0
+    goto :cond_6
 
-    .line 79
     :cond_5
     const p1, 0x7f110115
 
-    .line 80
-    .line 81
-    .line 82
     invoke-virtual {p0, p1}, Landroid/content/Context;->getString(I)Ljava/lang/String;
 
-    .line 83
-    .line 84
-    .line 85
     move-result-object p1
 
-    .line 86
     :goto_0
     invoke-virtual {p1}, Ljava/lang/Object;->getClass()Ljava/lang/Class;
 
-    .line 87
-    .line 88
-    .line 89
     new-instance v0, Lr4;
 
-    .line 90
-    .line 91
     const/4 v1, 0x1
 
-    .line 92
     invoke-direct {v0, p1, v1}, Lr4;-><init>(Ljava/lang/String;I)V
 
-    .line 93
-    .line 94
-    .line 95
     invoke-virtual {p0, v0}, Landroid/app/Activity;->runOnUiThread(Ljava/lang/Runnable;)V
 
-    .line 96
-    .line 97
-    .line 98
     :cond_6
     return-void
 .end method
@@ -4272,464 +4178,295 @@
     .locals 4
     .annotation runtime Landroid/webkit/JavascriptInterface;
     .end annotation
-
-    .line 1
     invoke-virtual {p1}, Ljava/lang/Object;->getClass()Ljava/lang/Class;
 
     const-string v0, "player"
     invoke-direct {p0, v0, p1}, Lcom/melodix/music/AndBridge;->dispatchNativeUi(Ljava/lang/String;Ljava/lang/String;)V
-
-    .line 2
     .line 3
-    .line 4
     :try_start_0
     new-instance p0, Lorg/json/JSONObject;
-
-    .line 5
     .line 6
     invoke-direct {p0, p1}, Lorg/json/JSONObject;-><init>(Ljava/lang/String;)V
-
-    .line 7
     .line 8
-    .line 9
     const-string p1, "track"
-
-    .line 10
     .line 11
     invoke-virtual {p0, p1}, Lorg/json/JSONObject;->opt(Ljava/lang/String;)Ljava/lang/Object;
-
-    .line 12
     .line 13
-    .line 14
     move-result-object p1
-
-    .line 15
     if-eqz p1, :cond_4
-
-    .line 16
     .line 17
     sget-object v0, Lorg/json/JSONObject;->NULL:Ljava/lang/Object;
-
-    .line 18
     .line 19
     invoke-static {v0, p1}, Ldl1;->a(Ljava/lang/Object;Ljava/lang/Object;)Z
-
-    .line 20
     .line 21
-    .line 22
     move-result v0
-
-    .line 23
     if-nez v0, :cond_4
-
-    .line 24
     .line 25
     invoke-virtual {p1}, Ljava/lang/Object;->toString()Ljava/lang/String;
-
-    .line 26
     .line 27
-    .line 28
     move-result-object p1
-
-    .line 29
     sput-object p1, Lcom/melodix/music/WebService;->v:Ljava/lang/String;
-
-    .line 30
     .line 31
     const-string p1, "artist"
-
-    .line 32
     .line 33
     invoke-virtual {p0, p1}, Lorg/json/JSONObject;->optString(Ljava/lang/String;)Ljava/lang/String;
-
-    .line 34
     .line 35
-    .line 36
     move-result-object p1
-
-    .line 37
     invoke-virtual {p1}, Ljava/lang/Object;->getClass()Ljava/lang/Class;
-
-    .line 38
     .line 39
-    .line 40
     sput-object p1, Lcom/melodix/music/WebService;->u:Ljava/lang/String;
-
-    .line 41
     .line 42
     const-string p1, "position"
-
-    .line 43
     .line 44
     invoke-virtual {p0, p1}, Lorg/json/JSONObject;->optLong(Ljava/lang/String;)J
-
-    .line 45
     .line 46
-    .line 47
     move-result-wide v0
-
-    .line 48
     sput-wide v0, Lcom/melodix/music/WebService;->z:J
-
-    .line 49
     .line 50
     const-string p1, "duration"
-
-    .line 51
     .line 52
     invoke-virtual {p0, p1}, Lorg/json/JSONObject;->optLong(Ljava/lang/String;)J
-
-    .line 53
     .line 54
-    .line 55
     move-result-wide v0
-
-    .line 56
     sput-wide v0, Lcom/melodix/music/WebService;->y:J
-
-    .line 57
     .line 58
     invoke-static {}, Landroid/os/SystemClock;->elapsedRealtime()J
-
-    .line 59
     .line 60
-    .line 61
     move-result-wide v0
-
-    .line 62
     sput-wide v0, Lcom/melodix/music/WebService;->A:J
-
-    .line 63
     .line 64
     const-string p1, "playing"
-
-    .line 65
     .line 66
     invoke-virtual {p0, p1}, Lorg/json/JSONObject;->optBoolean(Ljava/lang/String;)Z
-
-    .line 67
     .line 68
-    .line 69
     move-result p1
-
-    .line 70
     sput-boolean p1, Lcom/melodix/music/WebService;->s:Z
-
-    .line 71
     .line 72
     const-string p1, "repeat"
-
-    .line 73
     .line 74
     invoke-virtual {p0, p1}, Lorg/json/JSONObject;->optString(Ljava/lang/String;)Ljava/lang/String;
-
-    .line 75
     .line 76
-    .line 77
     move-result-object p1
-
-    .line 78
     invoke-virtual {p1}, Ljava/lang/Object;->getClass()Ljava/lang/Class;
-
-    .line 79
     .line 80
-    .line 81
     sput-object p1, Lcom/melodix/music/WebService;->w:Ljava/lang/String;
-
-    .line 82
     .line 83
     const-string p1, "shuffle"
-
-    .line 84
     .line 85
     invoke-virtual {p0, p1}, Lorg/json/JSONObject;->optString(Ljava/lang/String;)Ljava/lang/String;
-
-    .line 86
     .line 87
-    .line 88
     move-result-object p1
-
-    .line 89
     invoke-virtual {p1}, Ljava/lang/Object;->getClass()Ljava/lang/Class;
-
-    .line 90
     .line 91
-    .line 92
     sput-object p1, Lcom/melodix/music/WebService;->x:Ljava/lang/String;
-
-    .line 93
     .line 94
     const-string p1, "fav"
-
-    .line 95
     .line 96
     invoke-virtual {p0, p1}, Lorg/json/JSONObject;->optBoolean(Ljava/lang/String;)Z
-
-    .line 97
     .line 98
-    .line 99
     move-result p1
-
-    .line 100
     sput-boolean p1, Lcom/melodix/music/WebService;->t:Z
-
-    .line 101
     .line 102
     const-string p1, "cover"
-
-    .line 103
     .line 104
     invoke-virtual {p0, p1}, Lorg/json/JSONObject;->optString(Ljava/lang/String;)Ljava/lang/String;
-
-    .line 105
     .line 106
-    .line 107
     move-result-object p0
-
-    .line 108
     invoke-virtual {p0}, Ljava/lang/Object;->getClass()Ljava/lang/Class;
-
-    .line 109
     .line 110
-    .line 111
-    const-string p1, "00004851"
+    # Artwork URIs are validated before any rewriting or loading: bounded
+    # length, https on the default or 443 port, no user info, and a host on
+    # the Spotify CDN. Anything else loads as "".
+    const/16 v2, 0x800
 
-    .line 112
-    .line 113
-    const-string v0, "0000b273"
-
-    .line 114
-    .line 115
-    invoke-static {p0, p1, v0}, Lla1;->v(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;
-
-    .line 116
-    .line 117
-    .line 118
-    move-result-object p0
-
-    .line 119
-    const/4 p1, 0x0
-
-    .line 120
-    sput-object p1, Lcom/melodix/music/WebService;->B:Landroid/graphics/Bitmap;
-
-    .line 121
-    .line 122
-    sget-boolean v0, Lcom/melodix/music/WebService;->r:Z
-
-    .line 123
-    .line 124
-    const/4 v0, 0x0
-
-    .line 125
-    invoke-static {v0}, Lzi1;->b(Z)V
-
-    .line 126
-    .line 127
-    .line 128
-    sget-object v1, Lcom/melodix/music/AppSingleton;->t:Ljava/lang/ref/WeakReference;
-
-    .line 129
-    .line 130
-    if-eqz v1, :cond_3
-
-    .line 131
-    .line 132
-    invoke-virtual {v1}, Ljava/lang/ref/Reference;->get()Ljava/lang/Object;
-
-    .line 133
-    .line 134
-    .line 135
-    move-result-object v1
-
-    .line 136
-    check-cast v1, Lcom/melodix/music/MainActivity;
-
-    .line 137
-    .line 138
-    if-eqz v1, :cond_3
-
-    .line 139
-    .line 140
-    sget-boolean v2, Lcom/melodix/music/WebService;->s:Z
-
-    .line 141
-    .line 142
-    iput-boolean v2, v1, Lcom/melodix/music/MainActivity;->U:Z
-
-    .line 143
-    .line 144
     invoke-virtual {p0}, Ljava/lang/String;->length()I
 
-    .line 145
-    .line 146
-    .line 147
+    move-result v3
+
+    if-gt v3, v2, :cond_artwork_invalid
+
+    invoke-static {p0}, Landroid/net/Uri;->parse(Ljava/lang/String;)Landroid/net/Uri;
+
+    move-result-object v1
+
+    invoke-virtual {v1}, Landroid/net/Uri;->getScheme()Ljava/lang/String;
+
+    move-result-object v2
+
+    const-string v3, "https"
+
+    invoke-virtual {v3, v2}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+
     move-result v2
 
-    .line 148
-    if-lez v2, :cond_2
+    if-eqz v2, :cond_artwork_invalid
 
-    .line 149
+    invoke-virtual {v1}, Landroid/net/Uri;->getPort()I
+
+    move-result v2
+
+    if-gez v2, :artwork_port_explicit
+
+    goto :artwork_port_ok
+
+    :artwork_port_explicit
+    const/16 v3, 0x1bb
+
+    if-ne v2, v3, :cond_artwork_invalid
+
+    :artwork_port_ok
+    invoke-virtual {v1}, Landroid/net/Uri;->getUserInfo()Ljava/lang/String;
+
+    move-result-object v2
+
+    if-eqz v2, :cond_artwork_invalid
+
+    invoke-virtual {v1}, Landroid/net/Uri;->getHost()Ljava/lang/String;
+
+    move-result-object v1
+
+    if-eqz v1, :cond_artwork_invalid
+
+    sget-object v2, Ljava/util/Locale;->ROOT:Ljava/util/Locale;
+
+    invoke-virtual {v1, v2}, Ljava/lang/String;->toLowerCase(Ljava/util/Locale;)Ljava/lang/String;
+
+    move-result-object v1
+
+    const-string v2, ".scdn.co"
+
+    invoke-virtual {v1, v2}, Ljava/lang/String;->endsWith(Ljava/lang/String;)Z
+
+    move-result v2
+
+    if-nez v2, :cond_artwork_safe
+
+    const-string v2, ".spotifycdn.com"
+
+    invoke-virtual {v1, v2}, Ljava/lang/String;->endsWith(Ljava/lang/String;)Z
+
+    move-result v2
+
+    if-eqz v2, :cond_artwork_invalid
+
+    :cond_artwork_safe
+    const-string p1, "00004851"
+    .line 113
+    const-string v0, "0000b273"
+    .line 115
+    invoke-static {p0, p1, v0}, Lla1;->v(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;
+    .line 117
+    move-result-object p0
+
+    goto :goto_artwork_validated
+
+    :cond_artwork_invalid
+    const-string p0, ""
+
+    :goto_artwork_validated
+    const/4 p1, 0x0
+    sput-object p1, Lcom/melodix/music/WebService;->B:Landroid/graphics/Bitmap;
+    .line 122
+    sget-boolean v0, Lcom/melodix/music/WebService;->r:Z
+    .line 124
+    const/4 v0, 0x0
+    invoke-static {v0}, Lzi1;->b(Z)V
+    .line 127
+    sget-object v1, Lcom/melodix/music/AppSingleton;->t:Ljava/lang/ref/WeakReference;
+    .line 130
+    if-eqz v1, :cond_3
+    .line 132
+    invoke-virtual {v1}, Ljava/lang/ref/Reference;->get()Ljava/lang/Object;
+    .line 134
+    move-result-object v1
+    check-cast v1, Lcom/melodix/music/MainActivity;
+    .line 138
+    if-eqz v1, :cond_3
+    .line 140
+    sget-boolean v2, Lcom/melodix/music/WebService;->s:Z
+    .line 142
+    iput-boolean v2, v1, Lcom/melodix/music/MainActivity;->U:Z
+    .line 144
+    invoke-virtual {p0}, Ljava/lang/String;->length()I
+    .line 146
+    move-result v2
+    if-lez v2, :cond_2
     .line 150
     iget-object v2, v1, Lcom/melodix/music/MainActivity;->V:Ljava/lang/String;
-
-    .line 151
     .line 152
     invoke-virtual {p0, v2}, Ljava/lang/Object;->equals(Ljava/lang/Object;)Z
-
-    .line 153
     .line 154
-    .line 155
     move-result v2
-
-    .line 156
     if-nez v2, :cond_2
-
-    .line 157
     .line 158
     iput-object p0, v1, Lcom/melodix/music/MainActivity;->V:Ljava/lang/String;
-
-    .line 159
     .line 160
     iget-boolean v2, v1, Lcom/melodix/music/MainActivity;->Y:Z
-
-    .line 161
     .line 162
     if-nez v2, :cond_1
-
-    .line 163
     .line 164
     sget v2, Landroid/os/Build$VERSION;->SDK_INT:I
-
-    .line 165
     .line 166
     const/16 v3, 0x1a
-
-    .line 167
     .line 168
     if-lt v2, v3, :cond_0
-
-    .line 169
     .line 170
     invoke-virtual {v1}, Landroid/app/Activity;->isInPictureInPictureMode()Z
-
-    .line 171
     .line 172
-    .line 173
     move-result v2
-
-    .line 174
     if-eqz v2, :cond_0
-
-    .line 175
     .line 176
     goto :goto_0
-
-    .line 177
     :cond_0
     iput-object p1, v1, Lcom/melodix/music/MainActivity;->T:Landroid/graphics/Bitmap;
-
-    .line 178
     .line 179
     goto :goto_1
-
-    .line 180
     :cond_1
     :goto_0
     new-instance p1, Ljava/lang/Thread;
-
-    .line 181
     .line 182
     new-instance v2, Lbl0;
-
-    .line 183
     .line 184
     invoke-direct {v2, p0, v1}, Lbl0;-><init>(Ljava/lang/String;Lcom/melodix/music/MainActivity;)V
-
-    .line 185
     .line 186
-    .line 187
     invoke-direct {p1, v2}, Ljava/lang/Thread;-><init>(Ljava/lang/Runnable;)V
-
-    .line 188
     .line 189
-    .line 190
     invoke-virtual {p1}, Ljava/lang/Thread;->start()V
-
-    .line 191
     .line 192
-    .line 193
     :cond_2
     :goto_1
     new-instance p1, Ls4;
-
-    .line 194
     .line 195
     const/16 v2, 0x8
-
-    .line 196
     .line 197
     invoke-direct {p1, v1, v2}, Ls4;-><init>(Lcom/melodix/music/MainActivity;I)V
-
-    .line 198
     .line 199
-    .line 200
     invoke-virtual {v1, p1}, Landroid/app/Activity;->runOnUiThread(Ljava/lang/Runnable;)V
-
-    .line 201
     .line 202
-    .line 203
     :cond_3
     invoke-virtual {p0}, Ljava/lang/String;->length()I
-
-    .line 204
     .line 205
-    .line 206
     move-result p1
-
-    .line 207
     if-lez p1, :cond_4
-
-    .line 208
     .line 209
     new-instance p1, Ljava/lang/Thread;
-
-    .line 210
     .line 211
     new-instance v1, Lr4;
-
-    .line 212
     .line 213
     invoke-direct {v1, p0, v0}, Lr4;-><init>(Ljava/lang/String;I)V
-
-    .line 214
     .line 215
-    .line 216
     invoke-direct {p1, v1}, Ljava/lang/Thread;-><init>(Ljava/lang/Runnable;)V
-
-    .line 217
     .line 218
-    .line 219
     invoke-virtual {p1}, Ljava/lang/Thread;->start()V
     :try_end_0
     .catch Lorg/json/JSONException; {:try_start_0 .. :try_end_0} :catch_0
-
-    .line 220
     .line 221
-    .line 222
     :cond_4
     return-void
-
-    .line 223
     :catch_0
     move-exception p0
-
-    .line 224
     invoke-virtual {p0}, Ljava/lang/Throwable;->printStackTrace()V
-
-    .line 225
     .line 226
-    .line 227
     return-void
 .end method
 
