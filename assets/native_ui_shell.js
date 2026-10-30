@@ -2186,22 +2186,6 @@
         };
     }
 
-    // The library tab used to call the bridge's fetchMediaItems directly. Open
-    // the real collection page when the bridge is unavailable.
-    window.__sfOpenLibrary = function() {
-        if (window.__sfMelodixBridgeStarted === true && typeof window.fetchMediaItems === 'function') {
-            try {
-                window.fetchMediaItems('playlists');
-                return true;
-            } catch (_) {}
-        }
-        // The tab always means the playlists filter, so only that route is a
-        // no-op; another collection page is reloaded to match the selected chip.
-        if (spotifyRoutePath() === '/collection/playlists') return true;
-        window.location.assign('https://open.spotify.com/collection/playlists');
-        return true;
-    };
-
     // Library filters. The chips used to call fetchMediaItems directly, which
     // only exists in the bridge; without it every chip was a dead button.
     var LIBRARY_CATEGORY_PATHS = {
@@ -2211,19 +2195,56 @@
         podcasts: '/collection/podcasts'
     };
 
-    window.__sfOpenLibraryCategory = function(tag) {
-        var key = String(tag || '').trim().toLowerCase();
-        var target = LIBRARY_CATEGORY_PATHS[key] || '/collection/playlists';
-        if (window.__sfMelodixBridgeStarted === true && typeof window.fetchMediaItems === 'function') {
-            try {
-                window.fetchMediaItems(key || 'playlists');
-                return true;
-            } catch (_) {}
+    // The media-items transport is a no-op in the current posture (detail rows
+    // are read from the page itself). An empty answer therefore means "no
+    // bridge data", and the caller must open the real page: returning early on
+    // that answer is what turned the Library tab and every chip into a dead
+    // button that never left the previous screen.
+    function bridgeMediaItemsOrNull(key) {
+        if (window.__sfMelodixBridgeStarted !== true || typeof window.fetchMediaItems !== 'function') return null;
+        try {
+            var pending = window.fetchMediaItems(key);
+            return (pending && typeof pending.then === 'function') ? pending : null;
+        } catch (_) {
+            return null;
         }
+    }
+
+    function openCollectionPage(target) {
         var path = spotifyRoutePath();
         if (path === target || path.indexOf(target + '/') === 0) return true;
         window.location.assign('https://open.spotify.com' + target);
         return true;
+    }
+
+    // The library tab always means the playlists filter, so that route is a
+    // no-op; another collection page is opened to match the selected chip.
+    window.__sfOpenLibrary = function() {
+        var pending = bridgeMediaItemsOrNull('playlists');
+        if (pending) {
+            pending.then(function(items) {
+                if (!Array.isArray(items) || items.length === 0) openCollectionPage('/collection/playlists');
+            }, function() {
+                openCollectionPage('/collection/playlists');
+            });
+            return true;
+        }
+        return openCollectionPage('/collection/playlists');
+    };
+
+    window.__sfOpenLibraryCategory = function(tag) {
+        var key = String(tag || '').trim().toLowerCase();
+        var target = LIBRARY_CATEGORY_PATHS[key] || '/collection/playlists';
+        var pending = bridgeMediaItemsOrNull(key || 'playlists');
+        if (pending) {
+            pending.then(function(items) {
+                if (!Array.isArray(items) || items.length === 0) openCollectionPage(target);
+            }, function() {
+                openCollectionPage(target);
+            });
+            return true;
+        }
+        return openCollectionPage(target);
     };
 
     // ---- Bundled bridge loader ---------------------------------------------

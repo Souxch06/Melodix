@@ -288,3 +288,37 @@ test('a silent media transport still falls back to the real page', () => {
     assert.deepEqual(navigations, ['https://open.spotify.com/playlist/silent'],
         'the safety net still opens the page');
 });
+
+// P1 navigation: the Library tab and its chips must reach a real page. They
+// used to call the no-op transport and return, so the tap did nothing at all.
+test('the library tab opens the real playlists page with an empty transport', async () => {
+    const { win, navigations } = loadShell({ withCards: true, locationPath: '/' });
+    win.__sfMelodixBridgeStarted = true;
+    win.fetchMediaItems = async () => [];
+
+    win.__sfOpenLibrary();
+    await new Promise((resolve) => setTimeout(resolve, 5));
+    assert.deepEqual(navigations, ['https://open.spotify.com/collection/playlists'],
+        'the playlists collection page is really opened');
+});
+
+test('each library chip opens its own collection page', async () => {
+    for (const [tag, expected] of [
+        ['albums', 'https://open.spotify.com/collection/albums'],
+        ['artists', 'https://open.spotify.com/collection/artists'],
+        ['podcasts', 'https://open.spotify.com/collection/podcasts']
+    ]) {
+        const { win, navigations } = loadShell({ withCards: true });
+        win.__sfMelodixBridgeStarted = true;
+        win.fetchMediaItems = async () => [];
+        win.__sfOpenLibraryCategory(tag);
+        await new Promise((resolve) => setTimeout(resolve, 5));
+        assert.deepEqual(navigations, [expected], `chip ${tag} reaches its page`);
+    }
+});
+
+test('the library tab does not reload the page already shown', () => {
+    const { win, navigations } = loadShell({ withCards: true, locationPath: '/collection/playlists' });
+    win.__sfOpenLibrary();
+    assert.deepEqual(navigations, [], 'no useless reload of the page already open');
+});
