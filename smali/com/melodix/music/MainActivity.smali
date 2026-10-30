@@ -7576,10 +7576,13 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
     invoke-virtual {p1, v0}, Ljava/lang/String;->substring(I)Ljava/lang/String;
     move-result-object v2
     iget-object v3, p0, Lcom/melodix/music/MainActivity;->nativeExpectedId:Ljava/lang/String;
-    if-eqz v3, :apply_done
+    # No expectation recorded (page restored, deep link, first scrape): the
+    # payload is the best data available, so render it instead of dropping it.
+    if-eqz v3, :media_render
     invoke-virtual {v3, v2}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
     move-result v4
     if-eqz v4, :apply_done
+    :media_render
     iget-object v5, p0, Lcom/melodix/music/MainActivity;->nativeCurrentScreen:Ljava/lang/String;
     if-eqz v5, :apply_done
     const-string v6, "library"

@@ -1251,3 +1251,15 @@ test('the bridge recovery loop is capped so a dead bridge cannot churn the launc
     assert.ok(/bridgeLoadAttempts < 3\b/.test(shell), 'retries capped at 3');
     assert.ok(!/bridgeLoadAttempts < 8\b/.test(shell), 'the old eight-attempt loop is gone');
 });
+
+test('a library payload is rendered even when no id was expected', () => {
+    const activity = read('smali/com/melodix/music/MainActivity.smali');
+    const applyAt = activity.indexOf('.method public final applyNativeUiData(Ljava/lang/String;Ljava/lang/String;)V');
+    const branch = activity.slice(activity.indexOf('\n    :check_media\n', applyAt),
+        activity.indexOf('\n    :media_detail\n', applyAt));
+    // A null nativeExpectedId (page restored, deep link, first scrape) used to
+    // fall straight to :apply_done, so the library screen stayed empty for good.
+    assert.match(branch, /if-eqz v3, :media_render/, 'un identifiant absent ne jette plus le payload');
+    assert.match(branch, /\n    :media_render\n/, 'le rendu a son propre label');
+    assert.match(branch, /String;->equals\(Ljava\/lang\/Object;\)Z/, 'un identifiant different reste ignore');
+});
