@@ -8222,11 +8222,26 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
 .method public final onNativeHomeClick(Landroid/view/View;)V
     .locals 3
 
-    const-string v0, "home"
-    invoke-virtual {p0, v0}, Lcom/melodix/music/MainActivity;->setNativeScreen(Ljava/lang/String;)V
+    # Already on Home: keep the rows on screen and only ask the shell for a
+    # refresh. Rendering an empty list first blanks the shelf, and the shell
+    # re-sends an identical payload only when something really changed - so the
+    # blank state could stay until the next unrelated update.
+    iget-object v0, p0, Lcom/melodix/music/MainActivity;->nativeCurrentScreen:Ljava/lang/String;
+    const-string v1, "home"
+    if-eqz v0, :native_home_render
+    invoke-virtual {v0, v1}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    move-result v2
+    if-nez v2, :native_home_render
+    invoke-virtual {p0, v1}, Lcom/melodix/music/MainActivity;->setNativeScreen(Ljava/lang/String;)V
+    goto :native_home_request
+
+    :native_home_render
+    invoke-virtual {p0, v1}, Lcom/melodix/music/MainActivity;->setNativeScreen(Ljava/lang/String;)V
     const-string v1, "Accueil"
     const-string v2, "[]"
     invoke-virtual {p0, v1, v2}, Lcom/melodix/music/MainActivity;->renderNativeRows(Ljava/lang/String;Ljava/lang/String;)V
+
+    :native_home_request
     const-string v0, "window.__sfNativeRequestHome && window.__sfNativeRequestHome();"
     invoke-virtual {p0, v0}, Lcom/melodix/music/MainActivity;->runNativeJavascript(Ljava/lang/String;)V
     return-void

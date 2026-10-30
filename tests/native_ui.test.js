@@ -1288,3 +1288,18 @@ test('a null screen or a null payload through the bridge is ignored, never appli
     assert.match(head, /if-eqz p1, :apply_done/, 'un ecran null est ignore');
     assert.match(head, /if-eqz p2, :apply_done/, 'un corps null est ignore');
 });
+
+test('tapping the active Home tab keeps the rows instead of blanking the shelf', () => {
+    const activity = read('smali/com/melodix/music/MainActivity.smali');
+    const start = activity.indexOf('.method public final onNativeHomeClick');
+    const body = activity.slice(start, activity.indexOf('.end method', start));
+    // Already on home: no empty render, only the refresh request.
+    assert.ok(body.includes('nativeCurrentScreen:Ljava/lang/String;'),
+        'l onglet courant est lu avant de vider la liste');
+    assert.match(body, /if-nez v2, :native_home_render/);
+    assert.match(body, /:native_home_request[\s\S]*__sfNativeRequestHome/);
+    const emptyRenderAt = body.indexOf('const-string v2, "[]"');
+    const renderLabelAt = body.indexOf(':native_home_render');
+    assert.ok(renderLabelAt > 0 && emptyRenderAt > renderLabelAt,
+        'le rendu vide reste sur le chemin d un changement d onglet');
+});
