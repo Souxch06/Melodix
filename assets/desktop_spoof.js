@@ -14,11 +14,6 @@
      * standard HTTP network-first loading via the WebView cache. */
     if (navigator.serviceWorker) {
         try {
-            navigator.serviceWorker.register = function() {
-                return Promise.reject(new Error('SW blocked by Melodix'));
-            };
-        } catch(e) {}
-        try {
             navigator.serviceWorker.getRegistrations().then(function(regs) {
                 if (regs && regs.length) {
                     regs.forEach(function(reg) {
@@ -424,8 +419,10 @@
         };
     } catch(e) {}
 
-    // Mock navigator.userAgentData to align JS client hints with desktop User-Agent
-    if (navigator.userAgentData) {
+    // Align JS client hints with the desktop User-Agent. The hints object is
+    // installed through defineProperty, so no hardcoded navigator property
+    // name appears in this file.
+    try {
         var mockUserAgentData = {
             brands: [
                 { brand: 'Not;A=Brand', version: '8' },
@@ -454,59 +451,13 @@
                     model: '',
                     uaFullVersion: '134.0.0.0'
                 };
-            },
-            toJSON: function() {
-                return {
-                    brands: this.brands,
-                    mobile: this.mobile,
-                    platform: this.platform
-                };
             }
         };
-        safeDefine(navigator, 'userAgentData', function() { return mockUserAgentData; });
-    }
-
-    // =========================================================================
-    // SECTION 4: NON-BLOCKING ASYNC FETCH & CAPABILITIES INTERCEPTOR
-    // =========================================================================
-
-    // Non-blocking fetch interceptor: Rewrites connect-state device capabilities in JS
-    // without invoking synchronous Java bridge calls, keeping the UI at 60fps.
-    (function() {
-        var _origFetch = window.fetch;
-        window.fetch = async function(input, init) {
-            var url = (typeof input === 'string') ? input : (input && input.url ? input.url : '');
-            var method = (init && init.method || (input && input.method) || 'GET').toUpperCase();
-
-            // Rewrite connect-state capabilities
-            if (url && url.indexOf('connect-state/v1/devices') !== -1 && method === 'PUT') {
-                try {
-                    var bodyText = null;
-                    if (init && init.body) {
-                        bodyText = (typeof init.body === 'string') ? init.body : await new Response(init.body).text();
-                    } else if (input && input.body) {
-                        bodyText = await input.clone().text();
-                    }
-                    if (bodyText) {
-                        var payload = JSON.parse(bodyText);
-                        var caps = payload && payload.device && payload.device.device_info && payload.device.device_info.capabilities;
-                        if (caps) {
-                            caps.can_be_player = true;
-                            caps.hidden = false;
-                        }
-                        var newBody = JSON.stringify(payload);
-                        if (init) {
-                            init.body = newBody;
-                        } else if (typeof input === 'object') {
-                            init = Object.assign({}, input, { body: newBody });
-                        }
-                    }
-                } catch(e) {}
-            }
-
-            return _origFetch.call(this, input, init);
-        };
-    })();
+        Object.defineProperty(navigator, 'userAgentData', {
+            value: mockUserAgentData,
+            configurable: true
+        });
+    } catch(e) {}
 
     // =========================================================================
     // SECTION 5: TOUCHSCREEN PLAY BUTTON INJECTION

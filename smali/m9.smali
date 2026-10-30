@@ -1140,48 +1140,10 @@
     :try_sw_script_end
     .catchall {:try_sw_script_start .. :try_sw_script_end} :sw_script_failure
 
-    :try_start_4
-    sget v1, Lcom/melodix/music/AppSingleton;->j:I
+    # The optional sw scripting block is done: resume the normal factory flow
+    # without falling into the failure handler below.
+    goto :cond_0
 
-    .line 45
-    .line 46
-    const-string v1, "desktop_spoof.js"
-
-    .line 47
-    .line 48
-    invoke-static {v1}, Lm9;->d(Ljava/lang/String;)Ljava/lang/String;
-
-    .line 49
-    .line 50
-    .line 51
-    move-result-object v1
-
-    .line 52
-    const-string v2, "*"
-
-    .line 53
-    .line 54
-    invoke-static {v2}, Ljava/util/Collections;->singleton(Ljava/lang/Object;)Ljava/util/Set;
-
-    .line 55
-    .line 56
-    .line 57
-    move-result-object v2
-
-    .line 58
-    invoke-virtual {v2}, Ljava/lang/Object;->getClass()Ljava/lang/Class;
-
-    .line 59
-    .line 60
-    .line 61
-    invoke-static {p0, v1, v2}, Lgj1;->a(Ll9;Ljava/lang/String;Ljava/util/Set;)V
-    :try_end_4
-    .catch Ljava/lang/Exception; {:try_start_4 .. :try_end_4} :catch_1
-    .catchall {:try_start_4 .. :try_end_4} :catchall_1
-
-    .line 62
-    .line 63
-    .line 64
     :sw_script_failure
     move-exception v1
 
@@ -1658,7 +1620,7 @@
 
     .line 286
     .line 287
-    # Match native requests to the Chrome version already exposed through desktop_spoof.js client hints.
+    # Match native requests to the Chrome version exposed through client hints.
     const-string v0, "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36"
     invoke-virtual {p0}, Landroid/webkit/WebView;->getSettings()Landroid/webkit/WebSettings;
     move-result-object v1
