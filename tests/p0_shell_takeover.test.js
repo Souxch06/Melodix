@@ -384,3 +384,24 @@ test('the manual retry behind the state row restarts the library fetch', () => {
     assert.equal(calls, 1, 'the library fetch is forced exactly once');
     drainTimers(4);
 });
+
+// P0-D: the same real playlist can arrive twice - once scraped from the page
+// and once from the account library, with two URI spellings. The merge must
+// keep exactly one row, and it must be the library one (richer subtitle).
+test('the same playlist from the page and the library is merged once', () => {
+    const { calls } = loadShell({
+        withCards: true,
+        mediaLib: {
+            playlists: [
+                { id: 'spotify:playlist:37i9dQZF1DXcBWIGoYBM5M', name: 'Road trip', image: 'https://i.scdn.co/image/abc' }
+            ]
+        }
+    });
+    const home = calls.data.filter((call) => call.screen === 'home');
+    const rows = home[home.length - 1].rows;
+    const roadTrip = rows.filter((row) => row.title === 'Road trip');
+    assert.equal(roadTrip.length, 1, 'une seule ligne pour une meme playlist');
+    assert.equal(roadTrip[0].uri, 'spotify:playlist:37i9dQZF1DXcBWIGoYBM5M', 'URI canonique unique');
+    const uris = rows.map((row) => row.uri);
+    assert.equal(new Set(uris).size, uris.length, 'aucune URI dupliquee dans le payload');
+});
