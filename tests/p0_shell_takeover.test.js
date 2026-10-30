@@ -99,7 +99,7 @@ function cardPage({ withCards = true } = {}) {
 }
 
 // Boots the real shell against a fake page and records every bridge call.
-function loadShell({ withCards = true, mediaLib = null, locationPath = '/' } = {}) {
+function loadShell({ withCards = true, mediaLib = null, locationPath = '/', searchMediaItemsImpl = null } = {}) {
     const timers = [];
     const navigations = [];
     const { main, widget } = cardPage({ withCards });
@@ -165,6 +165,7 @@ function loadShell({ withCards = true, mediaLib = null, locationPath = '/' } = {
         win.__sfMediaLibStatus = 'loading';
     }
     win.checkMediaLib = () => { calls.mediaLibChecks += 1; };
+    if (searchMediaItemsImpl) win.searchMediaItems = searchMediaItemsImpl;
     win.AndBridge = {
         onNativeUiReady() { calls.ready += 1; },
         onNativeUiRoute(screen) { calls.routes.push(screen); },
@@ -321,4 +322,50 @@ test('the library tab does not reload the page already shown', () => {
     const { win, navigations } = loadShell({ withCards: true, locationPath: '/collection/playlists' });
     win.__sfOpenLibrary();
     assert.deepEqual(navigations, [], 'no useless reload of the page already open');
+});
+
+// P1 search: the bridge publishes searchMediaItems() that answers "no items"
+// in the current posture. Live typing and submit must still reach Spotify's
+// own search page, otherwise the whole search screen is dead.
+test('live typing falls back to the real search page when the bridge answers empty', async () => {
+    const { win, navigations, drainTimers } = loadShell({
+        withCards: true,
+        searchMediaItemsImpl: async () => []
+    });
+    win.searchMediaItems('jazz funk');
+    await new Promise((resolve) => setTimeout(resolve, 5));
+    assert.deepEqual(navigations, [], 'debounced: nothing leaves before the delay');
+    drainTimers(2);
+    assert.deepEqual(navigations, ['https://open.spotify.com/search/jazz%20funk'],
+        'the real search page opens after the debounce');
+});
+
+test('submitting the native search field navigates immediately', () => {
+    const { win, navigations } = loadShell({
+        withCards: true,
+        searchMediaItemsImpl: () => []
+    });
+    assert.equal(typeof win.__sfSubmitSearch, 'function', 'submit hook always exists');
+    win.__sfSubmitSearch('Radiohead');
+    assert.deepEqual(navigations, ['https://open.spotify.com/search/Radiohead'],
+        'submit does not wait for the live-typing debounce');
+});
+
+test('real bridge results are kept and no navigation happens', async () => {
+    const { win, navigations, drainTimers } = loadShell({
+        withCards: true,
+        searchMediaItemsImpl: async () => [{ title: 'Creep' }]
+    });
+    const items = await win.searchMediaItems('creep');
+    assert.equal(items.length, 1, 'the bridge answer is returned unchanged');
+    drainTimers(2);
+    assert.deepEqual(navigations, [], 'a real result never reloads the page');
+});
+
+test('without any bridge search function typing still reaches the search page', () => {
+    const { win, navigations, drainTimers } = loadShell({ withCards: true });
+    assert.equal(typeof win.__sfSubmitSearch, 'function');
+    win.searchMediaItems('daft punk');
+    drainTimers(2);
+    assert.deepEqual(navigations, ['https://open.spotify.com/search/daft%20punk']);
 });

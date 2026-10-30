@@ -2165,25 +2165,67 @@
         return true;
     }
 
+    function scheduleSearchNavigation(query) {
+        var q = String(query || '').trim();
+        if (!q) return;
+        if (searchNavigateTimer) window.clearTimeout(searchNavigateTimer);
+        searchNavigateTimer = window.setTimeout(function() {
+            searchNavigateTimer = 0;
+            navigateToSearch(q);
+        }, 900);
+    }
+
     function installSearchFallback() {
         var current = window.searchMediaItems;
         var fallback;
+        // Submitting the native field must always work, whether or not the
+        // bridge published a search function: the old code only defined this
+        // inside the no-bridge branch, so a submit reached the bridge's empty
+        // answer and the screen never changed.
+        if (typeof window.__sfSubmitSearch !== 'function') {
+            window.__sfSubmitSearch = function(query) {
+                return navigateToSearch(query);
+            };
+        }
         if (current && current._sfFallback === true) return;
-        if (typeof current === 'function') return;
+
+        if (typeof current !== 'function') {
+            fallback = function(query) {
+                scheduleSearchNavigation(query);
+            };
+            fallback._sfFallback = true;
+            window.searchMediaItems = fallback;
+            return;
+        }
+
+        // The bridge function exists but answers "no items" in the current
+        // posture. Keep its answer for callers, and fall back to Spotify's own
+        // search page so live typing still shows real results.
         fallback = function(query) {
+            var result;
             var q = String(query || '').trim();
-            if (!q) return;
-            if (searchNavigateTimer) window.clearTimeout(searchNavigateTimer);
-            searchNavigateTimer = window.setTimeout(function() {
-                searchNavigateTimer = 0;
-                navigateToSearch(q);
-            }, 900);
+            if (!q) return undefined;
+            try {
+                result = current.apply(this, arguments);
+            } catch (_) {
+                result = null;
+                scheduleSearchNavigation(q);
+                return result;
+            }
+            if (result && typeof result.then === 'function') {
+                return result.then(function(items) {
+                    if (!Array.isArray(items) || items.length === 0) scheduleSearchNavigation(q);
+                    return items;
+                }, function(err) {
+                    scheduleSearchNavigation(q);
+                    throw err;
+                });
+            }
+            if (!Array.isArray(result) || result.length === 0) scheduleSearchNavigation(q);
+            return result;
         };
         fallback._sfFallback = true;
         window.searchMediaItems = fallback;
-        window.__sfSubmitSearch = function(query) {
-            return navigateToSearch(query);
-        };
     }
 
     // Library filters. The chips used to call fetchMediaItems directly, which
