@@ -190,3 +190,20 @@ test('on tablets the player drops to the bottom and the content clears the top d
     assert.match(tablet, /#main-view[\s\S]*?padding-bottom: calc\(96px \+ env\(safe-area-inset-bottom\)\)/,
         'the bottom padding shrinks: only the player stays down there');
 });
+
+
+// ---------------------------------------------------------------------------
+// The injected fallback style must carry the tablet rules too
+// ---------------------------------------------------------------------------
+
+test('the fallback style puts the tab bar on top for tablets as well', () => {
+    const bridge = read('assets/spotify_bridge.js');
+    const i = bridge.indexOf("sf-mobile-shell-fallback-style");
+    const j = bridge.indexOf('`;', i);
+    const fallback = bridge.slice(i, j);
+    assert.match(fallback, /@media screen and \(min-width: 640px\)/,
+        'the injected style cannot undo the tablet layout');
+    assert.match(fallback, /@media screen and \(min-width: 640px\)[\s\S]*?#sf-mobile-nav\s*\{[\s\S]*?top: env\(safe-area-inset-top\) !important;[\s\S]*?bottom: auto !important;/);
+    assert.doesNotMatch(fallback, /@media screen and \(max-width: 820px\)/,
+        'the fallback stays free of the phone media query');
+});

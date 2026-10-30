@@ -2733,6 +2733,27 @@
             display: none !important;
         }
     }
+    @media screen and (min-width: 640px) {
+        body.sf-mobile-shell #sf-mobile-nav {
+            top: env(safe-area-inset-top) !important;
+            bottom: auto !important;
+            height: 56px !important;
+            padding: 5px 16px !important;
+        }
+        body.sf-mobile-shell aside[data-testid=\"now-playing-bar\"],
+        body.sf-library-open aside[data-testid=\"now-playing-bar\"] {
+            bottom: env(safe-area-inset-bottom) !important;
+        }
+        body.sf-mobile-shell #main-view,
+        body.sf-mobile-shell #main-view [data-overlayscrollbars-viewport] {
+            scroll-padding-bottom: calc(96px + env(safe-area-inset-bottom)) !important;
+            padding-bottom: calc(96px + env(safe-area-inset-bottom)) !important;
+        }
+        body.sf-mobile-shell #Desktop_LeftSidebar_Id {
+            top: calc(104px + env(safe-area-inset-top)) !important;
+            bottom: calc(84px + env(safe-area-inset-bottom)) !important;
+        }
+    }
 `;
         (document.head || document.documentElement).appendChild(style);
     }
