@@ -159,52 +159,7 @@
     if-eqz p0, :probe_done
 
     :try_start_0
-    const-string v0, "(function(){
-  try {
-    var log = function(m){ try { AndBridge.logDiagEvent(String(m).slice(0,150)); } catch(e){} };
-    if (document.querySelector('#main-view')) { log('probe ok main'); return 'ok'; }
-    var frames = document.querySelectorAll('iframe');
-    var srcs = [];
-    var frameNav = '';
-    for (var i = 0; i < frames.length; i++) {
-      var s = String(frames[i].getAttribute('src') || '');
-      srcs.push(s.slice(0, 70));
-      try {
-        var d = frames[i].contentDocument;
-        if (d && d.querySelector('#main-view')) frameNav = s;
-      } catch (e) {}
-      if (!frameNav && s.indexOf('open.spotify.com') >= 0 && s.indexOf('/intl-') < 0 && s.indexOf('http') === 0) frameNav = s;
-    }
-    var t = String(document.title || '').replace(/\\s+/g, ' ').slice(0, 26);
-    var h = '';
-    try { h = String(document.body ? document.body.innerText : '').replace(/\\s+/g, ' ').slice(0, 60); } catch (e) {}
-    log('probe t=' + t + ' h=' + h);
-    log('probe f=' + srcs.join(' | ').slice(0, 100));
-    if (frameNav) { log('probe nav frame'); window.location.assign(frameNav); return 'nav-frame'; }
-    var btn = document.querySelector('#onetrust-accept-btn-handler, #gdpr-notice-accept, button[title*=\"ccept\"], button[aria-label*=\"ccept\"], [data-testid*=\"ccept\" i], .cc-btn.cc-allow');
-    if (btn) {
-      log('probe consent click');
-      try { btn.click(); } catch (e) {}
-      return 'consent';
-    }
-    var nav = 0;
-    try {
-      var raw = window.localStorage.getItem('mel_player_nav');
-      if (raw) { var rec = JSON.parse(raw); if (rec && rec.n && (Date.now() - rec.t) < 60000) nav = rec.n | 0; }
-    } catch (e) {}
-    if (nav >= 3) { log('probe nav exhausted'); return 'stop'; }
-    try { window.localStorage.setItem('mel_player_nav', JSON.stringify({ n: nav + 1, t: Date.now() })); } catch (e) {}
-    var target = 'https://open.spotify.com/app';
-    if (nav === 1) target = 'https://open.spotify.com/search';
-    if (nav >= 2) target = 'https://open.spotify.com/';
-    log('probe nav ' + (nav + 1));
-    window.location.assign(target);
-    return 'nav';
-  } catch (e) {
-    try { AndBridge.logDiagEvent('probe err ' + ((e && e.name) || '?')); } catch (e2) {}
-    return 'err';
-  }
-})()"
+    const-string v0, "(function(){\n  try {\n    var log = function(m){ try { AndBridge.logDiagEvent(String(m).slice(0,150)); } catch(e){} };\n    if (document.querySelector('#main-view')) { log('probe ok main'); return 'ok'; }\n    var frames = document.querySelectorAll('iframe');\n    var srcs = [];\n    var frameNav = '';\n    for (var i = 0; i < frames.length; i++) {\n      var s = String(frames[i].getAttribute('src') || '');\n      srcs.push(s.slice(0, 70));\n      try {\n        var d = frames[i].contentDocument;\n        if (d && d.querySelector('#main-view')) frameNav = s;\n      } catch (e) {}\n      if (!frameNav && s.indexOf('open.spotify.com') >= 0 && s.indexOf('/intl-') < 0 && s.indexOf('http') === 0) frameNav = s;\n    }\n    var t = String(document.title || '').replace(/\\s+/g, ' ').slice(0, 26);\n    var h = '';\n    try { h = String(document.body ? document.body.innerText : '').replace(/\\s+/g, ' ').slice(0, 60); } catch (e) {}\n    log('probe t=' + t + ' h=' + h);\n    log('probe f=' + srcs.join(' | ').slice(0, 100));\n    if (frameNav) { log('probe nav frame'); window.location.assign(frameNav); return 'nav-frame'; }\n    var btn = document.querySelector('#onetrust-accept-btn-handler, #gdpr-notice-accept, button[title*=\"ccept\"], button[aria-label*=\"ccept\"], [data-testid*=\"ccept\" i], .cc-btn.cc-allow');\n    if (btn) {\n      log('probe consent click');\n      try { btn.click(); } catch (e) {}\n      return 'consent';\n    }\n    var nav = 0;\n    try {\n      var raw = window.localStorage.getItem('mel_player_nav');\n      if (raw) { var rec = JSON.parse(raw); if (rec && rec.n && (Date.now() - rec.t) < 60000) nav = rec.n | 0; }\n    } catch (e) {}\n    if (nav >= 3) { log('probe nav exhausted'); return 'stop'; }\n    try { window.localStorage.setItem('mel_player_nav', JSON.stringify({ n: nav + 1, t: Date.now() })); } catch (e) {}\n    var target = 'https://open.spotify.com/app';\n    if (nav === 1) target = 'https://open.spotify.com/search';\n    if (nav >= 2) target = 'https://open.spotify.com/';\n    log('probe nav ' + (nav + 1));\n    window.location.assign(target);\n    return 'nav';\n  } catch (e) {\n    try { AndBridge.logDiagEvent('probe err ' + ((e && e.name) || '?')); } catch (e2) {}\n    return 'err';\n  }\n})()"
 
     const/4 v1, 0x0
 
