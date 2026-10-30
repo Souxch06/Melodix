@@ -614,6 +614,12 @@
     .line 11
     invoke-super/range {p0 .. p2}, Landroid/webkit/WebViewClient;->onPageFinished(Landroid/webkit/WebView;Ljava/lang/String;)V
 
+    # Diagnostics: without this mark the stage chain cannot tell "the page never
+    # finished loading" from "the shell never ran". Values only, no page data.
+    const-string v2, "page-finished"
+
+    invoke-static {v2}, Lcom/melodix/music/NativeCrashGuard;->stage(Ljava/lang/String;)V
+
     .line 12
     .line 13
     .line 14
@@ -1336,6 +1342,12 @@
     invoke-static {v5}, Lm9;->d(Ljava/lang/String;)Ljava/lang/String;
     move-result-object v5
     invoke-virtual {v0, v5, v8}, Landroid/webkit/WebView;->evaluateJavascript(Ljava/lang/String;Landroid/webkit/ValueCallback;)V
+
+    # The shell is now queued in the page: the next stage in the chain tells
+    # whether the injection happened at all on this device.
+    const-string v5, "shell-injected"
+
+    invoke-static {v5}, Lcom/melodix/music/NativeCrashGuard;->stage(Ljava/lang/String;)V
 
     # spotify_bridge.js is ~200 KB. A single evaluateJavascript call of that size
     # is dropped without any error on device (the bridge never started, so every

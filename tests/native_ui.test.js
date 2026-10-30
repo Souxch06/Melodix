@@ -1263,3 +1263,17 @@ test('a library payload is rendered even when no id was expected', () => {
     assert.match(branch, /\n    :media_render\n/, 'le rendu a son propre label');
     assert.match(branch, /String;->equals\(Ljava\/lang\/Object;\)Z/, 'un identifiant different reste ignore');
 });
+
+test('the stage chain records the page finish and the shell injection', () => {
+    const client = read('smali/c91.smali');
+    // Without these marks a device report cannot separate "the page never
+    // finished loading" from "the shell never ran": both looked identical.
+    assert.match(client, /const-string v2, "page-finished"[\s\S]{0,120}NativeCrashGuard;->stage/,
+        'la fin de chargement de page est tracee');
+    assert.match(client, /const-string v5, "shell-injected"[\s\S]{0,160}NativeCrashGuard;->stage/,
+        'l injection du shell est tracee');
+    const finished = client.slice(client.indexOf('.method public final onPageFinished'));
+    const injectAt = finished.indexOf('native_ui_shell.js');
+    const stageAt = finished.indexOf('"shell-injected"');
+    assert.ok(injectAt > 0 && stageAt > injectAt, 'le marqueur suit l injection');
+});
