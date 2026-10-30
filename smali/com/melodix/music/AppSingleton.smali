@@ -68,6 +68,11 @@
 
 .field public static final f0:Ljava/util/concurrent/ConcurrentHashMap;
 
+# Diagnostic source of the current/last WebView factory attempt (null = none).
+# Written by the factory paths and read by the diagnostic helper; declaring it
+# is what keeps "sput-object ...->g0" from throwing NoSuchFieldError.
+.field public static g0:Ljava/lang/String; = null
+
 .field public static j:I = 0x0
 
 .field public static k:I = 0x0
