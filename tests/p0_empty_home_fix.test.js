@@ -23,14 +23,20 @@ const path = require('node:path');
 const root = path.join(__dirname, '..');
 const read = (p) => fs.readFileSync(path.join(root, p), 'utf8');
 
-test('[P0] notifyNativeUiReady n\'annonce pas le shell avec un accueil vide (gating rows >= 1)', () => {
+test('[P0] notifyNativeUiReady prend la main tot et garantit un etat (plus de blanc, plus d invisibilite)', () => {
   const shell = read('assets/native_ui_shell.js');
   const start = shell.indexOf('function notifyNativeUiReady(');
   assert.ok(start >= 0, 'notifyNativeUiReady existe');
   const body = shell.slice(start, shell.indexOf('\n    function ', start + 10));
-  assert.ok(body.includes('__sfNativeUiHomeRowsCount'), 'le gate lit le nombre de rows');
-  assert.ok(body.includes('ready-blocked'), 'le refus est trace');
-  assert.ok(body.includes('isSpotifyHome()'), 'le gate ne vise que la route accueil');
+  assert.ok(body.includes('__sfNativeUiHomeRowsCount'), 'le nombre de rows est observe');
+  assert.ok(body.includes('ready-early'), 'le takeover precoce est trace');
+  assert.ok(body.includes('isSpotifyHome()'), 'seule la route accueil est concernee');
+  // L ancien refus rows>=1 laissait l UI invisible quand Spotify etait lent;
+  // la protection contre un ecran blanc est desormais assuree par le payload
+  // d etat (voir tests/p0_shell_takeover.test.js, test comportemental).
+  assert.ok(!/__sfNativeUiHomeRowsCount \|\| 0\) < 1\) \{[\s\S]{0,200}return false;/.test(body),
+    'aucun refus bloquant sur un accueil vide');
+  assert.ok(shell.includes('function homeStatePayload('), 'un etat honnete est toujours disponible');
 });
 
 test('[P0] runUpdate envoie les rows AVANT la readiness (le feed precede le couvrement)', () => {

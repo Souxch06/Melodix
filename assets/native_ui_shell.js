@@ -573,6 +573,54 @@
         }, 500);
     }
 
+    // Honest Home state when there is no real row to paint yet. The native
+    // shelf always paints *something* (its own centred loading line for an
+    // empty payload), so the shell never has to hide behind the page: it can
+    // take over immediately and explain the wait or the failure in place.
+    // No invented playlist is ever produced here.
+    function homeLibraryErrorText() {
+        var err = String(window.__sfMediaLibError || '');
+        if (err === 'token-missing') return 'Session Spotify à rétablir — reconnectez-vous via Diagnostic.';
+        if (err === 'http-401') return 'Session Spotify expirée — reconnectez-vous.';
+        if (err === 'http-403') return 'Accès refusé par Spotify pour ce compte.';
+        if (err === 'http-429') return 'Spotify limite les requêtes — nouvel essai automatique.';
+        if (/^http-5/.test(err)) return 'Spotify est momentanément indisponible.';
+        if (err === 'fetch-parse-error') return 'Connexion instable — nouvel essai automatique.';
+        if (err) return 'Erreur ' + err + ' — nouvel essai automatique.';
+        return '';
+    }
+
+    function homeStateRow() {
+        var errorText = homeLibraryErrorText();
+        var status = window.__sfMediaLibStatus || 'pending';
+        if (errorText) {
+            return {
+                title: 'Vos playlists ne sont pas disponibles',
+                subtitle: errorText,
+                section: 'Vos playlists',
+                image: '',
+                uri: ''
+            };
+        }
+        return {
+            title: 'Aucune playlist dans ce compte',
+            subtitle: 'Créez ou suivez une playlist dans Spotify : elle apparaîtra ici.',
+            section: 'Vos playlists',
+            image: '',
+            uri: ''
+        };
+    }
+
+    // One payload for the empty Home: while the library is still loading the
+    // native loading line is enough (no card), otherwise the state explains
+    // itself. Never contains a fake playlist.
+    function homeStatePayload(status) {
+        if (status && status !== 'pending' && status !== 'loading' && status !== 'ready') return [homeStateRow()];
+        if (window.__sfMediaLibStatus === 'error') return [homeStateRow()];
+        if (window.__sfMediaLibStatus === 'ready') return [homeStateRow()];
+        return [];
+    }
+
     // P0 diagnostic: when the home collects nothing, say WHY on the screen
     // itself so a screenshot becomes a full diagnosis (build, page, bridge,
     // mediaLib, counts). Never sent while real rows exist - no invented music.
@@ -624,8 +672,16 @@
             // Empty home: surface the diagnosis on the screen itself (a
             // screenshot of the empty home becomes actionable), throttled to
             // three snapshots per retry cycle.
-            if (rows.length === 0 && (homeRetries === 3 || homeRetries === 15 || homeRetries === MAX_HOME_RETRIES)) {
+            if (rows.length === 0 && (homeRetries === 3 || homeRetries === 15)) {
                 try {
+                    // Explain the wait/failure on the screen itself, without
+                    // ever sending a fake playlist row.
+                    sendNativeUiData('home', homeStatePayload());
+                } catch (_) {}
+            } else if (rows.length === 0 && homeRetries === MAX_HOME_RETRIES) {
+                try {
+                    // Last retry: the full technical state, so a screenshot of
+                    // a still-empty Home is a complete diagnosis.
                     sendNativeUiData('home', [homeDiagRow('scrape vide apres ' + homeRetries + ' essais')]);
                 } catch (_) {}
             }
@@ -782,10 +838,15 @@
         // ready signal leaves a permanent blank screen. On the home route the
         // shell only takes over once at least one real row has been collected;
         // other routes keep their original readiness.
+        // The old rule here refused the takeover until one Home row existed.
+        // Whenever Spotify was slow, signed out or empty, the whole native UI
+        // stayed invisible behind the WebView (the reported freeze). The
+        // native shelf already paints an honest state for an empty payload,
+        // so the shell takes over right away and the real rows land after.
         if (isSpotifyHome() && (window.__sfNativeUiHomeRowsCount || 0) < 1) {
             window.__sfNativeUiReadyBlockedEmpty = (window.__sfNativeUiReadyBlockedEmpty || 0) + 1;
-            diagTrace('ready-blocked home rows=0 route=' + spotifyRoutePath());
-            return false;
+            diagTrace('ready-early home rows=0 route=' + spotifyRoutePath() + ' state=' +
+                (window.__sfMediaLibStatus || 'pending'));
         }
 
         if (typeof bridge.onNativeUiRoute === 'function') {
@@ -810,7 +871,9 @@
         // on the screen itself instead of silence.
         if ((window.__sfNativeUiHomeRowsCount || 0) < 1 && typeof bridge.onNativeUiData === 'function') {
             try {
-                bridge.onNativeUiData('home', JSON.stringify([homeDiagRow('takeover sans rows, route ' + spotifyRoutePath())]));
+                // Guaranteed painted state: the centred native loading line, or
+                // the explanation card when the library already failed.
+                bridge.onNativeUiData('home', JSON.stringify(homeStatePayload()));
             } catch (_) {}
         }
 

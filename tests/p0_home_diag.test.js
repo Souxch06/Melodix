@@ -34,20 +34,27 @@ test('[structurel] homeDiagRow porte build/page/bridge/mediaLib/rows', () => {
   assert.match(body, /__sfNativeUiHomeRowsCount/);
 });
 
-test('[structurel] un takeover sans rows affiche la ligne diagnostic', () => {
+test('[structurel] un takeover sans rows envoie un etat, jamais un ecran muet', () => {
   const at = shell.indexOf('bridge.onNativeUiReady();');
-  const after = shell.slice(at, at + 1400);
-  const diagAt = after.indexOf('homeDiagRow(');
-  assert.ok(diagAt > -1, 'envoi du diag après le takeover');
+  const after = shell.slice(at, at + 1600);
   assert.match(after, /__sfNativeUiHomeRowsCount \|\| 0\) < 1/);
-  assert.match(after, /onNativeUiData\('home', JSON\.stringify\(\[homeDiagRow/);
+  // Le shell prend la main tot (l ancien refus rows>=1 rendait toute l UI
+  // invisible) et garantit un payload: [] = ligne de chargement native, ou
+  // la carte d explication quand la bibliotheque a echoue.
+  assert.match(after, /onNativeUiData\('home', JSON\.stringify\(homeStatePayload\(\)\)/);
+  assert.ok(!/ready-blocked[^']*'[\s\S]{0,200}return false/.test(after),
+    'plus de refus bloquant sur un accueil vide');
 });
 
-test('[structurel] un scrape vide répété envoie le diag (3/15/MAX essais), jamais avec des rows', () => {
+test('[structurel] un scrape vide explique l etat (3/15) puis livre le diag complet (MAX)', () => {
   const at = shell.indexOf('function updateHomeRows(mainView)');
   const body = shell.slice(at, shell.indexOf('function currentSearchQuery', at));
-  assert.match(body, /rows\.length === 0 && \(homeRetries === 3 \|\| homeRetries === 15 \|\| homeRetries === MAX_HOME_RETRIES\)/);
+  assert.match(body, /rows\.length === 0 && \(homeRetries === 3 \|\| homeRetries === 15\)/);
+  assert.match(body, /sendNativeUiData\('home', homeStatePayload\(\)\)/);
+  assert.match(body, /rows\.length === 0 && homeRetries === MAX_HOME_RETRIES/);
   assert.match(body, /sendNativeUiData\('home', \[homeDiagRow/);
+  // Jamais de row d etat quand de vraies rows existent.
+  assert.ok(body.indexOf('homeStatePayload()') > -1);
 });
 
 test('[vm] le shell reste exécutable avec les ajouts diag', () => {

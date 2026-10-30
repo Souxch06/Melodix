@@ -366,10 +366,11 @@ test('native shell routes a Spotify detail deep link and transfers its title and
         image: '',
         uri: 'spotify:track:track123'
     }]);
-    // 3ᵉ appel : le takeover sans rows home affiche la ligne diagnostic
-    const diag = JSON.parse(calls[2].data);
-    assert.equal(diag.length, 1);
-    assert.equal(diag[0].title, 'Diagnostic Melodix');
+    // 3ᵉ appel : le takeover sans rows home envoie quand meme un etat (payload
+    // vide = la ligne de chargement centree du natif). Jamais de playlist
+    // inventee, jamais d ecran muet.
+    const state = JSON.parse(calls[2].data);
+    assert.deepEqual(state, [], 'aucune fausse ligne pendant le chargement');
 });
 
 test('native search deep links preserve their query in the native search field', () => {
@@ -408,13 +409,14 @@ test('native search deep links preserve their query in the native search field',
     vm.runInNewContext(read('assets/native_ui_shell.js'), { window, document, URL });
 
     assert.deepEqual(routes, ['search']);
-    // 2 appels : le takeover sans rows home affiche la ligne diagnostic (son
-    // ordre face à initial-search dépend du timing de la nav), + le search.
+    // 2 appels : le takeover sans rows home envoie un etat vide (ligne de
+    // chargement native, son ordre face à initial-search dépend du timing de
+    // la nav), + le search.
     assert.equal(calls.length, 2);
     const byScreen = {};
     calls.forEach((call) => { byScreen[call.screen] = call.data; });
     assert.equal(byScreen['initial-search'], 'Jazz Funk');
-    assert.equal(JSON.parse(byScreen.home)[0].title, 'Diagnostic Melodix');
+    assert.deepEqual(JSON.parse(byScreen.home), [], 'aucune fausse ligne home');
 });
 
 test('bundled native bootstrap activates the shell, sends Home rows, and only opens Spotify links', () => {
