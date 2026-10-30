@@ -425,6 +425,11 @@
     .line 10
     if-nez v0, :cond_1
 
+    # The WebView factory returned null: expose the safe diagnostic source.
+    const-string v0, "Source: WebView factory returned null"
+
+    invoke-virtual {p0, v0}, Lcom/melodix/music/MainActivity;->setNetworkErrorDiagnostic(Ljava/lang/String;)V
+
     .line 11
     .line 12
     iget-object v0, p0, Lcom/melodix/music/MainActivity;->P:Landroid/widget/TextView;
@@ -764,10 +769,74 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
     return-void
 .end method
 
+# Shows the fixed local network error text with a safe source line. The
+# caller's detail (or the last top-level URL) is the only variable part -
+# never request URLs, cookies, or connections. A richer message already on
+# screen is never replaced by the default.
+.method public final setNetworkErrorDiagnostic(Ljava/lang/String;)V
+    .locals 3
+
+    iget-object v0, p0, Lcom/melodix/music/MainActivity;->K:Landroid/widget/TextView;
+
+    if-eqz v0, :done
+
+    invoke-virtual {v0}, Landroid/widget/TextView;->getText()Ljava/lang/CharSequence;
+
+    move-result-object v1
+
+    if-eqz v1, :build
+
+    invoke-interface {v1}, Ljava/lang/CharSequence;->length()I
+
+    move-result v1
+
+    if-lez v1, :build
+
+    goto :done
+
+    :build
+    const-string v1, "Network Error\nTap to retry\n"
+
+    if-eqz p1, :use_g0
+
+    invoke-virtual {v1, p1}, Ljava/lang/String;->concat(Ljava/lang/String;)Ljava/lang/String;
+
+    move-result-object v1
+
+    goto :set_text
+
+    :use_g0
+    sget-object p1, Lcom/melodix/music/AppSingleton;->g0:Ljava/lang/String;
+
+    if-eqz p1, :set_text
+
+    const-string v2, "Source: "
+
+    invoke-virtual {v2, p1}, Ljava/lang/String;->concat(Ljava/lang/String;)Ljava/lang/String;
+
+    move-result-object p1
+
+    invoke-virtual {v1, p1}, Ljava/lang/String;->concat(Ljava/lang/String;)Ljava/lang/String;
+
+    move-result-object v1
+
+    :set_text
+    invoke-virtual {v0, v1}, Landroid/widget/TextView;->setText(Ljava/lang/CharSequence;)V
+
+    :done
+    return-void
+.end method
+
 .method public final D(Z)V
     .locals 3
 
     .line 1
+    # Default network error text (only fills an empty view): the source is
+    # "no WebView error detail captured" unless a richer one is already shown.
+    const-string v0, "Source: no WebView error detail captured"
+
+    invoke-virtual {p0, v0}, Lcom/melodix/music/MainActivity;->setNetworkErrorDiagnostic(Ljava/lang/String;)V
+
     sget-boolean v0, Lcom/melodix/music/AppSingleton;->m:Z
 
     .line 2
