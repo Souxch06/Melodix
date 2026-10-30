@@ -940,7 +940,11 @@ test('library and search still work when the bridge never starts', () => {
     // Library tab: bridge first, real collection page otherwise.
     assert.match(shell, /window\.__sfOpenLibrary = function\(\)/);
     assert.match(shell, /__sfMelodixBridgeStarted === true && typeof window\.fetchMediaItems === 'function'/);
-    assert.match(shell, /window\.location\.assign\('https:\/\/open\.spotify\.com\/collection\/playlists'\)/);
+    // Le repli ouvre la vraie page collection via un helper partage (l ancien
+    // retour immediat sur une reponse vide rendait l onglet inerte).
+    assert.match(shell, /function openCollectionPage\(target\)/);
+    assert.match(shell, /window\.location\.assign\('https:\/\/open\.spotify\.com' \+ target\)/);
+    assert.match(shell, /openCollectionPage\('\/collection\/playlists'\)/);
     const libraryClick = activity.slice(activity.indexOf('.method public final onNativeLibraryClick'));
     assert.match(libraryClick, /const-string v0, "window\.__sfOpenLibrary && window\.__sfOpenLibrary\(\)"/);
     assert.doesNotMatch(libraryClick, /const-string v0, "window\.fetchMediaItems"/);
