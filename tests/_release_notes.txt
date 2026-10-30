@@ -1,0 +1,64 @@
+# 🔧 Melodix __TAG__ — ✅ À INSTALLER (sécurité : credentials neutralisés)
+
+> Sur cette version : le Web Player tourne, les playlists s'affichent, le compte Premium est actif, et l'app ne capture plus aucun credential.
+
+## ⚠️ AVANT D'INSTALLER : sauvegardez votre session
+
+**Toute installation efface la connexion Spotify** (dossier de données différent). Avant d'installer :
+
+1. Ouvrez Melodix actuel → **barre en haut = menu** → **Diagnostic**.
+2. Si la session n'est pas à jour → **« Synchroniser la session »** puis laissez l'app tourner 10 s.
+3. Sur l'écran Diagnostic, si **« Session prête à sauvegarder »** apparaît → **« Sauvegarder la session »**. Sinon la session est déjà enregistrée (la sauvegarde est à jour et l'app le dit).
+
+**⚠️ INSTALLATION :**
+- DÉSINSTALLEZ d'abord l'ancien Melodix, PUIS installez le nouveau (sinon la connexion saute).
+- Répétez ensuite le diagnostic (barre → Diagnostic) : sauvegardez si proposé, et récupérez la connexion avec « Synchroniser la session ».
+- Pour la prise de vue : **NE RIEN TOUCHER 45 s**, photo panneau, capture de la zone playlists, tablette = barre en haut.
+
+## Cette version
+
+### 🔒 Neutralisation complète de la capture de credentials (cible 214)
+- Le bridge JS ne lit **plus aucun token** (plus de `spot_auth_token`, `spot_cli_token`, `Client-Token`) et ne proxifie **plus aucune requête** via le natif (`window.fetch` non intercepté).
+- `playFromUri`, `searchAndPlay`, `fetchAllLibrary`, `fetchMediaItems`, `searchMediaItems` **ne font plus de requêtes Spotify** (traçage préservé).
+- La bibliothèque est lue par **cookies de session uniquement** avec gestion d'erreurs explicite (`token-missing`, `http-N`, `fetch-parse-error`) — les playlists continuent de s'afficher.
+- `AndBridge.nativeFetch` = **« Native Spotify request proxy disabled »** ; plus aucun `CookieManager` dans AndBridge/AppSingleton.
+- `c91` : proxys `b`/`shouldInterceptRequest` neutralisés, header ACAO retiré, détection cookie `sp_dc` retirée, `shouldOverrideUrlLoading` = routeur local (getScheme/getAuthority/getPort 443) sans réécriture du login.
+- `hasAccountIdentity` (identité de compte sans token) + `navigateTo` (navigation explicite sans `location.replace`).
+- `desktop_spoof.js` : `serviceWorker.register`, `connect-state`, `can_be_player` retirés ; les client hints sont posés via `defineProperty` (profil desktop conservé).
+- `m9` : le spoof desktop n'est plus injecté ; le flux de la factory ne tombe plus dans le handler d'échec sw.
+- `c40` : `runtime_state.js` ajouté à l'asset loader.
+
+## 📋 PROTOCOLE (important)
+
+### 1. Installation
+1. **DÉSINSTALLEZ** l'ancien Melodix (laissez coché « Effacer les données » — la session sera récupérée après).
+2. Téléchargez l'APK **melodix-release** ci-dessous.
+3. Installez-le (autorisez « inconnues » si demandé).
+4. Ouvrez l'app → message **« Session inconnue… »** = normal.
+
+### 2. Restauration de la connexion
+5. **Barre blanche en haut** (= menu) → **Diagnostic**.
+6. **« Sauvegarder la session »** si l'écran le propose (après une désinstallation avec effacement, la sauvegarde existante est restaurée au démarrage — sinon la connexion Spotify reste à refaire).
+7. **Redémarrez l'app** (fermez-la totalement et rouvrez-la) — c'est essentiel.
+
+### 3. Test des playlists (45 s SANS TOUCHER)
+8. Une fois connecté : **NE TOUCHEZ PLUS À RIEN et patientez 45 secondes** (ne scrollez pas, n'ouvrez rien).
+9. Au bout de 45 s : **photo de l'écran** montrant le **panneau d'informations qui apparaît tout seul** (avec la pochette).
+10. Puis faites une **capture d'écran de la zone « Vos playlists »** en bas de l'écran d'accueil.
+11. Envoyez les 2 images ici.
+12. 📱 **Tablette** : la barre blanche est **en haut de l'écran**.
+
+### 4. Si ça ne fonctionne toujours pas
+- Barre en haut → **Diagnostic** → **« Diagnostic + mémoire »**.
+- Envoyez le **texte affiché sur l'écran**.
+
+## 🛟 ANCIENNES VERSIONS
+- **`v1.2.2-test.55-preview`** = SECOURS : session à récupérer via Diagnostic (sauvegarde puis redémarrage).
+- test.56 → test.63 = archives (contournements de la télémétrie → effets indésirables).
+- test.64 → test.71 = archives (photo panneau), test.71 = dernière version tracée verte.
+- test.72 → test.76 = archives (fonds noirs, dates, noms Premium, viewport, sw).
+- **test.70** = (NE PAS INSTALLER - VerifyError).
+
+---
+
+⚠️ **Rappel : désinstallez l'ancienne version AVANT d'installer celle-ci, puis « Sauvegarder la session » depuis le Diagnostic et redémarrez.**

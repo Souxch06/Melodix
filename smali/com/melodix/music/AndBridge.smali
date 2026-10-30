@@ -52,9 +52,6 @@
 
 .method public final onNativeUiReady()V
     .locals 2
-    .annotation runtime Landroid/webkit/JavascriptInterface;
-    .end annotation
-
     sget-object v0, Lcom/melodix/music/AppSingleton;->t:Ljava/lang/ref/WeakReference;
     if-eqz v0, :native_ready_done
     invoke-virtual {v0}, Ljava/lang/ref/Reference;->get()Ljava/lang/Object;
@@ -69,9 +66,6 @@
 
 .method public final onNativeUiRoute(Ljava/lang/String;)V
     .locals 2
-    .annotation runtime Landroid/webkit/JavascriptInterface;
-    .end annotation
-
     sget-object v0, Lcom/melodix/music/AppSingleton;->t:Ljava/lang/ref/WeakReference;
     if-eqz v0, :native_route_done
     invoke-virtual {v0}, Ljava/lang/ref/Reference;->get()Ljava/lang/Object;
@@ -86,18 +80,12 @@
 
 .method public final onNativeUiData(Ljava/lang/String;Ljava/lang/String;)V
     .locals 0
-    .annotation runtime Landroid/webkit/JavascriptInterface;
-    .end annotation
-
     invoke-direct {p0, p1, p2}, Lcom/melodix/music/AndBridge;->dispatchNativeUi(Ljava/lang/String;Ljava/lang/String;)V
     return-void
 .end method
 
 .method public final getBuildLabel()Ljava/lang/String;
     .locals 3
-    .annotation runtime Landroid/webkit/JavascriptInterface;
-    .end annotation
-
     # Diagnostic: the installed build label (1.2.2-<sha7>) so a screenshot of
     # the diagnostic row identifies the exact source commit running on the
     # device. Context comes from the same field every other AndBridge method
@@ -233,9 +221,6 @@
 
 .method public final logDiagEvent(Ljava/lang/String;)V
     .locals 3
-    .annotation runtime Landroid/webkit/JavascriptInterface;
-    .end annotation
-
     # P0 diagnostic: one bounded line per startup event on logcat (MDXTRACE)
     # so a phone-side log shows where the startup chain stops. The shell sends
     # status words only (stage, route, counts) - never payload data.
@@ -273,9 +258,6 @@
 
 .method public final nativeLogout()V
     .locals 2
-    .annotation runtime Landroid/webkit/JavascriptInterface;
-    .end annotation
-
     sget-object v0, Lcom/melodix/music/AppSingleton;->t:Ljava/lang/ref/WeakReference;
     if-eqz v0, :native_logout_done
     invoke-virtual {v0}, Ljava/lang/ref/Reference;->get()Ljava/lang/Object;
@@ -292,9 +274,6 @@
 
 .method public final onNativeProfileImage(Ljava/lang/String;)V
     .locals 1
-    .annotation runtime Landroid/webkit/JavascriptInterface;
-    .end annotation
-
     const-string v0, "profile-image"
     invoke-direct {p0, v0, p1}, Lcom/melodix/music/AndBridge;->dispatchNativeUi(Ljava/lang/String;Ljava/lang/String;)V
     return-void
@@ -434,9 +413,6 @@
 
 .method public final enterPip()V
     .locals 2
-    .annotation runtime Landroid/webkit/JavascriptInterface;
-    .end annotation
-
     .line 1
     sget-object p0, Lcom/melodix/music/AppSingleton;->t:Ljava/lang/ref/WeakReference;
 
@@ -485,9 +461,6 @@
 
 .method public final enterPipVideo(II)V
     .locals 1
-    .annotation runtime Landroid/webkit/JavascriptInterface;
-    .end annotation
-
     .line 1
     sget-object p0, Lcom/melodix/music/AppSingleton;->t:Ljava/lang/ref/WeakReference;
 
@@ -533,9 +506,6 @@
 
 .method public final isSignatureValid()Z
     .locals 9
-    .annotation runtime Landroid/webkit/JavascriptInterface;
-    .end annotation
-
     .line 1
     iget-object p0, p0, Lcom/melodix/music/AndBridge;->a:Landroid/content/Context;
 
@@ -946,9 +916,6 @@
 
 .method public final loginDetected()V
     .locals 2
-    .annotation runtime Landroid/webkit/JavascriptInterface;
-    .end annotation
-
     .line 1
     const/4 p0, 0x1
 
@@ -1583,9 +1550,6 @@
 
 .method public final onSearchCompleted(Ljava/lang/String;Ljava/lang/String;)V
     .locals 20
-    .annotation runtime Landroid/webkit/JavascriptInterface;
-    .end annotation
-
     .line 1
     move-object/from16 v0, p2
 
@@ -2289,6 +2253,9 @@
 
 # Profile capture disabled: nothing is written into the cookie jar.
 .method public final onUserInfoCaptured(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)V
+    .annotation runtime Landroid/webkit/JavascriptInterface;
+    .end annotation
+
     .locals 0
 
     return-void
@@ -2774,9 +2741,6 @@
 
 .method public final setCanvasDisabled(Z)V
     .locals 1
-    .annotation runtime Landroid/webkit/JavascriptInterface;
-    .end annotation
-
     .line 1
     sput-boolean p1, Lcom/melodix/music/AppSingleton;->Q:Z
 
@@ -2974,9 +2938,6 @@
 
 .method public final injectBundledAsset(Ljava/lang/String;)V
     .locals 4
-    .annotation runtime Landroid/webkit/JavascriptInterface;
-    .end annotation
-
     # Recovery hook: pages can ask for a bundled script to be evaluated again
     # when its first injection never started (for example a stale WebView or a
     # dropped evaluateJavascript call). Only whitelisted assets are accepted.
@@ -3024,9 +2985,6 @@
 
 .method public final readBundledAsset(Ljava/lang/String;)Ljava/lang/String;
     .locals 2
-    .annotation runtime Landroid/webkit/JavascriptInterface;
-    .end annotation
-
     # The playback bridge is a 200 KB asset. Sending it through a single
     # evaluateJavascript call silently fails on some WebViews, so JavaScript
     # fetches the text through this whitelisted getter and executes it itself.
@@ -3052,9 +3010,6 @@
 
 .method public final readBundledAssetRange(Ljava/lang/String;II)Ljava/lang/String;
     .locals 4
-    .annotation runtime Landroid/webkit/JavascriptInterface;
-    .end annotation
-
     # Ranged reader for the bundled bridge. JavascriptInterface string returns
     # above roughly 200 KB are silently dropped on some WebViews (the same
     # limit that kills a single evaluateJavascript of the full asset), so the
