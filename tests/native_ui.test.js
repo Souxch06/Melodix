@@ -1277,3 +1277,14 @@ test('the stage chain records the page finish and the shell injection', () => {
     const stageAt = finished.indexOf('"shell-injected"');
     assert.ok(injectAt > 0 && stageAt > injectAt, 'le marqueur suit l injection');
 });
+
+test('a null screen or a null payload through the bridge is ignored, never applied', () => {
+    const activity = read('smali/com/melodix/music/MainActivity.smali');
+    const start = activity.indexOf('.method public final applyNativeUiData');
+    const body = activity.slice(start, activity.indexOf('.end method', start));
+    const head = body.slice(0, 400);
+    // The bridge is callable from the page: p1/p2 can be null, and the old code
+    // reached String.equals/length with them.
+    assert.match(head, /if-eqz p1, :apply_done/, 'un ecran null est ignore');
+    assert.match(head, /if-eqz p2, :apply_done/, 'un corps null est ignore');
+});

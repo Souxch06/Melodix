@@ -7430,6 +7430,13 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
 .method public final applyNativeUiData(Ljava/lang/String;Ljava/lang/String;)V
     .locals 10
 
+    # The bridge is reachable from the page itself: a null screen or a null
+    # body used to reach String.equals/length and crash the activity. Nothing
+    # can be applied without both, so the call is simply ignored.
+    if-eqz p1, :apply_done
+
+    if-eqz p2, :apply_done
+
     # Diag natif : quel payload arrive avec quel ecran courant (gate drop).
     :try_start_md1
     const-string v8, "data"
