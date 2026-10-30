@@ -88,6 +88,41 @@
 
     invoke-static {v0, v1}, Lcom/melodix/music/StartupDiagnosticOverlay;->show(Landroid/app/Activity;Ljava/lang/String;)V
 
+    # Safety net, pure Java: the CONTENT STUCK verdict means the shell JS
+    # never delivered anything at 45s (its timers may even be paused). Force
+    # the WebView onto the web player entry - no JS involved.
+    iget-object v0, p0, Lcom/melodix/music/StartupUnstickRunnable;->report:Ljava/lang/String;
+
+    const-string v1, "CONTENT STUCK"
+
+    invoke-virtual {v0, v1}, Ljava/lang/String;->contains(Ljava/lang/CharSequence;)Z
+
+    move-result v0
+
+    if-eqz v0, :no_panel
+
+    iget-object v0, p0, Lcom/melodix/music/StartupUnstickRunnable;->activity:Lcom/melodix/music/MainActivity;
+
+    iget-object v0, v0, Lcom/melodix/music/MainActivity;->G:Landroid/webkit/WebView;
+
+    if-eqz v0, :no_panel
+
+    :try_start_0
+    const-string v1, "https://open.spotify.com/app"
+
+    invoke-virtual {v0, v1}, Landroid/webkit/WebView;->loadUrl(Ljava/lang/String;)V
+
+    const-string v1, "native-nav app"
+
+    invoke-static {v1}, Lcom/melodix/music/NativeCrashGuard;->diagLine(Ljava/lang/String;)V
+    :try_end_0
+    .catch Ljava/lang/Throwable; {:try_start_0 .. :try_end_0} :catch_0
+
+    goto :no_panel
+
+    :catch_0
+    move-exception v0
+
     :no_panel
     iget-boolean v1, p0, Lcom/melodix/music/StartupUnstickRunnable;->unstick:Z
 

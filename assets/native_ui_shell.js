@@ -1401,13 +1401,14 @@
         } catch (_) {}
     }
 
-    // P0 CONTENT STUCK fix: Spotify can serve the localized landing
-    // (open.spotify.com/intl-xx/) instead of the web player even for a
-    // signed-in session - and the landing's CTA testid varies or is absent.
-    // So do not depend on any button: if the player root is missing after a
-    // short grace period, navigate deterministically to the player entry
-    // URLs. Two attempts per minute-window (localStorage survives page
-    // navigations, so no loop; a fresh launch gets a fresh chance).
+    // P0 CONTENT STUCK fix: Spotify can serve a thin wrapper page
+    // (open.spotify.com/intl-xx/, title "Spotify - Web Player") that hosts
+    // the real player inside IFRAMES - the DOM collectors looking at the
+    // top document see nothing, so the takeover never fires. Navigate to
+    // the player deterministically: the iframe source first (the player
+    // itself), then the CTA href, then the player entry URLs. Synchronous
+    // on purpose - JS timers may stay paused in this WebView (a setTimeout
+    // fallback is attached but never trusted alone).
     function playerNavCount() {
         var n = 0;
         try {
@@ -1426,15 +1427,34 @@
         } catch (_) {}
     }
 
-    function navToPlayer(n, href) {
-        var useHref = href && (href.indexOf('http') === 0 || href.charAt(0) === '/');
-        var target;
-        if (useHref) {
+    function iframePlayerSrc() {
+        try {
+            var frames = document.querySelectorAll('iframe');
+            for (var i = 0; i < frames.length; i++) {
+                var src = frames[i].getAttribute('src') || '';
+                if (src.indexOf('open.spotify.com') >= 0) return src;
+            }
+        } catch (_) {}
+        return '';
+    }
+
+    function navToPlayer(n, href, frameSrc) {
+        var target = '';
+        var what = '';
+        if (frameSrc && (frameSrc.indexOf('http') === 0 || frameSrc.charAt(0) === '/')) {
+            target = frameSrc;
+            what = 'iframe';
+        } else if (href && (href.indexOf('http') === 0 || href.charAt(0) === '/')) {
             target = href;
+            what = 'href';
+        } else if (n <= 1) {
+            target = 'https://open.spotify.com/app';
+            what = 'app';
         } else {
-            target = (n <= 1) ? 'https://open.spotify.com/app' : 'https://open.spotify.com/search';
+            target = 'https://open.spotify.com/search';
+            what = 'search';
         }
-        diagTrace('player-nav try ' + n + ' ' + (useHref ? 'href' : (n <= 1 ? 'app' : 'search')));
+        diagTrace('player-nav try ' + n + ' ' + what);
         try {
             window.location.assign(target);
         } catch (_) {}
@@ -1442,9 +1462,18 @@
 
     function maybeNavigateToPlayer() {
         if (document.querySelector('#main-view')) return;
-        if (window.__sfPlayerNavPending) return;
+        if (document.querySelector('[data-testid="user-widget-link"]')) return;
+        if (document.querySelector('[data-testid="card"]')) return;
         if (playerNavCount() >= 2) return;
-        window.__sfPlayerNavPending = 1;
+        if (!window.__sfShellStart) {
+            window.__sfShellStart = Date.now();
+            // Never trusted alone (timers can stay paused) but harmless.
+            window.setTimeout(function() {
+                maybeNavigateToPlayer();
+            }, 2600);
+        }
+        // Grace period: a real player may still be rendering its DOM.
+        if (Date.now() - window.__sfShellStart < 2500) return;
         var n = playerNavCount() + 1;
         playerNavBump(n);
         var cta = document.querySelector('button[data-testid="web-player-link"], a[data-testid="web-player-link"]');
@@ -1459,13 +1488,7 @@
                 cta.click();
             } catch (_) {}
         }
-        window.setTimeout(function() {
-            if (document.querySelector('#main-view')) {
-                diagTrace('player-cta ok via click');
-                return;
-            }
-            navToPlayer(n, href);
-        }, 3000);
+        navToPlayer(n, href, iframePlayerSrc());
     }
 
     // One-line DOM census for the diagnostic trail: what the page really
@@ -1502,6 +1525,14 @@
             ' u=' + (document.querySelector('[data-testid="user-widget-link"]') ? '1' : '0') +
             ' b=' + (document.body ? document.body.childElementCount : -1) +
             ' i=' + ifr + ' t=' + title + ' h=' + h1 + ' g=' + ids);
+        try {
+            var frames = document.querySelectorAll('iframe');
+            var parts = [];
+            for (var j = 0; j < frames.length && j < 2; j++) {
+                parts.push('f' + j + '=' + String(frames[j].getAttribute('src') || '?').slice(0, 42));
+            }
+            diagTrace('dom iframes ' + parts.join(' '));
+        } catch (_) {}
     }
 
     function runUpdate() {
@@ -1533,11 +1564,12 @@
     }
 
     function scheduleUpdate() {
-        if (updateTimer) return;
-        updateTimer = window.setTimeout(function() {
-            updateTimer = null;
-            runUpdate();
-        }, 120);
+        // Synchronous and timer-free on purpose: JS timers can stay paused in
+        // this WebView, which would stop every collector. Throttled by clock.
+        var now = Date.now();
+        if (now - (window.__sfLastUpdate || 0) < 150) return;
+        window.__sfLastUpdate = now;
+        runUpdate();
     }
 
     var SETTINGS_STORAGE_KEY = 'melodix_spotify_settings_v1';

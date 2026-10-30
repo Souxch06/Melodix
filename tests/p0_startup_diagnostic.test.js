@@ -264,7 +264,7 @@ test('the shell opens the web player even without the landing CTA', () => {
   const js = read('assets/native_ui_shell.js');
   assert.ok(js.includes('function maybeNavigateToPlayer()'),
     'the player must open regardless of the landing DOM');
-  assert.ok(js.includes('function navToPlayer(n, href)'),
+  assert.ok(js.includes('function navToPlayer(n, href, frameSrc)'),
     'navigation is its own traced step');
   assert.ok(js.includes("diagTrace('player-nav try '"),
     'each navigation attempt is traced for the photo');
@@ -312,4 +312,54 @@ test('the login-page snippet keeps its side effects and gains the fallback', () 
     'the deterministic fallback is traced');
   assert.ok(c91.includes('window.location.assign(t);'),
     'the fallback navigates when the click is ignored');
+});
+
+
+// ---------------------------------------------------------------------------
+// Part 7 - wrapper page with a framed player: navigate, timers or not
+// ---------------------------------------------------------------------------
+
+test('the iframe hosting the player is the preferred navigation target', () => {
+  const js = read('assets/native_ui_shell.js');
+  assert.ok(js.includes('function iframePlayerSrc()'),
+    'the wrapper page frames the player - its src is the door');
+  const nav = js.slice(js.indexOf('function navToPlayer(n, href, frameSrc)'));
+  assert.ok(nav.indexOf('frameSrc') < nav.indexOf("'https://open.spotify.com/app'"),
+    'the iframe source wins over the guessed entry URLs');
+  assert.ok(nav.indexOf('open.spotify.com') >= 0);
+});
+
+test('navigation does not depend on JS timers being alive', () => {
+  const js = read('assets/native_ui_shell.js');
+  const body = js.slice(js.indexOf('function maybeNavigateToPlayer()'),
+    js.indexOf('function domCensusOnce()'));
+  assert.ok(body.includes('navToPlayer(n, href, iframePlayerSrc());'),
+    'the synchronous path navigates directly');
+  assert.ok(body.includes('Date.now() - window.__sfShellStart < 2500'),
+    'a grace period protects a player still rendering');
+  const sched = js.slice(js.indexOf('function scheduleUpdate()'),
+    js.indexOf('function scheduleUpdate()') + 400);
+  assert.ok(!sched.includes('setTimeout'),
+    'collecting must never wait for a paused timer');
+  assert.ok(sched.includes('window.__sfLastUpdate'),
+    'clock throttle instead of a debounce timer');
+});
+
+test('the census exposes the framed player sources', () => {
+  const js = read('assets/native_ui_shell.js');
+  assert.ok(js.includes("diagTrace('dom iframes '"),
+    'the photo must show what the iframes load');
+  assert.ok(js.includes("getAttribute('src')"),
+    'src attributes are readable even cross-origin');
+});
+
+test('the native safety net forces the player without any JS', () => {
+  const body = methodBody(UNS(), '.method public final run()V');
+  assert.ok(body.includes('const-string v1, "CONTENT STUCK"'),
+    'only the no-content verdict triggers it');
+  assert.ok(body.includes('Lcom/melodix/music/MainActivity;->G:Landroid/webkit/WebView;'),
+    'the live WebView is navigated');
+  assert.ok(body.includes('Landroid/webkit/WebView;->loadUrl(Ljava/lang/String;)V'));
+  assert.ok(body.includes('const-string v1, "native-nav app"'),
+    'the attempt lands in the diagnostic trail');
 });
