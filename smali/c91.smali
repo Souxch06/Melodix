@@ -2454,6 +2454,16 @@
     .line 8
     if-eqz v1, :cond_4
 
+    invoke-interface {p2}, Landroid/webkit/WebResourceRequest;->isForMainFrame()Z
+
+    move-result v3
+
+    invoke-static {p1, v1, v3}, Lcom/melodix/music/SpotifyNavigationPolicy;->handle(Landroid/webkit/WebView;Landroid/net/Uri;Z)Z
+
+    move-result v2
+
+    if-nez v2, :spotify_app_link_handled
+
     .line 9
     .line 10
     invoke-virtual {v1}, Landroid/net/Uri;->toString()Ljava/lang/String;
@@ -2573,7 +2583,39 @@
     return p0
 
     .line 93
+    :spotify_app_link_handled
+    const/4 v0, 0x1
+
+    return v0
+
     :cond_4
     :goto_0
+    return v0
+.end method
+
+.method public final shouldOverrideUrlLoading(Landroid/webkit/WebView;Ljava/lang/String;)Z
+    .locals 2
+
+    if-eqz p2, :legacy_super
+
+    invoke-static {p2}, Landroid/net/Uri;->parse(Ljava/lang/String;)Landroid/net/Uri;
+
+    move-result-object v0
+
+    const/4 v1, 0x1
+
+    invoke-static {p1, v0, v1}, Lcom/melodix/music/SpotifyNavigationPolicy;->handle(Landroid/webkit/WebView;Landroid/net/Uri;Z)Z
+
+    move-result v1
+
+    if-eqz v1, :legacy_super
+
+    return v1
+
+    :legacy_super
+    invoke-super {p0, p1, p2}, Landroid/webkit/WebViewClient;->shouldOverrideUrlLoading(Landroid/webkit/WebView;Ljava/lang/String;)Z
+
+    move-result v0
+
     return v0
 .end method
