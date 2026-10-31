@@ -84,3 +84,63 @@ test('a device without a WebView gets an explanation, never a black screen', () 
     assert.doesNotMatch(nullBranch, /MainActivity;->D\(Z\)V/,
         'D(true) efface le splash et laisse un ecran noir sans moteur');
 });
+
+// Second device report (same tablet, build 1b1e533): the engine now EXISTS
+// (url=null instead of "<webview absente>") but no page was ever requested -
+// progress=100, chargement=false, and not a single page-finished stage. The
+// splash stayed, the watchdog declared CONTENT STUCK 60 s later. Two separate
+// ways of reaching that state had to be closed.
+
+test('the first load no longer depends on the native shell being hidden', () => {
+    const factory = read('smali/m9.smali');
+    const body = methodBody(factory, '.method public static g(Landroid/content/Context;)Landroid/webkit/WebView;');
+    const beforeLoad = body.slice(body.indexOf('setWebViewClient'), body.indexOf('loadUrl'));
+
+    // AppSingleton.l ("shell displayed") skipped the only load: when the startup
+    // safety net showed the shell before the engine existed, nothing ever loaded.
+    assert.doesNotMatch(beforeLoad, /AppSingleton;->l:Z/,
+        'le premier chargement ne doit plus dependre de la coque affichee');
+    assert.match(beforeLoad, /Landroid\/webkit\/WebView;->getOriginalUrl\(\)Ljava\/lang\/String;/,
+        'la decision doit venir de l\'etat du WebView lui-meme');
+    assert.match(body, /:load_first_page/);
+});
+
+test('C() guarantees a page load right after the WebView is stored', () => {
+    const activity = read('smali/com/melodix/music/MainActivity.smali');
+    const body = methodBody(activity, '.method public final C()V');
+    const stored = body.indexOf('iput-object v0, p0, Lcom/melodix/music/MainActivity;->G:Landroid/webkit/WebView;');
+    const ensured = body.indexOf('MainActivity;->ensureWebPageLoaded()V');
+    assert.ok(stored > 0, 'le WebView est affecte a G');
+    assert.ok(ensured > stored, 'ensureWebPageLoaded est appelee juste apres');
+});
+
+test('ensureWebPageLoaded is idempotent, uses the same target and never hides a failure', () => {
+    const activity = read('smali/com/melodix/music/MainActivity.smali');
+    const body = methodBody(activity, '.method public final ensureWebPageLoaded()V');
+
+    // Idempotent: an already requested page returns immediately, so onResume
+    // can never reload the player while the user is listening.
+    assert.match(body, /getOriginalUrl\(\)Ljava\/lang\/String;/);
+    assert.match(body, /getUrl\(\)Ljava\/lang\/String;/);
+
+    // Same URLs as the factory, so the login flow is not altered.
+    assert.match(body, /https:\/\/open\.spotify\.com\//);
+    assert.match(body, /accounts\.spotify\.com\/en\/login/);
+
+    // Failures are recorded, never swallowed, and the branch names itself.
+    assert.match(body, /recordWebViewConfigFailure\(Ljava\/lang\/Throwable;\)V/);
+    assert.match(body, /const-string v1, "ensure-load"/);
+    assert.match(body, /const-string v1, "ensure-load-failed"/);
+
+    // No cookie, cache or session manipulation: this only asks for a page.
+    assert.doesNotMatch(body, /CookieManager|clearCache|clearHistory|evaluateJavascript/);
+});
+
+test('the load watchdog retries a WebView that never requested a page', () => {
+    const watchdog = read('smali/com/melodix/music/StartupLoadWatchdog.smali');
+    const body = methodBody(watchdog, '.method public final run()V');
+    assert.match(body, /const-string v2, "load-retry"/);
+    assert.match(body, /MainActivity;->ensureWebPageLoaded\(\)V/);
+    // The retry is guarded by the WebView's own state, not by a timer alone.
+    assert.match(body, /:webview_has_page/);
+});

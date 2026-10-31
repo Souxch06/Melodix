@@ -400,6 +400,85 @@
     return-void
 .end method
 
+.method public final ensureWebPageLoaded()V
+    .locals 4
+
+    # A WebView that exists but never loaded anything is the device failure we
+    # are fixing (report: url=null progress=100 chargement=false erreur=-1, no
+    # page ever started). Whatever path produced the engine - fresh factory,
+    # cached singleton re-bound to a new activity, or a configuration step that
+    # failed before the first loadUrl - this method guarantees a page is
+    # requested exactly once per empty WebView.
+    #
+    # Idempotent on purpose: once a load has been requested, getOriginalUrl()
+    # is not null and every later call returns immediately, so onResume cannot
+    # reload the player while the user is using it.
+    :try_start_all
+    iget-object v0, p0, Lcom/melodix/music/MainActivity;->G:Landroid/webkit/WebView;
+
+    if-eqz v0, :done
+
+    invoke-virtual {v0}, Landroid/webkit/WebView;->getOriginalUrl()Ljava/lang/String;
+
+    move-result-object v1
+
+    if-eqz v1, :done
+
+    invoke-virtual {v0}, Landroid/webkit/WebView;->getUrl()Ljava/lang/String;
+
+    move-result-object v1
+
+    if-eqz v1, :done
+
+    # Same target the factory uses: the player when the session is proven,
+    # the login form otherwise. The login flow itself is untouched.
+    sget-boolean v1, Lcom/melodix/music/AppSingleton;->B:Z
+
+    if-eqz v1, :login_url
+
+    sget-boolean v1, Lcom/melodix/music/MainActivity;->l0:Z
+
+    if-nez v1, :login_url
+
+    const-string v1, "https://open.spotify.com/"
+
+    goto :have_url
+
+    :login_url
+    const-string v1, "https://accounts.spotify.com/en/login?continue=https%3A%2F%2Fopen.spotify.com%2F&allow_signup=1"
+
+    :have_url
+    :try_start_load
+    invoke-virtual {v0, v1}, Landroid/webkit/WebView;->loadUrl(Ljava/lang/String;)V
+    :try_end_load
+    .catchall {:try_start_load .. :try_end_load} :load_failed
+
+    const-string v1, "ensure-load"
+
+    invoke-static {v1}, Lcom/melodix/music/NativeCrashGuard;->stage(Ljava/lang/String;)V
+
+    goto :done
+
+    :load_failed
+    move-exception v1
+
+    invoke-static {v1}, Lcom/melodix/music/NativeCrashGuard;->recordWebViewConfigFailure(Ljava/lang/Throwable;)V
+
+    const-string v1, "ensure-load-failed"
+
+    invoke-static {v1}, Lcom/melodix/music/NativeCrashGuard;->stage(Ljava/lang/String;)V
+    :try_end_all
+    .catch Ljava/lang/Throwable; {:try_start_all .. :try_end_all} :catch_all
+
+    goto :done
+
+    :catch_all
+    move-exception v0
+
+    :done
+    return-void
+.end method
+
 .method public final C()V
     .locals 6
 
@@ -417,6 +496,11 @@
 
     .line 7
     iput-object v0, p0, Lcom/melodix/music/MainActivity;->G:Landroid/webkit/WebView;
+
+    # The factory is not the only way a WebView reaches the screen: a cached
+    # singleton re-bound to a new activity never loads a page. Guarantee one
+    # here, before anything else touches the view.
+    invoke-virtual {p0}, Lcom/melodix/music/MainActivity;->ensureWebPageLoaded()V
 
     .line 8
     .line 9

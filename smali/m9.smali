@@ -1596,11 +1596,23 @@
     .line 273
     .line 274
     .line 275
-    sget-boolean v0, Lcom/melodix/music/AppSingleton;->l:Z
+    # Load the first page whenever THIS WebView has never requested one.
+    #
+    # The old condition was AppSingleton.l, "the native shell is displayed".
+    # On a real device (url=null progress=100, no page-finished stage) the
+    # shell had been shown by the startup safety net before the engine was
+    # created, so this branch skipped the one and only load and the app kept
+    # an empty WebView for the whole session: a shell over nothing.
+    # What matters here is the WebView's own state, not the shell's.
+    invoke-virtual {p0}, Landroid/webkit/WebView;->getOriginalUrl()Ljava/lang/String;
 
-    .line 276
-    .line 277
-    if-nez v0, :cond_9
+    move-result-object v0
+
+    if-nez v0, :load_first_page
+
+    goto :cond_9
+
+    :load_first_page
 
     .line 278
     .line 279
@@ -1713,6 +1725,9 @@
 
     :retry_failed
     move-exception v0
+
+    # The retry itself failed: record it instead of losing the cause.
+    invoke-static {v0}, Lcom/melodix/music/NativeCrashGuard;->recordWebViewConfigFailure(Ljava/lang/Throwable;)V
 
     :keep_webview
     .line 308

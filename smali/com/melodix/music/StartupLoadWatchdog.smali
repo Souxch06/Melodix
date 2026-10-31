@@ -97,6 +97,25 @@
     check-cast v1, Landroid/webkit/WebView;
     if-eqz v1, :return
 
+    # An engine with no page at all is the failure measured on a real device:
+    # url=null progress=100, and not a single page-finished stage. The native
+    # shell had been displayed over an empty WebView. Retry the first load
+    # once from the Java side instead of only waiting for a page that was
+    # never requested.
+    invoke-virtual {v1}, Landroid/webkit/WebView;->getUrl()Ljava/lang/String;
+    move-result-object v2
+    if-eqz v2, :webview_has_page
+
+    invoke-virtual {v1}, Landroid/webkit/WebView;->getOriginalUrl()Ljava/lang/String;
+    move-result-object v2
+    if-eqz v2, :webview_has_page
+
+    const-string v2, "load-retry"
+    invoke-static {v2}, Lcom/melodix/music/NativeCrashGuard;->stage(Ljava/lang/String;)V
+
+    invoke-virtual {v0}, Lcom/melodix/music/MainActivity;->ensureWebPageLoaded()V
+
+    :webview_has_page
     iget-object v2, v0, Lcom/melodix/music/MainActivity;->H:Landroidx/constraintlayout/widget/ConstraintLayout;
     if-eqz v2, :return
     invoke-virtual {v2}, Landroid/view/View;->getVisibility()I
