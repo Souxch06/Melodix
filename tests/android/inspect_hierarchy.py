@@ -23,6 +23,13 @@ def parse_bounds(value):
     return tuple(int(part) for part in match.groups())
 
 
+def fail(reason):
+    # Surface a bounded, redacted cause in the GitHub check annotation as well
+    # as stderr. This keeps a failed UI run diagnosable without uploading raw XML.
+    print(f"::error title=Android UI hierarchy check::{reason}")
+    raise SystemExit(reason)
+
+
 def inspect_screenshot(path, bounds=None, region_name="region"):
     image = Image.open(path).convert("RGB")
     width, height = image.size
@@ -117,11 +124,17 @@ def main():
         "nativeRowsScroll" in node["resource_id"] and node["accessibility_visible"] for node in nodes
     )
     web_container_present = any("webViewContainer" in value for value in resource_ids)
+    web_container_visible = any(
+        "webViewContainer" in node["resource_id"] and node["accessibility_visible"] for node in nodes
+    )
     splash_present = any("splashOverlay" in value for value in resource_ids)
+    splash_visible = any(
+        "splashOverlay" in node["resource_id"] and node["accessibility_visible"] for node in nodes
+    )
     screen_text = " ".join(visible_texts)
     login_words_visible = any(
         phrase in screen_text
-        for phrase in ("spotify", "log in", "sign in", "s'inscrire", "se connecter", "network error")
+        for phrase in ("log in", "sign in", "s'inscrire", "se connecter", "connexion", "network error")
     )
 
     phase_name = "unauthenticated_webview_surface" if phase == "login" else "empty_home_webview_fallback"
@@ -135,41 +148,45 @@ def main():
         "native_rows_scroll_node_present": rows_scroll_present,
         "native_rows_scroll_accessibility_visible": rows_scroll_visible,
         "webview_container_node_present": web_container_present,
+        "webview_container_accessibility_visible": web_container_visible,
         "webview_accessibility_node_visible": webview_class_visible,
         "splash_accessibility_node_present": splash_present,
+        "splash_accessibility_visible": splash_visible,
         "login_or_network_text_detected": login_words_visible,
     }
-
-    if not webview_class_visible or webview_bounds is None:
-        raise SystemExit("The UI hierarchy has no visible, bounded WebView node; container presence is insufficient")
-    if native_root_visible or native_home_tab_visible or rows_scroll_visible:
-        phase_label = "unauthenticated login" if phase == "login" else "empty-Home fallback"
-        raise SystemExit(f"Native Home is visible over the WebView in the {phase_label} hierarchy")
 
     if phase == "login":
         # A visible WebView node does not by itself prove that the login DOM
         # exists. The Android harness separately checks the DOM and records only
         # a boolean; this hierarchy field is strictly text-accessibility evidence.
         summary["login_text_detected_in_hierarchy"] = login_words_visible
-        region_name = "webview"
     else:
         summary["playlist_payload_injected"] = False
         summary["native_root_hidden"] = not native_root_visible
         summary["home_tabs_hidden"] = not native_home_tab_visible
-        region_name = "webview"
 
+    region_name = "webview"
     summary["screenshot_pixels"] = inspect_screenshot(
         screenshot_path, webview_bounds, region_name
     )
-    summary["webview_accessibility_bounds_px"] = list(webview_bounds)
-    if not summary["screenshot_pixels"].get(f"{region_name}_pixels_rendered"):
-        raise SystemExit("The visible WebView bounds have no rendered screenshot pixels")
-
+    summary["webview_accessibility_bounds_px"] = (
+        list(webview_bounds) if webview_bounds else None
+    )
     Path(summary_path).write_text(json.dumps(summary, indent=2) + "\n", encoding="utf-8")
+
+    if not webview_class_visible or webview_bounds is None:
+        fail("visible_bounded_webview_node_missing")
+    if splash_visible:
+        fail("startup_splash_accessibility_visible")
+    if native_root_visible or native_home_tab_visible or rows_scroll_visible:
+        fail("native_home_accessibility_visible_over_webview")
+    if not summary["screenshot_pixels"].get(f"{region_name}_pixels_rendered"):
+        fail("webview_bounds_have_no_rendered_screenshot_pixels")
+
     if phase == "login":
-        print("Unauthenticated first-launch WebView: visible bounds and screenshot pixels verified; raw text redacted.")
+        print("Unauthenticated first-launch WebView: visible bounds and unobscured screenshot pixels verified; raw text redacted.")
     else:
-        print("Empty-Home fallback hierarchy: native Home hidden and visible WebView screenshot pixels verified; no playlist data.")
+        print("Empty-Home fallback hierarchy: native Home hidden and unobscured WebView screenshot pixels verified; no playlist data.")
 
 
 if __name__ == "__main__":

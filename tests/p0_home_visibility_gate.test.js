@@ -112,5 +112,8 @@ test('the CI Home integration contains no fake playlist or substituted account c
   assert.match(harness, /"home",\s*"\[\]"/,
     'the integration sends only an empty Home payload to test the safe fallback');
   assert.match(harness, /putBoolean\("native_home_cards_attached", false\)/);
+  assert.match(inspector, /splash_accessibility_visible/);
+  assert.match(inspector, /fail\("startup_splash_accessibility_visible"\)/,
+    'the screenshot check rejects a visible splash covering the WebView');
   assert.doesNotMatch(inspector, /FIXTURE_TITLE|Controlled Home fixture|fixture_title/);
 });
