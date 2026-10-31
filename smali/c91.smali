@@ -620,6 +620,34 @@
 
     invoke-static {v2}, Lcom/melodix/music/NativeCrashGuard;->stage(Ljava/lang/String;)V
 
+    # The account host is not a native screen: the shell's collectors return
+    # early there, so onNativeUiReady is never sent and the splash is never
+    # lifted. A fresh install or an expired session could not reach the login
+    # form at all. Lifting the splash here only removes a native overlay; the
+    # login flow (WebView session, cookies, accounts.spotify.com) is untouched.
+    const-string v2, "accounts.spotify.com"
+
+    invoke-virtual {v1, v2}, Ljava/lang/String;->contains(Ljava/lang/CharSequence;)Z
+
+    move-result v2
+
+    if-eqz v2, :page_finished_reveal_done
+
+    sget-object v2, Lcom/melodix/music/AppSingleton;->t:Ljava/lang/ref/WeakReference;
+
+    if-eqz v2, :page_finished_reveal_done
+
+    invoke-virtual {v2}, Ljava/lang/ref/Reference;->get()Ljava/lang/Object;
+
+    move-result-object v2
+
+    check-cast v2, Lcom/melodix/music/MainActivity;
+
+    if-eqz v2, :page_finished_reveal_done
+
+    invoke-virtual {v2}, Lcom/melodix/music/MainActivity;->revealWebUi()V
+
+    :page_finished_reveal_done
     .line 12
     .line 13
     .line 14

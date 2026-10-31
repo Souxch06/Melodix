@@ -8727,6 +8727,29 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
     return-void
 .end method
 
+.method public final revealWebUi()V
+    .locals 2
+
+    # The Spotify account host is not a native screen. The shell returns early
+    # there (its collectors only run on open.spotify.com), so onNativeUiReady is
+    # never sent and showNativeUi() - the only other code that lifts the splash -
+    # never runs. A fresh install, or an expired session, therefore never saw the
+    # login form: a branded splash covered it for ever.
+    #
+    # This only removes a native overlay. The login flow itself (WebView session,
+    # cookies, accounts.spotify.com) is untouched.
+    iget-object v0, p0, Lcom/melodix/music/MainActivity;->H:Landroidx/constraintlayout/widget/ConstraintLayout;
+
+    if-eqz v0, :reveal_done
+
+    const/16 v1, 0x8
+
+    invoke-virtual {v0, v1}, Landroid/view/View;->setVisibility(I)V
+
+    :reveal_done
+    return-void
+.end method
+
 .method public final setNativeProfileImage(Ljava/lang/String;)V
     .locals 3
 
