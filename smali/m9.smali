@@ -699,7 +699,11 @@
     move-result-object v3
 
     .line 43
-    const-string v4, "hotfixes/"
+    # Hotfix reads are disabled: filesDir/hotfixes/ can hold stale Firebase
+    # scripts that silently replace the shipped assets (the 146452-char bridge
+    # that never started). Renaming the suffix makes every read miss and fall
+    # through to the APK asset - no control flow changed, verifier-neutral.
+    const-string v4, "hotfixes_off/"
 
     .line 44
     .line 45
@@ -1014,6 +1018,11 @@
 .method public static g(Landroid/content/Context;)Landroid/webkit/WebView;
     .locals 4
 
+    # Fresh factory attempts clear the stale diagnostic source first.
+    const/4 v1, 0x0
+
+    sput-object v1, Lcom/melodix/music/AppSingleton;->g0:Ljava/lang/String;
+
     .line 1
     invoke-virtual {p0}, Ljava/lang/Object;->getClass()Ljava/lang/Class;
 
@@ -1024,7 +1033,9 @@
 
     .line 5
     :try_start_0
-    invoke-static {v0}, Landroid/webkit/WebView;->setWebContentsDebuggingEnabled(Z)V
+    const/4 v1, 0x0
+
+    invoke-static {v1}, Landroid/webkit/WebView;->setWebContentsDebuggingEnabled(Z)V
     :try_end_0
     .catchall {:try_start_0 .. :try_end_0} :catchall_0
 
@@ -1065,7 +1076,7 @@
     .line 24
     sput-object p0, Lcom/melodix/music/AppSingleton;->w:Ll9;
     :try_end_1
-    .catchall {:try_start_1 .. :try_end_1} :catchall_1
+    .catchall {:try_start_1 .. :try_end_1} :webview_create_failure
 
     .line 25
     .line 26
@@ -1092,7 +1103,7 @@
     .line 35
     .line 36
     :catch_0
-    :try_start_3
+    :try_sw_feature_start
     const-string v1, "DOCUMENT_START_SCRIPT"
 
     .line 37
@@ -1103,56 +1114,53 @@
     .line 40
     .line 41
     move-result v1
-    :try_end_3
-    .catchall {:try_start_3 .. :try_end_3} :catchall_1
+    :try_sw_feature_end
+    .catchall {:try_sw_feature_start .. :try_sw_feature_end} :cond_0
 
     .line 42
     if-eqz v1, :cond_0
 
     .line 43
     .line 44
-    :try_start_4
-    sget v1, Lcom/melodix/music/AppSingleton;->j:I
+    :try_sw_script_start
+    const-string v1, "spotify_sw_compat.js"
 
-    .line 45
-    .line 46
-    const-string v1, "desktop_spoof.js"
-
-    .line 47
-    .line 48
     invoke-static {v1}, Lm9;->d(Ljava/lang/String;)Ljava/lang/String;
 
-    .line 49
-    .line 50
-    .line 51
     move-result-object v1
 
-    .line 52
-    const-string v2, "*"
+    const-string v2, "https://open.spotify.com"
 
-    .line 53
-    .line 54
     invoke-static {v2}, Ljava/util/Collections;->singleton(Ljava/lang/Object;)Ljava/util/Set;
 
-    .line 55
-    .line 56
-    .line 57
     move-result-object v2
 
-    .line 58
-    invoke-virtual {v2}, Ljava/lang/Object;->getClass()Ljava/lang/Class;
-
-    .line 59
-    .line 60
-    .line 61
     invoke-static {p0, v1, v2}, Lgj1;->a(Ll9;Ljava/lang/String;Ljava/util/Set;)V
-    :try_end_4
-    .catch Ljava/lang/Exception; {:try_start_4 .. :try_end_4} :catch_1
-    .catchall {:try_start_4 .. :try_end_4} :catchall_1
 
-    .line 62
-    .line 63
-    .line 64
+    :try_sw_script_end
+    .catchall {:try_sw_script_start .. :try_sw_script_end} :sw_script_failure
+
+    # The optional sw scripting block is done: resume the normal factory flow
+    # without falling into the failure handler below.
+    goto :cond_0
+
+    :sw_script_failure
+    move-exception v1
+
+    # Optional service-worker scripting failed: record the failure class
+    # name only, no exception text, and keep creating the WebView.
+    invoke-virtual {v1}, Ljava/lang/Throwable;->getClass()Ljava/lang/Class;
+
+    move-result-object v1
+
+    invoke-virtual {v1}, Ljava/lang/Class;->getSimpleName()Ljava/lang/String;
+
+    move-result-object v1
+
+    sput-object v1, Lcom/melodix/music/AppSingleton;->g0:Ljava/lang/String;
+
+    goto :cond_0
+
     :catch_1
     :cond_0
     const/4 v1, 0x2
@@ -1254,10 +1262,18 @@
     move-result-object v2
 
     .line 116
-    const-string v3, "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36"
+    invoke-virtual {p0}, Landroid/view/View;->getContext()Landroid/content/Context;
 
     .line 117
+    move-result-object v3
+
     .line 118
+    invoke-static {v3}, Landroid/webkit/WebSettings;->getDefaultUserAgent(Landroid/content/Context;)Ljava/lang/String;
+
+    .line 119
+    move-result-object v3
+
+    .line 120
     invoke-virtual {v2, v3}, Landroid/webkit/WebSettings;->setUserAgentString(Ljava/lang/String;)V
 
     .line 119
@@ -1283,12 +1299,13 @@
     .line 131
     .line 132
     .line 133
-    invoke-virtual {v2, v0}, Landroid/webkit/WebSettings;->setUseWideViewPort(Z)V
+    const/4 v3, 0x0
+    invoke-virtual {v2, v3}, Landroid/webkit/WebSettings;->setUseWideViewPort(Z)V
 
     .line 134
     .line 135
     .line 136
-    invoke-virtual {v2, v0}, Landroid/webkit/WebSettings;->setLoadWithOverviewMode(Z)V
+    invoke-virtual {v2, v3}, Landroid/webkit/WebSettings;->setLoadWithOverviewMode(Z)V
 
     .line 137
     .line 138
@@ -1298,17 +1315,19 @@
     .line 140
     .line 141
     .line 142
-    invoke-virtual {v2, v1}, Landroid/webkit/WebSettings;->setMixedContentMode(I)V
+    const/4 v3, 0x1
+
+    invoke-virtual {v2, v3}, Landroid/webkit/WebSettings;->setMixedContentMode(I)V
 
     .line 143
     .line 144
     .line 145
-    invoke-virtual {v2, v0}, Landroid/webkit/WebSettings;->setAllowFileAccess(Z)V
+    invoke-virtual {v2, v1}, Landroid/webkit/WebSettings;->setAllowFileAccess(Z)V
 
     .line 146
     .line 147
     .line 148
-    invoke-virtual {v2, v0}, Landroid/webkit/WebSettings;->setAllowContentAccess(Z)V
+    invoke-virtual {v2, v1}, Landroid/webkit/WebSettings;->setAllowContentAccess(Z)V
 
     .line 149
     .line 150
@@ -1577,11 +1596,11 @@
     .line 273
     .line 274
     .line 275
-    sget-boolean v0, Lcom/melodix/music/AppSingleton;->l:Z
-
-    .line 276
-    .line 277
-    if-nez v0, :cond_9
+    # This path is reached only after constructing a brand-new WebView. It
+    # cannot already contain a page, so request the first page unconditionally.
+    # The prior null check was backwards: getOriginalUrl()==null branched past
+    # loadUrl, leaving precisely the about:blank view seen on the TB125FU.
+    :load_first_page
 
     .line 278
     .line 279
@@ -1601,11 +1620,21 @@
 
     .line 286
     .line 287
+    # Match native requests to the Chrome version exposed through client hints.
+    const-string v0, "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36"
+    invoke-virtual {p0}, Landroid/webkit/WebView;->getSettings()Landroid/webkit/WebSettings;
+    move-result-object v1
+    invoke-virtual {v1, v0}, Landroid/webkit/WebSettings;->setUserAgentString(Ljava/lang/String;)V
+
     const-string v0, "https://open.spotify.com/"
 
     .line 288
     .line 289
     invoke-virtual {p0, v0}, Landroid/webkit/WebView;->loadUrl(Ljava/lang/String;)V
+
+    const-string v1, "factory-load"
+
+    invoke-static {v1}, Lcom/melodix/music/NativeCrashGuard;->stage(Ljava/lang/String;)V
 
     .line 290
     .line 291
@@ -1614,11 +1643,23 @@
 
     .line 293
     :cond_8
-    const-string v0, "https://accounts.spotify.com/en/login?continue=https%3A%2F%2Fopen.spotify.com%2F&method=password&allow_password=1&allow_signup=1"
+    invoke-virtual {p0}, Landroid/webkit/WebView;->getSettings()Landroid/webkit/WebSettings;
+
+    move-result-object v1
+
+    const-string v0, "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36"
+
+    invoke-virtual {v1, v0}, Landroid/webkit/WebSettings;->setUserAgentString(Ljava/lang/String;)V
+
+    const-string v0, "https://accounts.spotify.com/en/login?continue=https%3A%2F%2Fopen.spotify.com%2F&allow_signup=1"
 
     .line 294
     .line 295
     invoke-virtual {p0, v0}, Landroid/webkit/WebView;->loadUrl(Ljava/lang/String;)V
+
+    const-string v1, "factory-load"
+
+    invoke-static {v1}, Lcom/melodix/music/NativeCrashGuard;->stage(Ljava/lang/String;)V
 
     .line 296
     .line 297
@@ -1644,13 +1685,77 @@
 
     .line 306
     :catchall_1
-    const/4 p0, 0x0
+    # A single failing step - a cookie setting, the first loadUrl, the proxy
+    # override - used to discard the WebView that had just been built. The
+    # engine existed, but MainActivity received null, C() reported a missing
+    # WebView and the splash never lifted: a black screen with no content.
+    # Keep the engine, record which step failed, and retry the first load only
+    # when nothing had started yet (so a failure after a started load cannot
+    # reload the page).
+    move-exception v0
 
-    .line 307
-    sput-object p0, Lcom/melodix/music/AppSingleton;->w:Ll9;
+    invoke-static {v0}, Lcom/melodix/music/NativeCrashGuard;->recordWebViewConfigFailure(Ljava/lang/Throwable;)V
 
+    const-string v2, "factory-config-failed"
+
+    invoke-static {v2}, Lcom/melodix/music/NativeCrashGuard;->stage(Ljava/lang/String;)V
+
+    sget-object v1, Lcom/melodix/music/AppSingleton;->w:Ll9;
+
+    if-eqz v1, :keep_webview
+
+    invoke-virtual {v1}, Landroid/webkit/WebView;->getUrl()Ljava/lang/String;
+
+    move-result-object v2
+
+    if-eqz v2, :retry_without_page
+
+    const-string v3, "about:blank"
+
+    invoke-virtual {v3, v2}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+
+    move-result v3
+
+    if-eqz v3, :keep_webview
+
+    :retry_without_page
+    :try_start_retry
+    const-string v2, "https://accounts.spotify.com/en/login?continue=https%3A%2F%2Fopen.spotify.com%2F&allow_signup=1"
+
+    invoke-virtual {v1, v2}, Landroid/webkit/WebView;->loadUrl(Ljava/lang/String;)V
+    :try_end_retry
+    .catchall {:try_start_retry .. :try_end_retry} :retry_failed
+
+    const-string v2, "webview-kept"
+
+    invoke-static {v2}, Lcom/melodix/music/NativeCrashGuard;->stage(Ljava/lang/String;)V
+
+    goto :keep_webview
+
+    :retry_failed
+    move-exception v0
+
+    # The retry itself failed: record it instead of losing the cause.
+    invoke-static {v0}, Lcom/melodix/music/NativeCrashGuard;->recordWebViewConfigFailure(Ljava/lang/Throwable;)V
+
+    :keep_webview
     .line 308
     .line 309
+    goto :goto_4
+
+    # A failed WebView creation must never stay silent: the class and the
+    # message of the throwable are recorded (message truncated to 160 chars,
+    # no page content, cookie or token) so the diagnostic screen can show
+    # why the engine is missing instead of only counting an error.
+    :webview_create_failure
+    move-exception v0
+
+    invoke-static {v0}, Lcom/melodix/music/NativeCrashGuard;->recordWebViewFailure(Ljava/lang/Throwable;)V
+
+    const/4 p0, 0x0
+
+    sput-object p0, Lcom/melodix/music/AppSingleton;->w:Ll9;
+
     goto :goto_4
 
     .line 310

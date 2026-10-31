@@ -1,0 +1,79 @@
+name: Validate Android Apktool assembly
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  assemble:
+    name: Assemble unsigned APK without publishing
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check out selected branch
+        uses: actions/checkout@v7.0.1
+        with:
+          ref: ${{ github.ref }}
+
+      - name: Set up Java
+        uses: actions/setup-java@v6.1.0
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v4.0.4
+
+      - name: Install Android build tools
+        run: sdkmanager --install "build-tools;35.0.0"
+
+      - name: Assemble and inspect unsigned APK (runner temporary directory only)
+        shell: bash
+        run: |
+          set -euo pipefail
+          source_dir="$GITHUB_WORKSPACE"
+          work_dir="$RUNNER_TEMP/melodix-apktool-validation-project"
+          framework_dir="$RUNNER_TEMP/melodix-apktool-validation-framework"
+          output="$RUNNER_TEMP/melodix-validation-unsigned.apk"
+          mkdir -p "$framework_dir" "$work_dir"
+
+          project_items=(AndroidManifest.xml META-INF apktool.yml assets kotlin lib original res smali unknown)
+          for item in "${project_items[@]}"; do
+            if [[ ! -e "$source_dir/$item" ]]; then
+              echo "::error::Root-level Apktool project item is missing: $item"
+              exit 1
+            fi
+            cp -a "$source_dir/$item" "$work_dir/"
+          done
+
+          framework_apk="$source_dir/android/apktool-framework/1.apk"
+          if [[ ! -s "$framework_apk" ]]; then
+            echo "::error::Apktool framework is missing: android/apktool-framework/1.apk"
+            exit 1
+          fi
+
+          curl --fail --silent --show-error --location \
+            "https://github.com/iBotPeaches/Apktool/releases/download/v2.9.3/apktool_2.9.3.jar" \
+            --output "$RUNNER_TEMP/apktool.jar"
+          java -jar "$RUNNER_TEMP/apktool.jar" if \
+            --frame-path "$framework_dir" "$framework_apk"
+          java -jar "$RUNNER_TEMP/apktool.jar" b "$work_dir" \
+            --frame-path "$framework_dir" \
+            --output "$output" \
+            --force-all
+
+          if [[ ! -s "$output" ]]; then
+            echo "::error::Apktool returned success but did not create a non-empty APK."
+            exit 1
+          fi
+          build_tools="$ANDROID_HOME/build-tools/35.0.0"
+          package_id="$("$build_tools/aapt" dump badging "$output" | sed -n "s/^package: name='\\([^']*\\)'.*/\\1/p")"
+          if [[ "$package_id" != "com.melodix.music" ]]; then
+            echo "::error::Assembled APK has unexpected package id: $package_id"
+            exit 1
+          fi
+
+          echo "Unsigned Apktool assembly and package-id check passed."
+          echo "No signing secrets, release, or artifact upload are used by this workflow."

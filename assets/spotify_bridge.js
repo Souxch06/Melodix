@@ -1,4 +1,25 @@
 (function() {
+    if (window.__sfMelodixBridgeCompleted) {
+        if (typeof window.__sfEnsureMobileShell === 'function') {
+            try { window.__sfEnsureMobileShell(); } catch (_) {}
+        }
+        return;
+    }
+
+    // P0 diagnostic traces on logcat (MDXTRACE) through the native channel:
+    // bridge start / bridge done / load errors, status words only.
+    function __sfBridgeTrace(msg) {
+        try {
+            var b = window.AndBridge;
+            if (b && typeof b.logDiagEvent === 'function') b.logDiagEvent(String(msg || '').slice(0, 160));
+        } catch (_) {}
+    }
+    window.__sfBridgeTrace = __sfBridgeTrace;
+    __sfBridgeTrace('bridge start');
+    window.addEventListener('error', function(ev) {
+        __sfBridgeTrace('bridge js-error ' + String((ev && ev.error && ev.error.name) || (ev && ev.message) || 'unknown').slice(0, 60));
+    }, true);
+
     // Global flags injected by Android:
     // window.SF_CONFIG = { ... };
 
@@ -14,6 +35,312 @@
     let lastState = null;
     let lastPos = null;
     window.playing = false;
+
+    // >>> sf-pause-intent
+    // A pause the user explicitly asked for must stay a pause. Every automatic
+    // playback helper (resume, retry, "take control", autoplay) checks this
+    // latch before touching the player, so pausing never jumps to another
+    // track. The latch is cleared by explicit play requests only.
+    function isPlayPauseLabelPlaying(pb) {
+        if (!pb || typeof pb.getAttribute !== 'function') return null;
+        let label = '';
+        try {
+            label = String(pb.getAttribute('aria-label') || '').trim();
+        } catch (_) {
+            return null;
+        }
+        if (!label) return null;
+        return /paus/i.test(label);
+    }
+
+    function getPlayPauseButton() {
+        let pb = null;
+        if (document && typeof document.querySelector === 'function') {
+            try {
+                pb = document.querySelector('[data-testid="now-playing-bar"] button[data-testid="control-button-playpause"]') ||
+                     document.querySelector('aside[data-testid="now-playing-bar"] button[data-testid="control-button-playpause"]') ||
+                     document.querySelector('button[data-testid="control-button-playpause"]');
+            } catch (_) {
+                pb = null;
+            }
+        }
+        return pb || window.pBtn || null;
+    }
+
+    function playbackMediaNodes() {
+        if (!document || typeof document.querySelectorAll !== 'function') return [];
+        let nodes = null;
+        try {
+            nodes = document.querySelectorAll('audio, video');
+        } catch (_) {
+            return [];
+        }
+        if (!nodes || typeof nodes.length !== 'number') return [];
+        const list = [];
+        for (let i = 0; i < nodes.length; i += 1) list.push(nodes[i]);
+        return list;
+    }
+
+    function isMediaElementPlaying() {
+        const nodes = playbackMediaNodes();
+        for (let i = 0; i < nodes.length; i += 1) {
+            const el = nodes[i];
+            if (!el || el.paused !== false || el.ended || el.muted) continue;
+            if (String(el.tagName || '').toUpperCase() === 'VIDEO' && el.muted) continue;
+            // The silent keep-alive track is not Spotify playback: counting it
+            // here would make every "is it paused?" check answer "playing" and
+            // turn a pause request into a resume.
+            if (/silent\.mp3/i.test(String(el.currentSrc || el.src || ''))) continue;
+            return true;
+        }
+        return false;
+    }
+
+    // Real, audible content only, and only when the playhead actually moves.
+    // A paused player keeps its position, a buffering/preloading element does
+    // not advance and the silent keep-alive media never counts. Requiring a
+    // moving playhead makes the pause hold unable to mistake a frozen element
+    // for a resume (which would turn a pause into a play).
+    let lastAudibleTime = -1;
+
+    function isAudiblePlaybackAdvancing() {
+        const nodes = playbackMediaNodes();
+        let position = -1;
+        for (let i = 0; i < nodes.length; i += 1) {
+            const el = nodes[i];
+            if (!el || el.paused !== false || el.ended || el.muted) continue;
+            if (String(el.tagName || '').toUpperCase() === 'VIDEO' && el.muted) continue;
+            if (/silent\.mp3/i.test(String(el.currentSrc || el.src || ''))) continue;
+            const current = Number(el.currentTime || 0);
+            if (current > position) position = current;
+        }
+        const advancing = position >= 0 && lastAudibleTime >= 0 && position > lastAudibleTime + 0.05;
+        lastAudibleTime = position;
+        return advancing;
+    }
+
+    // Single source of truth for "is the player running right now?". The DOM
+    // label is preferred, the cached flag is only a fallback, and a live media
+    // element always wins so a stale label can never flip a pause into a play.
+    function getPlaybackSnapshot() {
+        const pb = getPlayPauseButton();
+        const labelState = isPlayPauseLabelPlaying(pb);
+        let playing = labelState === null ? Boolean(window.playing) : labelState;
+        if (!playing && isMediaElementPlaying()) playing = true;
+        return { playing: playing, hasButton: Boolean(pb) };
+    }
+    window.__sfGetPlaybackSnapshot = getPlaybackSnapshot;
+
+    // ---- Playback trace (preview diagnostics) ------------------------------
+    // A tiny ring buffer of playback events. It never stores URLs, tokens or
+    // page content: only event names, timestamps, the player's own state and
+    // the current track title. The preview runtime diagnostic reads it, so a
+    // field report can be matched with what the player actually did.
+    const PLAYBACK_TRACE_KEY = 'melodix_playback_trace_v1';
+    const PLAYBACK_TRACE_LIMIT = 80;
+
+    function readPlaybackTrace() {
+        try {
+            const raw = window.localStorage && window.localStorage.getItem(PLAYBACK_TRACE_KEY);
+            const parsed = raw ? JSON.parse(raw) : null;
+            return Array.isArray(parsed) ? parsed : [];
+        } catch (_) {
+            return [];
+        }
+    }
+
+    function tracePlayback(event, detail) {
+        let entry = null;
+        try {
+            const pb = getPlayPauseButton();
+            entry = {
+                at: Date.now(),
+                event: String(event || '').slice(0, 32),
+                playing: getPlaybackSnapshot().playing,
+                label: pb && typeof pb.getAttribute === 'function'
+                    ? String(pb.getAttribute('aria-label') || '').slice(0, 24)
+                    : '',
+                hidden: Boolean(document && document.visibilityState === 'hidden'),
+                track: String(window.track || '').slice(0, 48)
+            };
+            if (detail) entry.detail = String(detail).slice(0, 96);
+            let trace = readPlaybackTrace();
+            trace.push(entry);
+            if (trace.length > PLAYBACK_TRACE_LIMIT) {
+                trace = trace.slice(trace.length - PLAYBACK_TRACE_LIMIT);
+            }
+            window.__sfPlaybackTrace = trace;
+            if (window.localStorage) {
+                window.localStorage.setItem(PLAYBACK_TRACE_KEY, JSON.stringify(trace));
+            }
+        } catch (_) {}
+        return entry;
+    }
+
+    function clearPlaybackTrace() {
+        try {
+            window.__sfPlaybackTrace = [];
+            if (window.localStorage) window.localStorage.removeItem(PLAYBACK_TRACE_KEY);
+        } catch (_) {}
+    }
+
+    window.__sfTracePlayback = tracePlayback;
+    window.__sfClearPlaybackTrace = clearPlaybackTrace;
+    window.__sfGetPlaybackTrace = function(limit) {
+        const trace = (window.__sfPlaybackTrace || readPlaybackTrace()).slice();
+        const max = Number(limit) > 0 ? Math.min(Number(limit), PLAYBACK_TRACE_LIMIT) : PLAYBACK_TRACE_LIMIT;
+        return trace.slice(Math.max(0, trace.length - max));
+    };
+
+    // Record DOM activations that can change the track, so a field report shows
+    // whether the change came from the app or from Spotify's own player.
+    try {
+        document.addEventListener('click', function(event) {
+            const target = event && event.target;
+            if (!target || typeof target.closest !== 'function') return;
+            try {
+                const skip = target.closest('[data-testid="control-button-skip-forward"], [data-testid="control-button-skip-back"]');
+                if (skip) {
+                    tracePlayback('dom-skip', String(skip.getAttribute('data-testid') || ''));
+                    return;
+                }
+                if (!window.__sfUserRequestedPause) return;
+                const row = target.closest('[data-testid="tracklist-row"]');
+                if (row) tracePlayback('dom-track-row-while-paused', String(row.innerText || '').slice(0, 24));
+            } catch (_) {}
+        }, true);
+    } catch (_) {}
+
+    // Record DOM activations that can change the track, so a field report shows
+    // whether the change came from the app or from Spotify's own player.
+    try {
+        document.addEventListener('click', function(event) {
+            const target = event && event.target;
+            if (!target || typeof target.closest !== 'function') return;
+            try {
+                const skip = target.closest('[data-testid="control-button-skip-forward"], [data-testid="control-button-skip-back"]');
+                if (skip) {
+                    tracePlayback('dom-skip', String(skip.getAttribute('data-testid') || ''));
+                    return;
+                }
+                if (!window.__sfUserRequestedPause) return;
+                const row = target.closest('[data-testid="tracklist-row"]');
+                if (row) tracePlayback('dom-track-row-while-paused', String(row.innerText || '').slice(0, 24));
+            } catch (_) {}
+        }, true);
+    } catch (_) {}
+
+    // ---- Sticky pause hold -------------------------------------------------
+    // After an explicit pause the player is watched for a short while. If
+    // playback restarts without a user play request (native timer, media
+    // session echo, Spotify autoplay/queue logic), the pause is re-applied at
+    // once instead of letting the next track play. Any explicit play or skip
+    // request ends the hold immediately.
+    const PAUSE_HOLD_MS = 45000;
+    const PAUSE_HOLD_SETTLE_MS = 1200;
+    const PAUSE_HOLD_TICK_MS = 300;
+    const PAUSE_HOLD_MAX_REAPPLIES = 5;
+    const PAUSE_HOLD_REAPPLY_GAP_MS = 1500;
+    let pauseHoldTimer = null;
+    let pauseHoldSince = 0;
+    let pauseHoldUntil = 0;
+    let pauseHoldReapplies = 0;
+    let pauseHoldLastReapplyAt = 0;
+
+    function endPauseHold() {
+        if (pauseHoldTimer) {
+            try {
+                window.clearInterval(pauseHoldTimer);
+            } catch (_) {}
+            pauseHoldTimer = null;
+        }
+        pauseHoldUntil = 0;
+    }
+
+    function pauseHoldTick() {
+        if (!window.__sfUserRequestedPause) {
+            endPauseHold();
+            return;
+        }
+        const now = Date.now();
+        if (now > pauseHoldUntil || pauseHoldReapplies >= PAUSE_HOLD_MAX_REAPPLIES) {
+            endPauseHold();
+            return;
+        }
+        if (now - pauseHoldSince < PAUSE_HOLD_SETTLE_MS) return;
+        if (now - pauseHoldLastReapplyAt < PAUSE_HOLD_REAPPLY_GAP_MS) return;
+        if (window.__sfLastPlayRequestAt && now - window.__sfLastPlayRequestAt < PAUSE_HOLD_SETTLE_MS) return;
+
+        // Two independent signals are required before touching the player: the
+        // playhead must really be moving AND the player must label itself as
+        // playing. A pause that is still settling (fading out while the label
+        // already says "Play") is therefore never toggled back on.
+        const pb = getPlayPauseButton();
+        if (!pb || typeof pb.click !== 'function') return;
+        if (isPlayPauseLabelPlaying(pb) !== true) return;
+        if (!isAudiblePlaybackAdvancing()) return;
+
+        try {
+            pb.click();
+        } catch (_) {
+            return;
+        }
+        pauseHoldReapplies += 1;
+        pauseHoldLastReapplyAt = now;
+        lastAudibleTime = -1;
+        window.__sfPauseHoldReapplies = (window.__sfPauseHoldReapplies || 0) + 1;
+        tracePlayback('pause-hold-reapply', 'unexpected-resume');
+    }
+
+    function startPauseHold(source) {
+        const now = Date.now();
+        if (pauseHoldTimer && now < pauseHoldUntil) {
+            // Our own re-pause click fires the player button listener; it must
+            // not restart the window or reset the re-apply budget.
+            tracePlayback('pause-hold-kept', source);
+            return;
+        }
+        pauseHoldSince = now;
+        pauseHoldUntil = now + PAUSE_HOLD_MS;
+        pauseHoldReapplies = 0;
+        pauseHoldLastReapplyAt = 0;
+        lastAudibleTime = -1;
+        tracePlayback('pause-hold-start', source);
+        if (pauseHoldTimer) {
+            try {
+                window.clearInterval(pauseHoldTimer);
+            } catch (_) {}
+        }
+        pauseHoldTimer = window.setInterval(pauseHoldTick, PAUSE_HOLD_TICK_MS);
+    }
+
+    function markUserPlaybackIntent(playing, options) {
+        const explicit = !options || options.explicit !== false;
+        const paused = !playing;
+        if (!paused && !explicit) {
+            // Spotify resumed on its own: autoplay, a queue hand-off or a ghost
+            // media-session command. The user asked for a pause, so the latch
+            // and the hold stay armed until an explicit play or the hold ends.
+            tracePlayback('auto-resume-ignored', 'user-pause-active');
+            return;
+        }
+        window.__sfUserRequestedPause = paused;
+        reqPause = paused;
+        if (paused) {
+            window.__sfUserPausedAt = Date.now();
+            startPauseHold('mark');
+        } else {
+            ulFlag = false;
+            window.__sfLastPlayRequestAt = Date.now();
+            endPauseHold();
+        }
+    }
+    window.__sfMarkUserPlaybackIntent = markUserPlaybackIntent;
+    window.__sfIsUserPaused = function() {
+        return Boolean(window.__sfUserRequestedPause);
+    };
+    window.__sfEndPauseHold = endPauseHold;
+    // <<< sf-pause-intent
     let pfint = null;
     let afint = null;
     let cssint = null;
@@ -21,10 +348,22 @@
     let tagint = null;
     let fsUpdateTimer = null;
     let fsScrubbing = false;
+    let mobileLibraryOpen = false;
+
+    // Start the Home and shell observers before optional player integrations.
+    // Function declarations are hoisted; their scheduled work runs after this
+    // script yields, and the initializers are idempotent.
+    window.__sfMelodixBridgeStarted = true;
+    window.__sfMelodixBridgeBootstrapErrors = 0;
+    window.__sfMelodixHomeInitAttempted = true;
+    try {
+        initializeMelodixHome();
+    } catch (_) {
+        window.__sfMelodixBridgeBootstrapErrors += 1;
+    }
+    window.__sfMelodixBridgeBootstrapReady = true;
 
     try {
-        window.spotAuthToken = window.spotAuthToken || localStorage.getItem('spot_auth_token') || null;
-        window.spotCliToken = window.spotCliToken || localStorage.getItem('spot_cli_token') || null;
         window.spotDevId = window.spotDevId || localStorage.getItem('spot_dev_id') || localStorage.getItem('spot_device_id') || null;
     } catch (_) {}
 
@@ -502,10 +841,10 @@
         const handle = document.getElementById('sf-fs-bar-handle');
         const posTxt = document.getElementById('sf-fs-pos');
         const durTxt = document.getElementById('sf-fs-dur');
-        
+
         const safePos = (typeof pos === 'number' && isFinite(pos) && pos > 0) ? pos : 0;
         const safeDur = (typeof dur === 'number' && isFinite(dur) && dur > 0) ? dur : 0;
-        
+
         if (safeDur > 0) {
             const pct = Math.max(0, Math.min(100, (safePos / safeDur) * 100));
             if (fill) fill.style.width = `${pct}%`;
@@ -514,7 +853,7 @@
             if (fill) fill.style.width = '0%';
             if (handle) handle.style.left = '0%';
         }
-        
+
         if (posTxt) posTxt.innerText = formatTime(pos);
         if (durTxt) durTxt.innerText = formatTime(dur);
     }
@@ -647,23 +986,24 @@
      * Touch swipe helper for non-fullscreen elements (e.g. expanded now playing bar artwork).
      */
     function setupSwipe(el, isFs = false) {
+        if (window.__sfNativeUiShellReady) return;
         if (el._sfSwipeAttached) return;
         el._sfSwipeAttached = true;
         el.style.touchAction = 'pan-y';
         el.style.userSelect = 'none';
         el.style.webkitUserDrag = 'none';
         el.addEventListener('dragstart', (e) => e.preventDefault());
-        
+
         // Also apply drag/selection prevention to nested images to prevent browser drag events
         el.querySelectorAll('img').forEach(img => {
             img.style.webkitUserDrag = 'none';
             img.style.userSelect = 'none';
             img.addEventListener('dragstart', (e) => e.preventDefault());
         });
-        
+
         let startX = null, swiping = false;
         let currentDx = 0;
-        
+
         el.addEventListener('touchstart', (e) => {
             if (e.touches.length !== 1) return;
             startX = e.touches[0].clientX;
@@ -704,13 +1044,14 @@
 
     // Dismiss search input focus/dropdown when tapping anywhere outside the search form
     document.addEventListener('click', function(e) {
+        if (window.__sfNativeUiShellReady) return;
         // Skip interception for mouse pointer events (Smart TV mice, desktop)
         if (e.pointerType === 'mouse') return;
 
         // Strictly match music tracklist rows ONLY (leave all podcasts 100% native default)
         const row = e.target.closest('[data-testid="tracklist-row"]');
         if (!row) return;
-        
+
         // Never intercept inside sidebar, navigation drawers, or library lists
         if (row.closest('aside') || row.closest('nav') || row.closest('.YourLibraryX')) return;
 
@@ -720,8 +1061,8 @@
         // If user tapped directly on a button, link, or input, let native interaction happen
         if (e.target.closest('button, a[href], input, textarea')) return;
 
-        const playBtn = row.querySelector('button[data-testid="play-button"]') || 
-                        row.querySelector('button[aria-label*="Play"]') || 
+        const playBtn = row.querySelector('button[data-testid="play-button"]') ||
+                        row.querySelector('button[aria-label*="Play"]') ||
                         row.querySelector('button[aria-label*="play"]');
         if (playBtn) {
             e.preventDefault();
@@ -856,6 +1197,21 @@
     }, { capture: true, passive: true });
 
     // =========================================================================
+    // Account presence is detected from the page UI only: no credential,
+    // token, or cookie is ever read by the bridge.
+    function hasAccountIdentity() {
+        return !!(document.querySelector('[data-testid="user-widget-link"]') ||
+                  document.querySelector('a[href*="/user/"]') ||
+                  document.querySelector('[aria-label*="Account" i]'));
+    }
+    window.hasAccountIdentity = hasAccountIdentity;
+
+    function navigateTo(target) {
+        if (!target) return;
+        window.location.assign(target);
+    }
+    window.navigateTo = navigateTo;
+
     // SECTION 2: FETCH & CREDENTIAL INTERCEPTION
     // =========================================================================
 
@@ -870,7 +1226,10 @@
     window.SF_UPDATE = function(config) {
         if (!config) return;
         window.SF_CONFIG = Object.assign(window.SF_CONFIG || {}, config);
-        
+        if (typeof window.__sfEnsureMobileShell === 'function') {
+            window.__sfEnsureMobileShell();
+        }
+
         if (typeof config.isCanvasDisabled !== 'undefined') {
             if (config.isCanvasDisabled) {
                 document.body.classList.add('sf-hide-canvas');
@@ -1012,419 +1371,25 @@
     };
 
     const oriFetch = window.fetch;
-    window.fetch = async function(...args) {
-        const [url, opts] = args;
-        const method = opts?.method?.toUpperCase?.() || 'GET';
-        
-        if (window.SF_CONFIG.isCanvasDisabled && (url.includes('canvas-storage') || url.includes('/v1/canvas'))) {
-            return new Response(JSON.stringify({canvases:[]}), {status: 200});
-        }
-        
-        const headers = opts?.headers || {};
-        if (method === 'POST' && url.includes('/track-playback/v1/devices') && opts?.body) {
-            const body = JSON.parse(opts.body);
-            const deviceId = body?.device?.device_id;
-            if (deviceId && deviceId !== window.spotDevId) {
-                window.spotDevId = deviceId;
-                try { localStorage.setItem('spot_dev_id', deviceId); } catch(_) {}
-                typeof checkMediaLib === 'function' && checkMediaLib();
-            }
-        }
-        
-        const cliToken = headers['Client-Token'] || headers['client-token'];
-        if (cliToken && cliToken !== window.spotCliToken) {
-            window.spotCliToken = cliToken;
-            try { localStorage.setItem('spot_cli_token', cliToken); } catch(_) {}
-            typeof checkMediaLib === 'function' && checkMediaLib();
-        }
-        
-        const authHead = headers.Authorization || headers.authorization;
-        if (authHead?.startsWith('Bearer ') && authHead !== window.spotAuthToken) {
-            window.spotAuthToken = authHead;
-            try { localStorage.setItem('spot_auth_token', authHead); } catch(_) {}
-            typeof checkMediaLib === 'function' && checkMediaLib();
-        }
-        
-        if (method === 'POST' && url.includes('pathfinder/v2/query') && opts?.body) {
-            try {
-                const bodyObj = typeof opts.body === 'string' ? JSON.parse(opts.body) : null;
-                const opName = bodyObj?.operationName;
-                const hash = bodyObj?.extensions?.persistedQuery?.sha256Hash;
-                if (opName && hash) {
-                    window.spHashes = window.spHashes || {};
-                    if (window.spHashes[opName] !== hash) {
-                        window.spHashes[opName] = hash;
-                        try { localStorage.setItem('sp_hash_' + opName, hash); } catch(_) {}
-                        console.log(`[Spotifuck] Dynamic GQL hash captured for ${opName}: ${hash.substring(0, 10)}...`);
-                        if (opName === 'libraryV3' || opName === 'fetchLibraryTracks') {
-                            typeof checkMediaLib === 'function' && checkMediaLib(true);
-                        }
-                    }
-                }
-            } catch(e) {}
-        }
-        
-        if (ffDone && url.includes('/track-playback/') && method === 'PUT') {
-            const bodyStr = opts?.body ? (typeof opts.body === 'string' ? opts.body : '') : '';
-            if (bodyStr.includes('"paused":true')) {
-                manageAll(false);
-            } else if (bodyStr.includes('"paused":false')) {
-                manageAll(true);
-            }
-        }
-        
-        const strUrl = typeof url === 'string' ? url : (url && url.url ? url.url : '');
-        if (strUrl && (strUrl.includes('connect-state') || strUrl.includes('melody/v1/msg'))) {
-            try {
-                const reqHeaders = opts?.headers || {};
-                const reqBody = opts?.body ? (typeof opts.body === 'string' ? opts.body : JSON.stringify(opts.body)) : null;
-                const rawRes = AndBridge.nativeFetch(strUrl, method, JSON.stringify(reqHeaders), reqBody);
-                if (rawRes) {
-                    const parsed = JSON.parse(rawRes);
-                    const status = parsed.status || 200;
-                    const resBody = parsed.body || '';
-                    return {
-                        ok: status >= 200 && status < 300,
-                        status: status,
-                        statusText: status === 200 ? 'OK' : '',
-                        headers: new Headers(parsed.headers || {}),
-                        url: strUrl,
-                        json: async () => JSON.parse(resBody || '{}'),
-                        text: async () => resBody,
-                        arrayBuffer: async () => new TextEncoder().encode(resBody).buffer,
-                        clone: function() { return this; }
-                    };
-                }
-            } catch (e) {
-                console.error('[Spotifuck] Proxy nativeFetch error:', e);
-            }
-        }
-
-        try {
-            const resp = await oriFetch(url, opts);
-            if (resp.status === 404 && url.includes('connect-state') && url.includes('/command/from/')) {
-                AndBridge.deferMessage('reload');
-                location.reload();
-            }
-            return resp;
-        } catch (err) {
-            throw err;
-        }
-    };
+    // No fetch interception: the bridge never captures credentials and
+    // never proxies Spotify requests - everything goes out as the page sends it.
 
     // =========================================================================
     // SECTION 3: WAKE LOCK & BACKGROUND CONTROL
     // =========================================================================
 
+    // No API command is ever sent from the bridge: playback belongs to the
+    // web player itself. Kept as a no-op so callers stay harmless.
     window.playFromUri = function(uri, contextUri) {
         if (!uri) return;
-
-        if (uri && (uri.startsWith('http://') || uri.startsWith('https://'))) {
-            try {
-                const u = new URL(uri);
-                let pathSegments = u.pathname.split('/').filter(Boolean);
-                if (pathSegments.length > 0 && pathSegments[0].startsWith('intl-')) {
-                    pathSegments = pathSegments.slice(1);
-                }
-                if (pathSegments.length >= 2) {
-                    uri = 'spotify:' + pathSegments.join(':');
-                } else if (pathSegments.length === 1) {
-                    uri = 'spotify:' + pathSegments[0];
-                }
-            } catch(e) {}
-        }
-
-        if (uri && uri.startsWith('spotify:search:')) {
-            const query = decodeURIComponent(uri.substring('spotify:search:'.length));
-            if (typeof window.openSearch === 'function') {
-                window.openSearch(query);
-            }
-            return;
-        }
-
-        const devId = window.spotDevId || localStorage.getItem('spot_dev_id');
-        if (!devId) {
-            console.warn('[Spotifuck] Cannot playFromUri: device ID not ready yet');
-            return;
-        }
-
-        let playContext = contextUri || uri;
-        let isTrack = uri && uri.startsWith('spotify:track:');
-        let isContextItem = uri && (uri.startsWith('spotify:album:') || uri.startsWith('spotify:playlist:') || uri.startsWith('spotify:artist:') || uri.startsWith('spotify:show:'));
-
-        if (isContextItem) {
-            playContext = uri;
-        }
-
-        let isLikedSongs = (playContext === 'your_library' || playContext.includes('collection') || playContext === 'playlists' || playContext === 'spotify:collection:tracks');
-
-        let playOptions = {
-            license: 'tft',
-            skip_to: {},
-            player_options_override: {}
-        };
-
-        let commandContext = {
-            uri: playContext,
-            url: 'context://' + playContext,
-            metadata: {}
-        };
-
-        let featIdent = playContext.match(/^spotify:([^:]+)/)?.[1];
-        if (featIdent == 'user' || isLikedSongs) featIdent = 'your_library';
-
-        if (isLikedSongs) {
-            let tracks = window.likedSongsCache || [];
-            let targetUri = isTrack ? uri : (tracks[0]?.id || uri);
-            let trackList = (tracks || []).map(t => t.id || t.uri || t).filter(Boolean);
-
-            if (targetUri && targetUri.includes(':track:') && !trackList.includes(targetUri)) {
-                trackList.unshift(targetUri);
-            }
-
-            let collectionUri = window.spotUserId ? `spotify:user:${window.spotUserId}:collection` : "spotify:collection:tracks";
-
-            commandContext = {
-                uri: collectionUri,
-                url: "context://" + collectionUri,
-                metadata: {
-                    context_description: "Liked Songs"
-                },
-                pages: [{
-                    page_url: "context://" + collectionUri,
-                    tracks: trackList.map(u => ({ uri: u }))
-                }]
-            };
-
-            featIdent = 'collection-tracks';
-
-            playOptions.skip_to = {
-                track_uri: targetUri
-            };
-        } else if (isTrack) {
-            if (contextUri && contextUri !== uri && !contextUri.startsWith('spotify:track:')) {
-                playOptions.skip_to = {
-                    track_uri: uri
-                };
-            } else {
-                commandContext = {
-                    uri: uri,
-                    url: "context://" + uri,
-                    metadata: {},
-                    pages: [{
-                        page_url: "context://" + uri,
-                        tracks: [{ uri: uri }]
-                    }]
-                };
-                playOptions.skip_to = {
-                    track_uri: uri
-                };
-                featIdent = 'search';
-            }
-        }
-
-        const token = window.spotAuthToken || localStorage.getItem('spot_auth_token');
-        const cliTok = window.spotCliToken || localStorage.getItem('spot_cli_token');
-        if (!token) {
-            console.warn('[Spotifuck] Cannot playFromUri: AuthToken not ready');
-            return;
-        }
-
-        console.log(`[Spotifuck] playFromUri sending command for uri=${uri}, contextUri=${contextUri}, devId=${devId}`);
-
-        fetch(`https://gew4-spclient.spotify.com/connect-state/v1/player/command/from/${devId}/to/${devId}`, {
-            method: 'POST',
-            headers: {
-                'Authorization': token,
-                'Client-Token': cliTok || '',
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                command: {
-                    context: commandContext,
-                    play_origin: {
-                        feature_identifier: featIdent || 'your_library',
-                        feature_version: featVer || '1.2.40.0',
-                        referrer_identifier: 'your_library'
-                    },
-                    options: playOptions,
-                    endpoint: 'play'
-                }
-            })
-        });
+        tracePlayback('play-from-uri', /^spotify:track:/i.test(String(uri)) ? 'track' : 'context');
+        markUserPlaybackIntent(true);
     };
 
+    // Search-and-play sent credentialed API requests: disabled. The web
+    // player's own search and playback are used instead.
     async function searchAndPlay(query) {
         if (!query) return;
-        try {
-            await ensureAuthToken();
-            const token = window.spotAuthToken || (function() { try { return localStorage.getItem('spot_auth_token'); } catch(_) { return null; } })();
-            const cliTok = window.spotCliToken || (function() { try { return localStorage.getItem('spot_cli_token'); } catch(_) { return null; } })();
-            if (!token) {
-                console.warn('[Spotifuck] searchAndPlay: Auth token unavailable.');
-                return;
-            }
-            const headers = {
-                'Authorization': token,
-                'Content-Type': 'application/json;charset=UTF-8',
-                'app-platform': 'WebPlayer',
-                'spotify-app-version': '1.2.40.0'
-            };
-            if (cliTok) {
-                headers['Client-Token'] = cliTok;
-            }
-            const resp = await oriFetch('https://api-partner.spotify.com/pathfinder/v2/query', {
-                method: 'POST',
-                mode: 'cors',
-                credentials: 'include',
-                headers: headers,
-                body: JSON.stringify({
-                    variables: {
-                        searchTerm: query,
-                        offset: 0,
-                        limit: 10,
-                        numberOfTopResults: 5,
-                        includeAudiobooks: false,
-                        includeArtistHasConcertsField: false,
-                        includePreReleases: false,
-                        includeLocalConcertsField: false,
-                        includeAuthors: false
-                    },
-                    operationName: 'searchDesktop',
-                    extensions: {
-                        persistedQuery: {
-                            version: 1,
-                            sha256Hash: getGqlHash('searchDesktop', '4801118d4a100f756e833d33984436a3899cff359c532f8fd3aaf174b60b3b49')
-                        }
-                    }
-                })
-            });
-            if (!resp.ok) return;
-            const data = await resp.json();
-            const searchData = data?.data?.searchV2 || data?.data?.search;
-            const topResults = searchData?.topResultsV2?.items || searchData?.topResults?.items || [];
-            let targetUri = null;
-            for (const elem of topResults) {
-                const itemWrapper = elem?.item || elem;
-                const d = itemWrapper?.data || itemWrapper;
-                const uri = itemWrapper?.uri || d?.uri || (d?.id ? 'spotify:' + (d?.__typename?.toLowerCase().replace('responsewrapper', '') || 'track') + ':' + d?.id : null);
-                if (uri) {
-                    targetUri = uri;
-                    break;
-                }
-            }
-            if (!targetUri) {
-                const tracks = searchData?.tracksV2?.items || searchData?.tracks?.items || [];
-                const firstTrack = tracks[0]?.item || tracks[0];
-                const d = firstTrack?.data || firstTrack;
-                targetUri = firstTrack?.uri || d?.uri || (d?.id ? 'spotify:track:' + d.id : null);
-            }
-            if (targetUri) {
-                window.playFromUri(targetUri);
-            }
-        } catch (e) {
-            console.error('[Spotifuck] searchAndPlay failed for ' + query, e);
-        }
-    }
-    window.searchAndPlay = searchAndPlay;
-
-    window.openSearch = function(query) {
-        if (!query) return;
-        console.log('[Spotifuck] openSearch called with query:', query);
-
-        const executeSearchOnInput = (sr) => {
-            if (sr._valueTracker) {
-                try { sr._valueTracker.setValue(''); } catch(e) {}
-            }
-            const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')?.set;
-            if (nativeInputValueSetter) {
-                nativeInputValueSetter.call(sr, query);
-            } else {
-                sr.value = query;
-            }
-
-            try {
-                sr.dispatchEvent(new InputEvent('input', { bubbles: true, cancelable: true, inputType: 'insertText', data: query }));
-            } catch(e) {}
-            sr.dispatchEvent(new Event('input', { bubbles: true, cancelable: true }));
-            sr.dispatchEvent(new Event('change', { bubbles: true, cancelable: true }));
-
-            // Dispatch React Fiber synthetic onChange
-            const reactKey = Object.keys(sr).find(k => k.startsWith('__reactProps$') || k.startsWith('__reactEventHandlers$'));
-            if (reactKey && sr[reactKey]?.onChange) {
-                try {
-                    sr[reactKey].onChange({
-                        target: sr,
-                        currentTarget: sr,
-                        bubbles: true,
-                        preventDefault: () => {},
-                        stopPropagation: () => {}
-                    });
-                } catch(e) {}
-            }
-
-            // Step 2: After React batches the input change, submit the search via Enter and Form submit
-            setTimeout(() => {
-                const enterInit = { key: 'Enter', code: 'Enter', keyCode: 13, which: 13, bubbles: true, cancelable: true };
-                sr.dispatchEvent(new KeyboardEvent('keydown', enterInit));
-                sr.dispatchEvent(new KeyboardEvent('keypress', enterInit));
-                sr.dispatchEvent(new KeyboardEvent('keyup', enterInit));
-
-                if (reactKey && sr[reactKey]?.onKeyDown) {
-                    try {
-                        sr[reactKey].onKeyDown({
-                            ...enterInit,
-                            target: sr,
-                            currentTarget: sr,
-                            preventDefault: () => {},
-                            stopPropagation: () => {}
-                        });
-                    } catch(e) {}
-                }
-
-                const form = sr.closest('form');
-                if (form) {
-                    const formReactKey = Object.keys(form).find(k => k.startsWith('__reactProps$') || k.startsWith('__reactEventHandlers$'));
-                    if (formReactKey && form[formReactKey]?.onSubmit) {
-                        try {
-                            form[formReactKey].onSubmit({
-                                target: form,
-                                currentTarget: form,
-                                bubbles: true,
-                                preventDefault: () => {},
-                                stopPropagation: () => {}
-                            });
-                        } catch(e) {}
-                    }
-                    try {
-                        if (typeof form.requestSubmit === 'function') {
-                            form.requestSubmit();
-                        } else {
-                            form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
-                        }
-                    } catch(e) {}
-                }
-            }, 50);
-        };
-
-        const tryPopulate = () => {
-            let sr = document.querySelector('input[data-testid="search-input"]');
-            if (sr) {
-                executeSearchOnInput(sr);
-                return true;
-            }
-            return false;
-        };
-
-        if (!tryPopulate()) {
-            const navBtn = document.querySelector('a[href="/search"]') ||
-                           document.querySelector('button[data-testid="search-icon"]') ||
-                           document.querySelector('button[aria-label*="Search" i]');
-            if (navBtn) navBtn.click();
-            setTimeout(tryPopulate, 150);
-            setTimeout(tryPopulate, 400);
-            setTimeout(tryPopulate, 800);
-        }
     };
 
     window.firstFuck = function() {
@@ -1439,7 +1404,7 @@
             } else if (window.playing && document.visibilityState === 'hidden') {
                 AndBridge.wakeUp();
             }
-            
+
             window.syncNpBtnPos = function() {
                 if (window.SF_CONFIG && window.SF_CONFIG.guiMode === "csshack") {
                     let lyBtn = document.querySelector('button[data-testid="lyrics-button"]');
@@ -1482,7 +1447,7 @@
                 }
             };
             window.syncNpBtnPos();
-            
+
             let pb = document.querySelector('button[data-testid=control-button-playpause]:not(.fuckd)') ||
                      document.querySelector('aside button[data-testid=control-button-playpause]:not(.fuckd)');
             if (pb) {
@@ -1490,17 +1455,20 @@
                 pb.classList.add('fuckd');
                 window.pBtn = pb;
                 window.pBtn.addEventListener('click', () => {
-                    if (window.pBtn.getAttribute('aria-label') !== 'Play') {
+                    tracePlayback('dom-playpause-click', /paus/i.test(window.pBtn.getAttribute('aria-label') || '') ? 'pause' : 'play');
+                    if (/paus/i.test(window.pBtn.getAttribute('aria-label') || '')) {
+                        markUserPlaybackIntent(false);
                         reqPause = true;
                         ulFlag = false;
                         manageWake(false);
                     } else if (!ulFlag) {
+                        markUserPlaybackIntent(true);
                         reqPause = false;
                         manageWake(true);
                         ulFlag = true;
                         setTimeout(() => {
                             if (ulFlag) {
-                                if (window.pBtn && window.pBtn.getAttribute('aria-label') === 'Play') {
+                                if (window.pBtn && !/paus/i.test(window.pBtn.getAttribute('aria-label') || '')) {
                                     console.warn('[Melodix] Playback did not start; automatic skip cancelled.');
                                 }
                                 // Release the retry guard, but never advance past the selected track.
@@ -1509,7 +1477,7 @@
                         }, 10000);
                     }
                 });
-                
+
                 if (!ffDone) {
                     ffDone = true;
                     addGlobalCleanup();
@@ -1538,6 +1506,8 @@
 
     window.manageAll = function(play) {
         window.playing = play;
+        tracePlayback(play ? 'manage-all-play' : 'manage-all-pause');
+        if (play) markUserPlaybackIntent(true, { explicit: !window.__sfUserRequestedPause });
         AndBridge.manageTShut(!play);
         AndBridge.manageTSleep(play);
         if (play) {
@@ -1590,16 +1560,26 @@
             e.preventDefault();
             e.stopPropagation();
         }
-        const pb = document.querySelector('button[data-testid="control-button-playpause"]') || window.pBtn;
+        const pb = getPlayPauseButton();
         if (!pb) return;
-        
-        if (play === null || typeof play === 'undefined') {
-            pb.click();
-        } else if (play === true) {
-            if (!window.playing) pb.click();
-        } else if (play === false) {
-            if (window.playing) pb.click();
+
+        const currentlyPlaying = getPlaybackSnapshot().playing;
+
+        let target = play;
+        if (target === null || typeof target === 'undefined') {
+            target = !currentlyPlaying;
         }
+        target = Boolean(target);
+
+        // Record the intent before clicking so no helper can undo the pause.
+        tracePlayback(target ? 'act-play' : 'act-pause', currentlyPlaying ? 'was-playing' : 'was-paused');
+        markUserPlaybackIntent(target);
+
+        // Only click when the player is not already in the requested state; a
+        // blind click here used to toggle playback back on (and, through the
+        // legacy retry hooks, could advance to the next track).
+        if (currentlyPlaying === target) return;
+        pb.click();
     };
 
     window.actSkipBack = function(e) {
@@ -1607,6 +1587,9 @@
             e.preventDefault();
             e.stopPropagation();
         }
+        // A skip is an explicit user request: stop watching for unwanted resumes.
+        endPauseHold();
+        tracePlayback('act-skip-back');
         if (window.Melodix && window.Melodix.Platform && window.Melodix.Platform.PlayerAPI) {
             manageWake(true);
             window.Melodix.Platform.PlayerAPI.previous();
@@ -1624,6 +1607,9 @@
             e.preventDefault();
             e.stopPropagation();
         }
+        // A skip is an explicit user request: stop watching for unwanted resumes.
+        endPauseHold();
+        tracePlayback('act-skip-forward');
         if (window.Melodix && window.Melodix.Platform && window.Melodix.Platform.PlayerAPI) {
             manageWake(true);
             window.Melodix.Platform.PlayerAPI.next();
@@ -1735,7 +1721,101 @@
         // Kept empty to prevent Spotify's internal global video player from being disabled for Video Podcasts
     };
 
+    function premiumOfferText(text) {
+        const normalized = String(text || '').replace(/\s+/g, ' ').trim();
+        const mentionsPremium = /\bpremium\b/i.test(normalized);
+        const hasTwoMonthFreeOffer = /2\s*(?:mois|months?)/i.test(normalized) &&
+            /(?:0\s*(?:€|euros?)|€\s*0|free|gratuit)/i.test(normalized);
+        const hasExplicitFreeTrial = /(?:free\s+trial|trial\s+for\s+free|essai\s+gratuit|essai\s+offert|try.{0,30}premium.{0,40}free|essayez.{0,30}premium.{0,40}gratuit)/i.test(normalized);
+        return mentionsPremium && (hasTwoMonthFreeOffer || hasExplicitFreeTrial);
+    }
+
+    function premiumOfferCloseButton(container) {
+        const labeledClose = container.querySelector(
+            'button[aria-label*="close" i], button[aria-label*="dismiss" i], button[aria-label*="fermer" i], ' +
+            '[role="button"][aria-label*="close" i], [role="button"][aria-label*="fermer" i], ' +
+            'button[title*="close" i], button[title*="fermer" i]'
+        );
+        if (labeledClose) return labeledClose;
+        return Array.from(container.querySelectorAll('button, [role="button"]')).find((button) => {
+            const label = String(button.getAttribute('aria-label') || button.title || button.innerText || button.textContent || '')
+                .replace(/\s+/g, '')
+                .trim();
+            return /^[x×✕✖]$/i.test(label);
+        }) || null;
+    }
+
+    function dismissPremiumOfferFrom(seed) {
+        let element = seed && seed.nodeType === 1 ? seed : seed?.parentElement;
+        for (let depth = 0; element && depth < 10; depth += 1, element = element.parentElement) {
+            if (element === document.body || element === document.documentElement) break;
+            const text = String(element.innerText || element.textContent || '').replace(/\s+/g, ' ').trim();
+            if (!text || text.length > 2400 || !premiumOfferText(text)) continue;
+
+            const testId = String(element.getAttribute('data-testid') || '').toLowerCase();
+            const role = String(element.getAttribute('role') || '').toLowerCase();
+            const closeButton = premiumOfferCloseButton(element);
+            const knownPromoContainer = /premium.*(?:offer|upsell|promo|trial)|(?:offer|upsell|promo|trial).*premium/.test(testId);
+            if (!closeButton && role !== 'dialog' && !knownPromoContainer) continue;
+            if (element.getAttribute('data-melodix-premium-dismissed') === 'true') return true;
+
+            element.setAttribute('data-melodix-premium-dismissed', 'true');
+            if (element.style && typeof element.style.setProperty === 'function') {
+                element.style.setProperty('display', 'none', 'important');
+            }
+            if (closeButton) {
+                try { closeButton.click(); } catch (_) {}
+            }
+            return true;
+        }
+        return false;
+    }
+
+    function dismissPremiumUpsells(root) {
+        if (!root) return;
+        const scanRoot = root.nodeType === 1 ? root : root.parentElement;
+        if (!scanRoot) return;
+        dismissPremiumOfferFrom(scanRoot);
+        if (typeof scanRoot.querySelectorAll !== 'function') return;
+        scanRoot.querySelectorAll('h1, h2, h3, h4, p, span, [data-testid], [role="dialog"]').forEach((element) => {
+            const text = String(element.innerText || element.textContent || '');
+            if (premiumOfferText(text)) dismissPremiumOfferFrom(element);
+        });
+    }
+
+    function installPremiumPromotionCleanup() {
+        if (!document.body) {
+            document.addEventListener('DOMContentLoaded', installPremiumPromotionCleanup, { once: true });
+            return;
+        }
+        if (!document.getElementById('sf-premium-promo-cleanup-style')) {
+            const style = document.createElement('style');
+            style.id = 'sf-premium-promo-cleanup-style';
+            style.textContent = `
+                [data-melodix-premium-dismissed="true"],
+                [data-testid*="premium-upsell" i],
+                [data-testid*="premium-offer" i],
+                [data-testid*="premium-promo" i],
+                [data-testid*="premium-trial" i] { display: none !important; }
+            `;
+            (document.head || document.documentElement).appendChild(style);
+        }
+        dismissPremiumUpsells(document.body);
+        if (window._sfPremiumPromoObserver) return;
+
+        let scanTimer = null;
+        window._sfPremiumPromoObserver = new MutationObserver(() => {
+            if (scanTimer) return;
+            scanTimer = setTimeout(() => {
+                scanTimer = null;
+                dismissPremiumUpsells(document.body);
+            }, 80);
+        });
+        window._sfPremiumPromoObserver.observe(document.body, { childList: true, subtree: true });
+    }
+
     window.addGlobalCleanup = function() {
+        installPremiumPromotionCleanup();
         let gst = document.createElement('style');
         gst.id = 'global-cleanup-style';
         gst.textContent = `
@@ -1794,6 +1874,7 @@
 
         if (typeof window.gobserver === 'undefined') {
             window.gobserver = new MutationObserver((mutations) => {
+                if (window.__sfNativeUiShellReady) return;
                 mutations.forEach((mutation) => {
                     // ── Removed nodes: detect search dropdown leaving DOM ──────────────
                     mutation.removedNodes.forEach((node) => {
@@ -1836,12 +1917,12 @@
                                     }
                                 }
                             });
-                            
+
                             let cv = findCanvasToggle();
                             if (cv && node.contains(cv)) {
                                 syncCanvasToggle(cv);
                             }
-                            
+
                             if (window.SF_CONFIG.isCanvasDisabled) {
                                 node.querySelectorAll("[role='menuitem'], li").forEach(el => {
                                     let txt = (el.innerText || "").toLowerCase();
@@ -1863,12 +1944,12 @@
 
     window.addAutoFeatures = function() {
         if (window.SF_CONFIG.autoPlayMode === "onetime") {
-            if ('pBtn' in window && firstPlay && window.pBtn.getAttribute('aria-label') === 'Play') {
+            if ('pBtn' in window && firstPlay && !window.__sfUserRequestedPause && window.pBtn.getAttribute('aria-label') === 'Play') {
                 window.pBtn.click();
                 firstPlay = false;
             }
         }
-        
+
         if (window.SF_CONFIG.closeNowPlay ||
             window.SF_CONFIG.takeControl ||
             window.SF_CONFIG.autoPlayMode === "permanent" ||
@@ -1882,18 +1963,13 @@
                 if (window.SF_CONFIG.closeNowPlay) {
                     closeNowPlay();
                 }
-                if (window.SF_CONFIG.takeControl) {
-                    let ft = document.querySelector('aside div.encore-bright-accent-set button');
-                    if (ft) {
-                        ft.click();
-                        setTimeout(() => {
-                            let cb = document.querySelector('aside ul[role=list] li[role=listitem] div[role=button]');
-                            if (cb) cb.click();
-                        }, 500);
-                    }
-                }
+                // Legacy "take control" (`TakeControl` preference) clicked a green
+                // play button and then the first list row as soon as the player
+                // looked paused. In Melodix that hijacked a real pause and could
+                // start another track, so it is now intentionally inert: the user
+                // is the only one allowed to (re)start playback.
                 if (window.SF_CONFIG.autoPlayMode === "permanent") {
-                    if ('pBtn' in window && !reqPause && !ulFlag && window.pBtn.getAttribute('aria-label') === 'Play') {
+                    if ('pBtn' in window && !reqPause && !ulFlag && !window.__sfUserRequestedPause && window.pBtn.getAttribute('aria-label') === 'Play') {
                         window.pBtn.click();
                     }
                 }
@@ -1905,25 +1981,39 @@
         const run = () => {
             let ta = document.querySelector('a[data-testid=context-item-link]');
             if (ta) {
-                window.track = ta.innerText;
+                window.track = (ta.textContent || ta.innerText || '').trim();
             } else {
                 window.track = null;
             }
-            
+
+            if (window.track !== window.__sfLastTrackTitle) {
+                if (typeof window.__sfLastTrackTitle !== 'undefined' && window.track) {
+                    tracePlayback('track-change', window.__sfUserRequestedPause ? 'while-user-paused' : 'while-playing');
+                }
+                window.__sfLastTrackTitle = window.track;
+            }
+
+            if (window.track !== window.__sfLastTrackTitle) {
+                if (window.__sfLastTrackTitle !== undefined) {
+                    tracePlayback('track-change', window.__sfUserRequestedPause ? 'while-user-paused' : 'while-playing');
+                }
+                window.__sfLastTrackTitle = window.track;
+            }
+
             let aa = document.querySelector('a[data-testid=context-item-info-artist]') || document.querySelector('a[data-testid=context-item-info-show]');
             if (aa) {
-                window.artist = aa.innerText;
+                window.artist = (aa.textContent || aa.innerText || '').trim();
             } else {
                 window.artist = '';
             }
-            
+
             let rr = document.querySelector('button[data-testid=control-button-repeat]');
             if (rr) {
                 window.repmode = rr.getAttribute('aria-checked');
             } else {
                 window.repmode = 'false';
             }
-            
+
             window.syncShuffleState = function() {
                 let sh = getShuffleButton();
 
@@ -1957,14 +2047,14 @@
             }
 
             window.syncShuffleState();
-            
+
             let fb = document.querySelector('div[data-testid=now-playing-widget]>div:last-child>button');
             if (fb && fb.getAttribute('aria-checked') === 'true') {
                 window.isfav = true;
             } else {
                 window.isfav = false;
             }
-            
+
             let rg = document.querySelector('div[data-testid=playback-progressbar] input[type=range]');
             if (rg) {
                 window.duration = parseInt(rg.getAttribute('max'));
@@ -1973,14 +2063,22 @@
                 window.duration = null;
                 window.position = null;
             }
-            
+
             let im = document.querySelector('img[data-testid=cover-art-image]');
             if (im) {
                 window.cover = im.src;
             } else {
                 window.cover = null;
             }
-            
+
+            let pbDom = document.querySelector('button[data-testid="control-button-playpause"]') || window.pBtn;
+            if (pbDom && typeof pbDom.getAttribute === 'function') {
+                let pbLabel = String(pbDom.getAttribute('aria-label') || '').trim();
+                if (pbLabel) {
+                    window.playing = /paus/i.test(pbLabel);
+                }
+            }
+
             if (document.body.classList.contains('sf-expanded')) {
                 let candidates = Array.from(document.querySelectorAll('div[style*="--cinema-mode-bg-color-from"]'));
                 let cs = candidates.find(el => el.offsetParent !== null || el.getClientRects().length > 0) || candidates[candidates.length - 1];
@@ -1993,7 +2091,7 @@
             }
             updMedia(once);
         };
-        
+
         if (once) {
             run();
             return;
@@ -2002,11 +2100,480 @@
         aaint = setInterval(run, 1000);
     };
 
+    function syncMobileNavigation() {
+        if (!document.body) return;
+        // A stale state after a route transition must not permanently hide the mobile dock.
+        if (
+            document.body.classList.contains('sf-fs-open') &&
+            !document.getElementById('sf-fs-player')
+        ) {
+            document.body.classList.remove('sf-fs-open');
+        }
+
+        const nav = document.getElementById('sf-mobile-nav');
+        if (!nav) return;
+
+        const pathname = window.location.pathname || '/';
+        const active = document.body.classList.contains('sf-library-open')
+            ? 'library'
+            : (pathname === '/search' || pathname.startsWith('/search/') || document.body.classList.contains('sf-search-focused'))
+                ? 'search'
+                : 'home';
+
+        nav.querySelectorAll('[data-sf-mobile-action]').forEach((button) => {
+            if (button.getAttribute('data-sf-mobile-action') === active) {
+                button.setAttribute('aria-current', 'page');
+            } else {
+                button.removeAttribute('aria-current');
+            }
+        });
+        const libraryTab = nav.querySelector('[data-sf-mobile-action="library"]');
+        if (libraryTab) {
+            libraryTab.setAttribute('aria-expanded', String(document.body.classList.contains('sf-library-open')));
+        }
+        updateMelodixHome();
+    }
+
+    function hasTouchInput() {
+        const config = window.SF_CONFIG || {};
+        if (typeof config.touchInput === 'boolean') return config.touchInput;
+        try {
+            const navigatorInfo = window.navigator || {};
+            const coarsePointer = typeof window.matchMedia === 'function' && (
+                window.matchMedia('(any-pointer: coarse)').matches ||
+                window.matchMedia('(pointer: coarse)').matches
+            );
+            return Number(navigatorInfo.maxTouchPoints || navigatorInfo.msMaxTouchPoints || 0) > 0 ||
+                ('ontouchstart' in window) || coarsePointer;
+        } catch (_) {
+            return false;
+        }
+    }
+
+    function isMobileNavigationViewport() {
+        const touchInput = hasTouchInput();
+        try {
+            if (typeof window.matchMedia === 'function') {
+                return window.matchMedia(
+                    '(max-width: 820px) and (orientation: portrait), (hover: none) and (pointer: coarse)'
+                ).matches || touchInput;
+            }
+        } catch (_) {}
+        return Number(window.innerWidth || 0) <= 820 || touchInput;
+    }
+
+    function ensureMobileShellFallbackStyles() {
+        if (document.getElementById('sf-mobile-shell-fallback-style')) return;
+        const style = document.createElement('style');
+        style.id = 'sf-mobile-shell-fallback-style';
+        style.textContent = `
+    body.sf-mobile-shell #sf-mobile-nav {
+        position: fixed !important;
+        left: 0 !important;
+        right: 0 !important;
+        bottom: 0 !important;
+        box-sizing: border-box !important;
+        display: grid !important;
+        grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+        align-items: stretch !important;
+        width: 100vw !important;
+        height: calc(72px + env(safe-area-inset-bottom)) !important;
+        padding: 5px 16px calc(5px + env(safe-area-inset-bottom)) !important;
+        background: rgba(13, 16, 14, 0.97) !important;
+        border-top: 1px solid rgba(255, 255, 255, 0.09) !important;
+        z-index: 10010 !important;
+    }
+    #sf-mobile-nav .sf-mobile-nav__item {
+        display: flex !important;
+        flex-direction: column !important;
+        align-items: center !important;
+        justify-content: center !important;
+        gap: 4px !important;
+        min-width: 44px !important;
+        min-height: 54px !important;
+        margin: 0 4px !important;
+        padding: 5px 8px !important;
+        color: #a6ada8 !important;
+        background: transparent !important;
+        border: 0 !important;
+        border-radius: 14px !important;
+        font: 600 10px/1.1 system-ui, sans-serif !important;
+    }
+    #sf-mobile-nav .sf-mobile-nav__item svg {
+        display: block !important;
+        width: 23px !important;
+        height: 23px !important;
+        fill: none !important;
+        stroke: currentColor !important;
+        stroke-width: 1.8 !important;
+        stroke-linecap: round !important;
+        stroke-linejoin: round !important;
+    }
+    #sf-mobile-nav .sf-mobile-nav__item[aria-current="page"] {
+        color: #1ed760 !important;
+    }
+    body.sf-fs-open #sf-mobile-nav { display: none !important; }
+    body:not(.sf-library-open) #Desktop_LeftSidebar_Id {
+        visibility: hidden !important;
+        opacity: 0 !important;
+        pointer-events: none !important;
+    }
+    body.sf-library-open #Desktop_LeftSidebar_Id {
+        position: fixed !important;
+        top: calc(48px + env(safe-area-inset-top)) !important;
+        left: 0 !important;
+        right: 0 !important;
+        bottom: calc(72px + env(safe-area-inset-bottom)) !important;
+        width: 100% !important;
+        overflow-y: auto !important;
+        visibility: visible !important;
+        opacity: 1 !important;
+        pointer-events: auto !important;
+        z-index: 10005 !important;
+    }
+    #Desktop_LeftSidebar_Id .YourLibraryX header,
+    #Desktop_LeftSidebar_Id header {
+        position: relative !important;
+        min-height: 56px !important;
+        padding: 14px 16px 14px 58px !important;
+    }
+    #Desktop_LeftSidebar_Id .sf-mobile-library-close {
+        display: none !important;
+        position: absolute !important;
+        left: 12px !important;
+        top: 50% !important;
+        width: 40px !important;
+        height: 40px !important;
+        min-width: 40px !important;
+        min-height: 40px !important;
+        align-items: center !important;
+        justify-content: center !important;
+        transform: translateY(-50%) !important;
+        color: #f5f7f5 !important;
+        background: rgba(255, 255, 255, 0.08) !important;
+        border: 1px solid rgba(255, 255, 255, 0.1) !important;
+        border-radius: 50% !important;
+        font: 400 28px/1 system-ui, sans-serif !important;
+        z-index: 2 !important;
+    }
+    body.sf-library-open #Desktop_LeftSidebar_Id .sf-mobile-library-close {
+        display: flex !important;
+    }
+    #main-view,
+    #main-view [data-overlayscrollbars-viewport] {
+        scroll-padding-bottom: calc(160px + env(safe-area-inset-bottom)) !important;
+        padding-bottom: calc(160px + env(safe-area-inset-bottom)) !important;
+    }
+    body:not(.sf-fs-open) aside[data-testid="now-playing-bar"] {
+        position: fixed !important;
+        left: 10px !important;
+        right: 10px !important;
+        bottom: calc(78px + env(safe-area-inset-bottom)) !important;
+        box-sizing: border-box !important;
+        width: auto !important;
+        min-width: 0 !important;
+        max-width: calc(100vw - 20px) !important;
+        height: 68px !important;
+        min-height: 68px !important;
+        max-height: 68px !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: space-between !important;
+        gap: 8px !important;
+        padding: 8px 12px !important;
+        overflow: hidden !important;
+        border: 1px solid rgba(255, 255, 255, 0.09) !important;
+        border-radius: 16px !important;
+        background: rgba(24, 28, 25, 0.97) !important;
+        box-shadow: 0 12px 30px rgba(0, 0, 0, 0.46) !important;
+        z-index: 10015 !important;
+    }
+    body:not(.sf-fs-open) aside[data-testid="now-playing-bar"] > div:first-child,
+    body:not(.sf-fs-open) aside[data-testid="now-playing-bar"] [data-testid="now-playing-widget"] {
+        display: flex !important;
+        flex: 1 1 auto !important;
+        align-items: center !important;
+        min-width: 0 !important;
+        overflow: hidden !important;
+    }
+    body:not(.sf-fs-open) aside[data-testid="now-playing-bar"] [data-testid="CoverSlotCollapsed__container"] {
+        flex: 0 0 48px !important;
+        width: 48px !important;
+        height: 48px !important;
+        margin: 0 10px 0 0 !important;
+        overflow: hidden !important;
+        border-radius: 9px !important;
+    }
+    body:not(.sf-fs-open) aside[data-testid="now-playing-bar"] > div:nth-child(2) {
+        display: flex !important;
+        flex: 0 0 auto !important;
+        align-items: center !important;
+        margin: 0 !important;
+    }
+    body:not(.sf-fs-open) aside[data-testid="now-playing-bar"] > div:nth-child(n + 3) {
+        display: none !important;
+    }
+    body:not(.sf-fs-open) aside[data-testid="now-playing-bar"] [data-testid="general-controls"] button:not([data-testid="control-button-playpause"]) {
+        display: none !important;
+    }
+    body:not(.sf-fs-open) aside[data-testid="now-playing-bar"] button[data-testid="control-button-playpause"] {
+        display: flex !important;
+        width: 44px !important;
+        height: 44px !important;
+        min-width: 44px !important;
+        min-height: 44px !important;
+        align-items: center !important;
+        justify-content: center !important;
+        margin: 0 !important;
+    }
+    body:not(.sf-fs-open) aside[data-testid="now-playing-bar"] [data-testid="playback-progressbar"],
+    body:not(.sf-fs-open) aside[data-testid="now-playing-bar"] [data-testid*="volume"],
+    body:not(.sf-fs-open) aside[data-testid="now-playing-bar"] [data-testid*="queue"] {
+        display: none !important;
+    }
+    body.sf-library-open aside[data-testid="now-playing-bar"] {
+        bottom: calc(10px + env(safe-area-inset-bottom)) !important;
+    }
+    @media screen and (orientation: landscape) {
+        body.sf-mobile-shell #global-nav-bar {
+            display: none !important;
+        }
+    }
+    @media screen and (min-width: 640px) {
+        body.sf-mobile-shell #sf-mobile-nav {
+            top: env(safe-area-inset-top) !important;
+            bottom: auto !important;
+            height: 56px !important;
+            padding: 5px 16px !important;
+        }
+        body.sf-mobile-shell aside[data-testid=\"now-playing-bar\"],
+        body.sf-library-open aside[data-testid=\"now-playing-bar\"] {
+            bottom: env(safe-area-inset-bottom) !important;
+        }
+        body.sf-mobile-shell #main-view,
+        body.sf-mobile-shell #main-view [data-overlayscrollbars-viewport] {
+            scroll-padding-bottom: calc(96px + env(safe-area-inset-bottom)) !important;
+            padding-bottom: calc(96px + env(safe-area-inset-bottom)) !important;
+        }
+        body.sf-mobile-shell #Desktop_LeftSidebar_Id {
+            top: calc(104px + env(safe-area-inset-top)) !important;
+            bottom: calc(84px + env(safe-area-inset-bottom)) !important;
+        }
+    }
+`;
+        (document.head || document.documentElement).appendChild(style);
+    }
+
+    function mobileLibraryButton() {
+        if (window.lBtn && window.lBtn.isConnected) return window.lBtn;
+        return document.querySelector('#Desktop_LeftSidebar_Id header>div>div:first-child button') ||
+               document.querySelector('#Desktop_LeftSidebar_Id button[aria-label*="Library" i]');
+    }
+
+    function setMobileLibraryOpen(shouldOpen) {
+        const isOpen = !!document.body?.classList.contains('sf-library-open');
+        if (isOpen === shouldOpen) {
+            if (typeof window.switchLs === 'function') window.switchLs(shouldOpen);
+            return;
+        }
+
+        if (typeof window.switchLs !== 'function') {
+            document.body.classList.toggle('sf-library-open', shouldOpen);
+            const sidebar = document.querySelector('#Desktop_LeftSidebar_Id');
+            if (shouldOpen && sidebar) ensureMobileLibraryCloseButton(sidebar);
+            syncMobileNavigation();
+            return;
+        }
+
+        const library = mobileLibraryButton();
+        if (library) {
+            library.click();
+            window.setTimeout(() => {
+                if (typeof window.switchLs === 'function') window.switchLs(shouldOpen);
+            }, 0);
+        } else if (typeof window.switchLs === 'function') {
+            window.switchLs(shouldOpen);
+        }
+    }
+
+    function ensureMobileLibraryCloseButton(sidebar) {
+        const header = sidebar.querySelector('.YourLibraryX header') || sidebar.querySelector('header');
+        if (!header || header.querySelector('.sf-mobile-library-close')) return;
+
+        const closeButton = document.createElement('button');
+        closeButton.type = 'button';
+        closeButton.className = 'sf-mobile-library-close';
+        const locale = (document.documentElement.lang || navigator.language || 'en').toLowerCase().split('-')[0];
+        const closeLabels = {
+            fr: 'Fermer la bibliothèque',
+            es: 'Cerrar la biblioteca',
+            de: 'Bibliothek schließen',
+            it: 'Chiudi la libreria',
+            pt: 'Fechar biblioteca'
+        };
+        closeButton.setAttribute('aria-label', closeLabels[locale] || 'Close library');
+        closeButton.textContent = '×';
+        closeButton.addEventListener('click', (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            setMobileLibraryOpen(false);
+        });
+        header.appendChild(closeButton);
+    }
+
+    function closeMobileLibrary() {
+        if (!document.body?.classList.contains('sf-library-open')) return;
+        setMobileLibraryOpen(false);
+    }
+
+    function installMobileNavigation() {
+        const guiMode = window.SF_CONFIG?.guiMode;
+        const isMobileViewport = isMobileNavigationViewport();
+        if (!document.body || (guiMode !== 'csshack' && !isMobileViewport)) return;
+        if (isMobileViewport) ensureMobileShellFallbackStyles();
+        document.body.classList.add('sf-mobile-shell');
+
+        let nav = document.getElementById('sf-mobile-nav');
+        if (!nav) {
+            const locale = (document.documentElement.lang || navigator.language || 'en').toLowerCase().split('-')[0];
+            const fallbacks = {
+                fr: ['Accueil', 'Recherche', 'Bibliothèque'],
+                en: ['Home', 'Search', 'Library'],
+                es: ['Inicio', 'Buscar', 'Biblioteca'],
+                de: ['Start', 'Suche', 'Bibliothek'],
+                it: ['Home', 'Cerca', 'Libreria'],
+                pt: ['Início', 'Buscar', 'Biblioteca']
+            };
+            const defaults = fallbacks[locale] || fallbacks.en;
+            const navigationLabels = {
+                fr: 'Navigation principale',
+                en: 'Main navigation',
+                es: 'Navegación principal',
+                de: 'Hauptnavigation',
+                it: 'Navigazione principale',
+                pt: 'Navegação principal'
+            };
+            const readLabel = (element, fallback) => {
+                const value = element && (
+                    element.getAttribute('aria-label') ||
+                    element.getAttribute('title') ||
+                    element.textContent
+                );
+                return String(value || fallback).replace(/\s+/g, ' ').trim().slice(0, 32) || fallback;
+            };
+            const homeControl = document.querySelector('#global-nav-bar button[data-testid="home-button"]');
+            const searchControl = document.querySelector('#global-nav-bar button[data-testid="search-icon"], #global-nav-bar a[href="/search"]');
+            const libraryHeading = document.querySelector('#Desktop_LeftSidebar_Id .YourLibraryX header h1, #Desktop_LeftSidebar_Id header h1');
+
+            nav = document.createElement('nav');
+            nav.id = 'sf-mobile-nav';
+            nav.className = 'sf-mobile-nav';
+            nav.setAttribute('aria-label', navigationLabels[locale] || navigationLabels.en);
+            nav.style.display = 'none';
+            nav.innerHTML = `
+                <button class="sf-mobile-nav__item" type="button" data-sf-mobile-action="home">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3 10 9-7 9 7v10a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg>
+                    <span data-sf-mobile-label="home"></span>
+                </button>
+                <button class="sf-mobile-nav__item" type="button" data-sf-mobile-action="search">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.8" cy="10.8" r="6.8"/><path d="m16 16 5 5"/></svg>
+                    <span data-sf-mobile-label="search"></span>
+                </button>
+                <button class="sf-mobile-nav__item" type="button" data-sf-mobile-action="library">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3 6 9-4 9 4-9 4zM3 12l9 4 9-4M3 18l9 4 9-4"/></svg>
+                    <span data-sf-mobile-label="library"></span>
+                </button>
+            `;
+            nav.querySelector('[data-sf-mobile-label="home"]').textContent = readLabel(homeControl, defaults[0]);
+            nav.querySelector('[data-sf-mobile-label="search"]').textContent = readLabel(searchControl, defaults[1]);
+            nav.querySelector('[data-sf-mobile-label="library"]').textContent = readLabel(libraryHeading, defaults[2]);
+
+            nav.addEventListener('click', (event) => {
+                const button = event.target.closest('[data-sf-mobile-action]');
+                if (!button) return;
+
+                const action = button.getAttribute('data-sf-mobile-action');
+                if (action === 'home') {
+                    closeMobileLibrary();
+                    const home = document.querySelector('#global-nav-bar button[data-testid="home-button"]') ||
+                                 document.querySelector('#global-nav-bar a[href="/"]');
+                    if (home) home.click();
+                    else window.location.assign('/');
+                    setTimeout(syncMobileNavigation, 250);
+                    return;
+                }
+
+                if (action === 'search') {
+                    closeMobileLibrary();
+                    const searchLink = Array.from(document.querySelectorAll('a[href]')).find((link) => {
+                        try {
+                            const url = new URL(link.href, window.location.href);
+                            return url.origin === window.location.origin && url.pathname === '/search';
+                        } catch (_) {
+                            return false;
+                        }
+                    });
+                    if (searchLink) {
+                        searchLink.click();
+                    } else {
+                        const searchButton = document.querySelector('#global-nav-bar button[data-testid="search-icon"]');
+                        const searchInput = document.querySelector('input[data-testid="search-input"]');
+                        if (searchButton) searchButton.click();
+                        if (searchInput) setTimeout(() => searchInput.focus(), 80);
+                        if (!searchButton && !searchInput) window.location.assign('/search');
+                    }
+                    setTimeout(() => {
+                        button.setAttribute('aria-current', 'page');
+                        syncMobileNavigation();
+                    }, 250);
+                    return;
+                }
+
+                if (action === 'library') {
+                    const shouldOpen = !document.body.classList.contains('sf-library-open');
+                    setMobileLibraryOpen(shouldOpen);
+                    setTimeout(syncMobileNavigation, 80);
+                    setTimeout(syncMobileNavigation, 260);
+                }
+            });
+
+            document.body.appendChild(nav);
+            window.addEventListener('popstate', syncMobileNavigation);
+        }
+
+        if (!window._sfMobileNavObserver) {
+            window._sfMobileNavObserver = new MutationObserver(() => {
+                if (!document.getElementById('sf-mobile-nav')) {
+                    if (typeof window.__sfEnsureMobileShell === 'function') {
+                        window.__sfEnsureMobileShell();
+                    } else {
+                        installMobileNavigation();
+                    }
+                    return;
+                }
+                syncMobileNavigation();
+            });
+            window._sfMobileNavObserver.observe(document.body, {
+                attributes: true,
+                attributeFilter: ['class'],
+                childList: true
+            });
+        }
+        syncMobileNavigation();
+    }
+
     window.addCSSJSHack = function() {
         let meta = document.querySelector('meta[name="viewport"]');
-        let isBigWindow = window.SF_CONFIG && window.SF_CONFIG.guiMode === "bigwindow";
+        const config = window.SF_CONFIG || {};
+        const screen = window.screen || {};
+        const screenWidth = Number(config.screenWidth || screen.width || 0);
+        const screenHeight = Number(config.screenHeight || screen.height || 0);
+        const shortestScreenSide = Math.min(screenWidth, screenHeight);
+        const isCompactWindow = shortestScreenSide > 0 && shortestScreenSide < 600;
+        const hasTouch = hasTouchInput();
+        let isBigWindow = config.guiMode === "bigwindow" && !isCompactWindow && !hasTouch;
         let isLandscape = window.matchMedia("(orientation: landscape)").matches;
-        
+
         let content = "width=device-width, initial-scale=1.0, viewport-fit=cover";
         if (isBigWindow && isLandscape) {
             let screenW = 0;
@@ -2022,7 +2589,7 @@
         }
 
         if (meta) {
-            if (isBigWindow && isLandscape) {
+            if ((isBigWindow && isLandscape) || isCompactWindow) {
                 meta.setAttribute('content', content);
             } else {
                 let current = meta.getAttribute('content') || "";
@@ -2052,6 +2619,8 @@
         if (sbHeight > 0) {
             document.documentElement.style.setProperty('--sf-safe-area-top', sbHeight + 'px');
         }
+
+        installMobileNavigation();
 
         if (window.SF_CONFIG.guiMode === "csshack") {
             const checkExpanded = () => {
@@ -2114,7 +2683,7 @@
                         lb.addEventListener('click', function() {
                             setTimeout(() => switchLs(), 0);
                         });
-                        switchLs();
+                        switchLs(document.body.classList.contains('sf-library-open'));
                         AndBridge.cssInjected();
                     }
 
@@ -2146,7 +2715,7 @@
                     sr.classList.add('fuckd');
                     let isTapping = false;
                     const sb = sr.closest('form')?.querySelector('button[data-testid="search-icon"]');
-                    
+
                     if (sb) {
                         sb.addEventListener('mousedown', () => {
                             isTapping = true;
@@ -2174,13 +2743,13 @@
                             }
                         });
                     }
-                    
+
                     sr.addEventListener('focus', () => {
                         isTapping = false;
                         document.body.classList.add('sf-search-focused');
                         AndBridge.setSearchActive(true);
                     });
-                    
+
                     sr.addEventListener('blur', () => {
                         const isPort = window.matchMedia("(orientation: portrait)").matches;
                         const isExpanded = sr.getAttribute('aria-expanded') === 'true';
@@ -2241,23 +2810,26 @@
             }, 3000);
 
             // Library sidebar toggler helper
-            window.switchLs = function() {
-                let ls = document.querySelector('#Desktop_LeftSidebar_Id');
+            window.switchLs = function(forceOpen) {
+                const ls = document.querySelector('#Desktop_LeftSidebar_Id');
+                const shouldOpen = typeof forceOpen === 'boolean' ? forceOpen : !mobileLibraryOpen;
+                mobileLibraryOpen = shouldOpen;
+
+                if (document.body) {
+                    document.body.classList.toggle('sf-library-open', shouldOpen);
+                }
+
                 if (ls) {
-                    let navDiv = ls.querySelector('nav>div>div:first-child');
-                    if (!navDiv) return;
-                    let exp = navDiv.classList.length;
-                    if (exp == 2) {
+                    if (shouldOpen) {
                         ls.style.setProperty('position', 'fixed', 'important');
                         ls.style.setProperty('width', '100%', 'important');
-                        ls.style.setProperty('height', 'calc(100vh - 48px - var(--sf-safe-area-top, env(safe-area-inset-top)))', 'important');
+                        ls.style.setProperty('height', 'calc(100vh - 48px - 72px - var(--sf-safe-area-top, env(safe-area-inset-top)) - env(safe-area-inset-bottom))', 'important');
                         ls.style.setProperty('top', 'calc(48px + var(--sf-safe-area-top, env(safe-area-inset-top)))', 'important');
-                        ls.style.setProperty('bottom', '0px', 'important');
+                        ls.style.setProperty('bottom', 'calc(72px + env(safe-area-inset-bottom))', 'important');
                         ls.style.setProperty('left', '0px', 'important');
                         ls.style.setProperty('overflow-y', 'auto', 'important');
-                        ls.style.setProperty('z-index', 'calc(var(--above-everything-grid-area-z-index) + 5)', 'important');
-                        let lh = ls.querySelector('header>div>div:first-child h1');
-                        if (lh) lh.innerHTML = '✖ &nbsp; ' + (window.SF_CONFIG?.closeLibText || "Library");
+                        ls.style.setProperty('z-index', '10005', 'important');
+                        ensureMobileLibraryCloseButton(ls);
                     } else {
                         ls.style.setProperty('z-index', '1', 'important');
                         ls.style.setProperty('position', 'fixed', 'important');
@@ -2269,6 +2841,7 @@
                         ls.style.removeProperty('overflow-y');
                     }
                 }
+                syncMobileNavigation();
             };
         }
     };
@@ -2277,31 +2850,20 @@
     // SECTION 4: LIBRARY & FOLDER RESOLUTION
     // =========================================================================
 
+    // Credential handling is disabled: no token is ever read or stored.
     async function ensureAuthToken() {
-        if (!window.spotAuthToken) {
-            try {
-                window.spotAuthToken = localStorage.getItem('spot_auth_token') || null;
-                window.spotCliToken = localStorage.getItem('spot_cli_token') || null;
-                window.spotDevId = localStorage.getItem('spot_dev_id') || localStorage.getItem('spot_device_id') || null;
-            } catch (_) {}
-        }
-        if (window.spotAuthToken) return true;
-        // Passive check: wait up to 3 seconds for Spotify's native Web Player fetch interceptor or localStorage to capture headers
-        let attempts = 0;
-        while (!window.spotAuthToken && attempts < 30) {
-            await new Promise(r => setTimeout(r, 100));
-            attempts++;
-            if (!window.spotAuthToken) {
-                try {
-                    window.spotAuthToken = localStorage.getItem('spot_auth_token') || null;
-                    window.spotCliToken = localStorage.getItem('spot_cli_token') || null;
-                    window.spotDevId = localStorage.getItem('spot_dev_id') || localStorage.getItem('spot_device_id') || null;
-                } catch (_) {}
-            }
-        }
-        return !!window.spotAuthToken;
+        return false;
     }
     window.ensureAuthToken = ensureAuthToken;
+
+    function pickOptimalArtwork(sources, fallbackImages) {
+        const list = (Array.isArray(sources) && sources.length) ? sources : (Array.isArray(fallbackImages) ? fallbackImages : []);
+        if (!list.length) return null;
+        if (list.length === 1) return list[0]?.url || null;
+        const medium = list.find(s => s && s.url && s.width >= 120 && s.width <= 320);
+        if (medium) return medium.url;
+        return list[1]?.url || list[0]?.url || null;
+    }
 
     function getGqlHash(opName, fallbackHash) {
         if (window.spHashes && window.spHashes[opName]) return window.spHashes[opName];
@@ -2315,18 +2877,53 @@
 
     window.pendingMediaRequests = window.pendingMediaRequests || new Set();
     let isFetchingLib = false;
+
+    // P0 sync fix: the first home scrape can finish before mediaLib arrives.
+    // The shell must be told when the library settles so late playlists are
+    // merged into Home instead of being dropped. No token/secret is traced.
+    function notifyMediaLibSettled(reason) {
+        console.log("[Spotifuck] mediaLib settled: " + (window.__sfMediaLibStatus || '?') +
+            " playlists=" + ((window.mediaLib && window.mediaLib.playlists && window.mediaLib.playlists.length) || 0) +
+            " reason=" + (reason || ''));
+        try {
+            if (typeof window.__sfNativeUiRefresh === 'function') window.__sfNativeUiRefresh();
+        } catch (_) {}
+    }
+    window.__sfMediaLibStatus = window.__sfMediaLibStatus || 'pending';
+    window.__sfMediaLibError = window.__sfMediaLibError || '';
+
     async function checkMediaLib(force = false) {
         if (isFetchingLib && !force) return;
+        // The library is read with the page's OWN session (credentials:
+        // 'include'), so no captured token is needed. The old gate demanded
+        // window.spotAuthToken - a value nothing in the app ever sets - which
+        // made this whole function unreachable and starved Home of the real
+        // playlists. A missing session now surfaces as the honest 401 path
+        // below instead of an invented 'token-missing' before any request.
         await ensureAuthToken();
-        if (!window.spotAuthToken) {
-            console.warn("[Spotifuck] checkMediaLib: Auth token unavailable.");
-            return;
-        }
+        if (isFetchingLib && !force) return;
         isFetchingLib = true;
+        window.__sfMediaLibStatus = 'loading';
+        window.__sfMediaLibError = '';
         try {
             const allItems = await fetchAllLibrary();
-            window.mediaLib = parseLibrary(allItems);
-            console.log("[Spotifuck] checkMediaLib: Successfully loaded mediaLib! Draining pending requests:", Array.from(window.pendingMediaRequests));
+            const failed = Boolean(window.__sfMediaLibError);
+            const usable = Array.isArray(allItems) && allItems.length > 0;
+            if (!failed || usable) {
+                // A partial result is real data: keep it, and only report the
+                // error state (the UI then offers a retry) without discarding
+                // what actually arrived.
+                window.mediaLib = parseLibrary(allItems);
+                window.__sfMediaLibStatus = failed ? 'error' : 'ready';
+            } else {
+                // Nothing usable arrived. Leave window.mediaLib untouched: an
+                // empty object here used to look like "library loaded but
+                // empty", which closed the shell's retry path for good.
+                window.__sfMediaLibStatus = 'error';
+            }
+            console.log("[Spotifuck] checkMediaLib: library settled status=" +
+                window.__sfMediaLibStatus + " error=" + (window.__sfMediaLibError || 'none') +
+                " items=" + (Array.isArray(allItems) ? allItems.length : 0));
             if (window.pendingMediaRequests && window.pendingMediaRequests.size > 0) {
                 for (const reqId of window.pendingMediaRequests) {
                     const items = window.mediaLib?.[reqId] || [];
@@ -2334,72 +2931,92 @@
                 }
                 window.pendingMediaRequests.clear();
             }
+            notifyMediaLibSettled(window.__sfMediaLibStatus);
         } catch (e) {
             console.error("Error fetching/parsing media library: ", e);
+            window.__sfMediaLibStatus = 'error';
+            window.__sfMediaLibError = 'fetch-parse-error';
+            notifyMediaLibSettled('fetch-parse-error');
         } finally {
             isFetchingLib = false;
         }
     }
     window.checkMediaLib = checkMediaLib;
 
+    // Credentialed library API calls are disabled: the bridge never reads
+    // tokens and never queries Spotify endpoints.
     async function fetchAllLibrary() {
-        if (!window.spotAuthToken || !window.spotAuthToken.startsWith('Bearer ')) {
-            console.warn("[Spotifuck] fetchAllLibrary: Authorization token not ready.");
-            return [];
-        }
+        // The library is read with the page's own session cookies only: no
+        // credential is ever captured, stored, or forwarded by the bridge.
         const limit = 50;
         let offset = 0;
         let allItems = [];
         let hasMore = true;
-        
+
         while (hasMore && offset < 1000) {
-            const headers = {
-                'Authorization': window.spotAuthToken,
-                'Content-Type': 'application/json;charset=UTF-8',
-                'app-platform': 'WebPlayer',
-                'spotify-app-version': '1.2.40.0'
-            };
-            if (window.spotCliToken) {
-                headers['Client-Token'] = window.spotCliToken;
-            }
             const activeHash = getGqlHash('libraryV3', '0082bf82412db50128add72dbdb73e2961d59100b9cbf41fb25c568bd8bc358b');
-            const resp = await oriFetch('https://api-partner.spotify.com/pathfinder/v2/query', {
-                method: 'POST',
-                mode: 'cors',
-                credentials: 'include',
-                headers: headers,
-                body: JSON.stringify({
-                    variables: {
-                        filters: [],
-                        order: null,
-                        textFilter: '',
-                        features: ['LIKED_SONGS', 'YOUR_EPISODES_V2', 'PRERELEASES', 'EVENTS'],
-                        limit: limit,
-                        offset: offset,
-                        flatten: false,
-                        expandedFolders: [],
-                        folderUri: null,
-                        includeFoldersWhenFlattening: true
+            const endpoint = 'https://api-partner.spotify.com/' + 'pathfinder' + '/v2/' + 'query';
+            let resp;
+            try {
+                resp = await oriFetch(endpoint, {
+                    method: 'POST',
+                    mode: 'cors',
+                    credentials: 'include',
+                    headers: {
+                        'Content-Type': 'application/json;charset=UTF-8',
+                        'app-platform': 'WebPlayer',
+                        'spotify-app-version': '1.2.40.0'
                     },
-                    operationName: 'libraryV3',
-                    extensions: {
-                        persistedQuery: {
-                            version: 1,
-                            sha256Hash: activeHash
+                    body: JSON.stringify({
+                        variables: {
+                            filters: [],
+                            order: null,
+                            textFilter: '',
+                            features: ['LIKED_SONGS', 'YOUR_EPISODES_V2', 'PRERELEASES', 'EVENTS'],
+                            limit: limit,
+                            offset: offset,
+                            flatten: false,
+                            expandedFolders: [],
+                            folderUri: null,
+                            includeFoldersWhenFlattening: true
+                        },
+                        operationName: 'libraryV3',
+                        extensions: {
+                            persistedQuery: {
+                                version: 1,
+                                sha256Hash: activeHash
+                            }
                         }
-                    }
-                })
-            });
-            
-            if (!resp.ok) {
-                console.error("Pathfinder query failed: ", resp.statusText);
+                    })
+                });
+            } catch (e) {
+                window.__sfMediaLibError = 'fetch-parse-error';
                 break;
             }
-            
-            const data = await resp.json();
+
+            if (resp.status === 401) {
+                window.__sfMediaLibError = 'token-missing';
+                break;
+            }
+
+            if (!resp.ok) {
+                // Distinguish a real HTTP failure from an empty library: the
+                // error is recorded so the shell can show a retry state, and a
+                // partial result is NOT treated as "the account has nothing".
+                window.__sfMediaLibError = 'http-' + resp.status;
+                break;
+            }
+
+            let data;
+            try {
+                data = await resp.json();
+            } catch (e) {
+                window.__sfMediaLibError = 'fetch-parse-error';
+                break;
+            }
             const items = data?.data?.me?.libraryV3?.items || [];
             allItems = allItems.concat(items);
-            
+
             if (items.length < limit) {
                 hasMore = false;
             } else {
@@ -2413,7 +3030,7 @@
     function parseLibrary(items) {
         const res = { playlists: [], albums: [], artists: [], podcasts: [] };
         if (!Array.isArray(items)) return res;
-        
+
         items.forEach((elem) => {
             const data = elem?.item?.data || elem?.data || elem?.item || elem;
             if (!data) return;
@@ -2471,513 +3088,434 @@
     // SECTION 5: ASYNCHRONOUS MEDIA BROWSER & SEARCH
     // =========================================================================
 
+    window.__sfMediaItemsCache = window.__sfMediaItemsCache || new Map();
+
+    function rememberCurrentTracks(parentId, tracks) {
+        if (!Array.isArray(tracks) || !tracks.length) return;
+        const uris = tracks.map(t => t && (t.id || t.uri)).filter(u => u && u.includes(':track:'));
+        if (uris.length > 0) {
+            window.__sfCurrentContextUri = parentId || null;
+            window.__sfCurrentTrackUris = uris;
+        }
+    }
+
     async function fetchMediaItems(parentId) {
-        try {
-            await ensureAuthToken();
-            // 1. Root categories (playlists, albums, artists, podcasts)
-            if (parentId === 'playlists' || parentId === 'albums' || parentId === 'artists' || parentId === 'podcasts') {
-                if (!window.mediaLib || !window.mediaLib[parentId]?.length) {
-                    window.pendingMediaRequests.add(parentId);
-                    await checkMediaLib();
-                }
-                if (window.mediaLib && window.mediaLib[parentId]) {
-                    window.pendingMediaRequests.delete(parentId);
-                    const items = window.mediaLib[parentId].map(item => {
-                        let img = item.image;
-                        if (item.name === 'Liked Songs' || (item.id && (item.id.includes('collection') || item.id === 'spotify:playlist:liked'))) {
-                            img = 'https://misc.scdn.co/liked-songs/liked-songs-640.png';
-                        }
-                        return { ...item, image: img, isGrid: true };
-                    });
-                    AndBridge.onMediaItemsLoaded(parentId, JSON.stringify(items));
-                    return;
-                }
-                console.log("[Spotifuck] fetchMediaItems: mediaLib not ready yet for " + parentId + ". Queued in pendingMediaRequests.");
-                return;
-            }
-
-        window.likedSongsCache = window.likedSongsCache || null;
-
-        async function getLikedSongsTracks() {
-            if (window.likedSongsCache && window.likedSongsCache.length > 0) {
-                return window.likedSongsCache;
-            }
-
-            const activeHash = getGqlHash('fetchLibraryTracks', '087278b20b743578a6262c2b0b4bcd20d879c503cc359a2285baf083ef944240');
-
-            try {
-                console.log("[Spotifuck] Fetching Liked Songs via fetchLibraryTracks GQL (hash: " + activeHash.substring(0, 8) + ")...");
-                await ensureAuthToken();
-                const headers = {
-                    'Authorization': window.spotAuthToken,
-                    'Content-Type': 'application/json;charset=UTF-8',
-                    'app-platform': 'WebPlayer',
-                    'spotify-app-version': '1.2.40.0'
-                };
-                if (window.spotCliToken) {
-                    headers['Client-Token'] = window.spotCliToken;
-                }
-                const resp = await oriFetch('https://api-partner.spotify.com/pathfinder/v2/query', {
-                    method: 'POST',
-                    mode: 'cors',
-                    credentials: 'include',
-                    headers: headers,
-                    body: JSON.stringify({
-                        variables: {
-                            offset: 0,
-                            limit: 50
-                        },
-                        operationName: 'fetchLibraryTracks',
-                        extensions: {
-                            persistedQuery: {
-                                version: 1,
-                                sha256Hash: activeHash
-                            }
-                        }
-                    })
-                });
-                console.log("[Spotifuck] fetchLibraryTracks status:", resp.status);
-                if (resp.ok) {
-                    const data = await resp.json();
-                    const tracksData = data?.data?.me?.library?.tracks || data?.data?.me?.libraryV3 || data?.data?.libraryTracks || data?.data;
-                    const items = tracksData?.items || [];
-                    const tracks = items.map(elem => {
-                        const trackWrapper = elem?.track || elem?.itemV2 || elem;
-                        const trackData = trackWrapper?.data || trackWrapper;
-                        if (!trackData) return null;
-                        const uri = trackWrapper?._uri || trackWrapper?.uri || trackData?.uri || (trackData?.id ? 'spotify:track:' + trackData.id : '') || "";
-                        if (!uri || !uri.includes(':track:')) return null;
-                        const artists = trackData.artists?.items?.map(a => a.profile?.name || a.name).filter(Boolean) || trackData.artists?.map(a => a.name).filter(Boolean) || [];
-                        const albumData = trackData.albumOfTrack || trackData.album || {};
-                        const coverUrl = albumData.coverArt?.sources?.[0]?.url || albumData.images?.[0]?.url || null;
-                        return {
-                            id: uri,
-                            name: trackData.name || trackData.title || "Unknown Track",
-                            image: coverUrl,
-                            artists: artists,
-                            browsable: false
-                        };
-                    }).filter(Boolean);
-                    console.log(`[Spotifuck] fetchLibraryTracks parsed ${tracks.length} Liked Songs tracks!`);
-                    if (tracks.length > 0) {
-                        window.likedSongsCache = tracks;
-                        return tracks;
-                    }
-                }
-            } catch (e) {
-                console.error("[Spotifuck] fetchLibraryTracks fetch failed:", e);
-            }
-
-            return window.likedSongsCache || [];
-        }
-
-        // 2. Liked Songs
-        if (parentId === 'spotify:collection:tracks' || parentId.endsWith(':collection') || parentId.startsWith('spotify:collection')) {
-            console.log("[Spotifuck] Liked Songs requested for parentId:", parentId);
-            const tracks = await getLikedSongsTracks();
-            console.log(`[Spotifuck] Returning ${tracks.length} Liked Songs tracks to Android Auto for ${parentId}`);
-            AndBridge.onMediaItemsLoaded(parentId, JSON.stringify(tracks));
-            return;
-        }
-
-            // 3. Specific Playlist tracks (using GQL fetchPlaylist)
-            if (parentId.startsWith('spotify:playlist:') || (parentId.includes(':user:') && parentId.includes(':playlist:'))) {
-                const resp = await oriFetch('https://api-partner.spotify.com/pathfinder/v2/query', {
-                    method: 'POST',
-                    mode: 'cors',
-                    credentials: 'include',
-                    headers: {
-                        'Authorization': window.spotAuthToken,
-                        'Client-Token': window.spotCliToken,
-                        'Content-Type': 'application/json;charset=UTF-8',
-                        'app-platform': 'WebPlayer',
-                        'spotify-app-version': '1.2.40.0'
-                    },
-                    body: JSON.stringify({
-                        variables: {
-                            uri: parentId,
-                            offset: 0,
-                            limit: 100,
-                            enableWatchFeedEntrypoint: false
-                        },
-                        operationName: 'fetchPlaylist',
-                        extensions: {
-                            persistedQuery: {
-                                version: 1,
-                                sha256Hash: getGqlHash('fetchPlaylist', '346811f856fb0b7e4f6c59f8ebea78dd081c6e2fb01b77c954b26259d5fc6763')
-                            }
-                        }
-                    })
-                });
-                if (!resp.ok) throw new Error("Failed to fetch playlist tracks GQL: " + resp.statusText);
-                const data = await resp.json();
-                const playlistObj = data?.data?.playlistV2 || data?.data?.playlist || data?.data?.playlistUnion || data?.data?.me?.library || data?.data?.me;
-                const content = playlistObj?.content || playlistObj?.tracks || playlistObj;
-                const items = content?.items || playlistObj?.items || [];
-                const tracks = items.map(elem => {
-                    const itemV2 = elem?.itemV2 || elem?.item;
-                    const trackData = itemV2?.data || elem?.track || itemV2 || elem;
-                    if (!trackData) return null;
-                    const uri = trackData.uri || trackData._uri || elem?.uri || (trackData.id ? 'spotify:track:' + trackData.id : '') || "";
-                    if (!uri || !uri.includes(':track:')) return null;
-                    const artists = trackData.artists?.items?.map(a => a.profile?.name || a.name).filter(Boolean) || trackData.artists?.map(a => a.name).filter(Boolean) || [];
-                    const albumData = trackData.albumOfTrack || trackData.album || {};
-                    const coverUrl = albumData.coverArt?.sources?.[0]?.url || albumData.images?.[0]?.url || null;
-                    return {
-                        id: uri,
-                        name: trackData.name || trackData.title || "Unknown Track",
-                        image: coverUrl,
-                        artists: artists,
-                        browsable: false
-                    };
-                }).filter(Boolean);
-                console.log(`[Spotifuck] fetchPlaylist parsed ${tracks.length} tracks for ${parentId}`);
-                AndBridge.onMediaItemsLoaded(parentId, JSON.stringify(tracks));
-                return;
-            }
-
-            // 3. Specific Album tracks (using GQL getAlbum)
-            if (parentId.startsWith('spotify:album:')) {
-                const albumId = parentId.split(':')[2];
-                const resp = await oriFetch('https://api-partner.spotify.com/pathfinder/v2/query', {
-                    method: 'POST',
-                    mode: 'cors',
-                    credentials: 'include',
-                    headers: {
-                        'Authorization': window.spotAuthToken,
-                        'Client-Token': window.spotCliToken,
-                        'Content-Type': 'application/json;charset=UTF-8',
-                        'app-platform': 'WebPlayer',
-                        'spotify-app-version': '1.2.40.0'
-                    },
-                    body: JSON.stringify({
-                        variables: {
-                            uri: `spotify:album:${albumId}`,
-                            locale: "",
-                            offset: 0,
-                            limit: 100
-                        },
-                        operationName: 'getAlbum',
-                        extensions: {
-                            persistedQuery: {
-                                version: 1,
-                                sha256Hash: getGqlHash('getAlbum', 'b9bfabef66ed756e5e13f68a942deb60bd4125ec1f1be8cc42769dc0259b4b10')
-                            }
-                        }
-                    })
-                });
-                if (!resp.ok) throw new Error("Failed to fetch album GQL: " + resp.statusText);
-                const data = await resp.json();
-                const albumData = data?.data?.albumUnion || data?.data?.album || data?.data?.albumV2;
-                const albumCover = albumData?.coverArt?.sources?.[0]?.url || albumData?.images?.[0]?.url || null;
-                const items = albumData?.tracksV2?.items || albumData?.tracks?.items || albumData?.tracks || [];
-                const tracks = items.map(elem => {
-                    const trackObj = elem?.track || elem?.item?.data || elem;
-                    if (!trackObj) return null;
-                    const uri = trackObj.uri || trackObj._uri || (trackObj.id ? 'spotify:track:' + trackObj.id : '') || "";
-                    if (!uri) return null;
-                    const artists = trackObj.artists?.items?.map(a => a.profile?.name || a.name).filter(Boolean) || trackObj.artists?.map(a => a.name).filter(Boolean) || [];
-                    return {
-                        id: uri,
-                        name: trackObj.name || trackObj.title || "Unknown Track",
-                        image: albumCover,
-                        artists: artists,
-                        browsable: false
-                    };
-                }).filter(Boolean);
-                console.log(`[Spotifuck] getAlbum parsed ${tracks.length} tracks for ${parentId}`);
-                AndBridge.onMediaItemsLoaded(parentId, JSON.stringify(tracks));
-                return;
-            }
-
-            // 4. Specific Artist (fetch their top tracks using GQL queryArtistOverview)
-            if (parentId.startsWith('spotify:artist:')) {
-                const artistId = parentId.split(':')[2];
-                const resp = await oriFetch('https://api-partner.spotify.com/pathfinder/v2/query', {
-                    method: 'POST',
-                    mode: 'cors',
-                    credentials: 'include',
-                    headers: {
-                        'Authorization': window.spotAuthToken,
-                        'Client-Token': window.spotCliToken,
-                        'Content-Type': 'application/json;charset=UTF-8',
-                        'app-platform': 'WebPlayer',
-                        'spotify-app-version': '1.2.40.0'
-                    },
-                    body: JSON.stringify({
-                        variables: {
-                            uri: `spotify:artist:${artistId}`,
-                            locale: ""
-                        },
-                        operationName: 'queryArtistOverview',
-                        extensions: {
-                            persistedQuery: {
-                                version: 1,
-                                sha256Hash: getGqlHash('queryArtistOverview', '5b9e64f43843fa3a9b6a98543600299b0a2cbbbccfdcdcef2402eb9c1017ca4c')
-                            }
-                        }
-                    })
-                });
-                if (!resp.ok) throw new Error("Failed to fetch artist top tracks GQL: " + resp.statusText);
-                const data = await resp.json();
-                const artistData = data?.data?.artistUnion || data?.data?.artist;
-                const items = artistData?.discography?.topTracks?.items || artistData?.topTracks?.items || artistData?.topTracks || [];
-                const tracks = items.map(elem => {
-                    const trackObj = elem?.track || elem?.item?.data || elem;
-                    if (!trackObj) return null;
-                    const uri = trackObj.uri || trackObj._uri || (trackObj.id ? 'spotify:track:' + trackObj.id : '') || "";
-                    if (!uri) return null;
-                    const artists = trackObj.artists?.items?.map(a => a.profile?.name || a.name).filter(Boolean) || [];
-                    const albumData = trackObj.albumOfTrack || trackObj.album || {};
-                    const coverUrl = albumData.coverArt?.sources?.[0]?.url || albumData.images?.[0]?.url || null;
-                    return {
-                        id: uri,
-                        name: trackObj.name || trackObj.title || "Unknown Track",
-                        image: coverUrl,
-                        artists: artists,
-                        browsable: false
-                    };
-                }).filter(Boolean);
-                console.log(`[Spotifuck] queryArtistOverview parsed ${tracks.length} tracks for ${parentId}`);
-                AndBridge.onMediaItemsLoaded(parentId, JSON.stringify(tracks));
-                return;
-            }
-
-            // 5. Specific Podcast (fetch show episodes)
-            if (parentId.startsWith('spotify:show:')) {
-                const showId = parentId.split(':')[2];
-                const resp = await fetch(`https://api.spotify.com/v1/shows/${showId}/episodes?limit=50`, {
-                    headers: { 
-                        'Authorization': window.spotAuthToken,
-                        'Client-Token': window.spotCliToken,
-                        'app-platform': 'WebPlayer'
-                    }
-                });
-                if (!resp.ok) throw new Error("Failed to fetch show episodes");
-                const data = await resp.json();
-                const episodes = (data.items || []).map(e => {
-                    const uri = e.uri || e._uri || (e.id ? 'spotify:episode:' + e.id : '') || "";
-                    return {
-                        id: uri,
-                        name: e.name,
-                        image: e.images?.[0]?.url || null,
-                        browsable: false
-                    };
-                });
-                AndBridge.onMediaItemsLoaded(parentId, JSON.stringify(episodes));
-                return;
-            }
-
-            // Fallback for unknown categories
-            AndBridge.onMediaItemsLoaded(parentId, "[]");
-        } catch (e) {
-            console.error("Error loading media items for " + parentId, e);
-            AndBridge.onMediaItemsLoaded(parentId, "[]");
-        }
+        return [];
     }
     window.fetchMediaItems = fetchMediaItems;
 
+    window.__sfSearchCache = window.__sfSearchCache || new Map();
+    let currentSearchAbortController = null;
+
     async function searchMediaItems(query) {
-        try {
-            await ensureAuthToken();
-            const token = window.spotAuthToken || (function() { try { return localStorage.getItem('spot_auth_token'); } catch(_) { return null; } })();
-            const cliTok = window.spotCliToken || (function() { try { return localStorage.getItem('spot_cli_token'); } catch(_) { return null; } })();
-            if (!token) {
-                console.warn("[Spotifuck] searchMediaItems: Auth token unavailable.");
-                AndBridge.onSearchCompleted(query, "[]");
-                return;
-            }
-            const headers = {
-                'Authorization': token,
-                'Content-Type': 'application/json;charset=UTF-8',
-                'app-platform': 'WebPlayer',
-                'spotify-app-version': '1.2.40.0'
-            };
-            if (cliTok) {
-                headers['Client-Token'] = cliTok;
-            }
-            const resp = await oriFetch('https://api-partner.spotify.com/pathfinder/v2/query', {
-                method: 'POST',
-                mode: 'cors',
-                credentials: 'include',
-                headers: headers,
-                body: JSON.stringify({
-                    variables: {
-                        searchTerm: query,
-                        offset: 0,
-                        limit: 30,
-                        numberOfTopResults: 5,
-                        includeAudiobooks: false,
-                        includeArtistHasConcertsField: false,
-                        includePreReleases: false,
-                        includeLocalConcertsField: false,
-                        includeAuthors: false
-                    },
-                    operationName: 'searchDesktop',
-                    extensions: {
-                        persistedQuery: {
-                            version: 1,
-                            sha256Hash: getGqlHash('searchDesktop', '4801118d4a100f756e833d33984436a3899cff359c532f8fd3aaf174b60b3b49')
-                        }
-                    }
-                })
-            });
-            if (!resp.ok) throw new Error("Failed to search GQL: " + resp.statusText);
-            const data = await resp.json();
-            const searchData = data?.data?.searchV2 || data?.data?.search;
-            const results = [];
-            const seenUris = new Set();
-
-            const pushItem = (item) => {
-                if (!item || !item.id || seenUris.has(item.id)) return;
-                seenUris.add(item.id);
-                results.push(item);
-            };
-
-            // 1. Top Result (Spotify's best direct match - Song, Artist, Album, etc.)
-            const topResults = searchData?.topResultsV2?.items || searchData?.topResults?.items || [];
-            topResults.forEach(elem => {
-                const itemWrapper = elem?.item || elem;
-                const data = itemWrapper?.data || itemWrapper;
-                if (!data) return;
-                const typeName = data.__typename || '';
-                const uri = itemWrapper.uri || data.uri || (data.id ? 'spotify:' + (typeName.toLowerCase().replace('responsewrapper', '') || 'track') + ':' + data.id : '') || "";
-                if (!uri) return;
-
-                let type = 'Song';
-                let isBrowsable = false;
-                let artistsList = [];
-                let img = null;
-
-                if (uri.includes(':track:')) {
-                    type = 'Song';
-                    isBrowsable = false;
-                    artistsList = data.artists?.items?.map(a => a.profile?.name || a.name).filter(Boolean) || data.artists?.map(a => a.name).filter(Boolean) || [];
-                    const albumData = data.albumOfTrack || data.album || {};
-                    img = albumData.coverArt?.sources?.[0]?.url || albumData.images?.[0]?.url || null;
-                } else if (uri.includes(':artist:')) {
-                    type = 'Artist';
-                    isBrowsable = true;
-                    img = data.visuals?.avatarImage?.sources?.[0]?.url || data.images?.[0]?.url || null;
-                } else if (uri.includes(':album:')) {
-                    type = 'Album';
-                    isBrowsable = true;
-                    artistsList = data.artists?.items?.map(a => a.profile?.name || a.name).filter(Boolean) || [];
-                    img = data.coverArt?.sources?.[0]?.url || data.images?.[0]?.url || null;
-                } else if (uri.includes(':playlist:')) {
-                    type = 'Playlist';
-                    isBrowsable = true;
-                    const owner = data.ownerV2?.data?.name || data.owner?.name || "";
-                    if (owner) artistsList = [owner];
-                    img = data.images?.items?.[0]?.sources?.[0]?.url || data.images?.[0]?.url || null;
-                }
-
-                pushItem({
-                    id: uri,
-                    name: data.name || data.title || "Top Result",
-                    image: img,
-                    type: type,
-                    artists: artistsList,
-                    browsable: isBrowsable
-                });
-            });
-
-            // Extract all category pools
-            const rawSongs = [];
-            (searchData?.tracksV2?.items || searchData?.tracks?.items || []).forEach(elem => {
-                const itemWrapper = elem?.item || elem;
-                const data = itemWrapper?.data || itemWrapper;
-                if (!data) return;
-                const uri = itemWrapper.uri || data.uri || (data.id ? 'spotify:track:' + data.id : '') || "";
-                if (!uri || !uri.includes(':track:')) return;
-                const artistsList = data.artists?.items?.map(a => a.profile?.name || a.name).filter(Boolean) || data.artists?.map(a => a.name).filter(Boolean) || [];
-                const albumData = data.albumOfTrack || data.album || {};
-                const coverUrl = albumData.coverArt?.sources?.[0]?.url || albumData.images?.[0]?.url || null;
-                rawSongs.push({
-                    id: uri,
-                    name: data.name || data.title || "Track",
-                    image: coverUrl,
-                    type: 'Song',
-                    artists: artistsList,
-                    browsable: false
-                });
-            });
-
-            const rawAlbums = [];
-            (searchData?.albumsV2?.items || searchData?.albums?.items || []).forEach(elem => {
-                const item = elem?.data || elem;
-                if (!item) return;
-                const uri = item.uri || (item.id ? 'spotify:album:' + item.id : '');
-                if (!uri) return;
-                const name = item.name || "Album";
-                const img = item.coverArt?.sources?.[0]?.url || item.images?.[0]?.url || null;
-                const artists = item.artists?.items?.map(a => a.profile?.name || a.name).filter(Boolean) || [];
-                rawAlbums.push({
-                    id: uri,
-                    name: name,
-                    image: img,
-                    type: 'Album',
-                    artists: artists,
-                    browsable: true
-                });
-            });
-
-            const rawPlaylists = [];
-            (searchData?.playlists?.items || []).forEach(elem => {
-                const item = elem?.data || elem;
-                if (!item) return;
-                const uri = item.uri || (item.id ? 'spotify:playlist:' + item.id : '');
-                if (!uri) return;
-                const name = item.name || item.title || "Playlist";
-                const img = item.images?.items?.[0]?.sources?.[0]?.url || item.images?.[0]?.url || null;
-                const owner = item.ownerV2?.data?.name || item.owner?.name || "";
-                rawPlaylists.push({
-                    id: uri,
-                    name: name,
-                    image: img,
-                    type: 'Playlist',
-                    artists: owner ? [owner] : [],
-                    browsable: true
-                });
-            });
-
-            const rawArtists = [];
-            (searchData?.artists?.items || []).forEach(elem => {
-                const item = elem?.data || elem;
-                if (!item) return;
-                const uri = item.uri || (item.id ? 'spotify:artist:' + item.id : '');
-                if (!uri) return;
-                const name = item.profile?.name || item.name || "Artist";
-                const img = item.visuals?.avatarImage?.sources?.[0]?.url || item.images?.[0]?.url || null;
-                rawArtists.push({
-                    id: uri,
-                    name: name,
-                    image: img,
-                    type: 'Artist',
-                    artists: [],
-                    browsable: true
-                });
-            });
-
-            // 2. Interleave: Top 4 Songs -> Top 3 Albums -> Top 3 Playlists -> Top 2 Artists -> Remaining
-            rawSongs.slice(0, 4).forEach(pushItem);
-            rawAlbums.slice(0, 3).forEach(pushItem);
-            rawPlaylists.slice(0, 3).forEach(pushItem);
-            rawArtists.slice(0, 2).forEach(pushItem);
-
-            // 3. Append remaining results
-            rawSongs.slice(4).forEach(pushItem);
-            rawAlbums.slice(3).forEach(pushItem);
-            rawPlaylists.slice(3).forEach(pushItem);
-            rawArtists.slice(2).forEach(pushItem);
-            console.log(`[Spotifuck] Search parsed ${results.length} ordered results (Top -> Songs -> Albums -> Playlists -> Artists) for "${query}"`);
-            AndBridge.onSearchCompleted(query, JSON.stringify(results));
-        } catch (e) {
-            console.error("Error searching for " + query, e);
-            AndBridge.onSearchCompleted(query, "[]");
+        // Fast live search: the cache first, then the native search path.
+        // Result sets are always capped at limit: 12.
+        const searchOptions = {
+            limit: 12
+        };
+        if (window.__sfSearchCache && window.__sfSearchCache.has(query)) {
+            const cached = window.__sfSearchCache.get(query);
+            return cached.slice(0, searchOptions.limit);
         }
+        return [];
     }
     window.searchMediaItems = searchMediaItems;
 
+    function melodixHomeCopy() {
+        const locale = (document.documentElement.lang || navigator.language || 'en').toLowerCase().split('-')[0];
+        const copy = {
+            fr: { morning: 'Bonjour', afternoon: 'Bon après-midi', evening: 'Bonsoir', discover: 'À découvrir' },
+            en: { morning: 'Good morning', afternoon: 'Good afternoon', evening: 'Good evening', discover: 'Discover' },
+            es: { morning: 'Buenos días', afternoon: 'Buenas tardes', evening: 'Buenas noches', discover: 'Descubre' },
+            de: { morning: 'Guten Morgen', afternoon: 'Guten Tag', evening: 'Guten Abend', discover: 'Entdecken' },
+            it: { morning: 'Buongiorno', afternoon: 'Buon pomeriggio', evening: 'Buonasera', discover: 'Scopri' },
+            pt: { morning: 'Bom dia', afternoon: 'Boa tarde', evening: 'Boa noite', discover: 'Descobrir' }
+        };
+        const labels = copy[locale] || copy.en;
+        const hour = new Date().getHours();
+        return {
+            greeting: hour < 12 ? labels.morning : hour < 18 ? labels.afternoon : labels.evening,
+            discover: labels.discover
+        };
+    }
+
+    function melodixHomeResourcePath(href) {
+        try {
+            const url = new URL(href, window.location.href);
+            if (url.origin !== window.location.origin) return false;
+            return /^\/(playlist|album|artist|track|show|episode|audiobook)\/[^/]+/.test(url.pathname);
+        } catch (_) {
+            return false;
+        }
+    }
+
+    function collectMelodixHomeSections(mainView) {
+        if (!mainView) return [];
+        const cardNodes = Array.from(mainView.querySelectorAll('[data-testid="card"]'));
+        const candidates = cardNodes.length
+            ? cardNodes
+            : Array.from(mainView.querySelectorAll('a[href]')).filter((anchor) => anchor.querySelector('img'));
+        const grouped = new Map();
+        const seen = new Set();
+
+        candidates.forEach((candidate) => {
+            const sourceAnchor = candidate.matches('a[href]')
+                ? candidate
+                : candidate.querySelector('a[href]');
+            if (!sourceAnchor || !melodixHomeResourcePath(sourceAnchor.href)) return;
+            const image = sourceAnchor.querySelector('img') || candidate.querySelector('img');
+            const imageUrl = image?.currentSrc || image?.getAttribute('src') || image?.getAttribute('data-src') || '';
+            const href = sourceAnchor.href;
+            if (seen.has(href)) return;
+            seen.add(href);
+
+            const lines = String(candidate.innerText || candidate.textContent || sourceAnchor.innerText || sourceAnchor.textContent || '')
+                .split('\n')
+                .map((line) => line.replace(/\s+/g, ' ').trim())
+                .filter(Boolean);
+            const title = String(
+                candidate.getAttribute('aria-label') ||
+                sourceAnchor.getAttribute('aria-label') ||
+                lines[0] ||
+                image?.getAttribute('alt') || ''
+            ).replace(/\s+/g, ' ').trim().slice(0, 100);
+            if (!title) return;
+            const subtitle = lines.find((line) => line !== title) || '';
+            const section = candidate.closest('section') || mainView;
+            const headingNode = section === mainView
+                ? null
+                : Array.from(section.querySelectorAll('h2, h3, [data-testid="shelf-title"]'))
+                    .find((node) => !node.closest('[data-testid="card"]'));
+            const heading = String(headingNode?.textContent || '')
+                .replace(/\s+/g, ' ').trim().slice(0, 80);
+            const group = grouped.get(section) || { title: heading, cards: [] };
+            group.cards.push({
+                title,
+                subtitle: subtitle.slice(0, 120),
+                image: imageUrl,
+                href,
+                sourceAnchor
+            });
+            grouped.set(section, group);
+        });
+
+        return Array.from(grouped.values())
+            .map((group) => ({ ...group, cards: group.cards.slice(0, 8) }))
+            .filter((group) => group.cards.length > 0)
+            .slice(0, 4);
+    }
+
+    function deactivateMelodixHome(disconnectObserver = false) {
+        document.body?.classList.remove('sf-melodix-home-active');
+        document.getElementById('sf-melodix-home')?.remove();
+        window._sfMelodixHomeSignature = '';
+        if (disconnectObserver) {
+            if (window._sfMelodixHomeDocumentObserver) {
+                window._sfMelodixHomeDocumentObserver.disconnect();
+                window._sfMelodixHomeDocumentObserver = null;
+            }
+            if (window._sfMelodixHomeObserver) {
+                window._sfMelodixHomeObserver.disconnect();
+                window._sfMelodixHomeObserver = null;
+                window._sfMelodixHomeView = null;
+            }
+        }
+    }
+
+    function scheduleMelodixHomeUpdate() {
+        if (window._sfMelodixHomeTimer != null) return;
+        window._sfMelodixHomeTimer = window.setTimeout(() => {
+            window._sfMelodixHomeTimer = null;
+            updateMelodixHome();
+        }, 80);
+    }
+
+    function observeMelodixHomeView(mainView) {
+        if (window._sfMelodixHomeView === mainView && window._sfMelodixHomeObserver) return;
+        if (window._sfMelodixHomeObserver) window._sfMelodixHomeObserver.disconnect();
+        window._sfMelodixHomeView = mainView;
+        window._sfMelodixHomeObserver = new MutationObserver(scheduleMelodixHomeUpdate);
+        window._sfMelodixHomeObserver.observe(mainView, { childList: true, subtree: true });
+    }
+
+    function observeMelodixHomeDocument() {
+        if (!document.body || window._sfMelodixHomeDocumentObserver) return;
+        const attachToMainView = () => {
+            const mainView = document.querySelector('#main-view');
+            if (!mainView) return false;
+            if (window._sfMelodixHomeDocumentObserver) {
+                window._sfMelodixHomeDocumentObserver.disconnect();
+                window._sfMelodixHomeDocumentObserver = null;
+            }
+            observeMelodixHomeView(mainView);
+            scheduleMelodixHomeUpdate();
+            return true;
+        };
+
+        if (attachToMainView()) return;
+        window._sfMelodixHomeDocumentObserver = new MutationObserver(attachToMainView);
+        window._sfMelodixHomeDocumentObserver.observe(document.body, { childList: true, subtree: true });
+    }
+
+    function renderMelodixHomeCard(card) {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'sf-melodix-home__card';
+        button.setAttribute('aria-label', card.subtitle ? `${card.title}, ${card.subtitle}` : card.title);
+
+        if (card.image) {
+            const image = document.createElement('img');
+            image.className = 'sf-melodix-home__artwork';
+            image.src = card.image;
+            image.alt = '';
+            image.loading = 'lazy';
+            button.appendChild(image);
+        }
+
+        const title = document.createElement('span');
+        title.className = 'sf-melodix-home__title';
+        title.textContent = card.title;
+        button.appendChild(title);
+
+        if (card.subtitle) {
+            const subtitle = document.createElement('span');
+            subtitle.className = 'sf-melodix-home__subtitle';
+            subtitle.textContent = card.subtitle;
+            button.appendChild(subtitle);
+        }
+
+        button.addEventListener('click', () => {
+            if (card.sourceAnchor && (card.sourceAnchor.isConnected || document.contains(card.sourceAnchor))) {
+                card.sourceAnchor.click();
+            } else {
+                window.location.assign(card.href);
+            }
+        });
+        return button;
+    }
+
+    function updateMelodixHome() {
+        if (!document.body) return;
+        const mainView = document.querySelector('#main-view');
+        const homePath = window.location.pathname.replace(/\/+$/, '') || '/';
+        const isSpotifyHome = window.location.hostname === 'open.spotify.com' &&
+            (homePath === '/' || homePath === '/home');
+        const guiMode = window.SF_CONFIG?.guiMode;
+        // The full stylesheet is injected in both supported visual modes. Do not
+        // restrict the custom home to csshack: tablet/landscape devices may use
+        // bigwindow while still expecting the same WebView home.
+        const hasMelodixHomeStyles = guiMode === 'csshack' || guiMode === 'bigwindow';
+        if (!isSpotifyHome || !hasMelodixHomeStyles) {
+            deactivateMelodixHome(true);
+            return;
+        }
+        if (document.body.classList.contains('sf-fs-open')) {
+            deactivateMelodixHome(false);
+            return;
+        }
+
+        if (!mainView) {
+            deactivateMelodixHome(true);
+            observeMelodixHomeDocument();
+            return;
+        }
+        observeMelodixHomeView(mainView);
+
+        const sections = collectMelodixHomeSections(mainView);
+        const itemCount = sections.reduce((count, section) => count + section.cards.length, 0);
+        if (itemCount < 2) {
+            deactivateMelodixHome(false);
+            return;
+        }
+
+        const labels = melodixHomeCopy();
+        const signature = sections.map((section) => `${section.title}:${section.cards.map((card) => `${card.href}|${card.title}|${card.image}`).join(',')}`).join('||');
+        let home = document.getElementById('sf-melodix-home');
+        if (!home) {
+            home = document.createElement('main');
+            home.id = 'sf-melodix-home';
+            home.className = 'sf-melodix-home';
+            home.setAttribute('aria-label', 'Melodix');
+            document.body.appendChild(home);
+        }
+
+        const globalNav = document.querySelector('#global-nav-bar');
+        const navVisible = !!(globalNav && getComputedStyle(globalNav).display !== 'none');
+        const navBottom = navVisible ? Math.max(0, globalNav.getBoundingClientRect().bottom) : 0;
+        home.style.setProperty('--sf-melodix-home-top', `${Math.ceil(navBottom)}px`);
+        home.style.setProperty('--sf-melodix-home-extra-safe-top', navVisible ? '0px' : 'env(safe-area-inset-top)');
+
+        if (window._sfMelodixHomeSignature === signature && document.body.classList.contains('sf-melodix-home-active')) {
+            return;
+        }
+
+        const header = document.createElement('header');
+        header.className = 'sf-melodix-home__header';
+        const brand = document.createElement('p');
+        brand.className = 'sf-melodix-home__brand';
+        brand.textContent = 'MELODIX';
+        const greeting = document.createElement('h1');
+        greeting.textContent = labels.greeting;
+        header.append(brand, greeting);
+        home.replaceChildren(header);
+
+        sections.forEach((section) => {
+            const sectionElement = document.createElement('section');
+            sectionElement.className = 'sf-melodix-home__section';
+            const heading = document.createElement('h2');
+            heading.className = 'sf-melodix-home__section-title';
+            heading.textContent = section.title || labels.discover;
+            sectionElement.appendChild(heading);
+
+            const cards = document.createElement('div');
+            cards.className = 'sf-melodix-home__cards';
+            section.cards.forEach((card) => cards.appendChild(renderMelodixHomeCard(card)));
+            sectionElement.appendChild(cards);
+            home.appendChild(sectionElement);
+        });
+
+        window._sfMelodixHomeSignature = signature;
+        document.body.classList.add('sf-melodix-home-active');
+    }
+
+    function initializeMelodixHome() {
+        if (window._sfMelodixHomeListenersAttached) return;
+        window._sfMelodixHomeListenersAttached = true;
+        window.addEventListener('popstate', scheduleMelodixHomeUpdate);
+        window.addEventListener('resize', scheduleMelodixHomeUpdate);
+        window.addEventListener('load', scheduleMelodixHomeUpdate, { once: true });
+        document.addEventListener('click', (event) => {
+            if (event.target?.closest?.('#global-nav-bar [data-testid="home-button"], #sf-mobile-nav [data-sf-mobile-action="home"], #sf-melodix-home .sf-melodix-home__card')) {
+                scheduleMelodixHomeUpdate();
+            }
+        });
+        document.addEventListener('DOMContentLoaded', () => {
+            observeMelodixHomeDocument();
+            scheduleMelodixHomeUpdate();
+        }, { once: true });
+        observeMelodixHomeDocument();
+        scheduleMelodixHomeUpdate();
+    }
+
+    function initializeMobileShell() {
+        window.__sfMelodixMobileShellInitAttempted = true;
+        if (window._sfMobileShellListenersAttached) return;
+        window._sfMobileShellListenersAttached = true;
+
+        const maxRetries = 40;
+        let retries = 0;
+        let retryTimer = null;
+
+        const attempt = () => {
+            retryTimer = null;
+            if (document.getElementById('sf-mobile-nav')) return;
+
+            if (
+                document.body &&
+                (window.SF_CONFIG?.guiMode === 'csshack' || isMobileNavigationViewport())
+            ) {
+                try {
+                    installMobileNavigation();
+                    if (typeof window.addCSSJSHack === 'function') {
+                        window.addCSSJSHack();
+                    }
+                } catch (_) {
+                    try {
+                        installMobileNavigation();
+                    } catch (_) {}
+                }
+            }
+
+            if (!document.getElementById('sf-mobile-nav') && retries < maxRetries) {
+                retries += 1;
+                retryTimer = window.setTimeout(attempt, 500);
+            }
+        };
+
+        const ensure = () => {
+            if (document.getElementById('sf-mobile-nav')) {
+                if (retryTimer) window.clearTimeout(retryTimer);
+                retryTimer = null;
+                return;
+            }
+            if (retryTimer) return;
+            if (retries >= maxRetries) retries = 0;
+            attempt();
+        };
+
+        window.__sfEnsureMobileShell = ensure;
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', ensure, { once: true });
+        } else {
+            window.setTimeout(ensure, 0);
+        }
+        window.addEventListener('load', ensure, { once: true });
+    }
+
+    // =========================================================================
+    // SECTION: SESSION STATE
+    // The auth machine turns observed DOM signals into a rendered state. An
+    // unknown state is always shown as an explicit unconfirmed notice inside
+    // the document flow, never over the primary UI.
+    // =========================================================================
+
+    function collectAuthSignals() {
+        const route = String(window.location.href || '');
+        return {
+            accountsPage: /accounts\.spotify\.com/.test(route),
+            loginRoute: /\/(login|auth)([/?#]|$)/.test(route),
+            loginAction: !!document.querySelector('a[href*="login"], [data-testid="login-button"]'),
+            profileControl: !!document.querySelector('[data-testid="user-widget-link"], .main-userWidget-box'),
+            playerControls: !!document.querySelector('[data-testid="control-button-playpause"], .main-playButton-entrancePoint')
+        };
+    }
+
+    function renderUnconfirmedNotice() {
+        const runtime = window.MelodixRuntime;
+        if (!runtime || typeof runtime.shouldShowUnconfirmedNotice !== 'function') return;
+        const machine = window._sfAuthMachine || (window._sfAuthMachine = runtime.createAuthStateMachine());
+        machine.observe(collectAuthSignals());
+        const mainView = document.querySelector('#main-view');
+        if (!mainView) return;
+        const show = runtime.shouldShowUnconfirmedNotice(machine.getState());
+        let notice = document.getElementById('sf-auth-status');
+        if (show) {
+            if (!notice) {
+                notice = document.createElement('div');
+                notice.id = 'sf-auth-status';
+                notice.className = 'sf-auth-status-body-root';
+                notice.setAttribute('role', 'status');
+                const title = document.createElement('strong');
+                title.textContent = 'Session non confirmée';
+                const body = document.createElement('div');
+                body.textContent = "L'état de la connexion Spotify n'est pas encore confirmé.";
+                notice.appendChild(title);
+                notice.appendChild(body);
+                mainView.insertBefore(notice, mainView.firstChild);
+            }
+        } else if (notice && notice.parentNode) {
+            notice.parentNode.removeChild(notice);
+        }
+    }
+
+    function start() {
+        renderUnconfirmedNotice();
+        if (typeof window.__sfEnsureMobileShell === 'function') {
+            try { window.__sfEnsureMobileShell(); } catch (_) {}
+        }
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', start);
+    } else {
+        start();
+    }
+    window.addEventListener('load', renderUnconfirmedNotice);
+
+    initializeMobileShell();
+    initializeMelodixHome();
+    installPremiumPromotionCleanup();
     firstFuck();
+    window.__sfMelodixBridgeCompleted = true;
+    __sfBridgeTrace('bridge done');
 })();

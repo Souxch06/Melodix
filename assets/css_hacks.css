@@ -1,3 +1,121 @@
+/* =====================================================================
+   MELODIX THEME TOKENS - the single place every interface color comes
+   from. The future in-app theme settings rewrite this :root block; no
+   rule below carries a raw color value anymore.
+   ===================================================================== */
+:root {
+    --mel-accent: #1ed760;
+    --mel-accent-deep: #1db954;
+    --mel-accent-deep-strong: rgba(29, 185, 84, 0.5);
+    --mel-accent-deep-wash-08: rgba(29, 185, 84, 0.08);
+    --mel-accent-deep-wash-25: rgba(29, 185, 84, 0.25);
+    --mel-accent-deep-wash-30: rgba(29, 185, 84, 0.3);
+    --mel-accent-deep-wash-40: rgba(29, 185, 84, 0.4);
+    --mel-accent-strong: rgba(30, 215, 96, 0.58);
+    --mel-accent-wash-09: rgba(30, 215, 96, 0.09);
+    --mel-accent-wash-11: rgba(30, 215, 96, 0.11);
+    --mel-accent-wash-14: rgba(30, 215, 96, 0.14);
+    --mel-bg: #121212;
+    --mel-bg-2: #101311;
+    --mel-bg-3: #07110a;
+    --mel-grad-a: #ff9efc;
+    --mel-grad-a-strong: rgba(255, 158, 252, 0.85);
+    --mel-grad-b: #9e80ff;
+    --mel-grad-b-strong: rgba(158, 128, 255, 0.65);
+    --mel-overlay-1: rgba(24, 28, 25, 0.97);
+    --mel-overlay-2: rgba(16, 19, 17, 0.94);
+    --mel-overlay-3: rgba(14, 17, 15, 0.985);
+    --mel-overlay-4: rgba(13, 16, 14, 0.97);
+    --mel-scrim-24: rgba(0, 0, 0, 0.24);
+    --mel-scrim-28: rgba(0, 0, 0, 0.28);
+    --mel-scrim-40: rgba(0, 0, 0, 0.4);
+    --mel-scrim-46: rgba(0, 0, 0, 0.46);
+    --mel-scrim-50: rgba(0, 0, 0, 0.5);
+    --mel-scrim-55: rgba(0, 0, 0, 0.55);
+    --mel-scrim-60: rgba(0, 0, 0, 0.6);
+    --mel-scrim-70: rgba(0, 0, 0, 0.7);
+    --mel-scrim-95: rgba(0, 0, 0, 0.95);
+    --mel-surface-dark: #282828;
+    --mel-surface-dark-2: #202622;
+    --mel-surface-dark-3: #171b18;
+    --mel-surface-dark-4: #141815;
+    --mel-surface-light: #f5f7f5;
+    --mel-surface-light-2: #f3f5f3;
+    --mel-surface-light-3: #f2f4f2;
+    --mel-text: #fff;
+    --mel-text-dim: #b3b3b3;
+    --mel-text-mute-a: #aab3ac;
+    --mel-text-mute-b: #a6ada8;
+    --mel-text-mute-c: #a2aaa4;
+    --mel-wash-025: rgba(255, 255, 255, 0.025);
+    --mel-wash-035: rgba(255, 255, 255, 0.035);
+    --mel-wash-055: rgba(255, 255, 255, 0.055);
+    --mel-wash-07: rgba(255, 255, 255, 0.07);
+    --mel-wash-08: rgba(255, 255, 255, 0.08);
+    --mel-wash-09: rgba(255, 255, 255, 0.09);
+    --mel-wash-10: rgba(255, 255, 255, 0.1);
+    --mel-wash-20: rgba(255,255,255,0.2);
+}
+
+/* =====================================================================
+   MELODIX THEME TOKENS - single place every interface color comes from.
+   The future in-app theme settings rewrite this :root block; nothing
+   below in the stylesheet carries a raw color value anymore.
+   ===================================================================== */
+:root {
+    --mel-text: var(--mel-text);
+    --mel-text-dim: var(--mel-text-dim);
+    --mel-text-mute-a: var(--mel-text-mute-a);
+    --mel-text-mute-b: var(--mel-text-mute-b);
+    --mel-text-mute-c: var(--mel-text-mute-c);
+    --mel-grad-a: var(--mel-grad-a);
+    --mel-grad-b: var(--mel-grad-b);
+    --mel-grad-a-strong: var(--mel-grad-a-strong);
+    --mel-grad-b-strong: var(--mel-grad-b-strong);
+    --mel-surface-light: var(--mel-surface-light);
+    --mel-surface-light-2: var(--mel-surface-light-2);
+    --mel-surface-light-3: var(--mel-surface-light-3);
+    --mel-accent: var(--mel-accent);
+    --mel-accent-deep: var(--mel-accent-deep);
+    --mel-accent-strong: var(--mel-accent-strong);
+    --mel-accent-wash-14: var(--mel-accent-wash-14);
+    --mel-accent-wash-11: var(--mel-accent-wash-11);
+    --mel-accent-wash-09: var(--mel-accent-wash-09);
+    --mel-accent-deep-strong: var(--mel-accent-deep-strong);
+    --mel-accent-deep-wash-40: var(--mel-accent-deep-wash-40);
+    --mel-accent-deep-wash-30: var(--mel-accent-deep-wash-30);
+    --mel-accent-deep-wash-25: var(--mel-accent-deep-wash-25);
+    --mel-accent-deep-wash-08: var(--mel-accent-deep-wash-08);
+    --mel-bg: var(--mel-bg);
+    --mel-bg-2: var(--mel-bg-2);
+    --mel-bg-3: var(--mel-bg-3);
+    --mel-surface-dark: var(--mel-surface-dark);
+    --mel-surface-dark-2: var(--mel-surface-dark-2);
+    --mel-surface-dark-3: var(--mel-surface-dark-3);
+    --mel-surface-dark-4: var(--mel-surface-dark-4);
+    --mel-overlay-1: var(--mel-overlay-1);
+    --mel-overlay-2: var(--mel-overlay-2);
+    --mel-overlay-3: var(--mel-overlay-3);
+    --mel-overlay-4: var(--mel-overlay-4);
+    --mel-scrim-95: var(--mel-scrim-95);
+    --mel-scrim-70: var(--mel-scrim-70);
+    --mel-scrim-60: var(--mel-scrim-60);
+    --mel-scrim-55: var(--mel-scrim-55);
+    --mel-scrim-50: var(--mel-scrim-50);
+    --mel-scrim-46: var(--mel-scrim-46);
+    --mel-scrim-40: var(--mel-scrim-40);
+    --mel-scrim-28: var(--mel-scrim-28);
+    --mel-scrim-24: var(--mel-scrim-24);
+    --mel-wash-10: var(--mel-wash-10);
+    --mel-wash-09: var(--mel-wash-09);
+    --mel-wash-08: var(--mel-wash-08);
+    --mel-wash-07: var(--mel-wash-07);
+    --mel-wash-055: var(--mel-wash-055);
+    --mel-wash-035: var(--mel-wash-035);
+    --mel-wash-025: var(--mel-wash-025);
+    --mel-wash-20: var(--mel-wash-20);
+}
+
 /* =========================================================================
    SECTION 1: GLOBAL LAYOUT & INTERFACE OVERRIDES
    ========================================================================= */
@@ -151,7 +269,7 @@ div[data-testid=tracklist-row] button:not([data-testid=add-to-playlist-button]) 
     align-items: center;
     justify-content: center;
     cursor: pointer;
-    color: #b3b3b3;
+    color: var(--mel-text-dim);
     background: transparent;
     border: none;
     width: 32px;
@@ -166,13 +284,13 @@ div[data-testid=tracklist-row] button:not([data-testid=add-to-playlist-button]) 
 
 /* Press feedback — slight shrink and dim on tap */
 .npbtn:active {
-    background: rgba(255, 255, 255, 0.1);
+    background: var(--mel-wash-10);
     transform: scale(0.9);
 }
 
 /* Active/highlighted state — Spotify green tint */
 .npbtn.active {
-    color: #1db954;
+    color: var(--mel-accent-deep);
 }
 
 /* Constrain the SVG icon inside the custom button */
@@ -238,8 +356,8 @@ footer {
    (accounts for Android gesture navigation bar) */
 aside[data-testid=now-playing-bar] {
     min-width: 100% !important;
-    box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
-    background: var(--background-base, #121212) !important;
+    box-shadow: 0 0 10px var(--mel-scrim-50);
+    background: var(--background-base, var(--mel-bg)) !important;
     display: flex !important;
     padding-bottom: env(safe-area-inset-bottom) !important; /* Dynamic padding for Android Nav Bar */
     /* Hardware acceleration hint */
@@ -253,17 +371,17 @@ aside[data-testid=now-playing-bar] {
 body.sf-fullscreen-disabled.sf-expanded aside[data-testid=now-playing-bar] {
     background: linear-gradient(to bottom,
         /* Stop 1: Top edge starts with theme color */
-        color-mix(in srgb, var(--cinema-mode-bg-color-to, #282828), transparent 30%) 0%,
+        color-mix(in srgb, var(--cinema-mode-bg-color-to, var(--mel-surface-dark)), transparent 30%) 0%,
         /* Stop 2: Theme color stays pure until this point (Change 30% to move black UP or DOWN) */
-        /*color-mix(in srgb, var(--cinema-mode-bg-color-to, #282828), transparent 30%) 30%, */
+        /*color-mix(in srgb, var(--cinema-mode-bg-color-to, var(--mel-surface-dark)), transparent 30%) 30%, */
         /* Stop 3: Fade into deep weighted black at the bottom */
-        rgba(0, 0, 0, 0.95) 100%) !important;
+        var(--mel-scrim-95) 100%) !important;
 
     backdrop-filter: blur(40px) saturate(170%);
     -webkit-backdrop-filter: blur(40px) saturate(170%);
 
-    border-top: 1px solid rgba(255, 255, 255, 0.1);
-    box-shadow: 0 -12px 30px rgba(0,0,0,0.6);
+    border-top: 1px solid var(--mel-wash-10);
+    box-shadow: 0 -12px 30px var(--mel-scrim-60);
 }
 
 /* Portrait Mode Specific Overrides: Enable vertical stacking and larger controls */
@@ -494,9 +612,9 @@ body.sf-fullscreen-enabled.sf-expanded aside[data-testid=now-playing-bar] {
     position: fixed !important;
     bottom: 0 !important;
     width: 100% !important;
-    background: rgba(0, 0, 0, 0.7) !important;
+    background: var(--mel-scrim-70) !important;
     backdrop-filter: blur(25px);
-    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    border-top: 1px solid var(--mel-wash-10);
     /* Layer 3: Top Controls */
     z-index: calc(var(--above-everything-grid-area-z-index) + 10) !important;
 }
@@ -590,14 +708,14 @@ body.sf-expanded #global-nav-bar {
 #sf-fs-player {
     position: fixed;
     inset: 0;
-    background: #121212 !important; /* Fallback background color */
+    background: var(--mel-bg) !important; /* Fallback background color */
     z-index: 100000;
     display: flex;
     flex-direction: column;
     padding: 20px;
     padding-top: var(--sf-safe-area-top, env(safe-area-inset-top));
     padding-bottom: calc(20px + env(safe-area-inset-bottom));
-    color: #fff;
+    color: var(--mel-text);
     font-family: 'Montserrat', sans-serif;
     box-sizing: border-box;
     animation: sfFsSlideIn 0.4s cubic-bezier(0.33, 1, 0.68, 1);
@@ -638,14 +756,14 @@ body.sf-expanded #global-nav-bar {
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 1px;
-    color: #b3b3b3;
+    color: var(--mel-text-dim);
 }
 
 /* Base reset for all icon buttons in the fullscreen player (minimise, top-right, controls) */
 .sf-fs-min, .sf-fs-top-right button, .sf-fs-controls button, .sf-fs-extra-controls button {
     background: none !important;
     border: none !important;
-    color: #fff !important;
+    color: var(--mel-text) !important;
     padding: 10px;
     cursor: pointer;
     display: flex;
@@ -656,7 +774,7 @@ body.sf-expanded #global-nav-bar {
 /* Force white fill on SVG icons in minimise and top-right buttons */
 .sf-fs-min svg, .sf-fs-top-right svg {
     display: block !important;
-    fill: #fff !important;
+    fill: var(--mel-text) !important;
 }
 
 /* Icon sizes: minimise button gets a larger chevron; top-right gets smaller icons */
@@ -684,7 +802,7 @@ body.sf-expanded #global-nav-bar {
     max-width: 400px !important;
     max-height: 400px !important;
     border-radius: 12px !important;
-    background: linear-gradient(135deg, var(--sf-art-color-from, #9e80ff), var(--sf-art-color-to, #ff9efc)) !important;
+    background: linear-gradient(135deg, var(--sf-art-color-from, var(--mel-grad-b)), var(--sf-art-color-to, var(--mel-grad-a))) !important;
     z-index: 0 !important;
     filter: blur(30px) !important;
     opacity: 0.75 !important;
@@ -698,7 +816,7 @@ body.sf-expanded #global-nav-bar {
     max-width: 400px;
     max-height: 400px;
     border-radius: 12px;
-    box-shadow: 0 10px 30px rgba(0,0,0,0.4) !important;
+    box-shadow: 0 10px 30px var(--mel-scrim-40) !important;
     object-fit: cover;
     will-change: transform, opacity;
     z-index: 1 !important;
@@ -726,13 +844,13 @@ body.sf-expanded #global-nav-bar {
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    color: #fff;
+    color: var(--mel-text);
 }
 
 /* Artist name — smaller, muted grey */
 #sf-fs-artist {
     font-size: 16px;
-    color: #b3b3b3;
+    color: var(--mel-text-dim);
     margin: 4px 0 0;
 }
 
@@ -748,7 +866,7 @@ body.sf-expanded #global-nav-bar {
 /* Elapsed and total time labels — monospaced digits, fixed width */
 #sf-fs-pos, #sf-fs-dur {
     font-size: 12px;
-    color: #b3b3b3;
+    color: var(--mel-text-dim);
     min-width: 35px;
     font-variant-numeric: tabular-nums;
 }
@@ -767,7 +885,7 @@ body.sf-expanded #global-nav-bar {
 #sf-fs-bar-rail {
     width: 100%;
     height: 4px;
-    background: rgba(255,255,255,0.2);
+    background: var(--mel-wash-20);
     border-radius: 2px;
     position: relative;
 }
@@ -775,7 +893,7 @@ body.sf-expanded #global-nav-bar {
 /* Seek bar fill — coloured segment showing playback progress */
 #sf-fs-bar-fill {
     height: 100%;
-    background: #fff;
+    background: var(--mel-text);
     border-radius: 2px;
     width: 0%;
 }
@@ -784,13 +902,13 @@ body.sf-expanded #global-nav-bar {
 #sf-fs-bar-handle {
     width: 12px;
     height: 12px;
-    background: #fff;
+    background: var(--mel-text);
     border-radius: 50%;
     position: absolute;
     top: 50%;
     transform: translate(-50%, -50%);
     left: 0%;
-    box-shadow: 0 0 10px var(--sf-art-color-to, rgba(255, 158, 252, 0.85)), 0 0 4px var(--sf-art-color-from, rgba(158, 128, 255, 0.65));
+    box-shadow: 0 0 10px var(--sf-art-color-to, var(--mel-grad-a-strong)), 0 0 4px var(--sf-art-color-from, var(--mel-grad-b-strong));
 }
 
 /* Main controls row: prev / play-pause / next (plus optional skip) */
@@ -819,8 +937,8 @@ body.sf-expanded #global-nav-bar {
 /* Play/pause button — circular gradient button with art-extracted colours */
 .sf-fs-play {
     position: relative !important;
-    background: linear-gradient(135deg, var(--sf-art-color-from, #9e80ff), var(--sf-art-color-to, #ff9efc)) !important;
-    color: #fff !important;
+    background: linear-gradient(135deg, var(--sf-art-color-from, var(--mel-grad-b)), var(--sf-art-color-to, var(--mel-grad-a))) !important;
+    color: var(--mel-text) !important;
     width: 72px !important;
     height: 72px !important;
     border-radius: 50% !important;
@@ -839,7 +957,7 @@ body.sf-expanded #global-nav-bar {
     position: absolute !important;
     inset: -6px !important;
     border-radius: 50% !important;
-    background: linear-gradient(135deg, var(--sf-art-color-from, #9e80ff), var(--sf-art-color-to, #ff9efc)) !important;
+    background: linear-gradient(135deg, var(--sf-art-color-from, var(--mel-grad-b)), var(--sf-art-color-to, var(--mel-grad-a))) !important;
     z-index: -1 !important;
     filter: blur(12px) !important;
     opacity: 0.9 !important;
@@ -861,10 +979,10 @@ body.sf-expanded #global-nav-bar {
 /* Override seek bar fill with a gradient + coloured glow shadow */
 #sf-fs-bar-fill {
     height: 100%;
-    background: linear-gradient(90deg, var(--sf-art-color-from, #9e80ff), var(--sf-art-color-to, #ff9efc)) !important;
+    background: linear-gradient(90deg, var(--sf-art-color-from, var(--mel-grad-b)), var(--sf-art-color-to, var(--mel-grad-a))) !important;
     border-radius: 2px;
     width: 0%;
-    box-shadow: 0 0 10px var(--sf-art-color-to, rgba(255, 158, 252, 0.85)), 0 0 4px var(--sf-art-color-from, rgba(158, 128, 255, 0.65)) !important;
+    box-shadow: 0 0 10px var(--sf-art-color-to, var(--mel-grad-a-strong)), 0 0 4px var(--sf-art-color-from, var(--mel-grad-b-strong)) !important;
 }
 
 /* Controls row spacing (overrides first declaration above with wider gaps) */
@@ -892,7 +1010,7 @@ body.sf-expanded #global-nav-bar {
     border: none !important;
     padding: 10px;
     cursor: pointer;
-    color: #b3b3b3;
+    color: var(--mel-text-dim);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -943,7 +1061,7 @@ body.sf-expanded #global-nav-bar {
         row-gap: 20px !important;
         align-items: stretch !important;
         box-sizing: border-box !important;
-        background: #121212 !important;
+        background: var(--mel-bg) !important;
     }
 
     /* Background blur layer — activated in landscape to show album art behind the grid */
@@ -993,7 +1111,7 @@ body.sf-expanded #global-nav-bar {
         max-width: 380px !important;
         max-height: 380px !important;
         border-radius: 16px !important;
-        background: linear-gradient(135deg, var(--sf-art-color-from, #9e80ff), var(--sf-art-color-to, #ff9efc)) !important;
+        background: linear-gradient(135deg, var(--sf-art-color-from, var(--mel-grad-b)), var(--sf-art-color-to, var(--mel-grad-a))) !important;
         z-index: 0 !important;
         filter: blur(35px) !important;
         opacity: 0.8 !important;
@@ -1007,7 +1125,7 @@ body.sf-expanded #global-nav-bar {
         max-width: 380px !important;
         max-height: 380px !important;
         border-radius: 16px !important;
-        box-shadow: 0 12px 35px rgba(0,0,0,0.55) !important;
+        box-shadow: 0 12px 35px var(--mel-scrim-55) !important;
         object-fit: cover !important;
         will-change: transform, opacity;
         z-index: 1 !important;
@@ -1049,7 +1167,7 @@ body.sf-expanded #global-nav-bar {
     /* Larger artist name in landscape */
     #sf-fs-artist {
         font-size: 20px !important;
-        color: #b3b3b3 !important;
+        color: var(--mel-text-dim) !important;
         margin: 0 !important;
     }
 
@@ -1261,9 +1379,9 @@ body.sf-tv-nav [tabindex]:focus-visible,
 body.sf-tv-nav input:focus-visible,
 body.sf-tv-nav [data-testid="tracklist-row"]:focus-visible,
 body.sf-tv-nav [data-encore-id="listRow"]:focus-visible {
-    outline: 3px solid #1db954 !important;
+    outline: 3px solid var(--mel-accent-deep) !important;
     outline-offset: 2px !important;
-    box-shadow: 0 0 0 5px rgba(29, 185, 84, 0.25) !important;
+    box-shadow: 0 0 0 5px var(--mel-accent-deep-wash-25) !important;
     border-radius: 4px !important;
     z-index: 9999 !important;
     position: relative !important;
@@ -1278,16 +1396,16 @@ body.sf-tv-nav button[aria-label*="Previous" i]:focus-visible,
 body.sf-tv-nav button[data-testid="control-button-playpause"]:focus-visible,
 body.sf-tv-nav button[data-testid="control-button-skip-forward"]:focus-visible,
 body.sf-tv-nav button[data-testid="control-button-skip-back"]:focus-visible {
-    outline: 3px solid #1db954 !important;
+    outline: 3px solid var(--mel-accent-deep) !important;
     outline-offset: 4px !important;
-    box-shadow: 0 0 0 6px rgba(29, 185, 84, 0.3), 0 0 16px rgba(29, 185, 84, 0.4) !important;
+    box-shadow: 0 0 0 6px var(--mel-accent-deep-wash-30), 0 0 16px var(--mel-accent-deep-wash-40) !important;
     border-radius: 50% !important;
 }
 
 /* Tracklist rows — full-width tinted highlight */
 body.sf-tv-nav [data-testid="tracklist-row"]:focus-visible,
 body.sf-tv-nav [data-encore-id="listRow"]:focus-visible {
-    background-color: rgba(29, 185, 84, 0.08) !important;
+    background-color: var(--mel-accent-deep-wash-08) !important;
     outline-offset: -2px !important;
     border-radius: 6px !important;
 }
@@ -1295,23 +1413,24 @@ body.sf-tv-nav [data-encore-id="listRow"]:focus-visible {
 /* Search / text inputs */
 body.sf-tv-nav input:focus-visible {
     border-radius: 8px !important;
-    box-shadow: 0 0 0 3px rgba(29, 185, 84, 0.5) !important;
+    box-shadow: 0 0 0 3px var(--mel-accent-deep-strong) !important;
 }
 
 
 /* =========================================================================
    SECTION 9: MELODIX MOBILE HOME & NAVIGATION POLISH
-   Scoped to phone-width layouts so tablet and landscape player layouts keep
+   Scoped to phone and narrow portrait layouts; landscape layouts keep
    their existing behavior. The Spotify content itself remains untouched.
    ========================================================================= */
 :root {
-    --melodix-mobile-accent: #1ed760;
-    --melodix-mobile-accent-soft: rgba(30, 215, 96, 0.14);
-    --melodix-mobile-surface: #171b18;
-    --melodix-mobile-outline: rgba(255, 255, 255, 0.07);
+    --melodix-mobile-accent: var(--mel-accent);
+    --melodix-mobile-accent-soft: var(--mel-accent-wash-14);
+    --melodix-mobile-surface: var(--mel-surface-dark-3);
+    --melodix-mobile-outline: var(--mel-wash-07);
 }
 
-@media screen and (max-width: 640px) {
+@media screen and (max-width: 820px),
+       screen and (hover: none) and (pointer: coarse) {
     html,
     body {
         max-width: 100vw !important;
@@ -1319,7 +1438,7 @@ body.sf-tv-nav input:focus-visible {
     }
 
     body {
-        background-color: #101311 !important;
+        background-color: var(--mel-bg-2) !important;
     }
 
     #main-view {
@@ -1339,7 +1458,7 @@ body.sf-tv-nav input:focus-visible {
         box-sizing: border-box !important;
         padding-left: 10px !important;
         padding-right: 10px !important;
-        background: rgba(16, 19, 17, 0.94) !important;
+        background: var(--mel-overlay-2) !important;
         border-bottom: 1px solid var(--melodix-mobile-outline) !important;
         -webkit-backdrop-filter: blur(18px) saturate(145%);
         backdrop-filter: blur(18px) saturate(145%);
@@ -1376,18 +1495,18 @@ body.sf-tv-nav input:focus-visible {
         min-height: 42px !important;
         border: 1px solid var(--melodix-mobile-outline) !important;
         border-radius: 14px !important;
-        background: rgba(255, 255, 255, 0.055) !important;
+        background: var(--mel-wash-055) !important;
         transition: border-color 160ms ease, box-shadow 160ms ease !important;
     }
 
     #global-nav-bar form[role="search"]:focus-within {
-        border-color: rgba(30, 215, 96, 0.58) !important;
+        border-color: var(--mel-accent-strong) !important;
         box-shadow: 0 0 0 3px var(--melodix-mobile-accent-soft) !important;
     }
 
     #global-nav-bar input[data-testid="search-input"] {
         min-height: 40px !important;
-        color: #f5f7f5 !important;
+        color: var(--mel-surface-light) !important;
         font-size: 15px !important;
     }
 
@@ -1408,9 +1527,9 @@ body.sf-tv-nav input:focus-visible {
 
     /* Soft, consistent cards without changing Spotify's existing content grid. */
     #main-view [data-testid="card"] {
-        border: 1px solid rgba(255, 255, 255, 0.035) !important;
+        border: 1px solid var(--mel-wash-035) !important;
         border-radius: 16px !important;
-        background-color: rgba(255, 255, 255, 0.025) !important;
+        background-color: var(--mel-wash-025) !important;
         transition: background-color 160ms ease, transform 160ms ease !important;
     }
 
@@ -1436,7 +1555,7 @@ body.sf-tv-nav input:focus-visible {
 
     #main-view button[data-testid*="filter"][aria-pressed="true"],
     #main-view button[data-testid*="filter"][aria-selected="true"] {
-        color: #07110a !important;
+        color: var(--mel-bg-3) !important;
         background: var(--melodix-mobile-accent) !important;
         border-color: transparent !important;
     }
@@ -1449,22 +1568,48 @@ body.sf-tv-nav input:focus-visible {
     }
 
     #main-view [data-testid="tracklist-row"]:active {
-        background-color: rgba(30, 215, 96, 0.09) !important;
+        background-color: var(--mel-accent-wash-09) !important;
     }
 
     /* Give the opened library drawer a deliberate, layered surface. */
     #Desktop_LeftSidebar_Id {
-        background: rgba(14, 17, 15, 0.985) !important;
+        background: var(--mel-overlay-3) !important;
         border-right: 1px solid var(--melodix-mobile-outline) !important;
-        box-shadow: 12px 0 32px rgba(0, 0, 0, 0.28) !important;
+        box-shadow: 12px 0 32px var(--mel-scrim-28) !important;
     }
 
     #Desktop_LeftSidebar_Id .YourLibraryX {
-        background: #141815 !important;
+        background: var(--mel-surface-dark-4) !important;
     }
 
     #Desktop_LeftSidebar_Id .YourLibraryX header {
-        padding: 14px 16px !important;
+        position: relative !important;
+        min-height: 56px !important;
+        padding: 14px 16px 14px 58px !important;
+    }
+
+    #Desktop_LeftSidebar_Id .sf-mobile-library-close {
+        display: none !important;
+        position: absolute !important;
+        left: 12px !important;
+        top: 50% !important;
+        width: 40px !important;
+        height: 40px !important;
+        min-width: 40px !important;
+        min-height: 40px !important;
+        align-items: center !important;
+        justify-content: center !important;
+        transform: translateY(-50%) !important;
+        color: var(--mel-surface-light) !important;
+        background: var(--mel-wash-08) !important;
+        border: 1px solid var(--mel-wash-10) !important;
+        border-radius: 50% !important;
+        font: 400 28px/1 system-ui, sans-serif !important;
+        z-index: 2 !important;
+    }
+
+    body.sf-library-open #Desktop_LeftSidebar_Id .sf-mobile-library-close {
+        display: flex !important;
     }
 
     #main-view a:focus-visible,
@@ -1478,5 +1623,461 @@ body.sf-tv-nav input:focus-visible {
     #main-view .contentSpacing {
         padding-left: 12px !important;
         padding-right: 12px !important;
+    }
+}
+
+/* =========================================================================
+   SECTION 10: PHONE APP SHELL
+   A compact three-tab dock, a true mini-player row and a full-screen library
+   drawer keep Spotify's existing routes and controls while using phone-sized
+   touch targets and Android safe areas, including while the player is expanded.
+   ========================================================================= */
+#sf-mobile-nav {
+    display: none !important;
+}
+
+@media screen and (max-width: 820px) and (orientation: portrait),
+       screen and (hover: none) and (pointer: coarse) {
+    #global-nav-bar form[role="search"] {
+        margin-left: 0 !important;
+        flex: 1 1 auto !important;
+        width: auto !important;
+        min-width: 0 !important;
+    }
+
+    #global-nav-bar button[aria-label*="Back" i],
+    #global-nav-bar button[aria-label*="Forward" i] {
+        display: none !important;
+    }
+
+    #sf-mobile-nav {
+        position: fixed !important;
+        inset-inline: 0 !important;
+        bottom: 0 !important;
+        box-sizing: border-box !important;
+        display: grid !important;
+        grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+        align-items: stretch !important;
+        width: 100vw !important;
+        height: calc(72px + env(safe-area-inset-bottom)) !important;
+        padding: 5px 16px calc(5px + env(safe-area-inset-bottom)) !important;
+        background: var(--mel-overlay-4) !important;
+        border-top: 1px solid var(--mel-wash-09) !important;
+        -webkit-backdrop-filter: blur(22px) saturate(150%) !important;
+        backdrop-filter: blur(22px) saturate(150%) !important;
+        z-index: 10010 !important;
+    }
+
+    #sf-mobile-nav .sf-mobile-nav__item {
+        display: flex !important;
+        flex-direction: column !important;
+        align-items: center !important;
+        justify-content: center !important;
+        gap: 4px !important;
+        min-width: 44px !important;
+        min-height: 54px !important;
+        margin: 0 4px !important;
+        padding: 5px 8px !important;
+        color: var(--mel-text-mute-b) !important;
+        background: transparent !important;
+        border: 0 !important;
+        border-radius: 14px !important;
+        font: 600 10px/1.1 system-ui, sans-serif !important;
+        letter-spacing: 0.01em !important;
+        -webkit-tap-highlight-color: transparent !important;
+        transition: color 160ms ease, background-color 160ms ease, transform 160ms ease !important;
+    }
+
+    #sf-mobile-nav .sf-mobile-nav__item:active {
+        transform: scale(0.96) !important;
+    }
+
+    #sf-mobile-nav .sf-mobile-nav__item svg {
+        display: block !important;
+        width: 23px !important;
+        height: 23px !important;
+        fill: none !important;
+        stroke: currentColor !important;
+        stroke-width: 1.8 !important;
+        stroke-linecap: round !important;
+        stroke-linejoin: round !important;
+    }
+
+    #sf-mobile-nav .sf-mobile-nav__item[aria-current="page"] {
+        color: var(--melodix-mobile-accent, var(--mel-accent)) !important;
+        background: var(--mel-accent-wash-09) !important;
+    }
+
+    body:not(.sf-library-open) #Desktop_LeftSidebar_Id {
+        visibility: hidden !important;
+        opacity: 0 !important;
+        pointer-events: none !important;
+    }
+
+    body.sf-library-open #Desktop_LeftSidebar_Id {
+        bottom: calc(72px + env(safe-area-inset-bottom)) !important;
+        visibility: visible !important;
+        opacity: 1 !important;
+        pointer-events: auto !important;
+        z-index: 10005 !important;
+    }
+
+    body.sf-fs-open #sf-mobile-nav {
+        display: none !important;
+    }
+
+    #main-view,
+    #main-view [data-overlayscrollbars-viewport] {
+        scroll-padding-bottom: calc(160px + env(safe-area-inset-bottom)) !important;
+        padding-bottom: calc(160px + env(safe-area-inset-bottom)) !important;
+    }
+
+/* Tablets and unfolded foldables: the tab bar belongs at the TOP, docked
+ * under the status bar (with its inset, so its shadow never falls under the
+ * clock). Phones in portrait - and folded foldables - keep the bottom dock
+ * exactly as it is. */
+@media screen and (min-width: 640px) {
+    #sf-mobile-nav {
+        top: env(safe-area-inset-top) !important;
+        bottom: auto !important;
+        height: 56px !important;
+        padding: 5px 16px !important;
+    }
+    body:not(.sf-library-open) #Desktop_LeftSidebar_Id,
+    body.sf-library-open #Desktop_LeftSidebar_Id {
+        top: calc(104px + env(safe-area-inset-top)) !important;
+        bottom: calc(84px + env(safe-area-inset-bottom)) !important;
+    }
+    aside[data-testid="now-playing-bar"] {
+        bottom: env(safe-area-inset-bottom) !important;
+    }
+    #main-view,
+    #main-view [data-overlayscrollbars-viewport] {
+        scroll-padding-bottom: calc(96px + env(safe-area-inset-bottom)) !important;
+        padding-bottom: calc(96px + env(safe-area-inset-bottom)) !important;
+    }
+}
+
+
+    body:not(.sf-fs-open) aside[data-testid="now-playing-bar"] {
+        position: fixed !important;
+        left: 10px !important;
+        right: 10px !important;
+        bottom: calc(78px + env(safe-area-inset-bottom)) !important;
+        box-sizing: border-box !important;
+        width: auto !important;
+        min-width: 0 !important;
+        max-width: calc(100vw - 20px) !important;
+        height: 68px !important;
+        min-height: 68px !important;
+        max-height: 68px !important;
+        display: flex !important;
+        flex-direction: row !important;
+        align-items: center !important;
+        justify-content: space-between !important;
+        gap: 8px !important;
+        padding: 8px 12px !important;
+        overflow: hidden !important;
+        border: 1px solid var(--mel-wash-09) !important;
+        border-radius: 16px !important;
+        background: var(--mel-overlay-1) !important;
+        box-shadow: 0 12px 30px var(--mel-scrim-46) !important;
+        -webkit-backdrop-filter: blur(20px) saturate(150%) !important;
+        backdrop-filter: blur(20px) saturate(150%) !important;
+        z-index: 10015 !important;
+    }
+
+    body:not(.sf-fs-open) aside[data-testid="now-playing-bar"] > div:first-child {
+        display: flex !important;
+        flex: 1 1 auto !important;
+        flex-direction: row !important;
+        align-items: center !important;
+        width: auto !important;
+        min-width: 0 !important;
+        height: auto !important;
+        margin: 0 !important;
+    }
+
+    body:not(.sf-fs-open) aside[data-testid="now-playing-bar"] > div:nth-child(2) {
+        display: flex !important;
+        flex: 0 0 auto !important;
+        align-items: center !important;
+        width: auto !important;
+        margin: 0 !important;
+    }
+
+    body:not(.sf-fs-open) aside[data-testid="now-playing-bar"] > div:nth-child(n + 3) {
+        display: none !important;
+    }
+
+    body:not(.sf-fs-open) aside[data-testid="now-playing-bar"] [data-testid="now-playing-widget"] {
+        display: flex !important;
+        flex: 1 1 auto !important;
+        align-items: center !important;
+        justify-content: flex-start !important;
+        width: 100% !important;
+        min-width: 0 !important;
+        overflow: hidden !important;
+    }
+
+    body:not(.sf-fs-open) aside[data-testid="now-playing-bar"] [data-testid="CoverSlotCollapsed__container"] {
+        flex: 0 0 48px !important;
+        width: 48px !important;
+        height: 48px !important;
+        margin: 0 10px 0 0 !important;
+        border-radius: 9px !important;
+        overflow: hidden !important;
+    }
+
+    body:not(.sf-fs-open) aside[data-testid="now-playing-bar"] .sf-track-info,
+    body:not(.sf-fs-open) aside[data-testid="now-playing-bar"] [data-testid="now-playing-widget"] > div:nth-child(2) {
+        flex: 1 1 auto !important;
+        width: auto !important;
+        min-width: 0 !important;
+        overflow: hidden !important;
+        text-align: left !important;
+    }
+
+    body:not(.sf-fs-open) aside[data-testid="now-playing-bar"] .sf-track-info a,
+    body:not(.sf-fs-open) aside[data-testid="now-playing-bar"] .sf-track-info span {
+        display: block !important;
+        max-width: 100% !important;
+        overflow: hidden !important;
+        text-overflow: ellipsis !important;
+        white-space: nowrap !important;
+    }
+
+    body:not(.sf-fs-open) aside[data-testid="now-playing-bar"] [data-testid="general-controls"] {
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        gap: 0 !important;
+        margin: 0 !important;
+    }
+
+    body:not(.sf-fs-open) aside[data-testid="now-playing-bar"] [data-testid="general-controls"] button:not([data-testid="control-button-playpause"]) {
+        display: none !important;
+    }
+
+    body:not(.sf-fs-open) aside[data-testid="now-playing-bar"] button[data-testid="control-button-playpause"] {
+        display: flex !important;
+        width: 44px !important;
+        height: 44px !important;
+        min-width: 44px !important;
+        min-height: 44px !important;
+        align-items: center !important;
+        justify-content: center !important;
+        margin: 0 !important;
+        border-radius: 50% !important;
+    }
+
+    body:not(.sf-fs-open) aside[data-testid="now-playing-bar"] [data-testid="playback-progressbar"],
+    body:not(.sf-fs-open) aside[data-testid="now-playing-bar"] [data-testid*="volume"],
+    body:not(.sf-fs-open) aside[data-testid="now-playing-bar"] [data-testid*="queue"] {
+        display: none !important;
+    }
+
+    body.sf-library-open aside[data-testid="now-playing-bar"] {
+        bottom: calc(10px + env(safe-area-inset-bottom)) !important;
+    }
+
+    body.sf-library-open #main-view {
+        pointer-events: none !important;
+    }
+}
+
+/* Landscape touch devices use the app-style bottom dock instead of the desktop web header. */
+@media screen and (hover: none) and (pointer: coarse) and (orientation: landscape) {
+    #global-nav-bar {
+        display: none !important;
+    }
+}
+/* Melodix's first custom view: the connected Spotify home feed, presented with app styling. */
+body.sf-melodix-home-active #main-view {
+    display: none !important;
+}
+
+body.sf-melodix-home-active #sf-melodix-home {
+    display: flex !important;
+    flex-direction: column !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    pointer-events: auto !important;
+}
+
+#sf-melodix-home {
+    position: fixed !important;
+    inset: var(--sf-melodix-home-top, 0px) 0 calc(154px + env(safe-area-inset-bottom)) !important;
+    z-index: 10001 !important;
+    box-sizing: border-box !important;
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+    overscroll-behavior-y: contain !important;
+    padding: calc(18px + var(--sf-melodix-home-extra-safe-top, 0px)) 18px 28px !important;
+    color: var(--mel-surface-light) !important;
+    background:
+        radial-gradient(ellipse at 88% 0%, var(--mel-accent-wash-11), transparent 42%),
+        var(--mel-bg-2) !important;
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important;
+    scrollbar-width: none !important;
+    -webkit-overflow-scrolling: touch !important;
+}
+
+#sf-melodix-home::-webkit-scrollbar,
+#sf-melodix-home .sf-melodix-home__cards::-webkit-scrollbar {
+    display: none !important;
+}
+
+#sf-melodix-home .sf-melodix-home__header {
+    margin: 0 0 26px !important;
+}
+
+#sf-melodix-home .sf-melodix-home__brand {
+    margin: 0 0 7px !important;
+    color: var(--mel-text-mute-a) !important;
+    font: 750 11px/1.2 system-ui, sans-serif !important;
+    letter-spacing: 0.18em !important;
+}
+
+#sf-melodix-home .sf-melodix-home__header h1 {
+    margin: 0 !important;
+    color: var(--mel-surface-light) !important;
+    font: 750 clamp(27px, 8vw, 34px)/1.12 system-ui, sans-serif !important;
+    letter-spacing: -0.045em !important;
+}
+
+#sf-melodix-home .sf-melodix-home__section {
+    margin: 0 0 25px !important;
+}
+
+#sf-melodix-home .sf-melodix-home__section-title {
+    margin: 0 0 13px !important;
+    color: var(--mel-surface-light-2) !important;
+    font: 700 19px/1.25 system-ui, sans-serif !important;
+    letter-spacing: -0.025em !important;
+}
+
+#sf-melodix-home .sf-melodix-home__cards {
+    display: flex !important;
+    gap: 12px !important;
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+    margin: 0 -18px !important;
+    padding: 0 18px 6px !important;
+    scroll-snap-type: x mandatory !important;
+    scrollbar-width: none !important;
+    -webkit-overflow-scrolling: touch !important;
+}
+
+#sf-melodix-home .sf-melodix-home__card {
+    display: flex !important;
+    flex: 0 0 clamp(126px, 42vw, 164px) !important;
+    flex-direction: column !important;
+    align-items: stretch !important;
+    min-width: 0 !important;
+    min-height: 44px !important;
+    padding: 0 !important;
+    overflow: hidden !important;
+    color: inherit !important;
+    text-align: left !important;
+    background: transparent !important;
+    border: 0 !important;
+    border-radius: 13px !important;
+    scroll-snap-align: start !important;
+    -webkit-tap-highlight-color: transparent !important;
+}
+
+#sf-melodix-home .sf-melodix-home__card:active {
+    transform: scale(0.975) !important;
+}
+
+#sf-melodix-home .sf-melodix-home__card:focus-visible {
+    outline: 2px solid var(--mel-accent) !important;
+    outline-offset: 3px !important;
+}
+
+#sf-melodix-home .sf-melodix-home__artwork {
+    display: block !important;
+    width: 100% !important;
+    aspect-ratio: 1 !important;
+    object-fit: cover !important;
+    border-radius: 13px !important;
+    background: var(--mel-surface-dark-2) !important;
+    box-shadow: 0 8px 20px var(--mel-scrim-24) !important;
+}
+
+#sf-melodix-home .sf-melodix-home__title {
+    display: -webkit-box !important;
+    margin: 9px 1px 0 !important;
+    overflow: hidden !important;
+    color: var(--mel-surface-light-3) !important;
+    font: 650 13px/1.3 system-ui, sans-serif !important;
+    -webkit-box-orient: vertical !important;
+    -webkit-line-clamp: 2 !important;
+}
+
+#sf-melodix-home .sf-melodix-home__subtitle {
+    display: block !important;
+    margin: 4px 1px 0 !important;
+    overflow: hidden !important;
+    color: var(--mel-text-mute-c) !important;
+    font: 450 11px/1.35 system-ui, sans-serif !important;
+    text-overflow: ellipsis !important;
+    white-space: nowrap !important;
+}
+
+@media screen and (hover: none) and (pointer: coarse) and (orientation: landscape) {
+    #sf-melodix-home {
+        padding-top: calc(10px + var(--sf-melodix-home-extra-safe-top, 0px)) !important;
+    }
+
+    #sf-melodix-home .sf-melodix-home__header {
+        margin-bottom: 12px !important;
+    }
+
+    #sf-melodix-home .sf-melodix-home__header h1 {
+        font-size: 23px !important;
+    }
+
+    #sf-melodix-home .sf-melodix-home__section {
+        margin-bottom: 16px !important;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    #sf-melodix-home .sf-melodix-home__card {
+        scroll-behavior: auto !important;
+        transition: none !important;
+    }
+}
+
+/* =====================================================================
+   SESSION STATE NOTICE - rendered in the document flow (relative), so an
+   unknown session can never cover the primary UI.
+   ===================================================================== */
+#sf-auth-status {
+    position: relative !important;
+    display: block !important;
+    margin: 8px 0 !important;
+    padding: 10px 12px !important;
+    border: 1px solid var(--mel-accent) !important;
+    border-radius: 8px !important;
+    background: var(--mel-accent-deep-wash-08) !important;
+    color: inherit !important;
+    z-index: 0 !important;
+}
+
+#sf-auth-status strong {
+    display: block !important;
+    margin-bottom: 4px !important;
+}
+
+@media screen and (max-width: 640px) and (orientation: portrait) {
+    #sf-mobile-nav {
+        padding-bottom: env(safe-area-inset-bottom, 0) !important;
+    }
+
+    #sf-auth-status {
+        margin: 6px 0 !important;
     }
 }

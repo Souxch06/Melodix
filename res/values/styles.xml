@@ -1714,7 +1714,11 @@
         <item name="windowNoTitle">true</item>
     </style>
     <style name="Theme.Spotifuck" parent="@style/Theme.AppCompat.NoActionBar">
-        <item name="android:windowBackground">@color/spotify_black</item>
+        <!-- Branded instant background: the system paints it before the first
+             line of Java runs, so a slow cold start never looks like a dead
+             black screen. It matches the splash overlay (same colour, same
+             logo) so the hand-over is invisible. -->
+        <item name="android:windowBackground">@drawable/mel_launch_background</item>
         <item name="android:actionOverflowButtonStyle">@style/overflowStyle</item>
         <item name="android:windowDrawsSystemBarBackgrounds">true</item>
         <item name="android:statusBarColor">@color/spotify_black</item>
@@ -1724,8 +1728,8 @@
         <item name="actionBarSize">48.0dip</item>
         <item name="colorOnPrimary">@color/white</item>
         <item name="colorOnSecondary">@color/white</item>
-        <item name="colorPrimary">@color/red</item>
-        <item name="colorPrimaryVariant">@color/purple_700</item>
+        <item name="colorPrimary">@color/mel_accent</item>
+        <item name="colorPrimaryVariant">@color/mel_accent_deep</item>
         <item name="colorSecondary">@color/teal_200</item>
         <item name="colorSecondaryVariant">@color/teal_700</item>
     </style>
@@ -1743,7 +1747,7 @@
         <item name="borderlessButtonStyle">@style/Widget.Spotifuck.Button.Borderless</item>
         <item name="colorAccent">@color/teal_200</item>
         <item name="colorControlActivated">@color/teal_200</item>
-        <item name="colorPrimary">@color/red</item>
+        <item name="colorPrimary">@color/mel_accent</item>
         <item name="colorPrimaryDark">@color/dark_red</item>
         <item name="colorSecondary">@color/teal_200</item>
         <item name="windowActionBar">false</item>

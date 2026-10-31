@@ -1,0 +1,1491 @@
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
+const vm = require('node:vm');
+const test = require('node:test');
+
+const root = path.resolve(__dirname, '..');
+const read = (file) => fs.readFileSync(path.join(root, file), 'utf8');
+
+const nativeIds = [
+    'nativeRoot',
+    'nativeScreenTitle',
+    'nativeBackButton',
+    'nativeSearchPanel',
+    'nativeSearchInput',
+    'nativeLibraryCategories',
+    'nativeContent',
+    'nativePlayerTitle',
+    'nativePlayerArtist',
+    'nativePlayPauseButton',
+    'nativeRowsScroll',
+    'nativePlayerPanel',
+    'nativePlayerLargeTitle',
+    'nativePlayerLargeArtist',
+    'nativePlayerProgress',
+    'nativePlayerLargePlayPauseButton',
+    'nativePlayerPreviousButton',
+    'nativePlayerNextButton',
+    'nativePlayerShuffleButton',
+    'nativePlayerRepeatButton',
+    'nativeMiniPlayer',
+    'nativePlayerArtwork',
+    'nativePlayerLargeArtwork',
+    'nativeHomeTab',
+    'nativeSearchTab',
+    'nativeLibraryTab',
+    'nativeHeaderAvatar',
+    'nativePlayerPositionText',
+    'nativePlayerDurationText'
+];
+
+test('native shell overlays, but does not replace or detach, the existing WebView', () => {
+    const layout = read('res/layout/activity_main.xml');
+    const webViewPosition = layout.indexOf('android:id="@id/webViewContainer"');
+    const nativeRootPosition = layout.indexOf('android:id="@id/nativeRoot"');
+
+    assert.ok(webViewPosition >= 0, 'the existing WebView container must remain in the layout');
+    assert.ok(nativeRootPosition > webViewPosition, 'native shell should draw over the WebView');
+    assert.match(layout.slice(nativeRootPosition, nativeRootPosition + 900), /android:visibility="gone"/);
+    assert.match(layout.slice(nativeRootPosition, nativeRootPosition + 900), /android:clickable="true"/);
+    assert.match(layout, /android:id="@id\/nativeContent"/);
+    assert.match(layout, /Loading your music/);
+    assert.match(layout, /android:id="@id\/nativePlayerArtwork"/);
+    assert.match(layout, /android:id="@id\/nativePlayerLargeArtwork"/);
+    assert.match(layout, /android:id="@id\/nativeHomeTab"/);
+    assert.match(layout, /@drawable\/native_shell_background/);
+    assert.match(layout, /@drawable\/native_mini_player_bg/);
+    assert.match(layout, /@drawable\/native_nav_home/);
+    assert.match(layout, /@drawable\/native_nav_search/);
+    assert.match(layout, /@drawable\/native_nav_library/);
+    assert.match(layout, /android:onClick="onNativePlayPauseClick"/);
+    assert.match(layout, /android:onClick="onNativeSearchSubmit"/);
+    assert.match(layout, /android:id="@id\/nativePlayerPanel"/);
+    assert.match(layout, /android:onClick="onNativePlayerPreviousClick"/);
+    assert.match(layout, /android:onClick="onNativePlayerNextClick"/);
+});
+
+test('all native layout IDs are assigned stable public resource IDs', () => {
+    const layout = read('res/layout/activity_main.xml');
+    const publicXml = read('res/values/public.xml');
+
+    for (const id of nativeIds) {
+        assert.match(layout, new RegExp(`@id/${id}\\b`), `${id} should be referenced by the layout`);
+        assert.match(publicXml, new RegExp(`type="id" name="${id}" id="0x7f09[0-9a-f]+"`), `${id} should be public`);
+    }
+});
+
+test('native bridge exposes UI callbacks and routes media, search and player data to the activity', () => {
+    const bridge = read('smali/com/melodix/music/AndBridge.smali');
+    const activity = read('smali/com/melodix/music/MainActivity.smali');
+
+    assert.match(bridge, /\.method public final onNativeUiReady\(\)V[\s\S]*?JavascriptInterface/);
+    assert.match(bridge, /\.method public final onNativeUiRoute\(Ljava\/lang\/String;\)V[\s\S]*?JavascriptInterface/);
+    assert.match(bridge, /\.method public final onNativeUiData\(Ljava\/lang\/String;Ljava\/lang\/String;\)V[\s\S]*?JavascriptInterface/);
+    assert.match(bridge, /const-string v1, "media:"[\s\S]*?dispatchNativeUi/);
+    assert.match(bridge, /const-string v1, "search:"[\s\S]*?dispatchNativeUi/);
+    assert.match(bridge, /const-string v0, "player"[\s\S]*?dispatchNativeUi/);
+    const shell = read('assets/native_ui_shell.js');
+    const readiness = shell.match(/function notifyNativeUiReady\(mainView\) \{[\s\S]*?\n    \}/);
+    const client = read('smali/c91.smali');
+    const hotfixList = read('smali/c40.smali').split('.method public static a')[0];
+    assert.ok(readiness, 'native shell readiness guard should exist');
+    assert.match(readiness[0], /user-widget-link/);
+    assert.match(readiness[0], /open\.spotify\.com/);
+    assert.match(client, /const-string v5, "native_ui_shell\.js"[\s\S]*?evaluateJavascript/);
+    assert.doesNotMatch(hotfixList, /native_ui_shell\.js/);
+    assert.doesNotMatch(read('assets/spotify_bridge.js'), /notifyNativeUiReady\(/);
+    assert.match(activity, /\.method public final showNativeUi\(\)V/);
+    assert.match(activity, /styleNativeTab[\s\S]*?setBackgroundTintList/);
+    assert.match(activity, /\.method public final postNativeUiRoute\(Ljava\/lang\/String;\)V/);
+    assert.match(activity, /\.method public final applyNativeUiData\(Ljava\/lang\/String;Ljava\/lang\/String;\)V/);
+    assert.match(activity, /\.method public final runNativeJavascript\(Ljava\/lang\/String;\)V/);
+    assert.match(activity, /\.method public final openNativeRow\(Ljava\/lang\/String;Ljava\/lang\/String;\)V/);
+    assert.match(activity, /\.method public final onNativePlayerExpandClick\(Landroid\/view\/View;\)V/);
+    assert.match(activity, /\.method public final onNativePlayerNextClick\(Landroid\/view\/View;\)V/);
+    assert.match(activity, /\.method public final updateNativePlayer\(Ljava\/lang\/String;\)V[\s\S]*?"cover"[\s\S]*?NativeImageLoader;->load[\s\S]*?"duration"[\s\S]*?"position"[\s\S]*?setProgress\(I\)V/);
+    assert.match(activity, /applyNativeUiData[\s\S]*?"screen-title"[\s\S]*?"detail"[\s\S]*?renderNativeRows[\s\S]*?NativeUiRowFactory;->create/);
+    const runnable = read('smali/com/melodix/music/NativeUiUpdateRunnable.smali');
+    assert.match(runnable, /const\/4 v2, 0x2[\s\S]*?applyNativeUiData/);
+    assert.match(runnable, /setNativeScreen\(Ljava\/lang\/String;\)V/);
+    assert.doesNotMatch(runnable, /onNativeLibraryClick/, 'a route update must not re-trigger the library tab');
+    assert.match(activity, /renderNativeRows[\s\S]*?NativeUiRowFactory;->create/);
+    assert.match(read('smali/com/melodix/music/NativeImageLoader.smali'), /Picasso;->load[\s\S]*?RequestCreator;->into/);
+    assert.match(read('smali/com/melodix/music/NativeUiRowFactory.smali'), /GradientDrawable;->setCornerRadius[\s\S]*?setContentDescription/);
+});
+
+test('Spotify links are normalized to safe native row URIs', () => {
+    const shell = read('assets/native_ui_shell.js');
+    const helper = shell.match(/function nativeSpotifyUri\(value\) \{[\s\S]*?\n    \}/);
+    assert.ok(helper, 'native Spotify URI helper should exist');
+
+    const context = {
+        URL,
+        window: { location: { href: 'https://open.spotify.com/', hostname: 'open.spotify.com' } }
+    };
+    vm.runInNewContext(`const SUPPORTED_TYPES = ['playlist', 'album', 'artist', 'track', 'show', 'episode', 'audiobook']; ${helper[0]}; globalThis.nativeSpotifyUri = nativeSpotifyUri;`, context);
+
+    assert.equal(context.nativeSpotifyUri('https://open.spotify.com/album/abc123?si=xyz'), 'spotify:album:abc123');
+    assert.equal(context.nativeSpotifyUri('spotify:user:person:playlist:abc123'), 'spotify:playlist:abc123');
+    assert.equal(context.nativeSpotifyUri('https://example.org/playlist/abc123'), 'https://example.org/playlist/abc123');
+});
+
+test('player recovery rejects unsafe URLs and routes valid targets through native WebView.loadUrl', () => {
+    const shell = read('assets/native_ui_shell.js');
+    const safeHelper = shell.match(/function safeWebPlayerUrl\(raw, fallback\) \{[\s\S]*?\n    \}/);
+    const navHelper = shell.match(/function navToPlayer\(n, href, frameSrc\) \{[\s\S]*?\n    \}/);
+    const navigateHelper = shell.match(/function navigateWebPlayer\(raw\) \{[\s\S]*?\n    \}/);
+    assert.ok(safeHelper, 'the Web Player URL validator should exist');
+    assert.ok(navHelper, 'player recovery should have a single navigation helper');
+    assert.ok(navigateHelper, 'native WebView routing should be the only player navigation path');
+
+    const assigned = [];
+    const loaded = [];
+    const traces = [];
+    const context = {
+        URL,
+        window: {
+            location: { assign: (target) => assigned.push(target) },
+            AndBridge: { loadWebPlayerUrl: (target) => loaded.push(target) }
+        },
+        diagTrace: (line) => traces.push(line)
+    };
+    vm.runInNewContext(`${safeHelper[0]}\n${navigateHelper[0]}\n${navHelper[0]}\nglobalThis.navToPlayer = navToPlayer;`, context);
+
+    context.navToPlayer(1, 'intent://open.spotify.com/app#Intent;scheme=https;end', '');
+    assert.equal(loaded.pop(), 'https://open.spotify.com/app', 'intent targets fall back to the safe player route');
+
+    context.navToPlayer(1, 'https://open.spotify.com.evil.test/app', '');
+    assert.equal(loaded.pop(), 'https://open.spotify.com/app', 'lookalike hosts never reach the native loader');
+
+    context.navToPlayer(1, 'https://open.spotify.com:8443/app', '');
+    assert.equal(loaded.pop(), 'https://open.spotify.com/app', 'unexpected ports are rejected');
+
+    context.navToPlayer(1, '/app', 'https://open.spotify.com/search?query=Jazz');
+    assert.equal(loaded.pop(), 'https://open.spotify.com/search?query=Jazz', 'a valid player frame remains the preferred target');
+
+    context.navToPlayer(1, '/app', '');
+    assert.equal(loaded.pop(), 'https://open.spotify.com/app', 'relative CTA links stay on the Spotify Web Player host');
+    assert.deepEqual(assigned, [], 'automatic recovery never asks Android to resolve a Spotify App Link');
+    assert.equal(traces.length, 5);
+});
+
+test('a Spotify landing CTA is read but never auto-clicked during player recovery', () => {
+    const script = read('assets/native_ui_shell.js');
+    let now = 10000;
+    let clicked = 0;
+    const assigned = [];
+    const loaded = [];
+    const timers = [];
+    const traces = [];
+    const values = new Map();
+    const FakeDate = class extends Date {
+        static now() { return now; }
+    };
+    const cta = {
+        closest: () => null,
+        getAttribute: (name) => name === 'href' ? '/app' : null,
+        click: () => { clicked += 1; }
+    };
+    const document = {
+        readyState: 'complete',
+        title: 'Spotify - Web Player',
+        body: { childElementCount: 1 },
+        documentElement: null,
+        querySelector: (selector) => selector.indexOf('web-player-link') >= 0 ? cta : null,
+        querySelectorAll: () => [],
+        addEventListener: () => {}
+    };
+    const window = {
+        location: {
+            hostname: 'open.spotify.com',
+            pathname: '/intl-fr/',
+            href: 'https://open.spotify.com/intl-fr/',
+            assign: (target) => assigned.push(target)
+        },
+        localStorage: {
+            getItem: (key) => values.has(key) ? values.get(key) : null,
+            setItem: (key, value) => values.set(key, value)
+        },
+        AndBridge: {
+            logDiagEvent: (line) => traces.push(line),
+            loadWebPlayerUrl: (target) => loaded.push(target)
+        },
+        addEventListener: () => {},
+        setTimeout: (callback, delay) => {
+            timers.push({ callback, delay });
+            return timers.length;
+        },
+        clearTimeout: () => {}
+    };
+
+    vm.runInNewContext(script, { window, document, URL, Date: FakeDate });
+    assert.equal(window.__sfNativeUiShellCompleted, true);
+    assert.equal(window.__sfNativeUiShellErrors, 0);
+    const recoveryTimer = timers.find((timer) => timer.delay === 2600);
+    assert.ok(recoveryTimer, 'the page gets its grace period before navigating');
+
+    now += 2600;
+    recoveryTimer.callback();
+
+    assert.equal(clicked, 0, 'the page CTA is never activated programmatically');
+    assert.deepEqual(loaded, ['https://open.spotify.com/app'], 'recovery is loaded directly by the app WebView');
+    assert.deepEqual(assigned, [], 'recovery never resolves a Spotify App Link outside the app');
+    assert.ok(traces.includes('player-cta found; web navigation only'));
+});
+
+test('native Home collector keeps image-less Spotify links and filters non-Spotify artwork', () => {
+    const calls = [];
+    const externalArtwork = {
+        currentSrc: 'https://example.org/cover.jpg',
+        getAttribute: (name) => name === 'src' ? 'https://example.org/cover.jpg' : null
+    };
+    const anchor = {
+        href: 'https://open.spotify.com/track/track99',
+        innerText: 'Fallback track\nArtist name',
+        textContent: 'Fallback track\nArtist name',
+        matches: () => true,
+        getAttribute: () => null,
+        querySelector: (selector) => selector === 'img' ? externalArtwork : null,
+        closest: () => null
+    };
+    const mainView = {
+        querySelectorAll: (selector) => selector === 'a[href]' ? [anchor] : []
+    };
+    const document = {
+        readyState: 'complete',
+        documentElement: {},
+        querySelector: (selector) => selector === '#main-view'
+            ? mainView
+            : selector.indexOf('user-widget-link') >= 0 ? {} : null,
+        addEventListener: () => {}
+    };
+    class TestMutationObserver {
+        observe() {}
+    }
+    const window = {
+        location: {
+            hostname: 'open.spotify.com',
+            pathname: '/',
+            href: 'https://open.spotify.com/',
+            assign: () => {}
+        },
+        AndBridge: {
+            onNativeUiReady: () => {},
+            onNativeUiData: (screen, data) => calls.push({ screen, data })
+        },
+        MutationObserver: TestMutationObserver,
+        addEventListener: () => {},
+        setTimeout: () => 1,
+        clearTimeout: () => {}
+    };
+
+    vm.runInNewContext(read('assets/native_ui_shell.js'), { window, document, URL });
+
+    assert.equal(calls.length, 1);
+    assert.equal(calls[0].screen, 'home');
+    assert.deepEqual(JSON.parse(calls[0].data), [{
+        title: 'Fallback track',
+        subtitle: 'Artist name',
+        section: '',
+        image: '',
+        uri: 'spotify:track:track99'
+    }]);
+});
+
+test('Home uses saved library items as a fallback when Spotify has no visible Home cards', () => {
+    const calls = [];
+    const mainView = { querySelectorAll: () => [] };
+    const document = {
+        readyState: 'complete',
+        documentElement: {},
+        querySelector: (selector) => selector === '#main-view'
+            ? mainView
+            : selector.indexOf('user-widget-link') >= 0 ? {} : null,
+        addEventListener: () => {}
+    };
+    class TestMutationObserver {
+        observe() {}
+    }
+    const window = {
+        location: {
+            hostname: 'open.spotify.com',
+            pathname: '/',
+            href: 'https://open.spotify.com/',
+            assign: () => {}
+        },
+        mediaLib: {
+            playlists: [{
+                id: 'spotify:playlist:saved123',
+                name: 'Saved mix',
+                image: 'https://i.scdn.co/image/saved',
+                type: 'Playlist'
+            }]
+        },
+        AndBridge: {
+            onNativeUiReady: () => {},
+            onNativeUiData: (screen, data) => calls.push({ screen, data })
+        },
+        MutationObserver: TestMutationObserver,
+        addEventListener: () => {},
+        setTimeout: () => 1,
+        clearTimeout: () => {}
+    };
+
+    vm.runInNewContext(read('assets/native_ui_shell.js'), { window, document, URL });
+
+    assert.equal(calls.length, 1);
+    assert.deepEqual(JSON.parse(calls[0].data), [{
+        title: 'Saved mix',
+        subtitle: 'Playlist',
+        section: 'Vos playlists',
+        image: 'https://i.scdn.co/image/saved',
+        uri: 'spotify:playlist:saved123'
+    }]);
+});
+
+test('localized Spotify Home routes still collect and send Home rows', () => {
+    const routes = [];
+    const calls = [];
+    const mainView = { querySelectorAll: () => [] };
+    const document = {
+        readyState: 'complete',
+        documentElement: {},
+        querySelector: (selector) => selector === '#main-view'
+            ? mainView
+            : selector.indexOf('user-widget-link') >= 0 ? {} : null,
+        addEventListener: () => {}
+    };
+    class TestMutationObserver {
+        observe() {}
+    }
+    const window = {
+        location: {
+            hostname: 'open.spotify.com',
+            pathname: '/intl-fr/',
+            href: 'https://open.spotify.com/intl-fr/',
+            assign: () => {}
+        },
+        mediaLib: {
+            playlists: [{
+                id: 'spotify:playlist:fr123',
+                name: 'Sélection du jour',
+                image: 'https://i.scdn.co/image/fr-cover',
+                type: 'Playlist'
+            }]
+        },
+        AndBridge: {
+            onNativeUiRoute: (screen) => routes.push(screen),
+            onNativeUiReady: () => {},
+            onNativeUiData: (screen, data) => calls.push({ screen, data })
+        },
+        MutationObserver: TestMutationObserver,
+        addEventListener: () => {},
+        setTimeout: () => 1,
+        clearTimeout: () => {}
+    };
+
+    vm.runInNewContext(read('assets/native_ui_shell.js'), { window, document, URL });
+
+    assert.deepEqual(routes, ['home']);
+    assert.equal(calls.length, 1);
+    assert.equal(calls[0].screen, 'home');
+    assert.deepEqual(JSON.parse(calls[0].data), [{
+        title: 'Sélection du jour',
+        subtitle: 'Playlist',
+        section: 'Vos playlists',
+        image: 'https://i.scdn.co/image/fr-cover',
+        uri: 'spotify:playlist:fr123'
+    }]);
+});
+
+test('native shell routes a Spotify detail deep link and transfers its title and rows', () => {
+    const routes = [];
+    const calls = [];
+    let readyCount = 0;
+    const anchor = {
+        href: 'https://open.spotify.com/track/track123',
+        innerText: 'A track\nAn artist',
+        textContent: 'A track\nAn artist',
+        matches: () => true,
+        getAttribute: () => null,
+        querySelector: () => null,
+        closest: (selector) => selector === '[data-testid="card"]' ? card : null
+    };
+    const card = {
+        innerText: 'A track\nAn artist',
+        textContent: 'A track\nAn artist',
+        matches: () => false,
+        getAttribute: () => null,
+        querySelector: (selector) => selector === 'a[href]' ? anchor : null,
+        querySelectorAll: () => [],
+        closest: () => null
+    };
+    const heading = { innerText: 'A playlist', textContent: 'A playlist' };
+    const mainView = {
+        querySelector: () => heading,
+        querySelectorAll: (selector) => selector === '[data-testid="card"]'
+            ? [card]
+            : selector === 'a[href]' ? [anchor] : []
+    };
+    const document = {
+        readyState: 'complete',
+        documentElement: {},
+        querySelector: (selector) => selector === '#main-view'
+            ? mainView
+            : selector.indexOf('user-widget-link') >= 0 ? {} : null,
+        addEventListener: () => {}
+    };
+    class TestMutationObserver {
+        observe() {}
+    }
+    const window = {
+        location: {
+            hostname: 'open.spotify.com',
+            pathname: '/playlist/playlist123',
+            href: 'https://open.spotify.com/playlist/playlist123',
+            assign: () => {}
+        },
+        AndBridge: {
+            onNativeUiRoute: (screen) => routes.push(screen),
+            onNativeUiReady: () => { readyCount += 1; },
+            onNativeUiData: (screen, data) => calls.push({ screen, data })
+        },
+        MutationObserver: TestMutationObserver,
+        addEventListener: () => {},
+        setTimeout: () => 1,
+        clearTimeout: () => {}
+    };
+
+    vm.runInNewContext(read('assets/native_ui_shell.js'), { window, document, URL });
+
+    assert.deepEqual(routes, ['detail']);
+    assert.equal(readyCount, 1);
+    assert.deepEqual(calls.map((call) => call.screen), ['screen-title', 'detail', 'home']);
+    assert.equal(calls[0].data, 'A playlist');
+    assert.deepEqual(JSON.parse(calls[1].data), [{
+        title: 'A track',
+        subtitle: 'An artist',
+        section: '',
+        image: '',
+        uri: 'spotify:track:track123'
+    }]);
+    // 3ᵉ appel : le takeover sans rows home envoie quand meme un etat (payload
+    // vide = la ligne de chargement centree du natif). Jamais de playlist
+    // inventee, jamais d ecran muet.
+    const state = JSON.parse(calls[2].data);
+    assert.deepEqual(state, [], 'aucune fausse ligne pendant le chargement');
+});
+
+test('native search deep links preserve their query in the native search field', () => {
+    const routes = [];
+    const calls = [];
+    const mainView = { querySelectorAll: () => [], querySelector: () => null };
+    const document = {
+        readyState: 'complete',
+        documentElement: {},
+        querySelector: (selector) => selector === '#main-view'
+            ? mainView
+            : selector.indexOf('user-widget-link') >= 0 ? {} : null,
+        addEventListener: () => {}
+    };
+    class TestMutationObserver {
+        observe() {}
+    }
+    const window = {
+        location: {
+            hostname: 'open.spotify.com',
+            pathname: '/intl-fr/search',
+            href: 'https://open.spotify.com/intl-fr/search?query=Jazz+Funk',
+            assign: () => {}
+        },
+        AndBridge: {
+            onNativeUiRoute: (screen) => routes.push(screen),
+            onNativeUiReady: () => {},
+            onNativeUiData: (screen, data) => calls.push({ screen, data })
+        },
+        MutationObserver: TestMutationObserver,
+        addEventListener: () => {},
+        setTimeout: () => 1,
+        clearTimeout: () => {}
+    };
+
+    vm.runInNewContext(read('assets/native_ui_shell.js'), { window, document, URL });
+
+    assert.deepEqual(routes, ['search']);
+    // 2 appels : le takeover sans rows home envoie un etat vide (ligne de
+    // chargement native, son ordre face à initial-search dépend du timing de
+    // la nav), + le search.
+    assert.equal(calls.length, 2);
+    const byScreen = {};
+    calls.forEach((call) => { byScreen[call.screen] = call.data; });
+    assert.equal(byScreen['initial-search'], 'Jazz Funk');
+    assert.deepEqual(JSON.parse(byScreen.home), [], 'aucune fausse ligne home');
+});
+
+test('bundled native bootstrap activates the shell, sends Home rows, and only opens Spotify links', () => {
+    const script = read('assets/native_ui_shell.js');
+    const calls = [];
+    const assigned = [];
+    const loaded = [];
+    const timers = [];
+    let readyCount = 0;
+
+    const artwork = {
+        currentSrc: 'https://i.scdn.co/image/focus',
+        getAttribute: (name) => name === 'src' ? 'https://i.scdn.co/image/focus' : null
+    };
+    const anchor = {
+        href: 'https://open.spotify.com/playlist/abc123?si=xyz',
+        innerText: 'Focus Mix',
+        textContent: 'Focus Mix',
+        getAttribute: () => null,
+        matches: () => true,
+        closest: (selector) => selector === '[data-testid="card"]' ? card : null,
+        querySelector: (selector) => selector === 'img' ? artwork : null
+    };
+    const card = {
+        innerText: 'Focus Mix\nPicked for you',
+        textContent: 'Focus Mix\nPicked for you',
+        matches: () => false,
+        querySelector: (selector) => selector === 'a[href]' ? anchor : selector === 'img' ? artwork : null,
+        querySelectorAll: () => [],
+        getAttribute: () => null,
+        closest: () => null
+    };
+    const mainView = {
+        querySelectorAll: (selector) => selector === '[data-testid="card"]'
+            ? [card]
+            : selector === 'a[href]' ? [anchor] : []
+    };
+    const document = {
+        readyState: 'complete',
+        documentElement: {},
+        querySelector: (selector) => selector === '#main-view'
+            ? mainView
+            : selector.indexOf('user-widget-link') >= 0 ? {} : null,
+        addEventListener: () => {}
+    };
+    class TestMutationObserver {
+        observe() {}
+    }
+    const window = {
+        location: {
+            hostname: 'open.spotify.com',
+            pathname: '/',
+            href: 'https://open.spotify.com/',
+            assign: (value) => assigned.push(value)
+        },
+        _sfNativeHomeSignature: JSON.stringify([{
+            title: 'Focus Mix',
+            subtitle: 'Picked for you',
+            section: '',
+            image: 'https://i.scdn.co/image/focus',
+            uri: 'spotify:playlist:abc123'
+        }]),
+        AndBridge: {
+            onNativeUiReady: () => { readyCount += 1; },
+            onNativeUiData: (screen, data) => calls.push({ screen, data }),
+            loadWebPlayerUrl: (url) => loaded.push(url)
+        },
+        MutationObserver: TestMutationObserver,
+        addEventListener: () => {},
+        setTimeout: (callback, delay) => {
+            timers.push({ callback, delay });
+            return timers.length;
+        },
+        clearTimeout: () => {}
+    };
+
+    vm.runInNewContext(script, { window, document, URL, MutationObserver: TestMutationObserver });
+
+    assert.equal(window.__sfNativeUiShellStarted, true);
+    assert.equal(window.__sfNativeUiShellReady, true);
+    assert.equal(window.__sfNativeUiShellCompleted, true);
+    assert.equal(readyCount, 1);
+    assert.equal(calls.length, 1);
+    assert.equal(calls[0].screen, 'home');
+    assert.deepEqual(JSON.parse(calls[0].data), [{
+        title: 'Focus Mix',
+        subtitle: 'Picked for you',
+        section: '',
+        image: 'https://i.scdn.co/image/focus',
+        uri: 'spotify:playlist:abc123'
+    }]);
+    assert.equal(window.__sfNativeUiHomeRowsCount, 1);
+    assert.equal(window.__sfNativeUiHomeDataSent, true);
+    assert.equal(window._sfNativeHomeSignature, JSON.stringify([{
+        title: 'Focus Mix',
+        subtitle: 'Picked for you',
+        section: '',
+        image: 'https://i.scdn.co/image/focus',
+        uri: 'spotify:playlist:abc123'
+    }]), 'the shell must not overwrite or depend on the shared legacy signature');
+
+    assert.equal(window.__sfNativeOpenUri('spotify:track:track123'), true);
+    assert.equal(loaded.pop(), 'https://open.spotify.com/track/track123');
+    assert.deepEqual(assigned, [], 'Spotify content navigation stays in the existing WebView');
+    assert.equal(window.__sfNativeOpenUri('https://example.org/track/track123'), false);
+    assert.equal(window.__sfNativeRequestHome(), true);
+    assert.equal(calls.length, 2, 'requesting Home should resend current rows');
+    assert.equal(timers.length, 0, 'a signed-in page with a ready bridge should not keep retry timers');
+});
+
+test('Home cards with sibling artwork outside the title anchor still resolve their cover image', () => {
+    const script = read('assets/native_ui_shell.js');
+    const calls = [];
+    const artwork = {
+        currentSrc: '',
+        getAttribute: (name) => name === 'srcset'
+            ? 'https://i.scdn.co/image/ep123 300w, https://i.scdn.co/image/ep123_large 640w'
+            : null
+    };
+    const cardWrapper = {
+        tagName: 'DIV',
+        innerText: 'UHQ FREESTYLE #1\nCreator Name',
+        getAttribute: () => null,
+        querySelector: (selector) => selector === 'img' ? artwork : null,
+        closest: () => null
+    };
+    const textWrapper = {
+        tagName: 'DIV',
+        parentElement: cardWrapper,
+        querySelector: () => null
+    };
+    const anchor = {
+        href: 'https://open.spotify.com/episode/ep123',
+        innerText: 'UHQ FREESTYLE #1',
+        parentElement: textWrapper,
+        matches: (selector) => selector === 'a[href]',
+        getAttribute: (name) => name === 'href' ? '/episode/ep123' : null,
+        querySelector: () => null,
+        closest: () => null
+    };
+    const mainView = {
+        querySelectorAll: (selector) => selector === 'a[href]' ? [anchor] : []
+    };
+    cardWrapper.parentElement = mainView;
+
+    const document = {
+        readyState: 'complete',
+        documentElement: {},
+        querySelector: (selector) => {
+            if (selector === '#main-view') return mainView;
+            if (selector.indexOf('user-widget-link') >= 0) return {};
+            return null;
+        },
+        addEventListener: () => {}
+    };
+    class TestMutationObserver {
+        observe() {}
+    }
+    const window = {
+        location: {
+            hostname: 'open.spotify.com',
+            pathname: '/intl-fr/',
+            href: 'https://open.spotify.com/intl-fr/'
+        },
+        AndBridge: {
+            onNativeUiReady: () => {},
+            onNativeUiData: (screen, data) => calls.push({ screen, data })
+        },
+        MutationObserver: TestMutationObserver,
+        addEventListener: () => {},
+        setTimeout: () => 1,
+        clearTimeout: () => {}
+    };
+
+    vm.runInNewContext(script, { window, document, URL, MutationObserver: TestMutationObserver });
+
+    assert.equal(calls.length, 1);
+    assert.deepEqual(JSON.parse(calls[0].data), [{
+        title: 'UHQ FREESTYLE #1',
+        subtitle: 'Creator Name',
+        section: '',
+        image: 'https://i.scdn.co/image/ep123',
+        uri: 'spotify:episode:ep123'
+    }]);
+});
+
+test('Home separates user playlists from Spotify official recommendations and prevents false playing state', () => {
+    const script = read('assets/native_ui_shell.js');
+    const activity = read('smali/com/melodix/music/MainActivity.smali');
+    const rowFactory = read('smali/com/melodix/music/NativeUiRowFactory.smali');
+    const layout = read('res/layout/activity_main.xml');
+    const calls = [];
+    const statusUpdates = [];
+
+    const spotifyCards = Array.from({ length: 9 }, (_, i) => {
+        const anchor = {
+            href: `https://open.spotify.com/playlist/sp${i}`,
+            innerText: `Spotify Mix ${i}`,
+            textContent: `Spotify Mix ${i}`,
+            getAttribute: () => null,
+            matches: () => true,
+            closest: () => null,
+            querySelector: () => null
+        };
+        return anchor;
+    });
+    const mainView = {
+        querySelectorAll: (selector) => selector === 'a[href]' ? spotifyCards : []
+    };
+    const playPauseButton = {
+        getAttribute: (name) => name === 'aria-label' ? 'Lecture' : null
+    };
+    const document = {
+        readyState: 'complete',
+        documentElement: {},
+        querySelector: (selector) => {
+            if (selector === '#main-view') return mainView;
+            if (selector.indexOf('user-widget-link') >= 0) return {};
+            if (selector.indexOf('control-button-playpause') >= 0) return playPauseButton;
+            return null;
+        },
+        querySelectorAll: () => [],
+        addEventListener: () => {}
+    };
+    class TestMutationObserver {
+        observe() {}
+    }
+    const window = {
+        location: {
+            hostname: 'open.spotify.com',
+            pathname: '/intl-fr/',
+            href: 'https://open.spotify.com/intl-fr/'
+        },
+        playing: true,
+        mediaLib: {
+            playlists: [
+                { name: 'Liked Songs', type: 'Playlist', uri: 'spotify:collection:tracks' },
+                { name: 'Ma Playlist Perso', type: 'Playlist', image: 'https://i.scdn.co/image/mypl', uri: 'spotify:playlist:my1' }
+            ]
+        },
+        updMedia: function() {
+            statusUpdates.push(window.playing);
+        },
+        manageAll: function(play) {
+            window.playing = play;
+        },
+        AndBridge: {
+            onNativeUiReady: () => {},
+            onNativeUiData: (screen, data) => calls.push({ screen, data })
+        },
+        MutationObserver: TestMutationObserver,
+        addEventListener: () => {},
+        setTimeout: () => 1,
+        clearTimeout: () => {}
+    };
+
+    vm.runInNewContext(script, { window, document, URL, MutationObserver: TestMutationObserver });
+
+    assert.equal(window.playing, false);
+    window.manageAll(true);
+    assert.equal(window.playing, false);
+
+    const rows = JSON.parse(calls[0].data);
+    assert.equal(rows[0].title, 'Liked Songs');
+    assert.equal(rows[0].section, 'Vos playlists');
+    assert.equal(rows[1].title, 'Ma Playlist Perso');
+    assert.equal(rows[1].section, 'Vos playlists');
+    assert.equal(rows[2].title, 'Spotify Mix 0');
+    assert.equal(rows[2].section, 'Sélections Spotify');
+
+    assert.match(activity, /createSectionHeader\(Lcom\/melodix\/music\/MainActivity;Ljava\/lang\/String;\)Landroid\/widget\/TextView;/);
+    assert.match(activity, /createPlaylistBanner\(Lcom\/melodix\/music\/MainActivity;Ljava\/lang\/String;ILjava\/lang\/String;Ljava\/lang\/String;\)Landroid\/widget\/LinearLayout;/);
+    assert.match(activity, /\.method public final onNativeSearchClick\(Landroid\/view\/View;\)V[\s\S]*?renderNativeRows\(Ljava\/lang\/String;Ljava\/lang\/String;\)V/);
+    assert.match(rowFactory, /optJSONArray\(Ljava\/lang\/String;\)Lorg\/json\/JSONArray;/);
+    assert.ok(layout.includes('@drawable/previous'));
+    assert.ok(layout.includes('@drawable/next'));
+});
+
+test('playback stability and fast live search optimizations are active across Smali and JS', () => {
+    const shell = read('assets/native_ui_shell.js');
+    const bridge = read('assets/spotify_bridge.js');
+    const activity = read('smali/com/melodix/music/MainActivity.smali');
+    const watcher = read('smali/com/melodix/music/NativeSearchWatcher.smali');
+
+    assert.match(activity, /\.method public final showNativeUi\(\)V[\s\S]*?sput-boolean v0, Lcom\/melodix\/music\/AppSingleton;->l:Z[\s\S]*?MainActivity;->H:Landroidx\/constraintlayout\/widget\/ConstraintLayout;/);
+    assert.match(shell, /window\.__sfSearchCache/);
+    assert.doesNotMatch(shell, /function clearHomeRetry\(\) \{[^}]*observer\.disconnect\(\)/);
+    assert.match(bridge, /if \(window\.__sfMelodixBridgeCompleted\)/);
+    assert.doesNotMatch(bridge, /AndBridge\.deferMessage\('reload'\);\s*location\.reload\(\)/);
+    assert.match(bridge, /limit:\s*12/);
+    assert.match(bridge, /window\.__sfSearchCache/);
+    assert.match(activity, /performNativeLiveSearch\(Ljava\/lang\/String;\)V/);
+    assert.match(activity, /NativeSearchWatcher;-><init>/);
+    assert.match(watcher, /implements Landroid\/text\/TextWatcher;/);
+});
+
+test('native Spotify settings screen replaces the web settings sheet', () => {
+    const shell = read('assets/native_ui_shell.js');
+    const activity = read('smali/com/melodix/music/MainActivity.smali');
+    const bridge = read('smali/com/melodix/music/AndBridge.smali');
+    const factory = read('smali/com/melodix/music/NativeSettingsRowFactory.smali');
+
+    assert.match(shell, /window\.__sfRequestSpotifySettings/);
+    assert.match(shell, /window\.__sfToggleSpotifySetting/);
+    for (const key of [
+        'account_info', 'logout', 'audio_quality', 'normalize_volume', 'data_saver',
+        'gapless', 'autoplay', 'shuffle', 'repeat', 'explicit', 'canvas', 'bg_audio',
+        'clear_cache', 'resync', 'about'
+    ]) {
+        assert.ok(shell.includes(`spotify:settings:${key}`), `${key} should be a settings row`);
+    }
+
+    assert.match(activity, /\.method public final openNativeSettings\(\)V/);
+    assert.match(activity, /onNativeSettingsClick[\s\S]*?openNativeSettings\(\)V/);
+    assert.match(activity, /"spotify:settings:"[\s\S]*?__sfToggleSpotifySetting/);
+    assert.match(activity, /:check_settings[\s\S]*?"Paramètres"/);
+    assert.match(activity, /"home-greeting"[\s\S]*?"home"[\s\S]*?setText\(Ljava\/lang\/CharSequence;\)V/);
+    assert.match(shell, /onNativeUiData\('home-greeting', greeting\)/);
+    assert.match(activity, /NativeSettingsRowFactory;->create\(Lcom\/melodix\/music\/MainActivity;Lorg\/json\/JSONObject;\)Landroid\/widget\/LinearLayout;/);
+    assert.match(bridge, /onNativeProfileImage\(Ljava\/lang\/String;\)V[\s\S]*?JavascriptInterface/);
+    assert.match(bridge, /nativeLogout\(\)V[\s\S]*?JavascriptInterface[\s\S]*?NativeLogoutRunnable/);
+    assert.match(shell, /AndBridge\.nativeLogout/);
+    assert.match(factory, /GradientDrawable;->setCornerRadius[\s\S]*?setTextColor\(I\)V/);
+    assert.match(read('res/layout/activity_main.xml'), /@id\/nativeHeaderAvatar/);
+});
+
+test('native settings rows expose real Spotify options and toggles persist locally', () => {
+    const calls = [];
+    const store = new Map();
+    const document = {
+        readyState: 'complete',
+        documentElement: {},
+        querySelector: () => null,
+        addEventListener: () => {}
+    };
+    class TestMutationObserver {
+        observe() {}
+    }
+    const window = {
+        location: {
+            hostname: 'open.spotify.com',
+            pathname: '/',
+            href: 'https://open.spotify.com/'
+        },
+        AndBridge: {
+            onNativeUiReady: () => {},
+            onNativeUiData: (screen, data) => calls.push({ screen, data })
+        },
+        MutationObserver: TestMutationObserver,
+        addEventListener: () => {},
+        setTimeout: () => 1,
+        clearTimeout: () => {},
+        localStorage: {
+            getItem: (key) => (store.has(key) ? store.get(key) : null),
+            setItem: (key, value) => store.set(key, value),
+            clear: () => store.clear()
+        }
+    };
+
+    vm.runInNewContext(read('assets/native_ui_shell.js'), { window, document, URL, MutationObserver: TestMutationObserver });
+
+    assert.equal(typeof window.__sfRequestSpotifySettings, 'function');
+    calls.length = 0;
+    window.__sfRequestSpotifySettings();
+    assert.equal(calls.length, 1);
+    assert.equal(calls[0].screen, 'settings');
+
+    const rows = JSON.parse(calls[0].data);
+    assert.ok(rows.length >= 14, 'the native settings screen lists the real Spotify options');
+    const canvasRow = rows.find((row) => row.uri === 'spotify:settings:canvas');
+    assert.equal(canvasRow.settingValue, 'ON');
+    assert.equal(canvasRow.section, 'Vidéos et Arrière-plan');
+
+    calls.length = 0;
+    window.__sfToggleSpotifySetting('spotify:settings:canvas');
+    assert.equal(calls.length, 1);
+    const toggled = JSON.parse(calls[0].data).find((row) => row.uri === 'spotify:settings:canvas');
+    assert.equal(toggled.settingValue, 'OFF');
+    assert.ok(store.get('melodix_spotify_settings_v1').includes('"canvas":false'));
+
+    calls.length = 0;
+    window.__sfToggleSpotifySetting('spotify:settings:audio_quality');
+    const quality = JSON.parse(calls[0].data).find((row) => row.uri === 'spotify:settings:audio_quality');
+    assert.equal(quality.settingValue, 'Élevée (160 kbit/s)');
+});
+
+test('mobile rows lead with the cover and drop the legacy play badge', () => {
+    const factory = read('smali/com/melodix/music/NativeUiRowFactory.smali');
+    const create = factory.slice(
+        factory.indexOf('.method public static create('),
+        factory.indexOf('.method public static createSectionHeader(')
+    );
+
+    assert.ok(create.includes('Landroid/widget/ImageView;-><init>'), 'rows must build a cover ImageView');
+    assert.ok(
+        create.indexOf('Landroid/widget/ImageView;-><init>') < create.indexOf(':native_row_text_column'),
+        'the cover is added before the text column so it reads as a mobile list row'
+    );
+    assert.match(create, /int-to-float v11, v11[\s\S]{0,80}?setCornerRadius\(F\)V/, 'the cover keeps rounded corners');
+    assert.match(create, /MarginLayoutParams;->topMargin:I/, 'the subtitle sits just under the title');
+    assert.doesNotMatch(create, /▶/, 'the decorative grey play badge must not come back');
+});
+
+test('the native shell can ask Android to evaluate the playback bridge again', () => {
+    const shell = read('assets/native_ui_shell.js');
+    const bridge = read('smali/com/melodix/music/AndBridge.smali');
+    const runner = read('smali/com/melodix/music/NativeAssetRunner.smali');
+    const diagnostic = read('assets/runtime_diagnostic.js');
+
+    assert.match(shell, /__sfLoadBundledBridge/);
+    assert.match(shell, /readBundledAsset\('spotify_bridge\.js'|readBundledAsset\(name\)/);
+    assert.match(shell, /__sfMelodixBridgeStarted === true/);
+    assert.match(shell, /__sfNativeUiBridgeRecoveryAttempts/);
+    assert.match(shell, /securitypolicyviolation/, 'CSP rejections must be recorded, not guessed');
+    assert.match(shell, /__sfBridgeExecMode/, 'the execution strategy must be reported');
+    assert.match(bridge, /\.method public final readBundledAsset\(Ljava\/lang\/String;\)Ljava\/lang\/String;[\s\S]*?JavascriptInterface/);
+    assert.match(bridge, /const-string v0, "spotify_bridge\.js"[\s\S]*?Lm9;->d/, 'only whitelisted assets are readable');
+    assert.match(bridge, /\.method public final injectBundledAsset\(Ljava\/lang\/String;\)V[\s\S]*?JavascriptInterface/);
+    assert.match(bridge, /NativeAssetRunner;-><init>[\s\S]*?runOnUiThread/, 'evaluation must be posted to the UI thread');
+    assert.match(runner, /implements Ljava\/lang\/Runnable;/);
+    assert.match(runner, /runNativeJavascript/);
+    assert.match(diagnostic, /bridgeRecoveryAttempts/);
+    assert.match(diagnostic, /bridgeExecMode/);
+    assert.match(read('smali/c91.smali'), /__sfLoadBundledBridge[\s\S]*?native_ui_shell\.js|native_ui_shell\.js[\s\S]*?__sfLoadBundledBridge/);
+    assert.doesNotMatch(
+        read('smali/c91.smali'),
+        /invoke-virtual \{v0, v3, v8\}, Landroid\/webkit\/WebView;->evaluateJavascript/,
+        'the 200 KB bridge must not be evaluated in a single call'
+    );
+});
+
+test('content rows reach the cover factory instead of the settings factory', () => {
+    const activity = read('smali/com/melodix/music/MainActivity.smali');
+    // Several jumps reference the label: the definition is the last match.
+    const start = activity.lastIndexOf(':native_row_build_card');
+    assert.ok(start > 0, 'the row dispatch label should exist');
+    // The label is referenced by a goto before its definition: take a window
+    // that always covers the whole dispatch block.
+    const dispatch = activity.slice(start, start + 1400);
+
+    assert.match(dispatch, /const-string v0, "settingValue"[\s\S]*?isEmpty\(\)Z[\s\S]*?move-result v1/);
+    assert.match(
+        dispatch,
+        /if-eqz v1, :native_row_create_standard/,
+        'an empty settingValue marks a content row and must use the cover factory'
+    );
+    assert.doesNotMatch(
+        dispatch,
+        /if-nez v1, :native_row_create_standard/,
+        'the inverted jump rendered every content row with the settings factory'
+    );
+
+    const settingsAt = dispatch.indexOf('NativeSettingsRowFactory;->create');
+    // The jump instruction also contains the label name: take its definition.
+    const standardLabel = dispatch.lastIndexOf(':native_row_create_standard');
+    const contentAt = dispatch.indexOf('NativeUiRowFactory;->create(');
+    assert.ok(settingsAt > 0, 'settings rows still need the settings factory');
+    assert.ok(standardLabel > settingsAt && contentAt > standardLabel);
+});
+
+test('merged Spotify card labels are split into a title and a subtitle', () => {
+    const shell = read('assets/native_ui_shell.js');
+    const helper = shell.match(/function splitCardTitle\(value\) \{[\s\S]*?\n    \}/);
+    assert.ok(helper, 'splitCardTitle should exist');
+
+    const fn = new Function(`${helper[0]}; return splitCardTitle;`)();
+    assert.deepEqual(fn('Radio ecstasyAvec SUICIDAL-IDOL, Rebzyyx, SyKo'), {
+        title: 'Radio ecstasy',
+        subtitle: 'SUICIDAL-IDOL, Rebzyyx, SyKo'
+    });
+    assert.deepEqual(fn('Radio Night , Blooming Jasmine .Avec fakemink'), {
+        title: 'Radio Night , Blooming Jasmine',
+        subtitle: 'fakemink'
+    });
+    assert.deepEqual(fn('Titres likés'), { title: 'Titres likés', subtitle: '' });
+    assert.match(shell, /heading\.subtitle \|\|/, 'the split subtitle must feed the row subtitle');
+});
+
+test('Home is rendered as Spotify-style cover shelves, not a flat settings list', () => {
+    const activity = read('smali/com/melodix/music/MainActivity.smali');
+    const renderer = read('smali/com/melodix/music/NativeHomeShelfRenderer.smali');
+    const layout = read('res/layout/activity_main.xml');
+
+    assert.match(activity, /nativeCurrentScreen:Ljava\/lang\/String;[\s\S]{0,400}?const-string v1, "home"[\s\S]{0,300}?NativeHomeShelfRenderer;->render\(Lcom\/melodix\/music\/MainActivity;Ljava\/lang\/String;\)V/);
+    assert.match(renderer, /Landroid\/widget\/HorizontalScrollView;-><init>/, 'each section scrolls horizontally');
+    assert.match(renderer, /Landroid\/widget\/HorizontalScrollView;->setHorizontalScrollBarEnabled/);
+    assert.match(renderer, /NativeRowClickListener;-><init>/, 'shelf cards stay clickable');
+    assert.match(renderer, /NativeImageLoader;->load/, 'shelf covers load Spotify CDN artwork');
+    assert.match(renderer, /const\/16 v9, 0x94/, 'cards are 148 dp wide');
+    assert.match(renderer, /createSectionHeader/, 'every shelf keeps its section title');
+    assert.match(layout, /android:id="@id\/nativeMiniPlayerContainer"[\s\S]{0,400}?android:layout_marginLeft="8\.0dip"/);
+    assert.match(layout, /android:id="@id\/nativeMiniProgress"/, 'the mini player shows a progress line');
+});
+
+test('opening a playlist no longer depends on the playback bridge', () => {
+    const shell = read('assets/native_ui_shell.js');
+    const activity = read('smali/com/melodix/music/MainActivity.smali');
+
+    assert.match(shell, /window\.__sfOpenCollection = function\(value\)/);
+    assert.match(shell, /__sfMelodixBridgeStarted === true && typeof window\.fetchMediaItems === 'function'/);
+    assert.match(shell, /return window\.__sfNativeOpenUri\(uri\);/, 'navigation is the fallback when the bridge is absent');
+    assert.match(shell, /openCollectionTimer = window\.setTimeout\(navigate, 6000\)/, 'a silent bridge cannot leave an empty screen');
+    assert.match(shell, /cancelPendingCollectionNavigation/);
+
+    const openRow = activity.slice(activity.indexOf('.method public final openNativeRow'));
+    assert.match(openRow, /const-string v1, "window\.__sfOpenCollection"/);
+    assert.doesNotMatch(openRow, /const-string v1, "window\.fetchMediaItems"/);
+});
+
+test('detail rows are collected for any playlist route, not only the first page load', () => {
+    const shell = read('assets/native_ui_shell.js');
+
+    assert.match(shell, /function updateDetailRows\(mainView\)/);
+    assert.match(shell, /nativeScreenForPath\(\) !== 'detail'/);
+    assert.match(shell, /path !== lastDetailPath/);
+    assert.match(shell, /lastDetailPath = path;/);
+    assert.match(shell, /updateDetailRows\(mainView\);/);
+});
+
+test('library and search still work when the bridge never starts', () => {
+    const shell = read('assets/native_ui_shell.js');
+    const activity = read('smali/com/melodix/music/MainActivity.smali');
+
+    // Library tab: bridge first, real collection page otherwise.
+    assert.match(shell, /window\.__sfOpenLibrary = function\(\)/);
+    assert.match(shell, /__sfMelodixBridgeStarted === true && typeof window\.fetchMediaItems === 'function'/);
+    // Le repli ouvre la vraie page collection via un helper partage (l ancien
+    // retour immediat sur une reponse vide rendait l onglet inerte).
+    assert.match(shell, /function openCollectionPage\(target\)/);
+    assert.match(shell, /navigateWebPlayer\('https:\/\/open\.spotify\.com' \+ target\)/,
+        'collection fallbacks load inside the app WebView');
+    assert.match(shell, /openCollectionPage\('\/collection\/playlists'\)/);
+    const libraryClick = activity.slice(activity.indexOf('.method public final onNativeLibraryClick'));
+    assert.match(libraryClick, /const-string v0, "window\.__sfOpenLibrary && window\.__sfOpenLibrary\(\)"/);
+    assert.doesNotMatch(libraryClick, /const-string v0, "window\.fetchMediaItems"/);
+
+    // Rows are still harvested from the real library and search pages.
+    assert.match(shell, /function updateLibraryRows\(mainView\)/);
+    assert.match(shell, /sendNativeUiData\('media:' \+ libraryCategoryForPath\(path\), rows\)/);
+    assert.match(shell, /function libraryCategoryForPath\(path\)/);
+    assert.match(shell, /function updateSearchRows\(mainView\)/);
+    assert.match(shell, /sendNativeUiData\('search:' \+ query, rows\)/);
+
+    // Typing in the native search panel falls back to the real search page.
+    assert.match(shell, /function installSearchFallback\(\)/);
+    assert.match(shell, /window\.searchMediaItems = fallback;/);
+    assert.match(shell, /https:\/\/open\.spotify\.com\/search\//);
+    assert.match(shell, /window\.setTimeout\(function\(\) \{\n\s+searchNavigateTimer = 0;/, 'live typing is debounced');
+    // Submitting jumps immediately instead of waiting for the debounce.
+    const submit = activity.slice(activity.indexOf('.method public final onNativeSearchSubmit'));
+    assert.match(submit, /const-string v2, "\(window\.__sfSubmitSearch\|\|window\.searchMediaItems\)"/);
+});
+
+test('content rows keep their title, cover and tap target', () => {
+    const factory = read('smali/com/melodix/music/NativeUiRowFactory.smali');
+    const loader = read('smali/com/melodix/music/NativeImageLoader.smali');
+
+    // Inverted empty checks used to rename every row "Untitled", drop artwork
+    // and leave rows unclickable.
+    assert.match(factory, /if-eqz v0, :native_row_default_title/);
+    assert.match(factory, /if-eqz v10, :native_row_text_column/, 'the cover loads only for a real URL');
+    assert.match(factory, /if-eqz v10, :native_row_return/);
+    assert.ok(
+        factory.indexOf('NativeRowClickListener;-><init>') > factory.lastIndexOf('if-eqz v10, :native_row_return'),
+        'the click listener is attached to rows with a URI'
+    );
+    assert.match(loader, /if-eqz v1, :clear_native_image/, 'a non-empty https URL is loaded, not cleared');
+});
+
+test('row taps open playlists, albums and tracks', () => {
+    const activity = read('smali/com/melodix/music/MainActivity.smali');
+    const openRow = activity.slice(
+        activity.indexOf('.method public final openNativeRow'),
+        activity.indexOf('.end method', activity.indexOf('.method public final openNativeRow'))
+    );
+
+    assert.match(openRow, /if-eqz v0, :native_row_click_done/, 'only empty URIs are ignored');
+    assert.match(openRow, /const-string v2, ":playlist:"/);
+    assert.match(openRow, /const-string v2, "\/collection"/);
+    assert.match(openRow, /if-eqz v1, :native_open_single/, 'tracks are played by the WebView');
+    assert.match(openRow, /window\.__sfOpenCollection/);
+    assert.match(openRow, /window\.__sfNativeOpenUri/);
+});
+
+test('detail and player screens expose the back arrow and hide the tab bar', () => {
+    const activity = read('smali/com/melodix/music/MainActivity.smali');
+    const screen = activity.slice(
+        activity.indexOf('.method public final setNativeScreen'),
+        activity.indexOf('.end method', activity.indexOf('.method public final setNativeScreen'))
+    );
+
+    assert.match(screen, /:native_back_check_player/);
+    assert.match(screen, /if-nez v1, :native_back_check_player/, 'detail shows the arrow');
+    assert.match(screen, /const\/4 v1, 0x1\s+goto :set_back_button_visibility/);
+    assert.match(screen, /const v2, 0x7f09024c/, 'the whole mini player card is hidden on the full player');
+    assert.match(screen, /const v2, 0x7f09024e/, 'the tab bar is hidden on the full player');
+});
+
+test('library chips and the search tab never call a bridge-only function', () => {
+    const activity = read('smali/com/melodix/music/MainActivity.smali');
+    const shell = read('assets/native_ui_shell.js');
+    const categories = activity.slice(
+        activity.indexOf('.method public final onNativeLibraryCategoryClick'),
+        activity.indexOf('.end method', activity.indexOf('.method public final onNativeLibraryCategoryClick'))
+    );
+
+    assert.match(categories, /window\.__sfOpenLibraryCategory/);
+    assert.doesNotMatch(categories, /window\.fetchMediaItems/);
+    assert.match(shell, /window\.__sfOpenLibraryCategory = function\(tag\)/);
+    assert.match(shell, /LIBRARY_CATEGORY_PATHS/);
+    assert.match(read('smali/com/melodix/music/NativeSearchFocusRunnable.smali'), /showSoftInput/);
+    assert.match(activity, /new-instance v2, Lcom\/melodix\/music\/NativeSearchFocusRunnable;/, 'the search tab raises the keyboard');
+});
+
+test('the shell publishes the real player state without the bridge', () => {
+    const shell = read('assets/native_ui_shell.js');
+    const activity = read('smali/com/melodix/music/MainActivity.smali');
+
+    assert.match(shell, /function readNowPlaying\(\)/);
+    assert.match(shell, /bridge\.onNativeUiData\('player', JSON\.stringify\(payload\)\)/);
+    assert.match(shell, /PLAYER_SEND_INTERVAL_MS = 1000/);
+    assert.match(shell, /function publishPlayerState\(force\)/);
+
+    // The pause latch and the sticky hold live in the always-loaded shell now.
+    assert.match(shell, /PAUSE_HOLD_MS = 45000/);
+    assert.match(shell, /PAUSE_HOLD_MAX_REAPPLIES = 5/);
+    assert.match(shell, /window\.__sfTogglePlayback = function\(\)/);
+    assert.match(shell, /window\.__sfSkip = function\(direction\)/);
+    assert.match(shell, /window\.__sfMarkUserPlaybackIntent = markUserPlaybackIntent/);
+
+    assert.match(activity, /window\.__sfTogglePlayback/);
+    assert.match(activity, /window\.__sfSkip/);
+    assert.match(activity, /window\.__sfSkip\(\\'back\\'\)/);
+    assert.match(activity, /window\.__sfSkip\(\\'forward\\'\)/);
+});
+
+function buildPlayerShellHarness(options) {
+    const opts = options || {};
+    const calls = [];
+    const store = new Map();
+    const clicks = { playpause: 0, forward: 0, back: 0 };
+    const media = {
+        tagName: 'AUDIO',
+        paused: false,
+        ended: false,
+        muted: false,
+        currentTime: opts.position === undefined ? 42 : opts.position,
+        duration: opts.duration === undefined ? 200 : opts.duration,
+        src: 'https://open.spotify.com/blobs/audio'
+    };
+    const playButton = {
+        getAttribute: (name) => name === 'aria-label' ? (opts.label || 'Mettre en pause') : null,
+        click: () => { clicks.playpause += 1; }
+    };
+    const nodes = {
+        '[data-testid="context-item-link"]': { textContent: opts.track || 'Titre test' },
+        '[data-testid="context-item-info-artist"]': { textContent: opts.artist || 'Artiste test' },
+        '[data-testid="cover-art-image"]': {
+            tagName: 'IMG',
+            src: 'https://i.scdn.co/image/abc123'
+        }
+    };
+    const bar = {
+        querySelector: (selector) => nodes[selector] || null
+    };
+    const document = {
+        readyState: 'complete',
+        documentElement: {},
+        querySelector: (selector) => {
+            if (selector === '#main-view') return null;
+            if (selector.indexOf('control-button-playpause') >= 0) return playButton;
+            if (selector.indexOf('control-button-skip-forward') >= 0) return { click: () => { clicks.forward += 1; } };
+            if (selector.indexOf('control-button-skip-back') >= 0) return { click: () => { clicks.back += 1; } };
+            if (selector.indexOf('now-playing-bar') >= 0 || selector.indexOf('now-playing-widget') >= 0) return bar;
+            return null;
+        },
+        querySelectorAll: (selector) => selector === 'audio, video' ? [media] : [],
+        addEventListener: () => {}
+    };
+    const window = {
+        location: {
+            hostname: 'open.spotify.com',
+            pathname: '/',
+            href: 'https://open.spotify.com/',
+            assign: () => {}
+        },
+        AndBridge: {
+            onNativeUiReady: () => {},
+            onNativeUiRoute: () => {},
+            onNativeUiData: (screen, data) => calls.push({ screen, data })
+        },
+        MutationObserver: class { observe() {} },
+        addEventListener: () => {},
+        setTimeout: (fn) => { try { fn(); } catch (_) {} return 1; },
+        clearTimeout: () => {},
+        setInterval: () => 1,
+        clearInterval: () => {},
+        localStorage: {
+            getItem: (key) => store.has(key) ? store.get(key) : null,
+            setItem: (key, value) => store.set(key, String(value)),
+            removeItem: (key) => store.delete(key)
+        }
+    };
+    vm.runInNewContext(read('assets/native_ui_shell.js'), { window, document, URL });
+    return { window, calls, clicks, store };
+}
+
+test('the shell sends the real now-playing state to the native player', () => {
+    const harness = buildPlayerShellHarness();
+    const playerCall = harness.calls.find((call) => call.screen === 'player');
+
+    assert.ok(playerCall, 'the shell publishes a player payload');
+    const payload = JSON.parse(playerCall.data);
+    assert.equal(payload.track, 'Titre test');
+    assert.equal(payload.artist, 'Artiste test');
+    assert.equal(payload.cover, 'https://i.scdn.co/image/abc123');
+    assert.equal(payload.playing, true);
+    assert.equal(payload.duration, 200);
+    assert.equal(payload.position, 42);
+});
+
+test('the shell pause button latches the pause and a skip releases it', () => {
+    const harness = buildPlayerShellHarness();
+    const target = harness.window.__sfTogglePlayback();
+
+    assert.equal(target, false, 'a playing player is paused');
+    assert.equal(harness.clicks.playpause, 1);
+    assert.equal(harness.window.__sfIsUserPaused(), true);
+    assert.equal(harness.window.__sfPauseHoldActive, true);
+
+    harness.window.__sfSkip('forward');
+    assert.equal(harness.clicks.forward, 1);
+    assert.equal(harness.window.__sfIsUserPaused(), false, 'a skip releases the pause latch');
+    assert.equal(harness.window.__sfPauseHoldActive, false);
+});
+
+test('the library tab never reloads its own page in a loop', () => {
+    const build = (pathname) => {
+        const navigations = [];
+        const loaded = [];
+        const window = {
+            location: {
+                hostname: 'open.spotify.com',
+                pathname,
+                href: 'https://open.spotify.com' + pathname,
+                assign: (url) => navigations.push(url)
+            },
+            AndBridge: {
+                onNativeUiReady: () => {},
+                onNativeUiData: () => {},
+                loadWebPlayerUrl: (url) => loaded.push(url)
+            },
+            MutationObserver: class { observe() {} },
+            addEventListener: () => {},
+            setTimeout: () => 1,
+            clearTimeout: () => {},
+            setInterval: () => 1,
+            clearInterval: () => {}
+        };
+        const document = {
+            readyState: 'complete',
+            documentElement: {},
+            querySelector: () => null,
+            querySelectorAll: () => [],
+            addEventListener: () => {}
+        };
+        vm.runInNewContext(read('assets/native_ui_shell.js'), { window, document, URL });
+        return { window, navigations, loaded };
+    };
+
+    const onPlaylists = build('/collection/playlists');
+    onPlaylists.window.__sfOpenLibrary();
+    assert.deepEqual(onPlaylists.loaded, [], 'the playlists tab is already displayed');
+    assert.deepEqual(onPlaylists.navigations, [], 'no external navigation occurs');
+
+    const onAlbums = build('/collection/albums');
+    onAlbums.window.__sfOpenLibraryCategory('albums');
+    assert.deepEqual(onAlbums.loaded, [], 'the selected chip is already displayed');
+    assert.deepEqual(onAlbums.navigations, [], 'no external navigation occurs');
+
+    const onHome = build('/');
+    onHome.window.__sfOpenLibrary();
+    assert.match(onHome.loaded[0] || '', /\/collection\/playlists$/);
+    assert.deepEqual(onHome.navigations, [], 'library recovery stays in the app WebView');
+});
+
+test('browse tiles drive the live search and the grid yields to real results', () => {
+    const layout = read('res/layout/activity_main.xml');
+    const activity = read('smali/com/melodix/music/MainActivity.smali');
+    const publicXml = read('res/values/public.xml');
+    const gridAt = layout.indexOf('@id/nativeGenreScroll');
+    const chipsAt = layout.indexOf('@id/nativeLibraryCategories');
+    const grid = layout.slice(gridAt, chipsAt);
+    const handlerAt = activity.indexOf('.method public final onNativeGenreClick(Landroid/view/View;)V');
+    const handler = activity.slice(handlerAt, handlerAt + 1400);
+    const rowsAt = activity.indexOf('.method public final renderNativeRows(Ljava/lang/String;Ljava/lang/String;)V');
+    const rows = activity.slice(rowsAt, rowsAt + 2800);
+    const searchAt = activity.indexOf('.method public final onNativeSearchClick(Landroid/view/View;)V');
+    const search = activity.slice(searchAt, searchAt + 2200);
+    const screenAt = activity.indexOf('.method public final setNativeScreen(Ljava/lang/String;)V');
+    const screen = activity.slice(screenAt, screenAt + 2200);
+
+    assert.ok(gridAt > layout.indexOf('@+id/nativeSearchPanel'), 'the grid sits under the search field');
+    assert.ok(gridAt < chipsAt, 'the grid sits above the library chips');
+    assert.match(publicXml, /name="nativeGenreScroll" id="0x7f09024f"/);
+    assert.equal((grid.match(/android:onClick="onNativeGenreClick"/g) || []).length, 8);
+    assert.match(grid, /android:text="Parcourir tout"/);
+    assert.ok(handlerAt > 0, 'the tile handler exists');
+    assert.match(handler, /performNativeLiveSearch/);
+    assert.match(handler, /"screen-title"/, 'the header echoes the chosen genre');
+
+    // Every row render restores the list and hides the grid; the search tab does
+    // the opposite, and leaving the screen always hides the grid.
+    assert.match(rows, /0x7f090239/);
+    assert.match(rows, /0x7f09024f/);
+    assert.match(search, /0x7f09024f/);
+    assert.match(search, /0x7f090239/);
+    assert.match(screen, /0x7f09024f/);
+});
+
+test('search results coming from the fallback path reach the native list', () => {
+    const activity = read('smali/com/melodix/music/MainActivity.smali');
+    const applyAt = activity.indexOf('.method public final applyNativeUiData(Ljava/lang/String;Ljava/lang/String;)V');
+    const applyEnd = activity.indexOf('.method public final updateNativePlayer(Ljava/lang/String;)V', applyAt);
+    const apply = activity.slice(applyAt, applyEnd);
+
+    assert.match(apply, /const-string v0, "search:"/);
+    assert.match(apply, /nativeExpectedSearch/);
+    assert.match(apply, /const-string v8, "Résultats de recherche"/);
+    // La requete relue dans l URL n a jamais la casse/espace du texte tape:
+    // une egalite exacte jetait silencieusement de vrais resultats.
+    const searchBranch = apply.slice(apply.indexOf('\n    :check_search\n'), apply.indexOf('\n    :search_render\n'));
+    assert.ok(searchBranch.includes('String;->trim()Ljava/lang/String;'), 'requete normalisee (trim)');
+    assert.match(searchBranch, /String;->equalsIgnoreCase\(Ljava\/lang\/String;\)Z/,
+        'la comparaison de la requete est insensible a la casse');
+    assert.ok(!searchBranch.includes('String;->equals(Ljava/lang/Object;)Z'),
+        'plus de comparaison exacte de la requete');
+});
+
+test('the bridge recovery loop is capped so a dead bridge cannot churn the launch', () => {
+    // Eight full re-injection rounds of the 200 KB bridge kept the startup
+    // busy for twenty seconds on the device. Three attempts are enough.
+    const shell = read('assets/native_ui_shell.js');
+    assert.ok(/bridgeLoadAttempts < 3\b/.test(shell), 'retries capped at 3');
+    assert.ok(!/bridgeLoadAttempts < 8\b/.test(shell), 'the old eight-attempt loop is gone');
+});
+
+test('a library payload is rendered even when no id was expected', () => {
+    const activity = read('smali/com/melodix/music/MainActivity.smali');
+    const applyAt = activity.indexOf('.method public final applyNativeUiData(Ljava/lang/String;Ljava/lang/String;)V');
+    const branch = activity.slice(activity.indexOf('\n    :check_media\n', applyAt),
+        activity.indexOf('\n    :media_detail\n', applyAt));
+    // A null nativeExpectedId (page restored, deep link, first scrape) used to
+    // fall straight to :apply_done, so the library screen stayed empty for good.
+    assert.match(branch, /if-eqz v3, :media_render/, 'un identifiant absent ne jette plus le payload');
+    assert.match(branch, /\n    :media_render\n/, 'le rendu a son propre label');
+    assert.match(branch, /String;->equals\(Ljava\/lang\/Object;\)Z/, 'un identifiant different reste ignore');
+});
+
+test('the stage chain records the page finish and the shell injection', () => {
+    const client = read('smali/c91.smali');
+    // Without these marks a device report cannot separate "the page never
+    // finished loading" from "the shell never ran": both looked identical.
+    assert.match(client, /const-string v2, "page-finished"[\s\S]{0,120}NativeCrashGuard;->stage/,
+        'la fin de chargement de page est tracee');
+    assert.match(client, /const-string v5, "shell-injected"[\s\S]{0,160}NativeCrashGuard;->stage/,
+        'l injection du shell est tracee');
+    const finished = client.slice(client.indexOf('.method public final onPageFinished'));
+    const injectAt = finished.indexOf('native_ui_shell.js');
+    const stageAt = finished.indexOf('"shell-injected"');
+    assert.ok(injectAt > 0 && stageAt > injectAt, 'le marqueur suit l injection');
+});
+
+test('a null screen or a null payload through the bridge is ignored, never applied', () => {
+    const activity = read('smali/com/melodix/music/MainActivity.smali');
+    const start = activity.indexOf('.method public final applyNativeUiData');
+    const body = activity.slice(start, activity.indexOf('.end method', start));
+    const head = body.slice(0, 400);
+    // The bridge is callable from the page: p1/p2 can be null, and the old code
+    // reached String.equals/length with them.
+    assert.match(head, /if-eqz p1, :apply_done/, 'un ecran null est ignore');
+    assert.match(head, /if-eqz p2, :apply_done/, 'un corps null est ignore');
+});
+
+test('tapping the active Home tab keeps the rows instead of blanking the shelf', () => {
+    const activity = read('smali/com/melodix/music/MainActivity.smali');
+    const start = activity.indexOf('.method public final onNativeHomeClick');
+    const body = activity.slice(start, activity.indexOf('.end method', start));
+    // Already on home: no empty render, only the refresh request.
+    assert.ok(body.includes('nativeCurrentScreen:Ljava/lang/String;'),
+        'l onglet courant est lu avant de vider la liste');
+    assert.match(body, /if-nez v2, :native_home_render/);
+    assert.match(body, /:native_home_request[\s\S]*__sfNativeRequestHome/);
+    const emptyRenderAt = body.indexOf('const-string v2, "[]"');
+    const renderLabelAt = body.indexOf(':native_home_render');
+    assert.ok(renderLabelAt > 0 && emptyRenderAt > renderLabelAt,
+        'le rendu vide reste sur le chemin d un changement d onglet');
+});
+
+test('detail rows are applied on the detail screen and nowhere else', () => {
+    const activity = read('smali/com/melodix/music/MainActivity.smali');
+    const start = activity.indexOf('.method public final applyNativeUiData');
+    const body = activity.slice(start, activity.indexOf('.end method', start));
+    // Anchor on the label definitions: indexOf(':label') would find the jump
+    // target first, which sits earlier in the method.
+    const detailAt = body.indexOf('\n    :check_detail_data\n');
+    const playerAt = body.indexOf('\n    :check_player\n');
+    assert.ok(detailAt > 0 && playerAt > detailAt, 'la branche detail est bien identifiee');
+    const branch = body.slice(detailAt, playerAt);
+
+    // Tapping a playlist sets the screen to "detail" BEFORE the tracks arrive.
+    // Dropping the payload when the screen is already "detail" left every
+    // playlist empty; painting it elsewhere put playlist tracks over Home.
+    assert.match(branch, /if-eqz v2, :apply_done/, 'un ecran courant absent est ignore');
+    assert.match(branch, /if-nez v4, :apply_done/,
+        'les morceaux sont ignores hors de l ecran detail');
+    assert.doesNotMatch(branch, /if-eqz v4, :apply_done/,
+        'le cas "deja sur detail" ne jette plus les morceaux');
+    assert.match(branch, /renderNativeRows/, 'les morceaux sont bien rendus');
+});
+
+test('a playlist tap always lands on a non-empty detail payload path', () => {
+    const activity = read('smali/com/melodix/music/MainActivity.smali');
+    const start = activity.indexOf('.method public final openNativeRow');
+    const body = activity.slice(start, activity.indexOf('.end method', start));
+    // The row handler must set the screen to detail and ask the shell to open
+    // the collection, otherwise no detail payload can ever arrive.
+    assert.match(body, /const-string v1, "detail"[\s\S]{0,200}setNativeScreen/);
+    assert.match(body, /window\.__sfOpenCollection/);
+});
+
+test('the launch marker leaves the branded window alone instead of painting debug text', () => {
+    const guard = read('smali/com/melodix/music/NativeCrashGuard.smali');
+    const start = guard.indexOf('.method public static showLaunchMarker');
+    const body = guard.slice(start, guard.indexOf('.end method', start));
+    // The theme paints the brand before this runs; a black screen with
+    // "Melodix diag-6" replaced it on every launch.
+    // Target the instruction, not the comment that explains why it is gone.
+    assert.doesNotMatch(body, /const-string v\d+, "Melodix diag/,
+        'aucun texte de developpement a l ecran');
+    assert.doesNotMatch(body, /setContentView/, 'le marqueur ne remplace plus la fenetre');
+    assert.doesNotMatch(body, /setBackgroundColor/, 'aucun fond noir impose par le marqueur');
+    // The diagnostic value survives: the stage chain proves the activity got here.
+    assert.match(body, /const-string v0, "launch-marker"[\s\S]{0,120}NativeCrashGuard;->stage/);
+    assert.match(body, /if-eqz p0, :done/, 'la garde d argument reste la premiere instruction');
+});
+
+test('the Spotify account host lifts the splash instead of hiding the login form', () => {
+    // runUpdate() only runs on open.spotify.com, so onNativeUiReady - and with it
+    // showNativeUi(), the only other splash lifter - never fires on the account
+    // host. A fresh install or an expired session therefore never saw the login
+    // form. This is a splash fix, not an auth change.
+    const client = read('smali/c91.smali');
+    const finished = client.slice(client.indexOf('.method public final onPageFinished'));
+    const body = finished.slice(0, finished.indexOf('.end method'));
+    assert.match(body, /const-string v2, "accounts\.spotify\.com"/);
+    assert.match(body, /MainActivity;->revealWebUi:?\(\)V/);
+
+    const activity = read('smali/com/melodix/music/MainActivity.smali');
+    const start = activity.indexOf('.method public final revealWebUi()V');
+    assert.ok(start > 0, 'revealWebUi existe');
+    const reveal = activity.slice(start, activity.indexOf('.end method', start));
+    assert.match(reveal, /->H:Landroidx\/constraintlayout\/widget\/ConstraintLayout;/,
+        'le splash est la seule vue touchee');
+    assert.match(reveal, /setVisibility\(I\)V/);
+    assert.doesNotMatch(reveal, /loadUrl|CookieManager|clearCache|clearHistory/,
+        'aucune action sur la session ou les cookies');
+});
