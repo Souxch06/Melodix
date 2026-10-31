@@ -963,9 +963,12 @@
         var bridge = window.AndBridge;
         var userWidget;
         var searchQuery;
+        var homeContentProven;
+        var takeoverProven;
         if (!mainView || window.location.hostname !== 'open.spotify.com' || window.__sfNativeUiReadyNotified) return false;
 
-        // Do not cover Spotify's page until its signed-in account control is present.
+        // A profile control or a real library fetch proves the signed-in
+        // session. Do not infer or change authentication from public Home data.
         userWidget = sfDeepQuery('button[data-testid="user-widget-link"], a[data-testid="user-widget-link"]');
         var sessionProven = Boolean(userWidget);
         if (!sessionProven && libraryProvesSession()) {
@@ -976,18 +979,34 @@
                 diagTrace('ready by library proof (account control absent)');
             }
         }
+        // The signed-in control can be absent on Spotify's thin Home wrapper.
+        // A real, already-sent Spotify resource card is sufficient content proof
+        // for Home; it is not treated as proof of login. The native renderer
+        // independently keeps Spotify visible unless it attaches a real card.
+        homeContentProven = isSpotifyHome() &&
+            (window.__sfNativeUiHomeRowsCount || 0) > 0 &&
+            window.__sfNativeUiHomeDataSent === true;
+        takeoverProven = sessionProven || homeContentProven;
+        if (homeContentProven && !sessionProven && !window.__sfNativeUiHomeProofLogged) {
+            window.__sfNativeUiHomeProofLogged = true;
+            diagTrace('ready by real Home card; session unconfirmed');
+        }
         var bridgeReady = Boolean(bridge &&
             typeof bridge.onNativeUiReady === 'function' &&
             typeof bridge.onNativeUiRoute === 'function' &&
             typeof bridge.onNativeUiData === 'function');
         window.__sfNativeUiSessionProven = sessionProven;
+        window.__sfNativeUiHomeContentProven = homeContentProven;
+        window.__sfNativeUiTakeoverProven = takeoverProven;
         window.__sfNativeUiBridgeCallbacksReady = bridgeReady;
-        if (!sessionProven || !bridgeReady) {
-            // Name the missing proof/callback explicitly; a partial bridge must
-            // never be mistaken for a drawable native replacement.
+        if (!takeoverProven || !bridgeReady) {
+            // Name the missing content/session proof and callbacks explicitly;
+            // a partial bridge must never be mistaken for a drawable native UI.
             window.__sfNoWidgetCount = (window.__sfNoWidgetCount || 0) + 1;
             if (window.__sfNoWidgetCount === 1 || window.__sfNoWidgetCount % 20 === 0) {
-                diagTrace('ready-pending session=' + (sessionProven ? '1' : '0') +
+                diagTrace('ready-pending proof=' + (takeoverProven ? '1' : '0') +
+                    ' session=' + (sessionProven ? '1' : '0') +
+                    ' home=' + (homeContentProven ? '1' : '0') +
                     ' bridge=' + (bridge ? '1' : '0') +
                     ' route=' + (bridge && typeof bridge.onNativeUiRoute === 'function' ? '1' : '0') +
                     ' data=' + (bridge && typeof bridge.onNativeUiData === 'function' ? '1' : '0') +
@@ -998,9 +1017,9 @@
         }
 
         // A native takeover is permitted only after a real Spotify Home card
-        // has been collected for this account. Empty/loading/failed payloads
-        // are not evidence that a replacement is ready; keep Spotify visible.
-        // Other routes retain their existing readiness contract.
+        // has been collected for this page. Empty/loading/failed payloads are
+        // not evidence that a replacement is ready; keep Spotify visible.
+        // Other routes still require their existing session proof.
         if (isSpotifyHome() && ((window.__sfNativeUiHomeRowsCount || 0) < 1 ||
             window.__sfNativeUiHomeDataSent !== true)) {
             window.__sfNativeUiReadyBlockedEmpty = (window.__sfNativeUiReadyBlockedEmpty || 0) + 1;

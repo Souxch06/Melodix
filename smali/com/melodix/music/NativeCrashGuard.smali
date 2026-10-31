@@ -168,6 +168,14 @@
     :store
     sput-object v0, Lcom/melodix/music/NativeCrashGuard;->context:Landroid/content/Context;
 
+    # Keep the next phone-side report specific to this process. This removes
+    # only last_diag; crash reports and all Spotify/session preferences remain.
+    invoke-static {}, Lcom/melodix/music/NativeCrashGuard;->clearDiagnosticTrail()V
+
+    const-string v1, "native-launch fresh"
+
+    invoke-static {v1}, Lcom/melodix/music/NativeCrashGuard;->diagLine(Ljava/lang/String;)V
+
     invoke-static {}, Ljava/lang/Thread;->getDefaultUncaughtExceptionHandler()Ljava/lang/Thread$UncaughtExceptionHandler;
 
     move-result-object v1
@@ -758,6 +766,50 @@
 
     invoke-interface {v0}, Landroid/content/SharedPreferences$Editor;->commit()Z
 
+    :try_end_0
+    .catch Ljava/lang/Throwable; {:try_start_0 .. :try_end_0} :catch_0
+
+    goto :done
+
+    :catch_0
+    move-exception v0
+
+    :done
+    return-void
+.end method
+
+# Clears only the rolling JS diagnostic trail at process startup. Spotify
+# cookies, account preferences, crash reports, and the prior startup stage are
+# deliberately untouched so the next on-screen trace is fresh without logout.
+.method private static clearDiagnosticTrail()V
+    .locals 3
+
+    sget-object v0, Lcom/melodix/music/NativeCrashGuard;->context:Landroid/content/Context;
+
+    if-eqz v0, :done
+
+    :try_start_0
+    const-string v1, "melodix_native"
+
+    const/4 v2, 0x0
+
+    invoke-virtual {v0, v1, v2}, Landroid/content/Context;->getSharedPreferences(Ljava/lang/String;I)Landroid/content/SharedPreferences;
+
+    move-result-object v0
+
+    invoke-interface {v0}, Landroid/content/SharedPreferences;->edit()Landroid/content/SharedPreferences$Editor;
+
+    move-result-object v0
+
+    const-string v1, "last_diag"
+
+    invoke-interface {v0, v1}, Landroid/content/SharedPreferences$Editor;->remove(Ljava/lang/String;)Landroid/content/SharedPreferences$Editor;
+
+    move-result-object v0
+
+    invoke-interface {v0}, Landroid/content/SharedPreferences$Editor;->commit()Z
+
+    move-result v0
     :try_end_0
     .catch Ljava/lang/Throwable; {:try_start_0 .. :try_end_0} :catch_0
 

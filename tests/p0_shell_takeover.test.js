@@ -536,10 +536,40 @@ test('a real library proves the session and contributes a real Home card', () =>
     assert.equal(calls.ready, 1, 'la page compte et la vraie carte rendent le takeover sûr');
 });
 
-test('without the account control and without a library, nothing is covered', () => {
+test('a real Home card without a profile control unlocks Home but does not claim login', () => {
+    const { calls, win } = loadShell({
+        withCards: true,
+        noUserWidget: true,
+        rootMode: 'fallback'
+    });
+    assert.match(win.__sfNativeUiContentRootSelector, /^fallback:/,
+        'the real card is found even though #main-view and the profile control are absent');
+    assert.equal(win.__sfNativeUiHomeRowsCount, 1);
+    assert.equal(win.__sfNativeUiHomeDataSent, true);
+    assert.equal(win.__sfNativeUiSessionProven, false,
+        'public Home content is not misreported as an authenticated Spotify session');
+    assert.equal(win.__sfNativeUiHomeContentProven, true);
+    assert.equal(win.__sfNativeUiTakeoverProven, true);
+    assert.equal(calls.ready, 1, 'native Home may render the actual Spotify card');
+    assert.ok(calls.traces.some((line) => line.includes('ready by real Home card') &&
+        line.includes('session unconfirmed')));
+});
+
+test('without the account control, library, or real Home card, nothing is covered', () => {
     const { calls, win } = loadShell({ withCards: false, noUserWidget: true });
     assert.equal(calls.ready, 0, 'aucune preuve de session ni carte: la page Spotify reste visible');
     assert.notEqual(win.__sfNativeUiReadyNotified, true);
+});
+
+test('a Home card is not a session proof for other routes', () => {
+    const { calls, win } = loadShell({
+        withCards: true,
+        noUserWidget: true,
+        locationPath: '/search',
+        rootMode: 'fallback'
+    });
+    assert.equal(win.__sfNativeUiHomeContentProven, false);
+    assert.equal(calls.ready, 0, 'a non-Home route still requires the existing session proof');
 });
 
 

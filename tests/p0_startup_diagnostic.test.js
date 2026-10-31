@@ -239,6 +239,21 @@ test('diagLine stores a tail-bounded trail and lastDiag reads it back', () => {
     'the report can read the trail back');
 });
 
+test('a fresh app process resets only the previous JS diagnostic trail', () => {
+  const guard = GUARD();
+  const install = methodBody(guard, '.method public static install(Landroid/content/Context;)V');
+  const reset = methodBody(guard, '.method private static clearDiagnosticTrail()V');
+  assert.ok(install.includes('NativeCrashGuard;->clearDiagnosticTrail()V'),
+    'the current process must not display a stale JS trail from prior launches');
+  assert.ok(install.includes('native-launch fresh') && install.includes('NativeCrashGuard;->diagLine(Ljava/lang/String;)V'),
+    'the first persisted line identifies a fresh diagnostic run');
+  assert.ok(reset.includes('const-string v1, "melodix_native"'));
+  assert.ok(reset.includes('const-string v1, "last_diag"'));
+  assert.match(reset, /SharedPreferences\$Editor;->remove\(Ljava\/lang\/String;\)/);
+  assert.doesNotMatch(reset, /"last_crash"|"last_report"|"last_stage"|"stage_chain"|"LoggedIn"|token/i,
+    'no crash history, Spotify session, or other preference is cleared');
+});
+
 test('webState names the page, the login detection and the JS trail', () => {
   const body = methodBody(OVERLAY(), '.method public static webState(Lcom/melodix/music/MainActivity;)Ljava/lang/String;');
   assert.ok(body.includes('Lcom/melodix/music/MainActivity;->G:Landroid/webkit/WebView;'),
@@ -261,10 +276,12 @@ test('the panel report is enriched with the web state on the UI thread', () => {
     'the stored report is enriched too');
 });
 
-test('the shell JS reports the silent hold (missing widget or bridge)', () => {
+test('the shell JS reports the silent hold without conflating content and login proof', () => {
   const js = read('scripts/native_ui_shell.source.js');
-  assert.ok(js.includes("diagTrace('ready-pending session='"),
-    'the no-widget wait now reports player-session and document readiness');
+  assert.ok(js.includes("diagTrace('ready-pending proof='"),
+    'the wait reports whether any permissible content/session proof exists');
+  assert.ok(js.includes("' session=' + (sessionProven ? '1' : '0')"),
+    'real Home content never falsely marks the Spotify session as signed in');
   assert.ok(js.includes('window.__sfNoWidgetCount % 20 === 0'),
     'the hold trace is throttled');
 });
