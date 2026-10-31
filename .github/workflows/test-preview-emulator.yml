@@ -31,7 +31,7 @@ permissions:
 jobs:
   install-and-launch:
     name: Install exact Preview build and capture first launch
-    runs-on: macos-15
+    runs-on: ubuntu-24.04
     timeout-minutes: 45
     steps:
       - name: Check out the exact source commit under test
@@ -101,13 +101,12 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          case "$(uname -m)" in
-            arm64) system_image="system-images;android-36;google_apis;arm64-v8a" ;;
-            x86_64) system_image="system-images;android-36;google_apis;x86_64" ;;
-            *) echo "::error::Unsupported emulator host architecture: $(uname -m)"; exit 1 ;;
-          esac
+          [[ "$(uname -m)" == "x86_64" ]] || { echo "::error::Expected an x86_64 Linux emulator host, got $(uname -m)."; exit 1; }
+          system_image="system-images;android-36;google_apis;x86_64"
           echo "Using Android system image: $system_image"
           sdkmanager --install "platform-tools" "emulator" "build-tools;35.0.0" "$system_image"
+          [[ -e /dev/kvm ]] || { echo "::error::KVM is unavailable on this runner."; exit 1; }
+          sudo chmod 666 /dev/kvm
           printf 'no\n' | avdmanager create avd \
             --force \
             --name MelodixApi36 \
@@ -134,8 +133,8 @@ jobs:
           apk_dir="$RUNNER_TEMP/melodix-preview-apk"
           apk="$apk_dir/$APK_ARTIFACT_NAME"
           [[ -s "$apk" ]] || { echo "::error::Downloaded APK is missing: $APK_ARTIFACT_NAME"; exit 1; }
-          (cd "$apk_dir" && shasum -a 256 -c "$APK_ARTIFACT_NAME.sha256")
-          apk_sha256="$(shasum -a 256 "$apk" | awk '{print $1}')"
+          (cd "$apk_dir" && sha256sum -c "$APK_ARTIFACT_NAME.sha256")
+          apk_sha256="$(sha256sum "$apk" | awk '{print $1}')"
 
           build_tools="$ANDROID_HOME/build-tools/35.0.0"
           "$build_tools/apksigner" verify --verbose --min-sdk-version 24 "$apk"
@@ -168,7 +167,7 @@ jobs:
             -no-boot-anim \
             -no-snapshot \
             -gpu swiftshader_indirect \
-            -accel off \
+            -accel on \
             > "$RUNNER_TEMP/melodix-emulator.log" 2>&1 &
           emulator_pid=$!
           adb start-server
