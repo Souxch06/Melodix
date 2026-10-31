@@ -5,9 +5,10 @@ Branche : `arena/7142700d-melodix` (aucune autre branche touchée, `main` et
 PR #7 intacts).
 
 > **Mise à jour du 31/10/2026 — état courant :** les sections historiques ci-dessous décrivent
-> l’état `test.86`. Le diagnostic de la capture Spotify native, le correctif CTA et les preuves
-> actuelles sont dans [`docs/audits/melodix-web-player-cta-handoff-2026-10-31.md`](audits/melodix-web-player-cta-handoff-2026-10-31.md).
-> La seule release publique est maintenant [`v1.2.2-test.89-preview`](https://github.com/Souxch06/Melodix/releases/tag/v1.2.2-test.89-preview); `test.88` a été retirée, sans suppression de son tag Git. La CI de `test.89` est verte, mais aucun test sur l’appareil n’a encore confirmé l’interface.
+> l’état `test.86`. Les suivis du problème d’interface absente et des préversions récentes sont
+> dans [`melodix-ui-not-showing-followup-2026-10-31.md`](audits/melodix-ui-not-showing-followup-2026-10-31.md)
+> et [`melodix-native-webview-navigation-2026-10-31.md`](audits/melodix-native-webview-navigation-2026-10-31.md).
+> La seule release publiée est [`v1.2.2-test.91-preview`](https://github.com/Souxch06/Melodix/releases/tag/v1.2.2-test.91-preview), issue de `702cdd9`; la CI est verte, mais aucun essai sur appareil n’a confirmé que l’interface apparaît.
 
 Ce rapport sépare systématiquement quatre niveaux de preuve :
 
@@ -27,11 +28,12 @@ comme **non vérifié à l'exécution** — jamais comme « testé sur appareil 
 
 - Dépôt : `Souxch06/Melodix`, branche de travail `arena/7142700d-melodix`.
 - `main` n'est jamais modifiée ; PR #7 n'est ni fusionnée ni fermée.
-- Aucun force-push, aucun reset destructif, aucun tag ni release supprimé.
+- Aucun force-push ni reset destructif. Les anciennes releases `test.89` et `test.90` ont été supprimées conformément à la consigne de ne garder que la dernière; leurs tags Git sont conservés. `test.91` est l’unique release publiée.
 - Historique de la session (du plus récent au plus ancien), tous poussés :
 
 | SHA | Objet |
 | --- | --- |
+| `702cdd9` | release preview `v1.2.2-test.91-preview` — navigation de récupération maintenue dans la WebView |
 | `fa51438` | a11y : cibles tactiles natives à 48dp |
 | `18b07fb` | a11y : texte tertiaire conforme AA sur toutes les surfaces |
 | `ca0c086` | navigation : l'onglet Accueil déjà actif ne vide plus la shelf |
