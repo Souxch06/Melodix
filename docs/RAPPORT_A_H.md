@@ -139,9 +139,10 @@ si un contrôle cliquable repasse sous ce seuil.
 
 ## G. Reste à faire
 
-- **Vérification à l'exécution** : aucune preuve d'exécution exploitable pour
-  l'instant (voir H). Tout ce qui précède est prouvé au niveau code/test/
-  compilation, pas sur un appareil.
+- **Vérification à l'exécution** : impossible sur l'émulateur disponible (pas
+  de KVM, voir H). Tout ce qui précède est prouvé au niveau code / test /
+  compilation, jamais sur un appareil. Un test sur téléphone reste
+  indispensable avant de considérer un lot comme livré.
 - Refonte de la page détail (hiérarchie typographique interne, en-tête) non
   commencée.
 - Variante tablette (`layout-sw600dp`) non traitée : la mise en page est
@@ -150,38 +151,58 @@ si un contrôle cliquable repasse sous ce seuil.
 
 ## H. Preuves (SHA, runs, artefacts)
 
-### Exécution réelle — première trace exploitable
+### Exécution réelle — ce que l'émulateur a réellement mesuré
 
-Le run `Capture preview launch trace on emulator` **41141786095** (commit
-`eae651d`) a abouti et a publié son rapport sur le commit. Faits mesurés sur
-l'émulateur (API 25, Pixel 2), pas déduits :
+Quatre runs `Capture preview launch trace on emulator` ont abouti (41141786095
+sur `eae651d`, 41177615386 sur `5fc5500`, 41178518686 sur `ea1bc9f`,
+41180246418 sur `a27a22c`). Faits mesurés, jamais déduits :
 
-- **install** : `Performing Streamed Install Success`,
-  `versionCode=1020810`, `versionName=1.2.2-eae651d` — l'APK s'installe ;
-- **resumed** : `mResumedActivity: ... com.melodix.music.MainActivity` —
-  l'activité est bien au premier plan ;
-- **stage_chain** (relevée dans les préférences) :
-  `attach+0s application+4s activity-create+10s signature-ok+10s
-  content-view+11s`, puis un second lancement
-  `attach+0s application+3s activity-create+7s signature-ok+7s
-  content-view+8s` ;
-- **visible text** : vide sur les deux lancements ;
-- **MDXTRACE** : aucune ligne ;
-- **fatal / crash buffer** : vides ;
-- **last_crash** (mémoire d'un lancement antérieur) :
-  `WindowManager$BadTokenException: Unable to add window -- token ... is not
-  valid; is your activity running?` à `ViewRootImpl.setView`.
+- **install** : `Performing Streamed Install Success` à chaque fois ;
+- **resumed** : `mResumedActivity: ... com.melodix.music.MainActivity` — le
+  processus démarre et l'activité devient bien l'activité au premier plan ;
+- **stage_chain** : `attach+0s application+4s activity-create+12s
+  signature-ok+12s content-view+14s` lors du run le plus complet, puis
+  `startup-hang+60s` (chien de garde) ;
+- **texte à l'écran** : vide sur tous les échantillons, et surtout
+  `mCurrentFocus=null` en permanence : **la fenêtre de l'application n'est
+  jamais dessinée** ;
+- **MDXTRACE** : aucune ligne sur aucun run — le JavaScript n'a jamais tourné ;
+- **ANR** : « Application Not Responding: com.melodix.music.preview » observé
+  sur certains runs, jamais sur d'autres.
 
-Lecture : le processus démarre, la vue est posée (`content-view`), puis plus
-aucune étape n'est franchie et **rien n'est peint à l'écran**. Aucun
-`MDXTRACE` signifie que le JavaScript n'a jamais tourné : le splash n'est
-donc jamais masqué (seul `showNativeUi()` le masque).
+### La variable d'environnement décisive
 
-Deux limites honnêtes de cette mesure : « visible text » vide peut aussi
-provenir d'un dump uiautomator vide (le script ne distinguait pas les deux),
-et la capture ne s'échantillonnait qu'à la reprise d'activité puis à 20 s —
-impossible de savoir si l'application se débloque plus tard. Les deux points
-sont corrigés dans le script (chronologie à 5/10/15/20/30/45/60/75 s).
+Le run `a27a22c` a mesuré l'émulateur lui-même :
+
+```
+emulateur: kvm: ls: /dev/kvm: No such file or directory | cpu: x86 | 7.1.1 | cores: 4
+```
+
+**Aucune accélération matérielle.** L'émulateur tourne en émulation logicielle
+complète (QEMU TCG) sur x86. Deux conséquences mesurables :
+
+- le logcat de ce même run contient un ANR de **`com.google.android.youtube`**
+  (« Reason: executing service ... AdIdListenerService ») : l'émulateur est
+  si lent que des applications Google préinstallées y bloquent aussi ;
+- la pile du thread principal relevée par le chien de garde est **vide** :
+  au moment du gel, le thread était en code natif, sans trame Java — cohérent
+  avec une initialisation de WebView (Chromium) sur un CPU émulé.
+
+Conclusion honnête : **les gels observés sur cet émulateur ne sont pas
+attribuables au code de l'application** et leurs durées n'ont aucune valeur
+prédictive pour un téléphone. En revanche, ce que la trace a réellement prouvé
+reste valable et utile :
+
+1. l'APK s'installe et démarre jusqu'à l'activité ;
+2. **tant que rien n'est dessiné, l'utilisateur ne voit rien** — un rectangle
+   noir (avant ce lot) puis un logo immobile : d'où les deux correctifs
+   `2403d85` (indicateur + texte de chargement dans le splash) et `fec811c`
+   (fond de lancement brandé, peint par le système avant toute ligne de Java) ;
+3. sans `MDXTRACE`, aucune conclusion ne peut être tirée sur le shell JS.
+
+**Aucune validation visuelle n'est donc possible sur cet émulateur.** Toute
+affirmation sur l'apparence réelle de l'application, sur un téléphone ou même
+sur l'émulateur, serait non fondée et n'est pas faite dans ce rapport.
 
 ### Causes racines identifiées grâce à cette trace
 
@@ -200,9 +221,12 @@ sont corrigés dans le script (chronologie à 5/10/15/20/30/45/60/75 s).
 
 | SHA | Build `preview-apk` | Conclusion |
 | --- | --- | --- |
-| `5fb1b0b` | en cours | — |
-| `8d42a30` | en cours | — |
-| `5fc5500` | 41177xxxx | success |
+| `b2f4bbf` | — | à vérifier |
+| `fec811c` | — | success (le nouveau drawable de lancement compile) |
+| `a27a22c` | — | success |
+| `5fb1b0b` | — | success |
+| `8d42a30` | — | success |
+| `5fc5500` | — | success |
 | `2403d85` | 41177559131 | success |
 | `25ed32d` | 41177498822 | **failure** — étape 1 seulement : le message de commit ne contenait ni `[preview-release] vX-test.N-preview` ni `[skip-release]`, donc aucun tag choisi. Aucune compilation n'a eu lieu. |
 | `7c20f8a` | 41177423056 | success |
