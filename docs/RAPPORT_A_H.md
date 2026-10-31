@@ -230,7 +230,11 @@ sur l'émulateur, serait non fondée et n'est pas faite dans ce rapport.
 
 | SHA | Build `preview-apk` | Conclusion |
 | --- | --- | --- |
-| `536437c` | 536437c | success (release test.83, seule conservée) |
+| `4a4c05a` | 4a4c05a | success (release test.85, seule conservée) |
+| `b1effb5` | b1effb5 | success |
+| `7f0e607` | 7f0e607 | success |
+| `ff45245` | ff45245 | success (release test.84, supprimée depuis) |
+| `536437c` | 536437c | success (release test.83, supprimée depuis) |
 | `9a88cba` | 9a88cba | success (release test.82, supprimée depuis) |
 | `e115e9e` | e115e9e | success |
 | `af001d2` | af001d2 | success |
@@ -286,11 +290,39 @@ construit. Corrigé dans `ff45245` :
 - nouvelles étapes `webview-kept` / `webview-null` : le prochain rapport nomme
   la branche au lieu de laisser deviner.
 
+### Deuxième rapport appareil (11h16) : le moteur existe, aucune page n'est demandée
+
+`1.2.2-1b1e533` sur la même tablette donne enfin une mesure différente :
+`web: url=null progress=100 login=false chargement=false erreur=-1`, et
+**aucune étape `page-finished`**. Le premier correctif a donc bien rendu le
+moteur (§ ci-dessus : plus de `<webview absente>`), mais l'application ne lui
+a **jamais demandé d'afficher une page**. Le chien de garde conclut
+`CONTENT STUCK` à +60 s : une coque native par-dessus un WebView vide.
+
+Deux chemins indépendants menaient là, tous deux identifiés dans le code :
+
+1. `m9.g()` ne chargeait la première page que si `AppSingleton.l` (coque
+   affichée) valait faux. Le filet de sécurité du démarrage peut afficher la
+   coque **avant** que le moteur n'existe : la seule occasion de charger une
+   page était alors consommée, définitivement. La condition porte maintenant
+   sur l'état du WebView lui-même (`getOriginalUrl() == null`).
+2. `C()` acceptait le WebView de la fabrique sans vérifier qu'une page avait
+   été demandée. Un singleton déjà construit puis re-lié à une nouvelle
+   activité ne recharge rien. `ensureWebPageLoaded()` (idempotente, `getUrl()`
+   nul ou `about:blank` = écran vide à réparer) garantit un affichage dès que
+   le WebView est en place, et `StartupLoadWatchdog` réessaie à +8 s
+   (`load-retry`) si rien n'est apparu.
+
+Les échecs de chargement ne sont plus avalés : ils sont enregistrés
+(`ensure-load-failed`, `config apres creation`), donc lisibles au prochain
+rapport.
+
 ### Releases
 
-**Une seule release existe : `v1.2.2-test.84-preview`**, buildée à partir du
-build vert `1b1e533` (elle remplace `test.83`, dont la release et le tag ont
-été supprimés dans la même foulée pour ne garder que la dernière version), plus le commit de documentation `[skip-release]` qui
+**Une seule release existe : `v1.2.2-test.85-preview`**, buildée à partir du
+build vert `4a4c05a` (elle remplace `test.83` puis `test.84`, dont la release
+et le tag ont été supprimés dans la même foulée pour ne garder que la dernière
+version), plus le commit de documentation `[skip-release]` qui
 suit. Elle porte 2 assets : l'APK (3 355 400 octets, empreinte vérifiée
 `sha256:f22814478c34b25a774ea8910137fc1aab24f65168178a74aa1a61871b8a89d7`)
 et son fichier `.sha256`. Le corps de release renvoie au commit, qui contient
