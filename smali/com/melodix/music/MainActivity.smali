@@ -403,34 +403,40 @@
 .method public final ensureWebPageLoaded()V
     .locals 4
 
-    # A WebView that exists but never loaded anything is the device failure we
-    # are fixing (report: url=null progress=100 chargement=false erreur=-1, no
-    # page ever started). Whatever path produced the engine - fresh factory,
-    # cached singleton re-bound to a new activity, or a configuration step that
-    # failed before the first loadUrl - this method guarantees a page is
-    # requested exactly once per empty WebView.
+    # A WebView that exists but shows nothing is the device failure being fixed
+    # (report: url=null progress=100 chargement=false erreur=-1, and not a
+    # single page-finished stage). Whatever path produced the engine - fresh
+    # factory, cached singleton re-bound to a new activity, or a configuration
+    # step that failed before the first loadUrl - this method guarantees one
+    # usable page is requested.
     #
-    # Idempotent on purpose: once a load has been requested, getOriginalUrl()
-    # is not null and every later call returns immediately, so onResume cannot
-    # reload the player while the user is using it.
+    # The test is what the user can actually see: getUrl() must be a real page.
+    # A null URL means no page was ever requested; "about:blank" means the view
+    # is showing an empty document. Both are repaired. Anything else returns
+    # immediately, so onResume can never reload the player while it is used.
     :try_start_all
     iget-object v0, p0, Lcom/melodix/music/MainActivity;->G:Landroid/webkit/WebView;
 
     if-eqz v0, :done
 
-    invoke-virtual {v0}, Landroid/webkit/WebView;->getOriginalUrl()Ljava/lang/String;
-
-    move-result-object v1
-
-    if-eqz v1, :done
-
     invoke-virtual {v0}, Landroid/webkit/WebView;->getUrl()Ljava/lang/String;
 
     move-result-object v1
 
-    if-eqz v1, :done
+    if-nez v1, :do_load
 
-    # Same target the factory uses: the player when the session is proven,
+    const-string v2, "about:blank"
+
+    invoke-virtual {v1, v2}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+
+    move-result v1
+
+    if-eqz v1, :do_load
+
+    goto :done
+
+    :do_load
+    # Same two targets the factory uses: the player once the session is proven,
     # the login form otherwise. The login flow itself is untouched.
     sget-boolean v1, Lcom/melodix/music/AppSingleton;->B:Z
 
@@ -478,6 +484,7 @@
     :done
     return-void
 .end method
+
 
 .method public final C()V
     .locals 6

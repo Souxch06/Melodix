@@ -118,10 +118,12 @@ test('ensureWebPageLoaded is idempotent, uses the same target and never hides a 
     const activity = read('smali/com/melodix/music/MainActivity.smali');
     const body = methodBody(activity, '.method public final ensureWebPageLoaded()V');
 
-    // Idempotent: an already requested page returns immediately, so onResume
-    // can never reload the player while the user is listening.
-    assert.match(body, /getOriginalUrl\(\)Ljava\/lang\/String;/);
+    // Idempotent: a real page on screen returns immediately, so onResume can
+    // never reload the player while the user is listening. A null URL or an
+    // empty document is repaired.
     assert.match(body, /getUrl\(\)Ljava\/lang\/String;/);
+    assert.match(body, /const-string v2, "about:blank"/);
+    assert.match(body, /:do_load/);
 
     // Same URLs as the factory, so the login flow is not altered.
     assert.match(body, /https:\/\/open\.spotify\.com\//);
