@@ -1714,7 +1714,11 @@
         <item name="windowNoTitle">true</item>
     </style>
     <style name="Theme.Spotifuck" parent="@style/Theme.AppCompat.NoActionBar">
-        <item name="android:windowBackground">@color/spotify_black</item>
+        <!-- Branded instant background: the system paints it before the first
+             line of Java runs, so a slow cold start never looks like a dead
+             black screen. It matches the splash overlay (same colour, same
+             logo) so the hand-over is invisible. -->
+        <item name="android:windowBackground">@drawable/mel_launch_background</item>
         <item name="android:actionOverflowButtonStyle">@style/overflowStyle</item>
         <item name="android:windowDrawsSystemBarBackgrounds">true</item>
         <item name="android:statusBarColor">@color/spotify_black</item>

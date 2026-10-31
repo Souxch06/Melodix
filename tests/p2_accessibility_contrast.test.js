@@ -207,3 +207,36 @@ test('the splash feedback creates no new id and no new resource', () => {
     'le bloc splash ne declare aucun nouvel id');
   assert.doesNotMatch(splash, /@string\/mel_splash/, 'aucune nouvelle chaine de traduction');
 });
+
+// ---------------------------------------------------------------------------
+// P1 perceived startup: the system paints android:windowBackground before any
+// application code runs. A flat black rectangle for several seconds is
+// indistinguishable from a crash - which is exactly what the emulator trace
+// showed (no on-screen text while the process was still starting).
+// ---------------------------------------------------------------------------
+
+test('the launch theme paints the brand before the first line of Java', () => {
+  const styles = fs.readFileSync(path.join(root, 'res', 'values', 'styles.xml'), 'utf8');
+  const theme = styles.slice(styles.indexOf('<style name="Theme.Spotifuck"'));
+  const windowBackground = theme.match(/<item name="android:windowBackground">([^<]+)<\/item>/);
+  assert.ok(windowBackground, 'le theme de lancement definit un fond de fenetre');
+  assert.notEqual(windowBackground[1], '@color/spotify_black',
+    'un fond noir uni ne distingue pas un demarrage lent d un plantage');
+  assert.match(windowBackground[1], /@drawable\/mel_launch_background/);
+
+  const drawable = fs.readFileSync(path.join(root, 'res', 'drawable', 'mel_launch_background.xml'), 'utf8');
+  assert.match(drawable, /@color\/mel_background/, 'le fond reprend la couleur de l application');
+  assert.match(drawable, /melodix_launcher_foreground/, 'le logo est visible des la premiere image');
+  assert.match(drawable, /android:gravity="center"/, 'le logo est centre, comme sur le splash');
+});
+
+test('the launch background uses only resources that already exist', () => {
+  const drawable = fs.readFileSync(path.join(root, 'res', 'drawable', 'mel_launch_background.xml'), 'utf8');
+  const colors = fs.readFileSync(path.join(root, 'res', 'values', 'colors.xml'), 'utf8');
+  assert.match(colors, /<color name="mel_background">/, 'mel_background existe');
+  const logoCandidates = ['drawable', 'drawable-nodpi', 'mipmap-anydpi-v26']
+    .flatMap((dir) => ['xml', 'png', 'webp'].map((ext) =>
+      path.join(root, 'res', dir, `melodix_launcher_foreground.${ext}`)));
+  assert.ok(logoCandidates.some((file) => fs.existsSync(file)),
+    'le logo reference existe deja (aucune nouvelle image)');
+});
