@@ -330,6 +330,7 @@ jobs:
           echo "apk_version_code=$apk_version_code" >> "$GITHUB_OUTPUT"
           echo "apk_version_name=$apk_version_name" >> "$GITHUB_OUTPUT"
           echo "source_ref=$SOURCE_REF" >> "$GITHUB_OUTPUT"
+          echo "::notice title=Signed Preview APK metadata::artifact=$APK_NAME package=$package_id versionCode=$apk_version_code versionName=$apk_version_name sha256=$apk_sha256 source=$SOURCE_REF"
           if [[ "$SHOULD_PUBLISH" == "true" ]]; then
             build_mode="preview release"
           else
