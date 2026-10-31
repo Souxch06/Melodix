@@ -113,7 +113,15 @@ test('the CI Home integration contains no fake playlist or substituted account c
     'the integration sends only an empty Home payload to test the safe fallback');
   assert.match(harness, /putBoolean\("native_home_cards_attached", false\)/);
   assert.match(inspector, /splash_accessibility_visible/);
+  assert.match(inspector, /webview_accessibility_node_present/);
+  assert.match(inspector, /screen_nonuniform=/,
+    'a missing WebView node reports redacted full-screen pixel metrics');
+  assert.match(inspector,
+    /Path\(summary_path\)\.write_text[\s\S]*?if not webview_class_visible/,
+    'redacted hierarchy and pixel diagnostics are saved before a visibility failure');
   assert.match(inspector, /fail\("startup_splash_accessibility_visible"\)/,
     'the screenshot check rejects a visible splash covering the WebView');
+  assert.match(inspector, /notice title=Android login surface visibility[\s\S]*?webview_crop_bright_pixels/,
+    'a passing login screenshot reports measured WebView pixels without raw page text');
   assert.doesNotMatch(inspector, /FIXTURE_TITLE|Controlled Home fixture|fixture_title/);
 });

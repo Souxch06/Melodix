@@ -9281,11 +9281,12 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
 .method public final revealWebUi()V
     .locals 2
 
-    # The Spotify account host is not a native screen. The shell returns early
-    # there (its collectors only run on open.spotify.com), so onNativeUiReady is
-    # never sent and showNativeUi() - the only other code that lifts the splash -
-    # never runs. A fresh install, or an expired session, therefore never saw the
-    # login form: a branded splash covered it for ever.
+    # The Spotify account host is not a native screen, and a first player-host
+    # load may arrive before the persisted session has been confirmed. The shell
+    # returns early on the account host and the logged-out splash-dismiss branch
+    # does not run for open.spotify.com, so onNativeUiReady/showNativeUi() cannot
+    # lift the overlay. Without this reveal, the branded splash covers the login
+    # surface indefinitely on a clean install or expired session.
     #
     # This only removes a native overlay. The login flow itself (WebView session,
     # cookies, accounts.spotify.com) is untouched.

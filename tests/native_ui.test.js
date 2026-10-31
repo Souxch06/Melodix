@@ -1530,15 +1530,17 @@ test('the launch marker leaves the branded window alone instead of painting debu
     assert.match(body, /if-eqz p0, :done/, 'la garde d argument reste la premiere instruction');
 });
 
-test('the Spotify account host lifts the splash instead of hiding the login form', () => {
-    // runUpdate() only runs on open.spotify.com, so onNativeUiReady - and with it
-    // showNativeUi(), the only other splash lifter - never fires on the account
-    // host. A fresh install or an expired session therefore never saw the login
-    // form. This is a splash fix, not an auth change.
+test('account and unconfirmed player hosts lift the splash instead of hiding login', () => {
+    // An unauthenticated startup first finishes at open.spotify.com, not
+    // necessarily on accounts.spotify.com. Since B is false, the authenticated
+    // splash-dismiss branch is skipped; the WebView must still be revealed so
+    // Spotify can show its real login surface. This changes no auth state.
     const client = read('smali/c91.smali');
     const finished = client.slice(client.indexOf('.method public final onPageFinished'));
     const body = finished.slice(0, finished.indexOf('.end method'));
-    assert.match(body, /const-string v2, "accounts\.spotify\.com"/);
+    assert.match(body, /const-string v2, "accounts\.spotify\.com"[\s\S]*?if-nez v2, :page_finished_reveal_web/);
+    assert.match(body,
+        /const-string v2, "open\.spotify\.com"[\s\S]*?if-eqz v2, :page_finished_reveal_done[\s\S]*?sget-boolean v2, Lcom\/melodix\/music\/AppSingleton;->B:Z[\s\S]*?if-nez v2, :page_finished_reveal_done[\s\S]*?:page_finished_reveal_web/);
     assert.match(body, /MainActivity;->revealWebUi:?\(\)V/);
 
     const activity = read('smali/com/melodix/music/MainActivity.smali');

@@ -74,6 +74,9 @@ def main():
     webview_bounds = None
     ids = set()
     visible_texts = []
+    webview_class_present = False
+    webview_bounds_present = False
+    webview_visible_to_user = False
     webview_class_visible = False
     for node in xml_root.iter():
         resource_id = node.get("resource-id", "")
@@ -89,9 +92,13 @@ def main():
             ids.add(resource_id)
         if text or content_description:
             visible_texts.append((text + " " + content_description).lower())
-        if "WebView" in class_name and accessibility_visible:
-            webview_class_visible = True
-            webview_bounds = bounds
+        if "WebView" in class_name:
+            webview_class_present = True
+            webview_bounds_present = webview_bounds_present or has_visible_bounds
+            webview_visible_to_user = webview_visible_to_user or visible_to_user
+            if accessibility_visible:
+                webview_class_visible = True
+                webview_bounds = bounds
 
         relevant = (
             any(name in resource_id for name in (
@@ -149,6 +156,9 @@ def main():
         "native_rows_scroll_accessibility_visible": rows_scroll_visible,
         "webview_container_node_present": web_container_present,
         "webview_container_accessibility_visible": web_container_visible,
+        "webview_accessibility_node_present": webview_class_present,
+        "webview_accessibility_node_has_bounds": webview_bounds_present,
+        "webview_accessibility_node_visible_to_user": webview_visible_to_user,
         "webview_accessibility_node_visible": webview_class_visible,
         "splash_accessibility_node_present": splash_present,
         "splash_accessibility_visible": splash_visible,
@@ -175,7 +185,18 @@ def main():
     Path(summary_path).write_text(json.dumps(summary, indent=2) + "\n", encoding="utf-8")
 
     if not webview_class_visible or webview_bounds is None:
-        fail("visible_bounded_webview_node_missing")
+        fail(
+            "visible_bounded_webview_node_missing;"
+            f" node_present={webview_class_present};"
+            f" bounds_present={webview_bounds_present};"
+            f" visible_to_user={webview_visible_to_user};"
+            f" container_present={web_container_present};"
+            f" container_visible={web_container_visible};"
+            f" splash_visible={splash_visible};"
+            f" native_root_visible={native_root_visible};"
+            f" screen_nonuniform={summary['screenshot_pixels']['nonuniform_screen_pixels']};"
+            f" screen_sampled_colors={summary['screenshot_pixels']['sampled_unique_colors']}"
+        )
     if splash_visible:
         fail("startup_splash_accessibility_visible")
     if native_root_visible or native_home_tab_visible or rows_scroll_visible:
@@ -183,10 +204,27 @@ def main():
     if not summary["screenshot_pixels"].get(f"{region_name}_pixels_rendered"):
         fail("webview_bounds_have_no_rendered_screenshot_pixels")
 
+    pixel_report = summary["screenshot_pixels"]
     if phase == "login":
         print("Unauthenticated first-launch WebView: visible bounds and unobscured screenshot pixels verified; raw text redacted.")
+        print(
+            "::notice title=Android login surface visibility::"
+            f"webview_accessible=true; splash_visible=false; native_home_visible=false; "
+            f"login_accessibility_text={login_words_visible}; "
+            f"webview_pixels_rendered={pixel_report['webview_pixels_rendered']}; "
+            f"webview_crop_unique_colors={pixel_report['webview_crop_unique_colors']}; "
+            f"webview_crop_bright_pixels={pixel_report['webview_crop_bright_pixels']}"
+        )
     else:
         print("Empty-Home fallback hierarchy: native Home hidden and unobscured WebView screenshot pixels verified; no playlist data.")
+        print(
+            "::notice title=Android empty-Home fallback visibility::"
+            f"webview_accessible=true; splash_visible=false; native_home_visible=false; "
+            f"playlist_payload_injected=false; "
+            f"webview_pixels_rendered={pixel_report['webview_pixels_rendered']}; "
+            f"webview_crop_unique_colors={pixel_report['webview_crop_unique_colors']}; "
+            f"webview_crop_bright_pixels={pixel_report['webview_crop_bright_pixels']}"
+        )
 
 
 if __name__ == "__main__":

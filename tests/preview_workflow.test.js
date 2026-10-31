@@ -112,7 +112,10 @@ test("the emulator workflow builds and tests one Preview APK in the same CI run"
     "name: Run Android login and empty-Home fallback instrumentation",
   );
   const resumedCheck = emulatorWorkflow.indexOf(
-    "resumed_after_instrumentation=",
+    "name: Verify activity resumed after Android instrumentation",
+  );
+  const coldLaunchInspection = emulatorWorkflow.indexOf(
+    "name: Inspect the preserved cold-launch hierarchy and pixels",
   );
   const summary = emulatorWorkflow.indexOf(
     "name: Add verified run details to the summary",
@@ -124,8 +127,21 @@ test("the emulator workflow builds and tests one Preview APK in the same CI run"
     "install the Preview APK as the main app before compiling/running the harness",
   );
   assert.ok(
-    resumedCheck > runHarness && summary > resumedCheck,
-    "verify MainActivity resumed after instrumentation before writing the run summary",
+    resumedCheck > runHarness &&
+      coldLaunchInspection > resumedCheck &&
+      summary > coldLaunchInspection,
+    "verify MainActivity resumed after instrumentation, inspect the preserved cold launch, then write the run summary",
+  );
+  const launchBlock = emulatorWorkflow.slice(installTarget, buildHarness);
+  assert.doesNotMatch(
+    launchBlock,
+    /inspect_hierarchy\.py login/,
+    "a cold-launch hierarchy failure must not suppress compilation or execution of the Android harness",
+  );
+  assert.match(
+    emulatorWorkflow,
+    /name: Verify activity resumed after Android instrumentation\n        id: post-instrumentation\n        if: always\(\) && steps\.launch\.outcome == 'success'/,
+    "activity resumption is checked even when instrumentation fails",
   );
   assert.match(
     emulatorWorkflow,
@@ -152,6 +168,14 @@ test("the emulator workflow builds and tests one Preview APK in the same CI run"
     /inspect_hierarchy\.py empty-home[\s\S]*?home-empty-fallback\.png/,
     "the final screenshot inspects the WebView pixels after the empty-Home fallback",
   );
+  const uploadStep = emulatorWorkflow.slice(
+    emulatorWorkflow.indexOf("name: Upload verified screenshot and redacted launch summary"),
+  );
+  assert.match(uploadStep, /login-hierarchy-redacted\.json[\s\S]*?verification-reference\.json/);
+  assert.doesNotMatch(uploadStep, /login-window\.xml|home-fallback-window\.xml/,
+    "raw UIAutomator hierarchy text is not uploaded");
+  assert.match(emulatorWorkflow, /cold_launch_hierarchy_pixels_verified/);
+  assert.match(emulatorWorkflow, /login_ui_visible_in_webview_dom/);
   const harnessSource = fs.readFileSync(
     path.resolve(__dirname, "..", "tests/android/HomeRenderInstrumentation.java"),
     "utf8",

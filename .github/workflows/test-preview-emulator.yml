@@ -239,24 +239,10 @@ jobs:
           adb shell uiautomator dump --compressed /sdcard/melodix-preview-login.xml >/dev/null 2>&1
           adb exec-out cat /sdcard/melodix-preview-login.xml > "$state_dir/login-window.xml"
           adb exec-out screencap -p > "$state_dir/login-screen.png"
-          python3 tests/android/inspect_hierarchy.py login \
-            "$state_dir/login-window.xml" \
-            "$state_dir/login-screen.png" \
-            "$state_dir/login-hierarchy-redacted.json"
-          python3 - "$state_dir/login-hierarchy-redacted.json" "$GITHUB_STEP_SUMMARY" <<'PY'
-          import json
-          import pathlib
-          import sys
-
-          state = json.loads(pathlib.Path(sys.argv[1]).read_text(encoding="utf-8"))
-          print("Unauthenticated first launch hierarchy (redacted):")
-          for key, value in state.items():
-              print(f"  {key}: {value}")
-          with pathlib.Path(sys.argv[2]).open("a", encoding="utf-8") as output:
-              output.write("### Unauthenticated first-launch hierarchy (redacted)\n\n")
-              for key, value in state.items():
-                  output.write(f"- {key}: {str(value).lower()}\n")
-          PY
+          # Preserve the cold-launch hierarchy and pixels before test
+          # instrumentation changes the visible WebView state. Inspection is a
+          # later step so a visibility failure cannot suppress the Android
+          # harness or its post-instrumentation activity check.
 
           resumed="$(adb shell dumpsys activity activities | grep -F 'com.melodix.music.preview/com.melodix.music.MainActivity' | head -n 1 || true)"
           [[ -n "$resumed" ]] || { echo "::error::MainActivity was not present in the resumed-activity dump."; exit 1; }
@@ -366,16 +352,39 @@ jobs:
             fi
           done
 
+      - name: Verify activity resumed after Android instrumentation
+        id: post-instrumentation
+        if: always() && steps.launch.outcome == 'success'
+        shell: bash
+        env:
+          INTEGRATION_OUTCOME: ${{ steps.integration.outcome }}
+          SOURCE_REF: ${{ inputs.source_ref || github.sha }}
+          APK_SHA256: ${{ steps.apk.outputs.apk_sha256 }}
+          PACKAGE_ID: ${{ steps.apk.outputs.package_id }}
+          VERSION_CODE: ${{ steps.apk.outputs.version_code }}
+          VERSION_NAME: ${{ steps.apk.outputs.version_name }}
+        run: |
+          set -euo pipefail
+          state_dir="$RUNNER_TEMP/melodix-preview-emulator-state"
           sleep 2
           resumed_after_instrumentation="$(adb shell dumpsys activity activities | grep -E 'mResumedActivity|topResumedActivity|ResumedActivity' | grep -F 'com.melodix.music.preview/com.melodix.music.MainActivity' | head -n 1 || true)"
-          [[ -n "$resumed_after_instrumentation" ]] || {
-            echo "::error::Preview MainActivity was not resumed after Android instrumentation."
+          if [[ -z "$resumed_after_instrumentation" ]]; then
+            echo "::error::Preview MainActivity was not resumed after the Android instrumentation attempt."
             adb shell dumpsys activity activities | grep -E 'mResumedActivity|topResumedActivity|ResumedActivity' || true
             exit 1
-          }
-          resumed_process="$(adb shell pidof -s com.melodix.music.preview 2>/dev/null | tr -d '\\r' || true)"
-          [[ -n "$resumed_process" ]] || { echo "::error::Preview process exited after Android instrumentation."; exit 1; }
-          echo "Verified Preview MainActivity remains resumed after instrumentation (pid=$resumed_process)."
+          fi
+          resumed_process="$(adb shell pidof -s com.melodix.music.preview 2>/dev/null | tr -d '\r' || true)"
+          [[ -n "$resumed_process" ]] || { echo "::error::Preview process exited after the Android instrumentation attempt."; exit 1; }
+          if [[ "$INTEGRATION_OUTCOME" == "skipped" ]]; then
+            echo "Preview MainActivity remains resumed after cold launch; the instrumentation harness did not run."
+          else
+            echo "Verified Preview MainActivity remains resumed after the Android instrumentation attempt (pid=$resumed_process; harness=$INTEGRATION_OUTCOME)."
+          fi
+
+          if [[ "$INTEGRATION_OUTCOME" != "success" ]]; then
+            echo "::notice title=Post-instrumentation activity::activity_resumed=true; harness_outcome=$INTEGRATION_OUTCOME; Home screenshot not treated as verified"
+            exit 0
+          fi
 
           adb shell uiautomator dump --compressed /sdcard/melodix-preview-home-fallback.xml >/dev/null 2>&1
           adb exec-out cat /sdcard/melodix-preview-home-fallback.xml > "$state_dir/home-fallback-window.xml"
@@ -385,37 +394,18 @@ jobs:
             "$state_dir/home-empty-fallback.png" \
             "$state_dir/home-fallback-hierarchy-redacted.json"
           cp "${{ steps.apk.outputs.asset_manifest }}" "$state_dir/assets-manifest.json"
-          python3 - \
-            "$state_dir/verification-reference.json" \
-            "${{ inputs.source_ref || github.sha }}" \
-            "${{ github.run_id }}" \
-            "${{ steps.apk.outputs.apk_sha256 }}" \
-            "${{ steps.apk.outputs.package_id }}" \
-            "${{ steps.apk.outputs.version_name }}" \
-            "${{ steps.apk.outputs.version_code }}" <<'PY'
-          import json
-          import pathlib
-          import sys
 
-          output_path, source_ref, ci_run_id, apk_sha256, package_id, version_name, version_code = sys.argv[1:]
-          reference = {
-              "source_commit": source_ref,
-              "build_and_test_run_id": ci_run_id,
-              "tested_apk_sha256": apk_sha256,
-              "package_id": package_id,
-              "version_name": version_name,
-              "version_code": version_code,
-              "ui_test_harness": "test-only instrumentation; same Preview signing certificate",
-              "login_test": "clean, unauthenticated session; login UI verified in the WebView DOM; no Spotify credentials",
-              "login_dom_visible": True,
-              "home_test": "empty Home fallback through real AndBridge callbacks; no playlist data injected",
-              "authenticated_home_test": "not performed; no legitimate Spotify session was supplied",
-              "activity_resumed_after_instrumentation": True,
-              "screenshots": ["login-screen.png", "home-empty-fallback.png"],
-              "hierarchies": ["login-hierarchy-redacted.json", "home-fallback-hierarchy-redacted.json"],
-          }
-          pathlib.Path(output_path).write_text(json.dumps(reference, indent=2) + "\n", encoding="utf-8")
-          PY
+      - name: Inspect the preserved cold-launch hierarchy and pixels
+        id: cold-launch-inspection
+        if: always() && steps.launch.outcome == 'success'
+        shell: bash
+        run: |
+          set -euo pipefail
+          state_dir="$RUNNER_TEMP/melodix-preview-emulator-state"
+          python3 tests/android/inspect_hierarchy.py login \
+            "$state_dir/login-window.xml" \
+            "$state_dir/login-screen.png" \
+            "$state_dir/login-hierarchy-redacted.json"
 
       - name: Add verified run details to the summary
         if: always()
@@ -428,6 +418,8 @@ jobs:
           VERSION_CODE: ${{ steps.apk.outputs.version_code }}
           VERSION_NAME: ${{ steps.apk.outputs.version_name }}
           INTEGRATION_OUTCOME: ${{ steps.integration.outcome }}
+          POST_INSTRUMENTATION_OUTCOME: ${{ steps.post-instrumentation.outcome }}
+          COLD_LAUNCH_OUTCOME: ${{ steps.cold-launch-inspection.outcome }}
         run: |
           {
             echo "## Android 16 Preview UI integration check"
@@ -437,9 +429,116 @@ jobs:
             echo "- Package: \`${PACKAGE_ID:-not verified}\`"
             echo "- versionName / versionCode: \`${VERSION_NAME:-unknown}\` / \`${VERSION_CODE:-unknown}\`"
             echo "- APK SHA-256: \`${APK_SHA256:-not verified}\`"
-            echo "- Instrumentation step: \`${INTEGRATION_OUTCOME:-not run}\`"
+            echo "- Instrumentation outcome: \`${INTEGRATION_OUTCOME:-not run}\`"
+            echo "- Post-instrumentation resumed activity/Home check: \`${POST_INSTRUMENTATION_OUTCOME:-not run}\`"
+            echo "- Preserved cold-launch hierarchy/pixel check: \`${COLD_LAUNCH_OUTCOME:-not run}\`"
             echo "- Scope: unauthenticated login surface plus empty-Home WebView fallback using the exact Preview APK; no playlist data or Spotify credentials were supplied, and authenticated Home rendering is not claimed."
           } >> "$GITHUB_STEP_SUMMARY"
+
+          state_dir="$RUNNER_TEMP/melodix-preview-emulator-state"
+          if [[ -d "$state_dir" ]]; then
+            python3 - \
+              "$state_dir" \
+              "$SOURCE_REF" \
+              "$PREVIEW_RUN_ID" \
+              "${APK_SHA256:-}" \
+              "${PACKAGE_ID:-}" \
+              "${VERSION_NAME:-}" \
+              "${VERSION_CODE:-}" \
+              "${INTEGRATION_OUTCOME:-not run}" \
+              "${POST_INSTRUMENTATION_OUTCOME:-not run}" \
+              "${COLD_LAUNCH_OUTCOME:-not run}" <<'PY'
+          import json
+          import pathlib
+          import sys
+
+          (state_dir, source_ref, run_id, apk_sha256, package_id, version_name,
+           version_code, integration, post_instrumentation, cold_launch) = sys.argv[1:]
+          root = pathlib.Path(state_dir)
+          exists = lambda name: (root / name).is_file()
+          transcript = (root / "android-instrumentation.txt").read_text(encoding="utf-8", errors="replace") if exists("android-instrumentation.txt") else ""
+          reference = {
+              "source_commit": source_ref,
+              "build_and_test_run_id": run_id,
+              "tested_apk_sha256": apk_sha256 or None,
+              "package_id": package_id or None,
+              "version_name": version_name or None,
+              "version_code": version_code or None,
+              "integration_outcome": integration,
+              "login_ui_visible_in_webview_dom": "INSTRUMENTATION_STATUS: login_ui_visible_in_webview_dom=true" in transcript and "INSTRUMENTATION_STATUS: authenticated_session=false" in transcript,
+              "cold_launch_hierarchy_pixels_outcome": cold_launch,
+              "cold_launch_hierarchy_pixels_verified": cold_launch == "success",
+              "post_instrumentation_outcome": post_instrumentation,
+              "activity_resumed_after_instrumentation_attempt": integration in ("success", "failure") and post_instrumentation == "success",
+              "empty_home_hierarchy_pixels_verified": integration == "success" and post_instrumentation == "success",
+              "empty_home_payload_confirmed": "INSTRUMENTATION_STATUS: home_payload_empty=true" in transcript,
+              "playlist_or_card_injected_by_harness": "INSTRUMENTATION_STATUS: playlist_or_card_injected=true" in transcript,
+              "no_playlist_or_card_injected_status_confirmed": "INSTRUMENTATION_STATUS: playlist_or_card_injected=false" in transcript,
+              "authenticated_home_test": "not performed; no legitimate Spotify session was supplied",
+              "screenshots": [name for name in ("login-screen.png", "home-empty-fallback.png") if exists(name)],
+              "redacted_hierarchies": [name for name in ("login-hierarchy-redacted.json", "home-fallback-hierarchy-redacted.json") if exists(name)],
+              "raw_hierarchy_uploaded": False,
+          }
+          (root / "verification-reference.json").write_text(
+              json.dumps(reference, indent=2) + "\n", encoding="utf-8"
+          )
+          print(json.dumps({key: reference[key] for key in (
+              "integration_outcome", "login_ui_visible_in_webview_dom",
+              "cold_launch_hierarchy_pixels_outcome", "activity_resumed_after_instrumentation_attempt",
+              "empty_home_hierarchy_pixels_verified", "empty_home_payload_confirmed",
+              "playlist_or_card_injected_by_harness", "no_playlist_or_card_injected_status_confirmed",
+              "authenticated_home_test"
+          )}, sort_keys=True))
+          PY
+            python3 - "$state_dir" "$GITHUB_STEP_SUMMARY" <<'PY'
+          import json
+          import pathlib
+          import sys
+
+          root = pathlib.Path(sys.argv[1])
+          summary_path = pathlib.Path(sys.argv[2])
+          safe_fields = (
+              "phase", "webview_container_node_present", "webview_container_accessibility_visible",
+              "webview_accessibility_node_present", "webview_accessibility_node_has_bounds",
+              "webview_accessibility_node_visible_to_user", "webview_accessibility_node_visible",
+              "splash_accessibility_node_present", "splash_accessibility_visible",
+              "native_root_accessibility_visible", "native_home_tab_accessibility_visible",
+              "native_rows_scroll_accessibility_visible", "login_text_detected_in_hierarchy",
+              "screenshot_pixels"
+          )
+          with summary_path.open("a", encoding="utf-8") as output:
+              for filename, title in (
+                  ("login-hierarchy-redacted.json", "Cold-launch WebView hierarchy and pixels (redacted)"),
+                  ("home-fallback-hierarchy-redacted.json", "Empty-Home fallback hierarchy and pixels (redacted)"),
+              ):
+                  path = root / filename
+                  if not path.is_file():
+                      continue
+                  state = json.loads(path.read_text(encoding="utf-8"))
+                  output.write(f"\n### {title}\n\n")
+                  for key in safe_fields:
+                      if key in state:
+                          output.write(f"- {key}: {json.dumps(state[key], sort_keys=True)}\n")
+          PY
+          fi
+
+          login_dom_visible=false
+          empty_home_payload_confirmed=false
+          playlist_or_card_injected_by_harness=false
+          if [[ -s "$state_dir/android-instrumentation.txt" ]]; then
+            grep -Fq 'INSTRUMENTATION_STATUS: login_ui_visible_in_webview_dom=true' "$state_dir/android-instrumentation.txt" && login_dom_visible=true || true
+            grep -Fq 'INSTRUMENTATION_STATUS: home_payload_empty=true' "$state_dir/android-instrumentation.txt" && empty_home_payload_confirmed=true || true
+            grep -Fq 'INSTRUMENTATION_STATUS: playlist_or_card_injected=true' "$state_dir/android-instrumentation.txt" && playlist_or_card_injected_by_harness=true || true
+          fi
+          empty_home_pixels_verified=false
+          if [[ "$INTEGRATION_OUTCOME" == "success" && "$POST_INSTRUMENTATION_OUTCOME" == "success" ]]; then
+            empty_home_pixels_verified=true
+          fi
+          activity_resumed=false
+          if [[ "$POST_INSTRUMENTATION_OUTCOME" == "success" && "$INTEGRATION_OUTCOME" != "skipped" && "$INTEGRATION_OUTCOME" != "not run" ]]; then
+            activity_resumed=true
+          fi
+          echo "::notice title=Android evidence outcomes::source=$SOURCE_REF; apk_sha256=${APK_SHA256:-not_verified}; integration=$INTEGRATION_OUTCOME; login_dom_visible=$login_dom_visible; cold_login_hierarchy_pixels=$COLD_LAUNCH_OUTCOME; activity_resumed_after_attempt=$activity_resumed; empty_home_payload_confirmed=$empty_home_payload_confirmed; playlist_or_card_injected=$playlist_or_card_injected_by_harness; empty_home_pixels_verified=$empty_home_pixels_verified; authenticated_home=not_tested"
 
       - name: Upload verified screenshot and redacted launch summary
         if: always()

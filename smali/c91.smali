@@ -628,12 +628,21 @@
     const-string v2, "webview-page-finished"
     invoke-static {v2}, Lcom/melodix/music/NativeCrashGuard;->diagLine(Ljava/lang/String;)V
 
-    # The account host is not a native screen: the shell's collectors return
-    # early there, so onNativeUiReady is never sent and the splash is never
-    # lifted. A fresh install or an expired session could not reach the login
-    # form at all. Lifting the splash here only removes a native overlay; the
-    # login flow (WebView session, cookies, accounts.spotify.com) is untouched.
+    # Account pages and an unconfirmed player-host page must remain visible in
+    # the WebView. On a clean install B is false, so the later authenticated
+    # splash-dismiss branch is intentionally skipped for open.spotify.com; if
+    # we do not reveal this first page here, the branded splash covers login.
+    # This only lifts native overlays. It does not change cookies, navigation,
+    # the Spotify session, or the content-gated native Home takeover.
     const-string v2, "accounts.spotify.com"
+
+    invoke-virtual {v1, v2}, Ljava/lang/String;->contains(Ljava/lang/CharSequence;)Z
+
+    move-result v2
+
+    if-nez v2, :page_finished_reveal_web
+
+    const-string v2, "open.spotify.com"
 
     invoke-virtual {v1, v2}, Ljava/lang/String;->contains(Ljava/lang/CharSequence;)Z
 
@@ -641,6 +650,11 @@
 
     if-eqz v2, :page_finished_reveal_done
 
+    sget-boolean v2, Lcom/melodix/music/AppSingleton;->B:Z
+
+    if-nez v2, :page_finished_reveal_done
+
+    :page_finished_reveal_web
     sget-object v2, Lcom/melodix/music/AppSingleton;->t:Ljava/lang/ref/WeakReference;
 
     if-eqz v2, :page_finished_reveal_done

@@ -372,6 +372,39 @@ test('[model] an authenticated player page keeps B=true and reaches the existing
         'the historical inverse guard is not reintroduced');
 });
 
+test('[model] an unconfirmed open.spotify.com page reveals the login surface before session confirmation', () => {
+    // This follows the early page-finished gate in c91. The Node model is a
+    // control-flow check only; the same-run Android hierarchy/pixel test remains
+    // the integration evidence for actual visibility.
+    const webViewClient = fs.readFileSync(path.join(repo, 'smali/c91.smali'), 'utf8');
+    const pageFinished = webViewClient.match(
+        /\.method public final onPageFinished\(Landroid\/webkit\/WebView;Ljava\/lang\/String;\)V([\s\S]*?)\.end method/
+    );
+    assert.ok(pageFinished, 'WebView page-finished callback should exist');
+    const body = pageFinished[1];
+    const start = body.indexOf('const-string v2, "accounts.spotify.com"');
+    const end = body.indexOf('\n    :page_finished_reveal_done', start);
+    assert.ok(start >= 0 && end > start, 'the early WebView reveal gate exists');
+    const gate = body.slice(start, end);
+    assert.match(gate,
+        /accounts\.spotify\.com[\s\S]*?if-nez v2, :page_finished_reveal_web[\s\S]*?open\.spotify\.com[\s\S]*?if-eqz v2, :page_finished_reveal_done[\s\S]*?AppSingleton;->B:Z[\s\S]*?if-nez v2, :page_finished_reveal_done/);
+    assert.doesNotMatch(gate, /sput-boolean|CookieManager|clearCache|clearHistory|setNativeScreen/,
+        'the visibility gate does not modify authentication or replace the WebView with native Home');
+
+    function modeledReveal(url, loggedIn) {
+        return String(url).includes('accounts.spotify.com') ||
+            (String(url).includes('open.spotify.com') && !Boolean(loggedIn));
+    }
+    assert.equal(modeledReveal('https://accounts.spotify.com/login', false), true,
+        'the real Spotify account form remains visible');
+    assert.equal(modeledReveal('https://open.spotify.com/', false), true,
+        'a clean startup exposes the player page while session state is unconfirmed');
+    assert.equal(modeledReveal('https://open.spotify.com/', true), false,
+        'a confirmed session keeps the existing splash-dismiss path');
+    assert.equal(modeledReveal('https://example.invalid/', false), false,
+        'unrelated navigation does not trigger this first-launch reveal');
+});
+
 test('a stalled Spotify page load leaves the splash and exposes retry after 30 seconds', () => {
     const webViewClient = fs.readFileSync(path.join(repo, 'smali/c91.smali'), 'utf8');
     const pageStarted = webViewClient.match(
