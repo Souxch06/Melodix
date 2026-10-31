@@ -64,6 +64,25 @@ adb shell monkey -p "$package_id" -c android.intent.category.LAUNCHER 1 >> "$sta
 # really painted. A recovery after 30-60 s shows up as a later sample that has
 # more stages and real text.
 : > "$state/timeline.txt"
+# Android puts an "isn't responding" dialog on top of a hung app, and that
+# dialog freezes every later sample: the trace then proves the hang and nothing
+# else. Tapping its own "Wait" button lets the process finish starting, so the
+# following samples answer the real question - does the app ever reach its
+# interface, and how long does it take.
+dismiss_anr() {
+  local bounds
+  local x1 y1 x2 y2
+  bounds="$(grep -o 'text="\(Wait\|Attendre\)"[^>]*bounds="\[[0-9]*,[0-9]*\]\[[0-9]*,[0-9]*\]"' "$state/at.xml" 2>/dev/null | head -n 1)"
+  if [[ -z "$bounds" ]]; then return 0; fi
+  x1="$(printf '%s' "$bounds" | sed -n 's/.*bounds="\[\([0-9]*\),\([0-9]*\)\]\[\([0-9]*\),\([0-9]*\)\]".*/\1/p')"
+  y1="$(printf '%s' "$bounds" | sed -n 's/.*bounds="\[\([0-9]*\),\([0-9]*\)\]\[\([0-9]*\),\([0-9]*\)\]".*/\2/p')"
+  x2="$(printf '%s' "$bounds" | sed -n 's/.*bounds="\[\([0-9]*\),\([0-9]*\)\]\[\([0-9]*\),\([0-9]*\)\]".*/\3/p')"
+  y2="$(printf '%s' "$bounds" | sed -n 's/.*bounds="\[\([0-9]*\),\([0-9]*\)\]\[\([0-9]*\),\([0-9]*\)\]".*/\4/p')"
+  if [[ -z "$x1" || -z "$y1" || -z "$x2" || -z "$y2" ]]; then return 0; fi
+  adb shell input tap $(( (x1 + x2) / 2 )) $(( (y1 + y2) / 2 )) >/dev/null 2>&1 || true
+  echo "anr-wait" >> "$state/anr-taps.txt"
+}
+
 sample() {
   local at="$1"
   local stages
@@ -78,8 +97,11 @@ sample() {
   text="$(grep -o 'text="[^"]*"' "$state/at.xml" 2>/dev/null | sed 's/text="//;s/"$//' | grep -v '^$' | head -n 8 | tr '\n' '|')"
   if [[ -z "$text" ]]; then text="(aucun texte)"; fi
   printf 't+%ss | stages: %s | focus: %s | texte: %s\n' "$at" "${stages:-(vide)}" "${focus:-(inconnu)}" "$text" >> "$state/timeline.txt"
+  case "$text" in
+    *"isn't responding"*|*"ne répond pas"*) dismiss_anr ;;
+  esac
 }
-for wait_s in 5 10 15 20 30 45 60 75; do
+for wait_s in 5 10 15 20 30 45 60 75 90 105; do
   if [[ "$wait_s" -eq 5 ]]; then sleep 5; else sleep $(( wait_s - prev_s )); fi
   prev_s="$wait_s"
   sample "$wait_s"
@@ -114,7 +136,12 @@ adb logcat -d > "$state/logcat.txt" 2>&1
     adb shell cat "/data/anr/$f" 2>/dev/null
   done
 } > "$state/anr.txt" 2>&1
-grep -n -A 60 'ANR in' "$state/logcat.txt" > "$state/anr-logcat.txt" 2>/dev/null
+# The file holds every process: keep only the block whose "Cmd line:" is ours.
+# A plain grep for "main" matched system_server's thread and told us nothing
+# about this app's hang.
+awk -v pkg="$package_id" '/Cmd line: /{keep=($0 ~ pkg)} keep' "$state/anr.txt" > "$state/anr-app.txt" 2>/dev/null || true
+grep -A 45 '^"main"' "$state/anr-app.txt" 2>/dev/null | head -n 50 > "$state/anr-main.txt" || true
+grep -n -A 12 'ANR in' "$state/logcat.txt" 2>/dev/null | head -n 40 > "$state/anr-logcat.txt" || true
 # The main-thread stack collected by the app's own watchdog at 60 s.
 adb shell cat "/data/data/$package_id/shared_prefs/melodix_native.xml" 2>/dev/null \
   | sed -n 's/.*name="last_crash">\([^<]*\)<.*/\1/p' > "$state/last-crash.txt"
@@ -139,11 +166,14 @@ note "mdxtrace: $(grep -c . "$state/trace.txt" 2>/dev/null) line(s) captured"
   echo "visible text (2e lancement): $(tr '\n' ' ' < "$state/window-text2.txt" 2>/dev/null | cut -c1-600)"
   echo "--- chronologie du 2e lancement ---"
   head -c 4000 "$state/timeline.txt" 2>/dev/null
-  echo "--- ANR: pile du thread principal ---"
-  grep -A 40 -E '"main"|main thread stack' "$state/anr.txt" 2>/dev/null | head -c 3000
-  head -c 2000 "$state/last-crash.txt" 2>/dev/null
-  echo "--- ANR logcat ---"
-  head -c 2500 "$state/anr-logcat.txt" 2>/dev/null
+  echo "--- ANR: raison (logcat) ---"
+  head -c 900 "$state/anr-logcat.txt" 2>/dev/null
+  echo "--- ANR: pile du thread principal de l'application ---"
+  head -c 2600 "$state/anr-main.txt" 2>/dev/null
+  echo "--- ANR: en-tete du processus ---"
+  head -c 400 "$state/anr-app.txt" 2>/dev/null
+  echo "--- chien de garde (last_crash) ---"
+  head -c 700 "$state/last-crash.txt" 2>/dev/null
   echo "--- MDXTRACE startup chain ---"
   head -c 8000 "$state/trace.txt" 2>/dev/null
   echo "--- fatal ---"

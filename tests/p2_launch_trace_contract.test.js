@@ -72,7 +72,30 @@ test('the trace proves why the process hangs, not only that it hangs', () => {
   // in /data/anr; the app's own watchdog stores the main-thread stack too.
   assert.match(script, /\/data\/anr\/traces\.txt/, 'la pile ANR du systeme est lue');
   assert.match(script, /adb shell ls \/data\/anr\//, 'les fichiers anr_* recents sont lus');
-  assert.match(script, /grep -n -A 60 'ANR in'/, 'le bloc ANR de logcat est extrait');
+  assert.match(script, /grep -n -A 12 'ANR in'/, 'le bloc ANR de logcat est extrait');
   assert.match(script, /last-crash\.txt/, 'la pile du chien de garde est conservee');
-  assert.match(script, /--- ANR: pile du thread principal ---/, 'la pile apparait dans le rapport');
+  assert.match(script, /--- ANR: pile du thread principal de l'application ---/, 'la pile apparait dans le rapport');
+});
+
+test('the ANR stack comes from this app, not from system_server', () => {
+  const script = readScript();
+  // A bare grep for "main" matched system_server and reported telephony code:
+  // an answer about the wrong process. The block is selected by "Cmd line:".
+  assert.match(script, /awk -v pkg="\$package_id" '\/Cmd line: \/\{keep=\(\$0 ~ pkg\)\} keep'/);
+  assert.match(script, /anr-app\.txt/, 'le bloc du processus est conserve');
+  assert.match(script, /grep -A 45 '\^"main"' "\$state\/anr-app\.txt"/,
+    'la pile du thread principal est prise dans ce bloc');
+  assert.match(script, /--- ANR: raison \(logcat\) ---/, 'la raison de l ANR est en tete');
+});
+
+test('the trace survives an ANR instead of freezing on the dialog', () => {
+  const script = readScript();
+  // The dialog owns the screen and every later sample would only photograph it.
+  assert.match(script, /dismiss_anr\(\) \{/);
+  assert.match(script, /input tap/);
+  assert.match(script, /isn't responding/);
+  const loop = script.match(/for wait_s in ([0-9 ]+); do/);
+  const delays = loop[1].trim().split(/\s+/).map(Number);
+  assert.ok(delays[delays.length - 1] >= 90,
+    'la capture continue apres l ANR pour voir si l application se retablit');
 });
