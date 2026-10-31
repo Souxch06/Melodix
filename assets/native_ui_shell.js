@@ -470,6 +470,51 @@
         return rows;
     }
 
+    // One conversion for every place the account library reaches the native
+    // side: Home merge, library tab and category chips. Same rules everywhere,
+    // so a playlist can never look different depending on where it was opened.
+    function libraryItemsToRows(groupKey, section, limit, seen, out) {
+        var library = window.mediaLib;
+        var items = library && Array.isArray(library[groupKey]) ? library[groupKey] : [];
+        items.forEach(function(item) {
+            var uri = nativeSpotifyUri(item && (item.uri || item.id || item.href));
+            var title = String(item && (item.name || item.title) || '').trim();
+            var artistList = item && Array.isArray(item.artists)
+                ? item.artists.filter(Boolean).join(', ')
+                : '';
+            var subtitle = String(artistList || item && (item.owner || item.description || item.type) || '').trim();
+            var img = safeSpotifyImage(item && (item.image || item.cover || item.artwork) || '');
+            if (!img && (title === 'Liked Songs' || /collection/i.test(uri))) {
+                img = 'https://misc.scdn.co/liked-songs/liked-songs-640.png';
+            }
+            if (!uri || !title || seen.has(uri) || out.length >= limit) return;
+            seen.add(uri);
+            out.push({
+                title: title,
+                subtitle: subtitle,
+                section: section,
+                image: img,
+                uri: uri
+            });
+        });
+        return out;
+    }
+
+    // Rows already known from the account library, without touching the page.
+    // The library tab used to reload the whole Spotify page even when every
+    // playlist was already in memory; that navigation is now the fallback.
+    function libraryRowsForCategory(key) {
+        var groups = {
+            playlists: 'Vos playlists',
+            albums: 'Albums enregistrés',
+            artists: 'Artistes suivis',
+            podcasts: 'Podcasts'
+        };
+        var section = groups[String(key || '').toLowerCase()];
+        if (!section) return [];
+        return libraryItemsToRows(String(key).toLowerCase(), section, 40, new Set(), []);
+    }
+
     function supplementHomeRowsWithLibrary(rows) {
         var library = window.mediaLib;
         var groups = [
@@ -501,28 +546,7 @@
 
         if (library) {
             groups.forEach(function(group) {
-                var items = Array.isArray(library[group[0]]) ? library[group[0]] : [];
-                items.forEach(function(item) {
-                    var uri = nativeSpotifyUri(item && (item.uri || item.id || item.href));
-                    var title = String(item && (item.name || item.title) || '').trim();
-                    var artistList = item && Array.isArray(item.artists)
-                        ? item.artists.filter(Boolean).join(', ')
-                        : '';
-                    var subtitle = String(artistList || item && (item.owner || item.description || item.type) || '').trim();
-                    var img = safeSpotifyImage(item && (item.image || item.cover || item.artwork) || '');
-                    if (!img && (title === 'Liked Songs' || /collection/i.test(uri))) {
-                        img = 'https://misc.scdn.co/liked-songs/liked-songs-640.png';
-                    }
-                    if (!uri || !title || seen.has(uri) || userRows.length >= 12) return;
-                    seen.add(uri);
-                    userRows.push({
-                        title: title,
-                        subtitle: subtitle,
-                        section: group[1],
-                        image: img,
-                        uri: uri
-                    });
-                });
+                libraryItemsToRows(group[0], group[1], 12, seen, userRows);
             });
         }
 
@@ -2303,6 +2327,8 @@
     // The library tab always means the playlists filter, so that route is a
     // no-op; another collection page is opened to match the selected chip.
     window.__sfOpenLibrary = function() {
+        var local = libraryRowsForCategory('playlists');
+        if (local.length > 0 && sendNativeUiData('media:playlists', local)) return true;
         var pending = bridgeMediaItemsOrNull('playlists');
         if (pending) {
             pending.then(function(items) {
@@ -2318,6 +2344,8 @@
     window.__sfOpenLibraryCategory = function(tag) {
         var key = String(tag || '').trim().toLowerCase();
         var target = LIBRARY_CATEGORY_PATHS[key] || '/collection/playlists';
+        var localRows = libraryRowsForCategory(key);
+        if (localRows.length > 0 && sendNativeUiData('media:' + key, localRows)) return true;
         var pending = bridgeMediaItemsOrNull(key || 'playlists');
         if (pending) {
             pending.then(function(items) {

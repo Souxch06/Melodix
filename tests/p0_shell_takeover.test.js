@@ -405,3 +405,53 @@ test('the same playlist from the page and the library is merged once', () => {
     const uris = rows.map((row) => row.uri);
     assert.equal(new Set(uris).size, uris.length, 'aucune URI dupliquee dans le payload');
 });
+
+// P1 navigation: when the account library is already in memory, the Library
+// tab must render it immediately. It used to reload the whole Spotify page
+// even though every playlist was already known - a slow, wasteful navigation
+// that also lost the user's scroll position.
+test('the library tab renders the known library without reloading the page', () => {
+    const { win, calls, navigations } = loadShell({
+        withCards: false,
+        mediaLib: {
+            playlists: [
+                { id: 'spotify:playlist:lib1', name: 'Mes favoris', image: 'https://i.scdn.co/image/lib1' },
+                { id: 'https://open.spotify.com/playlist/lib2', name: 'Week-end', image: 'https://i.scdn.co/image/lib2' }
+            ]
+        }
+    });
+    const ok = win.__sfOpenLibrary();
+    assert.equal(ok, true, 'the tap is handled immediately');
+    assert.deepEqual(navigations, [], 'aucun rechargement de page');
+    const media = calls.data.filter((call) => call.screen === 'media:playlists');
+    assert.ok(media.length >= 1, 'the library rows are sent to the native list');
+    const rows = media[media.length - 1].rows;
+    assert.deepEqual(Array.from(rows, (row) => row.title), ['Mes favoris', 'Week-end']);
+    assert.deepEqual(Array.from(rows, (row) => row.uri),
+        ['spotify:playlist:lib1', 'spotify:playlist:lib2'],
+        'les URI reelles sont normalisees');
+    assert.ok(rows.every((row) => row.section === 'Vos playlists'), 'la section est renseignee');
+});
+
+test('a library chip also renders its known rows before navigating', () => {
+    const { win, calls, navigations } = loadShell({
+        withCards: false,
+        mediaLib: {
+            albums: [{ id: 'spotify:album:alb1', name: 'Album enregistre' }]
+        }
+    });
+    win.__sfOpenLibraryCategory('albums');
+    assert.deepEqual(navigations, [], 'pas de navigation quand les donnees sont deja la');
+    const media = calls.data.filter((call) => call.screen === 'media:albums');
+    assert.ok(media.length >= 1, 'les albums connus sont peints');
+    assert.equal(media[media.length - 1].rows[0].title, 'Album enregistre');
+});
+
+test('an empty category still navigates to its real page', async () => {
+    const { win, navigations } = loadShell({ withCards: true, mediaLib: { playlists: [] } });
+    win.fetchMediaItems = async () => [];
+    win.__sfOpenLibraryCategory('albums');
+    await new Promise((resolve) => setTimeout(resolve, 5));
+    assert.deepEqual(navigations, ['https://open.spotify.com/collection/albums'],
+        'le repli reel reste la navigation');
+});
