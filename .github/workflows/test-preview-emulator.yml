@@ -230,6 +230,7 @@ jobs:
           adb exec-out screencap -p > "$state_dir/preview-launch.png"
           python3 - "$state_dir/window.xml" "$state_dir/launch-summary.json" <<'PY'
           import json
+          import os
           import re
           import sys
           import xml.etree.ElementTree as ET
@@ -254,7 +255,7 @@ jobs:
           }
           with open(json_path, "w", encoding="utf-8") as output:
               json.dump(state, output, indent=2)
-          print(
+          summary_line = (
               "Preview first launch: "
               f"network_error={str(state['network_error_visible']).lower()}, "
               f"webview_error_code={str(state['webview_error_code_visible']).lower()}, "
@@ -263,6 +264,12 @@ jobs:
               f"native_home_tab_accessibility={str(state['native_home_tab_accessibility_visible']).lower()}, "
               f"visible_bounds={str(state['ui_hierarchy_has_visible_bounds']).lower()}"
           )
+          print(summary_line)
+          print(f"::notice title=Android first-launch UI::{summary_line}")
+          with open(os.environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8") as output:
+              output.write("### First-launch UI hierarchy (redacted)\n\n")
+              for key, value in state.items():
+                  output.write(f"- {key}: {str(value).lower()}\n")
           PY
 
           resumed="$(adb shell dumpsys activity activities | grep -F 'com.melodix.music.preview/com.melodix.music.MainActivity' | head -n 1 || true)"
