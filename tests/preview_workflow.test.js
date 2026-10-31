@@ -19,3 +19,12 @@ test('Preview workflow requires an explicit full source SHA instead of defaultin
     assert.match(workflow, /INPUT_SOURCE_REF: \$\{\{ inputs\.source_ref \|\| github\.sha \}\}/);
 });
 
+test('build-only Preview APK can update test.91 without publishing a tag or release', () => {
+    assert.match(workflow, /should_publish='false'[\s\S]*?tag='v1\.2\.2-test\.92-preview'/,
+        'build-only keeps the Preview versionCode above the last published APK');
+    assert.match(workflow, /name: Upload APK as workflow artifact[\s\S]*?retention-days: 14/,
+        'the APK is available only as a short-lived action artifact');
+    assert.match(workflow, /name: Create preview release and attach APK[\s\S]*?if: steps\.release\.outputs\.should_publish == 'true'/,
+        'release creation stays conditional and skipped for [skip-release]');
+});
+

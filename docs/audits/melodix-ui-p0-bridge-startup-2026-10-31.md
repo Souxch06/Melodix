@@ -45,8 +45,9 @@ Les sources lisibles sont désormais `scripts/native_ui_shell.source.js` et `scr
 
 ## Vérifications et limites
 
-- Tests P0 ciblés sur le chargement, les assets, la politique de whitelist, les callbacks natifs, la structure Smali et l’accueil/navigation : **217/217 réussis**.
+- Tests P0 ciblés sur le chargement, les assets, la politique de whitelist, les callbacks natifs, la structure Smali et l’accueil/navigation : **217/217 réussis**. Tests de workflow APK : **2/2 réussis**.
 - `node --check` sur les sources et bundles modifiés, `bash -n scripts/build_runtime_assets.sh`, et `git diff --check` : réussis.
-- Suite complète `node --test tests/*.test.js` : **334/335**. L’unique échec restant est le test historique `auth and WebView code do not capture credentials or proxy Spotify requests`, dont une assertion interdit des noms de scripts pourtant toujours conditionnellement référencés dans `c91.smali`; aucun code d’authentification n’a été modifié dans cette mission. Le test d’inventaire `JavascriptInterface` passe maintenant en incluant les sources actives et le contrôle natif `isSignatureValid`.
-- L’assemblage local Android n’est pas disponible ici (`java`/Apktool absents); le build-only GitHub Actions doit fournir l’APK et vérifier l’assemblage Smali.
+- Suite complète `node --test tests/*.test.js` : **335/336**. L’unique échec restant est le test historique `auth and WebView code do not capture credentials or proxy Spotify requests`, dont une assertion interdit des noms de scripts pourtant toujours conditionnellement référencés dans `c91.smali`; aucun code d’authentification n’a été modifié dans cette mission. Le test d’inventaire `JavascriptInterface` passe maintenant en incluant les sources actives et le contrôle natif `isSignatureValid`.
+- Le mode `[skip-release]` utilise désormais l’identifiant d’artefact `v1.2.2-test.92` pour garder un `versionCode` supérieur à test.91, mais la création de release reste explicitement désactivée.
+- L’assemblage local Android n’est pas disponible ici (`java`/Apktool absents); le build-only GitHub Actions assemble et signe l’APK ainsi que l’assemblage Smali.
 - Les tests statiques ou la réussite d’un build ne remplacent pas un lancement sur l’appareil concerné. Une validation réelle reste nécessaire; si l’accueil est encore absent, le nouveau rapport doit inclure `bridgeReadExpected/Received/Complete`, `bridgeExecSteps`, `bridgeCspViolation`, `nativeUiReadyNotified`, `nativeUiShowMethodCalled` et `nativeUiRootFound`.
