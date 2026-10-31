@@ -7535,12 +7535,17 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
     invoke-virtual {p1, v0}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
     move-result v1
     if-eqz v1, :check_player
+    # Detail rows belong to the detail screen and nowhere else. The condition
+    # used to be inverted: the payload was dropped when the user actually was
+    # on the detail screen (so a freshly opened playlist stayed empty for ever)
+    # and painted when they were on Home (so playlist tracks could replace the
+    # Home shelf while the tab still said Home).
     iget-object v2, p0, Lcom/melodix/music/MainActivity;->nativeCurrentScreen:Ljava/lang/String;
     if-eqz v2, :apply_done
     const-string v3, "detail"
     invoke-virtual {v2, v3}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
     move-result v4
-    if-eqz v4, :apply_done
+    if-nez v4, :apply_done
     iget-object v2, p0, Lcom/melodix/music/MainActivity;->nativeCurrentTitle:Ljava/lang/String;
     if-eqz v2, :native_route_default_title
     invoke-virtual {p0, v2, p2}, Lcom/melodix/music/MainActivity;->renderNativeRows(Ljava/lang/String;Ljava/lang/String;)V

@@ -1303,3 +1303,35 @@ test('tapping the active Home tab keeps the rows instead of blanking the shelf',
     assert.ok(renderLabelAt > 0 && emptyRenderAt > renderLabelAt,
         'le rendu vide reste sur le chemin d un changement d onglet');
 });
+
+test('detail rows are applied on the detail screen and nowhere else', () => {
+    const activity = read('smali/com/melodix/music/MainActivity.smali');
+    const start = activity.indexOf('.method public final applyNativeUiData');
+    const body = activity.slice(start, activity.indexOf('.end method', start));
+    // Anchor on the label definitions: indexOf(':label') would find the jump
+    // target first, which sits earlier in the method.
+    const detailAt = body.indexOf('\n    :check_detail_data\n');
+    const playerAt = body.indexOf('\n    :check_player\n');
+    assert.ok(detailAt > 0 && playerAt > detailAt, 'la branche detail est bien identifiee');
+    const branch = body.slice(detailAt, playerAt);
+
+    // Tapping a playlist sets the screen to "detail" BEFORE the tracks arrive.
+    // Dropping the payload when the screen is already "detail" left every
+    // playlist empty; painting it elsewhere put playlist tracks over Home.
+    assert.match(branch, /if-eqz v2, :apply_done/, 'un ecran courant absent est ignore');
+    assert.match(branch, /if-nez v4, :apply_done/,
+        'les morceaux sont ignores hors de l ecran detail');
+    assert.doesNotMatch(branch, /if-eqz v4, :apply_done/,
+        'le cas "deja sur detail" ne jette plus les morceaux');
+    assert.match(branch, /renderNativeRows/, 'les morceaux sont bien rendus');
+});
+
+test('a playlist tap always lands on a non-empty detail payload path', () => {
+    const activity = read('smali/com/melodix/music/MainActivity.smali');
+    const start = activity.indexOf('.method public final openNativeRow');
+    const body = activity.slice(start, activity.indexOf('.end method', start));
+    // The row handler must set the screen to detail and ask the shell to open
+    // the collection, otherwise no detail payload can ever arrive.
+    assert.match(body, /const-string v1, "detail"[\s\S]{0,200}setNativeScreen/);
+    assert.match(body, /window\.__sfOpenCollection/);
+});
