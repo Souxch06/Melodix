@@ -2,7 +2,8 @@
 
 - **Date :** 31 octobre 2026
 - **Branche :** `arena/7142700d-melodix` (PR #7 et `main` laissées intactes)
-- **Préversion précédente :** `v1.2.2-test.88-preview`
+- **Préversion précédente :** `v1.2.2-test.88-preview` (release retirée après publication de test.89)
+- **Préversion courante :** [v1.2.2-test.89-preview](https://github.com/Souxch06/Melodix/releases/tag/v1.2.2-test.89-preview)
 - **Conclusion :** un lancement automatique du CTA Spotify est une cause directe très plausible; la capture ne permet pas encore de confirmer quelle préversion était installée ni de prouver le chemin d’exécution sur le téléphone.
 
 ## Observation et limites de preuve
@@ -38,7 +39,9 @@ Deux chemins de démarrage cliquaient automatiquement le CTA `data-testid=web-pl
 - Suite complète Node : **323/325**. Les deux échecs connus et indépendants de cette correction sont :
   - `auth and WebView code do not capture credentials or proxy Spotify requests` — assertion existante incompatible avec les scripts encore référencés dans `c91.smali`;
   - `JavascriptInterface annotations are limited to bridge methods used by active JavaScript` — le test ne prend pas en compte les appels du nouveau shell natif.
-- **Build Android et essai sur téléphone :** à renseigner après CI et test réel. Les validations locales n’établissent pas que l’interface Melodix fonctionne sur l’appareil.
+- Build/signature/publication : [CI 41198678469](https://github.com/Souxch06/Melodix/actions/runs/41198678469), **succès**. APK `Melodix-Preview-v1.2.2-test89.apk`, SHA-256 `10ba68c341efa0e52c5c5bd53535d5f1b79fa07fddcb65637d88fdb2dab4ff8c`.
+- Politique de releases vérifiée : seule la release publique `test.89` reste; la release `test.88` a été supprimée, son tag Git et les commits restent intacts.
+- **Essai sur téléphone : non effectué.** La compilation CI et les tests statiques ne prouvent pas que l’interface Melodix s’affiche sur l’appareil.
 
 ## Suite nécessaire
 

@@ -4,6 +4,11 @@ Document de travail, mis à jour à chaque lot de corrections.
 Branche : `arena/7142700d-melodix` (aucune autre branche touchée, `main` et
 PR #7 intacts).
 
+> **Mise à jour du 31/10/2026 — état courant :** les sections historiques ci-dessous décrivent
+> l’état `test.86`. Le diagnostic de la capture Spotify native, le correctif CTA et les preuves
+> actuelles sont dans [`docs/audits/melodix-web-player-cta-handoff-2026-10-31.md`](audits/melodix-web-player-cta-handoff-2026-10-31.md).
+> La seule release publique est maintenant [`v1.2.2-test.89-preview`](https://github.com/Souxch06/Melodix/releases/tag/v1.2.2-test.89-preview); `test.88` a été retirée, sans suppression de son tag Git. La CI de `test.89` est verte, mais aucun test sur l’appareil n’a encore confirmé l’interface.
+
 Ce rapport sépare systématiquement quatre niveaux de preuve :
 
 | Niveau | Signification |
