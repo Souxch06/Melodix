@@ -97,19 +97,20 @@
     check-cast v1, Landroid/webkit/WebView;
     if-eqz v1, :return
 
-    # An engine with no page at all is the failure measured on a real device:
-    # url=null progress=100, and not a single page-finished stage. The native
-    # shell had been displayed over an empty WebView. Retry the first load
-    # once from the Java side instead of only waiting for a page that was
-    # never requested.
+    # Null or about:blank means no usable page is present. The previous
+    # if-eqz branch sent the null case PAST the retry; only a non-empty URL
+    # should take the fast path. This watchdog is armed from C() even when
+    # onPageStarted never fires, so it can recover a missing first request.
     invoke-virtual {v1}, Landroid/webkit/WebView;->getUrl()Ljava/lang/String;
     move-result-object v2
-    if-eqz v2, :webview_has_page
+    if-eqz v2, :load_retry
 
-    invoke-virtual {v1}, Landroid/webkit/WebView;->getOriginalUrl()Ljava/lang/String;
-    move-result-object v2
-    if-eqz v2, :webview_has_page
+    const-string v3, "about:blank"
+    invoke-virtual {v3, v2}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    move-result v3
+    if-eqz v3, :webview_has_page
 
+    :load_retry
     const-string v2, "load-retry"
     invoke-static {v2}, Lcom/melodix/music/NativeCrashGuard;->stage(Ljava/lang/String;)V
 

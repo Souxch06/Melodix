@@ -415,6 +415,10 @@
     # is showing an empty document. Both are repaired. Anything else returns
     # immediately, so onResume can never reload the player while it is used.
     :try_start_all
+    const-string v1, "ensure-check"
+
+    invoke-static {v1}, Lcom/melodix/music/NativeCrashGuard;->stage(Ljava/lang/String;)V
+
     iget-object v0, p0, Lcom/melodix/music/MainActivity;->G:Landroid/webkit/WebView;
 
     if-eqz v0, :done
@@ -423,17 +427,18 @@
 
     move-result-object v1
 
-    if-nez v1, :do_load
+    # Null means no navigation was ever requested. A real URL is already
+    # usable; only about:blank is the other empty state. Compare from the
+    # non-null constant so the null path never dereferences v1.
+    if-eqz v1, :do_load
 
     const-string v2, "about:blank"
 
-    invoke-virtual {v1, v2}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    invoke-virtual {v2, v1}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
 
     move-result v1
 
-    if-eqz v1, :do_load
-
-    goto :done
+    if-eqz v1, :done
 
     :do_load
     # Same two targets the factory uses: the player once the session is proven,
@@ -508,6 +513,10 @@
     # singleton re-bound to a new activity never loads a page. Guarantee one
     # here, before anything else touches the view.
     invoke-virtual {p0}, Lcom/melodix/music/MainActivity;->ensureWebPageLoaded()V
+
+    # A page that never starts cannot trigger onPageStarted's watchdog arm.
+    # Always schedule the one-shot recovery after binding the view.
+    invoke-static {v0}, Lcom/melodix/music/StartupLoadWatchdog;->armAfterResume(Landroid/webkit/WebView;)V
 
     .line 8
     .line 9

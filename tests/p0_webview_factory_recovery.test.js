@@ -46,10 +46,13 @@ test('a failed configuration step keeps the WebView instead of discarding it', (
         'le WebView deja construit ne doit plus etre jete'
     );
 
-    // The reason is recorded, and a load that never started is retried once.
+    // The reason is recorded. A retry is allowed only when getUrl is null or
+    // about:blank; a real URL must take the keep path (branch polarity matters).
     assert.match(handlerBody, /NativeCrashGuard;->recordWebViewConfigFailure\(Ljava\/lang\/Throwable;\)V/);
-    assert.match(handlerBody, /Landroid\/webkit\/WebView;->getOriginalUrl\(\)/,
-        'le rechargement ne doit pas doubler une page deja lancee');
+    assert.match(handlerBody, /Landroid\/webkit\/WebView;->getUrl\(\)Ljava\/lang\/String;/);
+    assert.match(handlerBody, /if-eqz v2, :retry_without_page/);
+    assert.match(handlerBody, /invoke-virtual \{v3, v2\}, Ljava\/lang\/String;->equals\(Ljava\/lang\/Object;\)Z/);
+    assert.match(handlerBody, /if-eqz v3, :keep_webview/);
     assert.match(handlerBody, /Landroid\/webkit\/WebView;->loadUrl\(Ljava\/lang\/String;\)V/);
 
     // The WebView constructor failure keeps its own handler: nothing to keep.
@@ -85,24 +88,27 @@ test('a device without a WebView gets an explanation, never a black screen', () 
         'D(true) efface le splash et laisse un ecran noir sans moteur');
 });
 
-// Second device report (same tablet, build 1b1e533): the engine now EXISTS
-// (url=null instead of "<webview absente>") but no page was ever requested -
-// progress=100, chargement=false, and not a single page-finished stage. The
-// splash stayed, the watchdog declared CONTENT STUCK 60 s later. Two separate
-// ways of reaching that state had to be closed.
+// Follow-up device report (same tablet, test.85 / 4a4c05a) still showed
+// url=null, progress=100, CONTENT STUCK, and JS running on about:blank. Review
+// of the actual control flow found three inverted null/empty branches: the
+// factory skipped the first request, ensure dereferenced null and swallowed
+// the exception, and the watchdog skipped its retry. Tests below assert the
+// branch polarity, not merely the presence of URL strings or labels.
 
-test('the first load no longer depends on the native shell being hidden', () => {
+test('a fresh WebView always requests its first page (no inverted null guard)', () => {
     const factory = read('smali/m9.smali');
     const body = methodBody(factory, '.method public static g(Landroid/content/Context;)Landroid/webkit/WebView;');
-    const beforeLoad = body.slice(body.indexOf('setWebViewClient'), body.indexOf('loadUrl'));
+    const creationPath = body.slice(body.indexOf('setWebViewClient'), body.indexOf('\n    :catchall_1\n'));
+    const instructions = creationPath.split('\n').filter((line) => !line.trimStart().startsWith('#')).join('\n');
 
-    // AppSingleton.l ("shell displayed") skipped the only load: when the startup
-    // safety net showed the shell before the engine existed, nothing ever loaded.
-    assert.doesNotMatch(beforeLoad, /AppSingleton;->l:Z/,
-        'le premier chargement ne doit plus dependre de la coque affichee');
-    assert.match(beforeLoad, /Landroid\/webkit\/WebView;->getOriginalUrl\(\)Ljava\/lang\/String;/,
-        'la decision doit venir de l\'etat du WebView lui-meme');
-    assert.match(body, /:load_first_page/);
+    // This branch only runs for a newly constructed WebView. It must not gate
+    // the one initial request on either the native-shell flag or a null URL.
+    assert.doesNotMatch(instructions, /AppSingleton;->l:Z/);
+    assert.doesNotMatch(instructions, /getOriginalUrl/,
+        'un WebView neuf est vide par definition: null ne doit pas sauter loadUrl');
+    assert.match(instructions, /:load_first_page[\s\S]*WebView;->loadUrl\(Ljava\/lang\/String;\)V/);
+    assert.equal((instructions.match(/const-string v1, "factory-load"/g) || []).length, 2,
+        'les deux routes legitimes (connexion ou lecteur) doivent confirmer la demande native');
 });
 
 test('C() guarantees a page load right after the WebView is stored', () => {
@@ -110,8 +116,10 @@ test('C() guarantees a page load right after the WebView is stored', () => {
     const body = methodBody(activity, '.method public final C()V');
     const stored = body.indexOf('iput-object v0, p0, Lcom/melodix/music/MainActivity;->G:Landroid/webkit/WebView;');
     const ensured = body.indexOf('MainActivity;->ensureWebPageLoaded()V');
+    const armed = body.indexOf('StartupLoadWatchdog;->armAfterResume(Landroid/webkit/WebView;)V');
     assert.ok(stored > 0, 'le WebView est affecte a G');
     assert.ok(ensured > stored, 'ensureWebPageLoaded est appelee juste apres');
+    assert.ok(armed > ensured, 'un filet de 8 s est arme meme si onPageStarted ne survient jamais');
 });
 
 test('ensureWebPageLoaded is idempotent, uses the same target and never hides a failure', () => {
@@ -121,8 +129,16 @@ test('ensureWebPageLoaded is idempotent, uses the same target and never hides a 
     // Idempotent: a real page on screen returns immediately, so onResume can
     // never reload the player while the user is listening. A null URL or an
     // empty document is repaired.
+    assert.match(body, /const-string v1, "ensure-check"/);
     assert.match(body, /getUrl\(\)Ljava\/lang\/String;/);
-    assert.match(body, /const-string v2, "about:blank"/);
+    assert.match(body, /if-eqz v1, :do_load/,
+        'getUrl()==null doit aller directement au chargement, pas dereferencer null');
+    assert.match(body, /const-string v2, "about:blank"[\s\S]*invoke-virtual \{v2, v1\}, Ljava\/lang\/String;->equals\(Ljava\/lang\/Object;\)Z[\s\S]*move-result v1[\s\S]*if-eqz v1, :done/,
+        'about:blank se charge, une URL reelle ne se recharge pas');
+    assert.doesNotMatch(body, /if-nez v1, :do_load/,
+        'une URL reelle ne doit pas provoquer un rechargement');
+    assert.doesNotMatch(body, /invoke-virtual \{v1, v2\}, Ljava\/lang\/String;->equals/,
+        'le code ne doit jamais invoquer equals sur une URL potentiellement nulle');
     assert.match(body, /:do_load/);
 
     // Same URLs as the factory, so the login flow is not altered.
@@ -141,8 +157,22 @@ test('ensureWebPageLoaded is idempotent, uses the same target and never hides a 
 test('the load watchdog retries a WebView that never requested a page', () => {
     const watchdog = read('smali/com/melodix/music/StartupLoadWatchdog.smali');
     const body = methodBody(watchdog, '.method public final run()V');
+    const decision = body.slice(body.indexOf('WebView;->getUrl'), body.indexOf('const-string v2, "load-retry"'));
+    assert.match(decision, /if-eqz v2, :load_retry/,
+        'une URL nulle doit prendre la branche de relance');
+    assert.match(decision, /const-string v3, "about:blank"[\s\S]*invoke-virtual \{v3, v2\}, Ljava\/lang\/String;->equals\(Ljava\/lang\/Object;\)Z[\s\S]*if-eqz v3, :webview_has_page/,
+        'une URL reelle saute la relance, about:blank y entre');
     assert.match(body, /const-string v2, "load-retry"/);
     assert.match(body, /MainActivity;->ensureWebPageLoaded\(\)V/);
     // The retry is guarded by the WebView's own state, not by a timer alone.
     assert.match(body, /:webview_has_page/);
+});
+
+test('the latest report failure mode cannot silently take the blank-page fast path', () => {
+    const watchdog = read('smali/com/melodix/music/StartupLoadWatchdog.smali');
+    const body = methodBody(watchdog, '.method public final run()V');
+    const decision = body.slice(body.indexOf('WebView;->getUrl'), body.indexOf('const-string v2, "load-retry"'));
+    assert.doesNotMatch(decision, /if-eqz v2, :webview_has_page/,
+        'la polarite du branchement precedent sautait la relance quand getUrl() etait null');
+    assert.match(decision, /if-eqz v2, :load_retry/);
 });

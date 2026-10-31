@@ -1596,22 +1596,10 @@
     .line 273
     .line 274
     .line 275
-    # Load the first page whenever THIS WebView has never requested one.
-    #
-    # The old condition was AppSingleton.l, "the native shell is displayed".
-    # On a real device (url=null progress=100, no page-finished stage) the
-    # shell had been shown by the startup safety net before the engine was
-    # created, so this branch skipped the one and only load and the app kept
-    # an empty WebView for the whole session: a shell over nothing.
-    # What matters here is the WebView's own state, not the shell's.
-    invoke-virtual {p0}, Landroid/webkit/WebView;->getOriginalUrl()Ljava/lang/String;
-
-    move-result-object v0
-
-    if-nez v0, :load_first_page
-
-    goto :cond_9
-
+    # This path is reached only after constructing a brand-new WebView. It
+    # cannot already contain a page, so request the first page unconditionally.
+    # The prior null check was backwards: getOriginalUrl()==null branched past
+    # loadUrl, leaving precisely the about:blank view seen on the TB125FU.
     :load_first_page
 
     .line 278
@@ -1644,6 +1632,10 @@
     .line 289
     invoke-virtual {p0, v0}, Landroid/webkit/WebView;->loadUrl(Ljava/lang/String;)V
 
+    const-string v1, "factory-load"
+
+    invoke-static {v1}, Lcom/melodix/music/NativeCrashGuard;->stage(Ljava/lang/String;)V
+
     .line 290
     .line 291
     .line 292
@@ -1664,6 +1656,10 @@
     .line 294
     .line 295
     invoke-virtual {p0, v0}, Landroid/webkit/WebView;->loadUrl(Ljava/lang/String;)V
+
+    const-string v1, "factory-load"
+
+    invoke-static {v1}, Lcom/melodix/music/NativeCrashGuard;->stage(Ljava/lang/String;)V
 
     .line 296
     .line 297
@@ -1700,16 +1696,29 @@
 
     invoke-static {v0}, Lcom/melodix/music/NativeCrashGuard;->recordWebViewConfigFailure(Ljava/lang/Throwable;)V
 
+    const-string v2, "factory-config-failed"
+
+    invoke-static {v2}, Lcom/melodix/music/NativeCrashGuard;->stage(Ljava/lang/String;)V
+
     sget-object v1, Lcom/melodix/music/AppSingleton;->w:Ll9;
 
     if-eqz v1, :keep_webview
 
-    invoke-virtual {v1}, Landroid/webkit/WebView;->getOriginalUrl()Ljava/lang/String;
+    invoke-virtual {v1}, Landroid/webkit/WebView;->getUrl()Ljava/lang/String;
 
     move-result-object v2
 
-    if-eqz v2, :keep_webview
+    if-eqz v2, :retry_without_page
 
+    const-string v3, "about:blank"
+
+    invoke-virtual {v3, v2}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+
+    move-result v3
+
+    if-eqz v3, :keep_webview
+
+    :retry_without_page
     :try_start_retry
     const-string v2, "https://accounts.spotify.com/en/login?continue=https%3A%2F%2Fopen.spotify.com%2F&allow_signup=1"
 
