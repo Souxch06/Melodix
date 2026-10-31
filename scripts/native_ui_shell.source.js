@@ -183,6 +183,26 @@
         }
     }
 
+    // Route changes precede payloads on the native UI queue. This prevents the
+    // first Home payload from being rendered as a generic list (or discarded
+    // as stale data from a previous screen). Repeat only when the route changes.
+    function sendNativeUiRoute(screen) {
+        var bridge = window.AndBridge;
+        var route = String(screen || 'home');
+        if (!bridge || typeof bridge.onNativeUiRoute !== 'function') return false;
+        if (window.__sfNativeUiLastRouteSent === route) return true;
+        try {
+            bridge.onNativeUiRoute(route);
+            window.__sfNativeUiLastRouteSent = route;
+            window.__sfNativeUiRoute = route;
+            diagTrace('native-route queued screen=' + route);
+            return true;
+        } catch (_) {
+            diagTrace('native-route failed screen=' + route);
+            return false;
+        }
+    }
+
     function spotifyResourceUri(href) {
         var url;
         try {
@@ -692,6 +712,9 @@
     function homeDiagRow(reason) {
         var bridge = window.AndBridge;
         var label = '?';
+        var webCards = window.__sfMelodixHomeSourceCardCount;
+        if (typeof webCards !== 'number' || !isFinite(webCards)) webCards = '?';
+        else webCards = Math.max(0, Math.min(999, Math.floor(webCards)));
         try {
             if (bridge && typeof bridge.getBuildLabel === 'function') label = String(bridge.getBuildLabel() || '?');
         } catch (_) {}
@@ -700,7 +723,11 @@
             subtitle: 'build ' + label + ' | page ' + spotifyRoutePath() +
                 ' | bridge ' + (bridgeHasStarted() ? 'oui' : 'non') +
                 ' | mediaLib ' + (window.__sfMediaLibStatus || '?') +
-                ' | rows ' + (window.__sfNativeUiHomeRowsCount || 0) +
+                ' | web mode ' + String(window.__sfMelodixHomeGuiMode || '?').slice(0, 24) +
+                ' | web styles ' + (window.__sfMelodixHomeStylesReady ? 'oui' : 'non') +
+                ' | web cards ' + webCards +
+                ' | native DOM rows ' + (window.__sfNativeUiHomeDomRowsCount || 0) +
+                ' | native total rows ' + (window.__sfNativeUiHomeRowsCount || 0) +
                 ' | ' + (reason || ''),
             section: 'État de l’accueil',
             image: '',
@@ -709,18 +736,36 @@
     }
 
     function updateHomeRows(mainView) {
+        var scrapedRows;
         var rows;
         var signature;
+        var countSignature;
+        var webCards;
         var homeRoute = window.location.hostname === 'open.spotify.com' && isSpotifyHome();
         window.__sfNativeUiHomeRouteRecognized = homeRoute;
         if (!homeRoute || !mainView) {
+            lastHomeSignature = null;
+            window.__sfNativeUiHomeRowsCount = 0;
+            window.__sfNativeUiHomeDomRowsCount = 0;
+            window.__sfNativeUiHomeCountTraceSignature = '';
             clearHomeRetry();
             return;
         }
 
-        rows = supplementHomeRowsWithLibrary(collectHomeRows(mainView));
+        scrapedRows = collectHomeRows(mainView);
+        window.__sfNativeUiHomeDomRowsCount = scrapedRows.length;
+        rows = supplementHomeRowsWithLibrary(scrapedRows);
         signature = JSON.stringify(rows);
         window.__sfNativeUiHomeRowsCount = rows.length;
+        webCards = window.__sfMelodixHomeSourceCardCount;
+        if (typeof webCards !== 'number' || !isFinite(webCards)) webCards = '?';
+        else webCards = Math.max(0, Math.min(999, Math.floor(webCards)));
+        countSignature = [webCards, scrapedRows.length, rows.length].join('|');
+        if (window.__sfNativeUiHomeCountTraceSignature !== countSignature) {
+            window.__sfNativeUiHomeCountTraceSignature = countSignature;
+            diagTrace('home-card-counts web=' + webCards + ' native-dom=' + scrapedRows.length +
+                ' native-total=' + rows.length + ' route=' + spotifyRoutePath());
+        }
         if (lastHomeSignature !== signature && sendNativeUiData('home', rows)) {
             // This state is intentionally closure-local. Older hotfixable bridge
             // code used the same window property and could suppress the first
@@ -911,39 +956,45 @@
                 diagTrace('ready by library proof (account control absent)');
             }
         }
-        if (!sessionProven || !bridge || typeof bridge.onNativeUiReady !== 'function') {
-            // P0 diagnostic: the silent hold is the most common freeze - say
-            // which half is missing (account control or bridge), throttled.
+        var bridgeReady = Boolean(bridge &&
+            typeof bridge.onNativeUiReady === 'function' &&
+            typeof bridge.onNativeUiRoute === 'function' &&
+            typeof bridge.onNativeUiData === 'function');
+        window.__sfNativeUiSessionProven = sessionProven;
+        window.__sfNativeUiBridgeCallbacksReady = bridgeReady;
+        if (!sessionProven || !bridgeReady) {
+            // Name the missing proof/callback explicitly; a partial bridge must
+            // never be mistaken for a drawable native replacement.
             window.__sfNoWidgetCount = (window.__sfNoWidgetCount || 0) + 1;
             if (window.__sfNoWidgetCount === 1 || window.__sfNoWidgetCount % 20 === 0) {
-                diagTrace('ready-pending widget=' + (userWidget ? '1' : '0') +
-                    ' bridge=' + (bridge ? '1' : '0') + ' n=' + window.__sfNoWidgetCount);
+                diagTrace('ready-pending session=' + (sessionProven ? '1' : '0') +
+                    ' bridge=' + (bridge ? '1' : '0') +
+                    ' route=' + (bridge && typeof bridge.onNativeUiRoute === 'function' ? '1' : '0') +
+                    ' data=' + (bridge && typeof bridge.onNativeUiData === 'function' ? '1' : '0') +
+                    ' ready=' + (bridge && typeof bridge.onNativeUiReady === 'function' ? '1' : '0') +
+                    ' n=' + window.__sfNoWidgetCount);
             }
             return false;
         }
 
-        // P0 empty-home fix: never cover the live Spotify page (which already
-        // shows the account's real playlists) with a native shell that has no
-        // rows to paint. The native root is opaque (elevation 15) so an early
-        // ready signal leaves a permanent blank screen. On the home route the
-        // shell only takes over once at least one real row has been collected;
-        // other routes keep their original readiness.
-        // The old rule here refused the takeover until one Home row existed.
-        // Whenever Spotify was slow, signed out or empty, the whole native UI
-        // stayed invisible behind the WebView (the reported freeze). The
-        // native shelf already paints an honest state for an empty payload,
-        // so the shell takes over right away and the real rows land after.
-        if (isSpotifyHome() && (window.__sfNativeUiHomeRowsCount || 0) < 1) {
+        // A native takeover is permitted only after a real Spotify Home card
+        // has been collected for this account. Empty/loading/failed payloads
+        // are not evidence that a replacement is ready; keep Spotify visible.
+        // Other routes retain their existing readiness contract.
+        if (isSpotifyHome() && ((window.__sfNativeUiHomeRowsCount || 0) < 1 ||
+            window.__sfNativeUiHomeDataSent !== true)) {
             window.__sfNativeUiReadyBlockedEmpty = (window.__sfNativeUiReadyBlockedEmpty || 0) + 1;
-            diagTrace('ready-early home rows=0 route=' + spotifyRoutePath() + ' state=' +
-                (window.__sfMediaLibStatus || 'pending'));
+            if (window.__sfNativeUiReadyBlockedEmpty === 1 || window.__sfNativeUiReadyBlockedEmpty % 20 === 0) {
+                diagTrace('ready-pending home rows=' + (window.__sfNativeUiHomeRowsCount || 0) +
+                    ' dataSent=' + (window.__sfNativeUiHomeDataSent ? '1' : '0') +
+                    ' route=' + spotifyRoutePath() +
+                    ' state=' + (window.__sfMediaLibStatus || 'pending') +
+                    ' action=keep-spotify-visible');
+            }
+            return false;
         }
 
-        if (typeof bridge.onNativeUiRoute === 'function') {
-            try {
-                bridge.onNativeUiRoute(initialScreen);
-            } catch (_) {}
-        }
+        if (!sendNativeUiRoute(initialScreen)) return false;
 
         try {
             bridge.onNativeUiReady();
@@ -954,17 +1005,6 @@
             diagTrace('native-ui-ready rows=' + (window.__sfNativeUiHomeRowsCount || 0) + ' route=' + spotifyRoutePath());
         } catch (_) {
             return false;
-        }
-
-        // P0 diagnostic: a takeover with zero collected rows leaves a blank
-        // native home (the opaque shell covers the live page). Show the state
-        // on the screen itself instead of silence.
-        if ((window.__sfNativeUiHomeRowsCount || 0) < 1 && typeof bridge.onNativeUiData === 'function') {
-            try {
-                // Guaranteed painted state: the centred native loading line, or
-                // the explanation card when the library already failed.
-                bridge.onNativeUiData('home', JSON.stringify(homeStatePayload()));
-            } catch (_) {}
         }
 
         searchQuery = initialSearchQuery();
@@ -1754,8 +1794,13 @@
 
     function runUpdate() {
         var mainView;
+        var route;
         if (window.location.hostname !== 'open.spotify.com') return;
         try {
+            route = nativeScreenForPath();
+            initialScreen = route;
+            window.__sfNativeUiRoute = route;
+            sendNativeUiRoute(route);
             installPlaybackStateGuard();
             installSearchFallback();
             domCensusOnce();

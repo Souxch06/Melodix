@@ -4,7 +4,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 TERSER_VERSION="5.51.2"
 
-for ASSET in spotify_bridge native_ui_shell; do
+for ASSET in spotify_bridge native_ui_shell melodix_home; do
   SOURCE="$ROOT/scripts/${ASSET}.source.js"
   OUTPUT="$ROOT/assets/${ASSET}.js"
   TMP="$(mktemp)"

@@ -23,31 +23,31 @@ const path = require('node:path');
 const root = path.join(__dirname, '..');
 const read = (p) => fs.readFileSync(path.join(root, p), 'utf8');
 
-test('[P0] notifyNativeUiReady prend la main tot et garantit un etat (plus de blanc, plus d invisibilite)', () => {
+test('[P0] notifyNativeUiReady refuse un accueil sans cartes rendues et garde Spotify visible', () => {
   const shell = read('scripts/native_ui_shell.source.js');
   const start = shell.indexOf('function notifyNativeUiReady(');
   assert.ok(start >= 0, 'notifyNativeUiReady existe');
   const body = shell.slice(start, shell.indexOf('\n    function ', start + 10));
   assert.ok(body.includes('__sfNativeUiHomeRowsCount'), 'le nombre de rows est observe');
-  assert.ok(body.includes('ready-early'), 'le takeover precoce est trace');
-  assert.ok(body.includes('isSpotifyHome()'), 'seule la route accueil est concernee');
-  // L ancien refus rows>=1 laissait l UI invisible quand Spotify etait lent;
-  // la protection contre un ecran blanc est desormais assuree par le payload
-  // d etat (voir tests/p0_shell_takeover.test.js, test comportemental).
-  assert.ok(!/__sfNativeUiHomeRowsCount \|\| 0\) < 1\) \{[\s\S]{0,200}return false;/.test(body),
-    'aucun refus bloquant sur un accueil vide');
-  assert.ok(shell.includes('function homeStatePayload('), 'un etat honnete est toujours disponible');
+  assert.ok(body.includes('__sfNativeUiHomeDataSent'), 'la livraison du feed au bridge est confirmee');
+  assert.ok(body.includes('isSpotifyHome()'), 'seule la route accueil exige une carte reelle');
+  assert.match(body, /ready-pending home rows=/, 'le refus est diagnostique et borné');
+  assert.match(body, /action=keep-spotify-visible/, 'l’action de repli est explicite');
+  assert.match(body, /return false;/, 'aucun signal ready n’est emis avec zero carte');
+  assert.ok(!body.includes('ready-early'), 'plus de takeover precoce sur un feed vide');
+  assert.ok(shell.includes('function homeStatePayload('), 'les états de bibliothèque restent diagnostiquables');
 });
 
-test('[P0] runUpdate envoie les rows AVANT la readiness (le feed precede le couvrement)', () => {
+test('[P0] runUpdate envoie route, rows, puis readiness dans cet ordre', () => {
   const shell = read('scripts/native_ui_shell.source.js');
   const start = shell.indexOf('function runUpdate(');
   assert.ok(start >= 0, 'runUpdate existe');
   const body = shell.slice(start, shell.indexOf('\n    function ', start + 10));
+  const routeIdx = body.indexOf('sendNativeUiRoute(route)');
   const rowsIdx = body.indexOf('updateHomeRows(mainView)');
   const readyIdx = body.indexOf('notifyNativeUiReady(mainView)');
-  assert.ok(rowsIdx >= 0 && readyIdx >= 0 && rowsIdx < readyIdx,
-    'updateHomeRows doit s\'executer avant notifyNativeUiReady');
+  assert.ok(routeIdx >= 0 && rowsIdx > routeIdx && readyIdx > rowsIdx,
+    'route native puis données Home puis readiness; jamais le payload sous une route obsolète');
 });
 
 test('[P0] les playlists du compte viennent du drawer reel (mobile + desktop), jamais inventees', () => {

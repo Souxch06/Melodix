@@ -143,16 +143,17 @@ test('the dismiss listener removes the panel from its parent', () => {
 // Part 3 - the content markers and the next-launch replay hook
 // ---------------------------------------------------------------------------
 
-test('the home renderer marks home-json and home-rendered', () => {
+test('the home renderer marks received data and only marks a successful real-card render', () => {
   const body = methodBody(RENDERER(), '.method public static render(Lcom/melodix/music/MainActivity;Ljava/lang/String;)V');
-  const head = body.slice(0, 400);
-  assert.match(head, /const-string v0, "home-json"\n\n    invoke-static \{v0\}, Lcom\/melodix\/music\/NativeCrashGuard;->stage/,
-    'the bridge delivery is the first mark of render()');
-  assert.match(body, /const-string v2, "home-rendered"\n\n    invoke-static \{v2\}, Lcom\/melodix\/music\/NativeCrashGuard;->stage/,
-    'parsed rows reaching the renderer is the content mark');
+  const reset = body.indexOf('nativeHomeContentReady:Z');
   const json = body.indexOf('"home-json"');
   const rendered = body.indexOf('"home-rendered"');
-  assert.ok(json > -1 && rendered > json, 'home-rendered comes after home-json');
+  const attached = body.indexOf('nativeHomeContentReady:Z', reset + 1);
+  assert.ok(reset >= 0 && json > reset, 'each payload clears stale Home readiness before its trace');
+  assert.ok(rendered > json && attached > reset,
+    'home-rendered follows a real card attachment; empty payloads take the fallback');
+  assert.match(body, /:shelf_done[\s\S]*?const-string v0, "home-rendered"[\s\S]*?NativeCrashGuard;->stage/);
+  assert.match(body, /:shelf_no_cards[\s\S]*?home-render-failed[\s\S]*?revealWebUi\(\)V/);
 });
 
 test('showNativeUi() replays the stored freeze report (never a crash message)', () => {
@@ -262,10 +263,27 @@ test('the panel report is enriched with the web state on the UI thread', () => {
 
 test('the shell JS reports the silent hold (missing widget or bridge)', () => {
   const js = read('scripts/native_ui_shell.source.js');
-  assert.ok(js.includes("diagTrace('ready-pending widget='"),
-    'the most common freeze must leave a status line');
+  assert.ok(js.includes("diagTrace('ready-pending session='"),
+    'the no-widget wait now reports player-session and document readiness');
   assert.ok(js.includes('window.__sfNoWidgetCount % 20 === 0'),
     'the hold trace is throttled');
+});
+
+test('the trace distinguishes WebView load, origin-gated AndBridge availability, and page completion', () => {
+  const client = read('smali/c91.smali');
+  const started = methodBody(client, '.method public onPageStarted(Landroid/webkit/WebView;Ljava/lang/String;Landroid/graphics/Bitmap;)V');
+  const attached = started.indexOf('addJavascriptInterface(Ljava/lang/Object;Ljava/lang/String;)V');
+  const attachedStage = started.indexOf('"AndBridge-interface-attached"');
+  const detached = started.indexOf('removeJavascriptInterface(Ljava/lang/String;)V');
+  assert.ok(started.indexOf('"page-started"') >= 0 && attached > 0 && attachedStage > attached,
+    'load start and successful interface registration have separate ordered marks');
+  assert.ok(detached > 0 && started.indexOf('"AndBridge-interface-detached"') > detached,
+    'non-player navigation records bridge detachment');
+  const finished = methodBody(client, '.method public final onPageFinished(Landroid/webkit/WebView;Ljava/lang/String;)V');
+  assert.ok(finished.indexOf('"page-finished"') >= 0,
+    'completion of the top-level document is distinct from its load start');
+  assert.ok(finished.indexOf('"page-finished"') < finished.indexOf('"native_ui_shell.js"'),
+    'runtime assets are queued only after the document has finished');
 });
 
 

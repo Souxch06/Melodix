@@ -74,6 +74,9 @@
 
 .field private nativeCurrentScreen:Ljava/lang/String;
 
+# True only after the Home renderer has attached at least one real Spotify URI card.
+.field private nativeHomeContentReady:Z
+
 # True once Spotify reports a track: the mini player card stays hidden until
 # then instead of showing an empty "Aucune lecture en cours" bar everywhere.
 .field private nativeHasTrack:Z
@@ -7236,14 +7239,56 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
     invoke-virtual {v1, v2}, Landroid/view/View;->setVisibility(I)V
 
     :show_native_root
+    # A watchdog may ask to unstick startup before the native Home renderer has
+    # produced any real Spotify card. Do not let that diagnostic path cover the
+    # live WebView; the renderer sets this flag only after a title+Spotify URI
+    # card has been attached.
+    iget-object v0, p0, Lcom/melodix/music/MainActivity;->nativeCurrentScreen:Ljava/lang/String;
+    if-eqz v0, :native_home_ready_check
+    const-string v1, "home"
+    invoke-virtual {v0, v1}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    move-result v0
+    if-eqz v0, :native_root_lookup
+    :native_home_ready_check
+    iget-boolean v0, p0, Lcom/melodix/music/MainActivity;->nativeHomeContentReady:Z
+    if-nez v0, :native_root_lookup
+    const-string v0, "MDXTRACE"
+    const-string v1, "native-shell fallback reason=real-home-content-not-rendered; keep WebView visible"
+    invoke-static {v0, v1}, Landroid/util/Log;->w(Ljava/lang/String;Ljava/lang/String;)I
+    invoke-virtual {p0}, Lcom/melodix/music/MainActivity;->revealWebUi()V
+    const-string v0, "window.__sfNativeUiShowMethodCalled=true;window.__sfNativeUiRootVisible=false;window.__sfNativeUiHomeContentReady=false;window.__sfNativeUiShowBlockedNoContent=true;"
+    invoke-virtual {p0, v0}, Lcom/melodix/music/MainActivity;->runNativeJavascript(Ljava/lang/String;)V
+    return-void
+
+    :native_root_lookup
     const v0, 0x7f09022f
     invoke-virtual {p0, v0}, Landroid/app/Activity;->findViewById(I)Landroid/view/View;
     move-result-object v1
-    if-eqz v1, :hide_legacy_settings
+    if-eqz v1, :native_root_missing
     const/4 v4, 0x1
     const/4 v2, 0x0
     invoke-virtual {v1, v2}, Landroid/view/View;->setVisibility(I)V
+    # The root is a constrained sibling of the WebView at elevation 15. Make
+    # that stacking contract explicit before content can cover the live page.
+    invoke-virtual {v1}, Landroid/view/View;->bringToFront()V
+    invoke-virtual {v1}, Landroid/view/View;->requestLayout()V
+    new-instance v2, Lcom/melodix/music/NativeUiVisibilityTraceRunnable;
+    invoke-direct {v2, p0, v1}, Lcom/melodix/music/NativeUiVisibilityTraceRunnable;-><init>(Lcom/melodix/music/MainActivity;Landroid/view/View;)V
+    const-wide/16 v3, 0x64
+    invoke-virtual {v1, v2, v3, v4}, Landroid/view/View;->postDelayed(Ljava/lang/Runnable;J)Z
+    const/4 v4, 0x1
+    goto :native_root_ready
 
+    :native_root_missing
+    const-string v0, "MDXTRACE"
+    const-string v2, "native-shell fallback reason=nativeRoot-missing; keep WebView visible"
+    invoke-static {v0, v2}, Landroid/util/Log;->w(Ljava/lang/String;Ljava/lang/String;)I
+    invoke-virtual {p0}, Lcom/melodix/music/MainActivity;->revealWebUi()V
+    const-string v0, "window.__sfNativeUiShowMethodCalled=true;window.__sfNativeUiRootFound=false;window.__sfNativeUiRootVisible=false;window.__sfNativeUiRootWidth=0;window.__sfNativeUiRootHeight=0;"
+    invoke-virtual {p0, v0}, Lcom/melodix/music/MainActivity;->runNativeJavascript(Ljava/lang/String;)V
+    return-void
+
+    :native_root_ready
     :hide_legacy_settings
     const v0, 0x7f090060
     invoke-virtual {p0, v0}, Landroid/app/Activity;->findViewById(I)Landroid/view/View;
@@ -7313,22 +7358,27 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
 .method public final setNativeScreen(Ljava/lang/String;)V
     .locals 7
 
-    # Compare with the previous destination before overwriting it: a nav tap
-    # fades the shell in, a repeated feed update does not.
-    const/4 v0, 0x1
+    # Reject malformed JS routes; the first route arrives before any previous
+    # screen has been assigned, so never call equals() on a null field.
+    if-eqz p1, :native_route_invalid
+    invoke-virtual {p1}, Ljava/lang/String;->isEmpty()Z
+    move-result v0
+    if-eqz v0, :native_route_valid
+    :native_route_invalid
+    return-void
 
-    iget-object v1, p0, Lcom/melodix/music/MainActivity;->nativeCurrentScreen:Ljava/lang/String;
-
-    if-nez v1, :native_fade_flag
-
-    invoke-virtual {v1, p1}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
-
-    move-result v1
-
-    if-nez v1, :native_fade_flag
-
+    :native_route_valid
+    # Fade only when a non-null current screen genuinely changes. Repeated
+    # feed updates do not animate, and the first Home route is initialized.
     const/4 v0, 0x0
-
+    iget-object v1, p0, Lcom/melodix/music/MainActivity;->nativeCurrentScreen:Ljava/lang/String;
+    if-eqz v1, :native_fade_flag
+    invoke-virtual {v1, p1}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    move-result v1
+    if-eqz v1, :native_screen_changed
+    goto :native_fade_flag
+    :native_screen_changed
+    const/4 v0, 0x1
     :native_fade_flag
     iput-boolean v0, p0, Lcom/melodix/music/MainActivity;->nativeFadeNextScreen:Z
 
@@ -7779,11 +7829,18 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
     move-result v1
     if-eqz v1, :check_media
     iget-object v2, p0, Lcom/melodix/music/MainActivity;->nativeCurrentScreen:Ljava/lang/String;
-    if-eqz v2, :apply_home
+    if-eqz v2, :apply_home_initial_route
     const-string v3, "home"
     invoke-virtual {v2, v3}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
     move-result v4
     if-eqz v4, :apply_done
+    goto :apply_home
+    :apply_home_initial_route
+    # Home rows are deliberately queued before the ready signal. Establish the
+    # Home route here if this is the first callback so renderNativeRows selects
+    # the shelf renderer instead of the generic list renderer.
+    const-string v3, "home"
+    invoke-virtual {p0, v3}, Lcom/melodix/music/MainActivity;->setNativeScreen(Ljava/lang/String;)V
     :apply_home
     const-string v2, "Accueil"
     invoke-virtual {p0, v2, p2}, Lcom/melodix/music/MainActivity;->renderNativeRows(Ljava/lang/String;Ljava/lang/String;)V
@@ -8950,10 +9007,21 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
     # cookies, accounts.spotify.com) is untouched.
     iget-object v0, p0, Lcom/melodix/music/MainActivity;->H:Landroidx/constraintlayout/widget/ConstraintLayout;
 
-    if-eqz v0, :reveal_done
+    if-eqz v0, :reveal_native_root
 
     const/16 v1, 0x8
 
+    invoke-virtual {v0, v1}, Landroid/view/View;->setVisibility(I)V
+
+    :reveal_native_root
+    # Fallback means the WebView is the visible replacement. Hide both the
+    # startup overlay and the native shell so an empty native root cannot keep
+    # covering Spotify after a failed/empty Home render.
+    const v0, 0x7f09022f
+    invoke-virtual {p0, v0}, Landroid/app/Activity;->findViewById(I)Landroid/view/View;
+    move-result-object v0
+    if-eqz v0, :reveal_done
+    const/16 v1, 0x8
     invoke-virtual {v0, v1}, Landroid/view/View;->setVisibility(I)V
 
     :reveal_done

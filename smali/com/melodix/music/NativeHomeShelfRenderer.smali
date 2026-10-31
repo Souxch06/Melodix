@@ -10,6 +10,11 @@
 .method public static render(Lcom/melodix/music/MainActivity;Ljava/lang/String;)V
     .locals 14
 
+    # Every payload must prove real Home content anew; empty/error states cannot
+    # inherit readiness from an earlier render.
+    const/4 v0, 0x0
+    iput-boolean v0, p0, Lcom/melodix/music/MainActivity;->nativeHomeContentReady:Z
+
     # The bridge delivered home JSON: timestamped proof for the freeze report.
     const-string v0, "home-json"
 
@@ -25,7 +30,7 @@
     # the verifier happy before the addView calls below.
     check-cast v13, Landroid/widget/LinearLayout;
 
-    if-eqz v13, :shelf_done
+    if-eqz v13, :shelf_container_missing
 
     :try_start_0
     new-instance v0, Lorg/json/JSONArray;
@@ -57,13 +62,7 @@
 
     invoke-static {v3, v2}, Landroid/util/Log;->i(Ljava/lang/String;Ljava/lang/String;)I
 
-    # Parsed rows reached the renderer: content arrived. The content watchdog
-    # looks for exactly this mark before declaring the shell stuck.
-    const-string v2, "home-rendered"
-
-    invoke-static {v2}, Lcom/melodix/music/NativeCrashGuard;->stage(Ljava/lang/String;)V
-
-    if-lez v1, :shelf_empty
+    if-lez v1, :shelf_no_cards
 
     invoke-static {p0, v13, v0}, Lcom/melodix/music/NativeHomeShelfRenderer;->renderQuickGrid(Lcom/melodix/music/MainActivity;Landroid/widget/LinearLayout;Lorg/json/JSONArray;)V
 
@@ -81,6 +80,29 @@
     move-result-object v5
 
     if-eqz v5, :shelf_next
+
+    # Only real title text creates a card; never replace an empty source title
+    # with a fabricated "Spotify" label.
+    const-string v6, "title"
+    const-string v7, ""
+    invoke-virtual {v5, v6, v7}, Lorg/json/JSONObject;->optString(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;
+    move-result-object v6
+    invoke-virtual {v6}, Ljava/lang/String;->isEmpty()Z
+    move-result v7
+    if-eqz v7, :shelf_row_title_present
+    goto :shelf_next
+    :shelf_row_title_present
+
+    # Home replacements accept only real Spotify resource URIs. Status/action
+    # rows may describe errors, but they are never playable Home cards.
+    const-string v6, "uri"
+    const-string v7, ""
+    invoke-virtual {v5, v6, v7}, Lorg/json/JSONObject;->optString(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;
+    move-result-object v6
+    const-string v7, "spotify:"
+    invoke-virtual {v6, v7}, Ljava/lang/String;->startsWith(Ljava/lang/String;)Z
+    move-result v7
+    if-eqz v7, :shelf_next
 
     const-string v6, "section"
 
@@ -203,11 +225,9 @@
 
     move-result v8
 
-    if-nez v8, :shelf_cover_drawable
+    if-eqz v8, :shelf_cover_drawable
 
-    const-string v8, "Spotify"
-
-    move-object v9, v8
+    goto :shelf_next
 
     :shelf_cover_drawable
     new-instance v8, Landroid/widget/ImageView;
@@ -272,7 +292,7 @@
 
     move-result v11
 
-    if-eqz v11, :shelf_title
+    if-nez v11, :shelf_title
 
     const/16 v11, 0xb0
 
@@ -337,7 +357,7 @@
 
     move-result v11
 
-    if-eqz v11, :shelf_click
+    if-nez v11, :shelf_click
 
     new-instance v11, Landroid/widget/TextView;
 
@@ -394,7 +414,7 @@
 
     move-result v11
 
-    if-eqz v11, :shelf_add
+    if-nez v11, :shelf_add
 
     # Rounded ripple so a cover card reacts to the touch like the Spotify app.
     const-string v11, "native_card_ripple"
@@ -415,6 +435,8 @@
 
     :shelf_add
     invoke-virtual {v3, v7}, Landroid/widget/LinearLayout;->addView(Landroid/view/View;)V
+    const/4 v12, 0x1
+    iput-boolean v12, p0, Lcom/melodix/music/MainActivity;->nativeHomeContentReady:Z
 
     :shelf_next
     add-int/lit8 v4, v4, 0x1
@@ -422,6 +444,9 @@
     goto :shelf_loop
 
     :shelf_finish
+    iget-boolean v5, p0, Lcom/melodix/music/MainActivity;->nativeHomeContentReady:Z
+    if-eqz v5, :shelf_no_cards
+
     new-instance v5, Landroid/widget/LinearLayout$LayoutParams;
 
     const/4 v6, -0x1
@@ -441,35 +466,43 @@
     invoke-virtual {v13, v6, v5}, Landroid/widget/LinearLayout;->addView(Landroid/view/View;Landroid/view/ViewGroup$LayoutParams;)V
     goto :shelf_done
 
-    :shelf_empty
-    # MDXTRACE: explicit reason for the empty state (never silent).
-    const-string v2, "MDXTRACE"
-
-    const-string v3, "home-render empty reason=rows-0 (waiting for library/merge)"
-
-    invoke-static {v2, v3}, Landroid/util/Log;->i(Ljava/lang/String;Ljava/lang/String;)I
-
-    # Empty payload: keep a friendly loading line instead of a blank screen.
-    new-instance v0, Landroid/widget/TextView;
-    invoke-direct {v0, p0}, Landroid/widget/TextView;-><init>(Landroid/content/Context;)V
-    const-string v1, "Chargement de votre accueil…"
-    invoke-virtual {v0, v1}, Landroid/widget/TextView;->setText(Ljava/lang/CharSequence;)V
-    const/high16 v1, 0x41800000
-    invoke-virtual {v0, v1}, Landroid/widget/TextView;->setTextSize(F)V
-    sget v1, Lcom/melodix/music/MelColors;->textSecondary:I
-    invoke-virtual {v0, v1}, Landroid/widget/TextView;->setTextColor(I)V
-    const/16 v1, 0x11
-    invoke-virtual {v0, v1}, Landroid/widget/TextView;->setGravity(I)V
-    const/16 v1, 0x18
-    invoke-virtual {v0, v1, v1, v1, v1}, Landroid/view/View;->setPadding(IIII)V
-    invoke-virtual {v13, v0}, Landroid/widget/LinearLayout;->addView(Landroid/view/View;)V
+    :shelf_no_cards
+    # Empty payloads, diagnostic rows and malformed cards do not make a native
+    # Home replacement. Reveal Spotify instead of taking over with a spinner.
+    const-string v1, "MDXTRACE"
+    const-string v2, "home-render failed reason=no-real-spotify-cards; keep WebView visible"
+    invoke-static {v1, v2}, Landroid/util/Log;->w(Ljava/lang/String;Ljava/lang/String;)I
+    const-string v0, "home-render-failed"
+    invoke-static {v0}, Lcom/melodix/music/NativeCrashGuard;->stage(Ljava/lang/String;)V
+    invoke-virtual {p0}, Lcom/melodix/music/MainActivity;->revealWebUi()V
+    return-void
 
     :shelf_done
+    # Success is marked only after real native child views were attached.
+    const-string v0, "home-rendered"
+    invoke-static {v0}, Lcom/melodix/music/NativeCrashGuard;->stage(Ljava/lang/String;)V
+    # Data may arrive again after a route return even when the ready callback
+    # was already sent. A rendered Spotify URI is safe to show immediately.
+    invoke-virtual {p0}, Lcom/melodix/music/MainActivity;->showNativeUi()V
+    return-void
+
+    :shelf_container_missing
+    const-string v0, "MDXTRACE"
+    const-string v1, "home-render failed reason=native-content-missing"
+    invoke-static {v0, v1}, Landroid/util/Log;->w(Ljava/lang/String;Ljava/lang/String;)I
+    const-string v0, "home-render-failed"
+    invoke-static {v0}, Lcom/melodix/music/NativeCrashGuard;->stage(Ljava/lang/String;)V
+    invoke-virtual {p0}, Lcom/melodix/music/MainActivity;->revealWebUi()V
     return-void
 
     :catch_0
     move-exception v0
-
+    const-string v1, "MDXTRACE"
+    const-string v2, "home-render failed reason=invalid-json"
+    invoke-static {v1, v2}, Landroid/util/Log;->w(Ljava/lang/String;Ljava/lang/String;)I
+    const-string v1, "home-render-failed"
+    invoke-static {v1}, Lcom/melodix/music/NativeCrashGuard;->stage(Ljava/lang/String;)V
+    invoke-virtual {p0}, Lcom/melodix/music/MainActivity;->revealWebUi()V
     return-void
 .end method
 
@@ -498,6 +531,27 @@
     invoke-virtual {p1, v2, v3}, Lorg/json/JSONObject;->optString(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;
 
     move-result-object v2
+
+    # Empty titles or missing Spotify URIs are not real playable cards. Return
+    # null so the caller skips them; do not invent display text or navigation.
+    invoke-virtual {v0}, Ljava/lang/String;->isEmpty()Z
+    move-result v3
+    if-eqz v3, :quick_tile_title_valid
+    const/4 v3, 0x0
+    return-object v3
+    :quick_tile_title_valid
+    invoke-virtual {v2}, Ljava/lang/String;->isEmpty()Z
+    move-result v3
+    if-nez v3, :quick_tile_invalid
+    const-string v3, "spotify:"
+    invoke-virtual {v2, v3}, Ljava/lang/String;->startsWith(Ljava/lang/String;)Z
+    move-result v3
+    if-eqz v3, :quick_tile_invalid
+    goto :quick_tile_uri_valid
+    :quick_tile_invalid
+    const/4 v3, 0x0
+    return-object v3
+    :quick_tile_uri_valid
 
     new-instance v3, Landroid/widget/LinearLayout;
 
@@ -545,7 +599,7 @@
 
     move-result v5
 
-    if-eqz v5, :quick_tile_title
+    if-nez v5, :quick_tile_title
 
     const/16 v5, 0x38
 
@@ -608,7 +662,7 @@
 
     move-result v6
 
-    if-eqz v6, :quick_tile_return
+    if-nez v6, :quick_tile_return
 
     new-instance v6, Lcom/melodix/music/NativeRowClickListener;
 
@@ -631,15 +685,12 @@
 
     const/4 v1, 0x2
 
-    if-ge v0, v1, :quick_grid_done
+    if-lt v0, v1, :quick_grid_done
 
     const/4 v1, 0x6
 
-    if-le v0, v1, :quick_grid_cap
+    if-le v0, v1, :quick_grid_begin
 
-    goto :quick_grid_begin
-
-    :quick_grid_cap
     const/4 v0, 0x6
 
     :quick_grid_begin
@@ -703,6 +754,8 @@
 
     move-result-object v5
 
+    if-eqz v5, :quick_grid_inc
+
     new-instance v6, Landroid/widget/LinearLayout$LayoutParams;
 
     const/4 v4, 0x0
@@ -752,6 +805,9 @@
     goto :quick_grid_col
 
     :quick_grid_row_add
+    invoke-virtual {v2}, Landroid/view/ViewGroup;->getChildCount()I
+    move-result v4
+    if-lez v4, :quick_grid_row
     invoke-virtual {p1, v2}, Landroid/widget/LinearLayout;->addView(Landroid/view/View;)V
 
     goto :quick_grid_row

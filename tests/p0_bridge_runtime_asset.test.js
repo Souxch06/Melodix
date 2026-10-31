@@ -29,9 +29,24 @@ function verifyGeneratedAsset(name) {
 test('production bridge and shell assets are reproducible, parseable, and payload-bounded', () => {
   const bridge = verifyGeneratedAsset('spotify_bridge');
   const shell = verifyGeneratedAsset('native_ui_shell');
+  const home = verifyGeneratedAsset('melodix_home');
   assert.ok(bridge.runtime.includes('__sfMelodixBridgeStarted'));
   assert.ok(bridge.runtime.includes('__sfMelodixBridgeCompleted'));
-  assert.ok(bridge.runtime.includes('initializeMelodixHome'));
   assert.ok(shell.runtime.includes('__sfLoadBundledBridge'));
   assert.ok(shell.runtime.includes('bundledAssetLength'));
+  assert.ok(home.runtime.includes('SF_MELODIX_HOME_STYLES_V1'));
+  assert.ok(home.runtime.includes('sf-melodix-home-active'));
+  assert.ok(!bridge.runtime.includes('updateMelodixHome'),
+    'the large optional renderer stays in its own executable asset');
+
+  const client = fs.readFileSync(path.join(root, 'smali/c91.smali'), 'utf8');
+  const shellAt = client.indexOf('const-string v5, "native_ui_shell.js"');
+  const bridgeAt = client.indexOf("(window.__sfLoadBundledBridge||function(){})(\\'spotify_bridge.js\\');");
+  const homeAt = client.indexOf('const-string v5, "melodix_home.js"');
+  const probeAt = client.indexOf('AndBridge;->runProbe(Landroid/webkit/WebView;)V', homeAt);
+  assert.ok(shellAt >= 0 && bridgeAt > shellAt && homeAt > bridgeAt && probeAt > homeAt,
+    'the shell, bounded bridge, independent Home renderer and native probe are queued in order');
+  assert.match(client.slice(homeAt, probeAt), /Lm9;->d\(Ljava\/lang\/String;\)Ljava\/lang\/String;[\s\S]*?evaluateJavascript/);
+  assert.match(client.slice(homeAt, probeAt), /"home-renderer-queued"[\s\S]*?NativeCrashGuard;->stage/,
+    'the native chain distinguishes queuing the independent renderer from its JS init trace');
 });

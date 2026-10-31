@@ -1892,12 +1892,15 @@ body.sf-tv-nav input:focus-visible {
         display: none !important;
     }
 }
+/* SF_MELODIX_HOME_STYLES_V1 — required before the renderer may take over. */
 /* Melodix's first custom view: the connected Spotify home feed, presented with app styling. */
-body.sf-melodix-home-active #main-view {
+body.sf-melodix-home-active #main-view,
+body.sf-melodix-home-style-probe #main-view {
     display: none !important;
 }
 
-body.sf-melodix-home-active #sf-melodix-home {
+body.sf-melodix-home-active #sf-melodix-home,
+body.sf-melodix-home-style-probe #sf-melodix-home {
     display: flex !important;
     flex-direction: column !important;
     visibility: visible !important;

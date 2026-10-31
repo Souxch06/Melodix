@@ -1386,6 +1386,16 @@
     const-string v5, "(window.__sfLoadBundledBridge||function(){})(\'spotify_bridge.js\');"
     invoke-virtual {v0, v5, v8}, Landroid/webkit/WebView;->evaluateJavascript(Ljava/lang/String;Landroid/webkit/ValueCallback;)V
 
+    # Keep the CSS-backed Home renderer separate from the bridge asset so the
+    # core executable stays below the known WebView payload ceiling. It runs
+    # independently of bridge availability and waits for the CSS-ready event.
+    const-string v5, "melodix_home.js"
+    invoke-static {v5}, Lm9;->d(Ljava/lang/String;)Ljava/lang/String;
+    move-result-object v5
+    invoke-virtual {v0, v5, v8}, Landroid/webkit/WebView;->evaluateJavascript(Ljava/lang/String;Landroid/webkit/ValueCallback;)V
+    const-string v6, "home-renderer-queued"
+    invoke-static {v6}, Lcom/melodix/music/NativeCrashGuard;->stage(Ljava/lang/String;)V
+
     # P0 CONTENT STUCK: probe the page from the Android side - works even
     # when page scripts never start and WebView JS timers stay paused.
     invoke-static {v0}, Lcom/melodix/music/AndBridge;->runProbe(Landroid/webkit/WebView;)V
@@ -1612,7 +1622,7 @@
     move-result-object v1
 
     .line 499
-    const-string v2, "(function() {  let style = document.getElementById(\'sf-custom-style\');  if(!style) { style = document.createElement(\'style\'); style.id = \'sf-custom-style\'; document.head.appendChild(style); }  style.textContent = %s + %s;  %s})();"
+    const-string v2, "(function() {  let style = document.getElementById(\'sf-custom-style\');  if(!style) { style = document.createElement(\'style\'); style.id = \'sf-custom-style\'; document.head.appendChild(style); }  style.textContent = %s + %s;  %s; try { window.dispatchEvent(new Event(\'sf-melodix-home-styles-ready\')); } catch (_) {} })();"
 
     .line 500
     .line 501
@@ -1756,6 +1766,10 @@
     .line 1
     invoke-super {p0, p1, p2, p3}, Landroid/webkit/WebViewClient;->onPageStarted(Landroid/webkit/WebView;Ljava/lang/String;Landroid/graphics/Bitmap;)V
 
+    # P0 trace: the top-level WebView navigation has begun.
+    const-string v0, "page-started"
+    invoke-static {v0}, Lcom/melodix/music/NativeCrashGuard;->stage(Ljava/lang/String;)V
+
     # Network diagnostics: remember the last top-level URL (never logged).
     move-object v0, p2
 
@@ -1813,6 +1827,13 @@
 
     invoke-virtual {p1, v1, v2}, Landroid/webkit/WebView;->addJavascriptInterface(Ljava/lang/Object;Ljava/lang/String;)V
 
+    # The object is now registered for this verified Spotify origin.
+    const-string v0, "AndBridge-interface-attached"
+    invoke-static {v0}, Lcom/melodix/music/NativeCrashGuard;->stage(Ljava/lang/String;)V
+    const-string v0, "MDXTRACE"
+    const-string v1, "AndBridge interface attached for open.spotify.com"
+    invoke-static {v0, v1}, Landroid/util/Log;->i(Ljava/lang/String;Ljava/lang/String;)I
+
     goto :bridge_done
 
     :bridge_detach
@@ -1821,6 +1842,8 @@
     const-string v2, "AndBridge"
 
     invoke-virtual {p1, v2}, Landroid/webkit/WebView;->removeJavascriptInterface(Ljava/lang/String;)V
+    const-string v0, "AndBridge-interface-detached"
+    invoke-static {v0}, Lcom/melodix/music/NativeCrashGuard;->stage(Ljava/lang/String;)V
 
     :bridge_done
 

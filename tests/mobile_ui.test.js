@@ -109,7 +109,14 @@ test('Premium trial upsells are dismissed without hiding unrelated dialogs or er
     assert.match(bridge, /button\[aria-label\*="fermer" i\]/);
     assert.match(bridge, /data-melodix-premium-dismissed/);
     assert.match(bridge, /window\._sfPremiumPromoObserver = new MutationObserver/);
-    assert.match(bridge, /initializeMobileShell\(\);\s*initializeMelodixHome\(\);\s*installPremiumPromotionCleanup\(\);\s*firstFuck\(\);/);
+    assert.match(bridge, /initializeMobileShell\(\);\s*installPremiumPromotionCleanup\(\);\s*firstFuck\(\);/);
+    assert.doesNotMatch(bridge, /initializeMelodixHome\(\)/,
+        'the CSS-backed Home renderer has its own small, independently loaded asset');
+    const home = read('scripts/melodix_home.source.js');
+    const client = read('smali/c91.smali');
+    assert.match(home, /initializeMelodixHome\(\);/);
+    assert.match(client, /const-string v5, "melodix_home\.js"[\s\S]*?evaluateJavascript/,
+        'the Web Home renderer is injected independently of the core bridge');
     assert.doesNotMatch(bridge, /\[role="dialog"\]\s*\{\s*display:\s*none/);
 
     const helper = bridge.match(/function premiumOfferText\(text\) \{[\s\S]*?\n    \}/);

@@ -193,6 +193,7 @@
         : null,
       ui: {
         andBridgeAvailable: Boolean(window.AndBridge),
+        andBridgeDiagAvailable: Boolean(window.AndBridge && typeof window.AndBridge.logDiagEvent === 'function'),
         bridgeStarted: window.__sfMelodixBridgeStarted === true,
         bridgeBootstrapReady: window.__sfMelodixBridgeBootstrapReady === true,
         bridgeCompleted: window.__sfMelodixBridgeCompleted === true,
@@ -243,6 +244,27 @@
         homeCardCount: homeRoot && typeof homeRoot.querySelectorAll === 'function'
           ? homeRoot.querySelectorAll('.sf-melodix-home__card').length
           : 0,
+        homeGuiMode: typeof window.__sfMelodixHomeGuiMode === 'string'
+          ? safeIdentifier(window.__sfMelodixHomeGuiMode.slice(0, 24))
+          : null,
+        homeRoute: ['/', '/home', 'other'].indexOf(window.__sfMelodixHomeRoute) >= 0
+          ? window.__sfMelodixHomeRoute
+          : null,
+        homeDecision: typeof window.__sfMelodixHomeDecision === 'string'
+          ? safeIdentifier(window.__sfMelodixHomeDecision.slice(0, 32))
+          : null,
+        homeStylesReady: typeof window.__sfMelodixHomeStylesReady === 'boolean'
+          ? window.__sfMelodixHomeStylesReady
+          : null,
+        homeSourceCardCount: Number.isInteger(window.__sfMelodixHomeSourceCardCount)
+          ? window.__sfMelodixHomeSourceCardCount
+          : null,
+        homeRawAnchorCount: Number.isInteger(window.__sfMelodixHomeRawAnchorCount)
+          ? window.__sfMelodixHomeRawAnchorCount
+          : null,
+        homeSectionCount: Number.isInteger(window.__sfMelodixHomeSectionCount)
+          ? window.__sfMelodixHomeSectionCount
+          : null,
         nativeUiShellStarted: window.__sfNativeUiShellStarted === true,
         nativeUiShellReady: window.__sfNativeUiShellReady === true,
         nativeUiShellCompleted: window.__sfNativeUiShellCompleted === true,
@@ -257,11 +279,62 @@
         nativeUiRoute: ['home', 'search', 'library', 'detail'].indexOf(window.__sfNativeUiRoute) >= 0
           ? window.__sfNativeUiRoute
           : null,
+        nativeUiRootVisible: typeof window.__sfNativeUiRootVisible === 'boolean'
+          ? window.__sfNativeUiRootVisible
+          : null,
+        nativeUiRootWidth: Number.isInteger(window.__sfNativeUiRootWidth)
+          ? window.__sfNativeUiRootWidth
+          : null,
+        nativeUiRootHeight: Number.isInteger(window.__sfNativeUiRootHeight)
+          ? window.__sfNativeUiRootHeight
+          : null,
+        nativeUiRootParentFound: typeof window.__sfNativeUiRootParentFound === 'boolean'
+          ? window.__sfNativeUiRootParentFound
+          : null,
+        nativeUiRootParentConstraint: typeof window.__sfNativeUiRootParentConstraint === 'boolean'
+          ? window.__sfNativeUiRootParentConstraint
+          : null,
+        nativeUiRootIndex: Number.isInteger(window.__sfNativeUiRootIndex)
+          ? window.__sfNativeUiRootIndex
+          : null,
+        nativeUiWebIndex: Number.isInteger(window.__sfNativeUiWebIndex)
+          ? window.__sfNativeUiWebIndex
+          : null,
+        nativeUiSiblingCount: Number.isInteger(window.__sfNativeUiSiblingCount)
+          ? window.__sfNativeUiSiblingCount
+          : null,
+        nativeUiRootElevation: typeof window.__sfNativeUiRootElevation === 'number' &&
+          Number.isFinite(window.__sfNativeUiRootElevation)
+          ? window.__sfNativeUiRootElevation
+          : null,
+        nativeUiRootAboveWeb: Number.isInteger(window.__sfNativeUiRootIndex) &&
+          Number.isInteger(window.__sfNativeUiWebIndex)
+          ? window.__sfNativeUiRootIndex > window.__sfNativeUiWebIndex
+          : null,
+        nativeUiRootLayoutReady: typeof window.__sfNativeUiRootLayoutReady === 'boolean'
+          ? window.__sfNativeUiRootLayoutReady
+          : null,
         nativeHomeRouteRecognized: typeof window.__sfNativeUiHomeRouteRecognized === 'boolean'
           ? window.__sfNativeUiHomeRouteRecognized
           : null,
+        nativeUiSessionProven: typeof window.__sfNativeUiSessionProven === 'boolean'
+          ? window.__sfNativeUiSessionProven
+          : null,
+        nativeUiBridgeCallbacksReady: typeof window.__sfNativeUiBridgeCallbacksReady === 'boolean'
+          ? window.__sfNativeUiBridgeCallbacksReady
+          : null,
+        mediaLibStatus: ['pending', 'loading', 'ready', 'error'].indexOf(window.__sfMediaLibStatus) >= 0
+          ? window.__sfMediaLibStatus
+          : null,
+        nativeHomeDomRowsCount: Number.isInteger(window.__sfNativeUiHomeDomRowsCount)
+          ? window.__sfNativeUiHomeDomRowsCount
+          : null,
         nativeHomeRowsCount: Number.isInteger(window.__sfNativeUiHomeRowsCount)
           ? window.__sfNativeUiHomeRowsCount
+          : null,
+        homeWebNativeCountsMatch: Number.isInteger(window.__sfMelodixHomeSourceCardCount) &&
+          Number.isInteger(window.__sfNativeUiHomeDomRowsCount)
+          ? window.__sfMelodixHomeSourceCardCount === window.__sfNativeUiHomeDomRowsCount
           : null,
         nativeHomeDataSent: window.__sfNativeUiHomeDataSent === true,
         customStylesheetInjected: document.querySelector('#sf-custom-style') !== null

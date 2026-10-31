@@ -214,7 +214,7 @@ test('[structurel] MainActivity confirme showNativeUi et la presence du conteneu
   const stageAt = body.indexOf('NativeCrashGuard;->stage(Ljava/lang/String;)V');
   const rootLookupAt = body.indexOf('const v0, 0x7f09022f');
   const rootVisibleAt = body.indexOf('setVisibility(I)V', rootLookupAt);
-  const markerAt = body.indexOf('window.__sfNativeUiShowMethodCalled=true;');
+  const markerAt = body.lastIndexOf('window.__sfNativeUiShowMethodCalled=true;');
   assert.ok(stageAt > -1 && rootLookupAt > -1 && rootVisibleAt > rootLookupAt && markerAt > rootVisibleAt,
     'le marqueur vient apres la demande de visibilité du nativeRoot et le stage ready');
   assert.match(body, /window\.__sfNativeUiRootFound=/,

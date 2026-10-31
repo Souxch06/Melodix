@@ -1,9 +1,8 @@
 #!/usr/bin/env node
 'use strict';
-// Contrats [structurels] du diagnostic « accueil vide ». Quand l'accueil ne
-// collecte aucune row, l'état complet (build, page, bridge, mediaLib,
-// compteurs) doit s'afficher à l'écran : un screenshot devient un diagnostic.
-// Ces contrats ne prouvent pas l'exécution Android.
+// Contrats structurels du diagnostic « accueil vide ». Les états restent
+// disponibles pour le diagnostic interne, mais ne sont jamais présentés comme
+// un remplacement natif tant qu’aucune vraie carte Spotify n’est rendue.
 const { test } = require('node:test');
 const assert = require('node:assert');
 const fs = require('node:fs');
@@ -31,19 +30,35 @@ test('[structurel] homeDiagRow porte build/page/bridge/mediaLib/rows', () => {
   assert.match(body, /spotifyRoutePath\(\)/);
   assert.match(body, /bridgeHasStarted\(\)/);
   assert.match(body, /__sfMediaLibStatus/);
+  assert.match(body, /web cards/);
+  assert.match(body, /__sfMelodixHomeSourceCardCount/);
+  assert.match(body, /__sfNativeUiHomeDomRowsCount/);
   assert.match(body, /__sfNativeUiHomeRowsCount/);
 });
 
-test('[structurel] un takeover sans rows envoie un etat, jamais un ecran muet', () => {
-  const at = shell.indexOf('bridge.onNativeUiReady();');
-  const after = shell.slice(at, at + 1600);
-  assert.match(after, /__sfNativeUiHomeRowsCount \|\| 0\) < 1/);
-  // Le shell prend la main tot (l ancien refus rows>=1 rendait toute l UI
-  // invisible) et garantit un payload: [] = ligne de chargement native, ou
-  // la carte d explication quand la bibliotheque a echoue.
-  assert.match(after, /onNativeUiData\('home', JSON\.stringify\(homeStatePayload\(\)\)/);
-  assert.ok(!/ready-blocked[^']*'[\s\S]{0,200}return false/.test(after),
-    'plus de refus bloquant sur un accueil vide');
+test('[structurel] le comptage diagnostique compare les cartes Web aux rows natives réellement scrappées', () => {
+  const at = shell.indexOf('function updateHomeRows(mainView)');
+  const body = shell.slice(at, shell.indexOf('function currentSearchQuery', at));
+  assert.match(body, /scrapedRows = collectHomeRows\(mainView\)/);
+  assert.match(body, /__sfNativeUiHomeDomRowsCount = scrapedRows\.length/);
+  assert.match(body, /rows = supplementHomeRowsWithLibrary\(scrapedRows\)/);
+  assert.match(body, /home-card-counts web=' \+ webCards \+ ' native-dom=' \+ scrapedRows\.length \+\s*' native-total=' \+ rows\.length/);
+  assert.match(body, /__sfNativeUiHomeCountTraceSignature/,
+    'les diagnostics du compteur sont plafonnés aux changements de compte');
+});
+
+test('[structurel] les rows vides/actions ne satisfont pas le gate de readiness', () => {
+  const at = shell.indexOf('function notifyNativeUiReady(');
+  const body = shell.slice(at, shell.indexOf('\n    function ', at + 10));
+  const gate = body.indexOf('if (isSpotifyHome()');
+  const ready = body.indexOf('bridge.onNativeUiReady();');
+  assert.ok(gate >= 0 && ready > gate, 'le gate précède le callback qui couvre la page');
+  assert.match(body.slice(gate, ready), /__sfNativeUiHomeRowsCount/);
+  assert.match(body.slice(gate, ready), /__sfNativeUiHomeDataSent/);
+  assert.match(body.slice(gate, ready), /action=keep-spotify-visible/);
+  assert.match(body.slice(gate, ready), /return false;/);
+  assert.doesNotMatch(body.slice(ready), /onNativeUiData\('home', JSON\.stringify\(homeStatePayload\(\)\)/,
+    'aucun état de chargement n’est envoyé après un takeover vide');
 });
 
 test('[structurel] un scrape vide explique l etat (3/15) puis livre le diag complet (MAX)', () => {

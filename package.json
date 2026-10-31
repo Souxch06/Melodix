@@ -1,0 +1,12 @@
+{
+  "name": "melodix",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "test": "node --test tests/*.test.js",
+    "test:p0-home": "node --test tests/melodix_home.test.js tests/p0_shell_takeover.test.js tests/p0_empty_home_fix.test.js tests/p0_home_diag.test.js tests/p0v30_home_render_nullchecks.test.js"
+  },
+  "devDependencies": {
+    "jsdom": "26.1.0"
+  }
+}

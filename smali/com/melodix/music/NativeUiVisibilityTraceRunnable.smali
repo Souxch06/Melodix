@@ -1,0 +1,185 @@
+.class final Lcom/melodix/music/NativeUiVisibilityTraceRunnable;
+.super Ljava/lang/Object;
+.implements Ljava/lang/Runnable;
+
+.field private final activity:Lcom/melodix/music/MainActivity;
+.field private final root:Landroid/view/View;
+
+.method public constructor <init>(Lcom/melodix/music/MainActivity;Landroid/view/View;)V
+    .locals 0
+    invoke-direct {p0}, Ljava/lang/Object;-><init>()V
+    iput-object p1, p0, Lcom/melodix/music/NativeUiVisibilityTraceRunnable;->activity:Lcom/melodix/music/MainActivity;
+    iput-object p2, p0, Lcom/melodix/music/NativeUiVisibilityTraceRunnable;->root:Landroid/view/View;
+    return-void
+.end method
+
+.method public final run()V
+    .locals 13
+
+    :try_start_native_layout_trace
+    iget-object v0, p0, Lcom/melodix/music/NativeUiVisibilityTraceRunnable;->activity:Lcom/melodix/music/MainActivity;
+    iget-object v1, p0, Lcom/melodix/music/NativeUiVisibilityTraceRunnable;->root:Landroid/view/View;
+    if-eqz v0, :native_layout_done
+    if-eqz v1, :native_layout_done
+
+    invoke-virtual {v1}, Landroid/view/View;->isShown()Z
+    move-result v4
+    invoke-static {v4}, Ljava/lang/Boolean;->toString(Z)Ljava/lang/String;
+    move-result-object v4
+    invoke-virtual {v1}, Landroid/view/View;->getWidth()I
+    move-result v5
+    invoke-virtual {v1}, Landroid/view/View;->getHeight()I
+    move-result v6
+    invoke-virtual {v1}, Landroid/view/View;->getParent()Landroid/view/ViewParent;
+    move-result-object v2
+
+    const/4 v3, 0x0
+    const/4 v7, 0x0
+    const/4 v8, -0x1
+    const/4 v9, -0x1
+    const/4 v10, 0x0
+    if-eqz v2, :native_layout_parent_checked
+    const/4 v3, 0x1
+    instance-of v7, v2, Landroidx/constraintlayout/widget/ConstraintLayout;
+    if-eqz v7, :native_layout_parent_checked
+    check-cast v2, Landroidx/constraintlayout/widget/ConstraintLayout;
+    invoke-virtual {v2, v1}, Landroid/view/ViewGroup;->indexOfChild(Landroid/view/View;)I
+    move-result v8
+    invoke-virtual {v2}, Landroid/view/ViewGroup;->getChildCount()I
+    move-result v10
+    const v11, 0x7f0900ea
+    invoke-virtual {v2, v11}, Landroid/view/View;->findViewById(I)Landroid/view/View;
+    move-result-object v11
+    if-eqz v11, :native_layout_parent_checked
+    invoke-virtual {v2, v11}, Landroid/view/ViewGroup;->indexOfChild(Landroid/view/View;)I
+    move-result v9
+    :native_layout_parent_checked
+
+    new-instance v2, Ljava/lang/StringBuilder;
+    invoke-direct {v2}, Ljava/lang/StringBuilder;-><init>()V
+    const-string v11, "native-layout shown="
+    invoke-virtual {v2, v11}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    invoke-virtual {v2, v4}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    const-string v11, " size="
+    invoke-virtual {v2, v11}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    invoke-virtual {v2, v5}, Ljava/lang/StringBuilder;->append(I)Ljava/lang/StringBuilder;
+    const-string v11, "x"
+    invoke-virtual {v2, v11}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    invoke-virtual {v2, v6}, Ljava/lang/StringBuilder;->append(I)Ljava/lang/StringBuilder;
+    const-string v11, " parent="
+    invoke-virtual {v2, v11}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    if-eqz v3, :native_layout_parent_missing
+    if-eqz v7, :native_layout_parent_other
+    const-string v11, "constraint"
+    goto :native_layout_parent_name_ready
+    :native_layout_parent_other
+    const-string v11, "other"
+    goto :native_layout_parent_name_ready
+    :native_layout_parent_missing
+    const-string v11, "missing"
+    :native_layout_parent_name_ready
+    invoke-virtual {v2, v11}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    const-string v11, " order(root/web/children)="
+    invoke-virtual {v2, v11}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    invoke-virtual {v2, v8}, Ljava/lang/StringBuilder;->append(I)Ljava/lang/StringBuilder;
+    const-string v11, "/"
+    invoke-virtual {v2, v11}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    invoke-virtual {v2, v9}, Ljava/lang/StringBuilder;->append(I)Ljava/lang/StringBuilder;
+    const-string v11, "/"
+    invoke-virtual {v2, v11}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    invoke-virtual {v2, v10}, Ljava/lang/StringBuilder;->append(I)Ljava/lang/StringBuilder;
+    const-string v11, " elevation="
+    invoke-virtual {v2, v11}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    invoke-virtual {v1}, Landroid/view/View;->getElevation()F
+    move-result v11
+    invoke-virtual {v2, v11}, Ljava/lang/StringBuilder;->append(F)Ljava/lang/StringBuilder;
+    invoke-virtual {v2}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
+    move-result-object v2
+    const-string v11, "MDXTRACE"
+    invoke-static {v11, v2}, Landroid/util/Log;->i(Ljava/lang/String;Ljava/lang/String;)I
+
+    # A separate bit records a genuinely visible, measured native root attached
+    # to the expected parent. Keep the actual parent and sibling order distinct.
+    const/4 v12, 0x0
+    invoke-virtual {v1}, Landroid/view/View;->isShown()Z
+    move-result v11
+    if-eqz v11, :native_layout_not_ready
+    if-lez v5, :native_layout_not_ready
+    if-lez v6, :native_layout_not_ready
+    invoke-virtual {v1}, Landroid/view/View;->getParent()Landroid/view/ViewParent;
+    move-result-object v11
+    if-eqz v11, :native_layout_not_ready
+    instance-of v11, v11, Landroidx/constraintlayout/widget/ConstraintLayout;
+    if-eqz v11, :native_layout_not_ready
+    const/4 v12, 0x1
+    :native_layout_not_ready
+
+    new-instance v2, Ljava/lang/StringBuilder;
+    invoke-direct {v2}, Ljava/lang/StringBuilder;-><init>()V
+    const-string v11, "window.__sfNativeUiRootVisible="
+    invoke-virtual {v2, v11}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    invoke-virtual {v2, v4}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    const-string v11, ";window.__sfNativeUiRootWidth="
+    invoke-virtual {v2, v11}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    invoke-virtual {v2, v5}, Ljava/lang/StringBuilder;->append(I)Ljava/lang/StringBuilder;
+    const-string v11, ";window.__sfNativeUiRootHeight="
+    invoke-virtual {v2, v11}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    invoke-virtual {v2, v6}, Ljava/lang/StringBuilder;->append(I)Ljava/lang/StringBuilder;
+    const-string v11, ";window.__sfNativeUiRootParentFound="
+    invoke-virtual {v2, v11}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    if-eqz v3, :native_parent_false
+    const-string v11, "true"
+    goto :native_parent_found_ready
+    :native_parent_false
+    const-string v11, "false"
+    :native_parent_found_ready
+    invoke-virtual {v2, v11}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    const-string v11, ";window.__sfNativeUiRootParentConstraint="
+    invoke-virtual {v2, v11}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    if-eqz v7, :native_parent_constraint_false
+    const-string v11, "true"
+    goto :native_parent_constraint_ready
+    :native_parent_constraint_false
+    const-string v11, "false"
+    :native_parent_constraint_ready
+    invoke-virtual {v2, v11}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    const-string v11, ";window.__sfNativeUiRootIndex="
+    invoke-virtual {v2, v11}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    invoke-virtual {v2, v8}, Ljava/lang/StringBuilder;->append(I)Ljava/lang/StringBuilder;
+    const-string v11, ";window.__sfNativeUiWebIndex="
+    invoke-virtual {v2, v11}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    invoke-virtual {v2, v9}, Ljava/lang/StringBuilder;->append(I)Ljava/lang/StringBuilder;
+    const-string v11, ";window.__sfNativeUiSiblingCount="
+    invoke-virtual {v2, v11}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    invoke-virtual {v2, v10}, Ljava/lang/StringBuilder;->append(I)Ljava/lang/StringBuilder;
+    const-string v11, ";window.__sfNativeUiRootElevation="
+    invoke-virtual {v2, v11}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    invoke-virtual {v1}, Landroid/view/View;->getElevation()F
+    move-result v11
+    invoke-virtual {v2, v11}, Ljava/lang/StringBuilder;->append(F)Ljava/lang/StringBuilder;
+    const-string v11, ";window.__sfNativeUiRootLayoutReady="
+    invoke-virtual {v2, v11}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    if-eqz v12, :native_layout_false
+    const-string v11, "true;"
+    goto :native_layout_ready
+    :native_layout_false
+    const-string v11, "false;"
+    :native_layout_ready
+    invoke-virtual {v2, v11}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    invoke-virtual {v2}, Ljava/lang/Object;->toString()Ljava/lang/String;
+    move-result-object v2
+    invoke-virtual {v0, v2}, Lcom/melodix/music/MainActivity;->runNativeJavascript(Ljava/lang/String;)V
+
+    :try_end_native_layout_trace
+    .catch Ljava/lang/Throwable; {:try_start_native_layout_trace .. :try_end_native_layout_trace} :catch_native_layout_trace
+    goto :native_layout_done
+
+    :catch_native_layout_trace
+    move-exception v0
+    const-string v0, "MDXTRACE"
+    const-string v1, "native-layout trace failed"
+    invoke-static {v0, v1}, Landroid/util/Log;->w(Ljava/lang/String;Ljava/lang/String;)I
+
+    :native_layout_done
+    return-void
+.end method

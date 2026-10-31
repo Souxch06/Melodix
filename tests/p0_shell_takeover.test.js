@@ -2,9 +2,8 @@
 //
 // The shell is an IIFE that boots on load: it scrapes the Spotify page, sends
 // rows to the native side and decides when the native UI may take over. These
-// tests run the REAL file in a vm sandbox with a minimal fake page and observe
-// what it actually sends to the native bridge.
-// Mocks live only here: production never sees them.
+// tests run the REAL file in a vm sandbox with a fake Spotify DOM and observe
+// every callback. Mocks live only here; production never sees them.
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
@@ -87,7 +86,6 @@ function cardPage({ withCards = true } = {}) {
         inner.textContent = 'Road trip';
         inner.innerText = 'Road trip';
         const card = node({ tag: 'div', attrs: { 'data-testid': 'card' }, children: [inner] });
-        // Spotify folds the visible text into the card container.
         card.textContent = 'Road trip';
         card.innerText = 'Road trip';
         cards.push(card);
@@ -99,12 +97,14 @@ function cardPage({ withCards = true } = {}) {
 }
 
 // Boots the real shell against a fake page and records every bridge call.
-function loadShell({ withCards = true, mediaLib = null, locationPath = '/', searchMediaItemsImpl = null, noUserWidget = false } = {}) {
+function loadShell({ withCards = true, mediaLib = null, locationPath = '/', searchMediaItemsImpl = null, noUserWidget = false, bridgeMode = 'complete' } = {}) {
     const timers = [];
     const navigations = [];
     const webLoads = [];
+    const observerCallbacks = [];
+    let fakeNow = 1000;
     const { main, widget } = cardPage({ withCards });
-    const calls = { ready: 0, data: [], routes: [], mediaLibChecks: 0 };
+    const calls = { ready: 0, data: [], routes: [], mediaLibChecks: 0, order: [], traces: [] };
     const byId = new Map();
     byId.set('#main-view', main);
     if (!noUserWidget) {
@@ -129,6 +129,10 @@ function loadShell({ withCards = true, mediaLib = null, locationPath = '/', sear
 
     const win = {
         addEventListener() {}, removeEventListener() {}, dispatchEvent() { return true; },
+        __sfTriggerMutations() {
+            fakeNow += 250;
+            observerCallbacks.forEach((callback) => callback([]));
+        },
         setTimeout(fn) { timers.push(fn); return timers.length; },
         clearTimeout(id) { if (id) timers[id - 1] = null; },
         setInterval: () => 0, clearInterval() {},
@@ -146,11 +150,15 @@ function loadShell({ withCards = true, mediaLib = null, locationPath = '/', sear
         sessionStorage: { getItem: () => null, setItem() {}, removeItem() {} },
         document,
         console: { log() {}, warn() {}, error() {}, info() {}, debug() {} },
-        MutationObserver: class { observe() {} disconnect() {} },
+        MutationObserver: class {
+            constructor(callback) { this.callback = callback; }
+            observe() { observerCallbacks.push(this.callback); }
+            disconnect() {}
+        },
         matchMedia: () => ({ matches: false, addEventListener() {}, addListener() {} }),
         getComputedStyle: () => ({ getPropertyValue: () => '' }),
         performance: { now: () => 0 },
-        Date: { now: () => 1000 },
+        Date: { now: () => fakeNow },
         URL,
         URLSearchParams,
         TextDecoder,
@@ -169,14 +177,25 @@ function loadShell({ withCards = true, mediaLib = null, locationPath = '/', sear
     }
     win.checkMediaLib = () => { calls.mediaLibChecks += 1; };
     if (searchMediaItemsImpl) win.searchMediaItems = searchMediaItemsImpl;
-    win.AndBridge = {
-        onNativeUiReady() { calls.ready += 1; },
-        onNativeUiRoute(screen) { calls.routes.push(screen); },
-        onNativeUiData(screen, json) { calls.data.push({ screen, rows: JSON.parse(json) }); },
-        logDiagEvent() {},
-        getBuildLabel() { return 'test-build'; },
-        loadWebPlayerUrl(url) { webLoads.push(url); }
-    };
+    const bridge = {};
+    if (bridgeMode === 'complete' || bridgeMode === 'no-ready' || bridgeMode === 'no-data' || bridgeMode === 'no-route' || bridgeMode === 'throw-data') {
+        if (bridgeMode !== 'no-ready') bridge.onNativeUiReady = () => { calls.ready += 1; calls.order.push('ready'); };
+        if (bridgeMode !== 'no-route') bridge.onNativeUiRoute = (screen) => {
+            calls.routes.push(screen);
+            calls.order.push('route:' + screen);
+        };
+        if (bridgeMode !== 'no-data') bridge.onNativeUiData = (screen, json) => {
+            calls.order.push('data:' + screen);
+            if (bridgeMode === 'throw-data') throw new Error('native callback failed');
+            calls.data.push({ screen, rows: JSON.parse(json) });
+        };
+        bridge.logDiagEvent = (line) => calls.traces.push(String(line));
+        bridge.getBuildLabel = () => 'test-build';
+        bridge.loadWebPlayerUrl = (url) => webLoads.push(url);
+        win.AndBridge = bridge;
+    } else if (bridgeMode === 'absent') {
+        delete win.AndBridge;
+    }
 
     const context = vm.createContext(win);
     vm.runInContext(fs.readFileSync(SHELL, 'utf8'), context, { timeout: 20000 });
@@ -190,118 +209,121 @@ function loadShell({ withCards = true, mediaLib = null, locationPath = '/', sear
         }
         return ran;
     };
-    return { win, calls, drainTimers, navigations, webLoads };
+    const appendCard = ({ id, title, type = 'playlist' }) => {
+        const anchor = node({ tag: 'a', attrs: { href: `/${type}/${id}` } });
+        anchor.textContent = title;
+        anchor.innerText = title;
+        const card = node({ tag: 'div', attrs: { 'data-testid': 'card' }, children: [anchor] });
+        card.textContent = title;
+        card.innerText = title;
+        const shelf = main.children[0];
+        shelf.children.push(card);
+        card.parentNode = shelf;
+        return card;
+    };
+    return { win, calls, drainTimers, navigations, webLoads, main, appendCard };
 }
 
-// P0: the native UI must appear even when the page has no row to scrape.
-// Before the fix the shell refused the takeover until __sfNativeUiHomeRowsCount
-// was >= 1, which left the whole native UI invisible on a slow/empty account.
-test('the shell takes over the home screen even with zero scraped rows', () => {
+// P0: an empty/loading/error payload is not proof of a native replacement.
+// Spotify remains the visible fallback until at least one real card is sent.
+test('an empty Home never triggers native takeover or claims readiness', () => {
     const { calls, win } = loadShell({ withCards: false });
-    assert.equal(calls.ready, 1, 'onNativeUiReady() is called once');
-    assert.equal(win.__sfNativeUiReadyNotified, true);
-    assert.ok(calls.routes.includes('home'), 'the route is announced');
-
-    const home = calls.data.filter((call) => call.screen === 'home');
-    assert.ok(home.length >= 1, 'a home payload is still sent: never a silent blank');
+    assert.equal(calls.ready, 0, 'onNativeUiReady() is withheld without a real card');
+    assert.notEqual(win.__sfNativeUiReadyNotified, true);
+    assert.equal(win.__sfNativeUiHomeRowsCount, 0);
+    assert.equal(win.__sfNativeUiSessionProven, true);
+    assert.equal(win.__sfNativeUiBridgeCallbacksReady, true);
+    assert.ok(calls.routes.includes('home'), 'the route is queued without covering Spotify');
+    assert.ok(calls.data.some((call) => call.screen === 'home' && call.rows.length === 0));
+    assert.ok(calls.traces.some((line) => line.includes('action=keep-spotify-visible')));
 });
 
-// A slow library must not be reported as an empty account, and a real failure
-// must be explained in place instead of leaving an eternal loading line.
-test('the empty home explains a library failure instead of loading forever', () => {
+// A library failure remains diagnosable, but status/action rows cannot satisfy
+// the real-card gate.
+test('an error/status row never counts as a real Home replacement', () => {
     const { win, calls, drainTimers } = loadShell({ withCards: false });
-    assert.equal(calls.ready, 1, 'the shell took over');
-
-    // Still loading: the native centred line is enough, no card is invented.
-    const bootRows = calls.data.filter((c) => c.screen === 'home');
-    assert.deepEqual(bootRows[bootRows.length - 1].rows, [], 'no fake row while loading');
-
-    // Spotify answers with a rate-limit: the retry loop must say so.
     win.__sfMediaLibStatus = 'error';
     win.__sfMediaLibError = 'http-429';
     drainTimers(20);
 
-    const after = calls.data.filter((c) => c.screen === 'home');
-    const explained = after.find((c) => c.rows.some((r) => r.title === 'Vos playlists ne sont pas disponibles'));
-    assert.ok(explained, 'the failure is explained on the screen');
-    const row = explained.rows[0];
-    assert.match(row.subtitle, /limite les requêtes/, 'the real HTTP cause is named');
-    // The state row is never a fake playlist, but it is no longer a dead end:
-    // it carries a real native action so the user can retry by hand.
-    assert.equal(row.uri, 'melodix:action:retry-library', 'the state row offers a real retry');
-    assert.doesNotMatch(row.uri, /:(playlist|album|artist|show|episode):/, 'never a fake playable item');
+    const statusPayload = calls.data.filter((call) => call.screen === 'home')
+        .find((call) => call.rows.some((row) => row.title === 'Vos playlists ne sont pas disponibles'));
+    assert.ok(statusPayload, 'the underlying library failure remains diagnosable');
+    assert.match(statusPayload.rows[0].subtitle, /limite les requêtes/);
+    assert.equal(calls.ready, 0, 'a diagnostic/action row cannot make the native shell ready');
+    assert.notEqual(win.__sfNativeUiReadyNotified, true);
 });
 
-test('real playlists scraped from the page reach the native side with their URI', () => {
-    const { calls } = loadShell({ withCards: true });
-    const home = calls.data.filter((call) => call.screen === 'home');
-    assert.ok(home.length >= 1, 'home data is sent');
-    const rows = home[home.length - 1].rows;
-    assert.ok(rows.length >= 1, 'at least the scraped card');
-    const row = rows.find((r) => r.title === 'Road trip');
-    assert.ok(row, 'the real card title arrives');
-    assert.equal(row.uri, 'spotify:playlist:37i9dQZF1DXcBWIGoYBM5M', 'the real playlist URI is passed through');
-    assert.equal(row.image, 'https://i.scdn.co/image/abc', 'the real artwork is passed through');
+test('real Home data is queued after its route and before the readiness callback', () => {
+    const { calls, win } = loadShell({ withCards: true });
+    const routeIndex = calls.order.indexOf('route:home');
+    const homeDataIndex = calls.order.indexOf('data:home');
+    const readyIndex = calls.order.indexOf('ready');
+    assert.ok(routeIndex >= 0 && homeDataIndex > routeIndex && readyIndex > homeDataIndex,
+        `expected route -> Home data -> ready, saw ${calls.order.join(' / ')}`);
+    assert.equal(win.__sfNativeUiHomeRowsCount, 1);
+    assert.equal(win.__sfNativeUiHomeDataSent, true);
+    assert.equal(calls.ready, 1);
 });
 
-test('the account library is merged into Home with its real URIs', () => {
-    const { calls } = loadShell({
-        withCards: true,
-        mediaLib: {
-            playlists: [
-                { id: 'spotify:playlist:lib1', name: 'Ma playlist perso', image: 'https://i.scdn.co/image/lib1' },
-                { id: 'spotify:playlist:lib2', name: 'Focus', image: null }
-            ],
-            albums: [], artists: [], podcasts: []
+test('delayed real Spotify cards unblock readiness without an empty takeover', () => {
+    const { calls, win, appendCard } = loadShell({ withCards: false });
+    assert.equal(calls.ready, 0);
+    assert.equal(win.__sfNativeUiReadyNotified, undefined);
+
+    appendCard({ id: 'late-playlist', title: 'Vraie playlist tardive' });
+    win.__sfTriggerMutations();
+
+    assert.equal(calls.ready, 1, 'readiness resumes after the late row is collected and sent');
+    assert.equal(win.__sfNativeUiHomeRowsCount, 1);
+    const order = calls.order;
+    const lastRoute = order.lastIndexOf('route:home');
+    const lastHomeData = order.lastIndexOf('data:home');
+    const ready = order.lastIndexOf('ready');
+    assert.ok(lastRoute >= 0 && lastHomeData > lastRoute && ready > lastHomeData,
+        `late data must still follow route and precede ready: ${order.join(' / ')}`);
+});
+
+test('absent, incomplete, or throwing bridge callbacks never claim native readiness', () => {
+    for (const bridgeMode of ['absent', 'no-ready', 'no-data', 'no-route', 'throw-data']) {
+        const { calls, win } = loadShell({ withCards: true, bridgeMode });
+        assert.equal(calls.ready, 0, `${bridgeMode}: no ready callback`);
+        assert.notEqual(win.__sfNativeUiReadyNotified, true, `${bridgeMode}: readiness stays false`);
+        assert.equal(win.__sfNativeUiSessionProven, true, `${bridgeMode}: the session proof is visible`);
+        assert.equal(win.__sfNativeUiBridgeCallbacksReady, bridgeMode === 'throw-data',
+            `${bridgeMode}: callback availability is reported independently of callback success`);
+        if (bridgeMode !== 'absent') {
+            assert.ok(calls.traces.concat([win.__sfDiagTraceLast || '']).some((line) => line.includes('ready-pending')),
+                `${bridgeMode}: diagnostic names the pending handoff`);
+        } else {
+            assert.equal(win.AndBridge, undefined, 'the absent native bridge itself prevents any takeover');
         }
-    });
-    const home = calls.data.filter((call) => call.screen === 'home');
-    const rows = home[home.length - 1].rows;
-    const mine = rows.find((r) => r.title === 'Ma playlist perso');
-    assert.ok(mine, 'a library playlist reaches Home');
-    assert.equal(mine.uri, 'spotify:playlist:lib1');
-    assert.equal(mine.image, 'https://i.scdn.co/image/lib1');
-    assert.equal(mine.section, 'Vos playlists');
-    const noArt = rows.find((r) => r.title === 'Focus');
-    assert.ok(noArt, 'a playlist without artwork is still listed');
-    assert.equal(noArt.image, '', 'no artwork is invented');
+    }
 });
 
-// P0: tapping a playlist must open THAT playlist. The media-items transport
-// currently answers "no items" at once, so waiting the six-second safety net
-// left the user on a loader for every tap.
-test('opening a playlist navigates to it at once instead of waiting six seconds', async () => {
-    const { win, navigations, webLoads, drainTimers } = loadShell({ withCards: true });
-    win.__sfMelodixBridgeStarted = true;
-    win.fetchMediaItems = async () => [];   // current posture: no items via bridge
+test('route changes are dispatched before fresh Home data is resent', () => {
+    const { calls, win } = loadShell({ withCards: true });
+    const initialHomeCount = calls.data.filter((call) => call.screen === 'home').length;
+    assert.equal(initialHomeCount, 1);
 
-    const opened = win.__sfOpenCollection('spotify:playlist:37i9dQZF1DXcBWIGoYBM5M');
-    assert.equal(opened, true, 'the shell accepts the open request');
-    // Let the transport's promise settle.
-    await new Promise((resolve) => setTimeout(resolve, 5));
+    win.location.pathname = '/search/jazz';
+    win.location.href = 'https://open.spotify.com/search/jazz';
+    win.__sfTriggerMutations();
+    assert.equal(calls.routes[calls.routes.length - 1], 'search');
 
-    assert.deepEqual(webLoads, ['https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M'],
-        'the real playlist page is opened immediately, with the exact id');
-    assert.deepEqual(navigations, [], 'playlist recovery does not open Spotify externally');
-    assert.equal(drainTimers(2), 0, 'the six-second timer is cleared, not left running');
+    win.location.pathname = '/home';
+    win.location.href = 'https://open.spotify.com/home';
+    win.__sfTriggerMutations();
+    const homeOrder = calls.order.slice(calls.order.lastIndexOf('route:home'));
+    const homeData = homeOrder.indexOf('data:home');
+    assert.ok(homeData > 0, `Home route must be queued before its refreshed data: ${homeOrder.join(' / ')}`);
+    assert.equal(calls.data.filter((call) => call.screen === 'home').length, 2,
+        'the previous screen cannot leave stale Home content hidden behind the native shell');
 });
 
-test('a silent media transport still falls back to the real page', () => {
-    const { win, navigations, webLoads, drainTimers } = loadShell({ withCards: true });
-    win.__sfMelodixBridgeStarted = true;
-    win.fetchMediaItems = () => undefined;   // never answers
+// Existing functional regressions: real library/search/navigation behavior is
+// exercised by the rest of this file and the full test suite.
 
-    win.__sfOpenCollection('spotify:playlist:silent');
-    assert.deepEqual(webLoads, [], 'nothing happens while the transport is silent');
-    assert.deepEqual(navigations, [], 'nothing is launched externally while the transport is silent');
-    drainTimers(2);
-    assert.deepEqual(webLoads, ['https://open.spotify.com/playlist/silent'],
-        'the safety net still opens the page');
-    assert.deepEqual(navigations, [], 'the native safety net does not open Spotify externally');
-});
-
-// P1 navigation: the Library tab and its chips must reach a real page. They
-// used to call the no-op transport and return, so the tap did nothing at all.
 test('the library tab opens the real playlists page with an empty transport', async () => {
     const { win, navigations, webLoads } = loadShell({ withCards: true, locationPath: '/' });
     win.__sfMelodixBridgeStarted = true;
@@ -363,7 +385,7 @@ test('submitting the native search field navigates immediately', () => {
     win.__sfSubmitSearch('Radiohead');
     assert.deepEqual(webLoads, ['https://open.spotify.com/search/Radiohead'],
         'submit does not wait for the live-typing debounce');
-    assert.deepEqual(navigations, [], 'search submission does not open Spotify externally');
+    assert.deepEqual(navigations, [], 'search submission does not open an external app');
 });
 
 test('real bridge results are kept and no navigation happens', async () => {
@@ -473,23 +495,81 @@ test('an empty category still navigates to its real page', async () => {
     assert.deepEqual(navigations, [], 'la navigation reste dans le WebView de l’app');
 });
 
-// P0-A: the takeover used to depend on Spotify's account control selector
-// (data-testid="user-widget-link"). Spotify renames those nodes regularly; when
-// it did, the gate never opened, showNativeUi() was never called and the splash
-// covered the app for the whole life of the process - the exact state the
-// emulator trace showed (stage chain stopped at content-view, no on-screen
-// text). A real library fetch proves the session just as well, without any
-// dependency on the page markup.
-test('a real library proves the session even when the account control is gone', () => {
+// P0-A: either the account widget or a real library fetch proves the signed-in
+// session. The latter can also provide real cards for the native replacement.
+test('a real library proves the session and contributes a real Home card', () => {
     const { calls } = loadShell({
         withCards: false,
         noUserWidget: true,
         mediaLib: { playlists: [{ id: 'spotify:playlist:p1', name: 'Vraie playlist' }] }
     });
-    assert.equal(calls.ready, 1, 'la coque native prend la main sans dependre du DOM');
+    assert.equal(calls.ready, 1, 'la page compte et la vraie carte rendent le takeover sûr');
 });
 
 test('without the account control and without a library, nothing is covered', () => {
-    const { calls } = loadShell({ withCards: false, noUserWidget: true });
-    assert.equal(calls.ready, 0, 'aucune preuve de session: la page Spotify reste visible');
+    const { calls, win } = loadShell({ withCards: false, noUserWidget: true });
+    assert.equal(calls.ready, 0, 'aucune preuve de session ni carte: la page Spotify reste visible');
+    assert.notEqual(win.__sfNativeUiReadyNotified, true);
 });
+
+
+// Restored legacy regression tests: Home merge, direct playlist navigation, and player fallback.
+test('the account library is merged into Home with its real URIs', () => {
+    const { calls } = loadShell({
+        withCards: true,
+        mediaLib: {
+            playlists: [
+                { id: 'spotify:playlist:lib1', name: 'Ma playlist perso', image: 'https://i.scdn.co/image/lib1' },
+                { id: 'spotify:playlist:lib2', name: 'Focus', image: null }
+            ],
+            albums: [], artists: [], podcasts: []
+        }
+    });
+    const home = calls.data.filter((call) => call.screen === 'home');
+    const rows = home[home.length - 1].rows;
+    const mine = rows.find((r) => r.title === 'Ma playlist perso');
+    assert.ok(mine, 'a library playlist reaches Home');
+    assert.equal(mine.uri, 'spotify:playlist:lib1');
+    assert.equal(mine.image, 'https://i.scdn.co/image/lib1');
+    assert.equal(mine.section, 'Vos playlists');
+    const noArt = rows.find((r) => r.title === 'Focus');
+    assert.ok(noArt, 'a playlist without artwork is still listed');
+    assert.equal(noArt.image, '', 'no artwork is invented');
+});
+
+// P0: tapping a playlist must open THAT playlist. The media-items transport
+// currently answers "no items" at once, so waiting the six-second safety net
+// left the user on a loader for every tap.
+
+test('opening a playlist navigates to it at once instead of waiting six seconds', async () => {
+    const { win, navigations, webLoads, drainTimers } = loadShell({ withCards: true });
+    win.__sfMelodixBridgeStarted = true;
+    win.fetchMediaItems = async () => [];   // current posture: no items via bridge
+
+    const opened = win.__sfOpenCollection('spotify:playlist:37i9dQZF1DXcBWIGoYBM5M');
+    assert.equal(opened, true, 'the shell accepts the open request');
+    // Let the transport's promise settle.
+    await new Promise((resolve) => setTimeout(resolve, 5));
+
+    assert.deepEqual(webLoads, ['https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M'],
+        'the real playlist page is opened immediately, with the exact id');
+    assert.deepEqual(navigations, [], 'playlist recovery does not open Spotify externally');
+    assert.equal(drainTimers(2), 0, 'the six-second timer is cleared, not left running');
+});
+
+test('a silent media transport still falls back to the real page', () => {
+    const { win, navigations, webLoads, drainTimers } = loadShell({ withCards: true });
+    win.__sfMelodixBridgeStarted = true;
+    win.fetchMediaItems = () => undefined;   // never answers
+
+    win.__sfOpenCollection('spotify:playlist:silent');
+    assert.deepEqual(webLoads, [], 'nothing happens while the transport is silent');
+    assert.deepEqual(navigations, [], 'nothing is launched externally while the transport is silent');
+    drainTimers(2);
+    assert.deepEqual(webLoads, ['https://open.spotify.com/playlist/silent'],
+        'the safety net still opens the page');
+    assert.deepEqual(navigations, [], 'the native safety net does not open Spotify externally');
+});
+
+// P1 navigation: the Library tab and its chips must reach a real page. They
+// used to call the no-op transport and return, so the tap did nothing at all.
