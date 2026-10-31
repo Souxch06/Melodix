@@ -708,6 +708,36 @@
             app:layout_constraintTop_toTopOf="parent">
             <ImageView android:id="@id/imgSplashLogo" android:layout_width="fill_parent" android:layout_height="fill_parent" android:src="@drawable/logo_melodix" />
         </androidx.cardview.widget.CardView>
+        <!-- Loading feedback. Without it the splash is a frozen logo for the
+             whole startup (login page + WebView take seconds to answer), and a
+             slow launch is indistinguishable from a hang. No android:id on
+             purpose: view ids are pinned to fixed hex values in
+             res/values/public.xml and referenced as such from smali, so this
+             block must not create new ids or new resources. The whole overlay
+             is hidden by showNativeUi() once the native shell is painted. -->
+        <LinearLayout
+            android:orientation="vertical"
+            android:gravity="center_horizontal"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="28.0dip"
+            app:layout_constraintTop_toBottomOf="@id/cardSplashLogo"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent">
+            <ProgressBar
+                android:indeterminate="true"
+                android:indeterminateTint="@color/mel_accent"
+                android:layout_width="30.0dip"
+                android:layout_height="30.0dip" />
+            <TextView
+                android:text="Chargement de votre musique…"
+                android:textSize="15.0sp"
+                android:textColor="@color/mel_text_secondary"
+                android:gravity="center"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="14.0dip" />
+        </LinearLayout>
         <ImageView android:id="@id/imgSplashError" android:visibility="gone" android:layout_width="100.0dip" android:layout_height="100.0dip" android:src="@drawable/waves_white" android:alpha="0.0" app:layout_constraintBottom_toBottomOf="parent" app:layout_constraintEnd_toEndOf="parent" app:layout_constraintStart_toStartOf="parent" app:layout_constraintTop_toTopOf="parent" />
         <TextView android:textSize="18.0sp" android:textStyle="bold" android:textColor="@color/mel_text_primary" android:gravity="center" android:id="@id/txtSplashError" android:visibility="gone" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="24.0dip" android:text="Network Error\nTap to retry" android:alpha="0.0" app:layout_constraintEnd_toEndOf="parent" app:layout_constraintStart_toStartOf="parent" app:layout_constraintTop_toBottomOf="@id/imgSplashError" />
     </androidx.constraintlayout.widget.ConstraintLayout>

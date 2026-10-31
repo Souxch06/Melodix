@@ -172,3 +172,38 @@ test('the back button is reachable and never smaller than the header avatar', ()
   assert.ok(dp(back.block, 'layout_height') >= 48, 'le retour fait au moins 48dp');
   assert.ok(dp(back.block, 'layout_width') >= 48, 'le retour fait au moins 48dp de large');
 });
+
+// ---------------------------------------------------------------------------
+// P0-A: the splash must never look frozen. A static logo for the whole startup
+// is indistinguishable from a hang, and a hang is exactly what the trace showed
+// (stage chain stopped at content-view, on-screen text empty).
+// ---------------------------------------------------------------------------
+
+test('the splash shows a loading indicator and an honest status text', () => {
+  const xml = fs.readFileSync(layoutFile, 'utf8');
+  const start = xml.indexOf('@id/splashOverlay');
+  assert.ok(start > 0, 'le splash existe');
+  const end = xml.indexOf('</androidx.constraintlayout.widget.ConstraintLayout>', start);
+  const splash = xml.slice(start, end);
+
+  assert.match(splash, /<ProgressBar[\s\S]{0,200}android:indeterminate="true"/,
+    'un indicateur de chargement anime est visible pendant le demarrage');
+  assert.match(splash, /Chargement de votre musique/,
+    'le texte dit ce qui se passe au lieu de laisser un logo muet');
+  // Honest wording: it must not promise success.
+  assert.doesNotMatch(splash, /prêt|termine|connecte/i,
+    'aucun message de succes pendant le chargement');
+});
+
+test('the splash feedback creates no new id and no new resource', () => {
+  // View ids are pinned to fixed hex values in res/values/public.xml and used
+  // as literals from smali (0x7f09xxxx). A new id or resource could shift the
+  // table and silently break every findViewById of the rebuilt APK.
+  const xml = fs.readFileSync(layoutFile, 'utf8');
+  const start = xml.indexOf('@id/splashOverlay');
+  const end = xml.indexOf('</androidx.constraintlayout.widget.ConstraintLayout>', start);
+  const splash = xml.slice(start, end);
+  assert.deepEqual(splash.match(/@\+id\/\w+/g) || [], [],
+    'le bloc splash ne declare aucun nouvel id');
+  assert.doesNotMatch(splash, /@string\/mel_splash/, 'aucune nouvelle chaine de traduction');
+});
