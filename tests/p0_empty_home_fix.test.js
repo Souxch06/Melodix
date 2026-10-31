@@ -56,7 +56,7 @@ test('[P0] les playlists du compte viennent du drawer reel (mobile + desktop), j
   const supp = shell.indexOf('function supplementHomeRowsWithLibrary(');
   assert.ok(supp >= 0, 'supplementHomeRowsWithLibrary existe');
   const body = shell.slice(supp, shell.indexOf('\n    function ', supp + 10));
-  assert.ok(body.includes('collectLibraryDrawerRows()'), 'le drawer est utilise dans le supplement');
+  assert.ok(body.includes('collectLibraryDrawerRows(mainView)'), 'le drawer reel est utilise sans rescanner une autre racine');
   assert.ok(shell.includes('spotify:playlist:'), 'liens playlist reels uniquement');
   assert.ok(!/Math\.random/.test(shell.slice(shell.indexOf('function collectLibraryDrawerRows('),
     shell.indexOf('function supplementHomeRowsWithLibrary('))),

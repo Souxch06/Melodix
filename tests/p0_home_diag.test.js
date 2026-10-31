@@ -41,7 +41,7 @@ test('[structurel] le comptage diagnostique compare les cartes Web aux rows nati
   const body = shell.slice(at, shell.indexOf('function currentSearchQuery', at));
   assert.match(body, /scrapedRows = collectHomeRows\(mainView\)/);
   assert.match(body, /__sfNativeUiHomeDomRowsCount = scrapedRows\.length/);
-  assert.match(body, /rows = supplementHomeRowsWithLibrary\(scrapedRows\)/);
+  assert.match(body, /rows = supplementHomeRowsWithLibrary\(scrapedRows, mainView\)/);
   assert.match(body, /home-card-counts web=' \+ webCards \+ ' native-dom=' \+ scrapedRows\.length \+\s*' native-total=' \+ rows\.length/);
   assert.match(body, /__sfNativeUiHomeCountTraceSignature/,
     'les diagnostics du compteur sont plafonnés aux changements de compte');

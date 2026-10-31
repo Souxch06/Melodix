@@ -40,6 +40,22 @@ const MELODIX_HOME_TITLE_SELECTORS = [
     '[role="heading"]',
     'h1', 'h2', 'h3'
 ].join(',');
+const MELODIX_HOME_ROOT_SELECTORS = [
+    '#main-view',
+    '[data-testid="main-view"]',
+    '#main-content',
+    '[data-testid="main-content"]',
+    '[data-testid="home-page"]',
+    '[data-testid="browse-feed"]',
+    '[data-testid="content-feed"]',
+    '[role="main"]',
+    'main'
+];
+const MELODIX_HOME_LINK_SELECTOR = 'a[href], [role="link"][href]';
+const MELODIX_HOME_NAV_SELECTOR = 'nav, [role="navigation"], aside, header, footer, #global-nav-bar, ' +
+    '#Desktop_LeftSidebar_Id, #sf-mobile-nav, #sf-mobile-navigation, #sf-melodix-home, ' +
+    '[data-testid="now-playing-bar"], [data-testid="mobile-playback-bar"], ' +
+    '[data-testid="now-playing-widget"], [data-testid="mini-player"]';
 let lastHomeDecisionSignature = '';
 
 function melodixHomeRoutePath() {
@@ -85,6 +101,152 @@ function melodixHomeResourcePath(href) {
         return `/${type}/${id}`;
     } catch (_) {
         return '';
+    }
+}
+
+function isMelodixHomeNavigationLink(anchor) {
+    try {
+        return Boolean(anchor && typeof anchor.closest === 'function' && anchor.closest(MELODIX_HOME_NAV_SELECTOR));
+    } catch (_) {
+        return false;
+    }
+}
+
+function melodixHomeResourceCount(root) {
+    if (!root || typeof root.querySelectorAll !== 'function') return 0;
+    let anchors = [];
+    try {
+        anchors = Array.from(root.querySelectorAll(MELODIX_HOME_LINK_SELECTOR)).slice(0, 300);
+    } catch (_) {
+        return 0;
+    }
+    const seen = new Set();
+    anchors.forEach((anchor) => {
+        if (isMelodixHomeNavigationLink(anchor) || (anchor.closest && anchor.closest('#sf-melodix-home'))) return;
+        const path = melodixHomeResourcePath(anchor.href || anchor.getAttribute('href'));
+        if (path) seen.add(path);
+    });
+    return seen.size;
+}
+
+function melodixHomeHasNavigation(root) {
+    if (!root || typeof root.querySelector !== 'function') return false;
+    try {
+        return Boolean(root.querySelector(MELODIX_HOME_NAV_SELECTOR));
+    } catch (_) {
+        return false;
+    }
+}
+
+function findFallbackMelodixHomeRoot() {
+    let anchors = [];
+    try {
+        anchors = Array.from(document.querySelectorAll(MELODIX_HOME_LINK_SELECTOR)).slice(0, 300);
+    } catch (_) {
+        return null;
+    }
+    const candidates = [];
+    const candidateDepth = new Map();
+    anchors.forEach((anchor) => {
+        if (isMelodixHomeNavigationLink(anchor)) return;
+        const href = anchor.href || anchor.getAttribute('href') || '';
+        if (!melodixHomeResourcePath(href)) return;
+        let node = anchor.parentElement;
+        let depth = 1;
+        while (node && node !== document.body && node !== document.documentElement && depth <= 8) {
+            const tag = String(node.tagName || '').toUpperCase();
+            if (node.id === 'sf-melodix-home' || (node.closest && node.closest('#sf-melodix-home'))) break;
+            if (!['HTML', 'BODY', 'NAV', 'HEADER', 'FOOTER', 'ASIDE'].includes(tag) &&
+                !melodixHomeHasNavigation(node)) {
+                if (!candidateDepth.has(node) && candidates.length < 64) {
+                    candidates.push(node);
+                    candidateDepth.set(node, depth);
+                } else if (candidateDepth.has(node) && depth < candidateDepth.get(node)) {
+                    candidateDepth.set(node, depth);
+                }
+            }
+            node = node.parentElement;
+            depth += 1;
+        }
+    });
+
+    let best = null;
+    let bestCount = 0;
+    let bestDepth = Infinity;
+    candidates.forEach((candidate) => {
+        const count = melodixHomeResourceCount(candidate);
+        const depth = candidateDepth.get(candidate) || Infinity;
+        if (count > bestCount || (count > 0 && count === bestCount && depth < bestDepth)) {
+            best = candidate;
+            bestCount = count;
+            bestDepth = depth;
+        }
+    });
+    if (!best) return null;
+    return {
+        element: best,
+        selector: `fallback:${String(best.tagName || 'element').toLowerCase()}`,
+        resourceCount: bestCount
+    };
+}
+
+function findMelodixHomeContentRoot() {
+    let firstRoot = null;
+    let firstSelector = '';
+    let bestRoot = null;
+    let bestSelector = '';
+    let bestCount = -1;
+    const seen = new Set();
+
+    MELODIX_HOME_ROOT_SELECTORS.forEach((selector) => {
+        let candidate = null;
+        try {
+            candidate = document.querySelector(selector);
+        } catch (_) {}
+        if (!candidate || seen.has(candidate) || candidate.id === 'sf-melodix-home' ||
+            (candidate.closest && candidate.closest('#sf-melodix-home'))) return;
+        seen.add(candidate);
+        if (!firstRoot) {
+            firstRoot = candidate;
+            firstSelector = selector;
+        }
+        const count = melodixHomeResourceCount(candidate);
+        if (count > bestCount) {
+            bestRoot = candidate;
+            bestSelector = selector;
+            bestCount = count;
+        }
+    });
+
+    // Spotify's current Home may not expose #main-view or another semantic
+    // main element. Bound the fallback to real Spotify links and eight ancestor
+    // levels; never treat arbitrary page text as a card.
+    if (!bestRoot || bestCount < 2) {
+        const fallback = findFallbackMelodixHomeRoot();
+        if (fallback && fallback.resourceCount > bestCount) {
+            bestRoot = fallback.element;
+            bestSelector = fallback.selector;
+            bestCount = fallback.resourceCount;
+        }
+    }
+    if (!bestRoot && firstRoot) {
+        bestRoot = firstRoot;
+        bestSelector = firstSelector;
+        bestCount = 0;
+    }
+    window.__sfMelodixHomeRootSelector = bestRoot ? bestSelector : 'none';
+    window.__sfMelodixHomeRootResourceCount = bestRoot ? Math.max(0, bestCount) : 0;
+    return bestRoot;
+}
+
+function markMelodixHomeSourceRoot(root) {
+    const previous = window._sfMelodixHomeSourceRoot;
+    if (previous && previous !== root && typeof previous.removeAttribute === 'function') {
+        previous.removeAttribute('data-sf-melodix-source-root');
+    }
+    if (root && typeof root.setAttribute === 'function') {
+        root.setAttribute('data-sf-melodix-source-root', 'true');
+        window._sfMelodixHomeSourceRoot = root;
     }
 }
 
@@ -195,7 +357,8 @@ function collectMelodixHomeSections(mainView) {
     anchors.forEach((anchor) => {
         const href = anchor.href || anchor.getAttribute('href') || '';
         const resourcePath = melodixHomeResourcePath(href);
-        if (!resourcePath || seen.has(resourcePath)) return;
+        if (!resourcePath || seen.has(resourcePath) || isMelodixHomeNavigationLink(anchor) ||
+            (anchor.closest && anchor.closest('#sf-melodix-home'))) return;
         const card = findMelodixHomeCard(anchor, mainView);
         const lines = String(card.innerText || card.textContent || anchor.innerText || anchor.textContent || '')
             .split('\n')
@@ -242,7 +405,8 @@ function collectMelodixHomeSections(mainView) {
 function setMelodixHomeDecision(reason, details) {
     const state = details || {};
     const guiMode = String(window.SF_CONFIG && window.SF_CONFIG.guiMode || 'missing').slice(0, 24);
-    const signature = [reason, guiMode, state.route || '?', state.stylesReady ? '1' : '0', state.cardCount || 0].join('|');
+    const rootSelector = String(state.rootSelector || window.__sfMelodixHomeRootSelector || '?').slice(0, 36);
+    const signature = [reason, guiMode, state.route || '?', state.stylesReady ? '1' : '0', state.cardCount || 0, rootSelector].join('|');
     window.__sfMelodixHomeGuiMode = guiMode;
     window.__sfMelodixHomeRoute = state.route || '?';
     window.__sfMelodixHomeStylesReady = Boolean(state.stylesReady);
@@ -255,7 +419,8 @@ function setMelodixHomeDecision(reason, details) {
             ' mode=' + guiMode + ' route=' + window.__sfMelodixHomeRoute +
             ' styles=' + (state.stylesReady ? '1' : '0') +
             ' cards=' + window.__sfMelodixHomeSourceCardCount +
-            ' sections=' + window.__sfMelodixHomeSectionCount);
+            ' sections=' + window.__sfMelodixHomeSectionCount +
+            ' root=' + rootSelector);
     }
 }
 
@@ -263,6 +428,11 @@ function deactivateMelodixHome() {
     if (document.body) document.body.classList.remove(MELODIX_HOME_ACTIVE_CLASS);
     const home = document.getElementById('sf-melodix-home');
     if (home) home.remove();
+    const sourceRoot = window._sfMelodixHomeSourceRoot;
+    if (sourceRoot && typeof sourceRoot.removeAttribute === 'function') {
+        sourceRoot.removeAttribute('data-sf-melodix-source-root');
+    }
+    window._sfMelodixHomeSourceRoot = null;
     window._sfMelodixHomeSignature = '';
 }
 
@@ -363,7 +533,7 @@ function updateMelodixHome() {
     const route = melodixHomeRoutePath();
     const routeLabel = route === '/' || route === '/home' ? route : 'other';
     const guiMode = String(window.SF_CONFIG && window.SF_CONFIG.guiMode || 'missing');
-    const mainView = document.querySelector('#main-view');
+    const mainView = findMelodixHomeContentRoot();
     let sections = [];
     let itemCount = 0;
     if (!document.body) {
@@ -389,7 +559,9 @@ function updateMelodixHome() {
         deactivateMelodixHome();
         observeMelodixHomeDom();
         observeMelodixHomeStyles();
-        setMelodixHomeDecision('main-view-missing', { route: routeLabel });
+        setMelodixHomeDecision('content-root-missing', {
+            route: routeLabel, rootSelector: window.__sfMelodixHomeRootSelector || 'none'
+        });
         return;
     }
     observeMelodixHomeDom();
@@ -397,12 +569,14 @@ function updateMelodixHome() {
 
     sections = collectMelodixHomeSections(mainView);
     itemCount = sections.reduce((count, section) => count + section.cards.length, 0);
-    const rawAnchorCount = mainView.querySelectorAll('a[href], [role="link"][href]').length;
+    const rawAnchorCount = mainView.querySelectorAll(MELODIX_HOME_LINK_SELECTOR).length;
     window.__sfMelodixHomeRawAnchorCount = Math.min(rawAnchorCount, 999);
+    markMelodixHomeSourceRoot(mainView);
     if (itemCount < 2) {
         deactivateMelodixHome();
         setMelodixHomeDecision('insufficient-real-cards', {
-            route: routeLabel, cardCount: itemCount, sectionCount: sections.length
+            route: routeLabel, cardCount: itemCount, sectionCount: sections.length,
+            rootSelector: window.__sfMelodixHomeRootSelector
         });
         return;
     }
@@ -420,7 +594,8 @@ function updateMelodixHome() {
     if (!stylesReady) {
         deactivateMelodixHome();
         setMelodixHomeDecision('styles-not-ready', {
-            route: routeLabel, cardCount: itemCount, sectionCount: sections.length, stylesReady: false
+            route: routeLabel, cardCount: itemCount, sectionCount: sections.length, stylesReady: false,
+            rootSelector: window.__sfMelodixHomeRootSelector
         });
         return;
     }
@@ -430,7 +605,8 @@ function updateMelodixHome() {
     ).join('||');
     if (window._sfMelodixHomeSignature === signature && document.body.classList.contains(MELODIX_HOME_ACTIVE_CLASS)) {
         setMelodixHomeDecision('visible', {
-            route: routeLabel, cardCount: itemCount, sectionCount: sections.length, stylesReady: true
+            route: routeLabel, cardCount: itemCount, sectionCount: sections.length, stylesReady: true,
+            rootSelector: window.__sfMelodixHomeRootSelector
         });
         return;
     }
@@ -482,7 +658,8 @@ function updateMelodixHome() {
     if (!renderedVisible) {
         deactivateMelodixHome();
         setMelodixHomeDecision('activation-visibility-check-failed', {
-            route: routeLabel, cardCount: itemCount, sectionCount: sections.length, stylesReady: false
+            route: routeLabel, cardCount: itemCount, sectionCount: sections.length, stylesReady: false,
+            rootSelector: window.__sfMelodixHomeRootSelector
         });
         return;
     }

@@ -37,6 +37,7 @@
     var lastLibraryPath = '';
     var lastLibrarySignature = null;
     var lastMediaActiveAt = 0;
+    var lastContentRoot = null;
 
     function normalizedPath() {
         var path = window.location.pathname || '/';
@@ -279,9 +280,15 @@
         var container = closest(sourceAnchor, '[data-testid="card"]') ||
             closest(sourceAnchor, '[data-encore-id="card"]') ||
             closest(sourceAnchor, '[data-testid="tracklist-row"]') ||
+            closest(sourceAnchor, '[data-testid*="card-container"]') ||
+            closest(sourceAnchor, '[role="listitem"]') ||
+            closest(sourceAnchor, 'article') ||
             closest(candidate, '[data-testid="card"]') ||
             closest(candidate, '[data-encore-id="card"]') ||
-            closest(candidate, '[data-testid="tracklist-row"]');
+            closest(candidate, '[data-testid="tracklist-row"]') ||
+            closest(candidate, '[data-testid*="card-container"]') ||
+            closest(candidate, '[role="listitem"]') ||
+            closest(candidate, 'article');
         if (container) return container;
 
         var node = sourceAnchor || candidate;
@@ -340,19 +347,25 @@
     }
 
     function collectHomeRows(mainView) {
-        var cardNodes = Array.prototype.slice.call(mainView.querySelectorAll('[data-testid="card"]'));
-        var anchors = Array.prototype.slice.call(mainView.querySelectorAll('a[href]'));
-        // Keep anchors as a fallback even when Spotify renders non-link cards or
-        // card anchors without an <img>. A card and its nested anchor are de-duped
-        // by their Spotify URI below.
+        var cardNodes = [];
+        try {
+            cardNodes = Array.prototype.slice.call(mainView.querySelectorAll(
+                '[data-testid="card"], [data-encore-id="card"], [data-testid="tracklist-row"], ' +
+                '[data-testid*="card-container"], [role="listitem"], article'
+            ));
+        } catch (_) {}
+        var anchors = queryHomeLinks(mainView);
+        // Start from real Spotify resource links, with card nodes as a fallback
+        // for markup variants. A card and its nested link are de-duped by URI.
         var candidates = cardNodes.concat(anchors);
         var seen = new Set();
         var rows = [];
 
         candidates.forEach(function(candidate) {
-            var sourceAnchor = candidate.matches && candidate.matches('a[href]')
+            var sourceAnchor = candidate.matches &&
+                (candidate.matches('a[href]') || candidate.matches('[role="link"][href]'))
                 ? candidate
-                : candidate.querySelector && candidate.querySelector('a[href]');
+                : findHomeLink(candidate);
             var href = sourceAnchor && (sourceAnchor.href || sourceAnchor.getAttribute('href'));
             var uri = spotifyResourceUri(href);
             var card = findCardContainer(sourceAnchor, candidate, mainView);
@@ -366,7 +379,8 @@
             var headings;
             var sectionTitle;
 
-            if (!sourceAnchor || !uri || seen.has(uri)) return;
+            if (!sourceAnchor || !uri || seen.has(uri) ||
+                closest(sourceAnchor, HOME_NAVIGATION_SELECTOR)) return;
             lines = textLines(card);
             imageUrl = findImageUrl(card, sourceAnchor, mainView);
             // Prefer the visible first line (the real title) and only fall back
@@ -418,7 +432,7 @@
     // the source that keeps working when libraryV3 never delivers (the
     // recurring device report: no media: payload ever arrives). Real DOM links
     // only - never invented rows.
-    function collectLibraryDrawerRows() {
+    function collectLibraryDrawerRows(mainView) {
         if (!document || typeof document.querySelectorAll !== 'function') return [];
         var drawerSelectors = [
             '[data-testid="rootlist"]',
@@ -441,10 +455,12 @@
             if (drawer) break;
         }
         if (!drawer || typeof drawer.querySelectorAll !== 'function') return [];
-        var main = null;
-        try {
-            main = document.querySelector('#main-view');
-        } catch (_) {}
+        var main = mainView || null;
+        if (!main) {
+            try {
+                main = findMainView();
+            } catch (_) {}
+        }
         var anchors = Array.prototype.slice.call(drawer.querySelectorAll('a[href]'));
         var rows = [];
         var seenDrawer = new Set();
@@ -461,9 +477,13 @@
             // /collection/albums...) are navigation, not playlists.
             if (uri.indexOf('spotify:playlist:') !== 0 && !/\/collection\/tracks/.test(href)) return;
             if (/\/collection\/(playlists|albums|artists|shows|podcasts)/.test(href)) return;
-            if (main && typeof anchor.closest === 'function') {
+            if (main && typeof main.contains === 'function') {
                 try {
-                    if (anchor.closest('#main-view')) return;
+                    if (main.contains(anchor)) return;
+                } catch (_) {}
+            } else if (main && typeof anchor.closest === 'function') {
+                try {
+                    if (anchor.closest('#main-view, [data-sf-melodix-source-root]')) return;
                 } catch (_) {}
             }
             title = text.split('\n')[0].slice(0, 100);
@@ -535,7 +555,7 @@
         return libraryItemsToRows(String(key).toLowerCase(), section, 40, new Set(), []);
     }
 
-    function supplementHomeRowsWithLibrary(rows) {
+    function supplementHomeRowsWithLibrary(rows, mainView) {
         var library = window.mediaLib;
         var groups = [
             ['playlists', 'Vos playlists'],
@@ -573,7 +593,7 @@
         if (userRows.length < 12 && document && typeof document.querySelectorAll === 'function') {
             // Real playlist links from the library drawer (mobile + desktop);
             // they survive empty/late mediaLib responses.
-            collectLibraryDrawerRows().forEach(function(row) {
+            collectLibraryDrawerRows(mainView).forEach(function(row) {
                 if (!row.uri || !row.title || seen.has(row.uri) || userRows.length >= 12) return;
                 seen.add(row.uri);
                 userRows.push(row);
@@ -754,7 +774,7 @@
 
         scrapedRows = collectHomeRows(mainView);
         window.__sfNativeUiHomeDomRowsCount = scrapedRows.length;
-        rows = supplementHomeRowsWithLibrary(scrapedRows);
+        rows = supplementHomeRowsWithLibrary(scrapedRows, mainView);
         signature = JSON.stringify(rows);
         window.__sfNativeUiHomeRowsCount = rows.length;
         webCards = window.__sfMelodixHomeSourceCardCount;
@@ -1716,12 +1736,176 @@
         return null;
     }
 
+    var HOME_CONTENT_LINK_SELECTOR = 'a[href], [role="link"][href]';
+    var HOME_CONTENT_ROOT_SELECTORS = [
+        '#main-view',
+        '[data-testid="main-view"]',
+        '#main-content',
+        '[data-testid="main-content"]',
+        '[data-testid="home-page"]',
+        '[data-testid="browse-feed"]',
+        '[data-testid="content-feed"]',
+        '[role="main"]',
+        'main'
+    ];
+    var HOME_NAVIGATION_SELECTOR = 'nav, [role="navigation"], aside, header, footer, #global-nav-bar, ' +
+        '#Desktop_LeftSidebar_Id, #sf-mobile-nav, #sf-mobile-navigation, #sf-melodix-home, ' +
+        '[data-testid="now-playing-bar"], [data-testid="mobile-playback-bar"], ' +
+        '[data-testid="now-playing-widget"], [data-testid="mini-player"]';
+
+    function queryHomeLinks(root) {
+        var links = [];
+        if (!root || typeof root.querySelectorAll !== 'function') return links;
+        try {
+            links = Array.prototype.slice.call(root.querySelectorAll(HOME_CONTENT_LINK_SELECTOR));
+        } catch (_) {}
+        if (!links.length) {
+            try {
+                links = Array.prototype.slice.call(root.querySelectorAll('a[href]'));
+            } catch (_) {}
+        }
+        return links;
+    }
+
+    function findHomeLink(root) {
+        var link = null;
+        if (!root || typeof root.querySelector !== 'function') return null;
+        try {
+            link = root.querySelector(HOME_CONTENT_LINK_SELECTOR);
+        } catch (_) {}
+        if (!link) {
+            try {
+                link = root.querySelector('a[href]');
+            } catch (_) {}
+        }
+        return link;
+    }
+
+    function isHomeNavigationLink(anchor) {
+        return Boolean(closest(anchor, HOME_NAVIGATION_SELECTOR));
+    }
+
+    function homeResourceLinkCount(root) {
+        var anchors = queryHomeLinks(root);
+        var seen = new Set();
+        for (var i = 0; i < anchors.length && i < 300; i++) {
+            var anchor = anchors[i];
+            var href;
+            var uri;
+            if (!anchor || isHomeNavigationLink(anchor)) continue;
+            href = anchor.href || (anchor.getAttribute && anchor.getAttribute('href')) || '';
+            uri = spotifyResourceUri(href);
+            if (uri) seen.add(uri);
+        }
+        return seen.size;
+    }
+
+    function hasHomeNavigationDescendant(root) {
+        if (!root || typeof root.querySelector !== 'function') return false;
+        try {
+            return Boolean(root.querySelector(HOME_NAVIGATION_SELECTOR));
+        } catch (_) {
+            return false;
+        }
+    }
+
+    function findFallbackHomeRoot() {
+        var anchors;
+        var candidates = [];
+        var candidateDepth = new Map();
+        var root = null;
+        var rootCount = 0;
+        var rootDepth = Infinity;
+        anchors = queryHomeLinks(document);
+        if (!anchors.length) return null;
+        for (var i = 0; i < anchors.length && i < 300; i++) {
+            var anchor = anchors[i];
+            var href = anchor && (anchor.href || (anchor.getAttribute && anchor.getAttribute('href')) || '');
+            if (!anchor || !spotifyResourceUri(href) || isHomeNavigationLink(anchor)) continue;
+            var node = anchor.parentElement;
+            var depth = 1;
+            while (node && node !== document.body && node !== document.documentElement && depth <= 8) {
+                var tag = String(node.tagName || '').toUpperCase();
+                if (node.id === 'sf-melodix-home' || closest(node, '#sf-melodix-home')) break;
+                if (tag !== 'HTML' && tag !== 'BODY' && tag !== 'NAV' && tag !== 'HEADER' &&
+                    tag !== 'FOOTER' && tag !== 'ASIDE' && !hasHomeNavigationDescendant(node)) {
+                    if (!candidateDepth.has(node) && candidates.length < 64) {
+                        candidates.push(node);
+                        candidateDepth.set(node, depth);
+                    } else if (candidateDepth.has(node) && depth < candidateDepth.get(node)) {
+                        candidateDepth.set(node, depth);
+                    }
+                }
+                node = node.parentElement;
+                depth += 1;
+            }
+        }
+        candidates.forEach(function(candidate) {
+            var count = homeResourceLinkCount(candidate);
+            var depth = candidateDepth.get(candidate) || Infinity;
+            if (count > rootCount || (count > 0 && count === rootCount && depth < rootDepth)) {
+                root = candidate;
+                rootCount = count;
+                rootDepth = depth;
+            }
+        });
+        if (!root || rootCount < 1) return null;
+        var rootTag = String(root.tagName || 'element').toLowerCase();
+        return {
+            element: root,
+            selector: 'fallback:' + rootTag,
+            resourceCount: rootCount
+        };
+    }
+
     function findMainView() {
-        return sfDeepQuery('#main-view');
+        var candidates = [];
+        var seen = new Set();
+        var bestRoot = null;
+        var bestSelector = '';
+        var bestCount = -1;
+        var i;
+        for (i = 0; i < HOME_CONTENT_ROOT_SELECTORS.length; i++) {
+            var selector = HOME_CONTENT_ROOT_SELECTORS[i];
+            var candidate = sfDeepQuery(selector);
+            if (!candidate || seen.has(candidate) || candidate.id === 'sf-melodix-home' ||
+                closest(candidate, '#sf-melodix-home')) continue;
+            seen.add(candidate);
+            candidates.push({ element: candidate, selector: selector });
+            var count = homeResourceLinkCount(candidate);
+            if (count > bestCount) {
+                bestRoot = candidate;
+                bestSelector = selector;
+                bestCount = count;
+            }
+        }
+
+        // When Spotify no longer exposes a semantic main container, find the
+        // nearest bounded ancestor that contains real Spotify resource links.
+        // Try this as well during the first-card render window, but never use it
+        // to synthesize rows or to broaden past document/body.
+        if (!bestRoot || bestCount < 2) {
+            var fallback = findFallbackHomeRoot();
+            if (fallback && fallback.resourceCount > bestCount) {
+                bestRoot = fallback.element;
+                bestSelector = fallback.selector;
+                bestCount = fallback.resourceCount;
+            }
+        }
+        if (!bestRoot && candidates.length) {
+            bestRoot = candidates[0].element;
+            bestSelector = candidates[0].selector;
+        }
+        window.__sfNativeUiContentRootSelector = bestRoot ? bestSelector : 'none';
+        window.__sfNativeUiContentRootResourceCount = bestRoot ? Math.max(0, bestCount) : 0;
+        lastContentRoot = bestRoot;
+        return bestRoot;
     }
 
     function maybeNavigateToPlayer() {
-        if (findMainView()) return;
+        var mainView = arguments[0];
+        var rootResolved = arguments[1] === true;
+        if (rootResolved ? Boolean(mainView) : Boolean(findMainView())) return;
         if (sfDeepQuery('[data-testid="user-widget-link"]')) return;
         if (sfDeepQuery('[data-testid="card"]')) return;
         if (playerNavCount() >= 2) return;
@@ -1752,11 +1936,16 @@
     // holds when the takeover gate cannot find anything to wait for. Title,
     // first heading and a data-testid sample name the page at a glance.
     function domCensusOnce() {
-        if (window.__sfDomCensus) return;
-        window.__sfDomCensus = 1;
+        var mainView = lastContentRoot;
+        var rootSelector = String(window.__sfNativeUiContentRootSelector || 'none').slice(0, 36);
+        var resourceCount = homeResourceLinkCount(mainView);
+        var anchorCount = 0;
         var title = '';
         var h1 = '';
         var ids = '';
+        try {
+            anchorCount = queryHomeLinks(mainView).length;
+        } catch (_) {}
         try {
             title = String(document.title || '').replace(/\s+/g, ' ').slice(0, 30);
         } catch (_) {}
@@ -1777,7 +1966,15 @@
         try {
             ifr = document.querySelectorAll('iframe').length;
         } catch (_) {}
-        diagTrace('dom census m=' + (document.querySelector('#main-view') ? '1' : '0') +
+        var signature = [rootSelector, resourceCount, anchorCount, ifr,
+            document.body ? document.body.childElementCount : -1].join('|');
+        if (window.__sfDomCensusSignature === signature || (window.__sfDomCensusCount || 0) >= 4) return;
+        window.__sfDomCensusSignature = signature;
+        window.__sfDomCensusCount = (window.__sfDomCensusCount || 0) + 1;
+        window.__sfDomCensus = 1;
+        diagTrace('dom census m=' + (sfDeepQuery('#main-view') ? '1' : '0') +
+            ' root=' + rootSelector + ' links=' + Math.min(anchorCount, 999) +
+            ' resources=' + Math.min(resourceCount, 999) +
             ' c=' + (document.querySelector('[data-testid="web-player-link"]') ? '1' : '0') +
             ' u=' + (document.querySelector('[data-testid="user-widget-link"]') ? '1' : '0') +
             ' b=' + (document.body ? document.body.childElementCount : -1) +
@@ -1803,9 +2000,11 @@
             sendNativeUiRoute(route);
             installPlaybackStateGuard();
             installSearchFallback();
-            domCensusOnce();
-            maybeNavigateToPlayer();
             mainView = findMainView();
+            // Census the resolved root on every changed state; Spotify often
+            // hydrates Home after the shell's first pass through an empty DOM.
+            domCensusOnce();
+            maybeNavigateToPlayer(mainView, true);
             if (mainView) {
                 if (!window.__sfDiagHomeSeen) {
                     window.__sfDiagHomeSeen = true;

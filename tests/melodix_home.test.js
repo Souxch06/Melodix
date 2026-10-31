@@ -45,12 +45,16 @@ function makePage({
     cards = [],
     includeCss = true,
     marker = true,
-    initialize = true
+    initialize = true,
+    rootVariant = 'main-view'
 } = {}) {
     const sectionBody = cards.map((card) => cardMarkup(card)).join('\n');
-    const original = `<main id="main-view"><section data-testid="shelf">
-        <h2>Vos recommandations</h2>${sectionBody}
-    </section></main>`;
+    const content = `<section data-testid="shelf"><h2>Vos recommandations</h2>${sectionBody}</section>`;
+    const original = rootVariant === 'semantic-main'
+        ? `<main id="spotify-home-content" data-testid="home-page">${content}</main>`
+        : rootVariant === 'bounded-fallback'
+            ? `<div id="app-shell"><div id="spotify-home-content">${content}</div></div>`
+            : `<main id="main-view">${content}</main>`;
     let css = cssSource;
     if (!marker) css = css.replace('SF_MELODIX_HOME_STYLES_V1', 'SF_MELODIX_HOME_STYLES_REMOVED');
     const style = includeCss ? `<style id="sf-custom-style">${css}</style>` : '';
@@ -76,9 +80,9 @@ function homeElement(page) {
     return page.document.getElementById('sf-melodix-home');
 }
 
-function assertWebHomeVisible(page, expectedCards) {
+function assertWebHomeVisible(page, expectedCards, sourceSelector = '#main-view') {
     const home = homeElement(page);
-    const main = page.document.getElementById('main-view');
+    const main = page.document.querySelector(sourceSelector);
     assert.ok(home, 'custom Home root exists');
     assert.equal(home.querySelectorAll('.sf-melodix-home__card').length, expectedCards);
     assert.equal(page.document.body.classList.contains('sf-melodix-home-active'), true);
@@ -120,6 +124,69 @@ test('csshack and bigwindow render real cards on / and /home with verified compu
                 close(page);
             }
         }
+    }
+});
+
+test('semantic Home roots without #main-view render real cards and hide only the verified source root', () => {
+    const page = makePage({
+        rootVariant: 'semantic-main',
+        cards: [
+            { id: 'semantic-1', title: 'Vraie recommandation A' },
+            { id: 'semantic-2', type: 'album', title: 'Vrai album B' }
+        ]
+    });
+    try {
+        assert.equal(page.document.getElementById('main-view'), null, 'the fixture has no legacy root ID');
+        assertWebHomeVisible(page, 2, '[data-testid="home-page"]');
+        assert.equal(page.window.__sfMelodixHomeRootSelector, '[data-testid="home-page"]');
+        assert.equal(page.document.querySelector('[data-sf-melodix-source-root]'),
+            page.document.getElementById('spotify-home-content'));
+        assert.equal(page.window.__sfMelodixHomeDecision, 'rendered');
+        assert.deepEqual(
+            Array.from(homeElement(page).querySelectorAll('.sf-melodix-home__title'), (node) => node.textContent),
+            ['Vraie recommandation A', 'Vrai album B'],
+            'the replacement is collected from Spotify links and visible card text'
+        );
+    } finally {
+        close(page);
+    }
+});
+
+test('bounded real-link fallback finds a Home shelf without semantic roots and never hides a one-card page', () => {
+    const page = makePage({
+        rootVariant: 'bounded-fallback',
+        cards: [
+            { id: 'fallback-1', title: 'Vraie playlist fallback A' },
+            { id: 'fallback-2', type: 'artist', title: 'Vrai artiste fallback B', image: false }
+        ]
+    });
+    try {
+        assert.equal(page.document.getElementById('main-view'), null);
+        assert.equal(page.document.querySelector('[role="main"], [data-testid="home-page"]'), null,
+            'the fixture has no semantic content root');
+        assertWebHomeVisible(page, 2, '[data-sf-melodix-source-root]');
+        assert.match(page.window.__sfMelodixHomeRootSelector, /^fallback:/);
+        assert.equal(page.window.__sfMelodixHomeDecision, 'rendered');
+        assert.deepEqual(
+            Array.from(homeElement(page).querySelectorAll('.sf-melodix-home__title'), (node) => node.textContent),
+            ['Vraie playlist fallback A', 'Vrai artiste fallback B']
+        );
+    } finally {
+        close(page);
+    }
+
+    const oneCard = makePage({
+        rootVariant: 'bounded-fallback',
+        cards: [{ id: 'fallback-only', title: 'Une seule vraie carte' }]
+    });
+    try {
+        assert.equal(homeElement(oneCard), null);
+        assert.equal(oneCard.document.body.classList.contains('sf-melodix-home-active'), false);
+        assert.equal(oneCard.document.querySelector('[data-sf-melodix-source-root]'), null,
+            'the source root is not marked hidden before the real-card gate is satisfied');
+        assert.notEqual(oneCard.window.getComputedStyle(oneCard.document.querySelector('#spotify-home-content')).display, 'none');
+    } finally {
+        close(oneCard);
     }
 });
 

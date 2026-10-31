@@ -20,6 +20,7 @@ function node({ tag = 'div', attrs = {}, text = '', children = [], within = null
         tagName: tag.toUpperCase(),
         children,
         parentNode: within,
+        parentElement: within,
         _attrs: { ...attrs },
         textContent: text,
         innerText: text,
@@ -50,7 +51,7 @@ function node({ tag = 'div', attrs = {}, text = '', children = [], within = null
         style: {},
         addEventListener() {}, removeEventListener() {}, appendChild() {}, remove() {}
     };
-    children.forEach((child) => { child.parentNode = el; });
+    children.forEach((child) => { child.parentNode = el; child.parentElement = el; });
     return el;
 }
 
@@ -76,7 +77,7 @@ function matchesSelector(el, sel) {
     return el.tagName === s.toUpperCase();
 }
 
-function cardPage({ withCards = true } = {}) {
+function cardPage({ withCards = true, rootMode = 'legacy' } = {}) {
     const shelfTitle = node({ tag: 'h2', text: 'Vos playlists' });
     const cards = [];
     if (withCards) {
@@ -91,22 +92,27 @@ function cardPage({ withCards = true } = {}) {
         cards.push(card);
     }
     const shelf = node({ tag: 'section', children: [shelfTitle, ...cards] });
-    const main = node({ tag: 'div', attrs: { id: 'main-view' }, children: [shelf] });
+    const root = rootMode === 'semantic'
+        ? node({ tag: 'main', attrs: { 'data-testid': 'home-page' }, children: [shelf] })
+        : rootMode === 'fallback'
+            ? node({ tag: 'div', children: [shelf] })
+            : node({ tag: 'div', attrs: { id: 'main-view' }, children: [shelf] });
     const widget = node({ tag: 'button', attrs: { 'data-testid': 'user-widget-link' }, text: 'Compte' });
-    return { main, widget };
+    return { main: root, widget, rootMode };
 }
 
 // Boots the real shell against a fake page and records every bridge call.
-function loadShell({ withCards = true, mediaLib = null, locationPath = '/', searchMediaItemsImpl = null, noUserWidget = false, bridgeMode = 'complete' } = {}) {
+function loadShell({ withCards = true, mediaLib = null, locationPath = '/', searchMediaItemsImpl = null, noUserWidget = false, bridgeMode = 'complete', rootMode = 'legacy' } = {}) {
     const timers = [];
     const navigations = [];
     const webLoads = [];
     const observerCallbacks = [];
     let fakeNow = 1000;
-    const { main, widget } = cardPage({ withCards });
+    const { main, widget } = cardPage({ withCards, rootMode });
     const calls = { ready: 0, data: [], routes: [], mediaLibChecks: 0, order: [], traces: [] };
     const byId = new Map();
-    byId.set('#main-view', main);
+    if (rootMode === 'legacy') byId.set('#main-view', main);
+    if (rootMode === 'semantic') byId.set('[data-testid="home-page"]', main);
     if (!noUserWidget) {
         byId.set('button[data-testid="user-widget-link"], a[data-testid="user-widget-link"]', widget);
     }
@@ -219,6 +225,7 @@ function loadShell({ withCards = true, mediaLib = null, locationPath = '/', sear
         const shelf = main.children[0];
         shelf.children.push(card);
         card.parentNode = shelf;
+        card.parentElement = shelf;
         return card;
     };
     return { win, calls, drainTimers, navigations, webLoads, main, appendCard };
@@ -252,6 +259,29 @@ test('an error/status row never counts as a real Home replacement', () => {
     assert.match(statusPayload.rows[0].subtitle, /limite les requêtes/);
     assert.equal(calls.ready, 0, 'a diagnostic/action row cannot make the native shell ready');
     assert.notEqual(win.__sfNativeUiReadyNotified, true);
+});
+
+test('native Home finds semantic roots and bounded real-link fallbacks without #main-view', () => {
+    const semantic = loadShell({ rootMode: 'semantic' });
+    assert.equal(semantic.win.__sfNativeUiContentRootSelector, '[data-testid="home-page"]');
+    assert.equal(semantic.win.__sfNativeUiHomeDomRowsCount, 1);
+    assert.equal(semantic.calls.ready, 1);
+    assert.equal(semantic.calls.data.find((call) => call.screen === 'home').rows[0].uri,
+        'spotify:playlist:37i9dQZF1DXcBWIGoYBM5M');
+
+    const fallback = loadShell({ rootMode: 'fallback' });
+    assert.match(fallback.win.__sfNativeUiContentRootSelector, /^fallback:/);
+    assert.equal(fallback.win.__sfNativeUiHomeDomRowsCount, 1);
+    assert.equal(fallback.calls.ready, 1);
+    assert.equal(fallback.calls.data.find((call) => call.screen === 'home').rows[0].title, 'Road trip');
+    assert.ok(fallback.calls.traces.some((line) => line.includes('root=fallback:') && line.includes('resources=1')),
+        'the bounded selected root and its real Spotify links are diagnosable');
+
+    const empty = loadShell({ withCards: false, rootMode: 'fallback' });
+    assert.equal(empty.win.__sfNativeUiContentRootSelector, 'none');
+    assert.equal(empty.calls.ready, 0, 'an empty fallback never proves that a replacement is ready');
+    assert.ok(!empty.win.__sfNativeUiHomeRowsCount || empty.win.__sfNativeUiHomeRowsCount === 0,
+        'no DOM row count is fabricated when no content root exists');
 });
 
 test('real Home data is queued after its route and before the readiness callback', () => {

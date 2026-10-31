@@ -327,12 +327,14 @@ test('navigation is bounded across page loads (no loops)', () => {
     'a fresh launch gets a fresh chance');
 });
 
-test('runUpdate tries the navigation before waiting for the player DOM', () => {
+test('runUpdate resolves the content root before navigation and refreshes its census', () => {
   const js = read('scripts/native_ui_shell.source.js');
   const body = js.slice(js.indexOf('function runUpdate()'), js.indexOf('function runUpdate()') + 700);
-  assert.ok(body.includes('domCensusOnce();') && body.includes('maybeNavigateToPlayer();'));
-  assert.ok(body.indexOf('maybeNavigateToPlayer();') < body.indexOf('mainView = findMainView();'),
-    'the navigation check runs even when the player root is absent');
+  assert.ok(body.includes('mainView = findMainView();') && body.includes('domCensusOnce();') &&
+    body.includes('maybeNavigateToPlayer(mainView, true);'));
+  assert.ok(body.indexOf('mainView = findMainView();') < body.indexOf('domCensusOnce();') &&
+    body.indexOf('domCensusOnce();') < body.indexOf('maybeNavigateToPlayer(mainView, true);'),
+    'navigation sees the resolved semantic/fallback root before considering recovery');
 });
 
 test('the DOM census names the page for the next photo', () => {

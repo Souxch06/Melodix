@@ -461,7 +461,8 @@ test('native shell routes a Spotify detail deep link and transfers its title and
 
     assert.deepEqual(routes, ['detail']);
     assert.equal(readyCount, 1);
-    assert.deepEqual(calls.map((call) => call.screen), ['screen-title', 'detail', 'home']);
+    assert.deepEqual(calls.map((call) => call.screen), ['screen-title', 'detail'],
+        'detail content is sent only to the detail screen; no synthetic Home payload is emitted');
     assert.equal(calls[0].data, 'A playlist');
     assert.deepEqual(JSON.parse(calls[1].data), [{
         title: 'A track',
@@ -470,11 +471,7 @@ test('native shell routes a Spotify detail deep link and transfers its title and
         image: '',
         uri: 'spotify:track:track123'
     }]);
-    // 3ᵉ appel : le takeover sans rows home envoie quand meme un etat (payload
-    // vide = la ligne de chargement centree du natif). Jamais de playlist
-    // inventee, jamais d ecran muet.
-    const state = JSON.parse(calls[2].data);
-    assert.deepEqual(state, [], 'aucune fausse ligne pendant le chargement');
+    assert.equal(calls.length, 2, 'no Home payload is sent while a detail route is open');
 });
 
 test('native search deep links preserve their query in the native search field', () => {
@@ -513,14 +510,10 @@ test('native search deep links preserve their query in the native search field',
     vm.runInNewContext(read('scripts/native_ui_shell.source.js'), { window, document, URL });
 
     assert.deepEqual(routes, ['search']);
-    // 2 appels : le takeover sans rows home envoie un etat vide (ligne de
-    // chargement native, son ordre face à initial-search dépend du timing de
-    // la nav), + le search.
-    assert.equal(calls.length, 2);
-    const byScreen = {};
-    calls.forEach((call) => { byScreen[call.screen] = call.data; });
-    assert.equal(byScreen['initial-search'], 'Jazz Funk');
-    assert.deepEqual(JSON.parse(byScreen.home), [], 'aucune fausse ligne home');
+    assert.deepEqual(calls.map((call) => call.screen), ['initial-search']);
+    assert.equal(calls[0].data, 'Jazz Funk');
+    assert.equal(calls.some((call) => call.screen === 'home'), false,
+        'the search route does not receive a synthetic Home payload');
 });
 
 test('bundled native bootstrap activates the shell, sends Home rows, and only opens Spotify links', () => {
@@ -585,6 +578,7 @@ test('bundled native bootstrap activates the shell, sends Home rows, and only op
         }]),
         AndBridge: {
             onNativeUiReady: () => { readyCount += 1; },
+            onNativeUiRoute: () => {},
             onNativeUiData: (screen, data) => calls.push({ screen, data }),
             loadWebPlayerUrl: (url) => loaded.push(url)
         },
