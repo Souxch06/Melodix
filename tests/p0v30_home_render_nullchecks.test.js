@@ -43,7 +43,9 @@ test('[P0v30] Home natif accepte seulement un vrai titre + URI Spotify', () => {
   const render = method(s, '.method public static render(');
   const quick = method(s, '.method private static createQuickTile(');
   assert.match(render, /optString\(Ljava\/lang\/String;Ljava\/lang\/String;\)Ljava\/lang\/String;[\s\S]*?invoke-virtual \{v6, v7\}, Ljava\/lang\/String;->startsWith\(Ljava\/lang\/String;\)Z/);
-  assert.match(render, /:shelf_add[\s\S]*?addView\(Landroid\/view\/View;\)V[\s\S]*?iput-boolean v12, p0, Lcom\/melodix\/music\/MainActivity;->nativeHomeContentReady:Z/);
+  assert.match(render, /:shelf_add[\s\S]*?addView\(Landroid\/view\/View;\)V[\s\S]*?noteNativeHomeCardAttached\(Landroid\/view\/View;\)V/);
+  assert.doesNotMatch(render, /MainActivity;->nativeHomeContentReady:Z/,
+    'the renderer uses public state methods instead of illegal private-field access');
   assert.match(quick, /String;->isEmpty\(\)Z[\s\S]*?String;->startsWith\(Ljava\/lang\/String;\)Z[\s\S]*?return-object v3/);
   assert.doesNotMatch(render, /const-string v\d+, "Spotify"/, 'aucun titre de carte fictif');
 });
@@ -64,17 +66,20 @@ test('[P0v30] Home vide ou invalide reste sur Spotify et ne marque pas home-rend
   const render = method(shelfSmali(), '.method public static render(');
   assert.match(render, /:shelf_no_cards[\s\S]*?reason=no-real-spotify-cards[\s\S]*?revealWebUi\(\)V[\s\S]*?return-void/);
   assert.match(render, /:catch_0[\s\S]*?reason=invalid-json[\s\S]*?revealWebUi\(\)V/);
-  assert.match(render, /:shelf_done[\s\S]*?home-rendered[\s\S]*?showNativeUi\(\)V/,
-    'la readiness est déclarée après l’ajout de vraies vues et le takeover est explicite');
+  assert.match(render, /:shelf_done[\s\S]*?home-cards-attached[\s\S]*?showNativeUi\(\)V/,
+    'le renderer rapporte seulement l’attachement; la visibilité est vérifiée ailleurs');
+  assert.doesNotMatch(render, /"home-rendered"|nativeHomeContentReady:Z/);
   assert.doesNotMatch(render, /Chargement de votre accueil/,
     'aucune vue de chargement native ne couvre Spotify sans cartes');
+  const activity = read('smali/com/melodix/music/MainActivity.smali');
+  assert.match(activity, /\.method public final completeNativeUiVisibility\(Z\)Z[\s\S]*?hasMeasuredVisibleNativeHomeCard\(\)Z[\s\S]*?"home-rendered"/);
 });
 
 test('[P0v30] MainActivity protège le takeover et initialise la route avant le renderer', () => {
   const activity = read('smali/com/melodix/music/MainActivity.smali');
   assert.match(activity, /\.field private nativeHomeContentReady:Z/);
   const show = method(activity, '.method public final showNativeUi()V');
-  assert.match(show, /nativeCurrentScreen[\s\S]*?nativeHomeContentReady:Z[\s\S]*?real-home-content-not-rendered[\s\S]*?revealWebUi\(\)V/);
+  assert.match(show, /nativeCurrentScreen[\s\S]*?nativeHomeCardsAttached:Z[\s\S]*?home-cards-not-attached[\s\S]*?revealWebUi\(\)V/);
   assert.match(show, /setVisibility\(I\)V[\s\S]*?bringToFront\(\)V[\s\S]*?requestLayout\(\)V[\s\S]*?NativeUiVisibilityTraceRunnable/);
   const apply = method(activity, '.method public final applyNativeUiData(');
   const initialHome = apply.indexOf(':apply_home_initial_route');
@@ -87,7 +92,7 @@ test('[P0v30] MainActivity protège le takeover et initialise la route avant le 
     'le repli cache le splash et le root natif pour révéler le WebView');
 });
 
-test('[P0v30] trace différée vérifie isShown, dimensions et parent effectif', () => {
+test('[P0v30] trace différée vérifie global bounds, parent, empilement et cartes visibles', () => {
   const trace = read('smali/com/melodix/music/NativeUiVisibilityTraceRunnable.smali');
   assert.match(trace, /View;->isShown\(\)Z/);
   assert.match(trace, /View;->getWidth\(\)I/);
@@ -95,8 +100,14 @@ test('[P0v30] trace différée vérifie isShown, dimensions et parent effectif',
   assert.match(trace, /View;->getParent\(\)Landroid\/view\/ViewParent;/);
   assert.match(trace, /View;->getElevation\(\)F/);
   assert.match(trace, /ViewGroup;->indexOfChild\(Landroid\/view\/View;\)I/);
-  assert.match(trace, /0x7f0900ea[\s\S]*?__sfNativeUiWebIndex/,
-    'the native root sibling order is compared with the WebView container');
-  assert.match(trace, /ConstraintLayout;[\s\S]*?native-layout shown=/);
-  assert.match(trace, /__sfNativeUiRootVisible=[\s\S]*?__sfNativeUiRootWidth=[\s\S]*?__sfNativeUiRootHeight=[\s\S]*?__sfNativeUiRootParentFound=[\s\S]*?__sfNativeUiRootParentConstraint=[\s\S]*?__sfNativeUiRootIndex=[\s\S]*?__sfNativeUiWebIndex=[\s\S]*?__sfNativeUiRootElevation=[\s\S]*?__sfNativeUiRootLayoutReady=/);
+  assert.match(trace, /0x7f0900ea[\s\S]*?__sfNativeUiHScrollIndex/,
+    'the native root is compared with the actual WebView horizontal-scroll host');
+  assert.match(trace, /if-le v8, v9, :native_layout_root_checked/,
+    'nativeRoot must be the later sibling');
+  assert.match(trace, /cmpl-float[\s\S]*?getGlobalVisibleRect\(Landroid\/graphics\/Rect;\)Z/,
+    'the root must also be in front and intersect the window');
+  assert.match(trace, /completeNativeUiVisibility\(Z\)Z[\s\S]*?attempts:I[\s\S]*?revealWebUi\(\)V/,
+    'failed measurements retry finitely then keep Spotify visible');
+  const activity = read('smali/com/melodix/music/MainActivity.smali');
+  assert.match(activity, /\.method private hasMeasuredVisibleNativeHomeCard\(\)Z[\s\S]*?View;->isShown\(\)Z[\s\S]*?getGlobalVisibleRect\(Landroid\/graphics\/Rect;\)Z[\s\S]*?Rect;->width\(\)I[\s\S]*?Rect;->height\(\)I/);
 });

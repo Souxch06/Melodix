@@ -104,10 +104,9 @@
 
     sput-boolean v0, Lcom/melodix/music/AppSingleton;->startupDone:Z
 
-    # Safe diagnostic source for the finished launch: the last top-level
-    # URL (AppSingleton.g0), never a failing subresource URL.
-    sget-object v0, Lcom/melodix/music/AppSingleton;->g0:Ljava/lang/String;
-
+    # Record only a fixed stage token; never put the current Spotify route into
+    # the persisted diagnostic chain.
+    const-string v0, "webview-revealed"
     invoke-static {v0}, Lcom/melodix/music/NativeCrashGuard;->stage(Ljava/lang/String;)V
 
     .line 11

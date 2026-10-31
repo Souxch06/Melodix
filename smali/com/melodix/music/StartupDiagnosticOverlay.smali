@@ -249,7 +249,7 @@
 
     if-eqz v1, :no_web
 
-    const-string v2, "url="
+    const-string v2, "host="
 
     invoke-virtual {v0, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
 
@@ -257,7 +257,50 @@
 
     move-result-object v2
 
-    invoke-virtual {v0, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    const-string v3, "unknown"
+
+    if-eqz v2, :web_host_ready
+
+    invoke-static {v2}, Landroid/net/Uri;->parse(Ljava/lang/String;)Landroid/net/Uri;
+
+    move-result-object v2
+
+    invoke-virtual {v2}, Landroid/net/Uri;->getHost()Ljava/lang/String;
+
+    move-result-object v2
+
+    if-eqz v2, :web_host_ready
+
+    const-string v3, "accounts.spotify.com"
+
+    invoke-virtual {v3, v2}, Ljava/lang/String;->equalsIgnoreCase(Ljava/lang/String;)Z
+
+    move-result v3
+
+    if-eqz v3, :web_host_check_spotify
+
+    const-string v3, "accounts"
+
+    goto :web_host_ready
+
+    :web_host_check_spotify
+    const-string v3, "open.spotify.com"
+
+    invoke-virtual {v3, v2}, Ljava/lang/String;->equalsIgnoreCase(Ljava/lang/String;)Z
+
+    move-result v3
+
+    if-eqz v3, :web_host_other
+
+    const-string v3, "spotify"
+
+    goto :web_host_ready
+
+    :web_host_other
+    const-string v3, "other"
+
+    :web_host_ready
+    invoke-virtual {v0, v3}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
 
     const-string v2, " progress="
 
@@ -315,8 +358,8 @@
 
     invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(I)Ljava/lang/StringBuilder;
 
-    # The factory records "<class> — <message>" (already capped at 160 chars)
-    # when the engine cannot be created: print it verbatim, never guess.
+    # The factory records only the exception class; never display its message,
+    # which may contain a route or request details.
     const-string v1, "\nerreur WebView : "
 
     invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;

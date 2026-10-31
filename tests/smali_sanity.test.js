@@ -264,20 +264,30 @@ test('const/high16 literals have the required zeroed low 16 bits', () => {
     }
 });
 
-test('successful authenticated Spotify home load dismisses the native splash', () => {
+test('onPageFinished initializes the v7 local before the splash callback (static guard only)', () => {
+    // This checks register initialization in Smali; it does NOT prove that an
+    // authenticated Spotify page loaded or that any pixels were displayed.
     const webViewClient = fs.readFileSync(path.join(repo, 'smali/c91.smali'), 'utf8');
     const pageFinished = webViewClient.match(
         /\.method public final onPageFinished\(Landroid\/webkit\/WebView;Ljava\/lang\/String;\)V([\s\S]*?)\.end method/
     );
 
     assert.ok(pageFinished, 'WebView page-finished callback should exist');
+    const body = pageFinished[1];
+    const initializer = body.indexOf('const/4 v7, 0x1');
+    const splashCall = body.indexOf('invoke-direct {v8, v2, v7, v7}');
+    const booleanRead = body.indexOf('move v3, v7');
+    assert.ok(initializer >= 0, 'v7 must be initialized as true/mode 1');
+    assert.ok(splashCall > initializer, 'the splash callback must not read v7 first');
+    assert.ok(booleanRead > initializer, 'the later host-option branch must not read v7 first');
+
     assert.match(
-        pageFinished[1],
+        body,
         /sget-boolean v2, Lcom\/melodix\/music\/AppSingleton;->B:Z[\s\S]*?if-eqz v2, :cond_15[\s\S]*?const-string v2, "open\.spotify\.com"[\s\S]*?if-eqz v2, :cond_7\s+goto :cond_5/
     );
 
-    const splashDismiss = pageFinished[1].match(/^\s*:cond_5\s*$([\s\S]*?)^\s*:cond_7\s*$/m);
-    assert.ok(splashDismiss, 'authenticated and login routes should share the splash-dismiss block');
+    const splashDismiss = body.match(/^\s*:cond_5\s*$([\s\S]*?)^\s*:cond_7\s*$/m);
+    assert.ok(splashDismiss, 'the page-finished callback retains its splash-dismiss branch');
     assert.match(splashDismiss[1], /new-instance v8, Lzk0;[\s\S]*?invoke-direct \{v8, v2, v7, v7\}/);
     assert.match(
         splashDismiss[1],
@@ -287,6 +297,79 @@ test('successful authenticated Spotify home load dismisses the native splash', (
         splashDismiss[1],
         /iget-object v9, v2, Lcom\/melodix\/music\/MainActivity;->R:Landroid\/widget\/ProgressBar;[\s\S]*?invoke-virtual \{v9, v10\}, Landroid\/view\/View;->setVisibility\(I\)V/
     );
+});
+
+test('[model] an authenticated player page keeps B=true and reaches the existing splash-dismiss branch', () => {
+    const webViewClient = fs.readFileSync(path.join(repo, 'smali/c91.smali'), 'utf8');
+    const pageFinished = webViewClient.match(
+        /\.method public final onPageFinished\(Landroid\/webkit\/WebView;Ljava\/lang\/String;\)V([\s\S]*?)\.end method/
+    );
+    assert.ok(pageFinished, 'WebView page-finished callback should exist');
+    const body = pageFinished[1];
+    const resetStart = body.indexOf('# Leaving the player host');
+    const resetEnd = body.indexOf('\n    :cond_4\n', resetStart);
+    assert.ok(resetStart >= 0 && resetEnd > resetStart, 'the stale-login reset block exists');
+    const resetBlock = body.slice(resetStart, resetEnd);
+    const guard = resetBlock.match(/^(\s*if-(?:eqz|nez) v2, :cond_4)$/m);
+    assert.ok(guard, 'the host test exits through a conditional branch');
+    assert.match(resetBlock, /const-string v6, "open\.spotify\.com"[\s\S]*?Lda1;->y\(Ljava\/lang\/CharSequence;Ljava\/lang\/String;Z\)Z[\s\S]*?move-result v2/);
+    assert.match(resetBlock, /sget-boolean v2, Lcom\/melodix\/music\/AppSingleton;->B:Z[\s\S]*?if-eqz v2, :cond_4[\s\S]*?sput-boolean v3, Lcom\/melodix\/music\/AppSingleton;->B:Z/);
+
+    function runStaleLoginReset(url, loggedIn) {
+        const registers = { v1: url, v3: 0 };
+        const state = { loggedIn: Boolean(loggedIn), reset: false };
+        let pending;
+        for (const rawLine of resetBlock.split(/\r?\n/)) {
+            const line = rawLine.replace(/#.*/, '').trim();
+            let match;
+            if (!line || line.startsWith('.') || line.startsWith(':')) continue;
+            if ((match = /^const-string (v\d+), "([^"]*)"$/.exec(line))) {
+                registers[match[1]] = match[2];
+                continue;
+            }
+            if (/^invoke-static \{v1, v6, v3\}, Lda1;->y\(Ljava\/lang\/CharSequence;Ljava\/lang\/String;Z\)Z$/.test(line)) {
+                pending = String(registers.v1).includes(registers.v6) ? 1 : 0;
+                continue;
+            }
+            if ((match = /^move-result (v\d+)$/.exec(line))) {
+                registers[match[1]] = pending;
+                pending = undefined;
+                continue;
+            }
+            if ((match = /^if-(eqz|nez) (v\d+), :cond_4$/.exec(line))) {
+                const value = registers[match[2]];
+                const branch = match[1] === 'eqz' ? value === 0 : value !== 0;
+                if (branch) return state;
+                continue;
+            }
+            if (/^sget-boolean v2, Lcom\/melodix\/music\/AppSingleton;->B:Z$/.test(line)) {
+                registers.v2 = state.loggedIn ? 1 : 0;
+                continue;
+            }
+            if (/^sput-boolean v3, Lcom\/melodix\/music\/AppSingleton;->B:Z$/.test(line)) {
+                state.loggedIn = registers.v3 !== 0;
+                state.reset = true;
+                return state;
+            }
+        }
+        return state;
+    }
+
+    const player = runStaleLoginReset('https://open.spotify.com/', true);
+    assert.deepEqual(player, { loggedIn: true, reset: false },
+        'a confirmed session survives page-finished on the player host');
+    const departed = runStaleLoginReset('https://example.invalid/', true);
+    assert.deepEqual(departed, { loggedIn: false, reset: true },
+        'a stale in-memory marker is cleared after leaving the player host');
+    const unconfirmed = runStaleLoginReset('https://open.spotify.com/', false);
+    assert.deepEqual(unconfirmed, { loggedIn: false, reset: false });
+
+    const splashBranch = body.slice(body.indexOf('\n    :cond_4\n'), body.indexOf('\n    :cond_7\n'));
+    assert.match(splashBranch,
+        /sget-boolean v2, Lcom\/melodix\/music\/AppSingleton;->B:Z[\s\S]*?if-eqz v2, :cond_15[\s\S]*?const-string v2, "open\.spotify\.com"[\s\S]*?if-eqz v2, :cond_7\s+goto :cond_5/,
+        'B=true plus open.spotify.com reaches the existing splash-dismiss path');
+    assert.match(resetBlock, /if-nez v2, :cond_4/,
+        'the historical inverse guard is not reintroduced');
 });
 
 test('a stalled Spotify page load leaves the splash and exposes retry after 30 seconds', () => {
@@ -587,7 +670,10 @@ test('a toast window race is recorded but never kills the process', () => {
     const swallow = body.indexOf('return-void', body.indexOf('instance-of'));
     const forward = body.indexOf('dispatch(Ljava/lang/Thread;Ljava/lang/Throwable;)V', body.indexOf('instance-of'));
     assert.ok(swallow > -1 && forward > swallow, 'the race returns without dispatching');
-    assert.ok(body.includes('write('), 'the report is kept before any decision');
+    const safeRecord = body.indexOf('NativeCrashGuard;->record(Ljava/lang/Throwable;)V');
+    const firstDecision = body.indexOf('instance-of v0, p2, Landroid/view/WindowManager$BadTokenException;');
+    assert.ok(safeRecord > -1 && safeRecord < firstDecision,
+        'the class-only report is persisted before any decision');
 });
 
 

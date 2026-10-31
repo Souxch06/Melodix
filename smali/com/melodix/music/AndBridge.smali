@@ -187,7 +187,7 @@
     invoke-virtual {p0, v3, v1}, Landroid/webkit/WebView;->evaluateJavascript(Ljava/lang/String;Landroid/webkit/ValueCallback;)V
 
     :probe_collect
-    const-string v0, "(function(){\n  try {\n    var log = function(m){ try { AndBridge.logDiagEvent(String(m).slice(0,150)); } catch(e){} };\n    var q = function(d, sel){ try { return d.querySelector(sel); } catch(e){ return null; } };\n    var playerSel = '#main-view, #main, [data-testid=\"root\"], .main-view-container, [data-testid=\"now-playing-bar\"]';\n    if (q(document, playerSel)) { log('probe ok main'); return 'ok'; }\n    if (Number(window.__sfNativeHomeFallbackRows || 0) > 0) { log('probe yield native home rows=' + window.__sfNativeHomeFallbackRows); return 'native-home-active'; }\n    if (window.__sfNativeUiShellCompleted === true) { log('probe yield shell'); return 'shell-active'; }\n    var here = String(location.href || '').split('?')[0].split('#')[0];\n    log('probe url=' + here.slice(0, 55));\n    var frames = document.querySelectorAll('iframe');\n    var srcs = []; var frameNav = ''; var consentDone = '';\n    for (var i = 0; i < frames.length; i++) {\n      var s = String(frames[i].getAttribute('src') || '');\n      srcs.push(s.slice(0, 55));\n      try {\n        var d = frames[i].contentDocument;\n        if (d) {\n          if (!frameNav && q(d, playerSel)) frameNav = s || here;\n          if (!consentDone) {\n            var b2 = q(d, '#onetrust-accept-btn-handler, #gdpr-notice-accept, button[title*=\"ccept\"], button[aria-label*=\"ccept\"], [data-testid*=\"ccept\" i], .cc-btn.cc-allow');\n            if (b2) { try { b2.click(); consentDone = 'frame'; } catch(e){} }\n          }\n        }\n      } catch (e) {}\n      if (!frameNav && s.indexOf('open.spotify.com') >= 0 && s.indexOf('/intl-') < 0 && s.indexOf('http') === 0) frameNav = s;\n    }\n    var t = String(document.title || '').replace(/\\s+/g, ' ').slice(0, 24);\n    var h = ''; try { h = String(document.body ? document.body.innerText : '').replace(/\\s+/g, ' ').slice(0, 50); } catch (e) {}\n    log('probe t=' + t + ' h=' + h);\n    log('probe f=' + srcs.join(' | ').slice(0, 90));\n    if (frameNav && String(frameNav).indexOf('http') === 0) {\n      var target = String(frameNav).split('?')[0];\n      if (target !== here) {\n        log('probe nav frame');\n        if (window.AndBridge && typeof window.AndBridge.loadWebPlayerUrl === 'function') window.AndBridge.loadWebPlayerUrl(frameNav); else { log('probe native loader missing'); return 'stop'; }\n        return 'nav-frame';\n      }\n    }\n    var btn = q(document, '#onetrust-accept-btn-handler, #gdpr-notice-accept, button[title*=\"ccept\"], button[aria-label*=\"ccept\"], [data-testid*=\"ccept\" i], .cc-btn.cc-allow');\n    if (btn || consentDone) {\n      log('probe consent ' + (consentDone || 'click'));\n      if (btn) { try { btn.click(); } catch (e) {} }\n      return 'consent';\n    }\n    var nav = 0;\n    try {\n      var raw = window.localStorage.getItem('mel_player_nav');\n      if (raw) { var rec = JSON.parse(raw); if (rec && rec.n && (Date.now() - rec.t) < 60000) nav = rec.n | 0; }\n    } catch (e) {}\n    if (nav >= 3) { log('probe nav exhausted'); return 'stop'; }\n    try { window.localStorage.setItem('mel_player_nav', JSON.stringify({ n: nav + 1, t: Date.now() })); } catch (e) {}\n    var dest = 'https://open.spotify.com/app';\n    if (nav === 1) dest = 'https://open.spotify.com/search';\n    if (nav >= 2) dest = 'https://open.spotify.com/';\n    log('probe nav ' + (nav + 1));\n    if (window.AndBridge && typeof window.AndBridge.loadWebPlayerUrl === 'function') window.AndBridge.loadWebPlayerUrl(dest); else { log('probe native loader missing'); return 'stop'; }\n    return 'nav';\n  } catch (e) {\n    try { AndBridge.logDiagEvent('probe err ' + ((e && e.name) || '?')); } catch (e2) {}\n    return 'err';\n  }\n})()"
+    const-string v0, "(function(){\n  try {\n    var log = function(m){ try { AndBridge.logDiagEvent(String(m).slice(0,150)); } catch(e){} };\n    var q = function(d, sel){ try { return d.querySelector(sel); } catch(e){ return null; } };\n    var playerSel = '#main-view, #main, [data-testid=\"root\"], .main-view-container, [data-testid=\"now-playing-bar\"]';\n    if (q(document, playerSel)) { log('probe ok main'); return 'ok'; }\n    if (Number(window.__sfNativeHomeFallbackRows || 0) > 0) { log('probe yield native home rows=' + window.__sfNativeHomeFallbackRows); return 'native-home-active'; }\n    if (window.__sfNativeUiShellCompleted === true) { log('probe yield shell'); return 'shell-active'; }\n    var here = String(location.href || '').split('?')[0].split('#')[0];\n    log('probe host=' + (location.hostname === 'open.spotify.com' ? 'spotify' : location.hostname === 'accounts.spotify.com' ? 'accounts' : 'other'));\n    var frames = document.querySelectorAll('iframe');\n    var frameCount = frames.length; var spotifyFrames = 0; var frameNav = ''; var consentDone = '';\n    for (var i = 0; i < frames.length; i++) {\n      var s = String(frames[i].getAttribute('src') || '');\n      if (s.indexOf('open.spotify.com') >= 0) spotifyFrames += 1;\n      try {\n        var d = frames[i].contentDocument;\n        if (d) {\n          if (!frameNav && q(d, playerSel)) frameNav = s || here;\n          if (!consentDone) {\n            var b2 = q(d, '#onetrust-accept-btn-handler, #gdpr-notice-accept, button[title*=\"ccept\"], button[aria-label*=\"ccept\"], [data-testid*=\"ccept\" i], .cc-btn.cc-allow');\n            if (b2) { try { b2.click(); consentDone = 'frame'; } catch(e){} }\n          }\n        }\n      } catch (e) {}\n      if (!frameNav && s.indexOf('open.spotify.com') >= 0 && s.indexOf('/intl-') < 0 && s.indexOf('http') === 0) frameNav = s;\n    }\n    log('probe dom=' + (document.body ? '1' : '0'));\n    log('probe iframe-count=' + frameCount + ' spotify=' + spotifyFrames);\n    if (frameNav && String(frameNav).indexOf('http') === 0) {\n      var target = String(frameNav).split('?')[0];\n      if (target !== here) {\n        log('probe nav frame');\n        if (window.AndBridge && typeof window.AndBridge.loadWebPlayerUrl === 'function') window.AndBridge.loadWebPlayerUrl(frameNav); else { log('probe native loader missing'); return 'stop'; }\n        return 'nav-frame';\n      }\n    }\n    var btn = q(document, '#onetrust-accept-btn-handler, #gdpr-notice-accept, button[title*=\"ccept\"], button[aria-label*=\"ccept\"], [data-testid*=\"ccept\" i], .cc-btn.cc-allow');\n    if (btn || consentDone) {\n      log('probe consent ' + (consentDone || 'click'));\n      if (btn) { try { btn.click(); } catch (e) {} }\n      return 'consent';\n    }\n    var nav = 0;\n    try {\n      var raw = window.localStorage.getItem('mel_player_nav');\n      if (raw) { var rec = JSON.parse(raw); if (rec && rec.n && (Date.now() - rec.t) < 60000) nav = rec.n | 0; }\n    } catch (e) {}\n    if (nav >= 3) { log('probe nav exhausted'); return 'stop'; }\n    try { window.localStorage.setItem('mel_player_nav', JSON.stringify({ n: nav + 1, t: Date.now() })); } catch (e) {}\n    var dest = 'https://open.spotify.com/app';\n    if (nav === 1) dest = 'https://open.spotify.com/search';\n    if (nav >= 2) dest = 'https://open.spotify.com/';\n    log('probe nav ' + (nav + 1));\n    if (window.AndBridge && typeof window.AndBridge.loadWebPlayerUrl === 'function') window.AndBridge.loadWebPlayerUrl(dest); else { log('probe native loader missing'); return 'stop'; }\n    return 'nav';\n  } catch (e) {\n    try { AndBridge.logDiagEvent('probe err'); } catch (e2) {}\n    return 'err';\n  }\n})()"
 
     const/4 v1, 0x0
 
@@ -231,44 +231,267 @@
     return-void
 .end method
 
+.method private final safeDiagnosticEvent(Ljava/lang/String;)Ljava/lang/String;
+    .locals 2
+
+    # The page is not a trusted diagnostics source. Keep only fixed event-family
+    # labels so titles, URLs, selectors, exception messages and arbitrary text
+    # cannot be persisted even if a script calls the JavascriptInterface directly.
+    if-eqz p1, :diagnostic_event_unknown
+
+    const-string v0, "bridge js-error"
+    invoke-virtual {p1, v0}, Ljava/lang/String;->startsWith(Ljava/lang/String;)Z
+    move-result v1
+    if-nez v1, :diagnostic_event_bridge_js_error
+
+    const-string v0, "bridge start"
+    invoke-virtual {p1, v0}, Ljava/lang/String;->startsWith(Ljava/lang/String;)Z
+    move-result v1
+    if-nez v1, :diagnostic_event_bridge_start
+
+    const-string v0, "bridge done"
+    invoke-virtual {p1, v0}, Ljava/lang/String;->startsWith(Ljava/lang/String;)Z
+    move-result v1
+    if-nez v1, :diagnostic_event_bridge_done
+
+    const-string v0, "bridge-read"
+    invoke-virtual {p1, v0}, Ljava/lang/String;->startsWith(Ljava/lang/String;)Z
+    move-result v1
+    if-nez v1, :diagnostic_event_bridge_read
+
+    const-string v0, "home-web"
+    invoke-virtual {p1, v0}, Ljava/lang/String;->startsWith(Ljava/lang/String;)Z
+    move-result v1
+    if-nez v1, :diagnostic_event_home_web
+
+    const-string v0, "home-card-counts"
+    invoke-virtual {p1, v0}, Ljava/lang/String;->startsWith(Ljava/lang/String;)Z
+    move-result v1
+    if-nez v1, :diagnostic_event_home_counts
+
+    const-string v0, "home-merge"
+    invoke-virtual {p1, v0}, Ljava/lang/String;->startsWith(Ljava/lang/String;)Z
+    move-result v1
+    if-nez v1, :diagnostic_event_home_merge
+
+    const-string v0, "home-rows"
+    invoke-virtual {p1, v0}, Ljava/lang/String;->startsWith(Ljava/lang/String;)Z
+    move-result v1
+    if-nez v1, :diagnostic_event_home_rows
+
+    const-string v0, "home-"
+    invoke-virtual {p1, v0}, Ljava/lang/String;->startsWith(Ljava/lang/String;)Z
+    move-result v1
+    if-nez v1, :diagnostic_event_home
+
+    const-string v0, "native-route"
+    invoke-virtual {p1, v0}, Ljava/lang/String;->startsWith(Ljava/lang/String;)Z
+    move-result v1
+    if-nez v1, :diagnostic_event_native_route
+
+    const-string v0, "native-ui-ready"
+    invoke-virtual {p1, v0}, Ljava/lang/String;->startsWith(Ljava/lang/String;)Z
+    move-result v1
+    if-nez v1, :diagnostic_event_native_ui_ready
+
+    const-string v0, "native-ui"
+    invoke-virtual {p1, v0}, Ljava/lang/String;->startsWith(Ljava/lang/String;)Z
+    move-result v1
+    if-nez v1, :diagnostic_event_native_ui
+
+    const-string v0, "ready"
+    invoke-virtual {p1, v0}, Ljava/lang/String;->startsWith(Ljava/lang/String;)Z
+    move-result v1
+    if-nez v1, :diagnostic_event_ready
+
+    const-string v0, "js-shell"
+    invoke-virtual {p1, v0}, Ljava/lang/String;->startsWith(Ljava/lang/String;)Z
+    move-result v1
+    if-nez v1, :diagnostic_event_js_shell
+
+    const-string v0, "js-error"
+    invoke-virtual {p1, v0}, Ljava/lang/String;->startsWith(Ljava/lang/String;)Z
+    move-result v1
+    if-nez v1, :diagnostic_event_js_error
+
+    const-string v0, "player-nav"
+    invoke-virtual {p1, v0}, Ljava/lang/String;->startsWith(Ljava/lang/String;)Z
+    move-result v1
+    if-nez v1, :diagnostic_event_player_nav
+
+    const-string v0, "player-cta"
+    invoke-virtual {p1, v0}, Ljava/lang/String;->startsWith(Ljava/lang/String;)Z
+    move-result v1
+    if-nez v1, :diagnostic_event_player_cta
+
+    const-string v0, "dom census"
+    invoke-virtual {p1, v0}, Ljava/lang/String;->startsWith(Ljava/lang/String;)Z
+    move-result v1
+    if-nez v1, :diagnostic_event_dom_census
+
+    const-string v0, "dom iframes"
+    invoke-virtual {p1, v0}, Ljava/lang/String;->startsWith(Ljava/lang/String;)Z
+    move-result v1
+    if-nez v1, :diagnostic_event_dom_iframes
+
+    const-string v0, "main-view"
+    invoke-virtual {p1, v0}, Ljava/lang/String;->startsWith(Ljava/lang/String;)Z
+    move-result v1
+    if-nez v1, :diagnostic_event_main_view
+
+    const-string v0, "runUpdate"
+    invoke-virtual {p1, v0}, Ljava/lang/String;->startsWith(Ljava/lang/String;)Z
+    move-result v1
+    if-nez v1, :diagnostic_event_run_update
+
+    const-string v0, "probe"
+    invoke-virtual {p1, v0}, Ljava/lang/String;->startsWith(Ljava/lang/String;)Z
+    move-result v1
+    if-nez v1, :diagnostic_event_probe
+
+    const-string v0, "native-home"
+    invoke-virtual {p1, v0}, Ljava/lang/String;->startsWith(Ljava/lang/String;)Z
+    move-result v1
+    if-nez v1, :diagnostic_event_native_home
+
+    :diagnostic_event_unknown
+    const-string v0, "js-event"
+    return-object v0
+
+    :diagnostic_event_bridge_js_error
+    const-string v0, "bridge-js-error"
+    return-object v0
+
+    :diagnostic_event_bridge_start
+    const-string v0, "bridge-start"
+    return-object v0
+
+    :diagnostic_event_bridge_done
+    const-string v0, "bridge-done"
+    return-object v0
+
+    :diagnostic_event_bridge_read
+    const-string v0, "bridge-read"
+    return-object v0
+
+    :diagnostic_event_home_web
+    const-string v0, "home-web"
+    return-object v0
+
+    :diagnostic_event_home_counts
+    const-string v0, "home-card-counts"
+    return-object v0
+
+    :diagnostic_event_home_merge
+    const-string v0, "home-merge"
+    return-object v0
+
+    :diagnostic_event_home_rows
+    const-string v0, "home-rows"
+    return-object v0
+
+    :diagnostic_event_home
+    const-string v0, "home"
+    return-object v0
+
+    :diagnostic_event_native_route
+    const-string v0, "native-route"
+    return-object v0
+
+    :diagnostic_event_native_ui_ready
+    const-string v0, "native-ui-ready"
+    return-object v0
+
+    :diagnostic_event_native_ui
+    const-string v0, "native-ui"
+    return-object v0
+
+    :diagnostic_event_ready
+    const-string v0, "ready"
+    return-object v0
+
+    :diagnostic_event_js_shell
+    const-string v0, "js-shell"
+    return-object v0
+
+    :diagnostic_event_js_error
+    const-string v0, "js-error"
+    return-object v0
+
+    :diagnostic_event_player_nav
+    const-string v0, "player-nav"
+    return-object v0
+
+    :diagnostic_event_player_cta
+    const-string v0, "player-cta"
+    return-object v0
+
+    :diagnostic_event_dom_census
+    const-string v0, "dom-census"
+    return-object v0
+
+    :diagnostic_event_dom_iframes
+    const-string v0, "dom-iframes"
+    return-object v0
+
+    :diagnostic_event_main_view
+    const-string v0, "main-view"
+    return-object v0
+
+    :diagnostic_event_run_update
+    const-string v0, "run-update"
+    return-object v0
+
+    :diagnostic_event_probe
+    const-string v0, "probe"
+    return-object v0
+
+    :diagnostic_event_native_home
+    const-string v0, "native-home"
+    return-object v0
+.end method
+
 .method public final logDiagEvent(Ljava/lang/String;)V
     .annotation runtime Landroid/webkit/JavascriptInterface;
     .end annotation
 
-    .locals 3
-    # P0 diagnostic: one bounded line per startup event on logcat (MDXTRACE)
-    # so a phone-side log shows where the startup chain stops. The shell sends
-    # status words only (stage, route, counts) - never payload data.
+    .locals 6
+    # Persist only a fixed event-family label supplied by safeDiagnosticEvent.
+    # Prefix it with this process's random diagnostic id for correlation.
     if-eqz p1, :logdiag_done
 
-    invoke-virtual {p1}, Ljava/lang/String;->length()I
-    move-result v0
-
-    const/16 v1, 0xa0
-
-    if-gt v0, v1, :logdiag_clip
-
-    move-object v2, p1
-
-    goto :logdiag_log
-
-    :logdiag_clip
-    const/4 v2, 0x0
-
-    invoke-virtual {p1, v2, v1}, Ljava/lang/String;->substring(II)Ljava/lang/String;
+    invoke-direct {p0, p1}, Lcom/melodix/music/AndBridge;->safeDiagnosticEvent(Ljava/lang/String;)Ljava/lang/String;
     move-result-object v2
 
-    :logdiag_log
+    invoke-static {}, Lcom/melodix/music/NativeCrashGuard;->diagnosticSessionId()Ljava/lang/String;
+    move-result-object v3
+    new-instance v4, Ljava/lang/StringBuilder;
+    invoke-direct {v4}, Ljava/lang/StringBuilder;-><init>()V
+    const-string v5, "sid="
+    invoke-virtual {v4, v5}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    invoke-virtual {v4, v3}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    const-string v5, " "
+    invoke-virtual {v4, v5}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    invoke-virtual {v4, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    invoke-virtual {v4}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
+    move-result-object v2
+
     const-string v0, "MDXTRACE"
-
     invoke-static {v0, v2}, Landroid/util/Log;->i(Ljava/lang/String;Ljava/lang/String;)I
-
-    # P0 diagnostic: keep the line in the prefs too - the phone report shows
-    # the web-side trail without logcat.
     invoke-static {v2}, Lcom/melodix/music/NativeCrashGuard;->diagLine(Ljava/lang/String;)V
 
     :logdiag_done
     return-void
+.end method
+
+.method public final getDiagnosticSessionId()Ljava/lang/String;
+    .annotation runtime Landroid/webkit/JavascriptInterface;
+    .end annotation
+
+    .locals 1
+    invoke-static {}, Lcom/melodix/music/NativeCrashGuard;->diagnosticSessionId()Ljava/lang/String;
+    move-result-object v0
+    return-object v0
 .end method
 
 .method public final loadWebPlayerUrl(Ljava/lang/String;)V

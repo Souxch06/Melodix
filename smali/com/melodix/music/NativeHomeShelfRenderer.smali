@@ -10,10 +10,9 @@
 .method public static render(Lcom/melodix/music/MainActivity;Ljava/lang/String;)V
     .locals 14
 
-    # Every payload must prove real Home content anew; empty/error states cannot
-    # inherit readiness from an earlier render.
-    const/4 v0, 0x0
-    iput-boolean v0, p0, Lcom/melodix/music/MainActivity;->nativeHomeContentReady:Z
+    # The Activity owns these private state fields. Reset through its public
+    # API so the renderer never issues illegal cross-class private-field writes.
+    invoke-virtual {p0}, Lcom/melodix/music/MainActivity;->beginNativeHomeRender()V
 
     # The bridge delivered home JSON: timestamped proof for the freeze report.
     const-string v0, "home-json"
@@ -435,8 +434,7 @@
 
     :shelf_add
     invoke-virtual {v3, v7}, Landroid/widget/LinearLayout;->addView(Landroid/view/View;)V
-    const/4 v12, 0x1
-    iput-boolean v12, p0, Lcom/melodix/music/MainActivity;->nativeHomeContentReady:Z
+    invoke-virtual {p0, v7}, Lcom/melodix/music/MainActivity;->noteNativeHomeCardAttached(Landroid/view/View;)V
 
     :shelf_next
     add-int/lit8 v4, v4, 0x1
@@ -444,7 +442,8 @@
     goto :shelf_loop
 
     :shelf_finish
-    iget-boolean v5, p0, Lcom/melodix/music/MainActivity;->nativeHomeContentReady:Z
+    invoke-virtual {p0}, Lcom/melodix/music/MainActivity;->hasNativeHomeCardsAttached()Z
+    move-result v5
     if-eqz v5, :shelf_no_cards
 
     new-instance v5, Landroid/widget/LinearLayout$LayoutParams;
@@ -484,17 +483,18 @@
     return-void
 
     :shelf_done
-    # Success is marked only after real native child views were attached.
-    const-string v0, "native-home-rows-rendered"
+    # This is attached-view evidence only. Pixel-visible readiness is recorded
+    # later by completeNativeUiVisibility() after a measured global rect.
+    const-string v0, "native-home-cards-attached"
     invoke-static {v0}, Lcom/melodix/music/NativeCrashGuard;->diagLine(Ljava/lang/String;)V
     invoke-static {v0}, Lcom/melodix/music/StartupDiagnosticOverlay;->appendDiagnosticLine(Ljava/lang/String;)V
-    const-string v0, "native-home-render rendered=true"
+    const-string v0, "native-home-render cards-attached=true"
     invoke-static {v0}, Lcom/melodix/music/NativeCrashGuard;->diagLine(Ljava/lang/String;)V
     invoke-static {v0}, Lcom/melodix/music/StartupDiagnosticOverlay;->appendDiagnosticLine(Ljava/lang/String;)V
-    const-string v0, "home-rendered"
+    const-string v0, "home-cards-attached"
     invoke-static {v0}, Lcom/melodix/music/NativeCrashGuard;->stage(Ljava/lang/String;)V
     # Data may arrive again after a route return even when the ready callback
-    # was already sent. A rendered Spotify URI is safe to show immediately.
+    # was already sent. The visible-root trace performs the final takeover gate.
     invoke-virtual {p0}, Lcom/melodix/music/MainActivity;->showNativeUi()V
     return-void
 

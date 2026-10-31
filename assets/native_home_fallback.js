@@ -14,7 +14,7 @@
         shellCompleted: false,
         nativeDataSent: false,
         shellRows: 0,
-        root: 'none',
+        root: false,
         anchors: 0,
         validLinks: 0,
         rows: []
@@ -146,7 +146,10 @@
         result.shellCompleted = window.__sfNativeUiShellCompleted === true;
         result.nativeDataSent = window.__sfNativeUiHomeDataSent === true;
         result.shellRows = Math.max(0, Number(window.__sfNativeUiHomeRowsCount || 0) || 0);
-        result.root = String(window.__sfNativeUiContentRootSelector || 'none').slice(0, 36);
+        // The selector is page structure, not diagnostic data. Export only its
+        // presence so private/test-specific selector IDs never reach prefs.
+        result.root = Boolean(window.__sfNativeUiContentRootSelector &&
+            window.__sfNativeUiContentRootSelector !== 'none');
         result.mainView = !!(document && typeof document.querySelector === 'function' && document.querySelector('#main-view'));
 
         if (!result.hostOK) {

@@ -66,6 +66,9 @@ function buildPlayPauseHarness(options = {}) {
     };
 
     const storage = new Map();
+    if (Array.isArray(options.legacyTrace)) {
+        storage.set('melodix_playback_trace_v1', JSON.stringify(options.legacyTrace));
+    }
     const window = {
         playing: options.playing === undefined ? true : options.playing,
         track: options.track || 'Track A',
@@ -276,7 +279,7 @@ test('skipping while paused ends the pause hold instead of fighting it', () => {
     assert.match(bridge, /window\.actSkipBack = function\(e\) \{[\s\S]{0,300}?endPauseHold\(\);/);
 });
 
-test('playback events are traced for the preview diagnostic', () => {
+test('playback state events are traced without track names or control labels', () => {
     const harness = buildPlayPauseHarness({ label: 'Pause', playing: true });
 
     harness.window.actPlayPause(false);
@@ -287,7 +290,32 @@ test('playback events are traced for the preview diagnostic', () => {
     assert.ok(events.includes('act-pause'), 'the explicit pause is traced');
     assert.ok(events.includes('pause-hold-start'), 'the pause hold start is traced');
     assert.equal(typeof trace[trace.length - 1].at, 'number');
+    assert.ok(trace.every((entry) => !Object.hasOwn(entry, 'track') && !Object.hasOwn(entry, 'label')),
+        'trace entries contain no user-selected track title or button text');
+    assert.doesNotMatch(JSON.stringify(trace), /Track A|Pause/);
     assert.equal(harness.storage.get('melodix_playback_trace_v1'), JSON.stringify(trace));
+});
+
+test('legacy playback traces are sanitized before they can be read again', () => {
+    const secretTitle = 'Private song and playlist title';
+    const harness = buildPlayPauseHarness({
+        legacyTrace: [{
+            at: 1234,
+            event: 'dom-track-row-while-paused',
+            playing: false,
+            hidden: false,
+            label: 'Private account label',
+            track: secretTitle,
+            detail: secretTitle
+        }]
+    });
+    const trace = harness.window.__sfGetPlaybackTrace();
+    const stored = harness.storage.get('melodix_playback_trace_v1');
+    assert.equal(trace.length, 1);
+    assert.equal(trace[0].event, 'dom-track-row-while-paused');
+    assert.ok(!Object.hasOwn(trace[0], 'track') && !Object.hasOwn(trace[0], 'label'));
+    assert.doesNotMatch(JSON.stringify(trace) + stored, /Private song|Private account/);
+    assert.equal(stored, JSON.stringify(trace), 'the old private fields are removed from persistent storage too');
 });
 
 test('the transport controls expose thumb-sized touch targets', () => {

@@ -113,7 +113,7 @@ test('csshack and bigwindow render real cards on / and /home with verified compu
                 assert.equal(page.window.__sfMelodixHomeGuiMode, guiMode);
                 assert.equal(page.window.__sfMelodixHomeStylesReady, true);
                 assert.equal(page.window.__sfMelodixHomeSourceCardCount, 2);
-                assert.equal(page.window.__sfMelodixHomeRoute, pathname);
+                assert.equal(page.window.__sfMelodixHomeRoute, 'home');
                 assert.ok(page.traces.some((line) => line.includes(`mode=${guiMode}`) && line.includes('styles=1')));
                 assert.deepEqual(
                     Array.from(homeElement(page).querySelectorAll('.sf-melodix-home__title'), (node) => node.textContent),
@@ -252,7 +252,8 @@ test('empty DOM, one card, non-home routes and unsupported GUI modes never hide 
             assert.equal(page.document.body.classList.contains('sf-melodix-home-active'), false);
             assert.notEqual(page.window.getComputedStyle(page.document.getElementById('main-view')).display, 'none');
             assert.equal(page.window.__sfMelodixHomeDecision, entry.decision);
-            assert.equal(page.window.__sfMelodixHomeGuiMode, entry.guiMode);
+            assert.equal(page.window.__sfMelodixHomeGuiMode,
+                ['csshack', 'bigwindow'].includes(entry.guiMode) ? entry.guiMode : 'other');
         } finally {
             close(page);
         }
@@ -370,13 +371,13 @@ test('SPA route changes hide the custom Home on detail and restore it on /home',
         page.window.history.pushState({}, '', '/intl-fr/home');
         await new Promise((resolve) => page.window.setTimeout(resolve, 100));
         assertWebHomeVisible(page, 2);
-        assert.equal(page.window.__sfMelodixHomeRoute, '/home');
+        assert.equal(page.window.__sfMelodixHomeRoute, 'home');
     } finally {
         close(page);
     }
 });
 
-test('bounded decisions identify mode, route, styles and real-card count without masking the page', () => {
+test('bounded decisions expose only screen category, safe mode, styles and counts without masking the page', () => {
     const page = makePage({
         guiMode: 'unknown-mode',
         cards: [{ id: 'diag-1', title: 'Playlist A' }, { id: 'diag-2', title: 'Album B', type: 'album' }]
@@ -386,7 +387,9 @@ test('bounded decisions identify mode, route, styles and real-card count without
         page.window.__sfHomeTest.updateMelodixHome();
         const matching = page.traces.filter((line) => line.includes('home-web gui-mode-unsupported'));
         assert.equal(matching.length, 1, 'identical decisions are throttled');
-        assert.match(matching[0], /mode=unknown-mode route=\/ styles=0 cards=0 sections=0/);
+        assert.match(matching[0], /mode=other screen=home styles=0 cards=0 sections=0 root=1/);
+        assert.doesNotMatch(matching[0], /route=|#main-view|data-testid|selector/i,
+            'diagnostics never retain a route or DOM selector');
         assert.notEqual(page.window.getComputedStyle(page.document.getElementById('main-view')).display, 'none');
     } finally {
         close(page);

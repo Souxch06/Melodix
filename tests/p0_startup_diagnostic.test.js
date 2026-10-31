@@ -9,8 +9,8 @@
 //   2. StartupDiagnosticOverlay renders the report as a tap-to-dismiss panel
 //      over the current UI (one screenshot names the blocker) and replays a
 //      stored hang report at the next shell takeover.
-//   3. The renderer marks home-json/home-rendered so a shell stuck on an
-//      empty screen is detected as CONTENT STUCK.
+//   3. The renderer records attached Home cards; only the measured visibility
+//      callback marks home-rendered, so an empty shell is CONTENT STUCK.
 // Static opcode checks on the real Smali + polarity checks both ways (the
 // recurring inversion bug). NOT executed: Android, device.
 const { test } = require('node:test');
@@ -53,6 +53,75 @@ test('stage() appends the chain in addition to writing last_stage', () => {
   const body = methodBody(GUARD(), '.method public static stage(Ljava/lang/String;)V');
   assert.match(body, /NativeCrashGuard;->appendChain\(Ljava\/lang\/String;\)V/,
     'every stage call feeds the chain');
+});
+
+test('diagnostic stage chains never persist Spotify routes or login URLs', () => {
+  const pageStart = methodBody(read('smali/c91.smali'),
+    '.method public onPageStarted(Landroid/webkit/WebView;Ljava/lang/String;Landroid/graphics/Bitmap;)V');
+  const splashRunnable = methodBody(read('smali/zk0.smali'), '.method public final run()V');
+  assert.doesNotMatch(pageStart, /sput-object [^,]+, Lcom\/melodix\/music\/AppSingleton;->g0:Ljava\/lang\/String;/,
+    'the full top-level URL remains transient in WebView');
+  assert.match(splashRunnable, /const-string v0, "webview-revealed"[\s\S]*?NativeCrashGuard;->stage\(Ljava\/lang\/String;\)V/,
+    'the completion trace uses a fixed allowlisted label');
+  assert.doesNotMatch(splashRunnable, /AppSingleton;->g0:Ljava\/lang\/String;/,
+    'a route never becomes the persisted last stage');
+});
+
+test('crash diagnostics retain exception classes but never persist or show messages or stack traces', () => {
+  const guard = GUARD();
+  const record = methodBody(guard, '.method public static record(Ljava/lang/Throwable;)V');
+  const excerpt = methodBody(guard, '.method public static excerpt(Ljava/lang/Throwable;)Ljava/lang/String;');
+  const uncaught = methodBody(guard, '.method public uncaughtException(Ljava/lang/Thread;Ljava/lang/Throwable;)V');
+  const lastReport = methodBody(guard, '.method public static lastReport()Ljava/lang/String;');
+  const sanitize = methodBody(guard, '.method private static sanitizeStoredReport(Ljava/lang/String;)Ljava/lang/String;');
+  for (const body of [record, excerpt]) {
+    assert.match(body, /Object;->getClass\(\)Ljava\/lang\/Class;/);
+    assert.match(body, /Class;->getSimpleName\(\)Ljava\/lang\/String;/);
+    assert.doesNotMatch(body, /getStackTraceString|getMessage|printStackTrace/);
+  }
+  assert.match(uncaught, /NativeCrashGuard;->record\(Ljava\/lang\/Throwable;\)V/,
+    'the uncaught-exception path delegates to the class-only recorder');
+  assert.doesNotMatch(uncaught, /getStackTraceString/,
+    'the uncaught-exception path does not persist a raw stack trace');
+  assert.match(lastReport, /NativeCrashGuard;->sanitizeStoredReport\(Ljava\/lang\/String;\)Ljava\/lang\/String;/,
+    'old persisted diagnostics are sanitized before they reach UI or bridge callers');
+  assert.match(sanitize, /0x1000[\s\S]*?STARTUP STUCK[\s\S]*?CONTENT STUCK/,
+    'stored reports are length-bounded and only watchdog reports use the multiline path');
+  assert.match(sanitize, /Exception\|Error\|Throwable/,
+    'legacy one-line crash values must match exception-class names, not arbitrary tokens');
+  assert.match(sanitize, /"\/"[\s\S]*?"\?"[\s\S]*?"%"[\s\S]*?"#"[\s\S]*?"&"[\s\S]*?spotify\.com[\s\S]*?access_token[\s\S]*?refresh_token[\s\S]*?Bearer /,
+    'legacy watchdog reports containing routes or credential markers are redacted');
+  assert.match(sanitize, /Previous diagnostic details redacted/);
+});
+
+test('diagnostic events share one ephemeral per-process correlation id', () => {
+  const guard = GUARD();
+  assert.match(guard, /\.field private static diagnosticSessionId:Ljava\/lang\/String;/);
+  const id = methodBody(guard, '.method public static declared-synchronized diagnosticSessionId()Ljava/lang/String;');
+  assert.match(id, /UUID;->randomUUID\(\)Ljava\/util\/UUID;/);
+  assert.match(id, /String;->substring\(II\)Ljava\/lang\/String;/,
+    'the random correlation id is short and contains no account-derived data');
+  assert.match(id, /sput-object v0, Lcom\/melodix\/music\/NativeCrashGuard;->diagnosticSessionId:Ljava\/lang\/String;/);
+
+  const diagLine = methodBody(guard, '.method public static diagLine(Ljava/lang/String;)V');
+  assert.match(diagLine, /NativeCrashGuard;->diagnosticSessionId\(\)Ljava\/lang\/String;/);
+  assert.match(diagLine, /const-string v1, "sid="/);
+  assert.match(diagLine, /String;->startsWith\(Ljava\/lang\/String;\)Z/,
+    'a JS event with the same id is not double-prefixed');
+
+  const bridge = read('smali/com/melodix/music/AndBridge.smali');
+  const jsGetter = methodBody(bridge, '.method public final getDiagnosticSessionId()Ljava/lang/String;');
+  assert.match(jsGetter, /annotation runtime Landroid\/webkit\/JavascriptInterface;/);
+  assert.match(jsGetter, /NativeCrashGuard;->diagnosticSessionId\(\)Ljava\/lang\/String;/);
+  const bridgeLog = methodBody(bridge, '.method public final logDiagEvent(Ljava/lang/String;)V');
+  assert.match(bridgeLog, /NativeCrashGuard;->diagnosticSessionId\(\)Ljava\/lang\/String;/);
+  assert.match(bridgeLog, /const-string v5, "sid="/);
+  assert.match(bridgeLog, /AndBridge;->safeDiagnosticEvent\(Ljava\/lang\/String;\)Ljava\/lang\/String;/,
+    'untrusted page text is reduced to a fixed event category before logging');
+  const safeEvent = methodBody(bridge, '.method private final safeDiagnosticEvent(Ljava/lang/String;)Ljava/lang/String;');
+  assert.match(safeEvent, /:diagnostic_event_unknown[\s\S]*?const-string v0, "js-event"/);
+  assert.doesNotMatch(bridgeLog, /invoke-virtual \{[^}]*p1[^}]*\}, Ljava\/lang\/String;->(?:concat|substring)/,
+    'the raw JS string is never copied into a diagnostic sink');
 });
 
 test('appendChain() timestamps each stage and caps the chain', () => {
@@ -143,17 +212,28 @@ test('the dismiss listener removes the panel from its parent', () => {
 // Part 3 - the content markers and the next-launch replay hook
 // ---------------------------------------------------------------------------
 
-test('the home renderer marks received data and only marks a successful real-card render', () => {
+test('Home distinguishes attached cards from a card verified visible after the splash', () => {
   const body = methodBody(RENDERER(), '.method public static render(Lcom/melodix/music/MainActivity;Ljava/lang/String;)V');
-  const reset = body.indexOf('nativeHomeContentReady:Z');
+  const reset = body.indexOf('beginNativeHomeRender()V');
   const json = body.indexOf('"home-json"');
-  const rendered = body.indexOf('"home-rendered"');
-  const attached = body.indexOf('nativeHomeContentReady:Z', reset + 1);
-  assert.ok(reset >= 0 && json > reset, 'each payload clears stale Home readiness before its trace');
-  assert.ok(rendered > json && attached > reset,
-    'home-rendered follows a real card attachment; empty payloads take the fallback');
-  assert.match(body, /:shelf_done[\s\S]*?const-string v0, "home-rendered"[\s\S]*?NativeCrashGuard;->stage/);
+  const attached = body.indexOf('noteNativeHomeCardAttached(Landroid/view/View;)V');
+  const attachedStage = body.indexOf('"home-cards-attached"');
+  assert.ok(reset >= 0 && json > reset, 'each payload resets stale Home state before its receipt trace');
+  assert.ok(attached > json && attachedStage > attached,
+    'the renderer marks only attached cards before requesting a takeover');
+  assert.doesNotMatch(body, /nativeHomeContentReady:Z|"home-rendered"/,
+    'the renderer cannot claim pixels are visible');
   assert.match(body, /:shelf_no_cards[\s\S]*?home-render-failed[\s\S]*?revealWebUi\(\)V/);
+
+  const activity = methodBody(MI(), '.method public final completeNativeUiVisibility(Z)Z');
+  const firstMeasure = activity.indexOf('hasMeasuredVisibleNativeHomeCard()Z');
+  const overlayRemoved = activity.indexOf('hideStartupOverlay()V');
+  const secondMeasure = activity.indexOf('hasMeasuredVisibleNativeHomeCard()Z', firstMeasure + 1);
+  const rendered = activity.indexOf('"home-rendered"');
+  assert.ok(firstMeasure >= 0 && overlayRemoved > firstMeasure &&
+    secondMeasure > overlayRemoved && rendered > secondMeasure,
+    'home-rendered follows two measured global-visibility checks around splash removal');
+  assert.match(activity, /sput-boolean v0, Lcom\/melodix\/music\/AppSingleton;->l:Z[\s\S]*?sput-boolean v0, Lcom\/melodix\/music\/AppSingleton;->startupDone:Z/);
 });
 
 test('showNativeUi() replays the stored freeze report (never a crash message)', () => {
@@ -220,11 +300,17 @@ test('no 32-bit invoke result is copied with move-result-object (ART verifier)',
 // Part 5 - the web-side trail: page state + JS status lines in the report
 // ---------------------------------------------------------------------------
 
-test('logDiagEvent keeps the JS status line in the prefs for the report', () => {
+test('logDiagEvent persists a bounded event category with the native session id', () => {
   const bridge = read('smali/com/melodix/music/AndBridge.smali');
   const body = methodBody(bridge, '.method public final logDiagEvent(Ljava/lang/String;)V');
+  assert.ok(body.includes('AndBridge;->safeDiagnosticEvent(Ljava/lang/String;)Ljava/lang/String;'),
+    'the persisted value comes from a fixed category whitelist');
+  assert.ok(body.includes('NativeCrashGuard;->diagnosticSessionId()Ljava/lang/String;'),
+    'events correlate with this process without accepting a caller-supplied ID');
   assert.ok(body.includes('NativeCrashGuard;->diagLine(Ljava/lang/String;)V'),
-    'the web-side trail must survive without logcat');
+    'the sanitized web-side trail must survive without logcat');
+  assert.doesNotMatch(body, /substring|append\(Ljava\/lang\/String;\).*p1/,
+    'no arbitrary input is truncated and then persisted');
 });
 
 test('diagLine stores a tail-bounded trail and lastDiag reads it back', () => {
@@ -278,7 +364,7 @@ test('the panel report is enriched with the web state on the UI thread', () => {
     'the stored report is enriched too');
 });
 
-test('the shell JS reports the silent hold without conflating content and login proof', () => {
+test('the shell reports proof states with a process id and no page text', () => {
   const js = read('scripts/native_ui_shell.source.js');
   assert.ok(js.includes("diagTrace('ready-pending proof='"),
     'the wait reports whether any permissible content/session proof exists');
@@ -286,6 +372,16 @@ test('the shell JS reports the silent hold without conflating content and login 
     'real Home content never falsely marks the Spotify session as signed in');
   assert.ok(js.includes('window.__sfNoWidgetCount % 20 === 0'),
     'the hold trace is throttled');
+  assert.match(js, /getDiagnosticSessionId\(\)/,
+    'each shell trace is correlated with the current process');
+  assert.match(js, /bridge && typeof bridge\.logDiagEvent === 'function'\) bridge\.logDiagEvent\(message\)/,
+    'the native sink supplies the persisted session id and applies its category whitelist');
+  assert.doesNotMatch(js, /bridge\.logDiagEvent\(line\)/,
+    'the JavaScript-only correlation prefix is not trusted as native diagnostic data');
+  assert.match(js, /function safeErrorClass\(value\)/);
+  assert.match(js, /function safeDiagnosticScreen\(value\)/);
+  assert.doesNotMatch(js, /diagTrace\([^\n]*(?:document\.title|innerText|textContent|location\.href|spotifyRoutePath\(\))/,
+    'trace calls never include page content or raw paths');
 });
 
 test('the trace distinguishes WebView load, origin-gated AndBridge availability, and page completion', () => {
@@ -309,6 +405,27 @@ test('the trace distinguishes WebView load, origin-gated AndBridge availability,
 // ---------------------------------------------------------------------------
 // Part 6 - CONTENT STUCK fix: deterministic navigation to the web player
 // ---------------------------------------------------------------------------
+
+test('native UI diagnostics keep route and row-title payloads out of persistent/report traces', () => {
+  const activity = read('smali/com/melodix/music/MainActivity.smali');
+  const route = methodBody(activity, '.method public final setNativeScreen(Ljava/lang/String;)V');
+  const routeWhitelist = route.indexOf('const-string v0, "home"');
+  const routeStore = route.indexOf('iput-object p1, p0, Lcom/melodix/music/MainActivity;->nativeCurrentScreen:Ljava/lang/String;');
+  assert.ok(routeWhitelist >= 0 && routeStore > routeWhitelist,
+    'only validated native screen categories reach stored screen state or route diagnostics');
+  assert.match(route, /const-string v0, "native-route-rejected reason=unsupported"/);
+
+  const data = methodBody(activity, '.method public final applyNativeUiData(Ljava/lang/String;Ljava/lang/String;)V');
+  assert.match(data, /const-string v7, "native-payload"[\s\S]*?AppSingleton;->noteDiag\(Ljava\/lang\/String;Ljava\/lang\/String;Ljava\/lang\/String;\)V/);
+  const render = methodBody(activity, '.method public final renderNativeRows(Ljava/lang/String;Ljava/lang/String;)V');
+  assert.match(render, /const-string v7, "native-rows"[\s\S]*?AppSingleton;->noteDiag\(Ljava\/lang\/String;Ljava\/lang\/String;Ljava\/lang\/String;\)V/);
+  assert.match(render, /rows-received len=/);
+  const traceStart = render.indexOf('# MDXTRACE: native side received a rows payload');
+  const traceEnd = render.indexOf('# Rendering rows always means', traceStart);
+  assert.ok(traceStart >= 0 && traceEnd > traceStart, 'the native row receipt trace is present');
+  assert.doesNotMatch(render.slice(0, traceEnd), /invoke-static \{v8, p1, v9\}.*noteDiag|rows-received screen=|append\(v0, p1\)/,
+    'playlist titles and incoming screen strings never enter diagnostic logs');
+});
 
 test('the shell opens the web player only through an allowlisted HTTPS URL', () => {
   const js = read('scripts/native_ui_shell.source.js');
@@ -356,14 +473,17 @@ test('runUpdate resolves the content root before navigation and refreshes its ce
     'navigation sees the resolved semantic/fallback root before considering recovery');
 });
 
-test('the DOM census names the page for the next photo', () => {
+test('the DOM census records only structural counts, not user-visible page content', () => {
   const js = read('scripts/native_ui_shell.source.js');
-  assert.ok(js.includes("diagTrace('dom census m='"),
-    'the photo must show what the page really holds');
-  assert.ok(js.includes(" t=' + title + ' h=' + h1 + ' g=' + ids"),
-    'title, first heading and a data-testid sample identify the page');
-  assert.ok(js.includes("' i=' + ifr"),
-    'iframes are counted (the player may be framed)');
+  const census = js.slice(js.indexOf('function domCensusOnce()'), js.indexOf('function runUpdate()'));
+  assert.ok(census.includes("diagTrace('dom census m='"),
+    'the structural state remains visible in the bounded trace');
+  assert.ok(census.includes("diagTrace('dom iframes count='"),
+    'iframe totals and the safe Spotify-frame count remain available');
+  assert.match(census, /resourceCount/);
+  assert.match(census, /anchorCount/);
+  assert.doesNotMatch(census, /document\.title|innerText|textContent|getAttribute\('data-testid'\)|getAttribute\('src'\).*diagTrace|spotifyRoutePath\(\)/,
+    'the census never serializes titles, headings, identifiers, URLs, or route paths');
 });
 
 test('the login-page CTA is observed without a synthetic click or duplicate navigation', () => {
@@ -419,12 +539,15 @@ test('navigation does not depend on JS timers being alive', () => {
     'clock throttle instead of a debounce timer');
 });
 
-test('the census exposes the framed player sources', () => {
+test('the census recognizes Spotify frames without logging their source URLs', () => {
   const js = read('scripts/native_ui_shell.source.js');
-  assert.ok(js.includes("diagTrace('dom iframes '"),
-    'the photo must show what the iframes load');
-  assert.ok(js.includes("getAttribute('src')"),
-    'src attributes are readable even cross-origin');
+  const census = js.slice(js.indexOf('function domCensusOnce()'), js.indexOf('function runUpdate()'));
+  assert.ok(census.includes("diagTrace('dom iframes count='"),
+    'the photo includes a bounded frame count');
+  assert.ok(census.includes("safeWebPlayerUrl(frames[i].getAttribute('src') || '', '')"),
+    'frame origins are classified without retaining the URL');
+  assert.doesNotMatch(census, /diagTrace\([^\n]*getAttribute\('src'\)/,
+    'frame URLs are not passed to diagnostics');
 });
 
 test('the native safety net probes the page without any page JS', () => {
@@ -464,11 +587,12 @@ test('the safety net never touches v0 (VerifyError guard)', () => {
 // Part 9 - Android-side fallback probe; the page shell owns recovery when active
 // ---------------------------------------------------------------------------
 
-test('the probe script accepts consent walls and routes player URLs through the native WebView', () => {
+test('the probe uses redacted state, accepts consent walls, and routes through the native WebView', () => {
   const bridge = read('smali/com/melodix/music/AndBridge.smali');
   const body = methodBody(bridge, '.method public static runProbe(Landroid/webkit/WebView;)V');
-  assert.ok(body.includes('probe t='), 'the photo shows title + visible text');
-  assert.ok(body.includes('probe f='), 'the photo shows iframe sources');
+  assert.ok(body.includes('probe dom='), 'the probe reports only whether a DOM exists');
+  assert.ok(body.includes('probe iframe-count='), 'the probe reports bounded frame counts, not sources');
+  assert.ok(body.includes('probe host='), 'the probe reports a coarse host category');
   assert.ok(body.includes('probe consent '), 'a cookie wall is accepted');
   assert.ok(body.includes('probe nav frame'), 'the framed player is the preferred target');
   assert.ok(body.includes('open.spotify.com/app') && body.includes('open.spotify.com/search'),
@@ -480,7 +604,8 @@ test('the probe script accepts consent walls and routes player URLs through the 
   assert.ok(!body.includes('window.location.assign'),
     'the recovery probe never launches a Spotify App Link externally');
   assert.ok(body.includes('mel_player_nav'), 'the same bounded counter prevents loops');
-  assert.ok(body.includes('probe url='), 'the visited page is named (no query, no token)');
+  assert.doesNotMatch(body, /document\.title|document\.body\.innerText|srcs\.join|probe url=|probe t=|probe f=/,
+    'the probe never logs page text, route paths, or iframe URLs');
   assert.ok(body.includes('evaluateJavascript'),
     'the direct probe script does not rely on page-owned timers or callbacks');
 });

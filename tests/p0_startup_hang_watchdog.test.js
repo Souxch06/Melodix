@@ -156,9 +156,17 @@ test('watchdog: the report contains the main-thread stack and the last stage', (
 // Part 4 - the flag is set at the real resolution points
 // ---------------------------------------------------------------------------
 
-test('startupDone is set on the native-shell takeover', () => {
-  const body = methodBody(MI(), '.method public final showNativeUi()V');
-  assert.match(body, /sput-boolean v0, Lcom\/melodix\/music\/AppSingleton;->startupDone:Z/);
+test('[static guard] native-shell show request does not resolve startup before visibility confirmation', () => {
+  const show = methodBody(MI(), '.method public final showNativeUi()V');
+  assert.doesNotMatch(show, /sput-boolean [^,]+, Lcom\/melodix\/music\/AppSingleton;->(?:l|startupDone):Z/,
+    'showNativeUi only requests takeover; it is not evidence of visible pixels');
+
+  const visibility = methodBody(MI(), '.method public final completeNativeUiVisibility(Z)Z');
+  const confirmed = visibility.indexOf('\n    :native_visibility_confirmed\n');
+  const lReady = visibility.indexOf('sput-boolean v0, Lcom/melodix/music/AppSingleton;->l:Z');
+  const startupDone = visibility.indexOf('sput-boolean v0, Lcom/melodix/music/AppSingleton;->startupDone:Z');
+  assert.ok(confirmed >= 0 && lReady > confirmed && startupDone > lReady,
+    'startup flags are structurally downstream of the measured visibility callback; runtime rendering is not proven here');
 });
 
 test('startupDone is set at the web reveal (:fade_go in zk0)', () => {

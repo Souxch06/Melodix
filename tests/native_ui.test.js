@@ -799,7 +799,12 @@ test('playback stability and fast live search optimizations are active across Sm
     const activity = read('smali/com/melodix/music/MainActivity.smali');
     const watcher = read('smali/com/melodix/music/NativeSearchWatcher.smali');
 
-    assert.match(activity, /\.method public final showNativeUi\(\)V[\s\S]*?sput-boolean v0, Lcom\/melodix\/music\/AppSingleton;->l:Z[\s\S]*?MainActivity;->H:Landroidx\/constraintlayout\/widget\/ConstraintLayout;/);
+    const showNative = activity.match(/\.method public final showNativeUi\(\)V([\s\S]*?)\.end method/);
+    assert.ok(showNative, 'showNativeUi exists');
+    assert.doesNotMatch(showNative[1], /sput-boolean [^,]+, Lcom\/melodix\/music\/AppSingleton;->(?:l|startupDone):Z/,
+        'a show request cannot pre-claim player/UI readiness before visibility checks');
+    assert.match(activity, /\.method public final completeNativeUiVisibility\(Z\)Z[\s\S]*?hasMeasuredVisibleNativeHomeCard\(\)Z[\s\S]*?sput-boolean v0, Lcom\/melodix\/music\/AppSingleton;->l:Z[\s\S]*?AppSingleton;->startupDone:Z/,
+        'readiness flags follow the measured visible-card confirmation');
     assert.match(shell, /window\.__sfSearchCache/);
     assert.doesNotMatch(shell, /function clearHomeRetry\(\) \{[^}]*observer\.disconnect\(\)/);
     assert.match(bridge, /if \(window\.__sfMelodixBridgeCompleted\)/);
@@ -1418,26 +1423,85 @@ test('tapping the active Home tab keeps the rows instead of blanking the shelf',
         'le rendu vide reste sur le chemin d un changement d onglet');
 });
 
-test('detail rows are applied on the detail screen and nowhere else', () => {
+function executeDetailDataBranch(currentScreen, title, payload) {
     const activity = read('smali/com/melodix/music/MainActivity.smali');
     const start = activity.indexOf('.method public final applyNativeUiData');
-    const body = activity.slice(start, activity.indexOf('.end method', start));
-    // Anchor on the label definitions: indexOf(':label') would find the jump
-    // target first, which sits earlier in the method.
+    const methodEnd = activity.indexOf('.end method', start);
+    const body = activity.slice(start, methodEnd);
     const detailAt = body.indexOf('\n    :check_detail_data\n');
-    const playerAt = body.indexOf('\n    :check_player\n');
+    const playerAt = body.indexOf('\n    :check_player\n', detailAt);
     assert.ok(detailAt > 0 && playerAt > detailAt, 'la branche detail est bien identifiee');
-    const branch = body.slice(detailAt, playerAt);
+    const branch = body.slice(detailAt, playerAt) + '\n    :check_player\n';
+    const instructions = [];
+    const labels = new Map();
+    for (const rawLine of branch.split(/\r?\n/)) {
+        const line = rawLine.replace(/#.*/, '').trim();
+        if (!line || line.startsWith('.')) continue;
+        if (line.startsWith(':')) {
+            labels.set(line.slice(1), instructions.length);
+            continue;
+        }
+        instructions.push(line);
+    }
 
-    // Tapping a playlist sets the screen to "detail" BEFORE the tracks arrive.
-    // Dropping the payload when the screen is already "detail" left every
-    // playlist empty; painting it elsewhere put playlist tracks over Home.
-    assert.match(branch, /if-eqz v2, :apply_done/, 'un ecran courant absent est ignore');
-    assert.match(branch, /if-nez v4, :apply_done/,
-        'les morceaux sont ignores hors de l ecran detail');
-    assert.doesNotMatch(branch, /if-eqz v4, :apply_done/,
-        'le cas "deja sur detail" ne jette plus les morceaux');
-    assert.match(branch, /renderNativeRows/, 'les morceaux sont bien rendus');
+    const state = { nativeCurrentScreen: currentScreen, nativeCurrentTitle: title, renderedRows: null };
+    const registers = { p0: state, p1: 'detail', p2: payload };
+    let pendingResult;
+    let pc = 0;
+    let steps = 0;
+    while (pc < instructions.length) {
+        assert.ok(++steps <= 40, 'detail branch control flow must terminate');
+        const instruction = instructions[pc++];
+        let match;
+        if ((match = /^const-string (\w+), "([^"]*)"$/.exec(instruction))) {
+            registers[match[1]] = match[2];
+            continue;
+        }
+        if ((match = /^iget-object (\w+), p0, .*->(nativeCurrentScreen|nativeCurrentTitle):Ljava\/lang\/String;$/.exec(instruction))) {
+            registers[match[1]] = state[match[2]];
+            continue;
+        }
+        if ((match = /^invoke-virtual \{(\w+), (\w+)\}, Ljava\/lang\/String;->equals\(Ljava\/lang\/Object;\)Z$/.exec(instruction))) {
+            pendingResult = registers[match[1]] === registers[match[2]] ? 1 : 0;
+            continue;
+        }
+        if ((match = /^move-result (\w+)$/.exec(instruction))) {
+            registers[match[1]] = pendingResult;
+            pendingResult = undefined;
+            continue;
+        }
+        if ((match = /^if-eqz (\w+), :([\w$.-]+)$/.exec(instruction)) ||
+            (match = /^if-nez (\w+), :([\w$.-]+)$/.exec(instruction))) {
+            const isZeroBranch = instruction.startsWith('if-eqz');
+            const value = registers[match[1]];
+            const shouldBranch = isZeroBranch ? value == null || value === 0 : value != null && value !== 0;
+            if (shouldBranch) {
+                if (labels.has(match[2])) pc = labels.get(match[2]);
+                else if (match[2] === 'apply_done') return state;
+                else throw new Error(`unreviewed external branch target :${match[2]}`);
+            }
+            continue;
+        }
+        if ((match = /^invoke-virtual \{p0, (\w+), p2\}, Lcom\/melodix\/music\/MainActivity;->renderNativeRows\(Ljava\/lang\/String;Ljava\/lang\/String;\)V$/.exec(instruction))) {
+            state.renderedRows = { title: registers[match[1]], json: registers.p2 };
+            continue;
+        }
+        if (instruction === 'return-void') return state;
+        throw new Error(`Unreviewed opcode in applyNativeUiData detail branch: ${instruction}`);
+    }
+    return state;
+}
+
+test('detail payload control flow renders on detail and is dropped on every other screen', () => {
+    const payload = '[{"title":"Controlled track payload","uri":"spotify:track:test-fixture"}]';
+    const detail = executeDetailDataBranch('detail', 'Controlled detail title', payload);
+    assert.deepEqual(detail.renderedRows, { title: 'Controlled detail title', json: payload },
+        'a playlist tap sets detail before the rows callback, which must render on that screen');
+
+    const home = executeDetailDataBranch('home', 'Accueil', payload);
+    assert.equal(home.renderedRows, null, 'playlist tracks must never replace the Home shelf');
+    const uninitialized = executeDetailDataBranch(null, 'Détails', payload);
+    assert.equal(uninitialized.renderedRows, null, 'a missing current route is ignored');
 });
 
 test('a playlist tap always lands on a non-empty detail payload path', () => {
@@ -1482,8 +1546,11 @@ test('the Spotify account host lifts the splash instead of hiding the login form
     assert.ok(start > 0, 'revealWebUi existe');
     const reveal = activity.slice(start, activity.indexOf('.end method', start));
     assert.match(reveal, /->H:Landroidx\/constraintlayout\/widget\/ConstraintLayout;/,
-        'le splash est la seule vue touchee');
-    assert.match(reveal, /setVisibility\(I\)V/);
+        'the branded splash overlay is dismissed');
+    assert.match(reveal, /0x7f09022f[\s\S]*?setVisibility\(I\)V/,
+        'an empty native shell cannot remain above the WebView');
+    assert.match(reveal, /->N:Landroid\/widget\/FrameLayout;[\s\S]*?const\/4 v1, 0x0[\s\S]*?setVisibility\(I\)V/,
+        'the WebView container is explicitly restored after a network-error path made it INVISIBLE');
     assert.doesNotMatch(reveal, /loadUrl|CookieManager|clearCache|clearHistory/,
-        'aucune action sur la session ou les cookies');
+        'the login/session/cookie state is untouched');
 });

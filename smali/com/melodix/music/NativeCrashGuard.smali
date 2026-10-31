@@ -19,6 +19,9 @@
 # Elapsed-realtime origin for the startup stage chain (0 = not set yet).
 .field private static chainStart:J
 
+# Ephemeral per-process correlation id for bounded diagnostic traces only.
+.field private static diagnosticSessionId:Ljava/lang/String;
+
 
 # direct methods
 .method public constructor <init>()V
@@ -101,28 +104,18 @@
 .end method
 
 .method public static excerpt(Ljava/lang/Throwable;)Ljava/lang/String;
-    .locals 3
+    .locals 2
 
     const-string v0, ""
 
     if-eqz p0, :done
 
     :try_start_0
-    invoke-static {p0}, Landroid/util/Log;->getStackTraceString(Ljava/lang/Throwable;)Ljava/lang/String;
+    invoke-virtual {p0}, Ljava/lang/Object;->getClass()Ljava/lang/Class;
 
     move-result-object v0
 
-    invoke-virtual {v0}, Ljava/lang/String;->length()I
-
-    move-result v1
-
-    const/16 v2, 0x4b0
-
-    if-le v1, v2, :done
-
-    const/4 v1, 0x0
-
-    invoke-virtual {v0, v1, v2}, Ljava/lang/String;->substring(II)Ljava/lang/String;
+    invoke-virtual {v0}, Ljava/lang/Class;->getSimpleName()Ljava/lang/String;
 
     move-result-object v0
     :try_end_0
@@ -302,6 +295,12 @@
     invoke-interface {v0, v1, v2}, Landroid/content/SharedPreferences;->getString(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;
 
     move-result-object v0
+
+    # Preferences can contain a pre-update raw stack or URL from an older
+    # version. Sanitize before any toast, diagnostic panel, or bridge can read it.
+    invoke-static {v0}, Lcom/melodix/music/NativeCrashGuard;->sanitizeStoredReport(Ljava/lang/String;)Ljava/lang/String;
+
+    move-result-object v0
     :try_end_0
     .catch Ljava/lang/Throwable; {:try_start_0 .. :try_end_0} :catch_0
 
@@ -313,6 +312,137 @@
     const/4 v0, 0x0
 
     :done
+    return-object v0
+.end method
+
+.method private static sanitizeStoredReport(Ljava/lang/String;)Ljava/lang/String;
+    .locals 2
+
+    if-eqz p0, :sanitize_null
+
+    invoke-virtual {p0}, Ljava/lang/String;->length()I
+
+    move-result v0
+
+    const/16 v1, 0x1000
+
+    if-gt v0, v1, :sanitize_redacted
+
+    const-string v0, "STARTUP STUCK"
+
+    invoke-virtual {p0, v0}, Ljava/lang/String;->startsWith(Ljava/lang/String;)Z
+
+    move-result v0
+
+    if-nez v0, :sanitize_hang
+
+    const-string v0, "CONTENT STUCK"
+
+    invoke-virtual {p0, v0}, Ljava/lang/String;->startsWith(Ljava/lang/String;)Z
+
+    move-result v0
+
+    if-nez v0, :sanitize_hang
+
+    # Exception-class records written by current builds are short identifiers
+    # only. Any legacy message or stack fails this strict allowlist.
+    const-string v0, "(Exception|Error|Throwable|[A-Z][A-Za-z0-9_$]*(Exception|Error|Throwable))"
+
+    invoke-virtual {p0, v0}, Ljava/lang/String;->matches(Ljava/lang/String;)Z
+
+    move-result v0
+
+    if-nez v0, :sanitize_return
+
+    goto :sanitize_redacted
+
+    :sanitize_hang
+    # Keep only the bounded, route-free watchdog reports produced by the
+    # current diagnostic format. Old persisted URLs, query strings and tokens
+    # are rejected even if their report has a familiar prefix.
+    const-string v0, "/"
+
+    invoke-virtual {p0, v0}, Ljava/lang/String;->contains(Ljava/lang/CharSequence;)Z
+
+    move-result v0
+
+    if-nez v0, :sanitize_redacted
+
+    const-string v0, "?"
+
+    invoke-virtual {p0, v0}, Ljava/lang/String;->contains(Ljava/lang/CharSequence;)Z
+
+    move-result v0
+
+    if-nez v0, :sanitize_redacted
+
+    const-string v0, "%"
+
+    invoke-virtual {p0, v0}, Ljava/lang/String;->contains(Ljava/lang/CharSequence;)Z
+
+    move-result v0
+
+    if-nez v0, :sanitize_redacted
+
+    const-string v0, "#"
+
+    invoke-virtual {p0, v0}, Ljava/lang/String;->contains(Ljava/lang/CharSequence;)Z
+
+    move-result v0
+
+    if-nez v0, :sanitize_redacted
+
+    const-string v0, "&"
+
+    invoke-virtual {p0, v0}, Ljava/lang/String;->contains(Ljava/lang/CharSequence;)Z
+
+    move-result v0
+
+    if-nez v0, :sanitize_redacted
+
+    const-string v0, "spotify.com"
+
+    invoke-virtual {p0, v0}, Ljava/lang/String;->contains(Ljava/lang/CharSequence;)Z
+
+    move-result v0
+
+    if-nez v0, :sanitize_redacted
+
+    const-string v0, "access_token"
+
+    invoke-virtual {p0, v0}, Ljava/lang/String;->contains(Ljava/lang/CharSequence;)Z
+
+    move-result v0
+
+    if-nez v0, :sanitize_redacted
+
+    const-string v0, "refresh_token"
+
+    invoke-virtual {p0, v0}, Ljava/lang/String;->contains(Ljava/lang/CharSequence;)Z
+
+    move-result v0
+
+    if-nez v0, :sanitize_redacted
+
+    const-string v0, "Bearer "
+
+    invoke-virtual {p0, v0}, Ljava/lang/String;->contains(Ljava/lang/CharSequence;)Z
+
+    move-result v0
+
+    if-nez v0, :sanitize_redacted
+
+    :sanitize_return
+    return-object p0
+
+    :sanitize_redacted
+    const-string v0, "Previous diagnostic details redacted"
+
+    return-object v0
+
+    :sanitize_null
+    const/4 v0, 0x0
+
     return-object v0
 .end method
 
@@ -361,7 +491,11 @@
     if-eqz p0, :done
 
     :try_start_0
-    invoke-static {p0}, Landroid/util/Log;->getStackTraceString(Ljava/lang/Throwable;)Ljava/lang/String;
+    invoke-virtual {p0}, Ljava/lang/Object;->getClass()Ljava/lang/Class;
+
+    move-result-object v0
+
+    invoke-virtual {v0}, Ljava/lang/Class;->getSimpleName()Ljava/lang/String;
 
     move-result-object v0
 
@@ -600,6 +734,36 @@
 
 # Records how far the current launch got. A crash before "ready" leaves this
 # value behind, which is the only clue available on a phone without logcat.
+.method public static declared-synchronized diagnosticSessionId()Ljava/lang/String;
+    .locals 3
+
+    sget-object v0, Lcom/melodix/music/NativeCrashGuard;->diagnosticSessionId:Ljava/lang/String;
+    if-eqz v0, :create_diagnostic_session_id
+    return-object v0
+
+    :create_diagnostic_session_id
+    :try_start_diagnostic_session_id
+    invoke-static {}, Ljava/util/UUID;->randomUUID()Ljava/util/UUID;
+    move-result-object v0
+    invoke-virtual {v0}, Ljava/util/UUID;->toString()Ljava/lang/String;
+    move-result-object v0
+    const/4 v1, 0x0
+    const/16 v2, 0x8
+    invoke-virtual {v0, v1, v2}, Ljava/lang/String;->substring(II)Ljava/lang/String;
+    move-result-object v0
+    sput-object v0, Lcom/melodix/music/NativeCrashGuard;->diagnosticSessionId:Ljava/lang/String;
+    :try_end_diagnostic_session_id
+    .catch Ljava/lang/Throwable; {:try_start_diagnostic_session_id .. :try_end_diagnostic_session_id} :catch_diagnostic_session_id
+
+    return-object v0
+
+    :catch_diagnostic_session_id
+    move-exception v0
+    const-string v0, "00000000"
+    sput-object v0, Lcom/melodix/music/NativeCrashGuard;->diagnosticSessionId:Ljava/lang/String;
+    return-object v0
+.end method
+
 .method public static stage(Ljava/lang/String;)V
     .locals 3
 
@@ -838,7 +1002,7 @@
 # phone report can show where the web side stopped - logcat is unreachable on
 # a user device. Tail-bounded: a chatty caller cannot flood the prefs.
 .method public static diagLine(Ljava/lang/String;)V
-    .locals 4
+    .locals 6
 
     if-eqz p0, :done
 
@@ -847,6 +1011,33 @@
     if-eqz v0, :done
 
     :try_start_0
+    # Prefix every stored event with the same ephemeral process id. JS traces
+    # already carry it; native events receive it here. No account data is used.
+    invoke-static {}, Lcom/melodix/music/NativeCrashGuard;->diagnosticSessionId()Ljava/lang/String;
+    move-result-object v4
+    new-instance v5, Ljava/lang/StringBuilder;
+    invoke-direct {v5}, Ljava/lang/StringBuilder;-><init>()V
+    const-string v1, "sid="
+    invoke-virtual {v5, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    invoke-virtual {v5, v4}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    const-string v1, " "
+    invoke-virtual {v5, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    invoke-virtual {v5}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
+    move-result-object v4
+    invoke-virtual {p0, v4}, Ljava/lang/String;->startsWith(Ljava/lang/String;)Z
+    move-result v5
+    if-eqz v5, :prefix_diagnostic_id
+    goto :diagnostic_id_ready
+
+    :prefix_diagnostic_id
+    new-instance v5, Ljava/lang/StringBuilder;
+    invoke-direct {v5}, Ljava/lang/StringBuilder;-><init>()V
+    invoke-virtual {v5, v4}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    invoke-virtual {v5, p0}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    invoke-virtual {v5}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
+    move-result-object p0
+
+    :diagnostic_id_ready
     const-string v1, "melodix_native"
 
     const/4 v2, 0x0
@@ -1037,14 +1228,10 @@
 .method public uncaughtException(Ljava/lang/Thread;Ljava/lang/Throwable;)V
     .locals 2
 
-    const/4 v0, 0x0
-
     :try_start_0
-    invoke-static {p2}, Landroid/util/Log;->getStackTraceString(Ljava/lang/Throwable;)Ljava/lang/String;
-
-    move-result-object v0
-
-    invoke-static {v0}, Lcom/melodix/music/NativeCrashGuard;->write(Ljava/lang/String;)V
+    # Persist only the exception class through record(); raw stack traces and
+    # messages may contain Spotify routes or request details.
+    invoke-static {p2}, Lcom/melodix/music/NativeCrashGuard;->record(Ljava/lang/Throwable;)V
     :try_end_0
     .catch Ljava/lang/Throwable; {:try_start_0 .. :try_end_0} :catch_0
 
@@ -1142,76 +1329,29 @@
     return-void
 .end method
 
-# Records why the WebView engine could not be created: the throwable class name
-# plus its message, capped at 160 characters. Only that pair is kept (no page
-# content, cookie or token); the diagnostic screen prints it verbatim.
+# Records only the WebView throwable class name. Exception messages can contain
+# routes or request details, so they are never stored or shown.
 .method public static recordWebViewFailure(Ljava/lang/Throwable;)V
-    .locals 5
+    .locals 2
 
     :try_start_0
-    new-instance v0, Ljava/lang/StringBuilder;
-
-    invoke-direct {v0}, Ljava/lang/StringBuilder;-><init>()V
-
     if-nez p0, :have_class
 
-    const-string v1, "Throwable null"
+    const-string v0, "Throwable"
 
     goto :class_done
 
     :have_class
     invoke-virtual {p0}, Ljava/lang/Object;->getClass()Ljava/lang/Class;
 
-    move-result-object v1
+    move-result-object v0
 
-    invoke-virtual {v1}, Ljava/lang/Class;->getSimpleName()Ljava/lang/String;
-
-    move-result-object v1
-
-    :class_done
-    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
-
-    const-string v1, " \u2014 "
-
-    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
-
-    if-nez p0, :have_text
-
-    const-string v1, "(sans message)"
-
-    goto :text_done
-
-    :have_text
-    invoke-virtual {p0}, Ljava/lang/Throwable;->getMessage()Ljava/lang/String;
-
-    move-result-object v1
-
-    if-nez v1, :text_done
-
-    const-string v1, "(sans message)"
-
-    :text_done
-    invoke-virtual {v1}, Ljava/lang/String;->length()I
-
-    move-result v2
-
-    const/16 v3, 0xa0
-
-    if-gt v2, v3, :append_text
-
-    const/4 v4, 0x0
-
-    invoke-virtual {v1, v4, v3}, Ljava/lang/String;->substring(II)Ljava/lang/String;
-
-    move-result-object v1
-
-    :append_text
-    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
-
-    invoke-virtual {v0}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
+    invoke-virtual {v0}, Ljava/lang/Class;->getSimpleName()Ljava/lang/String;
 
     move-result-object v0
 
+    :class_done
+    # Keep only the exception type. Messages may contain URLs or request detail.
     sput-object v0, Lcom/melodix/music/AppSingleton;->g0:Ljava/lang/String;
     :try_end_0
     .catch Ljava/lang/Throwable; {:try_start_0 .. :try_end_0} :catch_0

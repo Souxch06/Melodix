@@ -108,6 +108,24 @@ test('Home fallback collects only visible real Spotify cards when #main-view is 
   assert.equal(JSON.stringify(result).includes('private-query'), false, 'tracking query is not forwarded');
 });
 
+test('fallback diagnostics expose only root presence, never a DOM selector or Spotify resource id', () => {
+  const privateSelector = '[data-testid="private-home-root-37i9dQZF1DXsecret"]';
+  const { result } = run({ root: privateSelector });
+  assert.equal(result.root, true);
+  assert.equal(JSON.stringify(result).includes(privateSelector), false);
+
+  const callback = read('smali/com/melodix/music/NativeHomeFallback$Callback.smali');
+  const rootDiagnostic = callback.slice(
+    callback.indexOf('const-string v5, "root"'),
+    callback.indexOf('const-string v7, "anchors"')
+  );
+  assert.match(rootDiagnostic, /JSONObject;->optBoolean\(Ljava\/lang\/String;Z\)Z/);
+  assert.match(rootDiagnostic, /StringBuilder;->append\(Z\)Ljava\/lang\/StringBuilder;/,
+    'the native persistence path also accepts and records only the boolean');
+  assert.doesNotMatch(rootDiagnostic, /optString/,
+    'a DOM selector cannot be logged from the callback payload');
+});
+
 test('role=link cards and image-bearing ancestors are harvested with split titles', () => {
   const { result } = run({ anchors: [makeAnchor({
     href: 'https://open.spotify.com/artist/4Z8W4fKeB5YxbusRsdQVPb',
@@ -220,9 +238,9 @@ test('native callback requires a Home route and real rows; the renderer remains 
   assert.ok(callback.includes('native-home-fallback dispatch=queued rows='));
   assert.ok(callback.includes('rendered=pending'));
   assert.match(callback, /StartupDiagnosticOverlay;->appendDiagnosticLine/);
-  assert.match(callback, /hasNativeHomeContent\(\)Z[\s\S]*?if-nez v8, :skip_native_ready/,
-    'only a real card already attached to the active native Home can suppress redispatch');
-  assert.ok(callback.includes('reason=native-home-rendered'));
+  assert.match(callback, /hasNativeHomeCardsAttached\(\)Z[\s\S]*?if-nez v8, :skip_native_ready/,
+    'an already attached card prevents duplicate dispatch while pixel visibility remains a separate gate');
+  assert.ok(callback.includes('reason=native-home-cards-attached'));
   assert.match(callback, /postNativeHomeFallbackData\(Ljava\/lang\/String;\)V/);
   const activity = read('smali/com/melodix/music/MainActivity.smali');
   assert.match(activity, /\.method public final hasNativeHomeContent\(\)Z[\s\S]*?nativeCurrentScreen[\s\S]*?nativeHomeContentReady/);
@@ -233,9 +251,11 @@ test('native callback requires a Home route and real rows; the renderer remains 
     'the fallback never hides Spotify itself; NativeHomeShelfRenderer must attach a real card first');
   const renderer = read('smali/com/melodix/music/NativeHomeShelfRenderer.smali');
   assert.match(renderer, /startsWith\(Ljava\/lang\/String;\)Z[\s\S]*?if-eqz v7, :shelf_next/);
-  assert.match(renderer, /:shelf_finish[\s\S]*?if-eqz v5, :shelf_no_cards[\s\S]*?showNativeUi\(\)V/);
-  assert.ok(renderer.includes('native-home-render rendered=true'));
+  assert.match(renderer, /:shelf_finish[\s\S]*?hasNativeHomeCardsAttached\(\)Z[\s\S]*?if-eqz v5, :shelf_no_cards[\s\S]*?showNativeUi\(\)V/);
+  assert.ok(renderer.includes('native-home-render cards-attached=true'));
   assert.ok(renderer.includes('native-home-render rendered=false reason=no-real-cards'));
+  assert.doesNotMatch(renderer, /"home-rendered"|nativeHomeContentReady:Z/,
+    'the renderer does not claim global visibility or screen pixels');
   const overlay = read('smali/com/melodix/music/StartupDiagnosticOverlay.smali');
   assert.ok(overlay.includes('.field private static reportTextView:Landroid/widget/TextView;'));
   assert.ok(overlay.includes('.method public static appendDiagnosticLine(Ljava/lang/String;)V'));

@@ -27,13 +27,22 @@ function extractMethod(source, signature) {
  * method. If the implementation grows new opcodes before storing the state,
  * the test fails closed and requires the executor to be reviewed/extended.
  */
-function executeSetNativeScreen(previousScreen, destination, previousFade = false, contentSentinel = { value: 'unchanged' }) {
+function executeSetNativeScreen(
+    previousScreen,
+    destination,
+    previousFade = false,
+    contentSentinel = { value: 'unchanged' },
+    previousHomeState = {}
+) {
     const method = extractMethod(
         ACTIVITY,
         '.method public final setNativeScreen(Ljava/lang/String;)V');
     const state = {
         nativeCurrentScreen: previousScreen,
         nativeFadeNextScreen: previousFade,
+        nativeHomeCardsAttached: Boolean(previousHomeState.nativeHomeCardsAttached),
+        nativeHomeContentReady: Boolean(previousHomeState.nativeHomeContentReady),
+        nativeHomeFirstCard: previousHomeState.nativeHomeFirstCard || null,
         contentSentinel
     };
     const registers = { p0: state, p1: destination };
@@ -112,6 +121,14 @@ function executeSetNativeScreen(previousScreen, destination, previousFade = fals
             fadeValueAtStore = state.nativeFadeNextScreen;
             continue;
         }
+        if ((match = /^iput-boolean (\w+), p0, .*->(nativeHomeCardsAttached|nativeHomeContentReady):Z$/.exec(instruction))) {
+            state[match[2]] = Boolean(registers[match[1]]);
+            continue;
+        }
+        if ((match = /^iput-object (\w+), p0, .*->nativeHomeFirstCard:Landroid\/view\/View;$/.exec(instruction))) {
+            state.nativeHomeFirstCard = registers[match[1]] === 0 ? null : registers[match[1]];
+            continue;
+        }
         if ((match = /^iput-object (\w+), p0, .*->nativeCurrentScreen:Ljava\/lang\/String;$/.exec(instruction))) {
             state.nativeCurrentScreen = registers[match[1]];
             return { state, fadeValueAtStore };
@@ -134,26 +151,50 @@ test('D1 — null previous screen initializes Home without dereferencing null', 
 
 test('D2 — repeated Home destination is idempotent and preserves existing content', () => {
     const contentSentinel = { value: 'already-rendered' };
-    const result = executeSetNativeScreen('home', 'home', true, contentSentinel);
+    const cardSentinel = { attached: true };
+    const previousHomeState = {
+        nativeHomeCardsAttached: true,
+        nativeHomeContentReady: true,
+        nativeHomeFirstCard: cardSentinel
+    };
+    const result = executeSetNativeScreen('home', 'home', true, contentSentinel, previousHomeState);
     assert.equal(result.state.nativeCurrentScreen, 'home');
     assert.equal(result.fadeValueAtStore, false, 'same destination does not schedule a fade');
     assert.equal(result.state.nativeFadeNextScreen, false);
+    assert.equal(result.state.nativeHomeCardsAttached, true, 'repeated Home retains attached rows');
+    assert.equal(result.state.nativeHomeContentReady, true, 'repeated Home retains verified readiness');
+    assert.strictEqual(result.state.nativeHomeFirstCard, cardSentinel);
     assert.strictEqual(result.state.contentSentinel, contentSentinel, 'repeated feed updates retain rendered content');
 });
 
 test('D3 — a genuine Home to Search change stores the route and schedules a fade', () => {
-    const result = executeSetNativeScreen('home', 'search', false);
+    const previousHomeState = {
+        nativeHomeCardsAttached: true,
+        nativeHomeContentReady: true,
+        nativeHomeFirstCard: { attached: true }
+    };
+    const result = executeSetNativeScreen('home', 'search', false, { value: 'unchanged' }, previousHomeState);
     assert.equal(result.state.nativeCurrentScreen, 'search');
     assert.equal(result.fadeValueAtStore, true, 'different destination schedules the transition fade');
     assert.equal(result.state.nativeFadeNextScreen, true);
+    assert.equal(result.state.nativeHomeCardsAttached, false, 'leaving Home invalidates attachment state');
+    assert.equal(result.state.nativeHomeContentReady, false, 'leaving Home invalidates visibility readiness');
+    assert.equal(result.state.nativeHomeFirstCard, null, 'leaving Home drops the stale card reference');
 });
 
-test('invalid null/empty destinations do not overwrite the last valid route', () => {
-    for (const destination of [null, '']) {
+test('invalid null/empty/URL destinations do not overwrite the last valid route', () => {
+    for (const destination of [null, '', 'https://open.spotify.com/playlist/private-id', 'home?playlist=private-id']) {
         const result = executeSetNativeScreen('home', destination, true);
         assert.equal(result.state.nativeCurrentScreen, 'home');
         assert.equal(result.state.nativeFadeNextScreen, true);
         assert.equal(result.fadeValueAtStore, undefined, 'invalid route exits before state writes');
+    }
+});
+
+test('the native screen route whitelist preserves every supported UI screen', () => {
+    for (const screen of ['home', 'search', 'library', 'detail', 'player', 'settings']) {
+        const result = executeSetNativeScreen('home', screen, false);
+        assert.equal(result.state.nativeCurrentScreen, screen);
     }
 });
 
@@ -238,8 +279,8 @@ function executeHomeReadinessGate(activity) {
         '.method public final showNativeUi()V');
     const homeCheck = method.indexOf(':show_native_root');
     const homeGate = method.indexOf(':native_home_ready_check', homeCheck);
-    const readyRead = method.indexOf('->nativeHomeContentReady:Z', homeGate);
-    const blocked = method.indexOf('native-shell-show-blocked reason=home-content-not-ready', readyRead);
+    const readyRead = method.indexOf('->nativeHomeCardsAttached:Z', homeGate);
+    const blocked = method.indexOf('native-shell-show-blocked reason=home-cards-not-attached', readyRead);
     const webFallback = method.indexOf('->revealWebUi()V', blocked);
     const rootLookup = method.indexOf('\n    :native_root_lookup\n', readyRead);
     assert.ok(homeCheck >= 0 && homeGate > homeCheck && readyRead > homeGate &&
@@ -248,13 +289,17 @@ function executeHomeReadinessGate(activity) {
 
     const homeOrUninitialized = activity.nativeCurrentScreen == null ||
         activity.nativeCurrentScreen === 'home';
-    if (homeOrUninitialized && !activity.nativeHomeContentReady) {
+    if (homeOrUninitialized && !activity.nativeHomeCardsAttached) {
         activity.webViewVisible = true;
+        activity.nativeRootVisibilityRequested = false;
         activity.nativeRootVisible = false;
         return 'blocked-no-content';
     }
-    activity.webViewVisible = false;
-    activity.nativeRootVisible = true;
+    // showNativeUi changes Android visibility and queues a measured trace; it
+    // is not itself evidence that a frame or card has reached the display.
+    activity.webViewVisible = true;
+    activity.nativeRootVisibilityRequested = true;
+    activity.nativeRootVisible = false;
     return 'native-root-requested';
 }
 
@@ -263,7 +308,7 @@ test('D4 — Home route queued before readiness is applied; empty Home keeps the
     const activity = {
         nativeCurrentScreen: null,
         nativeFadeNextScreen: false,
-        nativeHomeContentReady: false,
+        nativeHomeCardsAttached: false,
         contentSentinel,
         webViewVisible: true,
         nativeRootVisible: false,
@@ -281,6 +326,17 @@ test('D4 — Home route queued before readiness is applied; empty Home keeps the
     assert.strictEqual(activity.contentSentinel, contentSentinel);
 });
 
+test('D4b — revealWebUi restores the WebView container after the network-error state hides it', () => {
+    const networkError = extractMethod(ACTIVITY, '.method public final D(Z)V');
+    const reveal = extractMethod(ACTIVITY, '.method public final revealWebUi()V');
+    assert.match(networkError, /->N:Landroid\/widget\/FrameLayout;[\s\S]*?const\/4 v2, 0x4[\s\S]*?setVisibility\(I\)V/,
+        'the network-error state makes the WebView container INVISIBLE');
+    assert.match(reveal, /->H:Landroidx\/constraintlayout\/widget\/ConstraintLayout;[\s\S]*?->N:Landroid\/widget\/FrameLayout;[\s\S]*?const\/4 v1, 0x0[\s\S]*?setVisibility\(I\)V/,
+        'the recovery transition dismisses splash/native cover and restores the WebView container');
+    assert.doesNotMatch(reveal, /loadUrl|clearCache|clearHistory|removeAllCookies/,
+        'the transition reveals the existing WebView without reloading or clearing session state');
+});
+
 test('D5 — Home, Search, Library, and back-to-Home route transitions execute in order', () => {
     let state = executeSetNativeScreen(null, 'home').state;
     const transitions = ['search', 'library', 'home'];
@@ -294,21 +350,24 @@ test('D5 — Home, Search, Library, and back-to-Home route transitions execute i
     assert.equal(state.nativeCurrentScreen, 'home');
 });
 
-test('D6 — renderer readiness is the gate that allows a Home shell request', () => {
+test('D6 — attached real cards allow only an async Home root request, not a render claim', () => {
     const activity = {
         nativeCurrentScreen: 'home',
         nativeFadeNextScreen: false,
-        nativeHomeContentReady: true,
-        contentSentinel: { value: 'real-renderer-owned-content' },
+        nativeHomeCardsAttached: true,
+        contentSentinel: { value: 'renderer-owned-content' },
         webViewVisible: true,
+        nativeRootVisibilityRequested: false,
         nativeRootVisible: false,
         showCalls: 0
     };
     executeUiUpdateRunnable(activity, '', 0);
     assert.equal(activity.showCalls, 1);
     assert.equal(activity.showResult, 'native-root-requested');
-    assert.equal(activity.webViewVisible, false);
-    assert.equal(activity.nativeRootVisible, true);
+    assert.equal(activity.webViewVisible, true, 'the WebView remains mounted beneath native UI');
+    assert.equal(activity.nativeRootVisibilityRequested, true);
+    assert.equal(activity.nativeRootVisible, false,
+        'only a later Android visibility check can confirm pixels');
 });
 
 function executeNativeBackClick(activity) {
@@ -411,7 +470,7 @@ test('D7 — native Back restores the prior Library route, search state, title, 
     ]);
 });
 
-test('trace events follow the route, data, real-card render, and visible-root operations', () => {
+test('trace distinguishes attached Home cards from a measured, visible native root', () => {
     const apply = extractMethod(ACTIVITY, '.method public final applyNativeUiData(');
     const received = apply.indexOf('"native-home-data-received"');
     const renderCall = apply.indexOf('->renderNativeRows(Ljava/lang/String;Ljava/lang/String;)V', received);
@@ -421,24 +480,43 @@ test('trace events follow the route, data, real-card render, and visible-root op
         path.join(ROOT, 'smali/com/melodix/music/NativeHomeShelfRenderer.smali'), 'utf8');
     const renderer = extractMethod(rendererSource, '.method public static render(');
     const addCard = renderer.indexOf('->addView(Landroid/view/View;)V');
-    const markContentReady = renderer.indexOf('->nativeHomeContentReady:Z', addCard);
-    const rowsRendered = renderer.indexOf('"native-home-rows-rendered"');
-    const success = renderer.indexOf('"native-home-render rendered=true"', rowsRendered);
-    const homeRendered = renderer.indexOf('"home-rendered"', success);
-    const showNative = renderer.indexOf('->showNativeUi()V', homeRendered);
-    assert.ok(addCard >= 0 && markContentReady > addCard && rowsRendered > markContentReady &&
-        success > rowsRendered && homeRendered > success && showNative > homeRendered,
-    'success traces and shell takeover must follow actual child attachment/readiness');
+    const markAttached = renderer.indexOf('noteNativeHomeCardAttached(Landroid/view/View;)V', addCard);
+    const attachedStage = renderer.indexOf('"home-cards-attached"');
+    const showNative = renderer.indexOf('->showNativeUi()V', attachedStage);
+    assert.ok(addCard >= 0 && markAttached > addCard && attachedStage > markAttached &&
+        showNative > attachedStage,
+    'the renderer reports attachment only, then requests the asynchronous visibility gate');
+    assert.doesNotMatch(renderer, /nativeHomeContentReady:Z|"home-rendered"/,
+        'the renderer cannot turn addView into a pixel-visible success flag');
+
+    const visible = extractMethod(ACTIVITY, '.method public final completeNativeUiVisibility(Z)Z');
+    const firstCardCheck = visible.indexOf('hasMeasuredVisibleNativeHomeCard()Z');
+    const splashHidden = visible.indexOf('hideStartupOverlay()V');
+    const secondCardCheck = visible.indexOf('hasMeasuredVisibleNativeHomeCard()Z', firstCardCheck + 1);
+    const homeRendered = visible.indexOf('"home-rendered"');
+    assert.ok(firstCardCheck >= 0 && splashHidden > firstCardCheck &&
+        secondCardCheck > splashHidden && homeRendered > secondCardCheck,
+    'home-rendered and ready flags follow measured global card bounds after splash removal');
+    assert.match(visible, /sput-boolean v0, Lcom\/melodix\/music\/AppSingleton;->l:Z[\s\S]*?sput-boolean v0, Lcom\/melodix\/music\/AppSingleton;->startupDone:Z/);
+
+    const trace = fs.readFileSync(
+        path.join(ROOT, 'smali/com/melodix/music/NativeUiVisibilityTraceRunnable.smali'), 'utf8');
+    assert.match(trace, /getGlobalVisibleRect\(Landroid\/graphics\/Rect;\)Z/);
+    assert.match(trace, /if-le v8, v9, :native_layout_root_checked/,
+        'nativeRoot must be after its WebView horizontal-scroll host');
+    assert.match(trace, /cmpl-float[\s\S]*?getGlobalVisibleRect[\s\S]*?completeNativeUiVisibility\(Z\)Z/);
+    assert.match(trace, /:native_layout_give_up[\s\S]*?revealWebUi\(\)V/,
+        'failed layout/stacking checks restore the existing WebView');
 
     const show = extractMethod(ACTIVITY, '.method public final showNativeUi()V');
     const request = show.indexOf('"native-shell-show-requested"');
     const rootLookup = show.indexOf('->findViewById(I)Landroid/view/View;', show.indexOf(':native_root_lookup'));
     const found = show.indexOf('"native-root-found"', rootLookup);
     const initialized = show.indexOf('"native-screen-initialized"', found);
-    const completed = show.indexOf('"native-shell-show-completed"', initialized);
+    const returned = show.indexOf('"native-shell-show-request-returned"', initialized);
     assert.ok(request >= 0 && rootLookup > request && found > rootLookup &&
-        initialized > found && completed > initialized,
-    'root-found, screen-initialized, and completed are reported only after their respective steps');
+        initialized > found && returned > initialized,
+    'showNativeUi logs a request/return; the separate trace alone confirms visibility');
 });
 
 test('native render failures are explicit and do not persist exception messages or stack traces', () => {

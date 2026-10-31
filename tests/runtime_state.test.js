@@ -181,7 +181,12 @@ test('auth and WebView code do not capture credentials or proxy Spotify requests
     assert.match(webViewClient, /Uri;->getPort\(\)I/);
     assert.match(webViewClient, /Uri;->getAuthority\(\)Ljava\/lang\/String;/);
     assert.match(webViewClient, /const\/16 v5, 0x1bb/);
-    assert.doesNotMatch(webViewClient, /google_spoof\.js|facebook_consent\.js|classic_login\.js/);
+    // These pre-existing page helpers stay scoped to their own login/consent
+    // routes; their presence is not evidence of authenticated Home rendering.
+    assert.match(webViewClient, /invoke-static \{v1\}, Ldl1;->l\(Ljava\/lang\/String;\)Z[\s\S]*?if-eqz v2, :cond_8[\s\S]*?const-string v2, "google_spoof\.js"[\s\S]*?evaluateJavascript/);
+    assert.match(webViewClient, /const-string v2, "https:\/\/www\.facebook\.com\/privacy\/consent\/gdp\/"[\s\S]*?invoke-static \{v1, v2, v3\}, Lla1;->x[\s\S]*?if-eqz v2, :cond_9[\s\S]*?const-string v2, "facebook_consent\.js"[\s\S]*?evaluateJavascript/);
+    assert.match(webViewClient, /const-string v5, "\/login"[\s\S]*?invoke-static \{v1, v5, v3\}, Lda1;->y[\s\S]*?if-eqz v2, :cond_a[\s\S]*?const-string v2, "classic_login\.js"[\s\S]*?evaluateJavascript/);
+    assert.doesNotMatch(read('assets/classic_login.js'), /document[.]cookie|localStorage|sessionStorage|fetch[(]|XMLHttpRequest|[.]value\\b|form[.]submit|requestSubmit/);
     assert.match(webViewClient, /const-string v2, "desktop_spoof\.js"/);
     assert.match(webViewClient, /const-string v1, "playlist_sort\.js"/);
     assert.doesNotMatch(app, /CookieManager/);
@@ -210,7 +215,8 @@ test('WebView rejects TLS/mixed content and gates bridge attachment by top-level
     assert.doesNotMatch(webViewClient, /SslErrorHandler;->proceed/);
     assert.match(webViewClient, /SslErrorHandler;->cancel/);
     assert.match(pageStart[1], /const-string v2, "open\.spotify\.com"/);
-    assert.match(pageStart[1], /sput-object v0, Lcom\/melodix\/music\/AppSingleton;->g0:Ljava\/lang\/String;/);
+    assert.doesNotMatch(pageStart[1], /sput-object [^,]+, Lcom\/melodix\/music\/AppSingleton;->g0:Ljava\/lang\/String;/,
+        'top-level Spotify routes stay transient and never enter diagnostic prefs');
     assert.match(pageStart[1], /addJavascriptInterface/);
     assert.match(pageStart[1], /removeJavascriptInterface/);
     assert.match(pageStart[1], /Uri;->getPort\(\)I/);
@@ -237,7 +243,10 @@ test('HTTP status responses are not misreported as network disconnections', () =
     assert.match(transportError[1], /MainActivity;->D\(Z\)V/);
     assert.match(transportError[1], /MainActivity;->K:Landroid\/widget\/TextView;/);
     assert.match(transportError[1], /TextView;->setText\(Ljava\/lang\/CharSequence;\)V/);
-    assert.match(read('smali/zk0.smali'), /AppSingleton;->g0:Ljava\/lang\/String;/);
+    const splashRunnable = read('smali/zk0.smali');
+    assert.match(splashRunnable, /const-string v0, "webview-revealed"[\s\S]*?NativeCrashGuard;->stage\(Ljava\/lang\/String;\)V/);
+    assert.doesNotMatch(splashRunnable, /AppSingleton;->g0:Ljava\/lang\/String;/,
+        'the completion stage is fixed, not a Spotify URL or login route');
 });
 
 test('every native network-error path exposes a safe diagnostic source', () => {

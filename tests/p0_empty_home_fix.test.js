@@ -1,20 +1,13 @@
-// [contrat][structurel][A TESTER SUR TELEPHONE]
-// P0 empty home + startup WebView flash (2026-10-27, version test.29 = arbre
-// 5986ed6 restaure). Symptomes telephone : ecran d'accueil vide, flash de la
-// page Web Spotify au lancement puis ecran vide, playlists invisibles.
+// [contrat][structurel][A TESTER SUR ANDROID]
+// Ces contrôles suivent les gates actuels entre les lignes Spotify collectées,
+// le bridge et la demande d'affichage native. Ils ne démontrent pas la cause
+// de l'écran signalé et ne prouvent pas qu'un compte Spotify a été authentifié.
 //
-// Cause racine demontree par le code :
-//   showNativeUi() rend nativeRoot (opaque, elevation 15) visible des que le
-//   compte est connecte, SANS attendre le feed ; si les rows de playlists
-//   n'arrivent jamais (libraryV3 KO sur l'appareil + sidebar desktop absent
-//   en mobile), l'utilisateur reste sur un ecran vide pendant que la page
-//   Spotify (qui affiche les vraies playlists) est couverte.
-//   Le flash = le fade du splash (zk0) des le chargement de la page, avant que
-//   le shell natif ne soit pret.
-//
-// Ces contrats verifient la presence des corrections structurelles. Ils ne
-// prouvent ni l'execution Android ni l'affichage reel avec un compte Spotify ;
-// NE REMPLACENT PAS un test sur telephone avec un vrai compte.
+// Le renderer ne marque que nativeHomeCardsAttached après addView. Le flag
+// distinct nativeHomeContentReady n'est fixé qu'après la mesure de la carte,
+// sa visibilité globale, l'ordre/élévation du root, puis le retrait du splash.
+// Les tests Smali restent structurels; l'instrumentation Android vérifie la
+// hiérarchie et les pixels de la surface WebView de repli, sans playlist fictive.
 const test = require('node:test');
 const assert = require('node:assert');
 const fs = require('node:fs');
@@ -23,14 +16,14 @@ const path = require('node:path');
 const root = path.join(__dirname, '..');
 const read = (p) => fs.readFileSync(path.join(root, p), 'utf8');
 
-test('[P0] notifyNativeUiReady refuse un accueil sans cartes rendues et garde Spotify visible', () => {
+test('[P0] notifyNativeUiReady refuses Home without collected real rows sent to the bridge', () => {
   const shell = read('scripts/native_ui_shell.source.js');
   const start = shell.indexOf('function notifyNativeUiReady(');
   assert.ok(start >= 0, 'notifyNativeUiReady existe');
   const body = shell.slice(start, shell.indexOf('\n    function ', start + 10));
   assert.ok(body.includes('__sfNativeUiHomeRowsCount'), 'le nombre de rows est observe');
   assert.ok(body.includes('__sfNativeUiHomeDataSent'), 'la livraison du feed au bridge est confirmee');
-  assert.ok(body.includes('isSpotifyHome()'), 'seule la route accueil exige une carte reelle');
+  assert.ok(body.includes('isSpotifyHome()'), 'seule la route Home exige des lignes collectées');
   assert.match(body, /ready-pending home rows=/, 'le refus est diagnostique et borné');
   assert.match(body, /action=keep-spotify-visible/, 'l’action de repli est explicite');
   assert.match(body, /return false;/, 'aucun signal ready n’est emis avec zero carte');

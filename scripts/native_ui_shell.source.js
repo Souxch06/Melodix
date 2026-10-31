@@ -7,14 +7,14 @@
     window.__sfNativeUiShellErrors = 0;
 
     // P0 diagnostic: uncaught JS errors must never kill the startup chain
-    // silently - keep a bounded counter and one trace line per error name.
+    // silently. Keep only a bounded, allow-listed error class, never its message.
     window.addEventListener('error', function(ev) {
         window.__sfNativeUiShellErrors += 1;
         try {
-            diagTrace('js-error ' + String((ev && ev.error && ev.error.name) || (ev && ev.message) || 'unknown').slice(0, 60));
+            diagTrace('js-error name=' + safeErrorClass(ev && ev.error && ev.error.name));
         } catch (_) {}
     }, true);
-    diagTrace('js-shell begin path=' + String(window.location && window.location.pathname || '?').slice(0, 60));
+    diagTrace('js-shell begin');
 
     var HOME_PATHS = ['/', '/home'];
     var SUPPORTED_TYPES = ['playlist', 'album', 'artist', 'track', 'show', 'episode', 'audiobook'];
@@ -38,6 +38,7 @@
     var lastLibrarySignature = null;
     var lastMediaActiveAt = 0;
     var lastContentRoot = null;
+    var diagnosticSessionId = '';
 
     function normalizedPath() {
         var path = window.location.pathname || '/';
@@ -136,17 +137,57 @@
         }
     }
 
-    // P0 diagnostic traces: one bounded line per event on the native logcat
-    // (MDXTRACE) so a phone-side log can show where the startup chain stops:
-    // bridge start, shell done, active route, rows received, home element
-    // found, ready/blocked decisions and JS errors. Never sends payload data.
+    // Diagnostics contain only bounded state names, counts and a per-process
+    // correlation id. Never send page text, URLs, resource IDs, or exception
+    // messages to logcat or the on-device diagnostic trail.
+    function safeErrorClass(value) {
+        var name = String(value || '');
+        return /^(?:Error|TypeError|ReferenceError|SyntaxError|RangeError|URIError|EvalError|SecurityError|NetworkError|AbortError|InvalidStateError|NotSupportedError|QuotaExceededError)$/.test(name)
+            ? name
+            : 'unknown';
+    }
+
+    function safeDiagnosticScreen(value) {
+        var screen = String(value || '');
+        return ['home', 'search', 'library', 'detail'].indexOf(screen) >= 0 ? screen : 'other';
+    }
+
+    function diagnosticScreen() {
+        try {
+            return safeDiagnosticScreen(nativeScreenForPath());
+        } catch (_) {
+            return 'other';
+        }
+    }
+
+    function safeMediaLibStatus() {
+        var status = String(window.__sfMediaLibStatus || 'absent');
+        return ['absent', 'pending', 'loading', 'ready', 'error'].indexOf(status) >= 0 ? status : 'other';
+    }
+
+    function diagnosticId() {
+        if (diagnosticSessionId) return diagnosticSessionId;
+        try {
+            var bridge = window.AndBridge;
+            if (bridge && typeof bridge.getDiagnosticSessionId === 'function') {
+                diagnosticSessionId = String(bridge.getDiagnosticSessionId() || '')
+                    .replace(/[^0-9a-f]/ig, '').slice(0, 8);
+            }
+        } catch (_) {}
+        return diagnosticSessionId;
+    }
+
     function diagTrace(event) {
-        var line = String(event || '').replace(/\s+/g, ' ').slice(0, 160);
-        window.__sfDiagTraceLast = line;
+        var id = diagnosticId();
+        var message = String(event || '').replace(/\s+/g, ' ').slice(0, 120);
+        var line = (id ? 'sid=' + id + ' ' : '') + message;
+        window.__sfDiagTraceLast = line.slice(0, 160);
         window.__sfDiagTraceCount = (window.__sfDiagTraceCount || 0) + 1;
         try {
             var bridge = window.AndBridge;
-            if (bridge && typeof bridge.logDiagEvent === 'function') bridge.logDiagEvent(line);
+            // The native sink supplies the same process ID and whitelists the
+            // event category before anything reaches logcat or persistent prefs.
+            if (bridge && typeof bridge.logDiagEvent === 'function') bridge.logDiagEvent(message);
         } catch (_) {}
     }
 
@@ -196,10 +237,10 @@
             bridge.onNativeUiRoute(route);
             window.__sfNativeUiLastRouteSent = route;
             window.__sfNativeUiRoute = route;
-            diagTrace('native-route queued screen=' + route);
+            diagTrace('native-route queued screen=' + safeDiagnosticScreen(route));
             return true;
         } catch (_) {
-            diagTrace('native-route failed screen=' + route);
+            diagTrace('native-route failed screen=' + safeDiagnosticScreen(route));
             return false;
         }
     }
@@ -614,10 +655,10 @@
 
         // P0 trace: distinguish "no data yet" from "data merged late".
         if (userRows.length > 0 || (library && library.playlists && library.playlists.length > 0)) {
-            diagTrace('home-merge lib=' + (window.__sfMediaLibStatus || 'absent') +
+            diagTrace('home-merge lib=' + safeMediaLibStatus() +
                 ' librows=' + userRows.length +
                 ' domrows=' + spotifyRows.length +
-                ' err=' + (window.__sfMediaLibError || ''));
+                ' err=' + (window.__sfMediaLibError ? '1' : '0'));
         }
         return userRows.concat(spotifyRows);
     }
@@ -740,9 +781,9 @@
         } catch (_) {}
         return {
             title: 'Diagnostic Melodix',
-            subtitle: 'build ' + label + ' | page ' + spotifyRoutePath() +
+            subtitle: 'build ' + label + ' | screen ' + diagnosticScreen() +
                 ' | bridge ' + (bridgeHasStarted() ? 'oui' : 'non') +
-                ' | mediaLib ' + (window.__sfMediaLibStatus || '?') +
+                ' | mediaLib ' + safeMediaLibStatus() +
                 ' | web mode ' + String(window.__sfMelodixHomeGuiMode || '?').slice(0, 24) +
                 ' | web styles ' + (window.__sfMelodixHomeStylesReady ? 'oui' : 'non') +
                 ' | web cards ' + webCards +
@@ -784,7 +825,7 @@
         if (window.__sfNativeUiHomeCountTraceSignature !== countSignature) {
             window.__sfNativeUiHomeCountTraceSignature = countSignature;
             diagTrace('home-card-counts web=' + webCards + ' native-dom=' + scrapedRows.length +
-                ' native-total=' + rows.length + ' route=' + spotifyRoutePath());
+                ' native-total=' + rows.length + ' screen=' + diagnosticScreen());
         }
         if (lastHomeSignature !== signature && sendNativeUiData('home', rows)) {
             // This state is intentionally closure-local. Older hotfixable bridge
@@ -794,7 +835,7 @@
             window.__sfNativeUiHomeDataSent = true;
             diagTrace('home-rows sent n=' + rows.length + ' images=' +
                 rows.filter(function(r) { return Boolean(r && r.image); }).length +
-                ' route=' + spotifyRoutePath());
+                ' screen=' + diagnosticScreen());
         }
 
         if (rows.length > 0 && rows.some(function(row) { return Boolean(row && row.image); })) clearHomeRetry();
@@ -1026,8 +1067,8 @@
             if (window.__sfNativeUiReadyBlockedEmpty === 1 || window.__sfNativeUiReadyBlockedEmpty % 20 === 0) {
                 diagTrace('ready-pending home rows=' + (window.__sfNativeUiHomeRowsCount || 0) +
                     ' dataSent=' + (window.__sfNativeUiHomeDataSent ? '1' : '0') +
-                    ' route=' + spotifyRoutePath() +
-                    ' state=' + (window.__sfMediaLibStatus || 'pending') +
+                    ' screen=' + diagnosticScreen() +
+                    ' state=' + safeMediaLibStatus() +
                     ' action=keep-spotify-visible');
             }
             return false;
@@ -1041,7 +1082,7 @@
             window.__sfNativeUiReadyRetries = 0;
             if (readyRetryTimer) window.clearTimeout(readyRetryTimer);
             readyRetryTimer = null;
-            diagTrace('native-ui-ready rows=' + (window.__sfNativeUiHomeRowsCount || 0) + ' route=' + spotifyRoutePath());
+            diagTrace('native-ui-ready rows=' + (window.__sfNativeUiHomeRowsCount || 0) + ' screen=' + diagnosticScreen());
         } catch (_) {
             return false;
         }
@@ -1951,61 +1992,38 @@
         navToPlayer(n, href, iframePlayerSrc());
     }
 
-    // One-line DOM census for the diagnostic trail: what the page really
-    // holds when the takeover gate cannot find anything to wait for. Title,
-    // first heading and a data-testid sample name the page at a glance.
+    // One-line DOM census for the diagnostic trail: bounded structural counts
+    // only. Never store headings, page titles, selectors, IDs, or frame URLs.
     function domCensusOnce() {
         var mainView = lastContentRoot;
-        var rootSelector = String(window.__sfNativeUiContentRootSelector || 'none').slice(0, 36);
         var resourceCount = homeResourceLinkCount(mainView);
         var anchorCount = 0;
-        var title = '';
-        var h1 = '';
-        var ids = '';
+        var ifr = 0;
+        var spotifyFrames = 0;
         try {
             anchorCount = queryHomeLinks(mainView).length;
         } catch (_) {}
         try {
-            title = String(document.title || '').replace(/\s+/g, ' ').slice(0, 30);
-        } catch (_) {}
-        try {
-            var h = document.querySelector('h1');
-            h1 = String((h && h.textContent) || '').replace(/\s+/g, ' ').slice(0, 24);
-        } catch (_) {}
-        try {
-            var seen = [];
-            var nodes = document.querySelectorAll('[data-testid]');
-            for (var i = 0; i < nodes.length && seen.length < 3; i++) {
-                var id = nodes[i].getAttribute('data-testid') || '';
-                if (id && seen.indexOf(id) < 0) seen.push(id.slice(0, 16));
+            var frames = document.querySelectorAll('iframe');
+            ifr = frames.length;
+            for (var i = 0; i < frames.length; i++) {
+                if (safeWebPlayerUrl(frames[i].getAttribute('src') || '', '')) spotifyFrames += 1;
             }
-            ids = seen.join(',');
         } catch (_) {}
-        var ifr = 0;
-        try {
-            ifr = document.querySelectorAll('iframe').length;
-        } catch (_) {}
-        var signature = [rootSelector, resourceCount, anchorCount, ifr,
+        var signature = [mainView ? 1 : 0, resourceCount, anchorCount, ifr,
             document.body ? document.body.childElementCount : -1].join('|');
         if (window.__sfDomCensusSignature === signature || (window.__sfDomCensusCount || 0) >= 4) return;
         window.__sfDomCensusSignature = signature;
         window.__sfDomCensusCount = (window.__sfDomCensusCount || 0) + 1;
         window.__sfDomCensus = 1;
         diagTrace('dom census m=' + (sfDeepQuery('#main-view') ? '1' : '0') +
-            ' root=' + rootSelector + ' links=' + Math.min(anchorCount, 999) +
+            ' root=' + (mainView ? '1' : '0') + ' links=' + Math.min(anchorCount, 999) +
             ' resources=' + Math.min(resourceCount, 999) +
             ' c=' + (document.querySelector('[data-testid="web-player-link"]') ? '1' : '0') +
             ' u=' + (document.querySelector('[data-testid="user-widget-link"]') ? '1' : '0') +
             ' b=' + (document.body ? document.body.childElementCount : -1) +
-            ' i=' + ifr + ' t=' + title + ' h=' + h1 + ' g=' + ids);
-        try {
-            var frames = document.querySelectorAll('iframe');
-            var parts = [];
-            for (var j = 0; j < frames.length && j < 2; j++) {
-                parts.push('f' + j + '=' + String(frames[j].getAttribute('src') || '?').slice(0, 42));
-            }
-            diagTrace('dom iframes ' + parts.join(' '));
-        } catch (_) {}
+            ' i=' + ifr);
+        diagTrace('dom iframes count=' + Math.min(ifr, 999) + ' spotify=' + Math.min(spotifyFrames, 999));
     }
 
     function runUpdate() {
@@ -2027,7 +2045,7 @@
             if (mainView) {
                 if (!window.__sfDiagHomeSeen) {
                     window.__sfDiagHomeSeen = true;
-                    diagTrace('main-view found route=' + spotifyRoutePath());
+                    diagTrace('main-view found screen=' + diagnosticScreen());
                 }
                 detectSpotifyProfile();
                 updateHomeRows(mainView);
@@ -2038,7 +2056,7 @@
             }
         } catch (err) {
             window.__sfNativeUiShellErrors += 1;
-            diagTrace('runUpdate error ' + (err && err.name ? String(err.name).slice(0, 40) : 'unknown'));
+            diagTrace('runUpdate error name=' + safeErrorClass(err && err.name));
         }
         if (!window.__sfNativeUiReadyNotified) scheduleReadinessRetry();
     }
@@ -2920,7 +2938,7 @@
             reader: reader || 'none'
         };
         window.__sfBridgeBytes = source.length;
-        diagTrace('bridge-read expected=' + (expected || '?') + ' received=' + received +
+        diagTrace('bridge-read expected=' + (expected ? '1' : '0') + ' received=' + received +
             ' chunks=' + calls + ' complete=' + (complete ? '1' : '0'));
 
         if (source && complete) return executeBridgeSource(source, name);
@@ -3010,10 +3028,10 @@
     try {
         install();
         window.__sfNativeUiShellCompleted = true;
-        diagTrace('js-shell end ok route=' + (typeof spotifyRoutePath === 'function' ? spotifyRoutePath() : '?'));
+        diagTrace('js-shell end ok screen=' + diagnosticScreen());
     } catch (err) {
         window.__sfNativeUiShellErrors += 1;
         window.__sfNativeUiShellCompleted = false;
-        diagTrace('js-shell end threw ' + (err && err.name ? String(err.name).slice(0, 40) : 'unknown'));
+        diagTrace('js-shell end threw name=' + safeErrorClass(err && err.name));
     }
 })();

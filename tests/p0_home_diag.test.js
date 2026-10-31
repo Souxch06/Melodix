@@ -22,14 +22,15 @@ test('[structurel] AndBridge.getBuildLabel expose le versionName (1.2.2-<sha7>) 
   assert.match(body, /\.catch Ljava\/lang\/Throwable;/, 'jamais de crash pour un diagnostic');
 });
 
-test('[structurel] homeDiagRow porte build/page/bridge/mediaLib/rows', () => {
+test('[structurel] homeDiagRow porte build/screen/bridge/mediaLib/rows sans route privée', () => {
   const at = shell.indexOf('function homeDiagRow(reason)');
   assert.ok(at > -1, 'homeDiagRow existe');
   const body = shell.slice(at, at + 1200);
   assert.match(body, /getBuildLabel/);
-  assert.match(body, /spotifyRoutePath\(\)/);
+  assert.match(body, /diagnosticScreen\(\)/);
+  assert.doesNotMatch(body, /spotifyRoutePath\(\)/);
   assert.match(body, /bridgeHasStarted\(\)/);
-  assert.match(body, /__sfMediaLibStatus/);
+  assert.match(body, /safeMediaLibStatus\(\)/);
   assert.match(body, /web cards/);
   assert.match(body, /__sfMelodixHomeSourceCardCount/);
   assert.match(body, /__sfNativeUiHomeDomRowsCount/);

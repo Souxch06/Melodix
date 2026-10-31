@@ -593,6 +593,11 @@
 .method public final onPageFinished(Landroid/webkit/WebView;Ljava/lang/String;)V
     .locals 24
 
+    # v7 is a local (not a callback parameter). The splash Runnable below uses
+    # it as both its boolean and integer mode; initialize it before any path
+    # can read it so ART can verify and execute this callback.
+    const/4 v7, 0x1
+
     .line 1
     move-object/from16 v0, p1
 
@@ -732,7 +737,9 @@
 
     move-result v2
 
-    if-eqz v2, :cond_4
+    # Keep a confirmed login marker while on the player host; clear it only
+    # when page-finished has left open.spotify.com.
+    if-nez v2, :cond_4
 
     sget-boolean v2, Lcom/melodix/music/AppSingleton;->B:Z
 
@@ -1777,10 +1784,8 @@
     const-string v0, "page-started"
     invoke-static {v0}, Lcom/melodix/music/NativeCrashGuard;->stage(Ljava/lang/String;)V
 
-    # Network diagnostics: remember the last top-level URL (never logged).
-    move-object v0, p2
-
-    sput-object v0, Lcom/melodix/music/AppSingleton;->g0:Ljava/lang/String;
+    # Page URLs stay transient in WebView: do not copy private routes or query
+    # data into the diagnostic field. g0 is reserved for safe exception classes.
 
     # The JavascriptInterface stays bound only to real Spotify top-level
     # pages (host open.spotify.com, default or 443 port): any other page

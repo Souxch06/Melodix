@@ -54,13 +54,14 @@ for (const [name, sig] of ARG_METHODS) {
   });
 }
 
-test("[structurel] excerpt(Throwable) : garde d'argument if-eqz + garde de longueur if-le (tronque au-delà de 1200)", () => {
+test("[structurel] excerpt(Throwable) : garde nulle puis classe uniquement, sans message ni pile", () => {
   const body = methodBody('.method public static excerpt(Ljava/lang/Throwable;)Ljava/lang/String;');
   assert.match(body, /const-string v0, ""\n\n    if-eqz p0, :done/,
     "après la valeur par défaut: saut seulement si l'argument est nul");
-  assert.match(body, /if-le v1, v2, :done/,
-    'longueur <= 1200 : retour tel quel ; longueur > 1200 : substring(0, 1200)');
-  assert.ok(!/if-nez p0|if-gt v1, v2/.test(body), 'les formes inversées doivent disparaître');
+  assert.match(body, /Object;->getClass\(\)Ljava\/lang\/Class;[\s\S]*?Class;->getSimpleName\(\)Ljava\/lang\/String;/);
+  assert.doesNotMatch(body, /getStackTraceString|getMessage|printStackTrace|substring/,
+    'aucun message ou détail de pile potentiellement privé n’est rendu');
+  assert.ok(!/if-nez p0/.test(body), 'la garde nulle reste dans le bon sens');
 });
 
 test('[structurel] shorten(String) : garde d\'argument if-eqz + garde de longueur if-le (tronque au-delà de 240)', () => {

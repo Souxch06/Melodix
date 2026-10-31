@@ -14,10 +14,15 @@
             if (b && typeof b.logDiagEvent === 'function') b.logDiagEvent(String(msg || '').slice(0, 160));
         } catch (_) {}
     }
+    function __sfBridgeErrorClass(value) {
+        var name = String(value || '');
+        return /^(?:Error|TypeError|ReferenceError|SyntaxError|RangeError|URIError|EvalError|SecurityError|NetworkError|AbortError|InvalidStateError|NotSupportedError|QuotaExceededError)$/.test(name)
+            ? name : 'unknown';
+    }
     window.__sfBridgeTrace = __sfBridgeTrace;
     __sfBridgeTrace('bridge start');
     window.addEventListener('error', function(ev) {
-        __sfBridgeTrace('bridge js-error ' + String((ev && ev.error && ev.error.name) || (ev && ev.message) || 'unknown').slice(0, 60));
+        __sfBridgeTrace('bridge js-error ' + __sfBridgeErrorClass(ev && ev.error && ev.error.name));
     }, true);
 
     // Global flags injected by Android:
@@ -132,18 +137,43 @@
     window.__sfGetPlaybackSnapshot = getPlaybackSnapshot;
 
     // ---- Playback trace (preview diagnostics) ------------------------------
-    // A tiny ring buffer of playback events. It never stores URLs, tokens or
-    // page content: only event names, timestamps, the player's own state and
-    // the current track title. The preview runtime diagnostic reads it, so a
-    // field report can be matched with what the player actually did.
+    // A bounded ring of playback state only. Track names, button labels, URLs,
+    // account data and arbitrary page text are deliberately excluded. Existing
+    // entries are sanitized on read so an older preview cannot keep exposing
+    // the track-title fields written by earlier trace versions.
     const PLAYBACK_TRACE_KEY = 'melodix_playback_trace_v1';
     const PLAYBACK_TRACE_LIMIT = 80;
+    const PLAYBACK_TRACE_EVENTS = [
+        'dom-skip', 'dom-track-row-while-paused', 'pause-hold-reapply', 'pause-hold-kept',
+        'pause-hold-start', 'auto-resume-ignored', 'play-from-uri', 'dom-playpause-click',
+        'manage-all-play', 'manage-all-pause', 'act-play', 'act-pause', 'act-skip-back',
+        'act-skip-forward', 'track-change'
+    ];
+    const PLAYBACK_TRACE_DETAILS = [
+        'unexpected-resume', 'user-pause-active', 'mark', 'track', 'context',
+        'was-playing', 'was-paused', 'pause', 'play', 'while-user-paused',
+        'while-playing', 'control-button-skip-forward', 'control-button-skip-back'
+    ];
+
+    function safePlaybackTraceEntry(value) {
+        const entry = value && typeof value === 'object' ? value : {};
+        const rawEvent = String(entry.event || '');
+        const rawDetail = String(entry.detail || '');
+        const safe = {
+            at: Number.isFinite(Number(entry.at)) ? Number(entry.at) : 0,
+            event: PLAYBACK_TRACE_EVENTS.indexOf(rawEvent) >= 0 ? rawEvent : 'other',
+            playing: Boolean(entry.playing),
+            hidden: Boolean(entry.hidden)
+        };
+        if (PLAYBACK_TRACE_DETAILS.indexOf(rawDetail) >= 0) safe.detail = rawDetail;
+        return safe;
+    }
 
     function readPlaybackTrace() {
         try {
             const raw = window.localStorage && window.localStorage.getItem(PLAYBACK_TRACE_KEY);
             const parsed = raw ? JSON.parse(raw) : null;
-            return Array.isArray(parsed) ? parsed : [];
+            return Array.isArray(parsed) ? parsed.slice(-PLAYBACK_TRACE_LIMIT).map(safePlaybackTraceEntry) : [];
         } catch (_) {
             return [];
         }
@@ -152,18 +182,13 @@
     function tracePlayback(event, detail) {
         let entry = null;
         try {
-            const pb = getPlayPauseButton();
-            entry = {
+            entry = safePlaybackTraceEntry({
                 at: Date.now(),
-                event: String(event || '').slice(0, 32),
+                event: event,
                 playing: getPlaybackSnapshot().playing,
-                label: pb && typeof pb.getAttribute === 'function'
-                    ? String(pb.getAttribute('aria-label') || '').slice(0, 24)
-                    : '',
                 hidden: Boolean(document && document.visibilityState === 'hidden'),
-                track: String(window.track || '').slice(0, 48)
-            };
-            if (detail) entry.detail = String(detail).slice(0, 96);
+                detail: detail
+            });
             let trace = readPlaybackTrace();
             trace.push(entry);
             if (trace.length > PLAYBACK_TRACE_LIMIT) {
@@ -183,6 +208,14 @@
             if (window.localStorage) window.localStorage.removeItem(PLAYBACK_TRACE_KEY);
         } catch (_) {}
     }
+
+    // Rewrite legacy local storage immediately: old trace entries may contain
+    // track titles or DOM row text from a prior version.
+    try {
+        const safeTrace = readPlaybackTrace();
+        window.__sfPlaybackTrace = safeTrace;
+        if (window.localStorage) window.localStorage.setItem(PLAYBACK_TRACE_KEY, JSON.stringify(safeTrace));
+    } catch (_) {}
 
     window.__sfTracePlayback = tracePlayback;
     window.__sfClearPlaybackTrace = clearPlaybackTrace;
@@ -206,7 +239,7 @@
                 }
                 if (!window.__sfUserRequestedPause) return;
                 const row = target.closest('[data-testid="tracklist-row"]');
-                if (row) tracePlayback('dom-track-row-while-paused', String(row.innerText || '').slice(0, 24));
+                if (row) tracePlayback('dom-track-row-while-paused');
             } catch (_) {}
         }, true);
     } catch (_) {}
@@ -225,7 +258,7 @@
                 }
                 if (!window.__sfUserRequestedPause) return;
                 const row = target.closest('[data-testid="tracklist-row"]');
-                if (row) tracePlayback('dom-track-row-while-paused', String(row.innerText || '').slice(0, 24));
+                if (row) tracePlayback('dom-track-row-while-paused');
             } catch (_) {}
         }, true);
     } catch (_) {}
@@ -2929,7 +2962,7 @@
             }
             notifyMediaLibSettled(window.__sfMediaLibStatus);
         } catch (e) {
-            console.error("Error fetching/parsing media library: ", e);
+            console.warn("Media library request failed; error details redacted.");
             window.__sfMediaLibStatus = 'error';
             window.__sfMediaLibError = 'fetch-parse-error';
             notifyMediaLibSettled('fetch-parse-error');

@@ -183,7 +183,10 @@ function loadShell({ withCards = true, mediaLib = null, locationPath = '/', sear
     }
     win.checkMediaLib = () => { calls.mediaLibChecks += 1; };
     if (searchMediaItemsImpl) win.searchMediaItems = searchMediaItemsImpl;
-    const bridge = {};
+    const diagnosticSessionId = '1a2b3c4d';
+    const bridge = {
+        getDiagnosticSessionId: () => diagnosticSessionId
+    };
     if (bridgeMode === 'complete' || bridgeMode === 'no-ready' || bridgeMode === 'no-data' || bridgeMode === 'no-route' || bridgeMode === 'throw-data') {
         if (bridgeMode !== 'no-ready') bridge.onNativeUiReady = () => { calls.ready += 1; calls.order.push('ready'); };
         if (bridgeMode !== 'no-route') bridge.onNativeUiRoute = (screen) => {
@@ -195,7 +198,7 @@ function loadShell({ withCards = true, mediaLib = null, locationPath = '/', sear
             if (bridgeMode === 'throw-data') throw new Error('native callback failed');
             calls.data.push({ screen, rows: JSON.parse(json) });
         };
-        bridge.logDiagEvent = (line) => calls.traces.push(String(line));
+        bridge.logDiagEvent = (line) => calls.traces.push(`sid=${diagnosticSessionId} ${String(line)}`);
         bridge.getBuildLabel = () => 'test-build';
         bridge.loadWebPlayerUrl = (url) => webLoads.push(url);
         win.AndBridge = bridge;
@@ -230,6 +233,18 @@ function loadShell({ withCards = true, mediaLib = null, locationPath = '/', sear
     };
     return { win, calls, drainTimers, navigations, webLoads, main, appendCard };
 }
+
+test('diagnostic traces carry a process id and omit private route identifiers', () => {
+    const privateResourceId = '37i9dQZF1DXprivate123';
+    const { calls } = loadShell({ locationPath: `/playlist/${privateResourceId}` });
+    assert.ok(calls.traces.length > 0, 'the shell emits bounded startup traces');
+    assert.ok(calls.traces.every((line) => line.startsWith('sid=1a2b3c4d ')),
+        'all page-side trace events share the ephemeral native session id');
+    assert.doesNotMatch(calls.traces.join('\n'), new RegExp(privateResourceId),
+        'Spotify playlist/resource identifiers are never copied into diagnostics');
+    assert.doesNotMatch(calls.traces.join('\n'), /https?:\/\/|\/playlist\//,
+        'raw URLs and route paths are not logged');
+});
 
 // P0: an empty/loading/error payload is not proof of a native replacement.
 // Spotify remains the visible fallback until at least one real card is sent.
@@ -274,8 +289,8 @@ test('native Home finds semantic roots and bounded real-link fallbacks without #
     assert.equal(fallback.win.__sfNativeUiHomeDomRowsCount, 1);
     assert.equal(fallback.calls.ready, 1);
     assert.equal(fallback.calls.data.find((call) => call.screen === 'home').rows[0].title, 'Road trip');
-    assert.ok(fallback.calls.traces.some((line) => line.includes('root=fallback:') && line.includes('resources=1')),
-        'the bounded selected root and its real Spotify links are diagnosable');
+    assert.ok(fallback.calls.traces.some((line) => line.includes('root=1') && line.includes('resources=1')),
+        'the selected root and its real Spotify links remain diagnosable without logging selector IDs');
 
     const empty = loadShell({ withCards: false, rootMode: 'fallback' });
     assert.equal(empty.win.__sfNativeUiContentRootSelector, 'none');

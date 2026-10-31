@@ -247,7 +247,7 @@
         homeGuiMode: typeof window.__sfMelodixHomeGuiMode === 'string'
           ? safeIdentifier(window.__sfMelodixHomeGuiMode.slice(0, 24))
           : null,
-        homeRoute: ['/', '/home', 'other'].indexOf(window.__sfMelodixHomeRoute) >= 0
+        homeScreen: ['home', 'other'].indexOf(window.__sfMelodixHomeRoute) >= 0
           ? window.__sfMelodixHomeRoute
           : null,
         homeDecision: typeof window.__sfMelodixHomeDecision === 'string'
@@ -297,8 +297,8 @@
         nativeUiRootIndex: Number.isInteger(window.__sfNativeUiRootIndex)
           ? window.__sfNativeUiRootIndex
           : null,
-        nativeUiWebIndex: Number.isInteger(window.__sfNativeUiWebIndex)
-          ? window.__sfNativeUiWebIndex
+        nativeUiHScrollIndex: Number.isInteger(window.__sfNativeUiHScrollIndex)
+          ? window.__sfNativeUiHScrollIndex
           : null,
         nativeUiSiblingCount: Number.isInteger(window.__sfNativeUiSiblingCount)
           ? window.__sfNativeUiSiblingCount
@@ -307,12 +307,17 @@
           Number.isFinite(window.__sfNativeUiRootElevation)
           ? window.__sfNativeUiRootElevation
           : null,
-        nativeUiRootAboveWeb: Number.isInteger(window.__sfNativeUiRootIndex) &&
-          Number.isInteger(window.__sfNativeUiWebIndex)
-          ? window.__sfNativeUiRootIndex > window.__sfNativeUiWebIndex
+        nativeUiRootAboveWebHost: typeof window.__sfNativeUiRootAboveWebHost === 'boolean'
+          ? window.__sfNativeUiRootAboveWebHost
           : null,
         nativeUiRootLayoutReady: typeof window.__sfNativeUiRootLayoutReady === 'boolean'
           ? window.__sfNativeUiRootLayoutReady
+          : null,
+        nativeUiVisibilityConfirmed: typeof window.__sfNativeUiVisibilityConfirmed === 'boolean'
+          ? window.__sfNativeUiVisibilityConfirmed
+          : null,
+        nativeUiHomeContentReady: typeof window.__sfNativeUiHomeContentReady === 'boolean'
+          ? window.__sfNativeUiHomeContentReady
           : null,
         nativeHomeRouteRecognized: typeof window.__sfNativeUiHomeRouteRecognized === 'boolean'
           ? window.__sfNativeUiHomeRouteRecognized

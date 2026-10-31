@@ -404,23 +404,34 @@ function collectMelodixHomeSections(mainView) {
 
 function setMelodixHomeDecision(reason, details) {
     const state = details || {};
-    const guiMode = String(window.SF_CONFIG && window.SF_CONFIG.guiMode || 'missing').slice(0, 24);
-    const rootSelector = String(state.rootSelector || window.__sfMelodixHomeRootSelector || '?').slice(0, 36);
-    const signature = [reason, guiMode, state.route || '?', state.stylesReady ? '1' : '0', state.cardCount || 0, rootSelector].join('|');
+    const requestedMode = String(window.SF_CONFIG && window.SF_CONFIG.guiMode || 'missing');
+    const guiMode = MELODIX_HOME_MODES.has(requestedMode) ? requestedMode : 'other';
+    const rawRoute = String(state.route || 'other');
+    const screen = rawRoute === '/' || rawRoute === '/home' ? 'home' : 'other';
+    const rawRoot = String(state.rootSelector || window.__sfMelodixHomeRootSelector || 'none');
+    const rootPresent = rawRoot !== '' && rawRoot !== 'none' ? '1' : '0';
+    const cardCount = Number.isFinite(Number(state.cardCount))
+        ? Math.max(0, Math.min(999, Math.floor(Number(state.cardCount)))) : 0;
+    const sectionCount = Number.isFinite(Number(state.sectionCount))
+        ? Math.max(0, Math.min(999, Math.floor(Number(state.sectionCount)))) : 0;
+    const decision = String(reason || 'unknown').slice(0, 32);
+    const signature = [decision, guiMode, screen, state.stylesReady ? '1' : '0', cardCount, rootPresent].join('|');
     window.__sfMelodixHomeGuiMode = guiMode;
-    window.__sfMelodixHomeRoute = state.route || '?';
+    // Keep only the public screen category in the diagnostic field. Route IDs
+    // and selectors remain local to rendering and are never sent to the bridge.
+    window.__sfMelodixHomeRoute = screen;
     window.__sfMelodixHomeStylesReady = Boolean(state.stylesReady);
-    window.__sfMelodixHomeSourceCardCount = Number(state.cardCount || 0);
-    window.__sfMelodixHomeSectionCount = Number(state.sectionCount || 0);
-    window.__sfMelodixHomeDecision = String(reason || 'unknown').slice(0, 32);
+    window.__sfMelodixHomeSourceCardCount = cardCount;
+    window.__sfMelodixHomeSectionCount = sectionCount;
+    window.__sfMelodixHomeDecision = decision;
     if (signature !== lastHomeDecisionSignature) {
         lastHomeDecisionSignature = signature;
-        traceMelodixHome('home-web ' + window.__sfMelodixHomeDecision +
-            ' mode=' + guiMode + ' route=' + window.__sfMelodixHomeRoute +
+        traceMelodixHome('home-web ' + decision +
+            ' mode=' + guiMode + ' screen=' + screen +
             ' styles=' + (state.stylesReady ? '1' : '0') +
-            ' cards=' + window.__sfMelodixHomeSourceCardCount +
-            ' sections=' + window.__sfMelodixHomeSectionCount +
-            ' root=' + rootSelector);
+            ' cards=' + cardCount +
+            ' sections=' + sectionCount +
+            ' root=' + rootPresent);
     }
 }
 

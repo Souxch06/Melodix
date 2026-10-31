@@ -40,8 +40,9 @@
     move-result-object v4
 
     const-string v5, "root"
-    invoke-virtual {v0, v5}, Lorg/json/JSONObject;->optString(Ljava/lang/String;)Ljava/lang/String;
-    move-result-object v5
+    const/4 v7, 0x0
+    invoke-virtual {v0, v5, v7}, Lorg/json/JSONObject;->optBoolean(Ljava/lang/String;Z)Z
+    move-result v5
 
     new-instance v6, Ljava/lang/StringBuilder;
     invoke-direct {v6}, Ljava/lang/StringBuilder;-><init>()V
@@ -56,7 +57,7 @@
     invoke-virtual {v6, v4}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
     const-string v7, " root="
     invoke-virtual {v6, v7}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
-    invoke-virtual {v6, v5}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    invoke-virtual {v6, v5}, Ljava/lang/StringBuilder;->append(Z)Ljava/lang/StringBuilder;
 
     const-string v7, "anchors"
     const/4 v8, 0x0
@@ -160,7 +161,9 @@
     invoke-virtual {v7}, Landroid/app/Activity;->isFinishing()Z
     move-result v8
     if-nez v8, :skip_activity
-    invoke-virtual {v7}, Lcom/melodix/music/MainActivity;->hasNativeHomeContent()Z
+    # Views already attached means this duplicate callback must not replace the
+    # in-flight layout check with a second renderer pass. This is not yet pixel readiness.
+    invoke-virtual {v7}, Lcom/melodix/music/MainActivity;->hasNativeHomeCardsAttached()Z
     move-result v8
     if-nez v8, :skip_native_ready
 
@@ -184,7 +187,7 @@
     goto :callback_done
 
     :skip_native_ready
-    const-string v11, "native-home-fallback dispatch=skipped reason=native-home-rendered"
+    const-string v11, "native-home-fallback dispatch=skipped reason=native-home-cards-attached"
     invoke-static {v11}, Lcom/melodix/music/NativeCrashGuard;->diagLine(Ljava/lang/String;)V
     invoke-static {v11}, Lcom/melodix/music/StartupDiagnosticOverlay;->appendDiagnosticLine(Ljava/lang/String;)V
     goto :callback_done

@@ -1,0 +1,14 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="com.melodix.music.preview.test">
+    <uses-sdk android:minSdkVersion="24" android:targetSdkVersion="36" />
+    <application
+        android:allowBackup="false"
+        android:debuggable="true"
+        android:hasCode="true"
+        android:label="Melodix UI integration harness">
+        <instrumentation
+            android:name="com.melodix.test.HomeRenderInstrumentation"
+            android:targetPackage="com.melodix.music.preview"
+            android:label="Melodix Preview UI integration" />
+    </application>
+</manifest>
