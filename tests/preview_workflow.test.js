@@ -145,9 +145,15 @@ test("the emulator workflow builds and tests one Preview APK in the same CI run"
   );
   assert.match(
     emulatorWorkflow,
-    /adb install "\$APK_PATH"[\s\S]*?adb install -r "\$TEST_APK"/,
-    "the exact same-run APK is installed first, then the test-only harness",
+    /adb install "\$APK_PATH"[\s\S]*?adb shell pm clear com\.melodix\.music\.preview[\s\S]*?adb shell pm grant --user 0 com\.melodix\.music\.preview android\.permission\.BLUETOOTH_CONNECT[\s\S]*?adb install -r "\$TEST_APK"/,
+    "install and clear the exact APK, grant only its declared runtime permission, then install the test-only harness",
   );
+  assert.match(emulatorWorkflow, /permission-before-grant\.xml[\s\S]*?permission-prompt-summary\.json[\s\S]*?pm grant --user 0/,
+    "the first-launch permission surface is recorded as redacted metadata before the test grant");
+  assert.match(emulatorWorkflow, /safe_statuses=.*failure_phase.*failure_type/,
+    "Android harness failures surface only whitelisted phase/status diagnostics");
+  assert.match(emulatorWorkflow, /focus_state=.*mCurrentFocus/,
+    "an activity-resume failure identifies the safe foreground window instead of stopping at a generic error");
   assert.match(
     emulatorWorkflow,
     /login_ui_visible_in_webview_dom=true/,
@@ -171,8 +177,8 @@ test("the emulator workflow builds and tests one Preview APK in the same CI run"
   const uploadStep = emulatorWorkflow.slice(
     emulatorWorkflow.indexOf("name: Upload verified screenshot and redacted launch summary"),
   );
-  assert.match(uploadStep, /login-hierarchy-redacted\.json[\s\S]*?verification-reference\.json/);
-  assert.doesNotMatch(uploadStep, /login-window\.xml|home-fallback-window\.xml/,
+  assert.match(uploadStep, /permission-prompt-summary\.json[\s\S]*?login-hierarchy-redacted\.json[\s\S]*?verification-reference\.json/);
+  assert.doesNotMatch(uploadStep, /login-window\.xml|home-fallback-window\.xml|permission-before-grant\.xml/,
     "raw UIAutomator hierarchy text is not uploaded");
   assert.match(emulatorWorkflow, /cold_launch_hierarchy_pixels_verified/);
   assert.match(emulatorWorkflow, /login_ui_visible_in_webview_dom/);
@@ -185,6 +191,8 @@ test("the emulator workflow builds and tests one Preview APK in the same CI run"
     /spotify:playlist:|FIXTURE_JSON|Controlled Home fixture/,
     "the Android harness must not inject or substitute a fake Spotify playlist",
   );
+  assert.match(harnessSource, /failurePhase = "await_webview"[\s\S]*?status\.putString\("failure_phase", failurePhase\)/,
+    "a failed Android probe identifies the first safe session/WebView/Home phase without logging content");
   assert.match(
     workflow,
     /for asset_path in sorted\(path for path in \(root \/ "assets"\)\.rglob\("\*"\) if path\.is_file\(\)\)/,

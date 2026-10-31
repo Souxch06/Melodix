@@ -225,6 +225,69 @@ jobs:
           # guarantees there are no carried-over Spotify cookies or app prefs.
           adb install "$APK_PATH"
           adb shell pm clear com.melodix.music.preview >/dev/null
+          # Observe the first-run Android permission surface before granting it,
+          # but retain only redacted hierarchy metadata (never its raw text/XML).
+          adb shell monkey -p com.melodix.music.preview -c android.intent.category.LAUNCHER 1 >/dev/null
+          sleep 8
+          permission_xml="$state_dir/permission-before-grant.xml"
+          if adb shell uiautomator dump --compressed /sdcard/melodix-preview-permission.xml >/dev/null 2>&1 && \
+              adb exec-out cat /sdcard/melodix-preview-permission.xml > "$permission_xml"; then
+            python3 - "$permission_xml" "$state_dir/permission-prompt-summary.json" <<'PY'
+          import json
+          import pathlib
+          import re
+          import sys
+          import xml.etree.ElementTree as ET
+
+          xml_path, summary_path = sys.argv[1:]
+          safe = lambda value: re.sub(r"[^A-Za-z0-9_.$:/-]", "?", value or "")[:160] or None
+          state = {
+              "hierarchy_available": False,
+              "hierarchy_node_count": 0,
+              "top_package": None,
+              "top_class": None,
+              "permission_controller_in_hierarchy": False,
+              "permission_allow_or_deny_control_present": False,
+              "text_nodes_present_count": 0,
+          }
+          try:
+              root = ET.parse(xml_path).getroot()
+              nodes = [node for node in root.iter() if node.tag == "node"]
+              top = nodes[0] if nodes else None
+              packages = {node.get("package", "") for node in nodes}
+              resource_ids = [node.get("resource-id", "") for node in nodes]
+              state.update({
+                  "hierarchy_available": True,
+                  "hierarchy_node_count": len(nodes),
+                  "top_package": safe(top.get("package")) if top is not None else None,
+                  "top_class": safe(top.get("class")) if top is not None else None,
+                  "permission_controller_in_hierarchy": any("permissioncontroller" in package.lower() for package in packages),
+                  "permission_allow_or_deny_control_present": any("permission_allow" in value or "permission_deny" in value for value in resource_ids),
+                  "text_nodes_present_count": sum(bool(node.get("text") or node.get("content-desc")) for node in nodes),
+              })
+          except (ET.ParseError, OSError):
+              pass
+          pathlib.Path(summary_path).write_text(json.dumps(state, indent=2) + "\n", encoding="utf-8")
+          print("::notice title=Android first-launch permission observation::"
+                f"hierarchy_available={state['hierarchy_available']}; top_package={state['top_package'] or 'none'}; "
+                f"permission_controller_in_hierarchy={state['permission_controller_in_hierarchy']}; "
+                f"permission_controls_present={state['permission_allow_or_deny_control_present']}; "
+                f"text_nodes_present_count={state['text_nodes_present_count']}")
+          PY
+          else
+            printf '{"hierarchy_available":false,"top_package":null,"permission_controller_in_hierarchy":false}\n' > "$state_dir/permission-prompt-summary.json"
+            echo "::notice title=Android first-launch permission observation::hierarchy_available=false"
+          fi
+          rm -f "$permission_xml"
+          adb shell rm -f /sdcard/melodix-preview-permission.xml >/dev/null 2>&1 || true
+          adb shell am force-stop com.melodix.music.preview >/dev/null 2>&1 || true
+          # Android 12+ can leave the initial app surface obscured by the
+          # runtime nearby-devices permission dialog. Grant only the declared Bluetooth
+          # permission so this clean-session run can inspect the Spotify UI.
+          adb shell pm grant --user 0 com.melodix.music.preview android.permission.BLUETOOTH_CONNECT
+          permission_status="$(adb shell pm check-permission --user 0 com.melodix.music.preview android.permission.BLUETOOTH_CONNECT | tr -d '\r')"
+          [[ "$permission_status" == "granted" ]] || { echo "::error title=Android permission setup::BLUETOOTH_CONNECT=$permission_status"; exit 1; }
+          echo "::notice title=Android permission setup::fresh app data retained; BLUETOOTH_CONNECT granted to suppress the unrelated OS dialog; no Spotify session or cookies supplied"
           adb shell am force-stop com.melodix.music.preview >/dev/null 2>&1 || true
           adb shell monkey -p com.melodix.music.preview -c android.intent.category.LAUNCHER 1 >/dev/null
           sleep 60
@@ -246,9 +309,13 @@ jobs:
 
           resumed="$(adb shell dumpsys activity activities | grep -F 'com.melodix.music.preview/com.melodix.music.MainActivity' | head -n 1 || true)"
           [[ -n "$resumed" ]] || { echo "::error::MainActivity was not present in the resumed-activity dump."; exit 1; }
+          resumed_now="$(adb shell dumpsys activity activities | grep -E 'mResumedActivity|topResumedActivity|ResumedActivity' | grep -F 'com.melodix.music.preview/com.melodix.music.MainActivity' | head -n 1 || true)"
+          main_activity_resumed=false
+          if [[ -n "$resumed_now" ]]; then main_activity_resumed=true; fi
+          focus_window="$(adb shell dumpsys window | grep -E 'mCurrentFocus|mFocusedApp' | head -n 1 | tr -cd 'A-Za-z0-9_.:/@ -' | cut -c1-300 || true)"
           echo "The Preview process stayed alive and MainActivity remained present after the cold launch."
           echo "No Spotify credentials or account content were supplied; this is an unauthenticated launch check."
-          echo "::notice title=Android launch::source=$SOURCE_REF; package=com.melodix.music.preview; process_alive=true; main_activity_present=true; authenticated_content_not_tested=true"
+          echo "::notice title=Android cold-launch foreground::source=$SOURCE_REF; process_alive=true; main_activity_present=true; main_activity_resumed=$main_activity_resumed; focus=${focus_window:-none}; authenticated_content_not_tested=true"
 
       - name: Build signed Android UI integration instrumentation APK
         shell: bash
@@ -320,7 +387,8 @@ jobs:
           set -e
           cat "$state_dir/android-instrumentation.txt"
           if [[ "$instrumentation_status" != "0" ]]; then
-            echo "::error::Android instrumentation command exited with status $instrumentation_status."
+            safe_statuses="$(grep -E '^INSTRUMENTATION_STATUS: (phase|authenticated_session|login_ui_visible_in_webview_dom|webview_visible_and_measured|network_error_transition_recovered|original_webview_url_preserved|splash_hidden|native_home_hidden|home_payload_empty|playlist_or_card_injected|native_home_cards_attached|native_home_content_ready|native_content_container_empty|native_root_hidden|native_home_tab_not_shown|webview_container_visible|page_load_complete|failure_phase|failure_type|overall)=' "$state_dir/android-instrumentation.txt" | tr '\n' ';' | cut -c1-1800 || true)"
+            echo "::error title=Android UI instrumentation::exit=$instrumentation_status; safe_statuses=${safe_statuses:-none}"
             exit 1
           fi
 
@@ -369,8 +437,9 @@ jobs:
           sleep 2
           resumed_after_instrumentation="$(adb shell dumpsys activity activities | grep -E 'mResumedActivity|topResumedActivity|ResumedActivity' | grep -F 'com.melodix.music.preview/com.melodix.music.MainActivity' | head -n 1 || true)"
           if [[ -z "$resumed_after_instrumentation" ]]; then
-            echo "::error::Preview MainActivity was not resumed after the Android instrumentation attempt."
-            adb shell dumpsys activity activities | grep -E 'mResumedActivity|topResumedActivity|ResumedActivity' || true
+            resumed_state="$(adb shell dumpsys activity activities | grep -E 'mResumedActivity|topResumedActivity|ResumedActivity' | head -n 1 | tr -cd 'A-Za-z0-9_.:/@ -' | cut -c1-300 || true)"
+            focus_state="$(adb shell dumpsys window | grep -E 'mCurrentFocus|mFocusedApp' | head -n 1 | tr -cd 'A-Za-z0-9_.:/@ -' | cut -c1-300 || true)"
+            echo "::error title=Post-instrumentation activity::MainActivity was not resumed; resumed=${resumed_state:-none}; focus=${focus_state:-none}; harness=$INTEGRATION_OUTCOME"
             exit 1
           fi
           resumed_process="$(adb shell pidof -s com.melodix.music.preview 2>/dev/null | tr -d '\r' || true)"
@@ -432,6 +501,7 @@ jobs:
             echo "- Instrumentation outcome: \`${INTEGRATION_OUTCOME:-not run}\`"
             echo "- Post-instrumentation resumed activity/Home check: \`${POST_INSTRUMENTATION_OUTCOME:-not run}\`"
             echo "- Preserved cold-launch hierarchy/pixel check: \`${COLD_LAUNCH_OUTCOME:-not run}\`"
+            echo "- Emulator setup: fresh app data; only BLUETOOTH_CONNECT granted to pass Android's runtime permission prompt; no Spotify session or cookies supplied."
             echo "- Scope: unauthenticated login surface plus empty-Home WebView fallback using the exact Preview APK; no playlist data or Spotify credentials were supplied, and authenticated Home rendering is not claimed."
           } >> "$GITHUB_STEP_SUMMARY"
 
@@ -457,6 +527,7 @@ jobs:
           root = pathlib.Path(state_dir)
           exists = lambda name: (root / name).is_file()
           transcript = (root / "android-instrumentation.txt").read_text(encoding="utf-8", errors="replace") if exists("android-instrumentation.txt") else ""
+          permission_state = json.loads((root / "permission-prompt-summary.json").read_text(encoding="utf-8")) if exists("permission-prompt-summary.json") else {}
           reference = {
               "source_commit": source_ref,
               "build_and_test_run_id": run_id,
@@ -464,6 +535,11 @@ jobs:
               "package_id": package_id or None,
               "version_name": version_name or None,
               "version_code": version_code or None,
+              "test_emulator_permission_setup": "BLUETOOTH_CONNECT granted before launch; app data cleared; no Spotify session or cookies supplied",
+              "first_launch_permission_hierarchy_available": permission_state.get("hierarchy_available", False),
+              "permission_controller_in_first_launch_hierarchy": permission_state.get("permission_controller_in_hierarchy", False),
+              "permission_controls_in_first_launch_hierarchy": permission_state.get("permission_allow_or_deny_control_present", False),
+              "first_launch_hierarchy_top_package": permission_state.get("top_package"),
               "integration_outcome": integration,
               "login_ui_visible_in_webview_dom": "INSTRUMENTATION_STATUS: login_ui_visible_in_webview_dom=true" in transcript and "INSTRUMENTATION_STATUS: authenticated_session=false" in transcript,
               "cold_launch_hierarchy_pixels_outcome": cold_launch,
@@ -484,6 +560,8 @@ jobs:
           )
           print(json.dumps({key: reference[key] for key in (
               "integration_outcome", "login_ui_visible_in_webview_dom",
+              "first_launch_permission_hierarchy_available", "permission_controller_in_first_launch_hierarchy",
+              "permission_controls_in_first_launch_hierarchy", "first_launch_hierarchy_top_package",
               "cold_launch_hierarchy_pixels_outcome", "activity_resumed_after_instrumentation_attempt",
               "empty_home_hierarchy_pixels_verified", "empty_home_payload_confirmed",
               "playlist_or_card_injected_by_harness", "no_playlist_or_card_injected_status_confirmed",
@@ -498,7 +576,9 @@ jobs:
           root = pathlib.Path(sys.argv[1])
           summary_path = pathlib.Path(sys.argv[2])
           safe_fields = (
-              "phase", "webview_container_node_present", "webview_container_accessibility_visible",
+              "phase", "ui_hierarchy_node_count", "ui_hierarchy_top_node_class",
+              "ui_hierarchy_top_node_package", "ui_hierarchy_top_node_resource_id",
+              "webview_container_node_present", "webview_container_accessibility_visible",
               "webview_accessibility_node_present", "webview_accessibility_node_has_bounds",
               "webview_accessibility_node_visible_to_user", "webview_accessibility_node_visible",
               "splash_accessibility_node_present", "splash_accessibility_visible",
@@ -517,6 +597,18 @@ jobs:
                   state = json.loads(path.read_text(encoding="utf-8"))
                   output.write(f"\n### {title}\n\n")
                   for key in safe_fields:
+                      if key in state:
+                          output.write(f"- {key}: {json.dumps(state[key], sort_keys=True)}\n")
+          permission_path = root / "permission-prompt-summary.json"
+          if permission_path.is_file():
+              state = json.loads(permission_path.read_text(encoding="utf-8"))
+              with summary_path.open("a", encoding="utf-8") as output:
+                  output.write("\n### First-launch Android permission surface (redacted)\n\n")
+                  for key in (
+                      "hierarchy_available", "hierarchy_node_count", "top_package", "top_class",
+                      "permission_controller_in_hierarchy", "permission_allow_or_deny_control_present",
+                      "text_nodes_present_count"
+                  ):
                       if key in state:
                           output.write(f"- {key}: {json.dumps(state[key], sort_keys=True)}\n")
           PY
@@ -547,6 +639,7 @@ jobs:
           name: Melodix-Preview-Android16-${{ inputs.source_ref || github.sha }}
           path: |
             ${{ runner.temp }}/melodix-preview-emulator-state/login-screen.png
+            ${{ runner.temp }}/melodix-preview-emulator-state/permission-prompt-summary.json
             ${{ runner.temp }}/melodix-preview-emulator-state/login-hierarchy-redacted.json
             ${{ runner.temp }}/melodix-preview-emulator-state/home-empty-fallback.png
             ${{ runner.temp }}/melodix-preview-emulator-state/home-fallback-hierarchy-redacted.json

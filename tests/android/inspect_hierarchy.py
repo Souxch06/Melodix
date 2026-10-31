@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """Redact Android UIAutomator output and verify Preview screenshot pixels.
 
-Only booleans, view classes/resource ids, and pixel bounds are written. Raw
-Spotify text, account data, URLs, and the unredacted XML are never uploaded.
+Only booleans, safe view classes/packages/resource ids, counts, and pixel bounds
+are written. Raw Spotify text, account data, URLs, and unredacted XML are never
+uploaded.
 """
 
 import json
@@ -14,6 +15,13 @@ from pathlib import Path
 from PIL import Image
 
 BOUNDS_RE = re.compile(r"\[(\d+),(\d+)\]\[(\d+),(\d+)\]")
+SAFE_IDENTIFIER_RE = re.compile(r"[^A-Za-z0-9_.$:/-]")
+
+
+def safe_identifier(value):
+    if not value:
+        return None
+    return SAFE_IDENTIFIER_RE.sub("?", value)[:160]
 
 
 def parse_bounds(value):
@@ -69,6 +77,11 @@ def main():
         raise SystemExit("usage: inspect_hierarchy.py login|empty-home WINDOW.xml SCREEN.png SUMMARY.json")
     phase, xml_path, screenshot_path, summary_path = sys.argv[1:]
     xml_root = ET.parse(xml_path).getroot()
+    hierarchy_nodes = [node for node in xml_root.iter() if node.tag == "node"]
+    top_node = hierarchy_nodes[0] if hierarchy_nodes else None
+    hierarchy_top_class = safe_identifier(top_node.get("class")) if top_node is not None else None
+    hierarchy_top_package = safe_identifier(top_node.get("package")) if top_node is not None else None
+    hierarchy_top_resource_id = safe_identifier(top_node.get("resource-id")) if top_node is not None else None
 
     nodes = []
     webview_bounds = None
@@ -147,6 +160,10 @@ def main():
     phase_name = "unauthenticated_webview_surface" if phase == "login" else "empty_home_webview_fallback"
     summary = {
         "phase": phase_name,
+        "ui_hierarchy_node_count": len(hierarchy_nodes),
+        "ui_hierarchy_top_node_class": hierarchy_top_class,
+        "ui_hierarchy_top_node_package": hierarchy_top_package,
+        "ui_hierarchy_top_node_resource_id": hierarchy_top_resource_id,
         "ui_hierarchy_nodes_redacted": nodes,
         "native_root_accessibility_node_present": native_root_present,
         "native_root_accessibility_visible": native_root_visible,
@@ -190,6 +207,9 @@ def main():
             f" node_present={webview_class_present};"
             f" bounds_present={webview_bounds_present};"
             f" visible_to_user={webview_visible_to_user};"
+            f" hierarchy_nodes={len(hierarchy_nodes)};"
+            f" top_node_class={hierarchy_top_class or 'none'};"
+            f" top_node_package={hierarchy_top_package or 'none'};"
             f" container_present={web_container_present};"
             f" container_visible={web_container_visible};"
             f" splash_visible={splash_visible};"

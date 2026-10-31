@@ -114,6 +114,8 @@ test('the CI Home integration contains no fake playlist or substituted account c
   assert.match(harness, /putBoolean\("native_home_cards_attached", false\)/);
   assert.match(inspector, /splash_accessibility_visible/);
   assert.match(inspector, /webview_accessibility_node_present/);
+  assert.match(inspector, /ui_hierarchy_top_node_package/,
+    'a missing app surface records only the safe top hierarchy package/class, not raw text');
   assert.match(inspector, /screen_nonuniform=/,
     'a missing WebView node reports redacted full-screen pixel metrics');
   assert.match(inspector,

@@ -43,12 +43,17 @@ public final class HomeRenderInstrumentation extends Instrumentation {
     @Override
     public void onStart() {
         super.onStart();
+        String failurePhase = "launch_target";
         try {
             Activity activity = launchTarget();
+            failurePhase = "await_webview";
             WebView webView = awaitStableWebView(activity);
+            failurePhase = "verify_unauthenticated_session";
             requireUnauthenticatedSession(activity);
+            failurePhase = "login_dom_probe";
             final boolean loginDomVisible = awaitLoginUiVisible(webView);
 
+            failurePhase = "login_surface_visibility";
             final Bundle[] loginState = new Bundle[1];
             final Throwable[] loginFailure = new Throwable[1];
             runOnMainSync(new Runnable() {
@@ -64,6 +69,7 @@ public final class HomeRenderInstrumentation extends Instrumentation {
             if (loginFailure[0] != null) throw loginFailure[0];
             sendStatus(1, loginState[0]);
 
+            failurePhase = "empty_home_bridge_dispatch";
             final Throwable[] dispatchFailure = new Throwable[1];
             runOnMainSync(new Runnable() {
                 @Override
@@ -76,6 +82,7 @@ public final class HomeRenderInstrumentation extends Instrumentation {
                 }
             });
             if (dispatchFailure[0] != null) throw dispatchFailure[0];
+            failurePhase = "empty_home_fallback_visibility";
             waitForIdleSync();
             Thread.sleep(250L);
 
@@ -100,6 +107,7 @@ public final class HomeRenderInstrumentation extends Instrumentation {
         } catch (Throwable failure) {
             Bundle status = new Bundle();
             status.putString("overall", "failed");
+            status.putString("failure_phase", failurePhase);
             status.putString("failure_type", failure.getClass().getSimpleName());
             sendStatus(2, status);
             finish(Activity.RESULT_CANCELED, status);
