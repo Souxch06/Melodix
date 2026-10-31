@@ -230,7 +230,10 @@ sur l'émulateur, serait non fondée et n'est pas faite dans ce rapport.
 
 | SHA | Build `preview-apk` | Conclusion |
 | --- | --- | --- |
-| `4a4c05a` | 4a4c05a | success (release test.85, seule conservée) |
+| `724b9c1` | 41193915070 | success (release test.86, seule conservée) |
+| `4861590` | 41193853836 | success (correctif chargé pour test.86) |
+| `18f66cd` | 41192665948 | success (rapport précédent) |
+| `4a4c05a` | 41192576274 | success (release test.85, supprimée depuis) |
 | `b1effb5` | b1effb5 | success |
 | `7f0e607` | 7f0e607 | success |
 | `ff45245` | ff45245 | success (release test.84, supprimée depuis) |
@@ -290,46 +293,81 @@ construit. Corrigé dans `ff45245` :
 - nouvelles étapes `webview-kept` / `webview-null` : le prochain rapport nomme
   la branche au lieu de laisser deviner.
 
-### Deuxième rapport appareil (11h16) : le moteur existe, aucune page n'est demandée
+### Deuxième rapport appareil (11h16, test.84) : le moteur existe, aucune page n'est demandée
 
-`1.2.2-1b1e533` sur la même tablette donne enfin une mesure différente :
+`1.2.2-1b1e533` sur la même tablette donne une mesure nouvelle :
 `web: url=null progress=100 login=false chargement=false erreur=-1`, et
-**aucune étape `page-finished`**. Le premier correctif a donc bien rendu le
-moteur (§ ci-dessus : plus de `<webview absente>`), mais l'application ne lui
-a **jamais demandé d'afficher une page**. Le chien de garde conclut
-`CONTENT STUCK` à +60 s : une coque native par-dessus un WebView vide.
+**aucune étape `page-finished`**. Le premier correctif avait bien rendu le
+moteur (plus de `<webview absente>`), mais pas le contenu : `CONTENT STUCK`
+à +60 s, coque native par-dessus un WebView vide.
 
-Deux chemins indépendants menaient là, tous deux identifiés dans le code :
+Le constat était exact. L'explication donnée ensuite — que la condition
+`AppSingleton.l` était la cause et que le test.85 la réparait — était
+incomplète et finalement fausse : la nouvelle condition de test.85 avait elle
+aussi sa branche dans le mauvais sens. Les tests de l'époque vérifiaient la
+présence de `getOriginalUrl`, `getUrl` et de labels, mais pas quel chemin une
+URL nulle prenait. La capture suivante a permis de l'établir sans ambiguïté.
 
-1. `m9.g()` ne chargeait la première page que si `AppSingleton.l` (coque
-   affichée) valait faux. Le filet de sécurité du démarrage peut afficher la
-   coque **avant** que le moteur n'existe : la seule occasion de charger une
-   page était alors consommée, définitivement. La condition porte maintenant
-   sur l'état du WebView lui-même (`getOriginalUrl() == null`).
-2. `C()` acceptait le WebView de la fabrique sans vérifier qu'une page avait
-   été demandée. Un singleton déjà construit puis re-lié à une nouvelle
-   activité ne recharge rien. `ensureWebPageLoaded()` (idempotente, `getUrl()`
-   nul ou `about:blank` = écran vide à réparer) garantit un affichage dès que
-   le WebView est en place, et `StartupLoadWatchdog` réessaie à +8 s
-   (`load-retry`) si rien n'est apparu.
+### Troisième rapport appareil (11h30, test.85) : les branches `null` sautaient le chargement
 
-Les échecs de chargement ne sont plus avalés : ils sont enregistrés
-(`ensure-load-failed`, `config apres creation`), donc lisibles au prochain
-rapport.
+La nouvelle capture montre encore `url=null progress=100`, `CONTENT STUCK`,
+`derniere etape: content-view` et `diag js: probe url=about:blank ... probe
+nav 1`. Le probe tourne bien dans le document vide, puis appelle
+`window.location.assign`; **`probe nav 1` n'est pas une preuve de requête HTTP
+ni de réseau disponible**. Aucun `factory-load`, `ensure-load` ou
+`page-finished` n'était enregistré.
+
+L'audit des instructions smali a trouvé des conditions inversées et un défaut de couverture du chien de garde :
+
+1. **Création (`m9.g`)** : `if-nez getOriginalUrl, :load_first_page` sautait le
+   chargement lorsque l'URL était nulle — état normal d'un WebView neuf. La
+   fabrique demande maintenant la première page sans condition dans le seul
+   chemin qui vient de construire ce WebView.
+2. **Réparation (`ensureWebPageLoaded`)** : `if-nez url, :do_load` envoyait une
+   URL réelle au rechargement, mais laissait `null` tomber sur
+   `url.equals("about:blank")`. Le `NullPointerException` était avalé par le
+   catch général. Maintenant `null` ou `about:blank` charge, une vraie URL
+   sort sans interrompre le lecteur.
+3. **Chien de garde** : `if-eqz url, :webview_has_page` envoyait précisément
+   `null` au lieu d'entrer dans le bloc de relance. Le sens est corrigé : `null`/`about:blank` donne
+   `load-retry`, une URL réelle évite le rechargement.
+4. **Récupération du catchall** : son test retentait sur une URL déjà présente
+   et sautait la reprise quand il n'y en avait aucune. Il ne retente maintenant
+   que si `getUrl()` est nul ou `about:blank`.
+5. Le chien de garde n'était pas armé dans le cas où aucune navigation ne
+   démarrait (donc aucun `onPageStarted`). `C()` programme maintenant sa
+   vérification à +8 s dès que le WebView est lié.
+
+Le rapport suivant pourra distinguer l'entrée dans `ensureWebPageLoaded`
+(`ensure-check`), la demande initiale (`factory-load`), la réparation
+(`ensure-load` ou `load-retry`), une exception (`ensure-load-failed`) et
+l'arrivée effective (`page-finished`).
+
+Aucun cookie, stockage, session ou flux de connexion n'a été modifié. Les deux
+URL existantes (connexion et lecteur) restent inchangées.
+
+**Validation locale :** les tests WebView ciblés passent 8/8. La suite passe
+315/317; les deux échecs préexistants restent « auth and WebView code do not
+capture credentials or proxy Spotify requests » et « JavascriptInterface
+annotations are limited to bridge methods used by active JavaScript ». La
+compilation APK CI du correctif `4861590` est verte. **Pas de test sur le
+Lenovo après le correctif : seule la prochaine capture réelle pourra valider
+le résultat.**
 
 ### Releases
 
-**Une seule release existe : `v1.2.2-test.85-preview`**, buildée à partir du
-build vert `4a4c05a` (elle remplace `test.83` puis `test.84`, dont la release
-et le tag ont été supprimés dans la même foulée pour ne garder que la dernière
-version), plus le commit de documentation `[skip-release]` qui
-suit. Elle porte 2 assets : l'APK (3 355 400 octets, empreinte vérifiée
-`sha256:f22814478c34b25a774ea8910137fc1aab24f65168178a74aa1a61871b8a89d7`)
-et son fichier `.sha256`. Le corps de release renvoie au commit, qui contient
-le détail des changements et la liste explicite de ce qui n'est **pas** prouvé.
+**Une seule release existe : `v1.2.2-test.86-preview`**, buildée à partir du
+commit `724b9c1` (workflow `41193915070`, succès). L'APK fait 3 355 400 octets;
+GitHub annonce `sha256:319f192076d4cd55cacf2c135af2f5295c12d326e98dace45d10c6257cd144f8`.
+Elle porte aussi le fichier `.sha256`. La release et le tag `test.85` ont été
+supprimés après publication de `test.86`, afin de ne conserver qu'une seule
+version. Le corps de release décrit la cause trouvée, les tests et ce qui
+reste à confirmer sur le Lenovo.
 
-Sur demande, les 57 releases antérieures (jusqu'à `v1.2.2-test.82-preview`) et
-leurs 79 tags orphelins ont été supprimés : le dépôt ne conserve que la
+Lors du nettoyage initial, les 57 releases antérieures (jusqu'à
+`v1.2.2-test.82-preview`) et leurs 79 tags orphelins ont été supprimés. Les
+releases de test.83, .84 et .85 ont ensuite été supprimées à leur tour lorsqu'une
+correction les a remplacées : le dépôt ne conserve que la
 dernière version téléchargeable. L'opération est sans risque pour les
 installations existantes, car le `versionCode` vaut
 `version + test_number + 28 + numéro_de_run` — il ne dépend pas des tags et
