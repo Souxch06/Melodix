@@ -778,9 +778,9 @@
     return-void
 .end method
 
-# Clears only the rolling JS diagnostic trail at process startup. Spotify
-# cookies, account preferences, crash reports, and the prior startup stage are
-# deliberately untouched so the next on-screen trace is fresh without logout.
+# Clears only per-process diagnostics at startup. Spotify cookies, account
+# preferences, and stored crash/hang reports remain intact; persisted stages from
+# the prior process must not be mistaken for this launch's WebView callbacks.
 .method private static clearDiagnosticTrail()V
     .locals 3
 
@@ -802,6 +802,18 @@
     move-result-object v0
 
     const-string v1, "last_diag"
+
+    invoke-interface {v0, v1}, Landroid/content/SharedPreferences$Editor;->remove(Ljava/lang/String;)Landroid/content/SharedPreferences$Editor;
+
+    move-result-object v0
+
+    const-string v1, "last_stage"
+
+    invoke-interface {v0, v1}, Landroid/content/SharedPreferences$Editor;->remove(Ljava/lang/String;)Landroid/content/SharedPreferences$Editor;
+
+    move-result-object v0
+
+    const-string v1, "stage_chain"
 
     invoke-interface {v0, v1}, Landroid/content/SharedPreferences$Editor;->remove(Ljava/lang/String;)Landroid/content/SharedPreferences$Editor;
 

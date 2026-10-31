@@ -80,7 +80,9 @@ const APP_CLASSES = {
   'Lcom/melodix/music/WebService;': classMembers(read('smali/com/melodix/music/WebService.smali')),
   'Lcom/melodix/music/NativeAssetRunner;': classMembers(read('smali/com/melodix/music/NativeAssetRunner.smali')),
   'Lcom/melodix/music/NativeUiUpdateRunnable;': classMembers(read('smali/com/melodix/music/NativeUiUpdateRunnable.smali')),
-  'Lcom/melodix/music/NativeHomeShelfRenderer;': classMembers(read('smali/com/melodix/music/NativeHomeShelfRenderer.smali'))
+  'Lcom/melodix/music/NativeHomeShelfRenderer;': classMembers(read('smali/com/melodix/music/NativeHomeShelfRenderer.smali')),
+  'Lcom/melodix/music/NativeHomeFallback;': classMembers(read('smali/com/melodix/music/NativeHomeFallback.smali')),
+  'Lcom/melodix/music/NativeHomeFallback$Callback;': classMembers(read('smali/com/melodix/music/NativeHomeFallback$Callback.smali'))
 };
 
 test('[structurel] références app des méthodes @JavascriptInterface d\'AndBridge : tout résout', () => {
@@ -99,6 +101,25 @@ test('[structurel] références app des méthodes @JavascriptInterface d\'AndBri
     }
   }
   assert.deepEqual(dangling, [], `références fantômes = VerifyError au lancement:\n${dangling.join('\n')}`);
+});
+
+test('[structurel] native Home fallback: toutes les références app résolvent', () => {
+  const dangling = [];
+  for (const relative of [
+    'smali/com/melodix/music/NativeHomeFallback.smali',
+    'smali/com/melodix/music/NativeHomeFallback$Callback.smali'
+  ]) {
+    const source = read(relative);
+    const name = path.basename(relative);
+    for (const { cls, member, kind } of extractRefs(source)) {
+      if (!cls.startsWith('Lcom/melodix/music/')) continue;
+      const known = APP_CLASSES[cls];
+      if (!known) { dangling.push(`${name}: classe inconnue ${cls}`); continue; }
+      const ok = kind === 'field' ? known.fields.has(member) : known.methods.has(member);
+      if (!ok) dangling.push(`${name}: ${kind} ${cls}->${member}`);
+    }
+  }
+  assert.deepEqual(dangling, [], `références fantômes:\n${dangling.join('\n')}`);
 });
 
 test('[structurel] getBuildLabel : signatures framework toutes connues', () => {

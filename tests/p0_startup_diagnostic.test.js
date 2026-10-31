@@ -239,7 +239,7 @@ test('diagLine stores a tail-bounded trail and lastDiag reads it back', () => {
     'the report can read the trail back');
 });
 
-test('a fresh app process resets only the previous JS diagnostic trail', () => {
+test('a fresh app process clears the stale diagnostic trail and stage chain only', () => {
   const guard = GUARD();
   const install = methodBody(guard, '.method public static install(Landroid/content/Context;)V');
   const reset = methodBody(guard, '.method private static clearDiagnosticTrail()V');
@@ -248,10 +248,12 @@ test('a fresh app process resets only the previous JS diagnostic trail', () => {
   assert.ok(install.includes('native-launch fresh') && install.includes('NativeCrashGuard;->diagLine(Ljava/lang/String;)V'),
     'the first persisted line identifies a fresh diagnostic run');
   assert.ok(reset.includes('const-string v1, "melodix_native"'));
-  assert.ok(reset.includes('const-string v1, "last_diag"'));
+  for (const key of ['last_diag', 'last_stage', 'stage_chain']) {
+    assert.ok(reset.includes(`const-string v1, "${key}"`), `${key} is per-process diagnostic state`);
+  }
   assert.match(reset, /SharedPreferences\$Editor;->remove\(Ljava\/lang\/String;\)/);
-  assert.doesNotMatch(reset, /"last_crash"|"last_report"|"last_stage"|"stage_chain"|"LoggedIn"|token/i,
-    'no crash history, Spotify session, or other preference is cleared');
+  assert.doesNotMatch(reset, /"last_crash"|"last_report"|"LoggedIn"|token/i,
+    'crash/hang reports and the Spotify session are preserved');
 });
 
 test('webState names the page, the login detection and the JS trail', () => {

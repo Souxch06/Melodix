@@ -111,6 +111,10 @@
     if-eqz v2, :no_panel
 
     :try_start_0
+    # Re-run the real-card Home scrape before the navigation safety probes. This
+    # is the 60s recovery path when onPageFinished or the page-owned JS never ran.
+    invoke-static {v2}, Lcom/melodix/music/NativeHomeFallback;->capture(Landroid/webkit/WebView;)V
+
     # The probe decides (consent wall, framed player, player URLs); the late
     # native fallback (mode 1) only fires if nothing moved - no race.
     invoke-static {v2}, Lcom/melodix/music/AndBridge;->runProbe(Landroid/webkit/WebView;)V

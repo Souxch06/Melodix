@@ -27,6 +27,8 @@ const smaliFiles = [
     'smali/com/melodix/music/StartupUnstickRunnable.smali',
     'smali/com/melodix/music/StartupHangWatchdog.smali',
     'smali/com/melodix/music/NativeHomeShelfRenderer.smali',
+    'smali/com/melodix/music/NativeHomeFallback.smali',
+    'smali/com/melodix/music/NativeHomeFallback$Callback.smali',
     'smali/com/melodix/music/RuntimeDiagnostic.smali',
     'smali/com/melodix/music/RuntimeDiagnostic$Callback.smali',
     'smali/com/melodix/music/RuntimeDiagnostic$ShowRunnable.smali',

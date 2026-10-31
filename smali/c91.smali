@@ -620,6 +620,9 @@
 
     invoke-static {v2}, Lcom/melodix/music/NativeCrashGuard;->stage(Ljava/lang/String;)V
 
+    const-string v2, "webview-page-finished"
+    invoke-static {v2}, Lcom/melodix/music/NativeCrashGuard;->diagLine(Ljava/lang/String;)V
+
     # The account host is not a native screen: the shell's collectors return
     # early there, so onNativeUiReady is never sent and the splash is never
     # lifted. A fresh install or an expired session could not reach the login
@@ -1395,6 +1398,10 @@
     invoke-virtual {v0, v5, v8}, Landroid/webkit/WebView;->evaluateJavascript(Ljava/lang/String;Landroid/webkit/ValueCallback;)V
     const-string v6, "home-renderer-queued"
     invoke-static {v6}, Lcom/melodix/music/NativeCrashGuard;->stage(Ljava/lang/String;)V
+
+    # Independent native callback fallback: it does not depend on #main-view,
+    # the account widget, or the page's AndBridge JavaScript interface.
+    invoke-static {v0}, Lcom/melodix/music/NativeHomeFallback;->capture(Landroid/webkit/WebView;)V
 
     # P0 CONTENT STUCK: probe the page from the Android side - works even
     # when page scripts never start and WebView JS timers stay paused.
