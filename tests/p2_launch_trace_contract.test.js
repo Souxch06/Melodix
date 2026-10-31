@@ -99,3 +99,11 @@ test('the trace survives an ANR instead of freezing on the dialog', () => {
   assert.ok(delays[delays.length - 1] >= 90,
     'la capture continue apres l ANR pour voir si l application se retablit');
 });
+
+test('the trace reports whether the emulator was hardware accelerated', () => {
+  const script = readScript();
+  // A hang measured under full software emulation says nothing about a phone.
+  // Without this line the report invites exactly the wrong conclusion.
+  assert.match(script, /kvm: \$\(adb shell ls -l \/dev\/kvm/);
+  assert.match(script, /emulateur: \$\(tr/);
+});

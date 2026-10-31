@@ -117,6 +117,15 @@ note "visible2: $(tr '\n' ' ' < "$state/window-text2.txt" | cut -c1-300)"
 grep -o 'text="[^"]*"' "$state/window.xml" 2>/dev/null | head -n 30 > "$state/window-text.txt"
 note "visible: $(tr '\n' ' ' < "$state/window-text.txt" | cut -c1-300)"
 
+# Emulation speed decides what the timings mean: without /dev/kvm the guest
+# runs fully emulated and every startup is 10-50x slower than on a phone. A
+# hang measured there says nothing about a real device unless this is known.
+{
+  echo "kvm: $(adb shell ls -l /dev/kvm 2>&1 | head -n 1)"
+  echo "cpu: $(adb shell getprop ro.product.cpu.abi 2>/dev/null) $(adb shell getprop ro.build.version.release 2>/dev/null)"
+  echo "cores: $(adb shell cat /proc/cpuinfo 2>/dev/null | grep -c processor)"
+} > "$state/emulator.txt" 2>&1
+
 adb root >/dev/null 2>&1
 sleep 3
 adb shell cat "/data/data/$package_id/shared_prefs/melodix_native.xml" > "$state/prefs.xml" 2>/dev/null
@@ -159,6 +168,7 @@ note "mdxtrace: $(grep -c . "$state/trace.txt" 2>/dev/null) line(s) captured"
 {
   echo "install: $(tr '\n' ' ' < "$state/install.txt" 2>/dev/null)"
   echo "installed: $(tr '\n' ' ' < "$state/installed.txt" 2>/dev/null)"
+  echo "emulateur: $(tr '\n' ' | ' < "$state/emulator.txt" 2>/dev/null)"
   echo "release advertises: ${RELEASE_REF:-unknown}"
   echo "resumed: $(tr '\n' ' ' < "$state/resumed.txt" 2>/dev/null)"
   echo "stage prefs: $(tr -d '\n' < "$state/prefs.xml" 2>/dev/null | cut -c1-600)"
