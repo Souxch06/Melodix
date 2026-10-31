@@ -55,12 +55,42 @@ adb exec-out cat /sdcard/window.xml > "$state/window.xml" 2>/dev/null || true
 adb shell am force-stop "$package_id" >/dev/null 2>&1
 sleep 2
 adb shell monkey -p "$package_id" -c android.intent.category.LAUNCHER 1 >> "$state/monkey.txt" 2>&1
-sleep 20
-adb shell dumpsys activity activities 2>/dev/null \
-  | grep -E 'mResumedActivity|topResumedActivity|ResumedActivity' | head -n 3 > "$state/resumed2.txt"
+
+# TIMELINE. The previous capture sampled twice (as soon as the activity was
+# resumed, then 20 s later) and could not tell "slow startup" from "stuck on
+# the splash for ever" - both look like empty on-screen text. Sample the same
+# launch repeatedly instead: at each sample the stage chain says how far the
+# native startup went, and the on-screen text says whether the native shell is
+# really painted. A recovery after 30-60 s shows up as a later sample that has
+# more stages and real text.
+: > "$state/timeline.txt"
+sample() {
+  local at="$1"
+  local stages
+  local text
+  local focus
+  adb shell cat "/data/data/$package_id/shared_prefs/melodix_native.xml" > "$state/prefs-at.txt" 2>/dev/null
+  stages="$(sed -n 's/.*name="stage_chain">\([^<]*\)<.*/\1/p' "$state/prefs-at.txt" 2>/dev/null | tr -s ' ' ' ')"
+  adb shell dumpsys window 2>/dev/null | grep -E 'mCurrentFocus|mFocusedApp' | head -n 2 > "$state/focus-at.txt"
+  focus="$(tr '\n' ' ' < "$state/focus-at.txt" | cut -c1-160)"
+  adb shell timeout 20 uiautomator dump --compressed /sdcard/at.xml >/dev/null 2>&1 || true
+  adb exec-out cat /sdcard/at.xml > "$state/at.xml" 2>/dev/null || true
+  text="$(grep -o 'text="[^"]*"' "$state/at.xml" 2>/dev/null | sed 's/text="//;s/"$//' | grep -v '^$' | head -n 8 | tr '\n' '|')"
+  if [[ -z "$text" ]]; then text="(aucun texte)"; fi
+  printf 't+%ss | stages: %s | focus: %s | texte: %s\n' "$at" "${stages:-(vide)}" "${focus:-(inconnu)}" "$text" >> "$state/timeline.txt"
+}
+for wait_s in 5 10 15 20 30 45 60 75; do
+  if [[ "$wait_s" -eq 5 ]]; then sleep 5; else sleep $(( wait_s - prev_s )); fi
+  prev_s="$wait_s"
+  sample "$wait_s"
+done
+
+# Keep a "final" screenshot-equivalent for the existing report fields.
 adb shell timeout 30 uiautomator dump --compressed /sdcard/window2.xml >/dev/null 2>&1 || true
 adb exec-out cat /sdcard/window2.xml > "$state/window2.xml" 2>/dev/null || true
 grep -o 'text="[^"]*"' "$state/window2.xml" 2>/dev/null | head -n 30 > "$state/window-text2.txt"
+adb shell dumpsys activity activities 2>/dev/null \
+  | grep -E 'mResumedActivity|topResumedActivity|ResumedActivity' | head -n 3 > "$state/resumed2.txt"
 note "visible2: $(tr '\n' ' ' < "$state/window-text2.txt" | cut -c1-300)"
 grep -o 'text="[^"]*"' "$state/window.xml" 2>/dev/null | head -n 30 > "$state/window-text.txt"
 note "visible: $(tr '\n' ' ' < "$state/window-text.txt" | cut -c1-300)"
@@ -91,6 +121,8 @@ note "mdxtrace: $(grep -c . "$state/trace.txt" 2>/dev/null) line(s) captured"
   echo "stage prefs: $(tr -d '\n' < "$state/prefs.xml" 2>/dev/null | cut -c1-600)"
   echo "visible text: $(tr '\n' ' ' < "$state/window-text.txt" 2>/dev/null | cut -c1-600)"
   echo "visible text (2e lancement): $(tr '\n' ' ' < "$state/window-text2.txt" 2>/dev/null | cut -c1-600)"
+  echo "--- chronologie du 2e lancement ---"
+  head -c 4000 "$state/timeline.txt" 2>/dev/null
   echo "--- MDXTRACE startup chain ---"
   head -c 8000 "$state/trace.txt" 2>/dev/null
   echo "--- fatal ---"
