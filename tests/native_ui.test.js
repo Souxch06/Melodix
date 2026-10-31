@@ -1335,3 +1335,19 @@ test('a playlist tap always lands on a non-empty detail payload path', () => {
     assert.match(body, /const-string v1, "detail"[\s\S]{0,200}setNativeScreen/);
     assert.match(body, /window\.__sfOpenCollection/);
 });
+
+test('the launch marker leaves the branded window alone instead of painting debug text', () => {
+    const guard = read('smali/com/melodix/music/NativeCrashGuard.smali');
+    const start = guard.indexOf('.method public static showLaunchMarker');
+    const body = guard.slice(start, guard.indexOf('.end method', start));
+    // The theme paints the brand before this runs; a black screen with
+    // "Melodix diag-6" replaced it on every launch.
+    // Target the instruction, not the comment that explains why it is gone.
+    assert.doesNotMatch(body, /const-string v\d+, "Melodix diag/,
+        'aucun texte de developpement a l ecran');
+    assert.doesNotMatch(body, /setContentView/, 'le marqueur ne remplace plus la fenetre');
+    assert.doesNotMatch(body, /setBackgroundColor/, 'aucun fond noir impose par le marqueur');
+    // The diagnostic value survives: the stage chain proves the activity got here.
+    assert.match(body, /const-string v0, "launch-marker"[\s\S]{0,120}NativeCrashGuard;->stage/);
+    assert.match(body, /if-eqz p0, :done/, 'la garde d argument reste la premiere instruction');
+});

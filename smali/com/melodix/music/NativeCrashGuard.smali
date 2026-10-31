@@ -942,36 +942,21 @@
 # signature gate: if this text never shows, the process died before the activity
 # existed; if it flashes, the failure is later and the stage trail says where.
 .method public static showLaunchMarker(Landroid/app/Activity;)V
-    .locals 3
+    .locals 1
 
     if-eqz p0, :done
 
+    # The window is already branded before this runs: the launch theme paints
+    # android:windowBackground (dark background + centred logo) from the very
+    # first frame. Painting a black screen with "Melodix diag-6 : demarrage"
+    # here replaced that brand with developer text on every single launch.
+    # The marker keeps its diagnostic value without drawing anything: it
+    # records a stage, so the startup chain proves the activity reached this
+    # point. A process that dies earlier simply never records it.
     :try_start_0
-    new-instance v0, Landroid/widget/TextView;
+    const-string v0, "launch-marker"
 
-    invoke-direct {v0, p0}, Landroid/widget/TextView;-><init>(Landroid/content/Context;)V
-
-    const-string v1, "Melodix diag-6 : demarrage"
-
-    invoke-virtual {v0, v1}, Landroid/widget/TextView;->setText(Ljava/lang/CharSequence;)V
-
-    const/16 v1, 0x11
-
-    invoke-virtual {v0, v1}, Landroid/widget/TextView;->setGravity(I)V
-
-    const/high16 v1, 0x41a00000
-
-    invoke-virtual {v0, v1}, Landroid/widget/TextView;->setTextSize(F)V
-
-    const/4 v1, -0x1
-
-    invoke-virtual {v0, v1}, Landroid/widget/TextView;->setTextColor(I)V
-
-    const v1, -0x1000000
-
-    invoke-virtual {v0, v1}, Landroid/view/View;->setBackgroundColor(I)V
-
-    invoke-virtual {p0, v0}, Landroid/app/Activity;->setContentView(Landroid/view/View;)V
+    invoke-static {v0}, Lcom/melodix/music/NativeCrashGuard;->stage(Ljava/lang/String;)V
     :try_end_0
     .catch Ljava/lang/Throwable; {:try_start_0 .. :try_end_0} :catch_0
 
