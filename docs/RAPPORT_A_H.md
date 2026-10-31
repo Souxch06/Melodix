@@ -230,7 +230,10 @@ sur l'émulateur, serait non fondée et n'est pas faite dans ce rapport.
 
 | SHA | Build `preview-apk` | Conclusion |
 | --- | --- | --- |
-| `b2f4bbf` | — | à vérifier |
+| `9a88cba` | 9a88cba | success (release test.82 publiée) |
+| `e115e9e` | e115e9e | success |
+| `af001d2` | af001d2 | success |
+| `b2f4bbf` | b2f4bbf | success |
 | `fec811c` | — | success (le nouveau drawable de lancement compile) |
 | `a27a22c` | — | success |
 | `5fb1b0b` | — | success |
@@ -254,7 +257,18 @@ Règle vérifiée à la dure : **tout push doit contenir `[skip-release]` ou
 commencer par `[preview-release] vX.Y.Z-test.N-preview`**, sinon le workflow
 échoue avant même de compiler.
 
-Release : `v1.2.2-test.81-preview` (2 assets : APK + SHA-256) provient du build
-vert `eae651d`. Elle est donc **antérieure** à toutes les corrections listées
-ci-dessus. Aucune nouvelle release ne sera publiée tant que les correctifs
-récents n'auront pas un build vert, avec un tag unique.
+### Releases
+
+| Tag | Origine | Contenu |
+| --- | --- | --- |
+| `v1.2.2-test.81-preview` | build vert `eae651d` | état de début de nuit |
+| `v1.2.2-test.82-preview` | build vert `9a88cba` | ce lot complet |
+
+`v1.2.2-test.82-preview` porte 2 assets (APK 3 355 400 octets + empreinte
+SHA-256), tag unique, créé uniquement après un build vert. Le corps de release
+est généré par le workflow et renvoie au commit `9a88cba`, qui contient le
+détail des changements et, surtout, la liste explicite de ce qui n'est **pas**
+prouvé.
+
+Aucune release n'a été supprimée, aucun tag renommé, `main` et la PR #7 n'ont
+pas été touchées.
