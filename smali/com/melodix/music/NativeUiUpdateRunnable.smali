@@ -72,10 +72,15 @@
     :catch_0
     move-exception v0
 
-    # A failing native render must not kill the app: keep the WebView usable and
-    # leave a bounded status on the phone as well as the stored crash report.
-    invoke-static {v0}, Lcom/melodix/music/NativeCrashGuard;->record(Ljava/lang/Throwable;)V
-    const-string v1, "native-ui-update failed; render status unknown"
+    # A failed UI callback is recoverable: record only its stage and exception
+    # class, never a payload/URL-bearing exception message or raw stack trace.
+    invoke-virtual {v0}, Ljava/lang/Object;->getClass()Ljava/lang/Class;
+    move-result-object v2
+    invoke-virtual {v2}, Ljava/lang/Class;->getSimpleName()Ljava/lang/String;
+    move-result-object v2
+    const-string v1, "native-render-failed step=ui-update exception="
+    invoke-virtual {v1, v2}, Ljava/lang/String;->concat(Ljava/lang/String;)Ljava/lang/String;
+    move-result-object v1
     invoke-static {v1}, Lcom/melodix/music/NativeCrashGuard;->diagLine(Ljava/lang/String;)V
     invoke-static {v1}, Lcom/melodix/music/StartupDiagnosticOverlay;->appendDiagnosticLine(Ljava/lang/String;)V
     return-void

@@ -1,24 +1,55 @@
-name: Smoke test V1 Preview on Android 16 emulator
+name: Test current Preview APK on Android emulator
 
 on:
   workflow_dispatch:
+    inputs:
+      source_ref:
+        description: Full source commit SHA embedded in the Preview APK
+        required: true
+        type: string
+      preview_run_id:
+        description: GitHub Actions run ID that built the Preview APK
+        required: true
+        type: string
+      apk_artifact_name:
+        description: APK artifact name from the Preview build run
+        required: true
+        type: string
+        default: Melodix-Preview-v1.2.2-test92.apk
 
 permissions:
+  actions: read
   contents: read
 
 jobs:
-  update-and-launch:
-    name: Install V1 and inspect WebView error state
+  install-and-launch:
+    name: Install exact Preview build and capture first launch
     runs-on: macos-15
     timeout-minutes: 45
     steps:
-      - name: Check out test workflow
+      - name: Check out the exact source commit under test
         uses: actions/checkout@v7.0.1
+        with:
+          ref: ${{ inputs.source_ref }}
+
+      - name: Validate requested source and build run
+        shell: bash
+        env:
+          SOURCE_REF: ${{ inputs.source_ref }}
+          PREVIEW_RUN_ID: ${{ inputs.preview_run_id }}
+        run: |
+          set -euo pipefail
+          [[ "$SOURCE_REF" =~ ^[0-9a-fA-F]{40}$ ]] || { echo "::error::source_ref must be a full 40-character SHA."; exit 1; }
+          [[ "$PREVIEW_RUN_ID" =~ ^[0-9]+$ ]] || { echo "::error::preview_run_id must be numeric."; exit 1; }
+          actual="$(git rev-parse HEAD | tr '[:upper:]' '[:lower:]')"
+          expected="$(printf '%s' "$SOURCE_REF" | tr '[:upper:]' '[:lower:]')"
+          [[ "$actual" == "$expected" ]] || { echo "::error::Checked out $actual, expected $SOURCE_REF."; exit 1; }
+          echo "Testing source commit $actual from Preview build run $PREVIEW_RUN_ID."
 
       - name: Set up Android SDK
         uses: android-actions/setup-android@v4.0.4
 
-      - name: Install Android 16 emulator
+      - name: Install Android 16 emulator and inspection tools
         shell: bash
         run: |
           set -euo pipefail
@@ -28,14 +59,57 @@ jobs:
             *) echo "::error::Unsupported emulator host architecture: $(uname -m)"; exit 1 ;;
           esac
           echo "Using Android system image: $system_image"
-          sdkmanager --install "platform-tools" "emulator" "$system_image"
+          sdkmanager --install "platform-tools" "emulator" "build-tools;35.0.0" "$system_image"
           printf 'no\n' | avdmanager create avd \
             --force \
             --name MelodixApi36 \
             --package "$system_image" \
             --device pixel_2
 
-      - name: Boot Android 16 emulator
+      - name: Download Preview APK built from the selected source commit
+        uses: actions/download-artifact@v4.3.0
+        with:
+          name: ${{ inputs.apk_artifact_name }}
+          path: ${{ runner.temp }}/melodix-preview-apk
+          repository: ${{ github.repository }}
+          run-id: ${{ inputs.preview_run_id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Verify APK hash, source SHA, package, signature and version
+        id: apk
+        shell: bash
+        env:
+          SOURCE_REF: ${{ inputs.source_ref }}
+          APK_ARTIFACT_NAME: ${{ inputs.apk_artifact_name }}
+        run: |
+          set -euo pipefail
+          apk_dir="$RUNNER_TEMP/melodix-preview-apk"
+          apk="$apk_dir/$APK_ARTIFACT_NAME"
+          [[ -s "$apk" ]] || { echo "::error::Downloaded APK is missing: $APK_ARTIFACT_NAME"; exit 1; }
+          (cd "$apk_dir" && shasum -a 256 -c "$APK_ARTIFACT_NAME.sha256")
+          apk_sha256="$(shasum -a 256 "$apk" | awk '{print $1}')"
+
+          build_tools="$ANDROID_HOME/build-tools/35.0.0"
+          "$build_tools/apksigner" verify --verbose --min-sdk-version 24 "$apk"
+          "$build_tools/aapt" dump badging "$apk" > "$RUNNER_TEMP/melodix-preview-badging.txt"
+          package_id="$(sed -n "s/^package: name='\([^']*\)'.*/\1/p" "$RUNNER_TEMP/melodix-preview-badging.txt")"
+          version_code="$(sed -n "s/^package:.*versionCode='\([^']*\)'.*/\1/p" "$RUNNER_TEMP/melodix-preview-badging.txt")"
+          version_name="$(sed -n "s/^package:.*versionName='\([^']*\)'.*/\1/p" "$RUNNER_TEMP/melodix-preview-badging.txt")"
+          expected_version_name="1.2.2-${SOURCE_REF:0:7}"
+          [[ "$package_id" == "com.melodix.music.preview" ]] || { echo "::error::Unexpected package ID: $package_id"; exit 1; }
+          [[ "$version_code" =~ ^[0-9]+$ ]] && (( version_code > 1020879 )) || { echo "::error::Preview versionCode $version_code is not greater than 1020879."; exit 1; }
+          [[ "$version_name" == "$expected_version_name" ]] || { echo "::error::Unexpected versionName: $version_name"; exit 1; }
+          "$build_tools/aapt" dump --values resources "$apk" > "$RUNNER_TEMP/melodix-preview-resources.txt"
+          grep -Fq "$SOURCE_REF" "$RUNNER_TEMP/melodix-preview-resources.txt" || { echo "::error::APK does not embed requested source SHA $SOURCE_REF."; exit 1; }
+
+          echo "apk=$apk" >> "$GITHUB_OUTPUT"
+          echo "apk_sha256=$apk_sha256" >> "$GITHUB_OUTPUT"
+          echo "package_id=$package_id" >> "$GITHUB_OUTPUT"
+          echo "version_code=$version_code" >> "$GITHUB_OUTPUT"
+          echo "version_name=$version_name" >> "$GITHUB_OUTPUT"
+          echo "::notice title=APK verified::package=$package_id versionCode=$version_code versionName=$version_name source=$SOURCE_REF sha256=$apk_sha256"
+
+      - name: Boot a clean Android 16 emulator
         shell: bash
         run: |
           set -euo pipefail
@@ -72,10 +146,7 @@ jobs:
             sleep 5
           done
           if [[ "$booted" != "1" ]]; then
-            boot_completed="$(adb -s "$device_id" shell getprop sys.boot_completed 2>/dev/null | tr -d '\r' || true)"
-            boot_animation="$(adb -s "$device_id" shell getprop init.svc.bootanim 2>/dev/null | tr -d '\r' || true)"
-            emulator_errors="$(grep -Ei 'ERROR|FATAL|PANIC|failed|failure|cannot|could not' "$RUNNER_TEMP/melodix-emulator.log" | tail -n 15 | tr '\n' ' ' | cut -c1-2500 || true)"
-            echo "::error title=Android boot state::sys.boot_completed=$boot_completed; bootanim=$boot_animation; host_arch=$(uname -m); log=${emulator_errors:-no matching error lines}"
+            echo "::error::Android emulator did not finish booting."
             exit 1
           fi
           adb -s "$device_id" shell settings put global window_animation_scale 0
@@ -84,102 +155,104 @@ jobs:
           echo "Android API: $(adb -s "$device_id" shell getprop ro.build.version.sdk | tr -d '\r')"
           adb -s "$device_id" shell dumpsys webviewupdate | grep -E "Current WebView package|WebView package" | head -n 3 || true
 
-      - name: Download published V1 Preview APK
+      - name: Install and launch the verified Preview APK
+        id: launch
+        shell: bash
         env:
-          GH_TOKEN: ${{ github.token }}
-        shell: bash
+          APK_PATH: ${{ steps.apk.outputs.apk }}
+          SOURCE_REF: ${{ inputs.source_ref }}
         run: |
           set -euo pipefail
-          mkdir -p "$RUNNER_TEMP/melodix-apks"
-          gh release download v1.2.2-test.1-preview \
-            --repo Souxch06/Melodix \
-            --pattern Melodix-Preview-v1.2.2-test1.apk \
-            --dir "$RUNNER_TEMP/melodix-apks"
-
-      - name: Install V1 and inspect only diagnostic text
-        shell: bash
-        run: |
-          set -euo pipefail
-          apk_dir="$RUNNER_TEMP/melodix-apks"
-          state_dir="$RUNNER_TEMP/melodix-emulator-state"
+          state_dir="$RUNNER_TEMP/melodix-preview-emulator-state"
           mkdir -p "$state_dir"
+          adb install "$APK_PATH"
+          adb shell am force-stop com.melodix.music.preview >/dev/null 2>&1 || true
+          adb shell monkey -p com.melodix.music.preview -c android.intent.category.LAUNCHER 1 >/dev/null
+          sleep 60
 
-          launch_and_capture() {
-            local label="$1"
-            adb shell am force-stop com.melodix.music.preview >/dev/null 2>&1 || true
-            adb shell monkey -p com.melodix.music.preview -c android.intent.category.LAUNCHER 1 >/dev/null
-            sleep 60
-            adb shell uiautomator dump --compressed /sdcard/melodix-window.xml >/dev/null 2>&1
-            adb exec-out cat /sdcard/melodix-window.xml > "$state_dir/$label.xml"
-            python3 - "$state_dir/$label.xml" "$label" "$state_dir/$label.json" <<'PY'
+          app_pid="$(adb shell pidof -s com.melodix.music.preview 2>/dev/null | tr -d '\r' || true)"
+          if [[ -z "$app_pid" ]]; then
+            fatal_count="$(adb logcat -d -t 4000 | grep -cE 'FATAL EXCEPTION|ANR in com\.melodix\.music\.preview' || true)"
+            echo "::error title=Preview process not alive::fatal_or_anr_lines=${fatal_count:-0}"
+            adb logcat -c >/dev/null 2>&1 || true
+            exit 1
+          fi
+
+          adb shell uiautomator dump --compressed /sdcard/melodix-preview-window.xml >/dev/null 2>&1
+          adb exec-out cat /sdcard/melodix-preview-window.xml > "$state_dir/window.xml"
+          adb exec-out screencap -p > "$state_dir/preview-launch.png"
+          python3 - "$state_dir/window.xml" "$state_dir/launch-summary.json" <<'PY'
           import json
           import re
           import sys
           import xml.etree.ElementTree as ET
 
-          xml_path, label, json_path = sys.argv[1:]
+          xml_path, json_path = sys.argv[1:]
           root = ET.parse(xml_path).getroot()
-          text = "\n".join(
+          visible_text = "\n".join(
               value
               for node in root.iter()
               for value in (node.get("text", ""), node.get("content-desc", ""))
               if value
-          )
-          codes = sorted(set(re.findall(r"WebView error code: -?\d+", text)))
+          ).lower()
+          bounds = " ".join(node.get("bounds", "") for node in root.iter())
+          resource_ids = [node.get("resource-id", "") for node in root.iter()]
           state = {
-              "network_error": "Network Error" in text,
-              "webview_codes": codes,
-              "spotify_text_visible": any(term in text.lower() for term in ("spotify", "log in", "sign up")),
+              "network_error_visible": "network error" in visible_text,
+              "webview_error_code_visible": bool(re.search(r"webview error code: -?\d+", visible_text)),
+              "spotify_or_login_text_visible": any(term in visible_text for term in ("spotify", "log in", "sign in", "s'inscrire", "se connecter")),
+              "native_root_accessibility_visible": any("nativeRoot" in resource_id for resource_id in resource_ids),
+              "native_home_tab_accessibility_visible": any("nativeHomeTab" in resource_id for resource_id in resource_ids),
+              "ui_hierarchy_has_visible_bounds": bool(re.search(r"\[[0-9]+,[0-9]+\]\[[0-9]+,[0-9]+\]", bounds)),
           }
           with open(json_path, "w", encoding="utf-8") as output:
-              json.dump(state, output)
+              json.dump(state, output, indent=2)
           print(
-              f"{label}: network_error={str(state['network_error']).lower()}, "
-              f"webview_codes={','.join(codes) if codes else 'none'}, "
-              f"spotify_text_visible={str(state['spotify_text_visible']).lower()}"
-          )
-          print(
-              f"::notice title={label}::network_error={str(state['network_error']).lower()}; "
-              f"webview_codes={','.join(codes) if codes else 'none'}; "
-              f"spotify_text_visible={str(state['spotify_text_visible']).lower()}"
+              "Preview first launch: "
+              f"network_error={str(state['network_error_visible']).lower()}, "
+              f"webview_error_code={str(state['webview_error_code_visible']).lower()}, "
+              f"spotify_or_login_text={str(state['spotify_or_login_text_visible']).lower()}, "
+              f"native_root_accessibility={str(state['native_root_accessibility_visible']).lower()}, "
+              f"native_home_tab_accessibility={str(state['native_home_tab_accessibility_visible']).lower()}, "
+              f"visible_bounds={str(state['ui_hierarchy_has_visible_bounds']).lower()}"
           )
           PY
-          }
 
-          adb install "$apk_dir/Melodix-Preview-v1.2.2-test1.apk"
-          launch_and_capture v1_first_launch
-          launch_and_capture v1_second_launch
+          resumed="$(adb shell dumpsys activity activities | grep -F 'com.melodix.music.preview/com.melodix.music.MainActivity' | head -n 1 || true)"
+          [[ -n "$resumed" ]] || { echo "::error::MainActivity was not present in the resumed-activity dump."; exit 1; }
+          echo "The Preview process stayed alive and MainActivity remained present after the cold launch."
+          echo "No Spotify credentials or account content were supplied; this is an unauthenticated launch check."
+          echo "::notice title=Android launch::source=$SOURCE_REF; package=com.melodix.music.preview; process_alive=true; main_activity_present=true; authenticated_content_not_tested=true"
 
-          python3 - "$state_dir" <<'PY'
-          import json
-          import os
-          import pathlib
-          import sys
+      - name: Add verified run details to the summary
+        if: always()
+        shell: bash
+        env:
+          SOURCE_REF: ${{ inputs.source_ref }}
+          PREVIEW_RUN_ID: ${{ inputs.preview_run_id }}
+          APK_SHA256: ${{ steps.apk.outputs.apk_sha256 }}
+          PACKAGE_ID: ${{ steps.apk.outputs.package_id }}
+          VERSION_CODE: ${{ steps.apk.outputs.version_code }}
+          VERSION_NAME: ${{ steps.apk.outputs.version_name }}
+        run: |
+          {
+            echo "## Android 16 Preview launch check"
+            echo
+            echo "- Source commit: \`$SOURCE_REF\`"
+            echo "- Preview build run: \`$PREVIEW_RUN_ID\`"
+            echo "- Package: \`${PACKAGE_ID:-not verified}\`"
+            echo "- versionName / versionCode: \`${VERSION_NAME:-unknown}\` / \`${VERSION_CODE:-unknown}\`"
+            echo "- APK SHA-256: \`${APK_SHA256:-not verified}\`"
+            echo "- Scope: fresh emulator, unauthenticated first launch only; no Spotify content was fabricated or authenticated."
+          } >> "$GITHUB_STEP_SUMMARY"
 
-          state_dir = pathlib.Path(sys.argv[1])
-          states = {
-              name: json.loads((state_dir / f"{name}.json").read_text(encoding="utf-8"))
-              for name in ("v1_first_launch", "v1_second_launch")
-          }
-          summary = [
-              "## Android 16 emulator smoke test",
-              "| Install state | Native network error | WebView code | Spotify/login text visible |",
-              "| --- | --- | --- | --- |",
-          ]
-          for name, state in states.items():
-              summary.append(
-                  f"| {name} | {str(state['network_error']).lower()} | "
-                  f"{', '.join(state['webview_codes']) or 'none'} | "
-                  f"{str(state['spotify_text_visible']).lower()} |"
-              )
-              print(
-                  f"::notice title={name}::network_error={str(state['network_error']).lower()}; "
-                  f"webview_codes={', '.join(state['webview_codes']) or 'none'}; "
-                  f"spotify_text_visible={str(state['spotify_text_visible']).lower()}"
-              )
-          with open(os.environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8") as output:
-              output.write("\n".join(summary) + "\n")
-          if states["v1_first_launch"]["network_error"] and states["v1_second_launch"]["network_error"]:
-              raise SystemExit("V1 showed the native Network Error overlay on both launches.")
-          print("V1 emulator smoke test completed; no account was signed in and no page URLs or WebView data were collected.")
-          PY
+      - name: Upload verified screenshot and redacted launch summary
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Melodix-Preview-Android16-${{ inputs.source_ref }}
+          path: |
+            ${{ runner.temp }}/melodix-preview-emulator-state/preview-launch.png
+            ${{ runner.temp }}/melodix-preview-emulator-state/launch-summary.json
+          retention-days: 14
+          if-no-files-found: warn

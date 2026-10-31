@@ -419,13 +419,16 @@ test('the crash guard is installed before the layout is inflated', () => {
     );
 });
 
-test('a failing native render is recorded instead of killing the process', () => {
+test('a failing native render reports safe stage and exception class instead of killing the process', () => {
     const runnable = fs.readFileSync(path.join(repo, 'smali/com/melodix/music/NativeUiUpdateRunnable.smali'), 'utf8');
     const run = runnable.match(/\.method public final run\(\)V([\s\S]*?)\.end method/);
 
     assert.ok(run, 'runnable entry point should exist');
     assert.match(run[1], /\.catch Ljava\/lang\/Throwable; \{:try_start_0 \.\. :try_end_0\} :catch_0/);
-    assert.match(run[1], /:catch_0\s+move-exception v0[\s\S]*?NativeCrashGuard;->record\(Ljava\/lang\/Throwable;\)V/);
+    assert.match(run[1], /:catch_0\s+move-exception v0[\s\S]*?Class;->getSimpleName\(\)Ljava\/lang\/String;/);
+    assert.match(run[1], /native-render-failed step=ui-update exception=/);
+    assert.doesNotMatch(run[1], /NativeCrashGuard;->record\(Ljava\/lang\/Throwable;\)V|Log;->getStackTraceString|getMessage\(\)/,
+        'the caught error message and raw stack trace are not persisted');
 });
 
 test('the crash report never blocks the launch and stays in the diagnostic viewer', () => {

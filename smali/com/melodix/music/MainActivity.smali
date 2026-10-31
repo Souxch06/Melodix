@@ -7185,6 +7185,10 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
 .method public final postNativeUiRoute(Ljava/lang/String;)V
     .locals 3
 
+    const-string v0, "native-route-requested"
+    invoke-static {v0}, Lcom/melodix/music/NativeCrashGuard;->diagLine(Ljava/lang/String;)V
+    invoke-static {v0}, Lcom/melodix/music/StartupDiagnosticOverlay;->appendDiagnosticLine(Ljava/lang/String;)V
+
     new-instance v0, Lcom/melodix/music/NativeUiUpdateRunnable;
     const-string v1, ""
     const/4 v2, 0x2
@@ -7237,6 +7241,9 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
     .locals 5
 
     const/4 v4, 0x0
+    const-string v0, "native-shell-show-requested"
+    invoke-static {v0}, Lcom/melodix/music/NativeCrashGuard;->diagLine(Ljava/lang/String;)V
+    invoke-static {v0}, Lcom/melodix/music/StartupDiagnosticOverlay;->appendDiagnosticLine(Ljava/lang/String;)V
 
     # Replay the previous freeze report over the shell (P0 diagnostic):
     # start-only hang reports, never a crash message.
@@ -7282,6 +7289,9 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
     :native_home_ready_check
     iget-boolean v0, p0, Lcom/melodix/music/MainActivity;->nativeHomeContentReady:Z
     if-nez v0, :native_root_lookup
+    const-string v0, "native-shell-show-blocked reason=home-content-not-ready"
+    invoke-static {v0}, Lcom/melodix/music/NativeCrashGuard;->diagLine(Ljava/lang/String;)V
+    invoke-static {v0}, Lcom/melodix/music/StartupDiagnosticOverlay;->appendDiagnosticLine(Ljava/lang/String;)V
     const-string v0, "MDXTRACE"
     const-string v1, "native-shell fallback reason=real-home-content-not-rendered; keep WebView visible"
     invoke-static {v0, v1}, Landroid/util/Log;->w(Ljava/lang/String;Ljava/lang/String;)I
@@ -7295,6 +7305,9 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
     invoke-virtual {p0, v0}, Landroid/app/Activity;->findViewById(I)Landroid/view/View;
     move-result-object v1
     if-eqz v1, :native_root_missing
+    const-string v0, "native-root-found"
+    invoke-static {v0}, Lcom/melodix/music/NativeCrashGuard;->diagLine(Ljava/lang/String;)V
+    invoke-static {v0}, Lcom/melodix/music/StartupDiagnosticOverlay;->appendDiagnosticLine(Ljava/lang/String;)V
     const/4 v4, 0x1
     const/4 v2, 0x0
     invoke-virtual {v1, v2}, Landroid/view/View;->setVisibility(I)V
@@ -7310,6 +7323,9 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
     goto :native_root_ready
 
     :native_root_missing
+    const-string v0, "native-shell-show-failed reason=nativeRoot-missing"
+    invoke-static {v0}, Lcom/melodix/music/NativeCrashGuard;->diagLine(Ljava/lang/String;)V
+    invoke-static {v0}, Lcom/melodix/music/StartupDiagnosticOverlay;->appendDiagnosticLine(Ljava/lang/String;)V
     const-string v0, "MDXTRACE"
     const-string v2, "native-shell fallback reason=nativeRoot-missing; keep WebView visible"
     invoke-static {v0, v2}, Landroid/util/Log;->w(Ljava/lang/String;Ljava/lang/String;)I
@@ -7356,6 +7372,10 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
     invoke-virtual {p0, v0}, Lcom/melodix/music/MainActivity;->setNativeScreen(Ljava/lang/String;)V
 
     :show_done
+    const-string v0, "native-screen-initialized"
+    invoke-static {v0}, Lcom/melodix/music/NativeCrashGuard;->diagLine(Ljava/lang/String;)V
+    invoke-static {v0}, Lcom/melodix/music/StartupDiagnosticOverlay;->appendDiagnosticLine(Ljava/lang/String;)V
+
     const-string v0, "ready"
 
     invoke-static {v0}, Lcom/melodix/music/NativeCrashGuard;->stage(Ljava/lang/String;)V
@@ -7382,6 +7402,9 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
     move-exception v1
 
     :native_ui_diag_done
+    const-string v0, "native-shell-show-completed"
+    invoke-static {v0}, Lcom/melodix/music/NativeCrashGuard;->diagLine(Ljava/lang/String;)V
+    invoke-static {v0}, Lcom/melodix/music/StartupDiagnosticOverlay;->appendDiagnosticLine(Ljava/lang/String;)V
     return-void
 .end method
 
@@ -7395,6 +7418,9 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
     move-result v0
     if-eqz v0, :native_route_valid
     :native_route_invalid
+    const-string v0, "native-route-rejected reason=null-or-empty"
+    invoke-static {v0}, Lcom/melodix/music/NativeCrashGuard;->diagLine(Ljava/lang/String;)V
+    invoke-static {v0}, Lcom/melodix/music/StartupDiagnosticOverlay;->appendDiagnosticLine(Ljava/lang/String;)V
     return-void
 
     :native_route_valid
@@ -7413,6 +7439,9 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
     iput-boolean v0, p0, Lcom/melodix/music/MainActivity;->nativeFadeNextScreen:Z
 
     iput-object p1, p0, Lcom/melodix/music/MainActivity;->nativeCurrentScreen:Ljava/lang/String;
+    const-string v0, "native-route-applied"
+    invoke-static {v0}, Lcom/melodix/music/NativeCrashGuard;->diagLine(Ljava/lang/String;)V
+    invoke-static {v0}, Lcom/melodix/music/StartupDiagnosticOverlay;->appendDiagnosticLine(Ljava/lang/String;)V
 
     # Diag natif : la route posee (valeur du gate pour les prochains payloads).
     :try_start_md3
@@ -7858,6 +7887,9 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
     invoke-virtual {p1, v0}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
     move-result v1
     if-eqz v1, :check_media
+    const-string v0, "native-home-data-received"
+    invoke-static {v0}, Lcom/melodix/music/NativeCrashGuard;->diagLine(Ljava/lang/String;)V
+    invoke-static {v0}, Lcom/melodix/music/StartupDiagnosticOverlay;->appendDiagnosticLine(Ljava/lang/String;)V
     iget-object v2, p0, Lcom/melodix/music/MainActivity;->nativeCurrentScreen:Ljava/lang/String;
     if-eqz v2, :apply_home_initial_route
     const-string v3, "home"
