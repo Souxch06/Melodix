@@ -64,3 +64,15 @@ test('the script stays valid bash', () => {
   // emulator run to discover.
   execFileSync('bash', ['-n', scriptPath], { stdio: 'pipe' });
 });
+
+test('the trace proves why the process hangs, not only that it hangs', () => {
+  const script = readScript();
+  // The previous run ended on "Application Not Responding" with no stack: the
+  // report could say the app froze but not where. The device keeps the answer
+  // in /data/anr; the app's own watchdog stores the main-thread stack too.
+  assert.match(script, /\/data\/anr\/traces\.txt/, 'la pile ANR du systeme est lue');
+  assert.match(script, /adb shell ls \/data\/anr\//, 'les fichiers anr_* recents sont lus');
+  assert.match(script, /grep -n -A 60 'ANR in'/, 'le bloc ANR de logcat est extrait');
+  assert.match(script, /last-crash\.txt/, 'la pile du chien de garde est conservee');
+  assert.match(script, /--- ANR: pile du thread principal ---/, 'la pile apparait dans le rapport');
+});

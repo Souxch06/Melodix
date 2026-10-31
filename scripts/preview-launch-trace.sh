@@ -102,6 +102,22 @@ note "stage: $(tr -d '\n' < "$state/prefs.xml" 2>/dev/null | cut -c1-300)"
 
 adb logcat -d -b crash > "$state/crash.txt" 2>&1
 adb logcat -d > "$state/logcat.txt" 2>&1
+
+# ANR evidence. The device keeps the "why is the main thread blocked" stack in
+# /data/anr; logcat only says "ANR in <package>". Without this stack a hang can
+# only be guessed at, and the previous run stopped exactly there.
+{
+  if adb shell test -f /data/anr/traces.txt 2>/dev/null; then
+    adb shell cat /data/anr/traces.txt 2>/dev/null
+  fi
+  for f in $(adb shell ls /data/anr/ 2>/dev/null | grep -E '^anr_' | head -n 3); do
+    adb shell cat "/data/anr/$f" 2>/dev/null
+  done
+} > "$state/anr.txt" 2>&1
+grep -n -A 60 'ANR in' "$state/logcat.txt" > "$state/anr-logcat.txt" 2>/dev/null
+# The main-thread stack collected by the app's own watchdog at 60 s.
+adb shell cat "/data/data/$package_id/shared_prefs/melodix_native.xml" 2>/dev/null \
+  | sed -n 's/.*name="last_crash">\([^<]*\)<.*/\1/p' > "$state/last-crash.txt"
 grep -n -A 60 'FATAL EXCEPTION' "$state/logcat.txt" > "$state/fatal.txt" 2>/dev/null
 
 # P0 V30 diagnostic: extract the startup-chain traces the fix added
@@ -123,6 +139,11 @@ note "mdxtrace: $(grep -c . "$state/trace.txt" 2>/dev/null) line(s) captured"
   echo "visible text (2e lancement): $(tr '\n' ' ' < "$state/window-text2.txt" 2>/dev/null | cut -c1-600)"
   echo "--- chronologie du 2e lancement ---"
   head -c 4000 "$state/timeline.txt" 2>/dev/null
+  echo "--- ANR: pile du thread principal ---"
+  grep -A 40 -E '"main"|main thread stack' "$state/anr.txt" 2>/dev/null | head -c 3000
+  head -c 2000 "$state/last-crash.txt" 2>/dev/null
+  echo "--- ANR logcat ---"
+  head -c 2500 "$state/anr-logcat.txt" 2>/dev/null
   echo "--- MDXTRACE startup chain ---"
   head -c 8000 "$state/trace.txt" 2>/dev/null
   echo "--- fatal ---"
