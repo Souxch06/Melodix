@@ -137,6 +137,7 @@
     const sidebar = document.querySelector('#Desktop_LeftSidebar_Id');
     const v20Dock = document.querySelector('#sf-mobile-navigation');
     const currentDock = document.querySelector('#sf-mobile-nav');
+    const homeRoot = document.querySelector('#sf-melodix-home');
 
     return {
       elapsedMs: Math.max(0, Math.round(performance.now() - startedAt)),
@@ -191,6 +192,7 @@
         ? window.getComputedStyle(sidebar).display
         : null,
       ui: {
+        andBridgeAvailable: Boolean(window.AndBridge),
         bridgeStarted: window.__sfMelodixBridgeStarted === true,
         bridgeBootstrapReady: window.__sfMelodixBridgeBootstrapReady === true,
         bridgeCompleted: window.__sfMelodixBridgeCompleted === true,
@@ -203,11 +205,31 @@
         bridgeRecovered: window.__sfNativeUiBridgeRecovered === true,
         bridgeExecMode: typeof window.__sfBridgeExecMode === 'string' ? window.__sfBridgeExecMode : null,
         bridgeBytes: Number.isInteger(window.__sfBridgeBytes) ? window.__sfBridgeBytes : null,
+        bridgeReadExpected: window.__sfBridgeReadLog && Number.isInteger(window.__sfBridgeReadLog.expected)
+          ? window.__sfBridgeReadLog.expected
+          : null,
+        bridgeReadReceived: window.__sfBridgeReadLog && Number.isInteger(window.__sfBridgeReadLog.received)
+          ? window.__sfBridgeReadLog.received
+          : null,
+        bridgeReadChunks: window.__sfBridgeReadLog && Number.isInteger(window.__sfBridgeReadLog.chunks)
+          ? window.__sfBridgeReadLog.chunks
+          : null,
+        bridgeReadComplete: window.__sfBridgeReadLog && typeof window.__sfBridgeReadLog.complete === 'boolean'
+          ? window.__sfBridgeReadLog.complete
+          : null,
+        bridgeReadMethod: window.__sfBridgeReadLog && ['range', 'single', 'none'].indexOf(window.__sfBridgeReadLog.reader) >= 0
+          ? window.__sfBridgeReadLog.reader
+          : null,
+        bridgeExecSteps: Array.isArray(window.__sfBridgeExecSteps)
+          ? window.__sfBridgeExecSteps.slice(-8).map((step) =>
+            String(step && step.stage || '').slice(0, 24) + '=' + String(step && step.status || '').slice(0, 24)
+          ).join(',')
+          : '',
         bridgeLastError: typeof window.__sfBridgeLastError === 'string'
-          ? window.__sfBridgeLastError.slice(0, 160)
+          ? window.__sfBridgeLastError.slice(0, 80)
           : null,
         bridgeCspViolation: typeof window.__sfBridgeCspViolation === 'string'
-          ? window.__sfBridgeCspViolation.slice(0, 120)
+          ? window.__sfBridgeCspViolation.slice(0, 64)
           : null,
         mobileShellInitAttempted: window.__sfMelodixMobileShellInitAttempted === true,
         homeInitAttempted: window.__sfMelodixHomeInitAttempted === true,
@@ -217,7 +239,10 @@
         homeActiveClass: body
           ? body.classList.contains('sf-melodix-home-active')
           : null,
-        homeRootPresent: document.querySelector('#sf-melodix-home') !== null,
+        homeRootPresent: homeRoot !== null,
+        homeCardCount: homeRoot && typeof homeRoot.querySelectorAll === 'function'
+          ? homeRoot.querySelectorAll('.sf-melodix-home__card').length
+          : 0,
         nativeUiShellStarted: window.__sfNativeUiShellStarted === true,
         nativeUiShellReady: window.__sfNativeUiShellReady === true,
         nativeUiShellCompleted: window.__sfNativeUiShellCompleted === true,
@@ -225,6 +250,10 @@
           ? window.__sfNativeUiShellErrors
           : null,
         nativeUiReadyNotified: window.__sfNativeUiReadyNotified === true,
+        nativeUiShowMethodCalled: window.__sfNativeUiShowMethodCalled === true,
+        nativeUiRootFound: typeof window.__sfNativeUiRootFound === 'boolean'
+          ? window.__sfNativeUiRootFound
+          : null,
         nativeUiRoute: ['home', 'search', 'library', 'detail'].indexOf(window.__sfNativeUiRoute) >= 0
           ? window.__sfNativeUiRoute
           : null,

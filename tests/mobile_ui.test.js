@@ -26,7 +26,7 @@ test('phone layout adds a safe-area-aware bottom dock and compact player', () =>
 });
 
 test('mobile dock reuses Spotify home, search, and library controls', () => {
-    const bridge = read('assets/spotify_bridge.js');
+    const bridge = read('scripts/spotify_bridge.source.js');
 
     assert.match(bridge, /function installMobileNavigation\(\)/);
     assert.match(bridge, /document\.body\.classList\.add\('sf-mobile-shell'\)/);
@@ -45,7 +45,7 @@ test('mobile dock reuses Spotify home, search, and library controls', () => {
 });
 
 test('touch tablets receive the mobile shell even when the viewport is wider than a phone', () => {
-    const bridge = read('assets/spotify_bridge.js');
+    const bridge = read('scripts/spotify_bridge.source.js');
     const fallback = bridge.match(/function ensureMobileShellFallbackStyles\(\) \{([\s\S]*?)\n    \}/);
 
     assert.match(bridge, /function hasTouchInput\(\)/);
@@ -62,7 +62,7 @@ test('touch tablets receive the mobile shell even when the viewport is wider tha
 });
 
 test('native touchscreen capability survives a desktop UA while Leanback TV remains non-touch UI', () => {
-    const bridge = read('assets/spotify_bridge.js');
+    const bridge = read('scripts/spotify_bridge.source.js');
     const touchHelper = bridge.match(/function hasTouchInput\(\) \{[\s\S]*?\n    \}/);
     assert.ok(touchHelper, 'touch capability helper should exist');
 
@@ -94,13 +94,13 @@ test('phone-sized windows keep the login WebView on the device width', () => {
         /Configuration;->smallestScreenWidthDp:I[\s\S]*?const\/16 v0, 0x258[\s\S]*?if-lt v4, v0, :cond_4[\s\S]*?const\/16 v0, 0x640/
     );
 
-    const bridge = read('assets/spotify_bridge.js');
+    const bridge = read('scripts/spotify_bridge.source.js');
     assert.match(bridge, /const isCompactWindow = shortestScreenSide > 0 && shortestScreenSide < 600/);
     assert.match(bridge, /\(\(isBigWindow && isLandscape\) \|\| isCompactWindow\)/);
 });
 
 test('Premium trial upsells are dismissed without hiding unrelated dialogs or error alerts', () => {
-    const bridge = read('assets/spotify_bridge.js');
+    const bridge = read('scripts/spotify_bridge.source.js');
 
     assert.match(bridge, /function premiumOfferText\(text\)/);
     assert.match(bridge, /mentionsPremium = \/\\bpremium\\b\/i\.test\(normalized\)/);
@@ -126,7 +126,7 @@ test('Premium trial upsells are dismissed without hiding unrelated dialogs or er
 });
 
 test('phone dock is mounted outside CSS+JS mode and stale fullscreen state cannot hide it', () => {
-    const bridge = read('assets/spotify_bridge.js');
+    const bridge = read('scripts/spotify_bridge.source.js');
 
     assert.match(bridge, /function isMobileNavigationViewport\(\)/);
     assert.match(bridge, /const isMobileViewport = isMobileNavigationViewport\(\)/);
@@ -145,7 +145,7 @@ test('phone dock is mounted outside CSS+JS mode and stale fullscreen state canno
 });
 
 test('mobile shell initializes before playback and library state can be forced open or closed', () => {
-    const bridge = read('assets/spotify_bridge.js');
+    const bridge = read('scripts/spotify_bridge.source.js');
 
     assert.match(bridge, /function initializeMobileShell\(\)/);
     assert.match(bridge, /const maxRetries = 40/);
@@ -197,7 +197,7 @@ test('on tablets the player drops to the bottom and the content clears the top d
 // ---------------------------------------------------------------------------
 
 test('the fallback style puts the tab bar on top for tablets as well', () => {
-    const bridge = read('assets/spotify_bridge.js');
+    const bridge = read('scripts/spotify_bridge.source.js');
     const i = bridge.indexOf("sf-mobile-shell-fallback-style");
     const j = bridge.indexOf('`;', i);
     const fallback = bridge.slice(i, j);

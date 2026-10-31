@@ -17,7 +17,7 @@ const path = require('node:path');
 
 const root = path.join(__dirname, '..');
 const bridgeSmaliPath = path.join(root, 'smali', 'com', 'melodix', 'music', 'AndBridge.smali');
-const shellPath = path.join(root, 'assets', 'native_ui_shell.js');
+const shellPath = path.join(root, 'scripts', 'native_ui_shell.source.js');
 const smali = fs.readFileSync(bridgeSmaliPath, 'utf8');
 
 // ---------------------------------------------------------------------------
@@ -83,11 +83,14 @@ function runSmaliMethod(methodSource, registers, env) {
     if (line === 'return-object v1' || /^return-object /.test(line)) {
       return regs[line.split(/\s+/)[1]];
     }
+    if (/^return \S+$/.test(line)) return regs[line.split(/\s+/)[1]];
     if (line === 'return-void') return undefined;
 
     let m;
     if ((m = line.match(/^const-string (\S+), "(.*)"$/))) {
       regs[m[1]] = m[2];
+    } else if ((m = line.match(/^const\/4 (\S+), (0x[0-9a-fA-F]+|-?\d+)$/))) {
+      regs[m[1]] = Number(m[2]);
     } else if ((m = line.match(/^move-result(?:-object)? (\S+)$/))) {
       regs[m[1]] = lastResult;
     } else if ((m = line.match(/^move-object (\S+), (\S+)$/)) || (m = line.match(/^move (\S+), (\S+)$/))) {
@@ -134,6 +137,7 @@ function makeEnv(assetContents) {
 const CONTENT = '0123456789'.repeat(20); // 200 chars, easy substring checks
 const readRangeMethod = extractMethod(smali, 'readBundledAssetRange(Ljava/lang/String;II)');
 const readFullMethod = extractMethod(smali, 'readBundledAsset(Ljava/lang/String;)Ljava/lang/String;');
+const lengthMethod = extractMethod(smali, 'bundledAssetLength(Ljava/lang/String;)I');
 const injectMethod = extractMethod(smali, 'injectBundledAsset(Ljava/lang/String;)V');
 
 function runRange(name, start, end, env) {
@@ -142,18 +146,24 @@ function runRange(name, start, end, env) {
 function runFull(name, env) {
   return runSmaliMethod(readFullMethod, { p0: 'AndBridge', p1: name }, env);
 }
+function runLength(name, env) {
+  return runSmaliMethod(lengthMethod, { p0: 'AndBridge', p1: name }, env);
+}
 
 // ---------------------------------------------------------------------------
 // 1. The exact name reaches the asset reader.
 // ---------------------------------------------------------------------------
 
-test('whitelist: "spotify_bridge.js" reaches the asset reader', () => {
+test('whitelist: "spotify_bridge.js" reaches the asset reader and length query', () => {
   const env = makeEnv({ 'spotify_bridge.js': CONTENT });
   assert.equal(runFull('spotify_bridge.js', env), CONTENT);
   assert.deepEqual(env.assetReads, ['spotify_bridge.js']);
   const env2 = makeEnv({ 'spotify_bridge.js': CONTENT });
   assert.equal(runRange('spotify_bridge.js', 0, 5, env2), '01234');
   assert.deepEqual(env2.assetReads, ['spotify_bridge.js']);
+  const env3 = makeEnv({ 'spotify_bridge.js': CONTENT });
+  assert.equal(runLength('spotify_bridge.js', env3), CONTENT.length);
+  assert.deepEqual(env3.assetReads, ['spotify_bridge.js']);
 });
 
 // ---------------------------------------------------------------------------
@@ -168,10 +178,14 @@ test('whitelist: other names return "" and never reach the asset reader', () => 
     const env2 = makeEnv({ 'spotify_bridge.js': CONTENT, 'other.js': 'SECRET' });
     assert.equal(runRange(name, 0, 5, env2), '', `readBundledAssetRange(${JSON.stringify(name)})`);
     assert.deepEqual(env2.assetReads, [], `no asset read for ${JSON.stringify(name)}`);
+    const env3 = makeEnv({ 'spotify_bridge.js': CONTENT, 'other.js': 'SECRET' });
+    assert.equal(runLength(name, env3), 0, `bundledAssetLength(${JSON.stringify(name)})`);
+    assert.deepEqual(env3.assetReads, [], `no length read for ${JSON.stringify(name)}`);
   }
   const env = makeEnv({ 'spotify_bridge.js': CONTENT });
   assert.equal(runFull(null, env), '', 'null name refused');
   assert.equal(runRange(null, 0, 5, env), '', 'null name refused');
+  assert.equal(runLength(null, env), 0, 'null length query refused');
   assert.deepEqual(env.assetReads, []);
 });
 

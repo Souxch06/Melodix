@@ -7,7 +7,7 @@ const test = require('node:test');
 const root = path.resolve(__dirname, '..');
 const read = (file) => fs.readFileSync(path.join(root, file), 'utf8');
 
-const bridge = read('assets/spotify_bridge.js');
+const bridge = read('scripts/spotify_bridge.source.js');
 const activity = read('smali/com/melodix/music/MainActivity.smali');
 
 function sliceBetween(source, startMarker, endMarker) {

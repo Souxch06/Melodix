@@ -24,7 +24,7 @@ const root = path.join(__dirname, '..');
 const read = (p) => fs.readFileSync(path.join(root, p), 'utf8');
 
 test('[P0] notifyNativeUiReady prend la main tot et garantit un etat (plus de blanc, plus d invisibilite)', () => {
-  const shell = read('assets/native_ui_shell.js');
+  const shell = read('scripts/native_ui_shell.source.js');
   const start = shell.indexOf('function notifyNativeUiReady(');
   assert.ok(start >= 0, 'notifyNativeUiReady existe');
   const body = shell.slice(start, shell.indexOf('\n    function ', start + 10));
@@ -40,7 +40,7 @@ test('[P0] notifyNativeUiReady prend la main tot et garantit un etat (plus de bl
 });
 
 test('[P0] runUpdate envoie les rows AVANT la readiness (le feed precede le couvrement)', () => {
-  const shell = read('assets/native_ui_shell.js');
+  const shell = read('scripts/native_ui_shell.source.js');
   const start = shell.indexOf('function runUpdate(');
   assert.ok(start >= 0, 'runUpdate existe');
   const body = shell.slice(start, shell.indexOf('\n    function ', start + 10));
@@ -51,7 +51,7 @@ test('[P0] runUpdate envoie les rows AVANT la readiness (le feed precede le couv
 });
 
 test('[P0] les playlists du compte viennent du drawer reel (mobile + desktop), jamais inventees', () => {
-  const shell = read('assets/native_ui_shell.js');
+  const shell = read('scripts/native_ui_shell.source.js');
   assert.ok(shell.includes('function collectLibraryDrawerRows('), 'collectLibraryDrawerRows existe');
   const supp = shell.indexOf('function supplementHomeRowsWithLibrary(');
   assert.ok(supp >= 0, 'supplementHomeRowsWithLibrary existe');
@@ -64,8 +64,8 @@ test('[P0] les playlists du compte viennent du drawer reel (mobile + desktop), j
 });
 
 test('[P0] traces de diagnostic presentes (bridge, shell, rows, erreurs JS)', () => {
-  const shell = read('assets/native_ui_shell.js');
-  const bridge = read('assets/spotify_bridge.js');
+  const shell = read('scripts/native_ui_shell.source.js');
+  const bridge = read('scripts/spotify_bridge.source.js');
   const andBridge = read('smali/com/melodix/music/AndBridge.smali');
   assert.ok(shell.includes('function diagTrace('), 'diagTrace existe dans le shell');
   assert.ok(shell.includes("js-shell begin"), 'trace de demarrage du shell');

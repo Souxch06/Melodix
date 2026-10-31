@@ -85,7 +85,7 @@ test('native bridge exposes UI callbacks and routes media, search and player dat
     assert.match(bridge, /const-string v1, "media:"[\s\S]*?dispatchNativeUi/);
     assert.match(bridge, /const-string v1, "search:"[\s\S]*?dispatchNativeUi/);
     assert.match(bridge, /const-string v0, "player"[\s\S]*?dispatchNativeUi/);
-    const shell = read('assets/native_ui_shell.js');
+    const shell = read('scripts/native_ui_shell.source.js');
     const readiness = shell.match(/function notifyNativeUiReady\(mainView\) \{[\s\S]*?\n    \}/);
     const client = read('smali/c91.smali');
     const hotfixList = read('smali/c40.smali').split('.method public static a')[0];
@@ -94,7 +94,7 @@ test('native bridge exposes UI callbacks and routes media, search and player dat
     assert.match(readiness[0], /open\.spotify\.com/);
     assert.match(client, /const-string v5, "native_ui_shell\.js"[\s\S]*?evaluateJavascript/);
     assert.doesNotMatch(hotfixList, /native_ui_shell\.js/);
-    assert.doesNotMatch(read('assets/spotify_bridge.js'), /notifyNativeUiReady\(/);
+    assert.doesNotMatch(read('scripts/spotify_bridge.source.js'), /notifyNativeUiReady\(/);
     assert.match(activity, /\.method public final showNativeUi\(\)V/);
     assert.match(activity, /styleNativeTab[\s\S]*?setBackgroundTintList/);
     assert.match(activity, /\.method public final postNativeUiRoute\(Ljava\/lang\/String;\)V/);
@@ -115,7 +115,7 @@ test('native bridge exposes UI callbacks and routes media, search and player dat
 });
 
 test('Spotify links are normalized to safe native row URIs', () => {
-    const shell = read('assets/native_ui_shell.js');
+    const shell = read('scripts/native_ui_shell.source.js');
     const helper = shell.match(/function nativeSpotifyUri\(value\) \{[\s\S]*?\n    \}/);
     assert.ok(helper, 'native Spotify URI helper should exist');
 
@@ -131,7 +131,7 @@ test('Spotify links are normalized to safe native row URIs', () => {
 });
 
 test('player recovery rejects unsafe URLs and routes valid targets through native WebView.loadUrl', () => {
-    const shell = read('assets/native_ui_shell.js');
+    const shell = read('scripts/native_ui_shell.source.js');
     const safeHelper = shell.match(/function safeWebPlayerUrl\(raw, fallback\) \{[\s\S]*?\n    \}/);
     const navHelper = shell.match(/function navToPlayer\(n, href, frameSrc\) \{[\s\S]*?\n    \}/);
     const navigateHelper = shell.match(/function navigateWebPlayer\(raw\) \{[\s\S]*?\n    \}/);
@@ -171,7 +171,7 @@ test('player recovery rejects unsafe URLs and routes valid targets through nativ
 });
 
 test('a Spotify landing CTA is read but never auto-clicked during player recovery', () => {
-    const script = read('assets/native_ui_shell.js');
+    const script = read('scripts/native_ui_shell.source.js');
     let now = 10000;
     let clicked = 0;
     const assigned = [];
@@ -280,7 +280,7 @@ test('native Home collector keeps image-less Spotify links and filters non-Spoti
         clearTimeout: () => {}
     };
 
-    vm.runInNewContext(read('assets/native_ui_shell.js'), { window, document, URL });
+    vm.runInNewContext(read('scripts/native_ui_shell.source.js'), { window, document, URL });
 
     assert.equal(calls.length, 1);
     assert.equal(calls[0].screen, 'home');
@@ -332,7 +332,7 @@ test('Home uses saved library items as a fallback when Spotify has no visible Ho
         clearTimeout: () => {}
     };
 
-    vm.runInNewContext(read('assets/native_ui_shell.js'), { window, document, URL });
+    vm.runInNewContext(read('scripts/native_ui_shell.source.js'), { window, document, URL });
 
     assert.equal(calls.length, 1);
     assert.deepEqual(JSON.parse(calls[0].data), [{
@@ -385,7 +385,7 @@ test('localized Spotify Home routes still collect and send Home rows', () => {
         clearTimeout: () => {}
     };
 
-    vm.runInNewContext(read('assets/native_ui_shell.js'), { window, document, URL });
+    vm.runInNewContext(read('scripts/native_ui_shell.source.js'), { window, document, URL });
 
     assert.deepEqual(routes, ['home']);
     assert.equal(calls.length, 1);
@@ -457,7 +457,7 @@ test('native shell routes a Spotify detail deep link and transfers its title and
         clearTimeout: () => {}
     };
 
-    vm.runInNewContext(read('assets/native_ui_shell.js'), { window, document, URL });
+    vm.runInNewContext(read('scripts/native_ui_shell.source.js'), { window, document, URL });
 
     assert.deepEqual(routes, ['detail']);
     assert.equal(readyCount, 1);
@@ -510,7 +510,7 @@ test('native search deep links preserve their query in the native search field',
         clearTimeout: () => {}
     };
 
-    vm.runInNewContext(read('assets/native_ui_shell.js'), { window, document, URL });
+    vm.runInNewContext(read('scripts/native_ui_shell.source.js'), { window, document, URL });
 
     assert.deepEqual(routes, ['search']);
     // 2 appels : le takeover sans rows home envoie un etat vide (ligne de
@@ -524,7 +524,7 @@ test('native search deep links preserve their query in the native search field',
 });
 
 test('bundled native bootstrap activates the shell, sends Home rows, and only opens Spotify links', () => {
-    const script = read('assets/native_ui_shell.js');
+    const script = read('scripts/native_ui_shell.source.js');
     const calls = [];
     const assigned = [];
     const loaded = [];
@@ -632,7 +632,7 @@ test('bundled native bootstrap activates the shell, sends Home rows, and only op
 });
 
 test('Home cards with sibling artwork outside the title anchor still resolve their cover image', () => {
-    const script = read('assets/native_ui_shell.js');
+    const script = read('scripts/native_ui_shell.source.js');
     const calls = [];
     const artwork = {
         currentSrc: '',
@@ -708,7 +708,7 @@ test('Home cards with sibling artwork outside the title anchor still resolve the
 });
 
 test('Home separates user playlists from Spotify official recommendations and prevents false playing state', () => {
-    const script = read('assets/native_ui_shell.js');
+    const script = read('scripts/native_ui_shell.source.js');
     const activity = read('smali/com/melodix/music/MainActivity.smali');
     const rowFactory = read('smali/com/melodix/music/NativeUiRowFactory.smali');
     const layout = read('res/layout/activity_main.xml');
@@ -800,8 +800,8 @@ test('Home separates user playlists from Spotify official recommendations and pr
 });
 
 test('playback stability and fast live search optimizations are active across Smali and JS', () => {
-    const shell = read('assets/native_ui_shell.js');
-    const bridge = read('assets/spotify_bridge.js');
+    const shell = read('scripts/native_ui_shell.source.js');
+    const bridge = read('scripts/spotify_bridge.source.js');
     const activity = read('smali/com/melodix/music/MainActivity.smali');
     const watcher = read('smali/com/melodix/music/NativeSearchWatcher.smali');
 
@@ -818,7 +818,7 @@ test('playback stability and fast live search optimizations are active across Sm
 });
 
 test('native Spotify settings screen replaces the web settings sheet', () => {
-    const shell = read('assets/native_ui_shell.js');
+    const shell = read('scripts/native_ui_shell.source.js');
     const activity = read('smali/com/melodix/music/MainActivity.smali');
     const bridge = read('smali/com/melodix/music/AndBridge.smali');
     const factory = read('smali/com/melodix/music/NativeSettingsRowFactory.smali');
@@ -880,7 +880,7 @@ test('native settings rows expose real Spotify options and toggles persist local
         }
     };
 
-    vm.runInNewContext(read('assets/native_ui_shell.js'), { window, document, URL, MutationObserver: TestMutationObserver });
+    vm.runInNewContext(read('scripts/native_ui_shell.source.js'), { window, document, URL, MutationObserver: TestMutationObserver });
 
     assert.equal(typeof window.__sfRequestSpotifySettings, 'function');
     calls.length = 0;
@@ -925,7 +925,7 @@ test('mobile rows lead with the cover and drop the legacy play badge', () => {
 });
 
 test('the native shell can ask Android to evaluate the playback bridge again', () => {
-    const shell = read('assets/native_ui_shell.js');
+    const shell = read('scripts/native_ui_shell.source.js');
     const bridge = read('smali/com/melodix/music/AndBridge.smali');
     const runner = read('smali/com/melodix/music/NativeAssetRunner.smali');
     const diagnostic = read('assets/runtime_diagnostic.js');
@@ -948,7 +948,7 @@ test('the native shell can ask Android to evaluate the playback bridge again', (
     assert.doesNotMatch(
         read('smali/c91.smali'),
         /invoke-virtual \{v0, v3, v8\}, Landroid\/webkit\/WebView;->evaluateJavascript/,
-        'the 200 KB bridge must not be evaluated in a single call'
+        'c91 must leave bridge evaluation to the shell-owned verified loader'
     );
 });
 
@@ -982,7 +982,7 @@ test('content rows reach the cover factory instead of the settings factory', () 
 });
 
 test('merged Spotify card labels are split into a title and a subtitle', () => {
-    const shell = read('assets/native_ui_shell.js');
+    const shell = read('scripts/native_ui_shell.source.js');
     const helper = shell.match(/function splitCardTitle\(value\) \{[\s\S]*?\n    \}/);
     assert.ok(helper, 'splitCardTitle should exist');
 
@@ -1016,7 +1016,7 @@ test('Home is rendered as Spotify-style cover shelves, not a flat settings list'
 });
 
 test('opening a playlist no longer depends on the playback bridge', () => {
-    const shell = read('assets/native_ui_shell.js');
+    const shell = read('scripts/native_ui_shell.source.js');
     const activity = read('smali/com/melodix/music/MainActivity.smali');
 
     assert.match(shell, /window\.__sfOpenCollection = function\(value\)/);
@@ -1031,7 +1031,7 @@ test('opening a playlist no longer depends on the playback bridge', () => {
 });
 
 test('detail rows are collected for any playlist route, not only the first page load', () => {
-    const shell = read('assets/native_ui_shell.js');
+    const shell = read('scripts/native_ui_shell.source.js');
 
     assert.match(shell, /function updateDetailRows\(mainView\)/);
     assert.match(shell, /nativeScreenForPath\(\) !== 'detail'/);
@@ -1041,7 +1041,7 @@ test('detail rows are collected for any playlist route, not only the first page 
 });
 
 test('library and search still work when the bridge never starts', () => {
-    const shell = read('assets/native_ui_shell.js');
+    const shell = read('scripts/native_ui_shell.source.js');
     const activity = read('smali/com/melodix/music/MainActivity.smali');
 
     // Library tab: bridge first, real collection page otherwise.
@@ -1121,7 +1121,7 @@ test('detail and player screens expose the back arrow and hide the tab bar', () 
 
 test('library chips and the search tab never call a bridge-only function', () => {
     const activity = read('smali/com/melodix/music/MainActivity.smali');
-    const shell = read('assets/native_ui_shell.js');
+    const shell = read('scripts/native_ui_shell.source.js');
     const categories = activity.slice(
         activity.indexOf('.method public final onNativeLibraryCategoryClick'),
         activity.indexOf('.end method', activity.indexOf('.method public final onNativeLibraryCategoryClick'))
@@ -1136,7 +1136,7 @@ test('library chips and the search tab never call a bridge-only function', () =>
 });
 
 test('the shell publishes the real player state without the bridge', () => {
-    const shell = read('assets/native_ui_shell.js');
+    const shell = read('scripts/native_ui_shell.source.js');
     const activity = read('smali/com/melodix/music/MainActivity.smali');
 
     assert.match(shell, /function readNowPlaying\(\)/);
@@ -1224,7 +1224,7 @@ function buildPlayerShellHarness(options) {
             removeItem: (key) => store.delete(key)
         }
     };
-    vm.runInNewContext(read('assets/native_ui_shell.js'), { window, document, URL });
+    vm.runInNewContext(read('scripts/native_ui_shell.source.js'), { window, document, URL });
     return { window, calls, clicks, store };
 }
 
@@ -1287,7 +1287,7 @@ test('the library tab never reloads its own page in a loop', () => {
             querySelectorAll: () => [],
             addEventListener: () => {}
         };
-        vm.runInNewContext(read('assets/native_ui_shell.js'), { window, document, URL });
+        vm.runInNewContext(read('scripts/native_ui_shell.source.js'), { window, document, URL });
         return { window, navigations, loaded };
     };
 
@@ -1361,9 +1361,9 @@ test('search results coming from the fallback path reach the native list', () =>
 });
 
 test('the bridge recovery loop is capped so a dead bridge cannot churn the launch', () => {
-    // Eight full re-injection rounds of the 200 KB bridge kept the startup
-    // busy for twenty seconds on the device. Three attempts are enough.
-    const shell = read('assets/native_ui_shell.js');
+    // Repeated full-asset injection kept startup busy on-device. The compact
+    // runtime stays capped at three attempts to avoid launch churn.
+    const shell = read('scripts/native_ui_shell.source.js');
     assert.ok(/bridgeLoadAttempts < 3\b/.test(shell), 'retries capped at 3');
     assert.ok(!/bridgeLoadAttempts < 8\b/.test(shell), 'the old eight-attempt loop is gone');
 });

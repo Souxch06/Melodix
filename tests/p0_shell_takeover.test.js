@@ -1,4 +1,4 @@
-// Real behaviour tests for the native-UI shell (assets/native_ui_shell.js).
+// Real behaviour tests for the readable native-UI shell source.
 //
 // The shell is an IIFE that boots on load: it scrapes the Spotify page, sends
 // rows to the native side and decides when the native UI may take over. These
@@ -13,7 +13,7 @@ const path = require('node:path');
 const vm = require('node:vm');
 
 const repo = path.resolve(__dirname, '..');
-const SHELL = path.join(repo, 'assets/native_ui_shell.js');
+const SHELL = path.join(repo, 'scripts/native_ui_shell.source.js');
 
 // Minimal DOM node. `matches` understands only the selectors the shell uses.
 function node({ tag = 'div', attrs = {}, text = '', children = [], within = null } = {}) {

@@ -329,7 +329,7 @@ test('full CSS is injected in both Mobile CSS and Wide Window modes', () => {
     assert.match(pageFinished[1], /goto :cond_12[\s\S]*?:cond_12[\s\S]*?AppSingleton;->z:Ljava\/lang\/String;/);
 });
 
-test('the 200 KB Spotify bridge is loaded through the shell, not a single evaluateJavascript', () => {
+test('the compact Spotify bridge is loaded through the shell, not embedded by c91', () => {
     const webViewClient = fs.readFileSync(path.join(repo, 'smali/c91.smali'), 'utf8');
     const pageFinished = webViewClient.match(
         /\.method public final onPageFinished\(Landroid\/webkit\/WebView;Ljava\/lang\/String;\)V([\s\S]*?)\.end method/
@@ -351,7 +351,7 @@ test('the 200 KB Spotify bridge is loaded through the shell, not a single evalua
     assert.doesNotMatch(
         block,
         /invoke-virtual \{v0, v3, v8\}, Landroid\/webkit\/WebView;->evaluateJavascript/,
-        'a single 200 KB evaluateJavascript call is silently dropped on device'
+        'c91 must not concatenate the runtime bridge into its own evaluateJavascript payload'
     );
     assert.match(
         block,
@@ -540,7 +540,7 @@ test('the hotfix directory is disabled so stale Firebase scripts cannot replace 
         assert.ok(at >= 0, name + ' must exist');
         return bridge.slice(at, bridge.indexOf('.end method', at));
     };
-    for (const name of ['readBundledAsset(Ljava/lang/String;)Ljava/lang/String;', 'readBundledAssetRange(Ljava/lang/String;II)Ljava/lang/String;', 'injectBundledAsset(Ljava/lang/String;)V']) {
+    for (const name of ['readBundledAsset(Ljava/lang/String;)Ljava/lang/String;', 'readBundledAssetRange(Ljava/lang/String;II)Ljava/lang/String;', 'bundledAssetLength(Ljava/lang/String;)I', 'injectBundledAsset(Ljava/lang/String;)V']) {
         assert.ok(section(name).includes('Lm9;->d(Ljava/lang/String;)Ljava/lang/String;'),
             name + ' reads through the shared reader');
     }

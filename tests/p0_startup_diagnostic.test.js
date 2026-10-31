@@ -261,7 +261,7 @@ test('the panel report is enriched with the web state on the UI thread', () => {
 });
 
 test('the shell JS reports the silent hold (missing widget or bridge)', () => {
-  const js = read('assets/native_ui_shell.js');
+  const js = read('scripts/native_ui_shell.source.js');
   assert.ok(js.includes("diagTrace('ready-pending widget='"),
     'the most common freeze must leave a status line');
   assert.ok(js.includes('window.__sfNoWidgetCount % 20 === 0'),
@@ -274,7 +274,7 @@ test('the shell JS reports the silent hold (missing widget or bridge)', () => {
 // ---------------------------------------------------------------------------
 
 test('the shell opens the web player only through an allowlisted HTTPS URL', () => {
-  const js = read('assets/native_ui_shell.js');
+  const js = read('scripts/native_ui_shell.source.js');
   assert.ok(js.includes('function maybeNavigateToPlayer()'),
     'the player must open regardless of the landing DOM');
   assert.ok(js.includes('function safeWebPlayerUrl(raw, fallback)'),
@@ -300,7 +300,7 @@ test('the shell opens the web player only through an allowlisted HTTPS URL', () 
 });
 
 test('navigation is bounded across page loads (no loops)', () => {
-  const js = read('assets/native_ui_shell.js');
+  const js = read('scripts/native_ui_shell.source.js');
   assert.ok(js.includes("localStorage.getItem('mel_player_nav')"),
     'the attempt counter survives page navigations');
   assert.ok(js.includes('playerNavCount() >= 2'),
@@ -310,7 +310,7 @@ test('navigation is bounded across page loads (no loops)', () => {
 });
 
 test('runUpdate tries the navigation before waiting for the player DOM', () => {
-  const js = read('assets/native_ui_shell.js');
+  const js = read('scripts/native_ui_shell.source.js');
   const body = js.slice(js.indexOf('function runUpdate()'), js.indexOf('function runUpdate()') + 700);
   assert.ok(body.includes('domCensusOnce();') && body.includes('maybeNavigateToPlayer();'));
   assert.ok(body.indexOf('maybeNavigateToPlayer();') < body.indexOf('mainView = findMainView();'),
@@ -318,7 +318,7 @@ test('runUpdate tries the navigation before waiting for the player DOM', () => {
 });
 
 test('the DOM census names the page for the next photo', () => {
-  const js = read('assets/native_ui_shell.js');
+  const js = read('scripts/native_ui_shell.source.js');
   assert.ok(js.includes("diagTrace('dom census m='"),
     'the photo must show what the page really holds');
   assert.ok(js.includes(" t=' + title + ' h=' + h1 + ' g=' + ids"),
@@ -353,7 +353,7 @@ test('the login-page CTA is observed without a synthetic click or duplicate navi
 // ---------------------------------------------------------------------------
 
 test('the iframe hosting the player is preferred only after exact-host validation', () => {
-  const js = read('assets/native_ui_shell.js');
+  const js = read('scripts/native_ui_shell.source.js');
   assert.ok(js.includes('function iframePlayerSrc()'),
     'the wrapper page frames the player - its src is the door');
   const nav = js.slice(js.indexOf('function navToPlayer(n, href, frameSrc)'), js.indexOf('function sfDeepQuery('));
@@ -365,7 +365,7 @@ test('the iframe hosting the player is preferred only after exact-host validatio
 });
 
 test('navigation does not depend on JS timers being alive', () => {
-  const js = read('assets/native_ui_shell.js');
+  const js = read('scripts/native_ui_shell.source.js');
   const body = js.slice(js.indexOf('function maybeNavigateToPlayer()'),
     js.indexOf('function domCensusOnce()'));
   assert.ok(body.includes('navToPlayer(n, href, iframePlayerSrc());'),
@@ -381,7 +381,7 @@ test('navigation does not depend on JS timers being alive', () => {
 });
 
 test('the census exposes the framed player sources', () => {
-  const js = read('assets/native_ui_shell.js');
+  const js = read('scripts/native_ui_shell.source.js');
   assert.ok(js.includes("diagTrace('dom iframes '"),
     'the photo must show what the iframes load');
   assert.ok(js.includes("getAttribute('src')"),
@@ -447,7 +447,7 @@ test('the probe script accepts consent walls and routes player URLs through the 
 });
 
 test('the shell advertises completion only after install succeeds', () => {
-  const shell = read('assets/native_ui_shell.js');
+  const shell = read('scripts/native_ui_shell.source.js');
   assert.match(shell, /try \{\s*install\(\);\s*window\.__sfNativeUiShellCompleted = true;/,
     'successful installation sets the marker the probe trusts');
   assert.match(shell, /catch \(err\) \{[\s\S]*?window\.__sfNativeUiShellCompleted = false;/,
@@ -555,7 +555,7 @@ test('the late native fallback only fires when the page is idle on the wrapper',
 });
 
 test('collectors see a player framed in a same-origin iframe', () => {
-  const js = read('assets/native_ui_shell.js');
+  const js = read('scripts/native_ui_shell.source.js');
   assert.ok(js.includes('function sfDeepQuery(sel)'),
     'queries walk into same-origin frames');
   assert.ok(js.includes('function findMainView()'));

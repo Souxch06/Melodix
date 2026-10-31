@@ -84,13 +84,13 @@ test('unknown state after previously signed-out UI still reaches the unconfirmed
     assert.equal(runtime.shouldShowUnconfirmedNotice(runtime.AUTH_STATE.SIGNED_OUT), false);
     assert.equal(runtime.shouldShowUnconfirmedNotice(runtime.AUTH_STATE.SIGNED_IN), false);
 
-    const bridge = read('assets/spotify_bridge.js');
+    const bridge = read('scripts/spotify_bridge.source.js');
     assert.match(bridge, /runtime\.shouldShowUnconfirmedNotice\(machine\.getState\(\)\)/);
     assert.doesNotMatch(bridge, /machine\.getConfirmedState\(\) === runtime\.AUTH_STATE\.SIGNED_OUT/);
 });
 
 test('mobile home shell installs at startup and keeps native drawer state explicit', () => {
-    const bridge = read('assets/spotify_bridge.js');
+    const bridge = read('scripts/spotify_bridge.source.js');
     const css = read('assets/css_hacks.css');
 
     assert.match(bridge, /window\.switchLs = function\(forceOpen\)/);
@@ -104,7 +104,7 @@ test('mobile home shell installs at startup and keeps native drawer state explic
 });
 
 test('unknown-session notice is in document flow, not over primary UI', () => {
-    const bridge = read('assets/spotify_bridge.js');
+    const bridge = read('scripts/spotify_bridge.source.js');
     const css = read('assets/css_hacks.css');
 
     assert.match(bridge, /mainView\.insertBefore\(notice, mainView\.firstChild\)/);
@@ -159,7 +159,7 @@ test('Spotify player and account login use the desktop profile expected by the W
 });
 
 test('auth and WebView code do not capture credentials or proxy Spotify requests', () => {
-    const bridge = read('assets/spotify_bridge.js');
+    const bridge = read('scripts/spotify_bridge.source.js');
     const nativeBridge = read('smali/com/melodix/music/AndBridge.smali');
     const webViewClient = read('smali/c91.smali');
     const app = read('smali/com/melodix/music/AppSingleton.smali');
@@ -181,7 +181,9 @@ test('auth and WebView code do not capture credentials or proxy Spotify requests
     assert.match(webViewClient, /Uri;->getPort\(\)I/);
     assert.match(webViewClient, /Uri;->getAuthority\(\)Ljava\/lang\/String;/);
     assert.match(webViewClient, /const\/16 v5, 0x1bb/);
-    assert.doesNotMatch(webViewClient, /google_spoof\.js|desktop_spoof\.js|playlist_sort\.js|facebook_consent\.js|classic_login\.js/);
+    assert.doesNotMatch(webViewClient, /google_spoof\.js|facebook_consent\.js|classic_login\.js/);
+    assert.match(webViewClient, /const-string v2, "desktop_spoof\.js"/);
+    assert.match(webViewClient, /const-string v1, "playlist_sort\.js"/);
     assert.doesNotMatch(app, /CookieManager/);
     assert.doesNotMatch(appWebView, /desktop_spoof\.js/);
     const webViewFactory = appWebView.match(/\.method public static g\(Landroid\/content\/Context;\)Landroid\/webkit\/WebView;([\s\S]*?)\.end method/);
@@ -312,16 +314,28 @@ test('native media artwork accepts only bounded HTTPS Spotify CDN URIs', () => {
     assert.ok(method[1].indexOf(':cond_artwork_safe') < method[1].indexOf('invoke-static {p0, p1, v0}, Lla1;->v'), 'validation must precede image-size rewriting and loading');
 });
 
-test('JavascriptInterface annotations are limited to bridge methods used by active JavaScript', () => {
+test('JavascriptInterface annotations match active JS calls plus the native signature gate', () => {
     const bridge = [
         read('assets/runtime_state.js'),
-        read('assets/spotify_bridge.js'),
-        read('assets/native_ui_shell.js')
+        read('assets/desktop_spoof.js'),
+        read('scripts/spotify_bridge.source.js'),
+        read('scripts/native_ui_shell.source.js'),
+        read('smali/c91.smali')
     ].join('\n');
     const nativeBridge = read('smali/com/melodix/music/AndBridge.smali');
     const referenced = new Set(
         [...bridge.matchAll(/\b(?:window\.)?AndBridge\.([A-Za-z_$][\w$]*)\s*\(/g)].map(match => match[1])
     );
+    // The native shell stores window.AndBridge in a local `bridge` variable
+    // before calling the ranged asset reader and UI callbacks. Count those
+    // calls too; otherwise new, intentionally whitelisted methods look unused.
+    const bridgeAliases = new Set(
+        [...bridge.matchAll(/\b(?:var|let|const)\s+([A-Za-z_$][\w$]*)\s*=\s*window\.AndBridge\b/g)].map(match => match[1])
+    );
+    for (const alias of bridgeAliases) {
+        const aliasCalls = new RegExp(`\\b${alias}\\.([A-Za-z_$][\\w$]*)\\s*\\(`, 'g');
+        for (const match of bridge.matchAll(aliasCalls)) referenced.add(match[1]);
+    }
     const annotated = new Set();
     const methods = /^\.method\b[^\n]*\s([A-Za-z_$][\w$]*)\([^)]*\)[^\n]*\n([\s\S]*?)^\.end method/gm;
     for (const match of nativeBridge.matchAll(methods)) {
@@ -330,7 +344,14 @@ test('JavascriptInterface annotations are limited to bridge methods used by acti
         }
     }
 
-    assert.deepEqual([...annotated].sort(), [...referenced].sort());
+    // isSignatureValid is called from native Smali, not the active JavaScript
+    // bundle. Keep it explicit rather than misclassifying the historical API
+    // surface as a missing JS reference.
+    const nativeOnly = new Set(['isSignatureValid']);
+    const jsExposed = new Set([...annotated].filter((name) => !nativeOnly.has(name)));
+    assert.deepEqual([...jsExposed].sort(), [...referenced].sort());
+    assert.match(read('smali/com/melodix/music/MainActivity.smali'), /AndBridge;->isSignatureValid\(\)Z/);
+    assert.match(read('smali/com/melodix/music/AppSingleton.smali'), /AndBridge;->isSignatureValid\(\)Z/);
 });
 
 test('deferMessage displays only fixed local messages and rejects arbitrary frame input', () => {

@@ -3056,9 +3056,9 @@
     .end annotation
 
     .locals 4
-    # Recovery hook: pages can ask for a bundled script to be evaluated again
-    # when its first injection never started (for example a stale WebView or a
-    # dropped evaluateJavascript call). Only whitelisted assets are accepted.
+    # Recovery hook: evaluate the whitelisted compact runtime bridge on Android's
+    # UI thread. The JavascriptInterface returns before evaluation completes;
+    # callers must wait for __sfMelodixBridgeStarted, not treat scheduling as success.
     if-eqz p1, :asset_inject_done
 
     const-string v0, "spotify_bridge.js"
@@ -3106,9 +3106,8 @@
     .end annotation
 
     .locals 2
-    # The playback bridge is a 200 KB asset. Sending it through a single
-    # evaluateJavascript call silently fails on some WebViews, so JavaScript
-    # fetches the text through this whitelisted getter and executes it itself.
+    # Legacy whole-asset reader, retained for a verified fallback. The normal
+    # path reads fixed-size ranges and compares the assembled length first.
     const-string v1, ""
 
     if-eqz p1, :read_bundled_asset_done
@@ -3134,13 +3133,10 @@
     .end annotation
 
     .locals 4
-    # Ranged reader for the bundled bridge. JavascriptInterface string returns
-    # above roughly 200 KB are silently dropped on some WebViews (the same
-    # limit that kills a single evaluateJavascript of the full asset), so the
-    # page reassembles the script from fixed-size ranges and executes it.
-    # The whitelist guard skips only when the name is NOT the bundled bridge
-    # (if-eqz after equals) - the inverted if-nez form silently returned ""
-    # for every legitimate read ("read-asset: empty" on device).
+    # Ranged reader for the bundled runtime bridge. Fixed-size returns allow
+    # the page to verify complete delivery even when an individual WebView
+    # JavascriptInterface response is short. Only the exact bridge asset name
+    # is accepted.
     const-string v1, ""
 
     if-eqz p1, :range_done
@@ -3180,4 +3176,29 @@
 
     :range_done
     return-object v1
+.end method
+
+.method public final bundledAssetLength(Ljava/lang/String;)I
+    .locals 2
+    .annotation runtime Landroid/webkit/JavascriptInterface;
+    .end annotation
+
+    # Length in Java/JavaScript string units for verifying the ranged transfer.
+    # Only the runtime bridge asset is exposed; no content is returned here.
+    const/4 v1, 0x0
+    if-eqz p1, :bundled_asset_length_done
+
+    const-string v0, "spotify_bridge.js"
+    invoke-virtual {v0, p1}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    move-result v0
+    if-eqz v0, :bundled_asset_length_done
+
+    invoke-static {p1}, Lm9;->d(Ljava/lang/String;)Ljava/lang/String;
+    move-result-object v0
+    if-eqz v0, :bundled_asset_length_done
+    invoke-virtual {v0}, Ljava/lang/String;->length()I
+    move-result v1
+
+    :bundled_asset_length_done
+    return v1
 .end method

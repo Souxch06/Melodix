@@ -206,14 +206,40 @@ test('[structurel] MainActivity.C() : getLayoutParams().width est garde contre n
     'garde if-eqz entre getLayoutParams et la lecture width');
 });
 
-test('[structurel] executeBridgeSource : injection native evaluateJavascript AVANT le blob optimiste', () => {
-  const shell = read('assets/native_ui_shell.js');
-  const at = shell.indexOf('function executeBridgeSource');
+test('[structurel] MainActivity confirme showNativeUi et la presence du conteneur natif', () => {
+  const activity = read('smali/com/melodix/music/MainActivity.smali');
+  const at = activity.indexOf('.method public final showNativeUi()V');
   assert.ok(at > -1);
-  const body = shell.slice(at, shell.indexOf('function ', at + 10));
-  const native = body.indexOf("injectBundledAsset('spotify_bridge.js')");
-  const blob = body.indexOf("createObjectURL(new Blob");
-  assert.ok(native > -1, 'stratégie native présente');
-  assert.ok(blob > -1 && native < blob, 'native AVANT blob (blob = retour optimiste bloqué par la CSP)');
-  assert.match(body, /__sfBridgeExecMode = 'native-inject'/);
+  const body = activity.slice(at, activity.indexOf('.end method', at));
+  const stageAt = body.indexOf('NativeCrashGuard;->stage(Ljava/lang/String;)V');
+  const rootLookupAt = body.indexOf('const v0, 0x7f09022f');
+  const rootVisibleAt = body.indexOf('setVisibility(I)V', rootLookupAt);
+  const markerAt = body.indexOf('window.__sfNativeUiShowMethodCalled=true;');
+  assert.ok(stageAt > -1 && rootLookupAt > -1 && rootVisibleAt > rootLookupAt && markerAt > rootVisibleAt,
+    'le marqueur vient apres la demande de visibilité du nativeRoot et le stage ready');
+  assert.match(body, /window\.__sfNativeUiRootFound=/,
+    'le handshake distingue un conteneur natif trouvé d une référence absente');
+  assert.match(body, /runNativeJavascript\(Ljava\/lang\/String;\)V/);
+  assert.match(body, /\.catch Ljava\/lang\/Throwable;/, 'un diagnostic WebView ne doit pas faire echouer l affichage natif');
+});
+
+test('[structurel] le retour asynchrone natif reste pending jusqu au marqueur bridgeStarted', () => {
+  const shell = read('scripts/native_ui_shell.source.js');
+  const schedulerAt = shell.indexOf('function scheduleNativeBridgeInjection');
+  const executeAt = shell.indexOf('function executeBridgeSource');
+  const loadAt = shell.indexOf('function loadBundledBridge');
+  assert.ok(schedulerAt > -1 && executeAt > schedulerAt && loadAt > executeAt);
+  const scheduler = shell.slice(schedulerAt, executeAt);
+  const execute = shell.slice(executeAt, loadAt);
+
+  assert.match(scheduler, /injectBundledAsset\(name \|\| 'spotify_bridge\.js'\)/);
+  assert.match(scheduler, /__sfBridgeExecMode = 'native-inject-pending'/);
+  assert.match(scheduler, /setTimeout\(function\(\)/);
+  assert.match(scheduler, /if \(bridgeHasStarted\(\)\)/);
+  assert.match(scheduler, /__sfBridgeExecMode = 'native-inject-started'/);
+  assert.match(scheduler, /__sfBridgeExecMode = 'native-inject-no-start'/);
+  assert.match(scheduler, /executeBridgeBlobFallback\(source\)/,
+    'the blob fallback runs only after an unconfirmed native request');
+  assert.match(execute, /if \(scheduleNativeBridgeInjection\(assetName, source\)\) return false;/,
+    'a queued Android call is not returned as a successful execution');
 });

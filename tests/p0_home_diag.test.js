@@ -11,7 +11,7 @@ const path = require('node:path');
 const vm = require('node:vm');
 
 const ROOT = path.resolve(__dirname, '..');
-const shell = fs.readFileSync(path.join(ROOT, 'assets/native_ui_shell.js'), 'utf8');
+const shell = fs.readFileSync(path.join(ROOT, 'scripts/native_ui_shell.source.js'), 'utf8');
 const smali = fs.readFileSync(path.join(ROOT, 'smali/com/melodix/music/AndBridge.smali'), 'utf8');
 
 test('[structurel] AndBridge.getBuildLabel expose le versionName (1.2.2-<sha7>) via JavascriptInterface', () => {

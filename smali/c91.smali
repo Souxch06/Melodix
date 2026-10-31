@@ -1379,11 +1379,10 @@
 
     invoke-static {v5}, Lcom/melodix/music/NativeCrashGuard;->stage(Ljava/lang/String;)V
 
-    # spotify_bridge.js is ~200 KB. A single evaluateJavascript call of that size
-    # is dropped without any error on device (the bridge never started, so every
-    # pause guard stayed inactive). The shell therefore reads the asset through
-    # AndBridge.readBundledAsset and executes it in small steps instead.
-    # v3 still holds the bridge text: reading it here keeps the asset cache warm.
+    # Keep bridge execution in the native shell: it verifies the runtime asset
+    # length, reads ranges, and waits for __sfMelodixBridgeStarted. The compact
+    # generated asset stays below the largest shell payload already observed
+    # running on-device; c91 never embeds the bridge in its own JS string.
     const-string v5, "(window.__sfLoadBundledBridge||function(){})(\'spotify_bridge.js\');"
     invoke-virtual {v0, v5, v8}, Landroid/webkit/WebView;->evaluateJavascript(Ljava/lang/String;Landroid/webkit/ValueCallback;)V
 

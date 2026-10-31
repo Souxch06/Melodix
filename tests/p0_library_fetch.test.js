@@ -12,7 +12,7 @@ const path = require('node:path');
 const vm = require('node:vm');
 
 const repo = path.resolve(__dirname, '..');
-const BRIDGE = path.join(repo, 'assets/spotify_bridge.js');
+const BRIDGE = path.join(repo, 'scripts/spotify_bridge.source.js');
 
 function fakeElement() {
     return {

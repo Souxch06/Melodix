@@ -7203,6 +7203,8 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
 .method public final showNativeUi()V
     .locals 5
 
+    const/4 v4, 0x0
+
     # Replay the previous freeze report over the shell (P0 diagnostic):
     # start-only hang reports, never a crash message.
     invoke-static {}, Lcom/melodix/music/StartupDiagnosticOverlay;->dismissIfShowing()V
@@ -7216,9 +7218,10 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
     # takeover) - the hang watchdog must not report.
     sput-boolean v0, Lcom/melodix/music/AppSingleton;->startupDone:Z
 
-    # P0 diagnostic: the native shell takes over the screen here.
+    # This records the request before the views are changed; it is not a
+    # success log. The final JS marker reports whether nativeRoot was found.
     const-string v0, "MDXTRACE"
-    const-string v2, "native-shell shown (splash hidden, nativeRoot visible)"
+    const-string v2, "native-shell show requested"
     invoke-static {v0, v2}, Landroid/util/Log;->i(Ljava/lang/String;Ljava/lang/String;)I
 
     iget-object v1, p0, Lcom/melodix/music/MainActivity;->H:Landroidx/constraintlayout/widget/ConstraintLayout;
@@ -7237,6 +7240,7 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
     invoke-virtual {p0, v0}, Landroid/app/Activity;->findViewById(I)Landroid/view/View;
     move-result-object v1
     if-eqz v1, :hide_legacy_settings
+    const/4 v4, 0x1
     const/4 v2, 0x0
     invoke-virtual {v1, v2}, Landroid/view/View;->setVisibility(I)V
 
@@ -7281,6 +7285,28 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
 
     invoke-static {v0}, Lcom/melodix/music/NativeCrashGuard;->stage(Ljava/lang/String;)V
 
+    # Diagnostic handshake after the visibility call: distinguish a completed
+    # showNativeUi() request from a missing nativeRoot. Still not a physical
+    # display/frame acknowledgement.
+    :try_start_native_ui_diag
+    const-string v1, "window.__sfNativeUiShowMethodCalled=true;window.__sfNativeUiRootFound="
+    if-eqz v4, :native_ui_root_missing
+    const-string v2, "true;"
+    goto :native_ui_root_state_ready
+    :native_ui_root_missing
+    const-string v2, "false;"
+    :native_ui_root_state_ready
+    invoke-virtual {v1, v2}, Ljava/lang/String;->concat(Ljava/lang/String;)Ljava/lang/String;
+    move-result-object v1
+    invoke-virtual {p0, v1}, Lcom/melodix/music/MainActivity;->runNativeJavascript(Ljava/lang/String;)V
+    :try_end_native_ui_diag
+    .catch Ljava/lang/Throwable; {:try_start_native_ui_diag .. :try_end_native_ui_diag} :catch_native_ui_diag
+    goto :native_ui_diag_done
+
+    :catch_native_ui_diag
+    move-exception v1
+
+    :native_ui_diag_done
     return-void
 .end method
 

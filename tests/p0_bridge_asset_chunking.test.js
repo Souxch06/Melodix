@@ -1,14 +1,11 @@
 'use strict';
-// P0 v35: chunked bridge asset transfer.
+// P0 bridge delivery regression tests.
 //
-// Device traces (runtime diagnostic v2, phone) proved that a single transfer
-// of the ~200 KB spotify_bridge.js is silently dropped end to end: the direct
-// evaluateJavascript injection never starts the bridge and the Javascript-
-// Interface fallback returns an empty string ("read-asset: empty"), leaving
-// the home screen stuck on "Chargement des playlists...". The repair re-reads
-// the asset in fixed-size ranges (AndBridge.readBundledAssetRange) and runs
-// the reassembled source locally. These tests assert that repair exists and
-// keeps every guard of the old path; they do not claim device verification.
+// Historical phone traces showed that a single ~205 KB evaluateJavascript
+// payload could be silently dropped. The current runtime asset is whitespace- and
+// comment-minified to 104 KB, range reads are verified against the APK length,
+// and native evaluation is only marked successful after __sfMelodixBridgeStarted
+// is observed. These tests do not claim device verification.
 
 const test = require('node:test');
 const assert = require('node:assert');
@@ -18,7 +15,9 @@ const vm = require('node:vm');
 
 const root = path.join(__dirname, '..');
 const bridgePath = path.join(root, 'assets', 'spotify_bridge.js');
-const shellPath = path.join(root, 'assets', 'native_ui_shell.js');
+const bridgeSourcePath = path.join(root, 'scripts', 'spotify_bridge.source.js');
+const shellPath = path.join(root, 'scripts', 'native_ui_shell.source.js');
+const shellRuntimePath = path.join(root, 'assets', 'native_ui_shell.js');
 const bridgeSmaliPath = path.join(root, 'smali', 'com', 'melodix', 'music', 'AndBridge.smali');
 
 test('AndBridge exposes a whitelisted ranged reader for the bundled bridge', () => {
@@ -44,6 +43,14 @@ test('AndBridge exposes a whitelisted ranged reader for the bundled bridge', () 
     smali,
     /\.method public final readBundledAsset\(Ljava\/lang\/String;\)Ljava\/lang\/String;/,
   );
+
+  const lengthAt = smali.indexOf('.method public final bundledAssetLength(Ljava/lang/String;)I');
+  assert.ok(lengthAt > -1, 'the expected source length is exposed');
+  const lengthMethod = smali.slice(lengthAt, smali.indexOf('.end method', lengthAt));
+  assert.match(lengthMethod, /Landroid\/webkit\/JavascriptInterface;/);
+  assert.match(lengthMethod, /const-string v0, "spotify_bridge\.js"/);
+  assert.match(lengthMethod, /Lm9;->d\(Ljava\/lang\/String;\)Ljava\/lang\/String;/);
+  assert.match(lengthMethod, /String;->length\(\)I/);
 });
 
 test('shell reassembles the bridge from ranges before the legacy reader', () => {
@@ -51,23 +58,29 @@ test('shell reassembles the bridge from ranges before the legacy reader', () => 
   const fnAt = shell.indexOf('function loadBundledBridge(name)');
   assert.ok(fnAt > -1, 'loadBundledBridge present');
   const fn = shell.slice(fnAt, shell.indexOf('window.__sfLoadBundledBridge', fnAt));
-  // Ranged read is the preferred path.
-  assert.match(fn, /readBundledAssetRange\(name, offset, offset \+ chunkSize\)/);
+  // Expected total length and range read are both obtained through the bridge.
+  assert.match(fn, /bundledAssetLength\(name\)/);
+  assert.match(fn, /readBundledAssetRange\(name, offset, end\)/);
   assert.ok(
     fn.indexOf('readBundledAssetRange') < fn.indexOf('readBundledAsset(name)'),
     'range reader runs before the legacy single-call reader',
   );
-  // Chunks are bounded and concatenated before execution.
+  // A short but non-empty response advances by the received amount and keeps
+  // reading until the expected total; it is not treated as EOF.
+  assert.match(fn, /while \(calls < maxCalls && \(!expected \|\| offset < expected\)\)/);
+  assert.match(fn, /offset \+= part\.length;/);
+  assert.match(fn, /complete = expected > 0 \? received === expected/);
   assert.match(fn, /parts\.join\(''\)/);
   assert.match(fn, /var chunkSize = 48 \* 1024;/);
-  // The reassembled source is executed by the multi-strategy runner.
-  assert.match(fn, /if \(source\) return executeBridgeSource\(source\);/);
-  // Empty asset is still reported exactly as before.
-  assert.match(fn, /recordBridgeFailure\('read-asset', 'empty'\);/);
+  assert.doesNotMatch(fn, /if \(part\.length < chunkSize\) break;/);
+  // Only a complete source reaches the execution strategies.
+  assert.match(fn, /if \(source && complete\) return executeBridgeSource\(source, name\);/);
+  assert.match(fn, /bridge-read expected=/);
+  assert.match(fn, /recordBridgeFailure\('read-asset', 'empty'\)/);
 });
 
-test('shell and bridge still parse after the ranged-reader change', () => {
-  for (const file of [bridgePath, shellPath]) {
+test('source bridge, compact runtime bridge and shell all parse after delivery changes', () => {
+  for (const file of [bridgeSourcePath, bridgePath, shellPath, shellRuntimePath]) {
     const source = fs.readFileSync(file, 'utf8');
     assert.doesNotThrow(
       () => new vm.Script(source, { filename: path.basename(file) }),

@@ -8,7 +8,7 @@ const root = path.resolve(__dirname, '..');
 const read = (file) => fs.readFileSync(path.join(root, file), 'utf8');
 
 test('custom home supports both full-style GUI modes and only the Spotify home route', () => {
-    const bridge = read('assets/spotify_bridge.js');
+    const bridge = read('scripts/spotify_bridge.source.js');
     const update = bridge.match(/function updateMelodixHome\(\) \{([\s\S]*?)\n    \}\n\n    function initializeMelodixHome/);
     assert.ok(update, 'custom home update function should exist');
 
@@ -24,7 +24,7 @@ test('custom home supports both full-style GUI modes and only the Spotify home r
 });
 
 test('custom home only renders real Spotify cards and leaves original navigation actions intact', () => {
-    const bridge = read('assets/spotify_bridge.js');
+    const bridge = read('scripts/spotify_bridge.source.js');
     const css = read('assets/css_hacks.css');
 
     assert.match(bridge, /querySelectorAll\('\[data-testid="card"\]'\)/);
@@ -41,7 +41,7 @@ test('custom home only renders real Spotify cards and leaves original navigation
 });
 
 test('Home bootstrap precedes optional hooks and mobile shell initialization is idempotent', () => {
-    const bridge = read('assets/spotify_bridge.js');
+    const bridge = read('scripts/spotify_bridge.source.js');
     const earlyBootstrap = bridge.slice(0, bridge.indexOf('// --- Webpack Module Hook'));
     const shellInitializer = bridge.match(/function initializeMobileShell\(\) \{([\s\S]*?)\n        const maxRetries/);
 
@@ -55,7 +55,7 @@ test('Home bootstrap precedes optional hooks and mobile shell initialization is 
 });
 
 test('home waits for Spotify to mount its delayed SPA view before collecting cards', () => {
-    const bridge = read('assets/spotify_bridge.js');
+    const bridge = read('scripts/spotify_bridge.source.js');
     const update = bridge.match(/function updateMelodixHome\(\) \{([\s\S]*?)\n    \}\n\n    function initializeMelodixHome/);
     assert.ok(update, 'custom home update function should exist');
 
@@ -67,7 +67,7 @@ test('home waits for Spotify to mount its delayed SPA view before collecting car
 });
 
 test('home card URLs must stay on Spotify and point to a real content route', () => {
-    const bridge = read('assets/spotify_bridge.js');
+    const bridge = read('scripts/spotify_bridge.source.js');
     const helper = bridge.match(/function melodixHomeResourcePath\(href\) \{[\s\S]*?\n    \}/);
     assert.ok(helper, 'Spotify resource path guard should exist');
 

@@ -133,6 +133,30 @@ jobs:
             cp -a "$source_dir/$item" "$work_dir/"
           done
 
+          # The native runner evaluates the bridge as one CSP-immune payload.
+          # Keep its generated asset in sync with the readable source and below
+          # the largest payload already observed running on the device.
+          python3 - "$source_dir" <<'PY'
+          import hashlib
+          import pathlib
+          import re
+          import sys
+
+          root = pathlib.Path(sys.argv[1])
+          for name in ("spotify_bridge", "native_ui_shell"):
+              source = (root / f"scripts/{name}.source.js").read_bytes()
+              runtime = (root / f"assets/{name}.js").read_bytes()
+              header = runtime.splitlines()[0].decode("ascii")
+              match = re.fullmatch(
+                  rf"/\* generated from scripts/{name}\.source\.js; sha256=([0-9a-f]{{64}}); terser=5\.51\.2; no-compress,no-mangle \*/",
+                  header,
+              )
+              if not match or match.group(1) != hashlib.sha256(source).hexdigest():
+                  raise SystemExit(f"assets/{name}.js is stale; run scripts/build_runtime_assets.sh")
+              if len(runtime) >= 108867:
+                  raise SystemExit(f"Runtime {name} payload exceeds the previously successful shell size: {len(runtime)} bytes")
+          PY
+
           # The app validates its signing certificate at startup. Set the preview
           # fingerprint in the temporary build so the new package passes that check.
           signing_keystore="$RUNNER_TEMP/melodix-preview-signing.jks"
@@ -256,6 +280,10 @@ jobs:
             extracted_size="$(unzip -p "$output" "assets/$asset" 2>/dev/null | wc -c | tr -d ' ')"
             if [[ "${extracted_size:-0}" -lt 1000 ]]; then
               echo "::error::assets/$asset is missing or truncated (${extracted_size:-0} bytes) in the preview APK."
+              exit 1
+            fi
+            if [[ ("$asset" == "spotify_bridge.js" || "$asset" == "native_ui_shell.js") && "$extracted_size" -ge 108867 ]]; then
+              echo "::error::assets/$asset exceeds the 108867-byte payload already observed running on-device (${extracted_size} bytes)."
               exit 1
             fi
           done

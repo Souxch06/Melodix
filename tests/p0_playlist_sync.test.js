@@ -14,8 +14,8 @@ const path = require('node:path');
 const vm = require('node:vm');
 
 const root = path.resolve(__dirname, '..');
-const shellSrc = fs.readFileSync(path.join(root, 'assets', 'native_ui_shell.js'), 'utf8');
-const bridgeSrc = fs.readFileSync(path.join(root, 'assets', 'spotify_bridge.js'), 'utf8');
+const shellSrc = fs.readFileSync(path.join(root, 'scripts', 'native_ui_shell.source.js'), 'utf8');
+const bridgeSrc = fs.readFileSync(path.join(root, 'scripts', 'spotify_bridge.source.js'), 'utf8');
 
 function makeAnchor(href, text, imgSrc) {
   const img = imgSrc ? { src: imgSrc, getAttribute: (n) => (n === 'src' ? imgSrc : null) } : null;
@@ -292,7 +292,7 @@ test('[P0 playlists] le bridge notifie le shell quand mediaLib est settle (pas d
 // ---------------------------------------------------------------------------
 
 test('a session error points at Settings instead of promising a retry', () => {
-    const shell = fs.readFileSync(path.join(root, 'assets', 'native_ui_shell.js'), 'utf8');
+    const shell = fs.readFileSync(path.join(root, 'scripts', 'native_ui_shell.source.js'), 'utf8');
     // Definitive errors cannot be fixed by retrying: the row opens Settings.
     assert.match(shell, /err === 'token-missing'\)[\s\S]{0,200}paramètres/);
     assert.match(shell, /err === 'http-401'\)[\s\S]{0,200}paramètres/);
@@ -302,7 +302,7 @@ test('a session error points at Settings instead of promising a retry', () => {
 });
 
 test('a transient error only promises a retry while the retry loop is alive', () => {
-    const shell = fs.readFileSync(path.join(root, 'assets', 'native_ui_shell.js'), 'utf8');
+    const shell = fs.readFileSync(path.join(root, 'scripts', 'native_ui_shell.source.js'), 'utf8');
     assert.match(shell, /function homeRetryLoopAlive\(\)/);
     assert.match(shell, /homeRetryLoopAlive\(\)[\s\S]{0,120}nouvel essai automatique en cours/);
     assert.match(shell, /touchez pour réessayer/);
