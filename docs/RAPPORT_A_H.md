@@ -150,24 +150,78 @@ si un contrôle cliquable repasse sous ce seuil.
 
 ## H. Preuves (SHA, runs, artefacts)
 
+### Exécution réelle — première trace exploitable
+
+Le run `Capture preview launch trace on emulator` **41141786095** (commit
+`eae651d`) a abouti et a publié son rapport sur le commit. Faits mesurés sur
+l'émulateur (API 25, Pixel 2), pas déduits :
+
+- **install** : `Performing Streamed Install Success`,
+  `versionCode=1020810`, `versionName=1.2.2-eae651d` — l'APK s'installe ;
+- **resumed** : `mResumedActivity: ... com.melodix.music.MainActivity` —
+  l'activité est bien au premier plan ;
+- **stage_chain** (relevée dans les préférences) :
+  `attach+0s application+4s activity-create+10s signature-ok+10s
+  content-view+11s`, puis un second lancement
+  `attach+0s application+3s activity-create+7s signature-ok+7s
+  content-view+8s` ;
+- **visible text** : vide sur les deux lancements ;
+- **MDXTRACE** : aucune ligne ;
+- **fatal / crash buffer** : vides ;
+- **last_crash** (mémoire d'un lancement antérieur) :
+  `WindowManager$BadTokenException: Unable to add window -- token ... is not
+  valid; is your activity running?` à `ViewRootImpl.setView`.
+
+Lecture : le processus démarre, la vue est posée (`content-view`), puis plus
+aucune étape n'est franchie et **rien n'est peint à l'écran**. Aucun
+`MDXTRACE` signifie que le JavaScript n'a jamais tourné : le splash n'est
+donc jamais masqué (seul `showNativeUi()` le masque).
+
+Deux limites honnêtes de cette mesure : « visible text » vide peut aussi
+provenir d'un dump uiautomator vide (le script ne distinguait pas les deux),
+et la capture ne s'échantillonnait qu'à la reprise d'activité puis à 20 s —
+impossible de savoir si l'application se débloque plus tard. Les deux points
+sont corrigés dans le script (chronologie à 5/10/15/20/30/45/60/75 s).
+
+### Causes racines identifiées grâce à cette trace
+
+1. `notifyNativeUiReady` exigeait le sélecteur DOM
+   `data-testid="user-widget-link"` : si Spotify renomme ce nœud, la
+   condition ne s'ouvre jamais et le splash reste indéfiniment
+   (`8d42a30` : une bibliothèque réelle vaut preuve de session).
+2. La branche `detail` de `applyNativeUiData` avait sa condition inversée :
+   elle jetait les morceaux quand l'écran courant était déjà `detail`,
+   c'est-à-dire exactement après l'ouverture d'une playlist, et les peignait
+   dans le cas contraire (`5fb1b0b`).
+3. Le splash n'affichait ni texte ni indicateur : un démarrage lent était
+   indiscernable d'un blocage (`2403d85`).
+
+### Builds
+
 | SHA | Build `preview-apk` | Conclusion |
 | --- | --- | --- |
-| `fa51438` | 41142605470 | en cours à la rédaction |
+| `5fb1b0b` | en cours | — |
+| `8d42a30` | en cours | — |
+| `5fc5500` | 41177xxxx | success |
+| `2403d85` | 41177559131 | success |
+| `25ed32d` | 41177498822 | **failure** — étape 1 seulement : le message de commit ne contenait ni `[preview-release] vX-test.N-preview` ni `[skip-release]`, donc aucun tag choisi. Aucune compilation n'a eu lieu. |
+| `7c20f8a` | 41177423056 | success |
+| `b3f0a0f` | 41142747493 | success |
+| `135c82d` | 41142707451 | success |
+| `fa51438` | 41142605470 | success |
 | `18b07fb` | 41142540639 | success |
 | `ca0c086` | 41142441189 | success |
 | `a885bf3` | 41142354291 | success |
 | `fb96511` | 41142291474 | success |
-| `b9c3880` | 41142114343 | success |
 | `9390eeb` | 41142017977 | success |
 | `ac9955f` | 41141962598 | success |
 | `eae651d` | 41141786125 | success |
 
-Release : `v1.2.2-test.81-preview` (2 assets : APK + empreinte SHA-256) a été
-produite à partir du build vert `eae651d`. Elle est donc **antérieure** aux
-corrections `ac9955f` → `fa51438` : une nouvelle release preview ne sera créée
-qu'après un build vert des derniers commits, avec un tag unique.
+Règle vérifiée à la dure : **tout push doit contenir `[skip-release]` ou
+commencer par `[preview-release] vX.Y.Z-test.N-preview`**, sinon le workflow
+échoue avant même de compiler.
 
-Capture d'exécution (`Capture preview launch trace on emulator`) : le run
-41141786095 (commit `eae651d`) a été lancé le 2026-10-30 à 23:00:42Z ; l'étape
-« Install, launch and collect the trace » est la dernière suivie. Tant que ce
-run n'a pas produit de log, **aucune conclusion d'exécution n'est tirée**.
+Release : `v1.2.2-test.81-preview` (2 assets : APK + SHA-256) provient du build
+vert `eae651d`. Elle est donc **antérieure** à toutes les corrections listées
+ci-dessus. Aucune nouvelle release ne sera publiée tant que les correctifs
+récents n'auront pas un build vert, avec un tag unique.
