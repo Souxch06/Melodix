@@ -1011,7 +1011,9 @@
 
     .line 229
     .line 230
-    const-string v2, "(function() {if(window.__sfPlayerNavDone)return;var l=document.querySelector('button[data-testid=web-player-link],a[data-testid=web-player-link]');if(!l)return;window.__sfPlayerNavDone=1;try{AndBridge.loginDetected();}catch(e){}try{l.click();}catch(e){}setTimeout(function(){if(document.querySelector('#main-view'))return;var a=l.closest?l.closest('a'):null;var h=(a&&a.getAttribute('href'))||l.getAttribute('href')||'';var t=(h&&(h.indexOf('http')===0||h.charAt(0)==='/'))?h:'https://open.spotify.com/app';try{AndBridge.logDiagEvent('player-cta nav');}catch(e){}try{window.location.assign(t);}catch(e){}},2500);})();"
+    # The CTA only signals the existing login marker; never activate it.
+    # Its fallback navigation stays in native_ui_shell.js and this WebView.
+    const-string v2, "(function() {if(window.__sfPlayerCtaObserved)return;var l=document.querySelector('button[data-testid=web-player-link],a[data-testid=web-player-link]');if(!l)return;window.__sfPlayerCtaObserved=1;try{AndBridge.loginDetected();}catch(e){}try{AndBridge.logDiagEvent('player-cta observed; no auto-click');}catch(e){}})();"
 
     .line 231
     .line 232

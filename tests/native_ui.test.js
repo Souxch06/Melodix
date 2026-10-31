@@ -130,6 +130,98 @@ test('Spotify links are normalized to safe native row URIs', () => {
     assert.equal(context.nativeSpotifyUri('https://example.org/playlist/abc123'), 'https://example.org/playlist/abc123');
 });
 
+test('player recovery rejects app intents and external targets, keeping navigation on Spotify HTTPS', () => {
+    const shell = read('assets/native_ui_shell.js');
+    const safeHelper = shell.match(/function safeWebPlayerUrl\(raw, fallback\) \{[\s\S]*?\n    \}/);
+    const navHelper = shell.match(/function navToPlayer\(n, href, frameSrc\) \{[\s\S]*?\n    \}/);
+    assert.ok(safeHelper, 'the Web Player URL validator should exist');
+    assert.ok(navHelper, 'player recovery should have a single navigation helper');
+
+    const assigned = [];
+    const traces = [];
+    const context = {
+        URL,
+        window: { location: { assign: (target) => assigned.push(target) } },
+        diagTrace: (line) => traces.push(line)
+    };
+    vm.runInNewContext(`${safeHelper[0]}\n${navHelper[0]}\nglobalThis.navToPlayer = navToPlayer;`, context);
+
+    context.navToPlayer(1, 'intent://open.spotify.com/app#Intent;scheme=https;end', '');
+    assert.equal(assigned.pop(), 'https://open.spotify.com/app', 'intent targets fall back to the Web Player');
+
+    context.navToPlayer(1, 'https://open.spotify.com.evil.test/app', '');
+    assert.equal(assigned.pop(), 'https://open.spotify.com/app', 'lookalike hosts never leave the WebView for an external site');
+
+    context.navToPlayer(1, 'https://open.spotify.com:8443/app', '');
+    assert.equal(assigned.pop(), 'https://open.spotify.com/app', 'unexpected ports are rejected');
+
+    context.navToPlayer(1, '/app', 'https://open.spotify.com/search?query=Jazz');
+    assert.equal(assigned.pop(), 'https://open.spotify.com/search?query=Jazz', 'a valid player frame remains the preferred web target');
+
+    context.navToPlayer(1, '/app', '');
+    assert.equal(assigned.pop(), 'https://open.spotify.com/app', 'relative CTA links stay on the Spotify Web Player host');
+    assert.equal(traces.length, 5);
+});
+
+test('a Spotify landing CTA is read but never auto-clicked during player recovery', () => {
+    const script = read('assets/native_ui_shell.js');
+    let now = 10000;
+    let clicked = 0;
+    const assigned = [];
+    const timers = [];
+    const traces = [];
+    const values = new Map();
+    const FakeDate = class extends Date {
+        static now() { return now; }
+    };
+    const cta = {
+        closest: () => null,
+        getAttribute: (name) => name === 'href' ? '/app' : null,
+        click: () => { clicked += 1; }
+    };
+    const document = {
+        readyState: 'complete',
+        title: 'Spotify - Web Player',
+        body: { childElementCount: 1 },
+        documentElement: null,
+        querySelector: (selector) => selector.indexOf('web-player-link') >= 0 ? cta : null,
+        querySelectorAll: () => [],
+        addEventListener: () => {}
+    };
+    const window = {
+        location: {
+            hostname: 'open.spotify.com',
+            pathname: '/intl-fr/',
+            href: 'https://open.spotify.com/intl-fr/',
+            assign: (target) => assigned.push(target)
+        },
+        localStorage: {
+            getItem: (key) => values.has(key) ? values.get(key) : null,
+            setItem: (key, value) => values.set(key, value)
+        },
+        AndBridge: { logDiagEvent: (line) => traces.push(line) },
+        addEventListener: () => {},
+        setTimeout: (callback, delay) => {
+            timers.push({ callback, delay });
+            return timers.length;
+        },
+        clearTimeout: () => {}
+    };
+
+    vm.runInNewContext(script, { window, document, URL, Date: FakeDate });
+    assert.equal(window.__sfNativeUiShellCompleted, true);
+    assert.equal(window.__sfNativeUiShellErrors, 0);
+    const recoveryTimer = timers.find((timer) => timer.delay === 2600);
+    assert.ok(recoveryTimer, 'the page gets its grace period before navigating');
+
+    now += 2600;
+    recoveryTimer.callback();
+
+    assert.equal(clicked, 0, 'the page CTA is never activated programmatically');
+    assert.deepEqual(assigned, ['https://open.spotify.com/app'], 'recovery stays inside the Web Player');
+    assert.ok(traces.includes('player-cta found; web navigation only'));
+});
+
 test('native Home collector keeps image-less Spotify links and filters non-Spotify artwork', () => {
     const calls = [];
     const externalArtwork = {

@@ -260,18 +260,27 @@ test('the shell JS reports the silent hold (missing widget or bridge)', () => {
 // Part 6 - CONTENT STUCK fix: deterministic navigation to the web player
 // ---------------------------------------------------------------------------
 
-test('the shell opens the web player even without the landing CTA', () => {
+test('the shell opens the web player only through an allowlisted HTTPS URL', () => {
   const js = read('assets/native_ui_shell.js');
   assert.ok(js.includes('function maybeNavigateToPlayer()'),
     'the player must open regardless of the landing DOM');
+  assert.ok(js.includes('function safeWebPlayerUrl(raw, fallback)'),
+    'all detected targets pass through one URL policy');
+  const safeUrl = js.slice(js.indexOf('function safeWebPlayerUrl('), js.indexOf('function iframePlayerSrc()'));
+  assert.ok(safeUrl.includes("url.protocol !== 'https:'"));
+  assert.ok(safeUrl.includes("url.hostname.toLowerCase() !== 'open.spotify.com'"));
+  assert.ok(safeUrl.includes('url.username || url.password'));
   assert.ok(js.includes('function navToPlayer(n, href, frameSrc)'),
     'navigation is its own traced step');
   assert.ok(js.includes("diagTrace('player-nav try '"),
     'each navigation attempt is traced for the photo');
-  assert.ok(js.includes("location.assign(target)"),
-    'navigation is deterministic (synthetic click alone can be ignored)');
+  assert.ok(js.includes('window.location.assign(target)'),
+    'the allowlisted web route loads inside the WebView');
   assert.ok(js.includes("'https://open.spotify.com/app'") && js.includes("'https://open.spotify.com/search'"),
     'two player entry URLs are tried in order');
+  const recovery = js.slice(js.indexOf('function maybeNavigateToPlayer()'), js.indexOf('function domCensusOnce()'));
+  assert.doesNotMatch(recovery, /cta\.click\s*\(/,
+    'the Android web-player CTA must never be synthetically clicked');
 });
 
 test('navigation is bounded across page loads (no loops)', () => {
@@ -302,16 +311,24 @@ test('the DOM census names the page for the next photo', () => {
     'iframes are counted (the player may be framed)');
 });
 
-test('the login-page snippet keeps its side effects and gains the fallback', () => {
+test('the login-page CTA is observed without a synthetic click or duplicate navigation', () => {
   const c91 = read('smali/c91.smali');
-  assert.ok(c91.includes('AndBridge.loginDetected();'),
-    'loginDetected() must keep firing (existing behavior)');
-  assert.ok(c91.includes('l.click();'),
-    'the CTA click is still the first attempt');
-  assert.ok(c91.includes('player-cta nav'),
-    'the deterministic fallback is traced');
-  assert.ok(c91.includes('window.location.assign(t);'),
-    'the fallback navigates when the click is ignored');
+  const ctaLine = c91.split('\n').find((line) => line.includes('player-cta observed; no auto-click'));
+  assert.ok(ctaLine, 'the CTA observer remains present');
+  assert.ok(ctaLine.includes('AndBridge.loginDetected();'),
+    'the existing login marker behavior is preserved');
+  assert.ok(ctaLine.includes('__sfPlayerCtaObserved'),
+    'the marker only fires once per page');
+  const embedded = ctaLine.match(/const-string v2, "([^"]+)"/);
+  assert.ok(embedded, 'the observed-CTA JavaScript is embedded as a Smali string');
+  assert.doesNotThrow(() => new Function(embedded[1]),
+    'the compact JavaScript remains syntactically valid');
+  assert.doesNotMatch(ctaLine, /\bl\.click\s*\(/,
+    'detecting the CTA must not activate an Android app hand-off');
+  assert.doesNotMatch(ctaLine, /window\.location\.(?:assign|replace)\s*\(/,
+    'the native shell owns the single safe Web Player navigation path');
+  assert.doesNotMatch(ctaLine, /player-cta nav/,
+    'the old competing delayed navigation has been removed');
 });
 
 
@@ -319,14 +336,16 @@ test('the login-page snippet keeps its side effects and gains the fallback', () 
 // Part 7 - wrapper page with a framed player: navigate, timers or not
 // ---------------------------------------------------------------------------
 
-test('the iframe hosting the player is the preferred navigation target', () => {
+test('the iframe hosting the player is preferred only after exact-host validation', () => {
   const js = read('assets/native_ui_shell.js');
   assert.ok(js.includes('function iframePlayerSrc()'),
     'the wrapper page frames the player - its src is the door');
-  const nav = js.slice(js.indexOf('function navToPlayer(n, href, frameSrc)'));
-  assert.ok(nav.indexOf('frameSrc') < nav.indexOf("'https://open.spotify.com/app'"),
-    'the iframe source wins over the guessed entry URLs');
-  assert.ok(nav.indexOf('open.spotify.com') >= 0);
+  const nav = js.slice(js.indexOf('function navToPlayer(n, href, frameSrc)'), js.indexOf('function sfDeepQuery('));
+  assert.ok(nav.indexOf('safeFrame') < nav.indexOf('safeHref'),
+    'a valid same-host iframe source wins over the CTA href');
+  assert.ok(nav.indexOf('safeHref') < nav.indexOf('target = safeWebPlayerUrl(fallback'),
+    'the fixed Web Player URL is the final fallback');
+  assert.ok(nav.includes('open.spotify.com'));
 });
 
 test('navigation does not depend on JS timers being alive', () => {

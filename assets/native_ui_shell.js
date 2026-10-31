@@ -1558,10 +1558,11 @@
     // (open.spotify.com/intl-xx/, title "Spotify - Web Player") that hosts
     // the real player inside IFRAMES - the DOM collectors looking at the
     // top document see nothing, so the takeover never fires. Navigate to
-    // the player deterministically: the iframe source first (the player
-    // itself), then the CTA href, then the player entry URLs. Synchronous
-    // on purpose - JS timers may stay paused in this WebView (a setTimeout
-    // fallback is attached but never trusted alone).
+    // the player deterministically: the iframe source first, then a safe
+    // Spotify Web CTA href, then a fixed Web Player entry URL. Never click
+    // the CTA: on Android it can hand off to the installed Spotify app.
+    // Every update checks the elapsed clock synchronously; the timer is only
+    // a fallback if no further DOM event arrives.
     function playerNavCount() {
         var n = 0;
         try {
@@ -1580,32 +1581,51 @@
         } catch (_) {}
     }
 
+    function safeWebPlayerUrl(raw, fallback) {
+        var value = String(raw || '').trim();
+        var url;
+        if (!value) return fallback || '';
+        try {
+            url = new URL(value, 'https://open.spotify.com/');
+        } catch (_) {
+            return fallback || '';
+        }
+        if (url.protocol !== 'https:' || url.hostname.toLowerCase() !== 'open.spotify.com' ||
+            url.username || url.password || (url.port && url.port !== '443')) {
+            return fallback || '';
+        }
+        return url.href;
+    }
+
     function iframePlayerSrc() {
         try {
             var frames = document.querySelectorAll('iframe');
             for (var i = 0; i < frames.length; i++) {
                 var src = frames[i].getAttribute('src') || '';
-                if (src.indexOf('open.spotify.com') >= 0) return src;
+                var safeSrc = safeWebPlayerUrl(src, '');
+                if (safeSrc) return safeSrc;
             }
         } catch (_) {}
         return '';
     }
 
     function navToPlayer(n, href, frameSrc) {
+        var fallback = n <= 1
+            ? 'https://open.spotify.com/app'
+            : 'https://open.spotify.com/search';
         var target = '';
         var what = '';
-        if (frameSrc && (frameSrc.indexOf('http') === 0 || frameSrc.charAt(0) === '/')) {
-            target = frameSrc;
+        var safeFrame = safeWebPlayerUrl(frameSrc, '');
+        var safeHref = safeWebPlayerUrl(href, '');
+        if (safeFrame) {
+            target = safeFrame;
             what = 'iframe';
-        } else if (href && (href.indexOf('http') === 0 || href.charAt(0) === '/')) {
-            target = href;
+        } else if (safeHref) {
+            target = safeHref;
             what = 'href';
-        } else if (n <= 1) {
-            target = 'https://open.spotify.com/app';
-            what = 'app';
         } else {
-            target = 'https://open.spotify.com/search';
-            what = 'search';
+            target = safeWebPlayerUrl(fallback, 'https://open.spotify.com/app');
+            what = n <= 1 ? 'app' : 'search';
         }
         diagTrace('player-nav try ' + n + ' ' + what);
         try {
@@ -1659,13 +1679,10 @@
         var cta = document.querySelector('button[data-testid="web-player-link"], a[data-testid="web-player-link"]');
         var href = '';
         if (cta) {
-            diagTrace('player-cta found, opening web player');
+            diagTrace('player-cta found; web navigation only');
             try {
                 var a = cta.closest ? cta.closest('a') : null;
                 href = (a && a.getAttribute('href')) || cta.getAttribute('href') || '';
-            } catch (_) {}
-            try {
-                cta.click();
             } catch (_) {}
         }
         navToPlayer(n, href, iframePlayerSrc());
