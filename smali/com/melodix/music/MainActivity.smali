@@ -7219,6 +7219,20 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
     return v0
 .end method
 
+.method public final postNativeHomeFallbackData(Ljava/lang/String;)V
+    .locals 3
+
+    if-eqz p1, :native_home_fallback_post_done
+    new-instance v0, Lcom/melodix/music/NativeUiUpdateRunnable;
+    const-string v1, "home"
+    const/4 v2, 0x3
+    invoke-direct {v0, p0, v1, p1, v2}, Lcom/melodix/music/NativeUiUpdateRunnable;-><init>(Lcom/melodix/music/MainActivity;Ljava/lang/String;Ljava/lang/String;I)V
+    invoke-virtual {p0, v0}, Landroid/app/Activity;->runOnUiThread(Ljava/lang/Runnable;)V
+
+    :native_home_fallback_post_done
+    return-void
+.end method
+
 .method public final showNativeUi()V
     .locals 5
 
@@ -8290,7 +8304,7 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
     const-string v1, "home"
     invoke-virtual {v1, v0}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
     move-result v0
-    if-nez v0, :native_rows_list
+    if-eqz v0, :native_rows_list
     invoke-static {p0, p2}, Lcom/melodix/music/NativeHomeShelfRenderer;->render(Lcom/melodix/music/MainActivity;Ljava/lang/String;)V
     return-void
 

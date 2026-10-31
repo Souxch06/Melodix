@@ -223,9 +223,12 @@ test('native callback requires a Home route and real rows; the renderer remains 
   assert.match(callback, /hasNativeHomeContent\(\)Z[\s\S]*?if-nez v8, :skip_native_ready/,
     'only a real card already attached to the active native Home can suppress redispatch');
   assert.ok(callback.includes('reason=native-home-rendered'));
-  assert.match(callback, /postNativeUiRoute\(Ljava\/lang\/String;\)V[\s\S]*?postNativeUiData\(Ljava\/lang\/String;Ljava\/lang\/String;\)V/);
+  assert.match(callback, /postNativeHomeFallbackData\(Ljava\/lang\/String;\)V/);
   const activity = read('smali/com/melodix/music/MainActivity.smali');
   assert.match(activity, /\.method public final hasNativeHomeContent\(\)Z[\s\S]*?nativeCurrentScreen[\s\S]*?nativeHomeContentReady/);
+  assert.match(activity, /\.method public final postNativeHomeFallbackData\(Ljava\/lang\/String;\)V[\s\S]*?const\/4 v2, 0x3[\s\S]*?runOnUiThread/);
+  const updateRunnable = read('smali/com/melodix/music/NativeUiUpdateRunnable.smali');
+  assert.match(updateRunnable, /const\/4 v2, 0x3[\s\S]*?ui=render-start[\s\S]*?setNativeScreen\(Ljava\/lang\/String;\)V[\s\S]*?renderNativeRows\(Ljava\/lang\/String;Ljava\/lang\/String;\)V[\s\S]*?ui=render-returned/);
   assert.doesNotMatch(callback, /showNativeUi\(\)V|setVisibility\(I\)V|revealWebUi\(\)V/,
     'the fallback never hides Spotify itself; NativeHomeShelfRenderer must attach a real card first');
   const renderer = read('smali/com/melodix/music/NativeHomeShelfRenderer.smali');

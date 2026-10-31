@@ -178,11 +178,9 @@
     const-string v10, "native-home-fallback-data-queued"
     invoke-static {v10}, Lcom/melodix/music/NativeCrashGuard;->stage(Ljava/lang/String;)V
 
-    const-string v8, "home"
-    invoke-virtual {v7, v8}, Lcom/melodix/music/MainActivity;->postNativeUiRoute(Ljava/lang/String;)V
     invoke-virtual {v2}, Lorg/json/JSONArray;->toString()Ljava/lang/String;
     move-result-object v9
-    invoke-virtual {v7, v8, v9}, Lcom/melodix/music/MainActivity;->postNativeUiData(Ljava/lang/String;Ljava/lang/String;)V
+    invoke-virtual {v7, v9}, Lcom/melodix/music/MainActivity;->postNativeHomeFallbackData(Ljava/lang/String;)V
     goto :callback_done
 
     :skip_native_ready

@@ -998,7 +998,11 @@ test('Home is rendered as Spotify-style cover shelves, not a flat settings list'
     const renderer = read('smali/com/melodix/music/NativeHomeShelfRenderer.smali');
     const layout = read('res/layout/activity_main.xml');
 
-    assert.match(activity, /nativeCurrentScreen:Ljava\/lang\/String;[\s\S]{0,400}?const-string v1, "home"[\s\S]{0,300}?NativeHomeShelfRenderer;->render\(Lcom\/melodix\/music\/MainActivity;Ljava\/lang\/String;\)V/);
+    const rowsStart = activity.indexOf('.method public final renderNativeRows(');
+    const rowsBody = activity.slice(rowsStart, activity.indexOf('.end method', rowsStart));
+    assert.ok(rowsStart >= 0, 'the native row renderer exists');
+    assert.match(rowsBody, /const-string v1, "home"[\s\S]*?String;->equals\(Ljava\/lang\/Object;\)Z[\s\S]*?move-result v0[\s\S]*?if-eqz v0, :native_rows_list[\s\S]*?NativeHomeShelfRenderer;->render\(Lcom\/melodix\/music\/MainActivity;Ljava\/lang\/String;\)V/,
+        'only a non-Home screen branches to the flat list; Home must reach the shelf renderer');
     assert.match(renderer, /Landroid\/widget\/HorizontalScrollView;-><init>/, 'each section scrolls horizontally');
     assert.match(renderer, /Landroid\/widget\/HorizontalScrollView;->setHorizontalScrollBarEnabled/);
     assert.match(renderer, /NativeRowClickListener;-><init>/, 'shelf cards stay clickable');

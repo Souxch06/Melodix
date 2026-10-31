@@ -26,13 +26,35 @@
     iget v1, p0, Lcom/melodix/music/NativeUiUpdateRunnable;->action:I
     if-eqz v1, :show_native_shell
     const/4 v2, 0x2
-    if-ne v1, v2, :apply_data
+    if-ne v1, v2, :check_home_fallback
 
     iget-object v1, p0, Lcom/melodix/music/NativeUiUpdateRunnable;->screen:Ljava/lang/String;
     # A route update only switches the native screen. Calling the library tab
     # handler here navigated back to /collection/playlists on every load, which
     # reloaded the page and looped forever.
     invoke-virtual {v0, v1}, Lcom/melodix/music/MainActivity;->setNativeScreen(Ljava/lang/String;)V
+    return-void
+
+    :check_home_fallback
+    const/4 v2, 0x3
+    if-ne v1, v2, :apply_data
+
+    # The recovery callback combines route selection and rendering in this one
+    # UI-thread task. This prevents its Home payload from racing a separate route
+    # runnable and bypasses only the generic route gate, not the real-card shelf.
+    const-string v1, "native-home-fallback ui=render-start"
+    invoke-static {v1}, Lcom/melodix/music/NativeCrashGuard;->diagLine(Ljava/lang/String;)V
+    invoke-static {v1}, Lcom/melodix/music/StartupDiagnosticOverlay;->appendDiagnosticLine(Ljava/lang/String;)V
+
+    const-string v1, "home"
+    invoke-virtual {v0, v1}, Lcom/melodix/music/MainActivity;->setNativeScreen(Ljava/lang/String;)V
+    const-string v1, "Accueil"
+    iget-object v2, p0, Lcom/melodix/music/NativeUiUpdateRunnable;->data:Ljava/lang/String;
+    invoke-virtual {v0, v1, v2}, Lcom/melodix/music/MainActivity;->renderNativeRows(Ljava/lang/String;Ljava/lang/String;)V
+
+    const-string v1, "native-home-fallback ui=render-returned"
+    invoke-static {v1}, Lcom/melodix/music/NativeCrashGuard;->diagLine(Ljava/lang/String;)V
+    invoke-static {v1}, Lcom/melodix/music/StartupDiagnosticOverlay;->appendDiagnosticLine(Ljava/lang/String;)V
     return-void
 
     :show_native_shell
@@ -51,7 +73,10 @@
     move-exception v0
 
     # A failing native render must not kill the app: keep the WebView usable and
-    # leave the trace for the next launch.
+    # leave a bounded status on the phone as well as the stored crash report.
     invoke-static {v0}, Lcom/melodix/music/NativeCrashGuard;->record(Ljava/lang/Throwable;)V
+    const-string v1, "native-ui-update failed; render status unknown"
+    invoke-static {v1}, Lcom/melodix/music/NativeCrashGuard;->diagLine(Ljava/lang/String;)V
+    invoke-static {v1}, Lcom/melodix/music/StartupDiagnosticOverlay;->appendDiagnosticLine(Ljava/lang/String;)V
     return-void
 .end method
