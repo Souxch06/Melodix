@@ -878,6 +878,22 @@
         }, 500);
     }
 
+    // The account library is only served to a signed-in session, so a single
+    // real entry is a stronger proof of an open session than any DOM selector.
+    // Spotify renames its account control regularly; when that happened the
+    // old gate below never opened and the whole native UI stayed invisible
+    // behind the splash for the entire life of the process.
+    function libraryProvesSession() {
+        var library = window.mediaLib;
+        var groups = ['playlists', 'albums', 'artists', 'podcasts'];
+        var i;
+        if (!library) return false;
+        for (i = 0; i < groups.length; i += 1) {
+            if (Array.isArray(library[groups[i]]) && library[groups[i]].length > 0) return true;
+        }
+        return false;
+    }
+
     function notifyNativeUiReady(mainView) {
         var bridge = window.AndBridge;
         var userWidget;
@@ -886,7 +902,16 @@
 
         // Do not cover Spotify's page until its signed-in account control is present.
         userWidget = sfDeepQuery('button[data-testid="user-widget-link"], a[data-testid="user-widget-link"]');
-        if (!userWidget || !bridge || typeof bridge.onNativeUiReady !== 'function') {
+        var sessionProven = Boolean(userWidget);
+        if (!sessionProven && libraryProvesSession()) {
+            // Covered by a real library fetch: no DOM dependency needed.
+            sessionProven = true;
+            window.__sfNativeUiReadyLibraryProof = (window.__sfNativeUiReadyLibraryProof || 0) + 1;
+            if (window.__sfNativeUiReadyLibraryProof === 1) {
+                diagTrace('ready by library proof (account control absent)');
+            }
+        }
+        if (!sessionProven || !bridge || typeof bridge.onNativeUiReady !== 'function') {
             // P0 diagnostic: the silent hold is the most common freeze - say
             // which half is missing (account control or bridge), throttled.
             window.__sfNoWidgetCount = (window.__sfNoWidgetCount || 0) + 1;

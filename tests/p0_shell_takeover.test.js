@@ -99,14 +99,16 @@ function cardPage({ withCards = true } = {}) {
 }
 
 // Boots the real shell against a fake page and records every bridge call.
-function loadShell({ withCards = true, mediaLib = null, locationPath = '/', searchMediaItemsImpl = null } = {}) {
+function loadShell({ withCards = true, mediaLib = null, locationPath = '/', searchMediaItemsImpl = null, noUserWidget = false } = {}) {
     const timers = [];
     const navigations = [];
     const { main, widget } = cardPage({ withCards });
     const calls = { ready: 0, data: [], routes: [], mediaLibChecks: 0 };
     const byId = new Map();
     byId.set('#main-view', main);
-    byId.set('button[data-testid="user-widget-link"], a[data-testid="user-widget-link"]', widget);
+    if (!noUserWidget) {
+        byId.set('button[data-testid="user-widget-link"], a[data-testid="user-widget-link"]', widget);
+    }
 
     const document = {
         readyState: 'complete',
@@ -454,4 +456,25 @@ test('an empty category still navigates to its real page', async () => {
     await new Promise((resolve) => setTimeout(resolve, 5));
     assert.deepEqual(navigations, ['https://open.spotify.com/collection/albums'],
         'le repli reel reste la navigation');
+});
+
+// P0-A: the takeover used to depend on Spotify's account control selector
+// (data-testid="user-widget-link"). Spotify renames those nodes regularly; when
+// it did, the gate never opened, showNativeUi() was never called and the splash
+// covered the app for the whole life of the process - the exact state the
+// emulator trace showed (stage chain stopped at content-view, no on-screen
+// text). A real library fetch proves the session just as well, without any
+// dependency on the page markup.
+test('a real library proves the session even when the account control is gone', () => {
+    const { calls } = loadShell({
+        withCards: false,
+        noUserWidget: true,
+        mediaLib: { playlists: [{ id: 'spotify:playlist:p1', name: 'Vraie playlist' }] }
+    });
+    assert.equal(calls.ready, 1, 'la coque native prend la main sans dependre du DOM');
+});
+
+test('without the account control and without a library, nothing is covered', () => {
+    const { calls } = loadShell({ withCards: false, noUserWidget: true });
+    assert.equal(calls.ready, 0, 'aucune preuve de session: la page Spotify reste visible');
 });
