@@ -4771,6 +4771,47 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
     return p0
 .end method
 
+# Last native boundary for ACTION_VIEW hand-offs: keep Spotify links in the
+# already-created player WebView rather than dispatching them to Spotify app.
+.method public startActivity(Landroid/content/Intent;)V
+    .locals 2
+
+    sget-object v0, Lcom/melodix/music/AppSingleton;->w:Ll9;
+
+    invoke-static {v0, p1}, Lcom/melodix/music/SpotifyNavigationPolicy;->interceptActivityIntent(Landroid/webkit/WebView;Landroid/content/Intent;)Z
+
+    move-result v1
+
+    if-eqz v1, :start_activity_super
+
+    return-void
+
+    :start_activity_super
+    invoke-super {p0, p1}, Le6;->startActivity(Landroid/content/Intent;)V
+
+    return-void
+.end method
+
+.method public startActivity(Landroid/content/Intent;Landroid/os/Bundle;)V
+    .locals 2
+
+    sget-object v0, Lcom/melodix/music/AppSingleton;->w:Ll9;
+
+    invoke-static {v0, p1}, Lcom/melodix/music/SpotifyNavigationPolicy;->interceptActivityIntent(Landroid/webkit/WebView;Landroid/content/Intent;)Z
+
+    move-result v1
+
+    if-eqz v1, :start_activity_bundle_super
+
+    return-void
+
+    :start_activity_bundle_super
+    invoke-super {p0, p1, p2}, Le6;->startActivity(Landroid/content/Intent;Landroid/os/Bundle;)V
+
+    return-void
+.end method
+
+
 .method public final onNewIntent(Landroid/content/Intent;)V
     .locals 2
 

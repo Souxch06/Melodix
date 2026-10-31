@@ -22,6 +22,7 @@ const smaliFiles = [
     'smali/com/melodix/music/StartupLoadWatchdog.smali',
     'smali/com/melodix/music/NativeAssetRunner.smali',
     'smali/com/melodix/music/NativeCrashGuard.smali',
+    'smali/com/melodix/music/SpotifyNavigationPolicy.smali',
     'smali/com/melodix/music/StartupUnstickRunnable.smali',
     'smali/com/melodix/music/StartupHangWatchdog.smali',
     'smali/com/melodix/music/NativeHomeShelfRenderer.smali',
