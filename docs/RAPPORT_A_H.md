@@ -230,7 +230,8 @@ sur l'émulateur, serait non fondée et n'est pas faite dans ce rapport.
 
 | SHA | Build `preview-apk` | Conclusion |
 | --- | --- | --- |
-| `9a88cba` | 9a88cba | success (release test.82 publiée) |
+| `536437c` | 536437c | success (release test.83, seule conservée) |
+| `9a88cba` | 9a88cba | success (release test.82, supprimée depuis) |
 | `e115e9e` | e115e9e | success |
 | `af001d2` | af001d2 | success |
 | `b2f4bbf` | b2f4bbf | success |
@@ -259,16 +260,20 @@ commencer par `[preview-release] vX.Y.Z-test.N-preview`**, sinon le workflow
 
 ### Releases
 
-| Tag | Origine | Contenu |
-| --- | --- | --- |
-| `v1.2.2-test.81-preview` | build vert `eae651d` | état de début de nuit |
-| `v1.2.2-test.82-preview` | build vert `9a88cba` | ce lot complet |
+**Une seule release existe : `v1.2.2-test.83-preview`**, buildée à partir du
+build vert `536437c`, plus le commit de documentation `[skip-release]` qui
+suit. Elle porte 2 assets : l'APK (3 355 400 octets, empreinte vérifiée
+`sha256:f22814478c34b25a774ea8910137fc1aab24f65168178a74aa1a61871b8a89d7`)
+et son fichier `.sha256`. Le corps de release renvoie au commit, qui contient
+le détail des changements et la liste explicite de ce qui n'est **pas** prouvé.
 
-`v1.2.2-test.82-preview` porte 2 assets (APK 3 355 400 octets + empreinte
-SHA-256), tag unique, créé uniquement après un build vert. Le corps de release
-est généré par le workflow et renvoie au commit `9a88cba`, qui contient le
-détail des changements et, surtout, la liste explicite de ce qui n'est **pas**
-prouvé.
+Sur demande, les 57 releases antérieures (jusqu'à `v1.2.2-test.82-preview`) et
+leurs 79 tags orphelins ont été supprimés : le dépôt ne conserve que la
+dernière version téléchargeable. L'opération est sans risque pour les
+installations existantes, car le `versionCode` vaut
+`version + test_number + 28 + numéro_de_run` — il ne dépend pas des tags et
+continue donc de croître. Les commits restent intacts ; la correspondance
+tag → commit des tags retirés est conservée dans `docs/anciens_tags.txt`, avec
+la commande de restauration.
 
-Aucune release n'a été supprimée, aucun tag renommé, `main` et la PR #7 n'ont
-pas été touchées.
+`main` et la PR #7 n'ont pas été touchées.

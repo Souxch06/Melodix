@@ -1,0 +1,102 @@
+# Tags de preview supprimes
+
+Le 2026-10-31, toutes les releases de preview anterieures a
+`v1.2.2-test.83-preview` ont ete supprimees, puis leurs tags orphelins, pour ne
+conserver qu'une seule version telechargeable.
+
+- Aucune release n'a jamais ete utilisee par le pipeline : le `versionCode`
+  vaut `version + test_number + 28 + numero_de_run`, il ne depend donc pas de
+  l'existence des tags. Supprimer ces tags ne casse aucune mise a jour future.
+- Les commits sont **intacts** : seul le nom qui les designait a disparu.
+
+## Restaurer un tag
+
+```bash
+git tag <nom> <sha> && git push origin <nom>
+# ou, si l'on veut la release complete : relancer le workflow en mode
+# workflow_dispatch avec release_tag=<nom> et source_ref=<sha de 40 caracteres>
+```
+
+## Correspondance tag -> commit
+
+| Tag | Commit |
+| --- | --- |
+| `v1.2.2-test.4-preview` | `719f9ec5775182d8e3abf58e93b375f513fe6ebf` |
+| `v1.2.2-test.5-preview` | `3d196519e50a0a1d0ba55ddf307f13ce60e20bfc` |
+| `v1.2.2-test.6-preview` | `461ccf007050bbc699015b0626ea0d70778a934f` |
+| `v1.2.2-test.7-preview` | `f9d843b6362bc816e1a8fcca622fe0ba74220d12` |
+| `v1.2.2-test.8-preview` | `d3b39ee445b5ffeeba6d98f8396b5ba4cfe24b66` |
+| `v1.2.2-test.9-preview` | `32130fac6f3cf4e269552196e87a323dc9f2fe98` |
+| `v1.2.2-test.10-preview` | `1330aef7c5e695d48c66ce08582ef0c22f892f28` |
+| `v1.2.2-test.11-preview` | `915557613397c560245955df80a8394647fbf529` |
+| `v1.2.2-test.12-preview` | `6bddd3a15736c86293f6a4751ef6406a32f57a4f` |
+| `v1.2.2-test.13-preview` | `e8b796a346685259822e01fec8b9ffc292679d91` |
+| `v1.2.2-test.14-preview` | `bdf1267dcecbdbe7bdbdc3517ab0af87c6193da6` |
+| `v1.2.2-test.15-preview` | `5aaf78b7c50fc75a3210ce06e6dacc5365ea00e9` |
+| `v1.2.2-test.16-preview` | `2d76d67c7bb67b486d0507e5ef2708d4ac25abcc` |
+| `v1.2.2-test.17-preview` | `5cc89ece7592ce36c7695b62282447bfca21dec7` |
+| `v1.2.2-test.18-preview` | `8a386bf82e859594dfe10592e40a47cc83ef6d14` |
+| `v1.2.2-test.19-preview` | `6019945b0c93b019275f68821b7f7dd071946836` |
+| `v1.2.2-test.20-preview` | `a2e816c2dd73efe13387ec59df6f105ea683b94d` |
+| `v1.2.2-test.21-preview` | `9084f5da7da55dd8e3a47504525daf460e0c2882` |
+| `v1.2.2-test.22-preview` | `313629327634dc6b18a510c9ce0203ff9a5d7d91` |
+| `v1.2.2-test.23-preview` | `45767aec4eaf40fbd6ed500bf20d3f562ca72174` |
+| `v1.2.2-test.24-preview` | `141a1955548003c8289f6daa07c03bdf2be9e8a3` |
+| `v1.2.2-test.25-preview` | `55a9497d2a78745611da3131d106e3aebe78aa90` |
+| `v1.2.2-test.26-preview` | `7e2a5901e01b9976b70b674780f8788188008583` |
+| `v1.2.2-test.27-preview` | `97a2fb8f1431d5691aa6279fb29a79a42082d5f9` |
+| `v1.2.2-test.28-preview` | `6621b526c7077633a164ae4c64dec3e1436227cb` |
+| `v1.2.2-test.29-preview` | `31767147721122ff1962b8344f37b72089da04d7` |
+| `v1.2.2-test.30-preview` | `52e778863c83ade60beffeb3b939c7f67efdc11a` |
+| `v1.2.2-test.31-preview` | `386a4e7a804f6948c30fce27c6896b30ddb84979` |
+| `v1.2.2-test.32-preview` | `98098cfee931bfe3add2018b736d34d961b55494` |
+| `v1.2.2-test.33-preview` | `de605b08d06af1a91fa3586456da76327d41c390` |
+| `v1.2.2-test.34-preview` | `ecce634d608621bcf8d7a9eef5395c2d81cc1c65` |
+| `v1.2.2-test.35-preview` | `96b8db97dcd5415c44b8dd9e2d5502d630c76a2d` |
+| `v1.2.2-test.36-preview` | `40f061204a17e9780eb9373f69f33b01f2420504` |
+| `v1.2.2-test.37-preview` | `f8b4d9ff909504351c691f1da288194eb527170c` |
+| `v1.2.2-test.38-preview` | `e064196b163e30decfd815e62c893fcd9c11f0fe` |
+| `v1.2.2-test.39-preview` | `b9374b29b44de6105f4a326bd3ba7ec7b72ff4e1` |
+| `v1.2.2-test.40-preview` | `1e5c29064533585dab69f3e44f275ac7b89af06e` |
+| `v1.2.2-test.41-preview` | `a1a797915c2d27e812a2507ea0231ef6aa909b5a` |
+| `v1.2.2-test.42-preview` | `fc62d65257bedad0e4217f1e8de354e2d56baef8` |
+| `v1.2.2-test.43-preview` | `dbb6050fc481846b2ecdff22bd507f38ba626c25` |
+| `v1.2.2-test.44-preview` | `b94ebda4bf1a09e907bd424ac61d1b81d619f21b` |
+| `v1.2.2-test.45-preview` | `eebbfc6d72a907f4a4db36e06cb06d0bf1a71ae0` |
+| `v1.2.2-test.46-preview` | `4fd2a896c9168065e8fe11d819a636fc5092518f` |
+| `v1.2.2-test.47-preview` | `b163994fda8f1eb6ce546697a6137325d328bfdb` |
+| `v1.2.2-test.48-preview` | `e9d722c642fd7eaa68b9073557c2e1bf80297bf2` |
+| `v1.2.2-test.49-preview` | `9584097f168f4971d73aee5736f2a3217022ba93` |
+| `v1.2.2-test.50-preview` | `f08b8e33aaa021bb854a4898ef1477b88f054ae6` |
+| `v1.2.2-test.51-preview` | `bab38350e5ce11949a0f7c80bb0968822637ae1c` |
+| `v1.2.2-test.52-preview` | `4c2d111c2e60af9230408d1de3549b04cbb9e350` |
+| `v1.2.2-test.53-preview` | `dcd560cb0f7a1f71330e32304e051bb2beda2573` |
+| `v1.2.2-test.54-preview` | `2ec9507ea2991e1f36ca489512748b45396dabf7` |
+| `v1.2.2-test.55-preview` | `188319f6dee4642c65d0bf2c0fdca59afc44fb6c` |
+| `v1.2.2-test.56-preview` | `47f4b128a8a1b25ac2dcd13b9dff3905b138d0b2` |
+| `v1.2.2-test.57-preview` | `a48e3129a768b995992bdd682a55d5dc61866665` |
+| `v1.2.2-test.58-preview` | `6fde86222639fb6caab429a6895c09fefb7a9a31` |
+| `v1.2.2-test.59-preview` | `d5230cf2361e0d10594e464b49cad1d81de6411e` |
+| `v1.2.2-test.60-preview` | `b808acb41a4105e36cabe8a11d879d021d2971c9` |
+| `v1.2.2-test.61-preview` | `fe9ce682cfeb1a02dc3e2dd08c59c85c761b9531` |
+| `v1.2.2-test.62-preview` | `2557c9e651b04f95b46f863d37a77eaa2aa36dda` |
+| `v1.2.2-test.63-preview` | `11d72631d9196a41901eb99cb95417b0c47974f2` |
+| `v1.2.2-test.64-preview` | `d9f9a871b90a408ec5316ae6fef2098b05fb3aa9` |
+| `v1.2.2-test.65-preview` | `e057ae8bffb0c16926379f550d22446c8ac46acc` |
+| `v1.2.2-test.66-preview` | `7e2dd7bbe891ef985b67ccc3c70f99f634677f0e` |
+| `v1.2.2-test.67-preview` | `d7681cdf8f52922d1f19fac1db84c7437627c40b` |
+| `v1.2.2-test.68-preview` | `f9ed5dba1e77423a6db8cc59d0911e294a87e3d1` |
+| `v1.2.2-test.69-preview` | `afad43b4376f2e2ce3490311859f883124b8ef05` |
+| `v1.2.2-test.70-preview` | `f120fd9f955ff0590f54c26a16cd66d8c55c1da5` |
+| `v1.2.2-test.71-preview` | `5971f4d76c3e2b42b557d6fb593933dd4ca261cf` |
+| `v1.2.2-test.72-preview` | `ca338623ca20c226dda8204b2ba4c0dec8052d1b` |
+| `v1.2.2-test.73-preview` | `1b1a93b862e337f7dae4abca7a454aa96d8ee4a5` |
+| `v1.2.2-test.74-preview` | `8189fa153965ae7d877705b475deb8903164635a` |
+| `v1.2.2-test.75-preview` | `de2106afec750fa547e544c4d30354f689a71beb` |
+| `v1.2.2-test.76-preview` | `810c3a67307dd8265523b9c393c1615c45b7716c` |
+| `v1.2.2-test.77-preview` | `45b0de9997186fa77a8585d86bb5414514d9a6c4` |
+| `v1.2.2-test.78-preview` | `1d0b6bb479498bc2af75a3459095397d2e8788a4` |
+| `v1.2.2-test.79-preview` | `11078d268a368f8367807d57ac5d0bc69b555ac0` |
+| `v1.2.2-test.80-preview` | `7a3fac4deabe8ff08908a47153257413fd4604a7` |
+| `v1.2.2-test.81-preview` | `eae651d0d02e452665a489583178da724d973c4a` |
+| `v1.2.2-test.82-preview` | `9a88cba6b23469529a89885262dc61ebd84c3174` |
