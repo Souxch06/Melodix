@@ -28,6 +28,9 @@
 
     new-instance v1, Lcom/melodix/music/NativeHomeFallback$Callback;
     invoke-direct {v1}, Lcom/melodix/music/NativeHomeFallback$Callback;-><init>()V
+    const-string v2, "native-home-fallback evaluate=starting"
+    invoke-static {v2}, Lcom/melodix/music/NativeCrashGuard;->diagLine(Ljava/lang/String;)V
+    invoke-static {v2}, Lcom/melodix/music/StartupDiagnosticOverlay;->appendDiagnosticLine(Ljava/lang/String;)V
     invoke-virtual {p0, v0, v1}, Landroid/webkit/WebView;->evaluateJavascript(Ljava/lang/String;Landroid/webkit/ValueCallback;)V
 
     const-string v0, "native-home-fallback-queued"
@@ -37,6 +40,8 @@
     :asset_missing
     const-string v0, "native-home-fallback-asset-missing"
     invoke-static {v0}, Lcom/melodix/music/NativeCrashGuard;->stage(Ljava/lang/String;)V
+    invoke-static {v0}, Lcom/melodix/music/NativeCrashGuard;->diagLine(Ljava/lang/String;)V
+    invoke-static {v0}, Lcom/melodix/music/StartupDiagnosticOverlay;->appendDiagnosticLine(Ljava/lang/String;)V
     :try_end_0
     .catch Ljava/lang/Throwable; {:try_start_0 .. :try_end_0} :catch_0
 
@@ -46,6 +51,7 @@
     move-exception v2
     const-string v0, "native-home-fallback-queue-error"
     invoke-static {v0}, Lcom/melodix/music/NativeCrashGuard;->diagLine(Ljava/lang/String;)V
+    invoke-static {v0}, Lcom/melodix/music/StartupDiagnosticOverlay;->appendDiagnosticLine(Ljava/lang/String;)V
 
     :done
     return-void

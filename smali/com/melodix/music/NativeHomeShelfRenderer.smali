@@ -472,6 +472,9 @@
     const-string v1, "MDXTRACE"
     const-string v2, "home-render failed reason=no-real-spotify-cards; keep WebView visible"
     invoke-static {v1, v2}, Landroid/util/Log;->w(Ljava/lang/String;Ljava/lang/String;)I
+    const-string v1, "native-home-render rendered=false reason=no-real-cards"
+    invoke-static {v1}, Lcom/melodix/music/NativeCrashGuard;->diagLine(Ljava/lang/String;)V
+    invoke-static {v1}, Lcom/melodix/music/StartupDiagnosticOverlay;->appendDiagnosticLine(Ljava/lang/String;)V
     const-string v0, "home-render-failed"
     invoke-static {v0}, Lcom/melodix/music/NativeCrashGuard;->stage(Ljava/lang/String;)V
     invoke-virtual {p0}, Lcom/melodix/music/MainActivity;->revealWebUi()V
@@ -479,6 +482,9 @@
 
     :shelf_done
     # Success is marked only after real native child views were attached.
+    const-string v0, "native-home-render rendered=true"
+    invoke-static {v0}, Lcom/melodix/music/NativeCrashGuard;->diagLine(Ljava/lang/String;)V
+    invoke-static {v0}, Lcom/melodix/music/StartupDiagnosticOverlay;->appendDiagnosticLine(Ljava/lang/String;)V
     const-string v0, "home-rendered"
     invoke-static {v0}, Lcom/melodix/music/NativeCrashGuard;->stage(Ljava/lang/String;)V
     # Data may arrive again after a route return even when the ready callback
@@ -490,6 +496,9 @@
     const-string v0, "MDXTRACE"
     const-string v1, "home-render failed reason=native-content-missing"
     invoke-static {v0, v1}, Landroid/util/Log;->w(Ljava/lang/String;Ljava/lang/String;)I
+    const-string v1, "native-home-render rendered=false reason=content-container"
+    invoke-static {v1}, Lcom/melodix/music/NativeCrashGuard;->diagLine(Ljava/lang/String;)V
+    invoke-static {v1}, Lcom/melodix/music/StartupDiagnosticOverlay;->appendDiagnosticLine(Ljava/lang/String;)V
     const-string v0, "home-render-failed"
     invoke-static {v0}, Lcom/melodix/music/NativeCrashGuard;->stage(Ljava/lang/String;)V
     invoke-virtual {p0}, Lcom/melodix/music/MainActivity;->revealWebUi()V
@@ -500,6 +509,9 @@
     const-string v1, "MDXTRACE"
     const-string v2, "home-render failed reason=invalid-json"
     invoke-static {v1, v2}, Landroid/util/Log;->w(Ljava/lang/String;Ljava/lang/String;)I
+    const-string v1, "native-home-render rendered=false reason=invalid-json"
+    invoke-static {v1}, Lcom/melodix/music/NativeCrashGuard;->diagLine(Ljava/lang/String;)V
+    invoke-static {v1}, Lcom/melodix/music/StartupDiagnosticOverlay;->appendDiagnosticLine(Ljava/lang/String;)V
     const-string v1, "home-render-failed"
     invoke-static {v1}, Lcom/melodix/music/NativeCrashGuard;->stage(Ljava/lang/String;)V
     invoke-virtual {p0}, Lcom/melodix/music/MainActivity;->revealWebUi()V

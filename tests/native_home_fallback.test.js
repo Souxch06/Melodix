@@ -10,7 +10,7 @@ const ROOT = path.resolve(__dirname, '..');
 const read = (file) => fs.readFileSync(path.join(ROOT, file), 'utf8');
 const SCRIPT = read('assets/native_home_fallback.js');
 
-function makeAnchor({ href, title, subtitle = '', image = '', inNav = false, shown = true, aria = '' }) {
+function makeAnchor({ href, title, subtitle = '', image = '', inNav = false, shown = true, aria = '', roleLink = false, cardKind = 'article' }) {
   const titleNode = { innerText: title, textContent: title };
   const subtitleNode = { innerText: subtitle, textContent: subtitle };
   const imageNode = {
@@ -20,14 +20,14 @@ function makeAnchor({ href, title, subtitle = '', image = '', inNav = false, sho
     getAttribute(name) { return name === 'src' ? image : null; }
   };
   const card = {
-    tagName: 'ARTICLE',
+    tagName: cardKind.toUpperCase(),
     parentElement: null,
     innerText: [title, subtitle].filter(Boolean).join('\n'),
     textContent: [title, subtitle].filter(Boolean).join(' '),
-    matches(selector) { return selector.includes('article'); },
+    matches(selector) { return cardKind === 'article' && selector.includes('article'); },
     querySelector(selector) {
-      if (selector.includes('card-title') || selector.includes('data-encore-id')) return titleNode;
       if (selector.includes('subtitle')) return subtitleNode;
+      if (selector.includes('card-title') || selector.includes('data-encore-id')) return titleNode;
       if (selector.includes('img')) return imageNode;
       return null;
     }
@@ -41,9 +41,10 @@ function makeAnchor({ href, title, subtitle = '', image = '', inNav = false, sho
     getAttribute(name) {
       if (name === 'href') return href;
       if (name === 'aria-label') return aria;
+      if (name === 'role') return roleLink ? 'link' : null;
       return null;
     },
-    matches() { return false; },
+    matches(selector) { return roleLink && selector.includes('[role="link"][href]'); },
     closest(selector) { return inNav && selector.includes('nav') ? {} : null; },
     querySelector(selector) { return card.querySelector(selector); }
   };
@@ -54,7 +55,9 @@ function run({ anchors = [], hostname = 'open.spotify.com', pathname = '/intl-fr
   nativeDataSent = false, shellRows = 0, root = 'none', mainView = false } = {}) {
   const document = {
     querySelector(selector) { return selector === '#main-view' && mainView ? {} : null; },
-    querySelectorAll(selector) { return selector === 'a[href]' ? anchors : []; }
+    querySelectorAll(selector) {
+      return selector === 'a[href], [role="link"][href]' ? anchors : [];
+    }
   };
   const window = {
     location: { hostname, pathname, href: `https://${hostname}${pathname}` },
@@ -105,6 +108,26 @@ test('Home fallback collects only visible real Spotify cards when #main-view is 
   assert.equal(JSON.stringify(result).includes('private-query'), false, 'tracking query is not forwarded');
 });
 
+test('role=link cards and image-bearing ancestors are harvested with split titles', () => {
+  const { result } = run({ anchors: [makeAnchor({
+    href: 'https://open.spotify.com/artist/4Z8W4fKeB5YxbusRsdQVPb',
+    title: 'Radio ecstasy Avec SUICIDAL-IDOL',
+    image: 'https://i.scdn.co/image/real-artwork',
+    roleLink: true,
+    cardKind: 'div'
+  })] });
+  assert.equal(result.mode, 'fallback');
+  assert.equal(result.anchors, 1);
+  assert.equal(result.validLinks, 1);
+  assert.equal(result.rows.length, 1);
+  assert.equal(result.rows[0].title, 'Radio ecstasy');
+  assert.equal(result.rows[0].subtitle, 'SUICIDAL-IDOL');
+  assert.equal(result.rows[0].uri, 'spotify:artist:4Z8W4fKeB5YxbusRsdQVPb');
+  assert.equal(result.rows[0].image, 'https://i.scdn.co/image/real-artwork');
+  assert.ok(SCRIPT.includes("document.querySelectorAll('a[href], [role=\"link\"][href]')"),
+    'the collector includes Spotify role=link variants as well as anchors');
+});
+
 test('fallback refuses account/login and non-Home Spotify routes', () => {
   const anchor = makeAnchor({
     href: 'https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M',
@@ -118,11 +141,19 @@ test('fallback refuses account/login and non-Home Spotify routes', () => {
   assert.equal(detail.rows.length, 0);
 });
 
-test('a successful shell Home payload is not duplicated', () => {
-  const { result } = run({ nativeDataSent: true, shellRows: 4, root: '#main-view' });
+test('a successful shell Home payload is diagnosed but not duplicated', () => {
+  const id = '37i9dQZF1DXcBWIGoYBM5M';
+  const { result, window } = run({
+    nativeDataSent: true,
+    shellRows: 4,
+    root: '#main-view',
+    anchors: [makeAnchor({ href: `https://open.spotify.com/playlist/${id}`, title: 'Real recommendation' })]
+  });
   assert.equal(result.mode, 'home-data-sent');
-  assert.equal(result.rows.length, 0);
-  assert.equal(result.anchors, 0);
+  assert.equal(result.rows.length, 1, 'the diagnostic scrape still counts a real visible DOM card');
+  assert.equal(result.anchors, 1);
+  assert.equal(result.validLinks, 1);
+  assert.equal(window.__sfNativeHomeFallbackRows, 1);
 });
 
 test('an empty shell payload does not suppress fallback rows from the live Spotify DOM', () => {
@@ -182,15 +213,28 @@ test('native callback requires a Home route and real rows; the renderer remains 
     assert.ok(SCRIPT.includes(key + ':'), `fallback result includes ${key}`);
     assert.ok(callback.includes(`"${key}"`), `native callback reads the exact ${key} field`);
   }
-  assert.match(callback, /const-string v7, "hostOK"[\s\S]*?if-eqz v7, :callback_done/);
-  assert.match(callback, /const-string v8, "homeRoute"[\s\S]*?if-eqz v8, :callback_done/);
-  assert.match(callback, /if-lez v3, :callback_done/);
-  assert.match(callback, /if-lez v10, :fallback_dispatch/,
-    'an empty old shell payload may be replaced, but a nonempty one is not duplicated');
+  assert.match(callback, /const-string v7, "hostOK"[\s\S]*?if-eqz v7, :skip_not_host/);
+  assert.match(callback, /const-string v8, "homeRoute"[\s\S]*?if-eqz v8, :skip_not_home/);
+  assert.match(callback, /if-lez v3, :skip_no_rows/);
+  assert.match(callback, /const-string v7, "anchors"[\s\S]*?const-string v7, "validLinks"/);
+  assert.ok(callback.includes('native-home-fallback dispatch=queued rows='));
+  assert.ok(callback.includes('rendered=pending'));
+  assert.match(callback, /StartupDiagnosticOverlay;->appendDiagnosticLine/);
+  assert.match(callback, /hasNativeHomeContent\(\)Z[\s\S]*?if-nez v8, :skip_native_ready/,
+    'only a real card already attached to the active native Home can suppress redispatch');
+  assert.ok(callback.includes('reason=native-home-rendered'));
   assert.match(callback, /postNativeUiRoute\(Ljava\/lang\/String;\)V[\s\S]*?postNativeUiData\(Ljava\/lang\/String;Ljava\/lang\/String;\)V/);
+  const activity = read('smali/com/melodix/music/MainActivity.smali');
+  assert.match(activity, /\.method public final hasNativeHomeContent\(\)Z[\s\S]*?nativeCurrentScreen[\s\S]*?nativeHomeContentReady/);
   assert.doesNotMatch(callback, /showNativeUi\(\)V|setVisibility\(I\)V|revealWebUi\(\)V/,
     'the fallback never hides Spotify itself; NativeHomeShelfRenderer must attach a real card first');
   const renderer = read('smali/com/melodix/music/NativeHomeShelfRenderer.smali');
   assert.match(renderer, /startsWith\(Ljava\/lang\/String;\)Z[\s\S]*?if-eqz v7, :shelf_next/);
   assert.match(renderer, /:shelf_finish[\s\S]*?if-eqz v5, :shelf_no_cards[\s\S]*?showNativeUi\(\)V/);
+  assert.ok(renderer.includes('native-home-render rendered=true'));
+  assert.ok(renderer.includes('native-home-render rendered=false reason=no-real-cards'));
+  const overlay = read('smali/com/melodix/music/StartupDiagnosticOverlay.smali');
+  assert.ok(overlay.includes('.field private static reportTextView:Landroid/widget/TextView;'));
+  assert.ok(overlay.includes('.method public static appendDiagnosticLine(Ljava/lang/String;)V'));
+  assert.ok(overlay.includes('TextView;->setText(Ljava/lang/CharSequence;)V'));
 });

@@ -17,6 +17,8 @@
 # right after (showNativeUi) - a second panel must never stack.
 .field private static panel:Landroid/view/View;
 
+.field private static reportTextView:Landroid/widget/TextView;
+
 .field private static shown:Z
 
 
@@ -444,6 +446,43 @@
 
     sput-object v0, Lcom/melodix/music/StartupDiagnosticOverlay;->panel:Landroid/view/View;
 
+    sput-object v0, Lcom/melodix/music/StartupDiagnosticOverlay;->reportTextView:Landroid/widget/TextView;
+
+    return-void
+.end method
+
+.method public static appendDiagnosticLine(Ljava/lang/String;)V
+    .locals 4
+
+    if-eqz p0, :append_done
+
+    sget-object v0, Lcom/melodix/music/StartupDiagnosticOverlay;->reportTextView:Landroid/widget/TextView;
+    if-eqz v0, :append_done
+
+    :try_start_append
+    invoke-virtual {v0}, Landroid/widget/TextView;->getText()Ljava/lang/CharSequence;
+    move-result-object v1
+    invoke-interface {v1}, Ljava/lang/CharSequence;->toString()Ljava/lang/String;
+    move-result-object v1
+
+    new-instance v2, Ljava/lang/StringBuilder;
+    invoke-direct {v2}, Ljava/lang/StringBuilder;-><init>()V
+    invoke-virtual {v2, p0}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    const-string v3, "\n"
+    invoke-virtual {v2, v3}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    invoke-virtual {v2, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    invoke-virtual {v2}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
+    move-result-object v1
+    invoke-virtual {v0, v1}, Landroid/widget/TextView;->setText(Ljava/lang/CharSequence;)V
+    :try_end_append
+    .catch Ljava/lang/Throwable; {:try_start_append .. :try_end_append} :catch_append
+
+    goto :append_done
+
+    :catch_append
+    move-exception v1
+
+    :append_done
     return-void
 .end method
 
@@ -511,6 +550,8 @@
     invoke-virtual {p0, v0, v2}, Landroid/app/Activity;->addContentView(Landroid/view/View;Landroid/view/ViewGroup$LayoutParams;)V
 
     sput-object v0, Lcom/melodix/music/StartupDiagnosticOverlay;->panel:Landroid/view/View;
+
+    sput-object v1, Lcom/melodix/music/StartupDiagnosticOverlay;->reportTextView:Landroid/widget/TextView;
 
     const-string v2, "MDXDIAG"
 

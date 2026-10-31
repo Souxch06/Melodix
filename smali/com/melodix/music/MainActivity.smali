@@ -7203,6 +7203,22 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
     return-void
 .end method
 
+.method public final hasNativeHomeContent()Z
+    .locals 2
+
+    iget-object v0, p0, Lcom/melodix/music/MainActivity;->nativeCurrentScreen:Ljava/lang/String;
+    const-string v1, "home"
+    invoke-virtual {v1, v0}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    move-result v0
+    if-eqz v0, :native_home_not_ready
+    iget-boolean v0, p0, Lcom/melodix/music/MainActivity;->nativeHomeContentReady:Z
+    return v0
+
+    :native_home_not_ready
+    const/4 v0, 0x0
+    return v0
+.end method
+
 .method public final showNativeUi()V
     .locals 5
 
@@ -8457,6 +8473,15 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
     return-void
 
     :render_native_done
+    iget-object v0, p0, Lcom/melodix/music/MainActivity;->nativeCurrentScreen:Ljava/lang/String;
+    const-string v1, "home"
+    invoke-virtual {v1, v0}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    move-result v0
+    if-eqz v0, :render_native_return
+    const-string v0, "native-home-render rendered=false reason=content-view-missing"
+    invoke-static {v0}, Lcom/melodix/music/NativeCrashGuard;->diagLine(Ljava/lang/String;)V
+    invoke-static {v0}, Lcom/melodix/music/StartupDiagnosticOverlay;->appendDiagnosticLine(Ljava/lang/String;)V
+    :render_native_return
     return-void
 .end method
 

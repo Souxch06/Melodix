@@ -82,7 +82,8 @@ const APP_CLASSES = {
   'Lcom/melodix/music/NativeUiUpdateRunnable;': classMembers(read('smali/com/melodix/music/NativeUiUpdateRunnable.smali')),
   'Lcom/melodix/music/NativeHomeShelfRenderer;': classMembers(read('smali/com/melodix/music/NativeHomeShelfRenderer.smali')),
   'Lcom/melodix/music/NativeHomeFallback;': classMembers(read('smali/com/melodix/music/NativeHomeFallback.smali')),
-  'Lcom/melodix/music/NativeHomeFallback$Callback;': classMembers(read('smali/com/melodix/music/NativeHomeFallback$Callback.smali'))
+  'Lcom/melodix/music/NativeHomeFallback$Callback;': classMembers(read('smali/com/melodix/music/NativeHomeFallback$Callback.smali')),
+  'Lcom/melodix/music/StartupDiagnosticOverlay;': classMembers(read('smali/com/melodix/music/StartupDiagnosticOverlay.smali'))
 };
 
 test('[structurel] références app des méthodes @JavascriptInterface d\'AndBridge : tout résout', () => {

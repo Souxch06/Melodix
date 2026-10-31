@@ -83,11 +83,15 @@
         while (node && depth < 6) {
             try {
                 if (typeof node.matches === 'function' && node.matches(
-                    'article, [role="listitem"], [data-testid="card"], [data-encore-id="card"], [data-testid*="card-container"]')) {
-                    return node;
-                }
+                    '[data-testid="card"], [data-encore-id="card"], [data-testid="tracklist-row"], ' +
+                    '[data-testid*="card-container"], [role="listitem"], article')) return node;
             } catch (_) {}
-            node = node.parentElement;
+            var parent = node.parentElement;
+            if (!parent || parent === document.body || String(parent.tagName || '').toUpperCase() === 'SECTION') break;
+            try {
+                if (typeof parent.querySelector === 'function' && parent.querySelector('img')) return parent;
+            } catch (_) {}
+            node = parent;
             depth += 1;
         }
         return anchor;
@@ -108,6 +112,12 @@
         title = title.replace(/^(?:playlist|album|artist|track|show|episode):\s*/i, '');
         if (/^(?:play|open|more options|playlist|album|artist|track|show|episode)$/i.test(title)) return '';
         return title.slice(0, 120);
+    }
+
+    function splitTitle(value) {
+        var text = String(value || '').replace(/\s+/g, ' ').trim();
+        var match = /^(.{2,70}?)[\s.,;:–—-]*(?:avec|with)\s+(.{3,})$/i.exec(text);
+        return match ? { title: match[1].trim(), subtitle: match[2].trim() } : { title: text, subtitle: '' };
     }
 
     function sectionTitle(card) {
@@ -153,21 +163,21 @@
             return result;
         }
 
-        // The ordinary shell has already delivered real Home rows. Do not
-        // replace that payload; this recovery path is only for missing/empty data.
-        if (result.nativeDataSent && result.shellRows > 0) {
-            result.mode = 'home-data-sent';
-            window.__sfNativeHomeFallbackRows = result.shellRows;
-            return result;
-        }
-
-        var anchors = document.querySelectorAll('a[href]');
+        // A normal payload owns rendering when it already sent rows. Still
+        // inspect the live DOM for diagnostic counts and navigation safety; the
+        // Java callback will avoid dispatching a duplicate payload.
+        var shellDataReady = result.nativeDataSent && result.shellRows > 0;
+        var anchors = document.querySelectorAll('a[href], [role="link"][href]');
         result.anchors = anchors ? Math.min(anchors.length, 500) : 0;
         var seen = Object.create(null);
         var rows = [];
+        var navigationSelector = 'nav, [role="navigation"], header, footer, aside, #global-nav-bar, ' +
+            '#Desktop_LeftSidebar_Id, #sf-mobile-nav, #sf-mobile-navigation, #sf-melodix-home, ' +
+            '[data-testid="now-playing-bar"], [data-testid="mobile-playback-bar"], ' +
+            '[data-testid="now-playing-widget"], [data-testid="mini-player"], [data-testid*="sidebar"]';
         for (var i = 0; anchors && i < anchors.length && i < 500 && rows.length < 24; i += 1) {
             var anchor = anchors[i];
-            if (!visible(anchor) || closest(anchor, 'nav, [role="navigation"], header, footer, aside, [data-testid*="sidebar"]')) continue;
+            if (!visible(anchor) || closest(anchor, navigationSelector)) continue;
             var resource = spotifyResource(anchor.href || (anchor.getAttribute && anchor.getAttribute('href')));
             if (!resource) continue;
             result.validLinks += 1;
@@ -177,14 +187,29 @@
             var lines = textOf(card);
             var titleNode = query(card, '[data-testid="card-title"], [data-encore-id="text"]');
             var imageNode = query(card, 'img');
-            var title = cleanTitle(textOf(titleNode)[0] ||
-                (anchor.getAttribute && anchor.getAttribute('aria-label')) ||
-                (imageNode && imageNode.alt) || lines[0] || '');
+            var titleCandidates = textOf(titleNode).concat([
+                lines[0],
+                card.getAttribute && card.getAttribute('aria-label'),
+                anchor.getAttribute && anchor.getAttribute('aria-label'),
+                imageNode && imageNode.alt
+            ]);
+            var title = '';
+            var foldedSubtitle = '';
+            for (var titleIndex = 0; titleIndex < titleCandidates.length && !title; titleIndex += 1) {
+                var parsedTitle = splitTitle(titleCandidates[titleIndex]);
+                title = cleanTitle(parsedTitle.title);
+                if (title) foldedSubtitle = parsedTitle.subtitle;
+            }
             if (!title) continue;
-            var subtitleNode = query(card, '[data-testid*="subtitle"]');
-            var subtitle = textOf(subtitleNode)[0] || (lines.length > 1 ? lines[1] : '');
+            var subtitleNode = query(card, '[data-testid="card-subtitle"], [data-encore-id="cardSubtitle"], [data-testid*="subtitle"]');
+            var subtitle = textOf(subtitleNode)[0] || foldedSubtitle;
+            if (!subtitle) {
+                for (var lineIndex = 0; lineIndex < lines.length; lineIndex += 1) {
+                    if (lines[lineIndex] !== title) { subtitle = lines[lineIndex]; break; }
+                }
+            }
             var image = imageNode && (imageNode.currentSrc || imageNode.src ||
-                (imageNode.getAttribute && imageNode.getAttribute('src')));
+                (imageNode.getAttribute && (imageNode.getAttribute('src') || imageNode.getAttribute('data-src'))));
             seen[uri] = true;
             rows.push({
                 title: title,
@@ -196,8 +221,8 @@
         }
 
         result.rows = rows;
-        result.mode = rows.length ? 'fallback' : 'empty';
-        window.__sfNativeHomeFallbackRows = rows.length;
+        result.mode = rows.length ? (shellDataReady ? 'home-data-sent' : 'fallback') : 'empty';
+        window.__sfNativeHomeFallbackRows = rows.length || (shellDataReady ? result.shellRows : 0);
         return result;
     } catch (error) {
         result.mode = 'error';
