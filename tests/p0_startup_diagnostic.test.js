@@ -198,7 +198,8 @@ test('no 32-bit invoke result is copied with move-result-object (ART verifier)',
                    'smali/com/melodix/music/StartupDiagnosticOverlay.smali',
                    'smali/com/melodix/music/StartupHangWatchdog.smali',
                    'smali/com/melodix/music/StartupUnstickRunnable.smali',
-                   'smali/com/melodix/music/DiagnosticDismissListener.smali']) {
+                   'smali/com/melodix/music/DiagnosticDismissListener.smali',
+                   'smali/com/melodix/music/NativeWebPlayerNavigationRunnable.smali']) {
     const src = read(f);
     const lines = src.split('\n');
     for (let i = 0; i < lines.length; i += 1) {
@@ -286,8 +287,11 @@ test('the shell opens the web player only through an allowlisted HTTPS URL', () 
     'navigation is its own traced step');
   assert.ok(js.includes("diagTrace('player-nav try '"),
     'each navigation attempt is traced for the photo');
-  assert.ok(js.includes('window.location.assign(target)'),
-    'the allowlisted web route loads inside the WebView');
+  assert.ok(js.includes('window.AndBridge.loadWebPlayerUrl(target)'),
+    'the allowlisted web route is loaded natively into the app WebView');
+  const navigation = js.slice(js.indexOf('function navigateWebPlayer('), js.indexOf('function navToPlayer('));
+  assert.doesNotMatch(navigation, /location\.assign/,
+    'Spotify App Links must not hand recovery to Android as an external intent');
   assert.ok(js.includes("'https://open.spotify.com/app'") && js.includes("'https://open.spotify.com/search'"),
     'two player entry URLs are tried in order');
   const recovery = js.slice(js.indexOf('function maybeNavigateToPlayer()'), js.indexOf('function domCensusOnce()'));
@@ -421,7 +425,7 @@ test('the safety net never touches v0 (VerifyError guard)', () => {
 // Part 9 - Android-side fallback probe; the page shell owns recovery when active
 // ---------------------------------------------------------------------------
 
-test('the probe script accepts consent walls and opens the framed player', () => {
+test('the probe script accepts consent walls and routes player URLs through the native WebView', () => {
   const bridge = read('smali/com/melodix/music/AndBridge.smali');
   const body = methodBody(bridge, '.method public static runProbe(Landroid/webkit/WebView;)V');
   assert.ok(body.includes('probe t='), 'the photo shows title + visible text');
@@ -430,10 +434,16 @@ test('the probe script accepts consent walls and opens the framed player', () =>
   assert.ok(body.includes('probe nav frame'), 'the framed player is the preferred target');
   assert.ok(body.includes('open.spotify.com/app') && body.includes('open.spotify.com/search'),
     'player entry URLs are tried in order');
+  assert.ok(body.includes('window.AndBridge.loadWebPlayerUrl(frameNav)'),
+    'framed player navigation stays inside the app WebView');
+  assert.ok(body.includes('window.AndBridge.loadWebPlayerUrl(dest)'),
+    'fallback player navigation stays inside the app WebView');
+  assert.ok(!body.includes('window.location.assign'),
+    'the recovery probe never launches a Spotify App Link externally');
   assert.ok(body.includes('mel_player_nav'), 'the same bounded counter prevents loops');
   assert.ok(body.includes('probe url='), 'the visited page is named (no query, no token)');
   assert.ok(body.includes('evaluateJavascript'),
-    'evaluateJavascript runs synchronously - no JS timers involved');
+    'the direct probe script does not rely on page-owned timers or callbacks');
 });
 
 test('the shell advertises completion only after install succeeds', () => {
@@ -476,8 +486,9 @@ test('an active native shell owns recovery and the Android probe does not naviga
   assert.ok(logs.includes('probe yield shell'), 'the hand-off is visible in startup diagnostics');
 });
 
-test('the native probe keeps its Web Player fallback when shell startup did not complete', () => {
+test('the native probe keeps its Web Player fallback in-app when shell startup did not complete', () => {
   const assigned = [];
+  const loaded = [];
   const storage = new Map();
   const location = {
     href: 'https://open.spotify.com/intl-fr/',
@@ -489,7 +500,10 @@ test('the native probe keeps its Web Player fallback when shell startup did not 
     title: 'Spotify - Web Player',
     body: { innerText: '' },
   };
-  const bridge = { logDiagEvent: () => {} };
+  const bridge = {
+    logDiagEvent: () => {},
+    loadWebPlayerUrl: (url) => loaded.push(url),
+  };
   const window = {
     __sfNativeUiShellStarted: true,
     __sfNativeUiShellCompleted: false,
@@ -506,8 +520,9 @@ test('the native probe keeps its Web Player fallback when shell startup did not 
   });
 
   assert.equal(result, 'nav');
-  assert.deepEqual(assigned, ['https://open.spotify.com/app'],
-    'the native recovery path remains available if shell injection failed');
+  assert.deepEqual(loaded, ['https://open.spotify.com/app'],
+    'the native recovery path loads the player without leaving the app');
+  assert.deepEqual(assigned, [], 'the fallback never launches Spotify externally');
 });
 
 test('follow-ups run on Android timers, immune to paused JS timers', () => {

@@ -151,12 +151,12 @@
     return-object v0
 .end method
 
-# --- P0 CONTENT STUCK: probe run by Android itself. evaluateJavascript runs
-# synchronously in the page context, so this works even when the page scripts
-# never start and the WebView JS timers stay paused. The probe reports what
-# the page holds (title, iframe sources, visible text) and then acts: accepts
-# a cookie wall, opens the player out of its iframe, or navigates to the
-# player entry URLs (bounded, no loop).
+# --- P0 CONTENT STUCK: probe run by Android itself. evaluateJavascript
+# executes a direct script in the page context without waiting for page-owned
+# timers or callbacks. This still works when the page scripts never start or
+# their timers were paused. The probe reports visible page state and then acts:
+# accepts a cookie wall or routes a Spotify URL through the native WebView
+# loader (bounded, no loop).
 .method public static runProbe(Landroid/webkit/WebView;)V
     .locals 4
 
@@ -187,7 +187,7 @@
     invoke-virtual {p0, v3, v1}, Landroid/webkit/WebView;->evaluateJavascript(Ljava/lang/String;Landroid/webkit/ValueCallback;)V
 
     :probe_collect
-    const-string v0, "(function(){\n  try {\n    var log = function(m){ try { AndBridge.logDiagEvent(String(m).slice(0,150)); } catch(e){} };\n    var q = function(d, sel){ try { return d.querySelector(sel); } catch(e){ return null; } };\n    var playerSel = '#main-view, #main, [data-testid=\"root\"], .main-view-container, [data-testid=\"now-playing-bar\"]';\n    if (q(document, playerSel)) { log('probe ok main'); return 'ok'; }\n    if (window.__sfNativeUiShellCompleted === true) { log('probe yield shell'); return 'shell-active'; }\n    var here = String(location.href || '').split('?')[0].split('#')[0];\n    log('probe url=' + here.slice(0, 55));\n    var frames = document.querySelectorAll('iframe');\n    var srcs = []; var frameNav = ''; var consentDone = '';\n    for (var i = 0; i < frames.length; i++) {\n      var s = String(frames[i].getAttribute('src') || '');\n      srcs.push(s.slice(0, 55));\n      try {\n        var d = frames[i].contentDocument;\n        if (d) {\n          if (!frameNav && q(d, playerSel)) frameNav = s || here;\n          if (!consentDone) {\n            var b2 = q(d, '#onetrust-accept-btn-handler, #gdpr-notice-accept, button[title*=\"ccept\"], button[aria-label*=\"ccept\"], [data-testid*=\"ccept\" i], .cc-btn.cc-allow');\n            if (b2) { try { b2.click(); consentDone = 'frame'; } catch(e){} }\n          }\n        }\n      } catch (e) {}\n      if (!frameNav && s.indexOf('open.spotify.com') >= 0 && s.indexOf('/intl-') < 0 && s.indexOf('http') === 0) frameNav = s;\n    }\n    var t = String(document.title || '').replace(/\\s+/g, ' ').slice(0, 24);\n    var h = ''; try { h = String(document.body ? document.body.innerText : '').replace(/\\s+/g, ' ').slice(0, 50); } catch (e) {}\n    log('probe t=' + t + ' h=' + h);\n    log('probe f=' + srcs.join(' | ').slice(0, 90));\n    if (frameNav && String(frameNav).indexOf('http') === 0) {\n      var target = String(frameNav).split('?')[0];\n      if (target !== here) {\n        log('probe nav frame');\n        window.location.assign(frameNav);\n        return 'nav-frame';\n      }\n    }\n    var btn = q(document, '#onetrust-accept-btn-handler, #gdpr-notice-accept, button[title*=\"ccept\"], button[aria-label*=\"ccept\"], [data-testid*=\"ccept\" i], .cc-btn.cc-allow');\n    if (btn || consentDone) {\n      log('probe consent ' + (consentDone || 'click'));\n      if (btn) { try { btn.click(); } catch (e) {} }\n      return 'consent';\n    }\n    var nav = 0;\n    try {\n      var raw = window.localStorage.getItem('mel_player_nav');\n      if (raw) { var rec = JSON.parse(raw); if (rec && rec.n && (Date.now() - rec.t) < 60000) nav = rec.n | 0; }\n    } catch (e) {}\n    if (nav >= 3) { log('probe nav exhausted'); return 'stop'; }\n    try { window.localStorage.setItem('mel_player_nav', JSON.stringify({ n: nav + 1, t: Date.now() })); } catch (e) {}\n    var dest = 'https://open.spotify.com/app';\n    if (nav === 1) dest = 'https://open.spotify.com/search';\n    if (nav >= 2) dest = 'https://open.spotify.com/';\n    log('probe nav ' + (nav + 1));\n    window.location.assign(dest);\n    return 'nav';\n  } catch (e) {\n    try { AndBridge.logDiagEvent('probe err ' + ((e && e.name) || '?')); } catch (e2) {}\n    return 'err';\n  }\n})()"
+    const-string v0, "(function(){\n  try {\n    var log = function(m){ try { AndBridge.logDiagEvent(String(m).slice(0,150)); } catch(e){} };\n    var q = function(d, sel){ try { return d.querySelector(sel); } catch(e){ return null; } };\n    var playerSel = '#main-view, #main, [data-testid=\"root\"], .main-view-container, [data-testid=\"now-playing-bar\"]';\n    if (q(document, playerSel)) { log('probe ok main'); return 'ok'; }\n    if (window.__sfNativeUiShellCompleted === true) { log('probe yield shell'); return 'shell-active'; }\n    var here = String(location.href || '').split('?')[0].split('#')[0];\n    log('probe url=' + here.slice(0, 55));\n    var frames = document.querySelectorAll('iframe');\n    var srcs = []; var frameNav = ''; var consentDone = '';\n    for (var i = 0; i < frames.length; i++) {\n      var s = String(frames[i].getAttribute('src') || '');\n      srcs.push(s.slice(0, 55));\n      try {\n        var d = frames[i].contentDocument;\n        if (d) {\n          if (!frameNav && q(d, playerSel)) frameNav = s || here;\n          if (!consentDone) {\n            var b2 = q(d, '#onetrust-accept-btn-handler, #gdpr-notice-accept, button[title*=\"ccept\"], button[aria-label*=\"ccept\"], [data-testid*=\"ccept\" i], .cc-btn.cc-allow');\n            if (b2) { try { b2.click(); consentDone = 'frame'; } catch(e){} }\n          }\n        }\n      } catch (e) {}\n      if (!frameNav && s.indexOf('open.spotify.com') >= 0 && s.indexOf('/intl-') < 0 && s.indexOf('http') === 0) frameNav = s;\n    }\n    var t = String(document.title || '').replace(/\\s+/g, ' ').slice(0, 24);\n    var h = ''; try { h = String(document.body ? document.body.innerText : '').replace(/\\s+/g, ' ').slice(0, 50); } catch (e) {}\n    log('probe t=' + t + ' h=' + h);\n    log('probe f=' + srcs.join(' | ').slice(0, 90));\n    if (frameNav && String(frameNav).indexOf('http') === 0) {\n      var target = String(frameNav).split('?')[0];\n      if (target !== here) {\n        log('probe nav frame');\n        if (window.AndBridge && typeof window.AndBridge.loadWebPlayerUrl === 'function') window.AndBridge.loadWebPlayerUrl(frameNav); else { log('probe native loader missing'); return 'stop'; }\n        return 'nav-frame';\n      }\n    }\n    var btn = q(document, '#onetrust-accept-btn-handler, #gdpr-notice-accept, button[title*=\"ccept\"], button[aria-label*=\"ccept\"], [data-testid*=\"ccept\" i], .cc-btn.cc-allow');\n    if (btn || consentDone) {\n      log('probe consent ' + (consentDone || 'click'));\n      if (btn) { try { btn.click(); } catch (e) {} }\n      return 'consent';\n    }\n    var nav = 0;\n    try {\n      var raw = window.localStorage.getItem('mel_player_nav');\n      if (raw) { var rec = JSON.parse(raw); if (rec && rec.n && (Date.now() - rec.t) < 60000) nav = rec.n | 0; }\n    } catch (e) {}\n    if (nav >= 3) { log('probe nav exhausted'); return 'stop'; }\n    try { window.localStorage.setItem('mel_player_nav', JSON.stringify({ n: nav + 1, t: Date.now() })); } catch (e) {}\n    var dest = 'https://open.spotify.com/app';\n    if (nav === 1) dest = 'https://open.spotify.com/search';\n    if (nav >= 2) dest = 'https://open.spotify.com/';\n    log('probe nav ' + (nav + 1));\n    if (window.AndBridge && typeof window.AndBridge.loadWebPlayerUrl === 'function') window.AndBridge.loadWebPlayerUrl(dest); else { log('probe native loader missing'); return 'stop'; }\n    return 'nav';\n  } catch (e) {\n    try { AndBridge.logDiagEvent('probe err ' + ((e && e.name) || '?')); } catch (e2) {}\n    return 'err';\n  }\n})()"
 
     const/4 v1, 0x0
 
@@ -268,6 +268,82 @@
     invoke-static {v2}, Lcom/melodix/music/NativeCrashGuard;->diagLine(Ljava/lang/String;)V
 
     :logdiag_done
+    return-void
+.end method
+
+.method public final loadWebPlayerUrl(Ljava/lang/String;)V
+    .annotation runtime Landroid/webkit/JavascriptInterface;
+    .end annotation
+
+    .locals 3
+
+    if-eqz p1, :native_web_nav_done
+
+    :try_start_native_web_nav
+    invoke-static {p1}, Landroid/net/Uri;->parse(Ljava/lang/String;)Landroid/net/Uri;
+    move-result-object v0
+
+    invoke-virtual {v0}, Landroid/net/Uri;->getScheme()Ljava/lang/String;
+    move-result-object v1
+    if-eqz v1, :native_web_nav_reject
+    const-string v2, "https"
+    invoke-virtual {v2, v1}, Ljava/lang/String;->equalsIgnoreCase(Ljava/lang/String;)Z
+    move-result v1
+    if-eqz v1, :native_web_nav_reject
+
+    invoke-virtual {v0}, Landroid/net/Uri;->getHost()Ljava/lang/String;
+    move-result-object v1
+    if-eqz v1, :native_web_nav_reject
+    const-string v2, "open.spotify.com"
+    invoke-virtual {v2, v1}, Ljava/lang/String;->equalsIgnoreCase(Ljava/lang/String;)Z
+    move-result v1
+    if-eqz v1, :native_web_nav_reject
+
+    invoke-virtual {v0}, Landroid/net/Uri;->getUserInfo()Ljava/lang/String;
+    move-result-object v1
+    if-eqz v1, :native_web_nav_port
+    goto :native_web_nav_reject
+
+    :native_web_nav_port
+    invoke-virtual {v0}, Landroid/net/Uri;->getPort()I
+    move-result v1
+    const/4 v2, -0x1
+    if-ne v1, v2, :native_web_nav_check_443
+    goto :native_web_nav_load
+
+    :native_web_nav_check_443
+    const/16 v2, 0x1bb
+    if-ne v1, v2, :native_web_nav_reject
+
+    :native_web_nav_load
+    sget-object v0, Lcom/melodix/music/AppSingleton;->w:Ll9;
+    if-eqz v0, :native_web_nav_unavailable
+    new-instance v1, Lcom/melodix/music/NativeWebPlayerNavigationRunnable;
+    invoke-direct {v1, v0, p1}, Lcom/melodix/music/NativeWebPlayerNavigationRunnable;-><init>(Landroid/webkit/WebView;Ljava/lang/String;)V
+    invoke-virtual {v0, v1}, Landroid/view/View;->post(Ljava/lang/Runnable;)Z
+    const-string v0, "player-nav native-load requested"
+    invoke-virtual {p0, v0}, Lcom/melodix/music/AndBridge;->logDiagEvent(Ljava/lang/String;)V
+    goto :native_web_nav_done
+
+    :native_web_nav_unavailable
+    const-string v0, "player-nav native-load no-webview"
+    invoke-virtual {p0, v0}, Lcom/melodix/music/AndBridge;->logDiagEvent(Ljava/lang/String;)V
+    goto :native_web_nav_done
+
+    :try_end_native_web_nav
+    .catch Ljava/lang/Throwable; {:try_start_native_web_nav .. :try_end_native_web_nav} :catch_native_web_nav
+
+    :native_web_nav_reject
+    const-string v0, "player-nav native-load rejected"
+    invoke-virtual {p0, v0}, Lcom/melodix/music/AndBridge;->logDiagEvent(Ljava/lang/String;)V
+    goto :native_web_nav_done
+
+    :catch_native_web_nav
+    move-exception v0
+    const-string v1, "player-nav native-load invalid"
+    invoke-virtual {p0, v1}, Lcom/melodix/music/AndBridge;->logDiagEvent(Ljava/lang/String;)V
+
+    :native_web_nav_done
     return-void
 .end method
 

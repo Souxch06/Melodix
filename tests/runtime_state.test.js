@@ -313,7 +313,11 @@ test('native media artwork accepts only bounded HTTPS Spotify CDN URIs', () => {
 });
 
 test('JavascriptInterface annotations are limited to bridge methods used by active JavaScript', () => {
-    const bridge = [read('assets/runtime_state.js'), read('assets/spotify_bridge.js')].join('\n');
+    const bridge = [
+        read('assets/runtime_state.js'),
+        read('assets/spotify_bridge.js'),
+        read('assets/native_ui_shell.js')
+    ].join('\n');
     const nativeBridge = read('smali/com/melodix/music/AndBridge.smali');
     const referenced = new Set(
         [...bridge.matchAll(/\b(?:window\.)?AndBridge\.([A-Za-z_$][\w$]*)\s*\(/g)].map(match => match[1])

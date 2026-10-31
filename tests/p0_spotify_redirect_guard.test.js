@@ -7,6 +7,8 @@ const root = path.resolve(__dirname, '..');
 const client = fs.readFileSync(path.join(root, 'smali/c91.smali'), 'utf8');
 const activity = fs.readFileSync(path.join(root, 'smali/com/melodix/music/MainActivity.smali'), 'utf8');
 const policy = fs.readFileSync(path.join(root, 'smali/com/melodix/music/SpotifyNavigationPolicy.smali'), 'utf8');
+const bridge = fs.readFileSync(path.join(root, 'smali/com/melodix/music/AndBridge.smali'), 'utf8');
+const nativeNavigation = fs.readFileSync(path.join(root, 'smali/com/melodix/music/NativeWebPlayerNavigationRunnable.smali'), 'utf8');
 
 function method(source, signature) {
   const start = source.indexOf(signature);
@@ -101,6 +103,35 @@ test('intent:// containment is limited to Spotify hosts, Spotify scheme, or the 
   const schemeDispatch = uriPolicy.indexOf('Uri;->getScheme()Ljava/lang/String;');
   assert.ok(accountExclusion >= 0 && accountExclusion < schemeDispatch,
     'Spotify account navigation must be excluded before custom-scheme interception');
+});
+
+test('the native shell loader accepts only canonical Spotify HTTPS URLs and posts loadUrl to the UI thread', () => {
+  const loader = method(bridge, '.method public final loadWebPlayerUrl(Ljava/lang/String;)V');
+  const runnable = method(nativeNavigation, '.method public final run()V');
+  assert.match(loader, /JavascriptInterface/);
+
+  const validation = [
+    'Uri;->parse(Ljava/lang/String;)Landroid/net/Uri;',
+    'Uri;->getScheme()Ljava/lang/String;',
+    'const-string v2, "https"',
+    'Uri;->getHost()Ljava/lang/String;',
+    'const-string v2, "open.spotify.com"',
+    'Uri;->getUserInfo()Ljava/lang/String;',
+    'Uri;->getPort()I',
+    'const/16 v2, 0x1bb',
+  ];
+  const scheduleAt = loader.indexOf('new-instance v1, Lcom/melodix/music/NativeWebPlayerNavigationRunnable;');
+  assert.ok(scheduleAt >= 0, 'only validated URLs reach the UI-thread navigation runnable');
+  for (const check of validation) {
+    const at = loader.indexOf(check);
+    assert.ok(at >= 0 && at < scheduleAt, `URL check must precede navigation: ${check}`);
+  }
+  assert.match(loader, /Landroid\/view\/View;->post\(Ljava\/lang\/Runnable;\)Z/);
+  assert.doesNotMatch(loader, /startActivity|ACTION_VIEW/);
+
+  assert.match(runnable, /Landroid\/webkit\/WebView;->loadUrl\(Ljava\/lang\/String;\)V/);
+  assert.match(runnable, /player-nav native-load/);
+  assert.match(runnable, /player-nav native-load failed/);
 });
 
 test('the guard does not launch Spotify, rewrite account state, or capture login data', () => {

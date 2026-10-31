@@ -1597,6 +1597,28 @@
         return url.href;
     }
 
+    // Recovery navigations must use WebView.loadUrl through the native bridge,
+    // not window.location.assign: on some Android builds a verified Spotify
+    // URL can otherwise escape this WebView and open Spotify itself.
+    function navigateWebPlayer(raw) {
+        var target = safeWebPlayerUrl(raw, '');
+        if (!target) {
+            diagTrace('player-nav rejected target');
+            return false;
+        }
+        if (!window.AndBridge || typeof window.AndBridge.loadWebPlayerUrl !== 'function') {
+            diagTrace('player-nav native loader missing');
+            return false;
+        }
+        try {
+            window.AndBridge.loadWebPlayerUrl(target);
+            return true;
+        } catch (_) {
+            diagTrace('player-nav native loader failed');
+            return false;
+        }
+    }
+
     function iframePlayerSrc() {
         try {
             var frames = document.querySelectorAll('iframe');
@@ -1628,9 +1650,7 @@
             what = n <= 1 ? 'app' : 'search';
         }
         diagTrace('player-nav try ' + n + ' ' + what);
-        try {
-            window.location.assign(target);
-        } catch (_) {}
+        navigateWebPlayer(target);
     }
 
     // Query the top document and any same-origin iframe: the player can be
@@ -2138,7 +2158,7 @@
     window.__sfNativeRequestHome = function() {
         if (window.location.hostname !== 'open.spotify.com') return false;
         if (!isSpotifyHome()) {
-            window.location.assign('https://open.spotify.com/');
+            navigateWebPlayer('https://open.spotify.com/');
             return false;
         }
         lastHomeSignature = null;
@@ -2177,8 +2197,7 @@
             }
         }
 
-        window.location.assign(target);
-        return true;
+        return navigateWebPlayer(target);
     };
 
     // Opening a playlist, album, artist or show must not depend on the playback
@@ -2268,7 +2287,7 @@
         if (lastSearchNavigation.query === q && now - lastSearchNavigation.at < 4000) return true;
         lastSearchNavigation.query = q;
         lastSearchNavigation.at = now;
-        window.location.assign('https://open.spotify.com/search/' + encodeURIComponent(q));
+        navigateWebPlayer('https://open.spotify.com/search/' + encodeURIComponent(q));
         return true;
     }
 
@@ -2362,7 +2381,7 @@
     function openCollectionPage(target) {
         var path = spotifyRoutePath();
         if (path === target || path.indexOf(target + '/') === 0) return true;
-        window.location.assign('https://open.spotify.com' + target);
+        navigateWebPlayer('https://open.spotify.com' + target);
         return true;
     }
 

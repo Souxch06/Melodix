@@ -102,6 +102,7 @@ function cardPage({ withCards = true } = {}) {
 function loadShell({ withCards = true, mediaLib = null, locationPath = '/', searchMediaItemsImpl = null, noUserWidget = false } = {}) {
     const timers = [];
     const navigations = [];
+    const webLoads = [];
     const { main, widget } = cardPage({ withCards });
     const calls = { ready: 0, data: [], routes: [], mediaLibChecks: 0 };
     const byId = new Map();
@@ -173,7 +174,8 @@ function loadShell({ withCards = true, mediaLib = null, locationPath = '/', sear
         onNativeUiRoute(screen) { calls.routes.push(screen); },
         onNativeUiData(screen, json) { calls.data.push({ screen, rows: JSON.parse(json) }); },
         logDiagEvent() {},
-        getBuildLabel() { return 'test-build'; }
+        getBuildLabel() { return 'test-build'; },
+        loadWebPlayerUrl(url) { webLoads.push(url); }
     };
 
     const context = vm.createContext(win);
@@ -188,7 +190,7 @@ function loadShell({ withCards = true, mediaLib = null, locationPath = '/', sear
         }
         return ran;
     };
-    return { win, calls, drainTimers, navigations };
+    return { win, calls, drainTimers, navigations, webLoads };
 }
 
 // P0: the native UI must appear even when the page has no row to scrape.
@@ -269,7 +271,7 @@ test('the account library is merged into Home with its real URIs', () => {
 // currently answers "no items" at once, so waiting the six-second safety net
 // left the user on a loader for every tap.
 test('opening a playlist navigates to it at once instead of waiting six seconds', async () => {
-    const { win, navigations, drainTimers } = loadShell({ withCards: true });
+    const { win, navigations, webLoads, drainTimers } = loadShell({ withCards: true });
     win.__sfMelodixBridgeStarted = true;
     win.fetchMediaItems = async () => [];   // current posture: no items via bridge
 
@@ -278,34 +280,38 @@ test('opening a playlist navigates to it at once instead of waiting six seconds'
     // Let the transport's promise settle.
     await new Promise((resolve) => setTimeout(resolve, 5));
 
-    assert.deepEqual(navigations, ['https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M'],
+    assert.deepEqual(webLoads, ['https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M'],
         'the real playlist page is opened immediately, with the exact id');
+    assert.deepEqual(navigations, [], 'playlist recovery does not open Spotify externally');
     assert.equal(drainTimers(2), 0, 'the six-second timer is cleared, not left running');
 });
 
 test('a silent media transport still falls back to the real page', () => {
-    const { win, navigations, drainTimers } = loadShell({ withCards: true });
+    const { win, navigations, webLoads, drainTimers } = loadShell({ withCards: true });
     win.__sfMelodixBridgeStarted = true;
     win.fetchMediaItems = () => undefined;   // never answers
 
     win.__sfOpenCollection('spotify:playlist:silent');
-    assert.deepEqual(navigations, [], 'nothing happens while the transport is silent');
+    assert.deepEqual(webLoads, [], 'nothing happens while the transport is silent');
+    assert.deepEqual(navigations, [], 'nothing is launched externally while the transport is silent');
     drainTimers(2);
-    assert.deepEqual(navigations, ['https://open.spotify.com/playlist/silent'],
+    assert.deepEqual(webLoads, ['https://open.spotify.com/playlist/silent'],
         'the safety net still opens the page');
+    assert.deepEqual(navigations, [], 'the native safety net does not open Spotify externally');
 });
 
 // P1 navigation: the Library tab and its chips must reach a real page. They
 // used to call the no-op transport and return, so the tap did nothing at all.
 test('the library tab opens the real playlists page with an empty transport', async () => {
-    const { win, navigations } = loadShell({ withCards: true, locationPath: '/' });
+    const { win, navigations, webLoads } = loadShell({ withCards: true, locationPath: '/' });
     win.__sfMelodixBridgeStarted = true;
     win.fetchMediaItems = async () => [];
 
     win.__sfOpenLibrary();
     await new Promise((resolve) => setTimeout(resolve, 5));
-    assert.deepEqual(navigations, ['https://open.spotify.com/collection/playlists'],
+    assert.deepEqual(webLoads, ['https://open.spotify.com/collection/playlists'],
         'the playlists collection page is really opened');
+    assert.deepEqual(navigations, [], 'the library route stays in the app WebView');
 });
 
 test('each library chip opens its own collection page', async () => {
@@ -314,26 +320,28 @@ test('each library chip opens its own collection page', async () => {
         ['artists', 'https://open.spotify.com/collection/artists'],
         ['podcasts', 'https://open.spotify.com/collection/podcasts']
     ]) {
-        const { win, navigations } = loadShell({ withCards: true });
+        const { win, navigations, webLoads } = loadShell({ withCards: true });
         win.__sfMelodixBridgeStarted = true;
         win.fetchMediaItems = async () => [];
         win.__sfOpenLibraryCategory(tag);
         await new Promise((resolve) => setTimeout(resolve, 5));
-        assert.deepEqual(navigations, [expected], `chip ${tag} reaches its page`);
+        assert.deepEqual(webLoads, [expected], `chip ${tag} reaches its page`);
+        assert.deepEqual(navigations, [], `chip ${tag} does not open Spotify externally`);
     }
 });
 
 test('the library tab does not reload the page already shown', () => {
-    const { win, navigations } = loadShell({ withCards: true, locationPath: '/collection/playlists' });
+    const { win, navigations, webLoads } = loadShell({ withCards: true, locationPath: '/collection/playlists' });
     win.__sfOpenLibrary();
-    assert.deepEqual(navigations, [], 'no useless reload of the page already open');
+    assert.deepEqual(webLoads, [], 'no useless reload of the page already open');
+    assert.deepEqual(navigations, [], 'no external navigation occurs');
 });
 
 // P1 search: the bridge publishes searchMediaItems() that answers "no items"
 // in the current posture. Live typing and submit must still reach Spotify's
 // own search page, otherwise the whole search screen is dead.
 test('live typing falls back to the real search page when the bridge answers empty', async () => {
-    const { win, navigations, drainTimers } = loadShell({
+    const { win, navigations, webLoads, drainTimers } = loadShell({
         withCards: true,
         searchMediaItemsImpl: async () => []
     });
@@ -341,38 +349,42 @@ test('live typing falls back to the real search page when the bridge answers emp
     await new Promise((resolve) => setTimeout(resolve, 5));
     assert.deepEqual(navigations, [], 'debounced: nothing leaves before the delay');
     drainTimers(2);
-    assert.deepEqual(navigations, ['https://open.spotify.com/search/jazz%20funk'],
+    assert.deepEqual(webLoads, ['https://open.spotify.com/search/jazz%20funk'],
         'the real search page opens after the debounce');
+    assert.deepEqual(navigations, [], 'search remains in the app WebView');
 });
 
 test('submitting the native search field navigates immediately', () => {
-    const { win, navigations } = loadShell({
+    const { win, navigations, webLoads } = loadShell({
         withCards: true,
         searchMediaItemsImpl: () => []
     });
     assert.equal(typeof win.__sfSubmitSearch, 'function', 'submit hook always exists');
     win.__sfSubmitSearch('Radiohead');
-    assert.deepEqual(navigations, ['https://open.spotify.com/search/Radiohead'],
+    assert.deepEqual(webLoads, ['https://open.spotify.com/search/Radiohead'],
         'submit does not wait for the live-typing debounce');
+    assert.deepEqual(navigations, [], 'search submission does not open Spotify externally');
 });
 
 test('real bridge results are kept and no navigation happens', async () => {
-    const { win, navigations, drainTimers } = loadShell({
+    const { win, navigations, webLoads, drainTimers } = loadShell({
         withCards: true,
         searchMediaItemsImpl: async () => [{ title: 'Creep' }]
     });
     const items = await win.searchMediaItems('creep');
     assert.equal(items.length, 1, 'the bridge answer is returned unchanged');
     drainTimers(2);
-    assert.deepEqual(navigations, [], 'a real result never reloads the page');
+    assert.deepEqual(webLoads, [], 'a real result never reloads the page');
+    assert.deepEqual(navigations, [], 'a real result never opens an external app');
 });
 
 test('without any bridge search function typing still reaches the search page', () => {
-    const { win, navigations, drainTimers } = loadShell({ withCards: true });
+    const { win, navigations, webLoads, drainTimers } = loadShell({ withCards: true });
     assert.equal(typeof win.__sfSubmitSearch, 'function');
     win.searchMediaItems('daft punk');
     drainTimers(2);
-    assert.deepEqual(navigations, ['https://open.spotify.com/search/daft%20punk']);
+    assert.deepEqual(webLoads, ['https://open.spotify.com/search/daft%20punk']);
+    assert.deepEqual(navigations, [], 'fallback search stays inside the app WebView');
 });
 
 // P0-E: the retry behind the state row must really restart the fetch and the
@@ -413,7 +425,7 @@ test('the same playlist from the page and the library is merged once', () => {
 // even though every playlist was already known - a slow, wasteful navigation
 // that also lost the user's scroll position.
 test('the library tab renders the known library without reloading the page', () => {
-    const { win, calls, navigations } = loadShell({
+    const { win, calls, navigations, webLoads } = loadShell({
         withCards: false,
         mediaLib: {
             playlists: [
@@ -424,7 +436,8 @@ test('the library tab renders the known library without reloading the page', () 
     });
     const ok = win.__sfOpenLibrary();
     assert.equal(ok, true, 'the tap is handled immediately');
-    assert.deepEqual(navigations, [], 'aucun rechargement de page');
+    assert.deepEqual(webLoads, [], 'aucun rechargement de page');
+    assert.deepEqual(navigations, [], 'aucune application externe n’est ouverte');
     const media = calls.data.filter((call) => call.screen === 'media:playlists');
     assert.ok(media.length >= 1, 'the library rows are sent to the native list');
     const rows = media[media.length - 1].rows;
@@ -436,26 +449,28 @@ test('the library tab renders the known library without reloading the page', () 
 });
 
 test('a library chip also renders its known rows before navigating', () => {
-    const { win, calls, navigations } = loadShell({
+    const { win, calls, navigations, webLoads } = loadShell({
         withCards: false,
         mediaLib: {
             albums: [{ id: 'spotify:album:alb1', name: 'Album enregistre' }]
         }
     });
     win.__sfOpenLibraryCategory('albums');
-    assert.deepEqual(navigations, [], 'pas de navigation quand les donnees sont deja la');
+    assert.deepEqual(webLoads, [], 'pas de navigation quand les donnees sont deja la');
+    assert.deepEqual(navigations, [], 'aucune application externe n’est ouverte');
     const media = calls.data.filter((call) => call.screen === 'media:albums');
     assert.ok(media.length >= 1, 'les albums connus sont peints');
     assert.equal(media[media.length - 1].rows[0].title, 'Album enregistre');
 });
 
 test('an empty category still navigates to its real page', async () => {
-    const { win, navigations } = loadShell({ withCards: true, mediaLib: { playlists: [] } });
+    const { win, navigations, webLoads } = loadShell({ withCards: true, mediaLib: { playlists: [] } });
     win.fetchMediaItems = async () => [];
     win.__sfOpenLibraryCategory('albums');
     await new Promise((resolve) => setTimeout(resolve, 5));
-    assert.deepEqual(navigations, ['https://open.spotify.com/collection/albums'],
+    assert.deepEqual(webLoads, ['https://open.spotify.com/collection/albums'],
         'le repli reel reste la navigation');
+    assert.deepEqual(navigations, [], 'la navigation reste dans le WebView de l’app');
 });
 
 // P0-A: the takeover used to depend on Spotify's account control selector

@@ -130,36 +130,43 @@ test('Spotify links are normalized to safe native row URIs', () => {
     assert.equal(context.nativeSpotifyUri('https://example.org/playlist/abc123'), 'https://example.org/playlist/abc123');
 });
 
-test('player recovery rejects app intents and external targets, keeping navigation on Spotify HTTPS', () => {
+test('player recovery rejects unsafe URLs and routes valid targets through native WebView.loadUrl', () => {
     const shell = read('assets/native_ui_shell.js');
     const safeHelper = shell.match(/function safeWebPlayerUrl\(raw, fallback\) \{[\s\S]*?\n    \}/);
     const navHelper = shell.match(/function navToPlayer\(n, href, frameSrc\) \{[\s\S]*?\n    \}/);
+    const navigateHelper = shell.match(/function navigateWebPlayer\(raw\) \{[\s\S]*?\n    \}/);
     assert.ok(safeHelper, 'the Web Player URL validator should exist');
     assert.ok(navHelper, 'player recovery should have a single navigation helper');
+    assert.ok(navigateHelper, 'native WebView routing should be the only player navigation path');
 
     const assigned = [];
+    const loaded = [];
     const traces = [];
     const context = {
         URL,
-        window: { location: { assign: (target) => assigned.push(target) } },
+        window: {
+            location: { assign: (target) => assigned.push(target) },
+            AndBridge: { loadWebPlayerUrl: (target) => loaded.push(target) }
+        },
         diagTrace: (line) => traces.push(line)
     };
-    vm.runInNewContext(`${safeHelper[0]}\n${navHelper[0]}\nglobalThis.navToPlayer = navToPlayer;`, context);
+    vm.runInNewContext(`${safeHelper[0]}\n${navigateHelper[0]}\n${navHelper[0]}\nglobalThis.navToPlayer = navToPlayer;`, context);
 
     context.navToPlayer(1, 'intent://open.spotify.com/app#Intent;scheme=https;end', '');
-    assert.equal(assigned.pop(), 'https://open.spotify.com/app', 'intent targets fall back to the Web Player');
+    assert.equal(loaded.pop(), 'https://open.spotify.com/app', 'intent targets fall back to the safe player route');
 
     context.navToPlayer(1, 'https://open.spotify.com.evil.test/app', '');
-    assert.equal(assigned.pop(), 'https://open.spotify.com/app', 'lookalike hosts never leave the WebView for an external site');
+    assert.equal(loaded.pop(), 'https://open.spotify.com/app', 'lookalike hosts never reach the native loader');
 
     context.navToPlayer(1, 'https://open.spotify.com:8443/app', '');
-    assert.equal(assigned.pop(), 'https://open.spotify.com/app', 'unexpected ports are rejected');
+    assert.equal(loaded.pop(), 'https://open.spotify.com/app', 'unexpected ports are rejected');
 
     context.navToPlayer(1, '/app', 'https://open.spotify.com/search?query=Jazz');
-    assert.equal(assigned.pop(), 'https://open.spotify.com/search?query=Jazz', 'a valid player frame remains the preferred web target');
+    assert.equal(loaded.pop(), 'https://open.spotify.com/search?query=Jazz', 'a valid player frame remains the preferred target');
 
     context.navToPlayer(1, '/app', '');
-    assert.equal(assigned.pop(), 'https://open.spotify.com/app', 'relative CTA links stay on the Spotify Web Player host');
+    assert.equal(loaded.pop(), 'https://open.spotify.com/app', 'relative CTA links stay on the Spotify Web Player host');
+    assert.deepEqual(assigned, [], 'automatic recovery never asks Android to resolve a Spotify App Link');
     assert.equal(traces.length, 5);
 });
 
@@ -168,6 +175,7 @@ test('a Spotify landing CTA is read but never auto-clicked during player recover
     let now = 10000;
     let clicked = 0;
     const assigned = [];
+    const loaded = [];
     const timers = [];
     const traces = [];
     const values = new Map();
@@ -199,7 +207,10 @@ test('a Spotify landing CTA is read but never auto-clicked during player recover
             getItem: (key) => values.has(key) ? values.get(key) : null,
             setItem: (key, value) => values.set(key, value)
         },
-        AndBridge: { logDiagEvent: (line) => traces.push(line) },
+        AndBridge: {
+            logDiagEvent: (line) => traces.push(line),
+            loadWebPlayerUrl: (target) => loaded.push(target)
+        },
         addEventListener: () => {},
         setTimeout: (callback, delay) => {
             timers.push({ callback, delay });
@@ -218,7 +229,8 @@ test('a Spotify landing CTA is read but never auto-clicked during player recover
     recoveryTimer.callback();
 
     assert.equal(clicked, 0, 'the page CTA is never activated programmatically');
-    assert.deepEqual(assigned, ['https://open.spotify.com/app'], 'recovery stays inside the Web Player');
+    assert.deepEqual(loaded, ['https://open.spotify.com/app'], 'recovery is loaded directly by the app WebView');
+    assert.deepEqual(assigned, [], 'recovery never resolves a Spotify App Link outside the app');
     assert.ok(traces.includes('player-cta found; web navigation only'));
 });
 
@@ -515,6 +527,7 @@ test('bundled native bootstrap activates the shell, sends Home rows, and only op
     const script = read('assets/native_ui_shell.js');
     const calls = [];
     const assigned = [];
+    const loaded = [];
     const timers = [];
     let readyCount = 0;
 
@@ -572,7 +585,8 @@ test('bundled native bootstrap activates the shell, sends Home rows, and only op
         }]),
         AndBridge: {
             onNativeUiReady: () => { readyCount += 1; },
-            onNativeUiData: (screen, data) => calls.push({ screen, data })
+            onNativeUiData: (screen, data) => calls.push({ screen, data }),
+            loadWebPlayerUrl: (url) => loaded.push(url)
         },
         MutationObserver: TestMutationObserver,
         addEventListener: () => {},
@@ -609,7 +623,8 @@ test('bundled native bootstrap activates the shell, sends Home rows, and only op
     }]), 'the shell must not overwrite or depend on the shared legacy signature');
 
     assert.equal(window.__sfNativeOpenUri('spotify:track:track123'), true);
-    assert.equal(assigned.pop(), 'https://open.spotify.com/track/track123');
+    assert.equal(loaded.pop(), 'https://open.spotify.com/track/track123');
+    assert.deepEqual(assigned, [], 'Spotify content navigation stays in the existing WebView');
     assert.equal(window.__sfNativeOpenUri('https://example.org/track/track123'), false);
     assert.equal(window.__sfNativeRequestHome(), true);
     assert.equal(calls.length, 2, 'requesting Home should resend current rows');
@@ -1035,7 +1050,8 @@ test('library and search still work when the bridge never starts', () => {
     // Le repli ouvre la vraie page collection via un helper partage (l ancien
     // retour immediat sur une reponse vide rendait l onglet inerte).
     assert.match(shell, /function openCollectionPage\(target\)/);
-    assert.match(shell, /window\.location\.assign\('https:\/\/open\.spotify\.com' \+ target\)/);
+    assert.match(shell, /navigateWebPlayer\('https:\/\/open\.spotify\.com' \+ target\)/,
+        'collection fallbacks load inside the app WebView');
     assert.match(shell, /openCollectionPage\('\/collection\/playlists'\)/);
     const libraryClick = activity.slice(activity.indexOf('.method public final onNativeLibraryClick'));
     assert.match(libraryClick, /const-string v0, "window\.__sfOpenLibrary && window\.__sfOpenLibrary\(\)"/);
@@ -1244,6 +1260,7 @@ test('the shell pause button latches the pause and a skip releases it', () => {
 test('the library tab never reloads its own page in a loop', () => {
     const build = (pathname) => {
         const navigations = [];
+        const loaded = [];
         const window = {
             location: {
                 hostname: 'open.spotify.com',
@@ -1251,7 +1268,11 @@ test('the library tab never reloads its own page in a loop', () => {
                 href: 'https://open.spotify.com' + pathname,
                 assign: (url) => navigations.push(url)
             },
-            AndBridge: { onNativeUiReady: () => {}, onNativeUiData: () => {} },
+            AndBridge: {
+                onNativeUiReady: () => {},
+                onNativeUiData: () => {},
+                loadWebPlayerUrl: (url) => loaded.push(url)
+            },
             MutationObserver: class { observe() {} },
             addEventListener: () => {},
             setTimeout: () => 1,
@@ -1267,20 +1288,23 @@ test('the library tab never reloads its own page in a loop', () => {
             addEventListener: () => {}
         };
         vm.runInNewContext(read('assets/native_ui_shell.js'), { window, document, URL });
-        return { window, navigations };
+        return { window, navigations, loaded };
     };
 
     const onPlaylists = build('/collection/playlists');
     onPlaylists.window.__sfOpenLibrary();
-    assert.deepEqual(onPlaylists.navigations, [], 'the playlists tab is already displayed');
+    assert.deepEqual(onPlaylists.loaded, [], 'the playlists tab is already displayed');
+    assert.deepEqual(onPlaylists.navigations, [], 'no external navigation occurs');
 
     const onAlbums = build('/collection/albums');
     onAlbums.window.__sfOpenLibraryCategory('albums');
-    assert.deepEqual(onAlbums.navigations, [], 'the selected chip is already displayed');
+    assert.deepEqual(onAlbums.loaded, [], 'the selected chip is already displayed');
+    assert.deepEqual(onAlbums.navigations, [], 'no external navigation occurs');
 
     const onHome = build('/');
     onHome.window.__sfOpenLibrary();
-    assert.match(onHome.navigations[0] || '', /\/collection\/playlists$/);
+    assert.match(onHome.loaded[0] || '', /\/collection\/playlists$/);
+    assert.deepEqual(onHome.navigations, [], 'library recovery stays in the app WebView');
 });
 
 test('browse tiles drive the live search and the grid yields to real results', () => {
