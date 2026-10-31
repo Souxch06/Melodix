@@ -17,6 +17,7 @@ const { test } = require('node:test');
 const assert = require('node:assert');
 const fs = require('node:fs');
 const path = require('node:path');
+const vm = require('node:vm');
 
 const ROOT = path.resolve(__dirname, '..');
 const read = (p) => fs.readFileSync(path.join(ROOT, p), 'utf8');
@@ -31,6 +32,17 @@ function methodBody(src, sigStart) {
   const start = src.indexOf(sigStart);
   assert.ok(start >= 0, `method not found: ${sigStart}`);
   return src.slice(start, src.indexOf('.end method', start));
+}
+
+function nativeProbeScript() {
+  const body = methodBody(
+    read('smali/com/melodix/music/AndBridge.smali'),
+    '.method public static runProbe(Landroid/webkit/WebView;)V'
+  );
+  const marker = body.indexOf(':probe_collect');
+  const match = body.slice(marker).match(/const-string v0, "((?:\\.|[^"\\])*)"/);
+  assert.ok(match, 'the native probe JavaScript is embedded in the Smali method');
+  return JSON.parse(`"${match[1]}"`);
 }
 
 // ---------------------------------------------------------------------------
@@ -406,7 +418,7 @@ test('the safety net never touches v0 (VerifyError guard)', () => {
 
 
 // ---------------------------------------------------------------------------
-// Part 9 - the native probe: decides and acts without any page script
+// Part 9 - Android-side fallback probe; the page shell owns recovery when active
 // ---------------------------------------------------------------------------
 
 test('the probe script accepts consent walls and opens the framed player', () => {
@@ -424,6 +436,80 @@ test('the probe script accepts consent walls and opens the framed player', () =>
     'evaluateJavascript runs synchronously - no JS timers involved');
 });
 
+test('the shell advertises completion only after install succeeds', () => {
+  const shell = read('assets/native_ui_shell.js');
+  assert.match(shell, /try \{\s*install\(\);\s*window\.__sfNativeUiShellCompleted = true;/,
+    'successful installation sets the marker the probe trusts');
+  assert.match(shell, /catch \(err\) \{[\s\S]*?window\.__sfNativeUiShellCompleted = false;/,
+    'a partial shell failure keeps the native fallback enabled');
+});
+
+test('an active native shell owns recovery and the Android probe does not navigate over it', () => {
+  const assigned = [];
+  const logs = [];
+  const location = {
+    href: 'https://open.spotify.com/intl-fr/',
+    assign: (url) => assigned.push(url),
+  };
+  const document = {
+    querySelector: () => null,
+    querySelectorAll: () => { throw new Error('active shell must stop the probe before iframe inspection'); },
+  };
+  const bridge = { logDiagEvent: (message) => logs.push(message) };
+  const window = {
+    __sfNativeUiShellStarted: true,
+    __sfNativeUiShellCompleted: true,
+    location,
+    AndBridge: bridge,
+    localStorage: {
+      getItem: () => { throw new Error('active shell must stop before navigation state is read'); },
+      setItem: () => { throw new Error('active shell must stop before navigation state is written'); },
+    },
+  };
+
+  const result = vm.runInNewContext(nativeProbeScript(), {
+    window, document, location, AndBridge: bridge, Date, JSON, String,
+  });
+
+  assert.equal(result, 'shell-active');
+  assert.deepEqual(assigned, [], 'the probe cannot race the native UI shell with /app, /search or /');
+  assert.ok(logs.includes('probe yield shell'), 'the hand-off is visible in startup diagnostics');
+});
+
+test('the native probe keeps its Web Player fallback when shell startup did not complete', () => {
+  const assigned = [];
+  const storage = new Map();
+  const location = {
+    href: 'https://open.spotify.com/intl-fr/',
+    assign: (url) => assigned.push(url),
+  };
+  const document = {
+    querySelector: () => null,
+    querySelectorAll: () => [],
+    title: 'Spotify - Web Player',
+    body: { innerText: '' },
+  };
+  const bridge = { logDiagEvent: () => {} };
+  const window = {
+    __sfNativeUiShellStarted: true,
+    __sfNativeUiShellCompleted: false,
+    location,
+    AndBridge: bridge,
+    localStorage: {
+      getItem: (key) => storage.get(key) || null,
+      setItem: (key, value) => storage.set(key, value),
+    },
+  };
+
+  const result = vm.runInNewContext(nativeProbeScript(), {
+    window, document, location, AndBridge: bridge, Date, JSON, String,
+  });
+
+  assert.equal(result, 'nav');
+  assert.deepEqual(assigned, ['https://open.spotify.com/app'],
+    'the native recovery path remains available if shell injection failed');
+});
+
 test('follow-ups run on Android timers, immune to paused JS timers', () => {
   const bridge = read('smali/com/melodix/music/AndBridge.smali');
   const body = methodBody(bridge, '.method public static scheduleProbe(Landroid/webkit/WebView;II)V');
@@ -432,12 +518,16 @@ test('follow-ups run on Android timers, immune to paused JS timers', () => {
     'View.postDelayed is an Android timer');
 });
 
-test('every finished open.spotify.com page is probed', () => {
+test('every finished open.spotify.com page injects the shell before the Android fallback probe', () => {
   const c91 = read('smali/c91.smali');
-  assert.ok(c91.includes('AndBridge;->runProbe(Landroid/webkit/WebView;)V'),
-    'the probe runs right after the shell injection');
+  const shellAt = c91.indexOf('const-string v5, "native_ui_shell.js"');
+  const probeAt = c91.indexOf('AndBridge;->runProbe(Landroid/webkit/WebView;)V');
+  assert.ok(shellAt >= 0 && probeAt > shellAt,
+    'the shell is queued first so the native probe can yield when it is active');
   assert.ok(c91.includes('AndBridge;->scheduleProbe(Landroid/webkit/WebView;II)V'),
-    'and again after 3s');
+    'Android-timed follow-up probes remain available as a fallback');
+  assert.match(nativeProbeScript(), /__sfNativeUiShellCompleted === true/,
+    'the probe checks whether the shell has claimed recovery');
 });
 
 test('the late native fallback only fires when the page is idle on the wrapper', () => {
