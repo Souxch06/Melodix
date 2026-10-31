@@ -41,8 +41,8 @@ Deux chemins de démarrage cliquaient automatiquement le CTA `data-testid=web-pl
   - `JavascriptInterface annotations are limited to bridge methods used by active JavaScript` — le test ne prend pas en compte les appels du nouveau shell natif.
 - Build/signature/publication : [CI 41198678469](https://github.com/Souxch06/Melodix/actions/runs/41198678469), **succès**. APK `Melodix-Preview-v1.2.2-test89.apk`, SHA-256 `10ba68c341efa0e52c5c5bd53535d5f1b79fa07fddcb65637d88fdb2dab4ff8c`.
 - Politique de releases vérifiée : seule la release publique `test.89` reste; la release `test.88` a été supprimée, son tag Git et les commits restent intacts.
-- **Essai sur téléphone : non effectué.** La compilation CI et les tests statiques ne prouvent pas que l’interface Melodix s’affiche sur l’appareil.
-- Un diagnostic complémentaire sur émulateur Android API 25 est lancé depuis le commit documentaire courant pour relever l’écran de démarrage, la chaîne native et les erreurs éventuelles. Aucun compte Spotify n’y est connecté : il ne peut pas valider le basculement d’une session authentifiée ni remplacer l’essai demandé sur le téléphone.
+- **Essai sur le téléphone de l’utilisateur : non effectué.** La compilation CI et les tests statiques ne prouvent pas que l’interface Melodix s’affiche sur cet appareil.
+- Trace complémentaire : [émulateur API 25, run 41198933048](https://github.com/Souxch06/Melodix/actions/runs/41198933048), tâche terminée sans erreur d’action, mais résultat **non concluant**. Le guest x86 Android 7.1.1 n’avait pas `/dev/kvm`; il a gardé `MainActivity` en activité reprise, sans texte visible ni lignes `MDXTRACE`. La première chaîne atteint `content-view`, puis une seconde ouverture est signalée `STARTUP STUCK` à +60 s; aucun crash fatal n’est capturé. Le build temporaire provenait de `444607b` (mêmes fichiers applicatifs que test.89, différences documentaires) et aucun compte Spotify n’était connecté. Cette exécution lente ne valide ni le CTA dans une session authentifiée ni le comportement sur le téléphone.
 
 ## Suite nécessaire
 
