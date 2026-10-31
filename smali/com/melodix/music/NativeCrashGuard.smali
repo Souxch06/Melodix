@@ -1160,3 +1160,46 @@
     :done
     return-void
 .end method
+
+# Same report as recordWebViewFailure, prefixed so the diagnostic screen tells
+# "the engine could not be built" apart from "the engine was built but one
+# configuration or first-load step failed". The second case used to be silent:
+# the WebView was discarded and the cause was lost.
+.method public static recordWebViewConfigFailure(Ljava/lang/Throwable;)V
+    .locals 2
+
+    :try_start_0
+    invoke-static {p0}, Lcom/melodix/music/NativeCrashGuard;->recordWebViewFailure(Ljava/lang/Throwable;)V
+
+    sget-object v0, Lcom/melodix/music/AppSingleton;->g0:Ljava/lang/String;
+
+    if-nez v0, :done
+
+    new-instance v1, Ljava/lang/StringBuilder;
+
+    invoke-direct {v1}, Ljava/lang/StringBuilder;-><init>()V
+
+    const-string v0, "config apres creation \u2014 "
+
+    invoke-virtual {v1, v0}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    sget-object v0, Lcom/melodix/music/AppSingleton;->g0:Ljava/lang/String;
+
+    invoke-virtual {v1, v0}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    invoke-virtual {v1}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
+
+    move-result-object v0
+
+    sput-object v0, Lcom/melodix/music/AppSingleton;->g0:Ljava/lang/String;
+    :try_end_0
+    .catch Ljava/lang/Throwable; {:try_start_0 .. :try_end_0} :catch_0
+
+    goto :done
+
+    :catch_0
+    move-exception v0
+
+    :done
+    return-void
+.end method

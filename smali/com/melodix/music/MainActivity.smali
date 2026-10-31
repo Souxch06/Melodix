@@ -450,7 +450,50 @@
     .line 20
     .line 21
     :cond_0
-    invoke-virtual {p0, v1}, Lcom/melodix/music/MainActivity;->D(Z)V
+    # No engine at all. D(true) fades the splash away, which on a device with
+    # no usable WebView leaves a black screen with nothing on it: the reason
+    # was written into frameStatusText, a view the splash covers. Use the slot
+    # the splash layout already reserves for exactly this (txtSplashError),
+    # stop the spinner that can never finish, and keep the splash on screen.
+    const v2, 0x7f090213
+
+    invoke-virtual {p0, v2}, Le6;->findViewById(I)Landroid/view/View;
+
+    move-result-object v0
+
+    check-cast v0, Landroid/widget/TextView;
+
+    if-eqz v0, :cond_0_no_text
+
+    const-string v2, "Moteur web indisponible.\nActive « WebView système » ou Chrome dans le Play Store, puis relance Melodix."
+
+    invoke-virtual {v0, v2}, Landroid/widget/TextView;->setText(Ljava/lang/CharSequence;)V
+
+    const/4 v2, 0x0
+
+    invoke-virtual {v0, v2}, Landroid/view/View;->setVisibility(I)V
+
+    :cond_0_no_text
+    const v2, 0x7f090187
+
+    invoke-virtual {p0, v2}, Le6;->findViewById(I)Landroid/view/View;
+
+    move-result-object v0
+
+    if-eqz v0, :cond_0_no_spinner
+
+    const/16 v2, 0x8
+
+    invoke-virtual {v0, v2}, Landroid/view/View;->setVisibility(I)V
+
+    :cond_0_no_spinner
+    const/4 v0, 0x1
+
+    sput-boolean v0, Lcom/melodix/music/AppSingleton;->startupDone:Z
+
+    const-string v0, "webview-null"
+
+    invoke-static {v0}, Lcom/melodix/music/NativeCrashGuard;->stage(Ljava/lang/String;)V
 
     .line 22
     .line 23

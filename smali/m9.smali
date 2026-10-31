@@ -1677,11 +1677,44 @@
 
     .line 306
     :catchall_1
-    const/4 p0, 0x0
+    # A single failing step - a cookie setting, the first loadUrl, the proxy
+    # override - used to discard the WebView that had just been built. The
+    # engine existed, but MainActivity received null, C() reported a missing
+    # WebView and the splash never lifted: a black screen with no content.
+    # Keep the engine, record which step failed, and retry the first load only
+    # when nothing had started yet (so a failure after a started load cannot
+    # reload the page).
+    move-exception v0
 
-    .line 307
-    sput-object p0, Lcom/melodix/music/AppSingleton;->w:Ll9;
+    invoke-static {v0}, Lcom/melodix/music/NativeCrashGuard;->recordWebViewConfigFailure(Ljava/lang/Throwable;)V
 
+    sget-object v1, Lcom/melodix/music/AppSingleton;->w:Ll9;
+
+    if-eqz v1, :keep_webview
+
+    invoke-virtual {v1}, Landroid/webkit/WebView;->getOriginalUrl()Ljava/lang/String;
+
+    move-result-object v2
+
+    if-eqz v2, :keep_webview
+
+    :try_start_retry
+    const-string v2, "https://accounts.spotify.com/en/login?continue=https%3A%2F%2Fopen.spotify.com%2F&allow_signup=1"
+
+    invoke-virtual {v1, v2}, Landroid/webkit/WebView;->loadUrl(Ljava/lang/String;)V
+    :try_end_retry
+    .catchall {:try_start_retry .. :try_end_retry} :retry_failed
+
+    const-string v2, "webview-kept"
+
+    invoke-static {v2}, Lcom/melodix/music/NativeCrashGuard;->stage(Ljava/lang/String;)V
+
+    goto :keep_webview
+
+    :retry_failed
+    move-exception v0
+
+    :keep_webview
     .line 308
     .line 309
     goto :goto_4
