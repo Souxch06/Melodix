@@ -106,6 +106,15 @@ si un contrôle cliquable repasse sous ce seuil.
 - Lecture : l'état du lecteur est publié par un intervalle dédié, et chaque
   clic sur un contrôle de lecture déclenche une republication immédiate — les
   boutons du lecteur natif ne restent donc pas figés.
+- **Écran de connexion (`af001d2`)** : le shell ne collecte que sur
+  `open.spotify.com`. Sur `accounts.spotify.com`,
+  `onNativeUiReady` n'était donc jamais envoyé et `showNativeUi()` — le seul
+  autre code qui lève le splash — ne tournait jamais : une installation neuve
+  ou une session expirée restait bloquée sur le splash sans pouvoir atteindre
+  le formulaire de connexion. `onPageFinished` détecte désormais l'hôte de
+  compte et masque **uniquement l'overlay de splash**. Aucune action sur la
+  session, les cookies, le WebView ni le flux de connexion : le système
+  d'authentification existant n'est pas modifié, il devient visible.
 
 ## E. Stabilité
 
