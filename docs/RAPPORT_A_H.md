@@ -258,10 +258,39 @@ Règle vérifiée à la dure : **tout push doit contenir `[skip-release]` ou
 commencer par `[preview-release] vX.Y.Z-test.N-preview`**, sinon le workflow
 échoue avant même de compiler.
 
+### Ce que l'appareil réel a changé (31/10, 11h03)
+
+Le premier rapport venu d'un vrai téléphone (Lenovo TB125FU, api 33,
+`1.2.2-536437c`) n'a pas dit « c'est lent », il a nommé la panne :
+`web: url=<webview absente>` avec `chargement=true erreur=1`.
+
+Ces deux drapeaux ne sont écrits que par `MainActivity.D(Z)`, dont le seul
+appelant dans `C()` est la branche « la fabrique a renvoyé null ». La
+conclusion est donc mécanique : **l'application n'avait aucun moteur web**, et
+le splash s'effaçait vers du noir. Ce n'était ni le réseau, ni la connexion.
+
+La raison est dans `m9.g()` : le `catchall` qui couvre les cookies, les
+settings, le pont JavaScript, le premier `loadUrl` et le proxy override faisait
+
+    sput-object p0, AppSingleton;->w:Ll9      # avec p0 = null
+
+Une seule étape secondaire en échec jetait donc un WebView déjà entièrement
+construit. Corrigé dans `ff45245` :
+
+- le moteur est conservé, la cause est enregistrée
+  (`recordWebViewConfigFailure`, préfixe « config apres creation ») ;
+- si rien n'avait chargé, la page de connexion est relancée une fois ;
+- si aucun moteur n'existe vraiment, le splash **garde** son logo et affiche
+  l'explication dans `txtSplashError` (l'emplacement que le layout prévoyait et
+  qu'aucun code ne remplissait), spinner masqué — plus d'écran noir muet ;
+- nouvelles étapes `webview-kept` / `webview-null` : le prochain rapport nomme
+  la branche au lieu de laisser deviner.
+
 ### Releases
 
-**Une seule release existe : `v1.2.2-test.83-preview`**, buildée à partir du
-build vert `536437c`, plus le commit de documentation `[skip-release]` qui
+**Une seule release existe : `v1.2.2-test.84-preview`**, buildée à partir du
+build vert `1b1e533` (elle remplace `test.83`, dont la release et le tag ont
+été supprimés dans la même foulée pour ne garder que la dernière version), plus le commit de documentation `[skip-release]` qui
 suit. Elle porte 2 assets : l'APK (3 355 400 octets, empreinte vérifiée
 `sha256:f22814478c34b25a774ea8910137fc1aab24f65168178a74aa1a61871b8a89d7`)
 et son fichier `.sha256`. Le corps de release renvoie au commit, qui contient
