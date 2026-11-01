@@ -294,6 +294,10 @@ test("Android verifies the packaged Web Home renderer on /app in an isolated, vi
   assert.match(harness, /result\.putBoolean\("authenticated_home_test_performed", false\)/);
   assert.match(harness, /inspectLiveSpotifyCssTheme\(webView\)[\s\S]*?live_webview_css_tokens_valid[\s\S]*?live_webview_home_active/,
     "the existing Spotify WebView is observed directly, without replacing its login content or claiming an authenticated Home");
+  assert.match(harness, /cssThemeApplicable = liveCssState\.getBoolean\("live_webview_css_theme_applicable"\)[\s\S]*?live_spotify_host_confirmed[\s\S]*?cssThemeApplicable && !liveCssState\.getBoolean\("live_webview_css_tokens_valid"\)/,
+    "player CSS is required on open.spotify.com, but not expected on the separate accounts login origin");
+  assert.match(harness, /if \(!highEntropyError\) highEntropyErrorType = "none"/,
+    "a successful high-entropy Client Hints request is not mislabeled as an error");
   assert.match(harness, /catch \(org\.json\.JSONException error\)[\s\S]*?javascriptUserAgentProbeFailure/,
     "malformed JavaScript UA diagnostics are recorded as a safe failure instead of escaping the instrumentation harness");
   assert.match(harness, /live_spotify_css_probe_completed[\s\S]*?live_spotify_css_probe_error[\s\S]*?safeExceptionType\(error\)/,
@@ -319,7 +323,9 @@ test("Android verifies the packaged Web Home renderer on /app in an isolated, vi
     "computed colors and failing contrast ratios are emitted safely before the test fails");
   assert.match(harness, /retry_button_fill[\s\S]*?statusBackdrops/,
     "the retry button fill and focus ring are compared to the actual status-card backdrop");
-  assert.match(emulatorWorkflow, /INSTRUMENTATION_STATUS: live_webview_css_tokens_valid=true[\s\S]*?INSTRUMENTATION_STATUS: web_home_all_states_wcag_aa_pass=true[\s\S]*?INSTRUMENTATION_STATUS: web_home_partial_state_wcag_aa_pass=true/);
+  assert.match(emulatorWorkflow, /live_spotify_origin_category=open\.spotify\.com[\s\S]*?live_webview_css_theme_applicable=true[\s\S]*?live_webview_stylesheet_marker_present=true[\s\S]*?live_webview_css_tokens_valid=true[\s\S]*?live_spotify_origin_category=accounts\.spotify\.com[\s\S]*?live_webview_css_theme_applicable=false[\s\S]*?live_webview_css_tokens_valid=false/,
+    "player CSS is required on open.spotify.com but correctly marked inapplicable on the separate Spotify accounts origin");
+  assert.match(emulatorWorkflow, /INSTRUMENTATION_STATUS: web_home_all_states_wcag_aa_pass=true[\s\S]*?INSTRUMENTATION_STATUS: web_home_partial_state_wcag_aa_pass=true/);
   assert.match(emulatorWorkflow, /live_webview_css_tokens_valid[\s\S]*?web_home_color_state_scenarios_complete[\s\S]*?retry_button_fill/);
   assert.match(emulatorWorkflow, /css_source_sha256[\s\S]*?unzip -p "\$apk" assets\/css_hacks\.css[\s\S]*?css_source_matches_apk_asset/,
     "the exact candidate carries the canonical CSS asset hash in the sanitized report");

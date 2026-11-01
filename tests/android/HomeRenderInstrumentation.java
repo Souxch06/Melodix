@@ -343,9 +343,11 @@ public final class HomeRenderInstrumentation extends Instrumentation {
             notePhase(failurePhase);
             Bundle liveCssState = inspectLiveSpotifyCssTheme(webView);
             sendStatus(1, liveCssState);
-            if (!liveCssState.getBoolean("live_webview_css_tokens_valid") ||
+            boolean cssThemeApplicable = liveCssState.getBoolean("live_webview_css_theme_applicable");
+            if (!liveCssState.getBoolean("live_spotify_host_confirmed") ||
+                    (cssThemeApplicable && !liveCssState.getBoolean("live_webview_css_tokens_valid")) ||
                     liveCssState.getBoolean("live_webview_home_active")) {
-                throw new AssertionError("The existing Spotify WebView did not retain valid Home theme tokens without taking over the unauthenticated login surface");
+                throw new AssertionError("The existing Spotify WebView had an invalid origin or applicable Home theme tokens, or took over the unauthenticated login surface");
             }
 
             failurePhase = "empty_home_bridge_dispatch";
@@ -758,10 +760,12 @@ public final class HomeRenderInstrumentation extends Instrumentation {
                 probe.optBoolean("client_hints_high_entropy_supported"));
         state.putBoolean("client_hints_high_entropy_complete",
                 probe.optBoolean("client_hints_high_entropy_complete"));
-        state.putBoolean("client_hints_high_entropy_error",
-                probe.optBoolean("client_hints_high_entropy_error"));
-        state.putString("client_hints_high_entropy_error_type",
-                safeProbeErrorType(probe.optString("client_hints_high_entropy_error_type", "none")));
+        boolean highEntropyError = probe.optBoolean("client_hints_high_entropy_error");
+        String highEntropyErrorType = probe.optString("client_hints_high_entropy_error_type", "").trim();
+        if (!highEntropyError) highEntropyErrorType = "none";
+        else if (highEntropyErrorType.isEmpty()) highEntropyErrorType = "HighEntropyError";
+        state.putBoolean("client_hints_high_entropy_error", highEntropyError);
+        state.putString("client_hints_high_entropy_error_type", safeProbeErrorType(highEntropyErrorType));
         state.putBoolean("javascript_ua_profile_probe_error", resultProbeError || resultParseError);
         state.putString("javascript_user_agent_probe_error_type", resultParseError
                 ? resultParseErrorType : resultProbeError ? resultProbeErrorType : "none");
@@ -810,6 +814,7 @@ public final class HomeRenderInstrumentation extends Instrumentation {
             failed.putString("live_spotify_route_category", "other");
             failed.putBoolean("live_spotify_host_confirmed", false);
             failed.putBoolean("live_webview_stylesheet_marker_present", false);
+            failed.putBoolean("live_webview_css_theme_applicable", false);
             failed.putBoolean("live_webview_css_tokens_valid", false);
             failed.putInt("live_webview_css_token_count", 0);
             failed.putBoolean("live_webview_home_present", false);
@@ -841,6 +846,7 @@ public final class HomeRenderInstrumentation extends Instrumentation {
             if (value.isEmpty() || value.toLowerCase().contains("var(")) tokensValid = false;
         }
         boolean spotifyHost = "open.spotify.com".equals(host) || "accounts.spotify.com".equals(host);
+        boolean cssThemeApplicable = "open.spotify.com".equals(host);
         boolean stylesheetPresent = probe.optBoolean("style_present") && probe.optBoolean("style_marker_present");
         Bundle state = new Bundle();
         state.putString("phase", "live_spotify_webview_css_probe");
@@ -854,7 +860,8 @@ public final class HomeRenderInstrumentation extends Instrumentation {
         state.putString("live_spotify_route_category", probe.optString("route_category", "other"));
         state.putBoolean("live_spotify_host_confirmed", spotifyHost);
         state.putBoolean("live_webview_stylesheet_marker_present", stylesheetPresent);
-        state.putBoolean("live_webview_css_tokens_valid", spotifyHost && stylesheetPresent && tokensValid);
+        state.putBoolean("live_webview_css_theme_applicable", cssThemeApplicable);
+        state.putBoolean("live_webview_css_tokens_valid", cssThemeApplicable && stylesheetPresent && tokensValid);
         state.putInt("live_webview_css_token_count", tokens == null ? 0 : tokens.length());
         state.putBoolean("live_webview_home_present", probe.optBoolean("home_present"));
         state.putBoolean("live_webview_home_active", probe.optBoolean("home_active"));

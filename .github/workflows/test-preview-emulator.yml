@@ -791,8 +791,6 @@ jobs:
             'INSTRUMENTATION_STATUS: live_spotify_css_probe_error=false'
             'INSTRUMENTATION_STATUS: live_spotify_css_probe_error_type=none'
             'INSTRUMENTATION_STATUS: live_spotify_host_confirmed=true'
-            'INSTRUMENTATION_STATUS: live_webview_stylesheet_marker_present=true'
-            'INSTRUMENTATION_STATUS: live_webview_css_tokens_valid=true'
             'INSTRUMENTATION_STATUS: live_webview_home_active=false'
             'INSTRUMENTATION_STATUS: live_webview_session_proof=false'
             'INSTRUMENTATION_STATUS: authenticated_home_test_performed=false'
@@ -864,6 +862,30 @@ jobs:
           for expected in "${required_statuses[@]}"; do
             if ! grep -Fq "$expected" "$state_dir/android-instrumentation.txt"; then
               echo "::error::Missing required Android UI assertion: $expected"
+              exit 1
+            fi
+          done
+
+          if grep -Fq 'INSTRUMENTATION_STATUS: live_spotify_origin_category=open.spotify.com' "$state_dir/android-instrumentation.txt"; then
+            css_statuses=(
+              'INSTRUMENTATION_STATUS: live_webview_css_theme_applicable=true'
+              'INSTRUMENTATION_STATUS: live_webview_stylesheet_marker_present=true'
+              'INSTRUMENTATION_STATUS: live_webview_css_tokens_valid=true'
+            )
+          elif grep -Fq 'INSTRUMENTATION_STATUS: live_spotify_origin_category=accounts.spotify.com' "$state_dir/android-instrumentation.txt"; then
+            # Spotify's account login page is a separate origin; Home CSS is
+            # intentionally scoped to the player and is not expected there.
+            css_statuses=(
+              'INSTRUMENTATION_STATUS: live_webview_css_theme_applicable=false'
+              'INSTRUMENTATION_STATUS: live_webview_css_tokens_valid=false'
+            )
+          else
+            echo "::error::The observed WebView origin is not an expected Spotify origin."
+            exit 1
+          fi
+          for expected in "${css_statuses[@]}"; do
+            if ! grep -Fq "$expected" "$state_dir/android-instrumentation.txt"; then
+              echo "::error::Missing origin-appropriate Web Home CSS assertion: $expected"
               exit 1
             fi
           done
@@ -1263,6 +1285,7 @@ jobs:
               "live_spotify_origin_category": status_value("live_spotify_origin_category"),
               "live_spotify_host_confirmed": status_bool("live_spotify_host_confirmed"),
               "live_webview_stylesheet_marker_present": status_bool("live_webview_stylesheet_marker_present"),
+              "live_webview_css_theme_applicable": status_bool("live_webview_css_theme_applicable"),
               "live_webview_css_tokens_valid": status_bool("live_webview_css_tokens_valid"),
               "live_webview_css_token_count": status_value("live_webview_css_token_count"),
               "live_webview_home_present": status_bool("live_webview_home_present"),
@@ -1403,7 +1426,7 @@ jobs:
               "browser_compatibility_warning_visible", "release_candidate_css_source_matches_apk_asset",
               "live_spotify_css_probe_completed", "live_spotify_css_probe_error",
               "live_spotify_css_probe_error_type", "live_spotify_origin_category",
-              "live_webview_css_tokens_valid", "live_webview_home_active",
+              "live_webview_css_theme_applicable", "live_webview_css_tokens_valid", "live_webview_home_active",
               "web_home_color_probe_fixture_test_only", "web_home_color_probe_completed",
               "web_home_color_probe_error", "web_home_color_probe_error_type",
               "web_home_color_probe_validation_passed", "web_home_color_scenarios_complete",
@@ -1523,7 +1546,7 @@ jobs:
                   output.write(f"- CSS asset SHA-256 extracted from the exact release candidate: `{reference.get('release_candidate_css_apk_asset_sha256') or 'not verified'}`; hash match: `{reference.get('release_candidate_css_source_matches_apk_asset')}`\n")
                   output.write(f"- Android: `{reference.get('android_release') or 'unknown'}` (API `{reference.get('android_api_level') or 'unknown'}`); WebView package/version: `{reference.get('installed_webview_package') or 'unknown'}` / `{reference.get('installed_webview_package_version') or 'unknown'}`; Chromium: `{reference.get('installed_webview_chrome_version') or 'unknown'}`\n")
                   output.write(f"- Configured UA Chrome: `{reference.get('configured_ua_chrome_version') or 'unknown'}`; JavaScript UA Chrome/Android: `{reference.get('javascript_user_agent_chrome_version') or 'unknown'}` / `{reference.get('javascript_user_agent_android_version') or 'unknown'}`; Client Hints platform/brand/major/full version/platform version: `{reference.get('client_hints_platform') or 'unknown'}` / `{reference.get('client_hints_browser_brand') or 'unknown'}` / `{reference.get('client_hints_browser_major') or 'unknown'}` / `{reference.get('client_hints_full_browser_version') or 'unavailable'}` / `{reference.get('client_hints_platform_version') or 'unavailable'}`; high entropy supported/complete/error/type/timeout: `{reference.get('client_hints_high_entropy_api_supported')}` / `{reference.get('client_hints_high_entropy_complete')}` / `{reference.get('client_hints_high_entropy_error')}` / `{reference.get('client_hints_high_entropy_error_type') or 'none'}` / `{reference.get('client_hints_high_entropy_timed_out')}`; profile probe error/type/coherent: `{reference.get('javascript_ua_profile_probe_error')}` / `{reference.get('javascript_user_agent_probe_error_type') or 'none'}` / `{reference.get('javascript_ua_profile_coherent')}`\n")
-                  output.write(f"- Existing Spotify WebView origin category: `{reference.get('live_spotify_origin_category') or 'unknown'}`; CSS probe completed/error/type: `{reference.get('live_spotify_css_probe_completed')}` / `{reference.get('live_spotify_css_probe_error')}` / `{reference.get('live_spotify_css_probe_error_type') or 'none'}`; CSS marker/tokens valid: `{reference.get('live_webview_stylesheet_marker_present')}` / `{reference.get('live_webview_css_tokens_valid')}`; Home active on unauthenticated login: `{reference.get('live_webview_home_active')}`; bridge present: `{reference.get('live_webview_bridge_present')}`\n")
+                  output.write(f"- Existing Spotify WebView origin category: `{reference.get('live_spotify_origin_category') or 'unknown'}`; CSS probe completed/error/type: `{reference.get('live_spotify_css_probe_completed')}` / `{reference.get('live_spotify_css_probe_error')}` / `{reference.get('live_spotify_css_probe_error_type') or 'none'}`; CSS marker/applicable/tokens valid: `{reference.get('live_webview_stylesheet_marker_present')}` / `{reference.get('live_webview_css_theme_applicable')}` / `{reference.get('live_webview_css_tokens_valid')}`; Home active on unauthenticated login: `{reference.get('live_webview_home_active')}`; bridge present: `{reference.get('live_webview_bridge_present')}`\n")
                   output.write(f"- Computed colors were measured only in the explicitly test-only WebView fixture; fixture flag: `{reference.get('web_home_color_probe_fixture_test_only')}`; probe completed/error/error type/validation passed: `{reference.get('web_home_color_probe_completed')}` / `{reference.get('web_home_color_probe_error')}` / `{reference.get('web_home_color_probe_error_type') or 'none'}` / `{reference.get('web_home_color_probe_validation_passed')}`; all five state probes complete: `{reference.get('web_home_color_scenarios_complete')}`; all measured pairs at least 4.5:1: `{reference.get('web_home_all_states_wcag_aa_pass')}`. Light theme available: `{reference.get('web_home_light_theme_available')}`.\n\n")
                   output.write("| Fixture state | Cards | Visible | WCAG AA | Lowest measured contrast |\n|---|---:|---|---|---:|\n")
                   for name, scenario in (reference.get("web_home_computed_color_states") or {}).items():
