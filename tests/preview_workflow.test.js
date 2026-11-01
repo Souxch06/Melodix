@@ -269,6 +269,12 @@ test("Android verifies the packaged Web Home renderer on /app in an isolated, vi
   assert.match(harness, /WEB_HOME_RENDERER_VISIBLE_PROBE[\s\S]*?__sfMelodixHomeInitAttempted===true[\s\S]*?__sfMelodixHomeStylesReady===true[\s\S]*?sf-melodix-home-active[\s\S]*?sf-melodix-home__card[\s\S]*?mainStyle\.display==='none'[\s\S]*?rect\.width>0&&rect\.height>0/);
   assert.match(harness, /inspectWebHomeRenderer\(\s*activity,\s*webHomeFixtureHolder\[0\],\s*originalWebViewUrl,\s*webView\)[\s\S]*?original_login_webview_url_preserved/);
   assert.match(harness, /removeWebHomeRendererFixture\(webHomeFixtureHolder\[0\]\)[\s\S]*?login_surface_restored_after_web_home_fixture/);
+  assert.match(harness, /failurePhase = "web_home_fixture_create"[\s\S]*?failurePhase = "web_home_renderer_asset_install"[\s\S]*?failurePhase = "web_home_renderer_visibility_probe"[\s\S]*?failurePhase = "web_home_renderer_native_visibility"[\s\S]*?failurePhase = "web_home_renderer_evidence_capture"/);
+  assert.match(harness, /WEB_HOME_RENDERER_DIAGNOSTIC_PROBE[\s\S]*?home_card_count[\s\S]*?source_hidden[\s\S]*?first_card_has_bounds/);
+  assert.match(harness, /web_home_probe_diagnostics_available[\s\S]*?web_home_probe_first_card_has_bounds/);
+  assert.match(emulatorWorkflow, /safe_statuses=.*web_home_probe_diagnostics_available.*web_home_probe_first_card_has_bounds/);
+  assert.match(emulatorWorkflow, /harness_overall_passed=false[\s\S]*?INSTRUMENTATION_STATUS: overall=passed[\s\S]*?harness_overall_passed=true[\s\S]*?safe_statuses=/,
+    "a runner can return exit zero after a canceled Activity, so fail from the harness result and retain safe phase diagnostics");
   assert.match(harness, /result\.putBoolean\("authenticated_home_test_performed", false\)/);
   assert.match(inspector, /"web-home"[\s\S]*?web_home_fixture_playlist_title_visible[\s\S]*?web_home_fixture_album_title_visible/);
   assert.match(inspector, /test_only_resource_links_present[\s\S]*?authenticated_home_test_performed/);

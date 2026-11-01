@@ -100,6 +100,28 @@ public final class HomeRenderInstrumentation extends Instrumentation {
             "rect.width>0&&rect.height>0&&brandRect.width>0&&brandRect.height>0&&" +
             "cardRect.width>0&&cardRect.height>0);" +
             "}catch(e){return false;}})()";
+    private static final String WEB_HOME_RENDERER_DIAGNOSTIC_PROBE =
+            "(function(){try{" +
+            "var h=document.getElementById('sf-melodix-home');" +
+            "var m=document.querySelector('#main-view');" +
+            "var s=document.getElementById('sf-custom-style');" +
+            "var cards=h?h.querySelectorAll('.sf-melodix-home__card'):[];" +
+            "var hs=h&&getComputedStyle(h);" +
+            "var ms=m&&getComputedStyle(m);" +
+            "var brand=h&&h.querySelector('.sf-melodix-home__brand');" +
+            "var card=cards&&cards.length?cards[0]:null;" +
+            "return {route_app:location.hostname==='open.spotify.com'&&location.pathname==='/app'," +
+            "mode_csshack:!!(window.SF_CONFIG&&window.SF_CONFIG.guiMode==='csshack')," +
+            "init_attempted:window.__sfMelodixHomeInitAttempted===true," +
+            "style_marker_present:!!(s&&String(s.textContent||'').indexOf('SF_MELODIX_HOME_STYLES_V1')>=0)," +
+            "active_class:!!(document.body&&document.body.classList.contains('sf-melodix-home-active'))," +
+            "home_exists:!!h,home_card_count:Math.min(cards?cards.length:0,3)," +
+            "home_display_flex:!!(hs&&hs.display==='flex'),home_position_fixed:!!(hs&&hs.position==='fixed')," +
+            "home_visible:!!(hs&&hs.visibility==='visible'&&hs.opacity!=='0')," +
+            "source_hidden:!!(ms&&ms.display==='none')," +
+            "brand_has_bounds:!!(brand&&brand.getBoundingClientRect().width>0&&brand.getBoundingClientRect().height>0)," +
+            "first_card_has_bounds:!!(card&&card.getBoundingClientRect().width>0&&card.getBoundingClientRect().height>0)}" +
+            "}catch(e){return {probe_error:true};}})()";
 
     @Override
     public void onCreate(Bundle arguments) {
@@ -323,10 +345,18 @@ public final class HomeRenderInstrumentation extends Instrumentation {
             final WebView[] webHomeFixtureHolder = new WebView[1];
             Throwable webHomeFixtureFailure = null;
             try {
+                failurePhase = "web_home_fixture_create";
+                notePhase(failurePhase);
                 webHomeFixtureHolder[0] = createWebHomeRendererFixture(activity);
+                failurePhase = "web_home_renderer_asset_install";
+                notePhase(failurePhase);
                 installPackagedWebHomeRenderer(webHomeFixtureHolder[0], activity);
+                failurePhase = "web_home_renderer_visibility_probe";
+                notePhase(failurePhase);
                 awaitWebHomeRendererVisible(webHomeFixtureHolder[0]);
 
+                failurePhase = "web_home_renderer_native_visibility";
+                notePhase(failurePhase);
                 final Bundle[] webHomeState = new Bundle[1];
                 final Throwable[] webHomeInspectFailure = new Throwable[1];
                 runOnMainSync(new Runnable() {
@@ -342,6 +372,8 @@ public final class HomeRenderInstrumentation extends Instrumentation {
                 });
                 if (webHomeInspectFailure[0] != null) throw webHomeInspectFailure[0];
                 sendStatus(1, webHomeState[0]);
+                failurePhase = "web_home_renderer_evidence_capture";
+                notePhase(failurePhase);
                 captureWebHomeRendererEvidence();
                 restoredState[0].putBoolean("web_home_app_route_renderer_visible", true);
                 restoredState[0].putBoolean("web_home_renderer_evidence_captured", true);
@@ -353,6 +385,8 @@ public final class HomeRenderInstrumentation extends Instrumentation {
                 removeWebHomeRendererFixture(webHomeFixtureHolder[0]);
             }
             if (webHomeFixtureFailure != null) throw webHomeFixtureFailure;
+            failurePhase = "restore_login_after_web_home_fixture";
+            notePhase(failurePhase);
             requireUnauthenticatedSession(activity);
             boolean loginRestoredAfterFixture = awaitLoginUiVisible(webView);
             final String[] loginUrlAfterFixture = new String[1];
@@ -648,7 +682,8 @@ public final class HomeRenderInstrumentation extends Instrumentation {
                             ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
                     rendererView.requestFocus();
                     rendererView.loadDataWithBaseURL(
-                            "https://open.spotify.com/app", html, "text/html", "UTF-8", null);
+                            "https://open.spotify.com/app", html, "text/html", "UTF-8",
+                            "https://open.spotify.com/app");
                 } catch (Throwable error) {
                     failure[0] = error;
                 }
@@ -726,7 +761,35 @@ public final class HomeRenderInstrumentation extends Instrumentation {
             waitForIdleSync();
             Thread.sleep(100L);
         }
+        sendWebHomeRendererDiagnostics(webView);
         throw new AssertionError("Packaged Home renderer did not visibly activate on the native /app recovery route");
+    }
+
+    private void sendWebHomeRendererDiagnostics(WebView webView) {
+        Bundle state = new Bundle();
+        state.putString("phase", "web_home_renderer_diagnostic_probe");
+        try {
+            JSONObject probe = new JSONObject(evaluateJavascriptAndWait(
+                    webView, WEB_HOME_RENDERER_DIAGNOSTIC_PROBE));
+            state.putBoolean("web_home_probe_diagnostics_available", true);
+            state.putBoolean("web_home_probe_route_app", probe.optBoolean("route_app"));
+            state.putBoolean("web_home_probe_mode_csshack", probe.optBoolean("mode_csshack"));
+            state.putBoolean("web_home_probe_init_attempted", probe.optBoolean("init_attempted"));
+            state.putBoolean("web_home_probe_style_marker_present", probe.optBoolean("style_marker_present"));
+            state.putBoolean("web_home_probe_active_class", probe.optBoolean("active_class"));
+            state.putBoolean("web_home_probe_home_exists", probe.optBoolean("home_exists"));
+            state.putInt("web_home_probe_card_count", Math.max(0, Math.min(3, probe.optInt("home_card_count"))));
+            state.putBoolean("web_home_probe_home_display_flex", probe.optBoolean("home_display_flex"));
+            state.putBoolean("web_home_probe_home_position_fixed", probe.optBoolean("home_position_fixed"));
+            state.putBoolean("web_home_probe_home_visible", probe.optBoolean("home_visible"));
+            state.putBoolean("web_home_probe_source_hidden", probe.optBoolean("source_hidden"));
+            state.putBoolean("web_home_probe_brand_has_bounds", probe.optBoolean("brand_has_bounds"));
+            state.putBoolean("web_home_probe_first_card_has_bounds", probe.optBoolean("first_card_has_bounds"));
+        } catch (Throwable error) {
+            if (error instanceof InterruptedException) Thread.currentThread().interrupt();
+            state.putBoolean("web_home_probe_diagnostics_available", false);
+        }
+        sendStatus(1, state);
     }
 
     private Bundle inspectWebHomeRenderer(
