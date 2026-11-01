@@ -198,6 +198,9 @@ test("empty-Home pixels are captured before instrumentation finish and the same 
   assert.match(emulatorWorkflow, /activity_resumed=true[\s\S]*?preview_relaunched=\$preview_relaunched/);
   assert.match(emulatorWorkflow, /empty_home_pixels_verified=true/);
   assert.match(emulatorWorkflow, /PREVIEW_RELAUNCHED: \$\{\{ steps\.post-instrumentation\.outputs\.preview_relaunched \}\}/);
+  assert.match(emulatorWorkflow, /MainActivity was not resumed after instrumentation \(harness=\$INTEGRATION_OUTCOME\); relaunching/);
+  assert.match(emulatorWorkflow, /harness_failure_phase/);
+  assert.match(emulatorWorkflow, /harness_failure_type/);
 });
 
 test("the emulator workflow builds and tests one Preview APK in the same CI run", () => {

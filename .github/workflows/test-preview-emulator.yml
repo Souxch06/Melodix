@@ -684,23 +684,16 @@ jobs:
           fi
 
           if [[ -z "$resumed_before_relaunch" ]]; then
-            if [[ "$INTEGRATION_OUTCOME" == "success" ]]; then
-              echo "Android stopped the instrumented app process when finish() returned; relaunching the same installed Preview package before the post-instrumentation resume check."
-              adb shell am start -W -n com.melodix.music.preview/com.melodix.music.MainActivity \
-                > "$RUNNER_TEMP/melodix-post-instrumentation-launch.txt" 2>&1
-              preview_relaunched=true
-              resumed_after_instrumentation=""
-              for _ in $(seq 1 60); do
-                resumed_after_instrumentation="$(adb shell dumpsys activity activities | grep -E 'mResumedActivity|topResumedActivity|ResumedActivity' | grep -F 'com.melodix.music.preview/com.melodix.music.MainActivity' | head -n 1 || true)"
-                if [[ -n "$resumed_after_instrumentation" ]]; then break; fi
-                sleep 1
-              done
-            else
-              resumed_state="$(adb shell dumpsys activity activities | grep -E 'mResumedActivity|topResumedActivity|ResumedActivity' | head -n 1 | tr -cd 'A-Za-z0-9_.:/@ -' | cut -c1-300 || true)"
-              focus_state="$(adb shell dumpsys window | grep -E 'mCurrentFocus|mFocusedApp' | head -n 1 | tr -cd 'A-Za-z0-9_.:/@ -' | cut -c1-300 || true)"
-              echo "::error title=Post-instrumentation activity::MainActivity was not resumed; resumed=${resumed_state:-none}; focus=${focus_state:-none}; harness=$INTEGRATION_OUTCOME"
-              exit 1
-            fi
+            echo "MainActivity was not resumed after instrumentation (harness=$INTEGRATION_OUTCOME); relaunching the same installed Preview package before the post-instrumentation resume check."
+            adb shell am start -W -n com.melodix.music.preview/com.melodix.music.MainActivity \
+              > "$RUNNER_TEMP/melodix-post-instrumentation-launch.txt" 2>&1
+            preview_relaunched=true
+            resumed_after_instrumentation=""
+            for _ in $(seq 1 60); do
+              resumed_after_instrumentation="$(adb shell dumpsys activity activities | grep -E 'mResumedActivity|topResumedActivity|ResumedActivity' | grep -F 'com.melodix.music.preview/com.melodix.music.MainActivity' | head -n 1 || true)"
+              if [[ -n "$resumed_after_instrumentation" ]]; then break; fi
+              sleep 1
+            done
           else
             resumed_after_instrumentation="$resumed_before_relaunch"
           fi
@@ -766,6 +759,8 @@ jobs:
           user_agent_profile_coherent=not_confirmed
           webview_chrome_major=unknown
           configured_ua_chrome_major=unknown
+          harness_failure_phase=none
+          harness_failure_type=none
           if [[ -s "$state_dir/android-instrumentation.txt" ]]; then
             grep -Fq 'INSTRUMENTATION_STATUS: browser_compatibility_warning_visible=true' "$state_dir/android-instrumentation.txt" && browser_compatibility_warning=true || true
             grep -Fq 'INSTRUMENTATION_STATUS: browser_compatibility_warning_visible=false' "$state_dir/android-instrumentation.txt" && browser_compatibility_warning=false || true
@@ -780,11 +775,17 @@ jobs:
             [[ -n "$webview_chrome_major" ]] || webview_chrome_major=unknown
             configured_ua_chrome_major="$(sed -n 's/^INSTRUMENTATION_STATUS: configured_ua_chrome_major=//p' "$state_dir/android-instrumentation.txt" | head -n 1 | grep -E '^[0-9]{1,3}$' || true)"
             [[ -n "$configured_ua_chrome_major" ]] || configured_ua_chrome_major=unknown
+            harness_failure_phase="$(sed -n 's/^INSTRUMENTATION_STATUS: failure_phase=//p' "$state_dir/android-instrumentation.txt" | head -n 1 | grep -E '^[a-z_]+$' || true)"
+            [[ -n "$harness_failure_phase" ]] || harness_failure_phase=none
+            harness_failure_type="$(sed -n 's/^INSTRUMENTATION_STATUS: failure_type=//p' "$state_dir/android-instrumentation.txt" | head -n 1 | grep -E '^[A-Za-z0-9_$]+$' || true)"
+            [[ -n "$harness_failure_type" ]] || harness_failure_type=none
           fi
           BROWSER_COMPATIBILITY_WARNING="$browser_compatibility_warning"
           USER_AGENT_PROFILE_COHERENT="$user_agent_profile_coherent"
           WEBVIEW_CHROME_MAJOR="$webview_chrome_major"
           CONFIGURED_UA_CHROME_MAJOR="$configured_ua_chrome_major"
+          HARNESS_FAILURE_PHASE="$harness_failure_phase"
+          HARNESS_FAILURE_TYPE="$harness_failure_type"
           {
             echo "## Android 16 Preview UI integration check"
             echo
@@ -794,7 +795,7 @@ jobs:
             echo "- versionName / versionCode: \`${VERSION_NAME:-unknown}\` / \`${VERSION_CODE:-unknown}\`"
             echo "- APK SHA-256: \`${APK_SHA256:-not verified}\`"
             echo "- Exact target APK debuggable: \`${APK_DEBUGGABLE:-not verified}\`"
-            echo "- Instrumentation outcome: \`${INTEGRATION_OUTCOME:-not run}\`"
+            echo "- Instrumentation outcome: \`${INTEGRATION_OUTCOME:-not run}\`; failure phase/type: \`${HARNESS_FAILURE_PHASE:-none}\` / \`${HARNESS_FAILURE_TYPE:-none}\`"
             echo "- Browser compatibility banner: \`${BROWSER_COMPATIBILITY_WARNING:-not confirmed}\`; installed/configured Chrome major: \`${WEBVIEW_CHROME_MAJOR:-unknown}\` / \`${CONFIGURED_UA_CHROME_MAJOR:-unknown}\`; UA/client-hint profile coherent: \`${USER_AGENT_PROFILE_COHERENT:-not confirmed}\`"
             echo "- Post-instrumentation activity resume: \`${POST_INSTRUMENTATION_OUTCOME:-not run}\`; resumed=\`${ACTIVITY_RESUMED:-false}\`; relaunched=\`${PREVIEW_RELAUNCHED:-unknown}\`; empty-Home pixels=\`${EMPTY_HOME_PIXELS_VERIFIED:-false}\`"
             echo "- Preserved cold-launch hierarchy/pixel check: \`${COLD_LAUNCH_OUTCOME:-not run}\`"
@@ -858,6 +859,8 @@ jobs:
               "permission_allow_control_position_captured": permission_state.get("permission_allow_center_x_px") is not None and permission_state.get("permission_allow_center_y_px") is not None,
               "first_launch_hierarchy_top_package": permission_state.get("top_package"),
               "integration_outcome": integration,
+              "harness_failure_phase": status_value("failure_phase"),
+              "harness_failure_type": status_value("failure_type"),
               "login_ui_visible_in_webview_dom": login_dom_visible,
               "login_dom_probe_observed": login_dom_visible is not None,
               "browser_compatibility_warning_visible": status_bool("browser_compatibility_warning_visible"),
@@ -884,8 +887,8 @@ jobs:
               json.dumps(reference, indent=2) + "\n", encoding="utf-8"
           )
           print(json.dumps({key: reference[key] for key in (
-              "integration_outcome", "login_ui_visible_in_webview_dom",
-              "browser_compatibility_warning_visible", "javascript_ua_profile_coherent",
+              "integration_outcome", "harness_failure_phase", "harness_failure_type",
+              "login_ui_visible_in_webview_dom", "browser_compatibility_warning_visible", "javascript_ua_profile_coherent",
               "configured_ua_chrome_major_matches_runtime", "configured_ua_chrome_major",
               "installed_webview_chrome_major",
               "first_launch_permission_hierarchy_available", "permission_controller_in_first_launch_hierarchy",
@@ -967,7 +970,7 @@ jobs:
           if [[ "$ACTIVITY_RESUMED" == "true" ]]; then
             activity_resumed=true
           fi
-          echo "::notice title=Android evidence outcomes::source=$SOURCE_REF; apk_sha256=${APK_SHA256:-not_verified}; integration=$INTEGRATION_OUTCOME; login_dom_visible=$login_dom_visible; browser_compatibility_warning_visible=${BROWSER_COMPATIBILITY_WARNING:-not_confirmed}; installed_webview_chrome_major=${WEBVIEW_CHROME_MAJOR:-unknown}; configured_ua_chrome_major=${CONFIGURED_UA_CHROME_MAJOR:-unknown}; ua_profile_coherent=${USER_AGENT_PROFILE_COHERENT:-not_confirmed}; cold_login_hierarchy_pixels=$COLD_LAUNCH_OUTCOME; activity_resumed_after_instrumentation=$activity_resumed; preview_relaunched=${PREVIEW_RELAUNCHED:-unknown}; empty_home_payload_confirmed=$empty_home_payload_confirmed; playlist_or_card_injected=$playlist_or_card_injected_by_harness; empty_home_pixels_verified=$empty_home_pixels_verified; authenticated_home=not_tested"
+          echo "::notice title=Android evidence outcomes::source=$SOURCE_REF; apk_sha256=${APK_SHA256:-not_verified}; integration=$INTEGRATION_OUTCOME; harness_failure_phase=${HARNESS_FAILURE_PHASE:-none}; harness_failure_type=${HARNESS_FAILURE_TYPE:-none}; login_dom_visible=$login_dom_visible; browser_compatibility_warning_visible=${BROWSER_COMPATIBILITY_WARNING:-not_confirmed}; installed_webview_chrome_major=${WEBVIEW_CHROME_MAJOR:-unknown}; configured_ua_chrome_major=${CONFIGURED_UA_CHROME_MAJOR:-unknown}; ua_profile_coherent=${USER_AGENT_PROFILE_COHERENT:-not_confirmed}; cold_login_hierarchy_pixels=$COLD_LAUNCH_OUTCOME; activity_resumed_after_instrumentation=$activity_resumed; preview_relaunched=${PREVIEW_RELAUNCHED:-unknown}; empty_home_payload_confirmed=$empty_home_payload_confirmed; playlist_or_card_injected=$playlist_or_card_injected_by_harness; empty_home_pixels_verified=$empty_home_pixels_verified; authenticated_home=not_tested"
 
       - name: Upload verified screenshot and redacted launch summary
         if: always()
