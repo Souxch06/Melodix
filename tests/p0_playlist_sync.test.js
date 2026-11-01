@@ -298,7 +298,8 @@ test('a session error points at Settings instead of promising a retry', () => {
     assert.match(shell, /err === 'http-401'\)[\s\S]{0,200}paramètres/);
     assert.match(shell, /err === 'http-403'\)[\s\S]{0,200}paramètres/);
     assert.match(shell, /function homeStateAction\(err\) \{[\s\S]{0,200}melodix:action:retry-library[\s\S]{0,120}melodix:action:open-settings/);
-    assert.match(shell, /uri: homeStateAction\(/, 'the state row carries a real action');
+    assert.match(shell, /uri: rawError \? homeStateAction\(rawError\) : 'melodix:action:retry-library'/,
+        'classified session errors open Settings while an unclassified parser error can still retry');
 });
 
 test('a transient error only promises a retry while the retry loop is alive', () => {

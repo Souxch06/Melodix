@@ -11,6 +11,16 @@ on:
         required: false
         type: string
         default: ""
+      release_tag:
+        description: Optional public Preview tag to create after exact-APK validation
+        required: false
+        type: string
+        default: v1.2.2-test.94-preview
+      publish_preview:
+        description: Publish the exact non-debuggable release candidate only after this run validates it
+        required: false
+        type: boolean
+        default: false
 
 permissions:
   actions: read
@@ -18,17 +28,31 @@ permissions:
 
 jobs:
   build-preview:
-    name: Build the APK tested by this run
+    name: Build debuggable APK for UI instrumentation
     uses: ./.github/workflows/preview-apk.yml
     with:
-      release_tag: v1.2.2-test.93-preview
+      release_tag: ${{ inputs.release_tag || 'v1.2.2-test.94-preview' }}
       source_ref: ${{ inputs.source_ref || github.sha }}
       build_only: true
+      target_debuggable: true
+      apk_suffix: '-instrumentation'
+    secrets: inherit
+
+  build-release-candidate:
+    name: Build exact non-debuggable Preview release candidate
+    uses: ./.github/workflows/preview-apk.yml
+    with:
+      release_tag: ${{ inputs.release_tag || 'v1.2.2-test.94-preview' }}
+      source_ref: ${{ inputs.source_ref || github.sha }}
+      build_only: true
+      target_debuggable: false
+      apk_suffix: '-release-candidate'
+      version_code_base: 1020947
     secrets: inherit
 
   install-and-launch:
-    name: Install and test the APK built by this run
-    needs: build-preview
+    name: Install and test the exact Preview artifacts built by this run
+    needs: [build-preview, build-release-candidate]
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     steps:
@@ -41,9 +65,15 @@ jobs:
         shell: bash
         env:
           SOURCE_REF: ${{ inputs.source_ref || github.sha }}
+          RELEASE_TAG: ${{ inputs.release_tag || 'v1.2.2-test.94-preview' }}
+          PUBLISH_PREVIEW: ${{ inputs.publish_preview || false }}
         run: |
           set -euo pipefail
           [[ "$SOURCE_REF" =~ ^[0-9a-fA-F]{40}$ ]] || { echo "::error::source_ref must be a full 40-character SHA."; exit 1; }
+          if [[ "$PUBLISH_PREVIEW" == "true" && ! "$RELEASE_TAG" =~ ^v1\.2\.2-test\.[0-9]+-preview$ ]]; then
+            echo "::error::release_tag must match v1.2.2-test.N-preview for a public Preview."
+            exit 1
+          fi
           actual="$(git rev-parse HEAD | tr '[:upper:]' '[:lower:]')"
           expected="$(printf '%s' "$SOURCE_REF" | tr '[:upper:]' '[:lower:]')"
           [[ "$actual" == "$expected" ]] || { echo "::error::Checked out $actual, expected $SOURCE_REF."; exit 1; }
@@ -82,18 +112,24 @@ jobs:
             --package "$system_image" \
             --device pixel_2
 
-      - name: Download the Preview APK built by this same run
+      - name: Download the debuggable instrumentation APK built by this same run
         uses: actions/download-artifact@v4.3.0
         with:
-          name: Melodix-Preview-v1.2.2-test93.apk
+          name: ${{ needs.build-preview.outputs.apk_name }}
           path: ${{ runner.temp }}/melodix-preview-apk
+
+      - name: Download the non-debuggable release candidate built by this same run
+        uses: actions/download-artifact@v4.3.0
+        with:
+          name: ${{ needs.build-release-candidate.outputs.apk_name }}
+          path: ${{ runner.temp }}/melodix-preview-release-candidate
 
       - name: Verify APK hash, source SHA, package, signature and version
         id: apk
         shell: bash
         env:
           SOURCE_REF: ${{ inputs.source_ref || github.sha }}
-          APK_ARTIFACT_NAME: Melodix-Preview-v1.2.2-test93.apk
+          APK_ARTIFACT_NAME: ${{ needs.build-preview.outputs.apk_name }}
         run: |
           set -euo pipefail
           apk_dir="$RUNNER_TEMP/melodix-preview-apk"
@@ -192,6 +228,101 @@ jobs:
           echo "version_name=$version_name" >> "$GITHUB_OUTPUT"
           echo "target_debuggable=$target_debuggable" >> "$GITHUB_OUTPUT"
           echo "::notice title=APK verified::package=$package_id versionCode=$version_code versionName=$version_name debuggable=$target_debuggable source=$SOURCE_REF sha256=$apk_sha256"
+
+      - name: Verify the exact non-debuggable release candidate and runtime assets
+        id: release-candidate
+        shell: bash
+        env:
+          SOURCE_REF: ${{ inputs.source_ref || github.sha }}
+          APK_ARTIFACT_NAME: ${{ needs.build-release-candidate.outputs.apk_name }}
+          EXPECTED_VERSION_CODE: ${{ needs.build-release-candidate.outputs.version_code }}
+        run: |
+          set -euo pipefail
+          apk_dir="$RUNNER_TEMP/melodix-preview-release-candidate"
+          apk="$apk_dir/$APK_ARTIFACT_NAME"
+          [[ -s "$apk" ]] || { echo "::error::Release candidate is missing: $APK_ARTIFACT_NAME"; exit 1; }
+          (cd "$apk_dir" && sha256sum -c "$APK_ARTIFACT_NAME.sha256")
+          apk_sha256="$(sha256sum "$apk" | awk '{print $1}')"
+          build_tools="$ANDROID_HOME/build-tools/35.0.0"
+          "$build_tools/apksigner" verify --verbose --min-sdk-version 24 "$apk"
+          "$build_tools/aapt" dump badging "$apk" > "$RUNNER_TEMP/melodix-release-candidate-badging.txt"
+          package_id="$(sed -n "s/^package: name='\\([^']*\\)'.*/\\1/p" "$RUNNER_TEMP/melodix-release-candidate-badging.txt")"
+          version_code="$(sed -n "s/^package:.*versionCode='\\([^']*\\)'.*/\\1/p" "$RUNNER_TEMP/melodix-release-candidate-badging.txt")"
+          version_name="$(sed -n "s/^package:.*versionName='\\([^']*\\)'.*/\\1/p" "$RUNNER_TEMP/melodix-release-candidate-badging.txt")"
+          "$build_tools/aapt" dump xmltree "$apk" AndroidManifest.xml > "$RUNNER_TEMP/melodix-release-candidate-manifest.txt"
+          target_debuggable="$(python3 - "$RUNNER_TEMP/melodix-release-candidate-manifest.txt" <<'PY'
+          import pathlib
+          import re
+          import sys
+
+          text = pathlib.Path(sys.argv[1]).read_text(encoding="utf-8", errors="replace")
+          line = next((item for item in text.splitlines() if re.search(r"\bandroid:debuggable(?:\(|=)", item)), None)
+          if line is None:
+              print("false")
+              raise SystemExit(0)
+          match = re.search(r"android:debuggable(?:\([^)]*\))?=\s*(?:\([^)]*\))?([^\s]+)", line)
+          if not match:
+              raise SystemExit("Unable to parse android:debuggable from the exact release candidate manifest")
+          value = match.group(1).lower()
+          if value in ("true", "false"):
+              print(value)
+          elif re.fullmatch(r"(?:0x[0-9a-f]+|[0-9]+)", value):
+              print(str(int(value, 0) != 0).lower())
+          else:
+              raise SystemExit(f"Unrecognized android:debuggable value: {value}")
+          PY
+          )"
+          [[ "$target_debuggable" == "false" ]] || { echo "::error::The release candidate must not be debuggable."; exit 1; }
+          [[ "$package_id" == "com.melodix.music.preview" ]] || { echo "::error::Unexpected release-candidate package ID: $package_id"; exit 1; }
+          [[ "$version_code" == "$EXPECTED_VERSION_CODE" && "$version_code" =~ ^[0-9]+$ ]] || { echo "::error::Unexpected release-candidate versionCode: $version_code (expected $EXPECTED_VERSION_CODE)."; exit 1; }
+          (( version_code > 1020947 )) || { echo "::error::Release-candidate versionCode does not update the previously published Preview."; exit 1; }
+          [[ "$version_name" == "1.2.2-${SOURCE_REF:0:7}" ]] || { echo "::error::Unexpected release-candidate versionName: $version_name"; exit 1; }
+          "$build_tools/aapt" dump --values resources "$apk" > "$RUNNER_TEMP/melodix-release-candidate-resources.txt"
+          grep -Fq "$SOURCE_REF" "$RUNNER_TEMP/melodix-release-candidate-resources.txt" || { echo "::error::Release candidate does not embed source SHA $SOURCE_REF."; exit 1; }
+          asset_manifest="$apk_dir/assets-manifest.json"
+          [[ -s "$asset_manifest" ]] || { echo "::error::Release candidate is missing its packaged-asset manifest."; exit 1; }
+          python3 - "$apk" "$asset_manifest" "$GITHUB_WORKSPACE" "$SOURCE_REF" <<'PY'
+          import hashlib
+          import json
+          import pathlib
+          import sys
+          import zipfile
+
+          apk_path, manifest_path, source_root, source_ref = sys.argv[1:]
+          root = pathlib.Path(source_root)
+          manifest = json.loads(pathlib.Path(manifest_path).read_text(encoding="utf-8"))
+          if manifest.get("source_commit") != source_ref:
+              raise SystemExit("Release-candidate manifest source SHA mismatch")
+          entries = manifest.get("assets", [])
+          if not entries:
+              raise SystemExit("Release-candidate asset manifest is empty")
+          packaged_names = set()
+          with zipfile.ZipFile(apk_path) as apk:
+              for entry in entries:
+                  name = entry["name"]
+                  packaged_names.add(name)
+                  runtime = (root / name).read_bytes()
+                  packaged = apk.read(name)
+                  digest = hashlib.sha256(runtime).hexdigest()
+                  if digest != entry["asset_sha256"] or packaged != runtime or len(packaged) != entry["bytes"]:
+                      raise SystemExit(f"Release-candidate packaged asset mismatch: {name}")
+                  source_name = entry.get("source")
+                  if source_name:
+                      source_digest = hashlib.sha256((root / source_name).read_bytes()).hexdigest()
+                      if source_digest != entry.get("source_sha256"):
+                          raise SystemExit(f"Release-candidate source asset mismatch: {source_name}")
+          for required in ("assets/spotify_bridge.js", "assets/native_ui_shell.js", "assets/melodix_home.js"):
+              if required not in packaged_names:
+                  raise SystemExit(f"Release candidate omits required runtime asset {required}")
+          PY
+          echo "apk=$apk" >> "$GITHUB_OUTPUT"
+          echo "apk_sha256=$apk_sha256" >> "$GITHUB_OUTPUT"
+          echo "package_id=$package_id" >> "$GITHUB_OUTPUT"
+          echo "version_code=$version_code" >> "$GITHUB_OUTPUT"
+          echo "version_name=$version_name" >> "$GITHUB_OUTPUT"
+          echo "target_debuggable=$target_debuggable" >> "$GITHUB_OUTPUT"
+          echo "artifact_name=$APK_ARTIFACT_NAME" >> "$GITHUB_OUTPUT"
+          echo "::notice title=Exact release candidate verified::package=$package_id versionCode=$version_code versionName=$version_name debuggable=$target_debuggable source=$SOURCE_REF sha256=$apk_sha256"
 
       - name: Boot a clean Android 16 emulator
         shell: bash
@@ -809,6 +940,39 @@ jobs:
             "$state_dir/login-screen.png" \
             "$state_dir/login-hierarchy-redacted.json"
 
+      - name: Install and cold-launch the exact non-debuggable release candidate
+        id: release-candidate-smoke
+        if: steps.launch.outcome == 'success' && steps.integration.outcome == 'success' && steps.post-instrumentation.outcome == 'success' && steps.cold-launch-inspection.outcome == 'success' && steps.release-candidate.outcome == 'success'
+        shell: bash
+        env:
+          RELEASE_APK: ${{ steps.release-candidate.outputs.apk }}
+          SOURCE_REF: ${{ inputs.source_ref || github.sha }}
+        run: |
+          set -euo pipefail
+          state_dir="$RUNNER_TEMP/melodix-preview-emulator-state"
+          adb shell am force-stop com.melodix.music.preview >/dev/null 2>&1 || true
+          adb uninstall com.melodix.music.preview >/dev/null 2>&1 || true
+          adb install "$RELEASE_APK"
+          adb shell pm clear com.melodix.music.preview >/dev/null
+          adb shell pm grant com.melodix.music.preview android.permission.BLUETOOTH_CONNECT
+          adb shell am start -W -n com.melodix.music.preview/com.melodix.music.MainActivity \
+            > "$state_dir/release-candidate-launch.txt" 2>&1
+          sleep 60
+          app_pid="$(adb shell pidof -s com.melodix.music.preview 2>/dev/null | tr -d '\r' || true)"
+          [[ -n "$app_pid" ]] || { echo "::error title=Release candidate process not alive::The exact non-debuggable APK exited after launch."; exit 1; }
+          resumed="$(adb shell dumpsys activity activities | grep -E 'mResumedActivity|topResumedActivity|ResumedActivity' | grep -F 'com.melodix.music.preview/com.melodix.music.MainActivity' | head -n 1 || true)"
+          [[ -n "$resumed" ]] || { echo "::error title=Release candidate not resumed::The exact non-debuggable APK did not leave MainActivity resumed."; exit 1; }
+          adb shell uiautomator dump --compressed /sdcard/melodix-release-candidate.xml >/dev/null 2>&1
+          adb exec-out cat /sdcard/melodix-release-candidate.xml > "$state_dir/release-candidate-window.xml"
+          adb exec-out screencap -p > "$state_dir/release-candidate-screen.png"
+          python3 tests/android/inspect_hierarchy.py login \
+            "$state_dir/release-candidate-window.xml" \
+            "$state_dir/release-candidate-screen.png" \
+            "$state_dir/release-candidate-hierarchy-redacted.json"
+          echo "apk_sha256=${{ steps.release-candidate.outputs.apk_sha256 }}" >> "$GITHUB_OUTPUT"
+          echo "activity_resumed=true" >> "$GITHUB_OUTPUT"
+          echo "::notice title=Exact release candidate installed and launched::source=$SOURCE_REF; debuggable=false; process_alive=true; activity_resumed=true; authenticated_home_not_tested=true"
+
       - name: Add verified run details to the summary
         if: always()
         shell: bash
@@ -828,6 +992,14 @@ jobs:
           HOME_STATUS_PIXELS_VERIFIED: ${{ steps.post-instrumentation.outputs.home_status_pixels_verified }}
           WEB_HOME_PIXELS_VERIFIED: ${{ steps.post-instrumentation.outputs.web_home_renderer_pixels_verified }}
           COLD_LAUNCH_OUTCOME: ${{ steps.cold-launch-inspection.outcome }}
+          RELEASE_APK_SHA256: ${{ steps.release-candidate.outputs.apk_sha256 }}
+          RELEASE_VERSION_CODE: ${{ steps.release-candidate.outputs.version_code }}
+          RELEASE_VERSION_NAME: ${{ steps.release-candidate.outputs.version_name }}
+          RELEASE_DEBUGGABLE: ${{ steps.release-candidate.outputs.target_debuggable }}
+          RELEASE_SMOKE_OUTCOME: ${{ steps.release-candidate-smoke.outcome }}
+          RELEASE_ACTIVITY_RESUMED: ${{ steps.release-candidate-smoke.outputs.activity_resumed }}
+          RELEASE_TAG: ${{ inputs.release_tag || 'v1.2.2-test.94-preview' }}
+          PUBLISH_PREVIEW: ${{ inputs.publish_preview || false }}
         run: |
           state_dir="$RUNNER_TEMP/melodix-preview-emulator-state"
           browser_compatibility_warning=not_confirmed
@@ -874,6 +1046,8 @@ jobs:
             echo "- Browser compatibility banner: \`${BROWSER_COMPATIBILITY_WARNING:-not confirmed}\`; installed/configured Chrome major: \`${WEBVIEW_CHROME_MAJOR:-unknown}\` / \`${CONFIGURED_UA_CHROME_MAJOR:-unknown}\`; UA/client-hint profile coherent: \`${USER_AGENT_PROFILE_COHERENT:-not confirmed}\`"
             echo "- Post-instrumentation activity resume: \`${POST_INSTRUMENTATION_OUTCOME:-not run}\`; resumed=\`${ACTIVITY_RESUMED:-false}\`; relaunched=\`${PREVIEW_RELAUNCHED:-unknown}\`; empty-Home pixels=\`${EMPTY_HOME_PIXELS_VERIFIED:-false}\`; native Home-status pixels=\`${HOME_STATUS_PIXELS_VERIFIED:-false}\`; Web Home /app renderer pixels=\`${WEB_HOME_PIXELS_VERIFIED:-false}\`"
             echo "- Preserved cold-launch hierarchy/pixel check: \`${COLD_LAUNCH_OUTCOME:-not run}\`"
+            echo "- Exact non-debuggable release candidate: \`${RELEASE_SMOKE_OUTCOME:-not run}\`; debuggable=\`${RELEASE_DEBUGGABLE:-not verified}\`; versionName/versionCode=\`${RELEASE_VERSION_NAME:-unknown}\` / \`${RELEASE_VERSION_CODE:-unknown}\`; SHA-256=\`${RELEASE_APK_SHA256:-not verified}\`; activity resumed=\`${RELEASE_ACTIVITY_RESUMED:-false}\`."
+            echo "- Authenticated Spotify Home: not tested; CI uses no Spotify session or account data."
             echo "- Emulator setup: fresh app data; only BLUETOOTH_CONNECT granted to pass Android's runtime permission prompt; no Spotify session or cookies supplied."
             echo "- Scope: unauthenticated login, empty-Home WebView fallback and native status, plus the packaged Web Home renderer exercised at /app in a second, isolated WebView using two test-only local resource links. The fixture does not alter the main WebView or app session, does not establish authenticated Home rendering, and supplies no account data or credentials."
           } >> "$GITHUB_STEP_SUMMARY"
@@ -895,7 +1069,13 @@ jobs:
               "${EMPTY_HOME_PIXELS_VERIFIED:-false}" \
               "${HOME_STATUS_PIXELS_VERIFIED:-false}" \
               "${WEB_HOME_PIXELS_VERIFIED:-false}" \
-              "${COLD_LAUNCH_OUTCOME:-not run}" <<'PY'
+              "${COLD_LAUNCH_OUTCOME:-not run}" \
+              "${RELEASE_APK_SHA256:-}" \
+              "${RELEASE_VERSION_CODE:-}" \
+              "${RELEASE_VERSION_NAME:-}" \
+              "${RELEASE_DEBUGGABLE:-not verified}" \
+              "${RELEASE_SMOKE_OUTCOME:-not run}" \
+              "${RELEASE_ACTIVITY_RESUMED:-false}" <<'PY'
           import json
           import pathlib
           import sys
@@ -903,7 +1083,9 @@ jobs:
           (state_dir, source_ref, run_id, apk_sha256, package_id, version_name,
            version_code, integration, post_instrumentation, activity_resumed,
            preview_relaunched, empty_home_pixels_verified, home_status_pixels_verified,
-           web_home_pixels_verified, cold_launch) = sys.argv[1:]
+           web_home_pixels_verified, cold_launch, release_apk_sha256, release_version_code,
+           release_version_name, release_debuggable, release_smoke_outcome,
+           release_activity_resumed) = sys.argv[1:]
           root = pathlib.Path(state_dir)
           exists = lambda name: (root / name).is_file()
           transcript = (root / "android-instrumentation.txt").read_text(encoding="utf-8", errors="replace") if exists("android-instrumentation.txt") else ""
@@ -927,6 +1109,12 @@ jobs:
               "source_commit": source_ref,
               "build_and_test_run_id": run_id,
               "tested_apk_sha256": apk_sha256 or None,
+              "release_candidate_apk_sha256": release_apk_sha256 or None,
+              "release_candidate_version_code": release_version_code or None,
+              "release_candidate_version_name": release_version_name or None,
+              "release_candidate_debuggable": release_debuggable == "true" if release_debuggable != "not verified" else None,
+              "release_candidate_smoke_outcome": release_smoke_outcome,
+              "release_candidate_activity_resumed": release_activity_resumed == "true",
               "package_id": package_id or None,
               "version_name": version_name or None,
               "version_code": version_code or None,
@@ -1010,8 +1198,8 @@ jobs:
               "no_playlist_or_card_injected_status_confirmed": "INSTRUMENTATION_STATUS: playlist_or_card_injected=false" in transcript,
               "authenticated_home_test_performed": status_bool("authenticated_home_test_performed"),
               "authenticated_home_test": "not performed; no legitimate Spotify session was supplied",
-              "screenshots": [name for name in ("login-screen.png", "home-empty-fallback.png", "home-status.png", "web-home-app.png") if exists(name)],
-              "redacted_hierarchies": [name for name in ("login-hierarchy-redacted.json", "home-fallback-hierarchy-redacted.json", "home-status-hierarchy-redacted.json", "web-home-app-hierarchy-redacted.json") if exists(name)],
+              "screenshots": [name for name in ("login-screen.png", "home-empty-fallback.png", "home-status.png", "web-home-app.png", "release-candidate-screen.png") if exists(name)],
+              "redacted_hierarchies": [name for name in ("login-hierarchy-redacted.json", "home-fallback-hierarchy-redacted.json", "home-status-hierarchy-redacted.json", "web-home-app-hierarchy-redacted.json", "release-candidate-hierarchy-redacted.json") if exists(name)],
               "raw_hierarchy_uploaded": False,
           }
           (root / "verification-reference.json").write_text(
@@ -1157,6 +1345,7 @@ jobs:
           echo "::notice title=Android evidence outcomes::source=$SOURCE_REF; apk_sha256=${APK_SHA256:-not_verified}; integration=$INTEGRATION_OUTCOME; harness_failure_phase=${HARNESS_FAILURE_PHASE:-none}; harness_failure_type=${HARNESS_FAILURE_TYPE:-none}; login_dom_visible=$login_dom_visible; browser_compatibility_warning_visible=${BROWSER_COMPATIBILITY_WARNING:-not_confirmed}; installed_webview_chrome_major=${WEBVIEW_CHROME_MAJOR:-unknown}; configured_ua_chrome_major=${CONFIGURED_UA_CHROME_MAJOR:-unknown}; ua_profile_coherent=${USER_AGENT_PROFILE_COHERENT:-not_confirmed}; cold_login_hierarchy_pixels=$COLD_LAUNCH_OUTCOME; activity_resumed_after_instrumentation=$activity_resumed; preview_relaunched=${PREVIEW_RELAUNCHED:-unknown}; empty_home_payload_confirmed=$empty_home_payload_confirmed; playlist_or_card_injected=$playlist_or_card_injected_by_harness; empty_home_pixels_verified=$empty_home_pixels_verified; home_status_pixels_verified=$home_status_pixels_verified; web_home_renderer_pixels_verified=$web_home_renderer_pixels_verified; login_restored_after_status=$(grep -Fq 'INSTRUMENTATION_STATUS: login_surface_restored_after_status=true' "$state_dir/android-instrumentation.txt" && echo true || echo false); login_restored_after_web_home_fixture=$(grep -Fq 'INSTRUMENTATION_STATUS: login_surface_restored_after_web_home_fixture=true' "$state_dir/android-instrumentation.txt" && echo true || echo false); authenticated_home_test=not_performed"
 
       - name: Upload verified screenshot and redacted launch summary
+        id: evidence-upload
         if: always()
         uses: actions/upload-artifact@v4
         with:
@@ -1171,9 +1360,61 @@ jobs:
             ${{ runner.temp }}/melodix-preview-emulator-state/home-status-hierarchy-redacted.json
             ${{ runner.temp }}/melodix-preview-emulator-state/web-home-app.png
             ${{ runner.temp }}/melodix-preview-emulator-state/web-home-app-hierarchy-redacted.json
+            ${{ runner.temp }}/melodix-preview-emulator-state/release-candidate-screen.png
+            ${{ runner.temp }}/melodix-preview-emulator-state/release-candidate-hierarchy-redacted.json
             ${{ runner.temp }}/melodix-preview-emulator-state/android-instrumentation.txt
             ${{ runner.temp }}/melodix-preview-emulator-state/instrumentation-safe-logcat.txt
             ${{ runner.temp }}/melodix-preview-emulator-state/verification-reference.json
             ${{ runner.temp }}/melodix-preview-emulator-state/assets-manifest.json
           retention-days: 14
           if-no-files-found: warn
+
+      - name: Publish the exact validated Preview release candidate
+        if: github.event_name == 'workflow_dispatch' && inputs.publish_preview == true && steps.integration.outcome == 'success' && steps.post-instrumentation.outcome == 'success' && steps.cold-launch-inspection.outcome == 'success' && steps.release-candidate.outcome == 'success' && steps.release-candidate-smoke.outcome == 'success' && steps.evidence-upload.outcome == 'success'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SOURCE_REF: ${{ inputs.source_ref || github.sha }}
+          RELEASE_TAG: ${{ inputs.release_tag || 'v1.2.2-test.94-preview' }}
+          RELEASE_APK: ${{ steps.release-candidate.outputs.apk }}
+          RELEASE_APK_SHA256: ${{ steps.release-candidate.outputs.apk_sha256 }}
+          RELEASE_VERSION_CODE: ${{ steps.release-candidate.outputs.version_code }}
+          RELEASE_VERSION_NAME: ${{ steps.release-candidate.outputs.version_name }}
+        run: |
+          set -euo pipefail
+          [[ "$RELEASE_TAG" =~ ^v1\.2\.2-test\.([0-9]+)-preview$ ]] || {
+            echo "::error::Refusing to publish a tag outside v1.2.2-test.N-preview."
+            exit 1
+          }
+          test_number="${BASH_REMATCH[1]}"
+          existing_ref="$(gh api "repos/Souxch06/Melodix/git/ref/tags/$RELEASE_TAG" --jq .ref 2>/dev/null || true)"
+          [[ -z "$existing_ref" ]] || { echo "::error::Refusing to overwrite existing Preview tag $RELEASE_TAG."; exit 1; }
+          release_dir="$RUNNER_TEMP/melodix-preview-release-candidate"
+          source_name="$(basename "$RELEASE_APK")"
+          (cd "$release_dir" && sha256sum -c "$source_name.sha256")
+          actual_sha256="$(sha256sum "$RELEASE_APK" | awk '{print $1}')"
+          [[ "$actual_sha256" == "$RELEASE_APK_SHA256" ]] || { echo "::error::Release candidate changed after validation."; exit 1; }
+          final_name="Melodix-Preview-v1.2.2-test${test_number}.apk"
+          final_apk="$RUNNER_TEMP/$final_name"
+          final_sha="$final_apk.sha256"
+          cp "$RELEASE_APK" "$final_apk"
+          cmp -s "$RELEASE_APK" "$final_apk" || { echo "::error::Renamed APK copy differs from the validated candidate."; exit 1; }
+          printf '%s  %s\n' "$RELEASE_APK_SHA256" "$final_name" > "$final_sha"
+          notes="$RUNNER_TEMP/melodix-preview-release-notes.md"
+          cat > "$notes" <<EOF
+          Built from source commit \`$SOURCE_REF\`.
+
+          The published APK is the exact non-debuggable release candidate built, SHA-256 verified, installed, and cold-launched on the Android 16 emulator by [workflow run $GITHUB_RUN_ID](https://github.com/Souxch06/Melodix/actions/runs/$GITHUB_RUN_ID). versionName: \`$RELEASE_VERSION_NAME\`; versionCode: \`$RELEASE_VERSION_CODE\`; APK SHA-256: \`$RELEASE_APK_SHA256\`.
+
+          The emulator run used no Spotify session, cookies, credentials, or account data. Its isolated Web Home renderer check is test-only; authenticated Spotify Home was not tested.
+          EOF
+          gh release create "$RELEASE_TAG" \
+            "$final_apk#$final_name" \
+            "$final_sha#$final_name.sha256" \
+            --repo Souxch06/Melodix \
+            --target "$SOURCE_REF" \
+            --title "Melodix Preview v1.2.2 test.$test_number" \
+            --notes-file "$notes" \
+            --prerelease
+          echo "::notice title=Exact Preview APK published::tag=$RELEASE_TAG; source=$SOURCE_REF; debuggable=false; versionCode=$RELEASE_VERSION_CODE; sha256=$RELEASE_APK_SHA256"
+          echo "Public Preview: https://github.com/Souxch06/Melodix/releases/tag/$RELEASE_TAG" >> "$GITHUB_STEP_SUMMARY"

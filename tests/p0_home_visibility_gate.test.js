@@ -132,6 +132,10 @@ test('the Web Home renderer is session-gated, accepts one real item, and renders
   assert.match(renderer, /sf-native-ui-session-proof-changed/);
   assert.match(nativeShell, /previousSessionProven !== sessionProven[\s\S]*?sf-native-ui-session-proof-changed/,
     'native session proof changes wake the Web renderer without exposing account data');
+  assert.match(nativeShell, /rawItemCount > 0[\s\S]*?ne peuvent pas encore être affichés[\s\S]*?melodix:action:retry-library/,
+    'non-empty but unrenderable real responses cannot be mislabeled empty by the native shell');
+  assert.match(nativeShell, /function homePartialErrorRow\(\)[\s\S]*?Certaines données Spotify sont indisponibles[\s\S]*?rows = rows\.concat\(\[homePartialErrorRow\(\)\]\)/,
+    'partial failures remain visible beside already received real library content in native Home');
   assert.match(renderer, /window\.location\.assign\('https:\/\/accounts\.spotify\.com\/login'\)/,
     'an expired session has a recovery path through Spotify’s official sign-in page');
   assert.match(runtime, /session-unproven/,

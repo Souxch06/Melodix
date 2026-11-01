@@ -102,7 +102,7 @@ function cardPage({ withCards = true, rootMode = 'legacy' } = {}) {
 }
 
 // Boots the real shell against a fake page and records every bridge call.
-function loadShell({ withCards = true, mediaLib = null, locationPath = '/', searchMediaItemsImpl = null, noUserWidget = false, bridgeMode = 'complete', rootMode = 'legacy' } = {}) {
+function loadShell({ withCards = true, mediaLib = null, rawItemCount = 0, libraryError = '', locationPath = '/', searchMediaItemsImpl = null, noUserWidget = false, bridgeMode = 'complete', rootMode = 'legacy' } = {}) {
     const timers = [];
     const navigations = [];
     const webLoads = [];
@@ -176,11 +176,12 @@ function loadShell({ withCards = true, mediaLib = null, locationPath = '/', sear
 
     if (mediaLib) {
         win.mediaLib = mediaLib;
-        win.__sfMediaLibStatus = 'ready';
-        win.__sfMediaLibError = '';
+        win.__sfMediaLibStatus = libraryError ? 'error' : 'ready';
+        win.__sfMediaLibError = libraryError;
     } else {
         win.__sfMediaLibStatus = 'loading';
     }
+    win.__sfMediaLibRawItemCount = rawItemCount;
     win.checkMediaLib = () => { calls.mediaLibChecks += 1; };
     if (searchMediaItemsImpl) win.searchMediaItems = searchMediaItemsImpl;
     const diagnosticSessionId = '1a2b3c4d';
@@ -490,6 +491,37 @@ test('the manual retry behind the state row restarts the library fetch', () => {
     win.__sfNativeRetryLibrary();
     assert.equal(calls, 1, 'the library fetch is forced exactly once');
     drainTimers(4);
+});
+
+test('non-empty raw Spotify data that yields no supported rows is a retryable error, not an empty library', () => {
+    const { calls } = loadShell({
+        withCards: false,
+        rawItemCount: 1,
+        mediaLib: { playlists: [], albums: [], artists: [], podcasts: [] }
+    });
+    const home = calls.data.filter((call) => call.screen === 'home');
+    const row = home[home.length - 1].rows[0];
+    assert.equal(row.state, 'error');
+    assert.match(row.subtitle, /ne peuvent pas encore être affichés/i);
+    assert.equal(row.uri, 'melodix:action:retry-library');
+});
+
+test('partial library errors keep real rows and append a recoverable warning state', () => {
+    const { calls } = loadShell({
+        withCards: false,
+        rawItemCount: 3,
+        libraryError: 'http-429',
+        mediaLib: { playlists: [{ id: 'spotify:playlist:real-partial', name: 'Vraie playlist' }] }
+    });
+    const home = calls.data.filter((call) => call.screen === 'home');
+    const rows = home[home.length - 1].rows;
+    assert.ok(rows.some((row) => row.title === 'Vraie playlist'), 'real account content remains visible');
+    const warning = rows.find((row) => row.kind === 'state');
+    assert.ok(warning, 'the native Home keeps an explicit partial-error warning beside real rows');
+    assert.equal(warning.state, 'error');
+    assert.equal(warning.title, 'Certaines données Spotify sont indisponibles');
+    assert.match(warning.subtitle, /limite les requêtes/i);
+    assert.equal(warning.uri, 'melodix:action:retry-library');
 });
 
 // P0-D: the same real playlist can arrive twice - once scraped from the page

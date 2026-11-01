@@ -33,7 +33,8 @@ test('[structurel] homeStateRow is typed non-playlist content with only local ac
   assert.match(body, /state: 'unavailable'/);
   assert.match(body, /state: 'loading'/);
   assert.match(body, /image: ''/);
-  assert.match(body, /uri: homeStateAction\(/);
+  assert.match(body, /uri: rawError \? homeStateAction\(rawError\) : 'melodix:action:retry-library'/,
+    'raw response parse failures get a real retry action, while classified errors use their specific action');
   const actionAt = shell.indexOf('function homeStateAction(err)');
   const actionBody = shell.slice(actionAt, shell.indexOf('\n    function homeStateRow', actionAt));
   assert.match(actionBody, /melodix:action:retry-library/);

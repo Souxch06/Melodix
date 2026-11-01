@@ -33,42 +33,30 @@ test("Preview workflow requires an explicit full source SHA instead of defaultin
   );
 });
 
-test("build-only Preview APK can update test.93 without publishing a tag or release", () => {
-  assert.match(
-    workflow,
-    /build_only:[\s\S]*?default: false[\s\S]*?type: boolean/,
-    "reusable build callers must explicitly select build-only behavior",
-  );
-  assert.match(
-    workflow,
-    /BUILD_ONLY: \$\{\{ inputs\.build_only \|\| false \}\}[\s\S]*?should_publish='false'[\s\S]*?tag=\"\$INPUT_TAG\"/,
-    "same-run emulator builds cannot create a public tag or release",
-  );
-  assert.match(
-    workflow,
-    /if \[\[ \"\$BUILD_ONLY\" == \"true\" \]\][\s\S]*?version_code=\$\(\(1020880 \+ GITHUB_RUN_NUMBER\)\)/,
-    "the build-only caller counter still yields an installable versionCode above the published baseline",
-  );
-  assert.match(
-    workflow,
-    /BUILD_ONLY: \$\{\{ inputs\.build_only \|\| false \}\}[\s\S]*?if BUILD_ONLY:[\s\S]*?application\.set\(android \+ "debuggable", "true"\)[\s\S]*?tree\.write/,
-    "only the ephemeral same-run APK is debuggable so Android can attach the integration harness; releases stay unchanged",
-  );
-  assert.match(
-    workflow,
-    /should_publish='false'[\s\S]*?tag='v1\.2\.2-test\.92-preview'/,
-    "push-only build verification keeps the Preview versionCode above the last published APK",
-  );
-  assert.match(
-    workflow,
-    /name: Upload APK as workflow artifact[\s\S]*?retention-days: 14/,
-    "the APK is available only as a short-lived action artifact",
-  );
-  assert.match(
-    workflow,
-    /name: Create preview release and attach APK[\s\S]*?if: steps\.release\.outputs\.should_publish == 'true'/,
-    "release creation stays conditional and skipped for build-only runs",
-  );
+test("build-only Preview runs can build separate instrumentation and release-candidate APKs without publishing", () => {
+  assert.match(workflow, /build_only:[\s\S]*?default: false[\s\S]*?type: boolean/,
+    "reusable build callers must explicitly select build-only behavior");
+  assert.match(workflow, /target_debuggable:[\s\S]*?default: false[\s\S]*?type: boolean/,
+    "debuggability is an explicit reusable-workflow input and defaults to a release-safe manifest");
+  assert.match(workflow, /apk_suffix:[\s\S]*?type: string[\s\S]*?version_code_base:[\s\S]*?type: number/,
+    "parallel artifact builds have distinct names and can use a release-safe monotonic versionCode base");
+  assert.ok(workflow.includes("BUILD_ONLY: ${{ inputs.build_only || github.event_name == 'workflow_dispatch' }}"),
+    "manual invocations of the reusable builder are always artifact-only and cannot bypass emulator validation");
+  assert.doesNotMatch(workflow, /should_publish='true'|gh release create|action-gh-release/,
+    "the reusable builder has no publication branch to bypass the release-candidate test");
+  assert.match(workflow, /if \(\( VERSION_CODE_BASE > 0 \)\); then[\s\S]*?version_code=\$\(\(VERSION_CODE_BASE \+ GITHUB_RUN_NUMBER\)\)[\s\S]*?version_code=\$\(\(1020880 \+ GITHUB_RUN_NUMBER\)\)/,
+    "release candidates can increment from the previously published APK while instrumentation uses a separate counter");
+  assert.ok(workflow.includes("TARGET_DEBUGGABLE: ${{ inputs.target_debuggable || false }}"));
+  assert.match(workflow, /if TARGET_DEBUGGABLE and not BUILD_ONLY:[\s\S]*?application\.set\(android \+ "debuggable", "true"\)[\s\S]*?application\.attrib\.pop\(android \+ "debuggable", None\)/,
+    "only explicitly requested build-only instrumentation APKs are debuggable; published candidates stay non-debuggable");
+  assert.ok(workflow.includes("This workflow is build/artifact-only in every event mode.") &&
+    workflow.includes("release can be created only by test-preview-emulator"),
+    "all builder event modes defer public release creation until exact-candidate validation");
+  assert.match(workflow, /name: Upload APK as workflow artifact[\s\S]*?retention-days: 14/,
+    "built APKs are available as short-lived workflow artifacts");
+  assert.doesNotMatch(workflow, /gh release create|action-gh-release|Create preview release and attach APK/,
+    "the reusable builder is artifact-only; the validated emulator workflow owns all public release creation");
+  assert.match(workflow, /permissions:\n  contents: read/);
 });
 
 test("the emulator workflow checks the exact APK debuggable flag and captures redacted instrumentation diagnostics", () => {
@@ -312,7 +300,7 @@ test("Android verifies the packaged Web Home renderer on /app in an isolated, vi
     "raw WebView hierarchy XML is inspected in the runner but never uploaded");
 });
 
-test("the emulator workflow builds and tests one Preview APK in the same CI run", () => {
+test("the emulator workflow validates same-run instrumentation and exact release-candidate APKs before optional publication", () => {
   const emulatorWorkflow = fs.readFileSync(
     path.resolve(
       __dirname,
@@ -326,15 +314,20 @@ test("the emulator workflow builds and tests one Preview APK in the same CI run"
     /uses: \.\/\.github\/workflows\/preview-apk\.yml/,
   );
   assert.match(emulatorWorkflow, /build_only: true/);
-  assert.match(
-    emulatorWorkflow,
-    /install-and-launch:[\s\S]*?needs: build-preview/,
-  );
-  assert.match(
-    emulatorWorkflow,
-    /Download the Preview APK built by this same run/,
-  );
-  assert.match(emulatorWorkflow, /name: Melodix-Preview-v1\.2\.2-test93\.apk/);
+  assert.match(emulatorWorkflow, /build-preview:[\s\S]*?target_debuggable: true[\s\S]*?apk_suffix: '-instrumentation'/);
+  assert.match(emulatorWorkflow, /build-release-candidate:[\s\S]*?target_debuggable: false[\s\S]*?apk_suffix: '-release-candidate'[\s\S]*?version_code_base: 1020947/);
+  assert.match(emulatorWorkflow, /install-and-launch:[\s\S]*?needs: \[build-preview, build-release-candidate\]/);
+  assert.match(emulatorWorkflow, /Download the debuggable instrumentation APK built by this same run/);
+  assert.match(emulatorWorkflow, /Download the non-debuggable release candidate built by this same run/);
+  assert.match(emulatorWorkflow, /needs\.build-preview\.outputs\.apk_name/);
+  assert.match(emulatorWorkflow, /needs\.build-release-candidate\.outputs\.apk_name/);
+  assert.match(emulatorWorkflow, /Verify the exact non-debuggable release candidate[\s\S]*?\[\[ "\$target_debuggable" == "false" \]\][\s\S]*?version_code > 1020947/);
+  assert.match(emulatorWorkflow, /Install and cold-launch the exact non-debuggable release candidate[\s\S]*?adb install \"\$RELEASE_APK\"[\s\S]*?activity_resumed=true/);
+  assert.match(emulatorWorkflow, /Publish the exact validated Preview release candidate[\s\S]*?steps\.release-candidate-smoke\.outcome == 'success'[\s\S]*?gh release create/);
+  assert.match(emulatorWorkflow, /if: github\.event_name == 'workflow_dispatch' && inputs\.publish_preview == true/);
+  assert.match(emulatorWorkflow, /sha256sum -c "\$source_name\.sha256"[\s\S]*?cmp -s "\$RELEASE_APK" "\$final_apk"[\s\S]*?gh release create/);
+  assert.match(emulatorWorkflow, /--target "\$SOURCE_REF"[\s\S]*?--prerelease/);
+  assert.match(emulatorWorkflow, /inputs\.publish_preview == true/);
   assert.doesNotMatch(
     emulatorWorkflow,
     /gh run list|run-id: \$\{\{ steps\.build/,
@@ -363,8 +356,17 @@ test("the emulator workflow builds and tests one Preview APK in the same CI run"
   const coldLaunchInspection = emulatorWorkflow.indexOf(
     "name: Inspect the preserved cold-launch hierarchy and pixels",
   );
+  const releaseCandidateSmoke = emulatorWorkflow.indexOf(
+    "name: Install and cold-launch the exact non-debuggable release candidate",
+  );
   const summary = emulatorWorkflow.indexOf(
     "name: Add verified run details to the summary",
+  );
+  const evidenceUpload = emulatorWorkflow.indexOf(
+    "name: Upload verified screenshot and redacted launch summary",
+  );
+  const publishCandidate = emulatorWorkflow.indexOf(
+    "name: Publish the exact validated Preview release candidate",
   );
   assert.ok(
     installTarget >= 0 &&
@@ -375,8 +377,11 @@ test("the emulator workflow builds and tests one Preview APK in the same CI run"
   assert.ok(
     resumedCheck > runHarness &&
       coldLaunchInspection > resumedCheck &&
-      summary > coldLaunchInspection,
-    "verify MainActivity resumed after instrumentation, inspect the preserved cold launch, then write the run summary",
+      releaseCandidateSmoke > coldLaunchInspection &&
+      summary > releaseCandidateSmoke &&
+      evidenceUpload > summary &&
+      publishCandidate > evidenceUpload,
+    "finish fixture instrumentation, cold-launch the exact release candidate, then publish only after evidence upload succeeds",
   );
   const launchBlock = emulatorWorkflow.slice(installTarget, buildHarness);
   assert.doesNotMatch(

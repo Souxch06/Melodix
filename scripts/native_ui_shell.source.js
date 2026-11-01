@@ -720,6 +720,10 @@
 
     function homeLibraryErrorText() {
         var err = String(window.__sfMediaLibError || '');
+        var rawItemCount = Number(window.__sfMediaLibRawItemCount || 0);
+        if (!err && Number.isFinite(rawItemCount) && rawItemCount > 0) {
+            return 'Spotify a renvoyé des éléments qui ne peuvent pas encore être affichés — touchez pour réessayer.';
+        }
         if (libraryErrorIsTransient(err)) {
             var base = err === 'http-429' ? 'Spotify limite les requêtes'
                 : (/^http-5/.test(err) ? 'Spotify est momentanément indisponible'
@@ -743,6 +747,7 @@
 
     function homeStateRow() {
         var errorText = homeLibraryErrorText();
+        var rawError = String(window.__sfMediaLibError || '');
         if (!errorText && window.__sfMediaLibStatus === 'error') {
             errorText = 'La bibliothèque Spotify n’a pas pu être vérifiée — touchez pour réessayer.';
         }
@@ -754,7 +759,7 @@
                 subtitle: errorText,
                 section: 'Vos playlists',
                 image: '',
-                uri: homeStateAction(String(window.__sfMediaLibError || ''))
+                uri: rawError ? homeStateAction(rawError) : 'melodix:action:retry-library'
             };
         }
         if (window.__sfMediaLibStatus === 'ready') {
@@ -787,6 +792,19 @@
             section: 'Accueil',
             image: '',
             uri: ''
+        };
+    }
+
+    function homePartialErrorRow() {
+        var err = String(window.__sfMediaLibError || '');
+        return {
+            kind: 'state',
+            state: 'error',
+            title: 'Certaines données Spotify sont indisponibles',
+            subtitle: homeLibraryErrorText() || 'La collecte est incomplète — touchez pour réessayer.',
+            section: 'Spotify',
+            image: '',
+            uri: err ? homeStateAction(err) : 'melodix:action:retry-library'
         };
     }
 
@@ -839,6 +857,9 @@
         scrapedRows = collectHomeRows(mainView);
         window.__sfNativeUiHomeDomRowsCount = scrapedRows.length;
         rows = supplementHomeRowsWithLibrary(scrapedRows, mainView);
+        if (rows.length > 0 && window.__sfMediaLibStatus === 'error') {
+            rows = rows.concat([homePartialErrorRow()]);
+        }
         signature = JSON.stringify(rows);
         window.__sfNativeUiHomeRowsCount = rows.length;
         webCards = window.__sfMelodixHomeSourceCardCount;

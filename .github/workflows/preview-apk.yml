@@ -16,10 +16,32 @@ on:
         required: false
         default: false
         type: boolean
+      target_debuggable:
+        required: false
+        default: false
+        type: boolean
+      apk_suffix:
+        required: false
+        default: ""
+        type: string
+      version_code_base:
+        required: false
+        default: 0
+        type: number
+    outputs:
+      apk_name:
+        description: APK filename and same-run artifact name
+        value: ${{ jobs.build-and-release-preview.outputs.apk_name }}
+      version_code:
+        description: Android versionCode embedded in the APK
+        value: ${{ jobs.build-and-release-preview.outputs.version_code }}
+      source_ref:
+        description: Full source commit embedded in the APK
+        value: ${{ jobs.build-and-release-preview.outputs.source_ref }}
   workflow_dispatch:
     inputs:
       release_tag:
-        description: Preview tag (for example v1.2.2-test.1-preview)
+        description: Preview artifact tag used to name a build-only artifact (no release is created here)
         required: true
         type: string
         default: v1.2.2-test.1-preview
@@ -29,20 +51,26 @@ on:
         type: string
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   build-and-release-preview:
     if: github.event_name == 'push' || github.event_name == 'workflow_dispatch' || github.event_name == 'workflow_call'
-    name: Build and publish separate preview app
+    name: Build separate Preview APK artifact
     runs-on: ubuntu-latest
+    outputs:
+      apk_name: ${{ steps.release.outputs.apk_name }}
+      version_code: ${{ steps.release.outputs.version_code }}
+      source_ref: ${{ steps.release.outputs.source_ref }}
     steps:
       - name: Select preview release tag
         id: release
         shell: bash
         env:
           INPUT_TAG: ${{ inputs.release_tag || '' }}
-          BUILD_ONLY: ${{ inputs.build_only || false }}
+          BUILD_ONLY: ${{ inputs.build_only || github.event_name == 'workflow_dispatch' }}
+          APK_SUFFIX: ${{ inputs.apk_suffix || '' }}
+          VERSION_CODE_BASE: ${{ inputs.version_code_base || 0 }}
           EVENT_COMMIT_MESSAGE: ${{ github.event.head_commit.message || '' }}
           INPUT_SOURCE_REF: ${{ inputs.source_ref || github.sha }}
         run: |
@@ -51,23 +79,20 @@ jobs:
             echo "::error::source_ref must be a full 40-character commit SHA."
             exit 1
           fi
-          should_publish='true'
-          if [[ "$BUILD_ONLY" == "true" ]]; then
-            # Reusable builds are consumed by the same-run emulator workflow;
-            # they must never create a public tag or release.
-            should_publish='false'
-            tag="$INPUT_TAG"
-          elif [[ -n "$INPUT_TAG" ]]; then
+          # This workflow is build/artifact-only in every event mode. A public
+          # release can be created only by test-preview-emulator after the exact
+          # non-debuggable APK has been installed and validated.
+          if [[ -n "$INPUT_TAG" ]]; then
             tag="$INPUT_TAG"
           elif [[ "$GITHUB_EVENT_NAME" == "push" && "$EVENT_COMMIT_MESSAGE" =~ ^\[preview-release\][[:space:]]+(v[0-9]+\.[0-9]+\.[0-9]+-test\.[0-9]+-preview)([[:space:]]|$) ]]; then
             tag="${BASH_REMATCH[1]}"
-          elif [[ "$EVENT_COMMIT_MESSAGE" == *'[skip-release]'* ]]; then
-            # Build verification only: use the next safe Preview version so the
-            # APK can update test.91 in place, but never create a tag or release.
-            should_publish='false'
-            tag='v1.2.2-test.92-preview'
+          elif [[ "$GITHUB_EVENT_NAME" == "push" && "$EVENT_COMMIT_MESSAGE" == *'[skip-release]'* ]]; then
+            tag='v1.2.2-test.94-preview'
+          elif [[ "$GITHUB_EVENT_NAME" == "workflow_call" || "$GITHUB_EVENT_NAME" == "workflow_dispatch" ]]; then
+            echo "::error::A release tag input is required for build-only Preview artifacts."
+            exit 1
           else
-            echo "::error::Push commits must start with '[preview-release] v1.2.2-test.N-preview ...' (publish) or contain '[skip-release]' (build only)."
+            echo "::error::Push commits must start with '[preview-release] v1.2.2-test.N-preview ...' or contain '[skip-release]'. No push publishes a release."
             exit 1
           fi
           if [[ ! "$tag" =~ ^v([0-9]+\.[0-9]+\.[0-9]+)-test\.([0-9]+)-preview$ ]]; then
@@ -77,32 +102,36 @@ jobs:
 
           version="${BASH_REMATCH[1]}"
           test_number="${BASH_REMATCH[2]}"
-          apk_name="Melodix-Preview-v${version}-test${test_number}.apk"
+          if [[ ! "$APK_SUFFIX" =~ ^(-[a-z0-9-]+)?$ ]]; then
+            echo "::error::apk_suffix may contain only lowercase letters, digits, and hyphens, with a leading hyphen."
+            exit 1
+          fi
+          if [[ ! "$VERSION_CODE_BASE" =~ ^[0-9]+$ ]]; then
+            echo "::error::version_code_base must be a non-negative integer."
+            exit 1
+          fi
+          apk_name="Melodix-Preview-v${version}-test${test_number}${APK_SUFFIX}.apk"
           IFS=. read -r major minor patch <<< "$version"
-          # Restart the release labels at test.1 while keeping Android versionCode
-          # above the previously published test.27 so installed Preview apps update in place.
-          # The run number is added so every published build has a strictly higher
-          # versionCode: a phone that silently ignores a same-version "update" would
-          # otherwise keep launching the previous APK, and every diagnostic would be
-          # written against code that is no longer being tested.
+          # Public release builds retain the release counter. A build-only
+          # production candidate may pass the latest published versionCode as
+          # its base; the caller run counter then makes it updateable and unique.
           if [[ "$BUILD_ONLY" == "true" ]]; then
-            # The same-run emulator caller has its own run counter, separate
-            # from this workflow's publish counter. Keep test artifacts above
-            # the last published APK and monotonic within the caller workflow.
-            version_code=$((1020880 + GITHUB_RUN_NUMBER))
+            if (( VERSION_CODE_BASE > 0 )); then
+              version_code=$((VERSION_CODE_BASE + GITHUB_RUN_NUMBER))
+            else
+              # Instrumentation-only APKs use a separate monotonic sequence and
+              # are never published as user-facing Preview builds.
+              version_code=$((1020880 + GITHUB_RUN_NUMBER))
+            fi
           else
-            # Published Preview builds use this workflow's own run number so
-            # each release can update the prior installed Preview APK.
+            # Legacy push-triggered artifacts keep a deterministic tag/run-based
+            # versionCode. They are never published by this build-only workflow.
             version_code=$((major * 1000000 + minor * 10000 + patch * 100 + test_number + 28 + GITHUB_RUN_NUMBER))
           fi
-          release_name="Melodix Preview v${version} test.${test_number}"
-
           echo "tag=$tag" >> "$GITHUB_OUTPUT"
           echo "source_ref=$INPUT_SOURCE_REF" >> "$GITHUB_OUTPUT"
           echo "apk_name=$apk_name" >> "$GITHUB_OUTPUT"
           echo "version_code=$version_code" >> "$GITHUB_OUTPUT"
-          echo "release_name=$release_name" >> "$GITHUB_OUTPUT"
-          echo "should_publish=$should_publish" >> "$GITHUB_OUTPUT"
 
       - name: Check preview signing secrets
         shell: bash
@@ -151,8 +180,8 @@ jobs:
           APK_NAME: ${{ steps.release.outputs.apk_name }}
           VERSION_CODE: ${{ steps.release.outputs.version_code }}
           SOURCE_REF: ${{ steps.release.outputs.source_ref }}
-          SHOULD_PUBLISH: ${{ steps.release.outputs.should_publish }}
-          BUILD_ONLY: ${{ inputs.build_only || false }}
+          BUILD_ONLY: ${{ inputs.build_only || github.event_name == 'workflow_dispatch' }}
+          TARGET_DEBUGGABLE: ${{ inputs.target_debuggable || false }}
           MELODIX_PREVIEW_KEYSTORE_B64: ${{ secrets.MELODIX_PREVIEW_KEYSTORE_B64 }}
           MELODIX_PREVIEW_KEYSTORE_PASSWORD: ${{ secrets.MELODIX_PREVIEW_KEYSTORE_PASSWORD }}
           MELODIX_PREVIEW_KEY_PASSWORD: ${{ secrets.MELODIX_PREVIEW_KEY_PASSWORD || secrets.MELODIX_PREVIEW_KEYSTORE_PASSWORD }}
@@ -212,12 +241,13 @@ jobs:
             exit 1
           fi
 
-          python3 - "$work_dir/AndroidManifest.xml" "$SOURCE_REF" "$BUILD_ONLY" <<'PY'
+          python3 - "$work_dir/AndroidManifest.xml" "$SOURCE_REF" "$BUILD_ONLY" "$TARGET_DEBUGGABLE" <<'PY'
           import sys
           import xml.etree.ElementTree as ET
 
           BUILD_ID = sys.argv[2][:7]
           BUILD_ONLY = sys.argv[3].lower() == "true"
+          TARGET_DEBUGGABLE = sys.argv[4].lower() == "true"
 
           manifest_path = sys.argv[1]
           android_ns = "http://schemas.android.com/apk/res/android"
@@ -230,15 +260,20 @@ jobs:
           if root.get("package") != original_id:
               raise SystemExit("Unexpected base package id; refusing to rewrite the preview manifest.")
           root.set("package", preview_id)
-          if BUILD_ONLY:
-              # Android refuses to attach an instrumentation runner to a
-              # non-debuggable target. This ephemeral same-run test APK is not
-              # published; release builds retain the manifest's default.
-              application = root.find("application")
-              if application is None:
-                  raise SystemExit("Preview manifest has no application element")
+          application = root.find("application")
+          if application is None:
+              raise SystemExit("Preview manifest has no application element")
+          if TARGET_DEBUGGABLE and not BUILD_ONLY:
+              raise SystemExit("Refusing to create a debuggable published Preview APK")
+          if TARGET_DEBUGGABLE:
+              # Android refuses to attach the integration runner to a
+              # non-debuggable target. This ephemeral APK is never published.
               application.set(android + "debuggable", "true")
-              print("::notice title=Preview CI instrumentation::ephemeral build-only APK is debuggable; release builds are unchanged")
+              print("::notice title=Preview CI instrumentation::ephemeral instrumentation APK is debuggable")
+          else:
+              # The separately installed release candidate is the exact
+              # non-debuggable artifact eligible for later publication.
+              application.attrib.pop(android + "debuggable", None)
 
           for element in root.iter():
               name = element.get(android + "name")
@@ -425,11 +460,7 @@ jobs:
           echo "apk_version_name=$apk_version_name" >> "$GITHUB_OUTPUT"
           echo "source_ref=$SOURCE_REF" >> "$GITHUB_OUTPUT"
           echo "::notice title=Signed Preview APK metadata::artifact=$APK_NAME package=$package_id versionCode=$apk_version_code versionName=$apk_version_name sha256=$apk_sha256 source=$SOURCE_REF"
-          if [[ "$SHOULD_PUBLISH" == "true" ]]; then
-            build_mode="preview release"
-          else
-            build_mode="build-only; no public release or tag"
-          fi
+          build_mode="artifact-only; no public release or tag"
           {
             echo "### Signed Melodix Preview APK ($build_mode)"
             echo
@@ -441,9 +472,9 @@ jobs:
             echo "- SHA-256: \`$apk_sha256\`"
           } >> "$GITHUB_STEP_SUMMARY"
 
-      # Diagnostic builds ([skip-release]) never publish a release or tag, so
-      # the APK is uploaded as a workflow artifact instead: the run page gives
-      # a test APK that can be sideloaded on a phone without creating one.
+      # This reusable build only emits a short-lived artifact. Public releases
+      # are handled after the separate emulator workflow validates the exact
+      # non-debuggable candidate APK.
       - name: Upload APK as workflow artifact
         uses: actions/upload-artifact@v4
         with:
@@ -454,24 +485,3 @@ jobs:
             ${{ steps.package.outputs.asset_manifest_path }}
           retention-days: 14
           if-no-files-found: error
-
-      - name: Create preview release and attach APK
-        if: steps.release.outputs.should_publish == 'true'
-        uses: softprops/action-gh-release@v3.0.3
-        with:
-          tag_name: ${{ steps.release.outputs.tag }}
-          target_commitish: ${{ steps.release.outputs.source_ref }}
-          name: ${{ steps.release.outputs.release_name }}
-          body: |
-            Separate Melodix preview build with package id `com.melodix.music.preview`.
-
-            Built from source commit `${{ steps.release.outputs.source_ref }}`; consult that commit for the changes included in this test build.
-
-            It installs alongside the regular app and is not an update to the existing `com.melodix.music` installation. Preview data is separate. The Android versionCode remains above the former test.27 so it can update an already-installed Preview.
-          files: |
-            ${{ steps.package.outputs.apk_path }}
-            ${{ steps.package.outputs.sha_path }}
-          prerelease: true
-          overwrite_files: true
-          fail_on_unmatched_files: true
-          token: ${{ secrets.GITHUB_TOKEN }}
