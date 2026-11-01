@@ -140,7 +140,6 @@ public final class HomeRenderInstrumentation extends Instrumentation {
             "decision_styles_not_ready:decision==='styles-not-ready'," +
             "decision_fullscreen_open:decision==='fullscreen-open'," +
             "style_probe_completed:styleProbe.completed," +
-            "style_retry_count:Math.max(0,Math.min(6,Number(window.__sfMelodixHomeStyleRetryCount)||0))," +
             "renderer_style_probe_marker_present:rendererStyle.marker_present===true," +
             "renderer_style_probe_computed_style_available:rendererStyle.computed_style_available===true," +
             "renderer_style_probe_home_display_flex:rendererStyle.home_display_flex===true," +
@@ -841,7 +840,6 @@ public final class HomeRenderInstrumentation extends Instrumentation {
             state.putBoolean("web_home_probe_decision_styles_not_ready", probe.optBoolean("decision_styles_not_ready"));
             state.putBoolean("web_home_probe_decision_fullscreen_open", probe.optBoolean("decision_fullscreen_open"));
             state.putBoolean("web_home_probe_style_probe_completed", probe.optBoolean("style_probe_completed"));
-            state.putInt("web_home_probe_style_retry_count", Math.max(0, Math.min(6, probe.optInt("style_retry_count"))));
             state.putBoolean("web_home_probe_renderer_style_probe_marker_present", probe.optBoolean("renderer_style_probe_marker_present"));
             state.putBoolean("web_home_probe_renderer_style_probe_computed_style_available", probe.optBoolean("renderer_style_probe_computed_style_available"));
             state.putBoolean("web_home_probe_renderer_style_probe_home_display_flex", probe.optBoolean("renderer_style_probe_home_display_flex"));
