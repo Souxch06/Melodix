@@ -2927,6 +2927,9 @@
     }
     window.__sfMediaLibStatus = window.__sfMediaLibStatus || 'pending';
     window.__sfMediaLibError = window.__sfMediaLibError || '';
+    window.__sfMediaLibSessionProven = window.__sfMediaLibSessionProven === true;
+    window.__sfMediaLibSessionProofKnown = window.__sfMediaLibSessionProofKnown === true ||
+        window.__sfMediaLibSessionProven;
     window.__sfMediaLibRawItemCount = Number.isFinite(Number(window.__sfMediaLibRawItemCount))
         ? Math.max(0, Math.min(1000, Math.floor(Number(window.__sfMediaLibRawItemCount)))) : 0;
 
@@ -2985,8 +2988,8 @@
     }
     window.checkMediaLib = checkMediaLib;
 
-    // Credentialed library API calls are disabled: the bridge never reads
-    // tokens and never queries Spotify endpoints.
+    // Do not read, store, or forward credentials. The private library request
+    // below uses only the signed-in WebView's normal page cookies.
     async function fetchAllLibrary() {
         // The library is read with the page's own session cookies only: no
         // credential is ever captured, stored, or forwarded by the bridge.
@@ -3037,6 +3040,10 @@
             }
 
             if (resp.status === 401) {
+                // An explicit unauthorized response invalidates this page's
+                // previous library proof. Other transient failures do not.
+                window.__sfMediaLibSessionProofKnown = true;
+                window.__sfMediaLibSessionProven = false;
                 window.__sfMediaLibError = 'token-missing';
                 break;
             }
@@ -3056,7 +3063,19 @@
                 window.__sfMediaLibError = 'fetch-parse-error';
                 break;
             }
-            const items = data?.data?.me?.libraryV3?.items || [];
+            const libraryPage = data?.data?.me?.libraryV3;
+            const items = libraryPage && libraryPage.items;
+            if (!Array.isArray(items)) {
+                // HTTP 200 alone is not a session or empty-library proof. The
+                // private library response must have its expected data shape.
+                window.__sfMediaLibError = 'fetch-parse-error';
+                break;
+            }
+            window.__sfMediaLibSessionProofKnown = true;
+            window.__sfMediaLibSessionProven = true;
+            if (Array.isArray(data.errors) && data.errors.length > 0) {
+                window.__sfMediaLibError = 'fetch-parse-error';
+            }
             allItems = allItems.concat(items);
 
             if (items.length < limit) {

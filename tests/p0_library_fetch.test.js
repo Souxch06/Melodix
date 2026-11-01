@@ -112,6 +112,8 @@ test('checkMediaLib loads the real library with session cookies and no token', a
 
     assert.equal(win.__sfMediaLibStatus, 'ready', 'the library settles as ready');
     assert.equal(win.__sfMediaLibError, '', 'no error is recorded');
+    assert.equal(win.__sfMediaLibSessionProofKnown, true, 'the private API response establishes an explicit session proof');
+    assert.equal(win.__sfMediaLibSessionProven, true);
     assert.equal(win.__sfMediaLibRawItemCount, 2, 'the settled response records only a bounded raw item count');
     assert.equal(win.__testDispatchedEvents.filter((type) => type === 'sf-media-library-state-changed').length, 2,
         'loading and settlement both notify the Web Home renderer without carrying account data');
@@ -202,7 +204,31 @@ test('HTTP failures are distinguished and never reported as an empty library', a
         assert.equal(win.__sfMediaLibStatus, 'error', `status ${status} must not look ready`);
         assert.equal(win.__sfMediaLibError, expected, `status ${status} keeps its own error code`);
         assert.equal(win.mediaLib, undefined, 'a failure never produces a fake empty library');
+        if (status === 401) {
+            assert.equal(win.__sfMediaLibSessionProofKnown, true);
+            assert.equal(win.__sfMediaLibSessionProven, false,
+                'an explicit unauthorized response invalidates stale positive proof');
+        } else {
+            assert.equal(win.__sfMediaLibSessionProofKnown, false,
+                'other HTTP failures are not mistaken for proof that the session ended');
+        }
     }
+});
+
+test('an explicit 401 invalidates an earlier private-response proof without fabricating an empty library', async () => {
+    const win = loadBridge({
+        fetchImpl: async () => ({ ok: false, status: 401, json: async () => ({}) })
+    });
+    win.__sfMediaLibSessionProofKnown = true;
+    win.__sfMediaLibSessionProven = true;
+    win.mediaLib = { playlists: [{ id: 'spotify:playlist:stale', name: 'Stale cache' }] };
+    await win.checkMediaLib(true);
+    assert.equal(win.__sfMediaLibError, 'token-missing');
+    assert.equal(win.__sfMediaLibSessionProofKnown, true);
+    assert.equal(win.__sfMediaLibSessionProven, false);
+    assert.equal(win.__sfMediaLibStatus, 'error');
+    assert.equal(win.mediaLib.playlists.length, 1,
+        'the last known data is preserved but cannot authorize a takeover after 401');
 });
 
 test('network failure and malformed JSON keep their own error codes', async () => {
@@ -218,12 +244,61 @@ test('network failure and malformed JSON keep their own error codes', async () =
     assert.equal(malformed.__sfMediaLibStatus, 'error');
 });
 
-test('an account with no playlist settles as an honest empty library', async () => {
+test('an authenticated account with an empty library is proven by the successful private response', async () => {
     const win = loadBridge({ fetchImpl: async () => libraryPage([]) });
     await win.checkMediaLib(true);
     assert.equal(win.__sfMediaLibStatus, 'ready', 'empty is a final state, not an error');
     assert.equal(win.__sfMediaLibError, '');
     assert.deepEqual(Array.from(win.mediaLib.playlists), []);
+    assert.equal(win.__sfMediaLibSessionProofKnown, true);
+    assert.equal(win.__sfMediaLibSessionProven, true,
+        'a valid empty library is still a successful authenticated Spotify response');
+});
+
+test('an unexpected HTTP-200 library shape is an error, never a false empty or session proof', async () => {
+    for (const response of [
+        { ok: true, status: 200, json: async () => ({}) },
+        { ok: true, status: 200, json: async () => ({ data: { me: { libraryV3: {} } } }) }
+    ]) {
+        const win = loadBridge({ fetchImpl: async () => response });
+        await win.checkMediaLib(true);
+        assert.equal(win.__sfMediaLibStatus, 'error');
+        assert.equal(win.__sfMediaLibError, 'fetch-parse-error');
+        assert.equal(win.mediaLib, undefined);
+        assert.equal(win.__sfMediaLibSessionProofKnown, false);
+        assert.equal(win.__sfMediaLibSessionProven, false);
+    }
+});
+
+test('a transient library error preserves an earlier verified session proof', async () => {
+    const win = loadBridge({ fetchImpl: async () => { throw new TypeError('offline'); } });
+    win.__sfMediaLibSessionProofKnown = true;
+    win.__sfMediaLibSessionProven = true;
+    await win.checkMediaLib(true);
+    assert.equal(win.__sfMediaLibStatus, 'error');
+    assert.equal(win.__sfMediaLibSessionProofKnown, true);
+    assert.equal(win.__sfMediaLibSessionProven, true,
+        'a later network/parse error does not artificially sign out the account');
+});
+
+test('partial library data remains available and retains session proof after a later page fails', async () => {
+    let calls = 0;
+    const firstPage = Array.from({ length: 50 }, (_v, i) =>
+        libraryItem({ uri: `spotify:playlist:partial${i}`, name: `Private name ${i}` }));
+    const win = loadBridge({
+        fetchImpl: async () => {
+            calls += 1;
+            return calls === 1
+                ? libraryPage(firstPage)
+                : { ok: false, status: 503, json: async () => ({}) };
+        }
+    });
+    await win.checkMediaLib(true);
+    assert.equal(win.__sfMediaLibStatus, 'error');
+    assert.equal(win.__sfMediaLibError, 'http-503');
+    assert.equal(win.mediaLib.playlists.length, 50);
+    assert.equal(win.__sfMediaLibSessionProofKnown, true);
+    assert.equal(win.__sfMediaLibSessionProven, true);
 });
 
 test('parseLibrary survives missing fields, unknown types and Liked Songs', () => {

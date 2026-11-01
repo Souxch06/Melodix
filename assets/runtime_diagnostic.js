@@ -22,7 +22,7 @@
     mutations: {
       addedNodeCount: 0,
       addedNodeCountCapped: false,
-      firstAddedIdsAndTestIds: [],
+      firstAddedIdentityPresence: [],
       observerStopped: true
     }
   };
@@ -35,16 +35,22 @@
     return value;
   };
 
-  const recordAddedNodeIdentity = (node) => {
-    if (node.nodeType !== 1 || state.mutations.firstAddedIdsAndTestIds.length >= 10) return;
+  // Record only whether identifiers exist. Spotify IDs and test IDs may
+  // contain account-specific resource identifiers, so their values never
+  // leave the page through this diagnostic.
+  const recordAddedNodeIdentityPresence = (node) => {
+    if (node.nodeType !== 1 || state.mutations.firstAddedIdentityPresence.length >= 10) return;
 
-    const id = safeIdentifier(node.id);
-    const dataTestId = typeof node.getAttribute === 'function'
-      ? safeIdentifier(node.getAttribute('data-testid'))
-      : null;
-    if (id === null && dataTestId === null) return;
+    const hasId = typeof node.id === 'string' && node.id.length > 0;
+    let hasTestId = false;
+    try {
+      hasTestId = typeof node.getAttribute === 'function' &&
+        typeof node.getAttribute('data-testid') === 'string' &&
+        node.getAttribute('data-testid').length > 0;
+    } catch (_) {}
+    if (!hasId && !hasTestId) return;
 
-    state.mutations.firstAddedIdsAndTestIds.push({ id, dataTestId });
+    state.mutations.firstAddedIdentityPresence.push({ hasId, hasTestId });
   };
 
   const countAddedSubtree = (rootNode) => {
@@ -58,7 +64,7 @@
       }
 
       state.mutations.addedNodeCount += 1;
-      recordAddedNodeIdentity(node);
+      recordAddedNodeIdentityPresence(node);
 
       const children = node.childNodes;
       if (children) {
@@ -85,6 +91,28 @@
     observer.observe(body, { childList: true, subtree: true });
     state.mutations.observerStopped = false;
   }
+
+  const summarizeRuntimeUserAgent = () => {
+    const userAgent = typeof navigator.userAgent === 'string' ? navigator.userAgent : '';
+    const chromeMatch = /\bChrome\/(\d{1,3})(?:\.\d+)?/i.exec(userAgent);
+    const isWebView = /;\s*wv\)|Version\/\d+\.\d+\s+Chrome\//i.test(userAgent);
+    return {
+      family: isWebView ? 'android-webview' : /Android/i.test(userAgent) ? 'android-browser' : 'other',
+      chromiumMajor: chromeMatch ? Number(chromeMatch[1]) : null
+    };
+  };
+
+  const safeBodyClasses = () => {
+    const allowed = [
+      'sf-mobile-shell',
+      'sf-library-open',
+      'sf-guest',
+      'sf-expanded',
+      'sf-melodix-home-active'
+    ];
+    if (!body || !body.classList || typeof body.classList.contains !== 'function') return [];
+    return allowed.filter((className) => body.classList.contains(className));
+  };
 
   const collectSample = () => {
     const selectors = [
@@ -142,7 +170,7 @@
     return {
       elapsedMs: Math.max(0, Math.round(performance.now() - startedAt)),
       host: window.location.hostname,
-      userAgent: navigator.userAgent,
+      runtimeUserAgent: summarizeRuntimeUserAgent(),
       width: {
         innerWidth: window.innerWidth,
         screenWidth: window.screen ? window.screen.width : null,
@@ -162,14 +190,16 @@
           ? window.__sfGetPlaybackTrace(40)
           : null
       },
-      guiMode: window.SF_CONFIG ? window.SF_CONFIG.guiMode : null,
+      guiMode: window.SF_CONFIG && ['csshack', 'bigwindow', 'compact'].indexOf(window.SF_CONFIG.guiMode) >= 0
+        ? window.SF_CONFIG.guiMode
+        : 'other',
       touchInput: window.SF_CONFIG && typeof window.SF_CONFIG.touchInput === 'boolean'
         ? window.SF_CONFIG.touchInput
         : null,
-      dockLeftSidebar: window.SF_CONFIG
+      dockLeftSidebar: window.SF_CONFIG && typeof window.SF_CONFIG.dockLeftSidebar === 'boolean'
         ? window.SF_CONFIG.dockLeftSidebar
         : null,
-      bodyClasses: body ? body.className : null,
+      bodyClasses: safeBodyClasses(),
       drawer: {
         expanded: typeof window.__sfLibraryExpanded === 'boolean'
           ? window.__sfLibraryExpanded
@@ -331,6 +361,12 @@
         mediaLibStatus: ['pending', 'loading', 'ready', 'error'].indexOf(window.__sfMediaLibStatus) >= 0
           ? window.__sfMediaLibStatus
           : null,
+        mediaLibSessionProofKnown: typeof window.__sfMediaLibSessionProofKnown === 'boolean'
+          ? window.__sfMediaLibSessionProofKnown
+          : null,
+        mediaLibSessionProven: typeof window.__sfMediaLibSessionProven === 'boolean'
+          ? window.__sfMediaLibSessionProven
+          : null,
         nativeHomeDomRowsCount: Number.isInteger(window.__sfNativeUiHomeDomRowsCount)
           ? window.__sfNativeUiHomeDomRowsCount
           : null,
@@ -347,7 +383,7 @@
       mutations: {
         addedNodeCount: state.mutations.addedNodeCount,
         addedNodeCountCapped: state.mutations.addedNodeCountCapped,
-        firstAddedIdsAndTestIds: state.mutations.firstAddedIdsAndTestIds.slice(),
+        firstAddedIdentityPresence: state.mutations.firstAddedIdentityPresence.slice(),
         observerStopped: state.mutations.observerStopped
       }
     };

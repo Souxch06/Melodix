@@ -123,6 +123,10 @@ test('the Web Home renderer is session-gated, accepts one real item, and renders
   const nativeShell = read('scripts/native_ui_shell.source.js');
   const css = read('assets/css_hacks.css');
   assert.match(renderer, /function melodixHomeHasSessionEvidence\(\)/);
+  assert.match(renderer, /main-userWidget-box/,
+    'profile detection accepts the existing user-widget class as well as the historical data-testid');
+  assert.match(renderer, /__sfMediaLibSessionProofKnown === true[\s\S]*?__sfMediaLibSessionProven === true/,
+    'a verified empty private response can prove the session without a legacy profile selector');
   assert.match(renderer, /if \(!sessionProven\)[\s\S]*?session-unproven/);
   assert.doesNotMatch(renderer, /itemCount\s*<\s*2/,
     'one verified Spotify card is sufficient; empty and error states do not need fake cards');
@@ -130,6 +134,12 @@ test('the Web Home renderer is session-gated, accepts one real item, and renders
   assert.match(renderer, /rendered-status-\$\{statusState\}/);
   assert.match(renderer, /sf-media-library-state-changed/);
   assert.match(renderer, /sf-native-ui-session-proof-changed/);
+  assert.match(nativeShell, /function libraryProvesSession\(\)[\s\S]*?__sfMediaLibSessionProofKnown === true[\s\S]*?__sfMediaLibSessionProven === true/,
+    'the native gate accepts an empty but verified private response, not library readiness alone');
+  assert.match(nativeShell, /main-userWidget-box/,
+    'native readiness supports the profile-control class without depending on one historical test id');
+  assert.match(nativeShell, /takeoverProven = sessionProven;/,
+    'real public Home cards cannot bypass the authenticated-session gate');
   assert.match(nativeShell, /previousSessionProven !== sessionProven[\s\S]*?sf-native-ui-session-proof-changed/,
     'native session proof changes wake the Web renderer without exposing account data');
   assert.match(nativeShell, /rawItemCount > 0[\s\S]*?ne peuvent pas encore être affichés[\s\S]*?melodix:action:retry-library/,
@@ -155,6 +165,19 @@ test('the CI Home integration contains no fake account data or credentials and l
   assert.match(harness, /LOGIN_DOM_PROBE[\s\S]*?awaitLoginUiVisible\(webView\)/,
     'the clean session checks for actual login DOM before the recovery transition');
   assert.match(harness, /login_ui_visible_in_webview_dom/);
+  assert.match(harness, /AUTHENTICATED_HOME_PROBE[\s\S]*?library_response_proof_known[\s\S]*?native_shell_session_proven/,
+    'the manual authenticated probe accepts explicit library evidence independently of the old profile selector');
+  assert.match(harness, /native_home_data_callback_returned:[\s\S]*?window\.__sfNativeUiHomeDataSent===true/,
+    'the real probe distinguishes an executed Home-data bridge callback from mere callback availability');
+  assert.match(harness, /runAuthenticatedHomeObservation\([\s\S]*?authenticated_home_test_performed/);
+  assert.match(harness, /final_screen_owner[\s\S]*?primary_webview_melodix_home_is_visible_owner/,
+    'the real observation reports the Android/WebView screen owner separately');
+  assert.match(harness, /target_version_name[\s\S]*?target_version_code/,
+    'the report identifies the exact installed candidate by package version');
+  const manualObservation = harness.split('private void runAuthenticatedHomeObservation')[1].split('private Bundle inspectAuthenticatedHome')[0];
+  assert.doesNotMatch(manualObservation, /CLEAR_TASK|loadUrl\(|dispatchEmptyHomeThroughAndBridge|dispatchHomeStatusThroughAndBridge|createWebHomeRendererFixture/,
+    'the real-session mode preserves the primary WebView, never navigates or dispatches fixture data');
+  assert.match(manualObservation, /launchTargetPreservingTask|AUTHENTICATED_HOME_PROBE/);
   assert.match(harness, /login_dom_probe_completed/,
     'the DOM probe records an explicit false result before failing, instead of making absence of status look like false');
   assert.match(harness, /Log\.e\(HARNESS_TAG, "failure phase=" \+ failurePhase \+ " type=" \+ failure\.getClass\(\)\.getSimpleName\(\)\)/,
@@ -176,4 +199,154 @@ test('the CI Home integration contains no fake account data or credentials and l
   assert.match(inspector, /notice title=Android login surface visibility[\s\S]*?webview_crop_bright_pixels/,
     'a passing login screenshot reports measured WebView pixels without raw page text');
   assert.doesNotMatch(inspector, /FIXTURE_TITLE|Controlled Home fixture|fixture_title/);
+});
+
+test('authenticated-home mode is opt-in, non-destructive, and samples actual Android surfaces at runtime', () => {
+  const harness = read('tests/android/HomeRenderInstrumentation.java');
+  const observation = harness.split('private void runAuthenticatedHomeObservation')[1]
+    .split('private Bundle inspectAuthenticatedHome')[0];
+  const foreground = harness.split('private Bundle inspectAuthenticatedHomeOnMain')[1]
+    .split('private boolean readBooleanSafely')[0];
+  assert.match(harness, /"authenticated-home"\.equals\(runnerArguments\.getString\("mode"\)\)/,
+    'the passive observer runs only when explicitly requested');
+  assert.match(harness, /registerActivityLifecycleObservation\(\)[\s\S]*?launchTargetPreservingTask\(\)/);
+  const preservingLaunch = harness.split('private Activity launchTargetPreservingTask')[1]
+    .split('private boolean isTargetActivity')[0];
+  assert.doesNotMatch(preservingLaunch, /FLAG_ACTIVITY_CLEAR_TOP|FLAG_ACTIVITY_CLEAR_TASK/,
+    'foregrounding does not clear task/history or restart the existing singleInstance activity');
+  assert.match(observation, /findWebView\(sampleActivity\)/,
+    'the observer re-finds the activity’s original primary WebView on every sample');
+  assert.match(observation, /safeSpotifyUrl\(firstWebView\.getUrl\(\)\)/,
+    'it records only a sanitized URL while preserving the live page');
+  assert.match(observation, /AUTHENTICATED_HOME_PROBE/);
+  assert.match(observation, /String screen = webRoute/,
+    'manual transition coverage follows the recognized primary-WebView route, not a stale native route flag');
+  assert.match(observation, /home_to_search_observed[\s\S]*?search_to_home_observed[\s\S]*?home_to_library_observed[\s\S]*?library_to_home_observed/);
+  assert.match(observation, /android_back_key_seen[\s\S]*?android_back_return_to_home_observed/);
+  assert.match(observation, /activity_resumed_after_background[\s\S]*?activity_recreated_during_observation/);
+  assert.match(observation, /process_restart_requires_a_new_observation_run/,
+    'the instrumentation does not pretend a runner surviving process death has been observed');
+  assert.match(harness, /KeyEvent\.KEYCODE_BACK[\s\S]*?method\.invoke\(original, args\)/,
+    'the opt-in key observer records Back then delegates the event unchanged');
+  assert.equal((harness.match(/private long authenticatedHomeTimeoutMs\(/g) || []).length, 1,
+    'the Java harness has one bounded authenticated-observation timeout implementation');
+  assert.match(foreground, /requiredView|optionalView/);
+  for (const surface of ['hScrollView', 'webViewContainer', 'nativeRoot', 'splashOverlay', 'progressBar']) {
+    assert.ok(harness.includes('optionalView(activity, "' + surface + '")'), 'measures ' + surface);
+  }
+  const surfaceTelemetry = harness.split('private Rect measureSurface')[1]
+    .split('private String safeHomeHost')[0];
+  assert.match(surfaceTelemetry, /getLocationOnScreen[\s\S]*?getAlpha\(\)[\s\S]*?getWidth\(\)[\s\S]*?getHeight\(\)/,
+    'surface telemetry samples screen position, alpha, and laid-out dimensions');
+  assert.match(surfaceTelemetry, /getGlobalVisibleRect[\s\S]*?getZ\(\)[\s\S]*?indexOfChild/,
+    'surface ownership uses measured runtime geometry, Z, and sibling drawing order—not XML elevation alone');
+  assert.match(foreground, /runtime_frontmost_fullscreen_surface[\s\S]*?owner_determination/);
+  assert.match(foreground, /first_defective_condition|primary_webview_melodix_home_is_visible_owner/);
+  assert.match(harness, /app_process_restart_verified", false/,
+    'process death is explicitly not reported as a same-run success');
+  assert.doesNotMatch(observation, /new WebView\(|createWebHomeRendererFixture|dispatchHomeStatusThroughAndBridge|dispatchEmptyHomeThroughAndBridge|loadUrl\(|\.click\(/,
+    'the opt-in pass never creates a second WebView, injects fixture data, or drives navigation');
+});
+
+test('the authenticated DOM probe returns sanitized routes, counts only, live renderer state, and callback return evidence', () => {
+  const harness = read('tests/android/HomeRenderInstrumentation.java');
+  const block = harness.split('private static final String AUTHENTICATED_HOME_PROBE =')[1]
+    .split('private static final String BROWSER_COMPATIBILITY_PROBE')[0];
+  const javaStrings = Array.from(block.matchAll(/"((?:\\.|[^"\\])*)"/g), (match) => match[1]);
+  const script = javaStrings.map((value) => JSON.parse('"' + value + '"')).join('');
+  assert.match(script, /url_query_redacted:true/);
+  assert.match(script, /sf_melodix_home_present/);
+  assert.match(script, /main_view_id_present/);
+  assert.match(script, /home_active_class/);
+  assert.match(script, /native_home_data_callback_returned/);
+  assert.match(script, /native_ready_callback_returned/);
+  assert.match(script, /session_proof_source/);
+  assert.match(script, /profile_control_visible/);
+  assert.doesNotMatch(script, /location\.(href|search|hash)|document\.cookie|localStorage|sessionStorage/);
+
+  const dom = new JSDOM(
+    '<!doctype html><body class="sf-melodix-home-active"><main id="main-view" style="display:block;visibility:visible;opacity:1">' +
+    '<a href="/intl-fr/playlist/PRIVATE_ID_123">private fixture title</a>' +
+    '<a href="https://example.com/playlist/EXTERNAL_PRIVATE_ID">external link</a></main>' +
+    '<section id="sf-melodix-home" style="display:flex;position:fixed;visibility:visible;opacity:1">' +
+    '<a href="/intl-fr/playlist/PRIVATE_ID_123">same real resource</a></section></body>',
+    { runScripts: 'outside-only', url: 'https://open.spotify.com/intl-fr/home?session=PRIVATE&si=SECRET#token=PRIVATE' }
+  );
+  const window = dom.window;
+  const rect = (width, height) => () => ({ left: 8, top: 12, right: 8 + width, bottom: 12 + height, width, height });
+  window.document.getElementById('main-view').getBoundingClientRect = rect(400, 700);
+  window.document.getElementById('sf-melodix-home').getBoundingClientRect = rect(400, 700);
+  window.__sfMediaLibSessionProofKnown = true;
+  window.__sfMediaLibSessionProven = true;
+  window.__sfMediaLibStatus = 'ready';
+  window.__sfMediaLibRawItemCount = 2;
+  window.mediaLib = { playlists: [{ id: 'private-playlist' }], albums: [{ id: 'private-album' }], artists: [], podcasts: [] };
+  window.__sfNativeUiSessionProven = true;
+  window.__sfNativeUiRoute = 'home';
+  window.__sfNativeUiLastRouteSent = 'home';
+  window.__sfNativeUiHomeDataSent = true;
+  window.__sfNativeUiHomeStateSent = false;
+  window.__sfNativeUiReadyNotified = true;
+  window.__sfNativeUiHomeRowsCount = 2;
+  window.__sfNativeUiHomeContentProven = true;
+  window.__sfNativeUiHomeStateProven = false;
+  window.__sfNativeUiTakeoverProven = true;
+  window.__sfMelodixBridgeStarted = true;
+  window.__sfMelodixHomeDecision = 'visible';
+  window.__sfMelodixHomeSourceCardCount = 1;
+  window.AndBridge = {
+    onNativeUiRoute() {},
+    onNativeUiData() {},
+    onNativeUiReady() {}
+  };
+  try {
+    const result = window.eval(script);
+    assert.equal(result.probe_error, false);
+    assert.equal(result.safe_url, 'https://open.spotify.com/intl-fr/home');
+    assert.equal(result.url_query_redacted, true);
+    assert.equal(result.route_category, 'home');
+    assert.equal(result.session_proven, true);
+    assert.equal(result.session_proof_source, 'verified-private-library-response');
+    assert.equal(result.profile_control_present, false);
+    assert.equal(result.profile_control_visible, false);
+    assert.equal(result.real_library_resource_count_capped, 2);
+    assert.equal(result.real_library_playlist_count_capped, 1);
+    assert.equal(result.real_home_resource_link_count_capped, 1);
+    assert.equal(result.sf_melodix_home_visible, true);
+    assert.deepEqual({ ...result.sf_melodix_home_rect }, { left: 8, top: 12, width: 400, height: 700 });
+    assert.equal(result.main_view_id_present, true);
+    assert.equal(result.main_view_visible, true);
+    assert.equal(result.home_active_class, true);
+    assert.equal(result.native_route_callback_returned, true);
+    assert.equal(result.native_home_data_callback_returned, true);
+    assert.equal(result.native_ready_callback_returned, true);
+
+    window.__sfMediaLibSessionProofKnown = false;
+    window.__sfMediaLibSessionProven = false;
+    window.__sfNativeUiSessionProven = false;
+    const unproven = window.eval(script);
+    assert.equal(unproven.session_proven, false);
+    assert.equal(unproven.session_proof_source, 'unproven');
+
+    const profileControl = window.document.createElement('button');
+    profileControl.setAttribute('data-testid', 'user-widget-link');
+    profileControl.style.cssText = 'display:block;visibility:visible;opacity:1';
+    profileControl.getBoundingClientRect = rect(40, 40);
+    window.document.body.appendChild(profileControl);
+    const visibleProfileProof = window.eval(script);
+    assert.equal(visibleProfileProof.profile_control_present, true);
+    assert.equal(visibleProfileProof.profile_control_visible, true);
+    assert.equal(visibleProfileProof.session_proven, true);
+    assert.equal(visibleProfileProof.session_proof_source, 'spotify-profile-control');
+    profileControl.style.display = 'none';
+    const hiddenProfileIsNotProof = window.eval(script);
+    assert.equal(hiddenProfileIsNotProof.profile_control_present, true);
+    assert.equal(hiddenProfileIsNotProof.profile_control_visible, false);
+    assert.equal(hiddenProfileIsNotProof.session_proven, false);
+
+    assert.doesNotMatch(JSON.stringify(result), /PRIVATE_ID|session=|SECRET|token=|private-playlist|private-album/,
+      'the diagnostic returns route categories and capped counts only, never URLs, IDs, or titles');
+  } finally {
+    dom.window.close();
+  }
 });

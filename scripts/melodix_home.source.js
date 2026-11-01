@@ -238,8 +238,17 @@ function melodixHomeLibraryResource(item, group) {
 function melodixHomeHasSessionEvidence() {
     if (window.__sfNativeUiSessionProven === true) return true;
     try {
-        if (document.querySelector('button[data-testid="user-widget-link"], a[data-testid="user-widget-link"]')) return true;
+        if (document.querySelector(
+            'button[data-testid="user-widget-link"], a[data-testid="user-widget-link"], .main-userWidget-box'
+        )) return true;
     } catch (_) {}
+    // A successful, correctly shaped private library response is positive
+    // authentication evidence even when it contains zero resources. A known
+    // 401 takes precedence over stale in-memory arrays; transient errors keep
+    // the last confirmed proof in the dedicated flag.
+    if (window.__sfMediaLibSessionProofKnown === true) {
+        return window.__sfMediaLibSessionProven === true;
+    }
     const library = window.mediaLib;
     if (!library) return false;
     return ['playlists', 'albums', 'artists', 'podcasts'].some((key) =>

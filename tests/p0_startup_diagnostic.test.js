@@ -730,8 +730,8 @@ test('collectors see a player framed in a same-origin iframe', () => {
   assert.ok(js.includes('function findMainView()'));
   assert.ok(js.includes('mainView = findMainView();'),
     'runUpdate collects from the frame too');
-  assert.ok(js.includes("userWidget = sfDeepQuery('button[data-testid=\"user-widget-link\"]"),
-    'the takeover gate also looks into frames');
+  assert.ok(js.includes("userWidget = sfDeepQuery(\n            'button[data-testid=\"user-widget-link\"]"),
+    'the takeover gate also looks into frames and supports the profile class');
 });
 
 

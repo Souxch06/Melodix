@@ -14,8 +14,8 @@ const ROOT = path.resolve(__dirname, '..');
 const rendererSource = fs.readFileSync(path.join(ROOT, 'scripts/melodix_home.source.js'), 'utf8');
 const cssSource = fs.readFileSync(path.join(ROOT, 'assets/css_hacks.css'), 'utf8');
 
-function cardMarkup({ type = 'playlist', id, title, subtitle = '', variant = 'testid', image = true }) {
-    const href = `/${type}/${id}`;
+function cardMarkup({ type = 'playlist', id, href: customHref = '', title, subtitle = '', variant = 'testid', image = true }) {
+    const href = customHref || `/${type}/${id}`;
     const artwork = image ? `<img src="https://i.scdn.co/image/${id}" alt="${title} artwork">` : '';
     if (variant === 'encore') {
         return `<article data-encore-id="card">
@@ -51,6 +51,8 @@ function makePage({
     libraryStatus = 'pending',
     libraryError = '',
     rawItemCount = 0,
+    mediaLibSessionProofKnown = false,
+    mediaLibSessionProven = false,
     mediaLib
 } = {}) {
     const sectionBody = cards.map((card) => cardMarkup(card)).join('\n');
@@ -74,6 +76,8 @@ function makePage({
     // Renderer fixtures explicitly model the native shell's authenticated
     // session proof. Tests for the unauthenticated gate set this false.
     window.__sfNativeUiSessionProven = sessionProven;
+    window.__sfMediaLibSessionProofKnown = mediaLibSessionProofKnown;
+    window.__sfMediaLibSessionProven = mediaLibSessionProven;
     window.__sfMediaLibStatus = libraryStatus;
     window.__sfMediaLibError = libraryError;
     window.__sfMediaLibRawItemCount = rawItemCount;
@@ -278,7 +282,10 @@ test('authenticated empty, loading and failed collection states stay inside a vi
 
     const empty = makePage({
         cards: [],
+        sessionProven: false,
         libraryStatus: 'ready',
+        mediaLibSessionProofKnown: true,
+        mediaLibSessionProven: true,
         mediaLib: { playlists: [], albums: [], artists: [], podcasts: [] }
     });
     try {
@@ -325,7 +332,16 @@ test('authenticated empty, loading and failed collection states stay inside a vi
         close(failed);
     }
 
-    const sessionFailure = makePage({ cards: [], libraryStatus: 'error', libraryError: 'token-missing' });
+    const sessionFailure = makePage({
+        cards: [],
+        // The native shell has an independent profile-control proof here; the
+        // API's 401 changes library state but does not silently revoke that proof.
+        sessionProven: true,
+        mediaLibSessionProofKnown: true,
+        mediaLibSessionProven: false,
+        libraryStatus: 'error',
+        libraryError: 'token-missing'
+    });
     try {
         assertWebHomeVisible(sessionFailure, 0);
         const status = homeElement(sessionFailure).querySelector('.sf-melodix-home__status');
@@ -339,22 +355,27 @@ test('authenticated empty, loading and failed collection states stay inside a vi
     }
 });
 
-test('library state-change events replace loading with newly settled real account data', async () => {
-    const page = makePage({ cards: [], libraryStatus: 'pending' });
+test('a verified private library response can open Home and render the real account data', async () => {
+    const page = makePage({ cards: [], sessionProven: false, libraryStatus: 'pending' });
     try {
-        assert.equal(homeElement(page).querySelector('.sf-melodix-home__status').dataset.state, 'loading');
+        assert.equal(homeElement(page), null,
+            'without a prior session proof the renderer leaves Spotify visible while the request is pending');
+        assert.equal(page.window.__sfMelodixHomeDecision, 'session-unproven');
         page.window.mediaLib = {
             playlists: [{ uri: 'spotify:playlist:late-real-id', name: 'Playlist arrivée après le chargement' }],
             albums: [], artists: [], podcasts: []
         };
         page.window.__sfMediaLibStatus = 'ready';
+        page.window.__sfMediaLibSessionProofKnown = true;
+        page.window.__sfMediaLibSessionProven = true;
         page.window.dispatchEvent(new page.window.Event('sf-media-library-state-changed'));
         await new Promise((resolve) => page.window.setTimeout(resolve, 120));
         assert.equal(homeElement(page).querySelectorAll('.sf-melodix-home__card').length, 1);
         assert.equal(homeElement(page).querySelector('.sf-melodix-home__title').textContent,
             'Playlist arrivée après le chargement');
         assert.equal(homeElement(page).querySelector('.sf-melodix-home__status'), null);
-        assert.equal(page.window.__sfMelodixHomeDecision, 'updated');
+        assert.equal(page.window.__sfMelodixHomeDecision, 'rendered',
+            'the first valid response opens the renderer rather than updating a previously active shell');
     } finally {
         close(page);
     }
@@ -416,17 +437,43 @@ test('locale routes and real alternative Encore/article/listitem card structures
         cards: [
             { id: 'encore-1', title: 'Daily Mix réel', subtitle: 'Choisi pour vous', variant: 'encore' },
             { id: 'article-2', type: 'artist', title: 'Artiste réel', variant: 'article', image: false },
-            { id: 'testid-3', type: 'album', title: 'Album réel C' }
+            { id: 'testid-3', type: 'album', title: 'Album réel C' },
+            { id: 'track-4', type: 'track', title: 'Piste réelle D' },
+            { id: 'show-5', type: 'show', title: 'Émission réelle E' },
+            { id: 'episode-6', type: 'episode', href: '/intl-fr/episode/episode-6', title: 'Épisode réel F' },
+            { id: 'audiobook-7', type: 'audiobook', title: 'Livre audio réel G' },
+            { id: 'tracks', type: 'collection', title: 'Titres likés réels' }
         ]
     });
     try {
-        assertWebHomeVisible(page, 3);
+        assertWebHomeVisible(page, 8);
         assert.equal(page.window.__sfHomeTest.melodixHomeRoutePath(), '/home');
         assert.deepEqual(
             Array.from(homeElement(page).querySelectorAll('.sf-melodix-home__title'), (node) => node.textContent),
-            ['Daily Mix réel', 'Artiste réel', 'Album réel C']
+            ['Daily Mix réel', 'Artiste réel', 'Album réel C', 'Piste réelle D',
+                'Émission réelle E', 'Épisode réel F', 'Livre audio réel G', 'Titres likés réels']
         );
-        assert.equal(homeElement(page).querySelectorAll('img.sf-melodix-home__artwork').length, 2,
+        const sourceSections = page.window.__sfHomeTest.collectMelodixHomeSections(
+            page.document.getElementById('main-view'), new Set()
+        );
+        const sourceCards = Array.from(sourceSections.flatMap((section) => section.cards));
+        assert.deepEqual(
+            sourceCards.map((card) => card.resourcePath),
+            ['/playlist/encore-1', '/artist/article-2', '/album/testid-3', '/track/track-4',
+                '/show/show-5', '/episode/episode-6', '/audiobook/audiobook-7', '/collection/tracks'],
+            'true resource types and the real Liked Songs collection are normalized without inventing ids'
+        );
+        assert.deepEqual(sourceCards.map((card) => card.href), [
+            'https://open.spotify.com/playlist/encore-1',
+            'https://open.spotify.com/artist/article-2',
+            'https://open.spotify.com/album/testid-3',
+            'https://open.spotify.com/track/track-4',
+            'https://open.spotify.com/show/show-5',
+            'https://open.spotify.com/intl-fr/episode/episode-6',
+            'https://open.spotify.com/audiobook/audiobook-7',
+            'https://open.spotify.com/collection/tracks'
+        ]);
+        assert.equal(homeElement(page).querySelectorAll('img.sf-melodix-home__artwork').length, 7,
             'cards without real artwork still render their real text and URI');
         assert.equal(page.window.__sfNativeUiHomeRowsCount, undefined,
             'the Web renderer does not depend on native row state');
@@ -452,6 +499,23 @@ test('the Web card tap activates Spotify’s original real link rather than inve
         });
         homeElement(page).querySelector('.sf-melodix-home__card').click();
         assert.equal(sourceClicks, 1, 'the existing Spotify anchor receives the activation');
+    } finally {
+        close(page);
+    }
+});
+
+test('an empty mediaLib object or generic ready state cannot prove an authenticated session', () => {
+    const page = makePage({
+        cards: [],
+        sessionProven: false,
+        libraryStatus: 'ready',
+        mediaLib: { playlists: [], albums: [], artists: [], podcasts: [] }
+    });
+    try {
+        assert.equal(homeElement(page), null);
+        assert.equal(page.window.__sfMelodixHomeDecision, 'session-unproven');
+        assert.equal(page.document.body.classList.contains('sf-melodix-home-active'), false);
+        assert.equal(page.window.getComputedStyle(page.document.getElementById('main-view')).display, 'block');
     } finally {
         close(page);
     }
@@ -641,17 +705,36 @@ test('late-mounted Spotify cards replace the explicit loading state when real da
     }
 });
 
-test('SPA route changes hide the custom Home on detail and restore it on /home', async () => {
+test('SPA search/library/detail transitions and browser back preserve the Spotify page and restore Home', async () => {
     const page = makePage({
+        path: '/app',
         cards: [{ id: 'route-1', title: 'Playlist A' }, { id: 'route-2', type: 'album', title: 'Album B' }]
     });
     try {
         assertWebHomeVisible(page, 2);
+
+        for (const route of ['/search', '/collection/playlists']) {
+            page.window.history.pushState({}, '', route);
+            await new Promise((resolve) => page.window.setTimeout(resolve, 100));
+            assert.equal(homeElement(page), null, `${route}: Web Home does not cover a non-Home route`);
+            assert.equal(page.window.__sfMelodixHomeDecision, 'route-not-home');
+            assert.notEqual(page.window.getComputedStyle(page.document.getElementById('main-view')).display, 'none');
+        }
+
+        page.window.history.back();
+        await new Promise((resolve) => page.window.setTimeout(resolve, 120));
+        assert.equal(page.window.location.pathname, '/search');
+        assert.equal(homeElement(page), null, 'back to search leaves the Spotify page visible');
+
+        page.window.history.back();
+        await new Promise((resolve) => page.window.setTimeout(resolve, 120));
+        assert.equal(page.window.location.pathname, '/app');
+        assertWebHomeVisible(page, 2);
+
         page.window.history.pushState({}, '', '/playlist/route-2');
         await new Promise((resolve) => page.window.setTimeout(resolve, 100));
-        assert.equal(homeElement(page), null);
-        assert.equal(page.document.body.classList.contains('sf-melodix-home-active'), false);
-        assert.notEqual(page.window.getComputedStyle(page.document.getElementById('main-view')).display, 'none');
+        assert.equal(homeElement(page), null, 'detail routes also restore Spotify content');
+        assert.equal(page.window.document.body.classList.contains('sf-melodix-home-active'), false);
 
         page.window.history.pushState({}, '', '/intl-fr/home');
         await new Promise((resolve) => page.window.setTimeout(resolve, 100));

@@ -116,6 +116,8 @@ function executeDiagnostic() {
         __sfNativeUiSessionProven: true,
         __sfNativeUiBridgeCallbacksReady: true,
         __sfMediaLibStatus: 'ready',
+        __sfMediaLibSessionProofKnown: true,
+        __sfMediaLibSessionProven: true,
         __sfNativeUiHomeDomRowsCount: 3,
         __sfMelodixMobileShellInitAttempted: true,
         __sfMelodixHomeInitAttempted: true,
@@ -140,7 +142,9 @@ function executeDiagnostic() {
     const started = vm.runInNewContext(script, {
         window,
         document,
-        navigator: { userAgent: 'Android WebView test UA' },
+        navigator: {
+            userAgent: 'Mozilla/5.0 (Linux; Android 16; Pixel 9 Build/private) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/133.0.6943.121 Mobile Safari/537.36'
+        },
         performance: { now: () => now },
         MutationObserver: TestMutationObserver
     });
@@ -178,7 +182,11 @@ test('Preview diagnostic returns four timed samples with the existing report fie
     assert.deepEqual(samples.map(({ elapsedMs }) => elapsedMs), expectedDelays);
     assert.equal(samples.length, 4);
     assert.equal(samples[0].host, 'open.spotify.com');
-    assert.equal(samples[0].userAgent, 'Android WebView test UA');
+    assert.deepEqual(samples[0].runtimeUserAgent, {
+        family: 'android-webview',
+        chromiumMajor: 133
+    });
+    assert.doesNotMatch(JSON.stringify(samples[0]), /Pixel 9|Build\/private|6943\.121/);
     assert.deepEqual(samples[0].width, {
         innerWidth: 390,
         screenWidth: 432,
@@ -196,7 +204,7 @@ test('Preview diagnostic returns four timed samples with the existing report fie
     assert.equal(samples[0].guiMode, 'csshack');
     assert.equal(samples[0].touchInput, true);
     assert.equal(samples[0].dockLeftSidebar, false);
-    assert.equal(samples[0].bodyClasses, 'sf-mobile-shell sf-library-open');
+    assert.deepEqual(samples[0].bodyClasses, ['sf-mobile-shell', 'sf-library-open']);
     assert.deepEqual(samples[0].drawer, {
         expanded: true,
         libraryOpenClass: true,
@@ -265,6 +273,8 @@ test('Preview diagnostic returns four timed samples with the existing report fie
         nativeUiSessionProven: true,
         nativeUiBridgeCallbacksReady: true,
         mediaLibStatus: 'ready',
+        mediaLibSessionProofKnown: true,
+        mediaLibSessionProven: true,
         nativeHomeDomRowsCount: 3,
         nativeHomeRowsCount: 4,
         homeWebNativeCountsMatch: false,
@@ -275,11 +285,11 @@ test('Preview diagnostic returns four timed samples with the existing report fie
     assert.equal(run.observers[0].disconnected, true);
 });
 
-test('mutation observation is capped, records only the first ten safe identifiers, and stops at 20 seconds', () => {
+test('mutation observation is capped and records only identifier presence, never private identifier values', () => {
     const run = executeDiagnostic();
     const addedNodes = Array.from({ length: 10005 }, (_, index) => makeElement({
-        id: index < 12 ? `added-${index}` : '',
-        dataTestId: index < 12 ? `test-${index}` : null
+        id: index < 12 ? `private-resource-${index}` : '',
+        dataTestId: index < 12 ? `spotify-private-test-${index}` : null
     }));
     run.observers[0].emit(addedNodes);
     run.runScheduledSamples();
@@ -287,11 +297,13 @@ test('mutation observation is capped, records only the first ten safe identifier
     const mutation = run.samples[3].mutations;
     assert.equal(mutation.addedNodeCount, 10000);
     assert.equal(mutation.addedNodeCountCapped, true);
-    assert.equal(mutation.firstAddedIdsAndTestIds.length, 10);
-    assert.deepEqual(mutation.firstAddedIdsAndTestIds[0], {
-        id: 'added-0',
-        dataTestId: 'test-0'
+    assert.equal(mutation.firstAddedIdentityPresence.length, 10);
+    assert.deepEqual(mutation.firstAddedIdentityPresence[0], {
+        hasId: true,
+        hasTestId: true
     });
+    assert.equal(JSON.stringify(mutation).includes('private-resource-'), false);
+    assert.equal(JSON.stringify(mutation).includes('spotify-private-test-'), false);
     assert.equal(mutation.observerStopped, true);
     assert.equal(run.observers[0].disconnected, true);
 });

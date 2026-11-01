@@ -1059,6 +1059,13 @@
         var library = window.mediaLib;
         var groups = ['playlists', 'albums', 'artists', 'podcasts'];
         var i;
+        // A verified libraryV3 response proves the session even when the
+        // account has zero items. An explicit 401 also prevents stale arrays
+        // from being reused as authentication evidence. Transient failures
+        // leave an earlier verified proof intact.
+        if (window.__sfMediaLibSessionProofKnown === true) {
+            return window.__sfMediaLibSessionProven === true;
+        }
         if (!library) return false;
         for (i = 0; i < groups.length; i += 1) {
             if (Array.isArray(library[groups[i]]) && library[groups[i]].length > 0) return true;
@@ -1067,8 +1074,9 @@
     }
 
     function pageHasSessionEvidence() {
-        return Boolean(sfDeepQuery('button[data-testid="user-widget-link"], a[data-testid="user-widget-link"]')) ||
-            libraryProvesSession();
+        return Boolean(sfDeepQuery(
+            'button[data-testid="user-widget-link"], a[data-testid="user-widget-link"], .main-userWidget-box'
+        )) || libraryProvesSession();
     }
 
     function notifyNativeUiReady(mainView) {
@@ -1082,7 +1090,9 @@
 
         // A profile control or a real library fetch proves the signed-in
         // session. Do not infer or change authentication from public Home data.
-        userWidget = sfDeepQuery('button[data-testid="user-widget-link"], a[data-testid="user-widget-link"]');
+        userWidget = sfDeepQuery(
+            'button[data-testid="user-widget-link"], a[data-testid="user-widget-link"], .main-userWidget-box'
+        );
         var sessionProven = Boolean(userWidget);
         if (!sessionProven && libraryProvesSession()) {
             // Covered by a real library fetch: no DOM dependency needed.
@@ -1092,10 +1102,9 @@
                 diagTrace('ready by library proof (account control absent)');
             }
         }
-        // The signed-in control can be absent on Spotify's thin Home wrapper.
-        // A real, already-sent Spotify resource card is sufficient content proof
-        // for Home; it is not treated as proof of login. The native renderer
-        // independently keeps Spotify visible unless it attaches a real card.
+        // Real Home cards prove that content was collected, not that the user
+        // is authenticated. Only a profile control or a verified private
+        // library response may authorize the Melodix takeover.
         homeContentProven = isSpotifyHome() &&
             (window.__sfNativeUiHomeRowsCount || 0) > 0 &&
             window.__sfNativeUiHomeDataSent === true;
@@ -1103,10 +1112,10 @@
             window.__sfNativeUiHomeRowsCount === 0 &&
             window.__sfNativeUiHomeStateSent === true &&
             window.__sfNativeUiHomeDataSent === true;
-        takeoverProven = sessionProven || homeContentProven;
+        takeoverProven = sessionProven;
         if (homeContentProven && !sessionProven && !window.__sfNativeUiHomeProofLogged) {
             window.__sfNativeUiHomeProofLogged = true;
-            diagTrace('ready by real Home card; session unconfirmed');
+            diagTrace('ready-blocked reason=home-content-is-not-session-proof');
         }
         var bridgeReady = Boolean(bridge &&
             typeof bridge.onNativeUiReady === 'function' &&
