@@ -110,8 +110,19 @@ public final class HomeRenderInstrumentation extends Instrumentation {
             "var ms=m&&getComputedStyle(m);" +
             "var brand=h&&h.querySelector('.sf-melodix-home__brand');" +
             "var card=cards&&cards.length?cards[0]:null;" +
+            "var decision=String(window.__sfMelodixHomeDecision||'');" +
+            "var rootResourceCount=Math.max(0,Number(window.__sfMelodixHomeRootResourceCount)||0);" +
+            "var sourceCardCount=Math.max(0,Number(window.__sfMelodixHomeSourceCardCount)||0);" +
             "return {route_app:location.hostname==='open.spotify.com'&&location.pathname==='/app'," +
             "mode_csshack:!!(window.SF_CONFIG&&window.SF_CONFIG.guiMode==='csshack')," +
+            "main_view_present:!!m,raw_anchor_count:Math.min(m?m.querySelectorAll('a[href]').length:0,3)," +
+            "root_resource_count:Math.min(rootResourceCount,3),source_card_count:Math.min(sourceCardCount,3)," +
+            "root_selector_is_main_view:String(window.__sfMelodixHomeRootSelector||'')==='#main-view'," +
+            "styles_ready:window.__sfMelodixHomeStylesReady===true," +
+            "decision_insufficient_real_cards:decision==='insufficient-real-cards'," +
+            "decision_content_root_missing:decision==='content-root-missing'," +
+            "decision_styles_not_ready:decision==='styles-not-ready'," +
+            "decision_fullscreen_open:decision==='fullscreen-open'," +
             "init_attempted:window.__sfMelodixHomeInitAttempted===true," +
             "style_marker_present:!!(s&&String(s.textContent||'').indexOf('SF_MELODIX_HOME_STYLES_V1')>=0)," +
             "active_class:!!(document.body&&document.body.classList.contains('sf-melodix-home-active'))," +
@@ -716,10 +727,22 @@ public final class HomeRenderInstrumentation extends Instrumentation {
             throw new AssertionError("The exact Preview APK is missing the Home renderer or CSS marker");
         }
         evaluateJavascriptAndWait(webView, rendererSource);
-        String cssInjection = "(function(){var style=document.getElementById('sf-custom-style');" +
-                "if(!style){style=document.createElement('style');style.id='sf-custom-style';document.head.appendChild(style);}" +
-                "style.textContent=" + JSONObject.quote(cssSource) + ";" +
-                "try{window.dispatchEvent(new Event('sf-melodix-home-styles-ready'));}catch(_){} })()";
+        // Match c91's first-page CSS injection: css_hacks.css plus the dark-mode
+        // overlay, runtime body classes, then the style-ready event. A clean
+        // install has E/Q/R/T=false in AppSingleton, so the overlay is empty,
+        // sf-video-bg and sf-fullscreen-disabled are active, and the status-bar
+        // class is absent. o6 repeats the CSS/body-class update without the
+        // event; the renderer's stylesheet observer covers that settings path.
+        String darkModeCss = "";
+        String bodyModeCommands = "document.body.classList.remove('sf-canvas-blur', 'sf-video-bg', " +
+                "'sf-fullscreen-enabled', 'sf-fullscreen-disabled', 'sf-hide-canvas', 'sf-statusbar-hidden');" +
+                "document.body.classList.add('sf-video-bg');" +
+                "document.body.classList.add('sf-fullscreen-disabled');";
+        String cssInjection = "(function() {  let style = document.getElementById('sf-custom-style'); " +
+                "if(!style) { style = document.createElement('style'); style.id = 'sf-custom-style'; " +
+                "document.head.appendChild(style); }  style.textContent = " + JSONObject.quote(cssSource) +
+                " + " + JSONObject.quote(darkModeCss) + ";  " + bodyModeCommands +
+                "; try { window.dispatchEvent(new Event('sf-melodix-home-styles-ready')); } catch (_) {} })();";
         evaluateJavascriptAndWait(webView, cssInjection);
     }
 
@@ -774,6 +797,16 @@ public final class HomeRenderInstrumentation extends Instrumentation {
             state.putBoolean("web_home_probe_diagnostics_available", true);
             state.putBoolean("web_home_probe_route_app", probe.optBoolean("route_app"));
             state.putBoolean("web_home_probe_mode_csshack", probe.optBoolean("mode_csshack"));
+            state.putBoolean("web_home_probe_main_view_present", probe.optBoolean("main_view_present"));
+            state.putInt("web_home_probe_raw_anchor_count", Math.max(0, Math.min(3, probe.optInt("raw_anchor_count"))));
+            state.putInt("web_home_probe_root_resource_count", Math.max(0, Math.min(3, probe.optInt("root_resource_count"))));
+            state.putInt("web_home_probe_source_card_count", Math.max(0, Math.min(3, probe.optInt("source_card_count"))));
+            state.putBoolean("web_home_probe_root_selector_is_main_view", probe.optBoolean("root_selector_is_main_view"));
+            state.putBoolean("web_home_probe_styles_ready", probe.optBoolean("styles_ready"));
+            state.putBoolean("web_home_probe_decision_insufficient_real_cards", probe.optBoolean("decision_insufficient_real_cards"));
+            state.putBoolean("web_home_probe_decision_content_root_missing", probe.optBoolean("decision_content_root_missing"));
+            state.putBoolean("web_home_probe_decision_styles_not_ready", probe.optBoolean("decision_styles_not_ready"));
+            state.putBoolean("web_home_probe_decision_fullscreen_open", probe.optBoolean("decision_fullscreen_open"));
             state.putBoolean("web_home_probe_init_attempted", probe.optBoolean("init_attempted"));
             state.putBoolean("web_home_probe_style_marker_present", probe.optBoolean("style_marker_present"));
             state.putBoolean("web_home_probe_active_class", probe.optBoolean("active_class"));

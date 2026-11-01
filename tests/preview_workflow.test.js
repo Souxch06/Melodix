@@ -254,6 +254,12 @@ test("Android verifies the packaged Web Home renderer on /app in an isolated, vi
     path.resolve(__dirname, "android", "inspect_hierarchy.py"),
     "utf8",
   );
+  const c91Smali = fs.readFileSync(path.resolve(__dirname, "..", "smali", "c91.smali"), "utf8");
+  const o6Smali = fs.readFileSync(path.resolve(__dirname, "..", "smali", "o6.smali"), "utf8");
+  const appSingletonSmali = fs.readFileSync(
+    path.resolve(__dirname, "..", "smali", "com", "melodix", "music", "AppSingleton.smali"),
+    "utf8",
+  );
   const fixtureStart = harness.indexOf("private WebView createWebHomeRendererFixture");
   const fixtureEnd = harness.indexOf("private void installPackagedWebHomeRenderer", fixtureStart);
   const fixture = harness.slice(fixtureStart, fixtureEnd);
@@ -268,13 +274,27 @@ test("Android verifies the packaged Web Home renderer on /app in an isolated, vi
   assert.match(harness, /readPackagedAsset\(activity, "melodix_home\.js"\)/);
   assert.match(harness, /readPackagedAsset\(activity, "css_hacks\.css"\)/);
   assert.match(harness, /evaluateJavascriptAndWait\(webView, rendererSource\)[\s\S]*?evaluateJavascriptAndWait\(webView, cssInjection\)/);
+  assert.match(harness, /String darkModeCss = "";/);
+  assert.match(harness, /String bodyModeCommands =[\s\S]*?sf-video-bg[\s\S]*?sf-fullscreen-disabled/);
+  assert.match(harness, /JSONObject\.quote\(cssSource\)[\s\S]*?JSONObject\.quote\(darkModeCss\)[\s\S]*?sf-melodix-home-styles-ready/);
+  assert.ok(c91Smali.includes("style.textContent = %s + %s;  %s; try { window.dispatchEvent(new Event(\\'sf-melodix-home-styles-ready\\'))"),
+    "the fixture mirrors c91's packaged CSS concatenation, runtime body classes and style-ready event");
+  assert.ok(o6Smali.includes("style.textContent = %s + %s;  %s})()"),
+    "o6 uses the same CSS/body-class update form for settings changes");
+  assert.doesNotMatch(o6Smali, /sf-melodix-home-styles-ready/,
+    "o6's CSS reapply omits the event, so the renderer's existing stylesheet observer must cover that path");
+  for (const setting of ["E", "Q", "R", "T"]) {
+    assert.match(appSingletonSmali, new RegExp(`\\.field public static ${setting}:Z = false`),
+      `the isolated fresh-install CSS fixture assumes ${setting}=false, as packaged defaults specify`);
+  }
   assert.match(harness, /WEB_HOME_RENDERER_VISIBLE_PROBE[\s\S]*?__sfMelodixHomeInitAttempted===true[\s\S]*?__sfMelodixHomeStylesReady===true[\s\S]*?sf-melodix-home-active[\s\S]*?sf-melodix-home__card[\s\S]*?mainStyle\.display==='none'[\s\S]*?rect\.width>0&&rect\.height>0/);
   assert.match(harness, /inspectWebHomeRenderer\(\s*activity,\s*webHomeFixtureHolder\[0\],\s*originalWebViewUrl,\s*webView\)[\s\S]*?original_login_webview_url_preserved/);
   assert.match(harness, /removeWebHomeRendererFixture\(webHomeFixtureHolder\[0\]\)[\s\S]*?login_surface_restored_after_web_home_fixture/);
   assert.match(harness, /failurePhase = "web_home_fixture_create"[\s\S]*?failurePhase = "web_home_renderer_asset_install"[\s\S]*?failurePhase = "web_home_renderer_visibility_probe"[\s\S]*?failurePhase = "web_home_renderer_native_visibility"[\s\S]*?failurePhase = "web_home_renderer_evidence_capture"/);
   assert.match(harness, /WEB_HOME_RENDERER_DIAGNOSTIC_PROBE[\s\S]*?home_card_count[\s\S]*?source_hidden[\s\S]*?first_card_has_bounds/);
-  assert.match(harness, /web_home_probe_diagnostics_available[\s\S]*?web_home_probe_first_card_has_bounds/);
-  assert.match(emulatorWorkflow, /safe_statuses=.*web_home_probe_diagnostics_available.*web_home_probe_first_card_has_bounds/);
+  assert.match(harness, /main_view_present[\s\S]*?raw_anchor_count[\s\S]*?root_resource_count[\s\S]*?source_card_count[\s\S]*?decision_insufficient_real_cards[\s\S]*?decision_styles_not_ready/);
+  assert.match(harness, /web_home_probe_diagnostics_available[\s\S]*?web_home_probe_root_resource_count[\s\S]*?web_home_probe_decision_styles_not_ready[\s\S]*?web_home_probe_first_card_has_bounds/);
+  assert.match(emulatorWorkflow, /safe_statuses=.*web_home_probe_diagnostics_available.*web_home_probe_root_resource_count.*web_home_probe_first_card_has_bounds/);
   assert.match(emulatorWorkflow, /harness_overall_passed=false[\s\S]*?INSTRUMENTATION_STATUS: overall=passed[\s\S]*?harness_overall_passed=true[\s\S]*?safe_statuses=/,
     "a runner can return exit zero after a canceled Activity, so fail from the harness result and retain safe phase diagnostics");
   assert.match(harness, /result\.putBoolean\("authenticated_home_test_performed", false\)/);

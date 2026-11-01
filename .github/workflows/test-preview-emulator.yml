@@ -527,7 +527,7 @@ jobs:
             harness_overall_passed=true
           fi
           if [[ "$instrumentation_status" != "0" || "$harness_overall_passed" != "true" ]]; then
-            safe_statuses="$(grep -E '^INSTRUMENTATION_STATUS: (phase|authenticated_session|login_dom_probe_completed|login_ui_visible_in_webview_dom|browser_compatibility_warning_visible|javascript_ua_profile_coherent|installed_webview_chrome_major|configured_ua_chrome_major|configured_ua_chrome_major_matches_runtime|webview_visible_and_measured|network_error_transition_recovered|original_webview_url_preserved|splash_hidden|native_home_hidden|home_payload_empty|empty_home_evidence_captured|home_status_payload_fixture_non_playlist|home_status_evidence_captured|web_home_app_route_renderer_visible|web_home_renderer_evidence_captured|web_home_renderer_fixture_test_only|web_home_probe_diagnostics_available|web_home_probe_route_app|web_home_probe_mode_csshack|web_home_probe_init_attempted|web_home_probe_style_marker_present|web_home_probe_active_class|web_home_probe_home_exists|web_home_probe_card_count|web_home_probe_home_display_flex|web_home_probe_home_position_fixed|web_home_probe_home_visible|web_home_probe_source_hidden|web_home_probe_brand_has_bounds|web_home_probe_first_card_has_bounds|login_surface_restored_after_web_home_fixture|native_home_status_attached|native_home_status_visible|native_home_status_message_visible_in_hierarchy|native_home_cards_attached|native_home_content_ready|native_content_container_empty|native_root_visible|native_root_hidden|native_home_tab_visible|native_home_tab_not_shown|webview_container_visible|webview_container_visible_under_native_root|login_surface_restored_after_status|authenticated_home_test_performed|page_load_complete|failure_phase|failure_type|overall)=' "$state_dir/android-instrumentation.txt" | tr '\n' ';' | tail -c 1800 || true)"
+            safe_statuses="$(grep -E '^INSTRUMENTATION_STATUS: (phase|authenticated_session|login_dom_probe_completed|login_ui_visible_in_webview_dom|browser_compatibility_warning_visible|javascript_ua_profile_coherent|installed_webview_chrome_major|configured_ua_chrome_major|configured_ua_chrome_major_matches_runtime|webview_visible_and_measured|network_error_transition_recovered|original_webview_url_preserved|splash_hidden|native_home_hidden|home_payload_empty|empty_home_evidence_captured|home_status_payload_fixture_non_playlist|home_status_evidence_captured|web_home_app_route_renderer_visible|web_home_renderer_evidence_captured|web_home_renderer_fixture_test_only|web_home_probe_diagnostics_available|web_home_probe_route_app|web_home_probe_mode_csshack|web_home_probe_main_view_present|web_home_probe_raw_anchor_count|web_home_probe_root_resource_count|web_home_probe_source_card_count|web_home_probe_root_selector_is_main_view|web_home_probe_styles_ready|web_home_probe_decision_insufficient_real_cards|web_home_probe_decision_content_root_missing|web_home_probe_decision_styles_not_ready|web_home_probe_decision_fullscreen_open|web_home_probe_init_attempted|web_home_probe_style_marker_present|web_home_probe_active_class|web_home_probe_home_exists|web_home_probe_card_count|web_home_probe_home_display_flex|web_home_probe_home_position_fixed|web_home_probe_home_visible|web_home_probe_source_hidden|web_home_probe_brand_has_bounds|web_home_probe_first_card_has_bounds|login_surface_restored_after_web_home_fixture|native_home_status_attached|native_home_status_visible|native_home_status_message_visible_in_hierarchy|native_home_cards_attached|native_home_content_ready|native_content_container_empty|native_root_visible|native_root_hidden|native_home_tab_visible|native_home_tab_not_shown|webview_container_visible|webview_container_visible_under_native_root|login_surface_restored_after_status|authenticated_home_test_performed|page_load_complete|failure_phase|failure_type|overall)=' "$state_dir/android-instrumentation.txt" | tr '\n' ';' | tail -c 1800 || true)"
             safe_harness_logs="$(grep -E 'MelodixHarness: (instrumentation_onCreate_entered|instrumentation_onCreate_returned|instrumentation_runner_thread_started|instrumentation_onStart_entered|instrumentation_onStart_super_returned|empty_home_evidence_captured|home_status_evidence_captured|web_home_route_evidence_captured|started|phase=[a-z_]+|failure phase=[a-z_]+ type=[A-Za-z0-9_$]+|completed)$' "$state_dir/instrumentation-safe-logcat.txt" | sed -E 's/^.*MelodixHarness: //' | tr '\n' ';' | tail -c 700 || true)"
             transcript_bytes="$(wc -c < "$state_dir/android-instrumentation.txt" | tr -d '[:space:]')"
             framework_summary="$(python3 - "$state_dir/android-instrumentation.txt" <<'PY'
@@ -966,6 +966,16 @@ jobs:
               "web_home_renderer_probe_diagnostics_available": status_bool("web_home_probe_diagnostics_available"),
               "web_home_renderer_probe_route_is_app": status_bool("web_home_probe_route_app"),
               "web_home_renderer_probe_mode_is_csshack": status_bool("web_home_probe_mode_csshack"),
+              "web_home_renderer_probe_main_view_present": status_bool("web_home_probe_main_view_present"),
+              "web_home_renderer_probe_raw_anchor_count": status_value("web_home_probe_raw_anchor_count"),
+              "web_home_renderer_probe_root_resource_count": status_value("web_home_probe_root_resource_count"),
+              "web_home_renderer_probe_source_card_count": status_value("web_home_probe_source_card_count"),
+              "web_home_renderer_probe_root_selector_is_main_view": status_bool("web_home_probe_root_selector_is_main_view"),
+              "web_home_renderer_probe_styles_ready": status_bool("web_home_probe_styles_ready"),
+              "web_home_renderer_probe_decision_insufficient_real_cards": status_bool("web_home_probe_decision_insufficient_real_cards"),
+              "web_home_renderer_probe_decision_content_root_missing": status_bool("web_home_probe_decision_content_root_missing"),
+              "web_home_renderer_probe_decision_styles_not_ready": status_bool("web_home_probe_decision_styles_not_ready"),
+              "web_home_renderer_probe_decision_fullscreen_open": status_bool("web_home_probe_decision_fullscreen_open"),
               "web_home_renderer_probe_init_attempted": status_bool("web_home_probe_init_attempted"),
               "web_home_renderer_probe_style_marker_present": status_bool("web_home_probe_style_marker_present"),
               "web_home_renderer_probe_active_class": status_bool("web_home_probe_active_class"),
@@ -1008,6 +1018,13 @@ jobs:
               "login_surface_restored_after_status", "web_home_app_route_renderer_visible",
               "web_home_renderer_fixture_test_only", "web_home_renderer_probe_diagnostics_available",
               "web_home_renderer_probe_route_is_app", "web_home_renderer_probe_mode_is_csshack",
+              "web_home_renderer_probe_main_view_present", "web_home_renderer_probe_raw_anchor_count",
+              "web_home_renderer_probe_root_resource_count", "web_home_renderer_probe_source_card_count",
+              "web_home_renderer_probe_root_selector_is_main_view", "web_home_renderer_probe_styles_ready",
+              "web_home_renderer_probe_decision_insufficient_real_cards",
+              "web_home_renderer_probe_decision_content_root_missing",
+              "web_home_renderer_probe_decision_styles_not_ready",
+              "web_home_renderer_probe_decision_fullscreen_open",
               "web_home_renderer_probe_init_attempted", "web_home_renderer_probe_style_marker_present",
               "web_home_renderer_probe_active_class", "web_home_renderer_probe_home_exists",
               "web_home_renderer_probe_card_count", "web_home_renderer_probe_home_display_flex",
