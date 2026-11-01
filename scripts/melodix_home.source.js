@@ -243,7 +243,8 @@ function melodixHomeCopy() {
         errorTitle: 'Spotify data is unavailable',
         partialErrorTitle: 'Some Spotify items could not be loaded',
         retry: 'Try again',
-        reconnect: 'Sign in to Spotify',
+        requestError: 'Spotify refused the library request. The cause is not confirmed; try again.',
+        accessError: 'Spotify denied access to the library request. Check access or try again.',
         playlists: 'Your playlists',
         albums: 'Saved albums',
         artists: 'Followed artists',
@@ -258,13 +259,14 @@ function melodixHomeCopy() {
             emptyBody: 'Les contenus que vous enregistrez dans Spotify apparaîtront ici.',
             errorTitle: 'Données Spotify indisponibles',
             partialErrorTitle: 'Certaines données Spotify n’ont pas pu être chargées',
-            retry: 'Réessayer', reconnect: 'Se reconnecter',
+            retry: 'Réessayer',
+            requestError: 'Spotify a refusé la requête de bibliothèque (HTTP 401). La cause n’est pas confirmée ; réessayez.',
+            accessError: 'Spotify a refusé l’accès à la bibliothèque (HTTP 403). Vérifiez les autorisations ou réessayez.',
             playlists: 'Vos playlists', albums: 'Albums enregistrés',
             artists: 'Artistes suivis', podcasts: 'Podcasts',
             networkError: 'La collecte a échoué. Vérifiez la connexion puis réessayez.',
             rateLimitError: 'Spotify limite temporairement les requêtes. Réessayez dans un instant.',
-            serverError: 'Spotify est momentanément indisponible. Réessayez dans un instant.',
-            sessionError: 'La session Spotify doit être rétablie avant de charger votre bibliothèque.'
+            serverError: 'Spotify est momentanément indisponible. Réessayez dans un instant.'
         },
         en: {
             morning: 'Good morning', afternoon: 'Good afternoon', evening: 'Good evening', discover: 'Discover',
@@ -272,7 +274,8 @@ function melodixHomeCopy() {
             networkError: 'The collection failed. Check your connection and try again.',
             rateLimitError: 'Spotify is temporarily limiting requests. Please try again shortly.',
             serverError: 'Spotify is temporarily unavailable. Please try again shortly.',
-            sessionError: 'Your Spotify session needs to be restored before the library can load.'
+            requestError: 'Spotify refused the library request (HTTP 401). The cause is not confirmed; try again.',
+            accessError: 'Spotify denied the library request (HTTP 403). Check access or try again.'
         },
         es: {
             morning: 'Buenos días', afternoon: 'Buenas tardes', evening: 'Buenas noches', discover: 'Descubre',
@@ -282,12 +285,12 @@ function melodixHomeCopy() {
             emptyBody: 'El contenido que guardes en Spotify aparecerá aquí.',
             errorTitle: 'Los datos de Spotify no están disponibles',
             partialErrorTitle: 'No se pudieron cargar algunos datos de Spotify', retry: 'Reintentar',
-            reconnect: 'Iniciar sesión en Spotify',
             playlists: 'Tus playlists', albums: 'Álbumes guardados', artists: 'Artistas seguidos', podcasts: 'Podcasts',
             networkError: 'No se pudieron recopilar los datos. Comprueba la conexión y vuelve a intentarlo.',
             rateLimitError: 'Spotify está limitando las solicitudes temporalmente. Inténtalo más tarde.',
             serverError: 'Spotify no está disponible temporalmente. Inténtalo más tarde.',
-            sessionError: 'Debes restablecer la sesión de Spotify para cargar la biblioteca.'
+            requestError: 'Spotify rechazó la solicitud de biblioteca (HTTP 401). No se conoce la causa; inténtalo de nuevo.',
+            accessError: 'Spotify denegó el acceso a la biblioteca (HTTP 403). Comprueba el acceso o inténtalo de nuevo.'
         },
         de: {
             morning: 'Guten Morgen', afternoon: 'Guten Tag', evening: 'Guten Abend', discover: 'Entdecken',
@@ -297,12 +300,12 @@ function melodixHomeCopy() {
             emptyBody: 'In Spotify gespeicherte Inhalte erscheinen hier.',
             errorTitle: 'Spotify-Daten sind nicht verfügbar',
             partialErrorTitle: 'Einige Spotify-Daten konnten nicht geladen werden', retry: 'Erneut versuchen',
-            reconnect: 'Bei Spotify anmelden',
             playlists: 'Deine Playlists', albums: 'Gespeicherte Alben', artists: 'Gefolgte Künstler', podcasts: 'Podcasts',
             networkError: 'Die Daten konnten nicht geladen werden. Prüfe die Verbindung und versuche es erneut.',
             rateLimitError: 'Spotify begrenzt Anfragen vorübergehend. Bitte versuche es später erneut.',
             serverError: 'Spotify ist vorübergehend nicht verfügbar. Bitte versuche es später erneut.',
-            sessionError: 'Deine Spotify-Sitzung muss wiederhergestellt werden.'
+            requestError: 'Spotify hat die Bibliotheksanfrage abgelehnt (HTTP 401). Die Ursache ist nicht bestätigt; bitte versuche es erneut.',
+            accessError: 'Spotify hat den Bibliothekszugriff verweigert (HTTP 403). Prüfe den Zugriff oder versuche es erneut.'
         },
         it: {
             morning: 'Buongiorno', afternoon: 'Buon pomeriggio', evening: 'Buonasera', discover: 'Scopri',
@@ -312,12 +315,12 @@ function melodixHomeCopy() {
             emptyBody: 'I contenuti salvati su Spotify appariranno qui.',
             errorTitle: 'Dati Spotify non disponibili',
             partialErrorTitle: 'Alcuni dati Spotify non sono stati caricati', retry: 'Riprova',
-            reconnect: 'Accedi a Spotify',
             playlists: 'Le tue playlist', albums: 'Album salvati', artists: 'Artisti seguiti', podcasts: 'Podcast',
             networkError: 'Raccolta non riuscita. Controlla la connessione e riprova.',
             rateLimitError: 'Spotify sta limitando temporaneamente le richieste. Riprova tra poco.',
             serverError: 'Spotify non è temporaneamente disponibile. Riprova tra poco.',
-            sessionError: 'La sessione Spotify deve essere ripristinata.'
+            requestError: 'Spotify ha rifiutato la richiesta della libreria (HTTP 401). La causa non è confermata; riprova.',
+            accessError: 'Spotify ha negato l’accesso alla libreria (HTTP 403). Verifica l’accesso o riprova.'
         },
         pt: {
             morning: 'Bom dia', afternoon: 'Boa tarde', evening: 'Boa noite', discover: 'Descobrir',
@@ -327,12 +330,12 @@ function melodixHomeCopy() {
             emptyBody: 'O conteúdo guardado no Spotify aparecerá aqui.',
             errorTitle: 'Dados do Spotify indisponíveis',
             partialErrorTitle: 'Não foi possível carregar alguns dados do Spotify', retry: 'Tentar novamente',
-            reconnect: 'Iniciar sessão no Spotify',
             playlists: 'As tuas playlists', albums: 'Álbuns guardados', artists: 'Artistas seguidos', podcasts: 'Podcasts',
             networkError: 'A recolha falhou. Verifica a ligação e tenta novamente.',
             rateLimitError: 'O Spotify está a limitar os pedidos temporariamente. Tenta novamente em breve.',
             serverError: 'O Spotify está temporariamente indisponível. Tenta novamente em breve.',
-            sessionError: 'A sessão do Spotify tem de ser restabelecida.'
+            requestError: 'O Spotify recusou o pedido da biblioteca (HTTP 401). A causa não está confirmada; tenta novamente.',
+            accessError: 'O Spotify recusou o acesso à biblioteca (HTTP 403). Verifica o acesso ou tenta novamente.'
         }
     };
     const labels = copy[locale] || copy.en;
@@ -397,28 +400,15 @@ function melodixHomeLibraryResource(item, group) {
 }
 
 function melodixHomeHasSessionEvidence() {
-    if (window.__sfNativeUiSessionProven === true) return true;
-    try {
-        if (document.querySelector(
-            'button[data-testid="user-widget-link"], a[data-testid="user-widget-link"], .main-userWidget-box'
-        )) return true;
-    } catch (_) {}
-    // A successful, correctly shaped private library response is positive
-    // authentication evidence even when it contains zero resources. A known
-    // 401 takes precedence over stale in-memory arrays; transient errors keep
-    // the last confirmed proof in the dedicated flag.
-    if (window.__sfMediaLibSessionProofKnown === true) {
-        return window.__sfMediaLibSessionProven === true;
-    }
-    const library = window.mediaLib;
-    if (!library) return false;
-    return ['playlists', 'albums', 'artists', 'podcasts'].some((key) =>
-        Array.isArray(library[key]) && library[key].length > 0
-    );
+    // Only this WebView's successful, correctly shaped private libraryV3
+    // response proves the Spotify session. The native-ready flag, profile UI,
+    // public Home cards and stale resource arrays are not authentication.
+    return window.__sfMediaLibSessionProofKnown === true &&
+        window.__sfMediaLibSessionProven === true;
 }
 
 function collectMelodixHomeLibrarySections(seenResources) {
-    const library = window.mediaLib;
+    const library = melodixHomeHasSessionEvidence() ? window.mediaLib : null;
     if (!library || typeof library !== 'object') return [];
     const labels = melodixHomeCopy();
     const groups = [
@@ -925,7 +915,8 @@ function melodixHomeStatusState(hasRenderableData) {
 
 function melodixHomeErrorKind() {
     const error = String(window.__sfMediaLibError || '').toLowerCase();
-    if (/token|401|unauthori[sz]ed|session/.test(error)) return 'session';
+    if (error === 'http-401' || error === 'token-missing') return 'request-rejected';
+    if (error === 'http-403') return 'access-denied';
     if (/429|rate.?limit/.test(error)) return 'rate-limit';
     if (/5\d\d/.test(error)) return 'server';
     return 'network';
@@ -933,7 +924,8 @@ function melodixHomeErrorKind() {
 
 function melodixHomeStatusMessage(labels) {
     const kind = melodixHomeErrorKind();
-    if (kind === 'session') return labels.sessionError;
+    if (kind === 'request-rejected') return labels.requestError;
+    if (kind === 'access-denied') return labels.accessError;
     if (kind === 'rate-limit') return labels.rateLimitError;
     if (kind === 'server') return labels.serverError;
     return labels.networkError;
@@ -983,14 +975,11 @@ function renderMelodixHomeStatus(state, labels, hasPartialData, showRetry) {
 
     if (state === 'error' || showRetry) {
         const retry = document.createElement('button');
-        const sessionError = state === 'error' && melodixHomeErrorKind() === 'session';
         retry.type = 'button';
         retry.className = 'sf-melodix-home__retry';
-        retry.textContent = sessionError ? labels.reconnect : labels.retry;
-        retry.setAttribute('data-action', sessionError ? 'spotify-sign-in' : 'retry-library');
-        retry.addEventListener('click', sessionError
-            ? () => window.location.assign('https://accounts.spotify.com/login')
-            : retryMelodixHomeLibrary);
+        retry.textContent = labels.retry;
+        retry.setAttribute('data-action', 'retry-library');
+        retry.addEventListener('click', retryMelodixHomeLibrary);
         status.appendChild(retry);
     }
     return status;
@@ -1073,7 +1062,8 @@ function updateMelodixHome() {
     traceHomeGuard('session', sessionProven);
     if (!sessionProven) {
         deactivateMelodixHome();
-        setMelodixHomeDecision('session-unproven', {
+        setMelodixHomeDecision(window.__sfMediaLibSessionProofKnown === true
+            ? 'session-rejected' : 'session-unproven', {
             route: routeCategory, rootSelector: window.__sfMelodixHomeRootSelector || 'none',
             rootPresent: Boolean(mainView), sessionProven: false,
             libraryStatus: window.__sfMediaLibStatus || 'absent'

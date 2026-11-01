@@ -140,7 +140,10 @@ test('native bridge exposes UI callbacks and routes media, search and player dat
     const client = read('smali/c91.smali');
     const hotfixList = read('smali/c40.smali').split('.method public static a')[0];
     assert.ok(readiness, 'native shell readiness guard should exist');
-    assert.match(readiness[0], /user-widget-link/);
+    assert.match(readiness[0], /sessionProven = libraryProvesSession\(\)/,
+        'readiness uses verified private API proof rather than a profile widget');
+    assert.match(read('scripts/native_ui_shell.source.js'), /function pageHasProfileSignal\(\)[\s\S]*?sfDeepQuery/,
+        'profile controls remain a separate diagnostic page signal');
     assert.match(readiness[0], /open\.spotify\.com/);
     assert.match(client, /const-string v5, "native_ui_shell\.js"[\s\S]*?evaluateJavascript/);
     assert.doesNotMatch(hotfixList, /native_ui_shell\.js/);
@@ -247,6 +250,9 @@ test('a Spotify landing CTA is read but never auto-clicked during player recover
         addEventListener: () => {}
     };
     const window = {
+        // Positive API-proof fixture only; negative auth cases are covered in p0_shell_takeover.test.js.
+        __sfMediaLibSessionProofKnown: true,
+        __sfMediaLibSessionProven: true,
         location: {
             hostname: 'open.spotify.com',
             pathname: '/intl-fr/',
@@ -314,6 +320,9 @@ test('native Home collector keeps image-less Spotify links and filters non-Spoti
         observe() {}
     }
     const window = {
+        // Positive API-proof fixture only; negative auth cases are covered in p0_shell_takeover.test.js.
+        __sfMediaLibSessionProofKnown: true,
+        __sfMediaLibSessionProven: true,
         location: {
             hostname: 'open.spotify.com',
             pathname: '/',
@@ -358,6 +367,9 @@ test('Home uses saved library items as a fallback when Spotify has no visible Ho
         observe() {}
     }
     const window = {
+        // Positive API-proof fixture only; negative auth cases are covered in p0_shell_takeover.test.js.
+        __sfMediaLibSessionProofKnown: true,
+        __sfMediaLibSessionProven: true,
         location: {
             hostname: 'open.spotify.com',
             pathname: '/',
@@ -410,6 +422,9 @@ test('localized Spotify /app Home route still collects and sends Home rows', () 
         observe() {}
     }
     const window = {
+        // Positive API-proof fixture only; negative auth cases are covered in p0_shell_takeover.test.js.
+        __sfMediaLibSessionProofKnown: true,
+        __sfMediaLibSessionProven: true,
         location: {
             hostname: 'open.spotify.com',
             pathname: '/intl-fr/app',
@@ -490,6 +505,9 @@ test('native shell routes a Spotify detail deep link and transfers its title and
         observe() {}
     }
     const window = {
+        // Positive API-proof fixture only; negative auth cases are covered in p0_shell_takeover.test.js.
+        __sfMediaLibSessionProofKnown: true,
+        __sfMediaLibSessionProven: true,
         location: {
             hostname: 'open.spotify.com',
             pathname: '/playlist/playlist123',
@@ -540,6 +558,9 @@ test('native search deep links preserve their query in the native search field',
         observe() {}
     }
     const window = {
+        // Positive API-proof fixture only; negative auth cases are covered in p0_shell_takeover.test.js.
+        __sfMediaLibSessionProofKnown: true,
+        __sfMediaLibSessionProven: true,
         location: {
             hostname: 'open.spotify.com',
             pathname: '/intl-fr/search',
@@ -613,6 +634,9 @@ test('bundled native bootstrap activates the shell, sends Home rows, and only op
         observe() {}
     }
     const window = {
+        // Positive API-proof fixture only; negative auth cases are covered in p0_shell_takeover.test.js.
+        __sfMediaLibSessionProofKnown: true,
+        __sfMediaLibSessionProven: true,
         location: {
             hostname: 'open.spotify.com',
             pathname: '/',
@@ -724,6 +748,9 @@ test('Home cards with sibling artwork outside the title anchor still resolve the
         observe() {}
     }
     const window = {
+        // Positive API-proof fixture only; negative auth cases are covered in p0_shell_takeover.test.js.
+        __sfMediaLibSessionProofKnown: true,
+        __sfMediaLibSessionProven: true,
         location: {
             hostname: 'open.spotify.com',
             pathname: '/intl-fr/',
@@ -793,6 +820,9 @@ test('Home separates user playlists from Spotify official recommendations and pr
         observe() {}
     }
     const window = {
+        // Positive API-proof fixture only; negative auth cases are covered in p0_shell_takeover.test.js.
+        __sfMediaLibSessionProofKnown: true,
+        __sfMediaLibSessionProven: true,
         location: {
             hostname: 'open.spotify.com',
             pathname: '/intl-fr/',
@@ -909,6 +939,9 @@ test('native settings rows expose real Spotify options and toggles persist local
         observe() {}
     }
     const window = {
+        // Positive API-proof fixture only; negative auth cases are covered in p0_shell_takeover.test.js.
+        __sfMediaLibSessionProofKnown: true,
+        __sfMediaLibSessionProven: true,
         location: {
             hostname: 'open.spotify.com',
             pathname: '/',
@@ -1254,6 +1287,9 @@ function buildPlayerShellHarness(options) {
         addEventListener: () => {}
     };
     const window = {
+        // Positive API-proof fixture only; negative auth cases are covered in p0_shell_takeover.test.js.
+        __sfMediaLibSessionProofKnown: true,
+        __sfMediaLibSessionProven: true,
         location: {
             hostname: 'open.spotify.com',
             pathname: '/',
@@ -1315,6 +1351,9 @@ test('the library tab never reloads its own page in a loop', () => {
         const navigations = [];
         const loaded = [];
         const window = {
+            // Positive API-proof fixture only; negative auth cases are covered in p0_shell_takeover.test.js.
+            __sfMediaLibSessionProofKnown: true,
+            __sfMediaLibSessionProven: true,
             location: {
                 hostname: 'open.spotify.com',
                 pathname,

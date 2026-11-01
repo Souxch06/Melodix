@@ -52,8 +52,8 @@ import java.util.concurrent.TimeUnit;
  * exercises the native status renderer with a status-only payload, and runs the
  * packaged Web Home renderer in an isolated local Android WebView fixture at
  * the native recovery route /app. The fixture is test-only; its explicit
- * renderer-session flag exercises the takeover gate but does not represent
- * Spotify authentication. It supplies no account content, Spotify credentials,
+ * private-library-proof flags exercise the renderer gate but do not represent
+ * a Spotify response or authentication. It supplies no account content, Spotify credentials,
  * or cookies and does not claim an authenticated Home test. Its opt-in
  * authenticated-home mode only brings the existing task forward and passively
  * observes the primary WebView after a person has signed in; it never automates
@@ -171,8 +171,8 @@ public final class HomeRenderInstrumentation extends Instrumentation {
             "var libraryProven=libraryKnown&&window.__sfMediaLibSessionProven===true;" +
             "var profileNode=document.querySelector('button[data-testid=\"user-widget-link\"],a[data-testid=\"user-widget-link\"],.main-userWidget-box');" +
             "var profile=!!profileNode;var profileVisible=visible(profileNode);" +
-            "var nativeProven=window.__sfNativeUiSessionProven===true;var session=profileVisible||libraryProven||nativeProven;" +
-            "var sessionProofSource=libraryProven?'verified-private-library-response':nativeProven?'native-shell-session-flag':profileVisible?'spotify-profile-control':'unproven';" +
+            "var nativeProven=window.__sfNativeUiSessionProven===true;var session=libraryProven;" +
+            "var sessionProofSource=libraryProven?'verified-private-library-response':libraryKnown?'private-library-response-rejected':profileVisible?'profile-control-unverified':nativeProven?'native-shell-flag-unverified':'unproven';" +
             "var status=String(window.__sfMediaLibStatus||'absent');" +
             "if(['absent','pending','loading','ready','error'].indexOf(status)<0)status='other';" +
             "var groups=['playlists','albums','artists','podcasts'];var libraryResourceCount=0;var libraryPlaylistCount=0;" +
@@ -195,14 +195,14 @@ public final class HomeRenderInstrumentation extends Instrumentation {
             "else if(pathParts.length===2&&resourceType==='collection'&&resourceId==='tracks'){" +
             "var liked='collection/tracks';if(!resourceKeys[liked]){resourceKeys[liked]=true;resourceCount++;playlistCount++;}}}}" +
             "var decision=String(window.__sfMelodixHomeDecision||'not-run');" +
-            "var allowedDecisions=['not-run','rendered','visible','body-missing','route-not-home','gui-mode-unsupported','fullscreen-open','session-unproven','styles-not-ready','activation-visibility-check-failed','home-root-missing','initialization-error'];" +
+            "var allowedDecisions=['not-run','rendered','visible','body-missing','route-not-home','gui-mode-unsupported','fullscreen-open','session-unproven','session-rejected','styles-not-ready','activation-visibility-check-failed','home-root-missing','initialization-error'];" +
             "if(allowedDecisions.indexOf(decision)<0&&!/^status-visible-(loading|empty|error|partial|ready)$/.test(decision))decision='other';" +
             "var nativeRoute=['home','search','library','detail','player','settings'].indexOf(window.__sfNativeUiRoute)>=0?window.__sfNativeUiRoute:'other';" +
             "var bridge=window.AndBridge||null;var owner=homeVisible?'melodix-web-home':mainVisible?'spotify-web':'web-unknown';" +
             "var homeRect=rectOf(home);var mainRect=rectOf(mainId);" +
             "return {probe_error:false,safe_url:safeUrl,url_query_redacted:true,host_category:host,route_category:routeCategory," +
             "home_route:homeRoute,profile_control_present:profile,profile_control_visible:profileVisible," +
-            "session_proof_source:sessionProofSource,library_response_proof_known:libraryKnown," +
+            "page_session_signal:profileVisible,session_proof_source:sessionProofSource,library_response_proof_known:libraryKnown," +
             "library_response_session_proven:libraryProven,native_shell_session_proven:nativeProven,session_proven:session," +
             "library_status:status,real_library_resource_count_capped:libraryProven?count(libraryResourceCount):-1," +
             "real_library_playlist_count_capped:libraryProven?count(libraryPlaylistCount):-1," +
@@ -1056,7 +1056,8 @@ public final class HomeRenderInstrumentation extends Instrumentation {
         if ("not-run".equals(value) || "rendered".equals(value) || "visible".equals(value)
                 || "body-missing".equals(value) || "route-not-home".equals(value)
                 || "gui-mode-unsupported".equals(value) || "fullscreen-open".equals(value)
-                || "session-unproven".equals(value) || "styles-not-ready".equals(value)
+                || "session-unproven".equals(value) || "session-rejected".equals(value)
+                || "styles-not-ready".equals(value)
                 || "activation-visibility-check-failed".equals(value)
                 || "home-root-missing".equals(value) || "initialization-error".equals(value)) return value;
         if (value != null && (value.matches("status-visible-(loading|empty|error|partial|ready)"))) return value;
@@ -1066,7 +1067,7 @@ public final class HomeRenderInstrumentation extends Instrumentation {
     private void runAuthenticatedHomeObservation(Activity activity, Bundle arguments) throws Exception {
         Bundle waiting = new Bundle();
         waiting.putString("phase", "authenticated_home_wait");
-        waiting.putString("overall", "waiting_for_manual_session_and_home");
+        waiting.putString("overall", "waiting_for_manual_session_home_and_real_playlist");
         waiting.putString("next_action", "sign_in_normally_and_navigate_manually; no action is automated");
         waiting.putBoolean("fixture_test_only", false);
         waiting.putBoolean("manual_auth_or_navigation_is_automated", false);
@@ -1148,6 +1149,8 @@ public final class HomeRenderInstrumentation extends Instrumentation {
             String screen = webRoute;
             boolean validSpotifyPage = "open.spotify.com".equals(host)
                     && probe != null && !probe.optBoolean("probe_error", true);
+            boolean realPlaylistObserved = sessionProven && probe != null
+                    && probe.optInt("real_library_playlist_count_capped", -1) > 0;
             if (validSpotifyPage && sessionProven && routeSequence.size() < MAX_OBSERVED_ROUTES
                     && (routeSequence.isEmpty() || !routeSequence.get(routeSequence.size() - 1).equals(screen))) {
                 routeSequence.add(screen);
@@ -1166,7 +1169,8 @@ public final class HomeRenderInstrumentation extends Instrumentation {
                 }
                 navigationMutationObserved = true;
             }
-            if (validSpotifyPage && sessionProven && probe.optBoolean("home_route")) {
+            if (validSpotifyPage && sessionProven && probe.optBoolean("home_route")
+                    && realPlaylistObserved) {
                 authenticatedHomeObserved = true;
             }
             if (targetActivityResumedAfterBackground) backgroundResumeObserved = true;
@@ -1183,8 +1187,10 @@ public final class HomeRenderInstrumentation extends Instrumentation {
                     ? "authenticated_home_observation" : "authenticated_home_wait");
             lastState.putString("overall", authenticatedHomeObserved
                     ? "authenticated_home_observed_navigation_in_progress"
-                    : "waiting_for_manual_session_and_home");
+                    : "waiting_for_manual_session_home_and_real_playlist");
             lastState.putBoolean("authenticated_home_test_performed", authenticatedHomeObserved);
+            lastState.putBoolean("authenticated_home_requires_real_playlist", true);
+            lastState.putBoolean("real_library_playlist_observed", realPlaylistObserved);
             lastState.putBoolean("authenticated_session", sessionProven);
             lastState.putBoolean("manual_auth_or_navigation_is_automated", false);
             lastState.putBoolean("fixture_test_only", false);
@@ -1214,12 +1220,11 @@ public final class HomeRenderInstrumentation extends Instrumentation {
             lastState.putString("initial_safe_url", firstUrl[0] == null ? "unavailable" : firstUrl[0]);
             lastState.putBoolean("url_query_and_fragment_redacted", true);
             lastState.putBoolean("process_restart_observed", false);
-            String currentDefectiveCondition = authenticatedHomeObserved && validSpotifyPage
-                    && sessionProven && probe.optBoolean("home_route") && foreground[0]
+            String currentDefectiveCondition = validSpotifyPage && sessionProven
+                    && probe.optBoolean("home_route") && foreground[0]
                     ? firstDefectiveCondition(probe, lastState) : "not_applicable_current_sample";
             if ("not_observed".equals(firstHomeDefectiveCondition)
-                    && authenticatedHomeObserved && validSpotifyPage && sessionProven
-                    && probe.optBoolean("home_route") && foreground[0]) {
+                    && validSpotifyPage && sessionProven && probe.optBoolean("home_route") && foreground[0]) {
                 firstHomeDefectiveCondition = currentDefectiveCondition;
             }
             lastState.putString("current_defective_condition", currentDefectiveCondition);
@@ -1246,8 +1251,10 @@ public final class HomeRenderInstrumentation extends Instrumentation {
         finalState.putString("overall", authenticatedHomeObserved
                 ? transitionCoverage ? "authenticated_home_observation_complete"
                 : "authenticated_home_observed_navigation_incomplete"
-                : "blocked_no_authenticated_home_observed");
+                : "blocked_no_verified_home_playlist_observed");
         finalState.putBoolean("authenticated_home_test_performed", authenticatedHomeObserved);
+        finalState.putBoolean("authenticated_home_requires_real_playlist", true);
+        finalState.putBoolean("real_library_playlist_observed", authenticatedHomeObserved);
         finalState.putBoolean("navigation_coverage_complete", transitionCoverage);
         finalState.putBoolean("app_process_restart_verified", false);
         finalState.putBoolean("process_restart_requires_a_new_observation_run", true);
@@ -1323,6 +1330,9 @@ public final class HomeRenderInstrumentation extends Instrumentation {
         }
         if (!probe.optBoolean("home_route")) return "home_route_not_reached";
         if (!probe.optBoolean("session_proven")) return "spotify_session_not_proven";
+        if (probe.optInt("real_library_playlist_count_capped", -1) <= 0) {
+            return "spotify_library_playlist_not_observed";
+        }
         if (!probe.optBoolean("bridge_started")) return "bridge_not_started";
         boolean routeAvailable = probe.optBoolean("bridge_route_callback_available");
         boolean dataAvailable = probe.optBoolean("bridge_data_callback_available");
@@ -1439,7 +1449,11 @@ public final class HomeRenderInstrumentation extends Instrumentation {
         state.putString("overall", "authenticated_home_observed");
         state.putBoolean("fixture_test_only", false);
         state.putBoolean("authenticated_home_test_performed",
-                probe.optBoolean("home_route") && probe.optBoolean("session_proven"));
+                probe.optBoolean("home_route") && probe.optBoolean("session_proven")
+                        && probe.optInt("real_library_playlist_count_capped", -1) > 0);
+        state.putBoolean("authenticated_home_requires_real_playlist", true);
+        state.putBoolean("real_library_playlist_observed",
+                probe.optBoolean("session_proven") && probe.optInt("real_library_playlist_count_capped", -1) > 0);
         state.putBoolean("activity_foreground", activityForeground);
         state.putBoolean("activity_window_focus", activityWindowFocus);
         state.putBoolean("activity_lifecycle_resumed", targetActivityResumed);
@@ -1460,6 +1474,7 @@ public final class HomeRenderInstrumentation extends Instrumentation {
                 safeSessionProofSource(probe.optString("session_proof_source", "unproven")));
         state.putBoolean("profile_control_present", probe.optBoolean("profile_control_present"));
         state.putBoolean("profile_control_visible", probe.optBoolean("profile_control_visible"));
+        state.putBoolean("page_session_signal", probe.optBoolean("page_session_signal"));
         state.putBoolean("library_response_proof_known", probe.optBoolean("library_response_proof_known"));
         state.putBoolean("library_response_session_proven",
                 probe.optBoolean("library_response_session_proven"));
@@ -1671,8 +1686,10 @@ public final class HomeRenderInstrumentation extends Instrumentation {
     }
 
     private String safeSessionProofSource(String value) {
-        return "verified-private-library-response".equals(value) || "native-shell-session-flag".equals(value)
-                || "spotify-profile-control".equals(value) ? value : "unproven";
+        return "verified-private-library-response".equals(value)
+                || "private-library-response-rejected".equals(value)
+                || "profile-control-unverified".equals(value)
+                || "native-shell-flag-unverified".equals(value) ? value : "unproven";
     }
 
     private WebView awaitStableWebView(final Activity activity) throws InterruptedException {
@@ -2128,7 +2145,7 @@ public final class HomeRenderInstrumentation extends Instrumentation {
         final WebView[] created = new WebView[1];
         final Throwable[] failure = new Throwable[1];
         final String html = "<!doctype html><html lang=\"en\"><head><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">" +
-                "<script>window.SF_CONFIG={guiMode:'csshack'};window.__sfNativeUiSessionProven=true;window.__sfMelodixHomeTestMode=true;</script></head><body>" +
+                "<script>window.SF_CONFIG={guiMode:'csshack'};window.__sfMediaLibSessionProofKnown=true;window.__sfMediaLibSessionProven=true;window.__sfNativeUiSessionProven=false;window.__sfMelodixHomeTestMode=true;</script></head><body>" +
                 "<main id=\"main-view\"><section data-testid=\"shelf\"><h2>Route test shelf</h2>" +
                 "<div data-testid=\"card\"><a href=\"/playlist/test-only-route-fixture-playlist\"><span data-testid=\"card-title\">Route fixture playlist</span><span data-testid=\"card-subtitle\">Fixture-only playlist subtitle</span></a></div>" +
                 "<div data-testid=\"card\"><a href=\"/album/test-only-route-fixture-album\"><span data-testid=\"card-title\">Route fixture album</span><span data-testid=\"card-subtitle\">Fixture-only album subtitle</span></a></div>" +

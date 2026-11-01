@@ -193,7 +193,8 @@
 
     function diagTrace(event) {
         var id = diagnosticId();
-        var message = String(event || '').replace(/\s+/g, ' ').slice(0, 120);
+        var rawMessage = String(event || '').replace(/\s+/g, ' ');
+        var message = rawMessage.slice(0, rawMessage.indexOf('webview-state ') === 0 ? 160 : 120);
         var line = (id ? 'sid=' + id + ' ' : '') + message;
         window.__sfDiagTraceLast = line.slice(0, 160);
         window.__sfDiagTraceCount = (window.__sfDiagTraceCount || 0) + 1;
@@ -217,8 +218,12 @@
         var callbacks = Boolean(bridge && typeof bridge.onNativeUiData === 'function' &&
             typeof bridge.onNativeUiReady === 'function' && typeof bridge.onNativeUiRoute === 'function');
         var session = pageHasSessionEvidence() ? '1' : '0';
+        var proof = window.__sfMediaLibSessionProofKnown === true
+            ? (window.__sfMediaLibSessionProven === true ? 'valid' : 'invalid') : 'unknown';
+        var page = pageHasProfileSignal() ? 'profile' : 'none';
         diagTrace('webview-state ready=' + ready + ' host=' + host +
             ' route=' + spotifyRouteCategory() + ' session=' + session +
+            ' proof=' + proof + ' page=' + page +
             ' bridge=' + (callbacks ? '1' : '0') + ' visibility=' + visibility);
     }
 
@@ -628,7 +633,7 @@
     // side: Home merge, library tab and category chips. Same rules everywhere,
     // so a playlist can never look different depending on where it was opened.
     function libraryItemsToRows(groupKey, section, limit, seen, out) {
-        var library = window.mediaLib;
+        var library = libraryProvesSession() ? window.mediaLib : null;
         var items = library && Array.isArray(library[groupKey]) ? library[groupKey] : [];
         items.forEach(function(item) {
             var uri = nativeSpotifyUri(item && (item.uri || item.id || item.href));
@@ -670,7 +675,8 @@
     }
 
     function supplementHomeRowsWithLibrary(rows, mainView) {
-        var library = window.mediaLib;
+        var sessionProven = libraryProvesSession();
+        var library = sessionProven ? window.mediaLib : null;
         var groups = [
             ['playlists', 'Vos playlists'],
             ['albums', 'Albums enregistrés'],
@@ -682,13 +688,11 @@
         var spotifyRows = [];
         var sidebar;
 
-        // The library can settle AFTER the first home scrape (token/GraphQL
-        // latency). The old one-shot warmup dropped it forever when the first
-        // call failed or the token was not ready yet. Retry with a backoff
-        // until the fetch is loading or done, so late playlists still reach
-        // Home through the settle notification in the bridge.
-        if (!library && typeof window.checkMediaLib === 'function' &&
-            window.__sfMediaLibStatus !== 'loading' && window.__sfMediaLibStatus !== 'ready') {
+        // Start or retry the private library request while evidence is absent.
+        // Public Home cards, a profile widget, and stale mediaLib arrays are
+        // never promoted to Spotify-session proof or passed to the native shelf.
+        if (!sessionProven && typeof window.checkMediaLib === 'function' &&
+            window.__sfMediaLibStatus !== 'loading') {
             var libNow = (window.Date && Date.now) ? Date.now() : 0;
             if (!window.__sfMediaLibRetryAt || libNow >= window.__sfMediaLibRetryAt) {
                 window.__sfMediaLibRetryAt = libNow + 5000;
@@ -704,9 +708,9 @@
             });
         }
 
-        if (userRows.length < 12 && document && typeof document.querySelectorAll === 'function') {
-            // Real playlist links from the library drawer (mobile + desktop);
-            // they survive empty/late mediaLib responses.
+        if (sessionProven && userRows.length < 12 && document && typeof document.querySelectorAll === 'function') {
+            // Library-drawer links are useful only after the private response
+            // independently validates this WebView's Spotify session.
             collectLibraryDrawerRows(mainView).forEach(function(row) {
                 if (!row.uri || !row.title || seen.has(row.uri) || userRows.length >= 12) return;
                 seen.add(row.uri);
@@ -760,7 +764,10 @@
     // permissions), so promising an automatic retry there would be a lie.
     function libraryErrorIsTransient(err) {
         if (!err) return false;
-        if (err === 'fetch-parse-error') return true;
+        if ([
+            'fetch-parse-error', 'network-error', 'timeout', 'non-json', 'invalid-json',
+            'unexpected-shape', 'graphql-error', 'transform-error', 'http-401', 'http-403', 'token-missing'
+        ].indexOf(String(err)) >= 0) return true;
         if (err === 'http-429') return true;
         return /^http-5/.test(String(err));
     }
@@ -775,20 +782,25 @@
         var err = String(window.__sfMediaLibError || '');
         var rawItemCount = Number(window.__sfMediaLibRawItemCount || 0);
         if (!err && Number.isFinite(rawItemCount) && rawItemCount > 0) {
-            return 'Spotify a renvoyé des éléments qui ne peuvent pas encore être affichés — touchez pour réessayer.';
+            return 'Spotify a renvoyé des éléments non reconnus — touchez pour réessayer.';
+        }
+        if (err === 'http-401' || err === 'token-missing') {
+            return 'Spotify a refusé la requête (HTTP 401) ; la cause n’est pas confirmée — touchez pour réessayer.';
+        }
+        if (err === 'http-403') {
+            return 'Spotify a refusé l’accès à la bibliothèque (HTTP 403) — vérifiez les autorisations ou réessayez.';
         }
         if (libraryErrorIsTransient(err)) {
             var base = err === 'http-429' ? 'Spotify limite les requêtes'
                 : (/^http-5/.test(err) ? 'Spotify est momentanément indisponible'
-                    : 'Connexion instable');
+                    : (err === 'invalid-json' || err === 'non-json' || err === 'unexpected-shape' ||
+                        err === 'graphql-error' || err === 'transform-error' ? 'Réponse Spotify inattendue'
+                        : 'Connexion ou délai de réponse instable'));
             return base + (homeRetryLoopAlive()
                 ? ' — nouvel essai automatique en cours. Touchez pour réessayer maintenant.'
                 : ' — touchez pour réessayer.');
         }
-        if (err === 'token-missing') return 'Session Spotify à rétablir — touchez pour ouvrir les paramètres et vous reconnecter.';
-        if (err === 'http-401') return 'Session Spotify expirée — touchez pour ouvrir les paramètres et vous reconnecter.';
-        if (err === 'http-403') return 'Accès refusé par Spotify pour ce compte — touchez pour ouvrir les paramètres.';
-        if (err) return 'Erreur ' + err + ' — touchez pour réessayer.';
+        if (err) return 'La bibliothèque Spotify n’a pas pu être vérifiée — touchez pour réessayer.';
         return '';
     }
 
@@ -878,15 +890,17 @@
     };
 
     // An explicit, non-playlist Home state. The caller may send it only after
-    // the same profile-control/library evidence used by readiness proves a
-    // signed-in session; raw empty payloads still reveal Spotify's WebView.
+    // a correctly shaped private library response proves the WebView session;
+    // profile controls and public Home data are not authentication evidence.
     function homeStatePayload() {
         return [homeStateRow()];
     }
 
     function updateHomeRows(mainView) {
         var scrapedRows;
+        var collectedRows;
         var rows;
+        var sessionProven;
         var signature;
         var statePayload;
         var stateSignature;
@@ -909,7 +923,13 @@
 
         scrapedRows = collectHomeRows(mainView);
         window.__sfNativeUiHomeDomRowsCount = scrapedRows.length;
-        rows = supplementHomeRowsWithLibrary(scrapedRows, mainView);
+        collectedRows = supplementHomeRowsWithLibrary(scrapedRows, mainView);
+        sessionProven = libraryProvesSession();
+        // NativeHomeShelfRenderer calls showNativeUi() as soon as it attaches
+        // a card; Java's attachment gate is not an auth gate. Therefore no
+        // public Home or stale library row crosses the bridge without a
+        // successful private libraryV3 response for this WebView.
+        rows = sessionProven ? collectedRows : [];
         if (rows.length > 0 && window.__sfMediaLibStatus === 'error') {
             rows = rows.concat([homePartialErrorRow()]);
         }
@@ -943,8 +963,8 @@
             statePayload = homeStatePayload();
             stateSignature = JSON.stringify(statePayload);
             if (lastHomeSignature !== stateSignature) {
-                // Only a confirmed profile control or real library entry may
-                // replace Spotify's page with this explicit, non-playlist state.
+                // A correctly shaped private library response may authorize an
+                // explicit status panel, including for a genuinely empty account.
                 window.__sfNativeUiHomeDataSent = false;
                 window.__sfNativeUiHomeStateSent = false;
                 if (sendNativeUiData('home', statePayload)) {
@@ -1103,62 +1123,42 @@
         }, 500);
     }
 
-    // The account library is only served to a signed-in session, so a single
-    // real entry is a stronger proof of an open session than any DOM selector.
-    // Spotify renames its account control regularly; when that happened the
-    // old gate below never opened and the whole native UI stayed invisible
-    // behind the splash for the entire life of the process.
+    // Only a correctly shaped private libraryV3 response is proof for this
+    // WebView. Resource arrays and profile controls are UI signals, not auth.
+    // A known negative result overrides every stale positive flag or array.
     function libraryProvesSession() {
-        var library = window.mediaLib;
-        var groups = ['playlists', 'albums', 'artists', 'podcasts'];
-        var i;
-        // A verified libraryV3 response proves the session even when the
-        // account has zero items. An explicit 401 also prevents stale arrays
-        // from being reused as authentication evidence. Transient failures
-        // leave an earlier verified proof intact.
-        if (window.__sfMediaLibSessionProofKnown === true) {
-            return window.__sfMediaLibSessionProven === true;
-        }
-        if (!library) return false;
-        for (i = 0; i < groups.length; i += 1) {
-            if (Array.isArray(library[groups[i]]) && library[groups[i]].length > 0) return true;
-        }
-        return false;
+        return window.__sfMediaLibSessionProofKnown === true &&
+            window.__sfMediaLibSessionProven === true;
     }
 
     function pageHasSessionEvidence() {
+        return libraryProvesSession();
+    }
+
+    function pageHasProfileSignal() {
         return Boolean(sfDeepQuery(
             'button[data-testid="user-widget-link"], a[data-testid="user-widget-link"], .main-userWidget-box'
-        )) || libraryProvesSession();
+        ));
     }
 
     function notifyNativeUiReady(mainView) {
         var bridge = window.AndBridge;
-        var userWidget;
         var searchQuery;
         var homeContentProven;
         var homeStateProven;
         var takeoverProven;
-        if (!mainView || window.location.hostname !== 'open.spotify.com' || window.__sfNativeUiReadyNotified) return false;
+        var sessionProven;
+        var profileSignal;
+        var bridgeReady;
+        var previousSessionProven;
+        var previousProfileSignal;
+        if (!mainView || window.location.hostname !== 'open.spotify.com') return false;
 
-        // A profile control or a real library fetch proves the signed-in
-        // session. Do not infer or change authentication from public Home data.
-        userWidget = sfDeepQuery(
-            'button[data-testid="user-widget-link"], a[data-testid="user-widget-link"], .main-userWidget-box'
-        );
-        var sessionProven = Boolean(userWidget);
-        if (!sessionProven && libraryProvesSession()) {
-            // Covered by a real library fetch: no DOM dependency needed.
-            sessionProven = true;
-            window.__sfNativeUiReadyLibraryProof = (window.__sfNativeUiReadyLibraryProof || 0) + 1;
-            if (window.__sfNativeUiReadyLibraryProof === 1) {
-                diagTrace('ready by library proof (account control absent)');
-            }
-        }
-        // Real Home cards prove that content was collected, not that the user
-        // is authenticated. Only a profile control or a verified private
-        // library response may authorize the Melodix takeover.
-        homeContentProven = isSpotifyHome() &&
+        // A profile widget is recorded for diagnosis only. Neither it nor
+        // public Home rows may authorize a native takeover or Web Home owner.
+        profileSignal = pageHasProfileSignal();
+        sessionProven = libraryProvesSession();
+        homeContentProven = isSpotifyHome() && sessionProven &&
             (window.__sfNativeUiHomeRowsCount || 0) > 0 &&
             window.__sfNativeUiHomeDataSent === true;
         homeStateProven = isSpotifyHome() && sessionProven &&
@@ -1166,32 +1166,44 @@
             window.__sfNativeUiHomeStateSent === true &&
             window.__sfNativeUiHomeDataSent === true;
         takeoverProven = sessionProven;
-        if (homeContentProven && !sessionProven && !window.__sfNativeUiHomeProofLogged) {
+        if (isSpotifyHome() && !sessionProven &&
+            ((window.__sfNativeUiHomeDomRowsCount || 0) > 0 || profileSignal) &&
+            !window.__sfNativeUiHomeProofLogged) {
             window.__sfNativeUiHomeProofLogged = true;
             diagTrace('ready-blocked reason=home-content-is-not-session-proof');
         }
-        var bridgeReady = Boolean(bridge &&
+        bridgeReady = Boolean(bridge &&
             typeof bridge.onNativeUiReady === 'function' &&
             typeof bridge.onNativeUiRoute === 'function' &&
             typeof bridge.onNativeUiData === 'function');
-        var previousSessionProven = window.__sfNativeUiSessionProven === true;
+        previousSessionProven = window.__sfNativeUiSessionProven === true;
+        previousProfileSignal = window.__sfNativeUiPageSessionSignal === true;
         window.__sfNativeUiSessionProven = sessionProven;
+        window.__sfNativeUiPageSessionSignal = profileSignal;
         if (previousSessionProven !== sessionProven) {
             try {
                 window.dispatchEvent(new window.Event('sf-native-ui-session-proof-changed'));
+            } catch (_) {}
+        }
+        if (previousProfileSignal !== profileSignal) {
+            try {
+                window.dispatchEvent(new window.Event('sf-native-ui-page-signal-changed'));
             } catch (_) {}
         }
         window.__sfNativeUiHomeContentProven = homeContentProven;
         window.__sfNativeUiHomeStateProven = homeStateProven;
         window.__sfNativeUiTakeoverProven = takeoverProven;
         window.__sfNativeUiBridgeCallbacksReady = bridgeReady;
+
+        // Keep proof synchronized on later API responses (including 401) even
+        // after readiness has already been announced once.
+        if (window.__sfNativeUiReadyNotified) return takeoverProven && bridgeReady;
         if (!takeoverProven || !bridgeReady) {
-            // Name the missing content/session proof and callbacks explicitly;
-            // a partial bridge must never be mistaken for a drawable native UI.
             window.__sfNoWidgetCount = (window.__sfNoWidgetCount || 0) + 1;
             if (window.__sfNoWidgetCount === 1 || window.__sfNoWidgetCount % 20 === 0) {
                 diagTrace('ready-pending proof=' + (takeoverProven ? '1' : '0') +
                     ' session=' + (sessionProven ? '1' : '0') +
+                    ' profile=' + (profileSignal ? '1' : '0') +
                     ' home=' + (homeContentProven ? '1' : '0') +
                     ' bridge=' + (bridge ? '1' : '0') +
                     ' route=' + (bridge && typeof bridge.onNativeUiRoute === 'function' ? '1' : '0') +
@@ -1202,11 +1214,9 @@
             return false;
         }
 
-        // Home may take over with real Spotify cards, or with an explicit
-        // non-playlist state after session evidence. A raw empty payload never
-        // qualifies, so logged-out login screens remain on the WebView.
-        // MainActivity independently measures the attached card/status view
-        // before setting nativeHomeContentReady or completing the splash.
+        // A valid private response may authorize real cards or an explicit
+        // non-playlist state. An empty/unverified payload keeps Spotify visible.
+        // MainActivity independently measures attached content before takeover.
         if (isSpotifyHome() && !homeContentProven && !homeStateProven) {
             window.__sfNativeUiReadyBlockedEmpty = (window.__sfNativeUiReadyBlockedEmpty || 0) + 1;
             if (window.__sfNativeUiReadyBlockedEmpty === 1 || window.__sfNativeUiReadyBlockedEmpty % 20 === 0) {
@@ -1214,6 +1224,7 @@
                     ' dataSent=' + (window.__sfNativeUiHomeDataSent ? '1' : '0') +
                     ' stateSent=' + (window.__sfNativeUiHomeStateSent ? '1' : '0') +
                     ' session=' + (sessionProven ? '1' : '0') +
+                    ' profile=' + (profileSignal ? '1' : '0') +
                     ' screen=' + diagnosticScreen() +
                     ' state=' + safeMediaLibStatus() +
                     ' action=keep-spotify-visible');

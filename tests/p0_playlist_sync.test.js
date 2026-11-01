@@ -72,6 +72,10 @@ function runShell(opts = {}) {
     console
   };
   if (opts.mediaLib !== undefined) window.mediaLib = opts.mediaLib;
+  // Positive default is a deterministic private-response proof fixture only;
+  // tests for missing/unverified sessions explicitly pass false.
+  window.__sfMediaLibSessionProofKnown = opts.mediaLibSessionProofKnown !== false;
+  window.__sfMediaLibSessionProven = opts.mediaLibSessionProven !== false;
   if (opts.libStatus !== undefined) window.__sfMediaLibStatus = opts.libStatus;
   if (opts.libError !== undefined) window.__sfMediaLibError = opts.libError;
   if (opts.withCheckMediaLib) {
@@ -144,7 +148,9 @@ test('[P0 playlists] 3. des rows sans playlist ne bloquent pas l arrivee tardive
 test('[P0 playlists] 4. le chargement de la bibliotheque est retentable (plusieurs essais)', () => {
   const { window, calls, checkMediaLibCalls } = runShell({
     cards: [],
-    noUserWidget: true, // keep readiness blocked so only data calls matter
+    noUserWidget: true,
+    mediaLibSessionProofKnown: false,
+    mediaLibSessionProven: false,
     withCheckMediaLib: true,
     onCheckMediaLib: (w) => {
       // simulate a failing fetch (token not ready yet)
@@ -178,6 +184,8 @@ test('[P0 playlists] 5. une bibliotheque vide n invente aucune playlist', () => 
 test('[P0 playlists] 6. un echec HTTP explicite reste visible et retentable', () => {
   const { window, calls, checkMediaLibCalls } = runShell({
     cards: [],
+    mediaLibSessionProofKnown: false,
+    mediaLibSessionProven: false,
     withCheckMediaLib: true,
     libStatus: 'error',
     libError: 'http-403',
@@ -274,13 +282,16 @@ test('[P0 playlists] le bridge notifie le shell quand mediaLib est settle (pas d
   // behavioural proof of each error code).
   assert.ok(bridgeSrc.includes("window.__sfMediaLibStatus = failed ? 'error' : 'ready'"),
     'statut final ready, ou error quand rien d exploitable n est arrive');
-  assert.ok(bridgeSrc.includes('const failed = Boolean(window.__sfMediaLibError);'),
+  assert.ok(bridgeSrc.includes('let failed = Boolean(window.__sfMediaLibError);'),
     'echec enregistre par fetchAllLibrary pris en compte');
   assert.ok(bridgeSrc.includes('const usable = Array.isArray(allItems) && allItems.length > 0;'),
     'donnees partielles conservees, echec total non publie comme bibliotheque vide');
-  assert.ok(bridgeSrc.includes("window.__sfMediaLibError = 'token-missing'"), 'erreur token explicite');
-  assert.ok(bridgeSrc.includes("window.__sfMediaLibError = 'http-' + resp.status"), 'erreur HTTP explicite');
-  assert.ok(bridgeSrc.includes('fetch-parse-error'), 'erreur de parsing explicite');
+  assert.ok(bridgeSrc.includes("window.__sfMediaLibError = 'http-401'"), '401 conserve son statut sans deviner une cause de session');
+  assert.ok(bridgeSrc.includes("trace.http === 403 ? 'http-403'"), '403 reste distinct des autres refus HTTP');
+  assert.ok(bridgeSrc.includes("window.__sfMediaLibError = timedOut ? 'timeout' : 'network-error'"),
+    'timeout et réseau ont des états distincts');
+  assert.ok(bridgeSrc.includes('invalid-json') && bridgeSrc.includes('unexpected-shape'),
+    'les réponses JSON mal formées et inattendues restent distinguées');
   // The warmup is retryable and the merge is traced.
   assert.ok(shellSrc.includes('window.__sfMediaLibRetryAt'), 'backoff de retry du warmup');
   assert.ok(shellSrc.includes('home-merge lib='), 'trace de fusion avant/apres');
@@ -291,15 +302,14 @@ test('[P0 playlists] le bridge notifie le shell quand mediaLib est settle (pas d
 // P0-E: a failed library must stay recoverable on the screen itself.
 // ---------------------------------------------------------------------------
 
-test('a session error points at Settings instead of promising a retry', () => {
+test('HTTP 401 is reported without asserting an expired session or sending the user to Settings', () => {
     const shell = fs.readFileSync(path.join(root, 'scripts', 'native_ui_shell.source.js'), 'utf8');
-    // Definitive errors cannot be fixed by retrying: the row opens Settings.
-    assert.match(shell, /err === 'token-missing'\)[\s\S]{0,200}paramètres/);
-    assert.match(shell, /err === 'http-401'\)[\s\S]{0,200}paramètres/);
-    assert.match(shell, /err === 'http-403'\)[\s\S]{0,200}paramètres/);
+    assert.match(shell, /err === 'http-401'[\s\S]{0,180}cause n’est pas confirmée/);
+    assert.match(shell, /err === 'http-403'[\s\S]{0,180}autorisations ou réessayez/);
+    assert.match(shell, /'http-401', 'http-403', 'token-missing'/,
+        '401/403 remain manually retryable because their cause is not inferred');
+    assert.doesNotMatch(shell, /Session Spotify expirée|session expirée/i);
     assert.match(shell, /function homeStateAction\(err\) \{[\s\S]{0,200}melodix:action:retry-library[\s\S]{0,120}melodix:action:open-settings/);
-    assert.match(shell, /uri: rawError \? homeStateAction\(rawError\) : 'melodix:action:retry-library'/,
-        'classified session errors open Settings while an unclassified parser error can still retry');
 });
 
 test('a transient error only promises a retry while the retry loop is alive', () => {

@@ -743,8 +743,10 @@ test('collectors see a player framed in a same-origin iframe', () => {
   assert.ok(js.includes('function findMainView()'));
   assert.ok(js.includes('mainView = findMainView();'),
     'runUpdate collects from the frame too');
-  assert.ok(js.includes("userWidget = sfDeepQuery(\n            'button[data-testid=\"user-widget-link\"]"),
-    'the takeover gate also looks into frames and supports the profile class');
+  assert.ok(js.includes('function pageHasProfileSignal()') &&
+      js.includes('profileSignal = pageHasProfileSignal();') &&
+      js.includes('sessionProven = libraryProvesSession();'),
+    'profile controls in same-origin frames remain diagnostic-only and do not prove a session');
 });
 
 

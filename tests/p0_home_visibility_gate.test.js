@@ -123,10 +123,10 @@ test('the Web Home renderer is session-gated, accepts one real item, and renders
   const nativeShell = read('scripts/native_ui_shell.source.js');
   const css = read('assets/css_hacks.css');
   assert.match(renderer, /function melodixHomeHasSessionEvidence\(\)/);
-  assert.match(renderer, /main-userWidget-box/,
-    'profile detection accepts the existing user-widget class as well as the historical data-testid');
-  assert.match(renderer, /__sfMediaLibSessionProofKnown === true[\s\S]*?__sfMediaLibSessionProven === true/,
-    'a verified empty private response can prove the session without a legacy profile selector');
+  assert.doesNotMatch(renderer, /user-widget-link|main-userWidget-box/,
+    'profile widgets are not used by the Web renderer as authentication proof');
+  assert.match(renderer, /return window\.__sfMediaLibSessionProofKnown === true &&[\s\S]*?window\.__sfMediaLibSessionProven === true/,
+    'only a verified private API response can prove the WebView session, even for an empty library');
   assert.match(renderer, /if \(!sessionProven\)[\s\S]*?session-unproven/);
   assert.doesNotMatch(renderer, /itemCount\s*<\s*2/,
     'one verified Spotify card is sufficient; empty and error states do not need fake cards');
@@ -136,18 +136,32 @@ test('the Web Home renderer is session-gated, accepts one real item, and renders
   assert.match(renderer, /sf-native-ui-session-proof-changed/);
   assert.match(nativeShell, /function libraryProvesSession\(\)[\s\S]*?__sfMediaLibSessionProofKnown === true[\s\S]*?__sfMediaLibSessionProven === true/,
     'the native gate accepts an empty but verified private response, not library readiness alone');
-  assert.match(nativeShell, /main-userWidget-box/,
-    'native readiness supports the profile-control class without depending on one historical test id');
+  assert.match(nativeShell, /function pageHasProfileSignal\(\)[\s\S]*?main-userWidget-box/,
+    'the profile control is collected only as a diagnostic page signal');
   assert.match(nativeShell, /takeoverProven = sessionProven;/,
-    'real public Home cards cannot bypass the authenticated-session gate');
+    'only private API proof can authorize native readiness');
+  assert.match(nativeShell, /rows = sessionProven \? collectedRows : \[\]/,
+    'public Home rows are withheld from the native renderer until API proof exists');
+  assert.match(nativeShell, /window\.__sfNativeUiPageSessionSignal = profileSignal/,
+    'profile UI signal remains separate from the native session proof');
+  const nativeRenderer = read('smali/com/melodix/music/NativeHomeShelfRenderer.smali');
+  const activity = read('smali/com/melodix/music/MainActivity.smali');
+  assert.match(nativeRenderer, /shelf_render_spotify_rows[\s\S]*?showNativeUi\(\)V/,
+    'a native card payload can reach showNativeUi after attachment');
+  assert.match(nativeRenderer, /no-real-cards[\s\S]*?revealWebUi\(\)V/,
+    'malformed or empty native card payloads retain the existing WebView fallback');
+  const showNativeUi = method(activity, '.method public final showNativeUi()V');
+  assert.match(showNativeUi, /hasNativeHomeContentAttached\(\)Z[\s\S]*?native-root-found/);
+  assert.doesNotMatch(showNativeUi, /MediaLibSession|spotifySessionProven/,
+    'Java visibility checks prove attachment, not Spotify authentication; the JS payload gate must therefore be strict');
   assert.match(nativeShell, /previousSessionProven !== sessionProven[\s\S]*?sf-native-ui-session-proof-changed/,
     'native session proof changes wake the Web renderer without exposing account data');
-  assert.match(nativeShell, /rawItemCount > 0[\s\S]*?ne peuvent pas encore être affichés[\s\S]*?melodix:action:retry-library/,
+  assert.match(nativeShell, /rawItemCount > 0[\s\S]*?éléments non reconnus[\s\S]*?melodix:action:retry-library/,
     'non-empty but unrenderable real responses cannot be mislabeled empty by the native shell');
   assert.match(nativeShell, /function homePartialErrorRow\(\)[\s\S]*?Certaines données Spotify sont indisponibles[\s\S]*?rows = rows\.concat\(\[homePartialErrorRow\(\)\]\)/,
     'partial failures remain visible beside already received real library content in native Home');
-  assert.match(renderer, /window\.location\.assign\('https:\/\/accounts\.spotify\.com\/login'\)/,
-    'an expired session has a recovery path through Spotify’s official sign-in page');
+  assert.doesNotMatch(renderer, /accounts\.spotify\.com\/login|sessionError|spotify-sign-in/,
+    'a 401 response is not presented as proof of an expired session or forced login');
   assert.match(runtime, /session-unproven/,
     'the packaged renderer is regenerated from the session-gated source');
   assert.match(css, /sf-melodix-home__status--error[\s\S]*?sf-melodix-home__retry/);
@@ -157,9 +171,12 @@ test('the CI Home integration contains no fake account data or credentials and l
   const harness = read('tests/android/HomeRenderInstrumentation.java');
   const inspector = read('tests/android/inspect_hierarchy.py');
   assert.doesNotMatch(harness, /spotify:playlist:|FIXTURE_TITLE|FIXTURE_JSON|Bearer\s+[A-Za-z0-9._-]+|sp_dc=/i);
-  assert.match(harness, /fixture is test-only; its explicit[\s\S]*renderer-session flag/i);
-  assert.match(harness, /window\.__sfNativeUiSessionProven=true/,
-    'the isolated fixture supplies a renderer-only proof and is not labeled as Spotify authentication');
+  assert.match(harness, /fixture is test-only; its explicit[\s\S]*private-library-proof flags/i);
+  assert.match(harness, /window\.__sfMediaLibSessionProofKnown=true;window\.__sfMediaLibSessionProven=true/,
+    'the isolated fixture supplies API-proof-shaped flags only for renderer testing; it is not labeled as Spotify authentication');
+  assert.match(harness, /authenticated_home_requires_real_playlist/);
+  assert.match(harness, /if \(validSpotifyPage && sessionProven && probe\.optBoolean\("home_route"\)\s*&& realPlaylistObserved\) \{[\s\S]*?authenticatedHomeObserved = true;/,
+    'authenticated-home observation is not marked performed until an actual playlist count is observed');
   assert.match(harness, /authenticated_home_test_performed", false/);
   assert.match(harness, /onNativeUiData"\s*,\s*String\.class\s*,\s*String\.class/);
   assert.match(harness, /LOGIN_DOM_PROBE[\s\S]*?awaitLoginUiVisible\(webView\)/,
@@ -328,21 +345,23 @@ test('the authenticated DOM probe returns sanitized routes, counts only, live re
     assert.equal(unproven.session_proven, false);
     assert.equal(unproven.session_proof_source, 'unproven');
 
+    window.__sfNativeUiSessionProven = false;
     const profileControl = window.document.createElement('button');
     profileControl.setAttribute('data-testid', 'user-widget-link');
     profileControl.style.cssText = 'display:block;visibility:visible;opacity:1';
     profileControl.getBoundingClientRect = rect(40, 40);
     window.document.body.appendChild(profileControl);
-    const visibleProfileProof = window.eval(script);
-    assert.equal(visibleProfileProof.profile_control_present, true);
-    assert.equal(visibleProfileProof.profile_control_visible, true);
-    assert.equal(visibleProfileProof.session_proven, true);
-    assert.equal(visibleProfileProof.session_proof_source, 'spotify-profile-control');
+    const visibleProfileSignal = window.eval(script);
+    assert.equal(visibleProfileSignal.profile_control_present, true);
+    assert.equal(visibleProfileSignal.profile_control_visible, true);
+    assert.equal(visibleProfileSignal.page_session_signal, true);
+    assert.equal(visibleProfileSignal.session_proven, false);
+    assert.equal(visibleProfileSignal.session_proof_source, 'profile-control-unverified');
     profileControl.style.display = 'none';
-    const hiddenProfileIsNotProof = window.eval(script);
-    assert.equal(hiddenProfileIsNotProof.profile_control_present, true);
-    assert.equal(hiddenProfileIsNotProof.profile_control_visible, false);
-    assert.equal(hiddenProfileIsNotProof.session_proven, false);
+    const hiddenProfileSignal = window.eval(script);
+    assert.equal(hiddenProfileSignal.profile_control_present, true);
+    assert.equal(hiddenProfileSignal.profile_control_visible, false);
+    assert.equal(hiddenProfileSignal.session_proven, false);
 
     assert.doesNotMatch(JSON.stringify(result), /PRIVATE_ID|session=|SECRET|token=|private-playlist|private-album/,
       'the diagnostic returns route categories and capped counts only, never URLs, IDs, or titles');

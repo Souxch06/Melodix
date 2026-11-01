@@ -2911,6 +2911,130 @@
 
     window.pendingMediaRequests = window.pendingMediaRequests || new Set();
     let isFetchingLib = false;
+    const MEDIA_LIBRARY_REQUEST_TIMEOUT_MS = 15000;
+
+    // Diagnostic values are deliberately limited to enums and bounded counts.
+    // Neither response bodies, URLs, resource names/IDs, cookies nor errors'
+    // message text can reach the native log sink.
+    function mediaLibraryNow() {
+        try {
+            const now = window.performance && typeof window.performance.now === 'function'
+                ? Number(window.performance.now()) : Number(Date.now());
+            return Number.isFinite(now) ? now : 0;
+        } catch (_) {
+            return 0;
+        }
+    }
+
+    function boundedMediaLibraryCount(value, max) {
+        const count = Number(value);
+        return Number.isFinite(count) ? Math.max(0, Math.min(max, Math.floor(count))) : 0;
+    }
+
+    function mediaLibraryProofState() {
+        if (window.__sfMediaLibSessionProofKnown === true) {
+            return window.__sfMediaLibSessionProven === true ? 'valid' : 'invalid';
+        }
+        return 'unknown';
+    }
+
+    function mediaLibraryPageSignal() {
+        try {
+            return document && document.querySelector && document.querySelector(
+                'button[data-testid="user-widget-link"], a[data-testid="user-widget-link"], .main-userWidget-box'
+            ) ? 'profile' : 'none';
+        } catch (_) {
+            return 'none';
+        }
+    }
+
+    function mediaLibraryResponseMime(response) {
+        let raw = '';
+        try {
+            raw = response && response.headers && typeof response.headers.get === 'function'
+                ? String(response.headers.get('content-type') || '') : '';
+        } catch (_) {}
+        const mime = raw.split(';', 1)[0].trim().toLowerCase();
+        if (!mime) return 'missing';
+        if (mime === 'application/json' || /^application\/[a-z0-9.+-]+\+json$/.test(mime)) return 'json';
+        if (mime === 'text/html' || mime === 'application/xhtml+xml') return 'html';
+        return 'other';
+    }
+
+    function mediaLibraryHttpStatus(response) {
+        const status = Number(response && response.status);
+        return Number.isFinite(status) && status >= 100 && status <= 599 ? Math.floor(status) : 0;
+    }
+
+    function createMediaLibraryDiagnostic() {
+        return {
+            startedAt: mediaLibraryNow(),
+            phase: 'request',
+            http: 0,
+            mime: 'missing',
+            error: 'none',
+            received: 0,
+            transformed: 0
+        };
+    }
+
+    function emitMediaLibraryDiagnostic(diagnostic, phase) {
+        const state = diagnostic || createMediaLibraryDiagnostic();
+        const allowedPhases = ['request', 'response', 'parse', 'transform', 'settle'];
+        const allowedMimes = ['json', 'html', 'other', 'missing'];
+        const allowedErrors = [
+            'none', 'empty', 'http-401', 'http-403', 'http-other', 'timeout', 'network',
+            'non-json', 'invalid-json', 'unexpected-shape', 'graphql', 'parse', 'transform'
+        ];
+        const requestedPhase = String(phase || state.phase || 'settle');
+        const safePhase = allowedPhases.indexOf(requestedPhase) >= 0 ? requestedPhase : 'settle';
+        const status = boundedMediaLibraryCount(state.http, 599);
+        const safeHttp = status === 0 || status >= 100 ? status : 0;
+        const mime = allowedMimes.indexOf(String(state.mime || '')) >= 0 ? String(state.mime) : 'missing';
+        const error = allowedErrors.indexOf(String(state.error || '')) >= 0 ? String(state.error) : 'parse';
+        const elapsed = Math.max(0, mediaLibraryNow() - Number(state.startedAt || 0));
+        const duration = boundedMediaLibraryCount(elapsed, 999999);
+        const received = boundedMediaLibraryCount(state.received, 1000);
+        const transformed = boundedMediaLibraryCount(state.transformed, 1000);
+        const proof = mediaLibraryProofState();
+        const page = mediaLibraryPageSignal();
+        const line = 'library-fetch phase=' + safePhase + ' http=' + safeHttp +
+            ' mime=' + mime + ' duration=' + duration + ' error=' + error +
+            ' received=' + received + ' transformed=' + transformed +
+            ' proof=' + proof + ' page=' + page;
+        try {
+            if (typeof window.__sfBridgeTrace === 'function') window.__sfBridgeTrace(line);
+            else if (window.AndBridge && typeof window.AndBridge.logDiagEvent === 'function') {
+                window.AndBridge.logDiagEvent(line);
+            }
+        } catch (_) {}
+    }
+
+    function mediaLibraryDiagnosticError(error) {
+        const value = String(error || '');
+        if (value === 'http-401') return 'http-401';
+        if (value === 'http-403') return 'http-403';
+        if (/^http-[0-9]{3}$/.test(value)) return 'http-other';
+        if (value === 'http-unknown') return 'network';
+        if (value === 'timeout') return 'timeout';
+        if (value === 'network-error') return 'network';
+        if (value === 'non-json') return 'non-json';
+        if (value === 'invalid-json') return 'invalid-json';
+        if (value === 'unexpected-shape') return 'unexpected-shape';
+        if (value === 'graphql-error') return 'graphql';
+        if (value === 'transform-error') return 'transform';
+        if (value === 'fetch-parse-error') return 'parse';
+        return 'none';
+    }
+
+    function mediaLibraryTransformedCount(library) {
+        if (!library || typeof library !== 'object') return 0;
+        return boundedMediaLibraryCount(
+            ['playlists', 'albums', 'artists', 'podcasts'].reduce((total, key) =>
+                total + (Array.isArray(library[key]) ? library[key].length : 0), 0),
+            1000
+        );
+    }
 
     // P0 sync fix: the first home scrape can finish before mediaLib arrives.
     // Notify both the native shell and the Web Home renderer when collection
@@ -2940,64 +3064,103 @@
 
     async function checkMediaLib(force = false) {
         if (isFetchingLib && !force) return;
-        // The library is read with the page's OWN session (credentials:
-        // 'include'), so no captured token is needed. The old gate demanded
-        // window.spotAuthToken - a value nothing in the app ever sets - which
-        // made this whole function unreachable and starved Home of the real
-        // playlists. A missing session now surfaces as the honest 401 path
-        // below instead of an invented 'token-missing' before any request.
+        // The library is read with the page's own WebView cookies. No token is
+        // captured or fabricated; a refusal is reported as HTTP 401 without
+        // guessing whether its cause is a missing/expired cookie or API policy.
         await ensureAuthToken();
         if (isFetchingLib && !force) return;
         isFetchingLib = true;
+        const diagnostic = createMediaLibraryDiagnostic();
         window.__sfMediaLibStatus = 'loading';
         window.__sfMediaLibError = '';
         window.__sfMediaLibRawItemCount = 0;
         notifyMediaLibUiChange();
+        emitMediaLibraryDiagnostic(diagnostic, 'request');
+        let allItems = [];
         try {
-            const allItems = await fetchAllLibrary();
-            window.__sfMediaLibRawItemCount = Array.isArray(allItems)
-                ? Math.max(0, Math.min(1000, allItems.length)) : 0;
-            const failed = Boolean(window.__sfMediaLibError);
+            allItems = await fetchAllLibrary(diagnostic);
+            diagnostic.received = Array.isArray(allItems) ? allItems.length : 0;
+            window.__sfMediaLibRawItemCount = boundedMediaLibraryCount(diagnostic.received, 1000);
+            let failed = Boolean(window.__sfMediaLibError);
+            const failurePhase = diagnostic.error !== 'none' ? diagnostic.phase : '';
             const usable = Array.isArray(allItems) && allItems.length > 0;
             if (!failed || usable) {
-                // A partial result is real data: keep it, and only report the
-                // error state (the UI then offers a retry) without discarding
-                // what actually arrived.
-                window.mediaLib = parseLibrary(allItems);
-                window.__sfMediaLibStatus = failed ? 'error' : 'ready';
+                // Keep only actual supported Spotify resources. A non-empty raw
+                // response that transforms to zero rows is an error, not an
+                // honestly empty library. Preserve the phase where a partial
+                // request failed so diagnostics identify the actual boundary.
+                if (!failurePhase) diagnostic.phase = 'transform';
+                try {
+                    const parsed = parseLibrary(allItems);
+                    diagnostic.transformed = mediaLibraryTransformedCount(parsed);
+                    if (usable && diagnostic.transformed === 0) {
+                        if (!failed) {
+                            window.__sfMediaLibError = 'transform-error';
+                            diagnostic.error = 'transform';
+                        }
+                        window.__sfMediaLibStatus = 'error';
+                    } else {
+                        window.mediaLib = parsed;
+                        window.__sfMediaLibStatus = failed ? 'error' : 'ready';
+                    }
+                } catch (_) {
+                    window.__sfMediaLibStatus = 'error';
+                    window.__sfMediaLibError = 'transform-error';
+                    diagnostic.error = 'transform';
+                }
             } else {
-                // Nothing usable arrived. Leave window.mediaLib untouched: an
-                // empty object here used to look like "library loaded but
-                // empty", which closed the shell's retry path for good.
+                // Nothing usable arrived. Preserve previous data for possible
+                // retry, but never replace a failure with an empty object.
                 window.__sfMediaLibStatus = 'error';
             }
+            if (diagnostic.error === 'none' && window.__sfMediaLibError) {
+                diagnostic.error = mediaLibraryDiagnosticError(window.__sfMediaLibError);
+            }
+            if (diagnostic.error === 'none' && window.__sfMediaLibStatus === 'ready' && !usable) {
+                diagnostic.error = 'empty';
+            }
+            diagnostic.phase = diagnostic.error === 'none' || diagnostic.error === 'empty'
+                ? 'settle' : diagnostic.phase;
             console.log("[Spotifuck] checkMediaLib: library settled status=" +
                 window.__sfMediaLibStatus + " error=" + (window.__sfMediaLibError || 'none') +
-                " items=" + (Array.isArray(allItems) ? allItems.length : 0));
+                " items=" + boundedMediaLibraryCount(diagnostic.received, 1000));
             if (window.pendingMediaRequests && window.pendingMediaRequests.size > 0) {
+                const verifiedLibrary = window.__sfMediaLibSessionProofKnown === true &&
+                    window.__sfMediaLibSessionProven === true && window.mediaLib;
                 for (const reqId of window.pendingMediaRequests) {
-                    const items = window.mediaLib?.[reqId] || [];
+                    const items = verifiedLibrary ? (verifiedLibrary[reqId] || []) : [];
                     AndBridge.onMediaItemsLoaded(reqId, JSON.stringify(items));
                 }
                 window.pendingMediaRequests.clear();
             }
             notifyMediaLibSettled(window.__sfMediaLibStatus);
-        } catch (e) {
+        } catch (_) {
             console.warn("Media library request failed; error details redacted.");
             window.__sfMediaLibStatus = 'error';
-            window.__sfMediaLibError = 'fetch-parse-error';
-            notifyMediaLibSettled('fetch-parse-error');
+            window.__sfMediaLibError = 'transform-error';
+            diagnostic.phase = 'transform';
+            diagnostic.error = 'transform';
+            notifyMediaLibSettled('transform-error');
         } finally {
+            if (diagnostic.error === 'none' && window.__sfMediaLibError) {
+                diagnostic.error = mediaLibraryDiagnosticError(window.__sfMediaLibError);
+            }
+            if (diagnostic.error === 'none' && window.__sfMediaLibStatus === 'ready' && diagnostic.received === 0) {
+                diagnostic.error = 'empty';
+            }
+            if (diagnostic.phase === 'transform' &&
+                (diagnostic.error === 'none' || diagnostic.error === 'empty')) diagnostic.phase = 'settle';
+            emitMediaLibraryDiagnostic(diagnostic, diagnostic.phase || 'settle');
             isFetchingLib = false;
         }
     }
     window.checkMediaLib = checkMediaLib;
 
-    // Do not read, store, or forward credentials. The private library request
-    // below uses only the signed-in WebView's normal page cookies.
-    async function fetchAllLibrary() {
-        // The library is read with the page's own session cookies only: no
-        // credential is ever captured, stored, or forwarded by the bridge.
+    // Do not read, store, or forward credentials. Each page request uses only
+    // the browser's included cookies and has a bounded deadline for both the
+    // response and its JSON body.
+    async function fetchAllLibrary(diagnostic) {
+        const trace = diagnostic || createMediaLibraryDiagnostic();
         const limit = 50;
         let offset = 0;
         let allItems = [];
@@ -3006,9 +3169,21 @@
         while (hasMore && offset < 1000) {
             const activeHash = getGqlHash('libraryV3', '0082bf82412db50128add72dbdb73e2961d59100b9cbf41fb25c568bd8bc358b');
             const endpoint = 'https://api-partner.spotify.com/' + 'pathfinder' + '/v2/' + 'query';
-            let resp;
+            const controller = typeof window.AbortController === 'function' ? new window.AbortController() : null;
+            let timerId = null;
+            let timedOut = false;
+            let rejectTimeout;
+            const timeout = new Promise((resolve, reject) => { rejectTimeout = reject; });
+            timerId = window.setTimeout(() => {
+                timedOut = true;
+                const timeoutError = new Error('library-request-timeout');
+                timeoutError.name = 'TimeoutError';
+                rejectTimeout(timeoutError);
+                try { if (controller) controller.abort(); } catch (_) {}
+            }, MEDIA_LIBRARY_REQUEST_TIMEOUT_MS);
+
             try {
-                resp = await oriFetch(endpoint, {
+                const init = {
                     method: 'POST',
                     mode: 'cors',
                     credentials: 'include',
@@ -3038,57 +3213,90 @@
                             }
                         }
                     })
-                });
-            } catch (e) {
-                window.__sfMediaLibError = 'fetch-parse-error';
-                break;
-            }
+                };
+                if (controller) init.signal = controller.signal;
 
-            if (resp.status === 401) {
-                // An explicit unauthorized response invalidates this page's
-                // previous library proof. Other transient failures do not.
-                window.__sfMediaLibSessionProofKnown = true;
-                window.__sfMediaLibSessionProven = false;
-                window.__sfMediaLibError = 'token-missing';
-                break;
-            }
+                let resp;
+                try {
+                    resp = await Promise.race([oriFetch(endpoint, init), timeout]);
+                } catch (_) {
+                    trace.phase = 'request';
+                    trace.error = timedOut ? 'timeout' : 'network';
+                    window.__sfMediaLibError = timedOut ? 'timeout' : 'network-error';
+                    break;
+                }
 
-            if (!resp.ok) {
-                // Distinguish a real HTTP failure from an empty library: the
-                // error is recorded so the shell can show a retry state, and a
-                // partial result is NOT treated as "the account has nothing".
-                window.__sfMediaLibError = 'http-' + resp.status;
-                break;
-            }
+                trace.http = mediaLibraryHttpStatus(resp);
+                trace.mime = mediaLibraryResponseMime(resp);
+                trace.phase = 'response';
+                if (trace.http === 401) {
+                    // An explicit 401 invalidates previous API proof; it does
+                    // not reveal whether a cookie was absent, expired, or rejected.
+                    window.__sfMediaLibSessionProofKnown = true;
+                    window.__sfMediaLibSessionProven = false;
+                    window.__sfMediaLibError = 'http-401';
+                    trace.error = 'http-401';
+                    break;
+                }
 
-            let data;
-            try {
-                data = await resp.json();
-            } catch (e) {
-                window.__sfMediaLibError = 'fetch-parse-error';
-                break;
-            }
-            const libraryPage = data?.data?.me?.libraryV3;
-            const items = libraryPage && libraryPage.items;
-            if (!Array.isArray(items)) {
-                // HTTP 200 alone is not a session or empty-library proof. The
-                // private library response must have its expected data shape.
-                window.__sfMediaLibError = 'fetch-parse-error';
-                break;
-            }
-            window.__sfMediaLibSessionProofKnown = true;
-            window.__sfMediaLibSessionProven = true;
-            if (Array.isArray(data.errors) && data.errors.length > 0) {
-                window.__sfMediaLibError = 'fetch-parse-error';
-            }
-            allItems = allItems.concat(items);
+                const responseOk = resp && typeof resp.ok === 'boolean'
+                    ? resp.ok : trace.http >= 200 && trace.http < 300;
+                if (!responseOk) {
+                    window.__sfMediaLibError = trace.http === 403 ? 'http-403'
+                        : trace.http > 0 ? 'http-' + trace.http : 'http-unknown';
+                    trace.error = trace.http === 403 ? 'http-403' : 'http-other';
+                    break;
+                }
 
-            if (items.length < limit) {
-                hasMore = false;
-            } else {
-                offset += limit;
+                if (trace.mime !== 'json' && trace.mime !== 'missing') {
+                    window.__sfMediaLibError = 'non-json';
+                    trace.error = 'non-json';
+                    break;
+                }
+
+                trace.phase = 'parse';
+                let data;
+                try {
+                    data = await Promise.race([
+                        Promise.resolve().then(() => resp.json()), timeout
+                    ]);
+                } catch (parseError) {
+                    const bodyReadFailed = !timedOut && parseError && parseError.name === 'TypeError';
+                    window.__sfMediaLibError = timedOut ? 'timeout' : bodyReadFailed ? 'network-error' : 'invalid-json';
+                    trace.error = timedOut ? 'timeout' : bodyReadFailed ? 'network' : 'invalid-json';
+                    break;
+                }
+
+                const hasGraphQlErrors = Boolean(Array.isArray(data && data.errors) && data.errors.length > 0);
+                const libraryPage = data && data.data && data.data.me && data.data.me.libraryV3;
+                const items = libraryPage && libraryPage.items;
+                if (!Array.isArray(items)) {
+                    window.__sfMediaLibError = hasGraphQlErrors ? 'graphql-error' : 'unexpected-shape';
+                    trace.error = hasGraphQlErrors ? 'graphql' : 'unexpected-shape';
+                    break;
+                }
+                if (hasGraphQlErrors) {
+                    // A partial GraphQL body may contain data but is not a clean
+                    // authentication proof. Keep it only for explicit diagnostics/retry.
+                    window.__sfMediaLibError = 'graphql-error';
+                    trace.error = 'graphql';
+                } else {
+                    window.__sfMediaLibSessionProofKnown = true;
+                    window.__sfMediaLibSessionProven = true;
+                }
+                allItems = allItems.concat(items);
+                trace.received = allItems.length;
+
+                if (items.length < limit) {
+                    hasMore = false;
+                } else {
+                    offset += limit;
+                }
+            } finally {
+                if (timerId !== null) window.clearTimeout(timerId);
             }
         }
+        trace.received = allItems.length;
         return allItems;
     }
     window.fetchAllLibrary = fetchAllLibrary;

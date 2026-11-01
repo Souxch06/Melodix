@@ -110,7 +110,7 @@ function cardPage({
 }
 
 // Boots the real shell against a fake page and records every bridge call.
-function loadShell({ withCards = true, mediaLib = null, mediaLibSessionProofKnown = false, mediaLibSessionProven = false, rawItemCount = 0, libraryError = '', locationPath = '/', searchMediaItemsImpl = null, noUserWidget = false, profileWidgetMode = 'testid', resourceHref = '/playlist/37i9dQZF1DXcBWIGoYBM5M', resourceTitle = 'Road trip', bridgeMode = 'complete', rootMode = 'legacy' } = {}) {
+function loadShell({ withCards = true, mediaLib = null, mediaLibSessionProofKnown = true, mediaLibSessionProven = true, rawItemCount = 0, libraryError = '', locationPath = '/', searchMediaItemsImpl = null, noUserWidget = false, profileWidgetMode = 'testid', resourceHref = '/playlist/37i9dQZF1DXcBWIGoYBM5M', resourceTitle = 'Road trip', bridgeMode = 'complete', rootMode = 'legacy' } = {}) {
     const timers = [];
     const navigations = [];
     const webLoads = [];
@@ -325,7 +325,10 @@ test('a known unauthorized result cannot reuse stale library arrays as session e
 });
 
 test('an empty Home without session evidence stays on Spotify and sends no status state', () => {
-    const { calls, win } = loadShell({ withCards: false, noUserWidget: true });
+    const { calls, win } = loadShell({
+        withCards: false, noUserWidget: true,
+        mediaLibSessionProofKnown: false, mediaLibSessionProven: false
+    });
     assert.equal(calls.ready, 0);
     assert.notEqual(win.__sfNativeUiReadyNotified, true);
     assert.equal(win.__sfNativeUiHomeRowsCount, 0);
@@ -398,20 +401,29 @@ test('real Home data is queued after its route and before the readiness callback
     assert.equal(calls.ready, 1);
 });
 
-test('a delayed real Spotify card never unlocks readiness without session evidence', () => {
-    const { calls, win, appendCard } = loadShell({ withCards: false, noUserWidget: true });
+test('a delayed public Spotify card never reaches the native shelf without private API proof', () => {
+    const { calls, win, appendCard } = loadShell({
+        withCards: false, noUserWidget: true,
+        mediaLibSessionProofKnown: false, mediaLibSessionProven: false
+    });
     assert.equal(calls.ready, 0);
     assert.equal(win.__sfNativeUiReadyNotified, undefined);
 
     appendCard({ id: 'late-playlist', title: 'Vraie playlist tardive' });
     win.__sfTriggerMutations();
 
-    assert.equal(win.__sfNativeUiHomeRowsCount, 1,
-        'the real card remains visible to diagnostics as collected content');
-    assert.equal(win.__sfNativeUiHomeContentProven, true);
+    assert.equal(win.__sfNativeUiHomeDomRowsCount, 1,
+        'the public card remains visible to bounded DOM-count diagnostics');
+    assert.equal(win.__sfNativeUiHomeRowsCount, 0,
+        'unverified public content is not sent to the native shelf');
+    assert.equal(win.__sfNativeUiHomeDataSent, true,
+        'only the empty clear/fallback payload is sent');
+    assert.equal(win.__sfNativeUiHomeContentProven, false);
     assert.equal(win.__sfNativeUiSessionProven, false);
     assert.equal(win.__sfNativeUiTakeoverProven, false);
     assert.equal(calls.ready, 0, 'public content never authorizes hiding Spotify');
+    assert.ok(calls.data.filter((call) => call.screen === 'home').every((call) => call.rows.length === 0),
+        'no public card reaches NativeHomeShelfRenderer and therefore cannot trigger showNativeUi()');
     assert.ok(calls.traces.some((line) => line.includes('ready-blocked') &&
         line.includes('home-content-is-not-session-proof')));
 });
@@ -562,7 +574,7 @@ test('non-empty raw Spotify data that yields no supported rows is a retryable er
     const home = calls.data.filter((call) => call.screen === 'home');
     const row = home[home.length - 1].rows[0];
     assert.equal(row.state, 'error');
-    assert.match(row.subtitle, /ne peuvent pas encore être affichés/i);
+    assert.match(row.subtitle, /éléments non reconnus/i);
     assert.equal(row.uri, 'melodix:action:retry-library');
 });
 
@@ -658,28 +670,34 @@ test('an empty category still navigates to its real page', async () => {
     assert.deepEqual(navigations, [], 'la navigation reste dans le WebView de l’app');
 });
 
-// P0-A: a verified profile control (including Spotify's legacy user-widget
-// class) or a real library fetch proves the signed-in session. The latter can
-// also provide real cards for the native replacement.
+// P0-A regression: only the successful private library response proves the
+// session. The profile widget is retained as a UI diagnostic, never auth proof.
 test('a real library proves the session and contributes a real Home card', () => {
     const { calls } = loadShell({
         withCards: false,
         noUserWidget: true,
-        mediaLib: { playlists: [{ id: 'spotify:playlist:p1', name: 'Vraie playlist' }] }
+        mediaLib: { playlists: [{ id: 'spotify:playlist:p1', name: 'Fixture playlist' }] },
+        mediaLibSessionProofKnown: true,
+        mediaLibSessionProven: true
     });
     assert.equal(calls.ready, 1, 'la page compte et la vraie carte rendent le takeover sûr');
 });
 
-test('the profile-control class is accepted when Spotify omits the historical user-widget test id', () => {
+test('the profile-control class is a UI signal only and cannot prove a private API session', () => {
     const { calls, win } = loadShell({
         withCards: false,
         profileWidgetMode: 'class',
-        noUserWidget: false
+        noUserWidget: false,
+        mediaLibSessionProofKnown: false,
+        mediaLibSessionProven: false
     });
-    assert.equal(win.__sfNativeUiSessionProven, true);
-    assert.equal(win.__sfNativeUiTakeoverProven, true);
-    assert.equal(calls.ready, 1,
-        'the alternate semantic profile control is sufficient when the private library is still loading');
+    assert.equal(win.__sfNativeUiPageSessionSignal, true,
+        'the profile signal remains observable for diagnostics');
+    assert.equal(win.__sfNativeUiSessionProven, false);
+    assert.equal(win.__sfNativeUiTakeoverProven, false);
+    assert.equal(calls.ready, 0,
+        'a profile widget without a successful private library response cannot authorize takeover');
+    assert.ok(calls.data.filter((call) => call.screen === 'home').every((call) => call.rows.length === 0));
 });
 
 test('real Home cards normalize playlist, album, artist, track, show, episode and audiobook links', () => {
@@ -704,27 +722,36 @@ test('real Home cards normalize playlist, album, artist, track, show, episode an
     }
 });
 
-test('a real public Home card is content evidence only and never bypasses the authentication gate', () => {
+test('a real public Home card is content evidence only and never reaches native showNativeUi()', () => {
     const { calls, win } = loadShell({
         withCards: true,
         noUserWidget: true,
+        mediaLibSessionProofKnown: false,
+        mediaLibSessionProven: false,
         rootMode: 'fallback'
     });
     assert.match(win.__sfNativeUiContentRootSelector, /^fallback:/,
         'the real card is found even though #main-view and the profile control are absent');
-    assert.equal(win.__sfNativeUiHomeRowsCount, 1);
-    assert.equal(win.__sfNativeUiHomeDataSent, true);
+    assert.equal(win.__sfNativeUiHomeDomRowsCount, 1);
+    assert.equal(win.__sfNativeUiHomeRowsCount, 0);
+    assert.equal(win.__sfNativeUiHomeDataSent, true, 'an empty clear signal is sent, not the card');
     assert.equal(win.__sfNativeUiSessionProven, false);
-    assert.equal(win.__sfNativeUiHomeContentProven, true,
-        'the card remains diagnosable as real content, but is not authentication');
+    assert.equal(win.__sfNativeUiPageSessionSignal, false);
+    assert.equal(win.__sfNativeUiHomeContentProven, false,
+        'unverified public cards remain WebView content and are not treated as native proof');
     assert.equal(win.__sfNativeUiTakeoverProven, false);
     assert.equal(calls.ready, 0, 'the unauthenticated Spotify Home stays visible');
+    assert.ok(calls.data.filter((call) => call.screen === 'home').every((call) => call.rows.length === 0),
+        'no public row reaches the Java renderer, whose card path calls showNativeUi()');
     assert.ok(calls.traces.some((line) => line.includes('ready-blocked') &&
         line.includes('home-content-is-not-session-proof')));
 });
 
 test('without the account control, library, or real Home card, nothing is covered', () => {
-    const { calls, win } = loadShell({ withCards: false, noUserWidget: true });
+    const { calls, win } = loadShell({
+        withCards: false, noUserWidget: true,
+        mediaLibSessionProofKnown: false, mediaLibSessionProven: false
+    });
     assert.equal(calls.ready, 0, 'aucune preuve de session ni carte: la page Spotify reste visible');
     assert.notEqual(win.__sfNativeUiReadyNotified, true);
 });
@@ -733,6 +760,8 @@ test('a Home card is not a session proof for other routes', () => {
     const { calls, win } = loadShell({
         withCards: true,
         noUserWidget: true,
+        mediaLibSessionProofKnown: false,
+        mediaLibSessionProven: false,
         locationPath: '/search',
         rootMode: 'fallback'
     });

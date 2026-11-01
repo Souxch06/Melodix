@@ -51,12 +51,15 @@ function makePage({
     libraryStatus = 'pending',
     libraryError = '',
     rawItemCount = 0,
-    mediaLibSessionProofKnown = false,
-    mediaLibSessionProven = false,
-    mediaLib
+    mediaLibSessionProofKnown,
+    mediaLibSessionProven,
+    mediaLib,
+    profileControl = false
 } = {}) {
     const sectionBody = cards.map((card) => cardMarkup(card)).join('\n');
     const content = `<section data-testid="shelf"><h2>Vos recommandations</h2>${sectionBody}</section>`;
+    const profileMarkup = profileControl
+        ? '<button data-testid="user-widget-link">Compte</button>' : '';
     const original = rootVariant === 'semantic-main'
         ? `<main id="spotify-home-content" data-testid="home-page">${content}</main>`
         : rootVariant === 'bounded-fallback'
@@ -65,7 +68,7 @@ function makePage({
     let css = cssSource;
     if (!marker) css = css.replace('SF_MELODIX_HOME_STYLES_V1', 'SF_MELODIX_HOME_STYLES_REMOVED');
     const style = includeCss ? `<style id="sf-custom-style">${css}</style>` : '';
-    const dom = new JSDOM(`<!doctype html><html lang="fr"><head>${style}</head><body>${original}</body></html>`, {
+    const dom = new JSDOM(`<!doctype html><html lang="fr"><head>${style}</head><body>${original}${profileMarkup}</body></html>`, {
         url: `https://${host}${pathname}`,
         runScripts: 'outside-only',
         pretendToBeVisual: true
@@ -73,11 +76,13 @@ function makePage({
     const { window } = dom;
     const traces = [];
     window.SF_CONFIG = { guiMode };
-    // Renderer fixtures explicitly model the native shell's authenticated
-    // session proof. Tests for the unauthenticated gate set this false.
+    // Fixtures model successful private-response proof independently from the
+    // stale/native UI hint. A profile/native flag alone is not authentication.
     window.__sfNativeUiSessionProven = sessionProven;
-    window.__sfMediaLibSessionProofKnown = mediaLibSessionProofKnown;
-    window.__sfMediaLibSessionProven = mediaLibSessionProven;
+    window.__sfMediaLibSessionProofKnown = typeof mediaLibSessionProofKnown === 'boolean'
+        ? mediaLibSessionProofKnown : sessionProven;
+    window.__sfMediaLibSessionProven = typeof mediaLibSessionProven === 'boolean'
+        ? mediaLibSessionProven : sessionProven;
     window.__sfMediaLibStatus = libraryStatus;
     window.__sfMediaLibError = libraryError;
     window.__sfMediaLibRawItemCount = rawItemCount;
@@ -333,23 +338,25 @@ test('authenticated empty, loading and failed collection states stay inside a vi
     }
 
     const sessionFailure = makePage({
-        cards: [],
-        // The native shell has an independent profile-control proof here; the
-        // API's 401 changes library state but does not silently revoke that proof.
+        cards: [{ id: 'public-card', title: 'Carte publique' }],
+        profileControl: true,
+        // Stale native/UI signal plus a known negative private response must
+        // leave both the public card and Spotify's original page in the WebView.
         sessionProven: true,
         mediaLibSessionProofKnown: true,
         mediaLibSessionProven: false,
         libraryStatus: 'error',
-        libraryError: 'token-missing'
+        libraryError: 'http-401',
+        mediaLib: { playlists: [{ uri: 'spotify:playlist:stale', name: 'Donnée périmée' }] }
     });
     try {
-        assertWebHomeVisible(sessionFailure, 0);
-        const status = homeElement(sessionFailure).querySelector('.sf-melodix-home__status');
-        const action = status.querySelector('.sf-melodix-home__retry');
-        assert.equal(status.dataset.state, 'error');
-        assert.equal(action.dataset.action, 'spotify-sign-in');
-        assert.equal(action.textContent, 'Se reconnecter');
-        assert.match(status.textContent, /session Spotify doit être rétablie/i);
+        assert.equal(homeElement(sessionFailure), null);
+        assert.equal(sessionFailure.window.__sfMelodixHomeDecision, 'session-rejected');
+        assert.equal(sessionFailure.window.__sfMelodixHomeSessionProven, false);
+        assert.equal(sessionFailure.document.body.classList.contains('sf-melodix-home-active'), false);
+        assert.equal(sessionFailure.document.querySelector('#main-view').style.display, '');
+        assert.equal(sessionFailure.document.querySelector('[data-testid="user-widget-link"]') !== null, true,
+            'the profile UI exists but is only a page signal');
     } finally {
         close(sessionFailure);
     }
@@ -548,18 +555,21 @@ test('unproven sessions, non-Home routes and unsupported GUI modes never hide Sp
     }
 });
 
-test('the Web Home waits for the native shell proof and updates when that proof arrives', async () => {
+test('the Web Home waits for the private library response and updates when API proof arrives', async () => {
     const page = makePage({ cards: [], sessionProven: false, libraryStatus: 'pending' });
     try {
         assert.equal(homeElement(page), null);
         assert.equal(page.window.__sfMelodixHomeDecision, 'session-unproven');
-        page.window.__sfNativeUiSessionProven = true;
-        page.window.dispatchEvent(new page.window.Event('sf-native-ui-session-proof-changed'));
+        page.window.__sfMediaLibSessionProofKnown = true;
+        page.window.__sfMediaLibSessionProven = true;
+        page.window.dispatchEvent(new page.window.Event('sf-media-library-state-changed'));
         await new Promise((resolve) => page.window.setTimeout(resolve, 120));
         assert.ok(homeElement(page));
         assert.equal(page.window.__sfMelodixHomeDecision, 'rendered-status-loading');
         assert.equal(homeElement(page).querySelector('.sf-melodix-home__status').dataset.state, 'loading');
         assert.equal(page.window.__sfMelodixHomeSessionProven, true);
+        assert.equal(page.window.__sfNativeUiSessionProven, false,
+            'the Web renderer relies on its API proof, not a native-shell auth flag');
     } finally {
         close(page);
     }

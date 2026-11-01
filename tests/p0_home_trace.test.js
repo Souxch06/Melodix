@@ -36,7 +36,7 @@ test('WebView, Spotify route, bridge phases and Home transfer use safe state enu
   const shell = read('scripts/native_ui_shell.source.js');
   assert.match(shell, /function traceWebViewState\(\)/);
   assert.match(shell, /webview-state ready=' \+ ready \+ ' host=' \+ host/);
-  assert.match(shell, /route=' \+ spotifyRouteCategory\(\) \+ ' session=' \+ session/);
+  assert.match(shell, /route=' \+ spotifyRouteCategory\(\) \+ ' session=' \+ session \+\n\s+' proof=' \+ proof \+ ' page=' \+ page/);
   assert.match(shell, /diagTrace\('spotify-route route=' \+ routeCategory \+ ' session=' \+ sessionBit\)/);
   assert.match(shell, /home-data stage=web-to-android rows=/);
   const renderer = read('scripts/melodix_home.source.js');
@@ -60,12 +60,15 @@ test('Android accepts structured JS diagnostics only through a strict bounded gr
   assert.match(sanitizer, /safeStructuredDiagnosticEvent\(Ljava\/lang\/String;\)Z/,
     'structured traces are checked before any legacy event-family label');
   for (const event of [
-    'webview-state ready=', 'spotify-route route=', 'home-guard guard=', 'home-css marker=',
+    'webview-state ready=', 'library-fetch phase=', 'spotify-route route=', 'home-guard guard=', 'home-css marker=',
     'home-node exists=', 'home-web decision=', 'home-data stage=(web-to-android|web-rendered)',
     'home-data stage=android-received', 'home-data stage=android-rendered',
     'home-final owner=', 'bridge-load phase='
   ]) assert.ok(structured.includes(event), `missing strict grammar for ${event}`);
-  assert.match(structured, /session=\(0\|1\)/);
+  assert.match(structured, /session=\(0\|1\) proof=\(unknown\|valid\|invalid\) page=\(profile\|none\)/);
+  assert.match(structured, /library-fetch phase=\(request\|response\|parse\|transform\|settle\) http=/);
+  assert.match(structured, /mime=\(json\|html\|other\|missing\).*error=\(none\|empty\|http-401\|http-403/);
+  assert.match(structured, /proof=\(unknown\|valid\|invalid\) page=\(profile\|none\)/);
   assert.match(structured, /cards=\[0-9\]\{1,3\}/);
   assert.match(structured, /width=\[0-9\]\{1,5\}/);
   assert.match(structured, /bridge-load phase=\(read-start\|read-end\|exec-start\|exec-end\)/);

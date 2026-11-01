@@ -529,7 +529,12 @@
 
     # Event-specific patterns preserve diagnostic values only when every value
     # is a fixed enum, a 0/1 proof, or a bounded numeric count/dimension.
-    const-string v0, "^webview-state ready=(loading|interactive|complete|unknown) host=(spotify|accounts|other) route=(home|search|library|playlist|album|artist|track|show|episode|audiobook|login|other) session=(0|1) bridge=(0|1) visibility=(visible|hidden|unknown)$"
+    const-string v0, "^webview-state ready=(loading|interactive|complete|unknown) host=(spotify|accounts|other) route=(home|search|library|playlist|album|artist|track|show|episode|audiobook|login|other) session=(0|1) proof=(unknown|valid|invalid) page=(profile|none) bridge=(0|1) visibility=(visible|hidden|unknown)$"
+    invoke-virtual {p1, v0}, Ljava/lang/String;->matches(Ljava/lang/String;)Z
+    move-result v1
+    if-nez v1, :structured_safe
+
+    const-string v0, "^library-fetch phase=(request|response|parse|transform|settle) http=(0|[1-5][0-9]{2}) mime=(json|html|other|missing) duration=[0-9]{1,6} error=(none|empty|http-401|http-403|http-other|timeout|network|non-json|invalid-json|unexpected-shape|graphql|parse|transform) received=(0|[1-9][0-9]{0,2}|1000) transformed=(0|[1-9][0-9]{0,2}|1000) proof=(unknown|valid|invalid) page=(profile|none)$"
     invoke-virtual {p1, v0}, Ljava/lang/String;->matches(Ljava/lang/String;)Z
     move-result v1
     if-nez v1, :structured_safe
@@ -554,7 +559,7 @@
     move-result v1
     if-nez v1, :structured_safe
 
-    const-string v0, "^home-web decision=(body-missing|route-not-home|gui-mode-unsupported|fullscreen-open|session-unproven|styles-not-ready|visible|status-visible-(loading|empty|error|unavailable)|activation-visibility-check-failed|rendered|rendered-partial|updated|rendered-status-(loading|empty|error|unavailable)) mode=(csshack|bigwindow|other|missing) route=(home|search|library|playlist|album|artist|track|show|episode|audiobook|login|other) session=(0|1|unknown) styles=(0|1) cards=[0-9]{1,3} sections=[0-9]{1,3} root=(0|1|unknown) library=(absent|pending|loading|ready|error|other)$"
+    const-string v0, "^home-web decision=(body-missing|route-not-home|gui-mode-unsupported|fullscreen-open|session-unproven|session-rejected|styles-not-ready|visible|status-visible-(loading|empty|error|unavailable)|activation-visibility-check-failed|rendered|rendered-partial|updated|rendered-status-(loading|empty|error|unavailable)) mode=(csshack|bigwindow|other|missing) route=(home|search|library|playlist|album|artist|track|show|episode|audiobook|login|other) session=(0|1|unknown) styles=(0|1) cards=[0-9]{1,3} sections=[0-9]{1,3} root=(0|1|unknown) library=(absent|pending|loading|ready|error|other)$"
     invoke-virtual {p1, v0}, Ljava/lang/String;->matches(Ljava/lang/String;)Z
     move-result v1
     if-nez v1, :structured_safe
