@@ -445,14 +445,44 @@ jobs:
           if adb shell pm path com.melodix.music.preview 2>/dev/null | grep -Fq 'package:'; then
             preview_package_installed=true
           fi
-          registered_runner="$(adb shell pm list instrumentation 2>/dev/null | tr -d '\r' | grep -F 'com.melodix.music.preview.test/com.melodix.test.HomeRenderInstrumentation' | grep -F 'target=com.melodix.music.preview' | head -n 1 || true)"
-          runner_registered=false
-          if [[ -n "$registered_runner" ]]; then
-            runner_registered=true
-          fi
-          echo "::notice title=Android harness registration::test_package_installed=$test_package_installed; preview_package_installed=$preview_package_installed; expected_runner_registered=$runner_registered"
+          adb shell pm list instrumentation > "$state_dir/pm-instrumentation-list.txt" 2>&1 || true
+          adb shell dumpsys package com.melodix.music.preview.test > "$state_dir/pm-test-package-dump.txt" 2>&1 || true
+          registration_summary="$(python3 - "$state_dir/pm-instrumentation-list.txt" "$state_dir/pm-test-package-dump.txt" <<'PY'
+          import pathlib
+          import re
+          import sys
+
+          pm_text = pathlib.Path(sys.argv[1]).read_text(encoding="utf-8", errors="replace")
+          package_text = pathlib.Path(sys.argv[2]).read_text(encoding="utf-8", errors="replace")
+          lines = [line.strip() for line in pm_text.splitlines() if "instrumentation:" in line.lower()]
+          test_package = "com.melodix.music.preview.test"
+          runner_class = "com.melodix.test.HomeRenderInstrumentation"
+          target_re = re.compile(r"target(?:Package)?[=:]\s*com\.melodix\.music\.preview(?![A-Za-z0-9_.])", re.I)
+          matching_lines = [line for line in lines if test_package in line and runner_class in line and target_re.search(line)]
+          test_seen = any(test_package in line for line in lines)
+          runner_seen = any(runner_class in line for line in lines)
+          target_seen = any(target_re.search(line) for line in lines)
+          package_runner_seen = runner_class in package_text
+          package_target_seen = bool(re.search(r"target(?:Package)?[=:]\s*com\.melodix\.music\.preview(?![A-Za-z0-9_.])", package_text, re.I))
+          unknown_command = bool(re.search(r"Unknown command", pm_text, re.I))
+          registered = bool(matching_lines)
+          print("; ".join((
+              f"expected_runner_registered={str(registered).lower()}",
+              f"pm_instrumentation_entries={len(lines)}",
+              f"pm_test_package_entry={str(test_seen).lower()}",
+              f"pm_runner_class_entry={str(runner_seen).lower()}",
+              f"pm_target_entry={str(target_seen).lower()}",
+              f"pm_list_unknown_command={str(unknown_command).lower()}",
+              f"package_dump_runner_seen={str(package_runner_seen).lower()}",
+              f"package_dump_target_seen={str(package_target_seen).lower()}"
+          )))
+          PY
+          )"
+          runner_registered="$(printf '%s\n' "$registration_summary" | sed -n 's/.*expected_runner_registered=\([^;]*\).*/\1/p')"
+          rm -f "$state_dir/pm-instrumentation-list.txt" "$state_dir/pm-test-package-dump.txt"
+          echo "::notice title=Android harness registration::test_package_installed=$test_package_installed; preview_package_installed=$preview_package_installed; $registration_summary"
           if [[ "$test_package_installed" != "true" || "$preview_package_installed" != "true" || "$runner_registered" != "true" ]]; then
-            echo "::error title=Android harness registration::test_package_installed=$test_package_installed; preview_package_installed=$preview_package_installed; expected_runner_registered=$runner_registered"
+            echo "::error title=Android harness registration::test_package_installed=$test_package_installed; preview_package_installed=$preview_package_installed; $registration_summary"
             exit 1
           fi
           set +e
