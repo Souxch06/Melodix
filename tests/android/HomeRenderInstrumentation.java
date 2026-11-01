@@ -1251,7 +1251,9 @@ public final class HomeRenderInstrumentation extends Instrumentation {
         finalState.putString("overall", authenticatedHomeObserved
                 ? transitionCoverage ? "authenticated_home_observation_complete"
                 : "authenticated_home_observed_navigation_incomplete"
-                : "blocked_no_verified_home_playlist_observed");
+                : finalState.getBoolean("authenticated_session", false)
+                ? "blocked_no_verified_home_playlist_observed"
+                : "blocked_no_authenticated_home_observed");
         finalState.putBoolean("authenticated_home_test_performed", authenticatedHomeObserved);
         finalState.putBoolean("authenticated_home_requires_real_playlist", true);
         finalState.putBoolean("real_library_playlist_observed", authenticatedHomeObserved);

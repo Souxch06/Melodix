@@ -175,6 +175,8 @@ test('the CI Home integration contains no fake account data or credentials and l
   assert.match(harness, /window\.__sfMediaLibSessionProofKnown=true;window\.__sfMediaLibSessionProven=true/,
     'the isolated fixture supplies API-proof-shaped flags only for renderer testing; it is not labeled as Spotify authentication');
   assert.match(harness, /authenticated_home_requires_real_playlist/);
+  assert.match(harness, /finalState\.getBoolean\("authenticated_session", false\)[\s\S]*?blocked_no_verified_home_playlist_observed[\s\S]*?blocked_no_authenticated_home_observed/,
+    'the no-session CI observer keeps its expected result, while a proven empty library remains explicitly blocked');
   assert.match(harness, /if \(validSpotifyPage && sessionProven && probe\.optBoolean\("home_route"\)\s*&& realPlaylistObserved\) \{[\s\S]*?authenticatedHomeObserved = true;/,
     'authenticated-home observation is not marked performed until an actual playlist count is observed');
   assert.match(harness, /authenticated_home_test_performed", false/);
