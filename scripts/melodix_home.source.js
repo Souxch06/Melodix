@@ -506,8 +506,21 @@ function melodixHomeStylesPresent() {
 }
 
 function melodixHomeStylesReady(mainView, home) {
-    if (!melodixHomeStylesPresent()) return false;
-    if (typeof window.getComputedStyle !== 'function' || !mainView || !home) return false;
+    const result = {
+        marker_present: melodixHomeStylesPresent(),
+        computed_style_available: typeof window.getComputedStyle === 'function' && Boolean(mainView && home),
+        home_display_flex: false,
+        home_position_fixed: false,
+        home_visibility_visible: false,
+        home_opacity_nonzero: false,
+        home_z_index_high: false,
+        main_hidden: false,
+        probe_error: false
+    };
+    if (!result.marker_present || !result.computed_style_available) {
+        window.__sfMelodixHomeStyleProbeResult = result;
+        return false;
+    }
 
     const wasActive = document.body.classList.contains(MELODIX_HOME_ACTIVE_CLASS);
     let homeStyle;
@@ -518,16 +531,24 @@ function melodixHomeStylesReady(mainView, home) {
         homeStyle = window.getComputedStyle(home);
         mainStyle = window.getComputedStyle(mainView);
     } catch (_) {
+        result.probe_error = true;
+        window.__sfMelodixHomeStyleProbeResult = result;
         return false;
     } finally {
         document.body.classList.remove(MELODIX_HOME_STYLE_PROBE_CLASS);
         if (wasActive) document.body.classList.add(MELODIX_HOME_ACTIVE_CLASS);
     }
     const zIndex = Number.parseInt(homeStyle && homeStyle.zIndex || '0', 10) || 0;
+    result.home_display_flex = Boolean(homeStyle && homeStyle.display === 'flex');
+    result.home_position_fixed = Boolean(homeStyle && homeStyle.position === 'fixed');
+    result.home_visibility_visible = Boolean(homeStyle && homeStyle.visibility === 'visible');
+    result.home_opacity_nonzero = Boolean(homeStyle && homeStyle.opacity !== '0');
+    result.home_z_index_high = zIndex >= 1000;
+    result.main_hidden = Boolean(mainStyle && mainStyle.display === 'none');
+    window.__sfMelodixHomeStyleProbeResult = result;
     return Boolean(
-        homeStyle && homeStyle.display === 'flex' && homeStyle.position === 'fixed' &&
-        homeStyle.visibility === 'visible' && homeStyle.opacity !== '0' &&
-        mainStyle && mainStyle.display === 'none' && zIndex >= 1000
+        result.home_display_flex && result.home_position_fixed && result.home_visibility_visible &&
+        result.home_opacity_nonzero && result.main_hidden && result.home_z_index_high
     );
 }
 

@@ -111,6 +111,7 @@ public final class HomeRenderInstrumentation extends Instrumentation {
             "var brand=h&&h.querySelector('.sf-melodix-home__brand');" +
             "var card=cards&&cards.length?cards[0]:null;" +
             "var decision=String(window.__sfMelodixHomeDecision||'');" +
+            "var rendererStyle=window.__sfMelodixHomeStyleProbeResult||{};" +
             "var rootResourceCount=Math.max(0,Number(window.__sfMelodixHomeRootResourceCount)||0);" +
             "var sourceCardCount=Math.max(0,Number(window.__sfMelodixHomeSourceCardCount)||0);" +
             "var styleProbe=(function(){var b=document.body;var p=h;var created=false;" +
@@ -140,6 +141,15 @@ public final class HomeRenderInstrumentation extends Instrumentation {
             "decision_fullscreen_open:decision==='fullscreen-open'," +
             "style_probe_completed:styleProbe.completed," +
             "style_retry_count:Math.max(0,Math.min(6,Number(window.__sfMelodixHomeStyleRetryCount)||0))," +
+            "renderer_style_probe_marker_present:rendererStyle.marker_present===true," +
+            "renderer_style_probe_computed_style_available:rendererStyle.computed_style_available===true," +
+            "renderer_style_probe_home_display_flex:rendererStyle.home_display_flex===true," +
+            "renderer_style_probe_home_position_fixed:rendererStyle.home_position_fixed===true," +
+            "renderer_style_probe_home_visibility_visible:rendererStyle.home_visibility_visible===true," +
+            "renderer_style_probe_home_opacity_nonzero:rendererStyle.home_opacity_nonzero===true," +
+            "renderer_style_probe_home_z_index_high:rendererStyle.home_z_index_high===true," +
+            "renderer_style_probe_main_hidden:rendererStyle.main_hidden===true," +
+            "renderer_style_probe_error:rendererStyle.probe_error===true," +
             "style_probe_home_display_flex:styleProbe.home_display_flex," +
             "style_probe_home_position_fixed:styleProbe.home_position_fixed," +
             "style_probe_home_visibility_visible:styleProbe.home_visibility_visible," +
@@ -832,6 +842,15 @@ public final class HomeRenderInstrumentation extends Instrumentation {
             state.putBoolean("web_home_probe_decision_fullscreen_open", probe.optBoolean("decision_fullscreen_open"));
             state.putBoolean("web_home_probe_style_probe_completed", probe.optBoolean("style_probe_completed"));
             state.putInt("web_home_probe_style_retry_count", Math.max(0, Math.min(6, probe.optInt("style_retry_count"))));
+            state.putBoolean("web_home_probe_renderer_style_probe_marker_present", probe.optBoolean("renderer_style_probe_marker_present"));
+            state.putBoolean("web_home_probe_renderer_style_probe_computed_style_available", probe.optBoolean("renderer_style_probe_computed_style_available"));
+            state.putBoolean("web_home_probe_renderer_style_probe_home_display_flex", probe.optBoolean("renderer_style_probe_home_display_flex"));
+            state.putBoolean("web_home_probe_renderer_style_probe_home_position_fixed", probe.optBoolean("renderer_style_probe_home_position_fixed"));
+            state.putBoolean("web_home_probe_renderer_style_probe_home_visibility_visible", probe.optBoolean("renderer_style_probe_home_visibility_visible"));
+            state.putBoolean("web_home_probe_renderer_style_probe_home_opacity_nonzero", probe.optBoolean("renderer_style_probe_home_opacity_nonzero"));
+            state.putBoolean("web_home_probe_renderer_style_probe_home_z_index_high", probe.optBoolean("renderer_style_probe_home_z_index_high"));
+            state.putBoolean("web_home_probe_renderer_style_probe_main_hidden", probe.optBoolean("renderer_style_probe_main_hidden"));
+            state.putBoolean("web_home_probe_renderer_style_probe_error", probe.optBoolean("renderer_style_probe_error"));
             state.putBoolean("web_home_probe_style_probe_home_display_flex", probe.optBoolean("style_probe_home_display_flex"));
             state.putBoolean("web_home_probe_style_probe_home_position_fixed", probe.optBoolean("style_probe_home_position_fixed"));
             state.putBoolean("web_home_probe_style_probe_home_visibility_visible", probe.optBoolean("style_probe_home_visibility_visible"));

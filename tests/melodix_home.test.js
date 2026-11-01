@@ -393,6 +393,8 @@ test('a transient Android-style computed-CSS delay is retried before Home activa
         vm.runInContext(rendererSource, page.dom.getInternalVMContext(), { timeout: 5000 });
         assert.equal(page.window.__sfMelodixHomeDecision, 'styles-not-ready');
         assert.equal(homeElement(page).style.display, 'none');
+        assert.equal(page.window.__sfMelodixHomeStyleProbeResult.home_display_flex, false,
+            'the first renderer-owned probe records the transient CSS mismatch');
         assert.equal(page.document.body.classList.contains('sf-melodix-home-active'), false);
 
         await new Promise((resolve) => page.window.setTimeout(resolve, 450));
@@ -400,6 +402,7 @@ test('a transient Android-style computed-CSS delay is retried before Home activa
         assert.equal(delayedHomeStyleReads, 1, 'the first computed-style read simulates late WebView CSS application');
         assertWebHomeVisible(page, 2);
         assert.ok(['rendered', 'updated', 'visible'].includes(page.window.__sfMelodixHomeDecision));
+        assert.equal(page.window.__sfMelodixHomeStyleProbeResult.home_display_flex, true);
         assert.equal(page.window.__sfHomeTest.styleRetryCount(), 0, 'successful computed styles clear retry state');
     } finally {
         close(page);
@@ -423,6 +426,9 @@ test('persistent CSS readiness failure is bounded and never hides the original S
         await new Promise((resolve) => page.window.setTimeout(resolve, 1050));
 
         assert.equal(page.window.__sfHomeTest.styleRetryCount(), 6, 'readiness retries stop at the configured bound');
+        assert.equal(page.window.__sfMelodixHomeStyleProbeResult.marker_present, true);
+        assert.equal(page.window.__sfMelodixHomeStyleProbeResult.home_display_flex, false);
+        assert.equal(page.window.__sfMelodixHomeStyleProbeResult.probe_error, false);
         assert.equal(page.window.__sfMelodixHomeDecision, 'styles-not-ready');
         assert.equal(page.document.body.classList.contains('sf-melodix-home-active'), false);
         assert.equal(homeElement(page).style.display, 'none');
