@@ -820,6 +820,22 @@ jobs:
             safe_mobile_viewport_statuses="$(grep -E '^INSTRUMENTATION_STATUS: (phase|mobile_viewport_[A-Za-z0-9_-]+)=' "$state_dir/android-instrumentation.txt" | tr '\n' ';' | tail -c 1400 || true)"
             safe_mobile_viewport_logs="$(grep -E 'MelodixHarness: phase=mobile_viewport_[0-9]+_[a-z0-9_]+' "$state_dir/instrumentation-safe-logcat.txt" | sed -E 's/^.*MelodixHarness: //' | tr '\n' ';' | tail -c 500 || true)"
             mobile_matrix_failure_phase="$(sed -n 's/^INSTRUMENTATION_STATUS: failure_phase=//p' "$state_dir/android-instrumentation.txt" | head -n 1 | grep -E '^[a-z0-9_]+$' || true)"
+            status_metric() {
+              local key="$1" line value
+              line="$(grep -F "INSTRUMENTATION_STATUS: ${key}=" "$state_dir/android-instrumentation.txt" | tail -n 1 || true)"
+              value="${line#*=}"
+              if [[ "$value" =~ ^(-?[0-9]+([.][0-9]+)?|true|false)$ ]]; then printf '%s' "$value"; else printf 'na'; fi
+            }
+            safe_mobile_viewport_width_summary="$(for width in 360 384 393 412; do
+              printf '%s:measured=%s,inner=%s/%s/%s,visual=%s,scale=%s;' \
+                "$width" \
+                "$(status_metric "mobile_viewport_${width}_width_measured")" \
+                "$(status_metric "mobile_viewport_${width}_compact_inner_width_css_px")" \
+                "$(status_metric "mobile_viewport_${width}_library-open_inner_width_css_px")" \
+                "$(status_metric "mobile_viewport_${width}_expanded_inner_width_css_px")" \
+                "$(status_metric "mobile_viewport_${width}_compact_visual_width_css_px")" \
+                "$(status_metric "mobile_viewport_${width}_compact_visual_scale")"
+            done | tail -c 600)"
             safe_harness_logs="$(grep -E 'MelodixHarness: (instrumentation_onCreate_entered|instrumentation_onCreate_returned|instrumentation_runner_thread_started|instrumentation_onStart_entered|instrumentation_onStart_super_returned|empty_home_evidence_captured|home_status_evidence_captured|web_home_route_evidence_captured|started|phase=[a-z0-9_]+|failure phase=[a-z_]+ type=[A-Za-z0-9_$]+|completed)$' "$state_dir/instrumentation-safe-logcat.txt" | sed -E 's/^.*MelodixHarness: //' | tr '\n' ';' | tail -c 700 || true)"
             transcript_bytes="$(wc -c < "$state_dir/android-instrumentation.txt" | tr -d '[:space:]')"
             framework_summary="$(python3 - "$state_dir/android-instrumentation.txt" <<'PY'
@@ -902,7 +918,7 @@ jobs:
           )"
             rm -f "$activity_dump" "$system_logcat"
             if [[ "${mobile_matrix_failure_phase:-none}" == "mobile_viewport_layout_matrix" ]]; then
-              echo "::error title=Android mobile viewport matrix::safe_stages=${safe_mobile_viewport_logs:-none}; safe_case_statuses=${safe_mobile_viewport_statuses:-none}"
+              echo "::error title=Android mobile viewport matrix::safe_stages=${safe_mobile_viewport_logs:-none}; width_summary=${safe_mobile_viewport_width_summary:-none}; safe_case_statuses=${safe_mobile_viewport_statuses:-none}"
             fi
             echo "::error title=Android UI instrumentation::exit=$instrumentation_status; harness_overall_passed=$harness_overall_passed; target_debuggable=$TARGET_DEBUGGABLE; target_pid=${target_pid:-none}; test_package_pid=${test_pid:-none}; home_color_summary=${safe_home_color_summary:-none}; safe_statuses=${safe_statuses:-none}; harness_markers=${safe_harness_logs:-none}; transcript_bytes=$transcript_bytes; $framework_summary; $system_diagnostics"
             exit 1
