@@ -365,7 +365,8 @@ test("Android records measured mobile viewport geometry and native system-bar in
   assert.match(workflow, /mobile_viewport_\[A-Za-z0-9_\-\]\+\|android_window_insets_available/);
   for (const field of [
     "mobile_viewport_matrix_fixture_test_only", "mobile_viewport_matrix_measurements_complete",
-    "mobile_viewport_layout_contract_passed", "mobile_viewport_width_cases", "android_system_insets"
+    "mobile_viewport_layout_contract_passed", "mobile_viewport_width_cases", "android_system_insets",
+    "safe_mobile_viewport_statuses", "safe_mobile_viewport_logs"
   ]) {
     assert.ok(workflow.includes(field), `the safe run summary should retain ${field}`);
   }

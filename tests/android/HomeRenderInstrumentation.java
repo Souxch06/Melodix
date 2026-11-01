@@ -2298,17 +2298,29 @@ public final class HomeRenderInstrumentation extends Instrumentation {
         boolean expandedPassed = true;
         Bundle nativeInsets = measureAndroidWindowInsets(activity);
         result.putAll(nativeInsets);
+        Bundle insetStatus = new Bundle(nativeInsets);
+        insetStatus.putString("phase", "mobile_viewport_android_system_insets");
+        insetStatus.putBoolean("mobile_viewport_matrix_fixture_test_only", true);
+        insetStatus.putBoolean("authenticated_home_test_performed", false);
+        sendStatus(1, insetStatus);
         int safeTopInsetDp = nativeInsets.getBoolean("android_window_insets_available", false)
                 ? Math.max(0, Math.min(256, (int) Math.round(nativeInsets.getDouble("android_status_bar_inset_css_px", 0))))
                 : statusBarInsetDp(activity);
 
         for (int viewportWidth : MOBILE_VIEWPORT_MATRIX_WIDTHS) {
-            notePhase("mobile_viewport_" + viewportWidth + "_fixture_create");
+            String stage = "fixture_create";
+            notePhase("mobile_viewport_" + viewportWidth + "_" + stage);
             WebView fixture = null;
             try {
                 fixture = createMobileViewportFixture(activity, viewportWidth);
+                stage = "css_install";
+                notePhase("mobile_viewport_" + viewportWidth + "_" + stage);
                 installPackagedMobileViewportCss(fixture, activity, viewportWidth, safeTopInsetDp);
+                stage = "probe_execute";
+                notePhase("mobile_viewport_" + viewportWidth + "_" + stage);
                 JSONObject probe = new JSONObject(evaluateJavascriptAndWait(fixture, MOBILE_VIEWPORT_LAYOUT_PROBE));
+                stage = "probe_validate";
+                notePhase("mobile_viewport_" + viewportWidth + "_" + stage);
                 if (probe.optBoolean("probe_error", true) || !probe.optBoolean("fixture_test_only", false)) {
                     throw new AssertionError("Android WebView mobile viewport probe did not return fixture-only measurements");
                 }
@@ -2331,21 +2343,33 @@ public final class HomeRenderInstrumentation extends Instrumentation {
                         && widthMatches(expandedViewport, viewportWidth)
                         && boundedNumber(compactViewport, "visualWidth", -1) > 0
                         && boundedNumber(compactViewport, "visualScale", -1) > 0;
+                boolean compactCasePassed = compactViewportLayoutPassed(compact, viewportWidth);
+                boolean libraryCasePassed = libraryViewportLayoutPassed(libraryOpen, viewportWidth);
+                boolean expandedCasePassed = expandedViewportLayoutPassed(expanded, viewportWidth);
                 measurementsComplete &= widthMeasured;
-                compactPassed &= compactViewportLayoutPassed(compact, viewportWidth);
-                libraryPassed &= libraryViewportLayoutPassed(libraryOpen, viewportWidth);
-                expandedPassed &= expandedViewportLayoutPassed(expanded, viewportWidth);
+                compactPassed &= compactCasePassed;
+                libraryPassed &= libraryCasePassed;
+                expandedPassed &= expandedCasePassed;
                 result.putBoolean("mobile_viewport_" + viewportWidth + "_width_measured", widthMeasured);
-                result.putBoolean("mobile_viewport_" + viewportWidth + "_compact_geometry_passed",
-                        compactViewportLayoutPassed(compact, viewportWidth));
-                result.putBoolean("mobile_viewport_" + viewportWidth + "_library_navigation_passed",
-                        libraryViewportLayoutPassed(libraryOpen, viewportWidth));
-                result.putBoolean("mobile_viewport_" + viewportWidth + "_expanded_overlay_passed",
-                        expandedViewportLayoutPassed(expanded, viewportWidth));
+                result.putBoolean("mobile_viewport_" + viewportWidth + "_compact_geometry_passed", compactCasePassed);
+                result.putBoolean("mobile_viewport_" + viewportWidth + "_library_navigation_passed", libraryCasePassed);
+                result.putBoolean("mobile_viewport_" + viewportWidth + "_expanded_overlay_passed", expandedCasePassed);
+                sendMobileViewportCaseStatus(viewportWidth, widthMeasured, compact, libraryOpen, expanded,
+                        compactCasePassed, libraryCasePassed, expandedCasePassed);
+                stage = "primary_webview_check";
+            } catch (Throwable error) {
+                reportMobileViewportFailure(viewportWidth, stage, error);
+                if (error instanceof InterruptedException) Thread.currentThread().interrupt();
+                if (error instanceof Exception) throw (Exception) error;
+                if (error instanceof Error) throw (Error) error;
+                throw new AssertionError("Android WebView mobile viewport measurement failed", error);
             } finally {
                 removeWebHomeRendererFixture(fixture);
             }
+            notePhase("mobile_viewport_" + viewportWidth + "_primary_webview_check");
             if (!originalWebViewStatePreserved(activity, originalWebView, originalUrl)) {
+                reportMobileViewportFailure(viewportWidth, "primary_webview_check",
+                        new AssertionError("The original Spotify WebView was not preserved"));
                 throw new AssertionError("The isolated mobile viewport fixture changed or obscured the original Spotify WebView");
             }
         }
@@ -2359,9 +2383,68 @@ public final class HomeRenderInstrumentation extends Instrumentation {
         result.putBoolean("original_login_webview_url_preserved", true);
         result.putBoolean("original_login_webview_still_visible", true);
         if (!measurementsComplete) {
+            result.putString("phase", "mobile_viewport_matrix_width_validation_failed");
+            result.putString("mobile_viewport_failure_type", "WidthMeasurementIncomplete");
+            notePhase("mobile_viewport_matrix_width_validation_failed");
+            sendStatus(2, result);
             throw new AssertionError("The Android WebView viewport-width matrix did not measure every requested CSS width");
         }
         return result;
+    }
+
+    private void sendMobileViewportCaseStatus(
+            int width, boolean widthMeasured, JSONObject compact, JSONObject libraryOpen, JSONObject expanded,
+            boolean compactPassed, boolean libraryPassed, boolean expandedPassed) {
+        Bundle status = new Bundle();
+        String prefix = "mobile_viewport_" + width + "_";
+        status.putString("phase", "mobile_viewport_case_complete");
+        status.putInt("mobile_viewport_current_width_css_px", width);
+        status.putBoolean("mobile_viewport_matrix_fixture_test_only", true);
+        status.putBoolean("authenticated_home_test_performed", false);
+        status.putBoolean(prefix + "width_measured", widthMeasured);
+        status.putBoolean(prefix + "compact_geometry_passed", compactPassed);
+        status.putBoolean(prefix + "library_navigation_passed", libraryPassed);
+        status.putBoolean(prefix + "expanded_overlay_passed", expandedPassed);
+        JSONObject compactViewport = compact.optJSONObject("viewport");
+        JSONObject compactSafeArea = compact.optJSONObject("safeArea");
+        JSONObject compactOverlap = compact.optJSONObject("overlap");
+        putProbeNumber(status, prefix + "compact_inner_width_css_px", compactViewport, "innerWidth");
+        putProbeNumber(status, prefix + "compact_inner_height_css_px", compactViewport, "innerHeight");
+        putProbeNumber(status, prefix + "compact_visual_width_css_px", compactViewport, "visualWidth");
+        putProbeNumber(status, prefix + "compact_visual_scale", compactViewport, "visualScale");
+        putProbeNumber(status, prefix + "compact_device_pixel_ratio", compactViewport, "devicePixelRatio");
+        putProbeNumber(status, prefix + "compact_safe_top_css_px", compactSafeArea, "topCustomInsetCssPx");
+        putProbeNumber(status, prefix + "compact_bottom_inset_inferred_css_px", compactSafeArea, "bottomInsetInferredCssPx");
+        putProbeNumber(status, prefix + "compact_dock_player_overlap_y_css_px", compactOverlap, "dockPlayerVerticalPx");
+        JSONObject compactSurfaces = compact.optJSONObject("surfaces");
+        JSONObject compactDock = surfaceState(compactSurfaces, "mobileNavigation");
+        JSONObject compactPlayer = surfaceState(compactSurfaces, "player");
+        status.putBoolean(prefix + "compact_dock_visible", surfaceVisible(compactDock));
+        status.putBoolean(prefix + "compact_player_visible", surfaceVisible(compactPlayer));
+        status.putString(prefix + "compact_dock_z_index", safeZIndex(compactDock == null ? null : compactDock.optJSONObject("style")));
+        status.putString(prefix + "compact_player_z_index", safeZIndex(compactPlayer == null ? null : compactPlayer.optJSONObject("style")));
+        JSONObject libraryOverlap = libraryOpen.optJSONObject("overlap");
+        putProbeNumber(status, prefix + "library_dock_player_overlap_y_css_px", libraryOverlap, "dockPlayerVerticalPx");
+        putProbeNumber(status, prefix + "library_sidebar_player_overlap_y_css_px", libraryOverlap, "sidebarPlayerVerticalPx");
+        JSONObject libraryHits = libraryOpen.optJSONObject("hitTargets");
+        status.putString(prefix + "library_sidebar_center_owner", safeProbeCategory(libraryHits, "sidebarCenterOwner"));
+        JSONObject expandedHits = expanded.optJSONObject("hitTargets");
+        status.putString(prefix + "expanded_center_owner", safeProbeCategory(expandedHits, "viewportCenterOwner"));
+        sendStatus(1, status);
+    }
+
+    private void reportMobileViewportFailure(int width, String stage, Throwable error) {
+        String safeStage = stage != null && stage.matches("[a-z0-9_]{1,32}") ? stage : "unknown";
+        String errorType = safeProbeErrorType(error == null ? "Error" : error.getClass().getSimpleName());
+        notePhase("mobile_viewport_" + width + "_" + safeStage + "_failed");
+        Bundle status = new Bundle();
+        status.putString("phase", "mobile_viewport_" + width + "_" + safeStage + "_failed");
+        status.putInt("mobile_viewport_current_width_css_px", width);
+        status.putString("mobile_viewport_failure_type", errorType);
+        status.putBoolean("mobile_viewport_matrix_fixture_test_only", true);
+        status.putBoolean("authenticated_home_test_performed", false);
+        sendStatus(2, status);
+        Log.e(HARNESS_TAG, "mobile viewport failure width=" + width + " stage=" + safeStage + " type=" + errorType);
     }
 
     private JSONObject findViewportState(org.json.JSONArray states, String name) {

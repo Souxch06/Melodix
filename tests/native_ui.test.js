@@ -105,6 +105,9 @@ test('Android WebView instruments real CSS layout states at all requested phone 
     assert.ok(matrix.includes('mobile_viewport_layout_contract_passed')
         && matrix.includes('mobile_viewport_matrix_measurements_complete'),
         'collected geometry and the visual layout contract are reported separately');
+    assert.ok(harness.includes('sendMobileViewportCaseStatus') && harness.includes('reportMobileViewportFailure')
+        && harness.includes('mobile_viewport_failure_type'),
+        'each Android width exposes bounded progress and failure-stage diagnostics without page text');
 });
 
 test('all native layout IDs are assigned stable public resource IDs', () => {
