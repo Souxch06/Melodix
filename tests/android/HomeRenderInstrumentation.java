@@ -838,6 +838,18 @@ public final class HomeRenderInstrumentation extends Instrumentation {
     }
 
     private void captureUiEvidence(String hierarchyName, String screenshotName, String phase) throws Exception {
+        String phasePrefix;
+        if ("empty-Home".equals(phase)) {
+            phasePrefix = "capture_empty_home";
+        } else if ("Home-status".equals(phase)) {
+            phasePrefix = "capture_home_status";
+        } else if ("Web-Home /app renderer".equals(phase)) {
+            phasePrefix = "capture_web_home_renderer";
+        } else {
+            phasePrefix = "capture_ui_evidence";
+        }
+
+        notePhase(phasePrefix + "_automation_setup");
         UiAutomation automation = getUiAutomation();
         AccessibilityServiceInfo serviceInfo = new AccessibilityServiceInfo();
         serviceInfo.eventTypes = AccessibilityEvent.TYPES_ALL_MASK;
@@ -846,10 +858,20 @@ public final class HomeRenderInstrumentation extends Instrumentation {
                 | AccessibilityServiceInfo.FLAG_REPORT_VIEW_IDS
                 | AccessibilityServiceInfo.FLAG_RETRIEVE_INTERACTIVE_WINDOWS;
         automation.setServiceInfo(serviceInfo);
-        AccessibilityNodeInfo root = automation.getRootInActiveWindow();
+
+        AccessibilityNodeInfo root = null;
+        for (int attempt = 0; attempt < 3 && root == null; attempt++) {
+            notePhase(phasePrefix + "_get_hierarchy");
+            root = automation.getRootInActiveWindow();
+            if (root == null && attempt < 2) {
+                waitForIdleSync();
+                Thread.sleep(100L);
+            }
+        }
         if (root == null) {
             throw new AssertionError("Android UI hierarchy was unavailable during the " + phase + " phase");
         }
+        notePhase(phasePrefix + "_serialize_hierarchy");
         StringBuilder hierarchy = new StringBuilder("<?xml version=\"1.0\" encoding=\"UTF-8\"?><hierarchy>");
         try {
             appendAccessibilityNodeXml(hierarchy, root);
@@ -857,14 +879,24 @@ public final class HomeRenderInstrumentation extends Instrumentation {
             root.recycle();
         }
         hierarchy.append("</hierarchy>");
+        notePhase(phasePrefix + "_write_hierarchy");
         try (FileOutputStream output = getTargetContext().openFileOutput(hierarchyName, Context.MODE_PRIVATE)) {
             output.write(hierarchy.toString().getBytes("UTF-8"));
         }
 
-        Bitmap screenshot = automation.takeScreenshot();
+        Bitmap screenshot = null;
+        for (int attempt = 0; attempt < 3 && screenshot == null; attempt++) {
+            notePhase(phasePrefix + "_take_screenshot");
+            screenshot = automation.takeScreenshot();
+            if (screenshot == null && attempt < 2) {
+                waitForIdleSync();
+                Thread.sleep(100L);
+            }
+        }
         if (screenshot == null) {
             throw new AssertionError("Android screenshot was unavailable during the " + phase + " phase");
         }
+        notePhase(phasePrefix + "_write_screenshot");
         try {
             try (FileOutputStream output = getTargetContext().openFileOutput(screenshotName, Context.MODE_PRIVATE)) {
                 if (!screenshot.compress(Bitmap.CompressFormat.PNG, 100, output)) {

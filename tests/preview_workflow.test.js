@@ -160,6 +160,8 @@ test("empty-Home pixels are captured before instrumentation finish and the same 
   assert.match(harness, /serviceInfo\.flags = AccessibilityServiceInfo\.FLAG_INCLUDE_NOT_IMPORTANT_VIEWS[\s\S]*?FLAG_REPORT_VIEW_IDS[\s\S]*?automation\.setServiceInfo\(serviceInfo\)/);
   assert.match(harness, /automation\.getRootInActiveWindow\(\)/);
   assert.match(harness, /automation\.takeScreenshot\(\)/);
+  assert.match(harness, /for \(int attempt = 0; attempt < 3 && root == null; attempt\+\+\)[\s\S]*?phasePrefix \+ "_get_hierarchy"[\s\S]*?for \(int attempt = 0; attempt < 3 && screenshot == null; attempt\+\+\)[\s\S]*?phasePrefix \+ "_take_screenshot"/);
+  assert.match(emulatorWorkflow, /safe_harness_logs=.*phase=\[a-z_\]\+/);
   assert.match(harness, /appendXmlAttribute\(xml, "bounds", bounds\.toShortString\(\)\)/);
   assert.doesNotMatch(harness, /bounds\.flattenToString\(\)/);
   assert.match(harness, /captureEmptyHomeUiEvidence\(\)[\s\S]*?captureUiEvidence\("melodix-preview-home-fallback\.xml", "melodix-preview-home-empty\.png"/);
