@@ -113,6 +113,21 @@ public final class HomeRenderInstrumentation extends Instrumentation {
             "var decision=String(window.__sfMelodixHomeDecision||'');" +
             "var rootResourceCount=Math.max(0,Number(window.__sfMelodixHomeRootResourceCount)||0);" +
             "var sourceCardCount=Math.max(0,Number(window.__sfMelodixHomeSourceCardCount)||0);" +
+            "var styleProbe=(function(){var b=document.body;var p=h;var created=false;" +
+            "var wasActive=!!(b&&b.classList.contains('sf-melodix-home-active'));" +
+            "var wasProbe=!!(b&&b.classList.contains('sf-melodix-home-style-probe'));" +
+            "var out={completed:false,home_display_flex:false,home_position_fixed:false," +
+            "home_visibility_visible:false,home_opacity_nonzero:false,home_z_index_high:false,main_hidden:false};" +
+            "try{if(!b||!m)return out;if(!p){p=document.createElement('main');p.id='sf-melodix-home';" +
+            "b.appendChild(p);created=true;}b.classList.remove('sf-melodix-home-active');" +
+            "b.classList.add('sf-melodix-home-style-probe');var ps=getComputedStyle(p);var ms=getComputedStyle(m);" +
+            "out={completed:true,home_display_flex:ps.display==='flex',home_position_fixed:ps.position==='fixed'," +
+            "home_visibility_visible:ps.visibility==='visible',home_opacity_nonzero:ps.opacity!=='0'," +
+            "home_z_index_high:(parseInt(ps.zIndex||'0',10)||0)>=1000,main_hidden:ms.display==='none'};" +
+            "}catch(_){}finally{if(created&&p&&p.parentNode)p.parentNode.removeChild(p);" +
+            "if(b){b.classList.remove('sf-melodix-home-style-probe');" +
+            "if(wasProbe)b.classList.add('sf-melodix-home-style-probe');" +
+            "if(wasActive)b.classList.add('sf-melodix-home-active');}}return out;})();" +
             "return {route_app:location.hostname==='open.spotify.com'&&location.pathname==='/app'," +
             "mode_csshack:!!(window.SF_CONFIG&&window.SF_CONFIG.guiMode==='csshack')," +
             "main_view_present:!!m,raw_anchor_count:Math.min(m?m.querySelectorAll('a[href]').length:0,3)," +
@@ -123,6 +138,13 @@ public final class HomeRenderInstrumentation extends Instrumentation {
             "decision_content_root_missing:decision==='content-root-missing'," +
             "decision_styles_not_ready:decision==='styles-not-ready'," +
             "decision_fullscreen_open:decision==='fullscreen-open'," +
+            "style_probe_completed:styleProbe.completed," +
+            "style_probe_home_display_flex:styleProbe.home_display_flex," +
+            "style_probe_home_position_fixed:styleProbe.home_position_fixed," +
+            "style_probe_home_visibility_visible:styleProbe.home_visibility_visible," +
+            "style_probe_home_opacity_nonzero:styleProbe.home_opacity_nonzero," +
+            "style_probe_home_z_index_high:styleProbe.home_z_index_high," +
+            "style_probe_main_hidden:styleProbe.main_hidden," +
             "init_attempted:window.__sfMelodixHomeInitAttempted===true," +
             "style_marker_present:!!(s&&String(s.textContent||'').indexOf('SF_MELODIX_HOME_STYLES_V1')>=0)," +
             "active_class:!!(document.body&&document.body.classList.contains('sf-melodix-home-active'))," +
@@ -807,6 +829,13 @@ public final class HomeRenderInstrumentation extends Instrumentation {
             state.putBoolean("web_home_probe_decision_content_root_missing", probe.optBoolean("decision_content_root_missing"));
             state.putBoolean("web_home_probe_decision_styles_not_ready", probe.optBoolean("decision_styles_not_ready"));
             state.putBoolean("web_home_probe_decision_fullscreen_open", probe.optBoolean("decision_fullscreen_open"));
+            state.putBoolean("web_home_probe_style_probe_completed", probe.optBoolean("style_probe_completed"));
+            state.putBoolean("web_home_probe_style_probe_home_display_flex", probe.optBoolean("style_probe_home_display_flex"));
+            state.putBoolean("web_home_probe_style_probe_home_position_fixed", probe.optBoolean("style_probe_home_position_fixed"));
+            state.putBoolean("web_home_probe_style_probe_home_visibility_visible", probe.optBoolean("style_probe_home_visibility_visible"));
+            state.putBoolean("web_home_probe_style_probe_home_opacity_nonzero", probe.optBoolean("style_probe_home_opacity_nonzero"));
+            state.putBoolean("web_home_probe_style_probe_home_z_index_high", probe.optBoolean("style_probe_home_z_index_high"));
+            state.putBoolean("web_home_probe_style_probe_main_hidden", probe.optBoolean("style_probe_main_hidden"));
             state.putBoolean("web_home_probe_init_attempted", probe.optBoolean("init_attempted"));
             state.putBoolean("web_home_probe_style_marker_present", probe.optBoolean("style_marker_present"));
             state.putBoolean("web_home_probe_active_class", probe.optBoolean("active_class"));
