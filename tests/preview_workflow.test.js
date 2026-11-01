@@ -261,6 +261,7 @@ test("Android verifies the packaged Web Home renderer on /app in an isolated, vi
   assert.match(fixture, /setBlockNetworkLoads\(true\)/);
   assert.match(fixture, /setDomStorageEnabled\(false\)/);
   assert.match(fixture, /Route fixture playlist[\s\S]*?Route fixture album/);
+  assert.match(fixture, /__sfMelodixHomeTestMode=true/);
   assert.doesNotMatch(fixture, /CookieManager|setCookie|localStorage|sessionStorage|loadUrl\s*\(/,
     "the offline fixture must not read/write the Spotify session or navigate the production WebView");
   assert.match(harness, /readPackagedAsset\(activity, "melodix_home\.js"\)/);
@@ -286,11 +287,36 @@ test("Android verifies the packaged Web Home renderer on /app in an isolated, vi
   assert.match(harness, /WEB_HOME_RENDERER_DIAGNOSTIC_PROBE[\s\S]*?home_card_count[\s\S]*?source_hidden[\s\S]*?first_card_has_bounds/);
   assert.match(harness, /main_view_present[\s\S]*?raw_anchor_count[\s\S]*?root_resource_count[\s\S]*?source_card_count[\s\S]*?session_proven[\s\S]*?decision_session_unproven[\s\S]*?decision_rendered_status[\s\S]*?decision_styles_not_ready[\s\S]*?style_probe_home_display_flex[\s\S]*?style_probe_main_hidden/);
   assert.match(harness, /web_home_probe_diagnostics_available[\s\S]*?web_home_probe_root_resource_count[\s\S]*?web_home_probe_decision_styles_not_ready[\s\S]*?web_home_probe_style_probe_completed[\s\S]*?web_home_probe_renderer_style_probe_marker_present[\s\S]*?web_home_probe_renderer_style_probe_error[\s\S]*?web_home_probe_style_probe_main_hidden[\s\S]*?web_home_probe_first_card_has_bounds/);
-  assert.match(emulatorWorkflow, /safe_statuses=.*web_home_probe_diagnostics_available.*web_home_probe_root_resource_count.*web_home_probe_style_probe_completed.*web_home_probe_renderer_style_probe_marker_present.*web_home_probe_renderer_style_probe_error.*web_home_probe_style_probe_main_hidden.*web_home_probe_first_card_has_bounds/);
+  assert.match(emulatorWorkflow, /safe_statuses=.*web_home_color_probe_\(completed\|error\|error_type\|validation_passed\).*web_home_\(normal\|loading\|empty\|error\|partial\)_\(state_\(visible\|wcag_aa_pass\|partial_data\|card_count\|library_status\)\|contrast_\[A-Za-z0-9_\]\+\|color_\[A-Za-z0-9_\]\+\).*web_home_probe_diagnostics_available.*web_home_probe_root_resource_count.*web_home_probe_style_probe_completed.*web_home_probe_renderer_style_probe_marker_present.*web_home_probe_renderer_style_probe_error.*web_home_probe_style_probe_main_hidden.*web_home_probe_first_card_has_bounds/);
   assert.match(emulatorWorkflow, /web_home_renderer_probe_renderer_style_probe_marker_present[\s\S]*?status_bool\("web_home_probe_renderer_style_probe_marker_present"\)/);
   assert.match(emulatorWorkflow, /harness_overall_passed=false[\s\S]*?INSTRUMENTATION_STATUS: overall=passed[\s\S]*?harness_overall_passed=true[\s\S]*?safe_statuses=/,
     "a runner can return exit zero after a canceled Activity, so fail from the harness result and retain safe phase diagnostics");
   assert.match(harness, /result\.putBoolean\("authenticated_home_test_performed", false\)/);
+  assert.match(harness, /inspectLiveSpotifyCssTheme\(webView\)[\s\S]*?live_webview_css_tokens_valid[\s\S]*?live_webview_home_active/,
+    "the existing Spotify WebView is observed directly, without replacing its login content or claiming an authenticated Home");
+  for (const profileField of [
+    "android_api_level", "android_release", "installed_webview_package_version",
+    "configured_ua_chrome_version", "javascript_user_agent_chrome_version", "client_hints_platform"
+  ]) assert.ok(harness.includes(profileField), `the sanitized runtime profile reports ${profileField}`);
+  for (const liveToken of ["--mel-bg", "--mel-home-status-stroke", "--mel-home-status-error-stroke"]) {
+    assert.ok(harness.includes(liveToken), `the live Spotify WebView probe observes ${liveToken}`);
+  }
+  assert.match(harness, /getHighEntropyValues\(\['fullVersionList','platformVersion','uaFullVersion'\]\)[\s\S]*?client_hints_platform_version[\s\S]*?JAVASCRIPT_UA_RESULT_PROBE/,
+    "Client Hints full version and platform version are read from the existing WebView and bounded by a timeout");
+  assert.match(harness, /client_hints_high_entropy_error_type[\s\S]*?javascript_user_agent_probe_error_type/);
+  assert.match(emulatorWorkflow, /client_hints_full_browser_version[\s\S]*?client_hints_platform_version[\s\S]*?client_hints_high_entropy_error_type/);
+  assert.match(harness, /WEB_HOME_COLOR_STATES_PROBE[\s\S]*?record\('normal'\)[\s\S]*?setState\('loading'[\s\S]*?setState\('ready'[\s\S]*?setState\('error'[\s\S]*?record\('partial'\)/,
+    "computed contrast is exercised for normal, loading, empty, error and partial-data fixture states");
+  assert.match(harness, /ratiosForState\.optDouble[\s\S]*?ratio < 4\.5/,
+    "computed WebView text/button contrast must clear WCAG AA");
+  assert.match(harness, /webHomeColorState = inspectWebHomeColorStates[\s\S]*?sendStatus\(1, webHomeColorState\)[\s\S]*?web_home_color_probe_validation_passed/,
+    "computed colors and failing contrast ratios are emitted safely before the test fails");
+  assert.match(harness, /retry_button_fill[\s\S]*?statusBackdrops/,
+    "the retry button fill and focus ring are compared to the actual status-card backdrop");
+  assert.match(emulatorWorkflow, /INSTRUMENTATION_STATUS: live_webview_css_tokens_valid=true[\s\S]*?INSTRUMENTATION_STATUS: web_home_all_states_wcag_aa_pass=true[\s\S]*?INSTRUMENTATION_STATUS: web_home_partial_state_wcag_aa_pass=true/);
+  assert.match(emulatorWorkflow, /live_webview_css_tokens_valid[\s\S]*?web_home_color_state_scenarios_complete[\s\S]*?retry_button_fill/);
+  assert.match(emulatorWorkflow, /css_source_sha256[\s\S]*?unzip -p "\$apk" assets\/css_hacks\.css[\s\S]*?css_source_matches_apk_asset/,
+    "the exact candidate carries the canonical CSS asset hash in the sanitized report");
   assert.match(inspector, /"web-home"[\s\S]*?web_home_fixture_playlist_title_visible[\s\S]*?web_home_fixture_album_title_visible/);
   assert.match(inspector, /test_only_resource_links_present[\s\S]*?authenticated_home_test_performed/);
   assert.match(inspector, /inspect_hierarchy\.py|Packaged Web Home renderer/);
@@ -319,17 +345,19 @@ test("the emulator workflow validates same-run instrumentation and exact release
   );
   assert.match(emulatorWorkflow, /build_only: true/);
   assert.match(emulatorWorkflow, /build-preview:[\s\S]*?target_debuggable: true[\s\S]*?apk_suffix: '-instrumentation'/);
-  assert.match(emulatorWorkflow, /build-release-candidate:[\s\S]*?target_debuggable: false[\s\S]*?apk_suffix: '-release-candidate'[\s\S]*?version_code_base: 1020947/);
+  assert.match(emulatorWorkflow, /default: v1\.2\.2-test\.96-preview[\s\S]*?build-release-candidate:[\s\S]*?release_tag: \$\{\{ inputs\.release_tag \|\| 'v1\.2\.2-test\.96-preview' \}\}[\s\S]*?target_debuggable: false[\s\S]*?apk_suffix: '-release-candidate'[\s\S]*?version_code_base: 1021019/);
+  assert.doesNotMatch(emulatorWorkflow, /release_tag: \$\{\{ inputs\.release_tag \|\| 'v1\.2\.2-test\.95-preview'/,
+    "the next release candidate targets .96 rather than overwriting the published .95 preview tag");
   assert.match(emulatorWorkflow, /install-and-launch:[\s\S]*?needs: \[build-preview, build-release-candidate\]/);
   assert.match(emulatorWorkflow, /Download the debuggable instrumentation APK built by this same run/);
   assert.match(emulatorWorkflow, /Download the non-debuggable release candidate built by this same run/);
   assert.match(emulatorWorkflow, /needs\.build-preview\.outputs\.apk_name/);
   assert.match(emulatorWorkflow, /needs\.build-release-candidate\.outputs\.apk_name/);
-  assert.match(emulatorWorkflow, /Verify the exact non-debuggable release candidate[\s\S]*?\[\[ "\$target_debuggable" == "false" \]\][\s\S]*?version_code > 1020947/);
+  assert.match(emulatorWorkflow, /Verify the exact non-debuggable release candidate[\s\S]*?\[\[ "\$target_debuggable" == "false" \]\][\s\S]*?version_code > 1021019/);
   assert.match(emulatorWorkflow, /Install and cold-launch the exact non-debuggable release candidate[\s\S]*?adb install \"\$RELEASE_APK\"[\s\S]*?activity_resumed=true/);
   assert.match(emulatorWorkflow, /Publish the exact validated Preview release candidate[\s\S]*?steps\.release-candidate-smoke\.outcome == 'success'[\s\S]*?gh release create/);
-  assert.match(emulatorWorkflow, /if: \(github\.event_name == 'workflow_dispatch' && inputs\.publish_preview == true \|\| github\.event_name == 'push' && startsWith\(github\.event\.head_commit\.message, '\[preview-release\] v1\.2\.2-test\.95-preview'\)\) && steps\.integration\.outcome == 'success'[\s\S]*?gh release create/);
-  assert.match(emulatorWorkflow, /PUBLISH_PREVIEW: \$\{\{ inputs\.publish_preview \|\| \(github\.event_name == 'push' && startsWith\(github\.event\.head_commit\.message, '\[preview-release\] v1\.2\.2-test\.95-preview'\)\) \}\}/,
+  assert.match(emulatorWorkflow, /if: \(github\.event_name == 'workflow_dispatch' && inputs\.publish_preview == true \|\| github\.event_name == 'push' && startsWith\(github\.event\.head_commit\.message, '\[preview-release\] v1\.2\.2-test\.96-preview'\)\) && steps\.integration\.outcome == 'success'[\s\S]*?gh release create/);
+  assert.match(emulatorWorkflow, /PUBLISH_PREVIEW: \$\{\{ inputs\.publish_preview \|\| \(github\.event_name == 'push' && startsWith\(github\.event\.head_commit\.message, '\[preview-release\] v1\.2\.2-test\.96-preview'\)\) \}\}/,
     'push-based Preview publication requires the explicit tag marker and still waits for every exact-APK validation');
   assert.match(emulatorWorkflow, /sha256sum -c "\$source_name\.sha256"[\s\S]*?cmp -s "\$RELEASE_APK" "\$final_apk"[\s\S]*?gh release create/);
   assert.match(emulatorWorkflow, /--target "\$SOURCE_REF"[\s\S]*?--prerelease/);

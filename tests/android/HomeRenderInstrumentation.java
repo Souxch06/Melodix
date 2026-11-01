@@ -6,8 +6,10 @@ import android.app.Instrumentation;
 import android.app.UiAutomation;
 import android.content.Context;
 import android.content.Intent;
+import android.content.pm.PackageInfo;
 import android.graphics.Bitmap;
 import android.graphics.Rect;
+import android.os.Build;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.View;
@@ -65,16 +67,92 @@ public final class HomeRenderInstrumentation extends Instrumentation {
             "var french=/\\bnavigateur\\b.{0,80}\\b(?:pas compatible|non compatible|pas pris en charge|non pris en charge|n'est pas pris en charge|n’est pas pris en charge|obsol[eè]te)\\b|\\bmettre à jour (?:votre )?navigateur\\b/.test(body);" +
             "return !!(english||french);" +
             "}catch(e){return null;}})()";
-    private static final String USER_AGENT_PROFILE_PROBE =
+    private static final String JAVASCRIPT_UA_DIAGNOSTIC_PROBE =
             "(function(){try{" +
-            "var match=String(navigator.userAgent||'').match(/Chrome\\/(\\d+)/);" +
-            "if(!match)return false;" +
-            "var data=navigator.userAgentData;" +
-            "if(!data||!data.brands)return true;" +
-            "var brand=null;for(var i=0;i<data.brands.length;i++){var item=data.brands[i];if(item&&(item.brand==='Chromium'||item.brand==='Google Chrome')){brand=item;break;}}" +
-            "var full=String(data.uaFullVersion||'');" +
-            "return !!(brand&&String(brand.version)===match[1]&&(!full||full.split('.')[0]===match[1]));" +
-            "}catch(e){return false;}})()";
+            "var ua=String(navigator.userAgent||'');" +
+            "var versionAfter=function(source,marker){var start=source.indexOf(marker);if(start<0)return '';start+=marker.length;var end=start;while(end<source.length){var c=source.charCodeAt(end);if((c>=48&&c<=57)||c===46)end++;else break;}return source.slice(start,end);};" +
+            "var majorOf=function(value){return String(value||'').split('.')[0];};" +
+            "var errorType=function(error){var name=String(error&&error.name||'Error');return /^[A-Za-z0-9_$]+$/.test(name)?name.slice(0,48):'Error';};" +
+            "var data=navigator.userAgentData||null;var brand='';var brandVersion='';" +
+            "if(data&&Array.isArray(data.brands)){for(var i=0;i<data.brands.length;i++){var item=data.brands[i]||{};if(item.brand==='Chromium'||item.brand==='Google Chrome'){brand=String(item.brand);brandVersion=String(item.version||'');if(item.brand==='Google Chrome')break;}}}" +
+            "var uaChrome=versionAfter(ua,'Chrome/');var major=majorOf(uaChrome);" +
+            "var coherent=!!uaChrome;if(data&&data.brands){coherent=!!(coherent&&brand&&majorOf(brandVersion)===major);}" +
+            "var platform=String(data&&data.platform||'');if(['Android','Windows','macOS','Linux','Chrome OS'].indexOf(platform)<0)platform=platform?'other':'unavailable';" +
+            "var result={probe_error:false,user_agent_chrome_version:uaChrome,user_agent_android_version:versionAfter(ua,'Android ')," +
+            "client_hints_available:!!data,client_hints_platform:platform,client_hints_mobile:data?!!data.mobile:null," +
+            "client_hints_brand:brand,client_hints_brand_version:brandVersion,client_hints_full_version:''," +
+            "client_hints_full_brand_version:'',client_hints_platform_version:''," +
+            "client_hints_high_entropy_supported:!!(data&&typeof data.getHighEntropyValues==='function')," +
+            "client_hints_high_entropy_complete:!(data&&typeof data.getHighEntropyValues==='function')," +
+            "client_hints_high_entropy_error:false,client_hints_high_entropy_error_type:'',coherent:coherent};" +
+            "var publish=function(){try{window.__sfMelodixRuntimeUaProbeV1=JSON.stringify(result);}catch(_){}};publish();" +
+            "if(data&&typeof data.getHighEntropyValues==='function'){result.client_hints_high_entropy_complete=false;publish();" +
+            "try{data.getHighEntropyValues(['fullVersionList','platformVersion','uaFullVersion']).then(function(values){" +
+            "values=values||{};var fullVersion=String(values.uaFullVersion||'');var fullBrandVersion='';" +
+            "var fullList=Array.isArray(values.fullVersionList)?values.fullVersionList:[];" +
+            "for(var j=0;j<fullList.length;j++){var fullItem=fullList[j]||{};if(fullItem.brand===brand||fullItem.brand==='Google Chrome'||fullItem.brand==='Chromium'){fullBrandVersion=String(fullItem.version||'');if(fullItem.brand===brand)break;}}" +
+            "if(!fullVersion)fullVersion=fullBrandVersion;result.client_hints_full_version=fullVersion;" +
+            "result.client_hints_full_brand_version=fullBrandVersion;result.client_hints_platform_version=String(values.platformVersion||'');" +
+            "if((fullVersion&&majorOf(fullVersion)!==major)||(fullBrandVersion&&majorOf(fullBrandVersion)!==major))result.coherent=false;" +
+            "result.client_hints_high_entropy_complete=true;publish();" +
+            "}).catch(function(error){result.client_hints_high_entropy_error=true;result.client_hints_high_entropy_error_type=errorType(error);result.client_hints_high_entropy_complete=true;publish();});" +
+            "}catch(error){result.client_hints_high_entropy_error=true;result.client_hints_high_entropy_error_type=errorType(error);result.client_hints_high_entropy_complete=true;publish();}}" +
+            "return result;}catch(error){var name=String(error&&error.name||'Error');return {probe_error:true,probe_error_type:/^[A-Za-z0-9_$]+$/.test(name)?name.slice(0,48):'Error'};}})()";
+    private static final String JAVASCRIPT_UA_RESULT_PROBE =
+            "(function(){try{var value=window.__sfMelodixRuntimeUaProbeV1;return value?JSON.parse(value):null;}catch(e){return {probe_error:true};}})()";
+    private static final String LIVE_SPOTIFY_CSS_PROBE =
+            "(function(){try{" +
+            "var host=location.hostname==='open.spotify.com'?'open.spotify.com':location.hostname==='accounts.spotify.com'?'accounts.spotify.com':'other';" +
+            "var path=String(location.pathname||'/');var route=path==='/'?'root':(path==='/login'||path.indexOf('/login/')===0)?'login':'other';" +
+            "var style=document.getElementById('sf-custom-style');var root=getComputedStyle(document.documentElement);" +
+            "var names=['--mel-bg','--mel-bg-2','--mel-surface-light','--mel-surface-light-2','--mel-surface-light-3','--mel-text-mute-a','--mel-text-mute-c','--mel-accent','--mel-accent-wash-11','--mel-home-status-wash','--mel-home-status-stroke','--mel-home-status-error-wash','--mel-home-status-error-stroke'];" +
+            "var tokens={};for(var i=0;i<names.length;i++)tokens[names[i]]=String(root.getPropertyValue(names[i])||'').trim();" +
+            "var main=document.querySelector('#main-view');var home=document.getElementById('sf-melodix-home');" +
+            "var status=String(window.__sfMediaLibStatus||'absent');if(['absent','pending','loading','ready','error'].indexOf(status)<0)status='other';" +
+            "var bridge=window.AndBridge||null;var linkCount=main?Math.min(main.querySelectorAll('a[href]').length,3):0;" +
+            "return {probe_error:false,host:host,route_category:route,style_present:!!style," +
+            "style_marker_present:!!(style&&String(style.textContent||'').indexOf('SF_MELODIX_HOME_STYLES_V1')>=0)," +
+            "tokens:tokens,home_present:!!home,home_active:!!(document.body&&document.body.classList.contains('sf-melodix-home-active'))," +
+            "home_display_flex:!!(home&&getComputedStyle(home).display==='flex'),source_main_present:!!main," +
+            "source_anchor_count:linkCount,session_proven:window.__sfNativeUiSessionProven===true," +
+            "library_status:status,raw_item_count:Math.min(Math.max(0,Number(window.__sfMediaLibRawItemCount)||0),3)," +
+            "bridge_present:!!bridge,bridge_media_callback:!!(bridge&&typeof bridge.onMediaItemsLoaded==='function')," +
+            "bridge_diag_callback:!!(bridge&&typeof bridge.logDiagEvent==='function')};" +
+            "}catch(e){return {probe_error:true};}})()";
+    // This runs only in the explicitly marked, isolated renderer fixture. It
+    // measures the cascade in Android's installed WebView engine, including
+    // the darkest/lightest Home background endpoints and status/error washes.
+    private static final String WEB_HOME_COLOR_STATES_PROBE =
+            "(function(){try{" +
+            "var home=document.getElementById('sf-melodix-home');var main=document.getElementById('main-view');" +
+            "if(!home||!main||!window.__sfHomeTest||typeof window.__sfHomeTest.updateMelodixHome!=='function')return {probe_error:true,fixture_test_only:true};" +
+            "var parseColor=function(value){var s=String(value||'').trim().toLowerCase();if(s.indexOf('rgb')===0){var a=s.indexOf('(');var b=s.indexOf(')');if(a<0||b<0)return null;var p=s.slice(a+1,b).split(',');if(p.length<3)return null;return [parseFloat(p[0]),parseFloat(p[1]),parseFloat(p[2]),p.length>3?parseFloat(p[3]):1];}" +
+            "if(s.charAt(0)==='#'){var h=s.slice(1);if(h.length===3)h=h.charAt(0)+h.charAt(0)+h.charAt(1)+h.charAt(1)+h.charAt(2)+h.charAt(2);if(h.length===6)return [parseInt(h.slice(0,2),16),parseInt(h.slice(2,4),16),parseInt(h.slice(4,6),16),1];}return null;};" +
+            "var blend=function(f,b){if(!f||!b)return null;var a=f.length>3?f[3]:1;return [f[0]*a+b[0]*(1-a),f[1]*a+b[1]*(1-a),f[2]*a+b[2]*(1-a),1];};" +
+            "var channel=function(v){v=v/255;return v<=0.04045?v/12.92:Math.pow((v+0.055)/1.055,2.4);};" +
+            "var luminance=function(c){return 0.2126*channel(c[0])+0.7152*channel(c[1])+0.0722*channel(c[2]);};" +
+            "var contrast=function(a,b){var x=luminance(a);var y=luminance(b);return (Math.max(x,y)+0.05)/(Math.min(x,y)+0.05);};" +
+            "var saved={html:main.innerHTML,status:window.__sfMediaLibStatus,error:window.__sfMediaLibError,raw:window.__sfMediaLibRawItemCount,homeState:window.__sfNativeUiHomeState,hadLibrary:Object.prototype.hasOwnProperty.call(window,'mediaLib'),library:window.mediaLib};" +
+            "var scenarios=[];" +
+            "var record=function(label){var h=document.getElementById('sf-melodix-home');var hs=getComputedStyle(h);var base=parseColor(hs.backgroundColor);var root=getComputedStyle(document.documentElement);var wash=parseColor(root.getPropertyValue('--mel-accent-wash-11'));var peak=blend(wash,base)||base;" +
+            "var cards=h.querySelectorAll('.sf-melodix-home__card');var status=h.querySelector('.sf-melodix-home__status');var retry=h.querySelector('.sf-melodix-home__retry');var ratios={};var colors={background_base:hs.backgroundColor,background_gradient_peak:peak?'rgb('+peak[0]+', '+peak[1]+', '+peak[2]+')':'',home_text:hs.color,gradient_token:root.getPropertyValue('--mel-accent-wash-11').trim()};" +
+            "var add=function(name,color,bgs){var c=parseColor(color);if(!c)return;var values=[];for(var i=0;i<bgs.length;i++)if(bgs[i])values.push(contrast(c,bgs[i]));if(values.length)ratios[name]=Math.min.apply(Math,values);};" +
+            "add('home_text',hs.color,[base,peak]);" +
+            "var brand=h.querySelector('.sf-melodix-home__brand');var greeting=h.querySelector('.sf-melodix-home__header h1');var section=h.querySelector('.sf-melodix-home__section-title');var title=h.querySelector('.sf-melodix-home__title');var subtitle=h.querySelector('.sf-melodix-home__subtitle');" +
+            "if(brand){var bs=getComputedStyle(brand);colors.brand=bs.color;add('brand',bs.color,[base,peak]);}" +
+            "if(greeting){var gs=getComputedStyle(greeting);colors.greeting=gs.color;add('greeting',gs.color,[base,peak]);}" +
+            "if(section){var ss=getComputedStyle(section);colors.section_title=ss.color;add('section_title',ss.color,[base,peak]);}" +
+            "if(title){var ts=getComputedStyle(title);colors.card_title=ts.color;add('card_title',ts.color,[base,peak]);}" +
+            "if(subtitle){var us=getComputedStyle(subtitle);colors.card_subtitle=us.color;add('card_subtitle',us.color,[base,peak]);}" +
+            "var statusState='none';var statusBackdrops=[base,peak];if(status){statusState=String(status.getAttribute('data-state')||'other');var st=getComputedStyle(status);var statusBase=blend(parseColor(st.backgroundColor),base);var statusPeak=blend(parseColor(st.backgroundColor),peak);statusBackdrops=[statusBase,statusPeak];var statusTitle=status.querySelector('.sf-melodix-home__status-title');var statusBody=status.querySelector('.sf-melodix-home__status-body');colors.status_background=st.backgroundColor;if(statusTitle){var tt=getComputedStyle(statusTitle);colors.status_title=tt.color;add('status_title',tt.color,statusBackdrops);}if(statusBody){var tb=getComputedStyle(statusBody);colors.status_body=tb.color;add('status_body',tb.color,statusBackdrops);}}" +
+            "if(retry){var rs=getComputedStyle(retry);var buttonBg=parseColor(rs.backgroundColor);colors.retry_button_text=rs.color;colors.retry_button_background=rs.backgroundColor;add('retry_button_text',rs.color,[buttonBg]);add('retry_button_fill',rs.backgroundColor,statusBackdrops);retry.focus();var fs=getComputedStyle(retry);if(fs.outlineStyle!=='none'&&parseFloat(fs.outlineWidth)>0){var outline=parseColor(fs.outlineColor);if(outline){colors.retry_focus_outline=fs.outlineColor;add('retry_focus_outline',fs.outlineColor,statusBackdrops);}}if(document.activeElement===retry)retry.blur();}" +
+            "var keys=Object.keys(ratios);var pass=keys.length>0&&keys.every(function(k){return ratios[k]>=4.5;});" +
+            "return {label:label,status_state:statusState,card_count:cards.length,partial_data:cards.length>0&&statusState==='error',home_visible:hs.display==='flex'&&hs.position==='fixed'&&hs.visibility==='visible'&&hs.opacity!=='0'&&getComputedStyle(main).display==='none',background_gradient_present:String(hs.backgroundImage||'').indexOf('radial-gradient')>=0,colors:colors,contrast_ratios:ratios,all_contrast_pass:pass};};" +
+            "var setState=function(status,error,raw,homeState){window.__sfMediaLibStatus=status;window.__sfMediaLibError=error;window.__sfMediaLibRawItemCount=raw;window.__sfNativeUiHomeState=homeState;window.mediaLib={};window.__sfHomeTest.updateMelodixHome();};" +
+            "try{scenarios.push(record('normal'));main.innerHTML='';setState('loading','',0,'');scenarios.push(record('loading'));setState('ready','',0,'empty');scenarios.push(record('empty'));setState('error','network-error',0,'error');scenarios.push(record('error'));main.innerHTML=saved.html;setState('error','network-error',2,'error');scenarios.push(record('partial'));}" +
+            "finally{main.innerHTML=saved.html;window.__sfMediaLibStatus=saved.status;window.__sfMediaLibError=saved.error;window.__sfMediaLibRawItemCount=saved.raw;window.__sfNativeUiHomeState=saved.homeState;if(saved.hadLibrary)window.mediaLib=saved.library;else delete window.mediaLib;try{window.__sfHomeTest.updateMelodixHome();}catch(_){}}" +
+            "return {probe_error:false,fixture_test_only:true,theme_mode:'dark',light_theme_available:false,scenarios:scenarios};" +
+            "}catch(e){var name=String(e&&e.name||'Error');return {probe_error:true,fixture_test_only:true,probe_error_type:/^[A-Za-z0-9_$]+$/.test(name)?name.slice(0,48):'Error'};}})()";
     private static final String WEB_HOME_RENDERER_VISIBLE_PROBE =
             "(function(){try{" +
             "var h=document.getElementById('sf-melodix-home');" +
@@ -238,8 +316,10 @@ public final class HomeRenderInstrumentation extends Instrumentation {
             final boolean loginDomVisible = awaitLoginUiVisible(webView);
             failurePhase = "user_agent_profile_probe";
             notePhase(failurePhase);
-            if (!awaitBooleanProbe(webView, USER_AGENT_PROFILE_PROBE, "javascript_ua_profile_coherent")) {
-                throw new AssertionError("JavaScript User-Agent client hints do not match the WebView Chrome version");
+            Bundle javascriptProfile = inspectJavascriptUserAgentProfile(webView, runtimeProfile[0]);
+            sendStatus(1, javascriptProfile);
+            if (!javascriptProfile.getBoolean("javascript_ua_profile_coherent")) {
+                throw new AssertionError("JavaScript User-Agent or Client Hints do not match the installed WebView version");
             }
 
             failurePhase = "login_surface_visibility";
@@ -258,6 +338,15 @@ public final class HomeRenderInstrumentation extends Instrumentation {
             });
             if (loginFailure[0] != null) throw loginFailure[0];
             sendStatus(1, loginState[0]);
+
+            failurePhase = "live_spotify_css_runtime_probe";
+            notePhase(failurePhase);
+            Bundle liveCssState = inspectLiveSpotifyCssTheme(webView);
+            sendStatus(1, liveCssState);
+            if (!liveCssState.getBoolean("live_webview_css_tokens_valid") ||
+                    liveCssState.getBoolean("live_webview_home_active")) {
+                throw new AssertionError("The existing Spotify WebView did not retain valid Home theme tokens without taking over the unauthenticated login surface");
+            }
 
             failurePhase = "empty_home_bridge_dispatch";
             notePhase(failurePhase);
@@ -392,6 +481,7 @@ public final class HomeRenderInstrumentation extends Instrumentation {
             notePhase(failurePhase);
             requireUnauthenticatedSession(activity);
             final WebView[] webHomeFixtureHolder = new WebView[1];
+            Bundle webHomeColorState = null;
             Throwable webHomeFixtureFailure = null;
             try {
                 failurePhase = "web_home_fixture_create";
@@ -403,6 +493,18 @@ public final class HomeRenderInstrumentation extends Instrumentation {
                 failurePhase = "web_home_renderer_visibility_probe";
                 notePhase(failurePhase);
                 awaitWebHomeRendererVisible(webHomeFixtureHolder[0]);
+
+                failurePhase = "web_home_computed_color_contrast_fixture";
+                notePhase(failurePhase);
+                webHomeColorState = inspectWebHomeColorStates(webHomeFixtureHolder[0]);
+                sendStatus(1, webHomeColorState);
+                if (!webHomeColorState.getBoolean("web_home_color_probe_validation_passed")) {
+                    throw new AssertionError("Web Home computed color/contrast validation failed; see the bounded fixture diagnostics");
+                }
+                if (!"true".equals(evaluateJavascriptAndWait(
+                        webHomeFixtureHolder[0], WEB_HOME_RENDERER_VISIBLE_PROBE))) {
+                    throw new AssertionError("Web Home fixture did not return to its original visible card state after contrast probes");
+                }
 
                 failurePhase = "web_home_renderer_native_visibility";
                 notePhase(failurePhase);
@@ -451,6 +553,8 @@ public final class HomeRenderInstrumentation extends Instrumentation {
             restoredState[0].putBoolean("login_surface_restored_after_web_home_fixture", true);
 
             Bundle result = new Bundle(restoredState[0]);
+            if (webHomeColorState != null) result.putAll(webHomeColorState);
+            result.putString("phase", "completed");
             result.putBoolean("empty_home_evidence_captured", true);
             result.putBoolean("home_status_evidence_captured", true);
             result.putBoolean("home_status_payload_fixture_non_playlist", true);
@@ -554,31 +658,182 @@ public final class HomeRenderInstrumentation extends Instrumentation {
     private Bundle inspectRuntimeUserAgent(Activity activity, WebView webView) {
         String platformUserAgent = WebSettings.getDefaultUserAgent(activity);
         String configuredUserAgent = webView.getSettings().getUserAgentString();
-        String platformMajor = chromeMajor(platformUserAgent);
-        String configuredMajor = chromeMajor(configuredUserAgent);
+        String platformVersion = userAgentVersion(platformUserAgent, "Chrome/");
+        String configuredVersion = userAgentVersion(configuredUserAgent, "Chrome/");
+        String platformMajor = majorVersion(platformVersion);
+        String configuredMajor = majorVersion(configuredVersion);
         boolean matches = platformMajor != null && platformMajor.equals(configuredMajor);
         Bundle state = new Bundle();
         state.putString("phase", "runtime_webview_profile");
+        state.putInt("android_api_level", Build.VERSION.SDK_INT);
+        state.putString("android_release", Build.VERSION.RELEASE == null ? "unavailable" : Build.VERSION.RELEASE);
         state.putString("installed_webview_chrome_major", platformMajor == null ? "unavailable" : platformMajor);
+        state.putString("installed_webview_chrome_version", platformVersion == null ? "unavailable" : platformVersion);
+        state.putString("installed_webview_ua_android_version", userAgentVersion(platformUserAgent, "Android "));
         state.putString("configured_ua_chrome_major", configuredMajor == null ? "unavailable" : configuredMajor);
+        state.putString("configured_ua_chrome_version", configuredVersion == null ? "unavailable" : configuredVersion);
+        state.putString("configured_ua_android_version", userAgentVersion(configuredUserAgent, "Android "));
         state.putBoolean("configured_ua_chrome_major_matches_runtime", matches);
+        String webViewPackage = "unavailable";
+        String webViewPackageVersion = "unavailable";
+        if (Build.VERSION.SDK_INT >= 26) {
+            try {
+                PackageInfo current = WebView.getCurrentWebViewPackage();
+                if (current != null) {
+                    webViewPackage = current.packageName == null ? "unavailable" : current.packageName;
+                    webViewPackageVersion = current.versionName == null ? "unavailable" : current.versionName;
+                }
+            } catch (Throwable ignored) {}
+        }
+        state.putString("installed_webview_package", webViewPackage);
+        state.putString("installed_webview_package_version", webViewPackageVersion);
         return state;
     }
 
-    private String chromeMajor(String userAgent) {
-        if (userAgent == null) return null;
-        int marker = userAgent.indexOf("Chrome/");
+    private Bundle inspectJavascriptUserAgentProfile(WebView webView, Bundle runtimeProfile)
+            throws InterruptedException {
+        JSONObject probe = new JSONObject(evaluateJavascriptAndWait(webView, JAVASCRIPT_UA_DIAGNOSTIC_PROBE));
+        long highEntropyDeadline = System.currentTimeMillis() + 5000L;
+        while (probe.optBoolean("client_hints_high_entropy_supported") &&
+                !probe.optBoolean("client_hints_high_entropy_complete") &&
+                System.currentTimeMillis() < highEntropyDeadline) {
+            Thread.sleep(100L);
+            String latestResult = evaluateJavascriptAndWait(webView, JAVASCRIPT_UA_RESULT_PROBE);
+            if (latestResult == null || "null".equals(latestResult)) break;
+            JSONObject latest = new JSONObject(latestResult);
+            if (!latest.optBoolean("probe_error", true)) probe = latest;
+            else break;
+        }
+        boolean highEntropyTimedOut = probe.optBoolean("client_hints_high_entropy_supported") &&
+                !probe.optBoolean("client_hints_high_entropy_complete");
+        evaluateJavascriptAndWait(webView, "window.__sfMelodixRuntimeUaProbeV1=null;true");
+        String javascriptVersion = probe.optString("user_agent_chrome_version", "");
+        String javascriptMajor = majorVersion(javascriptVersion);
+        String installedMajor = runtimeProfile.getString("installed_webview_chrome_major", "unavailable");
+        boolean versionMatches = javascriptMajor != null && javascriptMajor.equals(installedMajor);
+        boolean coherent = !probe.optBoolean("probe_error", true) &&
+                probe.optBoolean("coherent") && versionMatches;
+        Bundle state = new Bundle();
+        state.putString("phase", "javascript_webview_profile");
+        state.putString("javascript_user_agent_chrome_version",
+                javascriptVersion.isEmpty() ? "unavailable" : javascriptVersion);
+        state.putString("javascript_user_agent_android_version",
+                probe.optString("user_agent_android_version", "unavailable"));
+        state.putBoolean("javascript_chrome_major_matches_installed_webview", versionMatches);
+        state.putBoolean("client_hints_available", probe.optBoolean("client_hints_available"));
+        state.putString("client_hints_platform", probe.optString("client_hints_platform", "unavailable"));
+        if (!probe.isNull("client_hints_mobile")) {
+            state.putBoolean("client_hints_mobile", probe.optBoolean("client_hints_mobile"));
+        }
+        state.putString("client_hints_browser_brand", probe.optString("client_hints_brand", "unavailable"));
+        state.putString("client_hints_browser_major",
+                probe.optString("client_hints_brand_version", "unavailable"));
+        state.putString("client_hints_full_browser_version",
+                probe.optString("client_hints_full_version", "unavailable"));
+        state.putString("client_hints_full_brand_version",
+                probe.optString("client_hints_full_brand_version", "unavailable"));
+        state.putString("client_hints_platform_version",
+                probe.optString("client_hints_platform_version", "unavailable"));
+        state.putBoolean("client_hints_high_entropy_api_supported",
+                probe.optBoolean("client_hints_high_entropy_supported"));
+        state.putBoolean("client_hints_high_entropy_complete",
+                probe.optBoolean("client_hints_high_entropy_complete"));
+        state.putBoolean("client_hints_high_entropy_error",
+                probe.optBoolean("client_hints_high_entropy_error"));
+        state.putString("client_hints_high_entropy_error_type",
+                probe.optString("client_hints_high_entropy_error_type", "none"));
+        state.putString("javascript_user_agent_probe_error_type",
+                probe.optString("probe_error_type", "none"));
+        state.putBoolean("client_hints_high_entropy_timed_out", highEntropyTimedOut);
+        state.putBoolean("javascript_ua_profile_coherent", coherent);
+        return state;
+    }
+
+    private Bundle inspectLiveSpotifyCssTheme(WebView webView) throws InterruptedException {
+        JSONObject probe = new JSONObject(evaluateJavascriptAndWait(webView, LIVE_SPOTIFY_CSS_PROBE));
+        String host = probe.optString("host", "other");
+        JSONObject tokens = probe.optJSONObject("tokens");
+        String[] requiredTokens = new String[] {
+                "--mel-bg", "--mel-bg-2", "--mel-surface-light", "--mel-surface-light-2",
+                "--mel-surface-light-3", "--mel-text-mute-a", "--mel-text-mute-c",
+                "--mel-accent", "--mel-accent-wash-11", "--mel-home-status-wash",
+                "--mel-home-status-stroke", "--mel-home-status-error-wash", "--mel-home-status-error-stroke"
+        };
+        boolean tokensValid = tokens != null && !probe.optBoolean("probe_error", true);
+        for (String name : requiredTokens) {
+            String value = tokens == null ? "" : tokens.optString(name, "").trim();
+            if (value.isEmpty() || value.toLowerCase().contains("var(")) tokensValid = false;
+        }
+        boolean spotifyHost = "open.spotify.com".equals(host) || "accounts.spotify.com".equals(host);
+        boolean stylesheetPresent = probe.optBoolean("style_present") && probe.optBoolean("style_marker_present");
+        Bundle state = new Bundle();
+        state.putString("phase", "live_spotify_webview_css_probe");
+        state.putBoolean("fixture_test_only", false);
+        state.putBoolean("existing_spotify_webview_observed", true);
+        state.putString("live_spotify_origin_category", host);
+        state.putString("live_spotify_route_category", probe.optString("route_category", "other"));
+        state.putBoolean("live_spotify_host_confirmed", spotifyHost);
+        state.putBoolean("live_webview_stylesheet_marker_present", stylesheetPresent);
+        state.putBoolean("live_webview_css_tokens_valid", spotifyHost && stylesheetPresent && tokensValid);
+        state.putInt("live_webview_css_token_count", tokens == null ? 0 : tokens.length());
+        state.putBoolean("live_webview_home_present", probe.optBoolean("home_present"));
+        state.putBoolean("live_webview_home_active", probe.optBoolean("home_active"));
+        state.putBoolean("live_webview_home_display_flex", probe.optBoolean("home_display_flex"));
+        state.putBoolean("live_webview_session_proof", probe.optBoolean("session_proven"));
+        state.putString("live_webview_library_status", probe.optString("library_status", "absent"));
+        state.putInt("live_webview_raw_item_count_capped", Math.max(0, Math.min(3, probe.optInt("raw_item_count"))));
+        state.putInt("live_webview_source_anchor_count_capped", Math.max(0, Math.min(3, probe.optInt("source_anchor_count"))));
+        state.putBoolean("live_webview_source_main_present", probe.optBoolean("source_main_present"));
+        state.putBoolean("live_webview_bridge_present", probe.optBoolean("bridge_present"));
+        state.putBoolean("live_webview_bridge_media_callback_present", probe.optBoolean("bridge_media_callback"));
+        state.putBoolean("live_webview_bridge_diag_callback_present", probe.optBoolean("bridge_diag_callback"));
+        state.putBoolean("authenticated_home_test_performed", false);
+        if (tokens != null) {
+            state.putString("live_css_mel_bg", tokens.optString("--mel-bg", ""));
+            state.putString("live_css_mel_bg_2", tokens.optString("--mel-bg-2", ""));
+            state.putString("live_css_mel_surface_light", tokens.optString("--mel-surface-light", ""));
+            state.putString("live_css_mel_surface_light_2", tokens.optString("--mel-surface-light-2", ""));
+            state.putString("live_css_mel_surface_light_3", tokens.optString("--mel-surface-light-3", ""));
+            state.putString("live_css_mel_text_mute_a", tokens.optString("--mel-text-mute-a", ""));
+            state.putString("live_css_mel_text_mute_c", tokens.optString("--mel-text-mute-c", ""));
+            state.putString("live_css_mel_accent", tokens.optString("--mel-accent", ""));
+            state.putString("live_css_mel_accent_wash_11", tokens.optString("--mel-accent-wash-11", ""));
+            state.putString("live_css_mel_home_status_wash", tokens.optString("--mel-home-status-wash", ""));
+            state.putString("live_css_mel_home_status_stroke", tokens.optString("--mel-home-status-stroke", ""));
+            state.putString("live_css_mel_home_status_error_wash", tokens.optString("--mel-home-status-error-wash", ""));
+            state.putString("live_css_mel_home_status_error_stroke", tokens.optString("--mel-home-status-error-stroke", ""));
+        }
+        return state;
+    }
+
+    private String userAgentVersion(String userAgent, String markerText) {
+        if (userAgent == null || markerText == null) return null;
+        int marker = userAgent.indexOf(markerText);
         if (marker < 0) return null;
-        int start = marker + "Chrome/".length();
-        int end = userAgent.indexOf('.', start);
-        if (end < 0) end = userAgent.indexOf(' ', start);
-        if (end < 0) end = userAgent.length();
+        int start = marker + markerText.length();
+        int end = start;
+        while (end < userAgent.length()) {
+            char value = userAgent.charAt(end);
+            if ((value >= '0' && value <= '9') || value == '.') end++;
+            else break;
+        }
         if (end <= start) return null;
-        String major = userAgent.substring(start, end);
+        return userAgent.substring(start, end);
+    }
+
+    private String majorVersion(String version) {
+        if (version == null || version.isEmpty()) return null;
+        int dot = version.indexOf('.');
+        String major = dot < 0 ? version : version.substring(0, dot);
+        if (major.isEmpty()) return null;
         for (int index = 0; index < major.length(); index++) {
             if (!Character.isDigit(major.charAt(index))) return null;
         }
         return major;
+    }
+
+    private String chromeMajor(String userAgent) {
+        return majorVersion(userAgentVersion(userAgent, "Chrome/"));
     }
 
     private boolean awaitBooleanProbe(
@@ -700,7 +955,7 @@ public final class HomeRenderInstrumentation extends Instrumentation {
         final WebView[] created = new WebView[1];
         final Throwable[] failure = new Throwable[1];
         final String html = "<!doctype html><html lang=\"en\"><head><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">" +
-                "<script>window.SF_CONFIG={guiMode:'csshack'};window.__sfNativeUiSessionProven=true;</script></head><body>" +
+                "<script>window.SF_CONFIG={guiMode:'csshack'};window.__sfNativeUiSessionProven=true;window.__sfMelodixHomeTestMode=true;</script></head><body>" +
                 "<main id=\"main-view\"><section data-testid=\"shelf\"><h2>Route test shelf</h2>" +
                 "<div data-testid=\"card\"><a href=\"/playlist/test-only-route-fixture-playlist\"><span data-testid=\"card-title\">Route fixture playlist</span></a></div>" +
                 "<div data-testid=\"card\"><a href=\"/album/test-only-route-fixture-album\"><span data-testid=\"card-title\">Route fixture album</span></a></div>" +
@@ -824,6 +1079,139 @@ public final class HomeRenderInstrumentation extends Instrumentation {
         }
         sendWebHomeRendererDiagnostics(webView);
         throw new AssertionError("Packaged Home renderer did not visibly activate on the native /app recovery route");
+    }
+
+    private Bundle inspectWebHomeColorStates(WebView webView) {
+        Bundle state = new Bundle();
+        state.putString("phase", "web_home_computed_color_contrast_fixture");
+        state.putBoolean("web_home_color_contrast_fixture_test_only", false);
+        state.putBoolean("authenticated_home_test_performed", false);
+        state.putBoolean("web_home_color_probe_completed", false);
+        state.putBoolean("web_home_color_probe_error", false);
+        state.putString("web_home_color_probe_error_type", "none");
+        state.putBoolean("web_home_dark_theme_computed", false);
+        state.putBoolean("web_home_light_theme_available", false);
+        state.putBoolean("web_home_color_state_scenarios_complete", false);
+        state.putBoolean("web_home_all_states_wcag_aa_pass", false);
+        state.putBoolean("web_home_color_probe_validation_passed", false);
+        try {
+            JSONObject probe = new JSONObject(evaluateJavascriptAndWait(webView, WEB_HOME_COLOR_STATES_PROBE));
+            boolean probeError = probe.optBoolean("probe_error", true);
+            boolean fixtureOnly = probe.optBoolean("fixture_test_only");
+            boolean darkTheme = "dark".equals(probe.optString("theme_mode"));
+            boolean lightThemeAvailable = probe.optBoolean("light_theme_available");
+            org.json.JSONArray scenarios = probe.optJSONArray("scenarios");
+            boolean scenariosComplete = scenarios != null && scenarios.length() == 5;
+            state.putBoolean("web_home_color_contrast_fixture_test_only", fixtureOnly);
+            state.putBoolean("web_home_color_probe_completed", !probeError);
+            state.putBoolean("web_home_color_probe_error", probeError);
+            state.putString("web_home_color_probe_error_type", safeProbeErrorType(
+                    probe.optString("probe_error_type", probeError ? "ProbeError" : "none")));
+            state.putBoolean("web_home_dark_theme_computed", darkTheme);
+            state.putBoolean("web_home_light_theme_available", lightThemeAvailable);
+            state.putBoolean("web_home_color_state_scenarios_complete", scenariosComplete);
+            if (probeError) return state;
+
+            String[] names = new String[] { "normal", "loading", "empty", "error", "partial" };
+            String[] expectedStatus = new String[] { "none", "loading", "empty", "error", "error" };
+            int[] expectedCards = new int[] { 2, 0, 0, 0, 2 };
+            String[] colors = new String[] {
+                    "background_base", "background_gradient_peak", "home_text", "brand", "greeting",
+                    "section_title", "card_title", "card_subtitle", "gradient_token", "status_background",
+                    "status_title", "status_body", "retry_button_text", "retry_button_background", "retry_focus_outline"
+            };
+            String[] ratios = new String[] {
+                    "home_text", "brand", "greeting", "section_title", "card_title", "card_subtitle",
+                    "status_title", "status_body", "retry_button_text", "retry_button_fill", "retry_focus_outline"
+            };
+            boolean validationPass = fixtureOnly && darkTheme && !lightThemeAvailable && scenariosComplete;
+            boolean allContrastPass = scenariosComplete;
+            for (int index = 0; index < names.length; index++) {
+                JSONObject scenario = scenarios == null ? null : scenarios.optJSONObject(index);
+                String name = names[index];
+                if (scenario == null) {
+                    scenariosComplete = false;
+                    validationPass = false;
+                    allContrastPass = false;
+                    state.putBoolean("web_home_" + name + "_state_visible", false);
+                    state.putBoolean("web_home_" + name + "_state_wcag_aa_pass", false);
+                    state.putBoolean("web_home_" + name + "_state_partial_data", false);
+                    state.putInt("web_home_" + name + "_state_card_count", 0);
+                    state.putString("web_home_" + name + "_state_library_status", "missing");
+                    continue;
+                }
+                boolean visible = scenario.optBoolean("home_visible");
+                boolean scenarioContrastPass = scenario.optBoolean("all_contrast_pass");
+                int cardCount = scenario.optInt("card_count", -1);
+                boolean partial = scenario.optBoolean("partial_data");
+                String statusName = scenario.optString("status_state", "missing");
+                boolean scenarioStructureValid = visible && cardCount == expectedCards[index] &&
+                        expectedStatus[index].equals(statusName) && partial == "partial".equals(name) &&
+                        scenario.optBoolean("background_gradient_present");
+                if (!scenarioStructureValid || !scenarioContrastPass) validationPass = false;
+                state.putBoolean("web_home_" + name + "_state_visible", visible);
+                state.putBoolean("web_home_" + name + "_state_partial_data", partial);
+                state.putInt("web_home_" + name + "_state_card_count", Math.max(0, Math.min(3, cardCount)));
+                state.putString("web_home_" + name + "_state_library_status", statusName);
+                JSONObject colorValues = scenario.optJSONObject("colors");
+                if (colorValues != null) {
+                    for (String color : colors) {
+                        String value = colorValues.optString(color, "");
+                        if (!value.isEmpty()) state.putString("web_home_" + name + "_color_" + color, value);
+                    }
+                }
+                JSONObject ratiosForState = scenario.optJSONObject("contrast_ratios");
+                String[] requiredRatios = "normal".equals(name)
+                        ? new String[] { "home_text", "brand", "greeting", "section_title", "card_title", "card_subtitle" }
+                        : "loading".equals(name) || "empty".equals(name)
+                                ? new String[] { "home_text", "brand", "greeting", "status_title", "status_body" }
+                                : "error".equals(name)
+                                        ? new String[] { "home_text", "brand", "greeting", "status_title", "status_body", "retry_button_text", "retry_button_fill" }
+                                        : new String[] { "home_text", "brand", "greeting", "section_title", "card_title", "card_subtitle", "status_title", "status_body", "retry_button_text", "retry_button_fill" };
+                boolean requiredRatiosPresent = ratiosForState != null && ratiosForState.length() > 0;
+                for (String required : requiredRatios) {
+                    if (ratiosForState == null || !ratiosForState.has(required) || ratiosForState.isNull(required)) {
+                        requiredRatiosPresent = false;
+                    }
+                }
+                if (!requiredRatiosPresent) validationPass = false;
+                boolean stateContrastPass = scenarioContrastPass && requiredRatiosPresent;
+                for (String ratioName : ratios) {
+                    if (ratiosForState == null || !ratiosForState.has(ratioName) || ratiosForState.isNull(ratioName)) continue;
+                    double ratio = ratiosForState.optDouble(ratioName, Double.NaN);
+                    if (Double.isNaN(ratio) || Double.isInfinite(ratio)) {
+                        stateContrastPass = false;
+                        validationPass = false;
+                        continue;
+                    }
+                    state.putDouble("web_home_" + name + "_contrast_" + ratioName, ratio);
+                    if (ratio < 4.5) stateContrastPass = false;
+                }
+                if (!stateContrastPass) allContrastPass = false;
+                state.putBoolean("web_home_" + name + "_state_wcag_aa_pass", stateContrastPass);
+            }
+            state.putBoolean("web_home_color_state_scenarios_complete", scenariosComplete);
+            state.putBoolean("web_home_all_states_wcag_aa_pass", allContrastPass);
+            state.putBoolean("web_home_color_probe_validation_passed", validationPass && allContrastPass && scenariosComplete);
+        } catch (InterruptedException error) {
+            Thread.currentThread().interrupt();
+            state.putBoolean("web_home_color_probe_error", true);
+            state.putString("web_home_color_probe_error_type", safeExceptionType(error));
+        } catch (Throwable error) {
+            state.putBoolean("web_home_color_probe_error", true);
+            state.putString("web_home_color_probe_error_type", safeExceptionType(error));
+        }
+        return state;
+    }
+
+    private String safeProbeErrorType(String value) {
+        String errorType = value == null ? "ProbeError" : value;
+        return errorType.matches("[A-Za-z0-9_$]{1,48}") ? errorType : "ProbeError";
+    }
+
+    private String safeExceptionType(Throwable error) {
+        String errorType = error == null ? "Error" : error.getClass().getSimpleName();
+        return errorType.matches("[A-Za-z0-9_$]{1,48}") ? errorType : "Error";
     }
 
     private void sendWebHomeRendererDiagnostics(WebView webView) {

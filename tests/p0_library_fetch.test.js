@@ -30,10 +30,20 @@ function fakeElement() {
 function loadBridge({ fetchImpl } = {}) {
     const listeners = {};
     const dispatchedEvents = [];
+    const eventSnapshots = [];
     const win = {
         addEventListener(type, fn) { (listeners[type] = listeners[type] || []).push(fn); },
         removeEventListener() {},
-        dispatchEvent(event) { dispatchedEvents.push(String(event && event.type || '')); return true; },
+        dispatchEvent(event) {
+            const type = String(event && event.type || '');
+            dispatchedEvents.push(type);
+            eventSnapshots.push({
+                type,
+                status: String(this.__sfMediaLibStatus || ''),
+                rawItemCount: Number(this.__sfMediaLibRawItemCount || 0)
+            });
+            return true;
+        },
         Event: class { constructor(type) { this.type = String(type); } },
         setTimeout: (fn) => setTimeout(fn, 0),
         clearTimeout,
@@ -69,6 +79,7 @@ function loadBridge({ fetchImpl } = {}) {
     const context = vm.createContext(win);
     vm.runInContext(fs.readFileSync(BRIDGE, 'utf8'), context, { timeout: 20000 });
     win.__testDispatchedEvents = dispatchedEvents;
+    win.__testEventSnapshots = eventSnapshots;
     return win;
 }
 
@@ -104,12 +115,54 @@ test('checkMediaLib loads the real library with session cookies and no token', a
     assert.equal(win.__sfMediaLibRawItemCount, 2, 'the settled response records only a bounded raw item count');
     assert.equal(win.__testDispatchedEvents.filter((type) => type === 'sf-media-library-state-changed').length, 2,
         'loading and settlement both notify the Web Home renderer without carrying account data');
+    assert.deepEqual(
+        win.__testEventSnapshots.filter((event) => event.type === 'sf-media-library-state-changed')
+            .map(({ status, rawItemCount }) => [status, rawItemCount]),
+        [['loading', 0], ['ready', 2]],
+        'the previous raw count is cleared before the loading event and only repopulated at settlement'
+    );
     assert.ok(win.mediaLib, 'mediaLib is populated');
     assert.deepEqual(Array.from(win.mediaLib.playlists, (p) => p.name), ['Road trip', 'Focus']);
     assert.equal(calls.length, 1, 'exactly one request for one short page');
     assert.equal(calls[0].init.credentials, 'include', 'the page session is used, never a captured token');
     assert.ok(!/authorization/i.test(Object.keys(calls[0].init.headers || {}).join(',')),
         'no Authorization header is fabricated by the bridge');
+});
+
+test('loading clears an earlier raw item count before notifying the Home renderer', async () => {
+    let resolveResponse;
+    let fetchStarted = false;
+    const win = loadBridge({
+        fetchImpl: async () => {
+            fetchStarted = true;
+            return new Promise((resolve) => { resolveResponse = resolve; });
+        }
+    });
+    win.__sfMediaLibRawItemCount = 17;
+
+    const pending = win.checkMediaLib(true);
+    for (let attempt = 0; attempt < 10 && !fetchStarted; attempt += 1) await Promise.resolve();
+
+    assert.equal(fetchStarted, true, 'the request has started and is held pending by the test');
+    assert.equal(win.__sfMediaLibStatus, 'loading');
+    assert.equal(win.__sfMediaLibRawItemCount, 0, 'stale raw items are not visible during loading');
+    assert.deepEqual(
+        win.__testEventSnapshots.filter((event) => event.type === 'sf-media-library-state-changed')
+            .map(({ status, rawItemCount }) => [status, rawItemCount]),
+        [['loading', 0]],
+        'the state-change event observes the reset counter before any response settles'
+    );
+
+    resolveResponse(libraryPage([libraryItem({ uri: 'spotify:playlist:only-test-data', name: 'Fixture item' })]));
+    await pending;
+    assert.equal(win.__sfMediaLibStatus, 'ready');
+    assert.equal(win.__sfMediaLibRawItemCount, 1);
+    assert.deepEqual(
+        win.__testEventSnapshots.filter((event) => event.type === 'sf-media-library-state-changed')
+            .map(({ status, rawItemCount }) => [status, rawItemCount]),
+        [['loading', 0], ['ready', 1]],
+        'the count is published only once the response has settled'
+    );
 });
 
 test('the library paginates until a short page and deduplicates entries', async () => {

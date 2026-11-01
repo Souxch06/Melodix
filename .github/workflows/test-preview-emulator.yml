@@ -15,7 +15,7 @@ on:
         description: Optional public Preview tag to create after exact-APK validation
         required: false
         type: string
-        default: v1.2.2-test.95-preview
+        default: v1.2.2-test.96-preview
       publish_preview:
         description: Publish only after exact-APK validation; push releases require the explicit [preview-release] tag marker
         required: false
@@ -31,7 +31,7 @@ jobs:
     name: Build debuggable APK for UI instrumentation
     uses: ./.github/workflows/preview-apk.yml
     with:
-      release_tag: ${{ inputs.release_tag || 'v1.2.2-test.95-preview' }}
+      release_tag: ${{ inputs.release_tag || 'v1.2.2-test.96-preview' }}
       source_ref: ${{ inputs.source_ref || github.sha }}
       build_only: true
       target_debuggable: true
@@ -42,12 +42,13 @@ jobs:
     name: Build exact non-debuggable Preview release candidate
     uses: ./.github/workflows/preview-apk.yml
     with:
-      release_tag: ${{ inputs.release_tag || 'v1.2.2-test.95-preview' }}
+      release_tag: ${{ inputs.release_tag || 'v1.2.2-test.96-preview' }}
       source_ref: ${{ inputs.source_ref || github.sha }}
       build_only: true
       target_debuggable: false
       apk_suffix: '-release-candidate'
-      version_code_base: 1020947
+      # v1.2.2-test.95 is versionCode 1021019; the candidate must be newer.
+      version_code_base: 1021019
     secrets: inherit
 
   install-and-launch:
@@ -65,8 +66,8 @@ jobs:
         shell: bash
         env:
           SOURCE_REF: ${{ inputs.source_ref || github.sha }}
-          RELEASE_TAG: ${{ inputs.release_tag || 'v1.2.2-test.95-preview' }}
-          PUBLISH_PREVIEW: ${{ inputs.publish_preview || (github.event_name == 'push' && startsWith(github.event.head_commit.message, '[preview-release] v1.2.2-test.95-preview')) }}
+          RELEASE_TAG: ${{ inputs.release_tag || 'v1.2.2-test.96-preview' }}
+          PUBLISH_PREVIEW: ${{ inputs.publish_preview || (github.event_name == 'push' && startsWith(github.event.head_commit.message, '[preview-release] v1.2.2-test.96-preview')) }}
         run: |
           set -euo pipefail
           [[ "$SOURCE_REF" =~ ^[0-9a-fA-F]{40}$ ]] || { echo "::error::source_ref must be a full 40-character SHA."; exit 1; }
@@ -275,7 +276,7 @@ jobs:
           [[ "$target_debuggable" == "false" ]] || { echo "::error::The release candidate must not be debuggable."; exit 1; }
           [[ "$package_id" == "com.melodix.music.preview" ]] || { echo "::error::Unexpected release-candidate package ID: $package_id"; exit 1; }
           [[ "$version_code" == "$EXPECTED_VERSION_CODE" && "$version_code" =~ ^[0-9]+$ ]] || { echo "::error::Unexpected release-candidate versionCode: $version_code (expected $EXPECTED_VERSION_CODE)."; exit 1; }
-          (( version_code > 1020947 )) || { echo "::error::Release-candidate versionCode does not update the previously published Preview."; exit 1; }
+          (( version_code > 1021019 )) || { echo "::error::Release-candidate versionCode must be newer than v1.2.2-test.95 (1021019)."; exit 1; }
           [[ "$version_name" == "1.2.2-${SOURCE_REF:0:7}" ]] || { echo "::error::Unexpected release-candidate versionName: $version_name"; exit 1; }
           "$build_tools/aapt" dump --values resources "$apk" > "$RUNNER_TEMP/melodix-release-candidate-resources.txt"
           grep -Fq "$SOURCE_REF" "$RUNNER_TEMP/melodix-release-candidate-resources.txt" || { echo "::error::Release candidate does not embed source SHA $SOURCE_REF."; exit 1; }
@@ -315,6 +316,19 @@ jobs:
               if required not in packaged_names:
                   raise SystemExit(f"Release candidate omits required runtime asset {required}")
           PY
+          css_source_sha256="$(sha256sum "$GITHUB_WORKSPACE/assets/css_hacks.css" | awk '{print $1}')"
+          css_apk_sha256="$(unzip -p "$apk" assets/css_hacks.css | sha256sum | awk '{print $1}')"
+          [[ "$css_apk_sha256" == "$css_source_sha256" ]] || {
+            echo "::error::The release-candidate CSS hash differs from the canonical source asset."
+            exit 1
+          }
+          echo "css_source_sha256=$css_source_sha256" >> "$GITHUB_OUTPUT"
+          echo "css_apk_sha256=$css_apk_sha256" >> "$GITHUB_OUTPUT"
+          {
+            echo "### Packaged Home CSS hash"
+            echo "- Source: \`$css_source_sha256\`"
+            echo "- Exact release-candidate APK asset: \`$css_apk_sha256\`"
+          } >> "$GITHUB_STEP_SUMMARY"
           echo "apk=$apk" >> "$GITHUB_OUTPUT"
           echo "apk_sha256=$apk_sha256" >> "$GITHUB_OUTPUT"
           echo "package_id=$package_id" >> "$GITHUB_OUTPUT"
@@ -677,7 +691,7 @@ jobs:
             harness_overall_passed=true
           fi
           if [[ "$instrumentation_status" != "0" || "$harness_overall_passed" != "true" ]]; then
-            safe_statuses="$(grep -E '^INSTRUMENTATION_STATUS: (phase|authenticated_session|login_dom_probe_completed|login_ui_visible_in_webview_dom|browser_compatibility_warning_visible|javascript_ua_profile_coherent|installed_webview_chrome_major|configured_ua_chrome_major|configured_ua_chrome_major_matches_runtime|webview_visible_and_measured|network_error_transition_recovered|original_webview_url_preserved|splash_hidden|native_home_hidden|home_payload_empty|empty_home_evidence_captured|home_status_payload_fixture_non_playlist|home_status_evidence_captured|web_home_app_route_renderer_visible|web_home_renderer_evidence_captured|web_home_renderer_fixture_test_only|web_home_probe_diagnostics_available|web_home_probe_route_app|web_home_probe_mode_csshack|web_home_probe_main_view_present|web_home_probe_raw_anchor_count|web_home_probe_root_resource_count|web_home_probe_source_card_count|web_home_probe_root_selector_is_main_view|web_home_probe_styles_ready|web_home_probe_decision_insufficient_real_cards|web_home_probe_decision_content_root_missing|web_home_probe_decision_styles_not_ready|web_home_probe_decision_fullscreen_open|web_home_probe_style_probe_completed|web_home_probe_renderer_style_probe_marker_present|web_home_probe_renderer_style_probe_computed_style_available|web_home_probe_renderer_style_probe_home_display_flex|web_home_probe_renderer_style_probe_home_position_fixed|web_home_probe_renderer_style_probe_home_visibility_visible|web_home_probe_renderer_style_probe_home_opacity_nonzero|web_home_probe_renderer_style_probe_home_z_index_high|web_home_probe_renderer_style_probe_main_hidden|web_home_probe_renderer_style_probe_error|web_home_probe_style_probe_home_display_flex|web_home_probe_style_probe_home_position_fixed|web_home_probe_style_probe_home_visibility_visible|web_home_probe_style_probe_home_opacity_nonzero|web_home_probe_style_probe_home_z_index_high|web_home_probe_style_probe_main_hidden|web_home_probe_init_attempted|web_home_probe_style_marker_present|web_home_probe_active_class|web_home_probe_home_exists|web_home_probe_card_count|web_home_probe_home_display_flex|web_home_probe_home_position_fixed|web_home_probe_home_visible|web_home_probe_source_hidden|web_home_probe_brand_has_bounds|web_home_probe_first_card_has_bounds|login_surface_restored_after_web_home_fixture|native_home_status_attached|native_home_status_visible|native_home_status_message_visible_in_hierarchy|native_home_cards_attached|native_home_content_ready|native_content_container_empty|native_root_visible|native_root_hidden|native_home_tab_visible|native_home_tab_not_shown|webview_container_visible|webview_container_visible_under_native_root|login_surface_restored_after_status|authenticated_home_test_performed|page_load_complete|failure_phase|failure_type|overall)=' "$state_dir/android-instrumentation.txt" | tr '\n' ';' | tail -c 2800 || true)"
+            safe_statuses="$(grep -E '^INSTRUMENTATION_STATUS: (phase|authenticated_session|login_dom_probe_completed|login_ui_visible_in_webview_dom|browser_compatibility_warning_visible|javascript_ua_profile_coherent|android_api_level|android_release|installed_webview_[A-Za-z0-9_]+|configured_ua_[A-Za-z0-9_]+|javascript_[A-Za-z0-9_]+|client_hints_[A-Za-z0-9_]+|live_spotify_[A-Za-z0-9_]+|live_webview_[A-Za-z0-9_]+|live_css_mel_[A-Za-z0-9_-]+|webview_visible_and_measured|network_error_transition_recovered|original_webview_url_preserved|splash_hidden|native_home_hidden|home_payload_empty|empty_home_evidence_captured|home_status_payload_fixture_non_playlist|home_status_evidence_captured|live_home_and_authentication_tested|web_home_color_probe_(completed|error|error_type|validation_passed)|web_home_color_contrast_fixture_test_only|web_home_dark_theme_computed|web_home_light_theme_available|web_home_color_state_scenarios_complete|web_home_all_states_wcag_aa_pass|web_home_(normal|loading|empty|error|partial)_(state_(visible|wcag_aa_pass|partial_data|card_count|library_status)|contrast_[A-Za-z0-9_]+|color_[A-Za-z0-9_]+)|web_home_app_route_renderer_visible|web_home_renderer_evidence_captured|web_home_renderer_fixture_test_only|web_home_probe_diagnostics_available|web_home_probe_route_app|web_home_probe_mode_csshack|web_home_probe_main_view_present|web_home_probe_raw_anchor_count|web_home_probe_root_resource_count|web_home_probe_source_card_count|web_home_probe_root_selector_is_main_view|web_home_probe_styles_ready|web_home_probe_decision_insufficient_real_cards|web_home_probe_decision_content_root_missing|web_home_probe_decision_styles_not_ready|web_home_probe_decision_fullscreen_open|web_home_probe_style_probe_completed|web_home_probe_renderer_style_probe_marker_present|web_home_probe_renderer_style_probe_computed_style_available|web_home_probe_renderer_style_probe_home_display_flex|web_home_probe_renderer_style_probe_home_position_fixed|web_home_probe_renderer_style_probe_home_visibility_visible|web_home_probe_renderer_style_probe_home_opacity_nonzero|web_home_probe_renderer_style_probe_home_z_index_high|web_home_probe_renderer_style_probe_main_hidden|web_home_probe_renderer_style_probe_error|web_home_probe_style_probe_home_display_flex|web_home_probe_style_probe_home_position_fixed|web_home_probe_style_probe_home_visibility_visible|web_home_probe_style_probe_home_opacity_nonzero|web_home_probe_style_probe_home_z_index_high|web_home_probe_style_probe_main_hidden|web_home_probe_init_attempted|web_home_probe_style_marker_present|web_home_probe_active_class|web_home_probe_home_exists|web_home_probe_card_count|web_home_probe_home_display_flex|web_home_probe_home_position_fixed|web_home_probe_home_visible|web_home_probe_source_hidden|web_home_probe_brand_has_bounds|web_home_probe_first_card_has_bounds|login_surface_restored_after_web_home_fixture|native_home_status_attached|native_home_status_visible|native_home_status_message_visible_in_hierarchy|native_home_cards_attached|native_home_content_ready|native_content_container_empty|native_root_visible|native_root_hidden|native_home_tab_visible|native_home_tab_not_shown|webview_container_visible|webview_container_visible_under_native_root|login_surface_restored_after_status|authenticated_home_test_performed|page_load_complete|failure_phase|failure_type|overall)=' "$state_dir/android-instrumentation.txt" | tr '\n' ';' | tail -c 8000 || true)"
             safe_harness_logs="$(grep -E 'MelodixHarness: (instrumentation_onCreate_entered|instrumentation_onCreate_returned|instrumentation_runner_thread_started|instrumentation_onStart_entered|instrumentation_onStart_super_returned|empty_home_evidence_captured|home_status_evidence_captured|web_home_route_evidence_captured|started|phase=[a-z_]+|failure phase=[a-z_]+ type=[A-Za-z0-9_$]+|completed)$' "$state_dir/instrumentation-safe-logcat.txt" | sed -E 's/^.*MelodixHarness: //' | tr '\n' ';' | tail -c 700 || true)"
             transcript_bytes="$(wc -c < "$state_dir/android-instrumentation.txt" | tr -d '[:space:]')"
             framework_summary="$(python3 - "$state_dir/android-instrumentation.txt" <<'PY'
@@ -771,6 +785,13 @@ jobs:
             'INSTRUMENTATION_STATUS: login_ui_visible_in_webview_dom=true'
             'INSTRUMENTATION_STATUS: javascript_ua_profile_coherent=true'
             'INSTRUMENTATION_STATUS: webview_visible_and_measured=true'
+            'INSTRUMENTATION_STATUS: phase=live_spotify_webview_css_probe'
+            'INSTRUMENTATION_STATUS: live_spotify_host_confirmed=true'
+            'INSTRUMENTATION_STATUS: live_webview_stylesheet_marker_present=true'
+            'INSTRUMENTATION_STATUS: live_webview_css_tokens_valid=true'
+            'INSTRUMENTATION_STATUS: live_webview_home_active=false'
+            'INSTRUMENTATION_STATUS: live_webview_session_proof=false'
+            'INSTRUMENTATION_STATUS: authenticated_home_test_performed=false'
             'INSTRUMENTATION_STATUS: network_error_transition_recovered=true'
             'INSTRUMENTATION_STATUS: original_webview_url_preserved=true'
             'INSTRUMENTATION_STATUS: splash_hidden=true'
@@ -806,6 +827,25 @@ jobs:
             'INSTRUMENTATION_STATUS: web_home_app_route_renderer_visible=true'
             'INSTRUMENTATION_STATUS: web_home_renderer_evidence_captured=true'
             'INSTRUMENTATION_STATUS: web_home_renderer_fixture_test_only=true'
+            'INSTRUMENTATION_STATUS: phase=web_home_computed_color_contrast_fixture'
+            'INSTRUMENTATION_STATUS: web_home_color_contrast_fixture_test_only=true'
+            'INSTRUMENTATION_STATUS: web_home_color_probe_completed=true'
+            'INSTRUMENTATION_STATUS: web_home_color_probe_error=false'
+            'INSTRUMENTATION_STATUS: web_home_color_probe_validation_passed=true'
+            'INSTRUMENTATION_STATUS: web_home_dark_theme_computed=true'
+            'INSTRUMENTATION_STATUS: web_home_light_theme_available=false'
+            'INSTRUMENTATION_STATUS: web_home_color_state_scenarios_complete=true'
+            'INSTRUMENTATION_STATUS: web_home_all_states_wcag_aa_pass=true'
+            'INSTRUMENTATION_STATUS: web_home_normal_state_visible=true'
+            'INSTRUMENTATION_STATUS: web_home_normal_state_wcag_aa_pass=true'
+            'INSTRUMENTATION_STATUS: web_home_loading_state_visible=true'
+            'INSTRUMENTATION_STATUS: web_home_loading_state_wcag_aa_pass=true'
+            'INSTRUMENTATION_STATUS: web_home_empty_state_visible=true'
+            'INSTRUMENTATION_STATUS: web_home_empty_state_wcag_aa_pass=true'
+            'INSTRUMENTATION_STATUS: web_home_error_state_visible=true'
+            'INSTRUMENTATION_STATUS: web_home_error_state_wcag_aa_pass=true'
+            'INSTRUMENTATION_STATUS: web_home_partial_state_visible=true'
+            'INSTRUMENTATION_STATUS: web_home_partial_state_wcag_aa_pass=true'
             'INSTRUMENTATION_STATUS: login_surface_restored_after_web_home_fixture=true'
             'INSTRUMENTATION_STATUS: authenticated_home_test_performed=false'
             'INSTRUMENTATION_STATUS: phase=empty_home_fallback'
@@ -1037,8 +1077,10 @@ jobs:
           RELEASE_DEBUGGABLE: ${{ steps.release-candidate.outputs.target_debuggable }}
           RELEASE_SMOKE_OUTCOME: ${{ steps.release-candidate-smoke.outcome }}
           RELEASE_ACTIVITY_RESUMED: ${{ steps.release-candidate-smoke.outputs.activity_resumed }}
-          RELEASE_TAG: ${{ inputs.release_tag || 'v1.2.2-test.95-preview' }}
-          PUBLISH_PREVIEW: ${{ inputs.publish_preview || (github.event_name == 'push' && startsWith(github.event.head_commit.message, '[preview-release] v1.2.2-test.95-preview')) }}
+          CSS_SOURCE_SHA256: ${{ steps.release-candidate.outputs.css_source_sha256 }}
+          CSS_APK_SHA256: ${{ steps.release-candidate.outputs.css_apk_sha256 }}
+          RELEASE_TAG: ${{ inputs.release_tag || 'v1.2.2-test.96-preview' }}
+          PUBLISH_PREVIEW: ${{ inputs.publish_preview || (github.event_name == 'push' && startsWith(github.event.head_commit.message, '[preview-release] v1.2.2-test.96-preview')) }}
         run: |
           state_dir="$RUNNER_TEMP/melodix-preview-emulator-state"
           browser_compatibility_warning=not_confirmed
@@ -1114,7 +1156,9 @@ jobs:
               "${RELEASE_VERSION_NAME:-}" \
               "${RELEASE_DEBUGGABLE:-not verified}" \
               "${RELEASE_SMOKE_OUTCOME:-not run}" \
-              "${RELEASE_ACTIVITY_RESUMED:-false}" <<'PY'
+              "${RELEASE_ACTIVITY_RESUMED:-false}" \
+              "${CSS_SOURCE_SHA256:-}" \
+              "${CSS_APK_SHA256:-}" <<'PY'
           import json
           import pathlib
           import sys
@@ -1124,7 +1168,7 @@ jobs:
            preview_relaunched, empty_home_pixels_verified, home_status_pixels_verified,
            web_home_pixels_verified, cold_launch, release_apk_sha256, release_version_code,
            release_version_name, release_debuggable, release_smoke_outcome,
-           release_activity_resumed) = sys.argv[1:]
+           release_activity_resumed, css_source_sha256, css_apk_sha256) = sys.argv[1:]
           root = pathlib.Path(state_dir)
           exists = lambda name: (root / name).is_file()
           transcript = (root / "android-instrumentation.txt").read_text(encoding="utf-8", errors="replace") if exists("android-instrumentation.txt") else ""
@@ -1137,6 +1181,14 @@ jobs:
           def status_bool(key):
               value = status_value(key)
               return None if value is None else value.lower() == "true"
+          def status_float(key):
+              value = status_value(key)
+              if value is None:
+                  return None
+              try:
+                  return float(value)
+              except ValueError:
+                  return None
           permission_state = json.loads((root / "permission-prompt-summary.json").read_text(encoding="utf-8")) if exists("permission-prompt-summary.json") else {}
           login_dom_visible = None
           unauthenticated_session_confirmed = "INSTRUMENTATION_STATUS: authenticated_session=false" in transcript
@@ -1151,6 +1203,9 @@ jobs:
               "release_candidate_apk_sha256": release_apk_sha256 or None,
               "release_candidate_version_code": release_version_code or None,
               "release_candidate_version_name": release_version_name or None,
+              "release_candidate_css_source_sha256": css_source_sha256 or None,
+              "release_candidate_css_apk_asset_sha256": css_apk_sha256 or None,
+              "release_candidate_css_source_matches_apk_asset": bool(css_source_sha256) and css_source_sha256 == css_apk_sha256,
               "release_candidate_debuggable": release_debuggable == "true" if release_debuggable != "not verified" else None,
               "release_candidate_smoke_outcome": release_smoke_outcome,
               "release_candidate_activity_resumed": release_activity_resumed == "true",
@@ -1173,6 +1228,85 @@ jobs:
               "configured_ua_chrome_major_matches_runtime": status_bool("configured_ua_chrome_major_matches_runtime"),
               "configured_ua_chrome_major": status_value("configured_ua_chrome_major"),
               "installed_webview_chrome_major": status_value("installed_webview_chrome_major"),
+              "android_api_level": status_value("android_api_level"),
+              "android_release": status_value("android_release"),
+              "installed_webview_package": status_value("installed_webview_package"),
+              "installed_webview_package_version": status_value("installed_webview_package_version"),
+              "installed_webview_chrome_version": status_value("installed_webview_chrome_version"),
+              "configured_ua_chrome_version": status_value("configured_ua_chrome_version"),
+              "configured_ua_android_version": status_value("configured_ua_android_version"),
+              "javascript_user_agent_chrome_version": status_value("javascript_user_agent_chrome_version"),
+              "javascript_user_agent_android_version": status_value("javascript_user_agent_android_version"),
+              "javascript_chrome_major_matches_installed_webview": status_bool("javascript_chrome_major_matches_installed_webview"),
+              "client_hints_available": status_bool("client_hints_available"),
+              "client_hints_platform": status_value("client_hints_platform"),
+              "client_hints_mobile": status_bool("client_hints_mobile"),
+              "client_hints_browser_brand": status_value("client_hints_browser_brand"),
+              "client_hints_browser_major": status_value("client_hints_browser_major"),
+              "client_hints_full_browser_version": status_value("client_hints_full_browser_version"),
+              "client_hints_full_brand_version": status_value("client_hints_full_brand_version"),
+              "client_hints_platform_version": status_value("client_hints_platform_version"),
+              "client_hints_high_entropy_api_supported": status_bool("client_hints_high_entropy_api_supported"),
+              "client_hints_high_entropy_complete": status_bool("client_hints_high_entropy_complete"),
+              "client_hints_high_entropy_error": status_bool("client_hints_high_entropy_error"),
+              "client_hints_high_entropy_error_type": status_value("client_hints_high_entropy_error_type"),
+              "client_hints_high_entropy_timed_out": status_bool("client_hints_high_entropy_timed_out"),
+              "javascript_user_agent_probe_error_type": status_value("javascript_user_agent_probe_error_type"),
+              "live_spotify_origin_category": status_value("live_spotify_origin_category"),
+              "live_spotify_host_confirmed": status_bool("live_spotify_host_confirmed"),
+              "live_webview_stylesheet_marker_present": status_bool("live_webview_stylesheet_marker_present"),
+              "live_webview_css_tokens_valid": status_bool("live_webview_css_tokens_valid"),
+              "live_webview_css_token_count": status_value("live_webview_css_token_count"),
+              "live_webview_home_present": status_bool("live_webview_home_present"),
+              "live_webview_home_active": status_bool("live_webview_home_active"),
+              "live_webview_session_proof": status_bool("live_webview_session_proof"),
+              "live_webview_library_status": status_value("live_webview_library_status"),
+              "live_webview_raw_item_count_capped": status_value("live_webview_raw_item_count_capped"),
+              "live_webview_source_anchor_count_capped": status_value("live_webview_source_anchor_count_capped"),
+              "live_webview_bridge_present": status_bool("live_webview_bridge_present"),
+              "live_webview_bridge_media_callback_present": status_bool("live_webview_bridge_media_callback_present"),
+              "live_webview_bridge_diag_callback_present": status_bool("live_webview_bridge_diag_callback_present"),
+              "live_webview_css_tokens": {
+                  "retry_button_text": status_value("live_css_mel_bg"),
+                  "background": status_value("live_css_mel_bg_2"),
+                  "primary_text": status_value("live_css_mel_surface_light"),
+                  "secondary_text": status_value("live_css_mel_text_mute_c"),
+                  "accent": status_value("live_css_mel_accent"),
+                  "accent_gradient_wash": status_value("live_css_mel_accent_wash_11"),
+                  "status_wash": status_value("live_css_mel_home_status_wash"),
+                  "status_stroke": status_value("live_css_mel_home_status_stroke"),
+                  "error_wash": status_value("live_css_mel_home_status_error_wash"),
+                  "error_stroke": status_value("live_css_mel_home_status_error_stroke"),
+              },
+              "live_home_and_authentication_tested": False,
+              "web_home_color_probe_fixture_test_only": status_bool("web_home_color_contrast_fixture_test_only"),
+              "web_home_color_probe_completed": status_bool("web_home_color_probe_completed"),
+              "web_home_color_probe_error": status_bool("web_home_color_probe_error"),
+              "web_home_color_probe_error_type": status_value("web_home_color_probe_error_type"),
+              "web_home_color_probe_validation_passed": status_bool("web_home_color_probe_validation_passed"),
+              "web_home_color_scenarios_complete": status_bool("web_home_color_state_scenarios_complete"),
+              "web_home_light_theme_available": status_bool("web_home_light_theme_available"),
+              "web_home_all_states_wcag_aa_pass": status_bool("web_home_all_states_wcag_aa_pass"),
+              "web_home_computed_color_states": {
+                  name: {
+                      "visible": status_bool(f"web_home_{name}_state_visible"),
+                      "wcag_aa_pass": status_bool(f"web_home_{name}_state_wcag_aa_pass"),
+                      "partial_data": status_bool(f"web_home_{name}_state_partial_data"),
+                      "card_count": status_value(f"web_home_{name}_state_card_count"),
+                      "library_status": status_value(f"web_home_{name}_state_library_status"),
+                      "contrast_ratios": {
+                          key: status_float(f"web_home_{name}_contrast_{key}")
+                          for key in ("home_text", "brand", "greeting", "section_title", "card_title", "card_subtitle", "status_title", "status_body", "retry_button_text", "retry_button_fill", "retry_focus_outline")
+                          if status_value(f"web_home_{name}_contrast_{key}") is not None
+                      },
+                      "computed_colors": {
+                          key: status_value(f"web_home_{name}_color_{key}")
+                          for key in ("background_base", "background_gradient_peak", "home_text", "brand", "greeting", "section_title", "card_title", "card_subtitle", "gradient_token", "status_background", "status_title", "status_body", "retry_button_text", "retry_button_background", "retry_focus_outline")
+                          if status_value(f"web_home_{name}_color_{key}") is not None
+                      },
+                  }
+                  for name in ("normal", "loading", "empty", "error", "partial")
+              },
               "cold_launch_hierarchy_pixels_outcome": cold_launch,
               "cold_launch_hierarchy_pixels_verified": cold_launch == "success",
               "post_instrumentation_outcome": post_instrumentation,
@@ -1248,7 +1382,22 @@ jobs:
               "integration_outcome", "harness_failure_phase", "harness_failure_type",
               "login_ui_visible_in_webview_dom", "browser_compatibility_warning_visible", "javascript_ua_profile_coherent",
               "configured_ua_chrome_major_matches_runtime", "configured_ua_chrome_major",
-              "installed_webview_chrome_major",
+              "installed_webview_chrome_major", "installed_webview_chrome_version",
+              "android_api_level", "android_release", "installed_webview_package",
+              "installed_webview_package_version", "configured_ua_chrome_version",
+              "javascript_user_agent_chrome_version", "client_hints_platform",
+              "client_hints_browser_brand", "client_hints_browser_major",
+              "client_hints_full_browser_version", "client_hints_full_brand_version",
+              "client_hints_platform_version", "client_hints_high_entropy_api_supported",
+              "client_hints_high_entropy_complete", "client_hints_high_entropy_error",
+              "client_hints_high_entropy_error_type", "client_hints_high_entropy_timed_out",
+              "javascript_user_agent_probe_error_type", "browser_compatibility_warning_visible",
+              "release_candidate_css_source_matches_apk_asset", "live_spotify_origin_category",
+              "live_webview_css_tokens_valid", "live_webview_home_active",
+              "web_home_color_probe_fixture_test_only", "web_home_color_probe_completed",
+              "web_home_color_probe_error", "web_home_color_probe_error_type",
+              "web_home_color_probe_validation_passed", "web_home_color_scenarios_complete",
+              "web_home_all_states_wcag_aa_pass", "web_home_computed_color_states",
               "first_launch_permission_hierarchy_available", "permission_controller_in_first_launch_hierarchy",
               "permission_controls_in_first_launch_hierarchy", "permission_allow_control_position_captured",
               "first_launch_hierarchy_top_package",
@@ -1349,6 +1498,31 @@ jobs:
                       if key in state:
                           output.write(f"- {key}: {json.dumps(state[key], sort_keys=True)}\n")
           PY
+            python3 - "$state_dir/verification-reference.json" "$GITHUB_STEP_SUMMARY" <<'PY'
+          import json
+          import pathlib
+          import sys
+
+          reference_path = pathlib.Path(sys.argv[1])
+          summary_path = pathlib.Path(sys.argv[2])
+          if reference_path.is_file():
+              reference = json.loads(reference_path.read_text(encoding="utf-8"))
+              with summary_path.open("a", encoding="utf-8") as output:
+                  output.write("\n## P0 CSS, WebView and computed-contrast diagnostics (sanitized)\n\n")
+                  output.write(f"- Canonical CSS source SHA-256: `{reference.get('release_candidate_css_source_sha256') or 'not verified'}`\n")
+                  output.write(f"- CSS asset SHA-256 extracted from the exact release candidate: `{reference.get('release_candidate_css_apk_asset_sha256') or 'not verified'}`; hash match: `{reference.get('release_candidate_css_source_matches_apk_asset')}`\n")
+                  output.write(f"- Android: `{reference.get('android_release') or 'unknown'}` (API `{reference.get('android_api_level') or 'unknown'}`); WebView package/version: `{reference.get('installed_webview_package') or 'unknown'}` / `{reference.get('installed_webview_package_version') or 'unknown'}`; Chromium: `{reference.get('installed_webview_chrome_version') or 'unknown'}`\n")
+                  output.write(f"- Configured UA Chrome: `{reference.get('configured_ua_chrome_version') or 'unknown'}`; JavaScript UA Chrome/Android: `{reference.get('javascript_user_agent_chrome_version') or 'unknown'}` / `{reference.get('javascript_user_agent_android_version') or 'unknown'}`; Client Hints platform/brand/major/full version/platform version: `{reference.get('client_hints_platform') or 'unknown'}` / `{reference.get('client_hints_browser_brand') or 'unknown'}` / `{reference.get('client_hints_browser_major') or 'unknown'}` / `{reference.get('client_hints_full_browser_version') or 'unavailable'}` / `{reference.get('client_hints_platform_version') or 'unavailable'}`; high entropy supported/complete/error/type/timeout: `{reference.get('client_hints_high_entropy_api_supported')}` / `{reference.get('client_hints_high_entropy_complete')}` / `{reference.get('client_hints_high_entropy_error')}` / `{reference.get('client_hints_high_entropy_error_type') or 'none'}` / `{reference.get('client_hints_high_entropy_timed_out')}`; coherent: `{reference.get('javascript_ua_profile_coherent')}`\n")
+                  output.write(f"- Existing Spotify WebView origin category: `{reference.get('live_spotify_origin_category') or 'unknown'}`; CSS marker/tokens valid: `{reference.get('live_webview_stylesheet_marker_present')}` / `{reference.get('live_webview_css_tokens_valid')}`; Home active on unauthenticated login: `{reference.get('live_webview_home_active')}`; bridge present: `{reference.get('live_webview_bridge_present')}`\n")
+                  output.write(f"- Computed colors were measured only in the explicitly test-only WebView fixture; fixture flag: `{reference.get('web_home_color_probe_fixture_test_only')}`; probe completed/error/error type/validation passed: `{reference.get('web_home_color_probe_completed')}` / `{reference.get('web_home_color_probe_error')}` / `{reference.get('web_home_color_probe_error_type') or 'none'}` / `{reference.get('web_home_color_probe_validation_passed')}`; all five state probes complete: `{reference.get('web_home_color_scenarios_complete')}`; all measured pairs at least 4.5:1: `{reference.get('web_home_all_states_wcag_aa_pass')}`. Light theme available: `{reference.get('web_home_light_theme_available')}`.\n\n")
+                  output.write("| Fixture state | Cards | Visible | WCAG AA | Lowest measured contrast |\n|---|---:|---|---|---:|\n")
+                  for name, scenario in (reference.get("web_home_computed_color_states") or {}).items():
+                      ratios = scenario.get("contrast_ratios") or {}
+                      minimum = min(ratios.values()) if ratios else None
+                      value = f"{minimum:.2f}:1" if minimum is not None else "not measured"
+                      output.write(f"| {name} | {scenario.get('card_count') or 0} | {scenario.get('visible')} | {scenario.get('wcag_aa_pass')} | {value} |\n")
+                  output.write("\nAuthenticated Spotify Home was not tested; the emulator had no Spotify session or account data. The fixture is not presented as a real authenticated run.\n")
+          PY
           fi
 
           login_dom_visible=not_confirmed
@@ -1409,12 +1583,12 @@ jobs:
           if-no-files-found: warn
 
       - name: Publish the exact validated Preview release candidate
-        if: (github.event_name == 'workflow_dispatch' && inputs.publish_preview == true || github.event_name == 'push' && startsWith(github.event.head_commit.message, '[preview-release] v1.2.2-test.95-preview')) && steps.integration.outcome == 'success' && steps.post-instrumentation.outcome == 'success' && steps.cold-launch-inspection.outcome == 'success' && steps.release-candidate.outcome == 'success' && steps.release-candidate-smoke.outcome == 'success' && steps.evidence-upload.outcome == 'success'
+        if: (github.event_name == 'workflow_dispatch' && inputs.publish_preview == true || github.event_name == 'push' && startsWith(github.event.head_commit.message, '[preview-release] v1.2.2-test.96-preview')) && steps.integration.outcome == 'success' && steps.post-instrumentation.outcome == 'success' && steps.cold-launch-inspection.outcome == 'success' && steps.release-candidate.outcome == 'success' && steps.release-candidate-smoke.outcome == 'success' && steps.evidence-upload.outcome == 'success'
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
           SOURCE_REF: ${{ inputs.source_ref || github.sha }}
-          RELEASE_TAG: ${{ inputs.release_tag || 'v1.2.2-test.95-preview' }}
+          RELEASE_TAG: ${{ inputs.release_tag || 'v1.2.2-test.96-preview' }}
           RELEASE_APK: ${{ steps.release-candidate.outputs.apk }}
           RELEASE_APK_SHA256: ${{ steps.release-candidate.outputs.apk_sha256 }}
           RELEASE_VERSION_CODE: ${{ steps.release-candidate.outputs.version_code }}
