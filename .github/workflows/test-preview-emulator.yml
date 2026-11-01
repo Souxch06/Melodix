@@ -248,6 +248,9 @@ jobs:
               "top_class": None,
               "permission_controller_in_hierarchy": False,
               "permission_allow_or_deny_control_present": False,
+              "permission_allow_button_bounds_px": None,
+              "permission_allow_center_x_px": None,
+              "permission_allow_center_y_px": None,
               "text_nodes_present_count": 0,
           }
           try:
@@ -256,6 +259,13 @@ jobs:
               top = nodes[0] if nodes else None
               packages = {node.get("package", "") for node in nodes}
               resource_ids = [node.get("resource-id", "") for node in nodes]
+              allow_node = next((
+                  node for node in nodes
+                  if "permission_allow" in node.get("resource-id", "").lower()
+                  and node.get("bounds")
+              ), None)
+              allow_bounds_match = re.fullmatch(r"\[(\d+),(\d+)\]\[(\d+),(\d+)\]", allow_node.get("bounds", "")) if allow_node is not None else None
+              allow_bounds = tuple(int(part) for part in allow_bounds_match.groups()) if allow_bounds_match else None
               state.update({
                   "hierarchy_available": True,
                   "hierarchy_node_count": len(nodes),
@@ -263,6 +273,9 @@ jobs:
                   "top_class": safe(top.get("class")) if top is not None else None,
                   "permission_controller_in_hierarchy": any("permissioncontroller" in package.lower() for package in packages),
                   "permission_allow_or_deny_control_present": any("permission_allow" in value or "permission_deny" in value for value in resource_ids),
+                  "permission_allow_button_bounds_px": list(allow_bounds) if allow_bounds else None,
+                  "permission_allow_center_x_px": (allow_bounds[0] + allow_bounds[2]) // 2 if allow_bounds else None,
+                  "permission_allow_center_y_px": (allow_bounds[1] + allow_bounds[3]) // 2 if allow_bounds else None,
                   "text_nodes_present_count": sum(bool(node.get("text") or node.get("content-desc")) for node in nodes),
               })
           except (ET.ParseError, OSError):
@@ -272,6 +285,7 @@ jobs:
                 f"hierarchy_available={state['hierarchy_available']}; top_package={state['top_package'] or 'none'}; "
                 f"permission_controller_in_hierarchy={state['permission_controller_in_hierarchy']}; "
                 f"permission_controls_present={state['permission_allow_or_deny_control_present']}; "
+                f"allow_button_center={state['permission_allow_center_x_px']},{state['permission_allow_center_y_px']}; "
                 f"text_nodes_present_count={state['text_nodes_present_count']}")
           PY
           else
@@ -280,14 +294,39 @@ jobs:
           fi
           rm -f "$permission_xml"
           adb shell rm -f /sdcard/melodix-preview-permission.xml >/dev/null 2>&1 || true
-          adb shell am force-stop com.melodix.music.preview >/dev/null 2>&1 || true
-          # Android 12+ can leave the initial app surface obscured by the
-          # runtime nearby-devices permission dialog. Grant only the declared Bluetooth
-          # permission so this clean-session run can inspect the Spotify UI.
-          adb shell pm grant --user 0 com.melodix.music.preview android.permission.BLUETOOTH_CONNECT
-          permission_status="$(adb shell pm check-permission --user 0 com.melodix.music.preview android.permission.BLUETOOTH_CONNECT | tr -d '\r')"
-          [[ "$permission_status" == "granted" ]] || { echo "::error title=Android permission setup::BLUETOOTH_CONNECT=$permission_status"; exit 1; }
-          echo "::notice title=Android permission setup::fresh app data retained; BLUETOOTH_CONNECT granted to suppress the unrelated OS dialog; no Spotify session or cookies supplied"
+          # The clean first launch may be covered by Android's nearby-devices
+          # permission prompt. Tap only the observed system Allow button, by its
+          # accessibility bounds; do not inject login/session or content data.
+          permission_status="$(adb shell pm check-permission com.melodix.music.preview android.permission.BLUETOOTH_CONNECT 2>/dev/null | tr -d '\r' || true)"
+          permission_prompt_visible="false"
+          permission_action="already_granted"
+          allow_center_x=""
+          allow_center_y=""
+          if [[ "$permission_status" != "granted" ]]; then
+            read -r permission_prompt_visible allow_center_x allow_center_y < <(python3 - "$state_dir/permission-prompt-summary.json" <<'PY'
+          import json
+          import pathlib
+          import sys
+
+          state = json.loads(pathlib.Path(sys.argv[1]).read_text(encoding="utf-8"))
+          visible = state.get("permission_controller_in_hierarchy", False)
+          x = state.get("permission_allow_center_x_px")
+          y = state.get("permission_allow_center_y_px")
+          print(str(bool(visible)).lower(), "" if x is None else x, "" if y is None else y)
+          PY
+            )
+            if [[ "$permission_prompt_visible" == "true" && "$allow_center_x" =~ ^[0-9]+$ && "$allow_center_y" =~ ^[0-9]+$ ]]; then
+              adb shell input tap "$allow_center_x" "$allow_center_y"
+              permission_action="observed_allow_button_tapped"
+              sleep 3
+              permission_status="$(adb shell pm check-permission com.melodix.music.preview android.permission.BLUETOOTH_CONNECT 2>/dev/null | tr -d '\r' || true)"
+            else
+              echo "::error title=Android permission setup::BLUETOOTH_CONNECT=$permission_status; permission_controller_visible=$permission_prompt_visible; allow_bounds_available=false"
+              exit 1
+            fi
+          fi
+          [[ "$permission_status" == "granted" ]] || { echo "::error title=Android permission setup::BLUETOOTH_CONNECT=$permission_status; permission_controller_visible=$permission_prompt_visible; allow_button_tapped=true"; exit 1; }
+          echo "::notice title=Android permission setup::fresh app data retained; BLUETOOTH_CONNECT=$permission_status; action=$permission_action; no Spotify session or cookies supplied"
           adb shell am force-stop com.melodix.music.preview >/dev/null 2>&1 || true
           adb shell monkey -p com.melodix.music.preview -c android.intent.category.LAUNCHER 1 >/dev/null
           sleep 60
@@ -539,6 +578,7 @@ jobs:
               "first_launch_permission_hierarchy_available": permission_state.get("hierarchy_available", False),
               "permission_controller_in_first_launch_hierarchy": permission_state.get("permission_controller_in_hierarchy", False),
               "permission_controls_in_first_launch_hierarchy": permission_state.get("permission_allow_or_deny_control_present", False),
+              "permission_allow_control_position_captured": permission_state.get("permission_allow_center_x_px") is not None and permission_state.get("permission_allow_center_y_px") is not None,
               "first_launch_hierarchy_top_package": permission_state.get("top_package"),
               "integration_outcome": integration,
               "login_ui_visible_in_webview_dom": "INSTRUMENTATION_STATUS: login_ui_visible_in_webview_dom=true" in transcript and "INSTRUMENTATION_STATUS: authenticated_session=false" in transcript,
@@ -561,7 +601,8 @@ jobs:
           print(json.dumps({key: reference[key] for key in (
               "integration_outcome", "login_ui_visible_in_webview_dom",
               "first_launch_permission_hierarchy_available", "permission_controller_in_first_launch_hierarchy",
-              "permission_controls_in_first_launch_hierarchy", "first_launch_hierarchy_top_package",
+              "permission_controls_in_first_launch_hierarchy", "permission_allow_control_position_captured",
+              "first_launch_hierarchy_top_package",
               "cold_launch_hierarchy_pixels_outcome", "activity_resumed_after_instrumentation_attempt",
               "empty_home_hierarchy_pixels_verified", "empty_home_payload_confirmed",
               "playlist_or_card_injected_by_harness", "no_playlist_or_card_injected_status_confirmed",
@@ -607,7 +648,8 @@ jobs:
                   for key in (
                       "hierarchy_available", "hierarchy_node_count", "top_package", "top_class",
                       "permission_controller_in_hierarchy", "permission_allow_or_deny_control_present",
-                      "text_nodes_present_count"
+                      "permission_allow_button_bounds_px", "permission_allow_center_x_px",
+                      "permission_allow_center_y_px", "text_nodes_present_count"
                   ):
                       if key in state:
                           output.write(f"- {key}: {json.dumps(state[key], sort_keys=True)}\n")

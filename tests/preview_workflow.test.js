@@ -145,11 +145,11 @@ test("the emulator workflow builds and tests one Preview APK in the same CI run"
   );
   assert.match(
     emulatorWorkflow,
-    /adb install "\$APK_PATH"[\s\S]*?adb shell pm clear com\.melodix\.music\.preview[\s\S]*?adb shell pm grant --user 0 com\.melodix\.music\.preview android\.permission\.BLUETOOTH_CONNECT[\s\S]*?adb install -r "\$TEST_APK"/,
-    "install and clear the exact APK, grant only its declared runtime permission, then install the test-only harness",
+    /adb install "\$APK_PATH"[\s\S]*?adb shell pm clear com\.melodix\.music\.preview[\s\S]*?permission-prompt-summary\.json[\s\S]*?adb shell input tap "\$allow_center_x" "\$allow_center_y"[\s\S]*?pm check-permission[\s\S]*?adb install -r "\$TEST_APK"/,
+    "install and clear the exact APK, accept only the observed Android permission control, then install the test-only harness",
   );
-  assert.match(emulatorWorkflow, /permission-before-grant\.xml[\s\S]*?permission-prompt-summary\.json[\s\S]*?pm grant --user 0/,
-    "the first-launch permission surface is recorded as redacted metadata before the test grant");
+  assert.match(emulatorWorkflow, /permission-before-grant\.xml[\s\S]*?permission-prompt-summary\.json[\s\S]*?permission_allow_center_x_px[\s\S]*?adb shell input tap/,
+    "the first-launch permission surface is recorded as redacted metadata before tapping its observed Allow control");
   assert.match(emulatorWorkflow, /safe_statuses=.*failure_phase.*failure_type/,
     "Android harness failures surface only whitelisted phase/status diagnostics");
   assert.match(emulatorWorkflow, /focus_state=.*mCurrentFocus/,
