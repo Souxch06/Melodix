@@ -433,10 +433,13 @@ jobs:
             > "$state_dir/android-instrumentation.txt" 2>&1
           instrumentation_status=$?
           set -e
+          adb logcat -d -t 1000 -s MelodixHarness:I > "$state_dir/instrumentation-safe-logcat.txt" 2>/dev/null || true
           cat "$state_dir/android-instrumentation.txt"
           if [[ "$instrumentation_status" != "0" ]]; then
-            safe_statuses="$(grep -E '^INSTRUMENTATION_STATUS: (phase|authenticated_session|login_ui_visible_in_webview_dom|webview_visible_and_measured|network_error_transition_recovered|original_webview_url_preserved|splash_hidden|native_home_hidden|home_payload_empty|playlist_or_card_injected|native_home_cards_attached|native_home_content_ready|native_content_container_empty|native_root_hidden|native_home_tab_not_shown|webview_container_visible|page_load_complete|failure_phase|failure_type|overall)=' "$state_dir/android-instrumentation.txt" | tr '\n' ';' | cut -c1-1800 || true)"
-            echo "::error title=Android UI instrumentation::exit=$instrumentation_status; safe_statuses=${safe_statuses:-none}"
+            safe_statuses="$(grep -E '^INSTRUMENTATION_STATUS: (phase|authenticated_session|login_dom_probe_completed|login_ui_visible_in_webview_dom|webview_visible_and_measured|network_error_transition_recovered|original_webview_url_preserved|splash_hidden|native_home_hidden|home_payload_empty|playlist_or_card_injected|native_home_cards_attached|native_home_content_ready|native_content_container_empty|native_root_hidden|native_home_tab_not_shown|webview_container_visible|page_load_complete|failure_phase|failure_type|overall)=' "$state_dir/android-instrumentation.txt" | tr '\n' ';' | cut -c1-1200 || true)"
+            safe_harness_logs="$(grep -E 'MelodixHarness: (started|phase=[a-z_]+|failure phase=[a-z_]+ type=[A-Za-z0-9_$]+|completed)$' "$state_dir/instrumentation-safe-logcat.txt" | sed -E 's/^.*MelodixHarness: //' | tr '\n' ';' | cut -c1-500 || true)"
+            transcript_bytes="$(wc -c < "$state_dir/android-instrumentation.txt" | tr -d '[:space:]')"
+            echo "::error title=Android UI instrumentation::exit=$instrumentation_status; safe_statuses=${safe_statuses:-none}; harness_markers=${safe_harness_logs:-none}; transcript_bytes=$transcript_bytes"
             exit 1
           fi
 
@@ -576,6 +579,12 @@ jobs:
           exists = lambda name: (root / name).is_file()
           transcript = (root / "android-instrumentation.txt").read_text(encoding="utf-8", errors="replace") if exists("android-instrumentation.txt") else ""
           permission_state = json.loads((root / "permission-prompt-summary.json").read_text(encoding="utf-8")) if exists("permission-prompt-summary.json") else {}
+          login_dom_visible = None
+          unauthenticated_session_confirmed = "INSTRUMENTATION_STATUS: authenticated_session=false" in transcript
+          if unauthenticated_session_confirmed and "INSTRUMENTATION_STATUS: login_ui_visible_in_webview_dom=true" in transcript:
+              login_dom_visible = True
+          elif unauthenticated_session_confirmed and "INSTRUMENTATION_STATUS: login_ui_visible_in_webview_dom=false" in transcript:
+              login_dom_visible = False
           reference = {
               "source_commit": source_ref,
               "build_and_test_run_id": run_id,
@@ -590,7 +599,8 @@ jobs:
               "permission_allow_control_position_captured": permission_state.get("permission_allow_center_x_px") is not None and permission_state.get("permission_allow_center_y_px") is not None,
               "first_launch_hierarchy_top_package": permission_state.get("top_package"),
               "integration_outcome": integration,
-              "login_ui_visible_in_webview_dom": "INSTRUMENTATION_STATUS: login_ui_visible_in_webview_dom=true" in transcript and "INSTRUMENTATION_STATUS: authenticated_session=false" in transcript,
+              "login_ui_visible_in_webview_dom": login_dom_visible,
+              "login_dom_probe_observed": login_dom_visible is not None,
               "cold_launch_hierarchy_pixels_outcome": cold_launch,
               "cold_launch_hierarchy_pixels_verified": cold_launch == "success",
               "post_instrumentation_outcome": post_instrumentation,
@@ -665,11 +675,17 @@ jobs:
           PY
           fi
 
-          login_dom_visible=false
+          login_dom_visible=not_confirmed
           empty_home_payload_confirmed=false
           playlist_or_card_injected_by_harness=false
           if [[ -s "$state_dir/android-instrumentation.txt" ]]; then
-            grep -Fq 'INSTRUMENTATION_STATUS: login_ui_visible_in_webview_dom=true' "$state_dir/android-instrumentation.txt" && login_dom_visible=true || true
+            if grep -Fq 'INSTRUMENTATION_STATUS: authenticated_session=false' "$state_dir/android-instrumentation.txt"; then
+              if grep -Fq 'INSTRUMENTATION_STATUS: login_ui_visible_in_webview_dom=true' "$state_dir/android-instrumentation.txt"; then
+                login_dom_visible=true
+              elif grep -Fq 'INSTRUMENTATION_STATUS: login_ui_visible_in_webview_dom=false' "$state_dir/android-instrumentation.txt"; then
+                login_dom_visible=false
+              fi
+            fi
             grep -Fq 'INSTRUMENTATION_STATUS: home_payload_empty=true' "$state_dir/android-instrumentation.txt" && empty_home_payload_confirmed=true || true
             grep -Fq 'INSTRUMENTATION_STATUS: playlist_or_card_injected=true' "$state_dir/android-instrumentation.txt" && playlist_or_card_injected_by_harness=true || true
           fi
@@ -695,6 +711,7 @@ jobs:
             ${{ runner.temp }}/melodix-preview-emulator-state/home-empty-fallback.png
             ${{ runner.temp }}/melodix-preview-emulator-state/home-fallback-hierarchy-redacted.json
             ${{ runner.temp }}/melodix-preview-emulator-state/android-instrumentation.txt
+            ${{ runner.temp }}/melodix-preview-emulator-state/instrumentation-safe-logcat.txt
             ${{ runner.temp }}/melodix-preview-emulator-state/verification-reference.json
             ${{ runner.temp }}/melodix-preview-emulator-state/assets-manifest.json
           retention-days: 14

@@ -6,6 +6,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.graphics.Rect;
 import android.os.Bundle;
+import android.util.Log;
 import android.view.View;
 import android.webkit.ValueCallback;
 import android.webkit.WebView;
@@ -26,6 +27,7 @@ import java.util.concurrent.TimeUnit;
  */
 public final class HomeRenderInstrumentation extends Instrumentation {
     private static final String TARGET_PACKAGE = "com.melodix.music.preview";
+    private static final String HARNESS_TAG = "MelodixHarness";
     private static final long WEBVIEW_SETTLE_TIMEOUT_MS = 60000L;
     private static final long REQUIRED_STABLE_MS = 1800L;
     private static final String LOGIN_DOM_PROBE =
@@ -44,16 +46,22 @@ public final class HomeRenderInstrumentation extends Instrumentation {
     public void onStart() {
         super.onStart();
         String failurePhase = "launch_target";
+        Log.i(HARNESS_TAG, "started");
+        notePhase(failurePhase);
         try {
             Activity activity = launchTarget();
             failurePhase = "await_webview";
+            notePhase(failurePhase);
             WebView webView = awaitStableWebView(activity);
             failurePhase = "verify_unauthenticated_session";
+            notePhase(failurePhase);
             requireUnauthenticatedSession(activity);
             failurePhase = "login_dom_probe";
+            notePhase(failurePhase);
             final boolean loginDomVisible = awaitLoginUiVisible(webView);
 
             failurePhase = "login_surface_visibility";
+            notePhase(failurePhase);
             final Bundle[] loginState = new Bundle[1];
             final Throwable[] loginFailure = new Throwable[1];
             runOnMainSync(new Runnable() {
@@ -70,6 +78,7 @@ public final class HomeRenderInstrumentation extends Instrumentation {
             sendStatus(1, loginState[0]);
 
             failurePhase = "empty_home_bridge_dispatch";
+            notePhase(failurePhase);
             final Throwable[] dispatchFailure = new Throwable[1];
             runOnMainSync(new Runnable() {
                 @Override
@@ -83,6 +92,7 @@ public final class HomeRenderInstrumentation extends Instrumentation {
             });
             if (dispatchFailure[0] != null) throw dispatchFailure[0];
             failurePhase = "empty_home_fallback_visibility";
+            notePhase(failurePhase);
             waitForIdleSync();
             Thread.sleep(250L);
 
@@ -103,8 +113,10 @@ public final class HomeRenderInstrumentation extends Instrumentation {
             Bundle result = new Bundle(fallbackState[0]);
             result.putString("overall", "passed");
             sendStatus(1, result);
+            Log.i(HARNESS_TAG, "completed");
             finish(Activity.RESULT_OK, result);
         } catch (Throwable failure) {
+            Log.e(HARNESS_TAG, "failure phase=" + failurePhase + " type=" + failure.getClass().getSimpleName());
             Bundle status = new Bundle();
             status.putString("overall", "failed");
             status.putString("failure_phase", failurePhase);
@@ -112,6 +124,10 @@ public final class HomeRenderInstrumentation extends Instrumentation {
             sendStatus(2, status);
             finish(Activity.RESULT_CANCELED, status);
         }
+    }
+
+    private void notePhase(String phase) {
+        Log.i(HARNESS_TAG, "phase=" + phase);
     }
 
     private Activity launchTarget() {
@@ -204,7 +220,14 @@ public final class HomeRenderInstrumentation extends Instrumentation {
         if (!received.await(10L, TimeUnit.SECONDS)) {
             throw new AssertionError("Spotify login DOM probe timed out");
         }
-        if (!"true".equals(result[0])) {
+        boolean loginVisible = "true".equals(result[0]);
+        Bundle probeState = new Bundle();
+        probeState.putString("phase", "login_dom_probe");
+        probeState.putBoolean("authenticated_session", false);
+        probeState.putBoolean("login_dom_probe_completed", true);
+        probeState.putBoolean("login_ui_visible_in_webview_dom", loginVisible);
+        sendStatus(1, probeState);
+        if (!loginVisible) {
             throw new AssertionError("The clean unauthenticated WebView has no visible login UI");
         }
         return true;

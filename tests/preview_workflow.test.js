@@ -150,10 +150,20 @@ test("the emulator workflow builds and tests one Preview APK in the same CI run"
   );
   assert.match(emulatorWorkflow, /read_bluetooth_permission_state\(\)[\s\S]*?dumpsys package com\.melodix\.music\.preview[\s\S]*?BLUETOOTH_CONNECT:[\s\S]*?granted=true/,
     "the test verifies the observed runtime permission through package-manager state rather than an unsupported shell command");
+  assert.doesNotMatch(emulatorWorkflow, /pm check-permission/,
+    "Android 16 permission verification must not call the unsupported pm subcommand");
   assert.match(emulatorWorkflow, /permission-before-grant\.xml[\s\S]*?permission-prompt-summary\.json[\s\S]*?permission_allow_center_x_px[\s\S]*?adb shell input tap/,
     "the first-launch permission surface is recorded as redacted metadata before tapping its observed Allow control");
   assert.match(emulatorWorkflow, /safe_statuses=.*failure_phase.*failure_type/,
     "Android harness failures surface only whitelisted phase/status diagnostics");
+  assert.match(emulatorWorkflow, /safe_harness_logs=.*MelodixHarness:/,
+    "Android harness crashes are read from a private safe-diagnostics log tag");
+  assert.match(emulatorWorkflow, /harness_markers=\$\{safe_harness_logs/,
+    "safe harness phase/type markers are included in the failure annotation");
+  assert.match(emulatorWorkflow, /login_dom_visible=not_confirmed/,
+    "missing instrumentation output is not misreported as a negative login DOM observation");
+  assert.match(emulatorWorkflow, /login_dom_probe_observed/,
+    "the reference distinguishes an observed login result from an absent probe result");
   assert.match(emulatorWorkflow, /focus_state=.*mCurrentFocus/,
     "an activity-resume failure identifies the safe foreground window instead of stopping at a generic error");
   assert.match(
@@ -179,7 +189,7 @@ test("the emulator workflow builds and tests one Preview APK in the same CI run"
   const uploadStep = emulatorWorkflow.slice(
     emulatorWorkflow.indexOf("name: Upload verified screenshot and redacted launch summary"),
   );
-  assert.match(uploadStep, /permission-prompt-summary\.json[\s\S]*?login-hierarchy-redacted\.json[\s\S]*?verification-reference\.json/);
+  assert.match(uploadStep, /permission-prompt-summary\.json[\s\S]*?login-hierarchy-redacted\.json[\s\S]*?instrumentation-safe-logcat\.txt[\s\S]*?verification-reference\.json/);
   assert.doesNotMatch(uploadStep, /login-window\.xml|home-fallback-window\.xml|permission-before-grant\.xml/,
     "raw UIAutomator hierarchy text is not uploaded");
   assert.match(emulatorWorkflow, /cold_launch_hierarchy_pixels_verified/);
@@ -195,6 +205,8 @@ test("the emulator workflow builds and tests one Preview APK in the same CI run"
   );
   assert.match(harnessSource, /failurePhase = "await_webview"[\s\S]*?status\.putString\("failure_phase", failurePhase\)/,
     "a failed Android probe identifies the first safe session/WebView/Home phase without logging content");
+  assert.match(harnessSource, /login_dom_probe_completed[\s\S]*?login_ui_visible_in_webview_dom[\s\S]*?sendStatus\(1, probeState\)/,
+    "a completed false DOM probe is recorded explicitly before the harness fails");
   assert.match(
     workflow,
     /for asset_path in sorted\(path for path in \(root \/ "assets"\)\.rglob\("\*"\) if path\.is_file\(\)\)/,
