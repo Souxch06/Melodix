@@ -138,6 +138,59 @@ test("the emulator workflow checks the exact APK debuggable flag and captures re
   );
 });
 
+test("empty-Home pixels are captured before instrumentation finish and the same app is resumed afterwards", () => {
+  const emulatorWorkflow = fs.readFileSync(
+    path.resolve(
+      __dirname,
+      "..",
+      ".github/workflows/test-preview-emulator.yml",
+    ),
+    "utf8",
+  );
+  const harness = fs.readFileSync(
+    path.resolve(__dirname, "android", "HomeRenderInstrumentation.java"),
+    "utf8",
+  );
+  const captureCall = harness.indexOf("captureEmptyHomeUiEvidence();");
+  const finishCall = harness.indexOf("finish(Activity.RESULT_OK, result);");
+  assert.ok(
+    captureCall >= 0 && finishCall > captureCall,
+    "save the measured empty-Home screen while the instrumented Activity is still alive, before finish() stops it",
+  );
+  assert.match(harness, /serviceInfo\.flags = AccessibilityServiceInfo\.FLAG_INCLUDE_NOT_IMPORTANT_VIEWS[\s\S]*?FLAG_REPORT_VIEW_IDS[\s\S]*?automation\.setServiceInfo\(serviceInfo\)/);
+  assert.match(harness, /automation\.getRootInActiveWindow\(\)/);
+  assert.match(harness, /automation\.takeScreenshot\(\)/);
+  assert.match(harness, /openFileOutput\([\s\S]*?melodix-preview-home-fallback\.xml/);
+  assert.match(harness, /openFileOutput\([\s\S]*?melodix-preview-home-empty\.png/);
+  assert.match(harness, /result\.putBoolean\("empty_home_evidence_captured", true\)/);
+  assert.match(emulatorWorkflow, /INSTRUMENTATION_STATUS: empty_home_evidence_captured=true/);
+  assert.match(emulatorWorkflow, /safe_statuses=.*empty_home_evidence_captured/);
+  assert.match(emulatorWorkflow, /adb exec-out run-as com\.melodix\.music\.preview cat files\/melodix-preview-home-fallback\.xml/);
+  assert.match(emulatorWorkflow, /adb exec-out run-as com\.melodix\.music\.preview cat files\/melodix-preview-home-empty\.png/);
+  const screenshotRetrieved = emulatorWorkflow.indexOf(
+    "adb exec-out run-as com.melodix.music.preview cat files/melodix-preview-home-empty.png",
+  );
+  const targetRelaunch = emulatorWorkflow.indexOf(
+    "adb shell am start -W -n com.melodix.music.preview/com.melodix.music.MainActivity",
+  );
+  const emptyHomeInspection = emulatorWorkflow.indexOf(
+    "python3 tests/android/inspect_hierarchy.py empty-home",
+  );
+  assert.ok(
+    screenshotRetrieved >= 0 && screenshotRetrieved < targetRelaunch && targetRelaunch < emptyHomeInspection,
+    "retrieve the pre-finish screenshot, relaunch and verify MainActivity, then inspect the saved empty-Home pixels",
+  );
+  assert.match(
+    emulatorWorkflow,
+    /adb shell am start -W -n com\.melodix\.music\.preview\/com\.melodix\.music\.MainActivity/,
+    "finish() may stop the instrumented process, so verify activity resumption after relaunching the exact installed target",
+  );
+  assert.match(emulatorWorkflow, /inspect_hierarchy\.py empty-home/);
+  assert.match(emulatorWorkflow, /activity_resumed=true[\s\S]*?preview_relaunched=\$preview_relaunched/);
+  assert.match(emulatorWorkflow, /empty_home_pixels_verified=true/);
+  assert.match(emulatorWorkflow, /PREVIEW_RELAUNCHED: \$\{\{ steps\.post-instrumentation\.outputs\.preview_relaunched \}\}/);
+});
+
 test("the emulator workflow builds and tests one Preview APK in the same CI run", () => {
   const emulatorWorkflow = fs.readFileSync(
     path.resolve(

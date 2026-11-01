@@ -1,18 +1,24 @@
 package com.melodix.test;
 
+import android.accessibilityservice.AccessibilityServiceInfo;
 import android.app.Activity;
 import android.app.Instrumentation;
+import android.app.UiAutomation;
 import android.content.Context;
 import android.content.Intent;
+import android.graphics.Bitmap;
 import android.graphics.Rect;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.View;
+import android.view.accessibility.AccessibilityEvent;
+import android.view.accessibility.AccessibilityNodeInfo;
 import android.webkit.ValueCallback;
 import android.webkit.WebView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 
+import java.io.FileOutputStream;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.util.concurrent.CountDownLatch;
@@ -125,7 +131,13 @@ public final class HomeRenderInstrumentation extends Instrumentation {
             });
             if (fallbackFailure[0] != null) throw fallbackFailure[0];
 
+            failurePhase = "capture_empty_home_evidence";
+            notePhase(failurePhase);
+            captureEmptyHomeUiEvidence();
+            Log.i(HARNESS_TAG, "empty_home_evidence_captured");
+
             Bundle result = new Bundle(fallbackState[0]);
+            result.putBoolean("empty_home_evidence_captured", true);
             result.putString("overall", "passed");
             sendStatus(1, result);
             Log.i(HARNESS_TAG, "completed");
@@ -287,6 +299,85 @@ public final class HomeRenderInstrumentation extends Instrumentation {
         state.putBoolean("page_load_complete", webView.getProgress() == 100);
         putBounds(state, "webview_visible", webBounds);
         return state;
+    }
+
+    private void captureEmptyHomeUiEvidence() throws Exception {
+        UiAutomation automation = getUiAutomation();
+        AccessibilityServiceInfo serviceInfo = new AccessibilityServiceInfo();
+        serviceInfo.eventTypes = AccessibilityEvent.TYPES_ALL_MASK;
+        serviceInfo.feedbackType = AccessibilityServiceInfo.FEEDBACK_GENERIC;
+        serviceInfo.flags = AccessibilityServiceInfo.FLAG_INCLUDE_NOT_IMPORTANT_VIEWS
+                | AccessibilityServiceInfo.FLAG_REPORT_VIEW_IDS
+                | AccessibilityServiceInfo.FLAG_RETRIEVE_INTERACTIVE_WINDOWS;
+        automation.setServiceInfo(serviceInfo);
+        AccessibilityNodeInfo root = automation.getRootInActiveWindow();
+        if (root == null) {
+            throw new AssertionError("Android UI hierarchy was unavailable during the empty-Home phase");
+        }
+        StringBuilder hierarchy = new StringBuilder("<?xml version=\"1.0\" encoding=\"UTF-8\"?><hierarchy>");
+        try {
+            appendAccessibilityNodeXml(hierarchy, root);
+        } finally {
+            root.recycle();
+        }
+        hierarchy.append("</hierarchy>");
+        try (FileOutputStream output = getTargetContext().openFileOutput(
+                "melodix-preview-home-fallback.xml", Context.MODE_PRIVATE)) {
+            output.write(hierarchy.toString().getBytes("UTF-8"));
+        }
+
+        Bitmap screenshot = automation.takeScreenshot();
+        if (screenshot == null) {
+            throw new AssertionError("Android screenshot was unavailable during the empty-Home phase");
+        }
+        try {
+            try (FileOutputStream output = getTargetContext().openFileOutput(
+                    "melodix-preview-home-empty.png", Context.MODE_PRIVATE)) {
+                if (!screenshot.compress(Bitmap.CompressFormat.PNG, 100, output)) {
+                    throw new AssertionError("Could not encode the empty-Home screenshot");
+                }
+            }
+        } finally {
+            screenshot.recycle();
+        }
+    }
+
+    private void appendAccessibilityNodeXml(StringBuilder xml, AccessibilityNodeInfo node) {
+        Rect bounds = new Rect();
+        node.getBoundsInScreen(bounds);
+        xml.append("<node");
+        appendXmlAttribute(xml, "class", node.getClassName());
+        appendXmlAttribute(xml, "package", node.getPackageName());
+        appendXmlAttribute(xml, "resource-id", node.getViewIdResourceName());
+        appendXmlAttribute(xml, "text", node.getText());
+        appendXmlAttribute(xml, "content-desc", node.getContentDescription());
+        appendXmlAttribute(xml, "bounds", bounds.flattenToString());
+        appendXmlAttribute(xml, "visible-to-user", String.valueOf(node.isVisibleToUser()));
+        xml.append(">");
+        for (int index = 0; index < node.getChildCount(); index++) {
+            AccessibilityNodeInfo child = node.getChild(index);
+            if (child == null) continue;
+            try {
+                appendAccessibilityNodeXml(xml, child);
+            } finally {
+                child.recycle();
+            }
+        }
+        xml.append("</node>");
+    }
+
+    private void appendXmlAttribute(StringBuilder xml, String name, CharSequence value) {
+        xml.append(' ').append(name).append("=\"")
+                .append(escapeXml(value == null ? "" : value.toString()))
+                .append('"');
+    }
+
+    private String escapeXml(String value) {
+        return value.replace("&", "&amp;")
+                .replace("\"", "&quot;")
+                .replace("<", "&lt;")
+                .replace(">", "&gt;")
+                .replace("'", "&apos;");
     }
 
     private void dispatchEmptyHomeThroughAndBridge(Activity activity) throws Exception {
