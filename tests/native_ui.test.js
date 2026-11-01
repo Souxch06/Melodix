@@ -84,13 +84,13 @@ test('Android WebView instruments real CSS layout states at all requested phone 
         assert.ok(probe.includes(`state('${phase}')`), `the same viewport must measure the ${phase} state`);
     }
     assert.ok(probe.includes('fixture_test_only:true') && probe.includes('states:[compact,libraryOpen,expanded]'));
-    const factory = harness.indexOf('settings.setBlockNetworkLoads(true)');
-    const wideViewport = harness.indexOf('settings.setUseWideViewPort(true)', factory);
-    const textZoom = harness.indexOf('settings.setTextZoom(100)', wideViewport);
-    assert.ok(factory >= 0 && wideViewport > factory && textZoom > wideViewport,
-        'fixture measurements use the packaged CSS, a controlled viewport, and no network-loaded account data');
     const fixtureFactory = harness.split('private WebView createMobileViewportFixture')[1]
         .split('private void installPackagedMobileViewportCss')[0];
+    const factory = fixtureFactory.indexOf('settings.setBlockNetworkLoads(true)');
+    const wideViewport = fixtureFactory.indexOf('settings.setUseWideViewPort(false)', factory);
+    const textZoom = fixtureFactory.indexOf('settings.setTextZoom(100)', wideViewport);
+    assert.ok(factory >= 0 && wideViewport > factory && textZoom > wideViewport,
+        'fixture measurements match the primary WebView width behavior, use the packaged CSS, and load no account data');
     assert.ok(fixtureFactory.includes('viewport-fit=cover') && fixtureFactory.includes('height:1200px')
         && fixtureFactory.includes('sf-melodix-home__card'));
     assert.doesNotMatch(fixtureFactory, /playlist|album|artist|spotify:|cookie|token/i,
@@ -106,8 +106,12 @@ test('Android WebView instruments real CSS layout states at all requested phone 
         && matrix.includes('mobile_viewport_matrix_measurements_complete'),
         'collected geometry and the visual layout contract are reported separately');
     assert.ok(harness.includes('sendMobileViewportCaseStatus') && harness.includes('reportMobileViewportFailure')
-        && harness.includes('mobile_viewport_failure_type'),
-        'each Android width exposes bounded progress and failure-stage diagnostics without page text');
+        && harness.includes('mobile_viewport_failure_type') && harness.includes('LayoutContractMismatch'),
+        'each Android width exposes bounded progress, enforces the layout contract, and reports safe failure-stage diagnostics');
+    assert.ok(harness.includes('Math.round(viewportWidth * density)') && harness.includes('settings.setUseWideViewPort(false)')
+        && harness.includes('rendererView.setAlpha(0.0f)')
+        && harness.includes('rendererView.setTranslationX(Math.max(0, root.getWidth()))'),
+        'the test fixture must measure a real requested CSS width without visually covering or focusing the primary Spotify WebView');
 });
 
 test('all native layout IDs are assigned stable public resource IDs', () => {

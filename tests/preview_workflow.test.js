@@ -363,6 +363,8 @@ test("Android records measured mobile viewport geometry and native system-bar in
   assert.match(harness, /measureAndroidWindowInsets[\s\S]*?WindowInsets\.Type\.statusBars\(\)[\s\S]*?WindowInsets\.Type\.navigationBars\(\)/,
     "the matrix captures Android system bars independently of CSS safe-area inference");
   assert.match(workflow, /mobile_viewport_\[A-Za-z0-9_\-\]\+\|android_window_insets_available/);
+  assert.match(workflow, /geometry=%s\/%s\/%s,inner=%s\/%s\/%s/,
+    "the bounded matrix failure annotation should retain per-width width and geometry outcomes");
   for (const field of [
     "mobile_viewport_matrix_fixture_test_only", "mobile_viewport_matrix_measurements_complete",
     "mobile_viewport_layout_contract_passed", "mobile_viewport_width_cases", "android_system_insets",

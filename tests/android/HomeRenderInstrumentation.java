@@ -2214,17 +2214,25 @@ public final class HomeRenderInstrumentation extends Instrumentation {
                 try {
                     View root = activity.findViewById(android.R.id.content);
                     if (!(root instanceof ViewGroup)) throw new AssertionError("Activity content root is not a ViewGroup");
+                    float density = activity.getResources().getDisplayMetrics().density;
+                    if (!(density > 0.0f) || Float.isInfinite(density)) {
+                        throw new AssertionError("Android display density is unavailable for the viewport fixture");
+                    }
+                    int fixtureWidthPixels = Math.max(1, Math.round(viewportWidth * density));
                     WebView rendererView = new WebView(activity);
                     created[0] = rendererView;
-                    rendererView.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_YES);
-                    rendererView.setFocusable(true);
-                    rendererView.setFocusableInTouchMode(true);
+                    rendererView.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS);
+                    rendererView.setFocusable(false);
+                    rendererView.setFocusableInTouchMode(false);
+                    rendererView.setClickable(false);
+                    rendererView.setAlpha(0.0f);
                     rendererView.setBackgroundColor(0xFF101311);
                     WebSettings settings = rendererView.getSettings();
                     settings.setBlockNetworkLoads(true);
                     settings.setJavaScriptEnabled(true);
                     settings.setDomStorageEnabled(false);
-                    settings.setUseWideViewPort(true);
+                    // Match the primary Spotify WebView configuration in smali/m9.smali.
+                    settings.setUseWideViewPort(false);
                     settings.setLoadWithOverviewMode(false);
                     settings.setTextZoom(100);
                     rendererView.setWebViewClient(new WebViewClient() {
@@ -2233,9 +2241,11 @@ public final class HomeRenderInstrumentation extends Instrumentation {
                             pageFinished.countDown();
                         }
                     });
+                    // Keep the isolated measurement surface outside the visible app window.
+                    // It remains attached and laid out, but cannot obscure or take focus from Spotify.
                     ((ViewGroup) root).addView(rendererView, new ViewGroup.LayoutParams(
-                            ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
-                    rendererView.requestFocus();
+                            fixtureWidthPixels, ViewGroup.LayoutParams.MATCH_PARENT));
+                    rendererView.setTranslationX(Math.max(0, root.getWidth()));
                     rendererView.loadDataWithBaseURL(
                             "https://open.spotify.com/app", html, "text/html", "UTF-8",
                             "https://open.spotify.com/app");
@@ -2388,6 +2398,13 @@ public final class HomeRenderInstrumentation extends Instrumentation {
             notePhase("mobile_viewport_matrix_width_validation_failed");
             sendStatus(2, result);
             throw new AssertionError("The Android WebView viewport-width matrix did not measure every requested CSS width");
+        }
+        if (!compactPassed || !libraryPassed || !expandedPassed) {
+            result.putString("phase", "mobile_viewport_layout_contract_validation_failed");
+            result.putString("mobile_viewport_failure_type", "LayoutContractMismatch");
+            notePhase("mobile_viewport_layout_contract_validation_failed");
+            sendStatus(2, result);
+            throw new AssertionError("The Android WebView mobile layout contract failed at one or more measured widths");
         }
         return result;
     }

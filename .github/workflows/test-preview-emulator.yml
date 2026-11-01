@@ -827,9 +827,12 @@ jobs:
               if [[ "$value" =~ ^(-?[0-9]+([.][0-9]+)?|true|false)$ ]]; then printf '%s' "$value"; else printf 'na'; fi
             }
             safe_mobile_viewport_width_summary="$(for width in 360 384 393 412; do
-              printf '%s:measured=%s,inner=%s/%s/%s,visual=%s,scale=%s;' \
+              printf '%s:measured=%s,geometry=%s/%s/%s,inner=%s/%s/%s,visual=%s,scale=%s;' \
                 "$width" \
                 "$(status_metric "mobile_viewport_${width}_width_measured")" \
+                "$(status_metric "mobile_viewport_${width}_compact_geometry_passed")" \
+                "$(status_metric "mobile_viewport_${width}_library_navigation_passed")" \
+                "$(status_metric "mobile_viewport_${width}_expanded_overlay_passed")" \
                 "$(status_metric "mobile_viewport_${width}_compact_inner_width_css_px")" \
                 "$(status_metric "mobile_viewport_${width}_library-open_inner_width_css_px")" \
                 "$(status_metric "mobile_viewport_${width}_expanded_inner_width_css_px")" \
