@@ -145,9 +145,11 @@ test("the emulator workflow builds and tests one Preview APK in the same CI run"
   );
   assert.match(
     emulatorWorkflow,
-    /adb install "\$APK_PATH"[\s\S]*?adb shell pm clear com\.melodix\.music\.preview[\s\S]*?permission-prompt-summary\.json[\s\S]*?adb shell input tap "\$allow_center_x" "\$allow_center_y"[\s\S]*?pm check-permission[\s\S]*?adb install -r "\$TEST_APK"/,
+    /adb install "\$APK_PATH"[\s\S]*?adb shell pm clear com\.melodix\.music\.preview[\s\S]*?permission-prompt-summary\.json[\s\S]*?adb shell input tap "\$allow_center_x" "\$allow_center_y"[\s\S]*?read_bluetooth_permission_state[\s\S]*?adb install -r "\$TEST_APK"/,
     "install and clear the exact APK, accept only the observed Android permission control, then install the test-only harness",
   );
+  assert.match(emulatorWorkflow, /read_bluetooth_permission_state\(\)[\s\S]*?dumpsys package com\.melodix\.music\.preview[\s\S]*?BLUETOOTH_CONNECT:[\s\S]*?granted=true/,
+    "the test verifies the observed runtime permission through package-manager state rather than an unsupported shell command");
   assert.match(emulatorWorkflow, /permission-before-grant\.xml[\s\S]*?permission-prompt-summary\.json[\s\S]*?permission_allow_center_x_px[\s\S]*?adb shell input tap/,
     "the first-launch permission surface is recorded as redacted metadata before tapping its observed Allow control");
   assert.match(emulatorWorkflow, /safe_statuses=.*failure_phase.*failure_type/,

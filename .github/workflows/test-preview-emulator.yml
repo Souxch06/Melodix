@@ -297,7 +297,16 @@ jobs:
           # The clean first launch may be covered by Android's nearby-devices
           # permission prompt. Tap only the observed system Allow button, by its
           # accessibility bounds; do not inject login/session or content data.
-          permission_status="$(adb shell pm check-permission com.melodix.music.preview android.permission.BLUETOOTH_CONNECT 2>/dev/null | tr -d '\r' || true)"
+          read_bluetooth_permission_state() {
+            if adb shell dumpsys package com.melodix.music.preview \
+                | grep -F 'android.permission.BLUETOOTH_CONNECT:' \
+                | grep -Fq 'granted=true'; then
+              printf 'granted'
+            else
+              printf 'denied'
+            fi
+          }
+          permission_status="$(read_bluetooth_permission_state)"
           permission_prompt_visible="false"
           permission_action="already_granted"
           allow_center_x=""
@@ -319,7 +328,7 @@ jobs:
               adb shell input tap "$allow_center_x" "$allow_center_y"
               permission_action="observed_allow_button_tapped"
               sleep 3
-              permission_status="$(adb shell pm check-permission com.melodix.music.preview android.permission.BLUETOOTH_CONNECT 2>/dev/null | tr -d '\r' || true)"
+              permission_status="$(read_bluetooth_permission_state)"
             else
               echo "::error title=Android permission setup::BLUETOOTH_CONNECT=$permission_status; permission_controller_visible=$permission_prompt_visible; allow_bounds_available=false"
               exit 1
