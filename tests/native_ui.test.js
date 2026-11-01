@@ -106,9 +106,10 @@ test('Android WebView instruments real CSS layout states at all requested phone 
         && matrix.includes('mobile_viewport_matrix_measurements_complete'),
         'collected geometry and the visual layout contract are reported separately');
     assert.ok(harness.includes('sendMobileViewportCaseStatus') && harness.includes('reportMobileViewportFailure')
-        && harness.includes('mobile_viewport_failure_type') && harness.includes('LayoutContractMismatch'),
+        && harness.includes('mobile_viewport_failure_type') && harness.includes('LayoutContractMismatch')
+        && harness.includes('compactViewportLayoutFailureCodes') && harness.includes('appendViewportFailureCode'),
         'each Android width exposes bounded progress, enforces the layout contract, and reports safe failure-stage diagnostics');
-    assert.ok(harness.includes('Math.round(viewportWidth * density)') && harness.includes('settings.setUseWideViewPort(false)')
+    assert.ok(harness.includes('Math.floor(viewportWidth * density)') && harness.includes('settings.setUseWideViewPort(false)')
         && harness.includes('rendererView.setAlpha(0.0f)')
         && harness.includes('rendererView.setTranslationX(Math.max(0, root.getWidth()))'),
         'the test fixture must measure a real requested CSS width without visually covering or focusing the primary Spotify WebView');

@@ -826,19 +826,25 @@ jobs:
               value="${line#*=}"
               if [[ "$value" =~ ^(-?[0-9]+([.][0-9]+)?|true|false)$ ]]; then printf '%s' "$value"; else printf 'na'; fi
             }
+            status_codes() {
+              local key="$1" line value
+              line="$(grep -F "INSTRUMENTATION_STATUS: ${key}=" "$state_dir/android-instrumentation.txt" | tail -n 1 || true)"
+              value="${line#*=}"
+              if [[ "$value" == "none" || "$value" =~ ^[a-z0-9_,]+$ ]]; then printf '%s' "${value:0:72}"; else printf 'na'; fi
+            }
             safe_mobile_viewport_width_summary="$(for width in 360 384 393 412; do
-              printf '%s:measured=%s,geometry=%s/%s/%s,inner=%s/%s/%s,visual=%s,scale=%s;' \
+              printf '%s:measured=%s,C=%s,L=%s,E=%s,inner=%s/%s/%s,visual=%s,scale=%s;' \
                 "$width" \
                 "$(status_metric "mobile_viewport_${width}_width_measured")" \
-                "$(status_metric "mobile_viewport_${width}_compact_geometry_passed")" \
-                "$(status_metric "mobile_viewport_${width}_library_navigation_passed")" \
-                "$(status_metric "mobile_viewport_${width}_expanded_overlay_passed")" \
+                "$(status_codes "mobile_viewport_${width}_compact_failure_codes")" \
+                "$(status_codes "mobile_viewport_${width}_library_failure_codes")" \
+                "$(status_codes "mobile_viewport_${width}_expanded_failure_codes")" \
                 "$(status_metric "mobile_viewport_${width}_compact_inner_width_css_px")" \
                 "$(status_metric "mobile_viewport_${width}_library-open_inner_width_css_px")" \
                 "$(status_metric "mobile_viewport_${width}_expanded_inner_width_css_px")" \
                 "$(status_metric "mobile_viewport_${width}_compact_visual_width_css_px")" \
                 "$(status_metric "mobile_viewport_${width}_compact_visual_scale")"
-            done | tail -c 600)"
+            done | tail -c 1200)"
             safe_harness_logs="$(grep -E 'MelodixHarness: (instrumentation_onCreate_entered|instrumentation_onCreate_returned|instrumentation_runner_thread_started|instrumentation_onStart_entered|instrumentation_onStart_super_returned|empty_home_evidence_captured|home_status_evidence_captured|web_home_route_evidence_captured|started|phase=[a-z0-9_]+|failure phase=[a-z_]+ type=[A-Za-z0-9_$]+|completed)$' "$state_dir/instrumentation-safe-logcat.txt" | sed -E 's/^.*MelodixHarness: //' | tr '\n' ';' | tail -c 700 || true)"
             transcript_bytes="$(wc -c < "$state_dir/android-instrumentation.txt" | tr -d '[:space:]')"
             framework_summary="$(python3 - "$state_dir/android-instrumentation.txt" <<'PY'
@@ -1755,6 +1761,9 @@ jobs:
                       "compact_geometry_passed": status_bool(f"mobile_viewport_{width}_compact_geometry_passed"),
                       "library_navigation_passed": status_bool(f"mobile_viewport_{width}_library_navigation_passed"),
                       "expanded_overlay_passed": status_bool(f"mobile_viewport_{width}_expanded_overlay_passed"),
+                      "compact_failure_codes": status_value(f"mobile_viewport_{width}_compact_failure_codes"),
+                      "library_failure_codes": status_value(f"mobile_viewport_{width}_library_failure_codes"),
+                      "expanded_failure_codes": status_value(f"mobile_viewport_{width}_expanded_failure_codes"),
                       "states": {
                           name: viewport_state(width, name)
                           for name in ("compact", "library-open", "expanded")

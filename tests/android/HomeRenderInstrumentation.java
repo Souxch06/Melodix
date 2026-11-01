@@ -2218,7 +2218,7 @@ public final class HomeRenderInstrumentation extends Instrumentation {
                     if (!(density > 0.0f) || Float.isInfinite(density)) {
                         throw new AssertionError("Android display density is unavailable for the viewport fixture");
                     }
-                    int fixtureWidthPixels = Math.max(1, Math.round(viewportWidth * density));
+                    int fixtureWidthPixels = Math.max(1, (int) Math.floor(viewportWidth * density));
                     WebView rendererView = new WebView(activity);
                     created[0] = rendererView;
                     rendererView.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS);
@@ -2353,9 +2353,12 @@ public final class HomeRenderInstrumentation extends Instrumentation {
                         && widthMatches(expandedViewport, viewportWidth)
                         && boundedNumber(compactViewport, "visualWidth", -1) > 0
                         && boundedNumber(compactViewport, "visualScale", -1) > 0;
-                boolean compactCasePassed = compactViewportLayoutPassed(compact, viewportWidth);
-                boolean libraryCasePassed = libraryViewportLayoutPassed(libraryOpen, viewportWidth);
-                boolean expandedCasePassed = expandedViewportLayoutPassed(expanded, viewportWidth);
+                String compactFailureCodes = compactViewportLayoutFailureCodes(compact, viewportWidth);
+                String libraryFailureCodes = libraryViewportLayoutFailureCodes(libraryOpen, viewportWidth);
+                String expandedFailureCodes = expandedViewportLayoutFailureCodes(expanded, viewportWidth);
+                boolean compactCasePassed = compactFailureCodes.isEmpty();
+                boolean libraryCasePassed = libraryFailureCodes.isEmpty();
+                boolean expandedCasePassed = expandedFailureCodes.isEmpty();
                 measurementsComplete &= widthMeasured;
                 compactPassed &= compactCasePassed;
                 libraryPassed &= libraryCasePassed;
@@ -2364,8 +2367,13 @@ public final class HomeRenderInstrumentation extends Instrumentation {
                 result.putBoolean("mobile_viewport_" + viewportWidth + "_compact_geometry_passed", compactCasePassed);
                 result.putBoolean("mobile_viewport_" + viewportWidth + "_library_navigation_passed", libraryCasePassed);
                 result.putBoolean("mobile_viewport_" + viewportWidth + "_expanded_overlay_passed", expandedCasePassed);
+                String widthPrefix = "mobile_viewport_" + viewportWidth + "_";
+                result.putString(widthPrefix + "compact_failure_codes", compactFailureCodes.isEmpty() ? "none" : compactFailureCodes);
+                result.putString(widthPrefix + "library_failure_codes", libraryFailureCodes.isEmpty() ? "none" : libraryFailureCodes);
+                result.putString(widthPrefix + "expanded_failure_codes", expandedFailureCodes.isEmpty() ? "none" : expandedFailureCodes);
                 sendMobileViewportCaseStatus(viewportWidth, widthMeasured, compact, libraryOpen, expanded,
-                        compactCasePassed, libraryCasePassed, expandedCasePassed);
+                        compactCasePassed, libraryCasePassed, expandedCasePassed,
+                        compactFailureCodes, libraryFailureCodes, expandedFailureCodes);
                 stage = "primary_webview_check";
             } catch (Throwable error) {
                 reportMobileViewportFailure(viewportWidth, stage, error);
@@ -2411,7 +2419,8 @@ public final class HomeRenderInstrumentation extends Instrumentation {
 
     private void sendMobileViewportCaseStatus(
             int width, boolean widthMeasured, JSONObject compact, JSONObject libraryOpen, JSONObject expanded,
-            boolean compactPassed, boolean libraryPassed, boolean expandedPassed) {
+            boolean compactPassed, boolean libraryPassed, boolean expandedPassed,
+            String compactFailureCodes, String libraryFailureCodes, String expandedFailureCodes) {
         Bundle status = new Bundle();
         String prefix = "mobile_viewport_" + width + "_";
         status.putString("phase", "mobile_viewport_case_complete");
@@ -2422,6 +2431,9 @@ public final class HomeRenderInstrumentation extends Instrumentation {
         status.putBoolean(prefix + "compact_geometry_passed", compactPassed);
         status.putBoolean(prefix + "library_navigation_passed", libraryPassed);
         status.putBoolean(prefix + "expanded_overlay_passed", expandedPassed);
+        status.putString(prefix + "compact_failure_codes", compactFailureCodes.isEmpty() ? "none" : compactFailureCodes);
+        status.putString(prefix + "library_failure_codes", libraryFailureCodes.isEmpty() ? "none" : libraryFailureCodes);
+        status.putString(prefix + "expanded_failure_codes", expandedFailureCodes.isEmpty() ? "none" : expandedFailureCodes);
         JSONObject compactViewport = compact.optJSONObject("viewport");
         JSONObject compactSafeArea = compact.optJSONObject("safeArea");
         JSONObject compactOverlap = compact.optJSONObject("overlap");
@@ -2477,8 +2489,10 @@ public final class HomeRenderInstrumentation extends Instrumentation {
         return viewport != null && Math.abs(boundedNumber(viewport, "innerWidth", -10000) - expectedWidth) <= 1.0;
     }
 
-    private boolean compactViewportLayoutPassed(JSONObject state, int expectedWidth) {
-        if (!widthMatches(state == null ? null : state.optJSONObject("viewport"), expectedWidth)) return false;
+    private String compactViewportLayoutFailureCodes(JSONObject state, int expectedWidth) {
+        if (state == null) return "state_missing";
+        StringBuilder failures = new StringBuilder();
+        if (!widthMatches(state.optJSONObject("viewport"), expectedWidth)) appendViewportFailureCode(failures, false, "width");
         JSONObject surfaces = state.optJSONObject("surfaces");
         JSONObject nav = surfaceState(surfaces, "mobileNavigation");
         JSONObject player = surfaceState(surfaces, "player");
@@ -2493,27 +2507,36 @@ public final class HomeRenderInstrumentation extends Instrumentation {
         double expectedPlayerBottomGap = 78.0 + bottomInset;
         double expectedHomeBottomGap = 154.0 + bottomInset;
         JSONObject scroll = state.optJSONObject("scroll");
-        return surfaceVisible(nav) && surfaceVisible(player) && surfaceVisible(home)
-                && surfacePosition(nav, "fixed") && surfacePosition(player, "fixed") && surfacePosition(home, "fixed")
-                && dockRect != null && playerRect != null
-                && boundedNumber(dockRect, "height", -1) >= 72.0 + bottomInset - 1.0
-                && Math.abs(boundedNumber(safeArea, "navBottomGapCssPx", 10000)) <= 1.0
-                && Math.abs(boundedNumber(safeArea, "playerBottomGapCssPx", 10000) - expectedPlayerBottomGap) <= 2.0
-                && Math.abs(boundedNumber(playerRect, "height", -1) - 68.0) <= 2.0
-                && Math.abs(boundedNumber(safeArea, "homeBottomGapCssPx", 10000) - expectedHomeBottomGap) <= 2.0
-                && boundedNumber(overlap, "dockPlayerVerticalPx", 10000) <= 1.0
-                && navigationTargetsReachable(hitTargets)
-                && hitTargetMeetsMinimum(hitTargets == null ? null : hitTargets.optJSONObject("playPause"), 44)
-                && hitTargetMeetsMinimum(hitTargets == null ? null : hitTargets.optJSONObject("homeCard"), 44)
-                && boundedNumber(scroll, "documentHorizontalOverflow", 10000) <= 1.0
-                && boundedNumber(scroll, "bodyHorizontalOverflow", 10000) <= 1.0
-                && boundedNumber(scroll, "homeHorizontalOverflow", 10000) <= 1.0
-                && boundedNumber(scroll, "homeVerticalOverflow", 0) > 0
-                && boundedNumber(viewport, "innerHeight", 0) > 0;
+        appendViewportFailureCode(failures, surfaceVisible(nav), "nav_visible");
+        appendViewportFailureCode(failures, surfaceVisible(player), "player_visible");
+        appendViewportFailureCode(failures, surfaceVisible(home), "home_visible");
+        appendViewportFailureCode(failures, surfacePosition(nav, "fixed"), "nav_fixed");
+        appendViewportFailureCode(failures, surfacePosition(player, "fixed"), "player_fixed");
+        appendViewportFailureCode(failures, surfacePosition(home, "fixed"), "home_fixed");
+        appendViewportFailureCode(failures, dockRect != null && playerRect != null, "dock_player_bounds");
+        appendViewportFailureCode(failures, dockRect != null
+                && boundedNumber(dockRect, "height", -1) >= 72.0 + bottomInset - 1.0, "dock_height");
+        appendViewportFailureCode(failures, Math.abs(boundedNumber(safeArea, "navBottomGapCssPx", 10000)) <= 1.0, "nav_bottom_gap");
+        appendViewportFailureCode(failures, Math.abs(boundedNumber(safeArea, "playerBottomGapCssPx", 10000) - expectedPlayerBottomGap) <= 2.0, "player_bottom_gap");
+        appendViewportFailureCode(failures, playerRect != null
+                && Math.abs(boundedNumber(playerRect, "height", -1) - 68.0) <= 2.0, "player_height");
+        appendViewportFailureCode(failures, Math.abs(boundedNumber(safeArea, "homeBottomGapCssPx", 10000) - expectedHomeBottomGap) <= 2.0, "home_bottom_gap");
+        appendViewportFailureCode(failures, boundedNumber(overlap, "dockPlayerVerticalPx", 10000) <= 1.0, "dock_player_overlap");
+        appendViewportFailureCode(failures, navigationTargetsReachable(hitTargets), "nav_targets");
+        appendViewportFailureCode(failures, hitTargetMeetsMinimum(hitTargets == null ? null : hitTargets.optJSONObject("playPause"), 44), "play_target");
+        appendViewportFailureCode(failures, hitTargetMeetsMinimum(hitTargets == null ? null : hitTargets.optJSONObject("homeCard"), 44), "home_card_target");
+        appendViewportFailureCode(failures, boundedNumber(scroll, "documentHorizontalOverflow", 10000) <= 1.0, "document_overflow");
+        appendViewportFailureCode(failures, boundedNumber(scroll, "bodyHorizontalOverflow", 10000) <= 1.0, "body_overflow");
+        appendViewportFailureCode(failures, boundedNumber(scroll, "homeHorizontalOverflow", 10000) <= 1.0, "home_overflow");
+        appendViewportFailureCode(failures, boundedNumber(scroll, "homeVerticalOverflow", 0) > 0, "home_scroll");
+        appendViewportFailureCode(failures, boundedNumber(viewport, "innerHeight", 0) > 0, "viewport_height");
+        return failures.toString();
     }
 
-    private boolean libraryViewportLayoutPassed(JSONObject state, int expectedWidth) {
-        if (!widthMatches(state == null ? null : state.optJSONObject("viewport"), expectedWidth)) return false;
+    private String libraryViewportLayoutFailureCodes(JSONObject state, int expectedWidth) {
+        if (state == null) return "state_missing";
+        StringBuilder failures = new StringBuilder();
+        if (!widthMatches(state.optJSONObject("viewport"), expectedWidth)) appendViewportFailureCode(failures, false, "width");
         JSONObject surfaces = state.optJSONObject("surfaces");
         JSONObject nav = surfaceState(surfaces, "mobileNavigation");
         JSONObject sidebar = surfaceState(surfaces, "sidebar");
@@ -2526,17 +2549,22 @@ public final class HomeRenderInstrumentation extends Instrumentation {
         double bottomInset = boundedNumber(safeArea, "bottomInsetInferredCssPx", 0);
         double sidebarBottomGap = sidebarRect == null ? -1
                 : boundedNumber(viewport, "innerHeight", 0) - boundedNumber(sidebarRect, "bottom", 0);
-        return surfaceVisible(nav) && surfaceVisible(sidebar) && surfacePosition(nav, "fixed")
-                && navigationTargetsReachable(hitTargets)
-                && "desktop-sidebar".equals(safeProbeCategory(hitTargets, "sidebarCenterOwner"))
-                && boundedNumber(scroll, "sidebarVerticalOverflow", 0) > 0
-                && Math.abs(sidebarBottomGap - (72.0 + bottomInset)) <= 2.0
-                && boundedNumber(overlap, "dockPlayerVerticalPx", 10000) <= 1.0
-                && boundedNumber(overlap, "sidebarPlayerVerticalPx", 10000) <= 1.0;
+        appendViewportFailureCode(failures, surfaceVisible(nav), "nav_visible");
+        appendViewportFailureCode(failures, surfaceVisible(sidebar), "sidebar_visible");
+        appendViewportFailureCode(failures, surfacePosition(nav, "fixed"), "nav_fixed");
+        appendViewportFailureCode(failures, navigationTargetsReachable(hitTargets), "nav_targets");
+        appendViewportFailureCode(failures, "desktop-sidebar".equals(safeProbeCategory(hitTargets, "sidebarCenterOwner")), "sidebar_hit");
+        appendViewportFailureCode(failures, boundedNumber(scroll, "sidebarVerticalOverflow", 0) > 0, "sidebar_scroll");
+        appendViewportFailureCode(failures, Math.abs(sidebarBottomGap - (72.0 + bottomInset)) <= 2.0, "sidebar_bottom_gap");
+        appendViewportFailureCode(failures, boundedNumber(overlap, "dockPlayerVerticalPx", 10000) <= 1.0, "dock_player_overlap");
+        appendViewportFailureCode(failures, boundedNumber(overlap, "sidebarPlayerVerticalPx", 10000) <= 1.0, "sidebar_player_overlap");
+        return failures.toString();
     }
 
-    private boolean expandedViewportLayoutPassed(JSONObject state, int expectedWidth) {
-        if (!widthMatches(state == null ? null : state.optJSONObject("viewport"), expectedWidth)) return false;
+    private String expandedViewportLayoutFailureCodes(JSONObject state, int expectedWidth) {
+        if (state == null) return "state_missing";
+        StringBuilder failures = new StringBuilder();
+        if (!widthMatches(state.optJSONObject("viewport"), expectedWidth)) appendViewportFailureCode(failures, false, "width");
         JSONObject viewport = state.optJSONObject("viewport");
         JSONObject surfaces = state.optJSONObject("surfaces");
         JSONObject full = surfaceState(surfaces, "fullscreenPlayer");
@@ -2544,14 +2572,30 @@ public final class HomeRenderInstrumentation extends Instrumentation {
         JSONObject rect = full == null ? null : full.optJSONObject("rect");
         JSONObject hits = state.optJSONObject("hitTargets");
         JSONObject fullPlay = hits == null ? null : hits.optJSONObject("fullscreenPlay");
-        return surfaceVisible(full) && surfacePosition(full, "fixed") && rect != null
-                && Math.abs(boundedNumber(rect, "left", 10000)) <= 1.0
-                && Math.abs(boundedNumber(rect, "top", 10000)) <= 1.0
-                && boundedNumber(rect, "width", -1) >= boundedNumber(viewport, "innerWidth", 10000) - 1.0
-                && boundedNumber(rect, "height", -1) >= boundedNumber(viewport, "innerHeight", 10000) - 1.0
-                && !surfaceVisible(nav)
-                && "fullscreen-player".equals(safeProbeCategory(hits, "viewportCenterOwner"))
-                && hitTargetMeetsMinimum(fullPlay, 44);
+        appendViewportFailureCode(failures, surfaceVisible(full), "fullscreen_visible");
+        appendViewportFailureCode(failures, surfacePosition(full, "fixed"), "fullscreen_fixed");
+        appendViewportFailureCode(failures, rect != null, "fullscreen_bounds");
+        appendViewportFailureCode(failures, rect != null && Math.abs(boundedNumber(rect, "left", 10000)) <= 1.0, "fullscreen_left");
+        appendViewportFailureCode(failures, rect != null && Math.abs(boundedNumber(rect, "top", 10000)) <= 1.0, "fullscreen_top");
+        appendViewportFailureCode(failures, rect != null
+                && boundedNumber(rect, "width", -1) >= boundedNumber(viewport, "innerWidth", 10000) - 1.0, "fullscreen_width");
+        appendViewportFailureCode(failures, rect != null
+                && boundedNumber(rect, "height", -1) >= boundedNumber(viewport, "innerHeight", 10000) - 1.0, "fullscreen_height");
+        appendViewportFailureCode(failures, !surfaceVisible(nav), "nav_hidden");
+        appendViewportFailureCode(failures, "fullscreen-player".equals(safeProbeCategory(hits, "viewportCenterOwner")), "fullscreen_hit");
+        appendViewportFailureCode(failures, hitTargetMeetsMinimum(fullPlay, 44), "fullscreen_play_target");
+        return failures.toString();
+    }
+
+    private void appendViewportFailureCode(StringBuilder failures, boolean passed, String code) {
+        if (passed || failures == null || code == null) return;
+        int count = 1;
+        for (int index = 0; index < failures.length(); index++) {
+            if (failures.charAt(index) == ',') count++;
+        }
+        if (count > 6) return;
+        if (failures.length() > 0) failures.append(',');
+        failures.append(code);
     }
 
     private boolean navigationTargetsReachable(JSONObject hitTargets) {
