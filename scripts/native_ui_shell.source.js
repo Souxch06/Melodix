@@ -16,7 +16,9 @@
     }, true);
     diagTrace('js-shell begin');
 
-    var HOME_PATHS = ['/', '/home'];
+    // /app is a player-entry URL used by the native recovery probe. Keep the
+    // renderer and the recovery routing aligned on this Home entry.
+    var HOME_PATHS = ['/', '/home', '/app'];
     var SUPPORTED_TYPES = ['playlist', 'album', 'artist', 'track', 'show', 'episode', 'audiobook'];
     var MAX_READY_RETRIES = 60;
     var MAX_HOME_RETRIES = 40;

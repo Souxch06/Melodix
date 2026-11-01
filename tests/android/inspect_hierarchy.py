@@ -75,8 +75,8 @@ def inspect_screenshot(path, bounds=None, region_name="region"):
 
 
 def main():
-    if len(sys.argv) != 5 or sys.argv[1] not in {"login", "empty-home", "home-status"}:
-        raise SystemExit("usage: inspect_hierarchy.py login|empty-home|home-status WINDOW.xml SCREEN.png SUMMARY.json")
+    if len(sys.argv) != 5 or sys.argv[1] not in {"login", "empty-home", "home-status", "web-home"}:
+        raise SystemExit("usage: inspect_hierarchy.py login|empty-home|home-status|web-home WINDOW.xml SCREEN.png SUMMARY.json")
     phase, xml_path, screenshot_path, summary_path = sys.argv[1:]
     xml_root = ET.parse(xml_path).getroot()
     hierarchy_nodes = [node for node in xml_root.iter() if node.tag == "node"]
@@ -96,6 +96,10 @@ def main():
     home_status_bounds = None
     home_status_message_accessible = False
     home_status_message_visible = False
+    web_home_brand_accessible = False
+    web_home_brand_visible = False
+    web_home_fixture_playlist_title_visible = False
+    web_home_fixture_album_title_visible = False
     for node in xml_root.iter():
         resource_id = node.get("resource-id", "")
         class_name = node.get("class", "")
@@ -116,6 +120,13 @@ def main():
             if accessibility_visible:
                 home_status_message_visible = True
                 home_status_bounds = bounds
+        if "melodix" in status_text:
+            web_home_brand_accessible = True
+            web_home_brand_visible = web_home_brand_visible or accessibility_visible
+        if "route fixture playlist" in status_text and accessibility_visible:
+            web_home_fixture_playlist_title_visible = True
+        if "route fixture album" in status_text and accessibility_visible:
+            web_home_fixture_album_title_visible = True
         if "WebView" in class_name:
             webview_class_present = True
             webview_bounds_present = webview_bounds_present or has_visible_bounds
@@ -173,6 +184,7 @@ def main():
         "login": "unauthenticated_webview_surface",
         "empty-home": "empty_home_webview_fallback",
         "home-status": "native_home_status_panel",
+        "web-home": "web_home_renderer_on_app_route",
     }[phase]
     summary = {
         "phase": phase_name,
@@ -199,6 +211,10 @@ def main():
         "home_status_message_accessible": home_status_message_accessible,
         "home_status_message_visible_to_user": home_status_message_visible,
         "home_status_accessibility_bounds_px": list(home_status_bounds) if home_status_bounds else None,
+        "web_home_brand_accessible": web_home_brand_accessible,
+        "web_home_brand_visible_to_user": web_home_brand_visible,
+        "web_home_fixture_playlist_title_visible_to_user": web_home_fixture_playlist_title_visible,
+        "web_home_fixture_album_title_visible_to_user": web_home_fixture_album_title_visible,
     }
 
     if phase == "login":
@@ -210,10 +226,18 @@ def main():
         summary["playlist_payload_injected"] = False
         summary["native_root_hidden"] = not native_root_visible
         summary["home_tabs_hidden"] = not native_home_tab_visible
-    else:
+    elif phase == "home-status":
         summary["playlist_payload_injected"] = False
         summary["native_root_hidden"] = not native_root_visible
         summary["home_tabs_hidden"] = not native_home_tab_visible
+    else:
+        summary["test_only_resource_links_present"] = bool(
+            web_home_fixture_playlist_title_visible and web_home_fixture_album_title_visible
+        )
+        summary["fixture_brand_and_link_titles_accessible"] = bool(
+            web_home_brand_visible and web_home_fixture_playlist_title_visible and web_home_fixture_album_title_visible
+        )
+        summary["authenticated_home_test_performed"] = False
 
     region_name = "home_status" if phase == "home-status" else "webview"
     region_bounds = home_status_bounds if phase == "home-status" else webview_bounds
@@ -249,6 +273,15 @@ def main():
         )
         return
 
+    if phase == "web-home":
+        if not web_home_brand_visible or not web_home_fixture_playlist_title_visible or not web_home_fixture_album_title_visible:
+            fail(
+                "web_home_brand_or_card_title_missing_from_accessibility_hierarchy;"
+                f" brand_visible={web_home_brand_visible};"
+                f" playlist_title_visible={web_home_fixture_playlist_title_visible};"
+                f" album_title_visible={web_home_fixture_album_title_visible}"
+            )
+
     if not webview_class_visible or webview_bounds is None:
         fail(
             "visible_bounded_webview_node_missing;"
@@ -282,6 +315,16 @@ def main():
             f"webview_pixels_rendered={pixel_report['webview_pixels_rendered']}; "
             f"webview_crop_unique_colors={pixel_report['webview_crop_unique_colors']}; "
             f"webview_crop_bright_pixels={pixel_report['webview_crop_bright_pixels']}"
+        )
+    elif phase == "web-home":
+        print("Packaged Web Home renderer: /app route, MELODIX and both test-only card titles are visible in Android's hierarchy and screenshot.")
+        print(
+            "::notice title=Android Web Home renderer visibility::"
+            f"webview_accessible=true; native_home_visible=false; splash_visible=false; "
+            f"melodix_brand_accessible={web_home_brand_visible}; "
+            f"test_only_card_titles_visible={web_home_fixture_playlist_title_visible and web_home_fixture_album_title_visible}; "
+            f"webview_pixels_rendered={pixel_report['webview_pixels_rendered']}; "
+            f"webview_crop_unique_colors={pixel_report['webview_crop_unique_colors']}"
         )
     else:
         print("Empty-Home fallback hierarchy: native Home hidden and unobscured WebView screenshot pixels verified; no playlist data.")

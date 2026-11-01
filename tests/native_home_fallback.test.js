@@ -146,6 +146,20 @@ test('role=link cards and image-bearing ancestors are harvested with split title
     'the collector includes Spotify role=link variants as well as anchors');
 });
 
+test('the native recovery probe’s localized /app player entry is recognized as Home', () => {
+  const { result } = run({
+    pathname: '/intl-fr/app',
+    anchors: [makeAnchor({
+      href: 'https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M',
+      title: 'Real Home playlist'
+    })]
+  });
+  assert.equal(result.homeRoute, true);
+  assert.equal(result.mode, 'fallback');
+  assert.equal(result.rows.length, 1);
+  assert.equal(result.rows[0].title, 'Real Home playlist');
+});
+
 test('fallback refuses account/login and non-Home Spotify routes', () => {
   const anchor = makeAnchor({
     href: 'https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M',

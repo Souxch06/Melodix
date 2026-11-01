@@ -96,9 +96,9 @@ function assertWebHomeVisible(page, expectedCards, sourceSelector = '#main-view'
     assert.equal(mainStyle.display, 'none', 'the original Spotify main view is hidden only after Home is visible');
 }
 
-test('csshack and bigwindow render real cards on / and /home with verified computed styles', () => {
+test('csshack and bigwindow render real cards on every Spotify Home entry route with verified computed styles', () => {
     for (const guiMode of ['csshack', 'bigwindow']) {
-        for (const pathname of ['/', '/home']) {
+        for (const pathname of ['/', '/home', '/app']) {
             const page = makePage({
                 path: pathname,
                 guiMode,
@@ -124,6 +124,36 @@ test('csshack and bigwindow render real cards on / and /home with verified compu
                 close(page);
             }
         }
+    }
+});
+
+test('Home renderer waits for the native CSS injection and activates when its style-ready event arrives', async () => {
+    const page = makePage({
+        path: '/app',
+        guiMode: 'csshack',
+        includeCss: false,
+        cards: [
+            { id: 'late-css-1', title: 'Vraie playlist après CSS' },
+            { id: 'late-css-2', type: 'album', title: 'Vrai album après CSS' }
+        ]
+    });
+    try {
+        assert.equal(page.window.__sfMelodixHomeDecision, 'styles-not-ready');
+        assert.equal(homeElement(page), null, 'the missing stylesheet must not hide Spotify');
+        assert.equal(page.document.body.classList.contains('sf-melodix-home-active'), false);
+
+        const style = page.document.createElement('style');
+        style.id = 'sf-custom-style';
+        style.textContent = cssSource;
+        page.document.head.appendChild(style);
+        page.window.dispatchEvent(new page.window.Event('sf-melodix-home-styles-ready'));
+        await new Promise((resolve) => page.window.setTimeout(resolve, 180));
+
+        assertWebHomeVisible(page, 2);
+        assert.ok(['rendered', 'visible'].includes(page.window.__sfMelodixHomeDecision));
+        assert.equal(page.window.__sfMelodixHomeStylesReady, true);
+    } finally {
+        close(page);
     }
 });
 

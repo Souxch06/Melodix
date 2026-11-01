@@ -160,7 +160,9 @@
         var pathParts = String(location.pathname || '/').split('/').filter(Boolean);
         if (pathParts.length && /^intl-[a-z]{2}(?:-[a-z]{2})?$/i.test(pathParts[0])) pathParts.shift();
         var route = pathParts.length ? '/' + pathParts.join('/') : '/';
-        result.homeRoute = route === '/' || route === '/home';
+        // The bounded native startup recovery navigates to /app. Recognize it as
+        // the app's Home recovery entry without assuming its Spotify DOM has cards.
+        result.homeRoute = route === '/' || route === '/home' || route === '/app';
         if (!result.homeRoute) {
             result.mode = 'not-home';
             return result;

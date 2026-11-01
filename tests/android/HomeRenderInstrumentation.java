@@ -17,10 +17,15 @@ import android.view.accessibility.AccessibilityNodeInfo;
 import android.webkit.ValueCallback;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
+import android.webkit.WebViewClient;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 
+import org.json.JSONObject;
+
+import java.io.ByteArrayOutputStream;
 import java.io.FileOutputStream;
+import java.io.InputStream;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.util.concurrent.CountDownLatch;
@@ -30,9 +35,11 @@ import java.util.concurrent.TimeUnit;
  * Android integration test for the exact Preview APK built by the same CI run.
  *
  * It verifies the unauthenticated WebView/login surface and empty-Home fallback,
- * then exercises the native status renderer with a status-only test payload.
- * The fixture contains no Spotify resource/playlist, credentials, cookies, or
- * substituted account content; it does not claim an authenticated Home test.
+ * exercises the native status renderer with a status-only payload, and runs the
+ * packaged Web Home renderer in an isolated local Android WebView fixture at
+ * the native recovery route /app. The fixture is test-only; it supplies no
+ * account content, Spotify credentials, or cookies and does not claim an
+ * authenticated Home test.
  */
 public final class HomeRenderInstrumentation extends Instrumentation {
     private static final String TARGET_PACKAGE = "com.melodix.music.preview";
@@ -66,6 +73,32 @@ public final class HomeRenderInstrumentation extends Instrumentation {
             "var brand=null;for(var i=0;i<data.brands.length;i++){var item=data.brands[i];if(item&&(item.brand==='Chromium'||item.brand==='Google Chrome')){brand=item;break;}}" +
             "var full=String(data.uaFullVersion||'');" +
             "return !!(brand&&String(brand.version)===match[1]&&(!full||full.split('.')[0]===match[1]));" +
+            "}catch(e){return false;}})()";
+    private static final String WEB_HOME_RENDERER_VISIBLE_PROBE =
+            "(function(){try{" +
+            "var h=document.getElementById('sf-melodix-home');" +
+            "var m=document.querySelector('#main-view');" +
+            "var s=document.getElementById('sf-custom-style');" +
+            "var text=String(h&&(h.innerText||h.textContent)||'');" +
+            "var rect=h&&h.getBoundingClientRect();" +
+            "var brand=h&&h.querySelector('.sf-melodix-home__brand');" +
+            "var card=h&&h.querySelector('.sf-melodix-home__card');" +
+            "var brandRect=brand&&brand.getBoundingClientRect();" +
+            "var cardRect=card&&card.getBoundingClientRect();" +
+            "var homeStyle=h&&getComputedStyle(h);" +
+            "var mainStyle=m&&getComputedStyle(m);" +
+            "return !!(location.hostname==='open.spotify.com'&&location.pathname==='/app'&&" +
+            "window.SF_CONFIG&&window.SF_CONFIG.guiMode==='csshack'&&" +
+            "window.__sfMelodixHomeInitAttempted===true&&window.__sfMelodixHomeStylesReady===true&&" +
+            "document.body.classList.contains('sf-melodix-home-active')&&s&&" +
+            "s.textContent.indexOf('SF_MELODIX_HOME_STYLES_V1')>=0&&" +
+            "h&&h.querySelectorAll('.sf-melodix-home__card').length===2&&" +
+            "text.indexOf('MELODIX')>=0&&text.indexOf('Route fixture playlist')>=0&&" +
+            "text.indexOf('Route fixture album')>=0&&homeStyle.display==='flex'&&" +
+            "homeStyle.position==='fixed'&&homeStyle.visibility==='visible'&&homeStyle.opacity!=='0'&&" +
+            "Number(homeStyle.zIndex)>=1000&&mainStyle.display==='none'&&" +
+            "rect.width>0&&rect.height>0&&brandRect.width>0&&brandRect.height>0&&" +
+            "cardRect.width>0&&cardRect.height>0);" +
             "}catch(e){return false;}})()";
 
     @Override
@@ -280,11 +313,69 @@ public final class HomeRenderInstrumentation extends Instrumentation {
             }
             restoredState[0].putBoolean("login_surface_restored_after_status", true);
 
+            // Exercise the exact packaged Web Home renderer in Android's
+            // installed WebView engine. The fixture is loaded only in a
+            // temporary second WebView; the original login WebView, URL,
+            // cookies, and clean unauthenticated state remain untouched.
+            failurePhase = "web_home_app_route_renderer";
+            notePhase(failurePhase);
+            requireUnauthenticatedSession(activity);
+            final WebView[] webHomeFixtureHolder = new WebView[1];
+            Throwable webHomeFixtureFailure = null;
+            try {
+                webHomeFixtureHolder[0] = createWebHomeRendererFixture(activity);
+                installPackagedWebHomeRenderer(webHomeFixtureHolder[0], activity);
+                awaitWebHomeRendererVisible(webHomeFixtureHolder[0]);
+
+                final Bundle[] webHomeState = new Bundle[1];
+                final Throwable[] webHomeInspectFailure = new Throwable[1];
+                runOnMainSync(new Runnable() {
+                    @Override
+                    public void run() {
+                        try {
+                            webHomeState[0] = inspectWebHomeRenderer(
+                                    activity, webHomeFixtureHolder[0], originalWebViewUrl, webView);
+                        } catch (Throwable error) {
+                            webHomeInspectFailure[0] = error;
+                        }
+                    }
+                });
+                if (webHomeInspectFailure[0] != null) throw webHomeInspectFailure[0];
+                sendStatus(1, webHomeState[0]);
+                captureWebHomeRendererEvidence();
+                restoredState[0].putBoolean("web_home_app_route_renderer_visible", true);
+                restoredState[0].putBoolean("web_home_renderer_evidence_captured", true);
+                restoredState[0].putBoolean("authenticated_home_test_performed", false);
+                Log.i(HARNESS_TAG, "web_home_route_evidence_captured");
+            } catch (Throwable error) {
+                webHomeFixtureFailure = error;
+            } finally {
+                removeWebHomeRendererFixture(webHomeFixtureHolder[0]);
+            }
+            if (webHomeFixtureFailure != null) throw webHomeFixtureFailure;
+            requireUnauthenticatedSession(activity);
+            boolean loginRestoredAfterFixture = awaitLoginUiVisible(webView);
+            final String[] loginUrlAfterFixture = new String[1];
+            runOnMainSync(new Runnable() {
+                @Override
+                public void run() {
+                    loginUrlAfterFixture[0] = webView.getUrl();
+                }
+            });
+            if (!loginRestoredAfterFixture || !equalsNullable(originalWebViewUrl, loginUrlAfterFixture[0])) {
+                throw new AssertionError("The isolated /app renderer fixture disturbed the original login WebView");
+            }
+            restoredState[0].putBoolean("login_surface_restored_after_web_home_fixture", true);
+
             Bundle result = new Bundle(restoredState[0]);
             result.putBoolean("empty_home_evidence_captured", true);
             result.putBoolean("home_status_evidence_captured", true);
             result.putBoolean("home_status_payload_fixture_non_playlist", true);
             result.putBoolean("login_surface_restored_after_status", true);
+            result.putBoolean("web_home_app_route_renderer_visible", true);
+            result.putBoolean("web_home_renderer_evidence_captured", true);
+            result.putBoolean("web_home_renderer_fixture_test_only", true);
+            result.putBoolean("login_surface_restored_after_web_home_fixture", true);
             result.putBoolean("authenticated_home_test_performed", false);
             result.putString("overall", "passed");
             sendStatus(1, result);
@@ -515,6 +606,172 @@ public final class HomeRenderInstrumentation extends Instrumentation {
 
     private void captureHomeStatusUiEvidence() throws Exception {
         captureUiEvidence("melodix-preview-home-status.xml", "melodix-preview-home-status.png", "Home-status");
+    }
+
+    private void captureWebHomeRendererEvidence() throws Exception {
+        captureUiEvidence("melodix-preview-web-home-app.xml", "melodix-preview-web-home-app.png", "Web-Home /app renderer");
+    }
+
+    private WebView createWebHomeRendererFixture(final Activity activity) throws Exception {
+        final CountDownLatch pageFinished = new CountDownLatch(1);
+        final WebView[] created = new WebView[1];
+        final Throwable[] failure = new Throwable[1];
+        final String html = "<!doctype html><html lang=\"en\"><head><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">" +
+                "<script>window.SF_CONFIG={guiMode:'csshack'};</script></head><body>" +
+                "<main id=\"main-view\"><section data-testid=\"shelf\"><h2>Route test shelf</h2>" +
+                "<div data-testid=\"card\"><a href=\"/playlist/test-only-route-fixture-playlist\"><span data-testid=\"card-title\">Route fixture playlist</span></a></div>" +
+                "<div data-testid=\"card\"><a href=\"/album/test-only-route-fixture-album\"><span data-testid=\"card-title\">Route fixture album</span></a></div>" +
+                "</section></main></body></html>";
+        runOnMainSync(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    View root = activity.findViewById(android.R.id.content);
+                    if (!(root instanceof ViewGroup)) throw new AssertionError("Activity content root is not a ViewGroup");
+                    WebView rendererView = new WebView(activity);
+                    created[0] = rendererView;
+                    rendererView.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_YES);
+                    rendererView.setFocusable(true);
+                    rendererView.setFocusableInTouchMode(true);
+                    rendererView.setBackgroundColor(0xFF101311);
+                    WebSettings settings = rendererView.getSettings();
+                    settings.setBlockNetworkLoads(true);
+                    settings.setJavaScriptEnabled(true);
+                    settings.setDomStorageEnabled(false);
+                    rendererView.setWebViewClient(new WebViewClient() {
+                        @Override
+                        public void onPageFinished(WebView view, String url) {
+                            pageFinished.countDown();
+                        }
+                    });
+                    ((ViewGroup) root).addView(rendererView, new ViewGroup.LayoutParams(
+                            ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+                    rendererView.requestFocus();
+                    rendererView.loadDataWithBaseURL(
+                            "https://open.spotify.com/app", html, "text/html", "UTF-8", null);
+                } catch (Throwable error) {
+                    failure[0] = error;
+                }
+            }
+        });
+        if (failure[0] != null) {
+            removeWebHomeRendererFixture(created[0]);
+            throw new AssertionError("Could not create isolated Android Web Home fixture", failure[0]);
+        }
+        if (created[0] == null) throw new AssertionError("Isolated Android Web Home fixture was not attached");
+        try {
+            if (!pageFinished.await(15L, TimeUnit.SECONDS)) {
+                throw new AssertionError("Isolated /app Web Home fixture did not finish loading");
+            }
+        } catch (InterruptedException interrupted) {
+            removeWebHomeRendererFixture(created[0]);
+            Thread.currentThread().interrupt();
+            throw interrupted;
+        } catch (AssertionError error) {
+            removeWebHomeRendererFixture(created[0]);
+            throw error;
+        }
+        return created[0];
+    }
+
+    private void installPackagedWebHomeRenderer(WebView webView, Activity activity) throws Exception {
+        String rendererSource = readPackagedAsset(activity, "melodix_home.js");
+        String cssSource = readPackagedAsset(activity, "css_hacks.css");
+        if (!rendererSource.contains("SF_MELODIX_HOME_STYLES_V1") || !cssSource.contains("SF_MELODIX_HOME_STYLES_V1")) {
+            throw new AssertionError("The exact Preview APK is missing the Home renderer or CSS marker");
+        }
+        evaluateJavascriptAndWait(webView, rendererSource);
+        String cssInjection = "(function(){var style=document.getElementById('sf-custom-style');" +
+                "if(!style){style=document.createElement('style');style.id='sf-custom-style';document.head.appendChild(style);}" +
+                "style.textContent=" + JSONObject.quote(cssSource) + ";" +
+                "try{window.dispatchEvent(new Event('sf-melodix-home-styles-ready'));}catch(_){} })()";
+        evaluateJavascriptAndWait(webView, cssInjection);
+    }
+
+    private String readPackagedAsset(Context context, String name) throws Exception {
+        try (InputStream input = context.getAssets().open(name);
+             ByteArrayOutputStream output = new ByteArrayOutputStream()) {
+            byte[] buffer = new byte[8192];
+            int read;
+            while ((read = input.read(buffer)) >= 0) output.write(buffer, 0, read);
+            return output.toString("UTF-8");
+        }
+    }
+
+    private String evaluateJavascriptAndWait(final WebView webView, final String script) throws InterruptedException {
+        final CountDownLatch received = new CountDownLatch(1);
+        final String[] result = new String[1];
+        runOnMainSync(new Runnable() {
+            @Override
+            public void run() {
+                webView.evaluateJavascript(script, new ValueCallback<String>() {
+                    @Override
+                    public void onReceiveValue(String value) {
+                        result[0] = value;
+                        received.countDown();
+                    }
+                });
+            }
+        });
+        if (!received.await(15L, TimeUnit.SECONDS)) {
+            throw new AssertionError("Packaged Home renderer script did not return from Android WebView");
+        }
+        return result[0];
+    }
+
+    private void awaitWebHomeRendererVisible(WebView webView) throws InterruptedException {
+        long deadline = System.currentTimeMillis() + 15000L;
+        while (System.currentTimeMillis() < deadline) {
+            if ("true".equals(evaluateJavascriptAndWait(webView, WEB_HOME_RENDERER_VISIBLE_PROBE))) return;
+            waitForIdleSync();
+            Thread.sleep(100L);
+        }
+        throw new AssertionError("Packaged Home renderer did not visibly activate on the native /app recovery route");
+    }
+
+    private Bundle inspectWebHomeRenderer(
+            Activity activity, WebView rendererWebView, String originalUrl, WebView originalWebView) {
+        Rect rendererBounds = visibleBounds(rendererWebView);
+        View nativeRoot = requiredView(activity, "nativeRoot");
+        View splash = requiredView(activity, "splashOverlay");
+        boolean loginPagePreserved = equalsNullable(originalUrl, originalWebView.getUrl());
+        boolean originalWebViewVisible = visibleBounds(originalWebView) != null;
+        if (rendererBounds == null || !loginPagePreserved || !originalWebViewVisible
+                || nativeRoot.getVisibility() != View.GONE || splash.getVisibility() != View.GONE) {
+            throw new AssertionError("The isolated /app renderer surface obscured or changed the original login WebView");
+        }
+        Bundle state = new Bundle();
+        state.putString("phase", "web_home_renderer_app_route");
+        state.putBoolean("authenticated_session", false);
+        state.putBoolean("authenticated_home_test_performed", false);
+        state.putBoolean("home_renderer_fixture_test_only", true);
+        state.putBoolean("web_home_route_app", true);
+        state.putBoolean("web_home_dom_and_computed_styles_visible", true);
+        state.putBoolean("web_home_source_hidden_after_renderer_visible", true);
+        state.putBoolean("web_home_fixture_resource_links_visible", true);
+        state.putBoolean("original_login_webview_url_preserved", true);
+        state.putBoolean("original_login_webview_still_visible", true);
+        state.putBoolean("native_root_hidden_under_fixture", true);
+        state.putBoolean("splash_hidden", true);
+        putBounds(state, "web_home_visible", rendererBounds);
+        return state;
+    }
+
+    private void removeWebHomeRendererFixture(final WebView webView) {
+        if (webView == null) return;
+        try {
+            runOnMainSync(new Runnable() {
+                @Override
+                public void run() {
+                    if (webView.getParent() instanceof ViewGroup) {
+                        ((ViewGroup) webView.getParent()).removeView(webView);
+                    }
+                    webView.stopLoading();
+                    webView.setWebViewClient(null);
+                    webView.destroy();
+                }
+            });
+        } catch (Throwable ignored) {}
     }
 
     private void captureUiEvidence(String hierarchyName, String screenshotName, String phase) throws Exception {

@@ -66,7 +66,10 @@ function melodixHomeRoutePath() {
 
 function isMelodixHomeRoute() {
     const path = melodixHomeRoutePath();
-    return window.location.hostname === 'open.spotify.com' && (path === '/' || path === '/home');
+    // The native startup probe can deliberately enter the player at /app.
+    // Treat that entry as Home too, or the branded renderer remains disabled
+    // after the app's own recovery path.
+    return window.location.hostname === 'open.spotify.com' && (path === '/' || path === '/home' || path === '/app');
 }
 
 function melodixHomeCopy() {
@@ -407,7 +410,7 @@ function setMelodixHomeDecision(reason, details) {
     const requestedMode = String(window.SF_CONFIG && window.SF_CONFIG.guiMode || 'missing');
     const guiMode = MELODIX_HOME_MODES.has(requestedMode) ? requestedMode : 'other';
     const rawRoute = String(state.route || 'other');
-    const screen = rawRoute === '/' || rawRoute === '/home' ? 'home' : 'other';
+    const screen = rawRoute === '/' || rawRoute === '/home' || rawRoute === '/app' ? 'home' : 'other';
     const rawRoot = String(state.rootSelector || window.__sfMelodixHomeRootSelector || 'none');
     const rootPresent = rawRoot !== '' && rawRoot !== 'none' ? '1' : '0';
     const cardCount = Number.isFinite(Number(state.cardCount))
@@ -542,7 +545,7 @@ function renderMelodixHomeCard(card) {
 function updateMelodixHome() {
     window.__sfMelodixHomeInitAttempted = true;
     const route = melodixHomeRoutePath();
-    const routeLabel = route === '/' || route === '/home' ? route : 'other';
+    const routeLabel = route === '/' || route === '/home' || route === '/app' ? route : 'other';
     const guiMode = String(window.SF_CONFIG && window.SF_CONFIG.guiMode || 'missing');
     const mainView = findMelodixHomeContentRoot();
     let sections = [];
@@ -551,7 +554,7 @@ function updateMelodixHome() {
         setMelodixHomeDecision('body-missing', { route: routeLabel });
         return;
     }
-    if (window.location.hostname !== 'open.spotify.com' || (route !== '/' && route !== '/home')) {
+    if (!isMelodixHomeRoute()) {
         deactivateMelodixHome();
         setMelodixHomeDecision('route-not-home', { route: routeLabel });
         return;

@@ -164,6 +164,9 @@ test("empty-Home pixels are captured before instrumentation finish and the same 
   assert.doesNotMatch(harness, /bounds\.flattenToString\(\)/);
   assert.match(harness, /captureEmptyHomeUiEvidence\(\)[\s\S]*?captureUiEvidence\("melodix-preview-home-fallback\.xml", "melodix-preview-home-empty\.png"/);
   assert.match(harness, /captureHomeStatusUiEvidence\(\)[\s\S]*?captureUiEvidence\("melodix-preview-home-status\.xml", "melodix-preview-home-status\.png"/);
+  assert.match(harness, /captureWebHomeRendererEvidence\(\)[\s\S]*?captureUiEvidence\("melodix-preview-web-home-app\.xml", "melodix-preview-web-home-app\.png"/);
+  assert.match(harness, /WEB_HOME_RENDERER_VISIBLE_PROBE[\s\S]*?location\.pathname==='\/app'/,
+    "the Android WebView probe requires the packaged renderer to activate on the /app route");
   assert.match(harness, /putBoolean\("home_status_payload_fixture_non_playlist", true\)/);
   assert.match(harness, /dispatchHomeStatusThroughAndBridge\(activity\)[\s\S]*?awaitNativeHomeStatusReady\(activity\)[\s\S]*?inspectHomeStatus\(activity, webView, originalWebViewUrl\)[\s\S]*?captureHomeStatusUiEvidence\(\)/);
   const statusDispatchAt = harness.indexOf("private void dispatchHomeStatusThroughAndBridge");
@@ -188,6 +191,11 @@ test("empty-Home pixels are captured before instrumentation finish and the same 
   assert.match(emulatorWorkflow, /adb exec-out run-as com\.melodix\.music\.preview cat files\/melodix-preview-home-status\.xml/);
   assert.match(emulatorWorkflow, /adb exec-out run-as com\.melodix\.music\.preview cat files\/melodix-preview-home-status\.png/);
   assert.match(emulatorWorkflow, /inspect_hierarchy\.py home-status/);
+  assert.match(emulatorWorkflow, /inspect_hierarchy\.py web-home/);
+  assert.match(emulatorWorkflow, /INSTRUMENTATION_STATUS: web_home_app_route_renderer_visible=true/);
+  assert.match(emulatorWorkflow, /INSTRUMENTATION_STATUS: web_home_renderer_fixture_test_only=true/);
+  assert.match(emulatorWorkflow, /web_home_renderer_pixels_verified=true/);
+  assert.match(emulatorWorkflow, /login_surface_restored_after_web_home_fixture=true/);
   assert.match(emulatorWorkflow, /home_status_pixels_verified=true/);
   assert.match(emulatorWorkflow, /login_surface_restored_after_status=true/);
   const screenshotRetrieved = emulatorWorkflow.indexOf(
@@ -199,6 +207,12 @@ test("empty-Home pixels are captured before instrumentation finish and the same 
   const statusScreenshotRetrieved = emulatorWorkflow.indexOf(
     "adb exec-out run-as com.melodix.music.preview cat files/melodix-preview-home-status.png",
   );
+  const webHomeScreenshotRetrieved = emulatorWorkflow.indexOf(
+    "adb exec-out run-as com.melodix.music.preview cat files/melodix-preview-web-home-app.png",
+  );
+  const webHomeInspection = emulatorWorkflow.indexOf(
+    "python3 tests/android/inspect_hierarchy.py web-home",
+  );
   const statusInspection = emulatorWorkflow.indexOf(
     "python3 tests/android/inspect_hierarchy.py home-status",
   );
@@ -206,9 +220,10 @@ test("empty-Home pixels are captured before instrumentation finish and the same 
     "python3 tests/android/inspect_hierarchy.py empty-home",
   );
   assert.ok(
-    screenshotRetrieved >= 0 && screenshotRetrieved < targetRelaunch && targetRelaunch < statusInspection &&
+    screenshotRetrieved >= 0 && screenshotRetrieved < targetRelaunch && targetRelaunch < webHomeInspection &&
+      webHomeScreenshotRetrieved >= 0 && webHomeScreenshotRetrieved < targetRelaunch && webHomeInspection < statusInspection &&
       statusScreenshotRetrieved < targetRelaunch && statusInspection < emptyHomeInspection,
-    "retrieve pre-finish status/fallback screenshots, verify MainActivity resumes, then inspect visible status and fallback pixels",
+    "retrieve pre-finish renderer/status/fallback screenshots, verify MainActivity resumes, then inspect their visible UI and pixels",
   );
   assert.match(
     emulatorWorkflow,
@@ -222,6 +237,50 @@ test("empty-Home pixels are captured before instrumentation finish and the same 
   assert.match(emulatorWorkflow, /MainActivity was not resumed after instrumentation \(harness=\$INTEGRATION_OUTCOME\); relaunching/);
   assert.match(emulatorWorkflow, /harness_failure_phase/);
   assert.match(emulatorWorkflow, /harness_failure_type/);
+});
+
+test("Android verifies the packaged Web Home renderer on /app in an isolated, visible WebView", () => {
+  const emulatorWorkflow = fs.readFileSync(
+    path.resolve(__dirname, "..", ".github/workflows/test-preview-emulator.yml"),
+    "utf8",
+  );
+  const harness = fs.readFileSync(
+    path.resolve(__dirname, "android", "HomeRenderInstrumentation.java"),
+    "utf8",
+  );
+  const inspector = fs.readFileSync(
+    path.resolve(__dirname, "android", "inspect_hierarchy.py"),
+    "utf8",
+  );
+  const fixtureStart = harness.indexOf("private WebView createWebHomeRendererFixture");
+  const fixtureEnd = harness.indexOf("private void installPackagedWebHomeRenderer", fixtureStart);
+  const fixture = harness.slice(fixtureStart, fixtureEnd);
+  assert.ok(fixtureStart >= 0 && fixtureEnd > fixtureStart, "the test uses a separate temporary renderer WebView");
+  assert.match(fixture, /new WebView\(activity\)/);
+  assert.match(fixture, /loadDataWithBaseURL\([\s\S]*?https:\/\/open\.spotify\.com\/app/);
+  assert.match(fixture, /setBlockNetworkLoads\(true\)/);
+  assert.match(fixture, /setDomStorageEnabled\(false\)/);
+  assert.match(fixture, /Route fixture playlist[\s\S]*?Route fixture album/);
+  assert.doesNotMatch(fixture, /CookieManager|setCookie|localStorage|sessionStorage|loadUrl\s*\(/,
+    "the offline fixture must not read/write the Spotify session or navigate the production WebView");
+  assert.match(harness, /readPackagedAsset\(activity, "melodix_home\.js"\)/);
+  assert.match(harness, /readPackagedAsset\(activity, "css_hacks\.css"\)/);
+  assert.match(harness, /evaluateJavascriptAndWait\(webView, rendererSource\)[\s\S]*?evaluateJavascriptAndWait\(webView, cssInjection\)/);
+  assert.match(harness, /WEB_HOME_RENDERER_VISIBLE_PROBE[\s\S]*?__sfMelodixHomeInitAttempted===true[\s\S]*?__sfMelodixHomeStylesReady===true[\s\S]*?sf-melodix-home-active[\s\S]*?sf-melodix-home__card[\s\S]*?mainStyle\.display==='none'[\s\S]*?rect\.width>0&&rect\.height>0/);
+  assert.match(harness, /inspectWebHomeRenderer\(\s*activity,\s*webHomeFixtureHolder\[0\],\s*originalWebViewUrl,\s*webView\)[\s\S]*?original_login_webview_url_preserved/);
+  assert.match(harness, /removeWebHomeRendererFixture\(webHomeFixtureHolder\[0\]\)[\s\S]*?login_surface_restored_after_web_home_fixture/);
+  assert.match(harness, /result\.putBoolean\("authenticated_home_test_performed", false\)/);
+  assert.match(inspector, /"web-home"[\s\S]*?web_home_fixture_playlist_title_visible[\s\S]*?web_home_fixture_album_title_visible/);
+  assert.match(inspector, /test_only_resource_links_present[\s\S]*?authenticated_home_test_performed/);
+  assert.match(inspector, /inspect_hierarchy\.py|Packaged Web Home renderer/);
+  assert.match(emulatorWorkflow, /files\/melodix-preview-web-home-app\.xml[\s\S]*?files\/melodix-preview-web-home-app\.png/);
+  assert.match(emulatorWorkflow, /inspect_hierarchy\.py web-home[\s\S]*?web_home_renderer_pixels_verified=true/);
+  assert.match(emulatorWorkflow, /web_home_renderer_hierarchy_pixels_verified/);
+  assert.match(emulatorWorkflow, /authenticated_home_test=not_performed/);
+  assert.match(emulatorWorkflow, /web-home-app\.png[\s\S]*?web-home-app-hierarchy-redacted\.json/);
+  assert.doesNotMatch(emulatorWorkflow.slice(emulatorWorkflow.indexOf("name: Upload verified screenshot and redacted launch summary")),
+    /web-home-app-window\.xml/,
+    "raw WebView hierarchy XML is inspected in the runner but never uploaded");
 });
 
 test("the emulator workflow builds and tests one Preview APK in the same CI run", () => {
@@ -267,7 +326,7 @@ test("the emulator workflow builds and tests one Preview APK in the same CI run"
     "name: Build signed Android UI integration instrumentation APK",
   );
   const runHarness = emulatorWorkflow.indexOf(
-    "name: Run Android login, empty-Home fallback and Home-status instrumentation",
+    "name: Run Android login, empty-Home, Home-status and Web Home /app instrumentation",
   );
   const resumedCheck = emulatorWorkflow.indexOf(
     "name: Verify activity resumed after Android instrumentation",

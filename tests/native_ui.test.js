@@ -344,7 +344,7 @@ test('Home uses saved library items as a fallback when Spotify has no visible Ho
     }]);
 });
 
-test('localized Spotify Home routes still collect and send Home rows', () => {
+test('localized Spotify /app Home route still collects and sends Home rows', () => {
     const routes = [];
     const calls = [];
     const mainView = { querySelectorAll: () => [] };
@@ -362,8 +362,8 @@ test('localized Spotify Home routes still collect and send Home rows', () => {
     const window = {
         location: {
             hostname: 'open.spotify.com',
-            pathname: '/intl-fr/',
-            href: 'https://open.spotify.com/intl-fr/',
+            pathname: '/intl-fr/app',
+            href: 'https://open.spotify.com/intl-fr/app',
             assign: () => {}
         },
         mediaLib: {
