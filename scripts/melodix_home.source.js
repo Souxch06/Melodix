@@ -74,17 +74,111 @@ function isMelodixHomeRoute() {
 
 function melodixHomeCopy() {
     const locale = (document.documentElement.lang || navigator.language || 'en').toLowerCase().split('-')[0];
+    const common = {
+        loadingTitle: 'Loading your Spotify library…',
+        loadingBody: 'Your real Spotify items are being collected.',
+        emptyTitle: 'Nothing saved yet',
+        emptyBody: 'Items you save in Spotify will appear here.',
+        errorTitle: 'Spotify data is unavailable',
+        partialErrorTitle: 'Some Spotify items could not be loaded',
+        retry: 'Try again',
+        reconnect: 'Sign in to Spotify',
+        playlists: 'Your playlists',
+        albums: 'Saved albums',
+        artists: 'Followed artists',
+        podcasts: 'Podcasts'
+    };
     const copy = {
-        fr: { morning: 'Bonjour', afternoon: 'Bon après-midi', evening: 'Bonsoir', discover: 'À découvrir' },
-        en: { morning: 'Good morning', afternoon: 'Good afternoon', evening: 'Good evening', discover: 'Discover' },
-        es: { morning: 'Buenos días', afternoon: 'Buenas tardes', evening: 'Buenas noches', discover: 'Descubre' },
-        de: { morning: 'Guten Morgen', afternoon: 'Guten Tag', evening: 'Guten Abend', discover: 'Entdecken' },
-        it: { morning: 'Buongiorno', afternoon: 'Buon pomeriggio', evening: 'Buonasera', discover: 'Scopri' },
-        pt: { morning: 'Bom dia', afternoon: 'Boa tarde', evening: 'Boa noite', discover: 'Descobrir' }
+        fr: {
+            morning: 'Bonjour', afternoon: 'Bon après-midi', evening: 'Bonsoir', discover: 'À découvrir',
+            loadingTitle: 'Chargement de votre bibliothèque Spotify…',
+            loadingBody: 'Vos données Spotify sont en cours de chargement.',
+            emptyTitle: 'Aucun contenu enregistré',
+            emptyBody: 'Les contenus que vous enregistrez dans Spotify apparaîtront ici.',
+            errorTitle: 'Données Spotify indisponibles',
+            partialErrorTitle: 'Certaines données Spotify n’ont pas pu être chargées',
+            retry: 'Réessayer', reconnect: 'Se reconnecter',
+            playlists: 'Vos playlists', albums: 'Albums enregistrés',
+            artists: 'Artistes suivis', podcasts: 'Podcasts',
+            networkError: 'La collecte a échoué. Vérifiez la connexion puis réessayez.',
+            rateLimitError: 'Spotify limite temporairement les requêtes. Réessayez dans un instant.',
+            serverError: 'Spotify est momentanément indisponible. Réessayez dans un instant.',
+            sessionError: 'La session Spotify doit être rétablie avant de charger votre bibliothèque.'
+        },
+        en: {
+            morning: 'Good morning', afternoon: 'Good afternoon', evening: 'Good evening', discover: 'Discover',
+            ...common,
+            networkError: 'The collection failed. Check your connection and try again.',
+            rateLimitError: 'Spotify is temporarily limiting requests. Please try again shortly.',
+            serverError: 'Spotify is temporarily unavailable. Please try again shortly.',
+            sessionError: 'Your Spotify session needs to be restored before the library can load.'
+        },
+        es: {
+            morning: 'Buenos días', afternoon: 'Buenas tardes', evening: 'Buenas noches', discover: 'Descubre',
+            loadingTitle: 'Cargando tu biblioteca de Spotify…',
+            loadingBody: 'Se están cargando tus datos reales de Spotify.',
+            emptyTitle: 'No hay contenido guardado',
+            emptyBody: 'El contenido que guardes en Spotify aparecerá aquí.',
+            errorTitle: 'Los datos de Spotify no están disponibles',
+            partialErrorTitle: 'No se pudieron cargar algunos datos de Spotify', retry: 'Reintentar',
+            reconnect: 'Iniciar sesión en Spotify',
+            playlists: 'Tus playlists', albums: 'Álbumes guardados', artists: 'Artistas seguidos', podcasts: 'Podcasts',
+            networkError: 'No se pudieron recopilar los datos. Comprueba la conexión y vuelve a intentarlo.',
+            rateLimitError: 'Spotify está limitando las solicitudes temporalmente. Inténtalo más tarde.',
+            serverError: 'Spotify no está disponible temporalmente. Inténtalo más tarde.',
+            sessionError: 'Debes restablecer la sesión de Spotify para cargar la biblioteca.'
+        },
+        de: {
+            morning: 'Guten Morgen', afternoon: 'Guten Tag', evening: 'Guten Abend', discover: 'Entdecken',
+            loadingTitle: 'Spotify-Bibliothek wird geladen…',
+            loadingBody: 'Deine echten Spotify-Daten werden geladen.',
+            emptyTitle: 'Noch nichts gespeichert',
+            emptyBody: 'In Spotify gespeicherte Inhalte erscheinen hier.',
+            errorTitle: 'Spotify-Daten sind nicht verfügbar',
+            partialErrorTitle: 'Einige Spotify-Daten konnten nicht geladen werden', retry: 'Erneut versuchen',
+            reconnect: 'Bei Spotify anmelden',
+            playlists: 'Deine Playlists', albums: 'Gespeicherte Alben', artists: 'Gefolgte Künstler', podcasts: 'Podcasts',
+            networkError: 'Die Daten konnten nicht geladen werden. Prüfe die Verbindung und versuche es erneut.',
+            rateLimitError: 'Spotify begrenzt Anfragen vorübergehend. Bitte versuche es später erneut.',
+            serverError: 'Spotify ist vorübergehend nicht verfügbar. Bitte versuche es später erneut.',
+            sessionError: 'Deine Spotify-Sitzung muss wiederhergestellt werden.'
+        },
+        it: {
+            morning: 'Buongiorno', afternoon: 'Buon pomeriggio', evening: 'Buonasera', discover: 'Scopri',
+            loadingTitle: 'Caricamento della libreria Spotify…',
+            loadingBody: 'Stiamo caricando i tuoi dati reali di Spotify.',
+            emptyTitle: 'Nessun contenuto salvato',
+            emptyBody: 'I contenuti salvati su Spotify appariranno qui.',
+            errorTitle: 'Dati Spotify non disponibili',
+            partialErrorTitle: 'Alcuni dati Spotify non sono stati caricati', retry: 'Riprova',
+            reconnect: 'Accedi a Spotify',
+            playlists: 'Le tue playlist', albums: 'Album salvati', artists: 'Artisti seguiti', podcasts: 'Podcast',
+            networkError: 'Raccolta non riuscita. Controlla la connessione e riprova.',
+            rateLimitError: 'Spotify sta limitando temporaneamente le richieste. Riprova tra poco.',
+            serverError: 'Spotify non è temporaneamente disponibile. Riprova tra poco.',
+            sessionError: 'La sessione Spotify deve essere ripristinata.'
+        },
+        pt: {
+            morning: 'Bom dia', afternoon: 'Boa tarde', evening: 'Boa noite', discover: 'Descobrir',
+            loadingTitle: 'A carregar a biblioteca Spotify…',
+            loadingBody: 'Os teus dados reais do Spotify estão a ser carregados.',
+            emptyTitle: 'Ainda não há conteúdo guardado',
+            emptyBody: 'O conteúdo guardado no Spotify aparecerá aqui.',
+            errorTitle: 'Dados do Spotify indisponíveis',
+            partialErrorTitle: 'Não foi possível carregar alguns dados do Spotify', retry: 'Tentar novamente',
+            reconnect: 'Iniciar sessão no Spotify',
+            playlists: 'As tuas playlists', albums: 'Álbuns guardados', artists: 'Artistas seguidos', podcasts: 'Podcasts',
+            networkError: 'A recolha falhou. Verifica a ligação e tenta novamente.',
+            rateLimitError: 'O Spotify está a limitar os pedidos temporariamente. Tenta novamente em breve.',
+            serverError: 'O Spotify está temporariamente indisponível. Tenta novamente em breve.',
+            sessionError: 'A sessão do Spotify tem de ser restabelecida.'
+        }
     };
     const labels = copy[locale] || copy.en;
     const hour = new Date().getHours();
     return {
+        ...common,
+        ...labels,
         greeting: hour < 12 ? labels.morning : hour < 18 ? labels.afternoon : labels.evening,
         discover: labels.discover
     };
@@ -100,11 +194,94 @@ function melodixHomeResourcePath(href) {
         if (parts.length && /^intl-[a-z]{2}(?:-[a-z]{2})?$/i.test(parts[0])) parts.shift();
         const type = String(parts[0] || '').toLowerCase();
         const id = String(parts[1] || '').trim();
+        if (type === 'collection' && id === 'tracks' && parts.length === 2) return '/collection/tracks';
         if (!MELODIX_HOME_TYPES.has(type) || !id || parts.length > 2) return '';
         return `/${type}/${id}`;
     } catch (_) {
         return '';
     }
+}
+
+function melodixHomeLibraryResource(item, group) {
+    const raw = String(item && (item.uri || item.href || item.id) || '').trim();
+    const match = /^spotify:([a-z]+):([A-Za-z0-9_-]+)$/i.exec(raw);
+    if (match) {
+        const type = match[1].toLowerCase();
+        const id = match[2];
+        if (type === 'collection' && id === 'tracks') {
+            return { resourcePath: '/collection/tracks', href: 'https://open.spotify.com/collection/tracks' };
+        }
+        if (!MELODIX_HOME_TYPES.has(type)) return null;
+        return {
+            resourcePath: `/${type}/${id}`,
+            href: `https://open.spotify.com/${type}/${encodeURIComponent(id)}`
+        };
+    }
+    const resourcePath = melodixHomeResourcePath(raw);
+    if (resourcePath) {
+        try {
+            return { resourcePath, href: new URL(raw, window.location.href).href };
+        } catch (_) {
+            return null;
+        }
+    }
+    const groupType = { playlists: 'playlist', albums: 'album', artists: 'artist', podcasts: 'show' }[group];
+    if (groupType && /^[A-Za-z0-9_-]{1,128}$/.test(raw)) {
+        return {
+            resourcePath: `/${groupType}/${raw}`,
+            href: `https://open.spotify.com/${groupType}/${encodeURIComponent(raw)}`
+        };
+    }
+    return null;
+}
+
+function melodixHomeHasSessionEvidence() {
+    if (window.__sfNativeUiSessionProven === true) return true;
+    try {
+        if (document.querySelector('button[data-testid="user-widget-link"], a[data-testid="user-widget-link"]')) return true;
+    } catch (_) {}
+    const library = window.mediaLib;
+    if (!library) return false;
+    return ['playlists', 'albums', 'artists', 'podcasts'].some((key) =>
+        Array.isArray(library[key]) && library[key].length > 0
+    );
+}
+
+function collectMelodixHomeLibrarySections(seenResources) {
+    const library = window.mediaLib;
+    if (!library || typeof library !== 'object') return [];
+    const labels = melodixHomeCopy();
+    const groups = [
+        ['playlists', labels.playlists || 'Your playlists'],
+        ['albums', labels.albums || 'Saved albums'],
+        ['artists', labels.artists || 'Followed artists'],
+        ['podcasts', labels.podcasts || 'Podcasts']
+    ];
+    const seen = seenResources || new Set();
+    return groups.map(([key, title]) => {
+        const cards = [];
+        const items = Array.isArray(library[key]) ? library[key] : [];
+        items.forEach((item) => {
+            const resource = melodixHomeLibraryResource(item, key);
+            const name = String(item && (item.name || item.title) || '').replace(/\s+/g, ' ').trim();
+            if (!resource || !name || /^unknown$/i.test(name) || seen.has(resource.resourcePath)) return;
+            const artists = item && Array.isArray(item.artists)
+                ? item.artists.map((artist) => typeof artist === 'string' ? artist : String(artist && (artist.name || artist.title) || '')).filter(Boolean).join(', ')
+                : '';
+            const subtitle = String(artists || item && (item.owner || item.description || item.type) || '')
+                .replace(/\s+/g, ' ').trim().slice(0, 120);
+            cards.push({
+                title: name.slice(0, 100),
+                subtitle,
+                image: safeMelodixHomeImage(item && (item.image || item.cover || item.artwork) || ''),
+                href: resource.href,
+                resourcePath: resource.resourcePath,
+                sourceAnchor: null
+            });
+            seen.add(resource.resourcePath);
+        });
+        return { title, cards: cards.slice(0, 8) };
+    }).filter((section) => section.cards.length > 0).slice(0, 4);
 }
 
 function isMelodixHomeNavigationLink(anchor) {
@@ -250,6 +427,8 @@ function markMelodixHomeSourceRoot(root) {
     if (root && typeof root.setAttribute === 'function') {
         root.setAttribute('data-sf-melodix-source-root', 'true');
         window._sfMelodixHomeSourceRoot = root;
+    } else {
+        window._sfMelodixHomeSourceRoot = null;
     }
 }
 
@@ -342,7 +521,7 @@ function melodixHomeShelf(card, mainView) {
     return mainView;
 }
 
-function collectMelodixHomeSections(mainView) {
+function collectMelodixHomeSections(mainView, seenResources) {
     if (!mainView || typeof mainView.querySelectorAll !== 'function') return [];
     // Spotify has changed card data-testid values repeatedly. Start from
     // real navigable resource links, then infer their enclosing card from
@@ -355,7 +534,7 @@ function collectMelodixHomeSections(mainView) {
         return [];
     }
     const grouped = new Map();
-    const seen = new Set();
+    const seen = seenResources instanceof Set ? seenResources : new Set();
 
     anchors.forEach((anchor) => {
         const href = anchor.href || anchor.getAttribute('href') || '';
@@ -412,13 +591,20 @@ function setMelodixHomeDecision(reason, details) {
     const rawRoute = String(state.route || 'other');
     const screen = rawRoute === '/' || rawRoute === '/home' || rawRoute === '/app' ? 'home' : 'other';
     const rawRoot = String(state.rootSelector || window.__sfMelodixHomeRootSelector || 'none');
-    const rootPresent = rawRoot !== '' && rawRoot !== 'none' ? '1' : '0';
+    const rootPresent = typeof state.rootPresent === 'boolean'
+        ? (state.rootPresent ? '1' : '0')
+        : rawRoot !== '' && rawRoot !== 'none' ? '1' : '?';
+    const sessionProven = typeof state.sessionProven === 'boolean' ? state.sessionProven : null;
+    const rawLibraryStatus = String(state.libraryStatus || window.__sfMediaLibStatus || 'absent');
+    const libraryStatus = ['absent', 'pending', 'loading', 'ready', 'error'].includes(rawLibraryStatus)
+        ? rawLibraryStatus : 'other';
     const cardCount = Number.isFinite(Number(state.cardCount))
         ? Math.max(0, Math.min(999, Math.floor(Number(state.cardCount)))) : 0;
     const sectionCount = Number.isFinite(Number(state.sectionCount))
         ? Math.max(0, Math.min(999, Math.floor(Number(state.sectionCount)))) : 0;
-    const decision = String(reason || 'unknown').slice(0, 32);
-    const signature = [decision, guiMode, screen, state.stylesReady ? '1' : '0', cardCount, rootPresent].join('|');
+    const decision = String(reason || 'unknown').slice(0, 40);
+    const signature = [decision, guiMode, screen, state.stylesReady ? '1' : '0', cardCount,
+        sectionCount, rootPresent, sessionProven == null ? '?' : sessionProven ? '1' : '0', libraryStatus].join('|');
     window.__sfMelodixHomeGuiMode = guiMode;
     // Keep only the public screen category in the diagnostic field. Route IDs
     // and selectors remain local to rendering and are never sent to the bridge.
@@ -426,12 +612,16 @@ function setMelodixHomeDecision(reason, details) {
     window.__sfMelodixHomeStylesReady = Boolean(state.stylesReady);
     window.__sfMelodixHomeSourceCardCount = cardCount;
     window.__sfMelodixHomeSectionCount = sectionCount;
+    window.__sfMelodixHomeSessionProven = sessionProven;
+    window.__sfMelodixHomeLibraryStatus = libraryStatus;
     window.__sfMelodixHomeDecision = decision;
     if (signature !== lastHomeDecisionSignature) {
         lastHomeDecisionSignature = signature;
         traceMelodixHome('home-web ' + decision +
             ' mode=' + guiMode + ' screen=' + screen +
             ' styles=' + (state.stylesReady ? '1' : '0') +
+            ' session=' + (sessionProven == null ? '?' : sessionProven ? '1' : '0') +
+            ' library=' + libraryStatus +
             ' cards=' + cardCount +
             ' sections=' + sectionCount +
             ' root=' + rootPresent);
@@ -486,7 +676,7 @@ function melodixHomeStylesPresent() {
 function melodixHomeStylesReady(mainView, home) {
     const result = {
         marker_present: melodixHomeStylesPresent(),
-        computed_style_available: typeof window.getComputedStyle === 'function' && Boolean(mainView && home),
+        computed_style_available: typeof window.getComputedStyle === 'function' && Boolean(home),
         home_display_flex: false,
         home_position_fixed: false,
         home_visibility_visible: false,
@@ -507,7 +697,7 @@ function melodixHomeStylesReady(mainView, home) {
         document.body.classList.remove(MELODIX_HOME_ACTIVE_CLASS);
         document.body.classList.add(MELODIX_HOME_STYLE_PROBE_CLASS);
         homeStyle = window.getComputedStyle(home);
-        mainStyle = window.getComputedStyle(mainView);
+        mainStyle = mainView ? window.getComputedStyle(mainView) : null;
         // getComputedStyle may return live declarations. Snapshot each required
         // value while the temporary probe class is still applied.
         const zIndex = Number.parseInt(homeStyle && homeStyle.zIndex || '0', 10) || 0;
@@ -516,7 +706,7 @@ function melodixHomeStylesReady(mainView, home) {
         result.home_visibility_visible = Boolean(homeStyle && homeStyle.visibility === 'visible');
         result.home_opacity_nonzero = Boolean(homeStyle && homeStyle.opacity !== '0');
         result.home_z_index_high = zIndex >= 1000;
-        result.main_hidden = Boolean(mainStyle && mainStyle.display === 'none');
+        result.main_hidden = !mainView || Boolean(mainStyle && mainStyle.display === 'none');
     } catch (_) {
         result.probe_error = true;
         window.__sfMelodixHomeStyleProbeResult = result;
@@ -530,6 +720,103 @@ function melodixHomeStylesReady(mainView, home) {
         result.home_display_flex && result.home_position_fixed && result.home_visibility_visible &&
         result.home_opacity_nonzero && result.main_hidden && result.home_z_index_high
     );
+}
+
+function melodixHomeLibraryHasEntries() {
+    const library = window.mediaLib;
+    return Boolean(library && ['playlists', 'albums', 'artists', 'podcasts'].some((key) =>
+        Array.isArray(library[key]) && library[key].length > 0
+    ));
+}
+
+function melodixHomeStatusState(hasRenderableData) {
+    const libraryStatus = String(window.__sfMediaLibStatus || 'pending');
+    const nativeState = String(window.__sfNativeUiHomeState || '');
+    if (libraryStatus === 'loading' || libraryStatus === 'pending') return 'loading';
+    if (libraryStatus === 'error') return 'error';
+    if (libraryStatus === 'ready' || nativeState === 'empty') {
+        // A settled response containing entries that the renderer could not
+        // turn into real Spotify resources is a collection/rendering error,
+        // not proof that the account is empty.
+        const rawItemCount = Number(window.__sfMediaLibRawItemCount || 0);
+        return !hasRenderableData && (melodixHomeLibraryHasEntries() ||
+            (Number.isFinite(rawItemCount) && rawItemCount > 0)) ? 'error' : 'empty';
+    }
+    if (nativeState === 'error' || nativeState === 'unavailable') return 'error';
+    return 'loading';
+}
+
+function melodixHomeErrorKind() {
+    const error = String(window.__sfMediaLibError || '').toLowerCase();
+    if (/token|401|unauthori[sz]ed|session/.test(error)) return 'session';
+    if (/429|rate.?limit/.test(error)) return 'rate-limit';
+    if (/5\d\d/.test(error)) return 'server';
+    return 'network';
+}
+
+function melodixHomeStatusMessage(labels) {
+    const kind = melodixHomeErrorKind();
+    if (kind === 'session') return labels.sessionError;
+    if (kind === 'rate-limit') return labels.rateLimitError;
+    if (kind === 'server') return labels.serverError;
+    return labels.networkError;
+}
+
+function retryMelodixHomeLibrary() {
+    let result;
+    try {
+        if (typeof window.__sfNativeRetryLibrary === 'function') {
+            result = window.__sfNativeRetryLibrary();
+        } else if (typeof window.checkMediaLib === 'function') {
+            result = window.checkMediaLib(true);
+        } else {
+            window.location.reload();
+            return;
+        }
+    } catch (_) {
+        scheduleMelodixHomeUpdate();
+        return;
+    }
+    if (result && typeof result.then === 'function') {
+        result.then(scheduleMelodixHomeUpdate, scheduleMelodixHomeUpdate);
+    } else {
+        scheduleMelodixHomeUpdate();
+    }
+}
+
+function renderMelodixHomeStatus(state, labels, hasPartialData, showRetry) {
+    const status = document.createElement('section');
+    status.className = `sf-melodix-home__status sf-melodix-home__status--${state}`;
+    status.setAttribute('data-state', state);
+    status.setAttribute('aria-live', state === 'error' ? 'assertive' : 'polite');
+    status.setAttribute('role', state === 'error' ? 'alert' : 'status');
+
+    const title = document.createElement('h2');
+    title.className = 'sf-melodix-home__status-title';
+    title.textContent = state === 'loading' ? labels.loadingTitle :
+        state === 'empty' ? labels.emptyTitle :
+        hasPartialData ? labels.partialErrorTitle || labels.errorTitle : labels.errorTitle;
+    status.appendChild(title);
+
+    const body = document.createElement('p');
+    body.className = 'sf-melodix-home__status-body';
+    body.textContent = state === 'loading' ? labels.loadingBody :
+        state === 'empty' ? labels.emptyBody : melodixHomeStatusMessage(labels);
+    status.appendChild(body);
+
+    if (state === 'error' || showRetry) {
+        const retry = document.createElement('button');
+        const sessionError = state === 'error' && melodixHomeErrorKind() === 'session';
+        retry.type = 'button';
+        retry.className = 'sf-melodix-home__retry';
+        retry.textContent = sessionError ? labels.reconnect : labels.retry;
+        retry.setAttribute('data-action', sessionError ? 'spotify-sign-in' : 'retry-library');
+        retry.addEventListener('click', sessionError
+            ? () => window.location.assign('https://accounts.spotify.com/login')
+            : retryMelodixHomeLibrary);
+        status.appendChild(retry);
+    }
+    return status;
 }
 
 function renderMelodixHomeCard(card) {
@@ -574,9 +861,6 @@ function updateMelodixHome() {
     const route = melodixHomeRoutePath();
     const routeLabel = route === '/' || route === '/home' || route === '/app' ? route : 'other';
     const guiMode = String(window.SF_CONFIG && window.SF_CONFIG.guiMode || 'missing');
-    const mainView = findMelodixHomeContentRoot();
-    let sections = [];
-    let itemCount = 0;
     if (!document.body) {
         setMelodixHomeDecision('body-missing', { route: routeLabel });
         return;
@@ -596,31 +880,40 @@ function updateMelodixHome() {
         setMelodixHomeDecision('fullscreen-open', { route: routeLabel });
         return;
     }
-    if (!mainView) {
-        deactivateMelodixHome();
-        observeMelodixHomeDom();
-        observeMelodixHomeStyles();
-        setMelodixHomeDecision('content-root-missing', {
-            route: routeLabel, rootSelector: window.__sfMelodixHomeRootSelector || 'none'
-        });
-        return;
-    }
+
+    const mainView = findMelodixHomeContentRoot();
     observeMelodixHomeDom();
     observeMelodixHomeStyles();
-
-    sections = collectMelodixHomeSections(mainView);
-    itemCount = sections.reduce((count, section) => count + section.cards.length, 0);
-    const rawAnchorCount = mainView.querySelectorAll(MELODIX_HOME_LINK_SELECTOR).length;
-    window.__sfMelodixHomeRawAnchorCount = Math.min(rawAnchorCount, 999);
-    markMelodixHomeSourceRoot(mainView);
-    if (itemCount < 2) {
+    const sessionProven = melodixHomeHasSessionEvidence();
+    if (!sessionProven) {
         deactivateMelodixHome();
-        setMelodixHomeDecision('insufficient-real-cards', {
-            route: routeLabel, cardCount: itemCount, sectionCount: sections.length,
-            rootSelector: window.__sfMelodixHomeRootSelector
+        setMelodixHomeDecision('session-unproven', {
+            route: routeLabel, rootSelector: window.__sfMelodixHomeRootSelector || 'none',
+            rootPresent: Boolean(mainView), sessionProven: false,
+            libraryStatus: window.__sfMediaLibStatus || 'absent'
         });
         return;
     }
+
+    markMelodixHomeSourceRoot(mainView);
+    let homeSections = [];
+    const seenResources = new Set();
+    if (mainView) homeSections = collectMelodixHomeSections(mainView, seenResources);
+    const librarySections = collectMelodixHomeLibrarySections(seenResources);
+    const sections = homeSections.concat(librarySections);
+    const itemCount = sections.reduce((count, section) => count + section.cards.length, 0);
+    const libraryStatus = String(window.__sfMediaLibStatus || 'pending');
+    const statusState = melodixHomeStatusState(itemCount > 0);
+    const hasPartialData = itemCount > 0 && statusState === 'error';
+    const showStatus = itemCount === 0 || hasPartialData;
+    const showRetry = statusState === 'error' ||
+        (statusState === 'loading' && ['absent', 'pending'].includes(libraryStatus));
+    let rawAnchorCount = 0;
+    try {
+        rawAnchorCount = mainView ? mainView.querySelectorAll(MELODIX_HOME_LINK_SELECTOR).length : 0;
+    } catch (_) {}
+    window.__sfMelodixHomeRawAnchorCount = Math.min(rawAnchorCount, 999);
+
     let home = document.getElementById('sf-melodix-home');
     const isNewHome = !home;
     if (!home) {
@@ -631,22 +924,33 @@ function updateMelodixHome() {
         document.body.appendChild(home);
     }
     const stylesReady = melodixHomeStylesReady(mainView, home);
+    const decisionDetails = {
+        route: routeLabel,
+        cardCount: itemCount,
+        sectionCount: sections.length,
+        rootSelector: window.__sfMelodixHomeRootSelector || 'none',
+        rootPresent: Boolean(mainView),
+        sessionProven,
+        libraryStatus
+    };
     if (!stylesReady) {
         deactivateMelodixHome();
-        setMelodixHomeDecision('styles-not-ready', {
-            route: routeLabel, cardCount: itemCount, sectionCount: sections.length, stylesReady: false,
-            rootSelector: window.__sfMelodixHomeRootSelector
-        });
+        setMelodixHomeDecision('styles-not-ready', { ...decisionDetails, stylesReady: false });
         return;
     }
 
-    const signature = sections.map((section) =>
-        `${section.title}:${section.cards.map((card) => `${card.resourcePath}|${card.title}|${card.image}`).join(',')}`
-    ).join('||');
+    const signature = JSON.stringify({
+        sections: sections.map((section) => ({
+            title: section.title,
+            cards: section.cards.map((card) => [card.resourcePath, card.title, card.subtitle, card.image])
+        })),
+        status: showStatus ? statusState : '',
+        partial: hasPartialData,
+        retry: showStatus && showRetry
+    });
     if (window._sfMelodixHomeSignature === signature && document.body.classList.contains(MELODIX_HOME_ACTIVE_CLASS)) {
-        setMelodixHomeDecision('visible', {
-            route: routeLabel, cardCount: itemCount, sectionCount: sections.length, stylesReady: true,
-            rootSelector: window.__sfMelodixHomeRootSelector
+        setMelodixHomeDecision(itemCount ? 'visible' : `status-visible-${statusState}`, {
+            ...decisionDetails, stylesReady: true
         });
         return;
     }
@@ -683,6 +987,7 @@ function updateMelodixHome() {
         sectionElement.appendChild(cards);
         fragment.appendChild(sectionElement);
     });
+    if (showStatus) fragment.appendChild(renderMelodixHomeStatus(statusState, labels, hasPartialData, showRetry));
     home.replaceChildren(fragment);
     window._sfMelodixHomeSignature = signature;
     document.body.classList.add(MELODIX_HOME_ACTIVE_CLASS);
@@ -690,23 +995,23 @@ function updateMelodixHome() {
     let renderedVisible = false;
     try {
         const computedHome = window.getComputedStyle(home);
-        const computedMain = window.getComputedStyle(mainView);
+        const computedMain = mainView ? window.getComputedStyle(mainView) : null;
         renderedVisible = computedHome.display === 'flex' && computedHome.position === 'fixed' &&
             computedHome.visibility === 'visible' && computedHome.opacity !== '0' &&
-            computedMain.display === 'none';
+            (!mainView || Boolean(computedMain && computedMain.display === 'none'));
     } catch (_) {}
     if (!renderedVisible) {
         deactivateMelodixHome();
         setMelodixHomeDecision('activation-visibility-check-failed', {
-            route: routeLabel, cardCount: itemCount, sectionCount: sections.length, stylesReady: false,
-            rootSelector: window.__sfMelodixHomeRootSelector
+            ...decisionDetails, stylesReady: false
         });
         return;
     }
     window.__sfMelodixHomeStylesReady = true;
-    setMelodixHomeDecision(isNewHome ? 'rendered' : 'updated', {
-        route: routeLabel, cardCount: itemCount, sectionCount: sections.length, stylesReady: true
-    });
+    const renderDecision = itemCount === 0
+        ? `rendered-status-${statusState}`
+        : hasPartialData ? 'rendered-partial' : isNewHome ? 'rendered' : 'updated';
+    setMelodixHomeDecision(renderDecision, { ...decisionDetails, stylesReady: true });
 }
 
 function instrumentMelodixHomeHistory() {
@@ -746,6 +1051,8 @@ function initializeMelodixHome() {
         scheduleMelodixHomeUpdate();
     }, { once: true });
     window.addEventListener('sf-melodix-home-styles-ready', scheduleMelodixHomeUpdate);
+    window.addEventListener('sf-native-ui-session-proof-changed', scheduleMelodixHomeUpdate);
+    window.addEventListener('sf-media-library-state-changed', scheduleMelodixHomeUpdate);
     instrumentMelodixHomeHistory();
     observeMelodixHomeDom();
     observeMelodixHomeStyles();

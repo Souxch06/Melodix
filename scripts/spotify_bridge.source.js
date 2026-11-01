@@ -2908,18 +2908,27 @@
     let isFetchingLib = false;
 
     // P0 sync fix: the first home scrape can finish before mediaLib arrives.
-    // The shell must be told when the library settles so late playlists are
-    // merged into Home instead of being dropped. No token/secret is traced.
+    // Notify both the native shell and the Web Home renderer when collection
+    // state changes; the Web renderer does not depend on unrelated DOM churn.
+    // No token, account content, resource IDs, or error text is sent by this event.
+    function notifyMediaLibUiChange() {
+        try {
+            window.dispatchEvent(new window.Event('sf-media-library-state-changed'));
+        } catch (_) {}
+    }
     function notifyMediaLibSettled(reason) {
         console.log("[Spotifuck] mediaLib settled: " + (window.__sfMediaLibStatus || '?') +
             " playlists=" + ((window.mediaLib && window.mediaLib.playlists && window.mediaLib.playlists.length) || 0) +
             " reason=" + (reason || ''));
+        notifyMediaLibUiChange();
         try {
             if (typeof window.__sfNativeUiRefresh === 'function') window.__sfNativeUiRefresh();
         } catch (_) {}
     }
     window.__sfMediaLibStatus = window.__sfMediaLibStatus || 'pending';
     window.__sfMediaLibError = window.__sfMediaLibError || '';
+    window.__sfMediaLibRawItemCount = Number.isFinite(Number(window.__sfMediaLibRawItemCount))
+        ? Math.max(0, Math.min(1000, Math.floor(Number(window.__sfMediaLibRawItemCount)))) : 0;
 
     async function checkMediaLib(force = false) {
         if (isFetchingLib && !force) return;
@@ -2934,8 +2943,12 @@
         isFetchingLib = true;
         window.__sfMediaLibStatus = 'loading';
         window.__sfMediaLibError = '';
+        window.__sfMediaLibRawItemCount = 0;
+        notifyMediaLibUiChange();
         try {
             const allItems = await fetchAllLibrary();
+            window.__sfMediaLibRawItemCount = Array.isArray(allItems)
+                ? Math.max(0, Math.min(1000, allItems.length)) : 0;
             const failed = Boolean(window.__sfMediaLibError);
             const usable = Array.isArray(allItems) && allItems.length > 0;
             if (!failed || usable) {

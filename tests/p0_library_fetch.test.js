@@ -29,10 +29,12 @@ function fakeElement() {
 // fetch the bridge captures at load time (`oriFetch`).
 function loadBridge({ fetchImpl } = {}) {
     const listeners = {};
+    const dispatchedEvents = [];
     const win = {
         addEventListener(type, fn) { (listeners[type] = listeners[type] || []).push(fn); },
         removeEventListener() {},
-        dispatchEvent() { return true; },
+        dispatchEvent(event) { dispatchedEvents.push(String(event && event.type || '')); return true; },
+        Event: class { constructor(type) { this.type = String(type); } },
         setTimeout: (fn) => setTimeout(fn, 0),
         clearTimeout,
         setInterval: () => 0,
@@ -66,6 +68,7 @@ function loadBridge({ fetchImpl } = {}) {
     win.document.defaultView = win;
     const context = vm.createContext(win);
     vm.runInContext(fs.readFileSync(BRIDGE, 'utf8'), context, { timeout: 20000 });
+    win.__testDispatchedEvents = dispatchedEvents;
     return win;
 }
 
@@ -98,6 +101,9 @@ test('checkMediaLib loads the real library with session cookies and no token', a
 
     assert.equal(win.__sfMediaLibStatus, 'ready', 'the library settles as ready');
     assert.equal(win.__sfMediaLibError, '', 'no error is recorded');
+    assert.equal(win.__sfMediaLibRawItemCount, 2, 'the settled response records only a bounded raw item count');
+    assert.equal(win.__testDispatchedEvents.filter((type) => type === 'sf-media-library-state-changed').length, 2,
+        'loading and settlement both notify the Web Home renderer without carrying account data');
     assert.ok(win.mediaLib, 'mediaLib is populated');
     assert.deepEqual(Array.from(win.mediaLib.playlists, (p) => p.name), ['Road trip', 'Focus']);
     assert.equal(calls.length, 1, 'exactly one request for one short page');

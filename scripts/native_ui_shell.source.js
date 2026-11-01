@@ -1091,7 +1091,13 @@
             typeof bridge.onNativeUiReady === 'function' &&
             typeof bridge.onNativeUiRoute === 'function' &&
             typeof bridge.onNativeUiData === 'function');
+        var previousSessionProven = window.__sfNativeUiSessionProven === true;
         window.__sfNativeUiSessionProven = sessionProven;
+        if (previousSessionProven !== sessionProven) {
+            try {
+                window.dispatchEvent(new window.Event('sf-native-ui-session-proof-changed'));
+            } catch (_) {}
+        }
         window.__sfNativeUiHomeContentProven = homeContentProven;
         window.__sfNativeUiHomeStateProven = homeStateProven;
         window.__sfNativeUiTakeoverProven = takeoverProven;

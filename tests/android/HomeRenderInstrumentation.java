@@ -37,9 +37,10 @@ import java.util.concurrent.TimeUnit;
  * It verifies the unauthenticated WebView/login surface and empty-Home fallback,
  * exercises the native status renderer with a status-only payload, and runs the
  * packaged Web Home renderer in an isolated local Android WebView fixture at
- * the native recovery route /app. The fixture is test-only; it supplies no
- * account content, Spotify credentials, or cookies and does not claim an
- * authenticated Home test.
+ * the native recovery route /app. The fixture is test-only; its explicit
+ * renderer-session flag exercises the takeover gate but does not represent
+ * Spotify authentication. It supplies no account content, Spotify credentials,
+ * or cookies and does not claim an authenticated Home test.
  */
 public final class HomeRenderInstrumentation extends Instrumentation {
     private static final String TARGET_PACKAGE = "com.melodix.music.preview";
@@ -111,6 +112,8 @@ public final class HomeRenderInstrumentation extends Instrumentation {
             "var brand=h&&h.querySelector('.sf-melodix-home__brand');" +
             "var card=cards&&cards.length?cards[0]:null;" +
             "var decision=String(window.__sfMelodixHomeDecision||'');" +
+            "var sessionProven=window.__sfMelodixHomeSessionProven===true;" +
+            "var libraryStatus=String(window.__sfMelodixHomeLibraryStatus||'absent');" +
             "var rendererStyle=window.__sfMelodixHomeStyleProbeResult||{};" +
             "var rootResourceCount=Math.max(0,Number(window.__sfMelodixHomeRootResourceCount)||0);" +
             "var sourceCardCount=Math.max(0,Number(window.__sfMelodixHomeSourceCardCount)||0);" +
@@ -135,7 +138,10 @@ public final class HomeRenderInstrumentation extends Instrumentation {
             "root_resource_count:Math.min(rootResourceCount,3),source_card_count:Math.min(sourceCardCount,3)," +
             "root_selector_is_main_view:String(window.__sfMelodixHomeRootSelector||'')==='#main-view'," +
             "styles_ready:window.__sfMelodixHomeStylesReady===true," +
-            "decision_insufficient_real_cards:decision==='insufficient-real-cards'," +
+            "session_proven:sessionProven," +
+            "library_status:['absent','pending','loading','ready','error'].indexOf(libraryStatus)>=0?libraryStatus:'other'," +
+            "decision_session_unproven:decision==='session-unproven'," +
+            "decision_rendered_status:decision.indexOf('rendered-status-')===0," +
             "decision_content_root_missing:decision==='content-root-missing'," +
             "decision_styles_not_ready:decision==='styles-not-ready'," +
             "decision_fullscreen_open:decision==='fullscreen-open'," +
@@ -694,7 +700,7 @@ public final class HomeRenderInstrumentation extends Instrumentation {
         final WebView[] created = new WebView[1];
         final Throwable[] failure = new Throwable[1];
         final String html = "<!doctype html><html lang=\"en\"><head><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">" +
-                "<script>window.SF_CONFIG={guiMode:'csshack'};</script></head><body>" +
+                "<script>window.SF_CONFIG={guiMode:'csshack'};window.__sfNativeUiSessionProven=true;</script></head><body>" +
                 "<main id=\"main-view\"><section data-testid=\"shelf\"><h2>Route test shelf</h2>" +
                 "<div data-testid=\"card\"><a href=\"/playlist/test-only-route-fixture-playlist\"><span data-testid=\"card-title\">Route fixture playlist</span></a></div>" +
                 "<div data-testid=\"card\"><a href=\"/album/test-only-route-fixture-album\"><span data-testid=\"card-title\">Route fixture album</span></a></div>" +
@@ -835,7 +841,10 @@ public final class HomeRenderInstrumentation extends Instrumentation {
             state.putInt("web_home_probe_source_card_count", Math.max(0, Math.min(3, probe.optInt("source_card_count"))));
             state.putBoolean("web_home_probe_root_selector_is_main_view", probe.optBoolean("root_selector_is_main_view"));
             state.putBoolean("web_home_probe_styles_ready", probe.optBoolean("styles_ready"));
-            state.putBoolean("web_home_probe_decision_insufficient_real_cards", probe.optBoolean("decision_insufficient_real_cards"));
+            state.putBoolean("web_home_probe_session_proven", probe.optBoolean("session_proven"));
+            state.putString("web_home_probe_library_status", probe.optString("library_status", "absent"));
+            state.putBoolean("web_home_probe_decision_session_unproven", probe.optBoolean("decision_session_unproven"));
+            state.putBoolean("web_home_probe_decision_rendered_status", probe.optBoolean("decision_rendered_status"));
             state.putBoolean("web_home_probe_decision_content_root_missing", probe.optBoolean("decision_content_root_missing"));
             state.putBoolean("web_home_probe_decision_styles_not_ready", probe.optBoolean("decision_styles_not_ready"));
             state.putBoolean("web_home_probe_decision_fullscreen_open", probe.optBoolean("decision_fullscreen_open"));

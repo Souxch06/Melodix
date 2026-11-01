@@ -117,10 +117,36 @@ test('Android instrumentation is declared as a manifest-level component, not nes
     'PackageManager only registers instrumentation declared directly under <manifest>');
 });
 
-test('the CI Home integration contains no fake playlist or substituted account content', () => {
+test('the Web Home renderer is session-gated, accepts one real item, and renders explicit data states', () => {
+  const renderer = read('scripts/melodix_home.source.js');
+  const runtime = read('assets/melodix_home.js');
+  const nativeShell = read('scripts/native_ui_shell.source.js');
+  const css = read('assets/css_hacks.css');
+  assert.match(renderer, /function melodixHomeHasSessionEvidence\(\)/);
+  assert.match(renderer, /if \(!sessionProven\)[\s\S]*?session-unproven/);
+  assert.doesNotMatch(renderer, /itemCount\s*<\s*2/,
+    'one verified Spotify card is sufficient; empty and error states do not need fake cards');
+  assert.match(renderer, /collectMelodixHomeLibrarySections\(seenResources\)/);
+  assert.match(renderer, /rendered-status-\$\{statusState\}/);
+  assert.match(renderer, /sf-media-library-state-changed/);
+  assert.match(renderer, /sf-native-ui-session-proof-changed/);
+  assert.match(nativeShell, /previousSessionProven !== sessionProven[\s\S]*?sf-native-ui-session-proof-changed/,
+    'native session proof changes wake the Web renderer without exposing account data');
+  assert.match(renderer, /window\.location\.assign\('https:\/\/accounts\.spotify\.com\/login'\)/,
+    'an expired session has a recovery path through Spotify’s official sign-in page');
+  assert.match(runtime, /session-unproven/,
+    'the packaged renderer is regenerated from the session-gated source');
+  assert.match(css, /sf-melodix-home__status--error[\s\S]*?sf-melodix-home__retry/);
+});
+
+test('the CI Home integration contains no fake account data or credentials and labels its renderer proof as a fixture', () => {
   const harness = read('tests/android/HomeRenderInstrumentation.java');
   const inspector = read('tests/android/inspect_hierarchy.py');
-  assert.doesNotMatch(harness, /spotify:playlist:|FIXTURE_TITLE|FIXTURE_JSON|Controlled Home fixture/);
+  assert.doesNotMatch(harness, /spotify:playlist:|FIXTURE_TITLE|FIXTURE_JSON|Bearer\s+[A-Za-z0-9._-]+|sp_dc=/i);
+  assert.match(harness, /fixture is test-only; its explicit[\s\S]*renderer-session flag/i);
+  assert.match(harness, /window\.__sfNativeUiSessionProven=true/,
+    'the isolated fixture supplies a renderer-only proof and is not labeled as Spotify authentication');
+  assert.match(harness, /authenticated_home_test_performed", false/);
   assert.match(harness, /onNativeUiData"\s*,\s*String\.class\s*,\s*String\.class/);
   assert.match(harness, /LOGIN_DOM_PROBE[\s\S]*?awaitLoginUiVisible\(webView\)/,
     'the clean session checks for actual login DOM before the recovery transition');
