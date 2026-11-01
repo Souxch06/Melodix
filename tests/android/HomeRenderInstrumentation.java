@@ -351,7 +351,7 @@ public final class HomeRenderInstrumentation extends Instrumentation {
         appendXmlAttribute(xml, "resource-id", node.getViewIdResourceName());
         appendXmlAttribute(xml, "text", node.getText());
         appendXmlAttribute(xml, "content-desc", node.getContentDescription());
-        appendXmlAttribute(xml, "bounds", bounds.flattenToString());
+        appendXmlAttribute(xml, "bounds", bounds.toShortString());
         appendXmlAttribute(xml, "visible-to-user", String.valueOf(node.isVisibleToUser()));
         xml.append(">");
         for (int index = 0; index < node.getChildCount(); index++) {

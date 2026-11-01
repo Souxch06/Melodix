@@ -160,6 +160,8 @@ test("empty-Home pixels are captured before instrumentation finish and the same 
   assert.match(harness, /serviceInfo\.flags = AccessibilityServiceInfo\.FLAG_INCLUDE_NOT_IMPORTANT_VIEWS[\s\S]*?FLAG_REPORT_VIEW_IDS[\s\S]*?automation\.setServiceInfo\(serviceInfo\)/);
   assert.match(harness, /automation\.getRootInActiveWindow\(\)/);
   assert.match(harness, /automation\.takeScreenshot\(\)/);
+  assert.match(harness, /appendXmlAttribute\(xml, "bounds", bounds\.toShortString\(\)\)/);
+  assert.doesNotMatch(harness, /bounds\.flattenToString\(\)/);
   assert.match(harness, /openFileOutput\([\s\S]*?melodix-preview-home-fallback\.xml/);
   assert.match(harness, /openFileOutput\([\s\S]*?melodix-preview-home-empty\.png/);
   assert.match(harness, /result\.putBoolean\("empty_home_evidence_captured", true\)/);
