@@ -556,3 +556,93 @@ test("the emulator workflow validates same-run instrumentation and exact release
     "the emulator job rechecks the artifact manifest against the same APK",
   );
 });
+
+test("the authenticated-home bundle contains the exact debuggable target, matching signed runner, command, manifest, and long retention", () => {
+  const emulatorWorkflow = fs.readFileSync(
+    path.resolve(__dirname, "..", ".github/workflows/test-preview-emulator.yml"),
+    "utf8",
+  );
+  const buildRunner = emulatorWorkflow.indexOf("name: Build signed Android UI integration instrumentation APK");
+  const assemble = emulatorWorkflow.indexOf("name: Assemble exact authenticated-home manual test bundle");
+  const upload = emulatorWorkflow.indexOf("name: Upload exact authenticated-home manual test bundle");
+  const exercise = emulatorWorkflow.indexOf("name: Exercise authenticated-home observer to normal timeout without a session");
+  assert.ok(buildRunner >= 0 && assemble > buildRunner && upload > assemble && exercise > upload,
+    "build and package the same-run target and runner before publishing/running the observer bundle");
+  const runnerBuildBlock = emulatorWorkflow.slice(buildRunner, assemble);
+  const bundleBlock = emulatorWorkflow.slice(assemble, exercise);
+  assert.match(runnerBuildBlock, /--version-code "\$PREVIEW_VERSION_CODE"[\s\S]*?--version-name "\$PREVIEW_VERSION_NAME"/,
+    "the runner is versioned to match the exact Preview APK it instruments");
+  assert.match(bundleBlock, /cp "\$PREVIEW_APK" "\$bundle_dir\/\$preview_name"/);
+  assert.match(bundleBlock, /runner_name="Melodix-Preview-AuthenticatedHome-Runner-\$\{PREVIEW_VERSION_NAME\}\.apk"/);
+  assert.match(bundleBlock, /cp "\$RUNNER_APK" "\$bundle_dir\/\$runner_name"/);
+  assert.match(bundleBlock, /apksigner" verify --print-certs "\$PREVIEW_APK"[\s\S]*?apksigner" verify --print-certs "\$RUNNER_APK"[\s\S]*?preview_signer_sha256.*?runner_signer_sha256/,
+    "the uploaded pair must have the same verified signing certificate");
+  assert.match(bundleBlock, /def apk_info\(name\)[\s\S]*?"sha256": hashlib\.sha256[\s\S]*?"source_commit": source_commit[\s\S]*?"preview_apk"[\s\S]*?"runner_apk"/,
+    "the bundle manifest records both packages, versions, hashes, and source commit");
+  assert.ok(bundleBlock.includes("adb shell am instrument -w -r -e mode authenticated-home -e timeout_ms 900000 com.melodix.music.preview.test/com.melodix.test.HomeRenderInstrumentation"),
+    "the bundle carries the exact Windows-compatible observer command");
+  assert.match(bundleBlock, /retention-days: 90/,
+    "the manual test bundle remains downloadable long enough for a human session");
+  assert.match(emulatorWorkflow, /Publish the exact validated Preview release candidate[\s\S]*?steps\.authenticated-home-ci\.outcome == 'success'/,
+    "a public Preview release cannot pass if the observer self-test fails");
+  assert.match(emulatorWorkflow, /build-release-candidate:[\s\S]*?target_debuggable: false[\s\S]*?apk_suffix: '-release-candidate'/,
+    "the manual debug target does not replace the separate non-debuggable release candidate");
+  assert.match(emulatorWorkflow, /authenticated-home-bundle-upload\.outcome == 'success'[\s\S]*?timeout_ms 30000/,
+    "CI exercises the observer only after the downloadable bundle has been published");
+});
+
+test("Windows manual procedure preserves app data and requires a manually verified real Spotify Home", () => {
+  const docs = fs.readFileSync(
+    path.resolve(__dirname, "..", "docs", "authenticated-home-observer.md"),
+    "utf8",
+  );
+  const command = "adb shell am instrument -w -r -e mode authenticated-home -e timeout_ms 900000 com.melodix.music.preview.test/com.melodix.test.HomeRenderInstrumentation";
+  assert.ok(docs.includes(command), "the exact manual command is documented verbatim");
+  assert.match(docs, /Get-FileHash[\s\S]*?manifest\.preview_apk\.sha256[\s\S]*?manifest\.runner_apk\.sha256/);
+  assert.match(docs, /adb install -r "\$previewApk"[\s\S]*?adb shell monkey[\s\S]*?se connecter elle-même[\s\S]*?adb install -r "\$runnerApk"/,
+    "the exact debug Preview is installed first, the user signs in manually, and only then is the separate runner installed");
+  assert.match(docs, /N'exécute pas[\s\S]*?adb uninstall[\s\S]*?pm clear[\s\S]*?Effacer les données/,
+    "the procedure explicitly forbids clearing or uninstalling the app");
+  assert.match(docs, /version supérieure non débogable[\s\S]*?N'essaie pas de désinstaller[\s\S]*?émulateur Android dédié/,
+    "a version downgrade/incompatibility is handled by using a dedicated emulator, not by erasing a user's session");
+  assert.match(docs, /authenticated_home_test_performed=true[\s\S]*?authenticated_session=true[\s\S]*?home_route=true/,
+    "the document distinguishes actual authenticated Home evidence from CI and a blocked observer run");
+});
+
+test("the authenticated-home observer preserves the primary WebView, observes callbacks, restores Window.Callback, and redacts diagnostics", () => {
+  const emulatorWorkflow = fs.readFileSync(
+    path.resolve(__dirname, "..", ".github", "workflows", "test-preview-emulator.yml"),
+    "utf8",
+  );
+  const harness = fs.readFileSync(
+    path.resolve(__dirname, "android", "HomeRenderInstrumentation.java"),
+    "utf8",
+  );
+  const observerStart = harness.indexOf("private void runAuthenticatedHomeObservation(");
+  const observerEnd = harness.indexOf("private String joinSafeRoutes(", observerStart);
+  assert.ok(observerStart >= 0 && observerEnd > observerStart, "the opt-in passive observer implementation exists");
+  const observer = harness.slice(observerStart, observerEnd);
+  assert.match(observer, /awaitStableWebView\(activity\)[\s\S]*?findWebView\(sampleActivity\)[\s\S]*?evaluateJavascriptAndWait\([\s\S]*?currentWebView\[0\]/,
+    "the observer samples the existing primary WebView rather than substituting a fixture");
+  assert.doesNotMatch(observer, /new WebView\s*\(|\.loadUrl\s*\(|CookieManager|removeAllCookies|setCookie\s*\(|clearCache|clearHistory|clearFormData|\.click\s*\(/,
+    "the authenticated observer cannot create or navigate a WebView, click controls, or manipulate cookies/storage");
+  const preservingLaunchStart = harness.indexOf("private Activity launchTargetPreservingTask(");
+  const preservingLaunchEnd = harness.indexOf("private long authenticatedHomeTimeoutMs(", preservingLaunchStart);
+  const preservingLaunch = harness.slice(preservingLaunchStart, preservingLaunchEnd);
+  assert.match(preservingLaunch, /FLAG_ACTIVITY_NEW_TASK \| Intent\.FLAG_ACTIVITY_SINGLE_TOP/);
+  assert.doesNotMatch(preservingLaunch, /FLAG_ACTIVITY_CLEAR_TASK/,
+    "bringing the existing MainActivity forward does not clear its task or session");
+  assert.match(harness, /registerActivityLifecycleObservation\(\)[\s\S]*?registerActivityLifecycleCallbacks\(activityLifecycleObserver\)/);
+  assert.match(harness, /unregisterActivityLifecycleObservation\(\)[\s\S]*?unregisterActivityLifecycleCallbacks\(activityLifecycleObserver\)/);
+  assert.match(harness, /method\.invoke\(original, args\)[\s\S]*?restoreBackKeyObservationOnMain\(\)[\s\S]*?window\.setCallback\(original\)/,
+    "the observer delegates key events and restores the original Window.Callback");
+  assert.match(observer, /activity_lifecycle_observer_unregistered[\s\S]*?window_callback_observer_installed[\s\S]*?window_callback_observer_restored/);
+  assert.match(observer, /observation_deadline_reached[\s\S]*?observation_timeout_ms_capped/);
+  assert.match(observer, /safeSpotifyUrl\(firstWebView\.getUrl\(\)\)[\s\S]*?url_query_and_fragment_redacted/);
+  assert.match(emulatorWorkflow, /timeout_ms 30000[\s\S]*?overall=blocked_no_authenticated_home_observed[\s\S]*?authenticated_home_test_performed=false[\s\S]*?authenticated_home_test=not_performed/,
+    "CI proves the no-session observer completes normally without claiming an authenticated Home");
+  assert.match(emulatorWorkflow, /activity_lifecycle_observer_unregistered=true[\s\S]*?window_callback_observer_restored=true[\s\S]*?fatal_or_anr_count/,
+    "the emulator self-test checks lifecycle cleanup, callback restoration, and crash/ANR absence");
+  assert.match(emulatorWorkflow, /authenticated-home-observer-ci\.txt/,
+    "the bounded observer status transcript is retained with the Android diagnostics");
+});

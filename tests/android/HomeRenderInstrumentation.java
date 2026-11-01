@@ -66,6 +66,9 @@ public final class HomeRenderInstrumentation extends Instrumentation {
     private static final long AUTHENTICATED_OBSERVATION_POLL_MS = 500L;
     private static final int MAX_OBSERVED_ROUTES = 16;
     private Application observedApplication;
+    private volatile boolean activityLifecycleObserverRegistered;
+    private volatile boolean backKeyObserverInstalled;
+    private volatile boolean backKeyObserverActive;
     private volatile WeakReference<Activity> resumedTargetActivity = new WeakReference<>(null);
     private volatile boolean targetActivityResumed;
     private volatile boolean targetActivityStoppedObserved;
@@ -825,15 +828,20 @@ public final class HomeRenderInstrumentation extends Instrumentation {
         }
         observedApplication = (Application) applicationContext;
         observedApplication.registerActivityLifecycleCallbacks(activityLifecycleObserver);
+        activityLifecycleObserverRegistered = true;
     }
 
-    private void unregisterActivityLifecycleObservation() {
+    private boolean unregisterActivityLifecycleObservation() {
         Application application = observedApplication;
-        observedApplication = null;
-        if (application == null) return;
+        if (application == null) return !activityLifecycleObserverRegistered;
         try {
             application.unregisterActivityLifecycleCallbacks(activityLifecycleObserver);
-        } catch (Throwable ignored) {}
+            observedApplication = null;
+            activityLifecycleObserverRegistered = false;
+            return true;
+        } catch (Throwable ignored) {
+            return false;
+        }
     }
 
     private Activity resumedActivityOr(Activity fallback) {
@@ -846,7 +854,7 @@ public final class HomeRenderInstrumentation extends Instrumentation {
         final Window window = activity.getWindow();
         if (observedBackWindow == window && observedBackProxy != null
                 && window.getCallback() == observedBackProxy) return;
-        restoreBackKeyObservationOnMain();
+        if (!restoreBackKeyObservationOnMain()) return;
         final Window.Callback original = window.getCallback();
         if (original == null) return;
         Window.Callback proxy = (Window.Callback) Proxy.newProxyInstance(
@@ -874,26 +882,42 @@ public final class HomeRenderInstrumentation extends Instrumentation {
         observedBackOriginal = original;
         observedBackProxy = proxy;
         window.setCallback(proxy);
+        backKeyObserverInstalled = true;
+        backKeyObserverActive = window.getCallback() == proxy;
     }
 
-    private void restoreBackKeyObservationOnMain() {
+    private boolean restoreBackKeyObservationOnMain() {
         Window window = observedBackWindow;
         Window.Callback original = observedBackOriginal;
         Window.Callback proxy = observedBackProxy;
+        try {
+            if (window != null && proxy != null && window.getCallback() == proxy) {
+                if (original == null) return false;
+                window.setCallback(original);
+                if (window.getCallback() == proxy) return false;
+            }
+        } catch (Throwable ignored) {
+            return false;
+        }
         observedBackWindow = null;
         observedBackOriginal = null;
         observedBackProxy = null;
-        if (window != null && original != null && window.getCallback() == proxy) {
-            window.setCallback(original);
-        }
+        backKeyObserverActive = false;
+        return true;
     }
 
-    private void restoreBackKeyObservation() {
+    private boolean restoreBackKeyObservation() {
+        final boolean[] restored = new boolean[] { false };
         try {
             runOnMainSync(new Runnable() {
-                @Override public void run() { restoreBackKeyObservationOnMain(); }
+                @Override public void run() {
+                    restored[0] = restoreBackKeyObservationOnMain();
+                }
             });
-        } catch (Throwable ignored) {}
+        } catch (Throwable ignored) {
+            return false;
+        }
+        return restored[0];
     }
 
     private String safeSpotifyUrl(String value) {
@@ -959,6 +983,7 @@ public final class HomeRenderInstrumentation extends Instrumentation {
         waiting.putBoolean("fixture_test_only", false);
         waiting.putBoolean("manual_auth_or_navigation_is_automated", false);
         waiting.putBoolean("authenticated_home_test_performed", false);
+        waiting.putBoolean("activity_lifecycle_observer_registered", activityLifecycleObserverRegistered);
         waiting.putBoolean("process_restart_requires_a_new_observation_run", true);
         putTargetBuildIdentity(waiting);
         sendStatus(1, waiting);
@@ -970,7 +995,8 @@ public final class HomeRenderInstrumentation extends Instrumentation {
                 firstUrl[0] = safeSpotifyUrl(firstWebView.getUrl());
             }
         });
-        long deadline = System.currentTimeMillis() + authenticatedHomeTimeoutMs(arguments);
+        long observationTimeoutMs = authenticatedHomeTimeoutMs(arguments);
+        long deadline = System.currentTimeMillis() + observationTimeoutMs;
         String previousScreen = null;
         String lastStatusSignature = "";
         ArrayList<String> routeSequence = new ArrayList<>();
@@ -1075,6 +1101,8 @@ public final class HomeRenderInstrumentation extends Instrumentation {
             lastState.putBoolean("manual_auth_or_navigation_is_automated", false);
             lastState.putBoolean("fixture_test_only", false);
             lastState.putBoolean("activity_foreground", foreground[0]);
+            lastState.putBoolean("activity_lifecycle_observer_registered", activityLifecycleObserverRegistered);
+            lastState.putBoolean("window_callback_observer_active", backKeyObserverActive);
             lastState.putBoolean("target_activity_resumed_callback_seen", targetActivityResumed);
             lastState.putBoolean("activity_resumed_after_background", backgroundResumeObserved);
             lastState.putBoolean("activity_recreated_during_observation", activityRecreatedObserved);
@@ -1121,6 +1149,10 @@ public final class HomeRenderInstrumentation extends Instrumentation {
 
         boolean transitionCoverage = homeToSearch && searchToHome && homeToLibrary && libraryToHome
                 && androidBackReturnToHome && backgroundResumeObserved;
+        boolean callbackWasInstalled = backKeyObserverInstalled;
+        boolean callbackRestored = restoreBackKeyObservation();
+        boolean lifecycleObserverWasRegistered = activityLifecycleObserverRegistered;
+        boolean lifecycleObserverUnregistered = unregisterActivityLifecycleObservation();
         Bundle finalState = lastState == null ? new Bundle() : new Bundle(lastState);
         finalState.putString("phase", "authenticated_home_observation_complete");
         finalState.putString("overall", authenticatedHomeObserved
@@ -1132,6 +1164,13 @@ public final class HomeRenderInstrumentation extends Instrumentation {
         finalState.putBoolean("app_process_restart_verified", false);
         finalState.putBoolean("process_restart_requires_a_new_observation_run", true);
         finalState.putBoolean("manual_auth_or_navigation_is_automated", false);
+        finalState.putBoolean("observation_deadline_reached", true);
+        finalState.putLong("observation_timeout_ms_capped", observationTimeoutMs);
+        finalState.putBoolean("activity_lifecycle_observer_registered", lifecycleObserverWasRegistered);
+        finalState.putBoolean("activity_lifecycle_observer_unregistered", lifecycleObserverUnregistered);
+        finalState.putBoolean("window_callback_observer_installed", callbackWasInstalled);
+        finalState.putBoolean("window_callback_observer_restored", callbackRestored);
+        finalState.putBoolean("window_callback_observer_active", backKeyObserverActive);
         finalState.putString("first_defective_condition", "not_observed".equals(firstHomeDefectiveCondition)
                 ? firstDefectiveCondition(lastProbe, finalState) : firstHomeDefectiveCondition);
         finalState.putString("first_home_defective_condition", firstHomeDefectiveCondition);

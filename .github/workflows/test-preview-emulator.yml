@@ -561,6 +561,9 @@ jobs:
         shell: bash
         env:
           SOURCE_REF: ${{ inputs.source_ref || github.sha }}
+          PREVIEW_APK: ${{ steps.apk.outputs.apk }}
+          PREVIEW_VERSION_CODE: ${{ steps.apk.outputs.version_code }}
+          PREVIEW_VERSION_NAME: ${{ steps.apk.outputs.version_name }}
           MELODIX_PREVIEW_KEYSTORE_B64: ${{ secrets.MELODIX_PREVIEW_KEYSTORE_B64 }}
           MELODIX_PREVIEW_KEYSTORE_PASSWORD: ${{ secrets.MELODIX_PREVIEW_KEYSTORE_PASSWORD }}
           MELODIX_PREVIEW_KEY_PASSWORD: ${{ secrets.MELODIX_PREVIEW_KEY_PASSWORD || secrets.MELODIX_PREVIEW_KEYSTORE_PASSWORD }}
@@ -593,6 +596,8 @@ jobs:
             -I "$android_jar" \
             --min-sdk-version 24 \
             --target-sdk-version 36 \
+            --version-code "$PREVIEW_VERSION_CODE" \
+            --version-name "$PREVIEW_VERSION_NAME" \
             -F "$unsigned_apk"
           (cd "$dex_dir" && zip -q "$unsigned_apk" classes.dex)
           "$build_tools/zipalign" -f 4 "$unsigned_apk" "$aligned_apk"
@@ -604,9 +609,29 @@ jobs:
             --key-pass env:MELODIX_PREVIEW_KEY_PASSWORD \
             --out "$test_apk" "$aligned_apk"
           "$build_tools/apksigner" verify --verbose --min-sdk-version 24 "$test_apk"
+          [[ -s "$PREVIEW_APK" && "$PREVIEW_VERSION_CODE" =~ ^[0-9]+$ && -n "$PREVIEW_VERSION_NAME" ]] || {
+            echo "::error::The exact verified Preview APK and version metadata are required to build the matching runner."
+            exit 1
+          }
+          "$build_tools/aapt" dump badging "$PREVIEW_APK" > "$RUNNER_TEMP/melodix-preview-target-badging.txt"
           "$build_tools/aapt" dump badging "$test_apk" > "$RUNNER_TEMP/melodix-ui-harness-badging.txt"
-          grep -Fq "package: name='com.melodix.music.preview.test'" "$RUNNER_TEMP/melodix-ui-harness-badging.txt" || {
-            echo "::error::Instrumentation APK package id mismatch."
+          runner_package="$(sed -n "s/^package: name='\\([^']*\\)'.*/\\1/p" "$RUNNER_TEMP/melodix-ui-harness-badging.txt")"
+          runner_version_code="$(sed -n "s/^package:.*versionCode='\\([^']*\\)'.*/\\1/p" "$RUNNER_TEMP/melodix-ui-harness-badging.txt")"
+          runner_version_name="$(sed -n "s/^package:.*versionName='\\([^']*\\)'.*/\\1/p" "$RUNNER_TEMP/melodix-ui-harness-badging.txt")"
+          [[ "$runner_package" == "com.melodix.music.preview.test" ]] || {
+            echo "::error::Instrumentation APK package id mismatch: $runner_package"
+            exit 1
+          }
+          [[ "$runner_version_code" == "$PREVIEW_VERSION_CODE" && "$runner_version_name" == "$PREVIEW_VERSION_NAME" ]] || {
+            echo "::error::Runner version metadata does not match the exact Preview APK."
+            exit 1
+          }
+          "$build_tools/apksigner" verify --print-certs "$PREVIEW_APK" > "$RUNNER_TEMP/melodix-preview-signer.txt"
+          "$build_tools/apksigner" verify --print-certs "$test_apk" > "$RUNNER_TEMP/melodix-runner-signer.txt"
+          preview_signer_sha256="$(sed -n 's/^Signer #1 certificate SHA-256 digest: //p' "$RUNNER_TEMP/melodix-preview-signer.txt" | head -n 1 | tr '[:upper:]' '[:lower:]')"
+          runner_signer_sha256="$(sed -n 's/^Signer #1 certificate SHA-256 digest: //p' "$RUNNER_TEMP/melodix-runner-signer.txt" | head -n 1 | tr '[:upper:]' '[:lower:]')"
+          [[ "$preview_signer_sha256" =~ ^[0-9a-f]{64}$ && "$preview_signer_sha256" == "$runner_signer_sha256" ]] || {
+            echo "::error::The signed instrumentation runner and exact Preview target do not share the same certificate."
             exit 1
           }
           "$build_tools/aapt" dump xmltree "$test_apk" AndroidManifest.xml > "$RUNNER_TEMP/melodix-ui-harness-manifest.txt"
@@ -628,6 +653,96 @@ jobs:
             echo "- Package: com.melodix.music.preview.test (target: com.melodix.music.preview)"
             echo "- SHA-256: $test_apk_sha256"
           } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Assemble exact authenticated-home manual test bundle
+        id: authenticated-home-bundle
+        shell: bash
+        env:
+          SOURCE_REF: ${{ inputs.source_ref || github.sha }}
+          PREVIEW_APK: ${{ steps.apk.outputs.apk }}
+          PREVIEW_VERSION_CODE: ${{ steps.apk.outputs.version_code }}
+          PREVIEW_VERSION_NAME: ${{ steps.apk.outputs.version_name }}
+          PREVIEW_SHA256: ${{ steps.apk.outputs.apk_sha256 }}
+          RUNNER_APK: ${{ runner.temp }}/melodix-ui-harness.apk
+        run: |
+          set -euo pipefail
+          [[ -s "$PREVIEW_APK" && -s "$RUNNER_APK" ]] || { echo "::error::Exact Preview and signed runner APKs are required for the manual observer bundle."; exit 1; }
+          bundle_dir="$RUNNER_TEMP/melodix-authenticated-home-bundle"
+          mkdir -p "$bundle_dir"
+          preview_name="$(basename "$PREVIEW_APK")"
+          runner_name="Melodix-Preview-AuthenticatedHome-Runner-${PREVIEW_VERSION_NAME}.apk"
+          cp "$PREVIEW_APK" "$bundle_dir/$preview_name"
+          cp "$RUNNER_APK" "$bundle_dir/$runner_name"
+          printf '%s\n' 'adb shell am instrument -w -r -e mode authenticated-home -e timeout_ms 900000 com.melodix.music.preview.test/com.melodix.test.HomeRenderInstrumentation' > "$bundle_dir/observer-command.txt"
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --print-certs "$PREVIEW_APK" > "$RUNNER_TEMP/melodix-preview-signer-bundle.txt"
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --print-certs "$RUNNER_APK" > "$RUNNER_TEMP/melodix-runner-signer-bundle.txt"
+          preview_signer_sha256="$(sed -n 's/^Signer #1 certificate SHA-256 digest: //p' "$RUNNER_TEMP/melodix-preview-signer-bundle.txt" | head -n 1 | tr '[:upper:]' '[:lower:]')"
+          runner_signer_sha256="$(sed -n 's/^Signer #1 certificate SHA-256 digest: //p' "$RUNNER_TEMP/melodix-runner-signer-bundle.txt" | head -n 1 | tr '[:upper:]' '[:lower:]')"
+          [[ "$preview_signer_sha256" =~ ^[0-9a-f]{64}$ && "$preview_signer_sha256" == "$runner_signer_sha256" ]] || { echo "::error::The manual bundle Preview and runner APKs are not signed by the same certificate."; exit 1; }
+          python3 - "$bundle_dir" "$preview_name" "$runner_name" "$SOURCE_REF" "$PREVIEW_VERSION_CODE" "$PREVIEW_VERSION_NAME" "$preview_signer_sha256" "$PREVIEW_SHA256" "$ANDROID_HOME/build-tools/35.0.0/aapt" <<'PY'
+          import hashlib
+          import json
+          import pathlib
+          import re
+          import subprocess
+          import sys
+
+          bundle = pathlib.Path(sys.argv[1])
+          preview_name, runner_name, source_commit = sys.argv[2:5]
+          preview_version_code, preview_version_name, signer_sha256, expected_preview_sha256, aapt = sys.argv[5:10]
+
+          def apk_info(name):
+              apk = bundle / name
+              output = subprocess.run([aapt, "dump", "badging", str(apk)], check=True, capture_output=True, text=True).stdout
+              match = re.search(r"^package: name='([^']+)' versionCode='([^']+)' versionName='([^']*)'", output, re.M)
+              if not match:
+                  raise SystemExit(f"Could not read package/version metadata from {name}")
+              return {"file": name, "package": match.group(1), "version_code": int(match.group(2)),
+                      "version_name": match.group(3), "sha256": hashlib.sha256(apk.read_bytes()).hexdigest()}
+
+          preview = apk_info(preview_name)
+          runner = apk_info(runner_name)
+          if preview["sha256"] != expected_preview_sha256:
+              raise SystemExit("Bundled Preview APK hash differs from the exact APK hash verified earlier in this run")
+          if preview["package"] != "com.melodix.music.preview" or preview["version_code"] != int(preview_version_code) or preview["version_name"] != preview_version_name:
+              raise SystemExit("Bundled Preview package/version metadata differs from the verified target APK")
+          if runner["package"] != "com.melodix.music.preview.test" or runner["version_code"] != int(preview_version_code) or runner["version_name"] != preview_version_name:
+              raise SystemExit("Bundled runner package/version metadata does not match the exact Preview target")
+          command_path = bundle / "observer-command.txt"
+          manifest = {
+              "schema_version": 1,
+              "purpose": "Manual passive observation of a real Spotify Home after user sign-in; CI does not authenticate.",
+              "source_commit": source_commit,
+              "preview_apk": {**preview, "debuggable": True, "signer_certificate_sha256": signer_sha256},
+              "runner_apk": {**runner, "debuggable": True, "target_package": "com.melodix.music.preview",
+                             "signer_certificate_sha256": signer_sha256},
+              "observer_command_file": command_path.name,
+              "observer_command_sha256": hashlib.sha256(command_path.read_bytes()).hexdigest(),
+          }
+          (bundle / "manifest.json").write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+          print(json.dumps({"source_commit": source_commit, "preview": preview, "runner": runner,
+                            "signer_certificate_sha256": signer_sha256}, sort_keys=True))
+          PY
+          {
+            echo "### Authenticated-home manual observer bundle"
+            echo "- Bundle folder: $bundle_dir"
+            echo "- Preview package: com.melodix.music.preview; versionCode=$PREVIEW_VERSION_CODE; versionName=$PREVIEW_VERSION_NAME"
+            echo "- Runner package: com.melodix.music.preview.test; same source/version and signing certificate"
+            echo "- Source commit: $SOURCE_REF"
+            echo "- Command file: observer-command.txt"
+            echo '```json'
+            cat "$bundle_dir/manifest.json"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload exact authenticated-home manual test bundle
+        id: authenticated-home-bundle-upload
+        uses: actions/upload-artifact@v4
+        with:
+          name: Melodix-Authenticated-Home-${{ inputs.source_ref || github.sha }}
+          path: ${{ runner.temp }}/melodix-authenticated-home-bundle/
+          retention-days: 90
+          if-no-files-found: error
 
       - name: Run Android login, empty-Home, Home-status and Web Home /app instrumentation
         id: integration
@@ -899,6 +1014,67 @@ jobs:
               exit 1
             fi
           done
+
+      - name: Exercise authenticated-home observer to normal timeout without a session
+        id: authenticated-home-ci
+        if: always() && steps.launch.outcome == 'success' && steps.authenticated-home-bundle-upload.outcome == 'success'
+        shell: bash
+        env:
+          TEST_APK: ${{ runner.temp }}/melodix-ui-harness.apk
+        run: |
+          set -euo pipefail
+          state_dir="$RUNNER_TEMP/melodix-preview-emulator-state"
+          observer_output="$state_dir/authenticated-home-observer-ci.txt"
+          [[ -s "$TEST_APK" && -d "$state_dir" ]] || { echo "::error::The exact runner and emulator state are required for the observer self-test."; exit 1; }
+          adb install -r "$TEST_APK"
+          adb logcat -c
+          set +e
+          timeout --signal=TERM --kill-after=10s 120s adb shell am instrument -w -r \
+            -e mode authenticated-home \
+            -e timeout_ms 30000 \
+            com.melodix.music.preview.test/com.melodix.test.HomeRenderInstrumentation \
+            > "$observer_output" 2>&1
+          observer_exit=$?
+          set -e
+          cat "$observer_output"
+          [[ "$observer_exit" == "0" ]] || { echo "::error::Authenticated-home observer CI self-test exited $observer_exit instead of completing normally."; exit 1; }
+          required_observer_statuses=(
+            'INSTRUMENTATION_STATUS: phase=authenticated_home_observation_complete'
+            'INSTRUMENTATION_STATUS: overall=blocked_no_authenticated_home_observed'
+            'INSTRUMENTATION_STATUS: observation_deadline_reached=true'
+            'INSTRUMENTATION_STATUS: observation_timeout_ms_capped=30000'
+            'INSTRUMENTATION_STATUS: authenticated_home_test_performed=false'
+            'INSTRUMENTATION_STATUS: authenticated_session=false'
+            'INSTRUMENTATION_STATUS: manual_auth_or_navigation_is_automated=false'
+            'INSTRUMENTATION_STATUS: activity_lifecycle_observer_registered=true'
+            'INSTRUMENTATION_STATUS: activity_lifecycle_observer_unregistered=true'
+            'INSTRUMENTATION_STATUS: target_activity_resumed_callback_seen=true'
+            'INSTRUMENTATION_STATUS: window_callback_observer_installed=true'
+            'INSTRUMENTATION_STATUS: window_callback_observer_restored=true'
+            'INSTRUMENTATION_STATUS: window_callback_observer_active=false'
+            'INSTRUMENTATION_STATUS: primary_webview_present=true'
+            'INSTRUMENTATION_STATUS: url_query_and_fragment_redacted=true'
+          )
+          for expected in "${required_observer_statuses[@]}"; do
+            if ! grep -Fq "$expected" "$observer_output"; then
+              echo "::error::Authenticated-home observer self-test omitted required status: $expected"
+              exit 1
+            fi
+          done
+          sample_count="$(sed -n 's/^INSTRUMENTATION_STATUS: probe_sample_count_capped=//p' "$observer_output" | tail -n 1 | grep -E '^[0-9]{1,4}$' || true)"
+          [[ "$sample_count" =~ ^[0-9]+$ ]] && (( sample_count > 0 )) || {
+            echo "::error::Authenticated-home observer returned no bounded WebView diagnostics."
+            exit 1
+          }
+          fatal_count="$(adb logcat -d -t 1500 -b main -b system -b crash 2>/dev/null | grep -cE 'FATAL EXCEPTION|ANR in com[.]melodix[.]music[.]preview([.]test)?' || true)"
+          [[ "$fatal_count" == "0" ]] || { echo "::error::Android reported a crash or ANR during observer self-test (count=$fatal_count)."; exit 1; }
+          {
+            echo "### Passive authenticated-home observer self-test (CI, unauthenticated)"
+            echo "- Runner exit: $observer_exit; observer deadline reached: true; timeout: 30000 ms"
+            echo "- Authenticated Spotify Home: not tested (clean CI emulator has no session)"
+            echo "- Samples: $sample_count; lifecycle callback unregister: true; Window.Callback restored: true; crash/ANR count: $fatal_count"
+          } >> "$GITHUB_STEP_SUMMARY"
+          echo "::notice title=Authenticated-home observer self-test::result=normal_timeout; timeout_ms=30000; samples=$sample_count; session=false; lifecycle_callback_unregistered=true; window_callback_restored=true; fatal_or_anr_count=$fatal_count; authenticated_home_test=not_performed"
 
       - name: Verify activity resumed after Android instrumentation
         id: post-instrumentation
@@ -1621,6 +1797,7 @@ jobs:
             ${{ runner.temp }}/melodix-preview-emulator-state/release-candidate-screen.png
             ${{ runner.temp }}/melodix-preview-emulator-state/release-candidate-hierarchy-redacted.json
             ${{ runner.temp }}/melodix-preview-emulator-state/android-instrumentation.txt
+            ${{ runner.temp }}/melodix-preview-emulator-state/authenticated-home-observer-ci.txt
             ${{ runner.temp }}/melodix-preview-emulator-state/instrumentation-safe-logcat.txt
             ${{ runner.temp }}/melodix-preview-emulator-state/verification-reference.json
             ${{ runner.temp }}/melodix-preview-emulator-state/assets-manifest.json
@@ -1628,7 +1805,7 @@ jobs:
           if-no-files-found: warn
 
       - name: Publish the exact validated Preview release candidate
-        if: (github.event_name == 'workflow_dispatch' && inputs.publish_preview == true || github.event_name == 'push' && startsWith(github.event.head_commit.message, '[preview-release] v1.2.2-test.96-preview')) && steps.integration.outcome == 'success' && steps.post-instrumentation.outcome == 'success' && steps.cold-launch-inspection.outcome == 'success' && steps.release-candidate.outcome == 'success' && steps.release-candidate-smoke.outcome == 'success' && steps.evidence-upload.outcome == 'success'
+        if: (github.event_name == 'workflow_dispatch' && inputs.publish_preview == true || github.event_name == 'push' && startsWith(github.event.head_commit.message, '[preview-release] v1.2.2-test.96-preview')) && steps.integration.outcome == 'success' && steps.authenticated-home-ci.outcome == 'success' && steps.post-instrumentation.outcome == 'success' && steps.cold-launch-inspection.outcome == 'success' && steps.release-candidate.outcome == 'success' && steps.release-candidate-smoke.outcome == 'success' && steps.evidence-upload.outcome == 'success'
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
