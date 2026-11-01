@@ -382,6 +382,7 @@ public final class HomeRenderInstrumentation extends Instrumentation {
                 }
             });
             if (fallbackFailure[0] != null) throw fallbackFailure[0];
+            sendStatus(1, fallbackState[0]);
 
             failurePhase = "capture_empty_home_evidence";
             notePhase(failurePhase);

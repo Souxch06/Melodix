@@ -149,6 +149,8 @@ test("empty-Home pixels are captured before instrumentation finish and the same 
     captureCall >= 0 && finishCall > captureCall,
     "save the measured empty-Home screen while the instrumented Activity is still alive, before finish() stops it",
   );
+  assert.match(harness, /fallbackState\[0\] = inspectEmptyHomeFallback[\s\S]*?sendStatus\(1, fallbackState\[0\]\)[\s\S]*?captureEmptyHomeUiEvidence\(\)/,
+    "the measured fallback phase is emitted explicitly for the workflow's required-status check");
   assert.match(harness, /serviceInfo\.flags = AccessibilityServiceInfo\.FLAG_INCLUDE_NOT_IMPORTANT_VIEWS[\s\S]*?FLAG_REPORT_VIEW_IDS[\s\S]*?automation\.setServiceInfo\(serviceInfo\)/);
   assert.match(harness, /automation\.getRootInActiveWindow\(\)/);
   assert.match(harness, /automation\.takeScreenshot\(\)/);
