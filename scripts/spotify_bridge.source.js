@@ -2253,7 +2253,7 @@
         top: calc(48px + env(safe-area-inset-top)) !important;
         left: 0 !important;
         right: 0 !important;
-        bottom: calc(72px + env(safe-area-inset-bottom)) !important;
+        bottom: calc(154px + env(safe-area-inset-bottom)) !important;
         width: 100% !important;
         overflow-y: auto !important;
         visibility: visible !important;
@@ -2362,7 +2362,7 @@
         display: none !important;
     }
     body.sf-library-open aside[data-testid="now-playing-bar"] {
-        bottom: calc(10px + env(safe-area-inset-bottom)) !important;
+        bottom: calc(78px + env(safe-area-inset-bottom)) !important;
     }
     @media screen and (orientation: landscape) {
         body.sf-mobile-shell #global-nav-bar {
@@ -2851,11 +2851,15 @@
 
                 if (ls) {
                     if (shouldOpen) {
+                        const tabletShell = typeof window.matchMedia === 'function'
+                            && window.matchMedia('(min-width: 640px)').matches;
+                        const drawerTop = tabletShell ? 104 : 48;
+                        const drawerBottom = tabletShell ? 84 : 154;
                         ls.style.setProperty('position', 'fixed', 'important');
                         ls.style.setProperty('width', '100%', 'important');
-                        ls.style.setProperty('height', 'calc(100vh - 48px - 72px - var(--sf-safe-area-top, env(safe-area-inset-top)) - env(safe-area-inset-bottom))', 'important');
-                        ls.style.setProperty('top', 'calc(48px + var(--sf-safe-area-top, env(safe-area-inset-top)))', 'important');
-                        ls.style.setProperty('bottom', 'calc(72px + env(safe-area-inset-bottom))', 'important');
+                        ls.style.setProperty('height', `calc(100vh - ${drawerTop}px - ${drawerBottom}px - var(--sf-safe-area-top, env(safe-area-inset-top)) - env(safe-area-inset-bottom))`, 'important');
+                        ls.style.setProperty('top', `calc(${drawerTop}px + var(--sf-safe-area-top, env(safe-area-inset-top)))`, 'important');
+                        ls.style.setProperty('bottom', `calc(${drawerBottom}px + env(safe-area-inset-bottom))`, 'important');
                         ls.style.setProperty('left', '0px', 'important');
                         ls.style.setProperty('overflow-y', 'auto', 'important');
                         ls.style.setProperty('z-index', '10005', 'important');

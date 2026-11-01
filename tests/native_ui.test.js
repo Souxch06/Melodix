@@ -76,7 +76,7 @@ test('Android WebView instruments real CSS layout states at all requested phone 
     for (const measurement of [
         'window.visualViewport', 'viewportFitCover', 'topCustomInsetCssPx', 'homeBottomGapCssPx', 'bottomInsetInferredCssPx',
         'sidebarPlayerIntersecting', 'dockPlayerIntersecting', 'sidebarCenterOwner', 'hitTargets', 'elementFromPoint',
-        'documentHorizontalOverflow', 'homeVerticalOverflow', 'sidebarVerticalOverflow'
+        'documentHorizontalOverflow', 'homeVerticalOverflow', 'sidebarVerticalOverflow', 'settledStyles.textContent'
     ]) {
         assert.ok(probe.includes(measurement), `the real Android WebView probe should report ${measurement}`);
     }
@@ -92,7 +92,7 @@ test('Android WebView instruments real CSS layout states at all requested phone 
     assert.ok(factory >= 0 && wideViewport > factory && textZoom > wideViewport,
         'fixture measurements match the primary WebView width behavior, use the packaged CSS, and load no account data');
     assert.ok(fixtureFactory.includes('viewport-fit=cover') && fixtureFactory.includes('height:1200px')
-        && fixtureFactory.includes('sf-melodix-home__card'));
+        && fixtureFactory.includes('min-height:960px;flex:none') && fixtureFactory.includes('sf-melodix-home__card'));
     assert.doesNotMatch(fixtureFactory, /playlist|album|artist|spotify:|cookie|token/i,
         'the geometry fixture has no fabricated account, library, playlist, or credential data');
     const matrix = harness.split('private Bundle runMobileViewportMatrix')[1]
@@ -110,7 +110,7 @@ test('Android WebView instruments real CSS layout states at all requested phone 
         && harness.includes('compactViewportLayoutFailureCodes') && harness.includes('appendViewportFailureCode'),
         'each Android width exposes bounded progress, enforces the layout contract, and reports safe failure-stage diagnostics');
     assert.ok(harness.includes('Math.floor(viewportWidth * density)') && harness.includes('settings.setUseWideViewPort(false)')
-        && harness.includes('rendererView.setAlpha(0.0f)')
+        && harness.includes('154.0 + bottomInset') && harness.includes('rendererView.setAlpha(0.0f)')
         && harness.includes('rendererView.setTranslationX(Math.max(0, root.getWidth()))'),
         'the test fixture must measure a real requested CSS width without visually covering or focusing the primary Spotify WebView');
 });

@@ -228,6 +228,7 @@ public final class HomeRenderInstrumentation extends Instrumentation {
             "}catch(e){var name=String(e&&e.name||'Error');return {probe_error:true,probe_error_type:/^[A-Za-z0-9_$]+$/.test(name)?name.slice(0,48):'Error'};}})()";
     private static final String MOBILE_VIEWPORT_LAYOUT_PROBE =
             "(function(){try{" +
+            "var settledStyles=document.createElement('style');settledStyles.textContent='*,*::before,*::after{animation:none!important;transition:none!important;}';document.head.appendChild(settledStyles);" +
             "var n=function(v){v=Number(v);return Number.isFinite(v)?Math.max(-10000,Math.min(10000,Math.round(v*100)/100)):null;};" +
             "var rect=function(e){if(!e)return null;var r=e.getBoundingClientRect();return{left:n(r.left),top:n(r.top),right:n(r.right),bottom:n(r.bottom),width:n(r.width),height:n(r.height)};};" +
             "var style=function(e){if(!e)return null;var s=getComputedStyle(e);var z=String(s.zIndex||'');z=/^-?\\d+$/.test(z)?n(z):z==='auto'?'auto':'other';" +
@@ -2198,7 +2199,7 @@ public final class HomeRenderInstrumentation extends Instrumentation {
                 "<aside id=\"Desktop_LeftSidebar_Id\" aria-hidden=\"true\"><div style=\"height:960px\"></div></aside>" +
                 "<main id=\"main-view\"><div class=\"contentSpacing\"><div style=\"height:1200px\"></div></div></main>" +
                 "<main id=\"sf-melodix-home\"><button class=\"sf-melodix-home__card\" type=\"button\" aria-label=\"Layout hit target\"></button>" +
-                "<div aria-hidden=\"true\" style=\"height:960px\"></div></main>" +
+                "<div aria-hidden=\"true\" style=\"height:960px;min-height:960px;flex:none\"></div></main>" +
                 "<nav id=\"sf-mobile-nav\" role=\"navigation\">" +
                 "<button class=\"sf-mobile-nav__item\" data-sf-mobile-action=\"home\" type=\"button\"><svg aria-hidden=\"true\"></svg><span>Home</span></button>" +
                 "<button class=\"sf-mobile-nav__item\" data-sf-mobile-action=\"search\" type=\"button\"><svg aria-hidden=\"true\"></svg><span>Search</span></button>" +
@@ -2555,7 +2556,7 @@ public final class HomeRenderInstrumentation extends Instrumentation {
         appendViewportFailureCode(failures, navigationTargetsReachable(hitTargets), "nav_targets");
         appendViewportFailureCode(failures, "desktop-sidebar".equals(safeProbeCategory(hitTargets, "sidebarCenterOwner")), "sidebar_hit");
         appendViewportFailureCode(failures, boundedNumber(scroll, "sidebarVerticalOverflow", 0) > 0, "sidebar_scroll");
-        appendViewportFailureCode(failures, Math.abs(sidebarBottomGap - (72.0 + bottomInset)) <= 2.0, "sidebar_bottom_gap");
+        appendViewportFailureCode(failures, Math.abs(sidebarBottomGap - (154.0 + bottomInset)) <= 2.0, "sidebar_bottom_gap");
         appendViewportFailureCode(failures, boundedNumber(overlap, "dockPlayerVerticalPx", 10000) <= 1.0, "dock_player_overlap");
         appendViewportFailureCode(failures, boundedNumber(overlap, "sidebarPlayerVerticalPx", 10000) <= 1.0, "sidebar_player_overlap");
         return failures.toString();
