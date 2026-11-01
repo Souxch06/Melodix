@@ -133,29 +133,40 @@ test('startup never trusts a persisted LoggedIn flag and starts auth unconfirmed
     assert.match(mainActivity, /AppSingleton;->B:Z/);
 });
 
-test('Spotify player and account login use the desktop profile expected by the Web Player', () => {
+test('Spotify WebView desktop UA and client hints follow the installed Chromium version', () => {
     const appWebView = read('smali/m9.smali');
+    const webViewClient = read('smali/c91.smali');
+    const browserProfile = read('smali/com/melodix/music/BrowserProfile.smali');
     const desktopSpoof = read('assets/desktop_spoof.js');
+    const googleSpoof = read('assets/google_spoof.js');
     const webViewFactory = appWebView.match(/\.method public static g\(Landroid\/content\/Context;\)Landroid\/webkit\/WebView;([\s\S]*?)\.end method/);
     assert.ok(webViewFactory, 'WebView factory should exist');
 
     const factory = webViewFactory[1];
-    const mobileUserAgentIndex = factory.indexOf('WebSettings;->getDefaultUserAgent(Landroid/content/Context;)Ljava/lang/String;');
-    const spotifyLoadIndex = factory.indexOf('https://open.spotify.com/');
-    const desktopUa = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36';
-    const playerDesktopUaIndex = factory.indexOf(desktopUa);
-    const accountsDesktopUaIndex = factory.lastIndexOf(desktopUa);
+    const defaultUserAgentIndex = factory.indexOf('WebSettings;->getDefaultUserAgent(Landroid/content/Context;)Ljava/lang/String;');
+    const playerProfileIndex = factory.indexOf('BrowserProfile;->desktopUserAgent(Landroid/content/Context;)Ljava/lang/String;');
+    const playerLoadIndex = factory.indexOf('https://open.spotify.com/');
+    const accountsProfileIndex = factory.lastIndexOf('BrowserProfile;->desktopUserAgent(Landroid/content/Context;)Ljava/lang/String;');
     const accountsLoadIndex = factory.indexOf('https://accounts.spotify.com/en/login');
 
-    assert.ok(mobileUserAgentIndex >= 0 && mobileUserAgentIndex < playerDesktopUaIndex,
-        'WebView starts from the platform UA before setting Spotify\'s desktop profile');
-    assert.ok(playerDesktopUaIndex > mobileUserAgentIndex && playerDesktopUaIndex < spotifyLoadIndex,
-        'native requests to open.spotify.com should use the same desktop profile as the player spoof');
-    assert.ok(accountsDesktopUaIndex > spotifyLoadIndex && accountsDesktopUaIndex < accountsLoadIndex,
-        'account login retains its existing desktop UA');
-    assert.match(factory, /invoke-virtual \{v2, v3\}, Landroid\/webkit\/WebSettings;->setUserAgentString\(Ljava\/lang\/String;\)V/);
-    assert.match(factory, /invoke-virtual \{v1, v0\}, Landroid\/webkit\/WebSettings;->setUserAgentString\(Ljava\/lang\/String;\)V/);
-    assert.match(desktopSpoof, /uaFullVersion: '134\.0\.0\.0'/);
+    assert.ok(defaultUserAgentIndex >= 0 && defaultUserAgentIndex < playerProfileIndex,
+        'the runtime WebView version is the source for the desktop UA');
+    assert.ok(playerProfileIndex > defaultUserAgentIndex && playerProfileIndex < playerLoadIndex,
+        'open.spotify.com requests use the runtime-matched desktop profile before navigation');
+    assert.ok(accountsProfileIndex > playerLoadIndex && accountsProfileIndex < accountsLoadIndex,
+        'account login retains the same runtime-matched desktop profile');
+    assert.match(webViewClient, /BrowserProfile;->desktopUserAgent\(Landroid\/content\/Context;\)Ljava\/lang\/String;/,
+        'Google login UA changes use the same runtime profile');
+    assert.match(browserProfile, /WebSettings;->getDefaultUserAgent\(Landroid\/content\/Context;\)Ljava\/lang\/String;/);
+    assert.match(browserProfile, /indexOf\(Ljava\/lang\/String;\)I/);
+    assert.ok(browserProfile.includes('const-string v1, "Chrome/"'));
+    assert.doesNotMatch(browserProfile, /134\.0\.0\.0/);
+    assert.match(desktopSpoof, /nativeUserAgent[\s\S]*?match\(\/Chrome\\\/\(\[0-9\.\]\+\)\/\)/);
+    assert.match(desktopSpoof, /uaFullVersion: chromeVersion/);
+    assert.match(desktopSpoof, /version: chromeMajor/);
+    assert.match(googleSpoof, /uaFullVersion: chromeVersion/);
+    assert.match(googleSpoof, /DESKTOP_UA = chromeVersion[\s\S]*?Chrome\/['\"] \+ chromeVersion/);
+    assert.doesNotMatch(desktopSpoof + googleSpoof + factory + webViewClient, /Chrome\/134\.0\.0\.0/);
 });
 
 test('auth and WebView code do not capture credentials or proxy Spotify requests', () => {

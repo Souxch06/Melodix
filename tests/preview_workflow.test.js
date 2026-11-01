@@ -165,6 +165,13 @@ test("empty-Home pixels are captured before instrumentation finish and the same 
   assert.match(harness, /openFileOutput\([\s\S]*?melodix-preview-home-fallback\.xml/);
   assert.match(harness, /openFileOutput\([\s\S]*?melodix-preview-home-empty\.png/);
   assert.match(harness, /result\.putBoolean\("empty_home_evidence_captured", true\)/);
+  assert.match(harness, /BROWSER_COMPATIBILITY_PROBE/);
+  assert.match(harness, /configured_ua_chrome_major_matches_runtime/);
+  assert.match(harness, /javascript_ua_profile_coherent/);
+  assert.match(emulatorWorkflow, /INSTRUMENTATION_STATUS: browser_compatibility_warning_visible=false/);
+  assert.match(emulatorWorkflow, /Browser compatibility banner:/);
+  assert.match(emulatorWorkflow, /installed_webview_chrome_major/);
+  assert.match(emulatorWorkflow, /configured_ua_chrome_major/);
   assert.match(emulatorWorkflow, /INSTRUMENTATION_STATUS: empty_home_evidence_captured=true/);
   assert.match(emulatorWorkflow, /safe_statuses=.*empty_home_evidence_captured/);
   assert.match(emulatorWorkflow, /adb exec-out run-as com\.melodix\.music\.preview cat files\/melodix-preview-home-fallback\.xml/);

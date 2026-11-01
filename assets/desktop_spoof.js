@@ -161,11 +161,20 @@
         try { Object.defineProperty(obj, name, { get: getter, configurable: true }); } catch(e) {}
     }
 
+    // The native WebView supplies a desktop-shaped UA with its actual runtime
+    // Chrome version. Keep client hints aligned instead of pinning an old build.
+    var nativeUserAgent = String((navigator && navigator.userAgent) || '');
+    var chromeVersionMatch = nativeUserAgent.match(/Chrome\/([0-9.]+)/);
+    var chromeVersion = chromeVersionMatch ? chromeVersionMatch[1] : '';
+    var chromeMajor = chromeVersion ? chromeVersion.split('.')[0] : '';
+    var nativePlatform = String((navigator && navigator.platform) || '');
+    var nativeOscpu = String((navigator && navigator.oscpu) || '');
+
     safeDefine(navigator, 'webdriver', function() { return false; });
     safeDefine(navigator, 'vendor', function() { return 'Google Inc.'; });
     safeDefine(navigator, 'productSub', function() { return '20030107'; });
-    safeDefine(navigator, 'platform', function() { return 'Win32'; });
-    safeDefine(navigator, 'oscpu', function() { return 'Windows NT 10.0; Win64; x64'; });
+    safeDefine(navigator, 'platform', function() { return chromeVersion ? 'Win32' : nativePlatform; });
+    safeDefine(navigator, 'oscpu', function() { return chromeVersion ? 'Windows NT 10.0; Win64; x64' : nativeOscpu; });
     safeDefine(navigator, 'languages', function() { return ['en-US', 'en']; });
     safeDefine(navigator, 'language', function() { return 'en-US'; });
 
@@ -419,44 +428,43 @@
         };
     } catch(e) {}
 
-    // Align JS client hints with the desktop User-Agent. The hints object is
-    // installed through defineProperty, so no hardcoded navigator property
-    // name appears in this file.
+    // Keep JavaScript client hints on the same Chromium release the native
+    // WebView exposes to requests. If the provider gives no Chrome version,
+    // leave its built-in client hints untouched rather than invent one.
     try {
-        var mockUserAgentData = {
-            brands: [
-                { brand: 'Not;A=Brand', version: '8' },
-                { brand: 'Chromium', version: '134' },
-                { brand: 'Google Chrome', version: '134' }
-            ],
-            mobile: false,
-            platform: 'Windows',
-            architecture: 'x86',
-            bitness: '64',
-            model: '',
-            platformVersion: '10.0.0',
-            uaFullVersion: '134.0.0.0',
-            getHighEntropyValues: async function(hints) {
-                return {
-                    brands: [
-                        { brand: 'Not;A=Brand', version: '8' },
-                        { brand: 'Chromium', version: '134' },
-                        { brand: 'Google Chrome', version: '134' }
-                    ],
-                    mobile: false,
-                    platform: 'Windows',
-                    platformVersion: '10.0.0',
-                    architecture: 'x86',
-                    bitness: '64',
-                    model: '',
-                    uaFullVersion: '134.0.0.0'
-                };
-            }
-        };
-        Object.defineProperty(navigator, 'userAgentData', {
-            value: mockUserAgentData,
-            configurable: true
-        });
+        if (chromeVersion && chromeMajor) {
+            var mockUserAgentData = {
+                brands: [
+                    { brand: 'Not;A=Brand', version: '8' },
+                    { brand: 'Chromium', version: chromeMajor },
+                    { brand: 'Google Chrome', version: chromeMajor }
+                ],
+                mobile: false,
+                platform: 'Windows',
+                architecture: 'x86',
+                bitness: '64',
+                wow64: false,
+                model: '',
+                platformVersion: '10.0.0',
+                uaFullVersion: chromeVersion,
+                fullVersionList: [
+                    { brand: 'Not;A=Brand', version: '8' },
+                    { brand: 'Chromium', version: chromeVersion },
+                    { brand: 'Google Chrome', version: chromeVersion }
+                ],
+                getHighEntropyValues: async function(hints) {
+                    var out = {};
+                    hints.forEach(function(hint) {
+                        if (hint in mockUserAgentData) out[hint] = mockUserAgentData[hint];
+                    });
+                    return out;
+                }
+            };
+            Object.defineProperty(navigator, 'userAgentData', {
+                value: mockUserAgentData,
+                configurable: true
+            });
+        }
     } catch(e) {}
 
     // =========================================================================

@@ -1911,10 +1911,10 @@
 
     .line 18
     .line 19
-    const-string p2, "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36"
-
-    .line 20
-    .line 21
+    invoke-virtual {p1}, Landroid/webkit/WebView;->getContext()Landroid/content/Context;
+    move-result-object v1
+    invoke-static {v1}, Lcom/melodix/music/BrowserProfile;->desktopUserAgent(Landroid/content/Context;)Ljava/lang/String;
+    move-result-object p2
     invoke-virtual {p0, p2}, Landroid/webkit/WebSettings;->setUserAgentString(Ljava/lang/String;)V
 
     .line 22

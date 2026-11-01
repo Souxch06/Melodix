@@ -14,6 +14,7 @@ import android.view.View;
 import android.view.accessibility.AccessibilityEvent;
 import android.view.accessibility.AccessibilityNodeInfo;
 import android.webkit.ValueCallback;
+import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
@@ -47,6 +48,23 @@ public final class HomeRenderInstrumentation extends Instrumentation {
             "var playerLogin=visible(document.querySelector('[data-testid=\"web-player-link\"]'));" +
             "return !!(words||(accountHost&&(password||identity))||(playerLogin&&body));" +
             "}catch(e){return false;}})()";
+    private static final String BROWSER_COMPATIBILITY_PROBE =
+            "(function(){try{" +
+            "var body=String((document.body&&document.body.innerText)||'').toLowerCase();" +
+            "var english=/\\bbrowser\\b.{0,80}\\b(?:not supported|unsupported|not compatible|incompatible|does not support|doesn't support)\\b|\\bunsupported browser\\b|\\bplease (?:update|upgrade) (?:your )?browser\\b/.test(body);" +
+            "var french=/\\bnavigateur\\b.{0,80}\\b(?:pas compatible|non compatible|pas pris en charge|non pris en charge|n'est pas pris en charge|n’est pas pris en charge|obsol[eè]te)\\b|\\bmettre à jour (?:votre )?navigateur\\b/.test(body);" +
+            "return !!(english||french);" +
+            "}catch(e){return null;}})()";
+    private static final String USER_AGENT_PROFILE_PROBE =
+            "(function(){try{" +
+            "var match=String(navigator.userAgent||'').match(/Chrome\\/(\\d+)/);" +
+            "if(!match)return false;" +
+            "var data=navigator.userAgentData;" +
+            "if(!data||!data.brands)return true;" +
+            "var brand=null;for(var i=0;i<data.brands.length;i++){var item=data.brands[i];if(item&&(item.brand==='Chromium'||item.brand==='Google Chrome')){brand=item;break;}}" +
+            "var full=String(data.uaFullVersion||'');" +
+            "return !!(brand&&String(brand.version)===match[1]&&(!full||full.split('.')[0]===match[1]));" +
+            "}catch(e){return false;}})()";
 
     @Override
     public void onCreate(Bundle arguments) {
@@ -74,12 +92,40 @@ public final class HomeRenderInstrumentation extends Instrumentation {
             failurePhase = "await_webview";
             notePhase(failurePhase);
             WebView webView = awaitStableWebView(activity);
+            failurePhase = "verify_runtime_webview_profile";
+            notePhase(failurePhase);
+            final Bundle[] runtimeProfile = new Bundle[1];
+            runOnMainSync(new Runnable() {
+                @Override
+                public void run() {
+                    runtimeProfile[0] = inspectRuntimeUserAgent(activity, webView);
+                }
+            });
+            if (runtimeProfile[0] == null) throw new AssertionError("Could not inspect the runtime WebView profile");
+            sendStatus(1, runtimeProfile[0]);
+            if (!runtimeProfile[0].getBoolean("configured_ua_chrome_major_matches_runtime")) {
+                throw new AssertionError("Configured desktop UA does not match the installed WebView Chrome version");
+            }
+
+            failurePhase = "browser_compatibility_probe";
+            notePhase(failurePhase);
+            boolean browserCompatibilityWarning = awaitBooleanProbe(
+                    webView, BROWSER_COMPATIBILITY_PROBE, "browser_compatibility_warning_visible");
+            if (browserCompatibilityWarning) {
+                throw new AssertionError("Spotify displayed a browser compatibility warning on launch");
+            }
+
             failurePhase = "verify_unauthenticated_session";
             notePhase(failurePhase);
             requireUnauthenticatedSession(activity);
             failurePhase = "login_dom_probe";
             notePhase(failurePhase);
             final boolean loginDomVisible = awaitLoginUiVisible(webView);
+            failurePhase = "user_agent_profile_probe";
+            notePhase(failurePhase);
+            if (!awaitBooleanProbe(webView, USER_AGENT_PROFILE_PROBE, "javascript_ua_profile_coherent")) {
+                throw new AssertionError("JavaScript User-Agent client hints do not match the WebView Chrome version");
+            }
 
             failurePhase = "login_surface_visibility";
             notePhase(failurePhase);
@@ -227,6 +273,66 @@ public final class HomeRenderInstrumentation extends Instrumentation {
         } catch (Throwable error) {
             throw new AssertionError("Could not verify the clean unauthenticated session state");
         }
+    }
+
+    private Bundle inspectRuntimeUserAgent(Activity activity, WebView webView) {
+        String platformUserAgent = WebSettings.getDefaultUserAgent(activity);
+        String configuredUserAgent = webView.getSettings().getUserAgentString();
+        String platformMajor = chromeMajor(platformUserAgent);
+        String configuredMajor = chromeMajor(configuredUserAgent);
+        boolean matches = platformMajor != null && platformMajor.equals(configuredMajor);
+        Bundle state = new Bundle();
+        state.putString("phase", "runtime_webview_profile");
+        state.putString("installed_webview_chrome_major", platformMajor == null ? "unavailable" : platformMajor);
+        state.putString("configured_ua_chrome_major", configuredMajor == null ? "unavailable" : configuredMajor);
+        state.putBoolean("configured_ua_chrome_major_matches_runtime", matches);
+        return state;
+    }
+
+    private String chromeMajor(String userAgent) {
+        if (userAgent == null) return null;
+        int marker = userAgent.indexOf("Chrome/");
+        if (marker < 0) return null;
+        int start = marker + "Chrome/".length();
+        int end = userAgent.indexOf('.', start);
+        if (end < 0) end = userAgent.indexOf(' ', start);
+        if (end < 0) end = userAgent.length();
+        if (end <= start) return null;
+        String major = userAgent.substring(start, end);
+        for (int index = 0; index < major.length(); index++) {
+            if (!Character.isDigit(major.charAt(index))) return null;
+        }
+        return major;
+    }
+
+    private boolean awaitBooleanProbe(
+            final WebView webView, final String script, final String statusKey) throws InterruptedException {
+        final CountDownLatch received = new CountDownLatch(1);
+        final String[] result = new String[1];
+        runOnMainSync(new Runnable() {
+            @Override
+            public void run() {
+                webView.evaluateJavascript(script, new ValueCallback<String>() {
+                    @Override
+                    public void onReceiveValue(String value) {
+                        result[0] = value;
+                        received.countDown();
+                    }
+                });
+            }
+        });
+        if (!received.await(10L, TimeUnit.SECONDS)) {
+            throw new AssertionError("WebView probe timed out: " + statusKey);
+        }
+        if (!"true".equals(result[0]) && !"false".equals(result[0])) {
+            throw new AssertionError("WebView probe returned no boolean result: " + statusKey);
+        }
+        boolean probeResult = "true".equals(result[0]);
+        Bundle status = new Bundle();
+        status.putString("phase", statusKey);
+        status.putBoolean(statusKey, probeResult);
+        sendStatus(1, status);
+        return probeResult;
     }
 
     private boolean awaitLoginUiVisible(final WebView webView) throws InterruptedException {

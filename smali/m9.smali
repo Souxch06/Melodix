@@ -1620,8 +1620,11 @@
 
     .line 286
     .line 287
-    # Match native requests to the Chrome version exposed through client hints.
-    const-string v0, "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36"
+    # Match the desktop profile to the Chrome version in this installed WebView.
+    invoke-virtual {p0}, Landroid/webkit/WebView;->getContext()Landroid/content/Context;
+    move-result-object v0
+    invoke-static {v0}, Lcom/melodix/music/BrowserProfile;->desktopUserAgent(Landroid/content/Context;)Ljava/lang/String;
+    move-result-object v0
     invoke-virtual {p0}, Landroid/webkit/WebView;->getSettings()Landroid/webkit/WebSettings;
     move-result-object v1
     invoke-virtual {v1, v0}, Landroid/webkit/WebSettings;->setUserAgentString(Ljava/lang/String;)V
@@ -1647,8 +1650,10 @@
 
     move-result-object v1
 
-    const-string v0, "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36"
-
+    invoke-virtual {p0}, Landroid/webkit/WebView;->getContext()Landroid/content/Context;
+    move-result-object v0
+    invoke-static {v0}, Lcom/melodix/music/BrowserProfile;->desktopUserAgent(Landroid/content/Context;)Ljava/lang/String;
+    move-result-object v0
     invoke-virtual {v1, v0}, Landroid/webkit/WebSettings;->setUserAgentString(Ljava/lang/String;)V
 
     const-string v0, "https://accounts.spotify.com/en/login?continue=https%3A%2F%2Fopen.spotify.com%2F&allow_signup=1"

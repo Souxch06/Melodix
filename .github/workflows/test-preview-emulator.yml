@@ -523,7 +523,7 @@ jobs:
           adb logcat -d -t 1000 -v threadtime -s MelodixHarness:I > "$state_dir/instrumentation-safe-logcat.txt" 2>/dev/null || true
           cat "$state_dir/android-instrumentation.txt"
           if [[ "$instrumentation_status" != "0" ]]; then
-            safe_statuses="$(grep -E '^INSTRUMENTATION_STATUS: (phase|authenticated_session|login_dom_probe_completed|login_ui_visible_in_webview_dom|webview_visible_and_measured|network_error_transition_recovered|original_webview_url_preserved|splash_hidden|native_home_hidden|home_payload_empty|empty_home_evidence_captured|playlist_or_card_injected|native_home_cards_attached|native_home_content_ready|native_content_container_empty|native_root_hidden|native_home_tab_not_shown|webview_container_visible|page_load_complete|failure_phase|failure_type|overall)=' "$state_dir/android-instrumentation.txt" | tr '\n' ';' | cut -c1-1200 || true)"
+            safe_statuses="$(grep -E '^INSTRUMENTATION_STATUS: (phase|authenticated_session|login_dom_probe_completed|login_ui_visible_in_webview_dom|browser_compatibility_warning_visible|javascript_ua_profile_coherent|installed_webview_chrome_major|configured_ua_chrome_major|configured_ua_chrome_major_matches_runtime|webview_visible_and_measured|network_error_transition_recovered|original_webview_url_preserved|splash_hidden|native_home_hidden|home_payload_empty|empty_home_evidence_captured|playlist_or_card_injected|native_home_cards_attached|native_home_content_ready|native_content_container_empty|native_root_hidden|native_home_tab_not_shown|webview_container_visible|page_load_complete|failure_phase|failure_type|overall)=' "$state_dir/android-instrumentation.txt" | tr '\n' ';' | cut -c1-1200 || true)"
             safe_harness_logs="$(grep -E 'MelodixHarness: (instrumentation_onCreate_entered|instrumentation_onCreate_returned|instrumentation_runner_thread_started|instrumentation_onStart_entered|instrumentation_onStart_super_returned|empty_home_evidence_captured|started|phase=[a-z_]+|failure phase=[a-z_]+ type=[A-Za-z0-9_$]+|completed)$' "$state_dir/instrumentation-safe-logcat.txt" | sed -E 's/^.*MelodixHarness: //' | tr '\n' ';' | cut -c1-500 || true)"
             transcript_bytes="$(wc -c < "$state_dir/android-instrumentation.txt" | tr -d '[:space:]')"
             framework_summary="$(python3 - "$state_dir/android-instrumentation.txt" <<'PY'
@@ -612,7 +612,10 @@ jobs:
           required_statuses=(
             'INSTRUMENTATION_STATUS: phase=login_without_session'
             'INSTRUMENTATION_STATUS: authenticated_session=false'
+            'INSTRUMENTATION_STATUS: configured_ua_chrome_major_matches_runtime=true'
+            'INSTRUMENTATION_STATUS: browser_compatibility_warning_visible=false'
             'INSTRUMENTATION_STATUS: login_ui_visible_in_webview_dom=true'
+            'INSTRUMENTATION_STATUS: javascript_ua_profile_coherent=true'
             'INSTRUMENTATION_STATUS: webview_visible_and_measured=true'
             'INSTRUMENTATION_STATUS: network_error_transition_recovered=true'
             'INSTRUMENTATION_STATUS: original_webview_url_preserved=true'
@@ -758,6 +761,30 @@ jobs:
           EMPTY_HOME_PIXELS_VERIFIED: ${{ steps.post-instrumentation.outputs.empty_home_pixels_verified }}
           COLD_LAUNCH_OUTCOME: ${{ steps.cold-launch-inspection.outcome }}
         run: |
+          state_dir="$RUNNER_TEMP/melodix-preview-emulator-state"
+          browser_compatibility_warning=not_confirmed
+          user_agent_profile_coherent=not_confirmed
+          webview_chrome_major=unknown
+          configured_ua_chrome_major=unknown
+          if [[ -s "$state_dir/android-instrumentation.txt" ]]; then
+            grep -Fq 'INSTRUMENTATION_STATUS: browser_compatibility_warning_visible=true' "$state_dir/android-instrumentation.txt" && browser_compatibility_warning=true || true
+            grep -Fq 'INSTRUMENTATION_STATUS: browser_compatibility_warning_visible=false' "$state_dir/android-instrumentation.txt" && browser_compatibility_warning=false || true
+            if grep -Fq 'INSTRUMENTATION_STATUS: javascript_ua_profile_coherent=true' "$state_dir/android-instrumentation.txt" \
+              && grep -Fq 'INSTRUMENTATION_STATUS: configured_ua_chrome_major_matches_runtime=true' "$state_dir/android-instrumentation.txt"; then
+              user_agent_profile_coherent=true
+            elif grep -Fq 'INSTRUMENTATION_STATUS: javascript_ua_profile_coherent=false' "$state_dir/android-instrumentation.txt" \
+              || grep -Fq 'INSTRUMENTATION_STATUS: configured_ua_chrome_major_matches_runtime=false' "$state_dir/android-instrumentation.txt"; then
+              user_agent_profile_coherent=false
+            fi
+            webview_chrome_major="$(sed -n 's/^INSTRUMENTATION_STATUS: installed_webview_chrome_major=//p' "$state_dir/android-instrumentation.txt" | head -n 1 | grep -E '^[0-9]{1,3}$' || true)"
+            [[ -n "$webview_chrome_major" ]] || webview_chrome_major=unknown
+            configured_ua_chrome_major="$(sed -n 's/^INSTRUMENTATION_STATUS: configured_ua_chrome_major=//p' "$state_dir/android-instrumentation.txt" | head -n 1 | grep -E '^[0-9]{1,3}$' || true)"
+            [[ -n "$configured_ua_chrome_major" ]] || configured_ua_chrome_major=unknown
+          fi
+          BROWSER_COMPATIBILITY_WARNING="$browser_compatibility_warning"
+          USER_AGENT_PROFILE_COHERENT="$user_agent_profile_coherent"
+          WEBVIEW_CHROME_MAJOR="$webview_chrome_major"
+          CONFIGURED_UA_CHROME_MAJOR="$configured_ua_chrome_major"
           {
             echo "## Android 16 Preview UI integration check"
             echo
@@ -768,6 +795,7 @@ jobs:
             echo "- APK SHA-256: \`${APK_SHA256:-not verified}\`"
             echo "- Exact target APK debuggable: \`${APK_DEBUGGABLE:-not verified}\`"
             echo "- Instrumentation outcome: \`${INTEGRATION_OUTCOME:-not run}\`"
+            echo "- Browser compatibility banner: \`${BROWSER_COMPATIBILITY_WARNING:-not confirmed}\`; installed/configured Chrome major: \`${WEBVIEW_CHROME_MAJOR:-unknown}\` / \`${CONFIGURED_UA_CHROME_MAJOR:-unknown}\`; UA/client-hint profile coherent: \`${USER_AGENT_PROFILE_COHERENT:-not confirmed}\`"
             echo "- Post-instrumentation activity resume: \`${POST_INSTRUMENTATION_OUTCOME:-not run}\`; resumed=\`${ACTIVITY_RESUMED:-false}\`; relaunched=\`${PREVIEW_RELAUNCHED:-unknown}\`; empty-Home pixels=\`${EMPTY_HOME_PIXELS_VERIFIED:-false}\`"
             echo "- Preserved cold-launch hierarchy/pixel check: \`${COLD_LAUNCH_OUTCOME:-not run}\`"
             echo "- Emulator setup: fresh app data; only BLUETOOTH_CONNECT granted to pass Android's runtime permission prompt; no Spotify session or cookies supplied."
@@ -800,6 +828,15 @@ jobs:
           root = pathlib.Path(state_dir)
           exists = lambda name: (root / name).is_file()
           transcript = (root / "android-instrumentation.txt").read_text(encoding="utf-8", errors="replace") if exists("android-instrumentation.txt") else ""
+          def status_value(key):
+              prefix = f"INSTRUMENTATION_STATUS: {key}="
+              for line in transcript.splitlines():
+                  if line.startswith(prefix):
+                      return line[len(prefix):].strip()
+              return None
+          def status_bool(key):
+              value = status_value(key)
+              return None if value is None else value.lower() == "true"
           permission_state = json.loads((root / "permission-prompt-summary.json").read_text(encoding="utf-8")) if exists("permission-prompt-summary.json") else {}
           login_dom_visible = None
           unauthenticated_session_confirmed = "INSTRUMENTATION_STATUS: authenticated_session=false" in transcript
@@ -823,6 +860,11 @@ jobs:
               "integration_outcome": integration,
               "login_ui_visible_in_webview_dom": login_dom_visible,
               "login_dom_probe_observed": login_dom_visible is not None,
+              "browser_compatibility_warning_visible": status_bool("browser_compatibility_warning_visible"),
+              "javascript_ua_profile_coherent": status_bool("javascript_ua_profile_coherent"),
+              "configured_ua_chrome_major_matches_runtime": status_bool("configured_ua_chrome_major_matches_runtime"),
+              "configured_ua_chrome_major": status_value("configured_ua_chrome_major"),
+              "installed_webview_chrome_major": status_value("installed_webview_chrome_major"),
               "cold_launch_hierarchy_pixels_outcome": cold_launch,
               "cold_launch_hierarchy_pixels_verified": cold_launch == "success",
               "post_instrumentation_outcome": post_instrumentation,
@@ -843,6 +885,9 @@ jobs:
           )
           print(json.dumps({key: reference[key] for key in (
               "integration_outcome", "login_ui_visible_in_webview_dom",
+              "browser_compatibility_warning_visible", "javascript_ua_profile_coherent",
+              "configured_ua_chrome_major_matches_runtime", "configured_ua_chrome_major",
+              "installed_webview_chrome_major",
               "first_launch_permission_hierarchy_available", "permission_controller_in_first_launch_hierarchy",
               "permission_controls_in_first_launch_hierarchy", "permission_allow_control_position_captured",
               "first_launch_hierarchy_top_package",
@@ -922,7 +967,7 @@ jobs:
           if [[ "$ACTIVITY_RESUMED" == "true" ]]; then
             activity_resumed=true
           fi
-          echo "::notice title=Android evidence outcomes::source=$SOURCE_REF; apk_sha256=${APK_SHA256:-not_verified}; integration=$INTEGRATION_OUTCOME; login_dom_visible=$login_dom_visible; cold_login_hierarchy_pixels=$COLD_LAUNCH_OUTCOME; activity_resumed_after_instrumentation=$activity_resumed; preview_relaunched=${PREVIEW_RELAUNCHED:-unknown}; empty_home_payload_confirmed=$empty_home_payload_confirmed; playlist_or_card_injected=$playlist_or_card_injected_by_harness; empty_home_pixels_verified=$empty_home_pixels_verified; authenticated_home=not_tested"
+          echo "::notice title=Android evidence outcomes::source=$SOURCE_REF; apk_sha256=${APK_SHA256:-not_verified}; integration=$INTEGRATION_OUTCOME; login_dom_visible=$login_dom_visible; browser_compatibility_warning_visible=${BROWSER_COMPATIBILITY_WARNING:-not_confirmed}; installed_webview_chrome_major=${WEBVIEW_CHROME_MAJOR:-unknown}; configured_ua_chrome_major=${CONFIGURED_UA_CHROME_MAJOR:-unknown}; ua_profile_coherent=${USER_AGENT_PROFILE_COHERENT:-not_confirmed}; cold_login_hierarchy_pixels=$COLD_LAUNCH_OUTCOME; activity_resumed_after_instrumentation=$activity_resumed; preview_relaunched=${PREVIEW_RELAUNCHED:-unknown}; empty_home_payload_confirmed=$empty_home_payload_confirmed; playlist_or_card_injected=$playlist_or_card_injected_by_harness; empty_home_pixels_verified=$empty_home_pixels_verified; authenticated_home=not_tested"
 
       - name: Upload verified screenshot and redacted launch summary
         if: always()
