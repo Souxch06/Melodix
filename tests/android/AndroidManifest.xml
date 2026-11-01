@@ -6,9 +6,9 @@
         android:debuggable="true"
         android:hasCode="true"
         android:label="Melodix UI integration harness">
-        <instrumentation
-            android:name="com.melodix.test.HomeRenderInstrumentation"
-            android:targetPackage="com.melodix.music.preview"
-            android:label="Melodix Preview UI integration" />
     </application>
+    <instrumentation
+        android:name="com.melodix.test.HomeRenderInstrumentation"
+        android:targetPackage="com.melodix.music.preview"
+        android:label="Melodix Preview UI integration" />
 </manifest>

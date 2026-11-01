@@ -101,6 +101,15 @@ test('native root handoff fails closed on missing layout, bad stacking, or missi
     'failed measurements return to the existing WebView');
 });
 
+test('Android instrumentation is declared as a manifest-level component, not nested in application', () => {
+  const manifest = read('tests/android/AndroidManifest.xml');
+  const applicationClose = manifest.indexOf('</application>');
+  const instrumentationStart = manifest.indexOf('<instrumentation');
+  const manifestClose = manifest.indexOf('</manifest>');
+  assert.ok(applicationClose >= 0 && instrumentationStart > applicationClose && instrumentationStart < manifestClose,
+    'PackageManager only registers instrumentation declared directly under <manifest>');
+});
+
 test('the CI Home integration contains no fake playlist or substituted account content', () => {
   const harness = read('tests/android/HomeRenderInstrumentation.java');
   const inspector = read('tests/android/inspect_hierarchy.py');
