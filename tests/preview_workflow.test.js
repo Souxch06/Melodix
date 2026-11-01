@@ -96,6 +96,10 @@ test("the emulator workflow checks the exact APK debuggable flag and captures re
     /target_debuggable="\$\(python3 -[\s\S]*?\[\[ "\$target_debuggable" == "true" \]\]/,
     "refuse to start instrumentation unless the built APK reports debuggable=true",
   );
+  assert.match(emulatorWorkflow, /launch_failure_diagnostics\(\)[\s\S]*?host_available_kib[\s\S]*?fatal_or_anr_log_count[\s\S]*?trap launch_failure_diagnostics EXIT/,
+    'unexpected Android launch termination leaves only bounded host/device health counters for diagnosis');
+  assert.match(emulatorWorkflow, /timeout 15s adb logcat -d -t 2000 -b main -b system -b crash[\s\S]*?grep -cE/,
+    'failure reporting stores counts rather than raw logcat or account content');
   assert.match(emulatorWorkflow, /adb shell dumpsys activity > "\$activity_dump"/);
   assert.doesNotMatch(
     emulatorWorkflow,
@@ -324,7 +328,9 @@ test("the emulator workflow validates same-run instrumentation and exact release
   assert.match(emulatorWorkflow, /Verify the exact non-debuggable release candidate[\s\S]*?\[\[ "\$target_debuggable" == "false" \]\][\s\S]*?version_code > 1020947/);
   assert.match(emulatorWorkflow, /Install and cold-launch the exact non-debuggable release candidate[\s\S]*?adb install \"\$RELEASE_APK\"[\s\S]*?activity_resumed=true/);
   assert.match(emulatorWorkflow, /Publish the exact validated Preview release candidate[\s\S]*?steps\.release-candidate-smoke\.outcome == 'success'[\s\S]*?gh release create/);
-  assert.match(emulatorWorkflow, /if: github\.event_name == 'workflow_dispatch' && inputs\.publish_preview == true/);
+  assert.match(emulatorWorkflow, /if: \(github\.event_name == 'workflow_dispatch' && inputs\.publish_preview == true \|\| github\.event_name == 'push' && startsWith\(github\.event\.head_commit\.message, '\[preview-release\] v1\.2\.2-test\.95-preview'\)\) && steps\.integration\.outcome == 'success'[\s\S]*?gh release create/);
+  assert.match(emulatorWorkflow, /PUBLISH_PREVIEW: \$\{\{ inputs\.publish_preview \|\| \(github\.event_name == 'push' && startsWith\(github\.event\.head_commit\.message, '\[preview-release\] v1\.2\.2-test\.95-preview'\)\) \}\}/,
+    'push-based Preview publication requires the explicit tag marker and still waits for every exact-APK validation');
   assert.match(emulatorWorkflow, /sha256sum -c "\$source_name\.sha256"[\s\S]*?cmp -s "\$RELEASE_APK" "\$final_apk"[\s\S]*?gh release create/);
   assert.match(emulatorWorkflow, /--target "\$SOURCE_REF"[\s\S]*?--prerelease/);
   assert.match(emulatorWorkflow, /inputs\.publish_preview == true/);

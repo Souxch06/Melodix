@@ -15,9 +15,9 @@ on:
         description: Optional public Preview tag to create after exact-APK validation
         required: false
         type: string
-        default: v1.2.2-test.94-preview
+        default: v1.2.2-test.95-preview
       publish_preview:
-        description: Publish the exact non-debuggable release candidate only after this run validates it
+        description: Publish only after exact-APK validation; push releases require the explicit [preview-release] tag marker
         required: false
         type: boolean
         default: false
@@ -31,7 +31,7 @@ jobs:
     name: Build debuggable APK for UI instrumentation
     uses: ./.github/workflows/preview-apk.yml
     with:
-      release_tag: ${{ inputs.release_tag || 'v1.2.2-test.94-preview' }}
+      release_tag: ${{ inputs.release_tag || 'v1.2.2-test.95-preview' }}
       source_ref: ${{ inputs.source_ref || github.sha }}
       build_only: true
       target_debuggable: true
@@ -42,7 +42,7 @@ jobs:
     name: Build exact non-debuggable Preview release candidate
     uses: ./.github/workflows/preview-apk.yml
     with:
-      release_tag: ${{ inputs.release_tag || 'v1.2.2-test.94-preview' }}
+      release_tag: ${{ inputs.release_tag || 'v1.2.2-test.95-preview' }}
       source_ref: ${{ inputs.source_ref || github.sha }}
       build_only: true
       target_debuggable: false
@@ -65,8 +65,8 @@ jobs:
         shell: bash
         env:
           SOURCE_REF: ${{ inputs.source_ref || github.sha }}
-          RELEASE_TAG: ${{ inputs.release_tag || 'v1.2.2-test.94-preview' }}
-          PUBLISH_PREVIEW: ${{ inputs.publish_preview || false }}
+          RELEASE_TAG: ${{ inputs.release_tag || 'v1.2.2-test.95-preview' }}
+          PUBLISH_PREVIEW: ${{ inputs.publish_preview || (github.event_name == 'push' && startsWith(github.event.head_commit.message, '[preview-release] v1.2.2-test.95-preview')) }}
         run: |
           set -euo pipefail
           [[ "$SOURCE_REF" =~ ^[0-9a-fA-F]{40}$ ]] || { echo "::error::source_ref must be a full 40-character SHA."; exit 1; }
@@ -378,6 +378,25 @@ jobs:
           SOURCE_REF: ${{ inputs.source_ref || github.sha }}
         run: |
           set -euo pipefail
+          launch_failure_diagnostics() {
+            local exit_code=$?
+            (( exit_code != 0 )) || return 0
+            set +e
+            local host_available_kib
+            local android_processes
+            local adb_devices
+            local device_booted
+            local app_pid
+            local fatal_or_anr_count
+            host_available_kib="$(awk '/^MemAvailable:/ {print $2}' /proc/meminfo 2>/dev/null || true)"
+            android_processes="$(ps -eo comm=,rss=,stat= 2>/dev/null | awk '$1 ~ /^(emulator|qemu|adb)/ {printf "%s:%s:%s,", $1, $2, $3}' | cut -c1-300)"
+            adb_devices="$(timeout 10s adb devices 2>/dev/null | awk 'NR > 1 && NF >= 2 {printf "%s:%s,", $1, $2}')"
+            device_booted="$(timeout 10s adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\r' || true)"
+            app_pid="$(timeout 10s adb shell pidof -s com.melodix.music.preview 2>/dev/null | tr -d '\r' || true)"
+            fatal_or_anr_count="$(timeout 15s adb logcat -d -t 2000 -b main -b system -b crash 2>/dev/null | grep -cE 'FATAL EXCEPTION|ANR in com\.melodix\.music\.preview|lowmemorykiller|lmkd|Killing .*com\.melodix\.music\.preview' || true)"
+            echo "::notice title=Android launch failure diagnostics::exit=$exit_code; host_available_kib=${host_available_kib:-unknown}; android_processes=${android_processes:-none}; adb_devices=${adb_devices:-none}; device_boot_completed=${device_booted:-unknown}; app_pid=${app_pid:-none}; fatal_or_anr_log_count=${fatal_or_anr_count:-unknown}"
+          }
+          trap launch_failure_diagnostics EXIT
           state_dir="$RUNNER_TEMP/melodix-preview-emulator-state"
           mkdir -p "$state_dir"
           # Installation on this newly created emulator, followed by pm clear,
@@ -998,8 +1017,8 @@ jobs:
           RELEASE_DEBUGGABLE: ${{ steps.release-candidate.outputs.target_debuggable }}
           RELEASE_SMOKE_OUTCOME: ${{ steps.release-candidate-smoke.outcome }}
           RELEASE_ACTIVITY_RESUMED: ${{ steps.release-candidate-smoke.outputs.activity_resumed }}
-          RELEASE_TAG: ${{ inputs.release_tag || 'v1.2.2-test.94-preview' }}
-          PUBLISH_PREVIEW: ${{ inputs.publish_preview || false }}
+          RELEASE_TAG: ${{ inputs.release_tag || 'v1.2.2-test.95-preview' }}
+          PUBLISH_PREVIEW: ${{ inputs.publish_preview || (github.event_name == 'push' && startsWith(github.event.head_commit.message, '[preview-release] v1.2.2-test.95-preview')) }}
         run: |
           state_dir="$RUNNER_TEMP/melodix-preview-emulator-state"
           browser_compatibility_warning=not_confirmed
@@ -1370,12 +1389,12 @@ jobs:
           if-no-files-found: warn
 
       - name: Publish the exact validated Preview release candidate
-        if: github.event_name == 'workflow_dispatch' && inputs.publish_preview == true && steps.integration.outcome == 'success' && steps.post-instrumentation.outcome == 'success' && steps.cold-launch-inspection.outcome == 'success' && steps.release-candidate.outcome == 'success' && steps.release-candidate-smoke.outcome == 'success' && steps.evidence-upload.outcome == 'success'
+        if: (github.event_name == 'workflow_dispatch' && inputs.publish_preview == true || github.event_name == 'push' && startsWith(github.event.head_commit.message, '[preview-release] v1.2.2-test.95-preview')) && steps.integration.outcome == 'success' && steps.post-instrumentation.outcome == 'success' && steps.cold-launch-inspection.outcome == 'success' && steps.release-candidate.outcome == 'success' && steps.release-candidate-smoke.outcome == 'success' && steps.evidence-upload.outcome == 'success'
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
           SOURCE_REF: ${{ inputs.source_ref || github.sha }}
-          RELEASE_TAG: ${{ inputs.release_tag || 'v1.2.2-test.94-preview' }}
+          RELEASE_TAG: ${{ inputs.release_tag || 'v1.2.2-test.95-preview' }}
           RELEASE_APK: ${{ steps.release-candidate.outputs.apk }}
           RELEASE_APK_SHA256: ${{ steps.release-candidate.outputs.apk_sha256 }}
           RELEASE_VERSION_CODE: ${{ steps.release-candidate.outputs.version_code }}
