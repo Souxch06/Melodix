@@ -35,12 +35,16 @@
     new-instance v0, Lorg/json/JSONArray;
 
     invoke-direct {v0, p1}, Lorg/json/JSONArray;-><init>(Ljava/lang/String;)V
+    # The source payload is no longer needed after parsing; reuse its register
+    # as a small counter so all non-range invokes remain within v0-v15.
+    const/4 p1, 0x0
     :try_end_0
     .catch Lorg/json/JSONException; {:try_start_0 .. :try_end_0} :catch_0
 
     invoke-virtual {v0}, Lorg/json/JSONArray;->length()I
 
     move-result v1
+    invoke-static {v1}, Lcom/melodix/music/NativeHomeShelfRenderer;->traceHomeReceipt(I)V
 
     # MDXTRACE: how many Home rows actually reached the renderer.
     new-instance v2, Ljava/lang/StringBuilder;
@@ -83,6 +87,8 @@
     invoke-static {p0, v13, v2}, Lcom/melodix/music/NativeHomeShelfRenderer;->renderHomeStatus(Lcom/melodix/music/MainActivity;Landroid/widget/LinearLayout;Lorg/json/JSONObject;)Z
     move-result v3
     if-eqz v3, :shelf_no_cards
+    const-string v4, "status"
+    invoke-static {v1, p1, v4}, Lcom/melodix/music/NativeHomeShelfRenderer;->traceHomeRendered(IILjava/lang/String;)V
     const-string v1, "native-home-status-attached"
     invoke-static {v1}, Lcom/melodix/music/NativeCrashGuard;->diagLine(Ljava/lang/String;)V
     invoke-static {v1}, Lcom/melodix/music/StartupDiagnosticOverlay;->appendDiagnosticLine(Ljava/lang/String;)V
@@ -467,6 +473,7 @@
     :shelf_add
     invoke-virtual {v3, v7}, Landroid/widget/LinearLayout;->addView(Landroid/view/View;)V
     invoke-virtual {p0, v7}, Lcom/melodix/music/MainActivity;->noteNativeHomeCardAttached(Landroid/view/View;)V
+    add-int/lit8 p1, p1, 0x1
 
     :shelf_next
     add-int/lit8 v4, v4, 0x1
@@ -498,6 +505,8 @@
     goto :shelf_done
 
     :shelf_no_cards
+    const-string v0, "failed"
+    invoke-static {v1, p1, v0}, Lcom/melodix/music/NativeHomeShelfRenderer;->traceHomeRendered(IILjava/lang/String;)V
     # Empty payloads, diagnostic rows and malformed cards do not make a native
     # Home replacement. Reveal Spotify instead of taking over with a spinner.
     const-string v1, "MDXTRACE"
@@ -515,6 +524,8 @@
     return-void
 
     :shelf_done
+    const-string v0, "rendered"
+    invoke-static {v1, p1, v0}, Lcom/melodix/music/NativeHomeShelfRenderer;->traceHomeRendered(IILjava/lang/String;)V
     # This is attached-view evidence only. Pixel-visible readiness is recorded
     # later by completeNativeUiVisibility() after a measured global rect.
     const-string v0, "native-home-cards-attached"
@@ -1022,4 +1033,78 @@
 
     :dp_ready
     return v2
+.end method
+
+.method private static traceHomeReceipt(I)V
+    .locals 4
+
+    if-ltz p0, :home_receipt_zero
+    const/16 v0, 0x3e7
+    if-gt p0, v0, :home_receipt_max
+    move v1, p0
+    goto :home_receipt_count_ready
+    :home_receipt_max
+    move v1, v0
+    goto :home_receipt_count_ready
+    :home_receipt_zero
+    const/4 v1, 0x0
+
+    :home_receipt_count_ready
+    new-instance v2, Ljava/lang/StringBuilder;
+    invoke-direct {v2}, Ljava/lang/StringBuilder;-><init>()V
+    const-string v3, "home-data stage=android-received rows="
+    invoke-virtual {v2, v3}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    invoke-virtual {v2, v1}, Ljava/lang/StringBuilder;->append(I)Ljava/lang/StringBuilder;
+    const-string v3, " route=home result=received"
+    invoke-virtual {v2, v3}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    invoke-virtual {v2}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
+    move-result-object v2
+    invoke-static {v2}, Lcom/melodix/music/NativeCrashGuard;->diagLine(Ljava/lang/String;)V
+    invoke-static {v2}, Lcom/melodix/music/StartupDiagnosticOverlay;->appendDiagnosticLine(Ljava/lang/String;)V
+    return-void
+.end method
+
+.method private static traceHomeRendered(IILjava/lang/String;)V
+    .locals 6
+
+    if-ltz p0, :home_render_rows_zero
+    const/16 v0, 0x3e7
+    if-gt p0, v0, :home_render_rows_max
+    move v1, p0
+    goto :home_render_rows_ready
+    :home_render_rows_max
+    move v1, v0
+    goto :home_render_rows_ready
+    :home_render_rows_zero
+    const/4 v1, 0x0
+
+    :home_render_rows_ready
+    if-ltz p1, :home_render_cards_zero
+    const/16 v0, 0x3e7
+    if-gt p1, v0, :home_render_cards_max
+    move v2, p1
+    goto :home_render_cards_ready
+    :home_render_cards_max
+    move v2, v0
+    goto :home_render_cards_ready
+    :home_render_cards_zero
+    const/4 v2, 0x0
+
+    :home_render_cards_ready
+    new-instance v3, Ljava/lang/StringBuilder;
+    invoke-direct {v3}, Ljava/lang/StringBuilder;-><init>()V
+    const-string v4, "home-data stage=android-rendered rows="
+    invoke-virtual {v3, v4}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    invoke-virtual {v3, v1}, Ljava/lang/StringBuilder;->append(I)Ljava/lang/StringBuilder;
+    const-string v4, " cards="
+    invoke-virtual {v3, v4}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    invoke-virtual {v3, v2}, Ljava/lang/StringBuilder;->append(I)Ljava/lang/StringBuilder;
+    const-string v4, " route=home result="
+    invoke-virtual {v3, v4}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    invoke-virtual {v3, p2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    invoke-virtual {v3}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
+    move-result-object v3
+    invoke-static {v3}, Lcom/melodix/music/NativeCrashGuard;->diagLine(Ljava/lang/String;)V
+    invoke-static {v3}, Lcom/melodix/music/StartupDiagnosticOverlay;->appendDiagnosticLine(Ljava/lang/String;)V
+    return-void
 .end method

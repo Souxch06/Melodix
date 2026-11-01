@@ -70,6 +70,18 @@
         return 'home';
     }
 
+    function spotifyRouteCategory() {
+        var host = String(window.location.hostname || '').toLowerCase();
+        if (host === 'accounts.spotify.com') return 'login';
+        if (host !== 'open.spotify.com') return 'other';
+        var path = spotifyRoutePath();
+        if (HOME_PATHS.indexOf(path) >= 0) return 'home';
+        var firstSegment = path.split('/').filter(Boolean)[0] || '';
+        if (firstSegment === 'search') return 'search';
+        if (firstSegment === 'collection' || firstSegment === 'your-library') return 'library';
+        return SUPPORTED_TYPES.indexOf(firstSegment) >= 0 ? firstSegment : 'other';
+    }
+
     function nativeSpotifyUri(value) {
         var raw = String(value || '').trim();
         var parts;
@@ -187,16 +199,44 @@
         window.__sfDiagTraceCount = (window.__sfDiagTraceCount || 0) + 1;
         try {
             var bridge = window.AndBridge;
-            // The native sink supplies the same process ID and whitelists the
-            // event category before anything reaches logcat or persistent prefs.
+            // The native sink supplies the same process ID and accepts only
+            // fixed state enums, booleans and bounded counts for structured traces.
             if (bridge && typeof bridge.logDiagEvent === 'function') bridge.logDiagEvent(message);
         } catch (_) {}
+    }
+
+    function traceWebViewState() {
+        var ready = String(document && document.readyState || 'unknown');
+        if (['loading', 'interactive', 'complete'].indexOf(ready) < 0) ready = 'unknown';
+        var host = String(window.location.hostname || '').toLowerCase();
+        host = host === 'open.spotify.com' ? 'spotify' :
+            host === 'accounts.spotify.com' ? 'accounts' : 'other';
+        var visibility = String(document && document.visibilityState || 'unknown');
+        visibility = visibility === 'visible' ? 'visible' : visibility === 'hidden' ? 'hidden' : 'unknown';
+        var bridge = window.AndBridge;
+        var callbacks = Boolean(bridge && typeof bridge.onNativeUiData === 'function' &&
+            typeof bridge.onNativeUiReady === 'function' && typeof bridge.onNativeUiRoute === 'function');
+        var session = pageHasSessionEvidence() ? '1' : '0';
+        diagTrace('webview-state ready=' + ready + ' host=' + host +
+            ' route=' + spotifyRouteCategory() + ' session=' + session +
+            ' bridge=' + (callbacks ? '1' : '0') + ' visibility=' + visibility);
     }
 
     function sendNativeUiData(screen, items) {
         var bridge = window.AndBridge;
         var rows;
-        if (!bridge || typeof bridge.onNativeUiData !== 'function') return false;
+        if (!bridge || typeof bridge.onNativeUiData !== 'function') {
+            if (screen === 'home') {
+                var missingRows = Array.isArray(items) ? items.length : 0;
+                var missingCards = Array.isArray(items) ? items.filter(function(item) {
+                    return item && item.kind !== 'state';
+                }).length : 0;
+                diagTrace('home-data stage=web-to-android rows=' + Math.min(999, missingRows) +
+                    ' cards=' + Math.min(999, missingCards) + ' session=' +
+                    (pageHasSessionEvidence() ? '1' : '0') + ' route=home result=failed');
+            }
+            return false;
+        }
 
         rows = (Array.isArray(items) ? items : []).map(function(item) {
             var title = String(item && (item.title || item.name || item.label) || '').trim();
@@ -237,10 +277,23 @@
             return item && (item.title || item.uri);
         });
 
+        var homeRows = screen === 'home' ? rows.length : 0;
+        var homeCards = screen === 'home'
+            ? rows.filter(function(item) { return !(item && item.kind === 'state'); }).length : 0;
         try {
             bridge.onNativeUiData(screen, JSON.stringify(rows));
+            if (screen === 'home') {
+                diagTrace('home-data stage=web-to-android rows=' + Math.min(999, homeRows) +
+                    ' cards=' + Math.min(999, homeCards) + ' session=' +
+                    (pageHasSessionEvidence() ? '1' : '0') + ' route=home result=sent');
+            }
             return true;
         } catch (_) {
+            if (screen === 'home') {
+                diagTrace('home-data stage=web-to-android rows=' + Math.min(999, homeRows) +
+                    ' cards=' + Math.min(999, homeCards) + ' session=' +
+                    (pageHasSessionEvidence() ? '1' : '0') + ' route=home result=failed');
+            }
             return false;
         }
     }
@@ -2123,9 +2176,19 @@
     function runUpdate() {
         var mainView;
         var route;
+        var routeCategory;
+        var sessionBit;
+        var routeSignature;
         if (window.location.hostname !== 'open.spotify.com') return;
         try {
             route = nativeScreenForPath();
+            routeCategory = spotifyRouteCategory();
+            sessionBit = pageHasSessionEvidence() ? '1' : '0';
+            routeSignature = routeCategory + '|' + sessionBit;
+            if (window.__sfSpotifyRouteTraceSignature !== routeSignature) {
+                window.__sfSpotifyRouteTraceSignature = routeSignature;
+                diagTrace('spotify-route route=' + routeCategory + ' session=' + sessionBit);
+            }
             initialScreen = route;
             window.__sfNativeUiRoute = route;
             sendNativeUiRoute(route);
@@ -2822,6 +2885,17 @@
             status: String(status || '').slice(0, 24)
         });
         if (steps.length > 16) steps.shift();
+        var sourceStage = String(stage || '');
+        var sourceStatus = String(status || '');
+        var strategy = sourceStage === 'inline-script' ? 'inline' :
+            ['eval', 'function', 'native-inject', 'blob'].indexOf(sourceStage) >= 0 ? sourceStage : 'none';
+        var result = sourceStatus === 'started' ? 'started' :
+            sourceStatus === 'scheduled' || sourceStatus === 'pending' ? 'scheduled' :
+            sourceStatus === 'no-start' || sourceStatus.indexOf('no-start') >= 0 ? 'no-start' : 'failed';
+        var phase = result === 'scheduled' ? 'exec-start' : 'exec-end';
+        var byteCount = Math.max(0, Math.min(999999, Math.floor(Number(window.__sfBridgeBytes) || 0)));
+        diagTrace('bridge-load phase=' + phase + ' strategy=' + strategy +
+            ' result=' + result + ' bytes=' + byteCount);
     }
 
     function recordBridgeFailure(stage, reason) {
@@ -2959,6 +3033,7 @@
         var complete = false;
         var reader = '';
         if (bridgeHasStarted()) return true;
+        diagTrace('bridge-load phase=read-start strategy=none result=pending bytes=0');
 
         if (bridge && typeof bridge.bundledAssetLength === 'function') {
             try {
@@ -3032,6 +3107,9 @@
             reader: reader || 'none'
         };
         window.__sfBridgeBytes = source.length;
+        var readResult = complete ? 'complete' : source ? 'incomplete' : 'empty';
+        diagTrace('bridge-load phase=read-end strategy=none result=' + readResult +
+            ' bytes=' + Math.max(0, Math.min(999999, source.length)));
         diagTrace('bridge-read expected=' + (expected ? '1' : '0') + ' received=' + received +
             ' chunks=' + calls + ' complete=' + (complete ? '1' : '0'));
 
@@ -3101,6 +3179,7 @@
         initialPath = spotifyRoutePath();
         initialScreen = nativeScreenForPath();
         window.__sfNativeUiRoute = initialScreen;
+        traceWebViewState();
 
         window.addEventListener('popstate', scheduleUpdate);
         window.addEventListener('hashchange', scheduleUpdate);

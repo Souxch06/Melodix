@@ -73,6 +73,7 @@
 .field public final g0:Ls4;
 
 .field private nativeCurrentScreen:Ljava/lang/String;
+.field private melodixWebHomeActive:Z
 
 # Attachment and visibility are separate states. Cards are real Spotify
 # resources; the separate status view is an explicit non-playlist Home state.
@@ -7189,6 +7190,75 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
     return-void
 .end method
 
+.method public final postMelodixHomeVisibility(ZZ)V
+    .locals 4
+
+    new-instance v0, Lcom/melodix/music/NativeUiUpdateRunnable;
+    const-string v1, "false"
+    if-eqz p1, :melodix_home_owner_post_active
+    const-string v1, "true"
+    :melodix_home_owner_post_active
+    const-string v2, "false"
+    if-eqz p2, :melodix_home_owner_post_session
+    const-string v2, "true"
+    :melodix_home_owner_post_session
+    const/4 v3, 0x4
+    invoke-direct {v0, p0, v1, v2, v3}, Lcom/melodix/music/NativeUiUpdateRunnable;-><init>(Lcom/melodix/music/MainActivity;Ljava/lang/String;Ljava/lang/String;I)V
+    invoke-virtual {p0, v0}, Landroid/app/Activity;->runOnUiThread(Ljava/lang/Runnable;)V
+    return-void
+.end method
+
+.method public final setMelodixHomeVisibility(ZZ)V
+    .locals 3
+
+    iget-boolean v0, p0, Lcom/melodix/music/MainActivity;->melodixWebHomeActive:Z
+    const/4 v2, 0x0
+    if-eqz p1, :melodix_home_owner_save
+    if-eqz p2, :melodix_home_owner_save
+    const/4 v2, 0x1
+    :melodix_home_owner_save
+    iput-boolean v2, p0, Lcom/melodix/music/MainActivity;->melodixWebHomeActive:Z
+    invoke-virtual {p0}, Lcom/melodix/music/MainActivity;->isNativeHomeScreen()Z
+    move-result v1
+    if-eqz v2, :melodix_home_owner_inactive
+
+    # This redacted UI hint never grants session/auth state: both visible Home
+    # and the existing session proof must be true before Web takes ownership.
+    const/4 v0, 0x1
+    sput-boolean v0, Lcom/melodix/music/AppSingleton;->l:Z
+    sput-boolean v0, Lcom/melodix/music/AppSingleton;->startupDone:Z
+    const-string v2, "web-home-rendered"
+    invoke-static {v2}, Lcom/melodix/music/NativeCrashGuard;->stage(Ljava/lang/String;)V
+    invoke-virtual {p0}, Lcom/melodix/music/MainActivity;->revealWebUi()V
+    const-string v2, "native-home-owner state=web route=home"
+    invoke-static {v2}, Lcom/melodix/music/NativeCrashGuard;->diagLine(Ljava/lang/String;)V
+    invoke-static {v2}, Lcom/melodix/music/StartupDiagnosticOverlay;->appendDiagnosticLine(Ljava/lang/String;)V
+    const-string v2, "window.__sfNativeUiRootVisibilityKnown=true;window.__sfNativeUiRootVisible=false;window.__sfNativeUiVisibilityConfirmed=false;window.__sfNativeUiHomeContentReady=false;if(window.__sfMelodixHomeTraceFinal)window.__sfMelodixHomeTraceFinal(window.__sfMelodixHomeRenderedCardCount||0);"
+    invoke-virtual {p0, v2}, Lcom/melodix/music/MainActivity;->runNativeJavascript(Ljava/lang/String;)V
+    return-void
+
+    :melodix_home_owner_inactive
+    if-eqz v0, :melodix_home_owner_done
+    if-eqz v1, :melodix_home_owner_done
+    if-eqz p2, :melodix_home_owner_reveal_web
+    invoke-virtual {p0}, Lcom/melodix/music/MainActivity;->hasNativeHomeContentAttached()Z
+    move-result v2
+    if-eqz v2, :melodix_home_owner_reveal_web
+    # Native Home may resume only after Web reports that its visibility guard
+    # failed while the same session proof still holds; its normal content gate
+    # continues to apply, so logout never reveals stale native Home rows.
+    invoke-virtual {p0}, Lcom/melodix/music/MainActivity;->showNativeUi()V
+    return-void
+
+    :melodix_home_owner_reveal_web
+    invoke-virtual {p0}, Lcom/melodix/music/MainActivity;->revealWebUi()V
+    const-string v2, "window.__sfNativeUiRootVisibilityKnown=true;window.__sfNativeUiRootVisible=false;window.__sfNativeUiVisibilityConfirmed=false;window.__sfNativeUiHomeContentReady=false;if(window.__sfMelodixHomeTraceFinal)window.__sfMelodixHomeTraceFinal(window.__sfMelodixHomeRenderedCardCount||0);"
+    invoke-virtual {p0, v2}, Lcom/melodix/music/MainActivity;->runNativeJavascript(Ljava/lang/String;)V
+
+    :melodix_home_owner_done
+    return-void
+.end method
+
 .method public final postNativeUiRoute(Ljava/lang/String;)V
     .locals 3
 
@@ -7266,6 +7336,13 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
     const-string v1, "home"
     invoke-virtual {v1, v0}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
     move-result v0
+    return v0
+.end method
+
+.method public final isMelodixWebHomeActive()Z
+    .locals 1
+
+    iget-boolean v0, p0, Lcom/melodix/music/MainActivity;->melodixWebHomeActive:Z
     return v0
 .end method
 
@@ -7475,6 +7552,20 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
     invoke-static {v0}, Lcom/melodix/music/NativeCrashGuard;->diagLine(Ljava/lang/String;)V
     invoke-static {v0}, Lcom/melodix/music/StartupDiagnosticOverlay;->appendDiagnosticLine(Ljava/lang/String;)V
 
+    # A visible, session-proven Web Home is the sole Home owner. The native
+    # renderer remains available as fallback but cannot raise its sibling root
+    # above the already-visible Web renderer.
+    iget-boolean v0, p0, Lcom/melodix/music/MainActivity;->melodixWebHomeActive:Z
+    if-eqz v0, :native_show_not_web_home
+    const-string v0, "native-home-owner state=web route=home"
+    invoke-static {v0}, Lcom/melodix/music/NativeCrashGuard;->diagLine(Ljava/lang/String;)V
+    invoke-static {v0}, Lcom/melodix/music/StartupDiagnosticOverlay;->appendDiagnosticLine(Ljava/lang/String;)V
+    invoke-virtual {p0}, Lcom/melodix/music/MainActivity;->revealWebUi()V
+    const-string v0, "window.__sfNativeUiShowMethodCalled=true;window.__sfNativeUiRootVisibilityKnown=true;window.__sfNativeUiRootVisible=false;window.__sfNativeUiVisibilityConfirmed=false;window.__sfNativeUiHomeContentReady=false;if(window.__sfMelodixHomeTraceFinal)window.__sfMelodixHomeTraceFinal(window.__sfMelodixHomeRenderedCardCount||0);"
+    invoke-virtual {p0, v0}, Lcom/melodix/music/MainActivity;->runNativeJavascript(Ljava/lang/String;)V
+    return-void
+
+    :native_show_not_web_home
     # Replay the previous freeze report over the shell (P0 diagnostic):
     # start-only hang reports, never a crash message.
     invoke-static {}, Lcom/melodix/music/StartupDiagnosticOverlay;->dismissIfShowing()V
@@ -7527,6 +7618,9 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
     invoke-virtual {p0}, Lcom/melodix/music/MainActivity;->hasNativeHomeContentAttached()Z
     move-result v0
     if-nez v0, :native_root_lookup
+    const-string v1, "native-layout route=home root=unknown shown=0 visible=0 parent=unknown root-index=-1 host-index=-1 children=0 width=0 height=0 order=fail"
+    invoke-static {v1}, Lcom/melodix/music/NativeCrashGuard;->diagLine(Ljava/lang/String;)V
+    invoke-static {v1}, Lcom/melodix/music/StartupDiagnosticOverlay;->appendDiagnosticLine(Ljava/lang/String;)V
     const-string v0, "native-shell-show-blocked reason=home-content-not-attached"
     invoke-static {v0}, Lcom/melodix/music/NativeCrashGuard;->diagLine(Ljava/lang/String;)V
     invoke-static {v0}, Lcom/melodix/music/StartupDiagnosticOverlay;->appendDiagnosticLine(Ljava/lang/String;)V
@@ -7534,7 +7628,7 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
     const-string v1, "native-shell fallback reason=home-content-not-attached; keep WebView visible"
     invoke-static {v0, v1}, Landroid/util/Log;->w(Ljava/lang/String;Ljava/lang/String;)I
     invoke-virtual {p0}, Lcom/melodix/music/MainActivity;->revealWebUi()V
-    const-string v0, "window.__sfNativeUiShowMethodCalled=true;window.__sfNativeUiRootVisible=false;window.__sfNativeUiHomeContentReady=false;window.__sfNativeUiShowBlockedNoContent=true;"
+    const-string v0, "window.__sfNativeUiShowMethodCalled=true;window.__sfNativeUiRootVisibilityKnown=false;window.__sfNativeUiRootVisible=false;window.__sfNativeUiHomeContentReady=false;window.__sfNativeUiShowBlockedNoContent=true;"
     invoke-virtual {p0, v0}, Lcom/melodix/music/MainActivity;->runNativeJavascript(Ljava/lang/String;)V
     return-void
 
@@ -7561,6 +7655,9 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
     goto :native_root_ready
 
     :native_root_missing
+    const-string v1, "native-layout route=other root=0 shown=0 visible=0 parent=missing root-index=-1 host-index=-1 children=0 width=0 height=0 order=fail"
+    invoke-static {v1}, Lcom/melodix/music/NativeCrashGuard;->diagLine(Ljava/lang/String;)V
+    invoke-static {v1}, Lcom/melodix/music/StartupDiagnosticOverlay;->appendDiagnosticLine(Ljava/lang/String;)V
     const-string v0, "native-shell-show-failed reason=nativeRoot-missing"
     invoke-static {v0}, Lcom/melodix/music/NativeCrashGuard;->diagLine(Ljava/lang/String;)V
     invoke-static {v0}, Lcom/melodix/music/StartupDiagnosticOverlay;->appendDiagnosticLine(Ljava/lang/String;)V
@@ -7568,7 +7665,7 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
     const-string v2, "native-shell fallback reason=nativeRoot-missing; keep WebView visible"
     invoke-static {v0, v2}, Landroid/util/Log;->w(Ljava/lang/String;Ljava/lang/String;)I
     invoke-virtual {p0}, Lcom/melodix/music/MainActivity;->revealWebUi()V
-    const-string v0, "window.__sfNativeUiShowMethodCalled=true;window.__sfNativeUiRootFound=false;window.__sfNativeUiRootVisible=false;window.__sfNativeUiRootWidth=0;window.__sfNativeUiRootHeight=0;"
+    const-string v0, "window.__sfNativeUiShowMethodCalled=true;window.__sfNativeUiRootVisibilityKnown=true;window.__sfNativeUiRootFound=false;window.__sfNativeUiRootVisible=false;window.__sfNativeUiRootWidth=0;window.__sfNativeUiRootHeight=0;"
     invoke-virtual {p0, v0}, Lcom/melodix/music/MainActivity;->runNativeJavascript(Ljava/lang/String;)V
     return-void
 
@@ -7622,7 +7719,7 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
     # showNativeUi() request from a missing nativeRoot. Still not a physical
     # display/frame acknowledgement.
     :try_start_native_ui_diag
-    const-string v1, "window.__sfNativeUiShowMethodCalled=true;window.__sfNativeUiRootFound="
+    const-string v1, "window.__sfNativeUiShowMethodCalled=true;window.__sfNativeUiRootVisibilityKnown=false;window.__sfNativeUiRootFound="
     if-eqz v4, :native_ui_root_missing
     const-string v2, "true;"
     goto :native_ui_root_state_ready
@@ -7718,6 +7815,19 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
     iput-boolean v0, p0, Lcom/melodix/music/MainActivity;->nativeFadeNextScreen:Z
 
     iput-object p1, p0, Lcom/melodix/music/MainActivity;->nativeCurrentScreen:Ljava/lang/String;
+    const-string v0, "home"
+    invoke-virtual {v0, p1}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    move-result v0
+    if-nez v0, :native_home_owner_sync
+    # Leaving Home always clears a previous Web owner. Returning to Home keeps
+    # an early positive signal and also asks the Web renderer to revalidate it.
+    const/4 v0, 0x0
+    iput-boolean v0, p0, Lcom/melodix/music/MainActivity;->melodixWebHomeActive:Z
+    goto :native_home_owner_sync_done
+    :native_home_owner_sync
+    const-string v0, "window.__sfMelodixHomeSyncNativeOwner && window.__sfMelodixHomeSyncNativeOwner();"
+    invoke-virtual {p0, v0}, Lcom/melodix/music/MainActivity;->runNativeJavascript(Ljava/lang/String;)V
+    :native_home_owner_sync_done
     const-string v0, "native-route-applied"
     invoke-static {v0}, Lcom/melodix/music/NativeCrashGuard;->diagLine(Ljava/lang/String;)V
     invoke-static {v0}, Lcom/melodix/music/StartupDiagnosticOverlay;->appendDiagnosticLine(Ljava/lang/String;)V

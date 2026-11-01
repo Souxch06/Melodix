@@ -18,6 +18,167 @@
         } catch (_) {}
     }
 
+    function safeMelodixHomeRoute() {
+        try {
+            var host = String(window.location.hostname || '').toLowerCase();
+            if (host === 'accounts.spotify.com') return 'login';
+            if (host !== 'open.spotify.com') return 'other';
+            var path = melodixHomeRoutePath();
+            if (path === '/' || path === '/home' || path === '/app') return 'home';
+            var first = path.split('/').filter(Boolean)[0] || '';
+            if (first === 'search') return 'search';
+            if (first === 'collection' || first === 'your-library') return 'library';
+            return MELODIX_HOME_TYPES.has(first) ? first : 'other';
+        } catch (_) {
+            return 'other';
+        }
+    }
+
+    function safeHomeSessionBit() {
+        try {
+            return melodixHomeHasSessionEvidence() ? '1' : '0';
+        } catch (_) {
+            return '0';
+        }
+    }
+
+    function traceHomeGuard(guard, passed) {
+        var allowed = ['body', 'route', 'gui-mode', 'fullscreen', 'session', 'activation'];
+        var name = allowed.indexOf(String(guard || '')) >= 0 ? String(guard) : 'activation';
+        var route = safeMelodixHomeRoute();
+        var session = safeHomeSessionBit();
+        var signature = [passed ? '1' : '0', route, session].join('|');
+        var signatures = window.__sfMelodixHomeGuardTraceSignatures;
+        if (!signatures || typeof signatures !== 'object') signatures = {};
+        if (signatures[name] === signature) return;
+        signatures[name] = signature;
+        window.__sfMelodixHomeGuardTraceSignatures = signatures;
+        traceMelodixHome('home-guard guard=' + name + ' result=' + (passed ? '1' : '0') +
+            ' route=' + route + ' session=' + session);
+    }
+
+    function traceHomeCss(result, passed) {
+        var probe = result || {};
+        var values = [
+            ['marker', probe.marker_present],
+            ['computed', probe.computed_style_available],
+            ['display', probe.home_display_flex],
+            ['fixed', probe.home_position_fixed],
+            ['visible', probe.home_visibility_visible],
+            ['opacity', probe.home_opacity_nonzero],
+            ['z', probe.home_z_index_high],
+            ['main-hidden', probe.main_hidden],
+            ['error', probe.probe_error],
+            ['result', passed]
+        ];
+        var signature = values.map(function(entry) { return entry[1] ? '1' : '0'; }).join('');
+        if (window.__sfMelodixHomeCssTraceSignature === signature) return;
+        window.__sfMelodixHomeCssTraceSignature = signature;
+        traceMelodixHome('home-css ' + values.map(function(entry) {
+            return entry[0] + '=' + (entry[1] ? '1' : '0');
+        }).join(' '));
+    }
+
+    function traceHomeNode(home, created, action) {
+        var exists = Boolean(home);
+        var attached = false;
+        var visible = false;
+        var display = 'none';
+        var visibility = 'hidden';
+        var opacity = '0';
+        var width = 0;
+        var height = 0;
+        var zIndex = 0;
+        try {
+            attached = Boolean(home && home.parentNode && document.body && document.body.contains(home));
+            if (home && typeof window.getComputedStyle === 'function') {
+                var style = window.getComputedStyle(home);
+                var rect = home.getBoundingClientRect();
+                display = ['flex', 'none', 'block'].indexOf(style.display) >= 0 ? style.display : 'other';
+                visibility = ['visible', 'hidden'].indexOf(style.visibility) >= 0 ? style.visibility : 'other';
+                opacity = Number(style.opacity) > 0 ? '1' : '0';
+                width = Math.max(0, Math.min(99999, Math.round(Number(rect.width) || 0)));
+                height = Math.max(0, Math.min(99999, Math.round(Number(rect.height) || 0)));
+                zIndex = Math.max(0, Math.min(99999, Number.parseInt(style.zIndex || '0', 10) || 0));
+                visible = attached && display !== 'none' && visibility === 'visible' && opacity === '1' &&
+                    width > 0 && height > 0;
+            }
+        } catch (_) {}
+        var safeAction = ['create', 'render', 'remove', 'none'].indexOf(String(action || '')) >= 0
+            ? String(action) : 'none';
+        var line = 'home-node exists=' + (exists ? '1' : '0') +
+            ' created=' + (created ? '1' : '0') + ' attached=' + (attached ? '1' : '0') +
+            ' visible=' + (visible ? '1' : '0') + ' display=' + display +
+            ' visibility=' + visibility + ' opacity=' + opacity + ' width=' + width +
+            ' height=' + height + ' z=' + zIndex + ' action=' + safeAction;
+        if (window.__sfMelodixHomeNodeTraceSignature === line) return;
+        window.__sfMelodixHomeNodeTraceSignature = line;
+        traceMelodixHome(line);
+    }
+
+    function notifyMelodixHomeOwner(active, sessionProven, force) {
+        var bridge = window.AndBridge;
+        var value = Boolean(active);
+        var session = sessionProven === true;
+        if (!bridge || typeof bridge.onMelodixHomeVisibility !== 'function') return;
+        if (!force && window.__sfMelodixHomeOwnerSent === value &&
+            window.__sfMelodixHomeOwnerSessionSent === session) return;
+        try {
+            // Only redacted owner/session booleans cross the bridge; no page or
+            // account content is sent, and this never grants authentication.
+            bridge.onMelodixHomeVisibility(value, session);
+            window.__sfMelodixHomeOwnerSent = value;
+            window.__sfMelodixHomeOwnerSessionSent = session;
+        } catch (_) {}
+    }
+
+    function traceHomeFinal(cardCount, forceOwnerSync) {
+        var home = document.getElementById('sf-melodix-home');
+        var nativeKnown = window.__sfNativeUiRootVisibilityKnown === true;
+        var nativeVisible = 'unknown';
+        if (nativeKnown && window.__sfNativeUiVisibilityConfirmed === true) {
+            nativeVisible = '1';
+        } else if (nativeKnown && (window.__sfNativeUiRootFound === false ||
+            window.__sfNativeUiRootVisible === false)) {
+            nativeVisible = '0';
+        }
+        var homeVisible = false;
+        var mainView = null;
+        var cards = Math.max(0, Math.min(999, Math.floor(Number(cardCount) || 0)));
+        var route = safeMelodixHomeRoute();
+        var session = safeHomeSessionBit();
+        try {
+            mainView = findMelodixHomeContentRoot();
+            if (route === 'home' && session === '1' && home && document.body &&
+                document.body.contains(home) && typeof window.getComputedStyle === 'function') {
+                var style = window.getComputedStyle(home);
+                var mainStyle = mainView ? window.getComputedStyle(mainView) : null;
+                var rect = home.getBoundingClientRect();
+                homeVisible = document.body.classList.contains(MELODIX_HOME_ACTIVE_CLASS) &&
+                    style.display !== 'none' && style.visibility === 'visible' && Number(style.opacity) > 0 &&
+                    rect.width > 0 && rect.height > 0 &&
+                    (!mainView || Boolean(mainStyle && mainStyle.display === 'none'));
+            }
+        } catch (_) {}
+        // Native Home may render in parallel, but it may not cover a Web Home
+        // whose authenticated route and visible pixels have just been verified.
+        notifyMelodixHomeOwner(homeVisible, session === '1', forceOwnerSync === true);
+        window.__sfMelodixHomeFinalVisible = homeVisible;
+        var webVisible = nativeVisible === '1' ? '0' : nativeVisible === '0' ? '1' : 'unknown';
+        var owner = nativeVisible === '1' ? 'native' : nativeVisible === '0'
+            ? homeVisible ? 'web' : 'spotify' : 'unknown';
+        var line = 'home-final owner=' + owner + ' route=' + route + ' session=' + session +
+            ' web=' + webVisible + ' native=' + nativeVisible + ' home=' + (homeVisible ? '1' : '0') +
+            ' cards=' + cards;
+        if (window.__sfMelodixHomeFinalTraceSignature === line) return;
+        window.__sfMelodixHomeFinalTraceSignature = line;
+        traceMelodixHome(line);
+    }
+    window.__sfMelodixHomeTraceFinal = traceHomeFinal;
+    window.__sfMelodixHomeSyncNativeOwner = function() {
+        traceHomeFinal(window.__sfMelodixHomeRenderedCardCount || 0, true);
+    };
+
 const MELODIX_HOME_ACTIVE_CLASS = 'sf-melodix-home-active';
 const MELODIX_HOME_STYLE_PROBE_CLASS = 'sf-melodix-home-style-probe';
 const MELODIX_HOME_STYLE_MARKER = 'SF_MELODIX_HOME_STYLES_V1';
@@ -597,13 +758,14 @@ function setMelodixHomeDecision(reason, details) {
     const state = details || {};
     const requestedMode = String(window.SF_CONFIG && window.SF_CONFIG.guiMode || 'missing');
     const guiMode = MELODIX_HOME_MODES.has(requestedMode) ? requestedMode : 'other';
-    const rawRoute = String(state.route || 'other');
-    const screen = rawRoute === '/' || rawRoute === '/home' || rawRoute === '/app' ? 'home' : 'other';
+    const route = safeMelodixHomeRoute();
+    const screen = route === 'home' ? 'home' : 'other';
     const rawRoot = String(state.rootSelector || window.__sfMelodixHomeRootSelector || 'none');
     const rootPresent = typeof state.rootPresent === 'boolean'
         ? (state.rootPresent ? '1' : '0')
-        : rawRoot !== '' && rawRoot !== 'none' ? '1' : '?';
+        : rawRoot !== '' && rawRoot !== 'none' ? '1' : 'unknown';
     const sessionProven = typeof state.sessionProven === 'boolean' ? state.sessionProven : null;
+    const sessionState = sessionProven == null ? 'unknown' : sessionProven ? '1' : '0';
     const rawLibraryStatus = String(state.libraryStatus || window.__sfMediaLibStatus || 'absent');
     const libraryStatus = ['absent', 'pending', 'loading', 'ready', 'error'].includes(rawLibraryStatus)
         ? rawLibraryStatus : 'other';
@@ -612,11 +774,11 @@ function setMelodixHomeDecision(reason, details) {
     const sectionCount = Number.isFinite(Number(state.sectionCount))
         ? Math.max(0, Math.min(999, Math.floor(Number(state.sectionCount)))) : 0;
     const decision = String(reason || 'unknown').slice(0, 40);
-    const signature = [decision, guiMode, screen, state.stylesReady ? '1' : '0', cardCount,
-        sectionCount, rootPresent, sessionProven == null ? '?' : sessionProven ? '1' : '0', libraryStatus].join('|');
+    const signature = [decision, guiMode, route, state.stylesReady ? '1' : '0', cardCount,
+        sectionCount, rootPresent, sessionState, libraryStatus].join('|');
     window.__sfMelodixHomeGuiMode = guiMode;
-    // Keep only the public screen category in the diagnostic field. Route IDs
-    // and selectors remain local to rendering and are never sent to the bridge.
+    // Only normalized route categories are exposed; Spotify IDs and paths stay
+    // in memory for rendering and are never sent to the diagnostic sink.
     window.__sfMelodixHomeRoute = screen;
     window.__sfMelodixHomeStylesReady = Boolean(state.stylesReady);
     window.__sfMelodixHomeSourceCardCount = cardCount;
@@ -626,14 +788,14 @@ function setMelodixHomeDecision(reason, details) {
     window.__sfMelodixHomeDecision = decision;
     if (signature !== lastHomeDecisionSignature) {
         lastHomeDecisionSignature = signature;
-        traceMelodixHome('home-web ' + decision +
-            ' mode=' + guiMode + ' screen=' + screen +
+        traceMelodixHome('home-web decision=' + decision +
+            ' mode=' + guiMode + ' route=' + route +
+            ' session=' + sessionState +
             ' styles=' + (state.stylesReady ? '1' : '0') +
-            ' session=' + (sessionProven == null ? '?' : sessionProven ? '1' : '0') +
-            ' library=' + libraryStatus +
             ' cards=' + cardCount +
             ' sections=' + sectionCount +
-            ' root=' + rootPresent);
+            ' root=' + rootPresent +
+            ' library=' + libraryStatus);
     }
 }
 
@@ -641,12 +803,14 @@ function deactivateMelodixHome() {
     if (document.body) document.body.classList.remove(MELODIX_HOME_ACTIVE_CLASS);
     const home = document.getElementById('sf-melodix-home');
     if (home) home.remove();
+    traceHomeNode(document.getElementById('sf-melodix-home'), false, home ? 'remove' : 'none');
     const sourceRoot = window._sfMelodixHomeSourceRoot;
     if (sourceRoot && typeof sourceRoot.removeAttribute === 'function') {
         sourceRoot.removeAttribute('data-sf-melodix-source-root');
     }
     window._sfMelodixHomeSourceRoot = null;
     window._sfMelodixHomeSignature = '';
+    traceHomeFinal(0);
 }
 
 function scheduleMelodixHomeUpdate() {
@@ -696,6 +860,7 @@ function melodixHomeStylesReady(mainView, home) {
     };
     if (!result.marker_present || !result.computed_style_available) {
         window.__sfMelodixHomeStyleProbeResult = result;
+        traceHomeCss(result, false);
         return false;
     }
 
@@ -719,16 +884,19 @@ function melodixHomeStylesReady(mainView, home) {
     } catch (_) {
         result.probe_error = true;
         window.__sfMelodixHomeStyleProbeResult = result;
+        traceHomeCss(result, false);
         return false;
     } finally {
         document.body.classList.remove(MELODIX_HOME_STYLE_PROBE_CLASS);
         if (wasActive) document.body.classList.add(MELODIX_HOME_ACTIVE_CLASS);
     }
     window.__sfMelodixHomeStyleProbeResult = result;
-    return Boolean(
+    const ready = Boolean(
         result.home_display_flex && result.home_position_fixed && result.home_visibility_visible &&
         result.home_opacity_nonzero && result.main_hidden && result.home_z_index_high
     );
+    traceHomeCss(result, ready);
+    return ready;
 }
 
 function melodixHomeLibraryHasEntries() {
@@ -867,26 +1035,34 @@ function renderMelodixHomeCard(card) {
 
 function updateMelodixHome() {
     window.__sfMelodixHomeInitAttempted = true;
-    const route = melodixHomeRoutePath();
-    const routeLabel = route === '/' || route === '/home' || route === '/app' ? route : 'other';
+    const routeCategory = safeMelodixHomeRoute();
     const guiMode = String(window.SF_CONFIG && window.SF_CONFIG.guiMode || 'missing');
     if (!document.body) {
-        setMelodixHomeDecision('body-missing', { route: routeLabel });
+        traceHomeGuard('body', false);
+        setMelodixHomeDecision('body-missing', { route: routeCategory });
+        traceHomeFinal(0);
         return;
     }
+    traceHomeGuard('body', true);
     if (!isMelodixHomeRoute()) {
+        traceHomeGuard('route', false);
         deactivateMelodixHome();
-        setMelodixHomeDecision('route-not-home', { route: routeLabel });
+        setMelodixHomeDecision('route-not-home', { route: routeCategory });
         return;
     }
+    traceHomeGuard('route', true);
     if (!MELODIX_HOME_MODES.has(guiMode)) {
+        traceHomeGuard('gui-mode', false);
         deactivateMelodixHome();
-        setMelodixHomeDecision('gui-mode-unsupported', { route: routeLabel });
+        setMelodixHomeDecision('gui-mode-unsupported', { route: routeCategory });
         return;
     }
-    if (document.body.classList.contains('sf-fs-open')) {
+    traceHomeGuard('gui-mode', true);
+    const fullscreenOpen = document.body.classList.contains('sf-fs-open');
+    traceHomeGuard('fullscreen', !fullscreenOpen);
+    if (fullscreenOpen) {
         deactivateMelodixHome();
-        setMelodixHomeDecision('fullscreen-open', { route: routeLabel });
+        setMelodixHomeDecision('fullscreen-open', { route: routeCategory });
         return;
     }
 
@@ -894,10 +1070,11 @@ function updateMelodixHome() {
     observeMelodixHomeDom();
     observeMelodixHomeStyles();
     const sessionProven = melodixHomeHasSessionEvidence();
+    traceHomeGuard('session', sessionProven);
     if (!sessionProven) {
         deactivateMelodixHome();
         setMelodixHomeDecision('session-unproven', {
-            route: routeLabel, rootSelector: window.__sfMelodixHomeRootSelector || 'none',
+            route: routeCategory, rootSelector: window.__sfMelodixHomeRootSelector || 'none',
             rootPresent: Boolean(mainView), sessionProven: false,
             libraryStatus: window.__sfMediaLibStatus || 'absent'
         });
@@ -931,10 +1108,12 @@ function updateMelodixHome() {
         home.className = 'sf-melodix-home';
         home.setAttribute('aria-label', 'Melodix');
         document.body.appendChild(home);
+        traceHomeNode(home, true, 'create');
     }
     const stylesReady = melodixHomeStylesReady(mainView, home);
+    traceHomeGuard('activation', stylesReady);
     const decisionDetails = {
-        route: routeLabel,
+        route: routeCategory,
         cardCount: itemCount,
         sectionCount: sections.length,
         rootSelector: window.__sfMelodixHomeRootSelector || 'none',
@@ -945,6 +1124,7 @@ function updateMelodixHome() {
     if (!stylesReady) {
         deactivateMelodixHome();
         setMelodixHomeDecision('styles-not-ready', { ...decisionDetails, stylesReady: false });
+        traceHomeFinal(0);
         return;
     }
 
@@ -961,6 +1141,13 @@ function updateMelodixHome() {
         setMelodixHomeDecision(itemCount ? 'visible' : `status-visible-${statusState}`, {
             ...decisionDetails, stylesReady: true
         });
+        const unchangedCards = home.querySelectorAll('.sf-melodix-home__card').length;
+        window.__sfMelodixHomeRenderedCardCount = Math.max(0, Math.min(999, unchangedCards));
+        traceHomeNode(home, false, 'render');
+        traceMelodixHome('home-data stage=web-rendered rows=' + itemCount +
+            ' cards=' + unchangedCards + ' session=' + (sessionProven ? '1' : '0') +
+            ' route=home result=' + (showStatus ? 'status' : 'rendered'));
+        traceHomeFinal(unchangedCards);
         return;
     }
 
@@ -1009,11 +1196,16 @@ function updateMelodixHome() {
             computedHome.visibility === 'visible' && computedHome.opacity !== '0' &&
             (!mainView || Boolean(computedMain && computedMain.display === 'none'));
     } catch (_) {}
+    traceHomeGuard('activation', renderedVisible);
+    const renderedCardCount = home.querySelectorAll('.sf-melodix-home__card').length;
+    window.__sfMelodixHomeRenderedCardCount = Math.max(0, Math.min(999, renderedCardCount));
+    traceHomeNode(home, isNewHome, 'render');
     if (!renderedVisible) {
         deactivateMelodixHome();
         setMelodixHomeDecision('activation-visibility-check-failed', {
             ...decisionDetails, stylesReady: false
         });
+        traceHomeFinal(0);
         return;
     }
     window.__sfMelodixHomeStylesReady = true;
@@ -1021,6 +1213,10 @@ function updateMelodixHome() {
         ? `rendered-status-${statusState}`
         : hasPartialData ? 'rendered-partial' : isNewHome ? 'rendered' : 'updated';
     setMelodixHomeDecision(renderDecision, { ...decisionDetails, stylesReady: true });
+    traceMelodixHome('home-data stage=web-rendered rows=' + itemCount +
+        ' cards=' + renderedCardCount + ' session=' + (sessionProven ? '1' : '0') +
+        ' route=home result=' + (showStatus ? 'status' : 'rendered'));
+    traceHomeFinal(renderedCardCount);
 }
 
 function instrumentMelodixHomeHistory() {

@@ -67,6 +67,23 @@
     return-void
 .end method
 
+.method public final onMelodixHomeVisibility(ZZ)V
+    .annotation runtime Landroid/webkit/JavascriptInterface;
+    .end annotation
+
+    .locals 2
+    sget-object v0, Lcom/melodix/music/AppSingleton;->t:Ljava/lang/ref/WeakReference;
+    if-eqz v0, :melodix_home_visibility_done
+    invoke-virtual {v0}, Ljava/lang/ref/Reference;->get()Ljava/lang/Object;
+    move-result-object v1
+    check-cast v1, Lcom/melodix/music/MainActivity;
+    if-eqz v1, :melodix_home_visibility_done
+    invoke-virtual {v1, p1, p2}, Lcom/melodix/music/MainActivity;->postMelodixHomeVisibility(ZZ)V
+
+    :melodix_home_visibility_done
+    return-void
+.end method
+
 .method public final onNativeUiRoute(Ljava/lang/String;)V
     .annotation runtime Landroid/webkit/JavascriptInterface;
     .end annotation
@@ -234,10 +251,13 @@
 .method private final safeDiagnosticEvent(Ljava/lang/String;)Ljava/lang/String;
     .locals 2
 
-    # The page is not a trusted diagnostics source. Keep only fixed event-family
-    # labels so titles, URLs, selectors, exception messages and arbitrary text
-    # cannot be persisted even if a script calls the JavascriptInterface directly.
+    # The page is not a trusted diagnostics source. Keep fixed categories, or
+    # accept only the exact structured grammar below (enums, booleans, counts).
+    # Titles, URLs, selectors, IDs, exception messages and arbitrary text fail closed.
     if-eqz p1, :diagnostic_event_unknown
+    invoke-direct {p0, p1}, Lcom/melodix/music/AndBridge;->safeStructuredDiagnosticEvent(Ljava/lang/String;)Z
+    move-result v1
+    if-nez v1, :diagnostic_event_structured
 
     const-string v0, "bridge js-error"
     invoke-virtual {p1, v0}, Ljava/lang/String;->startsWith(Ljava/lang/String;)Z
@@ -384,6 +404,9 @@
     move-result v1
     if-nez v1, :diagnostic_event_native_home
 
+    :diagnostic_event_structured
+    return-object p1
+
     :diagnostic_event_unknown
     const-string v0, "js-event"
     return-object v0
@@ -499,6 +522,74 @@
     :diagnostic_event_native_home
     const-string v0, "native-home"
     return-object v0
+.end method
+
+.method private final safeStructuredDiagnosticEvent(Ljava/lang/String;)Z
+    .locals 2
+
+    # Event-specific patterns preserve diagnostic values only when every value
+    # is a fixed enum, a 0/1 proof, or a bounded numeric count/dimension.
+    const-string v0, "^webview-state ready=(loading|interactive|complete|unknown) host=(spotify|accounts|other) route=(home|search|library|playlist|album|artist|track|show|episode|audiobook|login|other) session=(0|1) bridge=(0|1) visibility=(visible|hidden|unknown)$"
+    invoke-virtual {p1, v0}, Ljava/lang/String;->matches(Ljava/lang/String;)Z
+    move-result v1
+    if-nez v1, :structured_safe
+
+    const-string v0, "^spotify-route route=(home|search|library|playlist|album|artist|track|show|episode|audiobook|login|other) session=(0|1)$"
+    invoke-virtual {p1, v0}, Ljava/lang/String;->matches(Ljava/lang/String;)Z
+    move-result v1
+    if-nez v1, :structured_safe
+
+    const-string v0, "^home-guard guard=(body|route|gui-mode|fullscreen|session|activation) result=(0|1) route=(home|search|library|playlist|album|artist|track|show|episode|audiobook|login|other) session=(0|1)$"
+    invoke-virtual {p1, v0}, Ljava/lang/String;->matches(Ljava/lang/String;)Z
+    move-result v1
+    if-nez v1, :structured_safe
+
+    const-string v0, "^home-css marker=(0|1) computed=(0|1) display=(0|1) fixed=(0|1) visible=(0|1) opacity=(0|1) z=(0|1) main-hidden=(0|1) error=(0|1) result=(0|1)$"
+    invoke-virtual {p1, v0}, Ljava/lang/String;->matches(Ljava/lang/String;)Z
+    move-result v1
+    if-nez v1, :structured_safe
+
+    const-string v0, "^home-node exists=(0|1) created=(0|1) attached=(0|1) visible=(0|1) display=(flex|none|block|other) visibility=(visible|hidden|other) opacity=(0|1) width=[0-9]{1,5} height=[0-9]{1,5} z=[0-9]{1,5} action=(create|render|remove|none)$"
+    invoke-virtual {p1, v0}, Ljava/lang/String;->matches(Ljava/lang/String;)Z
+    move-result v1
+    if-nez v1, :structured_safe
+
+    const-string v0, "^home-web decision=(body-missing|route-not-home|gui-mode-unsupported|fullscreen-open|session-unproven|styles-not-ready|visible|status-visible-(loading|empty|error|unavailable)|activation-visibility-check-failed|rendered|rendered-partial|updated|rendered-status-(loading|empty|error|unavailable)) mode=(csshack|bigwindow|other|missing) route=(home|search|library|playlist|album|artist|track|show|episode|audiobook|login|other) session=(0|1|unknown) styles=(0|1) cards=[0-9]{1,3} sections=[0-9]{1,3} root=(0|1|unknown) library=(absent|pending|loading|ready|error|other)$"
+    invoke-virtual {p1, v0}, Ljava/lang/String;->matches(Ljava/lang/String;)Z
+    move-result v1
+    if-nez v1, :structured_safe
+
+    const-string v0, "^home-data stage=(web-to-android|web-rendered) rows=[0-9]{1,3} cards=[0-9]{1,3} session=(0|1) route=home result=(sent|failed|rendered|status)$"
+    invoke-virtual {p1, v0}, Ljava/lang/String;->matches(Ljava/lang/String;)Z
+    move-result v1
+    if-nez v1, :structured_safe
+
+    const-string v0, "^home-data stage=android-received rows=[0-9]{1,3} route=home result=received$"
+    invoke-virtual {p1, v0}, Ljava/lang/String;->matches(Ljava/lang/String;)Z
+    move-result v1
+    if-nez v1, :structured_safe
+
+    const-string v0, "^home-data stage=android-rendered rows=[0-9]{1,3} cards=[0-9]{1,3} route=home result=(rendered|status|failed)$"
+    invoke-virtual {p1, v0}, Ljava/lang/String;->matches(Ljava/lang/String;)Z
+    move-result v1
+    if-nez v1, :structured_safe
+
+    const-string v0, "^home-final owner=(web|native|spotify|unknown) route=(home|search|library|playlist|album|artist|track|show|episode|audiobook|login|other) session=(0|1) web=(0|1|unknown) native=(0|1|unknown) home=(0|1) cards=[0-9]{1,3}$"
+    invoke-virtual {p1, v0}, Ljava/lang/String;->matches(Ljava/lang/String;)Z
+    move-result v1
+    if-nez v1, :structured_safe
+
+    const-string v0, "^bridge-load phase=(read-start|read-end|exec-start|exec-end) strategy=(none|inline|eval|function|native-inject|blob) result=(pending|complete|empty|incomplete|started|no-start|failed|scheduled) bytes=[0-9]{1,6}$"
+    invoke-virtual {p1, v0}, Ljava/lang/String;->matches(Ljava/lang/String;)Z
+    move-result v1
+    if-nez v1, :structured_safe
+
+    const/4 v0, 0x0
+    return v0
+
+    :structured_safe
+    const/4 v0, 0x1
+    return v0
 .end method
 
 .method public final logDiagEvent(Ljava/lang/String;)V

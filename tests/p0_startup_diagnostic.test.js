@@ -482,7 +482,8 @@ test('navigation is bounded across page loads (no loops)', () => {
 
 test('runUpdate resolves the content root before navigation and refreshes its census', () => {
   const js = read('scripts/native_ui_shell.source.js');
-  const body = js.slice(js.indexOf('function runUpdate()'), js.indexOf('function runUpdate()') + 700);
+  const start = js.indexOf('function runUpdate()');
+  const body = js.slice(start, js.indexOf('function scheduleUpdate()', start));
   assert.ok(body.includes('mainView = findMainView();') && body.includes('domCensusOnce();') &&
     body.includes('maybeNavigateToPlayer(mainView, true);'));
   assert.ok(body.indexOf('mainView = findMainView();') < body.indexOf('domCensusOnce();') &&

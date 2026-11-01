@@ -40,7 +40,10 @@ function trackedCssPaths() {
 function trackedInlineStyleSourcePaths() {
     return execFileSync('git', ['ls-files', '--', 'assets', 'scripts', 'smali', 'android/apk-extracted', 'source'], { cwd: ROOT, encoding: 'utf8' })
         .split(/\r?\n/)
-        .filter((relativePath) => /\.(?:js|smali|html|xml|svg)$/i.test(relativePath) && relativePath !== ACTIVE_CSS);
+        .filter((relativePath) => /\.(?:js|smali|html|xml|svg)$/i.test(relativePath) && relativePath !== ACTIVE_CSS)
+        // Git's index can still list a file that this dirty worktree deleted.
+        // Only inspect sources that can actually be packaged from this checkout.
+        .filter((relativePath) => fs.existsSync(path.join(ROOT, relativePath)));
 }
 
 function parseCss(relativePath) {

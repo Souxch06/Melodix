@@ -340,6 +340,7 @@ test('JavascriptInterface annotations match active JS calls plus the native sign
         read('assets/desktop_spoof.js'),
         read('scripts/spotify_bridge.source.js'),
         read('scripts/native_ui_shell.source.js'),
+        read('scripts/melodix_home.source.js'),
         read('smali/c91.smali')
     ].join('\n');
     const nativeBridge = read('smali/com/melodix/music/AndBridge.smali');

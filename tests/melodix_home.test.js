@@ -581,7 +581,7 @@ test('the Home renderer works without AndBridge and cannot fail closed on trace-
         page.window.__sfHomeTest.updateMelodixHome();
         assertWebHomeVisible(page, 2);
         assert.equal(page.window.__sfMelodixHomeDecision, 'visible');
-        assert.ok(nativeTrace.some((line) => line.includes('home-web visible')),
+        assert.ok(nativeTrace.some((line) => line.includes('home-web decision=visible')),
             'a direct native trace is used when the bridge trace callback fails');
     } finally {
         close(page);
@@ -753,11 +753,11 @@ test('bounded decisions expose only screen category, safe mode, styles and count
     try {
         page.window.__sfHomeTest.updateMelodixHome();
         page.window.__sfHomeTest.updateMelodixHome();
-        const matching = page.traces.filter((line) => line.includes('home-web gui-mode-unsupported'));
+        const matching = page.traces.filter((line) => line.includes('home-web decision=gui-mode-unsupported'));
         assert.equal(matching.length, 1, 'identical decisions are throttled');
-        assert.match(matching[0], /mode=other screen=home styles=0 session=[?] library=pending cards=0 sections=0 root=[?]/);
-        assert.doesNotMatch(matching[0], /route=|#main-view|data-testid|selector/i,
-            'diagnostics never retain a route or DOM selector');
+        assert.match(matching[0], /mode=other route=home session=unknown styles=0 cards=0 sections=0 root=(0|1|unknown) library=pending/);
+        assert.doesNotMatch(matching[0], /\/playlist\/|\/album\/|#main-view|data-testid|selector/i,
+            'diagnostics retain only a normalized route category, never a raw path or DOM selector');
         assert.notEqual(page.window.getComputedStyle(page.document.getElementById('main-view')).display, 'none');
     } finally {
         close(page);

@@ -24,6 +24,18 @@
     :try_start_0
     iget-object v0, p0, Lcom/melodix/music/NativeUiUpdateRunnable;->activity:Lcom/melodix/music/MainActivity;
     iget v1, p0, Lcom/melodix/music/NativeUiUpdateRunnable;->action:I
+    const/4 v2, 0x4
+    if-ne v1, v2, :check_action_zero
+    iget-object v1, p0, Lcom/melodix/music/NativeUiUpdateRunnable;->screen:Ljava/lang/String;
+    invoke-static {v1}, Ljava/lang/Boolean;->parseBoolean(Ljava/lang/String;)Z
+    move-result v1
+    iget-object v2, p0, Lcom/melodix/music/NativeUiUpdateRunnable;->data:Ljava/lang/String;
+    invoke-static {v2}, Ljava/lang/Boolean;->parseBoolean(Ljava/lang/String;)Z
+    move-result v2
+    invoke-virtual {v0, v1, v2}, Lcom/melodix/music/MainActivity;->setMelodixHomeVisibility(ZZ)V
+    return-void
+
+    :check_action_zero
     if-eqz v1, :show_native_shell
     const/4 v2, 0x2
     if-ne v1, v2, :check_home_fallback
