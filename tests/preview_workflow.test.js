@@ -80,6 +80,19 @@ test("the emulator workflow checks the exact APK debuggable flag and captures re
     ),
     "utf8",
   );
+  const harness = fs.readFileSync(
+    path.resolve(__dirname, "android", "HomeRenderInstrumentation.java"),
+    "utf8",
+  );
+  assert.match(
+    harness,
+    /instrumentation_onCreate_entered[\s\S]*?super\.onCreate\(arguments\)[\s\S]*?instrumentation_onCreate_returned[\s\S]*?instrumentation_onStart_entered[\s\S]*?super\.onStart\(\)[\s\S]*?instrumentation_onStart_super_returned/,
+    "capture exact lifecycle checkpoints to locate where the started instrumentation stalls",
+  );
+  assert.match(
+    emulatorWorkflow,
+    /safe_harness_logs=.*instrumentation_onCreate_entered[\s\S]*?instrumentation_onStart_super_returned/,
+  );
   assert.match(
     emulatorWorkflow,
     /aapt" dump xmltree "\$apk" AndroidManifest\.xml/,

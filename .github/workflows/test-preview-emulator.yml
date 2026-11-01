@@ -524,7 +524,7 @@ jobs:
           cat "$state_dir/android-instrumentation.txt"
           if [[ "$instrumentation_status" != "0" ]]; then
             safe_statuses="$(grep -E '^INSTRUMENTATION_STATUS: (phase|authenticated_session|login_dom_probe_completed|login_ui_visible_in_webview_dom|webview_visible_and_measured|network_error_transition_recovered|original_webview_url_preserved|splash_hidden|native_home_hidden|home_payload_empty|playlist_or_card_injected|native_home_cards_attached|native_home_content_ready|native_content_container_empty|native_root_hidden|native_home_tab_not_shown|webview_container_visible|page_load_complete|failure_phase|failure_type|overall)=' "$state_dir/android-instrumentation.txt" | tr '\n' ';' | cut -c1-1200 || true)"
-            safe_harness_logs="$(grep -E 'MelodixHarness: (started|phase=[a-z_]+|failure phase=[a-z_]+ type=[A-Za-z0-9_$]+|completed)$' "$state_dir/instrumentation-safe-logcat.txt" | sed -E 's/^.*MelodixHarness: //' | tr '\n' ';' | cut -c1-500 || true)"
+            safe_harness_logs="$(grep -E 'MelodixHarness: (instrumentation_onCreate_entered|instrumentation_onCreate_returned|instrumentation_onStart_entered|instrumentation_onStart_super_returned|started|phase=[a-z_]+|failure phase=[a-z_]+ type=[A-Za-z0-9_$]+|completed)$' "$state_dir/instrumentation-safe-logcat.txt" | sed -E 's/^.*MelodixHarness: //' | tr '\n' ';' | cut -c1-500 || true)"
             transcript_bytes="$(wc -c < "$state_dir/android-instrumentation.txt" | tr -d '[:space:]')"
             framework_summary="$(python3 - "$state_dir/android-instrumentation.txt" <<'PY'
           import pathlib

@@ -43,12 +43,22 @@ public final class HomeRenderInstrumentation extends Instrumentation {
             "}catch(e){return false;}})()";
 
     @Override
+    public void onCreate(Bundle arguments) {
+        Log.i(HARNESS_TAG, "instrumentation_onCreate_entered");
+        super.onCreate(arguments);
+        Log.i(HARNESS_TAG, "instrumentation_onCreate_returned");
+    }
+
+    @Override
     public void onStart() {
-        super.onStart();
-        String failurePhase = "launch_target";
-        Log.i(HARNESS_TAG, "started");
-        notePhase(failurePhase);
+        String failurePhase = "instrumentation_start";
+        Log.i(HARNESS_TAG, "instrumentation_onStart_entered");
         try {
+            super.onStart();
+            Log.i(HARNESS_TAG, "instrumentation_onStart_super_returned");
+            failurePhase = "launch_target";
+            Log.i(HARNESS_TAG, "started");
+            notePhase(failurePhase);
             Activity activity = launchTarget();
             failurePhase = "await_webview";
             notePhase(failurePhase);
