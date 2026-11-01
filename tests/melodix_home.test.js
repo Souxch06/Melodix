@@ -355,13 +355,80 @@ test('missing/incomplete injected CSS and a failed style probe leave the origina
         cards: [{ id: 'probe-a', title: 'Playlist A' }, { id: 'probe-b', title: 'Album B', type: 'album' }]
     });
     try {
+        const originalGetComputedStyle = brokenProbe.window.getComputedStyle.bind(brokenProbe.window);
         brokenProbe.window.getComputedStyle = () => { throw new Error('CSP/style probe failure'); };
         brokenProbe.window.__sfHomeTest.updateMelodixHome();
-        assert.equal(homeElement(brokenProbe), null);
+        assert.ok(homeElement(brokenProbe), 'the failed style check keeps only a hidden renderer root');
+        assert.equal(homeElement(brokenProbe).style.display, 'none');
         assert.equal(brokenProbe.document.body.classList.contains('sf-melodix-home-active'), false);
+        assert.notEqual(originalGetComputedStyle(brokenProbe.document.getElementById('main-view')).display, 'none');
         assert.equal(brokenProbe.window.__sfMelodixHomeDecision, 'styles-not-ready');
     } finally {
         close(brokenProbe);
+    }
+});
+
+test('a transient Android-style computed-CSS delay is retried before Home activation', async () => {
+    const page = makePage({
+        path: '/app',
+        initialize: false,
+        cards: [{ id: 'retry-a', title: 'Vraie playlist A' }, { id: 'retry-b', type: 'album', title: 'Vrai album B' }]
+    });
+    const originalGetComputedStyle = page.window.getComputedStyle.bind(page.window);
+    let delayedHomeStyleReads = 0;
+    page.window.MutationObserver = undefined;
+    page.window.getComputedStyle = (element) => {
+        const actual = originalGetComputedStyle(element);
+        if (element && element.id === 'sf-melodix-home' &&
+            page.document.body.classList.contains('sf-melodix-home-style-probe') && delayedHomeStyleReads === 0) {
+            delayedHomeStyleReads += 1;
+            return {
+                display: 'block', position: actual.position, visibility: actual.visibility,
+                opacity: actual.opacity, zIndex: actual.zIndex
+            };
+        }
+        return actual;
+    };
+    try {
+        vm.runInContext(rendererSource, page.dom.getInternalVMContext(), { timeout: 5000 });
+        assert.equal(page.window.__sfMelodixHomeDecision, 'styles-not-ready');
+        assert.equal(homeElement(page).style.display, 'none');
+        assert.equal(page.document.body.classList.contains('sf-melodix-home-active'), false);
+
+        await new Promise((resolve) => page.window.setTimeout(resolve, 450));
+
+        assert.equal(delayedHomeStyleReads, 1, 'the first computed-style read simulates late WebView CSS application');
+        assertWebHomeVisible(page, 2);
+        assert.ok(['rendered', 'updated', 'visible'].includes(page.window.__sfMelodixHomeDecision));
+        assert.equal(page.window.__sfHomeTest.styleRetryCount(), 0, 'successful computed styles clear retry state');
+    } finally {
+        close(page);
+    }
+});
+
+test('persistent CSS readiness failure is bounded and never hides the original Spotify root', async () => {
+    const page = makePage({
+        initialize: false,
+        cards: [{ id: 'bounded-a', title: 'Playlist réelle A' }, { id: 'bounded-b', type: 'album', title: 'Album réel B' }]
+    });
+    const originalGetComputedStyle = page.window.getComputedStyle.bind(page.window);
+    page.window.MutationObserver = undefined;
+    page.document.getElementById('sf-custom-style').textContent +=
+        '\nbody.sf-melodix-home-style-probe #sf-melodix-home { display: block !important; }';
+    try {
+        vm.runInContext(rendererSource, page.dom.getInternalVMContext(), { timeout: 5000 });
+        assert.equal(page.window.__sfMelodixHomeDecision, 'styles-not-ready');
+        assert.equal(homeElement(page).style.display, 'none');
+
+        await new Promise((resolve) => page.window.setTimeout(resolve, 1050));
+
+        assert.equal(page.window.__sfHomeTest.styleRetryCount(), 6, 'readiness retries stop at the configured bound');
+        assert.equal(page.window.__sfMelodixHomeDecision, 'styles-not-ready');
+        assert.equal(page.document.body.classList.contains('sf-melodix-home-active'), false);
+        assert.equal(homeElement(page).style.display, 'none');
+        assert.notEqual(originalGetComputedStyle(page.document.getElementById('main-view')).display, 'none');
+    } finally {
+        close(page);
     }
 });
 

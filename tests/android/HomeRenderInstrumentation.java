@@ -139,6 +139,7 @@ public final class HomeRenderInstrumentation extends Instrumentation {
             "decision_styles_not_ready:decision==='styles-not-ready'," +
             "decision_fullscreen_open:decision==='fullscreen-open'," +
             "style_probe_completed:styleProbe.completed," +
+            "style_retry_count:Math.max(0,Math.min(6,Number(window.__sfMelodixHomeStyleRetryCount)||0))," +
             "style_probe_home_display_flex:styleProbe.home_display_flex," +
             "style_probe_home_position_fixed:styleProbe.home_position_fixed," +
             "style_probe_home_visibility_visible:styleProbe.home_visibility_visible," +
@@ -830,6 +831,7 @@ public final class HomeRenderInstrumentation extends Instrumentation {
             state.putBoolean("web_home_probe_decision_styles_not_ready", probe.optBoolean("decision_styles_not_ready"));
             state.putBoolean("web_home_probe_decision_fullscreen_open", probe.optBoolean("decision_fullscreen_open"));
             state.putBoolean("web_home_probe_style_probe_completed", probe.optBoolean("style_probe_completed"));
+            state.putInt("web_home_probe_style_retry_count", Math.max(0, Math.min(6, probe.optInt("style_retry_count"))));
             state.putBoolean("web_home_probe_style_probe_home_display_flex", probe.optBoolean("style_probe_home_display_flex"));
             state.putBoolean("web_home_probe_style_probe_home_position_fixed", probe.optBoolean("style_probe_home_position_fixed"));
             state.putBoolean("web_home_probe_style_probe_home_visibility_visible", probe.optBoolean("style_probe_home_visibility_visible"));

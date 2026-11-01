@@ -57,6 +57,27 @@ const MELODIX_HOME_NAV_SELECTOR = 'nav, [role="navigation"], aside, header, foot
     '[data-testid="now-playing-bar"], [data-testid="mobile-playback-bar"], ' +
     '[data-testid="now-playing-widget"], [data-testid="mini-player"]';
 let lastHomeDecisionSignature = '';
+const MELODIX_HOME_STYLE_RETRY_LIMIT = 6;
+const MELODIX_HOME_STYLE_RETRY_DELAY_MS = 160;
+let melodixHomeStyleRetryCount = 0;
+let melodixHomeStyleRetryTimer = null;
+
+function resetMelodixHomeStyleRetries() {
+    if (melodixHomeStyleRetryTimer != null) window.clearTimeout(melodixHomeStyleRetryTimer);
+    melodixHomeStyleRetryTimer = null;
+    melodixHomeStyleRetryCount = 0;
+    window.__sfMelodixHomeStyleRetryCount = 0;
+}
+
+function scheduleMelodixHomeStyleRetry() {
+    if (melodixHomeStyleRetryTimer != null || melodixHomeStyleRetryCount >= MELODIX_HOME_STYLE_RETRY_LIMIT) return;
+    melodixHomeStyleRetryCount += 1;
+    window.__sfMelodixHomeStyleRetryCount = melodixHomeStyleRetryCount;
+    melodixHomeStyleRetryTimer = window.setTimeout(() => {
+        melodixHomeStyleRetryTimer = null;
+        updateMelodixHome();
+    }, MELODIX_HOME_STYLE_RETRY_DELAY_MS);
+}
 
 function melodixHomeRoutePath() {
     const parts = String(window.location.pathname || '/').split('/').filter(Boolean);
@@ -439,6 +460,7 @@ function setMelodixHomeDecision(reason, details) {
 }
 
 function deactivateMelodixHome() {
+    resetMelodixHomeStyleRetries();
     if (document.body) document.body.classList.remove(MELODIX_HOME_ACTIVE_CLASS);
     const home = document.getElementById('sf-melodix-home');
     if (home) home.remove();
@@ -478,9 +500,13 @@ function observeMelodixHomeStyles() {
     window._sfMelodixHomeStyleObserver.observe(target, { childList: true, subtree: true, characterData: true });
 }
 
-function melodixHomeStylesReady(mainView, home) {
+function melodixHomeStylesPresent() {
     const style = document.getElementById('sf-custom-style');
-    if (!style || String(style.textContent || '').indexOf(MELODIX_HOME_STYLE_MARKER) < 0) return false;
+    return Boolean(style && String(style.textContent || '').indexOf(MELODIX_HOME_STYLE_MARKER) >= 0);
+}
+
+function melodixHomeStylesReady(mainView, home) {
+    if (!melodixHomeStylesPresent()) return false;
     if (typeof window.getComputedStyle !== 'function' || !mainView || !home) return false;
 
     const wasActive = document.body.classList.contains(MELODIX_HOME_ACTIVE_CLASS);
@@ -585,7 +611,6 @@ function updateMelodixHome() {
     itemCount = sections.reduce((count, section) => count + section.cards.length, 0);
     const rawAnchorCount = mainView.querySelectorAll(MELODIX_HOME_LINK_SELECTOR).length;
     window.__sfMelodixHomeRawAnchorCount = Math.min(rawAnchorCount, 999);
-    markMelodixHomeSourceRoot(mainView);
     if (itemCount < 2) {
         deactivateMelodixHome();
         setMelodixHomeDecision('insufficient-real-cards', {
@@ -594,18 +619,7 @@ function updateMelodixHome() {
         });
         return;
     }
-
-    let home = document.getElementById('sf-melodix-home');
-    const isNewHome = !home;
-    if (!home) {
-        home = document.createElement('main');
-        home.id = 'sf-melodix-home';
-        home.className = 'sf-melodix-home';
-        home.setAttribute('aria-label', 'Melodix');
-        document.body.appendChild(home);
-    }
-    const stylesReady = melodixHomeStylesReady(mainView, home);
-    if (!stylesReady) {
+    if (!melodixHomeStylesPresent()) {
         deactivateMelodixHome();
         setMelodixHomeDecision('styles-not-ready', {
             route: routeLabel, cardCount: itemCount, sectionCount: sections.length, stylesReady: false,
@@ -613,6 +627,35 @@ function updateMelodixHome() {
         });
         return;
     }
+
+    markMelodixHomeSourceRoot(mainView);
+    let home = document.getElementById('sf-melodix-home');
+    const isNewHome = !home;
+    if (!home) {
+        home = document.createElement('main');
+        home.id = 'sf-melodix-home';
+        home.className = 'sf-melodix-home';
+        home.setAttribute('aria-label', 'Melodix');
+        home.style.setProperty('display', 'none');
+        document.body.appendChild(home);
+    }
+    // A prior failed check keeps the empty root hidden. Clear that inline
+    // fallback before probing so the probe stylesheet can be measured.
+    home.style.removeProperty('display');
+    const stylesReady = melodixHomeStylesReady(mainView, home);
+    if (!stylesReady) {
+        document.body.classList.remove(MELODIX_HOME_ACTIVE_CLASS);
+        home.style.setProperty('display', 'none');
+        window._sfMelodixHomeSignature = '';
+        setMelodixHomeDecision('styles-not-ready', {
+            route: routeLabel, cardCount: itemCount, sectionCount: sections.length, stylesReady: false,
+            rootSelector: window.__sfMelodixHomeRootSelector
+        });
+        scheduleMelodixHomeStyleRetry();
+        return;
+    }
+    resetMelodixHomeStyleRetries();
+    home.style.removeProperty('display');
 
     const signature = sections.map((section) =>
         `${section.title}:${section.cards.map((card) => `${card.resourcePath}|${card.title}|${card.image}`).join(',')}`
@@ -731,7 +774,8 @@ function initializeMelodixHome() {
             initializeMelodixHome: initializeMelodixHome,
             updateMelodixHome: updateMelodixHome,
             collectMelodixHomeSections: collectMelodixHomeSections,
-            melodixHomeRoutePath: melodixHomeRoutePath
+            melodixHomeRoutePath: melodixHomeRoutePath,
+            styleRetryCount: () => melodixHomeStyleRetryCount
         };
     }
     try {
