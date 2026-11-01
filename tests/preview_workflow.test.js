@@ -502,6 +502,8 @@ test("the emulator workflow validates same-run instrumentation and exact release
     "the first-launch permission surface is recorded as redacted metadata before tapping its observed Allow control");
   assert.match(emulatorWorkflow, /safe_statuses=.*failure_phase.*failure_type/,
     "Android harness failures surface only whitelisted phase/status diagnostics");
+  assert.match(emulatorWorkflow, /allowed = \{"phase", "failure_phase", "failure_type", "overall"\}[\s\S]*?completion_statuses=\$\{safe_completion_statuses:-none\}[\s\S]*?instrumentation_code=\$\{instrumentation_code:-none\}[\s\S]*?status_codes=\$\{instrumentation_status_codes:-none\}/,
+    "failed instrumentation includes only allowlisted terminal state, numeric result codes, and phase/type values");
   assert.match(emulatorWorkflow, /safe_harness_logs=.*MelodixHarness:/,
     "Android harness crashes are read from a private safe-diagnostics log tag");
   assert.match(emulatorWorkflow, /harness_markers=\$\{safe_harness_logs/,
