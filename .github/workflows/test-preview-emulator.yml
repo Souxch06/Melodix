@@ -486,7 +486,7 @@ jobs:
             exit 1
           fi
           set +e
-          adb shell am instrument -w -r \
+          timeout --signal=TERM --kill-after=10s 180s adb shell am instrument -w -r \
             com.melodix.music.preview.test/com.melodix.test.HomeRenderInstrumentation \
             > "$state_dir/android-instrumentation.txt" 2>&1
           instrumentation_status=$?

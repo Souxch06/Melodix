@@ -168,6 +168,8 @@ test("the emulator workflow builds and tests one Preview APK in the same CI run"
     "the Android package manager must register the exact installed harness before it is invoked");
   assert.match(emulatorWorkflow, /pm_instrumentation_entries=[\s\S]*?pm_list_unknown_command=[\s\S]*?package_dump_runner_seen=/,
     "registration failures distinguish an empty PM list from unsupported listing and missing package metadata");
+  assert.match(emulatorWorkflow, /timeout --signal=TERM --kill-after=10s 180s adb shell am instrument/,
+    "a wedged Android instrumentation runner is bounded so post-run activity and hierarchy checks still execute");
   assert.match(emulatorWorkflow, /login_dom_visible=not_confirmed/,
     "missing instrumentation output is not misreported as a negative login DOM observation");
   assert.match(emulatorWorkflow, /login_dom_probe_observed/,
