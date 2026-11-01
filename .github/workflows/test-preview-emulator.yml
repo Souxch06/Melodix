@@ -819,6 +819,7 @@ jobs:
             safe_home_color_summary="$(grep -F 'INSTRUMENTATION_STATUS: web_home_color_probe_validation_summary=' "$state_dir/android-instrumentation.txt" | tail -n 1 | sed 's/^INSTRUMENTATION_STATUS: web_home_color_probe_validation_summary=//' | tr -cd 'A-Za-z0-9._:;,=/-' | cut -c1-1600 || true)"
             safe_mobile_viewport_statuses="$(grep -E '^INSTRUMENTATION_STATUS: (phase|mobile_viewport_[A-Za-z0-9_-]+)=' "$state_dir/android-instrumentation.txt" | tr '\n' ';' | tail -c 1400 || true)"
             safe_mobile_viewport_logs="$(grep -E 'MelodixHarness: phase=mobile_viewport_[0-9]+_[a-z0-9_]+' "$state_dir/instrumentation-safe-logcat.txt" | sed -E 's/^.*MelodixHarness: //' | tr '\n' ';' | tail -c 500 || true)"
+            mobile_matrix_failure_phase="$(sed -n 's/^INSTRUMENTATION_STATUS: failure_phase=//p' "$state_dir/android-instrumentation.txt" | head -n 1 | grep -E '^[a-z0-9_]+$' || true)"
             safe_harness_logs="$(grep -E 'MelodixHarness: (instrumentation_onCreate_entered|instrumentation_onCreate_returned|instrumentation_runner_thread_started|instrumentation_onStart_entered|instrumentation_onStart_super_returned|empty_home_evidence_captured|home_status_evidence_captured|web_home_route_evidence_captured|started|phase=[a-z0-9_]+|failure phase=[a-z_]+ type=[A-Za-z0-9_$]+|completed)$' "$state_dir/instrumentation-safe-logcat.txt" | sed -E 's/^.*MelodixHarness: //' | tr '\n' ';' | tail -c 700 || true)"
             transcript_bytes="$(wc -c < "$state_dir/android-instrumentation.txt" | tr -d '[:space:]')"
             framework_summary="$(python3 - "$state_dir/android-instrumentation.txt" <<'PY'
@@ -900,7 +901,7 @@ jobs:
           PY
           )"
             rm -f "$activity_dump" "$system_logcat"
-            if [[ "$harness_failure_phase" == "mobile_viewport_layout_matrix" ]]; then
+            if [[ "${mobile_matrix_failure_phase:-none}" == "mobile_viewport_layout_matrix" ]]; then
               echo "::error title=Android mobile viewport matrix::safe_stages=${safe_mobile_viewport_logs:-none}; safe_case_statuses=${safe_mobile_viewport_statuses:-none}"
             fi
             echo "::error title=Android UI instrumentation::exit=$instrumentation_status; harness_overall_passed=$harness_overall_passed; target_debuggable=$TARGET_DEBUGGABLE; target_pid=${target_pid:-none}; test_package_pid=${test_pid:-none}; home_color_summary=${safe_home_color_summary:-none}; safe_statuses=${safe_statuses:-none}; harness_markers=${safe_harness_logs:-none}; transcript_bytes=$transcript_bytes; $framework_summary; $system_diagnostics"
