@@ -108,6 +108,33 @@ jobs:
           package_id="$(sed -n "s/^package: name='\([^']*\)'.*/\1/p" "$RUNNER_TEMP/melodix-preview-badging.txt")"
           version_code="$(sed -n "s/^package:.*versionCode='\([^']*\)'.*/\1/p" "$RUNNER_TEMP/melodix-preview-badging.txt")"
           version_name="$(sed -n "s/^package:.*versionName='\([^']*\)'.*/\1/p" "$RUNNER_TEMP/melodix-preview-badging.txt")"
+          "$build_tools/aapt" dump xmltree "$apk" AndroidManifest.xml > "$RUNNER_TEMP/melodix-preview-manifest-tree.txt"
+          target_debuggable="$(python3 - "$RUNNER_TEMP/melodix-preview-manifest-tree.txt" <<'PY'
+          import pathlib
+          import re
+          import sys
+
+          text = pathlib.Path(sys.argv[1]).read_text(encoding="utf-8", errors="replace")
+          line = next((item for item in text.splitlines() if re.search(r"\bandroid:debuggable(?:\(|=)", item)), None)
+          if line is None:
+              print("false")
+              raise SystemExit(0)
+          match = re.search(r"android:debuggable(?:\([^)]*\))?=\s*(?:\([^)]*\))?([^\s]+)", line)
+          if not match:
+              raise SystemExit("Unable to parse android:debuggable from the exact Preview APK manifest")
+          value = match.group(1).lower()
+          if value in ("true", "false"):
+              print(value)
+          elif re.fullmatch(r"(?:0x[0-9a-f]+|[0-9]+)", value):
+              print(str(int(value, 0) != 0).lower())
+          else:
+              raise SystemExit(f"Unrecognized android:debuggable value in the exact Preview APK: {value}")
+          PY
+          )"
+          [[ "$target_debuggable" == "true" ]] || {
+            echo "::error title=Instrumentation target APK::The exact same-run Preview APK is not debuggable; Android instrumentation cannot attach."
+            exit 1
+          }
           expected_version_name="1.2.2-${SOURCE_REF:0:7}"
           [[ "$package_id" == "com.melodix.music.preview" ]] || { echo "::error::Unexpected package ID: $package_id"; exit 1; }
           [[ "$version_code" =~ ^[0-9]+$ ]] && (( version_code > 1020879 )) || { echo "::error::Preview versionCode $version_code is not greater than 1020879."; exit 1; }
@@ -163,7 +190,8 @@ jobs:
           echo "package_id=$package_id" >> "$GITHUB_OUTPUT"
           echo "version_code=$version_code" >> "$GITHUB_OUTPUT"
           echo "version_name=$version_name" >> "$GITHUB_OUTPUT"
-          echo "::notice title=APK verified::package=$package_id versionCode=$version_code versionName=$version_name source=$SOURCE_REF sha256=$apk_sha256"
+          echo "target_debuggable=$target_debuggable" >> "$GITHUB_OUTPUT"
+          echo "::notice title=APK verified::package=$package_id versionCode=$version_code versionName=$version_name debuggable=$target_debuggable source=$SOURCE_REF sha256=$apk_sha256"
 
       - name: Boot a clean Android 16 emulator
         shell: bash
@@ -433,6 +461,7 @@ jobs:
         shell: bash
         env:
           TEST_APK: ${{ runner.temp }}/melodix-ui-harness.apk
+          TARGET_DEBUGGABLE: ${{ steps.apk.outputs.target_debuggable }}
         run: |
           set -euo pipefail
           state_dir="$RUNNER_TEMP/melodix-preview-emulator-state"
@@ -526,7 +555,54 @@ jobs:
           print(f"framework_statuses={status_count}; result_keys={','.join(result_keys) or 'none'}; status_keys={','.join(status_keys) or 'none'}; code_present={str(code).lower()}; failed_marker={str(failed).lower()}; failure_category={category}")
           PY
           )"
-            echo "::error title=Android UI instrumentation::exit=$instrumentation_status; safe_statuses=${safe_statuses:-none}; harness_markers=${safe_harness_logs:-none}; transcript_bytes=$transcript_bytes; $framework_summary"
+            activity_dump="$RUNNER_TEMP/melodix-instrumentation-activity-dump.txt"
+            system_logcat="$RUNNER_TEMP/melodix-instrumentation-system-logcat.txt"
+            adb shell dumpsys activity instrumentation > "$activity_dump" 2>&1 || true
+            adb logcat -d -t 1200 -b main -b system -b crash -v threadtime -s \
+              ActivityManager:W ActivityTaskManager:W PackageManager:W Instrumentation:V AndroidRuntime:E \
+              > "$system_logcat" 2>&1 || true
+            system_diagnostics="$(python3 - "$activity_dump" "$system_logcat" <<'PY'
+          import pathlib
+          import re
+          import sys
+
+          activity_text = pathlib.Path(sys.argv[1]).read_text(encoding="utf-8", errors="replace")
+          logcat_text = pathlib.Path(sys.argv[2]).read_text(encoding="utf-8", errors="replace")
+          token_patterns = (
+              (re.compile(r"(?i)\b(authorization|cookie|set-cookie|password|client[_-]?secret|(?:access|refresh)[_-]?token)\b\s*[:=]\s*[^,\s;]+"), r"\1=<redacted>"),
+              (re.compile(r"(?i)\bBearer\s+[A-Za-z0-9._~+/=-]+"), "Bearer <redacted>"),
+              (re.compile(r"(?i)https?://[^\s\"']+"), "<url>"),
+              (re.compile(r"(?i)\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b"), "<email>"),
+              (re.compile(r"\b[A-Za-z0-9_+/=-]{40,}\b"), "<opaque>"),
+          )
+
+          def safe_line(value):
+              value = value.strip().replace("\r", " ").replace("\n", " ").replace("\t", " ")
+              for pattern, replacement in token_patterns:
+                  value = pattern.sub(replacement, value)
+              value = re.sub(r"\s+", " ", value)
+              value = value.replace("%", "%25").replace("::", "%3A%3A")
+              return value[:240]
+
+          activity_lines = [
+              safe_line(line) for line in activity_text.splitlines()
+              if re.search(r"(?i)instrumentation|com\.melodix\.music\.preview|HomeRenderInstrumentation", line)
+          ][-16:]
+          relevant_tags = ("ActivityManager", "ActivityTaskManager", "PackageManager", "Instrumentation", "AndroidRuntime")
+          relevant_terms = ("instrument", "not debuggable", "permission denial", "not allowed", "denied", "failed", "unable", "exception", "crash", "fatal", "start proc", "died", "com.melodix.music.preview")
+          log_lines = [
+              safe_line(line) for line in logcat_text.splitlines()
+              if any(tag.lower() in line.lower() for tag in relevant_tags)
+              and any(term in line.lower() for term in relevant_terms)
+          ][-16:]
+          result = []
+          result.append("activity_instrumentation=" + (" | ".join(activity_lines) or "none"))
+          result.append("system_logcat=" + (" | ".join(log_lines) or "none"))
+          print("; ".join(result)[:2600])
+          PY
+          )"
+            rm -f "$activity_dump" "$system_logcat"
+            echo "::error title=Android UI instrumentation::exit=$instrumentation_status; target_debuggable=$TARGET_DEBUGGABLE; safe_statuses=${safe_statuses:-none}; harness_markers=${safe_harness_logs:-none}; transcript_bytes=$transcript_bytes; $framework_summary; $system_diagnostics"
             exit 1
           fi
 
@@ -624,6 +700,7 @@ jobs:
           PACKAGE_ID: ${{ steps.apk.outputs.package_id }}
           VERSION_CODE: ${{ steps.apk.outputs.version_code }}
           VERSION_NAME: ${{ steps.apk.outputs.version_name }}
+          APK_DEBUGGABLE: ${{ steps.apk.outputs.target_debuggable }}
           INTEGRATION_OUTCOME: ${{ steps.integration.outcome }}
           POST_INSTRUMENTATION_OUTCOME: ${{ steps.post-instrumentation.outcome }}
           COLD_LAUNCH_OUTCOME: ${{ steps.cold-launch-inspection.outcome }}
@@ -636,6 +713,7 @@ jobs:
             echo "- Package: \`${PACKAGE_ID:-not verified}\`"
             echo "- versionName / versionCode: \`${VERSION_NAME:-unknown}\` / \`${VERSION_CODE:-unknown}\`"
             echo "- APK SHA-256: \`${APK_SHA256:-not verified}\`"
+            echo "- Exact target APK debuggable: \`${APK_DEBUGGABLE:-not verified}\`"
             echo "- Instrumentation outcome: \`${INTEGRATION_OUTCOME:-not run}\`"
             echo "- Post-instrumentation resumed activity/Home check: \`${POST_INSTRUMENTATION_OUTCOME:-not run}\`"
             echo "- Preserved cold-launch hierarchy/pixel check: \`${COLD_LAUNCH_OUTCOME:-not run}\`"

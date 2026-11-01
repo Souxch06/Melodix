@@ -152,6 +152,7 @@ jobs:
           VERSION_CODE: ${{ steps.release.outputs.version_code }}
           SOURCE_REF: ${{ steps.release.outputs.source_ref }}
           SHOULD_PUBLISH: ${{ steps.release.outputs.should_publish }}
+          BUILD_ONLY: ${{ inputs.build_only || false }}
           MELODIX_PREVIEW_KEYSTORE_B64: ${{ secrets.MELODIX_PREVIEW_KEYSTORE_B64 }}
           MELODIX_PREVIEW_KEYSTORE_PASSWORD: ${{ secrets.MELODIX_PREVIEW_KEYSTORE_PASSWORD }}
           MELODIX_PREVIEW_KEY_PASSWORD: ${{ secrets.MELODIX_PREVIEW_KEY_PASSWORD || secrets.MELODIX_PREVIEW_KEYSTORE_PASSWORD }}
@@ -211,11 +212,12 @@ jobs:
             exit 1
           fi
 
-          python3 - "$work_dir/AndroidManifest.xml" "$SOURCE_REF" <<'PY'
+          python3 - "$work_dir/AndroidManifest.xml" "$SOURCE_REF" "$BUILD_ONLY" <<'PY'
           import sys
           import xml.etree.ElementTree as ET
 
           BUILD_ID = sys.argv[2][:7]
+          BUILD_ONLY = sys.argv[3].lower() == "true"
 
           manifest_path = sys.argv[1]
           android_ns = "http://schemas.android.com/apk/res/android"
@@ -228,6 +230,15 @@ jobs:
           if root.get("package") != original_id:
               raise SystemExit("Unexpected base package id; refusing to rewrite the preview manifest.")
           root.set("package", preview_id)
+          if BUILD_ONLY:
+              # Android refuses to attach an instrumentation runner to a
+              # non-debuggable target. This ephemeral same-run test APK is not
+              # published; release builds retain the manifest's default.
+              application = root.find("application")
+              if application is None:
+                  raise SystemExit("Preview manifest has no application element")
+              application.set(android + "debuggable", "true")
+              print("::notice title=Preview CI instrumentation::ephemeral build-only APK is debuggable; release builds are unchanged")
 
           for element in root.iter():
               name = element.get(android + "name")

@@ -51,6 +51,11 @@ test("build-only Preview APK can update test.93 without publishing a tag or rele
   );
   assert.match(
     workflow,
+    /BUILD_ONLY: \$\{\{ inputs\.build_only \|\| false \}\}[\s\S]*?if BUILD_ONLY:[\s\S]*?application\.set\(android \+ "debuggable", "true"\)[\s\S]*?tree\.write/,
+    "only the ephemeral same-run APK is debuggable so Android can attach the integration harness; releases stay unchanged",
+  );
+  assert.match(
+    workflow,
     /should_publish='false'[\s\S]*?tag='v1\.2\.2-test\.92-preview'/,
     "push-only build verification keeps the Preview versionCode above the last published APK",
   );
@@ -63,6 +68,46 @@ test("build-only Preview APK can update test.93 without publishing a tag or rele
     workflow,
     /name: Create preview release and attach APK[\s\S]*?if: steps\.release\.outputs\.should_publish == 'true'/,
     "release creation stays conditional and skipped for build-only runs",
+  );
+});
+
+test("the emulator workflow checks the exact APK debuggable flag and captures redacted instrumentation diagnostics", () => {
+  const emulatorWorkflow = fs.readFileSync(
+    path.resolve(
+      __dirname,
+      "..",
+      ".github/workflows/test-preview-emulator.yml",
+    ),
+    "utf8",
+  );
+  assert.match(
+    emulatorWorkflow,
+    /aapt" dump xmltree "\$apk" AndroidManifest\.xml/,
+    "read debuggable from the exact same-run APK rather than infer it from source files",
+  );
+  assert.match(
+    emulatorWorkflow,
+    /target_debuggable="\$\(python3 -[\s\S]*?\[\[ "\$target_debuggable" == "true" \]\]/,
+    "refuse to start instrumentation unless the built APK reports debuggable=true",
+  );
+  assert.match(emulatorWorkflow, /dumpsys activity instrumentation/);
+  assert.match(
+    emulatorWorkflow,
+    /logcat -d -t 1200 -b main -b system -b crash -v threadtime[\s\S]*?ActivityManager:W ActivityTaskManager:W PackageManager:W Instrumentation:V AndroidRuntime:E/,
+  );
+  assert.match(
+    emulatorWorkflow,
+    /token_patterns = \([\s\S]*?<redacted>[\s\S]*?system_logcat=/,
+    "system diagnostics are filtered and secret-like values are redacted before entering workflow output",
+  );
+  assert.match(emulatorWorkflow, /rm -f "\$activity_dump" "\$system_logcat"/);
+  assert.match(
+    emulatorWorkflow,
+    /TARGET_DEBUGGABLE: \$\{\{ steps\.apk\.outputs\.target_debuggable \}\}[\s\S]*?target_debuggable=\$TARGET_DEBUGGABLE/,
+  );
+  assert.match(
+    emulatorWorkflow,
+    /APK_DEBUGGABLE: \$\{\{ steps\.apk\.outputs\.target_debuggable \}\}[\s\S]*?Exact target APK debuggable/,
   );
 });
 
