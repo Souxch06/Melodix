@@ -783,9 +783,13 @@ jobs:
             'INSTRUMENTATION_STATUS: configured_ua_chrome_major_matches_runtime=true'
             'INSTRUMENTATION_STATUS: browser_compatibility_warning_visible=false'
             'INSTRUMENTATION_STATUS: login_ui_visible_in_webview_dom=true'
+            'INSTRUMENTATION_STATUS: javascript_ua_profile_probe_error=false'
             'INSTRUMENTATION_STATUS: javascript_ua_profile_coherent=true'
             'INSTRUMENTATION_STATUS: webview_visible_and_measured=true'
             'INSTRUMENTATION_STATUS: phase=live_spotify_webview_css_probe'
+            'INSTRUMENTATION_STATUS: live_spotify_css_probe_completed=true'
+            'INSTRUMENTATION_STATUS: live_spotify_css_probe_error=false'
+            'INSTRUMENTATION_STATUS: live_spotify_css_probe_error_type=none'
             'INSTRUMENTATION_STATUS: live_spotify_host_confirmed=true'
             'INSTRUMENTATION_STATUS: live_webview_stylesheet_marker_present=true'
             'INSTRUMENTATION_STATUS: live_webview_css_tokens_valid=true'
@@ -1225,6 +1229,7 @@ jobs:
               "login_dom_probe_observed": login_dom_visible is not None,
               "browser_compatibility_warning_visible": status_bool("browser_compatibility_warning_visible"),
               "javascript_ua_profile_coherent": status_bool("javascript_ua_profile_coherent"),
+              "javascript_ua_profile_probe_error": status_bool("javascript_ua_profile_probe_error"),
               "configured_ua_chrome_major_matches_runtime": status_bool("configured_ua_chrome_major_matches_runtime"),
               "configured_ua_chrome_major": status_value("configured_ua_chrome_major"),
               "installed_webview_chrome_major": status_value("installed_webview_chrome_major"),
@@ -1252,6 +1257,9 @@ jobs:
               "client_hints_high_entropy_error_type": status_value("client_hints_high_entropy_error_type"),
               "client_hints_high_entropy_timed_out": status_bool("client_hints_high_entropy_timed_out"),
               "javascript_user_agent_probe_error_type": status_value("javascript_user_agent_probe_error_type"),
+              "live_spotify_css_probe_completed": status_bool("live_spotify_css_probe_completed"),
+              "live_spotify_css_probe_error": status_bool("live_spotify_css_probe_error"),
+              "live_spotify_css_probe_error_type": status_value("live_spotify_css_probe_error_type"),
               "live_spotify_origin_category": status_value("live_spotify_origin_category"),
               "live_spotify_host_confirmed": status_bool("live_spotify_host_confirmed"),
               "live_webview_stylesheet_marker_present": status_bool("live_webview_stylesheet_marker_present"),
@@ -1391,8 +1399,10 @@ jobs:
               "client_hints_platform_version", "client_hints_high_entropy_api_supported",
               "client_hints_high_entropy_complete", "client_hints_high_entropy_error",
               "client_hints_high_entropy_error_type", "client_hints_high_entropy_timed_out",
-              "javascript_user_agent_probe_error_type", "browser_compatibility_warning_visible",
-              "release_candidate_css_source_matches_apk_asset", "live_spotify_origin_category",
+              "javascript_user_agent_probe_error_type", "javascript_ua_profile_probe_error",
+              "browser_compatibility_warning_visible", "release_candidate_css_source_matches_apk_asset",
+              "live_spotify_css_probe_completed", "live_spotify_css_probe_error",
+              "live_spotify_css_probe_error_type", "live_spotify_origin_category",
               "live_webview_css_tokens_valid", "live_webview_home_active",
               "web_home_color_probe_fixture_test_only", "web_home_color_probe_completed",
               "web_home_color_probe_error", "web_home_color_probe_error_type",
@@ -1512,8 +1522,8 @@ jobs:
                   output.write(f"- Canonical CSS source SHA-256: `{reference.get('release_candidate_css_source_sha256') or 'not verified'}`\n")
                   output.write(f"- CSS asset SHA-256 extracted from the exact release candidate: `{reference.get('release_candidate_css_apk_asset_sha256') or 'not verified'}`; hash match: `{reference.get('release_candidate_css_source_matches_apk_asset')}`\n")
                   output.write(f"- Android: `{reference.get('android_release') or 'unknown'}` (API `{reference.get('android_api_level') or 'unknown'}`); WebView package/version: `{reference.get('installed_webview_package') or 'unknown'}` / `{reference.get('installed_webview_package_version') or 'unknown'}`; Chromium: `{reference.get('installed_webview_chrome_version') or 'unknown'}`\n")
-                  output.write(f"- Configured UA Chrome: `{reference.get('configured_ua_chrome_version') or 'unknown'}`; JavaScript UA Chrome/Android: `{reference.get('javascript_user_agent_chrome_version') or 'unknown'}` / `{reference.get('javascript_user_agent_android_version') or 'unknown'}`; Client Hints platform/brand/major/full version/platform version: `{reference.get('client_hints_platform') or 'unknown'}` / `{reference.get('client_hints_browser_brand') or 'unknown'}` / `{reference.get('client_hints_browser_major') or 'unknown'}` / `{reference.get('client_hints_full_browser_version') or 'unavailable'}` / `{reference.get('client_hints_platform_version') or 'unavailable'}`; high entropy supported/complete/error/type/timeout: `{reference.get('client_hints_high_entropy_api_supported')}` / `{reference.get('client_hints_high_entropy_complete')}` / `{reference.get('client_hints_high_entropy_error')}` / `{reference.get('client_hints_high_entropy_error_type') or 'none'}` / `{reference.get('client_hints_high_entropy_timed_out')}`; coherent: `{reference.get('javascript_ua_profile_coherent')}`\n")
-                  output.write(f"- Existing Spotify WebView origin category: `{reference.get('live_spotify_origin_category') or 'unknown'}`; CSS marker/tokens valid: `{reference.get('live_webview_stylesheet_marker_present')}` / `{reference.get('live_webview_css_tokens_valid')}`; Home active on unauthenticated login: `{reference.get('live_webview_home_active')}`; bridge present: `{reference.get('live_webview_bridge_present')}`\n")
+                  output.write(f"- Configured UA Chrome: `{reference.get('configured_ua_chrome_version') or 'unknown'}`; JavaScript UA Chrome/Android: `{reference.get('javascript_user_agent_chrome_version') or 'unknown'}` / `{reference.get('javascript_user_agent_android_version') or 'unknown'}`; Client Hints platform/brand/major/full version/platform version: `{reference.get('client_hints_platform') or 'unknown'}` / `{reference.get('client_hints_browser_brand') or 'unknown'}` / `{reference.get('client_hints_browser_major') or 'unknown'}` / `{reference.get('client_hints_full_browser_version') or 'unavailable'}` / `{reference.get('client_hints_platform_version') or 'unavailable'}`; high entropy supported/complete/error/type/timeout: `{reference.get('client_hints_high_entropy_api_supported')}` / `{reference.get('client_hints_high_entropy_complete')}` / `{reference.get('client_hints_high_entropy_error')}` / `{reference.get('client_hints_high_entropy_error_type') or 'none'}` / `{reference.get('client_hints_high_entropy_timed_out')}`; profile probe error/type/coherent: `{reference.get('javascript_ua_profile_probe_error')}` / `{reference.get('javascript_user_agent_probe_error_type') or 'none'}` / `{reference.get('javascript_ua_profile_coherent')}`\n")
+                  output.write(f"- Existing Spotify WebView origin category: `{reference.get('live_spotify_origin_category') or 'unknown'}`; CSS probe completed/error/type: `{reference.get('live_spotify_css_probe_completed')}` / `{reference.get('live_spotify_css_probe_error')}` / `{reference.get('live_spotify_css_probe_error_type') or 'none'}`; CSS marker/tokens valid: `{reference.get('live_webview_stylesheet_marker_present')}` / `{reference.get('live_webview_css_tokens_valid')}`; Home active on unauthenticated login: `{reference.get('live_webview_home_active')}`; bridge present: `{reference.get('live_webview_bridge_present')}`\n")
                   output.write(f"- Computed colors were measured only in the explicitly test-only WebView fixture; fixture flag: `{reference.get('web_home_color_probe_fixture_test_only')}`; probe completed/error/error type/validation passed: `{reference.get('web_home_color_probe_completed')}` / `{reference.get('web_home_color_probe_error')}` / `{reference.get('web_home_color_probe_error_type') or 'none'}` / `{reference.get('web_home_color_probe_validation_passed')}`; all five state probes complete: `{reference.get('web_home_color_scenarios_complete')}`; all measured pairs at least 4.5:1: `{reference.get('web_home_all_states_wcag_aa_pass')}`. Light theme available: `{reference.get('web_home_light_theme_available')}`.\n\n")
                   output.write("| Fixture state | Cards | Visible | WCAG AA | Lowest measured contrast |\n|---|---:|---|---|---:|\n")
                   for name, scenario in (reference.get("web_home_computed_color_states") or {}).items():

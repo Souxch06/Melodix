@@ -118,7 +118,7 @@ public final class HomeRenderInstrumentation extends Instrumentation {
             "library_status:status,raw_item_count:Math.min(Math.max(0,Number(window.__sfMediaLibRawItemCount)||0),3)," +
             "bridge_present:!!bridge,bridge_media_callback:!!(bridge&&typeof bridge.onMediaItemsLoaded==='function')," +
             "bridge_diag_callback:!!(bridge&&typeof bridge.logDiagEvent==='function')};" +
-            "}catch(e){return {probe_error:true};}})()";
+            "}catch(e){var name=String(e&&e.name||'Error');return {probe_error:true,probe_error_type:/^[A-Za-z0-9_$]+$/.test(name)?name.slice(0,48):'Error'};}})()";
     // This runs only in the explicitly marked, isolated renderer fixture. It
     // measures the cascade in Android's installed WebView engine, including
     // the darkest/lightest Home background endpoints and status/error washes.
@@ -692,27 +692,47 @@ public final class HomeRenderInstrumentation extends Instrumentation {
 
     private Bundle inspectJavascriptUserAgentProfile(WebView webView, Bundle runtimeProfile)
             throws InterruptedException {
-        JSONObject probe = new JSONObject(evaluateJavascriptAndWait(webView, JAVASCRIPT_UA_DIAGNOSTIC_PROBE));
+        JSONObject probe;
+        try {
+            probe = new JSONObject(evaluateJavascriptAndWait(webView, JAVASCRIPT_UA_DIAGNOSTIC_PROBE));
+        } catch (org.json.JSONException error) {
+            return javascriptUserAgentProbeFailure(safeExceptionType(error));
+        }
+        boolean resultProbeError = probe.optBoolean("probe_error", true);
+        String resultProbeErrorType = safeProbeErrorType(
+                probe.optString("probe_error_type", resultProbeError ? "ProbeError" : "none"));
+        boolean resultParseError = false;
+        String resultParseErrorType = "none";
         long highEntropyDeadline = System.currentTimeMillis() + 5000L;
         while (probe.optBoolean("client_hints_high_entropy_supported") &&
-                !probe.optBoolean("client_hints_high_entropy_complete") &&
+                !probe.optBoolean("client_hints_high_entropy_complete") && !resultProbeError &&
                 System.currentTimeMillis() < highEntropyDeadline) {
             Thread.sleep(100L);
             String latestResult = evaluateJavascriptAndWait(webView, JAVASCRIPT_UA_RESULT_PROBE);
             if (latestResult == null || "null".equals(latestResult)) break;
-            JSONObject latest = new JSONObject(latestResult);
-            if (!latest.optBoolean("probe_error", true)) probe = latest;
-            else break;
+            try {
+                JSONObject latest = new JSONObject(latestResult);
+                if (latest.optBoolean("probe_error", true)) {
+                    resultProbeError = true;
+                    resultProbeErrorType = safeProbeErrorType(latest.optString("probe_error_type", "ProbeError"));
+                    break;
+                }
+                probe = latest;
+            } catch (org.json.JSONException error) {
+                resultParseError = true;
+                resultParseErrorType = safeExceptionType(error);
+                break;
+            }
         }
-        boolean highEntropyTimedOut = probe.optBoolean("client_hints_high_entropy_supported") &&
+        boolean highEntropyTimedOut = !resultProbeError && !resultParseError &&
+                probe.optBoolean("client_hints_high_entropy_supported") &&
                 !probe.optBoolean("client_hints_high_entropy_complete");
         evaluateJavascriptAndWait(webView, "window.__sfMelodixRuntimeUaProbeV1=null;true");
         String javascriptVersion = probe.optString("user_agent_chrome_version", "");
         String javascriptMajor = majorVersion(javascriptVersion);
         String installedMajor = runtimeProfile.getString("installed_webview_chrome_major", "unavailable");
         boolean versionMatches = javascriptMajor != null && javascriptMajor.equals(installedMajor);
-        boolean coherent = !probe.optBoolean("probe_error", true) &&
-                probe.optBoolean("coherent") && versionMatches;
+        boolean coherent = !resultProbeError && !resultParseError && probe.optBoolean("coherent") && versionMatches;
         Bundle state = new Bundle();
         state.putString("phase", "javascript_webview_profile");
         state.putString("javascript_user_agent_chrome_version",
@@ -741,17 +761,73 @@ public final class HomeRenderInstrumentation extends Instrumentation {
         state.putBoolean("client_hints_high_entropy_error",
                 probe.optBoolean("client_hints_high_entropy_error"));
         state.putString("client_hints_high_entropy_error_type",
-                probe.optString("client_hints_high_entropy_error_type", "none"));
-        state.putString("javascript_user_agent_probe_error_type",
-                probe.optString("probe_error_type", "none"));
+                safeProbeErrorType(probe.optString("client_hints_high_entropy_error_type", "none")));
+        state.putBoolean("javascript_ua_profile_probe_error", resultProbeError || resultParseError);
+        state.putString("javascript_user_agent_probe_error_type", resultParseError
+                ? resultParseErrorType : resultProbeError ? resultProbeErrorType : "none");
         state.putBoolean("client_hints_high_entropy_timed_out", highEntropyTimedOut);
         state.putBoolean("javascript_ua_profile_coherent", coherent);
         return state;
     }
 
+    private Bundle javascriptUserAgentProbeFailure(String errorType) {
+        Bundle state = new Bundle();
+        state.putString("phase", "javascript_webview_profile");
+        state.putString("javascript_user_agent_chrome_version", "unavailable");
+        state.putString("javascript_user_agent_android_version", "unavailable");
+        state.putBoolean("javascript_chrome_major_matches_installed_webview", false);
+        state.putBoolean("client_hints_available", false);
+        state.putString("client_hints_platform", "unavailable");
+        state.putString("client_hints_browser_brand", "unavailable");
+        state.putString("client_hints_browser_major", "unavailable");
+        state.putString("client_hints_full_browser_version", "unavailable");
+        state.putString("client_hints_full_brand_version", "unavailable");
+        state.putString("client_hints_platform_version", "unavailable");
+        state.putBoolean("client_hints_high_entropy_api_supported", false);
+        state.putBoolean("client_hints_high_entropy_complete", false);
+        state.putBoolean("client_hints_high_entropy_error", false);
+        state.putString("client_hints_high_entropy_error_type", "none");
+        state.putBoolean("javascript_ua_profile_probe_error", true);
+        state.putString("javascript_user_agent_probe_error_type", safeProbeErrorType(errorType));
+        state.putBoolean("client_hints_high_entropy_timed_out", false);
+        state.putBoolean("javascript_ua_profile_coherent", false);
+        return state;
+    }
+
     private Bundle inspectLiveSpotifyCssTheme(WebView webView) throws InterruptedException {
-        JSONObject probe = new JSONObject(evaluateJavascriptAndWait(webView, LIVE_SPOTIFY_CSS_PROBE));
+        JSONObject probe;
+        try {
+            probe = new JSONObject(evaluateJavascriptAndWait(webView, LIVE_SPOTIFY_CSS_PROBE));
+        } catch (org.json.JSONException error) {
+            Bundle failed = new Bundle();
+            failed.putString("phase", "live_spotify_webview_css_probe");
+            failed.putBoolean("fixture_test_only", false);
+            failed.putBoolean("existing_spotify_webview_observed", true);
+            failed.putBoolean("live_spotify_css_probe_completed", false);
+            failed.putBoolean("live_spotify_css_probe_error", true);
+            failed.putString("live_spotify_css_probe_error_type", safeExceptionType(error));
+            failed.putString("live_spotify_origin_category", "other");
+            failed.putString("live_spotify_route_category", "other");
+            failed.putBoolean("live_spotify_host_confirmed", false);
+            failed.putBoolean("live_webview_stylesheet_marker_present", false);
+            failed.putBoolean("live_webview_css_tokens_valid", false);
+            failed.putInt("live_webview_css_token_count", 0);
+            failed.putBoolean("live_webview_home_present", false);
+            failed.putBoolean("live_webview_home_active", false);
+            failed.putBoolean("live_webview_home_display_flex", false);
+            failed.putBoolean("live_webview_session_proof", false);
+            failed.putString("live_webview_library_status", "unknown");
+            failed.putInt("live_webview_raw_item_count_capped", 0);
+            failed.putInt("live_webview_source_anchor_count_capped", 0);
+            failed.putBoolean("live_webview_source_main_present", false);
+            failed.putBoolean("live_webview_bridge_present", false);
+            failed.putBoolean("live_webview_bridge_media_callback_present", false);
+            failed.putBoolean("live_webview_bridge_diag_callback_present", false);
+            failed.putBoolean("authenticated_home_test_performed", false);
+            return failed;
+        }
         String host = probe.optString("host", "other");
+        boolean probeError = probe.optBoolean("probe_error", true);
         JSONObject tokens = probe.optJSONObject("tokens");
         String[] requiredTokens = new String[] {
                 "--mel-bg", "--mel-bg-2", "--mel-surface-light", "--mel-surface-light-2",
@@ -759,7 +835,7 @@ public final class HomeRenderInstrumentation extends Instrumentation {
                 "--mel-accent", "--mel-accent-wash-11", "--mel-home-status-wash",
                 "--mel-home-status-stroke", "--mel-home-status-error-wash", "--mel-home-status-error-stroke"
         };
-        boolean tokensValid = tokens != null && !probe.optBoolean("probe_error", true);
+        boolean tokensValid = tokens != null && !probeError;
         for (String name : requiredTokens) {
             String value = tokens == null ? "" : tokens.optString(name, "").trim();
             if (value.isEmpty() || value.toLowerCase().contains("var(")) tokensValid = false;
@@ -770,6 +846,10 @@ public final class HomeRenderInstrumentation extends Instrumentation {
         state.putString("phase", "live_spotify_webview_css_probe");
         state.putBoolean("fixture_test_only", false);
         state.putBoolean("existing_spotify_webview_observed", true);
+        state.putBoolean("live_spotify_css_probe_completed", true);
+        state.putBoolean("live_spotify_css_probe_error", probeError);
+        state.putString("live_spotify_css_probe_error_type", safeProbeErrorType(
+                probe.optString("probe_error_type", probeError ? "ProbeError" : "none")));
         state.putString("live_spotify_origin_category", host);
         state.putString("live_spotify_route_category", probe.optString("route_category", "other"));
         state.putBoolean("live_spotify_host_confirmed", spotifyHost);

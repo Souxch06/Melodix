@@ -294,6 +294,12 @@ test("Android verifies the packaged Web Home renderer on /app in an isolated, vi
   assert.match(harness, /result\.putBoolean\("authenticated_home_test_performed", false\)/);
   assert.match(harness, /inspectLiveSpotifyCssTheme\(webView\)[\s\S]*?live_webview_css_tokens_valid[\s\S]*?live_webview_home_active/,
     "the existing Spotify WebView is observed directly, without replacing its login content or claiming an authenticated Home");
+  assert.match(harness, /catch \(org\.json\.JSONException error\)[\s\S]*?javascriptUserAgentProbeFailure/,
+    "malformed JavaScript UA diagnostics are recorded as a safe failure instead of escaping the instrumentation harness");
+  assert.match(harness, /live_spotify_css_probe_completed[\s\S]*?live_spotify_css_probe_error[\s\S]*?safeExceptionType\(error\)/,
+    "live WebView probe parse errors remain visible in the redacted evidence");
+  assert.match(emulatorWorkflow, /INSTRUMENTATION_STATUS: javascript_ua_profile_probe_error=false[\s\S]*?INSTRUMENTATION_STATUS: live_spotify_css_probe_completed=true[\s\S]*?INSTRUMENTATION_STATUS: live_spotify_css_probe_error=false/,
+    "the Android workflow requires successful parsing of live WebView and UA probe evidence");
   for (const profileField of [
     "android_api_level", "android_release", "installed_webview_package_version",
     "configured_ua_chrome_version", "javascript_user_agent_chrome_version", "client_hints_platform"
