@@ -333,6 +333,11 @@ test("the emulator workflow validates same-run instrumentation and exact release
     'push-based Preview publication requires the explicit tag marker and still waits for every exact-APK validation');
   assert.match(emulatorWorkflow, /sha256sum -c "\$source_name\.sha256"[\s\S]*?cmp -s "\$RELEASE_APK" "\$final_apk"[\s\S]*?gh release create/);
   assert.match(emulatorWorkflow, /--target "\$SOURCE_REF"[\s\S]*?--prerelease/);
+  assert.ok(emulatorWorkflow.includes('gh api --include "repos/Souxch06/Melodix/git/ref/tags/$RELEASE_TAG"'));
+  assert.ok(emulatorWorkflow.includes("grep -qE '^HTTP/[0-9.]+ 404 Not Found$' <<< \"$tag_ref_response\""),
+    'an absent tag is distinguished from API permission or transport failures before publication');
+  assert.doesNotMatch(emulatorWorkflow, /existing_ref=.*gh api/,
+    'a GitHub 404 JSON body must never be mistaken for an existing tag');
   assert.match(emulatorWorkflow, /inputs\.publish_preview == true/);
   assert.doesNotMatch(
     emulatorWorkflow,

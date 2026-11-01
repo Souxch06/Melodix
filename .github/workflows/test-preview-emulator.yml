@@ -1406,8 +1406,14 @@ jobs:
             exit 1
           }
           test_number="${BASH_REMATCH[1]}"
-          existing_ref="$(gh api "repos/Souxch06/Melodix/git/ref/tags/$RELEASE_TAG" --jq .ref 2>/dev/null || true)"
-          [[ -z "$existing_ref" ]] || { echo "::error::Refusing to overwrite existing Preview tag $RELEASE_TAG."; exit 1; }
+          if tag_ref_response="$(gh api --include "repos/Souxch06/Melodix/git/ref/tags/$RELEASE_TAG" 2>&1)"; then
+            echo "::error::Refusing to overwrite existing Preview tag $RELEASE_TAG."
+            exit 1
+          fi
+          if ! grep -qE '^HTTP/[0-9.]+ 404 Not Found$' <<< "$tag_ref_response"; then
+            echo "::error::Unable to safely verify whether Preview tag $RELEASE_TAG already exists (GitHub API status was not 404)."
+            exit 1
+          fi
           release_dir="$RUNNER_TEMP/melodix-preview-release-candidate"
           source_name="$(basename "$RELEASE_APK")"
           (cd "$release_dir" && sha256sum -c "$source_name.sha256")
