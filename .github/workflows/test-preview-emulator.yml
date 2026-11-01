@@ -439,7 +439,35 @@ jobs:
             safe_statuses="$(grep -E '^INSTRUMENTATION_STATUS: (phase|authenticated_session|login_dom_probe_completed|login_ui_visible_in_webview_dom|webview_visible_and_measured|network_error_transition_recovered|original_webview_url_preserved|splash_hidden|native_home_hidden|home_payload_empty|playlist_or_card_injected|native_home_cards_attached|native_home_content_ready|native_content_container_empty|native_root_hidden|native_home_tab_not_shown|webview_container_visible|page_load_complete|failure_phase|failure_type|overall)=' "$state_dir/android-instrumentation.txt" | tr '\n' ';' | cut -c1-1200 || true)"
             safe_harness_logs="$(grep -E 'MelodixHarness: (started|phase=[a-z_]+|failure phase=[a-z_]+ type=[A-Za-z0-9_$]+|completed)$' "$state_dir/instrumentation-safe-logcat.txt" | sed -E 's/^.*MelodixHarness: //' | tr '\n' ';' | cut -c1-500 || true)"
             transcript_bytes="$(wc -c < "$state_dir/android-instrumentation.txt" | tr -d '[:space:]')"
-            echo "::error title=Android UI instrumentation::exit=$instrumentation_status; safe_statuses=${safe_statuses:-none}; harness_markers=${safe_harness_logs:-none}; transcript_bytes=$transcript_bytes"
+            framework_summary="$(python3 - "$state_dir/android-instrumentation.txt" <<'PY'
+          import pathlib
+          import re
+          import sys
+
+          text = pathlib.Path(sys.argv[1]).read_text(encoding="utf-8", errors="replace")
+          patterns = (
+              ("ClassNotFoundException", r"\bClassNotFoundException\b"),
+              ("NoClassDefFoundError", r"\bNoClassDefFoundError\b"),
+              ("SecurityException", r"\bSecurityException\b"),
+              ("PermissionDenied", r"Permission Denial"),
+              ("InstrumentationNotFound", r"Unable to find instrumentation|no instrumentation found"),
+              ("ActivityNotFoundException", r"\bActivityNotFoundException\b"),
+              ("IllegalAccessException", r"\bIllegalAccess(?:Exception|Error)\b"),
+              ("NullPointerException", r"\bNullPointerException\b"),
+              ("AssertionError", r"\bAssertionError\b"),
+              ("Timeout", r"\bTimeoutException\b|\btimed out\b"),
+              ("ProcessCrashed", r"Process crashed|\bCRASHED\b"),
+              ("RuntimeException", r"\bRuntimeException\b"),
+          )
+          category = next((name for name, pattern in patterns if re.search(pattern, text, re.I)), "unclassified")
+          result_keys = sorted(set(re.findall(r"^INSTRUMENTATION_RESULT: ([A-Za-z0-9_.-]+)=", text, re.M)))
+          status_count = len(re.findall(r"^INSTRUMENTATION_STATUS: ", text, re.M))
+          failed = bool(re.search(r"^INSTRUMENTATION_FAILED:", text, re.M))
+          code = bool(re.search(r"^INSTRUMENTATION_CODE: ", text, re.M))
+          print(f"framework_statuses={status_count}; result_keys={','.join(result_keys) or 'none'}; code_present={str(code).lower()}; failed_marker={str(failed).lower()}; failure_category={category}")
+          PY
+          )"
+            echo "::error title=Android UI instrumentation::exit=$instrumentation_status; safe_statuses=${safe_statuses:-none}; harness_markers=${safe_harness_logs:-none}; transcript_bytes=$transcript_bytes; $framework_summary"
             exit 1
           fi
 

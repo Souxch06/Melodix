@@ -160,6 +160,8 @@ test("the emulator workflow builds and tests one Preview APK in the same CI run"
     "Android harness crashes are read from a private safe-diagnostics log tag");
   assert.match(emulatorWorkflow, /harness_markers=\$\{safe_harness_logs/,
     "safe harness phase/type markers are included in the failure annotation");
+  assert.match(emulatorWorkflow, /framework_statuses=.*result_keys=.*failure_category=/,
+    "framework-level instrumentation failures expose only field names and an allowlisted error category");
   assert.match(emulatorWorkflow, /login_dom_visible=not_confirmed/,
     "missing instrumentation output is not misreported as a negative login DOM observation");
   assert.match(emulatorWorkflow, /login_dom_probe_observed/,
