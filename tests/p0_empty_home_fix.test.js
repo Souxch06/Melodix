@@ -1,13 +1,8 @@
 // [contrat][structurel][A TESTER SUR ANDROID]
-// Ces contrôles suivent les gates actuels entre les lignes Spotify collectées,
-// le bridge et la demande d'affichage native. Ils ne démontrent pas la cause
-// de l'écran signalé et ne prouvent pas qu'un compte Spotify a été authentifié.
-//
-// Le renderer ne marque que nativeHomeCardsAttached après addView. Le flag
-// distinct nativeHomeContentReady n'est fixé qu'après la mesure de la carte,
-// sa visibilité globale, l'ordre/élévation du root, puis le retrait du splash.
-// Les tests Smali restent structurels; l'instrumentation Android vérifie la
-// hiérarchie et les pixels de la surface WebView de repli, sans playlist fictive.
+// Home peut afficher des cartes Spotify réelles, ou un état non-playlist après
+// preuve de session; une charge vide brute ne peut jamais masquer le WebView.
+// Ces assertions suivent les gates sources, tandis que l'instrumentation Android
+// vérifie séparément la hiérarchie et les pixels des chemins WebView et état natif.
 const test = require('node:test');
 const assert = require('node:assert');
 const fs = require('node:fs');
@@ -16,19 +11,28 @@ const path = require('node:path');
 const root = path.join(__dirname, '..');
 const read = (p) => fs.readFileSync(path.join(root, p), 'utf8');
 
-test('[P0] notifyNativeUiReady refuses Home without collected real rows sent to the bridge', () => {
+test('[P0] zero Home cards may render only an explicit state after session proof', () => {
   const shell = read('scripts/native_ui_shell.source.js');
   const start = shell.indexOf('function notifyNativeUiReady(');
   assert.ok(start >= 0, 'notifyNativeUiReady existe');
   const body = shell.slice(start, shell.indexOf('\n    function ', start + 10));
-  assert.ok(body.includes('__sfNativeUiHomeRowsCount'), 'le nombre de rows est observe');
-  assert.ok(body.includes('__sfNativeUiHomeDataSent'), 'la livraison du feed au bridge est confirmee');
-  assert.ok(body.includes('isSpotifyHome()'), 'seule la route Home exige des lignes collectées');
-  assert.match(body, /ready-pending home rows=/, 'le refus est diagnostique et borné');
-  assert.match(body, /action=keep-spotify-visible/, 'l’action de repli est explicite');
-  assert.match(body, /return false;/, 'aucun signal ready n’est emis avec zero carte');
-  assert.ok(!body.includes('ready-early'), 'plus de takeover precoce sur un feed vide');
-  assert.ok(shell.includes('function homeStatePayload('), 'les états de bibliothèque restent diagnostiquables');
+  assert.match(body, /homeContentProven = isSpotifyHome\(\)[\s\S]*?HomeRowsCount[\s\S]*?HomeDataSent/,
+    'les cartes restent fondées sur des lignes réellement envoyées');
+  assert.match(body, /homeStateProven = isSpotifyHome\(\) && sessionProven[\s\S]*?HomeStateSent/,
+    'un état ne prouve Home que si la session et son payload explicite sont confirmés');
+  assert.match(body, /if \(isSpotifyHome\(\) && !homeContentProven && !homeStateProven\)/,
+    'un payload vide ou échoué ne satisfait aucun des deux chemins');
+  assert.match(body, /action=keep-spotify-visible/, 'le refus conserve Spotify visible');
+  assert.ok(shell.includes("function pageHasSessionEvidence()"), 'le même signal profil/bibliothèque est utilisé au moment de l’envoi');
+  const state = shell.slice(shell.indexOf('function homeStateRow()'), shell.indexOf('function homeStatePayload()'));
+  assert.match(state, /kind: 'state'/);
+  assert.doesNotMatch(state, /spotify:(?:playlist|album|artist|track):/,
+    'un état n’invente ni URI ni contenu musical');
+  const updateStart = shell.indexOf('function updateHomeRows(');
+  const update = shell.slice(updateStart, shell.indexOf('\n    function ', updateStart + 10));
+  assert.match(update, /pageHasSessionEvidence\(\)[\s\S]*?sendNativeUiData\('home', statePayload\)[\s\S]*?HomeStateSent = true/);
+  assert.match(update, /Empty data is a clear\/fallback signal[\s\S]*?sendNativeUiData\('home', \[\]\)/,
+    'without session evidence, only an empty clear/fallback payload is sent');
 });
 
 test('[P0] runUpdate envoie route, rows, puis readiness dans cet ordre', () => {

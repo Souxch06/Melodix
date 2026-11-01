@@ -11,6 +11,7 @@ import android.graphics.Rect;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.View;
+import android.view.ViewGroup;
 import android.view.accessibility.AccessibilityEvent;
 import android.view.accessibility.AccessibilityNodeInfo;
 import android.webkit.ValueCallback;
@@ -28,9 +29,10 @@ import java.util.concurrent.TimeUnit;
 /**
  * Android integration test for the exact Preview APK built by the same CI run.
  *
- * It verifies the unauthenticated WebView/login surface and then sends an empty
- * Home payload through the real AndBridge callbacks. No playlist, title, URI,
- * credentials, cookies, or account content are fabricated or substituted.
+ * It verifies the unauthenticated WebView/login surface and empty-Home fallback,
+ * then exercises the native status renderer with a status-only test payload.
+ * The fixture contains no Spotify resource/playlist, credentials, cookies, or
+ * substituted account content; it does not claim an authenticated Home test.
  */
 public final class HomeRenderInstrumentation extends Instrumentation {
     private static final String TARGET_PACKAGE = "com.melodix.music.preview";
@@ -92,6 +94,15 @@ public final class HomeRenderInstrumentation extends Instrumentation {
             failurePhase = "await_webview";
             notePhase(failurePhase);
             WebView webView = awaitStableWebView(activity);
+            final String[] originalWebViewUrlHolder = new String[1];
+            runOnMainSync(new Runnable() {
+                @Override
+                public void run() {
+                    originalWebViewUrlHolder[0] = webView.getUrl();
+                }
+            });
+            if (originalWebViewUrlHolder[0] == null) throw new AssertionError("The original WebView URL is unavailable");
+            final String originalWebViewUrl = originalWebViewUrlHolder[0];
             failurePhase = "verify_runtime_webview_profile";
             notePhase(failurePhase);
             final Bundle[] runtimeProfile = new Bundle[1];
@@ -182,8 +193,99 @@ public final class HomeRenderInstrumentation extends Instrumentation {
             captureEmptyHomeUiEvidence();
             Log.i(HARNESS_TAG, "empty_home_evidence_captured");
 
-            Bundle result = new Bundle(fallbackState[0]);
+            // Renderer-only fixture: it is an explicit state panel, not a
+            // playlist/card or authentication signal. The clean session stays
+            // unauthenticated throughout this isolated bridge exercise.
+            failurePhase = "home_status_renderer_dispatch";
+            notePhase(failurePhase);
+            requireUnauthenticatedSession(activity);
+            final Throwable[] statusDispatchFailure = new Throwable[1];
+            runOnMainSync(new Runnable() {
+                @Override
+                public void run() {
+                    try {
+                        dispatchHomeStatusThroughAndBridge(activity);
+                    } catch (Throwable error) {
+                        statusDispatchFailure[0] = error;
+                    }
+                }
+            });
+            if (statusDispatchFailure[0] != null) throw statusDispatchFailure[0];
+
+            failurePhase = "home_status_renderer_visibility";
+            notePhase(failurePhase);
+            awaitNativeHomeStatusReady(activity);
+            final Bundle[] statusState = new Bundle[1];
+            final Throwable[] statusFailure = new Throwable[1];
+            runOnMainSync(new Runnable() {
+                @Override
+                public void run() {
+                    try {
+                        statusState[0] = inspectHomeStatus(activity, webView, originalWebViewUrl);
+                    } catch (Throwable error) {
+                        statusFailure[0] = error;
+                    }
+                }
+            });
+            if (statusFailure[0] != null) throw statusFailure[0];
+            sendStatus(1, statusState[0]);
+
+            failurePhase = "capture_home_status_evidence";
+            notePhase(failurePhase);
+            captureHomeStatusUiEvidence();
+            Log.i(HARNESS_TAG, "home_status_evidence_captured");
+
+            // Clear the status through the same bridge path and confirm that
+            // the already-loaded unauthenticated Spotify login returns intact.
+            failurePhase = "restore_login_after_status";
+            notePhase(failurePhase);
+            final Throwable[] clearFailure = new Throwable[1];
+            runOnMainSync(new Runnable() {
+                @Override
+                public void run() {
+                    try {
+                        dispatchEmptyHomeThroughAndBridge(activity);
+                    } catch (Throwable error) {
+                        clearFailure[0] = error;
+                    }
+                }
+            });
+            if (clearFailure[0] != null) throw clearFailure[0];
+            waitForIdleSync();
+            Thread.sleep(250L);
+            boolean loginRestored = awaitLoginUiVisible(webView);
+            final Bundle[] restoredState = new Bundle[1];
+            final Throwable[] restoredFailure = new Throwable[1];
+            runOnMainSync(new Runnable() {
+                @Override
+                public void run() {
+                    try {
+                        restoredState[0] = inspectEmptyHomeFallback(activity, webView);
+                    } catch (Throwable error) {
+                        restoredFailure[0] = error;
+                    }
+                }
+            });
+            if (restoredFailure[0] != null) throw restoredFailure[0];
+            requireUnauthenticatedSession(activity);
+            final String[] restoredUrl = new String[1];
+            runOnMainSync(new Runnable() {
+                @Override
+                public void run() {
+                    restoredUrl[0] = webView.getUrl();
+                }
+            });
+            if (!loginRestored || !equalsNullable(originalWebViewUrl, restoredUrl[0])) {
+                throw new AssertionError("Status renderer did not restore the existing login WebView");
+            }
+            restoredState[0].putBoolean("login_surface_restored_after_status", true);
+
+            Bundle result = new Bundle(restoredState[0]);
             result.putBoolean("empty_home_evidence_captured", true);
+            result.putBoolean("home_status_evidence_captured", true);
+            result.putBoolean("home_status_payload_fixture_non_playlist", true);
+            result.putBoolean("login_surface_restored_after_status", true);
+            result.putBoolean("authenticated_home_test_performed", false);
             result.putString("overall", "passed");
             sendStatus(1, result);
             Log.i(HARNESS_TAG, "completed");
@@ -408,6 +510,14 @@ public final class HomeRenderInstrumentation extends Instrumentation {
     }
 
     private void captureEmptyHomeUiEvidence() throws Exception {
+        captureUiEvidence("melodix-preview-home-fallback.xml", "melodix-preview-home-empty.png", "empty-Home");
+    }
+
+    private void captureHomeStatusUiEvidence() throws Exception {
+        captureUiEvidence("melodix-preview-home-status.xml", "melodix-preview-home-status.png", "Home-status");
+    }
+
+    private void captureUiEvidence(String hierarchyName, String screenshotName, String phase) throws Exception {
         UiAutomation automation = getUiAutomation();
         AccessibilityServiceInfo serviceInfo = new AccessibilityServiceInfo();
         serviceInfo.eventTypes = AccessibilityEvent.TYPES_ALL_MASK;
@@ -418,7 +528,7 @@ public final class HomeRenderInstrumentation extends Instrumentation {
         automation.setServiceInfo(serviceInfo);
         AccessibilityNodeInfo root = automation.getRootInActiveWindow();
         if (root == null) {
-            throw new AssertionError("Android UI hierarchy was unavailable during the empty-Home phase");
+            throw new AssertionError("Android UI hierarchy was unavailable during the " + phase + " phase");
         }
         StringBuilder hierarchy = new StringBuilder("<?xml version=\"1.0\" encoding=\"UTF-8\"?><hierarchy>");
         try {
@@ -427,20 +537,18 @@ public final class HomeRenderInstrumentation extends Instrumentation {
             root.recycle();
         }
         hierarchy.append("</hierarchy>");
-        try (FileOutputStream output = getTargetContext().openFileOutput(
-                "melodix-preview-home-fallback.xml", Context.MODE_PRIVATE)) {
+        try (FileOutputStream output = getTargetContext().openFileOutput(hierarchyName, Context.MODE_PRIVATE)) {
             output.write(hierarchy.toString().getBytes("UTF-8"));
         }
 
         Bitmap screenshot = automation.takeScreenshot();
         if (screenshot == null) {
-            throw new AssertionError("Android screenshot was unavailable during the empty-Home phase");
+            throw new AssertionError("Android screenshot was unavailable during the " + phase + " phase");
         }
         try {
-            try (FileOutputStream output = getTargetContext().openFileOutput(
-                    "melodix-preview-home-empty.png", Context.MODE_PRIVATE)) {
+            try (FileOutputStream output = getTargetContext().openFileOutput(screenshotName, Context.MODE_PRIVATE)) {
                 if (!screenshot.compress(Bitmap.CompressFormat.PNG, 100, output)) {
-                    throw new AssertionError("Could not encode the empty-Home screenshot");
+                    throw new AssertionError("Could not encode the " + phase + " screenshot");
                 }
             }
         } finally {
@@ -492,13 +600,119 @@ public final class HomeRenderInstrumentation extends Instrumentation {
         Object bridge = bridgeClass.getConstructor(Context.class).newInstance(activity);
         Method route = bridgeClass.getMethod("onNativeUiRoute", String.class);
         Method data = bridgeClass.getMethod("onNativeUiData", String.class, String.class);
-        Method ready = bridgeClass.getMethod("onNativeUiReady");
 
         // This is an empty control payload, not a synthetic playlist/card. It
-        // exercises the exact native no-content path without changing session.
+        // exercises the native no-content fallback without requesting readiness.
         route.invoke(bridge, "home");
         data.invoke(bridge, "home", "[]");
-        ready.invoke(bridge);
+    }
+
+    private void dispatchHomeStatusThroughAndBridge(Activity activity) throws Exception {
+        ClassLoader loader = activity.getClassLoader();
+        Class<?> bridgeClass = loader.loadClass("com.melodix.music.AndBridge");
+        Object bridge = bridgeClass.getConstructor(Context.class).newInstance(activity);
+        Method route = bridgeClass.getMethod("onNativeUiRoute", String.class);
+        Method data = bridgeClass.getMethod("onNativeUiData", String.class, String.class);
+        String statusOnlyPayload = "[{\"kind\":\"state\",\"state\":\"loading\","
+                + "\"title\":\"Chargement de votre accueil…\","
+                + "\"subtitle\":\"État de test du renderer natif.\","
+                + "\"section\":\"Accueil\",\"image\":\"\",\"uri\":\"\"}]";
+        if (statusOnlyPayload.contains("spotify:") || statusOnlyPayload.contains("playlist")) {
+            throw new AssertionError("The status renderer fixture must not contain Spotify resources");
+        }
+        // This test-only non-playlist payload never invokes onNativeUiReady or
+        // sets auth/readiness flags; the renderer must attach it and the native
+        // measurement path must prove visibility before readiness can appear.
+        route.invoke(bridge, "home");
+        data.invoke(bridge, "home", statusOnlyPayload);
+    }
+
+    private void awaitNativeHomeStatusReady(final Activity activity) throws InterruptedException {
+        long deadline = System.currentTimeMillis() + 10000L;
+        while (System.currentTimeMillis() < deadline) {
+            final boolean[] ready = new boolean[1];
+            final Throwable[] failure = new Throwable[1];
+            runOnMainSync(new Runnable() {
+                @Override
+                public void run() {
+                    try {
+                        ready[0] = readBooleanField(activity, "nativeHomeStatusAttached")
+                                && readBooleanField(activity, "nativeHomeContentReady");
+                    } catch (Throwable error) {
+                        failure[0] = error;
+                    }
+                }
+            });
+            if (failure[0] != null) throw new AssertionError("Could not read Home status visibility state");
+            if (ready[0]) return;
+            waitForIdleSync();
+            Thread.sleep(100L);
+        }
+        throw new AssertionError("Native Home status view did not become measured and visible");
+    }
+
+    private Bundle inspectHomeStatus(Activity activity, WebView webView, String originalUrl) throws Exception {
+        View nativeRoot = requiredView(activity, "nativeRoot");
+        View splash = requiredView(activity, "splashOverlay");
+        View webContainer = requiredView(activity, "webViewContainer");
+        View nativeHomeTab = requiredView(activity, "nativeHomeTab");
+        View nativeContent = requiredView(activity, "nativeContent");
+        View statusView = readViewField(activity, "nativeHomeStatusView");
+
+        Rect rootBounds = visibleBounds(nativeRoot);
+        Rect statusBounds = visibleBounds(statusView);
+        boolean rootVisible = rootBounds != null;
+        boolean statusAttached = readBooleanField(activity, "nativeHomeStatusAttached");
+        boolean cardsAttached = readBooleanField(activity, "nativeHomeCardsAttached");
+        boolean contentReady = readBooleanField(activity, "nativeHomeContentReady");
+        boolean titleVisible = containsText(statusView, "Chargement de votre accueil");
+        boolean splashHidden = splash.getVisibility() == View.GONE;
+        boolean homeTabVisible = nativeHomeTab.isShown();
+        boolean webContainerVisible = webContainer.getVisibility() == View.VISIBLE;
+        boolean statusIsChild = statusView != null && statusView.getParent() == nativeContent;
+        boolean sameWebViewUrl = equalsNullable(originalUrl, webView.getUrl());
+        String currentScreen = readStringField(activity, "nativeCurrentScreen");
+        requireUnauthenticatedSession(activity);
+        if (!rootVisible || statusBounds == null || !statusAttached || cardsAttached || !contentReady
+                || !titleVisible || !splashHidden || !homeTabVisible || !webContainerVisible
+                || !statusIsChild || !sameWebViewUrl || !"home".equals(currentScreen)) {
+            throw new AssertionError("The non-playlist Home status view was not attached, measured, and visible");
+        }
+
+        Bundle state = new Bundle();
+        state.putString("phase", "home_status_renderer");
+        state.putBoolean("authenticated_session", false);
+        state.putBoolean("home_status_payload_fixture_non_playlist", true);
+        state.putBoolean("playlist_or_card_injected", false);
+        state.putBoolean("native_home_cards_attached", false);
+        state.putBoolean("native_home_status_attached", true);
+        state.putBoolean("native_home_status_visible", true);
+        state.putBoolean("native_home_status_message_visible_in_hierarchy", true);
+        state.putBoolean("native_home_content_ready", true);
+        state.putBoolean("native_root_visible", true);
+        state.putBoolean("native_home_tab_visible", true);
+        state.putBoolean("splash_hidden", true);
+        state.putBoolean("webview_container_visible_under_native_root", true);
+        state.putBoolean("original_webview_url_preserved", true);
+        state.putBoolean("page_load_complete", webView.getProgress() == 100);
+        putBounds(state, "native_status_visible", statusBounds);
+        putBounds(state, "native_root_visible", rootBounds);
+        return state;
+    }
+
+    private boolean containsText(View view, String expected) {
+        if (view == null) return false;
+        if (view instanceof TextView) {
+            CharSequence text = ((TextView) view).getText();
+            return text != null && text.toString().contains(expected);
+        }
+        if (view instanceof ViewGroup) {
+            ViewGroup group = (ViewGroup) view;
+            for (int index = 0; index < group.getChildCount(); index++) {
+                if (containsText(group.getChildAt(index), expected)) return true;
+            }
+        }
+        return false;
     }
 
     private Bundle inspectEmptyHomeFallback(Activity activity, WebView webView) throws Exception {
@@ -514,13 +728,14 @@ public final class HomeRenderInstrumentation extends Instrumentation {
         boolean splashHidden = splash.getVisibility() == View.GONE;
         boolean webContainerVisible = webContainer.getVisibility() == View.VISIBLE;
         boolean noHomeCardsAttached = !readBooleanField(activity, "nativeHomeCardsAttached");
+        boolean noHomeStatusAttached = !readBooleanField(activity, "nativeHomeStatusAttached");
         boolean noVisibleHomeContent = !readBooleanField(activity, "nativeHomeContentReady");
         boolean noNativeChildren = nativeContent instanceof LinearLayout
                 && ((LinearLayout) nativeContent).getChildCount() == 0;
         String currentScreen = readStringField(activity, "nativeCurrentScreen");
         if (webBounds == null || !rootHidden || !homeTabNotShown || !splashHidden
-                || !webContainerVisible || !noHomeCardsAttached || !noVisibleHomeContent
-                || !noNativeChildren || !"home".equals(currentScreen)) {
+                || !webContainerVisible || !noHomeCardsAttached || !noHomeStatusAttached
+                || !noVisibleHomeContent || !noNativeChildren || !"home".equals(currentScreen)) {
             throw new AssertionError("Empty Home did not fail safely back to the visible WebView");
         }
 
@@ -531,6 +746,7 @@ public final class HomeRenderInstrumentation extends Instrumentation {
         state.putBoolean("home_payload_empty", true);
         state.putBoolean("playlist_or_card_injected", false);
         state.putBoolean("native_home_cards_attached", false);
+        state.putBoolean("native_home_status_attached", false);
         state.putBoolean("native_home_content_ready", false);
         state.putBoolean("native_content_container_empty", true);
         state.putBoolean("native_root_hidden", true);
@@ -591,6 +807,13 @@ public final class HomeRenderInstrumentation extends Instrumentation {
         Field field = activity.getClass().getDeclaredField(name);
         field.setAccessible(true);
         return field.getBoolean(activity);
+    }
+
+    private View readViewField(Activity activity, String name) throws Exception {
+        Field field = activity.getClass().getDeclaredField(name);
+        field.setAccessible(true);
+        Object value = field.get(activity);
+        return value instanceof View ? (View) value : null;
     }
 
     private String readStringField(Activity activity, String name) throws Exception {

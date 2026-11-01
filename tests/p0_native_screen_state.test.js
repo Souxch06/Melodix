@@ -41,8 +41,10 @@ function executeSetNativeScreen(
         nativeCurrentScreen: previousScreen,
         nativeFadeNextScreen: previousFade,
         nativeHomeCardsAttached: Boolean(previousHomeState.nativeHomeCardsAttached),
+        nativeHomeStatusAttached: Boolean(previousHomeState.nativeHomeStatusAttached),
         nativeHomeContentReady: Boolean(previousHomeState.nativeHomeContentReady),
         nativeHomeFirstCard: previousHomeState.nativeHomeFirstCard || null,
+        nativeHomeStatusView: previousHomeState.nativeHomeStatusView || null,
         contentSentinel
     };
     const registers = { p0: state, p1: destination };
@@ -121,12 +123,12 @@ function executeSetNativeScreen(
             fadeValueAtStore = state.nativeFadeNextScreen;
             continue;
         }
-        if ((match = /^iput-boolean (\w+), p0, .*->(nativeHomeCardsAttached|nativeHomeContentReady):Z$/.exec(instruction))) {
+        if ((match = /^iput-boolean (\w+), p0, .*->(nativeHomeCardsAttached|nativeHomeStatusAttached|nativeHomeContentReady):Z$/.exec(instruction))) {
             state[match[2]] = Boolean(registers[match[1]]);
             continue;
         }
-        if ((match = /^iput-object (\w+), p0, .*->nativeHomeFirstCard:Landroid\/view\/View;$/.exec(instruction))) {
-            state.nativeHomeFirstCard = registers[match[1]] === 0 ? null : registers[match[1]];
+        if ((match = /^iput-object (\w+), p0, .*->(nativeHomeFirstCard|nativeHomeStatusView):Landroid\/view\/View;$/.exec(instruction))) {
+            state[match[2]] = registers[match[1]] === 0 ? null : registers[match[1]];
             continue;
         }
         if ((match = /^iput-object (\w+), p0, .*->nativeCurrentScreen:Ljava\/lang\/String;$/.exec(instruction))) {
@@ -154,6 +156,7 @@ test('D2 — repeated Home destination is idempotent and preserves existing cont
     const cardSentinel = { attached: true };
     const previousHomeState = {
         nativeHomeCardsAttached: true,
+        nativeHomeStatusAttached: false,
         nativeHomeContentReady: true,
         nativeHomeFirstCard: cardSentinel
     };
@@ -170,16 +173,20 @@ test('D2 — repeated Home destination is idempotent and preserves existing cont
 test('D3 — a genuine Home to Search change stores the route and schedules a fade', () => {
     const previousHomeState = {
         nativeHomeCardsAttached: true,
+        nativeHomeStatusAttached: true,
         nativeHomeContentReady: true,
-        nativeHomeFirstCard: { attached: true }
+        nativeHomeFirstCard: { attached: true },
+        nativeHomeStatusView: { attached: true }
     };
     const result = executeSetNativeScreen('home', 'search', false, { value: 'unchanged' }, previousHomeState);
     assert.equal(result.state.nativeCurrentScreen, 'search');
     assert.equal(result.fadeValueAtStore, true, 'different destination schedules the transition fade');
     assert.equal(result.state.nativeFadeNextScreen, true);
-    assert.equal(result.state.nativeHomeCardsAttached, false, 'leaving Home invalidates attachment state');
+    assert.equal(result.state.nativeHomeCardsAttached, false, 'leaving Home invalidates card attachment state');
+    assert.equal(result.state.nativeHomeStatusAttached, false, 'leaving Home invalidates status attachment state');
     assert.equal(result.state.nativeHomeContentReady, false, 'leaving Home invalidates visibility readiness');
     assert.equal(result.state.nativeHomeFirstCard, null, 'leaving Home drops the stale card reference');
+    assert.equal(result.state.nativeHomeStatusView, null, 'leaving Home drops the stale status reference');
 });
 
 test('invalid null/empty/URL destinations do not overwrite the last valid route', () => {
@@ -279,8 +286,8 @@ function executeHomeReadinessGate(activity) {
         '.method public final showNativeUi()V');
     const homeCheck = method.indexOf(':show_native_root');
     const homeGate = method.indexOf(':native_home_ready_check', homeCheck);
-    const readyRead = method.indexOf('->nativeHomeCardsAttached:Z', homeGate);
-    const blocked = method.indexOf('native-shell-show-blocked reason=home-cards-not-attached', readyRead);
+    const readyRead = method.indexOf('hasNativeHomeContentAttached()Z', homeGate);
+    const blocked = method.indexOf('native-shell-show-blocked reason=home-content-not-attached', readyRead);
     const webFallback = method.indexOf('->revealWebUi()V', blocked);
     const rootLookup = method.indexOf('\n    :native_root_lookup\n', readyRead);
     assert.ok(homeCheck >= 0 && homeGate > homeCheck && readyRead > homeGate &&
@@ -289,7 +296,8 @@ function executeHomeReadinessGate(activity) {
 
     const homeOrUninitialized = activity.nativeCurrentScreen == null ||
         activity.nativeCurrentScreen === 'home';
-    if (homeOrUninitialized && !activity.nativeHomeCardsAttached) {
+    const contentAttached = Boolean(activity.nativeHomeCardsAttached || activity.nativeHomeStatusAttached);
+    if (homeOrUninitialized && !contentAttached) {
         activity.webViewVisible = true;
         activity.nativeRootVisibilityRequested = false;
         activity.nativeRootVisible = false;
@@ -309,6 +317,7 @@ test('D4 — Home route queued before readiness is applied; empty Home keeps the
         nativeCurrentScreen: null,
         nativeFadeNextScreen: false,
         nativeHomeCardsAttached: false,
+        nativeHomeStatusAttached: false,
         contentSentinel,
         webViewVisible: true,
         nativeRootVisible: false,
@@ -355,6 +364,7 @@ test('D6 — attached real cards allow only an async Home root request, not a re
         nativeCurrentScreen: 'home',
         nativeFadeNextScreen: false,
         nativeHomeCardsAttached: true,
+        nativeHomeStatusAttached: false,
         contentSentinel: { value: 'renderer-owned-content' },
         webViewVisible: true,
         nativeRootVisibilityRequested: false,
@@ -368,6 +378,27 @@ test('D6 — attached real cards allow only an async Home root request, not a re
     assert.equal(activity.nativeRootVisibilityRequested, true);
     assert.equal(activity.nativeRootVisible, false,
         'only a later Android visibility check can confirm pixels');
+});
+
+test('D6b — an attached explicit status view can request Home, but never sets the card flag', () => {
+    const activity = {
+        nativeCurrentScreen: 'home',
+        nativeFadeNextScreen: false,
+        nativeHomeCardsAttached: false,
+        nativeHomeStatusAttached: true,
+        contentSentinel: { value: 'renderer-owned-status' },
+        webViewVisible: true,
+        nativeRootVisibilityRequested: false,
+        nativeRootVisible: false,
+        showCalls: 0
+    };
+    executeUiUpdateRunnable(activity, '', 0);
+    assert.equal(activity.showResult, 'native-root-requested');
+    assert.equal(activity.nativeHomeCardsAttached, false,
+        'an empty/loading/error state is not mislabeled as a Spotify card');
+    assert.equal(activity.nativeHomeStatusAttached, true);
+    assert.equal(activity.nativeHomeContentReady, undefined,
+        'the status view is not pixel-ready until the Android measurement callback runs');
 });
 
 function executeNativeBackClick(activity) {
@@ -470,7 +501,7 @@ test('D7 — native Back restores the prior Library route, search state, title, 
     ]);
 });
 
-test('trace distinguishes attached Home cards from a measured, visible native root', () => {
+test('trace separates attached Home cards/status from measured visible native content', () => {
     const apply = extractMethod(ACTIVITY, '.method public final applyNativeUiData(');
     const received = apply.indexOf('"native-home-data-received"');
     const renderCall = apply.indexOf('->renderNativeRows(Ljava/lang/String;Ljava/lang/String;)V', received);
@@ -485,18 +516,21 @@ test('trace distinguishes attached Home cards from a measured, visible native ro
     const showNative = renderer.indexOf('->showNativeUi()V', attachedStage);
     assert.ok(addCard >= 0 && markAttached > addCard && attachedStage > markAttached &&
         showNative > attachedStage,
-    'the renderer reports attachment only, then requests the asynchronous visibility gate');
+    'real Spotify cards report attachment before requesting the asynchronous visibility gate');
+    assert.match(renderer, /renderHomeStatus[\s\S]*?native-home-status-attached[\s\S]*?showNativeUi\(\)V/,
+        'explicit status panels have a separate attachment path');
     assert.doesNotMatch(renderer, /nativeHomeContentReady:Z|"home-rendered"/,
         'the renderer cannot turn addView into a pixel-visible success flag');
 
     const visible = extractMethod(ACTIVITY, '.method public final completeNativeUiVisibility(Z)Z');
-    const firstCardCheck = visible.indexOf('hasMeasuredVisibleNativeHomeCard()Z');
+    const firstContentCheck = visible.indexOf('hasMeasuredVisibleNativeHomeContent()Z');
     const splashHidden = visible.indexOf('hideStartupOverlay()V');
-    const secondCardCheck = visible.indexOf('hasMeasuredVisibleNativeHomeCard()Z', firstCardCheck + 1);
+    const secondContentCheck = visible.indexOf('hasMeasuredVisibleNativeHomeContent()Z', firstContentCheck + 1);
     const homeRendered = visible.indexOf('"home-rendered"');
-    assert.ok(firstCardCheck >= 0 && splashHidden > firstCardCheck &&
-        secondCardCheck > splashHidden && homeRendered > secondCardCheck,
-    'home-rendered and ready flags follow measured global card bounds after splash removal');
+    assert.ok(firstContentCheck >= 0 && splashHidden > firstContentCheck &&
+        secondContentCheck > splashHidden && homeRendered > secondContentCheck,
+    'home-rendered and ready flags follow measured global content bounds after splash removal');
+    assert.match(visible, /native-home-card-visible=true[\s\S]*?native-home-status-visible=true/);
     assert.match(visible, /sput-boolean v0, Lcom\/melodix\/music\/AppSingleton;->l:Z[\s\S]*?sput-boolean v0, Lcom\/melodix\/music\/AppSingleton;->startupDone:Z/);
 
     const trace = fs.readFileSync(

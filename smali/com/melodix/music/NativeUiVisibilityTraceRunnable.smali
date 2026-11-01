@@ -145,7 +145,7 @@
     :native_layout_root_checked
 
     # MainActivity owns the private Home state and sets readiness only after it
-    # verifies the first real card's measured global bounds post-splash.
+    # verifies the selected card or status panel's global bounds post-splash.
     invoke-virtual {v0, v12}, Lcom/melodix/music/MainActivity;->completeNativeUiVisibility(Z)Z
     move-result v13
     if-eqz v13, :native_layout_not_ready

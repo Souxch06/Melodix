@@ -202,6 +202,24 @@
             var section = String(item && (item.section || item.sectionTitle) || '').trim();
             var rawUri = item && (item.uri || item.id || item.href) || '';
             var rawImage = item && (item.image || item.cover || item.artwork) || '';
+            if (screen === 'home' && item && item.kind === 'state') {
+                var status = String(item.state || '');
+                var stateUri = String(rawUri || '').trim();
+                var allowedStatus = ['loading', 'empty', 'error', 'unavailable'].indexOf(status) >= 0;
+                var allowedAction = !stateUri ||
+                    (status === 'error' && ['melodix:action:open-settings', 'melodix:action:retry-library'].indexOf(stateUri) >= 0) ||
+                    (status === 'unavailable' && stateUri === 'melodix:action:retry-library');
+                if (!title || !allowedStatus || String(rawImage || '').trim() || !allowedAction) return null;
+                return {
+                    kind: 'state',
+                    state: status,
+                    title: title,
+                    subtitle: subtitle,
+                    section: section,
+                    image: '',
+                    uri: stateUri
+                };
+            }
             var row = {
                 title: title,
                 subtitle: subtitle,
@@ -214,7 +232,7 @@
             }
             return row;
         }).filter(function(item) {
-            return item.title || item.uri;
+            return item && (item.title || item.uri);
         });
 
         try {
@@ -723,8 +741,13 @@
 
     function homeStateRow() {
         var errorText = homeLibraryErrorText();
+        if (!errorText && window.__sfMediaLibStatus === 'error') {
+            errorText = 'La bibliothèque Spotify n’a pas pu être vérifiée — touchez pour réessayer.';
+        }
         if (errorText) {
             return {
+                kind: 'state',
+                state: 'error',
                 title: 'Vos playlists ne sont pas disponibles',
                 subtitle: errorText,
                 section: 'Vos playlists',
@@ -732,10 +755,34 @@
                 uri: homeStateAction(String(window.__sfMediaLibError || ''))
             };
         }
+        if (window.__sfMediaLibStatus === 'ready') {
+            return {
+                kind: 'state',
+                state: 'empty',
+                title: 'Aucune playlist dans ce compte',
+                subtitle: 'Créez ou suivez une playlist dans Spotify : elle apparaîtra ici.',
+                section: 'Vos playlists',
+                image: '',
+                uri: ''
+            };
+        }
+        if (homeRetries >= MAX_HOME_RETRIES && !homeRetryLoopAlive()) {
+            return {
+                kind: 'state',
+                state: 'unavailable',
+                title: 'Votre accueil ne répond pas',
+                subtitle: 'Les données Spotify n’arrivent pas. Touchez pour réessayer.',
+                section: 'Accueil',
+                image: '',
+                uri: 'melodix:action:retry-library'
+            };
+        }
         return {
-            title: 'Aucune playlist dans ce compte',
-            subtitle: 'Créez ou suivez une playlist dans Spotify : elle apparaîtra ici.',
-            section: 'Vos playlists',
+            kind: 'state',
+            state: 'loading',
+            title: 'Chargement de votre accueil…',
+            subtitle: 'Vos données Spotify sont en cours de chargement.',
+            section: 'Accueil',
             image: '',
             uri: ''
         };
@@ -757,49 +804,20 @@
         } catch (_) {}
     };
 
-    // One payload for the empty Home: while the library is still loading the
-    // native loading line is enough (no card), otherwise the state explains
-    // itself. Never contains a fake playlist.
-    function homeStatePayload(status) {
-        if (status && status !== 'pending' && status !== 'loading' && status !== 'ready') return [homeStateRow()];
-        if (window.__sfMediaLibStatus === 'error') return [homeStateRow()];
-        if (window.__sfMediaLibStatus === 'ready') return [homeStateRow()];
-        return [];
-    }
-
-    // P0 diagnostic: when the home collects nothing, say WHY on the screen
-    // itself so a screenshot becomes a full diagnosis (build, page, bridge,
-    // mediaLib, counts). Never sent while real rows exist - no invented music.
-    function homeDiagRow(reason) {
-        var bridge = window.AndBridge;
-        var label = '?';
-        var webCards = window.__sfMelodixHomeSourceCardCount;
-        if (typeof webCards !== 'number' || !isFinite(webCards)) webCards = '?';
-        else webCards = Math.max(0, Math.min(999, Math.floor(webCards)));
-        try {
-            if (bridge && typeof bridge.getBuildLabel === 'function') label = String(bridge.getBuildLabel() || '?');
-        } catch (_) {}
-        return {
-            title: 'Diagnostic Melodix',
-            subtitle: 'build ' + label + ' | screen ' + diagnosticScreen() +
-                ' | bridge ' + (bridgeHasStarted() ? 'oui' : 'non') +
-                ' | mediaLib ' + safeMediaLibStatus() +
-                ' | web mode ' + String(window.__sfMelodixHomeGuiMode || '?').slice(0, 24) +
-                ' | web styles ' + (window.__sfMelodixHomeStylesReady ? 'oui' : 'non') +
-                ' | web cards ' + webCards +
-                ' | native DOM rows ' + (window.__sfNativeUiHomeDomRowsCount || 0) +
-                ' | native total rows ' + (window.__sfNativeUiHomeRowsCount || 0) +
-                ' | ' + (reason || ''),
-            section: 'État de l’accueil',
-            image: '',
-            uri: ''
-        };
+    // An explicit, non-playlist Home state. The caller may send it only after
+    // the same profile-control/library evidence used by readiness proves a
+    // signed-in session; raw empty payloads still reveal Spotify's WebView.
+    function homeStatePayload() {
+        return [homeStateRow()];
     }
 
     function updateHomeRows(mainView) {
         var scrapedRows;
         var rows;
         var signature;
+        var statePayload;
+        var stateSignature;
+        var emptySignature;
         var countSignature;
         var webCards;
         var homeRoute = window.location.hostname === 'open.spotify.com' && isSpotifyHome();
@@ -808,6 +826,9 @@
             lastHomeSignature = null;
             window.__sfNativeUiHomeRowsCount = 0;
             window.__sfNativeUiHomeDomRowsCount = 0;
+            window.__sfNativeUiHomeDataSent = false;
+            window.__sfNativeUiHomeStateSent = false;
+            window.__sfNativeUiHomeState = 'none';
             window.__sfNativeUiHomeCountTraceSignature = '';
             clearHomeRetry();
             return;
@@ -827,34 +848,56 @@
             diagTrace('home-card-counts web=' + webCards + ' native-dom=' + scrapedRows.length +
                 ' native-total=' + rows.length + ' screen=' + diagnosticScreen());
         }
-        if (lastHomeSignature !== signature && sendNativeUiData('home', rows)) {
-            // This state is intentionally closure-local. Older hotfixable bridge
-            // code used the same window property and could suppress the first
-            // native Home update with a stale/empty signature.
-            lastHomeSignature = signature;
-            window.__sfNativeUiHomeDataSent = true;
-            diagTrace('home-rows sent n=' + rows.length + ' images=' +
-                rows.filter(function(r) { return Boolean(r && r.image); }).length +
-                ' screen=' + diagnosticScreen());
+        if (rows.length > 0) {
+            window.__sfNativeUiHomeStateSent = false;
+            window.__sfNativeUiHomeState = 'none';
+            if (lastHomeSignature !== signature) {
+                // Invalidate the old proof before attempting a changed payload;
+                // a throwing bridge must not inherit readiness from stale rows.
+                window.__sfNativeUiHomeDataSent = false;
+                if (sendNativeUiData('home', rows)) {
+                    lastHomeSignature = signature;
+                    window.__sfNativeUiHomeDataSent = true;
+                    diagTrace('home-rows sent n=' + rows.length + ' images=' +
+                        rows.filter(function(r) { return Boolean(r && r.image); }).length +
+                        ' screen=' + diagnosticScreen());
+                }
+            }
+        } else if (pageHasSessionEvidence()) {
+            statePayload = homeStatePayload();
+            stateSignature = JSON.stringify(statePayload);
+            if (lastHomeSignature !== stateSignature) {
+                // Only a confirmed profile control or real library entry may
+                // replace Spotify's page with this explicit, non-playlist state.
+                window.__sfNativeUiHomeDataSent = false;
+                window.__sfNativeUiHomeStateSent = false;
+                if (sendNativeUiData('home', statePayload)) {
+                    lastHomeSignature = stateSignature;
+                    window.__sfNativeUiHomeDataSent = true;
+                    window.__sfNativeUiHomeStateSent = true;
+                    window.__sfNativeUiHomeState = statePayload[0].state;
+                    diagTrace('home-state sent state=' + statePayload[0].state);
+                }
+            }
+        } else {
+            // Empty data is a clear/fallback signal, never proof of a session
+            // or permission to hide a login screen.
+            emptySignature = '[]';
+            window.__sfNativeUiHomeStateSent = false;
+            window.__sfNativeUiHomeState = 'none';
+            if (lastHomeSignature !== emptySignature) {
+                window.__sfNativeUiHomeDataSent = false;
+                if (sendNativeUiData('home', [])) {
+                    lastHomeSignature = emptySignature;
+                    window.__sfNativeUiHomeDataSent = true;
+                }
+            }
         }
 
         if (rows.length > 0 && rows.some(function(row) { return Boolean(row && row.image); })) clearHomeRetry();
         else {
-            // Empty home: surface the diagnosis on the screen itself (a
-            // screenshot of the empty home becomes actionable), throttled to
-            // three snapshots per retry cycle.
-            if (rows.length === 0 && (homeRetries === 3 || homeRetries === 15)) {
-                try {
-                    // Explain the wait/failure on the screen itself, without
-                    // ever sending a fake playlist row.
-                    sendNativeUiData('home', homeStatePayload());
-                } catch (_) {}
-            } else if (rows.length === 0 && homeRetries === MAX_HOME_RETRIES) {
-                try {
-                    // Last retry: the full technical state, so a screenshot of
-                    // a still-empty Home is a complete diagnosis.
-                    sendNativeUiData('home', [homeDiagRow('scrape vide apres ' + homeRetries + ' essais')]);
-                } catch (_) {}
+            if (rows.length === 0 && homeRetries === MAX_HOME_RETRIES) {
+                diagTrace('home-empty retries-exhausted mediaLib=' + safeMediaLibStatus());
             }
             scheduleHomeRetry();
         }
@@ -1000,11 +1043,17 @@
         return false;
     }
 
+    function pageHasSessionEvidence() {
+        return Boolean(sfDeepQuery('button[data-testid="user-widget-link"], a[data-testid="user-widget-link"]')) ||
+            libraryProvesSession();
+    }
+
     function notifyNativeUiReady(mainView) {
         var bridge = window.AndBridge;
         var userWidget;
         var searchQuery;
         var homeContentProven;
+        var homeStateProven;
         var takeoverProven;
         if (!mainView || window.location.hostname !== 'open.spotify.com' || window.__sfNativeUiReadyNotified) return false;
 
@@ -1027,6 +1076,10 @@
         homeContentProven = isSpotifyHome() &&
             (window.__sfNativeUiHomeRowsCount || 0) > 0 &&
             window.__sfNativeUiHomeDataSent === true;
+        homeStateProven = isSpotifyHome() && sessionProven &&
+            window.__sfNativeUiHomeRowsCount === 0 &&
+            window.__sfNativeUiHomeStateSent === true &&
+            window.__sfNativeUiHomeDataSent === true;
         takeoverProven = sessionProven || homeContentProven;
         if (homeContentProven && !sessionProven && !window.__sfNativeUiHomeProofLogged) {
             window.__sfNativeUiHomeProofLogged = true;
@@ -1038,6 +1091,7 @@
             typeof bridge.onNativeUiData === 'function');
         window.__sfNativeUiSessionProven = sessionProven;
         window.__sfNativeUiHomeContentProven = homeContentProven;
+        window.__sfNativeUiHomeStateProven = homeStateProven;
         window.__sfNativeUiTakeoverProven = takeoverProven;
         window.__sfNativeUiBridgeCallbacksReady = bridgeReady;
         if (!takeoverProven || !bridgeReady) {
@@ -1057,16 +1111,18 @@
             return false;
         }
 
-        // A native takeover is permitted only after a real Spotify Home card
-        // has been collected for this page. Empty/loading/failed payloads are
-        // not evidence that a replacement is ready; keep Spotify visible.
-        // Other routes still require their existing session proof.
-        if (isSpotifyHome() && ((window.__sfNativeUiHomeRowsCount || 0) < 1 ||
-            window.__sfNativeUiHomeDataSent !== true)) {
+        // Home may take over with real Spotify cards, or with an explicit
+        // non-playlist state after session evidence. A raw empty payload never
+        // qualifies, so logged-out login screens remain on the WebView.
+        // MainActivity independently measures the attached card/status view
+        // before setting nativeHomeContentReady or completing the splash.
+        if (isSpotifyHome() && !homeContentProven && !homeStateProven) {
             window.__sfNativeUiReadyBlockedEmpty = (window.__sfNativeUiReadyBlockedEmpty || 0) + 1;
             if (window.__sfNativeUiReadyBlockedEmpty === 1 || window.__sfNativeUiReadyBlockedEmpty % 20 === 0) {
                 diagTrace('ready-pending home rows=' + (window.__sfNativeUiHomeRowsCount || 0) +
                     ' dataSent=' + (window.__sfNativeUiHomeDataSent ? '1' : '0') +
+                    ' stateSent=' + (window.__sfNativeUiHomeStateSent ? '1' : '0') +
+                    ' session=' + (sessionProven ? '1' : '0') +
                     ' screen=' + diagnosticScreen() +
                     ' state=' + safeMediaLibStatus() +
                     ' action=keep-spotify-visible');

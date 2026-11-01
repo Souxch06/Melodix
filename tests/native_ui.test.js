@@ -803,8 +803,8 @@ test('playback stability and fast live search optimizations are active across Sm
     assert.ok(showNative, 'showNativeUi exists');
     assert.doesNotMatch(showNative[1], /sput-boolean [^,]+, Lcom\/melodix\/music\/AppSingleton;->(?:l|startupDone):Z/,
         'a show request cannot pre-claim player/UI readiness before visibility checks');
-    assert.match(activity, /\.method public final completeNativeUiVisibility\(Z\)Z[\s\S]*?hasMeasuredVisibleNativeHomeCard\(\)Z[\s\S]*?sput-boolean v0, Lcom\/melodix\/music\/AppSingleton;->l:Z[\s\S]*?AppSingleton;->startupDone:Z/,
-        'readiness flags follow the measured visible-card confirmation');
+    assert.match(activity, /\.method public final completeNativeUiVisibility\(Z\)Z[\s\S]*?hasMeasuredVisibleNativeHomeContent\(\)Z[\s\S]*?sput-boolean v0, Lcom\/melodix\/music\/AppSingleton;->l:Z[\s\S]*?AppSingleton;->startupDone:Z/,
+        'readiness flags follow the measured visible Home-content confirmation');
     assert.match(shell, /window\.__sfSearchCache/);
     assert.doesNotMatch(shell, /function clearHomeRetry\(\) \{[^}]*observer\.disconnect\(\)/);
     assert.match(bridge, /if \(window\.__sfMelodixBridgeCompleted\)/);

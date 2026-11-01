@@ -74,12 +74,15 @@
 
 .field private nativeCurrentScreen:Ljava/lang/String;
 
-# Attachment and visibility are separate states. The renderer records the first
-# real Spotify card after addView; nativeHomeContentReady is set only after the
-# Activity verifies a measured global visible rectangle for that card.
+# Attachment and visibility are separate states. Cards are real Spotify
+# resources; the separate status view is an explicit non-playlist Home state.
+# Content-ready is set only after the Activity measures the selected view's
+# global visible rectangle before and after removing the splash.
 .field private nativeHomeCardsAttached:Z
+.field private nativeHomeStatusAttached:Z
 .field private nativeHomeContentReady:Z
 .field private nativeHomeFirstCard:Landroid/view/View;
+.field private nativeHomeStatusView:Landroid/view/View;
 
 # True once Spotify reports a track: the mini player card stays hidden until
 # then instead of showing an empty "Aucune lecture en cours" bar everywhere.
@@ -7214,13 +7217,15 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
 .method public final beginNativeHomeRender()V
     .locals 2
 
-    # Reset all three states for each payload; no stale card or visibility
-    # proof can survive a new, empty, or malformed Home render.
+    # Reset card, status, view references and visibility proof for each payload;
+    # no stale view can survive a new, empty, or malformed Home render.
     const/4 v0, 0x0
     iput-boolean v0, p0, Lcom/melodix/music/MainActivity;->nativeHomeCardsAttached:Z
+    iput-boolean v0, p0, Lcom/melodix/music/MainActivity;->nativeHomeStatusAttached:Z
     iput-boolean v0, p0, Lcom/melodix/music/MainActivity;->nativeHomeContentReady:Z
     const/4 v1, 0x0
     iput-object v1, p0, Lcom/melodix/music/MainActivity;->nativeHomeFirstCard:Landroid/view/View;
+    iput-object v1, p0, Lcom/melodix/music/MainActivity;->nativeHomeStatusView:Landroid/view/View;
     return-void
 .end method
 
@@ -7236,6 +7241,21 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
     iput-boolean v0, p0, Lcom/melodix/music/MainActivity;->nativeHomeCardsAttached:Z
 
     :native_card_attach_done
+    return-void
+.end method
+
+.method public final noteNativeHomeStatusAttached(Landroid/view/View;)V
+    .locals 1
+
+    if-eqz p1, :native_status_attach_done
+    iget-object v0, p0, Lcom/melodix/music/MainActivity;->nativeHomeStatusView:Landroid/view/View;
+    if-nez v0, :native_status_attach_marked
+    iput-object p1, p0, Lcom/melodix/music/MainActivity;->nativeHomeStatusView:Landroid/view/View;
+    :native_status_attach_marked
+    const/4 v0, 0x1
+    iput-boolean v0, p0, Lcom/melodix/music/MainActivity;->nativeHomeStatusAttached:Z
+
+    :native_status_attach_done
     return-void
 .end method
 
@@ -7263,46 +7283,77 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
     return v0
 .end method
 
-.method private hasMeasuredVisibleNativeHomeCard()Z
+.method public final hasNativeHomeContentAttached()Z
+    .locals 2
+
+    invoke-virtual {p0}, Lcom/melodix/music/MainActivity;->isNativeHomeScreen()Z
+    move-result v0
+    if-eqz v0, :native_home_content_not_attached
+    iget-boolean v0, p0, Lcom/melodix/music/MainActivity;->nativeHomeCardsAttached:Z
+    if-nez v0, :native_home_content_attached
+    iget-boolean v0, p0, Lcom/melodix/music/MainActivity;->nativeHomeStatusAttached:Z
+    if-eqz v0, :native_home_content_not_attached
+
+    :native_home_content_attached
+    const/4 v0, 0x1
+    return v0
+
+    :native_home_content_not_attached
+    const/4 v0, 0x0
+    return v0
+.end method
+
+.method private hasMeasuredVisibleNativeHomeContent()Z
     .locals 5
 
     invoke-virtual {p0}, Lcom/melodix/music/MainActivity;->isNativeHomeScreen()Z
     move-result v0
-    if-eqz v0, :native_home_card_not_visible
-    iget-boolean v0, p0, Lcom/melodix/music/MainActivity;->nativeHomeCardsAttached:Z
-    if-eqz v0, :native_home_card_not_visible
-    iget-object v0, p0, Lcom/melodix/music/MainActivity;->nativeHomeFirstCard:Landroid/view/View;
-    if-eqz v0, :native_home_card_not_visible
+    if-eqz v0, :native_home_content_not_visible
 
+    # Prefer an actual Spotify card. Only when none was attached may the
+    # explicit state panel become the measured Home content witness.
+    iget-boolean v0, p0, Lcom/melodix/music/MainActivity;->nativeHomeCardsAttached:Z
+    if-eqz v0, :native_home_measure_status
+    iget-object v0, p0, Lcom/melodix/music/MainActivity;->nativeHomeFirstCard:Landroid/view/View;
+    if-eqz v0, :native_home_content_not_visible
+    goto :native_home_measure_view
+
+    :native_home_measure_status
+    iget-boolean v0, p0, Lcom/melodix/music/MainActivity;->nativeHomeStatusAttached:Z
+    if-eqz v0, :native_home_content_not_visible
+    iget-object v0, p0, Lcom/melodix/music/MainActivity;->nativeHomeStatusView:Landroid/view/View;
+    if-eqz v0, :native_home_content_not_visible
+
+    :native_home_measure_view
     invoke-virtual {v0}, Landroid/view/View;->getParent()Landroid/view/ViewParent;
     move-result-object v1
-    if-eqz v1, :native_home_card_not_visible
+    if-eqz v1, :native_home_content_not_visible
     invoke-virtual {v0}, Landroid/view/View;->isShown()Z
     move-result v1
-    if-eqz v1, :native_home_card_not_visible
+    if-eqz v1, :native_home_content_not_visible
     invoke-virtual {v0}, Landroid/view/View;->getWidth()I
     move-result v1
-    if-lez v1, :native_home_card_not_visible
+    if-lez v1, :native_home_content_not_visible
     invoke-virtual {v0}, Landroid/view/View;->getHeight()I
     move-result v1
-    if-lez v1, :native_home_card_not_visible
+    if-lez v1, :native_home_content_not_visible
 
     new-instance v2, Landroid/graphics/Rect;
     invoke-direct {v2}, Landroid/graphics/Rect;-><init>()V
     invoke-virtual {v0, v2}, Landroid/view/View;->getGlobalVisibleRect(Landroid/graphics/Rect;)Z
     move-result v1
-    if-eqz v1, :native_home_card_not_visible
+    if-eqz v1, :native_home_content_not_visible
     invoke-virtual {v2}, Landroid/graphics/Rect;->width()I
     move-result v1
-    if-lez v1, :native_home_card_not_visible
+    if-lez v1, :native_home_content_not_visible
     invoke-virtual {v2}, Landroid/graphics/Rect;->height()I
     move-result v1
-    if-lez v1, :native_home_card_not_visible
+    if-lez v1, :native_home_content_not_visible
 
     const/4 v0, 0x1
     return v0
 
-    :native_home_card_not_visible
+    :native_home_content_not_visible
     const/4 v0, 0x0
     return v0
 .end method
@@ -7312,23 +7363,23 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
 
     # This callback runs after nativeRoot has been measured, intersected with
     # the window, and proven to stack above the WebView's horizontal-scroll host.
-    # Home additionally needs an actual attached card with non-empty global
-    # visible bounds, checked before and after removing the splash overlay.
+    # Home additionally needs an actual attached card or explicit status view
+    # with non-empty global bounds, measured before and after splash removal.
     if-eqz p1, :native_visibility_not_ready
 
     invoke-virtual {p0}, Lcom/melodix/music/MainActivity;->isNativeHomeScreen()Z
     move-result v0
     if-eqz v0, :native_visibility_non_home
 
-    invoke-direct {p0}, Lcom/melodix/music/MainActivity;->hasMeasuredVisibleNativeHomeCard()Z
+    invoke-direct {p0}, Lcom/melodix/music/MainActivity;->hasMeasuredVisibleNativeHomeContent()Z
     move-result v0
     if-eqz v0, :native_visibility_not_ready
 
     invoke-direct {p0}, Lcom/melodix/music/MainActivity;->hideStartupOverlay()V
 
     # Removing the splash can expose an overlay/clip boundary. Re-measure after
-    # that transition, and fall back to the WebView if the card is not visible.
-    invoke-direct {p0}, Lcom/melodix/music/MainActivity;->hasMeasuredVisibleNativeHomeCard()Z
+    # that transition, and fall back to the WebView if the Home view is hidden.
+    invoke-direct {p0}, Lcom/melodix/music/MainActivity;->hasMeasuredVisibleNativeHomeContent()Z
     move-result v0
     if-eqz v0, :native_visibility_web_fallback
 
@@ -7336,7 +7387,13 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
     iput-boolean v0, p0, Lcom/melodix/music/MainActivity;->nativeHomeContentReady:Z
     const-string v1, "home-rendered"
     invoke-static {v1}, Lcom/melodix/music/NativeCrashGuard;->stage(Ljava/lang/String;)V
+    iget-boolean v1, p0, Lcom/melodix/music/MainActivity;->nativeHomeCardsAttached:Z
+    if-eqz v1, :native_home_status_visible_log
     const-string v1, "native-home-card-visible=true"
+    goto :native_home_content_visible_log
+    :native_home_status_visible_log
+    const-string v1, "native-home-status-visible=true"
+    :native_home_content_visible_log
     invoke-static {v1}, Lcom/melodix/music/NativeCrashGuard;->diagLine(Ljava/lang/String;)V
     invoke-static {v1}, Lcom/melodix/music/StartupDiagnosticOverlay;->appendDiagnosticLine(Ljava/lang/String;)V
     goto :native_visibility_confirmed
@@ -7430,15 +7487,17 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
     const-string v2, "native-shell show requested"
     invoke-static {v0, v2}, Landroid/util/Log;->i(Ljava/lang/String;Ljava/lang/String;)I
 
-    # For a Home takeover, keep the splash/progress cover in place until the
-    # measured card is confirmed. Failed checks reveal the existing WebView.
+    # For a Home takeover, keep the splash/progress cover in place until an
+    # attached card or explicit status view can be measured. Failed checks
+    # reveal the existing WebView.
     iget-object v0, p0, Lcom/melodix/music/MainActivity;->nativeCurrentScreen:Ljava/lang/String;
     if-eqz v0, :hide_splash_progress
     const-string v1, "home"
     invoke-virtual {v1, v0}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
     move-result v0
     if-eqz v0, :hide_splash_progress
-    iget-boolean v0, p0, Lcom/melodix/music/MainActivity;->nativeHomeCardsAttached:Z
+    invoke-virtual {p0}, Lcom/melodix/music/MainActivity;->hasNativeHomeContentAttached()Z
+    move-result v0
     if-eqz v0, :hide_splash_progress
     goto :show_native_root
 
@@ -7455,9 +7514,9 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
     invoke-virtual {v1, v2}, Landroid/view/View;->setVisibility(I)V
 
     :show_native_root
-    # A watchdog may ask to unstick startup before real Home cards are attached.
-    # Attachment is not pixel proof; the separate visibility callback checks the
-    # root's measured stacking and a card's global visible bounds before success.
+    # A watchdog may ask to unstick startup before Home content is attached.
+    # Attachment is not pixel proof; the separate visibility callback measures
+    # the native root and the actual card/status view before success.
     iget-object v0, p0, Lcom/melodix/music/MainActivity;->nativeCurrentScreen:Ljava/lang/String;
     if-eqz v0, :native_home_ready_check
     const-string v1, "home"
@@ -7465,13 +7524,14 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
     move-result v0
     if-eqz v0, :native_root_lookup
     :native_home_ready_check
-    iget-boolean v0, p0, Lcom/melodix/music/MainActivity;->nativeHomeCardsAttached:Z
+    invoke-virtual {p0}, Lcom/melodix/music/MainActivity;->hasNativeHomeContentAttached()Z
+    move-result v0
     if-nez v0, :native_root_lookup
-    const-string v0, "native-shell-show-blocked reason=home-cards-not-attached"
+    const-string v0, "native-shell-show-blocked reason=home-content-not-attached"
     invoke-static {v0}, Lcom/melodix/music/NativeCrashGuard;->diagLine(Ljava/lang/String;)V
     invoke-static {v0}, Lcom/melodix/music/StartupDiagnosticOverlay;->appendDiagnosticLine(Ljava/lang/String;)V
     const-string v0, "MDXTRACE"
-    const-string v1, "native-shell fallback reason=home-cards-not-attached; keep WebView visible"
+    const-string v1, "native-shell fallback reason=home-content-not-attached; keep WebView visible"
     invoke-static {v0, v1}, Landroid/util/Log;->w(Ljava/lang/String;Ljava/lang/String;)I
     invoke-virtual {p0}, Lcom/melodix/music/MainActivity;->revealWebUi()V
     const-string v0, "window.__sfNativeUiShowMethodCalled=true;window.__sfNativeUiRootVisible=false;window.__sfNativeUiHomeContentReady=false;window.__sfNativeUiShowBlockedNoContent=true;"
@@ -7650,8 +7710,10 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
     const/4 v0, 0x1
     const/4 v2, 0x0
     iput-boolean v2, p0, Lcom/melodix/music/MainActivity;->nativeHomeCardsAttached:Z
+    iput-boolean v2, p0, Lcom/melodix/music/MainActivity;->nativeHomeStatusAttached:Z
     iput-boolean v2, p0, Lcom/melodix/music/MainActivity;->nativeHomeContentReady:Z
     iput-object v2, p0, Lcom/melodix/music/MainActivity;->nativeHomeFirstCard:Landroid/view/View;
+    iput-object v2, p0, Lcom/melodix/music/MainActivity;->nativeHomeStatusView:Landroid/view/View;
     :native_fade_flag
     iput-boolean v0, p0, Lcom/melodix/music/MainActivity;->nativeFadeNextScreen:Z
 

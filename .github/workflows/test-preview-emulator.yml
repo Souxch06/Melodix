@@ -456,7 +456,7 @@ jobs:
           echo "::notice title=Android harness manifest::runner_class_declared=true; target_package_declared=true; test_package=com.melodix.music.preview.test"
           echo "Signed test-only UI harness SHA-256: $(sha256sum "$test_apk" | awk '{print $1}')"
 
-      - name: Run Android login and empty-Home fallback instrumentation
+      - name: Run Android login, empty-Home fallback and Home-status instrumentation
         id: integration
         shell: bash
         env:
@@ -523,8 +523,8 @@ jobs:
           adb logcat -d -t 1000 -v threadtime -s MelodixHarness:I > "$state_dir/instrumentation-safe-logcat.txt" 2>/dev/null || true
           cat "$state_dir/android-instrumentation.txt"
           if [[ "$instrumentation_status" != "0" ]]; then
-            safe_statuses="$(grep -E '^INSTRUMENTATION_STATUS: (phase|authenticated_session|login_dom_probe_completed|login_ui_visible_in_webview_dom|browser_compatibility_warning_visible|javascript_ua_profile_coherent|installed_webview_chrome_major|configured_ua_chrome_major|configured_ua_chrome_major_matches_runtime|webview_visible_and_measured|network_error_transition_recovered|original_webview_url_preserved|splash_hidden|native_home_hidden|home_payload_empty|empty_home_evidence_captured|playlist_or_card_injected|native_home_cards_attached|native_home_content_ready|native_content_container_empty|native_root_hidden|native_home_tab_not_shown|webview_container_visible|page_load_complete|failure_phase|failure_type|overall)=' "$state_dir/android-instrumentation.txt" | tr '\n' ';' | cut -c1-1200 || true)"
-            safe_harness_logs="$(grep -E 'MelodixHarness: (instrumentation_onCreate_entered|instrumentation_onCreate_returned|instrumentation_runner_thread_started|instrumentation_onStart_entered|instrumentation_onStart_super_returned|empty_home_evidence_captured|started|phase=[a-z_]+|failure phase=[a-z_]+ type=[A-Za-z0-9_$]+|completed)$' "$state_dir/instrumentation-safe-logcat.txt" | sed -E 's/^.*MelodixHarness: //' | tr '\n' ';' | cut -c1-500 || true)"
+            safe_statuses="$(grep -E '^INSTRUMENTATION_STATUS: (phase|authenticated_session|login_dom_probe_completed|login_ui_visible_in_webview_dom|browser_compatibility_warning_visible|javascript_ua_profile_coherent|installed_webview_chrome_major|configured_ua_chrome_major|configured_ua_chrome_major_matches_runtime|webview_visible_and_measured|network_error_transition_recovered|original_webview_url_preserved|splash_hidden|native_home_hidden|home_payload_empty|empty_home_evidence_captured|home_status_payload_fixture_non_playlist|home_status_evidence_captured|native_home_status_attached|native_home_status_visible|native_home_status_message_visible_in_hierarchy|native_home_cards_attached|native_home_content_ready|native_content_container_empty|native_root_visible|native_root_hidden|native_home_tab_visible|native_home_tab_not_shown|webview_container_visible|webview_container_visible_under_native_root|login_surface_restored_after_status|authenticated_home_test_performed|page_load_complete|failure_phase|failure_type|overall)=' "$state_dir/android-instrumentation.txt" | tr '\n' ';' | cut -c1-1800 || true)"
+            safe_harness_logs="$(grep -E 'MelodixHarness: (instrumentation_onCreate_entered|instrumentation_onCreate_returned|instrumentation_runner_thread_started|instrumentation_onStart_entered|instrumentation_onStart_super_returned|empty_home_evidence_captured|home_status_evidence_captured|started|phase=[a-z_]+|failure phase=[a-z_]+ type=[A-Za-z0-9_$]+|completed)$' "$state_dir/instrumentation-safe-logcat.txt" | sed -E 's/^.*MelodixHarness: //' | tr '\n' ';' | cut -c1-700 || true)"
             transcript_bytes="$(wc -c < "$state_dir/android-instrumentation.txt" | tr -d '[:space:]')"
             framework_summary="$(python3 - "$state_dir/android-instrumentation.txt" <<'PY'
           import pathlib
@@ -626,11 +626,35 @@ jobs:
             'INSTRUMENTATION_STATUS: empty_home_evidence_captured=true'
             'INSTRUMENTATION_STATUS: playlist_or_card_injected=false'
             'INSTRUMENTATION_STATUS: native_home_cards_attached=false'
+            'INSTRUMENTATION_STATUS: native_home_status_attached=false'
             'INSTRUMENTATION_STATUS: native_home_content_ready=false'
             'INSTRUMENTATION_STATUS: native_content_container_empty=true'
             'INSTRUMENTATION_STATUS: native_root_hidden=true'
             'INSTRUMENTATION_STATUS: webview_container_visible=true'
             'INSTRUMENTATION_STATUS: webview_visible_and_measured=true'
+            'INSTRUMENTATION_STATUS: phase=home_status_renderer'
+            'INSTRUMENTATION_STATUS: authenticated_session=false'
+            'INSTRUMENTATION_STATUS: home_status_payload_fixture_non_playlist=true'
+            'INSTRUMENTATION_STATUS: playlist_or_card_injected=false'
+            'INSTRUMENTATION_STATUS: native_home_cards_attached=false'
+            'INSTRUMENTATION_STATUS: native_home_status_attached=true'
+            'INSTRUMENTATION_STATUS: native_home_status_visible=true'
+            'INSTRUMENTATION_STATUS: native_home_status_message_visible_in_hierarchy=true'
+            'INSTRUMENTATION_STATUS: native_home_content_ready=true'
+            'INSTRUMENTATION_STATUS: native_root_visible=true'
+            'INSTRUMENTATION_STATUS: native_home_tab_visible=true'
+            'INSTRUMENTATION_STATUS: splash_hidden=true'
+            'INSTRUMENTATION_STATUS: webview_container_visible_under_native_root=true'
+            'INSTRUMENTATION_STATUS: original_webview_url_preserved=true'
+            'INSTRUMENTATION_STATUS: login_surface_restored_after_status=true'
+            'INSTRUMENTATION_STATUS: home_status_evidence_captured=true'
+            'INSTRUMENTATION_STATUS: authenticated_home_test_performed=false'
+            'INSTRUMENTATION_STATUS: phase=empty_home_fallback'
+            'INSTRUMENTATION_STATUS: native_home_status_attached=false'
+            'INSTRUMENTATION_STATUS: native_home_content_ready=false'
+            'INSTRUMENTATION_STATUS: login_surface_restored_after_status=true'
+            'INSTRUMENTATION_STATUS: home_status_evidence_captured=true'
+            'INSTRUMENTATION_STATUS: authenticated_home_test_performed=false'
             'INSTRUMENTATION_STATUS: overall=passed'
             'INSTRUMENTATION_CODE: -1'
           )
@@ -664,23 +688,32 @@ jobs:
 
           if [[ "$INTEGRATION_OUTCOME" == "success" ]]; then
             # Instrumentation.finish() terminates the instrumented process by
-            # Android contract. Preserve the exact visible empty-Home state
-            # from inside the runner before that process is stopped.
-            adb shell run-as com.melodix.music.preview test -s files/melodix-preview-home-fallback.xml || {
-              echo "::error title=Empty-Home evidence::Instrumentation did not save the UI hierarchy before finish()."
-              exit 1
-            }
-            adb shell run-as com.melodix.music.preview test -s files/melodix-preview-home-empty.png || {
-              echo "::error title=Empty-Home evidence::Instrumentation did not save the screenshot before finish()."
-              exit 1
-            }
+            # Android contract. Preserve the exact empty fallback and status
+            # panel states from inside the target app before that process stops.
+            for evidence in \
+                files/melodix-preview-home-fallback.xml \
+                files/melodix-preview-home-empty.png \
+                files/melodix-preview-home-status.xml \
+                files/melodix-preview-home-status.png; do
+              adb shell run-as com.melodix.music.preview test -s "$evidence" || {
+                echo "::error title=Android UI evidence::Instrumentation did not save a required hierarchy/screenshot before finish: $evidence"
+                exit 1
+              }
+            done
             adb exec-out run-as com.melodix.music.preview cat files/melodix-preview-home-fallback.xml > "$state_dir/home-fallback-window.xml"
             adb exec-out run-as com.melodix.music.preview cat files/melodix-preview-home-empty.png > "$state_dir/home-empty-fallback.png"
-            [[ -s "$state_dir/home-fallback-window.xml" && -s "$state_dir/home-empty-fallback.png" ]] || {
-              echo "::error title=Empty-Home evidence::Saved hierarchy or screenshot could not be retrieved from the emulator."
+            adb exec-out run-as com.melodix.music.preview cat files/melodix-preview-home-status.xml > "$state_dir/home-status-window.xml"
+            adb exec-out run-as com.melodix.music.preview cat files/melodix-preview-home-status.png > "$state_dir/home-status.png"
+            [[ -s "$state_dir/home-fallback-window.xml" && -s "$state_dir/home-empty-fallback.png" \
+                && -s "$state_dir/home-status-window.xml" && -s "$state_dir/home-status.png" ]] || {
+              echo "::error title=Android UI evidence::Saved hierarchy or screenshot could not be retrieved from the emulator."
               exit 1
             }
-            adb shell run-as com.melodix.music.preview rm -f files/melodix-preview-home-fallback.xml files/melodix-preview-home-empty.png
+            adb shell run-as com.melodix.music.preview rm -f \
+              files/melodix-preview-home-fallback.xml \
+              files/melodix-preview-home-empty.png \
+              files/melodix-preview-home-status.xml \
+              files/melodix-preview-home-status.png
           fi
 
           if [[ -z "$resumed_before_relaunch" ]]; then
@@ -712,17 +745,32 @@ jobs:
           echo "::notice title=Post-instrumentation activity::activity_resumed=true; preview_relaunched=$preview_relaunched; target_pid_after_finish=${target_pid_after_finish:-none}; harness_outcome=$INTEGRATION_OUTCOME"
 
           if [[ "$INTEGRATION_OUTCOME" != "success" ]]; then
-            echo "::notice title=Post-instrumentation activity::empty_home_screenshot_not_verified=true; harness_outcome=$INTEGRATION_OUTCOME"
+            echo "::notice title=Post-instrumentation activity::empty_home_and_home_status_pixels_not_verified=true; harness_outcome=$INTEGRATION_OUTCOME"
             exit 0
           fi
 
-          python3 tests/android/inspect_hierarchy.py empty-home \
-            "$state_dir/home-fallback-window.xml" \
-            "$state_dir/home-empty-fallback.png" \
-            "$state_dir/home-fallback-hierarchy-redacted.json"
-          echo "empty_home_pixels_verified=true" >> "$GITHUB_OUTPUT"
-          rm -f "$state_dir/home-fallback-window.xml"
+          inspection_failed=false
+          if python3 tests/android/inspect_hierarchy.py home-status \
+              "$state_dir/home-status-window.xml" \
+              "$state_dir/home-status.png" \
+              "$state_dir/home-status-hierarchy-redacted.json"; then
+            echo "home_status_pixels_verified=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "home_status_pixels_verified=false" >> "$GITHUB_OUTPUT"
+            inspection_failed=true
+          fi
+          if python3 tests/android/inspect_hierarchy.py empty-home \
+              "$state_dir/home-fallback-window.xml" \
+              "$state_dir/home-empty-fallback.png" \
+              "$state_dir/home-fallback-hierarchy-redacted.json"; then
+            echo "empty_home_pixels_verified=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "empty_home_pixels_verified=false" >> "$GITHUB_OUTPUT"
+            inspection_failed=true
+          fi
+          rm -f "$state_dir/home-fallback-window.xml" "$state_dir/home-status-window.xml"
           cp "${{ steps.apk.outputs.asset_manifest }}" "$state_dir/assets-manifest.json"
+          [[ "$inspection_failed" == "false" ]] || exit 1
 
       - name: Inspect the preserved cold-launch hierarchy and pixels
         id: cold-launch-inspection
@@ -752,6 +800,7 @@ jobs:
           ACTIVITY_RESUMED: ${{ steps.post-instrumentation.outputs.activity_resumed }}
           PREVIEW_RELAUNCHED: ${{ steps.post-instrumentation.outputs.preview_relaunched }}
           EMPTY_HOME_PIXELS_VERIFIED: ${{ steps.post-instrumentation.outputs.empty_home_pixels_verified }}
+          HOME_STATUS_PIXELS_VERIFIED: ${{ steps.post-instrumentation.outputs.home_status_pixels_verified }}
           COLD_LAUNCH_OUTCOME: ${{ steps.cold-launch-inspection.outcome }}
         run: |
           state_dir="$RUNNER_TEMP/melodix-preview-emulator-state"
@@ -797,10 +846,10 @@ jobs:
             echo "- Exact target APK debuggable: \`${APK_DEBUGGABLE:-not verified}\`"
             echo "- Instrumentation outcome: \`${INTEGRATION_OUTCOME:-not run}\`; failure phase/type: \`${HARNESS_FAILURE_PHASE:-none}\` / \`${HARNESS_FAILURE_TYPE:-none}\`"
             echo "- Browser compatibility banner: \`${BROWSER_COMPATIBILITY_WARNING:-not confirmed}\`; installed/configured Chrome major: \`${WEBVIEW_CHROME_MAJOR:-unknown}\` / \`${CONFIGURED_UA_CHROME_MAJOR:-unknown}\`; UA/client-hint profile coherent: \`${USER_AGENT_PROFILE_COHERENT:-not confirmed}\`"
-            echo "- Post-instrumentation activity resume: \`${POST_INSTRUMENTATION_OUTCOME:-not run}\`; resumed=\`${ACTIVITY_RESUMED:-false}\`; relaunched=\`${PREVIEW_RELAUNCHED:-unknown}\`; empty-Home pixels=\`${EMPTY_HOME_PIXELS_VERIFIED:-false}\`"
+            echo "- Post-instrumentation activity resume: \`${POST_INSTRUMENTATION_OUTCOME:-not run}\`; resumed=\`${ACTIVITY_RESUMED:-false}\`; relaunched=\`${PREVIEW_RELAUNCHED:-unknown}\`; empty-Home pixels=\`${EMPTY_HOME_PIXELS_VERIFIED:-false}\`; native Home-status pixels=\`${HOME_STATUS_PIXELS_VERIFIED:-false}\`"
             echo "- Preserved cold-launch hierarchy/pixel check: \`${COLD_LAUNCH_OUTCOME:-not run}\`"
             echo "- Emulator setup: fresh app data; only BLUETOOTH_CONNECT granted to pass Android's runtime permission prompt; no Spotify session or cookies supplied."
-            echo "- Scope: unauthenticated login surface plus empty-Home WebView fallback using the exact Preview APK; no playlist data or Spotify credentials were supplied, and authenticated Home rendering is not claimed."
+            echo "- Scope: unauthenticated login and empty-Home WebView fallback, plus a renderer-only non-playlist Home status fixture on the exact Preview APK; the fixture does not establish authenticated Home rendering, and no playlist data or Spotify credentials were supplied."
           } >> "$GITHUB_STEP_SUMMARY"
 
           state_dir="$RUNNER_TEMP/melodix-preview-emulator-state"
@@ -818,6 +867,7 @@ jobs:
               "${ACTIVITY_RESUMED:-false}" \
               "${PREVIEW_RELAUNCHED:-false}" \
               "${EMPTY_HOME_PIXELS_VERIFIED:-false}" \
+              "${HOME_STATUS_PIXELS_VERIFIED:-false}" \
               "${COLD_LAUNCH_OUTCOME:-not run}" <<'PY'
           import json
           import pathlib
@@ -825,7 +875,8 @@ jobs:
 
           (state_dir, source_ref, run_id, apk_sha256, package_id, version_name,
            version_code, integration, post_instrumentation, activity_resumed,
-           preview_relaunched, empty_home_pixels_verified, cold_launch) = sys.argv[1:]
+           preview_relaunched, empty_home_pixels_verified, home_status_pixels_verified,
+           cold_launch) = sys.argv[1:]
           root = pathlib.Path(state_dir)
           exists = lambda name: (root / name).is_file()
           transcript = (root / "android-instrumentation.txt").read_text(encoding="utf-8", errors="replace") if exists("android-instrumentation.txt") else ""
@@ -876,11 +927,19 @@ jobs:
               "empty_home_hierarchy_pixels_verified": integration == "success" and empty_home_pixels_verified == "true",
               "empty_home_payload_confirmed": "INSTRUMENTATION_STATUS: home_payload_empty=true" in transcript,
               "empty_home_evidence_captured_before_instrumentation_finish": "INSTRUMENTATION_STATUS: empty_home_evidence_captured=true" in transcript,
+              "home_status_payload_fixture_non_playlist": status_bool("home_status_payload_fixture_non_playlist"),
+              "native_home_status_attached": status_bool("native_home_status_attached"),
+              "native_home_status_visible": status_bool("native_home_status_visible"),
+              "home_status_message_visible_in_native_view_hierarchy": status_bool("native_home_status_message_visible_in_hierarchy"),
+              "home_status_hierarchy_pixels_verified": integration == "success" and home_status_pixels_verified == "true",
+              "home_status_evidence_captured_before_instrumentation_finish": "INSTRUMENTATION_STATUS: home_status_evidence_captured=true" in transcript,
+              "login_surface_restored_after_status": status_bool("login_surface_restored_after_status"),
               "playlist_or_card_injected_by_harness": "INSTRUMENTATION_STATUS: playlist_or_card_injected=true" in transcript,
               "no_playlist_or_card_injected_status_confirmed": "INSTRUMENTATION_STATUS: playlist_or_card_injected=false" in transcript,
+              "authenticated_home_test_performed": status_bool("authenticated_home_test_performed"),
               "authenticated_home_test": "not performed; no legitimate Spotify session was supplied",
-              "screenshots": [name for name in ("login-screen.png", "home-empty-fallback.png") if exists(name)],
-              "redacted_hierarchies": [name for name in ("login-hierarchy-redacted.json", "home-fallback-hierarchy-redacted.json") if exists(name)],
+              "screenshots": [name for name in ("login-screen.png", "home-empty-fallback.png", "home-status.png") if exists(name)],
+              "redacted_hierarchies": [name for name in ("login-hierarchy-redacted.json", "home-fallback-hierarchy-redacted.json", "home-status-hierarchy-redacted.json") if exists(name)],
               "raw_hierarchy_uploaded": False,
           }
           (root / "verification-reference.json").write_text(
@@ -897,7 +956,11 @@ jobs:
               "cold_launch_hierarchy_pixels_outcome", "activity_resumed_after_instrumentation",
               "preview_relaunched_after_instrumentation", "empty_home_hierarchy_pixels_verified",
               "empty_home_payload_confirmed", "empty_home_evidence_captured_before_instrumentation_finish",
-              "playlist_or_card_injected_by_harness", "no_playlist_or_card_injected_status_confirmed",
+              "home_status_payload_fixture_non_playlist", "native_home_status_attached",
+              "native_home_status_visible", "home_status_message_visible_in_native_view_hierarchy",
+              "home_status_hierarchy_pixels_verified", "home_status_evidence_captured_before_instrumentation_finish",
+              "login_surface_restored_after_status", "playlist_or_card_injected_by_harness",
+              "no_playlist_or_card_injected_status_confirmed", "authenticated_home_test_performed",
               "authenticated_home_test"
           )}, sort_keys=True))
           PY
@@ -917,12 +980,15 @@ jobs:
               "splash_accessibility_node_present", "splash_accessibility_visible",
               "native_root_accessibility_visible", "native_home_tab_accessibility_visible",
               "native_rows_scroll_accessibility_visible", "login_text_detected_in_hierarchy",
+              "home_status_message_accessible", "home_status_message_visible_to_user",
+              "home_status_accessibility_bounds_px",
               "screenshot_pixels"
           )
           with summary_path.open("a", encoding="utf-8") as output:
               for filename, title in (
                   ("login-hierarchy-redacted.json", "Cold-launch WebView hierarchy and pixels (redacted)"),
                   ("home-fallback-hierarchy-redacted.json", "Empty-Home fallback hierarchy and pixels (redacted)"),
+                  ("home-status-hierarchy-redacted.json", "Native Home status hierarchy and pixels (redacted)"),
               ):
                   path = root / filename
                   if not path.is_file():
@@ -970,7 +1036,11 @@ jobs:
           if [[ "$ACTIVITY_RESUMED" == "true" ]]; then
             activity_resumed=true
           fi
-          echo "::notice title=Android evidence outcomes::source=$SOURCE_REF; apk_sha256=${APK_SHA256:-not_verified}; integration=$INTEGRATION_OUTCOME; harness_failure_phase=${HARNESS_FAILURE_PHASE:-none}; harness_failure_type=${HARNESS_FAILURE_TYPE:-none}; login_dom_visible=$login_dom_visible; browser_compatibility_warning_visible=${BROWSER_COMPATIBILITY_WARNING:-not_confirmed}; installed_webview_chrome_major=${WEBVIEW_CHROME_MAJOR:-unknown}; configured_ua_chrome_major=${CONFIGURED_UA_CHROME_MAJOR:-unknown}; ua_profile_coherent=${USER_AGENT_PROFILE_COHERENT:-not_confirmed}; cold_login_hierarchy_pixels=$COLD_LAUNCH_OUTCOME; activity_resumed_after_instrumentation=$activity_resumed; preview_relaunched=${PREVIEW_RELAUNCHED:-unknown}; empty_home_payload_confirmed=$empty_home_payload_confirmed; playlist_or_card_injected=$playlist_or_card_injected_by_harness; empty_home_pixels_verified=$empty_home_pixels_verified; authenticated_home=not_tested"
+          home_status_pixels_verified=false
+          if [[ "$INTEGRATION_OUTCOME" == "success" && "$HOME_STATUS_PIXELS_VERIFIED" == "true" ]]; then
+            home_status_pixels_verified=true
+          fi
+          echo "::notice title=Android evidence outcomes::source=$SOURCE_REF; apk_sha256=${APK_SHA256:-not_verified}; integration=$INTEGRATION_OUTCOME; harness_failure_phase=${HARNESS_FAILURE_PHASE:-none}; harness_failure_type=${HARNESS_FAILURE_TYPE:-none}; login_dom_visible=$login_dom_visible; browser_compatibility_warning_visible=${BROWSER_COMPATIBILITY_WARNING:-not_confirmed}; installed_webview_chrome_major=${WEBVIEW_CHROME_MAJOR:-unknown}; configured_ua_chrome_major=${CONFIGURED_UA_CHROME_MAJOR:-unknown}; ua_profile_coherent=${USER_AGENT_PROFILE_COHERENT:-not_confirmed}; cold_login_hierarchy_pixels=$COLD_LAUNCH_OUTCOME; activity_resumed_after_instrumentation=$activity_resumed; preview_relaunched=${PREVIEW_RELAUNCHED:-unknown}; empty_home_payload_confirmed=$empty_home_payload_confirmed; playlist_or_card_injected=$playlist_or_card_injected_by_harness; empty_home_pixels_verified=$empty_home_pixels_verified; home_status_pixels_verified=$home_status_pixels_verified; login_restored_after_status=$(grep -Fq 'INSTRUMENTATION_STATUS: login_surface_restored_after_status=true' "$state_dir/android-instrumentation.txt" && echo true || echo false); authenticated_home=not_tested"
 
       - name: Upload verified screenshot and redacted launch summary
         if: always()
@@ -983,6 +1053,8 @@ jobs:
             ${{ runner.temp }}/melodix-preview-emulator-state/login-hierarchy-redacted.json
             ${{ runner.temp }}/melodix-preview-emulator-state/home-empty-fallback.png
             ${{ runner.temp }}/melodix-preview-emulator-state/home-fallback-hierarchy-redacted.json
+            ${{ runner.temp }}/melodix-preview-emulator-state/home-status.png
+            ${{ runner.temp }}/melodix-preview-emulator-state/home-status-hierarchy-redacted.json
             ${{ runner.temp }}/melodix-preview-emulator-state/android-instrumentation.txt
             ${{ runner.temp }}/melodix-preview-emulator-state/instrumentation-safe-logcat.txt
             ${{ runner.temp }}/melodix-preview-emulator-state/verification-reference.json

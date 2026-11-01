@@ -162,9 +162,17 @@ test("empty-Home pixels are captured before instrumentation finish and the same 
   assert.match(harness, /automation\.takeScreenshot\(\)/);
   assert.match(harness, /appendXmlAttribute\(xml, "bounds", bounds\.toShortString\(\)\)/);
   assert.doesNotMatch(harness, /bounds\.flattenToString\(\)/);
-  assert.match(harness, /openFileOutput\([\s\S]*?melodix-preview-home-fallback\.xml/);
-  assert.match(harness, /openFileOutput\([\s\S]*?melodix-preview-home-empty\.png/);
+  assert.match(harness, /captureEmptyHomeUiEvidence\(\)[\s\S]*?captureUiEvidence\("melodix-preview-home-fallback\.xml", "melodix-preview-home-empty\.png"/);
+  assert.match(harness, /captureHomeStatusUiEvidence\(\)[\s\S]*?captureUiEvidence\("melodix-preview-home-status\.xml", "melodix-preview-home-status\.png"/);
+  assert.match(harness, /putBoolean\("home_status_payload_fixture_non_playlist", true\)/);
+  assert.match(harness, /dispatchHomeStatusThroughAndBridge\(activity\)[\s\S]*?awaitNativeHomeStatusReady\(activity\)[\s\S]*?inspectHomeStatus\(activity, webView, originalWebViewUrl\)[\s\S]*?captureHomeStatusUiEvidence\(\)/);
+  const statusDispatchAt = harness.indexOf("private void dispatchHomeStatusThroughAndBridge");
+  const statusDispatchBody = harness.slice(statusDispatchAt, harness.indexOf("private void awaitNativeHomeStatusReady", statusDispatchAt));
+  assert.doesNotMatch(statusDispatchBody, /getMethod\("onNativeUiReady"|ready\.invoke\(|nativeHomeContentReady\s*=|nativeHomeStatusAttached\s*=/,
+    "status readiness must result from the real renderer/visibility gate, never a forced flag or ready callback");
+  assert.match(harness, /login_surface_restored_after_status/);
   assert.match(harness, /result\.putBoolean\("empty_home_evidence_captured", true\)/);
+  assert.match(harness, /result\.putBoolean\("home_status_evidence_captured", true\)/);
   assert.match(harness, /BROWSER_COMPATIBILITY_PROBE/);
   assert.match(harness, /configured_ua_chrome_major_matches_runtime/);
   assert.match(harness, /javascript_ua_profile_coherent/);
@@ -173,21 +181,34 @@ test("empty-Home pixels are captured before instrumentation finish and the same 
   assert.match(emulatorWorkflow, /installed_webview_chrome_major/);
   assert.match(emulatorWorkflow, /configured_ua_chrome_major/);
   assert.match(emulatorWorkflow, /INSTRUMENTATION_STATUS: empty_home_evidence_captured=true/);
-  assert.match(emulatorWorkflow, /safe_statuses=.*empty_home_evidence_captured/);
+  assert.match(emulatorWorkflow, /INSTRUMENTATION_STATUS: home_status_evidence_captured=true/);
+  assert.match(emulatorWorkflow, /safe_statuses=.*empty_home_evidence_captured.*home_status_evidence_captured/);
   assert.match(emulatorWorkflow, /adb exec-out run-as com\.melodix\.music\.preview cat files\/melodix-preview-home-fallback\.xml/);
   assert.match(emulatorWorkflow, /adb exec-out run-as com\.melodix\.music\.preview cat files\/melodix-preview-home-empty\.png/);
+  assert.match(emulatorWorkflow, /adb exec-out run-as com\.melodix\.music\.preview cat files\/melodix-preview-home-status\.xml/);
+  assert.match(emulatorWorkflow, /adb exec-out run-as com\.melodix\.music\.preview cat files\/melodix-preview-home-status\.png/);
+  assert.match(emulatorWorkflow, /inspect_hierarchy\.py home-status/);
+  assert.match(emulatorWorkflow, /home_status_pixels_verified=true/);
+  assert.match(emulatorWorkflow, /login_surface_restored_after_status=true/);
   const screenshotRetrieved = emulatorWorkflow.indexOf(
     "adb exec-out run-as com.melodix.music.preview cat files/melodix-preview-home-empty.png",
   );
   const targetRelaunch = emulatorWorkflow.indexOf(
     "adb shell am start -W -n com.melodix.music.preview/com.melodix.music.MainActivity",
   );
+  const statusScreenshotRetrieved = emulatorWorkflow.indexOf(
+    "adb exec-out run-as com.melodix.music.preview cat files/melodix-preview-home-status.png",
+  );
+  const statusInspection = emulatorWorkflow.indexOf(
+    "python3 tests/android/inspect_hierarchy.py home-status",
+  );
   const emptyHomeInspection = emulatorWorkflow.indexOf(
     "python3 tests/android/inspect_hierarchy.py empty-home",
   );
   assert.ok(
-    screenshotRetrieved >= 0 && screenshotRetrieved < targetRelaunch && targetRelaunch < emptyHomeInspection,
-    "retrieve the pre-finish screenshot, relaunch and verify MainActivity, then inspect the saved empty-Home pixels",
+    screenshotRetrieved >= 0 && screenshotRetrieved < targetRelaunch && targetRelaunch < statusInspection &&
+      statusScreenshotRetrieved < targetRelaunch && statusInspection < emptyHomeInspection,
+    "retrieve pre-finish status/fallback screenshots, verify MainActivity resumes, then inspect visible status and fallback pixels",
   );
   assert.match(
     emulatorWorkflow,
@@ -246,7 +267,7 @@ test("the emulator workflow builds and tests one Preview APK in the same CI run"
     "name: Build signed Android UI integration instrumentation APK",
   );
   const runHarness = emulatorWorkflow.indexOf(
-    "name: Run Android login and empty-Home fallback instrumentation",
+    "name: Run Android login, empty-Home fallback and Home-status instrumentation",
   );
   const resumedCheck = emulatorWorkflow.indexOf(
     "name: Verify activity resumed after Android instrumentation",

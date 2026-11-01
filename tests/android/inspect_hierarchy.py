@@ -66,15 +66,17 @@ def inspect_screenshot(path, bounds=None, region_name="region"):
         result[f"{region_name}_crop_unique_colors"] = distinct
         result[f"{region_name}_crop_bright_pixels"] = bright
         result[f"{region_name}_crop_sampled_pixels"] = len(pixels)
-        result[f"{region_name}_pixels_rendered"] = distinct > 2 and bright > 0
+        bright_pixel_threshold = 8 if region_name == "home_status" else 0
+        result[f"{region_name}_bright_pixel_threshold"] = bright_pixel_threshold
+        result[f"{region_name}_pixels_rendered"] = distinct > 2 and bright > bright_pixel_threshold
         crop.close()
     image.close()
     return result
 
 
 def main():
-    if len(sys.argv) != 5 or sys.argv[1] not in {"login", "empty-home"}:
-        raise SystemExit("usage: inspect_hierarchy.py login|empty-home WINDOW.xml SCREEN.png SUMMARY.json")
+    if len(sys.argv) != 5 or sys.argv[1] not in {"login", "empty-home", "home-status"}:
+        raise SystemExit("usage: inspect_hierarchy.py login|empty-home|home-status WINDOW.xml SCREEN.png SUMMARY.json")
     phase, xml_path, screenshot_path, summary_path = sys.argv[1:]
     xml_root = ET.parse(xml_path).getroot()
     hierarchy_nodes = [node for node in xml_root.iter() if node.tag == "node"]
@@ -91,6 +93,9 @@ def main():
     webview_bounds_present = False
     webview_visible_to_user = False
     webview_class_visible = False
+    home_status_bounds = None
+    home_status_message_accessible = False
+    home_status_message_visible = False
     for node in xml_root.iter():
         resource_id = node.get("resource-id", "")
         class_name = node.get("class", "")
@@ -105,6 +110,12 @@ def main():
             ids.add(resource_id)
         if text or content_description:
             visible_texts.append((text + " " + content_description).lower())
+        status_text = (text + " " + content_description).lower()
+        if "chargement de votre accueil" in status_text:
+            home_status_message_accessible = True
+            if accessibility_visible:
+                home_status_message_visible = True
+                home_status_bounds = bounds
         if "WebView" in class_name:
             webview_class_present = True
             webview_bounds_present = webview_bounds_present or has_visible_bounds
@@ -118,6 +129,7 @@ def main():
                 "nativeRoot", "nativeHomeTab", "nativeRowsScroll", "webViewContainer", "splashOverlay"
             ))
             or ("WebView" in class_name and has_visible_bounds)
+            or ("chargement de votre accueil" in status_text and has_visible_bounds)
         )
         if relevant:
             nodes.append({
@@ -157,7 +169,11 @@ def main():
         for phrase in ("log in", "sign in", "s'inscrire", "se connecter", "connexion", "network error")
     )
 
-    phase_name = "unauthenticated_webview_surface" if phase == "login" else "empty_home_webview_fallback"
+    phase_name = {
+        "login": "unauthenticated_webview_surface",
+        "empty-home": "empty_home_webview_fallback",
+        "home-status": "native_home_status_panel",
+    }[phase]
     summary = {
         "phase": phase_name,
         "ui_hierarchy_node_count": len(hierarchy_nodes),
@@ -180,6 +196,9 @@ def main():
         "splash_accessibility_node_present": splash_present,
         "splash_accessibility_visible": splash_visible,
         "login_or_network_text_detected": login_words_visible,
+        "home_status_message_accessible": home_status_message_accessible,
+        "home_status_message_visible_to_user": home_status_message_visible,
+        "home_status_accessibility_bounds_px": list(home_status_bounds) if home_status_bounds else None,
     }
 
     if phase == "login":
@@ -187,19 +206,48 @@ def main():
         # exists. The Android harness separately checks the DOM and records only
         # a boolean; this hierarchy field is strictly text-accessibility evidence.
         summary["login_text_detected_in_hierarchy"] = login_words_visible
+    elif phase == "empty-home":
+        summary["playlist_payload_injected"] = False
+        summary["native_root_hidden"] = not native_root_visible
+        summary["home_tabs_hidden"] = not native_home_tab_visible
     else:
         summary["playlist_payload_injected"] = False
         summary["native_root_hidden"] = not native_root_visible
         summary["home_tabs_hidden"] = not native_home_tab_visible
 
-    region_name = "webview"
+    region_name = "home_status" if phase == "home-status" else "webview"
+    region_bounds = home_status_bounds if phase == "home-status" else webview_bounds
     summary["screenshot_pixels"] = inspect_screenshot(
-        screenshot_path, webview_bounds, region_name
+        screenshot_path, region_bounds, region_name
     )
-    summary["webview_accessibility_bounds_px"] = (
-        list(webview_bounds) if webview_bounds else None
+    summary[f"{region_name}_accessibility_bounds_px"] = (
+        list(region_bounds) if region_bounds else None
     )
     Path(summary_path).write_text(json.dumps(summary, indent=2) + "\n", encoding="utf-8")
+
+    if phase == "home-status":
+        if not home_status_message_visible or home_status_bounds is None:
+            fail("visible_home_status_message_accessibility_node_missing")
+        if not native_root_visible or not native_home_tab_visible or splash_visible:
+            fail(
+                "native_home_status_surface_not_visible;"
+                f" native_root_visible={native_root_visible};"
+                f" home_tab_visible={native_home_tab_visible};"
+                f" splash_visible={splash_visible}"
+            )
+        if not summary["screenshot_pixels"].get("home_status_pixels_rendered"):
+            fail("home_status_bounds_have_no_rendered_screenshot_pixels")
+        print("Native Home status fixture: distinct visible status node and screenshot pixels verified; no playlist data.")
+        print(
+            "::notice title=Android native Home status visibility::"
+            f"status_accessibility_visible={home_status_message_visible}; "
+            f"native_root_visible={native_root_visible}; home_tab_visible={native_home_tab_visible}; "
+            f"splash_visible={splash_visible}; playlist_payload_injected=false; "
+            f"status_pixels_rendered={summary['screenshot_pixels']['home_status_pixels_rendered']}; "
+            f"status_crop_unique_colors={summary['screenshot_pixels']['home_status_crop_unique_colors']}; "
+            f"status_crop_bright_pixels={summary['screenshot_pixels']['home_status_crop_bright_pixels']}"
+        )
+        return
 
     if not webview_class_visible or webview_bounds is None:
         fail(

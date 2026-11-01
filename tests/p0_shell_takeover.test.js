@@ -246,34 +246,60 @@ test('diagnostic traces carry a process id and omit private route identifiers', 
         'raw URLs and route paths are not logged');
 });
 
-// P0: an empty/loading/error payload is not proof of a native replacement.
-// Spotify remains the visible fallback until at least one real card is sent.
-test('an empty Home never triggers native takeover or claims readiness', () => {
+// P0 regression: restore the older authenticated empty-Home state without
+// pretending that it is a Spotify playlist or letting it cover login.
+test('an authenticated empty Home sends an explicit status before readiness', () => {
     const { calls, win } = loadShell({ withCards: false });
-    assert.equal(calls.ready, 0, 'onNativeUiReady() is withheld without a real card');
-    assert.notEqual(win.__sfNativeUiReadyNotified, true);
-    assert.equal(win.__sfNativeUiHomeRowsCount, 0);
+    const payload = calls.data.filter((call) => call.screen === 'home').at(-1);
+    assert.ok(payload);
+    assert.equal(payload.rows.length, 1);
+    assert.equal(payload.rows[0].kind, 'state');
+    assert.equal(payload.rows[0].state, 'loading');
+    assert.equal(payload.rows[0].title, 'Chargement de votre accueil…');
+    assert.equal(payload.rows[0].uri, '', 'the state does not manufacture a Spotify URI');
+    assert.equal(win.__sfNativeUiHomeRowsCount, 0, 'status is not counted as Spotify content');
+    assert.equal(win.__sfNativeUiHomeContentProven, false);
+    assert.equal(win.__sfNativeUiHomeStateSent, true);
+    assert.equal(win.__sfNativeUiHomeStateProven, true);
     assert.equal(win.__sfNativeUiSessionProven, true);
-    assert.equal(win.__sfNativeUiBridgeCallbacksReady, true);
-    assert.ok(calls.routes.includes('home'), 'the route is queued without covering Spotify');
-    assert.ok(calls.data.some((call) => call.screen === 'home' && call.rows.length === 0));
-    assert.ok(calls.traces.some((line) => line.includes('action=keep-spotify-visible')));
+    assert.equal(calls.ready, 1);
+    const route = calls.order.indexOf('route:home');
+    const data = calls.order.indexOf('data:home');
+    const ready = calls.order.indexOf('ready');
+    assert.ok(route >= 0 && data > route && ready > data,
+        `expected route -> explicit status -> ready, saw ${calls.order.join(' / ')}`);
 });
 
-// A library failure remains diagnosable, but status/action rows cannot satisfy
-// the real-card gate.
-test('an error/status row never counts as a real Home replacement', () => {
-    const { win, calls, drainTimers } = loadShell({ withCards: false });
+test('an empty Home without session evidence stays on Spotify and sends no status state', () => {
+    const { calls, win } = loadShell({ withCards: false, noUserWidget: true });
+    assert.equal(calls.ready, 0);
+    assert.notEqual(win.__sfNativeUiReadyNotified, true);
+    assert.equal(win.__sfNativeUiHomeRowsCount, 0);
+    assert.equal(win.__sfNativeUiSessionProven, false);
+    assert.equal(win.__sfNativeUiHomeStateSent, false);
+    assert.ok(calls.data.some((call) => call.screen === 'home' && call.rows.length === 0),
+        'a raw empty payload clears native content but does not prove readiness');
+    assert.ok(!calls.data.some((call) => call.screen === 'home' &&
+        call.rows.some((row) => row && row.kind === 'state')));
+    assert.ok(calls.traces.some((line) => line.includes('ready-pending proof=0 session=0')),
+        'without session or a real card, the shell withholds native readiness and leaves Spotify visible');
+});
+
+test('an authenticated library error is an actionable non-playlist Home status', () => {
+    const { win, calls } = loadShell({ withCards: false });
     win.__sfMediaLibStatus = 'error';
     win.__sfMediaLibError = 'http-429';
-    drainTimers(20);
+    win.__sfTriggerMutations();
 
-    const statusPayload = calls.data.filter((call) => call.screen === 'home')
-        .find((call) => call.rows.some((row) => row.title === 'Vos playlists ne sont pas disponibles'));
-    assert.ok(statusPayload, 'the underlying library failure remains diagnosable');
-    assert.match(statusPayload.rows[0].subtitle, /limite les requêtes/);
-    assert.equal(calls.ready, 0, 'a diagnostic/action row cannot make the native shell ready');
-    assert.notEqual(win.__sfNativeUiReadyNotified, true);
+    const payload = calls.data.filter((call) => call.screen === 'home').at(-1);
+    const state = payload.rows[0];
+    assert.equal(state.kind, 'state');
+    assert.equal(state.state, 'error');
+    assert.equal(state.title, 'Vos playlists ne sont pas disponibles');
+    assert.match(state.subtitle, /limite les requêtes/);
+    assert.equal(state.uri, 'melodix:action:retry-library');
+    assert.equal(win.__sfNativeUiHomeRowsCount, 0);
+    assert.equal(calls.ready, 1, 'only the session-proven status participates in readiness');
 });
 
 test('native Home finds semantic roots and bounded real-link fallbacks without #main-view', () => {
@@ -311,8 +337,8 @@ test('real Home data is queued after its route and before the readiness callback
     assert.equal(calls.ready, 1);
 });
 
-test('delayed real Spotify cards unblock readiness without an empty takeover', () => {
-    const { calls, win, appendCard } = loadShell({ withCards: false });
+test('a delayed real Spotify card unlocks readiness when session evidence is absent', () => {
+    const { calls, win, appendCard } = loadShell({ withCards: false, noUserWidget: true });
     assert.equal(calls.ready, 0);
     assert.equal(win.__sfNativeUiReadyNotified, undefined);
 

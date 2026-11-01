@@ -19,26 +19,31 @@ const method = (source, signature) => {
   return source.slice(start, end);
 };
 
-test('Home renderer uses Activity accessors for private attachment/visibility state', () => {
-  const renderer = method(read('smali/com/melodix/music/NativeHomeShelfRenderer.smali'),
-    '.method public static render(');
+test('Home renderer keeps card and status attachment facts separate', () => {
+  const rendererSource = read('smali/com/melodix/music/NativeHomeShelfRenderer.smali');
+  const renderer = method(rendererSource, '.method public static render(');
+  const statusRenderer = method(rendererSource, '.method private static renderHomeStatus(');
   const activity = read('smali/com/melodix/music/MainActivity.smali');
   assert.match(renderer, /beginNativeHomeRender\(\)V/);
   assert.match(renderer, /noteNativeHomeCardAttached\(Landroid\/view\/View;\)V/);
+  assert.match(renderer, /kind[\s\S]*?renderHomeStatus[\s\S]*?native-home-status-attached/);
+  assert.match(statusRenderer, /noteNativeHomeStatusAttached\(Landroid\/view\/View;\)V/);
   assert.match(renderer, /hasNativeHomeCardsAttached\(\)Z/);
-  assert.doesNotMatch(renderer, /MainActivity;->nativeHome(?:CardsAttached|ContentReady|FirstCard):/,
+  assert.doesNotMatch(rendererSource, /MainActivity;->nativeHome(?:CardsAttached|StatusAttached|ContentReady|FirstCard|StatusView):/,
     'no direct cross-class access to private Activity fields');
   assert.match(activity, /\.field private nativeHomeCardsAttached:Z/);
+  assert.match(activity, /\.field private nativeHomeStatusAttached:Z/);
   assert.match(activity, /\.field private nativeHomeContentReady:Z/);
   assert.match(activity, /\.field private nativeHomeFirstCard:Landroid\/view\/View;/);
+  assert.match(activity, /\.field private nativeHomeStatusView:Landroid\/view\/View;/);
 });
 
-test('Home content readiness requires an attached, measured card with a non-empty global visible rect', () => {
-  const measured = method(read('smali/com/melodix/music/MainActivity.smali'),
-    '.method private hasMeasuredVisibleNativeHomeCard()Z');
+test('Home readiness measures the attached card or explicit status view in global bounds', () => {
+  const activity = read('smali/com/melodix/music/MainActivity.smali');
+  const measured = method(activity, '.method private hasMeasuredVisibleNativeHomeContent()Z');
   assert.match(measured, /isNativeHomeScreen\(\)Z/);
-  assert.match(measured, /nativeHomeCardsAttached:Z/);
-  assert.match(measured, /nativeHomeFirstCard:Landroid\/view\/View;/);
+  assert.match(measured, /nativeHomeCardsAttached:Z[\s\S]*?nativeHomeFirstCard:Landroid\/view\/View;/);
+  assert.match(measured, /nativeHomeStatusAttached:Z[\s\S]*?nativeHomeStatusView:Landroid\/view\/View;/);
   assert.match(measured, /View;->getParent\(\)Landroid\/view\/ViewParent;/);
   assert.match(measured, /View;->isShown\(\)Z/);
   assert.match(measured, /View;->getWidth\(\)I[\s\S]*?if-lez/);
@@ -47,18 +52,20 @@ test('Home content readiness requires an attached, measured card with a non-empt
   assert.match(measured, /Rect;->width\(\)I[\s\S]*?Rect;->height\(\)I/);
 });
 
-test('the visible-ready flag and splash completion follow a second post-overlay card measurement', () => {
+test('the visible-ready flag follows a second post-overlay measurement and records which content was seen', () => {
   const complete = method(read('smali/com/melodix/music/MainActivity.smali'),
     '.method public final completeNativeUiVisibility(Z)Z');
-  const first = complete.indexOf('hasMeasuredVisibleNativeHomeCard()Z');
+  const first = complete.indexOf('hasMeasuredVisibleNativeHomeContent()Z');
   const dismiss = complete.indexOf('hideStartupOverlay()V');
-  const second = complete.indexOf('hasMeasuredVisibleNativeHomeCard()Z', first + 1);
+  const second = complete.indexOf('hasMeasuredVisibleNativeHomeContent()Z', first + 1);
   const ready = complete.indexOf('iput-boolean v0, p0, Lcom/melodix/music/MainActivity;->nativeHomeContentReady:Z');
   const rendered = complete.indexOf('"home-rendered"');
   const playerReady = complete.indexOf('AppSingleton;->l:Z');
   const startupDone = complete.indexOf('AppSingleton;->startupDone:Z');
   assert.ok(first >= 0 && dismiss > first && second > dismiss && ready > second && rendered > ready,
-    'Home readiness is set only after the actual card remains visible without the splash');
+    'Home readiness is set only after the selected real content remains visible without the splash');
+  assert.match(complete, /native-home-card-visible=true[\s\S]*?native-home-status-visible=true/,
+    'diagnostics distinguish a Spotify card from an explicit state panel');
   assert.ok(playerReady > rendered && startupDone > playerReady,
     'global readiness flags follow the verified Home stage');
   assert.match(complete, /:native_visibility_web_fallback[\s\S]*?revealWebUi\(\)V/);

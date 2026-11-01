@@ -364,11 +364,11 @@ test('JavascriptInterface annotations match active JS calls plus the native sign
         }
     }
 
-    // isSignatureValid is called from native Smali, not the active JavaScript
-    // bundle. Keep it explicit rather than misclassifying the historical API
-    // surface as a missing JS reference.
-    const nativeOnly = new Set(['isSignatureValid']);
-    const jsExposed = new Set([...annotated].filter((name) => !nativeOnly.has(name)));
+    // isSignatureValid is called from native Smali; getBuildLabel is an
+    // intentionally exposed, optional diagnostic hook. Neither is required
+    // to have an active bundle call in every shell revision.
+    const optionalExposed = new Set(['isSignatureValid', 'getBuildLabel']);
+    const jsExposed = new Set([...annotated].filter((name) => !optionalExposed.has(name)));
     assert.deepEqual([...jsExposed].sort(), [...referenced].sort());
     assert.match(read('smali/com/melodix/music/MainActivity.smali'), /AndBridge;->isSignatureValid\(\)Z/);
     assert.match(read('smali/com/melodix/music/AppSingleton.smali'), /AndBridge;->isSignatureValid\(\)Z/);

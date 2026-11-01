@@ -212,27 +212,32 @@ test('the dismiss listener removes the panel from its parent', () => {
 // Part 3 - the content markers and the next-launch replay hook
 // ---------------------------------------------------------------------------
 
-test('Home distinguishes attached cards from a card verified visible after the splash', () => {
+test('Home distinguishes attached cards/status from content verified visible after the splash', () => {
   const body = methodBody(RENDERER(), '.method public static render(Lcom/melodix/music/MainActivity;Ljava/lang/String;)V');
   const reset = body.indexOf('beginNativeHomeRender()V');
   const json = body.indexOf('"home-json"');
-  const attached = body.indexOf('noteNativeHomeCardAttached(Landroid/view/View;)V');
-  const attachedStage = body.indexOf('"home-cards-attached"');
+  const cardAttached = body.indexOf('noteNativeHomeCardAttached(Landroid/view/View;)V');
+  const cardStage = body.indexOf('"home-cards-attached"');
+  const statusAttached = body.indexOf('renderHomeStatus');
+  const statusStage = body.indexOf('"native-home-status-attached"');
   assert.ok(reset >= 0 && json > reset, 'each payload resets stale Home state before its receipt trace');
-  assert.ok(attached > json && attachedStage > attached,
-    'the renderer marks only attached cards before requesting a takeover');
+  assert.ok(cardAttached > json && cardStage > cardAttached,
+    'real Spotify cards are marked separately before requesting a takeover');
+  assert.ok(statusAttached > json && statusStage > statusAttached,
+    'explicit state text has its own attached marker, never the card marker');
   assert.doesNotMatch(body, /nativeHomeContentReady:Z|"home-rendered"/,
     'the renderer cannot claim pixels are visible');
   assert.match(body, /:shelf_no_cards[\s\S]*?home-render-failed[\s\S]*?revealWebUi\(\)V/);
 
   const activity = methodBody(MI(), '.method public final completeNativeUiVisibility(Z)Z');
-  const firstMeasure = activity.indexOf('hasMeasuredVisibleNativeHomeCard()Z');
+  const firstMeasure = activity.indexOf('hasMeasuredVisibleNativeHomeContent()Z');
   const overlayRemoved = activity.indexOf('hideStartupOverlay()V');
-  const secondMeasure = activity.indexOf('hasMeasuredVisibleNativeHomeCard()Z', firstMeasure + 1);
+  const secondMeasure = activity.indexOf('hasMeasuredVisibleNativeHomeContent()Z', firstMeasure + 1);
   const rendered = activity.indexOf('"home-rendered"');
   assert.ok(firstMeasure >= 0 && overlayRemoved > firstMeasure &&
     secondMeasure > overlayRemoved && rendered > secondMeasure,
     'home-rendered follows two measured global-visibility checks around splash removal');
+  assert.match(activity, /native-home-card-visible=true[\s\S]*?native-home-status-visible=true/);
   assert.match(activity, /sput-boolean v0, Lcom\/melodix\/music\/AppSingleton;->l:Z[\s\S]*?sput-boolean v0, Lcom\/melodix\/music\/AppSingleton;->startupDone:Z/);
 });
 

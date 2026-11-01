@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 'use strict';
-// Contrats structurels du diagnostic « accueil vide ». Les états restent
-// disponibles pour le diagnostic interne, mais ne sont jamais présentés comme
-// un remplacement natif tant qu’aucune vraie carte Spotify n’est rendue.
+// Contrats structurels du statut Home explicite et des diagnostics de démarrage.
+// Un statut non-Spotify est distinct d’une carte, mais ne peut prendre le relais
+// que lorsqu’une preuve de session et l’envoi du payload sont confirmés.
 const { test } = require('node:test');
 const assert = require('node:assert');
 const fs = require('node:fs');
@@ -22,19 +22,24 @@ test('[structurel] AndBridge.getBuildLabel expose le versionName (1.2.2-<sha7>) 
   assert.match(body, /\.catch Ljava\/lang\/Throwable;/, 'jamais de crash pour un diagnostic');
 });
 
-test('[structurel] homeDiagRow porte build/screen/bridge/mediaLib/rows sans route privée', () => {
-  const at = shell.indexOf('function homeDiagRow(reason)');
-  assert.ok(at > -1, 'homeDiagRow existe');
-  const body = shell.slice(at, at + 1200);
-  assert.match(body, /getBuildLabel/);
-  assert.match(body, /diagnosticScreen\(\)/);
-  assert.doesNotMatch(body, /spotifyRoutePath\(\)/);
-  assert.match(body, /bridgeHasStarted\(\)/);
-  assert.match(body, /safeMediaLibStatus\(\)/);
-  assert.match(body, /web cards/);
-  assert.match(body, /__sfMelodixHomeSourceCardCount/);
-  assert.match(body, /__sfNativeUiHomeDomRowsCount/);
-  assert.match(body, /__sfNativeUiHomeRowsCount/);
+test('[structurel] homeStateRow is typed non-playlist content with only local actions', () => {
+  const at = shell.indexOf('function homeStateRow()');
+  assert.ok(at > -1, 'homeStateRow exists');
+  const end = shell.indexOf('\n    // Manual retry', at);
+  const body = shell.slice(at, end);
+  assert.match(body, /kind: 'state'/);
+  assert.match(body, /state: 'error'/);
+  assert.match(body, /state: 'empty'/);
+  assert.match(body, /state: 'unavailable'/);
+  assert.match(body, /state: 'loading'/);
+  assert.match(body, /image: ''/);
+  assert.match(body, /uri: homeStateAction\(/);
+  const actionAt = shell.indexOf('function homeStateAction(err)');
+  const actionBody = shell.slice(actionAt, shell.indexOf('\n    function homeStateRow', actionAt));
+  assert.match(actionBody, /melodix:action:retry-library/);
+  assert.match(actionBody, /melodix:action:open-settings/);
+  assert.doesNotMatch(body, /spotifyRoutePath\(\)|spotify:[a-z]+:/,
+    'the status never includes a private route or a fabricated Spotify resource URI');
 });
 
 test('[structurel] le comptage diagnostique compare les cartes Web aux rows natives réellement scrappées', () => {
@@ -62,15 +67,23 @@ test('[structurel] les rows vides/actions ne satisfont pas le gate de readiness'
     'aucun état de chargement n’est envoyé après un takeover vide');
 });
 
-test('[structurel] un scrape vide explique l etat (3/15) puis livre le diag complet (MAX)', () => {
+test('[structurel] an empty Home sends status only with session evidence and falls back to empty data otherwise', () => {
   const at = shell.indexOf('function updateHomeRows(mainView)');
   const body = shell.slice(at, shell.indexOf('function currentSearchQuery', at));
-  assert.match(body, /rows\.length === 0 && \(homeRetries === 3 \|\| homeRetries === 15\)/);
-  assert.match(body, /sendNativeUiData\('home', homeStatePayload\(\)\)/);
-  assert.match(body, /rows\.length === 0 && homeRetries === MAX_HOME_RETRIES/);
-  assert.match(body, /sendNativeUiData\('home', \[homeDiagRow/);
-  // Jamais de row d etat quand de vraies rows existent.
-  assert.ok(body.indexOf('homeStatePayload()') > -1);
+  const readyAt = shell.indexOf('function notifyNativeUiReady(');
+  const readyBody = shell.slice(readyAt, shell.indexOf('\n    function ', readyAt + 10));
+  assert.match(body, /else if \(pageHasSessionEvidence\(\)\)/);
+  assert.match(body, /statePayload = homeStatePayload\(\)/);
+  assert.match(body, /window\.__sfNativeUiHomeStateSent = true/);
+  assert.match(body, /sendNativeUiData\('home', \[\]\)/,
+    'a logged-out empty page clears native content without creating a status row');
+  assert.match(readyBody, /sessionProven &&[\s\S]*?__sfNativeUiHomeStateSent === true[\s\S]*?__sfNativeUiHomeDataSent === true/);
+  const stateAt = shell.indexOf('function homeStateRow()');
+  const stateBody = shell.slice(stateAt, shell.indexOf('\n    // Manual retry', stateAt));
+  assert.match(stateBody, /homeRetries >= MAX_HOME_RETRIES && !homeRetryLoopAlive\(\)/);
+  assert.match(stateBody, /state: 'unavailable'/,
+    'retry exhaustion is communicated through the distinct status panel, not a diagnostic playlist row');
+  assert.doesNotMatch(body, /sendNativeUiData\('home', \[homeDiagRow/);
 });
 
 test('[vm] le shell reste exécutable avec les ajouts diag', () => {
