@@ -90,10 +90,19 @@ test("the emulator workflow checks the exact APK debuggable flag and captures re
     /target_debuggable="\$\(python3 -[\s\S]*?\[\[ "\$target_debuggable" == "true" \]\]/,
     "refuse to start instrumentation unless the built APK reports debuggable=true",
   );
-  assert.match(emulatorWorkflow, /dumpsys activity instrumentation/);
+  assert.match(emulatorWorkflow, /adb shell dumpsys activity > "\$activity_dump"/);
+  assert.doesNotMatch(
+    emulatorWorkflow,
+    /dumpsys activity instrumentation/,
+    "Android 16 does not support the instrumentation dumpsys subcommand",
+  );
   assert.match(
     emulatorWorkflow,
-    /logcat -d -t 1200 -b main -b system -b crash -v threadtime[\s\S]*?ActivityManager:W ActivityTaskManager:W PackageManager:W Instrumentation:V AndroidRuntime:E/,
+    /logcat -d -t 2000 -b main -b system -b crash -b events -v threadtime[\s\S]*?ActivityManager:V ActivityTaskManager:V PackageManager:V Instrumentation:V AndroidRuntime:E[\s\S]*?am_proc_start:I am_proc_died:I am_crash:I am_anr:I/,
+  );
+  assert.match(
+    emulatorWorkflow,
+    /target_pid="\$\(adb shell pidof -s com\.melodix\.music\.preview[\s\S]*?test_pid="\$\(adb shell pidof -s com\.melodix\.music\.preview\.test/,
   );
   assert.match(
     emulatorWorkflow,

@@ -557,9 +557,12 @@ jobs:
           )"
             activity_dump="$RUNNER_TEMP/melodix-instrumentation-activity-dump.txt"
             system_logcat="$RUNNER_TEMP/melodix-instrumentation-system-logcat.txt"
-            adb shell dumpsys activity instrumentation > "$activity_dump" 2>&1 || true
-            adb logcat -d -t 1200 -b main -b system -b crash -v threadtime -s \
-              ActivityManager:W ActivityTaskManager:W PackageManager:W Instrumentation:V AndroidRuntime:E \
+            adb shell dumpsys activity > "$activity_dump" 2>&1 || true
+            target_pid="$(adb shell pidof -s com.melodix.music.preview 2>/dev/null | tr -cd '0-9' || true)"
+            test_pid="$(adb shell pidof -s com.melodix.music.preview.test 2>/dev/null | tr -cd '0-9' || true)"
+            adb logcat -d -t 2000 -b main -b system -b crash -b events -v threadtime -s \
+              ActivityManager:V ActivityTaskManager:V PackageManager:V Instrumentation:V AndroidRuntime:E \
+              am_proc_start:I am_proc_died:I am_crash:I am_anr:I \
               > "$system_logcat" 2>&1 || true
             system_diagnostics="$(python3 - "$activity_dump" "$system_logcat" <<'PY'
           import pathlib
@@ -588,8 +591,8 @@ jobs:
               safe_line(line) for line in activity_text.splitlines()
               if re.search(r"(?i)instrumentation|com\.melodix\.music\.preview|HomeRenderInstrumentation", line)
           ][-16:]
-          relevant_tags = ("ActivityManager", "ActivityTaskManager", "PackageManager", "Instrumentation", "AndroidRuntime")
-          relevant_terms = ("instrument", "not debuggable", "permission denial", "not allowed", "denied", "failed", "unable", "exception", "crash", "fatal", "start proc", "died", "com.melodix.music.preview")
+          relevant_tags = ("ActivityManager", "ActivityTaskManager", "PackageManager", "Instrumentation", "AndroidRuntime", "am_proc_start", "am_proc_died", "am_crash", "am_anr")
+          relevant_terms = ("instrument", "not debuggable", "permission denial", "not allowed", "denied", "failed", "unable", "exception", "crash", "fatal", "start proc", "died", "am_proc_start", "am_proc_died", "am_crash", "am_anr", "com.melodix.music.preview")
           log_lines = [
               safe_line(line) for line in logcat_text.splitlines()
               if any(tag.lower() in line.lower() for tag in relevant_tags)
@@ -602,7 +605,7 @@ jobs:
           PY
           )"
             rm -f "$activity_dump" "$system_logcat"
-            echo "::error title=Android UI instrumentation::exit=$instrumentation_status; target_debuggable=$TARGET_DEBUGGABLE; safe_statuses=${safe_statuses:-none}; harness_markers=${safe_harness_logs:-none}; transcript_bytes=$transcript_bytes; $framework_summary; $system_diagnostics"
+            echo "::error title=Android UI instrumentation::exit=$instrumentation_status; target_debuggable=$TARGET_DEBUGGABLE; target_pid=${target_pid:-none}; test_package_pid=${test_pid:-none}; safe_statuses=${safe_statuses:-none}; harness_markers=${safe_harness_logs:-none}; transcript_bytes=$transcript_bytes; $framework_summary; $system_diagnostics"
             exit 1
           fi
 
