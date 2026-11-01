@@ -480,6 +480,8 @@ test("the emulator workflow validates same-run instrumentation and exact release
     "framework-level instrumentation failures expose only field names and an allowlisted error category");
   assert.match(emulatorWorkflow, /aapt\" dump xmltree \"\$test_apk\" AndroidManifest\.xml[\s\S]*?HomeRenderInstrumentation[\s\S]*?target_package_declared/,
     "the instrumentation APK's runner and target are validated in the packaged manifest");
+  assert.match(emulatorWorkflow, /test_apk_sha256=\"\$\(sha256sum \"\$test_apk\"[\s\S]*?::notice title=Android test-only instrumentation APK::source=\$SOURCE_REF; package=com\.melodix\.music\.preview\.test; target=com\.melodix\.music\.preview; sha256=\$test_apk_sha256[\s\S]*?GITHUB_STEP_SUMMARY/,
+    "the separately signed harness APK hash is surfaced in the run annotation and summary");
   assert.match(emulatorWorkflow, /pm list instrumentation[\s\S]*?expected_runner_registered/,
     "the Android package manager must register the exact installed harness before it is invoked");
   assert.match(emulatorWorkflow, /pm_instrumentation_entries=[\s\S]*?pm_list_unknown_command=[\s\S]*?package_dump_runner_seen=/,
