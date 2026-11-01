@@ -261,6 +261,8 @@ test("Android verifies the packaged Web Home renderer on /app in an isolated, vi
   assert.match(fixture, /setBlockNetworkLoads\(true\)/);
   assert.match(fixture, /setDomStorageEnabled\(false\)/);
   assert.match(fixture, /Route fixture playlist[\s\S]*?Route fixture album/);
+  assert.match(fixture, /card-subtitle[\s\S]*?Fixture-only playlist subtitle[\s\S]*?card-subtitle[\s\S]*?Fixture-only album subtitle/,
+    "the test-only renderer fixture supplies subtitle text so its computed colors are measured too");
   assert.match(fixture, /__sfMelodixHomeTestMode=true/);
   assert.doesNotMatch(fixture, /CookieManager|setCookie|localStorage|sessionStorage|loadUrl\s*\(/,
     "the offline fixture must not read/write the Spotify session or navigate the production WebView");
@@ -287,7 +289,7 @@ test("Android verifies the packaged Web Home renderer on /app in an isolated, vi
   assert.match(harness, /WEB_HOME_RENDERER_DIAGNOSTIC_PROBE[\s\S]*?home_card_count[\s\S]*?source_hidden[\s\S]*?first_card_has_bounds/);
   assert.match(harness, /main_view_present[\s\S]*?raw_anchor_count[\s\S]*?root_resource_count[\s\S]*?source_card_count[\s\S]*?session_proven[\s\S]*?decision_session_unproven[\s\S]*?decision_rendered_status[\s\S]*?decision_styles_not_ready[\s\S]*?style_probe_home_display_flex[\s\S]*?style_probe_main_hidden/);
   assert.match(harness, /web_home_probe_diagnostics_available[\s\S]*?web_home_probe_root_resource_count[\s\S]*?web_home_probe_decision_styles_not_ready[\s\S]*?web_home_probe_style_probe_completed[\s\S]*?web_home_probe_renderer_style_probe_marker_present[\s\S]*?web_home_probe_renderer_style_probe_error[\s\S]*?web_home_probe_style_probe_main_hidden[\s\S]*?web_home_probe_first_card_has_bounds/);
-  assert.match(emulatorWorkflow, /safe_statuses=.*web_home_color_probe_\(completed\|error\|error_type\|validation_passed\).*web_home_\(normal\|loading\|empty\|error\|partial\)_\(state_\(visible\|wcag_aa_pass\|partial_data\|card_count\|library_status\)\|contrast_\[A-Za-z0-9_\]\+\|color_\[A-Za-z0-9_\]\+\).*web_home_probe_diagnostics_available.*web_home_probe_root_resource_count.*web_home_probe_style_probe_completed.*web_home_probe_renderer_style_probe_marker_present.*web_home_probe_renderer_style_probe_error.*web_home_probe_style_probe_main_hidden.*web_home_probe_first_card_has_bounds/);
+  assert.match(emulatorWorkflow, /safe_statuses=.*web_home_color_probe_\(completed\|error\|error_type\|validation_passed\|validation_summary\).*web_home_\(normal\|loading\|empty\|error\|partial\)_\(state_\(visible\|wcag_aa_pass\|partial_data\|card_count\|library_status\)\|contrast_\[A-Za-z0-9_\]\+\|color_\[A-Za-z0-9_\]\+\).*web_home_probe_diagnostics_available.*web_home_probe_root_resource_count.*web_home_probe_style_probe_completed.*web_home_probe_renderer_style_probe_marker_present.*web_home_probe_renderer_style_probe_error.*web_home_probe_style_probe_main_hidden.*web_home_probe_first_card_has_bounds/);
   assert.match(emulatorWorkflow, /web_home_renderer_probe_renderer_style_probe_marker_present[\s\S]*?status_bool\("web_home_probe_renderer_style_probe_marker_present"\)/);
   assert.match(emulatorWorkflow, /harness_overall_passed=false[\s\S]*?INSTRUMENTATION_STATUS: overall=passed[\s\S]*?harness_overall_passed=true[\s\S]*?safe_statuses=/,
     "a runner can return exit zero after a canceled Activity, so fail from the harness result and retain safe phase diagnostics");
@@ -321,6 +323,10 @@ test("Android verifies the packaged Web Home renderer on /app in an isolated, vi
     "computed WebView text/button contrast must clear WCAG AA");
   assert.match(harness, /webHomeColorState = inspectWebHomeColorStates[\s\S]*?sendStatus\(1, webHomeColorState\)[\s\S]*?web_home_color_probe_validation_passed/,
     "computed colors and failing contrast ratios are emitted safely before the test fails");
+  assert.match(harness, /summarizeWebHomeColorProbe[\s\S]*?minRatioName[\s\S]*?state_wcag_aa_pass/,
+    "an anonymized per-state status/count/contrast summary remains visible if the WebView fixture fails");
+  assert.match(emulatorWorkflow, /safe_home_color_summary[\s\S]*?home_color_summary=\$\{safe_home_color_summary:-none\}/,
+    "failure annotations prioritize the compact color diagnostics before large status transcripts");
   assert.match(harness, /retry_button_fill[\s\S]*?statusBackdrops/,
     "the retry button fill and focus ring are compared to the actual status-card backdrop");
   assert.match(emulatorWorkflow, /live_spotify_origin_category=open\.spotify\.com[\s\S]*?live_webview_css_theme_applicable=true[\s\S]*?live_webview_stylesheet_marker_present=true[\s\S]*?live_webview_css_tokens_valid=true[\s\S]*?live_spotify_origin_category=accounts\.spotify\.com[\s\S]*?live_webview_css_theme_applicable=false[\s\S]*?live_webview_css_tokens_valid=false/,

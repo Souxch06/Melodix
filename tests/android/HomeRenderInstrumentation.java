@@ -1044,8 +1044,8 @@ public final class HomeRenderInstrumentation extends Instrumentation {
         final String html = "<!doctype html><html lang=\"en\"><head><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">" +
                 "<script>window.SF_CONFIG={guiMode:'csshack'};window.__sfNativeUiSessionProven=true;window.__sfMelodixHomeTestMode=true;</script></head><body>" +
                 "<main id=\"main-view\"><section data-testid=\"shelf\"><h2>Route test shelf</h2>" +
-                "<div data-testid=\"card\"><a href=\"/playlist/test-only-route-fixture-playlist\"><span data-testid=\"card-title\">Route fixture playlist</span></a></div>" +
-                "<div data-testid=\"card\"><a href=\"/album/test-only-route-fixture-album\"><span data-testid=\"card-title\">Route fixture album</span></a></div>" +
+                "<div data-testid=\"card\"><a href=\"/playlist/test-only-route-fixture-playlist\"><span data-testid=\"card-title\">Route fixture playlist</span><span data-testid=\"card-subtitle\">Fixture-only playlist subtitle</span></a></div>" +
+                "<div data-testid=\"card\"><a href=\"/album/test-only-route-fixture-album\"><span data-testid=\"card-title\">Route fixture album</span><span data-testid=\"card-subtitle\">Fixture-only album subtitle</span></a></div>" +
                 "</section></main></body></html>";
         runOnMainSync(new Runnable() {
             @Override
@@ -1197,7 +1197,6 @@ public final class HomeRenderInstrumentation extends Instrumentation {
             state.putBoolean("web_home_dark_theme_computed", darkTheme);
             state.putBoolean("web_home_light_theme_available", lightThemeAvailable);
             state.putBoolean("web_home_color_state_scenarios_complete", scenariosComplete);
-            if (probeError) return state;
 
             String[] names = new String[] { "normal", "loading", "empty", "error", "partial" };
             String[] expectedStatus = new String[] { "none", "loading", "empty", "error", "error" };
@@ -1288,7 +1287,50 @@ public final class HomeRenderInstrumentation extends Instrumentation {
             state.putBoolean("web_home_color_probe_error", true);
             state.putString("web_home_color_probe_error_type", safeExceptionType(error));
         }
+        state.putString("web_home_color_probe_validation_summary", summarizeWebHomeColorProbe(state));
         return state;
+    }
+
+    private String summarizeWebHomeColorProbe(Bundle state) {
+        StringBuilder summary = new StringBuilder();
+        summary.append("completed=").append(state.getBoolean("web_home_color_probe_completed"))
+                .append(",error=").append(state.getBoolean("web_home_color_probe_error"))
+                .append(":").append(state.getString("web_home_color_probe_error_type", "none"))
+                .append(",validated=").append(state.getBoolean("web_home_color_probe_validation_passed"))
+                .append(",scenarios_complete=").append(state.getBoolean("web_home_color_state_scenarios_complete"))
+                .append(",dark=").append(state.getBoolean("web_home_dark_theme_computed"))
+                .append(",light_available=").append(state.getBoolean("web_home_light_theme_available"));
+        String[] names = new String[] { "normal", "loading", "empty", "error", "partial" };
+        String[] ratioNames = new String[] {
+                "home_text", "brand", "greeting", "section_title", "card_title", "card_subtitle",
+                "status_title", "status_body", "retry_button_text", "retry_button_fill", "retry_focus_outline"
+        };
+        for (String name : names) {
+            String statusName = state.getString("web_home_" + name + "_state_library_status", "missing");
+            if (!("none".equals(statusName) || "loading".equals(statusName) || "empty".equals(statusName) ||
+                    "error".equals(statusName) || "missing".equals(statusName))) statusName = "other";
+            double minRatio = Double.POSITIVE_INFINITY;
+            String minRatioName = "none";
+            for (String ratioName : ratioNames) {
+                String key = "web_home_" + name + "_contrast_" + ratioName;
+                if (!state.containsKey(key)) continue;
+                double ratio = state.getDouble(key, Double.NaN);
+                if (!Double.isNaN(ratio) && !Double.isInfinite(ratio) && ratio < minRatio) {
+                    minRatio = ratio;
+                    minRatioName = ratioName;
+                }
+            }
+            summary.append(';').append(name)
+                    .append(":visible=").append(state.getBoolean("web_home_" + name + "_state_visible"))
+                    .append(",cards=").append(state.getInt("web_home_" + name + "_state_card_count"))
+                    .append(",status=").append(statusName)
+                    .append(",partial=").append(state.getBoolean("web_home_" + name + "_state_partial_data"))
+                    .append(",AA=").append(state.getBoolean("web_home_" + name + "_state_wcag_aa_pass"))
+                    .append(",min=");
+            if (Double.isInfinite(minRatio)) summary.append("none");
+            else summary.append(minRatioName).append(':').append(Math.round(minRatio * 100.0) / 100.0);
+        }
+        return summary.toString();
     }
 
     private String safeProbeErrorType(String value) {
