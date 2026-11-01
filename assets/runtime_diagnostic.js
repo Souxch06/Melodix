@@ -114,6 +114,340 @@
     return allowed.filter((className) => body.classList.contains(className));
   };
 
+  const finiteMetric = (value, minimum = -10000, maximum = 10000) => {
+    const number = Number(value);
+    if (!Number.isFinite(number)) return null;
+    return Math.max(minimum, Math.min(maximum, Math.round(number * 100) / 100));
+  };
+
+  const cssPixelValue = (value) => {
+    if (typeof value !== 'string') return null;
+    const match = /^\s*(-?\d+(?:\.\d+)?)px\s*$/i.exec(value);
+    return match ? finiteMetric(Number(match[1])) : null;
+  };
+
+  const readComputedStyle = (element) => {
+    if (!element || typeof window.getComputedStyle !== 'function') return null;
+    try {
+      return window.getComputedStyle(element);
+    } catch (_) {
+      return null;
+    }
+  };
+
+  const safeStyleSummary = (style) => {
+    if (!style) return null;
+    const enumValue = (value, allowed) => allowed.indexOf(String(value || '').toLowerCase()) >= 0
+      ? String(value).toLowerCase()
+      : 'other';
+    const rawZ = String(style.zIndex || '').trim();
+    const numericZ = /^-?\d+$/.test(rawZ) ? finiteMetric(Number(rawZ), -100000, 100000) : null;
+    return {
+      display: enumValue(style.display, ['none', 'block', 'inline', 'inline-block', 'flex', 'grid', 'contents', 'table']),
+      position: enumValue(style.position, ['static', 'relative', 'absolute', 'fixed', 'sticky']),
+      zIndex: rawZ === 'auto' ? 'auto' : numericZ,
+      opacity: finiteMetric(style.opacity, 0, 1),
+      visibility: enumValue(style.visibility, ['visible', 'hidden', 'collapse']),
+      pointerEvents: enumValue(style.pointerEvents, ['auto', 'none']),
+      overflowX: enumValue(style.overflowX, ['visible', 'hidden', 'clip', 'scroll', 'auto']),
+      overflowY: enumValue(style.overflowY, ['visible', 'hidden', 'clip', 'scroll', 'auto']),
+      boxSizing: enumValue(style.boxSizing, ['content-box', 'border-box']),
+      touchAction: enumValue(style.touchAction, ['auto', 'none', 'manipulation', 'pan-x', 'pan-y', 'pan-x pan-y'])
+    };
+  };
+
+  const readBox = (element) => {
+    if (!element || typeof element.getBoundingClientRect !== 'function') return null;
+    try {
+      const rect = element.getBoundingClientRect();
+      return {
+        left: finiteMetric(rect.left),
+        top: finiteMetric(rect.top),
+        right: finiteMetric(rect.right),
+        bottom: finiteMetric(rect.bottom),
+        width: finiteMetric(rect.width, 0, 10000),
+        height: finiteMetric(rect.height, 0, 10000)
+      };
+    } catch (_) {
+      return null;
+    }
+  };
+
+  const readScrollMetrics = (element) => {
+    if (!element) return null;
+    const clientWidth = finiteMetric(element.clientWidth, 0, 10000);
+    const clientHeight = finiteMetric(element.clientHeight, 0, 10000);
+    const scrollWidth = finiteMetric(element.scrollWidth, 0, 20000);
+    const scrollHeight = finiteMetric(element.scrollHeight, 0, 20000);
+    return {
+      clientWidth,
+      clientHeight,
+      scrollWidth,
+      scrollHeight,
+      scrollLeft: finiteMetric(element.scrollLeft),
+      scrollTop: finiteMetric(element.scrollTop),
+      horizontalOverflowPx: clientWidth === null || scrollWidth === null
+        ? null
+        : Math.max(0, scrollWidth - clientWidth),
+      verticalOverflowPx: clientHeight === null || scrollHeight === null
+        ? null
+        : Math.max(0, scrollHeight - clientHeight)
+    };
+  };
+
+  const readSurface = (selector) => {
+    let element = null;
+    try {
+      element = document.querySelector(selector);
+    } catch (_) {}
+    if (!element) return { present: false, visible: false, box: null, scroll: null, style: null };
+    const style = readComputedStyle(element);
+    const box = readBox(element);
+    const opacity = style ? Number(style.opacity) : NaN;
+    const visible = Boolean(
+      style
+      && style.display !== 'none'
+      && style.visibility !== 'hidden'
+      && style.visibility !== 'collapse'
+      && Number.isFinite(opacity)
+      && opacity > 0
+      && box
+      && box.width > 0
+      && box.height > 0
+    );
+    const width = finiteMetric(window.innerWidth, 0, 10000);
+    const height = finiteMetric(window.innerHeight, 0, 10000);
+    const inViewport = box && width !== null && height !== null
+      ? box.right > 0 && box.bottom > 0 && box.left < width && box.top < height
+      : null;
+    return {
+      present: true,
+      visible,
+      inViewport,
+      box,
+      scroll: readScrollMetrics(element),
+      style: safeStyleSummary(style)
+    };
+  };
+
+  const intersectingPixels = (left, right, axis) => {
+    if (!left || !right) return null;
+    const startKey = axis === 'x' ? 'left' : 'top';
+    const endKey = axis === 'x' ? 'right' : 'bottom';
+    if (left[startKey] === null || left[endKey] === null || right[startKey] === null || right[endKey] === null) {
+      return null;
+    }
+    return Math.max(0, Math.min(left[endKey], right[endKey]) - Math.max(left[startKey], right[startKey]));
+  };
+
+  const classifyHitOwner = (element) => {
+    if (!element) return 'none';
+    const matchesOrClosest = (selector) => {
+      try {
+        if (typeof element.closest === 'function' && element.closest(selector)) return true;
+        return typeof element.matches === 'function' && element.matches(selector);
+      } catch (_) {
+        return false;
+      }
+    };
+    if (matchesOrClosest('#sf-fs-player')) return 'fullscreen-player';
+    if (matchesOrClosest('#sf-mobile-nav')) return 'mobile-navigation';
+    if (matchesOrClosest('aside[data-testid="now-playing-bar"]')) return 'now-playing-bar';
+    if (matchesOrClosest('#Desktop_LeftSidebar_Id')) return 'desktop-sidebar';
+    if (matchesOrClosest('#sf-melodix-home')) return 'melodix-home';
+    if (matchesOrClosest('#main-view')) return 'spotify-main';
+    if (matchesOrClosest('#global-nav-bar')) return 'spotify-global-navigation';
+    return 'other';
+  };
+
+  const hitOwnerAtCenter = (element, box) => {
+    if (!element || !box || box.width <= 0 || box.height <= 0 || typeof document.elementFromPoint !== 'function') {
+      return 'unavailable';
+    }
+    try {
+      return classifyHitOwner(document.elementFromPoint(box.left + box.width / 2, box.top + box.height / 2));
+    } catch (_) {
+      return 'unavailable';
+    }
+  };
+
+  const readViewportGeometry = () => {
+    const visual = window.visualViewport || null;
+    const orientationObject = window.screen && window.screen.orientation;
+    const orientationType = orientationObject && typeof orientationObject.type === 'string'
+      && ['portrait-primary', 'portrait-secondary', 'landscape-primary', 'landscape-secondary'].indexOf(orientationObject.type) >= 0
+      ? orientationObject.type
+      : 'unknown';
+    let portrait = null;
+    let landscape = null;
+    if (typeof window.matchMedia === 'function') {
+      try {
+        portrait = Boolean(window.matchMedia('(orientation: portrait)').matches);
+        landscape = Boolean(window.matchMedia('(orientation: landscape)').matches);
+      } catch (_) {}
+    }
+    return {
+      innerWidth: finiteMetric(window.innerWidth, 0, 10000),
+      innerHeight: finiteMetric(window.innerHeight, 0, 10000),
+      screenWidth: window.screen ? finiteMetric(window.screen.width, 0, 10000) : null,
+      screenHeight: window.screen ? finiteMetric(window.screen.height, 0, 10000) : null,
+      devicePixelRatio: finiteMetric(window.devicePixelRatio, 0, 16),
+      orientation: orientationType,
+      portrait,
+      landscape,
+      visualViewport: visual ? {
+        width: finiteMetric(visual.width, 0, 10000),
+        height: finiteMetric(visual.height, 0, 10000),
+        offsetLeft: finiteMetric(visual.offsetLeft),
+        offsetTop: finiteMetric(visual.offsetTop),
+        pageLeft: finiteMetric(visual.pageLeft),
+        pageTop: finiteMetric(visual.pageTop),
+        scale: finiteMetric(visual.scale, 0, 16)
+      } : null
+    };
+  };
+
+  const readSafeAreaGeometry = (mobileNavigation, player) => {
+    const root = document.documentElement || null;
+    const rootStyle = readComputedStyle(root);
+    let viewportFitCover = false;
+    let topCustomInset = null;
+    try {
+      const viewport = document.querySelector('meta[name="viewport"]');
+      const content = viewport && typeof viewport.getAttribute === 'function'
+        ? String(viewport.getAttribute('content') || '')
+        : '';
+      viewportFitCover = /(?:^|,)\s*viewport-fit\s*=\s*cover(?:\s*,|$)/i.test(content);
+    } catch (_) {}
+    try {
+      const inlineStyle = root && root.style;
+      const inlineValue = inlineStyle && typeof inlineStyle.getPropertyValue === 'function'
+        ? inlineStyle.getPropertyValue('--sf-safe-area-top')
+        : '';
+      const computedValue = rootStyle && typeof rootStyle.getPropertyValue === 'function'
+        ? rootStyle.getPropertyValue('--sf-safe-area-top')
+        : '';
+      topCustomInset = cssPixelValue(String(inlineValue || computedValue || '').trim());
+    } catch (_) {}
+    const navStyle = mobileNavigation ? readComputedStyle(mobileNavigation) : null;
+    const playerStyle = player ? readComputedStyle(player) : null;
+    const navBox = readBox(mobileNavigation);
+    return {
+      viewportFitCover,
+      topCustomInsetCssPx: topCustomInset,
+      mobileNavigationPaddingTopCssPx: navStyle ? cssPixelValue(String(navStyle.paddingTop || '')) : null,
+      mobileNavigationPaddingBottomCssPx: navStyle ? cssPixelValue(String(navStyle.paddingBottom || '')) : null,
+      mobileNavigationBottomGapCssPx: navBox && finiteMetric(window.innerHeight, 0, 10000) !== null
+        ? finiteMetric(window.innerHeight - navBox.bottom)
+        : null,
+      mobileNavigationBottomInsetInferredCssPx: navBox && navBox.height !== null
+        ? finiteMetric(Math.max(0, navBox.height - 72), 0, 200)
+        : null,
+      playerBottomGapCssPx: (() => {
+        const box = readBox(player);
+        const height = finiteMetric(window.innerHeight, 0, 10000);
+        return box && height !== null ? finiteMetric(height - box.bottom) : null;
+      })(),
+      playerPaddingBottomCssPx: playerStyle ? cssPixelValue(String(playerStyle.paddingBottom || '')) : null
+    };
+  };
+
+  const readLayoutGeometry = () => {
+    const selectors = {
+      globalNavigation: '#global-nav-bar',
+      desktopSidebar: '#Desktop_LeftSidebar_Id',
+      spotifyMain: '#main-view',
+      melodixHome: '#sf-melodix-home',
+      mobileNavigation: '#sf-mobile-nav',
+      nowPlayingBar: 'aside[data-testid="now-playing-bar"]',
+      fullscreenPlayer: '#sf-fs-player',
+      playPauseControl: 'aside[data-testid="now-playing-bar"] button[data-testid="control-button-playpause"]'
+    };
+    const surfaces = {};
+    Object.keys(selectors).forEach((key) => { surfaces[key] = readSurface(selectors[key]); });
+    const navigationElement = document.querySelector(selectors.mobileNavigation);
+    const playerElement = document.querySelector(selectors.nowPlayingBar);
+    const navigationBox = surfaces.mobileNavigation.box;
+    const playerBox = surfaces.nowPlayingBar.box;
+    const homeBox = surfaces.melodixHome.box;
+    const actionHitTargets = [];
+    if (navigationElement && typeof navigationElement.querySelectorAll === 'function') {
+      try {
+        const buttons = navigationElement.querySelectorAll('[data-sf-mobile-action]');
+        for (let index = 0; index < buttons.length && index < 3; index += 1) {
+          const button = buttons[index];
+          const rawAction = typeof button.getAttribute === 'function'
+            ? String(button.getAttribute('data-sf-mobile-action') || '')
+            : '';
+          const action = ['home', 'search', 'library'].indexOf(rawAction) >= 0 ? rawAction : 'other';
+          const box = readBox(button);
+          const owner = hitOwnerAtCenter(button, box);
+          actionHitTargets.push({
+            action,
+            width: box ? box.width : null,
+            height: box ? box.height : null,
+            owner,
+            reachable: owner === 'mobile-navigation'
+          });
+        }
+      } catch (_) {}
+    }
+    let playPauseElement = null;
+    let firstHomeCard = null;
+    try {
+      playPauseElement = document.querySelector(selectors.playPauseControl);
+      firstHomeCard = document.querySelector('#sf-melodix-home .sf-melodix-home__card');
+    } catch (_) {}
+    const playPauseBox = readBox(playPauseElement);
+    const homeCardBox = readBox(firstHomeCard);
+    const documentElement = document.documentElement || null;
+    const bodyScroll = readScrollMetrics(body);
+    const documentScroll = readScrollMetrics(documentElement);
+    const mainScroll = readScrollMetrics(document.querySelector(selectors.spotifyMain));
+    const homeScroll = readScrollMetrics(document.querySelector(selectors.melodixHome));
+    const sidebarScroll = readScrollMetrics(document.querySelector(selectors.desktopSidebar));
+    const visualViewport = readViewportGeometry();
+    return {
+      viewport: visualViewport,
+      safeArea: readSafeAreaGeometry(navigationElement, playerElement),
+      surfaces,
+      overlap: {
+        navigationPlayerHorizontalPx: intersectingPixels(navigationBox, playerBox, 'x'),
+        navigationPlayerVerticalPx: intersectingPixels(navigationBox, playerBox, 'y'),
+        navigationPlayerIntersecting: (intersectingPixels(navigationBox, playerBox, 'x') || 0) > 0
+          && (intersectingPixels(navigationBox, playerBox, 'y') || 0) > 0,
+        homePlayerHorizontalPx: intersectingPixels(homeBox, playerBox, 'x'),
+        homePlayerVerticalPx: intersectingPixels(homeBox, playerBox, 'y'),
+        homePlayerIntersecting: (intersectingPixels(homeBox, playerBox, 'x') || 0) > 0
+          && (intersectingPixels(homeBox, playerBox, 'y') || 0) > 0
+      },
+      scroll: {
+        document: documentScroll,
+        body: bodyScroll,
+        spotifyMain: mainScroll,
+        melodixHome: homeScroll,
+        desktopSidebar: sidebarScroll
+      },
+      hitTargets: {
+        mobileNavigation: actionHitTargets,
+        playPause: {
+          available: Boolean(playPauseElement),
+          width: playPauseBox ? playPauseBox.width : null,
+          height: playPauseBox ? playPauseBox.height : null,
+          owner: hitOwnerAtCenter(playPauseElement, playPauseBox),
+          reachable: hitOwnerAtCenter(playPauseElement, playPauseBox) === 'now-playing-bar'
+        },
+        firstHomeCard: {
+          available: Boolean(firstHomeCard),
+          width: homeCardBox ? homeCardBox.width : null,
+          height: homeCardBox ? homeCardBox.height : null,
+          owner: hitOwnerAtCenter(firstHomeCard, homeCardBox),
+          reachable: hitOwnerAtCenter(firstHomeCard, homeCardBox) === 'melodix-home'
+        }
+      }
+    };
+  };
+
   const collectSample = () => {
     const selectors = [
       '#global-nav-bar',
@@ -178,6 +512,7 @@
           ? window.visualViewport.width
           : null
       },
+      layoutGeometry: readLayoutGeometry(),
       selectors: presence,
       playback: {
         userPaused: typeof window.__sfIsUserPaused === 'function'

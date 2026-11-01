@@ -244,6 +244,11 @@
     move-result v1
     if-nez v1, :diagnostic_event_bridge_js_error
 
+    const-string v0, "bridge marker set"
+    invoke-virtual {p1, v0}, Ljava/lang/String;->startsWith(Ljava/lang/String;)Z
+    move-result v1
+    if-nez v1, :diagnostic_event_bridge_marker_set
+
     const-string v0, "bridge start"
     invoke-virtual {p1, v0}, Ljava/lang/String;->startsWith(Ljava/lang/String;)Z
     move-result v1
@@ -254,6 +259,16 @@
     move-result v1
     if-nez v1, :diagnostic_event_bridge_done
 
+    const-string v0, "bridge-read expected=1"
+    invoke-virtual {p1, v0}, Ljava/lang/String;->startsWith(Ljava/lang/String;)Z
+    move-result v1
+    if-eqz v1, :diagnostic_event_bridge_read_generic
+    const-string v0, "complete=1"
+    invoke-virtual {p1, v0}, Ljava/lang/String;->contains(Ljava/lang/CharSequence;)Z
+    move-result v1
+    if-nez v1, :diagnostic_event_bridge_read_complete
+
+    :diagnostic_event_bridge_read_generic
     const-string v0, "bridge-read"
     invoke-virtual {p1, v0}, Ljava/lang/String;->startsWith(Ljava/lang/String;)Z
     move-result v1
@@ -303,6 +318,21 @@
     invoke-virtual {p1, v0}, Ljava/lang/String;->startsWith(Ljava/lang/String;)Z
     move-result v1
     if-nez v1, :diagnostic_event_ready
+
+    const-string v0, "js-shell begin"
+    invoke-virtual {p1, v0}, Ljava/lang/String;->startsWith(Ljava/lang/String;)Z
+    move-result v1
+    if-nez v1, :diagnostic_event_js_shell_start
+
+    const-string v0, "js-shell end ok"
+    invoke-virtual {p1, v0}, Ljava/lang/String;->startsWith(Ljava/lang/String;)Z
+    move-result v1
+    if-nez v1, :diagnostic_event_js_shell_ready
+
+    const-string v0, "js-shell end threw"
+    invoke-virtual {p1, v0}, Ljava/lang/String;->startsWith(Ljava/lang/String;)Z
+    move-result v1
+    if-nez v1, :diagnostic_event_js_shell_failed
 
     const-string v0, "js-shell"
     invoke-virtual {p1, v0}, Ljava/lang/String;->startsWith(Ljava/lang/String;)Z
@@ -362,12 +392,20 @@
     const-string v0, "bridge-js-error"
     return-object v0
 
+    :diagnostic_event_bridge_marker_set
+    const-string v0, "bridge-marker-set"
+    return-object v0
+
     :diagnostic_event_bridge_start
     const-string v0, "bridge-start"
     return-object v0
 
     :diagnostic_event_bridge_done
     const-string v0, "bridge-done"
+    return-object v0
+
+    :diagnostic_event_bridge_read_complete
+    const-string v0, "bridge-read-complete"
     return-object v0
 
     :diagnostic_event_bridge_read
@@ -408,6 +446,18 @@
 
     :diagnostic_event_ready
     const-string v0, "ready"
+    return-object v0
+
+    :diagnostic_event_js_shell_start
+    const-string v0, "js-shell-start"
+    return-object v0
+
+    :diagnostic_event_js_shell_ready
+    const-string v0, "js-shell-ready"
+    return-object v0
+
+    :diagnostic_event_js_shell_failed
+    const-string v0, "js-shell-failed"
     return-object v0
 
     :diagnostic_event_js_shell
@@ -463,6 +513,80 @@
     invoke-direct {p0, p1}, Lcom/melodix/music/AndBridge;->safeDiagnosticEvent(Ljava/lang/String;)Ljava/lang/String;
     move-result-object v2
 
+    # Only fixed sanitized event labels become timestamped startup stages.
+    # The shell/bridge logs distinguish a queued evaluation from script start,
+    # marker-set, and completion; arbitrary page text never enters stage().
+    const-string v0, "bridge-read-complete"
+    invoke-virtual {v0, v2}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    move-result v1
+    if-eqz v1, :logdiag_check_bridge_start
+    const-string v0, "bridge-source-read-complete"
+    invoke-static {v0}, Lcom/melodix/music/NativeCrashGuard;->stage(Ljava/lang/String;)V
+    goto :logdiag_stage_done
+
+    :logdiag_check_bridge_start
+    const-string v0, "bridge-start"
+    invoke-virtual {v0, v2}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    move-result v1
+    if-eqz v1, :logdiag_check_bridge_marker
+    const-string v0, "bridge-js-started"
+    invoke-static {v0}, Lcom/melodix/music/NativeCrashGuard;->stage(Ljava/lang/String;)V
+    goto :logdiag_stage_done
+
+    :logdiag_check_bridge_marker
+    const-string v0, "bridge-marker-set"
+    invoke-virtual {v0, v2}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    move-result v1
+    if-eqz v1, :logdiag_check_bridge_done
+    const-string v0, "bridge-bootstrap-ready"
+    invoke-static {v0}, Lcom/melodix/music/NativeCrashGuard;->stage(Ljava/lang/String;)V
+    goto :logdiag_stage_done
+
+    :logdiag_check_bridge_done
+    const-string v0, "bridge-done"
+    invoke-virtual {v0, v2}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    move-result v1
+    if-eqz v1, :logdiag_check_shell_start
+    const-string v0, "bridge-js-completed"
+    invoke-static {v0}, Lcom/melodix/music/NativeCrashGuard;->stage(Ljava/lang/String;)V
+    goto :logdiag_stage_done
+
+    :logdiag_check_shell_start
+    const-string v0, "js-shell-start"
+    invoke-virtual {v0, v2}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    move-result v1
+    if-eqz v1, :logdiag_check_shell_ready
+    const-string v0, "shell-js-started"
+    invoke-static {v0}, Lcom/melodix/music/NativeCrashGuard;->stage(Ljava/lang/String;)V
+    goto :logdiag_stage_done
+
+    :logdiag_check_shell_ready
+    const-string v0, "js-shell-ready"
+    invoke-virtual {v0, v2}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    move-result v1
+    if-eqz v1, :logdiag_check_shell_failed
+    const-string v0, "shell-js-initialized"
+    invoke-static {v0}, Lcom/melodix/music/NativeCrashGuard;->stage(Ljava/lang/String;)V
+    goto :logdiag_stage_done
+
+    :logdiag_check_shell_failed
+    const-string v0, "js-shell-failed"
+    invoke-virtual {v0, v2}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    move-result v1
+    if-eqz v1, :logdiag_check_native_ready
+    const-string v0, "shell-js-failed"
+    invoke-static {v0}, Lcom/melodix/music/NativeCrashGuard;->stage(Ljava/lang/String;)V
+    goto :logdiag_stage_done
+
+    :logdiag_check_native_ready
+    const-string v0, "native-ui-ready"
+    invoke-virtual {v0, v2}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    move-result v1
+    if-eqz v1, :logdiag_stage_done
+    const-string v0, "native-ui-ready-callback-returned"
+    invoke-static {v0}, Lcom/melodix/music/NativeCrashGuard;->stage(Ljava/lang/String;)V
+
+    :logdiag_stage_done
     invoke-static {}, Lcom/melodix/music/NativeCrashGuard;->diagnosticSessionId()Ljava/lang/String;
     move-result-object v3
     new-instance v4, Ljava/lang/StringBuilder;

@@ -1365,6 +1365,9 @@
     .line 382
     move-result-object v3
 
+    const-string v4, "spotify_bridge.js"
+    invoke-static {v4, v3}, Lcom/melodix/music/NativeCrashGuard;->stageLoadedAsset(Ljava/lang/String;Ljava/lang/String;)V
+
     .line 383
     new-instance v5, Ljava/lang/StringBuilder;
 
@@ -1395,11 +1398,13 @@
     const-string v5, "native_ui_shell.js"
     invoke-static {v5}, Lm9;->d(Ljava/lang/String;)Ljava/lang/String;
     move-result-object v5
+    const-string v4, "native_ui_shell.js"
+    invoke-static {v4, v5}, Lcom/melodix/music/NativeCrashGuard;->stageLoadedAsset(Ljava/lang/String;Ljava/lang/String;)V
     invoke-virtual {v0, v5, v8}, Landroid/webkit/WebView;->evaluateJavascript(Ljava/lang/String;Landroid/webkit/ValueCallback;)V
 
-    # The shell is now queued in the page: the next stage in the chain tells
-    # whether the injection happened at all on this device.
-    const-string v5, "shell-injected"
+    # evaluateJavascript returns after scheduling execution on WebView. This
+    # marker intentionally says queued; js-shell-started confirms actual JS.
+    const-string v5, "shell-injection-queued"
 
     invoke-static {v5}, Lcom/melodix/music/NativeCrashGuard;->stage(Ljava/lang/String;)V
 
@@ -1416,6 +1421,8 @@
     const-string v5, "melodix_home.js"
     invoke-static {v5}, Lm9;->d(Ljava/lang/String;)Ljava/lang/String;
     move-result-object v5
+    const-string v4, "melodix_home.js"
+    invoke-static {v4, v5}, Lcom/melodix/music/NativeCrashGuard;->stageLoadedAsset(Ljava/lang/String;Ljava/lang/String;)V
     invoke-virtual {v0, v5, v8}, Landroid/webkit/WebView;->evaluateJavascript(Ljava/lang/String;Landroid/webkit/ValueCallback;)V
     const-string v6, "home-renderer-queued"
     invoke-static {v6}, Lcom/melodix/music/NativeCrashGuard;->stage(Ljava/lang/String;)V
@@ -1499,6 +1506,8 @@
     .line 424
     .line 425
     move-result-object v1
+
+    invoke-static {v2, v1}, Lcom/melodix/music/NativeCrashGuard;->stageLoadedAsset(Ljava/lang/String;Ljava/lang/String;)V
 
     .line 426
     sget-boolean v2, Lcom/melodix/music/AppSingleton;->E:Z

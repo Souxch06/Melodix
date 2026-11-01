@@ -130,12 +130,24 @@ test('appendChain() timestamps each stage and caps the chain', () => {
   assert.match(body, /sget-wide v1, Lcom\/melodix\/music\/NativeCrashGuard;->chainStart:J/);
   assert.match(body, /const-string v2, "stage_chain"/);
   assert.match(body, /const-string v2, "\+"/, 'entries look like name+Xs');
-  assert.match(body, /const\/16 v4, 0x17c\s*\n\s*if-le v3, v4, :chain_append/,
-    'a runaway caller cannot flood the prefs (cap check)');
+  assert.match(body, /const\/16 v4, 0x400\s*\n\s*if-le v3, v4, :chain_append/,
+    'the 1 KiB cap preserves the expanded startup milestones without allowing unbounded prefs growth');
   assert.ok(body.includes('cmp-long v5, v1, v3\n\n    if-nez v5, :chain_have_start'),
     'chainStart == 0 must initialise (polarity: if-nez jumps over the init only when already set)');
   assert.ok(!body.includes('if-eqz v5, :chain_have_start'),
     'the chainStart polarity must not be inverted (this exact bug shipped absolute timestamps)');
+});
+
+test('asset-loaded stages require non-empty content and only fixed APK asset names', () => {
+  const body = methodBody(GUARD(), '.method public static stageLoadedAsset(Ljava/lang/String;Ljava/lang/String;)V');
+  assert.match(body, /if-eqz p0, :asset_stage_done/);
+  assert.match(body, /if-eqz p1, :asset_stage_done/);
+  assert.match(body, /String;->isEmpty\(\)Z/);
+  for (const asset of ['native_ui_shell.js', 'spotify_bridge.js', 'melodix_home.js', 'css_hacks.css']) {
+    assert.ok(body.includes(`"${asset}"`), `fixed asset allowlist includes ${asset}`);
+  }
+  assert.match(body, /NativeCrashGuard;->stage\(Ljava\/lang\/String;\)V/);
+  assert.doesNotMatch(body, /StringBuilder|concat\(/, 'untrusted asset names never become persisted stage labels');
 });
 
 test('stageChain() is public and fails safe to the empty string', () => {

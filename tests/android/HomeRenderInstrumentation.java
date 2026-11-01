@@ -9,6 +9,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageInfo;
 import android.graphics.Bitmap;
+import android.graphics.Insets;
 import android.graphics.Rect;
 import android.net.Uri;
 import android.os.Build;
@@ -19,6 +20,7 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.view.KeyEvent;
 import android.view.Window;
+import android.view.WindowInsets;
 import android.view.accessibility.AccessibilityEvent;
 import android.view.accessibility.AccessibilityNodeInfo;
 import android.webkit.ValueCallback;
@@ -65,6 +67,7 @@ public final class HomeRenderInstrumentation extends Instrumentation {
     private static final long REQUIRED_STABLE_MS = 1800L;
     private static final long AUTHENTICATED_OBSERVATION_POLL_MS = 500L;
     private static final int MAX_OBSERVED_ROUTES = 16;
+    private static final int[] MOBILE_VIEWPORT_MATRIX_WIDTHS = {360, 384, 393, 412};
     private Application observedApplication;
     private volatile boolean activityLifecycleObserverRegistered;
     private volatile boolean backKeyObserverInstalled;
@@ -223,6 +226,79 @@ public final class HomeRenderInstrumentation extends Instrumentation {
             "bridge_ready_callback_available:!!(bridge&&typeof bridge.onNativeUiReady==='function')," +
             "webview_page_owner:owner};" +
             "}catch(e){var name=String(e&&e.name||'Error');return {probe_error:true,probe_error_type:/^[A-Za-z0-9_$]+$/.test(name)?name.slice(0,48):'Error'};}})()";
+    private static final String MOBILE_VIEWPORT_LAYOUT_PROBE =
+            "(function(){try{" +
+            "var n=function(v){v=Number(v);return Number.isFinite(v)?Math.max(-10000,Math.min(10000,Math.round(v*100)/100)):null;};" +
+            "var rect=function(e){if(!e)return null;var r=e.getBoundingClientRect();return{left:n(r.left),top:n(r.top),right:n(r.right),bottom:n(r.bottom),width:n(r.width),height:n(r.height)};};" +
+            "var style=function(e){if(!e)return null;var s=getComputedStyle(e);var z=String(s.zIndex||'');z=/^-?\\d+$/.test(z)?n(z):z==='auto'?'auto':'other';" +
+            "return{display:['none','block','inline','inline-block','flex','grid'].indexOf(s.display)>=0?s.display:'other'," +
+            "position:['static','relative','absolute','fixed','sticky'].indexOf(s.position)>=0?s.position:'other',zIndex:z," +
+            "opacity:n(s.opacity),visibility:s.visibility==='hidden'?'hidden':s.visibility==='collapse'?'collapse':'visible'," +
+            "pointerEvents:s.pointerEvents==='none'?'none':'auto'," +
+            "overflowX:['visible','hidden','clip','auto','scroll'].indexOf(s.overflowX)>=0?s.overflowX:'other'," +
+            "overflowY:['visible','hidden','clip','auto','scroll'].indexOf(s.overflowY)>=0?s.overflowY:'other'};};" +
+            "var visible=function(e){if(!e)return false;var s=style(e),r=rect(e);return !!(s&&r&&s.display!=='none'&&s.visibility==='visible'&&s.opacity>0&&r.width>0&&r.height>0);};" +
+            "var surface=function(e){var r=rect(e),s=style(e);return{present:!!e,visible:visible(e),rect:r,style:s," +
+            "clientWidth:e?n(e.clientWidth):null,clientHeight:e?n(e.clientHeight):null,scrollWidth:e?n(e.scrollWidth):null,scrollHeight:e?n(e.scrollHeight):null};};" +
+            "var classify=function(e){for(var c=e;c;c=c.parentElement){if(c.id==='sf-fs-player')return'fullscreen-player';" +
+            "if(c.id==='sf-mobile-nav')return'mobile-navigation';if(c.id==='Desktop_LeftSidebar_Id')return'desktop-sidebar';" +
+            "if(c.id==='sf-melodix-home')return'melodix-home';if(c.id==='main-view')return'spotify-main';" +
+            "if(c.getAttribute&&c.getAttribute('data-testid')==='now-playing-bar')return'now-playing-bar';" +
+            "if(c.id==='global-nav-bar')return'spotify-global-navigation';}return e?'other':'none';};" +
+            "var ownerAt=function(e){var r=rect(e);if(!r||r.width<=0||r.height<=0)return'unavailable';" +
+            "try{return classify(document.elementFromPoint(r.left+r.width/2,r.top+r.height/2));}catch(_){return'unavailable';}};" +
+            "var state=function(name){var nav=document.getElementById('sf-mobile-nav');" +
+            "var player=document.querySelector('aside[data-testid=\\\"now-playing-bar\\\"]');" +
+            "var home=document.getElementById('sf-melodix-home');var main=document.getElementById('main-view');" +
+            "var sidebar=document.getElementById('Desktop_LeftSidebar_Id');var fs=document.getElementById('sf-fs-player');" +
+            "var dockRect=rect(nav),playerRect=rect(player),homeRect=rect(home),sidebarRect=rect(sidebar);" +
+            "var overlapX=dockRect&&playerRect?Math.max(0,Math.min(dockRect.right,playerRect.right)-Math.max(dockRect.left,playerRect.left)):null;" +
+            "var overlapY=dockRect&&playerRect?Math.max(0,Math.min(dockRect.bottom,playerRect.bottom)-Math.max(dockRect.top,playerRect.top)):null;" +
+            "var homeOverlapY=homeRect&&playerRect?Math.max(0,Math.min(homeRect.bottom,playerRect.bottom)-Math.max(homeRect.top,playerRect.top)):null;" +
+            "var sidebarOverlapX=sidebarRect&&playerRect?Math.max(0,Math.min(sidebarRect.right,playerRect.right)-Math.max(sidebarRect.left,playerRect.left)):null;" +
+            "var sidebarOverlapY=sidebarRect&&playerRect?Math.max(0,Math.min(sidebarRect.bottom,playerRect.bottom)-Math.max(sidebarRect.top,playerRect.top)):null;" +
+            "var actions=[];if(nav){var buttons=nav.querySelectorAll('[data-sf-mobile-action]');" +
+            "for(var i=0;i<buttons.length&&i<3;i++){var b=buttons[i],raw=String(b.getAttribute('data-sf-mobile-action')||'');" +
+            "var action=['home','search','library'].indexOf(raw)>=0?raw:'other',r=rect(b),owner=ownerAt(b);" +
+            "actions.push({action:action,width:r?r.width:null,height:r?r.height:null,owner:owner,reachable:owner==='mobile-navigation'});}}" +
+            "var play=player&&player.querySelector('button[data-testid=\\\"control-button-playpause\\\"]');" +
+            "var fullPlay=fs&&fs.querySelector('.sf-fs-play');" +
+            "var card=home&&home.querySelector('.sf-melodix-home__card');var playRect=rect(play),fullPlayRect=rect(fullPlay),cardRect=rect(card);" +
+            "var visual=window.visualViewport||null;var screen=window.screen||{};var root=document.documentElement;" +
+            "var topInset=Number.parseFloat(root&&root.style?root.style.getPropertyValue('--sf-safe-area-top'):'');" +
+            "if(!Number.isFinite(topInset))topInset=null;var meta=document.querySelector('meta[name=\\\"viewport\\\"]');" +
+            "var fit=!!(meta&&String(meta.getAttribute('content')||'').indexOf('viewport-fit=cover')>=0);" +
+            "var horizontal=function(e){return e?Math.max(0,n(e.scrollWidth)-n(e.clientWidth)):null;};" +
+            "var vertical=function(e){return e?Math.max(0,n(e.scrollHeight)-n(e.clientHeight)):null;};" +
+            "var innerWidth=n(window.innerWidth),innerHeight=n(window.innerHeight);" +
+            "var centerOwner='unavailable';try{centerOwner=classify(document.elementFromPoint(innerWidth/2,innerHeight/2));}catch(_){}" +
+            "return{name:name,viewport:{innerWidth:innerWidth,innerHeight:innerHeight,screenWidth:n(screen.width),screenHeight:n(screen.height)," +
+            "devicePixelRatio:n(window.devicePixelRatio),orientation:screen.orientation&&['portrait-primary','portrait-secondary','landscape-primary','landscape-secondary'].indexOf(screen.orientation.type)>=0?screen.orientation.type:'unknown'," +
+            "visualWidth:visual?n(visual.width):null,visualHeight:visual?n(visual.height):null,visualScale:visual?n(visual.scale):null}," +
+            "media:{portrait:matchMedia('(orientation: portrait)').matches,coarsePointer:matchMedia('(pointer: coarse)').matches}," +
+            "safeArea:{viewportFitCover:fit,topCustomInsetCssPx:topInset,navBottomGapCssPx:dockRect?n(innerHeight-dockRect.bottom):null," +
+            "homeBottomGapCssPx:homeRect?n(innerHeight-homeRect.bottom):null," +
+            "bottomInsetInferredCssPx:dockRect?n(Math.max(0,dockRect.height-72)):null,playerBottomGapCssPx:playerRect?n(innerHeight-playerRect.bottom):null}," +
+            "surfaces:{globalNavigation:surface(document.getElementById('global-nav-bar')),sidebar:surface(sidebar),main:surface(main)," +
+            "home:surface(home),mobileNavigation:surface(nav),player:surface(player),fullscreenPlayer:surface(fs)}," +
+            "overlap:{dockPlayerHorizontalPx:overlapX,dockPlayerVerticalPx:overlapY,dockPlayerIntersecting:!!(overlapX>0&&overlapY>0)," +
+            "homePlayerVerticalPx:homeOverlapY,homePlayerIntersecting:!!(homeOverlapY>0),sidebarPlayerHorizontalPx:sidebarOverlapX," +
+            "sidebarPlayerVerticalPx:sidebarOverlapY,sidebarPlayerIntersecting:!!(sidebarOverlapX>0&&sidebarOverlapY>0)}," +
+            "hitTargets:{navigation:actions,playPause:{available:!!play,width:playRect?playRect.width:null,height:playRect?playRect.height:null," +
+            "owner:ownerAt(play),reachable:ownerAt(play)==='now-playing-bar'},fullscreenPlay:{available:!!fullPlay,width:fullPlayRect?fullPlayRect.width:null," +
+            "height:fullPlayRect?fullPlayRect.height:null,owner:ownerAt(fullPlay),reachable:ownerAt(fullPlay)==='fullscreen-player'}," +
+            "homeCard:{available:!!card,width:cardRect?cardRect.width:null,height:cardRect?cardRect.height:null," +
+            "owner:ownerAt(card),reachable:ownerAt(card)==='melodix-home'},sidebarCenterOwner:ownerAt(sidebar),viewportCenterOwner:centerOwner}," +
+            "scroll:{documentHorizontalOverflow:horizontal(root),bodyHorizontalOverflow:horizontal(document.body)," +
+            "mainHorizontalOverflow:horizontal(main),mainVerticalOverflow:vertical(main),homeHorizontalOverflow:horizontal(home)," +
+            "homeVerticalOverflow:vertical(home),sidebarVerticalOverflow:vertical(sidebar)}};};" +
+            "var body=document.body,fs=document.getElementById('sf-fs-player');" +
+            "body.className='sf-mobile-shell sf-fullscreen-disabled sf-melodix-home-active';if(fs)fs.style.display='none';" +
+            "var compact=state('compact');body.classList.add('sf-library-open');var libraryOpen=state('library-open');" +
+            "body.classList.remove('sf-library-open','sf-fullscreen-disabled');body.classList.add('sf-fullscreen-enabled','sf-expanded','sf-fs-open');" +
+            "if(fs)fs.style.display='';var expanded=state('expanded');" +
+            "return{probe_error:false,fixture_test_only:true,states:[compact,libraryOpen,expanded]};" +
+            "}catch(e){var name=String(e&&e.name||'Error');return{probe_error:true,probe_error_type:/^[A-Za-z0-9_$]+$/.test(name)?name.slice(0,48):'Error'};}})()";
     private static final String BROWSER_COMPATIBILITY_PROBE =
             "(function(){try{" +
             "var body=String((document.body&&document.body.innerText)||'').toLowerCase();" +
@@ -735,6 +811,17 @@ public final class HomeRenderInstrumentation extends Instrumentation {
                 throw new AssertionError("The isolated /app renderer fixture disturbed the original login WebView");
             }
             restoredState[0].putBoolean("login_surface_restored_after_web_home_fixture", true);
+
+            // Measure the packaged mobile CSS in the installed Android WebView
+            // at each requested CSS viewport width. This second fixture has no
+            // Spotify account data and remains separate from the primary login
+            // WebView, which must stay visible and unchanged throughout.
+            failurePhase = "mobile_viewport_layout_matrix";
+            notePhase(failurePhase);
+            requireUnauthenticatedSession(activity);
+            Bundle mobileViewportState = runMobileViewportMatrix(activity, webView, originalWebViewUrl);
+            sendStatus(1, mobileViewportState);
+            restoredState[0].putAll(mobileViewportState);
 
             Bundle result = new Bundle(restoredState[0]);
             if (webHomeColorState != null) result.putAll(webHomeColorState);
@@ -2096,6 +2183,492 @@ public final class HomeRenderInstrumentation extends Instrumentation {
             throw error;
         }
         return created[0];
+    }
+
+    private WebView createMobileViewportFixture(final Activity activity, final int viewportWidth) throws Exception {
+        final CountDownLatch pageFinished = new CountDownLatch(1);
+        final WebView[] created = new WebView[1];
+        final Throwable[] failure = new Throwable[1];
+        final String html = "<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\">" +
+                "<meta name=\"viewport\" content=\"width=" + viewportWidth + ",initial-scale=1.0,viewport-fit=cover\">" +
+                "<style>html,body{margin:0;padding:0;min-height:100%;}#global-nav-bar{display:flex;width:100%;height:56px;}" +
+                "#main-view{min-height:100vh;overflow-y:auto;}#Desktop_LeftSidebar_Id{position:fixed;left:0;top:56px;width:100vw;bottom:0;overflow-y:auto;}</style>" +
+                "<script>window.SF_CONFIG={guiMode:'csshack',touchInput:true,screenWidth:" + viewportWidth + ",screenHeight:900};</script>" +
+                "</head><body><header id=\"global-nav-bar\"></header>" +
+                "<aside id=\"Desktop_LeftSidebar_Id\" aria-hidden=\"true\"><div style=\"height:960px\"></div></aside>" +
+                "<main id=\"main-view\"><div class=\"contentSpacing\"><div style=\"height:1200px\"></div></div></main>" +
+                "<main id=\"sf-melodix-home\"><button class=\"sf-melodix-home__card\" type=\"button\" aria-label=\"Layout hit target\"></button>" +
+                "<div aria-hidden=\"true\" style=\"height:960px\"></div></main>" +
+                "<nav id=\"sf-mobile-nav\" role=\"navigation\">" +
+                "<button class=\"sf-mobile-nav__item\" data-sf-mobile-action=\"home\" type=\"button\"><svg aria-hidden=\"true\"></svg><span>Home</span></button>" +
+                "<button class=\"sf-mobile-nav__item\" data-sf-mobile-action=\"search\" type=\"button\"><svg aria-hidden=\"true\"></svg><span>Search</span></button>" +
+                "<button class=\"sf-mobile-nav__item\" data-sf-mobile-action=\"library\" type=\"button\"><svg aria-hidden=\"true\"></svg><span>Library</span></button></nav>" +
+                "<aside data-testid=\"now-playing-bar\"><div><div data-testid=\"CoverSlotCollapsed__container\"></div>" +
+                "<div data-testid=\"now-playing-widget\"><span class=\"sf-track-info\"></span></div></div>" +
+                "<div><div data-testid=\"general-controls\"><button data-testid=\"control-button-playpause\" type=\"button\" aria-label=\"Playback control target\"></button></div></div></aside>" +
+                "<div id=\"sf-fs-player\" style=\"display:none\"><button class=\"sf-fs-min\" type=\"button\"></button>" +
+                "<button class=\"sf-fs-play\" type=\"button\"></button></div></body></html>";
+        runOnMainSync(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    View root = activity.findViewById(android.R.id.content);
+                    if (!(root instanceof ViewGroup)) throw new AssertionError("Activity content root is not a ViewGroup");
+                    WebView rendererView = new WebView(activity);
+                    created[0] = rendererView;
+                    rendererView.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_YES);
+                    rendererView.setFocusable(true);
+                    rendererView.setFocusableInTouchMode(true);
+                    rendererView.setBackgroundColor(0xFF101311);
+                    WebSettings settings = rendererView.getSettings();
+                    settings.setBlockNetworkLoads(true);
+                    settings.setJavaScriptEnabled(true);
+                    settings.setDomStorageEnabled(false);
+                    settings.setUseWideViewPort(true);
+                    settings.setLoadWithOverviewMode(false);
+                    settings.setTextZoom(100);
+                    rendererView.setWebViewClient(new WebViewClient() {
+                        @Override
+                        public void onPageFinished(WebView view, String url) {
+                            pageFinished.countDown();
+                        }
+                    });
+                    ((ViewGroup) root).addView(rendererView, new ViewGroup.LayoutParams(
+                            ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+                    rendererView.requestFocus();
+                    rendererView.loadDataWithBaseURL(
+                            "https://open.spotify.com/app", html, "text/html", "UTF-8",
+                            "https://open.spotify.com/app");
+                } catch (Throwable error) {
+                    failure[0] = error;
+                }
+            }
+        });
+        if (failure[0] != null) {
+            removeWebHomeRendererFixture(created[0]);
+            throw new AssertionError("Could not create isolated mobile viewport fixture", failure[0]);
+        }
+        if (created[0] == null) throw new AssertionError("Mobile viewport fixture was not attached");
+        try {
+            if (!pageFinished.await(15L, TimeUnit.SECONDS)) {
+                throw new AssertionError("Mobile viewport fixture did not finish loading");
+            }
+        } catch (InterruptedException interrupted) {
+            removeWebHomeRendererFixture(created[0]);
+            Thread.currentThread().interrupt();
+            throw interrupted;
+        } catch (AssertionError error) {
+            removeWebHomeRendererFixture(created[0]);
+            throw error;
+        }
+        return created[0];
+    }
+
+    private void installPackagedMobileViewportCss(
+            WebView webView, Activity activity, int viewportWidth, int safeTopInsetDp) throws Exception {
+        String cssSource = readPackagedAsset(activity, "css_hacks.css");
+        if (!cssSource.contains("SF_MELODIX_HOME_STYLES_V1")) {
+            throw new AssertionError("The exact Preview APK is missing the mobile shell CSS marker");
+        }
+        String script = "(function(){window.SF_CONFIG={guiMode:'csshack',touchInput:true,screenWidth:" + viewportWidth +
+                ",screenHeight:900,statusBarHeight:" + safeTopInsetDp + "};" +
+                "document.documentElement.style.setProperty('--sf-safe-area-top'," + JSONObject.quote(safeTopInsetDp + "px") + ");" +
+                "var style=document.getElementById('sf-custom-style');if(!style){style=document.createElement('style');" +
+                "style.id='sf-custom-style';document.head.appendChild(style);}style.textContent=" + JSONObject.quote(cssSource) + ";" +
+                "document.body.className='sf-mobile-shell sf-fullscreen-disabled sf-melodix-home-active';" +
+                "var home=document.getElementById('sf-melodix-home'),nav=document.getElementById('global-nav-bar');" +
+                "if(home&&nav){home.style.setProperty('--sf-melodix-home-top',Math.ceil(nav.getBoundingClientRect().bottom)+'px');" +
+                "home.style.setProperty('--sf-melodix-home-extra-safe-top','0px');}return true;})()";
+        if (!"true".equals(evaluateJavascriptAndWait(webView, script))) {
+            throw new AssertionError("Could not install packaged mobile CSS into the isolated viewport fixture");
+        }
+    }
+
+    private Bundle runMobileViewportMatrix(
+            final Activity activity, final WebView originalWebView, final String originalUrl) throws Exception {
+        Bundle result = new Bundle();
+        result.putString("phase", "mobile_viewport_layout_matrix");
+        result.putBoolean("mobile_viewport_matrix_fixture_test_only", true);
+        result.putBoolean("authenticated_home_test_performed", false);
+        result.putString("mobile_viewport_matrix_widths_css_px", "360,384,393,412");
+        result.putInt("mobile_viewport_matrix_case_count", MOBILE_VIEWPORT_MATRIX_WIDTHS.length);
+        boolean measurementsComplete = true;
+        boolean compactPassed = true;
+        boolean libraryPassed = true;
+        boolean expandedPassed = true;
+        Bundle nativeInsets = measureAndroidWindowInsets(activity);
+        result.putAll(nativeInsets);
+        int safeTopInsetDp = nativeInsets.getBoolean("android_window_insets_available", false)
+                ? Math.max(0, Math.min(256, (int) Math.round(nativeInsets.getDouble("android_status_bar_inset_css_px", 0))))
+                : statusBarInsetDp(activity);
+
+        for (int viewportWidth : MOBILE_VIEWPORT_MATRIX_WIDTHS) {
+            notePhase("mobile_viewport_" + viewportWidth + "_fixture_create");
+            WebView fixture = null;
+            try {
+                fixture = createMobileViewportFixture(activity, viewportWidth);
+                installPackagedMobileViewportCss(fixture, activity, viewportWidth, safeTopInsetDp);
+                JSONObject probe = new JSONObject(evaluateJavascriptAndWait(fixture, MOBILE_VIEWPORT_LAYOUT_PROBE));
+                if (probe.optBoolean("probe_error", true) || !probe.optBoolean("fixture_test_only", false)) {
+                    throw new AssertionError("Android WebView mobile viewport probe did not return fixture-only measurements");
+                }
+                org.json.JSONArray states = probe.optJSONArray("states");
+                JSONObject compact = findViewportState(states, "compact");
+                JSONObject libraryOpen = findViewportState(states, "library-open");
+                JSONObject expanded = findViewportState(states, "expanded");
+                if (compact == null || libraryOpen == null || expanded == null || states.length() != 3) {
+                    throw new AssertionError("Android WebView mobile viewport probe returned an incomplete layout state set");
+                }
+                putViewportStateMetrics(result, viewportWidth, compact);
+                putViewportStateMetrics(result, viewportWidth, libraryOpen);
+                putViewportStateMetrics(result, viewportWidth, expanded);
+
+                JSONObject compactViewport = compact.optJSONObject("viewport");
+                JSONObject libraryViewport = libraryOpen.optJSONObject("viewport");
+                JSONObject expandedViewport = expanded.optJSONObject("viewport");
+                boolean widthMeasured = widthMatches(compactViewport, viewportWidth)
+                        && widthMatches(libraryViewport, viewportWidth)
+                        && widthMatches(expandedViewport, viewportWidth)
+                        && boundedNumber(compactViewport, "visualWidth", -1) > 0
+                        && boundedNumber(compactViewport, "visualScale", -1) > 0;
+                measurementsComplete &= widthMeasured;
+                compactPassed &= compactViewportLayoutPassed(compact, viewportWidth);
+                libraryPassed &= libraryViewportLayoutPassed(libraryOpen, viewportWidth);
+                expandedPassed &= expandedViewportLayoutPassed(expanded, viewportWidth);
+                result.putBoolean("mobile_viewport_" + viewportWidth + "_width_measured", widthMeasured);
+                result.putBoolean("mobile_viewport_" + viewportWidth + "_compact_geometry_passed",
+                        compactViewportLayoutPassed(compact, viewportWidth));
+                result.putBoolean("mobile_viewport_" + viewportWidth + "_library_navigation_passed",
+                        libraryViewportLayoutPassed(libraryOpen, viewportWidth));
+                result.putBoolean("mobile_viewport_" + viewportWidth + "_expanded_overlay_passed",
+                        expandedViewportLayoutPassed(expanded, viewportWidth));
+            } finally {
+                removeWebHomeRendererFixture(fixture);
+            }
+            if (!originalWebViewStatePreserved(activity, originalWebView, originalUrl)) {
+                throw new AssertionError("The isolated mobile viewport fixture changed or obscured the original Spotify WebView");
+            }
+        }
+
+        result.putBoolean("mobile_viewport_matrix_measurements_complete", measurementsComplete);
+        result.putBoolean("mobile_viewport_compact_geometry_passed", compactPassed);
+        result.putBoolean("mobile_viewport_library_navigation_passed", libraryPassed);
+        result.putBoolean("mobile_viewport_expanded_overlay_passed", expandedPassed);
+        result.putBoolean("mobile_viewport_layout_contract_passed",
+                measurementsComplete && compactPassed && libraryPassed && expandedPassed);
+        result.putBoolean("original_login_webview_url_preserved", true);
+        result.putBoolean("original_login_webview_still_visible", true);
+        if (!measurementsComplete) {
+            throw new AssertionError("The Android WebView viewport-width matrix did not measure every requested CSS width");
+        }
+        return result;
+    }
+
+    private JSONObject findViewportState(org.json.JSONArray states, String name) {
+        if (states == null) return null;
+        for (int index = 0; index < states.length(); index++) {
+            JSONObject state = states.optJSONObject(index);
+            if (state != null && name.equals(state.optString("name", ""))) return state;
+        }
+        return null;
+    }
+
+    private boolean widthMatches(JSONObject viewport, int expectedWidth) {
+        return viewport != null && Math.abs(boundedNumber(viewport, "innerWidth", -10000) - expectedWidth) <= 1.0;
+    }
+
+    private boolean compactViewportLayoutPassed(JSONObject state, int expectedWidth) {
+        if (!widthMatches(state == null ? null : state.optJSONObject("viewport"), expectedWidth)) return false;
+        JSONObject surfaces = state.optJSONObject("surfaces");
+        JSONObject nav = surfaceState(surfaces, "mobileNavigation");
+        JSONObject player = surfaceState(surfaces, "player");
+        JSONObject home = surfaceState(surfaces, "home");
+        JSONObject hitTargets = state.optJSONObject("hitTargets");
+        JSONObject overlap = state.optJSONObject("overlap");
+        JSONObject safeArea = state.optJSONObject("safeArea");
+        JSONObject viewport = state.optJSONObject("viewport");
+        JSONObject dockRect = nav == null ? null : nav.optJSONObject("rect");
+        JSONObject playerRect = player == null ? null : player.optJSONObject("rect");
+        double bottomInset = boundedNumber(safeArea, "bottomInsetInferredCssPx", 0);
+        double expectedPlayerBottomGap = 78.0 + bottomInset;
+        double expectedHomeBottomGap = 154.0 + bottomInset;
+        JSONObject scroll = state.optJSONObject("scroll");
+        return surfaceVisible(nav) && surfaceVisible(player) && surfaceVisible(home)
+                && surfacePosition(nav, "fixed") && surfacePosition(player, "fixed") && surfacePosition(home, "fixed")
+                && dockRect != null && playerRect != null
+                && boundedNumber(dockRect, "height", -1) >= 72.0 + bottomInset - 1.0
+                && Math.abs(boundedNumber(safeArea, "navBottomGapCssPx", 10000)) <= 1.0
+                && Math.abs(boundedNumber(safeArea, "playerBottomGapCssPx", 10000) - expectedPlayerBottomGap) <= 2.0
+                && Math.abs(boundedNumber(playerRect, "height", -1) - 68.0) <= 2.0
+                && Math.abs(boundedNumber(safeArea, "homeBottomGapCssPx", 10000) - expectedHomeBottomGap) <= 2.0
+                && boundedNumber(overlap, "dockPlayerVerticalPx", 10000) <= 1.0
+                && navigationTargetsReachable(hitTargets)
+                && hitTargetMeetsMinimum(hitTargets == null ? null : hitTargets.optJSONObject("playPause"), 44)
+                && hitTargetMeetsMinimum(hitTargets == null ? null : hitTargets.optJSONObject("homeCard"), 44)
+                && boundedNumber(scroll, "documentHorizontalOverflow", 10000) <= 1.0
+                && boundedNumber(scroll, "bodyHorizontalOverflow", 10000) <= 1.0
+                && boundedNumber(scroll, "homeHorizontalOverflow", 10000) <= 1.0
+                && boundedNumber(scroll, "homeVerticalOverflow", 0) > 0
+                && boundedNumber(viewport, "innerHeight", 0) > 0;
+    }
+
+    private boolean libraryViewportLayoutPassed(JSONObject state, int expectedWidth) {
+        if (!widthMatches(state == null ? null : state.optJSONObject("viewport"), expectedWidth)) return false;
+        JSONObject surfaces = state.optJSONObject("surfaces");
+        JSONObject nav = surfaceState(surfaces, "mobileNavigation");
+        JSONObject sidebar = surfaceState(surfaces, "sidebar");
+        JSONObject hitTargets = state.optJSONObject("hitTargets");
+        JSONObject overlap = state.optJSONObject("overlap");
+        JSONObject scroll = state.optJSONObject("scroll");
+        JSONObject viewport = state.optJSONObject("viewport");
+        JSONObject safeArea = state.optJSONObject("safeArea");
+        JSONObject sidebarRect = sidebar == null ? null : sidebar.optJSONObject("rect");
+        double bottomInset = boundedNumber(safeArea, "bottomInsetInferredCssPx", 0);
+        double sidebarBottomGap = sidebarRect == null ? -1
+                : boundedNumber(viewport, "innerHeight", 0) - boundedNumber(sidebarRect, "bottom", 0);
+        return surfaceVisible(nav) && surfaceVisible(sidebar) && surfacePosition(nav, "fixed")
+                && navigationTargetsReachable(hitTargets)
+                && "desktop-sidebar".equals(safeProbeCategory(hitTargets, "sidebarCenterOwner"))
+                && boundedNumber(scroll, "sidebarVerticalOverflow", 0) > 0
+                && Math.abs(sidebarBottomGap - (72.0 + bottomInset)) <= 2.0
+                && boundedNumber(overlap, "dockPlayerVerticalPx", 10000) <= 1.0
+                && boundedNumber(overlap, "sidebarPlayerVerticalPx", 10000) <= 1.0;
+    }
+
+    private boolean expandedViewportLayoutPassed(JSONObject state, int expectedWidth) {
+        if (!widthMatches(state == null ? null : state.optJSONObject("viewport"), expectedWidth)) return false;
+        JSONObject viewport = state.optJSONObject("viewport");
+        JSONObject surfaces = state.optJSONObject("surfaces");
+        JSONObject full = surfaceState(surfaces, "fullscreenPlayer");
+        JSONObject nav = surfaceState(surfaces, "mobileNavigation");
+        JSONObject rect = full == null ? null : full.optJSONObject("rect");
+        JSONObject hits = state.optJSONObject("hitTargets");
+        JSONObject fullPlay = hits == null ? null : hits.optJSONObject("fullscreenPlay");
+        return surfaceVisible(full) && surfacePosition(full, "fixed") && rect != null
+                && Math.abs(boundedNumber(rect, "left", 10000)) <= 1.0
+                && Math.abs(boundedNumber(rect, "top", 10000)) <= 1.0
+                && boundedNumber(rect, "width", -1) >= boundedNumber(viewport, "innerWidth", 10000) - 1.0
+                && boundedNumber(rect, "height", -1) >= boundedNumber(viewport, "innerHeight", 10000) - 1.0
+                && !surfaceVisible(nav)
+                && "fullscreen-player".equals(safeProbeCategory(hits, "viewportCenterOwner"))
+                && hitTargetMeetsMinimum(fullPlay, 44);
+    }
+
+    private boolean navigationTargetsReachable(JSONObject hitTargets) {
+        if (hitTargets == null) return false;
+        org.json.JSONArray targets = hitTargets.optJSONArray("navigation");
+        if (targets == null || targets.length() != 3) return false;
+        for (int index = 0; index < targets.length(); index++) {
+            JSONObject target = targets.optJSONObject(index);
+            if (!hitTargetMeetsMinimum(target, 44)
+                    || !target.optBoolean("reachable", false)
+                    || !"mobile-navigation".equals(safeProbeCategory(target, "owner"))) return false;
+        }
+        return true;
+    }
+
+    private boolean hitTargetMeetsMinimum(JSONObject target, double minimumCssPx) {
+        return target != null && target.optBoolean("available", true)
+                && boundedNumber(target, "width", -1) >= minimumCssPx
+                && boundedNumber(target, "height", -1) >= minimumCssPx;
+    }
+
+    private JSONObject surfaceState(JSONObject surfaces, String name) {
+        return surfaces == null ? null : surfaces.optJSONObject(name);
+    }
+
+    private boolean surfaceVisible(JSONObject surface) {
+        return surface != null && surface.optBoolean("present", false) && surface.optBoolean("visible", false);
+    }
+
+    private boolean surfacePosition(JSONObject surface, String position) {
+        JSONObject style = surface == null ? null : surface.optJSONObject("style");
+        return style != null && position.equals(safeProbeCategory(style, "position"));
+    }
+
+    private String safeProbeCategory(JSONObject object, String name) {
+        if (object == null) return "unavailable";
+        Object value = object.opt(name);
+        if (!(value instanceof String)) return "unavailable";
+        String text = (String) value;
+        return text.matches("[a-z-]{1,32}") ? text : "other";
+    }
+
+    private double boundedNumber(JSONObject object, String name, double fallback) {
+        if (object == null) return fallback;
+        Object value = object.opt(name);
+        if (!(value instanceof Number)) return fallback;
+        double number = ((Number) value).doubleValue();
+        if (Double.isNaN(number) || Double.isInfinite(number)) return fallback;
+        return Math.max(-10000.0, Math.min(10000.0, number));
+    }
+
+    private Bundle measureAndroidWindowInsets(final Activity activity) {
+        final Bundle result = new Bundle();
+        result.putBoolean("android_window_insets_available", false);
+        result.putBoolean("android_window_bar_visibility_available", false);
+        final float density = activity.getResources().getDisplayMetrics().density;
+        result.putDouble("android_display_density_scale", density > 0 ? Math.min(10.0, density) : 0);
+        try {
+            runOnMainSync(new Runnable() {
+                @Override
+                public void run() {
+                    WindowInsets windowInsets = activity.getWindow().getDecorView().getRootWindowInsets();
+                    if (windowInsets == null) return;
+                    int statusTopPx;
+                    int statusBottomPx;
+                    int navigationTopPx;
+                    int navigationBottomPx;
+                    if (Build.VERSION.SDK_INT >= 30) {
+                        Insets status = windowInsets.getInsets(WindowInsets.Type.statusBars());
+                        Insets navigation = windowInsets.getInsets(WindowInsets.Type.navigationBars());
+                        statusTopPx = status.top;
+                        statusBottomPx = status.bottom;
+                        navigationTopPx = navigation.top;
+                        navigationBottomPx = navigation.bottom;
+                        result.putBoolean("android_window_bar_visibility_available", true);
+                        result.putBoolean("android_status_bar_visible", windowInsets.isVisible(WindowInsets.Type.statusBars()));
+                        result.putBoolean("android_navigation_bar_visible", windowInsets.isVisible(WindowInsets.Type.navigationBars()));
+                    } else {
+                        statusTopPx = windowInsets.getSystemWindowInsetTop();
+                        statusBottomPx = 0;
+                        navigationTopPx = 0;
+                        navigationBottomPx = windowInsets.getSystemWindowInsetBottom();
+                    }
+                    int topPx = Math.max(0, Math.min(10000, statusTopPx));
+                    int bottomPx = Math.max(0, Math.min(10000, navigationBottomPx));
+                    result.putBoolean("android_window_insets_available", true);
+                    result.putInt("android_status_bar_inset_px", topPx);
+                    result.putInt("android_status_bar_bottom_inset_px", Math.max(0, Math.min(10000, statusBottomPx)));
+                    result.putInt("android_navigation_bar_top_inset_px", Math.max(0, Math.min(10000, navigationTopPx)));
+                    result.putInt("android_navigation_bar_inset_px", bottomPx);
+                    result.putDouble("android_status_bar_inset_css_px", density > 0 ? Math.min(10000.0, topPx / density) : 0);
+                    result.putDouble("android_navigation_bar_inset_css_px", density > 0 ? Math.min(10000.0, bottomPx / density) : 0);
+                }
+            });
+        } catch (Throwable ignored) {
+            result.putBoolean("android_window_insets_available", false);
+        }
+        return result;
+    }
+
+    private int statusBarInsetDp(Activity activity) {
+        try {
+            int resourceId = activity.getResources().getIdentifier("status_bar_height", "dimen", "android");
+            if (resourceId == 0) return 0;
+            float density = activity.getResources().getDisplayMetrics().density;
+            if (density <= 0) return 0;
+            return Math.max(0, Math.min(256, Math.round(activity.getResources().getDimensionPixelSize(resourceId) / density)));
+        } catch (Throwable ignored) {
+            return 0;
+        }
+    }
+
+    private boolean originalWebViewStatePreserved(final Activity activity, final WebView originalWebView, final String originalUrl) {
+        final boolean[] preserved = new boolean[1];
+        try {
+            runOnMainSync(new Runnable() {
+                @Override
+                public void run() {
+                    preserved[0] = originalWebView != null
+                            && equalsNullable(originalUrl, originalWebView.getUrl())
+                            && visibleBounds(originalWebView) != null;
+                }
+            });
+        } catch (Throwable ignored) {
+            return false;
+        }
+        return preserved[0];
+    }
+
+    private void putViewportStateMetrics(Bundle bundle, int width, JSONObject probeState) {
+        String stateName = safeProbeCategory(probeState, "name");
+        String prefix = "mobile_viewport_" + width + "_" + stateName + "_";
+        JSONObject viewport = probeState.optJSONObject("viewport");
+        JSONObject safeArea = probeState.optJSONObject("safeArea");
+        JSONObject surfaces = probeState.optJSONObject("surfaces");
+        JSONObject overlap = probeState.optJSONObject("overlap");
+        JSONObject hits = probeState.optJSONObject("hitTargets");
+        JSONObject scroll = probeState.optJSONObject("scroll");
+        putProbeNumber(bundle, prefix + "inner_width_css_px", viewport, "innerWidth");
+        putProbeNumber(bundle, prefix + "inner_height_css_px", viewport, "innerHeight");
+        putProbeNumber(bundle, prefix + "screen_width_css_px", viewport, "screenWidth");
+        putProbeNumber(bundle, prefix + "screen_height_css_px", viewport, "screenHeight");
+        putProbeNumber(bundle, prefix + "visual_width_css_px", viewport, "visualWidth");
+        putProbeNumber(bundle, prefix + "visual_height_css_px", viewport, "visualHeight");
+        putProbeNumber(bundle, prefix + "visual_scale", viewport, "visualScale");
+        putProbeNumber(bundle, prefix + "device_pixel_ratio", viewport, "devicePixelRatio");
+        bundle.putString(prefix + "orientation", safeProbeCategory(viewport, "orientation"));
+        bundle.putBoolean(prefix + "portrait_media_query", viewport != null
+                && probeState.optJSONObject("media") != null && probeState.optJSONObject("media").optBoolean("portrait", false));
+        bundle.putBoolean(prefix + "viewport_fit_cover", safeArea != null && safeArea.optBoolean("viewportFitCover", false));
+        putProbeNumber(bundle, prefix + "safe_top_css_px", safeArea, "topCustomInsetCssPx");
+        putProbeNumber(bundle, prefix + "nav_bottom_gap_css_px", safeArea, "navBottomGapCssPx");
+        putProbeNumber(bundle, prefix + "home_bottom_gap_css_px", safeArea, "homeBottomGapCssPx");
+        putProbeNumber(bundle, prefix + "bottom_inset_inferred_css_px", safeArea, "bottomInsetInferredCssPx");
+        putProbeNumber(bundle, prefix + "player_bottom_gap_css_px", safeArea, "playerBottomGapCssPx");
+        putProbeNumber(bundle, prefix + "dock_player_overlap_y_css_px", overlap, "dockPlayerVerticalPx");
+        putProbeNumber(bundle, prefix + "sidebar_player_overlap_y_css_px", overlap, "sidebarPlayerVerticalPx");
+        putProbeNumber(bundle, prefix + "home_player_overlap_y_css_px", overlap, "homePlayerVerticalPx");
+        bundle.putBoolean(prefix + "dock_player_intersecting", overlap != null && overlap.optBoolean("dockPlayerIntersecting", false));
+        bundle.putBoolean(prefix + "sidebar_player_intersecting", overlap != null && overlap.optBoolean("sidebarPlayerIntersecting", false));
+        putViewportSurfaceMetrics(bundle, prefix + "dock_", surfaceState(surfaces, "mobileNavigation"));
+        putViewportSurfaceMetrics(bundle, prefix + "player_", surfaceState(surfaces, "player"));
+        putViewportSurfaceMetrics(bundle, prefix + "home_", surfaceState(surfaces, "home"));
+        putViewportSurfaceMetrics(bundle, prefix + "sidebar_", surfaceState(surfaces, "sidebar"));
+        putViewportSurfaceMetrics(bundle, prefix + "fullscreen_", surfaceState(surfaces, "fullscreenPlayer"));
+        putProbeNumber(bundle, prefix + "document_horizontal_overflow_css_px", scroll, "documentHorizontalOverflow");
+        putProbeNumber(bundle, prefix + "body_horizontal_overflow_css_px", scroll, "bodyHorizontalOverflow");
+        putProbeNumber(bundle, prefix + "main_horizontal_overflow_css_px", scroll, "mainHorizontalOverflow");
+        putProbeNumber(bundle, prefix + "main_vertical_overflow_css_px", scroll, "mainVerticalOverflow");
+        putProbeNumber(bundle, prefix + "home_horizontal_overflow_css_px", scroll, "homeHorizontalOverflow");
+        putProbeNumber(bundle, prefix + "home_vertical_overflow_css_px", scroll, "homeVerticalOverflow");
+        putProbeNumber(bundle, prefix + "sidebar_vertical_overflow_css_px", scroll, "sidebarVerticalOverflow");
+        bundle.putString(prefix + "sidebar_center_owner", safeProbeCategory(hits, "sidebarCenterOwner"));
+        bundle.putBoolean(prefix + "navigation_targets_reachable", navigationTargetsReachable(hits));
+        JSONObject playPause = hits == null ? null : hits.optJSONObject("playPause");
+        putProbeNumber(bundle, prefix + "play_pause_target_width_css_px", playPause, "width");
+        putProbeNumber(bundle, prefix + "play_pause_target_height_css_px", playPause, "height");
+        bundle.putString(prefix + "play_pause_target_owner", safeProbeCategory(playPause, "owner"));
+        JSONObject homeCard = hits == null ? null : hits.optJSONObject("homeCard");
+        putProbeNumber(bundle, prefix + "home_card_target_width_css_px", homeCard, "width");
+        putProbeNumber(bundle, prefix + "home_card_target_height_css_px", homeCard, "height");
+        bundle.putString(prefix + "home_card_target_owner", safeProbeCategory(homeCard, "owner"));
+        bundle.putString(prefix + "viewport_center_owner", safeProbeCategory(hits, "viewportCenterOwner"));
+    }
+
+    private void putViewportSurfaceMetrics(Bundle bundle, String prefix, JSONObject surface) {
+        bundle.putBoolean(prefix + "present", surface != null && surface.optBoolean("present", false));
+        bundle.putBoolean(prefix + "visible", surface != null && surface.optBoolean("visible", false));
+        JSONObject style = surface == null ? null : surface.optJSONObject("style");
+        bundle.putString(prefix + "position", safeProbeCategory(style, "position"));
+        bundle.putString(prefix + "display", safeProbeCategory(style, "display"));
+        bundle.putString(prefix + "z_index", safeZIndex(style));
+        JSONObject rect = surface == null ? null : surface.optJSONObject("rect");
+        putProbeNumber(bundle, prefix + "left_css_px", rect, "left");
+        putProbeNumber(bundle, prefix + "top_css_px", rect, "top");
+        putProbeNumber(bundle, prefix + "right_css_px", rect, "right");
+        putProbeNumber(bundle, prefix + "bottom_css_px", rect, "bottom");
+        putProbeNumber(bundle, prefix + "width_css_px", rect, "width");
+        putProbeNumber(bundle, prefix + "height_css_px", rect, "height");
+    }
+
+    private String safeZIndex(JSONObject style) {
+        if (style == null) return "unavailable";
+        Object value = style.opt("zIndex");
+        if (value instanceof Number) {
+            return String.valueOf(Math.max(-10000, Math.min(10000, ((Number) value).intValue())));
+        }
+        return "auto".equals(value) || "other".equals(value) ? (String) value : "unavailable";
+    }
+
+    private void putProbeNumber(Bundle bundle, String key, JSONObject object, String name) {
+        if (object == null) return;
+        Object value = object.opt(name);
+        if (!(value instanceof Number)) return;
+        double number = ((Number) value).doubleValue();
+        if (Double.isNaN(number) || Double.isInfinite(number)) return;
+        bundle.putDouble(key, Math.max(-10000.0, Math.min(10000.0, number)));
     }
 
     private void installPackagedWebHomeRenderer(WebView webView, Activity activity) throws Exception {

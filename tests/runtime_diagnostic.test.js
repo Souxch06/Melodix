@@ -159,6 +159,10 @@ function executeDiagnostic() {
     return {
         started,
         body,
+        nodes,
+        classes,
+        window,
+        document,
         timers,
         observers,
         runScheduledSamples,
@@ -166,6 +170,213 @@ function executeDiagnostic() {
             return JSON.parse(JSON.stringify(window.__melodixRuntimeDiagnosticV2.samples));
         }
     };
+}
+
+function installGeometryFixture(run, { libraryOpen = false } = {}) {
+    const makeSurface = ({
+        selector,
+        rect,
+        style = {},
+        attributes = {},
+        scroll = {},
+        children = [],
+        childQueries = {}
+    }) => {
+        const element = {
+            nodeType: 1,
+            id: '',
+            childNodes: children,
+            computed: {
+                display: 'block',
+                position: 'static',
+                zIndex: 'auto',
+                opacity: '1',
+                visibility: 'visible',
+                pointerEvents: 'auto',
+                overflowX: 'visible',
+                overflowY: 'visible',
+                boxSizing: 'border-box',
+                touchAction: 'auto',
+                paddingTop: '0px',
+                paddingBottom: '0px',
+                ...style
+            },
+            getAttribute: (name) => Object.prototype.hasOwnProperty.call(attributes, name)
+                ? attributes[name]
+                : null,
+            getBoundingClientRect: () => ({
+                ...rect,
+                right: rect.right === undefined ? rect.left + rect.width : rect.right,
+                bottom: rect.bottom === undefined ? rect.top + rect.height : rect.bottom
+            }),
+            matches: (value) => value === selector,
+            closest: (value) => value === selector ? element : null,
+            querySelectorAll: (query) => childQueries[query] || [],
+            querySelector: (query) => (childQueries[query] || [])[0] || null,
+            clientWidth: scroll.clientWidth === undefined ? rect.width : scroll.clientWidth,
+            clientHeight: scroll.clientHeight === undefined ? rect.height : scroll.clientHeight,
+            scrollWidth: scroll.scrollWidth === undefined ? rect.width : scroll.scrollWidth,
+            scrollHeight: scroll.scrollHeight === undefined ? rect.height : scroll.scrollHeight,
+            scrollLeft: scroll.scrollLeft || 0,
+            scrollTop: scroll.scrollTop || 0
+        };
+        return element;
+    };
+
+    const height = 844;
+    const width = 390;
+    const safeBottom = 20;
+    const navRect = { left: 0, top: height - 72 - safeBottom, width, height: 72 + safeBottom };
+    const playerBottomGap = libraryOpen ? 10 + safeBottom : 78 + safeBottom;
+    const playerRect = {
+        left: 10,
+        top: height - playerBottomGap - 68,
+        width: width - 20,
+        height: 68
+    };
+    const homeRect = { left: 0, top: 24, width, height: height - 24 - 154 - safeBottom };
+    const homeCardRect = { left: 18, top: 190, width: 164, height: 220 };
+    const playerControlRect = {
+        left: width - 64,
+        top: playerRect.top + 12,
+        width: 44,
+        height: 44
+    };
+    const navButtons = ['home', 'search', 'library'].map((action, index) => makeSurface({
+        selector: '.sf-mobile-nav__item',
+        rect: { left: index * 130 + 9, top: navRect.top + 16, width: 112, height: 54 },
+        attributes: { 'data-sf-mobile-action': action },
+        style: { display: 'flex', position: 'relative', touchAction: 'manipulation' }
+    }));
+    const nav = makeSurface({
+        selector: '#sf-mobile-nav',
+        rect: navRect,
+        style: {
+            display: 'grid', position: 'fixed', zIndex: '10010', overflowX: 'hidden', overflowY: 'hidden',
+            paddingTop: '5px', paddingBottom: `${5 + safeBottom}px`, touchAction: 'manipulation'
+        },
+        scroll: { scrollWidth: width + 4, clientWidth: width, scrollHeight: navRect.height, clientHeight: navRect.height },
+        childQueries: { '[data-sf-mobile-action]': navButtons }
+    });
+    const playerControl = makeSurface({
+        selector: 'aside[data-testid="now-playing-bar"] button[data-testid="control-button-playpause"]',
+        rect: playerControlRect,
+        attributes: { 'data-testid': 'control-button-playpause' },
+        style: { display: 'flex', position: 'relative', width: '44px', height: '44px' }
+    });
+    const player = makeSurface({
+        selector: 'aside[data-testid="now-playing-bar"]',
+        rect: playerRect,
+        style: {
+            display: 'flex', position: 'fixed', zIndex: '10015', overflowX: 'hidden', overflowY: 'hidden',
+            paddingTop: '8px', paddingBottom: '8px', touchAction: 'manipulation'
+        },
+        scroll: { scrollWidth: width - 20, clientWidth: width - 20, scrollHeight: 68, clientHeight: 68 },
+        childQueries: { 'button[data-testid="control-button-playpause"]': [playerControl] }
+    });
+    const homeCard = makeSurface({
+        selector: '#sf-melodix-home .sf-melodix-home__card',
+        rect: homeCardRect,
+        style: { display: 'flex', position: 'relative', zIndex: 'auto', touchAction: 'manipulation' }
+    });
+    const home = makeSurface({
+        selector: '#sf-melodix-home',
+        rect: homeRect,
+        style: { display: 'flex', position: 'fixed', zIndex: '10001', overflowX: 'hidden', overflowY: 'auto' },
+        scroll: { scrollWidth: width, clientWidth: width, scrollHeight: 900, clientHeight: homeRect.height },
+        childQueries: { '.sf-melodix-home__card': [homeCard] }
+    });
+    const main = makeSurface({
+        selector: '#main-view',
+        rect: { left: 0, top: 0, width, height },
+        style: { display: 'block', position: 'relative', overflowX: 'hidden', overflowY: 'auto' },
+        scroll: { scrollWidth: width, clientWidth: width, scrollHeight: 1600, clientHeight: height }
+    });
+    const sidebar = makeSurface({
+        selector: '#Desktop_LeftSidebar_Id',
+        rect: { left: 0, top: 24, width: 320, height: height - 24 - 72 - safeBottom },
+        style: { display: libraryOpen ? 'block' : 'none', position: 'fixed', zIndex: '10005' }
+    });
+    const globalNavigation = makeSurface({
+        selector: '#global-nav-bar',
+        rect: { left: 0, top: 24, width, height: 56 },
+        style: { display: 'flex', position: 'relative', zIndex: '1' }
+    });
+    const fullscreen = makeSurface({
+        selector: '#sf-fs-player',
+        rect: { left: 0, top: 0, width, height },
+        style: { display: 'none', position: 'fixed', zIndex: '10020' }
+    });
+    const stylesheet = makeSurface({
+        selector: '#sf-custom-style',
+        rect: { left: 0, top: 0, width: 0, height: 0 },
+        style: { display: 'block' }
+    });
+    const viewportMeta = makeSurface({
+        selector: 'meta[name="viewport"]',
+        rect: { left: 0, top: 0, width: 0, height: 0 },
+        attributes: { content: 'width=device-width, initial-scale=1.0, viewport-fit=cover' }
+    });
+    const root = makeSurface({
+        selector: 'html',
+        rect: { left: 0, top: 0, width, height },
+        style: { display: 'block', position: 'static', getPropertyValue: () => '24px' },
+        scroll: { scrollWidth: width, clientWidth: width, scrollHeight: 1200, clientHeight: height }
+    });
+    root.style = { getPropertyValue: () => '24px' };
+    const styleFor = run.window.getComputedStyle;
+    run.window.getComputedStyle = (element) => element.computed || styleFor(element);
+    run.window.innerWidth = width;
+    run.window.innerHeight = height;
+    run.window.devicePixelRatio = 3;
+    run.window.screen = {
+        width: 432,
+        height: 960,
+        orientation: { type: 'portrait-primary' }
+    };
+    run.window.visualViewport = {
+        width,
+        height,
+        offsetLeft: 0,
+        offsetTop: 0,
+        pageLeft: 0,
+        pageTop: 0,
+        scale: 1
+    };
+    run.window.matchMedia = (query) => ({ matches: query.includes('portrait') });
+    run.document.documentElement = root;
+    run.document.elementFromPoint = (x, y) => {
+        const inRect = (rect) => x >= rect.left && x <= rect.left + rect.width
+            && y >= rect.top && y <= rect.top + rect.height;
+        if (inRect(playerRect)) return player;
+        if (inRect(navRect)) return nav;
+        if (inRect(homeRect)) return home;
+        if (inRect({ left: 0, top: 0, width, height })) return main;
+        return run.body;
+    };
+    run.body.computed = { display: 'block', position: 'static', opacity: '1', visibility: 'visible' };
+    run.body.clientWidth = width;
+    run.body.clientHeight = height;
+    run.body.scrollWidth = width;
+    run.body.scrollHeight = 1200;
+    run.nodes.set('#global-nav-bar', globalNavigation);
+    run.nodes.set('#Desktop_LeftSidebar_Id', sidebar);
+    run.nodes.set('#sf-custom-style', stylesheet);
+    run.nodes.set('#sf-mobile-nav', nav);
+    run.nodes.set('#main-view', main);
+    run.nodes.set('#sf-melodix-home', home);
+    run.nodes.set('#sf-melodix-home .sf-melodix-home__card', homeCard);
+    run.nodes.set('#sf-fs-player', fullscreen);
+    run.nodes.set('aside[data-testid="now-playing-bar"]', player);
+    run.nodes.set('aside[data-testid="now-playing-bar"] button[data-testid="control-button-playpause"]', playerControl);
+    run.nodes.set('meta[name="viewport"]', viewportMeta);
+    if (libraryOpen) {
+        run.classes.add('sf-library-open');
+        run.body.className = 'sf-mobile-shell sf-library-open';
+    } else {
+        run.classes.delete('sf-library-open');
+        run.body.className = 'sf-mobile-shell';
+    }
 }
 
 test('Preview diagnostic returns four timed samples with the existing report fields', () => {
@@ -283,6 +494,82 @@ test('Preview diagnostic returns four timed samples with the existing report fie
     });
     assert.equal(samples[3].mutations.observerStopped, true);
     assert.equal(run.observers[0].disconnected, true);
+});
+
+test('runtime geometry records viewport, zoom, safe-area, surface bounds, overflow, and reachable controls', () => {
+    const run = executeDiagnostic();
+    installGeometryFixture(run);
+    run.runScheduledSamples();
+    const geometry = run.samples[0].layoutGeometry;
+
+    assert.deepEqual(geometry.viewport, {
+        innerWidth: 390,
+        innerHeight: 844,
+        screenWidth: 432,
+        screenHeight: 960,
+        devicePixelRatio: 3,
+        orientation: 'portrait-primary',
+        portrait: true,
+        landscape: false,
+        visualViewport: {
+            width: 390,
+            height: 844,
+            offsetLeft: 0,
+            offsetTop: 0,
+            pageLeft: 0,
+            pageTop: 0,
+            scale: 1
+        }
+    });
+    assert.deepEqual(geometry.safeArea, {
+        viewportFitCover: true,
+        topCustomInsetCssPx: 24,
+        mobileNavigationPaddingTopCssPx: 5,
+        mobileNavigationPaddingBottomCssPx: 25,
+        mobileNavigationBottomGapCssPx: 0,
+        mobileNavigationBottomInsetInferredCssPx: 20,
+        playerBottomGapCssPx: 98,
+        playerPaddingBottomCssPx: 8
+    });
+    assert.equal(geometry.surfaces.mobileNavigation.style.position, 'fixed');
+    assert.equal(geometry.surfaces.mobileNavigation.style.zIndex, 10010);
+    assert.equal(geometry.surfaces.mobileNavigation.box.height, 92);
+    assert.equal(geometry.surfaces.nowPlayingBar.style.zIndex, 10015);
+    assert.equal(geometry.overlap.navigationPlayerVerticalPx, 0);
+    assert.equal(geometry.overlap.navigationPlayerIntersecting, false);
+    assert.equal(geometry.overlap.homePlayerIntersecting, false);
+    assert.equal(geometry.scroll.document.horizontalOverflowPx, 0);
+    assert.equal(geometry.scroll.melodixHome.verticalOverflowPx, 254);
+    assert.deepEqual(geometry.hitTargets.mobileNavigation.map(({ action, reachable, width, height }) => ({
+        action, reachable, width, height
+    })), [
+        { action: 'home', reachable: true, width: 112, height: 54 },
+        { action: 'search', reachable: true, width: 112, height: 54 },
+        { action: 'library', reachable: true, width: 112, height: 54 }
+    ]);
+    assert.deepEqual(geometry.hitTargets.playPause, {
+        available: true,
+        width: 44,
+        height: 44,
+        owner: 'now-playing-bar',
+        reachable: true
+    });
+    assert.equal(geometry.hitTargets.firstHomeCard.reachable, true);
+});
+
+test('runtime diagnostic exposes dock/player occlusion in a synthetic library-open hit-test', () => {
+    const run = executeDiagnostic();
+    installGeometryFixture(run, { libraryOpen: true });
+    run.runScheduledSamples();
+    const geometry = run.samples[0].layoutGeometry;
+
+    assert.equal(run.samples[0].drawer.libraryOpenClass, true);
+    assert.equal(geometry.overlap.navigationPlayerVerticalPx, 62);
+    assert.equal(geometry.overlap.navigationPlayerIntersecting, true);
+    assert.equal(geometry.hitTargets.mobileNavigation.every((target) => !target.reachable), true);
+    assert.equal(geometry.hitTargets.playPause.reachable, true);
+    assert.equal(run.samples[0].ui.nativeHomeDataSent, true);
+    assert.equal(run.samples[0].ui.homeRootPresent, true);
 });
 
 test('mutation observation is capped and records only identifier presence, never private identifier values', () => {

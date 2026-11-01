@@ -65,6 +65,48 @@ test('native shell overlays, but does not replace or detach, the existing WebVie
     assert.match(layout, /android:onClick="onNativePlayerNextClick"/);
 });
 
+test('Android WebView instruments real CSS layout states at all requested phone viewport widths without authenticated account data', () => {
+    const harness = read('tests/android/HomeRenderInstrumentation.java');
+    assert.match(harness, /MOBILE_VIEWPORT_MATRIX_WIDTHS = \{360, 384, 393, 412\}/,
+        'the Android matrix must exercise each explicitly requested CSS viewport width');
+    const probeBlock = harness.split('private static final String MOBILE_VIEWPORT_LAYOUT_PROBE =')[1]
+        .split('private static final String BROWSER_COMPATIBILITY_PROBE')[0];
+    const javaStrings = Array.from(probeBlock.matchAll(/"((?:\\.|[^"\\])*)"/g), (match) => match[1]);
+    const probe = javaStrings.map((value) => JSON.parse('"' + value + '"')).join('');
+    for (const measurement of [
+        'window.visualViewport', 'viewportFitCover', 'topCustomInsetCssPx', 'homeBottomGapCssPx', 'bottomInsetInferredCssPx',
+        'sidebarPlayerIntersecting', 'dockPlayerIntersecting', 'sidebarCenterOwner', 'hitTargets', 'elementFromPoint',
+        'documentHorizontalOverflow', 'homeVerticalOverflow', 'sidebarVerticalOverflow'
+    ]) {
+        assert.ok(probe.includes(measurement), `the real Android WebView probe should report ${measurement}`);
+    }
+    for (const phase of ['compact', 'library-open', 'expanded']) {
+        assert.ok(probe.includes(`state('${phase}')`), `the same viewport must measure the ${phase} state`);
+    }
+    assert.ok(probe.includes('fixture_test_only:true') && probe.includes('states:[compact,libraryOpen,expanded]'));
+    const factory = harness.indexOf('settings.setBlockNetworkLoads(true)');
+    const wideViewport = harness.indexOf('settings.setUseWideViewPort(true)', factory);
+    const textZoom = harness.indexOf('settings.setTextZoom(100)', wideViewport);
+    assert.ok(factory >= 0 && wideViewport > factory && textZoom > wideViewport,
+        'fixture measurements use the packaged CSS, a controlled viewport, and no network-loaded account data');
+    const fixtureFactory = harness.split('private WebView createMobileViewportFixture')[1]
+        .split('private void installPackagedMobileViewportCss')[0];
+    assert.ok(fixtureFactory.includes('viewport-fit=cover') && fixtureFactory.includes('height:1200px')
+        && fixtureFactory.includes('sf-melodix-home__card'));
+    assert.doesNotMatch(fixtureFactory, /playlist|album|artist|spotify:|cookie|token/i,
+        'the geometry fixture has no fabricated account, library, playlist, or credential data');
+    const matrix = harness.split('private Bundle runMobileViewportMatrix')[1]
+        .split('private JSONObject findViewportState')[0];
+    assert.ok(matrix.includes('MOBILE_VIEWPORT_MATRIX_WIDTHS')
+        && matrix.includes('createMobileViewportFixture') && matrix.includes('installPackagedMobileViewportCss'));
+    assert.ok(matrix.includes('authenticated_home_test_performed", false')
+        && matrix.includes('originalWebViewStatePreserved'),
+        'fixture measurements remain distinct from authenticated Spotify Home and preserve the original login WebView');
+    assert.ok(matrix.includes('mobile_viewport_layout_contract_passed')
+        && matrix.includes('mobile_viewport_matrix_measurements_complete'),
+        'collected geometry and the visual layout contract are reported separately');
+});
+
 test('all native layout IDs are assigned stable public resource IDs', () => {
     const layout = read('res/layout/activity_main.xml');
     const publicXml = read('res/values/public.xml');
@@ -1389,12 +1431,40 @@ test('the stage chain records the page finish and the shell injection', () => {
     // finished loading" from "the shell never ran": both looked identical.
     assert.match(client, /const-string v2, "page-finished"[\s\S]{0,120}NativeCrashGuard;->stage/,
         'la fin de chargement de page est tracee');
-    assert.match(client, /const-string v5, "shell-injected"[\s\S]{0,160}NativeCrashGuard;->stage/,
-        'l injection du shell est tracee');
+    assert.match(client, /const-string v5, "shell-injection-queued"[\s\S]{0,160}NativeCrashGuard;->stage/,
+        'la mise en file du shell est distinguee de son execution JavaScript');
+    assert.match(client, /stageLoadedAsset\(Ljava\/lang\/String;Ljava\/lang\/String;\)V/,
+        'le retour d assets non vides est trace separement');
     const finished = client.slice(client.indexOf('.method public final onPageFinished'));
     const injectAt = finished.indexOf('native_ui_shell.js');
-    const stageAt = finished.indexOf('"shell-injected"');
-    assert.ok(injectAt > 0 && stageAt > injectAt, 'le marqueur suit l injection');
+    const stageAt = finished.indexOf('"shell-injection-queued"');
+    assert.ok(injectAt > 0 && stageAt > injectAt, 'le marqueur de mise en file suit la demande d injection');
+});
+
+test('startup stages distinguish loaded assets, queued injection, JS start, bridge marker, callback, and rendered Home', () => {
+    const shell = read('scripts/native_ui_shell.source.js');
+    const bridge = read('scripts/spotify_bridge.source.js');
+    const andBridge = read('smali/com/melodix/music/AndBridge.smali');
+    const activity = read('smali/com/melodix/music/MainActivity.smali');
+    const traceRunnable = read('smali/com/melodix/music/NativeUiVisibilityTraceRunnable.smali');
+
+    assert.ok(shell.includes("diagTrace('js-shell begin')"));
+    assert.ok(shell.includes("diagTrace('js-shell end ok screen='"));
+    assert.ok(shell.includes("diagTrace('js-shell end threw name='"));
+    assert.ok(bridge.includes("__sfBridgeTrace('bridge start')"));
+    assert.ok(bridge.includes("__sfBridgeTrace('bridge marker set')"));
+    assert.ok(bridge.includes("__sfBridgeTrace('bridge done')"));
+    assert.ok(andBridge.includes('"js-shell-start"'));
+    assert.ok(andBridge.includes('"js-shell-ready"'));
+    assert.ok(andBridge.includes('"bridge-marker-set"'));
+    assert.ok(andBridge.includes('"bridge-read-complete"'));
+    assert.ok(andBridge.includes('"shell-js-started"'));
+    assert.ok(andBridge.includes('"bridge-bootstrap-ready"'));
+    assert.ok(andBridge.includes('"native-ui-ready-callback-returned"'));
+    assert.match(activity, /const-string v1, "home-rendered"[\s\S]{0,140}NativeCrashGuard;->stage/);
+    assert.match(activity, /const-string v1, "native-shell-visible"[\s\S]{0,140}NativeCrashGuard;->stage/);
+    assert.match(traceRunnable, /completeNativeUiVisibility\(Z\)Z/,
+        'the final native visibility stage follows measured post-layout bounds');
 });
 
 test('a null screen or a null payload through the bridge is ignored, never applied', () => {

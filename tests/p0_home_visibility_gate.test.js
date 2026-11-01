@@ -251,7 +251,7 @@ test('authenticated-home mode is opt-in, non-destructive, and samples actual And
 test('the authenticated DOM probe returns sanitized routes, counts only, live renderer state, and callback return evidence', () => {
   const harness = read('tests/android/HomeRenderInstrumentation.java');
   const block = harness.split('private static final String AUTHENTICATED_HOME_PROBE =')[1]
-    .split('private static final String BROWSER_COMPATIBILITY_PROBE')[0];
+    .split('private static final String MOBILE_VIEWPORT_LAYOUT_PROBE')[0];
   const javaStrings = Array.from(block.matchAll(/"((?:\\.|[^"\\])*)"/g), (match) => match[1]);
   const script = javaStrings.map((value) => JSON.parse('"' + value + '"')).join('');
   assert.match(script, /url_query_redacted:true/);

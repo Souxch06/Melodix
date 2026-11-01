@@ -350,6 +350,32 @@ test("Android verifies the packaged Web Home renderer on /app in an isolated, vi
     "raw WebView hierarchy XML is inspected in the runner but never uploaded");
 });
 
+test("Android records measured mobile viewport geometry and native system-bar insets in the redacted CI reference", () => {
+  const workflow = fs.readFileSync(
+    path.resolve(__dirname, "..", ".github", "workflows", "test-preview-emulator.yml"),
+    "utf8",
+  );
+  const harness = fs.readFileSync(
+    path.resolve(__dirname, "android", "HomeRenderInstrumentation.java"),
+    "utf8",
+  );
+  assert.match(harness, /MOBILE_VIEWPORT_MATRIX_WIDTHS = \{360, 384, 393, 412\}/);
+  assert.match(harness, /measureAndroidWindowInsets[\s\S]*?WindowInsets\.Type\.statusBars\(\)[\s\S]*?WindowInsets\.Type\.navigationBars\(\)/,
+    "the matrix captures Android system bars independently of CSS safe-area inference");
+  assert.match(workflow, /mobile_viewport_\[A-Za-z0-9_\-\]\+\|android_window_insets_available/);
+  for (const field of [
+    "mobile_viewport_matrix_fixture_test_only", "mobile_viewport_matrix_measurements_complete",
+    "mobile_viewport_layout_contract_passed", "mobile_viewport_width_cases", "android_system_insets"
+  ]) {
+    assert.ok(workflow.includes(field), `the safe run summary should retain ${field}`);
+  }
+  assert.match(workflow, /for width in \(360, 384, 393, 412\)/,
+    "the machine-readable verification reference must retain every requested width");
+  assert.match(workflow, /Android WebView viewport matrix \(fixture-only, no Spotify account data\)/,
+    "the human run summary must separate layout measurements from an authenticated Spotify Home test");
+  assert.match(workflow, /mobile_viewport_layout_contract_passed.*?status_bool\("mobile_viewport_layout_contract_passed"\)/s);
+});
+
 test("the emulator workflow validates same-run instrumentation and exact release-candidate APKs before optional publication", () => {
   const emulatorWorkflow = fs.readFileSync(
     path.resolve(

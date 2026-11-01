@@ -809,6 +809,56 @@
     return-void
 .end method
 
+.method public static stageLoadedAsset(Ljava/lang/String;Ljava/lang/String;)V
+    .locals 2
+
+    # Only fixed APK asset names become stages. A file read counts as loaded
+    # only when the returned source is non-null and non-empty; this is distinct
+    # from the later WebView injection and JavaScript execution markers.
+    if-eqz p0, :asset_stage_done
+    if-eqz p1, :asset_stage_done
+
+    invoke-virtual {p1}, Ljava/lang/String;->isEmpty()Z
+    move-result v0
+    if-nez v0, :asset_stage_done
+
+    const-string v0, "native_ui_shell.js"
+    invoke-virtual {v0, p0}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    move-result v1
+    if-eqz v1, :asset_stage_bridge
+    const-string v0, "shell-asset-loaded"
+    goto :asset_stage_record
+
+    :asset_stage_bridge
+    const-string v0, "spotify_bridge.js"
+    invoke-virtual {v0, p0}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    move-result v1
+    if-eqz v1, :asset_stage_home
+    const-string v0, "bridge-asset-loaded"
+    goto :asset_stage_record
+
+    :asset_stage_home
+    const-string v0, "melodix_home.js"
+    invoke-virtual {v0, p0}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    move-result v1
+    if-eqz v1, :asset_stage_css
+    const-string v0, "home-asset-loaded"
+    goto :asset_stage_record
+
+    :asset_stage_css
+    const-string v0, "css_hacks.css"
+    invoke-virtual {v0, p0}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    move-result v1
+    if-eqz v1, :asset_stage_done
+    const-string v0, "css-asset-loaded"
+
+    :asset_stage_record
+    invoke-static {v0}, Lcom/melodix/music/NativeCrashGuard;->stage(Ljava/lang/String;)V
+
+    :asset_stage_done
+    return-void
+.end method
+
 # Appends "name+Xs" to the startup stage chain so a phone report shows the
 # whole trail with timestamps, not just the last step. Capped: a runaway
 # caller cannot flood the prefs.
@@ -895,7 +945,7 @@
 
     move-result v3
 
-    const/16 v4, 0x17c
+    const/16 v4, 0x400
 
     if-le v3, v4, :chain_append
 

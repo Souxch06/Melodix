@@ -815,9 +815,9 @@ jobs:
             harness_overall_passed=true
           fi
           if [[ "$instrumentation_status" != "0" || "$harness_overall_passed" != "true" ]]; then
-            safe_statuses="$(grep -E '^INSTRUMENTATION_STATUS: (phase|authenticated_session|login_dom_probe_completed|login_ui_visible_in_webview_dom|browser_compatibility_warning_visible|javascript_ua_profile_coherent|android_api_level|android_release|installed_webview_[A-Za-z0-9_]+|configured_ua_[A-Za-z0-9_]+|javascript_[A-Za-z0-9_]+|client_hints_[A-Za-z0-9_]+|live_spotify_[A-Za-z0-9_]+|live_webview_[A-Za-z0-9_]+|live_css_mel_[A-Za-z0-9_-]+|webview_visible_and_measured|network_error_transition_recovered|original_webview_url_preserved|splash_hidden|native_home_hidden|home_payload_empty|empty_home_evidence_captured|home_status_payload_fixture_non_playlist|home_status_evidence_captured|live_home_and_authentication_tested|web_home_color_probe_(completed|error|error_type|validation_passed|validation_summary)|web_home_color_contrast_fixture_test_only|web_home_dark_theme_computed|web_home_light_theme_available|web_home_color_state_scenarios_complete|web_home_all_states_wcag_aa_pass|web_home_(normal|loading|empty|error|partial)_(state_(visible|wcag_aa_pass|partial_data|card_count|library_status)|contrast_[A-Za-z0-9_]+|color_[A-Za-z0-9_]+)|web_home_app_route_renderer_visible|web_home_renderer_evidence_captured|web_home_renderer_fixture_test_only|web_home_probe_diagnostics_available|web_home_probe_route_app|web_home_probe_mode_csshack|web_home_probe_main_view_present|web_home_probe_raw_anchor_count|web_home_probe_root_resource_count|web_home_probe_source_card_count|web_home_probe_root_selector_is_main_view|web_home_probe_styles_ready|web_home_probe_decision_insufficient_real_cards|web_home_probe_decision_content_root_missing|web_home_probe_decision_styles_not_ready|web_home_probe_decision_fullscreen_open|web_home_probe_style_probe_completed|web_home_probe_renderer_style_probe_marker_present|web_home_probe_renderer_style_probe_computed_style_available|web_home_probe_renderer_style_probe_home_display_flex|web_home_probe_renderer_style_probe_home_position_fixed|web_home_probe_renderer_style_probe_home_visibility_visible|web_home_probe_renderer_style_probe_home_opacity_nonzero|web_home_probe_renderer_style_probe_home_z_index_high|web_home_probe_renderer_style_probe_main_hidden|web_home_probe_renderer_style_probe_error|web_home_probe_style_probe_home_display_flex|web_home_probe_style_probe_home_position_fixed|web_home_probe_style_probe_home_visibility_visible|web_home_probe_style_probe_home_opacity_nonzero|web_home_probe_style_probe_home_z_index_high|web_home_probe_style_probe_main_hidden|web_home_probe_init_attempted|web_home_probe_style_marker_present|web_home_probe_active_class|web_home_probe_home_exists|web_home_probe_card_count|web_home_probe_home_display_flex|web_home_probe_home_position_fixed|web_home_probe_home_visible|web_home_probe_source_hidden|web_home_probe_brand_has_bounds|web_home_probe_first_card_has_bounds|login_surface_restored_after_web_home_fixture|native_home_status_attached|native_home_status_visible|native_home_status_message_visible_in_hierarchy|native_home_cards_attached|native_home_content_ready|native_content_container_empty|native_root_visible|native_root_hidden|native_home_tab_visible|native_home_tab_not_shown|webview_container_visible|webview_container_visible_under_native_root|login_surface_restored_after_status|authenticated_home_test_performed|page_load_complete|failure_phase|failure_type|overall)=' "$state_dir/android-instrumentation.txt" | tr '\n' ';' | tail -c 4200 || true)"
+            safe_statuses="$(grep -E '^INSTRUMENTATION_STATUS: (phase|mobile_viewport_[A-Za-z0-9_-]+|android_window_insets_available|android_window_bar_visibility_available|android_status_bar_[A-Za-z0-9_]+|android_navigation_bar_[A-Za-z0-9_]+|android_display_density_scale|authenticated_session|login_dom_probe_completed|login_ui_visible_in_webview_dom|browser_compatibility_warning_visible|javascript_ua_profile_coherent|android_api_level|android_release|installed_webview_[A-Za-z0-9_]+|configured_ua_[A-Za-z0-9_]+|javascript_[A-Za-z0-9_]+|client_hints_[A-Za-z0-9_]+|live_spotify_[A-Za-z0-9_]+|live_webview_[A-Za-z0-9_]+|live_css_mel_[A-Za-z0-9_-]+|webview_visible_and_measured|network_error_transition_recovered|original_webview_url_preserved|splash_hidden|native_home_hidden|home_payload_empty|empty_home_evidence_captured|home_status_payload_fixture_non_playlist|home_status_evidence_captured|live_home_and_authentication_tested|web_home_color_probe_(completed|error|error_type|validation_passed|validation_summary)|web_home_color_contrast_fixture_test_only|web_home_dark_theme_computed|web_home_light_theme_available|web_home_color_state_scenarios_complete|web_home_all_states_wcag_aa_pass|web_home_(normal|loading|empty|error|partial)_(state_(visible|wcag_aa_pass|partial_data|card_count|library_status)|contrast_[A-Za-z0-9_]+|color_[A-Za-z0-9_]+)|web_home_app_route_renderer_visible|web_home_renderer_evidence_captured|web_home_renderer_fixture_test_only|web_home_probe_diagnostics_available|web_home_probe_route_app|web_home_probe_mode_csshack|web_home_probe_main_view_present|web_home_probe_raw_anchor_count|web_home_probe_root_resource_count|web_home_probe_source_card_count|web_home_probe_root_selector_is_main_view|web_home_probe_styles_ready|web_home_probe_decision_insufficient_real_cards|web_home_probe_decision_content_root_missing|web_home_probe_decision_styles_not_ready|web_home_probe_decision_fullscreen_open|web_home_probe_style_probe_completed|web_home_probe_renderer_style_probe_marker_present|web_home_probe_renderer_style_probe_computed_style_available|web_home_probe_renderer_style_probe_home_display_flex|web_home_probe_renderer_style_probe_home_position_fixed|web_home_probe_renderer_style_probe_home_visibility_visible|web_home_probe_renderer_style_probe_home_opacity_nonzero|web_home_probe_renderer_style_probe_home_z_index_high|web_home_probe_renderer_style_probe_main_hidden|web_home_probe_renderer_style_probe_error|web_home_probe_style_probe_home_display_flex|web_home_probe_style_probe_home_position_fixed|web_home_probe_style_probe_home_visibility_visible|web_home_probe_style_probe_home_opacity_nonzero|web_home_probe_style_probe_home_z_index_high|web_home_probe_style_probe_main_hidden|web_home_probe_init_attempted|web_home_probe_style_marker_present|web_home_probe_active_class|web_home_probe_home_exists|web_home_probe_card_count|web_home_probe_home_display_flex|web_home_probe_home_position_fixed|web_home_probe_home_visible|web_home_probe_source_hidden|web_home_probe_brand_has_bounds|web_home_probe_first_card_has_bounds|login_surface_restored_after_web_home_fixture|native_home_status_attached|native_home_status_visible|native_home_status_message_visible_in_hierarchy|native_home_cards_attached|native_home_content_ready|native_content_container_empty|native_root_visible|native_root_hidden|native_home_tab_visible|native_home_tab_not_shown|webview_container_visible|webview_container_visible_under_native_root|login_surface_restored_after_status|authenticated_home_test_performed|page_load_complete|failure_phase|failure_type|overall)=' "$state_dir/android-instrumentation.txt" | tr '\n' ';' | tail -c 4200 || true)"
             safe_home_color_summary="$(grep -F 'INSTRUMENTATION_STATUS: web_home_color_probe_validation_summary=' "$state_dir/android-instrumentation.txt" | tail -n 1 | sed 's/^INSTRUMENTATION_STATUS: web_home_color_probe_validation_summary=//' | tr -cd 'A-Za-z0-9._:;,=/-' | cut -c1-1600 || true)"
-            safe_harness_logs="$(grep -E 'MelodixHarness: (instrumentation_onCreate_entered|instrumentation_onCreate_returned|instrumentation_runner_thread_started|instrumentation_onStart_entered|instrumentation_onStart_super_returned|empty_home_evidence_captured|home_status_evidence_captured|web_home_route_evidence_captured|started|phase=[a-z_]+|failure phase=[a-z_]+ type=[A-Za-z0-9_$]+|completed)$' "$state_dir/instrumentation-safe-logcat.txt" | sed -E 's/^.*MelodixHarness: //' | tr '\n' ';' | tail -c 700 || true)"
+            safe_harness_logs="$(grep -E 'MelodixHarness: (instrumentation_onCreate_entered|instrumentation_onCreate_returned|instrumentation_runner_thread_started|instrumentation_onStart_entered|instrumentation_onStart_super_returned|empty_home_evidence_captured|home_status_evidence_captured|web_home_route_evidence_captured|started|phase=[a-z0-9_]+|failure phase=[a-z_]+ type=[A-Za-z0-9_$]+|completed)$' "$state_dir/instrumentation-safe-logcat.txt" | sed -E 's/^.*MelodixHarness: //' | tr '\n' ';' | tail -c 700 || true)"
             transcript_bytes="$(wc -c < "$state_dir/android-instrumentation.txt" | tr -d '[:space:]')"
             framework_summary="$(python3 - "$state_dir/android-instrumentation.txt" <<'PY'
           import pathlib
@@ -1301,6 +1301,11 @@ jobs:
           configured_ua_chrome_major=unknown
           harness_failure_phase=none
           harness_failure_type=none
+          mobile_viewport_matrix_complete=not_run
+          mobile_viewport_layout_contract=not_run
+          mobile_viewport_compact=not_run
+          mobile_viewport_library=not_run
+          mobile_viewport_expanded=not_run
           if [[ -s "$state_dir/android-instrumentation.txt" ]]; then
             grep -Fq 'INSTRUMENTATION_STATUS: browser_compatibility_warning_visible=true' "$state_dir/android-instrumentation.txt" && browser_compatibility_warning=true || true
             grep -Fq 'INSTRUMENTATION_STATUS: browser_compatibility_warning_visible=false' "$state_dir/android-instrumentation.txt" && browser_compatibility_warning=false || true
@@ -1315,10 +1320,20 @@ jobs:
             [[ -n "$webview_chrome_major" ]] || webview_chrome_major=unknown
             configured_ua_chrome_major="$(sed -n 's/^INSTRUMENTATION_STATUS: configured_ua_chrome_major=//p' "$state_dir/android-instrumentation.txt" | head -n 1 | grep -E '^[0-9]{1,3}$' || true)"
             [[ -n "$configured_ua_chrome_major" ]] || configured_ua_chrome_major=unknown
-            harness_failure_phase="$(sed -n 's/^INSTRUMENTATION_STATUS: failure_phase=//p' "$state_dir/android-instrumentation.txt" | head -n 1 | grep -E '^[a-z_]+$' || true)"
+            harness_failure_phase="$(sed -n 's/^INSTRUMENTATION_STATUS: failure_phase=//p' "$state_dir/android-instrumentation.txt" | head -n 1 | grep -E '^[a-z0-9_]+$' || true)"
             [[ -n "$harness_failure_phase" ]] || harness_failure_phase=none
             harness_failure_type="$(sed -n 's/^INSTRUMENTATION_STATUS: failure_type=//p' "$state_dir/android-instrumentation.txt" | head -n 1 | grep -E '^[A-Za-z0-9_$]+$' || true)"
             [[ -n "$harness_failure_type" ]] || harness_failure_type=none
+            mobile_viewport_matrix_complete="$(sed -n 's/^INSTRUMENTATION_STATUS: mobile_viewport_matrix_measurements_complete=//p' "$state_dir/android-instrumentation.txt" | head -n 1 | grep -E '^(true|false)$' || true)"
+            [[ -n "$mobile_viewport_matrix_complete" ]] || mobile_viewport_matrix_complete=not_run
+            mobile_viewport_layout_contract="$(sed -n 's/^INSTRUMENTATION_STATUS: mobile_viewport_layout_contract_passed=//p' "$state_dir/android-instrumentation.txt" | head -n 1 | grep -E '^(true|false)$' || true)"
+            [[ -n "$mobile_viewport_layout_contract" ]] || mobile_viewport_layout_contract=not_run
+            mobile_viewport_compact="$(sed -n 's/^INSTRUMENTATION_STATUS: mobile_viewport_compact_geometry_passed=//p' "$state_dir/android-instrumentation.txt" | head -n 1 | grep -E '^(true|false)$' || true)"
+            [[ -n "$mobile_viewport_compact" ]] || mobile_viewport_compact=not_run
+            mobile_viewport_library="$(sed -n 's/^INSTRUMENTATION_STATUS: mobile_viewport_library_navigation_passed=//p' "$state_dir/android-instrumentation.txt" | head -n 1 | grep -E '^(true|false)$' || true)"
+            [[ -n "$mobile_viewport_library" ]] || mobile_viewport_library=not_run
+            mobile_viewport_expanded="$(sed -n 's/^INSTRUMENTATION_STATUS: mobile_viewport_expanded_overlay_passed=//p' "$state_dir/android-instrumentation.txt" | head -n 1 | grep -E '^(true|false)$' || true)"
+            [[ -n "$mobile_viewport_expanded" ]] || mobile_viewport_expanded=not_run
           fi
           BROWSER_COMPATIBILITY_WARNING="$browser_compatibility_warning"
           USER_AGENT_PROFILE_COHERENT="$user_agent_profile_coherent"
@@ -1326,6 +1341,11 @@ jobs:
           CONFIGURED_UA_CHROME_MAJOR="$configured_ua_chrome_major"
           HARNESS_FAILURE_PHASE="$harness_failure_phase"
           HARNESS_FAILURE_TYPE="$harness_failure_type"
+          MOBILE_VIEWPORT_MATRIX_COMPLETE="$mobile_viewport_matrix_complete"
+          MOBILE_VIEWPORT_LAYOUT_CONTRACT="$mobile_viewport_layout_contract"
+          MOBILE_VIEWPORT_COMPACT="$mobile_viewport_compact"
+          MOBILE_VIEWPORT_LIBRARY="$mobile_viewport_library"
+          MOBILE_VIEWPORT_EXPANDED="$mobile_viewport_expanded"
           {
             echo "## Android 16 Preview UI integration check"
             echo
@@ -1338,6 +1358,7 @@ jobs:
             echo "- Instrumentation outcome: \`${INTEGRATION_OUTCOME:-not run}\`; failure phase/type: \`${HARNESS_FAILURE_PHASE:-none}\` / \`${HARNESS_FAILURE_TYPE:-none}\`"
             echo "- Browser compatibility banner: \`${BROWSER_COMPATIBILITY_WARNING:-not confirmed}\`; installed/configured Chrome major: \`${WEBVIEW_CHROME_MAJOR:-unknown}\` / \`${CONFIGURED_UA_CHROME_MAJOR:-unknown}\`; UA/client-hint profile coherent: \`${USER_AGENT_PROFILE_COHERENT:-not confirmed}\`"
             echo "- Post-instrumentation activity resume: \`${POST_INSTRUMENTATION_OUTCOME:-not run}\`; resumed=\`${ACTIVITY_RESUMED:-false}\`; relaunched=\`${PREVIEW_RELAUNCHED:-unknown}\`; empty-Home pixels=\`${EMPTY_HOME_PIXELS_VERIFIED:-false}\`; native Home-status pixels=\`${HOME_STATUS_PIXELS_VERIFIED:-false}\`; Web Home /app renderer pixels=\`${WEB_HOME_PIXELS_VERIFIED:-false}\`"
+            echo "- Android WebView viewport matrix (fixture-only, no Spotify account data): 360/384/393/412 CSS px; measured=\`${MOBILE_VIEWPORT_MATRIX_COMPLETE}\`; compact/library/expanded checks=\`${MOBILE_VIEWPORT_COMPACT}\` / \`${MOBILE_VIEWPORT_LIBRARY}\` / \`${MOBILE_VIEWPORT_EXPANDED}\`; combined layout contract=\`${MOBILE_VIEWPORT_LAYOUT_CONTRACT}\`. Raw CSS geometry and Android system-bar insets are recorded in the redacted verification reference."
             echo "- Preserved cold-launch hierarchy/pixel check: \`${COLD_LAUNCH_OUTCOME:-not run}\`"
             echo "- Exact non-debuggable release candidate: \`${RELEASE_SMOKE_OUTCOME:-not run}\`; debuggable=\`${RELEASE_DEBUGGABLE:-not verified}\`; versionName/versionCode=\`${RELEASE_VERSION_NAME:-unknown}\` / \`${RELEASE_VERSION_CODE:-unknown}\`; SHA-256=\`${RELEASE_APK_SHA256:-not verified}\`; activity resumed=\`${RELEASE_ACTIVITY_RESUMED:-false}\`."
             echo "- Authenticated Spotify Home: not tested; CI uses no Spotify session or account data."
@@ -1408,6 +1429,84 @@ jobs:
               login_dom_visible = True
           elif unauthenticated_session_confirmed and "INSTRUMENTATION_STATUS: login_ui_visible_in_webview_dom=false" in transcript:
               login_dom_visible = False
+          def viewport_surface(prefix, name):
+              key = prefix + name + "_"
+              return {
+                  "present": status_bool(key + "present"),
+                  "visible": status_bool(key + "visible"),
+                  "position": status_value(key + "position"),
+                  "display": status_value(key + "display"),
+                  "z_index": status_value(key + "z_index"),
+                  "bounds_css_px": {
+                      edge: status_float(key + edge + "_css_px")
+                      for edge in ("left", "top", "right", "bottom", "width", "height")
+                  },
+              }
+          def viewport_state(width, name):
+              prefix = f"mobile_viewport_{width}_{name}_"
+              return {
+                  "viewport": {
+                      key: status_float(prefix + suffix)
+                      for key, suffix in (
+                          ("inner_width_css_px", "inner_width_css_px"),
+                          ("inner_height_css_px", "inner_height_css_px"),
+                          ("screen_width_css_px", "screen_width_css_px"),
+                          ("screen_height_css_px", "screen_height_css_px"),
+                          ("visual_width_css_px", "visual_width_css_px"),
+                          ("visual_height_css_px", "visual_height_css_px"),
+                          ("visual_scale", "visual_scale"),
+                          ("device_pixel_ratio", "device_pixel_ratio"),
+                      )
+                  },
+                  "orientation": status_value(prefix + "orientation"),
+                  "portrait_media_query": status_bool(prefix + "portrait_media_query"),
+                  "viewport_fit_cover": status_bool(prefix + "viewport_fit_cover"),
+                  "safe_area": {
+                      key: status_float(prefix + suffix)
+                      for key, suffix in (
+                          ("top_custom_inset_css_px", "safe_top_css_px"),
+                          ("nav_bottom_gap_css_px", "nav_bottom_gap_css_px"),
+                          ("home_bottom_gap_css_px", "home_bottom_gap_css_px"),
+                          ("bottom_inset_inferred_css_px", "bottom_inset_inferred_css_px"),
+                          ("player_bottom_gap_css_px", "player_bottom_gap_css_px"),
+                      )
+                  },
+                  "surfaces": {
+                      surface: viewport_surface(prefix, surface)
+                      for surface in ("dock", "player", "home", "sidebar", "fullscreen")
+                  },
+                  "overlap": {
+                      key: status_float(prefix + suffix)
+                      for key, suffix in (
+                          ("dock_player_y_css_px", "dock_player_overlap_y_css_px"),
+                          ("sidebar_player_y_css_px", "sidebar_player_overlap_y_css_px"),
+                          ("home_player_y_css_px", "home_player_overlap_y_css_px"),
+                      )
+                  },
+                  "dock_player_intersecting": status_bool(prefix + "dock_player_intersecting"),
+                  "sidebar_player_intersecting": status_bool(prefix + "sidebar_player_intersecting"),
+                  "navigation_targets_reachable": status_bool(prefix + "navigation_targets_reachable"),
+                  "sidebar_center_owner": status_value(prefix + "sidebar_center_owner"),
+                  "play_pause_target": {
+                      "width_css_px": status_float(prefix + "play_pause_target_width_css_px"),
+                      "height_css_px": status_float(prefix + "play_pause_target_height_css_px"),
+                      "owner": status_value(prefix + "play_pause_target_owner"),
+                  },
+                  "home_card_target": {
+                      "width_css_px": status_float(prefix + "home_card_target_width_css_px"),
+                      "height_css_px": status_float(prefix + "home_card_target_height_css_px"),
+                      "owner": status_value(prefix + "home_card_target_owner"),
+                  },
+                  "viewport_center_owner": status_value(prefix + "viewport_center_owner"),
+                  "scroll": {
+                      key: status_float(prefix + key + "_css_px")
+                      for key in (
+                          "document_horizontal_overflow", "body_horizontal_overflow",
+                          "main_horizontal_overflow", "main_vertical_overflow",
+                          "home_horizontal_overflow", "home_vertical_overflow", "sidebar_vertical_overflow",
+                      )
+                  },
+              }
           reference = {
               "source_commit": source_ref,
               "build_and_test_run_id": run_id,
@@ -1585,6 +1684,39 @@ jobs:
               "web_home_renderer_evidence_captured_before_instrumentation_finish": status_bool("web_home_renderer_evidence_captured"),
               "web_home_renderer_hierarchy_pixels_verified": integration == "success" and web_home_pixels_verified == "true",
               "login_surface_restored_after_web_home_fixture": status_bool("login_surface_restored_after_web_home_fixture"),
+              "android_system_insets": {
+                  "available": status_bool("android_window_insets_available"),
+                  "bar_visibility_available": status_bool("android_window_bar_visibility_available"),
+                  "status_bar_visible": status_bool("android_status_bar_visible"),
+                  "navigation_bar_visible": status_bool("android_navigation_bar_visible"),
+                  "display_density_scale": status_float("android_display_density_scale"),
+                  "status_bar_inset_px": status_value("android_status_bar_inset_px"),
+                  "status_bar_inset_css_px": status_float("android_status_bar_inset_css_px"),
+                  "navigation_bar_inset_px": status_value("android_navigation_bar_inset_px"),
+                  "navigation_bar_inset_css_px": status_float("android_navigation_bar_inset_css_px"),
+              },
+              "mobile_viewport_matrix_fixture_test_only": status_bool("mobile_viewport_matrix_fixture_test_only"),
+              "mobile_viewport_matrix_authenticated_home_test_performed": status_bool("authenticated_home_test_performed"),
+              "mobile_viewport_matrix_widths_css_px": status_value("mobile_viewport_matrix_widths_css_px"),
+              "mobile_viewport_matrix_case_count": status_value("mobile_viewport_matrix_case_count"),
+              "mobile_viewport_matrix_measurements_complete": status_bool("mobile_viewport_matrix_measurements_complete"),
+              "mobile_viewport_compact_geometry_passed": status_bool("mobile_viewport_compact_geometry_passed"),
+              "mobile_viewport_library_navigation_passed": status_bool("mobile_viewport_library_navigation_passed"),
+              "mobile_viewport_expanded_overlay_passed": status_bool("mobile_viewport_expanded_overlay_passed"),
+              "mobile_viewport_layout_contract_passed": status_bool("mobile_viewport_layout_contract_passed"),
+              "mobile_viewport_width_cases": {
+                  str(width): {
+                      "width_measured": status_bool(f"mobile_viewport_{width}_width_measured"),
+                      "compact_geometry_passed": status_bool(f"mobile_viewport_{width}_compact_geometry_passed"),
+                      "library_navigation_passed": status_bool(f"mobile_viewport_{width}_library_navigation_passed"),
+                      "expanded_overlay_passed": status_bool(f"mobile_viewport_{width}_expanded_overlay_passed"),
+                      "states": {
+                          name: viewport_state(width, name)
+                          for name in ("compact", "library-open", "expanded")
+                      },
+                  }
+                  for width in (360, 384, 393, 412)
+              },
               "playlist_or_card_injected_by_harness": "INSTRUMENTATION_STATUS: playlist_or_card_injected=true" in transcript,
               "no_playlist_or_card_injected_status_confirmed": "INSTRUMENTATION_STATUS: playlist_or_card_injected=false" in transcript,
               "authenticated_home_test_performed": status_bool("authenticated_home_test_performed"),
@@ -1598,6 +1730,12 @@ jobs:
           )
           print(json.dumps({key: reference[key] for key in (
               "integration_outcome", "harness_failure_phase", "harness_failure_type",
+              "android_system_insets", "mobile_viewport_matrix_fixture_test_only",
+              "mobile_viewport_matrix_authenticated_home_test_performed", "mobile_viewport_matrix_widths_css_px",
+              "mobile_viewport_matrix_case_count", "mobile_viewport_matrix_measurements_complete",
+              "mobile_viewport_compact_geometry_passed", "mobile_viewport_library_navigation_passed",
+              "mobile_viewport_expanded_overlay_passed", "mobile_viewport_layout_contract_passed",
+              "mobile_viewport_width_cases",
               "login_ui_visible_in_webview_dom", "browser_compatibility_warning_visible", "javascript_ua_profile_coherent",
               "configured_ua_chrome_major_matches_runtime", "configured_ua_chrome_major",
               "installed_webview_chrome_major", "installed_webview_chrome_version",

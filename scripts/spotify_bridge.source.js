@@ -386,6 +386,7 @@
     // Mark bridge execution before optional player integrations. The shell and
     // CSS-backed Home renderer are loaded independently by the native bootstrap.
     window.__sfMelodixBridgeStarted = true;
+    __sfBridgeTrace('bridge marker set');
     if (window.__sfBridgeExecMode === 'native-inject-pending' || window.__sfBridgeExecMode === 'native-inject-no-start') {
         window.__sfBridgeExecMode = 'native-inject-started';
     }
