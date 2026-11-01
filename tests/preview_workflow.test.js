@@ -86,8 +86,13 @@ test("the emulator workflow checks the exact APK debuggable flag and captures re
   );
   assert.match(
     harness,
-    /instrumentation_onCreate_entered[\s\S]*?super\.onCreate\(arguments\)[\s\S]*?instrumentation_onCreate_returned[\s\S]*?instrumentation_onStart_entered[\s\S]*?super\.onStart\(\)[\s\S]*?instrumentation_onStart_super_returned/,
-    "capture exact lifecycle checkpoints to locate where the started instrumentation stalls",
+    /instrumentation_onCreate_entered[\s\S]*?super\.onCreate\(arguments\)[\s\S]*?instrumentation_onCreate_returned[\s\S]*?start\(\);[\s\S]*?instrumentation_runner_thread_started[\s\S]*?instrumentation_onStart_entered[\s\S]*?super\.onStart\(\)[\s\S]*?instrumentation_onStart_super_returned/,
+    "start the custom instrumentation runner thread explicitly and capture exact lifecycle checkpoints",
+  );
+  assert.match(
+    emulatorWorkflow,
+    /logcat -d -t 1000 -v threadtime -s MelodixHarness:I[\s\S]*?instrumentation_runner_thread_started/,
+    "read harness markers using a deterministic logcat format that the safe parser understands",
   );
   assert.match(
     emulatorWorkflow,

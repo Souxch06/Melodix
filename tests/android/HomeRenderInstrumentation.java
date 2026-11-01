@@ -44,9 +44,14 @@ public final class HomeRenderInstrumentation extends Instrumentation {
 
     @Override
     public void onCreate(Bundle arguments) {
+        // Android can attach instrumentation to the already-running app
+        // without restarting it. This custom Instrumentation must start its
+        // own callback thread after onCreate or onStart() never executes.
         Log.i(HARNESS_TAG, "instrumentation_onCreate_entered");
         super.onCreate(arguments);
         Log.i(HARNESS_TAG, "instrumentation_onCreate_returned");
+        start();
+        Log.i(HARNESS_TAG, "instrumentation_runner_thread_started");
     }
 
     @Override
