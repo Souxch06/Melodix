@@ -416,6 +416,16 @@ jobs:
             echo "::error::Instrumentation APK package id mismatch."
             exit 1
           }
+          "$build_tools/aapt" dump xmltree "$test_apk" AndroidManifest.xml > "$RUNNER_TEMP/melodix-ui-harness-manifest.txt"
+          grep -Fq 'com.melodix.test.HomeRenderInstrumentation' "$RUNNER_TEMP/melodix-ui-harness-manifest.txt" || {
+            echo "::error::Instrumentation APK manifest does not declare the expected runner class."
+            exit 1
+          }
+          grep -Fq 'com.melodix.music.preview' "$RUNNER_TEMP/melodix-ui-harness-manifest.txt" || {
+            echo "::error::Instrumentation APK manifest does not target the Preview package."
+            exit 1
+          }
+          echo "::notice title=Android harness manifest::runner_class_declared=true; target_package_declared=true; test_package=com.melodix.music.preview.test"
           echo "Signed test-only UI harness SHA-256: $(sha256sum "$test_apk" | awk '{print $1}')"
 
       - name: Run Android login and empty-Home fallback instrumentation
@@ -427,6 +437,24 @@ jobs:
           set -euo pipefail
           state_dir="$RUNNER_TEMP/melodix-preview-emulator-state"
           adb install -r "$TEST_APK"
+          test_package_installed=false
+          if adb shell pm path com.melodix.music.preview.test 2>/dev/null | grep -Fq 'package:'; then
+            test_package_installed=true
+          fi
+          preview_package_installed=false
+          if adb shell pm path com.melodix.music.preview 2>/dev/null | grep -Fq 'package:'; then
+            preview_package_installed=true
+          fi
+          registered_runner="$(adb shell pm list instrumentation 2>/dev/null | tr -d '\r' | grep -F 'com.melodix.music.preview.test/com.melodix.test.HomeRenderInstrumentation' | grep -F 'target=com.melodix.music.preview' | head -n 1 || true)"
+          runner_registered=false
+          if [[ -n "$registered_runner" ]]; then
+            runner_registered=true
+          fi
+          echo "::notice title=Android harness registration::test_package_installed=$test_package_installed; preview_package_installed=$preview_package_installed; expected_runner_registered=$runner_registered"
+          if [[ "$test_package_installed" != "true" || "$preview_package_installed" != "true" || "$runner_registered" != "true" ]]; then
+            echo "::error title=Android harness registration::test_package_installed=$test_package_installed; preview_package_installed=$preview_package_installed; expected_runner_registered=$runner_registered"
+            exit 1
+          fi
           set +e
           adb shell am instrument -w -r \
             com.melodix.music.preview.test/com.melodix.test.HomeRenderInstrumentation \
@@ -461,10 +489,11 @@ jobs:
           )
           category = next((name for name, pattern in patterns if re.search(pattern, text, re.I)), "unclassified")
           result_keys = sorted(set(re.findall(r"^INSTRUMENTATION_RESULT: ([A-Za-z0-9_.-]+)=", text, re.M)))
+          status_keys = sorted(set(re.findall(r"^INSTRUMENTATION_STATUS: ([A-Za-z0-9_.-]+)=", text, re.M)))
           status_count = len(re.findall(r"^INSTRUMENTATION_STATUS: ", text, re.M))
           failed = bool(re.search(r"^INSTRUMENTATION_FAILED:", text, re.M))
-          code = bool(re.search(r"^INSTRUMENTATION_CODE: ", text, re.M))
-          print(f"framework_statuses={status_count}; result_keys={','.join(result_keys) or 'none'}; code_present={str(code).lower()}; failed_marker={str(failed).lower()}; failure_category={category}")
+          code = bool(re.search(r"^INSTRUMENTATION_(?:STATUS_)?CODE: ", text, re.M))
+          print(f"framework_statuses={status_count}; result_keys={','.join(result_keys) or 'none'}; status_keys={','.join(status_keys) or 'none'}; code_present={str(code).lower()}; failed_marker={str(failed).lower()}; failure_category={category}")
           PY
           )"
             echo "::error title=Android UI instrumentation::exit=$instrumentation_status; safe_statuses=${safe_statuses:-none}; harness_markers=${safe_harness_logs:-none}; transcript_bytes=$transcript_bytes; $framework_summary"
