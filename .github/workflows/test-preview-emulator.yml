@@ -968,6 +968,25 @@ jobs:
           SOURCE_REF: ${{ inputs.source_ref || github.sha }}
         run: |
           set -euo pipefail
+          release_smoke_failure_diagnostics() {
+            local exit_code=$?
+            (( exit_code != 0 )) || return 0
+            set +e
+            local host_available_kib
+            local android_processes
+            local adb_devices
+            local device_booted
+            local app_pid
+            local fatal_or_anr_count
+            host_available_kib="$(awk '/^MemAvailable:/ {print $2}' /proc/meminfo 2>/dev/null || true)"
+            android_processes="$(ps -eo comm=,rss=,stat= 2>/dev/null | awk '$1 ~ /^(emulator|qemu|adb)/ {printf "%s:%s:%s,", $1, $2, $3}' | cut -c1-300)"
+            adb_devices="$(timeout 10s adb devices 2>/dev/null | awk 'NR > 1 && NF >= 2 {printf "%s:%s,", $1, $2}')"
+            device_booted="$(timeout 10s adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\r' || true)"
+            app_pid="$(timeout 10s adb shell pidof -s com.melodix.music.preview 2>/dev/null | tr -d '\r' || true)"
+            fatal_or_anr_count="$(timeout 15s adb logcat -d -t 2000 -b main -b system -b crash 2>/dev/null | grep -cE 'FATAL EXCEPTION|ANR in com\.melodix\.music\.preview|lowmemorykiller|lmkd|Killing .*com\.melodix\.music\.preview' || true)"
+            echo "::notice title=Release candidate smoke failure diagnostics::exit=$exit_code; host_available_kib=${host_available_kib:-unknown}; android_processes=${android_processes:-none}; adb_devices=${adb_devices:-none}; device_boot_completed=${device_booted:-unknown}; app_pid=${app_pid:-none}; fatal_or_anr_log_count=${fatal_or_anr_count:-unknown}"
+          }
+          trap release_smoke_failure_diagnostics EXIT
           state_dir="$RUNNER_TEMP/melodix-preview-emulator-state"
           adb shell am force-stop com.melodix.music.preview >/dev/null 2>&1 || true
           adb uninstall com.melodix.music.preview >/dev/null 2>&1 || true
@@ -976,7 +995,8 @@ jobs:
           adb shell pm grant com.melodix.music.preview android.permission.BLUETOOTH_CONNECT
           adb shell am start -W -n com.melodix.music.preview/com.melodix.music.MainActivity \
             > "$state_dir/release-candidate-launch.txt" 2>&1
-          sleep 60
+          # `am start -W` already waits for activity launch; settle briefly before checking that the exact non-debuggable process remains alive.
+          sleep 15
           app_pid="$(adb shell pidof -s com.melodix.music.preview 2>/dev/null | tr -d '\r' || true)"
           [[ -n "$app_pid" ]] || { echo "::error title=Release candidate process not alive::The exact non-debuggable APK exited after launch."; exit 1; }
           resumed="$(adb shell dumpsys activity activities | grep -E 'mResumedActivity|topResumedActivity|ResumedActivity' | grep -F 'com.melodix.music.preview/com.melodix.music.MainActivity' | head -n 1 || true)"

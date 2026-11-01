@@ -379,6 +379,12 @@ test("the emulator workflow validates same-run instrumentation and exact release
   const publishCandidate = emulatorWorkflow.indexOf(
     "name: Publish the exact validated Preview release candidate",
   );
+  const releaseCandidateSmokeBlock = emulatorWorkflow.slice(releaseCandidateSmoke, summary);
+  assert.match(releaseCandidateSmokeBlock, /release_smoke_failure_diagnostics\(\)[\s\S]*?trap release_smoke_failure_diagnostics EXIT/);
+  assert.match(releaseCandidateSmokeBlock, /am start -W[\s\S]*?sleep 15[\s\S]*?pidof -s com\.melodix\.music\.preview/,
+    'the exact candidate gets a bounded settle interval after Android has confirmed activity launch');
+  assert.doesNotMatch(releaseCandidateSmokeBlock, /sleep 60/,
+    'the separate final-candidate smoke does not hold the emulator process for an unnecessary extra minute');
   assert.ok(
     installTarget >= 0 &&
       buildHarness > installTarget &&
