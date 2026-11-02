@@ -60,13 +60,14 @@ test('Android accepts structured JS diagnostics only through a strict bounded gr
   assert.match(sanitizer, /safeStructuredDiagnosticEvent\(Ljava\/lang\/String;\)Z/,
     'structured traces are checked before any legacy event-family label');
   for (const event of [
-    'webview-state ready=', 'library-fetch phase=', 'spotify-route route=', 'home-guard guard=', 'home-css marker=',
+    'webview-state ready=', 'library-fetch phase=', 'library-proof proof=', 'spotify-route route=', 'home-guard guard=', 'home-css marker=',
     'home-node exists=', 'home-web decision=', 'home-data stage=(web-to-android|web-rendered)',
     'home-data stage=android-received', 'home-data stage=android-rendered',
     'home-final owner=', 'bridge-load phase='
   ]) assert.ok(structured.includes(event), `missing strict grammar for ${event}`);
   assert.match(structured, /session=\(0\|1\) proof=\(unknown\|valid\|invalid\) page=\(profile\|none\)/);
   assert.match(structured, /library-fetch phase=\(request\|response\|parse\|transform\|settle\) http=/);
+  assert.match(structured, /library-proof proof=\(unknown\|valid\|invalid\) status=\(absent\|pending\|loading\|ready\|error\|other\) error=/);
   assert.match(structured, /mime=\(json\|html\|other\|missing\).*error=\(none\|empty\|http-401\|http-403/);
   assert.match(structured, /proof=\(unknown\|valid\|invalid\) page=\(profile\|none\)/);
   assert.match(structured, /cards=\[0-9\]\{1,3\}/);

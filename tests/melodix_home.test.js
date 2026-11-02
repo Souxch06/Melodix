@@ -353,12 +353,74 @@ test('authenticated empty, loading and failed collection states stay inside a vi
         assert.equal(homeElement(sessionFailure), null);
         assert.equal(sessionFailure.window.__sfMelodixHomeDecision, 'session-rejected');
         assert.equal(sessionFailure.window.__sfMelodixHomeSessionProven, false);
+        assert.ok(sessionFailure.traces.includes(
+            'library-proof proof=invalid status=error error=http-401'),
+            'the rejection trace exposes the safe category, not a guessed cookie/session cause');
         assert.equal(sessionFailure.document.body.classList.contains('sf-melodix-home-active'), false);
         assert.equal(sessionFailure.document.querySelector('#main-view').style.display, '');
         assert.equal(sessionFailure.document.querySelector('[data-testid="user-widget-link"]') !== null, true,
             'the profile UI exists but is only a page signal');
     } finally {
         close(sessionFailure);
+    }
+});
+
+test('Home diagnostics normalize each library outcome without exposing raw error text', () => {
+    // Synthetic page state only; these cases do not make a Spotify API request or prove a real account.
+    const cases = [
+        ['pending', '', false, false, 'unknown', 'none'],
+        ['error', 'http-401', true, false, 'invalid', 'http-401'],
+        ['error', 'http-403', false, false, 'unknown', 'http-403'],
+        ['error', 'http-429', false, false, 'unknown', 'http-other'],
+        ['error', 'network-error', false, false, 'unknown', 'network'],
+        ['error', 'timeout', false, false, 'unknown', 'timeout'],
+        ['error', 'non-json', false, false, 'unknown', 'non-json'],
+        ['error', 'invalid-json', false, false, 'unknown', 'invalid-json'],
+        ['error', 'unexpected-shape', false, false, 'unknown', 'unexpected-shape'],
+        ['error', 'graphql-error', false, false, 'unknown', 'graphql'],
+        ['error', 'transform-error', false, false, 'unknown', 'transform'],
+        ['ready', '', true, true, 'valid', 'none']
+    ];
+    for (const [status, rawError, known, proven, proof, error] of cases) {
+        const page = makePage({
+            sessionProven: proven,
+            mediaLibSessionProofKnown: known,
+            mediaLibSessionProven: proven,
+            libraryStatus: status,
+            libraryError: rawError
+        });
+        try {
+            assert.ok(page.traces.includes(`library-proof proof=${proof} status=${status} error=${error}`),
+                `safe diagnostic for status=${status}, error=${rawError || 'none'}`);
+            assert.ok(page.traces.every((line) => !/cookie|token|authorization|Fixture|playlist|account/i.test(line)),
+                'diagnostic trace contains no credentials or resource/account text');
+        } finally {
+            close(page);
+        }
+    }
+});
+
+test('the Home trace preserves a pending-to-401 proof transition without claiming why Spotify rejected it', async () => {
+    // Synthetic bridge state transition only; no credentials or live Spotify response are used.
+    const page = makePage({
+        sessionProven: false,
+        mediaLibSessionProofKnown: false,
+        mediaLibSessionProven: false,
+        libraryStatus: 'pending'
+    });
+    try {
+        assert.ok(page.traces.includes('library-proof proof=unknown status=pending error=none'));
+        page.window.__sfMediaLibStatus = 'error';
+        page.window.__sfMediaLibError = 'http-401';
+        page.window.__sfMediaLibSessionProofKnown = true;
+        page.window.__sfMediaLibSessionProven = false;
+        page.window.dispatchEvent(new page.window.Event('sf-media-library-state-changed'));
+        await new Promise((resolve) => page.window.setTimeout(resolve, 120));
+        assert.equal(page.window.__sfMelodixHomeDecision, 'session-rejected');
+        assert.ok(page.traces.includes('library-proof proof=invalid status=error error=http-401'));
+        assert.equal(homeElement(page), null, 'a diagnostic 401 does not produce an apparently loaded Home');
+    } finally {
+        close(page);
     }
 });
 

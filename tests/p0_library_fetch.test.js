@@ -160,6 +160,19 @@ test('checkMediaLib transforms a valid library response and sends cookies withou
     assert.ok(!/authorization/i.test(Object.keys(calls[0].init.headers || {}).join(',')));
     assert.match(finalLibraryDiagnostic(win),
         /^library-fetch phase=settle http=200 mime=json duration=[0-9]+ error=none received=2 transformed=2 proof=valid page=none$/);
+    const diagnostic = win.__sfMediaLibLastDiagnostic;
+    assert.equal(diagnostic.phase, 'settle');
+    assert.equal(diagnostic.http, 200);
+    assert.equal(diagnostic.mime, 'json');
+    assert.equal(diagnostic.error, 'none');
+    assert.equal(diagnostic.received, 2);
+    assert.equal(diagnostic.transformed, 2);
+    assert.equal(diagnostic.proof, 'valid');
+    assert.equal(diagnostic.page, 'none');
+    assert.ok(Number.isInteger(diagnostic.durationMs) && diagnostic.durationMs >= 0 && diagnostic.durationMs <= 999999);
+    assert.deepEqual(Object.keys(diagnostic).sort(),
+        ['durationMs', 'error', 'http', 'mime', 'page', 'phase', 'proof', 'received', 'transformed'].sort(),
+        'the passive snapshot contains only allowlisted fields, never response bodies or resource data');
     assert.doesNotMatch(libraryDiagnostics(win).join('\n'),
         /Fixture|spotify:|Cookie|Authorization|Road trip|Focus/i,
         'diagnostics contain only bounded state/count fields, never fixture account data or credentials');
@@ -235,6 +248,12 @@ test('an absent session represented by HTTP 401 remains an unknown-cause refusal
     assert.equal(win.__sfMediaLibSessionProven, false);
     assert.match(finalLibraryDiagnostic(win),
         /^library-fetch phase=response http=401 mime=json duration=[0-9]+ error=http-401 received=0 transformed=0 proof=invalid page=none$/);
+    const diagnostic = win.__sfMediaLibLastDiagnostic;
+    assert.equal(diagnostic.phase, 'response');
+    assert.equal(diagnostic.http, 401);
+    assert.equal(diagnostic.mime, 'json');
+    assert.equal(diagnostic.error, 'http-401');
+    assert.equal(diagnostic.proof, 'invalid');
 });
 
 test('HTTP refusals and server responses retain their status-specific errors', async () => {
@@ -253,6 +272,9 @@ test('HTTP refusals and server responses retain their status-specific errors', a
             'non-401 HTTP errors do not assert that the Spotify session ended');
         assert.match(finalLibraryDiagnostic(win), new RegExp(
             `^library-fetch phase=response http=${status} mime=json duration=[0-9]+ error=${diagnosticError} received=0 transformed=0 proof=${proof} page=none$`));
+        assert.equal(win.__sfMediaLibLastDiagnostic.http, status);
+        assert.equal(win.__sfMediaLibLastDiagnostic.error, diagnosticError);
+        assert.equal(win.__sfMediaLibLastDiagnostic.proof, proof);
     }
 });
 
@@ -275,6 +297,13 @@ test('network failure, invalid JSON and HTML response are distinguished', async 
     const network = loadBridge({ fetchImpl: async () => { throw new TypeError('offline'); } });
     await network.checkMediaLib(true);
     assert.equal(network.__sfMediaLibError, 'network-error');
+    assert.deepEqual({
+        phase: network.__sfMediaLibLastDiagnostic.phase,
+        http: network.__sfMediaLibLastDiagnostic.http,
+        mime: network.__sfMediaLibLastDiagnostic.mime,
+        error: network.__sfMediaLibLastDiagnostic.error,
+        proof: network.__sfMediaLibLastDiagnostic.proof
+    }, { phase: 'request', http: 0, mime: 'missing', error: 'network', proof: 'unknown' });
     assert.match(finalLibraryDiagnostic(network), /phase=request http=0 mime=missing .*error=network .*proof=unknown/);
 
     const malformed = loadBridge({
@@ -287,6 +316,10 @@ test('network failure, invalid JSON and HTML response are distinguished', async 
     await malformed.checkMediaLib(true);
     assert.equal(malformed.__sfMediaLibError, 'invalid-json');
     assert.equal(malformed.__sfMediaLibStatus, 'error');
+    assert.equal(malformed.__sfMediaLibLastDiagnostic.phase, 'parse');
+    assert.equal(malformed.__sfMediaLibLastDiagnostic.http, 200);
+    assert.equal(malformed.__sfMediaLibLastDiagnostic.mime, 'json');
+    assert.equal(malformed.__sfMediaLibLastDiagnostic.error, 'invalid-json');
     assert.match(finalLibraryDiagnostic(malformed),
         /phase=parse http=200 mime=json .*error=invalid-json .*proof=unknown/);
 
@@ -314,6 +347,10 @@ test('network failure, invalid JSON and HTML response are distinguished', async 
     assert.equal(html.__sfMediaLibError, 'non-json');
     assert.equal(html.__sfMediaLibStatus, 'error');
     assert.equal(jsonCalls, 0, 'HTML is rejected before attempting JSON parsing');
+    assert.equal(html.__sfMediaLibLastDiagnostic.phase, 'response');
+    assert.equal(html.__sfMediaLibLastDiagnostic.http, 200);
+    assert.equal(html.__sfMediaLibLastDiagnostic.mime, 'html');
+    assert.equal(html.__sfMediaLibLastDiagnostic.error, 'non-json');
     assert.match(finalLibraryDiagnostic(html),
         /phase=response http=200 mime=html .*error=non-json .*proof=unknown/);
 });
@@ -337,6 +374,15 @@ test('a valid empty library is distinct from a failed request and proves only th
     assert.deepEqual(Array.from(win.mediaLib.playlists), []);
     assert.equal(win.__sfMediaLibSessionProofKnown, true);
     assert.equal(win.__sfMediaLibSessionProven, true);
+    assert.deepEqual({
+        phase: win.__sfMediaLibLastDiagnostic.phase,
+        http: win.__sfMediaLibLastDiagnostic.http,
+        mime: win.__sfMediaLibLastDiagnostic.mime,
+        error: win.__sfMediaLibLastDiagnostic.error,
+        received: win.__sfMediaLibLastDiagnostic.received,
+        transformed: win.__sfMediaLibLastDiagnostic.transformed,
+        proof: win.__sfMediaLibLastDiagnostic.proof
+    }, { phase: 'settle', http: 200, mime: 'json', error: 'empty', received: 0, transformed: 0, proof: 'valid' });
     assert.match(finalLibraryDiagnostic(win),
         /^library-fetch phase=settle http=200 mime=json duration=[0-9]+ error=empty received=0 transformed=0 proof=valid page=none$/);
 });
@@ -353,6 +399,8 @@ test('unexpected JSON shape and GraphQL errors are not reported as an empty libr
         assert.equal(win.__sfMediaLibStatus, 'error');
         assert.equal(win.__sfMediaLibError, error);
         assert.equal(win.mediaLib, undefined);
+        assert.equal(win.__sfMediaLibLastDiagnostic.error, diagnosticError);
+        assert.equal(win.__sfMediaLibLastDiagnostic.proof, 'unknown');
         assert.match(finalLibraryDiagnostic(win), new RegExp(`error=${diagnosticError} .*proof=unknown`));
     }
 });
@@ -368,6 +416,11 @@ test('a successful API response with unsupported items is a transform error, not
     assert.equal(win.__sfMediaLibSessionProofKnown, true);
     assert.equal(win.__sfMediaLibSessionProven, true,
         'the correctly shaped private response proves the session, but unsupported items do not become cards');
+    assert.equal(win.__sfMediaLibLastDiagnostic.phase, 'transform');
+    assert.equal(win.__sfMediaLibLastDiagnostic.error, 'transform');
+    assert.equal(win.__sfMediaLibLastDiagnostic.received, 1);
+    assert.equal(win.__sfMediaLibLastDiagnostic.transformed, 0);
+    assert.equal(win.__sfMediaLibLastDiagnostic.proof, 'valid');
     assert.match(finalLibraryDiagnostic(win),
         /phase=transform http=200 mime=json .*error=transform received=1 transformed=0 proof=valid page=none/);
 });

@@ -539,6 +539,11 @@
     move-result v1
     if-nez v1, :structured_safe
 
+    const-string v0, "^library-proof proof=(unknown|valid|invalid) status=(absent|pending|loading|ready|error|other) error=(none|empty|http-401|http-403|http-other|timeout|network|non-json|invalid-json|unexpected-shape|graphql|parse|transform|other)$"
+    invoke-virtual {p1, v0}, Ljava/lang/String;->matches(Ljava/lang/String;)Z
+    move-result v1
+    if-nez v1, :structured_safe
+
     const-string v0, "^spotify-route route=(home|search|library|playlist|album|artist|track|show|episode|audiobook|login|other) session=(0|1)$"
     invoke-virtual {p1, v0}, Ljava/lang/String;->matches(Ljava/lang/String;)Z
     move-result v1

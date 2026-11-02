@@ -175,6 +175,22 @@ public final class HomeRenderInstrumentation extends Instrumentation {
             "var sessionProofSource=libraryProven?'verified-private-library-response':libraryKnown?'private-library-response-rejected':profileVisible?'profile-control-unverified':nativeProven?'native-shell-flag-unverified':'unproven';" +
             "var status=String(window.__sfMediaLibStatus||'absent');" +
             "if(['absent','pending','loading','ready','error'].indexOf(status)<0)status='other';" +
+            "var rawLibraryError=typeof window.__sfMediaLibError==='string'?window.__sfMediaLibError:'';" +
+            "var normalizeLibraryError=function(value){if(value==='http-401')return'http-401';if(value==='http-403')return'http-403';" +
+            "if(/^http-[1-5][0-9]{2}$/.test(value))return'http-other';if(value==='http-unknown'||value==='network-error')return'network';" +
+            "if(['timeout','non-json','invalid-json','unexpected-shape','graphql-error','transform-error','fetch-parse-error','empty'].indexOf(value)>=0)" +
+            "return value==='graphql-error'?'graphql':value==='transform-error'?'transform':value==='fetch-parse-error'?'parse':value;" +
+            "return value?'other':'none';};var libraryError=normalizeLibraryError(rawLibraryError);" +
+            "var fetchDiagnostic=window.__sfMediaLibLastDiagnostic&&typeof window.__sfMediaLibLastDiagnostic==='object'?window.__sfMediaLibLastDiagnostic:null;" +
+            "var enumValue=function(value,allowed,fallback){return allowed.indexOf(value)>=0?value:fallback;};" +
+            "var bounded=function(value,max){var n=Number(value);return Number.isFinite(n)?Math.max(0,Math.min(max,Math.floor(n))):0;};" +
+            "var fetchPhases=['request','response','parse','transform','settle'];" +
+            "var fetchErrors=['none','empty','http-401','http-403','http-other','timeout','network','non-json','invalid-json','unexpected-shape','graphql','parse','transform'];" +
+            "var fetchPhase=fetchDiagnostic?enumValue(fetchDiagnostic.phase,fetchPhases,'unknown'):'unknown';" +
+            "var fetchMime=fetchDiagnostic?enumValue(fetchDiagnostic.mime,['json','html','other','missing'],'unknown'):'unknown';" +
+            "var fetchError=fetchDiagnostic?enumValue(fetchDiagnostic.error,fetchErrors,'other'):'unavailable';" +
+            "var fetchProof=fetchDiagnostic?enumValue(fetchDiagnostic.proof,['unknown','valid','invalid'],'unknown'):'unknown';" +
+            "var fetchPage=fetchDiagnostic?enumValue(fetchDiagnostic.page,['profile','none'],'unknown'):'unknown';" +
             "var groups=['playlists','albums','artists','podcasts'];var libraryResourceCount=0;var libraryPlaylistCount=0;" +
             "if(libraryProven&&library){for(var g=0;g<groups.length;g++){var group=library[groups[g]];" +
             "if(Array.isArray(group)){libraryResourceCount+=group.length;if(groups[g]==='playlists')libraryPlaylistCount=group.length;}}}" +
@@ -204,7 +220,13 @@ public final class HomeRenderInstrumentation extends Instrumentation {
             "home_route:homeRoute,profile_control_present:profile,profile_control_visible:profileVisible," +
             "page_session_signal:profileVisible,session_proof_source:sessionProofSource,library_response_proof_known:libraryKnown," +
             "library_response_session_proven:libraryProven,native_shell_session_proven:nativeProven,session_proven:session," +
-            "library_status:status,real_library_resource_count_capped:libraryProven?count(libraryResourceCount):-1," +
+            "library_status:status,library_error:libraryError,library_fetch_diagnostic_available:!!fetchDiagnostic," +
+            "library_fetch_phase:fetchPhase,library_fetch_http_status:fetchDiagnostic?bounded(fetchDiagnostic.http,599):-1," +
+            "library_fetch_mime:fetchMime,library_fetch_duration_ms:fetchDiagnostic?bounded(fetchDiagnostic.durationMs,999999):-1," +
+            "library_fetch_error:fetchError,library_fetch_received_count_capped:fetchDiagnostic?bounded(fetchDiagnostic.received,1000):-1," +
+            "library_fetch_transformed_count_capped:fetchDiagnostic?bounded(fetchDiagnostic.transformed,1000):-1," +
+            "library_fetch_proof:fetchProof,library_fetch_page_signal:fetchPage," +
+            "real_library_resource_count_capped:libraryProven?count(libraryResourceCount):-1," +
             "real_library_playlist_count_capped:libraryProven?count(libraryPlaylistCount):-1," +
             "raw_library_item_count_capped:libraryProven?count(window.__sfMediaLibRawItemCount):-1," +
             "real_home_resource_link_count_capped:count(resourceCount),real_home_playlist_link_count_capped:count(playlistCount)," +
@@ -1306,6 +1328,10 @@ public final class HomeRenderInstrumentation extends Instrumentation {
                 "home_to_library_observed", "library_to_home_observed", "android_back_key_seen",
                 "android_back_return_to_home_observed", "activity_resumed_after_background",
                 "activity_recreated_during_observation", "renderer_decision", "library_status",
+                "library_error", "library_fetch_diagnostic_available", "library_fetch_phase",
+                "library_fetch_http_status", "library_fetch_mime", "library_fetch_duration_ms",
+                "library_fetch_error", "library_fetch_received_count_capped",
+                "library_fetch_transformed_count_capped", "library_fetch_proof", "library_fetch_page_signal",
                 "native_route", "safe_url", "real_library_resource_count_capped",
                 "real_library_playlist_count_capped", "real_home_resource_link_count_capped",
                 "real_home_playlist_link_count_capped", "native_home_rows_count_capped",
@@ -1482,6 +1508,27 @@ public final class HomeRenderInstrumentation extends Instrumentation {
                 probe.optBoolean("library_response_session_proven"));
         state.putBoolean("native_shell_session_proven", probe.optBoolean("native_shell_session_proven"));
         state.putString("library_status", safeLibraryStatus(probe.optString("library_status", "other")));
+        state.putString("library_error", safeLibraryError(probe.optString("library_error", "other")));
+        state.putBoolean("library_fetch_diagnostic_available",
+                probe.optBoolean("library_fetch_diagnostic_available"));
+        state.putString("library_fetch_phase",
+                safeLibraryFetchPhase(probe.optString("library_fetch_phase", "unknown")));
+        state.putInt("library_fetch_http_status",
+                safeBoundedDiagnosticInt(probe, "library_fetch_http_status", -1, -1, 599));
+        state.putString("library_fetch_mime",
+                safeLibraryFetchMime(probe.optString("library_fetch_mime", "unknown")));
+        state.putInt("library_fetch_duration_ms",
+                safeBoundedDiagnosticInt(probe, "library_fetch_duration_ms", -1, -1, 999999));
+        state.putString("library_fetch_error",
+                safeLibraryFetchError(probe.optString("library_fetch_error", "unavailable")));
+        state.putInt("library_fetch_received_count_capped",
+                safeBoundedDiagnosticInt(probe, "library_fetch_received_count_capped", -1, -1, 1000));
+        state.putInt("library_fetch_transformed_count_capped",
+                safeBoundedDiagnosticInt(probe, "library_fetch_transformed_count_capped", -1, -1, 1000));
+        state.putString("library_fetch_proof",
+                safeLibraryProof(probe.optString("library_fetch_proof", "unknown")));
+        state.putString("library_fetch_page_signal",
+                safeLibraryPage(probe.optString("library_fetch_page_signal", "unknown")));
         state.putInt("real_library_resource_count_capped",
                 Math.max(-1, Math.min(999, probe.optInt("real_library_resource_count_capped", -1))));
         state.putInt("real_library_playlist_count_capped",
@@ -1685,6 +1732,42 @@ public final class HomeRenderInstrumentation extends Instrumentation {
     private String safeLibraryStatus(String value) {
         return "absent".equals(value) || "pending".equals(value) || "loading".equals(value)
                 || "ready".equals(value) || "error".equals(value) ? value : "other";
+    }
+
+    private String safeLibraryError(String value) {
+        return "none".equals(value) || "empty".equals(value) || "http-401".equals(value)
+                || "http-403".equals(value) || "http-other".equals(value) || "timeout".equals(value)
+                || "network".equals(value) || "non-json".equals(value) || "invalid-json".equals(value)
+                || "unexpected-shape".equals(value) || "graphql".equals(value) || "parse".equals(value)
+                || "transform".equals(value) ? value : "other";
+    }
+
+    private String safeLibraryFetchPhase(String value) {
+        return "request".equals(value) || "response".equals(value) || "parse".equals(value)
+                || "transform".equals(value) || "settle".equals(value) ? value : "unknown";
+    }
+
+    private String safeLibraryFetchMime(String value) {
+        return "json".equals(value) || "html".equals(value) || "other".equals(value)
+                || "missing".equals(value) ? value : "unknown";
+    }
+
+    private String safeLibraryFetchError(String value) {
+        return "unavailable".equals(value) ? value : safeLibraryError(value);
+    }
+
+    private String safeLibraryProof(String value) {
+        return "valid".equals(value) || "invalid".equals(value) || "unknown".equals(value)
+                ? value : "unknown";
+    }
+
+    private String safeLibraryPage(String value) {
+        return "profile".equals(value) || "none".equals(value) ? value : "unknown";
+    }
+
+    private int safeBoundedDiagnosticInt(JSONObject probe, String key, int fallback, int min, int max) {
+        int value = probe == null ? fallback : probe.optInt(key, fallback);
+        return Math.max(min, Math.min(max, value));
     }
 
     private String safeSessionProofSource(String value) {

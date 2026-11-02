@@ -744,6 +744,29 @@ function collectMelodixHomeSections(mainView, seenResources) {
         .slice(0, 4);
 }
 
+function safeMelodixHomeProofState() {
+    if (window.__sfMediaLibSessionProofKnown !== true) return 'unknown';
+    return window.__sfMediaLibSessionProven === true ? 'valid' : 'invalid';
+}
+
+function safeMelodixHomeLibraryError() {
+    const value = String(window.__sfMediaLibError || '');
+    if (!value) return 'none';
+    if (value === 'http-401') return 'http-401';
+    if (value === 'http-403') return 'http-403';
+    if (/^http-[1-5][0-9]{2}$/.test(value)) return 'http-other';
+    if (value === 'http-unknown' || value === 'network-error') return 'network';
+    if (value === 'timeout') return 'timeout';
+    if (value === 'non-json') return 'non-json';
+    if (value === 'invalid-json') return 'invalid-json';
+    if (value === 'unexpected-shape') return 'unexpected-shape';
+    if (value === 'graphql-error') return 'graphql';
+    if (value === 'transform-error') return 'transform';
+    if (value === 'fetch-parse-error') return 'parse';
+    if (value === 'empty') return 'empty';
+    return 'other';
+}
+
 function setMelodixHomeDecision(reason, details) {
     const state = details || {};
     const requestedMode = String(window.SF_CONFIG && window.SF_CONFIG.guiMode || 'missing');
@@ -756,6 +779,8 @@ function setMelodixHomeDecision(reason, details) {
         : rawRoot !== '' && rawRoot !== 'none' ? '1' : 'unknown';
     const sessionProven = typeof state.sessionProven === 'boolean' ? state.sessionProven : null;
     const sessionState = sessionProven == null ? 'unknown' : sessionProven ? '1' : '0';
+    const proofState = safeMelodixHomeProofState();
+    const libraryError = safeMelodixHomeLibraryError();
     const rawLibraryStatus = String(state.libraryStatus || window.__sfMediaLibStatus || 'absent');
     const libraryStatus = ['absent', 'pending', 'loading', 'ready', 'error'].includes(rawLibraryStatus)
         ? rawLibraryStatus : 'other';
@@ -765,7 +790,8 @@ function setMelodixHomeDecision(reason, details) {
         ? Math.max(0, Math.min(999, Math.floor(Number(state.sectionCount)))) : 0;
     const decision = String(reason || 'unknown').slice(0, 40);
     const signature = [decision, guiMode, route, state.stylesReady ? '1' : '0', cardCount,
-        sectionCount, rootPresent, sessionState, libraryStatus].join('|');
+        sectionCount, rootPresent, sessionState, proofState, libraryStatus, libraryError].join('|');
+    const libraryDiagnosticSignature = [proofState, libraryStatus, libraryError].join('|');
     window.__sfMelodixHomeGuiMode = guiMode;
     // Only normalized route categories are exposed; Spotify IDs and paths stay
     // in memory for rendering and are never sent to the diagnostic sink.
@@ -774,10 +800,17 @@ function setMelodixHomeDecision(reason, details) {
     window.__sfMelodixHomeSourceCardCount = cardCount;
     window.__sfMelodixHomeSectionCount = sectionCount;
     window.__sfMelodixHomeSessionProven = sessionProven;
+    window.__sfMelodixHomeProofState = proofState;
     window.__sfMelodixHomeLibraryStatus = libraryStatus;
+    window.__sfMelodixHomeLibraryError = libraryError;
     window.__sfMelodixHomeDecision = decision;
     if (signature !== lastHomeDecisionSignature) {
         lastHomeDecisionSignature = signature;
+        if (window.__sfMelodixHomeLibraryDiagnosticSignature !== libraryDiagnosticSignature) {
+            window.__sfMelodixHomeLibraryDiagnosticSignature = libraryDiagnosticSignature;
+            traceMelodixHome('library-proof proof=' + proofState +
+                ' status=' + libraryStatus + ' error=' + libraryError);
+        }
         traceMelodixHome('home-web decision=' + decision +
             ' mode=' + guiMode + ' route=' + route +
             ' session=' + sessionState +

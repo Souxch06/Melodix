@@ -639,6 +639,8 @@ test("Windows manual procedure preserves app data and requires a manually verifi
     "a version downgrade/incompatibility is handled by using a dedicated emulator, not by erasing a user's session");
   assert.match(docs, /authenticated_home_test_performed=true[\s\S]*?authenticated_session=true[\s\S]*?home_route=true/,
     "the document distinguishes actual authenticated Home evidence from CI and a blocked observer run");
+  assert.match(docs, /library_fetch_phase[\s\S]*?library_fetch_http_status[\s\S]*?library_fetch_mime[\s\S]*?library_fetch_error[\s\S]*?library_fetch_proof/,
+    "the manual procedure describes the redacted private-library failure snapshot without treating it as proof");
 });
 
 test("the authenticated-home observer preserves the primary WebView, observes callbacks, restores Window.Callback, and redacts diagnostics", () => {
@@ -671,6 +673,16 @@ test("the authenticated-home observer preserves the primary WebView, observes ca
   assert.match(observer, /activity_lifecycle_observer_unregistered[\s\S]*?window_callback_observer_installed[\s\S]*?window_callback_observer_restored/);
   assert.match(observer, /observation_deadline_reached[\s\S]*?observation_timeout_ms_capped/);
   assert.match(observer, /safeSpotifyUrl\(firstWebView\.getUrl\(\)\)[\s\S]*?url_query_and_fragment_redacted/);
+  const probeStart = harness.indexOf("private static final String AUTHENTICATED_HOME_PROBE");
+  const probeEnd = harness.indexOf("private static final String MOBILE_VIEWPORT_LAYOUT_", probeStart);
+  const authProbe = harness.slice(probeStart, probeEnd);
+  assert.ok(probeStart >= 0 && probeEnd > probeStart, "the real-session probe is defined");
+  assert.match(authProbe, /__sfMediaLibLastDiagnostic[\s\S]*?library_fetch_http_status[\s\S]*?library_fetch_duration_ms[\s\S]*?library_fetch_error[\s\S]*?library_fetch_received_count_capped[\s\S]*?library_fetch_transformed_count_capped[\s\S]*?library_fetch_proof/,
+    "the passive observer returns safe HTTP/MIME/duration/error/count/proof fields from the completed private request");
+  assert.doesNotMatch(authProbe, /fetch\s*\(|CookieManager|cookie|authorization|access_token|refresh_token/,
+    "the added diagnostic probe observes existing state only and never reads or sends credentials");
+  assert.match(harness, /safeLibraryFetchError\(probe\.optString\("library_fetch_error"/,
+    "the Android Bundle revalidates the diagnostic error against an allowlist");
   assert.match(emulatorWorkflow, /timeout_ms 30000[\s\S]*?overall=blocked_no_authenticated_home_observed[\s\S]*?authenticated_home_test_performed=false[\s\S]*?authenticated_home_test=not_performed/,
     "CI proves the no-session observer completes normally without claiming an authenticated Home");
   assert.match(emulatorWorkflow, /activity_lifecycle_observer_unregistered=true[\s\S]*?window_callback_observer_restored=true[\s\S]*?fatal_or_anr_count/,

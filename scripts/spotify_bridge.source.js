@@ -3003,6 +3003,16 @@
             ' received=' + received + ' transformed=' + transformed +
             ' proof=' + proof + ' page=' + page;
         try {
+            // A passive observer can read this bounded snapshot on the next
+            // authenticated Home sample; it contains no response body, URL,
+            // credentials, account names, or resource metadata.
+            window.__sfMediaLibLastDiagnostic = {
+                phase: safePhase, http: safeHttp, mime: mime, durationMs: duration,
+                error: error, received: received, transformed: transformed,
+                proof: proof, page: page
+            };
+        } catch (_) {}
+        try {
             if (typeof window.__sfBridgeTrace === 'function') window.__sfBridgeTrace(line);
             else if (window.AndBridge && typeof window.AndBridge.logDiagEvent === 'function') {
                 window.AndBridge.logDiagEvent(line);
