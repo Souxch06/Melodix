@@ -2961,6 +2961,46 @@
         return Number.isFinite(status) && status >= 100 && status <= 599 ? Math.floor(status) : 0;
     }
 
+    const MEDIA_LIBRARY_MAX_RETRY_AFTER_MS = 24 * 60 * 60 * 1000;
+    function mediaLibraryRetryAfterDelayMs(response, now) {
+        let value = '';
+        try {
+            value = String(response && response.headers && response.headers.get('retry-after') || '').trim();
+        } catch (_) {}
+        if (!value) return 0;
+
+        const current = Number.isFinite(Number(now)) ? Number(now) : Date.now();
+        if (/^\d+(?:\.\d+)?$/.test(value)) {
+            const seconds = Number(value);
+            if (!Number.isFinite(seconds) || seconds <= 0) return 0;
+            return Math.max(1000, Math.min(MEDIA_LIBRARY_MAX_RETRY_AFTER_MS, Math.ceil(seconds * 1000)));
+        }
+
+        let retryAt = NaN;
+        try { retryAt = Date.parse(value); } catch (_) {}
+        if (!Number.isFinite(retryAt) || retryAt <= current) return 0;
+        return Math.max(1000, Math.min(MEDIA_LIBRARY_MAX_RETRY_AFTER_MS, Math.ceil(retryAt - current)));
+    }
+
+    function scheduleMediaLibraryRetryAfter(response) {
+        const now = Date.now();
+        const requestedDelay = mediaLibraryRetryAfterDelayMs(response, now);
+        let fallbackDelay = Number(window.__sfMediaLibRetryDelayMs);
+        if (!Number.isFinite(fallbackDelay) || fallbackDelay < 5000) fallbackDelay = 5000;
+        fallbackDelay = Math.max(5000, Math.min(60000, Math.floor(fallbackDelay)));
+        const previousRetryAt = Number(window.__sfMediaLibRetryAt);
+        const hasPendingBackoff = Number.isFinite(previousRetryAt) && previousRetryAt > now;
+        const nextDelay = hasPendingBackoff
+            ? requestedDelay
+            : Math.max(fallbackDelay, requestedDelay);
+        const safePreviousRetryAt = hasPendingBackoff ? previousRetryAt : 0;
+        window.__sfMediaLibRetryAt = Math.max(safePreviousRetryAt,
+            now + Math.min(MEDIA_LIBRARY_MAX_RETRY_AFTER_MS, nextDelay));
+        // The shell already advances the delay when it schedules an automatic
+        // retry. Advance it here only for direct/manual checks with no deadline.
+        if (!hasPendingBackoff) window.__sfMediaLibRetryDelayMs = Math.min(60000, fallbackDelay * 2);
+    }
+
     function createMediaLibraryDiagnostic(source) {
         mediaLibraryAttemptSequence = boundedMediaLibraryCount(mediaLibraryAttemptSequence + 1, 999999);
         return {
@@ -3085,7 +3125,7 @@
         mediaLibraryCheckPromise = pending;
         if (force === true) {
             window.__sfMediaLibRetryAt = 0;
-            window.__sfMediaLibRetryDelayMs = 5000;
+            if (window.__sfMediaLibError !== 'http-429') window.__sfMediaLibRetryDelayMs = 5000;
         }
         window.__sfMediaLibStatus = 'loading';
         window.__sfMediaLibError = '';
@@ -3110,9 +3150,10 @@
             let failed = Boolean(window.__sfMediaLibError);
             const failurePhase = diagnostic.error !== 'none' ? diagnostic.phase : '';
             const usable = Array.isArray(allItems) && allItems.length > 0;
-            if (window.__sfMediaLibError === 'http-401') {
-                // A 401 revokes the only accepted proof. Do not retain or
-                // re-render partial/private rows from earlier pages.
+            if (window.__sfMediaLibError === 'http-401' || window.__sfMediaLibError === 'http-403') {
+                // An authorization refusal invalidates the library proof, not
+                // necessarily the Spotify player login. Never retain or render
+                // old or partial private rows after either refusal.
                 window.mediaLib = null;
                 window.__sfMediaLibRawItemCount = 0;
                 diagnostic.received = 0;
@@ -3262,24 +3303,28 @@
                 trace.http = mediaLibraryHttpStatus(resp);
                 trace.mime = mediaLibraryResponseMime(resp);
                 trace.phase = 'response';
-                if (trace.http === 401) {
-                    // An explicit 401 invalidates previous API proof; it does
-                    // not reveal whether a cookie was absent, expired, or rejected.
+                if (trace.http === 401 || trace.http === 403) {
+                    // A 401/403 invalidates this library proof and all previously
+                    // accepted private rows. A 403 may mean insufficient scope,
+                    // app access, or another policy refusal; it is not proof of logout.
+                    const refusal = trace.http === 401 ? 'http-401' : 'http-403';
                     window.__sfMediaLibSessionProofKnown = true;
                     window.__sfMediaLibSessionProven = false;
-                    window.__sfMediaLibError = 'http-401';
+                    window.__sfMediaLibError = refusal;
                     window.mediaLib = null;
                     window.__sfMediaLibRawItemCount = 0;
-                    trace.error = 'http-401';
+                    allItems = [];
+                    trace.received = 0;
+                    trace.error = refusal;
                     break;
                 }
 
                 const responseOk = resp && typeof resp.ok === 'boolean'
                     ? resp.ok : trace.http >= 200 && trace.http < 300;
                 if (!responseOk) {
-                    window.__sfMediaLibError = trace.http === 403 ? 'http-403'
-                        : trace.http > 0 ? 'http-' + trace.http : 'http-unknown';
-                    trace.error = trace.http === 403 ? 'http-403' : 'http-other';
+                    if (trace.http === 429) scheduleMediaLibraryRetryAfter(resp);
+                    window.__sfMediaLibError = trace.http > 0 ? 'http-' + trace.http : 'http-unknown';
+                    trace.error = 'http-other';
                     break;
                 }
 

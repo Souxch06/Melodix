@@ -721,7 +721,7 @@
         var now;
         var delay;
         var previousError = String(window.__sfMediaLibError || '');
-        if (libraryProvesSession()) {
+        if (libraryProvesSession() && window.__sfMediaLibStatus === 'ready') {
             window.__sfMediaLibRetryAt = 0;
             window.__sfMediaLibRetryDelayMs = 5000;
             return false;
@@ -880,7 +880,14 @@
             return 'Spotify a refusé la requête (HTTP 401) ; la cause n’est pas confirmée — touchez pour réessayer.';
         }
         if (err === 'http-403' && confirmedLibraryHttpStatus(403)) {
-            return 'Spotify a refusé l’accès à la bibliothèque (HTTP 403) — vérifiez les autorisations ou réessayez.';
+            return 'Spotify a refusé l’accès à la bibliothèque (HTTP 403) — vérifiez les autorisations de l’application ou l’accès au compte, puis réessayez.';
+        }
+        if (err === 'http-429' && confirmedLibraryHttpStatus(429)) {
+            var retryAt = Number(window.__sfMediaLibRetryAt || 0);
+            var remainingMs = retryAt - Date.now();
+            if (Number.isFinite(retryAt) && Number.isFinite(remainingMs) && remainingMs > 0) {
+                return 'Spotify limite les requêtes — réessayez dans environ ' + Math.ceil(remainingMs / 1000) + ' s.';
+            }
         }
         if (err === 'http-401' || err === 'http-403' || err === 'token-missing') {
             return 'La connexion Spotify n’a pas pu être confirmée — touchez pour réessayer.';
@@ -968,35 +975,55 @@
         var err = String(window.__sfMediaLibError || '');
         var confirmed401 = status === 'error' && err === 'http-401' && confirmedLibraryHttpStatus(401);
         var confirmed403 = status === 'error' && err === 'http-403' && confirmedLibraryHttpStatus(403);
+        var confirmed429 = status === 'error' && err === 'http-429' && confirmedLibraryHttpStatus(429);
         var state = status === 'loading' || status === 'pending'
             ? 'loading' : proofKnown || status === 'error' ? 'error' : 'loading';
         var title = confirmed401 ? 'Connexion Spotify à vérifier' :
-            state === 'loading' ? 'Connexion Spotify en cours' : 'Connexion Spotify non confirmée';
+            confirmed403 ? 'Accès à la bibliothèque refusé' :
+                confirmed429 ? 'Limite de requêtes Spotify' :
+                    state === 'loading' ? 'Connexion Spotify en cours' : 'Connexion Spotify non confirmée';
         var detail = status === 'error' ? homeLibraryErrorText() : '';
         var subtitle;
         var primaryUri;
         var secondaryUri = '';
         if (confirmed401) {
             // Keep the server response and the cause distinct: a 401 is
-            // observed, but it does not prove an absent, expired, or rejected cookie.
+            // observed, but it does not prove an absent, expired, or rejected credential.
             subtitle = 'Spotify n’a pas confirmé l’accès à votre bibliothèque. ' +
                 'La cause du refus n’est pas établie. Vos playlists restent masquées jusqu’à validation.';
             primaryUri = 'melodix:action:open-login';
             secondaryUri = 'melodix:action:retry-library';
         } else if (confirmed403) {
-            subtitle = 'Spotify n’a pas autorisé la lecture de votre bibliothèque. ' +
-                'La cause n’est pas établie ; vous pouvez réessayer.';
-            primaryUri = 'melodix:action:open-login';
-            secondaryUri = 'melodix:action:retry-library';
+            subtitle = 'Spotify a refusé la lecture de votre bibliothèque. La cause n’est pas établie : ' +
+                'vérifiez les autorisations de l’application et l’accès du compte, puis réessayez. ' +
+                'Ce refus ne prouve pas une déconnexion. Vos playlists restent masquées jusqu’à validation.';
+            // A 403 is an access decision, not evidence that the user is logged out.
+            // Keep recovery explicit without sending the user through the unrelated player login.
+            primaryUri = 'melodix:action:retry-library';
+            secondaryUri = '';
+        } else if (confirmed429) {
+            subtitle = (detail || 'Spotify limite les requêtes — réessayez plus tard.') +
+                ' Vos playlists restent masquées jusqu’à validation.';
+            primaryUri = 'melodix:action:retry-library';
+            secondaryUri = '';
         } else if (status === 'error') {
             subtitle = detail || 'La connexion à Spotify n’a pas pu être vérifiée.';
             subtitle = subtitle.replace(/\s*[—–]\s*(?:nouvel essai automatique en cours\.\s*)?Touchez pour réessayer(?: maintenant)?\.?$/i, '');
             if (err === 'http-401' || err === 'http-403') subtitle += ' La cause n’est pas établie.';
             subtitle += ' Vos playlists restent masquées tant que la connexion n’est pas confirmée.';
-            // Keep the official login route available whenever session proof is
-            // absent; expose the real retry as a separate, explicitly tapped action.
-            primaryUri = 'melodix:action:open-login';
-            secondaryUri = 'melodix:action:retry-library';
+            if (err === 'http-403') {
+                title = 'Accès à la bibliothèque non confirmé';
+                subtitle += ' Ce résultat ne prouve pas une déconnexion.';
+                primaryUri = 'melodix:action:retry-library';
+            } else if (err === 'http-429' ||
+                (libraryErrorIsTransient(err) && err !== 'http-401' && err !== 'token-missing')) {
+                primaryUri = 'melodix:action:retry-library';
+            } else {
+                // Keep the official login route for an unconfirmed 401 or a
+                // missing session marker; retry remains a distinct user action.
+                primaryUri = 'melodix:action:open-login';
+                secondaryUri = 'melodix:action:retry-library';
+            }
         } else {
             subtitle = 'Vérification de la bibliothèque en cours. Vos playlists restent masquées jusqu’à validation.';
             // A login action is offered only after a settled failure. While the
@@ -1009,7 +1036,7 @@
             sessionUnproven: true,
             title: title,
             subtitle: subtitle,
-            section: 'Connexion Spotify',
+            section: confirmed403 || err === 'http-403' ? 'Bibliothèque Spotify' : 'Connexion Spotify',
             image: '',
             uri: primaryUri,
             secondaryUri: secondaryUri
@@ -1032,11 +1059,23 @@
     // Manual retry behind the state row: forces a library fetch and restarts the
     // retry loop, so the screen never stays stuck once the loop has expired.
     window.__sfNativeRetryLibrary = function __sfNativeRetryLibrary() {
+        var previousError = String(window.__sfMediaLibError || '');
+        var retryAt = Number(window.__sfMediaLibRetryAt || 0);
+        if (previousError === 'http-429' && Number.isFinite(retryAt) && retryAt > Date.now()) {
+            // Even a user-tapped retry respects Spotify's Retry-After/backoff.
+            // Re-render the countdown, but do not issue an early request.
+            try {
+                clearHomeRetry();
+                homeRetries = 0;
+                runUpdate();
+            } catch (_) {}
+            return false;
+        }
         try {
             clearHomeRetry();
             homeRetries = 0;
             window.__sfMediaLibRetryAt = 0;
-            window.__sfMediaLibRetryDelayMs = 5000;
+            if (previousError !== 'http-429') window.__sfMediaLibRetryDelayMs = 5000;
             if (typeof window.checkMediaLib === 'function') window.checkMediaLib(true, 'native-retry');
         } catch (_) {}
         try {
@@ -1045,6 +1084,7 @@
         try {
             scheduleHomeRetry();
         } catch (_) {}
+        return true;
     };
 
     // A verified library response may authorize an explicit empty/error/loading

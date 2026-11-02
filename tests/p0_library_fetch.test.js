@@ -105,11 +105,18 @@ function libraryItem({ uri, name, image, typename = 'Playlist' }) {
     } } };
 }
 
-function jsonResponse(status, body, mime = 'application/json; charset=utf-8') {
+function jsonResponse(status, body, mime = 'application/json; charset=utf-8', retryAfter = null) {
     return {
         ok: status >= 200 && status < 300,
         status,
-        headers: { get: (name) => String(name).toLowerCase() === 'content-type' ? mime : null },
+        headers: {
+            get(name) {
+                const key = String(name).toLowerCase();
+                if (key === 'content-type') return mime;
+                if (key === 'retry-after') return retryAfter;
+                return null;
+            }
+        },
         json: async () => body
     };
 }
@@ -276,20 +283,21 @@ test('an absent session represented by HTTP 401 remains an unknown-cause refusal
     assert.equal(diagnostic.error, 'http-401');
 });
 
-test('HTTP refusals and server responses retain their status-specific errors', async () => {
+test('HTTP refusals and server responses retain their status-specific errors and proof semantics', async () => {
     const cases = [
-        [403, 'http-403', 'http-403'],
-        [429, 'http-429', 'http-other'],
-        [500, 'http-500', 'http-other']
+        [403, 'http-403', 'http-403', true, false, null],
+        [429, 'http-429', 'http-other', false, false, undefined],
+        [500, 'http-500', 'http-other', false, false, undefined]
     ];
-    for (const [status, expectedError, diagnosticError] of cases) {
+    for (const [status, expectedError, diagnosticError, proofKnown, proven, library] of cases) {
         const win = loadBridge({ fetchImpl: async () => jsonResponse(status, {}) });
         await win.checkMediaLib(true);
         assert.equal(win.__sfMediaLibStatus, 'error');
         assert.equal(win.__sfMediaLibError, expectedError);
-        assert.equal(win.mediaLib, undefined);
-        assert.equal(win.__sfMediaLibSessionProofKnown, false,
-            'non-401 HTTP errors do not assert that the Spotify session ended');
+        assert.equal(win.mediaLib, library);
+        assert.equal(win.__sfMediaLibSessionProofKnown, proofKnown);
+        assert.equal(win.__sfMediaLibSessionProven, proven,
+            'a 403 invalidates library proof without claiming that the player login ended');
         assert.match(finalLibraryDiagnostic(win), new RegExp(
             `^library-fetch phase=response http=${status} mime=json duration=[0-9]+ error=${diagnosticError} auth=webview-session refresh=unsupported$`));
         assert.equal(win.__sfMediaLibLastDiagnostic.http, status);
@@ -358,6 +366,82 @@ test('a later-page 401 clears partial private rows and revokes the earlier page 
     assert.equal(win.__sfMediaLibRawItemCount, 0);
     assert.match(finalLibraryDiagnostic(win),
         /^library-fetch phase=response http=401 mime=json duration=[0-9]+ error=http-401 auth=webview-session refresh=unsupported$/);
+});
+
+test('a 403 invalidates private library proof and clears stale rows without asserting player logout', async () => {
+    const win = loadBridge({ fetchImpl: async () => jsonResponse(403, {}) });
+    win.__sfMediaLibSessionProofKnown = true;
+    win.__sfMediaLibSessionProven = true;
+    win.mediaLib = { playlists: [{ id: 'spotify:playlist:fixture-stale-403', name: 'Fixture stale data' }] };
+    win.__sfMediaLibRawItemCount = 1;
+
+    await win.checkMediaLib(true);
+
+    assert.equal(win.__sfMediaLibError, 'http-403');
+    assert.equal(win.__sfMediaLibStatus, 'error');
+    assert.equal(win.__sfMediaLibSessionProofKnown, true);
+    assert.equal(win.__sfMediaLibSessionProven, false,
+        'the 403 revokes library API proof, but does not set or clear the independent player-login marker');
+    assert.equal(win.mediaLib, null, 'previous private rows are erased after an access refusal');
+    assert.equal(win.__sfMediaLibRawItemCount, 0);
+    assert.match(finalLibraryDiagnostic(win),
+        /^library-fetch phase=response http=403 mime=json duration=[0-9]+ error=http-403 auth=webview-session refresh=unsupported$/);
+    assert.doesNotMatch(finalLibraryDiagnostic(win), /Fixture stale data|spotify:playlist/);
+});
+
+test('a later-page 403 discards partial private rows and invalidates the earlier page proof', async () => {
+    let calls = 0;
+    const firstPage = Array.from({ length: 50 }, (_v, i) =>
+        libraryItem({ uri: `spotify:playlist:partial-403-${i}`, name: `Fixture ${i}` }));
+    const win = loadBridge({ fetchImpl: async () => {
+        calls += 1;
+        return calls === 1 ? libraryPage(firstPage) : jsonResponse(403, {});
+    } });
+
+    await win.checkMediaLib(true);
+
+    assert.equal(calls, 2);
+    assert.equal(win.__sfMediaLibStatus, 'error');
+    assert.equal(win.__sfMediaLibError, 'http-403');
+    assert.equal(win.__sfMediaLibSessionProofKnown, true);
+    assert.equal(win.__sfMediaLibSessionProven, false);
+    assert.equal(win.mediaLib, null, 'partial rows from the valid first page are discarded');
+    assert.equal(win.__sfMediaLibRawItemCount, 0);
+    assert.match(finalLibraryDiagnostic(win),
+        /^library-fetch phase=response http=403 mime=json duration=[0-9]+ error=http-403 auth=webview-session refresh=unsupported$/);
+});
+
+test('a 429 honours a bounded Retry-After delay without logging the header or response body', async () => {
+    const startedAt = Date.now();
+    const win = loadBridge({ fetchImpl: async () =>
+        jsonResponse(429, { error: { message: 'synthetic quota response', reason: 'QUOTA_EXCEEDED' } },
+            'application/json; charset=utf-8', '120')
+    });
+
+    await win.checkMediaLib(true);
+
+    const observedAt = Date.now();
+    assert.equal(win.__sfMediaLibError, 'http-429');
+    assert.ok(win.__sfMediaLibRetryAt >= startedAt + 119000,
+        'the server Retry-After value is converted to a bounded deadline');
+    assert.ok(win.__sfMediaLibRetryAt <= observedAt + 120000,
+        'the stored deadline is relative to receipt, not an unbounded duration');
+    assert.ok(win.__sfMediaLibRetryDelayMs >= 5000 && win.__sfMediaLibRetryDelayMs <= 60000,
+        'the fallback exponential delay remains capped');
+    assert.doesNotMatch(finalLibraryDiagnostic(win), /synthetic quota response|QUOTA_EXCEEDED|Retry-After|120/,
+        'response body and raw retry header never enter diagnostics');
+    assert.doesNotMatch(JSON.stringify(win.__sfMediaLibLastDiagnostic),
+        /synthetic quota response|QUOTA_EXCEEDED|Retry-After|120/);
+
+    const capped = loadBridge({ fetchImpl: async () => jsonResponse(429, {},
+        'application/json; charset=utf-8', '100000') });
+    const capStartedAt = Date.now();
+    await capped.checkMediaLib(true);
+    const capObservedAt = Date.now();
+    assert.ok(capped.__sfMediaLibRetryAt <= capObservedAt + 24 * 60 * 60 * 1000,
+        'a server-provided delay cannot defer retries beyond the one-day safety cap');
+    assert.ok(capped.__sfMediaLibRetryAt >= capStartedAt + 24 * 60 * 60 * 1000 - 1000,
+        'long Retry-After values are capped rather than ignored');
 });
 
 test('network failure, invalid JSON and HTML response are distinguished', async () => {

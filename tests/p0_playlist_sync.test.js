@@ -194,14 +194,14 @@ test('[P0 playlists] 6. un echec HTTP explicite reste visible et retentable', ()
       w.__sfMediaLibError = 'http-403';
     }
   });
-  // Auth refusals stop background retries; the two Home actions stay separate.
+  // A 403 stops background retries and is not mislabeled as a player logout.
   window.__sfMediaLibRetryAt = 0;
   window.__sfNativeUiRefresh();
   assert.equal(checkMediaLibCalls.count, 0, 'un refus HTTP ne relance pas la requête en arrière-plan');
   let homeRows = calls.filter((c) => c.screen === 'home');
   let rows = homeRows.length ? JSON.parse(homeRows[homeRows.length - 1].data) : [];
-  assert.equal(rows[0].uri, 'melodix:action:open-login', 'le bouton principal ouvre la connexion officielle');
-  assert.equal(rows[0].secondaryUri, 'melodix:action:retry-library', 'le nouvel essai reste explicite');
+  assert.equal(rows[0].uri, 'melodix:action:retry-library', 'le 403 ne renvoie pas vers un login player sans rapport avec les permissions API');
+  assert.equal(rows[0].secondaryUri, '', 'une seule action de retry explicite reste disponible');
   window.__sfNativeRetryLibrary();
   assert.equal(checkMediaLibCalls.count, 1, 'le clic de nouvel essai lance une seule requête réelle');
   window.__sfNativeUiRefresh();
@@ -294,8 +294,10 @@ test('[P0 playlists] le bridge notifie le shell quand mediaLib est settle (pas d
     'echec enregistre par fetchAllLibrary pris en compte');
   assert.ok(bridgeSrc.includes('const usable = Array.isArray(allItems) && allItems.length > 0;'),
     'donnees partielles conservees, echec total non publie comme bibliotheque vide');
-  assert.ok(bridgeSrc.includes("window.__sfMediaLibError = 'http-401'"), '401 conserve son statut sans deviner une cause de session');
-  assert.ok(bridgeSrc.includes("trace.http === 403 ? 'http-403'"), '403 reste distinct des autres refus HTTP');
+  assert.ok(bridgeSrc.includes("const refusal = trace.http === 401 ? 'http-401' : 'http-403'"),
+    '401 et 403 restent distincts, sans deviner une cause de session');
+  assert.ok(bridgeSrc.includes("window.__sfMediaLibSessionProven = false"),
+    'un refus d’accès invalide la preuve privée avant toute réutilisation du cache');
   assert.ok(bridgeSrc.includes("window.__sfMediaLibError = timedOut ? 'timeout' : 'network-error'"),
     'timeout et réseau ont des états distincts');
   assert.ok(bridgeSrc.includes('invalid-json') && bridgeSrc.includes('unexpected-shape'),
@@ -317,7 +319,8 @@ test('[P0 playlists] le bridge notifie le shell quand mediaLib est settle (pas d
 test('HTTP 401 is reported without asserting an expired session or sending the user to Settings', () => {
     const shell = fs.readFileSync(path.join(root, 'scripts', 'native_ui_shell.source.js'), 'utf8');
     assert.match(shell, /err === 'http-401'[\s\S]{0,180}cause n’est pas confirmée/);
-    assert.match(shell, /err === 'http-403'[\s\S]{0,180}autorisations ou réessayez/);
+    assert.match(shell, /if \(err === 'http-403' && confirmedLibraryHttpStatus\(403\)\)[\s\S]{0,260}vérifiez les autorisations de l’application ou l’accès au compte/);
+    assert.match(shell, /confirmed403[\s\S]{0,500}Ce refus ne prouve pas une déconnexion/);
     assert.match(shell, /'http-401', 'http-403', 'token-missing'/,
         '401/403 remain manually retryable because their cause is not inferred');
     assert.doesNotMatch(shell, /Session Spotify expirée|session expirée/i);
@@ -331,7 +334,7 @@ test('a transient error only promises a retry while the retry loop is alive', ()
     assert.match(shell, /touchez pour réessayer/);
     // The manual retry is exposed for the native row and restarts the loop.
     assert.match(shell, /window\.__sfNativeRetryLibrary = function/);
-    assert.match(shell, /__sfNativeRetryLibrary[\s\S]{0,500}checkMediaLib\(true, 'native-retry'\)/,
+    assert.match(shell, /__sfNativeRetryLibrary[\s\S]{0,1000}checkMediaLib\(true, 'native-retry'\)/,
         'the manual retry is explicitly tagged without sending credentials or private data');
 });
 

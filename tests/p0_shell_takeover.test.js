@@ -508,6 +508,47 @@ test('HTTP 401 keeps its cause unknown and offers separate official-login and ma
     assert.equal(confirmed.secondaryUri, 'melodix:action:retry-library');
 });
 
+test('a 403 Home state explains library access denial without presenting it as a player logout', () => {
+    const diagnostic = {
+        phase: 'response', http: 403, mime: 'json', durationMs: 14, error: 'http-403',
+        authMode: 'webview-session', refreshMode: 'unsupported'
+    };
+    const { calls, win, drainTimers } = loadShell({
+        withCards: false,
+        noUserWidget: true,
+        mediaLib: { playlists: [{ id: 'spotify:playlist:fixture-stale', name: 'Fixture stale data' }] },
+        mediaLibSessionProofKnown: true,
+        mediaLibSessionProven: false,
+        libraryError: 'http-403',
+        libraryDiagnostic: diagnostic
+    });
+    const initial = calls.data.filter((call) => call.screen === 'home').at(-1).rows[0];
+    assert.equal(initial.title, 'Accès à la bibliothèque refusé');
+    assert.equal(initial.section, 'Bibliothèque Spotify');
+    assert.match(initial.subtitle, /autorisations de l’application et l’accès du compte/i);
+    assert.match(initial.subtitle, /ne prouve pas une déconnexion/i);
+    assert.equal(initial.uri, 'melodix:action:retry-library');
+    assert.equal(initial.secondaryUri, '');
+    assert.doesNotMatch(JSON.stringify(initial), /Fixture stale data|spotify:playlist/,
+        '403-invalidated rows stay hidden from native Home');
+    assert.equal(calls.mediaLibChecks, 0, 'an access refusal does not start an automatic request loop');
+    drainTimers();
+    assert.equal(calls.mediaLibChecks, 0);
+
+    const unconfirmed = loadShell({
+        withCards: false,
+        noUserWidget: true,
+        mediaLib: { playlists: [] },
+        mediaLibSessionProofKnown: true,
+        mediaLibSessionProven: false,
+        libraryError: 'http-403'
+    }).calls.data.filter((call) => call.screen === 'home').at(-1).rows[0];
+    assert.equal(unconfirmed.title, 'Accès à la bibliothèque non confirmé');
+    assert.equal(unconfirmed.uri, 'melodix:action:retry-library');
+    assert.doesNotMatch(unconfirmed.subtitle, /HTTP 403|déconnexion confirmée/i,
+        'a UI error string without its matching response diagnostic is not presented as a confirmed server result');
+});
+
 test('native payload filtering permits login only after a settled unproven error', () => {
     const shell = fs.readFileSync(SHELL, 'utf8');
     assert.match(shell, /var allowedActions = \['melodix:action:open-settings', 'melodix:action:retry-library', 'melodix:action:open-login'\]/);
@@ -543,6 +584,47 @@ test('HTTP 429 messaging is also tied to the matching sanitized response record'
     const confirmed = calls.data.filter((call) => call.screen === 'home').at(-1).rows[0];
     assert.match(confirmed.subtitle, /limite les requêtes/i,
         'generic HTTP error diagnostics retain an observed status without exposing response contents');
+});
+
+test('a manual retry respects the bounded 429 deadline and preserves exponential backoff', () => {
+    const diagnostic = {
+        phase: 'response', http: 429, mime: 'json', durationMs: 14, error: 'http-other',
+        authMode: 'webview-session', refreshMode: 'unsupported'
+    };
+    const { win, calls } = loadShell({
+        withCards: false,
+        noUserWidget: true,
+        mediaLib: { playlists: [] },
+        mediaLibSessionProofKnown: true,
+        mediaLibSessionProven: false,
+        libraryError: 'http-429',
+        libraryDiagnostic: diagnostic
+    });
+    const now = win.Date.now();
+    win.__sfMediaLibRetryAt = now + 5000;
+    win.__sfMediaLibRetryDelayMs = 20000;
+    win.__sfTriggerMutations();
+    const waiting = calls.data.filter((call) => call.screen === 'home').at(-1).rows[0];
+    assert.match(waiting.subtitle, /réessayez dans environ 5 s/i);
+    assert.equal(waiting.uri, 'melodix:action:retry-library');
+
+    let attemptArgs = null;
+    win.checkMediaLib = (force, source) => {
+        attemptArgs = [force, source];
+        win.__sfMediaLibStatus = 'loading';
+        win.__sfMediaLibError = '';
+    };
+    win.__sfNativeRetryLibrary();
+    assert.equal(attemptArgs, null, 'a tap during Retry-After does not send an early request');
+    assert.equal(win.__sfMediaLibRetryDelayMs, 20000,
+        'blocked manual retries do not reset the exponential backoff');
+
+    win.Date.now = () => now + 5000;
+    win.__sfNativeRetryLibrary();
+    assert.deepEqual(attemptArgs, [true, 'native-retry'],
+        'once the server delay expires, one explicit forced request is allowed');
+    assert.equal(win.__sfMediaLibRetryDelayMs, 20000,
+        'manual retry preserves the rate-limit backoff until a successful response resets it');
 });
 
 test('a transient library error preserves earlier session proof and renders an actionable Home status', () => {
