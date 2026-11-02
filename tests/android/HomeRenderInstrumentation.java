@@ -646,6 +646,7 @@ public final class HomeRenderInstrumentation extends Instrumentation {
             final boolean loginSpaExitObserved = verifyLoginSpaExitBeforeHomeFixture(activity);
             loginState[0].putBoolean("login_spa_exit_probe_performed", true);
             loginState[0].putBoolean("login_spa_exit_observed", loginSpaExitObserved);
+            loginState[0].putBoolean("login_route_still_login_only", !loginSpaExitObserved);
             sendStatus(1, loginState[0]);
 
             failurePhase = "live_spotify_css_runtime_probe";
@@ -2408,6 +2409,10 @@ public final class HomeRenderInstrumentation extends Instrumentation {
         if (restoreFailure[0] instanceof Exception) throw (Exception) restoreFailure[0];
         if (restoreFailure[0] instanceof Error) throw (Error) restoreFailure[0];
         if (restoreFailure[0] != null) throw new AssertionError("Explicit login UI restoration failed");
+        waitForIdleSync();
+        // Let delayed route/page-finished visibility watchers fire after the
+        // explicit login decision; they must not steal ownership back.
+        Thread.sleep(1250L);
         waitForIdleSync();
         awaitLoginUiVisible(webView);
         requireUnauthenticatedSession(activity);

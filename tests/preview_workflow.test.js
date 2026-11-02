@@ -180,7 +180,7 @@ test("empty-Home pixels are captured before instrumentation finish and the same 
   assert.match(harness, /login_surface_restored_after_status/);
   assert.match(harness, /cold_start_native_home_visibility[\s\S]*?cold_start_native_owner_verified/);
   assert.match(harness, /revealLoginWebUi[\s\S]*?nativeLoginWebRequested[\s\S]*?verifyLoginSpaExitBeforeHomeFixture/);
-  assert.match(harness, /login_spa_exit_probe_performed[\s\S]*?login_spa_exit_observed/);
+  assert.match(harness, /login_spa_exit_probe_performed[\s\S]*?login_spa_exit_observed[\s\S]*?login_route_still_login_only/);
   assert.match(harness, /captureNativeHomeTimeline[\s\S]*?200L, 1000L, 3000L, 8000L, 20000L[\s\S]*?captureUiEvidence\(hierarchyName, screenshotName/);
   assert.match(emulatorWorkflow, /for timeline_phase in cold_home empty_home[\s\S]*?for checkpoint in 200ms 1s 3s 8s 20s[\s\S]*?inspect_hierarchy\.py/);
   assert.match(emulatorWorkflow, /cold-home-timeline-\*\.png[\s\S]*?empty-home-timeline-\*-hierarchy-redacted\.json/);
@@ -280,6 +280,8 @@ test("Android verifies native ownership across route callbacks, returns, late ca
     "the route-only fixture temporarily clears the explicit login gate and then verifies the original login surface is restored");
   assert.match(matrix, /dispatchEmptyHomeThroughAndBridgeOnMain\(activity\)/,
     "empty Home route payload callbacks are dispatched from Android's UI thread");
+  assert.match(matrix, /Thread\.sleep\(1250L\)[\s\S]*?awaitLoginUiVisible\(webView\)/,
+    "delayed callbacks and visibility watchers must leave the explicitly restored login surface visible too");
   const emptyHomeMainDispatchStart = harness.indexOf("private void dispatchEmptyHomeThroughAndBridgeOnMain(");
   const emptyHomeMainDispatchEnd = harness.indexOf("private void dispatchEmptyHomeThroughAndBridge(", emptyHomeMainDispatchStart);
   const emptyHomeMainDispatch = harness.slice(emptyHomeMainDispatchStart, emptyHomeMainDispatchEnd);
@@ -616,9 +618,11 @@ test("the emulator workflow validates same-run instrumentation and exact release
     "an activity-resume failure identifies the safe foreground window instead of stopping at a generic error");
   assert.match(
     emulatorWorkflow,
-    /phase=cold_start_native_home_status[\s\S]*?cold_start_native_owner_verified=true[\s\S]*?phase=login_without_session[\s\S]*?explicit_login_owner_requested=true[\s\S]*?login_spa_exit_observed=true/,
-    "the cold Home owner is verified before an explicit login request and native ownership returns after a non-login SPA route",
+    /phase=cold_start_native_home_status[\s\S]*?cold_start_native_owner_verified=true[\s\S]*?phase=login_without_session[\s\S]*?explicit_login_owner_requested=true[\s\S]*?login_spa_exit_probe_performed=true/,
+    "the cold Home owner is verified before the explicit login-route probe runs",
   );
+  assert.match(emulatorWorkflow, /login_spa_exit_observed" == "true" && "\$login_route_still_login_only" == "false"[\s\S]*?login_spa_exit_observed" == "false" && "\$login_route_still_login_only" == "true"/,
+    "CI accepts either a confirmed SPA exit or an explicitly preserved login-only route, without assuming either path" );
   assert.match(
     emulatorWorkflow,
     /login_ui_visible_in_webview_dom=true/,
