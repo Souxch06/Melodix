@@ -1007,11 +1007,12 @@ public final class HomeRenderInstrumentation extends Instrumentation {
             Log.i(HARNESS_TAG, "completed");
             finish(Activity.RESULT_OK, result);
         } catch (Throwable failure) {
-            Log.e(HARNESS_TAG, "failure phase=" + failurePhase + " type=" + failure.getClass().getSimpleName());
+            Throwable reportableFailure = unwrapInvocationTarget(failure);
+            Log.e(HARNESS_TAG, "failure phase=" + failurePhase + " type=" + reportableFailure.getClass().getSimpleName());
             Bundle status = new Bundle();
             status.putString("overall", "failed");
             status.putString("failure_phase", failurePhase);
-            status.putString("failure_type", failure.getClass().getSimpleName());
+            status.putString("failure_type", reportableFailure.getClass().getSimpleName());
             sendStatus(2, status);
             finish(Activity.RESULT_CANCELED, status);
         }
@@ -3798,36 +3799,43 @@ public final class HomeRenderInstrumentation extends Instrumentation {
         }
     }
 
-    private boolean verifyLoginSpaExitBeforeHomeFixture(Activity activity) throws Exception {
-        if (!readBooleanField(activity, "nativeLoginWebRequested")) {
-            throw new AssertionError("The login owner was not active before the SPA exit probe");
-        }
-        Method pathProbe = activity.getClass().getMethod("isLoginWebPath");
-        boolean stillOnLoginPath = Boolean.TRUE.equals(pathProbe.invoke(activity));
-        if (stillOnLoginPath) {
-            // A real /login or accounts-origin path is still an allowed login
-            // surface. Reset only this test fixture's UI gate; do not navigate,
-            // clear cookies, or write the observed page URL to diagnostics.
-            final Field loginOwner = activity.getClass().getDeclaredField("nativeLoginWebRequested");
-            loginOwner.setAccessible(true);
-            runOnMainSync(new Runnable() {
-                @Override
-                public void run() {
-                    try {
-                        loginOwner.setBoolean(activity, false);
-                    } catch (Throwable error) {
-                        throw new AssertionError("Could not reset the isolated login UI fixture", error);
+    private boolean verifyLoginSpaExitBeforeHomeFixture(final Activity activity) throws Exception {
+        final boolean[] loginSpaExitObserved = new boolean[1];
+        final Throwable[] probeFailure = new Throwable[1];
+        runOnMainSync(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    if (!readBooleanField(activity, "nativeLoginWebRequested")) {
+                        throw new AssertionError("The login owner was not active before the SPA exit probe");
                     }
+                    Method pathProbe = activity.getClass().getMethod("isLoginWebPath");
+                    boolean stillOnLoginPath = Boolean.TRUE.equals(pathProbe.invoke(activity));
+                    if (stillOnLoginPath) {
+                        // A real /login or accounts-origin path is still an allowed login
+                        // surface. Reset only this test fixture's UI gate; do not navigate,
+                        // clear cookies, or write the observed page URL to diagnostics.
+                        Field loginOwner = activity.getClass().getDeclaredField("nativeLoginWebRequested");
+                        loginOwner.setAccessible(true);
+                        loginOwner.setBoolean(activity, false);
+                        loginSpaExitObserved[0] = false;
+                        return;
+                    }
+                    Method routeCallback = activity.getClass().getMethod("postNativeUiRoute", String.class);
+                    routeCallback.invoke(activity, "home");
+                    if (readBooleanField(activity, "nativeLoginWebRequested")) {
+                        throw new AssertionError("A non-login SPA route did not return ownership to native Home");
+                    }
+                    loginSpaExitObserved[0] = true;
+                } catch (Throwable error) {
+                    probeFailure[0] = unwrapInvocationTarget(error);
                 }
-            });
-            return false;
-        }
-        Method routeCallback = activity.getClass().getMethod("postNativeUiRoute", String.class);
-        routeCallback.invoke(activity, "home");
-        if (readBooleanField(activity, "nativeLoginWebRequested")) {
-            throw new AssertionError("A non-login SPA route did not return ownership to native Home");
-        }
-        return true;
+            }
+        });
+        if (probeFailure[0] instanceof Exception) throw (Exception) probeFailure[0];
+        if (probeFailure[0] instanceof Error) throw (Error) probeFailure[0];
+        if (probeFailure[0] != null) throw new AssertionError("Login SPA exit probe failed");
+        return loginSpaExitObserved[0];
     }
 
     private void dispatchHomeStatusThroughAndBridge(Activity activity) throws Exception {

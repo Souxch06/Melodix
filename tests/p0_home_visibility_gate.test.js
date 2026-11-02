@@ -263,7 +263,7 @@ test('the CI Home integration contains no fake account data or credentials and l
   assert.match(manualObservation, /launchTargetPreservingTask|AUTHENTICATED_HOME_PROBE/);
   assert.match(harness, /login_dom_probe_completed/,
     'the DOM probe records an explicit false result before failing, instead of making absence of status look like false');
-  assert.match(harness, /Log\.e\(HARNESS_TAG, "failure phase=" \+ failurePhase \+ " type=" \+ failure\.getClass\(\)\.getSimpleName\(\)\)/,
+  assert.match(harness, /Log\.e\(HARNESS_TAG, "failure phase=" \+ failurePhase \+ " type=" \+ reportableFailure\.getClass\(\)\.getSimpleName\(\)\)/,
     'instrumentation failures expose only a phase and exception type, never page text');
   assert.match(harness, /"home",\s*"\[\]"/,
     'the integration sends only an empty Home payload to test the native error state');

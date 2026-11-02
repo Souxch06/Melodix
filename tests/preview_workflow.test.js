@@ -681,7 +681,17 @@ test("login-surface reflection failures expose only the bounded target exception
     "only a bounded chain of reflection wrappers is unwrapped");
   assert.ok(harness.includes("loginFailure[0] = unwrapInvocationTarget(error);"),
     "the login surface probe reports the target exception class instead of the generic reflection wrapper");
-  assert.ok(harness.includes('status.putString("failure_type", failure.getClass().getSimpleName());'),
+  assert.ok(harness.includes("Throwable reportableFailure = unwrapInvocationTarget(failure);"),
+    "the top-level result also unwraps bounded reflection wrappers from the main-thread dispatcher");
+  const spaProbeStart = harness.indexOf("private boolean verifyLoginSpaExitBeforeHomeFixture(");
+  const spaProbeEnd = harness.indexOf("private void dispatchHomeStatusThroughAndBridge(", spaProbeStart);
+  const spaProbe = harness.slice(spaProbeStart, spaProbeEnd);
+  const mainThreadDispatch = spaProbe.indexOf("runOnMainSync(new Runnable()");
+  assert.ok(mainThreadDispatch >= 0 &&
+    spaProbe.indexOf("pathProbe.invoke(activity)") > mainThreadDispatch &&
+    spaProbe.indexOf('routeCallback.invoke(activity, "home")') > mainThreadDispatch,
+    "WebView route and login-path reflection run on Android's main thread");
+  assert.ok(harness.includes('status.putString("failure_type", reportableFailure.getClass().getSimpleName());'),
     "the instrumentation result contains only a safe Java exception class");
   assert.equal(harness.includes(".getMessage("), false, "failure messages are never persisted or shown");
   assert.equal(harness.includes(".printStackTrace("), false, "failure stacks are never persisted or shown");
