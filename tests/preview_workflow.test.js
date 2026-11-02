@@ -104,10 +104,10 @@ test("the emulator workflow checks the exact APK debuggable flag and captures re
     'foreground diagnostics reduce the ActivityManager dump to an allowlisted component name');
   assert.match(emulatorWorkflow, /native_owner_events=.*MDXTRACE:I[\s\S]*?pattern = re\.compile[\s\S]*?native-owner previous=/,
     'native-owner startup traces retain only enumerated owner and route labels');
-  assert.match(emulatorWorkflow, /crash_guard_state=.*shared_prefs\/melodix_native\.xml[\s\S]*?last_stage=\%s; crash_class=\%s/,
-    'crash-guard diagnostics expose only a constrained stage name and exception class');
-  assert.match(emulatorWorkflow, /verify_error_target=[\s\S]*?timeout 15s adb logcat -d -t 10000 -b all[\s\S]*?if "VerifyError" not in text[\s\S]*?Verifier rejected class[\s\S]*?class=%s; method=%s/,
-    'runtime verifier diagnostics expose only the allowlisted app class and method, never the verifier message');
+  assert.match(emulatorWorkflow, /crash_guard_state=.*shared_prefs\/melodix_native\.xml[\s\S]*?last_stage=\%s; crash_class=\%s; verify_error_target=\%s/,
+    'crash-guard diagnostics expose only a constrained stage, exception class, and verifier identifiers');
+  assert.match(emulatorWorkflow, /target_class = values\.get\("last_verify_class"\)[\s\S]*?target_method = values\.get\("last_verify_method"\)[\s\S]*?re\.fullmatch[\s\S]*?target = "class=%s; method=%s"/,
+    'runtime verifier metadata is accepted only when class and method match the strict identifier allowlist');
   assert.match(emulatorWorkflow, /adb shell dumpsys activity > "\$activity_dump"/);
   assert.doesNotMatch(
     emulatorWorkflow,

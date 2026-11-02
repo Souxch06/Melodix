@@ -65,6 +65,18 @@
 
     move-result-object v0
 
+    const-string v1, "last_verify_class"
+
+    invoke-interface {v0, v1}, Landroid/content/SharedPreferences$Editor;->remove(Ljava/lang/String;)Landroid/content/SharedPreferences$Editor;
+
+    move-result-object v0
+
+    const-string v1, "last_verify_method"
+
+    invoke-interface {v0, v1}, Landroid/content/SharedPreferences$Editor;->remove(Ljava/lang/String;)Landroid/content/SharedPreferences$Editor;
+
+    move-result-object v0
+
     invoke-interface {v0}, Landroid/content/SharedPreferences$Editor;->commit()Z
 
     move-result v0
@@ -500,12 +512,131 @@
     move-result-object v0
 
     invoke-static {v0}, Lcom/melodix/music/NativeCrashGuard;->write(Ljava/lang/String;)V
+
+    # Only VerifyError diagnostics are inspected, and only class/method
+    # identifiers from the exception are retained. The message is never
+    # persisted, logged, displayed or sent through a bridge.
+    invoke-static {p0}, Lcom/melodix/music/NativeCrashGuard;->recordVerifyTarget(Ljava/lang/Throwable;)V
     :try_end_0
     .catch Ljava/lang/Throwable; {:try_start_0 .. :try_end_0} :catch_0
 
     goto :done
 
     :catch_0
+    move-exception v0
+
+    :done
+    return-void
+.end method
+
+# For a VerifyError only, parse the framework message in memory with strict
+# package/method patterns. Persist two identifiers; never retain the message.
+.method private static recordVerifyTarget(Ljava/lang/Throwable;)V
+    .locals 5
+
+    const/4 v0, 0x0
+    invoke-static {v0, v0}, Lcom/melodix/music/NativeCrashGuard;->storeVerifyTarget(Ljava/lang/String;Ljava/lang/String;)V
+
+    instance-of v0, p0, Ljava/lang/VerifyError;
+    if-eqz v0, :done
+
+    :try_start_0
+    invoke-virtual {p0}, Ljava/lang/Throwable;->getMessage()Ljava/lang/String;
+    move-result-object v0
+    if-eqz v0, :done
+
+    const-string v1, "(com\\.melodix\\.music(?:\\.[A-Za-z0-9_$]+)+)\\.([A-Za-z0-9_$<>]+)\\("
+    invoke-static {v1}, Ljava/util/regex/Pattern;->compile(Ljava/lang/String;)Ljava/util/regex/Pattern;
+    move-result-object v1
+    invoke-virtual {v1, v0}, Ljava/util/regex/Pattern;->matcher(Ljava/lang/CharSequence;)Ljava/util/regex/Matcher;
+    move-result-object v1
+    invoke-virtual {v1}, Ljava/util/regex/Matcher;->find()Z
+    move-result v2
+    if-eqz v2, :verify_target_class_only
+
+    const/4 v2, 0x1
+    invoke-virtual {v1, v2}, Ljava/util/regex/Matcher;->group(I)Ljava/lang/String;
+    move-result-object v2
+    const/4 v3, 0x2
+    invoke-virtual {v1, v3}, Ljava/util/regex/Matcher;->group(I)Ljava/lang/String;
+    move-result-object v3
+    invoke-static {v2, v3}, Lcom/melodix/music/NativeCrashGuard;->storeVerifyTarget(Ljava/lang/String;Ljava/lang/String;)V
+    goto :verify_target_done
+
+    :verify_target_class_only
+    const-string v1, "(com\\.melodix\\.music(?:\\.[A-Za-z0-9_$]+)+)"
+    invoke-static {v1}, Ljava/util/regex/Pattern;->compile(Ljava/lang/String;)Ljava/util/regex/Pattern;
+    move-result-object v1
+    invoke-virtual {v1, v0}, Ljava/util/regex/Pattern;->matcher(Ljava/lang/CharSequence;)Ljava/util/regex/Matcher;
+    move-result-object v1
+    invoke-virtual {v1}, Ljava/util/regex/Matcher;->find()Z
+    move-result v2
+    if-eqz v2, :verify_target_done
+    const/4 v2, 0x1
+    invoke-virtual {v1, v2}, Ljava/util/regex/Matcher;->group(I)Ljava/lang/String;
+    move-result-object v2
+    const/4 v3, 0x0
+    invoke-static {v2, v3}, Lcom/melodix/music/NativeCrashGuard;->storeVerifyTarget(Ljava/lang/String;Ljava/lang/String;)V
+    :verify_target_done
+    :try_end_0
+    .catch Ljava/lang/Throwable; {:try_start_0 .. :try_end_0} :verify_target_catch
+
+    goto :done
+
+    :verify_target_catch
+    move-exception v0
+
+    :done
+    return-void
+.end method
+
+.method private static storeVerifyTarget(Ljava/lang/String;Ljava/lang/String;)V
+    .locals 3
+
+    sget-object v0, Lcom/melodix/music/NativeCrashGuard;->context:Landroid/content/Context;
+    if-eqz v0, :done
+
+    :try_start_0
+    const-string v1, "melodix_native"
+    const/4 v2, 0x0
+    invoke-virtual {v0, v1, v2}, Landroid/content/Context;->getSharedPreferences(Ljava/lang/String;I)Landroid/content/SharedPreferences;
+    move-result-object v0
+    invoke-interface {v0}, Landroid/content/SharedPreferences;->edit()Landroid/content/SharedPreferences$Editor;
+    move-result-object v0
+
+    if-eqz p0, :verify_target_clear
+    const-string v1, "last_verify_class"
+    invoke-interface {v0, v1, p0}, Landroid/content/SharedPreferences$Editor;->putString(Ljava/lang/String;Ljava/lang/String;)Landroid/content/SharedPreferences$Editor;
+    move-result-object v0
+    if-eqz p1, :verify_target_remove_method
+    const-string v1, "last_verify_method"
+    invoke-interface {v0, v1, p1}, Landroid/content/SharedPreferences$Editor;->putString(Ljava/lang/String;Ljava/lang/String;)Landroid/content/SharedPreferences$Editor;
+    move-result-object v0
+    goto :verify_target_commit
+
+    :verify_target_remove_method
+    const-string v1, "last_verify_method"
+    invoke-interface {v0, v1}, Landroid/content/SharedPreferences$Editor;->remove(Ljava/lang/String;)Landroid/content/SharedPreferences$Editor;
+    move-result-object v0
+    goto :verify_target_commit
+
+    :verify_target_clear
+    const-string v1, "last_verify_class"
+    invoke-interface {v0, v1}, Landroid/content/SharedPreferences$Editor;->remove(Ljava/lang/String;)Landroid/content/SharedPreferences$Editor;
+    move-result-object v0
+    const-string v1, "last_verify_method"
+    invoke-interface {v0, v1}, Landroid/content/SharedPreferences$Editor;->remove(Ljava/lang/String;)Landroid/content/SharedPreferences$Editor;
+    move-result-object v0
+
+    :verify_target_commit
+    invoke-interface {v0}, Landroid/content/SharedPreferences$Editor;->commit()Z
+    move-result v0
+    :try_end_0
+    .catch Ljava/lang/Throwable; {:try_start_0 .. :try_end_0} :verify_target_store_catch
+
+    goto :done
+
+    :verify_target_store_catch
     move-exception v0
 
     :done
@@ -993,8 +1124,8 @@
 .end method
 
 # Clears only per-process diagnostics at startup. Spotify cookies, account
-# preferences, and stored crash/hang reports remain intact; persisted stages from
-# the prior process must not be mistaken for this launch's WebView callbacks.
+# preferences, and stored crash/hang reports remain intact; persisted stages and
+# verifier targets from the prior process cannot taint this launch's report.
 .method private static clearDiagnosticTrail()V
     .locals 3
 
@@ -1028,6 +1159,18 @@
     move-result-object v0
 
     const-string v1, "stage_chain"
+
+    invoke-interface {v0, v1}, Landroid/content/SharedPreferences$Editor;->remove(Ljava/lang/String;)Landroid/content/SharedPreferences$Editor;
+
+    move-result-object v0
+
+    const-string v1, "last_verify_class"
+
+    invoke-interface {v0, v1}, Landroid/content/SharedPreferences$Editor;->remove(Ljava/lang/String;)Landroid/content/SharedPreferences$Editor;
+
+    move-result-object v0
+
+    const-string v1, "last_verify_method"
 
     invoke-interface {v0, v1}, Landroid/content/SharedPreferences$Editor;->remove(Ljava/lang/String;)Landroid/content/SharedPreferences$Editor;
 

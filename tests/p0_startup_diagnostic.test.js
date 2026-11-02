@@ -67,9 +67,11 @@ test('diagnostic stage chains never persist Spotify routes or login URLs', () =>
     'a route never becomes the persisted last stage');
 });
 
-test('crash diagnostics retain exception classes but never persist or show messages or stack traces', () => {
+test('crash diagnostics retain exception classes and only persist parsed VerifyError identifiers', () => {
   const guard = GUARD();
   const record = methodBody(guard, '.method public static record(Ljava/lang/Throwable;)V');
+  const verifyTarget = methodBody(guard, '.method private static recordVerifyTarget(Ljava/lang/Throwable;)V');
+  const storeVerifyTarget = methodBody(guard, '.method private static storeVerifyTarget(Ljava/lang/String;Ljava/lang/String;)V');
   const excerpt = methodBody(guard, '.method public static excerpt(Ljava/lang/Throwable;)Ljava/lang/String;');
   const uncaught = methodBody(guard, '.method public uncaughtException(Ljava/lang/Thread;Ljava/lang/Throwable;)V');
   const lastReport = methodBody(guard, '.method public static lastReport()Ljava/lang/String;');
@@ -79,8 +81,16 @@ test('crash diagnostics retain exception classes but never persist or show messa
     assert.match(body, /Class;->getSimpleName\(\)Ljava\/lang\/String;/);
     assert.doesNotMatch(body, /getStackTraceString|getMessage|printStackTrace/);
   }
+  assert.match(verifyTarget, /instance-of v0, p0, Ljava\/lang\/VerifyError;/,
+    'only VerifyError may expose a transient message to the structured parser');
+  assert.match(verifyTarget, /Throwable;->getMessage\(\)Ljava\/lang\/String;[\s\S]*?Pattern;->compile\(Ljava\/lang\/String;\)Ljava\/util\/regex\/Pattern;[\s\S]*?Matcher;->group\(I\)Ljava\/lang\/String;/,
+    'the transient message is reduced to one package-qualified class and method');
+  assert.doesNotMatch(verifyTarget, /NativeCrashGuard;->write\(Ljava\/lang\/String;\)V|Log;->|appendDiagnosticLine|showLastReport/,
+    'the exception message is never logged, displayed or written as a report');
+  assert.match(storeVerifyTarget, /"last_verify_class"[\s\S]*?putString[\s\S]*?"last_verify_method"[\s\S]*?putString/,
+    'persistence is restricted to the two identifier fields');
   assert.match(uncaught, /NativeCrashGuard;->record\(Ljava\/lang\/Throwable;\)V/,
-    'the uncaught-exception path delegates to the class-only recorder');
+    'the uncaught-exception path delegates to the bounded crash recorder');
   assert.doesNotMatch(uncaught, /getStackTraceString/,
     'the uncaught-exception path does not persist a raw stack trace');
   assert.match(lastReport, /NativeCrashGuard;->sanitizeStoredReport\(Ljava\/lang\/String;\)Ljava\/lang\/String;/,
@@ -344,7 +354,7 @@ test('diagLine stores a tail-bounded trail and lastDiag reads it back', () => {
     'the report can read the trail back');
 });
 
-test('a fresh app process clears the stale diagnostic trail and stage chain only', () => {
+test('a fresh app process clears transient diagnostics and verifier identifiers only', () => {
   const guard = GUARD();
   const install = methodBody(guard, '.method public static install(Landroid/content/Context;)V');
   const reset = methodBody(guard, '.method private static clearDiagnosticTrail()V');
@@ -353,7 +363,7 @@ test('a fresh app process clears the stale diagnostic trail and stage chain only
   assert.ok(install.includes('native-launch fresh') && install.includes('NativeCrashGuard;->diagLine(Ljava/lang/String;)V'),
     'the first persisted line identifies a fresh diagnostic run');
   assert.ok(reset.includes('const-string v1, "melodix_native"'));
-  for (const key of ['last_diag', 'last_stage', 'stage_chain']) {
+  for (const key of ['last_diag', 'last_stage', 'stage_chain', 'last_verify_class', 'last_verify_method']) {
     assert.ok(reset.includes(`const-string v1, "${key}"`), `${key} is per-process diagnostic state`);
   }
   assert.match(reset, /SharedPreferences\$Editor;->remove\(Ljava\/lang\/String;\)/);

@@ -418,7 +418,6 @@ jobs:
             local focused_component
             local native_owner_events
             local crash_guard_state
-            local verify_error_target
             host_available_kib="$(awk '/^MemAvailable:/ {print $2}' /proc/meminfo 2>/dev/null || true)"
             android_processes="$(ps -eo comm=,rss=,stat= 2>/dev/null | awk '$1 ~ /^(emulator|qemu|adb)/ {printf "%s:%s:%s,", $1, $2, $3}' | cut -c1-300)"
             adb_devices="$(timeout 10s adb devices 2>/dev/null | awk 'NR > 1 && NF >= 2 {printf "%s:%s,", $1, $2}')"
@@ -459,26 +458,22 @@ jobs:
               values = {node.get("name"): node.text for node in root.findall("string")}
               stage = values.get("last_stage") or ""
               crash = values.get("last_crash") or ""
+              target_class = values.get("last_verify_class") or ""
+              target_method = values.get("last_verify_method") or ""
               stage = stage if re.fullmatch(r"[A-Za-z0-9_.-]{1,64}", stage) else "unknown"
               crash = crash if re.fullmatch(r"[A-Za-z_$][A-Za-z0-9_.$]{0,79}", crash) else "none"
-              print("last_stage=%s; crash_class=%s" % (stage, crash))
+              if re.fullmatch(r"com\.melodix\.music(?:\.[A-Za-z0-9_$]+)+", target_class):
+                  target_class = target_class.rsplit(".", 1)[-1]
+                  target_method = target_method if re.fullmatch(r"[A-Za-z0-9_$<>]{1,80}", target_method) else "unknown"
+                  target = "class=%s; method=%s" % (target_class, target_method)
+              else:
+                  target = "none"
+              print("last_stage=%s; crash_class=%s; verify_error_target=%s" % (stage, crash, target))
           except (ET.ParseError, OSError):
               print("unavailable")
           ' || true)"
-            verify_error_target="$(timeout 15s adb logcat -d -t 10000 -b all 2>/dev/null | python3 -c '
-          import re, sys
-          text = sys.stdin.read()
-          if "VerifyError" not in text and "Verifier rejected class" not in text:
-              print("none")
-          else:
-              class_match = re.search(r"(?:Verifier rejected class|Rejecting class) (com\.melodix\.music(?:\.[A-Za-z0-9_$]+)+)", text)
-              method_match = re.search(r"\b(com\.melodix\.music(?:\.[A-Za-z0-9_$]+)*)\.([A-Za-z0-9_$<>]+)\(", text)
-              cls = class_match.group(1).rsplit(".", 1)[-1] if class_match else "unknown"
-              method = method_match.group(2) if method_match else "unknown"
-              print("class=%s; method=%s" % (cls, method))
-          ' || true)"
             fatal_or_anr_count="$(timeout 15s adb logcat -d -t 2000 -b main -b system -b crash 2>/dev/null | grep -cE 'FATAL EXCEPTION|ANR in com\.melodix\.music\.preview|lowmemorykiller|lmkd|Killing .*com\.melodix\.music\.preview' || true)"
-            echo "::notice title=Android launch failure diagnostics::exit=$exit_code; host_available_kib=${host_available_kib:-unknown}; android_processes=${android_processes:-none}; adb_devices=${adb_devices:-none}; device_boot_completed=${device_booted:-unknown}; app_pid=${app_pid:-none}; resumed_component=${resumed_component:-none}; focused_component=${focused_component:-none}; native_owner_events=${native_owner_events:-unavailable}; crash_guard=${crash_guard_state:-unavailable}; verify_error_target=${verify_error_target:-unavailable}; fatal_or_anr_log_count=${fatal_or_anr_count:-unknown}"
+            echo "::notice title=Android launch failure diagnostics::exit=$exit_code; host_available_kib=${host_available_kib:-unknown}; android_processes=${android_processes:-none}; adb_devices=${adb_devices:-none}; device_boot_completed=${device_booted:-unknown}; app_pid=${app_pid:-none}; resumed_component=${resumed_component:-none}; focused_component=${focused_component:-none}; native_owner_events=${native_owner_events:-unavailable}; crash_guard=${crash_guard_state:-unavailable}; fatal_or_anr_log_count=${fatal_or_anr_count:-unknown}"
           }
           trap launch_failure_diagnostics EXIT
           state_dir="$RUNNER_TEMP/melodix-preview-emulator-state"
