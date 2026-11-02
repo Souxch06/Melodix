@@ -2373,6 +2373,7 @@ public final class HomeRenderInstrumentation extends Instrumentation {
             sample.putString("native_route_snapshot", snapshot);
             sample.putBoolean("native_route_" + snapshot + "_owner_verified", true);
             sample.putBoolean("native_route_" + snapshot + "_webview_mounted", true);
+            sample.putBoolean("native_route_" + snapshot + "_webview_parent_is_container", true);
             sample.putBoolean("native_route_" + snapshot + "_dock_visible", true);
             sendStatus(1, sample);
             matrix.putBoolean("native_route_" + snapshot + "_owner_verified", true);
@@ -2462,7 +2463,7 @@ public final class HomeRenderInstrumentation extends Instrumentation {
         boolean dockVisible = dockBounds != null;
         boolean splashHidden = splash.getVisibility() == View.GONE;
         boolean webContainerVisible = webContainer.getVisibility() == View.VISIBLE;
-        boolean webViewMounted = webView != null && webView.getParent() != null;
+        boolean webViewMounted = webView != null && webView.getParent() == webContainer;
         boolean sameWebViewUrl = equalsNullable(originalUrl, webView.getUrl());
         int width = mainRoot == null ? 0 : mainRoot.getWidth();
         int height = mainRoot == null ? 0 : mainRoot.getHeight();
@@ -2483,6 +2484,8 @@ public final class HomeRenderInstrumentation extends Instrumentation {
         Bundle state = new Bundle();
         state.putBoolean("native_route_owner_verified", true);
         state.putBoolean("native_route_webview_mounted", true);
+        state.putBoolean("native_route_webview_parent_is_container", true);
+        state.putBoolean("webview_parent_is_container", true);
         state.putBoolean("native_route_dock_visible", true);
         state.putBoolean("native_route_root_covers_center", true);
         state.putBoolean("native_route_root_covers_dock", true);
@@ -4049,7 +4052,7 @@ public final class HomeRenderInstrumentation extends Instrumentation {
         boolean splashHidden = splash.getVisibility() == View.GONE;
         boolean homeTabVisible = nativeHomeTab.isShown();
         boolean webContainerVisible = webContainer.getVisibility() == View.VISIBLE;
-        boolean webViewMounted = webView != null && webView.getParent() != null;
+        boolean webViewMounted = webView != null && webView.getParent() == webContainer;
         boolean statusIsChild = statusView != null && statusView.getParent() == nativeContent;
         boolean sameWebViewUrl = equalsNullable(originalUrl, webView.getUrl());
         int screenWidth = mainRoot == null ? 0 : mainRoot.getWidth();
@@ -4079,6 +4082,7 @@ public final class HomeRenderInstrumentation extends Instrumentation {
         state.putBoolean("native_root_is_foremost_surface", true);
         state.putBoolean("splash_hidden", true);
         state.putBoolean("webview_mounted_under_native_root", true);
+        state.putBoolean("webview_parent_is_container", true);
         state.putBoolean("webview_container_visible_under_native_root", true);
         state.putBoolean("original_webview_url_preserved", true);
         state.putBoolean("page_load_complete", webView.getProgress() == 100);
@@ -4129,7 +4133,7 @@ public final class HomeRenderInstrumentation extends Instrumentation {
         boolean splashHidden = splash.getVisibility() == View.GONE;
         boolean homeTabVisible = nativeHomeTab.isShown();
         boolean webContainerMounted = webContainer.getVisibility() == View.VISIBLE
-                && webView != null && webView.getParent() != null;
+                && webView != null && webView.getParent() == webContainer;
         boolean statusIsChild = statusView != null && statusView.getParent() == nativeContent;
         boolean sameWebViewUrl = equalsNullable(originalWebViewUrl, webView.getUrl());
         int screenWidth = mainRoot == null ? 0 : mainRoot.getWidth();
@@ -4163,6 +4167,7 @@ public final class HomeRenderInstrumentation extends Instrumentation {
         state.putBoolean("native_root_is_foremost_surface", true);
         state.putBoolean("splash_hidden", true);
         state.putBoolean("webview_mounted_under_native_root", true);
+        state.putBoolean("webview_parent_is_container", true);
         state.putBoolean("webview_container_visible_under_native_root", true);
         state.putBoolean("original_webview_url_preserved", true);
         state.putBoolean("page_load_complete", webView.getProgress() == 100);

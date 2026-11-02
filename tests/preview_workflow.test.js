@@ -270,6 +270,10 @@ test("Android verifies native ownership across route callbacks, returns, late ca
   }
   assert.match(workflow, /for route_snapshot in home search library detail detail_return player player_return late_callback_watchdog[\s\S]*?native_route_\$\{route_snapshot\}_owner_verified/,
     "the workflow requires a measured owner result for each named route snapshot");
+  assert.match(workflow, /native_route_\$\{route_snapshot\}_webview_parent_is_container=true/,
+    "every route snapshot requires a runtime assertion that the primary WebView is a direct child of webViewContainer");
+  assert.match(harness, /webView\.getParent\(\) == webContainer/,
+    "native route ownership checks use the exact parent, not merely a non-null ViewParent");
   assert.match(workflow, /INSTRUMENTATION_STATUS: login_surface_restored_after_native_route_matrix=true/);
   assert.match(workflow, /safe_statuses=.*login_surface_restored_after_native_route_matrix/);
   assert.match(workflow, /"login_surface_restored": status_bool\("login_surface_restored_after_native_route_matrix"\)/,
@@ -635,7 +639,7 @@ test("the emulator workflow validates same-run instrumentation and exact release
   );
   assert.match(
     emulatorWorkflow,
-    /phase=empty_home_native_error_state[\s\S]*?home_payload_empty=true[\s\S]*?playlist_or_card_injected=false[\s\S]*?native_home_error_message_visible=true[\s\S]*?native_home_retry_action_clickable=true[\s\S]*?native_root_is_foremost_surface=true[\s\S]*?webview_mounted_under_native_root=true/,
+    /phase=empty_home_native_error_state[\s\S]*?home_payload_empty=true[\s\S]*?playlist_or_card_injected=false[\s\S]*?native_home_error_message_visible=true[\s\S]*?native_home_retry_action_clickable=true[\s\S]*?native_root_is_foremost_surface=true[\s\S]*?webview_mounted_under_native_root=true[\s\S]*?webview_parent_is_container=true/,
     "the Home integration uses only an empty payload and verifies a measured native error/retry surface over the mounted WebView",
   );
   assert.match(

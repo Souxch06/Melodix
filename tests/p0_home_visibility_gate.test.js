@@ -285,14 +285,17 @@ test('the CI Home integration contains no fake account data or credentials and l
   assert.doesNotMatch(inspector, /FIXTURE_TITLE|Controlled Home fixture|fixture_title/);
 });
 
-test('cold-launch mounted-WebView failure reports which accessibility observation is missing without weakening the gate', () => {
+test('cold-launch UI hierarchy accepts an omitted container accessibility node only when the WebView itself is visible and bounded', () => {
   const inspector = read('tests/android/inspect_hierarchy.py');
+  const harness = read('tests/android/HomeRenderInstrumentation.java');
   const coldGateStart = inspector.indexOf('if phase in {"empty-home", "home-status"}:');
   const coldGate = inspector.slice(coldGateStart, inspector.indexOf('if phase == "native-route":', coldGateStart));
-  assert.match(coldGate, /if not web_container_present or not webview_class_present:[\s\S]*?fail\([\s\S]*?mounted_webview_under_native_home_surface_not_observed/);
+  assert.match(coldGate, /if not webview_class_visible or webview_bounds is None:[\s\S]*?fail\([\s\S]*?visible_bounded_webview_accessibility_node_missing/);
+  assert.doesNotMatch(coldGate, /if not web_container_present/,
+    'a FrameLayout wrapper omitted from Accessibility is diagnostic only, not a substitute for the WebView node');
   for (const observation of [
-    'web_container_present={web_container_present}',
-    'web_container_visible={web_container_visible}',
+    'web_container_node_present={web_container_present}',
+    'web_container_node_visible={web_container_visible}',
     'webview_class_present={webview_class_present}',
     'webview_class_visible={webview_class_visible}',
     'webview_bounds_present={webview_bounds_present}',
@@ -301,8 +304,16 @@ test('cold-launch mounted-WebView failure reports which accessibility observatio
   ]) {
     assert.ok(coldGate.includes(observation), `failure diagnostics include the bounded ${observation} observation`);
   }
-  assert.doesNotMatch(coldGate, /if not web_container_present or not webview_class_present:[\s\S]*?\n\s*pass\(/,
-    'absence of either hierarchy node continues to fail; a later runtime-mounted check cannot mask this snapshot');
+  assert.match(harness, /webView\.getParent\(\) == webContainer/,
+    'the on-device runtime gate checks the primary WebView’s actual direct container parent');
+  assert.match(harness, /webContainerMounted = webContainer\.getVisibility\(\) == View\.VISIBLE[\s\S]*?webView\.getParent\(\) == webContainer/);
+  const routeGateStart = inspector.indexOf('if phase == "native-route":');
+  const routeGate = inspector.slice(routeGateStart);
+  assert.doesNotMatch(routeGate, /if not web_container_present/,
+    'route screenshots likewise rely on the visible WebView child, not a container wrapper node');
+  assert.match(routeGate, /if not webview_class_visible or webview_bounds is None:[\s\S]*?native_route_visible_bounded_webview_accessibility_node_missing/);
+  assert.match(inspector, /FrameLayout that contains a WebView is not guaranteed[\s\S]*?own accessibility node/,
+    'the hierarchy gate documents why missing wrapper metadata does not establish a detached WebView');
 });
 
 test('native Home hierarchy inspection recognizes safe loading and error labels without exporting text', () => {

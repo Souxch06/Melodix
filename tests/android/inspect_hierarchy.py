@@ -323,11 +323,15 @@ def main():
                 f" home_tab_visible={native_home_tab_visible};"
                 f" splash_visible={splash_visible}"
             )
-        if not web_container_present or not webview_class_present:
+        # A FrameLayout that contains a WebView is not guaranteed to have its
+        # own accessibility node. Require the actual visible, bounded WebView
+        # node in this cold snapshot; the Android runtime harness separately
+        # verifies that the primary WebView's direct parent is webViewContainer.
+        if not webview_class_visible or webview_bounds is None:
             fail(
-                "mounted_webview_under_native_home_surface_not_observed;"
-                f" web_container_present={web_container_present};"
-                f" web_container_visible={web_container_visible};"
+                "visible_bounded_webview_accessibility_node_missing;"
+                f" web_container_node_present={web_container_present};"
+                f" web_container_node_visible={web_container_visible};"
                 f" webview_class_present={webview_class_present};"
                 f" webview_class_visible={webview_class_visible};"
                 f" webview_bounds_present={webview_bounds_present};"
@@ -368,8 +372,17 @@ def main():
                 f" home_tab_visible={native_home_tab_visible};"
                 f" splash_visible={splash_visible}"
             )
-        if not web_container_present or not webview_class_present:
-            fail("native_route_webview_not_mounted_under_shell")
+        if not webview_class_visible or webview_bounds is None:
+            fail(
+                "native_route_visible_bounded_webview_accessibility_node_missing;"
+                f" web_container_node_present={web_container_present};"
+                f" web_container_node_visible={web_container_visible};"
+                f" webview_class_present={webview_class_present};"
+                f" webview_class_visible={webview_class_visible};"
+                f" webview_bounds_present={webview_bounds_present};"
+                f" native_root_visible={native_root_visible};"
+                f" hierarchy_node_count={len(hierarchy_nodes)}"
+            )
         if not summary["screenshot_pixels"].get("native_root_pixels_rendered"):
             fail("native_route_root_bounds_have_no_rendered_screenshot_pixels")
         print("Native route shell: nativeRoot, dock, mounted WebView, and screenshot pixels verified; account content not tested.")
