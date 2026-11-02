@@ -1234,7 +1234,9 @@ test('row taps open playlists, albums and tracks', () => {
         activity.indexOf('.end method', activity.indexOf('.method public final openNativeRow'))
     );
 
-    assert.match(openRow, /if-eqz v0, :native_row_click_done/, 'only empty URIs are ignored');
+    assert.match(openRow, /if-eqz p1, :native_row_click_done/, 'null URIs are ignored');
+    assert.match(openRow, /invoke-virtual \{p1\}, Ljava\/lang\/String;->isEmpty\(\)Z\s+move-result v0\s+if-nez v0, :native_row_click_done/,
+        'non-empty URIs and action identifiers continue to dispatch');
     assert.match(openRow, /const-string v2, ":playlist:"/);
     assert.match(openRow, /const-string v2, "\/collection"/);
     assert.match(openRow, /if-eqz v1, :native_open_single/, 'tracks are played by the WebView');

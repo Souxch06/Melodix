@@ -9961,7 +9961,7 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
 
     invoke-virtual {p1}, Ljava/lang/String;->isEmpty()Z
     move-result v0
-    if-eqz v0, :native_row_click_done
+    if-nez v0, :native_row_click_done
 
     # State rows on Home are real actions, dispatched natively: an error card
     # either retries the library fetch or opens Settings so the user can

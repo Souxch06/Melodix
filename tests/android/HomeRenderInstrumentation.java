@@ -4132,65 +4132,89 @@ public final class HomeRenderInstrumentation extends Instrumentation {
             }
         });
         if (retryFailure[0] != null) throw new AssertionError("Could not click the child retry action");
-        if (!retryClicked[0] || !"true".equals(evaluateJavascriptAndWait(
-                webView, "window.__melodixTestRetryActionCount===1"))) {
+        notePhase("home_status_retry_callback_check");
+        boolean retryCallbackDispatched = "true".equals(evaluateJavascriptAndWait(
+                webView, "window.__melodixTestRetryActionCount===1"));
+        Bundle retryCheckpoint = new Bundle();
+        retryCheckpoint.putString("phase", "home_status_retry_callback_check");
+        retryCheckpoint.putBoolean("native_home_status_retry_action_clickable", retryClicked[0]);
+        retryCheckpoint.putBoolean("native_home_status_retry_action_click_dispatched", retryClicked[0] && retryCallbackDispatched);
+        sendStatus(1, retryCheckpoint);
+        if (!retryClicked[0] || !retryCallbackDispatched) {
             throw new AssertionError("The child retry button did not dispatch exactly one manual retry");
         }
 
         final boolean[] loginClicked = new boolean[1];
         final Throwable[] loginClickFailure = new Throwable[1];
-        runOnMainSync(new Runnable() {
-            @Override
-            public void run() {
-                try {
-                    View status = readViewField(activity, "nativeHomeStatusView");
-                    loginClicked[0] = performClickOnText(status, "Se connecter");
-                } catch (Throwable error) {
-                    loginClickFailure[0] = unwrapInvocationTarget(error);
-                }
-            }
-        });
-        if (loginClickFailure[0] != null) throw new AssertionError("Could not click the child official-login action");
-        if (!loginClicked[0]) throw new AssertionError("The official-login child button was not clickable");
-        waitForIdleSync();
-        Thread.sleep(100L);
-
         final String[] loginUrl = new String[1];
         final boolean[] loginOwner = new boolean[1];
         final boolean[] webViewPreserved = new boolean[1];
         final boolean[] webContainerVisible = new boolean[1];
+        final boolean[] officialLoginRoute = new boolean[1];
         final Throwable[] loginInspectFailure = new Throwable[1];
-        runOnMainSync(new Runnable() {
-            @Override
-            public void run() {
-                try {
-                    loginUrl[0] = webView.getUrl();
-                    loginOwner[0] = readBooleanField(activity, "nativeLoginWebRequested");
-                    View container = requiredView(activity, "webViewContainer");
-                    webViewPreserved[0] = webView.getParent() == container;
-                    webContainerVisible[0] = container.getVisibility() == View.VISIBLE;
-                } catch (Throwable error) {
-                    loginInspectFailure[0] = unwrapInvocationTarget(error);
-                }
-            }
-        });
-        if (loginInspectFailure[0] != null) throw new AssertionError("Could not inspect official-login action ownership");
-        boolean officialLoginRoute = loginUrl[0] != null
-                && loginUrl[0].startsWith("https://accounts.spotify.com/")
-                && loginUrl[0].contains("/login");
         final Throwable[] restoreFailure = new Throwable[1];
-        runOnMainSync(new Runnable() {
-            @Override
-            public void run() {
-                try {
-                    webView.loadUrl(originalUrl);
-                    Method revealLogin = activity.getClass().getMethod("revealLoginWebUi");
-                    revealLogin.invoke(activity);
-                } catch (Throwable error) {
-                    restoreFailure[0] = unwrapInvocationTarget(error);
+        try {
+            notePhase("home_status_login_action_click");
+            runOnMainSync(new Runnable() {
+                @Override
+                public void run() {
+                    try {
+                        View status = readViewField(activity, "nativeHomeStatusView");
+                        loginClicked[0] = performClickOnText(status, "Se connecter");
+                    } catch (Throwable error) {
+                        loginClickFailure[0] = unwrapInvocationTarget(error);
+                    }
                 }
+            });
+            if (loginClickFailure[0] != null) throw new AssertionError("Could not click the child official-login action");
+            if (!loginClicked[0]) throw new AssertionError("The official-login child button was not clickable");
+            waitForIdleSync();
+            Thread.sleep(100L);
+
+            notePhase("home_status_login_route_inspection");
+            runOnMainSync(new Runnable() {
+                @Override
+                public void run() {
+                    try {
+                        loginUrl[0] = webView.getUrl();
+                        loginOwner[0] = readBooleanField(activity, "nativeLoginWebRequested");
+                        View container = requiredView(activity, "webViewContainer");
+                        webViewPreserved[0] = webView.getParent() == container;
+                        webContainerVisible[0] = container.getVisibility() == View.VISIBLE;
+                    } catch (Throwable error) {
+                        loginInspectFailure[0] = unwrapInvocationTarget(error);
+                    }
+                }
+            });
+            if (loginInspectFailure[0] != null) throw new AssertionError("Could not inspect official-login action ownership");
+            officialLoginRoute[0] = loginUrl[0] != null
+                    && loginUrl[0].startsWith("https://accounts.spotify.com/")
+                    && loginUrl[0].contains("/login");
+            Bundle loginCheckpoint = new Bundle();
+            loginCheckpoint.putString("phase", "home_status_login_route_inspection");
+            loginCheckpoint.putBoolean("native_home_status_login_action_clickable", loginClicked[0]);
+            loginCheckpoint.putBoolean("native_home_status_official_login_route_opened", officialLoginRoute[0]);
+            loginCheckpoint.putBoolean("native_home_status_webview_preserved_after_login", webViewPreserved[0]);
+            sendStatus(1, loginCheckpoint);
+        } finally {
+            notePhase("home_status_login_surface_restore");
+            try {
+                runOnMainSync(new Runnable() {
+                    @Override
+                    public void run() {
+                        try {
+                            webView.loadUrl(originalUrl);
+                            Method revealLogin = activity.getClass().getMethod("revealLoginWebUi");
+                            revealLogin.invoke(activity);
+                        } catch (Throwable error) {
+                            restoreFailure[0] = unwrapInvocationTarget(error);
+                        }
+                    }
+                });
+            } catch (Throwable error) {
+                restoreFailure[0] = unwrapInvocationTarget(error);
             }
-        });
+        }
         if (restoreFailure[0] != null) throw new AssertionError("Could not restore the original login WebView after the action test");
         if (!awaitOriginalLoginSurface(webView, originalUrl)) {
             throw new AssertionError("The original unauthenticated login surface did not return after the action test");
@@ -4212,10 +4236,16 @@ public final class HomeRenderInstrumentation extends Instrumentation {
             }
         });
         if (restoredInspectFailure[0] != null) throw new AssertionError("Could not inspect restored login ownership");
-        if (!equalsNullable(originalUrl, restoredUrl[0]) || !restoredLoginOwner[0] || !restoredWebViewPreserved[0]) {
+        boolean loginSurfaceRestored = equalsNullable(originalUrl, restoredUrl[0])
+                && restoredLoginOwner[0] && restoredWebViewPreserved[0];
+        Bundle restoreCheckpoint = new Bundle();
+        restoreCheckpoint.putString("phase", "home_status_login_surface_restore");
+        restoreCheckpoint.putBoolean("native_home_status_login_surface_restored", loginSurfaceRestored);
+        sendStatus(1, restoreCheckpoint);
+        if (!loginSurfaceRestored) {
             throw new AssertionError("The original WebView and explicit login owner were not restored after clicking the action buttons");
         }
-        if (!loginOwner[0] || !officialLoginRoute || !webViewPreserved[0] || !webContainerVisible[0]) {
+        if (!loginOwner[0] || !officialLoginRoute[0] || !webViewPreserved[0] || !webContainerVisible[0]) {
             throw new AssertionError("The login child action did not reveal the official login route in the existing WebView");
         }
         requireUnauthenticatedSession(activity);
