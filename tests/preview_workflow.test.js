@@ -547,8 +547,10 @@ test("the emulator workflow validates same-run instrumentation and exact release
   assert.match(
     emulatorWorkflow,
     /adb install "\$APK_PATH"[\s\S]*?adb shell pm clear com\.melodix\.music\.preview[\s\S]*?permission-prompt-summary\.json[\s\S]*?adb shell input tap "\$allow_center_x" "\$allow_center_y"[\s\S]*?read_bluetooth_permission_state[\s\S]*?adb install -r "\$TEST_APK"/,
-    "install and clear the exact APK, accept only the observed Android permission control, then install the test-only harness",
+    "install and clear the exact APK, prefer only the observed Android permission control, then install the test-only harness",
   );
+  assert.match(launchBlock, /explicit_adb_grant_without_observed_allow_control[\s\S]*?adb shell pm grant com\.melodix\.music\.preview android\.permission\.BLUETOOTH_CONNECT[\s\S]*?only the declared Bluetooth permission granted/,
+    "when the emulator exposes no usable Allow control, only the declared BLUETOOTH_CONNECT permission is granted explicitly and reported truthfully");
   assert.match(emulatorWorkflow, /read_bluetooth_permission_state\(\)[\s\S]*?dumpsys package com\.melodix\.music\.preview[\s\S]*?BLUETOOTH_CONNECT:[\s\S]*?granted=true/,
     "the test verifies the observed runtime permission through package-manager state rather than an unsupported shell command");
   assert.doesNotMatch(emulatorWorkflow, /pm check-permission/,

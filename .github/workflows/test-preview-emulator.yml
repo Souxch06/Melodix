@@ -486,9 +486,10 @@ jobs:
           fi
           rm -f "$permission_xml"
           adb shell rm -f /sdcard/melodix-preview-permission.xml >/dev/null 2>&1 || true
-          # The clean first launch may be covered by Android's nearby-devices
-          # permission prompt. Tap only the observed system Allow button, by its
-          # accessibility bounds; do not inject login/session or content data.
+          # Record the clean first-launch permission surface without retaining
+          # raw hierarchy text. If the nearby-devices prompt is visible, tap only
+          # its observed Allow control; otherwise grant only this declared
+          # permission below, without injecting login/session or content data.
           read_bluetooth_permission_state() {
             if adb shell dumpsys package com.melodix.music.preview \
                 | grep -F 'android.permission.BLUETOOTH_CONNECT:' \
@@ -522,12 +523,31 @@ jobs:
               sleep 3
               permission_status="$(read_bluetooth_permission_state)"
             else
-              echo "::error title=Android permission setup::BLUETOOTH_CONNECT=$permission_status; permission_controller_visible=$permission_prompt_visible; allow_bounds_available=false"
-              exit 1
+              # Some emulator images do not expose a usable dialog/control
+              # even though the permission remains denied. Preserve the redacted
+              # observation and grant only this declared Bluetooth permission;
+              # never broaden app permissions or touch Spotify credentials.
+              permission_action="explicit_adb_grant_without_observed_allow_control"
+              if ! adb shell pm grant com.melodix.music.preview android.permission.BLUETOOTH_CONNECT >/dev/null 2>&1; then
+                echo "::error title=Android permission setup::BLUETOOTH_CONNECT=$permission_status; permission_controller_visible=$permission_prompt_visible; explicit_single_permission_grant=failed"
+                exit 1
+              fi
+              permission_status="$(read_bluetooth_permission_state)"
             fi
           fi
-          [[ "$permission_status" == "granted" ]] || { echo "::error title=Android permission setup::BLUETOOTH_CONNECT=$permission_status; permission_controller_visible=$permission_prompt_visible; allow_button_tapped=true"; exit 1; }
-          echo "::notice title=Android permission setup::fresh app data retained; BLUETOOTH_CONNECT=$permission_status; action=$permission_action; no Spotify session or cookies supplied"
+          [[ "$permission_status" == "granted" ]] || { echo "::error title=Android permission setup::BLUETOOTH_CONNECT=$permission_status; permission_controller_visible=$permission_prompt_visible; action=$permission_action"; exit 1; }
+          python3 - "$state_dir/permission-prompt-summary.json" "$permission_action" "$permission_status" <<'PY'
+          import json
+          import pathlib
+          import sys
+
+          path = pathlib.Path(sys.argv[1])
+          state = json.loads(path.read_text(encoding="utf-8"))
+          state["permission_grant_action"] = sys.argv[2]
+          state["bluetooth_connect_granted"] = sys.argv[3] == "granted"
+          path.write_text(json.dumps(state, indent=2) + "\n", encoding="utf-8")
+          PY
+          echo "::notice title=Android permission setup::fresh app data retained; BLUETOOTH_CONNECT=$permission_status; action=$permission_action; only the declared Bluetooth permission granted; no Spotify session or cookies supplied"
           adb shell am force-stop com.melodix.music.preview >/dev/null 2>&1 || true
           adb shell monkey -p com.melodix.music.preview -c android.intent.category.LAUNCHER 1 >/dev/null
           sleep 60
@@ -1530,7 +1550,7 @@ jobs:
             echo "- Preserved cold-launch hierarchy/pixel check: \`${COLD_LAUNCH_OUTCOME:-not run}\`"
             echo "- Exact non-debuggable release candidate: \`${RELEASE_SMOKE_OUTCOME:-not run}\`; debuggable=\`${RELEASE_DEBUGGABLE:-not verified}\`; versionName/versionCode=\`${RELEASE_VERSION_NAME:-unknown}\` / \`${RELEASE_VERSION_CODE:-unknown}\`; SHA-256=\`${RELEASE_APK_SHA256:-not verified}\`; activity resumed=\`${RELEASE_ACTIVITY_RESUMED:-false}\`."
             echo "- Authenticated Spotify Home: not tested; CI uses no Spotify session or account data."
-            echo "- Emulator setup: fresh app data; only BLUETOOTH_CONNECT granted to pass Android's runtime permission prompt; no Spotify session or cookies supplied."
+            echo "- Emulator setup: fresh app data; only BLUETOOTH_CONNECT granted. The observed system Allow control is used when accessible; if no Allow control is observable, that is recorded and only this declared permission is granted through Android's package manager. No Spotify session or cookies supplied."
             echo "- Scope: unauthenticated login, native empty-Home error/retry status, plus the packaged Web Home renderer exercised at /app in a second, isolated WebView using two test-only local resource links. The fixture does not alter the main WebView or app session, does not establish authenticated Home rendering, and supplies no account data or credentials."
           } >> "$GITHUB_STEP_SUMMARY"
 
@@ -1718,7 +1738,9 @@ jobs:
               "package_id": package_id or None,
               "version_name": version_name or None,
               "version_code": version_code or None,
-              "test_emulator_permission_setup": "BLUETOOTH_CONNECT granted before launch; app data cleared; no Spotify session or cookies supplied",
+              "test_emulator_permission_setup": f"BLUETOOTH_CONNECT granted before launch via {permission_state.get('permission_grant_action', 'unreported')}; app data cleared; no Spotify session or cookies supplied",
+              "bluetooth_connect_granted_before_launch": permission_state.get("bluetooth_connect_granted", False),
+              "permission_grant_action": permission_state.get("permission_grant_action"),
               "first_launch_permission_hierarchy_available": permission_state.get("hierarchy_available", False),
               "permission_controller_in_first_launch_hierarchy": permission_state.get("permission_controller_in_hierarchy", False),
               "permission_controls_in_first_launch_hierarchy": permission_state.get("permission_allow_or_deny_control_present", False),
