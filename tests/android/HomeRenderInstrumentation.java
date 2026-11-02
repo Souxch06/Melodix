@@ -638,7 +638,7 @@ public final class HomeRenderInstrumentation extends Instrumentation {
                     try {
                         loginState[0] = inspectLoginSurface(activity, webView, loginDomVisible);
                     } catch (Throwable error) {
-                        loginFailure[0] = error;
+                        loginFailure[0] = unwrapInvocationTarget(error);
                     }
                 }
             });
@@ -1019,6 +1019,16 @@ public final class HomeRenderInstrumentation extends Instrumentation {
 
     private void notePhase(String phase) {
         Log.i(HARNESS_TAG, "phase=" + phase);
+    }
+
+    private static Throwable unwrapInvocationTarget(Throwable failure) {
+        Throwable current = failure;
+        for (int depth = 0; depth < 4 && current instanceof InvocationTargetException; depth++) {
+            Throwable target = ((InvocationTargetException) current).getTargetException();
+            if (target == null || target == current) break;
+            current = target;
+        }
+        return current;
     }
 
     private Activity launchTarget() {

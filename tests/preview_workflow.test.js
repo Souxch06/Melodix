@@ -671,6 +671,23 @@ test("the emulator workflow validates same-run instrumentation and exact release
   );
 });
 
+test("login-surface reflection failures expose only the bounded target exception class", () => {
+  const harness = fs.readFileSync(
+    path.resolve(__dirname, "android", "HomeRenderInstrumentation.java"),
+    "utf8",
+  );
+  assert.ok(harness.includes("private static Throwable unwrapInvocationTarget(Throwable failure) {"));
+  assert.ok(harness.includes("for (int depth = 0; depth < 4 && current instanceof InvocationTargetException; depth++)"),
+    "only a bounded chain of reflection wrappers is unwrapped");
+  assert.ok(harness.includes("loginFailure[0] = unwrapInvocationTarget(error);"),
+    "the login surface probe reports the target exception class instead of the generic reflection wrapper");
+  assert.ok(harness.includes('status.putString("failure_type", failure.getClass().getSimpleName());'),
+    "the instrumentation result contains only a safe Java exception class");
+  assert.equal(harness.includes(".getMessage("), false, "failure messages are never persisted or shown");
+  assert.equal(harness.includes(".printStackTrace("), false, "failure stacks are never persisted or shown");
+  assert.equal(harness.includes(".getStackTrace("), false, "failure stacks are never persisted or shown");
+});
+
 test("the authenticated-home bundle contains the exact debuggable target, matching signed runner, command, manifest, and long retention", () => {
   const emulatorWorkflow = fs.readFileSync(
     path.resolve(__dirname, "..", ".github/workflows/test-preview-emulator.yml"),

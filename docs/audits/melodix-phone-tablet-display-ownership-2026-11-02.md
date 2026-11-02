@@ -38,7 +38,11 @@ Capturer et vérifier les deux profils aux échéances **200 ms, 1 s, 3 s, 8 s e
 
 Le run `41470619043`, source `b0fbd6d92a20c958822f2ef8c297b44c6fda5a34`, a construit les deux APK et vérifié leur provenance; l’installation du SDK a réussi. APK instrumentation : SHA-256 `52456602862c0f3f1db86f37f63764447a6411c51b2e7316501ca044aac6de24`; candidat non débogable : SHA-256 `f69da0ecda9ee8f5a34dda7e3aa97d772a42426d95f45d80cb05f1c4257a2b82`. L’émulateur n’a toutefois pas gardé le processus actif : le diagnostic assaini a relevé un `VerifyError` dans `MainActivity.completeNativeUiVisibility`. Inspection Smali : dans le chemin « visibilité en attente », `v0` recevait la chaîne `watchdog`, puis était retourné depuis une méthode de type `Z` sans restaurer un booléen.
 
-Le correctif local restaure `false` après l’écriture du diagnostic et ajoute une régression statique. `npm test` passe maintenant 472/472; le correctif doit encore passer dans un nouveau build/émulateur. Cet échec précède toute observation d’interface et ne constitue ni une reproduction du symptôme téléphone/tablette, ni une validation du P0.
+Le commit `10d5586b8bb5453445ed6c526cfd43894311abd3` restaure `false` après l’écriture du diagnostic et ajoute une régression statique. Le run `41471785140` a construit et vérifié les nouveaux APK (instrumentation SHA-256 `5e7ab6af8883460024c47c3f50a64f737f27c8e4dc23d7d510dcfd3d74be96d8`; candidat non débogable SHA-256 `d932658e40bf141b6326ee08228961f934b78068765552552f31783023d15b79`) et a dépassé le lancement sans le `VerifyError` précédent.
+
+Cette exécution a émis les cinq échantillons Home (`200 ms`, `1 s`, `3 s`, `8 s`, `20 s`) **à partir du début du timeline après disponibilité de l’état natif Home**, pas du lancement de l’application. La vérification globale de pixels/hierarchie a ensuite échoué à `login_surface_visibility` (`InvocationTargetException`); les scénarios empty-Home et routes ne sont pas allés au bout. Une modification locale du runner retire maintenant au plus quatre wrappers de réflexion et ne conserve que la classe d’exception cible, jamais son message ni sa pile; un nouveau run est nécessaire pour connaître cette classe et poursuivre les scénarios.
+
+`npm test` passe maintenant 473/473. Ces résultats restent une avancée limitée sur un seul profil d’émulateur : ils ne constituent ni une comparaison téléphone/tablette, ni une vérification de pixels complète, ni la validation du P0.
 
 ## Critère de réussite
 
