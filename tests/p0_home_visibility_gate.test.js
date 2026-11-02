@@ -93,6 +93,24 @@ test('the visible-ready flag follows a second post-overlay measurement and recor
     'a failed visibility measure cannot transfer ownership to Spotify Web');
 });
 
+test('failed native visibility returns a verifier-typed boolean after emitting its watchdog trace', () => {
+  const complete = method(read('smali/com/melodix/music/MainActivity.smali'),
+    '.method public final completeNativeUiVisibility(Z)Z');
+  const pendingStart = complete.indexOf('\n    :native_visibility_not_ready');
+  const confirmedStart = complete.indexOf('\n    :native_visibility_confirmed');
+  assert.ok(pendingStart >= 0 && confirmedStart > pendingStart,
+    'the pending branch remains distinct from a successful native visibility result');
+  const pending = complete.slice(pendingStart, confirmedStart);
+  assert.match(pending, /traceNativeDisplayOwner\(Ljava\/lang\/String;Ljava\/lang\/String;Ljava\/lang\/String;\)V/);
+  const instructions = pending.split('\n')
+    .map((line) => line.trim())
+    .filter((line) => line && !line.startsWith('#'));
+  const returnIndex = instructions.lastIndexOf('return v0');
+  assert.ok(returnIndex > 0, 'the pending branch has an explicit false result');
+  assert.equal(instructions[returnIndex - 1], 'const/4 v0, 0x0',
+    'the watchdog category string must not reach return v0 in a Z method');
+});
+
 test('[static layout] nativeRoot and hScrollView are later/earlier siblings under main with stable resource id', () => {
   const layout = new JSDOM(read('res/layout/activity_main.xml'), { contentType: 'text/xml' }).window.document;
   const main = layout.documentElement;

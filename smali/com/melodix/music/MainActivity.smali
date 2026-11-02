@@ -8119,6 +8119,8 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
     const-string v0, "watchdog"
     const-string v2, "pending"
     invoke-virtual {p0, v1, v0, v2}, Lcom/melodix/music/MainActivity;->traceNativeDisplayOwner(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)V
+    # v0 carried the watchdog label for the trace; restore the boolean result.
+    const/4 v0, 0x0
     return v0
 
     :native_visibility_confirmed
