@@ -270,8 +270,21 @@ test("Android verifies native ownership across route callbacks, returns, late ca
   }
   assert.match(workflow, /for route_snapshot in home search library detail detail_return player player_return late_callback_watchdog[\s\S]*?native_route_\$\{route_snapshot\}_owner_verified/,
     "the workflow requires a measured owner result for each named route snapshot");
+  assert.match(workflow, /INSTRUMENTATION_STATUS: login_surface_restored_after_native_route_matrix=true/);
+  assert.match(workflow, /safe_statuses=.*login_surface_restored_after_native_route_matrix/);
+  assert.match(workflow, /"login_surface_restored": status_bool\("login_surface_restored_after_native_route_matrix"\)/,
+    "the redacted CI summary records the explicit login restoration after the native-only route matrix");
   assert.match(matrix, /onNativeUiRoute[\s\S]*?onNativeBackClick[\s\S]*?showNativeUiFrom/,
     "the matrix exercises real bridge route callbacks, native back actions, and the actual visibility callback entry point");
+  assert.match(matrix, /clearLoginOwnerForNativeFixture\(activity\)[\s\S]*?runNativeRouteOwnerMatrix\(activity, webView, originalUrl\)[\s\S]*?restoreExplicitLoginSurfaceAfterNativeRouteMatrix\(activity, webView, originalUrl\)[\s\S]*?login_surface_restored_after_native_route_matrix/,
+    "the route-only fixture temporarily clears the explicit login gate and then verifies the original login surface is restored");
+  assert.match(matrix, /dispatchEmptyHomeThroughAndBridgeOnMain\(activity\)/,
+    "empty Home route payload callbacks are dispatched from Android's UI thread");
+  const emptyHomeMainDispatchStart = harness.indexOf("private void dispatchEmptyHomeThroughAndBridgeOnMain(");
+  const emptyHomeMainDispatchEnd = harness.indexOf("private void dispatchEmptyHomeThroughAndBridge(", emptyHomeMainDispatchStart);
+  const emptyHomeMainDispatch = harness.slice(emptyHomeMainDispatchStart, emptyHomeMainDispatchEnd);
+  assert.match(emptyHomeMainDispatch, /runOnMainSync\(new Runnable\(\)[\s\S]*?dispatchEmptyHomeThroughAndBridge\(activity\)/,
+    "bridge dispatch cannot call the primary WebView's login-path gate from the instrumentation thread");
   assert.match(matrix, /latePageFinished\.invoke[\s\S]*?routeCallback\.invoke[\s\S]*?Thread\.sleep\("late_callback_watchdog"\.equals\(snapshot\) \? 800L/,
     "a late page-finished request is followed by a route change and the delayed visibility watcher is allowed to fire");
   assert.match(matrix, /rootCoversCenter[\s\S]*?rootCoversDock[\s\S]*?frontmostFullscreenSurface[\s\S]*?requireUnauthenticatedSession/,
@@ -682,18 +695,19 @@ test("login-surface reflection failures expose only the bounded target exception
   assert.ok(harness.includes("loginFailure[0] = unwrapInvocationTarget(error);"),
     "the login surface probe reports the target exception class instead of the generic reflection wrapper");
   const shellFixture = harness.indexOf("shellFixtureHolder[0] = createNativeUiShellHandoffFixture(activity);");
-  const shellGateClear = harness.indexOf("clearLoginOwnerForNativeShellFixture(activity);", shellFixture);
+  const shellGateClear = harness.indexOf("clearLoginOwnerForNativeFixture(activity);", shellFixture);
   const shellInstall = harness.indexOf("installPackagedNativeUiShell(shellFixtureHolder[0], activity);", shellGateClear);
   const shellLoginRestore = harness.indexOf("requestExplicitLoginWebUi(activity);", shellInstall);
   assert.ok(shellFixture >= 0 && shellGateClear > shellFixture && shellInstall > shellGateClear && shellLoginRestore > shellInstall,
     "the isolated status-only shell fixture temporarily clears, then restores, only the explicit login UI gate");
-  const gateHelperStart = harness.indexOf("private void clearLoginOwnerForNativeShellFixture(");
+  const gateHelperStart = harness.indexOf("private void clearLoginOwnerForNativeFixture(");
   const gateHelperEnd = harness.indexOf("private boolean verifyLoginSpaExitBeforeHomeFixture(", gateHelperStart);
   const gateHelper = harness.slice(gateHelperStart, gateHelperEnd);
   assert.ok(gateHelper.includes("runOnMainSync(new Runnable()") &&
     gateHelper.includes('getDeclaredField("nativeLoginWebRequested")') &&
+    gateHelper.includes("getBoolean(activity)") &&
     gateHelper.includes("setBoolean(activity, false)"),
-    "the test-only login gate change is performed on Android's main thread without navigating the WebView");
+    "the test-only login gate change is performed on Android's main thread without navigating the WebView and requires explicit login ownership");
   assert.ok(harness.includes("Throwable reportableFailure = unwrapInvocationTarget(failure);"),
     "the top-level result also unwraps bounded reflection wrappers from the main-thread dispatcher");
   const spaProbeStart = harness.indexOf("private boolean verifyLoginSpaExitBeforeHomeFixture(");

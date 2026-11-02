@@ -825,7 +825,7 @@ public final class HomeRenderInstrumentation extends Instrumentation {
                 // The primary WebView remains on the explicit login page. Temporarily
                 // release only its UI-owner gate for this synthetic, status-only
                 // native-shell handoff; the original URL, WebView and session stay untouched.
-                clearLoginOwnerForNativeShellFixture(activity);
+                clearLoginOwnerForNativeFixture(activity);
                 installPackagedNativeUiShell(shellFixtureHolder[0], activity);
                 failurePhase = "javascript_native_shell_status_visibility";
                 notePhase(failurePhase);
@@ -2267,6 +2267,29 @@ public final class HomeRenderInstrumentation extends Instrumentation {
 
     private Bundle verifyNativeRouteOwnerMatrix(
             final Activity activity, final WebView webView, final String originalUrl) throws Exception {
+        clearLoginOwnerForNativeFixture(activity);
+        Bundle result = null;
+        Throwable routeFailure = null;
+        try {
+            result = runNativeRouteOwnerMatrix(activity, webView, originalUrl);
+        } catch (Throwable error) {
+            routeFailure = unwrapInvocationTarget(error);
+        }
+        try {
+            restoreExplicitLoginSurfaceAfterNativeRouteMatrix(activity, webView, originalUrl);
+        } catch (Throwable error) {
+            if (routeFailure == null) routeFailure = unwrapInvocationTarget(error);
+        }
+        if (routeFailure instanceof Exception) throw (Exception) routeFailure;
+        if (routeFailure instanceof Error) throw (Error) routeFailure;
+        if (routeFailure != null) throw new AssertionError("Native route ownership fixture did not complete");
+        if (result == null) throw new AssertionError("Native route ownership fixture returned no result");
+        result.putBoolean("login_surface_restored_after_native_route_matrix", true);
+        return result;
+    }
+
+    private Bundle runNativeRouteOwnerMatrix(
+            final Activity activity, final WebView webView, final String originalUrl) throws Exception {
         final String[] snapshots = { "home", "search", "library", "detail", "detail_return", "player", "player_return", "late_callback_watchdog" };
         final String[] routes = { "home", "search", "library", "detail", "", "player", "", "search" };
         Class<?> bridgeClass = activity.getClassLoader().loadClass("com.melodix.music.AndBridge");
@@ -2313,7 +2336,9 @@ public final class HomeRenderInstrumentation extends Instrumentation {
             if ("home".equals(expectedRoute)) {
                 // Keep every Home return in an explicit, non-private error state;
                 // the empty payload exercises the real native empty renderer.
-                dispatchEmptyHomeThroughAndBridge(activity);
+                // Bridge callbacks touch the primary WebView's login-path gate,
+                // so dispatch them on Android's UI thread just like a WebView callback.
+                dispatchEmptyHomeThroughAndBridgeOnMain(activity);
                 awaitNativeHomeErrorReady(activity);
             }
             Bundle surface = awaitNativeRouteOwner(activity, webView, originalUrl, expectedRoute, 5000L);
@@ -2357,6 +2382,35 @@ public final class HomeRenderInstrumentation extends Instrumentation {
         matrix.putBoolean("late_visibility_watchdog_owner_verified", true);
         matrix.putString("native_route_matrix_categories", "home,search,library,detail,player");
         return matrix;
+    }
+
+    private void restoreExplicitLoginSurfaceAfterNativeRouteMatrix(
+            final Activity activity, final WebView webView, final String originalUrl) throws Exception {
+        final Throwable[] restoreFailure = new Throwable[1];
+        runOnMainSync(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    requestExplicitLoginWebUi(activity);
+                    View nativeRoot = requiredView(activity, "nativeRoot");
+                    View splash = requiredView(activity, "splashOverlay");
+                    View webContainer = requiredView(activity, "webViewContainer");
+                    if (nativeRoot.getVisibility() != View.GONE || splash.getVisibility() != View.GONE
+                            || webContainer.getVisibility() != View.VISIBLE || visibleBounds(webView) == null
+                            || !equalsNullable(originalUrl, webView.getUrl())) {
+                        throw new AssertionError("Explicit login UI did not restore the original mounted WebView");
+                    }
+                } catch (Throwable error) {
+                    restoreFailure[0] = unwrapInvocationTarget(error);
+                }
+            }
+        });
+        if (restoreFailure[0] instanceof Exception) throw (Exception) restoreFailure[0];
+        if (restoreFailure[0] instanceof Error) throw (Error) restoreFailure[0];
+        if (restoreFailure[0] != null) throw new AssertionError("Explicit login UI restoration failed");
+        waitForIdleSync();
+        awaitLoginUiVisible(webView);
+        requireUnauthenticatedSession(activity);
     }
 
     private Bundle awaitNativeRouteOwner(
@@ -3782,6 +3836,23 @@ public final class HomeRenderInstrumentation extends Instrumentation {
                 .replace("'", "&apos;");
     }
 
+    private void dispatchEmptyHomeThroughAndBridgeOnMain(final Activity activity) throws Exception {
+        final Throwable[] failure = new Throwable[1];
+        runOnMainSync(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    dispatchEmptyHomeThroughAndBridge(activity);
+                } catch (Throwable error) {
+                    failure[0] = unwrapInvocationTarget(error);
+                }
+            }
+        });
+        if (failure[0] instanceof Exception) throw (Exception) failure[0];
+        if (failure[0] instanceof Error) throw (Error) failure[0];
+        if (failure[0] != null) throw new AssertionError("Could not dispatch the empty native Home control payload");
+    }
+
     private void dispatchEmptyHomeThroughAndBridge(Activity activity) throws Exception {
         ClassLoader loader = activity.getClassLoader();
         Class<?> bridgeClass = loader.loadClass("com.melodix.music.AndBridge");
@@ -3803,7 +3874,7 @@ public final class HomeRenderInstrumentation extends Instrumentation {
         }
     }
 
-    private void clearLoginOwnerForNativeShellFixture(final Activity activity) throws Exception {
+    private void clearLoginOwnerForNativeFixture(final Activity activity) throws Exception {
         final Throwable[] failure = new Throwable[1];
         runOnMainSync(new Runnable() {
             @Override
@@ -3811,6 +3882,11 @@ public final class HomeRenderInstrumentation extends Instrumentation {
                 try {
                     Field loginOwner = activity.getClass().getDeclaredField("nativeLoginWebRequested");
                     loginOwner.setAccessible(true);
+                    if (!loginOwner.getBoolean(activity)) {
+                        throw new AssertionError("Explicit login owner was not active before the native-only fixture");
+                    }
+                    // This test-only gate change preserves the WebView, URL and
+                    // session. The caller explicitly restores login afterward.
                     loginOwner.setBoolean(activity, false);
                 } catch (Throwable error) {
                     failure[0] = unwrapInvocationTarget(error);
@@ -3819,7 +3895,7 @@ public final class HomeRenderInstrumentation extends Instrumentation {
         });
         if (failure[0] instanceof Exception) throw (Exception) failure[0];
         if (failure[0] instanceof Error) throw (Error) failure[0];
-        if (failure[0] != null) throw new AssertionError("Could not prepare the isolated native shell fixture");
+        if (failure[0] != null) throw new AssertionError("Could not prepare the isolated native UI fixture");
     }
 
     private boolean verifyLoginSpaExitBeforeHomeFixture(final Activity activity) throws Exception {
