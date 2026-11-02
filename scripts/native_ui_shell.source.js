@@ -244,7 +244,6 @@
                 var allowedStatus = ['loading', 'empty', 'error', 'unavailable'].indexOf(status) >= 0;
                 var allowedAction = !stateUri ||
                     (status === 'error' && allowedActions.indexOf(stateUri) >= 0) ||
-                    (status === 'loading' && stateUri === 'melodix:action:open-login') ||
                     (status === 'unavailable' && stateUri === 'melodix:action:retry-library');
                 var allowedSecondaryAction = !secondaryUri ||
                     (status === 'error' && item.sessionUnproven === true && allowedActions.indexOf(secondaryUri) >= 0 &&
@@ -659,16 +658,27 @@
     // arrive. Only the existing libraryV3 response can authorize native data.
     function requestMediaLibraryProof() {
         var now;
+        var delay;
         var previousError = String(window.__sfMediaLibError || '');
-        if (libraryProvesSession() || typeof window.checkMediaLib !== 'function' ||
-            window.__sfMediaLibStatus === 'loading' || previousError === 'http-401' || previousError === 'http-403') {
-            // Auth refusals wait for an explicit retry or login action instead
-            // of repeating the same cookie-backed request in the background.
+        if (libraryProvesSession()) {
+            window.__sfMediaLibRetryAt = 0;
+            window.__sfMediaLibRetryDelayMs = 5000;
+            return false;
+        }
+        if (typeof window.checkMediaLib !== 'function' || window.__sfMediaLibStatus === 'loading' ||
+            previousError === 'http-401' || previousError === 'http-403' ||
+            (previousError && !libraryErrorIsTransient(previousError))) {
+            // Authorization refusals and non-transient failures wait for an
+            // explicit retry/login instead of looping against Spotify.
             return false;
         }
         now = Date.now();
         if (window.__sfMediaLibRetryAt && now < window.__sfMediaLibRetryAt) return false;
-        window.__sfMediaLibRetryAt = now + 5000;
+        delay = Number(window.__sfMediaLibRetryDelayMs);
+        if (!Number.isFinite(delay) || delay < 5000) delay = 5000;
+        delay = Math.max(5000, Math.min(60000, Math.floor(delay)));
+        window.__sfMediaLibRetryAt = now + delay;
+        window.__sfMediaLibRetryDelayMs = Math.min(60000, delay * 2);
         try {
             window.checkMediaLib();
             return true;
@@ -794,6 +804,7 @@
         return Boolean(diagnostic && typeof diagnostic === 'object' &&
             Number(diagnostic.http) === status && diagnostic.phase === 'response' &&
             diagnostic.error === expectedError &&
+            diagnostic.authMode === 'webview-session' && diagnostic.refreshMode === 'unsupported' &&
             ['json', 'html', 'other', 'missing'].indexOf(diagnostic.mime) >= 0 &&
             Number.isFinite(Number(diagnostic.durationMs)) && Number(diagnostic.durationMs) >= 0);
     }
@@ -896,7 +907,8 @@
         var err = String(window.__sfMediaLibError || '');
         var confirmed401 = status === 'error' && err === 'http-401' && confirmedLibraryHttpStatus(401);
         var confirmed403 = status === 'error' && err === 'http-403' && confirmedLibraryHttpStatus(403);
-        var state = proofKnown || status === 'error' ? 'error' : 'loading';
+        var state = status === 'loading' || status === 'pending'
+            ? 'loading' : proofKnown || status === 'error' ? 'error' : 'loading';
         var title = confirmed401 ? 'Connexion Spotify à vérifier' :
             state === 'loading' ? 'Connexion Spotify en cours' : 'Connexion Spotify non confirmée';
         var detail = status === 'error' ? homeLibraryErrorText() : '';
@@ -925,10 +937,10 @@
             primaryUri = 'melodix:action:open-login';
             secondaryUri = 'melodix:action:retry-library';
         } else {
-            subtitle = proofKnown
-                ? 'Vos playlists restent masquées tant que la connexion n’est pas confirmée.'
-                : 'Nous vérifions votre connexion. Vos playlists resteront masquées jusqu’à validation.';
-            primaryUri = 'melodix:action:open-login';
+            subtitle = 'Vérification de la bibliothèque en cours. Vos playlists restent masquées jusqu’à validation.';
+            // A login action is offered only after a settled failure. While the
+            // initial request is pending, the loading panel is informational.
+            primaryUri = '';
         }
         return {
             kind: 'state',
@@ -962,6 +974,8 @@
         try {
             clearHomeRetry();
             homeRetries = 0;
+            window.__sfMediaLibRetryAt = 0;
+            window.__sfMediaLibRetryDelayMs = 5000;
             if (typeof window.checkMediaLib === 'function') window.checkMediaLib(true);
         } catch (_) {}
         try {
@@ -2311,6 +2325,14 @@
         runUpdate();
     }
 
+    function refreshWhenVisible() {
+        var visibility = String(document && document.visibilityState || 'unknown');
+        if (visibility === 'hidden') return;
+        // Re-run state derivation after Activity/WebView resume. Proof requests
+        // still obey requestMediaLibraryProof's single-flight/backoff/401 gates.
+        scheduleUpdate();
+    }
+
     var SETTINGS_STORAGE_KEY = 'melodix_spotify_settings_v1';
     var AUDIO_QUALITIES = [
         'Très élevée (320 kbit/s)',
@@ -3278,7 +3300,10 @@
         window.addEventListener('popstate', scheduleUpdate);
         window.addEventListener('hashchange', scheduleUpdate);
         window.addEventListener('load', scheduleUpdate, { once: true });
+        window.addEventListener('pageshow', refreshWhenVisible);
+        window.addEventListener('focus', refreshWhenVisible);
         document.addEventListener('DOMContentLoaded', scheduleUpdate, { once: true });
+        document.addEventListener('visibilitychange', refreshWhenVisible);
 
         if (window.MutationObserver && document.documentElement) {
             observer = new window.MutationObserver(scheduleUpdate);

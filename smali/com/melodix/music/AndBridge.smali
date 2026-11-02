@@ -534,17 +534,17 @@
     move-result v1
     if-nez v1, :structured_safe
 
-    const-string v0, "^library-fetch phase=response http=401 mime=(json|html|other|missing) duration=[0-9]{1,6} error=http-401$"
+    const-string v0, "^library-fetch phase=response http=401 mime=(json|html|other|missing) duration=[0-9]{1,6} error=http-401 auth=webview-session refresh=unsupported$"
     invoke-virtual {p1, v0}, Ljava/lang/String;->matches(Ljava/lang/String;)Z
     move-result v1
     if-nez v1, :structured_safe
 
-    const-string v0, "^library-fetch phase=response http=403 mime=(json|html|other|missing) duration=[0-9]{1,6} error=http-403$"
+    const-string v0, "^library-fetch phase=response http=403 mime=(json|html|other|missing) duration=[0-9]{1,6} error=http-403 auth=webview-session refresh=unsupported$"
     invoke-virtual {p1, v0}, Ljava/lang/String;->matches(Ljava/lang/String;)Z
     move-result v1
     if-nez v1, :structured_safe
 
-    const-string v0, "^library-fetch phase=(request|response|parse|transform|settle) http=(0|[1-5][0-9]{2}) mime=(json|html|other|missing) duration=[0-9]{1,6} error=(none|empty|http-other|timeout|network|non-json|invalid-json|unexpected-shape|graphql|parse|transform)$"
+    const-string v0, "^library-fetch phase=(request|response|parse|transform|settle) http=(0|[1-5][0-9]{2}) mime=(json|html|other|missing) duration=[0-9]{1,6} error=(none|empty|http-other|timeout|network|non-json|invalid-json|unexpected-shape|graphql|parse|transform) auth=webview-session refresh=unsupported$"
     invoke-virtual {p1, v0}, Ljava/lang/String;->matches(Ljava/lang/String;)Z
     move-result v1
     if-nez v1, :structured_safe

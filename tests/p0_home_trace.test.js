@@ -55,6 +55,9 @@ test('WebView, Spotify route and Home handoff diagnostics stay redacted and boun
     'Home transfer diagnostics contain no card, playlist, session, or proof counts');
   assert.match(bridgeSource, /library-fetch phase=' \+ safePhase \+ ' http=' \+ safeHttp/);
   assert.match(bridgeSource, /mime=' \+ mime \+ ' duration=' \+ duration \+ ' error=' \+ error/);
+  assert.match(bridgeSource, /MEDIA_LIBRARY_AUTH_MODE = 'webview-session'/);
+  assert.match(bridgeSource, /MEDIA_LIBRARY_REFRESH_MODE = 'unsupported'/);
+  assert.match(bridgeSource, /auth=' \+ MEDIA_LIBRARY_AUTH_MODE \+ ' refresh=' \+ MEDIA_LIBRARY_REFRESH_MODE/);
   assert.doesNotMatch(bridgeSource, /received=|transformed=|proof=|page=/,
     'library diagnostics export only response type, HTTP status, phase, duration and sanitized error');
 });
@@ -78,12 +81,13 @@ test('Android accepts structured JS diagnostics only through a strict bounded gr
     'home-data stage=android-rendered', 'home-state sent', 'home-final owner=', 'bridge-load phase='
   ]) assert.ok(structured.includes(event), `missing strict grammar for ${event}`);
   assert.match(structured,
-    /library-fetch phase=response http=401 mime=\(json\|html\|other\|missing\) duration=\[0-9\]\{1,6\} error=http-401/,
-    'the accepted 401 event must include a matching response status and response phase');
+    /library-fetch phase=response http=401 mime=\(json\|html\|other\|missing\) duration=\[0-9\]\{1,6\} error=http-401 auth=webview-session refresh=unsupported/,
+    'the accepted 401 event must include matching response status/phase and fixed auth/refresh modes');
   assert.match(structured,
-    /library-fetch phase=response http=403 mime=\(json\|html\|other\|missing\) duration=\[0-9\]\{1,6\} error=http-403/);
+    /library-fetch phase=response http=403 mime=\(json\|html\|other\|missing\) duration=\[0-9\]\{1,6\} error=http-403 auth=webview-session refresh=unsupported/);
   assert.match(structured, /library-fetch phase=\(request\|response\|parse\|transform\|settle\) http=/);
   assert.match(structured, /mime=\(json\|html\|other\|missing\).*error=\(none\|empty\|http-other/);
+  assert.match(structured, /auth=webview-session refresh=unsupported/);
   assert.doesNotMatch(structured, /library-proof|proof=|page=|received=|transformed=/,
     'persistent grammar excludes session proof, profile signals and account-content counts');
   assert.match(structured, /width=\[0-9\]\{1,5\}/);

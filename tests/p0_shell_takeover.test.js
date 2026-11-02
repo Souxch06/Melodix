@@ -124,6 +124,16 @@ function loadShell({ withCards = true, mediaLib = null, mediaLibSessionProofKnow
         resourceTitle
     });
     const calls = { ready: 0, data: [], routes: [], mediaLibChecks: 0, order: [], traces: [] };
+    const eventListeners = { window: new Map(), document: new Map() };
+    const addListener = (target, type, fn) => {
+        const bucket = eventListeners[target];
+        if (!bucket.has(type)) bucket.set(type, []);
+        bucket.get(type).push(fn);
+    };
+    const dispatch = (target, type) => {
+        const bucket = eventListeners[target].get(type) || [];
+        bucket.slice().forEach((fn) => fn({ type, target }));
+    };
     const byId = new Map();
     if (rootMode === 'legacy') byId.set('#main-view', main);
     if (rootMode === 'semantic') byId.set('[data-testid="home-page"]', main);
@@ -136,11 +146,12 @@ function loadShell({ withCards = true, mediaLib = null, mediaLibSessionProofKnow
 
     const document = {
         readyState: 'complete',
+        visibilityState: 'visible',
         documentElement: node({ tag: 'html' }),
         body: node({ tag: 'body' }),
         head: node({ tag: 'head' }),
         title: 'Spotify',
-        addEventListener() {},
+        addEventListener(type, fn) { addListener('document', type, fn); },
         querySelector(sel) { return byId.get(sel) || null; },
         querySelectorAll(sel) {
             if (sel === 'iframe') return [];
@@ -151,7 +162,8 @@ function loadShell({ withCards = true, mediaLib = null, mediaLibSessionProofKnow
     };
 
     const win = {
-        addEventListener() {}, removeEventListener() {}, dispatchEvent() { return true; },
+        addEventListener(type, fn) { addListener('window', type, fn); },
+        removeEventListener() {}, dispatchEvent() { return true; },
         __sfTriggerMutations() {
             fakeNow += 250;
             observerCallbacks.forEach((callback) => callback([]));
@@ -252,7 +264,11 @@ function loadShell({ withCards = true, mediaLib = null, mediaLibSessionProofKnow
         card.parentElement = shelf;
         return card;
     };
-    return { win, calls, drainTimers, navigations, webLoads, main, appendCard };
+    return {
+        win, calls, drainTimers, navigations, webLoads, main, appendCard,
+        dispatchWindow: (type) => dispatch('window', type),
+        dispatchDocument: (type) => dispatch('document', type)
+    };
 }
 
 test('diagnostic traces carry a process id and omit private route identifiers', () => {
@@ -332,7 +348,7 @@ test('a known unauthorized result shows only the unproven native Home state, nev
         'stale private arrays never reach the renderer');
 });
 
-test('an empty Home without session evidence sends a real login state and activates the shell', () => {
+test('an empty Home without session evidence stays informational while proof is loading', () => {
     const { calls, win } = loadShell({
         withCards: false, noUserWidget: true,
         mediaLibSessionProofKnown: false, mediaLibSessionProven: false
@@ -349,9 +365,46 @@ test('an empty Home without session evidence sends a real login state and activa
     assert.equal(home.rows[0].kind, 'state');
     assert.equal(home.rows[0].sessionUnproven, true);
     assert.equal(home.rows[0].state, 'loading');
-    assert.equal(home.rows[0].uri, 'melodix:action:open-login');
+    assert.equal(home.rows[0].uri, '', 'login is not offered before the session check settles');
+    assert.equal(home.rows[0].secondaryUri, '');
     assert.doesNotMatch(JSON.stringify(home.rows), /spotify:playlist|Road trip/,
         'no fake playlist or account content is sent');
+});
+
+test('foreground returns refresh the native projection without looping a 401 and a post-login page retries proof', () => {
+    const refused = loadShell({
+        withCards: false,
+        noUserWidget: true,
+        mediaLib: { playlists: [] },
+        mediaLibSessionProofKnown: true,
+        mediaLibSessionProven: false,
+        libraryError: 'http-401'
+    });
+    assert.equal(refused.calls.mediaLibChecks, 0);
+    refused.dispatchDocument('visibilitychange');
+    refused.dispatchWindow('pageshow');
+    assert.equal(refused.calls.mediaLibChecks, 0,
+        'foreground events never retry or loop an observed authorization refusal');
+    assert.equal(refused.win.__sfLastUpdate, 1000,
+        'the native projection is recomputed when the WebView becomes visible');
+
+    // A successful official login navigates back to a newly loaded Spotify page;
+    // its JS proof starts unknown and the normal startup request runs again.
+    const returned = loadShell({
+        withCards: false,
+        noUserWidget: true,
+        mediaLib: { playlists: [] },
+        mediaLibSessionProofKnown: false,
+        mediaLibSessionProven: false,
+        libraryError: 'http-401'
+    });
+    assert.equal(returned.calls.mediaLibChecks, 0);
+    returned.win.__sfMediaLibStatus = 'pending';
+    returned.win.__sfMediaLibError = '';
+    returned.win.__sfMediaLibRetryAt = 0;
+    returned.dispatchWindow('pageshow');
+    assert.equal(returned.calls.mediaLibChecks, 1,
+        'the returned Spotify page starts a fresh libraryV3 proof attempt');
 });
 
 test('HTTP 401 keeps its cause unknown and offers separate official-login and manual-retry actions', () => {
@@ -377,7 +430,8 @@ test('HTTP 401 keeps its cause unknown and offers separate official-login and ma
     assert.equal(calls.mediaLibChecks, 0, 'draining queued Home retries still does not repeat a 401');
 
     win.__sfMediaLibLastDiagnostic = {
-        phase: 'response', http: 401, mime: 'json', durationMs: 14, error: 'http-401'
+        phase: 'response', http: 401, mime: 'json', durationMs: 14, error: 'http-401',
+        authMode: 'webview-session', refreshMode: 'unsupported'
     };
     win.__sfTriggerMutations();
     const confirmed = calls.data.filter((call) => call.screen === 'home').at(-1).rows[0];
@@ -389,12 +443,18 @@ test('HTTP 401 keeps its cause unknown and offers separate official-login and ma
     assert.equal(confirmed.secondaryUri, 'melodix:action:retry-library');
 });
 
-test('native payload filtering allows only distinct local secondary actions on unproven error states', () => {
+test('native payload filtering permits login only after a settled unproven error', () => {
     const shell = fs.readFileSync(SHELL, 'utf8');
     assert.match(shell, /var allowedActions = \['melodix:action:open-settings', 'melodix:action:retry-library', 'melodix:action:open-login'\]/);
+    assert.doesNotMatch(shell, /status === 'loading' && stateUri === 'melodix:action:open-login'/,
+        'loading state rows cannot carry a login action');
+    assert.match(shell, /status === 'error' && allowedActions\.indexOf\(stateUri\) >= 0/,
+        'primary actions are restricted to settled error states');
     assert.match(shell, /var allowedSecondaryAction = !secondaryUri[\s\S]{0,220}status === 'error'[\s\S]{0,180}item\.sessionUnproven === true[\s\S]{0,180}secondaryUri !== stateUri/);
+    assert.match(shell, /primaryUri = '';/,
+        'the initial proof check is informational and exposes no login button');
     assert.match(shell, /primaryUri = 'melodix:action:open-login';[\s\S]{0,80}secondaryUri = 'melodix:action:retry-library'/,
-        'the two buttons cannot dispatch the same action');
+        'the two buttons cannot dispatch the same action after a settled refusal');
 });
 
 test('HTTP 429 messaging is also tied to the matching sanitized response record', () => {
@@ -411,7 +471,8 @@ test('HTTP 429 messaging is also tied to the matching sanitized response record'
         'a stored UI error string alone does not claim a rate-limit response');
 
     win.__sfMediaLibLastDiagnostic = {
-        phase: 'response', http: 429, mime: 'json', durationMs: 14, error: 'http-other'
+        phase: 'response', http: 429, mime: 'json', durationMs: 14, error: 'http-other',
+        authMode: 'webview-session', refreshMode: 'unsupported'
     };
     win.__sfTriggerMutations();
     const confirmed = calls.data.filter((call) => call.screen === 'home').at(-1).rows[0];
@@ -427,7 +488,8 @@ test('a transient library error preserves earlier session proof and renders an a
         mediaLibSessionProofKnown: true,
         mediaLibSessionProven: true,
         libraryError: 'http-429',
-        libraryDiagnostic: { phase: 'response', http: 429, mime: 'json', durationMs: 120, error: 'http-other' }
+        libraryDiagnostic: { phase: 'response', http: 429, mime: 'json', durationMs: 120, error: 'http-other',
+            authMode: 'webview-session', refreshMode: 'unsupported' }
     });
     win.__sfMediaLibStatus = 'error';
     win.__sfMediaLibError = 'http-429';
@@ -722,7 +784,8 @@ test('partial library errors keep real rows and append a recoverable warning sta
         withCards: false,
         rawItemCount: 3,
         libraryError: 'http-429',
-        libraryDiagnostic: { phase: 'response', http: 429, mime: 'json', durationMs: 120, error: 'http-other' },
+        libraryDiagnostic: { phase: 'response', http: 429, mime: 'json', durationMs: 120, error: 'http-other',
+            authMode: 'webview-session', refreshMode: 'unsupported' },
         mediaLib: { playlists: [{ id: 'spotify:playlist:real-partial', name: 'Vraie playlist' }] }
     });
     const home = calls.data.filter((call) => call.screen === 'home');

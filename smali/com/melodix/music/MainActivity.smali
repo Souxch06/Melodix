@@ -8260,7 +8260,7 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
     invoke-virtual {p0}, Lcom/melodix/music/MainActivity;->hasNativeHomeContentAttached()Z
     move-result v0
     if-nez v0, :native_root_lookup
-    const-string v1, "[{\"kind\":\"state\",\"state\":\"loading\",\"sessionUnproven\":true,\"title\":\"Connexion à Spotify…\",\"subtitle\":\"Vérification de la session en cours. Vos playlists resteront masquées jusqu’à validation.\",\"section\":\"Connexion Spotify\",\"image\":\"\",\"uri\":\"melodix:action:open-login\"}]"
+    const-string v1, "[{\"kind\":\"state\",\"state\":\"loading\",\"sessionUnproven\":true,\"title\":\"Connexion à Spotify…\",\"subtitle\":\"Vérification de l’accès à votre bibliothèque. Vos playlists restent masquées jusqu’à validation.\",\"section\":\"Connexion Spotify\",\"image\":\"\"}]"
     invoke-static {p0, v1}, Lcom/melodix/music/NativeHomeShelfRenderer;->render(Lcom/melodix/music/MainActivity;Ljava/lang/String;)V
 
     :native_root_lookup
@@ -8535,28 +8535,26 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
     invoke-virtual {v2, v3}, Landroid/view/View;->setVisibility(I)V
 
     :back_button
-    # The back arrow must exist on both screens the user can enter from a row
-    # or the mini player. The old test overwrote the detail flag with the
-    # player flag, so the button was hidden everywhere.
+    # Home/Search/Library are roots and never show a back arrow. Detail,
+    # Player and Settings are entered from another native screen and do.
     const-string v0, "detail"
-    invoke-virtual {p1, v0}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    invoke-virtual {v0, p1}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
     move-result v1
-    if-nez v1, :native_back_check_player
-    const/4 v1, 0x1
-    goto :set_back_button_visibility
-    :native_back_check_player
+    if-nez v1, :native_back_visible
     const-string v0, "player"
-    invoke-virtual {p1, v0}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    invoke-virtual {v0, p1}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
     move-result v1
-    if-eqz v1, :native_back_show
+    if-nez v1, :native_back_visible
     const-string v0, "settings"
-    invoke-virtual {p1, v0}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    invoke-virtual {v0, p1}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
     move-result v1
-    if-eqz v1, :native_back_show
-    goto :set_back_button_visibility
-    :native_back_show
+    if-eqz v1, :native_back_hidden
+    :native_back_visible
     const/4 v1, 0x1
-    :set_back_button_visibility
+    goto :native_back_apply
+    :native_back_hidden
+    const/4 v1, 0x0
+    :native_back_apply
     const v2, 0x7f090231
     invoke-virtual {p0, v2}, Landroid/app/Activity;->findViewById(I)Landroid/view/View;
     move-result-object v2
@@ -10138,9 +10136,9 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
     iget-object v0, p0, Lcom/melodix/music/MainActivity;->nativeCurrentScreen:Ljava/lang/String;
     if-eqz v0, :native_settings_default_screen
     const-string v1, "settings"
-    invoke-virtual {v0, v1}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    invoke-virtual {v1, v0}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
     move-result v1
-    if-nez v1, :native_settings_save_return
+    if-eqz v1, :native_settings_save_return
     return-void
 
     :native_settings_save_return

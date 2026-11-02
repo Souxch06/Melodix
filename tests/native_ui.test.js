@@ -11,6 +11,7 @@ const read = (file) => fs.readFileSync(path.join(root, file), 'utf8');
 const nativeIds = [
     'nativeRoot',
     'nativeScreenTitle',
+    'nativeSettingsButton',
     'nativeBackButton',
     'nativeSearchPanel',
     'nativeSearchInput',
@@ -52,7 +53,7 @@ test('native shell overlays, but does not replace or detach, the existing WebVie
     assert.match(layout.slice(nativeRootPosition, nativeRootPosition + 900), /android:visibility="gone"/);
     assert.match(layout.slice(nativeRootPosition, nativeRootPosition + 900), /android:clickable="true"/);
     assert.match(layout, /android:id="@id\/nativeContent"/);
-    assert.match(layout, /Loading your music/);
+    assert.match(layout, /Chargement de votre musique/);
     assert.match(layout, /android:id="@id\/nativePlayerArtwork"/);
     assert.match(layout, /android:id="@id\/nativePlayerLargeArtwork"/);
     assert.match(layout, /android:id="@id\/nativeHomeTab"/);
@@ -1244,21 +1245,45 @@ test('row taps open playlists, albums and tracks', () => {
     assert.match(openRow, /window\.__sfNativeOpenUri/);
 });
 
-test('detail and player screens expose the back arrow while keeping the tab bar visible', () => {
+test('root screens hide Back while detail, player and Settings show it; the dock stays visible', () => {
     const activity = read('smali/com/melodix/music/MainActivity.smali');
     const screen = activity.slice(
         activity.indexOf('.method public final setNativeScreen'),
         activity.indexOf('.end method', activity.indexOf('.method public final setNativeScreen'))
     );
 
-    assert.match(screen, /:native_back_check_player/);
-    assert.match(screen, /if-nez v1, :native_back_check_player/, 'detail shows the arrow');
-    assert.match(screen, /const\/4 v1, 0x1\s+goto :set_back_button_visibility/);
+    assert.match(screen, /const-string v0, "detail"[\s\S]*?if-nez v1, :native_back_visible/);
+    assert.match(screen, /const-string v0, "player"[\s\S]*?if-nez v1, :native_back_visible/);
+    assert.match(screen, /const-string v0, "settings"[\s\S]*?if-eqz v1, :native_back_hidden/);
+    assert.match(screen, /:native_back_hidden\s+const\/4 v1, 0x0/);
+    assert.match(screen, /const v2, 0x7f090231[\s\S]*?setVisibility\(I\)V/,
+        'the button is shown for secondary screens and hidden on root screens');
     assert.match(screen, /const v2, 0x7f09024c/, 'the whole mini player card is hidden on the full player');
     const dockStart = screen.lastIndexOf('\n    :native_tab_bar');
     const dock = screen.slice(dockStart, screen.indexOf('\n    :screen_title', dockStart));
     assert.match(dock, /const v2, 0x7f09024e[\s\S]*?const\/4 v3, 0x0[\s\S]*?setVisibility\(I\)V/,
         'the native bottom dock stays visible on the full player');
+});
+
+test('the compact Settings icon opens and preserves the screen to return to', () => {
+    const layout = new JSDOM(read('res/layout/activity_main.xml'), { contentType: 'text/xml' }).window.document;
+    const settings = layout.querySelector('[android\:id="@id/nativeSettingsButton"]');
+    assert.ok(settings, 'the header has a stable native Settings control');
+    assert.equal(settings.tagName, 'ImageView');
+    assert.equal(settings.getAttribute('android:contentDescription'), 'Paramètres');
+    assert.equal(settings.getAttribute('android:onClick'), 'onNativeSettingsClick');
+    assert.equal(settings.getAttribute('android:layout_width'), '48.0dip');
+    assert.equal(settings.getAttribute('android:layout_height'), '48.0dip');
+
+    const activity = read('smali/com/melodix/music/MainActivity.smali');
+    const open = activity.slice(
+        activity.indexOf('.method public final openNativeSettings'),
+        activity.indexOf('.end method', activity.indexOf('.method public final openNativeSettings'))
+    );
+    assert.match(activity, /onNativeSettingsClick[\s\S]*?openNativeSettings\(\)V/);
+    assert.match(open, /iput-object v0, p0, Lcom\/melodix\/music\/MainActivity;->nativeReturnScreen:Ljava\/lang\/String;/);
+    assert.match(open, /iput-object v0, p0, Lcom\/melodix\/music\/MainActivity;->nativeReturnJson:Ljava\/lang\/String;/);
+    assert.match(open, /invoke-virtual \{p0, v1, v2\}, Lcom\/melodix\/music\/MainActivity;->renderNativeRows/);
 });
 
 test('library chips and the search tab never call a bridge-only function', () => {

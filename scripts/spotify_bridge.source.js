@@ -2882,11 +2882,11 @@
     // SECTION 4: LIBRARY & FOLDER RESOLUTION
     // =========================================================================
 
-    // Credential handling is disabled: no token is ever read or stored.
-    async function ensureAuthToken() {
-        return false;
-    }
-    window.ensureAuthToken = ensureAuthToken;
+    // The supported library path uses the WebView's own session only. There is
+    // no Melodix OAuth token or refresh flow in this build; keep that limitation
+    // explicit instead of pretending a no-op credential check succeeded.
+    const MEDIA_LIBRARY_AUTH_MODE = 'webview-session';
+    const MEDIA_LIBRARY_REFRESH_MODE = 'unsupported';
 
     function pickOptimalArtwork(sources, fallbackImages) {
         const list = (Array.isArray(sources) && sources.length) ? sources : (Array.isArray(fallbackImages) ? fallbackImages : []);
@@ -2908,7 +2908,9 @@
     window.getGqlHash = getGqlHash;
 
     window.pendingMediaRequests = window.pendingMediaRequests || new Set();
-    let isFetchingLib = false;
+    // A single-flight promise prevents a forced/manual retry from racing an
+    // already-running libraryV3 request and overwriting newer session state.
+    let mediaLibraryCheckPromise = null;
     const MEDIA_LIBRARY_REQUEST_TIMEOUT_MS = 15000;
 
     // Diagnostic values are deliberately limited to enums and bounded counts.
@@ -2981,14 +2983,16 @@
         const elapsed = Math.max(0, mediaLibraryNow() - Number(state.startedAt || 0));
         const duration = boundedMediaLibraryCount(elapsed, 999999);
         const line = 'library-fetch phase=' + safePhase + ' http=' + safeHttp +
-            ' mime=' + mime + ' duration=' + duration + ' error=' + error;
+            ' mime=' + mime + ' duration=' + duration + ' error=' + error +
+            ' auth=' + MEDIA_LIBRARY_AUTH_MODE + ' refresh=' + MEDIA_LIBRARY_REFRESH_MODE;
         try {
-            // The exported diagnostic is restricted to the HTTP response class
-            // and timing boundary; no proof/page flags, counts, payload, URL,
-            // credentials, account names, or resource metadata are recorded.
+            // Only fixed mode enums, HTTP class, MIME class and bounded timing
+            // are exported. No credential values, payload, URL, account or
+            // resource metadata are recorded.
             window.__sfMediaLibLastDiagnostic = {
                 phase: safePhase, http: safeHttp, mime: mime, durationMs: duration,
-                error: error
+                error: error, authMode: MEDIA_LIBRARY_AUTH_MODE,
+                refreshMode: MEDIA_LIBRARY_REFRESH_MODE
             };
         } catch (_) {}
         try {
@@ -3048,20 +3052,33 @@
     window.__sfMediaLibRawItemCount = Number.isFinite(Number(window.__sfMediaLibRawItemCount))
         ? Math.max(0, Math.min(1000, Math.floor(Number(window.__sfMediaLibRawItemCount)))) : 0;
 
-    async function checkMediaLib(force = false) {
-        if (isFetchingLib && !force) return;
-        // The library is read with the page's own WebView cookies. No token is
-        // captured or fabricated; a refusal is reported as HTTP 401 without
-        // guessing whether its cause is a missing/expired cookie or API policy.
-        await ensureAuthToken();
-        if (isFetchingLib && !force) return;
-        isFetchingLib = true;
+    function checkMediaLib(force = false) {
+        if (mediaLibraryCheckPromise) return mediaLibraryCheckPromise;
+
         const diagnostic = createMediaLibraryDiagnostic();
+        const pending = Promise.resolve().then(() => runMediaLibraryCheck(diagnostic));
+        // Install the lock before notifying observers; a synchronous UI callback
+        // or forced retry now joins this request rather than starting another.
+        mediaLibraryCheckPromise = pending;
+        if (force === true) {
+            window.__sfMediaLibRetryAt = 0;
+            window.__sfMediaLibRetryDelayMs = 5000;
+        }
         window.__sfMediaLibStatus = 'loading';
         window.__sfMediaLibError = '';
         window.__sfMediaLibRawItemCount = 0;
-        notifyMediaLibUiChange();
         emitMediaLibraryDiagnostic(diagnostic, 'request');
+        notifyMediaLibUiChange();
+        const clearRequest = () => {
+            if (mediaLibraryCheckPromise === pending) mediaLibraryCheckPromise = null;
+        };
+        pending.then(clearRequest, clearRequest);
+        return pending;
+    }
+
+    async function runMediaLibraryCheck(diagnostic) {
+        // Cookies/session are supplied only by this WebView's credentialed
+        // request. No OAuth token is read and no refresh is available here.
         let allItems = [];
         try {
             allItems = await fetchAllLibrary(diagnostic);
@@ -3070,7 +3087,14 @@
             let failed = Boolean(window.__sfMediaLibError);
             const failurePhase = diagnostic.error !== 'none' ? diagnostic.phase : '';
             const usable = Array.isArray(allItems) && allItems.length > 0;
-            if (!failed || usable) {
+            if (window.__sfMediaLibError === 'http-401') {
+                // A 401 revokes the only accepted proof. Do not retain or
+                // re-render partial/private rows from earlier pages.
+                window.mediaLib = null;
+                window.__sfMediaLibRawItemCount = 0;
+                diagnostic.received = 0;
+                window.__sfMediaLibStatus = 'error';
+            } else if (!failed || usable) {
                 // Keep only actual supported Spotify resources. A non-empty raw
                 // response that transforms to zero rows is an error, not an
                 // honestly empty library. Preserve the phase where a partial
@@ -3133,7 +3157,10 @@
             if (diagnostic.phase === 'transform' &&
                 (diagnostic.error === 'none' || diagnostic.error === 'empty')) diagnostic.phase = 'settle';
             emitMediaLibraryDiagnostic(diagnostic, diagnostic.phase || 'settle');
-            isFetchingLib = false;
+            if (window.__sfMediaLibStatus === 'ready') {
+                window.__sfMediaLibRetryAt = 0;
+                window.__sfMediaLibRetryDelayMs = 5000;
+            }
         }
     }
     window.checkMediaLib = checkMediaLib;
@@ -3217,6 +3244,8 @@
                     window.__sfMediaLibSessionProofKnown = true;
                     window.__sfMediaLibSessionProven = false;
                     window.__sfMediaLibError = 'http-401';
+                    window.mediaLib = null;
+                    window.__sfMediaLibRawItemCount = 0;
                     trace.error = 'http-401';
                     break;
                 }
