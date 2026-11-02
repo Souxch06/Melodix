@@ -419,7 +419,7 @@ jobs:
           adb shell pm clear com.melodix.music.preview >/dev/null
           # Observe the first-run Android permission surface before granting it,
           # but retain only redacted hierarchy metadata (never its raw text/XML).
-          adb shell monkey -p com.melodix.music.preview -c android.intent.category.LAUNCHER 1 >/dev/null
+          adb shell am start -W -n com.melodix.music.preview/com.melodix.music.MainActivity >/dev/null
           sleep 8
           permission_xml="$state_dir/permission-before-grant.xml"
           if adb shell uiautomator dump --compressed /sdcard/melodix-preview-permission.xml >/dev/null 2>&1 && \
@@ -549,7 +549,7 @@ jobs:
           PY
           echo "::notice title=Android permission setup::fresh app data retained; BLUETOOTH_CONNECT=$permission_status; action=$permission_action; only the declared Bluetooth permission granted; no Spotify session or cookies supplied"
           adb shell am force-stop com.melodix.music.preview >/dev/null 2>&1 || true
-          adb shell monkey -p com.melodix.music.preview -c android.intent.category.LAUNCHER 1 >/dev/null
+          adb shell am start -W -n com.melodix.music.preview/com.melodix.music.MainActivity >/dev/null
           sleep 60
 
           app_pid="$(adb shell pidof -s com.melodix.music.preview 2>/dev/null | tr -d '\r' || true)"

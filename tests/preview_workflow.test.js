@@ -205,6 +205,7 @@ test("empty-Home pixels are captured before instrumentation finish and the same 
   );
   const targetRelaunch = emulatorWorkflow.indexOf(
     "adb shell am start -W -n com.melodix.music.preview/com.melodix.music.MainActivity",
+    screenshotRetrieved,
   );
   const statusScreenshotRetrieved = emulatorWorkflow.indexOf(
     "adb exec-out run-as com.melodix.music.preview cat files/melodix-preview-home-status.png",
@@ -551,6 +552,11 @@ test("the emulator workflow validates same-run instrumentation and exact release
   );
   assert.match(launchBlock, /explicit_adb_grant_without_observed_allow_control[\s\S]*?adb shell pm grant com\.melodix\.music\.preview android\.permission\.BLUETOOTH_CONNECT[\s\S]*?only the declared Bluetooth permission granted/,
     "when the emulator exposes no usable Allow control, only the declared BLUETOOTH_CONNECT permission is granted explicitly and reported truthfully");
+  assert.equal(
+    (launchBlock.match(/adb shell am start -W -n com\.melodix\.music\.preview\/com\.melodix\.music\.MainActivity/g) || []).length,
+    2,
+    "the permission observation and cold launch use deterministic explicit Activity starts instead of random monkey input",
+  );
   assert.match(emulatorWorkflow, /read_bluetooth_permission_state\(\)[\s\S]*?dumpsys package com\.melodix\.music\.preview[\s\S]*?BLUETOOTH_CONNECT:[\s\S]*?granted=true/,
     "the test verifies the observed runtime permission through package-manager state rather than an unsupported shell command");
   assert.doesNotMatch(emulatorWorkflow, /pm check-permission/,
