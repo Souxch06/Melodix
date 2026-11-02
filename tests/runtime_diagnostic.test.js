@@ -36,6 +36,7 @@ function makeElement({ id = '', dataTestId = null, childNodes = [] } = {}) {
 }
 
 function executeDiagnostic({ libraryDiagnostic = {
+    attempt: 1, source: 'shell-update', requests: 1,
     phase: 'response', http: 401, mime: 'json', durationMs: 120, error: 'http-401'
 }, homeDecision = 'styles-not-ready' } = {}) {
     const nodes = new Map([
@@ -462,6 +463,17 @@ test('Preview diagnostic returns four timed samples with the existing report fie
         nativeUiShellReady: true,
         nativeUiShellCompleted: true,
         nativeUiShellErrors: 0,
+        nativeUiShellErrorSources: {
+            'window-js': 0,
+            'resource-script': 0,
+            'resource-link': 0,
+            'resource-image': 0,
+            'resource-iframe': 0,
+            'resource-other': 0,
+            'run-update': 0,
+            install: 0
+        },
+        nativeUiShellErrorDetails: [],
         nativeUiReadyNotified: true,
         nativeUiShowMethodCalled: true,
         nativeUiRootFound: true,
@@ -483,6 +495,7 @@ test('Preview diagnostic returns four timed samples with the existing report fie
         nativeUiBridgeCallbacksReady: true,
         mediaLibStatus: 'error',
         libraryFetchDiagnostic: {
+            attempt: 1, source: 'shell-update', requests: 1,
             http: 401, mime: 'json', phase: 'response', durationMs: 120, error: 'http-401'
         },
         nativeHomeDataSent: true,
@@ -510,6 +523,46 @@ test('runtime renderer decisions use a neutral allowlist and discard proof/profi
     assert.equal(safe.samples[0].ui.homeDecision, 'renderer-inactive');
 });
 
+test('runtime samples repeat the last library result and retain its request-attempt identity', () => {
+    const run = executeDiagnostic({ libraryDiagnostic: {
+        attempt: 4, source: 'native-retry', requests: 1,
+        phase: 'response', http: 401, mime: 'json', durationMs: 120, error: 'http-401'
+    } });
+    run.runScheduledSamples();
+    assert.deepEqual(run.samples.map((sample) => sample.elapsedMs), expectedDelays);
+    assert.deepEqual(run.samples.map((sample) => sample.ui.libraryFetchDiagnostic.attempt), [4, 4, 4, 4]);
+    assert.deepEqual(run.samples.map((sample) => sample.ui.libraryFetchDiagnostic.source),
+        ['native-retry', 'native-retry', 'native-retry', 'native-retry']);
+    assert.deepEqual(run.samples.map((sample) => sample.ui.libraryFetchDiagnostic.requests), [1, 1, 1, 1],
+        'three later samples of the same diagnostic are not three observed HTTP requests');
+});
+
+test('shell error diagnostics retain only safe source classes, error names, and numeric positions', () => {
+    const run = executeDiagnostic();
+    run.window.__sfNativeUiShellErrorSources = {
+        'window-js': 2,
+        'run-update': 1,
+        'https://private.invalid/path': 7
+    };
+    run.window.__sfNativeUiShellErrorDetails = [
+        { source: 'window-js', name: 'TypeError', line: 12, column: 34, message: 'private message' },
+        { source: 'run-update', name: 'RangeError', line: 0, column: 10000001, stack: 'private stack' },
+        { source: 'https://private.invalid/path', name: 'Bearer private-token', line: 1, column: 2 }
+    ];
+    run.runScheduledSamples();
+    const ui = run.samples[0].ui;
+    assert.equal(ui.nativeUiShellErrorSources['window-js'], 2);
+    assert.equal(ui.nativeUiShellErrorSources['run-update'], 1);
+    assert.equal(Object.prototype.hasOwnProperty.call(ui.nativeUiShellErrorSources, 'https://private.invalid/path'), false);
+    assert.deepEqual(ui.nativeUiShellErrorDetails, [
+        { source: 'window-js', name: 'TypeError', line: 12, column: 34 },
+        { source: 'run-update', name: 'RangeError', line: null, column: null },
+        { source: 'resource-other', name: 'unknown', line: 1, column: 2 }
+    ]);
+    assert.doesNotMatch(JSON.stringify(ui.nativeUiShellErrorDetails),
+        /private message|private stack|private-token|private\.invalid/i);
+});
+
 test('runtime library telemetry sanitizes HTTP claims and exports only the response metadata allowlist', () => {
     const run = executeDiagnostic({ libraryDiagnostic: {
         phase: 'request', http: 0, mime: 'missing', durationMs: 12, error: 'http-401',
@@ -518,9 +571,11 @@ test('runtime library telemetry sanitizes HTTP claims and exports only the respo
     run.runScheduledSamples();
     const diagnostic = run.samples[0].ui.libraryFetchDiagnostic;
     assert.deepEqual(diagnostic, {
+        attempt: 0, source: 'unspecified', requests: 0,
         http: 0, mime: 'missing', phase: 'request', durationMs: 12, error: 'http-other'
     }, '401 is downgraded unless it is an observed HTTP response with status 401');
-    assert.deepEqual(Object.keys(diagnostic).sort(), ['durationMs', 'error', 'http', 'mime', 'phase'].sort());
+    assert.deepEqual(Object.keys(diagnostic).sort(),
+        ['attempt', 'durationMs', 'error', 'http', 'mime', 'phase', 'requests', 'source'].sort());
     assert.doesNotMatch(JSON.stringify(run.samples[0]), /private-token-fixture|private-response-fixture/i);
     assert.doesNotMatch(script, /homeSourceCardCount|homeRawAnchorCount|homeSectionCount|nativeHomeDomRowsCount|nativeHomeRowsCount|mediaLibSessionProofKnown|mediaLibSessionProven/);
 });

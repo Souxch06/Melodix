@@ -6,12 +6,73 @@
     window.__sfNativeUiShellStarted = true;
     window.__sfNativeUiShellErrors = 0;
 
-    // P0 diagnostic: uncaught JS errors must never kill the startup chain
-    // silently. Keep only a bounded, allow-listed error class, never its message.
-    window.addEventListener('error', function(ev) {
-        window.__sfNativeUiShellErrors += 1;
+    var NATIVE_UI_SHELL_ERROR_SOURCES = [
+        'window-js', 'resource-script', 'resource-link', 'resource-image',
+        'resource-iframe', 'resource-other', 'run-update', 'install'
+    ];
+    window.__sfNativeUiShellErrorSources = {};
+    NATIVE_UI_SHELL_ERROR_SOURCES.forEach(function(source) {
+        window.__sfNativeUiShellErrorSources[source] = 0;
+    });
+    window.__sfNativeUiShellErrorDetails = [];
+
+    function nativeUiShellErrorSource(ev) {
+        var target;
+        var tag;
         try {
-            diagTrace('js-error name=' + safeErrorClass(ev && ev.error && ev.error.name));
+            target = ev && ev.target;
+            if (target === window || target === window.window) return 'window-js';
+            tag = String(target && target.tagName || '').toUpperCase();
+        } catch (_) {
+            return 'resource-other';
+        }
+        if (tag === 'SCRIPT') return 'resource-script';
+        if (tag === 'LINK') return 'resource-link';
+        if (tag === 'IMG') return 'resource-image';
+        if (tag === 'IFRAME') return 'resource-iframe';
+        return 'resource-other';
+    }
+
+    function safeShellErrorCoordinate(value) {
+        var number = Number(value);
+        return Number.isInteger(number) && number >= 1 && number <= 1000000 ? number : null;
+    }
+
+    // Preserve the total for compatibility, but retain only an allow-listed
+    // source, error class and numeric location. Never keep a message, URL, or stack.
+    function recordNativeUiShellError(source, name, ev) {
+        var safeSource = NATIVE_UI_SHELL_ERROR_SOURCES.indexOf(source) >= 0
+            ? source : 'resource-other';
+        var safeName = safeErrorClass(name);
+        var counts = window.__sfNativeUiShellErrorSources;
+        var details = window.__sfNativeUiShellErrorDetails;
+        var count;
+        if (!counts || typeof counts !== 'object') counts = {};
+        count = Number(counts[safeSource]);
+        counts[safeSource] = Math.min(9999, Math.max(0, Number.isFinite(count) ? Math.floor(count) : 0) + 1);
+        window.__sfNativeUiShellErrorSources = counts;
+        count = Number(window.__sfNativeUiShellErrors);
+        window.__sfNativeUiShellErrors = Math.min(9999, Math.max(0,
+            Number.isFinite(count) ? Math.floor(count) : 0) + 1);
+        if (!Array.isArray(details)) details = [];
+        details.push({
+            source: safeSource,
+            name: safeName,
+            line: safeShellErrorCoordinate(ev && ev.lineno),
+            column: safeShellErrorCoordinate(ev && ev.colno)
+        });
+        if (details.length > 8) details.splice(0, details.length - 8);
+        window.__sfNativeUiShellErrorDetails = details;
+    }
+
+    // P0 diagnostic: uncaught JS errors must never kill the startup chain
+    // silently. Keep only a bounded, allow-listed source/class and numeric location.
+    window.addEventListener('error', function(ev) {
+        var source = nativeUiShellErrorSource(ev);
+        var name = safeErrorClass(ev && ev.error && ev.error.name);
+        recordNativeUiShellError(source, name, ev);
+        try {
+            diagTrace('js-error name=' + name + ' source=' + source);
         } catch (_) {}
     }, true);
     diagTrace('js-shell begin');
@@ -656,7 +717,7 @@
     // opens. Home collectors also call this helper, but detail/search/library
     // routes must not wait until the user visits Home before session proof can
     // arrive. Only the existing libraryV3 response can authorize native data.
-    function requestMediaLibraryProof() {
+    function requestMediaLibraryProof(source) {
         var now;
         var delay;
         var previousError = String(window.__sfMediaLibError || '');
@@ -680,7 +741,7 @@
         window.__sfMediaLibRetryAt = now + delay;
         window.__sfMediaLibRetryDelayMs = Math.min(60000, delay * 2);
         try {
-            window.checkMediaLib();
+            window.checkMediaLib(false, source || 'shell-update');
             return true;
         } catch (_) {
             return false;
@@ -976,7 +1037,7 @@
             homeRetries = 0;
             window.__sfMediaLibRetryAt = 0;
             window.__sfMediaLibRetryDelayMs = 5000;
-            if (typeof window.checkMediaLib === 'function') window.checkMediaLib(true);
+            if (typeof window.checkMediaLib === 'function') window.checkMediaLib(true, 'native-retry');
         } catch (_) {}
         try {
             runUpdate();
@@ -2310,8 +2371,8 @@
             }
             notifyNativeUiReady(mainView);
         } catch (err) {
-            window.__sfNativeUiShellErrors += 1;
-            diagTrace('runUpdate error name=' + safeErrorClass(err && err.name));
+            recordNativeUiShellError('run-update', err && err.name);
+            diagTrace('runUpdate error name=' + safeErrorClass(err && err.name) + ' source=run-update');
         }
         if (!window.__sfNativeUiReadyNotified) scheduleReadinessRetry();
     }
@@ -2685,7 +2746,7 @@
             }
             lastHomeSignature = null;
             try {
-                if (typeof window.checkMediaLib === 'function') window.checkMediaLib();
+                if (typeof window.checkMediaLib === 'function') window.checkMediaLib(false, 'settings-resync');
             } catch (_) {}
             overrideStatus.sync_status = 'Bibliothèque Spotify synchronisée ✓';
         } else if (key === 'logout') {
@@ -3322,8 +3383,8 @@
         window.__sfNativeUiShellCompleted = true;
         diagTrace('js-shell end ok screen=' + diagnosticScreen());
     } catch (err) {
-        window.__sfNativeUiShellErrors += 1;
+        recordNativeUiShellError('install', err && err.name);
         window.__sfNativeUiShellCompleted = false;
-        diagTrace('js-shell end threw name=' + safeErrorClass(err && err.name));
+        diagTrace('js-shell end threw name=' + safeErrorClass(err && err.name) + ' source=install');
     }
 })();

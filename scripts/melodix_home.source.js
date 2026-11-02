@@ -979,7 +979,7 @@ function retryMelodixHomeLibrary() {
         if (typeof window.__sfNativeRetryLibrary === 'function') {
             result = window.__sfNativeRetryLibrary();
         } else if (typeof window.checkMediaLib === 'function') {
-            result = window.checkMediaLib(true);
+            result = window.checkMediaLib(true, 'web-home-retry');
         } else {
             window.location.reload();
             return;

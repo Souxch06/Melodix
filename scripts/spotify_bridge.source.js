@@ -2887,6 +2887,10 @@
     // explicit instead of pretending a no-op credential check succeeded.
     const MEDIA_LIBRARY_AUTH_MODE = 'webview-session';
     const MEDIA_LIBRARY_REFRESH_MODE = 'unsupported';
+    const MEDIA_LIBRARY_CHECK_SOURCES = [
+        'shell-update', 'native-retry', 'web-home-retry', 'settings-resync', 'unspecified'
+    ];
+    let mediaLibraryAttemptSequence = 0;
 
     function pickOptimalArtwork(sources, fallbackImages) {
         const list = (Array.isArray(sources) && sources.length) ? sources : (Array.isArray(fallbackImages) ? fallbackImages : []);
@@ -2931,6 +2935,14 @@
         return Number.isFinite(count) ? Math.max(0, Math.min(max, Math.floor(count))) : 0;
     }
 
+    function safeMediaLibraryCheckSource(value) {
+        let source = '';
+        try {
+            source = String(value || '');
+        } catch (_) {}
+        return MEDIA_LIBRARY_CHECK_SOURCES.indexOf(source) >= 0 ? source : 'unspecified';
+    }
+
     function mediaLibraryResponseMime(response) {
         let raw = '';
         try {
@@ -2949,9 +2961,13 @@
         return Number.isFinite(status) && status >= 100 && status <= 599 ? Math.floor(status) : 0;
     }
 
-    function createMediaLibraryDiagnostic() {
+    function createMediaLibraryDiagnostic(source) {
+        mediaLibraryAttemptSequence = boundedMediaLibraryCount(mediaLibraryAttemptSequence + 1, 999999);
         return {
             startedAt: mediaLibraryNow(),
+            attempt: mediaLibraryAttemptSequence,
+            source: safeMediaLibraryCheckSource(source),
+            requests: 0,
             phase: 'request',
             http: 0,
             mime: 'missing',
@@ -2962,7 +2978,10 @@
     }
 
     function emitMediaLibraryDiagnostic(diagnostic, phase) {
-        const state = diagnostic || createMediaLibraryDiagnostic();
+        const state = diagnostic || {
+            startedAt: mediaLibraryNow(), attempt: 0, source: 'unspecified', requests: 0,
+            phase: 'request', http: 0, mime: 'missing', error: 'none'
+        };
         const allowedPhases = ['request', 'response', 'parse', 'transform', 'settle'];
         const allowedMimes = ['json', 'html', 'other', 'missing'];
         const allowedErrors = [
@@ -2975,6 +2994,9 @@
         const safeHttp = Number.isFinite(status) && status >= 100 && status <= 599
             ? Math.floor(status) : 0;
         const mime = allowedMimes.indexOf(String(state.mime || '')) >= 0 ? String(state.mime) : 'missing';
+        const attempt = boundedMediaLibraryCount(state.attempt, 999999);
+        const source = safeMediaLibraryCheckSource(state.source);
+        const requests = boundedMediaLibraryCount(state.requests, 1000);
         let error = allowedErrors.indexOf(String(state.error || '')) >= 0 ? String(state.error) : 'parse';
         const claimedHttpStatus = error === 'http-401' ? 401 : error === 'http-403' ? 403 : 0;
         if (claimedHttpStatus && (safeHttp !== claimedHttpStatus || safePhase !== 'response')) {
@@ -2986,10 +3008,11 @@
             ' mime=' + mime + ' duration=' + duration + ' error=' + error +
             ' auth=' + MEDIA_LIBRARY_AUTH_MODE + ' refresh=' + MEDIA_LIBRARY_REFRESH_MODE;
         try {
-            // Only fixed mode enums, HTTP class, MIME class and bounded timing
-            // are exported. No credential values, payload, URL, account or
-            // resource metadata are recorded.
+            // Only fixed source/mode enums, bounded request counts, HTTP class,
+            // MIME class and timing are exported. No credential values, payload,
+            // URL, account or resource metadata are recorded.
             window.__sfMediaLibLastDiagnostic = {
+                attempt: attempt, source: source, requests: requests,
                 phase: safePhase, http: safeHttp, mime: mime, durationMs: duration,
                 error: error, authMode: MEDIA_LIBRARY_AUTH_MODE,
                 refreshMode: MEDIA_LIBRARY_REFRESH_MODE
@@ -3052,10 +3075,10 @@
     window.__sfMediaLibRawItemCount = Number.isFinite(Number(window.__sfMediaLibRawItemCount))
         ? Math.max(0, Math.min(1000, Math.floor(Number(window.__sfMediaLibRawItemCount)))) : 0;
 
-    function checkMediaLib(force = false) {
+    function checkMediaLib(force = false, source = 'unspecified') {
         if (mediaLibraryCheckPromise) return mediaLibraryCheckPromise;
 
-        const diagnostic = createMediaLibraryDiagnostic();
+        const diagnostic = createMediaLibraryDiagnostic(source);
         const pending = Promise.resolve().then(() => runMediaLibraryCheck(diagnostic));
         // Install the lock before notifying observers; a synchronous UI callback
         // or forced retry now joins this request rather than starting another.
@@ -3227,6 +3250,7 @@
 
                 let resp;
                 try {
+                    trace.requests = boundedMediaLibraryCount(Number(trace.requests || 0) + 1, 1000);
                     resp = await Promise.race([oriFetch(endpoint, init), timeout]);
                 } catch (_) {
                     trace.phase = 'request';

@@ -460,6 +460,52 @@
     };
   };
 
+  const SHELL_ERROR_SOURCES = Object.freeze([
+    'window-js', 'resource-script', 'resource-link', 'resource-image',
+    'resource-iframe', 'resource-other', 'run-update', 'install'
+  ]);
+  const SHELL_ERROR_CLASSES = Object.freeze([
+    'Error', 'TypeError', 'ReferenceError', 'SyntaxError', 'RangeError', 'URIError',
+    'EvalError', 'SecurityError', 'NetworkError', 'AbortError', 'InvalidStateError',
+    'NotSupportedError', 'QuotaExceededError', 'unknown'
+  ]);
+  const LIBRARY_CHECK_SOURCES = Object.freeze([
+    'shell-update', 'native-retry', 'web-home-retry', 'settings-resync', 'unspecified'
+  ]);
+
+  const safeNativeUiShellErrorSources = () => {
+    const raw = window.__sfNativeUiShellErrorSources;
+    const safe = {};
+    SHELL_ERROR_SOURCES.forEach((source) => {
+      let count = NaN;
+      try { count = Number(raw && raw[source]); } catch (_) {}
+      safe[source] = Number.isInteger(count) ? Math.max(0, Math.min(9999, count)) : 0;
+    });
+    return safe;
+  };
+
+  const safeNativeUiShellErrorDetails = () => {
+    let raw = [];
+    try {
+      raw = Array.isArray(window.__sfNativeUiShellErrorDetails)
+        ? window.__sfNativeUiShellErrorDetails.slice(-8) : [];
+    } catch (_) {}
+    return raw.map((entry) => {
+      const source = entry && SHELL_ERROR_SOURCES.includes(entry.source) ? entry.source : 'resource-other';
+      const name = entry && SHELL_ERROR_CLASSES.includes(entry.name) ? entry.name : 'unknown';
+      const coordinate = (value) => {
+        const number = Number(value);
+        return Number.isInteger(number) && number >= 1 && number <= 1000000 ? number : null;
+      };
+      return {
+        source,
+        name,
+        line: coordinate(entry && entry.line),
+        column: coordinate(entry && entry.column)
+      };
+    });
+  };
+
   const safeLibraryFetchDiagnostic = () => {
     const diagnostic = window.__sfMediaLibLastDiagnostic;
     if (!diagnostic || typeof diagnostic !== 'object') return null;
@@ -467,6 +513,12 @@
     const mimes = ['json', 'html', 'other', 'missing'];
     const errors = ['none', 'empty', 'http-401', 'http-403', 'http-other', 'timeout', 'network',
       'non-json', 'invalid-json', 'unexpected-shape', 'graphql', 'parse', 'transform'];
+    const rawAttempt = Number(diagnostic.attempt);
+    const attempt = Number.isInteger(rawAttempt) && rawAttempt >= 0 && rawAttempt <= 999999 ? rawAttempt : 0;
+    const source = LIBRARY_CHECK_SOURCES.indexOf(diagnostic.source) >= 0
+      ? diagnostic.source : 'unspecified';
+    const rawRequests = Number(diagnostic.requests);
+    const requests = Number.isInteger(rawRequests) && rawRequests >= 0 && rawRequests <= 1000 ? rawRequests : 0;
     const rawHttp = Number(diagnostic.http);
     const http = Number.isInteger(rawHttp) && rawHttp >= 0 && rawHttp <= 599 ? rawHttp : 0;
     const rawDuration = Number(diagnostic.durationMs);
@@ -477,7 +529,7 @@
     let error = errors.indexOf(diagnostic.error) >= 0 ? diagnostic.error : 'other';
     if ((error === 'http-401' && (phase !== 'response' || http !== 401)) ||
         (error === 'http-403' && (phase !== 'response' || http !== 403))) error = 'http-other';
-    return { http, mime, phase, durationMs, error };
+    return { attempt, source, requests, http, mime, phase, durationMs, error };
   };
 
   const collectSample = () => {
@@ -654,6 +706,8 @@
         nativeUiShellErrors: Number.isInteger(window.__sfNativeUiShellErrors)
           ? window.__sfNativeUiShellErrors
           : null,
+        nativeUiShellErrorSources: safeNativeUiShellErrorSources(),
+        nativeUiShellErrorDetails: safeNativeUiShellErrorDetails(),
         nativeUiReadyNotified: window.__sfNativeUiReadyNotified === true,
         nativeUiShowMethodCalled: window.__sfNativeUiShowMethodCalled === true,
         nativeUiRootFound: typeof window.__sfNativeUiRootFound === 'boolean'

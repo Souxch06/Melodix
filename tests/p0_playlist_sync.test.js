@@ -331,7 +331,8 @@ test('a transient error only promises a retry while the retry loop is alive', ()
     assert.match(shell, /touchez pour réessayer/);
     // The manual retry is exposed for the native row and restarts the loop.
     assert.match(shell, /window\.__sfNativeRetryLibrary = function/);
-    assert.match(shell, /__sfNativeRetryLibrary[\s\S]{0,400}checkMediaLib\(true\)/);
+    assert.match(shell, /__sfNativeRetryLibrary[\s\S]{0,500}checkMediaLib\(true, 'native-retry'\)/,
+        'the manual retry is explicitly tagged without sending credentials or private data');
 });
 
 test('the native side dispatches the state-row actions without a new bridge method', () => {

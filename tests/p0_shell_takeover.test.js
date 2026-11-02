@@ -110,7 +110,7 @@ function cardPage({
 }
 
 // Boots the real shell against a fake page and records every bridge call.
-function loadShell({ withCards = true, mediaLib = null, mediaLibSessionProofKnown = true, mediaLibSessionProven = true, rawItemCount = 0, libraryError = '', libraryDiagnostic = null, locationPath = '/', searchMediaItemsImpl = null, noUserWidget = false, profileWidgetMode = 'testid', resourceHref = '/playlist/37i9dQZF1DXcBWIGoYBM5M', resourceTitle = 'Road trip', bridgeMode = 'complete', rootMode = 'legacy' } = {}) {
+function loadShell({ withCards = true, mediaLib = null, mediaLibSessionProofKnown = true, mediaLibSessionProven = true, rawItemCount = 0, libraryError = '', libraryDiagnostic = null, locationPath = '/', searchMediaItemsImpl = null, noUserWidget = false, profileWidgetMode = 'testid', resourceHref = '/playlist/37i9dQZF1DXcBWIGoYBM5M', resourceTitle = 'Road trip', bridgeMode = 'complete', rootMode = 'legacy', throwOnWindowEvent = '' } = {}) {
     const timers = [];
     const navigations = [];
     const webLoads = [];
@@ -123,16 +123,19 @@ function loadShell({ withCards = true, mediaLib = null, mediaLibSessionProofKnow
         resourceHref,
         resourceTitle
     });
-    const calls = { ready: 0, data: [], routes: [], mediaLibChecks: 0, order: [], traces: [] };
+    const calls = { ready: 0, data: [], routes: [], mediaLibChecks: 0, mediaLibCheckArgs: [], order: [], traces: [] };
     const eventListeners = { window: new Map(), document: new Map() };
+    let vmWindow = null;
     const addListener = (target, type, fn) => {
         const bucket = eventListeners[target];
         if (!bucket.has(type)) bucket.set(type, []);
         bucket.get(type).push(fn);
     };
-    const dispatch = (target, type) => {
+    const dispatch = (target, type, fields = {}) => {
         const bucket = eventListeners[target].get(type) || [];
-        bucket.slice().forEach((fn) => fn({ type, target }));
+        const eventTarget = target === 'window' ? (vmWindow || win) : document;
+        const event = Object.assign({ type, target: eventTarget }, fields || {});
+        bucket.slice().forEach((fn) => fn(event));
     };
     const byId = new Map();
     if (rootMode === 'legacy') byId.set('#main-view', main);
@@ -162,7 +165,12 @@ function loadShell({ withCards = true, mediaLib = null, mediaLibSessionProofKnow
     };
 
     const win = {
-        addEventListener(type, fn) { addListener('window', type, fn); },
+        addEventListener(type, fn) {
+            if (throwOnWindowEvent && type === throwOnWindowEvent) {
+                throw Object.assign(new Error('private shell installation fixture'), { name: 'TypeError' });
+            }
+            addListener('window', type, fn);
+        },
         removeEventListener() {}, dispatchEvent() { return true; },
         __sfTriggerMutations() {
             fakeNow += 250;
@@ -214,7 +222,10 @@ function loadShell({ withCards = true, mediaLib = null, mediaLibSessionProofKnow
     win.__sfMediaLibSessionProven = mediaLibSessionProven;
     win.__sfMediaLibRawItemCount = rawItemCount;
     if (libraryDiagnostic) win.__sfMediaLibLastDiagnostic = libraryDiagnostic;
-    win.checkMediaLib = () => { calls.mediaLibChecks += 1; };
+    win.checkMediaLib = (...args) => {
+        calls.mediaLibChecks += 1;
+        calls.mediaLibCheckArgs.push(args);
+    };
     if (searchMediaItemsImpl) win.searchMediaItems = searchMediaItemsImpl;
     const diagnosticSessionId = '1a2b3c4d';
     const bridge = {
@@ -240,6 +251,7 @@ function loadShell({ withCards = true, mediaLib = null, mediaLibSessionProofKnow
     }
 
     const context = vm.createContext(win);
+    vmWindow = vm.runInContext('window', context);
     vm.runInContext(fs.readFileSync(SHELL, 'utf8'), context, { timeout: 20000 });
     // Drains the shell's own retry timers, oldest first, bounded so a bug in
     // the retry loop can never hang the suite.
@@ -266,10 +278,61 @@ function loadShell({ withCards = true, mediaLib = null, mediaLibSessionProofKnow
     };
     return {
         win, calls, drainTimers, navigations, webLoads, main, appendCard,
-        dispatchWindow: (type) => dispatch('window', type),
-        dispatchDocument: (type) => dispatch('document', type)
+        dispatchWindow: (type, fields) => dispatch('window', type, fields),
+        dispatchDocument: (type, fields) => dispatch('document', type, fields)
     };
 }
+
+test('global JavaScript and resource errors retain only a safe source, class, and numeric position', () => {
+    const { win, calls, dispatchWindow } = loadShell();
+    const privateUrl = 'https://private.invalid/script.js?token=fixture';
+    const privateMessage = 'private error text';
+
+    dispatchWindow('error', {
+        error: { name: 'TypeError', message: privateMessage },
+        filename: privateUrl,
+        lineno: 17,
+        colno: 8
+    });
+    dispatchWindow('error', {
+        target: node({ tag: 'script', attrs: { src: privateUrl } }),
+        error: null,
+        filename: privateUrl
+    });
+
+    assert.equal(win.__sfNativeUiShellErrors, 2);
+    assert.deepEqual({
+        window: win.__sfNativeUiShellErrorSources['window-js'],
+        script: win.__sfNativeUiShellErrorSources['resource-script']
+    }, { window: 1, script: 1 });
+    assert.deepEqual(JSON.parse(JSON.stringify(win.__sfNativeUiShellErrorDetails)), [
+        { source: 'window-js', name: 'TypeError', line: 17, column: 8 },
+        { source: 'resource-script', name: 'unknown', line: null, column: null }
+    ]);
+    assert.doesNotMatch(calls.traces.join('\n'), /private\.invalid|token=fixture|private error text/i,
+        'diagnostic traces never retain a resource URL or exception message');
+});
+
+test('runUpdate and shell-install failures are separated in the shell error attribution', () => {
+    const update = loadShell();
+    Object.defineProperty(update.win.location, 'pathname', {
+        configurable: true,
+        get() { throw Object.assign(new Error('private update text'), { name: 'ReferenceError' }); }
+    });
+    update.win.__sfNativeUiRefresh();
+    assert.equal(update.win.__sfNativeUiShellErrorSources['run-update'], 1);
+    assert.deepEqual(JSON.parse(JSON.stringify(update.win.__sfNativeUiShellErrorDetails.at(-1))), {
+        source: 'run-update', name: 'ReferenceError', line: null, column: null
+    });
+    assert.doesNotMatch(update.calls.traces.join('\\n'), /private update text/);
+
+    const install = loadShell({ throwOnWindowEvent: 'popstate' });
+    assert.equal(install.win.__sfNativeUiShellCompleted, false);
+    assert.equal(install.win.__sfNativeUiShellErrorSources.install, 1);
+    assert.deepEqual(JSON.parse(JSON.stringify(install.win.__sfNativeUiShellErrorDetails)), [
+        { source: 'install', name: 'TypeError', line: null, column: null }
+    ]);
+});
 
 test('diagnostic traces carry a process id and omit private route identifiers', () => {
     const privateResourceId = '37i9dQZF1DXprivate123';
@@ -405,6 +468,8 @@ test('foreground returns refresh the native projection without looping a 401 and
     returned.dispatchWindow('pageshow');
     assert.equal(returned.calls.mediaLibChecks, 1,
         'the returned Spotify page starts a fresh libraryV3 proof attempt');
+    assert.deepEqual(returned.calls.mediaLibCheckArgs, [[false, 'shell-update']],
+        'the first post-login request has an allow-listed startup source');
 });
 
 test('HTTP 401 keeps its cause unknown and offers separate official-login and manual-retry actions', () => {
@@ -759,10 +824,16 @@ test('without any bridge search function typing still reaches the search page', 
 test('the manual retry behind the state row restarts the library fetch', () => {
     const { win, drainTimers } = loadShell({ withCards: false });
     let calls = 0;
-    win.checkMediaLib = (force) => { calls += 1; if (force !== true) throw new Error('must force'); };
+    let source = '';
+    win.checkMediaLib = (force, checkSource) => {
+        calls += 1;
+        source = checkSource;
+        if (force !== true) throw new Error('must force');
+    };
     assert.equal(typeof win.__sfNativeRetryLibrary, 'function', 'the hook exists for the native row');
     win.__sfNativeRetryLibrary();
     assert.equal(calls, 1, 'the library fetch is forced exactly once');
+    assert.equal(source, 'native-retry', 'the manual retry has a fixed, non-sensitive source label');
     drainTimers(4);
 });
 

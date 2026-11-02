@@ -161,6 +161,9 @@ test('checkMediaLib transforms a valid library response and sends cookies withou
     assert.match(finalLibraryDiagnostic(win),
         /^library-fetch phase=settle http=200 mime=json duration=[0-9]+ error=none auth=webview-session refresh=unsupported$/);
     const diagnostic = win.__sfMediaLibLastDiagnostic;
+    assert.equal(diagnostic.attempt, 1);
+    assert.equal(diagnostic.source, 'unspecified');
+    assert.equal(diagnostic.requests, 1);
     assert.equal(diagnostic.phase, 'settle');
     assert.equal(diagnostic.http, 200);
     assert.equal(diagnostic.mime, 'json');
@@ -169,8 +172,8 @@ test('checkMediaLib transforms a valid library response and sends cookies withou
     assert.equal(diagnostic.refreshMode, 'unsupported');
     assert.ok(Number.isInteger(diagnostic.durationMs) && diagnostic.durationMs >= 0 && diagnostic.durationMs <= 999999);
     assert.deepEqual(Object.keys(diagnostic).sort(),
-        ['authMode', 'durationMs', 'error', 'http', 'mime', 'phase', 'refreshMode'].sort(),
-        'the passive snapshot contains only HTTP/timing/error data and fixed authentication modes');
+        ['attempt', 'authMode', 'durationMs', 'error', 'http', 'mime', 'phase', 'refreshMode', 'requests', 'source'].sort(),
+        'the passive snapshot contains only a bounded sequence/source, HTTP/timing/error data and fixed authentication modes');
     assert.doesNotMatch(libraryDiagnostics(win).join('\n'),
         /Fixture|spotify:|Cookie|Authorization|Road trip|Focus|received|transformed|proof=|page=/i,
         'diagnostics contain only HTTP/timing/error categories, never account data or extra proof/page fields');
@@ -246,6 +249,8 @@ test('the library paginates multiple playlist pages and deduplicates entries', a
     await win.checkMediaLib(true);
 
     assert.deepEqual(offsets, [0, 50]);
+    assert.equal(win.__sfMediaLibLastDiagnostic.requests, 2,
+        'the diagnostic counts each libraryV3 fetch invocation across pagination');
     assert.equal(win.mediaLib.playlists.length, 51);
     const ids = Array.from(win.mediaLib.playlists, (item) => item.id);
     assert.equal(new Set(ids).size, ids.length);
@@ -290,6 +295,33 @@ test('HTTP refusals and server responses retain their status-specific errors', a
         assert.equal(win.__sfMediaLibLastDiagnostic.http, status);
         assert.equal(win.__sfMediaLibLastDiagnostic.error, diagnosticError);
     }
+});
+
+test('library request diagnostics distinguish actual attempts from repeated snapshots using safe source and counts', async () => {
+    let fetchCount = 0;
+    const win = loadBridge({ fetchImpl: async () => {
+        fetchCount += 1;
+        return jsonResponse(401, {});
+    } });
+
+    await win.checkMediaLib(true, 'native-retry');
+    assert.deepEqual({
+        attempt: win.__sfMediaLibLastDiagnostic.attempt,
+        source: win.__sfMediaLibLastDiagnostic.source,
+        requests: win.__sfMediaLibLastDiagnostic.requests,
+        http: win.__sfMediaLibLastDiagnostic.http
+    }, { attempt: 1, source: 'native-retry', requests: 1, http: 401 });
+
+    const untrustedSource = 'https://private.invalid/path?token=fixture';
+    await win.checkMediaLib(true, untrustedSource);
+    assert.deepEqual({
+        attempt: win.__sfMediaLibLastDiagnostic.attempt,
+        source: win.__sfMediaLibLastDiagnostic.source,
+        requests: win.__sfMediaLibLastDiagnostic.requests,
+        http: win.__sfMediaLibLastDiagnostic.http
+    }, { attempt: 2, source: 'unspecified', requests: 1, http: 401 });
+    assert.equal(fetchCount, 2, 'each forced check starts one HTTP request in this first-page fixture');
+    assert.doesNotMatch(JSON.stringify(win.__sfMediaLibLastDiagnostic), /private\.invalid|token=fixture/);
 });
 
 test('a 401 invalidates earlier proof and clears private rows from memory', async () => {
@@ -432,7 +464,7 @@ test('unexpected JSON shape and GraphQL errors are not reported as an empty libr
         assert.equal(win.mediaLib, undefined);
         assert.equal(win.__sfMediaLibLastDiagnostic.error, diagnosticError);
         assert.deepEqual(Object.keys(win.__sfMediaLibLastDiagnostic).sort(),
-            ['authMode', 'durationMs', 'error', 'http', 'mime', 'phase', 'refreshMode'].sort());
+            ['attempt', 'authMode', 'durationMs', 'error', 'http', 'mime', 'phase', 'refreshMode', 'requests', 'source'].sort());
         assert.match(finalLibraryDiagnostic(win), new RegExp(`error=${diagnosticError} auth=webview-session refresh=unsupported$`));
     }
 });
@@ -451,7 +483,7 @@ test('a successful API response with unsupported items is a transform error, not
     assert.equal(win.__sfMediaLibLastDiagnostic.phase, 'transform');
     assert.equal(win.__sfMediaLibLastDiagnostic.error, 'transform');
     assert.deepEqual(Object.keys(win.__sfMediaLibLastDiagnostic).sort(),
-        ['authMode', 'durationMs', 'error', 'http', 'mime', 'phase', 'refreshMode'].sort());
+        ['attempt', 'authMode', 'durationMs', 'error', 'http', 'mime', 'phase', 'refreshMode', 'requests', 'source'].sort());
     assert.match(finalLibraryDiagnostic(win),
         /^library-fetch phase=transform http=200 mime=json duration=[0-9]+ error=transform auth=webview-session refresh=unsupported$/);
 });
