@@ -402,13 +402,58 @@ jobs:
             local device_booted
             local app_pid
             local fatal_or_anr_count
+            local resumed_component
+            local focused_component
+            local native_owner_events
+            local crash_guard_state
             host_available_kib="$(awk '/^MemAvailable:/ {print $2}' /proc/meminfo 2>/dev/null || true)"
             android_processes="$(ps -eo comm=,rss=,stat= 2>/dev/null | awk '$1 ~ /^(emulator|qemu|adb)/ {printf "%s:%s:%s,", $1, $2, $3}' | cut -c1-300)"
             adb_devices="$(timeout 10s adb devices 2>/dev/null | awk 'NR > 1 && NF >= 2 {printf "%s:%s,", $1, $2}')"
             device_booted="$(timeout 10s adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\r' || true)"
             app_pid="$(timeout 10s adb shell pidof -s com.melodix.music.preview 2>/dev/null | tr -d '\r' || true)"
+            resumed_component="$(timeout 10s adb shell dumpsys activity activities 2>/dev/null | python3 -c '
+          import re, sys
+          for line in reversed(sys.stdin.read().splitlines()):
+              if re.search(r"mResumedActivity|topResumedActivity|ResumedActivity", line):
+                  match = re.search(r"([A-Za-z0-9_.]+)/([A-Za-z0-9_.$]+)", line)
+                  if match:
+                      print(match.group(1) + "/" + match.group(2).rsplit(".", 1)[-1].lstrip("."))
+                      break
+          else:
+              print("none")
+          ' || true)"
+            focused_component="$(timeout 10s adb shell dumpsys window 2>/dev/null | python3 -c '
+          import re, sys
+          for line in reversed(sys.stdin.read().splitlines()):
+              if re.search(r"mCurrentFocus|mFocusedApp", line):
+                  match = re.search(r"([A-Za-z0-9_.]+)/([A-Za-z0-9_.$]+)", line)
+                  if match:
+                      print(match.group(1) + "/" + match.group(2).rsplit(".", 1)[-1].lstrip("."))
+                      break
+          else:
+              print("none")
+          ' || true)"
+            native_owner_events="$(timeout 10s adb logcat -d -t 2000 -s MDXTRACE:I 2>/dev/null | python3 -c '
+          import re, sys
+          pattern = re.compile(r"native-owner previous=(unknown|native|melodix-web|spotify-web|login|other) next=(unknown|native|melodix-web|spotify-web|login|other) route=(home|search|library|detail|player|settings|login|other)")
+          events = ["%s>%s@%s" % match.groups() for line in sys.stdin for match in [pattern.search(line)] if match]
+          print("count=%d; last=%s" % (len(events), ",".join(events[-6:]) or "none"))
+          ' || true)"
+            crash_guard_state="$(timeout 10s adb exec-out run-as com.melodix.music.preview cat shared_prefs/melodix_native.xml 2>/dev/null | python3 -c '
+          import re, sys, xml.etree.ElementTree as ET
+          try:
+              root = ET.parse(sys.stdin).getroot()
+              values = {node.get("name"): node.text for node in root.findall("string")}
+              stage = values.get("last_stage") or ""
+              crash = values.get("last_crash") or ""
+              stage = stage if re.fullmatch(r"[A-Za-z0-9_.-]{1,64}", stage) else "unknown"
+              crash = crash if re.fullmatch(r"[A-Za-z_$][A-Za-z0-9_.$]{0,79}", crash) else "none"
+              print("last_stage=%s; crash_class=%s" % (stage, crash))
+          except (ET.ParseError, OSError):
+              print("unavailable")
+          ' || true)"
             fatal_or_anr_count="$(timeout 15s adb logcat -d -t 2000 -b main -b system -b crash 2>/dev/null | grep -cE 'FATAL EXCEPTION|ANR in com\.melodix\.music\.preview|lowmemorykiller|lmkd|Killing .*com\.melodix\.music\.preview' || true)"
-            echo "::notice title=Android launch failure diagnostics::exit=$exit_code; host_available_kib=${host_available_kib:-unknown}; android_processes=${android_processes:-none}; adb_devices=${adb_devices:-none}; device_boot_completed=${device_booted:-unknown}; app_pid=${app_pid:-none}; fatal_or_anr_log_count=${fatal_or_anr_count:-unknown}"
+            echo "::notice title=Android launch failure diagnostics::exit=$exit_code; host_available_kib=${host_available_kib:-unknown}; android_processes=${android_processes:-none}; adb_devices=${adb_devices:-none}; device_boot_completed=${device_booted:-unknown}; app_pid=${app_pid:-none}; resumed_component=${resumed_component:-none}; focused_component=${focused_component:-none}; native_owner_events=${native_owner_events:-unavailable}; crash_guard=${crash_guard_state:-unavailable}; fatal_or_anr_log_count=${fatal_or_anr_count:-unknown}"
           }
           trap launch_failure_diagnostics EXIT
           state_dir="$RUNNER_TEMP/melodix-preview-emulator-state"

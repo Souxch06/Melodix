@@ -97,9 +97,15 @@ test("the emulator workflow checks the exact APK debuggable flag and captures re
     "refuse to start instrumentation unless the built APK reports debuggable=true",
   );
   assert.match(emulatorWorkflow, /launch_failure_diagnostics\(\)[\s\S]*?host_available_kib[\s\S]*?fatal_or_anr_log_count[\s\S]*?trap launch_failure_diagnostics EXIT/,
-    'unexpected Android launch termination leaves only bounded host/device health counters for diagnosis');
+    'unexpected Android launch termination reports allowlisted component, owner-transition, and crash-stage metadata without raw logs or account content');
   assert.match(emulatorWorkflow, /timeout 15s adb logcat -d -t 2000 -b main -b system -b crash[\s\S]*?grep -cE/,
     'failure reporting stores counts rather than raw logcat or account content');
+  assert.match(emulatorWorkflow, /resumed_component=.*dumpsys activity activities[\s\S]*?re\.search\(r"mResumedActivity\|topResumedActivity\|ResumedActivity"/,
+    'foreground diagnostics reduce the ActivityManager dump to an allowlisted component name');
+  assert.match(emulatorWorkflow, /native_owner_events=.*MDXTRACE:I[\s\S]*?pattern = re\.compile[\s\S]*?native-owner previous=/,
+    'native-owner startup traces retain only enumerated owner and route labels');
+  assert.match(emulatorWorkflow, /crash_guard_state=.*shared_prefs\/melodix_native\.xml[\s\S]*?last_stage=\%s; crash_class=\%s/,
+    'crash-guard diagnostics expose only a constrained stage name and exception class');
   assert.match(emulatorWorkflow, /adb shell dumpsys activity > "\$activity_dump"/);
   assert.doesNotMatch(
     emulatorWorkflow,
