@@ -822,6 +822,10 @@ public final class HomeRenderInstrumentation extends Instrumentation {
                 shellFixtureHolder[0] = createNativeUiShellHandoffFixture(activity);
                 failurePhase = "javascript_native_shell_asset_install";
                 notePhase(failurePhase);
+                // The primary WebView remains on the explicit login page. Temporarily
+                // release only its UI-owner gate for this synthetic, status-only
+                // native-shell handoff; the original URL, WebView and session stay untouched.
+                clearLoginOwnerForNativeShellFixture(activity);
                 installPackagedNativeUiShell(shellFixtureHolder[0], activity);
                 failurePhase = "javascript_native_shell_status_visibility";
                 notePhase(failurePhase);
@@ -3797,6 +3801,25 @@ public final class HomeRenderInstrumentation extends Instrumentation {
         if (!readBooleanField(activity, "nativeLoginWebRequested")) {
             throw new AssertionError("Explicit login action did not retain Web ownership");
         }
+    }
+
+    private void clearLoginOwnerForNativeShellFixture(final Activity activity) throws Exception {
+        final Throwable[] failure = new Throwable[1];
+        runOnMainSync(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    Field loginOwner = activity.getClass().getDeclaredField("nativeLoginWebRequested");
+                    loginOwner.setAccessible(true);
+                    loginOwner.setBoolean(activity, false);
+                } catch (Throwable error) {
+                    failure[0] = unwrapInvocationTarget(error);
+                }
+            }
+        });
+        if (failure[0] instanceof Exception) throw (Exception) failure[0];
+        if (failure[0] instanceof Error) throw (Error) failure[0];
+        if (failure[0] != null) throw new AssertionError("Could not prepare the isolated native shell fixture");
     }
 
     private boolean verifyLoginSpaExitBeforeHomeFixture(final Activity activity) throws Exception {

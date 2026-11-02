@@ -681,6 +681,19 @@ test("login-surface reflection failures expose only the bounded target exception
     "only a bounded chain of reflection wrappers is unwrapped");
   assert.ok(harness.includes("loginFailure[0] = unwrapInvocationTarget(error);"),
     "the login surface probe reports the target exception class instead of the generic reflection wrapper");
+  const shellFixture = harness.indexOf("shellFixtureHolder[0] = createNativeUiShellHandoffFixture(activity);");
+  const shellGateClear = harness.indexOf("clearLoginOwnerForNativeShellFixture(activity);", shellFixture);
+  const shellInstall = harness.indexOf("installPackagedNativeUiShell(shellFixtureHolder[0], activity);", shellGateClear);
+  const shellLoginRestore = harness.indexOf("requestExplicitLoginWebUi(activity);", shellInstall);
+  assert.ok(shellFixture >= 0 && shellGateClear > shellFixture && shellInstall > shellGateClear && shellLoginRestore > shellInstall,
+    "the isolated status-only shell fixture temporarily clears, then restores, only the explicit login UI gate");
+  const gateHelperStart = harness.indexOf("private void clearLoginOwnerForNativeShellFixture(");
+  const gateHelperEnd = harness.indexOf("private boolean verifyLoginSpaExitBeforeHomeFixture(", gateHelperStart);
+  const gateHelper = harness.slice(gateHelperStart, gateHelperEnd);
+  assert.ok(gateHelper.includes("runOnMainSync(new Runnable()") &&
+    gateHelper.includes('getDeclaredField("nativeLoginWebRequested")') &&
+    gateHelper.includes("setBoolean(activity, false)"),
+    "the test-only login gate change is performed on Android's main thread without navigating the WebView");
   assert.ok(harness.includes("Throwable reportableFailure = unwrapInvocationTarget(failure);"),
     "the top-level result also unwraps bounded reflection wrappers from the main-thread dispatcher");
   const spaProbeStart = harness.indexOf("private boolean verifyLoginSpaExitBeforeHomeFixture(");
