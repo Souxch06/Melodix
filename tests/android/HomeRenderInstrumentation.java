@@ -11,7 +11,6 @@ import android.content.pm.PackageInfo;
 import android.graphics.Bitmap;
 import android.graphics.Insets;
 import android.graphics.Rect;
-import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.SystemClock;
@@ -62,6 +61,60 @@ import java.util.concurrent.TimeUnit;
 public final class HomeRenderInstrumentation extends Instrumentation {
     private static final String TARGET_PACKAGE = "com.melodix.music.preview";
     private static final String HARNESS_TAG = "MelodixHarness";
+
+    // Expose only the four shell callbacks needed by this fixture. In
+    // particular, no bundled-asset reader is forwarded, so the test cannot
+    // bootstrap spotify_bridge.js or start a library fetch.
+    public static final class NativeUiShellTestBridge {
+        private final Object delegate;
+        private final Class<?> bridgeClass;
+
+        public NativeUiShellTestBridge(Context context) throws Exception {
+            bridgeClass = context.getClassLoader().loadClass("com.melodix.music.AndBridge");
+            delegate = bridgeClass.getConstructor(Context.class).newInstance(context);
+        }
+
+        @android.webkit.JavascriptInterface
+        public void onNativeUiData(String screen, String data) {
+            invoke("onNativeUiData", new Class<?>[]{String.class, String.class}, screen, data);
+        }
+
+        @android.webkit.JavascriptInterface
+        public void onNativeUiRoute(String screen) {
+            invoke("onNativeUiRoute", new Class<?>[]{String.class}, screen);
+        }
+
+        @android.webkit.JavascriptInterface
+        public void onNativeUiReady() {
+            invoke("onNativeUiReady", new Class<?>[0]);
+        }
+
+        @android.webkit.JavascriptInterface
+        public void onMelodixHomeVisibility(boolean active, boolean sessionProven) {
+            invoke("onMelodixHomeVisibility", new Class<?>[]{boolean.class, boolean.class},
+                    active, sessionProven);
+        }
+
+        @android.webkit.JavascriptInterface
+        public void logDiagEvent(String event) {
+            invoke("logDiagEvent", new Class<?>[]{String.class}, event);
+        }
+
+        @android.webkit.JavascriptInterface
+        public String getDiagnosticSessionId() {
+            Object value = invoke("getDiagnosticSessionId", new Class<?>[0]);
+            return value == null ? "" : String.valueOf(value);
+        }
+
+        private Object invoke(String name, Class<?>[] parameterTypes, Object... args) {
+            try {
+                return bridgeClass.getMethod(name, parameterTypes).invoke(delegate, args);
+            } catch (Exception error) {
+                throw new IllegalStateException("Native shell fixture bridge call failed", error);
+            }
+        }
+    }
+
     private Bundle runnerArguments = new Bundle();
     private static final long WEBVIEW_SETTLE_TIMEOUT_MS = 60000L;
     private static final long REQUIRED_STABLE_MS = 1800L;
@@ -141,107 +194,66 @@ public final class HomeRenderInstrumentation extends Instrumentation {
             "(function(){try{" +
             "var hostname=String(location.hostname||'').toLowerCase();" +
             "var host=hostname==='open.spotify.com'?'open.spotify.com':hostname==='accounts.spotify.com'?'accounts.spotify.com':'other';" +
-            "var rawParts=String(location.pathname||'/').split('/').filter(Boolean);" +
-            "var locale=rawParts.length&&/^intl-[a-z]{2}(?:-[a-z]{2})?$/i.test(rawParts[0])?rawParts.shift():'';" +
-            "var parts=rawParts;var first=parts.length?String(parts[0]).toLowerCase():'';" +
+            "var parts=String(location.pathname||'/').split('/').filter(Boolean);" +
+            "if(parts.length&&/^intl-[a-z]{2}(?:-[a-z]{2})?$/i.test(parts[0]))parts.shift();" +
+            "var first=parts.length?String(parts[0]).toLowerCase():'';" +
             "var detailTypes=['playlist','album','artist','track','show','episode','audiobook'];" +
-            "var route=parts.length===0?'root':first==='home'||first==='app'?first:first==='search'?'search':first==='collection'?'library':detailTypes.indexOf(first)>=0?'detail':'other';" +
-            "var homeRoute=host==='open.spotify.com'&&['root','home','app'].indexOf(route)>=0;" +
-            "var routeCategory=route==='root'||route==='home'||route==='app'?'home':route;" +
-            "var localePrefix=locale?'/'+locale:'';var safePath='/other';" +
-            "if(host==='open.spotify.com'){if(homeRoute)safePath=localePrefix+(route==='root'?'/':'/'+route);" +
-            "else if(route==='search')safePath=localePrefix+'/search';" +
-            "else if(route==='library'){var collection=parts.length>1?String(parts[1]).toLowerCase():'';" +
-            "if(['playlists','albums','artists','podcasts','tracks'].indexOf(collection)<0)collection='';" +
-            "safePath=localePrefix+'/collection'+(collection?'/'+collection:'');}" +
-            "else if(route==='detail')safePath=localePrefix+'/'+first+'/[redacted]';}" +
-            "else if(host==='accounts.spotify.com')safePath='/login';" +
-            "var safeUrl=host==='other'?'unavailable':'https://'+host+safePath;" +
+            "var route=parts.length===0?'home':first==='home'||first==='app'?'home':first==='search'?'search':first==='collection'?'library':detailTypes.indexOf(first)>=0?'detail':'other';" +
+            "var homeRoute=host==='open.spotify.com'&&route==='home';" +
             "var visible=function(element){if(!element)return false;var style=getComputedStyle(element);var rect=element.getBoundingClientRect();" +
             "return style.display!=='none'&&style.visibility==='visible'&&Number(style.opacity)>0&&rect.width>0&&rect.height>0;};" +
             "var rectOf=function(element){if(!element)return {left:0,top:0,width:0,height:0};var r=element.getBoundingClientRect();" +
             "var n=function(v){return Number.isFinite(Number(v))?Math.max(-10000,Math.min(10000,Math.round(Number(v)))):0;};" +
             "return {left:n(r.left),top:n(r.top),width:n(r.width),height:n(r.height)};};" +
-            "var count=function(value){var n=Number(value);return Number.isFinite(n)?Math.max(0,Math.min(999,Math.floor(n))):0;};" +
+            "var bounded=function(value,max){var n=Number(value);return Number.isFinite(n)?Math.max(0,Math.min(max,Math.floor(n))):0;};" +
+            "var enumValue=function(value,allowed,fallback){return allowed.indexOf(value)>=0?value:fallback;};" +
+            "var library=window.mediaLib&&typeof window.mediaLib==='object'?window.mediaLib:null;" +
+            "var libraryProven=window.__sfMediaLibSessionProofKnown===true&&window.__sfMediaLibSessionProven===true;" +
+            "var status=String(window.__sfMediaLibStatus||'absent');if(['absent','pending','loading','ready','error'].indexOf(status)<0)status='other';" +
+            "var fetchDiagnostic=window.__sfMediaLibLastDiagnostic&&typeof window.__sfMediaLibLastDiagnostic==='object'?window.__sfMediaLibLastDiagnostic:null;" +
+            "var fetchPhases=['request','response','parse','transform','settle'];" +
+            "var fetchMimes=['json','html','other','missing'];" +
+            "var fetchErrors=['none','empty','http-401','http-403','http-other','timeout','network','non-json','invalid-json','unexpected-shape','graphql','parse','transform'];" +
+            "var fetchPhase=fetchDiagnostic?enumValue(fetchDiagnostic.phase,fetchPhases,'unknown'):'unknown';" +
+            "var fetchMime=fetchDiagnostic?enumValue(fetchDiagnostic.mime,fetchMimes,'unknown'):'unknown';" +
+            "var fetchHttp=fetchDiagnostic?bounded(fetchDiagnostic.http,599):-1;" +
+            "var fetchDuration=fetchDiagnostic?bounded(fetchDiagnostic.durationMs,999999):-1;" +
+            "var fetchError=fetchDiagnostic?enumValue(fetchDiagnostic.error,fetchErrors,'other'):'unavailable';" +
+            "var fetchStatusMatches=function(code){return !!fetchDiagnostic&&fetchPhase==='response'&&fetchHttp===code&&fetchError==='http-'+code;};" +
+            "if((fetchError==='http-401'&&!fetchStatusMatches(401))||(fetchError==='http-403'&&!fetchStatusMatches(403)))fetchError='http-other';" +
+            "var normalizeLibraryError=function(value){if(value==='http-401')return fetchStatusMatches(401)?'http-401':'other';" +
+            "if(value==='http-403')return fetchStatusMatches(403)?'http-403':'other';" +
+            "if(/^http-[1-5][0-9]{2}$/.test(value)){var code=Number(value.slice(5));" +
+            "return fetchDiagnostic&&fetchPhase==='response'&&fetchHttp===code&&fetchError==='http-other'?'http-other':'other';}" +
+            "if(value==='http-unknown'||value==='network-error')return'network';" +
+            "if(['timeout','non-json','invalid-json','unexpected-shape','graphql-error','transform-error','fetch-parse-error','empty'].indexOf(value)>=0)" +
+            "return value==='graphql-error'?'graphql':value==='transform-error'?'transform':value==='fetch-parse-error'?'parse':value;" +
+            "return value?'other':'none';};" +
+            "var libraryError=normalizeLibraryError(typeof window.__sfMediaLibError==='string'?window.__sfMediaLibError:'');" +
+            "var libraryPlaylistObserved=!!(libraryProven&&library&&Array.isArray(library.playlists)&&library.playlists.length>0);" +
             "var home=document.getElementById('sf-melodix-home');var homeVisible=visible(home);" +
             "var mainId=document.getElementById('main-view');var semanticMain=mainId||document.querySelector('[data-testid=\"home-page\"]');" +
             "var mainVisible=visible(semanticMain);var body=document.body;" +
-            "var library=window.mediaLib&&typeof window.mediaLib==='object'?window.mediaLib:null;" +
-            "var libraryKnown=window.__sfMediaLibSessionProofKnown===true;" +
-            "var libraryProven=libraryKnown&&window.__sfMediaLibSessionProven===true;" +
-            "var profileNode=document.querySelector('button[data-testid=\"user-widget-link\"],a[data-testid=\"user-widget-link\"],.main-userWidget-box');" +
-            "var profile=!!profileNode;var profileVisible=visible(profileNode);" +
-            "var nativeProven=window.__sfNativeUiSessionProven===true;var session=libraryProven;" +
-            "var sessionProofSource=libraryProven?'verified-private-library-response':libraryKnown?'private-library-response-rejected':profileVisible?'profile-control-unverified':nativeProven?'native-shell-flag-unverified':'unproven';" +
-            "var status=String(window.__sfMediaLibStatus||'absent');" +
-            "if(['absent','pending','loading','ready','error'].indexOf(status)<0)status='other';" +
-            "var rawLibraryError=typeof window.__sfMediaLibError==='string'?window.__sfMediaLibError:'';" +
-            "var normalizeLibraryError=function(value){if(value==='http-401')return'http-401';if(value==='http-403')return'http-403';" +
-            "if(/^http-[1-5][0-9]{2}$/.test(value))return'http-other';if(value==='http-unknown'||value==='network-error')return'network';" +
-            "if(['timeout','non-json','invalid-json','unexpected-shape','graphql-error','transform-error','fetch-parse-error','empty'].indexOf(value)>=0)" +
-            "return value==='graphql-error'?'graphql':value==='transform-error'?'transform':value==='fetch-parse-error'?'parse':value;" +
-            "return value?'other':'none';};var libraryError=normalizeLibraryError(rawLibraryError);" +
-            "var fetchDiagnostic=window.__sfMediaLibLastDiagnostic&&typeof window.__sfMediaLibLastDiagnostic==='object'?window.__sfMediaLibLastDiagnostic:null;" +
-            "var enumValue=function(value,allowed,fallback){return allowed.indexOf(value)>=0?value:fallback;};" +
-            "var bounded=function(value,max){var n=Number(value);return Number.isFinite(n)?Math.max(0,Math.min(max,Math.floor(n))):0;};" +
-            "var fetchPhases=['request','response','parse','transform','settle'];" +
-            "var fetchErrors=['none','empty','http-401','http-403','http-other','timeout','network','non-json','invalid-json','unexpected-shape','graphql','parse','transform'];" +
-            "var fetchPhase=fetchDiagnostic?enumValue(fetchDiagnostic.phase,fetchPhases,'unknown'):'unknown';" +
-            "var fetchMime=fetchDiagnostic?enumValue(fetchDiagnostic.mime,['json','html','other','missing'],'unknown'):'unknown';" +
-            "var fetchError=fetchDiagnostic?enumValue(fetchDiagnostic.error,fetchErrors,'other'):'unavailable';" +
-            "var fetchProof=fetchDiagnostic?enumValue(fetchDiagnostic.proof,['unknown','valid','invalid'],'unknown'):'unknown';" +
-            "var fetchPage=fetchDiagnostic?enumValue(fetchDiagnostic.page,['profile','none'],'unknown'):'unknown';" +
-            "var groups=['playlists','albums','artists','podcasts'];var libraryResourceCount=0;var libraryPlaylistCount=0;" +
-            "if(libraryProven&&library){for(var g=0;g<groups.length;g++){var group=library[groups[g]];" +
-            "if(Array.isArray(group)){libraryResourceCount+=group.length;if(groups[g]==='playlists')libraryPlaylistCount=group.length;}}}" +
-            "var countRoots=[];if(homeRoute&&home)countRoots.push(home);var spotifyMain=mainId||semanticMain;" +
-            "if(homeRoute&&spotifyMain&&spotifyMain!==home)countRoots.push(spotifyMain);" +
-            "var resourceKeys=Object.create(null);var resourceCount=0;var playlistCount=0;" +
-            "for(var r=0;r<countRoots.length;r++){var countRoot=countRoots[r];" +
-            "if(!countRoot||typeof countRoot.querySelectorAll!=='function')continue;var anchors=countRoot.querySelectorAll('a[href]');" +
-            "for(var a=0;a<anchors.length;a++){var rawHref=String(anchors[a].getAttribute('href')||'');var parsedHref;" +
-            "try{parsedHref=new URL(rawHref,'https://open.spotify.com/');}catch(_){continue;}" +
-            "if(String(parsedHref.hostname||'').toLowerCase()!=='open.spotify.com')continue;" +
-            "var pathParts=String(parsedHref.pathname||'/').split('/').filter(Boolean);" +
-            "if(pathParts.length&&/^intl-[a-z]{2}(?:-[a-z]{2})?$/i.test(pathParts[0]))pathParts.shift();" +
-            "var resourceType=pathParts.length===2?String(pathParts[0]).toLowerCase():'';" +
-            "var resourceId=pathParts.length===2?String(pathParts[1]):'';" +
-            "if(detailTypes.indexOf(resourceType)>=0&&resourceId){var key=resourceType+'/'+resourceId;" +
-            "if(!resourceKeys[key]){resourceKeys[key]=true;resourceCount++;if(resourceType==='playlist')playlistCount++;}}" +
-            "else if(pathParts.length===2&&resourceType==='collection'&&resourceId==='tracks'){" +
-            "var liked='collection/tracks';if(!resourceKeys[liked]){resourceKeys[liked]=true;resourceCount++;playlistCount++;}}}}" +
+            "var spotifyMain=mainId||semanticMain;" +
             "var decision=String(window.__sfMelodixHomeDecision||'not-run');" +
-            "var allowedDecisions=['not-run','rendered','visible','body-missing','route-not-home','gui-mode-unsupported','fullscreen-open','session-unproven','session-rejected','styles-not-ready','activation-visibility-check-failed','home-root-missing','initialization-error'];" +
-            "if(allowedDecisions.indexOf(decision)<0&&!/^status-visible-(loading|empty|error|partial|ready)$/.test(decision))decision='other';" +
+            "var allowedDecisions=['not-run','rendered','visible','body-missing','route-not-home','gui-mode-unsupported','fullscreen-open','renderer-inactive','styles-not-ready','activation-visibility-check-failed','home-root-missing','initialization-error'];" +
+            "if(allowedDecisions.indexOf(decision)<0&&!/^(?:status-visible-(loading|empty|error|partial|ready)|rendered-status-(loading|empty|error|unavailable))$/.test(decision))decision='other';" +
             "var nativeRoute=['home','search','library','detail','player','settings'].indexOf(window.__sfNativeUiRoute)>=0?window.__sfNativeUiRoute:'other';" +
             "var bridge=window.AndBridge||null;var owner=homeVisible?'melodix-web-home':mainVisible?'spotify-web':'web-unknown';" +
             "var homeRect=rectOf(home);var mainRect=rectOf(mainId);" +
-            "return {probe_error:false,safe_url:safeUrl,url_query_redacted:true,host_category:host,route_category:routeCategory," +
-            "home_route:homeRoute,profile_control_present:profile,profile_control_visible:profileVisible," +
-            "page_session_signal:profileVisible,session_proof_source:sessionProofSource,library_response_proof_known:libraryKnown," +
-            "library_response_session_proven:libraryProven,native_shell_session_proven:nativeProven,session_proven:session," +
-            "library_status:status,library_error:libraryError,library_fetch_diagnostic_available:!!fetchDiagnostic," +
-            "library_fetch_phase:fetchPhase,library_fetch_http_status:fetchDiagnostic?bounded(fetchDiagnostic.http,599):-1," +
-            "library_fetch_mime:fetchMime,library_fetch_duration_ms:fetchDiagnostic?bounded(fetchDiagnostic.durationMs,999999):-1," +
-            "library_fetch_error:fetchError,library_fetch_received_count_capped:fetchDiagnostic?bounded(fetchDiagnostic.received,1000):-1," +
-            "library_fetch_transformed_count_capped:fetchDiagnostic?bounded(fetchDiagnostic.transformed,1000):-1," +
-            "library_fetch_proof:fetchProof,library_fetch_page_signal:fetchPage," +
-            "real_library_resource_count_capped:libraryProven?count(libraryResourceCount):-1," +
-            "real_library_playlist_count_capped:libraryProven?count(libraryPlaylistCount):-1," +
-            "raw_library_item_count_capped:libraryProven?count(window.__sfMediaLibRawItemCount):-1," +
-            "real_home_resource_link_count_capped:count(resourceCount),real_home_playlist_link_count_capped:count(playlistCount)," +
-            "melodix_home_source_card_count_capped:count(window.__sfMelodixHomeSourceCardCount)," +
-            "native_home_rows_count_capped:count(window.__sfNativeUiHomeRowsCount),renderer_decision:decision," +
-            "sf_melodix_home_present:!!home,sf_melodix_home_visible:homeVisible,sf_melodix_home_rect:homeRect," +
-            "main_view_id_present:!!mainId,main_view_visible:visible(mainId),main_view_rect:mainRect," +
-            "semantic_main_visible:mainVisible,home_active_class:!!(body&&body.classList&&body.classList.contains('sf-melodix-home-active'))," +
+            "return {probe_error:false,host_category:host,route_category:route,home_route:homeRoute," +
+            "library_status:status,library_error:libraryError," +
+            "library_fetch_diagnostic_available:!!fetchDiagnostic,library_fetch_phase:fetchPhase," +
+            "library_fetch_http_status:fetchHttp,library_fetch_mime:fetchMime," +
+            "library_fetch_duration_ms:fetchDuration,library_fetch_error:fetchError," +
+            "real_library_playlist_observed:libraryPlaylistObserved," +
+            "renderer_decision:decision,sf_melodix_home_present:!!home,sf_melodix_home_visible:homeVisible," +
+            "sf_melodix_home_rect:homeRect,main_view_id_present:!!mainId,main_view_visible:visible(mainId)," +
+            "home_active_class:!!(body&&body.classList&&body.classList.contains('sf-melodix-home-active'))," +
             "native_route:nativeRoute,native_route_callback_returned:!!window.__sfNativeUiLastRouteSent&&window.__sfNativeUiLastRouteSent===window.__sfNativeUiRoute," +
             "native_home_data_callback_returned:window.__sfNativeUiHomeDataSent===true," +
             "native_home_state_callback_returned:window.__sfNativeUiHomeStateSent===true," +
             "native_ready_callback_returned:window.__sfNativeUiReadyNotified===true," +
-            "native_home_content_proven:window.__sfNativeUiHomeContentProven===true," +
-            "native_home_state_proven:window.__sfNativeUiHomeStateProven===true," +
-            "native_takeover_proven:window.__sfNativeUiTakeoverProven===true," +
             "bridge_started:window.__sfMelodixBridgeStarted===true," +
             "bridge_route_callback_available:!!(bridge&&typeof bridge.onNativeUiRoute==='function')," +
             "bridge_data_callback_available:!!(bridge&&typeof bridge.onNativeUiData==='function')," +
@@ -370,16 +382,11 @@ public final class HomeRenderInstrumentation extends Instrumentation {
             "var names=['--mel-bg','--mel-bg-2','--mel-surface-light','--mel-surface-light-2','--mel-surface-light-3','--mel-text-mute-a','--mel-text-mute-c','--mel-accent','--mel-accent-wash-11','--mel-home-status-wash','--mel-home-status-stroke','--mel-home-status-error-wash','--mel-home-status-error-stroke'];" +
             "var tokens={};for(var i=0;i<names.length;i++)tokens[names[i]]=String(root.getPropertyValue(names[i])||'').trim();" +
             "var main=document.querySelector('#main-view');var home=document.getElementById('sf-melodix-home');" +
-            "var status=String(window.__sfMediaLibStatus||'absent');if(['absent','pending','loading','ready','error'].indexOf(status)<0)status='other';" +
-            "var bridge=window.AndBridge||null;var linkCount=main?Math.min(main.querySelectorAll('a[href]').length,3):0;" +
+            "var bridge=window.AndBridge||null;" +
             "return {probe_error:false,host:host,route_category:route,style_present:!!style," +
             "style_marker_present:!!(style&&String(style.textContent||'').indexOf('SF_MELODIX_HOME_STYLES_V1')>=0)," +
             "tokens:tokens,home_present:!!home,home_active:!!(document.body&&document.body.classList.contains('sf-melodix-home-active'))," +
             "home_display_flex:!!(home&&getComputedStyle(home).display==='flex'),source_main_present:!!main," +
-            "source_anchor_count:linkCount,session_proven:window.__sfNativeUiSessionProven===true," +
-            "library_response_proof_known:window.__sfMediaLibSessionProofKnown===true," +
-            "library_response_session_proven:window.__sfMediaLibSessionProven===true," +
-            "library_status:status,raw_item_count:Math.min(Math.max(0,Number(window.__sfMediaLibRawItemCount)||0),3)," +
             "bridge_present:!!bridge,bridge_media_callback:!!(bridge&&typeof bridge.onMediaItemsLoaded==='function')," +
             "bridge_diag_callback:!!(bridge&&typeof bridge.logDiagEvent==='function')};" +
             "}catch(e){var name=String(e&&e.name||'Error');return {probe_error:true,probe_error_type:/^[A-Za-z0-9_$]+$/.test(name)?name.slice(0,48):'Error'};}})()";
@@ -454,8 +461,6 @@ public final class HomeRenderInstrumentation extends Instrumentation {
             "var brand=h&&h.querySelector('.sf-melodix-home__brand');" +
             "var card=cards&&cards.length?cards[0]:null;" +
             "var decision=String(window.__sfMelodixHomeDecision||'');" +
-            "var sessionProven=window.__sfMelodixHomeSessionProven===true;" +
-            "var libraryStatus=String(window.__sfMelodixHomeLibraryStatus||'absent');" +
             "var rendererStyle=window.__sfMelodixHomeStyleProbeResult||{};" +
             "var rootResourceCount=Math.max(0,Number(window.__sfMelodixHomeRootResourceCount)||0);" +
             "var sourceCardCount=Math.max(0,Number(window.__sfMelodixHomeSourceCardCount)||0);" +
@@ -480,9 +485,6 @@ public final class HomeRenderInstrumentation extends Instrumentation {
             "root_resource_count:Math.min(rootResourceCount,3),source_card_count:Math.min(sourceCardCount,3)," +
             "root_selector_is_main_view:String(window.__sfMelodixHomeRootSelector||'')==='#main-view'," +
             "styles_ready:window.__sfMelodixHomeStylesReady===true," +
-            "session_proven:sessionProven," +
-            "library_status:['absent','pending','loading','ready','error'].indexOf(libraryStatus)>=0?libraryStatus:'other'," +
-            "decision_session_unproven:decision==='session-unproven'," +
             "decision_rendered_status:decision.indexOf('rendered-status-')===0," +
             "decision_content_root_missing:decision==='content-root-missing'," +
             "decision_styles_not_ready:decision==='styles-not-ready'," +
@@ -588,7 +590,7 @@ public final class HomeRenderInstrumentation extends Instrumentation {
                 throw new AssertionError("Spotify displayed a browser compatibility warning on launch");
             }
 
-            failurePhase = "verify_unauthenticated_session";
+            failurePhase = "verify_login_surface";
             notePhase(failurePhase);
             requireUnauthenticatedSession(activity);
             failurePhase = "login_dom_probe";
@@ -691,6 +693,23 @@ public final class HomeRenderInstrumentation extends Instrumentation {
             failurePhase = "home_status_renderer_visibility";
             notePhase(failurePhase);
             awaitNativeHomeStatusReady(activity);
+            failurePhase = "home_status_owner_callback";
+            notePhase(failurePhase);
+            final Throwable[] ownerCallbackFailure = new Throwable[1];
+            runOnMainSync(new Runnable() {
+                @Override
+                public void run() {
+                    try {
+                        dispatchUnprovenHomeOwnerCallback(activity);
+                    } catch (Throwable error) {
+                        ownerCallbackFailure[0] = error;
+                    }
+                }
+            });
+            if (ownerCallbackFailure[0] != null) throw ownerCallbackFailure[0];
+            waitForIdleSync();
+            Thread.sleep(250L);
+            awaitNativeHomeStatusReady(activity);
             final Bundle[] statusState = new Bundle[1];
             final Throwable[] statusFailure = new Throwable[1];
             runOnMainSync(new Runnable() {
@@ -755,6 +774,88 @@ public final class HomeRenderInstrumentation extends Instrumentation {
                 throw new AssertionError("Status renderer did not restore the existing login WebView");
             }
             restoredState[0].putBoolean("login_surface_restored_after_status", true);
+
+            // Run the packaged native shell itself in an isolated Spotify-origin
+            // WebView. Its real JavaScript handoff sends a status-only Home while
+            // libraryV3 proof remains absent; then the JS bridge sends the
+            // negative Web-Home owner callback and Android must preserve the
+            // measured native status instead of revealing Spotify over it.
+            failurePhase = "javascript_native_shell_home_handoff";
+            notePhase(failurePhase);
+            requireUnauthenticatedSession(activity);
+            final WebView[] shellFixtureHolder = new WebView[1];
+            Bundle javascriptHandoffState = null;
+            Throwable shellFixtureFailure = null;
+            try {
+                failurePhase = "javascript_native_shell_fixture_create";
+                notePhase(failurePhase);
+                shellFixtureHolder[0] = createNativeUiShellHandoffFixture(activity);
+                failurePhase = "javascript_native_shell_asset_install";
+                notePhase(failurePhase);
+                installPackagedNativeUiShell(shellFixtureHolder[0], activity);
+                failurePhase = "javascript_native_shell_status_visibility";
+                notePhase(failurePhase);
+                awaitNativeHomeStatusReady(activity);
+                failurePhase = "javascript_native_shell_owner_callback";
+                notePhase(failurePhase);
+                if (!"true".equals(evaluateJavascriptAndWait(shellFixtureHolder[0],
+                        "window.AndBridge.onMelodixHomeVisibility(false,false);true"))) {
+                    throw new AssertionError("JavaScript could not dispatch the negative Web-Home owner callback");
+                }
+                waitForIdleSync();
+                Thread.sleep(250L);
+                awaitNativeHomeStatusReady(activity);
+                final Bundle[] handoffState = new Bundle[1];
+                final Throwable[] handoffInspectFailure = new Throwable[1];
+                runOnMainSync(new Runnable() {
+                    @Override
+                    public void run() {
+                        try {
+                            handoffState[0] = inspectJavascriptHomeHandoff(
+                                    activity, webView, originalWebViewUrl, shellFixtureHolder[0]);
+                        } catch (Throwable error) {
+                            handoffInspectFailure[0] = error;
+                        }
+                    }
+                });
+                if (handoffInspectFailure[0] != null) throw handoffInspectFailure[0];
+                javascriptHandoffState = handoffState[0];
+                sendStatus(1, javascriptHandoffState);
+            } catch (Throwable error) {
+                shellFixtureFailure = error;
+            } finally {
+                removeWebHomeRendererFixture(shellFixtureHolder[0]);
+            }
+            if (shellFixtureFailure != null) throw shellFixtureFailure;
+            failurePhase = "restore_login_after_javascript_shell_handoff";
+            notePhase(failurePhase);
+            final Throwable[] shellClearFailure = new Throwable[1];
+            runOnMainSync(new Runnable() {
+                @Override
+                public void run() {
+                    try {
+                        dispatchEmptyHomeThroughAndBridge(activity);
+                    } catch (Throwable error) {
+                        shellClearFailure[0] = error;
+                    }
+                }
+            });
+            if (shellClearFailure[0] != null) throw shellClearFailure[0];
+            waitForIdleSync();
+            Thread.sleep(250L);
+            boolean loginRestoredAfterShell = awaitLoginUiVisible(webView);
+            final String[] loginUrlAfterShell = new String[1];
+            runOnMainSync(new Runnable() {
+                @Override
+                public void run() {
+                    loginUrlAfterShell[0] = webView.getUrl();
+                }
+            });
+            if (!loginRestoredAfterShell || !equalsNullable(originalWebViewUrl, loginUrlAfterShell[0])) {
+                throw new AssertionError("The JavaScript shell handoff disturbed the original login WebView");
+            }
+            restoredState[0].putBoolean("javascript_native_shell_handoff_tested", true);
+            restoredState[0].putBoolean("login_surface_restored_after_javascript_shell_handoff", true);
 
             // Exercise the exact packaged Web Home renderer in Android's
             // installed WebView engine. The fixture is loaded only in a
@@ -1030,66 +1131,23 @@ public final class HomeRenderInstrumentation extends Instrumentation {
         return restored[0];
     }
 
-    private String safeSpotifyUrl(String value) {
-        try {
-            Uri uri = Uri.parse(value == null ? "" : value);
-            String scheme = uri.getScheme();
-            String host = uri.getHost();
-            if (!"https".equalsIgnoreCase(scheme)) return "unavailable";
-            if (!"open.spotify.com".equalsIgnoreCase(host)
-                    && !"accounts.spotify.com".equalsIgnoreCase(host)) return "other";
-            if ("accounts.spotify.com".equalsIgnoreCase(host)) {
-                return "https://accounts.spotify.com/login";
-            }
-            String path = uri.getPath();
-            if (path == null) path = "/";
-            String[] raw = path.split("/");
-            int index = 0;
-            while (index < raw.length && raw[index].isEmpty()) index += 1;
-            String locale = "";
-            if (index < raw.length && raw[index].matches("(?i)intl-[a-z]{2}(-[a-z]{2})?")) {
-                locale = "/" + raw[index++].toLowerCase();
-            }
-            String first = index < raw.length ? raw[index].toLowerCase() : "";
-            if (first.isEmpty() || "home".equals(first) || "app".equals(first)) {
-                return "https://open.spotify.com" + locale + (first.isEmpty() ? "/" : "/" + first);
-            }
-            if ("search".equals(first)) return "https://open.spotify.com" + locale + "/search";
-            if ("collection".equals(first)) {
-                String collection = index + 1 < raw.length ? raw[index + 1].toLowerCase() : "";
-                if (!("playlists".equals(collection) || "albums".equals(collection)
-                        || "artists".equals(collection) || "podcasts".equals(collection)
-                        || "tracks".equals(collection))) collection = "";
-                return "https://open.spotify.com" + locale + "/collection"
-                        + (collection.isEmpty() ? "" : "/" + collection);
-            }
-            if ("playlist".equals(first) || "album".equals(first) || "artist".equals(first)
-                    || "track".equals(first) || "show".equals(first) || "episode".equals(first)
-                    || "audiobook".equals(first)) {
-                return "https://open.spotify.com" + locale + "/" + first + "/[redacted]";
-            }
-            return "https://open.spotify.com/other";
-        } catch (Throwable ignored) {
-            return "unavailable";
-        }
-    }
-
     private String safeRendererDecision(String value) {
-        if ("not-run".equals(value) || "rendered".equals(value) || "visible".equals(value)
+        if ("not-run".equals(value) || "rendered".equals(value) || "rendered-partial".equals(value)
+                || "updated".equals(value) || "visible".equals(value) || "renderer-inactive".equals(value)
                 || "body-missing".equals(value) || "route-not-home".equals(value)
                 || "gui-mode-unsupported".equals(value) || "fullscreen-open".equals(value)
-                || "session-unproven".equals(value) || "session-rejected".equals(value)
                 || "styles-not-ready".equals(value)
                 || "activation-visibility-check-failed".equals(value)
                 || "home-root-missing".equals(value) || "initialization-error".equals(value)) return value;
-        if (value != null && (value.matches("status-visible-(loading|empty|error|partial|ready)"))) return value;
+        if (value != null && (value.matches("status-visible-(loading|empty|error|partial|ready)"
+                + "|rendered-status-(loading|empty|error|unavailable)"))) return value;
         return "other";
     }
 
     private void runAuthenticatedHomeObservation(Activity activity, Bundle arguments) throws Exception {
         Bundle waiting = new Bundle();
         waiting.putString("phase", "authenticated_home_wait");
-        waiting.putString("overall", "waiting_for_manual_session_home_and_real_playlist");
+        waiting.putString("overall", "waiting_for_manual_home_and_real_playlist");
         waiting.putString("next_action", "sign_in_normally_and_navigate_manually; no action is automated");
         waiting.putBoolean("fixture_test_only", false);
         waiting.putBoolean("manual_auth_or_navigation_is_automated", false);
@@ -1099,13 +1157,7 @@ public final class HomeRenderInstrumentation extends Instrumentation {
         putTargetBuildIdentity(waiting);
         sendStatus(1, waiting);
 
-        WebView firstWebView = awaitStableWebView(activity);
-        final String[] firstUrl = new String[1];
-        runOnMainSync(new Runnable() {
-            @Override public void run() {
-                firstUrl[0] = safeSpotifyUrl(firstWebView.getUrl());
-            }
-        });
+        awaitStableWebView(activity);
         long observationTimeoutMs = authenticatedHomeTimeoutMs(arguments);
         long deadline = System.currentTimeMillis() + observationTimeoutMs;
         String previousScreen = null;
@@ -1162,8 +1214,8 @@ public final class HomeRenderInstrumentation extends Instrumentation {
             sampleCount += 1;
 
             String host = probe == null ? "other" : safeHomeHost(probe.optString("host_category", "other"));
-            boolean sessionProven = probe != null && !probe.optBoolean("probe_error", true)
-                    && probe.optBoolean("session_proven");
+            boolean privateContentObserved = probe != null && !probe.optBoolean("probe_error", true)
+                    && probe.optBoolean("real_library_playlist_observed");
             String webRoute = probe == null ? "other" : safeHomeRoute(probe.optString("route_category", "other"));
             String nativeRoute = probe == null ? "other" : safeNativeRoute(probe.optString("native_route", "other"));
             // Navigation coverage follows the primary WebView's recognized
@@ -1171,14 +1223,13 @@ public final class HomeRenderInstrumentation extends Instrumentation {
             String screen = webRoute;
             boolean validSpotifyPage = "open.spotify.com".equals(host)
                     && probe != null && !probe.optBoolean("probe_error", true);
-            boolean realPlaylistObserved = sessionProven && probe != null
-                    && probe.optInt("real_library_playlist_count_capped", -1) > 0;
-            if (validSpotifyPage && sessionProven && routeSequence.size() < MAX_OBSERVED_ROUTES
+            boolean realPlaylistObserved = privateContentObserved;
+            if (validSpotifyPage && realPlaylistObserved && routeSequence.size() < MAX_OBSERVED_ROUTES
                     && (routeSequence.isEmpty() || !routeSequence.get(routeSequence.size() - 1).equals(screen))) {
                 routeSequence.add(screen);
             }
             if (androidBackKeyUpCount > lastBackCount) backEventSincePreviousRoute = true;
-            if (validSpotifyPage && sessionProven && previousScreen != null
+            if (validSpotifyPage && realPlaylistObserved && previousScreen != null
                     && !previousScreen.equals(screen)) {
                 if ("home".equals(previousScreen) && "search".equals(screen)) homeToSearch = true;
                 if ("search".equals(previousScreen) && "home".equals(screen)) searchToHome = true;
@@ -1191,14 +1242,13 @@ public final class HomeRenderInstrumentation extends Instrumentation {
                 }
                 navigationMutationObserved = true;
             }
-            if (validSpotifyPage && sessionProven && probe.optBoolean("home_route")
-                    && realPlaylistObserved) {
+            if (validSpotifyPage && probe.optBoolean("home_route") && realPlaylistObserved) {
                 authenticatedHomeObserved = true;
             }
             if (targetActivityResumedAfterBackground) backgroundResumeObserved = true;
             if (targetActivityRecreated) activityRecreatedObserved = true;
             lastBackCount = androidBackKeyUpCount;
-            if (validSpotifyPage && sessionProven) previousScreen = screen;
+            if (validSpotifyPage && realPlaylistObserved) previousScreen = screen;
 
             if (probe != null) {
                 lastState = inspectAuthenticatedHome(sampleActivity, currentWebView[0], probe);
@@ -1213,7 +1263,6 @@ public final class HomeRenderInstrumentation extends Instrumentation {
             lastState.putBoolean("authenticated_home_test_performed", authenticatedHomeObserved);
             lastState.putBoolean("authenticated_home_requires_real_playlist", true);
             lastState.putBoolean("real_library_playlist_observed", realPlaylistObserved);
-            lastState.putBoolean("authenticated_session", sessionProven);
             lastState.putBoolean("manual_auth_or_navigation_is_automated", false);
             lastState.putBoolean("fixture_test_only", false);
             lastState.putBoolean("activity_foreground", foreground[0]);
@@ -1239,14 +1288,12 @@ public final class HomeRenderInstrumentation extends Instrumentation {
             lastState.putInt("probe_sample_count_capped", Math.max(0, Math.min(9999, sampleCount)));
             lastState.putString("observed_route_sequence", routeSequence.isEmpty()
                     ? "none" : joinSafeRoutes(routeSequence));
-            lastState.putString("initial_safe_url", firstUrl[0] == null ? "unavailable" : firstUrl[0]);
-            lastState.putBoolean("url_query_and_fragment_redacted", true);
             lastState.putBoolean("process_restart_observed", false);
-            String currentDefectiveCondition = validSpotifyPage && sessionProven
+            String currentDefectiveCondition = validSpotifyPage && realPlaylistObserved
                     && probe.optBoolean("home_route") && foreground[0]
                     ? firstDefectiveCondition(probe, lastState) : "not_applicable_current_sample";
             if ("not_observed".equals(firstHomeDefectiveCondition)
-                    && validSpotifyPage && sessionProven && probe.optBoolean("home_route") && foreground[0]) {
+                    && validSpotifyPage && realPlaylistObserved && probe.optBoolean("home_route") && foreground[0]) {
                 firstHomeDefectiveCondition = currentDefectiveCondition;
             }
             lastState.putString("current_defective_condition", currentDefectiveCondition);
@@ -1271,11 +1318,9 @@ public final class HomeRenderInstrumentation extends Instrumentation {
         Bundle finalState = lastState == null ? new Bundle() : new Bundle(lastState);
         finalState.putString("phase", "authenticated_home_observation_complete");
         finalState.putString("overall", authenticatedHomeObserved
-                ? transitionCoverage ? "authenticated_home_observation_complete"
-                : "authenticated_home_observed_navigation_incomplete"
-                : finalState.getBoolean("authenticated_session", false)
-                ? "blocked_no_verified_home_playlist_observed"
-                : "blocked_no_authenticated_home_observed");
+                ? transitionCoverage ? "home_content_observation_complete"
+                : "home_content_observed_navigation_incomplete"
+                : "blocked_no_home_content_observed");
         finalState.putBoolean("authenticated_home_test_performed", authenticatedHomeObserved);
         finalState.putBoolean("authenticated_home_requires_real_playlist", true);
         finalState.putBoolean("real_library_playlist_observed", authenticatedHomeObserved);
@@ -1298,16 +1343,11 @@ public final class HomeRenderInstrumentation extends Instrumentation {
             if (lastProbe != null && !lastProbe.optBoolean("probe_error", true)) {
                 finalState.putString("last_host_category", safeHomeHost(lastProbe.optString("host_category", "other")));
                 finalState.putString("last_route_category", safeHomeRoute(lastProbe.optString("route_category", "other")));
-                finalState.putBoolean("last_profile_control_present", lastProbe.optBoolean("profile_control_present"));
-                finalState.putBoolean("last_library_response_session_proven",
-                        lastProbe.optBoolean("library_response_session_proven"));
-                finalState.putBoolean("last_native_shell_session_proven",
-                        lastProbe.optBoolean("native_shell_session_proven"));
             }
         }
         sendStatus(authenticatedHomeObserved ? 1 : 2, finalState);
         Log.i(HARNESS_TAG, authenticatedHomeObserved
-                ? "authenticated_home_observation_complete" : "authenticated_home_not_observed");
+                ? "home_content_observation_complete" : "home_content_not_observed");
         finish(authenticatedHomeObserved ? Activity.RESULT_OK : Activity.RESULT_CANCELED, finalState);
     }
 
@@ -1322,19 +1362,15 @@ public final class HomeRenderInstrumentation extends Instrumentation {
 
     private String observationStatusSignature(Bundle state) {
         String[] keys = {
-                "activity_foreground", "home_route", "session_proven", "session_proof_source",
-                "profile_control_visible", "final_screen_owner", "first_defective_condition",
+                "activity_foreground", "home_route", "final_screen_owner", "first_defective_condition",
                 "home_to_search_observed", "search_to_home_observed",
                 "home_to_library_observed", "library_to_home_observed", "android_back_key_seen",
                 "android_back_return_to_home_observed", "activity_resumed_after_background",
                 "activity_recreated_during_observation", "renderer_decision", "library_status",
                 "library_error", "library_fetch_diagnostic_available", "library_fetch_phase",
                 "library_fetch_http_status", "library_fetch_mime", "library_fetch_duration_ms",
-                "library_fetch_error", "library_fetch_received_count_capped",
-                "library_fetch_transformed_count_capped", "library_fetch_proof", "library_fetch_page_signal",
-                "native_route", "safe_url", "real_library_resource_count_capped",
-                "real_library_playlist_count_capped", "real_home_resource_link_count_capped",
-                "real_home_playlist_link_count_capped", "native_home_rows_count_capped",
+                "library_fetch_error", "real_library_playlist_observed",
+                "native_route",
                 "native_route_callback_returned", "native_home_data_callback_returned",
                 "native_home_state_callback_returned", "native_ready_callback_returned",
                 "hscroll_visible", "webview_container_visible", "primary_webview_visible",
@@ -1357,17 +1393,13 @@ public final class HomeRenderInstrumentation extends Instrumentation {
             return "spotify_player_origin_not_loaded";
         }
         if (!probe.optBoolean("home_route")) return "home_route_not_reached";
-        if (!probe.optBoolean("session_proven")) return "spotify_session_not_proven";
-        if (probe.optInt("real_library_playlist_count_capped", -1) <= 0) {
-            return "spotify_library_playlist_not_observed";
-        }
+        if (!probe.optBoolean("real_library_playlist_observed")) return "home_content_not_observed";
         if (!probe.optBoolean("bridge_started")) return "bridge_not_started";
         boolean routeAvailable = probe.optBoolean("bridge_route_callback_available");
         boolean dataAvailable = probe.optBoolean("bridge_data_callback_available");
         boolean readyAvailable = probe.optBoolean("bridge_ready_callback_available");
         if (!routeAvailable || !dataAvailable || !readyAvailable) return "bridge_callbacks_unavailable";
         String decision = safeRendererDecision(probe.optString("renderer_decision", "not-run"));
-        if ("session-unproven".equals(decision)) return "renderer_session_gate_blocked";
         if ("styles-not-ready".equals(decision)) return "renderer_styles_not_ready";
         if ("route-not-home".equals(decision)) return "renderer_home_route_gate_blocked";
         if ("activation-visibility-check-failed".equals(decision)) return "renderer_visibility_check_failed";
@@ -1477,11 +1509,10 @@ public final class HomeRenderInstrumentation extends Instrumentation {
         state.putString("overall", "authenticated_home_observed");
         state.putBoolean("fixture_test_only", false);
         state.putBoolean("authenticated_home_test_performed",
-                probe.optBoolean("home_route") && probe.optBoolean("session_proven")
-                        && probe.optInt("real_library_playlist_count_capped", -1) > 0);
+                probe.optBoolean("home_route") && probe.optBoolean("real_library_playlist_observed"));
         state.putBoolean("authenticated_home_requires_real_playlist", true);
         state.putBoolean("real_library_playlist_observed",
-                probe.optBoolean("session_proven") && probe.optInt("real_library_playlist_count_capped", -1) > 0);
+                probe.optBoolean("real_library_playlist_observed"));
         state.putBoolean("activity_foreground", activityForeground);
         state.putBoolean("activity_window_focus", activityWindowFocus);
         state.putBoolean("activity_lifecycle_resumed", targetActivityResumed);
@@ -1490,59 +1521,30 @@ public final class HomeRenderInstrumentation extends Instrumentation {
         state.putBoolean("primary_webview_present", primaryWebView != null);
         state.putBoolean("primary_webview_visible", webViewVisible);
         state.putInt("primary_webview_load_progress", primaryWebView == null ? -1 : primaryWebView.getProgress());
-        state.putString("safe_url", safeSpotifyUrl(primaryWebView == null ? null : primaryWebView.getUrl()));
-        state.putBoolean("url_query_and_fragment_redacted", true);
         putTargetBuildIdentity(state);
         state.putInt("android_api_level", Build.VERSION.SDK_INT);
         state.putString("host_category", safeHomeHost(probe.optString("host_category", "other")));
         state.putString("route_category", safeHomeRoute(probe.optString("route_category", "other")));
         state.putBoolean("home_route", probe.optBoolean("home_route"));
-        state.putBoolean("session_proven", probe.optBoolean("session_proven"));
-        state.putString("session_proof_source",
-                safeSessionProofSource(probe.optString("session_proof_source", "unproven")));
-        state.putBoolean("profile_control_present", probe.optBoolean("profile_control_present"));
-        state.putBoolean("profile_control_visible", probe.optBoolean("profile_control_visible"));
-        state.putBoolean("page_session_signal", probe.optBoolean("page_session_signal"));
-        state.putBoolean("library_response_proof_known", probe.optBoolean("library_response_proof_known"));
-        state.putBoolean("library_response_session_proven",
-                probe.optBoolean("library_response_session_proven"));
-        state.putBoolean("native_shell_session_proven", probe.optBoolean("native_shell_session_proven"));
+        boolean fetchDiagnosticAvailable = probe.optBoolean("library_fetch_diagnostic_available");
+        String fetchPhase = safeLibraryFetchPhase(probe.optString("library_fetch_phase", "unknown"));
+        int fetchHttpStatus = safeBoundedDiagnosticInt(probe, "library_fetch_http_status", -1, -1, 599);
+        String fetchMime = safeLibraryFetchMime(probe.optString("library_fetch_mime", "unknown"));
+        int fetchDurationMs = safeBoundedDiagnosticInt(probe, "library_fetch_duration_ms", -1, -1, 999999);
+        String fetchError = safeLibraryFetchError(probe.optString("library_fetch_error", "unavailable"),
+                fetchDiagnosticAvailable, fetchPhase, fetchHttpStatus);
         state.putString("library_status", safeLibraryStatus(probe.optString("library_status", "other")));
-        state.putString("library_error", safeLibraryError(probe.optString("library_error", "other")));
-        state.putBoolean("library_fetch_diagnostic_available",
-                probe.optBoolean("library_fetch_diagnostic_available"));
-        state.putString("library_fetch_phase",
-                safeLibraryFetchPhase(probe.optString("library_fetch_phase", "unknown")));
-        state.putInt("library_fetch_http_status",
-                safeBoundedDiagnosticInt(probe, "library_fetch_http_status", -1, -1, 599));
-        state.putString("library_fetch_mime",
-                safeLibraryFetchMime(probe.optString("library_fetch_mime", "unknown")));
-        state.putInt("library_fetch_duration_ms",
-                safeBoundedDiagnosticInt(probe, "library_fetch_duration_ms", -1, -1, 999999));
-        state.putString("library_fetch_error",
-                safeLibraryFetchError(probe.optString("library_fetch_error", "unavailable")));
-        state.putInt("library_fetch_received_count_capped",
-                safeBoundedDiagnosticInt(probe, "library_fetch_received_count_capped", -1, -1, 1000));
-        state.putInt("library_fetch_transformed_count_capped",
-                safeBoundedDiagnosticInt(probe, "library_fetch_transformed_count_capped", -1, -1, 1000));
-        state.putString("library_fetch_proof",
-                safeLibraryProof(probe.optString("library_fetch_proof", "unknown")));
-        state.putString("library_fetch_page_signal",
-                safeLibraryPage(probe.optString("library_fetch_page_signal", "unknown")));
-        state.putInt("real_library_resource_count_capped",
-                Math.max(-1, Math.min(999, probe.optInt("real_library_resource_count_capped", -1))));
-        state.putInt("real_library_playlist_count_capped",
-                Math.max(-1, Math.min(999, probe.optInt("real_library_playlist_count_capped", -1))));
-        state.putInt("raw_library_item_count_capped",
-                Math.max(-1, Math.min(999, probe.optInt("raw_library_item_count_capped", -1))));
-        state.putInt("real_home_resource_link_count_capped",
-                Math.max(0, Math.min(999, probe.optInt("real_home_resource_link_count_capped"))));
-        state.putInt("real_home_playlist_link_count_capped",
-                Math.max(0, Math.min(999, probe.optInt("real_home_playlist_link_count_capped"))));
-        state.putInt("melodix_home_source_card_count_capped",
-                Math.max(0, Math.min(999, probe.optInt("melodix_home_source_card_count_capped"))));
-        state.putInt("native_home_rows_count_capped",
-                Math.max(0, Math.min(999, probe.optInt("native_home_rows_count_capped"))));
+        state.putString("library_error", safeLibraryErrorWithFetchEvidence(
+                probe.optString("library_error", "other"), fetchDiagnosticAvailable,
+                fetchPhase, fetchHttpStatus, fetchError));
+        state.putBoolean("library_fetch_diagnostic_available", fetchDiagnosticAvailable);
+        state.putString("library_fetch_phase", fetchPhase);
+        state.putInt("library_fetch_http_status", fetchHttpStatus);
+        state.putString("library_fetch_mime", fetchMime);
+        state.putInt("library_fetch_duration_ms", fetchDurationMs);
+        state.putString("library_fetch_error", fetchError);
+        state.putBoolean("real_library_playlist_observed",
+                probe.optBoolean("real_library_playlist_observed"));
         state.putString("renderer_decision", safeRendererDecision(probe.optString("renderer_decision", "not-run")));
         state.putBoolean("sf_melodix_home_present", probe.optBoolean("sf_melodix_home_present"));
         state.putBoolean("sf_melodix_home_visible", probe.optBoolean("sf_melodix_home_visible"));
@@ -1558,8 +1560,6 @@ public final class HomeRenderInstrumentation extends Instrumentation {
         state.putBoolean("native_home_content_ready", nativeContentReady);
         state.putBoolean("native_home_cards_attached", nativeCardsAttached);
         state.putBoolean("native_home_status_attached", nativeStatusAttached);
-        state.putInt("native_content_child_count_capped", Math.max(0, Math.min(20,
-                nativeContent instanceof ViewGroup ? ((ViewGroup) nativeContent).getChildCount() : 0)));
         state.putBoolean("splash_visible", isActuallyVisible(splash));
         state.putBoolean("progress_bar_visible", isActuallyVisible(progress));
         state.putBoolean("webview_container_visible", isActuallyVisible(webContainer));
@@ -1574,17 +1574,11 @@ public final class HomeRenderInstrumentation extends Instrumentation {
         state.putBoolean("native_home_state_callback_returned",
                 probe.optBoolean("native_home_state_callback_returned"));
         state.putBoolean("native_ready_callback_returned", probe.optBoolean("native_ready_callback_returned"));
-        state.putBoolean("native_home_content_proven", probe.optBoolean("native_home_content_proven"));
-        state.putBoolean("native_home_state_proven", probe.optBoolean("native_home_state_proven"));
-        state.putBoolean("native_takeover_proven", probe.optBoolean("native_takeover_proven"));
         state.putBoolean("bridge_started", probe.optBoolean("bridge_started"));
         state.putBoolean("bridge_route_callback_available", probe.optBoolean("bridge_route_callback_available"));
         state.putBoolean("bridge_data_callback_available", probe.optBoolean("bridge_data_callback_available"));
         state.putBoolean("bridge_ready_callback_available", probe.optBoolean("bridge_ready_callback_available"));
         state.putBoolean("primary_webview_melodix_home_is_visible_owner", "melodix-web-home".equals(finalOwner));
-        state.putBoolean("dom_url_matches_primary_webview_url",
-                safeSpotifyUrl(primaryWebView == null ? null : primaryWebView.getUrl())
-                        .equals(probe.optString("safe_url", "unavailable")));
         state.putBoolean("manual_auth_or_navigation_is_automated", false);
         state.putBoolean("process_restart_observed", false);
         state.putBoolean("process_restart_requires_a_new_observation_run", true);
@@ -1752,29 +1746,35 @@ public final class HomeRenderInstrumentation extends Instrumentation {
                 || "missing".equals(value) ? value : "unknown";
     }
 
-    private String safeLibraryFetchError(String value) {
-        return "unavailable".equals(value) ? value : safeLibraryError(value);
+    private String safeLibraryFetchError(String value, boolean diagnosticAvailable,
+            String phase, int httpStatus) {
+        String safe = "unavailable".equals(value) ? value : safeLibraryError(value);
+        if ("http-401".equals(safe)
+                && (!diagnosticAvailable || !"response".equals(phase) || httpStatus != 401)) {
+            return "http-other";
+        }
+        if ("http-403".equals(safe)
+                && (!diagnosticAvailable || !"response".equals(phase) || httpStatus != 403)) {
+            return "http-other";
+        }
+        return safe;
     }
 
-    private String safeLibraryProof(String value) {
-        return "valid".equals(value) || "invalid".equals(value) || "unknown".equals(value)
-                ? value : "unknown";
-    }
-
-    private String safeLibraryPage(String value) {
-        return "profile".equals(value) || "none".equals(value) ? value : "unknown";
+    private String safeLibraryErrorWithFetchEvidence(String value, boolean diagnosticAvailable,
+            String phase, int httpStatus, String fetchError) {
+        String safe = safeLibraryError(value);
+        if ("http-401".equals(safe)
+                && (!diagnosticAvailable || !"response".equals(phase) || httpStatus != 401
+                        || !"http-401".equals(fetchError))) return "other";
+        if ("http-403".equals(safe)
+                && (!diagnosticAvailable || !"response".equals(phase) || httpStatus != 403
+                        || !"http-403".equals(fetchError))) return "other";
+        return safe;
     }
 
     private int safeBoundedDiagnosticInt(JSONObject probe, String key, int fallback, int min, int max) {
         int value = probe == null ? fallback : probe.optInt(key, fallback);
         return Math.max(min, Math.min(max, value));
-    }
-
-    private String safeSessionProofSource(String value) {
-        return "verified-private-library-response".equals(value)
-                || "private-library-response-rejected".equals(value)
-                || "profile-control-unverified".equals(value)
-                || "native-shell-flag-unverified".equals(value) ? value : "unproven";
     }
 
     private WebView awaitStableWebView(final Activity activity) throws InterruptedException {
@@ -2002,12 +2002,6 @@ public final class HomeRenderInstrumentation extends Instrumentation {
             failed.putBoolean("live_webview_home_present", false);
             failed.putBoolean("live_webview_home_active", false);
             failed.putBoolean("live_webview_home_display_flex", false);
-            failed.putBoolean("live_webview_session_proof", false);
-            failed.putBoolean("live_webview_library_response_proof_known", false);
-            failed.putBoolean("live_webview_library_response_session_proven", false);
-            failed.putString("live_webview_library_status", "unknown");
-            failed.putInt("live_webview_raw_item_count_capped", 0);
-            failed.putInt("live_webview_source_anchor_count_capped", 0);
             failed.putBoolean("live_webview_source_main_present", false);
             failed.putBoolean("live_webview_bridge_present", false);
             failed.putBoolean("live_webview_bridge_media_callback_present", false);
@@ -2050,14 +2044,6 @@ public final class HomeRenderInstrumentation extends Instrumentation {
         state.putBoolean("live_webview_home_present", probe.optBoolean("home_present"));
         state.putBoolean("live_webview_home_active", probe.optBoolean("home_active"));
         state.putBoolean("live_webview_home_display_flex", probe.optBoolean("home_display_flex"));
-        state.putBoolean("live_webview_session_proof", probe.optBoolean("session_proven"));
-        state.putBoolean("live_webview_library_response_proof_known",
-                probe.optBoolean("library_response_proof_known"));
-        state.putBoolean("live_webview_library_response_session_proven",
-                probe.optBoolean("library_response_session_proven"));
-        state.putString("live_webview_library_status", probe.optString("library_status", "absent"));
-        state.putInt("live_webview_raw_item_count_capped", Math.max(0, Math.min(3, probe.optInt("raw_item_count"))));
-        state.putInt("live_webview_source_anchor_count_capped", Math.max(0, Math.min(3, probe.optInt("source_anchor_count"))));
         state.putBoolean("live_webview_source_main_present", probe.optBoolean("source_main_present"));
         state.putBoolean("live_webview_bridge_present", probe.optBoolean("bridge_present"));
         state.putBoolean("live_webview_bridge_media_callback_present", probe.optBoolean("bridge_media_callback"));
@@ -2162,7 +2148,6 @@ public final class HomeRenderInstrumentation extends Instrumentation {
         boolean loginVisible = "true".equals(result[0]);
         Bundle probeState = new Bundle();
         probeState.putString("phase", "login_dom_probe");
-        probeState.putBoolean("authenticated_session", false);
         probeState.putBoolean("login_dom_probe_completed", true);
         probeState.putBoolean("login_ui_visible_in_webview_dom", loginVisible);
         sendStatus(1, probeState);
@@ -2201,7 +2186,6 @@ public final class HomeRenderInstrumentation extends Instrumentation {
 
         Bundle state = new Bundle();
         state.putString("phase", "login_without_session");
-        state.putBoolean("authenticated_session", false);
         state.putBoolean("login_ui_visible_in_webview_dom", true);
         state.putBoolean("webview_visible_and_measured", true);
         state.putBoolean("network_error_transition_recovered", true);
@@ -2286,6 +2270,153 @@ public final class HomeRenderInstrumentation extends Instrumentation {
             throw error;
         }
         return created[0];
+    }
+
+    private WebView createNativeUiShellHandoffFixture(final Activity activity) throws Exception {
+        final CountDownLatch pageFinished = new CountDownLatch(1);
+        final WebView[] created = new WebView[1];
+        final Throwable[] failure = new Throwable[1];
+        final String html = "<!doctype html><html lang=\"fr\"><head>" +
+                "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">" +
+                "<title>Fixture Home</title></head><body>" +
+                "<main id=\"main-view\"><section data-testid=\"shelf\"><h2>Fixture only</h2></section></main>" +
+                "</body></html>";
+        runOnMainSync(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    View root = activity.findViewById(android.R.id.content);
+                    if (!(root instanceof ViewGroup)) throw new AssertionError("Activity content root is not a ViewGroup");
+                    WebView rendererView = new WebView(activity);
+                    created[0] = rendererView;
+                    rendererView.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS);
+                    rendererView.setFocusable(false);
+                    rendererView.setFocusableInTouchMode(false);
+                    rendererView.setClickable(false);
+                    rendererView.setAlpha(0.0f);
+                    rendererView.setBackgroundColor(0x00000000);
+                    WebSettings settings = rendererView.getSettings();
+                    settings.setBlockNetworkLoads(true);
+                    settings.setJavaScriptEnabled(true);
+                    settings.setDomStorageEnabled(false);
+                    rendererView.addJavascriptInterface(new NativeUiShellTestBridge(activity), "AndBridge");
+                    rendererView.setWebViewClient(new WebViewClient() {
+                        @Override
+                        public void onPageFinished(WebView view, String url) {
+                            pageFinished.countDown();
+                        }
+                    });
+                    ((ViewGroup) root).addView(rendererView, 0, new ViewGroup.LayoutParams(1, 1));
+                    rendererView.loadDataWithBaseURL(
+                            "https://open.spotify.com/", html, "text/html", "UTF-8",
+                            "https://open.spotify.com/");
+                } catch (Throwable error) {
+                    failure[0] = error;
+                }
+            }
+        });
+        if (failure[0] != null) {
+            removeWebHomeRendererFixture(created[0]);
+            throw new AssertionError("Could not create isolated JavaScript shell handoff fixture", failure[0]);
+        }
+        if (created[0] == null) throw new AssertionError("JavaScript shell handoff fixture was not attached");
+        try {
+            if (!pageFinished.await(15L, TimeUnit.SECONDS)) {
+                throw new AssertionError("Isolated Spotify-origin Home fixture did not finish loading");
+            }
+        } catch (InterruptedException interrupted) {
+            removeWebHomeRendererFixture(created[0]);
+            Thread.currentThread().interrupt();
+            throw interrupted;
+        } catch (AssertionError error) {
+            removeWebHomeRendererFixture(created[0]);
+            throw error;
+        }
+        return created[0];
+    }
+
+    private void installPackagedNativeUiShell(WebView webView, Activity activity) throws Exception {
+        String shellSource = readPackagedAsset(activity, "native_ui_shell.js");
+        if (!shellSource.contains("window.__sfNativeUiRefresh") ||
+                !shellSource.contains("function unprovenHomeStateRow")) {
+            throw new AssertionError("The Preview APK does not contain the expected packaged native UI shell");
+        }
+        String script = "window.__sfMediaLibStatus='loading';" +
+                "window.__sfMediaLibError='';" +
+                "window.__sfMediaLibSessionProofKnown=false;" +
+                "window.__sfMediaLibSessionProven=false;" +
+                "delete window.mediaLib;" + shellSource + ";true;";
+        evaluateJavascriptAndWait(webView, script);
+    }
+
+    private Bundle inspectJavascriptHomeHandoff(
+            Activity activity, WebView webView, String originalUrl, WebView fixture) throws Exception {
+        JSONObject shellState = new JSONObject(evaluateJavascriptAndWait(fixture,
+                "({proofKnown:window.__sfMediaLibSessionProofKnown===true," +
+                "proofProven:window.__sfMediaLibSessionProven===true," +
+                "takeoverProven:window.__sfNativeUiTakeoverProven===true," +
+                "readyNotified:window.__sfNativeUiReadyNotified===true," +
+                "homeStateSent:window.__sfNativeUiHomeStateSent===true," +
+                "homeDataSent:window.__sfNativeUiHomeDataSent===true," +
+                "homeSessionUnproven:window.__sfNativeUiHomeSessionUnproven===true," +
+                "homeState:String(window.__sfNativeUiHomeState||'')," +
+                "homeRows:Number(window.__sfNativeUiHomeRowsCount||0)," +
+                "lastRoute:String(window.__sfNativeUiLastRouteSent||'')," +
+                "hasPrivateLibrary:Object.prototype.hasOwnProperty.call(window,'mediaLib')})"));
+        View nativeRoot = requiredView(activity, "nativeRoot");
+        View splash = requiredView(activity, "splashOverlay");
+        View webContainer = requiredView(activity, "webViewContainer");
+        View nativeHomeTab = requiredView(activity, "nativeHomeTab");
+        View nativeContent = requiredView(activity, "nativeContent");
+        View statusView = readViewField(activity, "nativeHomeStatusView");
+        Rect rootBounds = visibleBounds(nativeRoot);
+        Rect statusBounds = visibleBounds(statusView);
+        boolean statusAttached = readBooleanField(activity, "nativeHomeStatusAttached");
+        boolean unprovenStatusAttached = readBooleanField(activity, "nativeHomeSessionUnprovenStatusAttached");
+        boolean cardsAttached = readBooleanField(activity, "nativeHomeCardsAttached");
+        boolean contentReady = readBooleanField(activity, "nativeHomeContentReady");
+        boolean statusTitleVisible = containsText(statusView, "Connexion à Spotify");
+        boolean statusSubtitleVisible = containsText(statusView, "Vérification de la session");
+        boolean statusActionClickable = statusView != null && statusView.isClickable();
+        boolean rootVisible = rootBounds != null;
+        boolean webContainerVisible = webContainer.getVisibility() == View.VISIBLE;
+        boolean splashHidden = splash.getVisibility() == View.GONE;
+        boolean homeTabVisible = nativeHomeTab.isShown();
+        boolean statusIsChild = statusView != null && statusView.getParent() == nativeContent;
+        boolean originalUrlPreserved = equalsNullable(originalUrl, webView.getUrl());
+        String currentScreen = readStringField(activity, "nativeCurrentScreen");
+        requireUnauthenticatedSession(activity);
+        if (shellState.optBoolean("proofKnown", true) || shellState.optBoolean("proofProven", true)
+                || shellState.optBoolean("takeoverProven", true) || !shellState.optBoolean("readyNotified", false)
+                || !shellState.optBoolean("homeStateSent", false) || !shellState.optBoolean("homeDataSent", false)
+                || !shellState.optBoolean("homeSessionUnproven", false) || shellState.optInt("homeRows", -1) != 0
+                || !"home".equals(shellState.optString("lastRoute"))
+                || shellState.optBoolean("hasPrivateLibrary", true)
+                || !rootVisible || statusBounds == null || !statusAttached || !unprovenStatusAttached
+                || cardsAttached || !contentReady || !statusTitleVisible || !statusSubtitleVisible
+                || !statusActionClickable || !splashHidden || !homeTabVisible || !webContainerVisible
+                || !statusIsChild || !originalUrlPreserved || !"home".equals(currentScreen)) {
+            throw new AssertionError("JavaScript handoff did not show a real status-only native Home without session proof");
+        }
+        Bundle state = new Bundle();
+        state.putString("phase", "javascript_home_handoff");
+        state.putBoolean("native_shell_handoff_from_packaged_javascript", true);
+        state.putBoolean("native_ready_callback_sent", true);
+        state.putBoolean("home_status_payload_sent", true);
+        state.putBoolean("playlist_or_card_injected", false);
+        state.putBoolean("native_home_cards_attached", false);
+        state.putBoolean("native_home_status_attached", true);
+        state.putBoolean("native_home_status_visible", true);
+        state.putBoolean("native_home_status_login_action_clickable", true);
+        state.putBoolean("native_home_content_ready", true);
+        state.putBoolean("native_root_visible", true);
+        state.putBoolean("native_home_tab_visible", true);
+        state.putBoolean("splash_hidden", true);
+        state.putBoolean("webview_container_visible_under_native_root", true);
+        state.putBoolean("original_webview_url_preserved", true);
+        putBounds(state, "native_status_visible", statusBounds);
+        putBounds(state, "native_root_visible", rootBounds);
+        return state;
     }
 
     private WebView createMobileViewportFixture(final Activity activity, final int viewportWidth) throws Exception {
@@ -3168,6 +3299,7 @@ public final class HomeRenderInstrumentation extends Instrumentation {
             JSONObject probe = new JSONObject(evaluateJavascriptAndWait(
                     webView, WEB_HOME_RENDERER_DIAGNOSTIC_PROBE));
             state.putBoolean("web_home_probe_diagnostics_available", true);
+            state.putBoolean("web_home_probe_fixture_test_only", true);
             state.putBoolean("web_home_probe_route_app", probe.optBoolean("route_app"));
             state.putBoolean("web_home_probe_mode_csshack", probe.optBoolean("mode_csshack"));
             state.putBoolean("web_home_probe_main_view_present", probe.optBoolean("main_view_present"));
@@ -3176,9 +3308,6 @@ public final class HomeRenderInstrumentation extends Instrumentation {
             state.putInt("web_home_probe_source_card_count", Math.max(0, Math.min(3, probe.optInt("source_card_count"))));
             state.putBoolean("web_home_probe_root_selector_is_main_view", probe.optBoolean("root_selector_is_main_view"));
             state.putBoolean("web_home_probe_styles_ready", probe.optBoolean("styles_ready"));
-            state.putBoolean("web_home_probe_session_proven", probe.optBoolean("session_proven"));
-            state.putString("web_home_probe_library_status", probe.optString("library_status", "absent"));
-            state.putBoolean("web_home_probe_decision_session_unproven", probe.optBoolean("decision_session_unproven"));
             state.putBoolean("web_home_probe_decision_rendered_status", probe.optBoolean("decision_rendered_status"));
             state.putBoolean("web_home_probe_decision_content_root_missing", probe.optBoolean("decision_content_root_missing"));
             state.putBoolean("web_home_probe_decision_styles_not_ready", probe.optBoolean("decision_styles_not_ready"));
@@ -3230,7 +3359,6 @@ public final class HomeRenderInstrumentation extends Instrumentation {
         }
         Bundle state = new Bundle();
         state.putString("phase", "web_home_renderer_app_route");
-        state.putBoolean("authenticated_session", false);
         state.putBoolean("authenticated_home_test_performed", false);
         state.putBoolean("home_renderer_fixture_test_only", true);
         state.putBoolean("web_home_route_app", true);
@@ -3390,10 +3518,11 @@ public final class HomeRenderInstrumentation extends Instrumentation {
         Object bridge = bridgeClass.getConstructor(Context.class).newInstance(activity);
         Method route = bridgeClass.getMethod("onNativeUiRoute", String.class);
         Method data = bridgeClass.getMethod("onNativeUiData", String.class, String.class);
-        String statusOnlyPayload = "[{\"kind\":\"state\",\"state\":\"loading\","
-                + "\"title\":\"Chargement de votre accueil…\","
-                + "\"subtitle\":\"État de test du renderer natif.\","
-                + "\"section\":\"Accueil\",\"image\":\"\",\"uri\":\"\"}]";
+        String statusOnlyPayload = "[{\"kind\":\"state\",\"state\":\"loading\",\"sessionUnproven\":true,"
+                + "\"title\":\"Connexion à Spotify…\","
+                + "\"subtitle\":\"État de connexion non confirmé.\","
+                + "\"section\":\"Connexion Spotify\",\"image\":\"\","
+                + "\"uri\":\"melodix:action:open-login\"}]";
         if (statusOnlyPayload.contains("spotify:") || statusOnlyPayload.contains("playlist")) {
             throw new AssertionError("The status renderer fixture must not contain Spotify resources");
         }
@@ -3402,6 +3531,16 @@ public final class HomeRenderInstrumentation extends Instrumentation {
         // measurement path must prove visibility before readiness can appear.
         route.invoke(bridge, "home");
         data.invoke(bridge, "home", statusOnlyPayload);
+    }
+
+    private void dispatchUnprovenHomeOwnerCallback(Activity activity) throws Exception {
+        ClassLoader loader = activity.getClassLoader();
+        Class<?> bridgeClass = loader.loadClass("com.melodix.music.AndBridge");
+        Object bridge = bridgeClass.getConstructor(Context.class).newInstance(activity);
+        Method owner = bridgeClass.getMethod("onMelodixHomeVisibility", boolean.class, boolean.class);
+        // This negative owner signal must not erase a currently attached
+        // session-unproven status-only Home state.
+        owner.invoke(bridge, false, false);
     }
 
     private void awaitNativeHomeStatusReady(final Activity activity) throws InterruptedException {
@@ -3414,6 +3553,7 @@ public final class HomeRenderInstrumentation extends Instrumentation {
                 public void run() {
                     try {
                         ready[0] = readBooleanField(activity, "nativeHomeStatusAttached")
+                                && readBooleanField(activity, "nativeHomeSessionUnprovenStatusAttached")
                                 && readBooleanField(activity, "nativeHomeContentReady");
                     } catch (Throwable error) {
                         failure[0] = error;
@@ -3440,9 +3580,10 @@ public final class HomeRenderInstrumentation extends Instrumentation {
         Rect statusBounds = visibleBounds(statusView);
         boolean rootVisible = rootBounds != null;
         boolean statusAttached = readBooleanField(activity, "nativeHomeStatusAttached");
+        boolean unprovenStatusAttached = readBooleanField(activity, "nativeHomeSessionUnprovenStatusAttached");
         boolean cardsAttached = readBooleanField(activity, "nativeHomeCardsAttached");
         boolean contentReady = readBooleanField(activity, "nativeHomeContentReady");
-        boolean titleVisible = containsText(statusView, "Chargement de votre accueil");
+        boolean titleVisible = containsText(statusView, "Connexion à Spotify");
         boolean splashHidden = splash.getVisibility() == View.GONE;
         boolean homeTabVisible = nativeHomeTab.isShown();
         boolean webContainerVisible = webContainer.getVisibility() == View.VISIBLE;
@@ -3450,15 +3591,14 @@ public final class HomeRenderInstrumentation extends Instrumentation {
         boolean sameWebViewUrl = equalsNullable(originalUrl, webView.getUrl());
         String currentScreen = readStringField(activity, "nativeCurrentScreen");
         requireUnauthenticatedSession(activity);
-        if (!rootVisible || statusBounds == null || !statusAttached || cardsAttached || !contentReady
-                || !titleVisible || !splashHidden || !homeTabVisible || !webContainerVisible
+        if (!rootVisible || statusBounds == null || !statusAttached || !unprovenStatusAttached
+                || cardsAttached || !contentReady || !titleVisible || !splashHidden || !homeTabVisible || !webContainerVisible
                 || !statusIsChild || !sameWebViewUrl || !"home".equals(currentScreen)) {
             throw new AssertionError("The non-playlist Home status view was not attached, measured, and visible");
         }
 
         Bundle state = new Bundle();
         state.putString("phase", "home_status_renderer");
-        state.putBoolean("authenticated_session", false);
         state.putBoolean("home_status_payload_fixture_non_playlist", true);
         state.putBoolean("playlist_or_card_injected", false);
         state.putBoolean("native_home_cards_attached", false);
@@ -3506,24 +3646,26 @@ public final class HomeRenderInstrumentation extends Instrumentation {
         boolean webContainerVisible = webContainer.getVisibility() == View.VISIBLE;
         boolean noHomeCardsAttached = !readBooleanField(activity, "nativeHomeCardsAttached");
         boolean noHomeStatusAttached = !readBooleanField(activity, "nativeHomeStatusAttached");
+        boolean noUnprovenStatusMarker = !readBooleanField(activity, "nativeHomeSessionUnprovenStatusAttached");
         boolean noVisibleHomeContent = !readBooleanField(activity, "nativeHomeContentReady");
         boolean noNativeChildren = nativeContent instanceof LinearLayout
                 && ((LinearLayout) nativeContent).getChildCount() == 0;
         String currentScreen = readStringField(activity, "nativeCurrentScreen");
         if (webBounds == null || !rootHidden || !homeTabNotShown || !splashHidden
                 || !webContainerVisible || !noHomeCardsAttached || !noHomeStatusAttached
-                || !noVisibleHomeContent || !noNativeChildren || !"home".equals(currentScreen)) {
+                || !noUnprovenStatusMarker || !noVisibleHomeContent || !noNativeChildren
+                || !"home".equals(currentScreen)) {
             throw new AssertionError("Empty Home did not fail safely back to the visible WebView");
         }
 
         requireUnauthenticatedSession(activity);
         Bundle state = new Bundle();
         state.putString("phase", "empty_home_fallback");
-        state.putBoolean("authenticated_session", false);
         state.putBoolean("home_payload_empty", true);
         state.putBoolean("playlist_or_card_injected", false);
         state.putBoolean("native_home_cards_attached", false);
         state.putBoolean("native_home_status_attached", false);
+        state.putBoolean("native_home_status_marker_cleared", true);
         state.putBoolean("native_home_content_ready", false);
         state.putBoolean("native_content_container_empty", true);
         state.putBoolean("native_root_hidden", true);

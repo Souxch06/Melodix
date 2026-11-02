@@ -82,6 +82,7 @@
 # global visible rectangle before and after removing the splash.
 .field private nativeHomeCardsAttached:Z
 .field private nativeHomeStatusAttached:Z
+.field private nativeHomeSessionUnprovenStatusAttached:Z
 .field private nativeHomeContentReady:Z
 .field private nativeHomeFirstCard:Landroid/view/View;
 .field private nativeHomeStatusView:Landroid/view/View;
@@ -7207,25 +7208,38 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
     const-string v2, "native-home-owner state=web route=home"
     invoke-static {v2}, Lcom/melodix/music/NativeCrashGuard;->diagLine(Ljava/lang/String;)V
     invoke-static {v2}, Lcom/melodix/music/StartupDiagnosticOverlay;->appendDiagnosticLine(Ljava/lang/String;)V
-    const-string v2, "window.__sfNativeUiRootVisibilityKnown=true;window.__sfNativeUiRootVisible=false;window.__sfNativeUiVisibilityConfirmed=false;window.__sfNativeUiHomeContentReady=false;if(window.__sfMelodixHomeTraceFinal)window.__sfMelodixHomeTraceFinal(window.__sfMelodixHomeRenderedCardCount||0);"
+    const-string v2, "window.__sfNativeUiRootVisibilityKnown=true;window.__sfNativeUiRootVisible=false;window.__sfNativeUiVisibilityConfirmed=false;window.__sfNativeUiHomeContentReady=false;if(window.__sfMelodixHomeTraceFinal)window.__sfMelodixHomeTraceFinal();"
     invoke-virtual {p0, v2}, Lcom/melodix/music/MainActivity;->runNativeJavascript(Ljava/lang/String;)V
     return-void
 
     :melodix_home_session_unproven
-    # An absent/negative private-library proof can never leave a native screen
-    # covering Spotify. Invalidate attachment state before revealing the WebView
-    # so a later positive response cannot revive stale account rows.
+    # A status-only connection panel is safe without libraryV3 proof. If that
+    # exact panel is already attached, keep the native shell and ask it to
+    # re-measure now that the Web Home owner has relinquished the surface.
+    iget-boolean v2, p0, Lcom/melodix/music/MainActivity;->nativeHomeSessionUnprovenStatusAttached:Z
+    if-eqz v2, :melodix_home_session_clear_stale
+    const-string v2, "native-home-owner state=native status=attached"
+    invoke-static {v2}, Lcom/melodix/music/NativeCrashGuard;->diagLine(Ljava/lang/String;)V
+    invoke-static {v2}, Lcom/melodix/music/StartupDiagnosticOverlay;->appendDiagnosticLine(Ljava/lang/String;)V
+    invoke-virtual {p0}, Lcom/melodix/music/MainActivity;->showNativeUi()V
+    return-void
+
+    :melodix_home_session_clear_stale
+    # No current unproven status witness means any existing cards/status may be
+    # stale private content. Clear it before revealing Spotify until the new
+    # status-only payload is attached.
     const/4 v2, 0x0
     iput-boolean v2, p0, Lcom/melodix/music/MainActivity;->nativeHomeCardsAttached:Z
     iput-boolean v2, p0, Lcom/melodix/music/MainActivity;->nativeHomeStatusAttached:Z
+    iput-boolean v2, p0, Lcom/melodix/music/MainActivity;->nativeHomeSessionUnprovenStatusAttached:Z
     iput-boolean v2, p0, Lcom/melodix/music/MainActivity;->nativeHomeContentReady:Z
     iput-object v2, p0, Lcom/melodix/music/MainActivity;->nativeHomeFirstCard:Landroid/view/View;
     iput-object v2, p0, Lcom/melodix/music/MainActivity;->nativeHomeStatusView:Landroid/view/View;
     invoke-virtual {p0}, Lcom/melodix/music/MainActivity;->revealWebUi()V
-    const-string v2, "native-home-owner state=spotify proof=unproven"
+    const-string v2, "native-home-owner state=spotify status=cleared"
     invoke-static {v2}, Lcom/melodix/music/NativeCrashGuard;->diagLine(Ljava/lang/String;)V
     invoke-static {v2}, Lcom/melodix/music/StartupDiagnosticOverlay;->appendDiagnosticLine(Ljava/lang/String;)V
-    const-string v2, "window.__sfNativeUiRootVisibilityKnown=true;window.__sfNativeUiRootVisible=false;window.__sfNativeUiVisibilityConfirmed=false;window.__sfNativeUiHomeContentReady=false;if(window.__sfMelodixHomeTraceFinal)window.__sfMelodixHomeTraceFinal(window.__sfMelodixHomeRenderedCardCount||0);"
+    const-string v2, "window.__sfNativeUiRootVisibilityKnown=true;window.__sfNativeUiRootVisible=false;window.__sfNativeUiVisibilityConfirmed=false;window.__sfNativeUiHomeContentReady=false;if(window.__sfMelodixHomeTraceFinal)window.__sfMelodixHomeTraceFinal();"
     invoke-virtual {p0, v2}, Lcom/melodix/music/MainActivity;->runNativeJavascript(Ljava/lang/String;)V
     return-void
 
@@ -7244,7 +7258,7 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
 
     :melodix_home_owner_reveal_web
     invoke-virtual {p0}, Lcom/melodix/music/MainActivity;->revealWebUi()V
-    const-string v2, "window.__sfNativeUiRootVisibilityKnown=true;window.__sfNativeUiRootVisible=false;window.__sfNativeUiVisibilityConfirmed=false;window.__sfNativeUiHomeContentReady=false;if(window.__sfMelodixHomeTraceFinal)window.__sfMelodixHomeTraceFinal(window.__sfMelodixHomeRenderedCardCount||0);"
+    const-string v2, "window.__sfNativeUiRootVisibilityKnown=true;window.__sfNativeUiRootVisible=false;window.__sfNativeUiVisibilityConfirmed=false;window.__sfNativeUiHomeContentReady=false;if(window.__sfMelodixHomeTraceFinal)window.__sfMelodixHomeTraceFinal();"
     invoke-virtual {p0, v2}, Lcom/melodix/music/MainActivity;->runNativeJavascript(Ljava/lang/String;)V
 
     :melodix_home_owner_done
@@ -7284,6 +7298,7 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
     const/4 v0, 0x0
     iput-boolean v0, p0, Lcom/melodix/music/MainActivity;->nativeHomeCardsAttached:Z
     iput-boolean v0, p0, Lcom/melodix/music/MainActivity;->nativeHomeStatusAttached:Z
+    iput-boolean v0, p0, Lcom/melodix/music/MainActivity;->nativeHomeSessionUnprovenStatusAttached:Z
     iput-boolean v0, p0, Lcom/melodix/music/MainActivity;->nativeHomeContentReady:Z
     const/4 v1, 0x0
     iput-object v1, p0, Lcom/melodix/music/MainActivity;->nativeHomeFirstCard:Landroid/view/View;
@@ -7318,6 +7333,17 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
     iput-boolean v0, p0, Lcom/melodix/music/MainActivity;->nativeHomeStatusAttached:Z
 
     :native_status_attach_done
+    return-void
+.end method
+
+.method public final noteNativeHomeSessionUnprovenStatusAttached(Landroid/view/View;)V
+    .locals 1
+
+    if-eqz p1, :native_session_status_attach_done
+    const/4 v0, 0x1
+    iput-boolean v0, p0, Lcom/melodix/music/MainActivity;->nativeHomeSessionUnprovenStatusAttached:Z
+
+    :native_session_status_attach_done
     return-void
 .end method
 
@@ -7553,7 +7579,7 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
     invoke-static {v0}, Lcom/melodix/music/NativeCrashGuard;->diagLine(Ljava/lang/String;)V
     invoke-static {v0}, Lcom/melodix/music/StartupDiagnosticOverlay;->appendDiagnosticLine(Ljava/lang/String;)V
     invoke-virtual {p0}, Lcom/melodix/music/MainActivity;->revealWebUi()V
-    const-string v0, "window.__sfNativeUiShowMethodCalled=true;window.__sfNativeUiRootVisibilityKnown=true;window.__sfNativeUiRootVisible=false;window.__sfNativeUiVisibilityConfirmed=false;window.__sfNativeUiHomeContentReady=false;if(window.__sfMelodixHomeTraceFinal)window.__sfMelodixHomeTraceFinal(window.__sfMelodixHomeRenderedCardCount||0);"
+    const-string v0, "window.__sfNativeUiShowMethodCalled=true;window.__sfNativeUiRootVisibilityKnown=true;window.__sfNativeUiRootVisible=false;window.__sfNativeUiVisibilityConfirmed=false;window.__sfNativeUiHomeContentReady=false;if(window.__sfMelodixHomeTraceFinal)window.__sfMelodixHomeTraceFinal();"
     invoke-virtual {p0, v0}, Lcom/melodix/music/MainActivity;->runNativeJavascript(Ljava/lang/String;)V
     return-void
 
@@ -7800,6 +7826,7 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
     const/4 v2, 0x0
     iput-boolean v2, p0, Lcom/melodix/music/MainActivity;->nativeHomeCardsAttached:Z
     iput-boolean v2, p0, Lcom/melodix/music/MainActivity;->nativeHomeStatusAttached:Z
+    iput-boolean v2, p0, Lcom/melodix/music/MainActivity;->nativeHomeSessionUnprovenStatusAttached:Z
     iput-boolean v2, p0, Lcom/melodix/music/MainActivity;->nativeHomeContentReady:Z
     iput-object v2, p0, Lcom/melodix/music/MainActivity;->nativeHomeFirstCard:Landroid/view/View;
     iput-object v2, p0, Lcom/melodix/music/MainActivity;->nativeHomeStatusView:Landroid/view/View;
@@ -9324,6 +9351,14 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
     return-void
 
     :native_row_check_retry
+    const-string v2, "melodix:action:open-login"
+    invoke-virtual {p1, v2}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    move-result v3
+    if-eqz v3, :native_row_check_retry_library
+    invoke-virtual {p0}, Lcom/melodix/music/MainActivity;->openSpotifyLogin()V
+    return-void
+
+    :native_row_check_retry_library
     const-string v2, "melodix:action:retry-library"
     invoke-virtual {p1, v2}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
     move-result v3
@@ -9437,6 +9472,37 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
     .locals 0
 
     invoke-virtual {p0}, Lcom/melodix/music/MainActivity;->openNativeSettings()V
+    return-void
+.end method
+
+.method public final openSpotifyLogin()V
+    .locals 3
+
+    # Reuse the Activity's existing official login URL and cookie-backed
+    # WebView flow; this does not alter OAuth parameters or native session proof.
+    const/4 v0, 0x0
+    iput-boolean v0, p0, Lcom/melodix/music/MainActivity;->nativeHomeCardsAttached:Z
+    iput-boolean v0, p0, Lcom/melodix/music/MainActivity;->nativeHomeStatusAttached:Z
+    iput-boolean v0, p0, Lcom/melodix/music/MainActivity;->nativeHomeSessionUnprovenStatusAttached:Z
+    iput-boolean v0, p0, Lcom/melodix/music/MainActivity;->nativeHomeContentReady:Z
+    iput-object v0, p0, Lcom/melodix/music/MainActivity;->nativeHomeFirstCard:Landroid/view/View;
+    iput-object v0, p0, Lcom/melodix/music/MainActivity;->nativeHomeStatusView:Landroid/view/View;
+    invoke-virtual {p0}, Lcom/melodix/music/MainActivity;->revealWebUi()V
+
+    iget-object v1, p0, Lcom/melodix/music/MainActivity;->G:Landroid/webkit/WebView;
+    if-eqz v1, :native_login_done
+    const-string v2, "https://accounts.spotify.com/en/login?continue=https%3A%2F%2Fopen.spotify.com%2F&allow_signup=1"
+    :try_start_native_login
+    invoke-virtual {v1, v2}, Landroid/webkit/WebView;->loadUrl(Ljava/lang/String;)V
+    :try_end_native_login
+    .catch Ljava/lang/Throwable; {:try_start_native_login .. :try_end_native_login} :native_login_failed
+    goto :native_login_done
+
+    :native_login_failed
+    move-exception v0
+    invoke-static {v0}, Lcom/melodix/music/NativeCrashGuard;->recordWebViewConfigFailure(Ljava/lang/Throwable;)V
+
+    :native_login_done
     return-void
 .end method
 

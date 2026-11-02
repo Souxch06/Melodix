@@ -43,51 +43,53 @@ test('[structurel] homeStateRow is typed non-playlist content with only local ac
     'the status never includes a private route or a fabricated Spotify resource URI');
 });
 
-test('[structurel] le comptage diagnostique compare les cartes Web aux rows natives réellement scrappées', () => {
+test('[structurel] le shell garde tous les rows privés derrière libraryV3 sans publier de compteurs', () => {
   const at = shell.indexOf('function updateHomeRows(mainView)');
   const body = shell.slice(at, shell.indexOf('function currentSearchQuery', at));
-  assert.match(body, /scrapedRows = collectHomeRows\(mainView\)/);
-  assert.match(body, /__sfNativeUiHomeDomRowsCount = scrapedRows\.length/);
+  assert.match(body, /scrapedRows = mainView \? collectHomeRows\(mainView\) : \[\]/);
   assert.match(body, /collectedRows = supplementHomeRowsWithLibrary\(scrapedRows, mainView\)/);
   assert.match(body, /sessionProven = libraryProvesSession\(\)/);
-  assert.match(body, /rows = sessionProven \? collectedRows : \[\]/,
-    'the native card count includes no public Home rows before private API proof');
-  assert.match(body, /home-card-counts web=' \+ webCards \+ ' native-dom=' \+ scrapedRows\.length \+\s*' native-total=' \+ rows\.length/);
-  assert.match(body, /__sfNativeUiHomeCountTraceSignature/,
-    'les diagnostics du compteur sont plafonnés aux changements de compte');
+  assert.match(body, /rows = sessionProven && actualHomeRoute \? collectedRows : \[\]/,
+    'aucune ligne Home/Search/Library/detail privée ne passe avant libraryV3');
+  assert.match(body, /statePayload = sessionProven \? homeStatePayload\(\) : unprovenHomeStatePayload\(\)/,
+    'le shell utilise un état distinct lorsque la session n’est pas prouvée');
+  assert.match(body, /sendNativeUiData\('home', statePayload\)/);
+  assert.doesNotMatch(body, /home-card-counts|native-total|webCards|librows|domrows/,
+    'les diagnostics n’exportent ni volumes de playlists ni métriques dérivées du compte');
 });
 
-test('[structurel] les rows vides/actions ne satisfont pas le gate de readiness', () => {
+test('[structurel] la readiness est autorisée par un état explicite, jamais par une charge vide', () => {
   const at = shell.indexOf('function notifyNativeUiReady(');
   const body = shell.slice(at, shell.indexOf('\n    function ', at + 10));
-  const gate = body.indexOf('if (isSpotifyHome()');
   const ready = body.indexOf('bridge.onNativeUiReady();');
-  assert.ok(gate >= 0 && ready > gate, 'le gate précède le callback qui couvre la page');
-  assert.match(body.slice(gate, ready), /__sfNativeUiHomeRowsCount/);
-  assert.match(body.slice(gate, ready), /__sfNativeUiHomeDataSent/);
-  assert.match(body.slice(gate, ready), /action=keep-spotify-visible/);
-  assert.match(body.slice(gate, ready), /return false;/);
-  assert.doesNotMatch(body.slice(ready), /onNativeUiData\('home', JSON\.stringify\(homeStatePayload\(\)\)/,
-    'aucun état de chargement n’est envoyé après un takeover vide');
+  assert.ok(ready > -1, 'le callback natif existe');
+  assert.match(body, /homeShellStateReady = nativeHomeRoute[\s\S]*?HomeStateSent === true[\s\S]*?HomeDataSent === true/);
+  assert.match(body, /sessionProven \|\| window\.__sfNativeUiHomeSessionUnproven === true/,
+    'un état sans preuve ouvre l’interface mais ne modifie pas takeoverProven');
+  assert.match(body, /takeoverProven = sessionProven/);
+  assert.match(body, /shellActivationAllowed = takeoverProven \|\| homeShellStateReady/);
+  assert.match(body, /if \(isSpotifyHome\(\) && sessionProven && !homeContentProven && !homeStateProven\)[\s\S]*?return false/,
+    'avec preuve, une charge vide ou échouée ne satisfait pas le gate');
+  assert.doesNotMatch(body, /action=keep-spotify-visible|sendNativeUiData\('home', JSON\.stringify/);
 });
 
-test('[structurel] an empty Home sends status only with session evidence and falls back to empty data otherwise', () => {
+test('[structurel] Home envoie une ligne de statut non prouvée mais jamais de données privées', () => {
   const at = shell.indexOf('function updateHomeRows(mainView)');
   const body = shell.slice(at, shell.indexOf('function currentSearchQuery', at));
   const readyAt = shell.indexOf('function notifyNativeUiReady(');
   const readyBody = shell.slice(readyAt, shell.indexOf('\n    function ', readyAt + 10));
-  assert.match(body, /else if \(pageHasSessionEvidence\(\)\)/);
-  assert.match(body, /statePayload = homeStatePayload\(\)/);
+  assert.match(body, /statePayload = sessionProven \? homeStatePayload\(\) : unprovenHomeStatePayload\(\)/);
   assert.match(body, /window\.__sfNativeUiHomeStateSent = true/);
-  assert.match(body, /sendNativeUiData\('home', \[\]\)/,
-    'a logged-out empty page clears native content without creating a status row');
-  assert.match(readyBody, /sessionProven &&[\s\S]*?__sfNativeUiHomeStateSent === true[\s\S]*?__sfNativeUiHomeDataSent === true/);
-  const stateAt = shell.indexOf('function homeStateRow()');
-  const stateBody = shell.slice(stateAt, shell.indexOf('\n    // Manual retry', stateAt));
-  assert.match(stateBody, /homeRetries >= MAX_HOME_RETRIES && !homeRetryLoopAlive\(\)/);
-  assert.match(stateBody, /state: 'unavailable'/,
-    'retry exhaustion is communicated through the distinct status panel, not a diagnostic playlist row');
-  assert.doesNotMatch(body, /sendNativeUiData\('home', \[homeDiagRow/);
+  assert.match(body, /sendNativeUiData\('home', statePayload\)/);
+  assert.match(body, /HomeSessionUnproven = statePayload\[0\]\.sessionUnproven === true/);
+  assert.match(readyBody, /homeShellStateReady = nativeHomeRoute[\s\S]*?HomeStateSent === true[\s\S]*?HomeDataSent === true[\s\S]*?sessionProven \|\| window\.__sfNativeUiHomeSessionUnproven === true/);
+  const stateAt = shell.indexOf('function unprovenHomeStateRow()');
+  const stateBody = shell.slice(stateAt, shell.indexOf('function homePartialErrorRow()', stateAt));
+  assert.match(stateBody, /state: state/);
+  assert.match(stateBody, /sessionUnproven: true/);
+  assert.match(stateBody, /uri: 'melodix:action:open-login'/);
+  assert.doesNotMatch(stateBody, /spotify:(?:playlist|album|artist|track):/);
+  assert.doesNotMatch(body, /sendNativeUiData\('home', \[\]\)|sendNativeUiData\('home', \[homeDiagRow/);
 });
 
 test('[vm] le shell reste exécutable avec les ajouts diag', () => {

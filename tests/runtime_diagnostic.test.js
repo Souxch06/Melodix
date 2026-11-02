@@ -35,7 +35,9 @@ function makeElement({ id = '', dataTestId = null, childNodes = [] } = {}) {
     };
 }
 
-function executeDiagnostic() {
+function executeDiagnostic({ libraryDiagnostic = {
+    phase: 'response', http: 401, mime: 'json', durationMs: 120, error: 'http-401'
+}, homeDecision = 'styles-not-ready' } = {}) {
     const nodes = new Map([
         ['#global-nav-bar', { display: 'flex' }],
         ['#Desktop_LeftSidebar_Id', { display: 'block' }],
@@ -87,7 +89,7 @@ function executeDiagnostic() {
         __sfMelodixBridgeBootstrapErrors: 0,
         __sfMelodixHomeGuiMode: 'csshack',
         __sfMelodixHomeRoute: 'home',
-        __sfMelodixHomeDecision: 'styles-not-ready',
+        __sfMelodixHomeDecision: homeDecision,
         __sfMelodixHomeStylesReady: false,
         __sfMelodixHomeSourceCardCount: 2,
         __sfMelodixHomeRawAnchorCount: 3,
@@ -115,7 +117,8 @@ function executeDiagnostic() {
         __sfNativeUiHomeContentReady: true,
         __sfNativeUiSessionProven: true,
         __sfNativeUiBridgeCallbacksReady: true,
-        __sfMediaLibStatus: 'ready',
+        __sfMediaLibStatus: 'error',
+        __sfMediaLibLastDiagnostic: libraryDiagnostic,
         __sfMediaLibSessionProofKnown: true,
         __sfMediaLibSessionProven: true,
         __sfNativeUiHomeDomRowsCount: 3,
@@ -451,14 +454,10 @@ test('Preview diagnostic returns four timed samples with the existing report fie
         mobileShellClass: true,
         homeActiveClass: false,
         homeRootPresent: false,
-        homeCardCount: 0,
         homeGuiMode: 'csshack',
         homeScreen: 'home',
         homeDecision: 'styles-not-ready',
         homeStylesReady: false,
-        homeSourceCardCount: 2,
-        homeRawAnchorCount: 3,
-        homeSectionCount: 1,
         nativeUiShellStarted: true,
         nativeUiShellReady: true,
         nativeUiShellCompleted: true,
@@ -481,19 +480,49 @@ test('Preview diagnostic returns four timed samples with the existing report fie
         nativeUiVisibilityConfirmed: true,
         nativeUiHomeContentReady: true,
         nativeHomeRouteRecognized: null,
-        nativeUiSessionProven: true,
         nativeUiBridgeCallbacksReady: true,
-        mediaLibStatus: 'ready',
-        mediaLibSessionProofKnown: true,
-        mediaLibSessionProven: true,
-        nativeHomeDomRowsCount: 3,
-        nativeHomeRowsCount: 4,
-        homeWebNativeCountsMatch: false,
+        mediaLibStatus: 'error',
+        libraryFetchDiagnostic: {
+            http: 401, mime: 'json', phase: 'response', durationMs: 120, error: 'http-401'
+        },
         nativeHomeDataSent: true,
         customStylesheetInjected: true
     });
     assert.equal(samples[3].mutations.observerStopped, true);
     assert.equal(run.observers[0].disconnected, true);
+    for (const privateField of [
+        'nativeUiSessionProven', 'mediaLibSessionProofKnown', 'mediaLibSessionProven',
+        'homeSourceCardCount', 'homeRawAnchorCount', 'homeSectionCount',
+        'nativeHomeDomRowsCount', 'nativeHomeRowsCount', 'homeWebNativeCountsMatch'
+    ]) assert.equal(Object.prototype.hasOwnProperty.call(samples[0].ui, privateField), false,
+        `${privateField} is not included in the runtime report`);
+});
+
+test('runtime renderer decisions use a neutral allowlist and discard proof/profile labels', () => {
+    for (const homeDecision of ['session-unproven', 'session-rejected', 'session-proven', 'profile-control-unverified']) {
+        const run = executeDiagnostic({ homeDecision });
+        run.runScheduledSamples();
+        assert.equal(run.samples[0].ui.homeDecision, null,
+            `${homeDecision} must not become a runtime diagnostic label`);
+    }
+    const safe = executeDiagnostic({ homeDecision: 'renderer-inactive' });
+    safe.runScheduledSamples();
+    assert.equal(safe.samples[0].ui.homeDecision, 'renderer-inactive');
+});
+
+test('runtime library telemetry sanitizes HTTP claims and exports only the response metadata allowlist', () => {
+    const run = executeDiagnostic({ libraryDiagnostic: {
+        phase: 'request', http: 0, mime: 'missing', durationMs: 12, error: 'http-401',
+        token: 'private-token-fixture', body: 'private-response-fixture'
+    } });
+    run.runScheduledSamples();
+    const diagnostic = run.samples[0].ui.libraryFetchDiagnostic;
+    assert.deepEqual(diagnostic, {
+        http: 0, mime: 'missing', phase: 'request', durationMs: 12, error: 'http-other'
+    }, '401 is downgraded unless it is an observed HTTP response with status 401');
+    assert.deepEqual(Object.keys(diagnostic).sort(), ['durationMs', 'error', 'http', 'mime', 'phase'].sort());
+    assert.doesNotMatch(JSON.stringify(run.samples[0]), /private-token-fixture|private-response-fixture/i);
+    assert.doesNotMatch(script, /homeSourceCardCount|homeRawAnchorCount|homeSectionCount|nativeHomeDomRowsCount|nativeHomeRowsCount|mediaLibSessionProofKnown|mediaLibSessionProven/);
 });
 
 test('runtime geometry records viewport, zoom, safe-area, surface bounds, overflow, and reachable controls', () => {

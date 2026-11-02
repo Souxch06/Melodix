@@ -171,8 +171,13 @@ test('native bridge exposes UI callbacks and routes media, search and player dat
     assert.ok(readiness, 'native shell readiness guard should exist');
     assert.match(readiness[0], /sessionProven = libraryProvesSession\(\)/,
         'readiness uses verified private API proof rather than a profile widget');
-    assert.match(read('scripts/native_ui_shell.source.js'), /function pageHasProfileSignal\(\)[\s\S]*?sfDeepQuery/,
-        'profile controls remain a separate diagnostic page signal');
+    assert.match(readiness[0], /homeShellStateReady = nativeHomeRoute[\s\S]*?__sfNativeUiHomeSessionUnproven === true/,
+        'a sent status-only Home can display the shell without weakening the private-data gate');
+    const nativeShell = read('scripts/native_ui_shell.source.js');
+    assert.match(nativeShell, /function pageHasProfileSignal\(\)[\s\S]*?sfDeepQuery/,
+        'profile controls remain an internal page signal, not session proof');
+    assert.doesNotMatch(nativeShell, /diagTrace\([^\n]*profile|diagTrace\([^\n]*session=|diagTrace\([^\n]*proof=/i,
+        'profile and proof indicators are absent from shell traces');
     assert.match(readiness[0], /open\.spotify\.com/);
     assert.match(client, /const-string v5, "native_ui_shell\.js"[\s\S]*?evaluateJavascript/);
     assert.doesNotMatch(hotfixList, /native_ui_shell\.js/);

@@ -43,18 +43,19 @@
     }
 
     function traceHomeGuard(guard, passed) {
-        var allowed = ['body', 'route', 'gui-mode', 'fullscreen', 'session', 'activation'];
-        var name = allowed.indexOf(String(guard || '')) >= 0 ? String(guard) : 'activation';
+        var rawName = String(guard || '');
+        if (rawName === 'session') return;
+        var allowed = ['body', 'route', 'gui-mode', 'fullscreen', 'activation'];
+        var name = allowed.indexOf(rawName) >= 0 ? rawName : 'activation';
         var route = safeMelodixHomeRoute();
-        var session = safeHomeSessionBit();
-        var signature = [passed ? '1' : '0', route, session].join('|');
+        var signature = [passed ? '1' : '0', route].join('|');
         var signatures = window.__sfMelodixHomeGuardTraceSignatures;
         if (!signatures || typeof signatures !== 'object') signatures = {};
         if (signatures[name] === signature) return;
         signatures[name] = signature;
         window.__sfMelodixHomeGuardTraceSignatures = signatures;
         traceMelodixHome('home-guard guard=' + name + ' result=' + (passed ? '1' : '0') +
-            ' route=' + route + ' session=' + session);
+            ' route=' + route);
     }
 
     function traceHomeCss(result, passed) {
@@ -121,6 +122,14 @@
         var value = Boolean(active);
         var session = sessionProven === true;
         if (!bridge || typeof bridge.onMelodixHomeVisibility !== 'function') return;
+        if (!value && !session && window.__sfMelodixHomeOwnerSent !== true) {
+            // A first unproven Home is not a Web-Home ownership change. Avoid
+            // asking Android to reveal Spotify over the separate native
+            // connection state that the shell can safely render.
+            window.__sfMelodixHomeOwnerSent = false;
+            window.__sfMelodixHomeOwnerSessionSent = false;
+            return;
+        }
         if (!force && window.__sfMelodixHomeOwnerSent === value &&
             window.__sfMelodixHomeOwnerSessionSent === session) return;
         try {
@@ -132,7 +141,7 @@
         } catch (_) {}
     }
 
-    function traceHomeFinal(cardCount, forceOwnerSync) {
+    function traceHomeFinal(forceOwnerSync) {
         var home = document.getElementById('sf-melodix-home');
         var nativeKnown = window.__sfNativeUiRootVisibilityKnown === true;
         var nativeVisible = 'unknown';
@@ -144,7 +153,6 @@
         }
         var homeVisible = false;
         var mainView = null;
-        var cards = Math.max(0, Math.min(999, Math.floor(Number(cardCount) || 0)));
         var route = safeMelodixHomeRoute();
         var session = safeHomeSessionBit();
         try {
@@ -167,16 +175,15 @@
         var webVisible = nativeVisible === '1' ? '0' : nativeVisible === '0' ? '1' : 'unknown';
         var owner = nativeVisible === '1' ? 'native' : nativeVisible === '0'
             ? homeVisible ? 'web' : 'spotify' : 'unknown';
-        var line = 'home-final owner=' + owner + ' route=' + route + ' session=' + session +
-            ' web=' + webVisible + ' native=' + nativeVisible + ' home=' + (homeVisible ? '1' : '0') +
-            ' cards=' + cards;
+        var line = 'home-final owner=' + owner + ' route=' + route +
+            ' web=' + webVisible + ' native=' + nativeVisible + ' home=' + (homeVisible ? '1' : '0');
         if (window.__sfMelodixHomeFinalTraceSignature === line) return;
         window.__sfMelodixHomeFinalTraceSignature = line;
         traceMelodixHome(line);
     }
     window.__sfMelodixHomeTraceFinal = traceHomeFinal;
     window.__sfMelodixHomeSyncNativeOwner = function() {
-        traceHomeFinal(window.__sfMelodixHomeRenderedCardCount || 0, true);
+        traceHomeFinal(true);
     };
 
 const MELODIX_HOME_ACTIVE_CLASS = 'sf-melodix-home-active';
@@ -260,8 +267,8 @@ function melodixHomeCopy() {
             errorTitle: 'Données Spotify indisponibles',
             partialErrorTitle: 'Certaines données Spotify n’ont pas pu être chargées',
             retry: 'Réessayer',
-            requestError: 'Spotify a refusé la requête de bibliothèque (HTTP 401). La cause n’est pas confirmée ; réessayez.',
-            accessError: 'Spotify a refusé l’accès à la bibliothèque (HTTP 403). Vérifiez les autorisations ou réessayez.',
+            requestError: 'Spotify a refusé la requête de bibliothèque. La cause n’est pas confirmée ; réessayez.',
+            accessError: 'Spotify a refusé l’accès à la bibliothèque. Vérifiez les autorisations ou réessayez.',
             playlists: 'Vos playlists', albums: 'Albums enregistrés',
             artists: 'Artistes suivis', podcasts: 'Podcasts',
             networkError: 'La collecte a échoué. Vérifiez la connexion puis réessayez.',
@@ -274,8 +281,8 @@ function melodixHomeCopy() {
             networkError: 'The collection failed. Check your connection and try again.',
             rateLimitError: 'Spotify is temporarily limiting requests. Please try again shortly.',
             serverError: 'Spotify is temporarily unavailable. Please try again shortly.',
-            requestError: 'Spotify refused the library request (HTTP 401). The cause is not confirmed; try again.',
-            accessError: 'Spotify denied the library request (HTTP 403). Check access or try again.'
+            requestError: 'Spotify refused the library request. The cause is not confirmed; try again.',
+            accessError: 'Spotify denied the library request. Check access or try again.'
         },
         es: {
             morning: 'Buenos días', afternoon: 'Buenas tardes', evening: 'Buenas noches', discover: 'Descubre',
@@ -289,8 +296,8 @@ function melodixHomeCopy() {
             networkError: 'No se pudieron recopilar los datos. Comprueba la conexión y vuelve a intentarlo.',
             rateLimitError: 'Spotify está limitando las solicitudes temporalmente. Inténtalo más tarde.',
             serverError: 'Spotify no está disponible temporalmente. Inténtalo más tarde.',
-            requestError: 'Spotify rechazó la solicitud de biblioteca (HTTP 401). No se conoce la causa; inténtalo de nuevo.',
-            accessError: 'Spotify denegó el acceso a la biblioteca (HTTP 403). Comprueba el acceso o inténtalo de nuevo.'
+            requestError: 'Spotify rechazó la solicitud de biblioteca. No se conoce la causa; inténtalo de nuevo.',
+            accessError: 'Spotify denegó el acceso a la biblioteca. Comprueba el acceso o inténtalo de nuevo.'
         },
         de: {
             morning: 'Guten Morgen', afternoon: 'Guten Tag', evening: 'Guten Abend', discover: 'Entdecken',
@@ -304,8 +311,8 @@ function melodixHomeCopy() {
             networkError: 'Die Daten konnten nicht geladen werden. Prüfe die Verbindung und versuche es erneut.',
             rateLimitError: 'Spotify begrenzt Anfragen vorübergehend. Bitte versuche es später erneut.',
             serverError: 'Spotify ist vorübergehend nicht verfügbar. Bitte versuche es später erneut.',
-            requestError: 'Spotify hat die Bibliotheksanfrage abgelehnt (HTTP 401). Die Ursache ist nicht bestätigt; bitte versuche es erneut.',
-            accessError: 'Spotify hat den Bibliothekszugriff verweigert (HTTP 403). Prüfe den Zugriff oder versuche es erneut.'
+            requestError: 'Spotify hat die Bibliotheksanfrage abgelehnt. Die Ursache ist nicht bestätigt; bitte versuche es erneut.',
+            accessError: 'Spotify hat den Bibliothekszugriff verweigert. Prüfe den Zugriff oder versuche es erneut.'
         },
         it: {
             morning: 'Buongiorno', afternoon: 'Buon pomeriggio', evening: 'Buonasera', discover: 'Scopri',
@@ -319,8 +326,8 @@ function melodixHomeCopy() {
             networkError: 'Raccolta non riuscita. Controlla la connessione e riprova.',
             rateLimitError: 'Spotify sta limitando temporaneamente le richieste. Riprova tra poco.',
             serverError: 'Spotify non è temporaneamente disponibile. Riprova tra poco.',
-            requestError: 'Spotify ha rifiutato la richiesta della libreria (HTTP 401). La causa non è confermata; riprova.',
-            accessError: 'Spotify ha negato l’accesso alla libreria (HTTP 403). Verifica l’accesso o riprova.'
+            requestError: 'Spotify ha rifiutato la richiesta della libreria. La causa non è confermata; riprova.',
+            accessError: 'Spotify ha negato l’accesso alla libreria. Verifica l’accesso o riprova.'
         },
         pt: {
             morning: 'Bom dia', afternoon: 'Boa tarde', evening: 'Boa noite', discover: 'Descobrir',
@@ -334,8 +341,8 @@ function melodixHomeCopy() {
             networkError: 'A recolha falhou. Verifica a ligação e tenta novamente.',
             rateLimitError: 'O Spotify está a limitar os pedidos temporariamente. Tenta novamente em breve.',
             serverError: 'O Spotify está temporariamente indisponível. Tenta novamente em breve.',
-            requestError: 'O Spotify recusou o pedido da biblioteca (HTTP 401). A causa não está confirmada; tenta novamente.',
-            accessError: 'O Spotify recusou o acesso à biblioteca (HTTP 403). Verifica o acesso ou tenta novamente.'
+            requestError: 'O Spotify recusou o pedido da biblioteca. A causa não está confirmada; tenta novamente.',
+            accessError: 'O Spotify recusou o acesso à biblioteca. Verifica o acesso ou tenta novamente.'
         }
     };
     const labels = copy[locale] || copy.en;
@@ -749,12 +756,25 @@ function safeMelodixHomeProofState() {
     return window.__sfMediaLibSessionProven === true ? 'valid' : 'invalid';
 }
 
+function melodixHomeHasConfirmedHttpStatus(status) {
+    const diagnostic = window.__sfMediaLibLastDiagnostic;
+    const expectedError = status === 401 || status === 403 ? `http-${status}` : 'http-other';
+    return Boolean(diagnostic && typeof diagnostic === 'object' &&
+        Number(diagnostic.http) === status && diagnostic.phase === 'response' &&
+        diagnostic.error === expectedError &&
+        ['json', 'html', 'other', 'missing'].includes(diagnostic.mime) &&
+        Number.isFinite(Number(diagnostic.durationMs)) && Number(diagnostic.durationMs) >= 0);
+}
+
 function safeMelodixHomeLibraryError() {
     const value = String(window.__sfMediaLibError || '');
     if (!value) return 'none';
-    if (value === 'http-401') return 'http-401';
-    if (value === 'http-403') return 'http-403';
-    if (/^http-[1-5][0-9]{2}$/.test(value)) return 'http-other';
+    if (value === 'http-401') return melodixHomeHasConfirmedHttpStatus(401) ? 'http-401' : 'other';
+    if (value === 'http-403') return melodixHomeHasConfirmedHttpStatus(403) ? 'http-403' : 'other';
+    if (/^http-[1-5][0-9]{2}$/.test(value)) {
+        const status = Number(value.slice(5));
+        return melodixHomeHasConfirmedHttpStatus(status) ? 'http-other' : 'other';
+    }
     if (value === 'http-unknown' || value === 'network-error') return 'network';
     if (value === 'timeout') return 'timeout';
     if (value === 'non-json') return 'non-json';
@@ -778,7 +798,6 @@ function setMelodixHomeDecision(reason, details) {
         ? (state.rootPresent ? '1' : '0')
         : rawRoot !== '' && rawRoot !== 'none' ? '1' : 'unknown';
     const sessionProven = typeof state.sessionProven === 'boolean' ? state.sessionProven : null;
-    const sessionState = sessionProven == null ? 'unknown' : sessionProven ? '1' : '0';
     const proofState = safeMelodixHomeProofState();
     const libraryError = safeMelodixHomeLibraryError();
     const rawLibraryStatus = String(state.libraryStatus || window.__sfMediaLibStatus || 'absent');
@@ -789,9 +808,7 @@ function setMelodixHomeDecision(reason, details) {
     const sectionCount = Number.isFinite(Number(state.sectionCount))
         ? Math.max(0, Math.min(999, Math.floor(Number(state.sectionCount)))) : 0;
     const decision = String(reason || 'unknown').slice(0, 40);
-    const signature = [decision, guiMode, route, state.stylesReady ? '1' : '0', cardCount,
-        sectionCount, rootPresent, sessionState, proofState, libraryStatus, libraryError].join('|');
-    const libraryDiagnosticSignature = [proofState, libraryStatus, libraryError].join('|');
+    const signature = [decision, guiMode, route, state.stylesReady ? '1' : '0', rootPresent].join('|');
     window.__sfMelodixHomeGuiMode = guiMode;
     // Only normalized route categories are exposed; Spotify IDs and paths stay
     // in memory for rendering and are never sent to the diagnostic sink.
@@ -806,19 +823,10 @@ function setMelodixHomeDecision(reason, details) {
     window.__sfMelodixHomeDecision = decision;
     if (signature !== lastHomeDecisionSignature) {
         lastHomeDecisionSignature = signature;
-        if (window.__sfMelodixHomeLibraryDiagnosticSignature !== libraryDiagnosticSignature) {
-            window.__sfMelodixHomeLibraryDiagnosticSignature = libraryDiagnosticSignature;
-            traceMelodixHome('library-proof proof=' + proofState +
-                ' status=' + libraryStatus + ' error=' + libraryError);
-        }
         traceMelodixHome('home-web decision=' + decision +
             ' mode=' + guiMode + ' route=' + route +
-            ' session=' + sessionState +
             ' styles=' + (state.stylesReady ? '1' : '0') +
-            ' cards=' + cardCount +
-            ' sections=' + sectionCount +
-            ' root=' + rootPresent +
-            ' library=' + libraryStatus);
+            ' root=' + rootPresent);
     }
 }
 
@@ -833,7 +841,7 @@ function deactivateMelodixHome() {
     }
     window._sfMelodixHomeSourceRoot = null;
     window._sfMelodixHomeSignature = '';
-    traceHomeFinal(0);
+    traceHomeFinal();
 }
 
 function scheduleMelodixHomeUpdate() {
@@ -948,10 +956,11 @@ function melodixHomeStatusState(hasRenderableData) {
 
 function melodixHomeErrorKind() {
     const error = String(window.__sfMediaLibError || '').toLowerCase();
-    if (error === 'http-401' || error === 'token-missing') return 'request-rejected';
-    if (error === 'http-403') return 'access-denied';
-    if (/429|rate.?limit/.test(error)) return 'rate-limit';
-    if (/5\d\d/.test(error)) return 'server';
+    if (error === 'http-401' && melodixHomeHasConfirmedHttpStatus(401)) return 'request-rejected';
+    if (error === 'http-403' && melodixHomeHasConfirmedHttpStatus(403)) return 'access-denied';
+    if (error === 'http-429' && melodixHomeHasConfirmedHttpStatus(429)) return 'rate-limit';
+    const serverStatus = /^http-5[0-9]{2}$/.test(error) ? Number(error.slice(5)) : 0;
+    if (serverStatus && melodixHomeHasConfirmedHttpStatus(serverStatus)) return 'server';
     return 'network';
 }
 
@@ -1062,7 +1071,7 @@ function updateMelodixHome() {
     if (!document.body) {
         traceHomeGuard('body', false);
         setMelodixHomeDecision('body-missing', { route: routeCategory });
-        traceHomeFinal(0);
+        traceHomeFinal();
         return;
     }
     traceHomeGuard('body', true);
@@ -1095,8 +1104,9 @@ function updateMelodixHome() {
     traceHomeGuard('session', sessionProven);
     if (!sessionProven) {
         deactivateMelodixHome();
-        setMelodixHomeDecision(window.__sfMediaLibSessionProofKnown === true
-            ? 'session-rejected' : 'session-unproven', {
+        // Keep the diagnostic decision neutral: proof is an internal rendering
+        // guard, not an instrumentation or CI output.
+        setMelodixHomeDecision('renderer-inactive', {
             route: routeCategory, rootSelector: window.__sfMelodixHomeRootSelector || 'none',
             rootPresent: Boolean(mainView), sessionProven: false,
             libraryStatus: window.__sfMediaLibStatus || 'absent'
@@ -1147,7 +1157,7 @@ function updateMelodixHome() {
     if (!stylesReady) {
         deactivateMelodixHome();
         setMelodixHomeDecision('styles-not-ready', { ...decisionDetails, stylesReady: false });
-        traceHomeFinal(0);
+        traceHomeFinal();
         return;
     }
 
@@ -1165,12 +1175,9 @@ function updateMelodixHome() {
             ...decisionDetails, stylesReady: true
         });
         const unchangedCards = home.querySelectorAll('.sf-melodix-home__card').length;
-        window.__sfMelodixHomeRenderedCardCount = Math.max(0, Math.min(999, unchangedCards));
         traceHomeNode(home, false, 'render');
-        traceMelodixHome('home-data stage=web-rendered rows=' + itemCount +
-            ' cards=' + unchangedCards + ' session=' + (sessionProven ? '1' : '0') +
-            ' route=home result=' + (showStatus ? 'status' : 'rendered'));
-        traceHomeFinal(unchangedCards);
+        traceMelodixHome('home-data stage=web-rendered');
+        traceHomeFinal();
         return;
     }
 
@@ -1220,15 +1227,13 @@ function updateMelodixHome() {
             (!mainView || Boolean(computedMain && computedMain.display === 'none'));
     } catch (_) {}
     traceHomeGuard('activation', renderedVisible);
-    const renderedCardCount = home.querySelectorAll('.sf-melodix-home__card').length;
-    window.__sfMelodixHomeRenderedCardCount = Math.max(0, Math.min(999, renderedCardCount));
     traceHomeNode(home, isNewHome, 'render');
     if (!renderedVisible) {
         deactivateMelodixHome();
         setMelodixHomeDecision('activation-visibility-check-failed', {
             ...decisionDetails, stylesReady: false
         });
-        traceHomeFinal(0);
+        traceHomeFinal();
         return;
     }
     window.__sfMelodixHomeStylesReady = true;
@@ -1236,10 +1241,8 @@ function updateMelodixHome() {
         ? `rendered-status-${statusState}`
         : hasPartialData ? 'rendered-partial' : isNewHome ? 'rendered' : 'updated';
     setMelodixHomeDecision(renderDecision, { ...decisionDetails, stylesReady: true });
-    traceMelodixHome('home-data stage=web-rendered rows=' + itemCount +
-        ' cards=' + renderedCardCount + ' session=' + (sessionProven ? '1' : '0') +
-        ' route=home result=' + (showStatus ? 'status' : 'rendered'));
-    traceHomeFinal(renderedCardCount);
+    traceMelodixHome('home-data stage=web-rendered');
+    traceHomeFinal();
 }
 
 function instrumentMelodixHomeHistory() {

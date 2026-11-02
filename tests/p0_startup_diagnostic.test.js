@@ -381,24 +381,26 @@ test('the panel report is enriched with the web state on the UI thread', () => {
     'the stored report is enriched too');
 });
 
-test('the shell reports proof states with a process id and no page text', () => {
+test('the shell keeps process-correlated diagnostics free of session proof and page content', () => {
   const js = read('scripts/native_ui_shell.source.js');
-  assert.ok(js.includes("diagTrace('ready-pending proof='"),
-    'the wait reports whether any permissible content/session proof exists');
-  assert.ok(js.includes("' session=' + (sessionProven ? '1' : '0')"),
-    'real Home content never falsely marks the Spotify session as signed in');
+  assert.ok(js.includes("diagTrace('ready-pending')"),
+    'readiness reports only the pending handoff state, not a session verdict');
+  assert.ok(js.includes("diagTrace('home-state sent')"),
+    'status-only Home handoff is distinguishable without account contents');
+  assert.ok(!js.includes('ready-pending proof='));
+  assert.ok(!js.includes("' session=' + (sessionProven ? '1' : '0')"));
   assert.ok(js.includes('window.__sfNoWidgetCount % 20 === 0'),
     'the hold trace is throttled');
   assert.match(js, /getDiagnosticSessionId\(\)/,
     'each shell trace is correlated with the current process');
   assert.match(js, /bridge && typeof bridge\.logDiagEvent === 'function'\) bridge\.logDiagEvent\(message\)/,
-    'the native sink supplies the persisted session id and applies its category whitelist');
+    'the native sink applies its category whitelist');
   assert.doesNotMatch(js, /bridge\.logDiagEvent\(line\)/,
     'the JavaScript-only correlation prefix is not trusted as native diagnostic data');
   assert.match(js, /function safeErrorClass\(value\)/);
   assert.match(js, /function safeDiagnosticScreen\(value\)/);
-  assert.doesNotMatch(js, /diagTrace\([^\n]*(?:document\.title|innerText|textContent|location\.href|spotifyRoutePath\(\))/,
-    'trace calls never include page content or raw paths');
+  assert.doesNotMatch(js, /diagTrace\([^\n]*(?:document\.title|innerText|textContent|location\.href|spotifyRoutePath\(\)|session=|proof=|page=|session-unproven|session-rejected)/,
+    'trace calls never include page content, raw paths, session/proof outcomes, or page signals');
 });
 
 test('the trace distinguishes WebView load, origin-gated AndBridge availability, and page completion', () => {

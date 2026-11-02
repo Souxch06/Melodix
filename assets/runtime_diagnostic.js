@@ -35,6 +35,18 @@
     return value;
   };
 
+  const safeHomeDecision = (value) => {
+    const allowed = [
+      'body-missing', 'route-not-home', 'gui-mode-unsupported', 'fullscreen-open',
+      'renderer-inactive', 'styles-not-ready', 'visible', 'activation-visibility-check-failed',
+      'home-root-missing', 'initialization-error', 'rendered', 'rendered-partial', 'updated',
+      'status-visible-loading', 'status-visible-empty', 'status-visible-error',
+      'status-visible-partial', 'status-visible-ready', 'rendered-status-loading',
+      'rendered-status-empty', 'rendered-status-error', 'rendered-status-unavailable'
+    ];
+    return typeof value === 'string' && allowed.includes(value) ? value : null;
+  };
+
   // Record only whether identifiers exist. Spotify IDs and test IDs may
   // contain account-specific resource identifiers, so their values never
   // leave the page through this diagnostic.
@@ -448,6 +460,26 @@
     };
   };
 
+  const safeLibraryFetchDiagnostic = () => {
+    const diagnostic = window.__sfMediaLibLastDiagnostic;
+    if (!diagnostic || typeof diagnostic !== 'object') return null;
+    const phases = ['request', 'response', 'parse', 'transform', 'settle'];
+    const mimes = ['json', 'html', 'other', 'missing'];
+    const errors = ['none', 'empty', 'http-401', 'http-403', 'http-other', 'timeout', 'network',
+      'non-json', 'invalid-json', 'unexpected-shape', 'graphql', 'parse', 'transform'];
+    const rawHttp = Number(diagnostic.http);
+    const http = Number.isInteger(rawHttp) && rawHttp >= 0 && rawHttp <= 599 ? rawHttp : 0;
+    const rawDuration = Number(diagnostic.durationMs);
+    const durationMs = Number.isFinite(rawDuration)
+      ? Math.max(0, Math.min(999999, Math.floor(rawDuration))) : 0;
+    const phase = phases.indexOf(diagnostic.phase) >= 0 ? diagnostic.phase : 'request';
+    const mime = mimes.indexOf(diagnostic.mime) >= 0 ? diagnostic.mime : 'missing';
+    let error = errors.indexOf(diagnostic.error) >= 0 ? diagnostic.error : 'other';
+    if ((error === 'http-401' && (phase !== 'response' || http !== 401)) ||
+        (error === 'http-403' && (phase !== 'response' || http !== 403))) error = 'http-other';
+    return { http, mime, phase, durationMs, error };
+  };
+
   const collectSample = () => {
     const selectors = [
       '#global-nav-bar',
@@ -606,29 +638,15 @@
           ? body.classList.contains('sf-melodix-home-active')
           : null,
         homeRootPresent: homeRoot !== null,
-        homeCardCount: homeRoot && typeof homeRoot.querySelectorAll === 'function'
-          ? homeRoot.querySelectorAll('.sf-melodix-home__card').length
-          : 0,
         homeGuiMode: typeof window.__sfMelodixHomeGuiMode === 'string'
           ? safeIdentifier(window.__sfMelodixHomeGuiMode.slice(0, 24))
           : null,
         homeScreen: ['home', 'other'].indexOf(window.__sfMelodixHomeRoute) >= 0
           ? window.__sfMelodixHomeRoute
           : null,
-        homeDecision: typeof window.__sfMelodixHomeDecision === 'string'
-          ? safeIdentifier(window.__sfMelodixHomeDecision.slice(0, 32))
-          : null,
+        homeDecision: safeHomeDecision(window.__sfMelodixHomeDecision),
         homeStylesReady: typeof window.__sfMelodixHomeStylesReady === 'boolean'
           ? window.__sfMelodixHomeStylesReady
-          : null,
-        homeSourceCardCount: Number.isInteger(window.__sfMelodixHomeSourceCardCount)
-          ? window.__sfMelodixHomeSourceCardCount
-          : null,
-        homeRawAnchorCount: Number.isInteger(window.__sfMelodixHomeRawAnchorCount)
-          ? window.__sfMelodixHomeRawAnchorCount
-          : null,
-        homeSectionCount: Number.isInteger(window.__sfMelodixHomeSectionCount)
-          ? window.__sfMelodixHomeSectionCount
           : null,
         nativeUiShellStarted: window.__sfNativeUiShellStarted === true,
         nativeUiShellReady: window.__sfNativeUiShellReady === true,
@@ -687,31 +705,13 @@
         nativeHomeRouteRecognized: typeof window.__sfNativeUiHomeRouteRecognized === 'boolean'
           ? window.__sfNativeUiHomeRouteRecognized
           : null,
-        nativeUiSessionProven: typeof window.__sfNativeUiSessionProven === 'boolean'
-          ? window.__sfNativeUiSessionProven
-          : null,
         nativeUiBridgeCallbacksReady: typeof window.__sfNativeUiBridgeCallbacksReady === 'boolean'
           ? window.__sfNativeUiBridgeCallbacksReady
           : null,
         mediaLibStatus: ['pending', 'loading', 'ready', 'error'].indexOf(window.__sfMediaLibStatus) >= 0
           ? window.__sfMediaLibStatus
           : null,
-        mediaLibSessionProofKnown: typeof window.__sfMediaLibSessionProofKnown === 'boolean'
-          ? window.__sfMediaLibSessionProofKnown
-          : null,
-        mediaLibSessionProven: typeof window.__sfMediaLibSessionProven === 'boolean'
-          ? window.__sfMediaLibSessionProven
-          : null,
-        nativeHomeDomRowsCount: Number.isInteger(window.__sfNativeUiHomeDomRowsCount)
-          ? window.__sfNativeUiHomeDomRowsCount
-          : null,
-        nativeHomeRowsCount: Number.isInteger(window.__sfNativeUiHomeRowsCount)
-          ? window.__sfNativeUiHomeRowsCount
-          : null,
-        homeWebNativeCountsMatch: Number.isInteger(window.__sfMelodixHomeSourceCardCount) &&
-          Number.isInteger(window.__sfNativeUiHomeDomRowsCount)
-          ? window.__sfMelodixHomeSourceCardCount === window.__sfNativeUiHomeDomRowsCount
-          : null,
+        libraryFetchDiagnostic: safeLibraryFetchDiagnostic(),
         nativeHomeDataSent: window.__sfNativeUiHomeDataSent === true,
         customStylesheetInjected: document.querySelector('#sf-custom-style') !== null
       },

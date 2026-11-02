@@ -217,13 +217,8 @@
         var bridge = window.AndBridge;
         var callbacks = Boolean(bridge && typeof bridge.onNativeUiData === 'function' &&
             typeof bridge.onNativeUiReady === 'function' && typeof bridge.onNativeUiRoute === 'function');
-        var session = pageHasSessionEvidence() ? '1' : '0';
-        var proof = window.__sfMediaLibSessionProofKnown === true
-            ? (window.__sfMediaLibSessionProven === true ? 'valid' : 'invalid') : 'unknown';
-        var page = pageHasProfileSignal() ? 'profile' : 'none';
         diagTrace('webview-state ready=' + ready + ' host=' + host +
-            ' route=' + spotifyRouteCategory() + ' session=' + session +
-            ' proof=' + proof + ' page=' + page +
+            ' route=' + spotifyRouteCategory() +
             ' bridge=' + (callbacks ? '1' : '0') + ' visibility=' + visibility);
     }
 
@@ -231,15 +226,7 @@
         var bridge = window.AndBridge;
         var rows;
         if (!bridge || typeof bridge.onNativeUiData !== 'function') {
-            if (screen === 'home') {
-                var missingRows = Array.isArray(items) ? items.length : 0;
-                var missingCards = Array.isArray(items) ? items.filter(function(item) {
-                    return item && item.kind !== 'state';
-                }).length : 0;
-                diagTrace('home-data stage=web-to-android rows=' + Math.min(999, missingRows) +
-                    ' cards=' + Math.min(999, missingCards) + ' session=' +
-                    (pageHasSessionEvidence() ? '1' : '0') + ' route=home result=failed');
-            }
+            if (screen === 'home') diagTrace('home-data stage=web-to-android result=failed');
             return false;
         }
 
@@ -254,12 +241,14 @@
                 var stateUri = String(rawUri || '').trim();
                 var allowedStatus = ['loading', 'empty', 'error', 'unavailable'].indexOf(status) >= 0;
                 var allowedAction = !stateUri ||
-                    (status === 'error' && ['melodix:action:open-settings', 'melodix:action:retry-library'].indexOf(stateUri) >= 0) ||
+                    (status === 'error' && ['melodix:action:open-settings', 'melodix:action:retry-library', 'melodix:action:open-login'].indexOf(stateUri) >= 0) ||
+                    (status === 'loading' && stateUri === 'melodix:action:open-login') ||
                     (status === 'unavailable' && stateUri === 'melodix:action:retry-library');
                 if (!title || !allowedStatus || String(rawImage || '').trim() || !allowedAction) return null;
                 return {
                     kind: 'state',
                     state: status,
+                    sessionUnproven: item.sessionUnproven === true,
                     title: title,
                     subtitle: subtitle,
                     section: section,
@@ -282,23 +271,12 @@
             return item && (item.title || item.uri);
         });
 
-        var homeRows = screen === 'home' ? rows.length : 0;
-        var homeCards = screen === 'home'
-            ? rows.filter(function(item) { return !(item && item.kind === 'state'); }).length : 0;
         try {
             bridge.onNativeUiData(screen, JSON.stringify(rows));
-            if (screen === 'home') {
-                diagTrace('home-data stage=web-to-android rows=' + Math.min(999, homeRows) +
-                    ' cards=' + Math.min(999, homeCards) + ' session=' +
-                    (pageHasSessionEvidence() ? '1' : '0') + ' route=home result=sent');
-            }
+            if (screen === 'home') diagTrace('home-data stage=web-to-android result=sent');
             return true;
         } catch (_) {
-            if (screen === 'home') {
-                diagTrace('home-data stage=web-to-android rows=' + Math.min(999, homeRows) +
-                    ' cards=' + Math.min(999, homeCards) + ' session=' +
-                    (pageHasSessionEvidence() ? '1' : '0') + ' route=home result=failed');
-            }
+            if (screen === 'home') diagTrace('home-data stage=web-to-android result=failed');
             return false;
         }
     }
@@ -311,6 +289,15 @@
         var route = String(screen || 'home');
         if (!bridge || typeof bridge.onNativeUiRoute !== 'function') return false;
         if (window.__sfNativeUiLastRouteSent === route) return true;
+        if (window.__sfNativeUiLastRouteSent && window.__sfNativeUiLastRouteSent !== route) {
+            // setNativeScreen clears the old screen's attached Home witness;
+            // force the next Home payload to be attached again after return.
+            lastHomeSignature = null;
+            window.__sfNativeUiHomeDataSent = false;
+            window.__sfNativeUiHomeStateSent = false;
+            window.__sfNativeUiHomeState = 'none';
+            window.__sfNativeUiHomeSessionUnproven = false;
+        }
         try {
             bridge.onNativeUiRoute(route);
             window.__sfNativeUiLastRouteSent = route;
@@ -739,13 +726,6 @@
             });
         });
 
-        // P0 trace: distinguish "no data yet" from "data merged late".
-        if (userRows.length > 0 || (library && library.playlists && library.playlists.length > 0)) {
-            diagTrace('home-merge lib=' + safeMediaLibStatus() +
-                ' librows=' + userRows.length +
-                ' domrows=' + spotifyRows.length +
-                ' err=' + (window.__sfMediaLibError ? '1' : '0'));
-        }
         return userRows.concat(spotifyRows);
     }
 
@@ -787,17 +767,34 @@
         return Boolean(homeRetryTimer) || homeRetries < MAX_HOME_RETRIES;
     }
 
+    function confirmedLibraryHttpStatus(status) {
+        var diagnostic = window.__sfMediaLibLastDiagnostic;
+        var expectedError = status === 401 || status === 403 ? 'http-' + status : 'http-other';
+        return Boolean(diagnostic && typeof diagnostic === 'object' &&
+            Number(diagnostic.http) === status && diagnostic.phase === 'response' &&
+            diagnostic.error === expectedError &&
+            ['json', 'html', 'other', 'missing'].indexOf(diagnostic.mime) >= 0 &&
+            Number.isFinite(Number(diagnostic.durationMs)) && Number(diagnostic.durationMs) >= 0);
+    }
+
     function homeLibraryErrorText() {
         var err = String(window.__sfMediaLibError || '');
         var rawItemCount = Number(window.__sfMediaLibRawItemCount || 0);
         if (!err && Number.isFinite(rawItemCount) && rawItemCount > 0) {
             return 'Spotify a renvoyé des éléments non reconnus — touchez pour réessayer.';
         }
-        if (err === 'http-401' || err === 'token-missing') {
+        if (err === 'http-401' && confirmedLibraryHttpStatus(401)) {
             return 'Spotify a refusé la requête (HTTP 401) ; la cause n’est pas confirmée — touchez pour réessayer.';
         }
-        if (err === 'http-403') {
+        if (err === 'http-403' && confirmedLibraryHttpStatus(403)) {
             return 'Spotify a refusé l’accès à la bibliothèque (HTTP 403) — vérifiez les autorisations ou réessayez.';
+        }
+        if (err === 'http-401' || err === 'http-403' || err === 'token-missing') {
+            return 'La connexion Spotify n’a pas pu être confirmée — touchez pour réessayer.';
+        }
+        var httpMatch = /^http-([1-5][0-9]{2})$/.exec(err);
+        if (httpMatch && !confirmedLibraryHttpStatus(Number(httpMatch[1]))) {
+            return 'La réponse Spotify n’a pas pu être confirmée — touchez pour réessayer.';
         }
         if (libraryErrorIsTransient(err)) {
             var base = err === 'http-429' ? 'Spotify limite les requêtes'
@@ -869,6 +866,33 @@
         };
     }
 
+    // Safe native Home content while libraryV3 is unknown or has rejected this
+    // WebView session. It deliberately carries no Spotify rows and marks only
+    // the UI state; it never changes the independent privacy/session proof.
+    function unprovenHomeStateRow() {
+        var proofKnown = window.__sfMediaLibSessionProofKnown === true;
+        var status = safeMediaLibStatus();
+        var err = String(window.__sfMediaLibError || '');
+        var state = proofKnown || status === 'error' ? 'error' : 'loading';
+        var title = proofKnown ? 'Connexion Spotify non confirmée' :
+            status === 'error' ? 'Connexion Spotify impossible à vérifier' : 'Connexion à Spotify…';
+        var detail = status === 'error' ? homeLibraryErrorText() : '';
+        var subtitle = detail || (proofKnown
+            ? 'Les playlists restent masquées tant que libraryV3 ne confirme pas la session.'
+            : 'Vérification de la session en cours. Vos playlists resteront masquées jusqu’à validation.');
+        subtitle += ' Touchez pour vous connecter.';
+        return {
+            kind: 'state',
+            state: state,
+            sessionUnproven: true,
+            title: title,
+            subtitle: subtitle,
+            section: 'Connexion Spotify',
+            image: '',
+            uri: 'melodix:action:open-login'
+        };
+    }
+
     function homePartialErrorRow() {
         var err = String(window.__sfMediaLibError || '');
         return {
@@ -898,11 +922,14 @@
         } catch (_) {}
     };
 
-    // An explicit, non-playlist Home state. The caller may send it only after
-    // a correctly shaped private library response proves the WebView session;
-    // profile controls and public Home data are not authentication evidence.
+    // A verified library response may authorize an explicit empty/error/loading
+    // panel. It is still status-only; it does not fabricate a Spotify resource.
     function homeStatePayload() {
         return [homeStateRow()];
+    }
+
+    function unprovenHomeStatePayload() {
+        return [unprovenHomeStateRow()];
     }
 
     function updateHomeRows(mainView) {
@@ -910,100 +937,78 @@
         var collectedRows;
         var rows;
         var sessionProven;
+        var actualHomeRoute;
+        var nativeHomeRoute;
         var signature;
         var statePayload;
         var stateSignature;
-        var emptySignature;
-        var countSignature;
-        var webCards;
-        var homeRoute = window.location.hostname === 'open.spotify.com' && isSpotifyHome();
-        window.__sfNativeUiHomeRouteRecognized = homeRoute;
-        if (!homeRoute || !mainView) {
+        actualHomeRoute = window.location.hostname === 'open.spotify.com' && isSpotifyHome();
+        sessionProven = libraryProvesSession();
+        // When libraryV3 has not proved this WebView, use native Home as a safe
+        // shell route even if Spotify's WebView is on Search/Library/detail.
+        // Those page rows remain blocked below until proof arrives.
+        nativeHomeRoute = window.location.hostname === 'open.spotify.com' &&
+            (actualHomeRoute || !sessionProven);
+        window.__sfNativeUiHomeRouteRecognized = nativeHomeRoute;
+        if (!nativeHomeRoute) {
             lastHomeSignature = null;
             window.__sfNativeUiHomeRowsCount = 0;
             window.__sfNativeUiHomeDomRowsCount = 0;
             window.__sfNativeUiHomeDataSent = false;
             window.__sfNativeUiHomeStateSent = false;
             window.__sfNativeUiHomeState = 'none';
-            window.__sfNativeUiHomeCountTraceSignature = '';
+            window.__sfNativeUiHomeSessionUnproven = false;
             clearHomeRetry();
             return;
         }
 
-        scrapedRows = collectHomeRows(mainView);
+        scrapedRows = mainView ? collectHomeRows(mainView) : [];
         window.__sfNativeUiHomeDomRowsCount = scrapedRows.length;
         collectedRows = supplementHomeRowsWithLibrary(scrapedRows, mainView);
         sessionProven = libraryProvesSession();
-        // NativeHomeShelfRenderer calls showNativeUi() as soon as it attaches
-        // a card; Java's attachment gate is not an auth gate. Therefore no
-        // public Home or stale library row crosses the bridge without a
-        // successful private libraryV3 response for this WebView.
-        rows = sessionProven ? collectedRows : [];
+        // NativeHomeShelfRenderer calls showNativeUi() when it attaches either
+        // a real card or a status panel. Public DOM rows and stale library rows
+        // are never sent without successful private libraryV3 proof.
+        rows = sessionProven && actualHomeRoute ? collectedRows : [];
         if (rows.length > 0 && window.__sfMediaLibStatus === 'error') {
             rows = rows.concat([homePartialErrorRow()]);
         }
-        signature = JSON.stringify(rows);
         window.__sfNativeUiHomeRowsCount = rows.length;
-        webCards = window.__sfMelodixHomeSourceCardCount;
-        if (typeof webCards !== 'number' || !isFinite(webCards)) webCards = '?';
-        else webCards = Math.max(0, Math.min(999, Math.floor(webCards)));
-        countSignature = [webCards, scrapedRows.length, rows.length].join('|');
-        if (window.__sfNativeUiHomeCountTraceSignature !== countSignature) {
-            window.__sfNativeUiHomeCountTraceSignature = countSignature;
-            diagTrace('home-card-counts web=' + webCards + ' native-dom=' + scrapedRows.length +
-                ' native-total=' + rows.length + ' screen=' + diagnosticScreen());
-        }
         if (rows.length > 0) {
+            signature = JSON.stringify(rows);
             window.__sfNativeUiHomeStateSent = false;
             window.__sfNativeUiHomeState = 'none';
+            window.__sfNativeUiHomeSessionUnproven = false;
             if (lastHomeSignature !== signature) {
-                // Invalidate the old proof before attempting a changed payload;
+                // Invalidate prior Home data before attempting a changed payload;
                 // a throwing bridge must not inherit readiness from stale rows.
                 window.__sfNativeUiHomeDataSent = false;
                 if (sendNativeUiData('home', rows)) {
                     lastHomeSignature = signature;
                     window.__sfNativeUiHomeDataSent = true;
-                    diagTrace('home-rows sent n=' + rows.length + ' images=' +
-                        rows.filter(function(r) { return Boolean(r && r.image); }).length +
-                        ' screen=' + diagnosticScreen());
+                    diagTrace('home-rows sent');
                 }
             }
-        } else if (pageHasSessionEvidence()) {
-            statePayload = homeStatePayload();
+        } else {
+            statePayload = sessionProven ? homeStatePayload() : unprovenHomeStatePayload();
             stateSignature = JSON.stringify(statePayload);
+            window.__sfNativeUiHomeStateSent = false;
+            window.__sfNativeUiHomeState = 'none';
+            window.__sfNativeUiHomeSessionUnproven = statePayload[0].sessionUnproven === true;
             if (lastHomeSignature !== stateSignature) {
-                // A correctly shaped private library response may authorize an
-                // explicit status panel, including for a genuinely empty account.
                 window.__sfNativeUiHomeDataSent = false;
-                window.__sfNativeUiHomeStateSent = false;
                 if (sendNativeUiData('home', statePayload)) {
                     lastHomeSignature = stateSignature;
                     window.__sfNativeUiHomeDataSent = true;
                     window.__sfNativeUiHomeStateSent = true;
                     window.__sfNativeUiHomeState = statePayload[0].state;
-                    diagTrace('home-state sent state=' + statePayload[0].state);
-                }
-            }
-        } else {
-            // Empty data is a clear/fallback signal, never proof of a session
-            // or permission to hide a login screen.
-            emptySignature = '[]';
-            window.__sfNativeUiHomeStateSent = false;
-            window.__sfNativeUiHomeState = 'none';
-            if (lastHomeSignature !== emptySignature) {
-                window.__sfNativeUiHomeDataSent = false;
-                if (sendNativeUiData('home', [])) {
-                    lastHomeSignature = emptySignature;
-                    window.__sfNativeUiHomeDataSent = true;
+                    diagTrace('home-state sent');
                 }
             }
         }
 
         if (rows.length > 0 && rows.some(function(row) { return Boolean(row && row.image); })) clearHomeRetry();
         else {
-            if (rows.length === 0 && homeRetries === MAX_HOME_RETRIES) {
-                diagTrace('home-empty retries-exhausted mediaLib=' + safeMediaLibStatus());
-            }
             scheduleHomeRetry();
         }
     }
@@ -1159,18 +1164,24 @@
         var searchQuery;
         var homeContentProven;
         var homeStateProven;
+        var homeShellStateReady;
+        var shellActivationAllowed;
         var takeoverProven;
         var sessionProven;
         var profileSignal;
         var bridgeReady;
         var previousSessionProven;
         var previousProfileSignal;
-        if (!mainView || window.location.hostname !== 'open.spotify.com') return false;
+        var nativeHomeRoute;
+        if (window.location.hostname !== 'open.spotify.com') return false;
 
-        // A profile widget is recorded for diagnosis only. Neither it nor
-        // public Home rows may authorize a native takeover or Web Home owner.
         profileSignal = pageHasProfileSignal();
         sessionProven = libraryProvesSession();
+        nativeHomeRoute = initialScreen === 'home' &&
+            window.__sfNativeUiLastRouteSent === 'home';
+        // Session proof remains exclusively libraryV3's result. Separately, a
+        // sent status-only Home row may authorize showing the native shell while
+        // private data remain blocked. MainActivity still measures real views.
         homeContentProven = isSpotifyHome() && sessionProven &&
             (window.__sfNativeUiHomeRowsCount || 0) > 0 &&
             window.__sfNativeUiHomeDataSent === true;
@@ -1178,13 +1189,15 @@
             window.__sfNativeUiHomeRowsCount === 0 &&
             window.__sfNativeUiHomeStateSent === true &&
             window.__sfNativeUiHomeDataSent === true;
+        homeShellStateReady = nativeHomeRoute &&
+            window.__sfNativeUiHomeRowsCount === 0 &&
+            window.__sfNativeUiHomeStateSent === true &&
+            window.__sfNativeUiHomeDataSent === true &&
+            (sessionProven || window.__sfNativeUiHomeSessionUnproven === true);
         takeoverProven = sessionProven;
-        if (isSpotifyHome() && !sessionProven &&
-            ((window.__sfNativeUiHomeDomRowsCount || 0) > 0 || profileSignal) &&
-            !window.__sfNativeUiHomeProofLogged) {
-            window.__sfNativeUiHomeProofLogged = true;
-            diagTrace('ready-blocked reason=home-content-is-not-session-proof');
-        }
+        shellActivationAllowed = takeoverProven || homeShellStateReady;
+        if (!mainView && !homeShellStateReady && !sessionProven) return false;
+
         bridgeReady = Boolean(bridge &&
             typeof bridge.onNativeUiReady === 'function' &&
             typeof bridge.onNativeUiRoute === 'function' &&
@@ -1205,42 +1218,29 @@
         }
         window.__sfNativeUiHomeContentProven = homeContentProven;
         window.__sfNativeUiHomeStateProven = homeStateProven;
+        window.__sfNativeUiHomeShellStateReady = homeShellStateReady;
         window.__sfNativeUiTakeoverProven = takeoverProven;
+        window.__sfNativeUiShellActivationAllowed = shellActivationAllowed;
         window.__sfNativeUiBridgeCallbacksReady = bridgeReady;
 
-        // Keep proof synchronized on later API responses (including 401) even
-        // after readiness has already been announced once.
-        if (window.__sfNativeUiReadyNotified) return takeoverProven && bridgeReady;
-        if (!takeoverProven || !bridgeReady) {
+        // Keep proof synchronized on later API responses, including rejection,
+        // even after the native shell callback has already been announced.
+        if (window.__sfNativeUiReadyNotified) return shellActivationAllowed && bridgeReady;
+        if (!shellActivationAllowed || !bridgeReady) {
             window.__sfNoWidgetCount = (window.__sfNoWidgetCount || 0) + 1;
             if (window.__sfNoWidgetCount === 1 || window.__sfNoWidgetCount % 20 === 0) {
-                diagTrace('ready-pending proof=' + (takeoverProven ? '1' : '0') +
-                    ' session=' + (sessionProven ? '1' : '0') +
-                    ' profile=' + (profileSignal ? '1' : '0') +
-                    ' home=' + (homeContentProven ? '1' : '0') +
-                    ' bridge=' + (bridge ? '1' : '0') +
-                    ' route=' + (bridge && typeof bridge.onNativeUiRoute === 'function' ? '1' : '0') +
-                    ' data=' + (bridge && typeof bridge.onNativeUiData === 'function' ? '1' : '0') +
-                    ' ready=' + (bridge && typeof bridge.onNativeUiReady === 'function' ? '1' : '0') +
-                    ' n=' + window.__sfNoWidgetCount);
+                diagTrace('ready-pending');
             }
             return false;
         }
 
-        // A valid private response may authorize real cards or an explicit
-        // non-playlist state. An empty/unverified payload keeps Spotify visible.
-        // MainActivity independently measures attached content before takeover.
-        if (isSpotifyHome() && !homeContentProven && !homeStateProven) {
+        // On authenticated Home, a real card or explicit state must precede
+        // readiness. An unproven Home instead needs the safe state verified
+        // above; an empty [] payload can never authorize either path.
+        if (isSpotifyHome() && sessionProven && !homeContentProven && !homeStateProven) {
             window.__sfNativeUiReadyBlockedEmpty = (window.__sfNativeUiReadyBlockedEmpty || 0) + 1;
             if (window.__sfNativeUiReadyBlockedEmpty === 1 || window.__sfNativeUiReadyBlockedEmpty % 20 === 0) {
-                diagTrace('ready-pending home rows=' + (window.__sfNativeUiHomeRowsCount || 0) +
-                    ' dataSent=' + (window.__sfNativeUiHomeDataSent ? '1' : '0') +
-                    ' stateSent=' + (window.__sfNativeUiHomeStateSent ? '1' : '0') +
-                    ' session=' + (sessionProven ? '1' : '0') +
-                    ' profile=' + (profileSignal ? '1' : '0') +
-                    ' screen=' + diagnosticScreen() +
-                    ' state=' + safeMediaLibStatus() +
-                    ' action=keep-spotify-visible');
+                diagTrace('ready-pending');
             }
             return false;
         }
@@ -1253,7 +1253,7 @@
             window.__sfNativeUiReadyRetries = 0;
             if (readyRetryTimer) window.clearTimeout(readyRetryTimer);
             readyRetryTimer = null;
-            diagTrace('native-ui-ready rows=' + (window.__sfNativeUiHomeRowsCount || 0) + ' screen=' + diagnosticScreen());
+            diagTrace('native-ui-ready screen=' + safeDiagnosticScreen(initialScreen));
         } catch (_) {
             return false;
         }
@@ -2204,6 +2204,7 @@
     function runUpdate() {
         var mainView;
         var route;
+        var nativeRoute;
         var routeCategory;
         var sessionBit;
         var routeSignature;
@@ -2216,14 +2217,15 @@
             routeSignature = routeCategory + '|' + sessionBit;
             if (window.__sfSpotifyRouteTraceSignature !== routeSignature) {
                 window.__sfSpotifyRouteTraceSignature = routeSignature;
-                diagTrace('spotify-route route=' + routeCategory + ' session=' + sessionBit);
+                diagTrace('spotify-route route=' + routeCategory);
             }
-            initialScreen = route;
-            window.__sfNativeUiRoute = route;
-            // Home is a non-private route and may be reported while login or
-            // session proof is pending. Other native screens can expose account
-            // content, so only dispatch them after libraryV3 proves this session.
-            if (route === 'home' || sessionBit === '1') sendNativeUiRoute(route);
+            // Until libraryV3 proves this WebView, keep the native route on a
+            // status-only Home. Private page rows and Search/Library/detail
+            // routes are activated only after the same proof succeeds.
+            nativeRoute = sessionBit === '1' ? route : 'home';
+            initialScreen = nativeRoute;
+            window.__sfNativeUiRoute = nativeRoute;
+            if (nativeRoute === 'home' || sessionBit === '1') sendNativeUiRoute(nativeRoute);
             installPlaybackStateGuard();
             installSearchFallback();
             mainView = findMainView();
@@ -2231,18 +2233,18 @@
             // hydrates Home after the shell's first pass through an empty DOM.
             domCensusOnce();
             maybeNavigateToPlayer(mainView, true);
+            if (mainView && !window.__sfDiagHomeSeen) {
+                window.__sfDiagHomeSeen = true;
+                diagTrace('main-view found screen=' + diagnosticScreen());
+            }
+            if (sessionBit === '1') detectSpotifyProfile();
+            updateHomeRows(mainView);
             if (mainView) {
-                if (!window.__sfDiagHomeSeen) {
-                    window.__sfDiagHomeSeen = true;
-                    diagTrace('main-view found screen=' + diagnosticScreen());
-                }
-                detectSpotifyProfile();
-                updateHomeRows(mainView);
                 updateDetailRows(mainView);
                 updateSearchRows(mainView);
                 updateLibraryRows(mainView);
-                notifyNativeUiReady(mainView);
             }
+            notifyNativeUiReady(mainView);
         } catch (err) {
             window.__sfNativeUiShellErrors += 1;
             diagTrace('runUpdate error name=' + safeErrorClass(err && err.name));
@@ -2284,6 +2286,9 @@
         var widget;
         var img;
         var fig;
+        // A visible profile control is diagnostic only. Do not forward its name
+        // or avatar to native UI until libraryV3 has proved this WebView.
+        if (!libraryProvesSession()) return { name: '', avatar: '' };
         try {
             widget = document.querySelector('button[data-testid="user-widget-link"], a[data-testid="user-widget-link"]');
             if (widget) {
@@ -2370,8 +2375,11 @@
 
     function buildSpotifySettingsRows(overrideStatus) {
         var state = getSpotifySettingsState();
-        var profile = detectSpotifyProfile();
-        var accountName = profile.name ? ('Compte : ' + profile.name) : 'Compte Spotify connecté';
+        var sessionProven = libraryProvesSession();
+        var profile = sessionProven ? detectSpotifyProfile() : { name: '', avatar: '' };
+        var accountName = sessionProven
+            ? (profile.name ? ('Compte : ' + profile.name) : 'Compte Spotify connecté')
+            : 'Connexion Spotify non confirmée';
         if (overrideStatus && overrideStatus.cache_status) state.cache_status = overrideStatus.cache_status;
         if (overrideStatus && overrideStatus.sync_status) state.sync_status = overrideStatus.sync_status;
 
@@ -2379,18 +2387,22 @@
             {
                 section: 'Compte Spotify',
                 title: accountName,
-                subtitle: 'Session Spotify active • Streaming Web Player',
-                image: profile.avatar || '',
-                uri: 'spotify:settings:account_info',
-                settingValue: 'Connecté'
+                subtitle: sessionProven
+                    ? 'Session Spotify active • Streaming Web Player'
+                    : 'La bibliothèque reste masquée jusqu’à validation de libraryV3.',
+                image: sessionProven ? (profile.avatar || '') : '',
+                uri: sessionProven ? 'spotify:settings:account_info' : 'melodix:action:open-login',
+                settingValue: sessionProven ? 'Connecté' : 'Se connecter'
             },
             {
                 section: 'Compte Spotify',
-                title: 'Se déconnecter de Spotify',
-                subtitle: 'Fermer la session actuelle ou changer de compte Spotify',
+                title: sessionProven ? 'Se déconnecter de Spotify' : 'Se connecter à Spotify',
+                subtitle: sessionProven
+                    ? 'Fermer la session actuelle ou changer de compte Spotify'
+                    : 'Ouvrir la connexion officielle dans le WebView.',
                 image: '',
-                uri: 'spotify:settings:logout',
-                settingValue: 'Déconnexion'
+                uri: sessionProven ? 'spotify:settings:logout' : 'melodix:action:open-login',
+                settingValue: sessionProven ? 'Déconnexion' : 'Se connecter'
             },
             {
                 section: 'Qualité sonore',

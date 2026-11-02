@@ -142,7 +142,10 @@ test('the Web Home renderer is session-gated, accepts one real item, and renders
     'profile widgets are not used by the Web renderer as authentication proof');
   assert.match(renderer, /return window\.__sfMediaLibSessionProofKnown === true &&[\s\S]*?window\.__sfMediaLibSessionProven === true/,
     'only a verified private API response can prove the WebView session, even for an empty library');
-  assert.match(renderer, /if \(!sessionProven\)[\s\S]*?session-unproven/);
+  assert.match(renderer, /if \(!sessionProven\)[\s\S]*?setMelodixHomeDecision\('renderer-inactive'/,
+    'a failed internal proof guard keeps the Web renderer inactive without serializing the proof result');
+  assert.doesNotMatch(renderer, /setMelodixHomeDecision\([^\n]*(?:session-unproven|session-rejected)/,
+    'renderer decisions do not expose a proof outcome');
   assert.doesNotMatch(renderer, /itemCount\s*<\s*2/,
     'one verified Spotify card is sufficient; empty and error states do not need fake cards');
   assert.match(renderer, /collectMelodixHomeLibrarySections\(seenResources\)/);
@@ -152,13 +155,15 @@ test('the Web Home renderer is session-gated, accepts one real item, and renders
   assert.match(nativeShell, /function libraryProvesSession\(\)[\s\S]*?__sfMediaLibSessionProofKnown === true[\s\S]*?__sfMediaLibSessionProven === true/,
     'the native gate accepts an empty but verified private response, not library readiness alone');
   assert.match(nativeShell, /function pageHasProfileSignal\(\)[\s\S]*?main-userWidget-box/,
-    'the profile control is collected only as a diagnostic page signal');
+    'the profile control remains an internal page signal');
+  assert.doesNotMatch(nativeShell, /diagTrace\([^\n]*profile|diagTrace\([^\n]*session=|diagTrace\([^\n]*proof=/i,
+    'profile and session-proof signals are not serialized into native-shell traces');
   assert.match(nativeShell, /takeoverProven = sessionProven;/,
     'only private API proof can authorize native readiness');
-  assert.match(nativeShell, /rows = sessionProven \? collectedRows : \[\]/,
-    'public Home rows are withheld from the native renderer until API proof exists');
+  assert.match(nativeShell, /rows = sessionProven && actualHomeRoute \? collectedRows : \[\]/,
+    'private Home rows require both libraryV3 proof and the real Spotify Home route');
   assert.match(nativeShell, /window\.__sfNativeUiPageSessionSignal = profileSignal/,
-    'profile UI signal remains separate from the native session proof');
+    'profile UI signal remains separate from the native session proof and is not report evidence');
   const nativeRenderer = read('smali/com/melodix/music/NativeHomeShelfRenderer.smali');
   const activity = read('smali/com/melodix/music/MainActivity.smali');
   assert.match(nativeRenderer, /shelf_render_spotify_rows[\s\S]*?showNativeUi\(\)V/,
@@ -177,9 +182,18 @@ test('the Web Home renderer is session-gated, accepts one real item, and renders
     'partial failures remain visible beside already received real library content in native Home');
   assert.doesNotMatch(renderer, /accounts\.spotify\.com\/login|sessionError|spotify-sign-in/,
     'a 401 response is not presented as proof of an expired session or forced login');
-  assert.match(runtime, /session-unproven/,
-    'the packaged renderer is regenerated from the session-gated source');
+  assert.match(runtime, /renderer-inactive/,
+    'the packaged renderer is regenerated with a proof-neutral display decision');
+  assert.doesNotMatch(runtime, /session-unproven|session-rejected/,
+    'runtime instrumentation does not expose proof outcomes as decision labels');
   assert.match(css, /sf-melodix-home__status--error[\s\S]*?sf-melodix-home__retry/);
+});
+
+test('native Home decision diagnostics accept no proof or profile outcome labels', () => {
+  const bridge = read('smali/com/melodix/music/AndBridge.smali');
+  assert.match(bridge, /home-web decision=\(body-missing\|route-not-home\|gui-mode-unsupported\|fullscreen-open\|renderer-inactive/);
+  assert.doesNotMatch(bridge, /home-web decision=[^\n]*(?:session-unproven|session-rejected|profile-control)/,
+    'AndBridge never persists proof/profile outcomes as Home renderer decisions');
 });
 
 test('the CI Home integration contains no fake account data or credentials and labels its renderer proof as a fixture', () => {
@@ -190,17 +204,25 @@ test('the CI Home integration contains no fake account data or credentials and l
   assert.match(harness, /window\.__sfMediaLibSessionProofKnown=true;window\.__sfMediaLibSessionProven=true/,
     'the isolated fixture supplies API-proof-shaped flags only for renderer testing; it is not labeled as Spotify authentication');
   assert.match(harness, /authenticated_home_requires_real_playlist/);
-  assert.match(harness, /finalState\.getBoolean\("authenticated_session", false\)[\s\S]*?blocked_no_verified_home_playlist_observed[\s\S]*?blocked_no_authenticated_home_observed/,
-    'the no-session CI observer keeps its expected result, while a proven empty library remains explicitly blocked');
-  assert.match(harness, /if \(validSpotifyPage && sessionProven && probe\.optBoolean\("home_route"\)\s*&& realPlaylistObserved\) \{[\s\S]*?authenticatedHomeObserved = true;/,
-    'authenticated-home observation is not marked performed until an actual playlist count is observed');
+  assert.match(harness, /finalState\.putString\("overall"[\s\S]*?blocked_no_home_content_observed/,
+    'the observer reports a generic content outcome instead of exporting a session-proof flag');
+  assert.doesNotMatch(harness, /putBoolean\("authenticated_session"|putBoolean\("session_proven"|putString\("session_proof_source"/,
+    'actual-account session proof is never added to an instrumentation Bundle');
+  assert.match(harness, /if \(validSpotifyPage && probe\.optBoolean\("home_route"\) && realPlaylistObserved\) \{[\s\S]*?authenticatedHomeObserved = true;/,
+    'authenticated-home observation requires a proof-gated, count-free real-playlist presence result');
   assert.match(harness, /authenticated_home_test_performed", false/);
   assert.match(harness, /onNativeUiData"\s*,\s*String\.class\s*,\s*String\.class/);
   assert.match(harness, /LOGIN_DOM_PROBE[\s\S]*?awaitLoginUiVisible\(webView\)/,
     'the clean session checks for actual login DOM before the recovery transition');
   assert.match(harness, /login_ui_visible_in_webview_dom/);
-  assert.match(harness, /AUTHENTICATED_HOME_PROBE[\s\S]*?library_response_proof_known[\s\S]*?native_shell_session_proven/,
-    'the manual authenticated probe accepts explicit library evidence independently of the old profile selector');
+  assert.match(harness, /libraryProven=window\.__sfMediaLibSessionProofKnown===true&&window\.__sfMediaLibSessionProven===true[\s\S]*?real_library_playlist_observed:libraryPlaylistObserved/,
+    'the probe uses libraryV3 evidence internally and exports only a count-free playlist-presence outcome');
+  assert.doesNotMatch(harness, /putBoolean\("libraryv3_session_proven"|putBoolean\("native_takeover_proven"|putBoolean\("live_webview_session_proof"|putBoolean\("profile_control_visible"/,
+    'proof and profile indicators are not serialized into Android instrumentation status');
+  assert.doesNotMatch(harness, /state\.put(?:Boolean|Int|Long|String)\("[^"]*(?:session|proof|profile_control|profile_signal|account_profile)[^"]*"/i,
+    'no instrumentation Bundle key reintroduces a session-proof or account-profile indicator');
+  assert.doesNotMatch(harness, /failurePhase\s*=\s*"[^"]*(?:unproven|session[-_]?proof|profile_control|account_profile)[^"]*"/i,
+    'failure phases do not disclose proof/account-profile outcomes either');
   assert.match(harness, /native_home_data_callback_returned:[\s\S]*?window\.__sfNativeUiHomeDataSent===true/,
     'the real probe distinguishes an executed Home-data bridge callback from mere callback availability');
   assert.match(harness, /runAuthenticatedHomeObservation\([\s\S]*?authenticated_home_test_performed/);
@@ -250,8 +272,8 @@ test('authenticated-home mode is opt-in, non-destructive, and samples actual And
     'foregrounding does not clear task/history or restart the existing singleInstance activity');
   assert.match(observation, /findWebView\(sampleActivity\)/,
     'the observer re-finds the activity’s original primary WebView on every sample');
-  assert.match(observation, /safeSpotifyUrl\(firstWebView\.getUrl\(\)\)/,
-    'it records only a sanitized URL while preserving the live page');
+  assert.doesNotMatch(observation, /getUrl\(\)|safeSpotifyUrl|safe_url|initial_safe_url|putString\([^\n]*url/i,
+    'it preserves the live page without exporting any part of its URL');
   assert.match(observation, /AUTHENTICATED_HOME_PROBE/);
   assert.match(observation, /String screen = webRoute/,
     'manual transition coverage follows the recognized primary-WebView route, not a stale native route flag');
@@ -282,21 +304,23 @@ test('authenticated-home mode is opt-in, non-destructive, and samples actual And
     'the opt-in pass never creates a second WebView, injects fixture data, or drives navigation');
 });
 
-test('the authenticated DOM probe returns sanitized routes, counts only, live renderer state, and callback return evidence', () => {
+test('the authenticated DOM probe exports only safe routes, HTTP metadata, count-free playlist presence, and callback evidence', () => {
   const harness = read('tests/android/HomeRenderInstrumentation.java');
   const block = harness.split('private static final String AUTHENTICATED_HOME_PROBE =')[1]
     .split('private static final String MOBILE_VIEWPORT_LAYOUT_PROBE')[0];
   const javaStrings = Array.from(block.matchAll(/"((?:\\.|[^"\\])*)"/g), (match) => match[1]);
   const script = javaStrings.map((value) => JSON.parse('"' + value + '"')).join('');
-  assert.match(script, /url_query_redacted:true/);
-  assert.match(script, /sf_melodix_home_present/);
-  assert.match(script, /main_view_id_present/);
-  assert.match(script, /home_active_class/);
-  assert.match(script, /native_home_data_callback_returned/);
-  assert.match(script, /native_ready_callback_returned/);
-  assert.match(script, /session_proof_source/);
-  assert.match(script, /profile_control_visible/);
-  assert.doesNotMatch(script, /location\.(href|search|hash)|document\.cookie|localStorage|sessionStorage/);
+  assert.match(script, /libraryProven=window\.__sfMediaLibSessionProofKnown===true&&window\.__sfMediaLibSessionProven===true/,
+    'libraryV3 is the only internal source that permits a real-playlist presence result');
+  assert.match(script, /real_library_playlist_observed:libraryPlaylistObserved/);
+  assert.match(script, /fetchStatusMatches=function\(code\).*?fetchPhase==='response'.*?fetchHttp===code/);
+  assert.match(script, /library_fetch_http_status:fetchHttp[\s\S]*?library_fetch_mime:fetchMime[\s\S]*?library_fetch_duration_ms:fetchDuration[\s\S]*?library_fetch_error:fetchError/);
+  for (const field of ['sf_melodix_home_present', 'main_view_id_present', 'home_active_class',
+    'native_home_data_callback_returned', 'native_ready_callback_returned']) {
+    assert.ok(script.includes(field), `the probe retains necessary UI/handoff evidence: ${field}`);
+  }
+  assert.doesNotMatch(script, /session_proven|session_proof_source|profile_control|safe_url|library_fetch_received_count|library_fetch_transformed_count|library_fetch_proof|library_fetch_page_signal|raw_library_item|playlist_count|source_anchor_count|real_home_.*count|document\.cookie|localStorage|sessionStorage/,
+    'the serialized probe contains no proof/profile flags, URL, body, identity, or private-content counters');
 
   const dom = new JSDOM(
     '<!doctype html><body class="sf-melodix-home-active"><main id="main-view" style="display:block;visibility:visible;opacity:1">' +
@@ -313,21 +337,21 @@ test('the authenticated DOM probe returns sanitized routes, counts only, live re
   window.__sfMediaLibSessionProofKnown = true;
   window.__sfMediaLibSessionProven = true;
   window.__sfMediaLibStatus = 'ready';
-  window.__sfMediaLibRawItemCount = 2;
-  window.mediaLib = { playlists: [{ id: 'private-playlist' }], albums: [{ id: 'private-album' }], artists: [], podcasts: [] };
+  window.__sfMediaLibError = '';
+  window.__sfMediaLibLastDiagnostic = {
+    http: 200, mime: 'json', phase: 'response', durationMs: 12, error: 'none',
+    body: 'PRIVATE_RESPONSE_BODY', url: 'https://open.spotify.com/private?token=SECRET'
+  };
+  window.mediaLib = { playlists: [{ id: 'private-playlist', name: 'private title' }],
+    albums: [{ id: 'private-album' }], artists: [], podcasts: [] };
   window.__sfNativeUiSessionProven = true;
   window.__sfNativeUiRoute = 'home';
   window.__sfNativeUiLastRouteSent = 'home';
   window.__sfNativeUiHomeDataSent = true;
   window.__sfNativeUiHomeStateSent = false;
   window.__sfNativeUiReadyNotified = true;
-  window.__sfNativeUiHomeRowsCount = 2;
-  window.__sfNativeUiHomeContentProven = true;
-  window.__sfNativeUiHomeStateProven = false;
-  window.__sfNativeUiTakeoverProven = true;
   window.__sfMelodixBridgeStarted = true;
   window.__sfMelodixHomeDecision = 'visible';
-  window.__sfMelodixHomeSourceCardCount = 1;
   window.AndBridge = {
     onNativeUiRoute() {},
     onNativeUiData() {},
@@ -336,16 +360,16 @@ test('the authenticated DOM probe returns sanitized routes, counts only, live re
   try {
     const result = window.eval(script);
     assert.equal(result.probe_error, false);
-    assert.equal(result.safe_url, 'https://open.spotify.com/intl-fr/home');
-    assert.equal(result.url_query_redacted, true);
+    assert.equal(result.host_category, 'open.spotify.com');
     assert.equal(result.route_category, 'home');
-    assert.equal(result.session_proven, true);
-    assert.equal(result.session_proof_source, 'verified-private-library-response');
-    assert.equal(result.profile_control_present, false);
-    assert.equal(result.profile_control_visible, false);
-    assert.equal(result.real_library_resource_count_capped, 2);
-    assert.equal(result.real_library_playlist_count_capped, 1);
-    assert.equal(result.real_home_resource_link_count_capped, 1);
+    assert.equal(result.home_route, true);
+    assert.equal(result.real_library_playlist_observed, true);
+    assert.equal(result.library_fetch_diagnostic_available, true);
+    assert.equal(result.library_fetch_http_status, 200);
+    assert.equal(result.library_fetch_mime, 'json');
+    assert.equal(result.library_fetch_phase, 'response');
+    assert.equal(result.library_fetch_duration_ms, 12);
+    assert.equal(result.library_fetch_error, 'none');
     assert.equal(result.sf_melodix_home_visible, true);
     assert.deepEqual({ ...result.sf_melodix_home_rect }, { left: 8, top: 12, width: 400, height: 700 });
     assert.equal(result.main_view_id_present, true);
@@ -354,34 +378,56 @@ test('the authenticated DOM probe returns sanitized routes, counts only, live re
     assert.equal(result.native_route_callback_returned, true);
     assert.equal(result.native_home_data_callback_returned, true);
     assert.equal(result.native_ready_callback_returned, true);
+    for (const privateField of ['session_proven', 'session_proof_source', 'profile_control_visible',
+      'safe_url', 'playlist_count', 'raw_library_item_count', 'library_fetch_proof', 'body', 'url']) {
+      assert.equal(Object.hasOwn(result, privateField), false, `the result omits ${privateField}`);
+    }
+    assert.doesNotMatch(JSON.stringify(result), /PRIVATE_ID|session=|SECRET|token=|PRIVATE_RESPONSE_BODY|private-playlist|private-album|private title/,
+      'no URL, private playlist data, response body, or token-like value is returned');
 
+    // A native-session flag, profile control, or library array alone must not
+    // establish private content without the libraryV3 response proof.
     window.__sfMediaLibSessionProofKnown = false;
     window.__sfMediaLibSessionProven = false;
-    window.__sfNativeUiSessionProven = false;
-    const unproven = window.eval(script);
-    assert.equal(unproven.session_proven, false);
-    assert.equal(unproven.session_proof_source, 'unproven');
-
-    window.__sfNativeUiSessionProven = false;
+    window.__sfNativeUiSessionProven = true;
     const profileControl = window.document.createElement('button');
     profileControl.setAttribute('data-testid', 'user-widget-link');
     profileControl.style.cssText = 'display:block;visibility:visible;opacity:1';
     profileControl.getBoundingClientRect = rect(40, 40);
     window.document.body.appendChild(profileControl);
-    const visibleProfileSignal = window.eval(script);
-    assert.equal(visibleProfileSignal.profile_control_present, true);
-    assert.equal(visibleProfileSignal.profile_control_visible, true);
-    assert.equal(visibleProfileSignal.page_session_signal, true);
-    assert.equal(visibleProfileSignal.session_proven, false);
-    assert.equal(visibleProfileSignal.session_proof_source, 'profile-control-unverified');
-    profileControl.style.display = 'none';
-    const hiddenProfileSignal = window.eval(script);
-    assert.equal(hiddenProfileSignal.profile_control_present, true);
-    assert.equal(hiddenProfileSignal.profile_control_visible, false);
-    assert.equal(hiddenProfileSignal.session_proven, false);
+    const unproven = window.eval(script);
+    assert.equal(unproven.real_library_playlist_observed, false);
+    assert.equal(Object.hasOwn(unproven, 'session_proven'), false);
+    assert.equal(Object.hasOwn(unproven, 'profile_control_visible'), false);
 
-    assert.doesNotMatch(JSON.stringify(result), /PRIVATE_ID|session=|SECRET|token=|private-playlist|private-album/,
-      'the diagnostic returns route categories and capped counts only, never URLs, IDs, or titles');
+    // A 401/403 label is retained only for a matching response-phase status.
+    window.__sfMediaLibError = 'http-401';
+    window.__sfMediaLibLastDiagnostic = {
+      http: 401, mime: 'json', phase: 'parse', durationMs: 24, error: 'http-401'
+    };
+    const mismatched401 = window.eval(script);
+    assert.equal(mismatched401.library_error, 'other');
+    assert.equal(mismatched401.library_fetch_error, 'http-other');
+    window.__sfMediaLibLastDiagnostic = {
+      http: 401, mime: 'json', phase: 'response', durationMs: 25, error: 'http-401'
+    };
+    const matched401 = window.eval(script);
+    assert.equal(matched401.library_error, 'http-401');
+    assert.equal(matched401.library_fetch_error, 'http-401');
+    window.__sfMediaLibError = 'http-403';
+    window.__sfMediaLibLastDiagnostic = {
+      http: 401, mime: 'json', phase: 'response', durationMs: 26, error: 'http-403'
+    };
+    const mismatched403 = window.eval(script);
+    assert.equal(mismatched403.library_error, 'other');
+    assert.equal(mismatched403.library_fetch_error, 'http-other');
+    window.__sfMediaLibError = 'http-429';
+    window.__sfMediaLibLastDiagnostic = {
+      http: 429, mime: 'json', phase: 'response', durationMs: 27, error: 'http-other'
+    };
+    const confirmedOtherHttp = window.eval(script);
+    assert.equal(confirmedOtherHttp.library_error, 'http-other');
+    assert.equal(confirmedOtherHttp.library_fetch_error, 'http-other');
   } finally {
     dom.window.close();
   }

@@ -266,7 +266,7 @@
     const-string v11, "false;"
     :native_home_content_ready
     invoke-virtual {v2, v11}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
-    const-string v11, ";if(typeof window.__sfMelodixHomeTraceFinal==='function')window.__sfMelodixHomeTraceFinal(window.__sfMelodixHomeRenderedCardCount||0);"
+    const-string v11, ";if(typeof window.__sfMelodixHomeTraceFinal==='function')window.__sfMelodixHomeTraceFinal();"
     invoke-virtual {v2, v11}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
     invoke-virtual {v2}, Ljava/lang/Object;->toString()Ljava/lang/String;
     move-result-object v2

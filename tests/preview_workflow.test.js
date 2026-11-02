@@ -289,9 +289,18 @@ test("Android verifies the packaged Web Home renderer on /app in an isolated, vi
   assert.match(harness, /removeWebHomeRendererFixture\(webHomeFixtureHolder\[0\]\)[\s\S]*?login_surface_restored_after_web_home_fixture/);
   assert.match(harness, /failurePhase = "web_home_fixture_create"[\s\S]*?failurePhase = "web_home_renderer_asset_install"[\s\S]*?failurePhase = "web_home_renderer_visibility_probe"[\s\S]*?failurePhase = "web_home_renderer_native_visibility"[\s\S]*?failurePhase = "web_home_renderer_evidence_capture"/);
   assert.match(harness, /WEB_HOME_RENDERER_DIAGNOSTIC_PROBE[\s\S]*?home_card_count[\s\S]*?source_hidden[\s\S]*?first_card_has_bounds/);
-  assert.match(harness, /main_view_present[\s\S]*?raw_anchor_count[\s\S]*?root_resource_count[\s\S]*?source_card_count[\s\S]*?session_proven[\s\S]*?decision_session_unproven[\s\S]*?decision_rendered_status[\s\S]*?decision_styles_not_ready[\s\S]*?style_probe_home_display_flex[\s\S]*?style_probe_main_hidden/);
-  assert.match(harness, /web_home_probe_diagnostics_available[\s\S]*?web_home_probe_root_resource_count[\s\S]*?web_home_probe_decision_styles_not_ready[\s\S]*?web_home_probe_style_probe_completed[\s\S]*?web_home_probe_renderer_style_probe_marker_present[\s\S]*?web_home_probe_renderer_style_probe_error[\s\S]*?web_home_probe_style_probe_main_hidden[\s\S]*?web_home_probe_first_card_has_bounds/);
-  assert.match(emulatorWorkflow, /safe_statuses=.*web_home_color_probe_\(completed\|error\|error_type\|validation_passed\|validation_summary\).*web_home_\(normal\|loading\|empty\|error\|partial\)_\(state_\(visible\|wcag_aa_pass\|partial_data\|card_count\|library_status\)\|contrast_\[A-Za-z0-9_\]\+\|color_\[A-Za-z0-9_\]\+\).*web_home_probe_diagnostics_available.*web_home_probe_root_resource_count.*web_home_probe_style_probe_completed.*web_home_probe_renderer_style_probe_marker_present.*web_home_probe_renderer_style_probe_error.*web_home_probe_style_probe_main_hidden.*web_home_probe_first_card_has_bounds/);
+  const rendererProbeStart = harness.indexOf("private static final String WEB_HOME_RENDERER_DIAGNOSTIC_PROBE");
+  const rendererProbeEnd = harness.indexOf("@Override", rendererProbeStart);
+  const rendererProbe = harness.slice(rendererProbeStart, rendererProbeEnd);
+  assert.ok(rendererProbeStart >= 0 && rendererProbeEnd > rendererProbeStart,
+    "the synthetic renderer probe is isolated from the live authenticated-home probe");
+  assert.match(rendererProbe, /main_view_present[\s\S]*?raw_anchor_count[\s\S]*?root_resource_count[\s\S]*?source_card_count[\s\S]*?decision_rendered_status[\s\S]*?decision_styles_not_ready[\s\S]*?style_probe_home_display_flex[\s\S]*?style_probe_main_hidden/);
+  assert.doesNotMatch(rendererProbe, /session_proven|session_proof|decision_session_unproven|profile_control|library_status/,
+    "the synthetic fixture probe does not export proof/profile labels or account-state indicators");
+  assert.match(harness, /state\.putBoolean\("web_home_probe_fixture_test_only", true\)/,
+    "synthetic renderer diagnostic values are explicitly marked fixture-only");
+  assert.match(harness, /web_home_probe_diagnostics_available[\s\S]*?web_home_probe_fixture_test_only[\s\S]*?web_home_probe_root_resource_count[\s\S]*?web_home_probe_decision_styles_not_ready[\s\S]*?web_home_probe_style_probe_completed[\s\S]*?web_home_probe_renderer_style_probe_marker_present[\s\S]*?web_home_probe_renderer_style_probe_error[\s\S]*?web_home_probe_style_probe_main_hidden[\s\S]*?web_home_probe_first_card_has_bounds/);
+  assert.match(emulatorWorkflow, /safe_statuses=.*web_home_color_probe_\(completed\|error\|error_type\|validation_passed\|validation_summary\).*web_home_\(normal\|loading\|empty\|error\|partial\)_\(state_\(visible\|wcag_aa_pass\|partial_data\|card_count\|library_status\)\|contrast_\[A-Za-z0-9_\]\+\|color_\[A-Za-z0-9_\]\+\).*web_home_probe_diagnostics_available.*web_home_probe_fixture_test_only.*web_home_probe_root_resource_count.*web_home_probe_decision_rendered_status.*web_home_probe_style_probe_completed.*web_home_probe_renderer_style_probe_marker_present.*web_home_probe_renderer_style_probe_error.*web_home_probe_style_probe_main_hidden.*web_home_probe_first_card_has_bounds/);
   assert.match(emulatorWorkflow, /web_home_renderer_probe_renderer_style_probe_marker_present[\s\S]*?status_bool\("web_home_probe_renderer_style_probe_marker_present"\)/);
   assert.match(emulatorWorkflow, /harness_overall_passed=false[\s\S]*?INSTRUMENTATION_STATUS: overall=passed[\s\S]*?harness_overall_passed=true[\s\S]*?safe_statuses=/,
     "a runner can return exit zero after a canceled Activity, so fail from the harness result and retain safe phase diagnostics");
@@ -637,10 +646,12 @@ test("Windows manual procedure preserves app data and requires a manually verifi
     "the procedure explicitly forbids clearing or uninstalling the app");
   assert.match(docs, /version supérieure non débogable[\s\S]*?N'essaie pas de désinstaller[\s\S]*?émulateur Android dédié/,
     "a version downgrade/incompatibility is handled by using a dedicated emulator, not by erasing a user's session");
-  assert.match(docs, /authenticated_home_test_performed=true[\s\S]*?authenticated_session=true[\s\S]*?home_route=true/,
-    "the document distinguishes actual authenticated Home evidence from CI and a blocked observer run");
-  assert.match(docs, /library_fetch_phase[\s\S]*?library_fetch_http_status[\s\S]*?library_fetch_mime[\s\S]*?library_fetch_error[\s\S]*?library_fetch_proof/,
-    "the manual procedure describes the redacted private-library failure snapshot without treating it as proof");
+  assert.match(docs, /authenticated_home_test_performed=true[\s\S]*?real_library_playlist_observed=true[\s\S]*?home_route=true/,
+    "the document requires a real playlist result and Home route without exporting a session-proof flag");
+  assert.match(docs, /library_fetch_http_status[\s\S]*?library_fetch_mime[\s\S]*?library_fetch_phase[\s\S]*?library_fetch_duration_ms[\s\S]*?library_fetch_error/,
+    "the manual procedure limits private-library diagnostics to allowlisted response metadata");
+  assert.doesNotMatch(docs, /session_proof_source|authenticated_session=true|library_fetch_received_count|library_fetch_transformed_count|library_fetch_proof|library_fetch_page_signal|safe_url|playlist_count/,
+    "the procedure does not instruct users to export proof indicators, URLs, or private-content counts");
 });
 
 test("the authenticated-home observer preserves the primary WebView, observes callbacks, restores Window.Callback, and redacts diagnostics", () => {
@@ -672,19 +683,49 @@ test("the authenticated-home observer preserves the primary WebView, observes ca
     "the observer delegates key events and restores the original Window.Callback");
   assert.match(observer, /activity_lifecycle_observer_unregistered[\s\S]*?window_callback_observer_installed[\s\S]*?window_callback_observer_restored/);
   assert.match(observer, /observation_deadline_reached[\s\S]*?observation_timeout_ms_capped/);
-  assert.match(observer, /safeSpotifyUrl\(firstWebView\.getUrl\(\)\)[\s\S]*?url_query_and_fragment_redacted/);
+  assert.doesNotMatch(observer, /safeSpotifyUrl|safe_url|initial_safe_url|url_query_and_fragment_redacted|putString\([^\n]*url/i,
+    "the observer never serializes even a normalized WebView URL");
   const probeStart = harness.indexOf("private static final String AUTHENTICATED_HOME_PROBE");
   const probeEnd = harness.indexOf("private static final String MOBILE_VIEWPORT_LAYOUT_", probeStart);
   const authProbe = harness.slice(probeStart, probeEnd);
   assert.ok(probeStart >= 0 && probeEnd > probeStart, "the real-session probe is defined");
-  assert.match(authProbe, /__sfMediaLibLastDiagnostic[\s\S]*?library_fetch_http_status[\s\S]*?library_fetch_duration_ms[\s\S]*?library_fetch_error[\s\S]*?library_fetch_received_count_capped[\s\S]*?library_fetch_transformed_count_capped[\s\S]*?library_fetch_proof/,
-    "the passive observer returns safe HTTP/MIME/duration/error/count/proof fields from the completed private request");
-  assert.doesNotMatch(authProbe, /fetch\s*\(|CookieManager|cookie|authorization|access_token|refresh_token/,
-    "the added diagnostic probe observes existing state only and never reads or sends credentials");
-  assert.match(harness, /safeLibraryFetchError\(probe\.optString\("library_fetch_error"/,
-    "the Android Bundle revalidates the diagnostic error against an allowlist");
-  assert.match(emulatorWorkflow, /timeout_ms 30000[\s\S]*?overall=blocked_no_authenticated_home_observed[\s\S]*?authenticated_home_test_performed=false[\s\S]*?authenticated_home_test=not_performed/,
-    "CI proves the no-session observer completes normally without claiming an authenticated Home");
+  assert.match(authProbe, /__sfMediaLibLastDiagnostic[\s\S]*?library_fetch_http_status[\s\S]*?library_fetch_mime[\s\S]*?library_fetch_duration_ms[\s\S]*?library_fetch_error/,
+    "the passive observer returns only allowlisted HTTP status, response type, phase, duration, and sanitized error data");
+  assert.match(authProbe, /real_library_playlist_observed:libraryPlaylistObserved/,
+    "a real playlist is represented only by a presence boolean rather than private content or counts");
+  assert.doesNotMatch(authProbe, /session_proven|session_proof_source|profile_control|safe_url|library_fetch_received_count|library_fetch_transformed_count|library_fetch_proof|library_fetch_page_signal|raw_library_item|playlist_count|fetch\s*\(|CookieManager|cookie|authorization|access_token|refresh_token/,
+    "the serialized probe excludes session/profile flags, routes/URLs, private counts, bodies, and credentials");
+  const inspectionStart = harness.indexOf("private Bundle inspectAuthenticatedHome(");
+  const inspectionEnd = harness.indexOf("private boolean readBooleanSafely(", inspectionStart);
+  const inspection = harness.slice(inspectionStart, inspectionEnd);
+  assert.doesNotMatch(inspection, /session_proven|session_proof_source|profile_control|safe_url|initial_safe_url|library_fetch_received_count|library_fetch_transformed_count|library_fetch_proof|library_fetch_page_signal|real_library_.*count_capped|raw_library_item_count|real_home_.*count_capped|native_home_rows_count/,
+    "the Android status Bundle excludes proof/profile fields, URLs, and private-content counters");
+  assert.match(harness, /safeLibraryFetchError\(probe\.optString\("library_fetch_error", "unavailable"\),[\s\S]*?fetchDiagnosticAvailable, fetchPhase, fetchHttpStatus\)/,
+    "the Android Bundle revalidates HTTP error categories against diagnostic availability, response phase, and status");
+  assert.match(harness, /safeLibraryErrorWithFetchEvidence[\s\S]*?httpStatus != 401[\s\S]*?httpStatus != 403/,
+    "401/403 UI error labels are emitted only when phase and response status agree");
+  const rendererDecisionStart = harness.indexOf("private String safeRendererDecision(");
+  const rendererDecisionEnd = harness.indexOf("private void runAuthenticatedHomeObservation(", rendererDecisionStart);
+  const rendererDecisionFilter = harness.slice(rendererDecisionStart, rendererDecisionEnd);
+  assert.match(rendererDecisionFilter, /renderer-inactive/);
+  assert.doesNotMatch(rendererDecisionFilter, /session-unproven|session-rejected|profile-control/,
+    "Android CI diagnostic decision allowlisting accepts only neutral Home outcomes");
+  const handoffStart = harness.indexOf("private Bundle inspectJavascriptHomeHandoff(");
+  const handoffEnd = harness.indexOf("private WebView createMobileViewportFixture", handoffStart);
+  const handoff = harness.slice(handoffStart, handoffEnd);
+  const handoffOutput = handoff.slice(handoff.indexOf("Bundle state = new Bundle();"));
+  assert.match(handoffOutput, /phase", "javascript_home_handoff[\s\S]*?native_shell_handoff_from_packaged_javascript", true[\s\S]*?native_ready_callback_sent", true[\s\S]*?home_status_payload_sent", true[\s\S]*?native_home_status_login_action_clickable", true/,
+    "the Android fixture reports status-only shell handoff and visible login action as runtime outcomes");
+  assert.doesNotMatch(handoffOutput, /put(?:Boolean|Int|Long|String)\("[^"]*(?:session|proof|profile|unproven)[^"]*"/i,
+    "handoff output omits proof/session/profile indicators and exposes only measured UI results");
+  assert.match(emulatorWorkflow, /phase=javascript_home_handoff[\s\S]*?home_status_payload_sent=true[\s\S]*?native_shell_handoff_from_packaged_javascript=true[\s\S]*?javascript_native_shell_handoff_tested=true[\s\S]*?login_surface_restored_after_javascript_shell_handoff=true/,
+    "CI requires the packaged JavaScript handoff and the restored login surface");
+  assert.doesNotMatch(emulatorWorkflow, /INSTRUMENTATION_STATUS: (?:authenticated_session|session_proven|session_proof_source|profile_control_(?:present|visible)|web_home_probe_session_proven|web_home_probe_decision_session_unproven)=/,
+    "CI does not depend on or publish proof/profile flags in instrumentation statuses");
+  assert.match(emulatorWorkflow, /timeout_ms 30000[\s\S]*?overall=blocked_no_home_content_observed[\s\S]*?authenticated_home_test_performed=false[\s\S]*?authenticated_home_test=not_performed/,
+    "CI proves the sanitized observer completes normally without claiming a real Home");
+  assert.match(emulatorWorkflow, /forbidden session, URL, profile, or private-content diagnostic/,
+    "the CI self-test fails closed if a forbidden session, URL, profile, or content-count key reappears");
   assert.match(emulatorWorkflow, /activity_lifecycle_observer_unregistered=true[\s\S]*?window_callback_observer_restored=true[\s\S]*?fatal_or_anr_count/,
     "the emulator self-test checks lifecycle cleanup, callback restoration, and crash/ANR absence");
   assert.match(emulatorWorkflow, /authenticated-home-observer-ci\.txt/,

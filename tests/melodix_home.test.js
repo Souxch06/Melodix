@@ -54,6 +54,7 @@ function makePage({
     mediaLibSessionProofKnown,
     mediaLibSessionProven,
     mediaLib,
+    libraryDiagnostic,
     profileControl = false
 } = {}) {
     const sectionBody = cards.map((card) => cardMarkup(card)).join('\n');
@@ -86,6 +87,7 @@ function makePage({
     window.__sfMediaLibStatus = libraryStatus;
     window.__sfMediaLibError = libraryError;
     window.__sfMediaLibRawItemCount = rawItemCount;
+    if (libraryDiagnostic !== undefined) window.__sfMediaLibLastDiagnostic = libraryDiagnostic;
     if (mediaLib !== undefined) window.mediaLib = mediaLib;
     window.__sfMelodixHomeTestMode = true;
     window.__sfBridgeTrace = (line) => traces.push(String(line));
@@ -351,11 +353,12 @@ test('authenticated empty, loading and failed collection states stay inside a vi
     });
     try {
         assert.equal(homeElement(sessionFailure), null);
-        assert.equal(sessionFailure.window.__sfMelodixHomeDecision, 'session-rejected');
+        assert.equal(sessionFailure.window.__sfMelodixHomeDecision, 'renderer-inactive');
         assert.equal(sessionFailure.window.__sfMelodixHomeSessionProven, false);
-        assert.ok(sessionFailure.traces.includes(
-            'library-proof proof=invalid status=error error=http-401'),
-            'the rejection trace exposes the safe category, not a guessed cookie/session cause');
+        assert.ok(sessionFailure.traces.some((line) => line.includes('home-web decision=renderer-inactive')),
+            'the renderer reports only its inactive state, not the proof outcome');
+        assert.doesNotMatch(sessionFailure.traces.join('\n'), /session|proof|profile|http-401|HTTP 401|cookie|token|authorization/i,
+            'Home traces do not expose proof/profile indicators, infer HTTP status, or disclose credentials');
         assert.equal(sessionFailure.document.body.classList.contains('sf-melodix-home-active'), false);
         assert.equal(sessionFailure.document.querySelector('#main-view').style.display, '');
         assert.equal(sessionFailure.document.querySelector('[data-testid="user-widget-link"]') !== null, true,
@@ -365,23 +368,23 @@ test('authenticated empty, loading and failed collection states stay inside a vi
     }
 });
 
-test('Home diagnostics normalize each library outcome without exposing raw error text', () => {
-    // Synthetic page state only; these cases do not make a Spotify API request or prove a real account.
+test('Web Home traces do not expose proof flags, library counts, or unverified HTTP claims', () => {
+    // Synthetic page state only; fetch telemetry is tested separately in p0_library_fetch.test.js.
     const cases = [
-        ['pending', '', false, false, 'unknown', 'none'],
-        ['error', 'http-401', true, false, 'invalid', 'http-401'],
-        ['error', 'http-403', false, false, 'unknown', 'http-403'],
-        ['error', 'http-429', false, false, 'unknown', 'http-other'],
-        ['error', 'network-error', false, false, 'unknown', 'network'],
-        ['error', 'timeout', false, false, 'unknown', 'timeout'],
-        ['error', 'non-json', false, false, 'unknown', 'non-json'],
-        ['error', 'invalid-json', false, false, 'unknown', 'invalid-json'],
-        ['error', 'unexpected-shape', false, false, 'unknown', 'unexpected-shape'],
-        ['error', 'graphql-error', false, false, 'unknown', 'graphql'],
-        ['error', 'transform-error', false, false, 'unknown', 'transform'],
-        ['ready', '', true, true, 'valid', 'none']
+        ['pending', '', false, false],
+        ['error', 'http-401', true, false],
+        ['error', 'http-403', false, false],
+        ['error', 'http-429', false, false],
+        ['error', 'network-error', false, false],
+        ['error', 'timeout', false, false],
+        ['error', 'non-json', false, false],
+        ['error', 'invalid-json', false, false],
+        ['error', 'unexpected-shape', false, false],
+        ['error', 'graphql-error', false, false],
+        ['error', 'transform-error', false, false],
+        ['ready', '', true, true]
     ];
-    for (const [status, rawError, known, proven, proof, error] of cases) {
+    for (const [status, rawError, known, proven] of cases) {
         const page = makePage({
             sessionProven: proven,
             mediaLibSessionProofKnown: known,
@@ -390,8 +393,9 @@ test('Home diagnostics normalize each library outcome without exposing raw error
             libraryError: rawError
         });
         try {
-            assert.ok(page.traces.includes(`library-proof proof=${proof} status=${status} error=${error}`),
-                `safe diagnostic for status=${status}, error=${rawError || 'none'}`);
+            assert.ok(page.traces.every((line) =>
+                !/library-proof|proof|session|profile|cards=|sections=|library=|http-401|http-403/i.test(line)),
+            `no proof/profile/count/HTTP detail leaks for ${status}/${rawError || 'none'}`);
             assert.ok(page.traces.every((line) => !/cookie|token|authorization|Fixture|playlist|account/i.test(line)),
                 'diagnostic trace contains no credentials or resource/account text');
         } finally {
@@ -400,7 +404,7 @@ test('Home diagnostics normalize each library outcome without exposing raw error
     }
 });
 
-test('the Home trace preserves a pending-to-401 proof transition without claiming why Spotify rejected it', async () => {
+test('a negative library proof blocks Web Home without claiming an unobserved HTTP status', async () => {
     // Synthetic bridge state transition only; no credentials or live Spotify response are used.
     const page = makePage({
         sessionProven: false,
@@ -409,16 +413,16 @@ test('the Home trace preserves a pending-to-401 proof transition without claimin
         libraryStatus: 'pending'
     });
     try {
-        assert.ok(page.traces.includes('library-proof proof=unknown status=pending error=none'));
         page.window.__sfMediaLibStatus = 'error';
         page.window.__sfMediaLibError = 'http-401';
         page.window.__sfMediaLibSessionProofKnown = true;
         page.window.__sfMediaLibSessionProven = false;
         page.window.dispatchEvent(new page.window.Event('sf-media-library-state-changed'));
         await new Promise((resolve) => page.window.setTimeout(resolve, 120));
-        assert.equal(page.window.__sfMelodixHomeDecision, 'session-rejected');
-        assert.ok(page.traces.includes('library-proof proof=invalid status=error error=http-401'));
-        assert.equal(homeElement(page), null, 'a diagnostic 401 does not produce an apparently loaded Home');
+        assert.equal(page.window.__sfMelodixHomeDecision, 'renderer-inactive');
+        assert.equal(homeElement(page), null, 'a negative proof does not produce an apparently loaded Web Home');
+        assert.doesNotMatch(page.traces.join('\n'), /library-proof|http-401|HTTP 401|cookie|token|authorization/i,
+            'the renderer does not invent an HTTP trace from a UI state flag');
     } finally {
         close(page);
     }
@@ -429,7 +433,7 @@ test('a verified private library response can open Home and render the real acco
     try {
         assert.equal(homeElement(page), null,
             'without a prior session proof the renderer leaves Spotify visible while the request is pending');
-        assert.equal(page.window.__sfMelodixHomeDecision, 'session-unproven');
+        assert.equal(page.window.__sfMelodixHomeDecision, 'renderer-inactive');
         page.window.mediaLib = {
             playlists: [{ uri: 'spotify:playlist:late-real-id', name: 'Playlist arrivée après le chargement' }],
             albums: [], artists: [], podcasts: []
@@ -455,6 +459,9 @@ test('partial library errors preserve real cards and show a recoverable warning'
         cards: [],
         libraryStatus: 'error',
         libraryError: 'http-429',
+        libraryDiagnostic: {
+            phase: 'response', http: 429, mime: 'json', durationMs: 120, error: 'http-other'
+        },
         mediaLib: {
             playlists: [{ uri: 'spotify:playlist:real-partial-id', name: 'Playlist reçue' }],
             albums: [], artists: [], podcasts: []
@@ -582,7 +589,7 @@ test('an empty mediaLib object or generic ready state cannot prove an authentica
     });
     try {
         assert.equal(homeElement(page), null);
-        assert.equal(page.window.__sfMelodixHomeDecision, 'session-unproven');
+        assert.equal(page.window.__sfMelodixHomeDecision, 'renderer-inactive');
         assert.equal(page.document.body.classList.contains('sf-melodix-home-active'), false);
         assert.equal(page.window.getComputedStyle(page.document.getElementById('main-view')).display, 'block');
     } finally {
@@ -592,8 +599,8 @@ test('an empty mediaLib object or generic ready state cannot prove an authentica
 
 test('unproven sessions, non-Home routes and unsupported GUI modes never hide Spotify', () => {
     const cases = [
-        { path: '/', cards: [], guiMode: 'csshack', sessionProven: false, decision: 'session-unproven' },
-        { path: '/home', cards: [{ id: 'only-one', title: 'Une vraie carte' }], guiMode: 'bigwindow', sessionProven: false, decision: 'session-unproven' },
+        { path: '/', cards: [], guiMode: 'csshack', sessionProven: false, decision: 'renderer-inactive' },
+        { path: '/home', cards: [{ id: 'only-one', title: 'Une vraie carte' }], guiMode: 'bigwindow', sessionProven: false, decision: 'renderer-inactive' },
         { path: '/playlist/real-id', cards: [{ id: 'p1', title: 'Titre A' }, { id: 'p2', title: 'Titre B' }], guiMode: 'csshack', decision: 'route-not-home' },
         { path: '/', cards: [{ id: 'p1', title: 'Titre A' }, { id: 'p2', title: 'Titre B' }], guiMode: 'compact', decision: 'gui-mode-unsupported' }
     ];
@@ -606,7 +613,7 @@ test('unproven sessions, non-Home routes and unsupported GUI modes never hide Sp
             assert.equal(page.window.__sfMelodixHomeDecision, entry.decision);
             assert.equal(page.window.__sfMelodixHomeGuiMode,
                 ['csshack', 'bigwindow'].includes(entry.guiMode) ? entry.guiMode : 'other');
-            if (entry.decision === 'session-unproven') {
+            if (entry.decision === 'renderer-inactive') {
                 assert.equal(page.window.__sfMelodixHomeSessionProven, false);
                 assert.equal(page.document.querySelector('[data-sf-melodix-source-root]'), null,
                     'neither a zero-card nor one-card unauthenticated page is marked for hiding');
@@ -621,7 +628,7 @@ test('the Web Home waits for the private library response and updates when API p
     const page = makePage({ cards: [], sessionProven: false, libraryStatus: 'pending' });
     try {
         assert.equal(homeElement(page), null);
-        assert.equal(page.window.__sfMelodixHomeDecision, 'session-unproven');
+        assert.equal(page.window.__sfMelodixHomeDecision, 'renderer-inactive');
         page.window.__sfMediaLibSessionProofKnown = true;
         page.window.__sfMediaLibSessionProven = true;
         page.window.dispatchEvent(new page.window.Event('sf-media-library-state-changed'));
@@ -817,7 +824,7 @@ test('SPA search/library/detail transitions and browser back preserve the Spotif
     }
 });
 
-test('bounded decisions expose only screen category, safe mode, styles and counts without masking the page', () => {
+test('bounded decisions expose only screen category and layout state without account counts', () => {
     const page = makePage({
         guiMode: 'unknown-mode',
         cards: [{ id: 'diag-1', title: 'Playlist A' }, { id: 'diag-2', title: 'Album B', type: 'album' }]
@@ -827,7 +834,9 @@ test('bounded decisions expose only screen category, safe mode, styles and count
         page.window.__sfHomeTest.updateMelodixHome();
         const matching = page.traces.filter((line) => line.includes('home-web decision=gui-mode-unsupported'));
         assert.equal(matching.length, 1, 'identical decisions are throttled');
-        assert.match(matching[0], /mode=other route=home session=unknown styles=0 cards=0 sections=0 root=(0|1|unknown) library=pending/);
+        assert.match(matching[0], /mode=other route=home styles=0 root=(0|1|unknown)$/);
+        assert.doesNotMatch(matching[0], /session|proof|profile|cards=|sections=|library=/i,
+            'the Home decision trace does not expose proof/profile indicators, state or counts');
         assert.doesNotMatch(matching[0], /\/playlist\/|\/album\/|#main-view|data-testid|selector/i,
             'diagnostics retain only a normalized route category, never a raw path or DOM selector');
         assert.notEqual(page.window.getComputedStyle(page.document.getElementById('main-view')).display, 'none');

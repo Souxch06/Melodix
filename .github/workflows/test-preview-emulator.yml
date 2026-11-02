@@ -815,7 +815,7 @@ jobs:
             harness_overall_passed=true
           fi
           if [[ "$instrumentation_status" != "0" || "$harness_overall_passed" != "true" ]]; then
-            safe_statuses="$(grep -E '^INSTRUMENTATION_STATUS: (phase|mobile_viewport_[A-Za-z0-9_-]+|android_window_insets_available|android_window_bar_visibility_available|android_status_bar_[A-Za-z0-9_]+|android_navigation_bar_[A-Za-z0-9_]+|android_display_density_scale|authenticated_session|login_dom_probe_completed|login_ui_visible_in_webview_dom|browser_compatibility_warning_visible|javascript_ua_profile_coherent|android_api_level|android_release|installed_webview_[A-Za-z0-9_]+|configured_ua_[A-Za-z0-9_]+|javascript_[A-Za-z0-9_]+|client_hints_[A-Za-z0-9_]+|live_spotify_[A-Za-z0-9_]+|live_webview_[A-Za-z0-9_]+|live_css_mel_[A-Za-z0-9_-]+|webview_visible_and_measured|network_error_transition_recovered|original_webview_url_preserved|splash_hidden|native_home_hidden|home_payload_empty|empty_home_evidence_captured|home_status_payload_fixture_non_playlist|home_status_evidence_captured|live_home_and_authentication_tested|web_home_color_probe_(completed|error|error_type|validation_passed|validation_summary)|web_home_color_contrast_fixture_test_only|web_home_dark_theme_computed|web_home_light_theme_available|web_home_color_state_scenarios_complete|web_home_all_states_wcag_aa_pass|web_home_(normal|loading|empty|error|partial)_(state_(visible|wcag_aa_pass|partial_data|card_count|library_status)|contrast_[A-Za-z0-9_]+|color_[A-Za-z0-9_]+)|web_home_app_route_renderer_visible|web_home_renderer_evidence_captured|web_home_renderer_fixture_test_only|web_home_probe_diagnostics_available|web_home_probe_route_app|web_home_probe_mode_csshack|web_home_probe_main_view_present|web_home_probe_raw_anchor_count|web_home_probe_root_resource_count|web_home_probe_source_card_count|web_home_probe_root_selector_is_main_view|web_home_probe_styles_ready|web_home_probe_decision_insufficient_real_cards|web_home_probe_decision_content_root_missing|web_home_probe_decision_styles_not_ready|web_home_probe_decision_fullscreen_open|web_home_probe_style_probe_completed|web_home_probe_renderer_style_probe_marker_present|web_home_probe_renderer_style_probe_computed_style_available|web_home_probe_renderer_style_probe_home_display_flex|web_home_probe_renderer_style_probe_home_position_fixed|web_home_probe_renderer_style_probe_home_visibility_visible|web_home_probe_renderer_style_probe_home_opacity_nonzero|web_home_probe_renderer_style_probe_home_z_index_high|web_home_probe_renderer_style_probe_main_hidden|web_home_probe_renderer_style_probe_error|web_home_probe_style_probe_home_display_flex|web_home_probe_style_probe_home_position_fixed|web_home_probe_style_probe_home_visibility_visible|web_home_probe_style_probe_home_opacity_nonzero|web_home_probe_style_probe_home_z_index_high|web_home_probe_style_probe_main_hidden|web_home_probe_init_attempted|web_home_probe_style_marker_present|web_home_probe_active_class|web_home_probe_home_exists|web_home_probe_card_count|web_home_probe_home_display_flex|web_home_probe_home_position_fixed|web_home_probe_home_visible|web_home_probe_source_hidden|web_home_probe_brand_has_bounds|web_home_probe_first_card_has_bounds|login_surface_restored_after_web_home_fixture|native_home_status_attached|native_home_status_visible|native_home_status_message_visible_in_hierarchy|native_home_cards_attached|native_home_content_ready|native_content_container_empty|native_root_visible|native_root_hidden|native_home_tab_visible|native_home_tab_not_shown|webview_container_visible|webview_container_visible_under_native_root|login_surface_restored_after_status|authenticated_home_test_performed|page_load_complete|failure_phase|failure_type|overall)=' "$state_dir/android-instrumentation.txt" | tr '\n' ';' | tail -c 850 || true)"
+            safe_statuses="$(grep -E '^INSTRUMENTATION_STATUS: (phase|mobile_viewport_[A-Za-z0-9_-]+|android_window_insets_available|android_window_bar_visibility_available|android_status_bar_[A-Za-z0-9_]+|android_navigation_bar_[A-Za-z0-9_]+|android_display_density_scale|login_dom_probe_completed|login_ui_visible_in_webview_dom|browser_compatibility_warning_visible|javascript_ua_profile_coherent|android_api_level|android_release|installed_webview_[A-Za-z0-9_]+|configured_ua_[A-Za-z0-9_]+|javascript_[A-Za-z0-9_]+|client_hints_[A-Za-z0-9_]+|live_spotify_[A-Za-z0-9_]+|live_webview_(stylesheet_marker_present|css_theme_applicable|css_tokens_valid|css_token_count|home_present|home_active|source_main_present|bridge_present|bridge_media_callback_present|bridge_diag_callback_present)|live_css_mel_[A-Za-z0-9_-]+|webview_visible_and_measured|network_error_transition_recovered|original_webview_url_preserved|splash_hidden|native_home_hidden|home_payload_empty|empty_home_evidence_captured|home_status_payload_fixture_non_playlist|home_status_payload_sent|native_shell_handoff_from_packaged_javascript|native_ready_callback_sent|javascript_native_shell_handoff_tested|login_surface_restored_after_javascript_shell_handoff|home_status_evidence_captured|live_home_and_authentication_tested|web_home_color_probe_(completed|error|error_type|validation_passed|validation_summary)|web_home_color_contrast_fixture_test_only|web_home_dark_theme_computed|web_home_light_theme_available|web_home_color_state_scenarios_complete|web_home_all_states_wcag_aa_pass|web_home_(normal|loading|empty|error|partial)_(state_(visible|wcag_aa_pass|partial_data|card_count|library_status)|contrast_[A-Za-z0-9_]+|color_[A-Za-z0-9_]+)|web_home_app_route_renderer_visible|web_home_renderer_evidence_captured|web_home_renderer_fixture_test_only|web_home_probe_diagnostics_available|web_home_probe_fixture_test_only|web_home_probe_route_app|web_home_probe_mode_csshack|web_home_probe_main_view_present|web_home_probe_raw_anchor_count|web_home_probe_root_resource_count|web_home_probe_source_card_count|web_home_probe_root_selector_is_main_view|web_home_probe_styles_ready|web_home_probe_decision_rendered_status|web_home_probe_decision_content_root_missing|web_home_probe_decision_styles_not_ready|web_home_probe_decision_fullscreen_open|web_home_probe_style_probe_completed|web_home_probe_renderer_style_probe_marker_present|web_home_probe_renderer_style_probe_computed_style_available|web_home_probe_renderer_style_probe_home_display_flex|web_home_probe_renderer_style_probe_home_position_fixed|web_home_probe_renderer_style_probe_home_visibility_visible|web_home_probe_renderer_style_probe_home_opacity_nonzero|web_home_probe_renderer_style_probe_home_z_index_high|web_home_probe_renderer_style_probe_main_hidden|web_home_probe_renderer_style_probe_error|web_home_probe_style_probe_home_display_flex|web_home_probe_style_probe_home_position_fixed|web_home_probe_style_probe_home_visibility_visible|web_home_probe_style_probe_home_opacity_nonzero|web_home_probe_style_probe_home_z_index_high|web_home_probe_style_probe_main_hidden|web_home_probe_init_attempted|web_home_probe_style_marker_present|web_home_probe_active_class|web_home_probe_home_exists|web_home_probe_card_count|web_home_probe_home_display_flex|web_home_probe_home_position_fixed|web_home_probe_home_visible|web_home_probe_source_hidden|web_home_probe_brand_has_bounds|web_home_probe_first_card_has_bounds|login_surface_restored_after_web_home_fixture|native_home_status_attached|native_home_status_visible|native_home_status_login_action_clickable|native_home_status_message_visible_in_hierarchy|native_home_cards_attached|native_home_content_ready|native_content_container_empty|native_root_visible|native_root_hidden|native_home_tab_visible|native_home_tab_not_shown|webview_container_visible|webview_container_visible_under_native_root|login_surface_restored_after_status|authenticated_home_test_performed|page_load_complete|failure_phase|failure_type|overall)=' "$state_dir/android-instrumentation.txt" | tr '\n' ';' | tail -c 850 || true)"
             safe_completion_statuses="$(python3 - "$state_dir/android-instrumentation.txt" <<'PY'
           import pathlib
           import re
@@ -955,7 +955,6 @@ jobs:
 
           required_statuses=(
             'INSTRUMENTATION_STATUS: phase=login_without_session'
-            'INSTRUMENTATION_STATUS: authenticated_session=false'
             'INSTRUMENTATION_STATUS: configured_ua_chrome_major_matches_runtime=true'
             'INSTRUMENTATION_STATUS: browser_compatibility_warning_visible=false'
             'INSTRUMENTATION_STATUS: login_ui_visible_in_webview_dom=true'
@@ -968,7 +967,6 @@ jobs:
             'INSTRUMENTATION_STATUS: live_spotify_css_probe_error_type=none'
             'INSTRUMENTATION_STATUS: live_spotify_host_confirmed=true'
             'INSTRUMENTATION_STATUS: live_webview_home_active=false'
-            'INSTRUMENTATION_STATUS: live_webview_session_proof=false'
             'INSTRUMENTATION_STATUS: authenticated_home_test_performed=false'
             'INSTRUMENTATION_STATUS: network_error_transition_recovered=true'
             'INSTRUMENTATION_STATUS: original_webview_url_preserved=true'
@@ -986,7 +984,6 @@ jobs:
             'INSTRUMENTATION_STATUS: webview_container_visible=true'
             'INSTRUMENTATION_STATUS: webview_visible_and_measured=true'
             'INSTRUMENTATION_STATUS: phase=home_status_renderer'
-            'INSTRUMENTATION_STATUS: authenticated_session=false'
             'INSTRUMENTATION_STATUS: home_status_payload_fixture_non_playlist=true'
             'INSTRUMENTATION_STATUS: playlist_or_card_injected=false'
             'INSTRUMENTATION_STATUS: native_home_cards_attached=false'
@@ -1001,6 +998,12 @@ jobs:
             'INSTRUMENTATION_STATUS: original_webview_url_preserved=true'
             'INSTRUMENTATION_STATUS: login_surface_restored_after_status=true'
             'INSTRUMENTATION_STATUS: home_status_evidence_captured=true'
+            'INSTRUMENTATION_STATUS: phase=javascript_home_handoff'
+            'INSTRUMENTATION_STATUS: home_status_payload_sent=true'
+            'INSTRUMENTATION_STATUS: native_shell_handoff_from_packaged_javascript=true'
+            'INSTRUMENTATION_STATUS: native_ready_callback_sent=true'
+            'INSTRUMENTATION_STATUS: javascript_native_shell_handoff_tested=true'
+            'INSTRUMENTATION_STATUS: login_surface_restored_after_javascript_shell_handoff=true'
             'INSTRUMENTATION_STATUS: phase=web_home_renderer_app_route'
             'INSTRUMENTATION_STATUS: web_home_app_route_renderer_visible=true'
             'INSTRUMENTATION_STATUS: web_home_renderer_evidence_captured=true'
@@ -1091,11 +1094,10 @@ jobs:
           [[ "$observer_exit" == "0" ]] || { echo "::error::Authenticated-home observer CI self-test exited $observer_exit instead of completing normally."; exit 1; }
           required_observer_statuses=(
             'INSTRUMENTATION_STATUS: phase=authenticated_home_observation_complete'
-            'INSTRUMENTATION_STATUS: overall=blocked_no_authenticated_home_observed'
+            'INSTRUMENTATION_STATUS: overall=blocked_no_home_content_observed'
             'INSTRUMENTATION_STATUS: observation_deadline_reached=true'
             'INSTRUMENTATION_STATUS: observation_timeout_ms_capped=30000'
             'INSTRUMENTATION_STATUS: authenticated_home_test_performed=false'
-            'INSTRUMENTATION_STATUS: authenticated_session=false'
             'INSTRUMENTATION_STATUS: manual_auth_or_navigation_is_automated=false'
             'INSTRUMENTATION_STATUS: activity_lifecycle_observer_registered=true'
             'INSTRUMENTATION_STATUS: activity_lifecycle_observer_unregistered=true'
@@ -1104,7 +1106,6 @@ jobs:
             'INSTRUMENTATION_STATUS: window_callback_observer_restored=true'
             'INSTRUMENTATION_STATUS: window_callback_observer_active=false'
             'INSTRUMENTATION_STATUS: primary_webview_present=true'
-            'INSTRUMENTATION_STATUS: url_query_and_fragment_redacted=true'
           )
           for expected in "${required_observer_statuses[@]}"; do
             if ! grep -Fq "$expected" "$observer_output"; then
@@ -1112,6 +1113,10 @@ jobs:
               exit 1
             fi
           done
+          if grep -Eq '^INSTRUMENTATION_STATUS: (authenticated_session|session_(proven|proof_source)|live_webview_(session_proven|session_proof)|web_home_probe_(session_proven|decision_session_unproven)|profile_(control_(present|visible)|signal|widget)|safe_url|initial_safe_url|library_fetch_(received_count(_capped)?|transformed_count(_capped)?|proof|page_signal)|real_library_.*count_capped|raw_library_item_count_capped|real_home_.*count_capped|native_home_rows_count_capped)=' "$observer_output"; then
+            echo "::error::Authenticated-home observer emitted a forbidden session, URL, profile, or private-content diagnostic."
+            exit 1
+          fi
           sample_count="$(sed -n 's/^INSTRUMENTATION_STATUS: probe_sample_count_capped=//p' "$observer_output" | tail -n 1 | grep -E '^[0-9]{1,4}$' || true)"
           [[ "$sample_count" =~ ^[0-9]+$ ]] && (( sample_count > 0 )) || {
             echo "::error::Authenticated-home observer returned no bounded WebView diagnostics."
@@ -1122,10 +1127,10 @@ jobs:
           {
             echo "### Passive authenticated-home observer self-test (CI, unauthenticated)"
             echo "- Runner exit: $observer_exit; observer deadline reached: true; timeout: 30000 ms"
-            echo "- Authenticated Spotify Home: not tested (clean CI emulator has no session)"
+            echo "- Authenticated Spotify Home: not tested (clean CI uses no account data)"
             echo "- Samples: $sample_count; lifecycle callback unregister: true; Window.Callback restored: true; crash/ANR count: $fatal_count"
           } >> "$GITHUB_STEP_SUMMARY"
-          echo "::notice title=Authenticated-home observer self-test::result=normal_timeout; timeout_ms=30000; samples=$sample_count; session=false; lifecycle_callback_unregistered=true; window_callback_restored=true; fatal_or_anr_count=$fatal_count; authenticated_home_test=not_performed"
+          echo "::notice title=Authenticated-home observer self-test::result=normal_timeout; timeout_ms=30000; samples=$sample_count; content_observed=false; lifecycle_callback_unregistered=true; window_callback_restored=true; fatal_or_anr_count=$fatal_count; authenticated_home_test=not_performed"
 
       - name: Verify activity resumed after Android instrumentation
         id: post-instrumentation
@@ -1492,10 +1497,9 @@ jobs:
                   return None
           permission_state = json.loads((root / "permission-prompt-summary.json").read_text(encoding="utf-8")) if exists("permission-prompt-summary.json") else {}
           login_dom_visible = None
-          unauthenticated_session_confirmed = "INSTRUMENTATION_STATUS: authenticated_session=false" in transcript
-          if unauthenticated_session_confirmed and "INSTRUMENTATION_STATUS: login_ui_visible_in_webview_dom=true" in transcript:
+          if "INSTRUMENTATION_STATUS: login_ui_visible_in_webview_dom=true" in transcript:
               login_dom_visible = True
-          elif unauthenticated_session_confirmed and "INSTRUMENTATION_STATUS: login_ui_visible_in_webview_dom=false" in transcript:
+          elif "INSTRUMENTATION_STATUS: login_ui_visible_in_webview_dom=false" in transcript:
               login_dom_visible = False
           def viewport_surface(prefix, name):
               key = prefix + name + "_"
@@ -1643,10 +1647,6 @@ jobs:
               "live_webview_css_token_count": status_value("live_webview_css_token_count"),
               "live_webview_home_present": status_bool("live_webview_home_present"),
               "live_webview_home_active": status_bool("live_webview_home_active"),
-              "live_webview_session_proof": status_bool("live_webview_session_proof"),
-              "live_webview_library_status": status_value("live_webview_library_status"),
-              "live_webview_raw_item_count_capped": status_value("live_webview_raw_item_count_capped"),
-              "live_webview_source_anchor_count_capped": status_value("live_webview_source_anchor_count_capped"),
               "live_webview_bridge_present": status_bool("live_webview_bridge_present"),
               "live_webview_bridge_media_callback_present": status_bool("live_webview_bridge_media_callback_present"),
               "live_webview_bridge_diag_callback_present": status_bool("live_webview_bridge_diag_callback_present"),
@@ -1707,9 +1707,15 @@ jobs:
               "home_status_hierarchy_pixels_verified": integration == "success" and home_status_pixels_verified == "true",
               "home_status_evidence_captured_before_instrumentation_finish": "INSTRUMENTATION_STATUS: home_status_evidence_captured=true" in transcript,
               "login_surface_restored_after_status": status_bool("login_surface_restored_after_status"),
+              "javascript_native_shell_handoff_tested": status_bool("javascript_native_shell_handoff_tested"),
+              "home_status_payload_sent": status_bool("home_status_payload_sent"),
+              "native_shell_handoff_from_packaged_javascript": status_bool("native_shell_handoff_from_packaged_javascript"),
+              "native_ready_callback_sent": status_bool("native_ready_callback_sent"),
+              "login_surface_restored_after_javascript_shell_handoff": status_bool("login_surface_restored_after_javascript_shell_handoff"),
               "web_home_app_route_renderer_visible": status_bool("web_home_app_route_renderer_visible"),
               "web_home_renderer_fixture_test_only": status_bool("web_home_renderer_fixture_test_only"),
               "web_home_renderer_probe_diagnostics_available": status_bool("web_home_probe_diagnostics_available"),
+              "web_home_renderer_probe_fixture_test_only": status_bool("web_home_probe_fixture_test_only"),
               "web_home_renderer_probe_route_is_app": status_bool("web_home_probe_route_app"),
               "web_home_renderer_probe_mode_is_csshack": status_bool("web_home_probe_mode_csshack"),
               "web_home_renderer_probe_main_view_present": status_bool("web_home_probe_main_view_present"),
@@ -1718,7 +1724,7 @@ jobs:
               "web_home_renderer_probe_source_card_count": status_value("web_home_probe_source_card_count"),
               "web_home_renderer_probe_root_selector_is_main_view": status_bool("web_home_probe_root_selector_is_main_view"),
               "web_home_renderer_probe_styles_ready": status_bool("web_home_probe_styles_ready"),
-              "web_home_renderer_probe_decision_insufficient_real_cards": status_bool("web_home_probe_decision_insufficient_real_cards"),
+              "web_home_renderer_probe_decision_rendered_status": status_bool("web_home_probe_decision_rendered_status"),
               "web_home_renderer_probe_decision_content_root_missing": status_bool("web_home_probe_decision_content_root_missing"),
               "web_home_renderer_probe_decision_styles_not_ready": status_bool("web_home_probe_decision_styles_not_ready"),
               "web_home_renderer_probe_decision_fullscreen_open": status_bool("web_home_probe_decision_fullscreen_open"),
@@ -1794,7 +1800,7 @@ jobs:
               "playlist_or_card_injected_by_harness": "INSTRUMENTATION_STATUS: playlist_or_card_injected=true" in transcript,
               "no_playlist_or_card_injected_status_confirmed": "INSTRUMENTATION_STATUS: playlist_or_card_injected=false" in transcript,
               "authenticated_home_test_performed": status_bool("authenticated_home_test_performed"),
-              "authenticated_home_test": "not performed; no legitimate Spotify session was supplied",
+              "authenticated_home_test": "not performed in CI; no account data was supplied",
               "screenshots": [name for name in ("login-screen.png", "home-empty-fallback.png", "home-status.png", "web-home-app.png", "release-candidate-screen.png") if exists(name)],
               "redacted_hierarchies": [name for name in ("login-hierarchy-redacted.json", "home-fallback-hierarchy-redacted.json", "home-status-hierarchy-redacted.json", "web-home-app-hierarchy-redacted.json", "release-candidate-hierarchy-redacted.json") if exists(name)],
               "raw_hierarchy_uploaded": False,
@@ -1841,13 +1847,16 @@ jobs:
               "home_status_payload_fixture_non_playlist", "native_home_status_attached",
               "native_home_status_visible", "home_status_message_visible_in_native_view_hierarchy",
               "home_status_hierarchy_pixels_verified", "home_status_evidence_captured_before_instrumentation_finish",
-              "login_surface_restored_after_status", "web_home_app_route_renderer_visible",
-              "web_home_renderer_fixture_test_only", "web_home_renderer_probe_diagnostics_available",
+              "login_surface_restored_after_status", "javascript_native_shell_handoff_tested",
+              "home_status_payload_sent", "native_shell_handoff_from_packaged_javascript",
+              "native_ready_callback_sent", "login_surface_restored_after_javascript_shell_handoff",
+              "web_home_app_route_renderer_visible", "web_home_renderer_fixture_test_only",
+              "web_home_renderer_probe_diagnostics_available", "web_home_renderer_probe_fixture_test_only",
               "web_home_renderer_probe_route_is_app", "web_home_renderer_probe_mode_is_csshack",
               "web_home_renderer_probe_main_view_present", "web_home_renderer_probe_raw_anchor_count",
               "web_home_renderer_probe_root_resource_count", "web_home_renderer_probe_source_card_count",
               "web_home_renderer_probe_root_selector_is_main_view", "web_home_renderer_probe_styles_ready",
-              "web_home_renderer_probe_decision_insufficient_real_cards",
+              "web_home_renderer_probe_decision_rendered_status",
               "web_home_renderer_probe_decision_content_root_missing",
               "web_home_renderer_probe_decision_styles_not_ready",
               "web_home_renderer_probe_decision_fullscreen_open",
@@ -1963,12 +1972,10 @@ jobs:
           empty_home_payload_confirmed=false
           playlist_or_card_injected_by_harness=false
           if [[ -s "$state_dir/android-instrumentation.txt" ]]; then
-            if grep -Fq 'INSTRUMENTATION_STATUS: authenticated_session=false' "$state_dir/android-instrumentation.txt"; then
-              if grep -Fq 'INSTRUMENTATION_STATUS: login_ui_visible_in_webview_dom=true' "$state_dir/android-instrumentation.txt"; then
-                login_dom_visible=true
-              elif grep -Fq 'INSTRUMENTATION_STATUS: login_ui_visible_in_webview_dom=false' "$state_dir/android-instrumentation.txt"; then
-                login_dom_visible=false
-              fi
+            if grep -Fq 'INSTRUMENTATION_STATUS: login_ui_visible_in_webview_dom=true' "$state_dir/android-instrumentation.txt"; then
+              login_dom_visible=true
+            elif grep -Fq 'INSTRUMENTATION_STATUS: login_ui_visible_in_webview_dom=false' "$state_dir/android-instrumentation.txt"; then
+              login_dom_visible=false
             fi
             grep -Fq 'INSTRUMENTATION_STATUS: home_payload_empty=true' "$state_dir/android-instrumentation.txt" && empty_home_payload_confirmed=true || true
             grep -Fq 'INSTRUMENTATION_STATUS: playlist_or_card_injected=true' "$state_dir/android-instrumentation.txt" && playlist_or_card_injected_by_harness=true || true

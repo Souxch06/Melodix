@@ -20,7 +20,8 @@ test('Web Home emits normalized guard, CSS, node and final-owner diagnostics onl
   assert.match(source, /home-css ' \+ values\.map/);
   assert.match(source, /function traceHomeNode\(home, created, action\)/);
   assert.match(source, /home-node exists=' \+ \(exists \? '1' : '0'\)/);
-  assert.match(source, /function traceHomeFinal\(cardCount, forceOwnerSync\)/);
+  assert.match(source, /function traceHomeFinal\(forceOwnerSync\)/,
+    'the final-owner report no longer receives or logs account-card counts');
   assert.match(source, /home-final owner=' \+ owner \+ ' route=' \+ route/);
   assert.match(source, /window\.__sfMelodixHomeTraceFinal = traceHomeFinal/);
   assert.match(source, /signatures\[name\] === signature/,
@@ -32,19 +33,30 @@ test('Web Home emits normalized guard, CSS, node and final-owner diagnostics onl
     'the compact Home decision omits raw selectors');
 });
 
-test('WebView, Spotify route, bridge phases and Home transfer use safe state enums and counts', () => {
+test('WebView, Spotify route and Home handoff diagnostics stay redacted and bounded', () => {
   const shell = read('scripts/native_ui_shell.source.js');
+  const bridgeSource = read('scripts/spotify_bridge.source.js');
   assert.match(shell, /function traceWebViewState\(\)/);
   assert.match(shell, /webview-state ready=' \+ ready \+ ' host=' \+ host/);
-  assert.match(shell, /route=' \+ spotifyRouteCategory\(\) \+ ' session=' \+ session \+\n\s+' proof=' \+ proof \+ ' page=' \+ page/);
-  assert.match(shell, /diagTrace\('spotify-route route=' \+ routeCategory \+ ' session=' \+ sessionBit\)/);
-  assert.match(shell, /home-data stage=web-to-android rows=/);
+  assert.match(shell, /route=' \+ spotifyRouteCategory\(\) \+\s*' bridge=' \+ \(callbacks \? '1' : '0'\)/);
+  assert.match(shell, /diagTrace\('spotify-route route=' \+ routeCategory\)/);
+  assert.match(shell, /home-data stage=web-to-android result=/);
   const renderer = read('scripts/melodix_home.source.js');
-  assert.match(renderer, /home-data stage=web-rendered rows=/);
+  assert.match(renderer, /home-data stage=web-rendered/);
+  assert.match(shell, /home-state sent/);
+  assert.match(shell, /home-rows sent/);
   assert.match(shell, /bridge-load phase=read-start strategy=none result=pending bytes=0/);
   assert.match(shell, /bridge-load phase=read-end strategy=none result=' \+ readResult/);
   assert.match(shell, /bridge-load phase=' \+ phase \+ ' strategy=' \+ strategy/);
-  assert.doesNotMatch(shell, /diagTrace\('spotify-route[^\n]*(?:spotifyRoutePath\(\)|location\.href)/);
+  assert.doesNotMatch(shell, /webview-state[^\n]*(?:session=|proof=|page=)/,
+    'Home UI proof and account signals are not copied into the WebView event');
+  assert.doesNotMatch(shell, /diagTrace\('spotify-route[^\n]*(?:session|spotifyRoutePath\(\)|location\.href)/);
+  assert.doesNotMatch(shell, /home-data stage=(?:web-to-android|web-rendered)[^\n]*(?:rows=|cards=|session=|proof=)/,
+    'Home transfer diagnostics contain no card, playlist, session, or proof counts');
+  assert.match(bridgeSource, /library-fetch phase=' \+ safePhase \+ ' http=' \+ safeHttp/);
+  assert.match(bridgeSource, /mime=' \+ mime \+ ' duration=' \+ duration \+ ' error=' \+ error/);
+  assert.doesNotMatch(bridgeSource, /received=|transformed=|proof=|page=/,
+    'library diagnostics export only response type, HTTP status, phase, duration and sanitized error');
 });
 
 test('Android accepts structured JS diagnostics only through a strict bounded grammar', () => {
@@ -60,33 +72,38 @@ test('Android accepts structured JS diagnostics only through a strict bounded gr
   assert.match(sanitizer, /safeStructuredDiagnosticEvent\(Ljava\/lang\/String;\)Z/,
     'structured traces are checked before any legacy event-family label');
   for (const event of [
-    'webview-state ready=', 'library-fetch phase=', 'library-proof proof=', 'spotify-route route=', 'home-guard guard=', 'home-css marker=',
-    'home-node exists=', 'home-web decision=', 'home-data stage=(web-to-android|web-rendered)',
-    'home-data stage=android-received', 'home-data stage=android-rendered',
-    'home-final owner=', 'bridge-load phase='
+    'webview-state ready=', 'library-fetch phase=', 'spotify-route route=', 'home-guard guard=', 'home-css marker=',
+    'home-node exists=', 'home-web decision=', 'home-data stage=web-to-android',
+    'home-data stage=web-rendered', 'home-data stage=android-received',
+    'home-data stage=android-rendered', 'home-state sent', 'home-final owner=', 'bridge-load phase='
   ]) assert.ok(structured.includes(event), `missing strict grammar for ${event}`);
-  assert.match(structured, /session=\(0\|1\) proof=\(unknown\|valid\|invalid\) page=\(profile\|none\)/);
+  assert.match(structured,
+    /library-fetch phase=response http=401 mime=\(json\|html\|other\|missing\) duration=\[0-9\]\{1,6\} error=http-401/,
+    'the accepted 401 event must include a matching response status and response phase');
+  assert.match(structured,
+    /library-fetch phase=response http=403 mime=\(json\|html\|other\|missing\) duration=\[0-9\]\{1,6\} error=http-403/);
   assert.match(structured, /library-fetch phase=\(request\|response\|parse\|transform\|settle\) http=/);
-  assert.match(structured, /library-proof proof=\(unknown\|valid\|invalid\) status=\(absent\|pending\|loading\|ready\|error\|other\) error=/);
-  assert.match(structured, /mime=\(json\|html\|other\|missing\).*error=\(none\|empty\|http-401\|http-403/);
-  assert.match(structured, /proof=\(unknown\|valid\|invalid\) page=\(profile\|none\)/);
-  assert.match(structured, /cards=\[0-9\]\{1,3\}/);
+  assert.match(structured, /mime=\(json\|html\|other\|missing\).*error=\(none\|empty\|http-other/);
+  assert.doesNotMatch(structured, /library-proof|proof=|page=|received=|transformed=/,
+    'persistent grammar excludes session proof, profile signals and account-content counts');
   assert.match(structured, /width=\[0-9\]\{1,5\}/);
   assert.match(structured, /bridge-load phase=\(read-start\|read-end\|exec-start\|exec-end\)/);
   assert.doesNotMatch(structured, /playlist-name|account-id|cookie|access_token|refresh_token|selector|spotifyRoutePath/i);
 });
 
-test('Android native renderer records received/rendered counts without logging card content', () => {
+test('Android native renderer records stage outcomes without logging playlist/card counts', () => {
   const renderer = read('smali/com/melodix/music/NativeHomeShelfRenderer.smali');
   assert.match(renderer, /traceHomeReceipt\(I\)V/);
   assert.match(renderer, /traceHomeRendered\(IILjava\/lang\/String;\)V/);
-  assert.match(renderer, /home-data stage=android-received rows=/);
-  assert.match(renderer, /home-data stage=android-rendered rows=/);
+  assert.match(renderer, /home-data stage=android-received result=received/);
+  assert.match(renderer, /home-data stage=android-rendered result=/);
   assert.match(renderer, /add-int\/lit8 p1, p1, 0x1/,
-    'rendered card count increments only after a real card is attached');
+    'rendered card count is still internal to view construction');
   assert.match(renderer, /NativeCrashGuard;->diagLine\(Ljava\/lang\/String;\)V/);
+  assert.doesNotMatch(renderer, /home-data stage=android-(?:received|rendered)[^\n]*(?:rows=|cards=|session=|proof=)/,
+    'native diagnostics contain only stage outcomes, not account counts or proof flags');
   assert.doesNotMatch(renderer, /diagLine\([^\n]*(?:title|subtitle|uri|image)/i,
-    'native diagnostics contain counts and states, not playlist metadata or URIs');
+    'native diagnostics never contain playlist metadata or URIs');
 });
 
 test('nativeRoot/WebView/host dimensions and stacking are correlated by the NativeCrashGuard SID', () => {

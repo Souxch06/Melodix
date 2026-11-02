@@ -292,9 +292,13 @@ test('[P0 playlists] le bridge notifie le shell quand mediaLib est settle (pas d
     'timeout et réseau ont des états distincts');
   assert.ok(bridgeSrc.includes('invalid-json') && bridgeSrc.includes('unexpected-shape'),
     'les réponses JSON mal formées et inattendues restent distinguées');
-  // The warmup is retryable and the merge is traced.
+  // The warmup is retryable; private rows refresh on the settled event, but
+  // diagnostic output no longer publishes library/card counts.
   assert.ok(shellSrc.includes('window.__sfMediaLibRetryAt'), 'backoff de retry du warmup');
-  assert.ok(shellSrc.includes('home-merge lib='), 'trace de fusion avant/apres');
+  assert.ok(shellSrc.includes('window.__sfNativeUiRefresh = function()'),
+    'le bridge peut rafraîchir les rows après le settle sans exporter de volume de compte');
+  assert.ok(!shellSrc.includes('home-merge lib='), 'aucun volume de bibliothèque n’est envoyé en diagnostic');
+  assert.ok(!shellSrc.includes('home-card-counts'), 'aucun compteur de playlists ne quitte le WebView');
   assert.ok(!shellSrc.includes('mediaLibWarmupRequested'), 'plus de warmup one-shot');
 });
 

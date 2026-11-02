@@ -1,8 +1,7 @@
 // [contrat][structurel][A TESTER SUR ANDROID]
-// Home peut afficher des cartes Spotify réelles, ou un état non-playlist après
-// preuve de session; une charge vide brute ne peut jamais masquer le WebView.
-// Ces assertions suivent les gates sources, tandis que l'instrumentation Android
-// vérifie séparément la hiérarchie et les pixels des chemins WebView et état natif.
+// Le shell natif peut montrer un état de connexion sans preuve libraryV3, mais
+// aucune donnée privée n'est envoyée avant cette preuve. L'instrumentation
+// Android vérifie séparément les vraies vues et leur visibilité.
 const test = require('node:test');
 const assert = require('node:assert');
 const fs = require('node:fs');
@@ -11,28 +10,37 @@ const path = require('node:path');
 const root = path.join(__dirname, '..');
 const read = (p) => fs.readFileSync(path.join(root, p), 'utf8');
 
-test('[P0] zero Home cards may render only an explicit state after session proof', () => {
+test('[P0] unproven Home sends a status-only row and activates the shell without granting session proof', () => {
   const shell = read('scripts/native_ui_shell.source.js');
   const start = shell.indexOf('function notifyNativeUiReady(');
-  assert.ok(start >= 0, 'notifyNativeUiReady existe');
-  const body = shell.slice(start, shell.indexOf('\n    function ', start + 10));
-  assert.match(body, /homeContentProven = isSpotifyHome\(\)[\s\S]*?HomeRowsCount[\s\S]*?HomeDataSent/,
-    'les cartes restent fondées sur des lignes réellement envoyées');
-  assert.match(body, /homeStateProven = isSpotifyHome\(\) && sessionProven[\s\S]*?HomeStateSent/,
-    'un état ne prouve Home que si la session et son payload explicite sont confirmés');
-  assert.match(body, /if \(isSpotifyHome\(\) && !homeContentProven && !homeStateProven\)/,
-    'un payload vide ou échoué ne satisfait aucun des deux chemins');
-  assert.match(body, /action=keep-spotify-visible/, 'le refus conserve Spotify visible');
-  assert.ok(shell.includes("function pageHasSessionEvidence()"), 'le même signal profil/bibliothèque est utilisé au moment de l’envoi');
-  const state = shell.slice(shell.indexOf('function homeStateRow()'), shell.indexOf('function homeStatePayload()'));
-  assert.match(state, /kind: 'state'/);
-  assert.doesNotMatch(state, /spotify:(?:playlist|album|artist|track):/,
-    'un état n’invente ni URI ni contenu musical');
+  assert.ok(start >= 0, 'notifyNativeUiReady exists');
+  const ready = shell.slice(start, shell.indexOf('\n    function ', start + 10));
+  assert.match(ready, /homeContentProven = isSpotifyHome\(\) && sessionProven/,
+    'native cards still require private libraryV3 proof');
+  assert.match(ready, /homeShellStateReady = nativeHomeRoute[\s\S]*?HomeStateSent === true[\s\S]*?HomeSessionUnproven === true/,
+    'a sent explicit connection state can activate the shell without changing session proof');
+  assert.match(ready, /takeoverProven = sessionProven/,
+    'UI readiness and private-session proof remain separate signals');
+  assert.match(ready, /shellActivationAllowed = takeoverProven \|\| homeShellStateReady/);
+  assert.match(ready, /if \(isSpotifyHome\(\) && sessionProven && !homeContentProven && !homeStateProven\)/,
+    'a valid session still cannot activate Home from an empty or failed payload');
+  assert.ok(shell.includes('function libraryProvesSession()'), 'libraryV3 remains the only private-data proof');
+
+  const unproven = shell.slice(shell.indexOf('function unprovenHomeStateRow()'),
+    shell.indexOf('function homePartialErrorRow()'));
+  assert.match(unproven, /kind: 'state'/);
+  assert.match(unproven, /sessionUnproven: true/);
+  assert.match(unproven, /uri: 'melodix:action:open-login'/);
+  assert.doesNotMatch(unproven, /spotify:(?:playlist|album|artist|track):/,
+    'the unproven state contains no fabricated playlist or resource URI');
+
   const updateStart = shell.indexOf('function updateHomeRows(');
   const update = shell.slice(updateStart, shell.indexOf('\n    function ', updateStart + 10));
-  assert.match(update, /pageHasSessionEvidence\(\)[\s\S]*?sendNativeUiData\('home', statePayload\)[\s\S]*?HomeStateSent = true/);
-  assert.match(update, /Empty data is a clear\/fallback signal[\s\S]*?sendNativeUiData\('home', \[\]\)/,
-    'without session evidence, only an empty clear/fallback payload is sent');
+  assert.match(update, /rows = sessionProven && actualHomeRoute \? collectedRows : \[\]/,
+    'Home/Search/Library/detail DOM rows remain private until the library response proves the session');
+  assert.match(update, /statePayload = sessionProven \? homeStatePayload\(\) : unprovenHomeStatePayload\(\)/);
+  assert.match(update, /sendNativeUiData\('home', statePayload\)[\s\S]*?HomeStateSent = true/);
+  assert.match(update, /HomeSessionUnproven = statePayload\[0\]\.sessionUnproven === true/);
 });
 
 test('[P0] runUpdate envoie route, rows, puis readiness dans cet ordre', () => {
@@ -40,11 +48,13 @@ test('[P0] runUpdate envoie route, rows, puis readiness dans cet ordre', () => {
   const start = shell.indexOf('function runUpdate(');
   assert.ok(start >= 0, 'runUpdate existe');
   const body = shell.slice(start, shell.indexOf('\n    function ', start + 10));
-  const routeIdx = body.indexOf('sendNativeUiRoute(route)');
+  const routeIdx = body.indexOf('sendNativeUiRoute(nativeRoute)');
   const rowsIdx = body.indexOf('updateHomeRows(mainView)');
   const readyIdx = body.indexOf('notifyNativeUiReady(mainView)');
   assert.ok(routeIdx >= 0 && rowsIdx > routeIdx && readyIdx > rowsIdx,
-    'route native puis données Home puis readiness; jamais le payload sous une route obsolète');
+    'route native Home sûre, données status-only, puis readiness; jamais un payload privé sous une route obsolète');
+  assert.match(body, /nativeRoute = sessionBit === '1' \? route : 'home'/,
+    'sans libraryV3, la route native reste Home sans présumer de la session');
 });
 
 test('[P0] les playlists du compte viennent du drawer reel (mobile + desktop), jamais inventees', () => {
@@ -66,7 +76,10 @@ test('[P0] traces de diagnostic presentes (bridge, shell, rows, erreurs JS)', ()
   const andBridge = read('smali/com/melodix/music/AndBridge.smali');
   assert.ok(shell.includes('function diagTrace('), 'diagTrace existe dans le shell');
   assert.ok(shell.includes("js-shell begin"), 'trace de demarrage du shell');
-  assert.ok(shell.includes("home-rows sent n="), 'trace du nombre de rows');
+  assert.ok(shell.includes("home-rows sent"), 'transfert Home marqué sans publier de compteurs');
+  assert.ok(shell.includes("home-state sent"), 'état de connexion natif marqué sans divulguer de preuve de session');
+  assert.ok(shell.includes("home-data stage=web-to-android result="), 'résultat du handoff réduit à un enum');
+  assert.ok(!shell.includes("home-rows sent n="), 'aucun compteur de playlists n’est exporté');
   assert.ok(shell.includes("main-view found"), 'trace de l\'element d\'accueil');
   assert.ok(bridge.includes("bridge start"), 'trace de demarrage du bridge');
   assert.ok(bridge.includes("bridge done"), 'trace de fin du bridge');

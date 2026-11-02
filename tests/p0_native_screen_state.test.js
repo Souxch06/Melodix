@@ -42,6 +42,7 @@ function executeSetNativeScreen(
         nativeFadeNextScreen: previousFade,
         nativeHomeCardsAttached: Boolean(previousHomeState.nativeHomeCardsAttached),
         nativeHomeStatusAttached: Boolean(previousHomeState.nativeHomeStatusAttached),
+        nativeHomeSessionUnprovenStatusAttached: Boolean(previousHomeState.nativeHomeSessionUnprovenStatusAttached),
         nativeHomeContentReady: Boolean(previousHomeState.nativeHomeContentReady),
         nativeHomeFirstCard: previousHomeState.nativeHomeFirstCard || null,
         nativeHomeStatusView: previousHomeState.nativeHomeStatusView || null,
@@ -123,7 +124,7 @@ function executeSetNativeScreen(
             fadeValueAtStore = state.nativeFadeNextScreen;
             continue;
         }
-        if ((match = /^iput-boolean (\w+), p0, .*->(nativeHomeCardsAttached|nativeHomeStatusAttached|nativeHomeContentReady):Z$/.exec(instruction))) {
+        if ((match = /^iput-boolean (\w+), p0, .*->(nativeHomeCardsAttached|nativeHomeStatusAttached|nativeHomeSessionUnprovenStatusAttached|nativeHomeContentReady):Z$/.exec(instruction))) {
             state[match[2]] = Boolean(registers[match[1]]);
             continue;
         }
@@ -170,10 +171,32 @@ test('D2 — repeated Home destination is idempotent and preserves existing cont
     assert.strictEqual(result.state.contentSentinel, contentSentinel, 'repeated feed updates retain rendered content');
 });
 
+test('status-only Home remains attached on repeated Home, then clears on a genuine route change', () => {
+    const statusSentinel = { attached: true };
+    const statusHomeState = {
+        nativeHomeCardsAttached: false,
+        nativeHomeStatusAttached: true,
+        nativeHomeSessionUnprovenStatusAttached: true,
+        nativeHomeContentReady: true,
+        nativeHomeStatusView: statusSentinel
+    };
+    const repeated = executeSetNativeScreen('home', 'home', false, { value: 'status-only' }, statusHomeState);
+    assert.equal(repeated.state.nativeHomeStatusAttached, true);
+    assert.equal(repeated.state.nativeHomeSessionUnprovenStatusAttached, true);
+    assert.strictEqual(repeated.state.nativeHomeStatusView, statusSentinel);
+
+    const leftHome = executeSetNativeScreen('home', 'library', false, { value: 'status-only' }, statusHomeState);
+    assert.equal(leftHome.state.nativeHomeStatusAttached, false);
+    assert.equal(leftHome.state.nativeHomeSessionUnprovenStatusAttached, false);
+    assert.equal(leftHome.state.nativeHomeContentReady, false);
+    assert.equal(leftHome.state.nativeHomeStatusView, null);
+});
+
 test('D3 — a genuine Home to Search change stores the route and schedules a fade', () => {
     const previousHomeState = {
-        nativeHomeCardsAttached: true,
+        nativeHomeCardsAttached: false,
         nativeHomeStatusAttached: true,
+        nativeHomeSessionUnprovenStatusAttached: true,
         nativeHomeContentReady: true,
         nativeHomeFirstCard: { attached: true },
         nativeHomeStatusView: { attached: true }
@@ -184,6 +207,8 @@ test('D3 — a genuine Home to Search change stores the route and schedules a fa
     assert.equal(result.state.nativeFadeNextScreen, true);
     assert.equal(result.state.nativeHomeCardsAttached, false, 'leaving Home invalidates card attachment state');
     assert.equal(result.state.nativeHomeStatusAttached, false, 'leaving Home invalidates status attachment state');
+    assert.equal(result.state.nativeHomeSessionUnprovenStatusAttached, false,
+        'leaving Home clears the status-only state so it cannot leak into Search or Library');
     assert.equal(result.state.nativeHomeContentReady, false, 'leaving Home invalidates visibility readiness');
     assert.equal(result.state.nativeHomeFirstCard, null, 'leaving Home drops the stale card reference');
     assert.equal(result.state.nativeHomeStatusView, null, 'leaving Home drops the stale status reference');
@@ -290,6 +315,7 @@ function executeNativeRouteActivation(activity, destination) {
                 nativeFadeNextScreen: result.state.nativeFadeNextScreen,
                 nativeHomeCardsAttached: result.state.nativeHomeCardsAttached,
                 nativeHomeStatusAttached: result.state.nativeHomeStatusAttached,
+                nativeHomeSessionUnprovenStatusAttached: result.state.nativeHomeSessionUnprovenStatusAttached,
                 nativeHomeContentReady: result.state.nativeHomeContentReady
             });
             continue;

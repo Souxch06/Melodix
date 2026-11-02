@@ -2929,23 +2929,6 @@
         return Number.isFinite(count) ? Math.max(0, Math.min(max, Math.floor(count))) : 0;
     }
 
-    function mediaLibraryProofState() {
-        if (window.__sfMediaLibSessionProofKnown === true) {
-            return window.__sfMediaLibSessionProven === true ? 'valid' : 'invalid';
-        }
-        return 'unknown';
-    }
-
-    function mediaLibraryPageSignal() {
-        try {
-            return document && document.querySelector && document.querySelector(
-                'button[data-testid="user-widget-link"], a[data-testid="user-widget-link"], .main-userWidget-box'
-            ) ? 'profile' : 'none';
-        } catch (_) {
-            return 'none';
-        }
-    }
-
     function mediaLibraryResponseMime(response) {
         let raw = '';
         try {
@@ -2986,28 +2969,26 @@
         ];
         const requestedPhase = String(phase || state.phase || 'settle');
         const safePhase = allowedPhases.indexOf(requestedPhase) >= 0 ? requestedPhase : 'settle';
-        const status = boundedMediaLibraryCount(state.http, 599);
-        const safeHttp = status === 0 || status >= 100 ? status : 0;
+        const status = Number(state.http);
+        const safeHttp = Number.isFinite(status) && status >= 100 && status <= 599
+            ? Math.floor(status) : 0;
         const mime = allowedMimes.indexOf(String(state.mime || '')) >= 0 ? String(state.mime) : 'missing';
-        const error = allowedErrors.indexOf(String(state.error || '')) >= 0 ? String(state.error) : 'parse';
+        let error = allowedErrors.indexOf(String(state.error || '')) >= 0 ? String(state.error) : 'parse';
+        const claimedHttpStatus = error === 'http-401' ? 401 : error === 'http-403' ? 403 : 0;
+        if (claimedHttpStatus && (safeHttp !== claimedHttpStatus || safePhase !== 'response')) {
+            error = 'http-other';
+        }
         const elapsed = Math.max(0, mediaLibraryNow() - Number(state.startedAt || 0));
         const duration = boundedMediaLibraryCount(elapsed, 999999);
-        const received = boundedMediaLibraryCount(state.received, 1000);
-        const transformed = boundedMediaLibraryCount(state.transformed, 1000);
-        const proof = mediaLibraryProofState();
-        const page = mediaLibraryPageSignal();
         const line = 'library-fetch phase=' + safePhase + ' http=' + safeHttp +
-            ' mime=' + mime + ' duration=' + duration + ' error=' + error +
-            ' received=' + received + ' transformed=' + transformed +
-            ' proof=' + proof + ' page=' + page;
+            ' mime=' + mime + ' duration=' + duration + ' error=' + error;
         try {
-            // A passive observer can read this bounded snapshot on the next
-            // authenticated Home sample; it contains no response body, URL,
-            // credentials, account names, or resource metadata.
+            // The exported diagnostic is restricted to the HTTP response class
+            // and timing boundary; no proof/page flags, counts, payload, URL,
+            // credentials, account names, or resource metadata are recorded.
             window.__sfMediaLibLastDiagnostic = {
                 phase: safePhase, http: safeHttp, mime: mime, durationMs: duration,
-                error: error, received: received, transformed: transformed,
-                proof: proof, page: page
+                error: error
             };
         } catch (_) {}
         try {
@@ -3054,9 +3035,6 @@
         } catch (_) {}
     }
     function notifyMediaLibSettled(reason) {
-        console.log("[Spotifuck] mediaLib settled: " + (window.__sfMediaLibStatus || '?') +
-            " playlists=" + ((window.mediaLib && window.mediaLib.playlists && window.mediaLib.playlists.length) || 0) +
-            " reason=" + (reason || ''));
         notifyMediaLibUiChange();
         try {
             if (typeof window.__sfNativeUiRefresh === 'function') window.__sfNativeUiRefresh();
@@ -3129,9 +3107,6 @@
             }
             diagnostic.phase = diagnostic.error === 'none' || diagnostic.error === 'empty'
                 ? 'settle' : diagnostic.phase;
-            console.log("[Spotifuck] checkMediaLib: library settled status=" +
-                window.__sfMediaLibStatus + " error=" + (window.__sfMediaLibError || 'none') +
-                " items=" + boundedMediaLibraryCount(diagnostic.received, 1000));
             if (window.pendingMediaRequests && window.pendingMediaRequests.size > 0) {
                 const verifiedLibrary = window.__sfMediaLibSessionProofKnown === true &&
                     window.__sfMediaLibSessionProven === true && window.mediaLib;
@@ -3143,7 +3118,6 @@
             }
             notifyMediaLibSettled(window.__sfMediaLibStatus);
         } catch (_) {
-            console.warn("Media library request failed; error details redacted.");
             window.__sfMediaLibStatus = 'error';
             window.__sfMediaLibError = 'transform-error';
             diagnostic.phase = 'transform';

@@ -46,25 +46,6 @@
     move-result v1
     invoke-static {v1}, Lcom/melodix/music/NativeHomeShelfRenderer;->traceHomeReceipt(I)V
 
-    # MDXTRACE: how many Home rows actually reached the renderer.
-    new-instance v2, Ljava/lang/StringBuilder;
-
-    invoke-direct {v2}, Ljava/lang/StringBuilder;-><init>()V
-
-    const-string v3, "home-render rows="
-
-    invoke-virtual {v2, v3}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
-
-    invoke-virtual {v2, v1}, Ljava/lang/StringBuilder;->append(I)Ljava/lang/StringBuilder;
-
-    invoke-virtual {v2}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
-
-    move-result-object v2
-
-    const-string v3, "MDXTRACE"
-
-    invoke-static {v3, v2}, Landroid/util/Log;->i(Ljava/lang/String;Ljava/lang/String;)I
-
     if-lez v1, :shelf_no_cards
 
     # An explicit kind=state payload is not a Spotify card. It is accepted only
@@ -669,6 +650,10 @@
     const-string v0, "melodix:action:retry-library"
     invoke-virtual {v0, v6}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
     move-result v1
+    if-nez v1, :home_status_action_valid
+    const-string v0, "melodix:action:open-login"
+    invoke-virtual {v0, v6}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    move-result v1
     if-eqz v1, :home_status_attach
 
     :home_status_action_valid
@@ -694,6 +679,12 @@
     invoke-virtual {v4, v0}, Landroid/view/View;->setLayoutParams(Landroid/view/ViewGroup$LayoutParams;)V
     invoke-virtual {p1, v4}, Landroid/widget/LinearLayout;->addView(Landroid/view/View;)V
     invoke-virtual {p0, v4}, Lcom/melodix/music/MainActivity;->noteNativeHomeStatusAttached(Landroid/view/View;)V
+    const-string v0, "sessionUnproven"
+    invoke-virtual {p2, v0}, Lorg/json/JSONObject;->optBoolean(Ljava/lang/String;)Z
+    move-result v0
+    if-eqz v0, :home_status_session_state_marked
+    invoke-virtual {p0, v4}, Lcom/melodix/music/MainActivity;->noteNativeHomeSessionUnprovenStatusAttached(Landroid/view/View;)V
+    :home_status_session_state_marked
     const/4 v0, 0x1
     return v0
 .end method
@@ -1036,75 +1027,25 @@
 .end method
 
 .method private static traceHomeReceipt(I)V
-    .locals 4
+    .locals 1
 
-    if-ltz p0, :home_receipt_zero
-    const/16 v0, 0x3e7
-    if-gt p0, v0, :home_receipt_max
-    move v1, p0
-    goto :home_receipt_count_ready
-    :home_receipt_max
-    move v1, v0
-    goto :home_receipt_count_ready
-    :home_receipt_zero
-    const/4 v1, 0x0
-
-    :home_receipt_count_ready
-    new-instance v2, Ljava/lang/StringBuilder;
-    invoke-direct {v2}, Ljava/lang/StringBuilder;-><init>()V
-    const-string v3, "home-data stage=android-received rows="
-    invoke-virtual {v2, v3}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
-    invoke-virtual {v2, v1}, Ljava/lang/StringBuilder;->append(I)Ljava/lang/StringBuilder;
-    const-string v3, " route=home result=received"
-    invoke-virtual {v2, v3}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
-    invoke-virtual {v2}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
-    move-result-object v2
-    invoke-static {v2}, Lcom/melodix/music/NativeCrashGuard;->diagLine(Ljava/lang/String;)V
-    invoke-static {v2}, Lcom/melodix/music/StartupDiagnosticOverlay;->appendDiagnosticLine(Ljava/lang/String;)V
+    const-string v0, "home-data stage=android-received result=received"
+    invoke-static {v0}, Lcom/melodix/music/NativeCrashGuard;->diagLine(Ljava/lang/String;)V
+    invoke-static {v0}, Lcom/melodix/music/StartupDiagnosticOverlay;->appendDiagnosticLine(Ljava/lang/String;)V
     return-void
 .end method
 
 .method private static traceHomeRendered(IILjava/lang/String;)V
-    .locals 6
+    .locals 3
 
-    if-ltz p0, :home_render_rows_zero
-    const/16 v0, 0x3e7
-    if-gt p0, v0, :home_render_rows_max
-    move v1, p0
-    goto :home_render_rows_ready
-    :home_render_rows_max
-    move v1, v0
-    goto :home_render_rows_ready
-    :home_render_rows_zero
-    const/4 v1, 0x0
-
-    :home_render_rows_ready
-    if-ltz p1, :home_render_cards_zero
-    const/16 v0, 0x3e7
-    if-gt p1, v0, :home_render_cards_max
-    move v2, p1
-    goto :home_render_cards_ready
-    :home_render_cards_max
-    move v2, v0
-    goto :home_render_cards_ready
-    :home_render_cards_zero
-    const/4 v2, 0x0
-
-    :home_render_cards_ready
-    new-instance v3, Ljava/lang/StringBuilder;
-    invoke-direct {v3}, Ljava/lang/StringBuilder;-><init>()V
-    const-string v4, "home-data stage=android-rendered rows="
-    invoke-virtual {v3, v4}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
-    invoke-virtual {v3, v1}, Ljava/lang/StringBuilder;->append(I)Ljava/lang/StringBuilder;
-    const-string v4, " cards="
-    invoke-virtual {v3, v4}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
-    invoke-virtual {v3, v2}, Ljava/lang/StringBuilder;->append(I)Ljava/lang/StringBuilder;
-    const-string v4, " route=home result="
-    invoke-virtual {v3, v4}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
-    invoke-virtual {v3, p2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
-    invoke-virtual {v3}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
-    move-result-object v3
-    invoke-static {v3}, Lcom/melodix/music/NativeCrashGuard;->diagLine(Ljava/lang/String;)V
-    invoke-static {v3}, Lcom/melodix/music/StartupDiagnosticOverlay;->appendDiagnosticLine(Ljava/lang/String;)V
+    new-instance v0, Ljava/lang/StringBuilder;
+    invoke-direct {v0}, Ljava/lang/StringBuilder;-><init>()V
+    const-string v1, "home-data stage=android-rendered result="
+    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    invoke-virtual {v0, p2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    invoke-virtual {v0}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
+    move-result-object v0
+    invoke-static {v0}, Lcom/melodix/music/NativeCrashGuard;->diagLine(Ljava/lang/String;)V
+    invoke-static {v0}, Lcom/melodix/music/StartupDiagnosticOverlay;->appendDiagnosticLine(Ljava/lang/String;)V
     return-void
 .end method

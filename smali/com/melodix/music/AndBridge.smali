@@ -527,29 +527,34 @@
 .method private final safeStructuredDiagnosticEvent(Ljava/lang/String;)Z
     .locals 2
 
-    # Event-specific patterns preserve diagnostic values only when every value
-    # is a fixed enum, a 0/1 proof, or a bounded numeric count/dimension.
-    const-string v0, "^webview-state ready=(loading|interactive|complete|unknown) host=(spotify|accounts|other) route=(home|search|library|playlist|album|artist|track|show|episode|audiobook|login|other) session=(0|1) proof=(unknown|valid|invalid) page=(profile|none) bridge=(0|1) visibility=(visible|hidden|unknown)$"
+    # Event-specific patterns preserve only fixed enums and bounded timing or
+    # layout values. HTTP claims require their matching response status/phase.
+    const-string v0, "^webview-state ready=(loading|interactive|complete|unknown) host=(spotify|accounts|other) route=(home|search|library|playlist|album|artist|track|show|episode|audiobook|login|other) bridge=(0|1) visibility=(visible|hidden|unknown)$"
     invoke-virtual {p1, v0}, Ljava/lang/String;->matches(Ljava/lang/String;)Z
     move-result v1
     if-nez v1, :structured_safe
 
-    const-string v0, "^library-fetch phase=(request|response|parse|transform|settle) http=(0|[1-5][0-9]{2}) mime=(json|html|other|missing) duration=[0-9]{1,6} error=(none|empty|http-401|http-403|http-other|timeout|network|non-json|invalid-json|unexpected-shape|graphql|parse|transform) received=(0|[1-9][0-9]{0,2}|1000) transformed=(0|[1-9][0-9]{0,2}|1000) proof=(unknown|valid|invalid) page=(profile|none)$"
+    const-string v0, "^library-fetch phase=response http=401 mime=(json|html|other|missing) duration=[0-9]{1,6} error=http-401$"
     invoke-virtual {p1, v0}, Ljava/lang/String;->matches(Ljava/lang/String;)Z
     move-result v1
     if-nez v1, :structured_safe
 
-    const-string v0, "^library-proof proof=(unknown|valid|invalid) status=(absent|pending|loading|ready|error|other) error=(none|empty|http-401|http-403|http-other|timeout|network|non-json|invalid-json|unexpected-shape|graphql|parse|transform|other)$"
+    const-string v0, "^library-fetch phase=response http=403 mime=(json|html|other|missing) duration=[0-9]{1,6} error=http-403$"
     invoke-virtual {p1, v0}, Ljava/lang/String;->matches(Ljava/lang/String;)Z
     move-result v1
     if-nez v1, :structured_safe
 
-    const-string v0, "^spotify-route route=(home|search|library|playlist|album|artist|track|show|episode|audiobook|login|other) session=(0|1)$"
+    const-string v0, "^library-fetch phase=(request|response|parse|transform|settle) http=(0|[1-5][0-9]{2}) mime=(json|html|other|missing) duration=[0-9]{1,6} error=(none|empty|http-other|timeout|network|non-json|invalid-json|unexpected-shape|graphql|parse|transform)$"
     invoke-virtual {p1, v0}, Ljava/lang/String;->matches(Ljava/lang/String;)Z
     move-result v1
     if-nez v1, :structured_safe
 
-    const-string v0, "^home-guard guard=(body|route|gui-mode|fullscreen|session|activation) result=(0|1) route=(home|search|library|playlist|album|artist|track|show|episode|audiobook|login|other) session=(0|1)$"
+    const-string v0, "^spotify-route route=(home|search|library|playlist|album|artist|track|show|episode|audiobook|login|other)$"
+    invoke-virtual {p1, v0}, Ljava/lang/String;->matches(Ljava/lang/String;)Z
+    move-result v1
+    if-nez v1, :structured_safe
+
+    const-string v0, "^home-guard guard=(body|route|gui-mode|fullscreen|activation) result=(0|1) route=(home|search|library|playlist|album|artist|track|show|episode|audiobook|login|other)$"
     invoke-virtual {p1, v0}, Ljava/lang/String;->matches(Ljava/lang/String;)Z
     move-result v1
     if-nez v1, :structured_safe
@@ -564,27 +569,52 @@
     move-result v1
     if-nez v1, :structured_safe
 
-    const-string v0, "^home-web decision=(body-missing|route-not-home|gui-mode-unsupported|fullscreen-open|session-unproven|session-rejected|styles-not-ready|visible|status-visible-(loading|empty|error|unavailable)|activation-visibility-check-failed|rendered|rendered-partial|updated|rendered-status-(loading|empty|error|unavailable)) mode=(csshack|bigwindow|other|missing) route=(home|search|library|playlist|album|artist|track|show|episode|audiobook|login|other) session=(0|1|unknown) styles=(0|1) cards=[0-9]{1,3} sections=[0-9]{1,3} root=(0|1|unknown) library=(absent|pending|loading|ready|error|other)$"
+    const-string v0, "^home-web decision=(body-missing|route-not-home|gui-mode-unsupported|fullscreen-open|renderer-inactive|styles-not-ready|visible|status-visible-(loading|empty|error|partial|ready|unavailable)|activation-visibility-check-failed|rendered|rendered-partial|updated|rendered-status-(loading|empty|error|unavailable)) mode=(csshack|bigwindow|other|missing) route=(home|search|library|playlist|album|artist|track|show|episode|audiobook|login|other) styles=(0|1) root=(0|1|unknown)$"
     invoke-virtual {p1, v0}, Ljava/lang/String;->matches(Ljava/lang/String;)Z
     move-result v1
     if-nez v1, :structured_safe
 
-    const-string v0, "^home-data stage=(web-to-android|web-rendered) rows=[0-9]{1,3} cards=[0-9]{1,3} session=(0|1) route=home result=(sent|failed|rendered|status)$"
+    const-string v0, "^home-data stage=web-to-android result=(sent|failed)$"
     invoke-virtual {p1, v0}, Ljava/lang/String;->matches(Ljava/lang/String;)Z
     move-result v1
     if-nez v1, :structured_safe
 
-    const-string v0, "^home-data stage=android-received rows=[0-9]{1,3} route=home result=received$"
+    const-string v0, "^home-data stage=web-rendered$"
     invoke-virtual {p1, v0}, Ljava/lang/String;->matches(Ljava/lang/String;)Z
     move-result v1
     if-nez v1, :structured_safe
 
-    const-string v0, "^home-data stage=android-rendered rows=[0-9]{1,3} cards=[0-9]{1,3} route=home result=(rendered|status|failed)$"
+    const-string v0, "^home-data stage=android-received result=received$"
     invoke-virtual {p1, v0}, Ljava/lang/String;->matches(Ljava/lang/String;)Z
     move-result v1
     if-nez v1, :structured_safe
 
-    const-string v0, "^home-final owner=(web|native|spotify|unknown) route=(home|search|library|playlist|album|artist|track|show|episode|audiobook|login|other) session=(0|1) web=(0|1|unknown) native=(0|1|unknown) home=(0|1) cards=[0-9]{1,3}$"
+    const-string v0, "^home-data stage=android-rendered result=(rendered|status|failed)$"
+    invoke-virtual {p1, v0}, Ljava/lang/String;->matches(Ljava/lang/String;)Z
+    move-result v1
+    if-nez v1, :structured_safe
+
+    const-string v0, "^home-rows sent$"
+    invoke-virtual {p1, v0}, Ljava/lang/String;->matches(Ljava/lang/String;)Z
+    move-result v1
+    if-nez v1, :structured_safe
+
+    const-string v0, "^home-state sent$"
+    invoke-virtual {p1, v0}, Ljava/lang/String;->matches(Ljava/lang/String;)Z
+    move-result v1
+    if-nez v1, :structured_safe
+
+    const-string v0, "^ready-pending$"
+    invoke-virtual {p1, v0}, Ljava/lang/String;->matches(Ljava/lang/String;)Z
+    move-result v1
+    if-nez v1, :structured_safe
+
+    const-string v0, "^native-ui-ready screen=(home|search|library|playlist|album|artist|track|show|episode|audiobook|other)$"
+    invoke-virtual {p1, v0}, Ljava/lang/String;->matches(Ljava/lang/String;)Z
+    move-result v1
+    if-nez v1, :structured_safe
+
+    const-string v0, "^home-final owner=(web|native|spotify|unknown) route=(home|search|library|playlist|album|artist|track|show|episode|audiobook|login|other) web=(0|1|unknown) native=(0|1|unknown) home=(0|1)$"
     invoke-virtual {p1, v0}, Ljava/lang/String;->matches(Ljava/lang/String;)Z
     move-result v1
     if-nez v1, :structured_safe
