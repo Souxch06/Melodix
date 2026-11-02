@@ -194,12 +194,20 @@ test('[P0 playlists] 6. un echec HTTP explicite reste visible et retentable', ()
       w.__sfMediaLibError = 'http-403';
     }
   });
-  // An error state (never 'loading'/'ready') allows the retry path.
+  // Auth refusals stop background retries; the two Home actions stay separate.
   window.__sfMediaLibRetryAt = 0;
   window.__sfNativeUiRefresh();
-  assert.equal(checkMediaLibCalls.count, 2, 'un echec autorise un nouvel essai');
-  const homeRows = calls.filter((c) => c.screen === 'home');
-  const rows = homeRows.length ? JSON.parse(homeRows[homeRows.length - 1].data) : [];
+  assert.equal(checkMediaLibCalls.count, 0, 'un refus HTTP ne relance pas la requête en arrière-plan');
+  let homeRows = calls.filter((c) => c.screen === 'home');
+  let rows = homeRows.length ? JSON.parse(homeRows[homeRows.length - 1].data) : [];
+  assert.equal(rows[0].uri, 'melodix:action:open-login', 'le bouton principal ouvre la connexion officielle');
+  assert.equal(rows[0].secondaryUri, 'melodix:action:retry-library', 'le nouvel essai reste explicite');
+  window.__sfNativeRetryLibrary();
+  assert.equal(checkMediaLibCalls.count, 1, 'le clic de nouvel essai lance une seule requête réelle');
+  window.__sfNativeUiRefresh();
+  assert.equal(checkMediaLibCalls.count, 1, 'aucune boucle ne repart après le nouvel échec');
+  homeRows = calls.filter((c) => c.screen === 'home');
+  rows = homeRows.length ? JSON.parse(homeRows[homeRows.length - 1].data) : [];
   assert.ok(!rows.some((r) => /fake|demo|example/i.test(r.title)), 'pas de donnees fabriquees');
 });
 

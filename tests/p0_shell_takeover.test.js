@@ -354,8 +354,8 @@ test('an empty Home without session evidence sends a real login state and activa
         'no fake playlist or account content is sent');
 });
 
-test('HTTP 401 is displayed only when the matching redacted response diagnostic exists', () => {
-    const { calls, win } = loadShell({
+test('HTTP 401 keeps its cause unknown and offers separate official-login and manual-retry actions', () => {
+    const { calls, win, drainTimers } = loadShell({
         withCards: false,
         noUserWidget: true,
         mediaLib: { playlists: [] },
@@ -366,14 +366,35 @@ test('HTTP 401 is displayed only when the matching redacted response diagnostic 
     const initial = calls.data.filter((call) => call.screen === 'home').at(-1).rows[0];
     assert.doesNotMatch(initial.subtitle, /HTTP 401/i,
         'a UI error string alone is not a network trace');
+    assert.match(initial.subtitle, /cause n’est pas établie/,
+        'an unconfirmed diagnostic does not infer why the request failed');
+    assert.equal(initial.uri, 'melodix:action:open-login',
+        'the primary action always goes through the official login flow');
+    assert.equal(initial.secondaryUri, 'melodix:action:retry-library',
+        'retry is a distinct action that invokes the real library request');
+    assert.equal(calls.mediaLibChecks, 0, 'an auth refusal does not immediately trigger a background retry');
+    drainTimers();
+    assert.equal(calls.mediaLibChecks, 0, 'draining queued Home retries still does not repeat a 401');
 
     win.__sfMediaLibLastDiagnostic = {
         phase: 'response', http: 401, mime: 'json', durationMs: 14, error: 'http-401'
     };
     win.__sfTriggerMutations();
     const confirmed = calls.data.filter((call) => call.screen === 'home').at(-1).rows[0];
-    assert.match(confirmed.subtitle, /HTTP 401/i,
-        'the displayed status is tied to a matching sanitized HTTP response record');
+    assert.match(confirmed.subtitle, /cause du refus n’est pas établie/,
+        'a confirmed 401 still does not prove a missing, expired, or rejected cookie');
+    assert.doesNotMatch(confirmed.subtitle, /HTTP 401/i,
+        'the 401 is kept in sanitized diagnostics, not asserted as its cause in the message');
+    assert.equal(confirmed.uri, 'melodix:action:open-login');
+    assert.equal(confirmed.secondaryUri, 'melodix:action:retry-library');
+});
+
+test('native payload filtering allows only distinct local secondary actions on unproven error states', () => {
+    const shell = fs.readFileSync(SHELL, 'utf8');
+    assert.match(shell, /var allowedActions = \['melodix:action:open-settings', 'melodix:action:retry-library', 'melodix:action:open-login'\]/);
+    assert.match(shell, /var allowedSecondaryAction = !secondaryUri[\s\S]{0,220}status === 'error'[\s\S]{0,180}item\.sessionUnproven === true[\s\S]{0,180}secondaryUri !== stateUri/);
+    assert.match(shell, /primaryUri = 'melodix:action:open-login';[\s\S]{0,80}secondaryUri = 'melodix:action:retry-library'/,
+        'the two buttons cannot dispatch the same action');
 });
 
 test('HTTP 429 messaging is also tied to the matching sanitized response record', () => {

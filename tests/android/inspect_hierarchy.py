@@ -19,8 +19,12 @@ BOUNDS_RE = re.compile(r"\[(\d+),(\d+)\]\[(\d+),(\d+)\]")
 SAFE_IDENTIFIER_RE = re.compile(r"[^A-Za-z0-9_.$:/-]")
 HOME_STATUS_MARKERS = (
     "connexion a spotify",
+    "connexion spotify a verifier",
+    "connexion spotify en cours",
     "connexion spotify non confirmee",
     "connexion spotify impossible a verifier",
+    "nous verifions votre connexion",
+    "cause du refus",
     "verification de la session",
     "etat de connexion non confirme",
     "chargement de votre accueil",

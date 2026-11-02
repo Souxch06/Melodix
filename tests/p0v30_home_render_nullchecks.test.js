@@ -81,7 +81,20 @@ test('[P0v30] raw empty or invalid Home becomes a native retry state; explicit s
   assert.doesNotMatch(render, /"home-rendered"|nativeHomeContentReady:Z/);
   assert.doesNotMatch(status, /spotify:(?:playlist|album|artist|track):|nativeHomeCardsAttached/,
     'le statut ne devient ni carte Spotify ni flag de playlist');
-  assert.match(status, /TextView;->setText\(Ljava\/lang\/CharSequence;\)V[\s\S]*?noteNativeHomeStatusAttached\(Landroid\/view\/View;\)V/);
+  assert.match(status, /createHomeStatusText\(Landroid\/content\/Context;Ljava\/lang\/String;IZF\)Landroid\/widget\/TextView;[\s\S]*?noteNativeHomeStatusAttached\(Landroid\/view\/View;\)V/);
+  const statusText = method(renderer, '.method private static createHomeStatusText(');
+  assert.match(statusText, /TextView;->setText\(Ljava\/lang\/CharSequence;\)V/);
+  const statusActions = method(renderer, '.method private static addHomeStatusActions(');
+  assert.match(statusActions, /createHomeStatusAction/);
+  const statusButton = method(renderer, '.method private static createHomeStatusAction(');
+  assert.match(statusButton, /NativeRowClickListener[\s\S]*?setOnClickListener/);
+  assert.match(status, /secondaryUri[\s\S]*?addHomeStatusActions/);
+  const cardWidth = method(renderer, '.method private static homeStatusCardWidth(');
+  assert.match(status, /homeStatusCardWidth\(Landroid\/content\/Context;Landroid\/view\/View;\)I/);
+  assert.match(cardWidth, /View;->getWidth\(\)I[\s\S]*?if-lez v1, :home_status_width_fallback[\s\S]*?widthPixels:I[\s\S]*?0x230/,
+    'the status card prefers measured safe content width, falls back before layout, and caps tablet width');
+  assert.match(statusButton, /setMinimumHeight\(I\)V[\s\S]*?setClickable\(Z\)V[\s\S]*?setFocusable\(Z\)V/,
+    'each child action has a touch-sized, focusable hit target');
   const activity = read('smali/com/melodix/music/MainActivity.smali');
   assert.match(activity, /\.method public final completeNativeUiVisibility\(Z\)Z[\s\S]*?hasMeasuredVisibleNativeHomeContent\(\)Z[\s\S]*?"home-rendered"/);
   const visibility = method(activity, '.method public final completeNativeUiVisibility(Z)Z');

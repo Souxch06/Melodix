@@ -30,7 +30,8 @@ test('[P0] unproven Home sends a status-only row and activates the shell without
     shell.indexOf('function homePartialErrorRow()'));
   assert.match(unproven, /kind: 'state'/);
   assert.match(unproven, /sessionUnproven: true/);
-  assert.match(unproven, /uri: 'melodix:action:open-login'/);
+  assert.match(unproven, /primaryUri = 'melodix:action:open-login'/);
+  assert.match(unproven, /secondaryUri = 'melodix:action:retry-library'/);
   assert.doesNotMatch(unproven, /spotify:(?:playlist|album|artist|track):/,
     'the unproven state contains no fabricated playlist or resource URI');
 

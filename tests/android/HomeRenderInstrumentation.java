@@ -532,6 +532,7 @@ public final class HomeRenderInstrumentation extends Instrumentation {
     @Override
     public void onStart() {
         String failurePhase = "instrumentation_start";
+        Bundle homeStatusActionState = null;
         Log.i(HARNESS_TAG, "instrumentation_onStart_entered");
         try {
             super.onStart();
@@ -760,6 +761,11 @@ public final class HomeRenderInstrumentation extends Instrumentation {
             captureHomeStatusUiEvidence();
             Log.i(HARNESS_TAG, "home_status_evidence_captured");
 
+            failurePhase = "home_status_action_dispatch";
+            notePhase(failurePhase);
+            homeStatusActionState = exerciseHomeStatusActions(activity, webView, originalWebViewUrl);
+            sendStatus(1, homeStatusActionState);
+
             // Reset the Home fixture, then explicitly request the login surface.
             // Empty or absent Home content is never allowed to reveal Spotify Web.
             failurePhase = "restore_login_after_status";
@@ -805,6 +811,7 @@ public final class HomeRenderInstrumentation extends Instrumentation {
                 throw new AssertionError("Explicit login action did not preserve the existing login WebView");
             }
             restoredState[0].putBoolean("login_surface_restored_after_status", true);
+            if (homeStatusActionState != null) restoredState[0].putAll(homeStatusActionState);
 
             // Run the packaged native shell itself in an isolated Spotify-origin
             // WebView. Its JavaScript handoff sends a status-only Home while
@@ -2712,9 +2719,9 @@ public final class HomeRenderInstrumentation extends Instrumentation {
         boolean unprovenStatusAttached = readBooleanField(activity, "nativeHomeSessionUnprovenStatusAttached");
         boolean cardsAttached = readBooleanField(activity, "nativeHomeCardsAttached");
         boolean contentReady = readBooleanField(activity, "nativeHomeContentReady");
-        boolean statusTitleVisible = containsText(statusView, "Connexion à Spotify");
-        boolean statusSubtitleVisible = containsText(statusView, "Vérification de la session");
-        boolean statusActionClickable = statusView != null && statusView.isClickable();
+        boolean statusTitleVisible = containsText(statusView, "Connexion Spotify en cours");
+        boolean statusSubtitleVisible = containsText(statusView, "Nous vérifions votre connexion");
+        boolean statusLoginActionClickable = containsClickableText(statusView, "Se connecter");
         boolean rootVisible = rootBounds != null;
         boolean webContainerVisible = webContainer.getVisibility() == View.VISIBLE;
         boolean splashHidden = splash.getVisibility() == View.GONE;
@@ -2731,7 +2738,7 @@ public final class HomeRenderInstrumentation extends Instrumentation {
                 || shellState.optBoolean("hasPrivateLibrary", true)
                 || !rootVisible || statusBounds == null || !statusAttached || !unprovenStatusAttached
                 || cardsAttached || !contentReady || !statusTitleVisible || !statusSubtitleVisible
-                || !statusActionClickable || !splashHidden || !homeTabVisible || !webContainerVisible
+                || !statusLoginActionClickable || !splashHidden || !homeTabVisible || !webContainerVisible
                 || !statusIsChild || !originalUrlPreserved || !"home".equals(currentScreen)) {
             throw new AssertionError("JavaScript handoff did not show a real status-only native Home without session proof");
         }
@@ -2744,7 +2751,7 @@ public final class HomeRenderInstrumentation extends Instrumentation {
         state.putBoolean("native_home_cards_attached", false);
         state.putBoolean("native_home_status_attached", true);
         state.putBoolean("native_home_status_visible", true);
-        state.putBoolean("native_home_status_login_action_clickable", true);
+        state.putBoolean("native_home_status_login_action_clickable", statusLoginActionClickable);
         state.putBoolean("native_home_content_ready", true);
         state.putBoolean("native_root_visible", true);
         state.putBoolean("native_home_tab_visible", true);
@@ -3951,11 +3958,12 @@ public final class HomeRenderInstrumentation extends Instrumentation {
         Object bridge = bridgeClass.getConstructor(Context.class).newInstance(activity);
         Method route = bridgeClass.getMethod("onNativeUiRoute", String.class);
         Method data = bridgeClass.getMethod("onNativeUiData", String.class, String.class);
-        String statusOnlyPayload = "[{\"kind\":\"state\",\"state\":\"loading\",\"sessionUnproven\":true,"
-                + "\"title\":\"Connexion à Spotify…\","
-                + "\"subtitle\":\"État de connexion non confirmé.\","
+        String statusOnlyPayload = "[{\"kind\":\"state\",\"state\":\"error\",\"sessionUnproven\":true,"
+                + "\"title\":\"Connexion Spotify à vérifier\","
+                + "\"subtitle\":\"La cause du refus n’est pas établie. Vos playlists restent masquées.\","
                 + "\"section\":\"Connexion Spotify\",\"image\":\"\","
-                + "\"uri\":\"melodix:action:open-login\"}]";
+                + "\"uri\":\"melodix:action:open-login\","
+                + "\"secondaryUri\":\"melodix:action:retry-library\"}]";
         if (statusOnlyPayload.contains("spotify:") || statusOnlyPayload.contains("playlist")) {
             throw new AssertionError("The status renderer fixture must not contain Spotify resources");
         }
@@ -4045,10 +4053,15 @@ public final class HomeRenderInstrumentation extends Instrumentation {
         boolean cardsAttached = readBooleanField(activity, "nativeHomeCardsAttached");
         boolean contentReady = readBooleanField(activity, "nativeHomeContentReady");
         boolean titleVisible = containsText(statusView, "Connexion à Spotify")
+                || containsText(statusView, "Connexion Spotify à vérifier")
                 || containsText(statusView, "Connexion Spotify non confirmée")
                 || containsText(statusView, "Connexion Spotify impossible à vérifier")
+                || containsText(statusView, "Connexion Spotify en cours")
                 || containsText(statusView, "Chargement de votre accueil")
                 || containsText(statusView, "Votre accueil n’a pas pu être chargé");
+        boolean loginActionClickable = containsClickableText(statusView, "Se connecter");
+        boolean retryActionClickable = containsClickableText(statusView, "Réessayer");
+        boolean fixtureRequiresRetryAction = containsText(statusView, "Connexion Spotify à vérifier");
         boolean splashHidden = splash.getVisibility() == View.GONE;
         boolean homeTabVisible = nativeHomeTab.isShown();
         boolean webContainerVisible = webContainer.getVisibility() == View.VISIBLE;
@@ -4062,7 +4075,8 @@ public final class HomeRenderInstrumentation extends Instrumentation {
         String currentScreen = readStringField(activity, "nativeCurrentScreen");
         requireUnauthenticatedSession(activity);
         if (!rootVisible || statusBounds == null || !statusAttached || !unprovenStatusAttached
-                || cardsAttached || !contentReady || !titleVisible || !splashHidden || !homeTabVisible
+                || cardsAttached || !contentReady || !titleVisible || !loginActionClickable
+                || (fixtureRequiresRetryAction && !retryActionClickable) || !splashHidden || !homeTabVisible
                 || !webContainerVisible || !webViewMounted || webBounds == null || !statusIsChild
                 || !sameWebViewUrl || !"native_root".equals(frontmost) || !"home".equals(currentScreen)) {
             throw new AssertionError("The non-playlist Home status view was not attached, measured, foremost, and visible");
@@ -4075,6 +4089,8 @@ public final class HomeRenderInstrumentation extends Instrumentation {
         state.putBoolean("native_home_cards_attached", false);
         state.putBoolean("native_home_status_attached", true);
         state.putBoolean("native_home_status_visible", true);
+        state.putBoolean("native_home_status_login_action_clickable", loginActionClickable);
+        state.putBoolean("native_home_status_retry_action_clickable", retryActionClickable);
         state.putBoolean("native_home_status_message_visible_in_hierarchy", true);
         state.putBoolean("native_home_content_ready", true);
         state.putBoolean("native_root_visible", true);
@@ -4092,6 +4108,151 @@ public final class HomeRenderInstrumentation extends Instrumentation {
         return state;
     }
 
+    private Bundle exerciseHomeStatusActions(
+            final Activity activity, final WebView webView, final String originalUrl) throws Exception {
+        requireUnauthenticatedSession(activity);
+        String retryStubInstalled = evaluateJavascriptAndWait(webView,
+                "window.__melodixTestRetryActionCount=0;" +
+                "window.__sfNativeRetryLibrary=function(){window.__melodixTestRetryActionCount++;};true;");
+        if (!"true".equals(retryStubInstalled)) {
+            throw new AssertionError("Could not install the isolated manual-retry callback fixture");
+        }
+
+        final boolean[] retryClicked = new boolean[1];
+        final Throwable[] retryFailure = new Throwable[1];
+        runOnMainSync(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    View status = readViewField(activity, "nativeHomeStatusView");
+                    retryClicked[0] = performClickOnText(status, "Réessayer");
+                } catch (Throwable error) {
+                    retryFailure[0] = unwrapInvocationTarget(error);
+                }
+            }
+        });
+        if (retryFailure[0] != null) throw new AssertionError("Could not click the child retry action");
+        if (!retryClicked[0] || !"true".equals(evaluateJavascriptAndWait(
+                webView, "window.__melodixTestRetryActionCount===1"))) {
+            throw new AssertionError("The child retry button did not dispatch exactly one manual retry");
+        }
+
+        final boolean[] loginClicked = new boolean[1];
+        final Throwable[] loginClickFailure = new Throwable[1];
+        runOnMainSync(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    View status = readViewField(activity, "nativeHomeStatusView");
+                    loginClicked[0] = performClickOnText(status, "Se connecter");
+                } catch (Throwable error) {
+                    loginClickFailure[0] = unwrapInvocationTarget(error);
+                }
+            }
+        });
+        if (loginClickFailure[0] != null) throw new AssertionError("Could not click the child official-login action");
+        if (!loginClicked[0]) throw new AssertionError("The official-login child button was not clickable");
+        waitForIdleSync();
+        Thread.sleep(100L);
+
+        final String[] loginUrl = new String[1];
+        final boolean[] loginOwner = new boolean[1];
+        final boolean[] webViewPreserved = new boolean[1];
+        final boolean[] webContainerVisible = new boolean[1];
+        final Throwable[] loginInspectFailure = new Throwable[1];
+        runOnMainSync(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    loginUrl[0] = webView.getUrl();
+                    loginOwner[0] = readBooleanField(activity, "nativeLoginWebRequested");
+                    View container = requiredView(activity, "webViewContainer");
+                    webViewPreserved[0] = webView.getParent() == container;
+                    webContainerVisible[0] = container.getVisibility() == View.VISIBLE;
+                } catch (Throwable error) {
+                    loginInspectFailure[0] = unwrapInvocationTarget(error);
+                }
+            }
+        });
+        if (loginInspectFailure[0] != null) throw new AssertionError("Could not inspect official-login action ownership");
+        boolean officialLoginRoute = loginUrl[0] != null
+                && loginUrl[0].startsWith("https://accounts.spotify.com/")
+                && loginUrl[0].contains("/login");
+        final Throwable[] restoreFailure = new Throwable[1];
+        runOnMainSync(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    webView.loadUrl(originalUrl);
+                    Method revealLogin = activity.getClass().getMethod("revealLoginWebUi");
+                    revealLogin.invoke(activity);
+                } catch (Throwable error) {
+                    restoreFailure[0] = unwrapInvocationTarget(error);
+                }
+            }
+        });
+        if (restoreFailure[0] != null) throw new AssertionError("Could not restore the original login WebView after the action test");
+        if (!awaitOriginalLoginSurface(webView, originalUrl)) {
+            throw new AssertionError("The original unauthenticated login surface did not return after the action test");
+        }
+        final String[] restoredUrl = new String[1];
+        final boolean[] restoredLoginOwner = new boolean[1];
+        final boolean[] restoredWebViewPreserved = new boolean[1];
+        final Throwable[] restoredInspectFailure = new Throwable[1];
+        runOnMainSync(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    restoredUrl[0] = webView.getUrl();
+                    restoredLoginOwner[0] = readBooleanField(activity, "nativeLoginWebRequested");
+                    restoredWebViewPreserved[0] = webView.getParent() == requiredView(activity, "webViewContainer");
+                } catch (Throwable error) {
+                    restoredInspectFailure[0] = unwrapInvocationTarget(error);
+                }
+            }
+        });
+        if (restoredInspectFailure[0] != null) throw new AssertionError("Could not inspect restored login ownership");
+        if (!equalsNullable(originalUrl, restoredUrl[0]) || !restoredLoginOwner[0] || !restoredWebViewPreserved[0]) {
+            throw new AssertionError("The original WebView and explicit login owner were not restored after clicking the action buttons");
+        }
+        if (!loginOwner[0] || !officialLoginRoute || !webViewPreserved[0] || !webContainerVisible[0]) {
+            throw new AssertionError("The login child action did not reveal the official login route in the existing WebView");
+        }
+        requireUnauthenticatedSession(activity);
+
+        Bundle state = new Bundle();
+        state.putString("phase", "home_status_action_dispatch");
+        state.putBoolean("native_home_status_login_action_clickable", true);
+        state.putBoolean("native_home_status_retry_action_clickable", true);
+        state.putBoolean("native_home_status_login_action_click_dispatched", true);
+        state.putBoolean("native_home_status_retry_action_click_dispatched", true);
+        state.putBoolean("native_home_status_official_login_route_opened", true);
+        state.putBoolean("native_home_status_webview_preserved_after_login", true);
+        state.putBoolean("native_home_status_login_surface_restored", true);
+        state.putBoolean("native_home_status_action_buttons_tested", true);
+        return state;
+    }
+
+    private boolean awaitOriginalLoginSurface(WebView webView, String originalUrl) throws InterruptedException {
+        long deadline = System.currentTimeMillis() + 15000L;
+        while (System.currentTimeMillis() < deadline) {
+            final String[] currentUrl = new String[1];
+            runOnMainSync(new Runnable() {
+                @Override
+                public void run() {
+                    currentUrl[0] = webView.getUrl();
+                }
+            });
+            if (equalsNullable(originalUrl, currentUrl[0])) {
+                String loginVisible = evaluateJavascriptAndWait(webView, LOGIN_DOM_PROBE);
+                if ("true".equals(loginVisible)) return true;
+            }
+            waitForIdleSync();
+            Thread.sleep(150L);
+        }
+        return false;
+    }
+
     private boolean containsText(View view, String expected) {
         if (view == null) return false;
         if (view instanceof TextView) {
@@ -4102,6 +4263,36 @@ public final class HomeRenderInstrumentation extends Instrumentation {
             ViewGroup group = (ViewGroup) view;
             for (int index = 0; index < group.getChildCount(); index++) {
                 if (containsText(group.getChildAt(index), expected)) return true;
+            }
+        }
+        return false;
+    }
+
+    private boolean containsClickableText(View view, String expected) {
+        if (view == null) return false;
+        if (view instanceof TextView && view.isClickable()) {
+            CharSequence text = ((TextView) view).getText();
+            if (text != null && expected.equals(text.toString().trim())) return true;
+        }
+        if (view instanceof ViewGroup) {
+            ViewGroup group = (ViewGroup) view;
+            for (int index = 0; index < group.getChildCount(); index++) {
+                if (containsClickableText(group.getChildAt(index), expected)) return true;
+            }
+        }
+        return false;
+    }
+
+    private boolean performClickOnText(View view, String expected) {
+        if (view == null) return false;
+        if (view instanceof TextView && view.isClickable()) {
+            CharSequence text = ((TextView) view).getText();
+            if (text != null && expected.equals(text.toString().trim())) return view.performClick();
+        }
+        if (view instanceof ViewGroup) {
+            ViewGroup group = (ViewGroup) view;
+            for (int index = 0; index < group.getChildCount(); index++) {
+                if (performClickOnText(group.getChildAt(index), expected)) return true;
             }
         }
         return false;
@@ -4129,7 +4320,7 @@ public final class HomeRenderInstrumentation extends Instrumentation {
         boolean contentReady = readBooleanField(activity, "nativeHomeContentReady");
         boolean titleVisible = containsText(statusView, "Votre accueil n’a pas pu être chargé");
         boolean retryMessageVisible = containsText(statusView, "Touchez pour réessayer");
-        boolean retryActionClickable = statusView != null && statusView.isClickable();
+        boolean retryActionClickable = containsClickableText(statusView, "Réessayer");
         boolean splashHidden = splash.getVisibility() == View.GONE;
         boolean homeTabVisible = nativeHomeTab.isShown();
         boolean webContainerMounted = webContainer.getVisibility() == View.VISIBLE

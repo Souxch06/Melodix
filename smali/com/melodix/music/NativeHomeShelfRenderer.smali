@@ -565,136 +565,426 @@
 .method private static renderHomeStatus(Lcom/melodix/music/MainActivity;Landroid/widget/LinearLayout;Lorg/json/JSONObject;)Z
     .locals 13
 
-    const-string v0, "title"
-    const-string v1, ""
-    invoke-virtual {p2, v0, v1}, Lorg/json/JSONObject;->optString(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;
-    move-result-object v2
-    invoke-virtual {v2}, Ljava/lang/String;->isEmpty()Z
-    move-result v0
-    if-eqz v0, :home_status_title_ready
-    const/4 v0, 0x0
-    return v0
+    const-string v1, "title"
+    const-string v2, ""
+    invoke-virtual {p2, v1, v2}, Lorg/json/JSONObject;->optString(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;
+    move-result-object v0
+    invoke-virtual {v0}, Ljava/lang/String;->isEmpty()Z
+    move-result v1
+    if-eqz v1, :home_status_title_ready
+    const/4 v1, 0x0
+    return v1
 
     :home_status_title_ready
-    const-string v0, "subtitle"
-    const-string v1, ""
-    invoke-virtual {p2, v0, v1}, Lorg/json/JSONObject;->optString(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;
-    move-result-object v3
+    const-string v1, "subtitle"
+    const-string v2, ""
+    invoke-virtual {p2, v1, v2}, Lorg/json/JSONObject;->optString(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;
+    move-result-object v1
 
-    # A status panel has no artwork or Spotify URI. It is actual UI text, not a
-    # placeholder playlist or playable row.
+    const-string v2, "section"
+    const-string v3, "Spotify"
+    invoke-virtual {p2, v2, v3}, Lorg/json/JSONObject;->optString(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;
+    move-result-object v2
+    invoke-virtual {v2}, Ljava/lang/String;->isEmpty()Z
+    move-result v3
+    if-nez v3, :home_status_section_ready
+    const-string v2, "Spotify"
+
+    :home_status_section_ready
+    # A compact, responsive card replaces the old unframed centre text. It is
+    # status-only: the background/icon are app chrome, never Spotify content.
+    new-instance v3, Landroid/widget/LinearLayout;
+    invoke-direct {v3, p0}, Landroid/widget/LinearLayout;-><init>(Landroid/content/Context;)V
+    const/4 v4, 0x1
+    invoke-virtual {v3, v4}, Landroid/widget/LinearLayout;->setOrientation(I)V
+    const v4, 0x800003
+    invoke-virtual {v3, v4}, Landroid/widget/LinearLayout;->setGravity(I)V
+    invoke-static {p0}, Lcom/melodix/music/NativeHomeShelfRenderer;->createHomeStatusBackground(Landroid/content/Context;)Landroid/graphics/drawable/GradientDrawable;
+    move-result-object v4
+    invoke-virtual {v3, v4}, Landroid/view/View;->setBackground(Landroid/graphics/drawable/Drawable;)V
+
+    const/16 v4, 0x14
+    invoke-static {p0, v4}, Lcom/melodix/music/NativeHomeShelfRenderer;->dp(Landroid/content/Context;I)I
+    move-result v4
+    const/16 v5, 0x12
+    invoke-static {p0, v5}, Lcom/melodix/music/NativeHomeShelfRenderer;->dp(Landroid/content/Context;I)I
+    move-result v5
+    invoke-virtual {v3, v4, v5, v4, v5}, Landroid/view/View;->setPadding(IIII)V
+
+    invoke-static {p0, p1}, Lcom/melodix/music/NativeHomeShelfRenderer;->homeStatusCardWidth(Landroid/content/Context;Landroid/view/View;)I
+    move-result v4
+    new-instance v5, Landroid/widget/LinearLayout$LayoutParams;
+    const/4 v6, -0x2
+    invoke-direct {v5, v4, v6}, Landroid/widget/LinearLayout$LayoutParams;-><init>(II)V
+    const/4 v6, 0x1
+    iput v6, v5, Landroid/widget/LinearLayout$LayoutParams;->gravity:I
+    const/16 v6, 0x10
+    invoke-static {p0, v6}, Lcom/melodix/music/NativeHomeShelfRenderer;->dp(Landroid/content/Context;I)I
+    move-result v6
+    iput v6, v5, Landroid/view/ViewGroup$MarginLayoutParams;->topMargin:I
+    iput v6, v5, Landroid/view/ViewGroup$MarginLayoutParams;->bottomMargin:I
+    invoke-virtual {p1, v3, v5}, Landroid/widget/LinearLayout;->addView(Landroid/view/View;Landroid/view/ViewGroup$LayoutParams;)V
+
+    # Brand-neutral music glyph in a soft accent circle, beside the state label.
+    new-instance v5, Landroid/widget/LinearLayout;
+    invoke-direct {v5, p0}, Landroid/widget/LinearLayout;-><init>(Landroid/content/Context;)V
+    const/4 v6, 0x0
+    invoke-virtual {v5, v6}, Landroid/widget/LinearLayout;->setOrientation(I)V
+    const/16 v6, 0x10
+    invoke-virtual {v5, v6}, Landroid/widget/LinearLayout;->setGravity(I)V
+    invoke-static {p0}, Lcom/melodix/music/NativeHomeShelfRenderer;->createHomeStatusIcon(Landroid/content/Context;)Landroid/widget/ImageView;
+    move-result-object v6
+    const/16 v7, 0x2c
+    invoke-static {p0, v7}, Lcom/melodix/music/NativeHomeShelfRenderer;->dp(Landroid/content/Context;I)I
+    move-result v7
+    new-instance v8, Landroid/widget/LinearLayout$LayoutParams;
+    invoke-direct {v8, v7, v7}, Landroid/widget/LinearLayout$LayoutParams;-><init>(II)V
+    const/16 v7, 0xc
+    invoke-static {p0, v7}, Lcom/melodix/music/NativeHomeShelfRenderer;->dp(Landroid/content/Context;I)I
+    move-result v7
+    iput v7, v8, Landroid/view/ViewGroup$MarginLayoutParams;->rightMargin:I
+    invoke-virtual {v5, v6, v8}, Landroid/widget/LinearLayout;->addView(Landroid/view/View;Landroid/view/ViewGroup$LayoutParams;)V
+
     new-instance v4, Landroid/widget/LinearLayout;
     invoke-direct {v4, p0}, Landroid/widget/LinearLayout;-><init>(Landroid/content/Context;)V
-    const/4 v0, 0x1
-    invoke-virtual {v4, v0}, Landroid/widget/LinearLayout;->setOrientation(I)V
-    const/16 v0, 0x11
-    invoke-virtual {v4, v0}, Landroid/widget/LinearLayout;->setGravity(I)V
-    const/16 v0, 0x18
-    invoke-static {p0, v0}, Lcom/melodix/music/NativeHomeShelfRenderer;->dp(Landroid/content/Context;I)I
-    move-result v5
-    const/16 v0, 0x14
-    invoke-static {p0, v0}, Lcom/melodix/music/NativeHomeShelfRenderer;->dp(Landroid/content/Context;I)I
-    move-result v6
-    invoke-virtual {v4, v5, v6, v5, v6}, Landroid/view/View;->setPadding(IIII)V
-    const/16 v0, 0x60
-    invoke-static {p0, v0}, Lcom/melodix/music/NativeHomeShelfRenderer;->dp(Landroid/content/Context;I)I
-    move-result v0
-    invoke-virtual {v4, v0}, Landroid/view/View;->setMinimumHeight(I)V
+    const/4 v6, 0x1
+    invoke-virtual {v4, v6}, Landroid/widget/LinearLayout;->setOrientation(I)V
+    const/16 v6, 0x10
+    invoke-virtual {v4, v6}, Landroid/widget/LinearLayout;->setGravity(I)V
 
-    new-instance v7, Landroid/widget/TextView;
-    invoke-direct {v7, p0}, Landroid/widget/TextView;-><init>(Landroid/content/Context;)V
-    invoke-virtual {v7, v2}, Landroid/widget/TextView;->setText(Ljava/lang/CharSequence;)V
-    const/high16 v0, 0x41900000
-    invoke-virtual {v7, v0}, Landroid/widget/TextView;->setTextSize(F)V
-    sget v0, Lcom/melodix/music/MelColors;->textPrimary:I
-    invoke-virtual {v7, v0}, Landroid/widget/TextView;->setTextColor(I)V
-    const/16 v0, 0x11
-    invoke-virtual {v7, v0}, Landroid/widget/TextView;->setGravity(I)V
-    const/4 v0, 0x0
-    const/4 v1, 0x1
-    invoke-virtual {v7, v0, v1}, Landroid/widget/TextView;->setTypeface(Landroid/graphics/Typeface;I)V
-    const/4 v0, 0x2
-    invoke-virtual {v7, v0}, Landroid/widget/TextView;->setMaxLines(I)V
-    new-instance v8, Landroid/widget/LinearLayout$LayoutParams;
-    const/4 v0, -0x1
-    const/4 v1, -0x2
-    invoke-direct {v8, v0, v1}, Landroid/widget/LinearLayout$LayoutParams;-><init>(II)V
-    invoke-virtual {v4, v7, v8}, Landroid/widget/LinearLayout;->addView(Landroid/view/View;Landroid/view/ViewGroup$LayoutParams;)V
-
-    invoke-virtual {v3}, Ljava/lang/String;->isEmpty()Z
-    move-result v0
-    if-nez v0, :home_status_read_action
-    new-instance v9, Landroid/widget/TextView;
-    invoke-direct {v9, p0}, Landroid/widget/TextView;-><init>(Landroid/content/Context;)V
-    invoke-virtual {v9, v3}, Landroid/widget/TextView;->setText(Ljava/lang/CharSequence;)V
-    const/high16 v0, 0x41600000
-    invoke-virtual {v9, v0}, Landroid/widget/TextView;->setTextSize(F)V
-    sget v0, Lcom/melodix/music/MelColors;->textSecondary:I
-    invoke-virtual {v9, v0}, Landroid/widget/TextView;->setTextColor(I)V
-    const/16 v0, 0x11
-    invoke-virtual {v9, v0}, Landroid/widget/TextView;->setGravity(I)V
-    const/4 v0, 0x3
-    invoke-virtual {v9, v0}, Landroid/widget/TextView;->setMaxLines(I)V
-    const/16 v0, 0x8
-    invoke-static {p0, v0}, Lcom/melodix/music/NativeHomeShelfRenderer;->dp(Landroid/content/Context;I)I
-    move-result v10
-    const/4 v0, 0x0
-    invoke-virtual {v9, v0, v10, v0, v0}, Landroid/view/View;->setPadding(IIII)V
-    new-instance v8, Landroid/widget/LinearLayout$LayoutParams;
-    const/4 v0, -0x1
-    const/4 v1, -0x2
-    invoke-direct {v8, v0, v1}, Landroid/widget/LinearLayout$LayoutParams;-><init>(II)V
-    invoke-virtual {v4, v9, v8}, Landroid/widget/LinearLayout;->addView(Landroid/view/View;Landroid/view/ViewGroup$LayoutParams;)V
-
-    :home_status_read_action
-    const-string v0, "uri"
-    const-string v1, ""
-    invoke-virtual {p2, v0, v1}, Lorg/json/JSONObject;->optString(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;
+    sget v7, Lcom/melodix/music/MelColors;->accent:I
+    const/4 v8, 0x1
+    const/high16 v9, 0x41300000
+    invoke-static {p0, v2, v7, v8, v9}, Lcom/melodix/music/NativeHomeShelfRenderer;->createHomeStatusText(Landroid/content/Context;Ljava/lang/String;IZF)Landroid/widget/TextView;
     move-result-object v6
-    const-string v0, "melodix:action:open-settings"
-    invoke-virtual {v0, v6}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
-    move-result v1
-    if-nez v1, :home_status_action_valid
-    const-string v0, "melodix:action:retry-library"
-    invoke-virtual {v0, v6}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
-    move-result v1
-    if-nez v1, :home_status_action_valid
-    const-string v0, "melodix:action:open-login"
-    invoke-virtual {v0, v6}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
-    move-result v1
-    if-eqz v1, :home_status_attach
+    const/4 v7, 0x1
+    invoke-virtual {v6, v7}, Landroid/widget/TextView;->setMaxLines(I)V
+    invoke-virtual {v4, v6}, Landroid/widget/LinearLayout;->addView(Landroid/view/View;)V
 
-    :home_status_action_valid
-    const/4 v1, 0x1
-    invoke-virtual {v4, v1}, Landroid/view/View;->setClickable(Z)V
-    invoke-virtual {v4, v1}, Landroid/view/View;->setFocusable(Z)V
-    const-string v0, "native_row_ripple"
-    invoke-static {p0, v4, v0}, Lcom/melodix/music/NativeUiRowFactory;->applyDrawableBackground(Landroid/content/Context;Landroid/view/View;Ljava/lang/String;)V
-    new-instance v0, Lcom/melodix/music/NativeRowClickListener;
-    invoke-direct {v0, p0, v6, v2}, Lcom/melodix/music/NativeRowClickListener;-><init>(Lcom/melodix/music/MainActivity;Ljava/lang/String;Ljava/lang/String;)V
-    invoke-virtual {v4, v0}, Landroid/view/View;->setOnClickListener(Landroid/view/View$OnClickListener;)V
+    sget v7, Lcom/melodix/music/MelColors;->textPrimary:I
+    const/4 v8, 0x1
+    const/high16 v9, 0x41900000
+    invoke-static {p0, v0, v7, v8, v9}, Lcom/melodix/music/NativeHomeShelfRenderer;->createHomeStatusText(Landroid/content/Context;Ljava/lang/String;IZF)Landroid/widget/TextView;
+    move-result-object v6
+    const/4 v7, 0x2
+    invoke-virtual {v6, v7}, Landroid/widget/TextView;->setMaxLines(I)V
+    new-instance v7, Landroid/widget/LinearLayout$LayoutParams;
+    const/4 v8, -0x1
+    const/4 v9, -0x2
+    invoke-direct {v7, v8, v9}, Landroid/widget/LinearLayout$LayoutParams;-><init>(II)V
+    const/4 v8, 0x4
+    invoke-static {p0, v8}, Lcom/melodix/music/NativeHomeShelfRenderer;->dp(Landroid/content/Context;I)I
+    move-result v8
+    iput v8, v7, Landroid/view/ViewGroup$MarginLayoutParams;->topMargin:I
+    invoke-virtual {v4, v6, v7}, Landroid/widget/LinearLayout;->addView(Landroid/view/View;Landroid/view/ViewGroup$LayoutParams;)V
 
-    :home_status_attach
-    new-instance v0, Landroid/widget/LinearLayout$LayoutParams;
-    const/4 v1, -0x1
-    const/4 v5, -0x2
-    invoke-direct {v0, v1, v5}, Landroid/widget/LinearLayout$LayoutParams;-><init>(II)V
-    const/16 v1, 0x18
-    invoke-static {p0, v1}, Lcom/melodix/music/NativeHomeShelfRenderer;->dp(Landroid/content/Context;I)I
-    move-result v1
-    iput v1, v0, Landroid/view/ViewGroup$MarginLayoutParams;->topMargin:I
-    iput v1, v0, Landroid/view/ViewGroup$MarginLayoutParams;->bottomMargin:I
-    invoke-virtual {v4, v0}, Landroid/view/View;->setLayoutParams(Landroid/view/ViewGroup$LayoutParams;)V
-    invoke-virtual {p1, v4}, Landroid/widget/LinearLayout;->addView(Landroid/view/View;)V
-    invoke-virtual {p0, v4}, Lcom/melodix/music/MainActivity;->noteNativeHomeStatusAttached(Landroid/view/View;)V
-    const-string v0, "sessionUnproven"
-    invoke-virtual {p2, v0}, Lorg/json/JSONObject;->optBoolean(Ljava/lang/String;)Z
-    move-result v0
-    if-eqz v0, :home_status_session_state_marked
-    invoke-virtual {p0, v4}, Lcom/melodix/music/MainActivity;->noteNativeHomeSessionUnprovenStatusAttached(Landroid/view/View;)V
+    new-instance v7, Landroid/widget/LinearLayout$LayoutParams;
+    const/4 v8, 0x0
+    const/4 v9, -0x2
+    const/high16 v10, 0x3f800000
+    invoke-direct {v7, v8, v9, v10}, Landroid/widget/LinearLayout$LayoutParams;-><init>(IIF)V
+    invoke-virtual {v5, v4, v7}, Landroid/widget/LinearLayout;->addView(Landroid/view/View;Landroid/view/ViewGroup$LayoutParams;)V
+    invoke-virtual {v3, v5}, Landroid/widget/LinearLayout;->addView(Landroid/view/View;)V
+
+    invoke-virtual {v1}, Ljava/lang/String;->isEmpty()Z
+    move-result v4
+    if-nez v4, :home_status_actions
+    sget v7, Lcom/melodix/music/MelColors;->textSecondary:I
+    const/4 v8, 0x0
+    const/high16 v9, 0x41600000
+    invoke-static {p0, v1, v7, v8, v9}, Lcom/melodix/music/NativeHomeShelfRenderer;->createHomeStatusText(Landroid/content/Context;Ljava/lang/String;IZF)Landroid/widget/TextView;
+    move-result-object v6
+    const/4 v7, 0x5
+    invoke-virtual {v6, v7}, Landroid/widget/TextView;->setMaxLines(I)V
+    new-instance v7, Landroid/widget/LinearLayout$LayoutParams;
+    const/4 v8, -0x1
+    const/4 v9, -0x2
+    invoke-direct {v7, v8, v9}, Landroid/widget/LinearLayout$LayoutParams;-><init>(II)V
+    const/16 v8, 0xe
+    invoke-static {p0, v8}, Lcom/melodix/music/NativeHomeShelfRenderer;->dp(Landroid/content/Context;I)I
+    move-result v8
+    iput v8, v7, Landroid/view/ViewGroup$MarginLayoutParams;->topMargin:I
+    invoke-virtual {v3, v6, v7}, Landroid/widget/LinearLayout;->addView(Landroid/view/View;Landroid/view/ViewGroup$LayoutParams;)V
+
+    :home_status_actions
+    const-string v7, "uri"
+    const-string v8, ""
+    invoke-virtual {p2, v7, v8}, Lorg/json/JSONObject;->optString(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;
+    move-result-object v10
+    const-string v7, "secondaryUri"
+    const-string v8, ""
+    invoke-virtual {p2, v7, v8}, Lorg/json/JSONObject;->optString(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;
+    move-result-object v11
+    invoke-static {p0, v3, v10, v11, v0}, Lcom/melodix/music/NativeHomeShelfRenderer;->addHomeStatusActions(Lcom/melodix/music/MainActivity;Landroid/widget/LinearLayout;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)V
+
+    invoke-virtual {p0, v3}, Lcom/melodix/music/MainActivity;->noteNativeHomeStatusAttached(Landroid/view/View;)V
+    const-string v7, "sessionUnproven"
+    invoke-virtual {p2, v7}, Lorg/json/JSONObject;->optBoolean(Ljava/lang/String;)Z
+    move-result v7
+    if-eqz v7, :home_status_session_state_marked
+    invoke-virtual {p0, v3}, Lcom/melodix/music/MainActivity;->noteNativeHomeSessionUnprovenStatusAttached(Landroid/view/View;)V
     :home_status_session_state_marked
-    const/4 v0, 0x1
-    return v0
+    const/4 v7, 0x1
+    return v7
+.end method
+
+.method private static createHomeStatusBackground(Landroid/content/Context;)Landroid/graphics/drawable/GradientDrawable;
+    .locals 7
+
+    const/4 v0, 0x2
+    new-array v0, v0, [I
+    sget v1, Lcom/melodix/music/MelColors;->surfaceHigh:I
+    const/4 v2, 0x0
+    aput v1, v0, v2
+    sget v1, Lcom/melodix/music/MelColors;->surface:I
+    const/4 v2, 0x1
+    aput v1, v0, v2
+    sget-object v1, Landroid/graphics/drawable/GradientDrawable$Orientation;->TOP_BOTTOM:Landroid/graphics/drawable/GradientDrawable$Orientation;
+    new-instance v2, Landroid/graphics/drawable/GradientDrawable;
+    invoke-direct {v2, v1, v0}, Landroid/graphics/drawable/GradientDrawable;-><init>(Landroid/graphics/drawable/GradientDrawable$Orientation;[I)V
+    const/16 v3, 0x14
+    invoke-static {p0, v3}, Lcom/melodix/music/NativeHomeShelfRenderer;->dp(Landroid/content/Context;I)I
+    move-result v3
+    int-to-float v3, v3
+    invoke-virtual {v2, v3}, Landroid/graphics/drawable/GradientDrawable;->setCornerRadius(F)V
+    const/4 v3, 0x1
+    invoke-static {p0, v3}, Lcom/melodix/music/NativeHomeShelfRenderer;->dp(Landroid/content/Context;I)I
+    move-result v3
+    sget v4, Lcom/melodix/music/MelColors;->strokeAccent:I
+    invoke-virtual {v2, v3, v4}, Landroid/graphics/drawable/GradientDrawable;->setStroke(II)V
+    return-object v2
+.end method
+
+.method private static createHomeStatusIcon(Landroid/content/Context;)Landroid/widget/ImageView;
+    .locals 7
+
+    new-instance v0, Landroid/widget/ImageView;
+    invoke-direct {v0, p0}, Landroid/widget/ImageView;-><init>(Landroid/content/Context;)V
+    sget-object v1, Landroid/widget/ImageView$ScaleType;->CENTER_INSIDE:Landroid/widget/ImageView$ScaleType;
+    invoke-virtual {v0, v1}, Landroid/widget/ImageView;->setScaleType(Landroid/widget/ImageView$ScaleType;)V
+    new-instance v1, Landroid/graphics/drawable/GradientDrawable;
+    invoke-direct {v1}, Landroid/graphics/drawable/GradientDrawable;-><init>()V
+    const/4 v2, 0x1
+    invoke-virtual {v1, v2}, Landroid/graphics/drawable/GradientDrawable;->setShape(I)V
+    sget v2, Lcom/melodix/music/MelColors;->glow:I
+    invoke-virtual {v1, v2}, Landroid/graphics/drawable/GradientDrawable;->setColor(I)V
+    invoke-virtual {v0, v1}, Landroid/view/View;->setBackground(Landroid/graphics/drawable/Drawable;)V
+    const/16 v2, 0xa
+    invoke-static {p0, v2}, Lcom/melodix/music/NativeHomeShelfRenderer;->dp(Landroid/content/Context;I)I
+    move-result v2
+    invoke-virtual {v0, v2, v2, v2, v2}, Landroid/view/View;->setPadding(IIII)V
+    const-string v2, "native_cover_placeholder"
+    invoke-static {p0, v0, v2}, Lcom/melodix/music/NativeUiRowFactory;->applyDrawableImage(Landroid/content/Context;Landroid/widget/ImageView;Ljava/lang/String;)V
+    sget v2, Lcom/melodix/music/MelColors;->accent:I
+    invoke-virtual {v0, v2}, Landroid/widget/ImageView;->setColorFilter(I)V
+    const-string v2, "État de connexion"
+    invoke-virtual {v0, v2}, Landroid/view/View;->setContentDescription(Ljava/lang/CharSequence;)V
+    return-object v0
+.end method
+
+.method private static createHomeStatusText(Landroid/content/Context;Ljava/lang/String;IZF)Landroid/widget/TextView;
+    .locals 5
+
+    new-instance v0, Landroid/widget/TextView;
+    invoke-direct {v0, p0}, Landroid/widget/TextView;-><init>(Landroid/content/Context;)V
+    invoke-virtual {v0, p1}, Landroid/widget/TextView;->setText(Ljava/lang/CharSequence;)V
+    invoke-virtual {v0, p2}, Landroid/widget/TextView;->setTextColor(I)V
+    invoke-virtual {v0, p4}, Landroid/widget/TextView;->setTextSize(F)V
+    const v1, 0x800003
+    invoke-virtual {v0, v1}, Landroid/widget/TextView;->setGravity(I)V
+    const/4 v1, 0x5
+    invoke-virtual {v0, v1}, Landroid/widget/TextView;->setMaxLines(I)V
+    sget-object v1, Landroid/text/TextUtils$TruncateAt;->END:Landroid/text/TextUtils$TruncateAt;
+    invoke-virtual {v0, v1}, Landroid/widget/TextView;->setEllipsize(Landroid/text/TextUtils$TruncateAt;)V
+    if-eqz p3, :home_status_text_ready
+    const/4 v1, 0x0
+    const/4 v2, 0x1
+    invoke-virtual {v0, v1, v2}, Landroid/widget/TextView;->setTypeface(Landroid/graphics/Typeface;I)V
+    :home_status_text_ready
+    const/4 v1, 0x0
+    invoke-virtual {v0, v1}, Landroid/widget/TextView;->setIncludeFontPadding(Z)V
+    return-object v0
+.end method
+
+.method private static addHomeStatusActions(Lcom/melodix/music/MainActivity;Landroid/widget/LinearLayout;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)V
+    .locals 10
+
+    if-eqz p2, :home_status_no_actions
+    invoke-virtual {p2}, Ljava/lang/String;->isEmpty()Z
+    move-result v1
+    if-nez v1, :home_status_no_actions
+
+    new-instance v0, Landroid/widget/LinearLayout;
+    invoke-direct {v0, p0}, Landroid/widget/LinearLayout;-><init>(Landroid/content/Context;)V
+    const/4 v1, 0x0
+    invoke-virtual {v0, v1}, Landroid/widget/LinearLayout;->setOrientation(I)V
+    const/16 v1, 0x10
+    invoke-virtual {v0, v1}, Landroid/widget/LinearLayout;->setGravity(I)V
+
+    const/4 v1, 0x1
+    invoke-static {p0, p2, p4, v1}, Lcom/melodix/music/NativeHomeShelfRenderer;->createHomeStatusAction(Lcom/melodix/music/MainActivity;Ljava/lang/String;Ljava/lang/String;Z)Landroid/widget/TextView;
+    move-result-object v2
+    if-eqz v2, :home_status_no_actions
+
+    const/4 v4, 0x0
+    const/16 v5, 0x30
+    invoke-static {p0, v5}, Lcom/melodix/music/NativeHomeShelfRenderer;->dp(Landroid/content/Context;I)I
+    move-result v5
+    const/high16 v6, 0x3f800000
+    new-instance v7, Landroid/widget/LinearLayout$LayoutParams;
+    invoke-direct {v7, v4, v5, v6}, Landroid/widget/LinearLayout$LayoutParams;-><init>(IIF)V
+    if-eqz p3, :home_status_add_primary
+    invoke-virtual {p3}, Ljava/lang/String;->isEmpty()Z
+    move-result v8
+    if-nez v8, :home_status_add_primary
+    const/16 v8, 0x8
+    invoke-static {p0, v8}, Lcom/melodix/music/NativeHomeShelfRenderer;->dp(Landroid/content/Context;I)I
+    move-result v8
+    iput v8, v7, Landroid/view/ViewGroup$MarginLayoutParams;->rightMargin:I
+
+    :home_status_add_primary
+    invoke-virtual {v0, v2, v7}, Landroid/widget/LinearLayout;->addView(Landroid/view/View;Landroid/view/ViewGroup$LayoutParams;)V
+
+    if-eqz p3, :home_status_action_row_attach
+    invoke-virtual {p3}, Ljava/lang/String;->isEmpty()Z
+    move-result v8
+    if-nez v8, :home_status_action_row_attach
+    invoke-virtual {p3, p2}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    move-result v8
+    if-nez v8, :home_status_action_row_attach
+    const/4 v1, 0x0
+    invoke-static {p0, p3, p4, v1}, Lcom/melodix/music/NativeHomeShelfRenderer;->createHomeStatusAction(Lcom/melodix/music/MainActivity;Ljava/lang/String;Ljava/lang/String;Z)Landroid/widget/TextView;
+    move-result-object v3
+    if-eqz v3, :home_status_action_row_attach
+    const/4 v4, 0x0
+    const/16 v5, 0x30
+    invoke-static {p0, v5}, Lcom/melodix/music/NativeHomeShelfRenderer;->dp(Landroid/content/Context;I)I
+    move-result v5
+    const/high16 v6, 0x3f800000
+    new-instance v7, Landroid/widget/LinearLayout$LayoutParams;
+    invoke-direct {v7, v4, v5, v6}, Landroid/widget/LinearLayout$LayoutParams;-><init>(IIF)V
+    invoke-virtual {v0, v3, v7}, Landroid/widget/LinearLayout;->addView(Landroid/view/View;Landroid/view/ViewGroup$LayoutParams;)V
+
+    :home_status_action_row_attach
+    new-instance v9, Landroid/widget/LinearLayout$LayoutParams;
+    const/4 v4, -0x1
+    const/4 v5, -0x2
+    invoke-direct {v9, v4, v5}, Landroid/widget/LinearLayout$LayoutParams;-><init>(II)V
+    const/16 v4, 0x10
+    invoke-static {p0, v4}, Lcom/melodix/music/NativeHomeShelfRenderer;->dp(Landroid/content/Context;I)I
+    move-result v4
+    iput v4, v9, Landroid/view/ViewGroup$MarginLayoutParams;->topMargin:I
+    invoke-virtual {p1, v0, v9}, Landroid/widget/LinearLayout;->addView(Landroid/view/View;Landroid/view/ViewGroup$LayoutParams;)V
+
+    :home_status_no_actions
+    return-void
+.end method
+
+.method private static createHomeStatusAction(Lcom/melodix/music/MainActivity;Ljava/lang/String;Ljava/lang/String;Z)Landroid/widget/TextView;
+    .locals 6
+
+    const-string v0, "melodix:action:open-login"
+    invoke-virtual {v0, p1}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    move-result v0
+    if-eqz v0, :home_status_action_retry
+    const-string v1, "Se connecter"
+    goto :home_status_action_label_ready
+
+    :home_status_action_retry
+    const-string v0, "melodix:action:retry-library"
+    invoke-virtual {v0, p1}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    move-result v0
+    if-eqz v0, :home_status_action_settings
+    const-string v1, "Réessayer"
+    goto :home_status_action_label_ready
+
+    :home_status_action_settings
+    const-string v0, "melodix:action:open-settings"
+    invoke-virtual {v0, p1}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    move-result v0
+    if-eqz v0, :home_status_action_invalid
+    const-string v1, "Réglages"
+    goto :home_status_action_label_ready
+
+    :home_status_action_invalid
+    const/4 v0, 0x0
+    return-object v0
+
+    :home_status_action_label_ready
+    new-instance v0, Landroid/widget/TextView;
+    invoke-direct {v0, p0}, Landroid/widget/TextView;-><init>(Landroid/content/Context;)V
+    invoke-virtual {v0, v1}, Landroid/widget/TextView;->setText(Ljava/lang/CharSequence;)V
+    invoke-virtual {v0, v1}, Landroid/view/View;->setContentDescription(Ljava/lang/CharSequence;)V
+    const/high16 v2, 0x41600000
+    invoke-virtual {v0, v2}, Landroid/widget/TextView;->setTextSize(F)V
+    if-eqz p3, :home_status_action_secondary
+    sget v3, Lcom/melodix/music/MelColors;->background:I
+    const-string v2, "native_button_green"
+    goto :home_status_action_color_ready
+    :home_status_action_secondary
+    sget v3, Lcom/melodix/music/MelColors;->textPrimary:I
+    const-string v2, "native_button_dark"
+    :home_status_action_color_ready
+    invoke-virtual {v0, v3}, Landroid/widget/TextView;->setTextColor(I)V
+    const/16 v3, 0x11
+    invoke-virtual {v0, v3}, Landroid/widget/TextView;->setGravity(I)V
+    const/4 v3, 0x0
+    const/4 v4, 0x1
+    invoke-virtual {v0, v3, v4}, Landroid/widget/TextView;->setTypeface(Landroid/graphics/Typeface;I)V
+    const/4 v3, 0x1
+    invoke-virtual {v0, v3}, Landroid/widget/TextView;->setMaxLines(I)V
+    sget-object v3, Landroid/text/TextUtils$TruncateAt;->END:Landroid/text/TextUtils$TruncateAt;
+    invoke-virtual {v0, v3}, Landroid/widget/TextView;->setEllipsize(Landroid/text/TextUtils$TruncateAt;)V
+    const/16 v3, 0x30
+    invoke-static {p0, v3}, Lcom/melodix/music/NativeHomeShelfRenderer;->dp(Landroid/content/Context;I)I
+    move-result v3
+    invoke-virtual {v0, v3}, Landroid/widget/TextView;->setMinimumHeight(I)V
+    const/16 v3, 0xc
+    invoke-static {p0, v3}, Lcom/melodix/music/NativeHomeShelfRenderer;->dp(Landroid/content/Context;I)I
+    move-result v3
+    const/16 v4, 0xa
+    invoke-static {p0, v4}, Lcom/melodix/music/NativeHomeShelfRenderer;->dp(Landroid/content/Context;I)I
+    move-result v4
+    invoke-virtual {v0, v3, v4, v3, v4}, Landroid/view/View;->setPadding(IIII)V
+    invoke-static {p0, v0, v2}, Lcom/melodix/music/NativeUiRowFactory;->applyDrawableBackground(Landroid/content/Context;Landroid/view/View;Ljava/lang/String;)V
+    const/4 v3, 0x1
+    invoke-virtual {v0, v3}, Landroid/view/View;->setClickable(Z)V
+    invoke-virtual {v0, v3}, Landroid/view/View;->setFocusable(Z)V
+    new-instance v3, Lcom/melodix/music/NativeRowClickListener;
+    invoke-direct {v3, p0, p1, p2}, Lcom/melodix/music/NativeRowClickListener;-><init>(Lcom/melodix/music/MainActivity;Ljava/lang/String;Ljava/lang/String;)V
+    invoke-virtual {v0, v3}, Landroid/view/View;->setOnClickListener(Landroid/view/View$OnClickListener;)V
+    return-object v0
+.end method
+
+.method private static homeStatusCardWidth(Landroid/content/Context;Landroid/view/View;)I
+    .locals 4
+
+    # Prefer the measured native content width so display cutouts and
+    # multi-window bounds are honored; use display metrics only before layout.
+    invoke-virtual {p1}, Landroid/view/View;->getWidth()I
+    move-result v1
+    if-lez v1, :home_status_width_fallback
+    goto :home_status_width_cap
+
+    :home_status_width_fallback
+    invoke-virtual {p0}, Landroid/content/Context;->getResources()Landroid/content/res/Resources;
+    move-result-object v0
+    invoke-virtual {v0}, Landroid/content/res/Resources;->getDisplayMetrics()Landroid/util/DisplayMetrics;
+    move-result-object v0
+    iget v1, v0, Landroid/util/DisplayMetrics;->widthPixels:I
+    const/16 v2, 0x20
+    invoke-static {p0, v2}, Lcom/melodix/music/NativeHomeShelfRenderer;->dp(Landroid/content/Context;I)I
+    move-result v2
+    sub-int/2addr v1, v2
+
+    :home_status_width_cap
+    const/16 v2, 0x230
+    invoke-static {p0, v2}, Lcom/melodix/music/NativeHomeShelfRenderer;->dp(Landroid/content/Context;I)I
+    move-result v2
+    if-le v1, v2, :home_status_width_ready
+    move v1, v2
+    :home_status_width_ready
+    return v1
 .end method
 
 .method private static createQuickTile(Lcom/melodix/music/MainActivity;Lorg/json/JSONObject;)Landroid/widget/LinearLayout;

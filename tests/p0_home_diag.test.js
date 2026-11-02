@@ -87,7 +87,13 @@ test('[structurel] Home envoie une ligne de statut non prouvée mais jamais de d
   const stateBody = shell.slice(stateAt, shell.indexOf('function homePartialErrorRow()', stateAt));
   assert.match(stateBody, /state: state/);
   assert.match(stateBody, /sessionUnproven: true/);
-  assert.match(stateBody, /uri: 'melodix:action:open-login'/);
+  assert.match(stateBody, /primaryUri = 'melodix:action:open-login'/);
+  assert.match(stateBody, /secondaryUri = 'melodix:action:retry-library'/);
+  const actionFilter = shell.slice(shell.indexOf("var allowedSecondaryAction ="), shell.indexOf("if (!title || !allowedStatus", shell.indexOf("var allowedSecondaryAction =")));
+  assert.match(actionFilter, /status === 'error'/);
+  assert.match(actionFilter, /item\.sessionUnproven === true/);
+  assert.match(actionFilter, /allowedActions\.indexOf\(secondaryUri\) >= 0/);
+  assert.match(actionFilter, /secondaryUri !== stateUri/);
   assert.doesNotMatch(stateBody, /spotify:(?:playlist|album|artist|track):/);
   assert.doesNotMatch(body, /sendNativeUiData\('home', \[\]\)|sendNativeUiData\('home', \[homeDiagRow/);
 });

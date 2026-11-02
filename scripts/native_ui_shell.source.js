@@ -239,12 +239,18 @@
             if (screen === 'home' && item && item.kind === 'state') {
                 var status = String(item.state || '');
                 var stateUri = String(rawUri || '').trim();
+                var secondaryUri = String(item.secondaryUri || '').trim();
+                var allowedActions = ['melodix:action:open-settings', 'melodix:action:retry-library', 'melodix:action:open-login'];
                 var allowedStatus = ['loading', 'empty', 'error', 'unavailable'].indexOf(status) >= 0;
                 var allowedAction = !stateUri ||
-                    (status === 'error' && ['melodix:action:open-settings', 'melodix:action:retry-library', 'melodix:action:open-login'].indexOf(stateUri) >= 0) ||
+                    (status === 'error' && allowedActions.indexOf(stateUri) >= 0) ||
                     (status === 'loading' && stateUri === 'melodix:action:open-login') ||
                     (status === 'unavailable' && stateUri === 'melodix:action:retry-library');
-                if (!title || !allowedStatus || String(rawImage || '').trim() || !allowedAction) return null;
+                var allowedSecondaryAction = !secondaryUri ||
+                    (status === 'error' && item.sessionUnproven === true && allowedActions.indexOf(secondaryUri) >= 0 &&
+                        secondaryUri !== stateUri);
+                if (!title || !allowedStatus || String(rawImage || '').trim() ||
+                    !allowedAction || !allowedSecondaryAction) return null;
                 return {
                     kind: 'state',
                     state: status,
@@ -253,7 +259,8 @@
                     subtitle: subtitle,
                     section: section,
                     image: '',
-                    uri: stateUri
+                    uri: stateUri,
+                    secondaryUri: secondaryUri
                 };
             }
             var row = {
@@ -652,8 +659,13 @@
     // arrive. Only the existing libraryV3 response can authorize native data.
     function requestMediaLibraryProof() {
         var now;
+        var previousError = String(window.__sfMediaLibError || '');
         if (libraryProvesSession() || typeof window.checkMediaLib !== 'function' ||
-            window.__sfMediaLibStatus === 'loading') return false;
+            window.__sfMediaLibStatus === 'loading' || previousError === 'http-401' || previousError === 'http-403') {
+            // Auth refusals wait for an explicit retry or login action instead
+            // of repeating the same cookie-backed request in the background.
+            return false;
+        }
         now = Date.now();
         if (window.__sfMediaLibRetryAt && now < window.__sfMediaLibRetryAt) return false;
         window.__sfMediaLibRetryAt = now + 5000;
@@ -736,6 +748,15 @@
     }
 
     function scheduleHomeRetry() {
+        var libraryError = String(window.__sfMediaLibError || '');
+        if (libraryError === 'http-401' || libraryError === 'http-403') {
+            // Repeated auth refusals do not refresh a session or improve proof.
+            // Stop background requests; the status card exposes explicit actions.
+            if (homeRetryTimer) window.clearTimeout(homeRetryTimer);
+            homeRetryTimer = null;
+            homeRetries = 0;
+            return;
+        }
         if (homeRetryTimer || homeRetries >= MAX_HOME_RETRIES) return;
         homeRetries += 1;
         homeRetryTimer = window.setTimeout(function() {
@@ -764,7 +785,7 @@
     // True while the shell's own retry loop is still scheduled: only then can
     // the screen honestly promise "another try happens by itself".
     function homeRetryLoopAlive() {
-        return Boolean(homeRetryTimer) || homeRetries < MAX_HOME_RETRIES;
+        return Boolean(homeRetryTimer);
     }
 
     function confirmedLibraryHttpStatus(status) {
@@ -873,14 +894,42 @@
         var proofKnown = window.__sfMediaLibSessionProofKnown === true;
         var status = safeMediaLibStatus();
         var err = String(window.__sfMediaLibError || '');
+        var confirmed401 = status === 'error' && err === 'http-401' && confirmedLibraryHttpStatus(401);
+        var confirmed403 = status === 'error' && err === 'http-403' && confirmedLibraryHttpStatus(403);
         var state = proofKnown || status === 'error' ? 'error' : 'loading';
-        var title = proofKnown ? 'Connexion Spotify non confirmée' :
-            status === 'error' ? 'Connexion Spotify impossible à vérifier' : 'Connexion à Spotify…';
+        var title = confirmed401 ? 'Connexion Spotify à vérifier' :
+            state === 'loading' ? 'Connexion Spotify en cours' : 'Connexion Spotify non confirmée';
         var detail = status === 'error' ? homeLibraryErrorText() : '';
-        var subtitle = detail || (proofKnown
-            ? 'Les playlists restent masquées tant que libraryV3 ne confirme pas la session.'
-            : 'Vérification de la session en cours. Vos playlists resteront masquées jusqu’à validation.');
-        subtitle += ' Touchez pour vous connecter.';
+        var subtitle;
+        var primaryUri;
+        var secondaryUri = '';
+        if (confirmed401) {
+            // Keep the server response and the cause distinct: a 401 is
+            // observed, but it does not prove an absent, expired, or rejected cookie.
+            subtitle = 'Spotify n’a pas confirmé l’accès à votre bibliothèque. ' +
+                'La cause du refus n’est pas établie. Vos playlists restent masquées jusqu’à validation.';
+            primaryUri = 'melodix:action:open-login';
+            secondaryUri = 'melodix:action:retry-library';
+        } else if (confirmed403) {
+            subtitle = 'Spotify n’a pas autorisé la lecture de votre bibliothèque. ' +
+                'La cause n’est pas établie ; vous pouvez réessayer.';
+            primaryUri = 'melodix:action:open-login';
+            secondaryUri = 'melodix:action:retry-library';
+        } else if (status === 'error') {
+            subtitle = detail || 'La connexion à Spotify n’a pas pu être vérifiée.';
+            subtitle = subtitle.replace(/\s*[—–]\s*(?:nouvel essai automatique en cours\.\s*)?Touchez pour réessayer(?: maintenant)?\.?$/i, '');
+            if (err === 'http-401' || err === 'http-403') subtitle += ' La cause n’est pas établie.';
+            subtitle += ' Vos playlists restent masquées tant que la connexion n’est pas confirmée.';
+            // Keep the official login route available whenever session proof is
+            // absent; expose the real retry as a separate, explicitly tapped action.
+            primaryUri = 'melodix:action:open-login';
+            secondaryUri = 'melodix:action:retry-library';
+        } else {
+            subtitle = proofKnown
+                ? 'Vos playlists restent masquées tant que la connexion n’est pas confirmée.'
+                : 'Nous vérifions votre connexion. Vos playlists resteront masquées jusqu’à validation.';
+            primaryUri = 'melodix:action:open-login';
+        }
         return {
             kind: 'state',
             state: state,
@@ -889,7 +938,8 @@
             subtitle: subtitle,
             section: 'Connexion Spotify',
             image: '',
-            uri: 'melodix:action:open-login'
+            uri: primaryUri,
+            secondaryUri: secondaryUri
         };
     }
 

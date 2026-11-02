@@ -890,8 +890,21 @@ test("the authenticated-home observer preserves the primary WebView, observes ca
   assert.doesNotMatch(handoff, /evaluateJavascriptAndWait/,
     "the view inspection never performs a nested instrumentation-thread handoff from the UI thread");
   const handoffOutput = handoff.slice(handoff.indexOf("Bundle state = new Bundle();"));
-  assert.match(handoffOutput, /phase", "javascript_home_handoff[\s\S]*?native_shell_handoff_from_packaged_javascript", true[\s\S]*?native_ready_callback_sent", true[\s\S]*?home_status_payload_sent", true[\s\S]*?native_home_status_login_action_clickable", true/,
-    "the Android fixture reports status-only shell handoff and visible login action as runtime outcomes");
+  assert.match(handoffOutput, /phase", "javascript_home_handoff[\s\S]*?native_shell_handoff_from_packaged_javascript", true[\s\S]*?native_ready_callback_sent", true[\s\S]*?home_status_payload_sent", true[\s\S]*?native_home_status_login_action_clickable", statusLoginActionClickable/,
+    "the Android fixture reports status-only shell handoff and a measured clickable child login action");
+  assert.match(handoff, /containsClickableText\(statusView, "Se connecter"\)/,
+    "the shell-handoff instrumentation inspects the child button rather than the status-card root");
+  const actionStart = harness.indexOf("private Bundle exerciseHomeStatusActions(");
+  const actionEnd = harness.indexOf("private boolean containsText(", actionStart);
+  const actionDispatch = harness.slice(actionStart, actionEnd);
+  assert.match(actionDispatch, /performClickOnText\(status, "Réessayer"\)[\s\S]*?__melodixTestRetryActionCount===1/,
+    "the manual-retry child button dispatches one isolated retry callback");
+  assert.match(actionDispatch, /performClickOnText\(status, "Se connecter"\)[\s\S]*?officialLoginRoute/,
+    "the login child button opens the official login route");
+  assert.match(actionDispatch, /webView\.getParent\(\) == container[\s\S]*?webView\.loadUrl\(originalUrl\)/,
+    "the action test preserves and restores the same mounted WebView");
+  assert.doesNotMatch(actionDispatch, /putString\("[^"]*(?:url|uri)[^"]*"/i,
+    "the action-test result contains no URL or URI value");
   assert.doesNotMatch(handoffOutput, /put(?:Boolean|Int|Long|String)\("[^"]*(?:session|proof|profile|unproven)[^"]*"/i,
     "handoff output omits proof/session/profile indicators and exposes only measured UI results");
   assert.match(emulatorWorkflow, /phase=javascript_home_handoff[\s\S]*?home_status_payload_sent=true[\s\S]*?native_shell_handoff_from_packaged_javascript=true[\s\S]*?javascript_native_shell_handoff_tested=true[\s\S]*?login_surface_restored_after_javascript_shell_handoff=true/,
