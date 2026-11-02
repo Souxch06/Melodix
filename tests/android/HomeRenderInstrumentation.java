@@ -4118,13 +4118,20 @@ public final class HomeRenderInstrumentation extends Instrumentation {
             throw new AssertionError("Could not install the isolated manual-retry callback fixture");
         }
 
+        final boolean[] retryActionClickable = new boolean[1];
         final boolean[] retryClicked = new boolean[1];
         final Throwable[] retryFailure = new Throwable[1];
+        notePhase("home_status_retry_action_click");
         runOnMainSync(new Runnable() {
             @Override
             public void run() {
                 try {
+                    // The packaged shell may replace a test-only row between
+                    // screenshots and taps; dispatch the isolated fixture and
+                    // click it in one UI-thread turn.
+                    dispatchHomeStatusThroughAndBridge(activity);
                     View status = readViewField(activity, "nativeHomeStatusView");
+                    retryActionClickable[0] = containsClickableText(status, "Réessayer");
                     retryClicked[0] = performClickOnText(status, "Réessayer");
                 } catch (Throwable error) {
                     retryFailure[0] = unwrapInvocationTarget(error);
@@ -4137,10 +4144,10 @@ public final class HomeRenderInstrumentation extends Instrumentation {
                 webView, "window.__melodixTestRetryActionCount===1"));
         Bundle retryCheckpoint = new Bundle();
         retryCheckpoint.putString("phase", "home_status_retry_callback_check");
-        retryCheckpoint.putBoolean("native_home_status_retry_action_clickable", retryClicked[0]);
+        retryCheckpoint.putBoolean("native_home_status_retry_action_clickable", retryActionClickable[0]);
         retryCheckpoint.putBoolean("native_home_status_retry_action_click_dispatched", retryClicked[0] && retryCallbackDispatched);
         sendStatus(1, retryCheckpoint);
-        if (!retryClicked[0] || !retryCallbackDispatched) {
+        if (!retryActionClickable[0] || !retryClicked[0] || !retryCallbackDispatched) {
             throw new AssertionError("The child retry button did not dispatch exactly one manual retry");
         }
 
@@ -4159,6 +4166,7 @@ public final class HomeRenderInstrumentation extends Instrumentation {
                 @Override
                 public void run() {
                     try {
+                        dispatchHomeStatusThroughAndBridge(activity);
                         View status = readViewField(activity, "nativeHomeStatusView");
                         loginClicked[0] = performClickOnText(status, "Se connecter");
                     } catch (Throwable error) {
