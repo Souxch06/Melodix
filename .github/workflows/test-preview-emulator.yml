@@ -104,7 +104,19 @@ jobs:
           [[ "$(uname -m)" == "x86_64" ]] || { echo "::error::Expected an x86_64 Linux emulator host, got $(uname -m)."; exit 1; }
           system_image="system-images;android-36;google_apis;x86_64"
           echo "Using Android system image: $system_image"
-          sdkmanager --install "platform-tools" "emulator" "build-tools;35.0.0" "platforms;android-36" "$system_image"
+          sdk_packages=("platform-tools" "emulator" "build-tools;35.0.0" "platforms;android-36" "$system_image")
+          sdk_install_succeeded=false
+          for attempt in 1 2 3; do
+            if sdkmanager --install "${sdk_packages[@]}"; then
+              sdk_install_succeeded=true
+              break
+            fi
+            if (( attempt < 3 )); then
+              echo "Android SDK package install attempt $attempt failed; retrying the same idempotent package set."
+              sleep $((attempt * 5))
+            fi
+          done
+          [[ "$sdk_install_succeeded" == "true" ]] || { echo "::error::Android SDK packages did not install after three attempts."; exit 1; }
           [[ -e /dev/kvm ]] || { echo "::error::KVM is unavailable on this runner."; exit 1; }
           sudo chmod 666 /dev/kvm
           printf 'no\n' | avdmanager create avd \

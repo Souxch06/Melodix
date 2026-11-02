@@ -553,6 +553,8 @@ test("the emulator workflow validates same-run instrumentation and exact release
     /name: Verify activity resumed after Android instrumentation\n        id: post-instrumentation\n        if: always\(\) && steps\.launch\.outcome == 'success'/,
     "activity resumption is checked even when instrumentation fails",
   );
+  assert.match(emulatorWorkflow, /sdk_packages=\([\s\S]*?for attempt in 1 2 3[\s\S]*?sdkmanager --install "\$\{sdk_packages\[@\]\}"[\s\S]*?retrying the same idempotent package set/,
+    "transient Android SDK package-download failures are retried without changing the requested system image or tools");
   assert.match(
     emulatorWorkflow,
     /adb install "\$APK_PATH"[\s\S]*?adb shell pm clear com\.melodix\.music\.preview[\s\S]*?permission-prompt-summary\.json[\s\S]*?adb shell input tap "\$allow_center_x" "\$allow_center_y"[\s\S]*?read_bluetooth_permission_state[\s\S]*?adb install -r "\$TEST_APK"/,
