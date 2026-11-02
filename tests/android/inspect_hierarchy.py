@@ -324,7 +324,16 @@ def main():
                 f" splash_visible={splash_visible}"
             )
         if not web_container_present or not webview_class_present:
-            fail("mounted_webview_under_native_home_surface_not_observed")
+            fail(
+                "mounted_webview_under_native_home_surface_not_observed;"
+                f" web_container_present={web_container_present};"
+                f" web_container_visible={web_container_visible};"
+                f" webview_class_present={webview_class_present};"
+                f" webview_class_visible={webview_class_visible};"
+                f" webview_bounds_present={webview_bounds_present};"
+                f" native_root_visible={native_root_visible};"
+                f" hierarchy_node_count={len(hierarchy_nodes)}"
+            )
         if not summary["screenshot_pixels"].get("home_status_pixels_rendered"):
             fail("home_status_bounds_have_no_rendered_screenshot_pixels")
         if phase == "empty-home":

@@ -285,6 +285,26 @@ test('the CI Home integration contains no fake account data or credentials and l
   assert.doesNotMatch(inspector, /FIXTURE_TITLE|Controlled Home fixture|fixture_title/);
 });
 
+test('cold-launch mounted-WebView failure reports which accessibility observation is missing without weakening the gate', () => {
+  const inspector = read('tests/android/inspect_hierarchy.py');
+  const coldGateStart = inspector.indexOf('if phase in {"empty-home", "home-status"}:');
+  const coldGate = inspector.slice(coldGateStart, inspector.indexOf('if phase == "native-route":', coldGateStart));
+  assert.match(coldGate, /if not web_container_present or not webview_class_present:[\s\S]*?fail\([\s\S]*?mounted_webview_under_native_home_surface_not_observed/);
+  for (const observation of [
+    'web_container_present={web_container_present}',
+    'web_container_visible={web_container_visible}',
+    'webview_class_present={webview_class_present}',
+    'webview_class_visible={webview_class_visible}',
+    'webview_bounds_present={webview_bounds_present}',
+    'native_root_visible={native_root_visible}',
+    'hierarchy_node_count={len(hierarchy_nodes)}',
+  ]) {
+    assert.ok(coldGate.includes(observation), `failure diagnostics include the bounded ${observation} observation`);
+  }
+  assert.doesNotMatch(coldGate, /if not web_container_present or not webview_class_present:[\s\S]*?\n\s*pass\(/,
+    'absence of either hierarchy node continues to fail; a later runtime-mounted check cannot mask this snapshot');
+});
+
 test('native Home hierarchy inspection recognizes safe loading and error labels without exporting text', () => {
   const inspector = read('tests/android/inspect_hierarchy.py');
   assert.match(inspector, /HOME_STATUS_MARKERS = \([\s\S]*\"connexion a spotify\"[\s\S]*\"verification de la session\"[\s\S]*\"etat de connexion non confirme\"[\s\S]*\"chargement de votre accueil\"[\s\S]*\"touchez pour reessayer\"/,

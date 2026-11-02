@@ -4,7 +4,7 @@
 - **Branche :** `arena/7142700d-melodix` (PR #7 maintenue ouverte)
 - **Observation utilisateur :** APK `1.2.2-5de71c0`; cette observation est rapportée par l’utilisateur et n’a pas encore été reproduite dans l’émulateur de CI.
 
-## Observation à conserver
+## COMPLÉMENT IMPORTANT — COMPORTEMENT DIFFÉRENT TÉLÉPHONE / TABLETTE
 
 **Téléphone :** Melodix apparaît brièvement au démarrage, puis Spotify Web reprend le contenu central tandis que le dock natif Melodix reste visible.
 
@@ -48,9 +48,13 @@ Le run `41477173949`, source `0d1156627391afc4c66b686c267e90e33c66abe7`, a const
 
 Le commit `251db45e6ee2387eebcf42f00dfcd9af6735012a` a construit et vérifié le candidat SHA-256 `d6849f55932bf443a0dae762bf39994bad0bff9f6ad70d1098ddb554378d847c`, la cible Preview debuggable SHA-256 `ec26127ff4c19b44203224401f4573ada62311eea29e43ab8ab530eb334a9fd9` et le runner test-only SHA-256 `641dec80f8b0de4761c02438d5dd6d9aae4901c434b0de6d0ab119f793ebe5bf`. La CI a rejeté le statut requis `login_spa_exit_observed=true`; elle n’a pas certifié les assertions de la matrice de routes dans ce run, et les pixels Home restent non vérifiés. Le contrôle imposait à tort une sortie SPA même lorsque `isLoginWebPath()` confirme que la WebView est encore sur un parcours login.
 
-Le correctif courant conserve les callbacks sur le thread UI, isole la matrice en relâchant uniquement son garde-fou login, et restaure explicitement la même surface de connexion/WebView. Il distingue désormais deux résultats valides, sans fuite vers Spotify Web : sortie SPA confirmée, ou route login-only toujours active. La CI exige l’une de ces paires de booléens et continue d’exiger la restauration explicite du login après la matrice. Aucun changement de navigation, session, preuve `libraryV3` ou comportement applicatif n’est inclus. Ce nouveau correctif local n’a pas encore été exécuté par la CI.
+Le correctif conserve les callbacks sur le thread UI, isole la matrice en relâchant uniquement son garde-fou login, et restaure explicitement la même surface de connexion/WebView. Il distingue deux résultats valides, sans transfert vers Spotify Web : sortie SPA confirmée, ou route login-only toujours active. La CI exige l’une de ces paires de booléens et continue d’exiger la restauration explicite du login après la matrice. Aucun changement de navigation, session, preuve `libraryV3` ou comportement applicatif n’est inclus.
 
-`npm test` passe maintenant 473/473. Ces résultats restent une avancée limitée sur un seul profil d’émulateur : ils ne constituent ni une comparaison téléphone/tablette, ni une vérification de pixels complète, ni la validation du P0.
+Le run `41481664562`, sur le commit `1a6cd9626ff345c0b1b663ac5e234de0eb79aa3f`, a réussi les builds, l’instrumentation Android et les inspections post-instrumentation. Les artefacts vérifiés dans ce run sont : APK Preview debuggable, versionCode `1020995`, SHA-256 `b86709301b5ffc57c90d9db38ec3225bd734ddd210bf47b2d365078e4ee42d1c`; runner test-only, SHA-256 `233f6ac47bf8bda1e2113921a08eb77ec0868760ee6c64037f84a3526c3459d8`; candidat non débogable, versionCode `1021134`, SHA-256 `126569bd791195780330104bee962f9faad46ea93f8d7f579f389d52a46122f3`. Le contrôle séparé de hiérarchie cold-launch a échoué avec `mounted_webview_under_native_home_surface_not_observed`; le test du candidat release et la publication ont donc été sautés. L’échec précède la vérification des pixels du snapshot cold-launch.
+
+Dans `inspect_hierarchy.py`, l’échec est déclenché si l’identifiant d’accessibilité `webViewContainer` **ou** un nœud de classe `WebView` manque. Le diagnostic publié ne précise pas lequel; il ne permet donc pas de conclure que la WebView n’était pas montée dans la vue Android. Un changement local non assouplissant ajoute maintenant les booléens assainis `web_container_present/visible`, `webview_class_present/visible`, `webview_bounds_present`, `native_root_visible` et le compte de nœuds à ce message d’échec. Il doit encore être validé par les tests et par un nouveau run; aucun résultat n’est anticipé.
+
+`node --test tests/preview_workflow.test.js tests/p0_home_visibility_gate.test.js` passe 27/27, et `npm test` passe 474/474 après cette amélioration du diagnostic. Ces tests locaux et le run `41481664562` restent limités à un seul profil d’émulateur : ils ne constituent ni une comparaison téléphone/tablette, ni la validation du cold-launch, ni la validation du P0.
 
 ## Critère de réussite
 
