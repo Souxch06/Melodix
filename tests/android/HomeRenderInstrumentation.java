@@ -777,8 +777,9 @@ public final class HomeRenderInstrumentation extends Instrumentation {
 
             // Run the packaged native shell itself in an isolated Spotify-origin
             // WebView. Its JavaScript handoff sends a status-only Home while
-            // libraryV3 proof remains absent; then a native owner callback must
-            // preserve the measured status instead of revealing Spotify over it.
+            // libraryV3 proof remains absent; measure the native view state after
+            // readiness. The preceding owner-callback check separately verifies
+            // that a negative Web-Home signal preserves this status-only shell.
             failurePhase = "javascript_native_shell_home_handoff";
             notePhase(failurePhase);
             requireUnauthenticatedSession(activity);
@@ -795,23 +796,8 @@ public final class HomeRenderInstrumentation extends Instrumentation {
                 failurePhase = "javascript_native_shell_status_visibility";
                 notePhase(failurePhase);
                 awaitNativeHomeStatusReady(activity);
-                failurePhase = "javascript_native_shell_owner_callback";
+                failurePhase = "javascript_native_shell_home_status_inspection";
                 notePhase(failurePhase);
-                final Throwable[] nativeOwnerCallbackFailure = new Throwable[1];
-                runOnMainSync(new Runnable() {
-                    @Override
-                    public void run() {
-                        try {
-                            dispatchUnprovenHomeOwnerCallback(activity);
-                        } catch (Throwable error) {
-                            nativeOwnerCallbackFailure[0] = error;
-                        }
-                    }
-                });
-                if (nativeOwnerCallbackFailure[0] != null) throw nativeOwnerCallbackFailure[0];
-                waitForIdleSync();
-                Thread.sleep(250L);
-                awaitNativeHomeStatusReady(activity);
                 final Bundle[] handoffState = new Bundle[1];
                 final Throwable[] handoffInspectFailure = new Throwable[1];
                 runOnMainSync(new Runnable() {
