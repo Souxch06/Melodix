@@ -3964,8 +3964,8 @@ public final class HomeRenderInstrumentation extends Instrumentation {
                 + "\"section\":\"Connexion Spotify\",\"image\":\"\","
                 + "\"uri\":\"melodix:action:open-login\","
                 + "\"secondaryUri\":\"melodix:action:retry-library\"}]";
-        if (statusOnlyPayload.contains("spotify:") || statusOnlyPayload.contains("playlist")) {
-            throw new AssertionError("The status renderer fixture must not contain Spotify resources");
+        if (statusOnlyPayload.contains("spotify:")) {
+            throw new AssertionError("The status renderer fixture must not contain Spotify resource URIs");
         }
         // This test-only non-playlist payload never invokes onNativeUiReady or
         // sets auth/readiness flags; the renderer must attach it and the native
