@@ -38,6 +38,21 @@ test('Home renderer keeps card and status attachment facts separate', () => {
   assert.match(activity, /\.field private nativeHomeStatusView:Landroid\/view\/View;/);
 });
 
+test('missing or negative session proof reveals Spotify and invalidates stale native Home attachment state', () => {
+  const activity = read('smali/com/melodix/music/MainActivity.smali');
+  const owner = method(activity, '.method public final setMelodixHomeVisibility(ZZ)V');
+  const unprovenStart = owner.indexOf('\n    :melodix_home_session_unproven');
+  const inactiveStart = owner.indexOf('\n    :melodix_home_owner_inactive', unprovenStart);
+  const unproven = owner.slice(unprovenStart, inactiveStart);
+  assert.ok(unprovenStart >= 0 && inactiveStart > unprovenStart);
+  assert.match(owner, /if-eqz p2, :melodix_home_session_unproven/);
+  assert.match(unproven, /nativeHomeCardsAttached:Z[\s\S]*?nativeHomeStatusAttached:Z[\s\S]*?nativeHomeContentReady:Z/);
+  assert.match(unproven, /nativeHomeFirstCard:Landroid\/view\/View;[\s\S]*?nativeHomeStatusView:Landroid\/view\/View;/);
+  assert.match(unproven, /revealWebUi\(\)V/);
+  assert.doesNotMatch(unproven, /AppSingleton;->l:Z|AppSingleton;->startupDone:Z/,
+    'an unproven library response never marks the app/Home authenticated or ready');
+});
+
 test('Home readiness measures the attached card or explicit status view in global bounds', () => {
   const activity = read('smali/com/melodix/music/MainActivity.smali');
   const measured = method(activity, '.method private hasMeasuredVisibleNativeHomeContent()Z');

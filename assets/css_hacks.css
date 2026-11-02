@@ -1572,10 +1572,10 @@ body.sf-tv-nav input:focus-visible {
 }
 
 /* =========================================================================
-   SECTION 10: PHONE APP SHELL
-   A compact three-tab dock, a true mini-player row and a layered library
-   drawer keep Spotify's existing routes and controls while using phone-sized
-   touch targets and Android safe areas, including while the player is expanded.
+   SECTION 10: TOUCH APP SHELL
+   A compact three-tab bottom dock, mini-player row and layered library drawer
+   keep Spotify's existing routes and controls in a stable touch layout, with
+   the content and player reserved above Android's bottom system insets.
    ========================================================================= */
 #sf-mobile-nav {
     display: none !important;
@@ -1604,8 +1604,8 @@ body.sf-tv-nav input:focus-visible {
         grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
         align-items: stretch !important;
         width: 100vw !important;
-        height: calc(72px + env(safe-area-inset-bottom)) !important;
-        padding: 5px 16px calc(5px + env(safe-area-inset-bottom)) !important;
+        height: calc(72px + var(--sf-safe-area-bottom, env(safe-area-inset-bottom))) !important;
+        padding: 5px 16px calc(5px + var(--sf-safe-area-bottom, env(safe-area-inset-bottom))) !important;
         background: var(--mel-overlay-4) !important;
         border-top: 1px solid var(--mel-wash-09) !important;
         -webkit-backdrop-filter: blur(22px) saturate(150%) !important;
@@ -1661,55 +1661,33 @@ body.sf-tv-nav input:focus-visible {
 
     /* Stop the library drawer above the mini-player and the fixed bottom dock. */
     body.sf-library-open #Desktop_LeftSidebar_Id {
-        bottom: calc(154px + env(safe-area-inset-bottom)) !important;
+        bottom: calc(154px + var(--sf-safe-area-bottom, env(safe-area-inset-bottom))) !important;
         visibility: visible !important;
         opacity: 1 !important;
         pointer-events: auto !important;
         z-index: 10005 !important;
     }
 
-    body.sf-fs-open #sf-mobile-nav {
-        display: none !important;
+    body.sf-mobile-shell.sf-fs-open #sf-mobile-nav {
+        display: grid !important;
+        z-index: 100010 !important;
+    }
+
+    body.sf-mobile-shell.sf-fs-open #sf-fs-player {
+        padding-bottom: calc(92px + var(--sf-safe-area-bottom, env(safe-area-inset-bottom))) !important;
     }
 
     #main-view,
     #main-view [data-overlayscrollbars-viewport] {
-        scroll-padding-bottom: calc(160px + env(safe-area-inset-bottom)) !important;
-        padding-bottom: calc(160px + env(safe-area-inset-bottom)) !important;
+        scroll-padding-bottom: calc(160px + var(--sf-safe-area-bottom, env(safe-area-inset-bottom))) !important;
+        padding-bottom: calc(160px + var(--sf-safe-area-bottom, env(safe-area-inset-bottom))) !important;
     }
-
-/* Tablets and unfolded foldables: the tab bar belongs at the TOP, docked
- * under the status bar (with its inset, so its shadow never falls under the
- * clock). Phones in portrait - and folded foldables - keep the bottom dock
- * exactly as it is. */
-@media screen and (min-width: 640px) {
-    #sf-mobile-nav {
-        top: env(safe-area-inset-top) !important;
-        bottom: auto !important;
-        height: 56px !important;
-        padding: 5px 16px !important;
-    }
-    body:not(.sf-library-open) #Desktop_LeftSidebar_Id,
-    body.sf-library-open #Desktop_LeftSidebar_Id {
-        top: calc(104px + env(safe-area-inset-top)) !important;
-        bottom: calc(84px + env(safe-area-inset-bottom)) !important;
-    }
-    aside[data-testid="now-playing-bar"] {
-        bottom: env(safe-area-inset-bottom) !important;
-    }
-    #main-view,
-    #main-view [data-overlayscrollbars-viewport] {
-        scroll-padding-bottom: calc(96px + env(safe-area-inset-bottom)) !important;
-        padding-bottom: calc(96px + env(safe-area-inset-bottom)) !important;
-    }
-}
-
 
     body:not(.sf-fs-open) aside[data-testid="now-playing-bar"] {
         position: fixed !important;
         left: 10px !important;
         right: 10px !important;
-        bottom: calc(78px + env(safe-area-inset-bottom)) !important;
+        bottom: calc(78px + var(--sf-safe-area-bottom, env(safe-area-inset-bottom))) !important;
         box-sizing: border-box !important;
         width: auto !important;
         min-width: 0 !important;
@@ -1825,13 +1803,7 @@ body.sf-tv-nav input:focus-visible {
 
     /* The phone mini-player shares neither the library drawer nor the bottom dock. */
     body.sf-library-open aside[data-testid="now-playing-bar"] {
-        bottom: calc(78px + env(safe-area-inset-bottom)) !important;
-    }
-
-    @media screen and (min-width: 640px) {
-        body.sf-library-open aside[data-testid="now-playing-bar"] {
-            bottom: env(safe-area-inset-bottom) !important;
-        }
+        bottom: calc(78px + var(--sf-safe-area-bottom, env(safe-area-inset-bottom))) !important;
     }
 
     body.sf-library-open #main-view {
@@ -1865,7 +1837,7 @@ body.sf-melodix-home-style-probe #sf-melodix-home {
 
 #sf-melodix-home {
     position: fixed !important;
-    inset: var(--sf-melodix-home-top, 0px) 0 calc(154px + env(safe-area-inset-bottom)) !important;
+    inset: var(--sf-melodix-home-top, 0px) 0 calc(154px + var(--sf-safe-area-bottom, env(safe-area-inset-bottom))) !important;
     z-index: 10001 !important;
     box-sizing: border-box !important;
     overflow-x: hidden !important;

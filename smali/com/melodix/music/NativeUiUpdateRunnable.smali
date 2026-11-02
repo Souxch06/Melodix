@@ -41,10 +41,11 @@
     if-ne v1, v2, :check_home_fallback
 
     iget-object v1, p0, Lcom/melodix/music/NativeUiUpdateRunnable;->screen:Ljava/lang/String;
-    # A route update only switches the native screen. Calling the library tab
-    # handler here navigated back to /collection/playlists on every load, which
-    # reloaded the page and looped forever.
-    invoke-virtual {v0, v1}, Lcom/melodix/music/MainActivity;->setNativeScreen(Ljava/lang/String;)V
+    # A verified SPA route must also transfer visibility back to the native
+    # shell. The Web Home renderer may have hidden nativeRoot; only routes
+    # dispatched after the libraryV3 proof gate reach this action. Keep this
+    # separate from the Library button handler to avoid navigation loops.
+    invoke-virtual {v0, v1}, Lcom/melodix/music/MainActivity;->activateNativeUiRoute(Ljava/lang/String;)V
     return-void
 
     :check_home_fallback

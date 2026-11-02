@@ -659,6 +659,25 @@
         return out;
     }
 
+    // Start/retry the private account-library request wherever the WebView
+    // opens. Home collectors also call this helper, but detail/search/library
+    // routes must not wait until the user visits Home before session proof can
+    // arrive. Only the existing libraryV3 response can authorize native data.
+    function requestMediaLibraryProof() {
+        var now;
+        if (libraryProvesSession() || typeof window.checkMediaLib !== 'function' ||
+            window.__sfMediaLibStatus === 'loading') return false;
+        now = Date.now();
+        if (window.__sfMediaLibRetryAt && now < window.__sfMediaLibRetryAt) return false;
+        window.__sfMediaLibRetryAt = now + 5000;
+        try {
+            window.checkMediaLib();
+            return true;
+        } catch (_) {
+            return false;
+        }
+    }
+
     // Rows already known from the account library, without touching the page.
     // The library tab used to reload the whole Spotify page even when every
     // playlist was already in memory; that navigation is now the fallback.
@@ -688,19 +707,9 @@
         var spotifyRows = [];
         var sidebar;
 
-        // Start or retry the private library request while evidence is absent.
         // Public Home cards, a profile widget, and stale mediaLib arrays are
         // never promoted to Spotify-session proof or passed to the native shelf.
-        if (!sessionProven && typeof window.checkMediaLib === 'function' &&
-            window.__sfMediaLibStatus !== 'loading') {
-            var libNow = (window.Date && Date.now) ? Date.now() : 0;
-            if (!window.__sfMediaLibRetryAt || libNow >= window.__sfMediaLibRetryAt) {
-                window.__sfMediaLibRetryAt = libNow + 5000;
-                try {
-                    window.checkMediaLib();
-                } catch (_) {}
-            }
-        }
+        requestMediaLibraryProof();
 
         if (library) {
             groups.forEach(function(group) {
@@ -1025,9 +1034,10 @@
         var path = spotifyRoutePath();
         var rows;
         var signature;
-        if (nativeScreenForPath() !== 'search' || !mainView || !query) {
+        if (nativeScreenForPath() !== 'search' || !mainView || !query || !libraryProvesSession()) {
             lastSearchPath = '';
             lastSearchSignature = null;
+            window.__sfNativeUiSearchRowsCount = 0;
             return;
         }
         if (path !== lastSearchPath) {
@@ -1053,9 +1063,10 @@
         var path = spotifyRoutePath();
         var rows;
         var signature;
-        if (nativeScreenForPath() !== 'library' || !mainView) {
+        if (nativeScreenForPath() !== 'library' || !mainView || !libraryProvesSession()) {
             lastLibraryPath = '';
             lastLibrarySignature = null;
+            window.__sfNativeUiLibraryRowsCount = 0;
             return;
         }
         if (path.indexOf('/collection') !== 0 && path.indexOf('/your-library') !== 0) return;
@@ -1080,9 +1091,11 @@
         var signature;
         var bridge;
         var path = spotifyRoutePath();
-        if (nativeScreenForPath() !== 'detail' || !mainView) {
+        if (nativeScreenForPath() !== 'detail' || !mainView || !libraryProvesSession()) {
             lastDetailPath = '';
             lastInitialDetailSignature = null;
+            lastInitialDetailTitle = null;
+            window.__sfNativeUiDetailRowsCount = 0;
             return;
         }
         if (path !== lastDetailPath) {
@@ -2123,6 +2136,10 @@
     function maybeNavigateToPlayer() {
         var mainView = arguments[0];
         var rootResolved = arguments[1] === true;
+        // Recovery is only for the initial Spotify landing shell. A delayed
+        // timer must never turn a playlist/search transition (or an already
+        // announced native route) into an unrelated /app or /search redirect.
+        if (spotifyRouteCategory() !== 'home' || window.__sfNativeUiReadyNotified) return;
         if (rootResolved ? Boolean(mainView) : Boolean(findMainView())) return;
         if (sfDeepQuery('[data-testid="user-widget-link"]')) return;
         if (sfDeepQuery('[data-testid="card"]')) return;
@@ -2195,6 +2212,7 @@
             route = nativeScreenForPath();
             routeCategory = spotifyRouteCategory();
             sessionBit = pageHasSessionEvidence() ? '1' : '0';
+            requestMediaLibraryProof();
             routeSignature = routeCategory + '|' + sessionBit;
             if (window.__sfSpotifyRouteTraceSignature !== routeSignature) {
                 window.__sfSpotifyRouteTraceSignature = routeSignature;
@@ -2202,7 +2220,10 @@
             }
             initialScreen = route;
             window.__sfNativeUiRoute = route;
-            sendNativeUiRoute(route);
+            // Home is a non-private route and may be reported while login or
+            // session proof is pending. Other native screens can expose account
+            // content, so only dispatch them after libraryV3 proves this session.
+            if (route === 'home' || sessionBit === '1') sendNativeUiRoute(route);
             installPlaybackStateGuard();
             installSearchFallback();
             mainView = findMainView();

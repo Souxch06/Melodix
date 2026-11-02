@@ -3,6 +3,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
 const test = require('node:test');
+const { JSDOM } = require('jsdom');
 
 const root = path.resolve(__dirname, '..');
 const read = (file) => fs.readFileSync(path.join(root, file), 'utf8');
@@ -34,6 +35,8 @@ const nativeIds = [
     'nativeHomeTab',
     'nativeSearchTab',
     'nativeLibraryTab',
+    'nativeTabBar',
+    'nativeMiniPlayerContainer',
     'nativeHeaderAvatar',
     'nativePlayerPositionText',
     'nativePlayerDurationText'
@@ -113,6 +116,32 @@ test('Android WebView instruments real CSS layout states at all requested phone 
         && harness.includes('154.0 + bottomInset') && harness.includes('rendererView.setAlpha(0.0f)')
         && harness.includes('rendererView.setTranslationX(Math.max(0, root.getWidth()))'),
         'the test fixture must measure a real requested CSS width without visually covering or focusing the primary Spotify WebView');
+});
+
+test('native Player scrolls above the fixed dock without reparenting mini-player or tabs', () => {
+    const layout = new JSDOM(read('res/layout/activity_main.xml'), { contentType: 'text/xml' }).window.document;
+    const byAndroidId = (id) => Array.from(layout.getElementsByTagName('*'))
+        .find((node) => node.getAttribute('android:id') === `@id/${id}`);
+    const root = byAndroidId('nativeRoot');
+    const player = byAndroidId('nativePlayerPanel');
+    const miniPlayer = byAndroidId('nativeMiniPlayerContainer');
+    const tabBar = byAndroidId('nativeTabBar');
+    assert.ok(root && player && miniPlayer && tabBar, 'all native shell surfaces exist');
+    assert.equal(player.tagName, 'ScrollView', 'the full Player content can scroll on short/landscape screens');
+    assert.equal(player.getAttribute('android:fillViewport'), 'true');
+    assert.strictEqual(player.parentElement, root);
+    assert.strictEqual(miniPlayer.parentElement, root);
+    assert.strictEqual(tabBar.parentElement, root);
+    assert.ok(Array.from(root.children).indexOf(miniPlayer) < Array.from(root.children).indexOf(tabBar),
+        'the mini-player and navigation remain independent siblings in their existing order');
+
+    const activity = read('smali/com/melodix/music/MainActivity.smali');
+    const screen = activity.slice(activity.indexOf('.method public final setNativeScreen(Ljava/lang/String;)V'));
+    const dockStart = screen.lastIndexOf('\n    :native_tab_bar');
+    const dock = screen.slice(dockStart, screen.indexOf('\n    :screen_title', dockStart));
+    assert.match(dock, /const v2, 0x7f09024e[\s\S]*?if-eqz v2, :screen_title[\s\S]*?const\/4 v3, 0x0[\s\S]*?setVisibility\(I\)V/);
+    assert.doesNotMatch(dock, /nativeCurrentScreen|if-eqz v1/,
+        'Player never hides the native bottom navigation');
 });
 
 test('all native layout IDs are assigned stable public resource IDs', () => {
@@ -1191,7 +1220,7 @@ test('row taps open playlists, albums and tracks', () => {
     assert.match(openRow, /window\.__sfNativeOpenUri/);
 });
 
-test('detail and player screens expose the back arrow and hide the tab bar', () => {
+test('detail and player screens expose the back arrow while keeping the tab bar visible', () => {
     const activity = read('smali/com/melodix/music/MainActivity.smali');
     const screen = activity.slice(
         activity.indexOf('.method public final setNativeScreen'),
@@ -1202,7 +1231,10 @@ test('detail and player screens expose the back arrow and hide the tab bar', () 
     assert.match(screen, /if-nez v1, :native_back_check_player/, 'detail shows the arrow');
     assert.match(screen, /const\/4 v1, 0x1\s+goto :set_back_button_visibility/);
     assert.match(screen, /const v2, 0x7f09024c/, 'the whole mini player card is hidden on the full player');
-    assert.match(screen, /const v2, 0x7f09024e/, 'the tab bar is hidden on the full player');
+    const dockStart = screen.lastIndexOf('\n    :native_tab_bar');
+    const dock = screen.slice(dockStart, screen.indexOf('\n    :screen_title', dockStart));
+    assert.match(dock, /const v2, 0x7f09024e[\s\S]*?const\/4 v3, 0x0[\s\S]*?setVisibility\(I\)V/,
+        'the native bottom dock stays visible on the full player');
 });
 
 test('library chips and the search tab never call a bridge-only function', () => {
@@ -1525,19 +1557,14 @@ test('a null screen or a null payload through the bridge is ignored, never appli
     assert.match(head, /if-eqz p2, :apply_done/, 'un corps null est ignore');
 });
 
-test('tapping the active Home tab keeps the rows instead of blanking the shelf', () => {
+test('tapping Home never clears real rows before the authenticated refresh', () => {
     const activity = read('smali/com/melodix/music/MainActivity.smali');
     const start = activity.indexOf('.method public final onNativeHomeClick');
     const body = activity.slice(start, activity.indexOf('.end method', start));
-    // Already on home: no empty render, only the refresh request.
-    assert.ok(body.includes('nativeCurrentScreen:Ljava/lang/String;'),
-        'l onglet courant est lu avant de vider la liste');
-    assert.match(body, /if-nez v2, :native_home_render/);
-    assert.match(body, /:native_home_request[\s\S]*__sfNativeRequestHome/);
-    const emptyRenderAt = body.indexOf('const-string v2, "[]"');
-    const renderLabelAt = body.indexOf(':native_home_render');
-    assert.ok(renderLabelAt > 0 && emptyRenderAt > renderLabelAt,
-        'le rendu vide reste sur le chemin d un changement d onglet');
+    assert.match(body, /setNativeScreen\(Ljava\/lang\/String;\)V/);
+    assert.match(body, /__sfNativeRequestHome/);
+    assert.doesNotMatch(body, /nativeCurrentScreen|renderNativeRows|\"\[\]\"|native_home_render/,
+        'Home refresh reuses the existing native shelf instead of blanking it first');
 });
 
 function executeDetailDataBranch(currentScreen, title, payload) {
@@ -1608,6 +1635,18 @@ function executeDetailDataBranch(currentScreen, title, payload) {
     }
     return state;
 }
+
+test('a real playlist title is applied before detail rows; an empty title is ignored', () => {
+    const activity = read('smali/com/melodix/music/MainActivity.smali');
+    const applyAt = activity.indexOf('.method public final applyNativeUiData(Ljava/lang/String;Ljava/lang/String;)V');
+    const applyEnd = activity.indexOf('.end method', applyAt);
+    const body = activity.slice(applyAt, applyEnd);
+    const titleAt = body.lastIndexOf('\n    :check_screen_title');
+    const detailAt = body.indexOf('\n    :check_detail_data', titleAt);
+    const title = body.slice(titleAt, detailAt);
+    assert.match(title, /String;->isEmpty\(\)Z[\s\S]*?if-nez v1, :apply_done[\s\S]*?nativeCurrentTitle:Ljava\/lang\/String;[\s\S]*?setText/,
+        'a non-empty Spotify entity title reaches the native header and is retained for row rendering');
+});
 
 test('detail payload control flow renders on detail and is dropped on every other screen', () => {
     const payload = '[{"title":"Controlled track payload","uri":"spotify:track:test-fixture"}]';

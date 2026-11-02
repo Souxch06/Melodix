@@ -445,6 +445,61 @@ test('absent, incomplete, or throwing bridge callbacks never claim native readin
     }
 });
 
+test('unproven Search, Library, and detail routes neither activate native screens nor forward page rows', () => {
+    for (const locationPath of ['/search/jazz', '/collection/playlists', '/playlist/private-resource']) {
+        const { calls, win } = loadShell({
+            locationPath,
+            withCards: true,
+            noUserWidget: true,
+            mediaLib: { playlists: [{ id: 'stale-private-row', name: 'Stale row' }] },
+            mediaLibSessionProofKnown: false,
+            mediaLibSessionProven: false
+        });
+        assert.deepEqual(calls.routes, [], `${locationPath}: no native route before private-library proof`);
+        assert.equal(calls.ready, 0, `${locationPath}: readiness stays blocked`);
+        assert.equal(calls.data.filter((call) => ['search', 'detail', 'media:playlists'].includes(call.screen)).length, 0,
+            `${locationPath}: DOM/stale library rows are withheld from native callbacks`);
+        assert.equal(win.__sfNativeUiTakeoverProven, false);
+        assert.equal(calls.mediaLibChecks, 1,
+            `${locationPath}: the real library proof request can start without logging in or fabricating data`);
+    }
+});
+
+test('localized Home remains the safe route while private screens wait for proof', () => {
+    const unproven = loadShell({
+        locationPath: '/intl-fr/',
+        mediaLibSessionProofKnown: false,
+        mediaLibSessionProven: false,
+        noUserWidget: true
+    });
+    assert.deepEqual(unproven.calls.routes, ['home'], 'locale-prefixed Home normalizes to the non-private route');
+    assert.equal(unproven.calls.ready, 0, 'Home route alone never grants authenticated readiness');
+
+    const proven = loadShell({
+        locationPath: '/intl-fr/',
+        mediaLibSessionProofKnown: true,
+        mediaLibSessionProven: true,
+        noUserWidget: true
+    });
+    assert.deepEqual(proven.calls.routes, ['home']);
+    assert.equal(proven.calls.ready, 1, 'a valid private response preserves the positive Home fallback');
+});
+
+test('delayed player recovery never redirects a playlist or search route', () => {
+    for (const locationPath of ['/playlist/private-resource', '/search/jazz', '/collection/playlists']) {
+        const { navigations, calls } = loadShell({
+            locationPath,
+            withCards: false,
+            noUserWidget: true,
+            mediaLibSessionProofKnown: false,
+            mediaLibSessionProven: false,
+            rootMode: 'fallback'
+        });
+        assert.deepEqual(navigations, [], `${locationPath}: player recovery is Home-only`);
+        assert.equal(calls.ready, 0);
+    }
+});
+
 test('route changes are dispatched before fresh Home data is resent', () => {
     const { calls, win } = loadShell({ withCards: true });
     const initialHomeCount = calls.data.filter((call) => call.screen === 'home').length;

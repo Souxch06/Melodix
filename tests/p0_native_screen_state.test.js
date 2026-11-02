@@ -205,6 +205,116 @@ test('the native screen route whitelist preserves every supported UI screen', ()
     }
 });
 
+function executeNativeRouteActivation(activity, destination) {
+    const method = extractMethod(
+        ACTIVITY,
+        '.method public final activateNativeUiRoute(Ljava/lang/String;)V');
+    const registers = { p0: activity, p1: destination };
+    const instructions = [];
+    const labels = new Map();
+    for (const rawLine of method.split(/\r?\n/)) {
+        const line = rawLine.replace(/#.*/, '').trim();
+        if (!line || line.startsWith('.')) continue;
+        if (line.startsWith(':')) {
+            labels.set(line.slice(1), instructions.length);
+            continue;
+        }
+        instructions.push(line);
+    }
+    let pendingResult;
+    let pc = 0;
+    let steps = 0;
+    while (pc < instructions.length) {
+        assert.ok(++steps <= 80, 'activateNativeUiRoute control flow must terminate');
+        const instruction = instructions[pc++];
+        let match;
+        if ((match = /^if-(eqz|nez) (\w+), :([\w$.-]+)$/.exec(instruction))) {
+            const value = registers[match[2]];
+            const zero = value == null || value === 0 || value === false;
+            const takeBranch = match[1] === 'eqz' ? zero : !zero;
+            if (takeBranch) {
+                assert.ok(labels.has(match[3]), `route activation branch exists: :${match[3]}`);
+                pc = labels.get(match[3]);
+            }
+            continue;
+        }
+        if ((match = /^const-string (\w+), "([^"]*)"$/.exec(instruction))) {
+            registers[match[1]] = match[2];
+            continue;
+        }
+        if ((match = /^const(?:\/4|\/16)? (\w+), (0x[0-9a-f]+|0x0|0x1|0x8)$/.exec(instruction))) {
+            registers[match[1]] = Number.parseInt(match[2], 16);
+            continue;
+        }
+        if ((match = /^iput-object (\w+), p0, .*->nativeExpectedSearch:Ljava\/lang\/String;$/.exec(instruction))) {
+            activity.nativeExpectedSearch = registers[match[1]] === 0 ? null : registers[match[1]];
+            continue;
+        }
+        if ((match = /^iget-object (\w+), p0, .*->(nativeCurrentScreen|nativeCurrentTitle):Ljava\/lang\/String;$/.exec(instruction))) {
+            registers[match[1]] = activity[match[2]];
+            continue;
+        }
+        if ((match = /^invoke-virtual \{(\w+), (\w+)\}, Ljava\/lang\/String;->equals\(Ljava\/lang\/Object;\)Z$/.exec(instruction))) {
+            pendingResult = registers[match[1]] === registers[match[2]] ? 1 : 0;
+            continue;
+        }
+        if ((match = /^move-result (\w+)$/.exec(instruction))) {
+            registers[match[1]] = pendingResult;
+            pendingResult = undefined;
+            continue;
+        }
+        if ((match = /^invoke-virtual \{p0, (\w+)\}, Landroid\/app\/Activity;->findViewById\(I\)Landroid\/view\/View;$/.exec(instruction))) {
+            const id = registers[match[1]];
+            pendingResult = (activity.missingViewIds || []).includes(id) ? null : { resourceId: id };
+            continue;
+        }
+        if ((match = /^move-result-object (\w+)$/.exec(instruction))) {
+            registers[match[1]] = pendingResult;
+            pendingResult = undefined;
+            continue;
+        }
+        if ((match = /^invoke-virtual \{(\w+), (\w+)\}, Landroid\/view\/View;->setVisibility\(I\)V$/.exec(instruction))) {
+            activity.visibilityById = activity.visibilityById || {};
+            activity.visibilityById[registers[match[1]].resourceId] = registers[match[2]];
+            continue;
+        }
+        if ((match = /^invoke-virtual \{p0, p1\}, Lcom\/melodix\/music\/MainActivity;->setNativeScreen\(Ljava\/lang\/String;\)V$/.exec(instruction))) {
+            const result = executeSetNativeScreen(
+                activity.nativeCurrentScreen,
+                destination,
+                activity.nativeFadeNextScreen,
+                activity.contentSentinel,
+                activity);
+            Object.assign(activity, {
+                nativeCurrentScreen: result.state.nativeCurrentScreen,
+                nativeFadeNextScreen: result.state.nativeFadeNextScreen,
+                nativeHomeCardsAttached: result.state.nativeHomeCardsAttached,
+                nativeHomeStatusAttached: result.state.nativeHomeStatusAttached,
+                nativeHomeContentReady: result.state.nativeHomeContentReady
+            });
+            continue;
+        }
+        if ((match = /^goto :([\w$.-]+)$/.exec(instruction))) {
+            assert.ok(labels.has(match[1]), `route activation goto exists: :${match[1]}`);
+            pc = labels.get(match[1]);
+            continue;
+        }
+        if ((match = /^invoke-virtual \{p0, (\w+), (\w+)\}, Lcom\/melodix\/music\/MainActivity;->renderNativeRows\(Ljava\/lang\/String;Ljava\/lang\/String;\)V$/.exec(instruction))) {
+            activity.renderCalls = activity.renderCalls || [];
+            activity.renderCalls.push({ title: registers[match[1]], json: registers[match[2]] });
+            continue;
+        }
+        if (instruction === 'invoke-virtual {p0}, Lcom/melodix/music/MainActivity;->showNativeUi()V') {
+            activity.showCalls = (activity.showCalls || 0) + 1;
+            activity.showResult = executeHomeReadinessGate(activity);
+            continue;
+        }
+        if (instruction === 'return-void') return activity;
+        throw new Error(`Unreviewed opcode in activateNativeUiRoute: ${instruction}`);
+    }
+    throw new Error('activateNativeUiRoute completed without return-void');
+}
+
 function executeUiUpdateRunnable(activity, screen, action) {
     const source = fs.readFileSync(
         path.join(ROOT, 'smali/com/melodix/music/NativeUiUpdateRunnable.smali'), 'utf8');
@@ -255,16 +365,8 @@ function executeUiUpdateRunnable(activity, screen, action) {
             }
             continue;
         }
-        if ((match = /^invoke-virtual \{(\w+), (\w+)\}, Lcom\/melodix\/music\/MainActivity;->setNativeScreen\(Ljava\/lang\/String;\)V$/.exec(instruction))) {
-            const result = executeSetNativeScreen(
-                registers[match[1]].nativeCurrentScreen,
-                registers[match[2]],
-                registers[match[1]].nativeFadeNextScreen,
-                registers[match[1]].contentSentinel);
-            Object.assign(registers[match[1]], {
-                nativeCurrentScreen: result.state.nativeCurrentScreen,
-                nativeFadeNextScreen: result.state.nativeFadeNextScreen
-            });
+        if ((match = /^invoke-virtual \{(\w+), (\w+)\}, Lcom\/melodix\/music\/MainActivity;->activateNativeUiRoute\(Ljava\/lang\/String;\)V$/.exec(instruction))) {
+            executeNativeRouteActivation(registers[match[1]], registers[match[2]]);
             continue;
         }
         if ((match = /^invoke-virtual \{(\w+)\}, Lcom\/melodix\/music\/MainActivity;->showNativeUi\(\)V$/.exec(instruction))) {
@@ -273,8 +375,8 @@ function executeUiUpdateRunnable(activity, screen, action) {
             continue;
         }
         if (instruction === 'return-void') return activity;
-        // The route and ready branches under test must not silently begin
-        // invoking unrelated data/render callbacks.
+        // Any new route handoff side effect must be added to the strict
+        // activation executor above instead of being silently accepted here.
         throw new Error(`Unreviewed opcode in NativeUiUpdateRunnable.run(): ${instruction}`);
     }
     throw new Error('NativeUiUpdateRunnable.run() completed without return-void');
@@ -333,6 +435,40 @@ test('D4 — Home route queued before readiness is applied; empty Home keeps the
     assert.equal(activity.webViewVisible, true, 'no-content path preserves Spotify WebView');
     assert.equal(activity.nativeRootVisible, false, 'no-content path does not cover the page');
     assert.strictEqual(activity.contentSentinel, contentSentinel);
+});
+
+test('D4c — accepted Search, Library, detail, and Player routes reveal the native shell', () => {
+    for (const screen of ['search', 'library', 'detail', 'player']) {
+        const activity = {
+            nativeCurrentScreen: 'home',
+            nativeFadeNextScreen: false,
+            nativeHomeCardsAttached: true,
+            nativeHomeStatusAttached: false,
+            nativeHomeContentReady: true,
+            contentSentinel: { value: 'previous-home-content' },
+            webViewVisible: true,
+            nativeRootVisible: false,
+            showCalls: 0
+        };
+        executeUiUpdateRunnable(activity, screen, 2);
+        assert.equal(activity.nativeCurrentScreen, screen, `${screen}: native route is applied first`);
+        assert.equal(activity.showCalls, 1, `${screen}: the Web Home owner cannot leave the native root hidden`);
+        assert.equal(activity.nativeRootVisibilityRequested, true,
+            `${screen}: showNativeUi requests the measured native surface`);
+        if (screen === 'player') {
+            assert.equal(activity.renderCalls, undefined, 'full-player controls are not replaced by a rows placeholder');
+        } else if (screen === 'search') {
+            assert.equal(activity.renderCalls, undefined, 'the browse grid is not hidden by an empty rows render');
+            assert.equal(activity.nativeExpectedSearch, null);
+            assert.equal(activity.visibilityById[0x7f09024f], 0, 'the real genre grid is visible');
+            assert.equal(activity.visibilityById[0x7f090239], 8, 'stale result rows are hidden');
+        } else {
+            assert.equal(activity.renderCalls.length, 1,
+                `${screen}: stale Home rows are cleared before new route data arrives`);
+            assert.equal(activity.renderCalls[0].json, '[]',
+                `${screen}: the initial placeholder does not contain stale Spotify rows`);
+        }
+    }
 });
 
 test('D4b — revealWebUi restores the WebView container after the network-error state hides it', () => {

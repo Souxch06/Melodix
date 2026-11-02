@@ -2144,10 +2144,15 @@
         const nav = document.getElementById('sf-mobile-nav');
         if (!nav) return;
 
-        const pathname = window.location.pathname || '/';
-        const active = document.body.classList.contains('sf-library-open')
+        const pathname = String(window.location.pathname || '/').replace(
+            /^\/intl-[a-z]{2}(?:-[a-z]{2})?(?=\/|$)/i, ''
+        ) || '/';
+        const isLibraryRoute = pathname === '/collection' || pathname.startsWith('/collection/') ||
+            pathname === '/your-library' || pathname.startsWith('/your-library/');
+        const isSearchRoute = pathname === '/search' || pathname.startsWith('/search/');
+        const active = document.body.classList.contains('sf-library-open') || isLibraryRoute
             ? 'library'
-            : (pathname === '/search' || pathname.startsWith('/search/') || document.body.classList.contains('sf-search-focused'))
+            : (isSearchRoute || document.body.classList.contains('sf-search-focused'))
                 ? 'search'
                 : 'home';
 
@@ -2207,8 +2212,8 @@
         grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
         align-items: stretch !important;
         width: 100vw !important;
-        height: calc(72px + env(safe-area-inset-bottom)) !important;
-        padding: 5px 16px calc(5px + env(safe-area-inset-bottom)) !important;
+        height: calc(72px + var(--sf-safe-area-bottom, env(safe-area-inset-bottom))) !important;
+        padding: 5px 16px calc(5px + var(--sf-safe-area-bottom, env(safe-area-inset-bottom))) !important;
         background: rgba(13, 16, 14, 0.97) !important;
         border-top: 1px solid rgba(255, 255, 255, 0.09) !important;
         z-index: 10010 !important;
@@ -2242,7 +2247,13 @@
     #sf-mobile-nav .sf-mobile-nav__item[aria-current="page"] {
         color: #1ed760 !important;
     }
-    body.sf-fs-open #sf-mobile-nav { display: none !important; }
+    body.sf-mobile-shell.sf-fs-open #sf-mobile-nav {
+        display: grid !important;
+        z-index: 100010 !important;
+    }
+    body.sf-mobile-shell.sf-fs-open #sf-fs-player {
+        padding-bottom: calc(92px + var(--sf-safe-area-bottom, env(safe-area-inset-bottom))) !important;
+    }
     body:not(.sf-library-open) #Desktop_LeftSidebar_Id {
         visibility: hidden !important;
         opacity: 0 !important;
@@ -2253,7 +2264,7 @@
         top: calc(48px + env(safe-area-inset-top)) !important;
         left: 0 !important;
         right: 0 !important;
-        bottom: calc(154px + env(safe-area-inset-bottom)) !important;
+        bottom: calc(154px + var(--sf-safe-area-bottom, env(safe-area-inset-bottom))) !important;
         width: 100% !important;
         overflow-y: auto !important;
         visibility: visible !important;
@@ -2291,14 +2302,14 @@
     }
     #main-view,
     #main-view [data-overlayscrollbars-viewport] {
-        scroll-padding-bottom: calc(160px + env(safe-area-inset-bottom)) !important;
-        padding-bottom: calc(160px + env(safe-area-inset-bottom)) !important;
+        scroll-padding-bottom: calc(160px + var(--sf-safe-area-bottom, env(safe-area-inset-bottom))) !important;
+        padding-bottom: calc(160px + var(--sf-safe-area-bottom, env(safe-area-inset-bottom))) !important;
     }
     body:not(.sf-fs-open) aside[data-testid="now-playing-bar"] {
         position: fixed !important;
         left: 10px !important;
         right: 10px !important;
-        bottom: calc(78px + env(safe-area-inset-bottom)) !important;
+        bottom: calc(78px + var(--sf-safe-area-bottom, env(safe-area-inset-bottom))) !important;
         box-sizing: border-box !important;
         width: auto !important;
         min-width: 0 !important;
@@ -2362,32 +2373,11 @@
         display: none !important;
     }
     body.sf-library-open aside[data-testid="now-playing-bar"] {
-        bottom: calc(78px + env(safe-area-inset-bottom)) !important;
+        bottom: calc(78px + var(--sf-safe-area-bottom, env(safe-area-inset-bottom))) !important;
     }
     @media screen and (orientation: landscape) {
         body.sf-mobile-shell #global-nav-bar {
             display: none !important;
-        }
-    }
-    @media screen and (min-width: 640px) {
-        body.sf-mobile-shell #sf-mobile-nav {
-            top: env(safe-area-inset-top) !important;
-            bottom: auto !important;
-            height: 56px !important;
-            padding: 5px 16px !important;
-        }
-        body.sf-mobile-shell aside[data-testid=\"now-playing-bar\"],
-        body.sf-library-open aside[data-testid=\"now-playing-bar\"] {
-            bottom: env(safe-area-inset-bottom) !important;
-        }
-        body.sf-mobile-shell #main-view,
-        body.sf-mobile-shell #main-view [data-overlayscrollbars-viewport] {
-            scroll-padding-bottom: calc(96px + env(safe-area-inset-bottom)) !important;
-            padding-bottom: calc(96px + env(safe-area-inset-bottom)) !important;
-        }
-        body.sf-mobile-shell #Desktop_LeftSidebar_Id {
-            top: calc(104px + env(safe-area-inset-top)) !important;
-            bottom: calc(84px + env(safe-area-inset-bottom)) !important;
         }
     }
 `;
@@ -2523,6 +2513,13 @@
                 if (!button) return;
 
                 const action = button.getAttribute('data-sf-mobile-action');
+                // The app dock remains available even over the custom expanded
+                // player. Close that overlay first so navigation changes the
+                // underlying Spotify route rather than leaving the player over it.
+                if (document.body.classList.contains('sf-fs-open') &&
+                    typeof window.closeFullscreenPlayer === 'function') {
+                    window.closeFullscreenPlayer();
+                }
                 if (action === 'home') {
                     closeMobileLibrary();
                     const home = document.querySelector('#global-nav-bar button[data-testid="home-button"]') ||
@@ -2851,15 +2848,16 @@
 
                 if (ls) {
                     if (shouldOpen) {
-                        const tabletShell = typeof window.matchMedia === 'function'
-                            && window.matchMedia('(min-width: 640px)').matches;
-                        const drawerTop = tabletShell ? 104 : 48;
-                        const drawerBottom = tabletShell ? 84 : 154;
+                        // Reserve the same header, mini-player and bottom dock
+                        // stack at every touch viewport width. The drawer and
+                        // player must never cross the always-bottom navigation.
+                        const drawerTop = 48;
+                        const drawerBottom = 154;
                         ls.style.setProperty('position', 'fixed', 'important');
                         ls.style.setProperty('width', '100%', 'important');
-                        ls.style.setProperty('height', `calc(100vh - ${drawerTop}px - ${drawerBottom}px - var(--sf-safe-area-top, env(safe-area-inset-top)) - env(safe-area-inset-bottom))`, 'important');
+                        ls.style.setProperty('height', `calc(100vh - ${drawerTop}px - ${drawerBottom}px - var(--sf-safe-area-top, env(safe-area-inset-top)) - var(--sf-safe-area-bottom, env(safe-area-inset-bottom)))`, 'important');
                         ls.style.setProperty('top', `calc(${drawerTop}px + var(--sf-safe-area-top, env(safe-area-inset-top)))`, 'important');
-                        ls.style.setProperty('bottom', `calc(${drawerBottom}px + env(safe-area-inset-bottom))`, 'important');
+                        ls.style.setProperty('bottom', `calc(${drawerBottom}px + var(--sf-safe-area-bottom, env(safe-area-inset-bottom)))`, 'important');
                         ls.style.setProperty('left', '0px', 'important');
                         ls.style.setProperty('overflow-y', 'auto', 'important');
                         ls.style.setProperty('z-index', '10005', 'important');

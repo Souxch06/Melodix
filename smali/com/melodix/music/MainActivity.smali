@@ -74,6 +74,7 @@
 
 .field private nativeCurrentScreen:Ljava/lang/String;
 .field private melodixWebHomeActive:Z
+.field private nativeSafeAreaBottom:I
 
 # Attachment and visibility are separate states. Cards are real Spotify
 # resources; the separate status view is an explicit non-playlist Home state.
@@ -5813,6 +5814,38 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
     return-void
 .end method
 
+.method public final updateNativeWebInsets(II)V
+    .locals 3
+
+    # The custom Web dock and mini-player share Android's real bottom system
+    # inset. Store dp units for the WebView CSS viewport and retain env() as a
+    # fallback for browsers that report a larger cutout/gesture area.
+    iput p2, p0, Lcom/melodix/music/MainActivity;->nativeSafeAreaBottom:I
+    iget-object v0, p0, Lcom/melodix/music/MainActivity;->G:Landroid/webkit/WebView;
+    if-eqz v0, :native_web_insets_done
+
+    new-instance v1, Ljava/lang/StringBuilder;
+    const-string v0, "if(window.SF_CONFIG){window.SF_CONFIG.statusBarHeight = "
+    invoke-direct {v1, v0}, Ljava/lang/StringBuilder;-><init>(Ljava/lang/String;)V
+    invoke-virtual {v1, p1}, Ljava/lang/StringBuilder;->append(I)Ljava/lang/StringBuilder;
+    const-string v0, ";}document.documentElement.style.setProperty('--sf-safe-area-top','"
+    invoke-virtual {v1, v0}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    invoke-virtual {v1, p1}, Ljava/lang/StringBuilder;->append(I)Ljava/lang/StringBuilder;
+    const-string v0, "px');document.documentElement.style.setProperty('--sf-safe-area-bottom','max("
+    invoke-virtual {v1, v0}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    invoke-virtual {v1, p2}, Ljava/lang/StringBuilder;->append(I)Ljava/lang/StringBuilder;
+    const-string v0, "px, env(safe-area-inset-bottom))');"
+    invoke-virtual {v1, v0}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    invoke-virtual {v1}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
+    move-result-object v1
+    iget-object v0, p0, Lcom/melodix/music/MainActivity;->G:Landroid/webkit/WebView;
+    const/4 v2, 0x0
+    invoke-virtual {v0, v1, v2}, Landroid/webkit/WebView;->evaluateJavascript(Ljava/lang/String;Landroid/webkit/ValueCallback;)V
+
+    :native_web_insets_done
+    return-void
+.end method
+
 .method public final s()V
     .locals 6
 
@@ -6051,71 +6084,11 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
     .line 113
     .line 114
     :goto_3
-    iget-object p0, p0, Lcom/melodix/music/MainActivity;->G:Landroid/webkit/WebView;
+    iget-object v0, p0, Lcom/melodix/music/MainActivity;->G:Landroid/webkit/WebView;
+    if-eqz v0, :cond_7
+    iget v2, p0, Lcom/melodix/music/MainActivity;->nativeSafeAreaBottom:I
+    invoke-virtual {p0, v4, v2}, Lcom/melodix/music/MainActivity;->updateNativeWebInsets(II)V
 
-    .line 115
-    .line 116
-    if-eqz p0, :cond_7
-
-    .line 117
-    .line 118
-    new-instance v0, Ljava/lang/StringBuilder;
-
-    .line 119
-    .line 120
-    const-string v1, "if(window.SF_CONFIG){ window.SF_CONFIG.statusBarHeight = "
-
-    .line 121
-    .line 122
-    invoke-direct {v0, v1}, Ljava/lang/StringBuilder;-><init>(Ljava/lang/String;)V
-
-    .line 123
-    .line 124
-    .line 125
-    invoke-virtual {v0, v4}, Ljava/lang/StringBuilder;->append(I)Ljava/lang/StringBuilder;
-
-    .line 126
-    .line 127
-    .line 128
-    const-string v1, "; } document.documentElement.style.setProperty(\'--sf-safe-area-top\', \'"
-
-    .line 129
-    .line 130
-    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
-
-    .line 131
-    .line 132
-    .line 133
-    invoke-virtual {v0, v4}, Ljava/lang/StringBuilder;->append(I)Ljava/lang/StringBuilder;
-
-    .line 134
-    .line 135
-    .line 136
-    const-string v1, "px\');"
-
-    .line 137
-    .line 138
-    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
-
-    .line 139
-    .line 140
-    .line 141
-    invoke-virtual {v0}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
-
-    .line 142
-    .line 143
-    .line 144
-    move-result-object v0
-
-    .line 145
-    const/4 v1, 0x0
-
-    .line 146
-    invoke-virtual {p0, v0, v1}, Landroid/webkit/WebView;->evaluateJavascript(Ljava/lang/String;Landroid/webkit/ValueCallback;)V
-
-    .line 147
-    .line 148
-    .line 149
     :cond_7
     return-void
 .end method
@@ -7220,6 +7193,7 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
     iput-boolean v2, p0, Lcom/melodix/music/MainActivity;->melodixWebHomeActive:Z
     invoke-virtual {p0}, Lcom/melodix/music/MainActivity;->isNativeHomeScreen()Z
     move-result v1
+    if-eqz p2, :melodix_home_session_unproven
     if-eqz v2, :melodix_home_owner_inactive
 
     # This redacted UI hint never grants session/auth state: both visible Home
@@ -7231,6 +7205,24 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
     invoke-static {v2}, Lcom/melodix/music/NativeCrashGuard;->stage(Ljava/lang/String;)V
     invoke-virtual {p0}, Lcom/melodix/music/MainActivity;->revealWebUi()V
     const-string v2, "native-home-owner state=web route=home"
+    invoke-static {v2}, Lcom/melodix/music/NativeCrashGuard;->diagLine(Ljava/lang/String;)V
+    invoke-static {v2}, Lcom/melodix/music/StartupDiagnosticOverlay;->appendDiagnosticLine(Ljava/lang/String;)V
+    const-string v2, "window.__sfNativeUiRootVisibilityKnown=true;window.__sfNativeUiRootVisible=false;window.__sfNativeUiVisibilityConfirmed=false;window.__sfNativeUiHomeContentReady=false;if(window.__sfMelodixHomeTraceFinal)window.__sfMelodixHomeTraceFinal(window.__sfMelodixHomeRenderedCardCount||0);"
+    invoke-virtual {p0, v2}, Lcom/melodix/music/MainActivity;->runNativeJavascript(Ljava/lang/String;)V
+    return-void
+
+    :melodix_home_session_unproven
+    # An absent/negative private-library proof can never leave a native screen
+    # covering Spotify. Invalidate attachment state before revealing the WebView
+    # so a later positive response cannot revive stale account rows.
+    const/4 v2, 0x0
+    iput-boolean v2, p0, Lcom/melodix/music/MainActivity;->nativeHomeCardsAttached:Z
+    iput-boolean v2, p0, Lcom/melodix/music/MainActivity;->nativeHomeStatusAttached:Z
+    iput-boolean v2, p0, Lcom/melodix/music/MainActivity;->nativeHomeContentReady:Z
+    iput-object v2, p0, Lcom/melodix/music/MainActivity;->nativeHomeFirstCard:Landroid/view/View;
+    iput-object v2, p0, Lcom/melodix/music/MainActivity;->nativeHomeStatusView:Landroid/view/View;
+    invoke-virtual {p0}, Lcom/melodix/music/MainActivity;->revealWebUi()V
+    const-string v2, "native-home-owner state=spotify proof=unproven"
     invoke-static {v2}, Lcom/melodix/music/NativeCrashGuard;->diagLine(Ljava/lang/String;)V
     invoke-static {v2}, Lcom/melodix/music/StartupDiagnosticOverlay;->appendDiagnosticLine(Ljava/lang/String;)V
     const-string v2, "window.__sfNativeUiRootVisibilityKnown=true;window.__sfNativeUiRootVisible=false;window.__sfNativeUiVisibilityConfirmed=false;window.__sfNativeUiHomeContentReady=false;if(window.__sfMelodixHomeTraceFinal)window.__sfMelodixHomeTraceFinal(window.__sfMelodixHomeRenderedCardCount||0);"
@@ -7981,12 +7973,9 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
     invoke-virtual {p0, v2}, Landroid/app/Activity;->findViewById(I)Landroid/view/View;
     move-result-object v2
     if-eqz v2, :screen_title
-    if-eqz v1, :show_native_tab_bar
-    const/16 v3, 0x8
-    goto :set_native_tab_bar
-    :show_native_tab_bar
+    # The bottom dock is independent of the mini-player and full-player route.
+    # Keep it visible so Home/Search/Library remain reachable while listening.
     const/4 v3, 0x0
-    :set_native_tab_bar
     invoke-virtual {v2, v3}, Landroid/view/View;->setVisibility(I)V
 
     :screen_title
@@ -8061,6 +8050,71 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
     invoke-static {p0}, Lcom/melodix/music/MainActivity;->fadeNativeScreen(Lcom/melodix/music/MainActivity;)V
 
     :native_fade_done
+    return-void
+.end method
+
+.method public final activateNativeUiRoute(Ljava/lang/String;)V
+    .locals 4
+
+    if-eqz p1, :native_route_activation_done
+    invoke-virtual {p0, p1}, Lcom/melodix/music/MainActivity;->setNativeScreen(Ljava/lang/String;)V
+
+    # Ignore rejected or stale categories. setNativeScreen is the authority for
+    # the fixed screen whitelist; the activation must match its accepted state.
+    iget-object v0, p0, Lcom/melodix/music/MainActivity;->nativeCurrentScreen:Ljava/lang/String;
+    if-eqz v0, :native_route_activation_done
+    invoke-virtual {v0, p1}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    move-result v0
+    if-eqz v0, :native_route_activation_done
+
+    const-string v1, "home"
+    invoke-virtual {v1, p1}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    move-result v0
+    if-nez v0, :native_route_activation_done
+
+    # A bare Search route opens the native browse grid without forcing the
+    # keyboard. A query payload arriving next will replace it with real results.
+    const-string v1, "search"
+    invoke-virtual {v1, p1}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    move-result v0
+    if-eqz v0, :native_route_rows_placeholder
+    const/4 v0, 0x0
+    iput-object v0, p0, Lcom/melodix/music/MainActivity;->nativeExpectedSearch:Ljava/lang/String;
+    const v2, 0x7f09024f
+    invoke-virtual {p0, v2}, Landroid/app/Activity;->findViewById(I)Landroid/view/View;
+    move-result-object v2
+    if-eqz v2, :native_route_hide_search_rows
+    const/4 v3, 0x0
+    invoke-virtual {v2, v3}, Landroid/view/View;->setVisibility(I)V
+    :native_route_hide_search_rows
+    const v2, 0x7f090239
+    invoke-virtual {p0, v2}, Landroid/app/Activity;->findViewById(I)Landroid/view/View;
+    move-result-object v2
+    if-eqz v2, :native_route_show
+    const/16 v3, 0x8
+    invoke-virtual {v2, v3}, Landroid/view/View;->setVisibility(I)V
+    goto :native_route_show
+
+    :native_route_rows_placeholder
+    # Keep the full-player content intact; every other browse route gets a
+    # neutral loading placeholder instead of stale rows from the previous page.
+    const-string v1, "player"
+    invoke-virtual {v1, p1}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    move-result v0
+    if-nez v0, :native_route_show
+    iget-object v1, p0, Lcom/melodix/music/MainActivity;->nativeCurrentTitle:Ljava/lang/String;
+    if-eqz v1, :native_route_default_title
+    goto :native_route_placeholder
+    :native_route_default_title
+    const-string v1, "Chargement de votre musique…"
+    :native_route_placeholder
+    const-string v2, "[]"
+    invoke-virtual {p0, v1, v2}, Lcom/melodix/music/MainActivity;->renderNativeRows(Ljava/lang/String;Ljava/lang/String;)V
+
+    :native_route_show
+    invoke-virtual {p0}, Lcom/melodix/music/MainActivity;->showNativeUi()V
+
+    :native_route_activation_done
     return-void
 .end method
 
@@ -8229,7 +8283,9 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
     if-eqz v1, :check_detail_data
     invoke-virtual {p2}, Ljava/lang/String;->isEmpty()Z
     move-result v1
-    if-eqz v1, :apply_done
+    # Ignore an empty page title; a real Spotify playlist/entity title must be
+    # copied before its detail rows are rendered.
+    if-nez v1, :apply_done
     iput-object p2, p0, Lcom/melodix/music/MainActivity;->nativeCurrentTitle:Ljava/lang/String;
     const v0, 0x7f090230
     invoke-virtual {p0, v0}, Landroid/app/Activity;->findViewById(I)Landroid/view/View;
@@ -8845,39 +8901,30 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
     const-string v1, "search"
     invoke-virtual {v1, v0}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
     move-result v0
-    if-nez v0, :native_rows_default_empty
-    const-string v0, "Recherchez un artiste, un titre, un album ou une playlist ci-dessus"
-    goto :native_rows_set_empty
-
-    :native_rows_default_empty
-    iget-object v0, p0, Lcom/melodix/music/MainActivity;->nativeCurrentScreen:Ljava/lang/String;
-    const-string v1, "detail"
-    invoke-virtual {v1, v0}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
-    move-result v0
-    if-nez v0, :native_rows_check_home
-    const-string v0, "Chargement de la playlist…"
-    goto :native_rows_set_empty
-
-    :native_rows_check_home
-    iget-object v0, p0, Lcom/melodix/music/MainActivity;->nativeCurrentScreen:Ljava/lang/String;
-    const-string v1, "home"
-    invoke-virtual {v1, v0}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
-    move-result v0
-    if-nez v0, :native_rows_check_library
-    const-string v0, "Chargement de votre accueil…"
-    goto :native_rows_set_empty
-
-    :native_rows_check_library
+    if-nez v0, :native_rows_search_empty
     iget-object v0, p0, Lcom/melodix/music/MainActivity;->nativeCurrentScreen:Ljava/lang/String;
     const-string v1, "library"
     invoke-virtual {v1, v0}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
     move-result v0
-    if-nez v0, :native_rows_default_text
+    if-nez v0, :native_rows_library_empty
+    iget-object v0, p0, Lcom/melodix/music/MainActivity;->nativeCurrentScreen:Ljava/lang/String;
+    const-string v1, "detail"
+    invoke-virtual {v1, v0}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    move-result v0
+    if-nez v0, :native_rows_detail_empty
+    const-string v0, "Rien à afficher pour le moment"
+    goto :native_rows_set_empty
+
+    :native_rows_search_empty
+    const-string v0, "Recherchez un artiste, un titre, un album ou une playlist ci-dessus"
+    goto :native_rows_set_empty
+
+    :native_rows_library_empty
     const-string v0, "Chargement de votre bibliothèque…"
     goto :native_rows_set_empty
 
-    :native_rows_default_text
-    const-string v0, "Rien à afficher pour le moment"
+    :native_rows_detail_empty
+    const-string v0, "Chargement de la playlist…"
     :native_rows_set_empty
     invoke-virtual {v6, v0}, Landroid/widget/TextView;->setText(Ljava/lang/CharSequence;)V
     const/high16 v0, 0x41800000
@@ -8948,30 +8995,15 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
 .end method
 
 .method public final onNativeHomeClick(Landroid/view/View;)V
-    .locals 3
+    .locals 2
 
-    # Already on Home: keep the rows on screen and only ask the shell for a
-    # refresh. Rendering an empty list first blanks the shelf, and the shell
-    # re-sends an identical payload only when something really changed - so the
-    # blank state could stay until the next unrelated update.
-    iget-object v0, p0, Lcom/melodix/music/MainActivity;->nativeCurrentScreen:Ljava/lang/String;
-    const-string v1, "home"
-    if-eqz v0, :native_home_render
-    invoke-virtual {v0, v1}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
-    move-result v2
-    if-nez v2, :native_home_render
-    invoke-virtual {p0, v1}, Lcom/melodix/music/MainActivity;->setNativeScreen(Ljava/lang/String;)V
-    goto :native_home_request
-
-    :native_home_render
-    invoke-virtual {p0, v1}, Lcom/melodix/music/MainActivity;->setNativeScreen(Ljava/lang/String;)V
-    const-string v1, "Accueil"
-    const-string v2, "[]"
-    invoke-virtual {p0, v1, v2}, Lcom/melodix/music/MainActivity;->renderNativeRows(Ljava/lang/String;Ljava/lang/String;)V
-
-    :native_home_request
-    const-string v0, "window.__sfNativeRequestHome && window.__sfNativeRequestHome();"
-    invoke-virtual {p0, v0}, Lcom/melodix/music/MainActivity;->runNativeJavascript(Ljava/lang/String;)V
+    # setNativeScreen is idempotent on the active Home route. Never clear the
+    # real shelf to [] before its authenticated refresh: identical payloads may
+    # otherwise be deduplicated and leave the screen blank.
+    const-string v0, "home"
+    invoke-virtual {p0, v0}, Lcom/melodix/music/MainActivity;->setNativeScreen(Ljava/lang/String;)V
+    const-string v1, "window.__sfNativeRequestHome && window.__sfNativeRequestHome();"
+    invoke-virtual {p0, v1}, Lcom/melodix/music/MainActivity;->runNativeJavascript(Ljava/lang/String;)V
     return-void
 .end method
 
