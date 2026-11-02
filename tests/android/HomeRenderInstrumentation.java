@@ -798,6 +798,18 @@ public final class HomeRenderInstrumentation extends Instrumentation {
                 awaitNativeHomeStatusReady(activity);
                 failurePhase = "javascript_native_shell_home_status_inspection";
                 notePhase(failurePhase);
+                final String shellStateJson = evaluateJavascriptAndWait(shellFixtureHolder[0],
+                        "({proofKnown:window.__sfMediaLibSessionProofKnown===true," +
+                        "proofProven:window.__sfMediaLibSessionProven===true," +
+                        "takeoverProven:window.__sfNativeUiTakeoverProven===true," +
+                        "readyNotified:window.__sfNativeUiReadyNotified===true," +
+                        "homeStateSent:window.__sfNativeUiHomeStateSent===true," +
+                        "homeDataSent:window.__sfNativeUiHomeDataSent===true," +
+                        "homeSessionUnproven:window.__sfNativeUiHomeSessionUnproven===true," +
+                        "homeState:String(window.__sfNativeUiHomeState||'')," +
+                        "homeRows:Number(window.__sfNativeUiHomeRowsCount||0)," +
+                        "lastRoute:String(window.__sfNativeUiLastRouteSent||'')," +
+                        "hasPrivateLibrary:Object.prototype.hasOwnProperty.call(window,'mediaLib')})");
                 final Bundle[] handoffState = new Bundle[1];
                 final Throwable[] handoffInspectFailure = new Throwable[1];
                 runOnMainSync(new Runnable() {
@@ -805,7 +817,7 @@ public final class HomeRenderInstrumentation extends Instrumentation {
                     public void run() {
                         try {
                             handoffState[0] = inspectJavascriptHomeHandoff(
-                                    activity, webView, originalWebViewUrl, shellFixtureHolder[0]);
+                                    activity, webView, originalWebViewUrl, shellStateJson);
                         } catch (Throwable error) {
                             handoffInspectFailure[0] = error;
                         }
@@ -2343,19 +2355,8 @@ public final class HomeRenderInstrumentation extends Instrumentation {
     }
 
     private Bundle inspectJavascriptHomeHandoff(
-            Activity activity, WebView webView, String originalUrl, WebView fixture) throws Exception {
-        JSONObject shellState = new JSONObject(evaluateJavascriptAndWait(fixture,
-                "({proofKnown:window.__sfMediaLibSessionProofKnown===true," +
-                "proofProven:window.__sfMediaLibSessionProven===true," +
-                "takeoverProven:window.__sfNativeUiTakeoverProven===true," +
-                "readyNotified:window.__sfNativeUiReadyNotified===true," +
-                "homeStateSent:window.__sfNativeUiHomeStateSent===true," +
-                "homeDataSent:window.__sfNativeUiHomeDataSent===true," +
-                "homeSessionUnproven:window.__sfNativeUiHomeSessionUnproven===true," +
-                "homeState:String(window.__sfNativeUiHomeState||'')," +
-                "homeRows:Number(window.__sfNativeUiHomeRowsCount||0)," +
-                "lastRoute:String(window.__sfNativeUiLastRouteSent||'')," +
-                "hasPrivateLibrary:Object.prototype.hasOwnProperty.call(window,'mediaLib')})"));
+            Activity activity, WebView webView, String originalUrl, String shellStateJson) throws Exception {
+        JSONObject shellState = new JSONObject(shellStateJson);
         View nativeRoot = requiredView(activity, "nativeRoot");
         View splash = requiredView(activity, "splashOverlay");
         View webContainer = requiredView(activity, "webViewContainer");

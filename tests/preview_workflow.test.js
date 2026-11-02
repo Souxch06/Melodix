@@ -713,6 +713,11 @@ test("the authenticated-home observer preserves the primary WebView, observes ca
   const handoffStart = harness.indexOf("private Bundle inspectJavascriptHomeHandoff(");
   const handoffEnd = harness.indexOf("private WebView createMobileViewportFixture", handoffStart);
   const handoff = harness.slice(handoffStart, handoffEnd);
+  assert.match(harness, /final String shellStateJson = evaluateJavascriptAndWait\(shellFixtureHolder\[0\][\s\S]*?runOnMainSync\(new Runnable\(\)[\s\S]*?inspectJavascriptHomeHandoff\([\s\S]*?shellStateJson/,
+    "the fixture evaluates its JavaScript state before entering Android UI-thread inspection");
+  assert.match(handoff, /String shellStateJson[\s\S]*?new JSONObject\(shellStateJson\)/);
+  assert.doesNotMatch(handoff, /evaluateJavascriptAndWait/,
+    "the view inspection never performs a nested instrumentation-thread handoff from the UI thread");
   const handoffOutput = handoff.slice(handoff.indexOf("Bundle state = new Bundle();"));
   assert.match(handoffOutput, /phase", "javascript_home_handoff[\s\S]*?native_shell_handoff_from_packaged_javascript", true[\s\S]*?native_ready_callback_sent", true[\s\S]*?home_status_payload_sent", true[\s\S]*?native_home_status_login_action_clickable", true/,
     "the Android fixture reports status-only shell handoff and visible login action as runtime outcomes");
