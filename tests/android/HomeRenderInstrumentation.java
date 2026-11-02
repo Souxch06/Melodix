@@ -2809,9 +2809,15 @@ public final class HomeRenderInstrumentation extends Instrumentation {
                 && boundedNumber(rect, "width", -1) >= boundedNumber(viewport, "innerWidth", 10000) - 1.0, "fullscreen_width");
         appendViewportFailureCode(failures, rect != null
                 && boundedNumber(rect, "height", -1) >= boundedNumber(viewport, "innerHeight", 10000) - 1.0, "fullscreen_height");
-        appendViewportFailureCode(failures, !surfaceVisible(nav), "nav_hidden");
+        // The mobile CSS intentionally keeps the bottom dock above the fullscreen player.
+        // Validate both layers by their real hit targets instead of treating the dock as hidden.
+        appendViewportFailureCode(failures, surfaceVisible(nav), "dock_visible");
+        appendViewportFailureCode(failures, surfacePosition(nav, "fixed"), "dock_fixed");
+        appendViewportFailureCode(failures, navigationTargetsReachable(hits), "dock_targets");
         appendViewportFailureCode(failures, "fullscreen-player".equals(safeProbeCategory(hits, "viewportCenterOwner")), "fullscreen_hit");
         appendViewportFailureCode(failures, hitTargetMeetsMinimum(fullPlay, 44), "fullscreen_play_target");
+        appendViewportFailureCode(failures, fullPlay != null && fullPlay.optBoolean("reachable", false)
+                && "fullscreen-player".equals(safeProbeCategory(fullPlay, "owner")), "fullscreen_play_hit");
         return failures.toString();
     }
 

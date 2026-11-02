@@ -116,6 +116,23 @@ test('Android WebView instruments real CSS layout states at all requested phone 
         && harness.includes('154.0 + bottomInset') && harness.includes('rendererView.setAlpha(0.0f)')
         && harness.includes('rendererView.setTranslationX(Math.max(0, root.getWidth()))'),
         'the test fixture must measure a real requested CSS width without visually covering or focusing the primary Spotify WebView');
+    const expandedChecks = harness.split('private String expandedViewportLayoutFailureCodes')[1]
+        .split('private void appendViewportFailureCode')[0];
+    assert.match(expandedChecks, /surfaceVisible\(nav\), "dock_visible"/,
+        'the fullscreen state preserves the visible mobile dock');
+    assert.match(expandedChecks, /surfacePosition\(nav, "fixed"\)/);
+    assert.match(expandedChecks, /navigationTargetsReachable\(hits\), "dock_targets"/,
+        'Home, Search and Library remain real, reachable touch targets above the player overlay');
+    assert.match(expandedChecks, /fullPlay\.optBoolean\("reachable", false\)/,
+        'the fullscreen player controls remain reachable as well as large enough');
+    const mobileCss = read('assets/css_hacks.css');
+    const fullscreenDockRule = mobileCss.match(/body\.sf-mobile-shell\.sf-fs-open #sf-mobile-nav\s*\{([^}]*)\}/);
+    const fullscreenPlayerRule = mobileCss.match(/#sf-fs-player\s*\{([^}]*)\}/);
+    assert.ok(fullscreenDockRule && fullscreenPlayerRule, 'the packaged CSS defines both fullscreen surfaces');
+    assert.match(fullscreenDockRule[1], /display:\s*grid !important/);
+    assert.match(fullscreenDockRule[1], /z-index:\s*100010 !important/);
+    assert.match(fullscreenPlayerRule[1], /z-index:\s*100000/,
+        'the dock is layered above the fullscreen player, rather than hiding either surface');
 });
 
 test('native Player scrolls above the fixed dock without reparenting mini-player or tabs', () => {
