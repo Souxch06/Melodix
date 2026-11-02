@@ -9,6 +9,7 @@ uploaded.
 import json
 import re
 import sys
+import unicodedata
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
@@ -16,6 +17,18 @@ from PIL import Image
 
 BOUNDS_RE = re.compile(r"\[(\d+),(\d+)\]\[(\d+),(\d+)\]")
 SAFE_IDENTIFIER_RE = re.compile(r"[^A-Za-z0-9_.$:/-]")
+HOME_STATUS_MARKERS = (
+    "connexion a spotify",
+    "verification de la session",
+    "etat de connexion non confirme",
+    "chargement de votre accueil",
+)
+
+
+def is_home_status_message(value):
+    normalized = unicodedata.normalize("NFKD", value).casefold()
+    normalized = "".join(character for character in normalized if not unicodedata.combining(character))
+    return any(marker in normalized for marker in HOME_STATUS_MARKERS)
 
 
 def safe_identifier(value):
@@ -114,8 +127,9 @@ def main():
             ids.add(resource_id)
         if text or content_description:
             visible_texts.append((text + " " + content_description).lower())
+        # Inspect this bounded label allowlist in-process; never export raw UI text.
         status_text = (text + " " + content_description).lower()
-        if "chargement de votre accueil" in status_text:
+        if is_home_status_message(status_text):
             home_status_message_accessible = True
             if accessibility_visible:
                 home_status_message_visible = True
@@ -140,7 +154,7 @@ def main():
                 "nativeRoot", "nativeHomeTab", "nativeRowsScroll", "webViewContainer", "splashOverlay"
             ))
             or ("WebView" in class_name and has_visible_bounds)
-            or ("chargement de votre accueil" in status_text and has_visible_bounds)
+            or (is_home_status_message(status_text) and has_visible_bounds)
         )
         if relevant:
             nodes.append({

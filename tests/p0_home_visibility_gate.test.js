@@ -257,6 +257,21 @@ test('the CI Home integration contains no fake account data or credentials and l
   assert.doesNotMatch(inspector, /FIXTURE_TITLE|Controlled Home fixture|fixture_title/);
 });
 
+test('native Home hierarchy inspection recognizes connection/loading text without exporting it', () => {
+  const inspector = read('tests/android/inspect_hierarchy.py');
+  assert.match(inspector, /HOME_STATUS_MARKERS = \([\s\S]*"connexion a spotify"[\s\S]*"verification de la session"[\s\S]*"etat de connexion non confirme"[\s\S]*"chargement de votre accueil"/,
+    'the allowlist matches the current native connection panel and its loading variants');
+  assert.match(inspector, /def is_home_status_message\(value\):[\s\S]*?unicodedata\.normalize\("NFKD", value\)[\s\S]*?any\(marker in normalized for marker in HOME_STATUS_MARKERS\)/);
+  assert.match(inspector, /if is_home_status_message\(status_text\):[\s\S]*?if accessibility_visible:[\s\S]*?home_status_bounds = bounds/,
+    'a matching status only counts as visible when its real hierarchy node has visible bounds');
+  assert.match(inspector, /if phase == "home-status":[\s\S]*?if not home_status_message_visible or home_status_bounds is None:[\s\S]*?fail\("visible_home_status_message_accessibility_node_missing"\)/,
+    'the screenshot gate still fails closed when no visible native status message is present');
+  assert.match(inspector, /"home_status_message_accessible": home_status_message_accessible,[\s\S]*?"home_status_message_visible_to_user": home_status_message_visible/);
+  assert.match(inspector, /"text_present": bool\(text\)/);
+  assert.doesNotMatch(inspector, /"home_status_(?:message|text)":\s*status_text/,
+    'raw Home status text is compared in-process but never serialized into CI reports');
+});
+
 test('authenticated-home mode is opt-in, non-destructive, and samples actual Android surfaces at runtime', () => {
   const harness = read('tests/android/HomeRenderInstrumentation.java');
   const observation = harness.split('private void runAuthenticatedHomeObservation')[1]
