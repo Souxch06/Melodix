@@ -105,18 +105,48 @@ jobs:
           system_image="system-images;android-36;google_apis;x86_64"
           echo "Using Android system image: $system_image"
           sdk_packages=("platform-tools" "emulator" "build-tools;35.0.0" "platforms;android-36" "$system_image")
-          sdk_install_succeeded=false
-          for attempt in 1 2 3; do
-            if sdkmanager --install "${sdk_packages[@]}"; then
-              sdk_install_succeeded=true
-              break
+          sdk_package_paths=("$ANDROID_HOME/platform-tools/adb" "$ANDROID_HOME/emulator/emulator" "$ANDROID_HOME/build-tools/35.0.0/aapt" "$ANDROID_HOME/platforms/android-36/android.jar" "$ANDROID_HOME/system-images/android-36/google_apis/x86_64/system.img")
+          for package_index in "${!sdk_packages[@]}"; do
+            sdk_package="${sdk_packages[$package_index]}"
+            sdk_path="${sdk_package_paths[$package_index]}"
+            safe_package="${sdk_package//[^A-Za-z0-9_.-]/_}"
+            if [[ -s "$sdk_path" ]]; then
+              echo "Android SDK package already present: $safe_package"
+              continue
             fi
-            if (( attempt < 3 )); then
-              echo "Android SDK package install attempt $attempt failed; retrying the same idempotent package set."
-              sleep $((attempt * 5))
-            fi
+            sdk_log="$RUNNER_TEMP/melodix-sdkmanager-${safe_package}.log"
+            sdk_installed=false
+            sdk_failure_class=unknown
+            sdk_exit=0
+            for attempt in 1 2 3; do
+              if timeout 120s sdkmanager --install "$sdk_package" >"$sdk_log" 2>&1; then
+                sdk_installed=true
+                break
+              else
+                sdk_exit=$?
+                sdk_failure_class="$(python3 - "$sdk_log" <<'PY'
+          import pathlib, re, sys
+          text = pathlib.Path(sys.argv[1]).read_text(encoding="utf-8", errors="replace")[-200000:]
+          checks = [
+              ("disk_space", r"no space left|not enough space"),
+              ("license", r"license[^\n]*(?:not accepted|not been accepted)"),
+              ("dns", r"UnknownHostException|Name or service not known|Temporary failure in name resolution"),
+              ("timeout", r"SocketTimeoutException|timed out|timeout"),
+              ("tls", r"SSLHandshakeException|PKIX path building failed|certificate verify failed"),
+              ("http_4xx", r"\bHTTP[^\n]*\b4[0-9]{2}\b|\b4[0-9]{2}\b[^\n]*(?:HTTP|request)"),
+              ("http_5xx", r"\bHTTP[^\n]*\b5[0-9]{2}\b|\b5[0-9]{2}\b[^\n]*(?:HTTP|request)"),
+              ("package_missing", r"package[^\n]*(?:not found|not available)|failed to find package"),
+              ("archive", r"not a zip|corrupt|checksum mismatch|invalid archive"),
+          ]
+          print(next((label for label, pattern in checks if re.search(pattern, text, re.IGNORECASE)), "other"))
+          PY
+          )"
+                echo "Android SDK install attempt $attempt failed: package=$safe_package; exit=$sdk_exit; class=$sdk_failure_class"
+                if (( attempt < 3 )); then sleep $((attempt * 5)); fi
+              fi
+            done
+            [[ "$sdk_installed" == "true" ]] || { echo "::error title=Android SDK package unavailable::package=$safe_package; exit=$sdk_exit; class=$sdk_failure_class; attempts=3"; exit 1; }
           done
-          [[ "$sdk_install_succeeded" == "true" ]] || { echo "::error::Android SDK packages did not install after three attempts."; exit 1; }
           [[ -e /dev/kvm ]] || { echo "::error::KVM is unavailable on this runner."; exit 1; }
           sudo chmod 666 /dev/kvm
           printf 'no\n' | avdmanager create avd \

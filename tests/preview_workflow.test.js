@@ -553,8 +553,10 @@ test("the emulator workflow validates same-run instrumentation and exact release
     /name: Verify activity resumed after Android instrumentation\n        id: post-instrumentation\n        if: always\(\) && steps\.launch\.outcome == 'success'/,
     "activity resumption is checked even when instrumentation fails",
   );
-  assert.match(emulatorWorkflow, /sdk_packages=\([\s\S]*?for attempt in 1 2 3[\s\S]*?sdkmanager --install "\$\{sdk_packages\[@\]\}"[\s\S]*?retrying the same idempotent package set/,
-    "transient Android SDK package-download failures are retried without changing the requested system image or tools");
+  assert.match(emulatorWorkflow, /sdk_package_paths=\([\s\S]*?for package_index in "\$\{!sdk_packages\[@\]\}"[\s\S]*?if \[\[ -s "\$sdk_path" \]\][\s\S]*?for attempt in 1 2 3[\s\S]*?timeout 120s sdkmanager --install "\$sdk_package" >"\$sdk_log" 2>&1[\s\S]*?sdk_failure_class[\s\S]*?Android SDK package unavailable/,
+    "Android SDK installs are package-scoped, skip verified installed files, retry transient failures, and report only safe error classes");
+  assert.doesNotMatch(emulatorWorkflow, /cat "\$sdk_log"|tail .*"\$sdk_log"/,
+    "SDK-manager logs containing repository URLs or runner details are never printed raw");
   assert.match(
     emulatorWorkflow,
     /adb install "\$APK_PATH"[\s\S]*?adb shell pm clear com\.melodix\.music\.preview[\s\S]*?permission-prompt-summary\.json[\s\S]*?adb shell input tap "\$allow_center_x" "\$allow_center_y"[\s\S]*?read_bluetooth_permission_state[\s\S]*?adb install -r "\$TEST_APK"/,
