@@ -1584,6 +1584,17 @@ jobs:
           RELEASE_TAG: ${{ inputs.release_tag || 'v1.2.2-test.96-preview' }}
           PUBLISH_PREVIEW: ${{ inputs.publish_preview || (github.event_name == 'push' && startsWith(github.event.head_commit.message, '[preview-release] v1.2.2-test.96-preview')) }}
         run: |
+          set -euo pipefail
+          summary_phase=initialize
+          summary_failure() {
+            local exit_code=$?
+            trap - ERR
+            echo "::error title=Android summary failure::phase=$summary_phase; exit_code=$exit_code; raw_diagnostics=discarded"
+            exit "$exit_code"
+          }
+          trap summary_failure ERR
+          exec 2>/dev/null
+          summary_phase=collect_status
           state_dir="$RUNNER_TEMP/melodix-preview-emulator-state"
           browser_compatibility_warning=not_confirmed
           user_agent_profile_coherent=not_confirmed
@@ -1640,6 +1651,7 @@ jobs:
           MOBILE_VIEWPORT_LIBRARY="$mobile_viewport_library"
           MOBILE_VIEWPORT_EXPANDED="$mobile_viewport_expanded"
           MOBILE_VIEWPORT_STAGE="$mobile_viewport_stage"
+          summary_phase=write_step_markdown
           {
             echo "## Android 16 Preview UI integration check"
             echo
@@ -1664,7 +1676,8 @@ jobs:
 
           state_dir="$RUNNER_TEMP/melodix-preview-emulator-state"
           if [[ -d "$state_dir" ]]; then
-            python3 - \
+            summary_phase=write_reference_json
+            if python3 - \
               "$state_dir" \
               "$SOURCE_REF" \
               "$PREVIEW_RUN_ID" \
@@ -1689,7 +1702,7 @@ jobs:
               "${RELEASE_SMOKE_OUTCOME:-not run}" \
               "${RELEASE_ACTIVITY_RESUMED:-false}" \
               "${CSS_SOURCE_SHA256:-}" \
-              "${CSS_APK_SHA256:-}" <<'PY'
+              "${CSS_APK_SHA256:-}" 2>/dev/null <<'PY'
           import json
           import pathlib
           import sys
@@ -2178,13 +2191,27 @@ jobs:
               "authenticated_home_test"
           )}, sort_keys=True))
           PY
-            python3 - "$state_dir" "$GITHUB_STEP_SUMMARY" <<'PY'
+            then
+              :
+            else
+              python_status=$?
+              echo "::error title=Android summary failure::phase=$summary_phase; python_exit=$python_status; python_stderr=discarded"
+              exit "$python_status"
+            fi
+          summary_phase=append_hierarchy_summary
+          if python3 - "$state_dir" "$GITHUB_STEP_SUMMARY" 2>/dev/null <<'PY'
           import json
           import pathlib
           import sys
 
           root = pathlib.Path(sys.argv[1])
           summary_path = pathlib.Path(sys.argv[2])
+          timeline_hierarchies = [
+              f"{phase}-timeline-{checkpoint}-hierarchy-redacted.json"
+              for phase in ("cold-home", "empty-home")
+              for checkpoint in ("200ms", "1s", "3s", "8s", "20s")
+              if (root / f"{phase}-timeline-{checkpoint}-hierarchy-redacted.json").is_file()
+          ]
           safe_fields = (
               "phase", "ui_hierarchy_node_count", "ui_hierarchy_top_node_class",
               "ui_hierarchy_top_node_package", "ui_hierarchy_top_node_resource_id",
@@ -2204,12 +2231,12 @@ jobs:
               "screenshot_pixels"
           )
           with summary_path.open("a", encoding="utf-8") as output:
-              for filename, title in (
+              for filename, title in [
                   ("cold-home-hierarchy-redacted.json", "Cold-launch native Home status hierarchy and pixels (redacted)"),
                   ("home-empty-native-error-hierarchy-redacted.json", "Empty-Home native error/retry hierarchy and pixels (redacted)"),
                   ("home-status-hierarchy-redacted.json", "Native Home status hierarchy and pixels (redacted)"),
                   ("web-home-app-hierarchy-redacted.json", "Web Home /app renderer hierarchy and pixels (redacted)"),
-              ) + [
+              ] + [
                   (filename, "Native owner timeline screenshot/hierarchy (redacted): " + filename.removesuffix("-hierarchy-redacted.json"))
                   for filename in timeline_hierarchies
               ]:
@@ -2235,7 +2262,15 @@ jobs:
                       if key in state:
                           output.write(f"- {key}: {json.dumps(state[key], sort_keys=True)}\n")
           PY
-            python3 - "$state_dir/verification-reference.json" "$GITHUB_STEP_SUMMARY" <<'PY'
+            then
+              :
+            else
+              python_status=$?
+              echo "::error title=Android summary failure::phase=$summary_phase; python_exit=$python_status; python_stderr=discarded"
+              exit "$python_status"
+            fi
+          summary_phase=append_css_summary
+          if python3 - "$state_dir/verification-reference.json" "$GITHUB_STEP_SUMMARY" 2>/dev/null <<'PY'
           import json
           import pathlib
           import sys
@@ -2260,8 +2295,16 @@ jobs:
                       output.write(f"| {name} | {scenario.get('card_count') or 0} | {scenario.get('visible')} | {scenario.get('wcag_aa_pass')} | {value} |\n")
                   output.write("\nAuthenticated Spotify Home was not tested; the emulator had no Spotify session or account data. The fixture is not presented as a real authenticated run.\n")
           PY
+            then
+              :
+            else
+              python_status=$?
+              echo "::error title=Android summary failure::phase=$summary_phase; python_exit=$python_status; python_stderr=discarded"
+              exit "$python_status"
+            fi
           fi
 
+          summary_phase=emit_safe_outcomes
           login_dom_visible=not_confirmed
           empty_home_payload_confirmed=false
           playlist_or_card_injected_by_harness=false

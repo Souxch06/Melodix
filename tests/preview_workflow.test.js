@@ -692,6 +692,42 @@ test("the emulator workflow validates same-run instrumentation and exact release
   );
 });
 
+test("summary-generation failures report safe phases and discard raw Python diagnostics", () => {
+  const workflow = fs.readFileSync(
+    path.resolve(__dirname, "..", ".github", "workflows", "test-preview-emulator.yml"),
+    "utf8",
+  );
+  const summaryStart = workflow.indexOf("name: Add verified run details to the summary");
+  const summaryEnd = workflow.indexOf(
+    "name: Upload verified screenshot and redacted launch summary",
+    summaryStart,
+  );
+  assert.ok(summaryStart >= 0 && summaryEnd > summaryStart);
+  const summary = workflow.slice(summaryStart, summaryEnd);
+
+  assert.match(summary, /set -euo pipefail[\s\S]*?trap summary_failure ERR[\s\S]*?exec 2>\/dev\/null/);
+  for (const phase of [
+    "collect_status",
+    "write_step_markdown",
+    "write_reference_json",
+    "append_hierarchy_summary",
+    "append_css_summary",
+    "emit_safe_outcomes",
+  ]) {
+    assert.ok(summary.includes(`summary_phase=${phase}`), `summary step marks ${phase}`);
+  }
+  assert.equal((summary.match(/if python3 - /g) || []).length, 3);
+  assert.equal((summary.match(/2>\/dev\/null/g) || []).length, 4);
+  const hierarchySummaryStart = summary.indexOf("summary_phase=append_hierarchy_summary");
+  const hierarchySummaryEnd = summary.indexOf("summary_phase=append_css_summary", hierarchySummaryStart);
+  const hierarchySummary = summary.slice(hierarchySummaryStart, hierarchySummaryEnd);
+  assert.match(hierarchySummary, /timeline_hierarchies = \[[\s\S]*?is_file\(\)[\s\S]*?\]/);
+  assert.match(hierarchySummary, /for filename, title in \[[\s\S]*?\] \+ \[/);
+  assert.equal((summary.match(/python_stderr=discarded/g) || []).length, 3);
+  assert.match(summary, /raw_diagnostics=discarded/);
+  assert.doesNotMatch(summary, /summary_python_stderr|cat .*stderr|tail .*stderr|traceback/);
+});
+
 test("login-surface reflection failures expose only the bounded target exception class", () => {
   const harness = fs.readFileSync(
     path.resolve(__dirname, "android", "HomeRenderInstrumentation.java"),
