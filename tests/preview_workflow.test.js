@@ -138,6 +138,20 @@ test("the emulator workflow checks the exact APK debuggable flag and captures re
   );
 });
 
+test("Android 16 emulator keeps a bounded userdata partition so CI can boot within runner disk limits", () => {
+  const emulatorWorkflow = fs.readFileSync(
+    path.resolve(__dirname, "..", ".github/workflows/test-preview-emulator.yml"),
+    "utf8",
+  );
+  const createAt = emulatorWorkflow.indexOf("avdmanager create avd");
+  const bootAt = emulatorWorkflow.indexOf("name: Boot a clean Android 16 emulator");
+  assert.ok(createAt >= 0 && bootAt > createAt, "create and configure the Android 16 AVD before booting it");
+  const avdSetup = emulatorWorkflow.slice(createAt, bootAt);
+  assert.match(avdSetup, /avd_config="\$HOME\/\.android\/avd\/MelodixApi36\.avd\/config\.ini"/);
+  assert.match(avdSetup, /disk\.dataPartition\.size=4G/);
+  assert.match(avdSetup, /grep -qx 'disk\.dataPartition\.size=4G' "\$avd_config"/);
+});
+
 test("empty-Home pixels are captured before instrumentation finish and the same app is resumed afterwards", () => {
   const emulatorWorkflow = fs.readFileSync(
     path.resolve(

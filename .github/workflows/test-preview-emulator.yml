@@ -154,6 +154,15 @@ jobs:
             --name MelodixApi36 \
             --package "$system_image" \
             --device pixel_2
+          avd_config="$HOME/.android/avd/MelodixApi36.avd/config.ini"
+          [[ -s "$avd_config" ]] || { echo "::error::Android 16 AVD config was not created."; exit 1; }
+          if grep -q '^disk.dataPartition.size=' "$avd_config"; then
+            sed -i 's/^disk\.dataPartition\.size=.*/disk.dataPartition.size=4G/' "$avd_config"
+          else
+            printf '\ndisk.dataPartition.size=4G\n' >> "$avd_config"
+          fi
+          grep -qx 'disk.dataPartition.size=4G' "$avd_config"
+          echo "Android 16 emulator userdata partition bounded to 4G."
 
       - name: Download the debuggable instrumentation APK built by this same run
         uses: actions/download-artifact@v4.3.0
