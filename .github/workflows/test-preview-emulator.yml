@@ -453,7 +453,7 @@ jobs:
           except (ET.ParseError, OSError):
               print("unavailable")
           ' || true)"
-            verify_error_target="$(timeout 15s adb logcat -d -t 2000 -b main -b system -b crash 2>/dev/null | python3 -c '
+            verify_error_target="$(timeout 15s adb logcat -d -t 10000 -b all 2>/dev/null | python3 -c '
           import re, sys
           text = sys.stdin.read()
           if "VerifyError" not in text and "Verifier rejected class" not in text:
