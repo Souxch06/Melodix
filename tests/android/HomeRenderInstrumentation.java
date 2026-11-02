@@ -2720,8 +2720,9 @@ public final class HomeRenderInstrumentation extends Instrumentation {
         boolean cardsAttached = readBooleanField(activity, "nativeHomeCardsAttached");
         boolean contentReady = readBooleanField(activity, "nativeHomeContentReady");
         boolean statusTitleVisible = containsText(statusView, "Connexion Spotify en cours");
-        boolean statusSubtitleVisible = containsText(statusView, "Nous vérifions votre connexion");
+        boolean statusSubtitleVisible = containsText(statusView, "Vérification de la bibliothèque en cours");
         boolean statusLoginActionClickable = containsClickableText(statusView, "Se connecter");
+        boolean statusRetryActionClickable = containsClickableText(statusView, "Réessayer");
         boolean rootVisible = rootBounds != null;
         boolean webContainerVisible = webContainer.getVisibility() == View.VISIBLE;
         boolean splashHidden = splash.getVisibility() == View.GONE;
@@ -2738,9 +2739,10 @@ public final class HomeRenderInstrumentation extends Instrumentation {
                 || shellState.optBoolean("hasPrivateLibrary", true)
                 || !rootVisible || statusBounds == null || !statusAttached || !unprovenStatusAttached
                 || cardsAttached || !contentReady || !statusTitleVisible || !statusSubtitleVisible
-                || !statusLoginActionClickable || !splashHidden || !homeTabVisible || !webContainerVisible
+                || statusLoginActionClickable || statusRetryActionClickable
+                || !splashHidden || !homeTabVisible || !webContainerVisible
                 || !statusIsChild || !originalUrlPreserved || !"home".equals(currentScreen)) {
-            throw new AssertionError("JavaScript handoff did not show a real status-only native Home without session proof");
+            throw new AssertionError("JavaScript handoff did not show a status-only Home with no loading-time action or session proof");
         }
         Bundle state = new Bundle();
         state.putString("phase", "javascript_home_handoff");
@@ -2752,6 +2754,8 @@ public final class HomeRenderInstrumentation extends Instrumentation {
         state.putBoolean("native_home_status_attached", true);
         state.putBoolean("native_home_status_visible", true);
         state.putBoolean("native_home_status_login_action_clickable", statusLoginActionClickable);
+        state.putBoolean("native_home_status_retry_action_clickable", statusRetryActionClickable);
+        state.putBoolean("native_home_loading_actions_absent", !statusLoginActionClickable && !statusRetryActionClickable);
         state.putBoolean("native_home_content_ready", true);
         state.putBoolean("native_root_visible", true);
         state.putBoolean("native_home_tab_visible", true);
@@ -4061,6 +4065,12 @@ public final class HomeRenderInstrumentation extends Instrumentation {
                 || containsText(statusView, "Votre accueil n’a pas pu être chargé");
         boolean loginActionClickable = containsClickableText(statusView, "Se connecter");
         boolean retryActionClickable = containsClickableText(statusView, "Réessayer");
+        boolean loadingTitleVisible = containsText(statusView, "Connexion à Spotify…")
+                || containsText(statusView, "Connexion Spotify en cours")
+                || containsText(statusView, "Chargement de votre accueil");
+        boolean actionVisibilityConsistent = loadingTitleVisible
+                ? !loginActionClickable && !retryActionClickable
+                : loginActionClickable;
         boolean fixtureRequiresRetryAction = containsText(statusView, "Connexion Spotify à vérifier");
         boolean splashHidden = splash.getVisibility() == View.GONE;
         boolean homeTabVisible = nativeHomeTab.isShown();
@@ -4075,7 +4085,7 @@ public final class HomeRenderInstrumentation extends Instrumentation {
         String currentScreen = readStringField(activity, "nativeCurrentScreen");
         requireUnauthenticatedSession(activity);
         if (!rootVisible || statusBounds == null || !statusAttached || !unprovenStatusAttached
-                || cardsAttached || !contentReady || !titleVisible || !loginActionClickable
+                || cardsAttached || !contentReady || !titleVisible || !actionVisibilityConsistent
                 || (fixtureRequiresRetryAction && !retryActionClickable) || !splashHidden || !homeTabVisible
                 || !webContainerVisible || !webViewMounted || webBounds == null || !statusIsChild
                 || !sameWebViewUrl || !"native_root".equals(frontmost) || !"home".equals(currentScreen)) {
@@ -4091,6 +4101,8 @@ public final class HomeRenderInstrumentation extends Instrumentation {
         state.putBoolean("native_home_status_visible", true);
         state.putBoolean("native_home_status_login_action_clickable", loginActionClickable);
         state.putBoolean("native_home_status_retry_action_clickable", retryActionClickable);
+        state.putBoolean("native_home_loading_actions_absent", loadingTitleVisible
+                && !loginActionClickable && !retryActionClickable);
         state.putBoolean("native_home_status_message_visible_in_hierarchy", true);
         state.putBoolean("native_home_content_ready", true);
         state.putBoolean("native_root_visible", true);
