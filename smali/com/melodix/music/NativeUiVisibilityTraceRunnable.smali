@@ -144,20 +144,8 @@
     const/4 v12, 0x1
     :native_layout_root_checked
 
-    # A measured Web Home owns the Home surface. Report the native root's
-    # actual hidden geometry without treating intentional suppression as a
-    # failed native visibility attempt or retrying over the Web renderer.
-    invoke-virtual {v0}, Lcom/melodix/music/MainActivity;->isMelodixWebHomeActive()Z
-    move-result v11
-    if-eqz v11, :native_layout_check_android_visibility
-    const/4 v12, 0x0
-    const/4 v13, 0x0
-    const-string v4, "false"
-    goto :native_layout_publish
-
-    :native_layout_check_android_visibility
-    # MainActivity owns the private Home state and sets readiness only after it
-    # verifies the selected card or status panel's global bounds post-splash.
+    # The Web Home renderer is not an owner handoff. Always measure and keep
+    # the native shell as the foreground surface on Spotify player routes.
     invoke-virtual {v0, v12}, Lcom/melodix/music/MainActivity;->completeNativeUiVisibility(Z)Z
     move-result v13
     if-eqz v13, :native_layout_not_ready
@@ -177,8 +165,11 @@
     const-string v11, "native-ui-visibility-timeout"
     invoke-static {v11}, Lcom/melodix/music/NativeCrashGuard;->diagLine(Ljava/lang/String;)V
     invoke-static {v11}, Lcom/melodix/music/StartupDiagnosticOverlay;->appendDiagnosticLine(Ljava/lang/String;)V
-    invoke-virtual {v0}, Lcom/melodix/music/MainActivity;->revealWebUi()V
-    const-string v11, "native-shell-visibility-failed"
+    const-string v11, "visibility-timeout"
+    const-string v14, "watchdog"
+    const-string v2, "failed"
+    invoke-virtual {v0, v11, v14, v2}, Lcom/melodix/music/MainActivity;->traceNativeDisplayOwner(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)V
+    const-string v11, "native-shell-visibility-pending"
     invoke-static {v11}, Lcom/melodix/music/NativeCrashGuard;->stage(Ljava/lang/String;)V
     const/4 v13, 0x0
     const-string v4, "false"

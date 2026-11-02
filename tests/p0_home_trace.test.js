@@ -123,28 +123,64 @@ test('nativeRoot/WebView/host dimensions and stacking are correlated by the Nati
   assert.match(crashGuard, /const-string v1, "sid="/);
 });
 
-test('visible authenticated Web Home owns Home and prevents nativeRoot from covering it', () => {
+test('Web Home visibility callbacks never steal the native foreground', () => {
   const source = read('scripts/melodix_home.source.js');
   const bridge = read('smali/com/melodix/music/AndBridge.smali');
   const activity = read('smali/com/melodix/music/MainActivity.smali');
   const runnable = read('smali/com/melodix/music/NativeUiVisibilityTraceRunnable.smali');
-  const shell = activity.slice(activity.indexOf('.method public final showNativeUi()V'),
-    activity.indexOf('.end method', activity.indexOf('.method public final showNativeUi()V')));
-  const owner = activity.slice(activity.indexOf('.method public final setMelodixHomeVisibility(ZZ)V'),
-    activity.indexOf('.end method', activity.indexOf('.method public final setMelodixHomeVisibility(ZZ)V')));
+  const owner = activity.slice(activity.indexOf('.method public final setMelodixHomeVisibility(ZZ)V'));
+  const ownerBody = owner.slice(0, owner.indexOf('.end method'));
+  const showAt = activity.indexOf('.method public final showNativeUiFrom(');
+  const show = activity.slice(showAt, activity.indexOf('.end method', showAt));
   assert.match(source, /route === 'home' && session === '1' && home/,
-    'ownership requires the already-passed route and session guards');
+    'the Web renderer still applies its own route, session and geometry guard');
   assert.match(source, /rect\.width > 0 && rect\.height > 0/,
-    'ownership requires measured non-empty Web Home bounds');
+    'Web Home state remains based on measured non-empty bounds');
   assert.match(source, /onMelodixHomeVisibility\(value, session\)/,
-    'only two redacted booleans cross the bridge');
+    'only two booleans cross the bridge');
   assert.match(bridge, /\.method public final onMelodixHomeVisibility\(ZZ\)V[\s\S]*?postMelodixHomeVisibility\(ZZ\)V/);
-  assert.match(owner, /if-eqz p2, :melodix_home_owner_reveal_web[\s\S]*?showNativeUi\(\)V/,
-    'native Home can resume only while session proof remains true');
-  assert.match(shell, /iget-boolean v0, p0, Lcom\/melodix\/music\/MainActivity;->melodixWebHomeActive:Z[\s\S]*?return-void[\s\S]*?findViewById/,
-    'the owner guard exits before nativeRoot is made visible');
-  assert.match(runnable, /isMelodixWebHomeActive\(\)Z[\s\S]*?goto :native_layout_publish[\s\S]*?completeNativeUiVisibility\(Z\)Z/,
-    'intentional native suppression is measured, not reported as a visibility timeout');
+  assert.match(ownerBody, /if-eqz p2, :melodix_home_session_unproven[\s\S]*?NativeHomeShelfRenderer;->render/,
+    'session loss unconditionally replaces Home content with the native safe status renderer');
+  assert.doesNotMatch(ownerBody, /melodix_home_unproven_no_private_rows|hasNativeHomeContentAttached/,
+    'stale native rows are not retained based on a previous Web-Home visibility flag');
+  assert.doesNotMatch(ownerBody, /revealWebUi\(\)V/,
+    'a late renderer callback cannot make Spotify Web the foreground');
+  assert.match(show, /nativeCurrentScreen[\s\S]*?hasNativeHomeContentAttached\(\)Z[\s\S]*?state.*loading/s,
+    'missing Home content becomes an explicit native status while the WebView remains mounted');
+  assert.doesNotMatch(show, /revealWebUi\(\)V/,
+    'a missing card/status does not transfer ownership to Spotify Web');
+  assert.doesNotMatch(runnable, /isMelodixWebHomeActive\(\)Z/,
+    'the watchdog does not skip native visibility checks just because the Web renderer reported active');
+  assert.match(runnable, /:native_layout_give_up[\s\S]*?visibility-timeout[\s\S]*?native-shell-visibility-pending/);
+  assert.doesNotMatch(runnable, /revealWebUi\(\)V/,
+    'a late watchdog timeout is diagnostic only');
   assert.match(activity, /window\.__sfMelodixHomeSyncNativeOwner && window\.__sfMelodixHomeSyncNativeOwner\(\)/,
-    'a route-order race is re-synchronized after Android applies Home');
+    'the Home route still re-synchronizes the Web renderer after native routing');
+});
+
+test('native display ownership transitions are sanitized, route-aware and time-correlated', () => {
+  const activity = read('smali/com/melodix/music/MainActivity.smali');
+  const traceStart = activity.indexOf('.method public final traceNativeDisplayOwner(');
+  const trace = activity.slice(traceStart, activity.indexOf('.end method', traceStart));
+  const sanitizeStart = activity.indexOf('.method public final sanitizeNativeDisplayLabel(');
+  const sanitize = activity.slice(sanitizeStart, activity.indexOf('.end method', sanitizeStart));
+  const routeStart = activity.indexOf('.method public final nativeDisplayRoute()');
+  const route = activity.slice(routeStart, activity.indexOf('.end method', routeStart));
+  assert.match(trace, /sanitizeNativeDisplayLabel\(Ljava\/lang\/String;I\)Ljava\/lang\/String;/);
+  assert.match(trace, /nativeDisplayOwner:Ljava\/lang\/String;[\s\S]*?nativeDisplayRoute\(\)Ljava\/lang\/String;/);
+  for (const field of ['nativeHomeCardsAttached:Z', 'nativeHomeStatusAttached:Z']) {
+    assert.ok(trace.includes(field), `ownership trace includes ${field}`);
+  }
+  for (const label of ['previous=', ' next=', ' route=', ' reason=', ' card=', ' status=', 'visibility=root:', ',web:', 'webview-mounted=', ',measure=', ' origin=', ' t=', 'ms']) {
+    assert.ok(trace.includes(label), `ownership trace includes ${label}`);
+  }
+  assert.match(trace, /SystemClock;->elapsedRealtime\(\)J[\s\S]*?nativeDisplayOwnerStartElapsed:J[\s\S]*?sub-long\/2addr/,
+    'the transition time is relative to the process launch, not a wall-clock timestamp');
+  assert.match(trace, /NativeCrashGuard;->diagLine[\s\S]*?Log;->i/);
+  assert.doesNotMatch(trace, /getUrl\(\)|getText\(\)|Cookie|token|spotifySession|MediaLibSession|access_token/i,
+    'no URL, cookies, session proof, tokens or page text enter persistent owner diagnostics');
+  assert.match(route, /const-string v1, "home"[\s\S]*?const-string v1, "search"[\s\S]*?const-string v1, "library"[\s\S]*?const-string v1, "detail"[\s\S]*?const-string v1, "player"/,
+    'logical routes are emitted only from the fixed native screen vocabulary');
+  assert.match(sanitize, /const-string v0, "callback"[\s\S]*?const-string v0, "event"[\s\S]*?const-string v0, "watchdog"[\s\S]*?const-string v0, "renderer"/,
+    'callback, event, watchdog, and renderer origins are separately allowlisted');
 });

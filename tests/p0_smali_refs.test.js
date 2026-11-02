@@ -230,7 +230,7 @@ test('[structurel] MainActivity.C() : getLayoutParams().width est garde contre n
 
 test('[structurel] MainActivity confirme showNativeUi et la presence du conteneur natif', () => {
   const activity = read('smali/com/melodix/music/MainActivity.smali');
-  const at = activity.indexOf('.method public final showNativeUi()V');
+  const at = activity.indexOf('.method public final showNativeUiFrom(Ljava/lang/String;Ljava/lang/String;)V');
   assert.ok(at > -1);
   const body = activity.slice(at, activity.indexOf('.end method', at));
   const stageAt = body.indexOf('NativeCrashGuard;->stage(Ljava/lang/String;)V');
@@ -243,6 +243,7 @@ test('[structurel] MainActivity confirme showNativeUi et la presence du conteneu
     'le handshake distingue un conteneur natif trouvé d une référence absente');
   assert.match(body, /runNativeJavascript\(Ljava\/lang\/String;\)V/);
   assert.match(body, /\.catch Ljava\/lang\/Throwable;/, 'un diagnostic WebView ne doit pas faire echouer l affichage natif');
+  assert.doesNotMatch(body, /revealWebUi\(\)V/, 'a shell show request cannot fall back to Spotify Web');
 });
 
 test('[structurel] le retour asynchrone natif reste pending jusqu au marqueur bridgeStarted', () => {

@@ -31,6 +31,11 @@
 
     if-eqz v13, :shelf_container_missing
 
+    # Every payload replaces the previous view tree before attaching cards or a
+    # safe status. This is also the private-row purge when libraryV3 proof is
+    # withdrawn or a late empty/error payload arrives.
+    invoke-virtual {v13}, Landroid/widget/LinearLayout;->removeAllViews()V
+
     :try_start_0
     new-instance v0, Lorg/json/JSONArray;
 
@@ -488,10 +493,10 @@
     :shelf_no_cards
     const-string v0, "failed"
     invoke-static {v1, p1, v0}, Lcom/melodix/music/NativeHomeShelfRenderer;->traceHomeRendered(IILjava/lang/String;)V
-    # Empty payloads, diagnostic rows and malformed cards do not make a native
-    # Home replacement. Reveal Spotify instead of taking over with a spinner.
+    # Empty payloads, diagnostic rows and malformed cards do not make playable
+    # cards. Replace them with a native error/retry panel, never a Web takeover.
     const-string v1, "MDXTRACE"
-    const-string v2, "home-render failed reason=no-real-spotify-cards; keep WebView visible"
+    const-string v2, "home-render failed reason=no-real-spotify-cards; native retry state requested"
     invoke-static {v1, v2}, Landroid/util/Log;->w(Ljava/lang/String;Ljava/lang/String;)I
     const-string v1, "native-render-failed step=home-render reason=no-real-cards"
     invoke-static {v1}, Lcom/melodix/music/NativeCrashGuard;->diagLine(Ljava/lang/String;)V
@@ -501,7 +506,10 @@
     invoke-static {v1}, Lcom/melodix/music/StartupDiagnosticOverlay;->appendDiagnosticLine(Ljava/lang/String;)V
     const-string v0, "home-render-failed"
     invoke-static {v0}, Lcom/melodix/music/NativeCrashGuard;->stage(Ljava/lang/String;)V
-    invoke-virtual {p0}, Lcom/melodix/music/MainActivity;->revealWebUi()V
+    # A missing/invalid Home payload becomes a native retry state, not an
+    # automatic Spotify-Web takeover. This contains no account resources.
+    const-string v2, "[{\"kind\":\"state\",\"state\":\"error\",\"title\":\"Votre accueil n’a pas pu être chargé\",\"subtitle\":\"Les données Spotify ne sont pas disponibles. Touchez pour réessayer.\",\"section\":\"Accueil\",\"image\":\"\",\"uri\":\"melodix:action:retry-library\"}]"
+    invoke-static {p0, v2}, Lcom/melodix/music/NativeHomeShelfRenderer;->render(Lcom/melodix/music/MainActivity;Ljava/lang/String;)V
     return-void
 
     :shelf_done
@@ -534,7 +542,6 @@
     invoke-static {v1}, Lcom/melodix/music/StartupDiagnosticOverlay;->appendDiagnosticLine(Ljava/lang/String;)V
     const-string v0, "home-render-failed"
     invoke-static {v0}, Lcom/melodix/music/NativeCrashGuard;->stage(Ljava/lang/String;)V
-    invoke-virtual {p0}, Lcom/melodix/music/MainActivity;->revealWebUi()V
     return-void
 
     :catch_0
@@ -550,7 +557,8 @@
     invoke-static {v1}, Lcom/melodix/music/StartupDiagnosticOverlay;->appendDiagnosticLine(Ljava/lang/String;)V
     const-string v1, "home-render-failed"
     invoke-static {v1}, Lcom/melodix/music/NativeCrashGuard;->stage(Ljava/lang/String;)V
-    invoke-virtual {p0}, Lcom/melodix/music/MainActivity;->revealWebUi()V
+    const-string v2, "[{\"kind\":\"state\",\"state\":\"error\",\"title\":\"Les données n’ont pas pu être lues\",\"subtitle\":\"Touchez pour réessayer le chargement de la bibliothèque.\",\"section\":\"Accueil\",\"image\":\"\",\"uri\":\"melodix:action:retry-library\"}]"
+    invoke-static {p0, v2}, Lcom/melodix/music/NativeHomeShelfRenderer;->render(Lcom/melodix/music/MainActivity;Ljava/lang/String;)V
     return-void
 .end method
 

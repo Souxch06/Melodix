@@ -47,7 +47,7 @@ import java.util.concurrent.TimeUnit;
 /**
  * Android integration test for the exact Preview APK built by the same CI run.
  *
- * It verifies the unauthenticated WebView/login surface and empty-Home fallback,
+ * It verifies the unauthenticated WebView/login surface and empty-Home native error/retry state,
  * exercises the native status renderer with a status-only payload, and runs the
  * packaged Web Home renderer in an isolated local Android WebView fixture at
  * the native recovery route /app. The fixture is test-only; its explicit
@@ -590,6 +590,30 @@ public final class HomeRenderInstrumentation extends Instrumentation {
                 throw new AssertionError("Spotify displayed a browser compatibility warning on launch");
             }
 
+            failurePhase = "cold_start_native_home_visibility";
+            notePhase(failurePhase);
+            awaitNativeHomeStatusReady(activity);
+            final Bundle[] coldHomeState = new Bundle[1];
+            final Throwable[] coldHomeFailure = new Throwable[1];
+            runOnMainSync(new Runnable() {
+                @Override
+                public void run() {
+                    try {
+                        coldHomeState[0] = inspectHomeStatus(activity, webView, originalWebViewUrl);
+                        coldHomeState[0].remove("home_status_payload_fixture_non_playlist");
+                        coldHomeState[0].putString("phase", "cold_start_native_home_status");
+                        coldHomeState[0].putBoolean("cold_start_native_owner_verified", true);
+                    } catch (Throwable error) {
+                        coldHomeFailure[0] = error;
+                    }
+                }
+            });
+            if (coldHomeFailure[0] != null) throw coldHomeFailure[0];
+            sendStatus(1, coldHomeState[0]);
+            failurePhase = "cold_start_native_home_timeline";
+            notePhase(failurePhase);
+            captureNativeHomeTimeline(activity, webView, originalWebViewUrl, "cold_home", false);
+
             failurePhase = "verify_login_surface";
             notePhase(failurePhase);
             requireUnauthenticatedSession(activity);
@@ -619,6 +643,9 @@ public final class HomeRenderInstrumentation extends Instrumentation {
                 }
             });
             if (loginFailure[0] != null) throw loginFailure[0];
+            final boolean loginSpaExitObserved = verifyLoginSpaExitBeforeHomeFixture(activity);
+            loginState[0].putBoolean("login_spa_exit_probe_performed", true);
+            loginState[0].putBoolean("login_spa_exit_observed", loginSpaExitObserved);
             sendStatus(1, loginState[0]);
 
             failurePhase = "live_spotify_css_runtime_probe";
@@ -646,10 +673,9 @@ public final class HomeRenderInstrumentation extends Instrumentation {
                 }
             });
             if (dispatchFailure[0] != null) throw dispatchFailure[0];
-            failurePhase = "empty_home_fallback_visibility";
+            failurePhase = "empty_home_native_error_visibility";
             notePhase(failurePhase);
-            waitForIdleSync();
-            Thread.sleep(250L);
+            awaitNativeHomeErrorReady(activity);
 
             final Bundle[] fallbackState = new Bundle[1];
             final Throwable[] fallbackFailure = new Throwable[1];
@@ -657,7 +683,7 @@ public final class HomeRenderInstrumentation extends Instrumentation {
                 @Override
                 public void run() {
                     try {
-                        fallbackState[0] = inspectEmptyHomeFallback(activity, webView);
+                        fallbackState[0] = inspectEmptyHomeNativeError(activity, webView, originalWebViewUrl);
                     } catch (Throwable error) {
                         fallbackFailure[0] = error;
                     }
@@ -670,6 +696,9 @@ public final class HomeRenderInstrumentation extends Instrumentation {
             notePhase(failurePhase);
             captureEmptyHomeUiEvidence();
             Log.i(HARNESS_TAG, "empty_home_evidence_captured");
+            failurePhase = "empty_home_native_owner_timeline";
+            notePhase(failurePhase);
+            captureNativeHomeTimeline(activity, webView, originalWebViewUrl, "empty_home", true);
 
             // Renderer-only fixture: it is an explicit state panel, not a
             // playlist/card or authentication signal. The clean session stays
@@ -730,8 +759,8 @@ public final class HomeRenderInstrumentation extends Instrumentation {
             captureHomeStatusUiEvidence();
             Log.i(HARNESS_TAG, "home_status_evidence_captured");
 
-            // Clear the status through the same bridge path and confirm that
-            // the already-loaded unauthenticated Spotify login returns intact.
+            // Reset the Home fixture, then explicitly request the login surface.
+            // Empty or absent Home content is never allowed to reveal Spotify Web.
             failurePhase = "restore_login_after_status";
             notePhase(failurePhase);
             final Throwable[] clearFailure = new Throwable[1];
@@ -740,6 +769,7 @@ public final class HomeRenderInstrumentation extends Instrumentation {
                 public void run() {
                     try {
                         dispatchEmptyHomeThroughAndBridge(activity);
+                        requestExplicitLoginWebUi(activity);
                     } catch (Throwable error) {
                         clearFailure[0] = error;
                     }
@@ -755,7 +785,7 @@ public final class HomeRenderInstrumentation extends Instrumentation {
                 @Override
                 public void run() {
                     try {
-                        restoredState[0] = inspectEmptyHomeFallback(activity, webView);
+                        restoredState[0] = inspectLoginSurface(activity, webView, loginRestored);
                     } catch (Throwable error) {
                         restoredFailure[0] = error;
                     }
@@ -771,7 +801,7 @@ public final class HomeRenderInstrumentation extends Instrumentation {
                 }
             });
             if (!loginRestored || !equalsNullable(originalWebViewUrl, restoredUrl[0])) {
-                throw new AssertionError("Status renderer did not restore the existing login WebView");
+                throw new AssertionError("Explicit login action did not preserve the existing login WebView");
             }
             restoredState[0].putBoolean("login_surface_restored_after_status", true);
 
@@ -840,6 +870,7 @@ public final class HomeRenderInstrumentation extends Instrumentation {
                 public void run() {
                     try {
                         dispatchEmptyHomeThroughAndBridge(activity);
+                        requestExplicitLoginWebUi(activity);
                     } catch (Throwable error) {
                         shellClearFailure[0] = error;
                     }
@@ -857,7 +888,7 @@ public final class HomeRenderInstrumentation extends Instrumentation {
                 }
             });
             if (!loginRestoredAfterShell || !equalsNullable(originalWebViewUrl, loginUrlAfterShell[0])) {
-                throw new AssertionError("The JavaScript shell handoff disturbed the original login WebView");
+                throw new AssertionError("The explicit login action did not preserve the original login WebView");
             }
             restoredState[0].putBoolean("javascript_native_shell_handoff_tested", true);
             restoredState[0].putBoolean("login_surface_restored_after_javascript_shell_handoff", true);
@@ -951,6 +982,13 @@ public final class HomeRenderInstrumentation extends Instrumentation {
             Bundle mobileViewportState = runMobileViewportMatrix(activity, webView, originalWebViewUrl);
             sendStatus(1, mobileViewportState);
             restoredState[0].putAll(mobileViewportState);
+
+            failurePhase = "native_route_owner_matrix";
+            notePhase(failurePhase);
+            requireUnauthenticatedSession(activity);
+            Bundle nativeRouteState = verifyNativeRouteOwnerMatrix(activity, webView, originalWebViewUrl);
+            sendStatus(1, nativeRouteState);
+            restoredState[0].putAll(nativeRouteState);
 
             Bundle result = new Bundle(restoredState[0]);
             if (webHomeColorState != null) result.putAll(webHomeColorState);
@@ -2169,9 +2207,14 @@ public final class HomeRenderInstrumentation extends Instrumentation {
 
         // Reproduce the prior recovery transition: an error can mark the WebView
         // container INVISIBLE. revealWebUi must restore the same loaded WebView.
+        Method loginAction = activity.getClass().getMethod("revealLoginWebUi");
         Method showNetworkError = activity.getClass().getMethod("D", Boolean.TYPE);
         Method revealWebUi = activity.getClass().getMethod("revealWebUi");
         String originalUrl = webView.getUrl();
+        loginAction.invoke(activity);
+        if (!readBooleanField(activity, "nativeLoginWebRequested")) {
+            throw new AssertionError("Explicit login action did not request Web ownership");
+        }
         showNetworkError.invoke(activity, Boolean.TRUE);
         if (webContainer.getVisibility() != View.INVISIBLE) {
             throw new AssertionError("Network-error transition did not hide the WebView container as expected");
@@ -2197,13 +2240,236 @@ public final class HomeRenderInstrumentation extends Instrumentation {
         state.putBoolean("original_webview_url_preserved", true);
         state.putBoolean("splash_hidden", true);
         state.putBoolean("native_home_hidden", true);
+        state.putBoolean("explicit_login_owner_requested", true);
         state.putBoolean("page_load_complete", webView.getProgress() == 100);
         putBounds(state, "webview_visible", webBounds);
         return state;
     }
 
     private void captureEmptyHomeUiEvidence() throws Exception {
-        captureUiEvidence("melodix-preview-home-fallback.xml", "melodix-preview-home-empty.png", "empty-Home");
+        captureUiEvidence("melodix-preview-home-empty.xml", "melodix-preview-home-native-error.png", "empty-Home");
+    }
+
+    private Bundle verifyNativeRouteOwnerMatrix(
+            final Activity activity, final WebView webView, final String originalUrl) throws Exception {
+        final String[] snapshots = { "home", "search", "library", "detail", "detail_return", "player", "player_return", "late_callback_watchdog" };
+        final String[] routes = { "home", "search", "library", "detail", "", "player", "", "search" };
+        Class<?> bridgeClass = activity.getClassLoader().loadClass("com.melodix.music.AndBridge");
+        final Object bridge = bridgeClass.getConstructor(Context.class).newInstance(activity);
+        final Method routeCallback = bridgeClass.getMethod("onNativeUiRoute", String.class);
+        final Method backCallback = activity.getClass().getMethod("onNativeBackClick", View.class);
+        final Method latePageFinished = activity.getClass().getMethod("showNativeUiFrom", String.class, String.class);
+        Bundle matrix = new Bundle();
+        matrix.putString("phase", "native_route_owner_matrix");
+        matrix.putBoolean("native_route_matrix_test_only", true);
+        matrix.putBoolean("native_route_matrix_completed", false);
+        matrix.putBoolean("authenticated_home_test_performed", false);
+
+        for (int index = 0; index < snapshots.length; index++) {
+            final String snapshot = snapshots[index];
+            final String route = routes[index];
+            final Throwable[] dispatchFailure = new Throwable[1];
+            runOnMainSync(new Runnable() {
+                @Override
+                public void run() {
+                    try {
+                        if ("detail_return".equals(snapshot) || "player_return".equals(snapshot)) {
+                            backCallback.invoke(activity, (Object) null);
+                        } else if ("late_callback_watchdog".equals(snapshot)) {
+                            // Reproduce a late, sanitized page-finished request,
+                            // immediately followed by a route callback. The real
+                            // delayed layout watcher must observe the newer route.
+                            latePageFinished.invoke(activity, "page-finished", "webview");
+                            routeCallback.invoke(bridge, route);
+                        } else {
+                            routeCallback.invoke(bridge, route);
+                        }
+                    } catch (Throwable error) {
+                        dispatchFailure[0] = error;
+                    }
+                }
+            });
+            if (dispatchFailure[0] != null) {
+                throw new AssertionError("Native route callback failed for the bounded route matrix", dispatchFailure[0]);
+            }
+
+            final String expectedRoute = ("detail_return".equals(snapshot) || "player_return".equals(snapshot))
+                    ? "home" : route;
+            if ("home".equals(expectedRoute)) {
+                // Keep every Home return in an explicit, non-private error state;
+                // the empty payload exercises the real native empty renderer.
+                dispatchEmptyHomeThroughAndBridge(activity);
+                awaitNativeHomeErrorReady(activity);
+            }
+            Bundle surface = awaitNativeRouteOwner(activity, webView, originalUrl, expectedRoute, 5000L);
+            Thread.sleep("late_callback_watchdog".equals(snapshot) ? 800L : 250L);
+            waitForIdleSync();
+            final Bundle[] settledSurface = new Bundle[1];
+            final Throwable[] settledFailure = new Throwable[1];
+            runOnMainSync(new Runnable() {
+                @Override
+                public void run() {
+                    try {
+                        settledSurface[0] = inspectNativeRouteOwner(activity, webView, originalUrl, expectedRoute);
+                    } catch (Throwable error) {
+                        settledFailure[0] = error;
+                    }
+                }
+            });
+            if (settledFailure[0] != null) {
+                throw new AssertionError("A delayed route callback or visibility watcher changed the native owner", settledFailure[0]);
+            }
+            surface = settledSurface[0];
+
+            String fileRoute = snapshot.replace('_', '-');
+            captureUiEvidence(
+                    "melodix-preview-native-route-" + fileRoute + ".xml",
+                    "melodix-preview-native-route-" + fileRoute + ".png",
+                    "Native-route");
+            Bundle sample = new Bundle(surface);
+            sample.putString("phase", "native_route_owner_matrix_sample");
+            sample.putString("native_route", expectedRoute);
+            sample.putString("native_route_snapshot", snapshot);
+            sample.putBoolean("native_route_" + snapshot + "_owner_verified", true);
+            sample.putBoolean("native_route_" + snapshot + "_webview_mounted", true);
+            sample.putBoolean("native_route_" + snapshot + "_dock_visible", true);
+            sendStatus(1, sample);
+            matrix.putBoolean("native_route_" + snapshot + "_owner_verified", true);
+            matrix.putBoolean("native_route_" + snapshot + "_webview_mounted", true);
+        }
+        matrix.putBoolean("native_route_matrix_completed", true);
+        matrix.putBoolean("late_native_callback_owner_verified", true);
+        matrix.putBoolean("late_visibility_watchdog_owner_verified", true);
+        matrix.putString("native_route_matrix_categories", "home,search,library,detail,player");
+        return matrix;
+    }
+
+    private Bundle awaitNativeRouteOwner(
+            final Activity activity, final WebView webView, final String originalUrl,
+            final String expectedRoute, long timeoutMillis) throws Exception {
+        long deadline = SystemClock.elapsedRealtime() + timeoutMillis;
+        Throwable lastFailure = null;
+        while (SystemClock.elapsedRealtime() < deadline) {
+            final Bundle[] state = new Bundle[1];
+            final Throwable[] failure = new Throwable[1];
+            runOnMainSync(new Runnable() {
+                @Override
+                public void run() {
+                    try {
+                        if (expectedRoute.equals(readStringField(activity, "nativeCurrentScreen"))) {
+                            state[0] = inspectNativeRouteOwner(activity, webView, originalUrl, expectedRoute);
+                        }
+                    } catch (Throwable error) {
+                        failure[0] = error;
+                    }
+                }
+            });
+            if (failure[0] != null) lastFailure = failure[0];
+            if (state[0] != null) return state[0];
+            Thread.sleep(50L);
+        }
+        throw new AssertionError("Native root, dock, WebView, or requested route failed its measured owner check",
+                lastFailure);
+    }
+
+    private Bundle inspectNativeRouteOwner(
+            Activity activity, WebView webView, String originalUrl, String expectedRoute) throws Exception {
+        View mainRootView = optionalView(activity, "main");
+        ViewGroup mainRoot = mainRootView instanceof ViewGroup ? (ViewGroup) mainRootView : null;
+        View hScroll = optionalView(activity, "hScrollView");
+        View nativeRoot = requiredView(activity, "nativeRoot");
+        View splash = requiredView(activity, "splashOverlay");
+        View webContainer = requiredView(activity, "webViewContainer");
+        View nativeHomeTab = requiredView(activity, "nativeHomeTab");
+        Rect rootBounds = visibleBounds(nativeRoot);
+        Rect dockBounds = visibleBounds(nativeHomeTab);
+        Rect webBounds = visibleBounds(webView);
+        boolean rootVisible = rootBounds != null;
+        boolean dockVisible = dockBounds != null;
+        boolean splashHidden = splash.getVisibility() == View.GONE;
+        boolean webContainerVisible = webContainer.getVisibility() == View.VISIBLE;
+        boolean webViewMounted = webView != null && webView.getParent() != null;
+        boolean sameWebViewUrl = equalsNullable(originalUrl, webView.getUrl());
+        int width = mainRoot == null ? 0 : mainRoot.getWidth();
+        int height = mainRoot == null ? 0 : mainRoot.getHeight();
+        int[] location = new int[2];
+        if (mainRoot != null) mainRoot.getLocationOnScreen(location);
+        int centerX = location[0] + width / 2;
+        int centerY = location[1] + height / 2;
+        boolean rootCoversCenter = rootBounds != null && rootBounds.contains(centerX, centerY);
+        boolean rootCoversDock = rootBounds != null && dockBounds != null && rootBounds.contains(dockBounds);
+        String frontmost = frontmostFullscreenSurface(hScroll, nativeRoot, splash, mainRoot, width, height);
+        String currentScreen = readStringField(activity, "nativeCurrentScreen");
+        requireUnauthenticatedSession(activity);
+        if (!expectedRoute.equals(currentScreen) || !rootVisible || !dockVisible || !splashHidden
+                || !webContainerVisible || !webViewMounted || webBounds == null || !sameWebViewUrl
+                || !rootCoversCenter || !rootCoversDock || !"native_root".equals(frontmost)) {
+            throw new AssertionError("The requested native route is not the measured foreground shell above the mounted WebView");
+        }
+        Bundle state = new Bundle();
+        state.putBoolean("native_route_owner_verified", true);
+        state.putBoolean("native_route_webview_mounted", true);
+        state.putBoolean("native_route_dock_visible", true);
+        state.putBoolean("native_route_root_covers_center", true);
+        state.putBoolean("native_route_root_covers_dock", true);
+        state.putBoolean("native_route_layout_frontmost", true);
+        state.putBoolean("original_webview_url_preserved", true);
+        putBounds(state, "native_root_visible", rootBounds);
+        putBounds(state, "native_dock_visible", dockBounds);
+        putBounds(state, "webview_mounted", webBounds);
+        if ("home".equals(expectedRoute)) {
+            state.putAll(inspectEmptyHomeNativeError(activity, webView, originalUrl));
+        }
+        return state;
+    }
+
+    private void captureNativeHomeTimeline(
+            final Activity activity, final WebView webView, final String originalUrl,
+            final String phaseTag, final boolean expectError) throws Exception {
+        if (!("cold_home".equals(phaseTag) || "empty_home".equals(phaseTag))) {
+            throw new AssertionError("Unsupported native Home timeline phase");
+        }
+        final long[] checkpoints = { 200L, 1000L, 3000L, 8000L, 20000L };
+        final String[] labels = { "200ms", "1s", "3s", "8s", "20s" };
+        final long timelineStart = SystemClock.elapsedRealtime();
+        for (int index = 0; index < checkpoints.length; index++) {
+            long waitMillis = timelineStart + checkpoints[index] - SystemClock.elapsedRealtime();
+            if (waitMillis > 0L) Thread.sleep(waitMillis);
+
+            final Bundle[] observedState = new Bundle[1];
+            final Throwable[] inspectionFailure = new Throwable[1];
+            runOnMainSync(new Runnable() {
+                @Override
+                public void run() {
+                    try {
+                        observedState[0] = expectError
+                                ? inspectEmptyHomeNativeError(activity, webView, originalUrl)
+                                : inspectHomeStatus(activity, webView, originalUrl);
+                    } catch (Throwable error) {
+                        inspectionFailure[0] = error;
+                    }
+                }
+            });
+            if (inspectionFailure[0] != null) {
+                throw new AssertionError("Native Home owner changed during the " + phaseTag + " timeline", inspectionFailure[0]);
+            }
+
+            String hierarchyName = "melodix-preview-" + phaseTag + "-" + labels[index] + ".xml";
+            String screenshotName = "melodix-preview-" + phaseTag + "-" + labels[index] + ".png";
+            captureUiEvidence(hierarchyName, screenshotName, "Home-owner timeline");
+            long observedElapsed = SystemClock.elapsedRealtime() - timelineStart;
+            if (observedElapsed < checkpoints[index] || observedElapsed - checkpoints[index] > 2500L) {
+                throw new AssertionError("Native Home timeline screenshot missed its bounded checkpoint");
+            }
+
+            Bundle sample = new Bundle();
+            sample.putString("phase", phaseTag + "_timeline_sample");
+            sample.putString("native_timeline_checkpoint", labels[index]);
+            sample.putLong("native_timeline_observed_elapsed_ms", observedElapsed);
+            sample.putBoolean(phaseTag + "_timeline_" + labels[index] + "_native_owner_verified", true);
+            sample.putBoolean(phaseTag + "_timeline_" + labels[index] + "_webview_mounted", true);
+            sendStatus(1, sample);
+        }
     }
 
     private void captureHomeStatusUiEvidence() throws Exception {
@@ -3396,6 +3662,8 @@ public final class HomeRenderInstrumentation extends Instrumentation {
             phasePrefix = "capture_empty_home";
         } else if ("Home-status".equals(phase)) {
             phasePrefix = "capture_home_status";
+        } else if ("Native-route".equals(phase)) {
+            phasePrefix = "capture_native_route_owner";
         } else if ("Web-Home /app renderer".equals(phase)) {
             phasePrefix = "capture_web_home_renderer";
         } else {
@@ -3512,6 +3780,46 @@ public final class HomeRenderInstrumentation extends Instrumentation {
         data.invoke(bridge, "home", "[]");
     }
 
+    private void requestExplicitLoginWebUi(Activity activity) throws Exception {
+        Method loginAction = activity.getClass().getMethod("revealLoginWebUi");
+        loginAction.invoke(activity);
+        if (!readBooleanField(activity, "nativeLoginWebRequested")) {
+            throw new AssertionError("Explicit login action did not retain Web ownership");
+        }
+    }
+
+    private boolean verifyLoginSpaExitBeforeHomeFixture(Activity activity) throws Exception {
+        if (!readBooleanField(activity, "nativeLoginWebRequested")) {
+            throw new AssertionError("The login owner was not active before the SPA exit probe");
+        }
+        Method pathProbe = activity.getClass().getMethod("isLoginWebPath");
+        boolean stillOnLoginPath = Boolean.TRUE.equals(pathProbe.invoke(activity));
+        if (stillOnLoginPath) {
+            // A real /login or accounts-origin path is still an allowed login
+            // surface. Reset only this test fixture's UI gate; do not navigate,
+            // clear cookies, or write the observed page URL to diagnostics.
+            final Field loginOwner = activity.getClass().getDeclaredField("nativeLoginWebRequested");
+            loginOwner.setAccessible(true);
+            runOnMainSync(new Runnable() {
+                @Override
+                public void run() {
+                    try {
+                        loginOwner.setBoolean(activity, false);
+                    } catch (Throwable error) {
+                        throw new AssertionError("Could not reset the isolated login UI fixture", error);
+                    }
+                }
+            });
+            return false;
+        }
+        Method routeCallback = activity.getClass().getMethod("postNativeUiRoute", String.class);
+        routeCallback.invoke(activity, "home");
+        if (readBooleanField(activity, "nativeLoginWebRequested")) {
+            throw new AssertionError("A non-login SPA route did not return ownership to native Home");
+        }
+        return true;
+    }
+
     private void dispatchHomeStatusThroughAndBridge(Activity activity) throws Exception {
         ClassLoader loader = activity.getClassLoader();
         Class<?> bridgeClass = loader.loadClass("com.melodix.music.AndBridge");
@@ -3568,7 +3876,34 @@ public final class HomeRenderInstrumentation extends Instrumentation {
         throw new AssertionError("Native Home status view did not become measured and visible");
     }
 
+    private void awaitNativeHomeErrorReady(Activity activity) throws Exception {
+        for (int attempt = 0; attempt < 60; attempt++) {
+            final boolean[] ready = new boolean[1];
+            final Throwable[] failure = new Throwable[1];
+            runOnMainSync(new Runnable() {
+                @Override
+                public void run() {
+                    try {
+                        ready[0] = readBooleanField(activity, "nativeHomeStatusAttached")
+                                && !readBooleanField(activity, "nativeHomeSessionUnprovenStatusAttached")
+                                && readBooleanField(activity, "nativeHomeContentReady");
+                    } catch (Throwable error) {
+                        failure[0] = error;
+                    }
+                }
+            });
+            if (failure[0] != null) throw new AssertionError("Could not read native Home error visibility state");
+            if (ready[0]) return;
+            waitForIdleSync();
+            Thread.sleep(100L);
+        }
+        throw new AssertionError("Native Home error/retry view did not become measured and visible");
+    }
+
     private Bundle inspectHomeStatus(Activity activity, WebView webView, String originalUrl) throws Exception {
+        View mainRootView = optionalView(activity, "main");
+        ViewGroup mainRoot = mainRootView instanceof ViewGroup ? (ViewGroup) mainRootView : null;
+        View hScroll = optionalView(activity, "hScrollView");
         View nativeRoot = requiredView(activity, "nativeRoot");
         View splash = requiredView(activity, "splashOverlay");
         View webContainer = requiredView(activity, "webViewContainer");
@@ -3578,23 +3913,34 @@ public final class HomeRenderInstrumentation extends Instrumentation {
 
         Rect rootBounds = visibleBounds(nativeRoot);
         Rect statusBounds = visibleBounds(statusView);
+        Rect webBounds = visibleBounds(webView);
         boolean rootVisible = rootBounds != null;
         boolean statusAttached = readBooleanField(activity, "nativeHomeStatusAttached");
         boolean unprovenStatusAttached = readBooleanField(activity, "nativeHomeSessionUnprovenStatusAttached");
         boolean cardsAttached = readBooleanField(activity, "nativeHomeCardsAttached");
         boolean contentReady = readBooleanField(activity, "nativeHomeContentReady");
-        boolean titleVisible = containsText(statusView, "Connexion à Spotify");
+        boolean titleVisible = containsText(statusView, "Connexion à Spotify")
+                || containsText(statusView, "Connexion Spotify non confirmée")
+                || containsText(statusView, "Connexion Spotify impossible à vérifier")
+                || containsText(statusView, "Chargement de votre accueil")
+                || containsText(statusView, "Votre accueil n’a pas pu être chargé");
         boolean splashHidden = splash.getVisibility() == View.GONE;
         boolean homeTabVisible = nativeHomeTab.isShown();
         boolean webContainerVisible = webContainer.getVisibility() == View.VISIBLE;
+        boolean webViewMounted = webView != null && webView.getParent() != null;
         boolean statusIsChild = statusView != null && statusView.getParent() == nativeContent;
         boolean sameWebViewUrl = equalsNullable(originalUrl, webView.getUrl());
+        int screenWidth = mainRoot == null ? 0 : mainRoot.getWidth();
+        int screenHeight = mainRoot == null ? 0 : mainRoot.getHeight();
+        String frontmost = frontmostFullscreenSurface(hScroll, nativeRoot, splash, mainRoot,
+                screenWidth, screenHeight);
         String currentScreen = readStringField(activity, "nativeCurrentScreen");
         requireUnauthenticatedSession(activity);
         if (!rootVisible || statusBounds == null || !statusAttached || !unprovenStatusAttached
-                || cardsAttached || !contentReady || !titleVisible || !splashHidden || !homeTabVisible || !webContainerVisible
-                || !statusIsChild || !sameWebViewUrl || !"home".equals(currentScreen)) {
-            throw new AssertionError("The non-playlist Home status view was not attached, measured, and visible");
+                || cardsAttached || !contentReady || !titleVisible || !splashHidden || !homeTabVisible
+                || !webContainerVisible || !webViewMounted || webBounds == null || !statusIsChild
+                || !sameWebViewUrl || !"native_root".equals(frontmost) || !"home".equals(currentScreen)) {
+            throw new AssertionError("The non-playlist Home status view was not attached, measured, foremost, and visible");
         }
 
         Bundle state = new Bundle();
@@ -3608,12 +3954,15 @@ public final class HomeRenderInstrumentation extends Instrumentation {
         state.putBoolean("native_home_content_ready", true);
         state.putBoolean("native_root_visible", true);
         state.putBoolean("native_home_tab_visible", true);
+        state.putBoolean("native_root_is_foremost_surface", true);
         state.putBoolean("splash_hidden", true);
+        state.putBoolean("webview_mounted_under_native_root", true);
         state.putBoolean("webview_container_visible_under_native_root", true);
         state.putBoolean("original_webview_url_preserved", true);
         state.putBoolean("page_load_complete", webView.getProgress() == 100);
         putBounds(state, "native_status_visible", statusBounds);
         putBounds(state, "native_root_visible", rootBounds);
+        putBounds(state, "webview_mounted", webBounds);
         return state;
     }
 
@@ -3632,49 +3981,72 @@ public final class HomeRenderInstrumentation extends Instrumentation {
         return false;
     }
 
-    private Bundle inspectEmptyHomeFallback(Activity activity, WebView webView) throws Exception {
+    private Bundle inspectEmptyHomeNativeError(Activity activity, WebView webView, String originalWebViewUrl)
+            throws Exception {
+        View mainRootView = optionalView(activity, "main");
+        ViewGroup mainRoot = mainRootView instanceof ViewGroup ? (ViewGroup) mainRootView : null;
+        View hScroll = optionalView(activity, "hScrollView");
         View nativeRoot = requiredView(activity, "nativeRoot");
         View splash = requiredView(activity, "splashOverlay");
         View webContainer = requiredView(activity, "webViewContainer");
         View nativeHomeTab = requiredView(activity, "nativeHomeTab");
         View nativeContent = requiredView(activity, "nativeContent");
+        View statusView = readViewField(activity, "nativeHomeStatusView");
 
         Rect webBounds = visibleBounds(webView);
-        boolean rootHidden = nativeRoot.getVisibility() == View.GONE;
-        boolean homeTabNotShown = !nativeHomeTab.isShown();
+        Rect rootBounds = visibleBounds(nativeRoot);
+        Rect statusBounds = visibleBounds(statusView);
+        boolean rootVisible = rootBounds != null;
+        boolean statusAttached = readBooleanField(activity, "nativeHomeStatusAttached");
+        boolean unprovenStatusAttached = readBooleanField(activity, "nativeHomeSessionUnprovenStatusAttached");
+        boolean cardsAttached = readBooleanField(activity, "nativeHomeCardsAttached");
+        boolean contentReady = readBooleanField(activity, "nativeHomeContentReady");
+        boolean titleVisible = containsText(statusView, "Votre accueil n’a pas pu être chargé");
+        boolean retryMessageVisible = containsText(statusView, "Touchez pour réessayer");
+        boolean retryActionClickable = statusView != null && statusView.isClickable();
         boolean splashHidden = splash.getVisibility() == View.GONE;
-        boolean webContainerVisible = webContainer.getVisibility() == View.VISIBLE;
-        boolean noHomeCardsAttached = !readBooleanField(activity, "nativeHomeCardsAttached");
-        boolean noHomeStatusAttached = !readBooleanField(activity, "nativeHomeStatusAttached");
-        boolean noUnprovenStatusMarker = !readBooleanField(activity, "nativeHomeSessionUnprovenStatusAttached");
-        boolean noVisibleHomeContent = !readBooleanField(activity, "nativeHomeContentReady");
-        boolean noNativeChildren = nativeContent instanceof LinearLayout
-                && ((LinearLayout) nativeContent).getChildCount() == 0;
+        boolean homeTabVisible = nativeHomeTab.isShown();
+        boolean webContainerMounted = webContainer.getVisibility() == View.VISIBLE
+                && webView != null && webView.getParent() != null;
+        boolean statusIsChild = statusView != null && statusView.getParent() == nativeContent;
+        boolean sameWebViewUrl = equalsNullable(originalWebViewUrl, webView.getUrl());
+        int screenWidth = mainRoot == null ? 0 : mainRoot.getWidth();
+        int screenHeight = mainRoot == null ? 0 : mainRoot.getHeight();
+        String frontmost = frontmostFullscreenSurface(hScroll, nativeRoot, splash, mainRoot,
+                screenWidth, screenHeight);
         String currentScreen = readStringField(activity, "nativeCurrentScreen");
-        if (webBounds == null || !rootHidden || !homeTabNotShown || !splashHidden
-                || !webContainerVisible || !noHomeCardsAttached || !noHomeStatusAttached
-                || !noUnprovenStatusMarker || !noVisibleHomeContent || !noNativeChildren
-                || !"home".equals(currentScreen)) {
-            throw new AssertionError("Empty Home did not fail safely back to the visible WebView");
+        requireUnauthenticatedSession(activity);
+        if (webBounds == null || !rootVisible || statusBounds == null || !statusAttached
+                || unprovenStatusAttached || cardsAttached || !contentReady || !titleVisible
+                || !retryMessageVisible || !retryActionClickable || !splashHidden || !homeTabVisible
+                || !webContainerMounted || !statusIsChild || !sameWebViewUrl
+                || !"native_root".equals(frontmost) || !"home".equals(currentScreen)) {
+            throw new AssertionError("Empty Home did not show a measured native error/retry state above the mounted WebView");
         }
 
-        requireUnauthenticatedSession(activity);
         Bundle state = new Bundle();
-        state.putString("phase", "empty_home_fallback");
+        state.putString("phase", "empty_home_native_error_state");
+        state.putString("final_screen_owner", "native-home");
         state.putBoolean("home_payload_empty", true);
         state.putBoolean("playlist_or_card_injected", false);
         state.putBoolean("native_home_cards_attached", false);
-        state.putBoolean("native_home_status_attached", false);
-        state.putBoolean("native_home_status_marker_cleared", true);
-        state.putBoolean("native_home_content_ready", false);
-        state.putBoolean("native_content_container_empty", true);
-        state.putBoolean("native_root_hidden", true);
-        state.putBoolean("native_home_tab_not_shown", true);
+        state.putBoolean("native_home_status_attached", true);
+        state.putBoolean("native_home_status_visible", true);
+        state.putBoolean("native_home_error_message_visible", true);
+        state.putBoolean("native_home_status_message_visible_in_hierarchy", true);
+        state.putBoolean("native_home_retry_action_clickable", true);
+        state.putBoolean("native_home_content_ready", true);
+        state.putBoolean("native_root_visible", true);
+        state.putBoolean("native_home_tab_visible", true);
+        state.putBoolean("native_root_is_foremost_surface", true);
         state.putBoolean("splash_hidden", true);
-        state.putBoolean("webview_container_visible", true);
-        state.putBoolean("webview_visible_and_measured", true);
+        state.putBoolean("webview_mounted_under_native_root", true);
+        state.putBoolean("webview_container_visible_under_native_root", true);
+        state.putBoolean("original_webview_url_preserved", true);
         state.putBoolean("page_load_complete", webView.getProgress() == 100);
-        putBounds(state, "webview_visible", webBounds);
+        putBounds(state, "native_status_visible", statusBounds);
+        putBounds(state, "native_root_visible", rootBounds);
+        putBounds(state, "webview_mounted", webBounds);
         return state;
     }
 

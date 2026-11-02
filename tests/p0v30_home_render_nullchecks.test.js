@@ -1,6 +1,6 @@
 // [contrat][structurel][A TESTER SUR TELEPHONE]
 // P0 V30 : vérifie les polarités de nullité du renderer natif, sa garde de
-// contenu réel, la grille rapide et les solutions de repli vers le WebView.
+// contenu réel, la grille rapide et l'absence de fallback WebView automatique.
 // Ces assertions Smali ne prouvent ni l'assemblage Android ni un rendu appareil.
 const test = require('node:test');
 const assert = require('node:assert/strict');
@@ -21,12 +21,16 @@ function method(text, signature) {
   return text.slice(start, text.indexOf('.end method', start));
 }
 
-test('[P0v30] render(): conteneur nul -> repli WebView, conteneur valide -> rendu', () => {
+test('[P0v30] render(): conteneur nul -> garde native sans fallback Web, conteneur valide -> rendu', () => {
   const s = shelfSmali();
   assert.ok(s.includes('if-eqz v13, :shelf_container_missing'),
-    'le conteneur nul utilise le repli; le conteneur valide passe au rendu');
+    'le conteneur nul prend la branche de garde; le conteneur valide passe au rendu');
   assert.ok(!s.includes('if-nez v13, :shelf_container_missing'), 'l’inversion v30 ne doit pas revenir');
-  assert.match(s, /:shelf_container_missing[\s\S]*?revealWebUi\(\)V/);
+  const render = method(s, '.method public static render(');
+  const missing = render.slice(render.indexOf(':shelf_container_missing'));
+  assert.match(missing, /reason=content-container[\s\S]*?return-void/);
+  assert.doesNotMatch(render, /revealWebUi\(\)V|setNativeScreen\(Ljava\/lang\/String;\)V/,
+    'un conteneur manquant n’autorise ni takeover Spotify Web ni mutation de route');
 });
 
 test('[P0v30] render(): les rows JSON valides et les premières sections ne sont pas sautées', () => {
@@ -62,12 +66,14 @@ test('[P0v30] grille rapide: seuil deux, cap six, saute les tuiles nulles et les
     'une ligne sans aucune tuile réelle n’est pas ajoutée');
 });
 
-test('[P0v30] raw empty or invalid Home falls back; explicit status is real measured content', () => {
+test('[P0v30] raw empty or invalid Home becomes a native retry state; explicit status is measured content', () => {
   const renderer = shelfSmali();
   const render = method(renderer, '.method public static render(');
   const status = method(renderer, '.method private static renderHomeStatus(');
-  assert.match(render, /:shelf_no_cards[\s\S]*?reason=no-real-spotify-cards[\s\S]*?revealWebUi\(\)V[\s\S]*?return-void/);
-  assert.match(render, /:catch_0[\s\S]*?reason=invalid-json[\s\S]*?revealWebUi\(\)V/);
+  assert.match(render, /:shelf_no_cards[\s\S]*?reason=no-real-spotify-cards; native retry state requested[\s\S]*?NativeHomeShelfRenderer;->render\(Lcom\/melodix\/music\/MainActivity;Ljava\/lang\/String;\)V[\s\S]*?return-void/);
+  assert.match(render, /:catch_0[\s\S]*?reason=invalid-json[\s\S]*?NativeHomeShelfRenderer;->render\(Lcom\/melodix\/music\/MainActivity;Ljava\/lang\/String;\)V/);
+  assert.doesNotMatch(render, /revealWebUi\(\)V/,
+    'empty, invalid, or malformed payloads do not hand foreground ownership to Spotify Web');
   assert.match(render, /kind[\s\S]*?renderHomeStatus[\s\S]*?native-home-status-attached[\s\S]*?showNativeUi\(\)V/,
     'seul un payload explicitement typé état peut prendre le chemin status');
   assert.match(render, /:shelf_done[\s\S]*?home-cards-attached[\s\S]*?showNativeUi\(\)V/,
@@ -78,6 +84,9 @@ test('[P0v30] raw empty or invalid Home falls back; explicit status is real meas
   assert.match(status, /TextView;->setText\(Ljava\/lang\/CharSequence;\)V[\s\S]*?noteNativeHomeStatusAttached\(Landroid\/view\/View;\)V/);
   const activity = read('smali/com/melodix/music/MainActivity.smali');
   assert.match(activity, /\.method public final completeNativeUiVisibility\(Z\)Z[\s\S]*?hasMeasuredVisibleNativeHomeContent\(\)Z[\s\S]*?"home-rendered"/);
+  const visibility = method(activity, '.method public final completeNativeUiVisibility(Z)Z');
+  assert.doesNotMatch(visibility, /revealWebUi\(\)V/,
+    'failed measurements do not switch to Web ownership');
 });
 
 test('[P0v30] MainActivity gates Home on an attached card or status and initializes route before render', () => {
@@ -85,8 +94,13 @@ test('[P0v30] MainActivity gates Home on an attached card or status and initiali
   assert.match(activity, /\.field private nativeHomeContentReady:Z/);
   assert.match(activity, /\.method public final hasNativeHomeContentAttached\(\)Z[\s\S]*?nativeHomeCardsAttached:Z[\s\S]*?nativeHomeStatusAttached:Z/);
   const show = method(activity, '.method public final showNativeUi()V');
-  assert.match(show, /nativeCurrentScreen[\s\S]*?hasNativeHomeContentAttached\(\)Z[\s\S]*?home-content-not-attached[\s\S]*?revealWebUi\(\)V/);
-  assert.match(show, /setVisibility\(I\)V[\s\S]*?bringToFront\(\)V[\s\S]*?requestLayout\(\)V[\s\S]*?NativeUiVisibilityTraceRunnable/);
+  assert.match(show, /showNativeUiFrom\(Ljava\/lang\/String;Ljava\/lang\/String;\)V/);
+  const showFrom = method(activity, '.method public final showNativeUiFrom(');
+  assert.match(showFrom, /nativeCurrentScreen[\s\S]*?hasNativeHomeContentAttached\(\)Z[\s\S]*?:native_home_content_check[\s\S]*?Connexion à Spotify[\s\S]*?NativeHomeShelfRenderer;->render/,
+    'missing Home content is replaced by a native loading state before visibility measurement');
+  assert.doesNotMatch(showFrom, /revealWebUi\(\)V/,
+    'the content gate never automatically reveals Spotify Web');
+  assert.match(showFrom, /setVisibility\(I\)V[\s\S]*?bringToFront\(\)V[\s\S]*?requestLayout\(\)V[\s\S]*?NativeUiVisibilityTraceRunnable/);
   const apply = method(activity, '.method public final applyNativeUiData(');
   const initialHome = apply.indexOf(':apply_home_initial_route');
   const route = apply.indexOf('setNativeScreen(Ljava/lang/String;)V', initialHome);
@@ -94,8 +108,12 @@ test('[P0v30] MainActivity gates Home on an attached card or status and initiali
   assert.ok(initialHome >= 0 && route > initialHome && renderHome > route,
     'route Home posée avant renderNativeRows, même au premier payload');
   const reveal = method(activity, '.method public final revealWebUi()V');
-  assert.match(reveal, /->H:Landroidx\/constraintlayout\/widget\/ConstraintLayout;[\s\S]*?0x7f09022f[\s\S]*?setVisibility\(I\)V/,
-    'le repli cache le splash et le root natif pour révéler le WebView');
+  assert.match(reveal, /legacy-web-reveal-request[\s\S]*?revealWebUiFrom\(Ljava\/lang\/String;Ljava\/lang\/String;\)V/,
+    'the legacy method is only a guarded request, not a visibility command');
+  const guardedReveal = method(activity, '.method public final revealWebUiFrom(');
+  assert.match(guardedReveal, /isLoginWebRoute\(\)Z[\s\S]*?web_reveal_blocked[\s\S]*?showNativeUiFrom/,
+    'only the explicitly requested login route may reveal the WebView');
+  assert.doesNotMatch(guardedReveal, /revealWebUi\(\)V/);
 });
 
 test('[P0v30] trace différée vérifie global bounds, parent, empilement et contenu Home visible', () => {
@@ -112,8 +130,16 @@ test('[P0v30] trace différée vérifie global bounds, parent, empilement et con
     'nativeRoot must be the later sibling');
   assert.match(trace, /cmpl-float[\s\S]*?getGlobalVisibleRect\(Landroid\/graphics\/Rect;\)Z/,
     'the root must also be in front and intersect the window');
-  assert.match(trace, /completeNativeUiVisibility\(Z\)Z[\s\S]*?attempts:I[\s\S]*?revealWebUi\(\)V/,
-    'failed measurements retry finitely then keep Spotify visible');
+  assert.match(trace, /completeNativeUiVisibility\(Z\)Z[\s\S]*?attempts:I[\s\S]*?postDelayed\(Ljava\/lang\/Runnable;J\)Z[\s\S]*?:native_layout_give_up/,
+    'failed measurements retry finitely');
+  const timeout = trace.slice(trace.indexOf(':native_layout_give_up'));
+  assert.match(timeout, /native-ui-visibility-timeout[\s\S]*?visibility-timeout[\s\S]*?traceNativeDisplayOwner[\s\S]*?native-shell-visibility-pending/,
+    'late watchdogs report a sanitized timeout and keep the pending native owner');
+  assert.doesNotMatch(trace, /revealWebUi\(\)V/,
+    'failed or late measurements never transfer foreground ownership to Spotify Web');
+  const completion = method(read('smali/com/melodix/music/MainActivity.smali'), '.method public final completeNativeUiVisibility(Z)Z');
+  assert.match(completion, /visibility-measure-pending[\s\S]*?return v0/);
+  assert.doesNotMatch(completion, /revealWebUi\(\)V/);
   const activity = read('smali/com/melodix/music/MainActivity.smali');
   assert.match(activity, /\.method private hasMeasuredVisibleNativeHomeContent\(\)Z[\s\S]*?nativeHomeStatusView:Landroid\/view\/View;[\s\S]*?View;->isShown\(\)Z[\s\S]*?getGlobalVisibleRect\(Landroid\/graphics\/Rect;\)Z[\s\S]*?Rect;->width\(\)I[\s\S]*?Rect;->height\(\)I/);
 });

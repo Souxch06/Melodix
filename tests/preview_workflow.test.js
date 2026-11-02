@@ -149,8 +149,8 @@ test("empty-Home pixels are captured before instrumentation finish and the same 
     captureCall >= 0 && finishCall > captureCall,
     "save the measured empty-Home screen while the instrumented Activity is still alive, before finish() stops it",
   );
-  assert.match(harness, /fallbackState\[0\] = inspectEmptyHomeFallback[\s\S]*?sendStatus\(1, fallbackState\[0\]\)[\s\S]*?captureEmptyHomeUiEvidence\(\)/,
-    "the measured fallback phase is emitted explicitly for the workflow's required-status check");
+  assert.match(harness, /awaitNativeHomeErrorReady\(activity\)[\s\S]*?fallbackState\[0\] = inspectEmptyHomeNativeError[\s\S]*?sendStatus\(1, fallbackState\[0\]\)[\s\S]*?captureEmptyHomeUiEvidence\(\)/,
+    "the measured native empty-Home error state is emitted explicitly for the workflow's required-status check");
   assert.match(harness, /serviceInfo\.flags = AccessibilityServiceInfo\.FLAG_INCLUDE_NOT_IMPORTANT_VIEWS[\s\S]*?FLAG_REPORT_VIEW_IDS[\s\S]*?automation\.setServiceInfo\(serviceInfo\)/);
   assert.match(harness, /automation\.getRootInActiveWindow\(\)/);
   assert.match(harness, /automation\.takeScreenshot\(\)/);
@@ -158,7 +158,7 @@ test("empty-Home pixels are captured before instrumentation finish and the same 
   assert.match(emulatorWorkflow, /safe_harness_logs=.*phase=\[a-z_\]\+/);
   assert.match(harness, /appendXmlAttribute\(xml, "bounds", bounds\.toShortString\(\)\)/);
   assert.doesNotMatch(harness, /bounds\.flattenToString\(\)/);
-  assert.match(harness, /captureEmptyHomeUiEvidence\(\)[\s\S]*?captureUiEvidence\("melodix-preview-home-fallback\.xml", "melodix-preview-home-empty\.png"/);
+  assert.match(harness, /captureEmptyHomeUiEvidence\(\)[\s\S]*?captureUiEvidence\("melodix-preview-home-empty\.xml", "melodix-preview-home-native-error\.png"/);
   assert.match(harness, /captureHomeStatusUiEvidence\(\)[\s\S]*?captureUiEvidence\("melodix-preview-home-status\.xml", "melodix-preview-home-status\.png"/);
   assert.match(harness, /captureWebHomeRendererEvidence\(\)[\s\S]*?captureUiEvidence\("melodix-preview-web-home-app\.xml", "melodix-preview-web-home-app\.png"/);
   assert.match(harness, /WEB_HOME_RENDERER_VISIBLE_PROBE[\s\S]*?location\.pathname==='\/app'/,
@@ -170,6 +170,12 @@ test("empty-Home pixels are captured before instrumentation finish and the same 
   assert.doesNotMatch(statusDispatchBody, /getMethod\("onNativeUiReady"|ready\.invoke\(|nativeHomeContentReady\s*=|nativeHomeStatusAttached\s*=/,
     "status readiness must result from the real renderer/visibility gate, never a forced flag or ready callback");
   assert.match(harness, /login_surface_restored_after_status/);
+  assert.match(harness, /cold_start_native_home_visibility[\s\S]*?cold_start_native_owner_verified/);
+  assert.match(harness, /revealLoginWebUi[\s\S]*?nativeLoginWebRequested[\s\S]*?verifyLoginSpaExitBeforeHomeFixture/);
+  assert.match(harness, /login_spa_exit_probe_performed[\s\S]*?login_spa_exit_observed/);
+  assert.match(harness, /captureNativeHomeTimeline[\s\S]*?200L, 1000L, 3000L, 8000L, 20000L[\s\S]*?captureUiEvidence\(hierarchyName, screenshotName/);
+  assert.match(emulatorWorkflow, /for timeline_phase in cold_home empty_home[\s\S]*?for checkpoint in 200ms 1s 3s 8s 20s[\s\S]*?inspect_hierarchy\.py/);
+  assert.match(emulatorWorkflow, /cold-home-timeline-\*\.png[\s\S]*?empty-home-timeline-\*-hierarchy-redacted\.json/);
   assert.match(harness, /result\.putBoolean\("empty_home_evidence_captured", true\)/);
   assert.match(harness, /result\.putBoolean\("home_status_evidence_captured", true\)/);
   assert.match(harness, /BROWSER_COMPATIBILITY_PROBE/);
@@ -182,8 +188,8 @@ test("empty-Home pixels are captured before instrumentation finish and the same 
   assert.match(emulatorWorkflow, /INSTRUMENTATION_STATUS: empty_home_evidence_captured=true/);
   assert.match(emulatorWorkflow, /INSTRUMENTATION_STATUS: home_status_evidence_captured=true/);
   assert.match(emulatorWorkflow, /safe_statuses=.*empty_home_evidence_captured.*home_status_evidence_captured/);
-  assert.match(emulatorWorkflow, /adb exec-out run-as com\.melodix\.music\.preview cat files\/melodix-preview-home-fallback\.xml/);
-  assert.match(emulatorWorkflow, /adb exec-out run-as com\.melodix\.music\.preview cat files\/melodix-preview-home-empty\.png/);
+  assert.match(emulatorWorkflow, /adb exec-out run-as com\.melodix\.music\.preview cat files\/melodix-preview-home-empty\.xml/);
+  assert.match(emulatorWorkflow, /adb exec-out run-as com\.melodix\.music\.preview cat files\/melodix-preview-home-native-error\.png/);
   assert.match(emulatorWorkflow, /adb exec-out run-as com\.melodix\.music\.preview cat files\/melodix-preview-home-status\.xml/);
   assert.match(emulatorWorkflow, /adb exec-out run-as com\.melodix\.music\.preview cat files\/melodix-preview-home-status\.png/);
   assert.match(emulatorWorkflow, /inspect_hierarchy\.py home-status/);
@@ -195,7 +201,7 @@ test("empty-Home pixels are captured before instrumentation finish and the same 
   assert.match(emulatorWorkflow, /home_status_pixels_verified=true/);
   assert.match(emulatorWorkflow, /login_surface_restored_after_status=true/);
   const screenshotRetrieved = emulatorWorkflow.indexOf(
-    "adb exec-out run-as com.melodix.music.preview cat files/melodix-preview-home-empty.png",
+    "adb exec-out run-as com.melodix.music.preview cat files/melodix-preview-home-native-error.png",
   );
   const targetRelaunch = emulatorWorkflow.indexOf(
     "adb shell am start -W -n com.melodix.music.preview/com.melodix.music.MainActivity",
@@ -233,6 +239,46 @@ test("empty-Home pixels are captured before instrumentation finish and the same 
   assert.match(emulatorWorkflow, /MainActivity was not resumed after instrumentation \(harness=\$INTEGRATION_OUTCOME\); relaunching/);
   assert.match(emulatorWorkflow, /harness_failure_phase/);
   assert.match(emulatorWorkflow, /harness_failure_type/);
+});
+
+test("Android verifies native ownership across route callbacks, returns, late callbacks, and delayed visibility watchers", () => {
+  const harness = fs.readFileSync(
+    path.resolve(__dirname, "android", "HomeRenderInstrumentation.java"),
+    "utf8",
+  );
+  const inspector = fs.readFileSync(
+    path.resolve(__dirname, "android", "inspect_hierarchy.py"),
+    "utf8",
+  );
+  const workflow = fs.readFileSync(
+    path.resolve(__dirname, "..", ".github/workflows/test-preview-emulator.yml"),
+    "utf8",
+  );
+  const matrix = harness.split("private Bundle verifyNativeRouteOwnerMatrix")[1]
+    .split("private void captureNativeHomeTimeline")[0];
+  for (const route of ["home", "search", "library", "detail", "player", "detail_return", "player_return", "late_callback_watchdog"]) {
+    assert.ok(matrix.includes('"' + route + '"'), "the bounded owner matrix includes " + route);
+  }
+  assert.match(workflow, /for route_snapshot in home search library detail detail_return player player_return late_callback_watchdog[\s\S]*?native_route_\$\{route_snapshot\}_owner_verified/,
+    "the workflow requires a measured owner result for each named route snapshot");
+  assert.match(matrix, /onNativeUiRoute[\s\S]*?onNativeBackClick[\s\S]*?showNativeUiFrom/,
+    "the matrix exercises real bridge route callbacks, native back actions, and the actual visibility callback entry point");
+  assert.match(matrix, /latePageFinished\.invoke[\s\S]*?routeCallback\.invoke[\s\S]*?Thread\.sleep\("late_callback_watchdog"\.equals\(snapshot\) \? 800L/,
+    "a late page-finished request is followed by a route change and the delayed visibility watcher is allowed to fire");
+  assert.match(matrix, /rootCoversCenter[\s\S]*?rootCoversDock[\s\S]*?frontmostFullscreenSurface[\s\S]*?requireUnauthenticatedSession/,
+    "each snapshot measures the native root above the center and dock while retaining the same mounted, unauthenticated WebView");
+  assert.match(matrix, /snapshot\.replace\('_', '-'\)[\s\S]*?captureUiEvidence/);
+  assert.match(matrix, /native_route_" \+ snapshot \+ "_owner_verified/);
+  assert.doesNotMatch(matrix, /safeSpotifyUrl|putString\("[^"]*(?:url|uri)|spotify:playlist:|Bearer\s+[A-Za-z0-9._-]+/i,
+    "route telemetry never serializes a URL, token, or playlist payload");
+  assert.match(inspector, /"native-route"[\s\S]*?native_route_root_bounds_have_no_rendered_screenshot_pixels/,
+    "native-route screenshots require a visible shell root and rendered pixels rather than a synthetic fixture");
+  assert.match(workflow, /for route_snapshot in home search library detail detail_return player player_return late_callback_watchdog[\s\S]*?inspect_hierarchy\.py native-route[\s\S]*?native_route_matrix_pixels_verified/,
+    "all native route transitions are copied, inspected, and aggregated before the artifact is accepted");
+  const upload = workflow.slice(workflow.indexOf("name: Upload verified screenshot and redacted launch summary"));
+  assert.match(upload, /native-route-\*\.png[\s\S]*?native-route-\*-hierarchy-redacted\.json/);
+  assert.doesNotMatch(upload, /native-route-\*-window\.xml/,
+    "raw route hierarchy XML is not published as an artifact");
 });
 
 test("Android verifies the packaged Web Home renderer on /app in an isolated, visible WebView", () => {
@@ -527,14 +573,19 @@ test("the emulator workflow validates same-run instrumentation and exact release
     "the Android package manager must register the exact installed harness before it is invoked");
   assert.match(emulatorWorkflow, /pm_instrumentation_entries=[\s\S]*?pm_list_unknown_command=[\s\S]*?package_dump_runner_seen=/,
     "registration failures distinguish an empty PM list from unsupported listing and missing package metadata");
-  assert.match(emulatorWorkflow, /timeout --signal=TERM --kill-after=10s 180s adb shell am instrument/,
-    "a wedged Android instrumentation runner is bounded so post-run activity and hierarchy checks still execute");
+  assert.match(emulatorWorkflow, /timeout --signal=TERM --kill-after=10s 300s adb shell am instrument/,
+    "a wedged Android instrumentation runner is bounded while allowing both timed native-owner evidence series");
   assert.match(emulatorWorkflow, /login_dom_visible=not_confirmed/,
     "missing instrumentation output is not misreported as a negative login DOM observation");
   assert.match(emulatorWorkflow, /login_dom_probe_observed/,
     "the reference distinguishes an observed login result from an absent probe result");
   assert.match(emulatorWorkflow, /focus_state=.*mCurrentFocus/,
     "an activity-resume failure identifies the safe foreground window instead of stopping at a generic error");
+  assert.match(
+    emulatorWorkflow,
+    /phase=cold_start_native_home_status[\s\S]*?cold_start_native_owner_verified=true[\s\S]*?phase=login_without_session[\s\S]*?explicit_login_owner_requested=true[\s\S]*?login_spa_exit_observed=true/,
+    "the cold Home owner is verified before an explicit login request and native ownership returns after a non-login SPA route",
+  );
   assert.match(
     emulatorWorkflow,
     /login_ui_visible_in_webview_dom=true/,
@@ -547,20 +598,22 @@ test("the emulator workflow validates same-run instrumentation and exact release
   );
   assert.match(
     emulatorWorkflow,
-    /phase=empty_home_fallback[\s\S]*?home_payload_empty=true[\s\S]*?playlist_or_card_injected=false[\s\S]*?native_home_content_ready=false/,
-    "the Home integration uses only an empty payload and must not invent playlist data",
+    /phase=empty_home_native_error_state[\s\S]*?home_payload_empty=true[\s\S]*?playlist_or_card_injected=false[\s\S]*?native_home_error_message_visible=true[\s\S]*?native_home_retry_action_clickable=true[\s\S]*?native_root_is_foremost_surface=true[\s\S]*?webview_mounted_under_native_root=true/,
+    "the Home integration uses only an empty payload and verifies a measured native error/retry surface over the mounted WebView",
   );
   assert.match(
     emulatorWorkflow,
-    /inspect_hierarchy\.py empty-home[\s\S]*?home-empty-fallback\.png/,
-    "the final screenshot inspects the WebView pixels after the empty-Home fallback",
+    /inspect_hierarchy\.py empty-home[\s\S]*?home-empty-native-error\.png[\s\S]*?home-empty-native-error-hierarchy-redacted\.json/,
+    "the final screenshot inspects native error/retry pixels and the safe hierarchy after empty Home",
   );
   const uploadStep = emulatorWorkflow.slice(
     emulatorWorkflow.indexOf("name: Upload verified screenshot and redacted launch summary"),
   );
-  assert.match(uploadStep, /permission-prompt-summary\.json[\s\S]*?login-hierarchy-redacted\.json[\s\S]*?instrumentation-safe-logcat\.txt[\s\S]*?verification-reference\.json/);
-  assert.doesNotMatch(uploadStep, /login-window\.xml|home-fallback-window\.xml|permission-before-grant\.xml/,
+  assert.match(uploadStep, /permission-prompt-summary\.json[\s\S]*?cold-home-hierarchy-redacted\.json[\s\S]*?instrumentation-safe-logcat\.txt[\s\S]*?verification-reference\.json/);
+  assert.doesNotMatch(uploadStep, /cold-home-window\.xml|home-empty-native-error-window\.xml|permission-before-grant\.xml/,
     "raw UIAutomator hierarchy text is not uploaded");
+  assert.match(emulatorWorkflow, /inspect_hierarchy\.py home-status[\s\S]*?cold-home-window\.xml[\s\S]*?cold-home-hierarchy-redacted\.json/,
+    "the preserved cold-launch screenshot is verified as the native Home status surface");
   assert.match(emulatorWorkflow, /cold_launch_hierarchy_pixels_verified/);
   assert.match(emulatorWorkflow, /login_ui_visible_in_webview_dom/);
   const harnessSource = fs.readFileSync(

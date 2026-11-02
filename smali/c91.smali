@@ -628,46 +628,16 @@
     const-string v2, "webview-page-finished"
     invoke-static {v2}, Lcom/melodix/music/NativeCrashGuard;->diagLine(Ljava/lang/String;)V
 
-    # Account pages and an unconfirmed player-host page must remain visible in
-    # the WebView. On a clean install B is false, so the later authenticated
-    # splash-dismiss branch is intentionally skipped for open.spotify.com; if
-    # we do not reveal this first page here, the branded splash covers login.
-    # This only lifts native overlays. It does not change cookies, navigation,
-    # the Spotify session, or the content-gated native Home takeover.
-    const-string v2, "accounts.spotify.com"
-
-    invoke-virtual {v1, v2}, Ljava/lang/String;->contains(Ljava/lang/CharSequence;)Z
-
-    move-result v2
-
-    if-nez v2, :page_finished_reveal_web
-
-    const-string v2, "open.spotify.com"
-
-    invoke-virtual {v1, v2}, Ljava/lang/String;->contains(Ljava/lang/CharSequence;)Z
-
-    move-result v2
-
-    if-eqz v2, :page_finished_reveal_done
-
-    sget-boolean v2, Lcom/melodix/music/AppSingleton;->B:Z
-
-    if-nez v2, :page_finished_reveal_done
-
-    :page_finished_reveal_web
+    # Page-finished is a state recheck, not permission to transfer ownership.
+    # MainActivity keeps native routes foregrounded and allows Web ownership
+    # only while an explicit native login request is active.
     sget-object v2, Lcom/melodix/music/AppSingleton;->t:Ljava/lang/ref/WeakReference;
-
     if-eqz v2, :page_finished_reveal_done
-
     invoke-virtual {v2}, Ljava/lang/ref/Reference;->get()Ljava/lang/Object;
-
     move-result-object v2
-
     check-cast v2, Lcom/melodix/music/MainActivity;
-
     if-eqz v2, :page_finished_reveal_done
-
-    invoke-virtual {v2}, Lcom/melodix/music/MainActivity;->revealWebUi()V
+    invoke-virtual {v2}, Lcom/melodix/music/MainActivity;->onWebViewPageFinished()V
 
     :page_finished_reveal_done
     .line 12

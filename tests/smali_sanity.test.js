@@ -372,37 +372,44 @@ test('[model] an authenticated player page keeps B=true and reaches the existing
         'the historical inverse guard is not reintroduced');
 });
 
-test('[model] an unconfirmed open.spotify.com page reveals the login surface before session confirmation', () => {
-    // This follows the early page-finished gate in c91. The Node model is a
-    // control-flow check only; the same-run Android hierarchy/pixel test remains
-    // the integration evidence for actual visibility.
+test('[model] page-finished callbacks keep native Home foregrounded unless login was explicitly requested', () => {
     const webViewClient = fs.readFileSync(path.join(repo, 'smali/c91.smali'), 'utf8');
     const pageFinished = webViewClient.match(
         /\.method public final onPageFinished\(Landroid\/webkit\/WebView;Ljava\/lang\/String;\)V([\s\S]*?)\.end method/
     );
     assert.ok(pageFinished, 'WebView page-finished callback should exist');
     const body = pageFinished[1];
-    const start = body.indexOf('const-string v2, "accounts.spotify.com"');
+    const start = body.indexOf('# Page-finished is a state recheck');
     const end = body.indexOf('\n    :page_finished_reveal_done', start);
-    assert.ok(start >= 0 && end > start, 'the early WebView reveal gate exists');
+    assert.ok(start >= 0 && end > start, 'the guarded page-finished owner callback exists');
     const gate = body.slice(start, end);
-    assert.match(gate,
-        /accounts\.spotify\.com[\s\S]*?if-nez v2, :page_finished_reveal_web[\s\S]*?open\.spotify\.com[\s\S]*?if-eqz v2, :page_finished_reveal_done[\s\S]*?AppSingleton;->B:Z[\s\S]*?if-nez v2, :page_finished_reveal_done/);
-    assert.doesNotMatch(gate, /sput-boolean|CookieManager|clearCache|clearHistory|setNativeScreen/,
-        'the visibility gate does not modify authentication or replace the WebView with native Home');
+    assert.match(gate, /MainActivity;->onWebViewPageFinished\(\)V/,
+        'the callback delegates ownership to MainActivity rather than directly revealing WebView');
+    assert.doesNotMatch(gate, /revealWebUi|revealLoginWebUi|setNativeScreen/,
+        'page-finished does not auto-reveal Spotify Web or replace the native screen');
 
-    function modeledReveal(url, loggedIn) {
-        return String(url).includes('accounts.spotify.com') ||
-            (String(url).includes('open.spotify.com') && !Boolean(loggedIn));
+    const mainActivity = fs.readFileSync(path.join(repo, 'smali/com/melodix/music/MainActivity.smali'), 'utf8');
+    const ownerCallback = mainActivity.match(
+        /\.method public final onWebViewPageFinished\(\)V([\s\S]*?)\.end method/
+    );
+    assert.ok(ownerCallback, 'MainActivity page-finished owner callback should exist');
+    assert.match(ownerCallback[1], /nativeLoginWebRequested[\s\S]*?isLoginWebPath\(\)Z[\s\S]*?applyLoginWebUi[\s\S]*?showNativeUiFrom/,
+        'only the explicit login request on a login path yields Web ownership; other paths stay native');
+
+    function modeledOwner(url, loginRequested) {
+        const value = String(url);
+        const isLoginPath = value.includes('accounts.spotify.com') ||
+            (value.includes('open.spotify.com') && /\/(login|signin|oauth|auth)(\/|$)/.test(new URL(value).pathname));
+        return Boolean(loginRequested && isLoginPath) ? 'login' : 'native';
     }
-    assert.equal(modeledReveal('https://accounts.spotify.com/login', false), true,
-        'the real Spotify account form remains visible');
-    assert.equal(modeledReveal('https://open.spotify.com/', false), true,
-        'a clean startup exposes the player page while session state is unconfirmed');
-    assert.equal(modeledReveal('https://open.spotify.com/', true), false,
-        'a confirmed session keeps the existing splash-dismiss path');
-    assert.equal(modeledReveal('https://example.invalid/', false), false,
-        'unrelated navigation does not trigger this first-launch reveal');
+    assert.equal(modeledOwner('https://open.spotify.com/', false), 'native',
+        'an unconfirmed cold start stays on native Home');
+    assert.equal(modeledOwner('https://accounts.spotify.com/login', false), 'native',
+        'a page-finished callback cannot request login ownership by itself');
+    assert.equal(modeledOwner('https://accounts.spotify.com/login', true), 'login',
+        'an explicit login action can show the real account form');
+    assert.equal(modeledOwner('https://open.spotify.com/', true), 'native',
+        'a non-login SPA path returns ownership to native Home');
 });
 
 test('a stalled Spotify page load leaves the splash and exposes retry after 30 seconds', () => {

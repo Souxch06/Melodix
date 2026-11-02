@@ -335,6 +335,13 @@ function executeNativeRouteActivation(activity, destination) {
             activity.showResult = executeHomeReadinessGate(activity);
             continue;
         }
+        if ((match = /^invoke-virtual \{p0, (\w+), (\w+)\}, Lcom\/melodix\/music\/MainActivity;->showNativeUiFrom\(Ljava\/lang\/String;Ljava\/lang\/String;\)V$/.exec(instruction))) {
+            activity.showCalls = (activity.showCalls || 0) + 1;
+            activity.showReason = registers[match[1]];
+            activity.showOrigin = registers[match[2]];
+            activity.showResult = executeHomeReadinessGate(activity);
+            continue;
+        }
         if (instruction === 'return-void') return activity;
         throw new Error(`Unreviewed opcode in activateNativeUiRoute: ${instruction}`);
     }
@@ -411,35 +418,34 @@ function executeUiUpdateRunnable(activity, screen, action) {
 function executeHomeReadinessGate(activity) {
     const method = extractMethod(
         ACTIVITY,
-        '.method public final showNativeUi()V');
-    const homeCheck = method.indexOf(':show_native_root');
-    const homeGate = method.indexOf(':native_home_ready_check', homeCheck);
-    const readyRead = method.indexOf('hasNativeHomeContentAttached()Z', homeGate);
-    const blocked = method.indexOf('native-shell-show-blocked reason=home-content-not-attached', readyRead);
-    const webFallback = method.indexOf('->revealWebUi()V', blocked);
-    const rootLookup = method.indexOf('\n    :native_root_lookup\n', readyRead);
-    assert.ok(homeCheck >= 0 && homeGate > homeCheck && readyRead > homeGate &&
-        blocked > readyRead && webFallback > blocked && rootLookup > webFallback,
-    'the no-content gate must block before root lookup and reveal the original WebView');
+        '.method public final showNativeUiFrom(Ljava/lang/String;Ljava/lang/String;)V');
+    const homeCheck = method.indexOf(':native_home_content_check');
+    const contentCheck = method.indexOf('hasNativeHomeContentAttached()Z', homeCheck);
+    const loadingState = method.indexOf('state\\\":\\\"loading', contentCheck);
+    const rootLookup = method.indexOf('\n    :native_root_lookup\n', contentCheck);
+    const rootShown = method.indexOf('native-root-found', rootLookup);
+    assert.ok(homeCheck >= 0 && contentCheck > homeCheck && loadingState > contentCheck &&
+        rootLookup > loadingState && rootShown > rootLookup,
+    'missing Home content receives a native loading state before the native root is shown');
+    assert.doesNotMatch(method, /revealWebUi\(\)V/,
+        'the shell show path never falls back to Spotify Web');
 
     const homeOrUninitialized = activity.nativeCurrentScreen == null ||
         activity.nativeCurrentScreen === 'home';
     const contentAttached = Boolean(activity.nativeHomeCardsAttached || activity.nativeHomeStatusAttached);
     if (homeOrUninitialized && !contentAttached) {
-        activity.webViewVisible = true;
-        activity.nativeRootVisibilityRequested = false;
-        activity.nativeRootVisible = false;
-        return 'blocked-no-content';
+        activity.nativeHomeStatusAttached = true;
+        activity.nativeHomeSessionUnprovenStatusAttached = true;
+        activity.nativeHomeStatusKind = 'loading';
+        activity.nativeHomeContentReady = false;
     }
-    // showNativeUi changes Android visibility and queues a measured trace; it
-    // is not itself evidence that a frame or card has reached the display.
     activity.webViewVisible = true;
     activity.nativeRootVisibilityRequested = true;
     activity.nativeRootVisible = false;
     return 'native-root-requested';
 }
 
-test('D4 — Home route queued before readiness is applied; empty Home keeps the WebView visible', () => {
+test('D4 — Home route immediately shows native loading while the WebView remains mounted', () => {
     const contentSentinel = { value: 'no-home-payload-yet' };
     const activity = {
         nativeCurrentScreen: null,
@@ -453,13 +459,17 @@ test('D4 — Home route queued before readiness is applied; empty Home keeps the
     };
     executeUiUpdateRunnable(activity, 'home', 2);
     assert.equal(activity.nativeCurrentScreen, 'home', 'route runnable applies Home first');
-    assert.equal(activity.showCalls, 0, 'route changes do not claim readiness or show the shell');
+    assert.equal(activity.showCalls, 1, 'Home route requests native ownership immediately');
+    assert.equal(activity.showResult, 'native-root-requested');
+    assert.equal(activity.nativeHomeStatusAttached, true, 'missing rows become explicit native loading state');
+    assert.equal(activity.nativeHomeStatusKind, 'loading');
+    assert.equal(activity.webViewVisible, true, 'the Spotify engine remains mounted beneath the shell');
+    assert.equal(activity.nativeRootVisible, false, 'only the later measured callback confirms visible pixels');
 
     executeUiUpdateRunnable(activity, '', 0);
-    assert.equal(activity.showCalls, 1, 'ready runnable reaches showNativeUi');
-    assert.equal(activity.showResult, 'blocked-no-content');
-    assert.equal(activity.webViewVisible, true, 'no-content path preserves Spotify WebView');
-    assert.equal(activity.nativeRootVisible, false, 'no-content path does not cover the page');
+    assert.equal(activity.showCalls, 2, 'the readiness callback reasserts the native owner');
+    assert.equal(activity.showResult, 'native-root-requested');
+    assert.equal(activity.webViewVisible, true);
     assert.strictEqual(activity.contentSentinel, contentSentinel);
 });
 
@@ -497,15 +507,24 @@ test('D4c — accepted Search, Library, detail, and Player routes reveal the nat
     }
 });
 
-test('D4b — revealWebUi restores the WebView container after the network-error state hides it', () => {
+test('D4b — only the explicit login action can restore Web ownership', () => {
     const networkError = extractMethod(ACTIVITY, '.method public final D(Z)V');
     const reveal = extractMethod(ACTIVITY, '.method public final revealWebUi()V');
+    const guarded = extractMethod(ACTIVITY, '.method public final revealWebUiFrom(Ljava/lang/String;Ljava/lang/String;)V');
+    const login = extractMethod(ACTIVITY, '.method private final applyLoginWebUi(Ljava/lang/String;Ljava/lang/String;)V');
+    const loginAction = extractMethod(ACTIVITY, '.method public final revealLoginWebUi()V');
     assert.match(networkError, /->N:Landroid\/widget\/FrameLayout;[\s\S]*?const\/4 v2, 0x4[\s\S]*?setVisibility\(I\)V/,
         'the network-error state makes the WebView container INVISIBLE');
-    assert.match(reveal, /->H:Landroidx\/constraintlayout\/widget\/ConstraintLayout;[\s\S]*?->N:Landroid\/widget\/FrameLayout;[\s\S]*?const\/4 v1, 0x0[\s\S]*?setVisibility\(I\)V/,
-        'the recovery transition dismisses splash/native cover and restores the WebView container');
+    assert.match(reveal, /revealWebUiFrom\(Ljava\/lang\/String;Ljava\/lang\/String;\)V/,
+        'the legacy callback routes through the explicit login guard');
+    assert.match(guarded, /isLoginWebRoute\(\)Z[\s\S]*?applyLoginWebUi[\s\S]*?showNativeUiFrom/,
+        'a generic or late reveal request keeps native ownership unless login was explicitly requested');
+    assert.match(loginAction, /nativeLoginWebRequested:Z[\s\S]*?applyLoginWebUi/,
+        'the login button sets the allowed Web-owner state');
+    assert.match(login, /0x7f09022f[\s\S]*?setVisibility\(I\)V[\s\S]*?N:Landroid\/widget\/FrameLayout;[\s\S]*?setVisibility\(I\)V/,
+        'the explicit login path hides nativeRoot and restores the already-mounted WebView container');
     assert.doesNotMatch(reveal, /loadUrl|clearCache|clearHistory|removeAllCookies/,
-        'the transition reveals the existing WebView without reloading or clearing session state');
+        'the legacy request does not reload or clear session state');
 });
 
 test('D5 — Home, Search, Library, and back-to-Home route transitions execute in order', () => {
@@ -701,18 +720,17 @@ test('trace separates attached Home cards/status from measured visible native co
     assert.match(trace, /if-le v8, v9, :native_layout_root_checked/,
         'nativeRoot must be after its WebView horizontal-scroll host');
     assert.match(trace, /cmpl-float[\s\S]*?getGlobalVisibleRect[\s\S]*?completeNativeUiVisibility\(Z\)Z/);
-    assert.match(trace, /:native_layout_give_up[\s\S]*?revealWebUi\(\)V/,
-        'failed layout/stacking checks restore the existing WebView');
+    assert.match(trace, /:native_layout_give_up[\s\S]*?visibility-timeout[\s\S]*?native-shell-visibility-pending/);
+    assert.doesNotMatch(trace, /revealWebUi\(\)V/,
+        'late watchdog failure never transfers the foreground to Spotify Web');
 
-    const show = extractMethod(ACTIVITY, '.method public final showNativeUi()V');
+    const show = extractMethod(ACTIVITY, '.method public final showNativeUiFrom(Ljava/lang/String;Ljava/lang/String;)V');
     const request = show.indexOf('"native-shell-show-requested"');
     const rootLookup = show.indexOf('->findViewById(I)Landroid/view/View;', show.indexOf(':native_root_lookup'));
     const found = show.indexOf('"native-root-found"', rootLookup);
-    const initialized = show.indexOf('"native-screen-initialized"', found);
-    const returned = show.indexOf('"native-shell-show-request-returned"', initialized);
-    assert.ok(request >= 0 && rootLookup > request && found > rootLookup &&
-        initialized > found && returned > initialized,
-    'showNativeUi logs a request/return; the separate trace alone confirms visibility');
+    const returned = show.indexOf('"native-shell-show-request-returned"', found);
+    assert.ok(request >= 0 && rootLookup > request && found > rootLookup && returned > found,
+        'the owner request and root lookup precede the measured visibility callback');
 });
 
 test('native render failures are explicit and do not persist exception messages or stack traces', () => {

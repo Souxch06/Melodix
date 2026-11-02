@@ -239,7 +239,9 @@ test('Home distinguishes attached cards/status from content verified visible aft
     'explicit state text has its own attached marker, never the card marker');
   assert.doesNotMatch(body, /nativeHomeContentReady:Z|"home-rendered"/,
     'the renderer cannot claim pixels are visible');
-  assert.match(body, /:shelf_no_cards[\s\S]*?home-render-failed[\s\S]*?revealWebUi\(\)V/);
+  assert.match(body, /:shelf_no_cards[\s\S]*?home-render-failed[\s\S]*?retry-library/);
+  assert.doesNotMatch(body, /revealWebUi\(\)V/,
+    'empty or malformed Home becomes a native retry state rather than a WebView takeover');
 
   const activity = methodBody(MI(), '.method public final completeNativeUiVisibility(Z)Z');
   const firstMeasure = activity.indexOf('hasMeasuredVisibleNativeHomeContent()Z');
@@ -253,10 +255,10 @@ test('Home distinguishes attached cards/status from content verified visible aft
   assert.match(activity, /sput-boolean v0, Lcom\/melodix\/music\/AppSingleton;->l:Z[\s\S]*?sput-boolean v0, Lcom\/melodix\/music\/AppSingleton;->startupDone:Z/);
 });
 
-test('showNativeUi() replays the stored freeze report (never a crash message)', () => {
-  const body = methodBody(MI(), '.method public final showNativeUi()V');
-  assert.match(body, /invoke-static \{p0\}, Lcom\/melodix\/music\/StartupDiagnosticOverlay;->maybeShowStored\(Landroid\/app\/Activity;\)V/,
-    'the replay runs on the p0-only call, before any register is live');
+test('showNativeUiFrom() replays the stored freeze report (never a crash message)', () => {
+  const body = methodBody(MI(), '.method public final showNativeUiFrom(Ljava/lang/String;Ljava/lang/String;)V');
+  assert.match(body, /StartupDiagnosticOverlay;->maybeShowStored\(Landroid\/app\/Activity;\)V/,
+    'the replay remains part of the recovered native shell request');
 });
 
 test('the unstick runnable shows the panel first, then unstick only on demand', () => {

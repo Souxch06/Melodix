@@ -19,16 +19,37 @@ BOUNDS_RE = re.compile(r"\[(\d+),(\d+)\]\[(\d+),(\d+)\]")
 SAFE_IDENTIFIER_RE = re.compile(r"[^A-Za-z0-9_.$:/-]")
 HOME_STATUS_MARKERS = (
     "connexion a spotify",
+    "connexion spotify non confirmee",
+    "connexion spotify impossible a verifier",
     "verification de la session",
     "etat de connexion non confirme",
     "chargement de votre accueil",
+    "votre accueil n'a pas pu etre charge",
+    "les donnees spotify ne sont pas disponibles",
+    "les donnees n'ont pas pu etre lues",
+    "touchez pour reessayer",
+)
+HOME_ERROR_MARKERS = (
+    "votre accueil n'a pas pu etre charge",
+    "les donnees spotify ne sont pas disponibles",
+    "les donnees n'ont pas pu etre lues",
+    "touchez pour reessayer",
 )
 
 
-def is_home_status_message(value):
+def normalized_text(value):
     normalized = unicodedata.normalize("NFKD", value).casefold()
-    normalized = "".join(character for character in normalized if not unicodedata.combining(character))
+    return "".join(character for character in normalized if not unicodedata.combining(character))
+
+
+def is_home_status_message(value):
+    normalized = normalized_text(value)
     return any(marker in normalized for marker in HOME_STATUS_MARKERS)
+
+
+def is_home_error_message(value):
+    normalized = normalized_text(value)
+    return any(marker in normalized for marker in HOME_ERROR_MARKERS)
 
 
 def safe_identifier(value):
@@ -88,8 +109,8 @@ def inspect_screenshot(path, bounds=None, region_name="region"):
 
 
 def main():
-    if len(sys.argv) != 5 or sys.argv[1] not in {"login", "empty-home", "home-status", "web-home"}:
-        raise SystemExit("usage: inspect_hierarchy.py login|empty-home|home-status|web-home WINDOW.xml SCREEN.png SUMMARY.json")
+    if len(sys.argv) != 5 or sys.argv[1] not in {"login", "empty-home", "home-status", "native-route", "web-home"}:
+        raise SystemExit("usage: inspect_hierarchy.py login|empty-home|home-status|native-route|web-home WINDOW.xml SCREEN.png SUMMARY.json")
     phase, xml_path, screenshot_path, summary_path = sys.argv[1:]
     xml_root = ET.parse(xml_path).getroot()
     hierarchy_nodes = [node for node in xml_root.iter() if node.tag == "node"]
@@ -109,6 +130,8 @@ def main():
     home_status_bounds = None
     home_status_message_accessible = False
     home_status_message_visible = False
+    home_error_message_accessible = False
+    home_error_message_visible = False
     web_home_brand_accessible = False
     web_home_brand_visible = False
     web_home_fixture_playlist_title_visible = False
@@ -134,6 +157,10 @@ def main():
             if accessibility_visible:
                 home_status_message_visible = True
                 home_status_bounds = bounds
+        if is_home_error_message(status_text):
+            home_error_message_accessible = True
+            if accessibility_visible:
+                home_error_message_visible = True
         if "melodix" in status_text:
             web_home_brand_accessible = True
             web_home_brand_visible = web_home_brand_visible or accessibility_visible
@@ -174,6 +201,11 @@ def main():
     native_root_visible = any(
         "nativeRoot" in node["resource_id"] and node["accessibility_visible"] for node in nodes
     )
+    native_root_bounds = next(
+        (node["bounds_px"] for node in nodes
+         if "nativeRoot" in node["resource_id"] and node["accessibility_visible"]),
+        None,
+    )
     native_home_tab_visible = any(
         "nativeHomeTab" in node["resource_id"] and node["accessibility_visible"] for node in nodes
     )
@@ -196,8 +228,9 @@ def main():
 
     phase_name = {
         "login": "unauthenticated_webview_surface",
-        "empty-home": "empty_home_webview_fallback",
+        "empty-home": "empty_home_native_error_state",
         "home-status": "native_home_status_panel",
+        "native-route": "native_route_owner_shell",
         "web-home": "web_home_renderer_on_app_route",
     }[phase]
     summary = {
@@ -209,6 +242,7 @@ def main():
         "ui_hierarchy_nodes_redacted": nodes,
         "native_root_accessibility_node_present": native_root_present,
         "native_root_accessibility_visible": native_root_visible,
+        "native_root_accessibility_bounds_px": native_root_bounds,
         "native_home_tab_accessibility_node_present": native_home_tab_present,
         "native_home_tab_accessibility_visible": native_home_tab_visible,
         "native_rows_scroll_node_present": rows_scroll_present,
@@ -224,6 +258,8 @@ def main():
         "login_or_network_text_detected": login_words_visible,
         "home_status_message_accessible": home_status_message_accessible,
         "home_status_message_visible_to_user": home_status_message_visible,
+        "home_error_message_accessible": home_error_message_accessible,
+        "home_error_message_visible_to_user": home_error_message_visible,
         "home_status_accessibility_bounds_px": list(home_status_bounds) if home_status_bounds else None,
         "web_home_brand_accessible": web_home_brand_accessible,
         "web_home_brand_visible_to_user": web_home_brand_visible,
@@ -238,12 +274,15 @@ def main():
         summary["login_text_detected_in_hierarchy"] = login_words_visible
     elif phase == "empty-home":
         summary["playlist_payload_injected"] = False
-        summary["native_root_hidden"] = not native_root_visible
-        summary["home_tabs_hidden"] = not native_home_tab_visible
+        summary["native_home_error_status_expected"] = True
     elif phase == "home-status":
         summary["playlist_payload_injected"] = False
         summary["native_root_hidden"] = not native_root_visible
         summary["home_tabs_hidden"] = not native_home_tab_visible
+    elif phase == "native-route":
+        summary["playlist_payload_injected"] = False
+        summary["authenticated_home_test_performed"] = False
+        summary["native_route_shell_owner_expected"] = True
     else:
         summary["test_only_resource_links_present"] = bool(
             web_home_fixture_playlist_title_visible and web_home_fixture_album_title_visible
@@ -253,8 +292,17 @@ def main():
         )
         summary["authenticated_home_test_performed"] = False
 
-    region_name = "home_status" if phase == "home-status" else "webview"
-    region_bounds = home_status_bounds if phase == "home-status" else webview_bounds
+    native_status_phase = phase in {"empty-home", "home-status"}
+    region_name = (
+        "home_status" if native_status_phase
+        else "native_root" if phase == "native-route"
+        else "webview"
+    )
+    region_bounds = (
+        home_status_bounds if native_status_phase
+        else native_root_bounds if phase == "native-route"
+        else webview_bounds
+    )
     summary["screenshot_pixels"] = inspect_screenshot(
         screenshot_path, region_bounds, region_name
     )
@@ -263,9 +311,11 @@ def main():
     )
     Path(summary_path).write_text(json.dumps(summary, indent=2) + "\n", encoding="utf-8")
 
-    if phase == "home-status":
+    if phase in {"empty-home", "home-status"}:
         if not home_status_message_visible or home_status_bounds is None:
-            fail("visible_home_status_message_accessibility_node_missing")
+            fail("visible_native_home_status_accessibility_node_missing")
+        if phase == "empty-home" and not home_error_message_visible:
+            fail("native_empty_home_error_and_retry_message_missing")
         if not native_root_visible or not native_home_tab_visible or splash_visible:
             fail(
                 "native_home_status_surface_not_visible;"
@@ -273,17 +323,52 @@ def main():
                 f" home_tab_visible={native_home_tab_visible};"
                 f" splash_visible={splash_visible}"
             )
+        if not web_container_present or not webview_class_present:
+            fail("mounted_webview_under_native_home_surface_not_observed")
         if not summary["screenshot_pixels"].get("home_status_pixels_rendered"):
             fail("home_status_bounds_have_no_rendered_screenshot_pixels")
-        print("Native Home status fixture: distinct visible status node and screenshot pixels verified; no playlist data.")
+        if phase == "empty-home":
+            print("Empty Home: native error/retry status, native tabs, and screenshot pixels verified; WebView remains mounted; no playlist data.")
+            print(
+                "::notice title=Android native empty-Home visibility::"
+                f"native_error_visible={home_error_message_visible}; "
+                f"native_root_visible={native_root_visible}; home_tab_visible={native_home_tab_visible}; "
+                f"splash_visible={splash_visible}; webview_mounted={webview_class_present}; "
+                f"webview_container_present={web_container_present}; playlist_payload_injected=false; "
+                f"status_pixels_rendered={summary['screenshot_pixels']['home_status_pixels_rendered']}; "
+                f"status_crop_unique_colors={summary['screenshot_pixels']['home_status_crop_unique_colors']}"
+            )
+        else:
+            print("Native Home status fixture: distinct visible status node and screenshot pixels verified; no playlist data.")
+            print(
+                "::notice title=Android native Home status visibility::"
+                f"status_accessibility_visible={home_status_message_visible}; "
+                f"native_root_visible={native_root_visible}; home_tab_visible={native_home_tab_visible}; "
+                f"splash_visible={splash_visible}; playlist_payload_injected=false; "
+                f"status_pixels_rendered={summary['screenshot_pixels']['home_status_pixels_rendered']}; "
+                f"status_crop_unique_colors={summary['screenshot_pixels']['home_status_crop_unique_colors']}; "
+                f"status_crop_bright_pixels={summary['screenshot_pixels']['home_status_crop_bright_pixels']}"
+            )
+        return
+
+    if phase == "native-route":
+        if not native_root_visible or not native_home_tab_visible or splash_visible:
+            fail(
+                "native_route_owner_surface_not_visible;"
+                f" native_root_visible={native_root_visible};"
+                f" home_tab_visible={native_home_tab_visible};"
+                f" splash_visible={splash_visible}"
+            )
+        if not web_container_present or not webview_class_present:
+            fail("native_route_webview_not_mounted_under_shell")
+        if not summary["screenshot_pixels"].get("native_root_pixels_rendered"):
+            fail("native_route_root_bounds_have_no_rendered_screenshot_pixels")
+        print("Native route shell: nativeRoot, dock, mounted WebView, and screenshot pixels verified; account content not tested.")
         print(
-            "::notice title=Android native Home status visibility::"
-            f"status_accessibility_visible={home_status_message_visible}; "
+            "::notice title=Android native route owner visibility::"
             f"native_root_visible={native_root_visible}; home_tab_visible={native_home_tab_visible}; "
-            f"splash_visible={splash_visible}; playlist_payload_injected=false; "
-            f"status_pixels_rendered={summary['screenshot_pixels']['home_status_pixels_rendered']}; "
-            f"status_crop_unique_colors={summary['screenshot_pixels']['home_status_crop_unique_colors']}; "
-            f"status_crop_bright_pixels={summary['screenshot_pixels']['home_status_crop_bright_pixels']}"
+            f"splash_visible={splash_visible}; webview_mounted={webview_class_present}; "
+            f"native_root_pixels_rendered={summary['screenshot_pixels']['native_root_pixels_rendered']}"
         )
         return
 
@@ -341,15 +426,7 @@ def main():
             f"webview_crop_unique_colors={pixel_report['webview_crop_unique_colors']}"
         )
     else:
-        print("Empty-Home fallback hierarchy: native Home hidden and unobscured WebView screenshot pixels verified; no playlist data.")
-        print(
-            "::notice title=Android empty-Home fallback visibility::"
-            f"webview_accessible=true; splash_visible=false; native_home_visible=false; "
-            f"playlist_payload_injected=false; "
-            f"webview_pixels_rendered={pixel_report['webview_pixels_rendered']}; "
-            f"webview_crop_unique_colors={pixel_report['webview_crop_unique_colors']}; "
-            f"webview_crop_bright_pixels={pixel_report['webview_crop_bright_pixels']}"
-        )
+        print("Web Home renderer: visible test-only fixture content verified.")
 
 
 if __name__ == "__main__":

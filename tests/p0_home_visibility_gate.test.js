@@ -1,8 +1,8 @@
 'use strict';
 
 // Structural checks on the real Smali sources. They do not prove Android frame
-// output; tests/android/HomeRenderInstrumentation.java exercises the empty-Home
-// fallback on the Preview APK without injecting playlists or account data.
+// output; tests/android/HomeRenderInstrumentation.java exercises native Home
+// status rendering on the Preview APK without injecting playlists or account data.
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
@@ -38,19 +38,24 @@ test('Home renderer keeps card and status attachment facts separate', () => {
   assert.match(activity, /\.field private nativeHomeStatusView:Landroid\/view\/View;/);
 });
 
-test('missing or negative session proof reveals Spotify and invalidates stale native Home attachment state', () => {
+test('missing or negative session proof preserves native ownership and purges stale Home rows', () => {
   const activity = read('smali/com/melodix/music/MainActivity.smali');
   const owner = method(activity, '.method public final setMelodixHomeVisibility(ZZ)V');
   const unprovenStart = owner.indexOf('\n    :melodix_home_session_unproven');
-  const inactiveStart = owner.indexOf('\n    :melodix_home_owner_inactive', unprovenStart);
-  const unproven = owner.slice(unprovenStart, inactiveStart);
-  assert.ok(unprovenStart >= 0 && inactiveStart > unprovenStart);
-  assert.match(owner, /if-eqz p2, :melodix_home_session_unproven/);
-  assert.match(unproven, /nativeHomeCardsAttached:Z[\s\S]*?nativeHomeStatusAttached:Z[\s\S]*?nativeHomeContentReady:Z/);
-  assert.match(unproven, /nativeHomeFirstCard:Landroid\/view\/View;[\s\S]*?nativeHomeStatusView:Landroid\/view\/View;/);
-  assert.match(unproven, /revealWebUi\(\)V/);
-  assert.doesNotMatch(unproven, /AppSingleton;->l:Z|AppSingleton;->startupDone:Z/,
-    'an unproven library response never marks the app/Home authenticated or ready');
+  const unproven = owner.slice(unprovenStart);
+  assert.ok(unprovenStart >= 0);
+  assert.match(owner, /\.locals 3[\s\S]*?if-eqz p2, :melodix_home_session_unproven/,
+    'a negative libraryV3 signal takes the native invalidation path without relying on a prior renderer flag');
+  assert.match(unproven, /isNativeHomeScreen\(\)Z[\s\S]*?Connexion Spotify non confirmée[\s\S]*?melodix:action:open-login/,
+    'proof loss replaces any prior Home content with an explicit native session-unconfirmed state and login action');
+  assert.match(unproven, /NativeHomeShelfRenderer;->render/);
+  assert.doesNotMatch(unproven, /melodix_home_unproven_no_private_rows|hasNativeHomeContentAttached/,
+    'a stale native card tree cannot survive merely because the Web renderer was not previously active');
+  assert.doesNotMatch(unproven, /revealWebUi\(\)V/,
+    'session proof loss never exposes Spotify Web as an automatic fallback');
+  const renderer = method(read('smali/com/melodix/music/NativeHomeShelfRenderer.smali'), '.method public static render(');
+  assert.match(renderer, /removeAllViews\(\)V[\s\S]*?new-instance v0, Lorg\/json\/JSONArray/,
+    'new status/error payloads replace the old private native row tree before drawing');
 });
 
 test('Home readiness measures the attached card or explicit status view in global bounds', () => {
@@ -83,7 +88,9 @@ test('the visible-ready flag follows a second post-overlay measurement and recor
     'diagnostics distinguish a Spotify card from an explicit state panel');
   assert.ok(playerReady > rendered && startupDone > playerReady,
     'global readiness flags follow the verified Home stage');
-  assert.match(complete, /:native_visibility_web_fallback[\s\S]*?revealWebUi\(\)V/);
+  assert.match(complete, /:native_visibility_measure_failed[\s\S]*?visibility-measure-failed[\s\S]*?visibility-measure-pending/);
+  assert.doesNotMatch(complete, /revealWebUi\(\)V/,
+    'a failed visibility measure cannot transfer ownership to Spotify Web');
 });
 
 test('[static layout] nativeRoot and hScrollView are later/earlier siblings under main with stable resource id', () => {
@@ -119,8 +126,9 @@ test('native root handoff fails closed on missing layout, bad stacking, or missi
   assert.match(trace, /completeNativeUiVisibility\(Z\)Z/);
   assert.match(trace, /attempts:I[\s\S]*?const\/4 v14, 0x5[\s\S]*?postDelayed\(Ljava\/lang\/Runnable;J\)Z/,
     'the UI waits a bounded number of layout turns instead of claiming readiness early');
-  assert.match(trace, /:native_layout_give_up[\s\S]*?revealWebUi\(\)V/,
-    'failed measurements return to the existing WebView');
+  assert.match(trace, /:native_layout_give_up[\s\S]*?visibility-timeout[\s\S]*?native-shell-visibility-pending/);
+  assert.doesNotMatch(trace, /revealWebUi\(\)V/,
+    'late measurements do not take ownership away from the native shell');
 });
 
 test('Android instrumentation is declared as a manifest-level component, not nested in application', () => {
@@ -168,9 +176,10 @@ test('the Web Home renderer is session-gated, accepts one real item, and renders
   const activity = read('smali/com/melodix/music/MainActivity.smali');
   assert.match(nativeRenderer, /shelf_render_spotify_rows[\s\S]*?showNativeUi\(\)V/,
     'a native card payload can reach showNativeUi after attachment');
-  assert.match(nativeRenderer, /no-real-cards[\s\S]*?revealWebUi\(\)V/,
-    'malformed or empty native card payloads retain the existing WebView fallback');
-  const showNativeUi = method(activity, '.method public final showNativeUi()V');
+  assert.match(nativeRenderer, /no-real-cards[\s\S]*?state\\\":\\\"error[\s\S]*?melodix:action:retry-library/);
+  assert.doesNotMatch(nativeRenderer, /revealWebUi\(\)V/,
+    'malformed or empty native card payloads remain in native Home with retry');
+  const showNativeUi = method(activity, '.method public final showNativeUiFrom(Ljava/lang/String;Ljava/lang/String;)V');
   assert.match(showNativeUi, /hasNativeHomeContentAttached\(\)Z[\s\S]*?native-root-found/);
   assert.doesNotMatch(showNativeUi, /MediaLibSession|spotifySessionProven/,
     'Java visibility checks prove attachment, not Spotify authentication; the JS payload gate must therefore be strict');
@@ -239,17 +248,18 @@ test('the CI Home integration contains no fake account data or credentials and l
   assert.match(harness, /Log\.e\(HARNESS_TAG, "failure phase=" \+ failurePhase \+ " type=" \+ failure\.getClass\(\)\.getSimpleName\(\)\)/,
     'instrumentation failures expose only a phase and exception type, never page text');
   assert.match(harness, /"home",\s*"\[\]"/,
-    'the integration sends only an empty Home payload to test the safe fallback');
+    'the integration sends only an empty Home payload to test the native error state');
   assert.match(harness, /putBoolean\("native_home_cards_attached", false\)/);
   assert.match(inspector, /splash_accessibility_visible/);
   assert.match(inspector, /webview_accessibility_node_present/);
   assert.match(inspector, /ui_hierarchy_top_node_package/,
     'a missing app surface records only the safe top hierarchy package/class, not raw text');
-  assert.match(inspector, /screen_nonuniform=/,
-    'a missing WebView node reports redacted full-screen pixel metrics');
+  assert.match(inspector, /native_root_accessibility_visible/);
+  assert.match(inspector, /if phase in \{\"empty-home\", \"home-status\"\}:[\s\S]*?if phase == \"empty-home\" and not home_error_message_visible[\s\S]*?native_root_visible[\s\S]*?home_status_pixels_rendered/s,
+    'empty Home now requires a visible native error/retry status and native root instead of Web takeover');
   assert.match(inspector,
-    /Path\(summary_path\)\.write_text[\s\S]*?if not webview_class_visible/,
-    'redacted hierarchy and pixel diagnostics are saved before a visibility failure');
+    /Path\(summary_path\)\.write_text[\s\S]*?if phase == \"empty-home\"[\s\S]*?fail\(/,
+    'redacted hierarchy and pixel diagnostics are saved before a native visibility failure');
   assert.match(inspector, /fail\("startup_splash_accessibility_visible"\)/,
     'the screenshot check rejects a visible splash covering the WebView');
   assert.match(inspector, /notice title=Android login surface visibility[\s\S]*?webview_crop_bright_pixels/,
@@ -257,18 +267,20 @@ test('the CI Home integration contains no fake account data or credentials and l
   assert.doesNotMatch(inspector, /FIXTURE_TITLE|Controlled Home fixture|fixture_title/);
 });
 
-test('native Home hierarchy inspection recognizes connection/loading text without exporting it', () => {
+test('native Home hierarchy inspection recognizes safe loading and error labels without exporting text', () => {
   const inspector = read('tests/android/inspect_hierarchy.py');
-  assert.match(inspector, /HOME_STATUS_MARKERS = \([\s\S]*"connexion a spotify"[\s\S]*"verification de la session"[\s\S]*"etat de connexion non confirme"[\s\S]*"chargement de votre accueil"/,
-    'the allowlist matches the current native connection panel and its loading variants');
-  assert.match(inspector, /def is_home_status_message\(value\):[\s\S]*?unicodedata\.normalize\("NFKD", value\)[\s\S]*?any\(marker in normalized for marker in HOME_STATUS_MARKERS\)/);
+  assert.match(inspector, /HOME_STATUS_MARKERS = \([\s\S]*\"connexion a spotify\"[\s\S]*\"verification de la session\"[\s\S]*\"etat de connexion non confirme\"[\s\S]*\"chargement de votre accueil\"[\s\S]*\"touchez pour reessayer\"/,
+    'the allowlist matches native connection/loading and error/retry panels');
+  assert.match(inspector, /def normalized_text\(value\):[\s\S]*?unicodedata\.normalize\(\"NFKD\", value\)/);
+  assert.match(inspector, /def is_home_status_message\(value\):[\s\S]*?normalized_text\(value\)[\s\S]*?any\(marker in normalized for marker in HOME_STATUS_MARKERS\)/);
+  assert.match(inspector, /def is_home_error_message\(value\):[\s\S]*?any\(marker in normalized for marker in HOME_ERROR_MARKERS\)/);
   assert.match(inspector, /if is_home_status_message\(status_text\):[\s\S]*?if accessibility_visible:[\s\S]*?home_status_bounds = bounds/,
     'a matching status only counts as visible when its real hierarchy node has visible bounds');
-  assert.match(inspector, /if phase == "home-status":[\s\S]*?if not home_status_message_visible or home_status_bounds is None:[\s\S]*?fail\("visible_home_status_message_accessibility_node_missing"\)/,
-    'the screenshot gate still fails closed when no visible native status message is present');
-  assert.match(inspector, /"home_status_message_accessible": home_status_message_accessible,[\s\S]*?"home_status_message_visible_to_user": home_status_message_visible/);
-  assert.match(inspector, /"text_present": bool\(text\)/);
-  assert.doesNotMatch(inspector, /"home_status_(?:message|text)":\s*status_text/,
+  assert.match(inspector, /if phase in \{\"empty-home\", \"home-status\"\}:[\s\S]*?if not home_status_message_visible or home_status_bounds is None:[\s\S]*?if phase == \"empty-home\" and not home_error_message_visible[\s\S]*?native_root_visible[\s\S]*?home_status_pixels_rendered/,
+    'the screenshot gate requires a visible native status and an error/retry label for empty Home');
+  assert.match(inspector, /\"home_status_message_accessible\": home_status_message_accessible,[\s\S]*?\"home_status_message_visible_to_user\": home_status_message_visible,[\s\S]*?\"home_error_message_visible_to_user\": home_error_message_visible/);
+  assert.match(inspector, /\"text_present\": bool\(text\)/);
+  assert.doesNotMatch(inspector, /\"home_status_(?:message|text)\":\s*status_text/,
     'raw Home status text is compared in-process but never serialized into CI reports');
 });
 

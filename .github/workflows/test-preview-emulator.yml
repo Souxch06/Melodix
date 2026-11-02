@@ -539,9 +539,9 @@ jobs:
             exit 1
           fi
 
-          adb shell uiautomator dump --compressed /sdcard/melodix-preview-login.xml >/dev/null 2>&1
-          adb exec-out cat /sdcard/melodix-preview-login.xml > "$state_dir/login-window.xml"
-          adb exec-out screencap -p > "$state_dir/login-screen.png"
+          adb shell uiautomator dump --compressed /sdcard/melodix-preview-cold-home.xml >/dev/null 2>&1
+          adb exec-out cat /sdcard/melodix-preview-cold-home.xml > "$state_dir/cold-home-window.xml"
+          adb exec-out screencap -p > "$state_dir/cold-home-screen.png"
           # Preserve the cold-launch hierarchy and pixels before test
           # instrumentation changes the visible WebView state. Inspection is a
           # later step so a visibility failure cannot suppress the Android
@@ -803,7 +803,7 @@ jobs:
             exit 1
           fi
           set +e
-          timeout --signal=TERM --kill-after=10s 180s adb shell am instrument -w -r \
+          timeout --signal=TERM --kill-after=10s 300s adb shell am instrument -w -r \
             com.melodix.music.preview.test/com.melodix.test.HomeRenderInstrumentation \
             > "$state_dir/android-instrumentation.txt" 2>&1
           instrumentation_status=$?
@@ -815,7 +815,7 @@ jobs:
             harness_overall_passed=true
           fi
           if [[ "$instrumentation_status" != "0" || "$harness_overall_passed" != "true" ]]; then
-            safe_statuses="$(grep -E '^INSTRUMENTATION_STATUS: (phase|mobile_viewport_[A-Za-z0-9_-]+|android_window_insets_available|android_window_bar_visibility_available|android_status_bar_[A-Za-z0-9_]+|android_navigation_bar_[A-Za-z0-9_]+|android_display_density_scale|login_dom_probe_completed|login_ui_visible_in_webview_dom|browser_compatibility_warning_visible|javascript_ua_profile_coherent|android_api_level|android_release|installed_webview_[A-Za-z0-9_]+|configured_ua_[A-Za-z0-9_]+|javascript_[A-Za-z0-9_]+|client_hints_[A-Za-z0-9_]+|live_spotify_[A-Za-z0-9_]+|live_webview_(stylesheet_marker_present|css_theme_applicable|css_tokens_valid|css_token_count|home_present|home_active|source_main_present|bridge_present|bridge_media_callback_present|bridge_diag_callback_present)|live_css_mel_[A-Za-z0-9_-]+|webview_visible_and_measured|network_error_transition_recovered|original_webview_url_preserved|splash_hidden|native_home_hidden|home_payload_empty|empty_home_evidence_captured|home_status_payload_fixture_non_playlist|home_status_payload_sent|native_shell_handoff_from_packaged_javascript|native_ready_callback_sent|javascript_native_shell_handoff_tested|login_surface_restored_after_javascript_shell_handoff|home_status_evidence_captured|live_home_and_authentication_tested|web_home_color_probe_(completed|error|error_type|validation_passed|validation_summary)|web_home_color_contrast_fixture_test_only|web_home_dark_theme_computed|web_home_light_theme_available|web_home_color_state_scenarios_complete|web_home_all_states_wcag_aa_pass|web_home_(normal|loading|empty|error|partial)_(state_(visible|wcag_aa_pass|partial_data|card_count|library_status)|contrast_[A-Za-z0-9_]+|color_[A-Za-z0-9_]+)|web_home_app_route_renderer_visible|web_home_renderer_evidence_captured|web_home_renderer_fixture_test_only|web_home_probe_diagnostics_available|web_home_probe_fixture_test_only|web_home_probe_route_app|web_home_probe_mode_csshack|web_home_probe_main_view_present|web_home_probe_raw_anchor_count|web_home_probe_root_resource_count|web_home_probe_source_card_count|web_home_probe_root_selector_is_main_view|web_home_probe_styles_ready|web_home_probe_decision_rendered_status|web_home_probe_decision_content_root_missing|web_home_probe_decision_styles_not_ready|web_home_probe_decision_fullscreen_open|web_home_probe_style_probe_completed|web_home_probe_renderer_style_probe_marker_present|web_home_probe_renderer_style_probe_computed_style_available|web_home_probe_renderer_style_probe_home_display_flex|web_home_probe_renderer_style_probe_home_position_fixed|web_home_probe_renderer_style_probe_home_visibility_visible|web_home_probe_renderer_style_probe_home_opacity_nonzero|web_home_probe_renderer_style_probe_home_z_index_high|web_home_probe_renderer_style_probe_main_hidden|web_home_probe_renderer_style_probe_error|web_home_probe_style_probe_home_display_flex|web_home_probe_style_probe_home_position_fixed|web_home_probe_style_probe_home_visibility_visible|web_home_probe_style_probe_home_opacity_nonzero|web_home_probe_style_probe_home_z_index_high|web_home_probe_style_probe_main_hidden|web_home_probe_init_attempted|web_home_probe_style_marker_present|web_home_probe_active_class|web_home_probe_home_exists|web_home_probe_card_count|web_home_probe_home_display_flex|web_home_probe_home_position_fixed|web_home_probe_home_visible|web_home_probe_source_hidden|web_home_probe_brand_has_bounds|web_home_probe_first_card_has_bounds|login_surface_restored_after_web_home_fixture|native_home_status_attached|native_home_status_visible|native_home_status_login_action_clickable|native_home_status_message_visible_in_hierarchy|native_home_cards_attached|native_home_content_ready|native_content_container_empty|native_root_visible|native_root_hidden|native_home_tab_visible|native_home_tab_not_shown|webview_container_visible|webview_container_visible_under_native_root|login_surface_restored_after_status|authenticated_home_test_performed|page_load_complete|failure_phase|failure_type|overall)=' "$state_dir/android-instrumentation.txt" | tr '\n' ';' | tail -c 850 || true)"
+            safe_statuses="$(grep -E '^INSTRUMENTATION_STATUS: (phase|mobile_viewport_[A-Za-z0-9_-]+|android_window_insets_available|android_window_bar_visibility_available|android_status_bar_[A-Za-z0-9_]+|android_navigation_bar_[A-Za-z0-9_]+|android_display_density_scale|login_dom_probe_completed|login_ui_visible_in_webview_dom|browser_compatibility_warning_visible|javascript_ua_profile_coherent|android_api_level|android_release|installed_webview_[A-Za-z0-9_]+|configured_ua_[A-Za-z0-9_]+|javascript_[A-Za-z0-9_]+|client_hints_[A-Za-z0-9_]+|live_spotify_[A-Za-z0-9_]+|live_webview_(stylesheet_marker_present|css_theme_applicable|css_tokens_valid|css_token_count|home_present|home_active|source_main_present|bridge_present|bridge_media_callback_present|bridge_diag_callback_present)|live_css_mel_[A-Za-z0-9_-]+|webview_visible_and_measured|network_error_transition_recovered|original_webview_url_preserved|splash_hidden|native_home_hidden|home_payload_empty|empty_home_evidence_captured|native_home_error_message_visible|native_home_retry_action_clickable|native_root_is_foremost_surface|webview_mounted_under_native_root|home_status_payload_fixture_non_playlist|home_status_payload_sent|native_shell_handoff_from_packaged_javascript|native_ready_callback_sent|javascript_native_shell_handoff_tested|login_surface_restored_after_javascript_shell_handoff|home_status_evidence_captured|live_home_and_authentication_tested|web_home_color_probe_(completed|error|error_type|validation_passed|validation_summary)|web_home_color_contrast_fixture_test_only|web_home_dark_theme_computed|web_home_light_theme_available|web_home_color_state_scenarios_complete|web_home_all_states_wcag_aa_pass|web_home_(normal|loading|empty|error|partial)_(state_(visible|wcag_aa_pass|partial_data|card_count|library_status)|contrast_[A-Za-z0-9_]+|color_[A-Za-z0-9_]+)|web_home_app_route_renderer_visible|web_home_renderer_evidence_captured|web_home_renderer_fixture_test_only|web_home_probe_diagnostics_available|web_home_probe_fixture_test_only|web_home_probe_route_app|web_home_probe_mode_csshack|web_home_probe_main_view_present|web_home_probe_raw_anchor_count|web_home_probe_root_resource_count|web_home_probe_source_card_count|web_home_probe_root_selector_is_main_view|web_home_probe_styles_ready|web_home_probe_decision_rendered_status|web_home_probe_decision_content_root_missing|web_home_probe_decision_styles_not_ready|web_home_probe_decision_fullscreen_open|web_home_probe_style_probe_completed|web_home_probe_renderer_style_probe_marker_present|web_home_probe_renderer_style_probe_computed_style_available|web_home_probe_renderer_style_probe_home_display_flex|web_home_probe_renderer_style_probe_home_position_fixed|web_home_probe_renderer_style_probe_home_visibility_visible|web_home_probe_renderer_style_probe_home_opacity_nonzero|web_home_probe_renderer_style_probe_home_z_index_high|web_home_probe_renderer_style_probe_main_hidden|web_home_probe_renderer_style_probe_error|web_home_probe_style_probe_home_display_flex|web_home_probe_style_probe_home_position_fixed|web_home_probe_style_probe_home_visibility_visible|web_home_probe_style_probe_home_opacity_nonzero|web_home_probe_style_probe_home_z_index_high|web_home_probe_style_probe_main_hidden|web_home_probe_init_attempted|web_home_probe_style_marker_present|web_home_probe_active_class|web_home_probe_home_exists|web_home_probe_card_count|web_home_probe_home_display_flex|web_home_probe_home_position_fixed|web_home_probe_home_visible|web_home_probe_source_hidden|web_home_probe_brand_has_bounds|web_home_probe_first_card_has_bounds|login_surface_restored_after_web_home_fixture|native_home_status_attached|native_home_status_visible|native_home_status_login_action_clickable|native_home_status_message_visible_in_hierarchy|native_home_error_message_visible|native_home_retry_action_clickable|native_root_is_foremost_surface|webview_mounted_under_native_root|native_home_cards_attached|native_home_content_ready|native_content_container_empty|native_root_visible|native_root_hidden|native_home_tab_visible|native_home_tab_not_shown|webview_container_visible|webview_container_visible_under_native_root|cold_start_native_owner_verified|native_route_matrix_(test_only|completed|categories)|native_route_(home|search|library|detail|detail_return|player|player_return|late_callback_watchdog)_(owner_verified|webview_mounted|dock_visible)|native_route_(owner_verified|webview_mounted|dock_visible|root_covers_center|root_covers_dock|layout_frontmost|snapshot)|late_native_callback_owner_verified|late_visibility_watchdog_owner_verified|explicit_login_owner_requested|login_spa_exit_(probe_performed|observed)|(cold_home|empty_home)_timeline_(200ms|1s|3s|8s|20s)_(native_owner_verified|webview_mounted)|native_timeline_(checkpoint|observed_elapsed_ms)|login_surface_restored_after_status|authenticated_home_test_performed|page_load_complete|failure_phase|failure_type|overall)=' "$state_dir/android-instrumentation.txt" | tr '\n' ';' | tail -c 850 || true)"
             safe_completion_statuses="$(python3 - "$state_dir/android-instrumentation.txt" <<'PY'
           import pathlib
           import re
@@ -954,7 +954,12 @@ jobs:
           fi
 
           required_statuses=(
+            'INSTRUMENTATION_STATUS: phase=cold_start_native_home_status'
+            'INSTRUMENTATION_STATUS: cold_start_native_owner_verified=true'
             'INSTRUMENTATION_STATUS: phase=login_without_session'
+            'INSTRUMENTATION_STATUS: explicit_login_owner_requested=true'
+            'INSTRUMENTATION_STATUS: login_spa_exit_probe_performed=true'
+            'INSTRUMENTATION_STATUS: login_spa_exit_observed=true'
             'INSTRUMENTATION_STATUS: configured_ua_chrome_major_matches_runtime=true'
             'INSTRUMENTATION_STATUS: browser_compatibility_warning_visible=false'
             'INSTRUMENTATION_STATUS: login_ui_visible_in_webview_dom=true'
@@ -972,17 +977,22 @@ jobs:
             'INSTRUMENTATION_STATUS: original_webview_url_preserved=true'
             'INSTRUMENTATION_STATUS: splash_hidden=true'
             'INSTRUMENTATION_STATUS: native_home_hidden=true'
-            'INSTRUMENTATION_STATUS: phase=empty_home_fallback'
+            'INSTRUMENTATION_STATUS: phase=empty_home_native_error_state'
             'INSTRUMENTATION_STATUS: home_payload_empty=true'
             'INSTRUMENTATION_STATUS: empty_home_evidence_captured=true'
             'INSTRUMENTATION_STATUS: playlist_or_card_injected=false'
             'INSTRUMENTATION_STATUS: native_home_cards_attached=false'
-            'INSTRUMENTATION_STATUS: native_home_status_attached=false'
-            'INSTRUMENTATION_STATUS: native_home_content_ready=false'
-            'INSTRUMENTATION_STATUS: native_content_container_empty=true'
-            'INSTRUMENTATION_STATUS: native_root_hidden=true'
-            'INSTRUMENTATION_STATUS: webview_container_visible=true'
-            'INSTRUMENTATION_STATUS: webview_visible_and_measured=true'
+            'INSTRUMENTATION_STATUS: native_home_status_attached=true'
+            'INSTRUMENTATION_STATUS: native_home_status_visible=true'
+            'INSTRUMENTATION_STATUS: native_home_error_message_visible=true'
+            'INSTRUMENTATION_STATUS: native_home_retry_action_clickable=true'
+            'INSTRUMENTATION_STATUS: native_home_content_ready=true'
+            'INSTRUMENTATION_STATUS: native_root_visible=true'
+            'INSTRUMENTATION_STATUS: native_home_tab_visible=true'
+            'INSTRUMENTATION_STATUS: native_root_is_foremost_surface=true'
+            'INSTRUMENTATION_STATUS: webview_mounted_under_native_root=true'
+            'INSTRUMENTATION_STATUS: webview_container_visible_under_native_root=true'
+            'INSTRUMENTATION_STATUS: original_webview_url_preserved=true'
             'INSTRUMENTATION_STATUS: phase=home_status_renderer'
             'INSTRUMENTATION_STATUS: home_status_payload_fixture_non_playlist=true'
             'INSTRUMENTATION_STATUS: playlist_or_card_injected=false'
@@ -1029,15 +1039,32 @@ jobs:
             'INSTRUMENTATION_STATUS: web_home_partial_state_wcag_aa_pass=true'
             'INSTRUMENTATION_STATUS: login_surface_restored_after_web_home_fixture=true'
             'INSTRUMENTATION_STATUS: authenticated_home_test_performed=false'
-            'INSTRUMENTATION_STATUS: phase=empty_home_fallback'
-            'INSTRUMENTATION_STATUS: native_home_status_attached=false'
-            'INSTRUMENTATION_STATUS: native_home_content_ready=false'
             'INSTRUMENTATION_STATUS: login_surface_restored_after_status=true'
-            'INSTRUMENTATION_STATUS: home_status_evidence_captured=true'
+            'INSTRUMENTATION_STATUS: login_surface_restored_after_javascript_shell_handoff=true'
+            'INSTRUMENTATION_STATUS: login_surface_restored_after_web_home_fixture=true'
             'INSTRUMENTATION_STATUS: authenticated_home_test_performed=false'
             'INSTRUMENTATION_STATUS: overall=passed'
             'INSTRUMENTATION_CODE: -1'
           )
+          for timeline_phase in cold_home empty_home; do
+            for checkpoint in 200ms 1s 3s 8s 20s; do
+              required_statuses+=("INSTRUMENTATION_STATUS: ${timeline_phase}_timeline_${checkpoint}_native_owner_verified=true")
+              required_statuses+=("INSTRUMENTATION_STATUS: ${timeline_phase}_timeline_${checkpoint}_webview_mounted=true")
+            done
+          done
+          required_statuses+=(
+            'INSTRUMENTATION_STATUS: phase=native_route_owner_matrix'
+            'INSTRUMENTATION_STATUS: native_route_matrix_test_only=true'
+            'INSTRUMENTATION_STATUS: native_route_matrix_completed=true'
+            'INSTRUMENTATION_STATUS: late_native_callback_owner_verified=true'
+            'INSTRUMENTATION_STATUS: late_visibility_watchdog_owner_verified=true'
+            'INSTRUMENTATION_STATUS: native_route_matrix_categories=home,search,library,detail,player'
+          )
+          for route_snapshot in home search library detail detail_return player player_return late_callback_watchdog; do
+            required_statuses+=("INSTRUMENTATION_STATUS: native_route_${route_snapshot}_owner_verified=true")
+            required_statuses+=("INSTRUMENTATION_STATUS: native_route_${route_snapshot}_webview_mounted=true")
+            required_statuses+=("INSTRUMENTATION_STATUS: native_route_${route_snapshot}_dock_visible=true")
+          done
           for expected in "${required_statuses[@]}"; do
             if ! grep -Fq "$expected" "$state_dir/android-instrumentation.txt"; then
               echo "::error::Missing required Android UI assertion: $expected"
@@ -1155,11 +1182,11 @@ jobs:
 
           if [[ "$INTEGRATION_OUTCOME" == "success" ]]; then
             # Instrumentation.finish() terminates the instrumented process by
-            # Android contract. Preserve the empty fallback, native status,
+            # Android contract. Preserve the native empty-Home error/retry state,
             # and isolated Web Home renderer fixture before that process stops.
             for evidence in \
-                files/melodix-preview-home-fallback.xml \
-                files/melodix-preview-home-empty.png \
+                files/melodix-preview-home-empty.xml \
+                files/melodix-preview-home-native-error.png \
                 files/melodix-preview-home-status.xml \
                 files/melodix-preview-home-status.png \
                 files/melodix-preview-web-home-app.xml \
@@ -1169,25 +1196,61 @@ jobs:
                 exit 1
               }
             done
-            adb exec-out run-as com.melodix.music.preview cat files/melodix-preview-home-fallback.xml > "$state_dir/home-fallback-window.xml"
-            adb exec-out run-as com.melodix.music.preview cat files/melodix-preview-home-empty.png > "$state_dir/home-empty-fallback.png"
+            adb exec-out run-as com.melodix.music.preview cat files/melodix-preview-home-empty.xml > "$state_dir/home-empty-native-error-window.xml"
+            adb exec-out run-as com.melodix.music.preview cat files/melodix-preview-home-native-error.png > "$state_dir/home-empty-native-error.png"
             adb exec-out run-as com.melodix.music.preview cat files/melodix-preview-home-status.xml > "$state_dir/home-status-window.xml"
             adb exec-out run-as com.melodix.music.preview cat files/melodix-preview-home-status.png > "$state_dir/home-status.png"
             adb exec-out run-as com.melodix.music.preview cat files/melodix-preview-web-home-app.xml > "$state_dir/web-home-app-window.xml"
             adb exec-out run-as com.melodix.music.preview cat files/melodix-preview-web-home-app.png > "$state_dir/web-home-app.png"
-            [[ -s "$state_dir/home-fallback-window.xml" && -s "$state_dir/home-empty-fallback.png" \
+            [[ -s "$state_dir/home-empty-native-error-window.xml" && -s "$state_dir/home-empty-native-error.png" \
                 && -s "$state_dir/home-status-window.xml" && -s "$state_dir/home-status.png" \
                 && -s "$state_dir/web-home-app-window.xml" && -s "$state_dir/web-home-app.png" ]] || {
               echo "::error title=Android UI evidence::Saved hierarchy or screenshot could not be retrieved from the emulator."
               exit 1
             }
+            for timeline_phase in cold_home empty_home; do
+              for checkpoint in 200ms 1s 3s 8s 20s; do
+                evidence="files/melodix-preview-${timeline_phase}-${checkpoint}"
+                target_prefix="${timeline_phase//_/-}-timeline-${checkpoint}"
+                adb shell run-as com.melodix.music.preview test -s "${evidence}.xml" && \
+                  adb shell run-as com.melodix.music.preview test -s "${evidence}.png" || {
+                    echo "::error title=Android Home owner timeline::Required native timeline evidence is missing: ${timeline_phase}/${checkpoint}"
+                    exit 1
+                  }
+                adb exec-out run-as com.melodix.music.preview cat "${evidence}.xml" > "$state_dir/${target_prefix}-window.xml"
+                adb exec-out run-as com.melodix.music.preview cat "${evidence}.png" > "$state_dir/${target_prefix}.png"
+                [[ -s "$state_dir/${target_prefix}-window.xml" && -s "$state_dir/${target_prefix}.png" ]] || {
+                  echo "::error title=Android Home owner timeline::Could not retrieve native timeline evidence: ${timeline_phase}/${checkpoint}"
+                  exit 1
+                }
+              done
+            done
+            for route_snapshot in home search library detail detail_return player player_return late_callback_watchdog; do
+              file_route="${route_snapshot//_/-}"
+              evidence="files/melodix-preview-native-route-${file_route}"
+              target_prefix="native-route-${file_route}"
+              adb shell run-as com.melodix.music.preview test -s "${evidence}.xml" && \
+                adb shell run-as com.melodix.music.preview test -s "${evidence}.png" || {
+                  echo "::error title=Android native route owner::Required route evidence is missing: ${route_snapshot}"
+                  exit 1
+                }
+              adb exec-out run-as com.melodix.music.preview cat "${evidence}.xml" > "$state_dir/${target_prefix}-window.xml"
+              adb exec-out run-as com.melodix.music.preview cat "${evidence}.png" > "$state_dir/${target_prefix}.png"
+              [[ -s "$state_dir/${target_prefix}-window.xml" && -s "$state_dir/${target_prefix}.png" ]] || {
+                echo "::error title=Android native route owner::Could not retrieve route evidence: ${route_snapshot}"
+                exit 1
+              }
+            done
             adb shell run-as com.melodix.music.preview rm -f \
-              files/melodix-preview-home-fallback.xml \
-              files/melodix-preview-home-empty.png \
+              files/melodix-preview-home-empty.xml \
+              files/melodix-preview-home-native-error.png \
               files/melodix-preview-home-status.xml \
               files/melodix-preview-home-status.png \
               files/melodix-preview-web-home-app.xml \
-              files/melodix-preview-web-home-app.png
+              files/melodix-preview-web-home-app.png \
+              files/melodix-preview-cold_home-* \
+              files/melodix-preview-empty_home-* \
+              files/melodix-preview-native-route-*
           fi
 
           if [[ -z "$resumed_before_relaunch" ]]; then
@@ -1224,6 +1287,7 @@ jobs:
           fi
 
           inspection_failed=false
+          timeline_inspection_failed=false
           if python3 tests/android/inspect_hierarchy.py web-home \
               "$state_dir/web-home-app-window.xml" \
               "$state_dir/web-home-app.png" \
@@ -1243,15 +1307,55 @@ jobs:
             inspection_failed=true
           fi
           if python3 tests/android/inspect_hierarchy.py empty-home \
-              "$state_dir/home-fallback-window.xml" \
-              "$state_dir/home-empty-fallback.png" \
-              "$state_dir/home-fallback-hierarchy-redacted.json"; then
+              "$state_dir/home-empty-native-error-window.xml" \
+              "$state_dir/home-empty-native-error.png" \
+              "$state_dir/home-empty-native-error-hierarchy-redacted.json"; then
             echo "empty_home_pixels_verified=true" >> "$GITHUB_OUTPUT"
           else
             echo "empty_home_pixels_verified=false" >> "$GITHUB_OUTPUT"
             inspection_failed=true
           fi
-          rm -f "$state_dir/home-fallback-window.xml" "$state_dir/home-status-window.xml" "$state_dir/web-home-app-window.xml"
+          for timeline_phase in cold_home empty_home; do
+            for checkpoint in 200ms 1s 3s 8s 20s; do
+              target_prefix="${timeline_phase//_/-}-timeline-${checkpoint}"
+              hierarchy="${target_prefix}-window.xml"
+              screenshot="$target_prefix.png"
+              redacted="${target_prefix}-hierarchy-redacted.json"
+              inspector_phase=home-status
+              if [[ "$timeline_phase" == "empty_home" ]]; then inspector_phase=empty-home; fi
+              if python3 tests/android/inspect_hierarchy.py "$inspector_phase" \
+                  "$state_dir/$hierarchy" \
+                  "$state_dir/$screenshot" \
+                  "$state_dir/$redacted"; then
+                echo "${timeline_phase}_timeline_${checkpoint}_pixels_verified=true" >> "$GITHUB_OUTPUT"
+              else
+                echo "${timeline_phase}_timeline_${checkpoint}_pixels_verified=false" >> "$GITHUB_OUTPUT"
+                timeline_inspection_failed=true
+                inspection_failed=true
+              fi
+            done
+          done
+          route_inspection_failed=false
+          for route_snapshot in home search library detail detail-return player player-return late-callback-watchdog; do
+            target_prefix="native-route-${route_snapshot}"
+            if python3 tests/android/inspect_hierarchy.py native-route \
+                "$state_dir/${target_prefix}-window.xml" \
+                "$state_dir/${target_prefix}.png" \
+                "$state_dir/${target_prefix}-hierarchy-redacted.json"; then
+              echo "native_route_${route_snapshot//-/_}_pixels_verified=true" >> "$GITHUB_OUTPUT"
+            else
+              echo "native_route_${route_snapshot//-/_}_pixels_verified=false" >> "$GITHUB_OUTPUT"
+              route_inspection_failed=true
+              inspection_failed=true
+            fi
+          done
+          [[ "$timeline_inspection_failed" == "false" ]] && timeline_pixels_verified=true || timeline_pixels_verified=false
+          [[ "$route_inspection_failed" == "false" ]] && route_pixels_verified=true || route_pixels_verified=false
+          echo "native_home_owner_timeline_pixels_verified=$timeline_pixels_verified" >> "$GITHUB_OUTPUT"
+          echo "native_route_matrix_pixels_verified=$route_pixels_verified" >> "$GITHUB_OUTPUT"
+          rm -f "$state_dir/home-empty-native-error-window.xml" "$state_dir/home-status-window.xml" "$state_dir/web-home-app-window.xml"
+          rm -f "$state_dir/cold-home-timeline-"*-window.xml "$state_dir/empty-home-timeline-"*-window.xml
+          rm -f "$state_dir"/native-route-*-window.xml
           cp "${{ steps.apk.outputs.asset_manifest }}" "$state_dir/assets-manifest.json"
           [[ "$inspection_failed" == "false" ]] || exit 1
 
@@ -1262,10 +1366,10 @@ jobs:
         run: |
           set -euo pipefail
           state_dir="$RUNNER_TEMP/melodix-preview-emulator-state"
-          python3 tests/android/inspect_hierarchy.py login \
-            "$state_dir/login-window.xml" \
-            "$state_dir/login-screen.png" \
-            "$state_dir/login-hierarchy-redacted.json"
+          python3 tests/android/inspect_hierarchy.py home-status \
+            "$state_dir/cold-home-window.xml" \
+            "$state_dir/cold-home-screen.png" \
+            "$state_dir/cold-home-hierarchy-redacted.json"
 
       - name: Install and cold-launch the exact non-debuggable release candidate
         id: release-candidate-smoke
@@ -1312,7 +1416,7 @@ jobs:
           adb shell uiautomator dump --compressed /sdcard/melodix-release-candidate.xml >/dev/null 2>&1
           adb exec-out cat /sdcard/melodix-release-candidate.xml > "$state_dir/release-candidate-window.xml"
           adb exec-out screencap -p > "$state_dir/release-candidate-screen.png"
-          python3 tests/android/inspect_hierarchy.py login \
+          python3 tests/android/inspect_hierarchy.py home-status \
             "$state_dir/release-candidate-window.xml" \
             "$state_dir/release-candidate-screen.png" \
             "$state_dir/release-candidate-hierarchy-redacted.json"
@@ -1337,6 +1441,8 @@ jobs:
           PREVIEW_RELAUNCHED: ${{ steps.post-instrumentation.outputs.preview_relaunched }}
           EMPTY_HOME_PIXELS_VERIFIED: ${{ steps.post-instrumentation.outputs.empty_home_pixels_verified }}
           HOME_STATUS_PIXELS_VERIFIED: ${{ steps.post-instrumentation.outputs.home_status_pixels_verified }}
+          NATIVE_HOME_TIMELINE_PIXELS_VERIFIED: ${{ steps.post-instrumentation.outputs.native_home_owner_timeline_pixels_verified }}
+          NATIVE_ROUTE_MATRIX_PIXELS_VERIFIED: ${{ steps.post-instrumentation.outputs.native_route_matrix_pixels_verified }}
           WEB_HOME_PIXELS_VERIFIED: ${{ steps.post-instrumentation.outputs.web_home_renderer_pixels_verified }}
           COLD_LAUNCH_OUTCOME: ${{ steps.cold-launch-inspection.outcome }}
           RELEASE_APK_SHA256: ${{ steps.release-candidate.outputs.apk_sha256 }}
@@ -1418,12 +1524,14 @@ jobs:
             echo "- Instrumentation outcome: \`${INTEGRATION_OUTCOME:-not run}\`; failure phase/type: \`${HARNESS_FAILURE_PHASE:-none}\` / \`${HARNESS_FAILURE_TYPE:-none}\`"
             echo "- Browser compatibility banner: \`${BROWSER_COMPATIBILITY_WARNING:-not confirmed}\`; installed/configured Chrome major: \`${WEBVIEW_CHROME_MAJOR:-unknown}\` / \`${CONFIGURED_UA_CHROME_MAJOR:-unknown}\`; UA/client-hint profile coherent: \`${USER_AGENT_PROFILE_COHERENT:-not confirmed}\`"
             echo "- Post-instrumentation activity resume: \`${POST_INSTRUMENTATION_OUTCOME:-not run}\`; resumed=\`${ACTIVITY_RESUMED:-false}\`; relaunched=\`${PREVIEW_RELAUNCHED:-unknown}\`; empty-Home pixels=\`${EMPTY_HOME_PIXELS_VERIFIED:-false}\`; native Home-status pixels=\`${HOME_STATUS_PIXELS_VERIFIED:-false}\`; Web Home /app renderer pixels=\`${WEB_HOME_PIXELS_VERIFIED:-false}\`"
+            echo "- Native owner timeline (cold unconfirmed Home + empty-Home error): checkpoints 200ms/1s/3s/8s/20s; all screenshot/hierarchy inspections=\`${NATIVE_HOME_TIMELINE_PIXELS_VERIFIED:-false}\`. This does not validate authenticated playlists or playback."
+            echo "- Native route owner matrix (Home/Search/Library/Detail/Player, back returns, and a late page-finished request with its delayed visibility watcher): screenshots and redacted hierarchy inspections=\`${NATIVE_ROUTE_MATRIX_PIXELS_VERIFIED:-false}\`; clean unauthenticated fixture, no playlist or audio data."
             echo "- Android WebView viewport matrix (fixture-only, no Spotify account data): 360/384/393/412 CSS px; measured=\`${MOBILE_VIEWPORT_MATRIX_COMPLETE}\`; compact/library/expanded checks=\`${MOBILE_VIEWPORT_COMPACT}\` / \`${MOBILE_VIEWPORT_LIBRARY}\` / \`${MOBILE_VIEWPORT_EXPANDED}\`; combined layout contract=\`${MOBILE_VIEWPORT_LAYOUT_CONTRACT}\`; last stage=\`${MOBILE_VIEWPORT_STAGE}\`. Raw CSS geometry and Android system-bar insets are recorded in the redacted verification reference."
             echo "- Preserved cold-launch hierarchy/pixel check: \`${COLD_LAUNCH_OUTCOME:-not run}\`"
             echo "- Exact non-debuggable release candidate: \`${RELEASE_SMOKE_OUTCOME:-not run}\`; debuggable=\`${RELEASE_DEBUGGABLE:-not verified}\`; versionName/versionCode=\`${RELEASE_VERSION_NAME:-unknown}\` / \`${RELEASE_VERSION_CODE:-unknown}\`; SHA-256=\`${RELEASE_APK_SHA256:-not verified}\`; activity resumed=\`${RELEASE_ACTIVITY_RESUMED:-false}\`."
             echo "- Authenticated Spotify Home: not tested; CI uses no Spotify session or account data."
             echo "- Emulator setup: fresh app data; only BLUETOOTH_CONNECT granted to pass Android's runtime permission prompt; no Spotify session or cookies supplied."
-            echo "- Scope: unauthenticated login, empty-Home WebView fallback and native status, plus the packaged Web Home renderer exercised at /app in a second, isolated WebView using two test-only local resource links. The fixture does not alter the main WebView or app session, does not establish authenticated Home rendering, and supplies no account data or credentials."
+            echo "- Scope: unauthenticated login, native empty-Home error/retry status, plus the packaged Web Home renderer exercised at /app in a second, isolated WebView using two test-only local resource links. The fixture does not alter the main WebView or app session, does not establish authenticated Home rendering, and supplies no account data or credentials."
           } >> "$GITHUB_STEP_SUMMARY"
 
           state_dir="$RUNNER_TEMP/melodix-preview-emulator-state"
@@ -1443,6 +1551,8 @@ jobs:
               "${EMPTY_HOME_PIXELS_VERIFIED:-false}" \
               "${HOME_STATUS_PIXELS_VERIFIED:-false}" \
               "${WEB_HOME_PIXELS_VERIFIED:-false}" \
+              "${NATIVE_HOME_TIMELINE_PIXELS_VERIFIED:-false}" \
+              "${NATIVE_ROUTE_MATRIX_PIXELS_VERIFIED:-false}" \
               "${COLD_LAUNCH_OUTCOME:-not run}" \
               "${RELEASE_APK_SHA256:-}" \
               "${RELEASE_VERSION_CODE:-}" \
@@ -1459,7 +1569,7 @@ jobs:
           (state_dir, source_ref, run_id, apk_sha256, package_id, version_name,
            version_code, integration, post_instrumentation, activity_resumed,
            preview_relaunched, empty_home_pixels_verified, home_status_pixels_verified,
-           web_home_pixels_verified, cold_launch, release_apk_sha256, release_version_code,
+           web_home_pixels_verified, native_home_timeline_pixels_verified, native_route_matrix_pixels_verified, cold_launch, release_apk_sha256, release_version_code,
            release_version_name, release_debuggable, release_smoke_outcome,
            release_activity_resumed, css_source_sha256, css_apk_sha256) = sys.argv[1:]
           root = pathlib.Path(state_dir)
@@ -1579,6 +1689,19 @@ jobs:
                       )
                   },
               }
+          timeline_checkpoints = ("200ms", "1s", "3s", "8s", "20s")
+          timeline_screenshots = [
+              f"{phase.replace('_', '-')}-timeline-{checkpoint}.png"
+              for phase in ("cold_home", "empty_home")
+              for checkpoint in timeline_checkpoints
+              if exists(f"{phase.replace('_', '-')}-timeline-{checkpoint}.png")
+          ]
+          timeline_hierarchies = [
+              f"{phase.replace('_', '-')}-timeline-{checkpoint}-hierarchy-redacted.json"
+              for phase in ("cold_home", "empty_home")
+              for checkpoint in timeline_checkpoints
+              if exists(f"{phase.replace('_', '-')}-timeline-{checkpoint}-hierarchy-redacted.json")
+          ]
           reference = {
               "source_commit": source_ref,
               "build_and_test_run_id": run_id,
@@ -1692,13 +1815,40 @@ jobs:
                   }
                   for name in ("normal", "loading", "empty", "error", "partial")
               },
+              "native_home_owner_timeline_pixels_verified": integration == "success" and native_home_timeline_pixels_verified == "true",
+              "native_home_owner_timeline_checkpoints_ms": [200, 1000, 3000, 8000, 20000],
+              "native_route_owner_matrix": {
+                  "screenshot_hierarchy_pixels_verified": integration == "success" and native_route_matrix_pixels_verified == "true",
+                  "test_only_unauthenticated": status_bool("native_route_matrix_test_only"),
+                  "matrix_completed": status_bool("native_route_matrix_completed"),
+                  "categories": status_value("native_route_matrix_categories"),
+                  "late_callback_owner_verified": status_bool("late_native_callback_owner_verified"),
+                  "late_visibility_watchdog_owner_verified": status_bool("late_visibility_watchdog_owner_verified"),
+                  "snapshots": {
+                      name: {
+                          "owner_verified": status_bool(f"native_route_{name}_owner_verified"),
+                          "webview_mounted": status_bool(f"native_route_{name}_webview_mounted"),
+                          "dock_visible": status_bool(f"native_route_{name}_dock_visible"),
+                      }
+                      for name in ("home", "search", "library", "detail", "detail_return", "player", "player_return", "late_callback_watchdog")
+                  },
+              },
+              "cold_start_native_owner_verified": status_bool("cold_start_native_owner_verified"),
+              "login_surface_requested_explicitly": status_bool("explicit_login_owner_requested"),
+              "login_spa_exit_observed": status_bool("login_spa_exit_observed"),
               "cold_launch_hierarchy_pixels_outcome": cold_launch,
+              "cold_start_native_owner_verified": status_bool("cold_start_native_owner_verified"),
+              "login_surface_requested_explicitly": status_bool("explicit_login_owner_requested"),
+              "login_spa_exit_observed": status_bool("login_spa_exit_observed"),
               "cold_launch_hierarchy_pixels_verified": cold_launch == "success",
               "post_instrumentation_outcome": post_instrumentation,
               "activity_resumed_after_instrumentation": activity_resumed == "true",
               "preview_relaunched_after_instrumentation": preview_relaunched == "true",
               "empty_home_hierarchy_pixels_verified": integration == "success" and empty_home_pixels_verified == "true",
               "empty_home_payload_confirmed": "INSTRUMENTATION_STATUS: home_payload_empty=true" in transcript,
+              "empty_home_native_error_status_visible": status_bool("native_home_error_message_visible"),
+              "empty_home_native_owner_verified": status_bool("native_root_is_foremost_surface"),
+              "empty_home_webview_mounted_under_native_owner": status_bool("webview_mounted_under_native_root"),
               "empty_home_evidence_captured_before_instrumentation_finish": "INSTRUMENTATION_STATUS: empty_home_evidence_captured=true" in transcript,
               "home_status_payload_fixture_non_playlist": status_bool("home_status_payload_fixture_non_playlist"),
               "native_home_status_attached": status_bool("native_home_status_attached"),
@@ -1801,8 +1951,8 @@ jobs:
               "no_playlist_or_card_injected_status_confirmed": "INSTRUMENTATION_STATUS: playlist_or_card_injected=false" in transcript,
               "authenticated_home_test_performed": status_bool("authenticated_home_test_performed"),
               "authenticated_home_test": "not performed in CI; no account data was supplied",
-              "screenshots": [name for name in ("login-screen.png", "home-empty-fallback.png", "home-status.png", "web-home-app.png", "release-candidate-screen.png") if exists(name)],
-              "redacted_hierarchies": [name for name in ("login-hierarchy-redacted.json", "home-fallback-hierarchy-redacted.json", "home-status-hierarchy-redacted.json", "web-home-app-hierarchy-redacted.json", "release-candidate-hierarchy-redacted.json") if exists(name)],
+              "screenshots": [name for name in ("cold-home-screen.png", "home-empty-native-error.png", "home-status.png", "web-home-app.png", "release-candidate-screen.png") if exists(name)] + timeline_screenshots,
+              "redacted_hierarchies": [name for name in ("cold-home-hierarchy-redacted.json", "home-empty-native-error-hierarchy-redacted.json", "home-status-hierarchy-redacted.json", "web-home-app-hierarchy-redacted.json", "release-candidate-hierarchy-redacted.json") if exists(name)] + timeline_hierarchies,
               "raw_hierarchy_uploaded": False,
           }
           (root / "verification-reference.json").write_text(
@@ -1903,10 +2053,12 @@ jobs:
               "webview_accessibility_node_present", "webview_accessibility_node_has_bounds",
               "webview_accessibility_node_visible_to_user", "webview_accessibility_node_visible",
               "splash_accessibility_node_present", "splash_accessibility_visible",
-              "native_root_accessibility_visible", "native_home_tab_accessibility_visible",
+              "native_root_accessibility_node_present", "native_root_accessibility_visible",
+              "native_home_tab_accessibility_visible",
               "native_rows_scroll_accessibility_visible", "login_text_detected_in_hierarchy",
               "home_status_message_accessible", "home_status_message_visible_to_user",
-              "home_status_accessibility_bounds_px", "web_home_brand_accessible",
+              "home_error_message_accessible", "home_error_message_visible_to_user",
+              "native_home_error_status_expected", "home_status_accessibility_bounds_px", "web_home_brand_accessible",
               "web_home_brand_visible_to_user", "web_home_fixture_playlist_title_visible_to_user",
               "web_home_fixture_album_title_visible_to_user", "test_only_resource_links_present",
               "fixture_brand_and_link_titles_accessible",
@@ -1914,11 +2066,14 @@ jobs:
           )
           with summary_path.open("a", encoding="utf-8") as output:
               for filename, title in (
-                  ("login-hierarchy-redacted.json", "Cold-launch WebView hierarchy and pixels (redacted)"),
-                  ("home-fallback-hierarchy-redacted.json", "Empty-Home fallback hierarchy and pixels (redacted)"),
+                  ("cold-home-hierarchy-redacted.json", "Cold-launch native Home status hierarchy and pixels (redacted)"),
+                  ("home-empty-native-error-hierarchy-redacted.json", "Empty-Home native error/retry hierarchy and pixels (redacted)"),
                   ("home-status-hierarchy-redacted.json", "Native Home status hierarchy and pixels (redacted)"),
                   ("web-home-app-hierarchy-redacted.json", "Web Home /app renderer hierarchy and pixels (redacted)"),
-              ):
+              ) + [
+                  (filename, "Native owner timeline screenshot/hierarchy (redacted): " + filename.removesuffix("-hierarchy-redacted.json"))
+                  for filename in timeline_hierarchies
+              ]:
                   path = root / filename
                   if not path.is_file():
                       continue
@@ -1996,7 +2151,7 @@ jobs:
           if [[ "$INTEGRATION_OUTCOME" == "success" && "$WEB_HOME_PIXELS_VERIFIED" == "true" ]]; then
             web_home_renderer_pixels_verified=true
           fi
-          echo "::notice title=Android evidence outcomes::source=$SOURCE_REF; apk_sha256=${APK_SHA256:-not_verified}; integration=$INTEGRATION_OUTCOME; harness_failure_phase=${HARNESS_FAILURE_PHASE:-none}; harness_failure_type=${HARNESS_FAILURE_TYPE:-none}; login_dom_visible=$login_dom_visible; browser_compatibility_warning_visible=${BROWSER_COMPATIBILITY_WARNING:-not_confirmed}; installed_webview_chrome_major=${WEBVIEW_CHROME_MAJOR:-unknown}; configured_ua_chrome_major=${CONFIGURED_UA_CHROME_MAJOR:-unknown}; ua_profile_coherent=${USER_AGENT_PROFILE_COHERENT:-not_confirmed}; cold_login_hierarchy_pixels=$COLD_LAUNCH_OUTCOME; activity_resumed_after_instrumentation=$activity_resumed; preview_relaunched=${PREVIEW_RELAUNCHED:-unknown}; empty_home_payload_confirmed=$empty_home_payload_confirmed; playlist_or_card_injected=$playlist_or_card_injected_by_harness; empty_home_pixels_verified=$empty_home_pixels_verified; home_status_pixels_verified=$home_status_pixels_verified; web_home_renderer_pixels_verified=$web_home_renderer_pixels_verified; login_restored_after_status=$(grep -Fq 'INSTRUMENTATION_STATUS: login_surface_restored_after_status=true' "$state_dir/android-instrumentation.txt" && echo true || echo false); login_restored_after_web_home_fixture=$(grep -Fq 'INSTRUMENTATION_STATUS: login_surface_restored_after_web_home_fixture=true' "$state_dir/android-instrumentation.txt" && echo true || echo false); authenticated_home_test=not_performed"
+          echo "::notice title=Android evidence outcomes::source=$SOURCE_REF; apk_sha256=${APK_SHA256:-not_verified}; integration=$INTEGRATION_OUTCOME; harness_failure_phase=${HARNESS_FAILURE_PHASE:-none}; harness_failure_type=${HARNESS_FAILURE_TYPE:-none}; login_dom_visible=$login_dom_visible; browser_compatibility_warning_visible=${BROWSER_COMPATIBILITY_WARNING:-not_confirmed}; installed_webview_chrome_major=${WEBVIEW_CHROME_MAJOR:-unknown}; configured_ua_chrome_major=${CONFIGURED_UA_CHROME_MAJOR:-unknown}; ua_profile_coherent=${USER_AGENT_PROFILE_COHERENT:-not_confirmed}; cold_native_home_hierarchy_pixels=$COLD_LAUNCH_OUTCOME; activity_resumed_after_instrumentation=$activity_resumed; preview_relaunched=${PREVIEW_RELAUNCHED:-unknown}; empty_home_payload_confirmed=$empty_home_payload_confirmed; playlist_or_card_injected=$playlist_or_card_injected_by_harness; empty_home_pixels_verified=$empty_home_pixels_verified; home_status_pixels_verified=$home_status_pixels_verified; web_home_renderer_pixels_verified=$web_home_renderer_pixels_verified; login_restored_after_status=$(grep -Fq 'INSTRUMENTATION_STATUS: login_surface_restored_after_status=true' "$state_dir/android-instrumentation.txt" && echo true || echo false); login_restored_after_web_home_fixture=$(grep -Fq 'INSTRUMENTATION_STATUS: login_surface_restored_after_web_home_fixture=true' "$state_dir/android-instrumentation.txt" && echo true || echo false); authenticated_home_test=not_performed"
 
       - name: Upload verified screenshot and redacted launch summary
         id: evidence-upload
@@ -2005,13 +2160,19 @@ jobs:
         with:
           name: Melodix-Preview-Android16-${{ inputs.source_ref || github.sha }}
           path: |
-            ${{ runner.temp }}/melodix-preview-emulator-state/login-screen.png
+            ${{ runner.temp }}/melodix-preview-emulator-state/cold-home-screen.png
             ${{ runner.temp }}/melodix-preview-emulator-state/permission-prompt-summary.json
-            ${{ runner.temp }}/melodix-preview-emulator-state/login-hierarchy-redacted.json
-            ${{ runner.temp }}/melodix-preview-emulator-state/home-empty-fallback.png
-            ${{ runner.temp }}/melodix-preview-emulator-state/home-fallback-hierarchy-redacted.json
+            ${{ runner.temp }}/melodix-preview-emulator-state/cold-home-hierarchy-redacted.json
+            ${{ runner.temp }}/melodix-preview-emulator-state/home-empty-native-error.png
+            ${{ runner.temp }}/melodix-preview-emulator-state/home-empty-native-error-hierarchy-redacted.json
             ${{ runner.temp }}/melodix-preview-emulator-state/home-status.png
             ${{ runner.temp }}/melodix-preview-emulator-state/home-status-hierarchy-redacted.json
+            ${{ runner.temp }}/melodix-preview-emulator-state/cold-home-timeline-*.png
+            ${{ runner.temp }}/melodix-preview-emulator-state/cold-home-timeline-*-hierarchy-redacted.json
+            ${{ runner.temp }}/melodix-preview-emulator-state/empty-home-timeline-*.png
+            ${{ runner.temp }}/melodix-preview-emulator-state/empty-home-timeline-*-hierarchy-redacted.json
+            ${{ runner.temp }}/melodix-preview-emulator-state/native-route-*.png
+            ${{ runner.temp }}/melodix-preview-emulator-state/native-route-*-hierarchy-redacted.json
             ${{ runner.temp }}/melodix-preview-emulator-state/web-home-app.png
             ${{ runner.temp }}/melodix-preview-emulator-state/web-home-app-hierarchy-redacted.json
             ${{ runner.temp }}/melodix-preview-emulator-state/release-candidate-screen.png
