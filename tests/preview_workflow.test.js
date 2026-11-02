@@ -106,6 +106,8 @@ test("the emulator workflow checks the exact APK debuggable flag and captures re
     'native-owner startup traces retain only enumerated owner and route labels');
   assert.match(emulatorWorkflow, /crash_guard_state=.*shared_prefs\/melodix_native\.xml[\s\S]*?last_stage=\%s; crash_class=\%s/,
     'crash-guard diagnostics expose only a constrained stage name and exception class');
+  assert.match(emulatorWorkflow, /verify_error_target=[\s\S]*?if "VerifyError" not in text[\s\S]*?Verifier rejected class[\s\S]*?class=%s; method=%s/,
+    'runtime verifier diagnostics expose only the allowlisted app class and method, never the verifier message');
   assert.match(emulatorWorkflow, /adb shell dumpsys activity > "\$activity_dump"/);
   assert.doesNotMatch(
     emulatorWorkflow,
