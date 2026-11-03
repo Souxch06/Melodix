@@ -4,6 +4,8 @@
 // fixtures are synthetic bytecode diagnostics, not device or Spotify data.
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const os = require('node:os');
 const { spawnSync } = require('node:child_process');
 const path = require('node:path');
 
@@ -34,27 +36,62 @@ function prefsXml(overrides = {}) {
     }).join('')}</map>`;
 }
 
-function runSanitizer({ prefs = prefsXml(), logcat, runId = RUN_ID, armLogSeenAtLaunch = 'unknown', activityDump, windowDump } = {}) {
+function runSanitizer({ prefs = prefsXml(), logcat, runId = RUN_ID, armLogSeenAtLaunch = 'unknown', activityDump, windowDump, earlyAndroidRuntimeReport } = {}) {
     const input = {
         prefs_xml: prefs,
-        logcat: logcat ?? `I/MDXVERIFY: verify-capture state=armed run_id=${RUN_ID}\nI/MDXVERIFY: verify-capture state=recorded run_id=${RUN_ID} source=main-content-view`,
+        logcat: logcat ?? [
+            `I/MDXVERIFY: verify-capture state=armed run_id=${RUN_ID}`,
+            `I/MDXVERIFY: verify-capture state=recorded run_id=${RUN_ID} source=main-content-view`
+        ].join(String.fromCharCode(10)),
         activity_dump: activityDump ?? 'mResumedActivity: ActivityRecord{cafe com.melodix.music.preview/com.melodix.music.MainActivity}',
         window_dump: windowDump ?? 'mCurrentFocus=Window{beef u0 com.melodix.music.preview/com.melodix.music.MainActivity}',
         pid: '4321',
         sdk: '36'
     };
-    const result = spawnSync('python3', [SCRIPT, '--stdin-json', '--run-id', runId, '--source-ref', SOURCE_REF, '--source-root', ROOT, '--arm-log-seen-at-launch', armLogSeenAtLaunch], {
-        cwd: ROOT,
-        encoding: 'utf8',
-        input: JSON.stringify(input),
-        maxBuffer: 1024 * 1024
-    });
-    assert.equal(result.status, 0, result.stderr || 'sanitizer should exit successfully');
-    return JSON.parse(result.stdout);
+    const tempDir = earlyAndroidRuntimeReport ? fs.mkdtempSync(path.join(os.tmpdir(), 'melodix-verify-test-')) : null;
+    try {
+        const args = [SCRIPT, '--stdin-json', '--run-id', runId, '--source-ref', SOURCE_REF, '--source-root', ROOT, '--arm-log-seen-at-launch', armLogSeenAtLaunch];
+        if (earlyAndroidRuntimeReport && tempDir) {
+            const sidecar = path.join(tempDir, 'androidruntime-redacted.json');
+            fs.writeFileSync(sidecar, JSON.stringify(earlyAndroidRuntimeReport));
+            args.push('--early-androidruntime-report', sidecar);
+        }
+        const result = spawnSync('python3', args, {
+            cwd: ROOT,
+            encoding: 'utf8',
+            input: JSON.stringify(input),
+            maxBuffer: 1024 * 1024
+        });
+        assert.equal(result.status, 0, result.stderr || 'sanitizer should exit successfully');
+        return JSON.parse(result.stdout);
+    } finally {
+        if (tempDir) fs.rmSync(tempDir, { recursive: true, force: true });
+    }
+}
+
+function runAndroidRuntimeCapture(logcat, runId = RUN_ID, sourceRef = SOURCE_REF) {
+    const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'melodix-androidruntime-test-'));
+    try {
+        const output = path.join(tempDir, 'androidruntime-redacted.json');
+        const result = spawnSync('python3', [
+            SCRIPT, '--androidruntime-stdin', '--run-id', runId, '--source-ref', sourceRef,
+            '--source-root', ROOT, '--output', output
+        ], {
+            cwd: ROOT,
+            encoding: 'utf8',
+            input: logcat,
+            maxBuffer: 1024 * 1024
+        });
+        assert.equal(result.status, 0, result.stderr || 'AndroidRuntime sanitizer should exit successfully');
+        return { report: JSON.parse(fs.readFileSync(output, 'utf8')), summary: result.stdout };
+    } finally {
+        fs.rmSync(tempDir, { recursive: true, force: true });
+    }
 }
 
 test('VerifyError report correlates by matching nonce and recorded state; logcat markers remain telemetry', () => {
     const report = runSanitizer();
+    assert.equal(report.schema_version, 2);
     assert.equal(report.verify_error_detected, true);
     assert.equal(report.preference_run_id_matches, true);
     assert.equal(report.capture_armed_log_seen, true);
@@ -176,4 +213,95 @@ test('URI, private path, query and long opaque values are redacted from the arti
     assert.equal(report.message_status, 'sensitive-content-suppressed');
     assert.doesNotMatch(JSON.stringify(report), /\/data\/app\/private|query=value|A{48}|https?:\/\/|spotify:/);
     assert.match(report.technical_message, /withheld because it did not pass the diagnostic privacy checks/);
+});
+
+
+test('immediate AndroidRuntime snapshot extracts only allowlisted verifier fields and drops ART install paths', () => {
+    const raw = [
+        'FATAL EXCEPTION: main',
+        'Process: com.melodix.music.preview, PID: 4321',
+        "java.lang.VerifyError: Verifier rejected class Lcom/melodix/music/MainActivity;: void com.melodix.music.MainActivity.markNativeSettingsPayloadApplied(java.lang.String) failed to verify: register v3 has type Reference: java.lang.String but expected type Reference: java.lang.StringBuilder at code offset 0x23 (declaration of 'com.melodix.music.MainActivity' appears in /data/app/~~private/com.melodix.music.preview-1/base.apk!classes.dex)"
+    ].join(String.fromCharCode(10));
+    const { report, summary } = runAndroidRuntimeCapture(raw);
+    assert.equal(report.androidruntime_verify_error_seen, true);
+    assert.equal(report.verify_error_detected, true);
+    assert.equal(report.target_class, 'com.melodix.music.MainActivity');
+    assert.equal(report.target_method, 'markNativeSettingsPayloadApplied');
+    assert.equal(report.target_method_signature, '(Ljava/lang/String;)V');
+    assert.equal(report.register, 'v3');
+    assert.equal(report.actual_type, 'Reference: java.lang.String');
+    assert.equal(report.expected_type, 'Reference: java.lang.StringBuilder');
+    assert.equal(report.instruction_offset, 0x23);
+    assert.equal(report.message_status, 'structured-message-available');
+    assert.match(summary, /androidruntime_verify_error_seen=true/);
+    assert.doesNotMatch(JSON.stringify(report), /[/]data[/]app|classes[.]dex|private/);
+    assert.doesNotMatch(summary, /Verifier rejected|Reference:|[/]data/);
+});
+
+test('AndroidRuntime capture ignores unrelated processes and suppresses secret-like text without exporting it', () => {
+    const unrelated = [
+        'FATAL EXCEPTION: main',
+        'Process: com.other.player, PID: 7',
+        'java.lang.VerifyError: Verifier rejected class Lcom/other/player/MainActivity; register v1 has type String but expected Integer'
+    ].join(String.fromCharCode(10));
+    assert.equal(runAndroidRuntimeCapture(unrelated).report.androidruntime_verify_error_seen, false);
+
+    const marker = 'authorization';
+    const sensitive = [
+        'FATAL EXCEPTION: main',
+        'Process: com.melodix.music.preview, PID: 4321',
+        `java.lang.VerifyError: Verifier rejected class Lcom/melodix/music/MainActivity; void com.melodix.music.MainActivity.markNativeSettingsPayloadApplied(java.lang.String) failed: register v3 has type String but expected StringBuilder ${marker}`
+    ].join(String.fromCharCode(10));
+    const report = runAndroidRuntimeCapture(sensitive).report;
+    assert.equal(report.androidruntime_verify_error_seen, true);
+    assert.equal(report.message_status, 'sensitive-content-suppressed');
+    assert.equal(report.register, null);
+    assert.equal(report.target_method, null);
+    assert.doesNotMatch(JSON.stringify(report), /authorization/i);
+});
+
+test('early runner capture supplements legacy app prefs but does not claim app nonce correlation', () => {
+    const raw = [
+        'FATAL EXCEPTION: main',
+        'Process: com.melodix.music.preview, PID: 4321',
+        'java.lang.VerifyError: Verifier rejected class Lcom/melodix/music/MainActivity;: void com.melodix.music.MainActivity.markNativeSettingsPayloadApplied(java.lang.String) failed to verify: register v3 has type Reference: java.lang.String but expected type Reference: java.lang.StringBuilder at code offset 0x23'
+    ].join(String.fromCharCode(10));
+    const early = runAndroidRuntimeCapture(raw).report;
+    const report = runSanitizer({
+        prefs: `<map><string name="last_verify_run_id">${RUN_ID}</string><string name="last_verify_state">arm-pending</string></map>`,
+        logcat: '',
+        earlyAndroidRuntimeReport: early
+    });
+    assert.equal(report.androidruntime_verify_error_seen, true);
+    assert.equal(report.verify_error_detected, true);
+    assert.equal(report.target_method, 'markNativeSettingsPayloadApplied');
+    assert.equal(report.register, 'v3');
+    assert.equal(report.current_launch_correlated, false);
+    assert.equal(report.diagnostic_state, 'pending-not-consumed');
+});
+
+test('early runner snapshots are ignored when the launch nonce or source SHA differs', () => {
+    const raw = [
+        'FATAL EXCEPTION: main',
+        'Process: com.melodix.music.preview, PID: 4321',
+        'java.lang.VerifyError: Verifier rejected class Lcom/melodix/music/MainActivity;'
+    ].join(String.fromCharCode(10));
+    const early = runAndroidRuntimeCapture(raw).report;
+    const prefs = `<map><string name="last_verify_run_id">${RUN_ID}</string><string name="last_verify_state">arm-pending</string></map>`;
+    const nonceMismatch = runSanitizer({
+        prefs,
+        logcat: '',
+        earlyAndroidRuntimeReport: { ...early, run_id: 'fedcba9876543210' }
+    });
+    assert.equal(nonceMismatch.androidruntime_verify_error_seen, false);
+    assert.equal(nonceMismatch.verify_error_detected, false);
+    assert.equal(nonceMismatch.target_method, null);
+
+    const sourceMismatch = runSanitizer({
+        prefs,
+        logcat: '',
+        earlyAndroidRuntimeReport: { ...early, source_commit: 'b'.repeat(40) }
+    });
+    assert.equal(sourceMismatch.androidruntime_verify_error_seen, false);
+    assert.equal(sourceMismatch.verify_error_detected, false);
 });

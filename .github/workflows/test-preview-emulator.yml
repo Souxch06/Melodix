@@ -21,6 +21,11 @@ on:
         required: false
         type: boolean
         default: false
+      replay_original_launch_path:
+        description: Repeat the historical permission then force-stop/relaunch path for a source-ref investigation only
+        required: false
+        type: boolean
+        default: false
 
 permissions:
   actions: read
@@ -441,6 +446,7 @@ jobs:
         env:
           APK_PATH: ${{ steps.apk.outputs.apk }}
           SOURCE_REF: ${{ inputs.source_ref || github.sha }}
+          REPLAY_ORIGINAL_LAUNCH_PATH: ${{ inputs.replay_original_launch_path || false }}
         run: |
           set -euo pipefail
           verify_run_id="$(python3 -c 'import secrets; print(secrets.token_hex(8))')"
@@ -520,6 +526,18 @@ jobs:
           trap launch_failure_diagnostics EXIT
           state_dir="$RUNNER_TEMP/melodix-preview-emulator-state"
           mkdir -p "$state_dir"
+          androidruntime_report="$state_dir/androidruntime-verify-diagnostic-redacted.json"
+          capture_androidruntime_verify() {
+            # Raw AndroidRuntime lines flow directly from adb into the sanitizer;
+            # only its allowlisted JSON sidecar and safe scalar summary persist.
+            adb logcat -d -t 2000 -b main -b crash -v message -s AndroidRuntime:E 2>/dev/null \
+              | python3 scripts/sanitize_verify_diagnostic.py \
+                  --androidruntime-stdin \
+                  --run-id "$verify_run_id" \
+                  --source-ref "$SOURCE_REF" \
+                  --source-root "$GITHUB_WORKSPACE" \
+                  --output "$androidruntime_report"
+          }
           # Installation on this newly created emulator, followed by pm clear,
           # guarantees there are no carried-over Spotify cookies or app prefs.
           adb install "$APK_PATH"
@@ -533,7 +551,12 @@ jobs:
           # Observe the first-run Android permission surface before granting it,
           # but retain only redacted hierarchy metadata (never its raw text/XML).
           # This is also the exact cold Activity launch correlated by the nonce.
-          adb shell am start -W -n com.melodix.music.preview/com.melodix.music.MainActivity >/dev/null
+          launch_status=0
+          adb shell am start -W -n com.melodix.music.preview/com.melodix.music.MainActivity >/dev/null || launch_status=$?
+          # Immediately preserve only normalized verifier fields, even if the
+          # older APK's NativeCrashGuard cannot consume the run nonce.
+          capture_androidruntime_verify
+          if (( launch_status != 0 )); then exit "$launch_status"; fi
           # Snapshot only the exact run-scoped arm marker immediately after
           # Application.attachBaseContext; emit a boolean, never raw log text.
           arm_log_seen_at_launch="$(
@@ -673,8 +696,19 @@ jobs:
           path.write_text(json.dumps(state, indent=2) + "\n", encoding="utf-8")
           PY
           echo "::notice title=Android permission setup::fresh app data retained; BLUETOOTH_CONNECT=$permission_status; action=$permission_action; only the declared Bluetooth permission granted; no Spotify session or cookies supplied"
-          # After dismissing/granting the observed system prompt, keep this same
-          # launch alive and correlated for the bounded foreground observation.
+          if [[ "$REPLAY_ORIGINAL_LAUNCH_PATH" == "true" ]]; then
+            # The initial failure run relaunched MainActivity after the first-run
+            # permission grant. Keep this opt-in so ordinary validation remains
+            # unchanged while the historical path is reproducible on demand.
+            adb shell am force-stop com.melodix.music.preview >/dev/null 2>&1 || true
+            relaunch_status=0
+            adb shell am start -W -n com.melodix.music.preview/com.melodix.music.MainActivity >/dev/null || relaunch_status=$?
+            capture_androidruntime_verify
+            if (( relaunch_status != 0 )); then exit "$relaunch_status"; fi
+            echo "::notice title=Android legacy launch replay::historical second MainActivity launch after the single Bluetooth permission grant was executed"
+          fi
+          # After dismissing/granting the observed system prompt, keep the
+          # explicitly launched Activity alive for the bounded foreground observation.
           sleep 60
 
           app_pid="$(adb shell pidof -s com.melodix.music.preview 2>/dev/null | tr -d '\r' || true)"
@@ -723,6 +757,7 @@ jobs:
           set -euo pipefail
           report_dir="$RUNNER_TEMP/melodix-verify-diagnostic"
           report="$report_dir/verify-diagnostic-redacted.json"
+          early_report="$RUNNER_TEMP/melodix-preview-emulator-state/androidruntime-verify-diagnostic-redacted.json"
           mkdir -p "$report_dir"
           cleanup_complete=false
           cleanup_device_diagnostics() {
@@ -734,6 +769,7 @@ jobs:
           }
           cleanup_raw_capture_on_exit() {
             local exit_code=$?
+            rm -f "$early_report"
             if [[ "$cleanup_complete" != "true" ]]; then
               cleanup_device_diagnostics || true
               rm -f "$report"
@@ -746,6 +782,7 @@ jobs:
             --source-ref "$SOURCE_REF" \
             --source-root "$GITHUB_WORKSPACE" \
             --arm-log-seen-at-launch "${ARM_LOG_SEEN_AT_LAUNCH:-unknown}" \
+            --early-androidruntime-report "$early_report" \
             --output "$report"
           python3 - "$report" <<'PY'
           import json
@@ -758,7 +795,7 @@ jobs:
               "schema_version", "source_commit", "run_id", "android_api",
               "capture_armed_log_seen", "arm_log_seen_at_launch", "verify_record_log_seen",
               "preference_run_id_matches", "current_launch_correlated",
-              "verify_error_detected", "verify_exception_class", "record_source",
+              "verify_error_detected", "verify_exception_class", "androidruntime_verify_error_seen", "record_source",
               "target_class", "target_method", "target_method_signature",
               "method_references", "instruction_offset", "failure_kind", "register",
               "actual_type", "expected_type", "technical_message", "message_status",
@@ -770,7 +807,7 @@ jobs:
           except (OSError, json.JSONDecodeError):
               report_path.unlink(missing_ok=True)
               raise SystemExit("sanitized_verify_report=invalid_json")
-          if not isinstance(data, dict) or set(data) != allowed:
+          if not isinstance(data, dict) or set(data) != allowed or data.get("schema_version") != 2:
               report_path.unlink(missing_ok=True)
               raise SystemExit("sanitized_verify_report=field_allowlist_failed")
           encoded = json.dumps(data, ensure_ascii=True, sort_keys=True)
@@ -835,6 +872,7 @@ jobs:
               stage = "unknown"
           fields = [
               "verify_error_detected=" + flag("verify_error_detected"),
+              "androidruntime_verify_error_seen=" + flag("androidruntime_verify_error_seen"),
               "preference_run_id_matches=" + flag("preference_run_id_matches"),
               "arm_log_seen_at_launch=" + flag("arm_log_seen_at_launch"),
               "capture_armed_log_seen=" + flag("capture_armed_log_seen"),

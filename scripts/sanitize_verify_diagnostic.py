@@ -28,6 +28,11 @@ SENSITIVE_MARKER_RE = re.compile(
 URL_RE = re.compile(r"(?i)\b(?:https?|wss?)://[^\s)>,]+")
 SPOTIFY_URI_RE = re.compile(r"(?i)\bspotify:[^\s)>,]+")
 PRIVATE_PATH_RE = re.compile(r"/(?:data/(?:app|user|data)|storage/emulated)/[^\s)>,;?&]+")
+ANDROID_DECLARATION_PATH_RE = re.compile(
+    r"\s*\(declaration of\b[^)]*?\bappears in\s+/data/app/[^)]*\)",
+    re.IGNORECASE,
+)
+DEX_TARGET_CLASS_RE = re.compile(r"\bL(com/melodix/music/[A-Za-z0-9_$/]+);")
 QUERY_RE = re.compile(r"[?&][^\s)>,]+")
 LONG_VALUE_RE = re.compile(r"(?<![A-Za-z0-9])[A-Za-z0-9_+/=-]{48,}(?![A-Za-z0-9])")
 SAFE_CLASS_RE = re.compile(r"com\.melodix\.music(?:\.[A-Za-z0-9_$]+)+")
@@ -139,6 +144,18 @@ def _safe_type(value: str) -> str | None:
     if len(value) > 128 or not SAFE_TYPE_RE.fullmatch(value):
         return None
     return value
+
+
+def _contains_sensitive_marker(message: str | None) -> bool:
+    return bool(message and (
+        SENSITIVE_MARKER_RE.search(message)
+        or URL_RE.search(message)
+        or SPOTIFY_URI_RE.search(message)
+        or PRIVATE_PATH_RE.search(message)
+        or QUERY_RE.search(message)
+        or LONG_VALUE_RE.search(message)
+        or EMAIL_RE.search(message)
+    ))
 
 
 def _parse_register_error(message: str) -> dict[str, str] | None:
@@ -318,15 +335,7 @@ def build_report(
     arm_log_seen_at_launch = True if arm_log_at_launch == "true" else False if arm_log_at_launch == "false" else None
 
     raw_message = values.get("last_verify_message")
-    contains_sensitive_marker = bool(raw_message and (
-        SENSITIVE_MARKER_RE.search(raw_message)
-        or URL_RE.search(raw_message)
-        or SPOTIFY_URI_RE.search(raw_message)
-        or PRIVATE_PATH_RE.search(raw_message)
-        or QUERY_RE.search(raw_message)
-        or LONG_VALUE_RE.search(raw_message)
-        or EMAIL_RE.search(raw_message)
-    ))
+    contains_sensitive_marker = _contains_sensitive_marker(raw_message)
     register_details = None if contains_sensitive_marker else _parse_register_error(raw_message or "")
     method_references = _method_references(raw_message or "", source_root, contains_sensitive_marker)
     instruction_offset = _instruction_offset(raw_message or "", contains_sensitive_marker)
@@ -371,7 +380,7 @@ def build_report(
     elapsed_ms = int(elapsed) if elapsed.isdigit() and len(elapsed) <= 16 else None
 
     report: dict[str, Any] = {
-        "schema_version": 1,
+        "schema_version": 2,
         "source_commit": source_ref if valid_source else "invalid-source-ref",
         "run_id": run_id if valid_run else "invalid-run-id",
         "android_api": int(sdk) if sdk is not None else None,
@@ -382,6 +391,7 @@ def build_report(
         "current_launch_correlated": current_launch_correlated,
         "verify_error_detected": is_verify_error,
         "verify_exception_class": "VerifyError" if is_verify_error else None,
+        "androidruntime_verify_error_seen": False,
         "record_source": source,
         "target_class": target_class,
         "target_method": target_method,
@@ -405,6 +415,235 @@ def build_report(
     return report
 
 
+EARLY_ANDROIDRUNTIME_KEYS = {
+    "schema_version",
+    "source_commit",
+    "run_id",
+    "androidruntime_verify_error_seen",
+    "verify_error_detected",
+    "target_class",
+    "target_method",
+    "target_method_signature",
+    "method_references",
+    "instruction_offset",
+    "failure_kind",
+    "register",
+    "actual_type",
+    "expected_type",
+    "technical_message",
+    "message_status",
+}
+
+
+def _androidruntime_verify_message(logcat: str) -> str | None:
+    lines = logcat.splitlines()
+    for index, line in enumerate(lines):
+        if not re.search(r"\b(?:java\.lang\.)?VerifyError\b", line):
+            continue
+        previous_lines = lines[max(0, index - 4):index]
+        process_lines = [prior for prior in previous_lines if re.search(r"\bProcess:\s*", prior)]
+        app_process_seen = bool(
+            process_lines
+            and re.search(r"\bProcess:\s*com\.melodix\.music\.preview(?:\s|,|$)", process_lines[-1])
+        )
+        app_class_in_error = bool(
+            PACKAGE in line or SAFE_CLASS_RE.search(line) or DEX_TARGET_CLASS_RE.search(line)
+        )
+        if not (app_process_seen or app_class_in_error):
+            continue
+
+        message_lines = [line]
+        for continuation in lines[index + 1:index + 5]:
+            if not continuation.strip():
+                break
+            if re.search(
+                r"\b(?:Verifier rejected class|failed to verify|register\s+v\d+|expected\s+(?:type\s+)?|"
+                r"(?:found|got)\s+|(?:dex[_ ]pc|code[_ ]offset|instruction[_ ]offset|pc)\s*(?:=|:)?\s*)",
+                continuation,
+                re.IGNORECASE,
+            ):
+                message_lines.append(continuation)
+                continue
+            break
+
+        message = "\n".join(message_lines)
+        # Android's generated class-path suffix is runtime metadata, not part
+        # of the verifier finding. Drop it before the normal privacy scanner;
+        # any other private path remains fail-closed.
+        message = ANDROID_DECLARATION_PATH_RE.sub("", message)
+        message = re.sub(
+            r"(?m)^[VDIWEF]/AndroidRuntime(?:\s*\([^)]*\))?:\s*",
+            "",
+            message,
+        )
+        return message[:4096]
+    return None
+
+
+def _early_androidruntime_report(
+    *,
+    logcat: str,
+    run_id: str,
+    source_ref: str,
+    source_root: pathlib.Path,
+) -> dict[str, Any]:
+    message = _androidruntime_verify_message(logcat)
+    valid_run = bool(SAFE_RUN_RE.fullmatch(run_id.lower()))
+    valid_source = bool(SAFE_SOURCE_REF_RE.fullmatch(source_ref.lower()))
+    empty: dict[str, Any] = {
+        "schema_version": 1,
+        "source_commit": source_ref.lower() if valid_source else "invalid-source-ref",
+        "run_id": run_id.lower() if valid_run else "invalid-run-id",
+        "androidruntime_verify_error_seen": message is not None,
+        "verify_error_detected": message is not None,
+        "target_class": None,
+        "target_method": None,
+        "target_method_signature": None,
+        "method_references": [],
+        "instruction_offset": None,
+        "failure_kind": "unparsed-verify-error" if message is not None else "none",
+        "register": None,
+        "actual_type": None,
+        "expected_type": None,
+        "technical_message": None,
+        "message_status": "not-applicable",
+    }
+    if message is None:
+        return empty
+
+    # Reuse the same strict parser as the app-private capture. Only the
+    # synthetic allowlisted XML is passed to it; raw AndroidRuntime text never
+    # leaves this Python process or reaches a file, annotation, or artifact.
+    sensitive = _contains_sensitive_marker(message)
+    references = _method_references(message, source_root, sensitive)
+    target_class = references[0]["class"] if references else None
+    target_method = references[0]["method"] if references else None
+    if not sensitive and not target_class:
+        descriptor = DEX_TARGET_CLASS_RE.search(message)
+        if descriptor:
+            target_class = descriptor.group(1).replace("/", ".")
+        else:
+            java_class = SAFE_CLASS_RE.search(message)
+            if java_class:
+                target_class = java_class.group(0)
+
+    escaped_message = (
+        message.replace("&", "&amp;")
+        .replace("<", "&lt;")
+        .replace(">", "&gt;")
+    )
+    escaped_class = (target_class or "").replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+    escaped_method = (target_method or "").replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+    escaped_run = run_id.lower() if valid_run else "invalid-run-id"
+    synthetic_prefs = (
+        "<map>"
+        "<string name=\"last_verify_exception\">VerifyError</string>"
+        f"<string name=\"last_verify_class\">{escaped_class}</string>"
+        f"<string name=\"last_verify_method\">{escaped_method}</string>"
+        f"<string name=\"last_verify_run_id\">{escaped_run}</string>"
+        "<string name=\"last_verify_state\">arm-pending</string>"
+        f"<string name=\"last_verify_message\">{escaped_message}</string>"
+        "</map>"
+    )
+    parsed = build_report(
+        run_id=escaped_run,
+        source_ref=source_ref,
+        source_root=source_root,
+        captures={"prefs_xml": synthetic_prefs, "logcat": ""},
+    )
+    empty.update({key: parsed.get(key) for key in (
+        "target_class",
+        "target_method",
+        "target_method_signature",
+        "method_references",
+        "instruction_offset",
+        "failure_kind",
+        "register",
+        "actual_type",
+        "expected_type",
+        "technical_message",
+        "message_status",
+    )})
+    empty["verify_error_detected"] = bool(parsed.get("verify_error_detected"))
+    empty["androidruntime_verify_error_seen"] = bool(parsed.get("verify_error_detected"))
+    return empty
+
+
+def _valid_early_androidruntime_report(
+    value: Any,
+    *,
+    run_id: str,
+    source_ref: str,
+) -> bool:
+    if not isinstance(value, dict) or set(value) != EARLY_ANDROIDRUNTIME_KEYS:
+        return False
+    if value.get("schema_version") != 1 or value.get("run_id") != run_id.lower():
+        return False
+    if value.get("source_commit") != source_ref.lower():
+        return False
+    if not isinstance(value.get("androidruntime_verify_error_seen"), bool):
+        return False
+    if not isinstance(value.get("verify_error_detected"), bool):
+        return False
+    return value["androidruntime_verify_error_seen"] == value["verify_error_detected"]
+
+
+def _merge_early_androidruntime_report(
+    report: dict[str, Any],
+    early: Any,
+    *,
+    run_id: str,
+    source_ref: str,
+) -> dict[str, Any]:
+    if not _valid_early_androidruntime_report(early, run_id=run_id, source_ref=source_ref):
+        return report
+    if not early["androidruntime_verify_error_seen"]:
+        return report
+
+    report["androidruntime_verify_error_seen"] = True
+    report["verify_error_detected"] = True
+    report["verify_exception_class"] = "VerifyError"
+    for key in ("target_class", "target_method", "target_method_signature"):
+        if report.get(key) is None and early.get(key) is not None:
+            report[key] = early[key]
+    if not report.get("method_references") and isinstance(early.get("method_references"), list):
+        report["method_references"] = early["method_references"]
+    if report.get("instruction_offset") is None and isinstance(early.get("instruction_offset"), int):
+        report["instruction_offset"] = early["instruction_offset"]
+
+    if report.get("register") is None and isinstance(early.get("register"), str):
+        report["register"] = early["register"]
+    if report.get("actual_type") is None and isinstance(early.get("actual_type"), str):
+        report["actual_type"] = early["actual_type"]
+    if report.get("expected_type") is None and isinstance(early.get("expected_type"), str):
+        report["expected_type"] = early["expected_type"]
+
+    early_has_details = early.get("message_status") == "structured-message-available"
+    primary_message_missing = report.get("message_status") in {
+        "not-applicable",
+        "message-unavailable",
+        "message-present-unparsed-omitted",
+    }
+    if early_has_details and primary_message_missing:
+        report["technical_message"] = early.get("technical_message")
+        report["message_status"] = "structured-message-available"
+        if early.get("failure_kind") == "register-type-mismatch":
+            report["failure_kind"] = "register-type-mismatch"
+    elif report.get("failure_kind") in {"none", "unparsed-verify-error"} and early.get("failure_kind") not in {
+        "none",
+        "unparsed-verify-error",
+    }:
+        report["failure_kind"] = early["failure_kind"]
+    return report
+
+
+def _read_json_file(path: pathlib.Path) -> Any:
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeError, json.JSONDecodeError):
+        return None
+
+
 def _stdin_captures() -> dict[str, str]:
     try:
         value = json.load(sys.stdin)
@@ -426,6 +665,7 @@ def _safe_summary(report: dict[str, Any]) -> str:
 
     return (
         f"verify_error_detected={flag('verify_error_detected')}; "
+        f"androidruntime_verify_error_seen={flag('androidruntime_verify_error_seen')}; "
         f"preference_run_id_matches={flag('preference_run_id_matches')}; "
         f"arm_log_seen_at_launch={flag('arm_log_seen_at_launch')}; "
         f"capture_armed_log_seen={flag('capture_armed_log_seen')}; "
@@ -436,6 +676,18 @@ def _safe_summary(report: dict[str, Any]) -> str:
         f"process_alive={flag('process_alive')}; "
         f"main_activity_resumed={flag('main_activity_resumed')}; "
         f"last_stage={report.get('last_stage') or 'unknown'}"
+    )
+
+
+def _early_androidruntime_summary(report: dict[str, Any]) -> str:
+    target = "none"
+    if report.get("target_class") and report.get("target_method"):
+        target = f"{report['target_class'].rsplit('.', 1)[-1]}.{report['target_method']}"
+    return (
+        f"androidruntime_verify_error_seen={str(bool(report.get('androidruntime_verify_error_seen'))).lower()}; "
+        f"failure_kind={report.get('failure_kind') or 'none'}; target={target}; "
+        f"register={report.get('register') or 'none'}; "
+        f"message_status={report.get('message_status') or 'not-applicable'}"
     )
 
 
@@ -452,7 +704,34 @@ def main() -> int:
         help="Safe boolean captured immediately after the explicit cold launch.",
     )
     parser.add_argument("--stdin-json", action="store_true", help="Read synthetic captures JSON from stdin (tests only).")
+    parser.add_argument(
+        "--androidruntime-stdin",
+        action="store_true",
+        help="Read AndroidRuntime logcat from stdin and write only normalized, allowlisted fields.",
+    )
+    parser.add_argument(
+        "--early-androidruntime-report",
+        type=pathlib.Path,
+        help="Merge a run-scoped, already-redacted AndroidRuntime snapshot into the final report.",
+    )
     args = parser.parse_args()
+    if args.stdin_json and args.androidruntime_stdin:
+        parser.error("--stdin-json and --androidruntime-stdin are mutually exclusive")
+    if args.androidruntime_stdin:
+        if args.output is None:
+            parser.error("--output is required with --androidruntime-stdin")
+        early = _early_androidruntime_report(
+            logcat=sys.stdin.read(),
+            run_id=args.run_id,
+            source_ref=args.source_ref,
+            source_root=args.source_root,
+        )
+        encoded = json.dumps(early, ensure_ascii=True, sort_keys=True, indent=2) + "\n"
+        args.output.parent.mkdir(parents=True, exist_ok=True)
+        args.output.write_text(encoded, encoding="utf-8")
+        print(_early_androidruntime_summary(early))
+        return 0
+
     captures = _stdin_captures() if args.stdin_json else _capture_adb()
     captures["arm_log_seen_at_launch"] = args.arm_log_seen_at_launch
     report = build_report(
@@ -461,6 +740,13 @@ def main() -> int:
         source_root=args.source_root,
         captures=captures,
     )
+    if args.early_androidruntime_report is not None:
+        report = _merge_early_androidruntime_report(
+            report,
+            _read_json_file(args.early_androidruntime_report),
+            run_id=args.run_id,
+            source_ref=args.source_ref,
+        )
     encoded = json.dumps(report, ensure_ascii=True, sort_keys=True, indent=2) + "\n"
     if args.stdin_json:
         sys.stdout.write(encoded)

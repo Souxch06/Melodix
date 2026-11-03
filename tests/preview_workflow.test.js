@@ -619,10 +619,11 @@ test("the emulator workflow validates same-run instrumentation and exact release
   );
   assert.match(launchBlock, /explicit_adb_grant_without_observed_allow_control[\s\S]*?adb shell pm grant com\.melodix\.music\.preview android\.permission\.BLUETOOTH_CONNECT[\s\S]*?only the declared Bluetooth permission granted/,
     "when the emulator exposes no usable Allow control, only the declared BLUETOOTH_CONNECT permission is granted explicitly and reported truthfully");
+  const defaultLaunchBlock = launchBlock.split('if [[ "$REPLAY_ORIGINAL_LAUNCH_PATH" == "true" ]]')[0];
   assert.equal(
-    (launchBlock.match(/adb shell am start -W -n com\.melodix\.music\.preview\/com\.melodix\.music\.MainActivity/g) || []).length,
+    (defaultLaunchBlock.match(/adb shell am start -W -n com\.melodix\.music\.preview\/com\.melodix\.music\.MainActivity/g) || []).length,
     1,
-    "the permission observation and nonce-correlated P0 diagnostic share one deterministic cold Activity start",
+    "the default permission observation and nonce-correlated P0 diagnostic share one deterministic cold Activity start; the second is opt-in",
   );
   assert.match(emulatorWorkflow, /read_bluetooth_permission_state\(\)[\s\S]*?dumpsys package com\.melodix\.music\.preview[\s\S]*?BLUETOOTH_CONNECT:[\s\S]*?granted=true/,
     "the test verifies the observed runtime permission through package-manager state rather than an unsupported shell command");
@@ -1014,4 +1015,33 @@ test("Android 16 VerifyError capture is nonce-correlated, fail-closed, private-c
   assert.match(acceptance, /current_launch_correlated/);
   assert.doesNotMatch(acceptance, /capture_armed_log_seen/,
     "the acceptance gate must not reject a nonce-matched launch only because a transient log line is absent");
+});
+
+
+test("AndroidRuntime VerifyError snapshots are redacted immediately and the historical relaunch path is opt-in", () => {
+  const emulatorWorkflow = fs.readFileSync(
+    path.resolve(__dirname, "..", ".github/workflows/test-preview-emulator.yml"),
+    "utf8",
+  );
+  const sanitizer = fs.readFileSync(
+    path.resolve(__dirname, "..", "scripts/sanitize_verify_diagnostic.py"),
+    "utf8",
+  );
+  assert.match(emulatorWorkflow, /replay_original_launch_path:[\s\S]*?type: boolean[\s\S]*?default: false/);
+  assert.match(emulatorWorkflow, /adb logcat -d -t 2000 -b main -b crash -v message -s AndroidRuntime:E[\s\S]*?\| python3 scripts\/sanitize_verify_diagnostic\.py[\s\S]*?--androidruntime-stdin/,
+    "raw AndroidRuntime output must flow directly into the sanitizer, never into a file or workflow annotation");
+  const stepStart = emulatorWorkflow.indexOf("name: Install and launch the verified Preview APK");
+  const launchAt = emulatorWorkflow.indexOf("adb shell am start -W -n com.melodix.music.preview/com.melodix.music.MainActivity >/dev/null || launch_status=$?", stepStart);
+  const immediateCaptureAt = emulatorWorkflow.indexOf("capture_androidruntime_verify" + String.fromCharCode(10) + "          if (( launch_status != 0 ))", launchAt);
+  assert.ok(stepStart >= 0 && launchAt > stepStart && immediateCaptureAt > launchAt,
+    "snapshot verifier output immediately after the cold Activity launch, before permission inspection or the long wait");
+  assert.match(emulatorWorkflow, /if \[\[ "\$REPLAY_ORIGINAL_LAUNCH_PATH" == "true" \]\][\s\S]*?adb shell am force-stop com\.melodix\.music\.preview[\s\S]*?am start -W -n com\.melodix\.music\.preview\/com\.melodix\.music\.MainActivity[\s\S]*?capture_androidruntime_verify/,
+    "the historical permission-grant, force-stop, and second Activity launch can be replayed without changing the default path");
+  assert.ok(emulatorWorkflow.includes('--early-androidruntime-report "$early_report"'));
+  assert.ok(emulatorWorkflow.includes('rm -f "$early_report"'),
+    "only the redacted sidecar is merged, then removed after final report construction");
+  assert.match(emulatorWorkflow, /"androidruntime_verify_error_seen"[\s\S]*?retention-days: 1/);
+  assert.match(sanitizer, /ANDROID_DECLARATION_PATH_RE[\s\S]*?_androidruntime_verify_message[\s\S]*?_merge_early_androidruntime_report/);
+  assert.match(sanitizer, /EARLY_ANDROIDRUNTIME_KEYS[\s\S]*?source_ref=source_ref/,
+    "runner snapshots are run- and source-scoped before they can supplement app-private capture");
 });
