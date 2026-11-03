@@ -422,8 +422,10 @@ test('diagnostic traces carry a process id and omit private route identifiers', 
         'Spotify playlist/resource identifiers are never copied into diagnostics');
     assert.doesNotMatch(calls.traces.join('\n'), /https?:\/\/|\/playlist\//,
         'raw URLs and route paths are not logged');
-    assert.doesNotMatch(calls.traces.join('\n'), /session|proof|profile|rows=|cards=|playlist.?count/i,
-        'diagnostic traces do not publish proof/profile indicators or private-content counters');
+    assert.match(calls.traces.join('\n'), /home-trace cid=[0-9]+ stage=session result=(unknown|in-progress|connected|required) duration=/,
+        'Home correlation exposes only the bounded session state enum');
+    assert.doesNotMatch(calls.traces.join('\n'), /proof=|profile|rows=|cards=|playlist.?count/i,
+        'diagnostics do not publish proof flags, profile data, or private-content counters');
 });
 
 // P0 regression: restore the older authenticated empty-Home state without
@@ -579,8 +581,12 @@ test('foreground returns refresh the native projection without looping a 401 and
     returned.dispatchWindow('pageshow');
     assert.equal(returned.calls.mediaLibChecks, 1,
         'the returned Spotify page starts a fresh libraryV3 proof attempt');
-    assert.deepEqual(returned.calls.mediaLibCheckArgs, [[false, 'shell-update']],
+    assert.equal(returned.calls.mediaLibCheckArgs.length, 1);
+    assert.deepEqual(returned.calls.mediaLibCheckArgs[0].slice(0, 2), [false, 'shell-update'],
         'the first post-login request has an allow-listed startup source');
+    assert.ok(Number.isInteger(returned.calls.mediaLibCheckArgs[0][2]) &&
+        returned.calls.mediaLibCheckArgs[0][2] >= 1 && returned.calls.mediaLibCheckArgs[0][2] <= 999999,
+    'the library request shares a bounded non-sensitive Home correlation id');
 });
 
 test('HTTP 401 keeps its cause unknown and offers separate official-login and manual-retry actions', () => {

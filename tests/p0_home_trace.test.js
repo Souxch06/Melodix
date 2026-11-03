@@ -7,6 +7,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
+const vm = require('node:vm');
 
 const root = path.join(__dirname, '..');
 const read = (file) => fs.readFileSync(path.join(root, file), 'utf8');
@@ -62,6 +63,69 @@ test('WebView, Spotify route and Home handoff diagnostics stay redacted and boun
     'library diagnostics export only response type, HTTP status, phase, duration and sanitized error');
 });
 
+test('Home pipeline correlation is shared across JS and Android without exporting private data', () => {
+  const shell = read('scripts/native_ui_shell.source.js');
+  const bridge = read('scripts/spotify_bridge.source.js');
+  const activity = read('smali/com/melodix/music/MainActivity.smali');
+  assert.match(shell, /window\.__sfTraceHomePipeline = traceHomePipeline/);
+  assert.match(shell, /home-trace cid=' \+ id \+ ' stage='/);
+  assert.match(shell, /window\.checkMediaLib\(explicitRetry, source \|\| 'shell-update', correlationId\)/);
+  assert.match(shell, /__sfHomeCorrelationId: homeCorrelationId/);
+  assert.match(bridge, /function traceHomeLibraryStage\(diagnostic, stage, result, duration, http, request\)/);
+  assert.match(bridge, /traceHomeLibraryStage\(trace, 'response'/);
+  assert.match(bridge, /traceHomeLibraryStage\(trace, 'parse'/);
+  assert.match(bridge, /traceHomeLibraryStage\(diagnostic, 'transform'/);
+  assert.match(activity, /nativeHomeCorrelationId:I/);
+  assert.match(activity, /__sfHomeCorrelationId/);
+  assert.match(activity, /beginNativeHomePipeline\(Ljava\/lang\/String;\)V/);
+  assert.match(activity, /finishNativeHomePipelineRender\(\)V/);
+  assert.match(activity, /traceNativeHomeVisibility\(\)V/);
+  assert.doesNotMatch(shell + bridge + activity,
+    /home-trace[^\n]*(?:playlistName|accountId|cookie|access_token|refresh_token|responseBody|payloadJson)/i,
+    'correlated events include only fixed stages, bounded identifiers, results and durations');
+});
+
+test('the Home trace emitter clamps values, deduplicates repeated stages, and discards unsafe labels', () => {
+  const events = [];
+  class TestMutationObserver {
+    observe() {}
+    disconnect() {}
+  }
+  const document = {
+    readyState: 'complete',
+    visibilityState: 'visible',
+    documentElement: {},
+    body: { classList: { add() {}, remove() {}, toggle() {} } },
+    querySelector: () => null,
+    querySelectorAll: () => [],
+    addEventListener() {}
+  };
+  const window = {
+    __sfNativeUiShellStarted: false,
+    location: { hostname: 'accounts.spotify.com', pathname: '/login', href: 'https://accounts.spotify.com/login' },
+    AndBridge: { logDiagEvent: (message) => events.push(message), getDiagnosticSessionId: () => '' },
+    addEventListener() {},
+    dispatchEvent() {},
+    setTimeout: () => 1,
+    clearTimeout() {},
+    setInterval: () => 1,
+    clearInterval() {},
+    MutationObserver: TestMutationObserver
+  };
+  vm.runInNewContext(read('scripts/native_ui_shell.source.js'), {
+    window, document, URL, MutationObserver: TestMutationObserver
+  });
+  window.__sfTraceHomePipeline(321, 'response', 'error', 24, 401, 2, 1);
+  window.__sfTraceHomePipeline(321, 'response', 'error', 24, 401, 2, 1);
+  window.__sfTraceHomePipeline('private-token', 'private-stage', 'private-value', -1, 9999, -3, -4);
+  const correlated = events.filter((message) => message.startsWith('home-trace '));
+  assert.deepEqual(correlated, [
+    'home-trace cid=321 stage=response result=error duration=24 http=401 attempt=2 request=1',
+    'home-trace cid=0 stage=request result=error duration=0'
+  ]);
+  assert.doesNotMatch(correlated.join(' '), /private-token|private-stage|private-value/);
+});
+
 test('Android accepts structured JS diagnostics only through a strict bounded grammar', () => {
   const bridge = read('smali/com/melodix/music/AndBridge.smali');
   const sanitizer = bridge.slice(
@@ -80,8 +144,8 @@ test('Android accepts structured JS diagnostics only through a strict bounded gr
     'home-data stage=web-rendered', 'home-data stage=android-received',
     'home-data stage=android-render-start', 'home-data stage=android-parsed',
     'home-data stage=android-model', 'home-data stage=android-rendered',
-    'home-data stage=android-visible', 'js-error script=',
-    'home-state sent', 'home-final owner=', 'bridge-load phase='
+    'home-data stage=android-visible', 'home-trace cid=', 'settings-load request=',
+    'js-error script=', 'home-state sent', 'home-final owner=', 'bridge-load phase='
   ]) assert.ok(structured.includes(event), `missing strict grammar for ${event}`);
   assert.match(structured,
     /library-fetch phase=response http=401 mime=\(json\|html\|other\|missing\) duration=\[0-9\]\{1,6\} error=http-401 auth=webview-session refresh=unsupported/,

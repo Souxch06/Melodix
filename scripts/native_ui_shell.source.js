@@ -23,8 +23,62 @@
     ];
     var nativeUiShellErrorKeys = [];
     var homeRenderCycle = 0;
+    var homeCorrelationSequence = 0;
+    var homeTraceKeys = Object.create(null);
     window.__sfNativeUiHomeRenderCycle = 0;
     window.__sfNativeUiShellErrorSources = {};
+
+    function safeHomeTraceCount(value, max) {
+        var number;
+        try { number = Number(value); } catch (_) { return 0; }
+        return Number.isFinite(number) ? Math.max(0, Math.min(max, Math.floor(number))) : 0;
+    }
+
+    function traceHomePipeline(correlationId, stage, result, duration, http, attempt, request) {
+        var id = safeHomeTraceCount(correlationId, 999999);
+        var allowedStages = ['session', 'request', 'response', 'parse', 'transform', 'payload',
+            'bridge-send', 'android-receive', 'render', 'visible'];
+        var allowedResults = ['unknown', 'in-progress', 'connected', 'required', 'started',
+            'skipped-auth', 'in-flight', 'blocked', 'backoff', 'ready', 'valid', 'empty',
+            'malformed', 'partial', 'populated', 'status', 'suppressed', 'sent', 'failed',
+            'received', 'invalid', 'rejected', 'cards', 'visible', 'error', 'timeout', 'unavailable'];
+        var safeStage = allowedStages.indexOf(String(stage)) >= 0 ? String(stage) : 'request';
+        var safeResult = allowedResults.indexOf(String(result)) >= 0 ? String(result) : 'error';
+        var safeDuration = safeHomeTraceCount(duration, 999999);
+        var rawHttp = Number(http);
+        var safeHttp = Number.isInteger(rawHttp) && rawHttp >= 100 && rawHttp <= 599 ? rawHttp : 0;
+        var safeAttempt = safeHomeTraceCount(attempt, 999999);
+        var safeRequest = safeHomeTraceCount(request, 1000);
+        var key = [id, safeStage, safeResult, safeHttp, safeAttempt, safeRequest].join('|');
+        if (homeTraceKeys[key]) return;
+        homeTraceKeys[key] = true;
+        if (Object.keys(homeTraceKeys).length > 120) homeTraceKeys = Object.create(null);
+        var line = 'home-trace cid=' + id + ' stage=' + safeStage + ' result=' + safeResult +
+            ' duration=' + safeDuration;
+        if (safeHttp > 0) line += ' http=' + safeHttp;
+        if (safeAttempt > 0) line += ' attempt=' + safeAttempt;
+        if (safeRequest > 0) line += ' request=' + safeRequest;
+        diagTrace(line);
+    }
+
+    function ensureHomeTraceCorrelationId(authState, forceNew) {
+        var current = safeHomeTraceCount(window.__sfNativeUiHomeCorrelationId, 999999);
+        var previousState = String(window.__sfNativeUiHomeAuthState || '');
+        var state = ['unknown', 'in-progress', 'connected', 'required'].indexOf(String(authState)) >= 0
+            ? String(authState) : 'unknown';
+        if (forceNew || current < 1 || state !== previousState) {
+            homeCorrelationSequence = (homeCorrelationSequence + 1) % 999999;
+            if (homeCorrelationSequence < 1) homeCorrelationSequence = 1;
+            current = homeCorrelationSequence;
+            window.__sfNativeUiHomeCorrelationId = current;
+            window.__sfNativeUiHomeAuthState = state;
+            window.__sfNativeUiHomeAttempt = 0;
+            traceHomePipeline(current, 'session', state, 0, 0, 0, 0);
+        }
+        return current;
+    }
+
+    window.__sfTraceHomePipeline = traceHomePipeline;
     NATIVE_UI_SHELL_ERROR_SOURCES.forEach(function(source) {
         window.__sfNativeUiShellErrorSources[source] = 0;
     });
@@ -421,9 +475,15 @@
 
     function sendNativeUiData(screen, items) {
         var bridge = window.AndBridge;
+        var settingsRequestId = Number(window.__sfNativeSettingsRequestId || 0);
+        var homeCorrelationId = safeHomeTraceCount(window.__sfNativeUiHomeCorrelationId, 999999);
+        var homeSendStartedAt = screen === 'home' ? Date.now() : 0;
         var rows;
         if (!bridge || typeof bridge.onNativeUiData !== 'function') {
-            if (screen === 'home') diagTrace('home-data stage=web-to-android result=failed');
+            if (screen === 'home') {
+                diagTrace('home-data stage=web-to-android result=failed');
+                traceHomePipeline(homeCorrelationId, 'bridge-send', 'failed', 0, 0, 0, 0);
+            }
             return false;
         }
 
@@ -456,7 +516,8 @@
                     section: section,
                     image: '',
                     uri: stateUri,
-                    secondaryUri: secondaryUri
+                    secondaryUri: secondaryUri,
+                    __sfHomeCorrelationId: homeCorrelationId
                 };
             }
             var row = {
@@ -469,6 +530,11 @@
             if (item && typeof item.settingValue === 'string' && item.settingValue) {
                 row.settingValue = item.settingValue;
             }
+            if (screen === 'settings' && Number.isInteger(settingsRequestId) &&
+                settingsRequestId > 0 && settingsRequestId <= 999999) {
+                row.__sfSettingsRequestId = settingsRequestId;
+            }
+            if (screen === 'home') row.__sfHomeCorrelationId = homeCorrelationId;
             return row;
         }).filter(function(item) {
             return item && (item.title || item.uri);
@@ -476,7 +542,11 @@
 
         try {
             bridge.onNativeUiData(screen, JSON.stringify(rows));
-            if (screen === 'home') diagTrace('home-data stage=web-to-android result=sent');
+            if (screen === 'home') {
+                diagTrace('home-data stage=web-to-android result=sent');
+                traceHomePipeline(homeCorrelationId, 'bridge-send', 'sent',
+                    Math.max(0, Date.now() - homeSendStartedAt), 0, 0, 0);
+            }
             return true;
         } catch (err) {
             var callbackError = recordNativeUiShellError('callback', err && err.name, err, {
@@ -485,7 +555,11 @@
             if (callbackError.isNew) {
                 try { traceNativeUiShellError(callbackError.detail); } catch (_) {}
             }
-            if (screen === 'home') diagTrace('home-data stage=web-to-android result=failed');
+            if (screen === 'home') {
+                diagTrace('home-data stage=web-to-android result=failed');
+                traceHomePipeline(homeCorrelationId, 'bridge-send', 'failed',
+                    Math.max(0, Date.now() - homeSendStartedAt), 0, 0, 0);
+            }
             return false;
         }
     }
@@ -869,45 +943,69 @@
         var now;
         var delay;
         var authState = currentSpotifyAuthUiState();
+        var correlationId = ensureHomeTraceCorrelationId(authState, force === true);
         var authEpoch = Number(window.__sfSpotifyAuthEpoch || 0);
         var lastAttemptEpoch = Number(window.__sfMediaLibLastAuthAttemptEpoch || 0);
         var proofEpoch = Number(window.__sfMediaLibProofAuthEpoch || 0);
         var previousError = String(window.__sfMediaLibError || '');
         var explicitRetry = force === true;
-        if (authState !== 'connected') return false;
-        if (typeof window.checkMediaLib !== 'function' || window.__sfMediaLibStatus === 'loading') return false;
+        var attemptNumber;
+        if (authState !== 'connected') {
+            traceHomePipeline(correlationId, 'request', 'skipped-auth', 0, 0, 0, 0);
+            return false;
+        }
+        if (typeof window.checkMediaLib !== 'function') {
+            traceHomePipeline(correlationId, 'request', 'unavailable', 0, 0, 0, 0);
+            return false;
+        }
+        if (window.__sfMediaLibStatus === 'loading') {
+            traceHomePipeline(correlationId, 'request', 'in-flight', 0, 0, 0, 0);
+            return false;
+        }
         if (libraryProvesSession() && window.__sfMediaLibStatus === 'ready' &&
             !explicitRetry && proofEpoch >= authEpoch) {
             window.__sfMediaLibRetryAt = 0;
             window.__sfMediaLibRetryDelayMs = 5000;
+            traceHomePipeline(correlationId, 'request', 'ready', 0, 0, 0, 0);
             return false;
         }
         if ((previousError === 'http-401' || previousError === 'http-403') && !explicitRetry) {
             if (!Number.isFinite(authEpoch) || authEpoch <= 0 || authEpoch <= lastAttemptEpoch) {
                 // Do not repeat an authorization refusal in the same confirmed
                 // player-UI epoch. A new sign-in epoch permits exactly one retry.
+                traceHomePipeline(correlationId, 'request', 'blocked', 0,
+                    previousError === 'http-401' ? 401 : 403, 0, 0);
                 return false;
             }
             window.__sfMediaLibRetryAt = 0;
         } else if (previousError && !libraryErrorIsTransient(previousError) && !explicitRetry) {
+            traceHomePipeline(correlationId, 'request', 'blocked', 0, 0, 0, 0);
             return false;
         }
         now = Date.now();
         if (previousError === 'http-429' && window.__sfMediaLibRetryAt && now < window.__sfMediaLibRetryAt) {
+            traceHomePipeline(correlationId, 'request', 'backoff', 0, 429, 0, 0);
             return false;
         }
         if (explicitRetry && previousError !== 'http-429') window.__sfMediaLibRetryAt = 0;
-        if (!explicitRetry && window.__sfMediaLibRetryAt && now < window.__sfMediaLibRetryAt) return false;
+        if (!explicitRetry && window.__sfMediaLibRetryAt && now < window.__sfMediaLibRetryAt) {
+            traceHomePipeline(correlationId, 'request', 'backoff', 0, 0, 0, 0);
+            return false;
+        }
         delay = Number(window.__sfMediaLibRetryDelayMs);
         if (!Number.isFinite(delay) || delay < 5000) delay = 5000;
         delay = Math.max(5000, Math.min(60000, Math.floor(delay)));
         window.__sfMediaLibRetryAt = now + delay;
         if (!explicitRetry) window.__sfMediaLibRetryDelayMs = Math.min(60000, delay * 2);
         window.__sfMediaLibLastAuthAttemptEpoch = authEpoch;
+        attemptNumber = safeHomeTraceCount(window.__sfNativeUiHomeAttempt, 999999) + 1;
+        window.__sfNativeUiHomeAttempt = attemptNumber;
+        traceHomePipeline(correlationId, 'request', 'started', 0, 0, attemptNumber, 0);
         try {
-            window.checkMediaLib(explicitRetry, source || 'shell-update');
+            window.checkMediaLib(explicitRetry, source || 'shell-update', correlationId);
             return true;
         } catch (_) {
+            traceHomePipeline(correlationId, 'request', 'failed', 0, 0, attemptNumber, 0);
             return false;
         }
     }
@@ -1292,6 +1390,9 @@
         var signature;
         var statePayload;
         var stateSignature;
+        var homeCorrelationId;
+        var transformStartedAt;
+        var payloadStartedAt;
         homeRenderCycle = Math.min(999999, homeRenderCycle + 1);
         window.__sfNativeUiHomeRenderCycle = homeRenderCycle;
         actualHomeRoute = window.location.hostname === 'open.spotify.com' && isSpotifyHome();
@@ -1303,6 +1404,8 @@
             (actualHomeRoute || !sessionProven);
         window.__sfNativeUiHomeRouteRecognized = nativeHomeRoute;
         if (!nativeHomeRoute) {
+            homeCorrelationId = safeHomeTraceCount(window.__sfNativeUiHomeCorrelationId, 999999);
+            traceHomePipeline(homeCorrelationId, 'payload', 'suppressed', 0, 0, 0, 0);
             lastHomeSignature = null;
             window.__sfNativeUiHomeRowsCount = 0;
             window.__sfNativeUiHomeDomRowsCount = 0;
@@ -1316,8 +1419,13 @@
 
         scrapedRows = mainView ? collectHomeRows(mainView) : [];
         window.__sfNativeUiHomeDomRowsCount = scrapedRows.length;
+        transformStartedAt = Date.now();
         collectedRows = supplementHomeRowsWithLibrary(scrapedRows, mainView);
+        homeCorrelationId = safeHomeTraceCount(window.__sfNativeUiHomeCorrelationId, 999999);
         sessionProven = libraryProvesSession();
+        traceHomePipeline(homeCorrelationId, 'transform',
+            sessionProven && collectedRows.length > 0 ? 'populated' : sessionProven ? 'empty' : 'status',
+            Math.max(0, Date.now() - transformStartedAt), 0, 0, 0);
         // NativeHomeShelfRenderer calls showNativeUi() when it attaches either
         // a real card or a status panel. Public DOM rows and stale library rows
         // are never sent without successful private libraryV3 proof.
@@ -1327,7 +1435,10 @@
         }
         window.__sfNativeUiHomeRowsCount = rows.length;
         if (rows.length > 0) {
+            payloadStartedAt = Date.now();
             signature = JSON.stringify(rows);
+            traceHomePipeline(homeCorrelationId, 'payload', 'populated',
+                Math.max(0, Date.now() - payloadStartedAt), 0, 0, 0);
             window.__sfNativeUiHomeStateSent = false;
             window.__sfNativeUiHomeState = 'none';
             window.__sfNativeUiHomeSessionUnproven = false;
@@ -1342,8 +1453,11 @@
                 }
             }
         } else {
+            payloadStartedAt = Date.now();
             statePayload = sessionProven ? homeStatePayload() : unprovenHomeStatePayload();
             stateSignature = JSON.stringify(statePayload);
+            traceHomePipeline(homeCorrelationId, 'payload', 'status',
+                Math.max(0, Date.now() - payloadStartedAt), 0, 0, 0);
             window.__sfNativeUiHomeStateSent = false;
             window.__sfNativeUiHomeState = 'none';
             window.__sfNativeUiHomeSessionUnproven = statePayload[0].sessionUnproven === true;
@@ -2652,12 +2766,6 @@
     }
 
     var SETTINGS_STORAGE_KEY = 'melodix_spotify_settings_v1';
-    var AUDIO_QUALITIES = [
-        'Très élevée (320 kbit/s)',
-        'Élevée (160 kbit/s)',
-        'Normale (96 kbit/s)',
-        'Automatique'
-    ];
     var profileAvatarSent = '';
     var profileNameSent = '';
     var greetingSent = '';
@@ -2712,317 +2820,311 @@
         return { name: name, avatar: avatar };
     }
 
-    function getSpotifySettingsState() {
+    function getMelodixSettingsState() {
+        var config = window.SF_CONFIG || {};
         var state = {
-            audio_quality: 'Très élevée (320 kbit/s)',
-            normalize_volume: true,
-            gapless: true,
-            autoplay: !(window.SF_CONFIG && window.SF_CONFIG.autoPlayMode === 'disabled'),
-            shuffle: false,
-            repeat: false,
-            explicit: true,
-            canvas: !(window.SF_CONFIG && window.SF_CONFIG.isCanvasDisabled),
-            data_saver: false,
-            bg_audio: true,
-            cache_status: 'Effacer le cache des recherches, playlists et pochettes',
-            sync_status: 'Actualiser vos playlists, albums et titres likés'
+            autoplay: config.autoPlayMode !== 'disabled',
+            canvas: config.isCanvasDisabled !== true,
+            bg_audio: window.__sfBackgroundAudioEnabled !== false
         };
+        var storedAutoplay = false;
+        var storedCanvas = false;
         try {
             if (window.localStorage) {
                 var raw = window.localStorage.getItem(SETTINGS_STORAGE_KEY);
-                if (raw) {
-                    var parsed = JSON.parse(raw);
-                    if (parsed && typeof parsed === 'object') {
-                        Object.keys(parsed).forEach(function(k) {
-                            if (parsed[k] !== undefined) state[k] = parsed[k];
-                        });
+                var parsed = raw ? JSON.parse(raw) : null;
+                if (parsed && typeof parsed === 'object') {
+                    if (typeof parsed.autoplay === 'boolean') {
+                        state.autoplay = parsed.autoplay;
+                        storedAutoplay = true;
                     }
+                    if (typeof parsed.canvas === 'boolean') {
+                        state.canvas = parsed.canvas;
+                        storedCanvas = true;
+                    }
+                    if (typeof parsed.bg_audio === 'boolean') state.bg_audio = parsed.bg_audio;
                 }
             }
         } catch (_) {}
-        try {
-            var shuffleBtn = document.querySelector && document.querySelector('button[data-testid="control-button-shuffle"]');
-            if (shuffleBtn && shuffleBtn.getAttribute) {
-                var sc = shuffleBtn.getAttribute('aria-checked');
-                if (sc === 'true' || sc === 'false') state.shuffle = (sc === 'true');
-            }
-            var repeatBtn = document.querySelector && document.querySelector('button[data-testid="control-button-repeat"]');
-            if (repeatBtn && repeatBtn.getAttribute) {
-                var rc = repeatBtn.getAttribute('aria-checked');
-                if (rc === 'true' || rc === 'false' || rc === 'mixed') state.repeat = (rc !== 'false');
-            }
-        } catch (_) {}
+        if (window.SF_CONFIG) {
+            if (storedAutoplay) window.SF_CONFIG.autoPlayMode = state.autoplay ? 'permanent' : 'disabled';
+            if (storedCanvas) window.SF_CONFIG.isCanvasDisabled = !state.canvas;
+        }
+        window.__sfBackgroundAudioEnabled = state.bg_audio;
         return state;
     }
 
-    function saveSpotifySettingsState(state) {
+    // Apply persisted local preferences before the Spotify playback bridge
+    // starts; this is Melodix state, not a Spotify-account settings response.
+    getMelodixSettingsState();
+
+    function saveMelodixSettingsState(state) {
         try {
             if (window.localStorage) {
-                window.localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(state));
+                window.localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify({
+                    autoplay: Boolean(state.autoplay),
+                    canvas: Boolean(state.canvas),
+                    bg_audio: Boolean(state.bg_audio)
+                }));
             }
         } catch (_) {}
     }
 
-    function buildSpotifySettingsRows(overrideStatus) {
-        var state = getSpotifySettingsState();
-        var sessionProven = libraryProvesSession();
-        var profile = sessionProven ? detectSpotifyProfile() : { name: '', avatar: '' };
-        var accountName = sessionProven
-            ? (profile.name ? ('Compte : ' + profile.name) : 'Compte Spotify connecté')
-            : 'Connexion Spotify non confirmée';
-        if (overrideStatus && overrideStatus.cache_status) state.cache_status = overrideStatus.cache_status;
-        if (overrideStatus && overrideStatus.sync_status) state.sync_status = overrideStatus.sync_status;
-
-        return [
-            {
-                section: 'Compte Spotify',
-                title: accountName,
-                subtitle: sessionProven
-                    ? 'Session Spotify active • Streaming Web Player'
-                    : 'La bibliothèque reste masquée jusqu’à validation de libraryV3.',
-                image: sessionProven ? (profile.avatar || '') : '',
-                uri: sessionProven ? 'spotify:settings:account_info' : 'melodix:action:open-login',
-                settingValue: sessionProven ? 'Connecté' : 'Se connecter'
-            },
-            {
-                section: 'Compte Spotify',
-                title: sessionProven ? 'Se déconnecter de Spotify' : 'Se connecter à Spotify',
-                subtitle: sessionProven
-                    ? 'Fermer la session actuelle ou changer de compte Spotify'
-                    : 'Ouvrir la connexion officielle dans le WebView.',
-                image: '',
-                uri: sessionProven ? 'spotify:settings:logout' : 'melodix:action:open-login',
-                settingValue: sessionProven ? 'Déconnexion' : 'Se connecter'
-            },
-            {
-                section: 'Qualité sonore',
-                title: 'Qualité du streaming audio',
-                subtitle: 'Débit de lecture en Wi-Fi et données mobiles (appuyez pour changer)',
-                image: '',
-                uri: 'spotify:settings:audio_quality',
-                settingValue: state.audio_quality
-            },
-            {
-                section: 'Qualité sonore',
-                title: 'Normaliser le volume',
-                subtitle: 'Appliquer le même niveau sonore à tous les titres',
-                image: '',
-                uri: 'spotify:settings:normalize_volume',
-                settingValue: state.normalize_volume ? 'ON' : 'OFF'
-            },
-            {
-                section: 'Qualité sonore',
-                title: 'Économiseur de données',
-                subtitle: 'Réduire la consommation réseau et optimiser les pochettes',
-                image: '',
-                uri: 'spotify:settings:data_saver',
-                settingValue: state.data_saver ? 'ON' : 'OFF'
-            },
-            {
-                section: 'Lecture',
-                title: 'Lecture sans blanc (Gapless)',
-                subtitle: 'Enchaîner les morceaux de manière fluide sans coupure',
-                image: '',
-                uri: 'spotify:settings:gapless',
-                settingValue: state.gapless ? 'ON' : 'OFF'
-            },
-            {
-                section: 'Lecture',
-                title: 'Lecture automatique (Autoplay)',
-                subtitle: 'Continuer à écouter des titres similaires à la fin d’une playlist',
-                image: '',
-                uri: 'spotify:settings:autoplay',
-                settingValue: state.autoplay ? 'ON' : 'OFF'
-            },
-            {
-                section: 'Lecture',
-                title: 'Lecture aléatoire (Shuffle)',
-                subtitle: 'Mélanger l’ordre de lecture des titres de la file d’attente',
-                image: '',
-                uri: 'spotify:settings:shuffle',
-                settingValue: state.shuffle ? 'ON' : 'OFF'
-            },
-            {
-                section: 'Lecture',
-                title: 'Mode Répétition (Repeat)',
-                subtitle: 'Répéter automatiquement la playlist ou le titre en cours',
-                image: '',
-                uri: 'spotify:settings:repeat',
-                settingValue: state.repeat ? 'ON' : 'OFF'
-            },
-            {
-                section: 'Lecture',
-                title: 'Contenu explicite',
-                subtitle: 'Autoriser la lecture des titres marqués du badge Explicit',
-                image: '',
-                uri: 'spotify:settings:explicit',
-                settingValue: state.explicit ? 'ON' : 'OFF'
-            },
-            {
-                section: 'Vidéos et Arrière-plan',
-                title: 'Canvas (visuels en boucle)',
-                subtitle: 'Afficher les courtes vidéos animées sur les morceaux compatibles',
-                image: '',
-                uri: 'spotify:settings:canvas',
-                settingValue: state.canvas ? 'ON' : 'OFF'
-            },
-            {
-                section: 'Vidéos et Arrière-plan',
-                title: 'Lecture en arrière-plan',
-                subtitle: 'Maintenir le moteur audio actif lorsque l’écran est verrouillé',
-                image: '',
-                uri: 'spotify:settings:bg_audio',
-                settingValue: state.bg_audio ? 'ON' : 'OFF'
-            },
-            {
-                section: 'Stockage et Bibliothèque',
-                title: 'Vider le cache de l’application',
-                subtitle: state.cache_status,
-                image: '',
-                uri: 'spotify:settings:clear_cache',
-                settingValue: 'Vider'
-            },
-            {
-                section: 'Stockage et Bibliothèque',
-                title: 'Synchroniser la bibliothèque Spotify',
-                subtitle: state.sync_status,
-                image: '',
-                uri: 'spotify:settings:resync',
-                settingValue: 'Actualiser'
-            },
-            {
-                section: 'À propos',
-                title: 'Melodix • Client Spotify Natif',
-                subtitle: 'Version 1.2.2 • Interface native Android • Spotify Web Player',
-                image: '',
-                uri: 'spotify:settings:about',
-                settingValue: 'v1.2.2'
+    function readSpotifyPlaybackControl(testId) {
+        try {
+            var button = document.querySelector && document.querySelector(
+                'button[data-testid="' + testId + '"]'
+            );
+            if (!button || typeof button.getAttribute !== 'function') return null;
+            var value = button.getAttribute('aria-checked');
+            if (value === 'true') return { button: button, enabled: true };
+            if (value === 'false') return { button: button, enabled: false };
+            if (testId === 'control-button-repeat' && value === 'mixed') {
+                return { button: button, enabled: true };
             }
-        ];
+        } catch (_) {}
+        return null;
     }
 
-    window.__sfRequestSpotifySettings = function(overrideStatus) {
-        var rows = buildSpotifySettingsRows(overrideStatus);
-        return sendNativeUiData('settings', rows);
+    function mediaLibraryDiagnosticStatus() {
+        var status = String(window.__sfMediaLibStatus || 'pending');
+        var error = String(window.__sfMediaLibError || '');
+        if (status === 'ready') {
+            return Number(window.__sfMediaLibRawItemCount || 0) > 0
+                ? 'Réponse libraryV3 validée; éléments reçus.'
+                : 'Réponse libraryV3 validée; bibliothèque vide.';
+        }
+        if (status === 'loading') return 'Requête libraryV3 en cours.';
+        if (error === 'http-401') return 'libraryV3 a répondu 401; session non validée.';
+        if (error === 'http-403') return 'libraryV3 a répondu 403; session non validée.';
+        if (error === 'http-429') return 'libraryV3 a demandé de ralentir les requêtes.';
+        if (status === 'error') return 'Dernière requête libraryV3 en échec; aucune synchronisation confirmée.';
+        return 'Aucune réponse libraryV3 validée pour cette session.';
+    }
+
+    function buildSpotifySettingsRows() {
+        var local = getMelodixSettingsState();
+        var sessionProven = libraryProvesSession();
+        var shuffle = readSpotifyPlaybackControl('control-button-shuffle');
+        var repeat = readSpotifyPlaybackControl('control-button-repeat');
+        var status = String(window.__sfMediaLibStatus || 'pending');
+        var refreshAvailable = sessionProven && status !== 'loading';
+        var rows = [
+            {
+                section: 'Compte Spotify',
+                title: sessionProven ? 'Session Spotify confirmée' : 'Session Spotify non confirmée',
+                subtitle: sessionProven
+                    ? 'La preuve provient de la réponse libraryV3 de cette session.'
+                    : 'Les données privées restent masquées tant que libraryV3 ne confirme pas la session.',
+                image: '',
+                uri: sessionProven ? 'spotify:settings:logout' : 'melodix:action:open-login',
+                settingValue: sessionProven ? 'Se déconnecter' : 'Se connecter'
+            },
+            {
+                section: 'Diagnostic Melodix',
+                title: 'État de libraryV3',
+                subtitle: mediaLibraryDiagnosticStatus(),
+                image: '',
+                uri: '',
+                settingValue: status === 'ready' ? 'Résultat reçu' : status === 'loading' ? 'Chargement' : 'À vérifier'
+            },
+            {
+                section: 'Diagnostic Melodix',
+                title: 'Actualiser la bibliothèque',
+                subtitle: refreshAvailable
+                    ? 'Relancer libraryV3; le résultat ne sera confirmé qu’après sa réponse.'
+                    : status === 'loading'
+                        ? 'Une requête libraryV3 est déjà en cours.'
+                        : 'Disponible après validation de la session Spotify.',
+                image: '',
+                uri: refreshAvailable ? 'melodix:action:retry-library' : '',
+                settingValue: refreshAvailable ? 'Actualiser' : 'Indisponible'
+            },
+            {
+                section: 'Préférences Melodix',
+                title: 'Lecture automatique après un titre',
+                subtitle: 'Préférence locale Melodix; ce n’est pas un réglage du compte Spotify.',
+                image: '',
+                uri: 'melodix:setting:autoplay',
+                settingValue: local.autoplay ? 'ON' : 'OFF'
+            },
+            {
+                section: 'Préférences Melodix',
+                title: 'Visuels Canvas',
+                subtitle: 'Préférence locale d’affichage Melodix.',
+                image: '',
+                uri: 'melodix:setting:canvas',
+                settingValue: local.canvas ? 'ON' : 'OFF'
+            },
+            {
+                section: 'Préférences Melodix',
+                title: 'Maintenir l’audio en arrière-plan',
+                subtitle: 'Préférence locale de gestion de veille Melodix.',
+                image: '',
+                uri: 'melodix:setting:bg_audio',
+                settingValue: local.bg_audio ? 'ON' : 'OFF'
+            },
+            {
+                section: 'Commandes du lecteur Spotify',
+                title: 'Lecture aléatoire',
+                subtitle: shuffle ? 'État lu depuis le contrôle Spotify du lecteur.' : 'Contrôle Spotify indisponible sur cette page.',
+                image: '',
+                uri: shuffle ? 'spotify:settings:shuffle' : '',
+                settingValue: shuffle ? (shuffle.enabled ? 'ON' : 'OFF') : 'Indisponible'
+            },
+            {
+                section: 'Commandes du lecteur Spotify',
+                title: 'Répétition',
+                subtitle: repeat ? 'État lu depuis le contrôle Spotify du lecteur.' : 'Contrôle Spotify indisponible sur cette page.',
+                image: '',
+                uri: repeat ? 'spotify:settings:repeat' : '',
+                settingValue: repeat ? (repeat.enabled ? 'ON' : 'OFF') : 'Indisponible'
+            },
+            {
+                section: 'Non disponibles',
+                title: 'Autres réglages Spotify',
+                subtitle: 'Qualité audio, normalisation, économie de données, gapless et contrôle du contenu explicite ne sont pas exposés par cette intégration.',
+                image: '',
+                uri: '',
+                settingValue: 'Non implémenté'
+            }
+        ];
+        return rows;
+    }
+
+    var settingsRequestTimer = null;
+    var SETTINGS_REQUEST_MAX_ATTEMPTS = 3;
+    var SETTINGS_REQUEST_RETRY_DELAY_MS = 900;
+
+    window.__sfRequestSpotifySettings = function() {
+        return sendNativeUiData('settings', buildSpotifySettingsRows());
+    };
+
+    window.__sfNativeSettingsRequest = function(requestId) {
+        var id = Number(requestId);
+        var attempts = 0;
+        if (!Number.isFinite(id) || Math.floor(id) !== id || id < 1 || id > 999999) return false;
+        if (settingsRequestTimer) {
+            try { window.clearTimeout(settingsRequestTimer); } catch (_) {}
+            settingsRequestTimer = null;
+        }
+        window.__sfNativeSettingsRequestId = id;
+        window.__sfNativeSettingsAckedRequestId = 0;
+        window.__sfNativeSettingsAttemptCount = 0;
+        window.__sfNativeSettingsRequestExhaustedId = 0;
+
+        function attemptRequest() {
+            var sent = false;
+            if (window.__sfNativeSettingsRequestId !== id ||
+                window.__sfNativeSettingsAckedRequestId === id) return;
+            attempts += 1;
+            window.__sfNativeSettingsAttemptCount = attempts;
+            try {
+                sent = Boolean(window.__sfRequestSpotifySettings());
+            } catch (_) {}
+            diagTrace('settings-load request=' + id + ' attempt=' + attempts +
+                ' result=' + (sent ? 'sent' : 'failed'));
+            if (attempts < SETTINGS_REQUEST_MAX_ATTEMPTS) {
+                settingsRequestTimer = window.setTimeout(attemptRequest, SETTINGS_REQUEST_RETRY_DELAY_MS);
+            } else {
+                window.__sfNativeSettingsRequestExhaustedId = id;
+                settingsRequestTimer = null;
+                diagTrace('settings-load request=' + id + ' attempt=' + attempts + ' result=exhausted');
+            }
+        }
+
+        attemptRequest();
+        return true;
+    };
+
+    window.__sfNativeSettingsApplied = function(requestId, rowCount) {
+        var id = Number(requestId);
+        var count = Number(rowCount);
+        if (!Number.isFinite(id) || id !== window.__sfNativeSettingsRequestId ||
+            !Number.isFinite(count) || Math.floor(count) !== count || count < 1 || count > 1000) return false;
+        window.__sfNativeSettingsAckedRequestId = id;
+        if (settingsRequestTimer) {
+            try { window.clearTimeout(settingsRequestTimer); } catch (_) {}
+            settingsRequestTimer = null;
+        }
+        diagTrace('settings-load request=' + id + ' rows=' + count + ' result=applied');
+        return true;
     };
 
     window.__sfToggleSpotifySetting = function(uri) {
-        var key = String(uri || '').replace(/^spotify:settings:/i, '').trim();
-        var state = getSpotifySettingsState();
-        var overrideStatus = {};
+        var raw = String(uri || '').trim();
+        var spotifyKey = raw.replace(/^spotify:settings:/i, '').trim();
+        var localKey = raw.replace(/^melodix:setting:/i, '').trim();
+        var local = getMelodixSettingsState();
+        var settingsRequestId = Number(window.__sfNativeSettingsRequestId || 0);
+        var control = null;
 
-        if (key === 'audio_quality') {
-            var idx = AUDIO_QUALITIES.indexOf(state.audio_quality);
-            state.audio_quality = AUDIO_QUALITIES[(idx + 1) % AUDIO_QUALITIES.length];
-            saveSpotifySettingsState(state);
-        } else if (key === 'normalize_volume') {
-            state.normalize_volume = !state.normalize_volume;
-            saveSpotifySettingsState(state);
-        } else if (key === 'data_saver') {
-            state.data_saver = !state.data_saver;
-            if (state.data_saver) state.canvas = false;
-            saveSpotifySettingsState(state);
-            try {
-                if (window.AndBridge && typeof window.AndBridge.setCanvasDisabled === 'function') {
-                    window.AndBridge.setCanvasDisabled(!state.canvas);
-                }
-            } catch (_) {}
-        } else if (key === 'gapless') {
-            state.gapless = !state.gapless;
-            saveSpotifySettingsState(state);
-        } else if (key === 'autoplay') {
-            state.autoplay = !state.autoplay;
-            if (window.SF_CONFIG) {
-                window.SF_CONFIG.autoPlayMode = state.autoplay ? 'permanent' : 'disabled';
-            }
-            saveSpotifySettingsState(state);
-        } else if (key === 'shuffle') {
-            state.shuffle = !state.shuffle;
-            saveSpotifySettingsState(state);
-            try {
-                if (typeof window.actShuffle === 'function') {
-                    window.actShuffle();
-                } else if (document.querySelector) {
-                    var sb = document.querySelector('button[data-testid="control-button-shuffle"]');
-                    if (sb && typeof sb.click === 'function') sb.click();
-                }
-            } catch (_) {}
-        } else if (key === 'repeat') {
-            state.repeat = !state.repeat;
-            saveSpotifySettingsState(state);
-            try {
-                if (typeof window.actRepeat === 'function') {
-                    window.actRepeat();
-                } else if (document.querySelector) {
-                    var rb = document.querySelector('button[data-testid="control-button-repeat"]');
-                    if (rb && typeof rb.click === 'function') rb.click();
-                }
-            } catch (_) {}
-        } else if (key === 'explicit') {
-            state.explicit = !state.explicit;
-            saveSpotifySettingsState(state);
-        } else if (key === 'canvas') {
-            state.canvas = !state.canvas;
-            if (window.SF_CONFIG) {
-                window.SF_CONFIG.isCanvasDisabled = !state.canvas;
-            }
-            saveSpotifySettingsState(state);
-            try {
-                if (document.body && document.body.classList) {
-                    document.body.classList.toggle('sf-hide-canvas', !state.canvas);
-                }
-                if (window.AndBridge && typeof window.AndBridge.setCanvasDisabled === 'function') {
-                    window.AndBridge.setCanvasDisabled(!state.canvas);
-                }
-            } catch (_) {}
-        } else if (key === 'bg_audio') {
-            state.bg_audio = !state.bg_audio;
-            saveSpotifySettingsState(state);
-            try {
-                if (window.AndBridge && typeof window.AndBridge.manageTSleep === 'function') {
-                    window.AndBridge.manageTSleep(Boolean(state.bg_audio && window.playing));
-                }
-            } catch (_) {}
-        } else if (key === 'clear_cache') {
-            if (window.__sfSearchCache && typeof window.__sfSearchCache.clear === 'function') {
-                window.__sfSearchCache.clear();
+        if (raw.indexOf('melodix:setting:') === 0) {
+            if (localKey === 'autoplay') {
+                local.autoplay = !local.autoplay;
+                if (window.SF_CONFIG) window.SF_CONFIG.autoPlayMode = local.autoplay ? 'permanent' : 'disabled';
+            } else if (localKey === 'canvas') {
+                local.canvas = !local.canvas;
+                if (window.SF_CONFIG) window.SF_CONFIG.isCanvasDisabled = !local.canvas;
+                try {
+                    if (document.body && document.body.classList) {
+                        document.body.classList.toggle('sf-hide-canvas', !local.canvas);
+                    }
+                    if (window.AndBridge && typeof window.AndBridge.setCanvasDisabled === 'function') {
+                        window.AndBridge.setCanvasDisabled(!local.canvas);
+                    }
+                } catch (_) {}
+            } else if (localKey === 'bg_audio') {
+                local.bg_audio = !local.bg_audio;
+                window.__sfBackgroundAudioEnabled = local.bg_audio;
+                try {
+                    if (typeof window.__sfSyncBackgroundAudioWake === 'function') {
+                        window.__sfSyncBackgroundAudioWake(Boolean(window.playing));
+                    } else if (window.AndBridge && typeof window.AndBridge.manageTSleep === 'function') {
+                        window.AndBridge.manageTSleep(Boolean(local.bg_audio && window.playing));
+                    }
+                } catch (_) {}
             } else {
-                window.__sfSearchCache = new Map();
+                return false;
             }
-            if (window.__sfMediaItemsCache && typeof window.__sfMediaItemsCache.clear === 'function') {
-                window.__sfMediaItemsCache.clear();
-            } else {
-                window.__sfMediaItemsCache = new Map();
-            }
-            overrideStatus.cache_status = 'Cache vidé avec succès ✓';
-        } else if (key === 'resync') {
-            if (window.__sfMediaItemsCache && typeof window.__sfMediaItemsCache.clear === 'function') {
-                window.__sfMediaItemsCache.clear();
-            } else {
-                window.__sfMediaItemsCache = new Map();
-            }
-            lastHomeSignature = null;
-            try {
-                requestMediaLibraryProof('settings-resync', true);
-            } catch (_) {}
-            overrideStatus.sync_status = 'Bibliothèque Spotify synchronisée ✓';
-        } else if (key === 'logout') {
-            try {
-                if (window.localStorage) window.localStorage.clear();
-                if (window.sessionStorage) window.sessionStorage.clear();
-            } catch (_) {}
+            saveMelodixSettingsState(local);
+            return window.__sfRequestSpotifySettings();
+        }
+
+        if (spotifyKey === 'shuffle') {
+            control = readSpotifyPlaybackControl('control-button-shuffle');
+        } else if (spotifyKey === 'repeat') {
+            control = readSpotifyPlaybackControl('control-button-repeat');
+        } else if (spotifyKey === 'logout') {
             if (window.AndBridge && typeof window.AndBridge.nativeLogout === 'function') {
                 window.AndBridge.nativeLogout();
                 return true;
             }
-            window.location.assign('https://accounts.spotify.com/logout');
-            return true;
+            return false;
+        } else {
+            return false;
         }
 
-        return window.__sfRequestSpotifySettings(overrideStatus);
+        if (!control || !control.button || typeof control.button.click !== 'function') return false;
+        try {
+            control.button.click();
+            window.setTimeout(function() {
+                if (window.__sfNativeSettingsRequestId === settingsRequestId) {
+                    window.__sfRequestSpotifySettings();
+                }
+            }, 300);
+            return true;
+        } catch (_) {
+            return false;
+        }
     };
 
     window.__sfNativeUiRefresh = function() {
+        var settingsRequestId = Number(window.__sfNativeSettingsRequestId || 0);
+        if (settingsRequestId > 0 &&
+            Number(window.__sfNativeSettingsAckedRequestId || 0) === settingsRequestId) {
+            return window.__sfRequestSpotifySettings();
+        }
         runUpdate();
         return true;
     };

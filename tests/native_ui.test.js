@@ -400,7 +400,8 @@ test('native Home collector keeps image-less Spotify links and filters non-Spoti
         subtitle: 'Artist name',
         section: '',
         image: '',
-        uri: 'spotify:track:track99'
+        uri: 'spotify:track:track99',
+        __sfHomeCorrelationId: 1
     }]);
 });
 
@@ -454,7 +455,8 @@ test('Home uses saved library items as a fallback when Spotify has no visible Ho
         subtitle: 'Playlist',
         section: 'Vos playlists',
         image: 'https://i.scdn.co/image/saved',
-        uri: 'spotify:playlist:saved123'
+        uri: 'spotify:playlist:saved123',
+        __sfHomeCorrelationId: 1
     }]);
 });
 
@@ -512,7 +514,8 @@ test('localized Spotify /app Home route still collects and sends Home rows', () 
         subtitle: 'Playlist',
         section: 'Vos playlists',
         image: 'https://i.scdn.co/image/fr-cover',
-        uri: 'spotify:playlist:fr123'
+        uri: 'spotify:playlist:fr123',
+        __sfHomeCorrelationId: 1
     }]);
 });
 
@@ -730,7 +733,8 @@ test('bundled native bootstrap activates the shell, sends Home rows, and only op
         subtitle: 'Picked for you',
         section: '',
         image: 'https://i.scdn.co/image/focus',
-        uri: 'spotify:playlist:abc123'
+        uri: 'spotify:playlist:abc123',
+        __sfHomeCorrelationId: 1
     }]);
     assert.equal(window.__sfNativeUiHomeRowsCount, 1);
     assert.equal(window.__sfNativeUiHomeDataSent, true);
@@ -826,7 +830,8 @@ test('Home cards with sibling artwork outside the title anchor still resolve the
         subtitle: 'Creator Name',
         section: '',
         image: 'https://i.scdn.co/image/ep123',
-        uri: 'spotify:episode:ep123'
+        uri: 'spotify:episode:ep123',
+        __sfHomeCorrelationId: 1
     }]);
 });
 
@@ -948,7 +953,7 @@ test('playback stability and fast live search optimizations are active across Sm
     assert.match(watcher, /implements Landroid\/text\/TextWatcher;/);
 });
 
-test('native Spotify settings screen replaces the web settings sheet', () => {
+test('native settings replace the web sheet and distinguish Spotify, local preferences, diagnostics, and unavailable features', () => {
     const shell = read('scripts/native_ui_shell.source.js');
     const activity = read('smali/com/melodix/music/MainActivity.smali');
     const bridge = read('smali/com/melodix/music/AndBridge.smali');
@@ -956,44 +961,83 @@ test('native Spotify settings screen replaces the web settings sheet', () => {
 
     assert.match(shell, /window\.__sfRequestSpotifySettings/);
     assert.match(shell, /window\.__sfToggleSpotifySetting/);
-    for (const key of [
-        'account_info', 'logout', 'audio_quality', 'normalize_volume', 'data_saver',
-        'gapless', 'autoplay', 'shuffle', 'repeat', 'explicit', 'canvas', 'bg_audio',
-        'clear_cache', 'resync', 'about'
-    ]) {
-        assert.ok(shell.includes(`spotify:settings:${key}`), `${key} should be a settings row`);
+    assert.match(read('scripts/spotify_bridge.source.js'),
+        /function syncBackgroundAudioWake\(playing\)[\s\S]*?Boolean\(playing && window\.__sfBackgroundAudioEnabled !== false\)[\s\S]*?manageTSleep\(shouldKeepAwake\)/,
+        'the persisted background-audio preference controls the native sleep hold using observed playback state');
+    assert.match(read('scripts/spotify_bridge.source.js'),
+        /window\.manageAll = function\(play\)[\s\S]*?syncBackgroundAudioWake\(play\)/);
+    assert.match(shell, /spotify:settings:shuffle/);
+    assert.match(shell, /spotify:settings:repeat/);
+    for (const key of ['autoplay', 'canvas', 'bg_audio']) {
+        assert.ok(shell.includes(`melodix:setting:${key}`), `${key} is namespaced as a Melodix-local preference`);
     }
+    for (const key of ['audio_quality', 'normalize_volume', 'data_saver', 'gapless', 'explicit']) {
+        assert.doesNotMatch(shell, new RegExp(`spotify:settings:${key}`), `${key} must not be presented as an available Spotify setting`);
+    }
+    assert.match(shell, /Non implémenté/);
+    assert.match(shell, /le résultat ne sera confirmé qu’après sa réponse/);
+    assert.doesNotMatch(shell, /Bibliothèque Spotify synchronisée ✓/,
+        'a request is never reported as a completed synchronization');
 
     assert.match(activity, /\.method public final openNativeSettings\(\)V/);
+    assert.match(activity, /beginNativeSettingsLoad\(\)V/);
     assert.match(activity, /onNativeSettingsClick[\s\S]*?openNativeSettings\(\)V/);
     assert.match(activity, /"spotify:settings:"[\s\S]*?__sfToggleSpotifySetting/);
+    assert.match(activity, /"melodix:setting:"[\s\S]*?__sfToggleSpotifySetting/);
     assert.match(activity, /:check_settings[\s\S]*?"Paramètres"/);
-    assert.match(activity, /"home-greeting"[\s\S]*?"home"[\s\S]*?setText\(Ljava\/lang\/CharSequence;\)V/);
-    assert.match(shell, /onNativeUiData\('home-greeting', greeting\)/);
     assert.match(activity, /NativeSettingsRowFactory;->create\(Lcom\/melodix\/music\/MainActivity;Lorg\/json\/JSONObject;\)Landroid\/widget\/LinearLayout;/);
-    assert.match(bridge, /onNativeProfileImage\(Ljava\/lang\/String;\)V[\s\S]*?JavascriptInterface/);
     assert.match(bridge, /nativeLogout\(\)V[\s\S]*?JavascriptInterface[\s\S]*?NativeLogoutRunnable/);
-    assert.match(shell, /AndBridge\.nativeLogout/);
     assert.match(factory, /GradientDrawable;->setCornerRadius[\s\S]*?setTextColor\(I\)V/);
-    assert.match(read('res/layout/activity_main.xml'), /@id\/nativeHeaderAvatar/);
+    assert.match(factory, /invoke-virtual \{v7\}, Ljava\/lang\/String;->isEmpty\(\)Z[\s\S]*?setClickable\(Z\)V[\s\S]*?setFocusable\(Z\)V[\s\S]*?NativeRowClickListener/,
+        'rows with no action URI are disabled, while real settings actions remain focusable and clickable');
 });
 
-test('native settings rows expose real Spotify options and toggles persist locally', () => {
+test('account greeting, avatar, and logout paths remain proof-gated and available', () => {
+    const shell = read('scripts/native_ui_shell.source.js');
+    const activity = read('smali/com/melodix/music/MainActivity.smali');
+    const bridge = read('smali/com/melodix/music/AndBridge.smali');
+    const layout = read('res/layout/activity_main.xml');
+
+    assert.match(shell, /if \(!libraryProvesSession\(\)\) return \{ name: '', avatar: '' \}/,
+        'profile names and avatars stay hidden until the private library proof succeeds');
+    assert.match(activity, /"home-greeting"[\s\S]*?"home"[\s\S]*?setText\(Ljava\/lang\/CharSequence;\)V/);
+    assert.match(shell, /onNativeUiData\('home-greeting', greeting\)/);
+    assert.match(bridge, /onNativeProfileImage\(Ljava\/lang\/String;\)V[\s\S]*?JavascriptInterface/);
+    assert.match(shell, /AndBridge\.nativeLogout/);
+    assert.match(layout, /@id\/nativeHeaderAvatar/);
+});
+
+test('native settings rows reflect real controls, keep Melodix preferences local, and never invent sync results', () => {
     const calls = [];
+    const sleepCalls = [];
     const store = new Map();
+    const controls = {
+        'control-button-shuffle': { enabled: false, clickCount: 0 },
+        'control-button-repeat': { enabled: true, clickCount: 0 }
+    };
+    Object.values(controls).forEach((control) => {
+        control.getAttribute = (name) => name === 'aria-checked' ? String(control.enabled) : null;
+        control.click = () => { control.enabled = !control.enabled; control.clickCount += 1; };
+    });
     const document = {
         readyState: 'complete',
         documentElement: {},
-        querySelector: () => null,
+        body: { classList: { toggle: () => {} } },
+        querySelector: (selector) => {
+            const match = /data-testid="([^"]+)"/.exec(selector);
+            return match ? controls[match[1]] || null : null;
+        },
         addEventListener: () => {}
     };
     class TestMutationObserver {
         observe() {}
     }
     const window = {
-        // Positive API-proof fixture only; negative auth cases are covered in p0_shell_takeover.test.js.
         __sfMediaLibSessionProofKnown: true,
         __sfMediaLibSessionProven: true,
+        __sfMediaLibStatus: 'ready',
+        __sfMediaLibRawItemCount: 1,
+        SF_CONFIG: { autoPlayMode: 'permanent', isCanvasDisabled: false },
         location: {
             hostname: 'open.spotify.com',
             pathname: '/',
@@ -1001,7 +1045,9 @@ test('native settings rows expose real Spotify options and toggles persist local
         },
         AndBridge: {
             onNativeUiReady: () => {},
-            onNativeUiData: (screen, data) => calls.push({ screen, data })
+            onNativeUiData: (screen, data) => calls.push({ screen, data }),
+            setCanvasDisabled: () => {},
+            manageTSleep: (enabled) => sleepCalls.push(enabled)
         },
         MutationObserver: TestMutationObserver,
         addEventListener: () => {},
@@ -1023,22 +1069,46 @@ test('native settings rows expose real Spotify options and toggles persist local
     assert.equal(calls[0].screen, 'settings');
 
     const rows = JSON.parse(calls[0].data);
-    assert.ok(rows.length >= 14, 'the native settings screen lists the real Spotify options');
-    const canvasRow = rows.find((row) => row.uri === 'spotify:settings:canvas');
-    assert.equal(canvasRow.settingValue, 'ON');
-    assert.equal(canvasRow.section, 'Vidéos et Arrière-plan');
+    const localCanvas = rows.find((row) => row.uri === 'melodix:setting:canvas');
+    const shuffleRow = rows.find((row) => row.uri === 'spotify:settings:shuffle');
+    const repeatRow = rows.find((row) => row.uri === 'spotify:settings:repeat');
+    const unavailable = rows.find((row) => row.section === 'Non disponibles');
+    const refresh = rows.find((row) => row.title === 'Actualiser la bibliothèque');
+    assert.ok(localCanvas && localCanvas.section === 'Préférences Melodix');
+    assert.equal(localCanvas.settingValue, 'ON');
+    assert.equal(shuffleRow.settingValue, 'OFF', 'the value comes from Spotify control-button-shuffle');
+    assert.equal(repeatRow.settingValue, 'ON', 'the value comes from Spotify control-button-repeat');
+    assert.equal(unavailable.settingValue, 'Non implémenté');
+    assert.equal(unavailable.uri, '', 'unavailable Spotify settings cannot be clicked');
+    assert.match(refresh.subtitle, /résultat ne sera confirmé qu’après sa réponse/);
+    assert.doesNotMatch(rows.map((row) => row.subtitle).join('\n'), /synchronisée ✓/);
+    for (const unsupported of ['audio_quality', 'normalize_volume', 'data_saver', 'gapless', 'explicit', 'resync']) {
+        assert.equal(rows.some((row) => row.uri === `spotify:settings:${unsupported}`), false);
+    }
 
     calls.length = 0;
-    window.__sfToggleSpotifySetting('spotify:settings:canvas');
-    assert.equal(calls.length, 1);
-    const toggled = JSON.parse(calls[0].data).find((row) => row.uri === 'spotify:settings:canvas');
+    window.__sfToggleSpotifySetting('melodix:setting:canvas');
+    const toggled = JSON.parse(calls[0].data).find((row) => row.uri === 'melodix:setting:canvas');
     assert.equal(toggled.settingValue, 'OFF');
     assert.ok(store.get('melodix_spotify_settings_v1').includes('"canvas":false'));
 
+    window.__sfToggleSpotifySetting('melodix:setting:autoplay');
+    assert.equal(window.SF_CONFIG.autoPlayMode, 'disabled',
+        'the Melodix autoplay preference updates the local playback behavior');
+    assert.ok(store.get('melodix_spotify_settings_v1').includes('"autoplay":false'));
+    window.playing = true;
+    window.__sfToggleSpotifySetting('melodix:setting:bg_audio');
+    assert.equal(window.__sfBackgroundAudioEnabled, false);
+    assert.ok(sleepCalls.includes(false), 'background-audio preference disables the native sleep hold');
+
+    assert.equal(window.__sfToggleSpotifySetting('spotify:settings:shuffle'), true);
+    assert.equal(controls['control-button-shuffle'].clickCount, 1,
+        'the action invokes the real Spotify player control instead of flipping a local shadow value');
     calls.length = 0;
-    window.__sfToggleSpotifySetting('spotify:settings:audio_quality');
-    const quality = JSON.parse(calls[0].data).find((row) => row.uri === 'spotify:settings:audio_quality');
-    assert.equal(quality.settingValue, 'Élevée (160 kbit/s)');
+    window.__sfRequestSpotifySettings();
+    const updatedShuffle = JSON.parse(calls[0].data).find((row) => row.uri === 'spotify:settings:shuffle');
+    assert.equal(updatedShuffle.settingValue, 'ON');
+    assert.equal(window.__sfToggleSpotifySetting('spotify:settings:audio_quality'), false);
 });
 
 test('mobile rows lead with the cover and drop the legacy play badge', () => {
@@ -1086,29 +1156,17 @@ test('the native shell can ask Android to evaluate the playback bridge again', (
     );
 });
 
-test('content rows reach the cover factory instead of the settings factory', () => {
+test('native row dispatch branches on settingValue emptiness before selecting a factory', () => {
     const activity = read('smali/com/melodix/music/MainActivity.smali');
-    // Several jumps reference the label: the definition is the last match.
     const start = activity.lastIndexOf(':native_row_build_card');
     assert.ok(start > 0, 'the row dispatch label should exist');
-    // The label is referenced by a goto before its definition: take a window
-    // that always covers the whole dispatch block.
     const dispatch = activity.slice(start, start + 1400);
 
     assert.match(dispatch, /const-string v0, "settingValue"[\s\S]*?isEmpty\(\)Z[\s\S]*?move-result v1/);
-    assert.match(
-        dispatch,
-        /if-eqz v1, :native_row_create_standard/,
-        'an empty settingValue marks a content row and must use the cover factory'
-    );
-    assert.doesNotMatch(
-        dispatch,
-        /if-nez v1, :native_row_create_standard/,
-        'the inverted jump rendered every content row with the settings factory'
-    );
-
+    assert.match(dispatch, /if-nez v1, :native_row_create_standard/,
+        'nonempty settingValue selects a settings row; empty settingValue falls through to content');
+    assert.doesNotMatch(dispatch, /if-eqz v1, :native_row_create_standard/);
     const settingsAt = dispatch.indexOf('NativeSettingsRowFactory;->create');
-    // The jump instruction also contains the label name: take its definition.
     const standardLabel = dispatch.lastIndexOf(':native_row_create_standard');
     const contentAt = dispatch.indexOf('NativeUiRowFactory;->create(');
     assert.ok(settingsAt > 0, 'settings rows still need the settings factory');
@@ -1283,7 +1341,7 @@ test('the compact Settings icon opens and preserves the screen to return to', ()
     assert.match(activity, /onNativeSettingsClick[\s\S]*?openNativeSettings\(\)V/);
     assert.match(open, /iput-object v0, p0, Lcom\/melodix\/music\/MainActivity;->nativeReturnScreen:Ljava\/lang\/String;/);
     assert.match(open, /iput-object v0, p0, Lcom\/melodix\/music\/MainActivity;->nativeReturnJson:Ljava\/lang\/String;/);
-    assert.match(open, /invoke-virtual \{p0, v1, v2\}, Lcom\/melodix\/music\/MainActivity;->renderNativeRows/);
+    assert.match(open, /setNativeScreen\(Ljava\/lang\/String;\)V[\s\S]*?beginNativeSettingsLoad\(\)V/);
 });
 
 test('library chips and the search tab never call a bridge-only function', () => {

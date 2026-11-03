@@ -564,7 +564,7 @@
     move-result v1
     if-nez v1, :structured_safe
 
-    const-string v0, "^library\\.request\\.started attempt=[0-9]{1,6} request=[0-9]{1,4} source=(shell-update|native-retry|web-home-retry|settings-resync|unspecified)$"
+    const-string v0, "^library\\.request\\.started attempt=[0-9]{1,6} request=[0-9]{1,4} source=(shell-update|native-retry|web-home-retry|unspecified)$"
     invoke-virtual {p1, v0}, Ljava/lang/String;->matches(Ljava/lang/String;)Z
     move-result v1
     if-nez v1, :structured_safe
@@ -610,6 +610,21 @@
     if-nez v1, :structured_safe
 
     const-string v0, "^home-web decision=(body-missing|route-not-home|gui-mode-unsupported|fullscreen-open|renderer-inactive|styles-not-ready|visible|status-visible-(loading|empty|error|partial|ready|unavailable)|activation-visibility-check-failed|rendered|rendered-partial|updated|rendered-status-(loading|empty|error|unavailable)) mode=(csshack|bigwindow|other|missing) route=(home|search|library|playlist|album|artist|track|show|episode|audiobook|login|other) styles=(0|1) root=(0|1|unknown)$"
+    invoke-virtual {p1, v0}, Ljava/lang/String;->matches(Ljava/lang/String;)Z
+    move-result v1
+    if-nez v1, :structured_safe
+
+    const-string v0, "^home-trace cid=(0|[1-9][0-9]{0,5}) stage=(session|request|response|parse|transform|payload|bridge-send|android-receive|render|visible) result=(unknown|in-progress|connected|required|started|skipped-auth|in-flight|blocked|backoff|ready|valid|empty|malformed|partial|populated|status|suppressed|sent|failed|received|invalid|rejected|cards|visible|error|timeout|unavailable) duration=[0-9]{1,6}( http=[1-5][0-9]{2})?( attempt=[0-9]{1,6})?( request=[0-9]{1,4})?$"
+    invoke-virtual {p1, v0}, Ljava/lang/String;->matches(Ljava/lang/String;)Z
+    move-result v1
+    if-nez v1, :structured_safe
+
+    const-string v0, "^settings-load request=[1-9][0-9]{0,5} attempt=[1-3] result=(sent|failed|exhausted)$"
+    invoke-virtual {p1, v0}, Ljava/lang/String;->matches(Ljava/lang/String;)Z
+    move-result v1
+    if-nez v1, :structured_safe
+
+    const-string v0, "^settings-load request=[1-9][0-9]{0,5} rows=([1-9][0-9]{0,2}|1000) result=applied$"
     invoke-virtual {p1, v0}, Ljava/lang/String;->matches(Ljava/lang/String;)Z
     move-result v1
     if-nez v1, :structured_safe

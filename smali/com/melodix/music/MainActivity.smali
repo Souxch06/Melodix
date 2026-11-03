@@ -108,6 +108,11 @@
 .field private nativeDisplayOwner:Ljava/lang/String;
 .field private nativeDisplayOwnerStartElapsed:J
 .field private nativeLoginWebRequested:Z
+.field private nativeSettingsGeneration:I
+.field private nativeSettingsReadyGeneration:I
+.field private nativeSettingsLoading:Z
+.field private nativeHomeCorrelationId:I
+.field private nativeHomeTraceStartedAt:J
 
 
 # direct methods
@@ -7904,6 +7909,152 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
     return-void
 .end method
 
+.method private final traceNativeHomeStage(Ljava/lang/String;Ljava/lang/String;I)V
+    .locals 4
+
+    iget v0, p0, Lcom/melodix/music/MainActivity;->nativeHomeCorrelationId:I
+    if-lez v0, :native_home_trace_done
+    new-instance v1, Ljava/lang/StringBuilder;
+    invoke-direct {v1}, Ljava/lang/StringBuilder;-><init>()V
+    const-string v2, "home-trace cid="
+    invoke-virtual {v1, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    invoke-virtual {v1, v0}, Ljava/lang/StringBuilder;->append(I)Ljava/lang/StringBuilder;
+    const-string v2, " stage="
+    invoke-virtual {v1, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    invoke-virtual {v1, p1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    const-string v2, " result="
+    invoke-virtual {v1, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    invoke-virtual {v1, p2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    const-string v2, " duration="
+    invoke-virtual {v1, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    invoke-virtual {v1, p3}, Ljava/lang/StringBuilder;->append(I)Ljava/lang/StringBuilder;
+    invoke-virtual {v1}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
+    move-result-object v1
+    invoke-static {v1}, Lcom/melodix/music/NativeCrashGuard;->diagLine(Ljava/lang/String;)V
+    invoke-static {v1}, Lcom/melodix/music/StartupDiagnosticOverlay;->appendDiagnosticLine(Ljava/lang/String;)V
+
+    :native_home_trace_done
+    return-void
+.end method
+
+.method private final beginNativeHomePipeline(Ljava/lang/String;)V
+    .locals 6
+
+    const/4 v0, 0x0
+    :try_start_native_home_trace_parse
+    new-instance v1, Lorg/json/JSONArray;
+    invoke-direct {v1, p1}, Lorg/json/JSONArray;-><init>(Ljava/lang/String;)V
+    invoke-virtual {v1}, Lorg/json/JSONArray;->length()I
+    move-result v2
+    if-lez v2, :native_home_trace_parse_done
+    const/4 v2, 0x0
+    invoke-virtual {v1, v2}, Lorg/json/JSONArray;->optJSONObject(I)Lorg/json/JSONObject;
+    move-result-object v2
+    if-eqz v2, :native_home_trace_parse_done
+    const-string v3, "__sfHomeCorrelationId"
+    const/4 v4, 0x0
+    invoke-virtual {v2, v3, v4}, Lorg/json/JSONObject;->optInt(Ljava/lang/String;I)I
+    move-result v0
+    :native_home_trace_parse_done
+    :try_end_native_home_trace_parse
+    .catch Lorg/json/JSONException; {:try_start_native_home_trace_parse .. :try_end_native_home_trace_parse} :native_home_trace_invalid
+
+    if-lez v0, :native_home_trace_clear
+    const v1, 0xf423f
+    if-gt v0, v1, :native_home_trace_clear
+    iput v0, p0, Lcom/melodix/music/MainActivity;->nativeHomeCorrelationId:I
+    invoke-static {}, Landroid/os/SystemClock;->elapsedRealtime()J
+    move-result-wide v2
+    iput-wide v2, p0, Lcom/melodix/music/MainActivity;->nativeHomeTraceStartedAt:J
+    const-string v1, "android-receive"
+    const-string v2, "received"
+    const/4 v3, 0x0
+    invoke-direct {p0, v1, v2, v3}, Lcom/melodix/music/MainActivity;->traceNativeHomeStage(Ljava/lang/String;Ljava/lang/String;I)V
+    return-void
+
+    :native_home_trace_invalid
+    move-exception v1
+    :native_home_trace_clear
+    const/4 v0, 0x0
+    iput v0, p0, Lcom/melodix/music/MainActivity;->nativeHomeCorrelationId:I
+    return-void
+.end method
+
+.method private final finishNativeHomePipelineRender()V
+    .locals 6
+
+    iget v0, p0, Lcom/melodix/music/MainActivity;->nativeHomeCorrelationId:I
+    if-lez v0, :native_home_render_trace_done
+    iget-boolean v0, p0, Lcom/melodix/music/MainActivity;->nativeHomeCardsAttached:Z
+    if-eqz v0, :native_home_render_status
+    const-string v3, "cards"
+    goto :native_home_render_result
+    :native_home_render_status
+    iget-boolean v0, p0, Lcom/melodix/music/MainActivity;->nativeHomeStatusAttached:Z
+    if-eqz v0, :native_home_render_empty
+    const-string v3, "status"
+    goto :native_home_render_result
+    :native_home_render_empty
+    const-string v3, "empty"
+    :native_home_render_result
+    invoke-static {}, Landroid/os/SystemClock;->elapsedRealtime()J
+    move-result-wide v0
+    iget-wide v4, p0, Lcom/melodix/music/MainActivity;->nativeHomeTraceStartedAt:J
+    sub-long/2addr v0, v4
+    long-to-int v1, v0
+    if-gez v1, :native_home_render_duration_nonnegative
+    const/4 v1, 0x0
+    :native_home_render_duration_nonnegative
+    const v2, 0xf423f
+    if-le v1, v2, :native_home_render_duration_ready
+    move v1, v2
+    :native_home_render_duration_ready
+    const-string v4, "render"
+    invoke-direct {p0, v4, v3, v1}, Lcom/melodix/music/MainActivity;->traceNativeHomeStage(Ljava/lang/String;Ljava/lang/String;I)V
+
+    :native_home_render_trace_done
+    return-void
+.end method
+
+.method private final traceNativeHomeVisibility()V
+    .locals 6
+
+    invoke-virtual {p0}, Lcom/melodix/music/MainActivity;->isNativeHomeScreen()Z
+    move-result v0
+    if-eqz v0, :native_home_visible_trace_done
+    iget v0, p0, Lcom/melodix/music/MainActivity;->nativeHomeCorrelationId:I
+    if-lez v0, :native_home_visible_trace_done
+    iget-boolean v0, p0, Lcom/melodix/music/MainActivity;->nativeHomeCardsAttached:Z
+    if-eqz v0, :native_home_visible_status
+    const-string v3, "cards"
+    goto :native_home_visible_result
+    :native_home_visible_status
+    iget-boolean v0, p0, Lcom/melodix/music/MainActivity;->nativeHomeStatusAttached:Z
+    if-eqz v0, :native_home_visible_empty
+    const-string v3, "status"
+    goto :native_home_visible_result
+    :native_home_visible_empty
+    const-string v3, "empty"
+    :native_home_visible_result
+    invoke-static {}, Landroid/os/SystemClock;->elapsedRealtime()J
+    move-result-wide v0
+    iget-wide v4, p0, Lcom/melodix/music/MainActivity;->nativeHomeTraceStartedAt:J
+    sub-long/2addr v0, v4
+    long-to-int v1, v0
+    if-gez v1, :native_home_visible_duration_nonnegative
+    const/4 v1, 0x0
+    :native_home_visible_duration_nonnegative
+    const v2, 0xf423f
+    if-le v1, v2, :native_home_visible_duration_ready
+    move v1, v2
+    :native_home_visible_duration_ready
+    const-string v4, "visible"
+    invoke-direct {p0, v4, v3, v1}, Lcom/melodix/music/MainActivity;->traceNativeHomeStage(Ljava/lang/String;Ljava/lang/String;I)V
+
+    :native_home_visible_trace_done
+    return-void
+.end method
+
 .method public final beginNativeHomeRender()V
     .locals 2
 
@@ -8151,6 +8302,7 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
     return v0
 
     :native_visibility_confirmed
+    invoke-direct {p0}, Lcom/melodix/music/MainActivity;->traceNativeHomeVisibility()V
     const-string v1, "visibility-confirmed"
     const-string v2, "watchdog"
     const-string v0, "pass"
@@ -9009,6 +9161,7 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
     invoke-virtual {p1, v0}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
     move-result v1
     if-eqz v1, :check_media
+    invoke-direct {p0, p2}, Lcom/melodix/music/MainActivity;->beginNativeHomePipeline(Ljava/lang/String;)V
     const-string v0, "native-home-data-received"
     invoke-static {v0}, Lcom/melodix/music/NativeCrashGuard;->diagLine(Ljava/lang/String;)V
     invoke-static {v0}, Lcom/melodix/music/StartupDiagnosticOverlay;->appendDiagnosticLine(Ljava/lang/String;)V
@@ -9017,8 +9170,14 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
     const-string v3, "home"
     invoke-virtual {v2, v3}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
     move-result v4
-    if-eqz v4, :apply_done
+    if-eqz v4, :native_home_route_rejected
     goto :apply_home
+    :native_home_route_rejected
+    const-string v2, "render"
+    const-string v3, "rejected"
+    const/4 v4, 0x0
+    invoke-direct {p0, v2, v3, v4}, Lcom/melodix/music/MainActivity;->traceNativeHomeStage(Ljava/lang/String;Ljava/lang/String;I)V
+    goto :apply_done
     :apply_home_initial_route
     # Home rows are deliberately queued before the ready signal. Establish the
     # Home route here if this is the first callback so renderNativeRows selects
@@ -9028,6 +9187,7 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
     :apply_home
     const-string v2, "Accueil"
     invoke-virtual {p0, v2, p2}, Lcom/melodix/music/MainActivity;->renderNativeRows(Ljava/lang/String;Ljava/lang/String;)V
+    invoke-direct {p0}, Lcom/melodix/music/MainActivity;->finishNativeHomePipelineRender()V
     return-void
 
     :check_media
@@ -9086,8 +9246,12 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
     invoke-virtual {v2, v3}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
     move-result v4
     if-eqz v4, :apply_done
+    invoke-direct {p0, p2}, Lcom/melodix/music/MainActivity;->isCurrentNativeSettingsPayload(Ljava/lang/String;)Z
+    move-result v5
+    if-eqz v5, :apply_done
     const-string v2, "Paramètres"
     invoke-virtual {p0, v2, p2}, Lcom/melodix/music/MainActivity;->renderNativeRows(Ljava/lang/String;Ljava/lang/String;)V
+    invoke-direct {p0, p2}, Lcom/melodix/music/MainActivity;->markNativeSettingsPayloadApplied(Ljava/lang/String;)V
     return-void
 
     :check_search
@@ -9533,8 +9697,8 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
     move-result-object v0
     invoke-virtual {v0}, Ljava/lang/String;->isEmpty()Z
     move-result v1
-    # Empty settingValue = content row (cover + title + subtitle): it must reach the content factory.
-    if-eqz v1, :native_row_create_standard
+    # String.isEmpty() returns true for content rows; route them to NativeUiRowFactory.
+    if-nez v1, :native_row_create_standard
     invoke-static {p0, v6}, Lcom/melodix/music/NativeSettingsRowFactory;->create(Lcom/melodix/music/MainActivity;Lorg/json/JSONObject;)Landroid/widget/LinearLayout;
     move-result-object v0
     goto :native_row_created
@@ -10003,24 +10167,40 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
     const-string v2, "melodix:action:open-login"
     invoke-virtual {p1, v2}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
     move-result v3
-    if-eqz v3, :native_row_check_retry_library
+    if-eqz v3, :native_row_check_settings_retry
     invoke-virtual {p0}, Lcom/melodix/music/MainActivity;->openSpotifyLogin()V
+    return-void
+
+    :native_row_check_settings_retry
+    const-string v2, "melodix:action:retry-settings"
+    invoke-virtual {p1, v2}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    move-result v3
+    if-eqz v3, :native_row_check_retry_library
+    invoke-virtual {p0}, Lcom/melodix/music/MainActivity;->retryNativeSettings()V
     return-void
 
     :native_row_check_retry_library
     const-string v2, "melodix:action:retry-library"
     invoke-virtual {p1, v2}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
     move-result v3
-    if-eqz v3, :native_row_check_collection
+    if-eqz v3, :native_row_check_settings_uri
     const-string v2, "window.__sfNativeRetryLibrary && window.__sfNativeRetryLibrary();"
     invoke-virtual {p0, v2}, Lcom/melodix/music/MainActivity;->runNativeJavascript(Ljava/lang/String;)V
     return-void
 
-    # Settings rows toggle their value through the shell; they never navigate.
+    :native_row_check_settings_uri
+    # Melodix-local preferences and Spotify-owned controls share one shell
+    # action callback, but remain explicitly namespaced in their row URIs.
+    const-string v2, "melodix:setting:"
+    invoke-virtual {p1, v2}, Ljava/lang/String;->startsWith(Ljava/lang/String;)Z
+    move-result v3
+    if-nez v3, :native_row_toggle_setting
     const-string v2, "spotify:settings:"
     invoke-virtual {p1, v2}, Ljava/lang/String;->startsWith(Ljava/lang/String;)Z
     move-result v3
     if-eqz v3, :native_row_check_collection
+
+    :native_row_toggle_setting
     const-string v2, "window.__sfToggleSpotifySetting"
     invoke-virtual {p0, v2, p1}, Lcom/melodix/music/MainActivity;->runNativeFunction(Ljava/lang/String;Ljava/lang/String;)V
     return-void
@@ -10158,6 +10338,197 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
     return-void
 .end method
 
+.method public final beginNativeSettingsLoad()V
+    .locals 5
+
+    iget v0, p0, Lcom/melodix/music/MainActivity;->nativeSettingsGeneration:I
+    add-int/lit8 v0, v0, 0x1
+    if-lez v0, :native_settings_generation_ready
+    const/4 v0, 0x1
+    :native_settings_generation_ready
+    iput v0, p0, Lcom/melodix/music/MainActivity;->nativeSettingsGeneration:I
+    const/4 v1, 0x1
+    iput-boolean v1, p0, Lcom/melodix/music/MainActivity;->nativeSettingsLoading:Z
+    const/4 v1, 0x0
+    iput v1, p0, Lcom/melodix/music/MainActivity;->nativeSettingsReadyGeneration:I
+
+    # A status row is not a fabricated preference; it is replaced only by an
+    # acknowledged settings payload or by an explicit timeout row.
+    const-string v1, "Paramètres"
+    const-string v2, "[{\"section\":\"État\",\"title\":\"Chargement des paramètres…\",\"subtitle\":\"Réponse de Melodix en attente.\",\"settingValue\":\"Chargement\",\"uri\":\"\"}]"
+    invoke-virtual {p0, v1, v2}, Lcom/melodix/music/MainActivity;->renderNativeRows(Ljava/lang/String;Ljava/lang/String;)V
+
+    new-instance v2, Ljava/lang/StringBuilder;
+    invoke-direct {v2}, Ljava/lang/StringBuilder;-><init>()V
+    const-string v3, "window.__sfNativeSettingsRequest&&window.__sfNativeSettingsRequest("
+    invoke-virtual {v2, v3}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    invoke-virtual {v2, v0}, Ljava/lang/StringBuilder;->append(I)Ljava/lang/StringBuilder;
+    const-string v3, ");"
+    invoke-virtual {v2, v3}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    invoke-virtual {v2}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
+    move-result-object v2
+    invoke-virtual {p0, v2}, Lcom/melodix/music/MainActivity;->runNativeJavascript(Ljava/lang/String;)V
+
+    # The native deadline still fires if the shell helper or Javascript bridge
+    # is absent; a late callback from this generation is rejected after expiry.
+    new-instance v0, Lcom/melodix/music/NativeSettingsTimeoutRunnable;
+    iget v1, p0, Lcom/melodix/music/MainActivity;->nativeSettingsGeneration:I
+    invoke-direct {v0, p0, v1}, Lcom/melodix/music/NativeSettingsTimeoutRunnable;-><init>(Lcom/melodix/music/MainActivity;I)V
+    iget-object v2, p0, Lcom/melodix/music/MainActivity;->d0:Landroid/os/Handler;
+    const-wide/16 v3, 0x1194
+    invoke-virtual {v2, v0, v3, v4}, Landroid/os/Handler;->postDelayed(Ljava/lang/Runnable;J)Z
+    return-void
+.end method
+
+.method public final retryNativeSettings()V
+    .locals 2
+
+    iget-object v0, p0, Lcom/melodix/music/MainActivity;->nativeCurrentScreen:Ljava/lang/String;
+    if-eqz v0, :native_settings_retry_done
+    const-string v1, "settings"
+    invoke-virtual {v1, v0}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    move-result v0
+    if-eqz v0, :native_settings_retry_done
+    invoke-virtual {p0}, Lcom/melodix/music/MainActivity;->beginNativeSettingsLoad()V
+    :native_settings_retry_done
+    return-void
+.end method
+
+.method public final onNativeSettingsTimeout(I)V
+    .locals 4
+
+    iget v0, p0, Lcom/melodix/music/MainActivity;->nativeSettingsGeneration:I
+    if-ne v0, p1, :native_settings_timeout_done
+    iget-boolean v0, p0, Lcom/melodix/music/MainActivity;->nativeSettingsLoading:Z
+    if-eqz v0, :native_settings_timeout_done
+    iget-object v0, p0, Lcom/melodix/music/MainActivity;->nativeCurrentScreen:Ljava/lang/String;
+    if-eqz v0, :native_settings_timeout_done
+    const-string v1, "settings"
+    invoke-virtual {v1, v0}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    move-result v0
+    if-eqz v0, :native_settings_timeout_done
+
+    const/4 v0, 0x0
+    iput-boolean v0, p0, Lcom/melodix/music/MainActivity;->nativeSettingsLoading:Z
+    const-string v1, "Paramètres"
+    const-string v2, "[{\"section\":\"État\",\"title\":\"Paramètres indisponibles\",\"subtitle\":\"Le module de réglages n’a pas répondu. Réessayez.\",\"settingValue\":\"Réessayer\",\"uri\":\"melodix:action:retry-settings\"}]"
+    invoke-virtual {p0, v1, v2}, Lcom/melodix/music/MainActivity;->renderNativeRows(Ljava/lang/String;Ljava/lang/String;)V
+    const-string v1, "settings-load result=timeout"
+    invoke-static {v1}, Lcom/melodix/music/NativeCrashGuard;->diagLine(Ljava/lang/String;)V
+    invoke-static {v1}, Lcom/melodix/music/StartupDiagnosticOverlay;->appendDiagnosticLine(Ljava/lang/String;)V
+
+    :native_settings_timeout_done
+    return-void
+.end method
+
+.method private final isCurrentNativeSettingsPayload(Ljava/lang/String;)Z
+    .locals 5
+
+    :try_start_native_settings_payload
+    new-instance v0, Lorg/json/JSONArray;
+    invoke-direct {v0, p1}, Lorg/json/JSONArray;-><init>(Ljava/lang/String;)V
+    invoke-virtual {v0}, Lorg/json/JSONArray;->length()I
+    move-result v1
+    const/4 v2, 0x0
+    invoke-virtual {v0, v2}, Lorg/json/JSONArray;->optJSONObject(I)Lorg/json/JSONObject;
+    move-result-object v2
+    const-string v3, "__sfSettingsRequestId"
+    const/4 v4, 0x0
+    if-eqz v2, :native_settings_payload_parsed
+    invoke-virtual {v2, v3, v4}, Lorg/json/JSONObject;->optInt(Ljava/lang/String;I)I
+    move-result v4
+    :native_settings_payload_parsed
+    :try_end_native_settings_payload
+    .catch Lorg/json/JSONException; {:try_start_native_settings_payload .. :try_end_native_settings_payload} :native_settings_payload_bad_json
+
+    if-lez v1, :native_settings_payload_reject
+    if-nez v2, :native_settings_payload_has_row
+    goto :native_settings_payload_reject
+
+    :native_settings_payload_has_row
+    # Every Settings row must carry the bounded generation inserted by the
+    # shell serializer. A legacy or stale uncorrelated callback is not proof.
+    if-lez v4, :native_settings_payload_reject
+    const v0, 0xf423f
+    if-gt v4, v0, :native_settings_payload_reject
+    const/16 v0, 0x3e8
+    if-gt v1, v0, :native_settings_payload_reject
+    iget v0, p0, Lcom/melodix/music/MainActivity;->nativeSettingsGeneration:I
+    if-ne v4, v0, :native_settings_payload_reject
+    iget-boolean v0, p0, Lcom/melodix/music/MainActivity;->nativeSettingsLoading:Z
+    if-nez v0, :native_settings_payload_accept
+    iget v0, p0, Lcom/melodix/music/MainActivity;->nativeSettingsReadyGeneration:I
+    if-ne v4, v0, :native_settings_payload_reject
+
+    :native_settings_payload_accept
+    const/4 v0, 0x1
+    return v0
+
+    :native_settings_payload_reject
+    const/4 v0, 0x0
+    return v0
+
+    :native_settings_payload_bad_json
+    move-exception v0
+    const/4 v0, 0x0
+    return v0
+.end method
+
+.method private final markNativeSettingsPayloadApplied(Ljava/lang/String;)V
+    .locals 6
+
+    :try_start_native_settings_applied
+    new-instance v0, Lorg/json/JSONArray;
+    invoke-direct {v0, p1}, Lorg/json/JSONArray;-><init>(Ljava/lang/String;)V
+    invoke-virtual {v0}, Lorg/json/JSONArray;->length()I
+    move-result v1
+    if-lez v1, :native_settings_applied_done
+    const/16 v5, 0x3e8
+    if-gt v1, v5, :native_settings_applied_done
+    const/4 v2, 0x0
+    invoke-virtual {v0, v2}, Lorg/json/JSONArray;->optJSONObject(I)Lorg/json/JSONObject;
+    move-result-object v2
+    if-eqz v2, :native_settings_applied_done
+    const-string v3, "__sfSettingsRequestId"
+    const/4 v4, 0x0
+    invoke-virtual {v2, v3, v4}, Lorg/json/JSONObject;->optInt(Ljava/lang/String;I)I
+    move-result v4
+    if-lez v4, :native_settings_applied_done
+    const v5, 0xf423f
+    if-gt v4, v5, :native_settings_applied_done
+    iget v5, p0, Lcom/melodix/music/MainActivity;->nativeSettingsGeneration:I
+    if-ne v4, v5, :native_settings_applied_done
+    iput v4, p0, Lcom/melodix/music/MainActivity;->nativeSettingsReadyGeneration:I
+    const/4 v5, 0x0
+    iput-boolean v5, p0, Lcom/melodix/music/MainActivity;->nativeSettingsLoading:Z
+
+    new-instance v2, Ljava/lang/StringBuilder;
+    invoke-direct {v2}, Ljava/lang/StringBuilder;-><init>()V
+    const-string v3, "window.__sfNativeSettingsApplied&&window.__sfNativeSettingsApplied("
+    invoke-virtual {v2, v3}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    invoke-virtual {v2, v4}, Ljava/lang/StringBuilder;->append(I)Ljava/lang/StringBuilder;
+    const-string v3, ","
+    invoke-virtual {v2, v3}, Ljava/lang/StringBuilder;->append(Ljava/lang/StringBuilder;)Ljava/lang/StringBuilder;
+    invoke-virtual {v2, v1}, Ljava/lang/StringBuilder;->append(I)Ljava/lang/StringBuilder;
+    const-string v3, ");"
+    invoke-virtual {v2, v3}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    invoke-virtual {v2}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
+    move-result-object v2
+    invoke-virtual {p0, v2}, Lcom/melodix/music/MainActivity;->runNativeJavascript(Ljava/lang/String;)V
+
+    const-string v2, "settings-load result=applied"
+    invoke-static {v2}, Lcom/melodix/music/NativeCrashGuard;->diagLine(Ljava/lang/String;)V
+    invoke-static {v2}, Lcom/melodix/music/StartupDiagnosticOverlay;->appendDiagnosticLine(Ljava/lang/String;)V
+    :try_end_native_settings_applied
+    .catch Lorg/json/JSONException; {:try_start_native_settings_applied .. :try_end_native_settings_applied} :native_settings_applied_bad_json
+
+    :native_settings_applied_done
+    return-void
+    :native_settings_applied_bad_json
+    move-exception v0
+    return-void
+.end method
+
 .method public final openNativeSettings()V
     .locals 4
 
@@ -10190,11 +10561,7 @@ iget v2, v1, Landroid/view/ViewGroup$LayoutParams;->width:I
     :native_settings_show
     const-string v0, "settings"
     invoke-virtual {p0, v0}, Lcom/melodix/music/MainActivity;->setNativeScreen(Ljava/lang/String;)V
-    const-string v1, "Paramètres"
-    const-string v2, "[]"
-    invoke-virtual {p0, v1, v2}, Lcom/melodix/music/MainActivity;->renderNativeRows(Ljava/lang/String;Ljava/lang/String;)V
-    const-string v1, "window.__sfRequestSpotifySettings && window.__sfRequestSpotifySettings();"
-    invoke-virtual {p0, v1}, Lcom/melodix/music/MainActivity;->runNativeJavascript(Ljava/lang/String;)V
+    invoke-virtual {p0}, Lcom/melodix/music/MainActivity;->beginNativeSettingsLoad()V
 
     :native_settings_done
     return-void

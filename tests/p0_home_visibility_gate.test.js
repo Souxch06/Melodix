@@ -586,8 +586,10 @@ test('[P0] the shell waits for confirmed player UI, retries once per auth epoch,
   const end = shell.indexOf('\n    function ', at + 10);
   const gate = shell.slice(at, end);
   assert.match(gate, /var authState = currentSpotifyAuthUiState\(\)/);
-  assert.match(gate, /if \(authState !== 'connected'\) return false/,
+  assert.match(gate, /if \(authState !== 'connected'\) \{[\s\S]*?return false/,
     'libraryV3 is not requested before the player UI reports a connected state');
+  assert.match(gate, /skipped-auth/,
+    'an unauthenticated state is recorded without presenting an assumed cause');
   assert.match(gate, /window\.__sfMediaLibStatus === 'loading'/, 'single-flight state blocks concurrent requests');
   assert.match(gate, /previousError === 'http-401' \|\| previousError === 'http-403'/);
   assert.match(gate, /authEpoch <= lastAttemptEpoch/,
@@ -596,6 +598,8 @@ test('[P0] the shell waits for confirmed player UI, retries once per auth epoch,
     'Retry-After/backoff remains authoritative even for explicit retries');
   assert.match(shell, /addEventListener\('sf-spotify-auth-state-changed', scheduleUpdate\)/,
     'a rendered sign-in transition triggers one new state derivation without timer polling');
-  assert.match(shell, /requestMediaLibraryProof\('settings-resync', true\)/,
-    'settings resync uses the same gated request path');
+  assert.match(shell, /uri: refreshAvailable \? 'melodix:action:retry-library' : ''/,
+    'the Settings refresh action uses the existing gated native retry path');
+  assert.doesNotMatch(shell, /settings-resync|synchronisée ✓/,
+    'the Settings screen never claims that a request was already synchronized');
 });

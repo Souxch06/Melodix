@@ -215,12 +215,20 @@
     iput v1, v0, Landroid/view/ViewGroup$MarginLayoutParams;->bottomMargin:I
     invoke-virtual {v2, v0}, Landroid/view/View;->setLayoutParams(Landroid/view/ViewGroup$LayoutParams;)V
 
+    invoke-virtual {v7}, Ljava/lang/String;->isEmpty()Z
+    move-result v0
+    if-eqz v0, :native_settings_action_enabled
+    # Diagnostics and unsupported features have no action URI: remove them
+    # from the focus/click path instead of leaving a dead button on the screen.
+    const/4 v0, 0x0
+    invoke-virtual {v2, v0}, Landroid/view/View;->setClickable(Z)V
+    invoke-virtual {v2, v0}, Landroid/view/View;->setFocusable(Z)V
+    goto :native_settings_return
+
+    :native_settings_action_enabled
     const/4 v0, 0x1
     invoke-virtual {v2, v0}, Landroid/view/View;->setClickable(Z)V
     invoke-virtual {v2, v0}, Landroid/view/View;->setFocusable(Z)V
-    invoke-virtual {v7}, Ljava/lang/String;->isEmpty()Z
-    move-result v0
-    if-eqz v0, :native_settings_return
     new-instance v0, Lcom/melodix/music/NativeRowClickListener;
     invoke-direct {v0, p0, v7, v4}, Lcom/melodix/music/NativeRowClickListener;-><init>(Lcom/melodix/music/MainActivity;Ljava/lang/String;Ljava/lang/String;)V
     invoke-virtual {v2, v0}, Landroid/view/View;->setOnClickListener(Landroid/view/View$OnClickListener;)V

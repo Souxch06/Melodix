@@ -204,6 +204,38 @@ test('automatic resume helpers respect the pause intent latch', () => {
     assert.match(bridge, /auto-resume-ignored/, 'automatic resumes are traced and then ignored');
 });
 
+test('the persisted background-audio preference follows real play/pause state changes', () => {
+    const sleepCalls = [];
+    const window = {
+        __sfBackgroundAudioEnabled: true,
+        AndBridge: { manageTSleep: (enabled) => sleepCalls.push(enabled) }
+    };
+    const helper = sliceFunction(bridge, 'function syncBackgroundAudioWake(');
+    vm.runInNewContext(`let lastBackgroundAudioSleep = null;\n${helper}`, { window });
+
+    assert.equal(window.__sfSyncBackgroundAudioWake(true), true);
+    assert.equal(window.__sfSyncBackgroundAudioWake(true), true);
+    window.__sfBackgroundAudioEnabled = false;
+    assert.equal(window.__sfSyncBackgroundAudioWake(true), true,
+        'turning the local preference off releases the native sleep hold during playback');
+    window.__sfBackgroundAudioEnabled = true;
+    assert.equal(window.__sfSyncBackgroundAudioWake(true), true,
+        'turning it back on restores the hold for the same playing track');
+    assert.equal(window.__sfSyncBackgroundAudioWake(false), true,
+        'pausing always releases the hold even when the preference is enabled');
+    assert.deepEqual(sleepCalls, [true, false, true, false],
+        'identical observations are deduplicated, and every real policy change reaches Android');
+
+    const monitor = sliceFunction(bridge, 'window.addAndAuto = function');
+    const manageAll = sliceFunction(bridge, 'window.manageAll = function');
+    assert.match(monitor, /syncBackgroundAudioWake\(window\.playing\)/,
+        'the periodic Spotify control observer applies subsequent play/pause changes');
+    assert.match(manageAll, /syncBackgroundAudioWake\(play\)/,
+        'the initial native playback policy uses the same persisted setting');
+    assert.match(bridge, /observedPlayState = isPlayPauseLabelPlaying\(pb \|\| window\.pBtn\)[\s\S]*?syncBackgroundAudioWake\(observedPlayState\)/,
+        'the player watcher observes playback even when it starts from a paused page');
+});
+
 test('the native play/pause button asks for an explicit state instead of toggling blindly', () => {
     const method = sliceBetween(
         activity,

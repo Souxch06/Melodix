@@ -39,7 +39,23 @@
     let featVer = `web-player_${new Date().toISOString().split('T')[0]}_${Date.now()}_${Math.floor(Math.random()*0xFFFFFFF).toString(16).padStart(7,'0')}`;
     let lastState = null;
     let lastPos = null;
+    let lastBackgroundAudioSleep = null;
     window.playing = false;
+
+    function syncBackgroundAudioWake(playing) {
+        const bridge = window.AndBridge;
+        const shouldKeepAwake = Boolean(playing && window.__sfBackgroundAudioEnabled !== false);
+        if (!bridge || typeof bridge.manageTSleep !== 'function') return false;
+        if (lastBackgroundAudioSleep === shouldKeepAwake) return true;
+        try {
+            bridge.manageTSleep(shouldKeepAwake);
+            lastBackgroundAudioSleep = shouldKeepAwake;
+            return true;
+        } catch (_) {
+            return false;
+        }
+    }
+    window.__sfSyncBackgroundAudioWake = syncBackgroundAudioWake;
 
     // >>> sf-pause-intent
     // A pause the user explicitly asked for must stay a pause. Every automatic
@@ -1481,6 +1497,11 @@
 
             let pb = document.querySelector('button[data-testid=control-button-playpause]:not(.fuckd)') ||
                      document.querySelector('aside button[data-testid=control-button-playpause]:not(.fuckd)');
+            const observedPlayState = isPlayPauseLabelPlaying(pb || window.pBtn);
+            if (observedPlayState !== null) {
+                window.playing = observedPlayState;
+                syncBackgroundAudioWake(observedPlayState);
+            }
             if (pb) {
                 AndBridge.playLoaded();
                 pb.classList.add('fuckd');
@@ -1507,6 +1528,13 @@
                             }
                         }, 10000);
                     }
+                    setTimeout(() => {
+                        const state = isPlayPauseLabelPlaying(window.pBtn);
+                        if (state !== null) {
+                            window.playing = state;
+                            syncBackgroundAudioWake(state);
+                        }
+                    }, 150);
                 });
 
                 if (!ffDone) {
@@ -1540,7 +1568,7 @@
         tracePlayback(play ? 'manage-all-play' : 'manage-all-pause');
         if (play) markUserPlaybackIntent(true, { explicit: !window.__sfUserRequestedPause });
         AndBridge.manageTShut(!play);
-        AndBridge.manageTSleep(play);
+        syncBackgroundAudioWake(play);
         if (play) {
             firstFuck();
             addGlobalCleanup();
@@ -2109,6 +2137,7 @@
                     window.playing = /paus/i.test(pbLabel);
                 }
             }
+            syncBackgroundAudioWake(window.playing);
 
             if (document.body.classList.contains('sf-expanded')) {
                 let candidates = Array.from(document.querySelectorAll('div[style*="--cinema-mode-bg-color-from"]'));
@@ -2888,7 +2917,7 @@
     const MEDIA_LIBRARY_AUTH_MODE = 'webview-session';
     const MEDIA_LIBRARY_REFRESH_MODE = 'unsupported';
     const MEDIA_LIBRARY_CHECK_SOURCES = [
-        'shell-update', 'native-retry', 'web-home-retry', 'settings-resync', 'unspecified'
+        'shell-update', 'native-retry', 'web-home-retry', 'unspecified'
     ];
     let mediaLibraryAttemptSequence = 0;
 
@@ -2911,6 +2940,16 @@
             if (typeof window.__sfBridgeTrace === 'function') window.__sfBridgeTrace(line);
             else if (window.AndBridge && typeof window.AndBridge.logDiagEvent === 'function') {
                 window.AndBridge.logDiagEvent(line);
+            }
+        } catch (_) {}
+    }
+
+    function traceHomeLibraryStage(diagnostic, stage, result, duration, http, request) {
+        try {
+            const trace = window.__sfTraceHomePipeline;
+            if (typeof trace === 'function') {
+                trace(diagnostic && diagnostic.correlationId, stage, result, duration, http,
+                    diagnostic && diagnostic.attempt, request);
             }
         } catch (_) {}
     }
@@ -3026,11 +3065,12 @@
         if (!hasPendingBackoff) window.__sfMediaLibRetryDelayMs = Math.min(60000, fallbackDelay * 2);
     }
 
-    function createMediaLibraryDiagnostic(source) {
+    function createMediaLibraryDiagnostic(source, correlationId) {
         mediaLibraryAttemptSequence = boundedMediaLibraryCount(mediaLibraryAttemptSequence + 1, 999999);
         return {
             startedAt: mediaLibraryNow(),
             attempt: mediaLibraryAttemptSequence,
+            correlationId: boundedMediaLibraryCount(correlationId, 999999),
             source: safeMediaLibraryCheckSource(source),
             requests: 0,
             phase: 'request',
@@ -3171,16 +3211,25 @@
     window.__sfMediaLibProofAuthEpoch = Number.isFinite(Number(window.__sfMediaLibProofAuthEpoch))
         ? Math.max(0, Math.floor(Number(window.__sfMediaLibProofAuthEpoch))) : 0;
 
-    function checkMediaLib(force = false, source = 'unspecified') {
+    function checkMediaLib(force = false, source = 'unspecified', correlationId = 0) {
+        const safeCorrelationId = boundedMediaLibraryCount(
+            correlationId || window.__sfNativeUiHomeCorrelationId, 999999);
+        const traceContext = { correlationId: safeCorrelationId, attempt: 0 };
+        window.__sfMediaLibCorrelationId = safeCorrelationId;
         // Fail closed until the same WebView has positive player/profile UI
         // evidence. A previous native marker or cached library is not enough.
         if (!mediaLibraryAuthReady()) {
+            traceHomeLibraryStage(traceContext, 'request', 'skipped-auth', 0, 0, 0);
             syncMediaLibraryUiState();
             return Promise.resolve(false);
         }
-        if (mediaLibraryCheckPromise) return mediaLibraryCheckPromise;
+        if (mediaLibraryCheckPromise) {
+            traceHomeLibraryStage(traceContext, 'request', 'in-flight', 0, 0, 0);
+            return mediaLibraryCheckPromise;
+        }
 
-        const diagnostic = createMediaLibraryDiagnostic(source);
+        const diagnostic = createMediaLibraryDiagnostic(source, safeCorrelationId);
+        traceHomeLibraryStage(diagnostic, 'request', 'started', 0, 0, 0);
         const requestGeneration = mediaLibraryRequestGeneration;
         const authEpoch = boundedMediaLibraryCount(window.__sfSpotifyAuthEpoch, 999999);
         window.__sfMediaLibLastAuthAttemptEpoch = authEpoch;
@@ -3233,9 +3282,14 @@
                 // honestly empty library. Preserve the phase where a partial
                 // request failed so diagnostics identify the actual boundary.
                 if (!failurePhase) diagnostic.phase = 'transform';
+                const transformStartedAt = mediaLibraryNow();
                 try {
                     const parsed = parseLibrary(allItems);
                     diagnostic.transformed = mediaLibraryTransformedCount(parsed);
+                    traceHomeLibraryStage(diagnostic, 'transform',
+                        diagnostic.transformed > 0 ? 'populated' : usable ? 'error' : 'empty',
+                        boundedMediaLibraryCount(mediaLibraryNow() - transformStartedAt, 999999),
+                        diagnostic.http, diagnostic.requests);
                     const parseResult = failed ? 'partial' : !usable ? 'empty' :
                         diagnostic.transformed > 0 ? 'valid' : 'malformed';
                     traceLibraryEvent('library.parse.completed attempt=' +
@@ -3254,6 +3308,9 @@
                         if (!failed) window.__sfMediaLibUpdatedAt = Date.now();
                     }
                 } catch (_) {
+                    traceHomeLibraryStage(diagnostic, 'transform', 'error',
+                        boundedMediaLibraryCount(mediaLibraryNow() - transformStartedAt, 999999),
+                        diagnostic.http, diagnostic.requests);
                     window.__sfMediaLibStatus = 'error';
                     window.__sfMediaLibError = 'transform-error';
                     diagnostic.error = 'transform';
@@ -3353,6 +3410,7 @@
             let timerId = null;
             let timedOut = false;
             let requestStartedAt = 0;
+            let parseStartedAt = 0;
             let rejectTimeout;
             const timeout = new Promise((resolve, reject) => { rejectTimeout = reject; });
             timerId = window.setTimeout(() => {
@@ -3414,6 +3472,9 @@
                     trace.phase = 'request';
                     trace.error = timedOut ? 'timeout' : 'network';
                     window.__sfMediaLibError = timedOut ? 'timeout' : 'network-error';
+                    traceHomeLibraryStage(trace, 'response', timedOut ? 'timeout' : 'error',
+                        boundedMediaLibraryCount(mediaLibraryNow() - requestStartedAt, 999999),
+                        0, trace.requests);
                     break;
                 }
 
@@ -3422,11 +3483,15 @@
                 trace.http = mediaLibraryHttpStatus(resp);
                 trace.mime = mediaLibraryResponseMime(resp);
                 trace.phase = 'response';
+                const responseDuration = boundedMediaLibraryCount(mediaLibraryNow() - requestStartedAt, 999999);
                 traceLibraryEvent('library.request.response attempt=' +
                     boundedMediaLibraryCount(trace.attempt, 999999) +
                     ' request=' + boundedMediaLibraryCount(trace.requests, 1000) +
                     ' http=' + trace.http + ' mime=' + trace.mime +
-                    ' duration=' + boundedMediaLibraryCount(mediaLibraryNow() - requestStartedAt, 999999));
+                    ' duration=' + responseDuration);
+                traceHomeLibraryStage(trace, 'response',
+                    trace.http >= 200 && trace.http < 300 ? 'valid' : 'error',
+                    responseDuration, trace.http, trace.requests);
                 if (trace.http === 401 || trace.http === 403) {
                     // A 401/403 invalidates this library proof and all previously
                     // accepted private rows. A 403 may mean insufficient scope,
@@ -3457,11 +3522,13 @@
                 if (trace.mime !== 'json' && trace.mime !== 'missing') {
                     window.__sfMediaLibError = 'non-json';
                     trace.error = 'non-json';
+                    traceHomeLibraryStage(trace, 'parse', 'malformed', 0, trace.http, trace.requests);
                     break;
                 }
 
                 trace.phase = 'parse';
                 let data;
+                parseStartedAt = mediaLibraryNow();
                 try {
                     data = await Promise.race([
                         Promise.resolve().then(() => resp.json()), timeout
@@ -3472,6 +3539,10 @@
                     const bodyReadFailed = !timedOut && parseError && parseError.name === 'TypeError';
                     window.__sfMediaLibError = timedOut ? 'timeout' : bodyReadFailed ? 'network-error' : 'invalid-json';
                     trace.error = timedOut ? 'timeout' : bodyReadFailed ? 'network' : 'invalid-json';
+                    traceHomeLibraryStage(trace, 'parse', timedOut ? 'timeout' :
+                        bodyReadFailed ? 'error' : 'malformed',
+                        boundedMediaLibraryCount(mediaLibraryNow() - parseStartedAt, 999999),
+                        trace.http, trace.requests);
                     if (!bodyReadFailed && !timedOut) {
                         traceLibraryEvent('library.parse.completed attempt=' +
                             boundedMediaLibraryCount(trace.attempt, 999999) +
@@ -3491,10 +3562,16 @@
                         boundedMediaLibraryCount(trace.attempt, 999999) +
                         ' request=' + boundedMediaLibraryCount(trace.requests, 1000) +
                         ' result=malformed');
+                    traceHomeLibraryStage(trace, 'parse', 'malformed',
+                        boundedMediaLibraryCount(mediaLibraryNow() - parseStartedAt, 999999),
+                        trace.http, trace.requests);
                     window.__sfMediaLibError = hasGraphQlErrors ? 'graphql-error' : 'unexpected-shape';
                     trace.error = hasGraphQlErrors ? 'graphql' : 'unexpected-shape';
                     break;
                 }
+                traceHomeLibraryStage(trace, 'parse', hasGraphQlErrors ? 'partial' : 'valid',
+                    boundedMediaLibraryCount(mediaLibraryNow() - parseStartedAt, 999999),
+                    trace.http, trace.requests);
                 traceLibraryEvent('library.parse.completed attempt=' +
                     boundedMediaLibraryCount(trace.attempt, 999999) +
                     ' request=' + boundedMediaLibraryCount(trace.requests, 1000) +

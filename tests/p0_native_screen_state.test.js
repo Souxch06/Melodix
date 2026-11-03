@@ -535,16 +535,16 @@ test('D4b — only the explicit login action can restore Web ownership', () => {
         'the legacy request does not reload or clear session state');
 });
 
-test('D5 — Home, Search, Library, and back-to-Home route transitions execute in order', () => {
+test('D5 — Home, Search, Library, Settings, and back-to-Home route transitions execute in order', () => {
     let state = executeSetNativeScreen(null, 'home').state;
-    const transitions = ['search', 'library', 'home'];
+    const transitions = ['search', 'library', 'settings', 'home'];
     const observed = [state.nativeCurrentScreen];
     for (const screen of transitions) {
         state = executeSetNativeScreen(state.nativeCurrentScreen, screen,
             state.nativeFadeNextScreen, state.contentSentinel).state;
         observed.push(state.nativeCurrentScreen);
     }
-    assert.deepEqual(observed, ['home', 'search', 'library', 'home']);
+    assert.deepEqual(observed, ['home', 'search', 'library', 'settings', 'home']);
     assert.equal(state.nativeCurrentScreen, 'home');
 });
 
