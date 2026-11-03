@@ -263,8 +263,16 @@ test('the CI Home integration contains no fake account data or credentials and l
   assert.match(manualObservation, /launchTargetPreservingTask|AUTHENTICATED_HOME_PROBE/);
   assert.match(harness, /login_dom_probe_completed/,
     'the DOM probe records an explicit false result before failing, instead of making absence of status look like false');
-  assert.match(harness, /Log\.e\(HARNESS_TAG, "failure phase=" \+ failurePhase \+ " type=" \+ reportableFailure\.getClass\(\)\.getSimpleName\(\)\)/,
-    'instrumentation failures expose only a phase and exception type, never page text');
+  assert.match(harness, /Log\.e\(HARNESS_TAG, "failure phase=" \+ reportedFailurePhase \+ " type=" \+ failure\.getClass\(\)\.getSimpleName\(\)\)/,
+    'stable failure-log contract v1 reports the sanitized subphase and original exception class');
+  assert.match(harness, /status\.putString\("failure_phase", reportedFailurePhase\)[\s\S]*?status\.putString\("failure_type", failure\.getClass\(\)\.getSimpleName\(\)/,
+    'log and instrumentation status use the same reportedFailurePhase/failure_type contract');
+  assert.match(harness, /native_home_render_tree_event [\s\S]*?monotonic_elapsed_realtime_ns/,
+    'Home fixture diagnostics emit monotonic JSON events');
+  assert.match(harness, /putJson\(failure, "exception_class", original\.getClass\(\)\.getName\(\)\)/);
+  assert.match(harness, /putJson\(failure, "stack_trace", sanitizeHomeDiagnosticText\(stackTraceFor\(original\)\)\)/);
+  assert.match(harness, /putJson\(failure, "failure_phase", this\.failurePhase\)/,
+    'the structured fixture report preserves original exception identity, phase, and stack trace');
   assert.match(harness, /"home",\s*"\[\]"/,
     'the integration sends only an empty Home payload to test the native error state');
   assert.match(harness, /putBoolean\("native_home_cards_attached", false\)/);
@@ -283,6 +291,68 @@ test('the CI Home integration contains no fake account data or credentials and l
   assert.match(inspector, /notice title=Android login surface visibility[\s\S]*?webview_crop_bright_pixels/,
     'a passing login screenshot reports measured WebView pixels without raw page text');
   assert.doesNotMatch(inspector, /FIXTURE_TITLE|Controlled Home fixture|fixture_title/);
+});
+
+test('native Home diagnostic report schema, failure artifacts, and redaction policy are stable', () => {
+  const harness = read('tests/android/HomeRenderInstrumentation.java');
+  const workflow = read('.github/workflows/test-preview-emulator.yml');
+  const contract = read('docs/native-home-render-tree-diagnostics.md');
+  const schema = JSON.parse(read('tests/android/native_home_render_tree_diagnostics.schema.json'));
+  assert.equal(schema.$id, 'melodix.native-home-render-tree.v1');
+  assert.equal(schema.properties.schema_version.const, 1);
+  assert.match(harness, /HOME_RENDER_TREE_DIAGNOSTIC_SCHEMA = "melodix\.native-home-render-tree\.v1"/);
+  assert.match(harness, /payload_length_utf8_bytes[\s\S]*?card_count[\s\S]*?playlist_count/);
+  assert.match(harness, /payload_transmission_expected[\s\S]*?payload_metadata/,
+    'sender-side transmission is separate from payload construction and carries metadata, not payload text');
+  assert.match(harness, /failure_snapshot\.views\.created[\s\S]*?failure_snapshot\.views\.attached[\s\S]*?failure_snapshot\.layout\.measured[\s\S]*?failure_snapshot\.visibility\.calculated/,
+    'failure-time snapshots report creation, attachment, measurement, and visibility separately');
+  assert.match(harness, /getGlobalVisibleRect\(global\)[\s\S]*?parent_class[\s\S]*?measured_width_px[\s\S]*?alpha/);
+  assert.match(harness, /"hierarchy_redacted", true[\s\S]*?"text_and_content_descriptions_recorded", false/);
+  assert.match(harness, /HOME_RENDER_DIAGNOSTIC_MARKER[\s\S]*?android-received result=received[\s\S]*?android-render-start result=started[\s\S]*?android-parsed result=/);
+  const markerExtractor = harness.split('private ArrayList<String> extractSafeNativeHomeMarkers')[1]
+    .split('private int overlappingDiagnosticTailLength')[0];
+  assert.match(markerExtractor, /HOME_RENDER_DIAGNOSTIC_MARKER\.matcher\(diagnosticTail\)/);
+  assert.doesNotMatch(markerExtractor, /failureMatcher|FAILURE_DIAGNOSTIC_MARKER/,
+    'only the authorized Home render diagnostic marker is used for extraction');
+  assert.match(harness, /failure\.printStackTrace\(printer\)/);
+  assert.match(harness, /synchronized void setFailure\(Throwable original/);
+  assert.match(harness, /primaryFixtureFailure\.addSuppressed\(restoreFailure\[0\]\)/,
+    'a restoration error is secondary and cannot replace the fixture assertion');
+  assert.match(harness, /void setSecondaryFailure\(Throwable secondary\) \{\s*if \(secondary == null \|\| failure == null\) return;/,
+    'a secondary restoration error cannot masquerade as the primary failure');
+  assert.match(harness, /if \(primaryFixtureFailure != null\) \{[\s\S]*?setSecondaryFailure\(restoreFailure\[0\]\)[\s\S]*?primaryFixtureFailure\.addSuppressed\(restoreFailure\[0\]\)/,
+    'the restoration exception is attached only after the primary failure is recorded');
+  assert.match(harness, /sanitizeHomeDiagnosticText[\s\S]*?Bearer[\s\S]*?sp_dc[\s\S]*?https\?/,
+    'failure text redacts credential/cookie fields and URLs before persistence');
+  assert.doesNotMatch(harness, /Log\.i\(HARNESS_TAG, [^\n]*payload\)/i,
+    'payload bodies are not written to the readable diagnostic log');
+  assert.match(workflow, /adb exec-out run-as com\.melodix\.music\.preview cat "files\/\$evidence"/);
+  assert.match(workflow, /native-home-render-tree-diagnostics\.json/);
+  assert.match(workflow, /native-home-render-tree\.png/);
+  assert.match(workflow, /native-home-render-tree-log\.txt/);
+  assert.match(workflow, /jsonschema==4\.26\.0[\s\S]*?Draft202012Validator\(schema\)\.iter_errors\(report\)/,
+    'the retrieved JSON is checked against the committed Draft 2020-12 schema');
+  assert.match(workflow, /bearer_credential[\s\S]*?spotify_cookie[\s\S]*?oauth_token[\s\S]*?cookie_header[\s\S]*?native_home_artifact_secret_scan=passed/,
+    'the report and Android logs are scanned for credentials and cookies before upload');
+  assert.match(workflow, /native_home_artifact_retrieval_failed=true[\s\S]*?\|\| "\$native_home_artifact_retrieval_failed" == "true"/,
+    'missing or invalid structured artifacts fail the emulator instrumentation step');
+  assert.match(workflow, /native-home-render-tree-diagnostics\.json\.previous/,
+    'the CI collector can recover the prior complete report snapshot');
+  assert.match(contract, /irrespective of the instrumentation exit code[\s\S]*?monotonic_elapsed_realtime_ns/);
+});
+
+test('malformed and empty Home payloads assert their distinct native status states', () => {
+  const harness = read('tests/android/HomeRenderInstrumentation.java');
+  const renderer = read('smali/com/melodix/music/NativeHomeShelfRenderer.smali');
+  assert.match(harness, /inspectNativeHomeErrorFixture\(activity, webView, originalWebViewUrl, false\)/,
+    'the empty-array control expects the empty-Home retry panel');
+  assert.match(harness, /inspectNativeHomeErrorFixture\(activity, webView, originalWebViewUrl, true\)/,
+    'malformed JSON expects the invalid-payload retry panel, not the empty-array title');
+  assert.match(harness, /invalidPayload\s*\?\s*"Les données n’ont pas pu être lues"\s*:\s*"Votre accueil n’a pas pu être chargé"/);
+  assert.match(renderer, /Les données n’ont pas pu être lues[\s\S]*?Touchez pour réessayer le chargement de la bibliothèque/,
+    'the renderer’s malformed-JSON state has a distinct testable title/subtitle');
+  assert.match(renderer, /Votre accueil n’a pas pu être chargé[\s\S]*?Les données Spotify ne sont pas disponibles/,
+    'the empty-array state remains separately asserted');
 });
 
 test('cold-launch UI hierarchy accepts an omitted container accessibility node only when the WebView itself is visible and bounded', () => {

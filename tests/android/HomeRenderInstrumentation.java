@@ -32,18 +32,24 @@ import android.webkit.WebViewClient;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 
+import org.json.JSONArray;
 import org.json.JSONObject;
 
 import java.io.ByteArrayOutputStream;
-import java.lang.ref.WeakReference;
+import java.io.File;
 import java.io.FileOutputStream;
 import java.io.InputStream;
+import java.io.PrintWriter;
+import java.io.StringWriter;
+import java.lang.ref.WeakReference;
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Proxy;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
@@ -64,6 +70,12 @@ import java.util.concurrent.TimeUnit;
 public final class HomeRenderInstrumentation extends Instrumentation {
     private static final String TARGET_PACKAGE = "com.melodix.music.preview";
     private static final String HARNESS_TAG = "MelodixHarness";
+    private static final int HOME_RENDER_TREE_DIAGNOSTIC_SCHEMA_VERSION = 1;
+    private static final String HOME_RENDER_TREE_DIAGNOSTIC_SCHEMA = "melodix.native-home-render-tree.v1";
+    private static final String HOME_RENDER_TREE_REPORT_FILE = "melodix-preview-native-home-render-tree-diagnostics.json";
+    private static final String HOME_RENDER_TREE_SCREENSHOT_FILE = "melodix-preview-native-home-render-tree.png";
+    private static final String SYNTHETIC_HOME_CARD_TITLE = "TEST ONLY - Home card";
+    private volatile NativeHomeRenderTreeDiagnostics nativeHomeRenderTreeDiagnostics;
 
     // Expose only the four shell callbacks needed by this fixture. In
     // particular, no bundled-asset reader is forwarded, so the test cannot
@@ -119,6 +131,7 @@ public final class HomeRenderInstrumentation extends Instrumentation {
     }
 
     private Bundle runnerArguments = new Bundle();
+    private String nativeHomeRenderTreeFailurePhase;
     private static final long WEBVIEW_SETTLE_TIMEOUT_MS = 60000L;
     private static final long REQUIRED_STABLE_MS = 1800L;
     private static final long AUTHENTICATED_OBSERVATION_POLL_MS = 500L;
@@ -182,6 +195,273 @@ public final class HomeRenderInstrumentation extends Instrumentation {
             }
         }
     };
+    /**
+     * Diagnostic contract v1: one minified JSON event per line in MelodixHarness
+     * logcat, plus a continuously flushed JSON document in the target app's
+     * private files directory. Payload text, view text, URLs, cookies and tokens
+     * are never serialized; only allowlisted renderer markers and geometry are.
+     */
+    private final class NativeHomeRenderTreeDiagnostics {
+        private final File filesDirectory = getTargetContext().getFilesDir();
+        private final File reportFile = new File(filesDirectory, HOME_RENDER_TREE_REPORT_FILE);
+        private final File screenshotFile = new File(filesDirectory, HOME_RENDER_TREE_SCREENSHOT_FILE);
+        private final JSONArray events = new JSONArray();
+        private final long startedElapsedRealtimeNanos = SystemClock.elapsedRealtimeNanos();
+        private String status = "running";
+        private String activePhaseId = "native_home_render_tree_fixture_begin";
+        private String latestEventName = "none";
+        private int nextEventId = 1;
+        private int lastSuccessfulEventId;
+        private JSONObject failure;
+        private String failurePhase;
+        private JSONObject hierarchyAtFailure;
+        private JSONObject pixelEvidence;
+        private boolean reportSaved;
+        private boolean screenshotSaved;
+
+        synchronized void initialize() {
+            try {
+                if (reportFile.exists()) reportFile.delete();
+                File temporary = new File(filesDirectory, HOME_RENDER_TREE_REPORT_FILE + ".tmp");
+                if (temporary.exists()) temporary.delete();
+                if (screenshotFile.exists()) screenshotFile.delete();
+            } catch (Throwable error) {
+                Log.e(HARNESS_TAG, "native_home_render_tree_output_reset_failed type="
+                        + error.getClass().getSimpleName());
+            }
+            persist();
+        }
+
+        synchronized void setActivePhase(String phaseId) {
+            if (phaseId != null && phaseId.matches("native_home_render_tree_fixture_[a-z0-9_]{1,30}")) {
+                activePhaseId = phaseId;
+            }
+        }
+
+        synchronized int record(String phaseId, String eventName, String outcome,
+                JSONObject expected, JSONObject observed) {
+            if (phaseId != null) setActivePhase(phaseId);
+            JSONObject event = new JSONObject();
+            int eventId = nextEventId++;
+            putJson(event, "event_id", eventId);
+            putJson(event, "phase_id", activePhaseId);
+            putJson(event, "event", eventName);
+            putJson(event, "outcome", outcome);
+            putJson(event, "monotonic_elapsed_realtime_ns", SystemClock.elapsedRealtimeNanos());
+            putJson(event, "expected", expected == null ? JSONObject.NULL : expected);
+            putJson(event, "observed", observed == null ? JSONObject.NULL : observed);
+            events.put(event);
+            latestEventName = eventName == null ? "unknown" : eventName;
+            if ("pass".equals(outcome)) lastSuccessfulEventId = eventId;
+            persist();
+            Log.i(HARNESS_TAG, "native_home_render_tree_event " + event.toString());
+            return eventId;
+        }
+
+        synchronized void setFailure(Throwable original, String failurePhase) {
+            if (failure != null || original == null) return;
+            failure = new JSONObject();
+            putJson(failure, "exception_class", original.getClass().getName());
+            String rawMessage = original.getMessage();
+            String safeMessage = sanitizeHomeDiagnosticText(rawMessage == null ? "" : rawMessage);
+            putJson(failure, "message", safeMessage);
+            putJson(failure, "message_redacted", !safeMessage.equals(rawMessage == null ? "" : rawMessage));
+            putJson(failure, "stack_trace", sanitizeHomeDiagnosticText(stackTraceFor(original)));
+            Throwable cause = unwrapInvocationTarget(original);
+            putJson(failure, "unwrapped_cause_class", cause == null ? "unknown" : cause.getClass().getName());
+            this.failurePhase = failurePhase == null ? activePhaseId : failurePhase;
+            putJson(failure, "failure_phase", this.failurePhase);
+            putJson(failure, "active_phase_id", activePhaseId);
+            putJson(failure, "last_successful_event_id", lastSuccessfulEventId);
+            putJson(failure, "last_event_name", latestEventName);
+            status = "failed";
+            persist();
+        }
+
+        synchronized void setSecondaryFailure(Throwable secondary) {
+            if (secondary == null || failure == null) return;
+            JSONArray secondaryFailures = failure.optJSONArray("secondary_failures");
+            if (secondaryFailures == null) secondaryFailures = new JSONArray();
+            JSONObject detail = new JSONObject();
+            putJson(detail, "exception_class", secondary.getClass().getName());
+            String rawMessage = secondary.getMessage();
+            String safeMessage = sanitizeHomeDiagnosticText(rawMessage == null ? "" : rawMessage);
+            putJson(detail, "message", safeMessage);
+            putJson(detail, "message_redacted", !safeMessage.equals(rawMessage == null ? "" : rawMessage));
+            putJson(detail, "stack_trace", sanitizeHomeDiagnosticText(stackTraceFor(secondary)));
+            secondaryFailures.put(detail);
+            putJson(failure, "secondary_failures", secondaryFailures);
+            persist();
+        }
+
+        synchronized void setHierarchyAtFailure(JSONObject hierarchy) {
+            hierarchyAtFailure = hierarchy;
+            persist();
+        }
+
+        synchronized void setPixelEvidence(JSONObject evidence) {
+            pixelEvidence = evidence;
+            persist();
+        }
+
+        synchronized boolean saveScreenshot(Bitmap screenshot) {
+            if (screenshot == null) return false;
+            try (FileOutputStream output = new FileOutputStream(screenshotFile, false)) {
+                screenshotSaved = screenshot.compress(Bitmap.CompressFormat.PNG, 100, output);
+                output.flush();
+                output.getFD().sync();
+            } catch (Throwable error) {
+                screenshotSaved = false;
+                Log.e(HARNESS_TAG, "native_home_render_tree_screenshot_write_failed type="
+                        + error.getClass().getSimpleName());
+            }
+            persist();
+            return screenshotSaved;
+        }
+
+        synchronized Bundle statusBundle() {
+            Bundle statusBundle = new Bundle();
+            statusBundle.putBoolean("native_home_render_tree_report_saved", reportSaved);
+            statusBundle.putBoolean("native_home_render_tree_screenshot_saved", screenshotSaved);
+            statusBundle.putInt("native_home_render_tree_event_count", events.length());
+            statusBundle.putInt("native_home_render_tree_last_successful_event_id", lastSuccessfulEventId);
+            statusBundle.putString("native_home_render_tree_report_file", "files/" + HOME_RENDER_TREE_REPORT_FILE);
+            statusBundle.putString("native_home_render_tree_screenshot_file", "files/" + HOME_RENDER_TREE_SCREENSHOT_FILE);
+            statusBundle.putString("native_home_render_tree_last_event", latestEventName);
+            statusBundle.putString("native_home_render_tree_schema", HOME_RENDER_TREE_DIAGNOSTIC_SCHEMA);
+            return statusBundle;
+        }
+
+        synchronized void markPassed() {
+            status = "passed";
+            persist();
+        }
+
+        synchronized boolean hasFailure() {
+            return failure != null;
+        }
+
+        synchronized String failurePhase() {
+            return failurePhase;
+        }
+
+        private JSONObject document() {
+            JSONObject document = new JSONObject();
+            putJson(document, "schema", HOME_RENDER_TREE_DIAGNOSTIC_SCHEMA);
+            putJson(document, "schema_version", HOME_RENDER_TREE_DIAGNOSTIC_SCHEMA_VERSION);
+            putJson(document, "fixture_id", "native_home_render_tree_fixture");
+            putJson(document, "status", status);
+            putJson(document, "synthetic_fixture_only", true);
+            putJson(document, "started_monotonic_elapsed_realtime_ns", startedElapsedRealtimeNanos);
+            putJson(document, "updated_monotonic_elapsed_realtime_ns", SystemClock.elapsedRealtimeNanos());
+            putJson(document, "active_phase_id", activePhaseId);
+            putJson(document, "last_successful_event_id", lastSuccessfulEventId);
+            putJson(document, "last_event_name", latestEventName);
+            putJson(document, "event_count", events.length());
+            putJson(document, "report_file_saved", reportSaved);
+            putJson(document, "screenshot_file_saved", screenshotSaved);
+            putJson(document, "events", events);
+            putJson(document, "failure", failure == null ? JSONObject.NULL : failure);
+            putJson(document, "hierarchy_at_failure", hierarchyAtFailure == null ? JSONObject.NULL : hierarchyAtFailure);
+            putJson(document, "pixel_evidence", pixelEvidence == null ? JSONObject.NULL : pixelEvidence);
+            JSONObject privacy = new JSONObject();
+            putJson(privacy, "payload_content_recorded", false);
+            putJson(privacy, "view_text_recorded", false);
+            putJson(privacy, "spotify_token_recorded", false);
+            putJson(privacy, "cookie_recorded", false);
+            putJson(document, "privacy", privacy);
+            JSONObject artifacts = new JSONObject();
+            putJson(artifacts, "report", "files/" + HOME_RENDER_TREE_REPORT_FILE);
+            putJson(artifacts, "screenshot", "files/" + HOME_RENDER_TREE_SCREENSHOT_FILE);
+            putJson(document, "artifacts", artifacts);
+            return document;
+        }
+
+        private void persist() {
+            boolean previousSaved = reportSaved;
+            reportSaved = true;
+            File temporary = new File(filesDirectory, HOME_RENDER_TREE_REPORT_FILE + ".tmp");
+            File previous = new File(filesDirectory, HOME_RENDER_TREE_REPORT_FILE + ".previous");
+            try {
+                byte[] bytes = document().toString().getBytes("UTF-8");
+                try (FileOutputStream output = new FileOutputStream(temporary, false)) {
+                    output.write(bytes);
+                    output.flush();
+                    output.getFD().sync();
+                }
+                boolean movedPrevious = false;
+                if (reportFile.exists()) {
+                    if (!reportFile.renameTo(previous)) throw new IllegalStateException("Could not rotate prior Home fixture report");
+                    movedPrevious = true;
+                }
+                if (!temporary.renameTo(reportFile)) {
+                    if (movedPrevious) previous.renameTo(reportFile);
+                    throw new IllegalStateException("Could not atomically publish Home fixture report");
+                }
+                if (previous.exists()) previous.delete();
+                reportSaved = true;
+            } catch (Throwable error) {
+                reportSaved = previousSaved;
+                try { if (temporary.exists()) temporary.delete(); } catch (Throwable ignored) {}
+                Log.e(HARNESS_TAG, "native_home_render_tree_report_write_failed type="
+                        + error.getClass().getSimpleName());
+            }
+        }
+    }
+
+    private static JSONObject diagnosticJson(Object... keyValues) {
+        JSONObject result = new JSONObject();
+        for (int i = 0; i + 1 < keyValues.length; i += 2) {
+            try {
+                result.put(String.valueOf(keyValues[i]), keyValues[i + 1] == null ? JSONObject.NULL : keyValues[i + 1]);
+            } catch (Throwable ignored) {}
+        }
+        return result;
+    }
+
+    private static void putJson(JSONObject target, String key, Object value) {
+        if (target == null || key == null) return;
+        try { target.put(key, value == null ? JSONObject.NULL : value); } catch (Throwable ignored) {}
+    }
+
+    private static String stackTraceFor(Throwable failure) {
+        if (failure == null) return "";
+        StringWriter writer = new StringWriter();
+        PrintWriter printer = new PrintWriter(writer);
+        failure.printStackTrace(printer);
+        printer.flush();
+        return writer.toString();
+    }
+
+    private static String sanitizeHomeDiagnosticText(String value) {
+        if (value == null) return "";
+        String safe = value;
+        safe = safe.replaceAll("(?i)\\bBearer\\s+[^\\s,;]+", "Bearer [REDACTED]");
+        safe = safe.replaceAll("(?i)\\b(sp_dc|sp_key|access_token|refresh_token|authorization|cookie)\\s*[:=]\\s*[^\\s,;]+", "$1=[REDACTED]");
+        safe = safe.replaceAll("(?i)https?://[^\\s\\\"']+", "[REDACTED_URL]");
+        return safe.length() > 12000 ? safe.substring(0, 12000) + "[TRUNCATED]" : safe;
+    }
+
+    private void recordNativeHomeRenderTreeEvent(String eventName, String outcome,
+            JSONObject expected, JSONObject observed) {
+        NativeHomeRenderTreeDiagnostics diagnostics = nativeHomeRenderTreeDiagnostics;
+        if (diagnostics == null) return;
+        try {
+            diagnostics.record(nativeHomeRenderTreeFailurePhase, eventName, outcome, expected, observed);
+        } catch (Throwable error) {
+            Log.e(HARNESS_TAG, "native_home_render_tree_diagnostic_record_failed type="
+                    + error.getClass().getSimpleName());
+        }
+    }
+
+    private static final Pattern HOME_RENDER_DIAGNOSTIC_MARKER = Pattern.compile(
+            "(?:home-data stage=(?:android-received result=received|android-render-start result=started|"
+                    + "android-parsed result=(?:valid|empty|invalid)|android-model result=(?:cards|status|empty|invalid|unavailable)|"
+                    + "android-rendered result=(?:rendered|status|failed)|android-visible result=(?:cards|status))"
+                    + "|native-render-failed step=(?:ui-update exception=[A-Za-z0-9_$]+|home-render reason=(?:content-container|invalid-json|no-real-cards))"
+                    + "|native-home-render rendered=false reason=(?:content-container|invalid-json|no-real-cards)"
+                    + "|native-home-render (?:cards-attached|status-attached)=true)");
+
     private static final String LOGIN_DOM_PROBE =
             "(function(){try{" +
             "var body=String((document.body&&document.body.innerText)||'').toLowerCase();" +
@@ -781,6 +1061,7 @@ public final class HomeRenderInstrumentation extends Instrumentation {
             failurePhase = "native_home_render_tree_fixture";
             notePhase(failurePhase);
             Bundle nativeRenderTreeState = exerciseNativeHomeRenderTree(activity, webView, originalWebViewUrl);
+            nativeHomeRenderTreeFailurePhase = null;
             sendStatus(1, nativeRenderTreeState);
 
             // Reset the Home fixture, then explicitly request the login surface.
@@ -1032,16 +1313,38 @@ public final class HomeRenderInstrumentation extends Instrumentation {
             result.putBoolean("login_surface_restored_after_web_home_fixture", true);
             result.putBoolean("authenticated_home_test_performed", false);
             result.putString("overall", "passed");
+            NativeHomeRenderTreeDiagnostics homeRenderDiagnostics = nativeHomeRenderTreeDiagnostics;
+            if (homeRenderDiagnostics != null) {
+                try { result.putAll(homeRenderDiagnostics.statusBundle()); } catch (Throwable ignored) {}
+            }
             sendStatus(1, result);
             Log.i(HARNESS_TAG, "completed");
             finish(Activity.RESULT_OK, result);
         } catch (Throwable failure) {
-            Throwable reportableFailure = unwrapInvocationTarget(failure);
-            Log.e(HARNESS_TAG, "failure phase=" + failurePhase + " type=" + reportableFailure.getClass().getSimpleName());
+            // Stable log contract v1: phase and exception type only. The Home
+            // fixture report separately retains the original message and stack
+            // (with credential/URL redaction) and cannot replace this Throwable.
+            String reportedFailurePhase = failurePhase;
+            NativeHomeRenderTreeDiagnostics diagnostics = nativeHomeRenderTreeDiagnostics;
+            String diagnosticFailurePhase = diagnostics == null ? null : diagnostics.failurePhase();
+            String candidateFailurePhase = diagnosticFailurePhase == null
+                    ? nativeHomeRenderTreeFailurePhase : diagnosticFailurePhase;
+            if ("native_home_render_tree_fixture".equals(failurePhase)
+                    && candidateFailurePhase != null
+                    && candidateFailurePhase.matches("native_home_render_tree_fixture_[a-z0-9_]{1,30}")) {
+                reportedFailurePhase = candidateFailurePhase;
+            }
+            if (diagnostics != null) {
+                try { diagnostics.setFailure(failure, reportedFailurePhase); } catch (Throwable ignored) {}
+            }
+            Log.e(HARNESS_TAG, "failure phase=" + reportedFailurePhase + " type=" + failure.getClass().getSimpleName());
             Bundle status = new Bundle();
             status.putString("overall", "failed");
-            status.putString("failure_phase", failurePhase);
-            status.putString("failure_type", reportableFailure.getClass().getSimpleName());
+            status.putString("failure_phase", reportedFailurePhase);
+            status.putString("failure_type", failure.getClass().getSimpleName());
+            if (diagnostics != null) {
+                try { status.putAll(diagnostics.statusBundle()); } catch (Throwable ignored) {}
+            }
             sendStatus(2, status);
             finish(Activity.RESULT_CANCELED, status);
         }
@@ -1049,6 +1352,19 @@ public final class HomeRenderInstrumentation extends Instrumentation {
 
     private void notePhase(String phase) {
         Log.i(HARNESS_TAG, "phase=" + phase);
+    }
+
+    private void noteNativeHomeRenderTreePhase(String stage) {
+        if (stage == null || !stage.matches("[a-z0-9_]{1,30}")) stage = "invalid_stage";
+        nativeHomeRenderTreeFailurePhase = "native_home_render_tree_fixture_" + stage;
+        NativeHomeRenderTreeDiagnostics diagnostics = nativeHomeRenderTreeDiagnostics;
+        if (diagnostics != null) {
+            try { diagnostics.setActivePhase(nativeHomeRenderTreeFailurePhase); } catch (Throwable ignored) {}
+        }
+        notePhase(nativeHomeRenderTreeFailurePhase);
+        recordNativeHomeRenderTreeEvent("phase.enter", "pass",
+                diagnosticJson("phase_id", nativeHomeRenderTreeFailurePhase),
+                diagnosticJson("phase_active", true));
     }
 
     private static Throwable unwrapInvocationTarget(Throwable failure) {
@@ -4190,32 +4506,259 @@ public final class HomeRenderInstrumentation extends Instrumentation {
         return state;
     }
 
+    private JSONObject summarizeNativeHomePayload(String payload) {
+        int utf8Length = payload == null ? 0 : payload.getBytes(java.nio.charset.Charset.forName("UTF-8")).length;
+        JSONObject summary = diagnosticJson(
+                "payload_length_chars", payload == null ? 0 : payload.length(),
+                "payload_length_utf8_bytes", utf8Length,
+                "payload_content_recorded", false,
+                "card_count", 0,
+                "playlist_count", 0,
+                "parse_result", payload == null ? "missing" : "invalid",
+                "rejection_reason", payload == null ? "missing_payload" : "invalid_json");
+        if (payload == null) return summary;
+        try {
+            JSONArray items = new JSONArray(payload);
+            int cards = 0;
+            int playlists = 0;
+            for (int i = 0; i < items.length(); i++) {
+                JSONObject item = items.optJSONObject(i);
+                if (item == null) continue;
+                String title = item.optString("title", "");
+                String uri = item.optString("uri", "");
+                String type = item.optString("type", "");
+                if (!title.isEmpty() && uri.startsWith("spotify:") && !"state".equals(item.optString("kind", ""))) {
+                    cards++;
+                }
+                if ("playlist".equalsIgnoreCase(type)) playlists++;
+            }
+            putJson(summary, "payload_item_count", items.length());
+            putJson(summary, "card_count", cards);
+            putJson(summary, "playlist_count", playlists);
+            putJson(summary, "parse_result", items.length() == 0 ? "empty" : "valid");
+            putJson(summary, "rejection_reason", items.length() == 0 ? "empty_payload" : "none");
+        } catch (Throwable ignored) {
+            putJson(summary, "payload_item_count", 0);
+            putJson(summary, "parse_result", "invalid");
+            putJson(summary, "rejection_reason", "invalid_json");
+        }
+        return summary;
+    }
+
+    private String readSafeNativeHomeDiagnosticTail(Activity activity) {
+        try {
+            Class<?> guard = activity.getClassLoader().loadClass("com.melodix.music.NativeCrashGuard");
+            Method lastDiag = guard.getMethod("lastDiag");
+            Object value = lastDiag.invoke(null);
+            return value instanceof String ? (String) value : "";
+        } catch (Throwable error) {
+            recordNativeHomeRenderTreeEvent("app_diagnostic_tail", "unavailable",
+                    diagnosticJson("source", "NativeCrashGuard.lastDiag"),
+                    diagnosticJson("error_class", error.getClass().getSimpleName()));
+            return "";
+        }
+    }
+
+    private ArrayList<String> extractSafeNativeHomeMarkers(String diagnosticTail) {
+        ArrayList<String> markers = new ArrayList<>();
+        if (diagnosticTail == null || diagnosticTail.isEmpty()) return markers;
+        Matcher matcher = HOME_RENDER_DIAGNOSTIC_MARKER.matcher(diagnosticTail);
+        while (matcher.find()) markers.add(matcher.group());
+        return markers;
+    }
+
+    private int overlappingDiagnosticTailLength(String beforeTail, String afterTail) {
+        if (beforeTail == null || beforeTail.isEmpty() || afterTail == null || afterTail.isEmpty()) return 0;
+        if (afterTail.startsWith(beforeTail)) return beforeTail.length();
+        int maximum = Math.min(beforeTail.length(), afterTail.length());
+        for (int length = maximum; length > 0; length--) {
+            if (beforeTail.regionMatches(beforeTail.length() - length, afterTail, 0, length)) return length;
+        }
+        return 0;
+    }
+
+    private ArrayList<String> markerDelta(String beforeTail, String afterTail) {
+        ArrayList<String> delta = new ArrayList<>();
+        if (afterTail == null || afterTail.isEmpty()) return delta;
+        if (beforeTail == null || beforeTail.isEmpty()) return extractSafeNativeHomeMarkers(afterTail);
+        int overlap = overlappingDiagnosticTailLength(beforeTail, afterTail);
+        if (overlap == 0) return delta;
+        return extractSafeNativeHomeMarkers(afterTail.substring(overlap));
+    }
+
+    private void recordNativeHomePipeline(String beforeTail, String afterTail, String expectedDecision) {
+        ArrayList<String> before = extractSafeNativeHomeMarkers(beforeTail);
+        ArrayList<String> after = extractSafeNativeHomeMarkers(afterTail);
+        ArrayList<String> delta = markerDelta(beforeTail, afterTail);
+        boolean baselineTruncated = beforeTail != null && !beforeTail.isEmpty()
+                && (afterTail == null || !afterTail.startsWith(beforeTail));
+        boolean callbackReceived = delta.contains("home-data stage=android-received result=received");
+        boolean rendererEntered = delta.contains("home-data stage=android-render-start result=started");
+        JSONArray markerEvents = new JSONArray();
+        boolean parsedValid = false;
+        boolean parsedEmpty = false;
+        boolean parsedInvalid = false;
+        boolean modelCards = false;
+        boolean modelStatus = false;
+        boolean renderedCards = false;
+        boolean renderedStatus = false;
+        String rejectionReason = "none";
+        for (String marker : delta) {
+            markerEvents.put(marker);
+            String eventName = "app.marker_observed";
+            if (marker.contains("android-received")) eventName = "andbridge.callback_received";
+            else if (marker.contains("android-render-start")) eventName = "renderer.entry";
+            else if (marker.contains("android-parsed")) {
+                eventName = "payload.parse_result";
+                parsedValid |= marker.endsWith("result=valid");
+                parsedEmpty |= marker.endsWith("result=empty");
+                parsedInvalid |= marker.endsWith("result=invalid");
+                if (marker.endsWith("result=invalid")) rejectionReason = "invalid_json";
+            } else if (marker.contains("android-model")) {
+                eventName = "payload.acceptance";
+                modelCards |= marker.endsWith("result=cards");
+                modelStatus |= marker.endsWith("result=status");
+                if (marker.endsWith("result=empty")) rejectionReason = "empty_payload";
+                if (marker.endsWith("result=invalid")) rejectionReason = "no_renderable_cards";
+                if (marker.endsWith("result=unavailable")) rejectionReason = "native_content_unavailable";
+            } else if (marker.contains("android-rendered")) {
+                eventName = "renderer.result";
+                renderedCards |= marker.endsWith("result=rendered");
+                renderedStatus |= marker.endsWith("result=status");
+                if (marker.endsWith("result=failed")) rejectionReason = "no_renderable_cards";
+            } else if (marker.contains("android-visible")) {
+                eventName = "visibility.app_measurement";
+            } else if (marker.contains("native-render-failed step=ui-update")) {
+                eventName = "renderer.exception";
+                int exceptionStart = marker.lastIndexOf('=') + 1;
+                rejectionReason = "renderer_exception_" + marker.substring(exceptionStart);
+            } else if (marker.contains("reason=invalid-json")) {
+                eventName = "payload.rejection";
+                rejectionReason = "invalid_json";
+            } else if (marker.contains("reason=no-real-cards")) {
+                eventName = "payload.rejection";
+                rejectionReason = "no_renderable_cards";
+            } else if (marker.contains("reason=content-container")) {
+                eventName = "renderer.unavailable";
+                rejectionReason = "native_content_unavailable";
+            }
+            recordNativeHomeRenderTreeEvent(eventName, "observed",
+                    diagnosticJson("source", "NativeCrashGuard.lastDiag"),
+                    diagnosticJson("app_marker", marker, "payload_content_recorded", false));
+        }
+        String observedDecision;
+        if (!callbackReceived) observedDecision = baselineTruncated ? "callback_evidence_ambiguous" : "callback_not_observed";
+        else if ("dropped_off_home".equals(expectedDecision) && !rendererEntered) observedDecision = "dropped_off_home";
+        else if (parsedInvalid) observedDecision = "rejected_invalid_json";
+        else if (parsedEmpty) observedDecision = "empty_home_state_requested";
+        else if (modelCards && renderedCards) observedDecision = "accepted_card_payload";
+        else if (modelStatus || renderedStatus) observedDecision = "rendered_status_state";
+        else observedDecision = rendererEntered ? "renderer_result_not_observed" : "renderer_not_observed";
+        boolean decisionMatches = expectedDecision == null || expectedDecision.equals(observedDecision)
+                || ("home_content".equals(expectedDecision) && "accepted_card_payload".equals(observedDecision))
+                || ("empty_home".equals(expectedDecision) && "empty_home_state_requested".equals(observedDecision))
+                || ("invalid_payload".equals(expectedDecision) && "rejected_invalid_json".equals(observedDecision));
+        JSONObject observed = diagnosticJson(
+                "callback_received", callbackReceived,
+                "renderer_entered", rendererEntered,
+                "parsed_valid", parsedValid,
+                "parsed_empty", parsedEmpty,
+                "parsed_invalid", parsedInvalid,
+                "model_contains_cards", modelCards,
+                "model_contains_status", modelStatus,
+                "renderer_reported_cards", renderedCards,
+                "renderer_reported_status", renderedStatus,
+                "decision", observedDecision,
+                "rejection_reason", rejectionReason,
+                "baseline_marker_count", before.size(),
+                "observed_marker_count", after.size(),
+                "marker_history_truncated_or_changed", baselineTruncated,
+                "app_markers", markerEvents,
+                "payload_content_recorded", false);
+        recordNativeHomeRenderTreeEvent("payload.acceptance_summary",
+                decisionMatches ? "pass" : "fail",
+                diagnosticJson("decision", expectedDecision == null ? "observable_only" : expectedDecision), observed);
+    }
+
+    private void invokeFixtureBridgeCallback(Object bridge, Method callback, String callbackName,
+            Object... arguments) throws Exception {
+        JSONObject payload = null;
+        String screen = "unknown";
+        if (arguments.length > 0 && arguments[0] instanceof String) screen = (String) arguments[0];
+        if ("onNativeUiData".equals(callbackName) && arguments.length > 1 && arguments[1] instanceof String) {
+            payload = summarizeNativeHomePayload((String) arguments[1]);
+        }
+        JSONObject expected = diagnosticJson(
+                "callback", callbackName,
+                "screen", screen.matches("home|search|library|settings|detail|player") ? screen : "other",
+                "payload_metadata", payload == null ? JSONObject.NULL : payload,
+                "payload_content_recorded", false);
+        recordNativeHomeRenderTreeEvent("andbridge.callback_invocation_started", "pass", expected,
+                diagnosticJson("invocation_started", true, "callback_method", callbackName));
+        try {
+            callback.invoke(bridge, arguments);
+            recordNativeHomeRenderTreeEvent("andbridge.callback_invocation_returned", "pass", expected,
+                    diagnosticJson("returned_normally", true, "callback_method", callbackName));
+        } catch (Throwable error) {
+            Throwable cause = unwrapInvocationTarget(error);
+            recordNativeHomeRenderTreeEvent("andbridge.callback_invocation_failed", "fail", expected,
+                    diagnosticJson("returned_normally", false,
+                            "exception_class", cause == null ? error.getClass().getName() : cause.getClass().getName()));
+            if (cause instanceof Exception) throw (Exception) cause;
+            if (cause instanceof Error) throw (Error) cause;
+            throw new AssertionError("AndBridge callback invocation failed", cause == null ? error : cause);
+        }
+    }
+
     private Bundle exerciseNativeHomeRenderTree(
             final Activity activity, final WebView webView, final String originalWebViewUrl) throws Exception {
-        requireUnauthenticatedSession(activity);
-
+        try {
+            nativeHomeRenderTreeDiagnostics = new NativeHomeRenderTreeDiagnostics();
+            nativeHomeRenderTreeDiagnostics.initialize();
+        } catch (Throwable diagnosticError) {
+            nativeHomeRenderTreeDiagnostics = null;
+            Log.e(HARNESS_TAG, "native_home_render_tree_diagnostics_init_failed type="
+                    + diagnosticError.getClass().getSimpleName());
+        }
         Bundle result = new Bundle();
         int[] payloadLengths = new int[]{128, 272, 296};
         String[] payloads = new String[payloadLengths.length];
+        Throwable primaryFixtureFailure = null;
         try {
+            noteNativeHomeRenderTreePhase("begin");
+            requireUnauthenticatedSession(activity);
+            noteNativeHomeRenderTreePhase("clear_owner");
             clearLoginOwnerForNativeFixture(activity);
             for (int i = 0; i < payloadLengths.length; i++) {
                 final int expectedLength = payloadLengths[i];
+                noteNativeHomeRenderTreePhase("payload_" + expectedLength + "_build");
                 final String payload = buildNativeHomeCardFixturePayload(expectedLength);
-                if (payload.length() != expectedLength) {
+                JSONObject payloadSummary = summarizeNativeHomePayload(payload);
+                boolean payloadLengthMatches = payloadSummary.optInt("payload_length_utf8_bytes", -1) == expectedLength;
+                recordNativeHomeRenderTreeEvent("payload.constructed", payloadLengthMatches ? "pass" : "fail",
+                        diagnosticJson("payload_length_utf8_bytes", expectedLength, "card_count", 1,
+                                "playlist_count", 0, "payload_source", "synthetic-test-only"),
+                        payloadSummary);
+                if (!payloadLengthMatches) {
                     throw new AssertionError("Synthetic native Home fixture has an unexpected UTF-8 byte length");
                 }
                 payloads[i] = payload;
+                noteNativeHomeRenderTreePhase("payload_" + expectedLength + "_dispatch");
                 dispatchNativeHomePayloadThroughAndBridge(activity, payload);
-                awaitNativeHomeCardsReady(activity);
-                Bundle observation = inspectNativeHomeCardRenderFixture(activity, webView, originalWebViewUrl);
+                noteNativeHomeRenderTreePhase("payload_" + expectedLength + "_wait");
+                awaitNativeHomeCardsReady(activity, expectedLength);
+                noteNativeHomeRenderTreePhase("payload_" + expectedLength + "_inspect");
+                Bundle observation = inspectNativeHomeCardRenderFixture(
+                        activity, webView, originalWebViewUrl, expectedLength);
                 if (expectedLength == 296) result.putAll(observation);
                 result.putInt("synthetic_home_payload_" + expectedLength + "_bytes", payload.length());
                 result.putBoolean("synthetic_home_payload_" + expectedLength + "_rendered", true);
+                noteNativeHomeRenderTreePhase("payload_" + expectedLength + "_verified");
             }
 
             // A repeated identical callback must replace the previous native tree,
             // not append another copy of its section/card.
+            noteNativeHomeRenderTreePhase("dedupe_capture");
             final View[] firstCardBefore = new View[1];
             final int[] childCountBefore = new int[1];
             final Throwable[] beforeFailure = new Throwable[1];
@@ -4230,8 +4773,16 @@ public final class HomeRenderInstrumentation extends Instrumentation {
                 }
             });
             throwCapturedFailure(beforeFailure[0]);
+            recordNativeHomeRenderTreeEvent("views.dedupe_before", "pass",
+                    diagnosticJson("card_count", 1),
+                    diagnosticJson("card_reference_present", firstCardBefore[0] != null,
+                            "card_class", firstCardBefore[0] == null ? "missing" : firstCardBefore[0].getClass().getName(),
+                            "native_content_child_count", childCountBefore[0]));
+            noteNativeHomeRenderTreePhase("dedupe_dispatch");
             dispatchNativeHomeDataThroughAndBridge(activity, payloads[payloads.length - 1]);
-            awaitNativeHomeCardsReady(activity);
+            noteNativeHomeRenderTreePhase("dedupe_wait");
+            awaitNativeHomeCardsReady(activity, payloadLengths[payloadLengths.length - 1]);
+            noteNativeHomeRenderTreePhase("dedupe_verify");
             final View[] firstCardAfter = new View[1];
             final int[] childCountAfter = new int[1];
             final Throwable[] afterFailure = new Throwable[1];
@@ -4246,23 +4797,47 @@ public final class HomeRenderInstrumentation extends Instrumentation {
                 }
             });
             throwCapturedFailure(afterFailure[0]);
-            if (firstCardBefore[0] == null || firstCardAfter[0] == null
-                    || firstCardBefore[0] == firstCardAfter[0]
-                    || childCountBefore[0] != childCountAfter[0]) {
+            boolean treeReplaced = firstCardBefore[0] != null && firstCardAfter[0] != null
+                    && firstCardBefore[0] != firstCardAfter[0]
+                    && childCountBefore[0] == childCountAfter[0];
+            recordNativeHomeRenderTreeEvent("views.dedupe_after", treeReplaced ? "pass" : "fail",
+                    diagnosticJson("new_card_reference", true, "native_content_child_count_unchanged", true),
+                    diagnosticJson("card_reference_present", firstCardAfter[0] != null,
+                            "card_class", firstCardAfter[0] == null ? "missing" : firstCardAfter[0].getClass().getName(),
+                            "native_content_child_count_before", childCountBefore[0],
+                            "native_content_child_count_after", childCountAfter[0],
+                            "same_card_reference", firstCardBefore[0] == firstCardAfter[0]));
+            if (!treeReplaced) {
                 throw new AssertionError("Repeated native Home data appended duplicate cards instead of replacing the tree");
             }
             result.putBoolean("repeated_native_home_payload_replaced_tree", true);
 
             // Empty and malformed payloads are exercised separately from valid
             // synthetic cards and must leave a visible retry state, not stale data.
-            dispatchEmptyHomeThroughAndBridgeOnMain(activity);
+            noteNativeHomeRenderTreePhase("empty_dispatch");
+            JSONObject emptyPayloadSummary = summarizeNativeHomePayload("[]");
+            recordNativeHomeRenderTreeEvent("payload.constructed", "pass",
+                    diagnosticJson("payload_length_utf8_bytes", 2, "card_count", 0,
+                            "playlist_count", 0, "payload_source", "empty-control-fixture"),
+                    emptyPayloadSummary);
+            dispatchNativeHomePayloadThroughAndBridge(activity, "[]");
+            noteNativeHomeRenderTreePhase("empty_wait");
             awaitNativeHomeErrorReady(activity);
-            inspectNativeHomeErrorFixture(activity, webView, originalWebViewUrl);
+            noteNativeHomeRenderTreePhase("empty_inspect");
+            inspectNativeHomeErrorFixture(activity, webView, originalWebViewUrl, false);
             result.putBoolean("empty_native_home_payload_shows_retry_state", true);
 
+            noteNativeHomeRenderTreePhase("invalid_dispatch");
+            JSONObject invalidPayloadSummary = summarizeNativeHomePayload("{invalid-json");
+            recordNativeHomeRenderTreeEvent("payload.constructed", "pass",
+                    diagnosticJson("payload_length_utf8_bytes", 13, "card_count", 0,
+                            "playlist_count", 0, "payload_source", "malformed-control-fixture"),
+                    invalidPayloadSummary);
             dispatchNativeHomeDataThroughAndBridge(activity, "{invalid-json");
+            noteNativeHomeRenderTreePhase("invalid_wait");
             awaitNativeHomeErrorReady(activity);
-            inspectNativeHomeErrorFixture(activity, webView, originalWebViewUrl);
+            noteNativeHomeRenderTreePhase("invalid_inspect");
+            inspectNativeHomeErrorFixture(activity, webView, originalWebViewUrl, true);
             result.putBoolean("invalid_native_home_payload_shows_retry_state", true);
 
             boolean latePayloadDropped = false;
@@ -4270,14 +4845,17 @@ public final class HomeRenderInstrumentation extends Instrumentation {
             Bundle finalHomeObservation = null;
             for (int cycle = 0; cycle < 2; cycle++) {
                 for (String route : nonHomeRoutes) {
+                    noteNativeHomeRenderTreePhase("nav" + (cycle + 1) + "_" + route);
                     dispatchNativeRouteThroughAndBridge(activity, route);
                     waitForIdleSync();
                     awaitNativeRouteOwner(activity, webView, originalWebViewUrl, route, 5000L);
                     if ("search".equals(route)) {
                         // A delayed Home response is validly shaped but must not
                         // overwrite Search after the native route has changed.
+                        noteNativeHomeRenderTreePhase("late_dispatch");
                         dispatchNativeHomeDataThroughAndBridge(activity, payloads[payloads.length - 1]);
                         waitForIdleSync();
+                        noteNativeHomeRenderTreePhase("late_check");
                         final boolean[] stayedOnSearch = new boolean[1];
                         final Throwable[] staleCheckFailure = new Throwable[1];
                         runOnMainSync(new Runnable() {
@@ -4298,9 +4876,13 @@ public final class HomeRenderInstrumentation extends Instrumentation {
                         latePayloadDropped = true;
                     }
                 }
+                noteNativeHomeRenderTreePhase("nav" + (cycle + 1) + "_restore");
                 dispatchNativeHomePayloadThroughAndBridge(activity, payloads[payloads.length - 1]);
-                awaitNativeHomeCardsReady(activity);
-                finalHomeObservation = inspectNativeHomeCardRenderFixture(activity, webView, originalWebViewUrl);
+                noteNativeHomeRenderTreePhase("nav" + (cycle + 1) + "_wait");
+                awaitNativeHomeCardsReady(activity, payloadLengths[payloadLengths.length - 1]);
+                noteNativeHomeRenderTreePhase("nav" + (cycle + 1) + "_inspect");
+                finalHomeObservation = inspectNativeHomeCardRenderFixture(
+                        activity, webView, originalWebViewUrl, payloadLengths[payloadLengths.length - 1]);
                 result.putBoolean("native_home_tree_restored_after_navigation_cycle_" + (cycle + 1), true);
             }
             if (!latePayloadDropped || finalHomeObservation == null) {
@@ -4310,6 +4892,7 @@ public final class HomeRenderInstrumentation extends Instrumentation {
             result.putBoolean("late_native_home_payload_dropped_off_home", true);
             result.putInt("repeated_search_library_settings_navigation_cycles", 2);
 
+            noteNativeHomeRenderTreePhase("pixel_bounds");
             final Rect[] titleBounds = new Rect[1];
             final Throwable[] titleBoundsFailure = new Throwable[1];
             runOnMainSync(new Runnable() {
@@ -4327,9 +4910,23 @@ public final class HomeRenderInstrumentation extends Instrumentation {
             if (titleBounds[0] == null) {
                 throw new AssertionError("The synthetic native Home card title has no visible screen bounds");
             }
+            noteNativeHomeRenderTreePhase("pixel_capture");
             Bitmap screenshot = getUiAutomation().takeScreenshot();
-            boolean titlePixelsVisible = screenshot != null && screenshotHasVisibleTextPixels(screenshot, titleBounds[0]);
+            JSONObject pixelEvidence = analyzeNativeHomeScreenshot(screenshot, titleBounds[0]);
+            boolean screenshotSaved = nativeHomeRenderTreeDiagnostics != null
+                    && nativeHomeRenderTreeDiagnostics.saveScreenshot(screenshot);
+            putJson(pixelEvidence, "screenshot_saved", screenshotSaved);
+            if (nativeHomeRenderTreeDiagnostics != null) nativeHomeRenderTreeDiagnostics.setPixelEvidence(pixelEvidence);
+            recordNativeHomeRenderTreeEvent("pixels.captured", screenshot != null && screenshotSaved ? "pass" : "fail",
+                    diagnosticJson("screenshot_available", true, "screenshot_artifact_saved", true), pixelEvidence);
+            noteNativeHomeRenderTreePhase("pixel_verify");
+            boolean titlePixelsVisible = pixelEvidence.optInt("matched_text_pixels", 0) >= 3;
+            recordNativeHomeRenderTreeEvent("pixels.visibility_verified", titlePixelsVisible ? "pass" : "fail",
+                    diagnosticJson("minimum_matched_text_pixels", 3), pixelEvidence);
             if (screenshot != null) screenshot.recycle();
+            if (!screenshotSaved) {
+                throw new AssertionError("Native Home fixture screenshot could not be persisted for retrieval");
+            }
             if (!titlePixelsVisible) {
                 throw new AssertionError("Native Home card text is attached but no corresponding screen pixels were measured");
             }
@@ -4338,28 +4935,62 @@ public final class HomeRenderInstrumentation extends Instrumentation {
             result.putBoolean("no_spotify_authentication_automated", true);
             result.putBoolean("no_account_content_supplied", true);
             result.putBoolean("real_account_home_test_performed", false);
+        } catch (Throwable failure) {
+            primaryFixtureFailure = failure;
+            captureNativeHomeRenderTreeFailure(activity, webView, failure);
+            throwCapturedFailure(failure);
         } finally {
+            noteNativeHomeRenderTreePhase("restore_login");
             final Throwable[] restoreFailure = new Throwable[1];
-            runOnMainSync(new Runnable() {
-                @Override public void run() {
-                    try {
-                        requestExplicitLoginWebUi(activity);
-                    } catch (Throwable error) {
-                        restoreFailure[0] = error;
+            try {
+                runOnMainSync(new Runnable() {
+                    @Override public void run() {
+                        try {
+                            requestExplicitLoginWebUi(activity);
+                        } catch (Throwable error) {
+                            restoreFailure[0] = error;
+                        }
                     }
+                });
+            } catch (Throwable error) {
+                if (restoreFailure[0] == null) restoreFailure[0] = error;
+            }
+            if (restoreFailure[0] != null) {
+                if (primaryFixtureFailure != null) {
+                    NativeHomeRenderTreeDiagnostics diagnostics = nativeHomeRenderTreeDiagnostics;
+                    if (diagnostics != null) {
+                        try { diagnostics.setSecondaryFailure(restoreFailure[0]); } catch (Throwable ignored) {}
+                    }
+                    try { primaryFixtureFailure.addSuppressed(restoreFailure[0]); } catch (Throwable ignored) {}
+                } else {
+                    captureNativeHomeRenderTreeFailure(activity, webView, restoreFailure[0]);
+                    throwCapturedFailure(restoreFailure[0]);
                 }
-            });
-            throwCapturedFailure(restoreFailure[0]);
+            }
         }
 
-        waitForIdleSync();
-        Thread.sleep(100L);
-        if (!awaitLoginUiVisible(webView)) {
-            throw new AssertionError("The primary WebView login surface was not restored after the native Home fixture");
+        try {
+            waitForIdleSync();
+            Thread.sleep(100L);
+            noteNativeHomeRenderTreePhase("verify_login");
+            if (!awaitLoginUiVisible(webView)) {
+                throw new AssertionError("The primary WebView login surface was not restored after the native Home fixture");
+            }
+            requireUnauthenticatedSession(activity);
+            result.putBoolean("primary_webview_login_surface_restored", true);
+            recordNativeHomeRenderTreeEvent("login_surface.restored", "pass",
+                    diagnosticJson("login_ui_visible", true, "unauthenticated", true),
+                    diagnosticJson("login_ui_visible", true, "unauthenticated", true));
+            if (nativeHomeRenderTreeDiagnostics != null) {
+                nativeHomeRenderTreeDiagnostics.markPassed();
+                result.putAll(nativeHomeRenderTreeDiagnostics.statusBundle());
+            }
+            return result;
+        } catch (Throwable failure) {
+            captureNativeHomeRenderTreeFailure(activity, webView, failure);
+            throwCapturedFailure(failure);
+            return result;
         }
-        requireUnauthenticatedSession(activity);
-        result.putBoolean("primary_webview_login_surface_restored", true);
-        return result;
     }
 
     private String buildNativeHomeCardFixturePayload(int targetLength) {
@@ -4376,29 +5007,46 @@ public final class HomeRenderInstrumentation extends Instrumentation {
 
     private void dispatchNativeHomePayloadThroughAndBridge(
             final Activity activity, final String payload) throws Exception {
+        JSONObject payloadSummary = summarizeNativeHomePayload(payload);
+        String expectedDecision;
+        if ("invalid".equals(payloadSummary.optString("parse_result"))) expectedDecision = "invalid_payload";
+        else if ("empty".equals(payloadSummary.optString("parse_result"))) expectedDecision = "empty_home";
+        else expectedDecision = "home_content";
         dispatchNativeUiCallbackForFixture(activity, new FixtureBridgeAction() {
             @Override public void invoke(Object bridge, Method routeCallback, Method dataCallback) throws Exception {
-                routeCallback.invoke(bridge, "home");
-                dataCallback.invoke(bridge, "home", payload);
+                invokeFixtureBridgeCallback(bridge, routeCallback, "onNativeUiRoute", "home");
+                invokeFixtureBridgeCallback(bridge, dataCallback, "onNativeUiData", "home", payload);
             }
-        });
+        }, true, expectedDecision, payloadSummary);
     }
 
     private void dispatchNativeHomeDataThroughAndBridge(
             final Activity activity, final String payload) throws Exception {
-        dispatchNativeUiCallbackForFixture(activity, new FixtureBridgeAction() {
-            @Override public void invoke(Object bridge, Method routeCallback, Method dataCallback) throws Exception {
-                dataCallback.invoke(bridge, "home", payload);
+        final String[] screen = new String[]{"unknown"};
+        runOnMainSync(new Runnable() {
+            @Override public void run() {
+                try { screen[0] = readStringField(activity, "nativeCurrentScreen"); } catch (Throwable ignored) {}
             }
         });
+        JSONObject payloadSummary = summarizeNativeHomePayload(payload);
+        String expectedDecision;
+        if (!"home".equals(screen[0])) expectedDecision = "dropped_off_home";
+        else if ("invalid".equals(payloadSummary.optString("parse_result"))) expectedDecision = "invalid_payload";
+        else if ("empty".equals(payloadSummary.optString("parse_result"))) expectedDecision = "empty_home";
+        else expectedDecision = "home_content";
+        dispatchNativeUiCallbackForFixture(activity, new FixtureBridgeAction() {
+            @Override public void invoke(Object bridge, Method routeCallback, Method dataCallback) throws Exception {
+                invokeFixtureBridgeCallback(bridge, dataCallback, "onNativeUiData", "home", payload);
+            }
+        }, true, expectedDecision, payloadSummary);
     }
 
     private void dispatchNativeRouteThroughAndBridge(final Activity activity, final String route) throws Exception {
         dispatchNativeUiCallbackForFixture(activity, new FixtureBridgeAction() {
             @Override public void invoke(Object bridge, Method routeCallback, Method dataCallback) throws Exception {
-                routeCallback.invoke(bridge, route);
+                invokeFixtureBridgeCallback(bridge, routeCallback, "onNativeUiRoute", route);
             }
-        });
+        }, false, "route_only", null);
     }
 
     private interface FixtureBridgeAction {
@@ -4406,7 +5054,20 @@ public final class HomeRenderInstrumentation extends Instrumentation {
     }
 
     private void dispatchNativeUiCallbackForFixture(
-            final Activity activity, final FixtureBridgeAction action) throws Exception {
+            final Activity activity, final FixtureBridgeAction action,
+            final boolean containsHomeData, final String expectedDecision,
+            final JSONObject payloadMetadata) throws Exception {
+        String beforeTail = readSafeNativeHomeDiagnosticTail(activity);
+        JSONObject transmissionExpected = diagnosticJson(
+                "target", "AndBridge", "callback_thread", "main",
+                "payload_transmission_expected", containsHomeData,
+                "expected_decision", expectedDecision,
+                "payload_content_recorded", false);
+        if (payloadMetadata != null) putJson(transmissionExpected, "payload_metadata", payloadMetadata);
+        recordNativeHomeRenderTreeEvent("andbridge.transmission_started", "pass",
+                transmissionExpected,
+                diagnosticJson("transmission_started", true, "payload_content_recorded", false,
+                        "payload_metadata", payloadMetadata == null ? JSONObject.NULL : payloadMetadata));
         final Throwable[] failure = new Throwable[1];
         runOnMainSync(new Runnable() {
             @Override public void run() {
@@ -4421,10 +5082,23 @@ public final class HomeRenderInstrumentation extends Instrumentation {
                 }
             }
         });
-        throwCapturedFailure(failure[0]);
+        if (failure[0] != null) {
+            Throwable cause = unwrapInvocationTarget(failure[0]);
+            recordNativeHomeRenderTreeEvent("andbridge.transmission_failed", "fail",
+                    diagnosticJson("target", "AndBridge"),
+                    diagnosticJson("exception_class", cause == null ? failure[0].getClass().getName() : cause.getClass().getName()));
+            throwCapturedFailure(failure[0]);
+        }
+        recordNativeHomeRenderTreeEvent("andbridge.transmission_returned", "pass",
+                diagnosticJson("target", "AndBridge", "expected_callback_return", true),
+                diagnosticJson("callback_action_returned", true));
+        if (containsHomeData) {
+            String afterTail = readSafeNativeHomeDiagnosticTail(activity);
+            recordNativeHomePipeline(beforeTail, afterTail, expectedDecision);
+        }
     }
 
-    private void awaitNativeHomeCardsReady(Activity activity) throws Exception {
+    private void awaitNativeHomeCardsReady(final Activity activity, final int payloadLength) throws Exception {
         long deadline = SystemClock.elapsedRealtime() + 10000L;
         while (SystemClock.elapsedRealtime() < deadline) {
             final boolean[] ready = new boolean[1];
@@ -4445,15 +5119,59 @@ public final class HomeRenderInstrumentation extends Instrumentation {
                 }
             });
             throwCapturedFailure(checkFailure[0]);
-            if (ready[0]) return;
+            if (ready[0]) {
+                JSONObject observed = captureNativeHomeRenderTreeViewState(activity, null, false);
+                recordNativeHomeSnapshotEvents(observed);
+                recordNativeHomeRenderTreeEvent("render_tree.wait_completed", "pass",
+                        diagnosticJson("home_screen", true, "card_reference", true,
+                                "card_visible_bounds", true, "content_ready_flag", true), observed);
+                return;
+            }
             waitForIdleSync();
             Thread.sleep(100L);
         }
+        final String[] reason = new String[]{"other"};
+        final Throwable[] checkFailure = new Throwable[1];
+        runOnMainSync(new Runnable() {
+            @Override public void run() {
+                try {
+                    View root = requiredView(activity, "nativeRoot");
+                    View card = readViewField(activity, "nativeHomeFirstCard");
+                    if (!"home".equals(readStringField(activity, "nativeCurrentScreen"))) {
+                        reason[0] = "screen";
+                    } else if (!readBooleanField(activity, "nativeHomeCardsAttached")) {
+                        reason[0] = "cards";
+                    } else if (readBooleanField(activity, "nativeHomeStatusAttached")) {
+                        reason[0] = "status";
+                    } else if (!readBooleanField(activity, "nativeHomeContentReady")) {
+                        reason[0] = "ready";
+                    } else if (!root.isShown()) {
+                        reason[0] = "root";
+                    } else if (visibleBounds(root) == null) {
+                        reason[0] = "root_bounds";
+                    } else if (visibleBounds(card) == null) {
+                        reason[0] = "card";
+                    }
+                } catch (Throwable error) {
+                    checkFailure[0] = error;
+                }
+            }
+        });
+        if (checkFailure[0] != null) {
+            noteNativeHomeRenderTreePhase("w" + payloadLength + "_probe_error");
+            throwCapturedFailure(checkFailure[0]);
+        }
+        noteNativeHomeRenderTreePhase("w" + payloadLength + "_" + reason[0]);
+        JSONObject observed = captureNativeHomeRenderTreeViewState(activity, null, true);
+        recordNativeHomeSnapshotEvents(observed);
+        recordNativeHomeRenderTreeEvent("render_tree.wait_timeout", "fail",
+                diagnosticJson("timeout_ms", 10000, "screen", "home", "card_visible_bounds", true), observed);
         throw new AssertionError("Native Home did not reach an attached, measured card state");
     }
 
     private Bundle inspectNativeHomeCardRenderFixture(
-            final Activity activity, final WebView webView, final String originalWebViewUrl) throws Exception {
+            final Activity activity, final WebView webView, final String originalWebViewUrl,
+            final int payloadLength) throws Exception {
         final Bundle[] result = new Bundle[1];
         final Throwable[] failure = new Throwable[1];
         runOnMainSync(new Runnable() {
@@ -4491,15 +5209,78 @@ public final class HomeRenderInstrumentation extends Instrumentation {
                     String frontmost = frontmostFullscreenSurface(
                             requiredView(activity, "hScrollView"), nativeRoot, splash, mainRoot,
                             mainRoot.getWidth(), mainRoot.getHeight());
+                    JSONObject viewSnapshot = collectNativeHomeRenderTreeViewState(activity, webView, false);
+                    int observedCardCount = viewSnapshot.optInt("synthetic_card_count", 0);
+                    int observedTitleCount = viewSnapshot.optInt("synthetic_title_count", 0);
+                    recordNativeHomeRenderTreeEvent("views.created", card != null && observedTitleCount > 0 ? "pass" : "fail",
+                            diagnosticJson("card_count", 1, "title_count", 1),
+                            diagnosticJson("card_count", observedCardCount, "title_count", observedTitleCount,
+                                    "card", viewSnapshot.opt("card"), "title", viewSnapshot.opt("title")));
+                    recordNativeHomeRenderTreeEvent("views.attached", cardIsChild && nativeContent.getChildCount() > 0 ? "pass" : "fail",
+                            diagnosticJson("descendant_of_native_content", true, "native_content_child_count_minimum", 1),
+                            diagnosticJson("descendant_of_native_content", cardIsChild,
+                                    "native_content_child_count", nativeContent.getChildCount(),
+                                    "card", viewSnapshot.opt("card")));
+                    boolean layoutMeasured = card != null && title != null
+                            && card.getWidth() > 0 && card.getHeight() > 0
+                            && title.getWidth() > 0 && title.getHeight() > 0;
+                    recordNativeHomeRenderTreeEvent("layout.measured", layoutMeasured ? "pass" : "fail",
+                            diagnosticJson("card_width_px_minimum", 1, "card_height_px_minimum", 1,
+                                    "title_width_px_minimum", 1, "title_height_px_minimum", 1),
+                            diagnosticJson("card", viewSnapshot.opt("card"), "title", viewSnapshot.opt("title")));
+                    noteNativeHomeRenderTreePhase("v" + payloadLength + "_session");
                     requireUnauthenticatedSession(activity);
-                    if (!"home".equals(readStringField(activity, "nativeCurrentScreen"))
-                            || webBounds == null || rootBounds == null || cardBounds == null || titleBounds == null
-                            || !cardsAttached || statusAttached || !contentReady || !cardIsChild
-                            || nativeContent.getChildCount() == 0 || !webContainerMounted || !sameWebViewUrl
-                            || !splashHidden || !homeTabVisible || !rootCoversCenter || !rootCoversHomeTab
-                            || !"native_root".equals(frontmost)) {
+                    String visibilityFailureStage = null;
+                    if (!"home".equals(readStringField(activity, "nativeCurrentScreen"))) {
+                        visibilityFailureStage = "v" + payloadLength + "_screen";
+                    } else if (webBounds == null) {
+                        visibilityFailureStage = "v" + payloadLength + "_web";
+                    } else if (rootBounds == null) {
+                        visibilityFailureStage = "v" + payloadLength + "_root";
+                    } else if (cardBounds == null) {
+                        visibilityFailureStage = "v" + payloadLength + "_card";
+                    } else if (titleBounds == null) {
+                        visibilityFailureStage = "v" + payloadLength + "_title";
+                    } else if (!cardsAttached) {
+                        visibilityFailureStage = "v" + payloadLength + "_cards_flag";
+                    } else if (statusAttached) {
+                        visibilityFailureStage = "v" + payloadLength + "_status_flag";
+                    } else if (!contentReady) {
+                        visibilityFailureStage = "v" + payloadLength + "_ready_flag";
+                    } else if (!cardIsChild || nativeContent.getChildCount() == 0) {
+                        visibilityFailureStage = "v" + payloadLength + "_card_parent";
+                    } else if (!webContainerMounted) {
+                        visibilityFailureStage = "v" + payloadLength + "_web_parent";
+                    } else if (!sameWebViewUrl) {
+                        visibilityFailureStage = "v" + payloadLength + "_web_url";
+                    } else if (!splashHidden) {
+                        visibilityFailureStage = "v" + payloadLength + "_splash";
+                    } else if (!homeTabVisible) {
+                        visibilityFailureStage = "v" + payloadLength + "_home_tab";
+                    } else if (!rootCoversCenter) {
+                        visibilityFailureStage = "v" + payloadLength + "_center";
+                    } else if (!rootCoversHomeTab) {
+                        visibilityFailureStage = "v" + payloadLength + "_tab_cover";
+                    } else if (!"native_root".equals(frontmost)) {
+                        visibilityFailureStage = "v" + payloadLength + "_frontmost";
+                    }
+                    boolean visibilityCalculated = visibilityFailureStage == null;
+                    recordNativeHomeRenderTreeEvent("visibility.calculated", visibilityCalculated ? "pass" : "fail",
+                            diagnosticJson("card_visible", true, "title_visible", true,
+                                    "native_root_frontmost", true, "splash_hidden", true),
+                            diagnosticJson("failure_condition", visibilityFailureStage == null ? "none" : visibilityFailureStage,
+                                    "card_visible_bounds", cardBounds != null, "title_visible_bounds", titleBounds != null,
+                                    "native_root_visible_bounds", rootBounds != null,
+                                    "home_tab_visible_bounds", homeTabBounds != null,
+                                    "card_attached", cardIsChild, "native_content_child_count", nativeContent.getChildCount(),
+                                    "splash_hidden", splashHidden, "native_root_covers_center", rootCoversCenter,
+                                    "native_root_covers_home_tab", rootCoversHomeTab,
+                                    "frontmost_surface", frontmost));
+                    if (visibilityFailureStage != null) {
+                        noteNativeHomeRenderTreePhase(visibilityFailureStage);
                         throw new AssertionError("Native Home card tree was not mounted and visibly above the preserved WebView");
                     }
+                    noteNativeHomeRenderTreePhase("v" + payloadLength + "_ok");
                     Bundle state = new Bundle();
                     state.putString("phase", "native_home_card_render_tree_fixture");
                     state.putString("final_screen_owner", "native-home");
@@ -4531,7 +5312,8 @@ public final class HomeRenderInstrumentation extends Instrumentation {
     }
 
     private Bundle inspectNativeHomeErrorFixture(
-            final Activity activity, final WebView webView, final String originalWebViewUrl) throws Exception {
+            final Activity activity, final WebView webView, final String originalWebViewUrl,
+            final boolean invalidPayload) throws Exception {
         final Bundle[] result = new Bundle[1];
         final Throwable[] failure = new Throwable[1];
         runOnMainSync(new Runnable() {
@@ -4550,23 +5332,72 @@ public final class HomeRenderInstrumentation extends Instrumentation {
                     boolean attached = readBooleanField(activity, "nativeHomeStatusAttached");
                     boolean cards = readBooleanField(activity, "nativeHomeCardsAttached");
                     boolean contentReady = readBooleanField(activity, "nativeHomeContentReady");
-                    boolean errorTitle = containsText(status, "Votre accueil n’a pas pu être chargé");
-                    boolean retryMessage = containsText(status, "Touchez pour réessayer");
+                    String expectedTitle = invalidPayload
+                            ? "Les données n’ont pas pu être lues"
+                            : "Votre accueil n’a pas pu être chargé";
+                    String expectedRetryMessage = invalidPayload
+                            ? "Touchez pour réessayer le chargement de la bibliothèque"
+                            : "Touchez pour réessayer";
+                    boolean errorTitle = containsText(status, expectedTitle);
+                    boolean retryMessage = containsText(status, expectedRetryMessage);
                     boolean retryClickable = containsClickableText(status, "Réessayer");
                     boolean statusIsChild = status != null && status.getParent() == nativeContent;
                     boolean webContainerMounted = webContainer.getVisibility() == View.VISIBLE
                             && webView != null && webView.getParent() == webContainer;
                     boolean sameWebViewUrl = equalsNullable(originalWebViewUrl, webView.getUrl());
+                    JSONObject viewSnapshot = collectNativeHomeRenderTreeViewState(activity, webView, false);
+                    int statusTitleCount = viewSnapshot.optInt("status_title_count", 0);
+                    boolean statusCreated = status != null && statusTitleCount > 0;
+                    boolean statusMeasured = status != null && status.getWidth() > 0 && status.getHeight() > 0;
+                    recordNativeHomeRenderTreeEvent("views.created", statusCreated ? "pass" : "fail",
+                            diagnosticJson("status_view_created", true, "status_title_count_minimum", 1,
+                                    "real_card_count", 0, "status_payload_variant",
+                                    invalidPayload ? "invalid-json" : "empty"),
+                            diagnosticJson("status_view_created", status != null,
+                                    "status_payload_variant", invalidPayload ? "invalid-json" : "empty",
+                                    "status_title_count", statusTitleCount,
+                                    "real_card_count", viewSnapshot.optInt("synthetic_card_count", 0),
+                                    "status", viewSnapshot.opt("views") == JSONObject.NULL ? JSONObject.NULL
+                                            : viewSnapshot.optJSONObject("views").opt("status")));
+                    recordNativeHomeRenderTreeEvent("views.attached", statusIsChild ? "pass" : "fail",
+                            diagnosticJson("status_descendant_of_native_content", true, "native_content_child_count", 1),
+                            diagnosticJson("status_descendant_of_native_content", statusIsChild,
+                                    "native_content_child_count", nativeContent.getChildCount(),
+                                    "status", viewSnapshot.optJSONObject("views").opt("status")));
+                    recordNativeHomeRenderTreeEvent("layout.measured", statusMeasured ? "pass" : "fail",
+                            diagnosticJson("status_width_px_minimum", 1, "status_height_px_minimum", 1),
+                            diagnosticJson("status", viewSnapshot.optJSONObject("views").opt("status")));
                     requireUnauthenticatedSession(activity);
-                    if (!"home".equals(readStringField(activity, "nativeCurrentScreen"))
-                            || rootBounds == null || statusBounds == null || homeTabBounds == null
-                            || !attached || cards || !contentReady || !errorTitle || !retryMessage || !retryClickable
-                            || !statusIsChild || !webContainerMounted || !sameWebViewUrl
-                            || splash.getVisibility() != View.GONE || nativeContent.getChildCount() != 1) {
+                    boolean screenHome = "home".equals(readStringField(activity, "nativeCurrentScreen"));
+                    boolean splashHidden = splash.getVisibility() == View.GONE;
+                    boolean errorStateVisible = screenHome && rootBounds != null && statusBounds != null
+                            && homeTabBounds != null && attached && !cards && contentReady && errorTitle
+                            && retryMessage && retryClickable && statusIsChild && webContainerMounted
+                            && sameWebViewUrl && splashHidden && nativeContent.getChildCount() == 1;
+                    recordNativeHomeRenderTreeEvent("visibility.calculated", errorStateVisible ? "pass" : "fail",
+                            diagnosticJson("status_visible", true, "retry_visible_and_clickable", true,
+                                    "splash_hidden", true, "native_root_visible", true,
+                                    "status_payload_variant", invalidPayload ? "invalid-json" : "empty"),
+                            diagnosticJson("screen_home", screenHome,
+                                    "status_payload_variant", invalidPayload ? "invalid-json" : "empty",
+                                    "root_visible_bounds", rootBounds != null,
+                                    "status_visible_bounds", statusBounds != null,
+                                    "home_tab_visible_bounds", homeTabBounds != null,
+                                    "status_attached_flag", attached, "cards_attached_flag", cards,
+                                    "content_ready_flag", contentReady, "error_title_present", errorTitle,
+                                    "retry_message_present", retryMessage,
+                                    "retry_action_clickable", retryClickable,
+                                    "status_is_child_of_native_content", statusIsChild,
+                                    "native_content_child_count", nativeContent.getChildCount(),
+                                    "webview_mounted", webContainerMounted,
+                                    "original_webview_url_preserved", sameWebViewUrl,
+                                    "splash_hidden", splashHidden));
+                    if (!errorStateVisible) {
                         throw new AssertionError("Invalid or empty native Home payload did not leave the safe retry view tree");
                     }
                     Bundle state = new Bundle();
                     state.putString("phase", "invalid_empty_native_home_retry_fixture");
+                    state.putString("status_payload_variant", invalidPayload ? "invalid-json" : "empty");
                     state.putBoolean("synthetic_fixture_only", true);
                     state.putBoolean("native_home_status_attached", true);
                     state.putBoolean("native_home_cards_attached", false);
@@ -4585,6 +5416,417 @@ public final class HomeRenderInstrumentation extends Instrumentation {
         });
         throwCapturedFailure(failure[0]);
         return result[0];
+    }
+
+    private JSONObject captureNativeHomeRenderTreeViewState(
+            final Activity activity, final WebView webView, final boolean includeHierarchy) {
+        final JSONObject[] state = new JSONObject[1];
+        try {
+            runOnMainSync(new Runnable() {
+                @Override public void run() {
+                    state[0] = collectNativeHomeRenderTreeViewState(activity, webView, includeHierarchy);
+                }
+            });
+        } catch (Throwable error) {
+            return diagnosticJson("snapshot_available", false,
+                    "snapshot_error_class", error.getClass().getName());
+        }
+        return state[0] == null
+                ? diagnosticJson("snapshot_available", false, "snapshot_error", "no_snapshot_returned")
+                : state[0];
+    }
+
+    private JSONObject collectNativeHomeRenderTreeViewState(
+            Activity activity, WebView webView, boolean includeHierarchy) {
+        View mainRoot = optionalView(activity, "main");
+        View nativeRoot = optionalView(activity, "nativeRoot");
+        ViewGroup nativeContent = optionalView(activity, "nativeContent") instanceof ViewGroup
+                ? (ViewGroup) optionalView(activity, "nativeContent") : null;
+        View splash = optionalView(activity, "splashOverlay");
+        View homeTab = optionalView(activity, "nativeHomeTab");
+        View webContainer = optionalView(activity, "webViewContainer");
+        View card = null;
+        View title = null;
+        View status = null;
+        String screen = "unknown";
+        boolean cardsAttached = false;
+        boolean statusAttached = false;
+        boolean contentReady = false;
+        try { card = readViewField(activity, "nativeHomeFirstCard"); } catch (Throwable ignored) {}
+        try { title = findTextViewContaining(card, SYNTHETIC_HOME_CARD_TITLE); } catch (Throwable ignored) {}
+        try { status = readViewField(activity, "nativeHomeStatusView"); } catch (Throwable ignored) {}
+        try { screen = readStringField(activity, "nativeCurrentScreen"); } catch (Throwable ignored) {}
+        try { cardsAttached = readBooleanField(activity, "nativeHomeCardsAttached"); } catch (Throwable ignored) {}
+        try { statusAttached = readBooleanField(activity, "nativeHomeStatusAttached"); } catch (Throwable ignored) {}
+        try { contentReady = readBooleanField(activity, "nativeHomeContentReady"); } catch (Throwable ignored) {}
+        int titleCount = countSyntheticHomeTitles(nativeContent);
+        int statusTitleCount = countHomeStatusTitles(nativeContent);
+        boolean cardAttached = isDescendantOf(card, nativeContent);
+        boolean titleAttached = isDescendantOf(title, nativeContent);
+        boolean statusViewAttached = isDescendantOf(status, nativeContent);
+        boolean cardMeasured = card != null && safeViewWidth(card) > 0 && safeViewHeight(card) > 0;
+        boolean titleMeasured = title != null && safeViewWidth(title) > 0 && safeViewHeight(title) > 0;
+        boolean statusMeasured = status != null && safeViewWidth(status) > 0 && safeViewHeight(status) > 0;
+        JSONObject views = diagnosticJson(
+                "main_root", describeNativeHomeView(mainRoot),
+                "native_root", describeNativeHomeView(nativeRoot),
+                "native_content", describeNativeHomeView(nativeContent),
+                "card", describeNativeHomeView(card),
+                "title", describeNativeHomeView(title),
+                "status", describeNativeHomeView(status),
+                "splash", describeNativeHomeView(splash),
+                "home_tab", describeNativeHomeView(homeTab),
+                "webview_container", describeNativeHomeView(webContainer),
+                "primary_webview", describeNativeHomeView(webView));
+        JSONObject snapshot = diagnosticJson(
+                "snapshot_available", true,
+                "screen", screen.matches("home|search|library|settings|detail|player") ? screen : "other",
+                "cards_attached_flag", cardsAttached,
+                "status_attached_flag", statusAttached,
+                "content_ready_flag", contentReady,
+                "native_content_child_count", nativeContent == null ? -1 : nativeContent.getChildCount(),
+                "first_card_reference_present", card != null,
+                "card_attached_to_native_content", cardAttached,
+                "title_attached_to_native_content", titleAttached,
+                "status_view_attached_to_native_content", statusViewAttached,
+                "card_measured", cardMeasured,
+                "title_measured", titleMeasured,
+                "status_measured", statusMeasured,
+                "card_visible", views.optJSONObject("card") != null && views.optJSONObject("card").optBoolean("visible", false),
+                "title_visible", views.optJSONObject("title") != null && views.optJSONObject("title").optBoolean("visible", false),
+                "status_visible", views.optJSONObject("status") != null && views.optJSONObject("status").optBoolean("visible", false),
+                "native_root_visible", views.optJSONObject("native_root") != null && views.optJSONObject("native_root").optBoolean("visible", false),
+                "synthetic_card_count", titleCount,
+                "synthetic_title_count", titleCount,
+                "status_title_count", statusTitleCount,
+                "playlist_count_in_fixture", 0,
+                "views", views);
+        if (includeHierarchy) {
+            int[] mainNodeCount = new int[]{0};
+            int[] nativeNodeCount = new int[]{0};
+            JSONObject hierarchy = diagnosticJson(
+                    "hierarchy_redacted", true,
+                    "text_and_content_descriptions_recorded", false,
+                    "main_root", describeNativeHomeViewTree(mainRoot, 0, mainNodeCount),
+                    "main_root_node_count", mainNodeCount[0],
+                    "native_root", describeNativeHomeViewTree(nativeRoot, 0, nativeNodeCount),
+                    "native_content", describeNativeHomeViewTree(nativeContent, 0, nativeNodeCount),
+                    "native_subtree_node_count", nativeNodeCount[0],
+                    "node_limit_per_tree", 256);
+            putJson(snapshot, "hierarchy", hierarchy);
+        }
+        return snapshot;
+    }
+
+    private JSONObject describeNativeHomeView(View view) {
+        JSONObject description = diagnosticJson("present", view != null);
+        if (view == null) return description;
+        int id = View.NO_ID;
+        try { id = view.getId(); } catch (Throwable ignored) {}
+        String resourceName = "NO_ID";
+        if (id != View.NO_ID && id != 0) {
+            try { resourceName = view.getResources().getResourceName(id); }
+            catch (Throwable ignored) { resourceName = "unresolved"; }
+        }
+        android.view.ViewParent parent = null;
+        try { parent = view.getParent(); } catch (Throwable ignored) {}
+        View parentView = parent instanceof View ? (View) parent : null;
+        int visibility = View.GONE;
+        try { visibility = view.getVisibility(); } catch (Throwable ignored) {}
+        int[] location = new int[]{0, 0};
+        try { view.getLocationOnScreen(location); } catch (Throwable ignored) {}
+        Rect global = new Rect();
+        boolean globalVisible = false;
+        try { globalVisible = view.getGlobalVisibleRect(global); } catch (Throwable ignored) {}
+        boolean shown = false;
+        boolean laidOut = false;
+        float alpha = 0f;
+        try { shown = view.isShown(); } catch (Throwable ignored) {}
+        try { laidOut = view.isLaidOut(); } catch (Throwable ignored) {}
+        try { alpha = view.getAlpha(); } catch (Throwable ignored) {}
+        int visibilityValue = visibility;
+        String visibilityName = visibilityValue == View.VISIBLE ? "VISIBLE"
+                : visibilityValue == View.INVISIBLE ? "INVISIBLE" : "GONE_OR_OTHER";
+        int childCount = view instanceof ViewGroup ? ((ViewGroup) view).getChildCount() : 0;
+        return diagnosticJson(
+                "present", true,
+                "class", view.getClass().getName(),
+                "resource_id_int", id,
+                "resource_id", resourceName,
+                "parent_class", parent == null ? "none" : parent.getClass().getName(),
+                "parent_resource_id", parentView == null ? "none" : resourceIdName(parentView),
+                "child_count", childCount,
+                "width_px", safeViewWidth(view),
+                "height_px", safeViewHeight(view),
+                "measured_width_px", safeMeasuredWidth(view),
+                "measured_height_px", safeMeasuredHeight(view),
+                "visibility_int", visibilityValue,
+                "visibility", visibilityName,
+                "is_shown", shown,
+                "is_laid_out", laidOut,
+                "alpha", alpha,
+                "screen_x_px", location[0],
+                "screen_y_px", location[1],
+                "screen_right_px", location[0] + safeViewWidth(view),
+                "screen_bottom_px", location[1] + safeViewHeight(view),
+                "get_global_visible_rect_result", globalVisible,
+                "global_visible_rect_px", globalVisible ? rectToJson(global) : JSONObject.NULL,
+                "visible", visibilityValue == View.VISIBLE && shown && alpha > 0f
+                        && globalVisible && global.width() > 0 && global.height() > 0);
+    }
+
+    private int safeViewWidth(View view) { try { return view.getWidth(); } catch (Throwable ignored) { return -1; } }
+    private int safeViewHeight(View view) { try { return view.getHeight(); } catch (Throwable ignored) { return -1; } }
+    private int safeMeasuredWidth(View view) { try { return view.getMeasuredWidth(); } catch (Throwable ignored) { return -1; } }
+    private int safeMeasuredHeight(View view) { try { return view.getMeasuredHeight(); } catch (Throwable ignored) { return -1; } }
+
+    private String resourceIdName(View view) {
+        if (view == null || view.getId() == View.NO_ID || view.getId() == 0) return "NO_ID";
+        try { return view.getResources().getResourceName(view.getId()); }
+        catch (Throwable ignored) { return "unresolved"; }
+    }
+
+    private JSONObject rectToJson(Rect rect) {
+        if (rect == null) return diagnosticJson("available", false);
+        return diagnosticJson("left_px", rect.left, "top_px", rect.top,
+                "right_px", rect.right, "bottom_px", rect.bottom,
+                "width_px", rect.width(), "height_px", rect.height());
+    }
+
+    private JSONObject describeNativeHomeViewTree(View view, int depth, int[] nodeCount) {
+        if (view == null) return diagnosticJson("present", false);
+        if (nodeCount[0] >= 256) return diagnosticJson("truncated", true, "node_limit", 256);
+        nodeCount[0]++;
+        JSONObject node = describeNativeHomeView(view);
+        putJson(node, "depth", depth);
+        if (depth >= 12) {
+            putJson(node, "children_truncated", view instanceof ViewGroup && ((ViewGroup) view).getChildCount() > 0);
+            return node;
+        }
+        if (view instanceof ViewGroup) {
+            ViewGroup group = (ViewGroup) view;
+            JSONArray children = new JSONArray();
+            int count = Math.min(group.getChildCount(), 48);
+            for (int i = 0; i < count && nodeCount[0] < 256; i++) {
+                children.put(describeNativeHomeViewTree(group.getChildAt(i), depth + 1, nodeCount));
+            }
+            putJson(node, "children", children);
+            putJson(node, "children_truncated", group.getChildCount() > count || nodeCount[0] >= 256);
+        }
+        return node;
+    }
+
+    private int countSyntheticHomeTitles(View root) {
+        if (root == null) return 0;
+        int count = 0;
+        if (root instanceof TextView) {
+            CharSequence text = ((TextView) root).getText();
+            if (text != null && text.toString().contains(SYNTHETIC_HOME_CARD_TITLE)) count++;
+        }
+        if (root instanceof ViewGroup) {
+            ViewGroup group = (ViewGroup) root;
+            for (int i = 0; i < group.getChildCount(); i++) count += countSyntheticHomeTitles(group.getChildAt(i));
+        }
+        return count;
+    }
+
+    private void recordNativeHomeSnapshotEvents(JSONObject snapshot) {
+        if (snapshot == null) return;
+        JSONObject views = snapshot.optJSONObject("views");
+        Object card = views == null ? JSONObject.NULL : views.opt("card");
+        Object title = views == null ? JSONObject.NULL : views.opt("title");
+        int cards = snapshot.optInt("synthetic_card_count", 0);
+        int titles = snapshot.optInt("synthetic_title_count", 0);
+        boolean created = snapshot.optBoolean("first_card_reference_present", false) && titles > 0;
+        boolean attached = snapshot.optBoolean("card_attached_to_native_content", false)
+                && snapshot.optBoolean("title_attached_to_native_content", false);
+        boolean measured = snapshot.optBoolean("card_measured", false) && snapshot.optBoolean("title_measured", false);
+        boolean visible = snapshot.optBoolean("card_visible", false) && snapshot.optBoolean("title_visible", false)
+                && snapshot.optBoolean("native_root_visible", false);
+        recordNativeHomeRenderTreeEvent("views.created", created ? "pass" : "fail",
+                diagnosticJson("card_count", 1, "title_count", 1, "playlist_count", 0),
+                diagnosticJson("card_count", cards, "title_count", titles,
+                        "card_reference_present", snapshot.optBoolean("first_card_reference_present", false),
+                        "card", card, "title", title));
+        recordNativeHomeRenderTreeEvent("views.attached", attached ? "pass" : "fail",
+                diagnosticJson("card_and_title_descendant_of_native_content", true,
+                        "native_content_child_count_minimum", 1),
+                diagnosticJson("card_attached_to_native_content", snapshot.optBoolean("card_attached_to_native_content", false),
+                        "title_attached_to_native_content", snapshot.optBoolean("title_attached_to_native_content", false),
+                        "native_content_child_count", snapshot.optInt("native_content_child_count", -1),
+                        "card", card, "title", title));
+        recordNativeHomeRenderTreeEvent("layout.measured", measured ? "pass" : "fail",
+                diagnosticJson("card_and_title_width_height_px_minimum", 1),
+                diagnosticJson("card_measured", snapshot.optBoolean("card_measured", false),
+                        "title_measured", snapshot.optBoolean("title_measured", false),
+                        "card", card, "title", title));
+        recordNativeHomeRenderTreeEvent("visibility.calculated", visible ? "pass" : "fail",
+                diagnosticJson("card_visible", true, "title_visible", true, "native_root_visible", true),
+                diagnosticJson("card_visible", snapshot.optBoolean("card_visible", false),
+                        "title_visible", snapshot.optBoolean("title_visible", false),
+                        "native_root_visible", snapshot.optBoolean("native_root_visible", false),
+                        "card", card, "title", title,
+                        "native_root", views == null ? JSONObject.NULL : views.opt("native_root")));
+    }
+
+    private void recordNativeHomeFailureSnapshotEvents(JSONObject snapshot) {
+        if (snapshot == null) return;
+        JSONObject views = snapshot.optJSONObject("views");
+        JSONObject card = views == null ? null : views.optJSONObject("card");
+        JSONObject title = views == null ? null : views.optJSONObject("title");
+        JSONObject status = views == null ? null : views.optJSONObject("status");
+        JSONObject nativeRoot = views == null ? null : views.optJSONObject("native_root");
+        boolean cardPresent = snapshot.optBoolean("first_card_reference_present", false);
+        boolean statusPresent = snapshot.optInt("status_title_count", 0) > 0
+                && status != null && status.optBoolean("present", false);
+        boolean cardAttached = snapshot.optBoolean("card_attached_to_native_content", false);
+        boolean titleAttached = snapshot.optBoolean("title_attached_to_native_content", false);
+        boolean statusAttached = snapshot.optBoolean("status_view_attached_to_native_content", false);
+        boolean cardMeasured = snapshot.optBoolean("card_measured", false);
+        boolean titleMeasured = snapshot.optBoolean("title_measured", false);
+        boolean statusMeasured = snapshot.optBoolean("status_measured", false);
+        boolean cardVisible = snapshot.optBoolean("card_visible", false);
+        boolean titleVisible = snapshot.optBoolean("title_visible", false);
+        boolean statusVisible = snapshot.optBoolean("status_visible", false);
+        boolean rootVisible = snapshot.optBoolean("native_root_visible", false);
+        JSONObject expected = diagnosticJson("snapshot_timing", "failure", "observation_only", true);
+        recordNativeHomeRenderTreeEvent("failure_snapshot.views.created", "observed", expected,
+                diagnosticJson("card_reference_present", cardPresent,
+                        "synthetic_card_count", snapshot.optInt("synthetic_card_count", 0),
+                        "synthetic_title_count", snapshot.optInt("synthetic_title_count", 0),
+                        "status_view_present", statusPresent,
+                        "status_title_count", snapshot.optInt("status_title_count", 0),
+                        "card", card == null ? JSONObject.NULL : card,
+                        "title", title == null ? JSONObject.NULL : title,
+                        "status", status == null ? JSONObject.NULL : status));
+        recordNativeHomeRenderTreeEvent("failure_snapshot.views.attached", "observed", expected,
+                diagnosticJson("card_attached_to_native_content", cardAttached,
+                        "title_attached_to_native_content", titleAttached,
+                        "status_attached_to_native_content", statusAttached,
+                        "native_content_child_count", snapshot.optInt("native_content_child_count", -1)));
+        recordNativeHomeRenderTreeEvent("failure_snapshot.layout.measured", "observed", expected,
+                diagnosticJson("card_measured", cardMeasured,
+                        "title_measured", titleMeasured,
+                        "status_measured", statusMeasured,
+                        "card", card == null ? JSONObject.NULL : card,
+                        "title", title == null ? JSONObject.NULL : title,
+                        "status", status == null ? JSONObject.NULL : status));
+        recordNativeHomeRenderTreeEvent("failure_snapshot.visibility.calculated", "observed", expected,
+                diagnosticJson("card_visible", cardVisible,
+                        "title_visible", titleVisible,
+                        "status_visible", statusVisible,
+                        "native_root_visible", rootVisible,
+                        "card", card == null ? JSONObject.NULL : card,
+                        "title", title == null ? JSONObject.NULL : title,
+                        "status", status == null ? JSONObject.NULL : status,
+                        "native_root", nativeRoot == null ? JSONObject.NULL : nativeRoot));
+    }
+
+    private int countHomeStatusTitles(View root) {
+        if (root == null) return 0;
+        int count = 0;
+        if (root instanceof TextView) {
+            CharSequence text = ((TextView) root).getText();
+            if (text != null) {
+                String value = text.toString();
+                if (value.contains("Votre accueil n’a pas pu être chargé")
+                        || value.contains("Les données n’ont pas pu être lues")
+                        || value.contains("Connexion Spotify à vérifier")) count++;
+            }
+        }
+        if (root instanceof ViewGroup) {
+            ViewGroup group = (ViewGroup) root;
+            for (int i = 0; i < group.getChildCount(); i++) count += countHomeStatusTitles(group.getChildAt(i));
+        }
+        return count;
+    }
+
+    private JSONObject analyzeNativeHomeScreenshot(Bitmap screenshot, Rect titleBounds) {
+        if (screenshot == null) {
+            return diagnosticJson("screenshot_available", false, "screenshot_width_px", 0,
+                    "screenshot_height_px", 0, "title_bounds_available", titleBounds != null,
+                    "matched_text_pixels", 0, "bright_text_pixels", 0, "accent_pixels", 0,
+                    "threshold_pixels", 3, "pixels_visible", false);
+        }
+        int bright = 0;
+        int accent = 0;
+        int matched = 0;
+        Rect measured = titleBounds == null ? new Rect() : new Rect(titleBounds);
+        boolean areaAvailable = titleBounds != null
+                && measured.intersect(0, 0, screenshot.getWidth(), screenshot.getHeight());
+        if (areaAvailable) {
+            for (int y = measured.top; y < measured.bottom; y++) {
+                for (int x = measured.left; x < measured.right; x++) {
+                    int pixel = screenshot.getPixel(x, y);
+                    int red = Color.red(pixel);
+                    int green = Color.green(pixel);
+                    int blue = Color.blue(pixel);
+                    boolean brightPixel = red + green + blue >= 360;
+                    boolean accentPixel = green >= 48 && green >= red + 20 && green >= blue + 20;
+                    if (brightPixel) bright++;
+                    if (accentPixel) accent++;
+                    if (brightPixel || accentPixel) matched++;
+                }
+            }
+        }
+        return diagnosticJson("screenshot_available", true,
+                "screenshot_width_px", screenshot.getWidth(),
+                "screenshot_height_px", screenshot.getHeight(),
+                "title_bounds_available", titleBounds != null,
+                "title_bounds_px", titleBounds == null ? JSONObject.NULL : rectToJson(titleBounds),
+                "pixel_test_area_available", areaAvailable,
+                "pixel_test_area_px", areaAvailable ? rectToJson(measured) : JSONObject.NULL,
+                "bright_text_pixels", bright,
+                "accent_pixels", accent,
+                "matched_text_pixels", matched,
+                "threshold_pixels", 3,
+                "pixels_visible", matched >= 3);
+    }
+
+    private void captureNativeHomeRenderTreeFailure(Activity activity, WebView webView, Throwable failure) {
+        NativeHomeRenderTreeDiagnostics diagnostics = nativeHomeRenderTreeDiagnostics;
+        if (diagnostics == null) return;
+        try {
+            diagnostics.setFailure(failure, nativeHomeRenderTreeFailurePhase);
+            JSONObject snapshot = captureNativeHomeRenderTreeViewState(activity, webView, true);
+            recordNativeHomeFailureSnapshotEvents(snapshot);
+            diagnostics.setHierarchyAtFailure(snapshot);
+            JSONObject title = snapshot.optJSONObject("views") == null
+                    ? null : snapshot.optJSONObject("views").optJSONObject("title");
+            JSONObject boundsObject = title == null ? null : title.optJSONObject("global_visible_rect_px");
+            Rect titleBounds = rectFromJson(boundsObject);
+            Bitmap screenshot = null;
+            try { screenshot = getUiAutomation().takeScreenshot(); } catch (Throwable ignored) {}
+            JSONObject pixels = analyzeNativeHomeScreenshot(screenshot, titleBounds);
+            boolean saved = screenshot != null && diagnostics.saveScreenshot(screenshot);
+            putJson(pixels, "screenshot_saved", saved);
+            diagnostics.setPixelEvidence(pixels);
+            recordNativeHomeRenderTreeEvent("failure.snapshot_captured", "observed",
+                    diagnosticJson("redacted_hierarchy_expected", true, "screenshot_expected", true),
+                    diagnosticJson("hierarchy_available", snapshot.optBoolean("snapshot_available", false),
+                            "screenshot_available", screenshot != null, "screenshot_saved", saved,
+                            "pixel_evidence", pixels));
+            if (screenshot != null) screenshot.recycle();
+        } catch (Throwable diagnosticFailure) {
+            try {
+                recordNativeHomeRenderTreeEvent("failure.snapshot_diagnostic_error", "unavailable",
+                        diagnosticJson("failure_preserved", true),
+                        diagnosticJson("diagnostic_error_class", diagnosticFailure.getClass().getName()));
+            } catch (Throwable ignored) {
+                Log.e(HARNESS_TAG, "native_home_render_tree_failure_snapshot_unavailable type="
+                        + diagnosticFailure.getClass().getSimpleName());
+            }
+        }
+    }
+
+    private Rect rectFromJson(JSONObject value) {
+        if (value == null) return null;
+        try {
+            if (!value.has("left_px") || !value.has("top_px")
+                    || !value.has("right_px") || !value.has("bottom_px")) return null;
+            return new Rect(value.getInt("left_px"), value.getInt("top_px"),
+                    value.getInt("right_px"), value.getInt("bottom_px"));
+        } catch (Throwable ignored) { return null; }
     }
 
     private boolean isDescendantOf(View child, ViewGroup ancestor) {

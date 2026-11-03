@@ -702,8 +702,8 @@ test("the emulator workflow validates same-run instrumentation and exact release
     /spotify:playlist:|FIXTURE_JSON|Controlled Home fixture/,
     "the Android harness must not inject or substitute a fake Spotify playlist",
   );
-  assert.match(harnessSource, /failurePhase = "await_webview"[\s\S]*?status\.putString\("failure_phase", failurePhase\)/,
-    "a failed Android probe identifies the first safe session/WebView/Home phase without logging content");
+  assert.match(harnessSource, /failurePhase = "await_webview"[\s\S]*?String reportedFailurePhase = failurePhase[\s\S]*?status\.putString\("failure_phase", reportedFailurePhase\)/,
+    "a failed Android probe preserves the active safe session/WebView/Home phase without logging content");
   assert.match(harnessSource, /login_dom_probe_completed[\s\S]*?login_ui_visible_in_webview_dom[\s\S]*?sendStatus\(1, probeState\)/,
     "a completed false DOM probe is recorded explicitly before the harness fails");
   assert.match(
@@ -788,8 +788,15 @@ test("login-surface reflection failures expose only the bounded target exception
     gateHelper.includes("getBoolean(activity)") &&
     gateHelper.includes("setBoolean(activity, false)"),
     "the test-only login gate change is performed on Android's main thread without navigating the WebView and requires explicit login ownership");
-  assert.ok(harness.includes("Throwable reportableFailure = unwrapInvocationTarget(failure);"),
-    "the top-level result also unwraps bounded reflection wrappers from the main-thread dispatcher");
+  assert.ok(harness.includes('putJson(failure, "exception_class", original.getClass().getName());'),
+    "the structured fixture report retains the original thrown exception class");
+  assert.ok(harness.includes("String rawMessage = original.getMessage();") &&
+    harness.includes('putJson(failure, "message", safeMessage);') &&
+    harness.includes('putJson(failure, "message_redacted", !safeMessage.equals(rawMessage == null ? "" : rawMessage));'),
+    "the original exception message is retained in the private report with an explicit redaction flag");
+  assert.ok(harness.includes("failure.printStackTrace(printer);") &&
+    harness.includes('putJson(failure, "stack_trace", sanitizeHomeDiagnosticText(stackTraceFor(original)));'),
+    "the original stack is retained in the redacted structured report");
   const spaProbeStart = harness.indexOf("private boolean verifyLoginSpaExitBeforeHomeFixture(");
   const spaProbeEnd = harness.indexOf("private void dispatchHomeStatusThroughAndBridge(", spaProbeStart);
   const spaProbe = harness.slice(spaProbeStart, spaProbeEnd);
@@ -798,11 +805,15 @@ test("login-surface reflection failures expose only the bounded target exception
     spaProbe.indexOf("pathProbe.invoke(activity)") > mainThreadDispatch &&
     spaProbe.indexOf('routeCallback.invoke(activity, "home")') > mainThreadDispatch,
     "WebView route and login-path reflection run on Android's main thread");
-  assert.ok(harness.includes('status.putString("failure_type", reportableFailure.getClass().getSimpleName());'),
-    "the instrumentation result contains only a safe Java exception class");
-  assert.equal(harness.includes(".getMessage("), false, "failure messages are never persisted or shown");
-  assert.equal(harness.includes(".printStackTrace("), false, "failure stacks are never persisted or shown");
-  assert.equal(harness.includes(".getStackTrace("), false, "failure stacks are never persisted or shown");
+  assert.ok(harness.includes('status.putString("failure_type", failure.getClass().getSimpleName());'),
+    "the instrumentation result exposes only the original safe Java exception class");
+  assert.ok(harness.includes('Log.e(HARNESS_TAG, "failure phase=" + reportedFailurePhase + " type=" + failure.getClass().getSimpleName());'),
+    "the readable failure log still excludes the exception message and stack");
+  assert.doesNotMatch(harness, /Log\.(?:e|w|i|d)\([^\n]*(?:getMessage\(|stackTraceFor\()/,
+    "sensitive exception text is stored only in the sanitized private report, never logcat");
+  assert.doesNotMatch(harness, /status\.putString\([^\n]*(?:message|stack_trace)/i,
+    "exception message and stack are not copied to instrumentation status output");
+  assert.equal(harness.includes(".getStackTrace("), false, "the report uses printStackTrace on the original Throwable");
 });
 
 test("the authenticated-home bundle contains the exact debuggable target, matching signed runner, command, manifest, and long retention", () => {
