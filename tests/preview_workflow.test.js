@@ -45,6 +45,16 @@ test("APK build enforces the ranged bridge budget separately from single-evaluat
   ), "only the bridge receives the larger ranged-read budget");
 });
 
+test("Android shell handoff fixture expects unconfirmed auth instead of implying the reader is connected", () => {
+  const harness = fs.readFileSync(
+    path.resolve(__dirname, "android", "HomeRenderInstrumentation.java"),
+    "utf8",
+  );
+  assert.match(harness, /statusTitleVisible = containsText\(statusView, "Connexion Spotify non confirmée"\)/);
+  assert.match(harness, /statusSubtitleVisible = containsText\(statusView, "L’état de connexion du lecteur n’est pas encore confirmé"\)/);
+  assert.doesNotMatch(harness, /statusTitleVisible = containsText\(statusView, "Connexion Spotify en cours"\)/);
+});
+
 test("build-only Preview runs can build separate instrumentation and release-candidate APKs without publishing", () => {
   assert.match(workflow, /build_only:[\s\S]*?default: false[\s\S]*?type: boolean/,
     "reusable build callers must explicitly select build-only behavior");

@@ -2719,8 +2719,8 @@ public final class HomeRenderInstrumentation extends Instrumentation {
         boolean unprovenStatusAttached = readBooleanField(activity, "nativeHomeSessionUnprovenStatusAttached");
         boolean cardsAttached = readBooleanField(activity, "nativeHomeCardsAttached");
         boolean contentReady = readBooleanField(activity, "nativeHomeContentReady");
-        boolean statusTitleVisible = containsText(statusView, "Connexion Spotify en cours");
-        boolean statusSubtitleVisible = containsText(statusView, "Vérification de la bibliothèque en cours");
+        boolean statusTitleVisible = containsText(statusView, "Connexion Spotify non confirmée");
+        boolean statusSubtitleVisible = containsText(statusView, "L’état de connexion du lecteur n’est pas encore confirmé");
         boolean statusLoginActionClickable = containsClickableText(statusView, "Se connecter");
         boolean statusRetryActionClickable = containsClickableText(statusView, "Réessayer");
         boolean rootVisible = rootBounds != null;
@@ -2742,7 +2742,7 @@ public final class HomeRenderInstrumentation extends Instrumentation {
                 || statusLoginActionClickable || statusRetryActionClickable
                 || !splashHidden || !homeTabVisible || !webContainerVisible
                 || !statusIsChild || !originalUrlPreserved || !"home".equals(currentScreen)) {
-            throw new AssertionError("JavaScript handoff did not show a status-only Home with no loading-time action or session proof");
+            throw new AssertionError("JavaScript handoff did not show an unconfirmed status-only Home without session proof or loading-time actions");
         }
         Bundle state = new Bundle();
         state.putString("phase", "javascript_home_handoff");
